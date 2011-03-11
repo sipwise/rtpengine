@@ -1,0 +1,19 @@
+Source: mediaproxy-ng
+Section: net
+Priority: extra
+Maintainer: Michael Prokop <mprokop@sipwise.com>
+Build-Depends: debhelper (>= 5), iptables-dev, libglib2.0-dev, libpcre3-dev
+Standards-Version: 3.8.4
+Homepage: http://sipwise.com/
+
+Package: mediaproxy-ng-daemon
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: TODO
+ TODO
+
+Package: mediaproxy-ng-iptables
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: TODO
+ TODO

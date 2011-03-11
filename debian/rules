@@ -1,0 +1,81 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper.
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+b=$(CURDIR)/debian/build
+
+build: build-stamp
+
+build-stamp:
+	dh_testdir
+	cd iptables-extension/ && gcc -O2 -Wall -shared -o libipt_MEDIAPROXY.so libipt_MEDIAPROXY-1.4.c && cd ..
+	cd daemon && $(MAKE) && cd ..
+	touch $@
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp
+	rm -f iptables-extension/libipt_MEDIAPROXY.so
+	rm -f daemon/mediaproxy-ng daemon/build_time.h daemon/.depend kernel-module/.ipt_MEDIAPROXY.o.d
+	rm -rf kernel-module/.tmp_versions
+	dh_clean
+	-rm -rf debian/build
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+
+mediaproxy-ng-daemon: install
+	@echo "--- Building: $@"
+	dh_installdirs       -p$@ -P$(b)/$@
+	dh_link              -p$@ -P$(b)/$@
+	dh_installdocs       -p$@ -P$(b)/$@
+	dh_installchangelogs -p$@ -P$(b)/$@
+	dh_install           -p$@ -P$(b)/$@
+	dh_strip             -p$@ -P$(b)/$@
+	dh_compress          -p$@ -P$(b)/$@
+	dh_fixperms          -p$@ -P$(b)/$@
+	dh_makeshlibs        -p$@ -P$(b)/$@ -V
+	dh_installdeb        -p$@ -P$(b)/$@
+	dh_shlibdeps         -p$@ -P$(b)/$@
+	dh_installdebconf    -p$@ -P$(b)/$@
+	dh_gencontrol        -p$@ -P$(b)/$@
+	dh_md5sums           -p$@ -P$(b)/$@
+	dh_builddeb          -p$@ -P$(b)/$@
+
+mediaproxy-ng-iptables: install
+	@echo "--- Building: $@"
+	dh_installdirs       -p$@ -P$(b)/$@
+	dh_link              -p$@ -P$(b)/$@
+	dh_installdocs       -p$@ -P$(b)/$@
+	dh_installchangelogs -p$@ -P$(b)/$@
+	dh_install           -p$@ -P$(b)/$@
+	dh_strip             -p$@ -P$(b)/$@
+	dh_compress          -p$@ -P$(b)/$@
+	dh_fixperms          -p$@ -P$(b)/$@
+	dh_makeshlibs        -p$@ -P$(b)/$@ -V
+	dh_installdeb        -p$@ -P$(b)/$@
+	dh_shlibdeps         -p$@ -P$(b)/$@
+	dh_installdebconf    -p$@ -P$(b)/$@
+	dh_gencontrol        -p$@ -P$(b)/$@
+	dh_md5sums           -p$@ -P$(b)/$@
+	dh_builddeb          -p$@ -P$(b)/$@
+
+# Build architecture-dependent files here.
+binary-all: build install
+
+# Build architecture-independent files here.
+binary-indep: build install mediaproxy-ng-daemon mediaproxy-ng-iptables
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install

@@ -1,0 +1,40 @@
+CC=		gcc
+CFLAGS=		-g -Wall `pkg-config --cflags glib-2.0` `pcre-config --cflags` -I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
+#CFLAGS+=	-O2
+LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
+
+SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c
+
+OBJS=		$(SRCS:.c=.o)
+
+
+.PHONY:		all dep clean tests
+
+all:
+	make mediaproxy-ng
+
+tests:
+	make aux-test poller-test
+
+dep:		.depend
+
+clean:
+	rm -f $(OBJS) mediaproxy-ng aux-test poller-test aux-test.o poller-test.o .depend build_time.h core
+
+.depend:	$(SRCS) Makefile build_time.h
+	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
+
+build_time.h:	$(SRCS) Makefile
+	date +"#define BUILD_TIME \"%Y-%m-%d %H:%M:%S\"" > build_time.h
+
+mediaproxy-ng:	$(OBJS) .depend build_time.h
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+aux-test:	aux.o aux-test.o .depend build_time.h
+	$(CC) $(CFLAGS) -o $@ aux-test.o aux.o $(LDFLAGS)
+
+poller-test:	poller.o poller-test.o aux.o .depend build_time.h
+	$(CC) $(CFLAGS) -o $@ poller-test.o poller.o aux.o $(LDFLAGS)
+
+
+include		.depend
