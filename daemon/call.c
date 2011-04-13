@@ -317,6 +317,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 	return 0;
 
 fail:
+	free(st->mediatype);
 	free(st);
 	return -1;
 }
@@ -556,7 +557,7 @@ fail:
 
 
 
-static int setup_peer(struct peer *p, struct stream *s, char *tag) {
+static int setup_peer(struct peer *p, struct stream *s, const char *tag) {
 	struct streamrelay *a, *b;
 
 	a = &p->rtps[0];
@@ -683,7 +684,7 @@ static void callstream_init(struct callstream *s, struct call *ca) {
 
 
 
-static unsigned int call_streams(struct call *c, GQueue *s, char *tag, int opmode) {
+static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) {
 	GQueue *q;
 	GList *i, *l;
 	struct stream *t;
@@ -845,7 +846,7 @@ static void call_destroy(struct call *c) {
 
 
 
-static char *streams_print(GQueue *s, unsigned int num, unsigned int off) {
+static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix) {
 	GString *o;
 	int i;
 	GList *l;
@@ -853,6 +854,8 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off) {
 	struct streamrelay *x;
 
 	o = g_string_new("");
+	if (prefix)
+		g_string_append_printf(o, "%s ", prefix);
 
 	if (!s->head)
 		goto out;
@@ -874,22 +877,89 @@ out:
 
 
 
+static struct call *call_get_or_create(const char *callid, struct callmaster *m) {
+	struct call *c;
+
+	c = g_hash_table_lookup(m->callhash, callid);
+	if (!c) {
+		mylog(LOG_NOTICE, "[%s] Creating new call", callid);
+		c = malloc(sizeof(*c));
+		ZERO(*c);
+		c->callmaster = m;
+		c->callid = strdup(callid);
+		c->callstreams = g_queue_new();
+		c->created = m->poller->now;
+		g_hash_table_insert(m->callhash, c->callid, c);
+	}
+
+	return c;
+}
+
+char *call_update_udp(const char **o, struct callmaster *m) {
+	struct call *c;
+	GQueue q = G_QUEUE_INIT;
+	struct stream st;
+	int num;
+
+	c = call_get_or_create(o[4], m);
+	strdupfree(&c->calling_agent, "UNKNOWN(udp)");
+
+	ZERO(st);
+	st.ip = inet_addr(o[5]);
+	st.port = atoi(o[6]);
+	st.mediatype = "unknown";
+	if (st.ip == -1 || !st.port)
+		goto fail;
+
+	g_queue_push_tail(&q, &st);
+	num = call_streams(c, &q, o[7], 0);
+
+	g_queue_clear(&q);
+
+	return streams_print(c->callstreams, 1, 0, o[1]);
+
+fail:
+	return NULL;
+}
+
+char *call_lookup_udp(const char **o, struct callmaster *m) {
+	struct call *c;
+	GQueue q = G_QUEUE_INIT;
+	struct stream st;
+	int num;
+
+	c = g_hash_table_lookup(m->callhash, o[4]);
+	if (!c) {
+		mylog(LOG_WARNING, "[%s] Got UDP LOOKUP for unknown call-id", o[4]);
+		return NULL;
+	}
+
+	strdupfree(&c->called_agent, "UNKNOWN(udp)");
+
+	ZERO(st);
+	st.ip = inet_addr(o[5]);
+	st.port = atoi(o[6]);
+	st.mediatype = "unknown";
+	if (st.ip == -1 || !st.port)
+		goto fail;
+
+	g_queue_push_tail(&q, &st);
+	num = call_streams(c, &q, o[8], 1);
+
+	g_queue_clear(&q);
+
+	return streams_print(c->callstreams, 1, 1, o[1]);
+
+fail:
+	return NULL;
+}
+
 char *call_request(const char **o, struct callmaster *m) {
 	struct call *c;
 	GQueue *s;
 	unsigned int num;
 
-	c = g_hash_table_lookup(m->callhash, o[2]);
-	if (!c) {
-		mylog(LOG_NOTICE, "[%s] Creating new call", o[2]);
-		c = malloc(sizeof(*c));
-		ZERO(*c);
-		c->callmaster = m;
-		c->callid = strdup(o[2]);
-		c->callstreams = g_queue_new();
-		c->created = m->poller->now;
-		g_hash_table_insert(m->callhash, c->callid, c);
-	}
+	c = call_get_or_create(o[2], m);
 
 	strdupfree(&c->calling_agent, o[9] ? : "UNKNOWN");
 	info_parse(o[10], &c->infohash);
@@ -897,7 +967,7 @@ char *call_request(const char **o, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
 
-	return streams_print(c->callstreams, num, 0);
+	return streams_print(c->callstreams, num, 0, NULL);
 }
 
 char *call_lookup(const char **o, struct callmaster *m) {
@@ -917,7 +987,7 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
 
-	return streams_print(c->callstreams, num, 1);
+	return streams_print(c->callstreams, num, 1, NULL);
 }
 
 void call_delete(const char **o, struct callmaster *m) {

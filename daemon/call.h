@@ -88,7 +88,9 @@ struct callmaster *callmaster_new(struct poller *);
 
 
 char *call_request(const char **, struct callmaster *);
+char *call_update_udp(const char **, struct callmaster *);
 char *call_lookup(const char **, struct callmaster *);
+char *call_lookup_udp(const char **, struct callmaster *);
 void call_delete(const char **, struct callmaster *);
 
 void calls_status(struct callmaster *, struct control_stream *);

@@ -3,7 +3,7 @@ CFLAGS=		-g -Wall `pkg-config --cflags glib-2.0` `pcre-config --cflags` -I/lib/m
 #CFLAGS+=	-O2
 LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
 
-SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c
+SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c control_udp.c
 
 OBJS=		$(SRCS:.c=.o)
 
