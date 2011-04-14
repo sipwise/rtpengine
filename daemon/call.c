@@ -844,7 +844,7 @@ static void call_destroy(struct call *c) {
 
 
 
-static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix) {
+static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int swap) {
 	GString *o;
 	int i;
 	GList *l;
@@ -859,13 +859,17 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 		goto out;
 
 	t = s->head->data;
-	g_string_append_printf(o, IPF, IPP(t->call->callmaster->ip));
+	if (!swap)
+		g_string_append_printf(o, IPF, IPP(t->call->callmaster->ip));
 
 	for (i = 0, l = s->head; i < num && l; i++, l = l->next) {
 		t = l->data;
 		x = &t->peers[off].rtps[0];
-		g_string_append_printf(o, " %u", x->localport);
+		g_string_append_printf(o, swap ? "%u " : " %u", x->localport);
 	}
+
+	if (swap)
+		g_string_append_printf(o, IPF, IPP(t->call->callmaster->ip));
 
 out:
 	g_string_append(o, "\n");
@@ -915,7 +919,7 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 
 	g_queue_clear(&q);
 
-	return streams_print(c->callstreams, 1, 0, o[1]);
+	return streams_print(c->callstreams, 1, 0, o[1], 1);
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", o[5], o[6]);
@@ -948,7 +952,7 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 
 	g_queue_clear(&q);
 
-	return streams_print(c->callstreams, 1, 1, o[1]);
+	return streams_print(c->callstreams, 1, 1, o[1], 1);
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", o[5], o[6]);
@@ -968,7 +972,7 @@ char *call_request(const char **o, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
 
-	return streams_print(c->callstreams, num, 0, NULL);
+	return streams_print(c->callstreams, num, 0, NULL, 0);
 }
 
 char *call_lookup(const char **o, struct callmaster *m) {
@@ -988,7 +992,7 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
 
-	return streams_print(c->callstreams, num, 1, NULL);
+	return streams_print(c->callstreams, num, 1, NULL, 0);
 }
 
 char *call_delete_udp(const char **o, struct callmaster *m) {
