@@ -288,9 +288,6 @@ static int info_parse_func(char **a, void **ret, void *p) {
 static GHashTable *info_parse(const char *s, GHashTable **h) {
 	GQueue *q;
 
-	if (!*h)
-		*h = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
-
 	q = pcre_multi_match(&info_re, &info_ree, "^([^:,]+)(?::(.*?))?(?:$|,)", s, 2, info_parse_func, *h);
 	g_queue_free(q);
 
@@ -317,6 +314,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 	return 0;
 
 fail:
+	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", a[0], a[1]);
 	free(st->mediatype);
 	free(st);
 	return -1;
@@ -889,6 +887,7 @@ static struct call *call_get_or_create(const char *callid, struct callmaster *m)
 		c->callid = strdup(callid);
 		c->callstreams = g_queue_new();
 		c->created = m->poller->now;
+		c->infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 		g_hash_table_insert(m->callhash, c->callid, c);
 	}
 
@@ -919,6 +918,7 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 	return streams_print(c->callstreams, 1, 0, o[1]);
 
 fail:
+	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", o[5], o[6]);
 	return NULL;
 }
 
@@ -951,6 +951,7 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 	return streams_print(c->callstreams, 1, 1, o[1]);
 
 fail:
+	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", o[5], o[6]);
 	return NULL;
 }
 
@@ -988,6 +989,27 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	streams_free(s);
 
 	return streams_print(c->callstreams, num, 1, NULL);
+}
+
+char *call_delete_udp(const char **o, struct callmaster *m) {
+	struct call *c;
+	char *ret;
+
+	c = g_hash_table_lookup(m->callhash, o[11]);
+	if (!c)
+		goto err;
+
+	call_destroy(c);
+
+	asprintf(&ret, "%s 0\n", o[1]);
+	goto out;
+
+err:
+	asprintf(&ret, "%s E8\n", o[1]);
+	goto out;
+
+out:
+	return ret;
 }
 
 void call_delete(const char **o, struct callmaster *m) {

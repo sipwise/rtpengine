@@ -123,7 +123,7 @@ static void options(int *argc, char ***argv) {
 
 	if (!ips)
 		die("Missing option IP\n");
-	if (!listenps || !listenudps)
+	if (!listenps && !listenudps)
 		die("Missing option LISTEN or LISTEN-UDP\n");
 
 	ip = inet_addr(ips);

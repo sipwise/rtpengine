@@ -50,15 +50,15 @@ static void control_udp_incoming(int fd, void *p) {
 
 	if (!parse_re) {
 		parse_re = pcre_compile(
-				/* cookie       cmd   flags    callid      addr        port   from_tag   to_tag */
-				"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+)\\s+(\\S+))",
+				/* cookie       cmd   flags    callid      addr        port   from_tag                 to_tag              cmd flags    callid */
+				"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?)?|(d)(\\S*)\\s+(\\S+))",
 				PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 		parse_ree = pcre_study(parse_re, 0, &errptr);
 	}
 
 	ret = pcre_exec(parse_re, parse_ree, buf, ret, 0, 0, ovec, ARRAY_SIZE(ovec));
 	if (ret <= 0) {
-		mylog(LOG_WARNING, "Unable to parse command line from " DF ": %s", DP(sin), buf);
+		mylog(LOG_WARNING, "Unable to parse command line from udp:" DF ": %s", DP(sin), buf);
 		return;
 	}
 
@@ -76,10 +76,12 @@ static void control_udp_incoming(int fd, void *p) {
 		goto out;
 	}
 
-	if (out[1][0] == 'u' || out[1][0] == 'U')
+	if (out[2][0] == 'u' || out[2][0] == 'U')
 		reply = call_update_udp(out, u->callmaster);
-	else if (out[1][0] == 'l' || out[1][0] == 'L')
+	else if (out[2][0] == 'l' || out[2][0] == 'L')
 		reply = call_lookup_udp(out, u->callmaster);
+	else if (out[9][0] == 'd' || out[9][0] == 'D')
+		reply = call_delete_udp(out, u->callmaster);
 
 	if (reply) {
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);

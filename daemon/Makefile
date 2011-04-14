@@ -1,5 +1,7 @@
 CC=		gcc
-CFLAGS=		-g -Wall `pkg-config --cflags glib-2.0` `pcre-config --cflags` -I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
+CFLAGS=		-g -Wall `pkg-config --cflags glib-2.0` `pcre-config --cflags`
+CFLAGS+=	-I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
+CFLAGS+=	-D_GNU_SOURCE
 #CFLAGS+=	-O2
 LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
 
