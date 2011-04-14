@@ -38,6 +38,8 @@ static void control_udp_incoming(int fd, void *p) {
 	int erroff;
 	const char **out;
 	char *reply;
+	struct msghdr mh;
+	struct iovec iov[10];
 
 	sin_len = sizeof(sin);
 	ret = recvfrom(fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &sin, &sin_len);
@@ -51,7 +53,7 @@ static void control_udp_incoming(int fd, void *p) {
 	if (!parse_re) {
 		parse_re = pcre_compile(
 				/* cookie       cmd   flags    callid      addr        port   from_tag                 to_tag              cmd flags    callid */
-				"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?)?|(d)(\\S*)\\s+(\\S+))",
+				"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?)?|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
 				PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 		parse_ree = pcre_study(parse_re, 0, &errptr);
 	}
@@ -76,12 +78,43 @@ static void control_udp_incoming(int fd, void *p) {
 		goto out;
 	}
 
+	ZERO(mh);
+	mh.msg_name = &sin;
+	mh.msg_namelen = sizeof(sin);
+	mh.msg_iov = iov;
+	mh.msg_iovlen = 2;
+
+	iov[0].iov_base = (void *) out[1];
+	iov[0].iov_len = strlen(out[1]);
+	iov[1].iov_base = " ";
+	iov[1].iov_len = 1;
+
 	if (out[2][0] == 'u' || out[2][0] == 'U')
 		reply = call_update_udp(out, u->callmaster);
 	else if (out[2][0] == 'l' || out[2][0] == 'L')
 		reply = call_lookup_udp(out, u->callmaster);
 	else if (out[9][0] == 'd' || out[9][0] == 'D')
 		reply = call_delete_udp(out, u->callmaster);
+	else if (out[12][0] == 'v' || out[12][0] == 'V') {
+		if (out[13][0] == 'f' || out[13][0] == 'F') {
+			ret = 0;
+			if (!strcmp(out[14], "20040107"))
+				ret = 1;
+			else if (!strcmp(out[14], "20050322"))
+				ret = 1;
+			else if (!strcmp(out[14], "20060704"))
+				ret = 1;
+			iov[2].iov_base = ret ? "1\n" : "0\n";
+			iov[2].iov_len = 2;
+			mh.msg_iovlen++;
+		}
+		else {
+			iov[2].iov_base = "20040107\n";
+			iov[2].iov_len = 9;
+			mh.msg_iovlen++;
+		}
+		sendmsg(fd, &mh, 0);
+	}
 
 	if (reply) {
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
