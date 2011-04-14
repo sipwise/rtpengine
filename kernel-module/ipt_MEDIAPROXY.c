@@ -1028,7 +1028,7 @@ drop:
 
 
 
-static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_target_param *par) {
+static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_action_param *par) {
 	const struct ipt_mediaproxy_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
 	struct sk_buff *skb2;
@@ -1106,7 +1106,7 @@ skip:
 
 
 
-static bool check(const struct xt_tgchk_param *par) {
+static int check(const struct xt_tgchk_param *par) {
 	const struct ipt_mediaproxy_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
