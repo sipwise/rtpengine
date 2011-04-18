@@ -7,6 +7,7 @@
 #include <linux/ip.h>
 #include <linux/udp.h>
 #include <linux/icmp.h>
+#include <linux/version.h>
 #include <net/icmp.h>
 #include <net/ip.h>
 #include <net/tcp.h>
@@ -1028,7 +1029,11 @@ drop:
 
 
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
+static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_target_param *par) {
+#else
 static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_action_param *par) {
+#endif
 	const struct ipt_mediaproxy_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
 	struct sk_buff *skb2;
@@ -1106,7 +1111,11 @@ skip:
 
 
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
+static bool check(const struct xt_tgchk_param *par) {
+#else
 static int check(const struct xt_tgchk_param *par) {
+#endif
 	const struct ipt_mediaproxy_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
