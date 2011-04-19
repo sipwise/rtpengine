@@ -1,8 +1,8 @@
 #! /bin/sh
 ### BEGIN INIT INFO
 # Provides:          mediaproxy-ng
-# Required-Start:    $remote_fs $syslog $mysql
-# Required-Stop:     $remote_fs $syslog $mysql
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Ngcp Mediaproxy-ng
@@ -59,6 +59,7 @@ case "$1" in
   start)
 
 	echo -n "Starting $DESC: $NAME"
+	modprobe ipt_MEDIAPROXY
         set +e
 	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
@@ -76,6 +77,7 @@ case "$1" in
 		return $?
 	fi
 	rm -f $PIDFILE
+	rmmod -f ipt_MEDIAPROXY
 	log_end_msg $?
 	;;
   restart|force-reload)
