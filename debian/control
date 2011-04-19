@@ -21,7 +21,7 @@ Description: IPtables extension module for the kernel-space NGCP media proxy.
 
 Package: mediaproxy-ng-full
 Architecture: any
-Depends: mediaproxy-ng-daemon mediaproxy-ng-iptables mediaproxy-ng-kernel-dkms
+Depends: mediaproxy-ng-daemon, mediaproxy-ng-iptables, mediaproxy-ng-kernel-dkms
 Description: NGCP RTP/media proxy - meta package.
  This is a meta package for easy installation of all three parts of the NGCP
  media proxy. It will install the user-space daemon, the kernel-space IPtables
