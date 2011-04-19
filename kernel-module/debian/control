@@ -10,15 +10,17 @@ Homepage: http://sipwise.com/
 Package: mediaproxy-ng-kernel-source
 Architecture: all
 Depends: debhelper (>= 5), module-assistant, ${misc:Depends}
-Description: TODO
- TODO
+Description: IPtables kernel module for the NGCP media proxy - source.
+ Provides the kernel-space part of the NGCP media proxy for high-
+ performance packet forwarding.
  This package contains the source to be built with module-assistant or
  kernel-package.
 
 Package: mediaproxy-ng-kernel-dkms
 Architecture: all
 Depends: dkms (>= 1.95), ${misc:Depends}
-Description: TODO
- TODO
+Description: IPtables kernel module for the NGCP media proxy - DKMS.
+ Provides the kernel-space part of the NGCP media proxy for high-
+ performance packet forwarding.
  This package contains the source to be built with dkms.
 

@@ -9,11 +9,20 @@ Homepage: http://sipwise.com/
 Package: mediaproxy-ng-daemon
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: TODO
- TODO
+Description: Proxy for RTP and media streams used in NGCP, userspace part.
+ This daemon handles the first stages of proxying media streams and talks to
+ the kernel part of the proxy for eventual high-performance packet forwarding.
 
 Package: mediaproxy-ng-iptables
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: TODO
- TODO
+Description: IPtables extension module for the kernel-space NGCP media proxy.
+ Provides the IPtables extension needed to configure the mediaproxy rule.
+
+Package: mediaproxy-ng-full
+Architecture: any
+Depends: mediaproxy-ng-daemon mediaproxy-ng-iptables mediaproxy-ng-kernel-dkms
+Description: NGCP RTP/media proxy - meta package.
+ This is a meta package for easy installation of all three parts of the NGCP
+ media proxy. It will install the user-space daemon, the kernel-space IPtables
+ module, and the IPtables extension module.
