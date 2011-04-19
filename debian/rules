@@ -15,7 +15,7 @@ build: build-stamp
 
 build-stamp:
 	dh_testdir
-	cd iptables-extension/ && gcc -O2 -Wall -shared -o libipt_MEDIAPROXY.so libipt_MEDIAPROXY-1.4.c && cd ..
+	cd iptables-extension/ && gcc -O2 -Wall -fPIC -shared -o libipt_MEDIAPROXY.so libipt_MEDIAPROXY-1.4.c && cd ..
 	cd daemon && $(MAKE) && cd ..
 	touch $@
 
