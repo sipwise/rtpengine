@@ -20,6 +20,6 @@ How to debug build process:
 2) DKMS:
 
 % sudo apt-get install mediaproxy-ng-kernel-dkms
-% sudo dkms add -m mediaproxy-ng-kernel -v 0.0.1
-% sudo dkms build --kernelsourcedir /usr/src/linux-headers-$(uname -r) -m mediaproxy-ng-kernel -v 0.0.1
-% sudo dkms install -m mediaproxy-ng-kernel -v 0.0.1
+% sudo dkms add -m mediaproxy-ng -v 0.0.1
+% sudo dkms build --kernelsourcedir /usr/src/linux-headers-$(uname -r) -m mediaproxy-ng -v 0.0.1
+% sudo dkms install -m mediaproxy-ng -v 0.0.1
