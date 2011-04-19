@@ -1,0 +1,24 @@
+Source: mediaproxy-ng-kernel
+Section: kernel
+Priority: optional
+Maintainer: Richard Fuchs <rfuchs@sipwise.com>
+Build-Depends: debhelper (>= 5), quilt (>= 0.40)
+Build-Depends-Indep: bzip2
+Standards-Version: 3.9.1
+Homepage: http://sipwise.com/
+
+Package: mediaproxy-ng-kernel-source
+Architecture: all
+Depends: debhelper (>= 5), module-assistant, ${misc:Depends}
+Description: TODO
+ TODO
+ This package contains the source to be built with module-assistant or
+ kernel-package.
+
+Package: mediaproxy-ng-kernel-dkms
+Architecture: all
+Depends: dkms (>= 1.95), ${misc:Depends}
+Description: TODO
+ TODO
+ This package contains the source to be built with dkms.
+

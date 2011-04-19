@@ -1,0 +1,15 @@
+Source: mediaproxy-ng-kernel
+Section: kernel
+Priority: optional
+Maintainer: Richard Fuchs <rfuchs@sipwise.com>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.9.1
+Homepage: http://sipwise.com/
+
+Package: mediaproxy-ng-kernel-modules-_KVERS_
+Architecture: any
+Depends: linux-modules-_KVERS_ | linux-image-_KVERS_
+Provides: mediaproxy-ng-kernel
+Description: TODO
+ This package provides the mediaproxy-ng module for
+ the Linux kernel version _KVERS_.
