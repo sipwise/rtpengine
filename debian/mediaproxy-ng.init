@@ -1,0 +1,104 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          mediaproxy-ng
+# Required-Start:    $remote_fs $syslog $mysql
+# Required-Stop:     $remote_fs $syslog $mysql
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Ngcp Mediaproxy-ng
+# Description:       Proxy for RTP and other media streams
+### END INIT INFO
+
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+NAME=mediaproxy-ng
+DESC="RTP/media proxy"
+RUN_MEDIAPROXY=no
+TABLE=0
+
+case $(dirname $0) in
+        /*) FULLPATH=$(dirname $0);;
+        *)  FULLPATH=$(pwd)/$(dirname $0);;
+esac
+
+DAEMON=`which mediaproxy-ng`
+DEFAULTS=/etc/default/mediaproxy-ng
+
+test -f $DAEMON || exit 0
+
+# Load startup options if available
+if [ -f $DEFAULTS ]; then
+   . $DEFAULTS || true
+fi
+
+if [ "$RUN_MEDIAPROXY" != "yes" ]; then
+    echo "mediaproxy-ng not yet configured. Edit $DEFAULTS first."
+    exit 0
+fi
+[ -z "$PIDFILE" ] && PIDFILE="/var/run/mediaproxy-ng.pid"
+
+set -e
+
+. /lib/lsb/init-functions
+
+OPTIONS=""
+
+[ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --ip=$ADDRESS"
+[ -z "$LISTEN" ] || OPTIONS="$OPTIONS --listen=$LISTEN"
+[ -z "$LISTEN_UDP" ] || OPTIONS="$OPTIONS --listen-udp=$LISTEN_UDP"
+[ -z "$TIMEOUT" ] || OPTIONS="$OPTIONS --timeout=$TIMEOUT"
+[ -z "$SILENT_TIMEOUT" ] || OPTIONS="$OPTIONS --silent-timeout=$SILENT_TIMEOUT"
+[ -z "$PIDFILE" ] || OPTIONS="$OPTIONS --pidfile=$PIDFILE"
+[ -z "$TOS" ] || OPTIONS="$OPTIONS --tos=$TOS"
+OPTIONS="$OPTIONS --table=$TABLE"
+if test "$FORK" = "no" ; then
+	OPTIONS="$OPTIONS --foreground"    
+fi
+
+case "$1" in
+  start)
+
+	echo -n "Starting $DESC: $NAME"
+        set +e
+	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
+	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
+	set -e
+	iptables -I INPUT -j MEDIAPROXY --id $TABLE
+	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+		--exec $DAEMON -- $OPTIONS || echo -n " already running"
+	log_end_msg $?
+	;;
+  stop)
+	echo -n "Stopping $DESC: $NAME"
+	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+		--exec $DAEMON
+	if [ "$?" -ne 0 ]; then
+		return $?
+	fi
+	rm -f $PIDFILE
+	log_end_msg $?
+	;;
+  restart|force-reload)
+
+	echo -n "Restarting $DESC: $NAME"
+	start-stop-daemon --oknodo --stop --quiet --pidfile \
+		$PIDFILE --exec $DAEMON
+	if [ "$?" -ne 0 ]; then
+		return $?
+	fi
+	rm -f $PIDFILE
+	sleep 1
+	start-stop-daemon --start --quiet --pidfile \
+		$PIDFILE --exec $DAEMON  -- $OPTIONS
+	log_end_msg $?
+	;;
+  status)
+       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+       ;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
