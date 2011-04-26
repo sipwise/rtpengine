@@ -35,7 +35,7 @@ install: build
 	dh_clean -k
 	dh_installdirs
 
-mediaproxy-ng-daemon: install
+ngcp-mediaproxy-ng-daemon: install
 	@echo "--- Building: $@"
 	dh_installdirs       -p$@ -P$(b)/$@
 	dh_link              -p$@ -P$(b)/$@
@@ -53,7 +53,7 @@ mediaproxy-ng-daemon: install
 	dh_md5sums           -p$@ -P$(b)/$@
 	dh_builddeb          -p$@ -P$(b)/$@
 
-mediaproxy-ng-iptables: install
+ngcp-mediaproxy-ng-iptables: install
 	@echo "--- Building: $@"
 	dh_installdirs       -p$@ -P$(b)/$@
 	dh_link              -p$@ -P$(b)/$@
@@ -75,7 +75,7 @@ mediaproxy-ng-iptables: install
 binary-all: build install
 
 # Build architecture-independent files here.
-binary-indep: build install mediaproxy-ng-daemon mediaproxy-ng-iptables
+binary-indep: build install ngcp-mediaproxy-ng-daemon ngcp-mediaproxy-ng-iptables
 
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install
