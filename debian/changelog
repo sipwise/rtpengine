@@ -1,5 +1,5 @@
-mediaproxy-ng (0.1) unstable; urgency=low
+ngcp-mediaproxy-ng (0.1) unstable; urgency=low
 
   * Initial release.
 
- -- Michael Prokop <mprokop@sipwise.com>  Thu, 11 Feb 2010 23:06:08 +0100
+ -- Andreas Granig <agranig@sheep.linguin.org>  Tue, 26 Apr 2011 18:49:08 +0200
