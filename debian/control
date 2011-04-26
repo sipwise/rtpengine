@@ -19,7 +19,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: IPtables extension module for the kernel-space NGCP media proxy.
  Provides the IPtables extension needed to configure the mediaproxy rule.
 
-Package: ngcp-mediaproxy-ng-full
+Package: ngcp-mediaproxy-ng
 Architecture: any
 Depends: ngcp-mediaproxy-ng-daemon, ngcp-mediaproxy-ng-iptables, ngcp-mediaproxy-ng-kernel-dkms
 Description: NGCP RTP/media proxy - meta package.
