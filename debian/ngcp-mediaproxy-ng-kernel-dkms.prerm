@@ -2,8 +2,8 @@
 
 set -e
 
-package=mediaproxy-ng-kernel-dkms
-name=mediaproxy-ng
+package=ngcp-mediaproxy-ng-kernel-dkms
+name=ngcp-mediaproxy-ng
 
 version=`dpkg-query -W -f='${Version}' "$package" \
         |rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n"`

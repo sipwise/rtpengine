@@ -7,9 +7,30 @@
 # This special exception was added by Craig Small in version 0.37 of dh-make.
 
 # Uncomment this to turn on verbose mode.
-export DH_VERBOSE=1
+# export DH_VERBOSE=1
 
-b=$(CURDIR)/debian/build
+b=$(CURDIR)/debian
+
+## kernel package specific stuff
+# Name of the source package
+psource:=ngcp-mediaproxy-ng-kernel-source
+# Name of the dkms package
+pdkms:=ngcp-mediaproxy-ng-kernel-dkms
+# short upstream name, used for module source directory
+sname:=ngcp-mediaproxy-ng
+# Source version
+sversion:=$(shell dpkg-parsechangelog|grep "^Version:"|cut -d" " -f2|rev|cut -d- -f2-|rev|cut -d':' -f2)
+
+PACKAGE=ngcp-mediaproxy-ng-kernel
+MA_DIR ?= /usr/share/modass
+-include $(MA_DIR)/include/generic.make
+-include $(MA_DIR)/include/common-rules.make
+
+kdist_configure: prep-deb-files
+
+kdist_clean: clean
+	$(MAKE) $(MFLAGS) -f debian/rules clean
+## end of kernel package specific stuff
 
 build: build-stamp
 
@@ -22,6 +43,7 @@ build-stamp:
 clean:
 	dh_testdir
 	dh_testroot
+	cd daemon && $(MAKE) clean && cd ..
 	rm -f build-stamp
 	rm -f iptables-extension/libipt_MEDIAPROXY.so
 	rm -f daemon/mediaproxy-ng daemon/build_time.h daemon/.depend kernel-module/.ipt_MEDIAPROXY.o.d
@@ -34,6 +56,62 @@ install: build
 	dh_testroot
 	dh_clean -k
 	dh_installdirs
+
+	# Create the directories to install the source into
+	dh_installdirs -p$(psource)  usr/src/modules/$(sname)/debian
+	dh_installdirs -p$(pdkms)    usr/src/$(sname)-$(sversion)
+
+	# Copy only the driver source to the proper locations
+	cd kernel-module && cp Makefile *.c *.h ../debian/$(psource)/usr/src/modules/$(sname)
+	cd kernel-module && cp Makefile *.c *.h ../debian/$(pdkms)/usr/src/$(sname)-$(sversion)
+
+	# Copy the needed debian/ pieces to the proper location
+	cp debian/*.modules.in* debian/$(psource)/usr/src/modules/$(sname)/debian
+	cp debian/control debian/changelog debian/copyright debian/README.Debian \
+		debian/compat debian/$(psource)/usr/src/modules/$(sname)/debian/
+	install -m 0755 debian/rules.modules debian/$(psource)/usr/src/modules/$(sname)/debian/rules
+	cd debian/$(psource)/usr/src && tar c modules | bzip2 -9 > $(sname).tar.bz2 && rm -rf modules
+
+	# Prepare dkms.conf from the dkms.conf.in template
+	sed "s/__VERSION__/$(sversion)/g" debian/dkms.conf.in > debian/$(pdkms)/usr/src/$(sname)-$(sversion)/dkms.conf
+
+	dh_install
+
+ngcp-mediaproxy-ng-kernel-source: install
+	@echo "--- Building: $@"
+	dh_installdirs       -p$@ -P$(b)/$@
+	dh_link              -p$@ -P$(b)/$@
+	dh_installdocs       -p$@ -P$(b)/$@
+	dh_installchangelogs -p$@ -P$(b)/$@
+	dh_install           -p$@ -P$(b)/$@
+	dh_strip             -p$@ -P$(b)/$@
+	dh_compress          -p$@ -P$(b)/$@
+	dh_fixperms          -p$@ -P$(b)/$@
+	dh_makeshlibs        -p$@ -P$(b)/$@ -V
+	dh_installdeb        -p$@ -P$(b)/$@
+	dh_shlibdeps         -p$@ -P$(b)/$@
+	dh_installdebconf    -p$@ -P$(b)/$@
+	dh_gencontrol        -p$@ -P$(b)/$@
+	dh_md5sums           -p$@ -P$(b)/$@
+	dh_builddeb          -p$@ -P$(b)/$@
+
+ngcp-mediaproxy-ng-kernel-dkms: install
+	@echo "--- Building: $@"
+	dh_installdirs       -p$@ -P$(b)/$@
+	dh_link              -p$@ -P$(b)/$@
+	dh_installdocs       -p$@ -P$(b)/$@
+	dh_installchangelogs -p$@ -P$(b)/$@
+	dh_install           -p$@ -P$(b)/$@
+	dh_strip             -p$@ -P$(b)/$@
+	dh_compress          -p$@ -P$(b)/$@
+	dh_fixperms          -p$@ -P$(b)/$@
+	dh_makeshlibs        -p$@ -P$(b)/$@ -V
+	dh_installdeb        -p$@ -P$(b)/$@
+	dh_shlibdeps         -p$@ -P$(b)/$@
+	dh_installdebconf    -p$@ -P$(b)/$@
+	dh_gencontrol        -p$@ -P$(b)/$@
+	dh_md5sums           -p$@ -P$(b)/$@
+	dh_builddeb          -p$@ -P$(b)/$@
 
 ngcp-mediaproxy-ng-daemon: install
 	@echo "--- Building: $@"
@@ -93,7 +171,9 @@ ngcp-mediaproxy-ng: install
 binary-all: build install
 
 # Build architecture-independent files here.
-binary-indep: build install ngcp-mediaproxy-ng-daemon ngcp-mediaproxy-ng-iptables ngcp-mediaproxy-ng
+binary-indep: build install \
+  ngcp-mediaproxy-ng-daemon ngcp-mediaproxy-ng-iptables ngcp-mediaproxy-ng \
+  ngcp-mediaproxy-ng-kernel-dkms ngcp-mediaproxy-ng-kernel-source
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install
+.PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean

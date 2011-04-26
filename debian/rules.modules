@@ -12,17 +12,17 @@ else
 endif
 
 # Name of the source package
-psource:=mediaproxy-ng-kernel-source
+psource:=ngcp-mediaproxy-ng-kernel-source
 
 # The short upstream name, used for the module source directory
-sname:=mediaproxy-ng
+sname:=ngcp-mediaproxy-ng
 
 ### KERNEL SETUP
 ### Setup the stuff needed for making kernel module packages
 ### taken from /usr/share/kernel-package/sample.module.rules
 
 # prefix of the target package name
-PACKAGE=mediaproxy-ng-kernel-modules
+PACKAGE=ngcp-mediaproxy-ng-kernel-modules
 # modifieable for experiments or debugging m-a
 MA_DIR ?= /usr/share/modass
 # load generic variable handling
