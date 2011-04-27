@@ -95,8 +95,14 @@ case "$1" in
 	rm -f $PIDFILE
 	sleep 1
 	set +e
-	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
+	if [ -e /proc/mediaproxy/control ]; then
+		echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
+	fi
+	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
+	rmmod ipt_MEDIAPROXY 2>/dev/null
 	set -e
+	modprobe ipt_MEDIAPROXY
+	iptables -I INPUT -j MEDIAPROXY --id $TABLE
 	start-stop-daemon --start --quiet --pidfile \
 		$PIDFILE --exec $DAEMON  -- $OPTIONS
 	log_end_msg $?
