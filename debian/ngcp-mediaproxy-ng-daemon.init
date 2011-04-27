@@ -11,7 +11,7 @@
 
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-NAME=mediaproxy-ng
+NAME=ngcp-mediaproxy-ng-daemon
 DESC="RTP/media proxy"
 RUN_MEDIAPROXY=no
 TABLE=0
@@ -22,7 +22,7 @@ case $(dirname $0) in
 esac
 
 DAEMON=`which mediaproxy-ng`
-DEFAULTS=/etc/default/mediaproxy-ng
+DEFAULTS=/etc/default/${NAME}
 
 test -f $DAEMON || exit 0
 
