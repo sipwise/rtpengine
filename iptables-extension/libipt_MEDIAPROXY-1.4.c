@@ -26,7 +26,7 @@ static int parse(int c,
 			const void *entry,
 			struct xt_entry_target **target) {
 
-	struct ipt_mediaproxy_info *info = (void *) *target;
+	struct ipt_mediaproxy_info *info = (void *) (*target)->data;
 
 	if (c == '1') {
 		info->id = atoi(optarg);
@@ -41,17 +41,17 @@ static int parse(int c,
 
 static void final_check(unsigned int flags) {
 	if (!flags)
-		exit_error(PARAMETER_PROBLEM, "You must specify --id");
+		xtables_error(PARAMETER_PROBLEM, "You must specify --id");
 }
 
 static void print(const void *ip, const struct xt_entry_target *target, int numeric) {
-	struct ipt_mediaproxy_info *info = (void *) target;
+	struct ipt_mediaproxy_info *info = (void *) target->data;
 
 	printf("id %u", info->id);
 }
 
 static void save(const void *ip, const struct xt_entry_target *target) {
-	struct ipt_mediaproxy_info *info = (void *) target;
+	struct ipt_mediaproxy_info *info = (void *) target->data;
 
 	printf("--id %u", info->id);
 }
@@ -64,8 +64,8 @@ static struct option opts[] = {
 
 static struct xtables_target mediaproxy = {
 	.name			= "MEDIAPROXY",
-	.family			= AF_INET,
-	.version		= "1.4.2",
+	.family			= NFPROTO_IPV4,
+	.version		= XTABLES_VERSION,
 	.size			= XT_ALIGN(sizeof(struct ipt_mediaproxy_info)),
 	.userspacesize		= XT_ALIGN(sizeof(struct ipt_mediaproxy_info)),
 	.help			= help,

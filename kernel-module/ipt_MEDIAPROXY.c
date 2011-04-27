@@ -1112,22 +1112,26 @@ skip:
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
+#define CHECK_ERR false
+#define CHECK_SCC true
 static bool check(const struct xt_tgchk_param *par) {
 #else
+#define CHECK_ERR -EINVAL
+#define CHECK_SCC 0
 static int check(const struct xt_tgchk_param *par) {
 #endif
 	const struct ipt_mediaproxy_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
 		printk(KERN_WARNING "ipt_MEDIAPROXY check() without proc_root\n");
-		return 0;
+		return CHECK_ERR;
 	}
 	if (pinfo->id >= MAX_ID) {
 		printk(KERN_WARNING "ipt_MEDIAPROXY ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
-		return 0;
+		return CHECK_ERR;
 	}
 
-	return 1;
+	return CHECK_SCC;
 }
 
 
