@@ -76,8 +76,12 @@ case "$1" in
 	if [ "$?" -ne 0 ]; then
 		return $?
 	fi
+	set +e
+	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
+	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
+	rmmod ipt_MEDIAPROXY 2>/dev/null
+	set -e
 	rm -f $PIDFILE
-	rmmod -f ipt_MEDIAPROXY
 	log_end_msg $?
 	;;
   restart|force-reload)
@@ -90,6 +94,9 @@ case "$1" in
 	fi
 	rm -f $PIDFILE
 	sleep 1
+	set +e
+	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
+	set -e
 	start-stop-daemon --start --quiet --pidfile \
 		$PIDFILE --exec $DAEMON  -- $OPTIONS
 	log_end_msg $?
