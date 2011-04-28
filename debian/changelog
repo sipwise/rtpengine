@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (1.0.0) unstable; urgency=low
+
+  * Release for 2.2
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 28 Apr 2011 10:53:20 -0400
+
 ngcp-mediaproxy-ng (0.1) unstable; urgency=low
 
   * Initial release.
