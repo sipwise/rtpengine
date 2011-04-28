@@ -964,22 +964,14 @@ err:
 
 
 static int send_proxy_packet(struct sk_buff *skb, u_int32_t sip, u_int16_t sport, u_int32_t dip, u_int16_t dport, unsigned char tos) {
-	long sum;
 	struct iphdr *ih;
 	struct udphdr *uh;
+	int datalen;
 
 	ih = ip_hdr(skb);
 	uh = udp_hdr(skb);
 
-	sum = uh->check;
-	if (sum) {
-		sum += ((u_int16_t *) &ih->saddr)[0];
-		sum += ((u_int16_t *) &ih->saddr)[1];
-		sum += ((u_int16_t *) &ih->daddr)[0];
-		sum += ((u_int16_t *) &ih->daddr)[1];
-		sum += uh->source;
-		sum += uh->dest;
-	}
+	datalen = ntohs(uh->len);
 
 	ih->saddr = sip;
 	ih->daddr = dip;
@@ -987,32 +979,19 @@ static int send_proxy_packet(struct sk_buff *skb, u_int32_t sip, u_int16_t sport
 	uh->source = htons(sport);
 	uh->dest = htons(dport);
 
-	if (sum) {
-		sum -= ((u_int16_t *) &ih->saddr)[0];
-		sum -= ((u_int16_t *) &ih->saddr)[1];
-		sum -= ((u_int16_t *) &ih->daddr)[0];
-		sum -= ((u_int16_t *) &ih->daddr)[1];
-		sum -= uh->source;
-		sum -= uh->dest;
-
-		if (sum < 0) {
-			sum = -sum;
-			sum = (sum >> 16) + (sum & 0xffff);
-			sum += sum >> 16;
-			uh->check = ~sum;
-		}
-		else {
-			sum = (sum >> 16) + (sum & 0xffff);
-			sum += sum >> 16;
-			uh->check = sum;
-		}
-	}
+	uh->check = 0;
+	skb->csum_start = skb_transport_header(skb) - skb->head;
+	skb->csum_offset = offsetof(struct udphdr, check);
+	uh->check = csum_tcpudp_magic(sip, dip, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
+	if (uh->check == 0)
+		uh->check = CSUM_MANGLED_0;
 
 	__ip_select_ident(ih, skb_dst(skb), 0);
 
 	if (ip_route_me_harder(skb, RTN_LOCAL))
 		goto drop;
 
+	skb->ip_summed = CHECKSUM_NONE;
 	__ip_select_ident(ih, skb_dst(skb), 0);
 
 	ip_local_out(skb);
