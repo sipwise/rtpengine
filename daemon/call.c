@@ -449,7 +449,7 @@ next:
 #undef DS
 
 
-struct callmaster *callmaster_new(struct poller *p) {
+struct callmaster *callmaster_new(struct poller *p, int min, int max) {
 	struct callmaster *c;
 
 	c = malloc(sizeof(*c));
@@ -459,6 +459,8 @@ struct callmaster *callmaster_new(struct poller *p) {
 	if (!c->callhash)
 		goto fail;
 	c->poller = p;
+	c->port_min = min;
+	c->port_max = max;
 
 	poller_timer(p, callmaster_timer, c);
 
@@ -504,7 +506,7 @@ static void get_port_pair(struct peer *p) {
 	struct call *c;
 	struct callmaster *m;
 	struct streamrelay *a, *b;
-	u_int16_t port;
+	u_int16_t port, min, max;
 
 	c = p->up->call;
 	m = c->callmaster;
@@ -513,11 +515,18 @@ static void get_port_pair(struct peer *p) {
 
 	assert(a->fd == -1 && b->fd == -1);
 
+	min = (m->port_min > 0 && m->port_min < 0xfff0) ? m->port_min : 1024;
+	max = (m->port_max > 0 && m->port_max > min && m->port_max < 0xfff0) ? m->port_max : 0;
+
+	if (!m->lastport)
+		m->lastport = max;
 	port = m->lastport + 1;
 
 	for (;;) {
-		if (port < 1024)
-			port = 1024;
+		if (port < min)
+			port = min;
+		else if (max && port > max)
+			port = min;
 
 		if (port == m->lastport)
 			goto fail;

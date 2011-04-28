@@ -35,6 +35,8 @@ static int tos;
 static int table;
 static int timeout;
 static int silent_timeout;
+static int port_min;
+static int port_max;
 
 
 
@@ -110,6 +112,8 @@ static void options(int *argc, char ***argv) {
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
 		{ "pidfile",	'p', 0, G_OPTION_ARG_STRING,	&pidfile,	"Write PID to file",		"FILE"		},
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
+		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
+		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
 		{ NULL, }
 	};
 
@@ -196,7 +200,7 @@ int main(int argc, char **argv) {
 	if (!p)
 		die("poller creation failed\n");
 
-	m = callmaster_new(p);
+	m = callmaster_new(p, port_min, port_max);
 	if (!m)
 		return -1;
 	m->kernelfd = kfd;

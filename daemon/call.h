@@ -68,6 +68,8 @@ struct call {
 struct callmaster {
 	GHashTable		*callhash;
 	u_int16_t		lastport;
+	int			port_min;
+	int			port_max;
 	struct mediaproxy_stats	statsps;
 	struct mediaproxy_stats	stats;
 
@@ -83,7 +85,7 @@ struct callmaster {
 
 
 
-struct callmaster *callmaster_new(struct poller *);
+struct callmaster *callmaster_new(struct poller *, int, int);
 
 
 

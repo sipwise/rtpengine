@@ -50,6 +50,8 @@ OPTIONS=""
 [ -z "$SILENT_TIMEOUT" ] || OPTIONS="$OPTIONS --silent-timeout=$SILENT_TIMEOUT"
 [ -z "$PIDFILE" ] || OPTIONS="$OPTIONS --pidfile=$PIDFILE"
 [ -z "$TOS" ] || OPTIONS="$OPTIONS --tos=$TOS"
+[ -z "$PORT_MIN" ] || OPTIONS="$OPTIONS --port-min=$PORT_MIN"
+[ -z "$PORT_MAX" ] || OPTIONS="$OPTIONS --port-max=$PORT_MAX"
 OPTIONS="$OPTIONS --table=$TABLE"
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"    
