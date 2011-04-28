@@ -920,7 +920,9 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 	st.ip = inet_addr(o[5]);
 	st.port = atoi(o[6]);
 	st.mediatype = "unknown";
-	if (st.ip == -1 || !st.port)
+	if (st.ip == -1)
+		goto fail;
+	if (!st.port && strcmp(o[6], "0"))
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
@@ -953,7 +955,9 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 	st.ip = inet_addr(o[5]);
 	st.port = atoi(o[6]);
 	st.mediatype = "unknown";
-	if (st.ip == -1 || !st.port)
+	if (st.ip == -1)
+		goto fail;
+	if (!st.port && strcmp(o[6], "0"))
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
