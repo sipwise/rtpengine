@@ -15,10 +15,10 @@ if [ "x${isadded}" = "x" ] ; then
 fi
 
 if [ "$1" = 'configure' ] ; then
-	# make sure it's not running
-	/etc/init.d/ngcp-mediaproxy-ng-daemon stop || true
-
 	dkms build -m "$name" -v "$version" && dkms install -m "$name" -v "$version" || true
+
+	# try to start the daemon
+	/etc/init.d/ngcp-mediaproxy-ng-daemon start || true
 fi
 
 #DEBHELPER#
