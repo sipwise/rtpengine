@@ -1,8 +1,9 @@
-ngcp-mediaproxy-ng (1.0.0) unstable; urgency=low
+ngcp-mediaproxy-ng (1.3.0) unstable; urgency=low
 
   * Release for 2.2
+  * Fixed version number to align with old, non-debianized versioning scheme.
 
- -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 28 Apr 2011 10:53:20 -0400
+ -- Andreas Granig <agranig@sipwise.com>  Fri, 29 Apr 2011 12:01:56 +0200
 
 ngcp-mediaproxy-ng (0.1) unstable; urgency=low
 
