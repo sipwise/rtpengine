@@ -68,8 +68,6 @@ struct call {
 struct callmaster {
 	GHashTable		*callhash;
 	u_int16_t		lastport;
-	int			port_min;
-	int			port_max;
 	struct mediaproxy_stats	statsps;
 	struct mediaproxy_stats	stats;
 
@@ -77,6 +75,9 @@ struct callmaster {
 	int			kernelfd;
 	unsigned int		kernelid;
 	u_int32_t		ip;
+	u_int32_t		adv_ip;
+	int			port_min;
+	int			port_max;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
 	unsigned char		tos;
@@ -85,7 +86,7 @@ struct callmaster {
 
 
 
-struct callmaster *callmaster_new(struct poller *, int, int);
+struct callmaster *callmaster_new(struct poller *);
 
 
 

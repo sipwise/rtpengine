@@ -27,6 +27,7 @@
 static char *pidfile;
 static gboolean foreground;
 static u_int32_t ip;
+static u_int32_t adv_ip;
 static u_int32_t listenp;
 static u_int16_t listenport;
 static u_int32_t udp_listenp;
@@ -100,11 +101,13 @@ out:
 
 static void options(int *argc, char ***argv) {
 	static char *ips;
+	static char *adv_ips;
 	static char *listenps;
 	static char *listenudps;
 	static GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
-		{ "ip",		'i', 0, G_OPTION_ARG_STRING,	&ips,		"Local IP address",		"IP"		},
+		{ "ip",		'i', 0, G_OPTION_ARG_STRING,	&ips,		"Local IP address for RTP",	"IP"		},
+		{ "advertised-ip", 'a', 0, G_OPTION_ARG_STRING,	&adv_ips,	"IP address to advertise",	"IP"		},
 		{ "listen",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP:]PORT"	},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"TOS value to set on streams",	"INT"		},
@@ -126,21 +129,27 @@ static void options(int *argc, char ***argv) {
 		die("Bad command line: %s\n", er->message);
 
 	if (!ips)
-		die("Missing option IP\n");
+		die("Missing option --ip\n");
 	if (!listenps && !listenudps)
-		die("Missing option LISTEN or LISTEN-UDP\n");
+		die("Missing option --listen or --listen-udp\n");
 
 	ip = inet_addr(ips);
 	if (ip == -1)
-		die("Invalid IP\n");
+		die("Invalid IP (--ip)\n");
+
+	if (adv_ips) {
+		adv_ip = inet_addr(adv_ips);
+		if (adv_ip == -1)
+			die("Invalid IP (--advertised-ip)\n");
+	}
 
 	if (listenps) {
 		if (parse_ip_port(&listenp, &listenport, listenps))
-			die("Invalid IP or port");
+			die("Invalid IP or port (--listen)");
 	}
 	if (listenudps) {
 		if (parse_ip_port(&udp_listenp, &udp_listenport, listenudps))
-			die("Invalid IP or port");
+			die("Invalid IP or port (--listen-udp)");
 	}
 
 	if (tos < 0 || tos > 255)
@@ -200,12 +209,15 @@ int main(int argc, char **argv) {
 	if (!p)
 		die("poller creation failed\n");
 
-	m = callmaster_new(p, port_min, port_max);
+	m = callmaster_new(p);
 	if (!m)
 		return -1;
 	m->kernelfd = kfd;
 	m->kernelid = table;
 	m->ip = ip;
+	m->adv_ip = adv_ip;
+	m->port_min = port_min;
+	m->port_max = port_max;
 	m->timeout = timeout;
 	m->silent_timeout = silent_timeout;
 	m->tos = tos;

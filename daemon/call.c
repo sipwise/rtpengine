@@ -449,7 +449,7 @@ next:
 #undef DS
 
 
-struct callmaster *callmaster_new(struct poller *p, int min, int max) {
+struct callmaster *callmaster_new(struct poller *p) {
 	struct callmaster *c;
 
 	c = malloc(sizeof(*c));
@@ -459,8 +459,6 @@ struct callmaster *callmaster_new(struct poller *p, int min, int max) {
 	if (!c->callhash)
 		goto fail;
 	c->poller = p;
-	c->port_min = min;
-	c->port_max = max;
 
 	poller_timer(p, callmaster_timer, c);
 
@@ -859,6 +857,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	GList *l;
 	struct callstream *t;
 	struct streamrelay *x;
+	u_int32_t ip;
 
 	o = g_string_new("");
 	if (prefix)
@@ -868,8 +867,11 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 		goto out;
 
 	t = s->head->data;
+	ip = t->call->callmaster->ip;
+	if (t->call->callmaster->adv_ip)
+		ip = t->call->callmaster->adv_ip;
 	if (!swap)
-		g_string_append_printf(o, IPF, IPP(t->call->callmaster->ip));
+		g_string_append_printf(o, IPF, IPP(ip));
 
 	for (i = 0, l = s->head; i < num && l; i++, l = l->next) {
 		t = l->data;
@@ -878,7 +880,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	}
 
 	if (swap)
-		g_string_append_printf(o, IPF, IPP(t->call->callmaster->ip));
+		g_string_append_printf(o, IPF, IPP(ip));
 
 out:
 	g_string_append(o, "\n");
