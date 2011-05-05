@@ -564,14 +564,17 @@ fail:
 
 static int setup_peer(struct peer *p, struct stream *s, const char *tag) {
 	struct streamrelay *a, *b;
+	struct callstream *cs;
 
+	cs = p->up;
 	a = &p->rtps[0];
 	b = &p->rtps[1];
 
 	if (a->peer.ip != s->ip || a->peer.port != b->peer.port) {
-		p->confirmed = 0;
-		if (p->kernelized)
-			unkernelize(p);
+		cs->peers[0].confirmed = 0;
+		unkernelize(&cs->peers[0]);
+		cs->peers[1].confirmed = 0;
+		unkernelize(&cs->peers[1]);
 	}
 
 	a->peer.ip = b->peer.ip = s->ip;
@@ -600,8 +603,10 @@ static void steal_peer(struct peer *p, struct streamrelay *r) {
 
 	mylog(LOG_DEBUG, "[%s] Re-using existing open RTP ports", c->callid);
 
-	if (s->kernelized)
-		unkernelize(s);
+	p->confirmed = 0;
+	unkernelize(p);
+	s->confirmed = 0;
+	unkernelize(s);
 
 	p->filled = 1;
 	strmove(&p->mediatype, &s->mediatype);
