@@ -255,6 +255,7 @@ int main(int argc, char **argv) {
 		m->redis = redis_new(redis_ip, redis_port, redis_key);
 		if (!m->redis)
 			die("Failed to connect to Redis database\n");
+		mylog(LOG_INFO, "Connected to Redis\n");
 	}
 
 	mylog(LOG_INFO, "Startup complete");

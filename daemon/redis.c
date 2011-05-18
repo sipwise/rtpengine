@@ -15,6 +15,7 @@ struct redis *redis_new(u_int32_t ip, u_int16_t port, char *key) {
 	struct redis *r;
 	struct timeval tv;
 	redisReply *rp;
+	char *s;
 
 	r = malloc(sizeof(*r));
 	ZERO(*r);
@@ -37,10 +38,29 @@ struct redis *redis_new(u_int32_t ip, u_int16_t port, char *key) {
 		goto err;
 	freeReplyObject(rp);
 
+	rp = redisCommand(r->ctx, "INFO");
+	if (!rp)
+		goto err;
+	s = strstr(rp->str, "role:");
+	if (!s) {
+		freeReplyObject(rp);
+		goto err;
+	}
+	if (!memcmp(s, "role:master", 9))
+		r->active = 1;
+	else if (!memcmp(s, "role:slave", 8))
+		;	/* it's already 0 */
+	else {
+		mylog(LOG_ERR, "Unable to determine Redis master/slave state\n");
+		freeReplyObject(rp);
+		goto err;
+	}
+	freeReplyObject(rp);
+
 	return r;
 
 err:
-	if (r->ctx && r->ctx->errstr)
+	if (r->ctx && r->ctx->err && r->ctx->errstr)
 		mylog(LOG_CRIT, "Redis error: %s\n", r->ctx->errstr);
 	if (r->ctx)
 		redisFree(r->ctx);
