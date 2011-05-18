@@ -14,6 +14,7 @@
 #include "log.h"
 #include "call.h"
 #include "kernel.h"
+#include "redis.h"
 
 
 
@@ -38,6 +39,9 @@ static int timeout;
 static int silent_timeout;
 static int port_min;
 static int port_max;
+static u_int32_t redis_ip;
+static u_int16_t redis_port;
+static char *redis_key;
 
 
 
@@ -104,6 +108,8 @@ static void options(int *argc, char ***argv) {
 	static char *adv_ips;
 	static char *listenps;
 	static char *listenudps;
+	static char *redisps;
+
 	static GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
 		{ "ip",		'i', 0, G_OPTION_ARG_STRING,	&ips,		"Local IP address for RTP",	"IP"		},
@@ -117,6 +123,8 @@ static void options(int *argc, char ***argv) {
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
+		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
+		{ "redis-key",	'R', 0, G_OPTION_ARG_STRING,	&redis_key,	"Namespace key for Redis",	"STRING"	},
 		{ NULL, }
 	};
 
@@ -145,20 +153,27 @@ static void options(int *argc, char ***argv) {
 
 	if (listenps) {
 		if (parse_ip_port(&listenp, &listenport, listenps))
-			die("Invalid IP or port (--listen)");
+			die("Invalid IP or port (--listen)\n");
 	}
 	if (listenudps) {
 		if (parse_ip_port(&udp_listenp, &udp_listenport, listenudps))
-			die("Invalid IP or port (--listen-udp)");
+			die("Invalid IP or port (--listen-udp)\n");
 	}
 
 	if (tos < 0 || tos > 255)
-		die("Invalid TOS value");
+		die("Invalid TOS value\n");
 
 	if (timeout <= 0)
 		timeout = 60;
 	if (silent_timeout <= 0)
 		silent_timeout = 3600;
+
+	if (redisps) {
+		if (parse_ip_port(&redis_ip, &redis_port, redisps) || !redis_ip)
+			die("Invalid IP or port (--redis)\n");
+		if (!redis_key)
+			die("Must specify Redis namespace key (--redis-key) when using Redis\n");
+	}
 }
 
 
@@ -234,6 +249,12 @@ int main(int argc, char **argv) {
 		cu = control_udp_new(p, udp_listenp, udp_listenport, m);
 		if (!cu)
 			die("Failed to open UDP control connection port\n");
+	}
+
+	if (redis_ip) {
+		m->redis = redis_new(redis_ip, redis_port, redis_key);
+		if (!m->redis)
+			die("Failed to connect to Redis database\n");
 	}
 
 	mylog(LOG_INFO, "Startup complete");

@@ -9,7 +9,7 @@ CFLAGS+=	-I$(LIBREDISDIR)
 LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
 LDFLAGS+=	-L$(LIBREDISDIR) -lhiredis
 
-SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c control_udp.c
+SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c control_udp.c redis.c
 
 OBJS=		$(SRCS:.c=.o)
 

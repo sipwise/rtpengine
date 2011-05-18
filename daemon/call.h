@@ -18,6 +18,7 @@ struct peer;
 struct callstream;
 struct call;
 struct callmaster;
+struct redis;
 
 
 
@@ -72,6 +73,7 @@ struct callmaster {
 	struct mediaproxy_stats	stats;
 
 	struct poller		*poller;
+	struct redis		*redis;
 	int			kernelfd;
 	unsigned int		kernelid;
 	u_int32_t		ip;
