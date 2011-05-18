@@ -13,6 +13,7 @@ OBJS=		$(SRCS:.c=.o)
 .PHONY:		all dep clean tests
 
 all:
+	make -C libhiredis-v0.10.0-3-gdf203bc
 	make mediaproxy-ng
 
 tests:
@@ -22,6 +23,7 @@ dep:		.depend
 
 clean:
 	rm -f $(OBJS) mediaproxy-ng aux-test poller-test aux-test.o poller-test.o .depend build_time.h core
+	make -C libhiredis-v0.10.0-3-gdf203bc clean
 
 .depend:	$(SRCS) Makefile build_time.h
 	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
