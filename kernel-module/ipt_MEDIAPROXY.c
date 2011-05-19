@@ -1030,9 +1030,6 @@ static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_action_para
 	skb = skb_copy(oskb, GFP_ATOMIC);
 	if (!skb)
 		goto skip3;
-	if (skb_dst(skb))
-		dst_release(skb_dst(skb));
-	skb_dst_set(skb, dst_clone(skb_dst(oskb)));
 
 	skb_reset_network_header(skb);
 	ih = ip_hdr(skb);
@@ -1051,9 +1048,6 @@ static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_action_para
 	if (g->target.mirror_ip && g->target.mirror_port) {
 		DBG(KERN_DEBUG "sending mirror packet to dst %08x\n", g->target.mirror_ip);
 		skb2 = skb_copy(skb, GFP_ATOMIC);
-		if (skb_dst(skb2))
-			dst_release(skb_dst(skb2));
-		skb_dst_set(skb2, dst_clone(skb_dst(oskb)));
 		err = send_proxy_packet(skb2, g->target.src_ip, g->target.src_port, g->target.mirror_ip, g->target.mirror_port, g->target.tos);
 		if (err) {
 			spin_lock_irqsave(&g->lock, flags);
