@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (1.3.5) unstable; urgency=low
+
+  * Fix dst reference count issues causing kernel warnings under some circumstances
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 19 May 2011 13:43:16 -0400
+
 ngcp-mediaproxy-ng (1.3.4) unstable; urgency=low
 
   * Make the daemon more aggressive with invalidating peer information
