@@ -41,7 +41,7 @@ static int port_min;
 static int port_max;
 static u_int32_t redis_ip;
 static u_int16_t redis_port;
-static char *redis_key;
+static int redis_db = -1;
 
 
 
@@ -124,7 +124,7 @@ static void options(int *argc, char ***argv) {
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
-		{ "redis-key",	'R', 0, G_OPTION_ARG_STRING,	&redis_key,	"Namespace key for Redis",	"STRING"	},
+		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
 		{ NULL, }
 	};
 
@@ -171,8 +171,8 @@ static void options(int *argc, char ***argv) {
 	if (redisps) {
 		if (parse_ip_port(&redis_ip, &redis_port, redisps) || !redis_ip)
 			die("Invalid IP or port (--redis)\n");
-		if (!redis_key)
-			die("Must specify Redis namespace key (--redis-key) when using Redis\n");
+		if (redis_db < 0)
+			die("Must specify Redis DB number (--redis-db) when using Redis\n");
 	}
 }
 
@@ -252,10 +252,9 @@ int main(int argc, char **argv) {
 	}
 
 	if (redis_ip) {
-		m->redis = redis_new(redis_ip, redis_port, redis_key);
+		m->redis = redis_new(redis_ip, redis_port, redis_db);
 		if (!m->redis)
-			die("Failed to connect to Redis database\n");
-		mylog(LOG_INFO, "Connected to Redis\n");
+			die("Cannot start up without Redis database\n");
 	}
 
 	mylog(LOG_INFO, "Startup complete");
@@ -263,6 +262,11 @@ int main(int argc, char **argv) {
 	if (!foreground)
 		daemonize();
 	wpidfile();
+
+	if (m->redis) {
+		if (redis_restore(m))
+			die("Refusing to continue without working Redis database\n");
+	}
 
 	for (;;) {
 		ret = poller_poll(p, 100);
