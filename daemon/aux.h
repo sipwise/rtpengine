@@ -11,6 +11,7 @@
 #include <glib.h>
 #include <pcre.h>
 #include <stdarg.h>
+#include <uuid/uuid.h>
 
 
 
@@ -42,6 +43,13 @@ void strdupfree(char **, const char *);
 #if !GLIB_CHECK_VERSION(2,14,0)
 void g_string_vprintf(GString *string, const gchar *format, va_list args);
 #endif
+
+
+static inline void uuid_str_generate(char *s) {
+	uuid_t uuid;
+	uuid_generate(uuid);
+	uuid_unparse(uuid, s);
+}
 
 
 

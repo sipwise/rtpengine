@@ -11,6 +11,7 @@
 
 
 struct callmaster;
+struct call;
 
 
 
@@ -27,6 +28,7 @@ struct redis {
 
 struct redis *redis_new(u_int32_t, u_int16_t, int);
 int redis_restore(struct callmaster *);
+void redis_update(struct call *c);
 
 
 

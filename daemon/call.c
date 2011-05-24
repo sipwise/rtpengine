@@ -16,6 +16,7 @@
 #include "kernel.h"
 #include "control.h"
 #include "streambuf.h"
+#include "redis.h"
 
 
 
@@ -187,6 +188,8 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 
 		if (pe2->confirmed && pe2->filled)
 			kernelize(cs);
+
+		redis_update(c);
 	}
 
 skip:
@@ -937,6 +940,8 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 
 	g_queue_clear(&q);
 
+	redis_update(c);
+
 	return streams_print(c->callstreams, 1, 0, o[1], 1);
 
 fail:
@@ -972,6 +977,8 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 
 	g_queue_clear(&q);
 
+	redis_update(c);
+
 	return streams_print(c->callstreams, 1, 1, o[1], 1);
 
 fail:
@@ -992,6 +999,8 @@ char *call_request(const char **o, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
 
+	redis_update(c);
+
 	return streams_print(c->callstreams, num, 0, NULL, 0);
 }
 
@@ -1011,6 +1020,8 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	s = streams_parse(o[3]);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
+
+	redis_update(c);
 
 	return streams_print(c->callstreams, num, 1, NULL, 0);
 }

@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <uuid/uuid.h>
 
 #include "redis.h"
 #include "aux.h"
@@ -15,6 +16,20 @@
 
 #define redisCommandNR(a...) (int)({ void *__tmp; __tmp = redisCommand(a); if (__tmp) freeReplyObject(__tmp); __tmp ? 0 : -1;})
 
+
+
+
+
+static int redis_check_type(struct redis *r, char *key, char *suffix, char *type) {
+	redisReply *rp;
+
+	rp = redisCommand(r->ctx, "TYPE %s%s", key, suffix ? : "");
+	if (!rp || rp->type != REDIS_REPLY_STATUS)
+		return -1;
+	if (strcmp(rp->str, type) && strcmp(rp->str, "none"))
+		redisCommandNR(r->ctx, "DEL %s%s", key, suffix ? : "");
+	return 0;
+}
 
 
 
@@ -136,7 +151,7 @@ int redis_restore(struct callmaster *m) {
 			goto del2;
 		if (rp3->element[0]->type != REDIS_REPLY_STRING)
 			goto del2;
-		if (rp3->element[1]->type != REDIS_REPLY_INTEGER)
+		if (rp3->element[1]->type != REDIS_REPLY_STRING)
 			goto del2;
 
 		continue;
@@ -144,7 +159,7 @@ int redis_restore(struct callmaster *m) {
 del2:
 		freeReplyObject(rp3);
 del:
-		redisCommandNR(r->ctx, "DEL %s", rp2->str);
+		redisCommandNR(r->ctx, "DEL %s %s-streams", rp2->str);
 		redisCommandNR(r->ctx, "SREM calls %s", rp2->str);
 	}
 
@@ -154,4 +169,47 @@ del:
 
 err:
 	return -1;
+}
+
+
+
+
+void redis_update(struct call *c) {
+	struct callmaster *cm = c->callmaster;
+	struct redis *r = cm->redis;
+	char uuid[37];
+	GList *l;
+	struct callstream *cs;
+	int i;
+	struct peer *p;
+
+	if (!r)
+		return;
+
+	if (!c->redis_uuid[0])
+		uuid_str_generate(c->redis_uuid);
+
+	redis_check_type(r, c->redis_uuid, NULL, "hash");
+	redisCommandNR(r->ctx, "HMSET %s callid %s created %i", c->redis_uuid, c->callid, c->created);
+	redisCommandNR(r->ctx, "DEL %s-streams-temp", c->redis_uuid);
+
+	for (l = c->callstreams->head; l; l = l->next) {
+		cs = l->data;
+		uuid_str_generate(uuid);
+
+		for (i = 0; i < 2; i++) {
+			p = &cs->peers[i];
+
+			redisCommandNR(r->ctx, "DEL %s:%i", uuid, i);
+			redisCommandNR(r->ctx, "HMSET %s:%i ip " IPF " port %i localport %i last-rtp %i last-rtcp %i kernel %i filled %i confirmed %i", uuid, i, IPP(p->rtps[0].peer.ip), p->rtps[0].peer.port, p->rtps[0].localport, p->rtps[0].last, p->rtps[1].last, p->kernelized, p->filled, p->confirmed);
+			redisCommandNR(r->ctx, "EXPIRE %s:%i 86400", uuid, i);
+		}
+
+		redisCommandNR(r->ctx, "RPUSH %s-streams-temp %s", c->redis_uuid, uuid);
+	}
+
+	redisCommandNR(r->ctx, "RENAME %s-streams-temp %s-streams", c->redis_uuid, c->redis_uuid);
+	redisCommandNR(r->ctx, "EXPIRE %s-streams 86400", c->redis_uuid);
+	redisCommandNR(r->ctx, "EXPIRE %s 86400", c->redis_uuid);
+	redisCommandNR(r->ctx, "SADD calls %s", c->redis_uuid);
 }

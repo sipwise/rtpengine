@@ -60,6 +60,7 @@ struct call {
 	GQueue			*callstreams;
 
 	char			*callid;
+	char			redis_uuid[37];
 	time_t			created;
 	char			*calling_agent;
 	char			*called_agent;

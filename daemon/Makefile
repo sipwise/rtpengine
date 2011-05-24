@@ -7,7 +7,7 @@ CFLAGS+=	-D_GNU_SOURCE
 #CFLAGS+=	-O2
 CFLAGS+=	-I$(LIBREDISDIR)
 LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
-LDFLAGS+=	-L$(LIBREDISDIR) -lhiredis
+LDFLAGS+=	-L$(LIBREDISDIR) -lhiredis -luuid
 
 SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c control_udp.c redis.c
 
