@@ -840,6 +840,7 @@ static void call_destroy(struct call *c) {
 	struct callstream *s;
 
 	g_hash_table_remove(m->callhash, c->callid);
+	redis_delete(c);
 
 	free(c->callid);
 	g_hash_table_destroy(c->infohash);

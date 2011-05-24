@@ -17,7 +17,7 @@ OBJS=		$(SRCS:.c=.o)
 .PHONY:		all dep clean tests
 
 all:
-	make -C $(LIBREDISDIR)
+	make -C $(LIBREDISDIR) static
 	make mediaproxy-ng
 
 tests:

@@ -34,6 +34,18 @@ static int redis_check_type(struct redis *r, char *key, char *suffix, char *type
 
 
 
+static void redis_consume(struct redis *r, int count) {
+	redisReply *rp;
+
+	while (count-- > 0) {
+		redisGetReply(r->ctx, (void **) &rp);
+		freeReplyObject(rp);
+	}
+}
+
+
+
+
 static int redis_connect(struct redis *r, int wait) {
 	struct timeval tv;
 	redisReply *rp;
@@ -125,6 +137,37 @@ err:
 
 
 
+static void redis_delete_uuid(char *uuid, struct callmaster *m) {
+	struct redis *r = m->redis;
+	redisReply *rp, *rp2;
+	int i, count = 0;
+
+	if (!r)
+		return;
+
+	rp = redisCommand(r->ctx, "LRANGE %s-streams 0 -1", uuid);
+	if (!rp || rp->type != REDIS_REPLY_ARRAY)
+		return;
+
+	for (i = 0; i < rp->elements; i++) {
+		rp2 = rp->element[i];
+		if (rp2->type != REDIS_REPLY_STRING)
+			continue;
+
+		redisAppendCommand(r->ctx, "DEL %s:0 %s:1", rp2->str, rp2->str);
+		count++;
+	}
+
+	redisAppendCommand(r->ctx, "DEL %s-streams %s", uuid, uuid);
+	redisAppendCommand(r->ctx, "SREM calls %s", uuid);
+	count += 2;
+
+	redis_consume(r, count);
+}
+
+
+
+
 int redis_restore(struct callmaster *m) {
 	struct redis *r = m->redis;
 	redisReply *rp, *rp2, *rp3;
@@ -159,8 +202,7 @@ int redis_restore(struct callmaster *m) {
 del2:
 		freeReplyObject(rp3);
 del:
-		redisCommandNR(r->ctx, "DEL %s %s-streams", rp2->str);
-		redisCommandNR(r->ctx, "SREM calls %s", rp2->str);
+		redis_delete_uuid(rp2->str, m);
 	}
 
 	freeReplyObject(rp);
@@ -208,8 +250,16 @@ void redis_update(struct call *c) {
 		redisCommandNR(r->ctx, "RPUSH %s-streams-temp %s", c->redis_uuid, uuid);
 	}
 
-	redisCommandNR(r->ctx, "RENAME %s-streams-temp %s-streams", c->redis_uuid, c->redis_uuid);
+	redisCommandNR(r->ctx, "RENAME %s-streams-temp %s-streams", c->redis_uuid, c->redis_uuid);	/* XXX causes orphaned keys */
 	redisCommandNR(r->ctx, "EXPIRE %s-streams 86400", c->redis_uuid);
 	redisCommandNR(r->ctx, "EXPIRE %s 86400", c->redis_uuid);
 	redisCommandNR(r->ctx, "SADD calls %s", c->redis_uuid);
+}
+
+
+
+
+
+void redis_delete(struct call *c) {
+	redis_delete_uuid(c->redis_uuid, c->callmaster);
 }
