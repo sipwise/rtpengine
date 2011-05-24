@@ -222,7 +222,7 @@ void redis_update(struct call *c) {
 	char uuid[37];
 	GList *l;
 	struct callstream *cs;
-	int i;
+	int i, count = 0;
 	struct peer *p;
 
 	if (!r)
@@ -232,8 +232,10 @@ void redis_update(struct call *c) {
 		uuid_str_generate(c->redis_uuid);
 
 	redis_check_type(r, c->redis_uuid, NULL, "hash");
-	redisCommandNR(r->ctx, "HMSET %s callid %s created %i", c->redis_uuid, c->callid, c->created);
-	redisCommandNR(r->ctx, "DEL %s-streams-temp", c->redis_uuid);
+
+	redisAppendCommand(r->ctx, "HMSET %s callid %s created %i", c->redis_uuid, c->callid, c->created);
+	redisAppendCommand(r->ctx, "DEL %s-streams-temp", c->redis_uuid);
+	count += 2;
 
 	for (l = c->callstreams->head; l; l = l->next) {
 		cs = l->data;
@@ -242,18 +244,23 @@ void redis_update(struct call *c) {
 		for (i = 0; i < 2; i++) {
 			p = &cs->peers[i];
 
-			redisCommandNR(r->ctx, "DEL %s:%i", uuid, i);
-			redisCommandNR(r->ctx, "HMSET %s:%i ip " IPF " port %i localport %i last-rtp %i last-rtcp %i kernel %i filled %i confirmed %i", uuid, i, IPP(p->rtps[0].peer.ip), p->rtps[0].peer.port, p->rtps[0].localport, p->rtps[0].last, p->rtps[1].last, p->kernelized, p->filled, p->confirmed);
-			redisCommandNR(r->ctx, "EXPIRE %s:%i 86400", uuid, i);
+			redisAppendCommand(r->ctx, "DEL %s:%i", uuid, i);
+			redisAppendCommand(r->ctx, "HMSET %s:%i ip " IPF " port %i localport %i last-rtp %i last-rtcp %i kernel %i filled %i confirmed %i", uuid, i, IPP(p->rtps[0].peer.ip), p->rtps[0].peer.port, p->rtps[0].localport, p->rtps[0].last, p->rtps[1].last, p->kernelized, p->filled, p->confirmed);
+			redisAppendCommand(r->ctx, "EXPIRE %s:%i 86400", uuid, i);
+			count += 3;
 		}
 
-		redisCommandNR(r->ctx, "RPUSH %s-streams-temp %s", c->redis_uuid, uuid);
+		redisAppendCommand(r->ctx, "RPUSH %s-streams-temp %s", c->redis_uuid, uuid);
+		count++;
 	}
 
-	redisCommandNR(r->ctx, "RENAME %s-streams-temp %s-streams", c->redis_uuid, c->redis_uuid);	/* XXX causes orphaned keys */
-	redisCommandNR(r->ctx, "EXPIRE %s-streams 86400", c->redis_uuid);
-	redisCommandNR(r->ctx, "EXPIRE %s 86400", c->redis_uuid);
-	redisCommandNR(r->ctx, "SADD calls %s", c->redis_uuid);
+	redisAppendCommand(r->ctx, "RENAME %s-streams-temp %s-streams", c->redis_uuid, c->redis_uuid);	/* XXX causes orphaned keys */
+	redisAppendCommand(r->ctx, "EXPIRE %s-streams 86400", c->redis_uuid);
+	redisAppendCommand(r->ctx, "EXPIRE %s 86400", c->redis_uuid);
+	redisAppendCommand(r->ctx, "SADD calls %s", c->redis_uuid);
+	count += 4;
+
+	redis_consume(r, count);
 }
 
 
