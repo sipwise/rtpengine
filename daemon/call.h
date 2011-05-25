@@ -5,6 +5,8 @@
 
 
 #include <sys/types.h>
+#include <glib.h>
+#include <hiredis.h>
 #include "ipt_MEDIAPROXY.h"
 
 
@@ -101,6 +103,8 @@ void call_delete(const char **, struct callmaster *);
 char *call_delete_udp(const char **, struct callmaster *);
 
 void calls_status(struct callmaster *, struct control_stream *);
+
+void call_restore(struct callmaster *, redisReply **, GList *);
 
 
 

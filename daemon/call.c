@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
+#include <hiredis.h>
+#include <stdlib.h>
 
 #include "call.h"
 #include "poller.h"
@@ -503,7 +505,7 @@ fail:
 }
 
 
-static void get_port_pair(struct peer *p) {
+static void get_port_pair(struct peer *p, int wanted_port) {
 	struct call *c;
 	struct callmaster *m;
 	struct streamrelay *a, *b;
@@ -515,6 +517,16 @@ static void get_port_pair(struct peer *p) {
 	b = &p->rtps[1];
 
 	assert(a->fd == -1 && b->fd == -1);
+
+	if (wanted_port > 0) {
+		if ((wanted_port & 1))
+			goto fail;
+		if (get_port(a, wanted_port))
+			goto fail;
+		if (get_port(a, wanted_port + 1))
+			goto fail;
+		return;
+	}
 
 	min = (m->port_min > 0 && m->port_min < 0xfff0) ? m->port_min : 1024;
 	max = (m->port_max > 0 && m->port_max > min && m->port_max < 0xfff0) ? m->port_max : 0;
@@ -649,7 +661,7 @@ static void steal_peer(struct peer *p, struct streamrelay *r) {
 }
 
 
-static void callstream_init(struct callstream *s, struct call *ca) {
+static void callstream_init(struct callstream *s, struct call *ca, int port1, int port2) {
 	int i, j;
 	struct peer *p;
 	struct streamrelay *r;
@@ -680,7 +692,7 @@ static void callstream_init(struct callstream *s, struct call *ca) {
 			r->last = po->now;
 		}
 
-		get_port_pair(p);
+		get_port_pair(p, (i == 0) ? port1 : port2);
 
 		for (j = 0; j < 2; j++) {
 			r = &p->rtps[j];
@@ -720,7 +732,7 @@ static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int
 		if (!opmode) {
 			DBG("creating new callstream");
 			cs = malloc(sizeof(*cs));
-			callstream_init(cs, c);
+			callstream_init(cs, c, 0, 0);
 			p = &cs->peers[0];
 		}
 		else {
@@ -730,12 +742,6 @@ static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int
 				break;
 			}
 			cs = l->data;
-#if 0
-			if (cs->peers[1].filled) {
-				mylog(LOG_WARNING, "[%s] Got LOOKUP, but no incomplete callstreams found", c->callid);
-				break;
-			}
-#endif
 			g_queue_delete_link(c->callstreams, l);
 			p = &cs->peers[1];
 		}
@@ -904,7 +910,7 @@ static struct call *call_get_or_create(const char *callid, struct callmaster *m)
 
 	c = g_hash_table_lookup(m->callhash, callid);
 	if (!c) {
-		mylog(LOG_NOTICE, "[%s] Creating new call", callid);
+		mylog(LOG_NOTICE, "[%s] Creating new call", callid);	/* XXX will spam syslog on recovery from DB */
 		c = malloc(sizeof(*c));
 		ZERO(*c);
 		c->callmaster = m;
@@ -1114,4 +1120,46 @@ void calls_status(struct callmaster *m, struct control_stream *s) {
 		(long long unsigned int) m->stats.bytes * 2 - m->stats.errors);
 
 	g_hash_table_foreach(m->callhash, call_status_iterator, s);
+}
+
+
+
+
+void call_restore(struct callmaster *m, redisReply **hash, GList *streams) {
+	struct call *c;
+	struct callstream *cs;
+	redisReply *rps[2], *rp;
+	int i, kernel;
+	struct peer *p;
+
+	c = call_get_or_create(hash[0]->str, m);
+	c->created = strtoll(hash[1]->str, NULL, 10);
+	strdupfree(&c->calling_agent, "UNKNOWN(recovered)");
+	strdupfree(&c->called_agent, "UNKNOWN(recovered)");
+
+	for (; streams; streams = streams->next) {
+		rps[0] = streams->data;
+		streams = streams->next;
+		rps[1] = streams->data;
+
+		cs = malloc(sizeof(*cs));
+		callstream_init(cs, c, atoi(rps[0]->element[2]->str), atoi(rps[1]->element[2]->str));
+		kernel = 0;
+
+		for (i = 0; i < 2; i++) {
+			p = &cs->peers[i];
+			rp = rps[i];
+
+			p->rtps[1].peer.ip = p->rtps[0].peer.ip = inet_addr(rp->element[0]->str);
+			p->rtps[0].peer.port = atoi(rp->element[1]->str);
+			p->rtps[1].peer.port = p->rtps[0].peer.port + 1;
+			strdupfree(&p->tag, rp->element[6]->str);
+			kernel = atoi(rp->element[3]->str);
+			p->filled = atoi(rp->element[4]->str);
+			p->confirmed = atoi(rp->element[5]->str);
+		}
+
+		if (kernel)
+			kernelize(cs);
+	}
 }

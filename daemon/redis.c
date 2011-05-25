@@ -170,8 +170,9 @@ static void redis_delete_uuid(char *uuid, struct callmaster *m) {
 
 int redis_restore(struct callmaster *m) {
 	struct redis *r = m->redis;
-	redisReply *rp, *rp2, *rp3;
-	int i;
+	redisReply *rp, *rp2, *rp3, *rp4, *rp5, *rp6;
+	GQueue q = G_QUEUE_INIT;
+	int i, j, k, l;
 
 	rp = redisCommand(r->ctx, "SMEMBERS calls");
 	if (!rp || rp->type != REDIS_REPLY_ARRAY) {
@@ -192,16 +193,59 @@ int redis_restore(struct callmaster *m) {
 			goto del2;
 		if (rp3->elements != 2)
 			goto del2;
-		if (rp3->element[0]->type != REDIS_REPLY_STRING)
+		for (j = 0; j < rp3->elements; j++) {
+			if (rp3->element[j]->type != REDIS_REPLY_STRING)
+				goto del2;
+		}
+
+		rp4 = redisCommand(r->ctx, "LRANGE %s-streams 0 -1", rp2->str);
+		if (!rp4)
 			goto del2;
-		if (rp3->element[1]->type != REDIS_REPLY_STRING)
-			goto del2;
+		if (rp4->type != REDIS_REPLY_ARRAY)
+			goto del3;
+
+		for (j = 0; j < rp4->elements; j++) {
+			rp5 = rp4->element[j];
+			if (rp5->type != REDIS_REPLY_STRING)
+				continue;
+			for (k = 0; k < 2; k++) {
+				rp6 = redisCommand(r->ctx, "HMGET %s:%i ip port localport kernel filled confirmed tag", rp5->str, k);
+				if (!rp6)
+					goto del4;
+				if (rp6->type != REDIS_REPLY_ARRAY)
+					goto del5;
+				if (rp6->elements != 7)
+					goto del5;
+				for (l = 0; l < rp6->elements; l++) {
+					if (rp6->element[l]->type != REDIS_REPLY_STRING)
+						goto del5;
+				}
+				g_queue_push_tail(&q, rp6);
+			}
+		}
+
+		call_restore(m, rp3->element, q.head);
+
+		if (q.head)
+			g_list_foreach(q.head, (GFunc) freeReplyObject, NULL);
+		g_queue_clear(&q);
+		freeReplyObject(rp4);
+		freeReplyObject(rp3);
 
 		continue;
 
+del5:
+		freeReplyObject(rp6);
+del4:
+		if (q.head)
+			g_list_foreach(q.head, (GFunc) freeReplyObject, NULL);
+		g_queue_clear(&q);
+del3:
+		freeReplyObject(rp4);
 del2:
 		freeReplyObject(rp3);
 del:
+		mylog(LOG_WARNING, "Could not restore call with GUID %s from Redis DB due to incomplete data\n", rp2->str);
 		redis_delete_uuid(rp2->str, m);
 	}
 
@@ -245,7 +289,7 @@ void redis_update(struct call *c) {
 			p = &cs->peers[i];
 
 			redisAppendCommand(r->ctx, "DEL %s:%i", uuid, i);
-			redisAppendCommand(r->ctx, "HMSET %s:%i ip " IPF " port %i localport %i last-rtp %i last-rtcp %i kernel %i filled %i confirmed %i", uuid, i, IPP(p->rtps[0].peer.ip), p->rtps[0].peer.port, p->rtps[0].localport, p->rtps[0].last, p->rtps[1].last, p->kernelized, p->filled, p->confirmed);
+			redisAppendCommand(r->ctx, "HMSET %s:%i ip " IPF " port %i localport %i kernel %i filled %i confirmed %i tag %s", uuid, i, IPP(p->rtps[0].peer.ip), p->rtps[0].peer.port, p->rtps[0].localport, p->kernelized, p->filled, p->confirmed, p->tag);
 			redisAppendCommand(r->ctx, "EXPIRE %s:%i 86400", uuid, i);
 			count += 3;
 		}
