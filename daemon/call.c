@@ -303,8 +303,7 @@ static GHashTable *info_parse(const char *s, GHashTable **h) {
 static int streams_parse_func(char **a, void **ret, void *p) {
 	struct stream *st;
 
-	st = malloc(sizeof(*st));
-	ZERO(*st);
+	st = g_slice_alloc0(sizeof(*st));
 
 	st->ip = inet_addr(a[0]);
 	st->port = atoi(a[1]);
@@ -321,7 +320,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", a[0], a[1]);
 	free(st->mediatype);
-	free(st);
+	g_slice_free1(sizeof(*st), st);
 	return -1;
 }
 
@@ -336,7 +335,7 @@ static void streams_free(GQueue *q) {
 	while (q->head) {
 		s = g_queue_pop_head(q);
 		free(s->mediatype);
-		free(s);
+		g_slice_free1(sizeof(*s), s);
 	}
 
 	g_queue_free(q);
@@ -440,7 +439,7 @@ static void callmaster_timer(void *ptr) {
 		memcpy(&sr->kstats, &ke->stats, sizeof(sr->kstats));
 
 next:
-		free(ke);
+		g_slice_free1(sizeof(*ke), ke);
 		i = g_list_delete_link(i, i);
 	}
 
@@ -457,8 +456,7 @@ next:
 struct callmaster *callmaster_new(struct poller *p) {
 	struct callmaster *c;
 
-	c = malloc(sizeof(*c));
-	ZERO(*c);
+	c = g_slice_alloc0(sizeof(*c));
 
 	c->callhash = g_hash_table_new(g_str_hash, g_str_equal);
 	if (!c->callhash)
@@ -470,7 +468,7 @@ struct callmaster *callmaster_new(struct poller *p) {
 	return c;
 
 fail:
-	free(c);
+	g_slice_free1(sizeof(*c), c);
 	return NULL;
 }
 
@@ -731,7 +729,7 @@ static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int
 
 		if (!opmode) {
 			DBG("creating new callstream");
-			cs = malloc(sizeof(*cs));
+			cs = g_slice_alloc(sizeof(*cs));
 			callstream_init(cs, c, 0, 0);
 			p = &cs->peers[0];
 		}
@@ -836,7 +834,7 @@ static void kill_callstream(struct callstream *s) {
 		}
 	}
 
-	free(s);
+	g_slice_free1(sizeof(*s), s);
 }
 
 
@@ -861,7 +859,7 @@ static void call_destroy(struct call *c) {
 	}
 	g_queue_free(c->callstreams);
 
-	free(c);
+	g_slice_free1(sizeof(*c), c);
 }
 
 
@@ -911,8 +909,7 @@ static struct call *call_get_or_create(const char *callid, struct callmaster *m)
 	c = g_hash_table_lookup(m->callhash, callid);
 	if (!c) {
 		mylog(LOG_NOTICE, "[%s] Creating new call", callid);	/* XXX will spam syslog on recovery from DB */
-		c = malloc(sizeof(*c));
-		ZERO(*c);
+		c = g_slice_alloc0(sizeof(*c));
 		c->callmaster = m;
 		c->callid = strdup(callid);
 		c->callstreams = g_queue_new();
@@ -1125,7 +1122,7 @@ void calls_status(struct callmaster *m, struct control_stream *s) {
 
 
 
-void call_restore(struct callmaster *m, redisReply **hash, GList *streams) {
+void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *streams) {
 	struct call *c;
 	struct callstream *cs;
 	redisReply *rps[2], *rp;
@@ -1133,6 +1130,7 @@ void call_restore(struct callmaster *m, redisReply **hash, GList *streams) {
 	struct peer *p;
 
 	c = call_get_or_create(hash[0]->str, m);
+	strcpy(c->redis_uuid, uuid);
 	c->created = strtoll(hash[1]->str, NULL, 10);
 	strdupfree(&c->calling_agent, "UNKNOWN(recovered)");
 	strdupfree(&c->called_agent, "UNKNOWN(recovered)");
@@ -1142,7 +1140,7 @@ void call_restore(struct callmaster *m, redisReply **hash, GList *streams) {
 		streams = streams->next;
 		rps[1] = streams->data;
 
-		cs = malloc(sizeof(*cs));
+		cs = g_slice_alloc(sizeof(*cs));
 		callstream_init(cs, c, atoi(rps[0]->element[2]->str), atoi(rps[1]->element[2]->str));
 		kernel = 0;
 

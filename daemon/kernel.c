@@ -114,14 +114,14 @@ GList *kernel_list(unsigned int id) {
 
 
 	for (;;) {
-		buf = malloc(sizeof(*buf));
+		buf = g_slice_alloc(sizeof(*buf));
 		ret = read(fd, buf, sizeof(*buf));
 		if (ret != sizeof(*buf))
 			break;
 		li = g_list_prepend(li, buf);
 	}
 
-	free(buf);
+	g_slice_free1(sizeof(*buf), buf);
 	close(fd);
 
 	return li;

@@ -224,7 +224,7 @@ int redis_restore(struct callmaster *m) {
 			}
 		}
 
-		call_restore(m, rp3->element, q.head);
+		call_restore(m, rp2->str, rp3->element, q.head);
 
 		if (q.head)
 			g_list_foreach(q.head, (GFunc) freeReplyObject, NULL);
