@@ -218,12 +218,6 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 		return NULL;
 	}
 
-	if (table_create_proc(t, id)) {
-		printk(KERN_WARNING "ipt_MEDIAPROXY failed to create /proc entry for ID %u\n", id);
-		table_push(t);
-		return NULL;
-	}
-
 	write_lock_irqsave(&table_lock, flags);
 	if (table[id]) {
 		write_unlock_irqrestore(&table_lock, flags);
@@ -236,6 +230,10 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 	table[id] = t;
 	t->id = id;
 	write_unlock_irqrestore(&table_lock, flags);
+
+	if (table_create_proc(t, id))
+		printk(KERN_WARNING "ipt_MEDIAPROXY failed to create /proc entry for ID %u\n", id);
+
 
 	return t;
 }
