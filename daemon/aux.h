@@ -17,7 +17,6 @@
 
 
 #define OFFSET_OF(t,e)		((unsigned int) (unsigned long) &(((t *) 0)->e))
-#define ARRAY_SIZE(x)		(sizeof(x) / sizeof(*(x)))
 #define ZERO(x)			memset(&(x), 0, sizeof(x))
 
 #define IPF			"%u.%u.%u.%u"

@@ -172,7 +172,7 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 		if (!pe->codec) {
 			cc = b[1];
 			cc &= 0x7f;
-			if (cc < ARRAY_SIZE(rtp_codecs))
+			if (cc < G_N_ELEMENTS(rtp_codecs))
 				pe->codec = rtp_codecs[cc] ? : "unknown";
 			else
 				pe->codec = "unknown";

@@ -58,7 +58,7 @@ static void control_udp_incoming(int fd, void *p) {
 		parse_ree = pcre_study(parse_re, 0, &errptr);
 	}
 
-	ret = pcre_exec(parse_re, parse_ree, buf, ret, 0, 0, ovec, ARRAY_SIZE(ovec));
+	ret = pcre_exec(parse_re, parse_ree, buf, ret, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
 		mylog(LOG_WARNING, "Unable to parse command line from udp:" DF ": %s", DP(sin), buf);
 		return;

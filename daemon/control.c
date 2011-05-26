@@ -68,7 +68,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 		parse_ree = pcre_study(parse_re, 0, &errptr);
 	}
 
-	ret = pcre_exec(parse_re, parse_ree, line, strlen(line), 0, 0, ovec, ARRAY_SIZE(ovec));
+	ret = pcre_exec(parse_re, parse_ree, line, strlen(line), 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
 		mylog(LOG_WARNING, "Unable to parse command line from " DF ": %s", DP(s->inaddr), line);
 		return -1;

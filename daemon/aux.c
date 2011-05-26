@@ -107,7 +107,7 @@ GQueue *pcre_multi_match(pcre **re, pcre_extra **ree, const char *rex, const cha
 	q = g_queue_new();
 	el = malloc(sizeof(*el) * num);
 
-	for (start = 0, len = strlen(s); pcre_exec(*re, *ree, s + start, len - start, 0, 0, ovec, ARRAY_SIZE(ovec)) > 0; start += ovec[1]) {
+	for (start = 0, len = strlen(s); pcre_exec(*re, *ree, s + start, len - start, 0, 0, ovec, G_N_ELEMENTS(ovec)) > 0; start += ovec[1]) {
 		for (i = 0; i < num; i++) {
 			ov = ovec + 2 + i*2;
 			el[i] = (ov[0] == -1) ? NULL : g_strndup(s + start + ov[0], ov[1] - ov[0]);
