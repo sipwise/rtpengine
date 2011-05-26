@@ -1170,6 +1170,8 @@ void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *st
 			p->confirmed = atoi(rp->element[5]->str);
 		}
 
+		g_queue_push_tail(c->callstreams, cs);
+
 		if (kernel)
 			kernelize(cs);
 	}
