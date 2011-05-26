@@ -35,6 +35,8 @@ static pcre_extra	*info_ree;
 static pcre		*streams_re;
 static pcre_extra	*streams_ree;
 
+static BIT_ARRAY_DECLARE(ports_used, 0x1000);
+
 
 
 
@@ -478,6 +480,9 @@ static int get_port(struct streamrelay *r, u_int16_t p) {
 	int fd;
 	struct sockaddr_in sin;
 
+	if (BIT_ARRAY_ISSET(ports_used, p))
+		return -1;
+
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd < 0)
 		return -1;
@@ -521,9 +526,9 @@ static void get_port_pair(struct peer *p, int wanted_port) {
 			goto fail;
 		if (get_port(a, wanted_port))
 			goto fail;
-		if (get_port(a, wanted_port + 1))
+		if (get_port(b, wanted_port + 1))
 			goto fail;
-		return;
+		goto reserve;
 	}
 
 	min = (m->port_min > 0 && m->port_min < 0xfff0) ? m->port_min : 1024;
@@ -562,6 +567,11 @@ next:
 
 	m->lastport = port;
 	mylog(LOG_DEBUG, "[%s] Opened ports %u/%u for RTP", c->callid, a->localport, b->localport);
+
+reserve:
+	BIT_ARRAY_SET(ports_used, a->localport);
+	BIT_ARRAY_SET(ports_used, b->localport);
+
 	return;
 
 fail:
@@ -633,6 +643,7 @@ static void steal_peer(struct peer *p, struct streamrelay *r) {
 
 		if (sr->fd != -1) {
 			close(sr->fd);
+			BIT_ARRAY_CLEAR(ports_used, sr->localport);
 			poller_del_item(po, sr->fd);
 		}
 
@@ -828,8 +839,10 @@ static void kill_callstream(struct callstream *s) {
 		for (j = 0; j < 2; j++) {
 			r = &p->rtps[j];
 
-			if (r->fd != -1)
+			if (r->fd != -1) {
 				close(r->fd);
+				BIT_ARRAY_CLEAR(ports_used, r->localport);
+			}
 			poller_del_item(s->call->callmaster->poller, r->fd);
 		}
 	}

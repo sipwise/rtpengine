@@ -28,6 +28,11 @@
 #define NONBLOCK(x)		fcntl(x, F_SETFL, O_NONBLOCK)
 #define REUSEADDR(x)		do { int ONE = 1; setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &ONE, sizeof(ONE)); } while (0)
 
+#define BIT_ARRAY_DECLARE(name, size)	int name[((size) + sizeof(int) * 8 - 1) / sizeof(int)]
+#define BIT_ARRAY_SET(name, bit)	name[(bit) / sizeof(int)] |= 1 << (bit) % sizeof(int)
+#define BIT_ARRAY_CLEAR(name, bit)	name[(bit) / sizeof(int)] &= ~(1 << (bit) % sizeof(int))
+#define BIT_ARRAY_ISSET(name, bit)	(name[(bit) / sizeof(int)] & (1 << (bit) % sizeof(int)))
+
 
 
 
