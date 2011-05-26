@@ -268,6 +268,7 @@ void redis_update(struct call *c) {
 	struct callstream *cs;
 	int i, count = 0;
 	struct peer *p;
+	redisReply *oldstreams;
 
 	if (!r)
 		return;
@@ -276,6 +277,7 @@ void redis_update(struct call *c) {
 		uuid_str_generate(c->redis_uuid);
 
 	redis_check_type(r, c->redis_uuid, NULL, "hash");
+	oldstreams = redisCommand(r->ctx, "LRANGE %s-streams 0 -1", c->redis_uuid);
 
 	redisAppendCommand(r->ctx, "HMSET %s callid %s created %i", c->redis_uuid, c->callid, c->created);
 	redisAppendCommand(r->ctx, "DEL %s-streams-temp", c->redis_uuid);
@@ -298,11 +300,23 @@ void redis_update(struct call *c) {
 		count++;
 	}
 
-	redisAppendCommand(r->ctx, "RENAME %s-streams-temp %s-streams", c->redis_uuid, c->redis_uuid);	/* XXX causes orphaned keys */
+	redisAppendCommand(r->ctx, "RENAME %s-streams-temp %s-streams", c->redis_uuid, c->redis_uuid);
 	redisAppendCommand(r->ctx, "EXPIRE %s-streams 86400", c->redis_uuid);
 	redisAppendCommand(r->ctx, "EXPIRE %s 86400", c->redis_uuid);
 	redisAppendCommand(r->ctx, "SADD calls %s", c->redis_uuid);
 	count += 4;
+
+	if (oldstreams) {
+		if (oldstreams->type == REDIS_REPLY_ARRAY) {
+			for (i = 0; i < oldstreams->elements; i++) {
+				if (oldstreams->element[0]->type == REDIS_REPLY_STRING) {
+					redisAppendCommand(r->ctx, "DEL %s:0 %s:1", oldstreams->element[0]->str, oldstreams->element[0]->str);
+					count++;
+				}
+			}
+		}
+		freeReplyObject(oldstreams);
+	}
 
 	redis_consume(r, count);
 }
