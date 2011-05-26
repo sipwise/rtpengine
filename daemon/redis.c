@@ -24,10 +24,15 @@ static int redis_check_type(struct redis *r, char *key, char *suffix, char *type
 	redisReply *rp;
 
 	rp = redisCommand(r->ctx, "TYPE %s%s", key, suffix ? : "");
-	if (!rp || rp->type != REDIS_REPLY_STATUS)
+	if (!rp)
 		return -1;
+	if (rp->type != REDIS_REPLY_STATUS) {
+		freeReplyObject(rp);
+		return -1;
+	}
 	if (strcmp(rp->str, type) && strcmp(rp->str, "none"))
 		redisCommandNR(r->ctx, "DEL %s%s", key, suffix ? : "");
+	freeReplyObject(rp);
 	return 0;
 }
 
@@ -146,8 +151,12 @@ static void redis_delete_uuid(char *uuid, struct callmaster *m) {
 		return;
 
 	rp = redisCommand(r->ctx, "LRANGE %s-streams 0 -1", uuid);
-	if (!rp || rp->type != REDIS_REPLY_ARRAY)
+	if (!rp)
 		return;
+	if (rp->type != REDIS_REPLY_ARRAY) {
+		freeReplyObject(rp);
+		return;
+	}
 
 	for (i = 0; i < rp->elements; i++) {
 		rp2 = rp->element[i];
@@ -163,6 +172,7 @@ static void redis_delete_uuid(char *uuid, struct callmaster *m) {
 	count += 2;
 
 	redis_consume(r, count);
+	freeReplyObject(rp);
 }
 
 
@@ -177,6 +187,8 @@ int redis_restore(struct callmaster *m) {
 	rp = redisCommand(r->ctx, "SMEMBERS calls");
 	if (!rp || rp->type != REDIS_REPLY_ARRAY) {
 		mylog(LOG_ERR, "Could not retrieve call list from Redis: %s\n", r->ctx->errstr);
+		if (rp)
+			freeReplyObject(rp);
 		goto err;
 	}
 
