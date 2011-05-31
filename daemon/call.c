@@ -1176,3 +1176,23 @@ void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *st
 			kernelize(cs);
 	}
 }
+
+
+
+
+
+static void calls_dump_iterator(void *key, void *val, void *ptr) {
+	struct call *c = val;
+
+	redis_update(c);
+}
+
+void calls_dump_redis(struct callmaster *m) {
+	if (!m->redis)
+		return;
+
+	mylog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
+	redis_wipe(m);
+	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
+	mylog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
+}

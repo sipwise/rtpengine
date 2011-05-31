@@ -105,6 +105,7 @@ char *call_delete_udp(const char **, struct callmaster *);
 void calls_status(struct callmaster *, struct control_stream *);
 
 void call_restore(struct callmaster *, char *, redisReply **, GList *);
+void calls_dump_redis(struct callmaster *);
 
 
 

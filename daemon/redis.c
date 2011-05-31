@@ -29,8 +29,8 @@ To fill the redis DB with expiring test data:
 		echo "hmset $b callid $(uuid)@test created $(date +%s)"
 		c=$(uuid)
 		echo "rpush $b-streams $c"
-		echo "hmset $c:0 ip $(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)) port $(($RANDOM % 10000 + 1024)) localport $(($RANDOM % 10000 + 1024)) kernel 1 filled 1 confirmed 1 tag $(uuid)"
-		echo "hmset $c:1 ip $(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)) port $(($RANDOM % 10000 + 1024)) localport $(($RANDOM % 10000 + 1024)) kernel 1 filled 1 confirmed 1 tag $(uuid)"
+		echo "hmset $c:0 ip $(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)) port $((($RANDOM % 10000) * 2 + 1024)) localport $((($RANDOM % 10000) * 2 + 1024)) kernel 1 filled 1 confirmed 1 tag $(uuid)"
+		echo "hmset $c:1 ip $(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)) port $((($RANDOM % 10000) * 2 + 1024)) localport $((($RANDOM % 10000) * 2 + 1024)) kernel 1 filled 1 confirmed 1 tag $(uuid)"
 		echo "expire $b $expire"
 		echo "expire $b-streams $expire"
 		echo "expire $c:0 $expire"
@@ -369,4 +369,17 @@ void redis_update(struct call *c) {
 
 void redis_delete(struct call *c) {
 	redis_delete_uuid(c->redis_uuid, c->callmaster);
+}
+
+
+
+
+
+void redis_wipe(struct callmaster *m) {
+	struct redis *r = m->redis;
+
+	if (!r)
+		return;
+
+	redisCommandNR(r->ctx, "DEL calls");
 }
