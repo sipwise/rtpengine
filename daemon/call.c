@@ -35,7 +35,7 @@ static pcre_extra	*info_ree;
 static pcre		*streams_re;
 static pcre_extra	*streams_ree;
 
-static BIT_ARRAY_DECLARE(ports_used, 0x1000);
+static BIT_ARRAY_DECLARE(ports_used, 0x10000);
 
 
 

@@ -14,6 +14,36 @@
 
 
 
+
+
+/*
+
+To fill the redis DB with expiring test data:
+
+	num=3000
+	db=1
+	expire=86400
+
+	for x in $(seq 1 $num); do
+		b=$(uuid)
+		echo "hmset $b callid $(uuid)@test created $(date +%s)"
+		c=$(uuid)
+		echo "rpush $b-streams $c"
+		echo "hmset $c:0 ip $(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)) port $(($RANDOM % 10000 + 1024)) localport $(($RANDOM % 10000 + 1024)) kernel 1 filled 1 confirmed 1 tag $(uuid)"
+		echo "hmset $c:1 ip $(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)).$(($RANDOM % 253 + 1)) port $(($RANDOM % 10000 + 1024)) localport $(($RANDOM % 10000 + 1024)) kernel 1 filled 1 confirmed 1 tag $(uuid)"
+		echo "expire $b $expire"
+		echo "expire $b-streams $expire"
+		echo "expire $c:0 $expire"
+		echo "expire $c:1 $expire"
+		echo "sadd calls $b"
+	done | redis-cli -n $db
+
+*/
+
+
+
+
+
 #define redisCommandNR(a...) (int)({ void *__tmp; __tmp = redisCommand(a); if (__tmp) freeReplyObject(__tmp); __tmp ? 0 : -1;})
 
 
