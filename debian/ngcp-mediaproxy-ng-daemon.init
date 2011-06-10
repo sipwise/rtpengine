@@ -53,6 +53,8 @@ OPTIONS=""
 [ -z "$PORT_MIN" ] || OPTIONS="$OPTIONS --port-min=$PORT_MIN"
 [ -z "$PORT_MAX" ] || OPTIONS="$OPTIONS --port-max=$PORT_MAX"
 [ -z "$ADV_ADDRESS" ] || OPTIONS="$OPTIONS --advertised-ip=$ADV_ADDRESS"
+[ -z "$REDIS" ] || OPTIONS="$OPTIONS --redis=$REDIS"
+[ -z "$REDIS_DB" ] || OPTIONS="$OPTIONS --redis-db=$REDIS_DB"
 OPTIONS="$OPTIONS --table=$TABLE"
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"    
