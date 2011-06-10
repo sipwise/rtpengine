@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (1.4.0) unstable; urgency=low
+
+  * Support HA through persistent Redis storage
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 10 Jun 2011 13:50:50 -0400
+
 ngcp-mediaproxy-ng (1.3.5) unstable; urgency=low
 
   * Fix dst reference count issues causing kernel warnings under some circumstances
