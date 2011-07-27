@@ -14,7 +14,9 @@
 #include "log.h"
 #include "call.h"
 #include "kernel.h"
+#ifndef NO_REDIS
 #include "redis.h"
+#endif
 
 
 
@@ -39,9 +41,11 @@ static int timeout;
 static int silent_timeout;
 static int port_min;
 static int port_max;
+#ifndef NO_REDIS
 static u_int32_t redis_ip;
 static u_int16_t redis_port;
 static int redis_db = -1;
+#endif
 
 
 
@@ -108,7 +112,9 @@ static void options(int *argc, char ***argv) {
 	static char *adv_ips;
 	static char *listenps;
 	static char *listenudps;
+#ifndef NO_REDIS
 	static char *redisps;
+#endif
 
 	static GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
@@ -123,8 +129,10 @@ static void options(int *argc, char ***argv) {
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
+#ifndef NO_REDIS
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
 		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
+#endif
 		{ NULL, }
 	};
 
@@ -168,12 +176,14 @@ static void options(int *argc, char ***argv) {
 	if (silent_timeout <= 0)
 		silent_timeout = 3600;
 
+#ifndef NO_REDIS
 	if (redisps) {
 		if (parse_ip_port(&redis_ip, &redis_port, redisps) || !redis_ip)
 			die("Invalid IP or port (--redis)\n");
 		if (redis_db < 0)
 			die("Must specify Redis DB number (--redis-db) when using Redis\n");
 	}
+#endif
 }
 
 
@@ -251,11 +261,13 @@ int main(int argc, char **argv) {
 			die("Failed to open UDP control connection port\n");
 	}
 
+#ifndef NO_REDIS
 	if (redis_ip) {
 		m->redis = redis_new(redis_ip, redis_port, redis_db);
 		if (!m->redis)
 			die("Cannot start up without Redis database\n");
 	}
+#endif
 
 	mylog(LOG_INFO, "Startup complete");
 
@@ -263,10 +275,12 @@ int main(int argc, char **argv) {
 		daemonize();
 	wpidfile();
 
+#ifndef NO_REDIS
 	if (m->redis) {
 		if (redis_restore(m))
 			die("Refusing to continue without working Redis database\n");
 	}
+#endif
 
 	for (;;) {
 		ret = poller_poll(p, 100);

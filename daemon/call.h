@@ -6,7 +6,9 @@
 
 #include <sys/types.h>
 #include <glib.h>
+#ifndef NO_REDIS
 #include <hiredis.h>
+#endif
 #include "ipt_MEDIAPROXY.h"
 
 
@@ -20,7 +22,9 @@ struct peer;
 struct callstream;
 struct call;
 struct callmaster;
+#ifndef NO_REDIS
 struct redis;
+#endif
 
 
 
@@ -50,6 +54,7 @@ struct peer {
 	int			kernelized:1;
 	int			filled:1;
 	int			confirmed:1;
+	int			used:1;
 };
 struct callstream {
 	struct peer		peers[2];
@@ -62,7 +67,9 @@ struct call {
 	GQueue			*callstreams;
 
 	char			*callid;
+#ifndef NO_REDIS
 	char			redis_uuid[37];
+#endif
 	time_t			created;
 	char			*calling_agent;
 	char			*called_agent;
@@ -76,7 +83,9 @@ struct callmaster {
 	struct mediaproxy_stats	stats;
 
 	struct poller		*poller;
+#ifndef NO_REDIS
 	struct redis		*redis;
+#endif
 	int			kernelfd;
 	unsigned int		kernelid;
 	u_int32_t		ip;
@@ -104,8 +113,10 @@ char *call_delete_udp(const char **, struct callmaster *);
 
 void calls_status(struct callmaster *, struct control_stream *);
 
+#ifndef NO_REDIS
 void call_restore(struct callmaster *, char *, redisReply **, GList *);
 void calls_dump_redis(struct callmaster *);
+#endif
 
 
 

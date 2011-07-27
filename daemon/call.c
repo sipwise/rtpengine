@@ -8,7 +8,9 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
+#ifndef NO_REDIS
 #include <hiredis.h>
+#endif
 #include <stdlib.h>
 
 #include "call.h"
@@ -18,7 +20,9 @@
 #include "kernel.h"
 #include "control.h"
 #include "streambuf.h"
+#ifndef NO_REDIS
 #include "redis.h"
+#endif
 
 
 
@@ -193,7 +197,9 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 		if (pe2->confirmed && pe2->filled)
 			kernelize(cs);
 
+#ifndef NO_REDIS
 		redis_update(c);
+#endif
 	}
 
 skip:
@@ -236,6 +242,8 @@ skip:
 		m->statsps.errors++;
 		return -1;
 	}
+
+	pe->used = 1;
 
 drop:
 	r->stats.packets++;
@@ -760,6 +768,8 @@ static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int
 			cs = l->data;
 			for (x = 0; x < 2; x++) {
 				r = &cs->peers[x].rtps[0];
+				if (r->up->used)
+					continue;
 				if (r->peer.ip != t->ip)
 					continue;
 				if (r->peer.port != t->port)
@@ -857,7 +867,9 @@ static void call_destroy(struct call *c) {
 	struct callstream *s;
 
 	g_hash_table_remove(m->callhash, c->callid);
+#ifndef NO_REDIS
 	redis_delete(c);
+#endif
 
 	free(c->callid);
 	g_hash_table_destroy(c->infohash);
@@ -957,7 +969,9 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 
 	g_queue_clear(&q);
 
+#ifndef NO_REDIS
 	redis_update(c);
+#endif
 
 	return streams_print(c->callstreams, 1, 0, o[1], 1);
 
@@ -994,7 +1008,9 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 
 	g_queue_clear(&q);
 
+#ifndef NO_REDIS
 	redis_update(c);
+#endif
 
 	return streams_print(c->callstreams, 1, 1, o[1], 1);
 
@@ -1016,7 +1032,9 @@ char *call_request(const char **o, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
 
+#ifndef NO_REDIS
 	redis_update(c);
+#endif
 
 	return streams_print(c->callstreams, num, 0, NULL, 0);
 }
@@ -1038,7 +1056,9 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
 
+#ifndef NO_REDIS
 	redis_update(c);
+#endif
 
 	return streams_print(c->callstreams, num, 1, NULL, 0);
 }
@@ -1135,6 +1155,7 @@ void calls_status(struct callmaster *m, struct control_stream *s) {
 
 
 
+#ifndef NO_REDIS
 void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *streams) {
 	struct call *c;
 	struct callstream *cs;
@@ -1196,3 +1217,4 @@ void calls_dump_redis(struct callmaster *m) {
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	mylog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
 }
+#endif
