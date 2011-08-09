@@ -157,4 +157,19 @@ void g_string_vprintf(GString *string, const gchar *format, va_list args) {
 	free(s);
 }
 
+void g_queue_clear(GQueue *q) {
+	GList *l, *n;
+
+	if (!q)
+		return;
+
+	for (l = q->head; l; l = n) {
+		n = l->next;
+		g_list_free_1(l);
+	}
+
+	q->head = q->tail = NULL;
+	q->length = 0;
+}
+
 #endif

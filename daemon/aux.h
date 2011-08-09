@@ -45,7 +45,9 @@ void strdupfree(char **, const char *);
 
 
 #if !GLIB_CHECK_VERSION(2,14,0)
+#define G_QUEUE_INIT { NULL, NULL, 0 }
 void g_string_vprintf(GString *string, const gchar *format, va_list args);
+void g_queue_clear(GQueue *);
 #endif
 
 
