@@ -1,4 +1,4 @@
-/* gcc -O2 -Wall -shared -o libipt_MEDIAPROXY.so libipt_MEDIAPROXY.c */
+/* gcc -O2 -Wall -shared -fPIC -o libipt_MEDIAPROXY.so libipt_MEDIAPROXY-1.4.c */
 
 #include <stdio.h>
 #include <stdlib.h>

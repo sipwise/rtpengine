@@ -416,7 +416,7 @@ good:
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
 	struct iterator_helper hlp;
-	GList *i;
+	GList *i, *n;
 	struct call *c;
 	struct mediaproxy_list_entry *ke;
 	struct streamrelay *sr;
@@ -453,12 +453,12 @@ next:
 		i = g_list_delete_link(i, i);
 	}
 
-	for (i = hlp.del; i; i = i->next) {
+	for (i = hlp.del; i; i = n) {
+		n = i->next;
 		c = i->data;
 		call_destroy(c);
+		g_list_free_1(i);
 	}
-
-	g_list_free(i);
 }
 #undef DS
 
