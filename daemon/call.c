@@ -243,7 +243,7 @@ skip:
 		return -1;
 	}
 
-	pe2->used = 1;
+	pe->used = 1;
 
 drop:
 	r->stats.packets++;
@@ -735,6 +735,7 @@ static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int
 	struct callstream *cs;
 	struct peer *p;
 	unsigned int ret;
+	int no_reuse = 0;
 
 	q = g_queue_new();	/* new callstreams list */
 
@@ -761,15 +762,23 @@ static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int
 			cs = l->data;
 			g_queue_delete_link(c->callstreams, l);
 			p = &cs->peers[1];
+			if (cs->peers[0].used)
+				no_reuse = 1;
 		}
+
+
+		if (no_reuse)
+			goto skip;
 
 
 		for (l = c->callstreams->head; l; l = l->next) {
 			cs = l->data;
 			for (x = 0; x < 2; x++) {
 				r = &cs->peers[x].rtps[0];
+				/*
 				if (r->up->used)
 					continue;
+				*/
 				if (r->peer.ip != t->ip)
 					continue;
 				if (r->peer.port != t->port)
@@ -782,6 +791,7 @@ static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int
 		}
 
 		/* not found */
+skip:
 		setup_peer(p, t, tag);
 		g_queue_push_tail(q, p->up);
 		continue;
