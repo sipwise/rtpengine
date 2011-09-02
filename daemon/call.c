@@ -919,11 +919,9 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	if (t->call->callmaster->adv_ip)
 		ip = t->call->callmaster->adv_ip;
 
-#if 0
 	t = s->head->data;
 	if (t->peers[off].rtps[0].peer.ip == 0)
 		ip = 0;
-#endif
 
 	if (!swap)
 		g_string_append_printf(o, IPF, IPP(ip));
