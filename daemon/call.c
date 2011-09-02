@@ -163,7 +163,7 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	m = c->callmaster;
 
 	if (p->fd == -1) {
-		mylog(LOG_WARNING, "[%s] RTP packet discarded from " DF, c->callid, DP(*fsin));
+		mylog(LOG_WARNING, "[%s] RTP packet to port %u discarded from " DF, c->callid, r->localport, DP(*fsin));
 		r->stats.errors++;
 		m->statsps.errors++;
 		return 0;
@@ -182,7 +182,7 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 				pe->codec = "unknown";
 		}
 
-		mylog(LOG_DEBUG, "[%s] Confirmed peer information - " DF, c->callid, DP(*fsin));
+		mylog(LOG_DEBUG, "[%s] Confirmed peer information for port %u - " DF, c->callid, r->localport, DP(*fsin));
 
 		p->peer.ip = fsin->sin_addr.s_addr;
 		p->peer.port = ntohs(fsin->sin_port);
@@ -243,7 +243,7 @@ skip:
 		return -1;
 	}
 
-	pe->used = 1;
+	pe2->used = 1;
 
 drop:
 	r->stats.packets++;
@@ -951,6 +951,7 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
+	char *ret;
 
 	c = call_get_or_create(o[4], m);
 	strdupfree(&c->calling_agent, "UNKNOWN(udp)");
@@ -973,7 +974,9 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	return streams_print(c->callstreams, 1, 0, o[1], 1);
+	ret = streams_print(c->callstreams, 1, 0, o[1], 1);
+	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
+	return ret;
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", o[5], o[6]);
@@ -985,6 +988,7 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
+	char *ret;
 
 	c = g_hash_table_lookup(m->callhash, o[4]);
 	if (!c) {
@@ -1012,7 +1016,9 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	return streams_print(c->callstreams, 1, 1, o[1], 1);
+	ret = streams_print(c->callstreams, 1, 1, o[1], 1);
+	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
+	return ret;
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", o[5], o[6]);
@@ -1023,6 +1029,7 @@ char *call_request(const char **o, struct callmaster *m) {
 	struct call *c;
 	GQueue *s;
 	unsigned int num;
+	char *ret;
 
 	c = call_get_or_create(o[2], m);
 
@@ -1036,13 +1043,16 @@ char *call_request(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	return streams_print(c->callstreams, num, 0, NULL, 0);
+	ret = streams_print(c->callstreams, num, 0, NULL, 0);
+	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
+	return ret;
 }
 
 char *call_lookup(const char **o, struct callmaster *m) {
 	struct call *c;
 	GQueue *s;
 	unsigned int num;
+	char *ret;
 
 	c = g_hash_table_lookup(m->callhash, o[2]);
 	if (!c) {
@@ -1060,7 +1070,9 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	return streams_print(c->callstreams, num, 1, NULL, 0);
+	ret = streams_print(c->callstreams, num, 1, NULL, 0);
+	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
+	return ret;
 }
 
 char *call_delete_udp(const char **o, struct callmaster *m) {
