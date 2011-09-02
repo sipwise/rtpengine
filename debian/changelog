@@ -1,3 +1,10 @@
+ngcp-mediaproxy-ng (1.4.2) unstable; urgency=low
+
+  * Slightly increase syslog verbosity
+  * Fix obscure 3-way call connect issue
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 02 Sep 2011 17:09:38 -0400
+
 ngcp-mediaproxy-ng (1.4.1) unstable; urgency=low
 
   * Fix a memory leak
