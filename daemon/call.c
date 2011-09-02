@@ -632,7 +632,7 @@ static void steal_peer(struct peer *p, struct streamrelay *r) {
 	c = s->up->call;
 	po = c->callmaster->poller;
 
-	mylog(LOG_DEBUG, "[%s] Re-using existing open RTP ports", c->callid);
+	mylog(LOG_DEBUG, "[%s] Re-using existing open RTP port %u", c->callid, r->localport);
 
 	p->confirmed = 0;
 	unkernelize(p);
