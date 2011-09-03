@@ -17,6 +17,7 @@
 #ifndef NO_REDIS
 #include "redis.h"
 #endif
+#include "build_time.h"
 
 
 
@@ -115,8 +116,10 @@ static void options(int *argc, char ***argv) {
 #ifndef NO_REDIS
 	static char *redisps;
 #endif
+	static int version;
 
 	static GOptionEntry e[] = {
+		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
 		{ "ip",		'i', 0, G_OPTION_ARG_STRING,	&ips,		"Local IP address for RTP",	"IP"		},
 		{ "advertised-ip", 'a', 0, G_OPTION_ARG_STRING,	&adv_ips,	"IP address to advertise",	"IP"		},
@@ -143,6 +146,9 @@ static void options(int *argc, char ***argv) {
 	g_option_context_add_main_entries(c, e, NULL);
 	if (!g_option_context_parse(c, argc, argv, &er))
 		die("Bad command line: %s\n", er->message);
+
+	if (version)
+		die("Build time: %s\n", BUILD_TIME);
 
 	if (!ips)
 		die("Missing option --ip\n");
