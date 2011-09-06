@@ -6,7 +6,17 @@ use Socket;
 
 $| = 1;
 
+
+
+
+
+
 my $local_ip = '192.168.1.90';
+
+
+
+
+
 
 sub brk {
 	sleep(1);
@@ -63,6 +73,28 @@ sub send_rcv4 {
 	send_rcv(@_[3,4,5,0]);
 }
 
+sub sim_req_lk {
+	my ($method, $callid, $ip, $port, $fromtag, $totag) = @_;
+
+	$totag or $totag = '';
+
+	my $ret = mp_msg("$method $callid $ip:$port:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$totag,to:43720890289\@77.244.249.84:5060,fromtag:$fromtag");
+
+	return split(/ /, $ret);
+}
+sub sim_rq {
+	return sim_req_lk("request", @_);
+}
+sub sim_lk {
+	return sim_req_lk("lookup", @_);
+}
+
+
+
+
+
+
+
 my $callid1 = join('',map(rand,1..2));
 my $fromtag1 = join('',map(rand,1..4));
 my $totag1 = join('',map(rand,1..4));
@@ -83,14 +115,14 @@ print("CALL 1: A calling B\n");
 print("A tells B: send RTP to $lp1\n");
 brk();
 
-my ($mpip1, $mpport1) = split(/ /, mp_msg("request $callid1 $local_ip:$lp1:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:,to:43720890289\@77.244.249.84:5060,fromtag:$fromtag1"));
+my ($mpip1, $mpport1) = sim_rq($callid1, $local_ip, $lp1, $fromtag1);
 print("mediaproxy: tell B to send to $mpport1 instead of $lp1\n");
 brk();
 
 print("B tells A: send RTP to $lp2\n");
 brk();
 
-my ($mpip2, $mpport2) = split(/ /, mp_msg("lookup $callid1 $local_ip:$lp2:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$totag1,to:43720890289\@77.244.249.84:5060,fromtag:$fromtag1"));
+my ($mpip2, $mpport2) = sim_lk($callid1, $local_ip, $lp2, $fromtag1, $totag1);
 print("mediaproxy: tell A to send to $mpport2 instead of $lp2\n");
 brk();
 
@@ -109,14 +141,14 @@ print("B tells A: send RTP to 0.0.0.0\n");
 
 brk();
 
-my ($mpip3, $mpport3) = split(/ /, mp_msg("request $callid1 0.0.0.0:$lp2:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$fromtag1,to:43720890289\@77.244.249.84:5060,fromtag:$totag1"));
+my ($mpip3, $mpport3) = sim_rq($callid1, '0.0.0.0', $lp2, $totag1, $fromtag1);
 print("mediaproxy: tell A to send to $mpip3:$mpport3 instead of 0.0.0.0:$lp2\n");
 brk();
 
 print("A tells B: send RTP to 0.0.0.0\n");
 brk();
 
-my ($mpip4, $mpport4) = split(/ /, mp_msg("lookup $callid1 0.0.0.0:$lp1:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$fromtag1,to:43720890289\@77.244.249.84:5060,fromtag:$totag1"));
+my ($mpip4, $mpport4) = sim_lk($callid1, '0.0.0.0', $lp1, $totag1, $fromtag1);
 print("mediaproxy: tell B to send to $mpip4:$mpport4 instead of 0.0.0.0:$lp1\n");
 brk();
 
@@ -131,14 +163,14 @@ print("B tells C: send RTP to $lp3\n");
 
 brk();
 
-my ($mpip5, $mpport5) = split(/ /, mp_msg("request $callid2 $local_ip:$lp3:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:,to:43720890289\@77.244.249.84:5060,fromtag:$fromtag2"));
+my ($mpip5, $mpport5) = sim_rq($callid2, $local_ip, $lp3, $fromtag2);
 print("mediaproxy: tell C to send to $mpport5 instead of $lp3\n");
 brk();
 
 print("C tells B: send RTP to $lp4\n");
 brk();
 
-my ($mpip6, $mpport6) = split(/ /, mp_msg("lookup $callid2 $local_ip:$lp4:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$totag2,to:43720890289\@77.244.249.84:5060,fromtag:$fromtag2"));
+my ($mpip6, $mpport6) = sim_lk($callid2, $local_ip, $lp4, $fromtag2, $totag2);
 print("mediaproxy: tell B to send to $mpport6 instead of $lp4\n");
 brk();
 
@@ -157,14 +189,14 @@ print("B tells A: send RTP to $lp2\n");
 
 brk();
 
-my ($mpip7, $mpport7) = split(/ /, mp_msg("request $callid1 $local_ip:$lp2:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$fromtag1,to:43720890289\@77.244.249.84:5060,fromtag:$totag1"));
+my ($mpip7, $mpport7) = sim_rq($callid1, $local_ip, $lp2, $totag1, $fromtag1);
 print("mediaproxy: tell A to send to $mpport7 instead of $lp2\n");
 brk();
 
 print("A tells B: send RTP to $lp1\n");
 brk();
 
-my ($mpip8, $mpport8) = split(/ /, mp_msg("lookup $callid1 $local_ip:$lp1:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$fromtag1,to:43720890289\@77.244.249.84:5060,fromtag:$totag1"));
+my ($mpip8, $mpport8) = sim_lk($callid1, $local_ip, $lp1, $totag1, $fromtag1);
 print("mediaproxy: tell B to send to $mpport8 instead of $lp1\n");
 brk();
 
@@ -181,26 +213,26 @@ print("B tells C [call 2]: send RTP to $mpip8:$mpport8\n");
 
 brk();
 
-my ($mpip9, $mpport9) = split(/ /, mp_msg("request $callid2 $mpip8:$mpport8:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$totag2,to:43720890289\@77.244.249.84:5060,fromtag:$fromtag2"));
+my ($mpip9, $mpport9) = sim_rq($callid2, $mpip8, $mpport8, $fromtag2, $totag2);
 print("mediaproxy: tell C to send to $mpport9 instead of $mpip8:$mpport8\n");
 brk();
 
 print("C tells B: send RTP to $lp4\n");
-my ($mpip10, $mpport10) = split(/ /, mp_msg("lookup $callid2 $local_ip:$lp4:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$totag2,to:43720890289\@77.244.249.84:5060,fromtag:$fromtag2"));
+my ($mpip10, $mpport10) = sim_lk($callid2, $local_ip, $lp4, $fromtag2, $totag2);
 print("mediaproxy: tell B to send to $mpport10 instead of $lp4\n");
 brk();
 
 
 print("B tells A [call 1]: send RTP to $mpip10:$mpport10\n");
 
-my ($mpip11, $mpport11) = split(/ /, mp_msg("request $callid1 $mpip10:$mpport10:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$fromtag1,to:43720890289\@77.244.249.84:5060,fromtag:$totag1"));
+my ($mpip11, $mpport11) = sim_rq($callid1, $mpip10, $mpport10, $totag1, $fromtag1);
 print("mediaproxy: tell A to send to $mpport11 instead of $mpip10:$mpport10\n");
 brk();
 
 send_rcv($client1, $mpip11, $mpport11, $client4);	###### <<<<<< error trigger
 
 print("A tells B: send RTP to $lp1\n");
-my ($mpip12, $mpport12) = split(/ /, mp_msg("lookup $callid1 $local_ip:$lp1:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$fromtag1,to:43720890289\@77.244.249.84:5060,fromtag:$totag1"));
+my ($mpip12, $mpport12) = sim_lk($callid1, $local_ip, $lp1, $totag1, $fromtag1);
 print("mediaproxy: tell B to send to $mpport12 instead of $lp1\n");
 brk();
 
