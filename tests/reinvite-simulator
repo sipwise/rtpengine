@@ -74,14 +74,12 @@ sub send_rcv_brk {
 }
 
 sub send_rcv4 {
-	send_rcv(@_[0,1,2,3]);
-	sleep(1);
-	send_rcv(@_[3,4,5,0]);
-	sleep(1);
-	send_rcv(@_[0,1,2,3]);
-	sleep(1);
-	send_rcv(@_[3,4,5,0]);
-	sleep(1);
+	for (1 .. 4) {
+		send_rcv(@_[0,1,2,3]);
+		sleep(1);
+		send_rcv(@_[3,4,5,0]);
+		sleep(1);
+	}
 }
 
 sub sim_req_lk {
@@ -202,8 +200,9 @@ for my $tuple (\@forward, \@backward) {
 	print("mediaproxy: tell $dst to send to $mpport1 instead of $p1\n");
 	brk();
 
-	send_rcv_brk($c2, $mpip1, $mpport1, $c1);
-	send_rcv_brk($c2, $mpip1, $mpport1, $c1);
+	for (1 .. 4) {
+		send_rcv_brk($c2, $mpip1, $mpport1, $c1);
+	}
 
 	print("$dst tells $src: send RTP to $p2\n");
 	brk();
@@ -263,11 +262,13 @@ for my $tuple (\@forward, \@backward) {
 	print("mediaproxy: tell $dst to send to $mpport5 instead of $p1\n");
 	brk();
 
-	send_rcv_brk($c2, $mpip3, $mpport3, $c1);
-	send_rcv_brk($c2, $mpip3, $mpport3, $c1);
+	for (1 .. 4) {
+		send_rcv_brk($c2, $mpip3, $mpport3, $c1);
+	}
 	print("switching to new port...\n");
-	send_rcv_brk($c2, $mpip5, $mpport5, $c1);
-	send_rcv_brk($c2, $mpip5, $mpport5, $c1);
+	for (1 .. 4) {
+		send_rcv_brk($c2, $mpip5, $mpport5, $c1);
+	}
 
 	print("$dst tells $src: send RTP to $p2\n");
 	brk();
@@ -276,8 +277,9 @@ for my $tuple (\@forward, \@backward) {
 	print("mediaproxy: tell $src to send to $mpport6 instead of $p2\n");
 	brk();
 
-	send_rcv_brk($c2, $mpip5, $mpport5, $c1);
-	send_rcv_brk($c2, $mpip5, $mpport5, $c1);
+	for (1 .. 4) {
+		send_rcv_brk($c2, $mpip5, $mpport5, $c1);
+	}
 
 	send_rcv4($c2, $mpip5, $mpport5, $c1, $mpip6, $mpport6);
 
@@ -298,8 +300,9 @@ for my $tuple (\@forward, \@backward) {
 	print("mediaproxy: tell $dst to send to $mpport7 instead of $p1\n");
 	brk();
 
-	send_rcv_brk($c1, $mpip6, $mpport6, $c2);
-	send_rcv_brk($c1, $mpip6, $mpport6, $c2);
+	for (1 .. 4) {
+		send_rcv_brk($c1, $mpip6, $mpport6, $c2);
+	}
 
 	print("$dst tells $src: send RTP to $p2\n");
 	brk();
@@ -308,11 +311,13 @@ for my $tuple (\@forward, \@backward) {
 	print("mediaproxy: tell $src to send to $mpport8 instead of $p2\n");
 	brk();
 
-	send_rcv_brk($c1, $mpip6, $mpport6, $c2);
-	send_rcv_brk($c1, $mpip6, $mpport6, $c2);
+	for (1 .. 4) {
+		send_rcv_brk($c1, $mpip6, $mpport6, $c2);
+	}
 	print("switching to new port...\n");
-	send_rcv_brk($c1, $mpip8, $mpport8, $c2);
-	send_rcv_brk($c1, $mpip8, $mpport8, $c2);
+	for (1 .. 4) {
+		send_rcv_brk($c1, $mpip8, $mpport8, $c2);
+	}
 
 	send_rcv4($c2, $mpip7, $mpport7, $c1, $mpip8, $mpport8);
 

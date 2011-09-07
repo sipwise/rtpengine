@@ -9,6 +9,7 @@
 #ifndef NO_REDIS
 #include <hiredis.h>
 #endif
+#include <time.h>
 #include "ipt_MEDIAPROXY.h"
 
 
@@ -37,6 +38,7 @@ struct stream {
 struct streamrelay {
 	int			fd;
 	struct stream		peer;
+	struct stream		peer_advertised;
 	u_int16_t		localport;
 	unsigned char		idx;
 	struct peer		*up;
@@ -54,7 +56,6 @@ struct peer {
 	int			kernelized:1;
 	int			filled:1;
 	int			confirmed:1;
-	int			used:1;
 };
 struct callstream {
 	struct peer		peers[2];
@@ -74,6 +75,7 @@ struct call {
 	char			*calling_agent;
 	char			*called_agent;
 	GHashTable		*infohash;
+	time_t			lookup_done;
 };
 
 struct callmaster {

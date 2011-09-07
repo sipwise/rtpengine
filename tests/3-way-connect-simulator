@@ -56,21 +56,25 @@ sub send_rcv {
 	my $pkt = join('',map(rand,1..10));
 	send($sendfd, $pkt, 0, sockaddr_in($sendtoport, inet_aton($sendtoip))) or die;
 	my $inc;
-	alarm(5);
-	recv($recvfd, $inc, length($pkt), 0);
-	alarm(0);
-	$inc eq $pkt or die;
+	{
+		local $SIG{ALRM} = sub {
+			print("timeout!\n");
+		};
+		alarm(1);
+		recv($recvfd, $inc, length($pkt), 0);
+		alarm(0);
+	}
+	$inc eq $pkt or print("NOT received packed ok\n"), return;
 	print("received packet ok\n");
 }
 
 sub send_rcv4 {
-	send_rcv(@_[0,1,2,3]);
-	sleep(1);
-	send_rcv(@_[3,4,5,0]);
-	sleep(1);
-	send_rcv(@_[0,1,2,3]);
-	sleep(1);
-	send_rcv(@_[3,4,5,0]);
+	for (1 .. 4) {
+		send_rcv(@_[0,1,2,3]);
+		sleep(1);
+		send_rcv(@_[3,4,5,0]);
+		sleep(1);
+	}
 }
 
 sub sim_req_lk {
@@ -229,7 +233,10 @@ my ($mpip11, $mpport11) = sim_rq($callid1, $mpip10, $mpport10, $totag1, $fromtag
 print("mediaproxy: tell A to send to $mpport11 instead of $mpip10:$mpport10\n");
 brk();
 
-send_rcv($client1, $mpip11, $mpport11, $client4);	###### <<<<<< error trigger
+if (1) {
+	###### error trigger
+	send_rcv($client1, $mpip11, $mpport11, $client4);
+}
 
 print("A tells B: send RTP to $lp1\n");
 my ($mpip12, $mpport12) = sim_lk($callid1, $local_ip, $lp1, $totag1, $fromtag1);
