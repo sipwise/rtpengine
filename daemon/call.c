@@ -832,19 +832,23 @@ found:
 
 		if (r && p == r->up) {
 			/* best case, nothing to do */
+			DBG("case 1");
 			;
 		}
 		else if (r && cs_o != cs) {
 			/* found something, but it's linked to a different stream */
+			DBG("case 2");
 			steal_peer(p, r->up);
 		}
 		else if (!r && !p->filled) {
 			/* nothing found to steal, but this end is open */
+			DBG("case 3");
 			setup_peer(p, t, tag);
 		}
 		else {
 			/* nothing found to steal and this end is used */
 			/* need a new call stream after all */
+			DBG("case 4");
 			cs_o = cs;
 			cs = g_slice_alloc(sizeof(*cs));
 			callstream_init(cs, c, 0, 0);
