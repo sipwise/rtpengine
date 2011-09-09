@@ -15,6 +15,7 @@ port() {
 }
 
 ids=""
+ports=""
 for i in $(seq 1 1000); do
 	callid=`uuid`
 	test -z "$callid" && exit 1
@@ -30,8 +31,12 @@ for i in $(seq 1 1000); do
 	echo version | pipe
 	echo status | pipe
 
-	echo foo > /dev/udp/${src_rel/ //}
-	echo bar > /dev/udp/${dst_rel/ //}
+	src_path=${src_rel/ //}
+	dst_path=${dst_rel/ //}
+	ports="$ports $src_path $dst_path"
+	for port in $ports; do
+		echo foobar > /dev/udp/$port
+	done
 
 	ids="$ids $callid"
 done
