@@ -1,3 +1,10 @@
+ngcp-mediaproxy-ng (1.5.0) unstable; urgency=low
+
+  * Rework port re-use logic so it never opens new ports when it doesn't
+    need to.
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 15 Sep 2011 10:42:57 -0400
+
 ngcp-mediaproxy-ng (1.4.2) unstable; urgency=low
 
   * Slightly increase syslog verbosity
