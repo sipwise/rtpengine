@@ -1057,7 +1057,8 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", o[5], o[6]);
-	return NULL;
+	asprintf(&ret, "%s E8\n", o[1]);
+	return ret;
 }
 
 char *call_lookup_udp(const char **o, struct callmaster *m) {
@@ -1070,7 +1071,8 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 	c = g_hash_table_lookup(m->callhash, o[4]);
 	if (!c) {
 		mylog(LOG_WARNING, "[%s] Got UDP LOOKUP for unknown call-id", o[4]);
-		return NULL;
+		asprintf(&ret, "%s 0 " IPF "\n", o[1], IPP(m->ip));
+		return ret;
 	}
 
 	strdupfree(&c->called_agent, "UNKNOWN(udp)");
@@ -1099,7 +1101,8 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", o[5], o[6]);
-	return NULL;
+	asprintf(&ret, "%s E8\n", o[1]);
+	return ret;
 }
 
 char *call_request(const char **o, struct callmaster *m) {
