@@ -1,3 +1,10 @@
+ngcp-mediaproxy-ng (1.5.1) unstable; urgency=low
+
+  * Return a dummy/error reply over UDP when a call doesn't exist, so
+    kamailio doesn't think we're dead
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 20 Sep 2011 10:41:42 -0400
+
 ngcp-mediaproxy-ng (1.5.0) unstable; urgency=low
 
   * Rework port re-use logic so it never opens new ports when it doesn't
