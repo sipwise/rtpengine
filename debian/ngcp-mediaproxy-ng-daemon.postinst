@@ -1,6 +1,43 @@
 #!/bin/sh
+# postinst script for ngcp-mediaproxy-ng-daemon
 
 set -e
 
-#DEBHELPER#
+init_wrapper() {
+  if [ -x "/etc/init.d/ngcp-mediaproxy-ng-daemon" ]; then
+    if [ -x "$(which invoke-rc.d 2>/dev/null)" ]; then
+      invoke-rc.d ngcp-mediaproxy-ng-daemon start || exit $?
+    else
+      /etc/init.d/ngcp-mediaproxy-ng-daemon start || exit $?
+    fi
+  fi
+}
 
+restart_daemon() {
+  # ce systems do not provide ngcp-check_active
+  if ! [ -x "$(which ngcp-check_active 2>/dev/null)" ]; then
+    return 0
+  fi
+
+  # do not restart daemon on inactive node in pro systems
+  if ngcp-check_active ; then
+    echo "Active node detected, restarting ngcp-mediaproxy-ng-daemon"
+    init_wrapper
+  else
+    echo "Inactive node detected, ignoring request to restart ngcp-mediaproxy-ng-daemon"
+  fi
+}
+
+case "$1" in
+    configure)
+      restart_daemon
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
