@@ -7,9 +7,9 @@ set -e
 init_wrapper() {
   if [ -x "/etc/init.d/ngcp-mediaproxy-ng-daemon" ]; then
     if [ -x "$(which invoke-rc.d 2>/dev/null)" ]; then
-      invoke-rc.d ngcp-mediaproxy-ng-daemon start || exit $?
+      invoke-rc.d ngcp-mediaproxy-ng-daemon restart || exit $?
     else
-      /etc/init.d/ngcp-mediaproxy-ng-daemon start || exit $?
+      /etc/init.d/ngcp-mediaproxy-ng-daemon restart || exit $?
     fi
   fi
 }
