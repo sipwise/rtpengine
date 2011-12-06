@@ -52,8 +52,8 @@ static void control_udp_incoming(int fd, void *p) {
 
 	if (!parse_re) {
 		parse_re = pcre_compile(
-				/* cookie       cmd   flags    callid      addr        port   from_tag                 to_tag              cmd flags    callid */
-				"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
+				/* cookie       cmd   flags    callid      addr        port   from_tag                 to_tag                                 cmd flags    callid */
+				"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
 				PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 		parse_ree = pcre_study(parse_re, 0, &errptr);
 	}
