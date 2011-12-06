@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <pcre.h>
 #include <glib.h>
+#include <time.h>
 
 #include "control_udp.h"
 #include "poller.h"
@@ -18,7 +19,9 @@
 
 static pcre		*parse_re;
 static pcre_extra	*parse_ree;
-static GHashTable	*cookies;
+static GHashTable	*fresh_cookies, *stale_cookies;
+static GStringChunk	*fresh_chunks,  *stale_chunks;
+time_t			oven_time;
 
 
 
@@ -68,26 +71,32 @@ static void control_udp_incoming(int fd, void *p) {
 
 	pcre_get_substring_list(buf, ovec, ret, &out);
 
-	if (!cookies)
-		cookies = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
+	if (!fresh_cookies) {
+		fresh_cookies = g_hash_table_new(g_str_hash, g_str_equal);
+		stale_cookies = g_hash_table_new(g_str_hash, g_str_equal);
+		fresh_chunks = g_string_chunk_new(4 * 1024);
+		stale_chunks = g_string_chunk_new(4 * 1024);
+		time(&oven_time);
+	}
+	else {
+		if (u->poller->now - oven_time >= 30) {
+			g_hash_table_remove_all(stale_cookies);
+			g_string_chunk_clear(stale_chunks);
+			swap_ptrs(&stale_cookies, &fresh_cookies);
+			swap_ptrs(&stale_chunks, &fresh_chunks);
+			oven_time = u->poller->now;	/* baked new cookies! */
+		}
+	}
 
 	/* XXX better hashing */
-	reply = g_hash_table_lookup(cookies, out[1]);
+	reply = g_hash_table_lookup(fresh_cookies, out[1]);
+	if (!reply)
+		reply = g_hash_table_lookup(stale_cookies, out[1]);
 	if (reply) {
+		mylog(LOG_INFO, "Detected command from udp:" DF " as a duplicate", DP(sin));
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
 		goto out;
 	}
-
-	ZERO(mh);
-	mh.msg_name = &sin;
-	mh.msg_namelen = sizeof(sin);
-	mh.msg_iov = iov;
-	mh.msg_iovlen = 2;
-
-	iov[0].iov_base = (void *) out[1];
-	iov[0].iov_len = strlen(out[1]);
-	iov[1].iov_base = " ";
-	iov[1].iov_len = 1;
 
 	if (out[2][0] == 'u' || out[2][0] == 'U')
 		reply = call_update_udp(out, u->callmaster);
@@ -96,6 +105,17 @@ static void control_udp_incoming(int fd, void *p) {
 	else if (out[9][0] == 'd' || out[9][0] == 'D')
 		reply = call_delete_udp(out, u->callmaster);
 	else if (out[12][0] == 'v' || out[12][0] == 'V') {
+		ZERO(mh);
+		mh.msg_name = &sin;
+		mh.msg_namelen = sizeof(sin);
+		mh.msg_iov = iov;
+		mh.msg_iovlen = 2;
+
+		iov[0].iov_base = (void *) out[1];
+		iov[0].iov_len = strlen(out[1]);
+		iov[1].iov_base = " ";
+		iov[1].iov_len = 1;
+
 		if (out[13][0] == 'f' || out[13][0] == 'F') {
 			ret = 0;
 			if (!strcmp(out[14], "20040107"))
@@ -118,7 +138,9 @@ static void control_udp_incoming(int fd, void *p) {
 
 	if (reply) {
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
-		g_hash_table_insert(cookies, strdup(out[1]), reply);	/* XXX timeout entries */
+		g_hash_table_insert(fresh_cookies, g_string_chunk_insert(fresh_chunks, out[1]),
+			g_string_chunk_insert(fresh_chunks, reply));
+		free(reply);
 	}
 
 out:

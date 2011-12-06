@@ -57,6 +57,15 @@ static inline void uuid_str_generate(char *s) {
 	uuid_unparse(uuid, s);
 }
 
+static inline void swap_ptrs(void *a, void *b) {
+	void *t, **aa, **bb;
+	aa = a;
+	bb = b;
+	t = *aa;
+	*aa = *bb;
+	*bb = t;
+}
+
 
 
 #endif
