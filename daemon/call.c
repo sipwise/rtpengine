@@ -740,15 +740,15 @@ static void callstream_init(struct callstream *s, struct call *ca, int port1, in
 
 
 
-static unsigned int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) {
+static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) {
 	GQueue *q;
 	GList *i, *l;
 	struct stream *t;
 	int x;
 	struct streamrelay *r;
 	struct callstream *cs, *cs_o;
-	struct peer *p;
-	unsigned int ret;
+	struct peer *p, *p2;
+	int ret = 1;
 
 	q = g_queue_new();	/* new callstreams list */
 
@@ -829,6 +829,21 @@ found:
 		cs = l->data;
 		g_queue_delete_link(c->callstreams, l);
 		p = &cs->peers[1];
+		p2 = &cs->peers[0];
+
+		if (c->lookup_done && r) {
+			/* duplicate/stray lookup. don't do anything except replying with something
+			   we already have. check whether the direction is reversed or not and return
+			   the appropriate details. if no matching stream was found, results are
+			   undefined. */
+			if (p == r->up)
+				goto skip;
+			if (p2 == r->up) {
+				ret = -1;
+				goto skip;
+			}
+		}
+
 
 		if (r && p == r->up) {
 			/* best case, nothing to do */
@@ -860,10 +875,11 @@ found:
 
 		time(&c->lookup_done);
 
+skip:
 		g_queue_push_tail(q, p->up);
 	}
 
-	ret = q->length;
+	ret = ret * q->length;
 
 	if (!q->head)
 		g_queue_free(q);
@@ -1051,7 +1067,7 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, 1, 0, o[1], 1);
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, o[1], 1);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 
@@ -1095,7 +1111,7 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, 1, 1, o[1], 1);
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, o[1], 1);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 
@@ -1108,7 +1124,7 @@ fail:
 char *call_request(const char **o, struct callmaster *m) {
 	struct call *c;
 	GQueue *s;
-	unsigned int num;
+	int num;
 	char *ret;
 
 	c = call_get_or_create(o[2], m);
@@ -1123,7 +1139,7 @@ char *call_request(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, num, 0, NULL, 0);
+	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 }
@@ -1131,7 +1147,7 @@ char *call_request(const char **o, struct callmaster *m) {
 char *call_lookup(const char **o, struct callmaster *m) {
 	struct call *c;
 	GQueue *s;
-	unsigned int num;
+	int num;
 	char *ret;
 
 	c = g_hash_table_lookup(m->callhash, o[2]);
@@ -1150,7 +1166,7 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, num, 1, NULL, 0);
+	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 }
