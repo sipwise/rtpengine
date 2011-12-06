@@ -36,24 +36,24 @@ OBJS=		$(SRCS:.c=.o)
 
 all:
 ifeq ($(REDIS),yes)
-	make -C $(LIBREDISDIR) static
+	$(MAKE) -C $(LIBREDISDIR) static
 endif
-	make mediaproxy-ng
+	$(MAKE) mediaproxy-ng
 
 no-redis:
-	make REDIS=no all
+	$(MAKE) REDIS=no all
 
 debug:
-	make DBG=yes all
+	$(MAKE) DBG=yes all
 
 tests:
-	make aux-test poller-test
+	$(MAKE) aux-test poller-test
 
 dep:		.depend
 
 clean:
 	rm -f $(OBJS) mediaproxy-ng aux-test poller-test aux-test.o poller-test.o .depend build_time.h core
-	make -C $(LIBREDISDIR) clean
+	$(MAKE) -C $(LIBREDISDIR) clean
 
 .depend:	$(SRCS) Makefile build_time.h
 	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
