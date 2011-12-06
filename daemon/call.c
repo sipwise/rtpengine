@@ -771,6 +771,9 @@ static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) 
 			cs_o = l->data;
 			for (x = 0; x < 2; x++) {
 				r = &cs_o->peers[x].rtps[0];
+				DBG("comparing new "IPF":%u/%s to old "IPF":%u/%s",
+					IPP(t->ip), t->port, tag,
+					IPP(r->peer_advertised.ip), r->peer_advertised.port, cs_o->peers[x].tag);
 				if (r->peer_advertised.ip != t->ip)
 					continue;
 				if (r->peer_advertised.port != t->port)
@@ -836,6 +839,7 @@ found:
 			   we already have. check whether the direction is reversed or not and return
 			   the appropriate details. if no matching stream was found, results are
 			   undefined. */
+			DBG("double lookup");
 			if (p == r->up)
 				goto skip;
 			if (p2 == r->up) {
