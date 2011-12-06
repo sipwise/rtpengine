@@ -7,12 +7,19 @@ CFLAGS=		-g -Wall `pkg-config --cflags glib-2.0` `pcre-config --cflags` -fno-str
 CFLAGS+=	-I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
 CFLAGS+=	-O2
+
 ifeq ($(REDIS),yes)
 CFLAGS+=	-I$(LIBREDISDIR)
 else
 CFLAGS+=	-DNO_REDIS=1
 endif
+
+ifeq ($(DBG),yes)
+CFLAGS+=	-D__DEBUG=1
+endif
+
 LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
+
 ifeq ($(REDIS),yes)
 LDFLAGS+=	-L$(LIBREDISDIR) -lhiredis -luuid
 endif
@@ -25,7 +32,7 @@ endif
 OBJS=		$(SRCS:.c=.o)
 
 
-.PHONY:		all dep clean tests no-redis
+.PHONY:		all dep clean tests no-redis debug
 
 all:
 ifeq ($(REDIS),yes)
@@ -35,6 +42,9 @@ endif
 
 no-redis:
 	make REDIS=no all
+
+debug:
+	make DBG=yes all
 
 tests:
 	make aux-test poller-test

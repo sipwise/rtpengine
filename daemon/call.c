@@ -27,7 +27,7 @@
 
 
 
-#if 0
+#ifdef __DEBUG
 #define DBG(x...) mylog(LOG_DEBUG, x)
 #else
 #define DBG(x...) ((void)0)
