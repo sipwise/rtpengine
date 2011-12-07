@@ -426,8 +426,8 @@ static void *proc_main_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v 
 		return NULL;
 	id = *o;
 
-	while (id++ < MAX_ID) {
-		t = get_table(id);
+	while (id < MAX_ID) {
+		t = get_table(id++);
 		if (!t)
 			continue;
 		break;
@@ -441,7 +441,7 @@ static void *proc_main_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v 
 static int proc_main_list_show(struct seq_file *f, void *v) {
 	struct mediaproxy_table *g = v;
 
-	seq_printf(f, "table %u present\n", g->id);
+	seq_printf(f, "%u\n", g->id);
 	table_push(g);
 
 	return 0;
