@@ -4,6 +4,13 @@
 
 
 
+
+#include <pcre.h>
+#include <glib.h>
+#include <time.h>
+
+
+
 struct poller;
 struct callmaster;
 
@@ -16,6 +23,12 @@ struct control_udp {
 
 	struct poller		*poller;
 	struct callmaster	*callmaster;
+
+	pcre			*parse_re;
+	pcre_extra		*parse_ree;
+	GHashTable		*fresh_cookies, *stale_cookies;
+	GStringChunk		*fresh_chunks,  *stale_chunks;
+	time_t			oven_time;
 };
 
 

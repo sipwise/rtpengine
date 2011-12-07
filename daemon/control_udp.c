@@ -17,11 +17,6 @@
 
 
 
-static pcre		*parse_re;
-static pcre_extra	*parse_ree;
-static GHashTable	*fresh_cookies, *stale_cookies;
-static GStringChunk	*fresh_chunks,  *stale_chunks;
-time_t			oven_time;
 
 
 
@@ -37,8 +32,6 @@ static void control_udp_incoming(int fd, void *p) {
 	struct sockaddr_in sin;
 	socklen_t sin_len;
 	int ovec[60];
-	const char *errptr;
-	int erroff;
 	const char **out;
 	char *reply;
 	struct msghdr mh;
@@ -53,15 +46,7 @@ static void control_udp_incoming(int fd, void *p) {
 
 	buf[ret] = '\0';
 
-	if (!parse_re) {
-		parse_re = pcre_compile(
-				/* cookie       cmd   flags    callid      addr        port   from_tag                 to_tag                                 cmd flags    callid */
-				"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
-				PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
-		parse_ree = pcre_study(parse_re, 0, &errptr);
-	}
-
-	ret = pcre_exec(parse_re, parse_ree, buf, ret, 0, 0, ovec, G_N_ELEMENTS(ovec));
+	ret = pcre_exec(u->parse_re, u->parse_ree, buf, ret, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
 		mylog(LOG_WARNING, "Unable to parse command line from udp:" DF ": %s", DP(sin), buf);
 		return;
@@ -71,27 +56,18 @@ static void control_udp_incoming(int fd, void *p) {
 
 	pcre_get_substring_list(buf, ovec, ret, &out);
 
-	if (!fresh_cookies) {
-		fresh_cookies = g_hash_table_new(g_str_hash, g_str_equal);
-		stale_cookies = g_hash_table_new(g_str_hash, g_str_equal);
-		fresh_chunks = g_string_chunk_new(4 * 1024);
-		stale_chunks = g_string_chunk_new(4 * 1024);
-		time(&oven_time);
-	}
-	else {
-		if (u->poller->now - oven_time >= 30) {
-			g_hash_table_remove_all(stale_cookies);
-			g_string_chunk_clear(stale_chunks);
-			swap_ptrs(&stale_cookies, &fresh_cookies);
-			swap_ptrs(&stale_chunks, &fresh_chunks);
-			oven_time = u->poller->now;	/* baked new cookies! */
-		}
+	if (u->poller->now - u->oven_time >= 30) {
+		g_hash_table_remove_all(u->stale_cookies);
+		g_string_chunk_clear(u->stale_chunks);
+		swap_ptrs(&u->stale_cookies, &u->fresh_cookies);
+		swap_ptrs(&u->stale_chunks, &u->fresh_chunks);
+		u->oven_time = u->poller->now;	/* baked new cookies! */
 	}
 
 	/* XXX better hashing */
-	reply = g_hash_table_lookup(fresh_cookies, out[1]);
+	reply = g_hash_table_lookup(u->fresh_cookies, out[1]);
 	if (!reply)
-		reply = g_hash_table_lookup(stale_cookies, out[1]);
+		reply = g_hash_table_lookup(u->stale_cookies, out[1]);
 	if (reply) {
 		mylog(LOG_INFO, "Detected command from udp:" DF " as a duplicate", DP(sin));
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
@@ -138,8 +114,8 @@ static void control_udp_incoming(int fd, void *p) {
 
 	if (reply) {
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
-		g_hash_table_insert(fresh_cookies, g_string_chunk_insert(fresh_chunks, out[1]),
-			g_string_chunk_insert(fresh_chunks, reply));
+		g_hash_table_insert(u->fresh_cookies, g_string_chunk_insert(u->fresh_chunks, out[1]),
+			g_string_chunk_insert(u->fresh_chunks, reply));
 		free(reply);
 	}
 
@@ -152,6 +128,8 @@ struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t po
 	struct control_udp *c;
 	struct poller_item i;
 	struct sockaddr_in sin;
+	const char *errptr;
+	int erroff;
 
 	if (!p || !m)
 		return NULL;
@@ -177,6 +155,16 @@ struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t po
 	c->fd = fd;
 	c->poller = p;
 	c->callmaster = m;
+	c->fresh_cookies = g_hash_table_new(g_str_hash, g_str_equal);
+	c->stale_cookies = g_hash_table_new(g_str_hash, g_str_equal);
+	c->fresh_chunks = g_string_chunk_new(4 * 1024);
+	c->stale_chunks = g_string_chunk_new(4 * 1024);
+	c->oven_time = p->now;
+	c->parse_re = pcre_compile(
+			/* cookie       cmd   flags    callid      addr        port   from_tag                 to_tag                                 cmd flags    callid */
+			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
+			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
+	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 
 	ZERO(i);
 	i.fd = fd;
