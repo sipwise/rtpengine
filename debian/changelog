@@ -1,3 +1,12 @@
+ngcp-mediaproxy-ng (1.5.3) unstable; urgency=low
+
+  * Fix incorrect handling of lookups received without prior request
+  * Fix a long-standing bug that caused from/to tags to be ignored when using UDP protocol
+  * Properly timeout and cleanup UDP cookies
+  * Fix table 0 not showing up in /proc/mediaproxy/list
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 08 Dec 2011 11:05:30 -0500
+
 ngcp-mediaproxy-ng (1.5.2) unstable; urgency=low
 
   * Fix bad tagging
