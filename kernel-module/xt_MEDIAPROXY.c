@@ -18,7 +18,7 @@
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter/x_tables.h>
-#include "ipt_MEDIAPROXY.h"
+#include "xt_MEDIAPROXY.h"
 
 MODULE_LICENSE("GPL");
 
@@ -214,7 +214,7 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 
 	t = new_table();
 	if (!t) {
-		printk(KERN_WARNING "ipt_MEDIAPROXY out of memory\n");
+		printk(KERN_WARNING "xt_MEDIAPROXY out of memory\n");
 		return NULL;
 	}
 
@@ -222,7 +222,7 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 	if (table[id]) {
 		write_unlock_irqrestore(&table_lock, flags);
 		table_push(t);
-		printk(KERN_WARNING "ipt_MEDIAPROXY duplicate ID %u\n", id);
+		printk(KERN_WARNING "xt_MEDIAPROXY duplicate ID %u\n", id);
 		return NULL;
 	}
 
@@ -232,7 +232,7 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 	write_unlock_irqrestore(&table_lock, flags);
 
 	if (table_create_proc(t, id))
-		printk(KERN_WARNING "ipt_MEDIAPROXY failed to create /proc entry for ID %u\n", id);
+		printk(KERN_WARNING "xt_MEDIAPROXY failed to create /proc entry for ID %u\n", id);
 
 
 	return t;
@@ -943,7 +943,7 @@ static ssize_t proc_control_write(struct file *file, const char __user *buf, siz
 			break;
 
 		default:
-			printk(KERN_WARNING "ipt_MEDIAPROXY unimplemented op %u\n", msg.cmd);
+			printk(KERN_WARNING "xt_MEDIAPROXY unimplemented op %u\n", msg.cmd);
 			err = -EINVAL;
 			goto err;
 	}
@@ -1011,7 +1011,7 @@ static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_target_para
 #else
 static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_action_param *par) {
 #endif
-	const struct ipt_mediaproxy_info *pinfo = par->targinfo;
+	const struct xt_mediaproxy_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
 	struct sk_buff *skb2;
 	struct iphdr *ih;
@@ -1081,6 +1081,17 @@ skip:
 
 
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
+static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_target_param *par) {
+#else
+static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_param *par) {
+#endif
+	return 0;
+}
+
+
+
+
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
 #define CHECK_ERR false
@@ -1091,14 +1102,14 @@ static bool check(const struct xt_tgchk_param *par) {
 #define CHECK_SCC 0
 static int check(const struct xt_tgchk_param *par) {
 #endif
-	const struct ipt_mediaproxy_info *pinfo = par->targinfo;
+	const struct xt_mediaproxy_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
-		printk(KERN_WARNING "ipt_MEDIAPROXY check() without proc_root\n");
+		printk(KERN_WARNING "xt_MEDIAPROXY check() without proc_root\n");
 		return CHECK_ERR;
 	}
 	if (pinfo->id >= MAX_ID) {
-		printk(KERN_WARNING "ipt_MEDIAPROXY ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
+		printk(KERN_WARNING "xt_MEDIAPROXY ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
 		return CHECK_ERR;
 	}
 
@@ -1108,21 +1119,33 @@ static int check(const struct xt_tgchk_param *par) {
 
 
 
-static struct xt_target ipt_mediaproxy_reg = {
-	.name		= "MEDIAPROXY",
-	.family		= NFPROTO_IPV4,
-	.target		= mediaproxy,
-	.targetsize	= sizeof(struct ipt_mediaproxy_info),
-	.table		= "filter",
-	.hooks		= (1 << NF_INET_LOCAL_IN),
-	.checkentry	= check,
-	.me		= THIS_MODULE,
+static struct xt_target xt_mediaproxy_regs[] = {
+	{
+		.name		= "MEDIAPROXY",
+		.family		= NFPROTO_IPV4,
+		.target		= mediaproxy,
+		.targetsize	= sizeof(struct xt_mediaproxy_info),
+		.table		= "filter",
+		.hooks		= (1 << NF_INET_LOCAL_IN),
+		.checkentry	= check,
+		.me		= THIS_MODULE,
+	},
+	{
+		.name		= "MEDIAPROXY",
+		.family		= NFPROTO_IPV6,
+		.target		= mediaproxy6,
+		.targetsize	= sizeof(struct xt_mediaproxy_info),
+		.table		= "filter",
+		.hooks		= (1 << NF_INET_LOCAL_IN),
+		.checkentry	= check,
+		.me		= THIS_MODULE,
+	},
 };
 
 static int __init init(void) {
 	int ret;
 
-	printk(KERN_NOTICE "Registering ipt_MEDIAPROXY module\n");
+	printk(KERN_NOTICE "Registering xt_MEDIAPROXY module\n");
 
 	rwlock_init(&table_lock);
 
@@ -1144,7 +1167,7 @@ static int __init init(void) {
 	/* proc_list->owner = THIS_MODULE; */
 	proc_list->proc_fops = &proc_main_list_ops;
 
-	ret = xt_register_target(&ipt_mediaproxy_reg);
+	ret = xt_register_targets(xt_mediaproxy_regs, ARRAY_SIZE(xt_mediaproxy_regs));
 	if (ret)
 		goto fail;
 
@@ -1159,8 +1182,8 @@ fail:
 }
 
 static void __exit fini(void) {
-	printk(KERN_NOTICE "Unregistering ipt_MEDIAPROXY module\n");
-	xt_unregister_target(&ipt_mediaproxy_reg);
+	printk(KERN_NOTICE "Unregistering xt_MEDIAPROXY module\n");
+	xt_unregister_targets(xt_mediaproxy_regs, ARRAY_SIZE(xt_mediaproxy_regs));
 
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);

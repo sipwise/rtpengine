@@ -1,7 +1,7 @@
 #ifndef IPT_RTPPROXY_H
 #define IPT_RTPPROXY_H
 
-struct ipt_mediaproxy_info {
+struct xt_mediaproxy_info {
 	u_int32_t			id;
 };
 
