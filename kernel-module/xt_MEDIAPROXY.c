@@ -27,6 +27,26 @@ MODULE_LICENSE("GPL");
 
 #define MAX_ID 64 /* - 1 */
 
+#define MIPF		"%i:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%u"
+#define MIPP(x)		(x).family,		\
+			(x).all[0],		\
+			(x).all[1],		\
+			(x).all[2],		\
+			(x).all[3],		\
+			(x).all[4],		\
+			(x).all[5],		\
+			(x).all[6],		\
+			(x).all[7],		\
+			(x).all[8],		\
+			(x).all[9],		\
+			(x).all[10],		\
+			(x).all[11],		\
+			(x).all[12],		\
+			(x).all[13],		\
+			(x).all[14],		\
+			(x).all[15],		\
+			(x).port
+
 #if 0
 #define DBG(x...) printk(KERN_DEBUG x)
 #else
@@ -668,6 +688,31 @@ static int table_del_target(struct mediaproxy_table *t, u_int16_t port) {
 
 
 
+static int is_valid_address(struct mp_address *mpa) {
+	switch (mpa->family) {
+		case AF_INET:
+			if (!mpa->ipv4)
+				return 0;
+			break;
+
+		case AF_INET6:
+			if (!memcmp(mpa->ipv6, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16))
+				return 0;
+			break;
+
+		default:
+			return 0;
+	}
+
+	if (!mpa->port)
+		return 0;
+
+	return 1;
+}
+
+
+
+
 
 static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target_info *i, int update) {
 	unsigned char hi, lo;
@@ -679,13 +724,11 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 
 	if (!i->target_port)
 		return -EINVAL;
-	if (!i->src_ip)
+	if (!is_valid_address(&i->src_addr))
 		return -EINVAL;
-	if (!i->dst_ip)
+	if (!is_valid_address(&i->dst_addr))
 		return -EINVAL;
-	if (!i->src_port)
-		return -EINVAL;
-	if (!i->dst_port)
+	if (i->src_addr.family != i->dst_addr.family)
 		return -EINVAL;
 
 	DBG(KERN_DEBUG "Creating new target\n");
@@ -961,7 +1004,7 @@ err:
 
 
 
-static int send_proxy_packet(struct sk_buff *skb, u_int32_t sip, u_int16_t sport, u_int32_t dip, u_int16_t dport, unsigned char tos) {
+static int send_proxy_packet4(struct sk_buff *skb, struct mp_address *src, struct mp_address *dst, unsigned char tos) {
 	struct iphdr *ih;
 	struct udphdr *uh;
 	int datalen;
@@ -971,16 +1014,16 @@ static int send_proxy_packet(struct sk_buff *skb, u_int32_t sip, u_int16_t sport
 
 	datalen = ntohs(uh->len);
 
-	ih->saddr = sip;
-	ih->daddr = dip;
+	ih->saddr = src->ipv4;
+	ih->daddr = dst->ipv4;
 	ih->tos = tos;
-	uh->source = htons(sport);
-	uh->dest = htons(dport);
+	uh->source = htons(src->port);
+	uh->dest = htons(dst->port);
 
 	uh->check = 0;
 	skb->csum_start = skb_transport_header(skb) - skb->head;
 	skb->csum_offset = offsetof(struct udphdr, check);
-	uh->check = csum_tcpudp_magic(sip, dip, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
+	uh->check = csum_tcpudp_magic(src->ipv4, dst->ipv4, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
 	if (uh->check == 0)
 		uh->check = CSUM_MANGLED_0;
 
@@ -1005,11 +1048,33 @@ drop:
 
 
 
+static int send_proxy_packet(struct sk_buff *skb, struct mp_address *src, struct mp_address *dst, unsigned char tos) {
+	if (src->family != dst->family)
+		goto drop;
+
+	switch (src->family) {
+		case AF_INET:
+			return send_proxy_packet4(skb, src, dst, tos);
+			break;
+
+		default:
+			goto drop;
+	}
+
+drop:
+	kfree_skb(skb);
+	return -1;
+}
+
+
+
+
+
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_target_param *par) {
+static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_target_param *par) {
 #else
-static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_action_param *par) {
+static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_param *par) {
 #endif
 	const struct xt_mediaproxy_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
@@ -1041,12 +1106,12 @@ static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_action_para
 	if (!g)
 		goto skip2;
 
-	DBG(KERN_DEBUG "target found, src %08x -> dst %08x\n", g->target.src_ip, g->target.dst_ip);
+	DBG(KERN_DEBUG "target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
 
-	if (g->target.mirror_ip && g->target.mirror_port) {
-		DBG(KERN_DEBUG "sending mirror packet to dst %08x\n", g->target.mirror_ip);
+	if (is_valid_address(&g->target.mirror_addr)) {
+		DBG(KERN_DEBUG "sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
-		err = send_proxy_packet(skb2, g->target.src_ip, g->target.src_port, g->target.mirror_ip, g->target.mirror_port, g->target.tos);
+		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
 		if (err) {
 			spin_lock_irqsave(&g->lock, flags);
 			g->stats.errors++;
@@ -1054,7 +1119,7 @@ static unsigned int mediaproxy(struct sk_buff *oskb, const struct xt_action_para
 		}
 	}
 
-	err = send_proxy_packet(skb, g->target.src_ip, g->target.src_port, g->target.dst_ip, g->target.dst_port, g->target.tos);
+	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
 	spin_lock_irqsave(&g->lock, flags);
 	if (err)
@@ -1123,7 +1188,7 @@ static struct xt_target xt_mediaproxy_regs[] = {
 	{
 		.name		= "MEDIAPROXY",
 		.family		= NFPROTO_IPV4,
-		.target		= mediaproxy,
+		.target		= mediaproxy4,
 		.targetsize	= sizeof(struct xt_mediaproxy_info),
 		.table		= "filter",
 		.hooks		= (1 << NF_INET_LOCAL_IN),

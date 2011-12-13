@@ -11,16 +11,23 @@ struct mediaproxy_stats {
 	u_int64_t			errors;
 };
 
+struct mp_address {
+	int				family;
+	union {
+		unsigned char		all[16];
+		unsigned char		ipv6[16];
+		u_int32_t		ipv4;
+	};
+	u_int16_t			port;
+};
+
 struct mediaproxy_target_info {
 	u_int16_t			target_port;
 
-	u_int32_t			src_ip;
-	u_int32_t			dst_ip;
-	u_int16_t			src_port;
-	u_int16_t			dst_port;
+	struct mp_address		src_addr;
+	struct mp_address		dst_addr;
 
-	u_int32_t			mirror_ip;
-	u_int16_t			mirror_port;
+	struct mp_address		mirror_addr;
 
 	unsigned char			tos;
 };
