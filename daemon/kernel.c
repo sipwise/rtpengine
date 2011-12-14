@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <glib.h>
 
-#include "ipt_MEDIAPROXY.h"
+#include "xt_MEDIAPROXY.h"
 
 #include "aux.h"
 #include "kernel.h"
@@ -77,12 +77,12 @@ int kernel_add_stream(int fd, struct kernel_stream *info, int update) {
 	ZERO(msg);
 	msg.cmd = update ? MMG_UPDATE : MMG_ADD;
 	msg.target.target_port = info->local_port;
-	msg.target.src_ip = info->src.ip;
-	msg.target.dst_ip = info->dest.ip;
-	msg.target.src_port = info->src.port;
-	msg.target.dst_port = info->dest.port;
-	msg.target.mirror_ip = info->mirror.ip;
-	msg.target.mirror_port = info->mirror.port;
+	msg.target.src_addr.ipv4 = info->src.ip;
+	msg.target.src_addr.port = info->src.port;
+	msg.target.dst_addr.ipv4 = info->dest.ip;
+	msg.target.dst_addr.port = info->dest.port;
+	msg.target.mirror_addr.ipv4 = info->mirror.ip;
+	msg.target.mirror_addr.port = info->mirror.port;
 	msg.target.tos = info->tos;
 
 	return write(fd, &msg, sizeof(msg)) <= 0 ? -1 : 0;
