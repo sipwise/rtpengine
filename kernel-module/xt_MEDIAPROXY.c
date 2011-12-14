@@ -1151,7 +1151,71 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_target_par
 #else
 static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_param *par) {
 #endif
-	return 0;
+	const struct xt_mediaproxy_info *pinfo = par->targinfo;
+	struct sk_buff *skb;
+	struct sk_buff *skb2;
+	struct ipv6hdr *ih;
+	struct udphdr *uh;
+	struct mediaproxy_table *t;
+	struct mediaproxy_target *g;
+	int err;
+	unsigned long flags;
+
+	t = get_table(pinfo->id);
+	if (!t)
+		goto skip;
+
+	skb = skb_copy(oskb, GFP_ATOMIC);
+	if (!skb)
+		goto skip3;
+
+	skb_reset_network_header(skb);
+	ih = ipv6_hdr(skb);
+	if (ih->nexthdr != IPPROTO_UDP)
+		goto skip2;
+
+	skb_set_transport_header(skb, sizeof(*ih));
+	uh = udp_hdr(skb);
+
+	g = get_target(t, ntohs(uh->dest));
+	if (!g)
+		goto skip2;
+
+	DBG(KERN_DEBUG "target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
+
+	if (is_valid_address(&g->target.mirror_addr)) {
+		DBG(KERN_DEBUG "sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
+		skb2 = skb_copy(skb, GFP_ATOMIC);
+		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
+		if (err) {
+			spin_lock_irqsave(&g->lock, flags);
+			g->stats.errors++;
+			spin_unlock_irqrestore(&g->lock, flags);
+		}
+	}
+
+	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
+
+	spin_lock_irqsave(&g->lock, flags);
+	if (err)
+		g->stats.errors++;
+	else {
+		g->stats.packets++;
+		g->stats.bytes += skb->len;
+	}
+	spin_unlock_irqrestore(&g->lock, flags);
+
+	target_push(g);
+	table_push(t);
+
+	return NF_DROP;
+
+skip2:
+	kfree_skb(skb);
+skip3:
+	table_push(t);
+skip:
+	return XT_CONTINUE;
 }
 
 
