@@ -1,1 +1,1 @@
-iptables-extension/libipt_MEDIAPROXY.so /lib/xtables/
+iptables-extension/libxt_MEDIAPROXY.so /lib/xtables/

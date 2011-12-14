@@ -36,7 +36,7 @@ build: build-stamp
 
 build-stamp:
 	dh_testdir
-	cd iptables-extension/ && gcc -O2 -Wall -fPIC -shared -o libipt_MEDIAPROXY.so libipt_MEDIAPROXY-1.4.c && cd ..
+	cd iptables-extension/ && gcc -O2 -Wall -fPIC -shared -o libxt_MEDIAPROXY.so libxt_MEDIAPROXY-1.4.c && cd ..
 	cd daemon && $(MAKE) && cd ..
 	touch $@
 
@@ -45,8 +45,8 @@ clean:
 	dh_testroot
 	cd daemon && $(MAKE) clean && cd ..
 	rm -f build-stamp
-	rm -f iptables-extension/libipt_MEDIAPROXY.so
-	rm -f daemon/mediaproxy-ng daemon/build_time.h daemon/.depend kernel-module/.ipt_MEDIAPROXY.o.d
+	rm -f iptables-extension/libxt_MEDIAPROXY.so
+	rm -f daemon/mediaproxy-ng daemon/build_time.h daemon/.depend kernel-module/.xt_MEDIAPROXY.o.d
 	rm -rf kernel-module/.tmp_versions
 	dh_clean
 	-rm -rf debian/build

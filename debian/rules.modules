@@ -62,7 +62,7 @@ binary-modules: prep-deb-files
 	$(MAKE) modules KSRC=$(KSRC) KVER=$(KVERS)
 
 	# Install the module
-	install -D -m 0644 ipt_MEDIAPROXY.ko debian/$(PACKAGE)-$(KVERS)/lib/modules/$(KVERS)/extra/ipt_MEDIAPROXY.ko
+	install -D -m 0644 xt_MEDIAPROXY.ko debian/$(PACKAGE)-$(KVERS)/lib/modules/$(KVERS)/extra/xt_MEDIAPROXY.ko
 
 	dh_installdocs
 	dh_installchangelogs
