@@ -23,6 +23,17 @@
 #define IPP(x)			((unsigned char *) (&(x)))[0], ((unsigned char *) (&(x)))[1], ((unsigned char *) (&(x)))[2], ((unsigned char *) (&(x)))[3]
 #define DF			IPF ":%u"
 #define DP(x)			IPP((x).sin_addr.s_addr), ntohs((x).sin_port)
+#define IP6F			"%x:%x:%x:%x:%x:%x:%x:%x"
+#define IP6P(x)			ntohs(((u_int16_t *) (x))[0]), \
+				ntohs(((u_int16_t *) (x))[1]), \
+				ntohs(((u_int16_t *) (x))[2]), \
+				ntohs(((u_int16_t *) (x))[3]), \
+				ntohs(((u_int16_t *) (x))[4]), \
+				ntohs(((u_int16_t *) (x))[5]), \
+				ntohs(((u_int16_t *) (x))[6]), \
+				ntohs(((u_int16_t *) (x))[7])
+#define D6F			IP6F ":%u"
+#define D6P(x)			IP6P((x).sin6_addr.s6_addr), ntohs((x).sin6_port)
 
 #define NONBLOCK(x)		fcntl(x, F_SETFL, O_NONBLOCK)
 #define REUSEADDR(x)		do { int ONE = 1; setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &ONE, sizeof(ONE)); } while (0)

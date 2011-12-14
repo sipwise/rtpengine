@@ -71,21 +71,32 @@ fail:
 }
 
 
+static void addr_copy(struct mp_address *mp, struct ip_port *ap) {
+	mp->family = ap->family;
+	mp->port = ap->port;
+	switch (mp->family) {
+		case AF_INET:
+			mp->ipv4 = ap->ipv4;
+			break;
+		case AF_INET6:
+			memcpy(mp->ipv6, ap->ipv6, 16);
+			break;
+		default:
+			/* XXX panic */
+			break;
+	}
+}
+
+
 int kernel_add_stream(int fd, struct kernel_stream *info, int update) {
 	struct mediaproxy_message msg;
 
 	ZERO(msg);
 	msg.cmd = update ? MMG_UPDATE : MMG_ADD;
 	msg.target.target_port = info->local_port;
-	msg.target.src_addr.family = AF_INET;
-	msg.target.src_addr.ipv4 = info->src.ip;
-	msg.target.src_addr.port = info->src.port;
-	msg.target.dst_addr.family = AF_INET;
-	msg.target.dst_addr.ipv4 = info->dest.ip;
-	msg.target.dst_addr.port = info->dest.port;
-	msg.target.mirror_addr.family = AF_INET;
-	msg.target.mirror_addr.ipv4 = info->mirror.ip;
-	msg.target.mirror_addr.port = info->mirror.port;
+	addr_copy(&msg.target.src_addr, &info->src);
+	addr_copy(&msg.target.dst_addr, &info->dest);
+	addr_copy(&msg.target.mirror_addr, &info->mirror);
 	msg.target.tos = info->tos;
 
 	return write(fd, &msg, sizeof(msg)) <= 0 ? -1 : 0;

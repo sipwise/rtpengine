@@ -245,8 +245,8 @@ int main(int argc, char **argv) {
 		return -1;
 	m->kernelfd = kfd;
 	m->kernelid = table;
-	m->ip = ip;
-	m->adv_ip = adv_ip;
+	m->ipv4 = ip;
+	m->adv_ipv4 = adv_ip;
 	m->port_min = port_min;
 	m->port_max = port_max;
 	m->timeout = timeout;

@@ -10,7 +10,11 @@
 
 
 struct ip_port {
-	u_int32_t               ip;
+	int			family;
+	union {
+		u_int32_t	ipv4;
+		unsigned char	ipv6[16];
+	};
 	u_int16_t               port;
 };
 

@@ -56,6 +56,8 @@ static void control_udp_incoming(int fd, void *p) {
 
 		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from "DF", using fallback RE", buf, DP(sin));
 
+		pcre_get_substring_list(buf, ovec, ret, &out);
+
 		ZERO(mh);
 		mh.msg_name = &sin;
 		mh.msg_namelen = sizeof(sin);
@@ -72,6 +74,8 @@ static void control_udp_incoming(int fd, void *p) {
 		iov[3].iov_len = 1;
 
 		sendmsg(fd, &mh, 0);
+
+		pcre_free(out);
 
 		return;
 	}
@@ -185,8 +189,8 @@ struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t po
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
 	c->oven_time = p->now;
 	c->parse_re = pcre_compile(
-			/* cookie       cmd   flags    callid      addr        port   from_tag                 to_tag                                 cmd flags    callid */
-			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
+			/* cookie:1     cmd:2 flags:3  callid:4       addr4:5           addr6:6              port:7  from_tag:8               to_tag:9                              cmd flags    callid */
+			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+(?:([\\d.]+)|([\\da-f:]+(?::[\\d.]+)?))\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 			              /* cookie    cmd flags callid    addr      port */
