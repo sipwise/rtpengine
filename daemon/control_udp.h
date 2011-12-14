@@ -26,6 +26,7 @@ struct control_udp {
 
 	pcre			*parse_re;
 	pcre_extra		*parse_ree;
+	pcre			*fallback_re;
 	GHashTable		*fresh_cookies, *stale_cookies;
 	GStringChunk		*fresh_chunks,  *stale_chunks;
 	time_t			oven_time;

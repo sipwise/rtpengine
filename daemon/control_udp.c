@@ -48,7 +48,31 @@ static void control_udp_incoming(int fd, void *p) {
 
 	ret = pcre_exec(u->parse_re, u->parse_ree, buf, ret, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
-		mylog(LOG_WARNING, "Unable to parse command line from udp:" DF ": %s", DP(sin), buf);
+		ret = pcre_exec(u->fallback_re, NULL, buf, ret, 0, 0, ovec, G_N_ELEMENTS(ovec));
+		if (ret <= 0) {
+			mylog(LOG_WARNING, "Unable to parse command line from udp:" DF ": %s", DP(sin), buf);
+			return;
+		}
+
+		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from "DF", using fallback RE", buf, DP(sin));
+
+		ZERO(mh);
+		mh.msg_name = &sin;
+		mh.msg_namelen = sizeof(sin);
+		mh.msg_iov = iov;
+		mh.msg_iovlen = 4;
+
+		iov[0].iov_base = (void *) out[1];
+		iov[0].iov_len = strlen(out[1]);
+		iov[1].iov_base = (void *) out[3];
+		iov[1].iov_len = strlen(out[3]);
+		iov[2].iov_base = (void *) out[2];
+		iov[2].iov_len = strlen(out[2]);
+		iov[3].iov_base = "\n";
+		iov[3].iov_len = 1;
+
+		sendmsg(fd, &mh, 0);
+
 		return;
 	}
 
@@ -165,6 +189,8 @@ struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t po
 			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+([\\d.]+)\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
+			              /* cookie    cmd flags callid    addr      port */
+	c->fallback_re = pcre_compile("^(\\S+)\\s+[ul]\\S*\\s+\\S+(\\s+\\S+)(\\s+\\S+)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 
 	ZERO(i);
 	i.fd = fd;
