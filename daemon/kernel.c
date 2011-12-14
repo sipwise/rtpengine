@@ -77,10 +77,13 @@ int kernel_add_stream(int fd, struct kernel_stream *info, int update) {
 	ZERO(msg);
 	msg.cmd = update ? MMG_UPDATE : MMG_ADD;
 	msg.target.target_port = info->local_port;
+	msg.target.src_addr.family = AF_INET;
 	msg.target.src_addr.ipv4 = info->src.ip;
 	msg.target.src_addr.port = info->src.port;
+	msg.target.dst_addr.family = AF_INET;
 	msg.target.dst_addr.ipv4 = info->dest.ip;
 	msg.target.dst_addr.port = info->dest.port;
+	msg.target.mirror_addr.family = AF_INET;
 	msg.target.mirror_addr.ipv4 = info->mirror.ip;
 	msg.target.mirror_addr.port = info->mirror.port;
 	msg.target.tos = info->tos;
