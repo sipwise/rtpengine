@@ -47,8 +47,10 @@ sub mediaproxy_message {
 }
 
 my $sleep = 5;
-my @src = qw(inet 192.168.1.166);
-my @dst = qw(inet 192.168.1.135);
+#my @src = qw(inet 10.15.20.61);
+#my @dst = qw(inet 10.15.20.58);
+my @src = qw(inet6 2a00:4600:1:0:a00:27ff:feb0:f7fe);
+my @dst = qw(inet6 2a00:4600:1:0:6884:adff:fe98:6ac5);
 my @nul = ('', '', '');
 
 print("add 9876 -> 1234/6543\n");

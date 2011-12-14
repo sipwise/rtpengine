@@ -10,6 +10,7 @@
 #include <linux/version.h>
 #include <net/icmp.h>
 #include <net/ip.h>
+#include <net/ipv6.h>
 #include <net/tcp.h>
 #include <net/route.h>
 #include <net/dst.h>
@@ -17,6 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
+#include <linux/netfilter_ipv6.h>
 #include <linux/netfilter/x_tables.h>
 #include "xt_MEDIAPROXY.h"
 
@@ -150,7 +152,7 @@ static struct seq_operations proc_main_list_seq_ops = {
 static struct mediaproxy_table *new_table(void) {
 	struct mediaproxy_table *t;
 
-	DBG(KERN_DEBUG "Creating new table\n");
+	DBG("Creating new table\n");
 
 	if (!try_module_get(THIS_MODULE))
 		return NULL;
@@ -269,7 +271,7 @@ static void target_push(struct mediaproxy_target *t) {
 	if (!atomic_dec_and_test(&t->refcnt))
 		return;
 
-	DBG(KERN_DEBUG "Freeing target\n");
+	DBG("Freeing target\n");
 
 	kfree(t);
 }
@@ -309,7 +311,7 @@ static void table_push(struct mediaproxy_table *t) {
 	if (!atomic_dec_and_test(&t->refcnt))
 		return;
 
-	DBG(KERN_DEBUG "Freeing table\n");
+	DBG("Freeing table\n");
 
 	for (i = 0; i < 256; i++) {
 		if (!t->target[i])
@@ -347,7 +349,7 @@ static int unlink_table(struct mediaproxy_table *t) {
 	if (t->id >= MAX_ID)
 		return -EINVAL;
 
-	DBG(KERN_DEBUG "Unlinking table %u\n", t->id);
+	DBG("Unlinking table %u\n", t->id);
 
 	write_lock_irqsave(&table_lock, flags);
 	if (t->id >= MAX_ID || table[t->id] != t) {
@@ -737,7 +739,7 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 			return -EINVAL;
 	}
 
-	DBG(KERN_DEBUG "Creating new target\n");
+	DBG("Creating new target\n");
 
 	err = -ENOMEM;
 	g = kmalloc(sizeof(*g), GFP_KERNEL);
@@ -970,7 +972,7 @@ static ssize_t proc_control_write(struct file *file, const char __user *buf, siz
 
 	switch (msg.cmd) {
 		case MMG_NOOP:
-			DBG(KERN_DEBUG "noop.\n");
+			DBG("noop.\n");
 			break;
 
 		case MMG_ADD:
@@ -1022,7 +1024,7 @@ static int send_proxy_packet4(struct sk_buff *skb, struct mp_address *src, struc
 	ih = (void *) skb_push(skb, sizeof(*ih));
 	skb_reset_network_header(skb);
 
-	DBG(KERN_DEBUG "datalen=%u network_header=%p transport_header=%p\n", datalen, skb_network_header(skb), skb_transport_header(skb));
+	DBG("datalen=%u network_header=%p transport_header=%p\n", datalen, skb_network_header(skb), skb_transport_header(skb));
 
 	datalen += sizeof(*uh);
 	*uh = (struct udphdr) {
@@ -1031,8 +1033,8 @@ static int send_proxy_packet4(struct sk_buff *skb, struct mp_address *src, struc
 		.len		= htons(datalen),
 	};
 	*ih = (struct iphdr) {
-		.ihl		= 5,
 		.version	= 4,
+		.ihl		= 5,
 		.tos		= tos,
 		.tot_len	= htons(sizeof(*ih) + datalen),
 		.ttl		= 64,
@@ -1066,6 +1068,60 @@ drop:
 
 
 
+static int send_proxy_packet6(struct sk_buff *skb, struct mp_address *src, struct mp_address *dst, unsigned char tos) {
+	struct ipv6hdr *ih;
+	struct udphdr *uh;
+	unsigned int datalen;
+
+	datalen = skb->len;
+
+	uh = (void *) skb_push(skb, sizeof(*uh));
+	skb_reset_transport_header(skb);
+	ih = (void *) skb_push(skb, sizeof(*ih));
+	skb_reset_network_header(skb);
+
+	DBG("datalen=%u network_header=%p transport_header=%p\n", datalen, skb_network_header(skb), skb_transport_header(skb));
+
+	datalen += sizeof(*uh);
+	*uh = (struct udphdr) {
+		.source		= htons(src->port),
+		.dest		= htons(dst->port),
+		.len		= htons(datalen),
+	};
+	*ih = (struct ipv6hdr) {
+		.version	= 6,
+		.priority	= tos,
+		.payload_len	= htons(datalen),
+		.nexthdr	= IPPROTO_UDP,
+		.hop_limit	= 64,
+	};
+	memcpy(&ih->saddr, src->ipv6, sizeof(ih->saddr));
+	memcpy(&ih->daddr, dst->ipv6, sizeof(ih->daddr));
+
+	skb->csum_start = skb_transport_header(skb) - skb->head;
+	skb->csum_offset = offsetof(struct udphdr, check);
+	uh->check = csum_ipv6_magic(&ih->saddr, &ih->daddr, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
+	if (uh->check == 0)
+		uh->check = CSUM_MANGLED_0;
+
+	skb->protocol = htons(ETH_P_IPV6);
+	if (ip6_route_me_harder(skb))
+		goto drop;
+
+	skb->ip_summed = CHECKSUM_NONE;
+
+	ip6_local_out(skb);
+
+	return 0;
+
+drop:
+	kfree_skb(skb);
+	return -1;
+}
+
+
+
+
 static int send_proxy_packet(struct sk_buff *skb, struct mp_address *src, struct mp_address *dst, unsigned char tos) {
 	if (src->family != dst->family)
 		goto drop;
@@ -1073,6 +1129,10 @@ static int send_proxy_packet(struct sk_buff *skb, struct mp_address *src, struct
 	switch (src->family) {
 		case AF_INET:
 			return send_proxy_packet4(skb, src, dst, tos);
+			break;
+
+		case AF_INET6:
+			return send_proxy_packet6(skb, src, dst, tos);
 			break;
 
 		default:
@@ -1127,17 +1187,17 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 	if (datalen < sizeof(*uh))
 		goto skip2;
 	datalen -= sizeof(*uh);
-	DBG(KERN_DEBUG "udp payload = %u\n", datalen);
+	DBG("udp payload = %u\n", datalen);
 	skb_trim(skb, datalen);
 
 	g = get_target(t, ntohs(uh->dest));
 	if (!g)
 		goto skip2;
 
-	DBG(KERN_DEBUG "target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
+	DBG("target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
 
 	if (g->target.mirror_addr.family) {
-		DBG(KERN_DEBUG "sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
+		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
 		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
 		if (err) {
@@ -1212,17 +1272,17 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 	if (datalen < sizeof(*uh))
 		goto skip2;
 	datalen -= sizeof(*uh);
-	DBG(KERN_DEBUG "udp payload = %u\n", datalen);
+	DBG("udp payload = %u\n", datalen);
 	skb_trim(skb, datalen);
 
 	g = get_target(t, ntohs(uh->dest));
 	if (!g)
 		goto skip2;
 
-	DBG(KERN_DEBUG "target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
+	DBG("target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
 
 	if (is_valid_address(&g->target.mirror_addr)) {
-		DBG(KERN_DEBUG "sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
+		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
 		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
 		if (err) {
