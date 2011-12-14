@@ -47,7 +47,7 @@ MODULE_LICENSE("GPL");
 			(x).all[15],		\
 			(x).port
 
-#if 0
+#if 1
 #define DBG(x...) printk(KERN_DEBUG x)
 #else
 #define DBG(x...) ((void)0)
@@ -1013,33 +1013,45 @@ err:
 static int send_proxy_packet4(struct sk_buff *skb, struct mp_address *src, struct mp_address *dst, unsigned char tos) {
 	struct iphdr *ih;
 	struct udphdr *uh;
-	int datalen;
+	unsigned int datalen;
 
-	ih = ip_hdr(skb);
-	uh = udp_hdr(skb);
+	datalen = skb->len;
 
-	datalen = ntohs(uh->len);
+	uh = (void *) skb_push(skb, sizeof(*uh));
+	skb_reset_transport_header(skb);
+	ih = (void *) skb_push(skb, sizeof(*ih));
+	skb_reset_network_header(skb);
 
-	ih->saddr = src->ipv4;
-	ih->daddr = dst->ipv4;
-	ih->tos = tos;
-	uh->source = htons(src->port);
-	uh->dest = htons(dst->port);
+	DBG(KERN_DEBUG "datalen=%u network_header=%p transport_header=%p\n", datalen, skb_network_header(skb), skb_transport_header(skb));
 
-	uh->check = 0;
+	datalen += sizeof(*uh);
+	*uh = (struct udphdr) {
+		.source		= htons(src->port),
+		.dest		= htons(dst->port),
+		.len		= htons(datalen),
+	};
+	*ih = (struct iphdr) {
+		.ihl		= 5,
+		.version	= 4,
+		.tos		= tos,
+		.tot_len	= htons(sizeof(*ih) + datalen),
+		.ttl		= 64,
+		.protocol	= IPPROTO_UDP,
+		.saddr		= src->ipv4,
+		.daddr		= dst->ipv4,
+	};
+
 	skb->csum_start = skb_transport_header(skb) - skb->head;
 	skb->csum_offset = offsetof(struct udphdr, check);
 	uh->check = csum_tcpudp_magic(src->ipv4, dst->ipv4, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
 	if (uh->check == 0)
 		uh->check = CSUM_MANGLED_0;
 
-	__ip_select_ident(ih, skb_dst(skb), 0);
-
-	if (ip_route_me_harder(skb, RTN_LOCAL))
+	skb->protocol = htons(ETH_P_IP);
+	if (ip_route_me_harder(skb, RTN_UNSPEC))
 		goto drop;
 
 	skb->ip_summed = CHECKSUM_NONE;
-	__ip_select_ident(ih, skb_dst(skb), 0);
 
 	ip_local_out(skb);
 
@@ -1091,6 +1103,7 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 	struct mediaproxy_target *g;
 	int err;
 	unsigned long flags;
+	unsigned int datalen;
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -1102,11 +1115,20 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 
 	skb_reset_network_header(skb);
 	ih = ip_hdr(skb);
+	skb_pull(skb, (ih->ihl << 2));
 	if (ih->protocol != IPPROTO_UDP)
 		goto skip2;
 
-	skb_set_transport_header(skb, (ih->ihl << 2));
+	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
+	skb_pull(skb, sizeof(*uh));
+
+	datalen = ntohs(uh->len);
+	if (datalen < sizeof(*uh))
+		goto skip2;
+	datalen -= sizeof(*uh);
+	DBG(KERN_DEBUG "udp payload = %u\n", datalen);
+	skb_trim(skb, datalen);
 
 	g = get_target(t, ntohs(uh->dest));
 	if (!g)
@@ -1166,6 +1188,7 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 	struct mediaproxy_target *g;
 	int err;
 	unsigned long flags;
+	unsigned int datalen;
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -1177,11 +1200,20 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 
 	skb_reset_network_header(skb);
 	ih = ipv6_hdr(skb);
+	skb_pull(skb, sizeof(*ih));
 	if (ih->nexthdr != IPPROTO_UDP)
 		goto skip2;
 
-	skb_set_transport_header(skb, sizeof(*ih));
+	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
+	skb_pull(skb, sizeof(*uh));
+
+	datalen = ntohs(uh->len);
+	if (datalen < sizeof(*uh))
+		goto skip2;
+	datalen -= sizeof(*uh);
+	DBG(KERN_DEBUG "udp payload = %u\n", datalen);
+	skb_trim(skb, datalen);
 
 	g = get_target(t, ntohs(uh->dest));
 	if (!g)
