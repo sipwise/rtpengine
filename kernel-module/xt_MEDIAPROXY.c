@@ -730,6 +730,12 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 		return -EINVAL;
 	if (i->src_addr.family != i->dst_addr.family)
 		return -EINVAL;
+	if (i->mirror_addr.family) {
+		if (!is_valid_address(&i->mirror_addr))
+			return -EINVAL;
+		if (i->mirror_addr.family != i->src_addr.family)
+			return -EINVAL;
+	}
 
 	DBG(KERN_DEBUG "Creating new target\n");
 
@@ -1108,7 +1114,7 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 
 	DBG(KERN_DEBUG "target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
 
-	if (is_valid_address(&g->target.mirror_addr)) {
+	if (g->target.mirror_addr.family) {
 		DBG(KERN_DEBUG "sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
 		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
