@@ -2,7 +2,7 @@ Source: ngcp-mediaproxy-ng
 Section: net
 Priority: extra
 Maintainer: Richard Fuchs <rfuchs@sipwise.com>
-Build-Depends: debhelper (>= 5), iptables-dev, libglib2.0-dev, libpcre3-dev, uuid-dev
+Build-Depends: debhelper (>= 5), iptables-dev (>= 1.4), libglib2.0-dev, libpcre3-dev, uuid-dev
 Standards-Version: 3.9.1
 Homepage: http://sipwise.com/
 
