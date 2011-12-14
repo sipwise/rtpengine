@@ -8,7 +8,7 @@ use Socket6;
 my %cmds = (noop => 1, add => 2, delete => 3, update => 4);
 $| = 1;
 
-open(F, "> /proc/mediaproxy/1/control");
+open(F, "> /proc/mediaproxy/0/control") or die;
 {
 	my $x = select(F);
 	$| = 1;
@@ -46,44 +46,45 @@ sub mediaproxy_message {
 	$ret .= pack('C CS', $tos, 0, 0);
 }
 
-my @src = qw(inet 192.168.231.132);
-my @dst = qw(inet 192.168.231.1);
+my $sleep = 5;
+my @src = qw(inet 192.168.1.166);
+my @dst = qw(inet 192.168.1.135);
 my @nul = ('', '', '');
 
 print("add 9876 -> 1234/6543\n");
 syswrite(F, mediaproxy_message('add', 9876, @src, 1234, @dst, 6543, @nul, 184));
-sleep(30);
+sleep($sleep);
 
 print("add fail\n");
 syswrite(F, mediaproxy_message('add', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184));
-sleep(30);
+sleep($sleep);
 
 print("update 9876 -> 1234/6543 & 6789\n");
 syswrite(F, mediaproxy_message('update', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184));
-sleep(30);
+sleep($sleep);
 
 print("update 9876 -> 2345/7890 & 4321\n");
 syswrite(F, mediaproxy_message('update', 9876, @src, 2345, @dst, 7890, @dst, 4321, 184));
-sleep(30);
+sleep($sleep);
 
 print("add fail\n");
 syswrite(F, mediaproxy_message('add', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184));
-sleep(30);
+sleep($sleep);
 
 print("update 9876 -> 1234/6543\n");
 syswrite(F, mediaproxy_message('update', 9876, @src, 1234, @dst, 6543, @nul, 184));
-sleep(30);
+sleep($sleep);
 
 print("delete\n");
 syswrite(F, mediaproxy_message('delete', 9876, @nul, @nul, @nul, 0));
-sleep(30);
+sleep($sleep);
 
 print("delete fail\n");
 syswrite(F, mediaproxy_message('delete', 9876, @nul, @nul, @nul, 0));
-sleep(30);
+sleep($sleep);
 
 print("update fail\n");
 syswrite(F, mediaproxy_message('update', 9876, @src, 1234, @dst, 6543, @nul, 184));
-sleep(30);
+sleep($sleep);
 
 close(F);
