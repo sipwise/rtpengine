@@ -1,5 +1,3 @@
-/* gcc -O2 -Wall -shared -fPIC -o libxt_MEDIAPROXY.so libxt_MEDIAPROXY.c */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
