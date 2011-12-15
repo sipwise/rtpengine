@@ -886,9 +886,9 @@ static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) 
 			cs_o = l->data;
 			for (x = 0; x < 2; x++) {
 				r = &cs_o->peers[x].rtps[0];
-				DBG("comparing new %i:"IPF6":%u/%s to old %i:"IPF6":%u/%s",
-					IPP(t->ip46), t->port, tag,
-					IPP(r->peer_advertised.ip46), r->peer_advertised.port, cs_o->peers[x].tag);
+				DBG("comparing new "IP6F":%u/%s to old "IP6F":%u/%s",
+					IP6P(&t->ip46), t->port, tag,
+					IP6P(&r->peer_advertised.ip46), r->peer_advertised.port, cs_o->peers[x].tag);
 
 				if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->ip46))
 					continue;
