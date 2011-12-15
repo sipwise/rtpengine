@@ -69,8 +69,10 @@ case "$1" in
 	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
 	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	set -e
 	iptables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
+	ip6tables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
 	start-stop-daemon --start --quiet --pidfile $PIDFILE \
 		--exec $DAEMON -- $OPTIONS || echo -n " already running"
 	log_end_msg $?
@@ -86,6 +88,7 @@ case "$1" in
 	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
 	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	rmmod xt_MEDIAPROXY 2>/dev/null
 	set -e
 	rm -f $PIDFILE
@@ -107,10 +110,12 @@ case "$1" in
 	fi
 	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
 	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	rmmod xt_MEDIAPROXY 2>/dev/null
 	set -e
 	modprobe xt_MEDIAPROXY
 	iptables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
+	ip6tables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
 	start-stop-daemon --start --quiet --pidfile \
 		$PIDFILE --exec $DAEMON  -- $OPTIONS
 	log_end_msg $?
