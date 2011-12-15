@@ -1174,7 +1174,7 @@ static struct call *call_get_or_create(const char *callid, struct callmaster *m)
 static int addr_parse_udp(struct stream *st, const char **o) {
 	u_int32_t ip4;
 
-	ZERO(st);
+	ZERO(*st);
 	if (o[5] && *o[5]) {
 		ip4 = inet_addr(o[5]);
 		if (ip4 == -1)

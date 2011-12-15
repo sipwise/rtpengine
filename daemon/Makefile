@@ -6,7 +6,6 @@ CC=		gcc
 CFLAGS=		-g -Wall `pkg-config --cflags glib-2.0` `pcre-config --cflags` -fno-strict-aliasing
 CFLAGS+=	-I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
-CFLAGS+=	-O2
 
 ifeq ($(REDIS),yes)
 CFLAGS+=	-I$(LIBREDISDIR)
@@ -16,6 +15,8 @@ endif
 
 ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1
+else
+CFLAGS+=	-O2
 endif
 
 LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
