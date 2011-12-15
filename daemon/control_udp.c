@@ -196,8 +196,8 @@ struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t po
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
 	c->oven_time = p->now;
 	c->parse_re = pcre_compile(
-			/* cookie:1     cmd:2 flags:3  callid:4       addr4:5           addr6:6              port:7  from_tag:8               to_tag:9                            d:10 flags:11 callid:12 v:13 flags:14 parms:15 */
-			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+(?:([\\d.]+)|([\\da-f:]+(?::[\\d.]+)?))\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
+			/* cookie:1     cmd:2 flags:3  callid:4       addr4:5           addr6:6                  port:7  from_tag:8               to_tag:9                            d:10 flags:11 callid:12 v:13 flags:14 parms:15 */
+			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 			              /* cookie       cmd flags callid   addr      port */
