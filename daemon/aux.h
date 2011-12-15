@@ -77,6 +77,10 @@ static inline void bit_array_clear(int *name, unsigned int bit) {
 	name[(bit) / (sizeof(int) * 8)] &= ~(1 << ((bit) % (sizeof(int) * 8)));
 }
 
+static inline char chrtoupper(char x) {
+	return x & 0xdf;
+}
+
 static inline void uuid_str_generate(char *s) {
 	uuid_t uuid;
 	uuid_generate(uuid);

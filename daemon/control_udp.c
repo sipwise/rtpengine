@@ -65,7 +65,7 @@ static void control_udp_incoming(int fd, void *p) {
 
 		iov[0].iov_base = (void *) out[1];
 		iov[0].iov_len = strlen(out[1]);
-		if (out[2] && (out[2][0] == 'u' || out[2][0] == 'U' || out[2][0] == 'l' || out[2][0] == 'L')) {
+		if (out[2] && (chrtoupper(out[2][0]) == 'U' || chrtoupper(out[2][0]) == 'L')) {
 			iov[1].iov_base = (void *) out[3];
 			iov[1].iov_len = strlen(out[3]);
 			iov[2].iov_base = (void *) out[2];
@@ -109,13 +109,13 @@ static void control_udp_incoming(int fd, void *p) {
 		goto out;
 	}
 
-	if (out[2][0] == 'u' || out[2][0] == 'U')
+	if (chrtoupper(out[2][0]) == 'U')
 		reply = call_update_udp(out, u->callmaster);
-	else if (out[2][0] == 'l' || out[2][0] == 'L')
+	else if (chrtoupper(out[2][0]) == 'L')
 		reply = call_lookup_udp(out, u->callmaster);
-	else if (out[10][0] == 'd' || out[10][0] == 'D')
+	else if (chrtoupper(out[10][0]) == 'D')
 		reply = call_delete_udp(out, u->callmaster);
-	else if (out[13][0] == 'v' || out[13][0] == 'V') {
+	else if (chrtoupper(out[13][0]) == 'V') {
 		ZERO(mh);
 		mh.msg_name = &sin;
 		mh.msg_namelen = sizeof(sin);
@@ -127,7 +127,7 @@ static void control_udp_incoming(int fd, void *p) {
 		iov[1].iov_base = " ";
 		iov[1].iov_len = 1;
 
-		if (out[14][0] == 'f' || out[14][0] == 'F') {
+		if (chrtoupper(out[14][0]) == 'F') {
 			ret = 0;
 			if (!strcmp(out[15], "20040107"))
 				ret = 1;
