@@ -34,6 +34,11 @@ struct stream {
 	struct in6_addr		ip46;
 	u_int16_t		port;
 	char			*mediatype;
+	enum {
+		DIR_UNKNOWN = 0,
+		DIR_INTERNAL,
+		DIR_EXTERNAL,
+	}			direction[2];
 };
 struct streamrelay {
 	int			fd;

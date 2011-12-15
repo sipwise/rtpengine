@@ -1097,7 +1097,7 @@ static void call_destroy(struct call *c) {
 
 
 
-static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int swap) {
+static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int swap, int family) {
 	GString *o;
 	int i;
 	GList *l;
@@ -1105,6 +1105,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	struct streamrelay *x;
 	char ips[64];
 	u_int32_t ip4;
+	int other_off;
 
 	o = g_string_new("");
 	if (prefix)
@@ -1114,8 +1115,9 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 		goto out;
 
 	t = s->head->data;
+	other_off = (off == 0) ? 1 : 0;
 
-	if (IN6_IS_ADDR_V4MAPPED(&t->peers[off].rtps[0].peer.ip46)) {
+	if (family == AF_INET || (family == 0 && IN6_IS_ADDR_V4MAPPED(&t->peers[other_off].rtps[0].peer.ip46))) {
 		ip4 = t->peers[off].rtps[0].peer.ip46.s6_addr32[3];
 		if (!ip4)
 			strcpy(ips, "0.0.0.0");
@@ -1173,6 +1175,9 @@ static struct call *call_get_or_create(const char *callid, struct callmaster *m)
 
 static int addr_parse_udp(struct stream *st, const char **o) {
 	u_int32_t ip4;
+	const char *cp;
+	char c;
+	int i;
 
 	ZERO(*st);
 	if (o[5] && *o[5]) {
@@ -1192,6 +1197,17 @@ static int addr_parse_udp(struct stream *st, const char **o) {
 	st->mediatype = "unknown";
 	if (!st->port && strcmp(o[7], "0"))
 		goto fail;
+
+	if (o[3]) {
+		i = 0;
+		for (cp = o[3]; *cp && i < 2; cp++) {
+			c = chrtoupper(*cp);
+			if (c == 'E')
+				st->direction[i++] = DIR_EXTERNAL;
+			else if (c == 'I')
+				st->direction[i++] = DIR_INTERNAL;
+		}
+	}
 
 	return 0;
 fail:
@@ -1220,7 +1236,7 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, o[1], 1);
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, o[1], 1, (st.direction[1] == DIR_EXTERNAL) ? AF_INET6 : AF_INET);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 
@@ -1258,7 +1274,7 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, o[1], 1);
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, o[1], 1, 0);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 
@@ -1286,7 +1302,7 @@ char *call_request(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
+	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0, 0);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 }
@@ -1313,7 +1329,7 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
+	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0, 0);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 }
