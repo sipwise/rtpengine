@@ -262,6 +262,8 @@ int main(int argc, char **argv) {
 	m->kernelid = table;
 	m->ipv4 = ipv4;
 	m->adv_ipv4 = adv_ipv4;
+	m->ipv6 = ipv6;
+	m->adv_ipv6 = adv_ipv6;
 	m->port_min = port_min;
 	m->port_max = port_max;
 	m->timeout = timeout;
