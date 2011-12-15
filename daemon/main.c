@@ -30,8 +30,10 @@
 
 static char *pidfile;
 static gboolean foreground;
-static u_int32_t ip;
-static u_int32_t adv_ip;
+static u_int32_t ipv4;
+static u_int32_t adv_ipv4;
+static struct in6_addr ipv6;
+static struct in6_addr adv_ipv6;
 static u_int32_t listenp;
 static u_int16_t listenport;
 static u_int32_t udp_listenp;
@@ -109,8 +111,10 @@ out:
 
 
 static void options(int *argc, char ***argv) {
-	static char *ips;
-	static char *adv_ips;
+	static char *ipv4s;
+	static char *adv_ipv4s;
+	static char *ipv6s;
+	static char *adv_ipv6s;
 	static char *listenps;
 	static char *listenudps;
 #ifndef NO_REDIS
@@ -121,8 +125,10 @@ static void options(int *argc, char ***argv) {
 	static GOptionEntry e[] = {
 		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
-		{ "ip",		'i', 0, G_OPTION_ARG_STRING,	&ips,		"Local IP address for RTP",	"IP"		},
-		{ "advertised-ip", 'a', 0, G_OPTION_ARG_STRING,	&adv_ips,	"IP address to advertise",	"IP"		},
+		{ "ip",		'i', 0, G_OPTION_ARG_STRING,	&ipv4s,		"Local IPv4 address for RTP",	"IP"		},
+		{ "advertised-ip", 'a', 0, G_OPTION_ARG_STRING,	&adv_ipv4s,	"IPv4 address to advertise",	"IP"		},
+		{ "ip6",	'I', 0, G_OPTION_ARG_STRING,	&ipv6s,		"Local IPv6 address for RTP",	"IP6"		},
+		{ "advertised-ip6",'A',0,G_OPTION_ARG_STRING,	&adv_ipv6s,	"IPv6 address to advertise",	"IP6"		},
 		{ "listen",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP:]PORT"	},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"TOS value to set on streams",	"INT"		},
@@ -150,19 +156,28 @@ static void options(int *argc, char ***argv) {
 	if (version)
 		die("Build time: %s\n", BUILD_TIME);
 
-	if (!ips)
+	if (!ipv4s)
 		die("Missing option --ip\n");
 	if (!listenps && !listenudps)
 		die("Missing option --listen or --listen-udp\n");
 
-	ip = inet_addr(ips);
-	if (ip == -1)
-		die("Invalid IP (--ip)\n");
+	ipv4 = inet_addr(ipv4s);
+	if (ipv4 == -1)
+		die("Invalid IPv4 address (--ip)\n");
 
-	if (adv_ips) {
-		adv_ip = inet_addr(adv_ips);
-		if (adv_ip == -1)
-			die("Invalid IP (--advertised-ip)\n");
+	if (adv_ipv4s) {
+		adv_ipv4 = inet_addr(adv_ipv4s);
+		if (adv_ipv4 == -1)
+			die("Invalid IPv4 address (--advertised-ip)\n");
+	}
+
+	if (ipv6s) {
+		if (inet_pton(AF_INET6, ipv6s, &ipv6) != 1)
+			die("Invalid IPv6 address (--ip6)\n");
+	}
+	if (adv_ipv6s) {
+		if (inet_pton(AF_INET6, adv_ipv6s, &adv_ipv6) != 1)
+			die("Invalid IPv6 address (--advertised-ip6)\n");
 	}
 
 	if (listenps) {
@@ -245,8 +260,8 @@ int main(int argc, char **argv) {
 		return -1;
 	m->kernelfd = kfd;
 	m->kernelid = table;
-	m->ipv4 = ip;
-	m->adv_ipv4 = adv_ip;
+	m->ipv4 = ipv4;
+	m->adv_ipv4 = adv_ipv4;
 	m->port_min = port_min;
 	m->port_max = port_max;
 	m->timeout = timeout;
