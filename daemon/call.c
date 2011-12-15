@@ -1362,7 +1362,7 @@ char *call_delete_udp(const char **o, struct callmaster *m) {
 	struct call *c;
 	char *ret;
 
-	c = g_hash_table_lookup(m->callhash, o[11]);
+	c = g_hash_table_lookup(m->callhash, o[12]);
 	if (!c)
 		goto err;
 

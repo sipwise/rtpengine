@@ -62,16 +62,23 @@ static void control_udp_incoming(int fd, void *p) {
 		mh.msg_name = &sin;
 		mh.msg_namelen = sizeof(sin);
 		mh.msg_iov = iov;
-		mh.msg_iovlen = 4;
 
 		iov[0].iov_base = (void *) out[1];
 		iov[0].iov_len = strlen(out[1]);
-		iov[1].iov_base = (void *) out[3];
-		iov[1].iov_len = strlen(out[3]);
-		iov[2].iov_base = (void *) out[2];
-		iov[2].iov_len = strlen(out[2]);
-		iov[3].iov_base = "\n";
-		iov[3].iov_len = 1;
+		if (out[2] && (out[2][0] == 'u' || out[2][0] == 'U' || out[2][0] == 'l' || out[2][0] == 'L')) {
+			iov[1].iov_base = (void *) out[3];
+			iov[1].iov_len = strlen(out[3]);
+			iov[2].iov_base = (void *) out[2];
+			iov[2].iov_len = strlen(out[2]);
+			iov[3].iov_base = "\n";
+			iov[3].iov_len = 1;
+			mh.msg_iovlen = 4;
+		}
+		else {
+			iov[1].iov_base = " E8\n";
+			iov[1].iov_len = 4;
+			mh.msg_iovlen = 2;
+		}
 
 		sendmsg(fd, &mh, 0);
 
@@ -106,9 +113,9 @@ static void control_udp_incoming(int fd, void *p) {
 		reply = call_update_udp(out, u->callmaster);
 	else if (out[2][0] == 'l' || out[2][0] == 'L')
 		reply = call_lookup_udp(out, u->callmaster);
-	else if (out[9][0] == 'd' || out[9][0] == 'D')
+	else if (out[10][0] == 'd' || out[10][0] == 'D')
 		reply = call_delete_udp(out, u->callmaster);
-	else if (out[12][0] == 'v' || out[12][0] == 'V') {
+	else if (out[13][0] == 'v' || out[13][0] == 'V') {
 		ZERO(mh);
 		mh.msg_name = &sin;
 		mh.msg_namelen = sizeof(sin);
@@ -120,13 +127,13 @@ static void control_udp_incoming(int fd, void *p) {
 		iov[1].iov_base = " ";
 		iov[1].iov_len = 1;
 
-		if (out[13][0] == 'f' || out[13][0] == 'F') {
+		if (out[14][0] == 'f' || out[14][0] == 'F') {
 			ret = 0;
-			if (!strcmp(out[14], "20040107"))
+			if (!strcmp(out[15], "20040107"))
 				ret = 1;
-			else if (!strcmp(out[14], "20050322"))
+			else if (!strcmp(out[15], "20050322"))
 				ret = 1;
-			else if (!strcmp(out[14], "20060704"))
+			else if (!strcmp(out[15], "20060704"))
 				ret = 1;
 			iov[2].iov_base = ret ? "1\n" : "0\n";
 			iov[2].iov_len = 2;
@@ -189,12 +196,12 @@ struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t po
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
 	c->oven_time = p->now;
 	c->parse_re = pcre_compile(
-			/* cookie:1     cmd:2 flags:3  callid:4       addr4:5           addr6:6              port:7  from_tag:8               to_tag:9                              cmd flags    callid */
+			/* cookie:1     cmd:2 flags:3  callid:4       addr4:5           addr6:6              port:7  from_tag:8               to_tag:9                            d:10 flags:11 callid:12 v:13 flags:14 parms:15 */
 			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+(?:([\\d.]+)|([\\da-f:]+(?::[\\d.]+)?))\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
-			              /* cookie    cmd flags callid    addr      port */
-	c->fallback_re = pcre_compile("^(\\S+)\\s+[ul]\\S*\\s+\\S+(\\s+\\S+)(\\s+\\S+)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
+			              /* cookie       cmd flags callid   addr      port */
+	c->fallback_re = pcre_compile("^(\\S+)(?:\\s+(\\S)\\S*\\s+\\S+(\\s+\\S+)(\\s+\\S+))?", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 
 	ZERO(i);
 	i.fd = fd;
