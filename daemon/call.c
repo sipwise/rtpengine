@@ -119,7 +119,7 @@ static void kernelize(struct callstream *c) {
 			r = &p->rtps[j];
 			rp = &pp->rtps[j];
 
-			if (!r->fd_family || !r->peer.port)
+			if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->fd_family || !r->peer.port)
 				continue;
 
 			ks.local_port = r->localport;
@@ -1122,7 +1122,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 		else if (t->call->callmaster->adv_ipv4)
 			sprintf(ips, IPF, IPP(t->call->callmaster->adv_ipv4));
 		else
-			sprintf(ips, IPF, IPP(ip4));
+			sprintf(ips, IPF, IPP(t->call->callmaster->ipv4));
 	}
 	else {
 		if (IN6_IS_ADDR_UNSPECIFIED(&t->peers[off].rtps[0].peer.ip46))
@@ -1130,10 +1130,8 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 		else if (!IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->adv_ipv6))
 			inet_ntop(AF_INET6, &t->call->callmaster->adv_ipv6, ips, sizeof(ips));
 		else
-			inet_ntop(AF_INET6, &t->peers[off].rtps[0].peer.ip46, ips, sizeof(ips));
+			inet_ntop(AF_INET6, &t->call->callmaster->ipv6, ips, sizeof(ips));
 	}
-
-	t = s->head->data;
 
 	if (!swap)
 		g_string_append(o, ips);
