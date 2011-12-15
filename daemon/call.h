@@ -31,17 +31,13 @@ struct redis;
 
 
 struct stream {
-	int			family;
-	union {
-		unsigned char	all[16];
-		u_int32_t	ipv4;
-		unsigned char	ipv6[16];
-	};
+	struct in6_addr		ip46;
 	u_int16_t		port;
 	char			*mediatype;
 };
 struct streamrelay {
 	int			fd;
+	int			fd_family;
 	struct stream		peer;
 	struct stream		peer_advertised;
 	u_int16_t		localport;
@@ -97,8 +93,8 @@ struct callmaster {
 	unsigned int		kernelid;
 	u_int32_t		ipv4;
 	u_int32_t		adv_ipv4;
-	unsigned char		ipv6[16];
-	unsigned char		adv_ipv6[16];
+	struct in6_addr		ipv6;
+	struct in6_addr		adv_ipv6;
 	int			port_min;
 	int			port_max;
 	unsigned int		timeout;

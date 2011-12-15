@@ -13,7 +13,7 @@ struct ip_port {
 	int			family;
 	union {
 		u_int32_t	ipv4;
-		unsigned char	ipv6[16];
+		struct in6_addr	ipv6;
 	};
 	u_int16_t               port;
 };

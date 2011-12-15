@@ -119,27 +119,25 @@ static void kernelize(struct callstream *c) {
 			r = &p->rtps[j];
 			rp = &pp->rtps[j];
 
-			if (!r->peer.family || !r->peer.port)
+			if (!r->fd_family || !r->peer.port)
 				continue;
 
 			ks.local_port = r->localport;
 			ks.tos = c->call->callmaster->tos;
-			ks.src.family = ks.dest.family = r->peer.family;
 			ks.src.port = rp->localport;
 			ks.dest.port = r->peer.port;
 
-			switch (r->peer.family) {
-				case AF_INET:
-					ks.src.ipv4 = c->call->callmaster->ipv4;
-					ks.dest.ipv4 = r->peer.ipv4;
-					break;
-				case AF_INET6:
-					memcpy(ks.src.ipv6, c->call->callmaster->ipv6, 16);
-					memcpy(ks.dest.ipv6, r->peer.ipv6, 16);
-					break;
-				default:
-					/* XXX panic */
-					break;
+			if (IN6_IS_ADDR_V4MAPPED(&r->peer.ip46)) {
+				ks.src.family = AF_INET;
+				ks.src.ipv4 = c->call->callmaster->ipv4;
+				ks.dest.family = AF_INET;
+				ks.dest.ipv4 = r->peer.ip46.s6_addr32[3];
+			}
+			else {
+				ks.src.family = AF_INET6;
+				ks.src.ipv6 = c->call->callmaster->ipv6;
+				ks.dest.family = AF_INET6;
+				ks.dest.ipv6 = r->peer.ip46;
 			}
 
 			ZERO(r->kstats);
@@ -154,7 +152,7 @@ static void kernelize(struct callstream *c) {
 
 
 
-static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_storage *xsin) {
+static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_in6 *fsin) {
 	struct streamrelay *p, *p2;
 	struct peer *pe, *pe2;
 	struct callstream *cs;
@@ -166,14 +164,11 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	unsigned char buf[256];
 	struct cmsghdr *ch;
 	struct in_pktinfo *pi;
+	struct in6_pktinfo *pi6;
 	struct call *c;
 	struct callmaster *m;
 	unsigned char cc;
-	struct sockaddr_in *fsin;
-	struct sockaddr_in6 *fsin6;
-
-	fsin = (void *) xsin;
-	fsin6 = (void *) xsin;
+	char addr[64];
 
 	pe = r->up;
 	cs = pe->up;
@@ -181,19 +176,10 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	p = &pe2->rtps[r->idx];
 	c = cs->call;
 	m = c->callmaster;
+	smart_ntop(addr, &fsin->sin6_addr, sizeof(addr));
 
 	if (p->fd == -1) {
-		switch (xsin->ss_family) {
-			case AF_INET:
-				mylog(LOG_WARNING, "[%s] RTP packet to port %u discarded from " DF, c->callid, r->localport, DP(*fsin));
-				break;
-			case AF_INET6:
-				mylog(LOG_WARNING, "[%s] RTP packet to port %u discarded from " D6F, c->callid, r->localport, D6P(*fsin6));
-				break;
-			default:
-				/* XXX panic */
-				;
-		}
+		mylog(LOG_WARNING, "[%s] RTP packet to port %u discarded from %s:%u", c->callid, r->localport, addr, ntohs(fsin->sin6_port));
 		r->stats.errors++;
 		m->statsps.errors++;
 		return 0;
@@ -213,39 +199,16 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 					pe->codec = "unknown";
 			}
 
-			switch (xsin->ss_family) {
-				case AF_INET:
-					mylog(LOG_DEBUG, "[%s] Confirmed peer information for port %u - " DF, c->callid, r->localport, DP(*fsin));
-					break;
-				case AF_INET6:
-					mylog(LOG_DEBUG, "[%s] Confirmed peer information for port %u - " D6F, c->callid, r->localport, D6P(*fsin6));
-					break;
-				default:
-					/* XXX panic */
-					;
-			}
+			mylog(LOG_DEBUG, "[%s] Confirmed peer information for port %u - %s:%u", c->callid, r->localport, addr, ntohs(fsin->sin6_port));
 
 			pe->confirmed = 1;
 		}
 
 		p2 = &p->up->rtps[p->idx ^ 1];
-		switch (xsin->ss_family) {
-			case AF_INET:
-				p->peer.ipv4 = fsin->sin_addr.s_addr;
-				p->peer.port = ntohs(fsin->sin_port);
-				p2->peer.ipv4 = fsin->sin_addr.s_addr;
-				p2->peer.port = p->peer.port + ((int) (p2->idx * 2) - 1);
-				break;
-			case AF_INET6:
-				memcpy(p->peer.ipv6, fsin6->sin6_addr.s6_addr, sizeof(p->peer.ipv6));
-				p->peer.port = ntohs(fsin6->sin6_port);
-				memcpy(p2->peer.ipv6, fsin6->sin6_addr.s6_addr, sizeof(p2->peer.ipv6));
-				p2->peer.port = p->peer.port + ((int) (p2->idx * 2) - 1);
-				break;
-			default:
-				/* XXX panic */
-				;
-		}
+		p->peer.ip46 = fsin->sin6_addr;
+		p->peer.port = ntohs(fsin->sin6_port);
+		p2->peer.ip46 = p->peer.ip46;
+		p2->peer.port = p->peer.port + ((int) (p2->idx * 2) - 1);
 
 
 
@@ -258,33 +221,59 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	}
 
 skip:
-	if (!r->peer.family || !r->peer.port)
+	if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->peer.port || !r->fd_family)
 		goto drop;
 
 	ZERO(mh);
+	mh.msg_control = buf;
+	mh.msg_controllen = sizeof(buf);
 
-	switch (r->peer.family) {
+	ch = CMSG_FIRSTHDR(&mh);
+	ZERO(*ch);
+
+	switch (r->fd_family) {
 		case AF_INET:
 			ZERO(sin);
 			sin.sin_family = AF_INET;
-			sin.sin_addr.s_addr = r->peer.ipv4;
+			sin.sin_addr.s_addr = r->peer.ip46.s6_addr32[3];
 			sin.sin_port = htons(r->peer.port);
 			mh.msg_name = &sin;
 			mh.msg_namelen = sizeof(sin);
+
+			ch->cmsg_len = CMSG_LEN(sizeof(*pi));
+			ch->cmsg_level = IPPROTO_IP;
+			ch->cmsg_type = IP_PKTINFO;
+
+			pi = (void *) CMSG_DATA(ch);
+			ZERO(*pi);
+			pi->ipi_spec_dst.s_addr = m->ipv4;
+
+			mh.msg_controllen = CMSG_SPACE(sizeof(*pi));
+
 			break;
 
 		case AF_INET6:
 			ZERO(sin6);
 			sin6.sin6_family = AF_INET6;
-			memcpy(sin6.sin6_addr.s6_addr, r->peer.ipv6, sizeof(sin6.sin6_addr.s6_addr));
+			sin6.sin6_addr = r->peer.ip46;
 			sin6.sin6_port = htons(r->peer.port);
 			mh.msg_name = &sin6;
 			mh.msg_namelen = sizeof(sin6);
+
+			ch->cmsg_len = CMSG_LEN(sizeof(*pi6));
+			ch->cmsg_level = IPPROTO_IPV6;
+			ch->cmsg_type = IPV6_PKTINFO;
+
+			pi6 = (void *) CMSG_DATA(ch);
+			ZERO(*pi6);
+			pi6->ipi6_addr = m->ipv6;
+
+			mh.msg_controllen = CMSG_SPACE(sizeof(*pi6));
+
 			break;
 
 		default:
-			/* XXX panic */
-			;
+			abort();
 	}
 
 	ZERO(iov);
@@ -293,23 +282,6 @@ skip:
 
 	mh.msg_iov = &iov;
 	mh.msg_iovlen = 1;
-
-	if (r->peer.family == AF_INET) {
-		mh.msg_control = buf;
-		mh.msg_controllen = sizeof(buf);
-
-		ch = CMSG_FIRSTHDR(&mh);
-		ZERO(*ch);
-		ch->cmsg_len = CMSG_LEN(sizeof(*pi));
-		ch->cmsg_level = IPPROTO_IP;
-		ch->cmsg_type = IP_PKTINFO;
-
-		pi = (void *) CMSG_DATA(ch);
-		ZERO(*pi);
-		pi->ipi_spec_dst.s_addr = m->ipv4;
-
-		mh.msg_controllen = CMSG_SPACE(sizeof(*pi));
-	}
 
 	ret = sendmsg(p->fd, &mh, 0);
 
@@ -336,12 +308,15 @@ static void stream_readable(int fd, void *p) {
 	struct streamrelay *r = p;
 	char buf[1024];
 	int ret;
-	struct sockaddr_storage sin;
+	struct sockaddr_storage ss;
+	struct sockaddr_in6 sin6;
+	struct sockaddr_in *sin;
 	unsigned int sinlen;
+	void *sinp;
 
 	for (;;) {
-		sinlen = sizeof(sin);
-		ret = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr *) &sin, &sinlen);
+		sinlen = sizeof(ss);
+		ret = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr *) &ss, &sinlen);
 
 		if (ret == 0)
 			goto err;
@@ -353,7 +328,20 @@ err:
 			break;
 		}
 
-		if (stream_packet(r, buf, ret, &sin)) {
+		if (ss.ss_family != r->fd_family)
+			abort();
+
+		sinp = &ss;
+		if (ss.ss_family == AF_INET) {
+			sin = sinp;
+			sinp = &sin6;
+			ZERO(sin6);
+			sin6.sin6_family = AF_INET6;
+			sin6.sin6_port = sin->sin_port;
+			in4_to_6(&sin6.sin6_addr, sin->sin_addr.s_addr);
+		}
+
+		if (stream_packet(r, buf, ret, sinp)) {
 			mylog(LOG_WARNING, "Write error on RTP socket");
 			call_destroy(r->up->up->call);
 			return;
@@ -386,16 +374,18 @@ static GHashTable *info_parse(const char *s, GHashTable **h) {
 
 static int streams_parse_func(char **a, void **ret, void *p) {
 	struct stream *st;
+	u_int32_t ip;
 
 	st = g_slice_alloc0(sizeof(*st));
 
-	st->family = AF_INET;
-	st->ipv4 = inet_addr(a[0]);
+	ip = inet_addr(a[0]);
+	if (ip == -1)
+		goto fail;
+
+	in4_to_6(&st->ip46, ip);
 	st->port = atoi(a[1]);
 	st->mediatype = strdup(a[2] ? : "");
 
-	if (st->ipv4 == -1)
-		goto fail;
 	if (!st->port)
 		goto fail;
 
@@ -463,9 +453,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 			check = cm->timeout;
 			if (!p->rtps[0].peer.port)
 				check = cm->silent_timeout;
-			else if (p->rtps[0].peer.family == AF_INET && !p->rtps[0].peer.ipv4)
-				check = cm->silent_timeout;
-			else if (p->rtps[0].peer.family == AF_INET6 && !memcmp(p->rtps[0].peer.ipv6, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16))
+			else if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46))
 				check = cm->silent_timeout;
 
 			if (po->now - p->rtps[0].last < check)
@@ -582,6 +570,7 @@ static int get_port4(struct streamrelay *r, u_int16_t p) {
 		goto fail;
 
 	r->fd = fd;
+	r->fd_family = AF_INET;
 
 	return 0;
 
@@ -602,7 +591,7 @@ static int get_port6(struct streamrelay *r, u_int16_t p) {
 	nonblock(fd);
 	reuseaddr(fd);
 	setsockopt(fd, IPPROTO_IP, IP_TOS, &r->up->up->call->callmaster->tos, sizeof(r->up->up->call->callmaster->tos));
-	i = 1;
+	i = 0;
 	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &i, sizeof(i));
 
 	ZERO(sin);
@@ -612,6 +601,7 @@ static int get_port6(struct streamrelay *r, u_int16_t p) {
 		goto fail;
 
 	r->fd = fd;
+	r->fd_family = AF_INET6;
 
 	return 0;
 
@@ -620,36 +610,27 @@ fail:
 	return -1;
 }
 
-static int get_port(struct streamrelay *r, u_int16_t p, int family) {
+static int get_port(struct streamrelay *r, u_int16_t p) {
 	int ret;
 
 	if (bit_array_isset(ports_used, p))
 		return -1;
 
-	switch (family) {
-		case AF_INET:
-			ret = get_port4(r, p);
-			break;
-		case AF_INET6:
-			ret = get_port6(r, p);
-			break;
-		default:
-			/* panic XXX */
-			return -1;
-	}
+	if (IN6_IS_ADDR_UNSPECIFIED(&r->up->up->call->callmaster->ipv6))
+		ret = get_port4(r, p);
+	else
+		ret = get_port6(r, p);
 
 	if (ret)
 		return ret;
 
 	r->localport = p;
-	r->peer.family = family;
-	r->peer_advertised.family = family;
 
 	return 0;
 }
 
 
-static void get_port_pair(struct peer *p, int wanted_port, int family) {
+static void get_port_pair(struct peer *p, int wanted_port) {
 	struct call *c;
 	struct callmaster *m;
 	struct streamrelay *a, *b;
@@ -665,9 +646,9 @@ static void get_port_pair(struct peer *p, int wanted_port, int family) {
 	if (wanted_port > 0) {
 		if ((wanted_port & 1))
 			goto fail;
-		if (get_port(a, wanted_port, family))
+		if (get_port(a, wanted_port))
 			goto fail;
-		if (get_port(b, wanted_port + 1, family))
+		if (get_port(b, wanted_port + 1))
 			goto fail;
 		goto reserve;
 	}
@@ -691,11 +672,11 @@ static void get_port_pair(struct peer *p, int wanted_port, int family) {
 		if ((port & 1))
 			goto next;
 
-		if (get_port(a, port, family))
+		if (get_port(a, port))
 			goto next;
 
 		port++;
-		if (get_port(b, port, family))
+		if (get_port(b, port))
 			goto tryagain;
 
 		break;
@@ -734,17 +715,15 @@ static int setup_peer(struct peer *p, struct stream *s, const char *tag) {
 	a = &p->rtps[0];
 	b = &p->rtps[1];
 
-	if (a->peer_advertised.port != s->port
-			|| (s->family == AF_INET && a->peer_advertised.ipv4 != s->ipv4)
-			|| (s->family == AF_INET6 && memcmp(a->peer_advertised.ipv6, s->ipv6, 16))) {
+	if (a->peer_advertised.port != s->port || !IN6_ARE_ADDR_EQUAL(&a->peer_advertised.ip46, &s->ip46)) {
 		cs->peers[0].confirmed = 0;
 		unkernelize(&cs->peers[0]);
 		cs->peers[1].confirmed = 0;
 		unkernelize(&cs->peers[1]);
 	}
 
-	memcpy(a->peer.all, s->all, sizeof(a->peer.all));
-	memcpy(b->peer.all, s->all, sizeof(b->peer.all));
+	a->peer.ip46 = s->ip46;
+	b->peer.ip46 = s->ip46;
 	a->peer.port = b->peer.port = s->port;
 	if (b->peer.port)
 		b->peer.port++;
@@ -796,24 +775,22 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		}
 
 		sr->fd = srs->fd;
+		sr->fd_family = srs->fd_family;
 
-		sr->peer.family = srs->peer.family;
-		memcpy(sr->peer.all, srs->peer.all, sizeof(sr->peer.all));
+		sr->peer.ip46 = srs->peer.ip46;
 		sr->peer.port = srs->peer.port;
-		sr->peer_advertised.family = srs->peer_advertised.family;
-		memcpy(sr->peer_advertised.all, srs->peer_advertised.all, sizeof(sr->peer_advertised.all));
+		sr->peer_advertised.ip46 = srs->peer_advertised.ip46;
 		sr->peer_advertised.port = srs->peer_advertised.port;
 
 		sr->localport = srs->localport;
 
 
 		srs->fd = -1;
-		srs->peer.family = 0;
-		ZERO(srs->peer.all);
+		srs->fd_family = 0;
+		ZERO(srs->peer.ip46);
 		srs->peer.port = 0;
 		srs->localport = 0;
-		srs->peer_advertised.family = 0;
-		ZERO(srs->peer_advertised.all);
+		ZERO(srs->peer_advertised.ip46);
 		srs->peer_advertised.port = 0;
 
 		pi.fd = sr->fd;
@@ -826,7 +803,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 }
 
 
-static void callstream_init(struct callstream *s, struct call *ca, int port1, int port2, int family) {
+static void callstream_init(struct callstream *s, struct call *ca, int port1, int port2) {
 	int i, j, tport;
 	struct peer *p;
 	struct streamrelay *r;
@@ -860,7 +837,7 @@ static void callstream_init(struct callstream *s, struct call *ca, int port1, in
 		tport = (i == 0) ? port1 : port2;
 
 		if (tport >= 0) {
-			get_port_pair(p, tport, family);
+			get_port_pair(p, tport);
 
 			for (j = 0; j < 2; j++) {
 				r = &p->rtps[j];
@@ -910,23 +887,11 @@ static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) 
 			for (x = 0; x < 2; x++) {
 				r = &cs_o->peers[x].rtps[0];
 				DBG("comparing new %i:"IPF6":%u/%s to old %i:"IPF6":%u/%s",
-					IPP(t->ipv6), t->port, tag,
-					IPP(r->peer_advertised.ipv6), r->peer_advertised.port, cs_o->peers[x].tag);
-				if (r->peer_advertised.family != t->family)
+					IPP(t->ip46), t->port, tag,
+					IPP(r->peer_advertised.ip46), r->peer_advertised.port, cs_o->peers[x].tag);
+
+				if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->ip46))
 					continue;
-				switch (t->family) {
-					case AF_INET:
-						if (r->peer_advertised.ipv4 != t->ipv4)
-							continue;
-						break;
-					case AF_INET6:
-						if (memcmp(r->peer_advertised.ipv6, t->ipv6, 16))
-							continue;
-						break;
-					default:
-						/* XXX panic */
-						;
-				}
 				if (r->peer_advertised.port != t->port)
 					continue;
 				if (strcmp(cs_o->peers[x].tag, tag))
@@ -950,13 +915,13 @@ found:
 
 			if (!r) {
 				/* nothing found to re-use, open new ports */
-				callstream_init(cs, c, 0, 0, t->family);
+				callstream_init(cs, c, 0, 0);
 				p = &cs->peers[0];
 				setup_peer(p, t, tag);
 			}
 			else {
 				/* re-use, so don't open new ports */
-				callstream_init(cs, c, -1, -1, t->family);
+				callstream_init(cs, c, -1, -1);
 				if (r->up->idx == 0) {
 					/* request/lookup came in the same order as before */
 					steal_peer(&cs->peers[0], &cs_o->peers[0]);
@@ -1021,7 +986,7 @@ found:
 			DBG("case 4");
 			cs_o = cs;
 			cs = g_slice_alloc(sizeof(*cs));
-			callstream_init(cs, c, 0, 0, t->family);
+			callstream_init(cs, c, 0, 0);
 			steal_peer(&cs->peers[0], &cs_o->peers[0]);
 			p = &cs->peers[1];
 			setup_peer(p, t, tag);
@@ -1139,6 +1104,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	struct callstream *t;
 	struct streamrelay *x;
 	char ips[64];
+	u_int32_t ip4;
 
 	o = g_string_new("");
 	if (prefix)
@@ -1149,27 +1115,22 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 
 	t = s->head->data;
 
-	switch (t->peers[off].rtps[0].peer.family) {
-		case AF_INET:
-			if (!t->peers[off].rtps[0].peer.ipv4)
-				strcpy(ips, "0.0.0.0");
-			else if (t->call->callmaster->adv_ipv4)
-				sprintf(ips, IPF, IPP(t->call->callmaster->adv_ipv4));
-			else
-				sprintf(ips, IPF, IPP(t->peers[off].rtps[0].peer.ipv4));
-			break;
-
-		case AF_INET6:
-			if (!memcmp(t->peers[off].rtps[0].peer.ipv6, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16))
-				strcpy(ips, "::");
-			else if (!memcmp(t->call->callmaster->adv_ipv6, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16))
-				inet_ntop(AF_INET6, t->call->callmaster->adv_ipv6, ips, sizeof(ips));
-			else
-				inet_ntop(AF_INET6, t->peers[off].rtps[0].peer.ipv6, ips, sizeof(ips));
-			break;
-		default:
-			/* XXX panic */
-			;
+	if (IN6_IS_ADDR_V4MAPPED(&t->peers[off].rtps[0].peer.ip46)) {
+		ip4 = t->peers[off].rtps[0].peer.ip46.s6_addr32[3];
+		if (!ip4)
+			strcpy(ips, "0.0.0.0");
+		else if (t->call->callmaster->adv_ipv4)
+			sprintf(ips, IPF, IPP(t->call->callmaster->adv_ipv4));
+		else
+			sprintf(ips, IPF, IPP(ip4));
+	}
+	else {
+		if (IN6_IS_ADDR_UNSPECIFIED(&t->peers[off].rtps[0].peer.ip46))
+			strcpy(ips, "::0");
+		else if (!IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->adv_ipv6))
+			inet_ntop(AF_INET6, &t->call->callmaster->adv_ipv6, ips, sizeof(ips));
+		else
+			inet_ntop(AF_INET6, &t->peers[off].rtps[0].peer.ip46, ips, sizeof(ips));
 	}
 
 	t = s->head->data;
@@ -1213,16 +1174,17 @@ static struct call *call_get_or_create(const char *callid, struct callmaster *m)
 }
 
 static int addr_parse_udp(struct stream *st, const char **o) {
+	u_int32_t ip4;
+
 	ZERO(st);
 	if (o[5] && *o[5]) {
-		st->family = AF_INET;
-		st->ipv4 = inet_addr(o[5]);
-		if (st->ipv4 == -1)
+		ip4 = inet_addr(o[5]);
+		if (ip4 == -1)
 			goto fail;
+		in4_to_6(&st->ip46, ip4);
 	}
 	else if (o[6] && *o[6]) {
-		st->family = AF_INET6;
-		if (inet_pton(AF_INET6, o[6], st->ipv6) != 1)
+		if (inet_pton(AF_INET6, o[6], &st->ip46) != 1)
 			goto fail;
 	}
 	else
@@ -1400,6 +1362,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 	struct streamrelay *r1, *r2;
 	struct streamrelay *rx1, *rx2;
 	struct callmaster *m;
+	char addr1[64], addr2[64], addr3[64];
 
 	m = c->callmaster;
 
@@ -1422,44 +1385,17 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 		if (r1->fd == -1 || r2->fd == -1)
 			continue;
 
-		streambuf_printf(s->outbuf, "stream ");
-		switch (r1->peer.family) {
-			case AF_INET:
-				streambuf_printf(s->outbuf, IPF, IPP(r1->peer.ipv4));
-				break;
-			case AF_INET6:
-				streambuf_printf(s->outbuf, IP6F, IP6P(r1->peer.ipv6));
-				break;
-			default:
-				/* XXX Panic */
-				;
-		}
-		streambuf_printf(s->outbuf, ":%u ", r1->peer.port);
-		switch (r2->peer.family) {
-			case AF_INET:
-				streambuf_printf(s->outbuf, IPF, IPP(r2->peer.ipv4));
-				break;
-			case AF_INET6:
-				streambuf_printf(s->outbuf, IP6F, IP6P(r2->peer.ipv6));
-				break;
-			default:
-				/* XXX Panic */
-				;
-		}
-		streambuf_printf(s->outbuf, ":%u ", r2->peer.port);
-		switch (r1->peer.family) {
-			case AF_INET:
-				streambuf_printf(s->outbuf, IPF, IPP(m->ipv4));
-				break;
-			case AF_INET6:
-				streambuf_printf(s->outbuf, IP6F, IP6P(m->ipv6));
-				break;
-			default:
-				/* XXX Panic */
-				;
-		}
-		streambuf_printf(s->outbuf, ":%u %llu/%llu/%llu %s %s %s %i\n",
-			r1->localport,
+		smart_ntop(addr1, &r1->peer.ip46, sizeof(addr1));
+		smart_ntop(addr2, &r2->peer.ip46, sizeof(addr2));
+		if (IN6_IS_ADDR_V4MAPPED(&r1->peer.ip46))
+			inet_ntop(AF_INET, &m->ipv4, addr3, sizeof(addr3));
+		else
+			inet_ntop(AF_INET6, &m->ipv6, addr3, sizeof(addr3));
+
+		streambuf_printf(s->outbuf, "stream %s:%u %s:%u %s:%u %llu/%llu/%llu %s %s %s %i\n",
+			addr1, r1->peer.port,
+			addr2, r2->peer.port,
+			addr3, r1->localport,
 			(long long unsigned int) r1->stats.bytes + rx1->stats.bytes,
 			(long long unsigned int) r2->stats.bytes + rx2->stats.bytes,
 			(long long unsigned int) r1->stats.bytes + rx1->stats.bytes + r2->stats.bytes + rx2->stats.bytes,
@@ -1510,7 +1446,8 @@ void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *st
 			p = &cs->peers[i];
 			rp = rps[i];
 
-			p->rtps[1].peer.ip = p->rtps[0].peer.ip = inet_addr(rp->element[0]->str);
+			inet_pton(AF_INET6, rp->element[0]->str, &p->rtps[0].peer.ip46);
+			p->rtps[1].peer.ip46 = p->rtps[0].peer.ip46;
 			p->rtps[0].peer.port = atoi(rp->element[1]->str);
 			p->rtps[1].peer.port = p->rtps[0].peer.port + 1;
 			strdupfree(&p->tag, rp->element[6]->str);

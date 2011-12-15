@@ -79,7 +79,7 @@ static void addr_copy(struct mp_address *mp, struct ip_port *ap) {
 			mp->ipv4 = ap->ipv4;
 			break;
 		case AF_INET6:
-			memcpy(mp->ipv6, ap->ipv6, 16);
+			memcpy(mp->ipv6, &ap->ipv6, 16);
 			break;
 		default:
 			/* XXX panic */

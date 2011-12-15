@@ -12,6 +12,7 @@
 #include <pcre.h>
 #include <stdarg.h>
 #include <uuid/uuid.h>
+#include <arpa/inet.h>
 
 
 
@@ -23,17 +24,6 @@
 #define IPP(x)			((unsigned char *) (&(x)))[0], ((unsigned char *) (&(x)))[1], ((unsigned char *) (&(x)))[2], ((unsigned char *) (&(x)))[3]
 #define DF			IPF ":%u"
 #define DP(x)			IPP((x).sin_addr.s_addr), ntohs((x).sin_port)
-#define IP6F			"%x:%x:%x:%x:%x:%x:%x:%x"
-#define IP6P(x)			ntohs(((u_int16_t *) (x))[0]), \
-				ntohs(((u_int16_t *) (x))[1]), \
-				ntohs(((u_int16_t *) (x))[2]), \
-				ntohs(((u_int16_t *) (x))[3]), \
-				ntohs(((u_int16_t *) (x))[4]), \
-				ntohs(((u_int16_t *) (x))[5]), \
-				ntohs(((u_int16_t *) (x))[6]), \
-				ntohs(((u_int16_t *) (x))[7])
-#define D6F			IP6F ":%u"
-#define D6P(x)			IP6P((x).sin6_addr.s6_addr), ntohs((x).sin6_port)
 
 #define BIT_ARRAY_DECLARE(name, size)	int name[((size) + sizeof(int) * 8 - 1) / (sizeof(int) * 8)]
 
@@ -94,6 +84,20 @@ static inline void swap_ptrs(void *a, void *b) {
 	t = *aa;
 	*aa = *bb;
 	*bb = t;
+}
+
+static inline void in4_to_6(struct in6_addr *o, u_int32_t ip) {
+	o->s6_addr32[0] = 0;
+	o->s6_addr32[1] = 0;
+	o->s6_addr32[2] = htonl(0xffff);
+	o->s6_addr32[3] = ip;
+}
+
+static inline void smart_ntop(char *o, struct in6_addr *a, size_t len) {
+	if (IN6_IS_ADDR_V4MAPPED(a))
+		inet_ntop(AF_INET, &(a->s6_addr32[3]), o, len);
+	else
+		inet_ntop(AF_INET6, a, o, len);
 }
 
 
