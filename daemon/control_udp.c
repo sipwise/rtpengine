@@ -27,7 +27,7 @@ static void control_udp_closed(int fd, void *p) {
 
 static void control_udp_incoming(int fd, void *p) {
 	struct control_udp *u = p;
-	int ret;
+	int ret, len;
 	char buf[8192];
 	struct sockaddr_in sin;
 	socklen_t sin_len;
@@ -38,17 +38,17 @@ static void control_udp_incoming(int fd, void *p) {
 	struct iovec iov[10];
 
 	sin_len = sizeof(sin);
-	ret = recvfrom(fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &sin, &sin_len);
-	if (ret <= 0) {
+	len = recvfrom(fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &sin, &sin_len);
+	if (len <= 0) {
 		mylog(LOG_WARNING, "Error reading from UDP socket");
 		return;
 	}
 
-	buf[ret] = '\0';
+	buf[len] = '\0';
 
-	ret = pcre_exec(u->parse_re, u->parse_ree, buf, ret, 0, 0, ovec, G_N_ELEMENTS(ovec));
+	ret = pcre_exec(u->parse_re, u->parse_ree, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
-		ret = pcre_exec(u->fallback_re, NULL, buf, ret, 0, 0, ovec, G_N_ELEMENTS(ovec));
+		ret = pcre_exec(u->fallback_re, NULL, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 		if (ret <= 0) {
 			mylog(LOG_WARNING, "Unable to parse command line from udp:" DF ": %s", DP(sin), buf);
 			return;
@@ -202,6 +202,9 @@ struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t po
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 			              /* cookie       cmd flags callid   addr      port */
 	c->fallback_re = pcre_compile("^(\\S+)(?:\\s+(\\S)\\S*\\s+\\S+(\\s+\\S+)(\\s+\\S+))?", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
+
+	if (!c->parse_re || !c->fallback_re)
+		goto fail2;
 
 	ZERO(i);
 	i.fd = fd;
