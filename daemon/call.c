@@ -571,8 +571,8 @@ static int get_port4(struct streamrelay *r, u_int16_t p) {
 	if (fd < 0)
 		return -1;
 
-	NONBLOCK(fd);
-	REUSEADDR(fd);
+	nonblock(fd);
+	reuseaddr(fd);
 	setsockopt(fd, IPPROTO_IP, IP_TOS, &r->up->up->call->callmaster->tos, sizeof(r->up->up->call->callmaster->tos));
 
 	ZERO(sin);
@@ -599,8 +599,8 @@ static int get_port6(struct streamrelay *r, u_int16_t p) {
 	if (fd < 0)
 		return -1;
 
-	NONBLOCK(fd);
-	REUSEADDR(fd);
+	nonblock(fd);
+	reuseaddr(fd);
 	setsockopt(fd, IPPROTO_IP, IP_TOS, &r->up->up->call->callmaster->tos, sizeof(r->up->up->call->callmaster->tos));
 	i = 1;
 	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &i, sizeof(i));
@@ -623,7 +623,7 @@ fail:
 static int get_port(struct streamrelay *r, u_int16_t p, int family) {
 	int ret;
 
-	if (BIT_ARRAY_ISSET(ports_used, p))
+	if (bit_array_isset(ports_used, p))
 		return -1;
 
 	switch (family) {
@@ -710,8 +710,8 @@ next:
 	mylog(LOG_DEBUG, "[%s] Opened ports %u/%u for RTP", c->callid, a->localport, b->localport);
 
 reserve:
-	BIT_ARRAY_SET(ports_used, a->localport);
-	BIT_ARRAY_SET(ports_used, b->localport);
+	bit_array_set(ports_used, a->localport);
+	bit_array_set(ports_used, b->localport);
 
 	return;
 
@@ -791,7 +791,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		if (sr->fd != -1) {
 			mylog(LOG_DEBUG, "[%s] Closing port %u in favor of re-use", c->callid, sr->localport);
 			close(sr->fd);
-			BIT_ARRAY_CLEAR(ports_used, sr->localport);
+			bit_array_clear(ports_used, sr->localport);
 			poller_del_item(po, sr->fd);
 		}
 
@@ -1094,7 +1094,7 @@ static void kill_callstream(struct callstream *s) {
 
 			if (r->fd != -1) {
 				close(r->fd);
-				BIT_ARRAY_CLEAR(ports_used, r->localport);
+				bit_array_clear(ports_used, r->localport);
 			}
 			poller_del_item(s->call->callmaster->poller, r->fd);
 		}

@@ -35,13 +35,7 @@
 #define D6F			IP6F ":%u"
 #define D6P(x)			IP6P((x).sin6_addr.s6_addr), ntohs((x).sin6_port)
 
-#define NONBLOCK(x)		fcntl(x, F_SETFL, O_NONBLOCK)
-#define REUSEADDR(x)		do { int ONE = 1; setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &ONE, sizeof(ONE)); } while (0)
-
 #define BIT_ARRAY_DECLARE(name, size)	int name[((size) + sizeof(int) * 8 - 1) / (sizeof(int) * 8)]
-#define BIT_ARRAY_SET(name, bit)	name[(bit) / (sizeof(int) * 8)] |= 1 << ((bit) % (sizeof(int) * 8))
-#define BIT_ARRAY_CLEAR(name, bit)	name[(bit) / (sizeof(int) * 8)] &= ~(1 << ((bit) % (sizeof(int) * 8)))
-#define BIT_ARRAY_ISSET(name, bit)	(name[(bit) / (sizeof(int) * 8)] & (1 << ((bit) % (sizeof(int) * 8))))
 
 
 
@@ -61,6 +55,27 @@ void g_string_vprintf(GString *string, const gchar *format, va_list args);
 void g_queue_clear(GQueue *);
 #endif
 
+
+static inline void nonblock(int fd) {
+	fcntl(fd, F_SETFL, O_NONBLOCK);
+}
+
+static inline void reuseaddr(int fd) {
+	int one = 1;
+	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+}
+
+static inline int bit_array_isset(int *name, unsigned int bit) {
+	return name[(bit) / (sizeof(int) * 8)] & (1 << ((bit) % (sizeof(int) * 8)));
+}
+
+static inline void bit_array_set(int *name, unsigned int bit) {
+	name[(bit) / (sizeof(int) * 8)] |= 1 << ((bit) % (sizeof(int) * 8));
+}
+
+static inline void bit_array_clear(int *name, unsigned int bit) {
+	name[(bit) / (sizeof(int) * 8)] &= ~(1 << ((bit) % (sizeof(int) * 8)));
+}
 
 static inline void uuid_str_generate(char *s) {
 	uuid_t uuid;

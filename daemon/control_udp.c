@@ -173,8 +173,8 @@ struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t po
 	if (fd == -1)
 		return NULL;
 
-	NONBLOCK(fd);
-	REUSEADDR(fd);
+	nonblock(fd);
+	reuseaddr(fd);
 
 	ZERO(sin);
 	sin.sin_family = AF_INET;
