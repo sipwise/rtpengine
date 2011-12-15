@@ -36,7 +36,7 @@ static struct in6_addr ipv6;
 static struct in6_addr adv_ipv6;
 static u_int32_t listenp;
 static u_int16_t listenport;
-static u_int32_t udp_listenp;
+static struct in6_addr udp_listenp;
 static u_int16_t udp_listenport;
 static int tos;
 static int table;
@@ -108,6 +108,31 @@ out:
 	return ret;
 }
 
+static int parse_ip6_port(struct in6_addr *ip6, u_int16_t *port, char *s) {
+	u_int32_t ip;
+	char *p;
+
+	if (!parse_ip_port(&ip, port, s)) {
+		if (ip)
+			in4_to_6(ip6, ip);
+		else
+			*ip6 = in6addr_any;
+		return 0;
+	}
+	if (*s != '[')
+		return -1;
+	if (inet_pton(AF_INET6, s+1, ip6) != 1)
+		return -1;
+	p = strstr(s, "]:");
+	if (!p)
+		return -1;
+	*port = atoi(p+2);
+	if (!*port)
+		return -1;
+
+	return 0;
+}
+
 
 
 static void options(int *argc, char ***argv) {
@@ -130,7 +155,7 @@ static void options(int *argc, char ***argv) {
 		{ "ip6",	'I', 0, G_OPTION_ARG_STRING,	&ipv6s,		"Local IPv6 address for RTP",	"IP6"		},
 		{ "advertised-ip6",'A',0,G_OPTION_ARG_STRING,	&adv_ipv6s,	"IPv6 address to advertise",	"IP6"		},
 		{ "listen",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
-		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP:]PORT"	},
+		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
@@ -185,7 +210,7 @@ static void options(int *argc, char ***argv) {
 			die("Invalid IP or port (--listen)\n");
 	}
 	if (listenudps) {
-		if (parse_ip_port(&udp_listenp, &udp_listenport, listenudps))
+		if (parse_ip6_port(&udp_listenp, &udp_listenport, listenudps))
 			die("Invalid IP or port (--listen-udp)\n");
 	}
 

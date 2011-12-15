@@ -60,10 +60,12 @@ void g_queue_clear(GQueue *);
 static inline void nonblock(int fd) {
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 }
-
 static inline void reuseaddr(int fd) {
 	int one = 1;
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+}
+static inline void ipv6only(int fd, int yn) {
+	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
 }
 
 static inline int bit_array_isset(int *name, unsigned int bit) {

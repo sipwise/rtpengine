@@ -6,6 +6,7 @@
 #include <pcre.h>
 #include <glib.h>
 #include <time.h>
+#include <netinet/in.h>
 
 #include "control_udp.h"
 #include "poller.h"
@@ -29,13 +30,14 @@ static void control_udp_incoming(int fd, void *p) {
 	struct control_udp *u = p;
 	int ret, len;
 	char buf[8192];
-	struct sockaddr_in sin;
+	struct sockaddr_in6 sin;
 	socklen_t sin_len;
 	int ovec[60];
 	const char **out;
 	char *reply;
 	struct msghdr mh;
 	struct iovec iov[10];
+	char addr[64];
 
 	sin_len = sizeof(sin);
 	len = recvfrom(fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &sin, &sin_len);
@@ -45,16 +47,17 @@ static void control_udp_incoming(int fd, void *p) {
 	}
 
 	buf[len] = '\0';
+	smart_ntop(addr, &sin.sin6_addr, sizeof(addr));
 
 	ret = pcre_exec(u->parse_re, u->parse_ree, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
 		ret = pcre_exec(u->fallback_re, NULL, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 		if (ret <= 0) {
-			mylog(LOG_WARNING, "Unable to parse command line from udp:" DF ": %s", DP(sin), buf);
+			mylog(LOG_WARNING, "Unable to parse command line from udp:%s:%u: %s", addr, ntohs(sin.sin6_port), buf);
 			return;
 		}
 
-		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from "DF", using fallback RE", buf, DP(sin));
+		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from %s:%u, using fallback RE", buf, addr, ntohs(sin.sin6_port));
 
 		pcre_get_substring_list(buf, ovec, ret, &out);
 
@@ -87,7 +90,7 @@ static void control_udp_incoming(int fd, void *p) {
 		return;
 	}
 
-	mylog(LOG_INFO, "Got valid command from udp:" DF ": %s", DP(sin), buf);
+	mylog(LOG_INFO, "Got valid command from udp:%s:%u: %s", addr, ntohs(sin.sin6_port), buf);
 
 	pcre_get_substring_list(buf, ovec, ret, &out);
 
@@ -104,7 +107,7 @@ static void control_udp_incoming(int fd, void *p) {
 	if (!reply)
 		reply = g_hash_table_lookup(u->stale_cookies, out[1]);
 	if (reply) {
-		mylog(LOG_INFO, "Detected command from udp:" DF " as a duplicate", DP(sin));
+		mylog(LOG_INFO, "Detected command from udp:%s:%u as a duplicate", addr, ntohs(sin.sin6_port));
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
 		goto out;
 	}
@@ -158,28 +161,29 @@ out:
 	pcre_free(out);
 }
 
-struct control_udp *control_udp_new(struct poller *p, u_int32_t ip, u_int16_t port, struct callmaster *m) {
+struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int16_t port, struct callmaster *m) {
 	int fd;
 	struct control_udp *c;
 	struct poller_item i;
-	struct sockaddr_in sin;
+	struct sockaddr_in6 sin;
 	const char *errptr;
 	int erroff;
 
 	if (!p || !m)
 		return NULL;
 
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	fd = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (fd == -1)
 		return NULL;
 
 	nonblock(fd);
 	reuseaddr(fd);
+	ipv6only(fd, 0);
 
 	ZERO(sin);
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = ip;
-	sin.sin_port = htons(port);
+	sin.sin6_family = AF_INET6;
+	sin.sin6_addr = ip;
+	sin.sin6_port = htons(port);
 	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)))
 		goto fail;
 

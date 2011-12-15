@@ -582,7 +582,6 @@ fail:
 static int get_port6(struct streamrelay *r, u_int16_t p) {
 	int fd;
 	struct sockaddr_in6 sin;
-	int i;
 
 	fd = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (fd < 0)
@@ -591,8 +590,7 @@ static int get_port6(struct streamrelay *r, u_int16_t p) {
 	nonblock(fd);
 	reuseaddr(fd);
 	setsockopt(fd, IPPROTO_IP, IP_TOS, &r->up->up->call->callmaster->tos, sizeof(r->up->up->call->callmaster->tos));
-	i = 0;
-	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &i, sizeof(i));
+	ipv6only(fd, 0);
 
 	ZERO(sin);
 	sin.sin6_family = AF_INET6;
@@ -1128,7 +1126,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	}
 	else {
 		if (IN6_IS_ADDR_UNSPECIFIED(&t->peers[off].rtps[0].peer.ip46))
-			strcpy(ips, "::0");
+			strcpy(ips, "::");
 		else if (!IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->adv_ipv6))
 			inet_ntop(AF_INET6, &t->call->callmaster->adv_ipv6, ips, sizeof(ips));
 		else

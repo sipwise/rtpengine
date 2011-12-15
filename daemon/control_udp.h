@@ -8,6 +8,7 @@
 #include <pcre.h>
 #include <glib.h>
 #include <time.h>
+#include <netinet/in.h>
 
 
 
@@ -36,7 +37,7 @@ struct control_udp {
 
 
 
-struct control_udp *control_udp_new(struct poller *, u_int32_t, u_int16_t, struct callmaster *);
+struct control_udp *control_udp_new(struct poller *, struct in6_addr, u_int16_t, struct callmaster *);
 
 
 
