@@ -66,10 +66,10 @@ static void control_udp_incoming(int fd, void *p) {
 		iov[0].iov_base = (void *) out[1];
 		iov[0].iov_len = strlen(out[1]);
 		if (out[2] && (chrtoupper(out[2][0]) == 'U' || chrtoupper(out[2][0]) == 'L')) {
-			iov[1].iov_base = (void *) out[3];
-			iov[1].iov_len = strlen(out[3]);
-			iov[2].iov_base = (void *) out[2];
-			iov[2].iov_len = strlen(out[2]);
+			iov[1].iov_base = (void *) out[4];
+			iov[1].iov_len = strlen(out[4]);
+			iov[2].iov_base = (void *) out[3];
+			iov[2].iov_len = strlen(out[3]);
 			iov[3].iov_base = "\n";
 			iov[3].iov_len = 1;
 			mh.msg_iovlen = 4;
