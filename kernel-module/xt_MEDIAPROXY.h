@@ -16,6 +16,7 @@ struct mp_address {
 	union {
 		unsigned char		all[16];
 		unsigned char		ipv6[16];
+		u_int16_t		u16[8];
 		u_int32_t		ipv4;
 	};
 	u_int16_t			port;

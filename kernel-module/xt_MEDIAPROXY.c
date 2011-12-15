@@ -49,7 +49,7 @@ MODULE_LICENSE("GPL");
 			(x).all[15],		\
 			(x).port
 
-#if 1
+#if 0
 #define DBG(x...) printk(KERN_DEBUG x)
 #else
 #define DBG(x...) ((void)0)
@@ -642,13 +642,37 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 	return g;
 }
 
+static void proc_list_addr_print(struct seq_file *f, const char *s, const struct mp_address *a) {
+	seq_printf(f, "    %6s ", s);
+	switch (a->family) {
+		case 0:
+			seq_printf(f, "<none>\n");
+			break;
+		case AF_INET:
+			seq_printf(f, "inet4 %u.%u.%u.%u:%u\n", a->all[0], a->all[1], a->all[2], a->all[3], a->port);
+			break;
+		case AF_INET6:
+			seq_printf(f, "inet6 [%x:%x:%x:%x:%x:%x:%x:%x]:%u\n", htons(a->u16[0]), htons(a->u16[1]),
+				htons(a->u16[2]), htons(a->u16[3]), htons(a->u16[4]), htons(a->u16[5]),
+				htons(a->u16[6]), htons(a->u16[7]), a->port);
+			break;
+		default:
+			seq_printf(f, "<unknown>\n");
+			break;
+	}
+}
+
 static int proc_list_show(struct seq_file *f, void *v) {
 	struct mediaproxy_target *g = v;
 	unsigned long flags;
 
 	spin_lock_irqsave(&g->lock, flags);
-	seq_printf(f, "port %5u: %20llu bytes, %20llu packets, %20llu errors\n",
-		g->target.target_port, g->stats.bytes, g->stats.packets, g->stats.errors);
+	seq_printf(f, "port %5u:\n", g->target.target_port);
+	proc_list_addr_print(f, "src", &g->target.src_addr);
+	proc_list_addr_print(f, "dst", &g->target.dst_addr);
+	proc_list_addr_print(f, "mirror", &g->target.mirror_addr);
+	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
+		g->stats.bytes, g->stats.packets, g->stats.errors);
 	spin_unlock_irqrestore(&g->lock, flags);
 
 	target_push(g);
