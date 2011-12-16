@@ -31,22 +31,22 @@ MODULE_LICENSE("GPL");
 
 #define MIPF		"%i:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%u"
 #define MIPP(x)		(x).family,		\
-			(x).all[0],		\
-			(x).all[1],		\
-			(x).all[2],		\
-			(x).all[3],		\
-			(x).all[4],		\
-			(x).all[5],		\
-			(x).all[6],		\
-			(x).all[7],		\
-			(x).all[8],		\
-			(x).all[9],		\
-			(x).all[10],		\
-			(x).all[11],		\
-			(x).all[12],		\
-			(x).all[13],		\
-			(x).all[14],		\
-			(x).all[15],		\
+			(x).u8[0],		\
+			(x).u8[1],		\
+			(x).u8[2],		\
+			(x).u8[3],		\
+			(x).u8[4],		\
+			(x).u8[5],		\
+			(x).u8[6],		\
+			(x).u8[7],		\
+			(x).u8[8],		\
+			(x).u8[9],		\
+			(x).u8[10],		\
+			(x).u8[11],		\
+			(x).u8[12],		\
+			(x).u8[13],		\
+			(x).u8[14],		\
+			(x).u8[15],		\
 			(x).port
 
 #if 0
@@ -649,7 +649,7 @@ static void proc_list_addr_print(struct seq_file *f, const char *s, const struct
 			seq_printf(f, "<none>\n");
 			break;
 		case AF_INET:
-			seq_printf(f, "inet4 %u.%u.%u.%u:%u\n", a->all[0], a->all[1], a->all[2], a->all[3], a->port);
+			seq_printf(f, "inet4 %u.%u.%u.%u:%u\n", a->u8[0], a->u8[1], a->u8[2], a->u8[3], a->port);
 			break;
 		case AF_INET6:
 			seq_printf(f, "inet6 [%x:%x:%x:%x:%x:%x:%x:%x]:%u\n", htons(a->u16[0]), htons(a->u16[1]),
@@ -722,7 +722,7 @@ static int is_valid_address(struct mp_address *mpa) {
 			break;
 
 		case AF_INET6:
-			if (!memcmp(mpa->ipv6, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16))
+			if (!mpa->u32[0] && !mpa->u32[1] && !mpa->u32[2] && !mpa->u32[3])
 				return 0;
 			break;
 

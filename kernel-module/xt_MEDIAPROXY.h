@@ -14,10 +14,12 @@ struct mediaproxy_stats {
 struct mp_address {
 	int				family;
 	union {
-		unsigned char		all[16];
 		unsigned char		ipv6[16];
-		u_int16_t		u16[8];
 		u_int32_t		ipv4;
+
+		unsigned char		u8[16];
+		u_int16_t		u16[8];
+		u_int32_t		u32[4];
 	};
 	u_int16_t			port;
 };
