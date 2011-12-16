@@ -1173,35 +1173,13 @@ drop:
 
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_target_param *par) {
-#else
-static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_param *par) {
-#endif
-	const struct xt_mediaproxy_info *pinfo = par->targinfo;
-	struct sk_buff *skb;
-	struct sk_buff *skb2;
-	struct iphdr *ih;
+static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t) {
 	struct udphdr *uh;
-	struct mediaproxy_table *t;
 	struct mediaproxy_target *g;
+	struct sk_buff *skb2;
 	int err;
-	unsigned long flags;
 	unsigned int datalen;
-
-	t = get_table(pinfo->id);
-	if (!t)
-		goto skip;
-
-	skb = skb_copy(oskb, GFP_ATOMIC);
-	if (!skb)
-		goto skip3;
-
-	skb_reset_network_header(skb);
-	ih = ip_hdr(skb);
-	skb_pull(skb, (ih->ihl << 2));
-	if (ih->protocol != IPPROTO_UDP)
-		goto skip2;
+	unsigned long flags;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -1249,6 +1227,43 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 
 skip2:
 	kfree_skb(skb);
+	table_push(t);
+	return XT_CONTINUE;
+}
+
+
+
+
+
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
+static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_target_param *par) {
+#else
+static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_param *par) {
+#endif
+	const struct xt_mediaproxy_info *pinfo = par->targinfo;
+	struct sk_buff *skb;
+	struct iphdr *ih;
+	struct mediaproxy_table *t;
+
+	t = get_table(pinfo->id);
+	if (!t)
+		goto skip;
+
+	skb = skb_copy(oskb, GFP_ATOMIC);
+	if (!skb)
+		goto skip3;
+
+	skb_reset_network_header(skb);
+	ih = ip_hdr(skb);
+	skb_pull(skb, (ih->ihl << 2));
+	if (ih->protocol != IPPROTO_UDP)
+		goto skip2;
+
+	return mediaproxy46(skb, t);
+
+skip2:
+	kfree_skb(skb);
 skip3:
 	table_push(t);
 skip:
@@ -1265,14 +1280,8 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 #endif
 	const struct xt_mediaproxy_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
-	struct sk_buff *skb2;
 	struct ipv6hdr *ih;
-	struct udphdr *uh;
 	struct mediaproxy_table *t;
-	struct mediaproxy_target *g;
-	int err;
-	unsigned long flags;
-	unsigned int datalen;
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -1288,49 +1297,7 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 	if (ih->nexthdr != IPPROTO_UDP)
 		goto skip2;
 
-	skb_reset_transport_header(skb);
-	uh = udp_hdr(skb);
-	skb_pull(skb, sizeof(*uh));
-
-	datalen = ntohs(uh->len);
-	if (datalen < sizeof(*uh))
-		goto skip2;
-	datalen -= sizeof(*uh);
-	DBG("udp payload = %u\n", datalen);
-	skb_trim(skb, datalen);
-
-	g = get_target(t, ntohs(uh->dest));
-	if (!g)
-		goto skip2;
-
-	DBG("target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
-
-	if (is_valid_address(&g->target.mirror_addr)) {
-		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
-		skb2 = skb_copy(skb, GFP_ATOMIC);
-		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
-		if (err) {
-			spin_lock_irqsave(&g->lock, flags);
-			g->stats.errors++;
-			spin_unlock_irqrestore(&g->lock, flags);
-		}
-	}
-
-	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
-
-	spin_lock_irqsave(&g->lock, flags);
-	if (err)
-		g->stats.errors++;
-	else {
-		g->stats.packets++;
-		g->stats.bytes += skb->len;
-	}
-	spin_unlock_irqrestore(&g->lock, flags);
-
-	target_push(g);
-	table_push(t);
-
-	return NF_DROP;
+	return mediaproxy46(skb, t);
 
 skip2:
 	kfree_skb(skb);
