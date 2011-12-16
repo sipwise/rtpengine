@@ -1245,12 +1245,17 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 	struct sk_buff *skb;
 	struct iphdr *ih;
 	struct mediaproxy_table *t;
+	int headroom;
 
 	t = get_table(pinfo->id);
 	if (!t)
 		goto skip;
 
-	skb = skb_copy(oskb, GFP_ATOMIC);
+	headroom = MAX_HEADER - sizeof(*ih);
+	if (skb_headroom(oskb) >= headroom)
+		skb = skb_copy(oskb, GFP_ATOMIC);
+	else
+		skb = skb_copy_expand(oskb, headroom, 0, GFP_ATOMIC);
 	if (!skb)
 		goto skip3;
 
@@ -1282,12 +1287,17 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 	struct sk_buff *skb;
 	struct ipv6hdr *ih;
 	struct mediaproxy_table *t;
+	int headroom;
 
 	t = get_table(pinfo->id);
 	if (!t)
 		goto skip;
 
-	skb = skb_copy(oskb, GFP_ATOMIC);
+	headroom = MAX_HEADER - sizeof(*ih);
+	if (skb_headroom(oskb) >= headroom)
+		skb = skb_copy(oskb, GFP_ATOMIC);
+	else
+		skb = skb_copy_expand(oskb, headroom, 0, GFP_ATOMIC);
 	if (!skb)
 		goto skip3;
 
