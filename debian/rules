@@ -36,8 +36,8 @@ build: build-stamp
 
 build-stamp:
 	dh_testdir
-	cd iptables-extension/ && gcc -O2 -Wall -fPIC -shared -o libxt_MEDIAPROXY.so libxt_MEDIAPROXY.c && cd ..
-	cd daemon && $(MAKE) && cd ..
+	make -C iptables-extension
+	make -C daemon
 	touch $@
 
 clean:
