@@ -59,6 +59,7 @@ struct peer {
 	char			*codec;
 	unsigned char		idx;
 	struct callstream	*up;
+	int			desired_family;
 	int			kernelized:1;
 	int			filled:1;
 	int			confirmed:1;
