@@ -197,11 +197,11 @@ static void options(int *argc, char ***argv) {
 	}
 
 	if (ipv6s) {
-		if (inet_pton(AF_INET6, ipv6s, &ipv6) != 1)
+		if (smart_pton(AF_INET6, ipv6s, &ipv6) != 1)
 			die("Invalid IPv6 address (--ip6)\n");
 	}
 	if (adv_ipv6s) {
-		if (inet_pton(AF_INET6, adv_ipv6s, &adv_ipv6) != 1)
+		if (smart_pton(AF_INET6, adv_ipv6s, &adv_ipv6) != 1)
 			die("Invalid IPv6 address (--advertised-ip6)\n");
 	}
 
