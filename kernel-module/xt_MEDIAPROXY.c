@@ -1,6 +1,3 @@
-/* make -C /lib/modules/$(uname -r)/build modules M=$(pwd) */
-/* make -C /lib/modules/$(uname -r)/build clean   M=$(pwd) */
-
 #include <linux/types.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>
