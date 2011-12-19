@@ -1109,7 +1109,7 @@ static void call_destroy(struct call *c) {
 
 
 
-static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int swap) {
+static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int format) {
 	GString *o;
 	int i;
 	GList *l;
@@ -1118,6 +1118,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	char ips[64];
 	u_int32_t ip4;
 	int other_off;
+	char af;
 
 	o = g_string_new("");
 	if (prefix)
@@ -1140,6 +1141,8 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 			sprintf(ips, IPF, IPP(t->call->callmaster->adv_ipv4));
 		else
 			sprintf(ips, IPF, IPP(t->call->callmaster->ipv4));
+
+		af = '4';
 	}
 	else {
 		if (IN6_IS_ADDR_UNSPECIFIED(&t->peers[off].rtps[0].peer.ip46))
@@ -1148,19 +1151,21 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 			inet_ntop(AF_INET6, &t->call->callmaster->adv_ipv6, ips, sizeof(ips));
 		else
 			inet_ntop(AF_INET6, &t->call->callmaster->ipv6, ips, sizeof(ips));
+
+		af = '6';
 	}
 
-	if (!swap)
+	if (format == 0)
 		g_string_append(o, ips);
 
 	for (i = 0, l = s->head; i < num && l; i++, l = l->next) {
 		t = l->data;
 		x = &t->peers[off].rtps[0];
-		g_string_append_printf(o, swap ? "%u " : " %u", x->localport);
+		g_string_append_printf(o, (format == 1) ? "%u " : " %u", x->localport);
 	}
 
-	if (swap)
-		g_string_append(o, ips);
+	if (format == 1)
+		g_string_append_printf(o, "%s %c", ips, af);
 
 out:
 	g_string_append(o, "\n");
