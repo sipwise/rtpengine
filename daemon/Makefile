@@ -6,6 +6,7 @@ CC=		gcc
 CFLAGS=		-g -Wall `pkg-config --cflags glib-2.0` `pcre-config --cflags` -fno-strict-aliasing
 CFLAGS+=	-I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
+CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
 
 ifeq ($(REDIS),yes)
 CFLAGS+=	-I$(LIBREDISDIR)
@@ -53,22 +54,19 @@ tests:
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) mediaproxy-ng aux-test poller-test aux-test.o poller-test.o .depend build_time.h core
+	rm -f $(OBJS) mediaproxy-ng aux-test poller-test aux-test.o poller-test.o .depend core
 	$(MAKE) -C $(LIBREDISDIR) clean
 
-.depend:	$(SRCS) Makefile build_time.h
+.depend:	$(SRCS) Makefile
 	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
 
-build_time.h:	$(SRCS) Makefile
-	echo "#define BUILD_TIME \"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\"" > build_time.h
-
-mediaproxy-ng:	$(OBJS) .depend build_time.h
+mediaproxy-ng:	$(OBJS) .depend
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
-aux-test:	aux.o aux-test.o .depend build_time.h
+aux-test:	aux.o aux-test.o .depend
 	$(CC) $(CFLAGS) -o $@ aux-test.o aux.o $(LDFLAGS)
 
-poller-test:	poller.o poller-test.o aux.o .depend build_time.h
+poller-test:	poller.o poller-test.o aux.o .depend
 	$(CC) $(CFLAGS) -o $@ poller-test.o poller.o aux.o $(LDFLAGS)
 
 

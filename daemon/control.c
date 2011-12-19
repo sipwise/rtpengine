@@ -10,7 +10,6 @@
 #include "aux.h"
 #include "streambuf.h"
 #include "log.h"
-#include "build_time.h"
 #include "call.h"
 
 
@@ -88,7 +87,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	else if (!strcmp(out[14], "status"))
 		calls_status(c->callmaster, s);
 	else if (!strcmp(out[14], "build") | !strcmp(out[14], "version"))
-		streambuf_printf(s->outbuf, "Build: %s\n", BUILD_TIME);
+		streambuf_printf(s->outbuf, "Version: %s\n", MEDIAPROXY_VERSION);
 	else if (!strcmp(out[14], "controls"))
 		control_list(c, s);
 	else if (!strcmp(out[14], "quit") || !strcmp(out[14], "exit"))

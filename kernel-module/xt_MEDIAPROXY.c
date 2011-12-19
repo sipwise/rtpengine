@@ -1370,7 +1370,7 @@ static struct xt_target xt_mediaproxy_regs[] = {
 static int __init init(void) {
 	int ret;
 
-	printk(KERN_NOTICE "Registering xt_MEDIAPROXY module\n");
+	printk(KERN_NOTICE "Registering xt_MEDIAPROXY module - version %s\n", MEDIAPROXY_VERSION);
 
 	rwlock_init(&table_lock);
 

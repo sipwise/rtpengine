@@ -12,9 +12,10 @@
 
 static void help(void) {
 	printf(
-		"MEDIAPROXY target options:\n"
+		"MEDIAPROXY (version %s) target options:\n"
 		" --id <id>\n"
-		"          Unique ID for this instance\n"
+		"          Unique ID for this instance\n",
+		MEDIAPROXY_VERSION
 	);
 }
 

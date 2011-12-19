@@ -17,7 +17,6 @@
 #ifndef NO_REDIS
 #include "redis.h"
 #endif
-#include "build_time.h"
 
 
 
@@ -185,7 +184,7 @@ static void options(int *argc, char ***argv) {
 		die("Bad command line: %s\n", er->message);
 
 	if (version)
-		die("Build time: %s\n", BUILD_TIME);
+		die("%s\n", MEDIAPROXY_VERSION);
 
 	if (!ipv4s)
 		die("Missing option --ip\n");
