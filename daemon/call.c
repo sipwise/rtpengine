@@ -1115,7 +1115,9 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	t = s->head->data;
 	other_off = (off == 0) ? 1 : 0;
 
-	if (family == AF_INET || (family == 0 && IN6_IS_ADDR_V4MAPPED(&t->peers[other_off].rtps[0].peer.ip46))) {
+	if (family == AF_INET
+			|| (family == 0 && IN6_IS_ADDR_V4MAPPED(&t->peers[other_off].rtps[0].peer.ip46))
+			|| IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->ipv6)) {
 		ip4 = t->peers[off].rtps[0].peer.ip46.s6_addr32[3];
 		if (!ip4)
 			strcpy(ips, "0.0.0.0");
