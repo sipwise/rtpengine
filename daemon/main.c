@@ -121,16 +121,21 @@ static int parse_ip6_port(struct in6_addr *ip6, u_int16_t *port, char *s) {
 	}
 	if (*s != '[')
 		return -1;
-	if (inet_pton(AF_INET6, s+1, ip6) != 1)
-		return -1;
 	p = strstr(s, "]:");
 	if (!p)
 		return -1;
+	*p = '\0';
+	if (inet_pton(AF_INET6, s+1, ip6) != 1)
+		goto fail;
 	*port = atoi(p+2);
 	if (!*port)
 		return -1;
 
 	return 0;
+
+fail:
+	*p = ']';
+	return -1;
 }
 
 

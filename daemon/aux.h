@@ -113,10 +113,17 @@ static inline void smart_ntop(char *o, struct in6_addr *a, size_t len) {
 		inet_ntop(AF_INET6, a, o, len);
 }
 
-static inline int smart_pton(int af, const char *src, void *dst) {
+static inline int smart_pton(int af, char *src, void *dst) {
+	char *p;
+	int ret;
+
 	if (af == AF_INET6) {
-		if (src[0] == '[')
-			return inet_pton(af, src+1, dst);
+		if (src[0] == '[' && (p = strchr(src, ']'))) {
+			*p = '\0';
+			ret = inet_pton(af, src+1, dst);
+			*p = ']';
+			return ret;
+		}
 	}
 	return inet_pton(af, src, dst);
 }
