@@ -60,7 +60,7 @@ clean:
 	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
 
 build_time.h:	$(SRCS) Makefile
-	date +"#define BUILD_TIME \"%Y-%m-%d %H:%M:%S\"" > build_time.h
+	echo "#define BUILD_TIME \"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\"" > build_time.h
 
 mediaproxy-ng:	$(OBJS) .depend build_time.h
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
