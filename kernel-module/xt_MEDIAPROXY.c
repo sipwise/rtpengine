@@ -1111,7 +1111,8 @@ static int send_proxy_packet6(struct sk_buff *skb, struct mp_address *src, struc
 	};
 	*ih = (struct ipv6hdr) {
 		.version	= 6,
-		.priority	= tos,
+		.priority	= (tos & 0xf0) >> 4,
+		.flow_lbl	= {(tos & 0xf) << 4, 0, 0},
 		.payload_len	= htons(datalen),
 		.nexthdr	= IPPROTO_UDP,
 		.hop_limit	= 64,
