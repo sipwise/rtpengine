@@ -116,9 +116,9 @@ static void control_udp_incoming(int fd, void *p) {
 		reply = call_update_udp(out, u->callmaster);
 	else if (chrtoupper(out[2][0]) == 'L')
 		reply = call_lookup_udp(out, u->callmaster);
-	else if (chrtoupper(out[10][0]) == 'D')
+	else if (chrtoupper(out[11][0]) == 'D')
 		reply = call_delete_udp(out, u->callmaster);
-	else if (chrtoupper(out[13][0]) == 'V') {
+	else if (chrtoupper(out[14][0]) == 'V') {
 		ZERO(mh);
 		mh.msg_name = &sin;
 		mh.msg_namelen = sizeof(sin);
@@ -130,13 +130,13 @@ static void control_udp_incoming(int fd, void *p) {
 		iov[1].iov_base = " ";
 		iov[1].iov_len = 1;
 
-		if (chrtoupper(out[14][0]) == 'F') {
+		if (chrtoupper(out[15][0]) == 'F') {
 			ret = 0;
-			if (!strcmp(out[15], "20040107"))
+			if (!strcmp(out[16], "20040107"))
 				ret = 1;
-			else if (!strcmp(out[15], "20050322"))
+			else if (!strcmp(out[16], "20050322"))
 				ret = 1;
-			else if (!strcmp(out[15], "20060704"))
+			else if (!strcmp(out[16], "20060704"))
 				ret = 1;
 			iov[2].iov_base = ret ? "1\n" : "0\n";
 			iov[2].iov_len = 2;
@@ -200,8 +200,8 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
 	c->oven_time = p->now;
 	c->parse_re = pcre_compile(
-			/* cookie:1     cmd:2 flags:3  callid:4       addr4:5           addr6:6                  port:7  from_tag:8               to_tag:9                            d:10 flags:11 callid:12 v:13 flags:14 parms:15 */
-			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))\\s+(\\d+)\\s+(\\S+?)(?:;\\S+)?(?:\\s+(\\S+?)(?:;\\S+)?(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
+			/* cookie:1     cmd:2 flags:3  callid:4       addr4:5           addr6:6                  port:7  from_tag:8 num:9       to_tag:10                      d:11 flags:12 callid:13 v:14 flags:15 parms:16 */
+			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))\\s+(\\d+)\\s+(\\S+?);(\\d+)(?:\\s+(\\S+?);\\d+(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 			              /* cookie       cmd flags callid   addr      port */

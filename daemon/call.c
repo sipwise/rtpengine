@@ -375,7 +375,9 @@ static GHashTable *info_parse(const char *s, GHashTable **h) {
 static int streams_parse_func(char **a, void **ret, void *p) {
 	struct stream *st;
 	u_int32_t ip;
+	int *i;
 
+	i = p;
 	st = g_slice_alloc0(sizeof(*st));
 
 	ip = inet_addr(a[0]);
@@ -385,6 +387,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 	in4_to_6(&st->ip46, ip);
 	st->port = atoi(a[1]);
 	st->mediatype = strdup(a[2] ? : "");
+	st->num = ++(*i);
 
 	if (!st->port)
 		goto fail;
@@ -401,7 +404,9 @@ fail:
 
 
 static GQueue *streams_parse(const char *s) {
-	return pcre_multi_match(&streams_re, &streams_ree, "^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", s, 3, streams_parse_func, NULL);
+	int i;
+	i = 0;
+	return pcre_multi_match(&streams_re, &streams_ree, "^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", s, 3, streams_parse_func, &i);
 }
 
 static void streams_free(GQueue *q) {
@@ -815,7 +820,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 }
 
 
-static void callstream_init(struct callstream *s, struct call *ca, int port1, int port2) {
+static void callstream_init(struct callstream *s, struct call *ca, int port1, int port2, int num) {
 	int i, j, tport;
 	struct peer *p;
 	struct streamrelay *r;
@@ -828,6 +833,8 @@ static void callstream_init(struct callstream *s, struct call *ca, int port1, in
 	ZERO(pi);
 
 	s->call = ca;
+	DBG("setting new callstream num to %i", num);
+	s->num = num;
 
 	for (i = 0; i < 2; i++) {
 		p = &s->peers[i];
@@ -927,13 +934,13 @@ found:
 
 			if (!r) {
 				/* nothing found to re-use, open new ports */
-				callstream_init(cs, c, 0, 0);
+				callstream_init(cs, c, 0, 0, t->num);
 				p = &cs->peers[0];
 				setup_peer(p, t, tag);
 			}
 			else {
 				/* re-use, so don't open new ports */
-				callstream_init(cs, c, -1, -1);
+				callstream_init(cs, c, -1, -1, t->num);
 				if (r->up->idx == 0) {
 					/* request/lookup came in the same order as before */
 					steal_peer(&cs->peers[0], &cs_o->peers[0]);
@@ -952,12 +959,18 @@ found:
 		}
 
 		/* lookup */
-		l = c->callstreams->head;
-		if (!l) {
-			mylog(LOG_WARNING, "[%s] Got LOOKUP, but no callstreams found", c->callid);
-			break;
+		for (l = c->callstreams->head; l; l = l->next) {
+			cs = l->data;
+			DBG("hunting for callstream, %i <> %i", cs->num, t->num);
+			if (cs->num != t->num)
+				continue;
+			goto got_cs;
 		}
-		cs = l->data;
+
+		mylog(LOG_WARNING, "[%s] Got LOOKUP, but no usable callstreams found", c->callid);
+		break;
+
+got_cs:
 		g_queue_delete_link(c->callstreams, l);
 		p = &cs->peers[1];
 		p2 = &cs->peers[0];
@@ -998,7 +1011,7 @@ found:
 			DBG("case 4");
 			cs_o = cs;
 			cs = g_slice_alloc(sizeof(*cs));
-			callstream_init(cs, c, 0, 0);
+			callstream_init(cs, c, 0, 0, t->num);
 			steal_peer(&cs->peers[0], &cs_o->peers[0]);
 			p = &cs->peers[1];
 			setup_peer(p, t, tag);
@@ -1229,6 +1242,11 @@ static int addr_parse_udp(struct stream *st, const char **o) {
 		}
 	}
 
+	if (o[9])
+		st->num = atoi(o[9]);
+	if (!st->num)
+		st->num = 1;
+
 	return 0;
 fail:
 	return -1;
@@ -1286,7 +1304,7 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
-	num = call_streams(c, &q, o[9], 1);
+	num = call_streams(c, &q, o[10], 1);
 
 	g_queue_clear(&q);
 
@@ -1358,7 +1376,7 @@ char *call_delete_udp(const char **o, struct callmaster *m) {
 	struct call *c;
 	char *ret;
 
-	c = g_hash_table_lookup(m->callhash, o[12]);
+	c = g_hash_table_lookup(m->callhash, o[13]);
 	if (!c)
 		goto err;
 
@@ -1473,7 +1491,7 @@ void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *st
 		rps[1] = streams->data;
 
 		cs = g_slice_alloc(sizeof(*cs));
-		callstream_init(cs, c, atoi(rps[0]->element[2]->str), atoi(rps[1]->element[2]->str));
+		callstream_init(cs, c, atoi(rps[0]->element[2]->str), atoi(rps[1]->element[2]->str), -1); /* XXX */
 		kernel = 0;
 
 		for (i = 0; i < 2; i++) {

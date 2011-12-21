@@ -39,6 +39,7 @@ struct stream {
 		DIR_INTERNAL,
 		DIR_EXTERNAL,
 	}			direction[2];
+	int			num;
 };
 struct streamrelay {
 	int			fd;
@@ -67,6 +68,7 @@ struct peer {
 struct callstream {
 	struct peer		peers[2];
 	struct call		*call;
+	int			num;
 };
 
 struct call {
