@@ -176,7 +176,7 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	p = &pe2->rtps[r->idx];
 	c = cs->call;
 	m = c->callmaster;
-	smart_ntop(addr, &fsin->sin6_addr, sizeof(addr));
+	smart_ntop_p(addr, &fsin->sin6_addr, sizeof(addr));
 
 	if (p->fd == -1) {
 		mylog(LOG_WARNING, "[%s] RTP packet to port %u discarded from %s:%u", c->callid, r->localport, addr, ntohs(fsin->sin6_port));
@@ -898,7 +898,7 @@ static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) 
 			cs_o = l->data;
 			for (x = 0; x < 2; x++) {
 				r = &cs_o->peers[x].rtps[0];
-				DBG("comparing new "IP6F":%u/%s to old "IP6F":%u/%s",
+				DBG("comparing new ["IP6F"]:%u/%s to old ["IP6F"]:%u/%s",
 					IP6P(&t->ip46), t->port, tag,
 					IP6P(&r->peer_advertised.ip46), r->peer_advertised.port, cs_o->peers[x].tag);
 
@@ -1419,12 +1419,12 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 		if (r1->fd == -1 || r2->fd == -1)
 			continue;
 
-		smart_ntop(addr1, &r1->peer.ip46, sizeof(addr1));
-		smart_ntop(addr2, &r2->peer.ip46, sizeof(addr2));
+		smart_ntop_p(addr1, &r1->peer.ip46, sizeof(addr1));
+		smart_ntop_p(addr2, &r2->peer.ip46, sizeof(addr2));
 		if (IN6_IS_ADDR_V4MAPPED(&r1->peer.ip46))
 			inet_ntop(AF_INET, &m->ipv4, addr3, sizeof(addr3));
 		else
-			inet_ntop(AF_INET6, &m->ipv6, addr3, sizeof(addr3));
+			smart_ntop_p(addr3, &m->ipv6, sizeof(addr3));
 
 		streambuf_printf(s->outbuf, "stream %s:%u %s:%u %s:%u %llu/%llu/%llu %s %s %s %i\n",
 			addr1, r1->peer.port,

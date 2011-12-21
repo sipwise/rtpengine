@@ -31,7 +31,7 @@
 				ntohs(((u_int16_t *) (x))[5]), \
 				ntohs(((u_int16_t *) (x))[6]), \
 				ntohs(((u_int16_t *) (x))[7])
-#define D6F			IP6F ":%u"
+#define D6F			"["IP6F"]:%u"
 #define D6P(x)			IP6P((x).sin6_addr.s6_addr), ntohs((x).sin6_port)
 #define DF			IPF ":%u"
 #define DP(x)			IPP((x).sin_addr.s_addr), ntohs((x).sin_port)
@@ -107,10 +107,34 @@ static inline void in4_to_6(struct in6_addr *o, u_int32_t ip) {
 }
 
 static inline void smart_ntop(char *o, struct in6_addr *a, size_t len) {
+	const char *r;
+
 	if (IN6_IS_ADDR_V4MAPPED(a))
-		inet_ntop(AF_INET, &(a->s6_addr32[3]), o, len);
+		r = inet_ntop(AF_INET, &(a->s6_addr32[3]), o, len);
 	else
-		inet_ntop(AF_INET6, a, o, len);
+		r = inet_ntop(AF_INET6, a, o, len);
+
+	if (!r)
+		*o = '\0';
+}
+
+static inline void smart_ntop_p(char *o, struct in6_addr *a, size_t len) {
+	int l;
+
+	if (IN6_IS_ADDR_V4MAPPED(a)) {
+		if (!inet_ntop(AF_INET, &(a->s6_addr32[3]), o, len))
+			*o = '\0';
+	}
+	else {
+		*o = '[';
+		if (!inet_ntop(AF_INET6, a, o+1, len-2)) {
+			*o = '\0';
+			return;
+		}
+		l = strlen(o);
+		o[l] = ']';
+		o[l+1] = '\0';
+	}
 }
 
 static inline int smart_pton(int af, char *src, void *dst) {

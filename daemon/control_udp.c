@@ -47,7 +47,7 @@ static void control_udp_incoming(int fd, void *p) {
 	}
 
 	buf[len] = '\0';
-	smart_ntop(addr, &sin.sin6_addr, sizeof(addr));
+	smart_ntop_p(addr, &sin.sin6_addr, sizeof(addr));
 
 	ret = pcre_exec(u->parse_re, u->parse_ree, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
