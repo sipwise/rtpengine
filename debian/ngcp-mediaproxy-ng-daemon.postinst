@@ -3,8 +3,7 @@
 
 set -e
 
-# DEBHELPER like wrapper
-init_wrapper() {
+restart_handler() {
   if [ -x "/etc/init.d/ngcp-mediaproxy-ng-daemon" ]; then
     if [ -x "$(which invoke-rc.d 2>/dev/null)" ]; then
       invoke-rc.d ngcp-mediaproxy-ng-daemon restart || exit $?
@@ -14,16 +13,24 @@ init_wrapper() {
   fi
 }
 
-restart_daemon() {
-  # just invoke init script wrapper on ce systems since
+initscript_handler() {
+  if [ -x "/etc/init.d/ngcp-mediaproxy-ng-daemon" ]; then
+    update-rc.d ngcp-mediaproxy-ng-daemon defaults >/dev/null
+    invoke-rc.d ngcp-mediaproxy-ng-daemon start || exit $?
+  fi
+}
+
+init_handler() {
+  # just invoke init script wrappers on ce systems since
   # they do not provide ngcp-check_active and we don't
   # have to handle inactive nodes
   if ! [ -x "$(which ngcp-check_active 2>/dev/null)" ]; then
-    init_wrapper
+    restart_handler
+    initscript_handler
   else # do not restart daemon on inactive node in pro systems
     if ngcp-check_active ; then
       echo "Active node detected, restarting ngcp-mediaproxy-ng-daemon"
-      init_wrapper
+      restart_handler
     else
       echo "Inactive node detected, ignoring request to restart ngcp-mediaproxy-ng-daemon"
     fi
@@ -32,7 +39,7 @@ restart_daemon() {
 
 case "$1" in
     configure)
-      restart_daemon
+      init_handler
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
@@ -43,3 +50,5 @@ case "$1" in
         exit 1
     ;;
 esac
+
+exit 0
