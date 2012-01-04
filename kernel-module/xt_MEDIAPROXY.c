@@ -17,7 +17,11 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
 #include <linux/netfilter/x_tables.h>
+#ifndef __MP_EXTERNAL
+#include <linux/netfilter/xt_MEDIAPROXY.h>
+#else
 #include "xt_MEDIAPROXY.h"
+#endif
 
 MODULE_LICENSE("GPL");
 
