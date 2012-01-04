@@ -594,7 +594,11 @@ static int get_port6(struct streamrelay *r, u_int16_t p) {
 
 	nonblock(fd);
 	reuseaddr(fd);
+#ifdef IPV6_TCLASS
 	setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &r->up->up->call->callmaster->tos, sizeof(r->up->up->call->callmaster->tos));
+#else
+#warning "Will not set IPv6 traffic class"
+#endif
 	ipv6only(fd, 0);
 
 	ZERO(sin);

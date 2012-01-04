@@ -96,9 +96,15 @@ static void control_udp_incoming(int fd, void *p) {
 
 	if (u->poller->now - u->oven_time >= 30) {
 		g_hash_table_remove_all(u->stale_cookies);
+#if GLIB_CHECK_VERSION(2,14,0)
 		g_string_chunk_clear(u->stale_chunks);
-		swap_ptrs(&u->stale_cookies, &u->fresh_cookies);
 		swap_ptrs(&u->stale_chunks, &u->fresh_chunks);
+#else
+		g_string_chunk_free(u->stale_chunks);
+		u->stale_chunks = u->fresh_chunks;
+		u->fresh_chunks = g_string_chunk_new(4 * 1024);
+#endif
+		swap_ptrs(&u->stale_cookies, &u->fresh_cookies);
 		u->oven_time = u->poller->now;	/* baked new cookies! */
 	}
 
