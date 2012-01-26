@@ -91,6 +91,7 @@ case "$1" in
 	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
 	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	rmmod ipt_MEDIAPROXY 2>/dev/null
 	rmmod xt_MEDIAPROXY 2>/dev/null
 	set -e
 	rm -f $PIDFILE
@@ -113,6 +114,7 @@ case "$1" in
 	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
 	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	rmmod ipt_MEDIAPROXY 2>/dev/null
 	rmmod xt_MEDIAPROXY 2>/dev/null
 	set -e
 	modprobe xt_MEDIAPROXY
