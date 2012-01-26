@@ -1,3 +1,12 @@
+ngcp-mediaproxy-ng (1.6.0) unstable; urgency=low
+
+  * Add full IPv6 support
+  * Attempt to handle unparsable proxy commands as much as possible
+  * Improve human-readable output in /proc
+  * Fix handling of calls with multiple media streams
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 26 Jan 2012 07:30:25 -0500
+
 ngcp-mediaproxy-ng (1.5.3) unstable; urgency=low
 
   * Fix incorrect handling of lookups received without prior request
