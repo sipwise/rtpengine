@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (1.6.1) unstable; urgency=low
+
+  * Correctly remember address family across re-invites etc
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Wed, 08 Feb 2012 10:34:33 -0500
+
 ngcp-mediaproxy-ng (1.6.0) unstable; urgency=low
 
   * Add full IPv6 support
