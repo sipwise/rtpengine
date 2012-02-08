@@ -783,6 +783,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	strmove(&dest->tag, &src->tag);
 	//dest->kernelized = src->kernelized;
 	//src->kernelized = 0;
+	dest->desired_family = src->desired_family;
 
 	for (i = 0; i < 2; i++) {
 		sr = &dest->rtps[i];
