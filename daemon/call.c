@@ -1211,34 +1211,34 @@ static struct call *call_get_or_create(const char *callid, struct callmaster *m)
 	return c;
 }
 
-static int addr_parse_udp(struct stream *st, const char **o) {
+static int addr_parse_udp(struct stream *st, const char **out) {
 	u_int32_t ip4;
 	const char *cp;
 	char c;
 	int i;
 
 	ZERO(*st);
-	if (o[5] && *o[5]) {
-		ip4 = inet_addr(o[5]);
+	if (out[RE_UDP_UL_ADDR4] && *out[RE_UDP_UL_ADDR4]) {
+		ip4 = inet_addr(out[RE_UDP_UL_ADDR4]);
 		if (ip4 == -1)
 			goto fail;
 		in4_to_6(&st->ip46, ip4);
 	}
-	else if (o[6] && *o[6]) {
-		if (inet_pton(AF_INET6, o[6], &st->ip46) != 1)
+	else if (out[RE_UDP_UL_ADDR6] && *out[RE_UDP_UL_ADDR6]) {
+		if (inet_pton(AF_INET6, out[RE_UDP_UL_ADDR6], &st->ip46) != 1)
 			goto fail;
 	}
 	else
 		goto fail;
 
-	st->port = atoi(o[7]);
+	st->port = atoi(out[RE_UDP_UL_PORT]);
 	st->mediatype = "unknown";
-	if (!st->port && strcmp(o[7], "0"))
+	if (!st->port && strcmp(out[RE_UDP_UL_PORT], "0"))
 		goto fail;
 
-	if (o[3]) {
+	if (out[RE_UDP_UL_FLAGS]) {
 		i = 0;
-		for (cp = o[3]; *cp && i < 2; cp++) {
+		for (cp =out[RE_UDP_UL_FLAGS]; *cp && i < 2; cp++) {
 			c = chrtoupper(*cp);
 			if (c == 'E')
 				st->direction[i++] = DIR_EXTERNAL;
@@ -1247,8 +1247,8 @@ static int addr_parse_udp(struct stream *st, const char **o) {
 		}
 	}
 
-	if (o[9])
-		st->num = atoi(o[9]);
+	if (out[RE_UDP_UL_NUM])
+		st->num = atoi(out[RE_UDP_UL_NUM]);
 	if (!st->num)
 		st->num = 1;
 
@@ -1257,21 +1257,21 @@ fail:
 	return -1;
 }
 
-char *call_update_udp(const char **o, struct callmaster *m) {
+char *call_update_udp(const char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
 	char *ret;
 
-	c = call_get_or_create(o[4], m);
+	c = call_get_or_create(out[RE_UDP_UL_CALLID], m);
 	strdupfree(&c->calling_agent, "UNKNOWN(udp)");
 
-	if (addr_parse_udp(&st, o))
+	if (addr_parse_udp(&st, out))
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
-	num = call_streams(c, &q, o[8], 0);
+	num = call_streams(c, &q, out[RE_UDP_UL_FROMTAG], 0);
 
 	g_queue_clear(&q);
 
@@ -1279,37 +1279,37 @@ char *call_update_udp(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, o[1], 1);
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 
 fail:
-	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", o[5], o[6], o[7]);
-	asprintf(&ret, "%s E8\n", o[1]);
+	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
+	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	return ret;
 }
 
-char *call_lookup_udp(const char **o, struct callmaster *m) {
+char *call_lookup_udp(const char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
 	char *ret;
 
-	c = g_hash_table_lookup(m->callhash, o[4]);
+	c = g_hash_table_lookup(m->callhash, out[RE_UDP_UL_CALLID]);
 	if (!c) {
-		mylog(LOG_WARNING, "[%s] Got UDP LOOKUP for unknown call-id", o[4]);
-		asprintf(&ret, "%s 0 " IPF "\n", o[1], IPP(m->ipv4));
+		mylog(LOG_WARNING, "[%s] Got UDP LOOKUP for unknown call-id", out[RE_UDP_UL_CALLID]);
+		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->ipv4));
 		return ret;
 	}
 
 	strdupfree(&c->called_agent, "UNKNOWN(udp)");
 
-	if (addr_parse_udp(&st, o))
+	if (addr_parse_udp(&st, out))
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
-	num = call_streams(c, &q, o[10], 1);
+	num = call_streams(c, &q, out[RE_UDP_UL_TOTAG], 1);
 
 	g_queue_clear(&q);
 
@@ -1317,27 +1317,27 @@ char *call_lookup_udp(const char **o, struct callmaster *m) {
 	redis_update(c);
 #endif
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, o[1], 1);
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
 	return ret;
 
 fail:
-	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", o[5], o[6], o[7]);
-	asprintf(&ret, "%s E8\n", o[1]);
+	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
+	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	return ret;
 }
 
-char *call_request(const char **o, struct callmaster *m) {
+char *call_request(const char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue *s;
 	int num;
 	char *ret;
 
-	c = call_get_or_create(o[2], m);
+	c = call_get_or_create(out[RE_TCP_RL_CALLID], m);
 
-	strdupfree(&c->calling_agent, o[9] ? : "UNKNOWN");
-	info_parse(o[10], &c->infohash);
-	s = streams_parse(o[3]);
+	strdupfree(&c->calling_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
+	info_parse(out[RE_TCP_RL_INFO], &c->infohash);
+	s = streams_parse(out[RE_TCP_RL_STREAMS]);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
 
@@ -1350,21 +1350,21 @@ char *call_request(const char **o, struct callmaster *m) {
 	return ret;
 }
 
-char *call_lookup(const char **o, struct callmaster *m) {
+char *call_lookup(const char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue *s;
 	int num;
 	char *ret;
 
-	c = g_hash_table_lookup(m->callhash, o[2]);
+	c = g_hash_table_lookup(m->callhash, out[RE_TCP_RL_CALLID]);
 	if (!c) {
-		mylog(LOG_WARNING, "[%s] Got LOOKUP for unknown call-id", o[2]);
+		mylog(LOG_WARNING, "[%s] Got LOOKUP for unknown call-id", out[RE_TCP_RL_CALLID]);
 		return NULL;
 	}
 
-	strdupfree(&c->called_agent, o[9] ? : "UNKNOWN");
-	info_parse(o[10], &c->infohash);
-	s = streams_parse(o[3]);
+	strdupfree(&c->called_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
+	info_parse(out[RE_TCP_RL_INFO], &c->infohash);
+	s = streams_parse(out[RE_TCP_RL_STREAMS]);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
 
@@ -1377,31 +1377,31 @@ char *call_lookup(const char **o, struct callmaster *m) {
 	return ret;
 }
 
-char *call_delete_udp(const char **o, struct callmaster *m) {
+char *call_delete_udp(const char **out, struct callmaster *m) {
 	struct call *c;
 	char *ret;
 
-	c = g_hash_table_lookup(m->callhash, o[13]);
+	c = g_hash_table_lookup(m->callhash, out[RE_UDP_D_CALLID]);
 	if (!c)
 		goto err;
 
 	call_destroy(c);
 
-	asprintf(&ret, "%s 0\n", o[1]);
+	asprintf(&ret, "%s 0\n", out[RE_UDP_COOKIE]);
 	goto out;
 
 err:
-	asprintf(&ret, "%s E8\n", o[1]);
+	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	goto out;
 
 out:
 	return ret;
 }
 
-void call_delete(const char **o, struct callmaster *m) {
+void call_delete(const char **out, struct callmaster *m) {
 	struct call *c;
 
-	c = g_hash_table_lookup(m->callhash, o[12]);
+	c = g_hash_table_lookup(m->callhash, out[RE_TCP_D_CALLID]);
 	if (!c)
 		return;
 

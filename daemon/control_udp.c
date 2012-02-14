@@ -15,13 +15,6 @@
 #include "call.h"
 
 
-
-
-
-
-
-
-
 static void control_udp_closed(int fd, void *p) {
 	abort();
 }
@@ -66,13 +59,13 @@ static void control_udp_incoming(int fd, void *p) {
 		mh.msg_namelen = sizeof(sin);
 		mh.msg_iov = iov;
 
-		iov[0].iov_base = (void *) out[1];
-		iov[0].iov_len = strlen(out[1]);
-		if (out[2] && (chrtoupper(out[2][0]) == 'U' || chrtoupper(out[2][0]) == 'L')) {
-			iov[1].iov_base = (void *) out[4];
-			iov[1].iov_len = strlen(out[4]);
-			iov[2].iov_base = (void *) out[3];
-			iov[2].iov_len = strlen(out[3]);
+		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
+		iov[0].iov_len = strlen(out[RE_UDP_COOKIE]);
+		if (out[RE_UDP_UL_CMD] && (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U' || chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')) {
+			iov[1].iov_base = (void *) out[RE_UDP_UL_CALLID];
+			iov[1].iov_len = strlen(out[RE_UDP_UL_CALLID]);
+			iov[2].iov_base = (void *) out[RE_UDP_UL_FLAGS];
+			iov[2].iov_len = strlen(out[RE_UDP_UL_FLAGS]);
 			iov[3].iov_base = "\n";
 			iov[3].iov_len = 1;
 			mh.msg_iovlen = 4;
@@ -109,40 +102,40 @@ static void control_udp_incoming(int fd, void *p) {
 	}
 
 	/* XXX better hashing */
-	reply = g_hash_table_lookup(u->fresh_cookies, out[1]);
+	reply = g_hash_table_lookup(u->fresh_cookies, out[RE_UDP_COOKIE]);
 	if (!reply)
-		reply = g_hash_table_lookup(u->stale_cookies, out[1]);
+		reply = g_hash_table_lookup(u->stale_cookies, out[RE_UDP_COOKIE]);
 	if (reply) {
 		mylog(LOG_INFO, "Detected command from udp:%s:%u as a duplicate", addr, ntohs(sin.sin6_port));
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
 		goto out;
 	}
 
-	if (chrtoupper(out[2][0]) == 'U')
+	if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U')
 		reply = call_update_udp(out, u->callmaster);
-	else if (chrtoupper(out[2][0]) == 'L')
+	else if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')
 		reply = call_lookup_udp(out, u->callmaster);
-	else if (chrtoupper(out[11][0]) == 'D')
+	else if (chrtoupper(out[RE_UDP_D_CMD][0]) == 'D')
 		reply = call_delete_udp(out, u->callmaster);
-	else if (chrtoupper(out[14][0]) == 'V') {
+	else if (chrtoupper(out[RE_UDP_V_CMD][0]) == 'V') {
 		ZERO(mh);
 		mh.msg_name = &sin;
 		mh.msg_namelen = sizeof(sin);
 		mh.msg_iov = iov;
 		mh.msg_iovlen = 2;
 
-		iov[0].iov_base = (void *) out[1];
-		iov[0].iov_len = strlen(out[1]);
+		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
+		iov[0].iov_len = strlen(out[RE_UDP_COOKIE]);
 		iov[1].iov_base = " ";
 		iov[1].iov_len = 1;
 
-		if (chrtoupper(out[15][0]) == 'F') {
+		if (chrtoupper(out[RE_UDP_V_FLAGS][0]) == 'F') {
 			ret = 0;
-			if (!strcmp(out[16], "20040107"))
+			if (!strcmp(out[RE_UDP_V_PARMS], "20040107"))
 				ret = 1;
-			else if (!strcmp(out[16], "20050322"))
+			else if (!strcmp(out[RE_UDP_V_PARMS], "20050322"))
 				ret = 1;
-			else if (!strcmp(out[16], "20060704"))
+			else if (!strcmp(out[RE_UDP_V_PARMS], "20060704"))
 				ret = 1;
 			iov[2].iov_base = ret ? "1\n" : "0\n";
 			iov[2].iov_len = 2;
@@ -158,7 +151,7 @@ static void control_udp_incoming(int fd, void *p) {
 
 	if (reply) {
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
-		g_hash_table_insert(u->fresh_cookies, g_string_chunk_insert(u->fresh_chunks, out[1]),
+		g_hash_table_insert(u->fresh_cookies, g_string_chunk_insert(u->fresh_chunks, out[RE_UDP_COOKIE]),
 			g_string_chunk_insert(u->fresh_chunks, reply));
 		free(reply);
 	}
@@ -206,8 +199,12 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
 	c->oven_time = p->now;
 	c->parse_re = pcre_compile(
-			/* cookie:1     cmd:2 flags:3  callid:4       addr4:5           addr6:6                  port:7  from_tag:8 num:9       to_tag:10                      d:11 flags:12 callid:13 v:14 flags:15 parms:16 */
-			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+(\\S+)\\s+(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))\\s+(\\d+)\\s+(\\S+?);(\\d+)(?:\\s+(\\S+?);\\d+(?:\\s+.*)?)?\r?\n?$|(d)(\\S*)\\s+(\\S+)|(v)(\\S*)(?:\\s+(\\S+))?)",
+			/* cookie:1     cmd:2 flags:3  callid:4  viabranch:5      addr4:6           addr6:7                  port:8  from_tag:9 num:10      to_tag:11                      d:12 flags:13 callid:14 viabranch:15 v:16 flags:17 parms:18 */
+			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+([^;]+)(?:;(\\S+))?\\s+" \
+			"(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))" \
+			"\\s+(\\d+)\\s+(\\S+?);(\\d+)(?:\\s+(\\S+?);\\d+(?:\\s+.*)?)?\r?\n?$" \
+			"|(d)(\\S*)\\s+([^;]+)(?:;(\\S+))?" \
+			"|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 			              /* cookie       cmd flags callid   addr      port */

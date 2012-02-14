@@ -10,7 +10,24 @@
 #include <time.h>
 #include <netinet/in.h>
 
-
+#define RE_UDP_COOKIE 		1
+#define RE_UDP_UL_CMD 		2
+#define RE_UDP_UL_FLAGS 	3
+#define RE_UDP_UL_CALLID 	4
+#define RE_UDP_UL_VIABRANCH 	5
+#define RE_UDP_UL_ADDR4 	6
+#define RE_UDP_UL_ADDR6 	7
+#define RE_UDP_UL_PORT 		8
+#define RE_UDP_UL_FROMTAG 	9
+#define RE_UDP_UL_NUM 		10
+#define RE_UDP_UL_TOTAG 	11
+#define RE_UDP_D_CMD 		12
+#define RE_UDP_D_FLAGS 		13
+#define RE_UDP_D_CALLID 	14
+#define RE_UDP_D_VIABRANCH 	15
+#define RE_UDP_V_CMD 		16
+#define RE_UDP_V_FLAGS 		17
+#define RE_UDP_V_PARMS 		18
 
 struct poller;
 struct callmaster;

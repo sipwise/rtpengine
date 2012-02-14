@@ -12,7 +12,8 @@
 #include <time.h>
 #include "xt_MEDIAPROXY.h"
 
-
+#include "control.h"
+#include "control_udp.h"
 
 struct poller;
 struct control_stream;

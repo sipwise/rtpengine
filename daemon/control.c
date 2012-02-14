@@ -12,13 +12,8 @@
 #include "log.h"
 #include "call.h"
 
-
-
 static pcre		*parse_re;
 static pcre_extra	*parse_ree;
-
-
-
 
 static void control_stream_closed(int fd, void *p) {
 	struct control_stream *s = p;
@@ -78,19 +73,19 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	pcre_get_substring_list(line, ovec, ret, &out);
 
 
-	if (!strcmp(out[1], "request"))
+	if (!strcmp(out[RE_TCP_RL_CMD], "request"))
 		output = call_request(out, c->callmaster);
-	else if (!strcmp(out[1], "lookup"))
+	else if (!strcmp(out[RE_TCP_RL_CMD], "lookup"))
 		output = call_lookup(out, c->callmaster);
-	else if (!strcmp(out[11], "delete"))
+	else if (!strcmp(out[RE_TCP_D_CMD], "delete"))
 		call_delete(out, c->callmaster);
-	else if (!strcmp(out[14], "status"))
+	else if (!strcmp(out[RE_TCP_DIV_CMD], "status"))
 		calls_status(c->callmaster, s);
-	else if (!strcmp(out[14], "build") | !strcmp(out[14], "version"))
+	else if (!strcmp(out[RE_TCP_DIV_CMD], "build") | !strcmp(out[RE_TCP_DIV_CMD], "version"))
 		streambuf_printf(s->outbuf, "Version: %s\n", MEDIAPROXY_VERSION);
-	else if (!strcmp(out[14], "controls"))
+	else if (!strcmp(out[RE_TCP_DIV_CMD], "controls"))
 		control_list(c, s);
-	else if (!strcmp(out[14], "quit") || !strcmp(out[14], "exit"))
+	else if (!strcmp(out[RE_TCP_DIV_CMD], "quit") || !strcmp(out[RE_TCP_DIV_CMD], "exit"))
 		;
 
 	if (output) {
