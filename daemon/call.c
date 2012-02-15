@@ -76,10 +76,8 @@ static char *rtp_codecs[] = {
 
 
 static void call_destroy(struct call *);
+static void call_destory_all_branches(struct call *);
 static void unkernelize(struct peer *);
-
-
-
 
 
 
@@ -92,7 +90,7 @@ static void stream_closed(int fd, void *p) {
 
 	mylog(LOG_WARNING, "[%s] Read error on RTP socket", c->callid);
 
-	call_destroy(c);
+	call_destroy_all_branches(c);
 }
 
 
@@ -343,7 +341,7 @@ err:
 
 		if (stream_packet(r, buf, ret, sinp)) {
 			mylog(LOG_WARNING, "Write error on RTP socket");
-			call_destroy(r->up->up->call);
+			call_destroy_all_branches(r->up->up->call);
 			return;
 		}
 	}
@@ -533,9 +531,11 @@ next:
 	for (i = hlp.del; i; i = n) {
 		n = i->next;
 		c = i->data;
-		if(c->prev)
-			c->prev->next = c->next;
-		call_destroy(c);
+		if(!c->prev && !$c->next) {
+			call_destroy_all_branches(c);
+		} else {
+			call_destroy(c);
+		}
 		g_list_free_1(i);
 	}
 }
@@ -1099,19 +1099,42 @@ static void kill_callstream(struct callstream *s) {
 	g_slice_free1(sizeof(*s), s);
 }
 
+static void call_destroy_all_branches(struct call *c) {
+	struct callmaster *m = c->callmaster;
+	struct call *next;
 
+	/* rewind to beginning of list */
+	for(c; c->prev; c = c->prev);
+
+	/* delete full list */
+	while(c) {
+		mylog(LOG_INFO, "[%s - %s] Delete call branch", 
+			c->callid, c->viabranch ? c->viabranch : "<none>");
+		if(!c->next) {
+			/* delete hash entry when on last branch */
+			g_hash_table_remove(m->callhash, c->callid);
+		}
+		next = c->next;
+		call_destroy(c);
+		c = next;
+	}
+}
 
 static void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
 	struct callstream *s;
 
-	g_hash_table_remove(m->callhash, c->callid);
+	if(c->prev)
+		c->prev->next = c->next;
+
 #ifndef NO_REDIS
-	/* TODO: take into account the viabranch */
+	/* TODO: take into account the viabranch list */
 	redis_delete(c);
 #endif
 
 	free(c->callid);
+	if(c->viabranch)
+		free(c->viabranch);
 	g_hash_table_destroy(c->infohash);
 	if (c->calling_agent)
 		free(c->calling_agent);
@@ -1413,6 +1436,9 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_D_CALLID]);
 	if (!c)
 		goto err;
+
+	DBG("got delete for callid '%s' and viabranch '%s'", 
+		out[RE_UDP_D_CALLID], out[RE_UDP_D_VIABRANCH] ? out[RE_UDP_D_VIABRANCH] : "<none>");
 
 	if(out[RE_UDP_D_VIABRANCH]) {
 		/* only delete selective branch */
