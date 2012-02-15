@@ -1433,12 +1433,12 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	struct call *c, *next;
 	char *ret;
 
+	DBG("got delete for callid '%s' and viabranch '%s'", 
+		out[RE_UDP_D_CALLID], out[RE_UDP_D_VIABRANCH] ? out[RE_UDP_D_VIABRANCH] : "<none>");
+
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_D_CALLID]);
 	if (!c)
 		goto err;
-
-	DBG("got delete for callid '%s' and viabranch '%s'", 
-		out[RE_UDP_D_CALLID], out[RE_UDP_D_VIABRANCH] ? out[RE_UDP_D_VIABRANCH] : "<none>");
 
 	if(out[RE_UDP_D_VIABRANCH]) {
 		/* only delete selective branch */
@@ -1471,6 +1471,8 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	goto out;
 
 err:
+	DBG("callid '%s' marked for removal not found in hash-table", out[RE_UDP_D_CALLID]);
+
 	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	goto out;
 
