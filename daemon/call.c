@@ -33,6 +33,8 @@
 #define DBG(x...) ((void)0)
 #endif
 
+#define VIA2STR(x) ( x ? x : "<none>")
+
 
 
 static pcre		*info_re;
@@ -88,7 +90,7 @@ static void stream_closed(int fd, void *p) {
 
 	c = r->up->up->call;
 
-	mylog(LOG_WARNING, "[%s] Read error on RTP socket", c->callid);
+	mylog(LOG_WARNING, "[%s - %s] Read error on RTP socket", c->callid, VIA2STR(c->viabranch));
 
 	call_destroy_all_branches(c);
 }
@@ -102,7 +104,7 @@ static void kernelize(struct callstream *c) {
 	struct streamrelay *r, *rp;
 	struct kernel_stream ks;
 
-	mylog(LOG_DEBUG, "[%s] Kernelizing RTP streams", c->call->callid);
+	mylog(LOG_DEBUG, "[%s - %s] Kernelizing RTP streams", c->call->callid, VIA2STR(c->call->viabranch));
 
 	ZERO(ks);
 
@@ -177,7 +179,8 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	smart_ntop_p(addr, &fsin->sin6_addr, sizeof(addr));
 
 	if (p->fd == -1) {
-		mylog(LOG_WARNING, "[%s] RTP packet to port %u discarded from %s:%u", c->callid, r->localport, addr, ntohs(fsin->sin6_port));
+		mylog(LOG_WARNING, "[%s - %s] RTP packet to port %u discarded from %s:%u", 
+			c->callid, VIA2STR(c->viabranch), r->localport, addr, ntohs(fsin->sin6_port));
 		r->stats.errors++;
 		m->statsps.errors++;
 		return 0;
@@ -197,7 +200,8 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 					pe->codec = "unknown";
 			}
 
-			mylog(LOG_DEBUG, "[%s] Confirmed peer information for port %u - %s:%u", c->callid, r->localport, addr, ntohs(fsin->sin6_port));
+			mylog(LOG_DEBUG, "[%s - %s] Confirmed peer information for port %u - %s:%u", 
+				c->callid, VIA2STR(c->viabranch), r->localport, addr, ntohs(fsin->sin6_port));
 
 			pe->confirmed = 1;
 		}
@@ -467,7 +471,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 		}
 
 		mylog(LOG_INFO, "[%s - %s] Closing call branch due to timeout", 
-			c->callid, c->viabranch ? c->viabranch : "<none>");
+			c->callid, VIA2STR(c->viabranch));
 
 	drop:
 		hlp->del = g_list_prepend(hlp->del, c);
@@ -702,7 +706,8 @@ next:
 	}
 
 	m->lastport = port;
-	mylog(LOG_DEBUG, "[%s] Opened ports %u/%u for RTP", c->callid, a->localport, b->localport);
+	mylog(LOG_DEBUG, "[%s - %s] Opened ports %u/%u for RTP", 
+		c->callid, VIA2STR(c->viabranch), a->localport, b->localport);
 
 reserve:
 	bit_array_set(ports_used, a->localport);
@@ -711,7 +716,7 @@ reserve:
 	return;
 
 fail:
-	mylog(LOG_ERR, "[%s] Failed to get RTP port pair", c->callid);
+	mylog(LOG_ERR, "[%s - %s] Failed to get RTP port pair", c->callid, VIA2STR(c->viabranch));
 	if (a->fd != -1)
 		close(a->fd);
 	if (b->fd != -1)
@@ -778,7 +783,8 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	c = src->up->call;
 	po = c->callmaster->poller;
 
-	mylog(LOG_DEBUG, "[%s] Re-using existing open RTP port %u", c->callid, r->localport);
+	mylog(LOG_DEBUG, "[%s - %s] Re-using existing open RTP port %u", 
+		c->callid, VIA2STR(c->viabranch), r->localport);
 
 	dest->confirmed = 0;
 	unkernelize(dest);
@@ -797,7 +803,8 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		srs = &src->rtps[i];
 
 		if (sr->fd != -1) {
-			mylog(LOG_DEBUG, "[%s] Closing port %u in favor of re-use", c->callid, sr->localport);
+			mylog(LOG_DEBUG, "[%s - %s] Closing port %u in favor of re-use", 
+				c->callid, VIA2STR(c->viabranch), sr->localport);
 			close(sr->fd);
 			bit_array_clear(ports_used, sr->localport);
 			poller_del_item(po, sr->fd);
@@ -973,7 +980,8 @@ found:
 			goto got_cs;
 		}
 
-		mylog(LOG_WARNING, "[%s] Got LOOKUP, but no usable callstreams found", c->callid);
+		mylog(LOG_WARNING, "[%s - %s] Got LOOKUP, but no usable callstreams found", 
+			c->callid, VIA2STR(c->viabranch));
 		break;
 
 got_cs:
@@ -1104,12 +1112,11 @@ static void call_destroy_all_branches(struct call *c) {
 	struct call *next;
 
 	/* rewind to beginning of list */
-	for(c; c->prev; c = c->prev);
+	for(; c->prev; c = c->prev);
 
 	/* delete full list */
 	while(c) {
-		mylog(LOG_INFO, "[%s - %s] Delete call branch", 
-			c->callid, c->viabranch ? c->viabranch : "<none>");
+		mylog(LOG_INFO, "[%s - %s] Delete call branch", c->callid, VIA2STR(c->viabranch));
 		if(!c->next) {
 			/* delete hash entry when on last branch */
 			g_hash_table_remove(m->callhash, c->callid);
@@ -1121,7 +1128,6 @@ static void call_destroy_all_branches(struct call *c) {
 }
 
 static void call_destroy(struct call *c) {
-	struct callmaster *m = c->callmaster;
 	struct callstream *s;
 
 	if(c->prev)
@@ -1219,8 +1225,8 @@ out:
 static struct call *call_create(const char *callid, const char *viabranch, struct callmaster *m) {
 	struct call *c;
 
-	mylog(LOG_NOTICE, "[%s] Creating new call for viabranch %s", 
-		callid, (viabranch ? viabranch : "<none>"));	/* XXX will spam syslog on recovery from DB */
+	mylog(LOG_NOTICE, "[%s - %s] Creating new call",
+		callid, VIA2STR(viabranch));	/* XXX will spam syslog on recovery from DB */
 	c = g_slice_alloc0(sizeof(*c));
 	c->callmaster = m;
 	c->callid = strdup(callid);
@@ -1331,7 +1337,7 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 #endif
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
-	mylog(LOG_INFO, "[%s - %s] Returning to SIP proxy: %s", c->callid, c->viabranch ? c->viabranch : "<none>", ret);
+	mylog(LOG_INFO, "[%s - %s] Returning to SIP proxy: %s", c->callid, VIA2STR(c->viabranch), ret);
 	return ret;
 
 fail:
@@ -1370,7 +1376,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 #endif
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
-	mylog(LOG_INFO, "[%s - %s] Returning to SIP proxy: %s", c->callid, c->viabranch ? c->viabranch : "<none>", ret);
+	mylog(LOG_INFO, "[%s - %s] Returning to SIP proxy: %s", c->callid, VIA2STR(c->viabranch), ret);
 	return ret;
 
 fail:
@@ -1398,7 +1404,7 @@ char *call_request(const char **out, struct callmaster *m) {
 #endif
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
-	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
+	mylog(LOG_INFO, "[%s - %s] Returning to SIP proxy: %s", c->callid, VIA2STR(c->viabranch), ret);
 	return ret;
 }
 
@@ -1425,7 +1431,7 @@ char *call_lookup(const char **out, struct callmaster *m) {
 #endif
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
-	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
+	mylog(LOG_INFO, "[%s - %s] Returning to SIP proxy: %s", c->callid, VIA2STR(c->viabranch), ret);
 	return ret;
 }
 
@@ -1446,7 +1452,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 			next = c->next;
 			if(g_strcmp0(out[RE_UDP_D_VIABRANCH], c->viabranch) == 0) {
 				mylog(LOG_INFO, "[%s - %s] Deleting selective call branch", 
-					c->callid, c->viabranch ? c->viabranch : "<none>");
+					c->callid, VIA2STR(c->viabranch));
 				if(c->prev)
 					c->prev->next = c->next;
 				call_destroy(c);
@@ -1459,7 +1465,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 		/* delete whole list */
 		while(c) {
 			mylog(LOG_INFO, "[%s - %s] Deleted call branch", 
-				c->callid, c->viabranch ? c->viabranch : "<none>");
+				c->callid, VIA2STR(c->viabranch));
 			next = c->next;
 			call_destroy(c);
 			c = next;
