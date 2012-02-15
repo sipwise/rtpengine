@@ -1448,6 +1448,8 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 		/* search given branch */
 		while(c) {
 			next = c->next;
+			DBG("comparing passed viabranch '%s' with stored viabranch '%s' for removal",
+				VIA2STR(out[RE_UDP_D_VIABRANCH]), VIA2STR(c->viabranch));
 			if(g_strcmp0(out[RE_UDP_D_VIABRANCH], c->viabranch) == 0) {
 				if(!c->prev && !c->next) {
 					mylog(LOG_INFO, "[%s - %s] Deleting full call because there is only one branch", 
@@ -1461,6 +1463,9 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 					call_destroy(c);
 				}
 				break;
+			} else {
+				DBG("passed viabranch '%s' doesn't match stored viabranch '%s', don't remove call",
+					VIA2STR(out[RE_UDP_D_VIABRANCH]), VIA2STR(c->viabranch));
 			}
 			c = next;
 		}
