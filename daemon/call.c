@@ -1460,14 +1460,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 		}
 	} else {
 		mylog(LOG_INFO, "[%s] Deleting all call branches", c->callid);
-		/* delete whole list */
-		while(c) {
-			mylog(LOG_INFO, "[%s - %s] Deleted call branch", 
-				c->callid, VIA2STR(c->viabranch));
-			next = c->next;
-			call_destroy(c);
-			c = next;
-		}
+		call_destroy_all_branches(c);
 	}
 
 
