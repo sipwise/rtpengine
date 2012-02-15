@@ -76,7 +76,7 @@ static char *rtp_codecs[] = {
 
 
 static void call_destroy(struct call *);
-static void call_destory_all_branches(struct call *);
+static void call_destroy_all_branches(struct call *);
 static void unkernelize(struct peer *);
 
 
