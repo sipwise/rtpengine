@@ -531,7 +531,7 @@ next:
 	for (i = hlp.del; i; i = n) {
 		n = i->next;
 		c = i->data;
-		if(!c->prev && !$c->next) {
+		if(!c->prev && !c->next) {
 			call_destroy_all_branches(c);
 		} else {
 			call_destroy(c);
