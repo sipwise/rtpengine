@@ -1110,6 +1110,8 @@ static void kill_callstream(struct callstream *s) {
 static void call_destroy_all_branches(struct call *c) {
 	struct callmaster *m = c->callmaster;
 	struct call *next;
+	
+	g_hash_table_remove(m->callhash, c->callid);
 
 	/* rewind to beginning of list */
 	for(; c->prev; c = c->prev);
@@ -1117,10 +1119,6 @@ static void call_destroy_all_branches(struct call *c) {
 	/* delete full list */
 	while(c) {
 		mylog(LOG_INFO, "[%s - %s] Delete call branch", c->callid, VIA2STR(c->viabranch));
-		if(!c->next) {
-			/* delete hash entry when on last branch */
-			g_hash_table_remove(m->callhash, c->callid);
-		}
 		next = c->next;
 		call_destroy(c);
 		c = next;
