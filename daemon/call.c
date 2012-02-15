@@ -440,40 +440,45 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct callmaster *cm;
 	unsigned int check;
 
-	if (!c->callstreams->head)
-		goto drop;
+	while(c) {
 
-	cm = c->callmaster;
-	po = cm->poller;
+		if (!c->callstreams->head)
+			goto drop;
 
-	for (it = c->callstreams->head; it; it = it->next) {
-		cs = it->data;
+		cm = c->callmaster;
+		po = cm->poller;
 
-		for (i = 0; i < 2; i++) {
-			p = &cs->peers[i];
+		for (it = c->callstreams->head; it; it = it->next) {
+			cs = it->data;
 
-			hlp->ports[p->rtps[0].localport] = &p->rtps[0];
-			hlp->ports[p->rtps[1].localport] = &p->rtps[1];
+			for (i = 0; i < 2; i++) {
+				p = &cs->peers[i];
 
-			check = cm->timeout;
-			if (!p->rtps[0].peer.port)
-				check = cm->silent_timeout;
-			else if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46))
-				check = cm->silent_timeout;
+				hlp->ports[p->rtps[0].localport] = &p->rtps[0];
+				hlp->ports[p->rtps[1].localport] = &p->rtps[1];
 
-			if (po->now - p->rtps[0].last < check)
-				goto good;
+				check = cm->timeout;
+				if (!p->rtps[0].peer.port)
+					check = cm->silent_timeout;
+				else if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46))
+					check = cm->silent_timeout;
+
+				if (po->now - p->rtps[0].last < check)
+					goto good;
+			}
 		}
+
+		mylog(LOG_INFO, "[%s - %s] Closing call branch due to timeout", 
+			c->callid, c->viabranch ? c->viabranch : "<none>");
+
+	drop:
+		hlp->del = g_list_prepend(hlp->del, c);
+		c = c->next;
+		continue;
+
+	good:
+		c = c->next;
 	}
-
-	mylog(LOG_INFO, "[%s] Closing call due to timeout", c->callid);
-
-drop:
-	hlp->del = g_list_prepend(hlp->del, c);
-	return;
-
-good:
-	;
 }
 
 
@@ -528,6 +533,7 @@ next:
 	for (i = hlp.del; i; i = n) {
 		n = i->next;
 		c = i->data;
+		c->prev->next = c->next;
 		call_destroy(c);
 		g_list_free_1(i);
 	}
@@ -899,12 +905,6 @@ static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) 
 
 		p = NULL;
 
-
-
-
-
-
-
 		/* look for an existing call stream with identical parameters */
 		for (l = c->callstreams->head; l; l = l->next) {
 			cs_o = l->data;
@@ -1106,6 +1106,7 @@ static void call_destroy(struct call *c) {
 
 	g_hash_table_remove(m->callhash, c->callid);
 #ifndef NO_REDIS
+	/* TODO: take into account the viabranch */
 	redis_delete(c);
 #endif
 
@@ -1191,23 +1192,48 @@ out:
 	return g_string_free(o, FALSE);
 }
 
-
-
-static struct call *call_get_or_create(const char *callid, struct callmaster *m) {
+static struct call *call_create(const char *callid, const char *viabranch, struct callmaster *m) {
 	struct call *c;
+
+	mylog(LOG_NOTICE, "[%s] Creating new call for viabranch %s", 
+		callid, (viabranch ? viabranch : "<none>"));	/* XXX will spam syslog on recovery from DB */
+	c = g_slice_alloc0(sizeof(*c));
+	c->callmaster = m;
+	c->callid = strdup(callid);
+	if(viabranch)
+		c->viabranch = strdup(viabranch);
+	c->callstreams = g_queue_new();
+	c->created = m->poller->now;
+	c->infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
+	return c;
+}
+
+static struct call *call_get_or_create(const char *callid, const char *viabranch, struct callmaster *m) {
+	struct call *c, *last;
 
 	c = g_hash_table_lookup(m->callhash, callid);
 	if (!c) {
-		mylog(LOG_NOTICE, "[%s] Creating new call", callid);	/* XXX will spam syslog on recovery from DB */
-		c = g_slice_alloc0(sizeof(*c));
-		c->callmaster = m;
-		c->callid = strdup(callid);
-		c->callstreams = g_queue_new();
-		c->created = m->poller->now;
-		c->infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
+		/* completely new call-id, create call */
+		c = call_create(callid, viabranch, m);
 		g_hash_table_insert(m->callhash, c->callid, c);
+		return c;
 	}
 
+	/* we have a call already, search list for viabranch */
+	while(c) {
+		if(g_strcmp0(viabranch, c->viabranch) == 0) {
+			/* we got such viabranch (even if NULL) already */
+			return c;
+		}
+		if(!c->next)
+			last = c;
+		c = c->next;
+	}
+
+	/* no such viabranch for this callid, create new call */
+	c = call_create(callid, viabranch, m);
+	last->next = c;
+	c->prev = last;
 	return c;
 }
 
@@ -1264,7 +1290,7 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 	int num;
 	char *ret;
 
-	c = call_get_or_create(out[RE_UDP_UL_CALLID], m);
+	c = call_get_or_create(out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH], m);
 	strdupfree(&c->calling_agent, "UNKNOWN(udp)");
 
 	if (addr_parse_udp(&st, out))
@@ -1276,11 +1302,12 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 	g_queue_clear(&q);
 
 #ifndef NO_REDIS
+	/* TODO: need to change structure in regards to viabranch as well */
 	redis_update(c);
 #endif
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
-	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
+	mylog(LOG_INFO, "[%s - %s] Returning to SIP proxy: %s", c->callid, c->viabranch ? c->viabranch : "<none>", ret);
 	return ret;
 
 fail:
@@ -1314,11 +1341,12 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	g_queue_clear(&q);
 
 #ifndef NO_REDIS
+	/* TODO: need to change structure in regards to viabranch as well */
 	redis_update(c);
 #endif
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
-	mylog(LOG_INFO, "[%s] Returning to SIP proxy: %s", c->callid, ret);
+	mylog(LOG_INFO, "[%s - %s] Returning to SIP proxy: %s", c->callid, c->viabranch ? c->viabranch : "<none>", ret);
 	return ret;
 
 fail:
@@ -1333,7 +1361,7 @@ char *call_request(const char **out, struct callmaster *m) {
 	int num;
 	char *ret;
 
-	c = call_get_or_create(out[RE_TCP_RL_CALLID], m);
+	c = call_get_or_create(out[RE_TCP_RL_CALLID], NULL, m);
 
 	strdupfree(&c->calling_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
 	info_parse(out[RE_TCP_RL_INFO], &c->infohash);
@@ -1378,14 +1406,39 @@ char *call_lookup(const char **out, struct callmaster *m) {
 }
 
 char *call_delete_udp(const char **out, struct callmaster *m) {
-	struct call *c;
+	struct call *c, *next;
 	char *ret;
 
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_D_CALLID]);
 	if (!c)
 		goto err;
 
-	call_destroy(c);
+	if(out[RE_UDP_D_VIABRANCH]) {
+		/* only delete selective branch */
+		while(c) {
+			next = c->next;
+			if(g_strcmp0(out[RE_UDP_D_VIABRANCH], c->viabranch) == 0) {
+				mylog(LOG_INFO, "[%s - %s] Deleting selective call branch", 
+					c->callid, c->viabranch ? c->viabranch : "<none>");
+				if(c->prev)
+					c->prev->next = c->next;
+				call_destroy(c);
+				break;
+			}
+			c = next;
+		}
+	} else {
+		mylog(LOG_INFO, "[%s] Deleting all call branches", c->callid);
+		/* delete whole list */
+		while(c) {
+			mylog(LOG_INFO, "[%s - %s] Deleted call branch", 
+				c->callid, c->viabranch ? c->viabranch : "<none>");
+			next = c->next;
+			call_destroy(c);
+			c = next;
+		}
+	}
+
 
 	asprintf(&ret, "%s 0\n", out[RE_UDP_COOKIE]);
 	goto out;
@@ -1405,6 +1458,7 @@ void call_delete(const char **out, struct callmaster *m) {
 	if (!c)
 		return;
 
+	/* delete whole list, as we don't have branches in tcp controller */
 	call_destroy(c);
 }
 
@@ -1422,6 +1476,8 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 	char addr1[64], addr2[64], addr3[64];
 
 	m = c->callmaster;
+
+	/* TODO: only called for tcp controller, so no linked list of calls? */
 
 	streambuf_printf(s->outbuf, "session %s %s %s %s %s %i\n",
 		c->callid,
@@ -1484,7 +1540,7 @@ void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *st
 	int i, kernel;
 	struct peer *p;
 
-	c = call_get_or_create(hash[0]->str, m);
+	c = call_get_or_create(hash[0]->str, NULL, m); /* TODO: restore viabranch as well */
 	strcpy(c->redis_uuid, uuid);
 	c->created = strtoll(hash[1]->str, NULL, 10);
 	strdupfree(&c->calling_agent, "UNKNOWN(recovered)");

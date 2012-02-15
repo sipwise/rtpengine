@@ -78,6 +78,7 @@ struct call {
 	GQueue			*callstreams;
 
 	char			*callid;
+	char			*viabranch;
 #ifndef NO_REDIS
 	char			redis_uuid[37];
 #endif
@@ -86,6 +87,8 @@ struct call {
 	char			*called_agent;
 	GHashTable		*infohash;
 	time_t			lookup_done;
+	struct call		*next;
+	struct call		*prev;
 };
 
 struct callmaster {
