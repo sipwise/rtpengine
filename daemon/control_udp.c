@@ -203,7 +203,7 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+([^;]+)(?:;(\\S+))?\\s+" \
 			"(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))" \
 			"\\s+(\\d+)\\s+(\\S+?);(\\d+)(?:\\s+(\\S+?);\\d+(?:\\s+.*)?)?\r?\n?$" \
-			"|(d)(\\S*)\\s+([^;]+)(?:;(\\S+))?" \
+			"|(d)(\\S*)\\s+([^;\\s]+)(?:;(\\S+))?\\s+" \
 			"|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
