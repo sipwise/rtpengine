@@ -533,7 +533,8 @@ next:
 	for (i = hlp.del; i; i = n) {
 		n = i->next;
 		c = i->data;
-		c->prev->next = c->next;
+		if(c->prev)
+			c->prev->next = c->next;
 		call_destroy(c);
 		g_list_free_1(i);
 	}
