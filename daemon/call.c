@@ -1445,21 +1445,27 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 		goto err;
 
 	if(out[RE_UDP_D_VIABRANCH]) {
-		/* only delete selective branch */
+		/* search given branch */
 		while(c) {
 			next = c->next;
 			if(g_strcmp0(out[RE_UDP_D_VIABRANCH], c->viabranch) == 0) {
-				mylog(LOG_INFO, "[%s - %s] Deleting selective call branch", 
-					c->callid, VIA2STR(c->viabranch));
-				if(c->prev)
-					c->prev->next = c->next;
-				call_destroy(c);
+				if(!c->prev && !c->next) {
+					mylog(LOG_INFO, "[%s - %s] Deleting full call because there is only one branch", 
+						c->callid, VIA2STR(c->viabranch));
+					call_destroy_all_branches(c);
+				} else {
+					mylog(LOG_INFO, "[%s - %s] Deleting selective call branch", 
+						c->callid, VIA2STR(c->viabranch));
+					if(c->prev)
+						c->prev->next = c->next;
+					call_destroy(c);
+				}
 				break;
 			}
 			c = next;
 		}
 	} else {
-		mylog(LOG_INFO, "[%s] Deleting all call branches", c->callid);
+		mylog(LOG_INFO, "[%s] Deleting full call", c->callid);
 		call_destroy_all_branches(c);
 	}
 
