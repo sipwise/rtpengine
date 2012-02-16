@@ -1135,7 +1135,7 @@ static void call_destroy(struct call *c) {
 		c->prev->next = c->next;
 	else if(c->next)
 		/* we delete first element in list, so update callid hash */
-		g_hash_table_replace(c->callmaster->callhash, c->callid, c->next);
+		g_hash_table_replace(c->callmaster->callhash, strdup(c->callid), c->next);
 
 #ifndef NO_REDIS
 	/* TODO: take into account the viabranch list */
@@ -1462,8 +1462,6 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 						c->callid, VIA2STR(c->viabranch));
 					call_destroy_all_branches(c);
 				} else {
-					/* TODO: XXX: if "c" was first element, then update callhash table, because
-					   we delete "c" here! */
 					mylog(LOG_INFO, "[%s - %s] Deleting selective call branch", 
 						c->callid, VIA2STR(c->viabranch));
 					call_destroy(c);
