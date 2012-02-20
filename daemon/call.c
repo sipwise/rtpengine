@@ -1120,6 +1120,7 @@ static void call_destroy_all_branches(struct call *c) {
 	while(c) {
 		mylog(LOG_INFO, "[%s - %s] Delete call branch", c->callid, VIA2STR(c->viabranch));
 		next = c->next;
+		c->next = NULL;
 		call_destroy(c);
 		c = next;
 	}
