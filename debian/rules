@@ -121,7 +121,7 @@ ngcp-mediaproxy-ng-daemon: install
 	dh_installchangelogs -p$@ -P$(b)/$@
 	dh_installinit       -p$@ -P$(b)/$@
 	dh_install           -p$@ -P$(b)/$@
-	dh_strip             -p$@ -P$(b)/$@
+	#dh_strip             -p$@ -P$(b)/$@
 	dh_compress          -p$@ -P$(b)/$@
 	dh_fixperms          -p$@ -P$(b)/$@
 	dh_makeshlibs        -p$@ -P$(b)/$@ -V
