@@ -77,14 +77,14 @@ install: build
 
 	dh_install
 
-ngcp-mediaproxy-ng-kernel-source: install
+%:
 	@echo "--- Building: $@"
 	dh_installdirs       -p$@ -P$(b)/$@
 	dh_link              -p$@ -P$(b)/$@
 	dh_installdocs       -p$@ -P$(b)/$@
 	dh_installchangelogs -p$@ -P$(b)/$@
 	dh_install           -p$@ -P$(b)/$@
-	dh_strip             -p$@ -P$(b)/$@
+	dh_strip             -p$@ -P$(b)/$@ --keep-debug
 	dh_compress          -p$@ -P$(b)/$@
 	dh_fixperms          -p$@ -P$(b)/$@
 	dh_makeshlibs        -p$@ -P$(b)/$@ -V
@@ -95,86 +95,13 @@ ngcp-mediaproxy-ng-kernel-source: install
 	dh_md5sums           -p$@ -P$(b)/$@
 	dh_builddeb          -p$@ -P$(b)/$@
 
-ngcp-mediaproxy-ng-kernel-dkms: install
-	@echo "--- Building: $@"
-	dh_installdirs       -p$@ -P$(b)/$@
-	dh_link              -p$@ -P$(b)/$@
-	dh_installdocs       -p$@ -P$(b)/$@
-	dh_installchangelogs -p$@ -P$(b)/$@
-	dh_install           -p$@ -P$(b)/$@
-	dh_strip             -p$@ -P$(b)/$@
-	dh_compress          -p$@ -P$(b)/$@
-	dh_fixperms          -p$@ -P$(b)/$@
-	dh_makeshlibs        -p$@ -P$(b)/$@ -V
-	dh_installdeb        -p$@ -P$(b)/$@
-	dh_shlibdeps         -p$@ -P$(b)/$@
-	dh_installdebconf    -p$@ -P$(b)/$@
-	dh_gencontrol        -p$@ -P$(b)/$@
-	dh_md5sums           -p$@ -P$(b)/$@
-	dh_builddeb          -p$@ -P$(b)/$@
+# Build architecture dependant packages
+binary-arch: install \
+	ngcp-mediaproxy-ng-iptables ngcp-mediaproxy-ng
 
-ngcp-mediaproxy-ng-daemon: install
-	@echo "--- Building: $@"
-	dh_installdirs       -p$@ -P$(b)/$@
-	dh_link              -p$@ -P$(b)/$@
-	dh_installdocs       -p$@ -P$(b)/$@
-	dh_installchangelogs -p$@ -P$(b)/$@
-	dh_installinit       -p$@ -P$(b)/$@
-	dh_install           -p$@ -P$(b)/$@
-	#dh_strip             -p$@ -P$(b)/$@
-	dh_compress          -p$@ -P$(b)/$@
-	dh_fixperms          -p$@ -P$(b)/$@
-	dh_makeshlibs        -p$@ -P$(b)/$@ -V
-	dh_installdeb        -p$@ -P$(b)/$@
-	dh_shlibdeps         -p$@ -P$(b)/$@
-	dh_installdebconf    -p$@ -P$(b)/$@
-	dh_gencontrol        -p$@ -P$(b)/$@
-	dh_md5sums           -p$@ -P$(b)/$@
-	dh_builddeb          -p$@ -P$(b)/$@
-
-ngcp-mediaproxy-ng-iptables: install
-	@echo "--- Building: $@"
-	dh_installdirs       -p$@ -P$(b)/$@
-	dh_link              -p$@ -P$(b)/$@
-	dh_installdocs       -p$@ -P$(b)/$@
-	dh_installchangelogs -p$@ -P$(b)/$@
-	dh_install           -p$@ -P$(b)/$@
-	dh_strip             -p$@ -P$(b)/$@
-	dh_compress          -p$@ -P$(b)/$@
-	dh_fixperms          -p$@ -P$(b)/$@
-	dh_makeshlibs        -p$@ -P$(b)/$@ -V
-	dh_installdeb        -p$@ -P$(b)/$@
-	dh_shlibdeps         -p$@ -P$(b)/$@
-	dh_installdebconf    -p$@ -P$(b)/$@
-	dh_gencontrol        -p$@ -P$(b)/$@
-	dh_md5sums           -p$@ -P$(b)/$@
-	dh_builddeb          -p$@ -P$(b)/$@
-
-ngcp-mediaproxy-ng: install
-	@echo "--- Building: $@"
-	dh_installdirs       -p$@ -P$(b)/$@
-	dh_link              -p$@ -P$(b)/$@
-	dh_installdocs       -p$@ -P$(b)/$@
-	dh_installchangelogs -p$@ -P$(b)/$@
-	dh_install           -p$@ -P$(b)/$@
-	dh_strip             -p$@ -P$(b)/$@
-	dh_compress          -p$@ -P$(b)/$@
-	dh_fixperms          -p$@ -P$(b)/$@
-	dh_makeshlibs        -p$@ -P$(b)/$@ -V
-	dh_installdeb        -p$@ -P$(b)/$@
-	dh_shlibdeps         -p$@ -P$(b)/$@
-	dh_installdebconf    -p$@ -P$(b)/$@
-	dh_gencontrol        -p$@ -P$(b)/$@
-	dh_md5sums           -p$@ -P$(b)/$@
-	dh_builddeb          -p$@ -P$(b)/$@
-
-# Build architecture-dependent files here.
-binary-all: build install
-
-# Build architecture-independent files here.
+# Build architecture independant packages
 binary-indep: build install \
-  ngcp-mediaproxy-ng-daemon ngcp-mediaproxy-ng-iptables ngcp-mediaproxy-ng \
-  ngcp-mediaproxy-ng-kernel-dkms ngcp-mediaproxy-ng-kernel-source
+	ngcp-mediaproxy-ng-daemon ngcp-mediaproxy-ng-kernel-dkms ngcp-mediaproxy-ng-kernel-source
 
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
