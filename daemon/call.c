@@ -1352,18 +1352,34 @@ fail:
 }
 
 char *call_lookup_udp(const char **out, struct callmaster *m) {
-	struct call *c;
+	struct call *c, *tmp;
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
 	char *ret;
 
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_UL_CALLID]);
+	tmp = NULL;
 	if (!c) {
 		mylog(LOG_WARNING, "[%s] Got UDP LOOKUP for unknown call-id", out[RE_UDP_UL_CALLID]);
 		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->ipv4));
 		return ret;
 	}
+	while(c) {
+		if(g_strcmp0(out[RE_UDP_UL_VIABRANCH], c->viabranch) == 0) {
+			/* found viabranch (even if NULL) */
+			tmp = c;
+			break;
+		}
+		c = c->next;
+	}
+	if (!tmp) {
+		mylog(LOG_WARNING, "[%s] Got UDP LOOKUP for unknown viabranch '%s' in call-id", 
+			out[RE_UDP_UL_CALLID], VIA2STR(out[RE_UDP_UL_VIABRANCH]));
+		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->ipv4));
+		return ret;
+	}
+	c = tmp;
 
 	strdupfree(&c->called_agent, "UNKNOWN(udp)");
 
