@@ -199,11 +199,16 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
 	c->oven_time = p->now;
 	c->parse_re = pcre_compile(
-			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+([^;]+)(?:;(\\S+))?\\s+" \	/* cookie cmd flags callid viabranch:5 */
-			"(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))" \	/* addr4 addr6:7 */
-			"\\s+(\\d+)\\s+(\\S+?);(\\d+)(?:\\s+(\\S+?);\\d+(?:\\s+.*)?)?\r?\n?$" \	/* port fromtag num totag:11 */
-			"|(d)(\\S*)\\s+([^;\\s]+)(?:;(\\S+))?\\s+" \	/* "d" flags callid viabranch:15 */
-			"|(v)(\\S*)(?:\\s+(\\S+))?)",	/* v flags params:18 */
+			/* cookie cmd flags callid viabranch:5 */
+			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+([^;]+)(?:;(\\S+))?\\s+" \
+			/* addr4 addr6:7 */
+			"(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))" \
+			/* port fromtag num totag:11 */
+			"\\s+(\\d+)\\s+(\\S+?);(\\d+)(?:\\s+(\\S+?);\\d+(?:\\s+.*)?)?\r?\n?$" \
+			/* "d" flags callid viabranch fromtag totag:17 */
+			"|(d)(\\S*)\\s+([^;\\s]+)(?:;(\\S+))?\\s+(\\S+?)(?:\\s+(\\S+?))?\r?\n?$" \
+			/* v flags params:20 */
+			"|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 			              /* cookie       cmd flags callid   addr      port */

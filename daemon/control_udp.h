@@ -25,9 +25,11 @@
 #define RE_UDP_D_FLAGS 		13
 #define RE_UDP_D_CALLID 	14
 #define RE_UDP_D_VIABRANCH 	15
-#define RE_UDP_V_CMD 		16
-#define RE_UDP_V_FLAGS 		17
-#define RE_UDP_V_PARMS 		18
+#define RE_UDP_D_FROMTAG	16
+#define RE_UDP_D_TOTAG		17
+#define RE_UDP_V_CMD 		18
+#define RE_UDP_V_FLAGS 		19
+#define RE_UDP_V_PARMS 		20
 
 struct poller;
 struct callmaster;
