@@ -1421,15 +1421,48 @@ char *call_lookup(const char **out, struct callmaster *m) {
 char *call_delete_udp(const char **out, struct callmaster *m) {
 	struct call *c;
 	char *ret;
+	struct callstream *cs;
+	GList *l;
+	int i;
+	struct peer *p, *px;
 
 	DBG("got delete for callid '%s' and viabranch '%s'", 
 		out[RE_UDP_D_CALLID], out[RE_UDP_D_VIABRANCH]);
 
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_D_CALLID]);
-	if (!c)
+	if (!c) {
+		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", out[RE_UDP_D_CALLID]);
 		goto err;
+	}
 	c->log_info = out[RE_UDP_D_VIABRANCH];
 
+	if (out[RE_UDP_D_FROMTAG]) {
+		for (l = c->callstreams->head; l; l = l->next) {
+			cs = l->data;
+			for (i = 0; i < 2; i++) {
+				p = &cs->peers[i];
+				if (!p->tag)
+					continue;
+				if (strcmp(p->tag, out[RE_UDP_D_FROMTAG]))
+					continue;
+				if (!out[RE_UDP_D_TOTAG])
+					goto tag_match;
+
+				px = &cs->peers[i ^ 1];
+				if (!px->tag)
+					continue;
+				if (strcmp(px->tag, out[RE_UDP_D_TOTAG]))
+					continue;
+
+				goto tag_match;
+			}
+		}
+	}
+
+	mylog(LOG_INFO, LOG_PREFIX_C "Tags didn't match for delete message, ignoring", c->callid);
+	goto err;
+
+tag_match:
 	if (out[RE_UDP_D_VIABRANCH]) {
 		if (!g_hash_table_remove(c->branches, out[RE_UDP_D_VIABRANCH])) {
 			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", c->callid, out[RE_UDP_D_VIABRANCH]);
@@ -1452,7 +1485,6 @@ success:
 	goto out;
 
 err:
-	DBG("callid '%s' marked for removal not found in hash-table", out[RE_UDP_D_CALLID]);
 
 	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	goto out;
