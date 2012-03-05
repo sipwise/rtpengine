@@ -1,6 +1,8 @@
 ngcp-mediaproxy-ng (1.6.2) unstable; urgency=low
 
   * Check from/to tags in delete message
+  * Implement via-branch handling
+  * Don't strip debug symbols
 
  -- Richard Fuchs <rfuchs@sipwise.com>  Mon, 05 Mar 2012 04:31:07 -0500
 
