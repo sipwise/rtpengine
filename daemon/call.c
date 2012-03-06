@@ -1490,7 +1490,8 @@ err:
 	goto out;
 
 out:
-	c->log_info = NULL;
+	if (c)
+		c->log_info = NULL;
 	return ret;
 }
 
