@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (1.6.3) unstable; urgency=low
+
+  * Fix the UDP control protocol
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 06 Mar 2012 07:12:47 -0500
+
 ngcp-mediaproxy-ng (1.6.2) unstable; urgency=low
 
   * Check from/to tags in delete message
