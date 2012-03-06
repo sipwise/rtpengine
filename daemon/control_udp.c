@@ -25,7 +25,7 @@ static void control_udp_incoming(int fd, void *p) {
 	char buf[8192];
 	struct sockaddr_in6 sin;
 	socklen_t sin_len;
-	int ovec[60];
+	int ovec[100];
 	const char **out;
 	char *reply;
 	struct msghdr mh;
