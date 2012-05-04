@@ -214,6 +214,8 @@ int redis_restore(struct callmaster *m) {
 	GQueue q = G_QUEUE_INIT;
 	int i, j, k, l;
 
+	mylog(LOG_DEBUG, "Restoring calls from Redis...\n");
+
 	rp = redisCommand(r->ctx, "SMEMBERS calls");
 	if (!rp || rp->type != REDIS_REPLY_ARRAY) {
 		mylog(LOG_ERR, "Could not retrieve call list from Redis: %s\n", r->ctx->errstr);
@@ -226,6 +228,8 @@ int redis_restore(struct callmaster *m) {
 		rp2 = rp->element[i];
 		if (rp2->type != REDIS_REPLY_STRING)
 			continue;
+
+		mylog(LOG_DEBUG, "Processing call GUID %s from Redis\n", rp2->str);
 
 		rp3 = redisCommand(r->ctx, "HMGET %s callid created", rp2->str);
 
