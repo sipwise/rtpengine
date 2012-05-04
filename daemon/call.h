@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <glib.h>
 #ifndef NO_REDIS
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 #endif
 #include <time.h>
 #include "xt_MEDIAPROXY.h"

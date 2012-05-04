@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <unistd.h>

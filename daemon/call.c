@@ -9,7 +9,7 @@
 #include <assert.h>
 #include <errno.h>
 #ifndef NO_REDIS
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 #endif
 #include <stdlib.h>
 #include <time.h>

@@ -5,7 +5,7 @@
 
 
 #include <sys/types.h>
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 
 
 
