@@ -1580,6 +1580,7 @@ void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *st
 	redisReply *rps[2], *rp;
 	int i, kernel;
 	struct peer *p;
+	u_int32_t ipv4;
 
 	c = call_get_or_create(hash[0]->str, NULL, m);
 	strcpy(c->redis_uuid, uuid);
@@ -1600,7 +1601,12 @@ void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *st
 			p = &cs->peers[i];
 			rp = rps[i];
 
-			inet_pton(AF_INET6, rp->element[0]->str, &p->rtps[0].peer.ip46);
+			if (inet_pton(AF_INET6, rp->element[0]->str, &p->rtps[0].peer.ip46) != 1) {
+				ipv4 = inet_addr(rp->element[0]->str);
+				if (ipv4 == -1)
+					continue;
+				in4_to_6(&p->rtps[0].peer.ip46, ipv4);
+			}
 			p->rtps[1].peer.ip46 = p->rtps[0].peer.ip46;
 			p->rtps[0].peer.port = atoi(rp->element[1]->str);
 			p->rtps[1].peer.port = p->rtps[0].peer.port + 1;
