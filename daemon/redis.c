@@ -345,7 +345,7 @@ void redis_update(struct call *c) {
 		for (i = 0; i < 2; i++) {
 			p = &cs->peers[i];
 
-			smart_ntop(addr, &p->rtps[0].peer.ip46, sizeof(addr));
+			inet_ntop(AF_INET6, &p->rtps[0].peer.ip46, addr, sizeof(addr));
 			redisAppendCommand(r->ctx, "DEL %s:%i", uuid, i);
 			redisAppendCommand(r->ctx, "HMSET %s:%i ip %s port %i localport %i kernel %i filled %i confirmed %i tag %s", uuid, i, addr, p->rtps[0].peer.port, p->rtps[0].localport, p->kernelized, p->filled, p->confirmed, p->tag);
 			redisAppendCommand(r->ctx, "EXPIRE %s:%i 86400", uuid, i);
