@@ -1268,7 +1268,7 @@ static int addr_parse_udp(struct stream *st, const char **out) {
 	if (!st->port && strcmp(out[RE_UDP_UL_PORT], "0"))
 		goto fail;
 
-	if (out[RE_UDP_UL_FLAGS]) {
+	if (out[RE_UDP_UL_FLAGS] && *out[RE_UDP_UL_FLAGS]) {
 		i = 0;
 		for (cp =out[RE_UDP_UL_FLAGS]; *cp && i < 2; cp++) {
 			c = chrtoupper(*cp);
@@ -1279,7 +1279,7 @@ static int addr_parse_udp(struct stream *st, const char **out) {
 		}
 	}
 
-	if (out[RE_UDP_UL_NUM])
+	if (out[RE_UDP_UL_NUM] && *out[RE_UDP_UL_NUM])
 		st->num = atoi(out[RE_UDP_UL_NUM]);
 	if (!st->num)
 		st->num = 1;
@@ -1376,7 +1376,7 @@ char *call_request(const char **out, struct callmaster *m) {
 
 	c = call_get_or_create(out[RE_TCP_RL_CALLID], NULL, m);
 
-	strdupfree(&c->calling_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
+	strdupfree(&c->calling_agent, (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT]) ? out[RE_TCP_RL_AGENT] : "UNKNOWN");
 	info_parse(out[RE_TCP_RL_INFO], &c->infohash);
 	s = streams_parse(out[RE_TCP_RL_STREAMS]);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
@@ -1436,7 +1436,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	}
 	c->log_info = out[RE_UDP_D_VIABRANCH];
 
-	if (out[RE_UDP_D_FROMTAG]) {
+	if (out[RE_UDP_D_FROMTAG] && *out[RE_UDP_D_FROMTAG]) {
 		for (l = c->callstreams->head; l; l = l->next) {
 			cs = l->data;
 			for (i = 0; i < 2; i++) {
@@ -1445,7 +1445,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 					continue;
 				if (strcmp(p->tag, out[RE_UDP_D_FROMTAG]))
 					continue;
-				if (!out[RE_UDP_D_TOTAG])
+				if (!out[RE_UDP_D_TOTAG] || !*out[RE_UDP_D_TOTAG])
 					goto tag_match;
 
 				px = &cs->peers[i ^ 1];
@@ -1463,7 +1463,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	goto err;
 
 tag_match:
-	if (out[RE_UDP_D_VIABRANCH]) {
+	if (out[RE_UDP_D_VIABRANCH] && *out[RE_UDP_D_VIABRANCH]) {
 		if (!g_hash_table_remove(c->branches, out[RE_UDP_D_VIABRANCH])) {
 			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", c->callid, out[RE_UDP_D_VIABRANCH]);
 			goto err;
