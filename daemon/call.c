@@ -1108,7 +1108,6 @@ static void call_destroy(struct call *c) {
 	g_hash_table_remove(m->callhash, c->callid);
 
 #ifndef NO_REDIS
-	/* TODO: take into account the viabranch list */
 	redis_delete(c);
 #endif
 
@@ -1309,7 +1308,6 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 	g_queue_clear(&q);
 
 #ifndef NO_REDIS
-	/* TODO: need to change structure in regards to viabranch as well */
 	redis_update(c);
 #endif
 
@@ -1352,7 +1350,6 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	g_queue_clear(&q);
 
 #ifndef NO_REDIS
-	/* TODO: need to change structure in regards to viabranch as well */
 	redis_update(c);
 #endif
 
@@ -1577,14 +1574,14 @@ void calls_status(struct callmaster *m, struct control_stream *s) {
 
 
 #ifndef NO_REDIS
-void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *streams) {
+void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *streams, redisReply *branches) {
 	struct call *c;
 	struct callstream *cs;
 	redisReply *rps[2], *rp;
 	int i, kernel;
 	struct peer *p;
 
-	c = call_get_or_create(hash[0]->str, NULL, m); /* TODO: restore viabranch as well */
+	c = call_get_or_create(hash[0]->str, NULL, m);
 	strcpy(c->redis_uuid, uuid);
 	c->created = strtoll(hash[1]->str, NULL, 10);
 	strdupfree(&c->calling_agent, "UNKNOWN(recovered)");
@@ -1617,6 +1614,15 @@ void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *st
 
 		if (kernel)
 			kernelize(cs);
+	}
+
+	if (branches) {
+		for (i = 0; i < branches->elements; i++) {
+			rp = branches->element[i];
+			if (rp->type != REDIS_REPLY_STRING)
+				continue;
+			g_hash_table_insert(c->branches, strdup(rp->str), (void *) 0x1);
+		}
 	}
 }
 

@@ -197,7 +197,7 @@ static void redis_delete_uuid(char *uuid, struct callmaster *m) {
 		count++;
 	}
 
-	redisAppendCommand(r->ctx, "DEL %s-streams %s", uuid, uuid);
+	redisAppendCommand(r->ctx, "DEL %s-streams %s-viabranches %s", uuid, uuid, uuid);
 	redisAppendCommand(r->ctx, "SREM calls %s", uuid);
 	count += 2;
 
@@ -210,7 +210,7 @@ static void redis_delete_uuid(char *uuid, struct callmaster *m) {
 
 int redis_restore(struct callmaster *m) {
 	struct redis *r = m->redis;
-	redisReply *rp, *rp2, *rp3, *rp4, *rp5, *rp6;
+	redisReply *rp, *rp2, *rp3, *rp4, *rp5, *rp6, *rp7;
 	GQueue q = G_QUEUE_INIT;
 	int i, j, k, l;
 
@@ -266,13 +266,21 @@ int redis_restore(struct callmaster *m) {
 			}
 		}
 
-		call_restore(m, rp2->str, rp3->element, q.head);
+		rp7 = redisCommand(r->ctx, "LRANGE %s-viabranches 0 -1", rp2->str);
+		if (rp7 && rp7->type != REDIS_REPLY_ARRAY) {
+			freeReplyObject(rp7);
+			rp7 = NULL;
+		}
+
+		call_restore(m, rp2->str, rp3->element, q.head, rp7);
 
 		if (q.head)
 			g_list_foreach(q.head, (GFunc) freeReplyObject, NULL);
 		g_queue_clear(&q);
 		freeReplyObject(rp4);
 		freeReplyObject(rp3);
+		if (rp7)
+			freeReplyObject(rp7);
 
 		continue;
 
@@ -324,7 +332,8 @@ void redis_update(struct call *c) {
 
 	redisAppendCommand(r->ctx, "HMSET %s callid %s created %i", c->redis_uuid, c->callid, c->created);
 	redisAppendCommand(r->ctx, "DEL %s-streams-temp", c->redis_uuid);
-	count += 2;
+	redisAppendCommand(r->ctx, "DEL %s-viabranches-temp", c->redis_uuid);
+	count += 3;
 
 	for (l = c->callstreams->head; l; l = l->next) {
 		cs = l->data;
@@ -344,11 +353,19 @@ void redis_update(struct call *c) {
 		count++;
 	}
 
+	for (l = g_hash_table_get_keys(c->branches); l; l = l->next) {
+		redisAppendCommand(r->ctx, "RPUSH %s-viabranches-temp %s", c->redis_uuid, l->data);
+		count++;
+	}
+	g_list_free(l);
+
 	redisAppendCommand(r->ctx, "RENAME %s-streams-temp %s-streams", c->redis_uuid, c->redis_uuid);
+	redisAppendCommand(r->ctx, "RENAME %s-viabranches-temp %s-viabranches", c->redis_uuid, c->redis_uuid);
 	redisAppendCommand(r->ctx, "EXPIRE %s-streams 86400", c->redis_uuid);
+	redisAppendCommand(r->ctx, "EXPIRE %s-viabranches 86400", c->redis_uuid);
 	redisAppendCommand(r->ctx, "EXPIRE %s 86400", c->redis_uuid);
 	redisAppendCommand(r->ctx, "SADD calls %s", c->redis_uuid);
-	count += 4;
+	count += 6;
 
 	if (oldstreams) {
 		if (oldstreams->type == REDIS_REPLY_ARRAY) {

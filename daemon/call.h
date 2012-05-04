@@ -131,7 +131,7 @@ char *call_delete_udp(const char **, struct callmaster *);
 void calls_status(struct callmaster *, struct control_stream *);
 
 #ifndef NO_REDIS
-void call_restore(struct callmaster *, char *, redisReply **, GList *);
+void call_restore(struct callmaster *, char *, redisReply **, GList *, redisReply *);
 void calls_dump_redis(struct callmaster *);
 #endif
 
