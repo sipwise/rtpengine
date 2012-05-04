@@ -1,8 +1,8 @@
 ngcp-mediaproxy-ng (1.6.5) unstable; urgency=low
 
-  * Properly handle pcre_get_substring_list returning empty strings on non-matched substrings.
+  * Fix daemon failing to correctly interpret "delete full call" message
 
- -- Andrew Pogrebennyk <apogrebennyk@sipwise.com>  Fri, 04 May 2012 17:10:27 +0200
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 04 May 2012 11:21:11 -0400
 
 ngcp-mediaproxy-ng (1.6.4) unstable; urgency=low
 
