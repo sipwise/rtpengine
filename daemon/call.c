@@ -1237,7 +1237,7 @@ static struct call *call_get_or_create(const char *callid, const char *viabranch
 		g_hash_table_insert(m->callhash, c->callid, c);
 	}
 
-	if (!g_hash_table_lookup(c->branches, viabranch))
+	if (viabranch && !g_hash_table_lookup(c->branches, viabranch))
 		g_hash_table_insert(c->branches, strdup(viabranch), (void *) 0x1);
 
 	return c;
