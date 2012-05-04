@@ -331,9 +331,8 @@ void redis_update(struct call *c) {
 	oldstreams = redisCommand(r->ctx, "LRANGE %s-streams 0 -1", c->redis_uuid);
 
 	redisAppendCommand(r->ctx, "HMSET %s callid %s created %i", c->redis_uuid, c->callid, c->created);
-	redisAppendCommand(r->ctx, "DEL %s-streams-temp", c->redis_uuid);
-	redisAppendCommand(r->ctx, "DEL %s-viabranches-temp", c->redis_uuid);
-	count += 3;
+	redisAppendCommand(r->ctx, "DEL %s-streams-temp %s-viabranches-temp", c->redis_uuid, c->redis_uuid);
+	count += 2;
 
 	for (l = c->callstreams->head; l; l = l->next) {
 		cs = l->data;
