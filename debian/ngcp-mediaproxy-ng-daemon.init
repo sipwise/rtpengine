@@ -66,15 +66,15 @@ case "$1" in
   start)
 
 	echo -n "Starting $DESC: $NAME"
-	modprobe xt_MEDIAPROXY
         set +e
+	modprobe xt_MEDIAPROXY
 	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
 	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
-	set -e
 	iptables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
 	ip6tables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
+	set -e
 	start-stop-daemon --start --quiet --pidfile $PIDFILE \
 		--exec $DAEMON -- $OPTIONS || echo -n " already running"
 	log_end_msg $?
@@ -116,10 +116,10 @@ case "$1" in
 	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	rmmod ipt_MEDIAPROXY 2>/dev/null
 	rmmod xt_MEDIAPROXY 2>/dev/null
-	set -e
 	modprobe xt_MEDIAPROXY
 	iptables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
 	ip6tables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
+	set -e
 	start-stop-daemon --start --quiet --pidfile \
 		$PIDFILE --exec $DAEMON  -- $OPTIONS
 	log_end_msg $?
