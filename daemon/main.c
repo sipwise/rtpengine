@@ -39,6 +39,7 @@ static struct in6_addr udp_listenp;
 static u_int16_t udp_listenport;
 static int tos;
 static int table;
+static int no_fallback;
 static int timeout;
 static int silent_timeout;
 static int port_min;
@@ -155,6 +156,7 @@ static void options(int *argc, char ***argv) {
 	static GOptionEntry e[] = {
 		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
+		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&no_fallback,	"Only start when kernel module is available", NULL },
 		{ "ip",		'i', 0, G_OPTION_ARG_STRING,	&ipv4s,		"Local IPv4 address for RTP",	"IP"		},
 		{ "advertised-ip", 'a', 0, G_OPTION_ARG_STRING,	&adv_ipv4s,	"IPv4 address to advertise",	"IP"		},
 		{ "ip6",	'I', 0, G_OPTION_ARG_STRING,	&ipv6s,		"Local IPv6 address for RTP",	"IP6"		},
@@ -279,6 +281,8 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
 		mylog(LOG_CRIT, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
 		table = -1;
+		if (no_fallback)
+			exit(-1);
 	}
 	if (table >= 0) {
 		kfd = kernel_open_table(table);
@@ -286,6 +290,8 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
 			mylog(LOG_CRIT, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
 			table = -1;
+			if (no_fallback)
+				exit(-1);
 		}
 	}
 
