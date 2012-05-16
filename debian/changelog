@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (1.6.6) unstable; urgency=low
+
+  * Support userspace-only operation mode
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Wed, 16 May 2012 09:33:18 -0400
+
 ngcp-mediaproxy-ng (1.6.5) unstable; urgency=low
 
   * Fix daemon failing to correctly interpret "delete full call" message
