@@ -267,7 +267,7 @@ int main(int argc, char **argv) {
 	struct callmaster *m;
 	struct control *c;
 	struct control_udp *cu;
-	int kfd;
+	int kfd = -1;
 	int ret;
 
 	options(&argc, &argv);
@@ -275,11 +275,19 @@ int main(int argc, char **argv) {
 	resources();
 
 
-	if (kernel_create_table(table))
-		die("Failed to create kernel table %i\n", table);
-	kfd = kernel_open_table(table);
-	if (kfd == -1)
-		die("Failed to open kernel table %i\n", table);
+	if (table >= 0 && kernel_create_table(table)) {
+		fprintf(stderr, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
+		mylog(LOG_CRIT, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
+		table = -1;
+	}
+	if (table >= 0) {
+		kfd = kernel_open_table(table);
+		if (kfd == -1) {
+			fprintf(stderr, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
+			mylog(LOG_CRIT, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
+			table = -1;
+		}
+	}
 
 	p = poller_new();
 	if (!p)

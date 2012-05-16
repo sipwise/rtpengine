@@ -105,6 +105,10 @@ static void kernelize(struct callstream *c) {
 	struct peer *p, *pp;
 	struct streamrelay *r, *rp;
 	struct kernel_stream ks;
+	struct callmaster *cm = c->call->callmaster;
+
+	if (cm->kernelfd < 0 || cm->kernelid < 0)
+		return;
 
 	mylog(LOG_DEBUG, LOG_PREFIX_C "Kernelizing RTP streams", LOG_PARAMS_C(c->call));
 
@@ -125,26 +129,26 @@ static void kernelize(struct callstream *c) {
 				continue;
 
 			ks.local_port = r->localport;
-			ks.tos = c->call->callmaster->tos;
+			ks.tos = cm->tos;
 			ks.src.port = rp->localport;
 			ks.dest.port = r->peer.port;
 
 			if (IN6_IS_ADDR_V4MAPPED(&r->peer.ip46)) {
 				ks.src.family = AF_INET;
-				ks.src.ipv4 = c->call->callmaster->ipv4;
+				ks.src.ipv4 = cm->ipv4;
 				ks.dest.family = AF_INET;
 				ks.dest.ipv4 = r->peer.ip46.s6_addr32[3];
 			}
 			else {
 				ks.src.family = AF_INET6;
-				ks.src.ipv6 = c->call->callmaster->ipv6;
+				ks.src.ipv6 = cm->ipv6;
 				ks.dest.family = AF_INET6;
 				ks.dest.ipv6 = r->peer.ip46;
 			}
 
 			ZERO(r->kstats);
 
-			kernel_add_stream(c->call->callmaster->kernelfd, &ks, 0);
+			kernel_add_stream(cm->kernelfd, &ks, 0);
 		}
 
 		p->kernelized = 1;
