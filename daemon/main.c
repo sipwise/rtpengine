@@ -49,12 +49,14 @@ static u_int32_t redis_ip;
 static u_int16_t redis_port;
 static int redis_db = -1;
 #endif
+static char *b2b_url;
 
 
 
 
 static void signals(void) {
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGCHLD, SIG_IGN);
 }
 
 static int rlim(int res, rlim_t val) {
@@ -174,6 +176,7 @@ static void options(int *argc, char ***argv) {
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
 		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
 #endif
+		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ NULL, }
 	};
 
@@ -313,6 +316,7 @@ int main(int argc, char **argv) {
 	m->timeout = timeout;
 	m->silent_timeout = silent_timeout;
 	m->tos = tos;
+	m->b2b_url = b2b_url;
 
 	c = NULL;
 	if (listenport) {

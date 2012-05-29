@@ -111,6 +111,7 @@ struct callmaster {
 	int			port_max;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
+	char			*b2b_url;
 	unsigned char		tos;
 };
 
