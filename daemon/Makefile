@@ -17,6 +17,7 @@ CFLAGS+=	-O2
 endif
 
 LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
+LDFLAGS+=	`xmlrpc-c-config client --libs`
 
 ifeq ($(REDIS),yes)
 LDFLAGS+=	-lhiredis -luuid
