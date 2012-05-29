@@ -73,8 +73,8 @@ static void redis_consume(struct redis *r, int count) {
 	redisReply *rp;
 
 	while (count-- > 0) {
-		redisGetReply(r->ctx, (void **) &rp);
-		freeReplyObject(rp);
+		if (redisGetReply(r->ctx, (void **) &rp) == REDIS_OK)
+			freeReplyObject(rp);
 	}
 }
 
