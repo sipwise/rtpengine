@@ -13,6 +13,7 @@
 #endif
 #include <stdlib.h>
 #include <time.h>
+#include <xmlrpc_client.h>
 
 #include "call.h"
 #include "poller.h"
@@ -485,6 +486,46 @@ good:
 	;
 }
 
+static void xmlrpc_kill_calls(GList *list, const char *url) {
+	pid_t parent;
+	int i;
+	xmlrpc_env e;
+	xmlrpc_client *c;
+	xmlrpc_value *r;
+	struct call *ca;
+	GList *csl;
+	struct callstream *cs;
+
+	parent = fork();
+	if (parent)
+		return;
+	parent = fork();
+	if (parent)
+		_exit(0);
+
+	for (i = 0; i < 8192; i++)
+		close(i);
+
+	xmlrpc_env_init(&e);
+	xmlrpc_client_setup_global_const(&e);
+	xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION, NULL, 0, &c);
+
+	while (list) {
+		ca = list->data;
+
+		for (csl = ca->callstreams->head; csl; csl = csl->next) {
+			cs = csl->data;
+			xmlrpc_client_call2f(&e, c, url, "di", &r, "(ssss)",
+				"sbc", "postControlCmd", cs->peers[0].tag, "teardown");
+			xmlrpc_DECREF(r);
+		}
+
+		list = list->next;
+	}
+
+	_exit(0);
+}
+
 
 #define DS(x) do {							\
 		if (ke->stats.x < sr->kstats.x)				\
@@ -533,6 +574,9 @@ next:
 		g_slice_free1(sizeof(*ke), ke);
 		i = g_list_delete_link(i, i);
 	}
+
+	if (m->b2b_url)
+		xmlrpc_kill_calls(hlp.del, m->b2b_url);
 
 	for (i = hlp.del; i; i = n) {
 		n = i->next;
