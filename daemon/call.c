@@ -515,8 +515,10 @@ static void xmlrpc_kill_calls(GList *list, const char *url) {
 
 		for (csl = ca->callstreams->head; csl; csl = csl->next) {
 			cs = csl->data;
+			if (!cs->peers[1].tag || !*cs->peers[1].tag)
+				continue;
 			xmlrpc_client_call2f(&e, c, url, "di", &r, "(ssss)",
-				"sbc", "postControlCmd", cs->peers[0].tag, "teardown");
+				"sbc", "postControlCmd", cs->peers[1].tag, "teardown");
 			xmlrpc_DECREF(r);
 		}
 
