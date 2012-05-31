@@ -517,9 +517,11 @@ static void xmlrpc_kill_calls(GList *list, const char *url) {
 			cs = csl->data;
 			if (!cs->peers[1].tag || !*cs->peers[1].tag)
 				continue;
+			alarm(2);
 			xmlrpc_client_call2f(&e, c, url, "di", &r, "(ssss)",
 				"sbc", "postControlCmd", cs->peers[1].tag, "teardown");
 			xmlrpc_DECREF(r);
+			alarm(0);
 		}
 
 		list = list->next;
