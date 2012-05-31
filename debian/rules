@@ -102,7 +102,7 @@ binary-arch: install \
 
 # Build architecture independant packages
 binary-indep: build install \
-	ngcp-mediaproxy-ng-daemon ngcp-mediaproxy-ng-kernel-dkms ngcp-mediaproxy-ng-kernel-source
+	ngcp-mediaproxy-ng-daemon ngcp-mediaproxy-ng-kernel-dkms ngcp-mediaproxy-ng-kernel-source ngcp-mediaproxy-ng-dev
 
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
