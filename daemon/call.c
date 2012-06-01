@@ -8,9 +8,6 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
-#ifndef NO_REDIS
-#include <hiredis/hiredis.h>
-#endif
 #include <stdlib.h>
 #include <time.h>
 #include <xmlrpc_client.h>
@@ -22,9 +19,8 @@
 #include "kernel.h"
 #include "control.h"
 #include "streambuf.h"
-#ifndef NO_REDIS
 #include "redis.h"
-#endif
+#include "xt_MEDIAPROXY.h"
 
 
 
@@ -101,7 +97,7 @@ static void stream_closed(int fd, void *p) {
 
 
 
-static void kernelize(struct callstream *c) {
+void kernelize(struct callstream *c) {
 	int i, j;
 	struct peer *p, *pp;
 	struct streamrelay *r, *rp;
@@ -224,9 +220,8 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 		if (pe->confirmed && pe2->confirmed && pe2->filled)
 			kernelize(cs);
 
-#ifndef NO_REDIS
-		redis_update(c);
-#endif
+		if (redis_update)
+			redis_update(c);
 	}
 
 skip:
@@ -572,7 +567,9 @@ static void callmaster_timer(void *ptr) {
 		if (ke->stats.packets != sr->kstats.packets)
 			sr->last = po->now;
 
-		memcpy(&sr->kstats, &ke->stats, sizeof(sr->kstats));
+		sr->kstats.packets = ke->stats.packets;
+		sr->kstats.bytes = ke->stats.bytes;
+		sr->kstats.errors = ke->stats.errors;
 
 next:
 		g_slice_free1(sizeof(*ke), ke);
@@ -885,7 +882,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 }
 
 
-static void callstream_init(struct callstream *s, struct call *ca, int port1, int port2, int num) {
+void callstream_init(struct callstream *s, struct call *ca, int port1, int port2, int num) {
 	int i, j, tport;
 	struct peer *p;
 	struct streamrelay *r;
@@ -1159,9 +1156,8 @@ static void call_destroy(struct call *c) {
 
 	g_hash_table_remove(m->callhash, c->callid);
 
-#ifndef NO_REDIS
-	redis_delete(c);
-#endif
+	if (redis_delete)
+		redis_delete(c);
 
 	free(c->callid);
 	g_hash_table_destroy(c->infohash);
@@ -1278,7 +1274,7 @@ static struct call *call_create(const char *callid, struct callmaster *m) {
 	return c;
 }
 
-static struct call *call_get_or_create(const char *callid, const char *viabranch, struct callmaster *m) {
+struct call *call_get_or_create(const char *callid, const char *viabranch, struct callmaster *m) {
 	struct call *c;
 
 	c = g_hash_table_lookup(m->callhash, callid);
@@ -1359,9 +1355,8 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 
 	g_queue_clear(&q);
 
-#ifndef NO_REDIS
-	redis_update(c);
-#endif
+	if (redis_update)
+		redis_update(c);
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
@@ -1401,9 +1396,8 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 
 	g_queue_clear(&q);
 
-#ifndef NO_REDIS
-	redis_update(c);
-#endif
+	if (redis_update)
+		redis_update(c);
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
@@ -1431,9 +1425,8 @@ char *call_request(const char **out, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
 
-#ifndef NO_REDIS
-	redis_update(c);
-#endif
+	if (redis_update)
+		redis_update(c);
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
@@ -1458,9 +1451,8 @@ char *call_lookup(const char **out, struct callmaster *m) {
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
 
-#ifndef NO_REDIS
-	redis_update(c);
-#endif
+	if (redis_update)
+		redis_update(c);
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
@@ -1625,73 +1617,11 @@ void calls_status(struct callmaster *m, struct control_stream *s) {
 
 
 
-#ifndef NO_REDIS
-void call_restore(struct callmaster *m, char *uuid, redisReply **hash, GList *streams, redisReply *branches) {
-	struct call *c;
-	struct callstream *cs;
-	redisReply *rps[2], *rp;
-	int i, kernel;
-	struct peer *p;
-	u_int32_t ipv4;
-
-	c = call_get_or_create(hash[0]->str, NULL, m);
-	strcpy(c->redis_uuid, uuid);
-	c->created = strtoll(hash[1]->str, NULL, 10);
-	strdupfree(&c->calling_agent, "UNKNOWN(recovered)");
-	strdupfree(&c->called_agent, "UNKNOWN(recovered)");
-
-	for (; streams; streams = streams->next) {
-		rps[0] = streams->data;
-		streams = streams->next;
-		rps[1] = streams->data;
-
-		cs = g_slice_alloc(sizeof(*cs));
-		callstream_init(cs, c, atoi(rps[0]->element[2]->str), atoi(rps[1]->element[2]->str), -1); /* XXX */
-		kernel = 0;
-
-		for (i = 0; i < 2; i++) {
-			p = &cs->peers[i];
-			rp = rps[i];
-
-			if (inet_pton(AF_INET6, rp->element[0]->str, &p->rtps[0].peer.ip46) != 1) {
-				ipv4 = inet_addr(rp->element[0]->str);
-				if (ipv4 == -1)
-					continue;
-				in4_to_6(&p->rtps[0].peer.ip46, ipv4);
-			}
-			p->rtps[1].peer.ip46 = p->rtps[0].peer.ip46;
-			p->rtps[0].peer.port = atoi(rp->element[1]->str);
-			p->rtps[1].peer.port = p->rtps[0].peer.port + 1;
-			strdupfree(&p->tag, rp->element[6]->str);
-			kernel = atoi(rp->element[3]->str);
-			p->filled = atoi(rp->element[4]->str);
-			p->confirmed = atoi(rp->element[5]->str);
-		}
-
-		g_queue_push_tail(c->callstreams, cs);
-
-		if (kernel)
-			kernelize(cs);
-	}
-
-	if (branches) {
-		for (i = 0; i < branches->elements; i++) {
-			rp = branches->element[i];
-			if (rp->type != REDIS_REPLY_STRING)
-				continue;
-			g_hash_table_insert(c->branches, strdup(rp->str), (void *) 0x1);
-		}
-	}
-}
-
-
-
-
-
 static void calls_dump_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
 
-	redis_update(c);
+	if (redis_update)
+		redis_update(c);
 }
 
 void calls_dump_redis(struct callmaster *m) {
@@ -1703,4 +1633,3 @@ void calls_dump_redis(struct callmaster *m) {
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	mylog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
 }
-#endif

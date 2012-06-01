@@ -2,7 +2,7 @@ Source: ngcp-mediaproxy-ng
 Section: net
 Priority: extra
 Maintainer: Sipwise Development Team <support@sipwise.com>
-Build-Depends: debhelper (>= 5), iptables-dev (>= 1.4), libglib2.0-dev, libpcre3-dev, uuid-dev, libhiredis-dev,
+Build-Depends: debhelper (>= 5), iptables-dev (>= 1.4), libglib2.0-dev, libpcre3-dev,
   libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07), libcurl4-openssl-dev | libcurl4-gnutls-dev |
   libcurl3-openssl-dev | libcurl3-gnutls-dev
 Standards-Version: 3.9.2

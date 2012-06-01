@@ -1,14 +1,9 @@
-REDIS=yes
-
 CC=		gcc
 CFLAGS=		-g -Wall `pkg-config --cflags glib-2.0` `pcre-config --cflags` -fno-strict-aliasing
 CFLAGS+=	-I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
 CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
-
-ifneq ($(REDIS),yes)
-CFLAGS+=	-DNO_REDIS=1
-endif
+CFLAGS+=	-DMP_PLUGIN_DIR="\"/usr/lib/mediaproxy-ng\""
 
 ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1
@@ -18,26 +13,16 @@ endif
 
 LDFLAGS=	`pkg-config --libs glib-2.0` `pcre-config --libs`
 LDFLAGS+=	`xmlrpc-c-config client --libs`
+LDFLAGS+=	-ldl -rdynamic
 
-ifeq ($(REDIS),yes)
-LDFLAGS+=	-lhiredis -luuid
-endif
-
-SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c control_udp.c
-ifeq ($(REDIS),yes)
-SRCS+=		redis.c
-endif
-
+SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c control_udp.c redis.c
 OBJS=		$(SRCS:.c=.o)
 
 
-.PHONY:		all dep clean tests no-redis debug
+.PHONY:		all dep clean tests debug
 
 all:
 	$(MAKE) mediaproxy-ng
-
-no-redis:
-	$(MAKE) REDIS=no all
 
 debug:
 	$(MAKE) DBG=yes all

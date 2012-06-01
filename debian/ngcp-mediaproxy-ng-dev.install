@@ -1,3 +1,1 @@
 daemon/*.h /usr/include/mediaproxy-ng/
-# FIXME - remove dependency
-kernel-module/xt_MEDIAPROXY.h /usr/include/mediaproxy-ng/

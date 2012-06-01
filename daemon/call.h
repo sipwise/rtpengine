@@ -6,11 +6,7 @@
 
 #include <sys/types.h>
 #include <glib.h>
-#ifndef NO_REDIS
-#include <hiredis/hiredis.h>
-#endif
 #include <time.h>
-#include "xt_MEDIAPROXY.h"
 
 #include "control.h"
 #include "control_udp.h"
@@ -24,12 +20,16 @@ struct peer;
 struct callstream;
 struct call;
 struct callmaster;
-#ifndef NO_REDIS
 struct redis;
-#endif
 
 
 
+
+struct stats {
+	u_int64_t			packets;
+	u_int64_t			bytes;
+	u_int64_t			errors;
+};
 
 struct stream {
 	struct in6_addr		ip46;
@@ -50,8 +50,8 @@ struct streamrelay {
 	u_int16_t		localport;
 	unsigned char		idx;
 	struct peer		*up;
-	struct mediaproxy_stats	stats;
-	struct mediaproxy_stats	kstats;
+	struct stats		stats;
+	struct stats		kstats;
 	time_t			last;
 };
 struct peer {
@@ -78,9 +78,7 @@ struct call {
 	GQueue			*callstreams;
 
 	char			*callid;
-#ifndef NO_REDIS
 	char			redis_uuid[37];
-#endif
 	time_t			created;
 	char			*calling_agent;
 	char			*called_agent;
@@ -94,13 +92,11 @@ struct call {
 struct callmaster {
 	GHashTable		*callhash;
 	u_int16_t		lastport;
-	struct mediaproxy_stats	statsps;
-	struct mediaproxy_stats	stats;
+	struct stats		statsps;
+	struct stats		stats;
 
 	struct poller		*poller;
-#ifndef NO_REDIS
 	struct redis		*redis;
-#endif
 	int			kernelfd;
 	unsigned int		kernelid;
 	u_int32_t		ipv4;
@@ -131,10 +127,11 @@ char *call_delete_udp(const char **, struct callmaster *);
 
 void calls_status(struct callmaster *, struct control_stream *);
 
-#ifndef NO_REDIS
-void call_restore(struct callmaster *, char *, redisReply **, GList *, redisReply *);
 void calls_dump_redis(struct callmaster *);
-#endif
+
+struct call *call_get_or_create(const char *callid, const char *viabranch, struct callmaster *m);
+void callstream_init(struct callstream *s, struct call *ca, int port1, int port2, int num);
+void kernelize(struct callstream *c);
 
 
 
