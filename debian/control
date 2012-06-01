@@ -51,7 +51,7 @@ Description: IPtables kernel module for the NGCP media proxy - DKMS.
 Package: ngcp-mediaproxy-ng-dev
 Architecture: all
 Section: libdevel
-Depends: debhelper (>= 5), ${misc:Depends}
+Depends: ${misc:Depends}
 Description: Development files for mediaproxy-ng
  This package provides the header files of the mediaproxy-ng
  software.
