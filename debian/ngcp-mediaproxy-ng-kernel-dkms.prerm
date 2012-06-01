@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+package=ngcp-mediaproxy-ng-kernel-dkms
+name=ngcp-mediaproxy-ng
+
+version=`dpkg-query -W -f='${Version}' "$package" \
+        |rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n"`
+
+# make sure it's not running
+if [ -x /etc/init.d/ngcp-mediaproxy-ng-daemon ] ; then
+	invoke-rc.d ngcp-mediaproxy-ng-daemon stop || true
+fi
+
+dkms remove -m "$name" -v "$version" --all || true
+
+#DEBHELPER#
+
+exit 0

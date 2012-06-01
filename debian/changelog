@@ -1,0 +1,138 @@
+ngcp-mediaproxy-ng (1.6.6) unstable; urgency=low
+
+  * Support userspace-only operation mode
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Wed, 16 May 2012 09:33:18 -0400
+
+ngcp-mediaproxy-ng (1.6.5) unstable; urgency=low
+
+  * Fix daemon failing to correctly interpret "delete full call" message
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 04 May 2012 11:21:11 -0400
+
+ngcp-mediaproxy-ng (1.6.4) unstable; urgency=low
+
+  * Fix segfault
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 06 Mar 2012 09:51:07 -0500
+
+ngcp-mediaproxy-ng (1.6.3) unstable; urgency=low
+
+  * Fix the UDP control protocol
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 06 Mar 2012 07:12:47 -0500
+
+ngcp-mediaproxy-ng (1.6.2) unstable; urgency=low
+
+  * Check from/to tags in delete message
+  * Implement via-branch handling
+  * Don't strip debug symbols
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Mon, 05 Mar 2012 04:31:07 -0500
+
+ngcp-mediaproxy-ng (1.6.1) unstable; urgency=low
+
+  * Correctly remember address family across re-invites etc
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Wed, 08 Feb 2012 10:34:33 -0500
+
+ngcp-mediaproxy-ng (1.6.0) unstable; urgency=low
+
+  * Add full IPv6 support
+  * Attempt to handle unparsable proxy commands as much as possible
+  * Improve human-readable output in /proc
+  * Fix handling of calls with multiple media streams
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 26 Jan 2012 07:30:25 -0500
+
+ngcp-mediaproxy-ng (1.5.3) unstable; urgency=low
+
+  * Fix incorrect handling of lookups received without prior request
+  * Fix a long-standing bug that caused from/to tags to be ignored when using UDP protocol
+  * Properly timeout and cleanup UDP cookies
+  * Fix table 0 not showing up in /proc/mediaproxy/list
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 08 Dec 2011 11:05:30 -0500
+
+ngcp-mediaproxy-ng (1.5.2) unstable; urgency=low
+
+  * Fix bad tagging
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 20 Sep 2011 10:41:42 -0400
+
+ngcp-mediaproxy-ng (1.5.1) unstable; urgency=low
+
+  * Return a dummy/error reply over UDP when a call doesn't exist, so
+    kamailio doesn't think we're dead
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 20 Sep 2011 10:41:42 -0400
+
+ngcp-mediaproxy-ng (1.5.0) unstable; urgency=low
+
+  * Rework port re-use logic so it never opens new ports when it doesn't
+    need to.
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 15 Sep 2011 10:42:57 -0400
+
+ngcp-mediaproxy-ng (1.4.2) unstable; urgency=low
+
+  * Slightly increase syslog verbosity
+  * Fix obscure 3-way call connect issue
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 02 Sep 2011 17:09:38 -0400
+
+ngcp-mediaproxy-ng (1.4.1) unstable; urgency=low
+
+  * Fix a memory leak
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Wed, 10 Aug 2011 17:01:56 -0400
+
+ngcp-mediaproxy-ng (1.4.0) unstable; urgency=low
+
+  * Support HA through persistent Redis storage
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 10 Jun 2011 13:50:50 -0400
+
+ngcp-mediaproxy-ng (1.3.5) unstable; urgency=low
+
+  * Fix dst reference count issues causing kernel warnings under some circumstances
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 19 May 2011 13:43:16 -0400
+
+ngcp-mediaproxy-ng (1.3.4) unstable; urgency=low
+
+  * Make the daemon more aggressive with invalidating peer information
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 05 May 2011 16:08:31 -0400
+
+ngcp-mediaproxy-ng (1.3.3) unstable; urgency=low
+
+  * Add --advertised-ip to defaults file.
+
+ -- Andreas Granig <agranig@sipwise.com>  Wed, 04 May 2011 23:26:30 +0200
+
+ngcp-mediaproxy-ng (1.3.2) unstable; urgency=low
+
+  * Introduce --advertised-ip parameter
+  * Minor code & help text cleanups
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 03 May 2011 17:20:11 -0400
+
+ngcp-mediaproxy-ng (1.3.1) unstable; urgency=low
+
+  * dkms postinst: do not execute init script if it is not present yet.
+
+ -- Michael Prokop <mprokop@sipwise.com>  Fri, 29 Apr 2011 17:18:41 +0200
+
+ngcp-mediaproxy-ng (1.3.0) unstable; urgency=low
+
+  * Release for 2.2
+  * Fixed version number to align with old, non-debianized versioning scheme.
+
+ -- Andreas Granig <agranig@sipwise.com>  Fri, 29 Apr 2011 12:01:56 +0200
+
+ngcp-mediaproxy-ng (0.1) unstable; urgency=low
+
+  * Initial release.
+
+ -- Andreas Granig <agranig@sipwise.com>  Tue, 26 Apr 2011 18:55:01 +0200

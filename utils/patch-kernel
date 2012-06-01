@@ -1,0 +1,52 @@
+#!/bin/bash
+
+if test "$1" != magic; then
+	echo
+	echo "Don't run this script manually, instead run:"
+	echo "    make patch KERNEL=/path/to/kernel/sources"
+	echo
+	exit 1
+fi
+
+if test -z "$3"; then
+	echo
+	echo "Usage:"
+	echo "    make patch KERNEL=/path/to/kernel/sources"
+	echo
+	exit 1
+fi
+
+KERN=$3
+
+for x in . include/linux/netfilter/ net/netfilter/Kconfig net/netfilter/Makefile; do
+	if ! test -e "$KERN"/"$x"; then
+		echo "I don't recognize $KERN as a kernel source tree"
+		exit 1
+	fi
+done
+
+set -e
+
+cp -v xt_MEDIAPROXY.h "$KERN"/include/linux/netfilter/
+cp -v xt_MEDIAPROXY.c "$KERN"/net/netfilter/
+
+if ! grep -q CONFIG_NETFILTER_XT_TARGET_MEDIAPROXY "$KERN"/net/netfilter/Makefile; then
+	(
+		echo
+		echo "EXTRA_CFLAGS += -DMEDIAPROXY_VERSION=\"\\\"$4\\\"\""
+		echo 'obj-$(CONFIG_NETFILTER_XT_TARGET_MEDIAPROXY) += xt_MEDIAPROXY.o'
+	) >> "$KERN"/net/netfilter/Makefile
+fi
+
+if ! grep -q Kconfig\\.mediaproxy-ng "$KERN"/net/netfilter/Kconfig; then
+	cat >> "$KERN"/net/netfilter/Kconfig.mediaproxy-ng << \__EOF
+config NETFILTER_XT_TARGET_MEDIAPROXY
+	tristate "Sipwise NGCP MEDIAPROXY target support"
+	depends on IP_NF_FILTER
+	help
+	  Sipwise NGCP mediaproxy-ng kernel support
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+__EOF
+	echo 'source "net/netfilter/Kconfig.mediaproxy-ng"' >> "$KERN"/net/netfilter/Kconfig
+fi

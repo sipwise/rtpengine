@@ -1,0 +1,370 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+use Socket;
+
+$| = 1;
+
+
+
+
+
+
+my $local_ip = '192.168.1.90';
+
+
+
+
+
+
+sub brk {
+	sleep(1);
+}
+
+sub mp_msg {
+	my ($cmd) = @_;
+
+	my $fd;
+	socket($fd, AF_INET, SOCK_STREAM, 0) or die;
+	connect($fd, sockaddr_in(25060, inet_aton('127.0.0.1'))) or die;
+	my $old = select($fd);
+	$| = 1;
+	print("$cmd\n");
+	my $ret = <$fd>;
+	select($old);
+	close($fd);
+	chomp($ret);
+	return $ret;
+}
+
+sub udp_sock {
+	while (1) {
+		my $fd;
+		socket($fd, AF_INET, SOCK_DGRAM, 0) or die;
+		bind($fd, sockaddr_in(0, inet_aton('0.0.0.0'))) or die;
+		my $sa = getsockname($fd);
+		my ($port, $addr) = sockaddr_in($sa);
+		(($port % 2) == 0) or next;
+		return ($fd, $port);
+	}
+}
+
+sub send_rcv {
+	my ($sendfd, $sendtoip, $sendtoport, $recvfd) = @_;
+	my $laddr = getsockname($sendfd);
+	my ($lport, $lip) = sockaddr_in($laddr);
+	print("local port $lport sending to $sendtoip:$sendtoport... ");
+	my $pkt = join('',map(rand,1..10));
+	send($sendfd, $pkt, 0, sockaddr_in($sendtoport, inet_aton($sendtoip))) or die;
+	my ($inc, $addr);
+	{
+		local $SIG{ALRM} = sub {
+			print("timeout!\n");
+			return;
+		};
+		alarm(1);
+		$addr = recv($recvfd, $inc, length($pkt), 0);
+		alarm(0);
+	}
+	$inc eq $pkt or print("did NOT receive packet\n"), return;
+	my ($port, $ip) = sockaddr_in($addr);
+	$laddr = getsockname($recvfd);
+	($lport, $lip) = sockaddr_in($laddr);
+	print("received packet ok on port $lport, from port $port\n");
+}
+
+sub send_rcv_brk {
+	send_rcv(@_);
+	brk();
+}
+
+sub send_rcv4 {
+	for (1 .. 4) {
+		send_rcv(@_[0,1,2,3]);
+		sleep(1);
+		send_rcv(@_[3,4,5,0]);
+		sleep(1);
+	}
+}
+
+sub sim_req_lk {
+	my ($method, $callid, $ip, $port, $fromtag, $totag) = @_;
+
+	$totag or $totag = '';
+
+	my $ret = mp_msg("$method $callid $ip:$port:audio 192.168.101.11 80.110.1.48 remote 212.41.253.181 remote CS2000_NGSS/9.0 info=domain:voip.sipwise.local,from:431960681661\@80.110.1.48:5060,totag:$totag,to:43720890289\@77.244.249.84:5060,fromtag:$fromtag");
+
+	return split(/ /, $ret);
+}
+sub sim_rq {
+	return sim_req_lk("request", @_);
+}
+sub sim_lk {
+	return sim_req_lk("lookup", @_);
+}
+
+
+
+
+
+
+
+my $callid = join('',map(rand,1..2));
+my $fromtag = join('',map(rand,1..4));
+my $totag = join('',map(rand,1..4));
+
+my ($client1, $lp1) = udp_sock();
+my ($client2, $lp2) = udp_sock();
+
+print("call-id: $callid\n");
+print("opened ports $lp1 [A->B], $lp2 [B->A] as RTP clients\n");
+brk();
+
+{
+	print("A tells B: send RTP to $lp1\n");
+	brk();
+
+	my ($mpip1, $mpport1) = sim_rq($callid, $local_ip, $lp1, $fromtag);
+	print("mediaproxy: tell B to send to $mpport1 instead of $lp1\n");
+	brk();
+
+	print("B tells A: send RTP to $lp2\n");
+	brk();
+
+	my ($mpip2, $mpport2) = sim_lk($callid, $local_ip, $lp2, $fromtag, $totag);
+	print("mediaproxy: tell A to send to $mpport2 instead of $lp2\n");
+	brk();
+
+	send_rcv4($client2, $mpip1, $mpport1, $client1, $mpip2, $mpport2);
+
+	brk();
+}
+
+
+
+
+
+
+
+
+
+
+for my $case (0 .. 3) {
+
+
+
+
+	my $sub;
+
+	if ($case == 0) {
+		$sub = sub { ; };
+	}
+	elsif ($case == 1) {
+		$sub = sub {
+			print("\tchanging ports on client 1\n");
+			($client1, $lp1) = udp_sock();
+		};
+	}
+	elsif ($case == 2) {
+		$sub = sub {
+			print("\tchanging ports on client 2\n");
+			($client2, $lp2) = udp_sock();
+		};
+	}
+	elsif ($case == 3) {
+		$sub = sub {
+			print("\tchanging ports on client 1 and 2\n");
+			($client1, $lp1) = udp_sock();
+			($client2, $lp2) = udp_sock();
+		};
+	}
+
+
+
+
+	my @forward  = ('A', 'B', \$lp1, \$lp2, \$client1, \$client2, $fromtag, $totag);
+	my @backward = ('B', 'A', \$lp2, \$lp1, \$client2, \$client1, $totag, $fromtag);
+	my ($src, $dst, $p1, $p2, $c1, $c2, $ft, $tt);
+
+
+
+
+
+
+	for my $tuple (\@forward, \@backward) {
+		($src, $dst, $p1, $p2, $c1, $c2, $ft, $tt) = @$tuple;
+
+		$sub->();
+		print("\n\n\n");
+		print("re-invite coming from $src with no intermediate traffic\n");
+
+		print("$src tells $dst: send RTP to $$p1\n");
+		brk();
+
+		my ($mpip1, $mpport1) = sim_rq($callid, $local_ip, $$p1, $ft);
+		print("mediaproxy: tell $dst to send to $mpport1 instead of $$p1\n");
+		brk();
+
+		print("$dst tells $src: send RTP to $$p2\n");
+		brk();
+
+		my ($mpip2, $mpport2) = sim_lk($callid, $local_ip, $$p2, $ft, $tt);
+		print("mediaproxy: tell $src to send to $mpport2 instead of $$p2\n");
+		brk();
+
+		send_rcv4($$c2, $mpip1, $mpport1, $$c1, $mpip2, $mpport2);
+
+		brk();
+	}
+
+
+
+
+
+
+
+
+
+
+	for my $tuple (\@forward, \@backward) {
+		($src, $dst, $p1, $p2, $c1, $c2, $ft, $tt) = @$tuple;
+
+		$sub->();
+		print("\n\n\n");
+		print("re-invite coming from $src with intermediate traffic from $dst to the new port only\n");
+
+		print("$src tells $dst: send RTP to $$p1\n");
+		brk();
+
+		my ($mpip1, $mpport1) = sim_rq($callid, $local_ip, $$p1, $ft);
+		print("mediaproxy: tell $dst to send to $mpport1 instead of $$p1\n");
+		brk();
+
+		for (1 .. 4) {
+			send_rcv_brk($$c2, $mpip1, $mpport1, $$c1);
+		}
+
+		print("$dst tells $src: send RTP to $$p2\n");
+		brk();
+
+		my ($mpip2, $mpport2) = sim_lk($callid, $local_ip, $$p2, $ft, $tt);
+		print("mediaproxy: tell $src to send to $mpport2 instead of $$p2\n");
+		brk();
+
+		send_rcv4($$c2, $mpip1, $mpport1, $$c1, $mpip2, $mpport2);
+
+		brk();
+
+
+
+
+
+
+		$sub->();
+		print("\n\n\n");
+		print("re-invite coming from $src with intermediate traffic from both sides to both old and new ports\n");
+
+		print("$src tells $dst: send RTP to $$p1\n");
+		brk();
+
+		my ($mpip3, $mpport3) = sim_rq($callid, $local_ip, $$p1, $ft);
+		print("mediaproxy: tell $dst to send to $mpport3 instead of $$p1\n");
+		brk();
+
+		send_rcv4($$c2, $mpip1, $mpport1, $$c1, $mpip2, $mpport2);
+		print("switching to new port...\n");
+		send_rcv4($$c2, $mpip3, $mpport3, $$c1, $mpip2, $mpport2);
+
+		print("$dst tells $src: send RTP to $$p2\n");
+		brk();
+
+		my ($mpip4, $mpport4) = sim_lk($callid, $local_ip, $$p2, $ft, $tt);
+		print("mediaproxy: tell $src to send to $mpport4 instead of $$p2\n");
+		brk();
+
+		send_rcv4($$c2, $mpip3, $mpport3, $$c1, $mpip2, $mpport2);
+		print("switching to new port...\n");
+		send_rcv4($$c2, $mpip3, $mpport3, $$c1, $mpip4, $mpport4);
+
+		brk();
+
+
+
+
+
+
+		$sub->();
+		print("\n\n\n");
+		print("re-invite coming from $src with intermediate traffic from $dst only to both old and new ports\n");
+
+		print("$src tells $dst: send RTP to $$p1\n");
+		brk();
+
+		my ($mpip5, $mpport5) = sim_rq($callid, $local_ip, $$p1, $ft);
+		print("mediaproxy: tell $dst to send to $mpport5 instead of $$p1\n");
+		brk();
+
+		for (1 .. 4) {
+			send_rcv_brk($$c2, $mpip3, $mpport3, $$c1);
+		}
+		print("switching to new port...\n");
+		for (1 .. 4) {
+			send_rcv_brk($$c2, $mpip5, $mpport5, $$c1);
+		}
+
+		print("$dst tells $src: send RTP to $$p2\n");
+		brk();
+
+		my ($mpip6, $mpport6) = sim_lk($callid, $local_ip, $$p2, $ft, $tt);
+		print("mediaproxy: tell $src to send to $mpport6 instead of $$p2\n");
+		brk();
+
+		for (1 .. 4) {
+			send_rcv_brk($$c2, $mpip5, $mpport5, $$c1);
+		}
+
+		send_rcv4($$c2, $mpip5, $mpport5, $$c1, $mpip6, $mpport6);
+
+		brk();
+
+
+
+
+
+
+		$sub->();
+		print("\n\n\n");
+		print("re-invite coming from $src with intermediate traffic from $src only to both old and new ports\n");
+
+		print("$src tells $dst: send RTP to $$p1\n");
+		brk();
+
+		my ($mpip7, $mpport7) = sim_rq($callid, $local_ip, $$p1, $ft);
+		print("mediaproxy: tell $dst to send to $mpport7 instead of $$p1\n");
+		brk();
+
+		for (1 .. 4) {
+			send_rcv_brk($$c1, $mpip6, $mpport6, $$c2);
+		}
+
+		print("$dst tells $src: send RTP to $$p2\n");
+		brk();
+
+		my ($mpip8, $mpport8) = sim_lk($callid, $local_ip, $$p2, $ft, $tt);
+		print("mediaproxy: tell $src to send to $mpport8 instead of $$p2\n");
+		brk();
+
+		for (1 .. 4) {
+			send_rcv_brk($$c1, $mpip6, $mpport6, $$c2);
+		}
+		print("switching to new port...\n");
+		for (1 .. 4) {
+			send_rcv_brk($$c1, $mpip8, $mpport8, $$c2);
+		}
+
+		send_rcv4($$c2, $mpip7, $mpport7, $$c1, $mpip8, $mpport8);
+
+		brk();
+	}
+}

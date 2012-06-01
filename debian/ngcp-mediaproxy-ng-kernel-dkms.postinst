@@ -1,0 +1,29 @@
+#!/bin/sh
+
+set -e
+
+package=ngcp-mediaproxy-ng-kernel-dkms
+name=ngcp-mediaproxy-ng
+
+version=`dpkg-query -W -f='${Version}' "$package" \
+        |rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n"`
+
+isadded=`dkms status -m "$name" -v "$version"`
+
+if [ "x${isadded}" = "x" ] ; then
+        dkms add -m "$name" -v "$version"
+fi
+
+if [ "$1" = 'configure' ] ; then
+        dkms build -m "$name" -v "$version" && dkms install -m "$name" -v "$version" || true
+
+        # try to start the daemon
+        if [ -x /etc/init.d/ngcp-mediaproxy-ng-daemon ] ; then
+		invoke-rc.d ngcp-mediaproxy-ng-daemon start || true
+        fi
+fi
+
+#DEBHELPER#
+
+exit 0
+
