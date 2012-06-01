@@ -11,7 +11,6 @@
 #include <glib.h>
 #include <pcre.h>
 #include <stdarg.h>
-#include <uuid/uuid.h>
 #include <arpa/inet.h>
 
 
@@ -82,12 +81,6 @@ static inline void bit_array_clear(int *name, unsigned int bit) {
 
 static inline char chrtoupper(char x) {
 	return x & 0xdf;
-}
-
-static inline void uuid_str_generate(char *s) {
-	uuid_t uuid;
-	uuid_generate(uuid);
-	uuid_unparse(uuid, s);
 }
 
 static inline void swap_ptrs(void *a, void *b) {
