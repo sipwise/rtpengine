@@ -349,7 +349,7 @@ int main(int argc, char **argv) {
 			die("Cannot start up without Redis database\n");
 	}
 
-	mylog(LOG_INFO, "Startup complete");
+	mylog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
 
 	if (!foreground)
 		daemonize();
