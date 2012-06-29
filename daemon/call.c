@@ -93,7 +93,7 @@ static void stream_closed(int fd, void *p) {
 
 	j = sizeof(i);
 	getsockopt(fd, SOL_SOCKET, SO_ERROR, &i, &j);
-	mylog(LOG_WARNING, LOG_PREFIX_C "Read error on RTP socket: %i (%s)", LOG_PARAMS_C(c), i, strerror(i));
+	mylog(LOG_WARNING, LOG_PREFIX_C "Read error on RTP socket: %i (%s) -- closing call", LOG_PARAMS_C(c), i, strerror(i));
 
 	call_destroy(c);
 }
