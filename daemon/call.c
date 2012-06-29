@@ -326,12 +326,9 @@ static void stream_readable(int fd, void *p) {
 		sinlen = sizeof(ss);
 		ret = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr *) &ss, &sinlen);
 
-		if (ret == 0)
-			goto err;
-		else if (ret < 0) {
+		if (ret < 0) {
 			if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
-err:
 			stream_closed(fd, r);
 			break;
 		}
