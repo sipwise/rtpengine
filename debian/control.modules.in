@@ -1,7 +1,7 @@
 Source: ngcp-mediaproxy-ng-kernel
 Section: kernel
 Priority: optional
-Maintainer: Richard Fuchs <rfuchs@sipwise.com>
+Maintainer: Sipwise Development Team <support@sipwise.com>
 Build-Depends: debhelper (>= 5)
 Standards-Version: 3.9.1
 Homepage: http://sipwise.com/
