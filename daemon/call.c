@@ -1162,7 +1162,6 @@ static void call_destroy(struct call *c) {
 	if (redis_delete)
 		redis_delete(c);
 
-	free(c->callid);
 	g_hash_table_destroy(c->infohash);
 	g_hash_table_destroy(c->branches);
 	if (c->calling_agent)
@@ -1170,11 +1169,30 @@ static void call_destroy(struct call *c) {
 	if (c->called_agent)
 		free(c->called_agent);
 
+	mylog(LOG_INFO, LOG_PREFIX_C "Final packet stats:", c->callid);
 	while (c->callstreams->head) {
 		s = g_queue_pop_head(c->callstreams);
+		mylog(LOG_INFO, LOG_PREFIX_C
+			"--- "
+			"side A: "
+			"RTP[%u] %lu p, %lu b, %lu e; "
+			"RTCP[%u] %lu p, %lu b, %lu e; "
+			"side B: "
+			"RTP[%u] %lu p, %lu b, %lu e; "
+			"RTCP[%u] %lu p, %lu b, %lu e",
+			c->callid,
+			s->peers[0].rtps[0].localport, s->peers[0].rtps[0].stats.packets,
+			s->peers[0].rtps[0].stats.bytes, s->peers[0].rtps[0].stats.errors,
+			s->peers[0].rtps[1].localport, s->peers[0].rtps[1].stats.packets,
+			s->peers[0].rtps[1].stats.bytes, s->peers[0].rtps[1].stats.errors,
+			s->peers[1].rtps[0].localport, s->peers[1].rtps[0].stats.packets,
+			s->peers[1].rtps[0].stats.bytes, s->peers[1].rtps[0].stats.errors,
+			s->peers[1].rtps[1].localport, s->peers[1].rtps[1].stats.packets,
+			s->peers[1].rtps[1].stats.bytes, s->peers[1].rtps[1].stats.errors);
 		kill_callstream(s);
 	}
 	g_queue_free(c->callstreams);
+	free(c->callid);
 
 	g_slice_free1(sizeof(*c), c);
 }
