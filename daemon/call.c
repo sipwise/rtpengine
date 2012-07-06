@@ -314,7 +314,7 @@ drop:
 
 static void stream_readable(int fd, void *p) {
 	struct streamrelay *r = p;
-	char buf[1024];
+	char buf[8192];
 	int ret;
 	struct sockaddr_storage ss;
 	struct sockaddr_in6 sin6;
@@ -332,6 +332,8 @@ static void stream_readable(int fd, void *p) {
 			stream_closed(fd, r);
 			break;
 		}
+		if (ret >= sizeof(buf))
+			mylog(LOG_WARNING, "UDP packet possibly truncated");
 
 		if (ss.ss_family != r->fd_family)
 			abort();
