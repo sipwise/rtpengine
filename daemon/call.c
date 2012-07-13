@@ -193,42 +193,40 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 		return 0;
 	}
 
-	if (!pe->confirmed && pe->filled && r->idx == 0) {
-		if (l < 2)
-			goto skip;
+	if (pe->confirmed || !pe->filled || r->idx != 0)
+		goto forward;
 
-		if (c->lookup_done && m->poller->now > (c->lookup_done + 3)) {
-			if (!pe->codec) {
-				cc = b[1];
-				cc &= 0x7f;
-				if (cc < G_N_ELEMENTS(rtp_codecs))
-					pe->codec = rtp_codecs[cc] ? : "unknown";
-				else
-					pe->codec = "unknown";
-			}
+	if (!c->lookup_done || m->poller->now <= c->lookup_done + 3)
+		goto peerinfo;
 
-			mylog(LOG_DEBUG, LOG_PREFIX_C "Confirmed peer information for port %u - %s:%u", 
-				LOG_PARAMS_C(c), r->localport, addr, ntohs(fsin->sin6_port));
+	mylog(LOG_DEBUG, LOG_PREFIX_C "Confirmed peer information for port %u - %s:%u", 
+		LOG_PARAMS_C(c), r->localport, addr, ntohs(fsin->sin6_port));
 
-			pe->confirmed = 1;
-		}
+	pe->confirmed = 1;
 
-		p2 = &p->up->rtps[p->idx ^ 1];
-		p->peer.ip46 = fsin->sin6_addr;
-		p->peer.port = ntohs(fsin->sin6_port);
-		p2->peer.ip46 = p->peer.ip46;
-		p2->peer.port = p->peer.port + ((int) (p2->idx * 2) - 1);
-
-
-
-		if (pe->confirmed && pe2->confirmed && pe2->filled)
-			kernelize(cs);
-
-		if (redis_update)
-			redis_update(c);
+peerinfo:
+	if (!pe->codec && l >= 2) {
+		cc = b[1];
+		cc &= 0x7f;
+		if (cc < G_N_ELEMENTS(rtp_codecs))
+			pe->codec = rtp_codecs[cc] ? : "unknown";
+		else
+			pe->codec = "unknown";
 	}
 
-skip:
+	p2 = &p->up->rtps[p->idx ^ 1];
+	p->peer.ip46 = fsin->sin6_addr;
+	p->peer.port = ntohs(fsin->sin6_port);
+	p2->peer.ip46 = p->peer.ip46;
+	p2->peer.port = p->peer.port + ((int) (p2->idx * 2) - 1);
+
+	if (pe->confirmed && pe2->confirmed && pe2->filled)
+		kernelize(cs);
+
+	if (redis_update)
+		redis_update(c);
+
+forward:
 	if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->peer.port || !r->fd_family)
 		goto drop;
 
