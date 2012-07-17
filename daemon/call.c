@@ -439,11 +439,12 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct iterator_helper *hlp = ptr;
 	GList *it;
 	struct callstream *cs;
-	int i;
+	int i, j;
 	struct peer *p;
 	struct poller *po;
 	struct callmaster *cm;
 	unsigned int check;
+	struct streamrelay *sr;
 
 	if (!c->callstreams->head)
 		goto drop;
@@ -456,18 +457,19 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 
 		for (i = 0; i < 2; i++) {
 			p = &cs->peers[i];
+			for (j = 0; j < 2; j++) {
+				sr = &p->rtps[j];
+				hlp->ports[sr->localport] = sr;
 
-			hlp->ports[p->rtps[0].localport] = &p->rtps[0];
-			hlp->ports[p->rtps[1].localport] = &p->rtps[1];
+				check = cm->timeout;
+				if (!sr->peer.port)
+					check = cm->silent_timeout;
+				else if (IN6_IS_ADDR_UNSPECIFIED(&sr->peer.ip46))
+					check = cm->silent_timeout;
 
-			check = cm->timeout;
-			if (!p->rtps[0].peer.port)
-				check = cm->silent_timeout;
-			else if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46))
-				check = cm->silent_timeout;
-
-			if (po->now - p->rtps[0].last < check)
-				goto good;
+				if (po->now - sr->last < check)
+					goto good;
+			}
 		}
 	}
 
