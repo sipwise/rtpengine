@@ -58,3 +58,17 @@ Description: Development files for mediaproxy-ng
  .
  Install this package if you wish to develop your own programs using
  mediaproxy-ng.
+
+Package: ngcp-mediaproxy-ng-dbg
+Architecture: any
+Section: debug
+Depends: ngcp-mediaproxy-ng-daemon (= ${binary:Version}), ngcp-mediaproxy-ng-iptables (= ${binary:Version}), ${misc:Depends}
+Description: debugging symbols for ngcp-mediaproxy-ng
+ The ngcp-mediaproxy-ng daemon handles the first stages of proxying media streams and talks to
+ the kernel part of the proxy for eventual high-performance packet forwarding.
+ .
+ ngcp-mediaproxy-ng-iptables provides the IPtables extension needed
+ to configure the mediaproxy rule.
+ .
+ This package contains the debugging symbols for ngcp-mediaproxy-ng-daemon
+ and ngcp-mediaproxy-ng-iptables
