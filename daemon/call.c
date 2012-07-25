@@ -108,7 +108,7 @@ void kernelize(struct callstream *c) {
 	struct kernel_stream ks;
 	struct callmaster *cm = c->call->callmaster;
 
-	if (cm->kernelfd < 0 || cm->kernelid < 0)
+	if (cm->kernelfd < 0 || cm->kernelid == -1)
 		return;
 
 	mylog(LOG_DEBUG, LOG_PREFIX_C "Kernelizing RTP streams", LOG_PARAMS_C(c->call));
@@ -555,7 +555,7 @@ static void callmaster_timer(void *ptr) {
 	memcpy(&m->stats, &m->statsps, sizeof(m->stats));
 	ZERO(m->statsps);
 
-	i = kernel_list(m->kernelid);
+	i = (m->kernelid != -1) ? kernel_list(m->kernelid) : NULL;
 	while (i) {
 		ke = i->data;
 
