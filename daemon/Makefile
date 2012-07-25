@@ -41,11 +41,5 @@ clean:
 mediaproxy-ng:	$(OBJS) .depend
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
-aux-test:	aux.o aux-test.o .depend
-	$(CC) $(CFLAGS) -o $@ aux-test.o aux.o $(LDFLAGS)
-
-poller-test:	poller.o poller-test.o aux.o .depend
-	$(CC) $(CFLAGS) -o $@ poller-test.o poller.o aux.o $(LDFLAGS)
-
 
 include		.depend
