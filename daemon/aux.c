@@ -15,68 +15,6 @@
 
 
 
-int mybsearch(void *base, unsigned int len, unsigned int size, void *key, unsigned int key_off, unsigned int key_size, int exact) {
-	unsigned char *cbase = base;
-	int pos;
-	unsigned char *cur;
-	int res;
-	unsigned int num;
-
-	if (!len) {
-		BSDB("zero length array\n");
-		return -1;
-	}
-
-	pos = len / 2;
-	num = pos;
-	num += 3;
-	num /= 2;
-	pos--;
-	if (pos < 0)
-		pos = 0;
-
-	BSDB("starting pos=%u, num=%u\n", pos, num);
-
-	for (;;) {
-		cur = cbase + (pos * size);
-		res = memcmp(cur + key_off, key, key_size);
-		BSDB("compare=%i\n", res);
-		if (!res)
-			return pos;
-		if (!num) {
-			BSDB("nothing found\n");
-			if (exact)
-				return -1;
-			if (res > 0)	/* cur > key */
-				return -1 * pos - 1;
-			return -1 * pos - 2;
-		}
-
-		if (res < 0) {	/* cur < key */
-			pos += num;
-			if (pos >= len)
-				pos = len - 1;
-		}
-		else {
-			pos -= num;
-			if (pos < 0)
-				pos = 0;
-		}
-
-		BSDB("new pos=%u\n", pos);
-
-		if (num == 1)
-			num = 0;
-		else {
-			num++;
-			num /= 2;
-		}
-
-		BSDB("new num=%u\n", num);
-	}
-}
-
-
 GList *g_list_link(GList *list, GList *el) {
 	el->prev = NULL;
 	el->next = list;
