@@ -331,7 +331,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (redis_ip) {
-		dlh = dlopen(MP_PLUGIN_DIR "/redis.so", RTLD_NOW | RTLD_GLOBAL);
+		dlh = dlopen(MP_PLUGIN_DIR "/mediaproxy-redis.so", RTLD_NOW | RTLD_GLOBAL);
 		if (!dlh)
 			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
 		strp = dlsym(dlh, "__module_version");
