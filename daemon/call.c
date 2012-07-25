@@ -851,9 +851,9 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		if (sr->fd != -1) {
 			mylog(LOG_DEBUG, LOG_PREFIX_CI "Closing port %u in favor of re-use", 
 				LOG_PARAMS_CI(c), sr->localport);
+			poller_del_item(po, sr->fd);
 			close(sr->fd);
 			bit_array_clear(ports_used, sr->localport);
-			poller_del_item(po, sr->fd);
 		}
 
 		sr->fd = srs->fd;
@@ -1143,10 +1143,10 @@ static void kill_callstream(struct callstream *s) {
 			r = &p->rtps[j];
 
 			if (r->fd != -1) {
+				poller_del_item(s->call->callmaster->poller, r->fd);
 				close(r->fd);
 				bit_array_clear(ports_used, r->localport);
 			}
-			poller_del_item(s->call->callmaster->poller, r->fd);
 		}
 	}
 
