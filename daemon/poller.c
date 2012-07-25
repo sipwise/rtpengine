@@ -16,11 +16,6 @@
 
 
 
-#define POLLER_BSEARCH(b,l,k,e)	mybsearch(b, l, sizeof(struct pollfd), k, OFFSET_OF(struct pollfd, fd), sizeof(*(k)), e)
-
-
-
-
 struct timer_item {
 	void		(*func)(void *);
 	void		*ptr;
