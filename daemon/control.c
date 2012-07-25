@@ -25,9 +25,9 @@ static void control_stream_closed(int fd, void *p) {
 
 	c->stream_head = g_list_remove_link(c->stream_head, &s->link);
 
-	close(fd);
 	if (poller_del_item(s->poller, fd))
 		abort();
+	close(fd);
 
 	streambuf_destroy(s->inbuf);
 	streambuf_destroy(s->outbuf);

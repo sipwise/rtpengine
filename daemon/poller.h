@@ -23,16 +23,12 @@ struct poller_item {
 };
 
 struct poller {
+	int				fd;
 	struct poller_item		**items;
 	unsigned int			items_size;
-	struct pollfd			*pollfds;
-	unsigned int			pollfds_size;
 	GList				*timers;
 
 	time_t				now;
-
-	struct pollfd			*pollfds_work;
-	unsigned int			pollfds_work_size;
 };
 
 

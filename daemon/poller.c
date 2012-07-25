@@ -7,6 +7,7 @@
 #include <time.h>
 #include <assert.h>
 #include <errno.h>
+#include <sys/epoll.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -34,16 +35,23 @@ struct poller *poller_new(void) {
 	p = malloc(sizeof(*p));
 	memset(p, 0, sizeof(*p));
 	p->now = time(NULL);
+	p->fd = epoll_create1(0);
+	if (p->fd == -1)
+		abort();
 
 	return p;
 }
 
 
+static int epoll_events(struct poller_item *i) {
+	return EPOLLHUP | EPOLLERR | ((i->writeable && i->blocked) ? EPOLLOUT : 0) | (i->readable ? EPOLLIN : 0);
+}
+
+
 int poller_add_item(struct poller *p, struct poller_item *i) {
 	struct poller_item *ip;
-	struct pollfd *pf;
-	int idx;
 	unsigned int u;
+	struct epoll_event e;
 
 	if (!p || !i)
 		return -1;
@@ -57,20 +65,10 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 	if (i->fd < p->items_size && p->items[i->fd])
 		return -1;
 
-	idx = POLLER_BSEARCH(p->pollfds, p->pollfds_size, &i->fd, 0);
-	assert(idx < 0);
-
-	idx *= -1;
-	idx--;
-
-	p->pollfds_size++;
-	p->pollfds = realloc(p->pollfds, p->pollfds_size * sizeof(*p->pollfds));
-	memmove(p->pollfds + idx + 1, p->pollfds + idx, (p->pollfds_size - idx - 1) * sizeof(*p->pollfds));
-	pf = &p->pollfds[idx];
-
-	pf->fd = i->fd;
-	pf->events = POLLHUP | POLLERR | ((i->writeable && i->blocked) ? POLLOUT : 0) | (i->readable ? POLLIN : 0);
-	pf->revents = 0;
+	e.events = epoll_events(i);
+	e.data.fd = i->fd;
+	if (epoll_ctl(p->fd, EPOLL_CTL_ADD, i->fd, &e))
+		abort();
 
 	if (i->fd >= p->items_size) {
 		u = p->items_size;
@@ -88,30 +86,15 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 
 
 int poller_del_item(struct poller *p, int fd) {
-	int idx;
-
 	if (!p || fd < 0)
 		return -1;
 	if (fd >= p->items_size)
 		return -1;
 	if (!p->items || !p->items[fd])
 		return -1;
-	if (!p->pollfds || !p->pollfds_size)
-		return -1;
 
-	idx = POLLER_BSEARCH(p->pollfds, p->pollfds_size, &fd, 1);
-	assert(idx != -1);
-
-	memmove(p->pollfds + idx, p->pollfds + idx + 1, (p->pollfds_size - idx - 1) * sizeof(*p->pollfds));
-	p->pollfds_size--;
-	p->pollfds = realloc(p->pollfds, p->pollfds_size * sizeof(*p->pollfds));
-
-	if (p->pollfds_work) {
-		idx = POLLER_BSEARCH(p->pollfds_work, p->pollfds_work_size, &fd, 1);
-
-		if (idx != -1)
-			p->pollfds_work[idx].fd = -1;
-	}
+	if (epoll_ctl(p->fd, EPOLL_CTL_DEL, fd, NULL))
+		abort();
 
 	free(p->items[fd]);
 	p->items[fd] = NULL;
@@ -146,83 +129,75 @@ int poller_update_item(struct poller *p, struct poller_item *i) {
 
 
 int poller_poll(struct poller *p, int timeout) {
-	struct pollfd *pfd, *pf;
 	int ret, i;
 	struct poller_item *it;
-	int idx;
 	time_t last;
-	int do_timer;
 	GList *li;
 	struct timer_item *ti;
+	struct epoll_event evs[128], *ev, e;
 
 	if (!p)
-		return -1;
-	if (!p->pollfds || !p->pollfds_size)
 		return -1;
 	if (!p->items || !p->items_size)
 		return -1;
 
-	p->pollfds_work_size = i = p->pollfds_size;
-	p->pollfds_work = pfd = malloc(sizeof(*pfd) * i);
-	memcpy(pfd, p->pollfds, sizeof(*pfd) * i);
-
-	do_timer = 0;
 	last = p->now;
 	p->now = time(NULL);
 	if (last != p->now) {
-		do_timer = 1;
-		ret = i;
-
 		for (li = p->timers; li; li = li->next) {
 			ti = li->data;
 			ti->func(ti->ptr);
 		}
-	}
-	else {
-		ret = poll(pfd, i, timeout);
-		if (errno == EINTR)
-			ret = 0;
-		if (ret < 0)
-			goto out;
+
+		for (i = 0; i < p->items_size; i++) {
+			it = p->items[i];
+			if (!it)
+				continue;
+			if (!it->timer)
+				continue;
+			it->timer(it->fd, it->ptr);
+		}
+		return p->items_size;
 	}
 
-	pf = pfd;
-	for (pf = pfd; i; pf++) {
-		i--;
+	errno = 0;
+	ret = epoll_wait(p->fd, evs, sizeof(evs) / sizeof(*evs), timeout);
 
-		if (pf->fd < 0)
+	if (errno == EINTR)
+		ret = 0;
+	if (ret < 0)
+		goto out;
+
+	for (i = 0; i < ret; i++) {
+		ev = &evs[i];
+
+		if (ev->data.fd < 0)
 			continue;
 
-		it = (pf->fd < p->items_size) ? p->items[pf->fd] : NULL;
+		it = (ev->data.fd < p->items_size) ? p->items[ev->data.fd] : NULL;
 		if (!it)
 			continue;
-
-		if (do_timer) {
-			if (it->timer)
-				it->timer(it->fd, it->ptr);
-			continue;
-		}
 
 		if (it->error) {
 			it->closed(it->fd, it->ptr);
 			continue;
 		}
 
-		if ((pf->revents & (POLLERR | POLLHUP)))
+		if ((ev->events & (POLLERR | POLLHUP)))
 			it->closed(it->fd, it->ptr);
-		else if ((pf->revents & POLLOUT)) {
+		else if ((ev->events & POLLOUT)) {
 			it->blocked = 0;
 
-			idx = POLLER_BSEARCH(p->pollfds, p->pollfds_size, &it->fd, 1);
-			assert(idx != -1);
-
-			p->pollfds[idx].events &= ~POLLOUT;
+			e.events = epoll_events(it);
+			e.data.fd = it->fd;
+			if (epoll_ctl(p->fd, EPOLL_CTL_MOD, it->fd, &e))
+				abort();
 
 			it->writeable(it->fd, it->ptr);
 		}
-		else if ((pf->revents & POLLIN))
+		else if ((ev->events & POLLIN))
 			it->readable(it->fd, it->ptr);
-		else if (!pf->revents)
+		else if (!ev->events)
 			continue;
 		else
 			abort();
@@ -230,15 +205,12 @@ int poller_poll(struct poller *p, int timeout) {
 
 
 out:
-	free(pfd);
-	p->pollfds_work = NULL;
-	p->pollfds_work_size = 0;
 	return ret;
 }
 
 
 void poller_blocked(struct poller *p, int fd) {
-	int idx;
+	struct epoll_event e;
 
 	if (!p || fd < 0)
 		return;
@@ -246,17 +218,15 @@ void poller_blocked(struct poller *p, int fd) {
 		return;
 	if (!p->items || !p->items[fd])
 		return;
-	if (!p->pollfds || !p->pollfds_size)
-		return;
 	if (!p->items[fd]->writeable)
 		return;
 
 	p->items[fd]->blocked = 1;
 
-	idx = POLLER_BSEARCH(p->pollfds, p->pollfds_size, &fd, 1);
-	assert(idx != -1);
-
-	p->pollfds[idx].events |= POLLOUT;
+	e.events = epoll_events(p->items[fd]);
+	e.data.fd = fd;
+	if (epoll_ctl(p->fd, EPOLL_CTL_MOD, fd, &e))
+		abort();
 }
 
 void poller_error(struct poller *p, int fd) {
@@ -265,8 +235,6 @@ void poller_error(struct poller *p, int fd) {
 	if (fd >= p->items_size)
 		return;
 	if (!p->items || !p->items[fd])
-		return;
-	if (!p->pollfds || !p->pollfds_size)
 		return;
 	if (!p->items[fd]->writeable)
 		return;
@@ -281,8 +249,6 @@ int poller_isblocked(struct poller *p, int fd) {
 	if (fd >= p->items_size)
 		return -1;
 	if (!p->items || !p->items[fd])
-		return -1;
-	if (!p->pollfds || !p->pollfds_size)
 		return -1;
 	if (!p->items[fd]->writeable)
 		return -1;
