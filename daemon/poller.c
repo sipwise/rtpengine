@@ -44,6 +44,14 @@ static int epoll_events(struct poller_item *i) {
 }
 
 
+static void poller_fd_timer(void *p) {
+	struct poller_item *it = p;
+
+	if (it->timer)
+		it->timer(it->fd, it->ptr);
+}
+
+
 int poller_add_item(struct poller *p, struct poller_item *i) {
 	struct poller_item *ip;
 	unsigned int u;
@@ -77,22 +85,46 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 	memcpy(ip, i, sizeof(*ip));
 	p->items[i->fd] = ip;
 
+	if (i->timer)
+		poller_timer(p, poller_fd_timer, ip);
+
 	return 0;
 }
 
 
+int poller_find_timer(gconstpointer a, gconstpointer b) {
+	const struct timer_item *it = a;
+	const struct poller_item *x = b;
+
+	if (it->ptr == x)
+		return 0;
+	return 1;
+}
+
+
 int poller_del_item(struct poller *p, int fd) {
+	struct poller_item *it;
+	GList *l;
+
 	if (!p || fd < 0)
 		return -1;
 	if (fd >= p->items_size)
 		return -1;
-	if (!p->items || !p->items[fd])
+	if (!p->items || !(it = p->items[fd]))
 		return -1;
 
 	if (epoll_ctl(p->fd, EPOLL_CTL_DEL, fd, NULL))
 		abort();
 
-	g_slice_free1(sizeof(**p->items), p->items[fd]);
+	if (it->timer) {
+		l = g_list_find_custom(p->timers, it, poller_find_timer);
+		if (l) {
+			g_slice_free1(sizeof(struct timer_item), l->data);
+			p->timers = g_list_delete_link(p->timers, l);
+		}
+	}
+
+	g_slice_free1(sizeof(*it), it);
 	p->items[fd] = NULL;
 
 	return 0;
@@ -128,7 +160,7 @@ int poller_poll(struct poller *p, int timeout) {
 	int ret, i;
 	struct poller_item *it;
 	time_t last;
-	GList *li;
+	GList *li, *ne;
 	struct timer_item *ti;
 	struct epoll_event evs[128], *ev, e;
 
@@ -140,18 +172,10 @@ int poller_poll(struct poller *p, int timeout) {
 	last = p->now;
 	p->now = time(NULL);
 	if (last != p->now) {
-		for (li = p->timers; li; li = li->next) {
+		for (li = p->timers; li; li = ne) {
+			ne = li->next;
 			ti = li->data;
 			ti->func(ti->ptr);
-		}
-
-		for (i = 0; i < p->items_size; i++) {
-			it = p->items[i];
-			if (!it)
-				continue;
-			if (!it->timer)
-				continue;
-			it->timer(it->fd, it->ptr);
 		}
 		return p->items_size;
 	}
