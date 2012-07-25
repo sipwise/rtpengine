@@ -118,10 +118,10 @@ int poller_del_item(struct poller *p, int fd) {
 
 	if (it->timer) {
 		l = g_list_find_custom(p->timers, it, poller_find_timer);
-		if (l) {
-			g_slice_free1(sizeof(struct timer_item), l->data);
-			p->timers = g_list_delete_link(p->timers, l);
-		}
+		if (!l)
+			abort();
+		g_slice_free1(sizeof(struct timer_item), l->data);
+		p->timers = g_list_delete_link(p->timers, l);
 	}
 
 	g_slice_free1(sizeof(*it), it);
