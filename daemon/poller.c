@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <sys/epoll.h>
+#include <glib.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -77,7 +78,7 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 		memset(p->items + u, 0, sizeof(*p->items) * (p->items_size - u - 1));
 	}
 
-	ip = malloc(sizeof(*ip));
+	ip = g_slice_alloc(sizeof(*ip));
 	memcpy(ip, i, sizeof(*ip));
 	p->items[i->fd] = ip;
 
@@ -96,7 +97,7 @@ int poller_del_item(struct poller *p, int fd) {
 	if (epoll_ctl(p->fd, EPOLL_CTL_DEL, fd, NULL))
 		abort();
 
-	free(p->items[fd]);
+	g_slice_free1(sizeof(**p->items), p->items[fd]);
 	p->items[fd] = NULL;
 
 	return 0;
@@ -265,8 +266,7 @@ int poller_timer(struct poller *p, void (*f)(void *), void *ptr) {
 	if (!p || !f)
 		return -1;
 
-	i = malloc(sizeof(*i));
-	ZERO(*i);
+	i = g_slice_alloc0(sizeof(*i));
 
 	i->func = f;
 	i->ptr = ptr;
