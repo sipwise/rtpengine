@@ -42,7 +42,6 @@
 
 typedef int (*parse_func)(char **, void **, void *);
 
-int mybsearch(void *, unsigned int, unsigned int, void *, unsigned int, unsigned int, int);
 GList *g_list_link(GList *, GList *);
 GQueue *pcre_multi_match(pcre **, pcre_extra **, const char *, const char *, unsigned int, parse_func, void *);
 void strmove(char **, char **);
