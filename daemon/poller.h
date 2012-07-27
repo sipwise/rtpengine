@@ -4,32 +4,27 @@
 
 
 #include <sys/types.h>
+#include <stdint.h>
 #include <time.h>
 #include <glib.h>
+#include "obj.h"
 
 
 
 struct poller_item {
 	int				fd;
-	void				*ptr;
+	struct obj			*obj;
+	uintptr_t			uintp;
 
-	void				(*readable)(int, void *);
-	void				(*writeable)(int, void *);
-	void				(*closed)(int, void *);
-	void				(*timer)(int, void *);
-
-	int				blocked:1;
-	int				error:1;
+	void				(*readable)(int, void *, uintptr_t);
+	void				(*writeable)(int, void *, uintptr_t);
+	void				(*closed)(int, void *, uintptr_t);
+	void				(*timer)(int, void *, uintptr_t);
 };
 
-struct poller {
-	int				fd;
-	struct poller_item		**items;
-	unsigned int			items_size;
-	GList				*timers;
+struct poller;
 
-	time_t				now;
-};
+
 
 
 struct poller *poller_new(void);
@@ -40,8 +35,9 @@ int poller_poll(struct poller *, int);
 void poller_blocked(struct poller *, int);
 int poller_isblocked(struct poller *, int);
 void poller_error(struct poller *, int);
+time_t poller_now(struct poller *);
 
-int poller_timer(struct poller *, void (*)(void *), void *);
+int poller_timer(struct poller *, void (*)(void *), struct obj *);
 
 
 #endif

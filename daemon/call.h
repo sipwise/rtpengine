@@ -10,6 +10,7 @@
 
 #include "control.h"
 #include "control_udp.h"
+#include "obj.h"
 
 struct poller;
 struct control_stream;
@@ -67,12 +68,15 @@ struct peer {
 	int			confirmed:1;
 };
 struct callstream {
+	struct obj		obj;
 	struct peer		peers[2];
 	struct call		*call;
 	int			num;
 };
 
 struct call {
+	struct obj		obj;
+
 	struct callmaster	*callmaster;
 
 	GQueue			*callstreams;
@@ -90,6 +94,8 @@ struct call {
 };
 
 struct callmaster {
+	struct obj		obj;
+
 	GHashTable		*callhash;
 	u_int16_t		lastport;
 	struct stats		statsps;

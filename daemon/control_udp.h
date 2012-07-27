@@ -9,6 +9,9 @@
 #include <glib.h>
 #include <time.h>
 #include <netinet/in.h>
+#include "obj.h"
+
+
 
 #define RE_UDP_COOKIE 		1
 #define RE_UDP_UL_CMD 		2
@@ -39,6 +42,8 @@ struct callmaster;
 
 
 struct control_udp {
+	struct obj		obj;
+
 	int			fd;
 
 	struct poller		*poller;
