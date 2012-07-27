@@ -122,14 +122,14 @@ static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lo
 	ip = obj_alloc0("poller_item_int", sizeof(*ip), poller_item_free);
 	memcpy(&ip->item, i, sizeof(*i));
 	obj_hold(ip->item.obj); /* new ref in *ip */
-	p->items[i->fd] = obj_get(&ip->obj);
+	p->items[i->fd] = obj_get(ip);
 
 	mutex_unlock(&p->lock);
 
 	if (i->timer)
 		poller_timer(p, poller_fd_timer, &ip->obj);
 
-	obj_put(&ip->obj);
+	obj_put(ip);
 
 	return 0;
 
@@ -189,11 +189,11 @@ int poller_del_item(struct poller *p, int fd) {
 		}
 		p->timers = g_list_remove_link(p->timers, l);
 		ti = l->data;
-		obj_put(&ti->obj);
+		obj_put(ti);
 		g_list_free_1(l);
 	}
 
-	obj_put(&it->obj);
+	obj_put(it);
 
 	return 0;
 
@@ -287,7 +287,7 @@ int poller_poll(struct poller *p, int timeout) {
 		if (!it)
 			continue;
 
-		obj_hold(&it->obj);
+		obj_hold(it);
 		mutex_unlock(&p->lock);
 
 		if (it->error) {
@@ -318,7 +318,7 @@ int poller_poll(struct poller *p, int timeout) {
 			abort();
 
 next:
-		obj_put(&it->obj);
+		obj_put(it);
 		mutex_lock(&p->lock);
 	}
 

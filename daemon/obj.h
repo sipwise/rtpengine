@@ -100,11 +100,12 @@ static inline void *__obj_alloc0(unsigned int size, void (*free_func)(void *)
 	return r;
 }
 
-static inline struct obj *__obj_hold(struct obj *o
+static inline struct obj *__obj_hold(void *p
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif
 ) {
+	struct obj *o = p;
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
 	mylog(LOG_DEBUG, "obj_hold(%p, \"%s\", size %u), refcnt before %u [%s:%u]",
@@ -118,23 +119,24 @@ static inline struct obj *__obj_hold(struct obj *o
 	return o;
 }
 
-static inline void *__obj_get(struct obj *o
+static inline void *__obj_get(void *p
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif
 ) {
-	return __obj_hold(o
+	return __obj_hold(p
 #if OBJ_DEBUG
 	, file, line
 #endif
 	);
 }
 
-static inline void __obj_put(struct obj *o
+static inline void __obj_put(void *p
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif
 ) {
+	struct obj *o = p;
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
 	mylog(LOG_DEBUG, "obj_put(%p, \"%s\", size %u), refcnt before %u [%s:%u]",

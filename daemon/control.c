@@ -27,7 +27,7 @@ static void control_stream_closed(int fd, void *p, uintptr_t u) {
 	c = s->control;
 
 	c->streams = g_list_remove(c->streams, s);
-	obj_put(&s->obj);
+	obj_put(s);
 
 	if (poller_del_item(s->poller, fd))
 		abort();
@@ -197,7 +197,7 @@ static void control_incoming(int fd, void *p, uintptr_t u) {
 	return;
 
 fail:
-	obj_put(&s->obj);
+	obj_put(s);
 }
 
 
@@ -244,11 +244,11 @@ struct control *control_new(struct poller *p, u_int32_t ip, u_int16_t port, stru
 	if (poller_add_item(p, &i))
 		goto fail2;
 
-	obj_put(&c->obj);
+	obj_put(c);
 	return c;
 
 fail2:
-	obj_put(&c->obj);
+	obj_put(c);
 fail:
 	close(fd);
 	return NULL;
