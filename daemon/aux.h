@@ -146,4 +146,22 @@ static inline int smart_pton(int af, char *src, void *dst) {
 
 
 
+#if !GLIB_CHECK_VERSION(2,32,0)
+
+typedef GStaticMutex mutex_t;
+#define mutex_init(m) g_static_mutex_init(m)
+#define mutex_lock(m) g_static_mutex_lock(m)
+#define mutex_unlock(m) g_static_mutex_unlock(m)
+
+#else
+
+typedef GMutex mutex_t;
+#define mutex_init(m) g_mutex_init(m)
+#define mutex_lock(m) g_mutex_lock(m)
+#define mutex_unlock(m) g_mutex_unlock(m)
+
+#endif
+
+
+
 #endif
