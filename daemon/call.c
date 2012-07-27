@@ -83,13 +83,16 @@ static void unkernelize(struct peer *);
 
 
 
-static void stream_closed(int fd, void *p) {
-	struct streamrelay *r = p;
+static void stream_closed(int fd, void *p, uintptr_t u) {
+	struct callstream *cs = p;
+	struct streamrelay *r;
 	struct call *c;
 	int i;
 	socklen_t j;
 
-	c = r->up->up->call;
+	r = &cs->peers[u >> 1].rtps[u & 1];
+	assert(r->fd == fd);
+	c = cs->call;
 
 	j = sizeof(i);
 	getsockopt(fd, SOL_SOCKET, SO_ERROR, &i, &j);
@@ -196,7 +199,7 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	if (pe->confirmed || !pe->filled || r->idx != 0)
 		goto forward;
 
-	if (!c->lookup_done || m->poller->now <= c->lookup_done + 3)
+	if (!c->lookup_done || poller_now(m->poller) <= c->lookup_done + 3)
 		goto peerinfo;
 
 	mylog(LOG_DEBUG, LOG_PREFIX_C "Confirmed peer information for port %u - %s:%u", 
@@ -302,7 +305,7 @@ drop:
 	r->stats.bytes += l;
 	m->statsps.packets++;
 	m->statsps.bytes += l;
-	r->last = m->poller->now;
+	r->last = poller_now(m->poller);
 
 	return 0;
 }
@@ -310,8 +313,9 @@ drop:
 
 
 
-static void stream_readable(int fd, void *p) {
-	struct streamrelay *r = p;
+static void stream_readable(int fd, void *p, uintptr_t u) {
+	struct callstream *cs = p;
+	struct streamrelay *r;
 	char buf[8192];
 	int ret;
 	struct sockaddr_storage ss;
@@ -320,6 +324,9 @@ static void stream_readable(int fd, void *p) {
 	unsigned int sinlen;
 	void *sinp;
 
+	r = &cs->peers[u >> 1].rtps[u & 1];
+	assert(r->fd == fd);
+
 	for (;;) {
 		sinlen = sizeof(ss);
 		ret = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr *) &ss, &sinlen);
@@ -327,7 +334,7 @@ static void stream_readable(int fd, void *p) {
 		if (ret < 0) {
 			if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
-			stream_closed(fd, r);
+			stream_closed(fd, r, 0);
 			break;
 		}
 		if (ret >= sizeof(buf))
@@ -467,7 +474,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 				else if (IN6_IS_ADDR_UNSPECIFIED(&sr->peer.ip46))
 					check = cm->silent_timeout;
 
-				if (po->now - sr->last < check)
+				if (poller_now(po) - sr->last < check)
 					goto good;
 			}
 		}
@@ -568,7 +575,7 @@ static void callmaster_timer(void *ptr) {
 		DS(errors);
 
 		if (ke->stats.packets != sr->kstats.packets)
-			sr->last = po->now;
+			sr->last = poller_now(po);
 
 		sr->kstats.packets = ke->stats.packets;
 		sr->kstats.bytes = ke->stats.bytes;
@@ -595,19 +602,20 @@ next:
 struct callmaster *callmaster_new(struct poller *p) {
 	struct callmaster *c;
 
-	c = g_slice_alloc0(sizeof(*c));
+	c = obj_alloc0("callmaster", sizeof(*c), NULL);
 
 	c->callhash = g_hash_table_new(g_str_hash, g_str_equal);
 	if (!c->callhash)
 		goto fail;
 	c->poller = p;
 
-	poller_timer(p, callmaster_timer, c);
+	poller_timer(p, callmaster_timer, &c->obj);
 
+	obj_put(&c->obj);
 	return c;
 
 fail:
-	g_slice_free1(sizeof(*c), c);
+	obj_put(&c->obj);
 	return NULL;
 }
 
@@ -876,7 +884,8 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		srs->peer_advertised.port = 0;
 
 		pi.fd = sr->fd;
-		pi.ptr = sr;
+		pi.obj = &sr->up->up->obj;
+		pi.uintp = i | (dest->idx << 1);
 		pi.readable = stream_readable;
 		pi.closed = stream_closed;
 
@@ -894,10 +903,9 @@ void callstream_init(struct callstream *s, struct call *ca, int port1, int port2
 
 	po = ca->callmaster->poller;
 
-	ZERO(*s);
 	ZERO(pi);
 
-	s->call = ca;
+	s->call = obj_get(&ca->obj);
 	DBG("setting new callstream num to %i", num);
 	s->num = num;
 
@@ -915,7 +923,7 @@ void callstream_init(struct callstream *s, struct call *ca, int port1, int port2
 			r->fd = -1;
 			r->idx = j;
 			r->up = p;
-			r->last = po->now;
+			r->last = poller_now(po);
 		}
 
 		tport = (i == 0) ? port1 : port2;
@@ -927,7 +935,8 @@ void callstream_init(struct callstream *s, struct call *ca, int port1, int port2
 				r = &p->rtps[j];
 
 				pi.fd = r->fd;
-				pi.ptr = r;
+				pi.obj = &s->obj;
+				pi.uintp = (i << 1) | j;
 				pi.readable = stream_readable;
 				pi.closed = stream_closed;
 
@@ -938,6 +947,31 @@ void callstream_init(struct callstream *s, struct call *ca, int port1, int port2
 }
 
 
+
+static void callstream_free(void *ptr) {
+	struct callstream *s = ptr;
+	int i, j;       
+	struct peer *p;
+	struct streamrelay *r;
+
+	for (i = 0; i < 2; i++) {
+		p = &s->peers[i];
+
+		free(p->tag);
+		free(p->mediatype);
+
+		for (j = 0; j < 2; j++) {
+			r = &p->rtps[j];
+
+			if (r->fd != -1) {
+				close(r->fd);
+				bit_array_clear(ports_used, r->localport);
+				r->fd = -1;
+			}
+		}
+	}
+	obj_put(&s->call->obj);
+}
 
 static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) {
 	GQueue *q;
@@ -989,7 +1023,7 @@ found:
 		if (!opmode) {	/* request */
 			DBG("creating new callstream");
 
-			cs = g_slice_alloc(sizeof(*cs));
+			cs = obj_alloc0("callstream", sizeof(*cs), callstream_free);
 
 			if (!r) {
 				/* nothing found to re-use, open new ports */
@@ -1012,7 +1046,7 @@ found:
 				}
 			}
 
-			g_queue_push_tail(q, cs);
+			g_queue_push_tail(q, cs); /* hand over the ref */
 			ZERO(c->lookup_done);
 			continue;
 		}
@@ -1070,12 +1104,12 @@ got_cs:
 			/* need a new call stream after all */
 			DBG("case 4");
 			cs_o = cs;
-			cs = g_slice_alloc(sizeof(*cs));
+			cs = obj_alloc0("callstream", sizeof(*cs), callstream_free);
 			callstream_init(cs, c, 0, 0, t->num);
 			steal_peer(&cs->peers[0], &cs_o->peers[0]);
 			p = &cs->peers[1];
 			setup_peer(p, t, tag);
-			g_queue_push_tail(c->callstreams, cs_o);
+			g_queue_push_tail(c->callstreams, cs_o); /* hand over ref XXX? */
 		}
 
 		time(&c->lookup_done);
@@ -1136,38 +1170,23 @@ static void kill_callstream(struct callstream *s) {
 
 		unkernelize(p);
 
-		free(p->tag);
-		free(p->mediatype);
-
 		for (j = 0; j < 2; j++) {
 			r = &p->rtps[j];
 
-			if (r->fd != -1) {
+			if (r->fd != -1)
 				poller_del_item(s->call->callmaster->poller, r->fd);
-				close(r->fd);
-				bit_array_clear(ports_used, r->localport);
-			}
 		}
 	}
-
-	g_slice_free1(sizeof(*s), s);
 }
 
 static void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
 	struct callstream *s;
 
-	g_hash_table_remove(m->callhash, c->callid);
+	g_hash_table_remove(m->callhash, c->callid); /* steal this ref */
 
 	if (redis_delete)
 		redis_delete(c);
-
-	g_hash_table_destroy(c->infohash);
-	g_hash_table_destroy(c->branches);
-	if (c->calling_agent)
-		free(c->calling_agent);
-	if (c->called_agent)
-		free(c->called_agent);
 
 	mylog(LOG_INFO, LOG_PREFIX_C "Final packet stats:", c->callid);
 	while (c->callstreams->head) {
@@ -1190,11 +1209,10 @@ static void call_destroy(struct call *c) {
 			s->peers[1].rtps[1].localport, s->peers[1].rtps[1].stats.packets,
 			s->peers[1].rtps[1].stats.bytes, s->peers[1].rtps[1].stats.errors);
 		kill_callstream(s);
+		obj_put(&s->obj);
 	}
-	g_queue_free(c->callstreams);
-	free(c->callid);
 
-	g_slice_free1(sizeof(*c), c);
+	obj_put(&c->obj);
 }
 
 
@@ -1280,16 +1298,29 @@ static guint g_str_hash0(gconstpointer v) {
 	return g_str_hash(v);
 }
 
+static void call_free(void *p) {
+	struct call *c = p;
+
+	g_hash_table_destroy(c->infohash);
+	g_hash_table_destroy(c->branches);
+	if (c->calling_agent)
+		free(c->calling_agent);
+	if (c->called_agent)
+		free(c->called_agent);
+	g_queue_free(c->callstreams);
+	free(c->callid);
+}
+
 static struct call *call_create(const char *callid, struct callmaster *m) {
 	struct call *c;
 
 	mylog(LOG_NOTICE, LOG_PREFIX_C "Creating new call",
 		callid);	/* XXX will spam syslog on recovery from DB */
-	c = g_slice_alloc0(sizeof(*c));
+	c = obj_alloc0("call", sizeof(*c), call_free);
 	c->callmaster = m;
 	c->callid = strdup(callid);
 	c->callstreams = g_queue_new();
-	c->created = m->poller->now;
+	c->created = poller_now(m->poller);
 	c->infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c->branches = g_hash_table_new_full(g_str_hash0, g_str_equal0, free, NULL);
 	return c;
@@ -1302,8 +1333,10 @@ struct call *call_get_or_create(const char *callid, const char *viabranch, struc
 	if (!c) {
 		/* completely new call-id, create call */
 		c = call_create(callid, m);
-		g_hash_table_insert(m->callhash, c->callid, c);
+		g_hash_table_insert(m->callhash, c->callid, obj_get(&c->obj));
 	}
+	else
+		obj_hold(&c->obj);
 
 	if (viabranch && !g_hash_table_lookup(c->branches, viabranch))
 		g_hash_table_insert(c->branches, strdup(viabranch), (void *) 0x1);
@@ -1382,12 +1415,14 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
 	c->log_info = NULL;
+	obj_put(&c->obj);
 	return ret;
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
 	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	c->log_info = NULL;
+	obj_put(&c->obj);
 	return ret;
 }
 
@@ -1405,6 +1440,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->ipv4));
 		return ret;
 	}
+	obj_hold(&c->obj);
 
 	c->log_info = out[RE_UDP_UL_CALLID];
 	strdupfree(&c->called_agent, "UNKNOWN(udp)");
@@ -1423,12 +1459,14 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
 	c->log_info = NULL;
+	obj_put(&c->obj);
 	return ret;
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
 	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	c->log_info = NULL;
+	obj_put(&c->obj);
 	return ret;
 }
 
@@ -1451,6 +1489,7 @@ char *call_request(const char **out, struct callmaster *m) {
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
+	obj_put(&c->obj);
 	return ret;
 }
 
@@ -1466,6 +1505,8 @@ char *call_lookup(const char **out, struct callmaster *m) {
 		return NULL;
 	}
 
+	obj_hold(&c->obj);
+
 	strdupfree(&c->called_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
 	info_parse(out[RE_TCP_RL_INFO], &c->infohash);
 	s = streams_parse(out[RE_TCP_RL_STREAMS]);
@@ -1477,6 +1518,7 @@ char *call_lookup(const char **out, struct callmaster *m) {
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
+	obj_put(&c->obj);
 	return ret;
 }
 
@@ -1496,6 +1538,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", out[RE_UDP_D_CALLID]);
 		goto err;
 	}
+	obj_hold(&c->obj);
 	c->log_info = out[RE_UDP_D_VIABRANCH];
 
 	if (out[RE_UDP_D_FROMTAG] && *out[RE_UDP_D_FROMTAG]) {
@@ -1552,8 +1595,10 @@ err:
 	goto out;
 
 out:
-	if (c)
+	if (c) {
 		c->log_info = NULL;
+		obj_put(&c->obj);
+	}
 	return ret;
 }
 
@@ -1564,8 +1609,10 @@ void call_delete(const char **out, struct callmaster *m) {
 	if (!c)
 		return;
 
+	obj_hold(&c->obj);
 	/* delete whole list, as we don't have branches in tcp controller */
 	call_destroy(c);
+	obj_put(&c->obj);
 }
 
 
@@ -1590,7 +1637,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 		(char *) g_hash_table_lookup(c->infohash, "from"),
 		(char *) g_hash_table_lookup(c->infohash, "to"),
 		c->calling_agent, c->called_agent,
-		(int) (m->poller->now - c->created));
+		(int) (poller_now(m->poller) - c->created));
 
 	for (l = c->callstreams->head; l; l = l->next) {
 		cs = l->data;
@@ -1620,7 +1667,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 			(long long unsigned int) r1->stats.bytes + rx1->stats.bytes + r2->stats.bytes + rx2->stats.bytes,
 			"active",
 			p->codec ? : "unknown",
-			p->mediatype, (int) (m->poller->now - r1->last));
+			p->mediatype, (int) (poller_now(m->poller) - r1->last));
 	}
 
 }

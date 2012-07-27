@@ -12,10 +12,13 @@
 #include "log.h"
 #include "call.h"
 
+
+
+
 static pcre		*parse_re;
 static pcre_extra	*parse_ree;
 
-static void control_stream_closed(int fd, void *p) {
+static void control_stream_closed(int fd, void *p, uintptr_t u) {
 	struct control_stream *s = p;
 	struct control *c;
 
@@ -23,23 +26,22 @@ static void control_stream_closed(int fd, void *p) {
 
 	c = s->control;
 
-	c->stream_head = g_list_remove_link(c->stream_head, &s->link);
+	c->streams = g_list_remove(c->streams, s);
+	obj_put(&s->obj);
 
 	if (poller_del_item(s->poller, fd))
 		abort();
-	close(fd);
-
-	streambuf_destroy(s->inbuf);
-	streambuf_destroy(s->outbuf);
-	free(s);
 }
 
 
 static void control_list(struct control *c, struct control_stream *s) {
 	struct control_stream *i;
+	GList *l;
 
-	for (i = (void *) c->stream_head; i; i = (void *) i->link.next)
-		streambuf_printf(s->outbuf, DF "\n", DP(s->inaddr));
+	for (l = c->streams; l; l = l->next) {
+		i = l->data;
+		streambuf_printf(s->outbuf, DF "\n", DP(i->inaddr));
+	}
 
 	streambuf_printf(s->outbuf, "End.\n");
 }
@@ -98,16 +100,16 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 }
 
 
-static void control_stream_timer(int fd, void *p) {
+static void control_stream_timer(int fd, void *p, uintptr_t u) {
 	struct control_stream *s = p;
 	struct poller *o = s->poller;
 
-	if ((o->now - s->inbuf->active) >= 60 || (o->now - s->outbuf->active) >= 60)
-		control_stream_closed(s->fd, s);
+	if ((poller_now(o) - s->inbuf->active) >= 60 || (poller_now(o) - s->outbuf->active) >= 60)
+		control_stream_closed(s->fd, s, 0);
 }
 
 
-static void control_stream_readable(int fd, void *p) {
+static void control_stream_readable(int fd, void *p, uintptr_t u) {
 	struct control_stream *s = p;
 	char *line;
 	int ret;
@@ -131,21 +133,29 @@ static void control_stream_readable(int fd, void *p) {
 	return;
 
 close:
-	control_stream_closed(fd, s);
+	control_stream_closed(fd, s, 0);
 }
 
-static void control_stream_writeable(int fd, void *p) {
+static void control_stream_writeable(int fd, void *p, uintptr_t u) {
 	struct control_stream *s = p;
 
 	if (streambuf_writeable(s->outbuf))
-		control_stream_closed(fd, s);
+		control_stream_closed(fd, s, 0);
 }
 
-static void control_closed(int fd, void *p) {
+static void control_closed(int fd, void *p, uintptr_t u) {
 	abort();
 }
 
-static void control_incoming(int fd, void *p) {
+static void control_stream_free(void *p) {
+	struct control_stream *s = p;
+
+	close(s->fd);
+	streambuf_destroy(s->inbuf);
+	streambuf_destroy(s->outbuf);
+}
+
+static void control_incoming(int fd, void *p, uintptr_t u) {
 	int nfd;
 	struct control *c = p;
 	struct control_stream *s;
@@ -161,18 +171,8 @@ static void control_incoming(int fd, void *p) {
 
 	mylog(LOG_INFO, "New control connection from " DF, DP(sin));
 
-	s = malloc(sizeof(*s));
-	ZERO(*s);
+	s = obj_alloc0("control_stream", sizeof(*s), control_stream_free);
 
-	ZERO(i);
-	i.fd = nfd;
-	i.closed = control_stream_closed;
-	i.readable = control_stream_readable;
-	i.writeable = control_stream_writeable;
-	i.timer = control_stream_timer;
-	i.ptr = s;
-	if (poller_add_item(c->poller, &i))
-		goto fail;
 	s->fd = nfd;
 	s->control = c;
 	s->poller = c->poller;
@@ -180,13 +180,24 @@ static void control_incoming(int fd, void *p) {
 	s->outbuf = streambuf_new(c->poller, nfd);
 	memcpy(&s->inaddr, &sin, sizeof(s->inaddr));
 
-	c->stream_head = g_list_link(c->stream_head, &s->link);
+	ZERO(i);
+	i.fd = nfd;
+	i.closed = control_stream_closed;
+	i.readable = control_stream_readable;
+	i.writeable = control_stream_writeable;
+	i.timer = control_stream_timer;
+	i.obj = &s->obj;
+
+	if (poller_add_item(c->poller, &i))
+		goto fail;
+
+	/* let the list steal our own ref */
+	c->streams = g_list_prepend(c->streams, s);
 
 	return;
 
 fail:
-	free(s);
-	close(nfd);
+	obj_put(&s->obj);
 }
 
 
@@ -219,8 +230,7 @@ struct control *control_new(struct poller *p, u_int32_t ip, u_int16_t port, stru
 		goto fail;
 
 
-	c = malloc(sizeof(*c));
-	ZERO(*c);
+	c = obj_alloc0("control", sizeof(*c), NULL);
 
 	c->fd = fd;
 	c->poller = p;
@@ -230,14 +240,15 @@ struct control *control_new(struct poller *p, u_int32_t ip, u_int16_t port, stru
 	i.fd = fd;
 	i.closed = control_closed;
 	i.readable = control_incoming;
-	i.ptr = c;
+	i.obj = &c->obj;
 	if (poller_add_item(p, &i))
 		goto fail2;
 
+	obj_put(&c->obj);
 	return c;
 
 fail2:
-	free(c);
+	obj_put(&c->obj);
 fail:
 	close(fd);
 	return NULL;

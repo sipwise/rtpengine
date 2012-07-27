@@ -9,6 +9,9 @@
 #include <netinet/ip.h>
 #include <glib.h>
 
+#include "obj.h"
+
+
 #define RE_TCP_RL_CMD 		1
 #define RE_TCP_RL_CALLID 	2
 #define RE_TCP_RL_STREAMS 	3
@@ -31,8 +34,9 @@ struct callmaster;
 
 
 
+
 struct control_stream {
-	GList			link;	/* must be first */
+	struct obj		obj;
 
 	int			fd;
 	struct streambuf	*inbuf;
@@ -45,13 +49,16 @@ struct control_stream {
 
 
 struct control {
+	struct obj		obj;
+
 	int			fd;
 
-	GList			*stream_head;
+	GList			*streams;
 
 	struct poller		*poller;
 	struct callmaster	*callmaster;
 };
+
 
 
 struct control *control_new(struct poller *, u_int32_t, u_int16_t, struct callmaster *);

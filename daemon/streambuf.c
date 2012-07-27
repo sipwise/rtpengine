@@ -21,7 +21,7 @@ struct streambuf *streambuf_new(struct poller *p, int fd) {
 	b->buf = g_string_new("");
 	b->fd = fd;
 	b->poller = p;
-	b->active = p->now;
+	b->active = poller_now(p);
 
 	return b;
 }
@@ -52,7 +52,7 @@ int streambuf_writeable(struct streambuf *b) {
 
 		if (ret > 0) {
 			g_string_erase(b->buf, 0, ret);
-			b->active = b->poller->now;
+			b->active = poller_now(b->poller);
 		}
 
 		if (ret != out) {
@@ -80,7 +80,7 @@ int streambuf_readable(struct streambuf *b) {
 		}
 
 		g_string_append_len(b->buf, buf, ret);
-		b->active = b->poller->now;
+		b->active = poller_now(b->poller);
 	}
 
 	return 0;
@@ -162,7 +162,7 @@ void streambuf_write(struct streambuf *b, char *s, unsigned int len) {
 
 		s += ret;
 		len -= ret;
-		b->active = b->poller->now;
+		b->active = poller_now(b->poller);
 	}
 
 	if (b->buf->len > 5242880)

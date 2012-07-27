@@ -15,11 +15,11 @@
 #include "call.h"
 
 
-static void control_udp_closed(int fd, void *p) {
+static void control_udp_closed(int fd, void *p, uintptr_t x) {
 	abort();
 }
 
-static void control_udp_incoming(int fd, void *p) {
+static void control_udp_incoming(int fd, void *p, uintptr_t x) {
 	struct control_udp *u = p;
 	int ret, len;
 	char buf[8192];
@@ -87,7 +87,7 @@ static void control_udp_incoming(int fd, void *p) {
 
 	pcre_get_substring_list(buf, ovec, ret, &out);
 
-	if (u->poller->now - u->oven_time >= 30) {
+	if (poller_now(u->poller) - u->oven_time >= 30) {
 		g_hash_table_remove_all(u->stale_cookies);
 #if GLIB_CHECK_VERSION(2,14,0)
 		g_string_chunk_clear(u->stale_chunks);
@@ -98,7 +98,7 @@ static void control_udp_incoming(int fd, void *p) {
 		u->fresh_chunks = g_string_chunk_new(4 * 1024);
 #endif
 		swap_ptrs(&u->stale_cookies, &u->fresh_cookies);
-		u->oven_time = u->poller->now;	/* baked new cookies! */
+		u->oven_time = poller_now(u->poller);	/* baked new cookies! */
 	}
 
 	/* XXX better hashing */
@@ -187,8 +187,7 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 		goto fail;
 
 
-	c = malloc(sizeof(*c));
-	ZERO(*c);
+	c = obj_alloc0("control_udp", sizeof(*c), NULL);
 
 	c->fd = fd;
 	c->poller = p;
@@ -197,7 +196,7 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	c->stale_cookies = g_hash_table_new(g_str_hash, g_str_equal);
 	c->fresh_chunks = g_string_chunk_new(4 * 1024);
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
-	c->oven_time = p->now;
+	c->oven_time = poller_now(p);
 	c->parse_re = pcre_compile(
 			/* cookie cmd flags callid viabranch:5 */
 			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+([^;]+)(?:;(\\S+))?\\s+" \
@@ -221,7 +220,7 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	i.fd = fd;
 	i.closed = control_udp_closed;
 	i.readable = control_udp_incoming;
-	i.ptr = c;
+	i.obj = &c->obj;
 	if (poller_add_item(p, &i))
 		goto fail2;
 
