@@ -611,11 +611,11 @@ struct callmaster *callmaster_new(struct poller *p) {
 
 	poller_timer(p, callmaster_timer, &c->obj);
 
-	obj_put(&c->obj);
+	obj_put(c);
 	return c;
 
 fail:
-	obj_put(&c->obj);
+	obj_put(c);
 	return NULL;
 }
 
@@ -905,7 +905,7 @@ void callstream_init(struct callstream *s, struct call *ca, int port1, int port2
 
 	ZERO(pi);
 
-	s->call = obj_get(&ca->obj);
+	s->call = obj_get(ca);
 	DBG("setting new callstream num to %i", num);
 	s->num = num;
 
@@ -970,7 +970,7 @@ static void callstream_free(void *ptr) {
 			}
 		}
 	}
-	obj_put(&s->call->obj);
+	obj_put(s->call);
 }
 
 static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) {
@@ -1209,10 +1209,10 @@ static void call_destroy(struct call *c) {
 			s->peers[1].rtps[1].localport, s->peers[1].rtps[1].stats.packets,
 			s->peers[1].rtps[1].stats.bytes, s->peers[1].rtps[1].stats.errors);
 		kill_callstream(s);
-		obj_put(&s->obj);
+		obj_put(s);
 	}
 
-	obj_put(&c->obj);
+	obj_put(c);
 }
 
 
@@ -1333,10 +1333,10 @@ struct call *call_get_or_create(const char *callid, const char *viabranch, struc
 	if (!c) {
 		/* completely new call-id, create call */
 		c = call_create(callid, m);
-		g_hash_table_insert(m->callhash, c->callid, obj_get(&c->obj));
+		g_hash_table_insert(m->callhash, c->callid, obj_get(c));
 	}
 	else
-		obj_hold(&c->obj);
+		obj_hold(c);
 
 	if (viabranch && !g_hash_table_lookup(c->branches, viabranch))
 		g_hash_table_insert(c->branches, strdup(viabranch), (void *) 0x1);
@@ -1415,14 +1415,14 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
 	c->log_info = NULL;
-	obj_put(&c->obj);
+	obj_put(c);
 	return ret;
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
 	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	c->log_info = NULL;
-	obj_put(&c->obj);
+	obj_put(c);
 	return ret;
 }
 
@@ -1440,7 +1440,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->ipv4));
 		return ret;
 	}
-	obj_hold(&c->obj);
+	obj_hold(c);
 
 	c->log_info = out[RE_UDP_UL_CALLID];
 	strdupfree(&c->called_agent, "UNKNOWN(udp)");
@@ -1459,14 +1459,14 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
 	c->log_info = NULL;
-	obj_put(&c->obj);
+	obj_put(c);
 	return ret;
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
 	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	c->log_info = NULL;
-	obj_put(&c->obj);
+	obj_put(c);
 	return ret;
 }
 
@@ -1489,7 +1489,7 @@ char *call_request(const char **out, struct callmaster *m) {
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
-	obj_put(&c->obj);
+	obj_put(c);
 	return ret;
 }
 
@@ -1505,7 +1505,7 @@ char *call_lookup(const char **out, struct callmaster *m) {
 		return NULL;
 	}
 
-	obj_hold(&c->obj);
+	obj_hold(c);
 
 	strdupfree(&c->called_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
 	info_parse(out[RE_TCP_RL_INFO], &c->infohash);
@@ -1518,7 +1518,7 @@ char *call_lookup(const char **out, struct callmaster *m) {
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
-	obj_put(&c->obj);
+	obj_put(c);
 	return ret;
 }
 
@@ -1538,7 +1538,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", out[RE_UDP_D_CALLID]);
 		goto err;
 	}
-	obj_hold(&c->obj);
+	obj_hold(c);
 	c->log_info = out[RE_UDP_D_VIABRANCH];
 
 	if (out[RE_UDP_D_FROMTAG] && *out[RE_UDP_D_FROMTAG]) {
@@ -1597,7 +1597,7 @@ err:
 out:
 	if (c) {
 		c->log_info = NULL;
-		obj_put(&c->obj);
+		obj_put(c);
 	}
 	return ret;
 }
@@ -1609,10 +1609,10 @@ void call_delete(const char **out, struct callmaster *m) {
 	if (!c)
 		return;
 
-	obj_hold(&c->obj);
+	obj_hold(c);
 	/* delete whole list, as we don't have branches in tcp controller */
 	call_destroy(c);
-	obj_put(&c->obj);
+	obj_put(c);
 }
 
 
