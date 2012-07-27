@@ -33,7 +33,7 @@ struct poller_item_int {
 
 struct poller {
 	int				fd;
-	GMutex				lock;
+	GStaticMutex			lock;
 	struct poller_item_int		**items;
 	unsigned int			items_size;
 	GList				*timers;
@@ -56,7 +56,7 @@ struct poller *poller_new(void) {
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
 		abort();
-	g_mutex_init(&p->lock);
+	g_static_mutex_init(&p->lock);
 
 	return p;
 }
@@ -101,7 +101,7 @@ static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lo
 		goto fail_lock;
 
 	if (!has_lock)
-		g_mutex_lock(&p->lock);
+		g_static_mutex_lock(&p->lock);
 
 	if (i->fd < p->items_size && p->items[i->fd])
 		goto fail;
@@ -124,7 +124,7 @@ static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lo
 	obj_hold(ip->item.obj); /* new ref in *ip */
 	p->items[i->fd] = obj_get(&ip->obj);
 
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 
 	if (i->timer)
 		poller_timer(p, poller_fd_timer, &ip->obj);
@@ -134,11 +134,11 @@ static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lo
 	return 0;
 
 fail:
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 	return -1;
 fail_lock:
 	if (has_lock)
-		g_mutex_unlock(&p->lock);
+		g_static_mutex_unlock(&p->lock);
 	return -1;
 }
 
@@ -166,7 +166,7 @@ int poller_del_item(struct poller *p, int fd) {
 	if (!p || fd < 0)
 		return -1;
 
-	g_mutex_lock(&p->lock);
+	g_static_mutex_lock(&p->lock);
 
 	if (fd >= p->items_size)
 		goto fail;
@@ -178,7 +178,7 @@ int poller_del_item(struct poller *p, int fd) {
 
 	p->items[fd] = NULL; /* stealing the ref */
 
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 
 	if (it->item.timer) {
 		while (1) {
@@ -198,7 +198,7 @@ int poller_del_item(struct poller *p, int fd) {
 	return 0;
 
 fail:
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 	return -1;
 }
 
@@ -215,7 +215,7 @@ int poller_update_item(struct poller *p, struct poller_item *i) {
 	if (!i->closed)
 		return -1;
 
-	g_mutex_lock(&p->lock);
+	g_static_mutex_lock(&p->lock);
 
 	if (i->fd >= p->items_size || !(np = p->items[i->fd]))
 		return __poller_add_item(p, i, 1);
@@ -229,7 +229,7 @@ int poller_update_item(struct poller *p, struct poller_item *i) {
 	np->item.closed = i->closed;
 	/* updating timer is not supported */
 
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 
 	return 0;
 }
@@ -246,7 +246,7 @@ int poller_poll(struct poller *p, int timeout) {
 	if (!p)
 		return -1;
 
-	g_mutex_lock(&p->lock);
+	g_static_mutex_lock(&p->lock);
 
 	ret = -1;
 	if (!p->items || !p->items_size)
@@ -259,18 +259,18 @@ int poller_poll(struct poller *p, int timeout) {
 			ne = li->next;
 			ti = li->data;
 			/* XXX not safe */
-			g_mutex_unlock(&p->lock);
+			g_static_mutex_unlock(&p->lock);
 			ti->func(ti->obj_ptr);
-			g_mutex_lock(&p->lock);
+			g_static_mutex_lock(&p->lock);
 		}
 		ret = p->items_size;
 		goto out;
 	}
 
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 	errno = 0;
 	ret = epoll_wait(p->fd, evs, sizeof(evs) / sizeof(*evs), timeout);
-	g_mutex_lock(&p->lock);
+	g_static_mutex_lock(&p->lock);
 
 	if (errno == EINTR)
 		ret = 0;
@@ -288,7 +288,7 @@ int poller_poll(struct poller *p, int timeout) {
 			continue;
 
 		obj_hold(&it->obj);
-		g_mutex_unlock(&p->lock);
+		g_static_mutex_unlock(&p->lock);
 
 		if (it->error) {
 			it->item.closed(it->item.fd, it->item.obj, it->item.uintp);
@@ -298,7 +298,7 @@ int poller_poll(struct poller *p, int timeout) {
 		if ((ev->events & (POLLERR | POLLHUP)))
 			it->item.closed(it->item.fd, it->item.obj, it->item.uintp);
 		else if ((ev->events & POLLOUT)) {
-			g_mutex_lock(&p->lock);
+			g_static_mutex_lock(&p->lock);
 			it->blocked = 0;
 
 			ZERO(e);
@@ -307,7 +307,7 @@ int poller_poll(struct poller *p, int timeout) {
 			if (epoll_ctl(p->fd, EPOLL_CTL_MOD, it->item.fd, &e))
 				abort();
 
-			g_mutex_unlock(&p->lock);
+			g_static_mutex_unlock(&p->lock);
 			it->item.writeable(it->item.fd, it->item.obj, it->item.uintp);
 		}
 		else if ((ev->events & POLLIN))
@@ -319,12 +319,12 @@ int poller_poll(struct poller *p, int timeout) {
 
 next:
 		obj_put(&it->obj);
-		g_mutex_lock(&p->lock);
+		g_static_mutex_lock(&p->lock);
 	}
 
 
 out:
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 	return ret;
 }
 
@@ -335,7 +335,7 @@ void poller_blocked(struct poller *p, int fd) {
 	if (!p || fd < 0)
 		return;
 
-	g_mutex_lock(&p->lock);
+	g_static_mutex_lock(&p->lock);
 
 	if (fd >= p->items_size)
 		goto fail;
@@ -353,14 +353,14 @@ void poller_blocked(struct poller *p, int fd) {
 		abort();
 
 fail:
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 }
 
 void poller_error(struct poller *p, int fd) {
 	if (!p || fd < 0)
 		return;
 
-	g_mutex_lock(&p->lock);
+	g_static_mutex_lock(&p->lock);
 
 	if (fd >= p->items_size)
 		goto fail;
@@ -373,7 +373,7 @@ void poller_error(struct poller *p, int fd) {
 	p->items[fd]->blocked = 1;
 
 fail:
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 }
 
 int poller_isblocked(struct poller *p, int fd) {
@@ -382,7 +382,7 @@ int poller_isblocked(struct poller *p, int fd) {
 	if (!p || fd < 0)
 		return -1;
 
-	g_mutex_lock(&p->lock);
+	g_static_mutex_lock(&p->lock);
 
 	ret = -1;
 	if (fd >= p->items_size)
@@ -395,7 +395,7 @@ int poller_isblocked(struct poller *p, int fd) {
 	ret = p->items[fd]->blocked ? 1 : 0;
 
 out:
-	g_mutex_unlock(&p->lock);
+	g_static_mutex_unlock(&p->lock);
 	return ret;
 }
 
