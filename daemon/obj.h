@@ -61,7 +61,7 @@ static inline void __obj_init(struct obj *o, unsigned int size, void (*free_func
 #if OBJ_DEBUG
 	o->magic = OBJ_MAGIC;
 	o->type = strdup(type);
-	mylog(LOG_DEBUG, "obj_allocX(\"%s\", size %u) -> %p [%s:%u]", type, size, o, file, line);
+	mylog(LOG_DEBUG, "obj_allocX(\"%s\") -> %p [%s:%u]", type, o, file, line);
 #endif
 	o->ref = 1;
 	o->free_func = free_func;
@@ -108,13 +108,13 @@ static inline struct obj *__obj_hold(void *p
 	struct obj *o = p;
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
-	mylog(LOG_DEBUG, "obj_hold(%p, \"%s\", size %u), refcnt before %u [%s:%u]",
-		o, o->type, o->size, g_atomic_int_get(&o->ref), file, line);
+	mylog(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt before %u [%s:%u]",
+		o, o->type, g_atomic_int_get(&o->ref), file, line);
 #endif
 	g_atomic_int_inc(&o->ref);
 #if OBJ_DEBUG
-	mylog(LOG_DEBUG, "obj_hold(%p, \"%s\", size %u), refcnt after %u [%s:%u]",
-		o, o->type, o->size, g_atomic_int_get(&o->ref), file, line);
+	mylog(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt after %u [%s:%u]",
+		o, o->type, g_atomic_int_get(&o->ref), file, line);
 #endif
 	return o;
 }
@@ -139,14 +139,14 @@ static inline void __obj_put(void *p
 	struct obj *o = p;
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
-	mylog(LOG_DEBUG, "obj_put(%p, \"%s\", size %u), refcnt before %u [%s:%u]",
-		o, o->type, o->size, g_atomic_int_get(&o->ref), file, line);
+	mylog(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt before %u [%s:%u]",
+		o, o->type, g_atomic_int_get(&o->ref), file, line);
 #endif
 	if (!g_atomic_int_dec_and_test(&o->ref))
 		return;
 #if OBJ_DEBUG
-	mylog(LOG_DEBUG, "obj_put(%p, \"%s\", size %u), refcnt after %u [%s:%u]",
-		o, o->type, o->size, g_atomic_int_get(&o->ref), file, line);
+	mylog(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt after %u [%s:%u]",
+		o, o->type, g_atomic_int_get(&o->ref), file, line);
 	free(o->type);
 #endif
 	if (o->free_func)
