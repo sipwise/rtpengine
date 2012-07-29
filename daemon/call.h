@@ -11,6 +11,7 @@
 #include "control.h"
 #include "control_udp.h"
 #include "obj.h"
+#include "aux.h"
 
 struct poller;
 struct control_stream;
@@ -96,6 +97,7 @@ struct call {
 struct callmaster {
 	struct obj		obj;
 
+	rwlock_t		lock;
 	GHashTable		*callhash;
 	u_int16_t		lastport;
 	struct stats		statsps;
