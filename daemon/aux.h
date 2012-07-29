@@ -149,16 +149,32 @@ static inline int smart_pton(int af, char *src, void *dst) {
 #if !GLIB_CHECK_VERSION(2,32,0)
 
 typedef GStaticMutex mutex_t;
+typedef GStaticRWLock rwlock_t;
+
 #define mutex_init(m) g_static_mutex_init(m)
 #define mutex_lock(m) g_static_mutex_lock(m)
 #define mutex_unlock(m) g_static_mutex_unlock(m)
 
+#define rwlock_init(l) g_static_rw_lock_init(l)
+#define rwlock_lock_r(l) g_static_rw_lock_reader_lock(l)
+#define rwlock_unlock_r(l) g_static_rw_lock_reader_unlock(l)
+#define rwlock_lock_w(l) g_static_rw_lock_writer_lock(l)
+#define rwlock_unlock_w(l) g_static_rw_lock_writer_unlock(l)
+
 #else
 
 typedef GMutex mutex_t;
+typedef GRWLock rwlock_t;
+
 #define mutex_init(m) g_mutex_init(m)
 #define mutex_lock(m) g_mutex_lock(m)
 #define mutex_unlock(m) g_mutex_unlock(m)
+
+#define rwlock_init(l) g_rw_lock_init(l)
+#define rwlock_lock_r(l) g_rw_lock_reader_lock(l)
+#define rwlock_unlock_r(l) g_rw_lock_reader_unlock(l)
+#define rwlock_lock_w(l) g_rw_lock_writer_lock(l)
+#define rwlock_unlock_w(l) g_rw_lock_writer_unlock(l)
 
 #endif
 
