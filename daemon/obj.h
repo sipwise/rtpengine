@@ -14,7 +14,7 @@
 
 
 
-#define OBJ_DEBUG 1
+#define OBJ_DEBUG 0
 
 
 
