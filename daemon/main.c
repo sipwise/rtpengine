@@ -274,6 +274,7 @@ int main(int argc, char **argv) {
 	const char **strp;
 
 	options(&argc, &argv);
+	g_thread_init(NULL);
 	signals();
 	resources();
 
