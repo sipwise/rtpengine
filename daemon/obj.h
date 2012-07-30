@@ -151,6 +151,7 @@ static inline void __obj_put(void *p
 #endif
 	if (o->free_func)
 		o->free_func(o);
+	o->magic = 0;
 	g_slice_free1(o->size, o);
 }
 
