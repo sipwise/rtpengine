@@ -612,7 +612,7 @@ struct callmaster *callmaster_new(struct poller *p) {
 	c->poller = p;
 	rwlock_init(&c->lock);
 
-	poller_timer(p, callmaster_timer, &c->obj);
+	poller_add_timer(p, callmaster_timer, &c->obj);
 
 	obj_put(c);
 	return c;

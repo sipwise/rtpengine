@@ -37,7 +37,8 @@ int poller_isblocked(struct poller *, int);
 void poller_error(struct poller *, int);
 time_t poller_now(struct poller *);
 
-int poller_timer(struct poller *, void (*)(void *), struct obj *);
+int poller_add_timer(struct poller *, void (*)(void *), struct obj *);
+int poller_del_timer(struct poller *, void (*)(void *), struct obj *);
 
 
 #endif
