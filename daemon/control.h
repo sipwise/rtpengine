@@ -29,42 +29,14 @@
 #define RE_TCP_DIV_CMD 		14
 
 struct poller;
-struct control;
-struct streambuf;
 struct callmaster;
-
-
-
-
-struct control_stream {
-	struct obj		obj;
-
-	int			fd;
-	mutex_t			lock;
-	struct streambuf	*inbuf;
-	struct streambuf	*outbuf;
-	struct sockaddr_in	inaddr;
-
-	struct control		*control;
-	struct poller		*poller;
-};
-
-
-struct control {
-	struct obj		obj;
-
-	int			fd;
-
-	mutex_t			lock;
-	GList			*streams;
-
-	struct poller		*poller;
-	struct callmaster	*callmaster;
-};
+struct control;
+struct control_stream;
 
 
 
 struct control *control_new(struct poller *, u_int32_t, u_int16_t, struct callmaster *);
+void control_stream_printf(struct control_stream *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
 
 
 

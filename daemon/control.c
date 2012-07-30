@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <pcre.h>
 #include <glib.h>
+#include <stdarg.h>
 
 #include "control.h"
 #include "poller.h"
@@ -16,8 +17,36 @@
 
 
 
-static pcre		*parse_re;
-static pcre_extra	*parse_ree;
+struct control_stream {
+	struct obj		obj;
+
+	int			fd;
+	mutex_t			lock;
+	struct streambuf	*inbuf;
+	struct streambuf	*outbuf;
+	struct sockaddr_in	inaddr;
+
+	struct control		*control;
+	struct poller		*poller;
+};
+
+
+struct control {
+	struct obj		obj;
+
+	int			fd;
+	pcre			*parse_re;
+	pcre_extra		*parse_ree;
+
+	mutex_t			lock;
+	GList			*streams;
+
+	struct poller		*poller;
+	struct callmaster	*callmaster;
+};
+
+
+
 
 static void control_stream_closed(int fd, void *p, uintptr_t u) {
 	struct control_stream *s = p;
@@ -63,7 +92,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	struct control *c = s->control;
 	char *output = NULL;
 
-	ret = pcre_exec(parse_re, parse_ree, line, strlen(line), 0, 0, ovec, G_N_ELEMENTS(ovec));
+	ret = pcre_exec(c->parse_re, c->parse_ree, line, strlen(line), 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
 		mylog(LOG_WARNING, "Unable to parse command line from " DF ": %s", DP(s->inaddr), line);
 		return -1;
@@ -230,14 +259,6 @@ struct control *control_new(struct poller *p, u_int32_t ip, u_int16_t port, stru
 	if (!m)
 		return NULL;
 
-	if (!parse_re) {
-		parse_re = pcre_compile(
-				/*      reqtype          callid   streams     ip      fromdom   fromtype   todom     totype    agent          info  |reqtype     callid         info  | reqtype */
-				"^(?:(request|lookup)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+info=(\\S*)|(delete)\\s+(\\S+)\\s+info=(\\S*)|(build|version|controls|quit|exit|status))$",
-				PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
-		parse_ree = pcre_study(parse_re, 0, &errptr);
-	}
-
 	fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd == -1)
 		return NULL;
@@ -257,6 +278,12 @@ struct control *control_new(struct poller *p, u_int32_t ip, u_int16_t port, stru
 
 
 	c = obj_alloc0("control", sizeof(*c), NULL);
+
+	c->parse_re = pcre_compile(
+			/*      reqtype          callid   streams     ip      fromdom   fromtype   todom     totype    agent          info  |reqtype     callid         info  | reqtype */
+			"^(?:(request|lookup)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+info=(\\S*)|(delete)\\s+(\\S+)\\s+info=(\\S*)|(build|version|controls|quit|exit|status))$",
+			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 
 	c->fd = fd;
 	c->poller = p;
@@ -279,4 +306,15 @@ fail2:
 fail:
 	close(fd);
 	return NULL;
+}
+
+
+void control_stream_printf(struct control_stream *s, const char *f, ...) {
+	va_list va;
+
+	va_start(va, f);
+	mutex_lock(&s->lock);
+	streambuf_vprintf(s->outbuf, f, va);
+	mutex_unlock(&s->lock);
+	va_end(va);
 }
