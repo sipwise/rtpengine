@@ -14,7 +14,11 @@
 
 
 
+#ifdef __DEBUG
+#define OBJ_DEBUG 1
+#else
 #define OBJ_DEBUG 0
+#endif
 
 
 
@@ -151,7 +155,9 @@ static inline void __obj_put(void *p
 #endif
 	if (o->free_func)
 		o->free_func(o);
+#if OBJ_DEBUG
 	o->magic = 0;
+#endif
 	g_slice_free1(o->size, o);
 }
 
