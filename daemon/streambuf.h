@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <glib.h>
+#include <stdarg.h>
 
 
 
@@ -28,8 +29,9 @@ int streambuf_writeable(struct streambuf *);
 int streambuf_readable(struct streambuf *);
 char *streambuf_getline(struct streambuf *);
 unsigned int streambuf_bufsize(struct streambuf *);
-void streambuf_printf(struct streambuf *, char *, ...) __attribute__ ((format (printf, 2, 3)));
-void streambuf_write(struct streambuf *, char *, unsigned int);
+void streambuf_printf(struct streambuf *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
+void streambuf_vprintf(struct streambuf *, const char *, va_list);
+void streambuf_write(struct streambuf *, const char *, unsigned int);
 
 
 #endif

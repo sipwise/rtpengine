@@ -1663,7 +1663,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 
 	/* TODO: only called for tcp controller, so no linked list of calls? */
 
-	streambuf_printf(s->outbuf, "session %s %s %s %s %s %i\n",
+	control_stream_printf(s, "session %s %s %s %s %s %i\n",
 		c->callid,
 		(char *) g_hash_table_lookup(c->infohash, "from"),
 		(char *) g_hash_table_lookup(c->infohash, "to"),
@@ -1689,7 +1689,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 		else
 			smart_ntop_p(addr3, &m->ipv6, sizeof(addr3));
 
-		streambuf_printf(s->outbuf, "stream %s:%u %s:%u %s:%u %llu/%llu/%llu %s %s %s %i\n",
+		control_stream_printf(s, "stream %s:%u %s:%u %s:%u %llu/%llu/%llu %s %s %s %i\n",
 			addr1, r1->peer.port,
 			addr2, r2->peer.port,
 			addr3, r1->localport,
@@ -1705,15 +1705,13 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 
 void calls_status(struct callmaster *m, struct control_stream *s) {
 	rwlock_lock_r(&m->lock);
-	mutex_lock(&s->lock);
-	streambuf_printf(s->outbuf, "proxy %u %llu/%llu/%llu\n",
+	control_stream_printf(s, "proxy %u %llu/%llu/%llu\n",
 		g_hash_table_size(m->callhash),
 		(long long unsigned int) m->stats.bytes,
 		(long long unsigned int) m->stats.bytes - m->stats.errors,
 		(long long unsigned int) m->stats.bytes * 2 - m->stats.errors);
 
 	g_hash_table_foreach(m->callhash, call_status_iterator, s);
-	mutex_unlock(&s->lock);
 	rwlock_unlock_r(&m->lock);
 }
 
