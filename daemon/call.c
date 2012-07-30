@@ -1705,6 +1705,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 
 void calls_status(struct callmaster *m, struct control_stream *s) {
 	rwlock_lock_r(&m->lock);
+	mutex_lock(&s->lock);
 	streambuf_printf(s->outbuf, "proxy %u %llu/%llu/%llu\n",
 		g_hash_table_size(m->callhash),
 		(long long unsigned int) m->stats.bytes,
@@ -1712,6 +1713,7 @@ void calls_status(struct callmaster *m, struct control_stream *s) {
 		(long long unsigned int) m->stats.bytes * 2 - m->stats.errors);
 
 	g_hash_table_foreach(m->callhash, call_status_iterator, s);
+	mutex_unlock(&s->lock);
 	rwlock_unlock_r(&m->lock);
 }
 
