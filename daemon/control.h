@@ -10,6 +10,7 @@
 #include <glib.h>
 
 #include "obj.h"
+#include "aux.h"
 
 
 #define RE_TCP_RL_CMD 		1
@@ -39,6 +40,7 @@ struct control_stream {
 	struct obj		obj;
 
 	int			fd;
+	mutex_t			lock;
 	struct streambuf	*inbuf;
 	struct streambuf	*outbuf;
 	struct sockaddr_in	inaddr;
@@ -53,6 +55,7 @@ struct control {
 
 	int			fd;
 
+	mutex_t			lock;
 	GList			*streams;
 
 	struct poller		*poller;
