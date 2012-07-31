@@ -10,6 +10,7 @@
 #include <time.h>
 #include <netinet/in.h>
 #include "obj.h"
+#include "aux.h"
 
 
 
@@ -52,6 +53,9 @@ struct control_udp {
 	pcre			*parse_re;
 	pcre_extra		*parse_ree;
 	pcre			*fallback_re;
+
+	mutex_t			lock;
+	cond_t			cond;
 	GHashTable		*fresh_cookies, *stale_cookies;
 	GStringChunk		*fresh_chunks,  *stale_chunks;
 	time_t			oven_time;

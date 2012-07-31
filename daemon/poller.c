@@ -481,6 +481,7 @@ int poller_add_timer(struct poller *p, void (*f)(void *), struct obj *o) {
 	return poller_timer_link(p, &p->timers_add, f, o);
 }
 
+/* XXX not thread safe */
 time_t poller_now(struct poller *p) {
 	return p->now;
 }

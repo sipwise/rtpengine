@@ -150,6 +150,7 @@ static inline int smart_pton(int af, char *src, void *dst) {
 
 typedef GStaticMutex mutex_t;
 typedef GStaticRWLock rwlock_t;
+typedef GCond *cond_t;
 
 #define mutex_init(m) g_static_mutex_init(m)
 #define mutex_lock(m) g_static_mutex_lock(m)
@@ -162,10 +163,16 @@ typedef GStaticRWLock rwlock_t;
 #define rwlock_lock_w(l) g_static_rw_lock_writer_lock(l)
 #define rwlock_unlock_w(l) g_static_rw_lock_writer_unlock(l)
 
+#define cond_init(c) *(c) = g_cond_new()
+#define cond_wait(c,m) g_cond_wait(*(c),m)
+#define cond_signal(c) g_cond_signal(*(c))
+#define cond_broadcast(c) g_cond_broadcast(*(c))
+
 #else
 
 typedef GMutex mutex_t;
 typedef GRWLock rwlock_t;
+typedef GCond cond_t;
 
 #define mutex_init(m) g_mutex_init(m)
 #define mutex_lock(m) g_mutex_lock(m)
@@ -177,6 +184,11 @@ typedef GRWLock rwlock_t;
 #define rwlock_unlock_r(l) g_rw_lock_reader_unlock(l)
 #define rwlock_lock_w(l) g_rw_lock_writer_lock(l)
 #define rwlock_unlock_w(l) g_rw_lock_writer_unlock(l)
+
+#define cond_init(c) g_cond_init(c)
+#define cond_wait(c,m) g_cond_wait(c,m)
+#define cond_signal(c) g_cond_signal(c)
+#define cond_broadcast(c) g_cond_broadcast(c)
 
 #endif
 
