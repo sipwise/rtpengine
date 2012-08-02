@@ -199,7 +199,7 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	if (pe->confirmed || !pe->filled || r->idx != 0)
 		goto forward;
 
-	if (!c->lookup_done || poller_now(m->poller) <= c->lookup_done + 3)
+	if (!c->lookup_done || poller_now <= c->lookup_done + 3)
 		goto peerinfo;
 
 	mylog(LOG_DEBUG, LOG_PREFIX_C "Confirmed peer information for port %u - %s:%u", 
@@ -305,7 +305,7 @@ drop:
 	r->stats.bytes += l;
 	m->statsps.packets++;
 	m->statsps.bytes += l;
-	r->last = poller_now(m->poller);
+	r->last = poller_now;
 
 	return 0;
 }
@@ -448,7 +448,6 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct callstream *cs;
 	int i, j;
 	struct peer *p;
-	struct poller *po;
 	struct callmaster *cm;
 	unsigned int check;
 	struct streamrelay *sr;
@@ -457,7 +456,6 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 		goto drop;
 
 	cm = c->callmaster;
-	po = cm->poller;
 
 	for (it = c->callstreams->head; it; it = it->next) {
 		cs = it->data;
@@ -474,7 +472,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 				else if (IN6_IS_ADDR_UNSPECIFIED(&sr->peer.ip46))
 					check = cm->silent_timeout;
 
-				if (poller_now(po) - sr->last < check)
+				if (poller_now - sr->last < check)
 					goto good;
 			}
 		}
@@ -551,11 +549,9 @@ static void callmaster_timer(void *ptr) {
 	struct call *c;
 	struct mediaproxy_list_entry *ke;
 	struct streamrelay *sr;
-	struct poller *po;
 	u_int64_t d;
 
 	ZERO(hlp);
-	po = m->poller;
 
 	rwlock_lock_r(&m->lock);
 	g_hash_table_foreach(m->callhash, call_timer_iterator, &hlp);
@@ -577,7 +573,7 @@ static void callmaster_timer(void *ptr) {
 		DS(errors);
 
 		if (ke->stats.packets != sr->kstats.packets)
-			sr->last = poller_now(po);
+			sr->last = poller_now;
 
 		sr->kstats.packets = ke->stats.packets;
 		sr->kstats.bytes = ke->stats.bytes;
@@ -926,7 +922,7 @@ void callstream_init(struct callstream *s, struct call *ca, int port1, int port2
 			r->fd = -1;
 			r->idx = j;
 			r->up = p;
-			r->last = poller_now(po);
+			r->last = poller_now;
 		}
 
 		tport = (i == 0) ? port1 : port2;
@@ -1325,7 +1321,7 @@ static struct call *call_create(const char *callid, struct callmaster *m) {
 	c->callmaster = m;
 	c->callid = strdup(callid);
 	c->callstreams = g_queue_new();
-	c->created = poller_now(m->poller);
+	c->created = poller_now;
 	c->infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c->branches = g_hash_table_new_full(g_str_hash0, g_str_equal0, free, NULL);
 	return c;
@@ -1668,7 +1664,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 		(char *) g_hash_table_lookup(c->infohash, "from"),
 		(char *) g_hash_table_lookup(c->infohash, "to"),
 		c->calling_agent, c->called_agent,
-		(int) (poller_now(m->poller) - c->created));
+		(int) (poller_now - c->created));
 
 	for (l = c->callstreams->head; l; l = l->next) {
 		cs = l->data;
@@ -1698,7 +1694,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 			(long long unsigned int) r1->stats.bytes + rx1->stats.bytes + r2->stats.bytes + rx2->stats.bytes,
 			"active",
 			p->codec ? : "unknown",
-			p->mediatype, (int) (poller_now(m->poller) - r1->last));
+			p->mediatype, (int) (poller_now - r1->last));
 	}
 
 }

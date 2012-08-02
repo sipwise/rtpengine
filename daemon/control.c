@@ -132,11 +132,10 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 
 static void control_stream_timer(int fd, void *p, uintptr_t u) {
 	struct control_stream *s = p;
-	struct poller *o = s->poller;
 	int i;
 
 	mutex_lock(&s->lock);
-	i = (poller_now(o) - s->inbuf->active) >= 60 || (poller_now(o) - s->outbuf->active) >= 60;
+	i = (poller_now - s->inbuf->active) >= 60 || (poller_now - s->outbuf->active) >= 60;
 	mutex_unlock(&s->lock);
 
 	if (i)

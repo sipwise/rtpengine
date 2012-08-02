@@ -42,11 +42,13 @@ struct poller {
 	mutex_t				timers_add_del_lock; /* nested below timers_lock */
 	GSList				*timers_add;
 	GSList				*timers_del;
-
-	time_t				now;
 };
 
 
+
+
+
+__thread time_t poller_now;
 
 
 
@@ -57,7 +59,7 @@ struct poller *poller_new(void) {
 
 	p = malloc(sizeof(*p));
 	memset(p, 0, sizeof(*p));
-	p->now = time(NULL);
+	poller_now = time(NULL);
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
 		abort();
@@ -300,9 +302,9 @@ int poller_poll(struct poller *p, int timeout) {
 	if (!p->items || !p->items_size)
 		goto out;
 
-	last = p->now;
-	p->now = time(NULL);
-	if (last != p->now) {
+	last = poller_now;
+	poller_now = time(NULL);
+	if (last != poller_now) {
 		mutex_unlock(&p->lock);
 		poller_timers_run(p);
 		ret = p->items_size;
@@ -479,9 +481,4 @@ int poller_del_timer(struct poller *p, void (*f)(void *), struct obj *o) {
 
 int poller_add_timer(struct poller *p, void (*f)(void *), struct obj *o) {
 	return poller_timer_link(p, &p->timers_add, f, o);
-}
-
-/* XXX not thread safe */
-time_t poller_now(struct poller *p) {
-	return p->now;
 }

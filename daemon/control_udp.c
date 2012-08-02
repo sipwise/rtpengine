@@ -93,7 +93,7 @@ static void control_udp_incoming(int fd, void *p, uintptr_t x) {
 	pcre_get_substring_list(buf, ovec, ret, &out);
 
 	mutex_lock(&u->lock);
-	if (poller_now(u->poller) - u->oven_time >= 30) {
+	if (poller_now - u->oven_time >= 30) {
 		g_hash_table_remove_all(u->stale_cookies);
 #if GLIB_CHECK_VERSION(2,14,0)
 		g_string_chunk_clear(u->stale_chunks);
@@ -104,7 +104,7 @@ static void control_udp_incoming(int fd, void *p, uintptr_t x) {
 		u->fresh_chunks = g_string_chunk_new(4 * 1024);
 #endif
 		swap_ptrs(&u->stale_cookies, &u->fresh_cookies);
-		u->oven_time = poller_now(u->poller);	/* baked new cookies! */
+		u->oven_time = poller_now;	/* baked new cookies! */
 	}
 
 restart:
@@ -215,7 +215,7 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	c->stale_cookies = g_hash_table_new(g_str_hash, g_str_equal);
 	c->fresh_chunks = g_string_chunk_new(4 * 1024);
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
-	c->oven_time = poller_now(p);
+	c->oven_time = poller_now;
 	mutex_init(&c->lock);
 	cond_init(&c->cond);
 	c->parse_re = pcre_compile(
