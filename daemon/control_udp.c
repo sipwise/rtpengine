@@ -217,6 +217,7 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	c->stale_chunks = g_string_chunk_new(4 * 1024);
 	c->oven_time = poller_now(p);
 	mutex_init(&c->lock);
+	cond_init(&c->cond);
 	c->parse_re = pcre_compile(
 			/* cookie cmd flags callid viabranch:5 */
 			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+([^;]+)(?:;(\\S+))?\\s+" \
