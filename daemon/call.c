@@ -38,6 +38,28 @@
 
 
 
+struct callmaster {
+	struct obj		obj;
+
+	rwlock_t		hashlock;
+	GHashTable		*callhash;
+
+	mutex_t			portlock;
+	u_int16_t		lastport;
+	BIT_ARRAY_DECLARE(ports_used, 0x10000);
+
+	struct stats		statsps;
+	struct stats		stats;
+
+	struct poller		*poller;
+	pcre			*info_re;
+	pcre_extra		*info_ree;
+	pcre			*streams_re;
+	pcre_extra		*streams_ree;
+
+	struct callmaster_config conf;
+};
+
 static char *rtp_codecs[] = {
 	[0]	= "G711u",
 	[1]	= "1016",
@@ -102,7 +124,7 @@ void kernelize(struct callstream *c) {
 	struct kernel_stream ks;
 	struct callmaster *cm = c->call->callmaster;
 
-	if (cm->kernelfd < 0 || cm->kernelid == -1)
+	if (cm->conf.kernelfd < 0 || cm->conf.kernelid == -1)
 		return;
 
 	mylog(LOG_DEBUG, LOG_PREFIX_C "Kernelizing RTP streams", LOG_PARAMS_C(c->call));
@@ -124,26 +146,26 @@ void kernelize(struct callstream *c) {
 				continue;
 
 			ks.local_port = r->localport;
-			ks.tos = cm->tos;
+			ks.tos = cm->conf.tos;
 			ks.src.port = rp->localport;
 			ks.dest.port = r->peer.port;
 
 			if (IN6_IS_ADDR_V4MAPPED(&r->peer.ip46)) {
 				ks.src.family = AF_INET;
-				ks.src.ipv4 = cm->ipv4;
+				ks.src.ipv4 = cm->conf.ipv4;
 				ks.dest.family = AF_INET;
 				ks.dest.ipv4 = r->peer.ip46.s6_addr32[3];
 			}
 			else {
 				ks.src.family = AF_INET6;
-				ks.src.ipv6 = cm->ipv6;
+				ks.src.ipv6 = cm->conf.ipv6;
 				ks.dest.family = AF_INET6;
 				ks.dest.ipv6 = r->peer.ip46;
 			}
 
 			ZERO(r->kstats);
 
-			kernel_add_stream(cm->kernelfd, &ks, 0);
+			kernel_add_stream(cm->conf.kernelfd, &ks, 0);
 		}
 
 		p->kernelized = 1;
@@ -218,7 +240,7 @@ peerinfo:
 		kernelize(cs);
 
 	if (redis_update)
-		redis_update(c);
+		redis_update(c, m->conf.redis);
 
 forward:
 	if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->peer.port || !r->fd_family)
@@ -246,7 +268,7 @@ forward:
 
 			pi = (void *) CMSG_DATA(ch);
 			ZERO(*pi);
-			pi->ipi_spec_dst.s_addr = m->ipv4;
+			pi->ipi_spec_dst.s_addr = m->conf.ipv4;
 
 			mh.msg_controllen = CMSG_SPACE(sizeof(*pi));
 
@@ -266,7 +288,7 @@ forward:
 
 			pi6 = (void *) CMSG_DATA(ch);
 			ZERO(*pi6);
-			pi6->ipi6_addr = m->ipv6;
+			pi6->ipi6_addr = m->conf.ipv6;
 
 			mh.msg_controllen = CMSG_SPACE(sizeof(*pi6));
 
@@ -459,11 +481,11 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 				sr = &p->rtps[j];
 				hlp->ports[sr->localport] = sr;
 
-				check = cm->timeout;
+				check = cm->conf.timeout;
 				if (!sr->peer.port)
-					check = cm->silent_timeout;
+					check = cm->conf.silent_timeout;
 				else if (IN6_IS_ADDR_UNSPECIFIED(&sr->peer.ip46))
-					check = cm->silent_timeout;
+					check = cm->conf.silent_timeout;
 
 				if (poller_now - sr->last < check)
 					goto good;
@@ -553,7 +575,7 @@ static void callmaster_timer(void *ptr) {
 	memcpy(&m->stats, &m->statsps, sizeof(m->stats));
 	ZERO(m->statsps);
 
-	i = (m->kernelid != -1) ? kernel_list(m->kernelid) : NULL;
+	i = (m->conf.kernelid != -1) ? kernel_list(m->conf.kernelid) : NULL;
 	while (i) {
 		ke = i->data;
 
@@ -577,8 +599,8 @@ next:
 		i = g_list_delete_link(i, i);
 	}
 
-	if (m->b2b_url)
-		xmlrpc_kill_calls(hlp.del, m->b2b_url);
+	if (m->conf.b2b_url)
+		xmlrpc_kill_calls(hlp.del, m->conf.b2b_url);
 
 	for (i = hlp.del; i; i = n) {
 		n = i->next;
@@ -636,8 +658,8 @@ static int get_port4(struct streamrelay *r, u_int16_t p) {
 
 	nonblock(fd);
 	reuseaddr(fd);
-	if (m->tos)
-		setsockopt(fd, IPPROTO_IP, IP_TOS, &m->tos, sizeof(m->tos));
+	if (m->conf.tos)
+		setsockopt(fd, IPPROTO_IP, IP_TOS, &m->conf.tos, sizeof(m->conf.tos));
 
 	ZERO(sin);
 	sin.sin_family = AF_INET;
@@ -667,7 +689,7 @@ static int get_port6(struct streamrelay *r, u_int16_t p) {
 
 	nonblock(fd);
 	reuseaddr(fd);
-	tos = m->tos;
+	tos = m->conf.tos;
 #ifdef IPV6_TCLASS
 	if (tos)
 		setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
@@ -704,7 +726,7 @@ static int get_port(struct streamrelay *r, u_int16_t p) {
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
 
-	if (IN6_IS_ADDR_UNSPECIFIED(&m->ipv6))
+	if (IN6_IS_ADDR_UNSPECIFIED(&m->conf.ipv6))
 		ret = get_port4(r, p);
 	else
 		ret = get_port6(r, p);
@@ -757,8 +779,8 @@ static void get_port_pair(struct peer *p, int wanted_port) {
 		goto done;
 	}
 
-	min = (m->port_min > 0 && m->port_min < 0xfff0) ? m->port_min : 1024;
-	max = (m->port_max > 0 && m->port_max > min && m->port_max < 0xfff0) ? m->port_max : 0;
+	min = (m->conf.port_min > 0 && m->conf.port_min < 0xfff0) ? m->conf.port_min : 1024;
+	max = (m->conf.port_max > 0 && m->conf.port_max > min && m->conf.port_max < 0xfff0) ? m->conf.port_max : 0;
 
 	mutex_lock(&m->portlock);
 	if (!m->lastport)
@@ -1178,7 +1200,7 @@ static void unkernelize(struct peer *p) {
 	for (i = 0; i < 2; i++) {
 		r = &p->rtps[i];
 
-		kernel_del_stream(p->up->call->callmaster->kernelfd, r->localport);
+		kernel_del_stream(p->up->call->callmaster->conf.kernelfd, r->localport);
 
 	}
 
@@ -1215,7 +1237,7 @@ static void call_destroy(struct call *c) {
 	rwlock_unlock_w(&m->hashlock);
 
 	if (redis_delete)
-		redis_delete(c);
+		redis_delete(c, m->conf.redis);
 
 	mylog(LOG_INFO, LOG_PREFIX_C "Final packet stats:", c->callid);
 	while (c->callstreams->head) {
@@ -1270,24 +1292,24 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	if (t->peers[other_off].desired_family == AF_INET
 			|| (t->peers[other_off].desired_family == 0
 				&& IN6_IS_ADDR_V4MAPPED(&t->peers[other_off].rtps[0].peer.ip46))
-			|| IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->ipv6)) {
+			|| IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->conf.ipv6)) {
 		ip4 = t->peers[off].rtps[0].peer.ip46.s6_addr32[3];
 		if (!ip4)
 			strcpy(ips, "0.0.0.0");
-		else if (t->call->callmaster->adv_ipv4)
-			sprintf(ips, IPF, IPP(t->call->callmaster->adv_ipv4));
+		else if (t->call->callmaster->conf.adv_ipv4)
+			sprintf(ips, IPF, IPP(t->call->callmaster->conf.adv_ipv4));
 		else
-			sprintf(ips, IPF, IPP(t->call->callmaster->ipv4));
+			sprintf(ips, IPF, IPP(t->call->callmaster->conf.ipv4));
 
 		af = '4';
 	}
 	else {
 		if (IN6_IS_ADDR_UNSPECIFIED(&t->peers[off].rtps[0].peer.ip46))
 			strcpy(ips, "::");
-		else if (!IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->adv_ipv6))
-			inet_ntop(AF_INET6, &t->call->callmaster->adv_ipv6, ips, sizeof(ips));
+		else if (!IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->conf.adv_ipv6))
+			inet_ntop(AF_INET6, &t->call->callmaster->conf.adv_ipv6, ips, sizeof(ips));
 		else
-			inet_ntop(AF_INET6, &t->call->callmaster->ipv6, ips, sizeof(ips));
+			inet_ntop(AF_INET6, &t->call->callmaster->conf.ipv6, ips, sizeof(ips));
 
 		af = '6';
 	}
@@ -1452,7 +1474,7 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 	g_queue_clear(&q);
 
 	if (redis_update)
-		redis_update(c);
+		redis_update(c, m->conf.redis);
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
@@ -1481,7 +1503,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id or unknown via-branch",
 			out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH]);
-		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->ipv4));
+		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
 		return ret;
 	}
 	obj_hold(c);
@@ -1499,7 +1521,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	g_queue_clear(&q);
 
 	if (redis_update)
-		redis_update(c);
+		redis_update(c, m->conf.redis);
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
@@ -1530,7 +1552,7 @@ char *call_request(const char **out, struct callmaster *m) {
 	streams_free(s);
 
 	if (redis_update)
-		redis_update(c);
+		redis_update(c, m->conf.redis);
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
@@ -1561,7 +1583,7 @@ char *call_lookup(const char **out, struct callmaster *m) {
 	streams_free(s);
 
 	if (redis_update)
-		redis_update(c);
+		redis_update(c, m->conf.redis);
 
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
@@ -1709,9 +1731,9 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 		smart_ntop_p(addr1, &r1->peer.ip46, sizeof(addr1));
 		smart_ntop_p(addr2, &r2->peer.ip46, sizeof(addr2));
 		if (IN6_IS_ADDR_V4MAPPED(&r1->peer.ip46))
-			inet_ntop(AF_INET, &m->ipv4, addr3, sizeof(addr3));
+			inet_ntop(AF_INET, &m->conf.ipv4, addr3, sizeof(addr3));
 		else
-			smart_ntop_p(addr3, &m->ipv6, sizeof(addr3));
+			smart_ntop_p(addr3, &m->conf.ipv6, sizeof(addr3));
 
 		control_stream_printf(s, "stream %s:%u %s:%u %s:%u %llu/%llu/%llu %s %s %s %i\n",
 			addr1, r1->peer.port,
@@ -1744,17 +1766,22 @@ void calls_status(struct callmaster *m, struct control_stream *s) {
 
 static void calls_dump_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
+	struct callmaster *m = c->callmaster;
 
 	if (redis_update)
-		redis_update(c);
+		redis_update(c, m->conf.redis);
 }
 
 void calls_dump_redis(struct callmaster *m) {
-	if (!m->redis)
+	if (!m->conf.redis)
 		return;
 
 	mylog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe(m);
+	redis_wipe(m->conf.redis);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	mylog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
+}
+
+void callmaster_config(struct callmaster *m, struct callmaster_config *c) {
+	m->conf = *c;
 }

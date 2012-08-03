@@ -266,6 +266,7 @@ static void wpidfile(void) {
 int main(int argc, char **argv) {
 	struct poller *p;
 	struct callmaster *m;
+	struct callmaster_config mc;
 	struct control *c;
 	struct control_udp *cu;
 	int kfd = -1;
@@ -304,18 +305,18 @@ int main(int argc, char **argv) {
 	m = callmaster_new(p);
 	if (!m)
 		return -1;
-	m->kernelfd = kfd;
-	m->kernelid = table;
-	m->ipv4 = ipv4;
-	m->adv_ipv4 = adv_ipv4;
-	m->ipv6 = ipv6;
-	m->adv_ipv6 = adv_ipv6;
-	m->port_min = port_min;
-	m->port_max = port_max;
-	m->timeout = timeout;
-	m->silent_timeout = silent_timeout;
-	m->tos = tos;
-	m->b2b_url = b2b_url;
+	mc.kernelfd = kfd;
+	mc.kernelid = table;
+	mc.ipv4 = ipv4;
+	mc.adv_ipv4 = adv_ipv4;
+	mc.ipv6 = ipv6;
+	mc.adv_ipv6 = adv_ipv6;
+	mc.port_min = port_min;
+	mc.port_max = port_max;
+	mc.timeout = timeout;
+	mc.silent_timeout = silent_timeout;
+	mc.tos = tos;
+	mc.b2b_url = b2b_url;
 
 	c = NULL;
 	if (listenport) {
@@ -336,7 +337,7 @@ int main(int argc, char **argv) {
 		if (!dlh)
 			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
 		strp = dlsym(dlh, "__module_version");
-		if (!strp || !*strp || strcmp(*strp, "redis/1.0.0"))
+		if (!strp || !*strp || strcmp(*strp, "redis/1.0.1"))
 			die("Incorrect redis module version: %s\n", *strp);
 
 		dlresolve(dlh, redis_new);
@@ -345,19 +346,20 @@ int main(int argc, char **argv) {
 		dlresolve(dlh, redis_delete);
 		dlresolve(dlh, redis_wipe);
 
-		m->redis = redis_new(redis_ip, redis_port, redis_db);
-		if (!m->redis)
+		mc.redis = redis_new(redis_ip, redis_port, redis_db);
+		if (!mc.redis)
 			die("Cannot start up without Redis database\n");
 	}
 
+	callmaster_config(m, &mc);
 	mylog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
 
 	if (!foreground)
 		daemonize();
 	wpidfile();
 
-	if (m->redis) {
-		if (redis_restore(m))
+	if (mc.redis) {
+		if (redis_restore(m, mc.redis))
 			die("Refusing to continue without working Redis database\n");
 	}
 
