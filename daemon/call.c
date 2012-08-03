@@ -37,15 +37,6 @@
 
 
 
-static pcre		*info_re;
-static pcre_extra	*info_ree;
-static pcre		*streams_re;
-static pcre_extra	*streams_ree;
-
-static BIT_ARRAY_DECLARE(ports_used, 0x10000);
-
-
-
 
 static char *rtp_codecs[] = {
 	[0]	= "G711u",
@@ -376,10 +367,10 @@ static int info_parse_func(char **a, void **ret, void *p) {
 }
 
 
-static GHashTable *info_parse(const char *s, GHashTable **h) {
+static GHashTable *info_parse(const char *s, GHashTable **h, struct callmaster *m) {
 	GQueue *q;
 
-	q = pcre_multi_match(&info_re, &info_ree, "^([^:,]+)(?::(.*?))?(?:$|,)", s, 2, info_parse_func, *h);
+	q = pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, *h);
 	g_queue_free(q);
 
 	return *h;
@@ -417,10 +408,10 @@ fail:
 }
 
 
-static GQueue *streams_parse(const char *s) {
+static GQueue *streams_parse(const char *s, struct callmaster *m) {
 	int i;
 	i = 0;
-	return pcre_multi_match(&streams_re, &streams_ree, "^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", s, 3, streams_parse_func, &i);
+	return pcre_multi_match(m->streams_re, m->streams_ree, s, 3, streams_parse_func, &i);
 }
 
 static void streams_free(GQueue *q) {
@@ -601,6 +592,8 @@ next:
 
 struct callmaster *callmaster_new(struct poller *p) {
 	struct callmaster *c;
+	const char *errptr;
+	int erroff;
 
 	c = obj_alloc0("callmaster", sizeof(*c), NULL);
 
@@ -609,6 +602,16 @@ struct callmaster *callmaster_new(struct poller *p) {
 		goto fail;
 	c->poller = p;
 	rwlock_init(&c->lock);
+
+	c->info_re = pcre_compile("^([^:,]+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	if (!c->info_re)
+		goto fail;
+	c->info_ree = pcre_study(c->info_re, 0, &errptr);
+
+	c->streams_re = pcre_compile("^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	if (!c->streams_re)
+		goto fail;
+	c->streams_ree = pcre_study(c->streams_re, 0, &errptr);
 
 	poller_add_timer(p, callmaster_timer, &c->obj);
 
@@ -685,11 +688,12 @@ fail:
 
 static int get_port(struct streamrelay *r, u_int16_t p) {
 	int ret;
+	struct callmaster *m = r->up->up->call->callmaster;
 
-	if (bit_array_isset(ports_used, p))
+	if (bit_array_isset(m->ports_used, p))
 		return -1;
 
-	if (IN6_IS_ADDR_UNSPECIFIED(&r->up->up->call->callmaster->ipv6))
+	if (IN6_IS_ADDR_UNSPECIFIED(&m->ipv6))
 		ret = get_port4(r, p);
 	else
 		ret = get_port6(r, p);
@@ -765,8 +769,8 @@ next:
 		LOG_PARAMS_CI(c), a->localport, b->localport);
 
 reserve:
-	bit_array_set(ports_used, a->localport);
-	bit_array_set(ports_used, b->localport);
+	bit_array_set(m->ports_used, a->localport);
+	bit_array_set(m->ports_used, b->localport);
 
 	return;
 
@@ -831,12 +835,14 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	struct poller_item pi;
 	struct streamrelay *sr, *srs;
 	struct call *c;
+	struct callmaster *m;
 	struct poller *po;
 
 	ZERO(pi);
 	r = &src->rtps[0];
 	c = src->up->call;
-	po = c->callmaster->poller;
+	m = c->callmaster;
+	po = m->poller;
 
 	mylog(LOG_DEBUG, LOG_PREFIX_CI "Re-using existing open RTP port %u", 
 		LOG_PARAMS_CI(c), r->localport);
@@ -862,7 +868,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 				LOG_PARAMS_CI(c), sr->localport);
 			poller_del_item(po, sr->fd);
 			close(sr->fd);
-			bit_array_clear(ports_used, sr->localport);
+			bit_array_clear(m->ports_used, sr->localport);
 		}
 
 		sr->fd = srs->fd;
@@ -954,6 +960,7 @@ static void callstream_free(void *ptr) {
 	int i, j;       
 	struct peer *p;
 	struct streamrelay *r;
+	struct callmaster *m = s->call->callmaster;
 
 	for (i = 0; i < 2; i++) {
 		p = &s->peers[i];
@@ -966,7 +973,7 @@ static void callstream_free(void *ptr) {
 
 			if (r->fd != -1) {
 				close(r->fd);
-				bit_array_clear(ports_used, r->localport);
+				bit_array_clear(m->ports_used, r->localport);
 				r->fd = -1;
 			}
 		}
@@ -1498,8 +1505,8 @@ char *call_request(const char **out, struct callmaster *m) {
 	c = call_get_or_create(out[RE_TCP_RL_CALLID], NULL, m);
 
 	strdupfree(&c->calling_agent, (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT]) ? out[RE_TCP_RL_AGENT] : "UNKNOWN");
-	info_parse(out[RE_TCP_RL_INFO], &c->infohash);
-	s = streams_parse(out[RE_TCP_RL_STREAMS]);
+	info_parse(out[RE_TCP_RL_INFO], &c->infohash, m);
+	s = streams_parse(out[RE_TCP_RL_STREAMS], m);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
 
@@ -1529,8 +1536,8 @@ char *call_lookup(const char **out, struct callmaster *m) {
 	rwlock_unlock_r(&m->lock);
 
 	strdupfree(&c->called_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
-	info_parse(out[RE_TCP_RL_INFO], &c->infohash);
-	s = streams_parse(out[RE_TCP_RL_STREAMS]);
+	info_parse(out[RE_TCP_RL_INFO], &c->infohash, m);
+	s = streams_parse(out[RE_TCP_RL_STREAMS], m);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
 
