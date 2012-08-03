@@ -81,18 +81,17 @@ struct call {
 
 	struct callmaster	*callmaster;
 
+	mutex_t			lock;
 	GQueue			*callstreams;
+	GHashTable		*branches;
+	char			*calling_agent;
+	char			*called_agent;
 
 	char			*callid;
 	char			redis_uuid[37];
 	time_t			created;
-	char			*calling_agent;
-	char			*called_agent;
 	GHashTable		*infohash;
-	GHashTable		*branches;
 	time_t			lookup_done;
-
-	const char		*log_info;	/* branch */
 };
 
 struct callmaster_config {

@@ -33,7 +33,9 @@
 #define LOG_PREFIX_C "[%s] "
 #define LOG_PREFIX_CI "[%s - %s] "
 #define LOG_PARAMS_C(c) (c)->callid
-#define LOG_PARAMS_CI(c) (c)->callid, (c)->log_info
+#define LOG_PARAMS_CI(c) (c)->callid, log_info
+
+static __thread const char *log_info;
 
 
 
@@ -1374,6 +1376,7 @@ static struct call *call_create(const char *callid, struct callmaster *m) {
 	c->created = poller_now;
 	c->infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c->branches = g_hash_table_new_full(g_str_hash0, g_str_equal0, free, NULL);
+	mutex_init(&c->lock);
 	return c;
 }
 
@@ -1462,7 +1465,7 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 	char *ret;
 
 	c = call_get_or_create(out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH], m);
-	c->log_info = out[RE_UDP_UL_VIABRANCH];
+	log_info = out[RE_UDP_UL_VIABRANCH];
 	strdupfree(&c->calling_agent, "UNKNOWN(udp)");
 
 	if (addr_parse_udp(&st, out))
@@ -1478,14 +1481,14 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
-	c->log_info = NULL;
+	log_info = NULL;
 	obj_put(c);
 	return ret;
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
 	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
-	c->log_info = NULL;
+	log_info = NULL;
 	obj_put(c);
 	return ret;
 }
@@ -1509,7 +1512,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	obj_hold(c);
 	rwlock_unlock_r(&m->hashlock);
 
-	c->log_info = out[RE_UDP_UL_CALLID];
+	log_info = out[RE_UDP_UL_CALLID];
 	strdupfree(&c->called_agent, "UNKNOWN(udp)");
 
 	if (addr_parse_udp(&st, out))
@@ -1525,14 +1528,14 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
-	c->log_info = NULL;
+	log_info = NULL;
 	obj_put(c);
 	return ret;
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
 	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
-	c->log_info = NULL;
+	log_info = NULL;
 	obj_put(c);
 	return ret;
 }
@@ -1612,7 +1615,7 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	obj_hold(c);
 	rwlock_unlock_r(&m->hashlock);
 
-	c->log_info = out[RE_UDP_D_VIABRANCH];
+	log_info = out[RE_UDP_D_VIABRANCH];
 
 	if (out[RE_UDP_D_FROMTAG] && *out[RE_UDP_D_FROMTAG]) {
 		for (l = c->callstreams->head; l; l = l->next) {
@@ -1668,10 +1671,9 @@ err:
 	goto out;
 
 out:
-	if (c) {
-		c->log_info = NULL;
+	log_info = NULL;
+	if (c)
 		obj_put(c);
-	}
 	return ret;
 }
 
