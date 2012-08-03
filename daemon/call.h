@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <glib.h>
 #include <time.h>
+#include <pcre.h>
 
 #include "control.h"
 #include "control_udp.h"
@@ -113,6 +114,11 @@ struct callmaster {
 	struct in6_addr		adv_ipv6;
 	int			port_min;
 	int			port_max;
+	BIT_ARRAY_DECLARE(ports_used, 0x10000);
+	pcre			*info_re;
+	pcre_extra		*info_ree;
+	pcre			*streams_re;
+	pcre_extra		*streams_ree;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
 	char			*b2b_url;

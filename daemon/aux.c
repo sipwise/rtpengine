@@ -24,10 +24,8 @@ GList *g_list_link(GList *list, GList *el) {
 }
 
 
-GQueue *pcre_multi_match(pcre **re, pcre_extra **ree, const char *rex, const char *s, unsigned int num, parse_func f, void *p) {
+GQueue *pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num, parse_func f, void *p) {
 	GQueue *q;
-	const char *errptr;
-	int erroff;
 	unsigned int start, len;
 	int ovec[60];
 	int *ov;
@@ -35,17 +33,10 @@ GQueue *pcre_multi_match(pcre **re, pcre_extra **ree, const char *rex, const cha
 	unsigned int i;
 	void *ins;
 
-	if (!*re) {
-		*re = pcre_compile(rex, PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
-		if (!*re)
-			return NULL;
-		*ree = pcre_study(*re, 0, &errptr);
-	}
-
 	q = g_queue_new();
 	el = malloc(sizeof(*el) * num);
 
-	for (start = 0, len = strlen(s); pcre_exec(*re, *ree, s + start, len - start, 0, 0, ovec, G_N_ELEMENTS(ovec)) > 0; start += ovec[1]) {
+	for (start = 0, len = strlen(s); pcre_exec(re, ree, s + start, len - start, 0, 0, ovec, G_N_ELEMENTS(ovec)) > 0; start += ovec[1]) {
 		for (i = 0; i < num; i++) {
 			ov = ovec + 2 + i*2;
 			el[i] = (ov[0] == -1) ? NULL : g_strndup(s + start + ov[0], ov[1] - ov[0]);
