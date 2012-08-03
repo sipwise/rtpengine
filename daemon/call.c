@@ -628,6 +628,7 @@ fail:
 static int get_port4(struct streamrelay *r, u_int16_t p) {
 	int fd;
 	struct sockaddr_in sin;
+	struct callmaster *m = r->up->up->call->callmaster;
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd < 0)
@@ -635,7 +636,8 @@ static int get_port4(struct streamrelay *r, u_int16_t p) {
 
 	nonblock(fd);
 	reuseaddr(fd);
-	setsockopt(fd, IPPROTO_IP, IP_TOS, &r->up->up->call->callmaster->tos, sizeof(r->up->up->call->callmaster->tos));
+	if (m->tos)
+		setsockopt(fd, IPPROTO_IP, IP_TOS, &m->tos, sizeof(m->tos));
 
 	ZERO(sin);
 	sin.sin_family = AF_INET;
@@ -656,6 +658,8 @@ fail:
 static int get_port6(struct streamrelay *r, u_int16_t p) {
 	int fd;
 	struct sockaddr_in6 sin;
+	struct callmaster *m = r->up->up->call->callmaster;
+	int tos;
 
 	fd = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (fd < 0)
@@ -663,8 +667,10 @@ static int get_port6(struct streamrelay *r, u_int16_t p) {
 
 	nonblock(fd);
 	reuseaddr(fd);
+	tos = m->tos;
 #ifdef IPV6_TCLASS
-	setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &r->up->up->call->callmaster->tos, sizeof(r->up->up->call->callmaster->tos));
+	if (tos)
+		setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
 #else
 #warning "Will not set IPv6 traffic class"
 #endif
