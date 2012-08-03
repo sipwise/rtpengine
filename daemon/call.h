@@ -71,6 +71,7 @@ struct peer {
 };
 struct callstream {
 	struct obj		obj;
+	mutex_t			lock;
 	struct peer		peers[2];
 	struct call		*call;
 	int			num;

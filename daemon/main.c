@@ -305,6 +305,8 @@ int main(int argc, char **argv) {
 	m = callmaster_new(p);
 	if (!m)
 		return -1;
+
+	ZERO(mc);
 	mc.kernelfd = kfd;
 	mc.kernelid = table;
 	mc.ipv4 = ipv4;
