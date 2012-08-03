@@ -45,7 +45,9 @@ int streambuf_writeable(struct streambuf *b) {
 		ret = write(b->fd, b->buf->str, out);
 
 		if (ret < 0) {
-			if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
+			if (errno == EINTR)
+				continue;
+			if (errno != EAGAIN && errno != EWOULDBLOCK)
 				return -1;
 			ret = 0;
 		}
@@ -74,7 +76,9 @@ int streambuf_readable(struct streambuf *b) {
 		if (ret == 0)
 			return -1;
 		if (ret < 0) {
-			if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+			if (errno == EINTR)
+				continue;
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
 			return -1;
 		}
@@ -155,7 +159,9 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 		ret = write(b->fd, s, out);
 
 		if (ret < 0) {
-			if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
+			if (errno == EINTR)
+				continue;
+			if (errno != EAGAIN && errno != EWOULDBLOCK) {
 				poller_error(b->poller, b->fd);
 				break;
 			}
