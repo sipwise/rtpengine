@@ -74,7 +74,7 @@ struct poller *poller_new(void) {
 static int epoll_events(struct poller_item *it, struct poller_item_int *ii) {
 	if (!it)
 		it = &ii->item;
-	return EPOLLHUP | EPOLLERR |
+	return EPOLLHUP | EPOLLERR | EPOLLET |
 		((it->writeable && ii && ii->blocked) ? EPOLLOUT : 0) |
 		(it->readable ? EPOLLIN : 0);
 }
