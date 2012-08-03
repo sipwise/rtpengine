@@ -100,7 +100,11 @@ struct callmaster {
 
 	rwlock_t		hashlock;
 	GHashTable		*callhash;
+
+	mutex_t			portlock;
 	u_int16_t		lastport;
+	BIT_ARRAY_DECLARE(ports_used, 0x10000);
+
 	struct stats		statsps;
 	struct stats		stats;
 
@@ -114,7 +118,6 @@ struct callmaster {
 	struct in6_addr		adv_ipv6;
 	int			port_min;
 	int			port_max;
-	BIT_ARRAY_DECLARE(ports_used, 0x10000);
 	pcre			*info_re;
 	pcre_extra		*info_ree;
 	pcre			*streams_re;
