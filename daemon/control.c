@@ -204,6 +204,7 @@ static void control_incoming(int fd, void *p, uintptr_t u) {
 	struct sockaddr_in sin;
 	socklen_t sinl;
 
+next:
 	sinl = sizeof(sin);
 	nfd = accept(fd, (struct sockaddr *) &sin, &sinl);
 	if (nfd == -1)
@@ -238,10 +239,11 @@ static void control_incoming(int fd, void *p, uintptr_t u) {
 	c->streams = g_list_prepend(c->streams, s);
 	mutex_unlock(&c->lock);
 
-	return;
+	goto next;
 
 fail:
 	obj_put(s);
+	goto next;
 }
 
 

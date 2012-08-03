@@ -36,10 +36,11 @@ static void control_udp_incoming(int fd, void *p, uintptr_t x) {
 	struct iovec iov[10];
 	char addr[64];
 
+next:
 	sin_len = sizeof(sin);
 	len = recvfrom(fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &sin, &sin_len);
 	if (len < 0) {
-		if (errno != EWOULDBLOCK)
+		if (errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)
 			mylog(LOG_WARNING, "Error reading from UDP socket");
 		return;
 	}
@@ -52,7 +53,7 @@ static void control_udp_incoming(int fd, void *p, uintptr_t x) {
 		ret = pcre_exec(u->fallback_re, NULL, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 		if (ret <= 0) {
 			mylog(LOG_WARNING, "Unable to parse command line from udp:%s:%u: %s", addr, ntohs(sin.sin6_port), buf);
-			return;
+			goto next;
 		}
 
 		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from %s:%u, using fallback RE", buf, addr, ntohs(sin.sin6_port));
@@ -85,7 +86,7 @@ static void control_udp_incoming(int fd, void *p, uintptr_t x) {
 
 		pcre_free(out);
 
-		return;
+		goto next;
 	}
 
 	mylog(LOG_INFO, "Got valid command from udp:%s:%u: %s", addr, ntohs(sin.sin6_port), buf);
@@ -177,6 +178,7 @@ restart:
 
 out:
 	pcre_free(out);
+	goto next;
 }
 
 struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int16_t port, struct callmaster *m) {
