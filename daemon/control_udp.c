@@ -40,7 +40,9 @@ next:
 	sin_len = sizeof(sin);
 	len = recvfrom(fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &sin, &sin_len);
 	if (len < 0) {
-		if (errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)
+		if (errno == EINTR)
+			goto next;
+		if (errno != EWOULDBLOCK && errno != EAGAIN)
 			mylog(LOG_WARNING, "Error reading from UDP socket");
 		return;
 	}

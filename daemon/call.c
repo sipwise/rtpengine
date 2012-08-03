@@ -294,7 +294,7 @@ forward:
 
 	ret = sendmsg(p->fd, &mh, 0);
 
-	if (ret == -1 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
+	if (ret == -1) {
 		r->stats.errors++;
 		m->statsps.errors++;
 		return -1;
@@ -332,7 +332,9 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 		ret = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr *) &ss, &sinlen);
 
 		if (ret < 0) {
-			if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+			if (errno == EINTR)
+				continue;
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
 			stream_closed(fd, r, 0);
 			break;
