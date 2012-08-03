@@ -173,9 +173,17 @@ restart:
 		mutex_lock(&u->lock);
 		g_hash_table_replace(u->fresh_cookies, g_string_chunk_insert(u->fresh_chunks, out[RE_UDP_COOKIE]),
 			g_string_chunk_insert(u->fresh_chunks, reply));
+		g_hash_table_remove(u->stale_cookies, out[RE_UDP_COOKIE]);
 		cond_broadcast(&u->cond);
 		mutex_unlock(&u->lock);
 		free(reply);
+	}
+	else {
+		mutex_lock(&u->lock);
+		g_hash_table_remove(u->fresh_cookies, out[RE_UDP_COOKIE]);
+		g_hash_table_remove(u->stale_cookies, out[RE_UDP_COOKIE]);
+		cond_broadcast(&u->cond);
+		mutex_unlock(&u->lock);
 	}
 
 out:
