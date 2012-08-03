@@ -98,7 +98,7 @@ struct call {
 struct callmaster {
 	struct obj		obj;
 
-	rwlock_t		lock;
+	rwlock_t		hashlock;
 	GHashTable		*callhash;
 	u_int16_t		lastport;
 	struct stats		statsps;

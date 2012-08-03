@@ -546,9 +546,9 @@ static void callmaster_timer(void *ptr) {
 
 	ZERO(hlp);
 
-	rwlock_lock_r(&m->lock);
+	rwlock_lock_r(&m->hashlock);
 	g_hash_table_foreach(m->callhash, call_timer_iterator, &hlp);
-	rwlock_unlock_r(&m->lock);
+	rwlock_unlock_r(&m->hashlock);
 
 	memcpy(&m->stats, &m->statsps, sizeof(m->stats));
 	ZERO(m->statsps);
@@ -601,7 +601,7 @@ struct callmaster *callmaster_new(struct poller *p) {
 	if (!c->callhash)
 		goto fail;
 	c->poller = p;
-	rwlock_init(&c->lock);
+	rwlock_init(&c->hashlock);
 
 	c->info_re = pcre_compile("^([^:,]+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
 	if (!c->info_re)
@@ -1191,9 +1191,9 @@ static void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
 	struct callstream *s;
 
-	rwlock_lock_w(&m->lock);
+	rwlock_lock_w(&m->hashlock);
 	g_hash_table_remove(m->callhash, c->callid); /* steal this ref */
-	rwlock_unlock_w(&m->lock);
+	rwlock_unlock_w(&m->hashlock);
 
 	if (redis_delete)
 		redis_delete(c);
@@ -1340,25 +1340,25 @@ struct call *call_get_or_create(const char *callid, const char *viabranch, struc
 	struct call *c;
 
 restart:
-	rwlock_lock_r(&m->lock);
+	rwlock_lock_r(&m->hashlock);
 	c = g_hash_table_lookup(m->callhash, callid);
 	if (!c) {
-		rwlock_unlock_r(&m->lock);
+		rwlock_unlock_r(&m->hashlock);
 		/* completely new call-id, create call */
 		c = call_create(callid, m);
-		rwlock_lock_w(&m->lock);
+		rwlock_lock_w(&m->hashlock);
 		if (g_hash_table_lookup(m->callhash, callid)) {
 			/* preempted */
-			rwlock_unlock_w(&m->lock);
+			rwlock_unlock_w(&m->hashlock);
 			obj_put(c);
 			goto restart;
 		}
 		g_hash_table_insert(m->callhash, c->callid, obj_get(c));
-		rwlock_unlock_w(&m->lock);
+		rwlock_unlock_w(&m->hashlock);
 	}
 	else {
 		obj_hold(c);
-		rwlock_unlock_r(&m->lock);
+		rwlock_unlock_r(&m->hashlock);
 	}
 
 	if (viabranch && !g_hash_table_lookup(c->branches, viabranch))
@@ -1456,17 +1456,17 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	int num;
 	char *ret;
 
-	rwlock_lock_r(&m->lock);
+	rwlock_lock_r(&m->hashlock);
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_UL_CALLID]);
 	if (!c || !g_hash_table_lookup(c->branches, out[RE_UDP_UL_VIABRANCH])) {
-		rwlock_unlock_r(&m->lock);
+		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id or unknown via-branch",
 			out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH]);
 		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->ipv4));
 		return ret;
 	}
 	obj_hold(c);
-	rwlock_unlock_r(&m->lock);
+	rwlock_unlock_r(&m->hashlock);
 
 	c->log_info = out[RE_UDP_UL_CALLID];
 	strdupfree(&c->called_agent, "UNKNOWN(udp)");
@@ -1525,15 +1525,15 @@ char *call_lookup(const char **out, struct callmaster *m) {
 	int num;
 	char *ret;
 
-	rwlock_lock_r(&m->lock);
+	rwlock_lock_r(&m->hashlock);
 	c = g_hash_table_lookup(m->callhash, out[RE_TCP_RL_CALLID]);
 	if (!c) {
-		rwlock_unlock_r(&m->lock);
+		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_WARNING, LOG_PREFIX_C "Got LOOKUP for unknown call-id", out[RE_TCP_RL_CALLID]);
 		return NULL;
 	}
 	obj_hold(c);
-	rwlock_unlock_r(&m->lock);
+	rwlock_unlock_r(&m->hashlock);
 
 	strdupfree(&c->called_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
 	info_parse(out[RE_TCP_RL_INFO], &c->infohash, m);
@@ -1561,15 +1561,15 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	DBG("got delete for callid '%s' and viabranch '%s'", 
 		out[RE_UDP_D_CALLID], out[RE_UDP_D_VIABRANCH]);
 
-	rwlock_lock_r(&m->lock);
+	rwlock_lock_r(&m->hashlock);
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_D_CALLID]);
 	if (!c) {
-		rwlock_unlock_r(&m->lock);
+		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", out[RE_UDP_D_CALLID]);
 		goto err;
 	}
 	obj_hold(c);
-	rwlock_unlock_r(&m->lock);
+	rwlock_unlock_r(&m->hashlock);
 
 	c->log_info = out[RE_UDP_D_VIABRANCH];
 
@@ -1637,14 +1637,14 @@ out:
 void call_delete(const char **out, struct callmaster *m) {
 	struct call *c;
 
-	rwlock_lock_r(&m->lock);
+	rwlock_lock_r(&m->hashlock);
 	c = g_hash_table_lookup(m->callhash, out[RE_TCP_D_CALLID]);
 	if (!c) {
-		rwlock_unlock_r(&m->lock);
+		rwlock_unlock_r(&m->hashlock);
 		return;
 	}
 	obj_hold(c);
-	rwlock_unlock_r(&m->lock);
+	rwlock_unlock_r(&m->hashlock);
 
 	/* delete whole list, as we don't have branches in tcp controller */
 	call_destroy(c);
@@ -1709,7 +1709,7 @@ static void call_status_iterator(void *key, void *val, void *ptr) {
 }
 
 void calls_status(struct callmaster *m, struct control_stream *s) {
-	rwlock_lock_r(&m->lock);
+	rwlock_lock_r(&m->hashlock);
 	control_stream_printf(s, "proxy %u %llu/%llu/%llu\n",
 		g_hash_table_size(m->callhash),
 		(long long unsigned int) m->stats.bytes,
@@ -1717,7 +1717,7 @@ void calls_status(struct callmaster *m, struct control_stream *s) {
 		(long long unsigned int) m->stats.bytes * 2 - m->stats.errors);
 
 	g_hash_table_foreach(m->callhash, call_status_iterator, s);
-	rwlock_unlock_r(&m->lock);
+	rwlock_unlock_r(&m->hashlock);
 }
 
 
