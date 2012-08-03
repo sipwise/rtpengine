@@ -95,21 +95,7 @@ struct call {
 	const char		*log_info;	/* branch */
 };
 
-struct callmaster {
-	struct obj		obj;
-
-	rwlock_t		hashlock;
-	GHashTable		*callhash;
-
-	mutex_t			portlock;
-	u_int16_t		lastport;
-	BIT_ARRAY_DECLARE(ports_used, 0x10000);
-
-	struct stats		statsps;
-	struct stats		stats;
-
-	struct poller		*poller;
-	struct redis		*redis;
+struct callmaster_config {
 	int			kernelfd;
 	unsigned int		kernelid;
 	u_int32_t		ipv4;
@@ -118,21 +104,19 @@ struct callmaster {
 	struct in6_addr		adv_ipv6;
 	int			port_min;
 	int			port_max;
-	pcre			*info_re;
-	pcre_extra		*info_ree;
-	pcre			*streams_re;
-	pcre_extra		*streams_ree;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
+	struct redis		*redis;
 	char			*b2b_url;
 	unsigned char		tos;
 };
 
+struct callmaster;
 
 
 
 struct callmaster *callmaster_new(struct poller *);
-
+void callmaster_config(struct callmaster *m, struct callmaster_config *c);
 
 
 char *call_request(const char **, struct callmaster *);
