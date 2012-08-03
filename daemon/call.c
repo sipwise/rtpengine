@@ -696,22 +696,43 @@ static int get_port(struct streamrelay *r, u_int16_t p) {
 	int ret;
 	struct callmaster *m = r->up->up->call->callmaster;
 
-	if (bit_array_isset(m->ports_used, p))
+	mutex_lock(&m->portlock);
+	if (bit_array_isset(m->ports_used, p)) {
+		mutex_unlock(&m->portlock);
 		return -1;
+	}
+	bit_array_set(m->ports_used, p);
+	mutex_unlock(&m->portlock);
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&m->ipv6))
 		ret = get_port4(r, p);
 	else
 		ret = get_port6(r, p);
 
-	if (ret)
+	if (ret) {
+		mutex_lock(&m->portlock);
+		bit_array_clear(m->ports_used, p);
+		mutex_unlock(&m->portlock);
 		return ret;
+	}
 
 	r->localport = p;
 
 	return 0;
 }
 
+static void release_port(struct streamrelay *r) {
+	struct callmaster *m = r->up->up->call->callmaster;
+
+	if (r->fd == -1 || !r->localport)
+		return;
+	mutex_lock(&m->portlock);
+	bit_array_clear(m->ports_used, r->localport);
+	mutex_unlock(&m->portlock);
+	close(r->fd);
+	r->fd = -1;
+	r->localport = 0;
+}
 
 static void get_port_pair(struct peer *p, int wanted_port) {
 	struct call *c;
@@ -733,15 +754,17 @@ static void get_port_pair(struct peer *p, int wanted_port) {
 			goto fail;
 		if (get_port(b, wanted_port + 1))
 			goto fail;
-		goto reserve;
+		goto done;
 	}
 
 	min = (m->port_min > 0 && m->port_min < 0xfff0) ? m->port_min : 1024;
 	max = (m->port_max > 0 && m->port_max > min && m->port_max < 0xfff0) ? m->port_max : 0;
 
+	mutex_lock(&m->portlock);
 	if (!m->lastport)
 		m->lastport = max;
 	port = m->lastport + 1;
+	mutex_unlock(&m->portlock);
 
 	for (;;) {
 		if (port < min)
@@ -765,28 +788,25 @@ static void get_port_pair(struct peer *p, int wanted_port) {
 		break;
 
 tryagain:
-		close(a->fd);
+		release_port(a);
 next:
 		port++;
 	}
 
+	mutex_lock(&m->portlock);
 	m->lastport = port;
+	mutex_unlock(&m->portlock);
+
 	mylog(LOG_DEBUG, LOG_PREFIX_CI "Opened ports %u/%u for RTP", 
 		LOG_PARAMS_CI(c), a->localport, b->localport);
 
-reserve:
-	bit_array_set(m->ports_used, a->localport);
-	bit_array_set(m->ports_used, b->localport);
-
+done:
 	return;
 
 fail:
 	mylog(LOG_ERR, LOG_PREFIX_CI "Failed to get RTP port pair", LOG_PARAMS_CI(c));
-	if (a->fd != -1)
-		close(a->fd);
-	if (b->fd != -1)
-		close(b->fd);
-	a->fd = b->fd = -1;
+	release_port(a);
+	release_port(b);
 }
 
 
@@ -873,8 +893,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 			mylog(LOG_DEBUG, LOG_PREFIX_CI "Closing port %u in favor of re-use", 
 				LOG_PARAMS_CI(c), sr->localport);
 			poller_del_item(po, sr->fd);
-			close(sr->fd);
-			bit_array_clear(m->ports_used, sr->localport);
+			release_port(sr);
 		}
 
 		sr->fd = srs->fd;
@@ -966,7 +985,6 @@ static void callstream_free(void *ptr) {
 	int i, j;       
 	struct peer *p;
 	struct streamrelay *r;
-	struct callmaster *m = s->call->callmaster;
 
 	for (i = 0; i < 2; i++) {
 		p = &s->peers[i];
@@ -976,12 +994,7 @@ static void callstream_free(void *ptr) {
 
 		for (j = 0; j < 2; j++) {
 			r = &p->rtps[j];
-
-			if (r->fd != -1) {
-				close(r->fd);
-				bit_array_clear(m->ports_used, r->localport);
-				r->fd = -1;
-			}
+			release_port(r);
 		}
 	}
 	obj_put(s->call);
