@@ -93,6 +93,9 @@ struct call {
 	time_t			created;
 	GHashTable		*infohash;
 	time_t			lookup_done;
+
+	int			linked:1;
+	int			shutdown:1;
 };
 
 struct callmaster_config {
