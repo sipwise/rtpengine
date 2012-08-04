@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <dlfcn.h>
+#include <errno.h>
 
 #include "poller.h"
 #include "control.h"
@@ -60,7 +61,8 @@ static char *b2b_url;
 
 gpointer sighandler(gpointer x) {
 	sigset_t ss;
-	int ret, sig;
+	int ret;
+	struct timespec ts;
 
 	sigemptyset(&ss);
 	sigaddset(&ss, SIGINT);
@@ -69,12 +71,18 @@ gpointer sighandler(gpointer x) {
 	sigaddset(&ss, SIGSEGV);
 	sigaddset(&ss, SIGQUIT);
 
-	while (!global_shutdown) {
-		ret = sigwait(&ss, &sig);
-		if (ret)
-			abort();
+	ts.tv_sec = 0;
+	ts.tv_nsec = 100000000; /* 0.1 sec */
 
-		if (sig == SIGINT || sig == SIGTERM)
+	while (!global_shutdown) {
+		ret = sigtimedwait(&ss, NULL, &ts);
+		if (ret == -1) {
+			if (errno == EAGAIN || errno == EINTR)
+				continue;
+			abort();
+		}
+
+		if (ret == SIGINT || ret == SIGTERM)
 			global_shutdown = 1;
 		else
 			abort();
