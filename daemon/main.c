@@ -441,6 +441,9 @@ int main(int argc, char **argv) {
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(timer_loop, ctx.p);
 	thread_create_detach(poller_loop, ctx.p);
+	thread_create_detach(poller_loop, ctx.p);
+	thread_create_detach(poller_loop, ctx.p);
+	thread_create_detach(poller_loop, ctx.p);
 
 	while (!global_shutdown) {
 		usleep(100000);
