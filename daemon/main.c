@@ -312,7 +312,6 @@ int main(int argc, char **argv) {
 	int ret;
 	void *dlh;
 	const char **strp;
-	GThread *signal_handler_thread;
 
 	options(&argc, &argv);
 	g_thread_init(NULL);
@@ -405,17 +404,16 @@ int main(int argc, char **argv) {
 			die("Refusing to continue without working Redis database\n");
 	}
 
-	signal_handler_thread = g_thread_create(sighandler, NULL, TRUE, NULL);
-	if (!signal_handler_thread)
-		die("Failed to create thread\n");
+	thread_create_detach(sighandler, NULL);
 
 	while (!global_shutdown) {
 		ret = poller_poll(p, 100);
 		if (ret == -1)
 			break;
+		threads_join_all();
 	}
 
-	g_thread_join(signal_handler_thread);
+	threads_join_all();
 
 	mylog(LOG_INFO, "Version %s shutting down", MEDIAPROXY_VERSION);
 

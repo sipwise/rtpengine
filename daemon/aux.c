@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <glib.h>
 #include <pcre.h>
+#include <stdlib.h>
 
 #include "aux.h"
 
@@ -12,6 +13,18 @@
 #else
 #define BSDB(x...) ((void)0)
 #endif
+
+
+
+
+struct detach_thread {
+	GThreadFunc	func;
+	gpointer	data;
+};
+
+
+mutex_t threads_to_join_lock = MUTEX_STATIC_INIT;
+static GSList *threads_to_join;
 
 
 
@@ -102,3 +115,43 @@ void g_queue_clear(GQueue *q) {
 }
 
 #endif
+
+
+
+void thread_join_me() {
+	mutex_lock(&threads_to_join_lock);
+	threads_to_join = g_slist_prepend(threads_to_join, g_thread_self());
+	mutex_unlock(&threads_to_join_lock);
+}
+
+void threads_join_all() {
+	GThread *t;
+
+	mutex_lock(&threads_to_join_lock);
+	while (threads_to_join) {
+		t = threads_to_join->data;
+		g_thread_join(t);
+		threads_to_join = g_slist_delete_link(threads_to_join, threads_to_join);
+	}
+	mutex_unlock(&threads_to_join_lock);
+}
+
+static gpointer thread_detach_func(gpointer d) {
+	struct detach_thread *dt = d;
+
+	dt->func(dt->data);
+	g_slice_free1(sizeof(*dt), dt);
+	thread_join_me();
+	return NULL;
+}
+
+void thread_create_detach(GThreadFunc f, gpointer d) {
+	struct detach_thread *dt;
+
+	dt = g_slice_alloc(sizeof(*dt));
+	dt->func = f;
+	dt->data = d;
+
+	if (!g_thread_create(thread_detach_func, dt, TRUE, NULL))
+		abort();
+}

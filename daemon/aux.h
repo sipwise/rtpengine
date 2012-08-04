@@ -156,6 +156,7 @@ typedef GCond *cond_t;
 #define mutex_lock(m) g_static_mutex_lock(m)
 #define mutex_trylock(m) g_static_mutex_trylock(m)
 #define mutex_unlock(m) g_static_mutex_unlock(m)
+#define MUTEX_STATIC_INIT G_STATIC_MUTEX_INIT
 
 #define rwlock_init(l) g_static_rw_lock_init(l)
 #define rwlock_lock_r(l) g_static_rw_lock_reader_lock(l)
@@ -178,6 +179,7 @@ typedef GCond cond_t;
 #define mutex_lock(m) g_mutex_lock(m)
 #define mutex_trylock(m) g_mutex_trylock(m)
 #define mutex_unlock(m) g_mutex_unlock(m)
+#define MUTEX_STATIC_INIT {0}
 
 #define rwlock_init(l) g_rw_lock_init(l)
 #define rwlock_lock_r(l) g_rw_lock_reader_lock(l)
@@ -191,6 +193,12 @@ typedef GCond cond_t;
 #define cond_broadcast(c) g_cond_broadcast(c)
 
 #endif
+
+
+
+void thread_join_me();
+void threads_join_all();
+void thread_create_detach(GThreadFunc, gpointer);
 
 
 
