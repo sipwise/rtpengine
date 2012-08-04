@@ -29,6 +29,7 @@ struct control_stream {
 
 	struct control		*control;
 	struct poller		*poller;
+	int			linked:1;
 };
 
 
@@ -52,22 +53,28 @@ struct control {
 static void control_stream_closed(int fd, void *p, uintptr_t u) {
 	struct control_stream *s = p;
 	struct control *c;
-	GList *l;
+	GList *l = NULL;
 
 	mylog(LOG_INFO, "Control connection from " DF " closed", DP(s->inaddr));
 
 	c = s->control;
 
+restart:
 	mutex_lock(&c->lock);
-	l = g_list_find(c->streams, s);
-	if (l)
+	if (s->linked) {
+		/* we might get called when it's not quite linked yet */
+		l = g_list_find(c->streams, s);
+		if (!l) {
+			mutex_unlock(&c->lock);
+			goto restart;
+		}
 		c->streams = g_list_delete_link(c->streams, l);
+		s->linked = 0;
+	}
 	mutex_unlock(&c->lock);
-	if (!l)
-		return;
-	obj_put(s);
-	if (poller_del_item(s->poller, fd))
-		abort();
+	if (l)
+		obj_put(s);
+	poller_del_item(s->poller, fd);
 }
 
 
@@ -78,7 +85,9 @@ static void control_list(struct control *c, struct control_stream *s) {
 	mutex_lock(&c->lock);
 	for (l = c->streams; l; l = l->next) {
 		i = l->data;
+		mutex_lock(&s->lock);
 		streambuf_printf(s->outbuf, DF "\n", DP(i->inaddr));
+		mutex_unlock(&s->lock);
 	}
 	mutex_unlock(&c->lock);
 
@@ -113,7 +122,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "status"))
 		calls_status(c->callmaster, s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "build") | !strcmp(out[RE_TCP_DIV_CMD], "version"))
-		streambuf_printf(s->outbuf, "Version: %s\n", MEDIAPROXY_VERSION);
+		control_stream_printf(s, "Version: %s\n", MEDIAPROXY_VERSION);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "controls"))
 		control_list(c, s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "quit") || !strcmp(out[RE_TCP_DIV_CMD], "exit"))
@@ -226,6 +235,7 @@ next:
 	s->outbuf = streambuf_new(c->poller, nfd);
 	memcpy(&s->inaddr, &sin, sizeof(s->inaddr));
 	mutex_init(&s->lock);
+	s->linked = 1;
 
 	ZERO(i);
 	i.fd = nfd;
