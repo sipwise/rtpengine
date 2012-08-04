@@ -44,6 +44,11 @@ struct iterator_helper {
 	GSList			*del;
 	struct streamrelay	*ports[0x10000];
 };
+struct xmlrpc_helper {
+	GStringChunk		*c;
+	char			*url;
+	GSList			*tags;
+};
 
 
 struct callmaster {
@@ -531,25 +536,54 @@ good:
 	;
 }
 
-void xmlrpc_kill_calls(gpointer data) {
-	GSList *list = data;
+void xmlrpc_kill_calls(void *p) {
+	struct xmlrpc_helper *xh = p;
 	xmlrpc_env e;
 	xmlrpc_client *c;
 	xmlrpc_value *r;
-	struct call *ca;
-	GList *csl;
-	struct callstream *cs;
-	const char *url;
 
 	xmlrpc_env_init(&e);
 	xmlrpc_client_setup_global_const(&e);
 	xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION, NULL, 0, &c);
 
+	while (xh->tags) {
+		alarm(2);
+		xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
+			"sbc", "postControlCmd", xh->tags->data, "teardown");
+		xmlrpc_DECREF(r);
+		alarm(0);
+
+		xh->tags = g_slist_delete_link(xh->tags, xh->tags);
+	}
+
+	g_string_chunk_free(xh->c);
+	g_slice_free1(sizeof(*xh), xh);
+}
+
+void kill_calls_timer(GSList *list, struct callmaster *m) {
+	struct call *ca;
+	GList *csl;
+	struct callstream *cs;
+	const char *url;
+	struct xmlrpc_helper *xh = NULL;
+
+	if (!list)
+		return; /* shouldn't happen */
+
+	ca = list->data;
+	m = ca->callmaster; /* same callmaster for all of them */
+	url = m->conf.b2b_url;
+	if (url) {
+		xh = g_slice_alloc(sizeof(*xh));
+		xh->c = g_string_chunk_new(64);
+		xh->url = g_string_chunk_insert(xh->c, url);
+		xh->tags = NULL;
+	}
+
 	while (list) {
 		ca = list->data;
-		url = ca->callmaster->conf.b2b_url;
 		if (!url)
-			goto skip;
+			goto destroy;
 
 		mutex_lock(&ca->lock);
 
@@ -558,20 +592,20 @@ void xmlrpc_kill_calls(gpointer data) {
 			mutex_lock(&cs->lock);
 			if (!cs->peers[1].tag || !*cs->peers[1].tag)
 				goto next;
-			alarm(2);
-			xmlrpc_client_call2f(&e, c, url, "di", &r, "(ssss)",
-				"sbc", "postControlCmd", cs->peers[1].tag, "teardown");
-			xmlrpc_DECREF(r);
-			alarm(0);
+			xh->tags = g_slist_prepend(xh->tags, g_string_chunk_insert(xh->c, cs->peers[1].tag));
 next:
 			mutex_unlock(&cs->lock);
 		}
 		mutex_unlock(&ca->lock);
 
-skip:
+destroy:
+		call_destroy(ca);
 		obj_put(ca);
 		list = g_slist_delete_link(list, list);
 	}
+
+	if (xh)
+		thread_create_detach(xmlrpc_kill_calls, xh);
 }
 
 
@@ -591,7 +625,6 @@ static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
 	struct iterator_helper hlp;
 	GList *i;
-	GSList *s;
 	struct mediaproxy_list_entry *ke;
 	struct streamrelay *sr;
 	u_int64_t d;
@@ -645,10 +678,7 @@ next:
 	if (!hlp.del)
 		return;
 
-	for (s = hlp.del; s; s = s->next)
-		call_destroy(s->data);
-
-	thread_create_detach(xmlrpc_kill_calls, hlp.del);
+	kill_calls_timer(hlp.del, m);
 }
 #undef DS
 
