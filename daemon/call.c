@@ -1760,9 +1760,7 @@ void call_delete(const char **out, struct callmaster *m) {
 
 
 
-static void call_status_iterator(void *key, void *val, void *ptr) {
-	struct call *c = val;
-	struct control_stream *s = ptr;
+static void call_status_iterator(struct call *c, struct control_stream *s) {
 	GList *l;
 	struct callstream *cs;
 	struct peer *p;
@@ -1819,22 +1817,35 @@ next:
 	mutex_unlock(&c->lock);
 }
 
+static void callmaster_get_all_calls_interator(void *key, void *val, void *ptr) {
+	GQueue *q = ptr;
+	g_queue_push_tail(q, obj_get(val));
+}
+
 void calls_status(struct callmaster *m, struct control_stream *s) {
 	struct stats st;
+	GQueue q = G_QUEUE_INIT;
+	struct call *c;
 
 	mutex_lock(&m->statslock);
 	st = m->stats;
 	mutex_unlock(&m->statslock);
 
 	rwlock_lock_r(&m->hashlock);
+	g_hash_table_foreach(m->callhash, callmaster_get_all_calls_interator, &q);
+	rwlock_unlock_r(&m->hashlock);
+
 	control_stream_printf(s, "proxy %u %llu/%llu/%llu\n",
-		g_hash_table_size(m->callhash),
+		g_queue_get_length(&q),
 		(long long unsigned int) st.bytes,
 		(long long unsigned int) st.bytes - st.errors,
 		(long long unsigned int) st.bytes * 2 - st.errors);
 
-	g_hash_table_foreach(m->callhash, call_status_iterator, s);
-	rwlock_unlock_r(&m->hashlock);
+	while (q.head) {
+		c = g_queue_pop_head(&q);
+		call_status_iterator(c, s);
+		obj_put(c);
+	}
 }
 
 
