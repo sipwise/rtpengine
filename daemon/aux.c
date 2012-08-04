@@ -18,8 +18,8 @@
 
 
 struct detach_thread {
-	GThreadFunc	func;
-	gpointer	data;
+	void		(*func)(void *);
+	void		*data;
 };
 
 
@@ -145,7 +145,7 @@ static gpointer thread_detach_func(gpointer d) {
 	return NULL;
 }
 
-void thread_create_detach(GThreadFunc f, gpointer d) {
+void thread_create_detach(void (*f)(void *), void *d) {
 	struct detach_thread *dt;
 
 	dt = g_slice_alloc(sizeof(*dt));
