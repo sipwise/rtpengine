@@ -541,23 +541,34 @@ void xmlrpc_kill_calls(void *p) {
 	xmlrpc_env e;
 	xmlrpc_client *c;
 	xmlrpc_value *r;
+	struct xmlrpc_clientparms cp;
+	struct xmlrpc_curl_xportparms xcxpp;
 
 	xmlrpc_env_init(&e);
 	xmlrpc_client_setup_global_const(&e);
-	xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION, NULL, 0, &c);
+
+	ZERO(xcxpp);
+	xcxpp.timeout = 5000; /* 5 seconds */
+
+	ZERO(cp);
+	cp.transport = "curl";
+	cp.transportparmsP = &xcxpp;
+	cp.transportparm_size = XMLRPC_CXPSIZE(timeout);
+
+	xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION,
+		&cp, XMLRPC_CPSIZE(transportparm_size), &c);
 
 	while (xh->tags) {
-		alarm(2);
 		xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
 			"sbc", "postControlCmd", xh->tags->data, "teardown");
 		xmlrpc_DECREF(r);
-		alarm(0);
 
 		xh->tags = g_slist_delete_link(xh->tags, xh->tags);
 	}
 
 	g_string_chunk_free(xh->c);
 	g_slice_free1(sizeof(*xh), xh);
+	xmlrpc_client_destroy(c);
 }
 
 void kill_calls_timer(GSList *list, struct callmaster *m) {
