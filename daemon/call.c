@@ -40,6 +40,12 @@ static __thread const char *log_info;
 
 
 
+struct iterator_helper {
+	GSList			*del;
+	struct streamrelay	*ports[0x10000];
+};
+
+
 struct callmaster {
 	struct obj		obj;
 
@@ -468,12 +474,6 @@ static void streams_free(GQueue *q) {
 
 
 
-struct iterator_helper {
-	GList			*del;
-	struct streamrelay	*ports[0x10000];
-};
-
-
 /* called with callmaster->hashlock held */
 static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
@@ -522,7 +522,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 
 drop:
 	mutex_unlock(&c->lock);
-	hlp->del = g_list_prepend(hlp->del, obj_get(c));
+	hlp->del = g_slist_prepend(hlp->del, obj_get(c));
 	return;
 
 good:
@@ -531,25 +531,15 @@ good:
 	;
 }
 
-static void xmlrpc_kill_calls(GList *list, const char *url) {
-	pid_t parent;
-	int i;
+void xmlrpc_kill_calls(gpointer data) {
+	GSList *list = data;
 	xmlrpc_env e;
 	xmlrpc_client *c;
 	xmlrpc_value *r;
 	struct call *ca;
 	GList *csl;
 	struct callstream *cs;
-
-	parent = fork();
-	if (parent)
-		return;
-	parent = fork();
-	if (parent)
-		_exit(0);
-
-	for (i = 0; i < 8192; i++)
-		close(i);
+	const char *url;
 
 	xmlrpc_env_init(&e);
 	xmlrpc_client_setup_global_const(&e);
@@ -557,6 +547,10 @@ static void xmlrpc_kill_calls(GList *list, const char *url) {
 
 	while (list) {
 		ca = list->data;
+		url = ca->callmaster->conf.b2b_url;
+		if (!url)
+			goto skip;
+
 		mutex_lock(&ca->lock);
 
 		for (csl = ca->callstreams->head; csl; csl = csl->next) {
@@ -573,10 +567,11 @@ next:
 			mutex_unlock(&cs->lock);
 		}
 		mutex_unlock(&ca->lock);
-		list = list->next;
-	}
 
-	_exit(0);
+skip:
+		obj_put(ca);
+		list = g_slist_delete_link(list, list);
+	}
 }
 
 
@@ -595,8 +590,8 @@ next:
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
 	struct iterator_helper hlp;
-	GList *i, *n;
-	struct call *c;
+	GList *i;
+	GSList *s;
 	struct mediaproxy_list_entry *ke;
 	struct streamrelay *sr;
 	u_int64_t d;
@@ -647,16 +642,13 @@ next:
 			obj_put(cs);
 	}
 
-	if (m->conf.b2b_url)
-		xmlrpc_kill_calls(hlp.del, m->conf.b2b_url);
+	if (!hlp.del)
+		return;
 
-	for (i = hlp.del; i; i = n) {
-		n = i->next;
-		c = i->data;
-		obj_put(c);
-		call_destroy(c);
-		g_list_free_1(i);
-	}
+	for (s = hlp.del; s; s = s->next)
+		call_destroy(s->data);
+
+	thread_create_detach(xmlrpc_kill_calls, hlp.del);
 }
 #undef DS
 
