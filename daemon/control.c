@@ -6,6 +6,7 @@
 #include <pcre.h>
 #include <glib.h>
 #include <stdarg.h>
+#include <errno.h>
 
 #include "control.h"
 #include "poller.h"
@@ -207,8 +208,11 @@ static void control_incoming(int fd, void *p, uintptr_t u) {
 next:
 	sinl = sizeof(sin);
 	nfd = accept(fd, (struct sockaddr *) &sin, &sinl);
-	if (nfd == -1)
-		return;
+	if (nfd == -1) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return;
+		goto next;
+	}
 	nonblock(nfd);
 
 	mylog(LOG_INFO, "New control connection from " DF, DP(sin));
