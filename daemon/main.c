@@ -31,6 +31,8 @@
 
 
 
+static int global_shutdown;
+
 static char *pidfile;
 static gboolean foreground;
 static u_int32_t ipv4;
@@ -56,9 +58,38 @@ static char *b2b_url;
 
 
 
+gpointer sighandler(gpointer x) {
+	sigset_t ss;
+	int ret, sig;
+
+	sigemptyset(&ss);
+	sigaddset(&ss, SIGINT);
+	sigaddset(&ss, SIGTERM);
+	sigaddset(&ss, SIGABRT);
+	sigaddset(&ss, SIGSEGV);
+	sigaddset(&ss, SIGQUIT);
+
+	while (!global_shutdown) {
+		ret = sigwait(&ss, &sig);
+		if (ret)
+			abort();
+
+		if (sig == SIGINT || sig == SIGTERM)
+			global_shutdown = 1;
+		else
+			abort();
+	}
+
+	return NULL;
+}
+
+
 static void signals(void) {
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGCHLD, SIG_IGN);
+	sigset_t ss;
+
+	sigfillset(&ss);
+	sigprocmask(SIG_SETMASK, &ss, NULL);
+	pthread_sigmask(SIG_SETMASK, &ss, NULL);
 }
 
 static int rlim(int res, rlim_t val) {
@@ -273,6 +304,7 @@ int main(int argc, char **argv) {
 	int ret;
 	void *dlh;
 	const char **strp;
+	GThread *signal_handler_thread;
 
 	options(&argc, &argv);
 	g_thread_init(NULL);
@@ -365,11 +397,19 @@ int main(int argc, char **argv) {
 			die("Refusing to continue without working Redis database\n");
 	}
 
-	for (;;) {
+	signal_handler_thread = g_thread_create(sighandler, NULL, TRUE, NULL);
+	if (!signal_handler_thread)
+		die("Failed to create thread\n");
+
+	while (!global_shutdown) {
 		ret = poller_poll(p, 100);
 		if (ret == -1)
 			break;
 	}
+
+	g_thread_join(signal_handler_thread);
+
+	mylog(LOG_INFO, "Version %s shutting down", MEDIAPROXY_VERSION);
 
 	return 0;
 }
