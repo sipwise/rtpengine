@@ -545,7 +545,6 @@ void xmlrpc_kill_calls(void *p) {
 	struct xmlrpc_curl_xportparms xcxpp;
 
 	xmlrpc_env_init(&e);
-	xmlrpc_client_setup_global_const(&e);
 
 	ZERO(xcxpp);
 	xcxpp.timeout = 5000; /* 5 seconds */
@@ -557,6 +556,8 @@ void xmlrpc_kill_calls(void *p) {
 
 	xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION,
 		&cp, XMLRPC_CPSIZE(transportparm_size), &c);
+	if (e.fault_occurred)
+		abort();
 
 	while (xh->tags) {
 		xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
