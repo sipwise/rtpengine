@@ -32,6 +32,13 @@
 
 
 
+struct main_context {
+	struct poller		*p;
+	struct callmaster	*m;
+};
+
+
+
 
 static int global_shutdown;
 
@@ -315,20 +322,13 @@ static void init_everything() {
 }
 
 
-int main(int argc, char **argv) {
-	struct poller *p;
-	struct callmaster *m;
+void create_everything(struct main_context *ctx) {
 	struct callmaster_config mc;
 	struct control *c;
 	struct control_udp *cu;
 	int kfd = -1;
-	int ret;
 	void *dlh;
 	const char **strp;
-
-	init_everything();
-	options(&argc, &argv);
-
 
 	if (table >= 0 && kernel_create_table(table)) {
 		fprintf(stderr, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
@@ -348,13 +348,13 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	p = poller_new();
-	if (!p)
+	ctx->p = poller_new();
+	if (!ctx->p)
 		die("poller creation failed\n");
 
-	m = callmaster_new(p);
-	if (!m)
-		return -1;
+	ctx->m = callmaster_new(ctx->p);
+	if (!ctx->m)
+		die("callmaster creation failed\n");
 
 	ZERO(mc);
 	mc.kernelfd = kfd;
@@ -372,14 +372,14 @@ int main(int argc, char **argv) {
 
 	c = NULL;
 	if (listenport) {
-		c = control_new(p, listenp, listenport, m);
+		c = control_new(ctx->p, listenp, listenport, ctx->m);
 		if (!c)
 			die("Failed to open TCP control connection port\n");
 	}
 
 	cu = NULL;
 	if (udp_listenport) {
-		cu = control_udp_new(p, udp_listenp, udp_listenport, m);
+		cu = control_udp_new(ctx->p, udp_listenp, udp_listenport, ctx->m);
 		if (!cu)
 			die("Failed to open UDP control connection port\n");
 	}
@@ -403,22 +403,33 @@ int main(int argc, char **argv) {
 			die("Cannot start up without Redis database\n");
 	}
 
-	callmaster_config(m, &mc);
-	mylog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
+	callmaster_config(ctx->m, &mc);
 
 	if (!foreground)
 		daemonize();
 	wpidfile();
 
 	if (mc.redis) {
-		if (redis_restore(m, mc.redis))
+		if (redis_restore(ctx->m, mc.redis))
 			die("Refusing to continue without working Redis database\n");
 	}
 
 	thread_create_detach(sighandler, NULL);
+}
+
+
+int main(int argc, char **argv) {
+	struct main_context ctx;
+	int ret;
+
+	init_everything();
+	options(&argc, &argv);
+	create_everything(&ctx);
+
+	mylog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
 
 	while (!global_shutdown) {
-		ret = poller_poll(p, 100);
+		ret = poller_poll(ctx.p, 100);
 		if (ret == -1)
 			break;
 		threads_join_all();
