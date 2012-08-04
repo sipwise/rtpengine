@@ -413,14 +413,24 @@ void create_everything(struct main_context *ctx) {
 		if (redis_restore(ctx->m, mc.redis))
 			die("Refusing to continue without working Redis database\n");
 	}
-
-	thread_create_detach(sighandler, NULL);
 }
 
+static void timer_loop(void *d) {
+	struct poller *p = d;
+
+	while (!global_shutdown)
+		poller_timers_wait_run(p, 100);
+}
+
+static void poller_loop(void *d) {
+	struct poller *p = d;
+
+	while (!global_shutdown)
+		poller_poll(p, 100);
+}
 
 int main(int argc, char **argv) {
 	struct main_context ctx;
-	int ret;
 
 	init_everything();
 	options(&argc, &argv);
@@ -428,10 +438,12 @@ int main(int argc, char **argv) {
 
 	mylog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
 
+	thread_create_detach(sighandler, NULL);
+	thread_create_detach(timer_loop, ctx.p);
+	thread_create_detach(poller_loop, ctx.p);
+
 	while (!global_shutdown) {
-		ret = poller_poll(ctx.p, 100);
-		if (ret == -1)
-			break;
+		usleep(100000);
 		threads_join_all();
 	}
 
