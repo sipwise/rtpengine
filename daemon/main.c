@@ -59,7 +59,7 @@ static char *b2b_url;
 
 
 
-gpointer sighandler(gpointer x) {
+static void sighandler(gpointer x) {
 	sigset_t ss;
 	int ret;
 	struct timespec ts;
@@ -87,8 +87,6 @@ gpointer sighandler(gpointer x) {
 		else
 			abort();
 	}
-
-	return NULL;
 }
 
 

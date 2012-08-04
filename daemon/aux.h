@@ -198,7 +198,7 @@ typedef GCond cond_t;
 
 void thread_join_me();
 void threads_join_all();
-void thread_create_detach(GThreadFunc, gpointer);
+void thread_create_detach(void (*)(void *), void *);
 
 
 
