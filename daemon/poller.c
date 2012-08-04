@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <sys/epoll.h>
 #include <glib.h>
+#include <sys/time.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -290,7 +291,6 @@ static void poller_timers_run(struct poller *p) {
 int poller_poll(struct poller *p, int timeout) {
 	int ret, i;
 	struct poller_item_int *it;
-	time_t last;
 	struct epoll_event evs[128], *ev, e;
 
 	if (!p)
@@ -302,15 +302,6 @@ int poller_poll(struct poller *p, int timeout) {
 	if (!p->items || !p->items_size)
 		goto out;
 
-	last = poller_now;
-	poller_now = time(NULL);
-	if (last != poller_now) {
-		mutex_unlock(&p->lock);
-		poller_timers_run(p);
-		ret = p->items_size;
-		goto out_lock;
-	}
-
 	mutex_unlock(&p->lock);
 	errno = 0;
 	ret = epoll_wait(p->fd, evs, sizeof(evs) / sizeof(*evs), timeout);
@@ -318,8 +309,12 @@ int poller_poll(struct poller *p, int timeout) {
 
 	if (errno == EINTR)
 		ret = 0;
-	if (ret < 0)
+	if (ret == 0)
+		ret = 0;
+	if (ret <= 0)
 		goto out;
+
+	poller_now = time(NULL);
 
 	for (i = 0; i < ret; i++) {
 		ev = &evs[i];
@@ -369,7 +364,6 @@ next:
 
 out:
 	mutex_unlock(&p->lock);
-out_lock:
 	return ret;
 }
 
@@ -481,4 +475,31 @@ int poller_del_timer(struct poller *p, void (*f)(void *), struct obj *o) {
 
 int poller_add_timer(struct poller *p, void (*f)(void *), struct obj *o) {
 	return poller_timer_link(p, &p->timers_add, f, o);
+}
+
+/* run in thread separate from poller_poll() */
+void poller_timers_wait_run(struct poller *p, int max) {
+	struct timeval tv;
+	int wt;
+	int i = 0;
+
+	max *= 1000;
+
+retry:
+	gettimeofday(&tv, NULL);
+	if (tv.tv_sec != poller_now)
+		goto now;
+	if (i)
+		return;
+
+	wt = 1000000 - tv.tv_usec;
+	if (max >= 0 && max < wt)
+		wt = max;
+	usleep(wt);
+	i = 1;
+	goto retry;
+
+now:
+	poller_now = tv.tv_sec;
+	poller_timers_run(p);
 }
