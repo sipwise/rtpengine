@@ -153,6 +153,7 @@ typedef GStaticRWLock rwlock_t;
 typedef GCond *cond_t;
 
 #define mutex_init(m) g_static_mutex_init(m)
+#define mutex_destroy(m) g_static_mutex_free(m)
 #define mutex_lock(m) g_static_mutex_lock(m)
 #define mutex_trylock(m) g_static_mutex_trylock(m)
 #define mutex_unlock(m) g_static_mutex_unlock(m)
@@ -176,6 +177,7 @@ typedef GRWLock rwlock_t;
 typedef GCond cond_t;
 
 #define mutex_init(m) g_mutex_init(m)
+#define mutex_destroy(m) g_mutex_clear(m)
 #define mutex_lock(m) g_mutex_lock(m)
 #define mutex_trylock(m) g_mutex_trylock(m)
 #define mutex_unlock(m) g_mutex_unlock(m)
