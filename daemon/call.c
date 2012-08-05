@@ -1108,6 +1108,7 @@ static void callstream_free(void *ptr) {
 			release_port(r);
 		}
 	}
+	mutex_destroy(&s->lock);
 	obj_put(s->call);
 }
 
@@ -1465,6 +1466,7 @@ static void call_free(void *p) {
 		free(c->called_agent);
 	g_queue_free(c->callstreams);
 	free(c->callid);
+	mutex_destroy(&c->lock);
 }
 
 static struct call *call_create(const char *callid, struct callmaster *m) {

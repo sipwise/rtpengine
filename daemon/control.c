@@ -204,6 +204,7 @@ static void control_stream_free(void *p) {
 	close(s->fd);
 	streambuf_destroy(s->inbuf);
 	streambuf_destroy(s->outbuf);
+	mutex_destroy(&s->lock);
 }
 
 static void control_incoming(int fd, void *p, uintptr_t u) {
