@@ -75,9 +75,6 @@ static void sighandler(gpointer x) {
 	sigemptyset(&ss);
 	sigaddset(&ss, SIGINT);
 	sigaddset(&ss, SIGTERM);
-	sigaddset(&ss, SIGABRT);
-	sigaddset(&ss, SIGSEGV);
-	sigaddset(&ss, SIGQUIT);
 
 	ts.tv_sec = 0;
 	ts.tv_nsec = 100000000; /* 0.1 sec */
@@ -102,6 +99,9 @@ static void signals(void) {
 	sigset_t ss;
 
 	sigfillset(&ss);
+	sigdelset(&ss, SIGABRT);
+	sigdelset(&ss, SIGSEGV);
+	sigdelset(&ss, SIGQUIT);
 	sigprocmask(SIG_SETMASK, &ss, NULL);
 	pthread_sigmask(SIG_SETMASK, &ss, NULL);
 }
