@@ -55,12 +55,13 @@ for my $iter (1 .. 1000) {
 		($ports[$i]) = sockaddr_in($addr);
 		$ips[$i] = '127.0.0.1';
 		$tags[$i] = rand_str(15);
-		my $o = msg("$prefixes[$i] $callid $ips[$i] $ports[$i] $tags[$i];1");
+		my $tagstr = ($i == 1 ? "$tags[0];1 " : '') . "$tags[$i];1";
+		my $o = msg("$prefixes[$i] $callid $ips[$i] $ports[$i] $tagstr");
 		$o =~ /^(\d+) ([\d.]+) 4[\r\n]*$/s or die $o;
 		$outputs[$i] = [$1,$2];
 	}
 
-	push(@calls, [\(@fds,@ports,@ips,@tags,@outputs)]);
+	push(@calls, [\(@fds,@ports,@ips,@tags,@outputs), $callid]);
 
 	for my $c (@calls) {
 		my ($fds,$outputs) = @$c[0,4];
@@ -73,7 +74,15 @@ for my $iter (1 .. 1000) {
 			recv($$fds[$b], $x, 0xffff, 0) or $err = "$!";
 			alarm(0);
 			$err && $err !~ /interrupt/i and die $err;
-			$x eq 'rtp' or die $x;
+			$x eq 'rtp' or warn $x;
 		}
 	}
+}
+
+sleep(30);
+
+@calls = sort {rand() < .5} @calls;
+for my $c (@calls) {
+	my ($tags, $callid) = @$c[3,5];
+	msg("D $callid $$tags[0] $$tags[1]");
 }
