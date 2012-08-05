@@ -19,9 +19,17 @@ my $fd;
 sub msg {
 	my ($l) = @_;
 	my $cookie = $$ . '_' . rand_str(10);
-	send($fd, "$cookie $l", 0) or die $!;
 	my $r;
-	recv($fd, $r, 0xffff, 0) or die $!;
+	while (1) {
+		send($fd, "$cookie $l", 0) or die $!;
+		my $err = '';
+		alarm(1);
+		recv($fd, $r, 0xffff, 0) or $err = "$!";
+		alarm(0);
+		$err =~ /interrupt/i and next;
+		$err and die $err;
+		last;
+	}
 	$r =~ s/^\Q$cookie\E +//s or die $r;
 	$r =~ s/[\r\n]+$//s;
 	return $r;
@@ -60,9 +68,11 @@ for my $iter (1 .. 1000) {
 			my ($a, $b) = @$i;
 			send($$fds[$a], 'rtp', 0, sockaddr_in($$outputs[$b][0], inet_aton($$outputs[$b][1]))) or die $!;
 			my $x;
+			my $err = '';
 			alarm(1);
-			recv($$fds[$b], $x, 0xffff, 0) or die $!;
+			recv($$fds[$b], $x, 0xffff, 0) or $err = "$!";
 			alarm(0);
+			$err && $err !~ /interrupt/i and die $err;
 			$x eq 'rtp' or die $x;
 		}
 	}
