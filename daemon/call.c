@@ -490,6 +490,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct callmaster *cm;
 	unsigned int check;
 	struct streamrelay *sr;
+	int good = 0;
 
 	mutex_lock(&c->lock);
 
@@ -509,6 +510,9 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 				hlp->ports[sr->localport] = sr;
 				obj_hold(cs);
 
+				if (good)
+					continue;
+
 				check = cm->conf.timeout;
 				if (!sr->peer.port)
 					check = cm->conf.silent_timeout;
@@ -516,11 +520,14 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 					check = cm->conf.silent_timeout;
 
 				if (poller_now - sr->last < check)
-					goto good;
+					good = 1;
 			}
 		}
 		mutex_unlock(&cs->lock);
 	}
+
+	if (good)
+		goto out;
 
 	mylog(LOG_INFO, LOG_PREFIX_C "Closing call branch due to timeout", 
 		LOG_PARAMS_C(c));
@@ -530,8 +537,7 @@ drop:
 	hlp->del = g_slist_prepend(hlp->del, obj_get(c));
 	return;
 
-good:
-	mutex_unlock(&cs->lock);
+out:
 	mutex_unlock(&c->lock);
 }
 
