@@ -627,11 +627,11 @@ destroy:
 
 
 #define DS(x) do {							\
+		mutex_lock(&cs->lock);					\
 		if (ke->stats.x < sr->kstats.x)				\
 			d = 0;						\
 		else							\
 			d = ke->stats.x - sr->kstats.x;			\
-		mutex_lock(&cs->lock);					\
 		sr->stats.x += d;					\
 		mutex_unlock(&cs->lock);				\
 		mutex_lock(&m->statspslock);				\
@@ -1834,8 +1834,6 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 
 	m = c->callmaster;
 	mutex_lock(&c->lock);
-
-	/* TODO: only called for tcp controller, so no linked list of calls? */
 
 	control_stream_printf(s, "session %s %s %s %s %s %i\n",
 		c->callid,
