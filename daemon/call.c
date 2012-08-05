@@ -1327,26 +1327,21 @@ static void kill_callstream(struct callstream *s) {
 static void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
 	struct callstream *s;
+	int ret;
 
-restart:
 	rwlock_lock_w(&m->hashlock);
-	if (c->linked) {
-		if (!g_hash_table_remove(m->callhash, c->callid)) {
-			rwlock_unlock_w(&m->hashlock);
-			goto restart;
-		}
-		c->linked = 0;
-		obj_put(c);
-	}
+	ret = g_hash_table_remove(m->callhash, c->callid);
 	rwlock_unlock_w(&m->hashlock);
+
+	if (!ret)
+		return;
+
+	obj_put(c);
 
 	if (redis_delete)
 		redis_delete(c, m->conf.redis);
 
 	mutex_lock(&c->lock);
-	if (c->shutdown)
-		goto out;
-	c->shutdown = 1;
 	mylog(LOG_INFO, LOG_PREFIX_C "Final packet stats:", c->callid);
 	while (c->callstreams->head) {
 		s = g_queue_pop_head(c->callstreams);
@@ -1374,7 +1369,6 @@ restart:
 		obj_put(s);
 		mutex_lock(&c->lock);
 	}
-out:
 	mutex_unlock(&c->lock);
 }
 
