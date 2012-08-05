@@ -30,7 +30,7 @@ for i in $(seq 1 1000); do
 	dst_rel=`echo "lookup $callid $dst:audio $gw voip.inode.at local unknown unknown unknown-agent info=domain:voip.sipwise.local,from:number@voip.inode.at,totag:$totag,to:othernumber@voip.inode.at,fromtag:$fromtag" | pipe_o`
 	echo "lookup $callid $dst:audio $gw voip.inode.at local unknown unknown unknown-agent info=domain:voip.sipwise.local,from:number@voip.inode.at,totag:$totag,to:othernumber@voip.inode.at,fromtag:$fromtag" | pipe
 	echo version | pipe
-	echo status | pipe
+	(echo status | pipe) &
 
 	src_path=${src_rel/ //}
 	dst_path=${dst_rel/ //}
