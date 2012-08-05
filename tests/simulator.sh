@@ -1,4 +1,5 @@
 #!/bin/bash
+# # ulimit -n 100000
 # # G_SLICE=always-malloc valgrind --leak-check=full --track-origins=yes --show-possibly-lost=yes ./mediaproxy-ng -t 0 -i $IP -l 25060 -f
 
 pipe_o() {

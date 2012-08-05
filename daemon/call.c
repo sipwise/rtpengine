@@ -533,7 +533,6 @@ drop:
 good:
 	mutex_unlock(&cs->lock);
 	mutex_unlock(&c->lock);
-	;
 }
 
 void xmlrpc_kill_calls(void *p) {
@@ -642,6 +641,7 @@ static void callmaster_timer(void *ptr) {
 	u_int64_t d;
 	struct stats tmpstats;
 	struct callstream *cs;
+	int j;
 
 	ZERO(hlp);
 
@@ -681,11 +681,16 @@ static void callmaster_timer(void *ptr) {
 		mutex_unlock(&cs->lock);
 
 next:
+		hlp.ports[ke->target.target_port] = NULL;
 		g_slice_free1(sizeof(*ke), ke);
 		i = g_list_delete_link(i, i);
 		if (cs)
 			obj_put(cs);
 	}
+
+	for (j = 0; j < (sizeof(hlp.ports) / sizeof(*hlp.ports)); j++)
+		if (hlp.ports[j])
+			obj_put(hlp.ports[j]->up->up);
 
 	if (!hlp.del)
 		return;
