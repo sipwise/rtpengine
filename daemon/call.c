@@ -546,21 +546,11 @@ void xmlrpc_kill_calls(void *p) {
 	xmlrpc_env e;
 	xmlrpc_client *c;
 	xmlrpc_value *r;
-	struct xmlrpc_clientparms cp;
-	struct xmlrpc_curl_xportparms xcxpp;
 
 	xmlrpc_env_init(&e);
 
-	ZERO(xcxpp);
-	xcxpp.timeout = 5000; /* 5 seconds */
-
-	ZERO(cp);
-	cp.transport = "curl";
-	cp.transportparmsP = &xcxpp;
-	cp.transportparm_size = XMLRPC_CXPSIZE(timeout);
-
 	xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION,
-		&cp, XMLRPC_CPSIZE(transportparm_size), &c);
+		NULL, 0, &c);
 	if (e.fault_occurred)
 		abort();
 
