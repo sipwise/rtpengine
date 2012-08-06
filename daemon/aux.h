@@ -12,6 +12,7 @@
 #include <pcre.h>
 #include <stdarg.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 
 
@@ -146,60 +147,32 @@ static inline int smart_pton(int af, char *src, void *dst) {
 
 
 
-#if !GLIB_CHECK_VERSION(2,32,0)
+typedef pthread_mutex_t mutex_t;
+typedef pthread_rwlock_t rwlock_t;
+typedef pthread_cond_t cond_t;
 
-typedef GStaticMutex mutex_t;
-typedef GStaticRWLock rwlock_t;
-typedef GCond *cond_t;
+#define mutex_init(m) pthread_mutex_init(m, NULL)
+#define mutex_destroy(m) pthread_mutex_destroy(m)
+#define mutex_lock(m) pthread_mutex_lock(m)
+#define mutex_trylock(m) pthread_mutex_trylock(m)
+#define mutex_unlock(m) pthread_mutex_unlock(m)
+#define MUTEX_STATIC_INIT PTHREAD_MUTEX_INITIALIZER
 
-#define mutex_init(m) g_static_mutex_init(m)
-#define mutex_destroy(m) g_static_mutex_free(m)
-#define mutex_lock(m) g_static_mutex_lock(m)
-#define mutex_trylock(m) g_static_mutex_trylock(m)
-#define mutex_unlock(m) g_static_mutex_unlock(m)
-#define MUTEX_STATIC_INIT G_STATIC_MUTEX_INIT
+#define rwlock_init(l) pthread_rwlock_init(l, NULL)
+#define rwlock_lock_r(l) pthread_rwlock_rdlock(l)
+#define rwlock_unlock_r(l) pthread_rwlock_unlock(l)
+#define rwlock_lock_w(l) pthread_rwlock_wrlock(l)
+#define rwlock_unlock_w(l) pthread_rwlock_unlock(l)
 
-#define rwlock_init(l) g_static_rw_lock_init(l)
-#define rwlock_lock_r(l) g_static_rw_lock_reader_lock(l)
-#define rwlock_unlock_r(l) g_static_rw_lock_reader_unlock(l)
-#define rwlock_lock_w(l) g_static_rw_lock_writer_lock(l)
-#define rwlock_unlock_w(l) g_static_rw_lock_writer_unlock(l)
-
-#define cond_init(c) *(c) = g_cond_new()
-#define cond_wait(c,m) g_cond_wait(*(c),m)
-#define cond_signal(c) g_cond_signal(*(c))
-#define cond_broadcast(c) g_cond_broadcast(*(c))
-
-#else
-
-typedef GMutex mutex_t;
-typedef GRWLock rwlock_t;
-typedef GCond cond_t;
-
-#define mutex_init(m) g_mutex_init(m)
-#define mutex_destroy(m) g_mutex_clear(m)
-#define mutex_lock(m) g_mutex_lock(m)
-#define mutex_trylock(m) g_mutex_trylock(m)
-#define mutex_unlock(m) g_mutex_unlock(m)
-#define MUTEX_STATIC_INIT {0}
-
-#define rwlock_init(l) g_rw_lock_init(l)
-#define rwlock_lock_r(l) g_rw_lock_reader_lock(l)
-#define rwlock_unlock_r(l) g_rw_lock_reader_unlock(l)
-#define rwlock_lock_w(l) g_rw_lock_writer_lock(l)
-#define rwlock_unlock_w(l) g_rw_lock_writer_unlock(l)
-
-#define cond_init(c) g_cond_init(c)
-#define cond_wait(c,m) g_cond_wait(c,m)
-#define cond_signal(c) g_cond_signal(c)
-#define cond_broadcast(c) g_cond_broadcast(c)
-
-#endif
-
+#define cond_init(c) pthread_cond_init(c, NULL)
+#define cond_wait(c,m) pthread_cond_wait(c,m)
+#define cond_signal(c) pthread_cond_signal(c)
+#define cond_broadcast(c) pthread_cond_broadcast(c)
 
 
 void thread_join_me();
 void threads_join_all();
+int thread_create(void *(*)(void *), void *, int, pthread_t *);
 void thread_create_detach(void (*)(void *), void *);
 
 
