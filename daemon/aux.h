@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <sys/resource.h>
 
 
 
@@ -176,5 +177,13 @@ int thread_create(void *(*)(void *), void *, int, pthread_t *);
 void thread_create_detach(void (*)(void *), void *);
 
 
+
+static inline int rlim(int res, rlim_t val) {
+	struct rlimit rlim;
+
+	ZERO(rlim);
+	rlim.rlim_cur = rlim.rlim_max = val;
+	return setrlimit(res, &rlim);
+}
 
 #endif

@@ -549,19 +549,35 @@ void xmlrpc_kill_calls(void *p) {
 	xmlrpc_value *r;
 	pid_t pid;
 	sigset_t ss;
+	int i = 0;
+	int status;
 
 	while (xh->tags) {
 		pid = fork();
 
 		if (pid) {
-			waitpid(pid, NULL, 0);
-			xh->tags = g_slist_delete_link(xh->tags, xh->tags);
+retry:
+			pid = waitpid(pid, &status, 0);
+			if ((pid > 0 && WIFEXITED(status)) || i >= 3) {
+				xh->tags = g_slist_delete_link(xh->tags, xh->tags);
+				i = 0;
+			}
+			else {
+				if (pid == -1 && errno == EINTR)
+					goto retry;
+				i++;
+			}
 			continue;
 		}
 
 		/* child process */
+		rlim(RLIMIT_CORE, 0);
 		sigemptyset(&ss);
 		sigprocmask(SIG_SETMASK, &ss, NULL);
+
+		for (i = 0; i < 100; i++)
+			close(i);
+
 		alarm(5);
 
 		xmlrpc_env_init(&e);
