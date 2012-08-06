@@ -2,15 +2,19 @@ Source: ngcp-mediaproxy-ng
 Section: net
 Priority: extra
 Maintainer: Sipwise Development Team <support@sipwise.com>
-Build-Depends: debhelper (>= 5), iptables-dev (>= 1.4), libglib2.0-dev, libpcre3-dev,
-  libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07), libcurl4-openssl-dev | libcurl4-gnutls-dev |
-  libcurl3-openssl-dev | libcurl3-gnutls-dev
+Build-Depends: debhelper (>= 5),
+               iptables-dev (>= 1.4),
+               libcurl4-openssl-dev | libcurl4-gnutls-dev |
+  libcurl3-openssl-dev | libcurl3-gnutls-dev,
+               libglib2.0-dev,
+               libpcre3-dev,
+               libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07)
 Standards-Version: 3.9.3
 Homepage: http://sipwise.com/
 
 Package: ngcp-mediaproxy-ng-daemon
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Pre-Depends: ngcp-mediaproxy-ng-kernel-dkms (>= ${source:Version})
 Description: Proxy for RTP and media streams used in NGCP, userspace part.
  This daemon handles the first stages of proxying media streams and talks to
@@ -18,14 +22,15 @@ Description: Proxy for RTP and media streams used in NGCP, userspace part.
 
 Package: ngcp-mediaproxy-ng-iptables
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: IPtables extension module for the kernel-space NGCP media proxy.
  Provides the IPtables extension needed to configure the mediaproxy rule.
 
 Package: ngcp-mediaproxy-ng
 Architecture: all
-Depends: ngcp-mediaproxy-ng-daemon (>= ${source:Version}), ngcp-mediaproxy-ng-iptables (>= ${source:Version}),
-  ngcp-mediaproxy-ng-kernel-dkms (>= ${source:Version})
+Depends: ngcp-mediaproxy-ng-daemon (>= ${source:Version}),
+         ngcp-mediaproxy-ng-iptables (>= ${source:Version}),
+         ngcp-mediaproxy-ng-kernel-dkms (>= ${source:Version})
 Description: NGCP RTP/media proxy - meta package.
  This is a meta package for easy installation of all three parts of the NGCP
  media proxy. It will install the user-space daemon, the kernel-space IPtables
@@ -62,7 +67,9 @@ Description: Development files for mediaproxy-ng
 Package: ngcp-mediaproxy-ng-dbg
 Architecture: any
 Section: debug
-Depends: ngcp-mediaproxy-ng-daemon (= ${binary:Version}), ngcp-mediaproxy-ng-iptables (= ${binary:Version}), ${misc:Depends}
+Depends: ngcp-mediaproxy-ng-daemon (= ${binary:Version}),
+         ngcp-mediaproxy-ng-iptables (= ${binary:Version}),
+         ${misc:Depends}
 Description: debugging symbols for ngcp-mediaproxy-ng
  The ngcp-mediaproxy-ng daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
