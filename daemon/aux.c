@@ -3,6 +3,7 @@
 #include <glib.h>
 #include <pcre.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "aux.h"
 
@@ -119,19 +120,24 @@ void g_queue_clear(GQueue *q) {
 
 
 void thread_join_me() {
+	pthread_t *me;
+
+	me = g_slice_alloc(sizeof(*me));
+	*me = pthread_self();
 	mutex_lock(&threads_to_join_lock);
-	threads_to_join = g_slist_prepend(threads_to_join, g_thread_self());
+	threads_to_join = g_slist_prepend(threads_to_join, me);
 	mutex_unlock(&threads_to_join_lock);
 }
 
 void threads_join_all() {
-	GThread *t;
+	pthread_t *t;
 
 	mutex_lock(&threads_to_join_lock);
 	while (threads_to_join) {
 		t = threads_to_join->data;
-		g_thread_join(t);
+		pthread_join(*t, NULL);
 		threads_to_join = g_slist_delete_link(threads_to_join, threads_to_join);
+		g_slice_free1(sizeof(*t), t);
 	}
 	mutex_unlock(&threads_to_join_lock);
 }
@@ -145,6 +151,22 @@ static gpointer thread_detach_func(gpointer d) {
 	return NULL;
 }
 
+int thread_create(void *(*func)(void *), void *arg, int joinable, pthread_t *handle) {
+	pthread_attr_t att;
+	pthread_t thr;
+	int ret;
+
+	if (pthread_attr_init(&att))
+		abort();
+	if (pthread_attr_setdetachstate(&att, joinable ? PTHREAD_CREATE_JOINABLE : PTHREAD_CREATE_DETACHED))
+		abort();
+	ret = pthread_create(&thr, &att, func, arg);
+	pthread_attr_destroy(&att);
+	if (!ret && handle)
+		*handle = thr;
+	return ret;
+}
+
 void thread_create_detach(void (*f)(void *), void *d) {
 	struct detach_thread *dt;
 
@@ -152,6 +174,6 @@ void thread_create_detach(void (*f)(void *), void *d) {
 	dt->func = f;
 	dt->data = d;
 
-	if (!g_thread_create(thread_detach_func, dt, TRUE, NULL))
+	if (thread_create(thread_detach_func, dt, 1, NULL))
 		abort();
 }

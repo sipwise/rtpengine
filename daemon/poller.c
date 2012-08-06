@@ -459,7 +459,7 @@ static int poller_timer_link(struct poller *p, GSList **lp, void (*f)(void *), s
 	mutex_lock(&p->timers_add_del_lock);
 	*lp = g_slist_prepend(*lp, i);
 
-	if (mutex_trylock(&p->timers_lock)) {
+	if (!mutex_trylock(&p->timers_lock)) {
 		poller_timers_mod(p);
 		mutex_unlock(&p->timers_lock);
 	}
