@@ -8,7 +8,6 @@
 #include <arpa/inet.h>
 #include <dlfcn.h>
 #include <errno.h>
-#include <xmlrpc_client.h>
 
 #include "poller.h"
 #include "control.h"
@@ -309,17 +308,9 @@ static void wpidfile(void) {
 
 
 static void init_everything() {
-	xmlrpc_env e;
-
 	g_thread_init(NULL);
 	signals();
 	resources();
-
-	xmlrpc_env_init(&e);
-	xmlrpc_client_setup_global_const(&e);
-	if (e.fault_occurred)
-		abort();
-	xmlrpc_env_clean(&e);
 }
 
 
