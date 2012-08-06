@@ -567,7 +567,8 @@ void xmlrpc_kill_calls(void *p) {
 	while (xh->tags) {
 		xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
 			"sbc", "postControlCmd", xh->tags->data, "teardown");
-		xmlrpc_DECREF(r);
+		if (r)
+			xmlrpc_DECREF(r);
 
 		xh->tags = g_slist_delete_link(xh->tags, xh->tags);
 	}
