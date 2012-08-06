@@ -105,14 +105,6 @@ static void signals(void) {
 	pthread_sigmask(SIG_SETMASK, &ss, NULL);
 }
 
-static int rlim(int res, rlim_t val) {
-	struct rlimit rlim;
-
-	ZERO(rlim);
-	rlim.rlim_cur = rlim.rlim_max = val;
-	return setrlimit(res, &rlim);
-}
-
 static void resources(void) {
 	int tryv;
 
