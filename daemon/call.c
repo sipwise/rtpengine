@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <xmlrpc_client.h>
+#include <sys/wait.h>
 
 #include "call.h"
 #include "poller.h"
@@ -546,10 +547,25 @@ void xmlrpc_kill_calls(void *p) {
 	xmlrpc_env e;
 	xmlrpc_client *c;
 	xmlrpc_value *r;
-
-	xmlrpc_env_init(&e);
+	pid_t pid;
+	sigset_t ss;
 
 	while (xh->tags) {
+		pid = fork();
+
+		if (pid) {
+			waitpid(pid, NULL, 0);
+			xh->tags = g_slist_delete_link(xh->tags, xh->tags);
+			continue;
+		}
+
+		/* child process */
+		sigemptyset(&ss);
+		sigprocmask(SIG_SETMASK, &ss, NULL);
+		alarm(5);
+
+		xmlrpc_env_init(&e);
+		xmlrpc_client_setup_global_const(&e);
 		xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION,
 			NULL, 0, &c);
 		if (e.fault_occurred)
@@ -562,11 +578,13 @@ void xmlrpc_kill_calls(void *p) {
 
 		xmlrpc_client_destroy(c);
 		xh->tags = g_slist_delete_link(xh->tags, xh->tags);
+		xmlrpc_env_clean(&e);
+
+		_exit(0);
 	}
 
 	g_string_chunk_free(xh->c);
 	g_slice_free1(sizeof(*xh), xh);
-	xmlrpc_env_clean(&e);
 }
 
 void kill_calls_timer(GSList *list, struct callmaster *m) {
