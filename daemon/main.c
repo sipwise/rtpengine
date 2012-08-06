@@ -319,6 +319,7 @@ static void init_everything() {
 	xmlrpc_client_setup_global_const(&e);
 	if (e.fault_occurred)
 		abort();
+	xmlrpc_env_clean(&e);
 }
 
 
