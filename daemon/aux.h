@@ -169,11 +169,10 @@ typedef pthread_cond_t cond_t;
 #define cond_wait(c,m) pthread_cond_wait(c,m)
 #define cond_signal(c) pthread_cond_signal(c)
 #define cond_broadcast(c) pthread_cond_broadcast(c)
+#define COND_STATIC_INIT PTHREAD_COND_INITIALIZER
 
 
-void thread_join_me();
-void threads_join_all();
-int thread_create(void *(*)(void *), void *, int, pthread_t *);
+void threads_join_all(int);
 void thread_create_detach(void (*)(void *), void *);
 
 
