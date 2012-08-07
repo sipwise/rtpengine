@@ -82,6 +82,9 @@ struct call {
 
 	struct callmaster	*callmaster;
 
+	mutex_t			chunk_lock;
+	GStringChunk		*chunk;
+
 	mutex_t			lock;
 	GQueue			*callstreams;
 	GHashTable		*branches;
@@ -134,6 +137,16 @@ struct call *call_get_or_create(const char *callid, const char *viabranch, struc
 struct callstream *callstream_new(struct call *ca, int num);
 void callstream_init(struct callstream *s, int port1, int port2);
 void kernelize(struct callstream *c);
+
+static inline char *call_strdup(struct call *c, const char *s) {
+	char *r;
+	if (!s)
+		return NULL;
+	mutex_lock(&c->chunk_lock);
+	r = g_string_chunk_insert(c->chunk, s);
+	mutex_unlock(&c->chunk_lock);
+	return r;
+}
 
 
 

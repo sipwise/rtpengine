@@ -415,21 +415,20 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 
 
 static int info_parse_func(char **a, void **ret, void *p) {
-	GHashTable *h = p;
+	struct call *c = p;
 
-	g_hash_table_replace(h, strdup(a[0]), a[1] ? strdup(a[1]) : NULL);
+	g_hash_table_replace(c->infohash, call_strdup(c, a[0]), call_strdup(c, a[1]));
 
 	return -1;
 }
 
 
-static GHashTable *info_parse(const char *s, GHashTable **h, struct callmaster *m) {
+static void info_parse(const char *s, struct call *c) {
 	GQueue *q;
+	struct callmaster *m = c->callmaster;
 
-	q = pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, *h);
+	q = pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, c);
 	g_queue_free(q);
-
-	return *h;
 }
 
 
@@ -447,7 +446,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 
 	in4_to_6(&st->ip46, ip);
 	st->port = atoi(a[1]);
-	st->mediatype = strdup(a[2] ? : "");
+	st->mediatype = strdup(a[2] ? : ""); /* XXX should use string chunks */
 	st->num = ++(*i);
 
 	if (!st->port)
@@ -959,9 +958,11 @@ fail:
 static int setup_peer(struct peer *p, struct stream *s, const char *tag) {
 	struct streamrelay *a, *b;
 	struct callstream *cs;
+	struct call *ca;
 	int i;
 
 	cs = p->up;
+	ca = cs->call;
 	a = &p->rtps[0];
 	b = &p->rtps[1];
 
@@ -993,8 +994,8 @@ static int setup_peer(struct peer *p, struct stream *s, const char *tag) {
 		}
 	}
 
-	strdupfree(&p->mediatype, s->mediatype);
-	strdupfree(&p->tag, tag);
+	p->mediatype = call_strdup(ca, s->mediatype);
+	p->tag = call_strdup(ca, tag);
 	p->filled = 1;
 
 	return 0;
@@ -1025,8 +1026,10 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	unkernelize(src);
 
 	dest->filled = 1;
-	strmove(&dest->mediatype, &src->mediatype);
-	strmove(&dest->tag, &src->tag);
+	dest->mediatype = src->mediatype;
+	dest->tag = src->tag;
+	src->mediatype = "";
+	src->tag = "";
 	//dest->kernelized = src->kernelized;
 	//src->kernelized = 0;
 	dest->desired_family = src->desired_family;
@@ -1087,8 +1090,8 @@ void callstream_init(struct callstream *s, int port1, int port2) {
 
 		p->idx = i;
 		p->up = s;
-		p->tag = strdup("");
-		p->mediatype = strdup("");
+		p->tag = "";
+		p->mediatype = "";
 
 		for (j = 0; j < 2; j++) {
 			r = &p->rtps[j];
@@ -1129,9 +1132,6 @@ static void callstream_free(void *ptr) {
 
 	for (i = 0; i < 2; i++) {
 		p = &s->peers[i];
-
-		free(p->tag);
-		free(p->mediatype);
 
 		for (j = 0; j < 2; j++) {
 			r = &p->rtps[j];
@@ -1502,13 +1502,10 @@ static void call_free(void *p) {
 
 	g_hash_table_destroy(c->infohash);
 	g_hash_table_destroy(c->branches);
-	if (c->calling_agent)
-		free(c->calling_agent);
-	if (c->called_agent)
-		free(c->called_agent);
 	g_queue_free(c->callstreams);
-	free(c->callid);
 	mutex_destroy(&c->lock);
+	mutex_destroy(&c->chunk_lock);
+	g_string_chunk_free(c->chunk);
 }
 
 static struct call *call_create(const char *callid, struct callmaster *m) {
@@ -1518,11 +1515,13 @@ static struct call *call_create(const char *callid, struct callmaster *m) {
 		callid);	/* XXX will spam syslog on recovery from DB */
 	c = obj_alloc0("call", sizeof(*c), call_free);
 	c->callmaster = m;
-	c->callid = strdup(callid);
+	c->chunk = g_string_chunk_new(256);
+	mutex_init(&c->chunk_lock);
+	c->callid = call_strdup(c, callid);
 	c->callstreams = g_queue_new();
 	c->created = poller_now;
-	c->infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
-	c->branches = g_hash_table_new_full(g_str_hash0, g_str_equal0, free, NULL);
+	c->infohash = g_hash_table_new(g_str_hash, g_str_equal);
+	c->branches = g_hash_table_new(g_str_hash0, g_str_equal0);
 	mutex_init(&c->lock);
 	return c;
 }
@@ -1556,7 +1555,8 @@ restart:
 	}
 
 	if (viabranch && !g_hash_table_lookup(c->branches, viabranch))
-		g_hash_table_insert(c->branches, strdup(viabranch), (void *) 0x1);
+		g_hash_table_insert(c->branches, call_strdup(c, viabranch),
+		(void *) 0x1);
 
 	return c;
 }
@@ -1616,7 +1616,7 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 
 	c = call_get_or_create(out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH], m);
 	log_info = out[RE_UDP_UL_VIABRANCH];
-	strdupfree(&c->calling_agent, "UNKNOWN(udp)");
+	c->calling_agent = "UNKNOWN(udp)";
 
 	if (addr_parse_udp(&st, out))
 		goto fail;
@@ -1669,7 +1669,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	rwlock_unlock_r(&m->hashlock);
 
 	log_info = out[RE_UDP_UL_VIABRANCH];
-	strdupfree(&c->called_agent, "UNKNOWN(udp)");
+	c->called_agent = "UNKNOWN(udp)";
 
 	if (addr_parse_udp(&st, out))
 		goto fail;
@@ -1706,8 +1706,9 @@ char *call_request(const char **out, struct callmaster *m) {
 
 	c = call_get_or_create(out[RE_TCP_RL_CALLID], NULL, m);
 
-	strdupfree(&c->calling_agent, (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT]) ? out[RE_TCP_RL_AGENT] : "UNKNOWN");
-	info_parse(out[RE_TCP_RL_INFO], &c->infohash, m);
+	c->calling_agent = (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT])
+		? call_strdup(c, out[RE_TCP_RL_AGENT]) : "UNKNOWN";
+	info_parse(out[RE_TCP_RL_INFO], c);
 	s = streams_parse(out[RE_TCP_RL_STREAMS], m);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
@@ -1739,8 +1740,9 @@ char *call_lookup(const char **out, struct callmaster *m) {
 	mutex_lock(&c->lock);
 	rwlock_unlock_r(&m->hashlock);
 
-	strdupfree(&c->called_agent, out[RE_TCP_RL_AGENT] ? : "UNKNOWN");
-	info_parse(out[RE_TCP_RL_INFO], &c->infohash, m);
+	c->called_agent = (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT])
+		? call_strdup(c, out[RE_TCP_RL_AGENT]) : "UNKNOWN";
+	info_parse(out[RE_TCP_RL_INFO], c);
 	s = streams_parse(out[RE_TCP_RL_STREAMS], m);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
