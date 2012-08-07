@@ -431,10 +431,10 @@ int main(int argc, char **argv) {
 
 	while (!global_shutdown) {
 		usleep(100000);
-		threads_join_all();
+		threads_join_all(0);
 	}
 
-	threads_join_all();
+	threads_join_all(1);
 
 	mylog(LOG_INFO, "Version %s shutting down", MEDIAPROXY_VERSION);
 

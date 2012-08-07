@@ -24,8 +24,10 @@ struct detach_thread {
 };
 
 
-mutex_t threads_to_join_lock = MUTEX_STATIC_INIT;
-static GSList *threads_to_join;
+static mutex_t threads_lists_lock = MUTEX_STATIC_INIT;
+static GList *threads_to_join;
+static GList *threads_running;
+static cond_t threads_cond = COND_STATIC_INIT;
 
 
 
@@ -119,31 +121,58 @@ void g_queue_clear(GQueue *q) {
 
 
 
-void thread_join_me() {
+static void thread_join_me() {
 	pthread_t *me;
 
 	me = g_slice_alloc(sizeof(*me));
 	*me = pthread_self();
-	mutex_lock(&threads_to_join_lock);
-	threads_to_join = g_slist_prepend(threads_to_join, me);
-	mutex_unlock(&threads_to_join_lock);
+	mutex_lock(&threads_lists_lock);
+	threads_to_join = g_list_prepend(threads_to_join, me);
+	cond_broadcast(&threads_cond);
+	mutex_unlock(&threads_lists_lock);
 }
 
-void threads_join_all() {
+static gint thread_equal(gconstpointer a, gconstpointer b) {
+	const pthread_t *x = a, *y = b;
+	return !pthread_equal(*x, *y);
+}
+
+void threads_join_all(int wait) {
+	pthread_t *t;
+	GList *l;
+
+	mutex_lock(&threads_lists_lock);
+	while (1) {
+		while (threads_to_join) {
+			t = threads_to_join->data;
+			pthread_join(*t, NULL);
+			threads_to_join = g_list_delete_link(threads_to_join, threads_to_join);
+			l = g_list_find_custom(threads_running, t, thread_equal);
+			if (l)
+				threads_running = g_list_delete_link(threads_running, l);
+			else
+				abort();
+			g_slice_free1(sizeof(*t), t);
+		}
+
+		if (!wait)
+			break;
+		if (!threads_running)
+			break;
+		cond_wait(&threads_cond, &threads_lists_lock);
+	}
+	mutex_unlock(&threads_lists_lock);
+}
+
+static void *thread_detach_func(void *d) {
+	struct detach_thread *dt = d;
 	pthread_t *t;
 
-	mutex_lock(&threads_to_join_lock);
-	while (threads_to_join) {
-		t = threads_to_join->data;
-		pthread_join(*t, NULL);
-		threads_to_join = g_slist_delete_link(threads_to_join, threads_to_join);
-		g_slice_free1(sizeof(*t), t);
-	}
-	mutex_unlock(&threads_to_join_lock);
-}
-
-static gpointer thread_detach_func(gpointer d) {
-	struct detach_thread *dt = d;
+	t = g_slice_alloc(sizeof(*t));
+	*t = pthread_self();
+	mutex_lock(&threads_lists_lock);
+	threads_running = g_list_prepend(threads_running, t);
+	mutex_unlock(&threads_lists_lock);
 
 	dt->func(dt->data);
 	g_slice_free1(sizeof(*dt), dt);
@@ -151,7 +180,7 @@ static gpointer thread_detach_func(gpointer d) {
 	return NULL;
 }
 
-int thread_create(void *(*func)(void *), void *arg, int joinable, pthread_t *handle) {
+static int thread_create(void *(*func)(void *), void *arg, int joinable, pthread_t *handle) {
 	pthread_attr_t att;
 	pthread_t thr;
 	int ret;
@@ -162,9 +191,12 @@ int thread_create(void *(*func)(void *), void *arg, int joinable, pthread_t *han
 		abort();
 	ret = pthread_create(&thr, &att, func, arg);
 	pthread_attr_destroy(&att);
-	if (!ret && handle)
+	if (ret)
+		return ret;
+	if (handle)
 		*handle = thr;
-	return ret;
+
+	return 0;
 }
 
 void thread_create_detach(void (*f)(void *), void *d) {
