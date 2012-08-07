@@ -22,12 +22,28 @@
 
 
 #define die(x...) do { fprintf(stderr, x); exit(-1); } while(0)
-#define dlresolve(m,n) do {										\
-				n = dlsym(m, "mod_" #n);						\
-				if (!n)									\
-					die("Failed to resolve symbol from plugin: %s\n", #n);		\
-			} while(0)
-
+#define dlresolve(n) do {								\
+	n = dlsym(dlh, "mod_" #n);							\
+	if (!n)										\
+		die("Failed to resolve symbol from plugin: %s\n", "mod_" #n);		\
+} while(0)
+#define check_struct_size(x) do {							\
+	unsigned long *uip;								\
+	uip = dlsym(dlh, "__size_struct_" #x);						\
+	if (!uip)										\
+		die("Failed to resolve symbol from plugin: %s\n", "__size_struct_" #x);	\
+	if (*uip != sizeof(struct x))							\
+		die("Struct size mismatch in plugin: %s\n", #x);			\
+} while(0)
+#define check_struct_offset(x,y) do {							\
+	unsigned long *uip;								\
+	uip = dlsym(dlh, "__offset_struct_" #x "_" #y);					\
+	if (!uip)										\
+		die("Failed to resolve symbol from plugin: %s\n", 			\
+		"__offset_struct_" #x "_" #y);						\
+	if (*uip != (unsigned long) &(((struct x *) 0)->y))				\
+		die("Struct offset mismatch in plugin: %s->%s\n", #x, #y);		\
+} while(0)
 
 
 
@@ -306,6 +322,41 @@ static void init_everything() {
 	resources();
 }
 
+void redis_mod_verify(void *dlh) {
+	dlresolve(redis_new);
+	dlresolve(redis_restore);
+	dlresolve(redis_update);
+	dlresolve(redis_delete);
+	dlresolve(redis_wipe);
+
+	check_struct_size(call);
+	check_struct_size(callstream);
+
+	check_struct_offset(call, callmaster);
+	check_struct_offset(call, chunk);
+	check_struct_offset(call, callstreams);
+	check_struct_offset(call, branches);
+	check_struct_offset(call, callid);
+	check_struct_offset(call, calling_agent);
+	check_struct_offset(call, called_agent);
+
+	check_struct_offset(callstream, peers);
+	check_struct_offset(callstream, call);
+
+	check_struct_offset(peer, rtps);
+	check_struct_offset(peer, tag);
+	check_struct_offset(peer, mediatype);
+	check_struct_offset(peer, up);
+
+	check_struct_offset(streamrelay, fd);
+	check_struct_offset(streamrelay, peer);
+	check_struct_offset(streamrelay, up);
+	check_struct_offset(streamrelay, last);
+
+	check_struct_offset(stream, ip46);
+	check_struct_offset(stream, mediatype);
+	check_struct_offset(stream, num);
+}
 
 void create_everything(struct main_context *ctx) {
 	struct callmaster_config mc;
@@ -378,13 +429,7 @@ void create_everything(struct main_context *ctx) {
 		strp = dlsym(dlh, "__module_version");
 		if (!strp || !*strp || strcmp(*strp, "redis/1.0.1"))
 			die("Incorrect redis module version: %s\n", *strp);
-
-		dlresolve(dlh, redis_new);
-		dlresolve(dlh, redis_restore);
-		dlresolve(dlh, redis_update);
-		dlresolve(dlh, redis_delete);
-		dlresolve(dlh, redis_wipe);
-
+		redis_mod_verify(dlh);
 		mc.redis = redis_new(redis_ip, redis_port, redis_db);
 		if (!mc.redis)
 			die("Cannot start up without Redis database\n");
