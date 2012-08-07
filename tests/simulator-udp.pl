@@ -5,6 +5,15 @@ use warnings;
 use Socket;
 use UUID;
 use BSD::Resource;
+use Getopt::Long;
+
+my ($NUM, $IP) = (1000, '127.0.0.1'),
+my ($NODEL);
+GetOptions(
+		'no-delete'	=> \$NODEL,
+		'num-calls=i'	=> \$NUM,
+		'local-ip=s'	=> \$IP,
+) or die;
 
 $SIG{ALRM} = sub { print "alarm!\n"; };
 setrlimit(RLIMIT_NOFILE, 8000, 8000);
@@ -41,29 +50,11 @@ connect($fd, sockaddr_in(12222, inet_aton("127.0.0.1"))) or die $!;
 msg('V') eq '20040107' or die;
 
 my @calls;
-for my $iter (1 .. 1000) {
-	($iter % 10 == 0) and print("$iter\n");
 
-	my $callid = rand_str(50);
-
-	my @prefixes = qw(USII LS);
-	my (@fds,@ports,@ips,@tags,@outputs);
-	for my $i (0,1) {
-		socket($fds[$i], AF_INET, SOCK_DGRAM, 0) or die $!;
-		bind($fds[$i], sockaddr_in(0, INADDR_ANY)) or die $!;
-		my $addr = getsockname($fds[$i]);
-		($ports[$i]) = sockaddr_in($addr);
-		$ips[$i] = '127.0.0.1';
-		$tags[$i] = rand_str(15);
-		my $tagstr = ($i == 1 ? "$tags[0];1 " : '') . "$tags[$i];1";
-		my $o = msg("$prefixes[$i] $callid $ips[$i] $ports[$i] $tagstr");
-		$o =~ /^(\d+) ([\d.]+) 4[\r\n]*$/s or die $o;
-		$outputs[$i] = [$1,$2];
-	}
-
-	push(@calls, [\(@fds,@ports,@ips,@tags,@outputs), $callid]);
-
+sub do_rtp {
+	print("sending rtp\n");
 	for my $c (@calls) {
+		$c or next;
 		my ($fds,$outputs) = @$c[0,4];
 		for my $i ([0,1],[1,0]) {
 			my ($a, $b) = @$i;
@@ -74,15 +65,49 @@ for my $iter (1 .. 1000) {
 			recv($$fds[$b], $x, 0xffff, 0) or $err = "$!";
 			alarm(0);
 			$err && $err !~ /interrupt/i and die $err;
-			$x eq 'rtp' or warn $x;
+			$x eq 'rtp' or warn "no rtp reply received, ports $$outputs[$b][0] and $$outputs[$a][0]", undef($c);
 		}
 	}
 }
 
-sleep(30);
+for my $iter (1 .. $NUM) {
+	($iter % 10 == 0) and print("$iter\n"), do_rtp();
 
-@calls = sort {rand() < .5} @calls;
-for my $c (@calls) {
-	my ($tags, $callid) = @$c[3,5];
-	msg("D $callid $$tags[0] $$tags[1]");
+	my $callid = rand_str(50);
+
+	my @prefixes = qw(USII LS);
+	my (@fds,@ports,@ips,@tags,@outputs);
+	for my $i (0,1) {
+		socket($fds[$i], AF_INET, SOCK_DGRAM, 0) or die $!;
+		while (1) {
+			my $port = rand(0x7000) << 1 + 1024;
+			bind($fds[$i], sockaddr_in($port, inet_aton($IP))) and last;
+		}
+		my $addr = getsockname($fds[$i]);
+		($ports[$i]) = sockaddr_in($addr);
+		$ips[$i] = $IP;
+		$tags[$i] = rand_str(15);
+		my $tagstr = ($i == 1 ? "$tags[0];1 " : '') . "$tags[$i];1";
+		my $o = msg("$prefixes[$i] $callid $ips[$i] $ports[$i] $tagstr");
+		$o =~ /^(\d+) ([\d.]+) 4[\r\n]*$/s or die $o;
+		$1 == 0 and die "mediaproxy ran out of ports";
+		$outputs[$i] = [$1,$2];
+	}
+
+	push(@calls, [\(@fds,@ports,@ips,@tags,@outputs), $callid]);
 }
+
+for (1 .. 30) {
+	sleep(1);
+	do_rtp();
+}
+
+if (!$NODEL) {
+	print("deleting\n");
+	@calls = sort {rand() < .5} @calls;
+	for my $c (@calls) {
+		my ($tags, $callid) = @$c[3,5];
+		msg("D $callid $$tags[0] $$tags[1]");
+	}
+}
+print("done\n");
