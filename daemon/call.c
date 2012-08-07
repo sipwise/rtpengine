@@ -198,7 +198,7 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	struct streamrelay *p, *p2;
 	struct peer *pe, *pe2;
 	struct callstream *cs;
-	int ret;
+	int ret, update = 0;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
@@ -263,8 +263,7 @@ peerinfo:
 	if (pe->confirmed && pe2->confirmed && pe2->filled)
 		kernelize(cs);
 
-	if (redis_update)
-		redis_update(c, m->conf.redis);
+	update = 1;
 
 forward:
 	if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->peer.port || !r->fd_family)
@@ -337,10 +336,11 @@ forward:
 		mutex_lock(&m->statspslock);
 		m->statsps.errors++;
 		mutex_unlock(&m->statspslock);
-		return -1;
+		goto out;
 	}
 
 drop:
+	ret = 0;
 	r->stats.packets++;
 	r->stats.bytes += l;
 	r->last = poller_now;
@@ -350,7 +350,11 @@ drop:
 	m->statsps.bytes += l;
 	mutex_unlock(&m->statspslock);
 
-	return 0;
+out:
+	if (update && redis_update)
+		redis_update(c, m->conf.redis);
+
+	return ret;
 }
 
 
@@ -1625,14 +1629,14 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 
 	g_queue_push_tail(&q, &st);
 	num = call_streams(c, &q, out[RE_UDP_UL_FROMTAG], 0);
-
 	g_queue_clear(&q);
+
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
+	mutex_unlock(&c->lock);
 
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
-	mutex_unlock(&c->lock);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
 	log_info = NULL;
 	obj_put(c);
@@ -1675,14 +1679,14 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 
 	g_queue_push_tail(&q, &st);
 	num = call_streams(c, &q, out[RE_UDP_UL_TOTAG], 1);
-
 	g_queue_clear(&q);
+
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
+	mutex_unlock(&c->lock);
 
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
-	mutex_unlock(&c->lock);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
 	log_info = NULL;
 	obj_put(c);
@@ -1710,12 +1714,12 @@ char *call_request(const char **out, struct callmaster *m) {
 	s = streams_parse(out[RE_TCP_RL_STREAMS], m);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(s);
+	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
+	mutex_unlock(&c->lock);
 
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
-	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
-	mutex_unlock(&c->lock);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
 	obj_put(c);
 	return ret;
@@ -1743,12 +1747,12 @@ char *call_lookup(const char **out, struct callmaster *m) {
 	s = streams_parse(out[RE_TCP_RL_STREAMS], m);
 	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(s);
+	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
+	mutex_unlock(&c->lock);
 
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
-	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
-	mutex_unlock(&c->lock);
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
 	obj_put(c);
 	return ret;
