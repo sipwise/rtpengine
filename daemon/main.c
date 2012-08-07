@@ -301,6 +301,7 @@ static void wpidfile(void) {
 
 static void init_everything() {
 	g_thread_init(NULL);
+	openlog("mediaproxy-ng", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 	signals();
 	resources();
 }
