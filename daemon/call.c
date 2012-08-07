@@ -1654,7 +1654,11 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 
 	rwlock_lock_r(&m->hashlock);
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_UL_CALLID]);
+	if (c)
+		mutex_lock(&c->lock);
 	if (!c || !g_hash_table_lookup(c->branches, out[RE_UDP_UL_VIABRANCH])) {
+		if (c)
+			mutex_unlock(&c->lock);
 		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id or unknown via-branch",
 			out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH]);
@@ -1662,7 +1666,6 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 		return ret;
 	}
 	obj_hold(c);
-	mutex_lock(&c->lock);
 	rwlock_unlock_r(&m->hashlock);
 
 	log_info = out[RE_UDP_UL_VIABRANCH];
