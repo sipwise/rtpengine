@@ -131,7 +131,8 @@ void calls_status(struct callmaster *, struct control_stream *);
 void calls_dump_redis(struct callmaster *);
 
 struct call *call_get_or_create(const char *callid, const char *viabranch, struct callmaster *m);
-void callstream_init(struct callstream *s, struct call *ca, int port1, int port2, int num);
+struct callstream *callstream_new(struct call *ca, int num);
+void callstream_init(struct callstream *s, int port1, int port2);
 void kernelize(struct callstream *c);
 
 

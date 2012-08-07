@@ -1072,21 +1072,15 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 }
 
 
-void callstream_init(struct callstream *s, struct call *ca, int port1, int port2, int num) {
+void callstream_init(struct callstream *s, int port1, int port2) {
 	int i, j, tport;
 	struct peer *p;
 	struct streamrelay *r;
 	struct poller_item pi;
 	struct poller *po;
 
-	po = ca->callmaster->poller;
-
+	po = s->call->callmaster->poller;
 	ZERO(pi);
-
-	s->call = obj_get(ca);
-	DBG("setting new callstream num to %i", num);
-	s->num = num;
-	mutex_init(&s->lock);
 
 	for (i = 0; i < 2; i++) {
 		p = &s->peers[i];
@@ -1201,17 +1195,17 @@ found:
 		if (!opmode) {	/* request */
 			DBG("creating new callstream");
 
-			cs = obj_alloc0("callstream", sizeof(*cs), callstream_free);
+			cs = callstream_new(c, t->num);
 
 			if (!r) {
 				/* nothing found to re-use, open new ports */
-				callstream_init(cs, c, 0, 0, t->num);
+				callstream_init(cs, 0, 0);
 				p = &cs->peers[0];
 				setup_peer(p, t, tag);
 			}
 			else {
 				/* re-use, so don't open new ports */
-				callstream_init(cs, c, -1, -1, t->num);
+				callstream_init(cs, -1, -1);
 				if (r->up->idx == 0) {
 					/* request/lookup came in the same order as before */
 					steal_peer(&cs->peers[0], &cs_o->peers[0]);
@@ -1292,8 +1286,8 @@ got_cs:
 			if (cs_o)
 				mutex_unlock(&cs_o->lock);
 			cs_o = cs;
-			cs = obj_alloc0("callstream", sizeof(*cs), callstream_free);
-			callstream_init(cs, c, 0, 0, t->num);
+			cs = callstream_new(c, t->num);
+			callstream_init(cs, 0, 0);
 			mutex_lock(&cs->lock);
 			steal_peer(&cs->peers[0], &cs_o->peers[0]);
 			p = &cs->peers[1];
@@ -1974,4 +1968,15 @@ void calls_dump_redis(struct callmaster *m) {
 
 void callmaster_config(struct callmaster *m, struct callmaster_config *c) {
 	m->conf = *c;
+}
+
+struct callstream *callstream_new(struct call *ca, int num) {
+	struct callstream *s;
+
+	s = obj_alloc0("callstream", sizeof(*s), callstream_free);
+	s->call = obj_get(ca);
+	s->num = num;
+	mutex_init(&s->lock);
+
+	return s;
 }
