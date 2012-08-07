@@ -371,6 +371,8 @@ void create_everything(struct main_context *ctx) {
 
 	if (redis_ip) {
 		dlh = dlopen(MP_PLUGIN_DIR "/mediaproxy-redis.so", RTLD_NOW | RTLD_GLOBAL);
+		if (!dlh && errno == ENOENT)
+			dlh = dlopen("../../mediaproxy-redis/redis.so", RTLD_NOW | RTLD_GLOBAL);
 		if (!dlh)
 			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
 		strp = dlsym(dlh, "__module_version");
