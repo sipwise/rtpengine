@@ -140,6 +140,7 @@ if (!$NODEL) {
 	print("deleting\n");
 	@calls = sort {rand() < .5} @calls;
 	for my $c (@calls) {
+		$c or next;
 		my ($tags, $callid) = @$c[3,5];
 		msg("D $callid $$tags[0] $$tags[1]");
 	}
