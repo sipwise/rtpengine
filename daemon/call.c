@@ -1671,7 +1671,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	mutex_lock(&c->lock);
 	rwlock_unlock_r(&m->hashlock);
 
-	log_info = out[RE_UDP_UL_CALLID];
+	log_info = out[RE_UDP_UL_VIABRANCH];
 	strdupfree(&c->called_agent, "UNKNOWN(udp)");
 
 	if (addr_parse_udp(&st, out))
