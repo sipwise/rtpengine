@@ -9,13 +9,14 @@ use Getopt::Long;
 use Socket6;
 
 my ($NUM, $RUNTIME) = (1000, 30);
-my ($NODEL, $IP, $IPV6);
+my ($NODEL, $IP, $IPV6, $KEEPGOING);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
 		'local-ip=s'	=> \$IP,
 		'local-ipv6=s'	=> \$IPV6,
 		'runtime=i'	=> \$RUNTIME,
+		'keep-going'	=> \$KEEPGOING,		# don't stop sending rtp if a packet doesn't go through
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -64,7 +65,8 @@ sub do_rtp {
 		for my $i ([0,1],[1,0]) {
 			my ($a, $b) = @$i;
 			my $pr = $$protos[$a];
-			send($$fds[$a], 'rtp', 0, $$pr{sockaddr}($$outputs[$b][0],
+			my $payload = rand_str(100);
+			send($$fds[$a], $payload, 0, $$pr{sockaddr}($$outputs[$b][0],
 				inet_pton($$pr{family}, $$outputs[$b][1]))) or die $!;
 			my $x;
 			my $err = '';
@@ -72,7 +74,10 @@ sub do_rtp {
 			recv($$fds[$b], $x, 0xffff, 0) or $err = "$!";
 			alarm(0);
 			$err && $err !~ /interrupt/i and die $err;
-			$x eq 'rtp' or warn("no rtp reply received, ports $$outputs[$b][0] and $$outputs[$a][0]"), undef($c);
+			if (($x || '') ne $payload) {
+				warn("no rtp reply received, ports $$outputs[$b][0] and $$outputs[$a][0]");
+				$KEEPGOING or undef($c);
+			}
 		}
 	}
 }
