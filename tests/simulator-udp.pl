@@ -175,6 +175,7 @@ while (time() < $end) {
 				print(", side $sides[$i]: same port");
 			}
 		}
+		print("\n");
 		update_lookup($c, 0);
 		update_lookup($c, 1);
 	}
