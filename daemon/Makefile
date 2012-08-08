@@ -32,13 +32,10 @@ all:
 debug:
 	$(MAKE) DBG=yes all
 
-tests:
-	$(MAKE) aux-test poller-test
-
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) mediaproxy-ng aux-test poller-test aux-test.o poller-test.o .depend core
+	rm -f $(OBJS) mediaproxy-ng .depend core
 
 .depend:	$(SRCS) Makefile
 	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
