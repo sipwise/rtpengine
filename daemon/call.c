@@ -513,6 +513,10 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 			p = &cs->peers[i];
 			for (j = 0; j < 2; j++) {
 				sr = &p->rtps[j];
+				if (!sr->localport)
+					continue;
+				if (hlp->ports[sr->localport])
+					abort();
 				hlp->ports[sr->localport] = sr;
 				obj_hold(cs);
 
