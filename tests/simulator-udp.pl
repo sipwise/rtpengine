@@ -200,6 +200,7 @@ if (!$NODEL) {
 	for my $c (@calls) {
 		$c or next;
 		my ($tags, $callid) = @$c[3,5];
+		$BRANCHES && rand() < .3 and $callid =~ s/;.*//;
 		msg("D $callid $$tags[0] $$tags[1]");
 	}
 }
