@@ -36,6 +36,8 @@
 #define LOG_PARAMS_C(c) (c)->callid
 #define LOG_PARAMS_CI(c) (c)->callid, log_info
 
+#define xasprintf(a...) if (asprintf(a) == -1) abort()
+
 static __thread const char *log_info;
 
 
@@ -1639,7 +1641,7 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 fail:
 	mutex_unlock(&c->lock);
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
-	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
+	xasprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	log_info = NULL;
 	obj_put(c);
 	return ret;
@@ -1662,7 +1664,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id or unknown via-branch",
 			out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH]);
-		asprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
+		xasprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
 		return ret;
 	}
 	obj_hold(c);
@@ -1692,7 +1694,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 fail:
 	mutex_unlock(&c->lock);
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
-	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
+	xasprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	log_info = NULL;
 	obj_put(c);
 	return ret;
@@ -1829,13 +1831,13 @@ tag_match:
 success_unlock:
 	mutex_unlock(&c->lock);
 success:
-	asprintf(&ret, "%s 0\n", out[RE_UDP_COOKIE]);
+	xasprintf(&ret, "%s 0\n", out[RE_UDP_COOKIE]);
 	goto out;
 
 err:
 	if (c)
 		mutex_unlock(&c->lock);
-	asprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
+	xasprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
 	goto out;
 
 out:
