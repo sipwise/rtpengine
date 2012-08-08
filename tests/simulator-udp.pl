@@ -9,7 +9,7 @@ use Getopt::Long;
 use Socket6;
 
 my ($NUM, $RUNTIME) = (1000, 30);
-my ($NODEL, $IP, $IPV6, $KEEPGOING);
+my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -17,6 +17,7 @@ GetOptions(
 		'local-ipv6=s'	=> \$IPV6,
 		'runtime=i'	=> \$RUNTIME,
 		'keep-going'	=> \$KEEPGOING,		# don't stop sending rtp if a packet doesn't go through
+		'reinvites'	=> \$REINVITES,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -101,49 +102,86 @@ my %proto_defs = (
 my @protos_avail;
 $IP and push(@protos_avail, $proto_defs{ipv4});
 $IPV6 and push(@protos_avail, $proto_defs{ipv6});
+my @sides = qw(A B);
+
+sub update_lookup {
+	my ($c, $i) = @_;
+	my $j = $i ^ 1;
+
+	my $callid = $$c[5] || ($$c[5] = rand_str(50));
+
+	my $protos = $$c[6] || ($$c[6] = []);
+	my $fds = $$c[0] || ($$c[0] = []);
+	for my $x (0,1) {
+		$$protos[$x] and next;
+		$$protos[$x] = $protos_avail[rand(@protos_avail)];
+		undef($$fds[$x]);
+	}
+	my ($pr, $pr_o) = @$protos[$i, $j];
+	my @prefixes = qw(US LS);
+	$prefixes[0] .= join('', (map {$_->{code}} @$protos));
+
+	my $ports = $$c[1] || ($$c[1] = []);
+	my $ips = $$c[2] || ($$c[2] = []);
+	if (!$$fds[$i]) {
+		socket($$fds[$i], $$pr{family}, SOCK_DGRAM, 0) or die $!;
+		while (1) {
+			my $port = rand(0x7000) << 1 + 1024;
+			bind($$fds[$i], $$pr{sockaddr}($port,
+				inet_pton($$pr{family}, $$pr{address}))) and last;
+		}
+		my $addr = getsockname($$fds[$i]);
+		my $ip;
+		($$ports[$i], $ip) = $$pr{sockaddr}($addr);
+		$$ips[$i] = inet_ntop($$pr{family}, $ip);
+	}
+
+	my $tags = $$c[3] || ($$c[3] = []);
+	$$tags[$i] or $$tags[$i] = rand_str(15);
+
+	my $tagstr = ($i == 1 ? "$$tags[0];1 " : '') . "$$tags[$i];1";
+	my $o = msg("$prefixes[$i] $callid $$ips[$i] $$ports[$i] $tagstr");
+	$o =~ /^(\d+) ([\d.a-f:]+) ([46])[\r\n]*$/is or die $o;
+	$1 == 0 and die "mediaproxy ran out of ports";
+	$3 ne $$pr_o{reply} and die "incorrect address family reply code";
+	$$c[4][$i] = [$1,$2];
+}
 
 for my $iter (1 .. $NUM) {
 	($iter % 10 == 0) and print("$iter\n"), do_rtp();
 
-	my $callid = rand_str(50);
-
-	my @protos = map {$protos_avail[int(rand(@protos_avail))]} (0,0);
-	my @prefixes = qw(US LS);
-	$prefixes[0] .= join('', (map {$_->{code}} @protos));
-	my (@fds,@ports,@ips,@tags,@outputs);
-	for my $ix ([0,1],[1,0]) {
-		my ($i,$j) = @$ix;
-		my ($pr,$pr_o) = @protos[@$ix];
-		socket($fds[$i], $$pr{family}, SOCK_DGRAM, 0) or die $!;
-		while (1) {
-			my $port = rand(0x7000) << 1 + 1024;
-			bind($fds[$i], $$pr{sockaddr}($port, inet_pton($$pr{family}, $$pr{address}))) and last;
-		}
-		my $addr = getsockname($fds[$i]);
-		my $ip;
-		($ports[$i], $ip) = $$pr{sockaddr}($addr);
-		$ips[$i] = inet_ntop($$pr{family}, $ip);
-		$tags[$i] = rand_str(15);
-		my $tagstr = ($i == 1 ? "$tags[0];1 " : '') . "$tags[$i];1";
-		my $o = msg("$prefixes[$i] $callid $ips[$i] $ports[$i] $tagstr");
-		$o =~ /^(\d+) ([\d.a-f:]+) ([46])[\r\n]*$/is or die $o;
-		$1 == 0 and die "mediaproxy ran out of ports";
-		$3 ne $$pr_o{reply} and die "incorrect address family reply code";
-		$outputs[$i] = [$1,$2];
-	}
-
-	push(@calls, [\(@fds,@ports,@ips,@tags,@outputs), $callid, \@protos]);
+	my $c = [];
+	update_lookup($c, 0);
+	update_lookup($c, 1);
+	push(@calls, $c);
 }
 
 my $end = time() + $RUNTIME;
 while (time() < $end) {
 	sleep(1);
 	do_rtp();
+
+	@calls = sort {rand() < .5} grep(defined, @calls);
+
+	if ($REINVITES) {
+		my $c = $calls[rand(@calls)];
+		print("simulating re-invite on $$c[5]");
+		for my $i (0,1) {
+			if (rand() < .5) {
+				print(", side $sides[$i]: new port");
+				undef($$c[0][$i]);
+			}
+			else {
+				print(", side $sides[$i]: same port");
+			}
+		}
+		update_lookup($c, 0);
+		update_lookup($c, 1);
+	}
 }
 
 if (!$NODEL) {
 	print("deleting\n");
-	@calls = sort {rand() < .5} @calls;
 	for my $c (@calls) {
 		$c or next;
 		my ($tags, $callid) = @$c[3,5];
