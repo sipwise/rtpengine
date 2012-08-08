@@ -9,7 +9,7 @@ use Getopt::Long;
 use Socket6;
 
 my ($NUM, $RUNTIME) = (1000, 30);
-my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES);
+my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -18,6 +18,7 @@ GetOptions(
 		'runtime=i'	=> \$RUNTIME,
 		'keep-going'	=> \$KEEPGOING,		# don't stop sending rtp if a packet doesn't go through
 		'reinvites'	=> \$REINVITES,
+		'branches'	=> \$BRANCHES,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -56,7 +57,7 @@ connect($fd, sockaddr_in(12222, inet_aton("127.0.0.1"))) or die $!;
 
 msg('V') eq '20040107' or die;
 
-my @calls;
+my (@calls, %branches);
 
 sub do_rtp {
 	print("sending rtp\n");
@@ -104,11 +105,24 @@ $IP and push(@protos_avail, $proto_defs{ipv4});
 $IPV6 and push(@protos_avail, $proto_defs{ipv6});
 my @sides = qw(A B);
 
+sub callid {
+	my $i = rand_str(50);
+	$BRANCHES or return $i;
+	rand() < .5 and return $i;
+	if (rand() < .5) {
+		my @k = keys(%branches);
+		@k and $i = $k[rand(@k)];
+	}
+	my $b = rand_str(20);
+	push(@{$branches{$i}}, $b);
+	return "$i;$b";
+}
+
 sub update_lookup {
 	my ($c, $i) = @_;
 	my $j = $i ^ 1;
 
-	my $callid = $$c[5] || ($$c[5] = rand_str(50));
+	my $callid = $$c[5] || ($$c[5] = callid());
 
 	my $protos = $$c[6] || ($$c[6] = []);
 	my $fds = $$c[0] || ($$c[0] = []);
