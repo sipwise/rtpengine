@@ -1,3 +1,20 @@
+ngcp-mediaproxy-ng (2.0.0) unstable; urgency=low
+
+  * Support XMLRPC callback to B2BUA/SBC to break calls upon RTP timeout
+  * Split redis HA code into module
+  * Support zero-length UDP packets on RTP sockets
+  * Support large RTP packets (up to 8192 bytes)
+  * Write packet statistics to log on call termination
+  * Don't trigger call timeout when there's RTCP traffic
+  * Supply -dbg package [mprokop]
+  * Drop poll() in favor of epoll() for better performance
+  * Implement multi-threaded operation
+  * Fixes traffic class setting for IPv6
+  * Fix bug that messed up packet stats for in-kernel streams
+  * Various minor performance tweaks and bug fixes
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 10 Aug 2012 10:21:53 -0400
+
 ngcp-mediaproxy-ng (1.6.6) unstable; urgency=low
 
   * Support userspace-only operation mode
