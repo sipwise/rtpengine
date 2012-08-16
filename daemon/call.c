@@ -287,6 +287,7 @@ forward:
 			mh.msg_name = &sin;
 			mh.msg_namelen = sizeof(sin);
 
+ipv4_src:
 			ch->cmsg_len = CMSG_LEN(sizeof(*pi));
 			ch->cmsg_level = IPPROTO_IP;
 			ch->cmsg_type = IP_PKTINFO;
@@ -306,6 +307,9 @@ forward:
 			sin6.sin6_port = htons(r->peer.port);
 			mh.msg_name = &sin6;
 			mh.msg_namelen = sizeof(sin6);
+
+			if (IN6_IS_ADDR_V4MAPPED(&sin6.sin6_addr))
+				goto ipv4_src;
 
 			ch->cmsg_len = CMSG_LEN(sizeof(*pi6));
 			ch->cmsg_level = IPPROTO_IPV6;
