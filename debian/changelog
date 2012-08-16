@@ -12,6 +12,7 @@ ngcp-mediaproxy-ng (2.0.0) unstable; urgency=low
   * Fixes traffic class setting for IPv6
   * Fix bug that messed up packet stats for in-kernel streams
   * Various minor performance tweaks and bug fixes
+  * Fix setting IPv4 source address when running with IPv6 enabled
 
  -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 10 Aug 2012 10:21:53 -0400
 
