@@ -83,7 +83,7 @@ install: build
 	dh_link              -p$@ -P$(b)/$@
 	dh_installdocs       -p$@ -P$(b)/$@
 	dh_installchangelogs -p$@ -P$(b)/$@
-#	dh_installinit       -p$@ -P$(b)/$@
+	dh_installinit       -p$@ -P$(b)/$@
 	dh_install           -p$@ -P$(b)/$@
 	dh_strip             --dbg-package=ngcp-mediaproxy-ng-dbg
 	dh_compress          -p$@ -P$(b)/$@
