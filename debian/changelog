@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.0.1) unstable; urgency=low
+
+  * re-add init stuff
+
+ -- Jon Bonilla <jbonilla@sipwise.com>  Fri, 24 Aug 2012 01:15:43 +0200
+
 ngcp-mediaproxy-ng (2.0.0) unstable; urgency=low
 
   * Support XMLRPC callback to B2BUA/SBC to break calls upon RTP timeout
