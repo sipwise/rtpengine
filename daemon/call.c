@@ -1293,7 +1293,7 @@ got_cs:
 			/* nothing found to steal and this end is used */
 			/* need a new call stream after all */
 			DBG("case 4");
-			if (cs_o)
+			if (cs_o && cs_o != cs)
 				mutex_unlock(&cs_o->lock);
 			cs_o = cs;
 			cs = callstream_new(c, t->num);
