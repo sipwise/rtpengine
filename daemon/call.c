@@ -1206,6 +1206,7 @@ found:
 			DBG("creating new callstream");
 
 			cs = callstream_new(c, t->num);
+			mutex_lock(&cs->lock);
 
 			if (!r) {
 				/* nothing found to re-use, open new ports */
@@ -1229,6 +1230,7 @@ found:
 				mutex_unlock(&cs_o->lock);
 			}
 
+			mutex_unlock(&cs->lock);
 			g_queue_push_tail(q, cs); /* hand over the ref of new cs */
 			ZERO(c->lookup_done);
 			continue;
@@ -1297,8 +1299,8 @@ got_cs:
 				mutex_unlock(&cs_o->lock);
 			cs_o = cs;
 			cs = callstream_new(c, t->num);
-			callstream_init(cs, 0, 0);
 			mutex_lock(&cs->lock);
+			callstream_init(cs, 0, 0);
 			steal_peer(&cs->peers[0], &cs_o->peers[0]);
 			p = &cs->peers[1];
 			setup_peer(p, t, tag);
