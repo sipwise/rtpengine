@@ -336,7 +336,6 @@ ipv4_src:
 
 	if (ret == -1) {
 		r->stats.errors++;
-		mutex_unlock(&cs->lock);
 		mutex_lock(&m->statspslock);
 		m->statsps.errors++;
 		mutex_unlock(&m->statspslock);
@@ -354,8 +353,8 @@ drop:
 	mutex_unlock(&m->statspslock);
 
 out:
-	if (update && redis_update)
-		redis_update(c, m->conf.redis);
+	if (ret == 0 && update)
+		ret = 1;
 
 	return ret;
 }
@@ -373,6 +372,8 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 	struct sockaddr_in *sin;
 	unsigned int sinlen;
 	void *sinp;
+	int update = 0;
+	struct call *ca;
 
 	mutex_lock(&cs->lock);
 	r = &cs->peers[u >> 1].rtps[u & 1];
@@ -408,16 +409,23 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 			in4_to_6(&sin6.sin6_addr, sin->sin_addr.s_addr);
 		}
 
-		if (stream_packet(r, buf, ret, sinp)) {
+		ret = stream_packet(r, buf, ret, sinp);
+		if (ret == -1) {
 			mylog(LOG_WARNING, "Write error on RTP socket");
 			mutex_unlock(&cs->lock);
 			call_destroy(cs->call);
 			return;
 		}
+		if (ret == 1)
+			update = 1;
 	}
 
 out:
+	ca = cs->call;
 	mutex_unlock(&cs->lock);
+
+	if (update && redis_update)
+		redis_update(ca, ca->callmaster->conf.redis);
 }
 
 
