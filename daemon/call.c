@@ -455,7 +455,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 	st->mediatype = strdup(a[2] ? : ""); /* XXX should use string chunks */
 	st->num = ++(*i);
 
-	if (!st->port)
+	if (!st->port && strcmp(a[1], "0"))
 		goto fail;
 
 	*ret = st;
