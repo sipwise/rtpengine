@@ -196,6 +196,7 @@ void kernelize(struct callstream *c) {
 
 
 
+/* called with r->up (== cs) locked */
 static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_in6 *fsin) {
 	struct streamrelay *p, *p2;
 	struct peer *pe, *pe2;
@@ -222,13 +223,10 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	m = c->callmaster;
 	smart_ntop_p(addr, &fsin->sin6_addr, sizeof(addr));
 
-	mutex_lock(&cs->lock);
-
 	if (p->fd == -1) {
 		mylog(LOG_WARNING, LOG_PREFIX_C "RTP packet to port %u discarded from %s:%u", 
 			LOG_PARAMS_C(c), r->localport, addr, ntohs(fsin->sin6_port));
 		r->stats.errors++;
-		mutex_unlock(&cs->lock);
 		mutex_lock(&m->statspslock);
 		m->statsps.errors++;
 		mutex_unlock(&m->statspslock);
@@ -350,7 +348,6 @@ drop:
 	r->stats.packets++;
 	r->stats.bytes += l;
 	r->last = poller_now;
-	mutex_unlock(&cs->lock);
 	mutex_lock(&m->statspslock);
 	m->statsps.packets++;
 	m->statsps.bytes += l;
@@ -377,8 +374,10 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 	unsigned int sinlen;
 	void *sinp;
 
+	mutex_lock(&cs->lock);
 	r = &cs->peers[u >> 1].rtps[u & 1];
-	assert(r->fd == fd);
+	if (r->fd != fd)
+		goto out;
 
 	for (;;) {
 		sinlen = sizeof(ss);
@@ -389,8 +388,9 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 				continue;
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
+			mutex_unlock(&cs->lock);
 			stream_closed(fd, r, 0);
-			break;
+			return;
 		}
 		if (ret >= sizeof(buf))
 			mylog(LOG_WARNING, "UDP packet possibly truncated");
@@ -410,10 +410,14 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 
 		if (stream_packet(r, buf, ret, sinp)) {
 			mylog(LOG_WARNING, "Write error on RTP socket");
-			call_destroy(r->up->up->call);
+			mutex_unlock(&cs->lock);
+			call_destroy(cs->call);
 			return;
 		}
 	}
+
+out:
+	mutex_unlock(&cs->lock);
 }
 
 
