@@ -1,3 +1,10 @@
+ngcp-mediaproxy-ng (2.0.2) unstable; urgency=low
+
+  * Don't fail on zero port in TCP controller
+  * Fixes for locking problems and race conditions
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 05 Oct 2012 10:33:15 -0400
+
 ngcp-mediaproxy-ng (2.0.1) unstable; urgency=low
 
   * re-add init stuff
