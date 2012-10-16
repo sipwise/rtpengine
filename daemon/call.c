@@ -578,18 +578,20 @@ void xmlrpc_kill_calls(void *p) {
 	int status;
 
 	while (xh->tags) {
+		mylog(LOG_INFO, "Forking child to close call with tag %s via XMLRPC", (char *) xh->tags->data);
 		pid = fork();
 
 		if (pid) {
 retry:
 			pid = waitpid(pid, &status, 0);
-			if ((pid > 0 && WIFEXITED(status)) || i >= 3) {
+			if ((pid > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) || i >= 3) {
 				xh->tags = g_slist_delete_link(xh->tags, xh->tags);
 				i = 0;
 			}
 			else {
 				if (pid == -1 && errno == EINTR)
 					goto retry;
+				mylog(LOG_INFO, "XMLRPC child exited with status %i", status);
 				i++;
 			}
 			continue;
@@ -599,9 +601,13 @@ retry:
 		rlim(RLIMIT_CORE, 0);
 		sigemptyset(&ss);
 		sigprocmask(SIG_SETMASK, &ss, NULL);
+		closelog();
 
 		for (i = 0; i < 100; i++)
 			close(i);
+
+		openlog("mediaproxy-ng/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
+		mylog(LOG_INFO, "Initiating XMLRPC call for tag %s", (char *) xh->tags->data);
 
 		alarm(5);
 
@@ -610,18 +616,25 @@ retry:
 		xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION,
 			NULL, 0, &c);
 		if (e.fault_occurred)
-			abort();
+			goto fault;
 
+		r = NULL;
 		xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
 			"sbc", "postControlCmd", xh->tags->data, "teardown");
 		if (r)
 			xmlrpc_DECREF(r);
+		if (e.fault_occurred)
+			goto fault;
 
 		xmlrpc_client_destroy(c);
 		xh->tags = g_slist_delete_link(xh->tags, xh->tags);
 		xmlrpc_env_clean(&e);
 
 		_exit(0);
+
+fault:
+		mylog(LOG_WARNING, "XMLRPC fault occurred: %s", e.fault_string);
+		_exit(1);
 	}
 
 	g_string_chunk_free(xh->c);
