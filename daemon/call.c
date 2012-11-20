@@ -1951,7 +1951,7 @@ tag_match:
 	mutex_unlock(&c->lock);
 
 	xasprintf(&ret, "%s %lld %llu %llu %llu %llu\n", out[RE_UDP_COOKIE],
-		(long long int) (poller_now - newest),
+		(long long int) m->conf.silent_timeout - (poller_now - newest),
 		pcs[0], pcs[1], pcs[2], pcs[3]);
 	goto out;
 
