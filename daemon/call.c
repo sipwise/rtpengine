@@ -1821,6 +1821,8 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	if (out[RE_UDP_DQ_FROMTAG] && *out[RE_UDP_DQ_FROMTAG]) {
 		for (l = c->callstreams->head; l; l = l->next) {
 			cs = l->data;
+			mutex_lock(&cs->lock);
+
 			for (i = 0; i < 2; i++) {
 				p = &cs->peers[i];
 				if (!p->tag)
@@ -1838,6 +1840,8 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 
 				goto tag_match;
 			}
+
+			mutex_unlock(&cs->lock);
 		}
 	}
 
@@ -1845,6 +1849,8 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	goto err;
 
 tag_match:
+	mutex_unlock(&cs->lock);
+
 	if (out[RE_UDP_DQ_VIABRANCH] && *out[RE_UDP_DQ_VIABRANCH]) {
 		if (!g_hash_table_remove(c->branches, out[RE_UDP_DQ_VIABRANCH])) {
 			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", c->callid, out[RE_UDP_DQ_VIABRANCH]);
@@ -1907,14 +1913,7 @@ char *call_query_udp(const char **out, struct callmaster *m) {
 
 	for (l = c->callstreams->head; l; l = l->next) {
 		cs = l->data;
-
-		if (!out[RE_UDP_DQ_FROMTAG] || !*out[RE_UDP_DQ_FROMTAG]) {
-			pcs[0] += cs->peers[0].rtps[0].stats.packets;
-			pcs[1] += cs->peers[1].rtps[0].stats.packets;
-			pcs[2] += cs->peers[0].rtps[1].stats.packets;
-			pcs[3] += cs->peers[1].rtps[1].stats.packets;
-			continue;
-		}
+		mutex_lock(&cs->lock);
 
 		for (i = 0; i < 2; i++) {
 			p = &cs->peers[i];
@@ -1946,6 +1945,8 @@ tag_match:
 			pcs[2] += p->rtps[1].stats.packets;
 			pcs[3] += px->rtps[1].stats.packets;
 		}
+
+		mutex_unlock(&cs->lock);
 	}
 
 	mutex_unlock(&c->lock);
