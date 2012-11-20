@@ -240,7 +240,7 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 			/* port fromtag num totag:11 */
 			"\\s+(\\d+)\\s+(\\S+?);(\\d+)(?:\\s+(\\S+?);\\d+(?:\\s+.*)?)?\r?\n?$" \
 			/* "d/q" flags callid viabranch fromtag totag:17 */
-			"|([dq])(\\S*)\\s+([^;\\s]+)(?:;(\\S+))?\\s+(\\S+?)(?:;\\d+)?(?:\\s+(\\S+?);\\d+)?\r?\n?$" \
+			"|([dq])(\\S*)\\s+([^;\\s]+)(?:;(\\S+))?\\s+(\\S+?)(?:;\\d+)?(?:\\s+(\\S+?)(?:;\\d+)?)?\r?\n?$" \
 			/* v flags params:20 */
 			"|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);
