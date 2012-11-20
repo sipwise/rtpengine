@@ -134,8 +134,10 @@ restart:
 		reply = call_update_udp(out, u->callmaster);
 	else if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')
 		reply = call_lookup_udp(out, u->callmaster);
-	else if (chrtoupper(out[RE_UDP_D_CMD][0]) == 'D')
+	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'D')
 		reply = call_delete_udp(out, u->callmaster);
+	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'Q')
+		reply = call_query_udp(out, u->callmaster);
 	else if (chrtoupper(out[RE_UDP_V_CMD][0]) == 'V') {
 		ZERO(mh);
 		mh.msg_name = &sin;
@@ -237,8 +239,8 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 			"(?:([\\d.]+)|([\\da-f:]+(?::ffff:[\\d.]+)?))" \
 			/* port fromtag num totag:11 */
 			"\\s+(\\d+)\\s+(\\S+?);(\\d+)(?:\\s+(\\S+?);\\d+(?:\\s+.*)?)?\r?\n?$" \
-			/* "d" flags callid viabranch fromtag totag:17 */
-			"|(d)(\\S*)\\s+([^;\\s]+)(?:;(\\S+))?\\s+(\\S+?)(?:\\s+(\\S+?))?\r?\n?$" \
+			/* "d/q" flags callid viabranch fromtag totag:17 */
+			"|([dq])(\\S*)\\s+([^;\\s]+)(?:;(\\S+))?\\s+(\\S+?)(?:;\\d+)?(?:\\s+(\\S+?);\\d+)?\r?\n?$" \
 			/* v flags params:20 */
 			"|(v)(\\S*)(?:\\s+(\\S+))?)",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL | PCRE_CASELESS, &errptr, &erroff, NULL);

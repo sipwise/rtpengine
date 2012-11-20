@@ -1803,37 +1803,37 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	struct peer *p, *px;
 
 	DBG("got delete for callid '%s' and viabranch '%s'", 
-		out[RE_UDP_D_CALLID], out[RE_UDP_D_VIABRANCH]);
+		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
 
 	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, out[RE_UDP_D_CALLID]);
+	c = g_hash_table_lookup(m->callhash, out[RE_UDP_DQ_CALLID]);
 	if (!c) {
 		rwlock_unlock_r(&m->hashlock);
-		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", out[RE_UDP_D_CALLID]);
+		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", out[RE_UDP_DQ_CALLID]);
 		goto err;
 	}
 	obj_hold(c);
 	mutex_lock(&c->lock);
 	rwlock_unlock_r(&m->hashlock);
 
-	log_info = out[RE_UDP_D_VIABRANCH];
+	log_info = out[RE_UDP_DQ_VIABRANCH];
 
-	if (out[RE_UDP_D_FROMTAG] && *out[RE_UDP_D_FROMTAG]) {
+	if (out[RE_UDP_DQ_FROMTAG] && *out[RE_UDP_DQ_FROMTAG]) {
 		for (l = c->callstreams->head; l; l = l->next) {
 			cs = l->data;
 			for (i = 0; i < 2; i++) {
 				p = &cs->peers[i];
 				if (!p->tag)
 					continue;
-				if (strcmp(p->tag, out[RE_UDP_D_FROMTAG]))
+				if (strcmp(p->tag, out[RE_UDP_DQ_FROMTAG]))
 					continue;
-				if (!out[RE_UDP_D_TOTAG] || !*out[RE_UDP_D_TOTAG])
+				if (!out[RE_UDP_DQ_TOTAG] || !*out[RE_UDP_DQ_TOTAG])
 					goto tag_match;
 
 				px = &cs->peers[i ^ 1];
 				if (!px->tag)
 					continue;
-				if (strcmp(px->tag, out[RE_UDP_D_TOTAG]))
+				if (strcmp(px->tag, out[RE_UDP_DQ_TOTAG]))
 					continue;
 
 				goto tag_match;
@@ -1845,9 +1845,9 @@ char *call_delete_udp(const char **out, struct callmaster *m) {
 	goto err;
 
 tag_match:
-	if (out[RE_UDP_D_VIABRANCH] && *out[RE_UDP_D_VIABRANCH]) {
-		if (!g_hash_table_remove(c->branches, out[RE_UDP_D_VIABRANCH])) {
-			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", c->callid, out[RE_UDP_D_VIABRANCH]);
+	if (out[RE_UDP_DQ_VIABRANCH] && *out[RE_UDP_DQ_VIABRANCH]) {
+		if (!g_hash_table_remove(c->branches, out[RE_UDP_DQ_VIABRANCH])) {
+			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", c->callid, out[RE_UDP_DQ_VIABRANCH]);
 			goto err;
 		}
 
@@ -1877,6 +1877,91 @@ err:
 
 out:
 	log_info = NULL;
+	if (c)
+		obj_put(c);
+	return ret;
+}
+
+char *call_query_udp(const char **out, struct callmaster *m) {
+	struct call *c;
+	char *ret;
+	struct callstream *cs;
+	long long unsigned int pcs[4] = {0,0,0,0};
+	time_t newest = 0;
+	int i;
+	GList *l;
+	struct peer *p, *px;
+
+	DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
+
+	rwlock_lock_r(&m->hashlock);
+	c = g_hash_table_lookup(m->callhash, out[RE_UDP_DQ_CALLID]);
+	if (!c) {
+		rwlock_unlock_r(&m->hashlock);
+		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to query not found", out[RE_UDP_DQ_CALLID]);
+		goto err;
+	}
+	obj_hold(c);
+	mutex_lock(&c->lock);
+	rwlock_unlock_r(&m->hashlock);
+
+	for (l = c->callstreams->head; l; l = l->next) {
+		cs = l->data;
+
+		if (!out[RE_UDP_DQ_FROMTAG] || !*out[RE_UDP_DQ_FROMTAG]) {
+			pcs[0] += cs->peers[0].rtps[0].stats.packets;
+			pcs[1] += cs->peers[1].rtps[0].stats.packets;
+			pcs[2] += cs->peers[0].rtps[1].stats.packets;
+			pcs[3] += cs->peers[1].rtps[1].stats.packets;
+			continue;
+		}
+
+		for (i = 0; i < 2; i++) {
+			p = &cs->peers[i];
+			px = &cs->peers[i ^ 1];
+
+			if (p->rtps[0].last > newest)
+				newest = p->rtps[0].last;
+			if (p->rtps[1].last > newest)
+				newest = p->rtps[1].last;
+
+			if (!out[RE_UDP_DQ_FROMTAG] || !*out[RE_UDP_DQ_FROMTAG])
+				goto tag_match;
+
+			if (!p->tag)
+				continue;
+			if (strcmp(p->tag, out[RE_UDP_DQ_FROMTAG]))
+				continue;
+			if (!out[RE_UDP_DQ_TOTAG] || !*out[RE_UDP_DQ_TOTAG])
+				goto tag_match;
+
+			if (!px->tag)
+				continue;
+			if (strcmp(px->tag, out[RE_UDP_DQ_TOTAG]))
+				continue;
+
+tag_match:
+			pcs[0] += p->rtps[0].stats.packets;
+			pcs[1] += px->rtps[0].stats.packets;
+			pcs[2] += p->rtps[1].stats.packets;
+			pcs[3] += px->rtps[1].stats.packets;
+		}
+	}
+
+	mutex_unlock(&c->lock);
+
+	xasprintf(&ret, "%s %lld %llu %llu %llu %llu\n", out[RE_UDP_COOKIE],
+		(long long int) (poller_now - newest),
+		pcs[0], pcs[1], pcs[2], pcs[3]);
+	goto out;
+
+err:
+	if (c)
+		mutex_unlock(&c->lock);
+	xasprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
+	goto out;
+
+out:
 	if (c)
 		obj_put(c);
 	return ret;
