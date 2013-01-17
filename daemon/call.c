@@ -1693,15 +1693,22 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	c = g_hash_table_lookup(m->callhash, out[RE_UDP_UL_CALLID]);
 	if (c)
 		mutex_lock(&c->lock);
-	if (!c || !g_hash_table_lookup(c->branches, out[RE_UDP_UL_VIABRANCH])) {
-		if (c)
-			mutex_unlock(&c->lock);
+	else
+		goto not_found;
+
+	if (!out[RE_UDP_UL_VIABRANCH] || !*out[RE_UDP_UL_VIABRANCH])
+		goto skip_branch;
+
+	if (!g_hash_table_lookup(c->branches, out[RE_UDP_UL_VIABRANCH])) {
+		mutex_unlock(&c->lock);
+not_found:
 		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id or unknown via-branch",
 			out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH]);
 		xasprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
 		return ret;
 	}
+skip_branch:
 	obj_hold(c);
 	rwlock_unlock_r(&m->hashlock);
 
