@@ -1,3 +1,10 @@
+ngcp-mediaproxy-ng (2.1.1) unstable; urgency=low
+
+  * Don't reject lookups with unknown via-branches, instead
+    remember the via-branches
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 18 Jan 2013 10:11:06 -0500
+
 ngcp-mediaproxy-ng (2.1.0) unstable; urgency=low
 
   * Better logging for XMLRPC calls
