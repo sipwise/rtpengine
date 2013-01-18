@@ -37,7 +37,7 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 	make -C iptables-extension
-	make -C daemon
+	make -C daemon -j`nproc`
 	touch $@
 
 clean:
