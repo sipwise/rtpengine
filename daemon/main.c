@@ -244,7 +244,7 @@ static void options(int *argc, char ***argv) {
 	if (!ipv4s)
 		die("Missing option --ip\n");
 	if (!listenps && !listenudps)
-		die("Missing option --listen or --listen-udp\n");
+		die("Missing option --listen-tcp or --listen-udp\n");
 
 	ipv4 = inet_addr(ipv4s);
 	if (ipv4 == -1)
@@ -267,7 +267,7 @@ static void options(int *argc, char ***argv) {
 
 	if (listenps) {
 		if (parse_ip_port(&listenp, &listenport, listenps))
-			die("Invalid IP or port (--listen)\n");
+			die("Invalid IP or port (--listen-tcp)\n");
 	}
 	if (listenudps) {
 		if (parse_ip6_port(&udp_listenp, &udp_listenport, listenudps))
