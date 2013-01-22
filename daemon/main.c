@@ -12,6 +12,7 @@
 #include "poller.h"
 #include "control.h"
 #include "control_udp.h"
+#include "control_ng.h"
 #include "aux.h"
 #include "log.h"
 #include "call.h"
@@ -67,6 +68,8 @@ static u_int32_t listenp;
 static u_int16_t listenport;
 static struct in6_addr udp_listenp;
 static u_int16_t udp_listenport;
+static struct in6_addr ng_listenp;
+static u_int16_t ng_listenport;
 static int tos;
 static int table;
 static int no_fallback;
@@ -198,16 +201,17 @@ fail:
 
 
 static void options(int *argc, char ***argv) {
-	static char *ipv4s;
-	static char *adv_ipv4s;
-	static char *ipv6s;
-	static char *adv_ipv6s;
-	static char *listenps;
-	static char *listenudps;
-	static char *redisps;
-	static int version;
+	char *ipv4s;
+	char *adv_ipv4s;
+	char *ipv6s;
+	char *adv_ipv6s;
+	char *listenps;
+	char *listenudps;
+	char *listenngs;
+	char *redisps;
+	int version;
 
-	static GOptionEntry e[] = {
+	GOptionEntry e[] = {
 		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&no_fallback,	"Only start when kernel module is available", NULL },
@@ -217,6 +221,7 @@ static void options(int *argc, char ***argv) {
 		{ "advertised-ip6",'A',0,G_OPTION_ARG_STRING,	&adv_ipv6s,	"IPv6 address to advertise",	"IP6"		},
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
+		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
@@ -243,8 +248,8 @@ static void options(int *argc, char ***argv) {
 
 	if (!ipv4s)
 		die("Missing option --ip\n");
-	if (!listenps && !listenudps)
-		die("Missing option --listen-tcp or --listen-udp\n");
+	if (!listenps && !listenudps && !listenngs)
+		die("Missing option --listen-tcp, --listen-udp or --listen-ng\n");
 
 	ipv4 = inet_addr(ipv4s);
 	if (ipv4 == -1)
@@ -272,6 +277,10 @@ static void options(int *argc, char ***argv) {
 	if (listenudps) {
 		if (parse_ip6_port(&udp_listenp, &udp_listenport, listenudps))
 			die("Invalid IP or port (--listen-udp)\n");
+	}
+	if (listenngs) {
+		if (parse_ip6_port(&ng_listenp, &ng_listenport, listenngs))
+			die("Invalid IP or port (--listen-ng)\n");
 	}
 
 	if (tos < 0 || tos > 255)
@@ -364,6 +373,7 @@ void create_everything(struct main_context *ctx) {
 	struct callmaster_config mc;
 	struct control *c;
 	struct control_udp *cu;
+	struct control_ng *cn;
 	int kfd = -1;
 	void *dlh;
 	const char **strp;
@@ -419,6 +429,13 @@ void create_everything(struct main_context *ctx) {
 	if (udp_listenport) {
 		cu = control_udp_new(ctx->p, udp_listenp, udp_listenport, ctx->m);
 		if (!cu)
+			die("Failed to open UDP control connection port\n");
+	}
+
+	cn = NULL;
+	if (ng_listenport) {
+		cn = control_ng_new(ctx->p, ng_listenp, ng_listenport, ctx->m);
+		if (!cn)
 			die("Failed to open UDP control connection port\n");
 	}
 
