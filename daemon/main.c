@@ -201,15 +201,15 @@ fail:
 
 
 static void options(int *argc, char ***argv) {
-	char *ipv4s;
-	char *adv_ipv4s;
-	char *ipv6s;
-	char *adv_ipv6s;
-	char *listenps;
-	char *listenudps;
-	char *listenngs;
-	char *redisps;
-	int version;
+	char *ipv4s = NULL;
+	char *adv_ipv4s = NULL;
+	char *ipv6s = NULL;
+	char *adv_ipv6s = NULL;
+	char *listenps = NULL;
+	char *listenudps = NULL;
+	char *listenngs = NULL;
+	char *redisps = NULL;
+	int version = 0;
 
 	GOptionEntry e[] = {
 		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
