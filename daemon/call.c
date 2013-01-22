@@ -22,6 +22,7 @@
 #include "streambuf.h"
 #include "redis.h"
 #include "xt_MEDIAPROXY.h"
+#include "bencode.h"
 
 
 
@@ -2112,4 +2113,20 @@ struct callstream *callstream_new(struct call *ca, int num) {
 	mutex_init(&s->lock);
 
 	return s;
+}
+
+
+const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	const char *sdp;
+	int sdp_len;
+
+	sdp = bencode_dictionary_get_string(input, "sdp", &sdp_len);
+	if (!sdp)
+		return "No SDP body in message";
+
+	return NULL;
+}
+
+const char *call_answer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	return NULL;
 }

@@ -13,6 +13,7 @@
 #include "control_udp.h"
 #include "obj.h"
 #include "aux.h"
+#include "bencode.h"
 
 struct poller;
 struct control_stream;
@@ -148,6 +149,10 @@ static inline char *call_strdup(struct call *c, const char *s) {
 	mutex_unlock(&c->chunk_lock);
 	return r;
 }
+
+const char *call_offer(bencode_item_t *, struct callmaster *, bencode_item_t *);
+const char *call_answer(bencode_item_t *, struct callmaster *, bencode_item_t *);
+
 
 
 

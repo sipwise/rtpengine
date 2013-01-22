@@ -4,6 +4,7 @@
 #include "bencode.h"
 #include "log.h"
 #include "cookie_cache.h"
+#include "call.h"
 
 
 static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct sockaddr_in6 *sin, char *addr) {
@@ -38,7 +39,7 @@ static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct 
 	reply = cookie_cache_lookup(&c->cookie_cache, cookie);
 	if (reply) {
 		mylog(LOG_INFO, "Detected command from %s:%u as a duplicate", addr, ntohs(sin->sin6_port));
-		reply_len = strlen(reply);
+		reply_len = strlen(reply); /* XXX fails for embedded nulls */
 		resp = NULL;
 		goto send_only;
 	}
@@ -55,12 +56,20 @@ static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct 
 
 	mylog(LOG_INFO, "Got valid command from %s:%u: %.*s [%.*s]", addr, ntohs(sin->sin6_port), cmd_len, cmd, data_len, data);
 
+	errstr = NULL;
 	if (!strmemcmp(cmd, cmd_len, "ping"))
 		bencode_dictionary_add_string(resp, "result", "pong");
-	else {
-		errstr = "Unrecognized command";
-		goto err_send;
+	else if (!strmemcmp(cmd, cmd_len, "offer")) {
+		errstr = call_offer(dict, c->callmaster, resp);
 	}
+	else if (!strmemcmp(cmd, cmd_len, "answer")) {
+		errstr = call_answer(dict, c->callmaster, resp);
+	}
+	else
+		errstr = "Unrecognized command";
+
+	if (errstr)
+		goto err_send;
 
 	goto send_out;
 
