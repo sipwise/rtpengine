@@ -14,11 +14,8 @@
 #include "aux.h"
 #include "log.h"
 #include "call.h"
+#include "udp_listener.h"
 
-
-static void control_udp_closed(int fd, void *p, uintptr_t x) {
-	abort();
-}
 
 static void control_udp_incoming(int fd, void *p, uintptr_t x) {
 	struct control_udp *u = p;
@@ -154,36 +151,15 @@ out:
 }
 
 struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int16_t port, struct callmaster *m) {
-	int fd;
 	struct control_udp *c;
-	struct poller_item i;
-	struct sockaddr_in6 sin;
 	const char *errptr;
 	int erroff;
 
 	if (!p || !m)
 		return NULL;
 
-	fd = socket(AF_INET6, SOCK_DGRAM, 0);
-	if (fd == -1)
-		return NULL;
-
-	nonblock(fd);
-	reuseaddr(fd);
-	ipv6only(fd, 0);
-
-	ZERO(sin);
-	sin.sin6_family = AF_INET6;
-	sin.sin6_addr = ip;
-	sin.sin6_port = htons(port);
-	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)))
-		goto fail;
-
-
 	c = obj_alloc0("control_udp", sizeof(*c), NULL);
 
-	c->fd = fd;
-	c->poller = p;
 	c->callmaster = m;
 	c->parse_re = pcre_compile(
 			/* cookie cmd flags callid viabranch:5 */
@@ -206,20 +182,13 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 
 	cookie_cache_init(&c->cookie_cache);
 
-	ZERO(i);
-	i.fd = fd;
-	i.closed = control_udp_closed;
-	i.readable = control_udp_incoming;
-	i.obj = &c->obj;
-	if (poller_add_item(p, &i))
+	if (udp_listener_init(&c->udp_listener, p, ip, port, control_udp_incoming, &c->obj))
 		goto fail2;
 
 	return c;
 
 fail2:
 	obj_put(c);
-fail:
-	close(fd);
 	return NULL;
 
 }

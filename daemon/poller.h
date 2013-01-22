@@ -11,15 +11,17 @@
 
 
 
+typedef void (*poller_func_t)(int, void *, uintptr_t);
+
 struct poller_item {
 	int				fd;
 	struct obj			*obj;
 	uintptr_t			uintp;
 
-	void				(*readable)(int, void *, uintptr_t);
-	void				(*writeable)(int, void *, uintptr_t);
-	void				(*closed)(int, void *, uintptr_t);
-	void				(*timer)(int, void *, uintptr_t);
+	poller_func_t			readable;
+	poller_func_t			writeable;
+	poller_func_t			closed;
+	poller_func_t			timer;
 };
 
 struct poller;

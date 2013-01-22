@@ -12,6 +12,7 @@
 #include "obj.h"
 #include "aux.h"
 #include "cookie_cache.h"
+#include "udp_listener.h"
 
 
 
@@ -46,11 +47,9 @@ struct callmaster;
 struct control_udp {
 	struct obj		obj;
 
-	int			fd;
-
-	struct poller		*poller;
 	struct callmaster	*callmaster;
 	struct cookie_cache	cookie_cache;
+	struct udp_listener	udp_listener;
 
 	pcre			*parse_re;
 	pcre_extra		*parse_ree;
