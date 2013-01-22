@@ -16,9 +16,6 @@
 #include "call.h"
 
 
-static const char *cookie_in_use = "MAGIC";
-
-
 static void control_udp_closed(int fd, void *p, uintptr_t x) {
 	abort();
 }
@@ -95,40 +92,12 @@ next:
 
 	pcre_get_substring_list(buf, ovec, ret, &out);
 
-	mutex_lock(&u->lock);
-	if (poller_now - u->oven_time >= 30) {
-		g_hash_table_remove_all(u->stale_cookies);
-#if GLIB_CHECK_VERSION(2,14,0)
-		g_string_chunk_clear(u->stale_chunks);
-		swap_ptrs(&u->stale_chunks, &u->fresh_chunks);
-#else
-		g_string_chunk_free(u->stale_chunks);
-		u->stale_chunks = u->fresh_chunks;
-		u->fresh_chunks = g_string_chunk_new(4 * 1024);
-#endif
-		swap_ptrs(&u->stale_cookies, &u->fresh_cookies);
-		u->oven_time = poller_now;	/* baked new cookies! */
-	}
-
-restart:
-	/* XXX better hashing */
-	reply = g_hash_table_lookup(u->fresh_cookies, out[RE_UDP_COOKIE]);
-	if (!reply)
-		reply = g_hash_table_lookup(u->stale_cookies, out[RE_UDP_COOKIE]);
+	reply = cookie_cache_lookup(&u->cookie_cache, out[RE_UDP_COOKIE]);
 	if (reply) {
-		if (reply == cookie_in_use) {
-			/* another thread is working on this right now */
-			cond_wait(&u->cond, &u->lock);
-			goto restart;
-		}
-		mutex_unlock(&u->lock);
 		mylog(LOG_INFO, "Detected command from udp:%s:%u as a duplicate", addr, ntohs(sin.sin6_port));
 		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
 		goto out;
 	}
-
-	g_hash_table_replace(u->fresh_cookies, (void *) out[RE_UDP_COOKIE], (void *) cookie_in_use);
-	mutex_unlock(&u->lock);
 
 	if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U')
 		reply = call_update_udp(out, u->callmaster);
@@ -171,22 +140,13 @@ restart:
 	}
 
 	if (reply) {
-		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
-		mutex_lock(&u->lock);
-		g_hash_table_replace(u->fresh_cookies, g_string_chunk_insert(u->fresh_chunks, out[RE_UDP_COOKIE]),
-			g_string_chunk_insert(u->fresh_chunks, reply));
-		g_hash_table_remove(u->stale_cookies, out[RE_UDP_COOKIE]);
-		cond_broadcast(&u->cond);
-		mutex_unlock(&u->lock);
+		len = strlen(reply);
+		sendto(fd, reply, len, 0, (struct sockaddr *) &sin, sin_len);
+		cookie_cache_insert(&u->cookie_cache, out[RE_UDP_COOKIE], reply, len);
 		free(reply);
 	}
-	else {
-		mutex_lock(&u->lock);
-		g_hash_table_remove(u->fresh_cookies, out[RE_UDP_COOKIE]);
-		g_hash_table_remove(u->stale_cookies, out[RE_UDP_COOKIE]);
-		cond_broadcast(&u->cond);
-		mutex_unlock(&u->lock);
-	}
+	else
+		cookie_cache_remove(&u->cookie_cache, out[RE_UDP_COOKIE]);
 
 out:
 	pcre_free(out);
@@ -225,13 +185,6 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	c->fd = fd;
 	c->poller = p;
 	c->callmaster = m;
-	c->fresh_cookies = g_hash_table_new(g_str_hash, g_str_equal);
-	c->stale_cookies = g_hash_table_new(g_str_hash, g_str_equal);
-	c->fresh_chunks = g_string_chunk_new(4 * 1024);
-	c->stale_chunks = g_string_chunk_new(4 * 1024);
-	c->oven_time = poller_now;
-	mutex_init(&c->lock);
-	cond_init(&c->cond);
 	c->parse_re = pcre_compile(
 			/* cookie cmd flags callid viabranch:5 */
 			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+([^;]+)(?:;(\\S+))?\\s+" \
@@ -250,6 +203,8 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 
 	if (!c->parse_re || !c->fallback_re)
 		goto fail2;
+
+	cookie_cache_init(&c->cookie_cache);
 
 	ZERO(i);
 	i.fd = fd;
