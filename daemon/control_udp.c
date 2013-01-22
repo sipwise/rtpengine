@@ -46,10 +46,10 @@ static void control_udp_incoming(struct obj *obj, char *buf, int len, struct soc
 		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
 		iov[0].iov_len = strlen(out[RE_UDP_COOKIE]);
 		if (out[RE_UDP_UL_CMD] && (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U' || chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')) {
-			iov[1].iov_base = (void *) out[RE_UDP_UL_CALLID];
-			iov[1].iov_len = strlen(out[RE_UDP_UL_CALLID]);
-			iov[2].iov_base = (void *) out[RE_UDP_UL_FLAGS];
-			iov[2].iov_len = strlen(out[RE_UDP_UL_FLAGS]);
+			iov[1].iov_base = (void *) out[4];
+			iov[1].iov_len = strlen(out[4]);
+			iov[2].iov_base = (void *) out[3];
+			iov[2].iov_len = strlen(out[3]);
 			iov[3].iov_base = "\n";
 			iov[3].iov_len = 1;
 			mh.msg_iovlen = 4;
