@@ -30,11 +30,11 @@ static void control_udp_incoming(struct obj *obj, char *buf, int len, struct soc
 	if (ret <= 0) {
 		ret = pcre_exec(u->fallback_re, NULL, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 		if (ret <= 0) {
-			mylog(LOG_WARNING, "Unable to parse command line from udp:%s:%u: %s", addr, ntohs(sin->sin6_port), buf);
+			mylog(LOG_WARNING, "Unable to parse command line from udp:%s: %s", addr, buf);
 			return;
 		}
 
-		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from %s:%u, using fallback RE", buf, addr, ntohs(sin->sin6_port));
+		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from %s, using fallback RE", buf, addr);
 
 		pcre_get_substring_list(buf, ovec, ret, &out);
 
@@ -67,13 +67,13 @@ static void control_udp_incoming(struct obj *obj, char *buf, int len, struct soc
 		return;
 	}
 
-	mylog(LOG_INFO, "Got valid command from udp:%s:%u: %s", addr, ntohs(sin->sin6_port), buf);
+	mylog(LOG_INFO, "Got valid command from udp:%s: %s", addr, buf);
 
 	pcre_get_substring_list(buf, ovec, ret, &out);
 
 	reply = cookie_cache_lookup(&u->cookie_cache, out[RE_UDP_COOKIE]);
 	if (reply) {
-		mylog(LOG_INFO, "Detected command from udp:%s:%u as a duplicate", addr, ntohs(sin->sin6_port));
+		mylog(LOG_INFO, "Detected command from udp:%s as a duplicate", addr);
 		sendto(u->udp_listener.fd, reply, strlen(reply), 0, (struct sockaddr *) sin, sizeof(*sin));
 		goto out;
 	}

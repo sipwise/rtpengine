@@ -20,7 +20,7 @@ static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct 
 
 	data = memchr(buf, ' ', buf_len);
 	if (!data || data == buf) {
-		mylog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s:%u: %.*s", addr, ntohs(sin->sin6_port), buf_len, buf);
+		mylog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: %.*s", addr, buf_len, buf);
 		return;
 	}
 
@@ -38,7 +38,7 @@ static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct 
 
 	reply = cookie_cache_lookup(&c->cookie_cache, cookie);
 	if (reply) {
-		mylog(LOG_INFO, "Detected command from %s:%u as a duplicate", addr, ntohs(sin->sin6_port));
+		mylog(LOG_INFO, "Detected command from %s as a duplicate", addr);
 		reply_len = strlen(reply); /* XXX fails for embedded nulls */
 		resp = NULL;
 		goto send_only;
@@ -54,7 +54,7 @@ static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct 
 	if (!cmd)
 		goto err_send;
 
-	mylog(LOG_INFO, "Got valid command from %s:%u: %.*s [%.*s]", addr, ntohs(sin->sin6_port), cmd_len, cmd, data_len, data);
+	mylog(LOG_INFO, "Got valid command from %s: %.*s [%.*s]", addr, cmd_len, cmd, data_len, data);
 
 	errstr = NULL;
 	if (!strmemcmp(cmd, cmd_len, "ping"))
@@ -74,7 +74,7 @@ static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct 
 	goto send_out;
 
 err_send:
-	mylog(LOG_WARNING, "Protocol error in packet from %s:%u: %s [%.*s]", addr, ntohs(sin->sin6_port), errstr, data_len, data);
+	mylog(LOG_WARNING, "Protocol error in packet from %s: %s [%.*s]", addr, errstr, data_len, data);
 	bencode_dictionary_add_string(resp, "result", "error");
 	bencode_dictionary_add_string(resp, "error-reason", errstr);
 	goto send_out;

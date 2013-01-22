@@ -39,7 +39,7 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 		}
 
 		buf[len] = '\0';
-		smart_ntop_p(addr, &sin.sin6_addr, sizeof(addr));
+		smart_ntop_port(addr, &sin, sizeof(addr));
 
 		cb->func(cb->p, buf, len, &sin, addr);
 	}

@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <sys/resource.h>
+#include <stdio.h>
 
 
 
@@ -112,23 +113,37 @@ static inline void smart_ntop(char *o, struct in6_addr *a, size_t len) {
 		*o = '\0';
 }
 
-static inline void smart_ntop_p(char *o, struct in6_addr *a, size_t len) {
+static inline char *smart_ntop_p(char *o, struct in6_addr *a, size_t len) {
 	int l;
 
 	if (IN6_IS_ADDR_V4MAPPED(a)) {
-		if (!inet_ntop(AF_INET, &(a->s6_addr32[3]), o, len))
-			*o = '\0';
+		if (inet_ntop(AF_INET, &(a->s6_addr32[3]), o, len))
+			return o + strlen(o);
+		*o = '\0';
+		return NULL;
 	}
 	else {
 		*o = '[';
 		if (!inet_ntop(AF_INET6, a, o+1, len-2)) {
 			*o = '\0';
-			return;
+			return NULL;
 		}
 		l = strlen(o);
 		o[l] = ']';
 		o[l+1] = '\0';
+		return o + (l + 1);
 	}
+}
+
+static inline void smart_ntop_port(char *o, struct sockaddr_in6 *a, size_t len) {
+	char *e;
+
+	e = smart_ntop_p(o, &a->sin6_addr, len);
+	if (!e)
+		return;
+	if (len - (e - o) < 7)
+		return;
+	sprintf(e, ":%hu", ntohs(a->sin6_port));
 }
 
 static inline int smart_pton(int af, char *src, void *dst) {

@@ -222,11 +222,11 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	p = &pe2->rtps[r->idx];
 	c = cs->call;
 	m = c->callmaster;
-	smart_ntop_p(addr, &fsin->sin6_addr, sizeof(addr));
+	smart_ntop_port(addr, fsin, sizeof(addr));
 
 	if (p->fd == -1) {
-		mylog(LOG_WARNING, LOG_PREFIX_C "RTP packet to port %u discarded from %s:%u", 
-			LOG_PARAMS_C(c), r->localport, addr, ntohs(fsin->sin6_port));
+		mylog(LOG_WARNING, LOG_PREFIX_C "RTP packet to port %u discarded from %s", 
+			LOG_PARAMS_C(c), r->localport, addr);
 		r->stats.errors++;
 		mutex_lock(&m->statspslock);
 		m->statsps.errors++;
@@ -240,8 +240,8 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	if (!c->lookup_done || poller_now <= c->lookup_done + 3)
 		goto peerinfo;
 
-	mylog(LOG_DEBUG, LOG_PREFIX_C "Confirmed peer information for port %u - %s:%u", 
-		LOG_PARAMS_C(c), r->localport, addr, ntohs(fsin->sin6_port));
+	mylog(LOG_DEBUG, LOG_PREFIX_C "Confirmed peer information for port %u - %s", 
+		LOG_PARAMS_C(c), r->localport, addr);
 
 	pe->confirmed = 1;
 
