@@ -44,7 +44,7 @@ set -e
 OPTIONS=""
 
 [ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --ip=$ADDRESS"
-[ -z "$LISTEN" ] || OPTIONS="$OPTIONS --listen=$LISTEN"
+[ -z "$LISTEN_TCP" ] || OPTIONS="$OPTIONS --listen-tcp=$LISTEN_TCP"
 [ -z "$LISTEN_UDP" ] || OPTIONS="$OPTIONS --listen-udp=$LISTEN_UDP"
 [ -z "$TIMEOUT" ] || OPTIONS="$OPTIONS --timeout=$TIMEOUT"
 [ -z "$SILENT_TIMEOUT" ] || OPTIONS="$OPTIONS --silent-timeout=$SILENT_TIMEOUT"
