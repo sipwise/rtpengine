@@ -4,7 +4,7 @@
 #include "bencode.h"
 
 
-static void control_ng_incoming(int fd, void *p, uintptr_t x) {
+static void control_ng_incoming(struct obj *obj, char *buf, int len, struct sockaddr_in6 *sin, char *addr) {
 }
 
 struct control_ng *control_ng_new(struct poller *p, struct in6_addr ip, u_int16_t port, struct callmaster *m) {

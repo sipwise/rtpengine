@@ -7,11 +7,13 @@
 struct poller;
 struct obj;
 
+typedef void (*udp_listener_callback_t)(struct obj *p, char *buf, int len, struct sockaddr_in6 *sin, char *addr);
+
 struct udp_listener {
 	int fd;
 	struct poller *poller;
 };
 
-int udp_listener_init(struct udp_listener *, struct poller *p, struct in6_addr ip, u_int16_t port, poller_func_t, struct obj *);
+int udp_listener_init(struct udp_listener *, struct poller *p, struct in6_addr ip, u_int16_t port, udp_listener_callback_t, struct obj *);
 
 #endif

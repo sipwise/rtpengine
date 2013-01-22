@@ -17,48 +17,30 @@
 #include "udp_listener.h"
 
 
-static void control_udp_incoming(int fd, void *p, uintptr_t x) {
-	struct control_udp *u = p;
-	int ret, len;
-	char buf[8192];
-	struct sockaddr_in6 sin;
-	socklen_t sin_len;
+static void control_udp_incoming(struct obj *obj, char *buf, int len, struct sockaddr_in6 *sin, char *addr) {
+	struct control_udp *u = (void *) obj;
+	int ret;
 	int ovec[100];
 	const char **out;
 	char *reply;
 	struct msghdr mh;
 	struct iovec iov[10];
-	char addr[64];
-
-next:
-	sin_len = sizeof(sin);
-	len = recvfrom(fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &sin, &sin_len);
-	if (len < 0) {
-		if (errno == EINTR)
-			goto next;
-		if (errno != EWOULDBLOCK && errno != EAGAIN)
-			mylog(LOG_WARNING, "Error reading from UDP socket");
-		return;
-	}
-
-	buf[len] = '\0';
-	smart_ntop_p(addr, &sin.sin6_addr, sizeof(addr));
 
 	ret = pcre_exec(u->parse_re, u->parse_ree, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
 		ret = pcre_exec(u->fallback_re, NULL, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 		if (ret <= 0) {
-			mylog(LOG_WARNING, "Unable to parse command line from udp:%s:%u: %s", addr, ntohs(sin.sin6_port), buf);
-			goto next;
+			mylog(LOG_WARNING, "Unable to parse command line from udp:%s:%u: %s", addr, ntohs(sin->sin6_port), buf);
+			return;
 		}
 
-		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from %s:%u, using fallback RE", buf, addr, ntohs(sin.sin6_port));
+		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from %s:%u, using fallback RE", buf, addr, ntohs(sin->sin6_port));
 
 		pcre_get_substring_list(buf, ovec, ret, &out);
 
 		ZERO(mh);
-		mh.msg_name = &sin;
-		mh.msg_namelen = sizeof(sin);
+		mh.msg_name = sin;
+		mh.msg_namelen = sizeof(*sin);
 		mh.msg_iov = iov;
 
 		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
@@ -78,21 +60,21 @@ next:
 			mh.msg_iovlen = 2;
 		}
 
-		sendmsg(fd, &mh, 0);
+		sendmsg(u->udp_listener.fd, &mh, 0);
 
 		pcre_free(out);
 
-		goto next;
+		return;
 	}
 
-	mylog(LOG_INFO, "Got valid command from udp:%s:%u: %s", addr, ntohs(sin.sin6_port), buf);
+	mylog(LOG_INFO, "Got valid command from udp:%s:%u: %s", addr, ntohs(sin->sin6_port), buf);
 
 	pcre_get_substring_list(buf, ovec, ret, &out);
 
 	reply = cookie_cache_lookup(&u->cookie_cache, out[RE_UDP_COOKIE]);
 	if (reply) {
-		mylog(LOG_INFO, "Detected command from udp:%s:%u as a duplicate", addr, ntohs(sin.sin6_port));
-		sendto(fd, reply, strlen(reply), 0, (struct sockaddr *) &sin, sin_len);
+		mylog(LOG_INFO, "Detected command from udp:%s:%u as a duplicate", addr, ntohs(sin->sin6_port));
+		sendto(u->udp_listener.fd, reply, strlen(reply), 0, (struct sockaddr *) sin, sizeof(*sin));
 		goto out;
 	}
 
@@ -106,8 +88,8 @@ next:
 		reply = call_query_udp(out, u->callmaster);
 	else if (chrtoupper(out[RE_UDP_V_CMD][0]) == 'V') {
 		ZERO(mh);
-		mh.msg_name = &sin;
-		mh.msg_namelen = sizeof(sin);
+		mh.msg_name = sin;
+		mh.msg_namelen = sizeof(*sin);
 		mh.msg_iov = iov;
 		mh.msg_iovlen = 2;
 
@@ -133,12 +115,12 @@ next:
 			iov[2].iov_len = 9;
 			mh.msg_iovlen++;
 		}
-		sendmsg(fd, &mh, 0);
+		sendmsg(u->udp_listener.fd, &mh, 0);
 	}
 
 	if (reply) {
 		len = strlen(reply);
-		sendto(fd, reply, len, 0, (struct sockaddr *) &sin, sin_len);
+		sendto(u->udp_listener.fd, reply, len, 0, (struct sockaddr *) sin, sizeof(*sin));
 		cookie_cache_insert(&u->cookie_cache, out[RE_UDP_COOKIE], reply, len);
 		free(reply);
 	}
@@ -147,7 +129,6 @@ next:
 
 out:
 	pcre_free(out);
-	goto next;
 }
 
 struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int16_t port, struct callmaster *m) {
