@@ -262,7 +262,7 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 	return c;
 
 fail2:
-	free(c);
+	obj_put(c);
 fail:
 	close(fd);
 	return NULL;
