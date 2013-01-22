@@ -146,6 +146,14 @@ static inline int smart_pton(int af, char *src, void *dst) {
 	return inet_pton(af, src, dst);
 }
 
+static inline int strmemcmp(const void *mem, int len, const char *str) {
+	if (strlen(str) < len)
+		return 1;
+	if (strlen(str) > len)
+		return -1;
+	return memcmp(mem, str, len);
+}
+
 
 
 typedef pthread_mutex_t mutex_t;
