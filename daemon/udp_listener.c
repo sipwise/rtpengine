@@ -39,6 +39,8 @@ int udp_listener_init(struct udp_listener *u, struct poller *p, struct in6_addr 
 	if (poller_add_item(p, &i))
 		goto fail;
 
+	return 0;
+
 fail:
 	close(u->fd);
 	return -1;
