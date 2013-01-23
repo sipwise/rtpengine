@@ -2114,7 +2114,7 @@ struct callstream *callstream_new(struct call *ca, int num) {
 
 
 const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	const char *sdp;
+	const char *sdp, *errstr;
 	int sdp_len;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -2126,9 +2126,16 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 	if (sdp_parse(sdp, sdp_len, &parsed))
 		return "Failed to parse SDP";
 
-	sdp_free(&parsed);
+	errstr = "Incomplete SDP specification";
+	if (sdp_streams(&parsed, &streams))
+		goto out;
 
-	return NULL;
+	errstr = NULL;
+out:
+	sdp_free(&parsed);
+	streams_free(&streams);
+
+	return errstr;
 }
 
 const char *call_answer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {

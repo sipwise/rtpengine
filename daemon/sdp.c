@@ -298,3 +298,42 @@ void sdp_free(GQueue *sessions) {
 		g_slice_free1(sizeof(*session), session);
 	}
 }
+
+int sdp_streams(const GQueue *sessions, GQueue *streams) {
+	struct sdp_session *session;
+	struct sdp_media *media;
+	struct stream *stream;
+	GList *l, *k;
+	const char *errstr;
+	int i, num;
+
+	num = 0;
+	for (l = sessions->head; l; l = l->next) {
+		session = l->data;
+
+		for (k = session->media_streams.head; k; k = k->next) {
+			media = k->data;
+
+			for (i = 0; i < media->port_count; i++) {
+				stream = g_slice_alloc0(sizeof(*stream));
+
+				errstr = "No address info found for stream";
+				if (media->connection.parsed)
+					stream->ip46 = media->connection.address.parsed;
+				else if (session->connection.parsed)
+					stream->ip46 = session->connection.address.parsed;
+				else
+					goto error;
+
+				stream->port = (media->port_num + (i * 2)) & 0xffff;
+				stream->num = ++num;
+			}
+		}
+	}
+
+	return 0;
+
+error:
+	mylog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
+	return -1;
+}
