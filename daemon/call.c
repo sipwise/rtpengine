@@ -23,6 +23,7 @@
 #include "redis.h"
 #include "xt_MEDIAPROXY.h"
 #include "bencode.h"
+#include "sdp.h"
 
 
 
@@ -2119,10 +2120,17 @@ struct callstream *callstream_new(struct call *ca, int num) {
 const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	const char *sdp;
 	int sdp_len;
+	GQueue parsed = G_QUEUE_INIT;
+	GQueue streams = G_QUEUE_INIT;
 
 	sdp = bencode_dictionary_get_string(input, "sdp", &sdp_len);
 	if (!sdp)
 		return "No SDP body in message";
+
+	if (sdp_parse(sdp, sdp_len, &parsed))
+		return "Failed to parse SDP";
+
+	sdp_free(&parsed);
 
 	return NULL;
 }

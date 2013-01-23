@@ -3,6 +3,7 @@
 
 #include <glib.h>
 
-GQueue *sdp_parse(const char *body, int len, GQueue *streams);
+int sdp_parse(const char *body, int len, GQueue *sessions);
+void sdp_free(GQueue *sessions);
 
 #endif

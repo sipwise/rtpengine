@@ -1,4 +1,7 @@
 #include <glib.h>
+#include <netinet/in.h> 
+#include <netinet/ip.h> 
+#include <arpa/inet.h>
 
 #include "sdp.h"
 #include "call.h"
@@ -9,20 +12,23 @@ struct string {
 	int len;
 };
 
+struct network_address {
+	struct string network_type;
+	struct string address_type;
+	struct string address;
+	struct in6_addr parsed;
+};
+
 struct sdp_origin {
 	struct string username;
 	struct string session_id;
 	struct string version;
-	struct string network_type;
-	struct string address_type;
-	struct string address;
+	struct network_address address;
 	int parsed:1;
 };
 
 struct sdp_connection {
-	struct string network_type;
-	struct string address_type;
-	struct string address;
+	struct network_address address;
 	int parsed:1;
 };
 
@@ -39,12 +45,54 @@ struct sdp_media {
 	struct string transport;
 	/* ... format list */
 
+	long int port_num;
+	int port_count;
+
 	struct sdp_connection connection;
 	GQueue attributes;
 };
 
 
 
+
+/* hack hack */
+static inline int inet_pton_str(int af, struct string *src, void *dst) {
+	char *s = (void *) src->s;
+	char p;
+	int ret;
+	p = s[src->len];
+	s[src->len] = '\0';
+	ret = inet_pton(af, src->s, dst);
+	s[src->len] = p;
+	return ret;
+}
+
+static int parse_address(struct network_address *address) {
+	struct in_addr in4;
+
+	if (address->network_type.len != 2)
+		return -1;
+	if (memcmp(address->network_type.s, "IN", 2)
+			&& memcmp(address->network_type.s, "in", 2))
+		return -1;
+	if (address->address_type.len != 3)
+		return -1;
+	if (!memcmp(address->address_type.s, "IP4", 3)
+			|| !memcmp(address->address_type.s, "ip4", 3)) {
+		if (inet_pton_str(AF_INET, &address->address, &in4) != 1)
+			return -1;
+		in4_to_6(&address->parsed, in4.s_addr);
+	}
+	else if (!memcmp(address->address_type.s, "IP6", 3)
+			|| !memcmp(address->address_type.s, "ip6", 3)) {
+		if (inet_pton_str(AF_INET6, &address->address, &address->parsed) != 1)
+			return -1;
+	}
+	else
+		return -1;
+
+	return 0;
+}
 
 static inline int extract_token(const char **sp, const char *end, struct string *out) {
 	const char *space;
@@ -66,6 +114,11 @@ static inline int extract_token(const char **sp, const char *end, struct string 
 	
 }
 #define EXTRACT_TOKEN(field) if (extract_token(&start, end, &output->field)) return -1
+#define EXTRACT_NETWORK_ADDRESS(field) \
+	EXTRACT_TOKEN(field.network_type); \
+	EXTRACT_TOKEN(field.address_type); \
+	EXTRACT_TOKEN(field.address); \
+	if (parse_address(&output->address)) return -1
 
 static int parse_origin(const char *start, const char *end, struct sdp_origin *output) {
 	if (output->parsed)
@@ -74,9 +127,7 @@ static int parse_origin(const char *start, const char *end, struct sdp_origin *o
 	EXTRACT_TOKEN(username);
 	EXTRACT_TOKEN(session_id);
 	EXTRACT_TOKEN(version);
-	EXTRACT_TOKEN(network_type);
-	EXTRACT_TOKEN(address_type);
-	EXTRACT_TOKEN(address);
+	EXTRACT_NETWORK_ADDRESS(address);
 
 	output->parsed = 1;
 	return 0;
@@ -86,31 +137,45 @@ static int parse_connection(const char *start, const char *end, struct sdp_conne
 	if (output->parsed)
 		return -1;
 
-	EXTRACT_TOKEN(network_type);
-	EXTRACT_TOKEN(address_type);
-	EXTRACT_TOKEN(address);
+	EXTRACT_NETWORK_ADDRESS(address);
 
 	output->parsed = 1;
 	return 0;
 }
 
 static int parse_media(const char *start, const char *end, struct sdp_media *output) {
+	char *ep;
+
 	EXTRACT_TOKEN(media_type);
 	EXTRACT_TOKEN(port);
 	EXTRACT_TOKEN(transport);
 
+	output->port_num = strtol(output->port.s, &ep, 10);
+	if (ep == output->port.s)
+		return -1;
+	if (output->port_num <= 0 || output->port_num > 0xffff)
+		return -1;
+
+	if (*ep == '/') {
+		output->port_count = atoi(ep + 1);
+		if (output->port_count <= 0)
+			return -1;
+		if (output->port_count > 10) /* unsupported */
+			return -1;
+	}
+	else
+		output->port_count = 1;
+
 	return 0;
 }
 
-GQueue *sdp_parse(const char *body, int len, GQueue *streams) {
+int sdp_parse(const char *body, int len, GQueue *sessions) {
 	const char *b, *end, *value, *line_end, *next_line;
 	struct sdp_session *session = NULL;
-	GQueue *sessions;
 	struct sdp_media *media = NULL;
 	const char *errstr;
 	struct string *attribute;
 
-	sessions = g_queue_new();
 	b = body;
 	end = body + len;
 
@@ -205,10 +270,31 @@ GQueue *sdp_parse(const char *body, int len, GQueue *streams) {
 		b = next_line;
 	}
 
-	return sessions;
+	return 0;
 
 error:
-	mylog(LOG_WARNING, "Error parsing SDP: %s", errstr);
-	/* XXX free sessions */
-	return NULL;
+	mylog(LOG_WARNING, "Error parsing SDP at offset %li: %s", (b - body), errstr);
+	sdp_free(sessions);
+	return -1;
+}
+
+static void __free_attributes(GQueue *a) {
+	struct string *str;
+	while ((str = g_queue_pop_head(a))) {
+		g_slice_free1(sizeof(*str), str);
+	}
+}
+
+void sdp_free(GQueue *sessions) {
+	struct sdp_session *session;
+	struct sdp_media *media;
+
+	while ((session = g_queue_pop_head(sessions))) {
+		while ((media = g_queue_pop_head(&session->media_streams))) {
+			__free_attributes(&media->attributes);
+			g_slice_free1(sizeof(*media), media);
+		}
+		__free_attributes(&session->attributes);
+		g_slice_free1(sizeof(*session), session);
+	}
 }
