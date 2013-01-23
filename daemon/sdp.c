@@ -6,23 +6,19 @@
 #include "sdp.h"
 #include "call.h"
 #include "log.h"
-
-struct string {
-	const char *s;
-	int len;
-};
+#include "str.h"
 
 struct network_address {
-	struct string network_type;
-	struct string address_type;
-	struct string address;
+	str network_type;
+	str address_type;
+	str address;
 	struct in6_addr parsed;
 };
 
 struct sdp_origin {
-	struct string username;
-	struct string session_id;
-	struct string version;
+	str username;
+	str session_id;
+	str version;
 	struct network_address address;
 	int parsed:1;
 };
@@ -40,9 +36,9 @@ struct sdp_session {
 };
 
 struct sdp_media {
-	struct string media_type;
-	struct string port;
-	struct string transport;
+	str media_type;
+	str port;
+	str transport;
 	/* ... format list */
 
 	long int port_num;
@@ -56,8 +52,8 @@ struct sdp_media {
 
 
 /* hack hack */
-static inline int inet_pton_str(int af, struct string *src, void *dst) {
-	char *s = (void *) src->s;
+static inline int inet_pton_str(int af, str *src, void *dst) {
+	char *s = src->s;
 	char p;
 	int ret;
 	p = s[src->len];
@@ -94,8 +90,8 @@ static int parse_address(struct network_address *address) {
 	return 0;
 }
 
-static inline int extract_token(const char **sp, const char *end, struct string *out) {
-	const char *space;
+static inline int extract_token(char **sp, char *end, str *out) {
+	char *space;
 
 	out->s = *sp;
 	space = memchr(*sp, ' ', end - *sp);
@@ -120,7 +116,7 @@ static inline int extract_token(const char **sp, const char *end, struct string 
 	EXTRACT_TOKEN(field.address); \
 	if (parse_address(&output->address)) return -1
 
-static int parse_origin(const char *start, const char *end, struct sdp_origin *output) {
+static int parse_origin(char *start, char *end, struct sdp_origin *output) {
 	if (output->parsed)
 		return -1;
 
@@ -133,7 +129,7 @@ static int parse_origin(const char *start, const char *end, struct sdp_origin *o
 	return 0;
 }
 
-static int parse_connection(const char *start, const char *end, struct sdp_connection *output) {
+static int parse_connection(char *start, char *end, struct sdp_connection *output) {
 	if (output->parsed)
 		return -1;
 
@@ -143,7 +139,7 @@ static int parse_connection(const char *start, const char *end, struct sdp_conne
 	return 0;
 }
 
-static int parse_media(const char *start, const char *end, struct sdp_media *output) {
+static int parse_media(char *start, char *end, struct sdp_media *output) {
 	char *ep;
 
 	EXTRACT_TOKEN(media_type);
@@ -169,12 +165,12 @@ static int parse_media(const char *start, const char *end, struct sdp_media *out
 	return 0;
 }
 
-int sdp_parse(const char *body, int len, GQueue *sessions) {
-	const char *b, *end, *value, *line_end, *next_line;
+int sdp_parse(char *body, int len, GQueue *sessions) {
+	char *b, *end, *value, *line_end, *next_line;
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
 	const char *errstr;
-	struct string *attribute;
+	str *attribute;
 
 	b = body;
 	end = body + len;
@@ -279,7 +275,7 @@ error:
 }
 
 static void __free_attributes(GQueue *a) {
-	struct string *str;
+	str *str;
 	while ((str = g_queue_pop_head(a))) {
 		g_slice_free1(sizeof(*str), str);
 	}

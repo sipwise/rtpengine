@@ -197,7 +197,7 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
  * returns it as a pointer to the string itself. Returns NULL if the value is of some other type. The
  * returned string is NOT null-terminated. Length of the string is returned in *len, which must be a
  * valid pointer. The returned string will be valid until dict's bencode_buffer_t object is destroyed. */
-static inline const char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, int *len);
+static inline char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, int *len);
 
 /* Identical to bencode_dictionary_get() but returns the string in a newly allocated buffer (using the
  * BENCODE_MALLOC function), which remains valid even after bencode_buffer_t is destroyed. */
@@ -243,7 +243,7 @@ static inline bencode_item_t *bencode_dictionary_get(bencode_item_t *dict, const
 	return bencode_dictionary_get_len(dict, key, strlen(key));
 }
 
-static inline const char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, int *len) {
+static inline char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, int *len) {
 	bencode_item_t *val;
 	val = bencode_dictionary_get(dict, key);
 	if (!val || val->type != BENCODE_STRING)

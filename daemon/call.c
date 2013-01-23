@@ -2114,7 +2114,7 @@ struct callstream *callstream_new(struct call *ca, int num) {
 
 
 const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	const char *sdp, *errstr;
+	char *sdp, *errstr;
 	int sdp_len;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
