@@ -444,11 +444,9 @@ static int info_parse_func(char **a, void **ret, void *p) {
 
 
 static void info_parse(const char *s, struct call *c) {
-	GQueue *q;
 	struct callmaster *m = c->callmaster;
 
-	q = pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, c);
-	g_queue_free(q);
+	pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, c, NULL);
 }
 
 
@@ -483,22 +481,20 @@ fail:
 }
 
 
-static GQueue *streams_parse(const char *s, struct callmaster *m) {
+static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
 	int i;
 	i = 0;
-	return pcre_multi_match(m->streams_re, m->streams_ree, s, 3, streams_parse_func, &i);
+	pcre_multi_match(m->streams_re, m->streams_ree, s, 3, streams_parse_func, &i, q);
 }
 
 static void streams_free(GQueue *q) {
 	struct stream *s;
 
-	while (q->head) {
-		s = g_queue_pop_head(q);
-		free(s->mediatype);
+	while ((s = g_queue_pop_head(q))) {
+		if (s->mediatype)
+			free(s->mediatype);
 		g_slice_free1(sizeof(*s), s);
 	}
-
-	g_queue_free(q);
 }
 
 
@@ -1744,7 +1740,7 @@ fail:
 
 char *call_request(const char **out, struct callmaster *m) {
 	struct call *c;
-	GQueue *s;
+	GQueue s = G_QUEUE_INIT;
 	int num;
 	char *ret;
 
@@ -1753,9 +1749,9 @@ char *call_request(const char **out, struct callmaster *m) {
 	c->calling_agent = (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT])
 		? call_strdup(c, out[RE_TCP_RL_AGENT]) : "UNKNOWN";
 	info_parse(out[RE_TCP_RL_INFO], c);
-	s = streams_parse(out[RE_TCP_RL_STREAMS], m);
-	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
-	streams_free(s);
+	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
+	num = call_streams(c, &s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
+	streams_free(&s);
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
 	mutex_unlock(&c->lock);
 
@@ -1769,7 +1765,7 @@ char *call_request(const char **out, struct callmaster *m) {
 
 char *call_lookup(const char **out, struct callmaster *m) {
 	struct call *c;
-	GQueue *s;
+	GQueue s = G_QUEUE_INIT;
 	int num;
 	char *ret;
 
@@ -1787,9 +1783,9 @@ char *call_lookup(const char **out, struct callmaster *m) {
 	c->called_agent = (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT])
 		? call_strdup(c, out[RE_TCP_RL_AGENT]) : "UNKNOWN";
 	info_parse(out[RE_TCP_RL_INFO], c);
-	s = streams_parse(out[RE_TCP_RL_STREAMS], m);
-	num = call_streams(c, s, g_hash_table_lookup(c->infohash, "totag"), 1);
-	streams_free(s);
+	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
+	num = call_streams(c, &s, g_hash_table_lookup(c->infohash, "totag"), 1);
+	streams_free(&s);
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
 	mutex_unlock(&c->lock);
 

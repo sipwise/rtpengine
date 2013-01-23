@@ -40,8 +40,7 @@ GList *g_list_link(GList *list, GList *el) {
 }
 
 
-GQueue *pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num, parse_func f, void *p) {
-	GQueue *q;
+int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num, parse_func f, void *p, GQueue *q) {
 	unsigned int start, len;
 	int ovec[60];
 	int *ov;
@@ -49,7 +48,6 @@ GQueue *pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int 
 	unsigned int i;
 	void *ins;
 
-	q = g_queue_new();
 	el = malloc(sizeof(*el) * num);
 
 	for (start = 0, len = strlen(s); pcre_exec(re, ree, s + start, len - start, 0, 0, ovec, G_N_ELEMENTS(ovec)) > 0; start += ovec[1]) {
@@ -69,7 +67,7 @@ GQueue *pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int 
 
 	free(el);
 
-	return q;
+	return q ? q->length : 0;
 }
 
 

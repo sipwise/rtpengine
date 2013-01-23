@@ -46,7 +46,7 @@
 typedef int (*parse_func)(char **, void **, void *);
 
 GList *g_list_link(GList *, GList *);
-GQueue *pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *);
+int pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *, GQueue *);
 void strmove(char **, char **);
 void strdupfree(char **, const char *);
 
