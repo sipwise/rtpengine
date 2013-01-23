@@ -32,6 +32,9 @@ static bencode_item_t __bencode_end_marker = {
 
 
 
+static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, const char *end);
+
+
 
 static void __bencode_item_init(bencode_item_t *item) {
 	item->parent = item->child = item->sibling = NULL;
@@ -341,39 +344,35 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len) {
 	return ret;
 }
 
-static bencode_item_t *bencode_decode_dictionary(bencode_buffer_t *buf, const char *s, int len) {
+static bencode_item_t *bencode_decode_dictionary(bencode_buffer_t *buf, const char *s, const char *end) {
 	bencode_item_t *ret, *item;
 
 	if (*s != 'd')
 		return NULL;
-
 	s++;
-	len--;
 
 	ret = __bencode_item_alloc(buf, 0);
 	if (!ret)
 		return NULL;
 	bencode_dictionary_init(ret);
 
-	while (len > 0) {
-		item = bencode_decode(buf, s, len);
+	while (s > end) {
+		item = __bencode_decode(buf, s, end);
 		if (!item)
 			return NULL;
 		s += item->str_len;
-		len -= item->str_len;
 		if (item->type == BENCODE_END_MARKER)
 			break;
 		if (item->type != BENCODE_STRING)
 			return NULL;
 		__bencode_container_add(ret, item);
 
-		if (len <= 0)
+		if (s >= end)
 			return NULL;
-		item = bencode_decode(buf, s, len);
+		item = __bencode_decode(buf, s, end);
 		if (!item)
 			return NULL;
 		s += item->str_len;
-		len -= item->str_len;
 		if (item->type == BENCODE_END_MARKER)
 			return NULL;
 		__bencode_container_add(ret, item);
@@ -382,26 +381,23 @@ static bencode_item_t *bencode_decode_dictionary(bencode_buffer_t *buf, const ch
 	return ret;
 }
 
-static bencode_item_t *bencode_decode_list(bencode_buffer_t *buf, const char *s, int len) {
+static bencode_item_t *bencode_decode_list(bencode_buffer_t *buf, const char *s, const char *end) {
 	bencode_item_t *ret, *item;
 
 	if (*s != 'l')
 		return NULL;
-
 	s++;
-	len--;
 
 	ret = __bencode_item_alloc(buf, 0);
 	if (!ret)
 		return NULL;
 	bencode_list_init(ret);
 
-	while (len >= 0) {
-		item = bencode_decode(buf, s, len);
+	while (s > end) {
+		item = __bencode_decode(buf, s, end);
 		if (!item)
 			return NULL;
 		s += item->str_len;
-		len -= item->str_len;
 		if (item->type == BENCODE_END_MARKER)
 			break;
 		__bencode_container_add(ret, item);
@@ -410,41 +406,36 @@ static bencode_item_t *bencode_decode_list(bencode_buffer_t *buf, const char *s,
 	return ret;
 }
 
-static bencode_item_t *bencode_decode_integer(bencode_buffer_t *buf, const char *s, int len) {
+static bencode_item_t *bencode_decode_integer(bencode_buffer_t *buf, const char *s, const char *end) {
 	long long int i;
 	const char *orig = s;
-	char *end;
+	char *convend;
 	bencode_item_t *ret;
 
 	if (*s != 'i')
 		return NULL;
-
 	s++;
-	len--;
 
-	if (len <= 0)
+	if (s >= end)
 		return NULL;
 
 	if (*s == '0') {
 		i = 0;
 		s++;
-		len--;
 		goto done;
 	}
 
-	i = strtoll(s, &end, 10);
-	if (end == s)
+	i = strtoll(s, &convend, 10);
+	if (convend == s)
 		return NULL;
-	len -= (end - s);
-	s += (end - s);
+	s += (convend - s);
 
 done:
-	if (len <= 0)
+	if (s >= end)
 		return NULL;
 	if (*s != 'e')
 		return NULL;
 	s++;
-	len--;
 
 	ret = __bencode_item_alloc(buf, 0);
 	if (!ret)
@@ -461,35 +452,31 @@ done:
 	return ret;
 }
 
-static bencode_item_t *bencode_decode_string(bencode_buffer_t *buf, const char *s, int len) {
+static bencode_item_t *bencode_decode_string(bencode_buffer_t *buf, const char *s, const char *end) {
 	unsigned long int sl;
-	char *end;
+	char *convend;
 	const char *orig = s;
 	bencode_item_t *ret;
 
 	if (*s == '0') {
 		sl = 0;
 		s++;
-		len--;
 		goto colon;
 	}
 
-	sl = strtoul(s, &end, 10);
-	if (end == s)
+	sl = strtoul(s, &convend, 10);
+	if (convend == s)
 		return NULL;
-	len -= (end - s);
-	s += (end - s);
+	s += (convend - s);
 
 colon:
-	if (len <= 0)
+	if (s >= end)
 		return NULL;
 	if (*s != ':')
 		return NULL;
-
-	len--;
 	s++;
 
-	if (len < sl)
+	if (s + sl > end)
 		return NULL;
 
 	ret = __bencode_item_alloc(buf, 0);
@@ -506,17 +493,17 @@ colon:
 	return ret;
 }
 
-bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, int len) {
-	assert(s != NULL);
-	assert(len > 0);
+static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, const char *end) {
+	if (s >= end)
+		return NULL;
 
 	switch (*s) {
 		case 'd':
-			return bencode_decode_dictionary(buf, s, len);
+			return bencode_decode_dictionary(buf, s, end);
 		case 'l':
-			return bencode_decode_list(buf, s, len);
+			return bencode_decode_list(buf, s, end);
 		case 'i':
-			return bencode_decode_integer(buf, s, len);
+			return bencode_decode_integer(buf, s, end);
 		case 'e':
 			return &__bencode_end_marker;
 		case '0':
@@ -529,11 +516,17 @@ bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, int len) {
 		case '7':
 		case '8':
 		case '9':
-			return bencode_decode_string(buf, s, len);
+			return bencode_decode_string(buf, s, end);
 		default:
 			return NULL;
 	}
 }
+
+bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, int len) {
+	assert(s != NULL);
+	return __bencode_decode(buf, s, s + len);
+}
+
 
 /* XXX inefficient, use a proper hash instead */
 bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *keystr, int keylen) {
