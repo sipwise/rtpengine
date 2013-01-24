@@ -1475,7 +1475,7 @@ static int call_stream_address6(GString *o, struct peer *p, int format) {
 	struct callmaster *m = p->up->call->callmaster;
 
 	if (format == 2)
-		g_string_append(o, "IP4 ");
+		g_string_append(o, "IP6 ");
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46))
 		g_string_append(o, "::");
