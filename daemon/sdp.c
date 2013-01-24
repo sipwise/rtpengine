@@ -7,6 +7,7 @@
 #include "call.h"
 #include "log.h"
 #include "str.h"
+#include "call.h"
 
 struct network_address {
 	str network_type;
@@ -31,8 +32,8 @@ struct sdp_connection {
 struct sdp_session {
 	struct sdp_origin origin;
 	struct sdp_connection connection;
-	GQueue media_streams;
 	GQueue attributes;
+	GQueue media_streams;
 };
 
 struct sdp_media {
@@ -46,6 +47,12 @@ struct sdp_media {
 
 	struct sdp_connection connection;
 	GQueue attributes;
+};
+
+struct string_chopper {
+	str *input;
+	GString *output;
+	int position;
 };
 
 
@@ -321,8 +328,12 @@ int sdp_streams(const GQueue *sessions, GQueue *streams) {
 				else
 					goto error;
 
+				/* XXX ports must be consecutive */
+				/* XXX check for RTP type */
 				stream->port = (media->port_num + (i * 2)) & 0xffff;
 				stream->num = ++num;
+
+				g_queue_push_tail(streams, stream);
 			}
 		}
 	}
@@ -332,4 +343,154 @@ int sdp_streams(const GQueue *sessions, GQueue *streams) {
 error:
 	mylog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
 	return -1;
+}
+
+static void chopper_init(struct string_chopper *c, str *input) {
+	c->input = input;
+	c->output = g_string_new_str();
+	c->position = 0;
+}
+
+static int copy_up_to(struct string_chopper *chop, str *where) {
+	int offset, len;
+
+	offset = where->s - chop->input->s;
+	assert(offset >= 0);
+	assert(offset < chop->input->len);
+
+	len = offset - chop->position;
+	if (len < 0) {
+		mylog(LOG_WARNING, "Malformed SDP, cannot rewrite");
+		return -1;
+	}
+	g_string_append_len(chop->output, chop->input->s + chop->position, len);
+	chop->position += len;
+	return 0;
+}
+
+static void copy_remainder(struct string_chopper *chop) {
+	int len;
+	len = chop->input->len - chop->position;
+	assert(len >= 0);
+	g_string_append_len(chop->output, chop->input->s + chop->position, len);
+	chop->position += len;
+}
+
+static int skip_over(struct string_chopper *chop, str *where) {
+	int offset, len;
+
+	offset = (where->s - chop->input->s) + where->len;
+	assert(offset >= 0);
+	assert(offset < chop->input->len);
+
+	len = offset - chop->position;
+	if (len < 0) {
+		mylog(LOG_WARNING, "Malformed SDP, cannot rewrite");
+		return -1;
+	}
+	chop->position += len;
+	return 0;
+}
+
+static int replace_port(struct string_chopper *chop, str *port, GList *m, int off) {
+	struct callstream *cs;
+	struct streamrelay *sr;
+
+	if (!m) {
+		mylog(LOG_ERROR, "BUG! Ran out of streams");
+		return -1;
+	}
+
+	cs = m->data;
+	sr = &cs->peers[off].rtps[0];
+
+	if (copy_up_to(chop, port))
+		return -1;
+
+	g_string_append_printf(chop->output, "%hu", sr->localport);
+
+	if (skip_over(chop, port))
+		return -1;
+
+	return 0;
+}
+
+static int replace_network_address(struct string_chopper *chop, struct network_address *address, GList *m, int off) {
+	struct callstream *cs;
+	struct peer *peer;
+
+	if (!m) {
+		mylog(LOG_ERROR, "BUG! Ran out of streams");
+		return -1;
+	}
+
+	cs = m->data;
+	peer = &cs->peers[off];
+
+	if (copy_up_to(chop, &address->address_type))
+		return -1;
+
+	call_stream_address(chop->output, peer, 2);
+
+	if (skip_over(chop, &address->address))
+		return -1;
+
+	return 0;
+}
+
+static str *chopper_done(struct string_chopper *chop) {
+	str *ret;
+	ret = g_string_free_str(chop->output);
+	return ret;
+}
+
+static void chopper_destroy(struct string_chopper *chop) {
+	g_string_free(chop->output, TRUE);
+}
+
+/* XXX use stream numbers as index */
+/* XXX use port numbers as index */
+/* XXX get rid of num/off parameters? */
+str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, int off) {
+	struct sdp_session *session;
+	struct sdp_media *media;
+	GList *l, *k, *m;
+	struct string_chopper chop;
+
+	chopper_init(&chop, body);
+	m = call->callstreams->head;
+
+	for (l = sessions->head; l; l = l->next) {
+		session = l->data;
+
+		if (session->origin.parsed) {
+			if (replace_network_address(&chop, &session->origin.address, m, off))
+				goto error;
+		}
+		if (session->connection.parsed) {
+			if (replace_network_address(&chop, &session->connection.address, m, off))
+				goto error;
+		}
+
+		for (k = session->media_streams.head; k; k = k->next) {
+			media = k->data;
+
+			/* XXX take multiple ports into account */
+			if (replace_port(&chop, &media->port, m, off))
+				goto error;
+
+			if (media->connection.parsed) {
+				if (replace_network_address(&chop, &media->connection.address, m, off))
+					goto error;
+			}
+		}
+	}
+
+	copy_remainder(&chop);
+	return chopper_done(&chop);
+
+error:
+	mylog(LOG_ERROR, "Error rewriting SDP");
+	chopper_destroy(&chop);
+	return NULL;
 }

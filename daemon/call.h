@@ -140,6 +140,7 @@ struct call *call_get_or_create(const str *callid, const str *viabranch, struct 
 struct callstream *callstream_new(struct call *ca, int num);
 void callstream_init(struct callstream *s, int port1, int port2);
 void kernelize(struct callstream *c);
+int call_stream_address(GString *o, struct peer *p, int format);
 
 static inline char *call_strdup(struct call *c, const char *s) {
 	char *r;

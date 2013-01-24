@@ -76,7 +76,7 @@ static inline char *str_chr(const str *s, int c) {
 }
 static inline str *str_chr_str(str *out, const str *s, int c) {
 	out->s = str_chr(s, c);
-	out->len = out->s ? out->s - s->s : 0;
+	out->len = out->s ? (s->len - (out->s - s->s)) : 0;
 	return out;
 }
 static inline int str_cmp(const str *a, const char *b) {
@@ -169,6 +169,7 @@ static inline str *g_string_free_str(GString *gs) {
 
 	pl = strlen(STR_MALLOC_PADDING);
 	assert(gs->len >= pl);
+	assert(memcmp(gs->str, STR_MALLOC_PADDING, pl) == 0);
 	ret = (void *) gs->str;
 	ret->s = gs->str + pl;
 	ret->len = gs->len - pl;

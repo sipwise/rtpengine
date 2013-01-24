@@ -16,6 +16,10 @@ struct __bencode_buffer_piece {
 	struct __bencode_buffer_piece *next;
 	char buf[0];
 };
+struct __bencode_free_list {
+	void *ptr;
+	struct __bencode_free_list *next;
+};
 
 
 
@@ -356,7 +360,7 @@ static bencode_item_t *bencode_decode_dictionary(bencode_buffer_t *buf, const ch
 		return NULL;
 	bencode_dictionary_init(ret);
 
-	while (s > end) {
+	while (s < end) {
 		item = __bencode_decode(buf, s, end);
 		if (!item)
 			return NULL;
@@ -393,7 +397,7 @@ static bencode_item_t *bencode_decode_list(bencode_buffer_t *buf, const char *s,
 		return NULL;
 	bencode_list_init(ret);
 
-	while (s > end) {
+	while (s < end) {
 		item = __bencode_decode(buf, s, end);
 		if (!item)
 			return NULL;
@@ -551,4 +555,17 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
 	}
 
 	return NULL;
+}
+
+void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *p) {
+	struct __bencode_free_list *li;
+
+	if (!p)
+		return;
+	li = __bencode_alloc(buf, sizeof(*li));
+	if (!li)
+		return;
+	li->ptr = p;
+	li->next = buf->free_list;
+	buf->free_list = li;
 }

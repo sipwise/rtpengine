@@ -25,6 +25,7 @@ struct bencode_buffer;
 enum bencode_type;
 struct bencode_item;
 struct __bencode_buffer_piece;
+struct __bencode_free_list;
 
 typedef enum bencode_type bencode_type_t;
 typedef struct bencode_buffer bencode_buffer_t;
@@ -52,6 +53,7 @@ struct bencode_item {
 
 struct bencode_buffer {
 	struct __bencode_buffer_piece *pieces;
+	struct __bencode_free_list *free_list;
 };
 
 /* Initializes a bencode_buffer_t object. This object is used to group together all memory allocations
@@ -73,6 +75,10 @@ bencode_item_t *bencode_dictionary(bencode_buffer_t *buf);
  * Returns NULL if no memory could be allocated. */
 bencode_item_t *bencode_list(bencode_buffer_t *buf);
 
+/* Adds a pointer to the bencode_buffer_t object's internal free list. When the bencode_buffer_t
+ * object is destroyed, BENCODE_FREE will be called on this pointer. */
+void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *);
+
 /* Adds a new key/value pair to a dictionary. Memory will be allocated from the same bencode_buffer_t
  * object as the dictionary was allocated from. Returns NULL if no memory could be allocated, otherwise
  * returns "val".
@@ -90,6 +96,11 @@ static inline bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict
 
 /* Ditto, but for a "str" object */
 static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
+
+/* Ditto again, but adds the buffer which contains the string (val->s) to the bencode_buffer_t's
+ * internal free list. When the bencode_item_t object is destroyed, BENCODE_FREE will be called
+ * on this buffer. */
+static inline bencode_item_t *bencode_dictionary_add_str_free(bencode_item_t *dict, const char *key, const str *val);
 
 /* Convenience function to add an integer value to a dictionary */
 static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val);
@@ -264,6 +275,13 @@ static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, c
 	return bencode_dictionary_add(dict, key, bencode_str(dict->buffer, val));
 }
 
+static inline bencode_item_t *bencode_dictionary_add_str_free(bencode_item_t *dict, const char *key, const str *val) {
+	if (!val)
+		return NULL;
+	bencode_buffer_freelist_add(dict->buffer, val->s);
+	return bencode_dictionary_add(dict, key, bencode_str(dict->buffer, val));
+}
+
 static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val) {
 	return bencode_dictionary_add(dict, key, bencode_integer(dict->buffer, val));
 }
@@ -289,6 +307,8 @@ static inline char *bencode_dictionary_get_string(bencode_item_t *dict, const ch
 
 static inline char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *str) {
 	str->s = bencode_dictionary_get_string(dict, key, &str->len);
+	if (!str->s)
+		str->len = 0;
 	return str->s;
 }
 

@@ -1450,16 +1450,73 @@ static void call_destroy(struct call *c) {
 
 
 
+/* XXX use enum format */
+static int call_stream_address4(GString *o, struct peer *p, int format) {
+	struct callstream *cs = p->up;
+	u_int32_t ip4;
+	struct callmaster *m = cs->call->callmaster;
+
+	if (format == 2)
+		g_string_append(o, "IP4 ");
+
+	ip4 = p->rtps[0].peer.ip46.s6_addr32[3];
+	if (!ip4)
+		g_string_append(o, "0.0.0.0");
+	else if (m->conf.adv_ipv4)
+		g_string_append_printf(o, IPF, IPP(m->conf.adv_ipv4));
+	else
+		g_string_append_printf(o, IPF, IPP(m->conf.ipv4));
+
+	return AF_INET;
+}
+
+static int call_stream_address6(GString *o, struct peer *p, int format) {
+	char ips[64];
+	struct callmaster *m = p->up->call->callmaster;
+
+	if (format == 2)
+		g_string_append(o, "IP4 ");
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46))
+		g_string_append(o, "::");
+	else {
+		if (!IN6_IS_ADDR_UNSPECIFIED(&m->conf.adv_ipv6))
+			inet_ntop(AF_INET6, &m->conf.adv_ipv6, ips, sizeof(ips));
+		else
+			inet_ntop(AF_INET6, &m->conf.ipv6, ips, sizeof(ips));
+		g_string_append(o, ips);
+	}
+
+	return AF_INET6;
+}
+
+
+int call_stream_address(GString *o, struct peer *p, int format) {
+	struct callmaster *m;
+	struct peer *other;
+
+	m = p->up->call->callmaster;
+	other = &p->up->peers[p->idx ^ 1];
+
+	if (other->desired_family == AF_INET)
+		return call_stream_address4(o, p, format);
+	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
+		return call_stream_address4(o, p, format);
+	if (IN6_IS_ADDR_UNSPECIFIED(&m->conf.ipv6))
+		return call_stream_address4(o, p, format);
+
+	return call_stream_address6(o, p, format);
+}
+
+
+
 static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int format) {
 	GString *o;
 	int i;
 	GList *l;
 	struct callstream *t;
 	struct streamrelay *x;
-	char ips[64];
-	u_int32_t ip4;
-	int other_off;
-	char af;
+	int af;
 
 	o = g_string_new_str();
 	if (prefix)
@@ -1469,35 +1526,8 @@ static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const c
 		goto out;
 
 	t = s->head->data;
-	other_off = (off == 0) ? 1 : 0;
-
-	if (t->peers[other_off].desired_family == AF_INET
-			|| (t->peers[other_off].desired_family == 0
-				&& IN6_IS_ADDR_V4MAPPED(&t->peers[other_off].rtps[0].peer.ip46))
-			|| IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->conf.ipv6)) {
-		ip4 = t->peers[off].rtps[0].peer.ip46.s6_addr32[3];
-		if (!ip4)
-			strcpy(ips, "0.0.0.0");
-		else if (t->call->callmaster->conf.adv_ipv4)
-			sprintf(ips, IPF, IPP(t->call->callmaster->conf.adv_ipv4));
-		else
-			sprintf(ips, IPF, IPP(t->call->callmaster->conf.ipv4));
-
-		af = '4';
-	}
-	else {
-		if (IN6_IS_ADDR_UNSPECIFIED(&t->peers[off].rtps[0].peer.ip46))
-			strcpy(ips, "::");
-		else if (!IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->conf.adv_ipv6))
-			inet_ntop(AF_INET6, &t->call->callmaster->conf.adv_ipv6, ips, sizeof(ips));
-		else
-			inet_ntop(AF_INET6, &t->call->callmaster->conf.ipv6, ips, sizeof(ips));
-
-		af = '6';
-	}
-
 	if (format == 0)
-		g_string_append(o, ips);
+		call_stream_address(o, &t->peers[off], format);
 
 	for (i = 0, l = s->head; i < num && l; i++, l = l->next) {
 		t = l->data;
@@ -1505,8 +1535,10 @@ static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const c
 		g_string_append_printf(o, (format == 1) ? "%u " : " %u", x->localport);
 	}
 
-	if (format == 1)
-		g_string_append_printf(o, "%s %c", ips, af);
+	if (format == 1) {
+		af = call_stream_address(o, &t->peers[off], format);
+		g_string_append_printf(o, " %c", (af == AF_INET) ? '4' : '6');
+	}
 
 out:
 	g_string_append(o, "\n");
@@ -2102,18 +2134,23 @@ struct callstream *callstream_new(struct call *ca, int num) {
 
 
 const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	str sdp, fromtag;
+	str sdp, fromtag, viabranch, callid, *sdp_new;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
-	int ret;
+	struct call *call;
+	int num;
 
-	bencode_dictionary_get_str(input, "sdp", &sdp);
-	if (!sdp.s)
+	if (!bencode_dictionary_get_str(input, "sdp", &sdp))
 		return "No SDP body in message";
-	bencode_dictionary_get_str(input, "from-tag", &fromtag);
-	if (!fromtag.s)
+	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+		return "No call-id in message";
+	if (!bencode_dictionary_get_str(input, "from-tag", &fromtag))
 		return "No from-tag in message";
+	bencode_dictionary_get_str(input, "via-branch", &viabranch);
+	log_info = &viabranch;
+
+	/* XXX get rid of "direction" and use "desired_family" as intended? */
 
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
@@ -2122,10 +2159,28 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 	if (sdp_streams(&parsed, &streams))
 		goto out;
 
+	call = call_get_or_create(&callid, &viabranch, m);
+	log_info = &viabranch;
+	call->calling_agent = "UNKNOWN(ng)"; /* XXX get rid of, or make use of */
+
+	num = call_streams(call, &streams, &fromtag, 0);
+	sdp_new = sdp_replace(&sdp, &parsed, call, abs(num), (num >= 0) ? 0 : 1);
+
+	mutex_unlock(&call->lock);
+	obj_put(call);
+
+	errstr = "Error rewriting SDP";
+	if (!sdp_new)
+		goto out;
+
+	bencode_dictionary_add_str_free(output, "sdp", sdp_new);
+	bencode_dictionary_add_string(output, "result", "ok");
+
 	errstr = NULL;
 out:
 	sdp_free(&parsed);
 	streams_free(&streams);
+	log_info = NULL;
 
 	return errstr;
 }

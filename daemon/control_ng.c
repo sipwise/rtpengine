@@ -26,7 +26,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	resp = bencode_dictionary(&bencbuf);
 
 	cookie = *buf;
-	cookie.len = data.s - buf->s;
+	cookie.len -= data.len;
 	*data.s++ = '\0';
 	data.len--;
 
