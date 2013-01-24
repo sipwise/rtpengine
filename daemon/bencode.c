@@ -84,6 +84,7 @@ int bencode_buffer_init(bencode_buffer_t *buf) {
 	buf->pieces = __bencode_piece_new(0);
 	if (!buf->pieces)
 		return -1;
+	buf->free_list = NULL;
 	return 0;
 }
 
