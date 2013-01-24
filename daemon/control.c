@@ -98,7 +98,7 @@ static void control_list(struct control *c, struct control_stream *s) {
 static int control_stream_parse(struct control_stream *s, char *line) {
 	int ovec[60];
 	int ret;
-	const char **out;
+	char **out;
 	struct control *c = s->control;
 	str *output = NULL;
 
@@ -110,7 +110,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 
 	mylog(LOG_INFO, "Got valid command from " DF ": %s", DP(s->inaddr), line);
 
-	pcre_get_substring_list(line, ovec, ret, &out);
+	pcre_get_substring_list(line, ovec, ret, (const char ***) &out);
 
 
 	if (!strcmp(out[RE_TCP_RL_CMD], "request"))

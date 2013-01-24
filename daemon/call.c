@@ -34,12 +34,12 @@
 #define DBG(x...) ((void)0)
 #endif
 
-#define LOG_PREFIX_C "[%s] "
-#define LOG_PREFIX_CI "[%s - %s] "
-#define LOG_PARAMS_C(c) (c)->callid
-#define LOG_PARAMS_CI(c) (c)->callid, log_info
+#define LOG_PREFIX_C "[%.*s] "
+#define LOG_PREFIX_CI "[%.*s - %.*s] "
+#define LOG_PARAMS_C(c) STR_FMT(&(c)->callid)
+#define LOG_PARAMS_CI(c) STR_FMT(&(c)->callid), STR_FMT(log_info)
 
-static __thread const char *log_info;
+static __thread const str *log_info;
 
 
 
@@ -436,7 +436,7 @@ out:
 static int info_parse_func(char **a, void **ret, void *p) {
 	struct call *c = p;
 
-	g_hash_table_replace(c->infohash, call_strdup(c, a[0]), call_strdup(c, a[1]));
+	g_hash_table_replace(c->infohash, call_strdup(c, a[0]), call_str_init_dup(c, a[1]));
 
 	return -1;
 }
@@ -573,9 +573,12 @@ void xmlrpc_kill_calls(void *p) {
 	sigset_t ss;
 	int i = 0;
 	int status;
+	str *tag;
 
 	while (xh->tags) {
-		mylog(LOG_INFO, "Forking child to close call with tag %s via XMLRPC", (char *) xh->tags->data);
+		tag = xh->tags->data;
+
+		mylog(LOG_INFO, "Forking child to close call with tag %.*s via XMLRPC", STR_FMT(tag));
 		pid = fork();
 
 		if (pid) {
@@ -604,7 +607,7 @@ retry:
 			close(i);
 
 		openlog("mediaproxy-ng/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
-		mylog(LOG_INFO, "Initiating XMLRPC call for tag %s", (char *) xh->tags->data);
+		mylog(LOG_INFO, "Initiating XMLRPC call for tag %.*s", STR_FMT(tag));
 
 		alarm(5);
 
@@ -617,7 +620,7 @@ retry:
 
 		r = NULL;
 		xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
-			"sbc", "postControlCmd", xh->tags->data, "teardown");
+			"sbc", "postControlCmd", tag->s, "teardown");
 		if (r)
 			xmlrpc_DECREF(r);
 		if (e.fault_occurred)
@@ -668,9 +671,9 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 		for (csl = ca->callstreams->head; csl; csl = csl->next) {
 			cs = csl->data;
 			mutex_lock(&cs->lock);
-			if (!cs->peers[1].tag || !*cs->peers[1].tag)
+			if (!cs->peers[1].tag.s || !cs->peers[1].tag.len)
 				goto next;
-			xh->tags = g_slist_prepend(xh->tags, g_string_chunk_insert(xh->c, cs->peers[1].tag));
+			xh->tags = g_slist_prepend(xh->tags, str_chunk_insert(xh->c, &cs->peers[1].tag));
 next:
 			mutex_unlock(&cs->lock);
 		}
@@ -774,7 +777,7 @@ struct callmaster *callmaster_new(struct poller *p) {
 
 	c = obj_alloc0("callmaster", sizeof(*c), NULL);
 
-	c->callhash = g_hash_table_new(g_str_hash, g_str_equal);
+	c->callhash = g_hash_table_new(str_hash, str_equal);
 	if (!c->callhash)
 		goto fail;
 	c->poller = p;
@@ -987,7 +990,7 @@ fail:
 }
 
 /* caller is responsible for appropriate locking */
-static int setup_peer(struct peer *p, struct stream *s, const char *tag) {
+static int setup_peer(struct peer *p, struct stream *s, const str *tag) {
 	struct streamrelay *a, *b;
 	struct callstream *cs;
 	struct call *ca;
@@ -1027,7 +1030,7 @@ static int setup_peer(struct peer *p, struct stream *s, const char *tag) {
 	}
 
 	p->mediatype = call_strdup(ca, s->mediatype);
-	p->tag = call_strdup(ca, tag);
+	call_str_cpy(ca, &p->tag, tag);
 	p->filled = 1;
 
 	return 0;
@@ -1061,7 +1064,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	dest->mediatype = src->mediatype;
 	dest->tag = src->tag;
 	src->mediatype = "";
-	src->tag = "";
+	src->tag = STR_NULL;
 	//dest->kernelized = src->kernelized;
 	//src->kernelized = 0;
 	dest->desired_family = src->desired_family;
@@ -1122,7 +1125,7 @@ void callstream_init(struct callstream *s, int port1, int port2) {
 
 		p->idx = i;
 		p->up = s;
-		p->tag = "";
+		p->tag = STR_NULL;
 		p->mediatype = "";
 
 		for (j = 0; j < 2; j++) {
@@ -1175,7 +1178,7 @@ static void callstream_free(void *ptr) {
 }
 
 /* called with call->lock held */
-static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) {
+static int call_streams(struct call *c, GQueue *s, const str *tag, int opmode) {
 	GQueue *q;
 	GList *i, *l;
 	struct stream *t;
@@ -1186,9 +1189,6 @@ static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) 
 	int ret = 1;
 
 	q = g_queue_new();	/* new callstreams list */
-
-	if (!tag)
-		tag = "";
 
 	for (i = s->head; i; i = i->next) {
 		t = i->data;
@@ -1201,15 +1201,15 @@ static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) 
 			mutex_lock(&cs_o->lock);
 			for (x = 0; x < 2; x++) {
 				r = &cs_o->peers[x].rtps[0];
-				DBG("comparing new ["IP6F"]:%u/%s to old ["IP6F"]:%u/%s",
-					IP6P(&t->ip46), t->port, tag,
-					IP6P(&r->peer_advertised.ip46), r->peer_advertised.port, cs_o->peers[x].tag);
+				DBG("comparing new ["IP6F"]:%u/%.*s to old ["IP6F"]:%u/%.*s",
+					IP6P(&t->ip46), t->port, STR_FMT(tag),
+					IP6P(&r->peer_advertised.ip46), r->peer_advertised.port, STR_FMT(&cs_o->peers[x].tag));
 
 				if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->ip46))
 					continue;
 				if (r->peer_advertised.port != t->port)
 					continue;
-				if (strcmp(cs_o->peers[x].tag, tag))
+				if (str_cmp_str0(&cs_o->peers[x].tag, tag))
 					continue;
 				DBG("found existing call stream to steal");
 				goto found;
@@ -1405,7 +1405,7 @@ static void call_destroy(struct call *c) {
 	int ret;
 
 	rwlock_lock_w(&m->hashlock);
-	ret = g_hash_table_remove(m->callhash, c->callid);
+	ret = g_hash_table_remove(m->callhash, &c->callid);
 	rwlock_unlock_w(&m->hashlock);
 
 	if (!ret)
@@ -1418,7 +1418,7 @@ static void call_destroy(struct call *c) {
 
 	mutex_lock(&c->lock);
 	/* at this point, no more callstreams can be added */
-	mylog(LOG_INFO, LOG_PREFIX_C "Final packet stats:", c->callid);
+	mylog(LOG_INFO, LOG_PREFIX_C "Final packet stats:", LOG_PARAMS_C(c));
 	while (c->callstreams->head) {
 		s = g_queue_pop_head(c->callstreams);
 		mutex_unlock(&c->lock);
@@ -1431,7 +1431,7 @@ static void call_destroy(struct call *c) {
 			"side B: "
 			"RTP[%u] %lu p, %lu b, %lu e; "
 			"RTCP[%u] %lu p, %lu b, %lu e",
-			c->callid,
+			LOG_PARAMS_C(c),
 			s->peers[0].rtps[0].localport, s->peers[0].rtps[0].stats.packets,
 			s->peers[0].rtps[0].stats.bytes, s->peers[0].rtps[0].stats.errors,
 			s->peers[0].rtps[1].localport, s->peers[0].rtps[1].stats.packets,
@@ -1514,23 +1514,6 @@ out:
 	return g_string_free_str(o);
 }
 
-static gboolean g_str_equal0(gconstpointer a, gconstpointer b) {
-	if (!a) {
-		if (!b)
-			return TRUE;
-		return FALSE;
-	}
-	if (!b)
-		return FALSE;
-	return g_str_equal(a, b);
-}
-
-static guint g_str_hash0(gconstpointer v) {
-	if (!v)
-		return 0;
-	return g_str_hash(v);
-}
-
 static void call_free(void *p) {
 	struct call *c = p;
 
@@ -1542,26 +1525,26 @@ static void call_free(void *p) {
 	g_string_chunk_free(c->chunk);
 }
 
-static struct call *call_create(const char *callid, struct callmaster *m) {
+static struct call *call_create(const str *callid, struct callmaster *m) {
 	struct call *c;
 
 	mylog(LOG_NOTICE, LOG_PREFIX_C "Creating new call",
-		callid);	/* XXX will spam syslog on recovery from DB */
+		STR_FMT(callid));	/* XXX will spam syslog on recovery from DB */
 	c = obj_alloc0("call", sizeof(*c), call_free);
 	c->callmaster = m;
 	c->chunk = g_string_chunk_new(256);
 	mutex_init(&c->chunk_lock);
-	c->callid = call_strdup(c, callid);
+	call_str_cpy(c, &c->callid, callid);
 	c->callstreams = g_queue_new();
 	c->created = poller_now;
 	c->infohash = g_hash_table_new(g_str_hash, g_str_equal);
-	c->branches = g_hash_table_new(g_str_hash0, g_str_equal0);
+	c->branches = g_hash_table_new(str_hash, str_equal);
 	mutex_init(&c->lock);
 	return c;
 }
 
 /* returns call with lock held */
-struct call *call_get_or_create(const char *callid, const char *viabranch, struct callmaster *m) {
+struct call *call_get_or_create(const str *callid, const str *viabranch, struct callmaster *m) {
 	struct call *c;
 
 restart:
@@ -1578,7 +1561,7 @@ restart:
 			obj_put(c);
 			goto restart;
 		}
-		g_hash_table_insert(m->callhash, c->callid, obj_get(c));
+		g_hash_table_insert(m->callhash, &c->callid, obj_get(c));
 		mutex_lock(&c->lock);
 		rwlock_unlock_w(&m->hashlock);
 	}
@@ -1588,14 +1571,15 @@ restart:
 		rwlock_unlock_r(&m->hashlock);
 	}
 
-	if (viabranch && *viabranch && !g_hash_table_lookup(c->branches, viabranch))
-		g_hash_table_insert(c->branches, call_strdup(c, viabranch),
+	if (viabranch && viabranch->s && viabranch->len
+			&& !g_hash_table_lookup(c->branches, viabranch))
+		g_hash_table_insert(c->branches, call_str_dup(c, viabranch),
 		(void *) 0x1);
 
 	return c;
 }
 
-static int addr_parse_udp(struct stream *st, const char **out) {
+static int addr_parse_udp(struct stream *st, char **out) {
 	u_int32_t ip4;
 	const char *cp;
 	char c;
@@ -1641,22 +1625,26 @@ fail:
 	return -1;
 }
 
-str *call_update_udp(const char **out, struct callmaster *m) {
+str *call_update_udp(char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
-	str *ret;
+	str *ret, callid, viabranch, fromtag;
 
-	c = call_get_or_create(out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH], m);
-	log_info = out[RE_UDP_UL_VIABRANCH];
+	str_init(&callid, out[RE_UDP_UL_CALLID]);
+	str_init(&viabranch, out[RE_UDP_UL_VIABRANCH]);
+	str_init(&fromtag, out[RE_UDP_UL_FROMTAG]);
+
+	c = call_get_or_create(&callid, &viabranch, m);
+	log_info = &viabranch;
 	c->calling_agent = "UNKNOWN(udp)";
 
 	if (addr_parse_udp(&st, out))
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
-	num = call_streams(c, &q, out[RE_UDP_UL_FROMTAG], 0);
+	num = call_streams(c, &q, &fromtag, 0);
 	g_queue_clear(&q);
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
@@ -1679,22 +1667,23 @@ fail:
 	return ret;
 }
 
-str *call_lookup_udp(const char **out, struct callmaster *m) {
+str *call_lookup_udp(char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
-	str *ret;
-	const char *branch;
+	str *ret, callid, branch, totag;
 
+	str_init(&callid, out[RE_UDP_UL_CALLID]);
+	str_init(&branch, out[RE_UDP_UL_VIABRANCH]);
 	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, out[RE_UDP_UL_CALLID]);
+	c = g_hash_table_lookup(m->callhash, &callid);
 	if (c)
 		mutex_lock(&c->lock);
 	else {
 		rwlock_unlock_r(&m->hashlock);
-		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id or unknown via-branch",
-			out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH]);
+		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id",
+			STR_FMT(&callid), STR_FMT(&branch));
 		ret = str_sprintf("%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
 		return ret;
 	}
@@ -1702,19 +1691,19 @@ str *call_lookup_udp(const char **out, struct callmaster *m) {
 	obj_hold(c);
 	rwlock_unlock_r(&m->hashlock);
 
-	branch = out[RE_UDP_UL_VIABRANCH];
-	if (branch && *branch && !g_hash_table_lookup(c->branches, branch))
-		g_hash_table_insert(c->branches, call_strdup(c, branch),
+	if (branch.s && branch.len && !g_hash_table_lookup(c->branches, &branch))
+		g_hash_table_insert(c->branches, call_str_dup(c, &branch),
 		(void *) 0x1);
 
-	log_info = branch;
+	log_info = &branch;
 	c->called_agent = "UNKNOWN(udp)";
 
 	if (addr_parse_udp(&st, out))
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
-	num = call_streams(c, &q, out[RE_UDP_UL_TOTAG], 1);
+	str_init(&totag, out[RE_UDP_UL_TOTAG]);
+	num = call_streams(c, &q, &totag, 1);
 	g_queue_clear(&q);
 
 	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
@@ -1737,13 +1726,14 @@ fail:
 	return ret;
 }
 
-str *call_request(const char **out, struct callmaster *m) {
+str *call_request(char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
-	str *ret;
+	str *ret, callid;
 
-	c = call_get_or_create(out[RE_TCP_RL_CALLID], NULL, m);
+	str_init(&callid, out[RE_TCP_RL_CALLID]);
+	c = call_get_or_create(&callid, NULL, m);
 
 	c->calling_agent = (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT])
 		? call_strdup(c, out[RE_TCP_RL_AGENT]) : "UNKNOWN";
@@ -1762,17 +1752,18 @@ str *call_request(const char **out, struct callmaster *m) {
 	return ret;
 }
 
-str *call_lookup(const char **out, struct callmaster *m) {
+str *call_lookup(char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
-	str *ret;
+	str *ret, callid;
 
+	str_init(&callid, out[RE_TCP_RL_CALLID]);
 	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, out[RE_TCP_RL_CALLID]);
+	c = g_hash_table_lookup(m->callhash, &callid);
 	if (!c) {
 		rwlock_unlock_r(&m->hashlock);
-		mylog(LOG_WARNING, LOG_PREFIX_C "Got LOOKUP for unknown call-id", out[RE_TCP_RL_CALLID]);
+		mylog(LOG_WARNING, LOG_PREFIX_C "Got LOOKUP for unknown call-id", STR_FMT(&callid));
 		return NULL;
 	}
 	obj_hold(c);
@@ -1796,9 +1787,9 @@ str *call_lookup(const char **out, struct callmaster *m) {
 	return ret;
 }
 
-str *call_delete_udp(const char **out, struct callmaster *m) {
+str *call_delete_udp(char **out, struct callmaster *m) {
 	struct call *c;
-	str *ret;
+	str *ret, callid, branch;
 	struct callstream *cs;
 	GList *l;
 	int i;
@@ -1807,18 +1798,20 @@ str *call_delete_udp(const char **out, struct callmaster *m) {
 	DBG("got delete for callid '%s' and viabranch '%s'", 
 		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
 
+	str_init(&callid, out[RE_UDP_DQ_CALLID]);
+	str_init(&branch, out[RE_UDP_DQ_VIABRANCH]);
 	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, out[RE_UDP_DQ_CALLID]);
+	c = g_hash_table_lookup(m->callhash, &callid);
 	if (!c) {
 		rwlock_unlock_r(&m->hashlock);
-		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", out[RE_UDP_DQ_CALLID]);
+		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", STR_FMT(&callid));
 		goto err;
 	}
 	obj_hold(c);
 	mutex_lock(&c->lock);
 	rwlock_unlock_r(&m->hashlock);
 
-	log_info = out[RE_UDP_DQ_VIABRANCH];
+	log_info = &branch;
 
 	if (out[RE_UDP_DQ_FROMTAG] && *out[RE_UDP_DQ_FROMTAG]) {
 		for (l = c->callstreams->head; l; l = l->next) {
@@ -1827,17 +1820,13 @@ str *call_delete_udp(const char **out, struct callmaster *m) {
 
 			for (i = 0; i < 2; i++) {
 				p = &cs->peers[i];
-				if (!p->tag)
-					continue;
-				if (strcmp(p->tag, out[RE_UDP_DQ_FROMTAG]))
+				if (str_cmp(&p->tag, out[RE_UDP_DQ_FROMTAG]))
 					continue;
 				if (!out[RE_UDP_DQ_TOTAG] || !*out[RE_UDP_DQ_TOTAG])
 					goto tag_match;
 
 				px = &cs->peers[i ^ 1];
-				if (!px->tag)
-					continue;
-				if (strcmp(px->tag, out[RE_UDP_DQ_TOTAG]))
+				if (str_cmp(&px->tag, out[RE_UDP_DQ_TOTAG]))
 					continue;
 
 				goto tag_match;
@@ -1847,15 +1836,15 @@ str *call_delete_udp(const char **out, struct callmaster *m) {
 		}
 	}
 
-	mylog(LOG_INFO, LOG_PREFIX_C "Tags didn't match for delete message, ignoring", c->callid);
+	mylog(LOG_INFO, LOG_PREFIX_C "Tags didn't match for delete message, ignoring", LOG_PARAMS_C(c));
 	goto err;
 
 tag_match:
 	mutex_unlock(&cs->lock);
 
-	if (out[RE_UDP_DQ_VIABRANCH] && *out[RE_UDP_DQ_VIABRANCH]) {
-		if (!g_hash_table_remove(c->branches, out[RE_UDP_DQ_VIABRANCH])) {
-			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", c->callid, out[RE_UDP_DQ_VIABRANCH]);
+	if (branch.s && branch.len) {
+		if (!g_hash_table_remove(c->branches, &branch)) {
+			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", STR_FMT(&c->callid), STR_FMT(&branch));
 			goto err;
 		}
 
@@ -1867,7 +1856,7 @@ tag_match:
 	}
 
 	mutex_unlock(&c->lock);
-	mylog(LOG_INFO, LOG_PREFIX_C "Deleting full call", c->callid);
+	mylog(LOG_INFO, LOG_PREFIX_C "Deleting full call", LOG_PARAMS_C(c));
 	call_destroy(c);
 	goto success;
 
@@ -1890,9 +1879,9 @@ out:
 	return ret;
 }
 
-str *call_query_udp(const char **out, struct callmaster *m) {
+str *call_query_udp(char **out, struct callmaster *m) {
 	struct call *c;
-	str *ret;
+	str *ret, callid;
 	struct callstream *cs;
 	long long unsigned int pcs[4] = {0,0,0,0};
 	time_t newest = 0;
@@ -1902,11 +1891,12 @@ str *call_query_udp(const char **out, struct callmaster *m) {
 
 	DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
 
+	str_init(&callid, out[RE_UDP_DQ_CALLID]);
 	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, out[RE_UDP_DQ_CALLID]);
+	c = g_hash_table_lookup(m->callhash, &callid);
 	if (!c) {
 		rwlock_unlock_r(&m->hashlock);
-		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to query not found", out[RE_UDP_DQ_CALLID]);
+		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to query not found", STR_FMT(&callid));
 		goto err;
 	}
 	obj_hold(c);
@@ -1929,16 +1919,12 @@ str *call_query_udp(const char **out, struct callmaster *m) {
 			if (!out[RE_UDP_DQ_FROMTAG] || !*out[RE_UDP_DQ_FROMTAG])
 				goto tag_match;
 
-			if (!p->tag)
-				continue;
-			if (strcmp(p->tag, out[RE_UDP_DQ_FROMTAG]))
+			if (str_cmp(&p->tag, out[RE_UDP_DQ_FROMTAG]))
 				continue;
 			if (!out[RE_UDP_DQ_TOTAG] || !*out[RE_UDP_DQ_TOTAG])
 				goto tag_match;
 
-			if (!px->tag)
-				continue;
-			if (strcmp(px->tag, out[RE_UDP_DQ_TOTAG]))
+			if (str_cmp(&px->tag, out[RE_UDP_DQ_TOTAG]))
 				continue;
 
 tag_match:
@@ -1970,11 +1956,13 @@ out:
 	return ret;
 }
 
-void call_delete(const char **out, struct callmaster *m) {
+void call_delete(char **out, struct callmaster *m) {
 	struct call *c;
+	str callid;
 
+	str_init(&callid, out[RE_TCP_D_CALLID]);
 	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, out[RE_TCP_D_CALLID]);
+	c = g_hash_table_lookup(m->callhash, &callid);
 	if (!c) {
 		rwlock_unlock_r(&m->hashlock);
 		return;
@@ -1997,14 +1985,15 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 	struct streamrelay *rx1, *rx2;
 	struct callmaster *m;
 	char addr1[64], addr2[64], addr3[64];
+	str *from, *to;
 
 	m = c->callmaster;
 	mutex_lock(&c->lock);
 
-	control_stream_printf(s, "session %s %s %s %s %s %i\n",
-		c->callid,
-		(char *) g_hash_table_lookup(c->infohash, "from"),
-		(char *) g_hash_table_lookup(c->infohash, "to"),
+	from = g_hash_table_lookup(c->infohash, "from");
+	to = g_hash_table_lookup(c->infohash, "to");
+	control_stream_printf(s, "session %.*s %.*s %.*s %s %s %i\n",
+		STR_FMT(&c->callid), STR_FMT(from), STR_FMT(to),
 		c->calling_agent, c->called_agent,
 		(int) (poller_now - c->created));
 
@@ -2113,14 +2102,18 @@ struct callstream *callstream_new(struct call *ca, int num) {
 
 
 const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	str sdp;
+	str sdp, fromtag;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
+	int ret;
 
 	bencode_dictionary_get_str(input, "sdp", &sdp);
 	if (!sdp.s)
 		return "No SDP body in message";
+	bencode_dictionary_get_str(input, "from-tag", &fromtag);
+	if (!fromtag.s)
+		return "No from-tag in message";
 
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";

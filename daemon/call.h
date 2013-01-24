@@ -61,7 +61,7 @@ struct streamrelay {
 };
 struct peer {
 	struct streamrelay	rtps[2];
-	char			*tag;
+	str			tag;
 	char			*mediatype;
 	char			*codec;
 	unsigned char		idx;
@@ -93,7 +93,7 @@ struct call {
 	char			*calling_agent;
 	char			*called_agent;
 
-	char			*callid;
+	str			callid;
 	char			redis_uuid[37];
 	time_t			created;
 	GHashTable		*infohash;
@@ -124,19 +124,19 @@ struct callmaster *callmaster_new(struct poller *);
 void callmaster_config(struct callmaster *m, struct callmaster_config *c);
 
 
-str *call_request(const char **, struct callmaster *);
-str *call_update_udp(const char **, struct callmaster *);
-str *call_lookup(const char **, struct callmaster *);
-str *call_lookup_udp(const char **, struct callmaster *);
-void call_delete(const char **, struct callmaster *);
-str *call_delete_udp(const char **, struct callmaster *);
-str *call_query_udp(const char **, struct callmaster *);
+str *call_request(char **, struct callmaster *);
+str *call_update_udp(char **, struct callmaster *);
+str *call_lookup(char **, struct callmaster *);
+str *call_lookup_udp(char **, struct callmaster *);
+void call_delete(char **, struct callmaster *);
+str *call_delete_udp(char **, struct callmaster *);
+str *call_query_udp(char **, struct callmaster *);
 
 void calls_status(struct callmaster *, struct control_stream *);
 
 void calls_dump_redis(struct callmaster *);
 
-struct call *call_get_or_create(const char *callid, const char *viabranch, struct callmaster *m);
+struct call *call_get_or_create(const str *callid, const str *viabranch, struct callmaster *m);
 struct callstream *callstream_new(struct call *ca, int num);
 void callstream_init(struct callstream *s, int port1, int port2);
 void kernelize(struct callstream *c);
@@ -149,6 +149,31 @@ static inline char *call_strdup(struct call *c, const char *s) {
 	r = g_string_chunk_insert(c->chunk, s);
 	mutex_unlock(&c->chunk_lock);
 	return r;
+}
+static inline str *call_str_cpy(struct call *c, str *out, const str *in) {
+	if (!in) {
+		*out = STR_NULL;
+		return out;
+	}
+	*out = *in;
+	if (!in->s)
+		return out;
+	mutex_lock(&c->chunk_lock);
+	out->s = g_string_chunk_insert_len(c->chunk, in->s, in->len);
+	mutex_unlock(&c->chunk_lock);
+	return out;
+}
+static inline str *call_str_dup(struct call *c, const str *in) {
+	str *out;
+	mutex_lock(&c->chunk_lock);
+	out = str_chunk_insert(c->chunk, in);
+	mutex_unlock(&c->chunk_lock);
+	return out;
+}
+static inline str *call_str_init_dup(struct call *c, char *s) {
+	str t;
+	str_init(&t, s);
+	return call_str_dup(c, &t);
 }
 
 const char *call_offer(bencode_item_t *, struct callmaster *, bencode_item_t *);

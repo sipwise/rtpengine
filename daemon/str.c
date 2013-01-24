@@ -26,3 +26,7 @@ guint str_hash(gconstpointer ss) {
 
 	return ret;
 }
+
+gboolean str_equal(gconstpointer a, gconstpointer b) {
+	return str_cmp_str((str *) a, (str *) b) == 0;
+}

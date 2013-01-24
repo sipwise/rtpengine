@@ -17,23 +17,48 @@ struct _str {
 
 typedef struct _str str;
 
+
+
 #define STR_FORMAT "%.*s"
 #define STR_FMT(str) (str)->len, (str)->s
+#define STR_NULL (str) { NULL, 0 }
+#define STR_EMPTY (str) { "", 0 }
 
 
 
-static inline int str_cmp_str(const str *a, const str *b) {
-	if (a->len < b->len)
-		return -1;
-	if (a->len > b->len)
-		return 1;
-	return memcmp(a->s, b->s, a->len);
-}
+/* returns pointer to end of str (s->s + s->len) */
+static inline char *str_end(const str *s);
+/* returns pointer to first occurence of "c" in s */
+static inline char *str_chr(const str *s, int c);
+/* sets "out" to point to first occurence of c in s. adjusts len also */
+static inline str *str_chr_str(str *out, const str *s, int c);
+/* compares a str to a regular string */
+static inline int str_cmp(const str *a, const char *b);
+/* compares two str objects */
+static inline int str_cmp_str(const str *a, const str *b);
+/* compares two str objects, allows either to be NULL */
+static inline int str_cmp_str0(const str *a, const str *b);
+/* inits a str object from a regular string */
+static inline void str_init(str *out, char *s);
+/* returns new str object allocated with malloc, including buffer */
+static inline str *str_dup(const str *s);
+/* returns new str object allocated from chunk, including buffer */
+static inline str *str_chunk_insert(GStringChunk *c, const str *s);
+
+/* asprintf() analogs */
+#define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
+#define str_vsprintf(fmt, a)   __str_vsprintf(STR_MALLOC_PADDING fmt, a)
+
+/* creates a new empty GString that has mem allocated for a new str object */
+static inline GString *g_string_new_str(void);
+/* frees the GString object and returns the new str object */
+static inline str *g_string_free_str(GString *gs);
+
 /* for GHashTables */
 guint str_hash(gconstpointer s);
-static inline gboolean str_equal(gconstpointer a, gconstpointer b) {
-	return str_cmp_str((str *) a, (str *) b) == 0;
-}
+gboolean str_equal(gconstpointer a, gconstpointer b);
+
+
 
 
 
@@ -49,10 +74,10 @@ static inline char *str_end(const str *s) {
 static inline char *str_chr(const str *s, int c) {
 	return memchr(s->s, c, s->len);
 }
-static inline char *str_chr_str(str *out, const str *s, int c) {
+static inline str *str_chr_str(str *out, const str *s, int c) {
 	out->s = str_chr(s, c);
 	out->len = out->s ? out->s - s->s : 0;
-	return out->s;
+	return out;
 }
 static inline int str_cmp(const str *a, const char *b) {
 	int l = strlen(b);
@@ -60,11 +85,37 @@ static inline int str_cmp(const str *a, const char *b) {
 		return -1;
 	if (a->len > l)
 		return 1;
+	if (a->len == 0 && l == 0)
+		return 0;
 	return memcmp(a->s, b, l);
+}
+static inline int str_cmp_str(const str *a, const str *b) {
+	if (a->len < b->len)
+		return -1;
+	if (a->len > b->len)
+		return 1;
+	if (a->len == 0 && b->len == 0)
+		return 0;
+	return memcmp(a->s, b->s, a->len);
+}
+static inline int str_cmp_str0(const str *a, const str *b) {
+	if (!a) {
+		if (!b)
+			return 0;
+		if (b->len == 0)
+			return 0;
+		return -1;
+	}
+	if (!b) {
+		if (a->len == 0)
+			return 0;
+		return 1;
+	}
+	return str_cmp_str(a, b);
 }
 static inline void str_init(str *out, char *s) {
 	out->s = s;
-	out->len = strlen(s);
+	out->len = s ? strlen(s) : 0;
 }
 static inline str *str_dup(const str *s) {
 	str *r;
@@ -101,8 +152,6 @@ static inline str *__str_sprintf(const char *fmt, ...) {
 	va_end(ap);
 	return ret;
 }
-#define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
-#define str_vsprintf(fmt, a)   __str_vsprintf(STR_MALLOC_PADDING fmt, a)
 
 static inline GString *g_string_new_str(void) {
 	int pl;

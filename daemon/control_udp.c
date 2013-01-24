@@ -21,7 +21,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 	struct control_udp *u = (void *) obj;
 	int ret;
 	int ovec[100];
-	const char **out;
+	char **out;
 	struct msghdr mh;
 	struct iovec iov[10];
 	str cookie, *reply;
@@ -36,7 +36,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 
 		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%.*s' from %s, using fallback RE", STR_FMT(buf), addr);
 
-		pcre_get_substring_list(buf->s, ovec, ret, &out);
+		pcre_get_substring_list(buf->s, ovec, ret, (const char ***) &out);
 
 		ZERO(mh);
 		mh.msg_name = sin;
@@ -69,7 +69,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 
 	mylog(LOG_INFO, "Got valid command from udp:%s: %.*s", addr, STR_FMT(buf));
 
-	pcre_get_substring_list(buf->s, ovec, ret, &out);
+	pcre_get_substring_list(buf->s, ovec, ret, (const char ***) &out);
 
 	str_init(&cookie, (void *) out[RE_UDP_COOKIE]);
 	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
