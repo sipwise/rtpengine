@@ -1450,13 +1450,12 @@ static void call_destroy(struct call *c) {
 
 
 
-/* XXX use enum format */
-static int call_stream_address4(GString *o, struct peer *p, int format) {
+static int call_stream_address4(GString *o, struct peer *p, enum stream_address_format format) {
 	struct callstream *cs = p->up;
 	u_int32_t ip4;
 	struct callmaster *m = cs->call->callmaster;
 
-	if (format == 2)
+	if (format == SAF_NG)
 		g_string_append(o, "IP4 ");
 
 	ip4 = p->rtps[0].peer.ip46.s6_addr32[3];
@@ -1470,11 +1469,11 @@ static int call_stream_address4(GString *o, struct peer *p, int format) {
 	return AF_INET;
 }
 
-static int call_stream_address6(GString *o, struct peer *p, int format) {
+static int call_stream_address6(GString *o, struct peer *p, enum stream_address_format format) {
 	char ips[64];
 	struct callmaster *m = p->up->call->callmaster;
 
-	if (format == 2)
+	if (format == SAF_NG)
 		g_string_append(o, "IP6 ");
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46))
@@ -1491,7 +1490,7 @@ static int call_stream_address6(GString *o, struct peer *p, int format) {
 }
 
 
-int call_stream_address(GString *o, struct peer *p, int format) {
+int call_stream_address(GString *o, struct peer *p, enum stream_address_format format) {
 	struct callmaster *m;
 	struct peer *other;
 
@@ -1510,7 +1509,7 @@ int call_stream_address(GString *o, struct peer *p, int format) {
 
 
 
-static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int format) {
+static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, enum stream_address_format format) {
 	GString *o;
 	int i;
 	GList *l;
@@ -1526,7 +1525,7 @@ static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const c
 		goto out;
 
 	t = s->head->data;
-	if (format == 0)
+	if (format == SAF_TCP)
 		call_stream_address(o, &t->peers[off], format);
 
 	for (i = 0, l = s->head; i < num && l; i++, l = l->next) {
@@ -1535,7 +1534,7 @@ static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const c
 		g_string_append_printf(o, (format == 1) ? "%u " : " %u", x->localport);
 	}
 
-	if (format == 1) {
+	if (format == SAF_UDP) {
 		af = call_stream_address(o, &t->peers[off], format);
 		g_string_append_printf(o, " %c", (af == AF_INET) ? '4' : '6');
 	}
@@ -1679,7 +1678,7 @@ str *call_update_udp(char **out, struct callmaster *m) {
 	num = call_streams(c, &q, &fromtag, 0);
 	g_queue_clear(&q);
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], 1);
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], SAF_UDP);
 	mutex_unlock(&c->lock);
 
 	if (redis_update)
@@ -1738,7 +1737,7 @@ str *call_lookup_udp(char **out, struct callmaster *m) {
 	num = call_streams(c, &q, &totag, 1);
 	g_queue_clear(&q);
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], 1);
+	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], SAF_UDP);
 	mutex_unlock(&c->lock);
 
 	if (redis_update)
@@ -1773,7 +1772,7 @@ str *call_request(char **out, struct callmaster *m) {
 	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
 	num = call_streams(c, &s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
 	streams_free(&s);
-	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, 0);
+	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, SAF_TCP);
 	mutex_unlock(&c->lock);
 
 	if (redis_update)
@@ -1808,7 +1807,7 @@ str *call_lookup(char **out, struct callmaster *m) {
 	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
 	num = call_streams(c, &s, g_hash_table_lookup(c->infohash, "totag"), 1);
 	streams_free(&s);
-	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, 0);
+	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, SAF_TCP);
 	mutex_unlock(&c->lock);
 
 	if (redis_update)

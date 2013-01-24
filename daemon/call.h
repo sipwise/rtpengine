@@ -30,6 +30,12 @@ struct redis;
 
 
 
+enum stream_address_format {
+	SAF_TCP,
+	SAF_UDP,
+	SAF_NG,
+};
+
 struct stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
@@ -140,7 +146,7 @@ struct call *call_get_or_create(const str *callid, const str *viabranch, struct 
 struct callstream *callstream_new(struct call *ca, int num);
 void callstream_init(struct callstream *s, int port1, int port2);
 void kernelize(struct callstream *c);
-int call_stream_address(GString *o, struct peer *p, int format);
+int call_stream_address(GString *o, struct peer *p, enum stream_address_format);
 
 static inline char *call_strdup(struct call *c, const char *s) {
 	char *r;
