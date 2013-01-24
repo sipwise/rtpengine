@@ -112,7 +112,11 @@ alloc:
 }
 
 void bencode_buffer_free(bencode_buffer_t *buf) {
+	struct __bencode_free_list *fl;
 	struct __bencode_buffer_piece *piece, *next;
+
+	for (fl = buf->free_list; fl; fl = fl->next)
+		BENCODE_FREE(fl->ptr);
 
 	for (piece = buf->pieces; piece; piece = next) {
 		next = piece->next;
