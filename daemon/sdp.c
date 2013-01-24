@@ -165,15 +165,15 @@ static int parse_media(char *start, char *end, struct sdp_media *output) {
 	return 0;
 }
 
-int sdp_parse(char *body, int len, GQueue *sessions) {
+int sdp_parse(str *body, GQueue *sessions) {
 	char *b, *end, *value, *line_end, *next_line;
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
 	const char *errstr;
 	str *attribute;
 
-	b = body;
-	end = body + len;
+	b = body->s;
+	end = str_end(body);
 
 	while (b && b < end - 1) {
 		errstr = "Missing '=' sign";
@@ -269,7 +269,7 @@ int sdp_parse(char *body, int len, GQueue *sessions) {
 	return 0;
 
 error:
-	mylog(LOG_WARNING, "Error parsing SDP at offset %li: %s", (b - body), errstr);
+	mylog(LOG_WARNING, "Error parsing SDP at offset %li: %s", b - body->s, errstr);
 	sdp_free(sessions);
 	return -1;
 }

@@ -4,6 +4,7 @@
 #include <time.h>
 #include <glib.h>
 #include "aux.h"
+#include "str.h"
 
 struct cookie_cache_state {
 	GHashTable *cookies;
@@ -18,8 +19,8 @@ struct cookie_cache {
 };
 
 void cookie_cache_init(struct cookie_cache *);
-char *cookie_cache_lookup(struct cookie_cache *, const char *);
-void cookie_cache_insert(struct cookie_cache *, const char *, const char *, int);
-void cookie_cache_remove(struct cookie_cache *, const char *);
+str *cookie_cache_lookup(struct cookie_cache *, const str *);
+void cookie_cache_insert(struct cookie_cache *, const str *, const str *);
+void cookie_cache_remove(struct cookie_cache *, const str *);
 
 #endif

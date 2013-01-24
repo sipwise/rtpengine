@@ -3,11 +3,12 @@
 #include "cookie_cache.h"
 #include "aux.h"
 #include "poller.h"
+#include "str.h"
 
 static const char *cookie_in_use = "MAGIC";
 
 static inline void cookie_cache_state_init(struct cookie_cache_state *s) {
-	s->cookies = g_hash_table_new(g_str_hash, g_str_equal);
+	s->cookies = g_hash_table_new(str_hash, str_equal);
 	s->chunks = g_string_chunk_new(4 * 1024);
 }
 
@@ -36,24 +37,24 @@ static void __cookie_cache_check_swap(struct cookie_cache *c) {
 	}
 }
 
-char *cookie_cache_lookup(struct cookie_cache *c, const char *s) {
-	char *ret;
+str *cookie_cache_lookup(struct cookie_cache *c, const str *s) {
+	str *ret;
 
 	mutex_lock(&c->lock);
 
 	__cookie_cache_check_swap(c);
 
 restart:
-	/* XXX better hashing */
 	ret = g_hash_table_lookup(c->current.cookies, s);
 	if (!ret)
 		ret = g_hash_table_lookup(c->old.cookies, s);
 	if (ret) {
-		if (ret == cookie_in_use) {
+		if (ret == (void *) cookie_in_use) {
 			/* another thread is working on this right now */
 			cond_wait(&c->cond, &c->lock);
 			goto restart;
 		}
+		ret = str_dup(ret);
 		mutex_unlock(&c->lock);
 		return ret;
 	}
@@ -62,16 +63,16 @@ restart:
 	return NULL;
 }
 
-void cookie_cache_insert(struct cookie_cache *c, const char *s, const char *r, int len) {
+void cookie_cache_insert(struct cookie_cache *c, const str *s, const str *r) {
 	mutex_lock(&c->lock);
-	g_hash_table_replace(c->current.cookies, g_string_chunk_insert(c->current.chunks, s),
-		g_string_chunk_insert_len(c->current.chunks, r, (len >= 0) ? len : strlen(r)));
+	g_hash_table_replace(c->current.cookies, str_chunk_insert(c->current.chunks, s),
+		str_chunk_insert(c->current.chunks, r));
 	g_hash_table_remove(c->old.cookies, s);
 	cond_broadcast(&c->cond);
 	mutex_unlock(&c->lock);
 }
 
-void cookie_cache_remove(struct cookie_cache *c, const char *s) {
+void cookie_cache_remove(struct cookie_cache *c, const str *s) {
 	mutex_lock(&c->lock);
 	g_hash_table_remove(c->current.cookies, s);
 	g_hash_table_remove(c->old.cookies, s);

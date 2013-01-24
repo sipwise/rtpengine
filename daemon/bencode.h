@@ -5,12 +5,15 @@
 #include <string.h>
 
 #if defined(PKG_MALLOC) || defined(pkg_malloc)
+/* kamailio */
 # include "../../mem/mem.h"
 # ifndef BENCODE_MALLOC
 # define BENCODE_MALLOC pkg_malloc
 # define BENCODE_FREE pkg_free
 # endif
 #else
+/* mediaproxy-ng */
+# include "str.h"
 # ifndef BENCODE_MALLOC
 # define BENCODE_MALLOC malloc
 # define BENCODE_FREE free
@@ -135,6 +138,9 @@ struct iovec *bencode_iovec(bencode_item_t *root, int *cnt, unsigned int head, u
  * bencode_buffer_t object is destroyed. */
 char *bencode_collapse(bencode_item_t *root, int *len);
 
+/* Identical to bencode_collapse() but fills in a "str" object. Returns "out". */
+static str *bencode_collapse_str(bencode_item_t *root, str *out);
+
 /* Identical to bencode_collapse(), but the memory for the returned string is not allocated from
  * a bencode_buffer_t object, but instead using the function defined as BENCODE_MALLOC (normally
  * malloc() or pkg_malloc()), similar to strdup(). Using this function, the bencode_buffer_t
@@ -185,6 +191,9 @@ bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, int len);
  * "expect". */
 static inline bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, int len, bencode_type_t expect);
 
+/* Identical to bencode_decode_expect() but takes a "str" argument. */
+static inline bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const str *s, bencode_type_t expect);
+
 /* Searches the given dictionary object for the given key and returns the respective value. Returns
  * NULL if the given object isn't a dictionary or if the key doesn't exist. The key must be a
  * null-terminated string. */
@@ -198,6 +207,9 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
  * returned string is NOT null-terminated. Length of the string is returned in *len, which must be a
  * valid pointer. The returned string will be valid until dict's bencode_buffer_t object is destroyed. */
 static inline char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, int *len);
+
+/* Identical to bencode_dictionary_get_string() but fills in a "str" struct. Returns str->s. */
+static inline char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *str);
 
 /* Identical to bencode_dictionary_get() but returns the string in a newly allocated buffer (using the
  * BENCODE_MALLOC function), which remains valid even after bencode_buffer_t is destroyed. */
@@ -252,6 +264,11 @@ static inline char *bencode_dictionary_get_string(bencode_item_t *dict, const ch
 	return val->iov[1].iov_base;
 }
 
+static inline char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *str) {
+	str->s = bencode_dictionary_get_string(dict, key, &str->len);
+	return str->s;
+}
+
 static inline char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, int *len) {
 	const char *s;
 	char *ret;
@@ -281,12 +298,20 @@ static inline bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const
 	return ret;
 }
 
+static inline bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const str *s, bencode_type_t expect) {
+	return bencode_decode_expect(buf, s->s, s->len, expect);
+}
+
 static inline bencode_item_t *bencode_dictionary_get_expect(bencode_item_t *dict, const char *key, bencode_type_t expect) {
 	bencode_item_t *ret;
 	ret = bencode_dictionary_get(dict, key);
 	if (!ret || ret->type != expect)
 		return NULL;
 	return ret;
+}
+static inline str *bencode_collapse_str(bencode_item_t *root, str *out) {
+	out->s = bencode_collapse(root, &out->len);
+	return out;
 }
 
 #endif

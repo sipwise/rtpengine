@@ -100,7 +100,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	int ret;
 	const char **out;
 	struct control *c = s->control;
-	char *output = NULL;
+	str *output = NULL;
 
 	ret = pcre_exec(c->parse_re, c->parse_ree, line, strlen(line), 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
@@ -130,7 +130,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 
 	if (output) {
 		mutex_lock(&s->lock);
-		streambuf_write(s->outbuf, output, strlen(output));
+		streambuf_write_str(s->outbuf, output);
 		mutex_unlock(&s->lock);
 		free(output);
 	}

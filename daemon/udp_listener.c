@@ -8,6 +8,7 @@
 #include "udp_listener.h"
 #include "poller.h"
 #include "aux.h"
+#include "str.h"
 
 struct udp_listener_callback {
 	struct obj obj;
@@ -26,6 +27,9 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 	int len;
 	char buf[8192];
 	char addr[64];
+	str str;
+
+	str.s = buf;
 
 	for (;;) {
 		sin_len = sizeof(sin);
@@ -41,7 +45,8 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 		buf[len] = '\0';
 		smart_ntop_port(addr, &sin, sizeof(addr));
 
-		cb->func(cb->p, buf, len, &sin, addr);
+		str.len = len;
+		cb->func(cb->p, &str, &sin, addr);
 	}
 }
 

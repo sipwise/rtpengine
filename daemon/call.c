@@ -24,6 +24,7 @@
 #include "xt_MEDIAPROXY.h"
 #include "bencode.h"
 #include "sdp.h"
+#include "str.h"
 
 
 
@@ -37,8 +38,6 @@
 #define LOG_PREFIX_CI "[%s - %s] "
 #define LOG_PARAMS_C(c) (c)->callid
 #define LOG_PARAMS_CI(c) (c)->callid, log_info
-
-#define xasprintf(a...) if (asprintf(a) == -1) abort()
 
 static __thread const char *log_info;
 
@@ -1451,7 +1450,7 @@ static void call_destroy(struct call *c) {
 
 
 
-static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int format) {
+static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, int format) {
 	GString *o;
 	int i;
 	GList *l;
@@ -1462,7 +1461,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 	int other_off;
 	char af;
 
-	o = g_string_new("");
+	o = g_string_new_str();
 	if (prefix)
 		g_string_append_printf(o, "%s ", prefix);
 
@@ -1512,7 +1511,7 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 out:
 	g_string_append(o, "\n");
 
-	return g_string_free(o, FALSE);
+	return g_string_free_str(o);
 }
 
 static gboolean g_str_equal0(gconstpointer a, gconstpointer b) {
@@ -1642,12 +1641,12 @@ fail:
 	return -1;
 }
 
-char *call_update_udp(const char **out, struct callmaster *m) {
+str *call_update_udp(const char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
-	char *ret;
+	str *ret;
 
 	c = call_get_or_create(out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH], m);
 	log_info = out[RE_UDP_UL_VIABRANCH];
@@ -1666,7 +1665,7 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
-	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
+	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
 	log_info = NULL;
 	obj_put(c);
 	return ret;
@@ -1674,18 +1673,18 @@ char *call_update_udp(const char **out, struct callmaster *m) {
 fail:
 	mutex_unlock(&c->lock);
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
-	xasprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
+	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 	log_info = NULL;
 	obj_put(c);
 	return ret;
 }
 
-char *call_lookup_udp(const char **out, struct callmaster *m) {
+str *call_lookup_udp(const char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
 	struct stream st;
 	int num;
-	char *ret;
+	str *ret;
 	const char *branch;
 
 	rwlock_lock_r(&m->hashlock);
@@ -1696,7 +1695,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id or unknown via-branch",
 			out[RE_UDP_UL_CALLID], out[RE_UDP_UL_VIABRANCH]);
-		xasprintf(&ret, "%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
+		ret = str_sprintf("%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
 		return ret;
 	}
 
@@ -1724,7 +1723,7 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
-	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
+	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
 	log_info = NULL;
 	obj_put(c);
 	return ret;
@@ -1732,17 +1731,17 @@ char *call_lookup_udp(const char **out, struct callmaster *m) {
 fail:
 	mutex_unlock(&c->lock);
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
-	xasprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
+	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 	log_info = NULL;
 	obj_put(c);
 	return ret;
 }
 
-char *call_request(const char **out, struct callmaster *m) {
+str *call_request(const char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
-	char *ret;
+	str *ret;
 
 	c = call_get_or_create(out[RE_TCP_RL_CALLID], NULL, m);
 
@@ -1758,16 +1757,16 @@ char *call_request(const char **out, struct callmaster *m) {
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
-	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
+	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
 	obj_put(c);
 	return ret;
 }
 
-char *call_lookup(const char **out, struct callmaster *m) {
+str *call_lookup(const char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
-	char *ret;
+	str *ret;
 
 	rwlock_lock_r(&m->hashlock);
 	c = g_hash_table_lookup(m->callhash, out[RE_TCP_RL_CALLID]);
@@ -1792,14 +1791,14 @@ char *call_lookup(const char **out, struct callmaster *m) {
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
-	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %s", LOG_PARAMS_CI(c), ret);
+	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
 	obj_put(c);
 	return ret;
 }
 
-char *call_delete_udp(const char **out, struct callmaster *m) {
+str *call_delete_udp(const char **out, struct callmaster *m) {
 	struct call *c;
-	char *ret;
+	str *ret;
 	struct callstream *cs;
 	GList *l;
 	int i;
@@ -1875,13 +1874,13 @@ tag_match:
 success_unlock:
 	mutex_unlock(&c->lock);
 success:
-	xasprintf(&ret, "%s 0\n", out[RE_UDP_COOKIE]);
+	ret = str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
 	goto out;
 
 err:
 	if (c)
 		mutex_unlock(&c->lock);
-	xasprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
+	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 	goto out;
 
 out:
@@ -1891,9 +1890,9 @@ out:
 	return ret;
 }
 
-char *call_query_udp(const char **out, struct callmaster *m) {
+str *call_query_udp(const char **out, struct callmaster *m) {
 	struct call *c;
-	char *ret;
+	str *ret;
 	struct callstream *cs;
 	long long unsigned int pcs[4] = {0,0,0,0};
 	time_t newest = 0;
@@ -1954,7 +1953,7 @@ tag_match:
 
 	mutex_unlock(&c->lock);
 
-	xasprintf(&ret, "%s %lld %llu %llu %llu %llu\n", out[RE_UDP_COOKIE],
+	ret = str_sprintf("%s %lld %llu %llu %llu %llu\n", out[RE_UDP_COOKIE],
 		(long long int) m->conf.silent_timeout - (poller_now - newest),
 		pcs[0], pcs[1], pcs[2], pcs[3]);
 	goto out;
@@ -1962,7 +1961,7 @@ tag_match:
 err:
 	if (c)
 		mutex_unlock(&c->lock);
-	xasprintf(&ret, "%s E8\n", out[RE_UDP_COOKIE]);
+	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 	goto out;
 
 out:
@@ -2114,16 +2113,16 @@ struct callstream *callstream_new(struct call *ca, int num) {
 
 
 const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	char *sdp, *errstr;
-	int sdp_len;
+	str sdp;
+	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
 
-	sdp = bencode_dictionary_get_string(input, "sdp", &sdp_len);
-	if (!sdp)
+	bencode_dictionary_get_str(input, "sdp", &sdp);
+	if (!sdp.s)
 		return "No SDP body in message";
 
-	if (sdp_parse(sdp, sdp_len, &parsed))
+	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
 
 	errstr = "Incomplete SDP specification";

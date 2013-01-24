@@ -2,12 +2,13 @@
 #define _UDP_LISTENER_H_
 
 #include "poller.h"
+#include "str.h"
 
 
 struct poller;
 struct obj;
 
-typedef void (*udp_listener_callback_t)(struct obj *p, char *buf, int len, struct sockaddr_in6 *sin, char *addr);
+typedef void (*udp_listener_callback_t)(struct obj *p, str *buf, struct sockaddr_in6 *sin, char *addr);
 
 struct udp_listener {
 	int fd;

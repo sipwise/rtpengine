@@ -8,6 +8,8 @@
 #include <glib.h>
 #include <stdarg.h>
 
+#include "str.h"
+
 
 
 struct poller;
@@ -32,6 +34,9 @@ unsigned int streambuf_bufsize(struct streambuf *);
 void streambuf_printf(struct streambuf *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
 void streambuf_vprintf(struct streambuf *, const char *, va_list);
 void streambuf_write(struct streambuf *, const char *, unsigned int);
+static inline void streambuf_write_str(struct streambuf *b, str *s) {
+	streambuf_write(b, s->s, s->len);
+}
 
 
 #endif

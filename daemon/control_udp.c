@@ -17,26 +17,26 @@
 #include "udp_listener.h"
 
 
-static void control_udp_incoming(struct obj *obj, char *buf, int len, struct sockaddr_in6 *sin, char *addr) {
+static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *sin, char *addr) {
 	struct control_udp *u = (void *) obj;
 	int ret;
 	int ovec[100];
 	const char **out;
-	char *reply;
 	struct msghdr mh;
 	struct iovec iov[10];
+	str cookie, *reply;
 
-	ret = pcre_exec(u->parse_re, u->parse_ree, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
+	ret = pcre_exec(u->parse_re, u->parse_ree, buf->s, buf->len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
-		ret = pcre_exec(u->fallback_re, NULL, buf, len, 0, 0, ovec, G_N_ELEMENTS(ovec));
+		ret = pcre_exec(u->fallback_re, NULL, buf->s, buf->len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 		if (ret <= 0) {
-			mylog(LOG_WARNING, "Unable to parse command line from udp:%s: %s", addr, buf);
+			mylog(LOG_WARNING, "Unable to parse command line from udp:%s: %.*s", addr, STR_FMT(buf));
 			return;
 		}
 
-		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%s' from %s, using fallback RE", buf, addr);
+		mylog(LOG_WARNING, "Failed to properly parse UDP command line '%.*s' from %s, using fallback RE", STR_FMT(buf), addr);
 
-		pcre_get_substring_list(buf, ovec, ret, &out);
+		pcre_get_substring_list(buf->s, ovec, ret, &out);
 
 		ZERO(mh);
 		mh.msg_name = sin;
@@ -67,14 +67,16 @@ static void control_udp_incoming(struct obj *obj, char *buf, int len, struct soc
 		return;
 	}
 
-	mylog(LOG_INFO, "Got valid command from udp:%s: %s", addr, buf);
+	mylog(LOG_INFO, "Got valid command from udp:%s: %.*s", addr, STR_FMT(buf));
 
-	pcre_get_substring_list(buf, ovec, ret, &out);
+	pcre_get_substring_list(buf->s, ovec, ret, &out);
 
-	reply = cookie_cache_lookup(&u->cookie_cache, out[RE_UDP_COOKIE]);
+	str_init(&cookie, (void *) out[RE_UDP_COOKIE]);
+	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
 	if (reply) {
 		mylog(LOG_INFO, "Detected command from udp:%s as a duplicate", addr);
-		sendto(u->udp_listener.fd, reply, strlen(reply), 0, (struct sockaddr *) sin, sizeof(*sin));
+		sendto(u->udp_listener.fd, reply->s, reply->len, 0, (struct sockaddr *) sin, sizeof(*sin));
+		free(reply);
 		goto out;
 	}
 
@@ -119,13 +121,12 @@ static void control_udp_incoming(struct obj *obj, char *buf, int len, struct soc
 	}
 
 	if (reply) {
-		len = strlen(reply);
-		sendto(u->udp_listener.fd, reply, len, 0, (struct sockaddr *) sin, sizeof(*sin));
-		cookie_cache_insert(&u->cookie_cache, out[RE_UDP_COOKIE], reply, len);
+		sendto(u->udp_listener.fd, reply->s, reply->len, 0, (struct sockaddr *) sin, sizeof(*sin));
+		cookie_cache_insert(&u->cookie_cache, &cookie, reply);
 		free(reply);
 	}
 	else
-		cookie_cache_remove(&u->cookie_cache, out[RE_UDP_COOKIE]);
+		cookie_cache_remove(&u->cookie_cache, &cookie);
 
 out:
 	pcre_free(out);

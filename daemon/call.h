@@ -14,6 +14,7 @@
 #include "obj.h"
 #include "aux.h"
 #include "bencode.h"
+#include "str.h"
 
 struct poller;
 struct control_stream;
@@ -123,13 +124,13 @@ struct callmaster *callmaster_new(struct poller *);
 void callmaster_config(struct callmaster *m, struct callmaster_config *c);
 
 
-char *call_request(const char **, struct callmaster *);
-char *call_update_udp(const char **, struct callmaster *);
-char *call_lookup(const char **, struct callmaster *);
-char *call_lookup_udp(const char **, struct callmaster *);
+str *call_request(const char **, struct callmaster *);
+str *call_update_udp(const char **, struct callmaster *);
+str *call_lookup(const char **, struct callmaster *);
+str *call_lookup_udp(const char **, struct callmaster *);
 void call_delete(const char **, struct callmaster *);
-char *call_delete_udp(const char **, struct callmaster *);
-char *call_query_udp(const char **, struct callmaster *);
+str *call_delete_udp(const char **, struct callmaster *);
+str *call_query_udp(const char **, struct callmaster *);
 
 void calls_status(struct callmaster *, struct control_stream *);
 

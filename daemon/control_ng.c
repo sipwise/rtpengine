@@ -7,62 +7,59 @@
 #include "call.h"
 
 
-static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct sockaddr_in6 *sin, char *addr) {
+static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *sin, char *addr) {
 	struct control_ng *c = (void *) obj;
-	char *data;
 	bencode_buffer_t bencbuf;
 	bencode_item_t *dict, *resp;
-	char *reply;
-	const char *cmd, *errstr, *cookie;
-	int cmd_len, cookie_len, data_len, reply_len;
+	str cmd, cookie, data, reply, *to_send;
+	const char *errstr;
 	struct msghdr mh;
 	struct iovec iov[3];
 
-	data = memchr(buf, ' ', buf_len);
-	if (!data || data == buf) {
-		mylog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: %.*s", addr, buf_len, buf);
+	str_chr_str(&data, buf, ' ');
+	if (!data.s || data.s == buf->s) {
+		mylog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: %.*s", addr, STR_FMT(buf));
 		return;
 	}
 
 	bencode_buffer_init(&bencbuf);
 	resp = bencode_dictionary(&bencbuf);
 
-	cookie = buf;
-	cookie_len = data - buf;
-	*data++ = '\0';
-	data_len = buf_len - cookie_len - 1;
+	cookie = *buf;
+	cookie.len = data.s - buf->s;
+	*data.s++ = '\0';
+	data.len--;
 
 	errstr = "Invalid data (no payload)";
-	if (data_len <= 0)
+	if (data.len <= 0)
 		goto err_send;
 
-	reply = cookie_cache_lookup(&c->cookie_cache, cookie);
-	if (reply) {
+	to_send = cookie_cache_lookup(&c->cookie_cache, &cookie);
+	if (to_send) {
 		mylog(LOG_INFO, "Detected command from %s as a duplicate", addr);
-		reply_len = strlen(reply); /* XXX fails for embedded nulls */
 		resp = NULL;
 		goto send_only;
 	}
 
-	dict = bencode_decode_expect(&bencbuf, data, data_len, BENCODE_DICTIONARY);
+	dict = bencode_decode_expect_str(&bencbuf, &data, BENCODE_DICTIONARY);
 	errstr = "Could not decode dictionary";
 	if (!dict)
 		goto err_send;
 
-	cmd = bencode_dictionary_get_string(dict, "command", &cmd_len);
+	bencode_dictionary_get_str(dict, "command", &cmd);
 	errstr = "Dictionary contains no key \"command\"";
-	if (!cmd)
+	if (!cmd.s)
 		goto err_send;
 
-	mylog(LOG_INFO, "Got valid command from %s: %.*s [%.*s]", addr, cmd_len, cmd, data_len, data);
+	mylog(LOG_INFO, "Got valid command from %s: %.*s [%.*s]", addr, STR_FMT(&cmd), STR_FMT(&data));
 
 	errstr = NULL;
-	if (!strmemcmp(cmd, cmd_len, "ping"))
+	if (!str_cmp(&cmd, "ping"))
 		bencode_dictionary_add_string(resp, "result", "pong");
-	else if (!strmemcmp(cmd, cmd_len, "offer")) {
+	else if (!str_cmp(&cmd, "offer")) {
 		errstr = call_offer(dict, c->callmaster, resp);
 	}
-	else if (!strmemcmp(cmd, cmd_len, "answer")) {
+	else if (!str_cmp(&cmd, "answer")) {
 		errstr = call_answer(dict, c->callmaster, resp);
 	}
 	else
@@ -71,16 +68,17 @@ static void control_ng_incoming(struct obj *obj, char *buf, int buf_len, struct 
 	if (errstr)
 		goto err_send;
 
-	goto send_out;
+	goto send_resp;
 
 err_send:
-	mylog(LOG_WARNING, "Protocol error in packet from %s: %s [%.*s]", addr, errstr, data_len, data);
+	mylog(LOG_WARNING, "Protocol error in packet from %s: %s [%.*s]", addr, errstr, STR_FMT(&data));
 	bencode_dictionary_add_string(resp, "result", "error");
 	bencode_dictionary_add_string(resp, "error-reason", errstr);
-	goto send_out;
+	goto send_resp;
 
-send_out:
-	reply = bencode_collapse(resp, &reply_len);
+send_resp:
+	bencode_collapse_str(resp, &reply);
+	to_send = &reply;
 
 send_only:
 	ZERO(mh);
@@ -89,21 +87,22 @@ send_only:
 	mh.msg_iov = iov;
 	mh.msg_iovlen = 3;
 
-	iov[0].iov_base = (void *) cookie;
-	iov[0].iov_len = cookie_len;
+	iov[0].iov_base = cookie.s;
+	iov[0].iov_len = cookie.len;
 	iov[1].iov_base = " ";
 	iov[1].iov_len = 1;
-	iov[2].iov_base = reply;
-	iov[2].iov_len = reply_len;
+	iov[2].iov_base = to_send->s;
+	iov[2].iov_len = to_send->len;
 
 	sendmsg(c->udp_listener.fd, &mh, 0);
 
 	if (resp)
-		cookie_cache_insert(&c->cookie_cache, cookie, reply, reply_len);
+		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);
+	else
+		free(to_send);
 
 	goto out;
 
-	cookie_cache_remove(&c->cookie_cache, cookie);
 out:
 	bencode_buffer_free(&bencbuf);
 }
