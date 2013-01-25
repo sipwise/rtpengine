@@ -1777,53 +1777,43 @@ str *call_lookup(char **out, struct callmaster *m) {
 	return call_request_lookup(out, m, OP_ANSWER, "totag");
 }
 
-str *call_delete_udp(char **out, struct callmaster *m) {
+static int call_delete_branch(struct callmaster *m, const str *callid, const str *branch, const str *fromtag, const str *totag) {
 	struct call *c;
-	str *ret, callid, branch;
 	struct callstream *cs;
 	GList *l;
-	int i;
+	int ret, i;
 	struct peer *p, *px;
 
-	DBG("got delete for callid '%s' and viabranch '%s'", 
-		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
-
-	str_init(&callid, out[RE_UDP_DQ_CALLID]);
-	str_init(&branch, out[RE_UDP_DQ_VIABRANCH]);
-	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, &callid);
+	c = call_get(callid, NULL, m);
 	if (!c) {
-		rwlock_unlock_r(&m->hashlock);
-		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", STR_FMT(&callid));
+		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", STR_FMT(callid));
 		goto err;
 	}
-	obj_hold(c);
-	mutex_lock(&c->lock);
-	rwlock_unlock_r(&m->hashlock);
 
-	log_info = &branch;
+	log_info = branch;
 
-	if (out[RE_UDP_DQ_FROMTAG] && *out[RE_UDP_DQ_FROMTAG]) {
-		for (l = c->callstreams->head; l; l = l->next) {
-			cs = l->data;
-			mutex_lock(&cs->lock);
+	if (!fromtag || !fromtag->len)
+		goto no_tags;
 
-			for (i = 0; i < 2; i++) {
-				p = &cs->peers[i];
-				if (str_cmp(&p->tag, out[RE_UDP_DQ_FROMTAG]))
-					continue;
-				if (!out[RE_UDP_DQ_TOTAG] || !*out[RE_UDP_DQ_TOTAG])
-					goto tag_match;
+	for (l = c->callstreams->head; l; l = l->next) {
+		cs = l->data;
+		mutex_lock(&cs->lock);
 
-				px = &cs->peers[i ^ 1];
-				if (str_cmp(&px->tag, out[RE_UDP_DQ_TOTAG]))
-					continue;
-
+		for (i = 0; i < 2; i++) {
+			p = &cs->peers[i];
+			if (str_cmp_str(&p->tag, fromtag))
+				continue;
+			if (!totag || !totag->len)
 				goto tag_match;
-			}
 
-			mutex_unlock(&cs->lock);
+			px = &cs->peers[i ^ 1];
+			if (str_cmp_str(&px->tag, totag))
+				continue;
+
+			goto tag_match;
 		}
+
+		mutex_unlock(&cs->lock);
 	}
 
 	mylog(LOG_INFO, LOG_PREFIX_C "Tags didn't match for delete message, ignoring", LOG_PARAMS_C(c));
@@ -1832,9 +1822,10 @@ str *call_delete_udp(char **out, struct callmaster *m) {
 tag_match:
 	mutex_unlock(&cs->lock);
 
-	if (branch.s && branch.len) {
-		if (!g_hash_table_remove(c->branches, &branch)) {
-			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", STR_FMT(&c->callid), STR_FMT(&branch));
+no_tags:
+	if (branch && branch->len) {
+		if (!g_hash_table_remove(c->branches, branch)) {
+			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", STR_FMT(&c->callid), STR_FMT(branch));
 			goto err;
 		}
 
@@ -1853,13 +1844,13 @@ tag_match:
 success_unlock:
 	mutex_unlock(&c->lock);
 success:
-	ret = str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
+	ret = 0;
 	goto out;
 
 err:
 	if (c)
 		mutex_unlock(&c->lock);
-	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
+	ret = -1;
 	goto out;
 
 out:
@@ -1867,6 +1858,23 @@ out:
 	if (c)
 		obj_put(c);
 	return ret;
+}
+
+str *call_delete_udp(char **out, struct callmaster *m) {
+	str callid, branch, fromtag, totag;
+
+	DBG("got delete for callid '%s' and viabranch '%s'", 
+		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
+
+	str_init(&callid, out[RE_UDP_DQ_CALLID]);
+	str_init(&branch, out[RE_UDP_DQ_VIABRANCH]);
+	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
+	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
+
+	if (call_delete_branch(m, &callid, &branch, &fromtag, &totag))
+		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
+
+	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
 }
 
 str *call_query_udp(char **out, struct callmaster *m) {
@@ -1947,22 +1955,10 @@ out:
 }
 
 void call_delete(char **out, struct callmaster *m) {
-	struct call *c;
 	str callid;
 
 	str_init(&callid, out[RE_TCP_D_CALLID]);
-	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, &callid);
-	if (!c) {
-		rwlock_unlock_r(&m->hashlock);
-		return;
-	}
-	obj_hold(c);
-	rwlock_unlock_r(&m->hashlock);
-
-	/* delete whole list, as we don't have branches in tcp controller */
-	call_destroy(c);
-	obj_put(c);
+	call_delete_branch(m, &callid, NULL, NULL, NULL);
 }
 
 
@@ -2195,4 +2191,21 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 
 const char *call_answer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	return call_offer_answer(input, m, output, OP_ANSWER, "to-tag");
+}
+
+const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	str fromtag, totag, viabranch, callid;
+
+	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+		return "No call-id in message";
+	if (!bencode_dictionary_get_str(input, "from-tag", &fromtag))
+		return "No from-tag in message";
+	bencode_dictionary_get_str(input, "to-tag", &totag);
+	bencode_dictionary_get_str(input, "via-branch", &viabranch);
+
+	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag))
+		return "Call-ID not found or tags didn't match";
+
+	bencode_dictionary_add_string(output, "result", "ok");
+	return NULL;
 }

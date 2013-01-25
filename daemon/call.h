@@ -188,6 +188,7 @@ static inline str *call_str_init_dup(struct call *c, char *s) {
 
 const char *call_offer(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_answer(bencode_item_t *, struct callmaster *, bencode_item_t *);
+const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 
 
 
