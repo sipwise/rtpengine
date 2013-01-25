@@ -25,7 +25,7 @@ CFLAGS+=        `dpkg-buildflags --get CFLAGS`
 CPPFLAGS+=      `dpkg-buildflags --get CPPFLAGS`
 LDFLAGS+=       `dpkg-buildflags --get LDFLAGS`
 
-SRCS=		main.c kernel.c poller.c aux.c control.c streambuf.c call.c control_udp.c redis.c \
+SRCS=		main.c kernel.c poller.c aux.c control_tcp.c streambuf.c call.c control_udp.c redis.c \
 		bencode.c cookie_cache.c udp_listener.c control_ng.c sdp.c str.c
 OBJS=		$(SRCS:.c=.o)
 
