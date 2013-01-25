@@ -2134,7 +2134,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	}
 }
 
-const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+static const char *call_offer_answer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, enum call_opmode opmode, const char *tagname) {
 	str sdp, fromtag, viabranch, callid, *sdp_new;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
@@ -2147,7 +2147,7 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 		return "No SDP body in message";
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	if (!bencode_dictionary_get_str(input, "from-tag", &fromtag))
+	if (!bencode_dictionary_get_str(input, tagname, &fromtag))
 		return "No from-tag in message";
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 	log_info = &viabranch;
@@ -2161,11 +2161,14 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 
 	call_ng_process_flags(&flags, &streams, input);
 
-	call = call_get_or_create(&callid, &viabranch, m);
+	call = call_get_opmode(&callid, &viabranch, m, opmode);
+	errstr = "Unknown call-id";
+	if (!call)
+		goto out;
 	log_info = &viabranch;
 
-	num = call_streams(call, &streams, &fromtag, OP_OFFER);
-	sdp_new = sdp_replace(&sdp, &parsed, call, num, OP_OFFER, &flags);
+	num = call_streams(call, &streams, &fromtag, opmode);
+	sdp_new = sdp_replace(&sdp, &parsed, call, num, opmode, &flags);
 
 	mutex_unlock(&call->lock);
 	obj_put(call);
@@ -2186,6 +2189,10 @@ out:
 	return errstr;
 }
 
+const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	return call_offer_answer(input, m, output, OP_OFFER, "from-tag");
+}
+
 const char *call_answer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return NULL;
+	return call_offer_answer(input, m, output, OP_OFFER, "to-tag");
 }
