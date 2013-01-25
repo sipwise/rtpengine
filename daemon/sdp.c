@@ -451,6 +451,7 @@ static void chopper_destroy(struct string_chopper *chop) {
 /* XXX use stream numbers as index */
 /* XXX use port numbers as index */
 /* XXX get rid of num/off parameters? */
+/* XXX use iovec based rewriting */
 str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, int off) {
 	struct sdp_session *session;
 	struct sdp_media *media;

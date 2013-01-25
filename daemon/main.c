@@ -348,8 +348,6 @@ void redis_mod_verify(void *dlh) {
 	check_struct_offset(call, callstreams);
 	check_struct_offset(call, branches);
 	check_struct_offset(call, callid);
-	check_struct_offset(call, calling_agent);
-	check_struct_offset(call, called_agent);
 
 	check_struct_offset(callstream, peers);
 	check_struct_offset(callstream, call);

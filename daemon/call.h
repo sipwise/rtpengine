@@ -96,8 +96,6 @@ struct call {
 	mutex_t			lock;
 	GQueue			*callstreams;
 	GHashTable		*branches;
-	char			*calling_agent;
-	char			*called_agent;
 
 	str			callid;
 	char			redis_uuid[37];

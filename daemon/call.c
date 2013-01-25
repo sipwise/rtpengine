@@ -1669,7 +1669,6 @@ str *call_update_udp(char **out, struct callmaster *m) {
 
 	c = call_get_or_create(&callid, &viabranch, m);
 	log_info = &viabranch;
-	c->calling_agent = "UNKNOWN(udp)";
 
 	if (addr_parse_udp(&st, out))
 		goto fail;
@@ -1727,7 +1726,6 @@ str *call_lookup_udp(char **out, struct callmaster *m) {
 		(void *) 0x1);
 
 	log_info = &branch;
-	c->called_agent = "UNKNOWN(udp)";
 
 	if (addr_parse_udp(&st, out))
 		goto fail;
@@ -1766,8 +1764,6 @@ str *call_request(char **out, struct callmaster *m) {
 	str_init(&callid, out[RE_TCP_RL_CALLID]);
 	c = call_get_or_create(&callid, NULL, m);
 
-	c->calling_agent = (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT])
-		? call_strdup(c, out[RE_TCP_RL_AGENT]) : "UNKNOWN";
 	info_parse(out[RE_TCP_RL_INFO], c);
 	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
 	num = call_streams(c, &s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
@@ -1801,8 +1797,6 @@ str *call_lookup(char **out, struct callmaster *m) {
 	mutex_lock(&c->lock);
 	rwlock_unlock_r(&m->hashlock);
 
-	c->called_agent = (out[RE_TCP_RL_AGENT] && *out[RE_TCP_RL_AGENT])
-		? call_strdup(c, out[RE_TCP_RL_AGENT]) : "UNKNOWN";
 	info_parse(out[RE_TCP_RL_INFO], c);
 	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
 	num = call_streams(c, &s, g_hash_table_lookup(c->infohash, "totag"), 1);
@@ -2023,9 +2017,8 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 
 	from = g_hash_table_lookup(c->infohash, "from");
 	to = g_hash_table_lookup(c->infohash, "to");
-	control_stream_printf(s, "session %.*s %.*s %.*s %s %s %i\n",
+	control_stream_printf(s, "session %.*s %.*s %.*s - - %i\n",
 		STR_FMT(&c->callid), STR_FMT(from), STR_FMT(to),
-		c->calling_agent, c->called_agent,
 		(int) (poller_now - c->created));
 
 	for (l = c->callstreams->head; l; l = l->next) {
@@ -2160,7 +2153,6 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 
 	call = call_get_or_create(&callid, &viabranch, m);
 	log_info = &viabranch;
-	call->calling_agent = "UNKNOWN(ng)"; /* XXX get rid of, or make use of */
 
 	num = call_streams(call, &streams, &fromtag, 0);
 	sdp_new = sdp_replace(&sdp, &parsed, call, abs(num), (num >= 0) ? 0 : 1);
