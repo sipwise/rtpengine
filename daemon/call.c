@@ -44,6 +44,11 @@ static __thread const str *log_info;
 
 
 
+/* also serves as array index for callstream->peers[] */
+enum opmode {
+	OP_OFFER = 0,
+	OP_ANSWER = 1,
+};
 struct iterator_helper {
 	GSList			*del;
 	struct streamrelay	*ports[0x10000];
@@ -1169,7 +1174,7 @@ static void callstream_free(void *ptr) {
 }
 
 /* called with call->lock held */
-static int call_streams(struct call *c, GQueue *s, const str *tag, int opmode) {
+static int call_streams(struct call *c, GQueue *s, const str *tag, enum opmode opmode) {
 	GQueue *q;
 	GList *i, *l;
 	struct stream_input *t;
@@ -1500,13 +1505,18 @@ int call_stream_address(GString *o, struct peer *p, enum stream_address_format f
 
 
 
-static str *streams_print(GQueue *s, unsigned int num, unsigned int off, const char *prefix, enum stream_address_format format) {
+static str *streams_print(GQueue *s, int rawnum, enum opmode opmode, const char *prefix, enum stream_address_format format) {
 	GString *o;
-	int i;
+	int i, num, off;
 	GList *l;
 	struct callstream *t;
 	struct streamrelay *x;
 	int af;
+
+	num = abs(rawnum);
+	off = opmode; /* 0 or 1 */
+	if (num < 0)
+		off ^= 1; /* 1 or 0 */
 
 	o = g_string_new_str();
 	if (prefix)
@@ -1599,6 +1609,36 @@ restart:
 	return c;
 }
 
+/* returns call with lock held, or NULL if not found */
+static struct call *call_get(const str *callid, const str *viabranch, struct callmaster *m) {
+	struct call *ret;
+
+	rwlock_lock_r(&m->hashlock);
+	ret = g_hash_table_lookup(m->callhash, callid);
+	if (!ret) {
+		rwlock_unlock_r(&m->hashlock);
+		return NULL;
+	}
+
+	mutex_lock(&ret->lock);
+	obj_hold(ret);
+	rwlock_unlock_r(&m->hashlock);
+
+	if (viabranch && viabranch->s && viabranch->len) {
+		if (!g_hash_table_lookup(ret->branches, viabranch))
+			g_hash_table_insert(ret->branches, call_str_dup(ret, viabranch), (void *) 0x1);
+	}
+
+	return ret;
+}
+
+/* returns call with lock held, or possibly NULL iff opmode == OP_ANSWER */
+static struct call *call_get_opmode(const str *callid, const str *viabranch, struct callmaster *m, enum opmode opmode) {
+	if (opmode == OP_OFFER)
+		return call_get_or_create(callid, viabranch, m);
+	return call_get(callid, viabranch, m);
+}
+
 static int addr_parse_udp(struct stream_input *st, char **out) {
 	u_int32_t ip4;
 	const char *cp;
@@ -1662,10 +1702,10 @@ str *call_update_udp(char **out, struct callmaster *m) {
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
-	num = call_streams(c, &q, &fromtag, 0);
+	num = call_streams(c, &q, &fromtag, OP_OFFER);
 	g_queue_clear(&q);
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 0 : 1, out[RE_UDP_COOKIE], SAF_UDP);
+	ret = streams_print(c->callstreams, num, OP_OFFER, out[RE_UDP_COOKIE], SAF_UDP);
 	mutex_unlock(&c->lock);
 
 	if (redis_update)
@@ -1720,10 +1760,10 @@ str *call_lookup_udp(char **out, struct callmaster *m) {
 
 	g_queue_push_tail(&q, &st);
 	str_init(&totag, out[RE_UDP_UL_TOTAG]);
-	num = call_streams(c, &q, &totag, 1);
+	num = call_streams(c, &q, &totag, OP_ANSWER);
 	g_queue_clear(&q);
 
-	ret = streams_print(c->callstreams, 1, (num >= 0) ? 1 : 0, out[RE_UDP_COOKIE], SAF_UDP);
+	ret = streams_print(c->callstreams, num, OP_ANSWER, out[RE_UDP_COOKIE], SAF_UDP);
 	mutex_unlock(&c->lock);
 
 	if (redis_update)
@@ -1743,72 +1783,47 @@ fail:
 	return ret;
 }
 
-str *call_request(char **out, struct callmaster *m) {
+static str *call_request_lookup(char **out, struct callmaster *m, enum opmode opmode, const char *tagstr) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
-	str *ret, callid, tag;
+	str *ret = NULL, callid, tag;
 	GHashTable *infohash;
 
 	str_init(&callid, out[RE_TCP_RL_CALLID]);
 	infohash = g_hash_table_new(g_str_hash, g_str_equal);
-	c = call_get_or_create(&callid, NULL, m);
+	c = call_get_opmode(&callid, NULL, m, opmode);
+	if (!c) {
+		mylog(LOG_WARNING, LOG_PREFIX_C "Got LOOKUP for unknown call-id", STR_FMT(&callid));
+		goto out;
+	}
 
 	info_parse(out[RE_TCP_RL_INFO], infohash, m);
 	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
-	str_init(&tag, g_hash_table_lookup(infohash, "fromtag"));
-	num = call_streams(c, &s, &tag, 0);
+	str_init(&tag, g_hash_table_lookup(infohash, tagstr));
+	num = call_streams(c, &s, &tag, opmode);
 
-	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, SAF_TCP);
+	ret = streams_print(c->callstreams, num, opmode, NULL, SAF_TCP);
 	mutex_unlock(&c->lock);
 
 	streams_free(&s);
-	g_hash_table_destroy(infohash);
 
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
 	obj_put(c);
+
+out:
+	g_hash_table_destroy(infohash);
 	return ret;
 }
 
+str *call_request(char **out, struct callmaster *m) {
+	return call_request_lookup(out, m, OP_OFFER, "fromtag");
+}
 str *call_lookup(char **out, struct callmaster *m) {
-	struct call *c;
-	GQueue s = G_QUEUE_INIT;
-	int num;
-	str *ret, callid, tag;
-	GHashTable *infohash;
-
-	str_init(&callid, out[RE_TCP_RL_CALLID]);
-	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, &callid);
-	if (!c) {
-		rwlock_unlock_r(&m->hashlock);
-		mylog(LOG_WARNING, LOG_PREFIX_C "Got LOOKUP for unknown call-id", STR_FMT(&callid));
-		return NULL;
-	}
-	obj_hold(c);
-	mutex_lock(&c->lock);
-	rwlock_unlock_r(&m->hashlock);
-
-	infohash = g_hash_table_new(g_str_hash, g_str_equal);
-	info_parse(out[RE_TCP_RL_INFO], infohash, m);
-	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
-	str_init(&tag, g_hash_table_lookup(infohash, "totag"));
-	num = call_streams(c, &s, &tag, 1);
-	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, SAF_TCP);
-	mutex_unlock(&c->lock);
-
-	streams_free(&s);
-	g_hash_table_destroy(infohash);
-
-	if (redis_update)
-		redis_update(c, m->conf.redis);
-
-	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
-	obj_put(c);
-	return ret;
+	return call_request_lookup(out, m, OP_ANSWER, "totag");
 }
 
 str *call_delete_udp(char **out, struct callmaster *m) {
@@ -2150,7 +2165,7 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 	call = call_get_or_create(&callid, &viabranch, m);
 	log_info = &viabranch;
 
-	num = call_streams(call, &streams, &fromtag, 0);
+	num = call_streams(call, &streams, &fromtag, OP_OFFER);
 	sdp_new = sdp_replace(&sdp, &parsed, call, abs(num), (num >= 0) ? 0 : 1);
 
 	mutex_unlock(&call->lock);
