@@ -18,7 +18,7 @@
 #include "aux.h"
 #include "log.h"
 #include "kernel.h"
-#include "control.h"
+#include "control_tcp.h"
 #include "streambuf.h"
 #include "redis.h"
 #include "xt_MEDIAPROXY.h"

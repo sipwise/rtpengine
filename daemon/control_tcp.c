@@ -8,7 +8,7 @@
 #include <stdarg.h>
 #include <errno.h>
 
-#include "control.h"
+#include "control_tcp.h"
 #include "poller.h"
 #include "aux.h"
 #include "streambuf.h"
@@ -27,13 +27,13 @@ struct control_stream {
 	struct streambuf	*outbuf;
 	struct sockaddr_in	inaddr;
 
-	struct control		*control;
+	struct control_tcp	*control;
 	struct poller		*poller;
 	int			linked:1;
 };
 
 
-struct control {
+struct control_tcp {
 	struct obj		obj;
 
 	int			fd;
@@ -52,7 +52,7 @@ struct control {
 
 static void control_stream_closed(int fd, void *p, uintptr_t u) {
 	struct control_stream *s = p;
-	struct control *c;
+	struct control_tcp *c;
 	GList *l = NULL;
 
 	mylog(LOG_INFO, "Control connection from " DF " closed", DP(s->inaddr));
@@ -78,7 +78,7 @@ restart:
 }
 
 
-static void control_list(struct control *c, struct control_stream *s) {
+static void control_list(struct control_tcp *c, struct control_stream *s) {
 	struct control_stream *i;
 	GList *l;
 
@@ -99,7 +99,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	int ovec[60];
 	int ret;
 	char **out;
-	struct control *c = s->control;
+	struct control_tcp *c = s->control;
 	str *output = NULL;
 
 	ret = pcre_exec(c->parse_re, c->parse_ree, line, strlen(line), 0, 0, ovec, G_N_ELEMENTS(ovec));
@@ -209,7 +209,7 @@ static void control_stream_free(void *p) {
 
 static void control_incoming(int fd, void *p, uintptr_t u) {
 	int nfd;
-	struct control *c = p;
+	struct control_tcp *c = p;
 	struct control_stream *s;
 	struct poller_item i;
 	struct sockaddr_in sin;
@@ -262,9 +262,9 @@ fail:
 }
 
 
-struct control *control_new(struct poller *p, u_int32_t ip, u_int16_t port, struct callmaster *m) {
+struct control_tcp *control_tcp_new(struct poller *p, u_int32_t ip, u_int16_t port, struct callmaster *m) {
 	int fd;
-	struct control *c;
+	struct control_tcp *c;
 	struct poller_item i;
 	struct sockaddr_in sin;
 	const char *errptr;

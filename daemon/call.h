@@ -9,7 +9,7 @@
 #include <time.h>
 #include <pcre.h>
 
-#include "control.h"
+#include "control_tcp.h"
 #include "control_udp.h"
 #include "obj.h"
 #include "aux.h"

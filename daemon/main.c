@@ -10,7 +10,7 @@
 #include <errno.h>
 
 #include "poller.h"
-#include "control.h"
+#include "control_tcp.h"
 #include "control_udp.h"
 #include "control_ng.h"
 #include "aux.h"
@@ -367,7 +367,7 @@ void redis_mod_verify(void *dlh) {
 
 void create_everything(struct main_context *ctx) {
 	struct callmaster_config mc;
-	struct control *c;
+	struct control_tcp *ct;
 	struct control_udp *cu;
 	struct control_ng *cn;
 	int kfd = -1;
@@ -414,10 +414,10 @@ void create_everything(struct main_context *ctx) {
 	mc.tos = tos;
 	mc.b2b_url = b2b_url;
 
-	c = NULL;
+	ct = NULL;
 	if (listenport) {
-		c = control_new(ctx->p, listenp, listenport, ctx->m);
-		if (!c)
+		ct = control_tcp_new(ctx->p, listenp, listenport, ctx->m);
+		if (!ct)
 			die("Failed to open TCP control connection port\n");
 	}
 
