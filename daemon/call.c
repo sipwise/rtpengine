@@ -2194,5 +2194,5 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 }
 
 const char *call_answer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer(input, m, output, OP_OFFER, "to-tag");
+	return call_offer_answer(input, m, output, OP_ANSWER, "to-tag");
 }
