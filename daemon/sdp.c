@@ -305,7 +305,7 @@ void sdp_free(GQueue *sessions) {
 int sdp_streams(const GQueue *sessions, GQueue *streams) {
 	struct sdp_session *session;
 	struct sdp_media *media;
-	struct stream *stream;
+	struct stream_input *si;
 	GList *l, *k;
 	const char *errstr;
 	int i, num;
@@ -318,22 +318,22 @@ int sdp_streams(const GQueue *sessions, GQueue *streams) {
 			media = k->data;
 
 			for (i = 0; i < media->port_count; i++) {
-				stream = g_slice_alloc0(sizeof(*stream));
+				si = g_slice_alloc0(sizeof(*si));
 
 				errstr = "No address info found for stream";
 				if (media->connection.parsed)
-					stream->ip46 = media->connection.address.parsed;
+					si->stream.ip46 = media->connection.address.parsed;
 				else if (session->connection.parsed)
-					stream->ip46 = session->connection.address.parsed;
+					si->stream.ip46 = session->connection.address.parsed;
 				else
 					goto error;
 
 				/* XXX ports must be consecutive */
 				/* XXX check for RTP type */
-				stream->port = (media->port_num + (i * 2)) & 0xffff;
-				stream->num = ++num;
+				si->stream.port = (media->port_num + (i * 2)) & 0xffff;
+				si->stream.num = ++num;
 
-				g_queue_push_tail(streams, stream);
+				g_queue_push_tail(streams, si);
 			}
 		}
 	}

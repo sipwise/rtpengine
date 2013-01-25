@@ -450,7 +450,7 @@ static void info_parse(const char *s, struct call *c) {
 
 
 static int streams_parse_func(char **a, void **ret, void *p) {
-	struct stream *st;
+	struct stream_input *st;
 	u_int32_t ip;
 	int *i;
 
@@ -461,11 +461,11 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 	if (ip == -1)
 		goto fail;
 
-	in4_to_6(&st->ip46, ip);
-	st->port = atoi(a[1]);
-	st->num = ++(*i);
+	in4_to_6(&st->stream.ip46, ip);
+	st->stream.port = atoi(a[1]);
+	st->stream.num = ++(*i);
 
-	if (!st->port && strcmp(a[1], "0"))
+	if (!st->stream.port && strcmp(a[1], "0"))
 		goto fail;
 
 	*ret = st;
@@ -485,7 +485,7 @@ static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
 }
 
 static void streams_free(GQueue *q) {
-	struct stream *s;
+	struct stream_input *s;
 
 	while ((s = g_queue_pop_head(q))) {
 		g_slice_free1(sizeof(*s), s);
@@ -986,7 +986,7 @@ fail:
 }
 
 /* caller is responsible for appropriate locking */
-static int setup_peer(struct peer *p, struct stream *s, const str *tag) {
+static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	struct streamrelay *a, *b;
 	struct callstream *cs;
 	struct call *ca;
@@ -997,16 +997,17 @@ static int setup_peer(struct peer *p, struct stream *s, const str *tag) {
 	a = &p->rtps[0];
 	b = &p->rtps[1];
 
-	if (a->peer_advertised.port != s->port || !IN6_ARE_ADDR_EQUAL(&a->peer_advertised.ip46, &s->ip46)) {
+	if (a->peer_advertised.port != s->stream.port
+			|| !IN6_ARE_ADDR_EQUAL(&a->peer_advertised.ip46, &s->stream.ip46)) {
 		cs->peers[0].confirmed = 0;
 		unkernelize(&cs->peers[0]);
 		cs->peers[1].confirmed = 0;
 		unkernelize(&cs->peers[1]);
 	}
 
-	a->peer.ip46 = s->ip46;
-	b->peer.ip46 = s->ip46;
-	a->peer.port = b->peer.port = s->port;
+	a->peer.ip46 = s->stream.ip46;
+	b->peer.ip46 = s->stream.ip46;
+	a->peer.port = b->peer.port = s->stream.port;
 	if (b->peer.port)
 		b->peer.port++;
 	a->peer_advertised = a->peer;
@@ -1173,7 +1174,7 @@ static void callstream_free(void *ptr) {
 static int call_streams(struct call *c, GQueue *s, const str *tag, int opmode) {
 	GQueue *q;
 	GList *i, *l;
-	struct stream *t;
+	struct stream_input *t;
 	int x;
 	struct streamrelay *r;
 	struct callstream *cs, *cs_o;
@@ -1194,12 +1195,12 @@ static int call_streams(struct call *c, GQueue *s, const str *tag, int opmode) {
 			for (x = 0; x < 2; x++) {
 				r = &cs_o->peers[x].rtps[0];
 				DBG("comparing new ["IP6F"]:%u/%.*s to old ["IP6F"]:%u/%.*s",
-					IP6P(&t->ip46), t->port, STR_FMT(tag),
+					IP6P(&t->stream.ip46), t->stream.port, STR_FMT(tag),
 					IP6P(&r->peer_advertised.ip46), r->peer_advertised.port, STR_FMT(&cs_o->peers[x].tag));
 
-				if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->ip46))
+				if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->stream.ip46))
 					continue;
-				if (r->peer_advertised.port != t->port)
+				if (r->peer_advertised.port != t->stream.port)
 					continue;
 				if (str_cmp_str0(&cs_o->peers[x].tag, tag))
 					continue;
@@ -1219,7 +1220,7 @@ found:
 		if (!opmode) {	/* request */
 			DBG("creating new callstream");
 
-			cs = callstream_new(c, t->num);
+			cs = callstream_new(c, t->stream.num);
 			mutex_lock(&cs->lock);
 
 			if (!r) {
@@ -1255,8 +1256,8 @@ found:
 			cs = l->data;
 			if (cs != cs_o)
 				mutex_lock(&cs->lock);
-			DBG("hunting for callstream, %i <> %i", cs->num, t->num);
-			if (cs->num == t->num)
+			DBG("hunting for callstream, %i <> %i", cs->num, t->stream.num);
+			if (cs->num == t->stream.num)
 				goto got_cs;
 			if (cs != cs_o)
 				mutex_unlock(&cs->lock);
@@ -1312,7 +1313,7 @@ got_cs:
 			if (cs_o && cs_o != cs)
 				mutex_unlock(&cs_o->lock);
 			cs_o = cs;
-			cs = callstream_new(c, t->num);
+			cs = callstream_new(c, t->stream.num);
 			mutex_lock(&cs->lock);
 			callstream_init(cs, 0, 0);
 			steal_peer(&cs->peers[0], &cs_o->peers[0]);
@@ -1602,7 +1603,7 @@ restart:
 	return c;
 }
 
-static int addr_parse_udp(struct stream *st, char **out) {
+static int addr_parse_udp(struct stream_input *st, char **out) {
 	u_int32_t ip4;
 	const char *cp;
 	char c;
@@ -1613,17 +1614,17 @@ static int addr_parse_udp(struct stream *st, char **out) {
 		ip4 = inet_addr(out[RE_UDP_UL_ADDR4]);
 		if (ip4 == -1)
 			goto fail;
-		in4_to_6(&st->ip46, ip4);
+		in4_to_6(&st->stream.ip46, ip4);
 	}
 	else if (out[RE_UDP_UL_ADDR6] && *out[RE_UDP_UL_ADDR6]) {
-		if (inet_pton(AF_INET6, out[RE_UDP_UL_ADDR6], &st->ip46) != 1)
+		if (inet_pton(AF_INET6, out[RE_UDP_UL_ADDR6], &st->stream.ip46) != 1)
 			goto fail;
 	}
 	else
 		goto fail;
 
-	st->port = atoi(out[RE_UDP_UL_PORT]);
-	if (!st->port && strcmp(out[RE_UDP_UL_PORT], "0"))
+	st->stream.port = atoi(out[RE_UDP_UL_PORT]);
+	if (!st->stream.port && strcmp(out[RE_UDP_UL_PORT], "0"))
 		goto fail;
 
 	if (out[RE_UDP_UL_FLAGS] && *out[RE_UDP_UL_FLAGS]) {
@@ -1638,9 +1639,9 @@ static int addr_parse_udp(struct stream *st, char **out) {
 	}
 
 	if (out[RE_UDP_UL_NUM] && *out[RE_UDP_UL_NUM])
-		st->num = atoi(out[RE_UDP_UL_NUM]);
-	if (!st->num)
-		st->num = 1;
+		st->stream.num = atoi(out[RE_UDP_UL_NUM]);
+	if (!st->stream.num)
+		st->stream.num = 1;
 
 	return 0;
 fail:
@@ -1650,7 +1651,7 @@ fail:
 str *call_update_udp(char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
-	struct stream st;
+	struct stream_input st;
 	int num;
 	str *ret, callid, viabranch, fromtag;
 
@@ -1691,7 +1692,7 @@ fail:
 str *call_lookup_udp(char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
-	struct stream st;
+	struct stream_input st;
 	int num;
 	str *ret, callid, branch, totag;
 

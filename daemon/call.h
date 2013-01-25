@@ -45,12 +45,15 @@ struct stats {
 struct stream {
 	struct in6_addr		ip46;
 	u_int16_t		port;
+	int			num;
+};
+struct stream_input {
+	struct stream		stream;
 	enum {
 		DIR_UNKNOWN = 0,
 		DIR_INTERNAL,
 		DIR_EXTERNAL,
 	}			direction[2];
-	int			num;
 };
 struct streamrelay {
 	int			fd;
