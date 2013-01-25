@@ -1684,103 +1684,56 @@ fail:
 	return -1;
 }
 
-str *call_update_udp(char **out, struct callmaster *m) {
+static str *call_update_lookup_udp(char **out, struct callmaster *m, enum opmode opmode, int tagidx) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
 	struct stream_input st;
 	int num;
-	str *ret, callid, viabranch, fromtag;
+	str *ret, callid, viabranch, tag;
 
 	str_init(&callid, out[RE_UDP_UL_CALLID]);
 	str_init(&viabranch, out[RE_UDP_UL_VIABRANCH]);
-	str_init(&fromtag, out[RE_UDP_UL_FROMTAG]);
+	str_init(&tag, out[tagidx]);
 
-	c = call_get_or_create(&callid, &viabranch, m);
+	c = call_get_opmode(&callid, &viabranch, m, opmode);
+	if (!c) {
+		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id",
+			STR_FMT(&callid), STR_FMT(&viabranch));
+		return str_sprintf("%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
+	}
 	log_info = &viabranch;
 
 	if (addr_parse_udp(&st, out))
 		goto fail;
 
 	g_queue_push_tail(&q, &st);
-	num = call_streams(c, &q, &fromtag, OP_OFFER);
+	num = call_streams(c, &q, &tag, opmode);
 	g_queue_clear(&q);
 
-	ret = streams_print(c->callstreams, num, OP_OFFER, out[RE_UDP_COOKIE], SAF_UDP);
+	ret = streams_print(c->callstreams, num, opmode, out[RE_UDP_COOKIE], SAF_UDP);
 	mutex_unlock(&c->lock);
 
 	if (redis_update)
 		redis_update(c, m->conf.redis);
 
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
-	log_info = NULL;
-	obj_put(c);
-	return ret;
+	goto out;
 
 fail:
 	mutex_unlock(&c->lock);
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
 	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
+out:
 	log_info = NULL;
 	obj_put(c);
 	return ret;
 }
 
+str *call_update_udp(char **out, struct callmaster *m) {
+	return call_update_lookup_udp(out, m, OP_OFFER, RE_UDP_UL_FROMTAG);
+}
 str *call_lookup_udp(char **out, struct callmaster *m) {
-	struct call *c;
-	GQueue q = G_QUEUE_INIT;
-	struct stream_input st;
-	int num;
-	str *ret, callid, branch, totag;
-
-	str_init(&callid, out[RE_UDP_UL_CALLID]);
-	str_init(&branch, out[RE_UDP_UL_VIABRANCH]);
-	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, &callid);
-	if (c)
-		mutex_lock(&c->lock);
-	else {
-		rwlock_unlock_r(&m->hashlock);
-		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id",
-			STR_FMT(&callid), STR_FMT(&branch));
-		ret = str_sprintf("%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
-		return ret;
-	}
-
-	obj_hold(c);
-	rwlock_unlock_r(&m->hashlock);
-
-	if (branch.s && branch.len && !g_hash_table_lookup(c->branches, &branch))
-		g_hash_table_insert(c->branches, call_str_dup(c, &branch),
-		(void *) 0x1);
-
-	log_info = &branch;
-
-	if (addr_parse_udp(&st, out))
-		goto fail;
-
-	g_queue_push_tail(&q, &st);
-	str_init(&totag, out[RE_UDP_UL_TOTAG]);
-	num = call_streams(c, &q, &totag, OP_ANSWER);
-	g_queue_clear(&q);
-
-	ret = streams_print(c->callstreams, num, OP_ANSWER, out[RE_UDP_COOKIE], SAF_UDP);
-	mutex_unlock(&c->lock);
-
-	if (redis_update)
-		redis_update(c, m->conf.redis);
-
-	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
-	log_info = NULL;
-	obj_put(c);
-	return ret;
-
-fail:
-	mutex_unlock(&c->lock);
-	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
-	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
-	log_info = NULL;
-	obj_put(c);
-	return ret;
+	return call_update_lookup_udp(out, m, OP_ANSWER, RE_UDP_UL_TOTAG);
 }
 
 static str *call_request_lookup(char **out, struct callmaster *m, enum opmode opmode, const char *tagstr) {
