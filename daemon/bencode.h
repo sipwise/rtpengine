@@ -234,6 +234,11 @@ static inline char *bencode_dictionary_get_string(bencode_item_t *dict, const ch
  * may be NULL. */
 static inline char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *str);
 
+/* Looks up the given key in the dictionary and compares the corresponding value to the given
+ * null-terminated string. Returns 2 if the key isn't found or if the value isn't a string, otherwise
+ * returns according to strcmp(). */
+static inline int bencode_dictionary_get_strcmp(bencode_item_t *dict, const char *key, const char *str);
+
 /* Identical to bencode_dictionary_get() but returns the string in a newly allocated buffer (using the
  * BENCODE_MALLOC function), which remains valid even after bencode_buffer_t is destroyed. */
 static inline char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, int *len);
@@ -374,6 +379,13 @@ static inline int bencode_strcmp(bencode_item_t *a, const char *b) {
 	if (a->iov[1].iov_len > len)
 		return 1;
 	return memcmp(a->iov[1].iov_base, b, len);
+}
+static inline int bencode_dictionary_get_strcmp(bencode_item_t *dict, const char *key, const char *str) {
+	bencode_item_t *i;
+	i = bencode_dictionary_get(dict, key);
+	if (!i)
+		return 2;
+	return bencode_strcmp(i, str);
 }
 
 #endif
