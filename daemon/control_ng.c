@@ -81,6 +81,8 @@ send_resp:
 	to_send = &reply;
 
 send_only:
+	mylog(LOG_INFO, "Returning to SIP proxy: %.*s", STR_FMT(to_send));
+
 	ZERO(mh);
 	mh.msg_name = sin;
 	mh.msg_namelen = sizeof(*sin);
