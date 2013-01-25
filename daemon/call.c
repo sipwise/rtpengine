@@ -434,18 +434,16 @@ out:
 
 
 static int info_parse_func(char **a, void **ret, void *p) {
-	struct call *c = p;
+	GHashTable *ih = p;
 
-	g_hash_table_replace(c->infohash, call_strdup(c, a[0]), call_str_init_dup(c, a[1]));
+	g_hash_table_replace(ih, a[0], a[1]);
 
 	return -1;
 }
 
 
-static void info_parse(const char *s, struct call *c) {
-	struct callmaster *m = c->callmaster;
-
-	pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, c, NULL);
+static void info_parse(const char *s, GHashTable *ih, struct callmaster *m) {
+	pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, ih, NULL);
 }
 
 
@@ -1541,7 +1539,6 @@ out:
 static void call_free(void *p) {
 	struct call *c = p;
 
-	g_hash_table_destroy(c->infohash);
 	g_hash_table_destroy(c->branches);
 	g_queue_free(c->callstreams);
 	mutex_destroy(&c->lock);
@@ -1561,7 +1558,6 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	call_str_cpy(c, &c->callid, callid);
 	c->callstreams = g_queue_new();
 	c->created = poller_now;
-	c->infohash = g_hash_table_new(g_str_hash, g_str_equal);
 	c->branches = g_hash_table_new(str_hash, str_equal);
 	mutex_init(&c->lock);
 	return c;
@@ -1751,17 +1747,23 @@ str *call_request(char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
-	str *ret, callid;
+	str *ret, callid, tag;
+	GHashTable *infohash;
 
 	str_init(&callid, out[RE_TCP_RL_CALLID]);
+	infohash = g_hash_table_new(g_str_hash, g_str_equal);
 	c = call_get_or_create(&callid, NULL, m);
 
-	info_parse(out[RE_TCP_RL_INFO], c);
+	info_parse(out[RE_TCP_RL_INFO], infohash, m);
 	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
-	num = call_streams(c, &s, g_hash_table_lookup(c->infohash, "fromtag"), 0);
-	streams_free(&s);
+	str_init(&tag, g_hash_table_lookup(infohash, "fromtag"));
+	num = call_streams(c, &s, &tag, 0);
+
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 0 : 1, NULL, SAF_TCP);
 	mutex_unlock(&c->lock);
+
+	streams_free(&s);
+	g_hash_table_destroy(infohash);
 
 	if (redis_update)
 		redis_update(c, m->conf.redis);
@@ -1775,7 +1777,8 @@ str *call_lookup(char **out, struct callmaster *m) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
-	str *ret, callid;
+	str *ret, callid, tag;
+	GHashTable *infohash;
 
 	str_init(&callid, out[RE_TCP_RL_CALLID]);
 	rwlock_lock_r(&m->hashlock);
@@ -1789,12 +1792,16 @@ str *call_lookup(char **out, struct callmaster *m) {
 	mutex_lock(&c->lock);
 	rwlock_unlock_r(&m->hashlock);
 
-	info_parse(out[RE_TCP_RL_INFO], c);
+	infohash = g_hash_table_new(g_str_hash, g_str_equal);
+	info_parse(out[RE_TCP_RL_INFO], infohash, m);
 	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
-	num = call_streams(c, &s, g_hash_table_lookup(c->infohash, "totag"), 1);
-	streams_free(&s);
+	str_init(&tag, g_hash_table_lookup(infohash, "totag"));
+	num = call_streams(c, &s, &tag, 1);
 	ret = streams_print(c->callstreams, abs(num), (num >= 0) ? 1 : 0, NULL, SAF_TCP);
 	mutex_unlock(&c->lock);
+
+	streams_free(&s);
+	g_hash_table_destroy(infohash);
 
 	if (redis_update)
 		redis_update(c, m->conf.redis);
@@ -2002,15 +2009,12 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 	struct streamrelay *rx1, *rx2;
 	struct callmaster *m;
 	char addr1[64], addr2[64], addr3[64];
-	str *from, *to;
 
 	m = c->callmaster;
 	mutex_lock(&c->lock);
 
-	from = g_hash_table_lookup(c->infohash, "from");
-	to = g_hash_table_lookup(c->infohash, "to");
-	control_stream_printf(s, "session %.*s %.*s %.*s - - %i\n",
-		STR_FMT(&c->callid), STR_FMT(from), STR_FMT(to),
+	control_stream_printf(s, "session %.*s - - - - %i\n",
+		STR_FMT(&c->callid),
 		(int) (poller_now - c->created));
 
 	for (l = c->callstreams->head; l; l = l->next) {

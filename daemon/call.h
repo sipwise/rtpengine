@@ -101,7 +101,6 @@ struct call {
 	str			callid;
 	char			redis_uuid[37];
 	time_t			created;
-	GHashTable		*infohash;
 	time_t			lookup_done;
 };
 
