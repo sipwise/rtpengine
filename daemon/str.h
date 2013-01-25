@@ -21,6 +21,7 @@ typedef struct _str str;
 
 #define STR_FORMAT "%.*s"
 #define STR_FMT(str) (str)->len, (str)->s
+#define STR_FMT0(str) ((str) ? (str)->len : 6), ((str) ? (str)->s : "(NULL)")
 #define STR_NULL (str) { NULL, 0 }
 #define STR_EMPTY (str) { "", 0 }
 

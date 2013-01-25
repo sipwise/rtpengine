@@ -37,7 +37,7 @@
 #define LOG_PREFIX_C "[%.*s] "
 #define LOG_PREFIX_CI "[%.*s - %.*s] "
 #define LOG_PARAMS_C(c) STR_FMT(&(c)->callid)
-#define LOG_PARAMS_CI(c) STR_FMT(&(c)->callid), STR_FMT(log_info)
+#define LOG_PARAMS_CI(c) STR_FMT(&(c)->callid), STR_FMT0(log_info)
 
 static __thread const str *log_info;
 
