@@ -463,7 +463,6 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 
 	in4_to_6(&st->ip46, ip);
 	st->port = atoi(a[1]);
-	st->mediatype = strdup(a[2] ? : ""); /* XXX should use string chunks */
 	st->num = ++(*i);
 
 	if (!st->port && strcmp(a[1], "0"))
@@ -474,7 +473,6 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 
 fail:
 	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", a[0], a[1]);
-	free(st->mediatype);
 	g_slice_free1(sizeof(*st), st);
 	return -1;
 }
@@ -490,8 +488,6 @@ static void streams_free(GQueue *q) {
 	struct stream *s;
 
 	while ((s = g_queue_pop_head(q))) {
-		if (s->mediatype)
-			free(s->mediatype);
 		g_slice_free1(sizeof(*s), s);
 	}
 }
@@ -1029,7 +1025,6 @@ static int setup_peer(struct peer *p, struct stream *s, const str *tag) {
 		}
 	}
 
-	p->mediatype = call_strdup(ca, s->mediatype);
 	call_str_cpy(ca, &p->tag, tag);
 	p->filled = 1;
 
@@ -1061,9 +1056,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	unkernelize(src);
 
 	dest->filled = 1;
-	dest->mediatype = src->mediatype;
 	dest->tag = src->tag;
-	src->mediatype = "";
 	src->tag = STR_NULL;
 	//dest->kernelized = src->kernelized;
 	//src->kernelized = 0;
@@ -1126,7 +1119,6 @@ void callstream_init(struct callstream *s, int port1, int port2) {
 		p->idx = i;
 		p->up = s;
 		p->tag = STR_NULL;
-		p->mediatype = "";
 
 		for (j = 0; j < 2; j++) {
 			r = &p->rtps[j];
@@ -1631,7 +1623,6 @@ static int addr_parse_udp(struct stream *st, char **out) {
 		goto fail;
 
 	st->port = atoi(out[RE_UDP_UL_PORT]);
-	st->mediatype = "unknown";
 	if (!st->port && strcmp(out[RE_UDP_UL_PORT], "0"))
 		goto fail;
 
@@ -2041,7 +2032,7 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 		else
 			smart_ntop_p(addr3, &m->conf.ipv6, sizeof(addr3));
 
-		control_stream_printf(s, "stream %s:%u %s:%u %s:%u %llu/%llu/%llu %s %s %s %i\n",
+		control_stream_printf(s, "stream %s:%u %s:%u %s:%u %llu/%llu/%llu %s %s - %i\n",
 			addr1, r1->peer.port,
 			addr2, r2->peer.port,
 			addr3, r1->localport,
@@ -2050,7 +2041,7 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 			(long long unsigned int) r1->stats.bytes + rx1->stats.bytes + r2->stats.bytes + rx2->stats.bytes,
 			"active",
 			p->codec ? : "unknown",
-			p->mediatype, (int) (poller_now - r1->last));
+			(int) (poller_now - r1->last));
 next:
 		mutex_unlock(&cs->lock);
 	}

@@ -354,7 +354,6 @@ void redis_mod_verify(void *dlh) {
 
 	check_struct_offset(peer, rtps);
 	check_struct_offset(peer, tag);
-	check_struct_offset(peer, mediatype);
 	check_struct_offset(peer, up);
 
 	check_struct_offset(streamrelay, fd);
@@ -363,7 +362,6 @@ void redis_mod_verify(void *dlh) {
 	check_struct_offset(streamrelay, last);
 
 	check_struct_offset(stream, ip46);
-	check_struct_offset(stream, mediatype);
 	check_struct_offset(stream, num);
 }
 
