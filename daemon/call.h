@@ -35,6 +35,15 @@ enum stream_address_format {
 	SAF_UDP,
 	SAF_NG,
 };
+enum stream_direction {
+	DIR_UNKNOWN = 0,
+	DIR_INTERNAL,
+	DIR_EXTERNAL,
+};
+enum call_opmode {
+	OP_OFFER = 0,
+	OP_ANSWER = 1,
+};
 
 struct stats {
 	u_int64_t			packets;
@@ -49,11 +58,7 @@ struct stream {
 };
 struct stream_input {
 	struct stream		stream;
-	enum {
-		DIR_UNKNOWN = 0,
-		DIR_INTERNAL,
-		DIR_EXTERNAL,
-	}			direction[2];
+	enum stream_direction	direction[2];
 };
 struct streamrelay {
 	int			fd;

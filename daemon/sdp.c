@@ -452,11 +452,17 @@ static void chopper_destroy(struct string_chopper *chop) {
 /* XXX use port numbers as index */
 /* XXX get rid of num/off parameters? */
 /* XXX use iovec based rewriting */
-str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, int off) {
+str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum call_opmode opmode, struct sdp_ng_flags *flags) {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	GList *l, *k, *m;
 	struct string_chopper chop;
+	int off;
+
+	off = opmode;
+	if (num < 0)
+		off ^= 1;
+	num = abs(num);
 
 	chopper_init(&chop, body);
 	m = call->callstreams->head;
@@ -464,7 +470,7 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, int of
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
 
-		if (session->origin.parsed) {
+		if (session->origin.parsed && flags->replace_origin) {
 			if (replace_network_address(&chop, &session->origin.address, m, off))
 				goto error;
 		}
@@ -480,7 +486,7 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, int of
 			if (replace_port(&chop, &media->port, m, off))
 				goto error;
 
-			if (media->connection.parsed) {
+			if (media->connection.parsed && flags->replace_sess_conn) {
 				if (replace_network_address(&chop, &media->connection.address, m, off))
 					goto error;
 			}

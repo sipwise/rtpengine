@@ -122,6 +122,10 @@ bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len
  * to bencode_string_len(). */
 static inline bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *s);
 
+/* Convenience function to compare a string object to a regular C string. Returns 2 if object
+ * isn't a string object, otherwise returns according to strcmp(). */
+static inline int bencode_strcmp(bencode_item_t *a, const char *b);
+
 /* Creates a new byte-string object from a "str" object. The string does not have to be null-
  * terminated. */
 static inline bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
@@ -359,6 +363,17 @@ static inline bencode_item_t *bencode_dictionary_get_expect(bencode_item_t *dict
 static inline str *bencode_collapse_str(bencode_item_t *root, str *out) {
 	out->s = bencode_collapse(root, &out->len);
 	return out;
+}
+static inline int bencode_strcmp(bencode_item_t *a, const char *b) {
+	int len;
+	if (a->type != BENCODE_STRING)
+		return 2;
+	len = strlen(b);
+	if (a->iov[1].iov_len < len)
+		return -1;
+	if (a->iov[1].iov_len > len)
+		return 1;
+	return memcmp(a->iov[1].iov_base, b, len);
 }
 
 #endif

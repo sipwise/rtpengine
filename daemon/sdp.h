@@ -5,9 +5,19 @@
 #include "str.h"
 #include "call.h"
 
+
+struct sdp_ng_flags {
+	int desired_family[2];
+	int asymmetric:1,
+	    symmetric:1,
+	    trust_address:1,
+	    replace_origin:1,
+	    replace_sess_conn:1;
+};
+
 int sdp_parse(str *body, GQueue *sessions);
 int sdp_streams(const GQueue *sessions, GQueue *streams);
 void sdp_free(GQueue *sessions);
-str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, int off);
+str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum call_opmode, struct sdp_ng_flags *);
 
 #endif

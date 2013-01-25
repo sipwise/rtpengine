@@ -35,6 +35,8 @@ static inline char *str_chr(const str *s, int c);
 static inline str *str_chr_str(str *out, const str *s, int c);
 /* compares a str to a regular string */
 static inline int str_cmp(const str *a, const char *b);
+/* compares a str to a non-null-terminated string */
+static inline int str_cmp_len(const str *a, const char *b, int len);
 /* compares two str objects */
 static inline int str_cmp_str(const str *a, const str *b);
 /* compares two str objects, allows either to be NULL */
@@ -80,8 +82,7 @@ static inline str *str_chr_str(str *out, const str *s, int c) {
 	out->len = out->s ? (s->len - (out->s - s->s)) : 0;
 	return out;
 }
-static inline int str_cmp(const str *a, const char *b) {
-	int l = strlen(b);
+static inline int str_cmp_len(const str *a, const char *b, int l) {
 	if (a->len < l)
 		return -1;
 	if (a->len > l)
@@ -89,6 +90,9 @@ static inline int str_cmp(const str *a, const char *b) {
 	if (a->len == 0 && l == 0)
 		return 0;
 	return memcmp(a->s, b, l);
+}
+static inline int str_cmp(const str *a, const char *b) {
+	return str_cmp_len(a, b, strlen(b));
 }
 static inline int str_cmp_str(const str *a, const str *b) {
 	if (a->len < b->len)

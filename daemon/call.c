@@ -45,10 +45,6 @@ static __thread const str *log_info;
 
 
 /* also serves as array index for callstream->peers[] */
-enum opmode {
-	OP_OFFER = 0,
-	OP_ANSWER = 1,
-};
 struct iterator_helper {
 	GSList			*del;
 	struct streamrelay	*ports[0x10000];
@@ -1174,7 +1170,7 @@ static void callstream_free(void *ptr) {
 }
 
 /* called with call->lock held */
-static int call_streams(struct call *c, GQueue *s, const str *tag, enum opmode opmode) {
+static int call_streams(struct call *c, GQueue *s, const str *tag, enum call_opmode opmode) {
 	GQueue *q;
 	GList *i, *l;
 	struct stream_input *t;
@@ -1220,7 +1216,7 @@ static int call_streams(struct call *c, GQueue *s, const str *tag, enum opmode o
 
 found:
 		/* cs_o remains locked if set */
-		if (!opmode) {	/* request */
+		if (opmode == OP_OFFER) {
 			DBG("creating new callstream");
 
 			cs = callstream_new(c, t->stream.num);
@@ -1507,18 +1503,18 @@ int call_stream_address(GString *o, struct peer *p, enum stream_address_format f
 
 
 
-static str *streams_print(GQueue *s, int rawnum, enum opmode opmode, const char *prefix, enum stream_address_format format) {
+static str *streams_print(GQueue *s, int num, enum call_opmode opmode, const char *prefix, enum stream_address_format format) {
 	GString *o;
-	int i, num, off;
+	int i, off;
 	GList *l;
 	struct callstream *t;
 	struct streamrelay *x;
 	int af;
 
-	num = abs(rawnum);
 	off = opmode; /* 0 or 1 */
 	if (num < 0)
 		off ^= 1; /* 1 or 0 */
+	num = abs(num);
 
 	o = g_string_new_str();
 	if (prefix)
@@ -1635,7 +1631,7 @@ static struct call *call_get(const str *callid, const str *viabranch, struct cal
 }
 
 /* returns call with lock held, or possibly NULL iff opmode == OP_ANSWER */
-static struct call *call_get_opmode(const str *callid, const str *viabranch, struct callmaster *m, enum opmode opmode) {
+static struct call *call_get_opmode(const str *callid, const str *viabranch, struct callmaster *m, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
 		return call_get_or_create(callid, viabranch, m);
 	return call_get(callid, viabranch, m);
@@ -1686,7 +1682,7 @@ fail:
 	return -1;
 }
 
-static str *call_update_lookup_udp(char **out, struct callmaster *m, enum opmode opmode, int tagidx) {
+static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, int tagidx) {
 	struct call *c;
 	GQueue q = G_QUEUE_INIT;
 	struct stream_input st;
@@ -1738,7 +1734,7 @@ str *call_lookup_udp(char **out, struct callmaster *m) {
 	return call_update_lookup_udp(out, m, OP_ANSWER, RE_UDP_UL_TOTAG);
 }
 
-static str *call_request_lookup(char **out, struct callmaster *m, enum opmode opmode, const char *tagstr) {
+static str *call_request_lookup(char **out, struct callmaster *m, enum call_opmode opmode, const char *tagstr) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
@@ -2091,6 +2087,53 @@ struct callstream *callstream_new(struct call *ca, int num) {
 }
 
 
+static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, bencode_item_t *input) {
+	bencode_item_t *list, *it;
+	struct stream_input *si;
+	int diridx;
+	enum stream_direction dirs[2];
+	GList *gl;
+
+	ZERO(*out);
+	ZERO(dirs);
+
+	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
+		for (it = list->child; it; it = it->sibling) {
+			if (!bencode_strcmp(it, "trust-address")) /* XXX not implemented */
+				out->trust_address = 1;
+			else if (!bencode_strcmp(it, "symmetric"))
+				out->symmetric = 1;
+			else if (!bencode_strcmp(it, "asymmetric"))
+				out->asymmetric = 1;
+		}
+	}
+
+	if ((list = bencode_dictionary_get_expect(input, "replace", BENCODE_LIST))) {
+		for (it = list->child; it; it = it->sibling) {
+			if (!bencode_strcmp(it, "origin"))
+				out->replace_origin = 1;
+			else if (!bencode_strcmp(it, "session-connection"))
+				out->replace_sess_conn = 1;
+		}
+	}
+
+	diridx = 0;
+	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
+		for (it = list->child; it && diridx < 2; it = it->sibling) {
+			if (!bencode_strcmp(it, "internal"))
+				dirs[diridx++] = DIR_INTERNAL;
+			else if (!bencode_strcmp(it, "external"))
+				dirs[diridx++] = DIR_INTERNAL;
+		}
+
+		for (gl = streams->head; gl; gl = gl->next) {
+			si = gl->data;
+			si->direction[0] = dirs[0];
+			si->direction[1] = dirs[1];
+		}
+	}
+}
+
 const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str sdp, fromtag, viabranch, callid, *sdp_new;
 	char *errstr;
@@ -2098,6 +2141,7 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 	GQueue streams = G_QUEUE_INIT;
 	struct call *call;
 	int num;
+	struct sdp_ng_flags flags;
 
 	if (!bencode_dictionary_get_str(input, "sdp", &sdp))
 		return "No SDP body in message";
@@ -2108,8 +2152,6 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 	log_info = &viabranch;
 
-	/* XXX get rid of "direction" and use "desired_family" as intended? */
-
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
 
@@ -2117,11 +2159,13 @@ const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item
 	if (sdp_streams(&parsed, &streams))
 		goto out;
 
+	call_ng_process_flags(&flags, &streams, input);
+
 	call = call_get_or_create(&callid, &viabranch, m);
 	log_info = &viabranch;
 
 	num = call_streams(call, &streams, &fromtag, OP_OFFER);
-	sdp_new = sdp_replace(&sdp, &parsed, call, abs(num), (num >= 0) ? 0 : 1);
+	sdp_new = sdp_replace(&sdp, &parsed, call, num, OP_OFFER, &flags);
 
 	mutex_unlock(&call->lock);
 	obj_put(call);
