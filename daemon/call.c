@@ -1734,7 +1734,7 @@ str *call_lookup_udp(char **out, struct callmaster *m) {
 	return call_update_lookup_udp(out, m, OP_ANSWER, RE_UDP_UL_TOTAG);
 }
 
-static str *call_request_lookup(char **out, struct callmaster *m, enum call_opmode opmode, const char *tagstr) {
+static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_opmode opmode, const char *tagstr) {
 	struct call *c;
 	GQueue s = G_QUEUE_INIT;
 	int num;
@@ -1770,11 +1770,11 @@ out:
 	return ret;
 }
 
-str *call_request(char **out, struct callmaster *m) {
-	return call_request_lookup(out, m, OP_OFFER, "fromtag");
+str *call_request_tcp(char **out, struct callmaster *m) {
+	return call_request_lookup_tcp(out, m, OP_OFFER, "fromtag");
 }
-str *call_lookup(char **out, struct callmaster *m) {
-	return call_request_lookup(out, m, OP_ANSWER, "totag");
+str *call_lookup_tcp(char **out, struct callmaster *m) {
+	return call_request_lookup_tcp(out, m, OP_ANSWER, "totag");
 }
 
 static int call_delete_branch(struct callmaster *m, const str *callid, const str *branch, const str *fromtag, const str *totag) {
@@ -1954,7 +1954,7 @@ out:
 	return ret;
 }
 
-void call_delete(char **out, struct callmaster *m) {
+void call_delete_tcp(char **out, struct callmaster *m) {
 	str callid;
 
 	str_init(&callid, out[RE_TCP_D_CALLID]);
@@ -2020,7 +2020,7 @@ static void callmaster_get_all_calls_interator(void *key, void *val, void *ptr) 
 	g_queue_push_tail(q, obj_get(val));
 }
 
-void calls_status(struct callmaster *m, struct control_stream *s) {
+void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
 	struct stats st;
 	GQueue q = G_QUEUE_INIT;
 	struct call *c;
@@ -2130,7 +2130,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	}
 }
 
-static const char *call_offer_answer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, enum call_opmode opmode, const char *tagname) {
+static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, enum call_opmode opmode, const char *tagname) {
 	str sdp, fromtag, viabranch, callid, *sdp_new;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
@@ -2185,12 +2185,12 @@ out:
 	return errstr;
 }
 
-const char *call_offer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer(input, m, output, OP_OFFER, "from-tag");
+const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	return call_offer_answer_ng(input, m, output, OP_OFFER, "from-tag");
 }
 
-const char *call_answer(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer(input, m, output, OP_ANSWER, "to-tag");
+const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	return call_offer_answer_ng(input, m, output, OP_ANSWER, "to-tag");
 }
 
 const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {

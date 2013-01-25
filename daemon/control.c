@@ -114,13 +114,13 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 
 
 	if (!strcmp(out[RE_TCP_RL_CMD], "request"))
-		output = call_request(out, c->callmaster);
+		output = call_request_tcp(out, c->callmaster);
 	else if (!strcmp(out[RE_TCP_RL_CMD], "lookup"))
-		output = call_lookup(out, c->callmaster);
+		output = call_lookup_tcp(out, c->callmaster);
 	else if (!strcmp(out[RE_TCP_D_CMD], "delete"))
-		call_delete(out, c->callmaster);
+		call_delete_tcp(out, c->callmaster);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "status"))
-		calls_status(c->callmaster, s);
+		calls_status_tcp(c->callmaster, s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "build") | !strcmp(out[RE_TCP_DIV_CMD], "version"))
 		control_stream_printf(s, "Version: %s\n", MEDIAPROXY_VERSION);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "controls"))

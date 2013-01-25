@@ -133,15 +133,20 @@ struct callmaster *callmaster_new(struct poller *);
 void callmaster_config(struct callmaster *m, struct callmaster_config *c);
 
 
-str *call_request(char **, struct callmaster *);
+str *call_request_tcp(char **, struct callmaster *);
+str *call_lookup_tcp(char **, struct callmaster *);
+void call_delete_tcp(char **, struct callmaster *);
+void calls_status_tcp(struct callmaster *, struct control_stream *);
+
 str *call_update_udp(char **, struct callmaster *);
-str *call_lookup(char **, struct callmaster *);
 str *call_lookup_udp(char **, struct callmaster *);
-void call_delete(char **, struct callmaster *);
 str *call_delete_udp(char **, struct callmaster *);
 str *call_query_udp(char **, struct callmaster *);
 
-void calls_status(struct callmaster *, struct control_stream *);
+const char *call_offer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
+const char *call_answer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
+const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
+
 
 void calls_dump_redis(struct callmaster *);
 
@@ -185,10 +190,6 @@ static inline str *call_str_init_dup(struct call *c, char *s) {
 	str_init(&t, s);
 	return call_str_dup(c, &t);
 }
-
-const char *call_offer(bencode_item_t *, struct callmaster *, bencode_item_t *);
-const char *call_answer(bencode_item_t *, struct callmaster *, bencode_item_t *);
-const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 
 
 
