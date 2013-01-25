@@ -71,20 +71,6 @@ int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num,
 }
 
 
-void strmove(char **d, char **s) {
-	if (*d)
-		free(*d);
-	*d = *s;
-	*s = strdup("");
-}
-
-void strdupfree(char **d, const char *s) {
-	if (*d)
-		free(*d);
-	*d = strdup(s);
-}
-
-
 
 #if !GLIB_CHECK_VERSION(2,14,0)
 

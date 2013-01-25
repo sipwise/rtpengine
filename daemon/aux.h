@@ -47,8 +47,8 @@ typedef int (*parse_func)(char **, void **, void *);
 
 GList *g_list_link(GList *, GList *);
 int pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *, GQueue *);
-void strmove(char **, char **);
-void strdupfree(char **, const char *);
+static inline void strmove(char **, char **);
+static inline void strdupfree(char **, const char *);
 
 
 #if !GLIB_CHECK_VERSION(2,14,0)
@@ -56,6 +56,20 @@ void strdupfree(char **, const char *);
 void g_string_vprintf(GString *string, const gchar *format, va_list args);
 void g_queue_clear(GQueue *);
 #endif
+
+
+static inline void strmove(char **d, char **s) {
+	if (*d)
+		free(*d);
+	*d = *s;
+	*s = strdup("");
+}
+
+static inline void strdupfree(char **d, const char *s) {
+	if (*d)
+		free(*d);
+	*d = strdup(s);
+}
 
 
 static inline void nonblock(int fd) {
@@ -162,10 +176,11 @@ static inline int smart_pton(int af, char *src, void *dst) {
 }
 
 static inline int strmemcmp(const void *mem, int len, const char *str) {
-	if (strlen(str) < len)
-		return 1;
-	if (strlen(str) > len)
+	int l = strlen(str);
+	if (l < len)
 		return -1;
+	if (l > len)
+		return 1;
 	return memcmp(mem, str, len);
 }
 
