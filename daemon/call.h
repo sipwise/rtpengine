@@ -45,7 +45,6 @@ struct stats {
 struct stream {
 	struct in6_addr		ip46;
 	u_int16_t		port;
-	char			*mediatype;
 	enum {
 		DIR_UNKNOWN = 0,
 		DIR_INTERNAL,
@@ -68,7 +67,6 @@ struct streamrelay {
 struct peer {
 	struct streamrelay	rtps[2];
 	str			tag;
-	char			*mediatype;
 	char			*codec;
 	unsigned char		idx;
 	struct callstream	*up;
