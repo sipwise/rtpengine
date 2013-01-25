@@ -1497,6 +1497,8 @@ int call_stream_address(GString *o, struct peer *p, enum stream_address_format f
 		return call_stream_address4(o, p, format);
 	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
 		return call_stream_address4(o, p, format);
+	if (other->desired_family == 0 && IN6_IS_ADDR_UNSPECIFIED(&other->rtps[0].peer.ip46))
+		return call_stream_address4(o, p, format);
 	if (IN6_IS_ADDR_UNSPECIFIED(&m->conf.ipv6))
 		return call_stream_address4(o, p, format);
 
