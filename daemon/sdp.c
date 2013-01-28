@@ -415,7 +415,7 @@ static int replace_port(struct string_chopper *chop, str *port, GList *m, int of
 	return 0;
 }
 
-static int replace_network_address(struct string_chopper *chop, struct network_address *address, GList *m, int off) {
+static int replace_network_address(struct string_chopper *chop, struct network_address *address, GList *m, int off, struct sdp_ng_flags *flags) {
 	struct callstream *cs;
 	struct peer *peer;
 
@@ -430,7 +430,13 @@ static int replace_network_address(struct string_chopper *chop, struct network_a
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
 
-	call_stream_address(chop->output, peer, 2);
+	if (!flags->trust_address && flags->received_from_family.len == 3 && flags->received_from_address.len) {
+		g_string_append_len(chop->output, flags->received_from_family.s, flags->received_from_family.len);
+		g_string_append_c(chop->output, ' ');
+		g_string_append_len(chop->output, flags->received_from_address.s, flags->received_from_address.len);
+	}
+	else
+		call_stream_address(chop->output, peer, SAF_NG);
 
 	if (skip_over(chop, &address->address))
 		return -1;
@@ -471,11 +477,11 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum c
 		session = l->data;
 
 		if (session->origin.parsed && flags->replace_origin) {
-			if (replace_network_address(&chop, &session->origin.address, m, off))
+			if (replace_network_address(&chop, &session->origin.address, m, off, flags))
 				goto error;
 		}
 		if (session->connection.parsed) {
-			if (replace_network_address(&chop, &session->connection.address, m, off))
+			if (replace_network_address(&chop, &session->connection.address, m, off, flags))
 				goto error;
 		}
 
@@ -487,7 +493,7 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum c
 				goto error;
 
 			if (media->connection.parsed && flags->replace_sess_conn) {
-				if (replace_network_address(&chop, &media->connection.address, m, off))
+				if (replace_network_address(&chop, &media->connection.address, m, off, flags))
 					goto error;
 			}
 		}
