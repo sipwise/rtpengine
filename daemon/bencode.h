@@ -56,6 +56,12 @@ struct bencode_buffer {
 	struct __bencode_free_list *free_list;
 };
 
+
+
+
+
+/*** INIT & DESTROY ***/
+
 /* Initializes a bencode_buffer_t object. This object is used to group together all memory allocations
  * made when encoding or decoding. Its memory usage is always growing, until it is freed, at which point
  * all objects created through it become invalid. The actual object must be allocated separately, for
@@ -78,6 +84,12 @@ bencode_item_t *bencode_list(bencode_buffer_t *buf);
 /* Adds a pointer to the bencode_buffer_t object's internal free list. When the bencode_buffer_t
  * object is destroyed, BENCODE_FREE will be called on this pointer. */
 void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *);
+
+
+
+
+
+/*** DICTIONARY BUILDING ***/
 
 /* Adds a new key/value pair to a dictionary. Memory will be allocated from the same bencode_buffer_t
  * object as the dictionary was allocated from. Returns NULL if no memory could be allocated, otherwise
@@ -104,6 +116,12 @@ static inline bencode_item_t *bencode_dictionary_add_str_free(bencode_item_t *di
 /* Convenience function to add an integer value to a dictionary */
 static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val);
 
+
+
+
+
+/*** LIST BUILDING ***/
+
 /* Adds a new item to a list. Returns "item".
  * The item to be added must not have been previously linked into any other dictionary or list. */
 bencode_item_t *bencode_list_add(bencode_item_t *list, bencode_item_t *item);
@@ -118,6 +136,12 @@ static inline bencode_item_t *bencode_list_add_string(bencode_item_t *list, cons
  * the complete document is finally encoded or sent out. */
 bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len);
 
+
+
+
+
+/*** STRING BUILDING & HANDLING ***/
+
 /* Creates a new byte-string object. The given string must be null-terminated. Otherwise identical
  * to bencode_string_len(). */
 static inline bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *s);
@@ -130,8 +154,24 @@ static inline int bencode_strcmp(bencode_item_t *a, const char *b);
  * terminated. */
 static inline bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
 
+/* Converts the string object "in" into a str object "out". Returns "out" on success, or NULL on
+ * error ("in" was NULL or not a string object). */
+static inline str *bencode_get_str(bencode_item_t *in, str *out);
+
+
+
+
+
+/*** INTEGER BUILDING ***/
+
 /* Creates a new integer object. Returns NULL if no memory could be allocated. */
 bencode_item_t *bencode_integer(bencode_buffer_t *buf, long long int i);
+
+
+
+
+
+/*** COLLAPSING & ENCODING ***/
 
 /* Collapses and encodes the complete document structure under the "root" element (which normally
  * is either a dictionary or a list) into an array of "iovec" structures. This array can then be
@@ -168,6 +208,12 @@ static str *bencode_collapse_str(bencode_item_t *root, str *out);
  * malloc() or pkg_malloc()), similar to strdup(). Using this function, the bencode_buffer_t
  * object can be destroyed, but the returned string remains valid and usable. */
 char *bencode_collapse_dup(bencode_item_t *root, int *len);
+
+
+
+
+
+/*** DECODING ***/
 
 /* Decodes an encoded document from a string into a tree of bencode_item_t objects. The string does
  * not need to be null-terminated, instead the length of the string is given through the "len"
@@ -216,6 +262,12 @@ static inline bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const
 /* Identical to bencode_decode_expect() but takes a "str" argument. */
 static inline bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const str *s, bencode_type_t expect);
 
+
+
+
+
+/*** DICTIONARY LOOKUP & EXTRACTION ***/
+
 /* Searches the given dictionary object for the given key and returns the respective value. Returns
  * NULL if the given object isn't a dictionary or if the key doesn't exist. The key must be a
  * null-terminated string. */
@@ -253,6 +305,9 @@ static inline long long int bencode_dictionary_get_integer(bencode_item_t *dict,
 
 /* Identical to bencode_dictionary_get(), but returns the object only if its type matches "expect". */
 static inline bencode_item_t *bencode_dictionary_get_expect(bencode_item_t *dict, const char *key, bencode_type_t expect);
+
+
+
 
 
 /**************************/
@@ -386,6 +441,14 @@ static inline int bencode_dictionary_get_strcmp(bencode_item_t *dict, const char
 	if (!i)
 		return 2;
 	return bencode_strcmp(i, str);
+}
+
+static inline str *bencode_get_str(bencode_item_t *in, str *out) {
+	if (!in || in->type != BENCODE_STRING)
+		return NULL;
+	out->s = in->iov[1].iov_base;
+	out->len = in->iov[1].iov_len;
+	return out;
 }
 
 #endif
