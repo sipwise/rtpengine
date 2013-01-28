@@ -496,6 +496,9 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum c
 				if (replace_network_address(&chop, &media->connection.address, m, off, flags))
 					goto error;
 			}
+
+			if (m)
+				m = m->next;
 		}
 	}
 
