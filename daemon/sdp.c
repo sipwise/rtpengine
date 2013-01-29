@@ -407,7 +407,7 @@ static int replace_port(struct string_chopper *chop, str *port, GList *m, int of
 	if (copy_up_to(chop, port))
 		return -1;
 
-	g_string_append_printf(chop->output, "%hu", sr->localport);
+	g_string_append_printf(chop->output, "%hu", sr->fd.localport);
 
 	if (skip_over(chop, port))
 		return -1;

@@ -60,12 +60,15 @@ struct stream_input {
 	struct stream		stream;
 	enum stream_direction	direction[2];
 };
-struct streamrelay {
+struct udp_fd {
 	int			fd;
 	int			fd_family;
+	u_int16_t		localport;
+};
+struct streamrelay {
+	struct udp_fd		fd;
 	struct stream		peer;
 	struct stream		peer_advertised;
-	u_int16_t		localport;
 	unsigned char		idx;
 	struct peer		*up;
 	struct stats		stats;
@@ -73,9 +76,9 @@ struct streamrelay {
 	time_t			last;
 };
 struct relays_cache {
-	struct streamrelay	relays_A[16];
-	struct streamrelay	relays_B[16];
-	struct streamrelay	*array_ptrs[2];
+	struct udp_fd		relays_A[16];
+	struct udp_fd		relays_B[16];
+	struct udp_fd		*array_ptrs[2];
 	int			relays_open;
 };
 struct peer {
