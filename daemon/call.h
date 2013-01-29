@@ -59,6 +59,7 @@ struct stream {
 struct stream_input {
 	struct stream		stream;
 	enum stream_direction	direction[2];
+	int			consecutive_num;
 };
 struct udp_fd {
 	int			fd;

@@ -308,7 +308,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams) {
 	struct stream_input *si;
 	GList *l, *k;
 	const char *errstr;
-	int i, num;
+	int i, num, cons_num;
 
 	num = 0;
 	for (l = sessions->head; l; l = l->next) {
@@ -317,6 +317,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams) {
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
+			cons_num = media->port_count;
 			for (i = 0; i < media->port_count; i++) {
 				si = g_slice_alloc0(sizeof(*si));
 
@@ -328,10 +329,11 @@ int sdp_streams(const GQueue *sessions, GQueue *streams) {
 				else
 					goto error;
 
-				/* XXX ports must be consecutive */
-				/* XXX check for RTP type */
+				/* we ignore the media type */
 				si->stream.port = (media->port_num + (i * 2)) & 0xffff;
 				si->stream.num = ++num;
+				si->consecutive_num = cons_num;
+				cons_num = 1;
 
 				g_queue_push_tail(streams, si);
 			}
@@ -392,9 +394,11 @@ static int skip_over(struct string_chopper *chop, str *where) {
 	return 0;
 }
 
-static int replace_port(struct string_chopper *chop, str *port, GList *m, int off) {
+static int replace_media_port(struct string_chopper *chop, struct sdp_media *media, GList *m, int off) {
 	struct callstream *cs;
 	struct streamrelay *sr;
+	str *port = &media->port;
+	int cons;
 
 	if (!m) {
 		mylog(LOG_ERROR, "BUG! Ran out of streams");
@@ -412,7 +416,24 @@ static int replace_port(struct string_chopper *chop, str *port, GList *m, int of
 	if (skip_over(chop, port))
 		return -1;
 
-	return 0;
+	if (media->port_count == 1)
+		return 1;
+
+	for (cons = 1; cons < media->port_count; cons++) {
+		m = m->next;
+		if (!m)
+			goto warn;
+		cs = m->data;
+		if (cs->peers[off].rtps[0].fd.localport != sr->fd.localport + cons * 2) {
+warn:
+			mylog(LOG_WARN, "Failed to handle consecutive ports");
+			break;
+		}
+	}
+
+	g_string_append_printf(chop->output, "/%i", cons);
+
+	return cons;
 }
 
 static int replace_network_address(struct string_chopper *chop, struct network_address *address, GList *m, int off, struct sdp_ng_flags *flags) {
@@ -463,7 +484,7 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum c
 	struct sdp_media *media;
 	GList *l, *k, *m;
 	struct string_chopper chop;
-	int off;
+	int off, skip;
 
 	off = opmode;
 	if (num < 0)
@@ -488,8 +509,8 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum c
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
-			/* XXX take multiple ports into account */
-			if (replace_port(&chop, &media->port, m, off))
+			skip = replace_media_port(&chop, media, m, off);
+			if (skip < 0)
 				goto error;
 
 			if (media->connection.parsed && flags->replace_sess_conn) {
@@ -497,8 +518,7 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum c
 					goto error;
 			}
 
-			if (m)
-				m = m->next;
+			m = g_list_nth(m, skip);
 		}
 	}
 

@@ -464,6 +464,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 	in4_to_6(&st->stream.ip46, ip);
 	st->stream.port = atoi(a[1]);
 	st->stream.num = ++(*i);
+	st->consecutive_num = 1;
 
 	if (!st->stream.port && strcmp(a[1], "0"))
 		goto fail;
@@ -487,9 +488,8 @@ static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
 static void streams_free(GQueue *q) {
 	struct stream_input *s;
 
-	while ((s = g_queue_pop_head(q))) {
+	while ((s = g_queue_pop_head(q)))
 		g_slice_free1(sizeof(*s), s);
-	}
 }
 
 
@@ -1177,6 +1177,8 @@ static void relays_cache_port_used(struct relays_cache *c) {
 	}
 	c->relays_A[c->relays_open].fd = -1;
 	c->relays_B[c->relays_open].fd = -1;
+	c->relays_A[c->relays_open + 1].fd = -1;
+	c->relays_B[c->relays_open + 1].fd = -1;
 }
 
 static void relays_cache_cleanup(struct relays_cache *c, struct callmaster *m) {
@@ -1252,7 +1254,7 @@ found:
 
 			if (!matched_relay) {
 				/* nothing found to re-use, use new ports */
-				relays_cache_get_ports(&relays_cache, 1, c);
+				relays_cache_get_ports(&relays_cache, t->consecutive_num, c);
 				callstream_init(cs, &relays_cache);
 				p = &cs->peers[0];
 				setup_peer(p, t, tag);
@@ -1343,7 +1345,7 @@ got_cs:
 			cs_o = cs;
 			cs = callstream_new(c, t->stream.num);
 			mutex_lock(&cs->lock);
-			relays_cache_get_ports(&relays_cache, 1, c);
+			relays_cache_get_ports(&relays_cache, t->consecutive_num, c);
 			callstream_init(cs, &relays_cache);
 			steal_peer(&cs->peers[0], &cs_o->peers[0]);
 			p = &cs->peers[1];
@@ -1705,6 +1707,7 @@ static int addr_parse_udp(struct stream_input *st, char **out) {
 		st->stream.num = atoi(out[RE_UDP_UL_NUM]);
 	if (!st->stream.num)
 		st->stream.num = 1;
+	st->consecutive_num = 1;
 
 	return 0;
 fail:
