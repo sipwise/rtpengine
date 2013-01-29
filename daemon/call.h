@@ -72,6 +72,12 @@ struct streamrelay {
 	struct stats		kstats;
 	time_t			last;
 };
+struct relays_cache {
+	struct streamrelay	relays_A[16];
+	struct streamrelay	relays_B[16];
+	struct streamrelay	*array_ptrs[2];
+	int			relays_open;
+};
 struct peer {
 	struct streamrelay	rtps[2];
 	str			tag;
@@ -153,7 +159,7 @@ void calls_dump_redis(struct callmaster *);
 
 struct call *call_get_or_create(const str *callid, const str *viabranch, struct callmaster *m);
 struct callstream *callstream_new(struct call *ca, int num);
-void callstream_init(struct callstream *s, int port1, int port2);
+void callstream_init(struct callstream *s, struct relays_cache *);
 void kernelize(struct callstream *c);
 int call_stream_address(GString *o, struct peer *p, enum stream_address_format);
 
