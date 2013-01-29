@@ -968,13 +968,6 @@ fail:
 	mylog(LOG_ERR, LOG_PREFIX_CI "Failed to get RTP port pair", LOG_PARAMS_CI(c));
 }
 
-static void get_port_pair(struct peer *p, int wanted_port) {
-	struct call *c;
-
-	c = p->up->call;
-	get_consecutive_ports(p->rtps, 2, wanted_port, c);
-}
-
 /* caller is responsible for appropriate locking */
 static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	struct streamrelay *a, *b;
@@ -1099,9 +1092,9 @@ void callstream_init(struct callstream *s, int port1, int port2) {
 	struct peer *p;
 	struct streamrelay *r;
 	struct poller_item pi;
-	struct poller *po;
+	struct call *c = s->call;
+	struct poller *po = c->callmaster->poller;
 
-	po = s->call->callmaster->poller;
 	ZERO(pi);
 
 	for (i = 0; i < 2; i++) {
@@ -1123,7 +1116,7 @@ void callstream_init(struct callstream *s, int port1, int port2) {
 		tport = (i == 0) ? port1 : port2;
 
 		if (tport >= 0) {
-			get_port_pair(p, tport);
+			get_consecutive_ports(p->rtps, 2, tport, c);
 
 			for (j = 0; j < 2; j++) {
 				r = &p->rtps[j];
