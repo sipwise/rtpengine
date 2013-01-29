@@ -1159,7 +1159,7 @@ static int call_streams(struct call *c, GQueue *s, const str *tag, enum call_opm
 	GList *i, *l;
 	struct stream_input *t;
 	int x;
-	struct streamrelay *r;
+	struct streamrelay *matched_relay;
 	struct callstream *cs, *cs_o;
 	struct peer *p, *p2;
 	int ret = 1;
@@ -1176,14 +1176,15 @@ static int call_streams(struct call *c, GQueue *s, const str *tag, enum call_opm
 			cs_o = l->data;
 			mutex_lock(&cs_o->lock);
 			for (x = 0; x < 2; x++) {
-				r = &cs_o->peers[x].rtps[0];
+				matched_relay = &cs_o->peers[x].rtps[0];
 				DBG("comparing new ["IP6F"]:%u/%.*s to old ["IP6F"]:%u/%.*s",
 					IP6P(&t->stream.ip46), t->stream.port, STR_FMT(tag),
-					IP6P(&r->peer_advertised.ip46), r->peer_advertised.port, STR_FMT(&cs_o->peers[x].tag));
+					IP6P(&matched_relay->peer_advertised.ip46),
+					matched_relay->peer_advertised.port, STR_FMT(&cs_o->peers[x].tag));
 
-				if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->stream.ip46))
+				if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46))
 					continue;
-				if (r->peer_advertised.port != t->stream.port)
+				if (matched_relay->peer_advertised.port != t->stream.port)
 					continue;
 				if (str_cmp_str0(&cs_o->peers[x].tag, tag))
 					continue;
@@ -1194,7 +1195,7 @@ static int call_streams(struct call *c, GQueue *s, const str *tag, enum call_opm
 		}
 
 		/* not found */
-		r = NULL;
+		matched_relay = NULL;
 		cs_o = NULL;
 		l = NULL;
 
@@ -1206,7 +1207,7 @@ found:
 			cs = callstream_new(c, t->stream.num);
 			mutex_lock(&cs->lock);
 
-			if (!r) {
+			if (!matched_relay) {
 				/* nothing found to re-use, open new ports */
 				callstream_init(cs, 0, 0);
 				p = &cs->peers[0];
@@ -1215,7 +1216,7 @@ found:
 			else {
 				/* re-use, so don't open new ports */
 				callstream_init(cs, -1, -1);
-				if (r->up->idx == 0) {
+				if (matched_relay->up->idx == 0) {
 					/* request/lookup came in the same order as before */
 					steal_peer(&cs->peers[0], &cs_o->peers[0]);
 					steal_peer(&cs->peers[1], &cs_o->peers[1]);
@@ -1254,37 +1255,37 @@ found:
 
 got_cs:
 		/* cs and cs_o remain locked, and maybe cs == cs_o */
-		/* r == peer[x].rtp[0] of cs_o */
+		/* matched_relay == peer[x].rtp[0] of cs_o */
 		g_queue_delete_link(c->callstreams, l); /* steal cs ref */
 		p = &cs->peers[1];
 		p2 = &cs->peers[0];
 
-		if (c->lookup_done && r) {
+		if (c->lookup_done && matched_relay) {
 			/* duplicate/stray lookup. don't do anything except replying with something
 			   we already have. check whether the direction is reversed or not and return
 			   the appropriate details. if no matching stream was found, results are
 			   undefined. */
 			DBG("double lookup");
-			if (p == r->up)
+			if (p == matched_relay->up)
 				goto skip;
-			if (p2 == r->up) {
+			if (p2 == matched_relay->up) {
 				ret = -1;
 				goto skip;
 			}
 		}
 
 
-		if (r && p == r->up) {
+		if (matched_relay && p == matched_relay->up) {
 			/* best case, nothing to do */
 			DBG("case 1");
 			;
 		}
-		else if (r && cs_o != cs) {
+		else if (matched_relay && cs_o != cs) {
 			/* found something, but it's linked to a different stream */
 			DBG("case 2");
-			steal_peer(p, r->up);
+			steal_peer(p, matched_relay->up);
 		}
-		else if (!r && !p->filled) {
+		else if (!matched_relay && !p->filled) {
 			/* nothing found to steal, but this end is open */
 			DBG("case 3");
 			setup_peer(p, t, tag);
