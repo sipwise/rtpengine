@@ -423,6 +423,7 @@ void create_everything(struct main_context *ctx) {
 
 	cu = NULL;
 	if (udp_listenport) {
+		callmaster_exclude_port(ctx->m, udp_listenport);
 		cu = control_udp_new(ctx->p, udp_listenp, udp_listenport, ctx->m);
 		if (!cu)
 			die("Failed to open UDP control connection port\n");
@@ -430,6 +431,7 @@ void create_everything(struct main_context *ctx) {
 
 	cn = NULL;
 	if (ng_listenport) {
+		callmaster_exclude_port(ctx->m, ng_listenport);
 		cn = control_ng_new(ctx->p, ng_listenp, ng_listenport, ctx->m);
 		if (!cn)
 			die("Failed to open UDP control connection port\n");

@@ -131,6 +131,7 @@ struct callmaster;
 
 struct callmaster *callmaster_new(struct poller *);
 void callmaster_config(struct callmaster *m, struct callmaster_config *c);
+void callmaster_exclude_port(struct callmaster *m, u_int16_t p);
 
 
 str *call_request_tcp(char **, struct callmaster *);

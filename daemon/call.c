@@ -2206,3 +2206,9 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 	bencode_dictionary_add_string(output, "result", "ok");
 	return NULL;
 }
+
+void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
+	mutex_lock(&m->portlock);
+	bit_array_set(m->ports_used, p);
+	mutex_unlock(&m->portlock);
+}
