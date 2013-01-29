@@ -871,6 +871,8 @@ static int get_port(struct streamrelay *r, u_int16_t p) {
 	int ret;
 	struct callmaster *m = r->up->up->call->callmaster;
 
+	assert(r->fd == -1);
+
 	mutex_lock(&m->portlock);
 	if (bit_array_isset(m->ports_used, p)) {
 		mutex_unlock(&m->portlock);
@@ -909,79 +911,68 @@ static void release_port(struct streamrelay *r) {
 	r->localport = 0;
 }
 
-static void get_port_pair(struct peer *p, int wanted_port) {
-	struct call *c;
-	struct callmaster *m;
-	struct streamrelay *a, *b;
-	u_int16_t port, min, max;
+static void get_consecutive_ports(struct streamrelay *array, int array_len, int wanted_start_port, struct call *c) {
+	int i, j, cycle = 0;
+	struct streamrelay *it;
+	u_int16_t port;
+	struct callmaster *m = c->callmaster;
 
-	c = p->up->call;
-	m = c->callmaster;
-	a = &p->rtps[0];
-	b = &p->rtps[1];
-
-	assert(a->fd == -1 && b->fd == -1);
-
-	if (wanted_port > 0) {
-		if ((wanted_port & 1))
-			goto fail;
-		if (get_port(a, wanted_port))
-			goto fail;
-		if (get_port(b, wanted_port + 1))
-			goto fail;
-		goto done;
+	if (wanted_start_port > 0)
+		port = wanted_start_port;
+	else {
+		mutex_lock(&m->portlock);
+		port = m->lastport;
+		mutex_unlock(&m->portlock);
 	}
 
-	min = (m->conf.port_min > 0 && m->conf.port_min < 0xfff0) ? m->conf.port_min : 1024;
-	max = (m->conf.port_max > 0 && m->conf.port_max > min && m->conf.port_max < 0xfff0) ? m->conf.port_max : 0;
+	while (1) {
+		if (!wanted_start_port) {
+			if (port < m->conf.port_min)
+				port = m->conf.port_min;
+			if ((port & 1))
+				port++;
+		}
 
-	mutex_lock(&m->portlock);
-	if (!m->lastport)
-		m->lastport = max;
-	port = m->lastport + 1;
-	mutex_unlock(&m->portlock);
+		for (i = 0; i < array_len; i++) {
+			it = &array[i];
 
-	for (;;) {
-		if (port < min)
-			port = min;
-		else if (max && port > max)
-			port = min;
+			if (!wanted_start_port && port > m->conf.port_max) {
+				port = 0;
+				cycle++;
+				goto release_restart;
+			}
 
-		if (port == m->lastport)
-			goto fail;
-
-		if ((port & 1))
-			goto next;
-
-		if (get_port(a, port))
-			goto next;
-
-		port++;
-		if (get_port(b, port))
-			goto tryagain;
-
+			if (get_port(it, port++))
+				goto release_restart;
+		}
 		break;
 
-tryagain:
-		release_port(a);
-next:
-		port++;
+release_restart:
+		for (j = 0; j < i; j++)
+			release_port(&array[j]);
+
+		if (cycle >= 2 || wanted_start_port > 0)
+			goto fail;
 	}
 
+	/* success */
 	mutex_lock(&m->portlock);
 	m->lastport = port;
 	mutex_unlock(&m->portlock);
 
-	mylog(LOG_DEBUG, LOG_PREFIX_CI "Opened ports %u/%u for RTP", 
-		LOG_PARAMS_CI(c), a->localport, b->localport);
-
-done:
+	mylog(LOG_DEBUG, LOG_PREFIX_CI "Opened ports %u..%u for RTP", 
+		LOG_PARAMS_CI(c), array[0].localport, array[array_len - 1].localport);
 	return;
 
 fail:
 	mylog(LOG_ERR, LOG_PREFIX_CI "Failed to get RTP port pair", LOG_PARAMS_CI(c));
-	release_port(a);
-	release_port(b);
+}
+
+static void get_port_pair(struct peer *p, int wanted_port) {
+	struct call *c;
+
+	c = p->up->call;
+	get_consecutive_ports(p->rtps, 2, wanted_port, c);
 }
 
 /* caller is responsible for appropriate locking */
