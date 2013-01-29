@@ -1404,9 +1404,7 @@ static void unkernelize(struct peer *p) {
 
 	for (i = 0; i < 2; i++) {
 		r = &p->rtps[i];
-
 		kernel_del_stream(p->up->call->callmaster->conf.kernelfd, r->localport);
-
 	}
 
 	p->kernelized = 0;
