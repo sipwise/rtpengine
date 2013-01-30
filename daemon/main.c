@@ -301,7 +301,6 @@ static void options(int *argc, char ***argv) {
 
 
 static void daemonize(void) {
-	printf("Going to background...\n");
 	if (fork())
 		_exit(0);
 	stdin = freopen("/dev/null", "r", stdin);
