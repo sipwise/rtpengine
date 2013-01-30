@@ -57,14 +57,14 @@ static void __bencode_container_init(bencode_item_t *cont) {
 	cont->str_len = 2;
 }
 
-static void bencode_dictionary_init(bencode_item_t *dict) {
+static void __bencode_dictionary_init(bencode_item_t *dict) {
 	dict->type = BENCODE_DICTIONARY;
 	dict->iov[0].iov_base = "d";
 	dict->value = 0;
 	__bencode_container_init(dict);
 }
 
-static void bencode_list_init(bencode_item_t *list) {
+static void __bencode_list_init(bencode_item_t *list) {
 	list->type = BENCODE_LIST;
 	list->iov[0].iov_base = "l";
 	__bencode_container_init(list);
@@ -154,7 +154,7 @@ bencode_item_t *bencode_dictionary(bencode_buffer_t *buf) {
 	ret = __bencode_item_alloc(buf, 0);
 	if (!ret)
 		return NULL;
-	bencode_dictionary_init(ret);
+	__bencode_dictionary_init(ret);
 	return ret;
 }
 
@@ -164,7 +164,7 @@ bencode_item_t *bencode_list(bencode_buffer_t *buf) {
 	ret = __bencode_item_alloc(buf, 0);
 	if (!ret)
 		return NULL;
-	bencode_list_init(ret);
+	__bencode_list_init(ret);
 	return ret;
 }
 
@@ -375,7 +375,7 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len) {
 	return ret;
 }
 
-static unsigned int bencode_hash_str_len(const unsigned char *s, int len) {
+static unsigned int __bencode_hash_str_len(const unsigned char *s, int len) {
 	unsigned long *ul;
 	unsigned int *ui;
 	unsigned short *us;
@@ -398,15 +398,15 @@ static unsigned int bencode_hash_str_len(const unsigned char *s, int len) {
 	return 0;
 }
 
-static unsigned int bencode_hash_str(bencode_item_t *str) {
+static unsigned int __bencode_hash_str(bencode_item_t *str) {
 	assert(str->type == BENCODE_STRING);
-	return bencode_hash_str_len(str->iov[1].iov_base, str->iov[1].iov_len);
+	return __bencode_hash_str_len(str->iov[1].iov_base, str->iov[1].iov_len);
 }
 
-static void bencode_hash_insert(bencode_item_t *key, bencode_item_t *value, struct __bencode_hash *hash) {
+static void __bencode_hash_insert(bencode_item_t *key, bencode_item_t *value, struct __bencode_hash *hash) {
 	unsigned int bucket, i;
 
-	i = bucket = bencode_hash_str(key);
+	i = bucket = __bencode_hash_str(key);
 
 	while (1) {
 		if (!hash->buckets[i]) {
@@ -421,7 +421,7 @@ static void bencode_hash_insert(bencode_item_t *key, bencode_item_t *value, stru
 	}
 }
 
-static bencode_item_t *bencode_decode_dictionary(bencode_buffer_t *buf, const char *s, const char *end) {
+static bencode_item_t *__bencode_decode_dictionary(bencode_buffer_t *buf, const char *s, const char *end) {
 	bencode_item_t *ret, *key, *value;
 	struct __bencode_hash *hash;
 
@@ -432,7 +432,7 @@ static bencode_item_t *bencode_decode_dictionary(bencode_buffer_t *buf, const ch
 	ret = __bencode_item_alloc(buf, sizeof(*hash));
 	if (!ret)
 		return NULL;
-	bencode_dictionary_init(ret);
+	__bencode_dictionary_init(ret);
 	ret->value = 1;
 	hash = (void *) ret->__buf;
 	memset(hash, 0, sizeof(*hash));
@@ -458,13 +458,13 @@ static bencode_item_t *bencode_decode_dictionary(bencode_buffer_t *buf, const ch
 			return NULL;
 		__bencode_container_add(ret, value);
 
-		bencode_hash_insert(key, value, hash);
+		__bencode_hash_insert(key, value, hash);
 	}
 
 	return ret;
 }
 
-static bencode_item_t *bencode_decode_list(bencode_buffer_t *buf, const char *s, const char *end) {
+static bencode_item_t *__bencode_decode_list(bencode_buffer_t *buf, const char *s, const char *end) {
 	bencode_item_t *ret, *item;
 
 	if (*s != 'l')
@@ -474,7 +474,7 @@ static bencode_item_t *bencode_decode_list(bencode_buffer_t *buf, const char *s,
 	ret = __bencode_item_alloc(buf, 0);
 	if (!ret)
 		return NULL;
-	bencode_list_init(ret);
+	__bencode_list_init(ret);
 
 	while (s < end) {
 		item = __bencode_decode(buf, s, end);
@@ -489,7 +489,7 @@ static bencode_item_t *bencode_decode_list(bencode_buffer_t *buf, const char *s,
 	return ret;
 }
 
-static bencode_item_t *bencode_decode_integer(bencode_buffer_t *buf, const char *s, const char *end) {
+static bencode_item_t *__bencode_decode_integer(bencode_buffer_t *buf, const char *s, const char *end) {
 	long long int i;
 	const char *orig = s;
 	char *convend;
@@ -535,7 +535,7 @@ done:
 	return ret;
 }
 
-static bencode_item_t *bencode_decode_string(bencode_buffer_t *buf, const char *s, const char *end) {
+static bencode_item_t *__bencode_decode_string(bencode_buffer_t *buf, const char *s, const char *end) {
 	unsigned long int sl;
 	char *convend;
 	const char *orig = s;
@@ -582,11 +582,11 @@ static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, co
 
 	switch (*s) {
 		case 'd':
-			return bencode_decode_dictionary(buf, s, end);
+			return __bencode_decode_dictionary(buf, s, end);
 		case 'l':
-			return bencode_decode_list(buf, s, end);
+			return __bencode_decode_list(buf, s, end);
 		case 'i':
-			return bencode_decode_integer(buf, s, end);
+			return __bencode_decode_integer(buf, s, end);
 		case 'e':
 			return &__bencode_end_marker;
 		case '0':
@@ -599,7 +599,7 @@ static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, co
 		case '7':
 		case '8':
 		case '9':
-			return bencode_decode_string(buf, s, end);
+			return __bencode_decode_string(buf, s, end);
 		default:
 			return NULL;
 	}
@@ -611,7 +611,7 @@ bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, int len) {
 }
 
 
-static bencode_item_t *bencode_dictionary_key_test(bencode_item_t *val, const char *keystr, int keylen) {
+static bencode_item_t *__bencode_dictionary_key_test(bencode_item_t *val, const char *keystr, int keylen) {
 	bencode_item_t *key;
 
 	key = val->sibling;
@@ -639,12 +639,12 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
 	/* try hash lookup first if possible */
 	if (dict->value == 1) {
 		hash = (void *) dict->__buf;
-		i = bucket = bencode_hash_str_len((const unsigned char *) keystr, keylen);
+		i = bucket = __bencode_hash_str_len((const unsigned char *) keystr, keylen);
 		while (1) {
 			val = hash->buckets[i];
 			if (!val)
 				return NULL; /* would be there, but isn't */
-			key = bencode_dictionary_key_test(val, keystr, keylen);
+			key = __bencode_dictionary_key_test(val, keystr, keylen);
 			if (!key)
 				return val;
 			i++;
@@ -656,7 +656,7 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
 	}
 
 	for (val = dict->child; val; val = key->sibling) {
-		key = bencode_dictionary_key_test(val, keystr, keylen);
+		key = __bencode_dictionary_key_test(val, keystr, keylen);
 		if (!key)
 			return val;
 	}
