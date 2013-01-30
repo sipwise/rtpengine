@@ -54,7 +54,7 @@ struct bencode_item {
 struct bencode_buffer {
 	struct __bencode_buffer_piece *pieces;
 	struct __bencode_free_list *free_list;
-	int error:1;
+	int error:1;		/* set to !0 if allocation failed at any point */
 };
 
 
