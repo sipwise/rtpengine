@@ -54,6 +54,7 @@ struct bencode_item {
 struct bencode_buffer {
 	struct __bencode_buffer_piece *pieces;
 	struct __bencode_free_list *free_list;
+	int error:1;
 };
 
 

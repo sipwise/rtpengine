@@ -85,6 +85,7 @@ int bencode_buffer_init(bencode_buffer_t *buf) {
 	if (!buf->pieces)
 		return -1;
 	buf->free_list = NULL;
+	buf->error = 0;
 	return 0;
 }
 
@@ -92,14 +93,19 @@ static void *__bencode_alloc(bencode_buffer_t *buf, unsigned int size) {
 	struct __bencode_buffer_piece *piece;
 	void *ret;
 
+	if (buf->error)
+		return NULL;
+
 	piece = buf->pieces;
 
 	if (size <= piece->left)
 		goto alloc;
 
 	piece = __bencode_piece_new(size);
-	if (!piece)
+	if (!piece) {
+		buf->error = 1;
 		return NULL;
+	}
 	piece->next = buf->pieces;
 	buf->pieces = piece;
 
@@ -157,6 +163,11 @@ bencode_item_t *bencode_list(bencode_buffer_t *buf) {
 }
 
 static void __bencode_container_add(bencode_item_t *parent, bencode_item_t *child) {
+	if (!parent)
+		return;
+	if (!child)
+		return;
+
 	assert(child->parent == NULL);
 	assert(child->sibling == NULL);
 
@@ -221,9 +232,9 @@ bencode_item_t *bencode_integer(bencode_buffer_t *buf, long long int i) {
 bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, int keylen, bencode_item_t *val) {
 	bencode_item_t *str;
 
-	assert(dict->type == BENCODE_DICTIONARY);
-	if (!val)
+	if (!dict || !val)
 		return NULL;
+	assert(dict->type == BENCODE_DICTIONARY);
 
 	str = bencode_string_len(dict->buffer, key, keylen);
 	if (!str)
@@ -234,6 +245,8 @@ bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key
 }
 
 bencode_item_t *bencode_list_add(bencode_item_t *list, bencode_item_t *item) {
+	if (!list || !item)
+		return NULL;
 	assert(list->type == BENCODE_LIST);
 	__bencode_container_add(list, item);
 	return item;
@@ -309,7 +322,8 @@ static int __bencode_str_dump(char *out, bencode_item_t *item) {
 struct iovec *bencode_iovec(bencode_item_t *root, int *cnt, unsigned int head, unsigned int tail) {
 	struct iovec *ret;
 
-	assert(root != NULL);
+	if (!root)
+		return NULL;
 	assert(cnt != NULL);
 	assert(root->iov_cnt > 0);
 
@@ -324,7 +338,8 @@ char *bencode_collapse(bencode_item_t *root, int *len) {
 	char *ret;
 	int l;
 
-	assert(root != NULL);
+	if (!root)
+		return NULL;
 	assert(root->str_len > 0);
 
 	ret = __bencode_alloc(root->buffer, root->str_len + 1);
@@ -340,7 +355,8 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len) {
 	char *ret;
 	int l;
 
-	assert(root != NULL);
+	if (!root)
+		return NULL;
 	assert(root->str_len > 0);
 
 	ret = BENCODE_MALLOC(root->str_len + 1);
