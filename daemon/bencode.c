@@ -10,6 +10,8 @@
 /* set to 0 for alloc debugging, e.g. through valgrind */
 #define BENCODE_MIN_BUFFER_PIECE_LEN	512
 
+#define BENCODE_HASH_BUCKETS		31 /* prime numbers work best */
+
 struct __bencode_buffer_piece {
 	char *tail;
 	unsigned int left;
@@ -19,6 +21,9 @@ struct __bencode_buffer_piece {
 struct __bencode_free_list {
 	void *ptr;
 	struct __bencode_free_list *next;
+};
+struct __bencode_hash {
+	struct bencode_item *buckets[BENCODE_HASH_BUCKETS];
 };
 
 
@@ -55,6 +60,7 @@ static void __bencode_container_init(bencode_item_t *cont) {
 static void bencode_dictionary_init(bencode_item_t *dict) {
 	dict->type = BENCODE_DICTIONARY;
 	dict->iov[0].iov_base = "d";
+	dict->value = 0;
 	__bencode_container_init(dict);
 }
 
@@ -369,38 +375,90 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len) {
 	return ret;
 }
 
+static unsigned int bencode_hash_str_len(const unsigned char *s, int len) {
+	unsigned long *ul;
+	unsigned int *ui;
+	unsigned short *us;
+
+	if (len >= sizeof(*ul)) {
+		ul = (void *) s;
+		return *ul % BENCODE_HASH_BUCKETS;
+	}
+	if (len >= sizeof(*ui)) {
+		ui = (void *) s;
+		return *ui % BENCODE_HASH_BUCKETS;
+	}
+	if (len >= sizeof(*us)) {
+		us = (void *) s;
+		return *us % BENCODE_HASH_BUCKETS;
+	}
+	if (len >= sizeof(*s))
+		return *s % BENCODE_HASH_BUCKETS;
+
+	return 0;
+}
+
+static unsigned int bencode_hash_str(bencode_item_t *str) {
+	assert(str->type == BENCODE_STRING);
+	return bencode_hash_str_len(str->iov[1].iov_base, str->iov[1].iov_len);
+}
+
+static void bencode_hash_insert(bencode_item_t *key, bencode_item_t *value, struct __bencode_hash *hash) {
+	unsigned int bucket, i;
+
+	i = bucket = bencode_hash_str(key);
+
+	while (1) {
+		if (!hash->buckets[i]) {
+			hash->buckets[i] = value;
+			break;
+		}
+		i++;
+		if (i >= BENCODE_HASH_BUCKETS)
+			i = 0;
+		if (i == bucket)
+			break;
+	}
+}
+
 static bencode_item_t *bencode_decode_dictionary(bencode_buffer_t *buf, const char *s, const char *end) {
-	bencode_item_t *ret, *item;
+	bencode_item_t *ret, *key, *value;
+	struct __bencode_hash *hash;
 
 	if (*s != 'd')
 		return NULL;
 	s++;
 
-	ret = __bencode_item_alloc(buf, 0);
+	ret = __bencode_item_alloc(buf, sizeof(*hash));
 	if (!ret)
 		return NULL;
 	bencode_dictionary_init(ret);
+	ret->value = 1;
+	hash = (void *) ret->__buf;
+	memset(hash, 0, sizeof(*hash));
 
 	while (s < end) {
-		item = __bencode_decode(buf, s, end);
-		if (!item)
+		key = __bencode_decode(buf, s, end);
+		if (!key)
 			return NULL;
-		s += item->str_len;
-		if (item->type == BENCODE_END_MARKER)
+		s += key->str_len;
+		if (key->type == BENCODE_END_MARKER)
 			break;
-		if (item->type != BENCODE_STRING)
+		if (key->type != BENCODE_STRING)
 			return NULL;
-		__bencode_container_add(ret, item);
+		__bencode_container_add(ret, key);
 
 		if (s >= end)
 			return NULL;
-		item = __bencode_decode(buf, s, end);
-		if (!item)
+		value = __bencode_decode(buf, s, end);
+		if (!value)
 			return NULL;
-		s += item->str_len;
-		if (item->type == BENCODE_END_MARKER)
+		s += value->str_len;
+		if (value->type == BENCODE_END_MARKER)
 			return NULL;
-		__bencode_container_add(ret, item);
+		__bencode_container_add(ret, value);
+
+		bencode_hash_insert(key, value, hash);
 	}
 
 	return ret;
@@ -553,26 +611,54 @@ bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, int len) {
 }
 
 
-/* XXX inefficient, use a proper hash instead */
+static bencode_item_t *bencode_dictionary_key_test(bencode_item_t *val, const char *keystr, int keylen) {
+	bencode_item_t *key;
+
+	key = val->sibling;
+	assert(key != NULL);
+	assert(key->type == BENCODE_STRING);
+
+	if (keylen != key->iov[1].iov_len)
+		return key;
+	if (memcmp(keystr, key->iov[1].iov_base, keylen))
+		return key;
+
+	return NULL;
+}
+
 bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *keystr, int keylen) {
 	bencode_item_t *key, *val;
+	unsigned int bucket, i;
+	struct __bencode_hash *hash;
 
 	if (!dict)
 		return NULL;
 	if (dict->type != BENCODE_DICTIONARY)
 		return NULL;
 
+	/* try hash lookup first if possible */
+	if (dict->value == 1) {
+		hash = (void *) dict->__buf;
+		i = bucket = bencode_hash_str_len((const unsigned char *) keystr, keylen);
+		while (1) {
+			val = hash->buckets[i];
+			if (!val)
+				return NULL; /* would be there, but isn't */
+			key = bencode_dictionary_key_test(val, keystr, keylen);
+			if (!key)
+				return val;
+			i++;
+			if (i >= BENCODE_HASH_BUCKETS)
+				i = 0;
+			if (i == bucket)
+				break; /* fall back to regular lookup */
+		}
+	}
+
 	for (val = dict->child; val; val = key->sibling) {
-		key = val->sibling;
-		assert(key != NULL);
-		assert(key->type == BENCODE_STRING);
-
-		if (keylen != key->iov[1].iov_len)
-			continue;
-		if (memcmp(keystr, key->iov[1].iov_base, keylen))
-			continue;
-
-		return val;
+		key = bencode_dictionary_key_test(val, keystr, keylen);
+		if (!key)
+			return val;
 	}
 
 	return NULL;

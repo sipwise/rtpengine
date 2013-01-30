@@ -45,7 +45,7 @@ struct bencode_item {
 	struct iovec iov[2];	/* when decoding, iov[1] contains the contents of a string object */
 	unsigned int iov_cnt;
 	unsigned int str_len;	/* length of the whole ENCODED object. NOT the length of a byte string */
-	long long int value;	/* when decoding an integer, contains the value */
+	long long int value;	/* when decoding an integer, contains the value; otherwise used internally */
 	bencode_item_t *parent, *child, *sibling;
 	bencode_buffer_t *buffer;
 	char __buf[0];
@@ -244,6 +244,14 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len);
  * key/value pair. The next element (following one ->sibling) will be the KEY of the LAST key/value
  * pair (guaranteed to be a string and guaranteed to be present). Following another ->sibling will
  * point to the VALUE of the last-but-one key/value pair, and so on.
+ *
+ * However, to access children objects of dictionaries, the special functions following the naming
+ * scheme bencode_dictionary_get_* below should be used. They perform key lookup through a simple
+ * hash built into the dictionary object and so perform the lookup much faster. Only dictionaries
+ * created through a decoding process (i.e. not ones created from bencode_dictionary()) have this
+ * property. The hash is efficient only up to a certain number of elements (BENCODE_HASH_BUCKETS
+ * in bencode.c) contained in the dictionary. If the number of children object exceeds this number,
+ * key lookup will be slower than simply linearily traversing the list.
  *
  * The decoding function for dictionary object does not check whether keys are unique within the
  * dictionary. It also does not care about lexicographical order of the keys.
