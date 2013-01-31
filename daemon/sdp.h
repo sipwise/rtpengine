@@ -17,9 +17,21 @@ struct sdp_ng_flags {
 	    replace_sess_conn:1;
 };
 
+struct sdp_chopper {
+	str *input;
+	int position;
+	GStringChunk *chunk;
+	GArray *iov;
+	int iov_num;
+	int str_len;
+};
+
 int sdp_parse(str *body, GQueue *sessions);
 int sdp_streams(const GQueue *sessions, GQueue *streams);
 void sdp_free(GQueue *sessions);
-str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum call_opmode, struct sdp_ng_flags *);
+int sdp_replace(struct sdp_chopper *, GQueue *, struct call *, int, enum call_opmode, struct sdp_ng_flags *);
+
+struct sdp_chopper *sdp_chopper_new(str *input);
+void sdp_chopper_destroy(struct sdp_chopper *chop);
 
 #endif

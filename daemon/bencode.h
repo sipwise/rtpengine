@@ -38,6 +38,7 @@ enum bencode_type {
 	BENCODE_INTEGER,	/* long long int */
 	BENCODE_LIST,		/* flat list of other objects */
 	BENCODE_DICTIONARY,	/* dictionary of key/values pairs. keys are always strings */
+	BENCODE_IOVEC,		/* special case of a string, built through bencode_string_iovec() */
 	BENCODE_END_MARKER,	/* used internally only */
 };
 
@@ -115,6 +116,10 @@ static inline bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict
 /* Ditto, but for a "str" object */
 static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
 
+/* XXX */
+static inline bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
+	const struct iovec *iov, int iov_cnt, int str_len);
+
 /* Ditto again, but adds the str object (val) to the bencode_buffer_t's internal free list. When
  * the bencode_item_t object is destroyed, BENCODE_FREE will be called on this pointer. */
 static inline bencode_item_t *bencode_dictionary_add_str_free(bencode_item_t *dict, const char *key, str *val);
@@ -135,6 +140,12 @@ bencode_item_t *bencode_list_add(bencode_item_t *list, bencode_item_t *item);
 /* Convenience function to add a string item to a list */
 static inline bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char *s);
 
+
+
+
+
+/*** STRING BUILDING & HANDLING ***/
+
 /* Creates a new byte-string object. The given string does not have to be null-terminated, instead
  * the length of the string is specified by the "len" parameter. Returns NULL if no memory could
  * be allocated.
@@ -142,23 +153,20 @@ static inline bencode_item_t *bencode_list_add_string(bencode_item_t *list, cons
  * the complete document is finally encoded or sent out. */
 bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len);
 
-
-
-
-
-/*** STRING BUILDING & HANDLING ***/
-
 /* Creates a new byte-string object. The given string must be null-terminated. Otherwise identical
  * to bencode_string_len(). */
 static inline bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *s);
 
-/* Convenience function to compare a string object to a regular C string. Returns 2 if object
- * isn't a string object, otherwise returns according to strcmp(). */
-static inline int bencode_strcmp(bencode_item_t *a, const char *b);
-
 /* Creates a new byte-string object from a "str" object. The string does not have to be null-
  * terminated. */
 static inline bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
+
+/* XXX */
+bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *iov, int iov_cnt, int str_len);
+
+/* Convenience function to compare a string object to a regular C string. Returns 2 if object
+ * isn't a string object, otherwise returns according to strcmp(). */
+static inline int bencode_strcmp(bencode_item_t *a, const char *b);
 
 /* Converts the string object "in" into a str object "out". Returns "out" on success, or NULL on
  * error ("in" was NULL or not a string object). */
@@ -467,6 +475,12 @@ static inline str *bencode_get_str(bencode_item_t *in, str *out) {
 
 static inline void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *p) {
 	bencode_buffer_destroy_add(buf, BENCODE_FREE, p);
+}
+
+static inline bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
+		const struct iovec *iov, int iov_cnt, int str_len)
+{
+	return bencode_dictionary_add(dict, key, bencode_string_iovec(dict->buffer, iov, iov_cnt, str_len));
 }
 
 #endif

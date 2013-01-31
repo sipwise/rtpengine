@@ -189,25 +189,45 @@ static void __bencode_container_add(bencode_item_t *parent, bencode_item_t *chil
 	}
 }
 
-bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len) {
+static bencode_item_t *__bencode_string_alloc(bencode_buffer_t *buf, const void *base,
+		int str_len, int iov_len, int iov_cnt, bencode_type_t type)
+{
 	bencode_item_t *ret;
 	int len_len;
 
-	assert((len <= 99999) && (len >= 0));
-	ret = __bencode_item_alloc(buf, strlen(s) + 7);
+	assert((str_len <= 99999) && (str_len >= 0));
+	ret = __bencode_item_alloc(buf, 7);
 	if (!ret)
 		return NULL;
-	len_len = sprintf(ret->__buf, "%d:", len);
+	len_len = sprintf(ret->__buf, "%d:", str_len);
 
-	ret->type = BENCODE_STRING;
+	ret->type = type;
 	ret->iov[0].iov_base = ret->__buf;
 	ret->iov[0].iov_len = len_len;
-	ret->iov[1].iov_base = (void *) s;
-	ret->iov[1].iov_len = len;
-	ret->iov_cnt = 2;
-	ret->str_len = len_len + len;
+	ret->iov[1].iov_base = (void *) base;
+	ret->iov[1].iov_len = iov_len;
+	ret->iov_cnt = iov_cnt + 1;
+	ret->str_len = len_len + str_len;
 
 	return ret;
+}
+
+bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len) {
+	return __bencode_string_alloc(buf, s, len, len, 1, BENCODE_STRING);
+}
+
+bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *iov, int iov_cnt, int str_len) {
+	int i;
+
+	if (iov_cnt < 0)
+		return NULL;
+	if (str_len < 0) {
+		str_len = 0;
+		for (i = 0; i < iov_cnt; i++)
+			str_len += iov[i].iov_len;
+	}
+
+	return __bencode_string_alloc(buf, iov, str_len, iov_cnt, iov_cnt, BENCODE_IOVEC);
 }
 
 bencode_item_t *bencode_integer(bencode_buffer_t *buf, long long int i) {
@@ -259,12 +279,20 @@ bencode_item_t *bencode_list_add(bencode_item_t *list, bencode_item_t *item) {
 	return item;
 }
 
+static int __bencode_iovec_cpy(struct iovec *out, const struct iovec *in, int num) {
+	out -= num;
+	memcpy(out, in, num * sizeof(*out));
+	return num;
+}
+
 static int __bencode_iovec_dump_rev(struct iovec *out, bencode_item_t *item) {
 	bencode_item_t *child;
 	struct iovec *orig = out;
 
-	if (item->iov[1].iov_base)
-		*--out = item->iov[1];
+	if (item->type == BENCODE_IOVEC)
+		out -= __bencode_iovec_cpy(out, item->iov[1].iov_base, item->iov[1].iov_len);
+	else if (item->iov[1].iov_base)
+		out -= __bencode_iovec_cpy(out, &item->iov[1], 1);
 
 	child = item->child;
 	while (child) {
@@ -273,20 +301,32 @@ static int __bencode_iovec_dump_rev(struct iovec *out, bencode_item_t *item) {
 	}
 
 	assert(item->iov[0].iov_base != NULL);
-	*--out = item->iov[0];
+	out -= __bencode_iovec_cpy(out, &item->iov[0], 1);
 
 	assert((orig - out) == item->iov_cnt);
 	return item->iov_cnt;
+}
+
+static int __bencode_str_cpy(char *out, const struct iovec *in, int num) {
+	char *orig = out;
+
+	in += num;
+	while (--num >= 0) {
+		in--;
+		out -= in->iov_len;
+		memcpy(out, in->iov_base, in->iov_len);
+	}
+	return orig - out;
 }
 
 static int __bencode_str_dump_rev(char *out, bencode_item_t *item) {
 	bencode_item_t *child;
 	char *orig = out;
 
-	if (item->iov[1].iov_base) {
-		out -= item->iov[1].iov_len;
-		memcpy(out, item->iov[1].iov_base, item->iov[1].iov_len);
-	}
+	if (item->type == BENCODE_IOVEC)
+		out -= __bencode_str_cpy(out, item->iov[1].iov_base, item->iov[1].iov_len);
+	else if (item->iov[1].iov_base)
+		out -= __bencode_str_cpy(out, &item->iov[1], 1);
 
 	child = item->child;
 	while (child) {
@@ -295,8 +335,7 @@ static int __bencode_str_dump_rev(char *out, bencode_item_t *item) {
 	}
 
 	assert(item->iov[0].iov_base != NULL);
-	out -= item->iov[0].iov_len;
-	memcpy(out, item->iov[0].iov_base, item->iov[0].iov_len);
+	out -= __bencode_str_cpy(out, &item->iov[0], 1);
 
 	assert((orig - out) == item->str_len);
 	return item->str_len;

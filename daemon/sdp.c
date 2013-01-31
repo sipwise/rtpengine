@@ -49,12 +49,6 @@ struct sdp_media {
 	GQueue attributes;
 };
 
-struct string_chopper {
-	str *input;
-	GString *output;
-	int position;
-};
-
 
 
 
@@ -347,13 +341,42 @@ error:
 	return -1;
 }
 
-static void chopper_init(struct string_chopper *c, str *input) {
+struct sdp_chopper *sdp_chopper_new(str *input) {
+	struct sdp_chopper *c = g_slice_alloc0(sizeof(*c));
 	c->input = input;
-	c->output = g_string_new_str();
-	c->position = 0;
+	c->chunk = g_string_chunk_new(512);
+	c->iov = g_array_new(0, 0, sizeof(struct iovec));
+	return c;
 }
 
-static int copy_up_to(struct string_chopper *chop, str *where) {
+static void chopper_append(struct sdp_chopper *c, const char *s, int len) {
+	struct iovec *iov;
+
+	g_array_set_size(c->iov, ++c->iov_num);
+	iov = &g_array_index(c->iov, struct iovec, c->iov_num - 1);
+	iov->iov_base = (void *) s;
+	iov->iov_len = len;
+	c->str_len += len;
+}
+
+static void chopper_append_dup(struct sdp_chopper *c, const char *s, int len) {
+	return chopper_append(c, g_string_chunk_insert_len(c->chunk, s, len), len);
+}
+
+static void chopper_append_printf(struct sdp_chopper *c, const char *fmt, ...) __attribute__((format(printf,2,3)));
+
+static void chopper_append_printf(struct sdp_chopper *c, const char *fmt, ...) {
+	char buf[32];
+	int l;
+	va_list va;
+
+	va_start(va, fmt);
+	l = vsnprintf(buf, sizeof(buf) - 1, fmt, va);
+	va_end(va);
+	chopper_append(c, g_string_chunk_insert_len(c->chunk, buf, l), l);
+}
+
+static int copy_up_to(struct sdp_chopper *chop, str *where) {
 	int offset, len;
 
 	offset = where->s - chop->input->s;
@@ -365,20 +388,20 @@ static int copy_up_to(struct string_chopper *chop, str *where) {
 		mylog(LOG_WARNING, "Malformed SDP, cannot rewrite");
 		return -1;
 	}
-	g_string_append_len(chop->output, chop->input->s + chop->position, len);
+	chopper_append(chop, chop->input->s + chop->position, len);
 	chop->position += len;
 	return 0;
 }
 
-static void copy_remainder(struct string_chopper *chop) {
+static void copy_remainder(struct sdp_chopper *chop) {
 	int len;
 	len = chop->input->len - chop->position;
 	assert(len >= 0);
-	g_string_append_len(chop->output, chop->input->s + chop->position, len);
+	chopper_append(chop, chop->input->s + chop->position, len);
 	chop->position += len;
 }
 
-static int skip_over(struct string_chopper *chop, str *where) {
+static int skip_over(struct sdp_chopper *chop, str *where) {
 	int offset, len;
 
 	offset = (where->s - chop->input->s) + where->len;
@@ -394,7 +417,7 @@ static int skip_over(struct string_chopper *chop, str *where) {
 	return 0;
 }
 
-static int replace_media_port(struct string_chopper *chop, struct sdp_media *media, GList *m, int off) {
+static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, GList *m, int off) {
 	struct callstream *cs;
 	struct streamrelay *sr;
 	str *port = &media->port;
@@ -411,7 +434,7 @@ static int replace_media_port(struct string_chopper *chop, struct sdp_media *med
 	if (copy_up_to(chop, port))
 		return -1;
 
-	g_string_append_printf(chop->output, "%hu", sr->fd.localport);
+	chopper_append_printf(chop, "%hu", sr->fd.localport);
 
 	if (skip_over(chop, port))
 		return -1;
@@ -431,14 +454,16 @@ warn:
 		}
 	}
 
-	g_string_append_printf(chop->output, "/%i", cons);
+	chopper_append_printf(chop, "/%i", cons);
 
 	return cons;
 }
 
-static int replace_network_address(struct string_chopper *chop, struct network_address *address, GList *m, int off, struct sdp_ng_flags *flags) {
+static int replace_network_address(struct sdp_chopper *chop, struct network_address *address, GList *m, int off, struct sdp_ng_flags *flags) {
 	struct callstream *cs;
 	struct peer *peer;
+	char buf[64];
+	int len;
 
 	if (!m) {
 		mylog(LOG_ERROR, "BUG! Ran out of streams");
@@ -452,12 +477,14 @@ static int replace_network_address(struct string_chopper *chop, struct network_a
 		return -1;
 
 	if (!flags->trust_address && flags->received_from_family.len == 3 && flags->received_from_address.len) {
-		g_string_append_len(chop->output, flags->received_from_family.s, flags->received_from_family.len);
-		g_string_append_c(chop->output, ' ');
-		g_string_append_len(chop->output, flags->received_from_address.s, flags->received_from_address.len);
+		chopper_append(chop, flags->received_from_family.s, flags->received_from_family.len);
+		chopper_append(chop, " ", 1);
+		chopper_append(chop, flags->received_from_address.s, flags->received_from_address.len);
 	}
-	else
-		call_stream_address(chop->output, peer, SAF_NG);
+	else {
+		call_stream_address(buf, peer, SAF_NG, &len);
+		chopper_append_dup(chop, buf, len);
+	}
 
 	if (skip_over(chop, &address->address))
 		return -1;
@@ -465,25 +492,21 @@ static int replace_network_address(struct string_chopper *chop, struct network_a
 	return 0;
 }
 
-static str *chopper_done(struct string_chopper *chop) {
-	str *ret;
-	ret = g_string_free_str(chop->output);
-	return ret;
-}
-
-static void chopper_destroy(struct string_chopper *chop) {
-	g_string_free(chop->output, TRUE);
+void sdp_chopper_destroy(struct sdp_chopper *chop) {
+	g_string_chunk_free(chop->chunk);
+	g_array_free(chop->iov, 1);
+	g_slice_free1(sizeof(*chop), chop);
 }
 
 /* XXX use stream numbers as index */
 /* XXX use port numbers as index */
 /* XXX get rid of num/off parameters? */
-/* XXX use iovec based rewriting */
-str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum call_opmode opmode, struct sdp_ng_flags *flags) {
+int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call, int num,
+		enum call_opmode opmode, struct sdp_ng_flags *flags)
+{
 	struct sdp_session *session;
 	struct sdp_media *media;
 	GList *l, *k, *m;
-	struct string_chopper chop;
 	int off, skip;
 
 	off = opmode;
@@ -491,30 +514,29 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum c
 		off ^= 1;
 	num = abs(num);
 
-	chopper_init(&chop, body);
 	m = call->callstreams->head;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
 
 		if (session->origin.parsed && flags->replace_origin) {
-			if (replace_network_address(&chop, &session->origin.address, m, off, flags))
+			if (replace_network_address(chop, &session->origin.address, m, off, flags))
 				goto error;
 		}
 		if (session->connection.parsed) {
-			if (replace_network_address(&chop, &session->connection.address, m, off, flags))
+			if (replace_network_address(chop, &session->connection.address, m, off, flags))
 				goto error;
 		}
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
-			skip = replace_media_port(&chop, media, m, off);
+			skip = replace_media_port(chop, media, m, off);
 			if (skip < 0)
 				goto error;
 
 			if (media->connection.parsed && flags->replace_sess_conn) {
-				if (replace_network_address(&chop, &media->connection.address, m, off, flags))
+				if (replace_network_address(chop, &media->connection.address, m, off, flags))
 					goto error;
 			}
 
@@ -522,11 +544,10 @@ str *sdp_replace(str *body, GQueue *sessions, struct call *call, int num, enum c
 		}
 	}
 
-	copy_remainder(&chop);
-	return chopper_done(&chop);
+	copy_remainder(chop);
+	return 0;
 
 error:
 	mylog(LOG_ERROR, "Error rewriting SDP");
-	chopper_destroy(&chop);
-	return NULL;
+	return -1;
 }

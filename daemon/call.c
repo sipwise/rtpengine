@@ -1473,47 +1473,57 @@ static void call_destroy(struct call *c) {
 
 
 
-static int call_stream_address4(GString *o, struct peer *p, enum stream_address_format format) {
+static int call_stream_address4(char *o, struct peer *p, enum stream_address_format format, int *len) {
 	struct callstream *cs = p->up;
 	u_int32_t ip4;
 	struct callmaster *m = cs->call->callmaster;
+	int l = 0;
 
-	if (format == SAF_NG)
-		g_string_append(o, "IP4 ");
+	if (format == SAF_NG) {
+		strcpy(o + l, "IP4 ");
+		l = 4;
+	}
 
 	ip4 = p->rtps[0].peer.ip46.s6_addr32[3];
-	if (!ip4)
-		g_string_append(o, "0.0.0.0");
+	if (!ip4) {
+		strcpy(o + l, "0.0.0.0");
+		l += 7;
+	}
 	else if (m->conf.adv_ipv4)
-		g_string_append_printf(o, IPF, IPP(m->conf.adv_ipv4));
+		l += sprintf(o + l, IPF, IPP(m->conf.adv_ipv4));
 	else
-		g_string_append_printf(o, IPF, IPP(m->conf.ipv4));
+		l += sprintf(o + l, IPF, IPP(m->conf.ipv4));
 
+	*len = l;
 	return AF_INET;
 }
 
-static int call_stream_address6(GString *o, struct peer *p, enum stream_address_format format) {
-	char ips[64];
+static int call_stream_address6(char *o, struct peer *p, enum stream_address_format format, int *len) {
 	struct callmaster *m = p->up->call->callmaster;
+	int l = 0;
 
-	if (format == SAF_NG)
-		g_string_append(o, "IP6 ");
-
-	if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46))
-		g_string_append(o, "::");
-	else {
-		if (!IN6_IS_ADDR_UNSPECIFIED(&m->conf.adv_ipv6))
-			inet_ntop(AF_INET6, &m->conf.adv_ipv6, ips, sizeof(ips));
-		else
-			inet_ntop(AF_INET6, &m->conf.ipv6, ips, sizeof(ips));
-		g_string_append(o, ips);
+	if (format == SAF_NG) {
+		strcpy(o + l, "IP4 ");
+		l += 4;
 	}
 
+	if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46)) {
+		strcpy(o + l, "::");
+		l += 2;
+	}
+	else {
+		if (!IN6_IS_ADDR_UNSPECIFIED(&m->conf.adv_ipv6))
+			inet_ntop(AF_INET6, &m->conf.adv_ipv6, o + l, 45); /* lies... */
+		else
+			inet_ntop(AF_INET6, &m->conf.ipv6, o + l, 45);
+		l += strlen(o + l);
+	}
+
+	*len = l;
 	return AF_INET6;
 }
 
-
-int call_stream_address(GString *o, struct peer *p, enum stream_address_format format) {
+int call_stream_address(char *o, struct peer *p, enum stream_address_format format, int *len) {
 	struct callmaster *m;
 	struct peer *other;
 
@@ -1521,15 +1531,24 @@ int call_stream_address(GString *o, struct peer *p, enum stream_address_format f
 	other = &p->up->peers[p->idx ^ 1];
 
 	if (other->desired_family == AF_INET)
-		return call_stream_address4(o, p, format);
+		return call_stream_address4(o, p, format, len);
 	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
-		return call_stream_address4(o, p, format);
+		return call_stream_address4(o, p, format, len);
 	if (other->desired_family == 0 && IN6_IS_ADDR_UNSPECIFIED(&other->rtps[0].peer.ip46))
-		return call_stream_address4(o, p, format);
+		return call_stream_address4(o, p, format, len);
 	if (IN6_IS_ADDR_UNSPECIFIED(&m->conf.ipv6))
-		return call_stream_address4(o, p, format);
+		return call_stream_address4(o, p, format, len);
 
-	return call_stream_address6(o, p, format);
+	return call_stream_address6(o, p, format, len);
+}
+
+static int call_stream_address_gstring(GString *o, struct peer *p, enum stream_address_format format) {
+	int len, ret;
+	char buf[64]; /* 64 bytes ought to be enough for anybody */
+
+	ret = call_stream_address(buf, p, format, &len);
+	g_string_append_len(o, buf, len);
+	return ret;
 }
 
 
@@ -1556,7 +1575,7 @@ static str *streams_print(GQueue *s, int num, enum call_opmode opmode, const cha
 
 	t = s->head->data;
 	if (format == SAF_TCP)
-		call_stream_address(o, &t->peers[off], format);
+		call_stream_address_gstring(o, &t->peers[off], format);
 
 	for (i = 0, l = s->head; i < num && l; i++, l = l->next) {
 		t = l->data;
@@ -1565,7 +1584,7 @@ static str *streams_print(GQueue *s, int num, enum call_opmode opmode, const cha
 	}
 
 	if (format == SAF_UDP) {
-		af = call_stream_address(o, &t->peers[off], format);
+		af = call_stream_address_gstring(o, &t->peers[off], format);
 		g_string_append_printf(o, " %c", (af == AF_INET) ? '4' : '6');
 	}
 
@@ -2169,13 +2188,14 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, enum call_opmode opmode, const char *tagname) {
-	str sdp, fromtag, viabranch, callid, *sdp_new;
+	str sdp, fromtag, viabranch, callid;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
 	struct call *call;
-	int num;
+	int ret, num;
 	struct sdp_ng_flags flags;
+	struct sdp_chopper *chopper;
 
 	if (!bencode_dictionary_get_str(input, "sdp", &sdp))
 		return "No SDP body in message";
@@ -2201,17 +2221,20 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 	log_info = &viabranch;
 
+	chopper = sdp_chopper_new(&sdp);
+	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 	num = call_streams(call, &streams, &fromtag, opmode);
-	sdp_new = sdp_replace(&sdp, &parsed, call, num, opmode, &flags);
+	ret = sdp_replace(chopper, &parsed, call, num, opmode, &flags);
 
 	mutex_unlock(&call->lock);
 	obj_put(call);
 
 	errstr = "Error rewriting SDP";
-	if (!sdp_new)
+	if (ret)
 		goto out;
 
-	bencode_dictionary_add_str_free(output, "sdp", sdp_new);
+	bencode_dictionary_add_iovec(output, "sdp", &g_array_index(chopper->iov, struct iovec, 0),
+		chopper->iov_num, chopper->str_len);
 	bencode_dictionary_add_string(output, "result", "ok");
 
 	errstr = NULL;

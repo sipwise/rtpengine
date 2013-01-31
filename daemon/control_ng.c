@@ -1,3 +1,5 @@
+#include <sys/types.h>
+#include <sys/socket.h>
 #include "control_ng.h"
 #include "obj.h"
 #include "poller.h"
@@ -5,6 +7,7 @@
 #include "log.h"
 #include "cookie_cache.h"
 #include "call.h"
+#include "sdp.h"
 
 
 static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *sin, char *addr) {
