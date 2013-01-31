@@ -116,7 +116,8 @@ static inline bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict
 /* Ditto, but for a "str" object */
 static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
 
-/* XXX */
+/* Ditto, but adds a string created through an iovec array to the dictionary. See
+ * bencode_string_iovec(). */
 static inline bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
 	const struct iovec *iov, int iov_cnt, int str_len);
 
@@ -161,7 +162,12 @@ static inline bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *
  * terminated. */
 static inline bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
 
-/* XXX */
+/* Creates a new byte-string object from an iovec array. The created object has different internal
+ * semantics (not a BENCODE_STRING, but a BENCODE_IOVEC) and must not be treated like other string
+ * objects. The array pointer and contents must still be valid and accessible when the complete
+ * document is encoded. The full length of the string composed of the iovec array is given in the
+ * "str_len" parameter, which can be negative, in which case the array is iterated to calculate the
+ * length. */
 bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *iov, int iov_cnt, int str_len);
 
 /* Convenience function to compare a string object to a regular C string. Returns 2 if object
