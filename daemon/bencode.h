@@ -85,11 +85,7 @@ bencode_item_t *bencode_dictionary(bencode_buffer_t *buf);
 bencode_item_t *bencode_list(bencode_buffer_t *buf);
 
 /* Adds a pointer to the bencode_buffer_t object's internal free list. When the bencode_buffer_t
- * object is destroyed, BENCODE_FREE will be called on this pointer. */
-static inline void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *);
-
-/* Similar to bencode_buffer_freelist_add(), but instead of freeing/destroying the object at the
- * given pointer with BENCODE_FREE, the specified destroy function is called. */
+ * object is destroyed, the specified function will be called on this pointer. */
 void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t, void *);
 
 
@@ -120,10 +116,6 @@ static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, c
  * bencode_string_iovec(). */
 static inline bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
 	const struct iovec *iov, int iov_cnt, int str_len);
-
-/* Ditto again, but adds the str object (val) to the bencode_buffer_t's internal free list. When
- * the bencode_item_t object is destroyed, BENCODE_FREE will be called on this pointer. */
-static inline bencode_item_t *bencode_dictionary_add_str_free(bencode_item_t *dict, const char *key, str *val);
 
 /* Convenience function to add an integer value to a dictionary */
 static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val);
@@ -366,13 +358,6 @@ static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, c
 	return bencode_dictionary_add(dict, key, bencode_str(dict->buffer, val));
 }
 
-static inline bencode_item_t *bencode_dictionary_add_str_free(bencode_item_t *dict, const char *key, str *val) {
-	if (!val)
-		return NULL;
-	bencode_buffer_freelist_add(dict->buffer, val);
-	return bencode_dictionary_add(dict, key, bencode_str(dict->buffer, val));
-}
-
 static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val) {
 	return bencode_dictionary_add(dict, key, bencode_integer(dict->buffer, val));
 }
@@ -477,10 +462,6 @@ static inline str *bencode_get_str(bencode_item_t *in, str *out) {
 	out->s = in->iov[1].iov_base;
 	out->len = in->iov[1].iov_len;
 	return out;
-}
-
-static inline void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *p) {
-	bencode_buffer_destroy_add(buf, BENCODE_FREE, p);
 }
 
 static inline bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
