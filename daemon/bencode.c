@@ -20,6 +20,7 @@ struct __bencode_buffer_piece {
 };
 struct __bencode_free_list {
 	void *ptr;
+	free_func_t func;
 	struct __bencode_free_list *next;
 };
 struct __bencode_hash {
@@ -129,7 +130,7 @@ void bencode_buffer_free(bencode_buffer_t *buf) {
 	struct __bencode_buffer_piece *piece, *next;
 
 	for (fl = buf->free_list; fl; fl = fl->next)
-		BENCODE_FREE(fl->ptr);
+		fl->func(fl->ptr);
 
 	for (piece = buf->pieces; piece; piece = next) {
 		next = piece->next;
@@ -664,7 +665,7 @@ bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key
 	return NULL;
 }
 
-void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *p) {
+void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t func, void *p) {
 	struct __bencode_free_list *li;
 
 	if (!p)
@@ -673,6 +674,7 @@ void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *p) {
 	if (!li)
 		return;
 	li->ptr = p;
+	li->func = func;
 	li->next = buf->free_list;
 	buf->free_list = li;
 }

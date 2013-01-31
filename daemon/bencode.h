@@ -30,6 +30,7 @@ struct __bencode_free_list;
 typedef enum bencode_type bencode_type_t;
 typedef struct bencode_buffer bencode_buffer_t;
 typedef struct bencode_item bencode_item_t;
+typedef void (*free_func_t)(void *);
 
 enum bencode_type {
 	BENCODE_INVALID = 0,
@@ -84,7 +85,11 @@ bencode_item_t *bencode_list(bencode_buffer_t *buf);
 
 /* Adds a pointer to the bencode_buffer_t object's internal free list. When the bencode_buffer_t
  * object is destroyed, BENCODE_FREE will be called on this pointer. */
-void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *);
+static inline void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *);
+
+/* Similar to bencode_buffer_freelist_add(), but instead of freeing/destroying the object at the
+ * given pointer with BENCODE_FREE, the specified destroy function is called. */
+void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t, void *);
 
 
 
@@ -458,6 +463,10 @@ static inline str *bencode_get_str(bencode_item_t *in, str *out) {
 	out->s = in->iov[1].iov_base;
 	out->len = in->iov[1].iov_len;
 	return out;
+}
+
+static inline void bencode_buffer_freelist_add(bencode_buffer_t *buf, void *p) {
+	bencode_buffer_destroy_add(buf, BENCODE_FREE, p);
 }
 
 #endif
