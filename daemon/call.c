@@ -2224,7 +2224,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 	num = call_streams(call, &streams, &fromtag, opmode);
-	ret = sdp_replace(chopper, &parsed, call, num, opmode, &flags);
+	ret = sdp_replace(chopper, &parsed, call, (num >= 0) ? opmode : (opmode ^ 1), &flags);
 
 	mutex_unlock(&call->lock);
 	obj_put(call);

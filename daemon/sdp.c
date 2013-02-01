@@ -500,8 +500,7 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 
 /* XXX use stream numbers as index */
 /* XXX use port numbers as index */
-/* XXX get rid of num/off parameters? */
-int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call, int num,
+int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags)
 {
 	struct sdp_session *session;
@@ -510,10 +509,6 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call, i
 	int off, skip;
 
 	off = opmode;
-	if (num < 0)
-		off ^= 1;
-	num = abs(num);
-
 	m = call->callstreams->head;
 
 	for (l = sessions->head; l; l = l->next) {
