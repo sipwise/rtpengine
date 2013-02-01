@@ -275,7 +275,7 @@ error:
 	return -1;
 }
 
-static void __free_attributes(GQueue *a) {
+static void free_attributes(GQueue *a) {
 	str *str;
 	while ((str = g_queue_pop_head(a))) {
 		g_slice_free1(sizeof(*str), str);
@@ -288,10 +288,10 @@ void sdp_free(GQueue *sessions) {
 
 	while ((session = g_queue_pop_head(sessions))) {
 		while ((media = g_queue_pop_head(&session->media_streams))) {
-			__free_attributes(&media->attributes);
+			free_attributes(&media->attributes);
 			g_slice_free1(sizeof(*media), media);
 		}
-		__free_attributes(&session->attributes);
+		free_attributes(&session->attributes);
 		g_slice_free1(sizeof(*session), session);
 	}
 }
