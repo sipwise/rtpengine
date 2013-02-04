@@ -2187,6 +2187,26 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	}
 }
 
+static unsigned int stream_hash(struct stream_input *s) {
+	unsigned int ret, *p;
+
+	ret = s->stream.port;
+	p = (void *) &s->stream.ip46;
+	while (((void *) p) < (((void *) &s->stream.ip46) + sizeof(s->stream.ip46))) {
+		ret ^= *p;
+		p++;
+	}
+	return ret;
+}
+
+static int stream_equal(struct stream_input *a, struct stream_input *b) {
+	if (a->stream.port != b->stream.port)
+		return 0;
+	if (memcmp(&a->stream.ip46, &b->stream.ip46, sizeof(a->stream.ip46)))
+		return 0;
+	return 1;
+}
+
 static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, enum call_opmode opmode, const char *tagname) {
 	str sdp, fromtag, viabranch, callid;
 	char *errstr;
@@ -2196,6 +2216,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	int ret, num;
 	struct sdp_ng_flags flags;
 	struct sdp_chopper *chopper;
+	GHashTable *streamhash;
 
 	if (!bencode_dictionary_get_str(input, "sdp", &sdp))
 		return "No SDP body in message";
@@ -2209,8 +2230,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
 
+	streamhash = g_hash_table_new((GHashFunc) stream_hash, (GEqualFunc) stream_equal);
 	errstr = "Incomplete SDP specification";
-	if (sdp_streams(&parsed, &streams))
+	if (sdp_streams(&parsed, &streams, streamhash))
 		goto out;
 
 	call_ng_process_flags(&flags, &streams, input);
@@ -2224,7 +2246,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 	num = call_streams(call, &streams, &fromtag, opmode);
-	ret = sdp_replace(chopper, &parsed, call, (num >= 0) ? opmode : (opmode ^ 1), &flags);
+	ret = sdp_replace(chopper, &parsed, call, (num >= 0) ? opmode : (opmode ^ 1), &flags, streamhash);
 
 	mutex_unlock(&call->lock);
 	obj_put(call);
@@ -2241,6 +2263,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 out:
 	sdp_free(&parsed);
 	streams_free(&streams);
+	g_hash_table_destroy(streamhash);
 	log_info = NULL;
 
 	return errstr;

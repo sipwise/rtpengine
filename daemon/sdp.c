@@ -296,13 +296,27 @@ void sdp_free(GQueue *sessions) {
 	}
 }
 
-int sdp_streams(const GQueue *sessions, GQueue *streams) {
+static int fill_stream(struct stream_input *si, struct sdp_media *media, struct sdp_session *session, int offset) {
+	if (media->connection.parsed)
+		si->stream.ip46 = media->connection.address.parsed;
+	else if (session->connection.parsed)
+		si->stream.ip46 = session->connection.address.parsed;
+	else
+		return -1;
+
+	/* we ignore the media type */
+	si->stream.port = (media->port_num + (offset * 2)) & 0xffff;
+
+	return 0;
+}
+
+int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash) {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	struct stream_input *si;
 	GList *l, *k;
 	const char *errstr;
-	int i, num, cons_num;
+	int i, num;
 
 	num = 0;
 	for (l = sessions->head; l; l = l->next) {
@@ -311,24 +325,22 @@ int sdp_streams(const GQueue *sessions, GQueue *streams) {
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
-			cons_num = media->port_count;
 			for (i = 0; i < media->port_count; i++) {
 				si = g_slice_alloc0(sizeof(*si));
 
 				errstr = "No address info found for stream";
-				if (media->connection.parsed)
-					si->stream.ip46 = media->connection.address.parsed;
-				else if (session->connection.parsed)
-					si->stream.ip46 = session->connection.address.parsed;
-				else
+				if (fill_stream(si, media, session, i))
 					goto error;
 
-				/* we ignore the media type */
-				si->stream.port = (media->port_num + (i * 2)) & 0xffff;
-				si->stream.num = ++num;
-				si->consecutive_num = cons_num;
-				cons_num = 1;
+				if (i == 0 && g_hash_table_contains(streamhash, si)) {
+					g_slice_free1(sizeof(*si), si);
+					continue;
+				}
 
+				si->stream.num = ++num;
+				si->consecutive_num = (i == 0) ? media->port_count : 1;
+
+				g_hash_table_insert(streamhash, si, si);
 				g_queue_push_tail(streams, si);
 			}
 		}
@@ -499,14 +511,14 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 }
 
 /* XXX use stream numbers as index */
-/* XXX use port numbers as index */
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
-		enum call_opmode opmode, struct sdp_ng_flags *flags)
+		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	GList *l, *k, *m;
 	int off, skip;
+	struct stream_input si, *sip;
 
 	off = opmode;
 	m = call->callstreams->head;
@@ -525,6 +537,19 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
+
+			if (fill_stream(&si, media, session, 0))
+				goto error;
+
+			sip = g_hash_table_lookup(streamhash, &si);
+			if (!sip)
+				goto error;
+			if (!m)
+				m = call->callstreams->head;
+			while (m && ((struct callstream *) m->data)->num < sip->stream.num)
+				m = m->next;
+			while (m && ((struct callstream *) m->data)->num > sip->stream.num)
+				m = m->prev;
 
 			skip = replace_media_port(chop, media, m, off);
 			if (skip < 0)
