@@ -53,7 +53,7 @@ sub msg {
 }
 
 socket($fd, AF_INET, SOCK_DGRAM, 0) or die $!;
-connect($fd, sockaddr_in(12222, inet_aton("127.0.0.1"))) or die $!;
+connect($fd, sockaddr_in(2222, inet_aton("127.0.0.1"))) or die $!;
 
 msg('V') eq '20040107' or die;
 
