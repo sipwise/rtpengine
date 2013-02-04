@@ -9,7 +9,7 @@ use Getopt::Long;
 use Socket6;
 use Bencode qw( bencode bdecode );
 
-my ($NUM, $RUNTIME) = (1000, 30);
+my ($NUM, $RUNTIME, $STREAMS) = (1000, 30, 1);
 my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES);
 GetOptions(
 		'no-delete'	=> \$NODEL,
@@ -20,6 +20,7 @@ GetOptions(
 		'keep-going'	=> \$KEEPGOING,		# don't stop sending rtp if a packet doesn't go through
 		'reinvites'	=> \$REINVITES,
 		'branches'	=> \$BRANCHES,
+		'max-streams=i'	=> \$STREAMS,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -66,21 +67,23 @@ sub do_rtp {
 	for my $c (@calls) {
 		$c or next;
 		my ($fds,$outputs,$protos) = @$c[0,4,6];
-		for my $i ([0,1],[1,0]) {
-			my ($a, $b) = @$i;
-			my $pr = $$protos[$a];
-			my $payload = rand_str(100);
-			send($$fds[$a], $payload, 0, $$pr{sockaddr}($$outputs[$b][0],
-				inet_pton($$pr{family}, $$outputs[$b][1]))) or die $!;
-			my $x;
-			my $err = '';
-			alarm(1);
-			recv($$fds[$b], $x, 0xffff, 0) or $err = "$!";
-			alarm(0);
-			$err && $err !~ /interrupt/i and die $err;
-			if (($x || '') ne $payload) {
-				warn("no rtp reply received, ports $$outputs[$b][0] and $$outputs[$a][0]");
-				$KEEPGOING or undef($c);
+		for my $j (0 .. $#{$$fds[0]}) {
+			for my $i ([0,1],[1,0]) {
+				my ($a, $b) = @$i;
+				my $pr = $$protos[$a];
+				my $payload = rand_str(100);
+				send($$fds[$a][$j], $payload, 0, $$pr{sockaddr}($$outputs[$b][$j][0],
+					inet_pton($$pr{family}, $$outputs[$b][$j][1]))) or die $!;
+				my $x;
+				my $err = '';
+				alarm(1);
+				recv($$fds[$b][$j], $x, 0xffff, 0) or $err = "$!";
+				alarm(0);
+				$err && $err !~ /interrupt/i and die $err;
+				if (($x || '') ne $payload) {
+					warn("no rtp reply received, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]");
+					$KEEPGOING or undef($c);
+				}
 			}
 		}
 	}
@@ -132,28 +135,36 @@ sub update_lookup {
 	my ($callid, $viabranch) = @$c_v;
 
 	my $protos = $$c[6] || ($$c[6] = []);
-	my $fds = $$c[0] || ($$c[0] = []);
+	my $fds_a = $$c[0] || ($$c[0] = []);
 	for my $x (0,1) {
 		$$protos[$x] and next;
 		$$protos[$x] = $protos_avail[rand(@protos_avail)];
-		undef($$fds[$x]);
+		undef($$fds_a[$x]);
 	}
 	my ($pr, $pr_o) = @$protos[$i, $j];
 	my @commands = qw(offer answer);
 
-	my $ports = $$c[1] || ($$c[1] = []);
-	my $ips = $$c[2] || ($$c[2] = []);
-	if (!$$fds[$i]) {
-		socket($$fds[$i], $$pr{family}, SOCK_DGRAM, 0) or die $!;
-		while (1) {
-			my $port = rand(0x7000) << 1 + 1024;
-			bind($$fds[$i], $$pr{sockaddr}($port,
-				inet_pton($$pr{family}, $$pr{address}))) and last;
+	my $ports_a = $$c[1] || ($$c[1] = []);
+	my $ports_t = $$ports_a[$i] || ($$ports_a[$i] = []);
+	my $ips_a = $$c[2] || ($$c[2] = []);
+	my $ips_t = $$ips_a[$i] || ($$ips_a[$i] = []);
+	my $fds_t = $$fds_a[$i] || ($$fds_a[$i] = []);
+	my $fds_o = $$fds_a[$j];
+	my $num_streams = int(rand($STREAMS));
+	($fds_o && @$fds_o) and $num_streams = $#$fds_o;
+	for my $j (0 .. $num_streams) {
+		if (!$$fds_t[$j]) {
+			socket($$fds_t[$j], $$pr{family}, SOCK_DGRAM, 0) or die $!;
+			while (1) {
+				my $port = rand(0x7000) << 1 + 1024;
+				bind($$fds_t[$j], $$pr{sockaddr}($port,
+					inet_pton($$pr{family}, $$pr{address}))) and last;
+			}
+			my $addr = getsockname($$fds_t[$j]);
+			my $ip;
+			($$ports_t[$j], $ip) = $$pr{sockaddr}($addr);
+			$$ips_t[$j] = inet_ntop($$pr{family}, $ip);
 		}
-		my $addr = getsockname($$fds[$i]);
-		my $ip;
-		($$ports[$i], $ip) = $$pr{sockaddr}($addr);
-		$$ips[$i] = inet_ntop($$pr{family}, $ip);
 	}
 
 	my $tags = $$c[3] || ($$c[3] = []);
@@ -161,13 +172,17 @@ sub update_lookup {
 
 	my $sdp = <<"!";
 v=0
-o=blah 123 123 IN $$pr{family_str} $$ips[$i]
+o=blah 123 123 IN $$pr{family_str} $$ips_t[0]
 s=session
-c=IN $$pr{family_str} $$ips[$i]
+c=IN $$pr{family_str} $$ips_t[0]
 t=0 0
-m=audio $$ports[$i] RTP/AVP 8
+!
+	for my $p (@$ports_t) {
+		$sdp .= <<"!";
+m=audio $p RTP/AVP 8
 a=rtpmap:8 PCMA/8000
 !
+	}
 
 	my $dict = {sdp => $sdp, command => $commands[$i], 'call-id' => $callid,
 		'from-tag' => $$tags[0],
@@ -181,10 +196,15 @@ a=rtpmap:8 PCMA/8000
 
 	my $o = msg($dict);
 	$$o{result} eq 'ok' or die;
-	my ($rp_af, $rp_add, $rp_port) = $$o{sdp} =~ /c=IN IP([46]) (\S+).*m=audio (\d+)/s or die;
-	$rp_port == 0 and die "mediaproxy ran out of ports";
+	my ($rp_af, $rp_add) = $$o{sdp} =~ /c=IN IP([46]) (\S+)/s or die;
+	my @rp_ports = $$o{sdp} =~ /m=audio (\d+)/gs or die;
 	$rp_af ne $$pr_o{reply} and die "incorrect address family reply code";
-	$$c[4][$i] = [$rp_port,$rp_add];
+	my $rpl_a = $$c[4] || ($$c[4] = []);
+	my $rpl_t = $$rpl_a[$i] || ($$rpl_a[$i] = []);
+	for my $rpl (@rp_ports) {
+		$rpl == 0 and die "mediaproxy ran out of ports";
+		push(@$rpl_t, [$rpl,$rp_add]);
+	}
 }
 
 for my $iter (1 .. $NUM) {
