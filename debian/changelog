@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.2.0) UNRELEASED; urgency=low
+
+  * Adds support for the new NG protocol
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Wed, 06 Feb 2013 14:08:13 -0500
+
 ngcp-mediaproxy-ng (2.1.1) unstable; urgency=low
 
   * Don't reject lookups with unknown via-branches, instead
