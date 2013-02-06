@@ -232,4 +232,16 @@ static inline int rlim(int res, rlim_t val) {
 	return setrlimit(res, &rlim);
 }
 
+static inline int is_addr_unspecified(const struct in6_addr *a) {
+	if (a->s6_addr32[0])
+		return 0;
+	if (a->s6_addr32[1])
+		return 0;
+	if (a->s6_addr32[3])
+		return 0;
+	if (a->s6_addr32[2] == 0 || a->s6_addr32[2] == htonl(0xffff))
+		return 1;
+	return 0;
+}
+
 #endif

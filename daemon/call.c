@@ -166,7 +166,7 @@ void kernelize(struct callstream *c) {
 			r = &p->rtps[j];
 			rp = &pp->rtps[j];
 
-			if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->fd.fd_family || !r->peer.port)
+			if (is_addr_unspecified(&r->peer.ip46) || !r->fd.fd_family || !r->peer.port)
 				continue;
 
 			ks.local_port = r->fd.localport;
@@ -269,7 +269,7 @@ peerinfo:
 	update = 1;
 
 forward:
-	if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->peer.port || !r->fd.fd_family)
+	if (is_addr_unspecified(&r->peer.ip46) || !r->peer.port || !r->fd.fd_family)
 		goto drop;
 
 	ZERO(mh);
@@ -535,7 +535,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 				check = cm->conf.timeout;
 				if (!sr->peer.port)
 					check = cm->conf.silent_timeout;
-				else if (IN6_IS_ADDR_UNSPECIFIED(&sr->peer.ip46))
+				else if (is_addr_unspecified(&sr->peer.ip46))
 					check = cm->conf.silent_timeout;
 
 				if (poller_now - sr->last < check)
@@ -879,7 +879,7 @@ static int get_port(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
 
-	if (IN6_IS_ADDR_UNSPECIFIED(&m->conf.ipv6))
+	if (is_addr_unspecified(&m->conf.ipv6))
 		ret = get_port4(r, p, m);
 	else
 		ret = get_port6(r, p, m);
@@ -1507,12 +1507,12 @@ static int call_stream_address6(char *o, struct peer *p, enum stream_address_for
 		l += 4;
 	}
 
-	if (IN6_IS_ADDR_UNSPECIFIED(&p->rtps[0].peer.ip46)) {
+	if (is_addr_unspecified(&p->rtps[0].peer.ip46)) {
 		strcpy(o + l, "::");
 		l += 2;
 	}
 	else {
-		if (!IN6_IS_ADDR_UNSPECIFIED(&m->conf.adv_ipv6))
+		if (!is_addr_unspecified(&m->conf.adv_ipv6))
 			inet_ntop(AF_INET6, &m->conf.adv_ipv6, o + l, 45); /* lies... */
 		else
 			inet_ntop(AF_INET6, &m->conf.ipv6, o + l, 45);
@@ -1534,9 +1534,9 @@ int call_stream_address(char *o, struct peer *p, enum stream_address_format form
 		return call_stream_address4(o, p, format, len);
 	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
 		return call_stream_address4(o, p, format, len);
-	if (other->desired_family == 0 && IN6_IS_ADDR_UNSPECIFIED(&other->rtps[0].peer.ip46))
+	if (other->desired_family == 0 && is_addr_unspecified(&other->rtps[0].peer.ip46))
 		return call_stream_address4(o, p, format, len);
-	if (IN6_IS_ADDR_UNSPECIFIED(&m->conf.ipv6))
+	if (is_addr_unspecified(&m->conf.ipv6))
 		return call_stream_address4(o, p, format, len);
 
 	return call_stream_address6(o, p, format, len);
