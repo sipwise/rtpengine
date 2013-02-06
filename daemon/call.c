@@ -1210,9 +1210,13 @@ static int call_streams(struct call *c, GQueue *s, const char *tag, int opmode) 
 					IP6P(&t->ip46), t->port, tag,
 					IP6P(&r->peer_advertised.ip46), r->peer_advertised.port, cs_o->peers[x].tag);
 
-				if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->ip46))
+				if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->ip46)
+						&& !is_addr_unspecified(&r->peer_advertised.ip46)
+						&& !is_addr_unspecified(&t->ip46))
 					continue;
-				if (r->peer_advertised.port != t->port)
+				if (r->peer_advertised.port != t->port
+						&& r->peer_advertised.port
+						&& t->port)
 					continue;
 				if (strcmp(cs_o->peers[x].tag, tag))
 					continue;
@@ -1306,7 +1310,11 @@ got_cs:
 		if (r && p == r->up) {
 			/* best case, nothing to do */
 			DBG("case 1");
-			;
+			/* ... unless we (un)silenced the stream, in which case
+			   we need to copy the new information */
+			if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46)
+					|| matched_relay->peer_advertised.port != t->stream.port)
+				setup_peer(p, t, tag);
 		}
 		else if (r && cs_o != cs) {
 			/* found something, but it's linked to a different stream */
