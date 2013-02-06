@@ -163,7 +163,7 @@ void kernelize(struct callstream *c) {
 			r = &p->rtps[j];
 			rp = &pp->rtps[j];
 
-			if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->fd_family || !r->peer.port)
+			if (is_addr_unspecified(&r->peer.ip46) || !r->fd_family || !r->peer.port)
 				continue;
 
 			ks.local_port = r->localport;
@@ -266,7 +266,7 @@ peerinfo:
 	update = 1;
 
 forward:
-	if (IN6_IS_ADDR_UNSPECIFIED(&r->peer.ip46) || !r->peer.port || !r->fd_family)
+	if (is_addr_unspecified(&r->peer.ip46) || !r->peer.port || !r->fd_family)
 		goto drop;
 
 	ZERO(mh);
@@ -542,7 +542,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 				check = cm->conf.timeout;
 				if (!sr->peer.port)
 					check = cm->conf.silent_timeout;
-				else if (IN6_IS_ADDR_UNSPECIFIED(&sr->peer.ip46))
+				else if (is_addr_unspecified(&sr->peer.ip46))
 					check = cm->conf.silent_timeout;
 
 				if (poller_now - sr->last < check)
@@ -884,7 +884,7 @@ static int get_port(struct streamrelay *r, u_int16_t p) {
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
 
-	if (IN6_IS_ADDR_UNSPECIFIED(&m->conf.ipv6))
+	if (is_addr_unspecified(&m->conf.ipv6))
 		ret = get_port4(r, p);
 	else
 		ret = get_port6(r, p);
@@ -1476,9 +1476,9 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 
 	if (t->peers[other_off].desired_family == AF_INET
 			|| (t->peers[other_off].desired_family == 0
-				&& IN6_IS_ADDR_V4MAPPED(&t->peers[other_off].rtps[0].peer.ip46))
-			|| IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->conf.ipv6)) {
-		ip4 = t->peers[off].rtps[0].peer.ip46.s6_addr32[3];
+				&& is_addr_unspecified(&t->peers[other_off].rtps[0].peer.ip46))
+			|| is_addr_unspecified(&t->call->callmaster->conf.ipv6)) {
+		ip4 = t->peers[off].rtps[0].peer_advertised.ip46.s6_addr32[3];
 		if (!ip4)
 			strcpy(ips, "0.0.0.0");
 		else if (t->call->callmaster->conf.adv_ipv4)
@@ -1489,9 +1489,9 @@ static char *streams_print(GQueue *s, unsigned int num, unsigned int off, const 
 		af = '4';
 	}
 	else {
-		if (IN6_IS_ADDR_UNSPECIFIED(&t->peers[off].rtps[0].peer.ip46))
+		if (is_addr_unspecified(&t->peers[off].rtps[0].peer_advertised.ip46))
 			strcpy(ips, "::");
-		else if (!IN6_IS_ADDR_UNSPECIFIED(&t->call->callmaster->conf.adv_ipv6))
+		else if (!is_addr_unspecified(&t->call->callmaster->conf.adv_ipv6))
 			inet_ntop(AF_INET6, &t->call->callmaster->conf.adv_ipv6, ips, sizeof(ips));
 		else
 			inet_ntop(AF_INET6, &t->call->callmaster->conf.ipv6, ips, sizeof(ips));
