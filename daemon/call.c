@@ -1229,9 +1229,13 @@ static int call_streams(struct call *c, GQueue *s, const str *tag, enum call_opm
 					IP6P(&matched_relay->peer_advertised.ip46),
 					matched_relay->peer_advertised.port, STR_FMT(&cs_o->peers[x].tag));
 
-				if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46))
+				if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46)
+						&& !is_addr_unspecified(&matched_relay->peer_advertised.ip46)
+						&& !is_addr_unspecified(&t->stream.ip46))
 					continue;
-				if (matched_relay->peer_advertised.port != t->stream.port)
+				if (matched_relay->peer_advertised.port != t->stream.port
+						&& matched_relay->peer_advertised.port
+						&& t->stream.port)
 					continue;
 				if (str_cmp_str0(&cs_o->peers[x].tag, tag))
 					continue;
@@ -1326,7 +1330,11 @@ got_cs:
 		if (matched_relay && p == matched_relay->up) {
 			/* best case, nothing to do */
 			DBG("case 1");
-			;
+			/* ... unless we (un)silenced the stream, in which case
+			   we need to copy the new information */
+			if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46)
+					|| matched_relay->peer_advertised.port != t->stream.port)
+				setup_peer(p, t, tag);
 		}
 		else if (matched_relay && cs_o != cs) {
 			/* found something, but it's linked to a different stream */
