@@ -166,7 +166,8 @@ void kernelize(struct callstream *c) {
 			r = &p->rtps[j];
 			rp = &pp->rtps[j];
 
-			if (is_addr_unspecified(&r->peer.ip46) || !r->fd.fd_family || !r->peer.port)
+			if (is_addr_unspecified(&r->peer_advertised.ip46)
+					|| !r->fd.fd_family || !r->peer_advertised.port)
 				continue;
 
 			ks.local_port = r->fd.localport;
@@ -269,7 +270,8 @@ peerinfo:
 	update = 1;
 
 forward:
-	if (is_addr_unspecified(&r->peer.ip46) || !r->peer.port || !r->fd.fd_family)
+	if (is_addr_unspecified(&r->peer_advertised.ip46)
+			|| !r->peer_advertised.port || !r->fd.fd_family)
 		goto drop;
 
 	ZERO(mh);
@@ -533,9 +535,9 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 					continue;
 
 				check = cm->conf.timeout;
-				if (!sr->peer.port)
+				if (!sr->peer_advertised.port)
 					check = cm->conf.silent_timeout;
-				else if (is_addr_unspecified(&sr->peer.ip46))
+				else if (is_addr_unspecified(&sr->peer_advertised.ip46))
 					check = cm->conf.silent_timeout;
 
 				if (poller_now - sr->last < check)
@@ -1484,7 +1486,7 @@ static int call_stream_address4(char *o, struct peer *p, enum stream_address_for
 		l = 4;
 	}
 
-	ip4 = p->rtps[0].peer.ip46.s6_addr32[3];
+	ip4 = p->rtps[0].peer_advertised.ip46.s6_addr32[3];
 	if (!ip4) {
 		strcpy(o + l, "0.0.0.0");
 		l += 7;
@@ -1507,7 +1509,7 @@ static int call_stream_address6(char *o, struct peer *p, enum stream_address_for
 		l += 4;
 	}
 
-	if (is_addr_unspecified(&p->rtps[0].peer.ip46)) {
+	if (is_addr_unspecified(&p->rtps[0].peer_advertised.ip46)) {
 		strcpy(o + l, "::");
 		l += 2;
 	}
@@ -1534,7 +1536,7 @@ int call_stream_address(char *o, struct peer *p, enum stream_address_format form
 		return call_stream_address4(o, p, format, len);
 	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
 		return call_stream_address4(o, p, format, len);
-	if (other->desired_family == 0 && is_addr_unspecified(&other->rtps[0].peer.ip46))
+	if (other->desired_family == 0 && is_addr_unspecified(&other->rtps[0].peer_advertised.ip46))
 		return call_stream_address4(o, p, format, len);
 	if (is_addr_unspecified(&m->conf.ipv6))
 		return call_stream_address4(o, p, format, len);
