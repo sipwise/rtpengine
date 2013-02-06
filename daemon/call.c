@@ -1153,6 +1153,17 @@ static void relays_cache_init(struct relays_cache *c) {
 	c->array_ptrs[1] = c->relays_B;
 }
 
+int relays_cache_want_ports(struct relays_cache *c, int portA, int portB, struct call *call) {
+	if (c->relays_open + 2 > ARRAY_SIZE(c->relays_A))
+		return -1;
+	if (get_consecutive_ports(&c->relays_A[c->relays_open], 2, portA, call))
+		return -1;
+	if (get_consecutive_ports(&c->relays_B[c->relays_open], 2, portB, call))
+		return -1;
+	c->relays_open += 2;
+	return 0;
+}
+
 static int relays_cache_get_ports(struct relays_cache *c, int num, struct call *call) {
 	num *= 2;
 	if (c->relays_open >= num)

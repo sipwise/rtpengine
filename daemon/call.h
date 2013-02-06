@@ -166,6 +166,7 @@ struct callstream *callstream_new(struct call *ca, int num);
 void callstream_init(struct callstream *s, struct relays_cache *);
 void kernelize(struct callstream *c);
 int call_stream_address(char *o, struct peer *p, enum stream_address_format format, int *len);
+int relays_cache_want_ports(struct relays_cache *c, int portA, int portB, struct call *call);
 
 static inline char *call_strdup(struct call *c, const char *s) {
 	char *r;
@@ -176,18 +177,22 @@ static inline char *call_strdup(struct call *c, const char *s) {
 	mutex_unlock(&c->chunk_lock);
 	return r;
 }
-static inline str *call_str_cpy(struct call *c, str *out, const str *in) {
+static inline str *call_str_cpy_len(struct call *c, str *out, const char *in, int len) {
 	if (!in) {
 		*out = STR_NULL;
 		return out;
 	}
-	*out = *in;
-	if (!in->s)
-		return out;
 	mutex_lock(&c->chunk_lock);
-	out->s = g_string_chunk_insert_len(c->chunk, in->s, in->len);
+	out->s = g_string_chunk_insert_len(c->chunk, in, len);
 	mutex_unlock(&c->chunk_lock);
+	out->len = len;
 	return out;
+}
+static inline str *call_str_cpy(struct call *c, str *out, const str *in) {
+	return call_str_cpy_len(c, out, in ? in->s : NULL, in ? in->len : 0);
+}
+static inline str *call_str_cpy_c(struct call *c, str *out, const char *in) {
+	return call_str_cpy_len(c, out, in, in ? strlen(in) : 0);
 }
 static inline str *call_str_dup(struct call *c, const str *in) {
 	str *out;
