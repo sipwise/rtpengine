@@ -1503,7 +1503,7 @@ static int call_stream_address6(char *o, struct peer *p, enum stream_address_for
 	int l = 0;
 
 	if (format == SAF_NG) {
-		strcpy(o + l, "IP4 ");
+		strcpy(o + l, "IP6 ");
 		l += 4;
 	}
 
@@ -2170,13 +2170,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 			if (!bencode_strcmp(it, "internal"))
 				dirs[diridx++] = DIR_INTERNAL;
 			else if (!bencode_strcmp(it, "external"))
-				dirs[diridx++] = DIR_INTERNAL;
+				dirs[diridx++] = DIR_EXTERNAL;
 		}
 
 		for (gl = streams->head; gl; gl = gl->next) {
 			si = gl->data;
-			si->direction[0] = dirs[0];
-			si->direction[1] = dirs[1];
+			si->direction[0] = dirs[1]; /* bencode list is traversed backwards */
+			si->direction[1] = dirs[0];
 		}
 	}
 
