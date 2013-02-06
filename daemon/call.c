@@ -163,7 +163,8 @@ void kernelize(struct callstream *c) {
 			r = &p->rtps[j];
 			rp = &pp->rtps[j];
 
-			if (is_addr_unspecified(&r->peer.ip46) || !r->fd_family || !r->peer.port)
+			if (is_addr_unspecified(&r->peer_advertised.ip46)
+					|| !r->fd_family || !r->peer_advertised.port)
 				continue;
 
 			ks.local_port = r->localport;
@@ -266,7 +267,8 @@ peerinfo:
 	update = 1;
 
 forward:
-	if (is_addr_unspecified(&r->peer.ip46) || !r->peer.port || !r->fd_family)
+	if (is_addr_unspecified(&r->peer_advertised.ip46)
+			|| !r->peer_advertised.port || !r->fd_family)
 		goto drop;
 
 	ZERO(mh);
@@ -540,9 +542,9 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 					continue;
 
 				check = cm->conf.timeout;
-				if (!sr->peer.port)
+				if (!sr->peer_advertised.port)
 					check = cm->conf.silent_timeout;
-				else if (is_addr_unspecified(&sr->peer.ip46))
+				else if (is_addr_unspecified(&sr->peer_advertised.ip46))
 					check = cm->conf.silent_timeout;
 
 				if (poller_now - sr->last < check)
