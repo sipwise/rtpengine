@@ -166,7 +166,10 @@ struct callstream *callstream_new(struct call *ca, int num);
 void callstream_init(struct callstream *s, struct relays_cache *);
 void kernelize(struct callstream *c);
 int call_stream_address(char *o, struct peer *p, enum stream_address_format format, int *len);
+
+void relays_cache_init(struct relays_cache *c);
 int relays_cache_want_ports(struct relays_cache *c, int portA, int portB, struct call *call);
+void relays_cache_cleanup(struct relays_cache *c, struct callmaster *m);
 
 static inline char *call_strdup(struct call *c, const char *s) {
 	char *r;

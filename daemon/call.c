@@ -1146,7 +1146,7 @@ static void callstream_free(void *ptr) {
 	obj_put(s->call);
 }
 
-static void relays_cache_init(struct relays_cache *c) {
+void relays_cache_init(struct relays_cache *c) {
 	memset(c, -1, sizeof(*c));
 	c->relays_open = 0;
 	c->array_ptrs[0] = c->relays_A;
@@ -1194,7 +1194,7 @@ static void relays_cache_port_used(struct relays_cache *c) {
 	c->relays_B[c->relays_open + 1].fd = -1;
 }
 
-static void relays_cache_cleanup(struct relays_cache *c, struct callmaster *m) {
+void relays_cache_cleanup(struct relays_cache *c, struct callmaster *m) {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(c->relays_A); i++) {
