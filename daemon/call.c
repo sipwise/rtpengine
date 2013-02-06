@@ -1312,8 +1312,8 @@ got_cs:
 			DBG("case 1");
 			/* ... unless we (un)silenced the stream, in which case
 			   we need to copy the new information */
-			if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46)
-					|| matched_relay->peer_advertised.port != t->stream.port)
+			if (!IN6_ARE_ADDR_EQUAL(&r->peer_advertised.ip46, &t->ip46)
+					|| r->peer_advertised.port != t->port)
 				setup_peer(p, t, tag);
 		}
 		else if (r && cs_o != cs) {
