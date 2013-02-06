@@ -452,7 +452,7 @@ static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media,
 		return -1;
 
 	if (media->port_count == 1)
-		return 1;
+		return 0;
 
 	for (cons = 1; cons < media->port_count; cons++) {
 		m = m->next;
@@ -468,7 +468,7 @@ warn:
 
 	chopper_append_printf(chop, "/%i", cons);
 
-	return cons;
+	return 0;
 }
 
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address, GList *m, int off, struct sdp_ng_flags *flags) {
@@ -510,14 +510,13 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 	g_slice_free1(sizeof(*chop), chop);
 }
 
-/* XXX use stream numbers as index */
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	GList *l, *k, *m;
-	int off, skip;
+	int off;
 	struct stream_input si, *sip;
 
 	off = opmode;
@@ -551,16 +550,13 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			while (m && ((struct callstream *) m->data)->num > sip->stream.num)
 				m = m->prev;
 
-			skip = replace_media_port(chop, media, m, off);
-			if (skip < 0)
+			if (replace_media_port(chop, media, m, off))
 				goto error;
 
 			if (media->connection.parsed && flags->replace_sess_conn) {
 				if (replace_network_address(chop, &media->connection.address, m, off, flags))
 					goto error;
 			}
-
-			m = g_list_nth(m, skip);
 		}
 	}
 
