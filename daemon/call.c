@@ -2328,7 +2328,7 @@ static bencode_item_t *peer_address(bencode_buffer_t *b, struct stream *s) {
 		bencode_dictionary_add_string(d, "family", "IPv6");
 		inet_ntop(AF_INET6, &s->ip46, buf, sizeof(buf));
 	}
-	bencode_dictionary_add(d, "address", bencode_string_dup(b, buf));
+	bencode_dictionary_add_string_dup(d, "address", buf);
 	bencode_dictionary_add_integer(d, "port", s->port);
 
 	return d;
@@ -2339,7 +2339,7 @@ static bencode_item_t *streamrelay_stats(bencode_buffer_t *b, struct streamrelay
 
 	d = bencode_dictionary(b);
 
-	s = bencode_dictionary_add(d, "stats", bencode_dictionary(b));
+	s = bencode_dictionary_add_dictionary(d, "stats");
 	bencode_dictionary_add_integer(s, "packets", r->stats.packets);
 	bencode_dictionary_add_integer(s, "bytes", r->stats.bytes);
 	bencode_dictionary_add_integer(s, "errors", r->stats.errors);
@@ -2369,7 +2369,7 @@ static bencode_item_t *peer_stats(bencode_buffer_t *b, struct peer *p) {
 	else
 		bencode_dictionary_add_string(d, "status", "unknown peer address");
 
-	s = bencode_dictionary_add(d, "stats", bencode_dictionary(b));
+	s = bencode_dictionary_add_dictionary(d, "stats");
 	bencode_dictionary_add(s, "rtp", streamrelay_stats(b, &p->rtps[0]));
 	bencode_dictionary_add(s, "rtcp", streamrelay_stats(b, &p->rtps[1]));
 
@@ -2396,7 +2396,7 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 
 	bencode_dictionary_add_string(output, "result", "ok");
 	bencode_dictionary_add_integer(output, "created", call->created);
-	streams = bencode_dictionary_add(output, "streams", bencode_list(output->buffer));
+	streams = bencode_dictionary_add_list(output, "streams");
 
 	for (l = call->callstreams->head; l; l = l->next) {
 		cs = l->data;
@@ -2418,7 +2418,7 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 				continue;
 
 tag_match:
-			stream = bencode_list_add(streams, bencode_list(output->buffer));
+			stream = bencode_list_add_list(streams);
 			bencode_list_add(stream, peer_stats(output->buffer, p));
 			bencode_list_add(stream, peer_stats(output->buffer, px));
 

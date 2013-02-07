@@ -106,8 +106,10 @@ static inline bencode_item_t *bencode_dictionary_add(bencode_item_t *dict, const
 /* Identical to bencode_dictionary_add() but doesn't require the key string to be null-terminated */
 bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, int keylen, bencode_item_t *val);
 
-/* Convenience function to add a string value to a dictionary */
+/* Convenience function to add a string value to a dictionary, possibly duplicated into the
+ * bencode_buffer_t object. */
 static inline bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict, const char *key, const char *val);
+static inline bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *dict, const char *key, const char *val);
 
 /* Ditto, but for a "str" object */
 static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
@@ -117,8 +119,10 @@ static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, c
 static inline bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
 	const struct iovec *iov, int iov_cnt, int str_len);
 
-/* Convenience function to add an integer value to a dictionary */
+/* Convenience functions to add the respective (newly created) objects to a dictionary */
 static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val);
+static inline bencode_item_t *bencode_dictionary_add_dictionary(bencode_item_t *dict, const char *key);
+static inline bencode_item_t *bencode_dictionary_add_list(bencode_item_t *dict, const char *key);
 
 
 
@@ -130,8 +134,10 @@ static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dic
  * The item to be added must not have been previously linked into any other dictionary or list. */
 bencode_item_t *bencode_list_add(bencode_item_t *list, bencode_item_t *item);
 
-/* Convenience function to add a string item to a list */
+/* Convenience function to add the respective (newly created) objects to a list */
 static inline bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char *s);
+static inline bencode_item_t *bencode_list_add_list(bencode_item_t *list);
+static inline bencode_item_t *bencode_list_add_dictionary(bencode_item_t *list);
 
 
 
@@ -361,6 +367,12 @@ static inline bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict
 	return bencode_dictionary_add(dict, key, bencode_string(dict->buffer, val));
 }
 
+static inline bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *dict, const char *key, const char *val) {
+	if (!val)
+		return NULL;
+	return bencode_dictionary_add(dict, key, bencode_string_dup(dict->buffer, val));
+}
+
 static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val) {
 	if (!val)
 		return NULL;
@@ -371,8 +383,24 @@ static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dic
 	return bencode_dictionary_add(dict, key, bencode_integer(dict->buffer, val));
 }
 
+static inline bencode_item_t *bencode_dictionary_add_dictionary(bencode_item_t *dict, const char *key) {
+	return bencode_dictionary_add(dict, key, bencode_dictionary(dict->buffer));
+}
+
+static inline bencode_item_t *bencode_dictionary_add_list(bencode_item_t *dict, const char *key) {
+	return bencode_dictionary_add(dict, key, bencode_list(dict->buffer));
+}
+
 static inline bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char *s) {
 	return bencode_list_add(list, bencode_string(list->buffer, s));
+}
+
+static inline bencode_item_t *bencode_list_add_list(bencode_item_t *list) {
+	return bencode_list_add(list, bencode_list(list->buffer));
+}
+
+static inline bencode_item_t *bencode_list_add_dictionary(bencode_item_t *list) {
+	return bencode_list_add(list, bencode_dictionary(list->buffer));
 }
 
 static inline bencode_item_t *bencode_dictionary_get(bencode_item_t *dict, const char *key) {
