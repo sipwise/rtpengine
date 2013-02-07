@@ -2314,3 +2314,126 @@ void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
 }
+
+static bencode_item_t *peer_address(bencode_buffer_t *b, struct stream *s) {
+	bencode_item_t *d;
+	char buf[64];
+
+	d = bencode_dictionary(b);
+	if (IN6_IS_ADDR_V4MAPPED(&s->ip46)) {
+		bencode_dictionary_add_string(d, "family", "IPv4");
+		inet_ntop(AF_INET, &(s->ip46.s6_addr32[3]), buf, sizeof(buf));
+	}
+	else {
+		bencode_dictionary_add_string(d, "family", "IPv6");
+		inet_ntop(AF_INET6, &s->ip46, buf, sizeof(buf));
+	}
+	bencode_dictionary_add(d, "address", bencode_string_dup(b, buf));
+	bencode_dictionary_add_integer(d, "port", s->port);
+
+	return d;
+}
+
+static bencode_item_t *streamrelay_stats(bencode_buffer_t *b, struct streamrelay *r) {
+	bencode_item_t *d, *s;
+
+	d = bencode_dictionary(b);
+
+	s = bencode_dictionary_add(d, "stats", bencode_dictionary(b));
+	bencode_dictionary_add_integer(s, "packets", r->stats.packets);
+	bencode_dictionary_add_integer(s, "bytes", r->stats.bytes);
+	bencode_dictionary_add_integer(s, "errors", r->stats.errors);
+
+	bencode_dictionary_add(d, "peer address", peer_address(b, &r->peer));
+	bencode_dictionary_add(d, "advertised peer address", peer_address(b, &r->peer_advertised));
+
+	bencode_dictionary_add_integer(d, "local port", r->fd.localport);
+
+	return d;
+}
+
+static bencode_item_t *peer_stats(bencode_buffer_t *b, struct peer *p) {
+	bencode_item_t *d, *s;
+
+	d = bencode_dictionary(b);
+
+	bencode_dictionary_add_str(d, "tag", &p->tag);
+	if (p->codec)
+		bencode_dictionary_add_string(d, "codec", p->codec);
+	if (p->kernelized)
+		bencode_dictionary_add_string(d, "status", "in kernel");
+	else if (p->confirmed)
+		bencode_dictionary_add_string(d, "status", "confirmed peer address");
+	else if (p->filled)
+		bencode_dictionary_add_string(d, "status", "known but unconfirmed peer address");
+	else
+		bencode_dictionary_add_string(d, "status", "unknown peer address");
+
+	s = bencode_dictionary_add(d, "stats", bencode_dictionary(b));
+	bencode_dictionary_add(s, "rtp", streamrelay_stats(b, &p->rtps[0]));
+	bencode_dictionary_add(s, "rtcp", streamrelay_stats(b, &p->rtps[1]));
+
+	return d;
+}
+
+const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	str callid, fromtag, totag;
+	struct call *call;
+	GList *l;
+	struct callstream *cs;
+	bencode_item_t *streams, *stream;
+	struct peer *p, *px;
+	unsigned long long totals[4] = {0,0,0,0};
+	int i;
+
+	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+		return "No call-id in message";
+	call = call_get_opmode(&callid, NULL, m, OP_OTHER);
+	if (!call)
+		return "Unknown call-id";
+	bencode_dictionary_get_str(input, "from-tag", &fromtag);
+	bencode_dictionary_get_str(input, "to-tag", &totag);
+
+	bencode_dictionary_add_string(output, "result", "ok");
+	bencode_dictionary_add_integer(output, "created", call->created);
+	streams = bencode_dictionary_add(output, "streams", bencode_list(output->buffer));
+
+	for (l = call->callstreams->head; l; l = l->next) {
+		cs = l->data;
+		mutex_lock(&cs->lock);
+
+		for (i = 0; i < 2; i++) {
+			p = &cs->peers[i];
+			px = &cs->peers[i ^ 1];
+
+			if (!fromtag.len)
+				goto tag_match;
+
+			if (str_cmp_str(&p->tag, &fromtag))
+				continue;
+			if (!totag.len)
+				goto tag_match;
+
+			if (str_cmp_str(&px->tag, &totag))
+				continue;
+
+tag_match:
+			stream = bencode_list_add(streams, bencode_list(output->buffer));
+			bencode_list_add(stream, peer_stats(output->buffer, p));
+			bencode_list_add(stream, peer_stats(output->buffer, px));
+
+			totals[0] += p->rtps[0].stats.packets;
+			totals[1] += px->rtps[0].stats.packets;
+			totals[2] += p->rtps[1].stats.packets;
+			totals[3] += px->rtps[1].stats.packets;
+
+			break;
+		}
+
+		mutex_unlock(&cs->lock);
+	}
+
+	mutex_unlock(&call->lock);
+
+	return NULL;
+}

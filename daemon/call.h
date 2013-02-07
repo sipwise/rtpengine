@@ -43,6 +43,7 @@ enum stream_direction {
 enum call_opmode {
 	OP_OFFER = 0,
 	OP_ANSWER = 1,
+	OP_OTHER,
 };
 
 struct stats {
@@ -157,6 +158,7 @@ str *call_query_udp(char **, struct callmaster *);
 const char *call_offer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_answer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
+const char *call_query_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 
 
 void calls_dump_redis(struct callmaster *);
