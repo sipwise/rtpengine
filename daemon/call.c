@@ -2334,22 +2334,36 @@ static bencode_item_t *peer_address(bencode_buffer_t *b, struct stream *s) {
 	return d;
 }
 
+static bencode_item_t *stats_encode(bencode_buffer_t *b, struct stats *s) {
+	bencode_item_t *d;
+
+	d = bencode_dictionary(b);
+	bencode_dictionary_add_integer(d, "packets", s->packets);
+	bencode_dictionary_add_integer(d, "bytes", s->bytes);
+	bencode_dictionary_add_integer(d, "errors", s->errors);
+	return d;
+}
+
 static bencode_item_t *streamrelay_stats(bencode_buffer_t *b, struct streamrelay *r) {
-	bencode_item_t *d, *s;
+	bencode_item_t *d;
 
 	d = bencode_dictionary(b);
 
-	s = bencode_dictionary_add_dictionary(d, "stats");
-	bencode_dictionary_add_integer(s, "packets", r->stats.packets);
-	bencode_dictionary_add_integer(s, "bytes", r->stats.bytes);
-	bencode_dictionary_add_integer(s, "errors", r->stats.errors);
-
+	bencode_dictionary_add(d, "counters", stats_encode(b, &r->stats));
 	bencode_dictionary_add(d, "peer address", peer_address(b, &r->peer));
 	bencode_dictionary_add(d, "advertised peer address", peer_address(b, &r->peer_advertised));
 
 	bencode_dictionary_add_integer(d, "local port", r->fd.localport);
 
 	return d;
+}
+
+static bencode_item_t *rtp_rtcp_stats(bencode_buffer_t *b, struct stats *rtp, struct stats *rtcp) {
+	bencode_item_t *s;
+	s = bencode_dictionary(b);
+	bencode_dictionary_add(s, "rtp", stats_encode(b, rtp));
+	bencode_dictionary_add(s, "rtcp", stats_encode(b, rtcp));
+	return s;
 }
 
 static bencode_item_t *peer_stats(bencode_buffer_t *b, struct peer *p) {
@@ -2376,14 +2390,19 @@ static bencode_item_t *peer_stats(bencode_buffer_t *b, struct peer *p) {
 	return d;
 }
 
+#define SSUM(x) \
+	totals[0].x += p->rtps[0].stats.x; \
+	totals[1].x += p->rtps[1].stats.x; \
+	totals[2].x += px->rtps[0].stats.x; \
+	totals[3].x += px->rtps[1].stats.x
 const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str callid, fromtag, totag;
 	struct call *call;
 	GList *l;
 	struct callstream *cs;
-	bencode_item_t *streams, *stream;
+	bencode_item_t *streams, *stream, *dict;
 	struct peer *p, *px;
-	unsigned long long totals[4] = {0,0,0,0};
+	struct stats totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
 	int i;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
@@ -2398,6 +2417,7 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	bencode_dictionary_add_integer(output, "created", call->created);
 	streams = bencode_dictionary_add_list(output, "streams");
 
+	ZERO(totals);
 	for (l = call->callstreams->head; l; l = l->next) {
 		cs = l->data;
 		mutex_lock(&cs->lock);
@@ -2422,10 +2442,9 @@ tag_match:
 			bencode_list_add(stream, peer_stats(output->buffer, p));
 			bencode_list_add(stream, peer_stats(output->buffer, px));
 
-			totals[0] += p->rtps[0].stats.packets;
-			totals[1] += px->rtps[0].stats.packets;
-			totals[2] += p->rtps[1].stats.packets;
-			totals[3] += px->rtps[1].stats.packets;
+			SSUM(packets);
+			SSUM(bytes);
+			SSUM(errors);
 
 			break;
 		}
@@ -2434,6 +2453,10 @@ tag_match:
 	}
 
 	mutex_unlock(&call->lock);
+
+	dict = bencode_dictionary_add_dictionary(output, "totals");
+	bencode_dictionary_add(dict, "input", rtp_rtcp_stats(output->buffer, &totals[0], &totals[1]));
+	bencode_dictionary_add(dict, "output", rtp_rtcp_stats(output->buffer, &totals[2], &totals[3]));
 
 	return NULL;
 }
