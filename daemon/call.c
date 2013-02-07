@@ -1961,17 +1961,11 @@ str *call_query_udp(char **out, struct callmaster *m) {
 
 	DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
 
-	str_init(&callid, out[RE_UDP_DQ_CALLID]);
-	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, &callid);
+	c = call_get_opmode(&callid, NULL, m, OP_OTHER);
 	if (!c) {
-		rwlock_unlock_r(&m->hashlock);
 		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to query not found", STR_FMT(&callid));
 		goto err;
 	}
-	obj_hold(c);
-	mutex_lock(&c->lock);
-	rwlock_unlock_r(&m->hashlock);
 
 	for (l = c->callstreams->head; l; l = l->next) {
 		cs = l->data;
