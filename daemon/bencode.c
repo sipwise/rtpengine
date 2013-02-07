@@ -212,6 +212,14 @@ static bencode_item_t *__bencode_string_alloc(bencode_buffer_t *buf, const void 
 	return ret;
 }
 
+bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, int len) {
+	char *sd = __bencode_alloc(buf, len);
+	if (!sd)
+		return NULL;
+	memcpy(sd, s, len);
+	return bencode_string_len(buf, sd, len);
+}
+
 bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len) {
 	return __bencode_string_alloc(buf, s, len, len, 1, BENCODE_STRING);
 }

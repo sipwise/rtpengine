@@ -150,6 +150,11 @@ bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len
  * to bencode_string_len(). */
 static inline bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *s);
 
+/* Identical to the above two functions, but copies the string into the bencode_buffer_t object.
+ * Thus, the given string doesn't have to remain valid and accessible afterwards. */
+bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, int len);
+static inline bencode_item_t *bencode_string_dup(bencode_buffer_t *buf, const char *s);
+
 /* Creates a new byte-string object from a "str" object. The string does not have to be null-
  * terminated. */
 static inline bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
@@ -334,6 +339,10 @@ static inline bencode_item_t *bencode_dictionary_get_expect(bencode_item_t *dict
 
 static inline bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *s) {
 	return bencode_string_len(buf, s, strlen(s));
+}
+
+static inline bencode_item_t *bencode_string_dup(bencode_buffer_t *buf, const char *s) {
+	return bencode_string_len_dup(buf, s, strlen(s));
 }
 
 static inline bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s) {
