@@ -118,6 +118,7 @@ static char *rtp_codecs[] = {
 static void call_destroy(struct call *);
 static void unkernelize(struct peer *);
 static void relays_cache_port_used(struct relays_cache *c);
+static void ng_call_stats(struct call *call, str *fromtag, str *totag, bencode_item_t *output);
 
 
 
@@ -2424,11 +2425,24 @@ static void ng_stats_cb(struct peer *p, struct peer *px, void *streams) {
 	bencode_list_add(stream, peer_stats(stream->buffer, px));
 }
 
+/* call must be locked */
+static void ng_call_stats(struct call *call, str *fromtag, str *totag, bencode_item_t *output) {
+	bencode_item_t *streams, *dict;
+	struct call_stats stats;
+
+	bencode_dictionary_add_integer(output, "created", call->created);
+
+	streams = bencode_dictionary_add_list(output, "streams");
+	stats_query(call, fromtag, totag, &stats, ng_stats_cb, streams);
+
+	dict = bencode_dictionary_add_dictionary(output, "totals");
+	bencode_dictionary_add(dict, "input", rtp_rtcp_stats(output->buffer, &stats.totals[0], &stats.totals[1]));
+	bencode_dictionary_add(dict, "output", rtp_rtcp_stats(output->buffer, &stats.totals[2], &stats.totals[3]));
+}
+
 const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str callid, fromtag, totag;
 	struct call *call;
-	bencode_item_t *streams, *dict;
-	struct call_stats stats;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -2439,16 +2453,8 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	bencode_dictionary_get_str(input, "to-tag", &totag);
 
 	bencode_dictionary_add_string(output, "result", "ok");
-	bencode_dictionary_add_integer(output, "created", call->created);
-
-	streams = bencode_dictionary_add_list(output, "streams");
-	stats_query(call, &fromtag, &totag, &stats, ng_stats_cb, streams);
-
+	ng_call_stats(call, &fromtag, &totag, output);
 	mutex_unlock(&call->lock);
-
-	dict = bencode_dictionary_add_dictionary(output, "totals");
-	bencode_dictionary_add(dict, "input", rtp_rtcp_stats(output->buffer, &stats.totals[0], &stats.totals[1]));
-	bencode_dictionary_add(dict, "output", rtp_rtcp_stats(output->buffer, &stats.totals[2], &stats.totals[3]));
 
 	return NULL;
 }
