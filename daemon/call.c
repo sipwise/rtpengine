@@ -118,7 +118,7 @@ static char *rtp_codecs[] = {
 static void call_destroy(struct call *);
 static void unkernelize(struct peer *);
 static void relays_cache_port_used(struct relays_cache *c);
-static void ng_call_stats(struct call *call, str *fromtag, str *totag, bencode_item_t *output);
+static void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output);
 
 
 
@@ -1961,7 +1961,7 @@ str *call_delete_udp(char **out, struct callmaster *m) {
 	stats->totals[2].x += px->rtps[0].stats.x; \
 	stats->totals[3].x += px->rtps[1].stats.x
 /* call must be locked */
-static void stats_query(struct call *call, str *fromtag, str *totag, struct call_stats *stats,
+static void stats_query(struct call *call, const str *fromtag, const str *totag, struct call_stats *stats,
 	void (*cb)(struct peer *, struct peer *, void *), void *arg)
 {
 	GList *l;
@@ -2426,7 +2426,7 @@ static void ng_stats_cb(struct peer *p, struct peer *px, void *streams) {
 }
 
 /* call must be locked */
-static void ng_call_stats(struct call *call, str *fromtag, str *totag, bencode_item_t *output) {
+static void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output) {
 	bencode_item_t *streams, *dict;
 	struct call_stats stats;
 
