@@ -80,6 +80,11 @@ struct callmaster {
 	struct callmaster_config conf;
 };
 
+struct call_stats {
+	time_t		newest;
+	struct stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
+};
+
 static char *rtp_codecs[] = {
 	[0]	= "G711u",
 	[1]	= "1016",
@@ -1950,12 +1955,12 @@ str *call_delete_udp(char **out, struct callmaster *m) {
 }
 
 #define SSUM(x) \
-	totals[0].x += p->rtps[0].stats.x; \
-	totals[1].x += p->rtps[1].stats.x; \
-	totals[2].x += px->rtps[0].stats.x; \
-	totals[3].x += px->rtps[1].stats.x
+	stats->totals[0].x += p->rtps[0].stats.x; \
+	stats->totals[1].x += p->rtps[1].stats.x; \
+	stats->totals[2].x += px->rtps[0].stats.x; \
+	stats->totals[3].x += px->rtps[1].stats.x
 /* call must be locked */
-static void stats_query(struct call *call, str *fromtag, str *totag, struct stats *totals,
+static void stats_query(struct call *call, str *fromtag, str *totag, struct call_stats *stats,
 	void (*cb)(struct peer *, struct peer *, void *), void *arg)
 {
 	GList *l;
@@ -1963,10 +1968,7 @@ static void stats_query(struct call *call, str *fromtag, str *totag, struct stat
 	int i;
 	struct peer *p, *px;
 
-	ZERO(totals[0]); /* rtp in */
-	ZERO(totals[1]); /* rtcp in */
-	ZERO(totals[2]); /* rtp out */
-	ZERO(totals[3]); /* rtcp out */
+	ZERO(*stats);
 
 	for (l = call->callstreams->head; l; l = l->next) {
 		cs = l->data;
@@ -2455,7 +2457,7 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	str callid, fromtag, totag;
 	struct call *call;
 	bencode_item_t *streams, *dict;
-	struct stats totals[4];
+	struct call_stats stats;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -2469,13 +2471,13 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	bencode_dictionary_add_integer(output, "created", call->created);
 
 	streams = bencode_dictionary_add_list(output, "streams");
-	stats_query(call, &fromtag, &totag, totals, ng_stats_cb, streams);
+	stats_query(call, &fromtag, &totag, &stats, ng_stats_cb, streams);
 
 	mutex_unlock(&call->lock);
 
 	dict = bencode_dictionary_add_dictionary(output, "totals");
-	bencode_dictionary_add(dict, "input", rtp_rtcp_stats(output->buffer, &totals[0], &totals[1]));
-	bencode_dictionary_add(dict, "output", rtp_rtcp_stats(output->buffer, &totals[2], &totals[3]));
+	bencode_dictionary_add(dict, "input", rtp_rtcp_stats(output->buffer, &stats.totals[0], &stats.totals[1]));
+	bencode_dictionary_add(dict, "output", rtp_rtcp_stats(output->buffer, &stats.totals[2], &stats.totals[3]));
 
 	return NULL;
 }
