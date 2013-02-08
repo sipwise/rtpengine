@@ -43,6 +43,8 @@
 
 #define BIT_ARRAY_DECLARE(name, size)	int name[((size) + sizeof(int) * 8 - 1) / (sizeof(int) * 8)]
 
+#define UINT64F			"%" G_GUINT64_FORMAT
+
 
 
 

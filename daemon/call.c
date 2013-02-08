@@ -2030,10 +2030,10 @@ str *call_query_udp(char **out, struct callmaster *m) {
 
 	mutex_unlock(&c->lock);
 
-	ret = str_sprintf("%s %lld %llu %llu %llu %llu\n", out[RE_UDP_COOKIE],
+	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
 		(long long int) m->conf.silent_timeout - (poller_now - stats.newest),
-		(long long unsigned) stats.totals[0].packets, (long long unsigned) stats.totals[1].packets,
-		(long long unsigned) stats.totals[2].packets, (long long unsigned) stats.totals[3].packets);
+		stats.totals[0].packets, stats.totals[1].packets,
+		stats.totals[2].packets, stats.totals[3].packets);
 	goto out;
 
 err:
@@ -2093,13 +2093,12 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 		else
 			smart_ntop_p(addr3, &m->conf.ipv6, sizeof(addr3));
 
-		control_stream_printf(s, "stream %s:%u %s:%u %s:%u %llu/%llu/%llu %s %s - %i\n",
+		control_stream_printf(s, "stream %s:%u %s:%u %s:%u "UINT64F"/"UINT64F"/"UINT64F" %s %s - %i\n",
 			addr1, r1->peer.port,
 			addr2, r2->peer.port,
 			addr3, r1->fd.localport,
-			(long long unsigned int) r1->stats.bytes + rx1->stats.bytes,
-			(long long unsigned int) r2->stats.bytes + rx2->stats.bytes,
-			(long long unsigned int) r1->stats.bytes + rx1->stats.bytes + r2->stats.bytes + rx2->stats.bytes,
+			r1->stats.bytes + rx1->stats.bytes, r2->stats.bytes + rx2->stats.bytes,
+			r1->stats.bytes + rx1->stats.bytes + r2->stats.bytes + rx2->stats.bytes,
 			"active",
 			p->codec ? : "unknown",
 			(int) (poller_now - r1->last));
@@ -2127,11 +2126,10 @@ void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
 	g_hash_table_foreach(m->callhash, callmaster_get_all_calls_interator, &q);
 	rwlock_unlock_r(&m->hashlock);
 
-	control_stream_printf(s, "proxy %u %llu/%llu/%llu\n",
+	control_stream_printf(s, "proxy %u "UINT64F"/"UINT64F"/"UINT64F"\n",
 		g_queue_get_length(&q),
-		(long long unsigned int) st.bytes,
-		(long long unsigned int) st.bytes - st.errors,
-		(long long unsigned int) st.bytes * 2 - st.errors);
+		st.bytes, st.bytes - st.errors,
+		st.bytes * 2 - st.errors);
 
 	while (q.head) {
 		c = g_queue_pop_head(&q);
