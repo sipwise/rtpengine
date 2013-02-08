@@ -1856,11 +1856,11 @@ str *call_lookup_tcp(char **out, struct callmaster *m) {
 }
 
 static int tags_match(const struct peer *p, const struct peer *px, const str *fromtag, const str *totag) {
-	if (!fromtag->len)
+	if (!fromtag || !fromtag->len)
 		return 1;
 	if (str_cmp_str(&p->tag, fromtag))
 		return 0;
-	if (!totag->len)
+	if (!totag || !totag->len)
 		return 1;
 	if (str_cmp_str(&px->tag, totag))
 		return 0;
