@@ -2011,15 +2011,14 @@ tag_match:
 
 str *call_query_udp(char **out, struct callmaster *m) {
 	struct call *c;
-	str *ret, callid;
-	struct callstream *cs;
-	long long unsigned int pcs[4] = {0,0,0,0};
-	time_t newest = 0;
-	int i;
-	GList *l;
-	struct peer *p, *px;
+	str *ret, callid, fromtag, totag;
+	struct call_stats stats;
 
 	DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
+
+	str_init(&callid, out[RE_UDP_DQ_CALLID]);
+	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
+	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
 
 	c = call_get_opmode(&callid, NULL, m, OP_OTHER);
 	if (!c) {
@@ -2027,45 +2026,14 @@ str *call_query_udp(char **out, struct callmaster *m) {
 		goto err;
 	}
 
-	for (l = c->callstreams->head; l; l = l->next) {
-		cs = l->data;
-		mutex_lock(&cs->lock);
-
-		for (i = 0; i < 2; i++) {
-			p = &cs->peers[i];
-			px = &cs->peers[i ^ 1];
-
-			if (p->rtps[0].last > newest)
-				newest = p->rtps[0].last;
-			if (p->rtps[1].last > newest)
-				newest = p->rtps[1].last;
-
-			if (!out[RE_UDP_DQ_FROMTAG] || !*out[RE_UDP_DQ_FROMTAG])
-				goto tag_match;
-
-			if (str_cmp(&p->tag, out[RE_UDP_DQ_FROMTAG]))
-				continue;
-			if (!out[RE_UDP_DQ_TOTAG] || !*out[RE_UDP_DQ_TOTAG])
-				goto tag_match;
-
-			if (str_cmp(&px->tag, out[RE_UDP_DQ_TOTAG]))
-				continue;
-
-tag_match:
-			pcs[0] += p->rtps[0].stats.packets;
-			pcs[1] += px->rtps[0].stats.packets;
-			pcs[2] += p->rtps[1].stats.packets;
-			pcs[3] += px->rtps[1].stats.packets;
-		}
-
-		mutex_unlock(&cs->lock);
-	}
+	stats_query(c, &fromtag, &totag, &stats, NULL, NULL);
 
 	mutex_unlock(&c->lock);
 
 	ret = str_sprintf("%s %lld %llu %llu %llu %llu\n", out[RE_UDP_COOKIE],
-		(long long int) m->conf.silent_timeout - (poller_now - newest),
-		pcs[0], pcs[1], pcs[2], pcs[3]);
+		(long long int) m->conf.silent_timeout - (poller_now - stats.newest),
+		(long long unsigned) stats.totals[0].packets, (long long unsigned) stats.totals[1].packets,
+		(long long unsigned) stats.totals[2].packets, (long long unsigned) stats.totals[3].packets);
 	goto out;
 
 err:
