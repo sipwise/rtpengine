@@ -113,6 +113,7 @@ static inline bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *
 
 /* Ditto, but for a "str" object */
 static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
+static inline bencode_item_t *bencode_dictionary_add_str_dup(bencode_item_t *dict, const char *key, const str *val);
 
 /* Ditto, but adds a string created through an iovec array to the dictionary. See
  * bencode_string_iovec(). */
@@ -156,14 +157,15 @@ bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len
  * to bencode_string_len(). */
 static inline bencode_item_t *bencode_string(bencode_buffer_t *buf, const char *s);
 
-/* Identical to the above two functions, but copies the string into the bencode_buffer_t object.
- * Thus, the given string doesn't have to remain valid and accessible afterwards. */
-bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, int len);
-static inline bencode_item_t *bencode_string_dup(bencode_buffer_t *buf, const char *s);
-
 /* Creates a new byte-string object from a "str" object. The string does not have to be null-
  * terminated. */
 static inline bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
+
+/* Identical to the above three functions, but copies the string into the bencode_buffer_t object.
+ * Thus, the given string doesn't have to remain valid and accessible afterwards. */
+bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, int len);
+static inline bencode_item_t *bencode_string_dup(bencode_buffer_t *buf, const char *s);
+static inline bencode_item_t *bencode_str_dup(bencode_buffer_t *buf, const str *s);
 
 /* Creates a new byte-string object from an iovec array. The created object has different internal
  * semantics (not a BENCODE_STRING, but a BENCODE_IOVEC) and must not be treated like other string
@@ -355,6 +357,10 @@ static inline bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s) {
 	return bencode_string_len(buf, s->s, s->len);
 }
 
+static inline bencode_item_t *bencode_str_dup(bencode_buffer_t *buf, const str *s) {
+	return bencode_string_len_dup(buf, s->s, s->len);
+}
+
 static inline bencode_item_t *bencode_dictionary_add(bencode_item_t *dict, const char *key, bencode_item_t *val) {
 	if (!key)
 		return NULL;
@@ -377,6 +383,12 @@ static inline bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, c
 	if (!val)
 		return NULL;
 	return bencode_dictionary_add(dict, key, bencode_str(dict->buffer, val));
+}
+
+static inline bencode_item_t *bencode_dictionary_add_str_dup(bencode_item_t *dict, const char *key, const str *val) {
+	if (!val)
+		return NULL;
+	return bencode_dictionary_add(dict, key, bencode_str_dup(dict->buffer, val));
 }
 
 static inline bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val) {
