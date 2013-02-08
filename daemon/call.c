@@ -2399,7 +2399,7 @@ static bencode_item_t *peer_stats(bencode_buffer_t *b, struct peer *p) {
 
 	d = bencode_dictionary(b);
 
-	bencode_dictionary_add_str(d, "tag", &p->tag);
+	bencode_dictionary_add_str_dup(d, "tag", &p->tag);
 	if (p->codec)
 		bencode_dictionary_add_string(d, "codec", p->codec);
 	if (p->kernelized)
