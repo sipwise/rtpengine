@@ -1978,6 +1978,11 @@ static void stats_query(struct call *call, str *fromtag, str *totag, struct call
 			p = &cs->peers[i];
 			px = &cs->peers[i ^ 1];
 
+			if (p->rtps[0].last > stats->newest)
+				stats->newest = p->rtps[0].last;
+			if (p->rtps[1].last > stats->newest)
+				stats->newest = p->rtps[1].last;
+
 			if (!fromtag->len)
 				goto tag_match;
 
