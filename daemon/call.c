@@ -1949,6 +1949,59 @@ str *call_delete_udp(char **out, struct callmaster *m) {
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
 }
 
+#define SSUM(x) \
+	totals[0].x += p->rtps[0].stats.x; \
+	totals[1].x += p->rtps[1].stats.x; \
+	totals[2].x += px->rtps[0].stats.x; \
+	totals[3].x += px->rtps[1].stats.x
+/* call must be locked */
+static void stats_query(struct call *call, str *fromtag, str *totag, struct stats *totals,
+	void (*cb)(struct peer *, struct peer *, void *), void *arg)
+{
+	GList *l;
+	struct callstream *cs;
+	int i;
+	struct peer *p, *px;
+
+	ZERO(totals[0]); /* rtp in */
+	ZERO(totals[1]); /* rtcp in */
+	ZERO(totals[2]); /* rtp out */
+	ZERO(totals[3]); /* rtcp out */
+
+	for (l = call->callstreams->head; l; l = l->next) {
+		cs = l->data;
+		mutex_lock(&cs->lock);
+
+		for (i = 0; i < 2; i++) {
+			p = &cs->peers[i];
+			px = &cs->peers[i ^ 1];
+
+			if (!fromtag->len)
+				goto tag_match;
+
+			if (str_cmp_str(&p->tag, fromtag))
+				continue;
+			if (!totag->len)
+				goto tag_match;
+
+			if (str_cmp_str(&px->tag, totag))
+				continue;
+
+tag_match:
+			if (cb)
+				cb(p, px, arg);
+
+			SSUM(packets);
+			SSUM(bytes);
+			SSUM(errors);
+
+			break;
+		}
+
+		mutex_unlock(&cs->lock);
+	}
+}
+
 str *call_query_udp(char **out, struct callmaster *m) {
 	struct call *c;
 	str *ret, callid;
@@ -2390,20 +2443,19 @@ static bencode_item_t *peer_stats(bencode_buffer_t *b, struct peer *p) {
 	return d;
 }
 
-#define SSUM(x) \
-	totals[0].x += p->rtps[0].stats.x; \
-	totals[1].x += p->rtps[1].stats.x; \
-	totals[2].x += px->rtps[0].stats.x; \
-	totals[3].x += px->rtps[1].stats.x
+static void ng_stats_cb(struct peer *p, struct peer *px, void *streams) {
+	bencode_item_t *stream;
+
+	stream = bencode_list_add_list(streams);
+	bencode_list_add(stream, peer_stats(stream->buffer, p));
+	bencode_list_add(stream, peer_stats(stream->buffer, px));
+}
+
 const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str callid, fromtag, totag;
 	struct call *call;
-	GList *l;
-	struct callstream *cs;
-	bencode_item_t *streams, *stream, *dict;
-	struct peer *p, *px;
-	struct stats totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
-	int i;
+	bencode_item_t *streams, *dict;
+	struct stats totals[4];
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -2415,42 +2467,9 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 
 	bencode_dictionary_add_string(output, "result", "ok");
 	bencode_dictionary_add_integer(output, "created", call->created);
+
 	streams = bencode_dictionary_add_list(output, "streams");
-
-	ZERO(totals);
-	for (l = call->callstreams->head; l; l = l->next) {
-		cs = l->data;
-		mutex_lock(&cs->lock);
-
-		for (i = 0; i < 2; i++) {
-			p = &cs->peers[i];
-			px = &cs->peers[i ^ 1];
-
-			if (!fromtag.len)
-				goto tag_match;
-
-			if (str_cmp_str(&p->tag, &fromtag))
-				continue;
-			if (!totag.len)
-				goto tag_match;
-
-			if (str_cmp_str(&px->tag, &totag))
-				continue;
-
-tag_match:
-			stream = bencode_list_add_list(streams);
-			bencode_list_add(stream, peer_stats(output->buffer, p));
-			bencode_list_add(stream, peer_stats(output->buffer, px));
-
-			SSUM(packets);
-			SSUM(bytes);
-			SSUM(errors);
-
-			break;
-		}
-
-		mutex_unlock(&cs->lock);
-	}
+	stats_query(call, &fromtag, &totag, totals, ng_stats_cb, streams);
 
 	mutex_unlock(&call->lock);
 
