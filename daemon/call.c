@@ -1855,7 +1855,9 @@ str *call_lookup_tcp(char **out, struct callmaster *m) {
 	return call_request_lookup_tcp(out, m, OP_ANSWER, "totag");
 }
 
-static int call_delete_branch(struct callmaster *m, const str *callid, const str *branch, const str *fromtag, const str *totag) {
+static int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
+	const str *fromtag, const str *totag, bencode_item_t *output)
+{
 	struct call *c;
 	struct callstream *cs;
 	GList *l;
@@ -1901,6 +1903,9 @@ tag_match:
 	mutex_unlock(&cs->lock);
 
 no_tags:
+	if (output)
+		ng_call_stats(c, fromtag, totag, output);
+
 	if (branch && branch->len) {
 		if (!g_hash_table_remove(c->branches, branch)) {
 			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", STR_FMT(&c->callid), STR_FMT(branch));
@@ -1949,7 +1954,7 @@ str *call_delete_udp(char **out, struct callmaster *m) {
 	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
 	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
 
-	if (call_delete_branch(m, &callid, &branch, &fromtag, &totag))
+	if (call_delete_branch(m, &callid, &branch, &fromtag, &totag, NULL))
 		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
@@ -2053,7 +2058,7 @@ void call_delete_tcp(char **out, struct callmaster *m) {
 	str callid;
 
 	str_init(&callid, out[RE_TCP_D_CALLID]);
-	call_delete_branch(m, &callid, NULL, NULL, NULL);
+	call_delete_branch(m, &callid, NULL, NULL, NULL, NULL);
 }
 
 
@@ -2329,7 +2334,7 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 	bencode_dictionary_get_str(input, "to-tag", &totag);
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 
-	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag))
+	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag, output))
 		return "Call-ID not found or tags didn't match";
 
 	bencode_dictionary_add_string(output, "result", "ok");
