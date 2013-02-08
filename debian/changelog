@@ -1,3 +1,10 @@
+ngcp-mediaproxy-ng (2.1.2) unstable; urgency=low
+
+  * Treat nulled IP addresses or ports as wildcards when
+    looking for streams/local ports to re-use
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Fri, 08 Feb 2013 14:28:59 -0500
+
 ngcp-mediaproxy-ng (2.1.1) unstable; urgency=low
 
   * Don't reject lookups with unknown via-branches, instead
