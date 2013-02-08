@@ -1888,7 +1888,6 @@ static int call_delete_branch(struct callmaster *m, const str *callid, const str
 	const str *fromtag, const str *totag, bencode_item_t *output)
 {
 	struct call *c;
-	struct callstream *cs;
 	GList *l;
 	int ret;
 
@@ -1901,8 +1900,7 @@ static int call_delete_branch(struct callmaster *m, const str *callid, const str
 	log_info = branch;
 
 	for (l = c->callstreams->head; l; l = l->next) {
-		cs = l->data;
-		if (tags_match_cs(cs, fromtag, totag))
+		if (tags_match_cs(l->data, fromtag, totag))
 			goto tag_match;
 	}
 
