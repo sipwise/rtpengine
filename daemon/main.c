@@ -443,7 +443,7 @@ void create_everything(struct main_context *ctx) {
 		if (!dlh)
 			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
 		strp = dlsym(dlh, "__module_version");
-		if (!strp || !*strp || strcmp(*strp, "redis/1.0.2"))
+		if (!strp || !*strp || strcmp(*strp, "redis/2"))
 			die("Incorrect redis module version: %s\n", *strp);
 		redis_mod_verify(dlh);
 		mc.redis = redis_new(redis_ip, redis_port, redis_db);
