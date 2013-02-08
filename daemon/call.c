@@ -1855,14 +1855,42 @@ str *call_lookup_tcp(char **out, struct callmaster *m) {
 	return call_request_lookup_tcp(out, m, OP_ANSWER, "totag");
 }
 
+static int tags_match(const struct peer *p, const struct peer *px, const str *fromtag, const str *totag) {
+	if (!fromtag->len)
+		return 1;
+	if (str_cmp_str(&p->tag, fromtag))
+		return 0;
+	if (!totag->len)
+		return 1;
+	if (str_cmp_str(&px->tag, totag))
+		return 0;
+	return 1;
+}
+
+/* cs must be unlocked */
+static int tags_match_cs(struct callstream *cs, const str *fromtag, const str *totag) {
+	int i;
+
+	mutex_lock(&cs->lock);
+
+	for (i = 0; i < 2; i++) {
+		if (tags_match(&cs->peers[i], &cs->peers[i ^ 1], fromtag, totag)) {
+			mutex_unlock(&cs->lock);
+			return 1;
+		}
+	}
+
+	mutex_unlock(&cs->lock);
+	return 0;
+}
+
 static int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output)
 {
 	struct call *c;
 	struct callstream *cs;
 	GList *l;
-	int ret, i;
-	struct peer *p, *px;
+	int ret;
 
 	c = call_get(callid, NULL, m);
 	if (!c) {
@@ -1872,37 +1900,16 @@ static int call_delete_branch(struct callmaster *m, const str *callid, const str
 
 	log_info = branch;
 
-	if (!fromtag || !fromtag->len)
-		goto no_tags;
-
 	for (l = c->callstreams->head; l; l = l->next) {
 		cs = l->data;
-		mutex_lock(&cs->lock);
-
-		for (i = 0; i < 2; i++) {
-			p = &cs->peers[i];
-			if (str_cmp_str(&p->tag, fromtag))
-				continue;
-			if (!totag || !totag->len)
-				goto tag_match;
-
-			px = &cs->peers[i ^ 1];
-			if (str_cmp_str(&px->tag, totag))
-				continue;
-
+		if (tags_match_cs(cs, fromtag, totag))
 			goto tag_match;
-		}
-
-		mutex_unlock(&cs->lock);
 	}
 
 	mylog(LOG_INFO, LOG_PREFIX_C "Tags didn't match for delete message, ignoring", LOG_PARAMS_C(c));
 	goto err;
 
 tag_match:
-	mutex_unlock(&cs->lock);
-
-no_tags:
 	if (output)
 		ng_call_stats(c, fromtag, totag, output);
 
@@ -1989,18 +1996,9 @@ static void stats_query(struct call *call, const str *fromtag, const str *totag,
 			if (p->rtps[1].last > stats->newest)
 				stats->newest = p->rtps[1].last;
 
-			if (!fromtag->len)
-				goto tag_match;
-
-			if (str_cmp_str(&p->tag, fromtag))
-				continue;
-			if (!totag->len)
-				goto tag_match;
-
-			if (str_cmp_str(&px->tag, totag))
+			if (!tags_match(p, px, fromtag, totag))
 				continue;
 
-tag_match:
 			if (cb)
 				cb(p, px, arg);
 
