@@ -437,7 +437,7 @@ static int skip_over(struct sdp_chopper *chop, str *where) {
 
 	offset = (where->s - chop->input->s) + where->len;
 	assert(offset >= 0);
-	assert(offset < chop->input->len);
+	assert(offset <= chop->input->len);
 
 	len = offset - chop->position;
 	if (len < 0) {
