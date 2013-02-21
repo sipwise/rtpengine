@@ -49,6 +49,13 @@ struct sdp_media {
 	GQueue attributes;
 };
 
+struct sdp_attribute {
+	str full_line,	/* including a= and \r\n */
+	    line_value,	/* without a= and without \r\n */
+	    attribute_name,	/* just "rtpmap" */
+	    attribute_value;	/* just "8 PCMA/8000" */
+};
+
 
 
 
@@ -171,7 +178,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
 	const char *errstr;
-	str *attribute;
+	struct sdp_attribute *attribute;
 
 	b = body->s;
 	end = str_end(body);
@@ -190,8 +197,6 @@ int sdp_parse(str *body, GQueue *sessions) {
 		}
 		else {
 			next_line = line_end + 1;
-			if (next_line >= end)
-				next_line = NULL;
 			if (line_end[-1] == '\r')
 				line_end--;
 		}
@@ -241,10 +246,24 @@ int sdp_parse(str *body, GQueue *sessions) {
 
 			case 'a':
 				attribute = g_slice_alloc(sizeof(*attribute));
-				attribute->s = value;
-				attribute->len = line_end - value;
+
+				attribute->full_line.s = b;
+				attribute->full_line.len = next_line ? (next_line - b) : (line_end - b);
+
+				attribute->line_value.s = value;
+				attribute->line_value.len = line_end - value;
+
+				attribute->attribute_name = attribute->line_value;
+				str_chr_str(&attribute->attribute_value, &attribute->attribute_name, ':');
+				if (attribute->attribute_value.s) {
+					attribute->attribute_name.len -= attribute->attribute_value.len;
+					attribute->attribute_value.s++;
+					attribute->attribute_value.len--;
+				}
+
 				g_queue_push_tail(media ? &media->attributes : &session->attributes,
 					attribute);
+
 				break;
 
 			case 's':
@@ -276,9 +295,9 @@ error:
 }
 
 static void free_attributes(GQueue *a) {
-	str *str;
-	while ((str = g_queue_pop_head(a))) {
-		g_slice_free1(sizeof(*str), str);
+	struct sdp_attribute *attr;
+	while ((attr = g_queue_pop_head(a))) {
+		g_slice_free1(sizeof(*attr), attr);
 	}
 }
 
