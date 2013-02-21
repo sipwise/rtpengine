@@ -407,12 +407,12 @@ static void chopper_append_printf(struct sdp_chopper *c, const char *fmt, ...) {
 	chopper_append(c, g_string_chunk_insert_len(c->chunk, buf, l), l);
 }
 
-static int copy_up_to(struct sdp_chopper *chop, str *where) {
+static int copy_up_to_ptr(struct sdp_chopper *chop, const char *b) {
 	int offset, len;
 
-	offset = where->s - chop->input->s;
+	offset = b - chop->input->s;
 	assert(offset >= 0);
-	assert(offset < chop->input->len);
+	assert(offset <= chop->input->len);
 
 	len = offset - chop->position;
 	if (len < 0) {
@@ -424,12 +424,16 @@ static int copy_up_to(struct sdp_chopper *chop, str *where) {
 	return 0;
 }
 
+static int copy_up_to(struct sdp_chopper *chop, str *where) {
+	return copy_up_to_ptr(chop, where->s);
+}
+
+static int copy_up_to_end_of(struct sdp_chopper *chop, str *where) {
+	return copy_up_to_ptr(chop, where->s + where->len);
+}
+
 static void copy_remainder(struct sdp_chopper *chop) {
-	int len;
-	len = chop->input->len - chop->position;
-	assert(len >= 0);
-	chopper_append(chop, chop->input->s + chop->position, len);
-	chop->position += len;
+	copy_up_to_ptr(chop, chop->input->s + chop->input->len);
 }
 
 static int skip_over(struct sdp_chopper *chop, str *where) {
