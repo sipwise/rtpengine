@@ -2183,6 +2183,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	int diridx;
 	enum stream_direction dirs[2];
 	GList *gl;
+	str s;
 
 	ZERO(*out);
 	ZERO(dirs);
@@ -2227,6 +2228,11 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	if (list && (it = list->child)) {
 		bencode_get_str(it, &out->received_from_address);
 		bencode_get_str(it->sibling, &out->received_from_family);
+	}
+
+	if (bencode_dictionary_get_str(input, "ICE", &s)) {
+		if (!str_cmp(&s, "remove"))
+			out->ice_remove = 1;
 	}
 }
 

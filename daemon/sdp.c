@@ -529,6 +529,54 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 	g_slice_free1(sizeof(*chop), chop);
 }
 
+static int remove_ice(struct sdp_chopper *chop, GQueue *attrs) {
+	struct sdp_attribute *attr;
+	GList *l;
+
+	for (l = attrs->head; l; l = l->next) {
+		attr = l->data;
+
+		switch (attr->attribute_name.len) {
+			case 7:
+				if (!str_cmp(&attr->attribute_name, "ice-pwd"))
+					goto strip;
+				break;
+			case 8:
+				if (!str_cmp(&attr->attribute_name, "ice-lite"))
+					goto strip;
+				break;
+			case 9:
+				if (!str_cmp(&attr->attribute_name, "candidate"))
+					goto strip;
+				if (!str_cmp(&attr->attribute_name, "ice-ufrag"))
+					goto strip;
+				break;
+			case 11:
+				if (!str_cmp(&attr->attribute_name, "ice-options"))
+					goto strip;
+				break;
+			case 12:
+				if (!str_cmp(&attr->attribute_name, "ice-mismatch"))
+					goto strip;
+				break;
+			case 17:
+				if (!str_cmp(&attr->attribute_name, "remote-candidates"))
+					goto strip;
+				break;
+		}
+
+		continue;
+
+strip:
+		if (copy_up_to(chop, &attr->full_line))
+			return -1;
+		if (skip_over(chop, &attr->full_line))
+			return -1;
+	}
+
+	return 0;
+}
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
@@ -550,6 +598,11 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		}
 		if (session->connection.parsed) {
 			if (replace_network_address(chop, &session->connection.address, m, off, flags))
+				goto error;
+		}
+
+		if (flags->ice_remove) {
+			if (remove_ice(chop, &session->attributes))
 				goto error;
 		}
 
@@ -576,6 +629,12 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				if (replace_network_address(chop, &media->connection.address, m, off, flags))
 					goto error;
 			}
+
+			if (flags->ice_remove) {
+				if (remove_ice(chop, &media->attributes))
+					goto error;
+			}
+
 		}
 	}
 

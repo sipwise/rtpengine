@@ -14,7 +14,8 @@ struct sdp_ng_flags {
 	    symmetric:1,
 	    trust_address:1,
 	    replace_origin:1,
-	    replace_sess_conn:1;
+	    replace_sess_conn:1,
+	    ice_remove:1;
 };
 
 struct sdp_chopper {
