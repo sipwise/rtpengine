@@ -54,10 +54,10 @@ struct sdp_media {
 struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
-	    attribute_name,	/* just "rtpmap" */
-	    attribute_value,	/* just "8 PCMA/8000" */
-	    attribute_key,	/* "rtpmap:8" */
-	    attribute_param;	/* "PCMA/8000" */
+	    name,	/* just "rtpmap" */
+	    value,	/* just "8 PCMA/8000" */
+	    key,	/* "rtpmap:8" */
+	    param;	/* "PCMA/8000" */
 };
 
 
@@ -265,27 +265,27 @@ int sdp_parse(str *body, GQueue *sessions) {
 				attribute->line_value.s = value;
 				attribute->line_value.len = line_end - value;
 
-				attribute->attribute_name = attribute->line_value;
-				str_chr_str(&attribute->attribute_value, &attribute->attribute_name, ':');
-				if (attribute->attribute_value.s) {
-					attribute->attribute_name.len -= attribute->attribute_value.len;
-					attribute->attribute_value.s++;
-					attribute->attribute_value.len--;
+				attribute->name = attribute->line_value;
+				str_chr_str(&attribute->value, &attribute->name, ':');
+				if (attribute->value.s) {
+					attribute->name.len -= attribute->value.len;
+					attribute->value.s++;
+					attribute->value.len--;
 
-					attribute->attribute_key = attribute->attribute_name;
-					str_chr_str(&attribute->attribute_param, &attribute->attribute_value, ' ');
-					if (attribute->attribute_param.s) {
-						attribute->attribute_key.len += 1 +
-							(attribute->attribute_value.len - attribute->attribute_param.len);
+					attribute->key = attribute->name;
+					str_chr_str(&attribute->param, &attribute->value, ' ');
+					if (attribute->param.s) {
+						attribute->key.len += 1 +
+							(attribute->value.len - attribute->param.len);
 
-						attribute->attribute_param.s++;
-						attribute->attribute_param.len--;
+						attribute->param.s++;
+						attribute->param.len--;
 
-						if (!attribute->attribute_param.len)
-							attribute->attribute_param.s = NULL;
+						if (!attribute->param.len)
+							attribute->param.s = NULL;
 					}
 					else
-						attribute->attribute_key.len += 1 + attribute->attribute_value.len;
+						attribute->key.len += 1 + attribute->value.len;
 				}
 
 				g_queue_push_tail(media ? &media->attributes : &session->attributes,
@@ -599,31 +599,31 @@ static int remove_ice(struct sdp_chopper *chop, GQueue *attrs) {
 	for (l = attrs->head; l; l = l->next) {
 		attr = l->data;
 
-		switch (attr->attribute_name.len) {
+		switch (attr->name.len) {
 			case 7:
-				if (!str_cmp(&attr->attribute_name, "ice-pwd"))
+				if (!str_cmp(&attr->name, "ice-pwd"))
 					goto strip;
 				break;
 			case 8:
-				if (!str_cmp(&attr->attribute_name, "ice-lite"))
+				if (!str_cmp(&attr->name, "ice-lite"))
 					goto strip;
 				break;
 			case 9:
-				if (!str_cmp(&attr->attribute_name, "candidate"))
+				if (!str_cmp(&attr->name, "candidate"))
 					goto strip;
-				if (!str_cmp(&attr->attribute_name, "ice-ufrag"))
+				if (!str_cmp(&attr->name, "ice-ufrag"))
 					goto strip;
 				break;
 			case 11:
-				if (!str_cmp(&attr->attribute_name, "ice-options"))
+				if (!str_cmp(&attr->name, "ice-options"))
 					goto strip;
 				break;
 			case 12:
-				if (!str_cmp(&attr->attribute_name, "ice-mismatch"))
+				if (!str_cmp(&attr->name, "ice-mismatch"))
 					goto strip;
 				break;
 			case 17:
-				if (!str_cmp(&attr->attribute_name, "remote-candidates"))
+				if (!str_cmp(&attr->name, "remote-candidates"))
 					goto strip;
 				break;
 		}
