@@ -28,6 +28,8 @@ struct sdp_chopper {
 	int str_len;
 };
 
+void sdp_init(void);
+
 int sdp_parse(str *body, GQueue *sessions);
 int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *);
 void sdp_free(GQueue *sessions);

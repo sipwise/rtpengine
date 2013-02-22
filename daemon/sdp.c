@@ -69,6 +69,9 @@ struct sdp_attribute {
 
 
 static const char ice_chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static char ice_foundation[17];
+static str ice_foundation_str;
+
 
 
 
@@ -656,19 +659,20 @@ strip:
 	return 0;
 }
 
+static void random_string(char *buf, int len) {
+	while (len--)
+		*buf++ = ice_chars[random() % strlen(ice_chars)];
+}
+
 static void create_random_string(struct call *call, str *s, int len) {
 	char buf[30];
-	char *p;
 
 	assert(len < sizeof(buf));
 	if (s->s)
 		return;
 
-	p = buf;
-	while (len--)
-		*p++ = ice_chars[random() % strlen(ice_chars)];
-
-	call_str_cpy_len(call, s, buf, p - buf);
+	random_string(buf, len);
+	call_str_cpy_len(call, s, buf, len);
 }
 
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
@@ -748,10 +752,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			if (flags->ice_force) {
 				copy_up_to_end_of(chop, &media->s);
 				/* prio = (2^24) * 126 + (2^8) * 65535 + (256 - componentID) */
-				chopper_append_c(chop, "a=candidate:1 1 UDP 2130706431 ");
+				chopper_append_c(chop, "a=candidate:");
+				chopper_append_str(chop, &ice_foundation_str);
+				chopper_append_c(chop, " 1 UDP 2130706431 ");
 				insert_ice_address(chop, m, off, flags, 0);
 				chopper_append_c(chop, " typ host\r\n");
-				chopper_append_c(chop, "a=candidate:1 2 UDP 2130706430 ");
+				chopper_append_c(chop, "a=candidate:");
+				chopper_append_str(chop, &ice_foundation_str);
+				chopper_append_c(chop, " 2 UDP 2130706430 ");
 				insert_ice_address(chop, m, off, flags, 1);
 				chopper_append_c(chop, " typ host\r\n");
 			}
@@ -764,4 +772,10 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 error:
 	mylog(LOG_ERROR, "Error rewriting SDP");
 	return -1;
+}
+
+void sdp_init() {
+	random_string(ice_foundation, sizeof(ice_foundation) - 1);
+	ice_foundation_str.s = ice_foundation;
+	ice_foundation_str.len = sizeof(ice_foundation) - 1;
 }

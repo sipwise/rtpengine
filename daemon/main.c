@@ -18,6 +18,7 @@
 #include "call.h"
 #include "kernel.h"
 #include "redis.h"
+#include "sdp.h"
 
 
 
@@ -330,6 +331,7 @@ static void init_everything() {
 	openlog("mediaproxy-ng", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 	signals();
 	resources();
+	sdp_init();
 }
 
 void redis_mod_verify(void *dlh) {
