@@ -29,11 +29,16 @@ struct sdp_connection {
 	int parsed:1;
 };
 
+struct sdp_attributes {
+	GQueue list;
+	GHashTable *hash;
+};
+
 struct sdp_session {
 	str s;
 	struct sdp_origin origin;
 	struct sdp_connection connection;
-	GQueue attributes;
+	struct sdp_attributes attributes;
 	GQueue media_streams;
 };
 
@@ -48,7 +53,7 @@ struct sdp_media {
 	int port_count;
 
 	struct sdp_connection connection;
-	GQueue attributes;
+	struct sdp_attributes attributes;
 };
 
 struct sdp_attribute {
@@ -181,11 +186,17 @@ static int parse_media(char *start, char *end, struct sdp_media *output) {
 	return 0;
 }
 
+static void attrs_init(struct sdp_attributes *a) {
+	g_queue_init(&a->list);
+	a->hash = g_hash_table_new(str_hash, str_equal);
+}
+
 int sdp_parse(str *body, GQueue *sessions) {
 	char *b, *end, *value, *line_end, *next_line;
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
 	const char *errstr;
+	struct sdp_attributes *attrs;
 	struct sdp_attribute *attribute;
 	str *adj_s;
 
@@ -220,7 +231,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 
 				session = g_slice_alloc0(sizeof(*session));
 				g_queue_init(&session->media_streams);
-				g_queue_init(&session->attributes);
+				attrs_init(&session->attributes);
 				g_queue_push_tail(sessions, session);
 				media = NULL;
 				session->s.s = b;
@@ -239,7 +250,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 
 			case 'm':
 				media = g_slice_alloc0(sizeof(*media));
-				g_queue_init(&media->attributes);
+				attrs_init(&media->attributes);
 				errstr = "Error parsing m= line";
 				if (parse_media(value, line_end, media))
 					goto error;
@@ -288,8 +299,11 @@ int sdp_parse(str *body, GQueue *sessions) {
 						attribute->key.len += 1 + attribute->value.len;
 				}
 
-				g_queue_push_tail(media ? &media->attributes : &session->attributes,
-					attribute);
+				attrs = media ? &media->attributes : &session->attributes;
+				g_queue_push_tail(&attrs->list, attribute);
+				g_hash_table_insert(attrs->hash, &attribute->name, attribute);
+				if (attribute->key.s)
+					g_hash_table_insert(attrs->hash, &attribute->key, attribute);
 
 				break;
 
@@ -324,9 +338,11 @@ error:
 	return -1;
 }
 
-static void free_attributes(GQueue *a) {
+static void free_attributes(struct sdp_attributes *a) {
 	struct sdp_attribute *attr;
-	while ((attr = g_queue_pop_head(a))) {
+
+	g_hash_table_destroy(a->hash);
+	while ((attr = g_queue_pop_head(&a->list))) {
 		g_slice_free1(sizeof(*attr), attr);
 	}
 }
@@ -592,11 +608,11 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 	g_slice_free1(sizeof(*chop), chop);
 }
 
-static int remove_ice(struct sdp_chopper *chop, GQueue *attrs) {
+static int remove_ice(struct sdp_chopper *chop, struct sdp_attributes *attrs) {
 	struct sdp_attribute *attr;
 	GList *l;
 
-	for (l = attrs->head; l; l = l->next) {
+	for (l = attrs->list.head; l; l = l->next) {
 		attr = l->data;
 
 		switch (attr->name.len) {
