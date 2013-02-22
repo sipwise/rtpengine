@@ -68,7 +68,7 @@ struct sdp_attribute {
 
 
 
-static const char ufrag_pwd_chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static const char ice_chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 
 
@@ -666,7 +666,7 @@ static void create_random_string(struct call *call, str *s, int len) {
 
 	p = buf;
 	while (len--)
-		*p++ = ufrag_pwd_chars[random() % strlen(ufrag_pwd_chars)];
+		*p++ = ice_chars[random() % strlen(ice_chars)];
 
 	call_str_cpy_len(call, s, buf, p - buf);
 }
