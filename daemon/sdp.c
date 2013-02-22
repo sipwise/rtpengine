@@ -513,7 +513,7 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(struct sdp_chopper *chop, GList *m, int off, struct sdp_ng_flags *flags) {
+static int insert_ice_address(struct sdp_chopper *chop, GList *m, int off, struct sdp_ng_flags *flags, int streamoff) {
 	struct callstream *cs;
 	struct peer *peer;
 	struct streamrelay *sr;
@@ -522,7 +522,7 @@ static int insert_ice_address(struct sdp_chopper *chop, GList *m, int off, struc
 
 	cs = m->data;
 	peer = &cs->peers[off];
-	sr = &peer->rtps[0];
+	sr = &peer->rtps[streamoff];
 
 	if (!flags->trust_address && flags->received_from_family.len == 3 && flags->received_from_address.len)
 		chopper_append_str(chop, &flags->received_from_address);
@@ -714,9 +714,12 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 
 			if (flags->ice_force) {
 				copy_up_to_end_of(chop, &media->s);
-				/* XXX insert proper priority */
-				chopper_append_c(chop, "a=candidate:1 1 UDP 1 ");
-				insert_ice_address(chop, m, off, flags);
+				/* prio = (2^24) * 126 + (2^8) * 65535 + (256 - componentID) */
+				chopper_append_c(chop, "a=candidate:1 1 UDP 2130706431 ");
+				insert_ice_address(chop, m, off, flags, 0);
+				chopper_append_c(chop, " typ host\r\n");
+				chopper_append_c(chop, "a=candidate:1 2 UDP 2130706430 ");
+				insert_ice_address(chop, m, off, flags, 1);
 				chopper_append_c(chop, " typ host\r\n");
 			}
 		}
