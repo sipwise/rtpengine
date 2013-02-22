@@ -55,7 +55,9 @@ struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
 	    attribute_name,	/* just "rtpmap" */
-	    attribute_value;	/* just "8 PCMA/8000" */
+	    attribute_value,	/* just "8 PCMA/8000" */
+	    attribute_key,	/* "rtpmap:8" */
+	    attribute_param;	/* "PCMA/8000" */
 };
 
 
@@ -255,7 +257,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 				break;
 
 			case 'a':
-				attribute = g_slice_alloc(sizeof(*attribute));
+				attribute = g_slice_alloc0(sizeof(*attribute));
 
 				attribute->full_line.s = b;
 				attribute->full_line.len = next_line ? (next_line - b) : (line_end - b);
@@ -269,6 +271,21 @@ int sdp_parse(str *body, GQueue *sessions) {
 					attribute->attribute_name.len -= attribute->attribute_value.len;
 					attribute->attribute_value.s++;
 					attribute->attribute_value.len--;
+
+					attribute->attribute_key = attribute->attribute_name;
+					str_chr_str(&attribute->attribute_param, &attribute->attribute_value, ' ');
+					if (attribute->attribute_param.s) {
+						attribute->attribute_key.len += 1 +
+							(attribute->attribute_value.len - attribute->attribute_param.len);
+
+						attribute->attribute_param.s++;
+						attribute->attribute_param.len--;
+
+						if (!attribute->attribute_param.len)
+							attribute->attribute_param.s = NULL;
+					}
+					else
+						attribute->attribute_key.len += 1 + attribute->attribute_value.len;
 				}
 
 				g_queue_push_tail(media ? &media->attributes : &session->attributes,
