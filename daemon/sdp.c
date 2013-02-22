@@ -197,7 +197,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 	struct sdp_media *media = NULL;
 	const char *errstr;
 	struct sdp_attributes *attrs;
-	struct sdp_attribute *attribute;
+	struct sdp_attribute *attr;
 	str *adj_s;
 
 	b = body->s;
@@ -268,42 +268,42 @@ int sdp_parse(str *body, GQueue *sessions) {
 				break;
 
 			case 'a':
-				attribute = g_slice_alloc0(sizeof(*attribute));
+				attr = g_slice_alloc0(sizeof(*attr));
 
-				attribute->full_line.s = b;
-				attribute->full_line.len = next_line ? (next_line - b) : (line_end - b);
+				attr->full_line.s = b;
+				attr->full_line.len = next_line ? (next_line - b) : (line_end - b);
 
-				attribute->line_value.s = value;
-				attribute->line_value.len = line_end - value;
+				attr->line_value.s = value;
+				attr->line_value.len = line_end - value;
 
-				attribute->name = attribute->line_value;
-				str_chr_str(&attribute->value, &attribute->name, ':');
-				if (attribute->value.s) {
-					attribute->name.len -= attribute->value.len;
-					attribute->value.s++;
-					attribute->value.len--;
+				attr->name = attr->line_value;
+				str_chr_str(&attr->value, &attr->name, ':');
+				if (attr->value.s) {
+					attr->name.len -= attr->value.len;
+					attr->value.s++;
+					attr->value.len--;
 
-					attribute->key = attribute->name;
-					str_chr_str(&attribute->param, &attribute->value, ' ');
-					if (attribute->param.s) {
-						attribute->key.len += 1 +
-							(attribute->value.len - attribute->param.len);
+					attr->key = attr->name;
+					str_chr_str(&attr->param, &attr->value, ' ');
+					if (attr->param.s) {
+						attr->key.len += 1 +
+							(attr->value.len - attr->param.len);
 
-						attribute->param.s++;
-						attribute->param.len--;
+						attr->param.s++;
+						attr->param.len--;
 
-						if (!attribute->param.len)
-							attribute->param.s = NULL;
+						if (!attr->param.len)
+							attr->param.s = NULL;
 					}
 					else
-						attribute->key.len += 1 + attribute->value.len;
+						attr->key.len += 1 + attr->value.len;
 				}
 
 				attrs = media ? &media->attributes : &session->attributes;
-				g_queue_push_tail(&attrs->list, attribute);
-				g_hash_table_insert(attrs->hash, &attribute->name, attribute);
-				if (attribute->key.s)
-					g_hash_table_insert(attrs->hash, &attribute->key, attribute);
+				g_queue_push_tail(&attrs->list, attr);
+				g_hash_table_insert(attrs->hash, &attr->name, attr);
+				if (attr->key.s)
+					g_hash_table_insert(attrs->hash, &attr->key, attr);
 
 				break;
 
