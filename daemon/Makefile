@@ -20,10 +20,12 @@ LDFLAGS+=	`pkg-config --libs gthread-2.0`
 LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`xmlrpc-c-config client --libs`
 
+ifneq ($(DBG),yes)
 # support http://wiki.debian.org/Hardening for >=wheezy
 CFLAGS+=        `dpkg-buildflags --get CFLAGS`
 CPPFLAGS+=      `dpkg-buildflags --get CPPFLAGS`
 LDFLAGS+=       `dpkg-buildflags --get LDFLAGS`
+endif
 
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c streambuf.c call.c control_udp.c redis.c \
 		bencode.c cookie_cache.c udp_listener.c control_ng.c sdp.c str.c
