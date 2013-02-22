@@ -2233,6 +2233,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	if (bencode_dictionary_get_str(input, "ICE", &s)) {
 		if (!str_cmp(&s, "remove"))
 			out->ice_remove = 1;
+		else if (!str_cmp(&s, "force"))
+			out->ice_force = 1;
 	}
 }
 

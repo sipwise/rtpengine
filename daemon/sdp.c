@@ -30,6 +30,7 @@ struct sdp_connection {
 };
 
 struct sdp_session {
+	str s;
 	struct sdp_origin origin;
 	struct sdp_connection connection;
 	GQueue attributes;
@@ -37,6 +38,7 @@ struct sdp_session {
 };
 
 struct sdp_media {
+	str s;
 	str media_type;
 	str port;
 	str transport;
@@ -56,6 +58,10 @@ struct sdp_attribute {
 	    attribute_value;	/* just "8 PCMA/8000" */
 };
 
+
+
+
+static const char ufrag_pwd_chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 
 
@@ -179,6 +185,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 	struct sdp_media *media = NULL;
 	const char *errstr;
 	struct sdp_attribute *attribute;
+	str *adj_s;
 
 	b = body->s;
 	end = str_end(body);
@@ -214,6 +221,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 				g_queue_init(&session->attributes);
 				g_queue_push_tail(sessions, session);
 				media = NULL;
+				session->s.s = b;
 
 				break;
 
@@ -234,6 +242,8 @@ int sdp_parse(str *body, GQueue *sessions) {
 				if (parse_media(value, line_end, media))
 					goto error;
 				g_queue_push_tail(&session->media_streams, media);
+				media->s.s = b;
+
 				break;
 
 			case 'c':
@@ -282,6 +292,9 @@ int sdp_parse(str *body, GQueue *sessions) {
 				errstr = "Unknown SDP line type found";
 				goto error;
 		}
+
+		adj_s = media ? &media->s : &session->s;
+		adj_s->len = (next_line ? : end) - adj_s->s;
 
 		b = next_line;
 	}
@@ -389,6 +402,12 @@ static void chopper_append(struct sdp_chopper *c, const char *s, int len) {
 	iov->iov_len = len;
 	c->str_len += len;
 }
+static inline void chopper_append_c(struct sdp_chopper *c, const char *s) {
+	chopper_append(c, s, strlen(s));
+}
+static inline void chopper_append_str(struct sdp_chopper *c, const str *s) {
+	chopper_append(c, s->s, s->len);
+}
 
 static void chopper_append_dup(struct sdp_chopper *c, const char *s, int len) {
 	return chopper_append(c, g_string_chunk_insert_len(c->chunk, s, len), len);
@@ -494,6 +513,29 @@ warn:
 	return 0;
 }
 
+static int insert_ice_address(struct sdp_chopper *chop, GList *m, int off, struct sdp_ng_flags *flags) {
+	struct callstream *cs;
+	struct peer *peer;
+	struct streamrelay *sr;
+	char buf[64];
+	int len;
+
+	cs = m->data;
+	peer = &cs->peers[off];
+	sr = &peer->rtps[0];
+
+	if (!flags->trust_address && flags->received_from_family.len == 3 && flags->received_from_address.len)
+		chopper_append_str(chop, &flags->received_from_address);
+	else {
+		call_stream_address(buf, peer, SAF_ICE, &len);
+		chopper_append_dup(chop, buf, len);
+	}
+
+	chopper_append_printf(chop, " %hu", sr->fd.localport);
+
+	return 0;
+}
+
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address, GList *m, int off, struct sdp_ng_flags *flags) {
 	struct callstream *cs;
 	struct peer *peer;
@@ -512,9 +554,9 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 		return -1;
 
 	if (!flags->trust_address && flags->received_from_family.len == 3 && flags->received_from_address.len) {
-		chopper_append(chop, flags->received_from_family.s, flags->received_from_family.len);
-		chopper_append(chop, " ", 1);
-		chopper_append(chop, flags->received_from_address.s, flags->received_from_address.len);
+		chopper_append_str(chop, &flags->received_from_family);
+		chopper_append_c(chop, " ");
+		chopper_append_str(chop, &flags->received_from_address);
 	}
 	else {
 		call_stream_address(buf, peer, SAF_NG, &len);
@@ -581,6 +623,21 @@ strip:
 	return 0;
 }
 
+static void create_random_string(struct call *call, str *s, int len) {
+	char buf[30];
+	char *p;
+
+	assert(len < sizeof(buf));
+	if (s->s)
+		return;
+
+	p = buf;
+	while (len--)
+		*p++ = ufrag_pwd_chars[random() % strlen(ufrag_pwd_chars)];
+
+	call_str_cpy_len(call, s, buf, p - buf);
+}
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
@@ -605,9 +662,24 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				goto error;
 		}
 
-		if (flags->ice_remove) {
+		/* XXX convert to a "process attributes" kinda function */
+		if (flags->ice_remove || flags->ice_force) {
 			if (remove_ice(chop, &session->attributes))
 				goto error;
+		}
+
+		if (flags->ice_force) {
+			create_random_string(call, &call->ice_ufrag[0], 4);
+			create_random_string(call, &call->ice_ufrag[1], 4);
+			create_random_string(call, &call->ice_pwd, 20);
+
+			copy_up_to_end_of(chop, &session->s);
+			chopper_append_c(chop, "a=ice-lite\r\na=ice-ufrag:");
+			chopper_append_str(chop, &call->ice_ufrag[off]);
+			chopper_append_c(chop, "\r\na=ice-pwd:");
+			chopper_append_str(chop, &call->ice_pwd);
+			chopper_append_c(chop, "\r\n");
+			/* XXX handle RTCP attributes */
 		}
 
 		for (k = session->media_streams.head; k; k = k->next) {
@@ -634,11 +706,19 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 					goto error;
 			}
 
-			if (flags->ice_remove) {
+			/* XXX convert to a "process attributes" kinda function */
+			if (flags->ice_remove || flags->ice_force) {
 				if (remove_ice(chop, &media->attributes))
 					goto error;
 			}
 
+			if (flags->ice_force) {
+				copy_up_to_end_of(chop, &media->s);
+				/* XXX insert proper priority */
+				chopper_append_c(chop, "a=candidate:1 1 UDP 1 ");
+				insert_ice_address(chop, m, off, flags);
+				chopper_append_c(chop, " typ host\r\n");
+			}
 		}
 	}
 

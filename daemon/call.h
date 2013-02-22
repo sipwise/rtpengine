@@ -34,6 +34,7 @@ enum stream_address_format {
 	SAF_TCP,
 	SAF_UDP,
 	SAF_NG,
+	SAF_ICE,
 };
 enum stream_direction {
 	DIR_UNKNOWN = 0,
@@ -118,6 +119,9 @@ struct call {
 	char			redis_uuid[37];
 	time_t			created;
 	time_t			lookup_done;
+
+	str			ice_ufrag[2];
+	str			ice_pwd;
 };
 
 struct callmaster_config {
