@@ -56,6 +56,11 @@ struct sdp_media {
 	struct sdp_attributes attributes;
 };
 
+struct attribute_rtcp {
+	long int port_num;
+	struct network_address address;
+};
+
 struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
@@ -63,6 +68,15 @@ struct sdp_attribute {
 	    value,	/* just "8 PCMA/8000" */
 	    key,	/* "rtpmap:8" */
 	    param;	/* "PCMA/8000" */
+
+	enum {
+		ATTR_OTHER = 0,
+		ATTR_RTCP,
+	} attr;
+
+	union {
+		struct attribute_rtcp rtcp;
+	} u;
 };
 
 
@@ -138,7 +152,7 @@ static inline int extract_token(char **sp, char *end, str *out) {
 	EXTRACT_TOKEN(field.network_type); \
 	EXTRACT_TOKEN(field.address_type); \
 	EXTRACT_TOKEN(field.address); \
-	if (parse_address(&output->address)) return -1
+	if (parse_address(&output->field)) return -1
 
 static int parse_origin(char *start, char *end, struct sdp_origin *output) {
 	if (output->parsed)
@@ -192,6 +206,62 @@ static int parse_media(char *start, char *end, struct sdp_media *output) {
 static void attrs_init(struct sdp_attributes *a) {
 	g_queue_init(&a->list);
 	a->hash = g_hash_table_new(str_hash, str_equal);
+}
+
+static int parse_attribute_rtcp(struct sdp_attribute *output) {
+	char *ep, *start, *end;
+
+	end = output->value.s + output->value.len;
+	output->attr = ATTR_RTCP;
+	output->u.rtcp.port_num = strtol(output->value.s, &ep, 10);
+	if (ep == output->value.s)
+		return -1;
+	if (output->u.rtcp.port_num <= 0 || output->u.rtcp.port_num > 0xffff) {
+		output->u.rtcp.port_num = 0;
+		return -1;
+	}
+	if (*ep != ' ')
+		return 0;
+	ep++;
+	if (ep >= end)
+		return 0;
+
+	start = ep;
+	EXTRACT_NETWORK_ADDRESS(u.rtcp.address);
+
+	return 0;
+}
+
+static void parse_attribute(struct sdp_attribute *a) {
+	a->name = a->line_value;
+	str_chr_str(&a->value, &a->name, ':');
+	if (a->value.s) {
+		a->name.len -= a->value.len;
+		a->value.s++;
+		a->value.len--;
+
+		a->key = a->name;
+		str_chr_str(&a->param, &a->value, ' ');
+		if (a->param.s) {
+			a->key.len += 1 +
+				(a->value.len - a->param.len);
+
+			a->param.s++;
+			a->param.len--;
+
+			if (!a->param.len)
+				a->param.s = NULL;
+		}
+		else
+			a->key.len += 1 + a->value.len;
+	}
+
+	switch (a->name.len) {
+		case 4:
+			if (!str_cmp(&a->name, "rtcp"))
+				parse_attribute_rtcp(a);
+			break;
+	}
 }
 
 int sdp_parse(str *body, GQueue *sessions) {
@@ -279,28 +349,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 				attr->line_value.s = value;
 				attr->line_value.len = line_end - value;
 
-				attr->name = attr->line_value;
-				str_chr_str(&attr->value, &attr->name, ':');
-				if (attr->value.s) {
-					attr->name.len -= attr->value.len;
-					attr->value.s++;
-					attr->value.len--;
-
-					attr->key = attr->name;
-					str_chr_str(&attr->param, &attr->value, ' ');
-					if (attr->param.s) {
-						attr->key.len += 1 +
-							(attr->value.len - attr->param.len);
-
-						attr->param.s++;
-						attr->param.len--;
-
-						if (!attr->param.len)
-							attr->param.s = NULL;
-					}
-					else
-						attr->key.len += 1 + attr->value.len;
-				}
+				parse_attribute(attr);
 
 				attrs = media ? &media->attributes : &session->attributes;
 				g_queue_push_tail(&attrs->list, attr);
@@ -385,6 +434,8 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 	GList *l, *k;
 	const char *errstr;
 	int i, num;
+	str s;
+	struct sdp_attribute *attr;
 
 	num = 0;
 	for (l = sessions->head; l; l = l->next) {
@@ -393,6 +444,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
+			si = NULL;
 			for (i = 0; i < media->port_count; i++) {
 				si = g_slice_alloc0(sizeof(*si));
 
@@ -411,6 +463,13 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 				g_hash_table_insert(streamhash, si, si);
 				g_queue_push_tail(streams, si);
 			}
+
+			if (!si || media->port_count != 1)
+				continue;
+			str_init(&s, "rtcp");
+			attr = g_hash_table_lookup(media->attributes.hash, &s);
+			if (!attr)
+				continue;
 		}
 	}
 
@@ -762,6 +821,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				chopper_append_c(chop, " 2 UDP 2130706430 ");
 				insert_ice_address(chop, m, off, flags, 1);
 				chopper_append_c(chop, " typ host\r\n");
+				/* XXX handle rtcp here too */
 			}
 		}
 	}
