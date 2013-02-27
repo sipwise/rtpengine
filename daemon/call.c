@@ -25,6 +25,7 @@
 #include "bencode.h"
 #include "sdp.h"
 #include "str.h"
+#include "stun.h"
 
 
 
@@ -232,6 +233,11 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	c = cs->call;
 	m = c->callmaster;
 	smart_ntop_port(addr, fsin, sizeof(addr));
+
+	if (r->stun && is_stun(b, l)) {
+		if (!stun(b, l))
+			return 0;
+	}
 
 	if (p->fd.fd == -1) {
 		mylog(LOG_WARNING, LOG_PREFIX_C "RTP packet to port %u discarded from %s", 

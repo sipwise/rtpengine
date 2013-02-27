@@ -866,6 +866,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			chopper_append_c(chop, "\r\na=ice-pwd:");
 			chopper_append_str(chop, &call->ice_pwd);
 			chopper_append_c(chop, "\r\n");
+
+			rtp->stun = 1;
+			rtcp->stun = 1;
 		}
 
 		for (k = session->media_streams.head; k; k = k->next) {

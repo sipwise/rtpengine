@@ -78,6 +78,7 @@ struct streamrelay {
 	struct stats		stats;
 	struct stats		kstats;
 	time_t			last;
+	int			stun:1;
 };
 struct relays_cache {
 	struct udp_fd		relays_A[16];
