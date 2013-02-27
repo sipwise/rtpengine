@@ -1,3 +1,5 @@
+#include "control_udp.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -9,7 +11,6 @@
 #include <netinet/in.h>
 #include <errno.h>
 
-#include "control_udp.h"
 #include "poller.h"
 #include "aux.h"
 #include "log.h"

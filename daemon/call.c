@@ -1,3 +1,5 @@
+#include "call.h"
+
 #include <stdio.h>
 #include <unistd.h>
 #include <glib.h>
@@ -13,7 +15,6 @@
 #include <xmlrpc_client.h>
 #include <sys/wait.h>
 
-#include "call.h"
 #include "poller.h"
 #include "aux.h"
 #include "log.h"

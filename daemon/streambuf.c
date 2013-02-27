@@ -1,3 +1,5 @@
+#include "streambuf.h"
+
 #include <stdio.h>
 #include <glib.h>
 #include <stdlib.h>
@@ -6,7 +8,6 @@
 #include <stdarg.h>
 #include <time.h>
 
-#include "streambuf.h"
 #include "poller.h"
 #include "aux.h"
 

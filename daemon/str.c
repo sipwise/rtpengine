@@ -1,5 +1,5 @@
-#include <assert.h>
 #include "str.h"
+#include <assert.h>
 
 guint str_hash(gconstpointer ss) {
 	const str *s = ss;

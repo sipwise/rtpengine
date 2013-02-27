@@ -1,6 +1,8 @@
+#include "cookie_cache.h"
+
 #include <time.h>
 #include <glib.h>
-#include "cookie_cache.h"
+
 #include "aux.h"
 #include "poller.h"
 #include "str.h"

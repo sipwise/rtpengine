@@ -1,9 +1,10 @@
+#include "sdp.h"
+
 #include <glib.h>
 #include <netinet/in.h> 
 #include <netinet/ip.h> 
 #include <arpa/inet.h>
 
-#include "sdp.h"
 #include "call.h"
 #include "log.h"
 #include "str.h"

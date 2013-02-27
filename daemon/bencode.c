@@ -1,3 +1,4 @@
+#include "bencode.h"
 #include <stdio.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -5,7 +6,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include "bencode.h"
 
 /* set to 0 for alloc debugging, e.g. through valgrind */
 #define BENCODE_MIN_BUFFER_PIECE_LEN	512

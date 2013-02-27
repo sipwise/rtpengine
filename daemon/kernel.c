@@ -1,3 +1,5 @@
+#include "kernel.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -9,7 +11,6 @@
 #include "xt_MEDIAPROXY.h"
 
 #include "aux.h"
-#include "kernel.h"
 
 
 

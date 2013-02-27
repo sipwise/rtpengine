@@ -1,3 +1,5 @@
+#include "control_tcp.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -8,7 +10,6 @@
 #include <stdarg.h>
 #include <errno.h>
 
-#include "control_tcp.h"
 #include "poller.h"
 #include "aux.h"
 #include "streambuf.h"

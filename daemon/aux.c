@@ -1,11 +1,10 @@
+#include "aux.h"
 #include <string.h>
 #include <stdio.h>
 #include <glib.h>
 #include <pcre.h>
 #include <stdlib.h>
 #include <pthread.h>
-
-#include "aux.h"
 
 
 

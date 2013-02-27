@@ -1,6 +1,8 @@
+#include "control_ng.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
-#include "control_ng.h"
+
 #include "obj.h"
 #include "poller.h"
 #include "bencode.h"

@@ -1,3 +1,5 @@
+#include "udp_listener.h"
+
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -5,7 +7,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "udp_listener.h"
 #include "poller.h"
 #include "aux.h"
 #include "str.h"
