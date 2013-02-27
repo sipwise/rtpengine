@@ -47,6 +47,8 @@ static inline void str_init(str *out, char *s);
 static inline str *str_dup(const str *s);
 /* returns new str object allocated from chunk, including buffer */
 static inline str *str_chunk_insert(GStringChunk *c, const str *s);
+/* shifts pointer by len chars and decrements len. returns -1 if buffer too short, 0 otherwise */
+static inline int str_shift(str *s, int len);
 
 /* asprintf() analogs */
 #define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
@@ -73,6 +75,13 @@ static inline str *str_chunk_insert(GStringChunk *c, const str *s) {
 }
 static inline char *str_end(const str *s) {
 	return s->s + s->len;
+}
+static inline int str_shift(str *s, int len) {
+	if (s->len < len)
+		return -1;
+	s->s += len;
+	s->len -= len;
+	return 0;
 }
 static inline char *str_chr(const str *s, int c) {
 	return memchr(s->s, c, s->len);

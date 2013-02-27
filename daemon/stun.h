@@ -24,7 +24,7 @@ static inline int is_stun(const char *bx, int len) {
 }
 
 
-int stun(const char *buf, int len);
+int stun(char *buf, int len);
 
 
 #endif
