@@ -72,6 +72,7 @@ struct sdp_attribute {
 	enum {
 		ATTR_OTHER = 0,
 		ATTR_RTCP,
+		ATTR_ICE,
 	} attr;
 
 	union {
@@ -261,6 +262,32 @@ static void parse_attribute(struct sdp_attribute *a) {
 			if (!str_cmp(&a->name, "rtcp"))
 				parse_attribute_rtcp(a);
 			break;
+		case 7:
+			if (!str_cmp(&a->name, "ice-pwd"))
+				a->attr = ATTR_ICE;
+			break;
+		case 8:
+			if (!str_cmp(&a->name, "ice-lite"))
+				a->attr = ATTR_ICE;
+			break;
+		case 9:
+			if (!str_cmp(&a->name, "candidate"))
+				a->attr = ATTR_ICE;
+			else if (!str_cmp(&a->name, "ice-ufrag"))
+				a->attr = ATTR_ICE;
+			break;
+		case 11:
+			if (!str_cmp(&a->name, "ice-options"))
+				a->attr = ATTR_ICE;
+			break;
+		case 12:
+			if (!str_cmp(&a->name, "ice-mismatch"))
+				a->attr = ATTR_ICE;
+			break;
+		case 17:
+			if (!str_cmp(&a->name, "remote-candidates"))
+				a->attr = ATTR_ICE;
+			break;
 	}
 }
 
@@ -413,17 +440,30 @@ void sdp_free(GQueue *sessions) {
 	}
 }
 
-static int fill_stream(struct stream_input *si, struct sdp_media *media, struct sdp_session *session, int offset) {
+static int fill_stream_address(struct stream_input *si, struct sdp_media *media, struct sdp_session *session) {
 	if (media->connection.parsed)
 		si->stream.ip46 = media->connection.address.parsed;
 	else if (session->connection.parsed)
 		si->stream.ip46 = session->connection.address.parsed;
 	else
 		return -1;
+	return 0;
+}
+
+static int fill_stream(struct stream_input *si, struct sdp_media *media, struct sdp_session *session, int offset) {
+	if (fill_stream_address(si, media, session))
+		return -1;
 
 	/* we ignore the media type */
 	si->stream.port = (media->port_num + (offset * 2)) & 0xffff;
 
+	return 0;
+}
+
+static int fill_stream_rtcp(struct stream_input *si, struct sdp_media *media, struct sdp_session *session, int port) {
+	if (fill_stream_address(si, media, session))
+		return -1;
+	si->stream.port = port;
 	return 0;
 }
 
@@ -466,10 +506,23 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 
 			if (!si || media->port_count != 1)
 				continue;
-			str_init(&s, "rtcp");
+			str_init(&s, "rtcp"); /* XXX use the enum for hash instead? */
 			attr = g_hash_table_lookup(media->attributes.hash, &s);
-			if (!attr)
+			if (!attr || !attr->u.rtcp.port_num)
 				continue;
+			if (attr->u.rtcp.port_num == si->stream.port + 1)
+				continue;
+
+			si->has_rtcp = 1;
+
+			si = g_slice_alloc0(sizeof(*si));
+			if (fill_stream_rtcp(si, media, session, attr->u.rtcp.port_num))
+				goto error;
+			si->stream.num = ++num;
+			si->consecutive_num = 1;
+
+			g_hash_table_insert(streamhash, si, si);
+			g_queue_push_tail(streams, si);
 		}
 	}
 
@@ -477,6 +530,8 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 
 error:
 	mylog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
+	if (si)
+		g_slice_free1(sizeof(*si), si);
 	return -1;
 }
 
@@ -608,21 +663,14 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(struct sdp_chopper *chop, GList *m, int off, struct sdp_ng_flags *flags, int streamoff) {
-	struct callstream *cs;
-	struct peer *peer;
-	struct streamrelay *sr;
+static int insert_ice_address(struct sdp_chopper *chop, struct sdp_ng_flags *flags, struct streamrelay *sr) {
 	char buf[64];
 	int len;
-
-	cs = m->data;
-	peer = &cs->peers[off];
-	sr = &peer->rtps[streamoff];
 
 	if (!flags->trust_address && flags->received_from_family.len == 3 && flags->received_from_address.len)
 		chopper_append_str(chop, &flags->received_from_address);
 	else {
-		call_stream_address(buf, peer, SAF_ICE, &len);
+		call_stream_address(buf, sr->up, SAF_ICE, &len);
 		chopper_append_dup(chop, buf, len);
 	}
 
@@ -631,7 +679,9 @@ static int insert_ice_address(struct sdp_chopper *chop, GList *m, int off, struc
 	return 0;
 }
 
-static int replace_network_address(struct sdp_chopper *chop, struct network_address *address, GList *m, int off, struct sdp_ng_flags *flags) {
+static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
+		GList *m, int off, struct sdp_ng_flags *flags)
+{
 	struct callstream *cs;
 	struct peer *peer;
 	char buf[64];
@@ -670,54 +720,6 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 	g_slice_free1(sizeof(*chop), chop);
 }
 
-static int remove_ice(struct sdp_chopper *chop, struct sdp_attributes *attrs) {
-	struct sdp_attribute *attr;
-	GList *l;
-
-	for (l = attrs->list.head; l; l = l->next) {
-		attr = l->data;
-
-		switch (attr->name.len) {
-			case 7:
-				if (!str_cmp(&attr->name, "ice-pwd"))
-					goto strip;
-				break;
-			case 8:
-				if (!str_cmp(&attr->name, "ice-lite"))
-					goto strip;
-				break;
-			case 9:
-				if (!str_cmp(&attr->name, "candidate"))
-					goto strip;
-				if (!str_cmp(&attr->name, "ice-ufrag"))
-					goto strip;
-				break;
-			case 11:
-				if (!str_cmp(&attr->name, "ice-options"))
-					goto strip;
-				break;
-			case 12:
-				if (!str_cmp(&attr->name, "ice-mismatch"))
-					goto strip;
-				break;
-			case 17:
-				if (!str_cmp(&attr->name, "remote-candidates"))
-					goto strip;
-				break;
-		}
-
-		continue;
-
-strip:
-		if (copy_up_to(chop, &attr->full_line))
-			return -1;
-		if (skip_over(chop, &attr->full_line))
-			return -1;
-	}
-
-	return 0;
-}
-
 static void random_string(char *buf, int len) {
 	while (len--)
 		*buf++ = ice_chars[random() % strlen(ice_chars)];
@@ -734,6 +736,68 @@ static void create_random_string(struct call *call, str *s, int len) {
 	call_str_cpy_len(call, s, buf, len);
 }
 
+static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs, struct sdp_ng_flags *flags) {
+	GList *l;
+	struct sdp_attribute *attr;
+
+	for (l = attrs->list.head; l; l = l->next) {
+		attr = l->data;
+
+		switch (attr->attr) {
+			case ATTR_ICE:
+				if (!flags->ice_remove && !flags->ice_force)
+					break;
+				goto strip;
+
+			default:
+				break;
+		}
+
+		continue;
+
+strip:
+		if (copy_up_to(chop, &attr->full_line))
+			return -1;
+		if (skip_over(chop, &attr->full_line))
+			return -1;
+	}
+
+	return 0;
+}
+
+static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs, struct sdp_ng_flags *flags)
+{
+	GList *l;
+	struct sdp_attribute *attr;
+
+	for (l = attrs->list.head; l; l = l->next) {
+		attr = l->data;
+
+		switch (attr->attr) {
+			case ATTR_ICE:
+				if (!flags->ice_remove && !flags->ice_force)
+					break;
+				goto strip;
+
+			case ATTR_RTCP:
+				goto strip;
+
+			default:
+				break;
+		}
+
+		continue;
+
+strip:
+		if (copy_up_to(chop, &attr->full_line))
+			return -1;
+		if (skip_over(chop, &attr->full_line))
+			return -1;
+	}
+
+	return 0;
+}
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
@@ -742,6 +806,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 	GList *l, *k, *m;
 	int off;
 	struct stream_input si, *sip;
+	struct streamrelay *rtp, *rtcp;
 
 	off = opmode;
 	m = call->callstreams->head;
@@ -758,11 +823,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				goto error;
 		}
 
-		/* XXX convert to a "process attributes" kinda function */
-		if (flags->ice_remove || flags->ice_force) {
-			if (remove_ice(chop, &session->attributes))
-				goto error;
-		}
+		if (process_session_attributes(chop, &session->attributes, flags))
+			goto error;
 
 		if (flags->ice_force) {
 			create_random_string(call, &call->ice_ufrag[0], 4);
@@ -775,7 +837,6 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			chopper_append_c(chop, "\r\na=ice-pwd:");
 			chopper_append_str(chop, &call->ice_pwd);
 			chopper_append_c(chop, "\r\n");
-			/* XXX handle RTCP attributes */
 		}
 
 		for (k = session->media_streams.head; k; k = k->next) {
@@ -787,12 +848,19 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			sip = g_hash_table_lookup(streamhash, &si);
 			if (!sip)
 				goto error;
+			/* XXX use a hash instead? must link input streams to output streams */
 			if (!m)
 				m = call->callstreams->head;
 			while (m && ((struct callstream *) m->data)->num < sip->stream.num)
 				m = m->next;
 			while (m && ((struct callstream *) m->data)->num > sip->stream.num)
 				m = m->prev;
+
+			/* XXX use those in function calls exclusively */
+			rtp = &((struct callstream *) m->data)->peers[off].rtps[0];
+			rtcp = &((struct callstream *) m->data)->peers[off].rtps[1];
+			if (sip->has_rtcp && m->next)
+				rtcp = &((struct callstream *) m->next->data)->peers[off].rtps[0];
 
 			if (replace_media_port(chop, media, m, off))
 				goto error;
@@ -802,26 +870,28 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 					goto error;
 			}
 
-			/* XXX convert to a "process attributes" kinda function */
-			if (flags->ice_remove || flags->ice_force) {
-				if (remove_ice(chop, &media->attributes))
-					goto error;
-			}
+			if (process_media_attributes(chop, &media->attributes, flags))
+				goto error;
+
+			copy_up_to_end_of(chop, &media->s);
+
+			/* XXX create exception for b=..:0 cases */
+			chopper_append_c(chop, "a=rtcp:");
+			chopper_append_printf(chop, "%hu", rtcp->fd.localport);
+			chopper_append_c(chop, "\r\n");
 
 			if (flags->ice_force) {
-				copy_up_to_end_of(chop, &media->s);
 				/* prio = (2^24) * 126 + (2^8) * 65535 + (256 - componentID) */
 				chopper_append_c(chop, "a=candidate:");
 				chopper_append_str(chop, &ice_foundation_str);
 				chopper_append_c(chop, " 1 UDP 2130706431 ");
-				insert_ice_address(chop, m, off, flags, 0);
+				insert_ice_address(chop, flags, rtp);
 				chopper_append_c(chop, " typ host\r\n");
 				chopper_append_c(chop, "a=candidate:");
 				chopper_append_str(chop, &ice_foundation_str);
 				chopper_append_c(chop, " 2 UDP 2130706430 ");
-				insert_ice_address(chop, m, off, flags, 1);
+				insert_ice_address(chop, flags, rtcp);
 				chopper_append_c(chop, " typ host\r\n");
-				/* XXX handle rtcp here too */
 			}
 		}
 	}

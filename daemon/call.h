@@ -62,6 +62,7 @@ struct stream_input {
 	struct stream		stream;
 	enum stream_direction	direction[2];
 	int			consecutive_num;
+	int			has_rtcp:1;
 };
 struct udp_fd {
 	int			fd;
