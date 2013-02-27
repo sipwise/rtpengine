@@ -38,6 +38,7 @@ struct sdp_session {
 	str s;
 	struct sdp_origin origin;
 	struct sdp_connection connection;
+	int rr, rs;
 	struct sdp_attributes attributes;
 	GQueue media_streams;
 };
@@ -53,6 +54,7 @@ struct sdp_media {
 	int port_count;
 
 	struct sdp_connection connection;
+	int rr, rs;
 	struct sdp_attributes attributes;
 };
 
@@ -335,6 +337,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 				g_queue_push_tail(sessions, session);
 				media = NULL;
 				session->s.s = b;
+				session->rr = session->rs = -1;
 
 				break;
 
@@ -356,6 +359,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 					goto error;
 				g_queue_push_tail(&session->media_streams, media);
 				media->s.s = b;
+				media->rr = media->rs = -1;
 
 				break;
 
@@ -386,12 +390,23 @@ int sdp_parse(str *body, GQueue *sessions) {
 
 				break;
 
+			case 'b':
+				/* RR:0 */
+				if (line_end - value < 4)
+					break;
+				if (!memcmp(value, "RR:", 3))
+					*(media ? &media->rr : &session->rr) = 
+						(line_end - value == 4 && value[3] == '0') ? 0 : 1;
+				else if (!memcmp(value, "RS:", 3))
+					*(media ? &media->rs : &session->rs) = 
+						(line_end - value == 4 && value[3] == '0') ? 0 : 1;
+				break;
+
 			case 's':
 			case 'i':
 			case 'u':
 			case 'e':
 			case 'p':
-			case 'b':
 			case 't':
 			case 'r':
 			case 'z':
@@ -803,6 +818,13 @@ static GList *find_stream_num(GList *m, int num) {
 	return m;
 }
 
+static int has_rtcp(struct sdp_session *session, struct sdp_media *media) {
+	if ((media->rr == -1 ? session->rr : media->rr) != 0
+			&& (media->rs == -1 ? session->rs : media->rs) != 0)
+		return 1;
+	return 0;
+}
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
@@ -875,10 +897,11 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 
 			copy_up_to_end_of(chop, &media->s);
 
-			/* XXX create exception for b=..:0 cases */
-			chopper_append_c(chop, "a=rtcp:");
-			chopper_append_printf(chop, "%hu", rtcp->fd.localport);
-			chopper_append_c(chop, "\r\n");
+			if (has_rtcp(session, media)) {
+				chopper_append_c(chop, "a=rtcp:");
+				chopper_append_printf(chop, "%hu", rtcp->fd.localport);
+				chopper_append_c(chop, "\r\n");
+			}
 
 			if (flags->ice_force) {
 				/* prio = (2^24) * 126 + (2^8) * 65535 + (256 - componentID) */
@@ -887,11 +910,13 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				chopper_append_c(chop, " 1 UDP 2130706431 ");
 				insert_ice_address(chop, flags, rtp);
 				chopper_append_c(chop, " typ host\r\n");
-				chopper_append_c(chop, "a=candidate:");
-				chopper_append_str(chop, &ice_foundation_str);
-				chopper_append_c(chop, " 2 UDP 2130706430 ");
-				insert_ice_address(chop, flags, rtcp);
-				chopper_append_c(chop, " typ host\r\n");
+				if (has_rtcp(session, media)) {
+					chopper_append_c(chop, "a=candidate:");
+					chopper_append_str(chop, &ice_foundation_str);
+					chopper_append_c(chop, " 2 UDP 2130706430 ");
+					insert_ice_address(chop, flags, rtcp);
+					chopper_append_c(chop, " typ host\r\n");
+				}
 			}
 		}
 	}
