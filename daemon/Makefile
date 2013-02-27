@@ -11,7 +11,7 @@ CFLAGS+=	-DMP_PLUGIN_DIR="\"/usr/lib/mediaproxy-ng\""
 ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1
 else
-CFLAGS+=	-O2
+CFLAGS+=	-O3
 endif
 
 LDFLAGS=	-ldl -rdynamic
