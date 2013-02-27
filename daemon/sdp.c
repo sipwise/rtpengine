@@ -621,19 +621,16 @@ static int skip_over(struct sdp_chopper *chop, str *where) {
 	return 0;
 }
 
-static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, GList *m, int off) {
-	struct callstream *cs;
-	struct streamrelay *sr;
+static void fill_relays(struct streamrelay **rtp, struct streamrelay **rtcp, GList *m, int off, struct stream_input *sip) {
+	*rtp = &((struct callstream *) m->data)->peers[off].rtps[0];
+	if (rtcp)
+		*rtcp = &((struct callstream *) m->data)->peers[off].rtps[1];
+	if (sip && sip->has_rtcp && m->next)
+		*rtcp = &((struct callstream *) m->next->data)->peers[off].rtps[0];
+}
+
+static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct streamrelay *sr) {
 	str *port = &media->port;
-	int cons;
-
-	if (!m) {
-		mylog(LOG_ERROR, "BUG! Ran out of streams");
-		return -1;
-	}
-
-	cs = m->data;
-	sr = &cs->peers[off].rtps[0];
 
 	if (copy_up_to(chop, port))
 		return -1;
@@ -643,6 +640,15 @@ static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media,
 	if (skip_over(chop, port))
 		return -1;
 
+	return 0;
+}
+
+static int replace_consecutive_port_count(struct sdp_chopper *chop, struct sdp_media *media,
+		struct streamrelay *rtp, GList *m, int off)
+{
+	int cons;
+	struct streamrelay *sr;
+
 	if (media->port_count == 1)
 		return 0;
 
@@ -650,8 +656,8 @@ static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media,
 		m = m->next;
 		if (!m)
 			goto warn;
-		cs = m->data;
-		if (cs->peers[off].rtps[0].fd.localport != sr->fd.localport + cons * 2) {
+		fill_relays(&sr, NULL, m, off, NULL);
+		if (sr->fd.localport != rtp->fd.localport + cons * 2) {
 warn:
 			mylog(LOG_WARN, "Failed to handle consecutive ports");
 			break;
@@ -680,20 +686,10 @@ static int insert_ice_address(struct sdp_chopper *chop, struct sdp_ng_flags *fla
 }
 
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
-		GList *m, int off, struct sdp_ng_flags *flags)
+		struct streamrelay *sr, struct sdp_ng_flags *flags)
 {
-	struct callstream *cs;
-	struct peer *peer;
 	char buf[64];
 	int len;
-
-	if (!m) {
-		mylog(LOG_ERROR, "BUG! Ran out of streams");
-		return -1;
-	}
-
-	cs = m->data;
-	peer = &cs->peers[off];
 
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
@@ -704,7 +700,7 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 		chopper_append_str(chop, &flags->received_from_address);
 	}
 	else {
-		call_stream_address(buf, peer, SAF_NG, &len);
+		call_stream_address(buf, sr->up, SAF_NG, &len);
 		chopper_append_dup(chop, buf, len);
 	}
 
@@ -798,6 +794,15 @@ strip:
 	return 0;
 }
 
+static GList *find_stream_num(GList *m, int num) {
+	/* XXX use a hash instead? must link input streams to output streams */
+	while (m && ((struct callstream *) m->data)->num < num)
+		m = m->next;
+	while (m && ((struct callstream *) m->data)->num > num)
+		m = m->prev;
+	return m;
+}
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
@@ -814,12 +819,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
 
+		fill_relays(&rtp, &rtcp, m, off, NULL);
+
 		if (session->origin.parsed && flags->replace_origin) {
-			if (replace_network_address(chop, &session->origin.address, m, off, flags))
+			if (replace_network_address(chop, &session->origin.address, rtp, flags))
 				goto error;
 		}
 		if (session->connection.parsed) {
-			if (replace_network_address(chop, &session->connection.address, m, off, flags))
+			if (replace_network_address(chop, &session->connection.address, rtp, flags))
 				goto error;
 		}
 
@@ -848,25 +855,18 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			sip = g_hash_table_lookup(streamhash, &si);
 			if (!sip)
 				goto error;
-			/* XXX use a hash instead? must link input streams to output streams */
+			m = find_stream_num(m, sip->stream.num);
 			if (!m)
-				m = call->callstreams->head;
-			while (m && ((struct callstream *) m->data)->num < sip->stream.num)
-				m = m->next;
-			while (m && ((struct callstream *) m->data)->num > sip->stream.num)
-				m = m->prev;
+				goto error;
+			fill_relays(&rtp, &rtcp, m, off, sip);
 
-			/* XXX use those in function calls exclusively */
-			rtp = &((struct callstream *) m->data)->peers[off].rtps[0];
-			rtcp = &((struct callstream *) m->data)->peers[off].rtps[1];
-			if (sip->has_rtcp && m->next)
-				rtcp = &((struct callstream *) m->next->data)->peers[off].rtps[0];
-
-			if (replace_media_port(chop, media, m, off))
+			if (replace_media_port(chop, media, rtp))
+				goto error;
+			if (replace_consecutive_port_count(chop, media, rtp, m, off))
 				goto error;
 
 			if (media->connection.parsed && flags->replace_sess_conn) {
-				if (replace_network_address(chop, &media->connection.address, m, off, flags))
+				if (replace_network_address(chop, &media->connection.address, rtp, flags))
 					goto error;
 			}
 
