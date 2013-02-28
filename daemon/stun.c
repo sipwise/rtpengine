@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <zlib.h>
+#include <openssl/hmac.h>
 
 #include "str.h"
 #include "aux.h"
@@ -11,6 +12,8 @@
 
 
 #define STUN_CRC_XOR 0x5354554eUL
+#define STUN_USERNAME 0x0006
+#define STUN_MESSAGE_INTEGRITY 0x0008
 #define STUN_FINGERPRINT 0x8028
 
 
@@ -28,9 +31,10 @@ struct tlv {
 
 struct stun_attrs {
 	str username;
+	char *msg_integrity_attr;
 	str msg_integrity;
-	char *fingerprint_attr;
 	u_int32_t priority;
+	char *fingerprint_attr;
 	u_int32_t fingerprint;
 	int use:1,
 	    controlled:1,
@@ -77,10 +81,13 @@ static int stun_attributes(struct stun_attrs *out, str *s) {
 			return -1;
 
 		switch (ntohs(tlv->type)) {
-			case 0x0006: /* username */
+			case STUN_USERNAME:
 				out->username = attr;
 				break;
-			case 0x0008: /* message-integrity */
+			case STUN_MESSAGE_INTEGRITY:
+				if (attr.len != 20)
+					return -1;
+				out->msg_integrity_attr = (void *) tlv;
 				out->msg_integrity = attr;
 				break;
 			case STUN_FINGERPRINT:
@@ -172,6 +179,46 @@ static int check_fingerprint(str *msg, struct stun_attrs *attrs) {
 	return 0;
 }
 
+static int check_auth(str *msg, struct stun_attrs *attrs, struct peer *peer) {
+	HMAC_CTX ctx;
+	u_int16_t lenX;
+	unsigned char digest[20];
+	int ret;
+	str ufrag[2];
+
+	if (!peer->ice_ufrag[0].s || !peer->ice_ufrag[0].len)
+		return -1;
+	if (!peer->ice_pwd.s || !peer->ice_pwd.len)
+		return -1;
+
+	ufrag[0] = attrs->username;
+	str_chr_str(&ufrag[1], &ufrag[0], ':');
+	if (!ufrag[1].s)
+		return -1;
+	ufrag[0].len -= ufrag[1].len;
+	str_shift(&ufrag[1], 1);
+
+	if (!ufrag[0].len || !ufrag[1].len)
+		return -1;
+	if (str_cmp_str(&ufrag[0], &peer->ice_ufrag[0]))
+		return -1;
+
+	HMAC_CTX_init(&ctx);
+	HMAC_Init(&ctx, peer->ice_pwd.s, peer->ice_pwd.len, EVP_sha1());
+	HMAC_Update(&ctx, (void *) msg->s, OFFSET_OF(struct stun, msg_len));
+	lenX = htons((attrs->msg_integrity_attr - msg->s) - 20 + 24);
+	HMAC_Update(&ctx, (void *) &lenX, sizeof(lenX));
+	HMAC_Update(&ctx, (void *) msg->s + OFFSET_OF(struct stun, cookie),
+			ntohs(lenX) + - 24 + 20 - OFFSET_OF(struct stun, cookie));
+	HMAC_Final(&ctx, digest, NULL);
+
+	ret = memcmp(digest, attrs->msg_integrity.s, 20) ? -1 : 0;
+
+	HMAC_CTX_cleanup(&ctx);
+
+	return ret;
+}
+
 /* XXX add error reporting */
 int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	struct stun *s = (void *) b->s;
@@ -203,10 +250,15 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 
 	if (check_fingerprint(b, &attrs))
 		return -1;
+	if (check_auth(b, &attrs, sr->up))
+		goto unauth;
 
 	return 0;
 
 bad_req:
 	stun_error(sr->fd.fd, sin, s, 400, "Bad request");
+	return 0;
+unauth:
+	stun_error(sr->fd.fd, sin, s, 401, "Unauthorized");
 	return 0;
 }
