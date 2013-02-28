@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.0.3) UNRELEASED; urgency=low
+
+  * Fix leftover XMLRPC-kill children on a busy server
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 28 Feb 2013 10:52:18 -0500
+
 ngcp-mediaproxy-ng (2.0.2) unstable; urgency=low
 
   * Don't fail on zero port in TCP controller
