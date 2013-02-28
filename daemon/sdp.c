@@ -857,9 +857,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			goto error;
 
 		if (flags->ice_force) {
-			create_random_string(call, &call->ice_ufrag[0], 4);
-			create_random_string(call, &call->ice_ufrag[1], 4);
-			create_random_string(call, &call->ice_pwd, 20);
+			create_random_string(call, &call->ice_ufrag[0], 8);
+			create_random_string(call, &call->ice_ufrag[1], 8);
+			create_random_string(call, &call->ice_pwd, 28);
 
 			copy_up_to_end_of(chop, &session->s);
 			chopper_append_c(chop, "a=ice-lite\r\na=ice-ufrag:");
