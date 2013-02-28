@@ -93,6 +93,8 @@ struct peer {
 	unsigned char		idx;
 	struct callstream	*up;
 	int			desired_family;
+	str			ice_ufrag[2];
+	str			ice_pwd;
 	int			kernelized:1;
 	int			filled:1;
 	int			confirmed:1;
@@ -121,9 +123,6 @@ struct call {
 	char			redis_uuid[37];
 	time_t			created;
 	time_t			lookup_done;
-
-	str			ice_ufrag[2];
-	str			ice_pwd;
 };
 
 struct callmaster_config {
