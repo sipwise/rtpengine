@@ -8,6 +8,12 @@
 #include "str.h"
 #include "aux.h"
 
+
+
+#define STUN_CRC_XOR 0x5354554eUL
+#define STUN_FINGERPRINT 0x8028
+
+
 struct stun {
 	u_int16_t msg_type;
 	u_int16_t msg_len;
@@ -67,7 +73,7 @@ static int stun_attributes(struct stun_attrs *out, str *s) {
 		if (str_shift(s, len))
 			return -1;
 
-		if (out->msg_integrity.s && ntohs(tlv->type) != 0x8028)
+		if (out->msg_integrity.s && ntohs(tlv->type) != STUN_FINGERPRINT)
 			return -1;
 
 		switch (ntohs(tlv->type)) {
@@ -77,7 +83,7 @@ static int stun_attributes(struct stun_attrs *out, str *s) {
 			case 0x0008: /* message-integrity */
 				out->msg_integrity = attr;
 				break;
-			case 0x8028: /* fingerprint */
+			case STUN_FINGERPRINT:
 				if (attr.len != 4)
 					return -1;
 				out->fingerprint_attr = (void *) tlv;
@@ -136,8 +142,8 @@ static inline void stun_error_len(int fd, struct sockaddr_in6 *sin, struct stun 
 
 	fp.crc = crc32(0, iov[0].iov_base, iov[0].iov_len);
 	fp.crc = crc32(fp.crc, iov[1].iov_base, iov[1].iov_len);
-	fp.crc = htonl(fp.crc ^ 0x5354554eUL);
-	fp.tlv.type = htons(0x8028);
+	fp.crc = htonl(fp.crc ^ STUN_CRC_XOR);
+	fp.tlv.type = htons(STUN_FINGERPRINT);
 	fp.tlv.len = htons(4);
 
 	mh.msg_name = sin;
@@ -151,13 +157,15 @@ static inline void stun_error_len(int fd, struct sockaddr_in6 *sin, struct stun 
 #define stun_error(fd, sin, str, code, reason) \
 	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason))
 
+
+
 static int check_fingerprint(str *msg, struct stun_attrs *attrs) {
 	int len;
 	u_int32_t crc;
 
 	len = attrs->fingerprint_attr - msg->s;
 	crc = crc32(0, (void *) msg->s, len);
-	crc ^= 0x5354554eUL;
+	crc ^= STUN_CRC_XOR;
 	if (crc != attrs->fingerprint)
 		return -1;
 

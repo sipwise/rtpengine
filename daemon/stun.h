@@ -8,7 +8,7 @@
 #include "str.h"
 
 
-#define STUN_COOKIE 0x2112A442
+#define STUN_COOKIE 0x2112A442UL
 
 
 static inline int is_stun(str *s) {
