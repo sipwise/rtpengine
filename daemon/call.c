@@ -209,7 +209,7 @@ void kernelize(struct callstream *c) {
 
 
 /* called with r->up (== cs) locked */
-static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_in6 *fsin) {
+static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsin) {
 	struct streamrelay *p, *p2;
 	struct peer *pe, *pe2;
 	struct callstream *cs;
@@ -235,8 +235,8 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	m = c->callmaster;
 	smart_ntop_port(addr, fsin, sizeof(addr));
 
-	if (r->stun && is_stun(b, l)) {
-		if (!stun(b, l))
+	if (r->stun && is_stun(s)) {
+		if (!stun(s, r, fsin))
 			return 0;
 	}
 
@@ -262,8 +262,8 @@ static int stream_packet(struct streamrelay *r, char *b, int l, struct sockaddr_
 	pe->confirmed = 1;
 
 peerinfo:
-	if (!pe->codec && l >= 2) {
-		cc = b[1];
+	if (!pe->codec && s->len >= 2) {
+		cc = s->s[1];
 		cc &= 0x7f;
 		if (cc < G_N_ELEMENTS(rtp_codecs))
 			pe->codec = rtp_codecs[cc] ? : "unknown";
@@ -344,8 +344,8 @@ ipv4_src:
 	}
 
 	ZERO(iov);
-	iov.iov_base = b;
-	iov.iov_len = l;
+	iov.iov_base = s->s;
+	iov.iov_len = s->len;
 
 	mh.msg_iov = &iov;
 	mh.msg_iovlen = 1;
@@ -363,11 +363,11 @@ ipv4_src:
 drop:
 	ret = 0;
 	r->stats.packets++;
-	r->stats.bytes += l;
+	r->stats.bytes += s->len;
 	r->last = poller_now;
 	mutex_lock(&m->statspslock);
 	m->statsps.packets++;
-	m->statsps.bytes += l;
+	m->statsps.bytes += s->len;
 	mutex_unlock(&m->statspslock);
 
 out:
@@ -392,6 +392,7 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 	void *sinp;
 	int update = 0;
 	struct call *ca;
+	str s;
 
 	mutex_lock(&cs->lock);
 	r = &cs->peers[u >> 1].rtps[u & 1];
@@ -427,7 +428,9 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 			in4_to_6(&sin6.sin6_addr, sin->sin_addr.s_addr);
 		}
 
-		ret = stream_packet(r, buf, ret, sinp);
+		s.s = buf;
+		s.len = ret;
+		ret = stream_packet(r, &s, sinp);
 		if (ret == -1) {
 			mylog(LOG_WARNING, "Write error on RTP socket");
 			mutex_unlock(&cs->lock);

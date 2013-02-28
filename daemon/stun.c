@@ -1,6 +1,8 @@
 #include "stun.h"
 
 #include <sys/types.h>
+#include <string.h>
+#include <sys/socket.h>
 
 #include "str.h"
 #include "aux.h"
@@ -15,7 +17,6 @@ struct stun {
 struct tlv {
 	u_int16_t type;
 	u_int16_t len;
-	char value[0];
 } __attribute__ ((packed));
 
 struct stun_attrs {
@@ -25,6 +26,12 @@ struct stun_attrs {
 	int use:1,
 	    controlled:1,
 	    controlling:1;
+};
+
+struct stun_error {
+	struct stun stun;
+	struct tlv error_code;
+	u_int32_t codes;
 };
 
 
@@ -81,27 +88,71 @@ static int stun_attributes(struct stun_attrs *out, str *s) {
 	return 0;
 }
 
+static inline void stun_error_len(int fd, struct sockaddr_in6 *sin, struct stun *req,
+		int code, char *reason, int len)
+{
+	struct stun_error err;
+	struct msghdr mh;
+	struct iovec iov[2];
+
+	err.stun.msg_type = htons(0x0111); /* binding error response */
+	err.stun.cookie = htonl(STUN_COOKIE);
+	memcpy(&err.stun.transaction, &req->transaction, sizeof(err.stun.transaction));
+	err.error_code.type = htons(0x0009); /* error-code */
+	err.error_code.len = htons(len + sizeof(err.codes));
+	err.codes = htonl(((code / 100) << 8) | (code % 100));
+
+	ZERO(mh);
+	ZERO(iov);
+
+	iov[0].iov_base = &err;
+	iov[0].iov_len = sizeof(err);
+	iov[1].iov_base = reason;
+	iov[1].iov_len = (len + 3) & 0xfffc;
+
+	err.stun.msg_len = htons(iov[1].iov_len + sizeof(err.codes) + sizeof(err.error_code));
+
+	mh.msg_name = sin;
+	mh.msg_namelen = sizeof(*sin);
+	mh.msg_iov = iov;
+	mh.msg_iovlen = 2;
+
+	sendmsg(fd, &mh, 0);
+}
+
+#define stun_error(fd, sin, str, code, reason) \
+	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason))
+
 /* XXX add error reporting */
-int stun(char *buf, int len) {
-	struct stun *s = (void *) buf;
+int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
+	struct stun *s = (void *) b->s;
 	int msglen, method, class;
 	str attr_str;
 	struct stun_attrs attrs;
 
 	msglen = ntohs(s->msg_len);
-	if (msglen + 20 > len || msglen < 0)
+	if (msglen + 20 > b->len || msglen < 0)
 		return -1;
 
-	class = method = ntohl(s->msg_type);
+	class = method = ntohs(s->msg_type);
 	class = ((class & 0x10) >> 4) | ((class & 0x100) >> 7);
 	method = (method & 0xf) | ((method & 0xe0) >> 1) | ((method & 0x3e00) >> 2);
 	if (method != 0x1) /* binding */
 		return -1;
 
-	attr_str.s = &buf[20];
-	attr_str.len = len;
+	attr_str.s = &b->s[20];
+	attr_str.len = b->len - 20;
 	if (stun_attributes(&attrs, &attr_str))
 		return -1;
 
+	if (class == 0x0) { /* request */
+		if (!attrs.username.s || !attrs.msg_integrity.s)
+			goto bad_req;
+	}
+
+	return 0;
+
+bad_req:
+	stun_error(sr->fd.fd, sin, s, 400, "Bad request");
 	return 0;
 }
