@@ -65,7 +65,7 @@ static int stun_attributes(struct stun_attrs *out, str *s) {
 				break;
 			case 0x0008: /* message-integrity */
 				out->msg_integrity = attr;
-				break;
+				goto out;
 
 			case 0x0025: /* use-candidate */
 				out->use = 1;
@@ -85,6 +85,7 @@ static int stun_attributes(struct stun_attrs *out, str *s) {
 		}
 	}
 
+out:
 	return 0;
 }
 

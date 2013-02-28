@@ -857,6 +857,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			goto error;
 
 		if (flags->ice_force) {
+			/* XXX locking here? */
 			create_random_string(call, &rtp->up->ice_ufrag[0], 8);
 			create_random_string(call, &rtp->up->ice_pwd, 28);
 
