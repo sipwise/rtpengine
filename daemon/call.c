@@ -596,6 +596,8 @@ retry:
 		}
 
 		/* child process */
+		alarm(1); /* syslog functions contain a lock, which may be locked at
+			     this point and can't be unlocked */
 		rlim(RLIMIT_CORE, 0);
 		sigemptyset(&ss);
 		sigprocmask(SIG_SETMASK, &ss, NULL);
