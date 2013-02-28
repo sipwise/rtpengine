@@ -2,6 +2,7 @@ CC=		gcc
 CFLAGS=		-g -Wall -pthread -fno-strict-aliasing
 CFLAGS+=	`pkg-config --cflags glib-2.0`
 CFLAGS+=	`pkg-config --cflags gthread-2.0`
+CFLAGS+=	`pkg-config --cflags zlib`
 CFLAGS+=	`pcre-config --cflags`
 CFLAGS+=	-I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
@@ -17,6 +18,7 @@ endif
 LDFLAGS=	-ldl -rdynamic
 LDFLAGS+=	`pkg-config --libs glib-2.0`
 LDFLAGS+=	`pkg-config --libs gthread-2.0`
+LDFLAGS+=	`pkg-config --libs zlib`
 LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`xmlrpc-c-config client --libs`
 
