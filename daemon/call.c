@@ -1167,7 +1167,7 @@ void relays_cache_init(struct relays_cache *c) {
 }
 
 int relays_cache_want_ports(struct relays_cache *c, int portA, int portB, struct call *call) {
-	if (c->relays_open + 2 > ARRAY_SIZE(c->relays_A))
+	if (c->relays_open + 2 > ARRAYSIZE(c->relays_A))
 		return -1;
 	if (get_consecutive_ports(&c->relays_A[c->relays_open], 2, portA, call))
 		return -1;
@@ -1182,7 +1182,7 @@ static int relays_cache_get_ports(struct relays_cache *c, int num, struct call *
 	if (c->relays_open >= num)
 		return 0;
 
-	if (c->relays_open + num > ARRAY_SIZE(c->relays_A))
+	if (c->relays_open + num > ARRAYSIZE(c->relays_A))
 		return -1;
 	if (get_consecutive_ports(&c->relays_A[c->relays_open], num, 0, call))
 		return -1;
@@ -1210,12 +1210,12 @@ static void relays_cache_port_used(struct relays_cache *c) {
 void relays_cache_cleanup(struct relays_cache *c, struct callmaster *m) {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(c->relays_A); i++) {
+	for (i = 0; i < ARRAYSIZE(c->relays_A); i++) {
 		if (c->relays_A[i].fd == -1)
 			break;
 		release_port(&c->relays_A[i], m);
 	}
-	for (i = 0; i < ARRAY_SIZE(c->relays_B); i++) {
+	for (i = 0; i < ARRAYSIZE(c->relays_B); i++) {
 		if (c->relays_B[i].fd == -1)
 			break;
 		release_port(&c->relays_B[i], m);
