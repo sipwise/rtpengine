@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <dlfcn.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include "poller.h"
 #include "control_tcp.h"
@@ -325,6 +327,11 @@ static void wpidfile(void) {
 
 
 static void init_everything() {
+	struct timespec ts;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	srandom(ts.tv_sec ^ ts.tv_nsec);
+
 #if !GLIB_CHECK_VERSION(2,32,0)
 	g_thread_init(NULL);
 #endif
