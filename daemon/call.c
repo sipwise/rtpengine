@@ -1064,7 +1064,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	src->confirmed = 0;
 	unkernelize(src);
 
-	dest->filled = 1;
+	dest->filled = src->filled;
 	dest->mediatype = src->mediatype;
 	dest->tag = src->tag;
 	src->mediatype = "";
@@ -1270,13 +1270,25 @@ found:
 		}
 
 		/* lookup */
+		x = t->num;
+restart_hunt:
 		for (l = c->callstreams->head; l; l = l->next) {
 			cs = l->data;
 			if (cs != cs_o)
 				mutex_lock(&cs->lock);
-			DBG("hunting for callstream, %i <> %i", cs->num, t->num);
-			if (cs->num == t->num)
-				goto got_cs;
+			DBG("hunting for callstream, %i <> %i", cs->num, x);
+			if (cs->num == x) {
+				/* special case: lowered numbered media streams may
+				 * have been "stolen away" by higher numbered streams
+				 * with identical endpoints. keep going until we find
+				 * one with an open fd. */
+				if (cs->peers[0].rtps[0].fd != -1)
+					goto got_cs;
+				x++;
+				if (cs != cs_o)
+					mutex_unlock(&cs->lock);
+				goto restart_hunt;
+			}
 			if (cs != cs_o)
 				mutex_unlock(&cs->lock);
 		}
