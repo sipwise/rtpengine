@@ -228,7 +228,7 @@ static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
 	for (i = 0; i < mh->msg_iovlen - 1; i++)
 		fp->crc = crc32(fp->crc, iov[i].iov_base, iov[i].iov_len);
 
-	fp->crc = htons(fp->crc ^ STUN_CRC_XOR);
+	fp->crc = htonl(fp->crc ^ STUN_CRC_XOR);
 	hdr->msg_len = ntohs(hdr->msg_len);
 }
 
