@@ -20,6 +20,8 @@
 #define STUN_XOR_MAPPED_ADDRESS 0x0020
 #define STUN_FINGERPRINT 0x8028
 
+#define STUN_CLASS_REQUEST 0x00
+#define STUN_CLASS_INDICATION 0x01
 #define STUN_BINDING_SUCCESS_RESPONSE 0x0101
 #define STUN_BINDING_ERROR_RESPONSE 0x0111
 
@@ -401,6 +403,8 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	method = (method & 0xf) | ((method & 0xe0) >> 1) | ((method & 0x3e00) >> 2);
 	if (method != 0x1) /* binding */
 		return -1;
+	if (class == STUN_CLASS_INDICATION)
+		return 0;
 
 	attr_str.s = &b->s[20];
 	attr_str.len = b->len - 20;
@@ -413,8 +417,8 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 		return 0;
 	}
 
-	if (class != 0x0)
-		return -1; /* XXX ? */
+	if (class != STUN_CLASS_REQUEST)
+		return -1;
 
 	/* request */
 	if (!attrs.username.s || !attrs.msg_integrity.s || !attrs.fingerprint_attr)
