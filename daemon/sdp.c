@@ -737,13 +737,8 @@ static int insert_ice_address(struct sdp_chopper *chop, struct sdp_ng_flags *fla
 	char buf[64];
 	int len;
 
-	if (!flags->trust_address && flags->received_from_family.len == 3 && flags->received_from_address.len)
-		chopper_append_str(chop, &flags->received_from_address);
-	else {
-		call_stream_address(buf, sr->up, SAF_ICE, &len);
-		chopper_append_dup(chop, buf, len);
-	}
-
+	call_stream_address(buf, sr->up, SAF_ICE, &len);
+	chopper_append_dup(chop, buf, len);
 	chopper_append_printf(chop, " %hu", sr->fd.localport);
 
 	return 0;
@@ -758,15 +753,8 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
 
-	if (!flags->trust_address && flags->received_from_family.len == 3 && flags->received_from_address.len) {
-		chopper_append_str(chop, &flags->received_from_family);
-		chopper_append_c(chop, " ");
-		chopper_append_str(chop, &flags->received_from_address);
-	}
-	else {
-		call_stream_address(buf, sr->up, SAF_NG, &len);
-		chopper_append_dup(chop, buf, len);
-	}
+	call_stream_address(buf, sr->up, SAF_NG, &len);
+	chopper_append_dup(chop, buf, len);
 
 	if (skip_over(chop, &address->address))
 		return -1;
