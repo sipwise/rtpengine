@@ -1581,6 +1581,29 @@ int call_stream_address(char *o, struct peer *p, enum stream_address_format form
 	return call_stream_address6(o, p, format, len);
 }
 
+int call_stream_address_alt(char *o, struct peer *p, enum stream_address_format format, int *len) {
+	struct callmaster *m;
+	struct peer *other;
+
+	m = p->up->call->callmaster;
+	other = &p->up->peers[p->idx ^ 1];
+
+	if (other->desired_family == AF_INET)
+		return call_stream_address6(o, p, format, len);
+	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
+		return call_stream_address6(o, p, format, len);
+	if (other->desired_family == 0 && is_addr_unspecified(&other->rtps[0].peer_advertised.ip46))
+		return call_stream_address6(o, p, format, len);
+	if (is_addr_unspecified(&m->conf.ipv6))
+		return call_stream_address6(o, p, format, len);
+
+	return call_stream_address4(o, p, format, len);
+}
+
+int callmaster_has_ipv6(struct callmaster *m) {
+	return is_addr_unspecified(&m->conf.ipv6) ? 0 : 1;
+}
+
 static int call_stream_address_gstring(GString *o, struct peer *p, enum stream_address_format format) {
 	int len, ret;
 	char buf[64]; /* 64 bytes ought to be enough for anybody */
@@ -2220,6 +2243,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 		}
 	}
 
+	/* XXX convert to a "desired-family" kinda thing instead */
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
 		for (it = list->child; it && diridx < 2; it = it->sibling) {

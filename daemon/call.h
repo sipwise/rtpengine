@@ -148,6 +148,7 @@ struct callmaster;
 struct callmaster *callmaster_new(struct poller *);
 void callmaster_config(struct callmaster *m, struct callmaster_config *c);
 void callmaster_exclude_port(struct callmaster *m, u_int16_t p);
+int callmaster_has_ipv6(struct callmaster *);
 
 
 str *call_request_tcp(char **, struct callmaster *);
@@ -173,6 +174,7 @@ struct callstream *callstream_new(struct call *ca, int num);
 void callstream_init(struct callstream *s, struct relays_cache *);
 void kernelize(struct callstream *c);
 int call_stream_address(char *o, struct peer *p, enum stream_address_format format, int *len);
+int call_stream_address_alt(char *o, struct peer *p, enum stream_address_format format, int *len);
 
 void relays_cache_init(struct relays_cache *c);
 int relays_cache_want_ports(struct relays_cache *c, int portA, int portB, struct call *call);

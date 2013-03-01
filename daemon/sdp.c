@@ -104,6 +104,8 @@ struct sdp_attribute {
 static const char ice_chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 static char ice_foundation[17];
 static str ice_foundation_str;
+static char ice_foundation_alt[17];
+static str ice_foundation_str_alt;
 
 
 
@@ -733,7 +735,7 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(struct sdp_chopper *chop, struct sdp_ng_flags *flags, struct streamrelay *sr) {
+static int insert_ice_address(struct sdp_chopper *chop, struct streamrelay *sr) {
 	char buf[64];
 	int len;
 
@@ -744,8 +746,19 @@ static int insert_ice_address(struct sdp_chopper *chop, struct sdp_ng_flags *fla
 	return 0;
 }
 
+static int insert_ice_address_alt(struct sdp_chopper *chop, struct streamrelay *sr) {
+	char buf[64];
+	int len;
+
+	call_stream_address_alt(buf, sr->up, SAF_ICE, &len);
+	chopper_append_dup(chop, buf, len);
+	chopper_append_printf(chop, " %hu", sr->fd.localport);
+
+	return 0;
+}
+
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
-		struct streamrelay *sr, struct sdp_ng_flags *flags)
+		struct streamrelay *sr)
 {
 	char buf[64];
 	int len;
@@ -897,6 +910,44 @@ out:
 	return prio;
 }
 
+static void insert_candidates(struct sdp_chopper *chop, struct streamrelay *rtp, struct streamrelay *rtcp,
+		unsigned long priority, struct sdp_session *session, struct sdp_media *media)
+{
+	chopper_append_c(chop, "a=candidate:");
+	chopper_append_str(chop, &ice_foundation_str);
+	chopper_append_printf(chop, " 1 UDP %lu ", priority);
+	insert_ice_address(chop, rtp);
+	chopper_append_c(chop, " typ host\r\n");
+
+	if (has_rtcp(session, media)) {
+		chopper_append_c(chop, "a=candidate:");
+		chopper_append_str(chop, &ice_foundation_str);
+		chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
+		insert_ice_address(chop, rtcp);
+		chopper_append_c(chop, " typ host\r\n");
+	}
+
+}
+
+static void insert_candidates_alt(struct sdp_chopper *chop, struct streamrelay *rtp, struct streamrelay *rtcp,
+		unsigned long priority, struct sdp_session *session, struct sdp_media *media)
+{
+	chopper_append_c(chop, "a=candidate:");
+	chopper_append_str(chop, &ice_foundation_str_alt);
+	chopper_append_printf(chop, " 1 UDP %lu ", priority);
+	insert_ice_address_alt(chop, rtp);
+	chopper_append_c(chop, " typ host\r\n");
+
+	if (has_rtcp(session, media)) {
+		chopper_append_c(chop, "a=candidate:");
+		chopper_append_str(chop, &ice_foundation_str_alt);
+		chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
+		insert_ice_address_alt(chop, rtcp);
+		chopper_append_c(chop, " typ host\r\n");
+	}
+
+}
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
@@ -917,11 +968,11 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		fill_relays(&rtp, &rtcp, m, off, NULL);
 
 		if (session->origin.parsed && flags->replace_origin) {
-			if (replace_network_address(chop, &session->origin.address, rtp, flags))
+			if (replace_network_address(chop, &session->origin.address, rtp))
 				goto error;
 		}
 		if (session->connection.parsed) {
-			if (replace_network_address(chop, &session->connection.address, rtp, flags))
+			if (replace_network_address(chop, &session->connection.address, rtp))
 				goto error;
 		}
 
@@ -961,7 +1012,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				goto error;
 
 			if (media->connection.parsed && flags->replace_sess_conn) {
-				if (replace_network_address(chop, &media->connection.address, rtp, flags))
+				if (replace_network_address(chop, &media->connection.address, rtp))
 					goto error;
 			}
 
@@ -985,18 +1036,11 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				else
 					priority = new_priority(media);
 
-				chopper_append_c(chop, "a=candidate:");
-				chopper_append_str(chop, &ice_foundation_str);
-				chopper_append_printf(chop, " 1 UDP %lu ", priority);
-				insert_ice_address(chop, flags, rtp);
-				chopper_append_c(chop, " typ host\r\n");
+				insert_candidates(chop, rtp, rtcp, priority, session, media);
 
-				if (has_rtcp(session, media)) {
-					chopper_append_c(chop, "a=candidate:");
-					chopper_append_str(chop, &ice_foundation_str);
-					chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
-					insert_ice_address(chop, flags, rtcp);
-					chopper_append_c(chop, " typ host\r\n");
+				if (callmaster_has_ipv6(rtp->up->up->call->callmaster)) {
+					priority -= 256;
+					insert_candidates_alt(chop, rtp, rtcp, priority, session, media);
 				}
 			}
 		}
@@ -1014,4 +1058,8 @@ void sdp_init() {
 	random_string(ice_foundation, sizeof(ice_foundation) - 1);
 	ice_foundation_str.s = ice_foundation;
 	ice_foundation_str.len = sizeof(ice_foundation) - 1;
+
+	random_string(ice_foundation_alt, sizeof(ice_foundation_alt) - 1);
+	ice_foundation_str_alt.s = ice_foundation_alt;
+	ice_foundation_str_alt.len = sizeof(ice_foundation_alt) - 1;
 }
