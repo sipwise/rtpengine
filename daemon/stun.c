@@ -16,11 +16,14 @@
 #define STUN_USERNAME 0x0006
 #define STUN_MESSAGE_INTEGRITY 0x0008
 #define STUN_ERROR_CODE 0x0009
+#define STUN_UNKNOWN_ATTRIBUTES 0x000a
 #define STUN_XOR_MAPPED_ADDRESS 0x0020
 #define STUN_FINGERPRINT 0x8028
 
 #define STUN_BINDING_SUCCESS_RESPONSE 0x0101
 #define STUN_BINDING_ERROR_RESPONSE 0x0111
+
+#define UNKNOWNS_COUNT 16
 
 
 
@@ -48,6 +51,10 @@ struct tlv {
 	u_int16_t len;
 } __attribute__ ((packed));
 
+struct generic {
+	struct tlv tlv;
+} __attribute__ ((packed));
+
 struct error_code {
 	struct tlv tlv;
 	u_int32_t codes;
@@ -72,16 +79,18 @@ struct xor_mapped_address {
 
 
 
-static int stun_attributes(struct stun_attrs *out, str *s) {
+static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns) {
 	struct tlv *tlv;
-	int len;
+	int len, type, uc;
 	str attr;
 
 	ZERO(*out);
+	uc = 0;
+	unknowns[0] = 0xffff;
 
 	while (1) {
 		if (!s->len)
-			return 0;
+			break;
 
 		tlv = (void *) s->s;
 		if (str_shift(s, sizeof(*tlv)))
@@ -95,10 +104,11 @@ static int stun_attributes(struct stun_attrs *out, str *s) {
 		if (str_shift(s, len))
 			return -1;
 
-		if (out->msg_integrity.s && ntohs(tlv->type) != STUN_FINGERPRINT)
+		type = ntohs(tlv->type);
+		if (out->msg_integrity.s && type != STUN_FINGERPRINT)
 			return -1;
 
-		switch (ntohs(tlv->type)) {
+		switch (type) {
 			case STUN_USERNAME:
 				out->username = attr;
 				break;
@@ -130,11 +140,20 @@ static int stun_attributes(struct stun_attrs *out, str *s) {
 					return -1;
 				out->priority = ntohl(*((u_int32_t *) attr.s));
 				break;
+
+			default:
+				if ((type & 0x8000))
+					break;
+				unknowns[uc] = tlv->type;
+				unknowns[++uc] = 0xffff;
+				if (uc >= UNKNOWNS_COUNT - 1)
+					return -1;
+				break;
 		}
 	}
 
 out:
-	return 0;
+	return uc ? -1 : 0;
 }
 
 static void output_init(struct msghdr *mh, struct iovec *iov, struct sockaddr_in6 *sin,
@@ -241,18 +260,22 @@ static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
 }
 
 static void stun_error_len(int fd, struct sockaddr_in6 *sin, struct header *req,
-		int code, char *reason, int len)
+		int code, char *reason, int len, u_int16_t add_attr, void *attr_cont,
+		int attr_len)
 {
 	struct header hdr;
 	struct error_code ec;
 	struct fingerprint fp;
+	struct generic aa;
 	struct msghdr mh;
-	struct iovec iov[4]; /* hdr, ec, reason, fp */
+	struct iovec iov[6]; /* hdr, ec, reason, aa, attr_cont, fp */
 
 	output_init(&mh, iov, sin, &hdr, STUN_BINDING_ERROR_RESPONSE, req->transaction);
 
 	ec.codes = htonl(((code / 100) << 8) | (code % 100));
 	output_add_data(&mh, &ec, STUN_ERROR_CODE, reason, len);
+	if (attr_cont)
+		output_add_data(&mh, &aa, add_attr, attr_cont, attr_len);
 
 	fingerprint(&mh, &fp);
 
@@ -261,7 +284,11 @@ static void stun_error_len(int fd, struct sockaddr_in6 *sin, struct header *req,
 }
 
 #define stun_error(fd, sin, str, code, reason) \
-	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason))
+	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason), \
+			0, NULL, 0)
+#define stun_error_attrs(fd, sin, str, code, reason, type, content, len) \
+	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason), \
+			type, content, len)
 
 
 
@@ -350,18 +377,26 @@ static int stun_binding_success(int fd, struct header *req, struct stun_attrs *a
 	return 0;
 }
 
+static inline int u_int16_t_arr_len(u_int16_t *arr) {
+	int i;
+	for (i = 0; arr[i] != 0xffff; i++)
+		;
+	return i;
+}
+
 /* XXX add error reporting */
 int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
-	struct header *s = (void *) b->s;
+	struct header *req = (void *) b->s;
 	int msglen, method, class;
 	str attr_str;
 	struct stun_attrs attrs;
+	u_int16_t unknowns[UNKNOWNS_COUNT];
 
-	msglen = ntohs(s->msg_len);
+	msglen = ntohs(req->msg_len);
 	if (msglen + 20 > b->len || msglen < 0)
 		return -1;
 
-	class = method = ntohs(s->msg_type);
+	class = method = ntohs(req->msg_type);
 	class = ((class & 0x10) >> 4) | ((class & 0x100) >> 7);
 	method = (method & 0xf) | ((method & 0xe0) >> 1) | ((method & 0x3e00) >> 2);
 	if (method != 0x1) /* binding */
@@ -369,8 +404,14 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 
 	attr_str.s = &b->s[20];
 	attr_str.len = b->len - 20;
-	if (stun_attributes(&attrs, &attr_str))
-		return -1;
+	if (stun_attributes(&attrs, &attr_str, unknowns)) {
+		if (unknowns[0] == 0xffff)
+			return -1;
+		stun_error_attrs(sr->fd.fd, sin, req, 420, "Unknown attribute",
+				STUN_UNKNOWN_ATTRIBUTES, unknowns,
+				u_int16_t_arr_len(unknowns) * 2);
+		return 0;
+	}
 
 	if (class != 0x0)
 		return -1; /* XXX ? */
@@ -384,14 +425,14 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	if (check_auth(b, &attrs, sr->up))
 		goto unauth;
 
-	stun_binding_success(sr->fd.fd, s, &attrs, sin, sr->up);
+	stun_binding_success(sr->fd.fd, req, &attrs, sin, sr->up);
 
 	return 0;
 
 bad_req:
-	stun_error(sr->fd.fd, sin, s, 400, "Bad request");
+	stun_error(sr->fd.fd, sin, req, 400, "Bad request");
 	return 0;
 unauth:
-	stun_error(sr->fd.fd, sin, s, 401, "Unauthorized");
+	stun_error(sr->fd.fd, sin, req, 401, "Unauthorized");
 	return 0;
 }
