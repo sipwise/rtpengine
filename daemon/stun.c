@@ -313,7 +313,7 @@ static int check_auth(str *msg, struct stun_attrs *attrs, struct peer *peer) {
 	str ufrag[2];
 	struct iovec iov[3];
 
-	if (!peer->ice_ufrag[0].s || !peer->ice_ufrag[0].len)
+	if (!peer->ice_ufrag.s || !peer->ice_ufrag.len)
 		return -1;
 	if (!peer->ice_pwd.s || !peer->ice_pwd.len)
 		return -1;
@@ -327,7 +327,7 @@ static int check_auth(str *msg, struct stun_attrs *attrs, struct peer *peer) {
 
 	if (!ufrag[0].len || !ufrag[1].len)
 		return -1;
-	if (str_cmp_str(&ufrag[0], &peer->ice_ufrag[0]))
+	if (str_cmp_str(&ufrag[0], &peer->ice_ufrag))
 		return -1;
 
 	lenX = htons((attrs->msg_integrity_attr - msg->s) - 20 + 24);

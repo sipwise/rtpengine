@@ -33,6 +33,7 @@ struct sdp_connection {
 struct sdp_attributes {
 	GQueue list;
 	GHashTable *hash;
+	GHashTable *lists_hash;
 };
 
 struct sdp_session {
@@ -64,6 +65,18 @@ struct attribute_rtcp {
 	struct network_address address;
 };
 
+struct attribute_candidate {
+	str foundation;
+	str component_str;
+	str transport;
+	str priority_str;
+	/* incomplete */
+
+	unsigned long component;
+	unsigned long priority;
+	int parsed:1;
+};
+
 struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
@@ -75,11 +88,13 @@ struct sdp_attribute {
 	enum {
 		ATTR_OTHER = 0,
 		ATTR_RTCP,
+		ATTR_CANDIDATE,
 		ATTR_ICE,
 	} attr;
 
 	union {
 		struct attribute_rtcp rtcp;
+		struct attribute_candidate candidate;
 	} u;
 };
 
@@ -210,6 +225,8 @@ static int parse_media(char *start, char *end, struct sdp_media *output) {
 static void attrs_init(struct sdp_attributes *a) {
 	g_queue_init(&a->list);
 	a->hash = g_hash_table_new(str_hash, str_equal);
+	a->lists_hash = g_hash_table_new_full(str_hash, str_equal,
+			NULL, (GDestroyNotify) g_queue_free);
 }
 
 static int parse_attribute_rtcp(struct sdp_attribute *output) {
@@ -233,6 +250,29 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 	start = ep;
 	EXTRACT_NETWORK_ADDRESS(u.rtcp.address);
 
+	return 0;
+}
+
+static int parse_attribute_candidate(struct sdp_attribute *output) {
+	char *end, *start, *ep;
+
+	start = output->value.s;
+	end = start + output->value.len;
+	output->attr = ATTR_CANDIDATE;
+
+	EXTRACT_TOKEN(u.candidate.foundation);
+	EXTRACT_TOKEN(u.candidate.component_str);
+	EXTRACT_TOKEN(u.candidate.transport);
+	EXTRACT_TOKEN(u.candidate.priority_str);
+
+	output->u.candidate.component = strtoul(output->u.candidate.component_str.s, &ep, 10);
+	if (ep == output->u.candidate.component_str.s)
+		return -1;
+	output->u.candidate.priority = strtoul(output->u.candidate.priority_str.s, &ep, 10);
+	if (ep == output->u.candidate.priority_str.s)
+		return -1;
+
+	output->u.candidate.parsed = 1;
 	return 0;
 }
 
@@ -275,7 +315,7 @@ static void parse_attribute(struct sdp_attribute *a) {
 			break;
 		case 9:
 			if (!str_cmp(&a->name, "candidate"))
-				a->attr = ATTR_ICE;
+				parse_attribute_candidate(a);
 			else if (!str_cmp(&a->name, "ice-ufrag"))
 				a->attr = ATTR_ICE;
 			break;
@@ -302,6 +342,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 	struct sdp_attributes *attrs;
 	struct sdp_attribute *attr;
 	str *adj_s;
+	GQueue *attr_queue;
 
 	b = body->s;
 	end = str_end(body);
@@ -389,6 +430,12 @@ int sdp_parse(str *body, GQueue *sessions) {
 				if (attr->key.s)
 					g_hash_table_insert(attrs->hash, &attr->key, attr);
 
+				attr_queue = g_hash_table_lookup(attrs->lists_hash, &attr->name);
+				if (!attr_queue)
+					g_hash_table_insert(attrs->lists_hash, &attr->name,
+							(attr_queue = g_queue_new()));
+				g_queue_push_tail(attr_queue, attr);
+
 				break;
 
 			case 'b':
@@ -437,6 +484,7 @@ static void free_attributes(struct sdp_attributes *a) {
 	struct sdp_attribute *attr;
 
 	g_hash_table_destroy(a->hash);
+	g_hash_table_destroy(a->lists_hash);
 	while ((attr = g_queue_pop_head(&a->list))) {
 		g_slice_free1(sizeof(*attr), attr);
 	}
@@ -757,6 +805,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 
 		switch (attr->attr) {
 			case ATTR_ICE:
+			case ATTR_CANDIDATE:
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
 				goto strip;
@@ -787,6 +836,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attribu
 
 		switch (attr->attr) {
 			case ATTR_ICE:
+			case ATTR_CANDIDATE:
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
 				goto strip;
@@ -826,6 +876,39 @@ static int has_rtcp(struct sdp_session *session, struct sdp_media *media) {
 	return 0;
 }
 
+static unsigned long prio_calc(unsigned int pref) {
+	return (1 << 24) * 126 + (1 << 8) * pref + 256 * 1;
+}
+
+static unsigned long new_priority(struct sdp_media *media) {
+	str s;
+	GQueue *cands;
+	unsigned int pref;
+	unsigned long prio;
+	GList *l;
+	struct attribute_candidate *c;
+
+	pref = 65535;
+	prio = prio_calc(pref);
+
+	if (!media)
+		goto out;
+
+	str_init(&s, "candidate");
+	cands = g_hash_table_lookup(media->attributes.lists_hash, &s);
+
+	for (l = cands->head; l; l = l->next) {
+		c = l->data;
+		while (c->priority >= prio) {
+			pref--;
+			prio = prio_calc(pref);
+		}
+	}
+
+out:
+	return prio;
+}
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
@@ -835,6 +918,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 	int off;
 	struct stream_input si, *sip;
 	struct streamrelay *rtp, *rtcp;
+	unsigned long priority;
 
 	off = opmode;
 	m = call->callstreams->head;
@@ -858,18 +942,15 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 
 		if (flags->ice_force) {
 			/* XXX locking here? */
-			create_random_string(call, &rtp->up->ice_ufrag[0], 8);
+			create_random_string(call, &rtp->up->ice_ufrag, 8);
 			create_random_string(call, &rtp->up->ice_pwd, 28);
 
 			copy_up_to_end_of(chop, &session->s);
 			chopper_append_c(chop, "a=ice-lite\r\na=ice-ufrag:");
-			chopper_append_str(chop, &rtp->up->ice_ufrag[0]);
+			chopper_append_str(chop, &rtp->up->ice_ufrag);
 			chopper_append_c(chop, "\r\na=ice-pwd:");
 			chopper_append_str(chop, &rtp->up->ice_pwd);
 			chopper_append_c(chop, "\r\n");
-
-			rtp->stun = 1;
-			rtcp->stun = 1;
 		}
 
 		for (k = session->media_streams.head; k; k = k->next) {
@@ -907,17 +988,25 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				chopper_append_c(chop, "\r\n");
 			}
 
-			if (flags->ice_force) {
-				/* prio = (2^24) * 126 + (2^8) * 65535 + (256 - componentID) */
+			if (!flags->ice_remove) {
+				if (flags->ice_force) {
+					priority = new_priority(NULL);
+					rtp->stun = 1;
+					rtcp->stun = 1;
+				}
+				else
+					priority = new_priority(media);
+
 				chopper_append_c(chop, "a=candidate:");
 				chopper_append_str(chop, &ice_foundation_str);
-				chopper_append_c(chop, " 1 UDP 2130706431 ");
+				chopper_append_printf(chop, " 1 UDP %lu ", priority);
 				insert_ice_address(chop, flags, rtp);
 				chopper_append_c(chop, " typ host\r\n");
+
 				if (has_rtcp(session, media)) {
 					chopper_append_c(chop, "a=candidate:");
 					chopper_append_str(chop, &ice_foundation_str);
-					chopper_append_c(chop, " 2 UDP 2130706430 ");
+					chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
 					insert_ice_address(chop, flags, rtcp);
 					chopper_append_c(chop, " typ host\r\n");
 				}
