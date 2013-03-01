@@ -1182,6 +1182,7 @@ static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t
 	int err;
 	unsigned int datalen;
 	unsigned long flags;
+	u_int32_t *u32;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -1194,6 +1195,23 @@ static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t
 	DBG("udp payload = %u\n", datalen);
 	skb_trim(skb, datalen);
 
+	if (datalen < 28)
+		goto not_stun;
+	if ((datalen & 0x3))
+		goto not_stun;
+	u32 = (void *) skb->data;
+	if (u32[1] != htonl(0x2112A442UL)) /* magic cookie */
+		goto not_stun;
+	if ((u32[0] & htonl(0xb0000003UL))) /* zero bits required by rfc */
+		goto not_stun;
+	u32 = (void *) &skb->data[datalen - 8];
+	if (u32[0] != htonl(0x80280004UL)) /* required fingerprint attribute */
+		goto not_stun;
+
+	/* probably stun, pass to application */
+	goto skip2;
+
+not_stun:
 	g = get_target(t, ntohs(uh->dest));
 	if (!g)
 		goto skip2;
