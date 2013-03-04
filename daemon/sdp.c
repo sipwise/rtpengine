@@ -797,7 +797,9 @@ static void create_random_string(struct call *call, str *s, int len) {
 	call_str_cpy_len(call, s, buf, len);
 }
 
-static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs, struct sdp_ng_flags *flags) {
+static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,
+		struct sdp_ng_flags *flags)
+{
 	GList *l;
 	struct sdp_attribute *attr;
 
@@ -827,7 +829,8 @@ strip:
 	return 0;
 }
 
-static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs, struct sdp_ng_flags *flags)
+static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,
+		struct sdp_ng_flags *flags)
 {
 	GList *l;
 	struct sdp_attribute *attr;
@@ -948,19 +951,45 @@ static void insert_candidates_alt(struct sdp_chopper *chop, struct streamrelay *
 
 }
 
+static int has_ice(GQueue *sessions) {
+	GList *l, *m;
+	struct sdp_session *session;
+	struct sdp_media *media;
+	str s;
+
+	str_init(&s, "ice-ufrag");
+
+	for (l = sessions->head; l; l = l->next) {
+		session = l->data;
+
+		if (g_hash_table_lookup(session->attributes.hash, &s))
+			return 1;
+
+		for (m = session->media_streams.head; m; m = m->next) {
+			media = m->data;
+
+			if (g_hash_table_lookup(media->attributes.hash, &s))
+				return 1;
+		}
+	}
+
+	return 0;
+}
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	GList *l, *k, *m;
-	int off;
+	int off, do_ice;
 	struct stream_input si, *sip;
 	struct streamrelay *rtp, *rtcp;
 	unsigned long priority;
 
 	off = opmode;
 	m = call->callstreams->head;
+	do_ice = (flags->ice_force || (!has_ice(sessions) && !flags->ice_remove)) ? 1 : 0;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
@@ -979,17 +1008,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		if (process_session_attributes(chop, &session->attributes, flags))
 			goto error;
 
-		if (flags->ice_force) {
-			/* XXX locking here? */
-			create_random_string(call, &rtp->up->ice_ufrag, 8);
-			create_random_string(call, &rtp->up->ice_pwd, 28);
-
+		if (do_ice) {
 			copy_up_to_end_of(chop, &session->s);
-			chopper_append_c(chop, "a=ice-lite\r\na=ice-ufrag:");
-			chopper_append_str(chop, &rtp->up->ice_ufrag);
-			chopper_append_c(chop, "\r\na=ice-pwd:");
-			chopper_append_str(chop, &rtp->up->ice_pwd);
-			chopper_append_c(chop, "\r\n");
+			chopper_append_c(chop, "a=ice-lite\r\n");
 		}
 
 		for (k = session->media_streams.head; k; k = k->next) {
@@ -1027,14 +1048,24 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				chopper_append_c(chop, "\r\n");
 			}
 
-			if (!flags->ice_remove) {
-				if (flags->ice_force) {
-					priority = new_priority(NULL);
-					rtp->stun = 1;
-					rtcp->stun = 1;
+			if (do_ice) {
+				/* XXX locking here? */
+				if (!rtp->up->ice_ufrag.s) {
+					create_random_string(call, &rtp->up->ice_ufrag, 8);
+					create_random_string(call, &rtp->up->ice_pwd, 28);
 				}
-				else
-					priority = new_priority(media);
+
+				chopper_append_c(chop, "a=ice-ufrag:");
+				chopper_append_str(chop, &rtp->up->ice_ufrag);
+				chopper_append_c(chop, "\r\na=ice-pwd:");
+				chopper_append_str(chop, &rtp->up->ice_pwd);
+				chopper_append_c(chop, "\r\n");
+				rtp->stun = 1;
+				rtcp->stun = 1;
+			}
+
+			if (!flags->ice_remove) {
+				priority = new_priority(flags->ice_force ? NULL : media);
 
 				insert_candidates(chop, rtp, rtcp, priority, session, media);
 
