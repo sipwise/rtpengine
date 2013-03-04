@@ -1512,6 +1512,8 @@ static void call_destroy(struct call *c) {
 
 
 
+typedef int (*csa_func)(char *o, struct peer *p, enum stream_address_format format, int *len);
+
 static int call_stream_address4(char *o, struct peer *p, enum stream_address_format format, int *len) {
 	struct callstream *cs = p->up;
 	u_int32_t ip4;
@@ -1562,42 +1564,51 @@ static int call_stream_address6(char *o, struct peer *p, enum stream_address_for
 	return AF_INET6;
 }
 
-int call_stream_address(char *o, struct peer *p, enum stream_address_format format, int *len) {
+static csa_func __call_stream_address(struct peer *p, int variant) {
 	struct callmaster *m;
 	struct peer *other;
+	csa_func variants[2];
+
+	assert(variant >= 0);
+	assert(variant < ARRAYSIZE(variants));
 
 	m = p->up->call->callmaster;
 	other = &p->up->peers[p->idx ^ 1];
 
-	if (other->desired_family == AF_INET)
-		return call_stream_address4(o, p, format, len);
-	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
-		return call_stream_address4(o, p, format, len);
-	if (other->desired_family == 0 && is_addr_unspecified(&other->rtps[0].peer_advertised.ip46))
-		return call_stream_address4(o, p, format, len);
-	if (is_addr_unspecified(&m->conf.ipv6))
-		return call_stream_address4(o, p, format, len);
+	variants[0] = call_stream_address4;
+	variants[1] = call_stream_address6;
 
-	return call_stream_address6(o, p, format, len);
+	if (is_addr_unspecified(&m->conf.ipv6)) {
+		variants[1] = NULL;
+		goto done;
+	}
+	if (other->desired_family == AF_INET)
+		goto done;
+	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
+		goto done;
+	if (other->desired_family == 0 && is_addr_unspecified(&other->rtps[0].peer_advertised.ip46))
+		goto done;
+
+	variants[0] = call_stream_address6;
+	variants[1] = call_stream_address4;
+	goto done;
+
+done:
+	return variants[variant];
+}
+
+int call_stream_address(char *o, struct peer *p, enum stream_address_format format, int *len) {
+	csa_func f;
+
+	f = __call_stream_address(p, 0);
+	return f(o, p, format, len);
 }
 
 int call_stream_address_alt(char *o, struct peer *p, enum stream_address_format format, int *len) {
-	struct callmaster *m;
-	struct peer *other;
+	csa_func f;
 
-	m = p->up->call->callmaster;
-	other = &p->up->peers[p->idx ^ 1];
-
-	if (other->desired_family == AF_INET)
-		return call_stream_address6(o, p, format, len);
-	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
-		return call_stream_address6(o, p, format, len);
-	if (other->desired_family == 0 && is_addr_unspecified(&other->rtps[0].peer_advertised.ip46))
-		return call_stream_address6(o, p, format, len);
-	if (is_addr_unspecified(&m->conf.ipv6))
-		return call_stream_address6(o, p, format, len);
-
-	return call_stream_address4(o, p, format, len);
+	f = __call_stream_address(p, 1);
+	return f ? f(o, p, format, len) : -1;
 }
 
 int callmaster_has_ipv6(struct callmaster *m) {
