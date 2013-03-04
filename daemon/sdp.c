@@ -900,6 +900,8 @@ static unsigned long new_priority(struct sdp_media *media) {
 
 	str_init(&s, "candidate");
 	cands = g_hash_table_lookup(media->attributes.lists_hash, &s);
+	if (!cands)
+		goto out;
 
 	for (l = cands->head; l; l = l->next) {
 		c = l->data;
