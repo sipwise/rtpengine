@@ -46,6 +46,8 @@ struct sdp_session {
 };
 
 struct sdp_media {
+	struct sdp_session *session;
+
 	str s;
 	str media_type;
 	str port;
@@ -397,6 +399,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 
 			case 'm':
 				media = g_slice_alloc0(sizeof(*media));
+				media->session = session;
 				attrs_init(&media->attributes);
 				errstr = "Error parsing m= line";
 				if (parse_media(value, line_end, media))
@@ -506,7 +509,9 @@ void sdp_free(GQueue *sessions) {
 	}
 }
 
-static int fill_stream_address(struct stream_input *si, struct sdp_media *media, struct sdp_session *session) {
+static int fill_stream_address(struct stream_input *si, struct sdp_media *media) {
+	struct sdp_session *session = media->session;
+
 	if (media->connection.parsed)
 		si->stream.ip46 = media->connection.address.parsed;
 	else if (session->connection.parsed)
@@ -516,8 +521,8 @@ static int fill_stream_address(struct stream_input *si, struct sdp_media *media,
 	return 0;
 }
 
-static int fill_stream(struct stream_input *si, struct sdp_media *media, struct sdp_session *session, int offset) {
-	if (fill_stream_address(si, media, session))
+static int fill_stream(struct stream_input *si, struct sdp_media *media, int offset) {
+	if (fill_stream_address(si, media))
 		return -1;
 
 	/* we ignore the media type */
@@ -526,8 +531,8 @@ static int fill_stream(struct stream_input *si, struct sdp_media *media, struct 
 	return 0;
 }
 
-static int fill_stream_rtcp(struct stream_input *si, struct sdp_media *media, struct sdp_session *session, int port) {
-	if (fill_stream_address(si, media, session))
+static int fill_stream_rtcp(struct stream_input *si, struct sdp_media *media, int port) {
+	if (fill_stream_address(si, media))
 		return -1;
 	si->stream.port = port;
 	return 0;
@@ -555,7 +560,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 				si = g_slice_alloc0(sizeof(*si));
 
 				errstr = "No address info found for stream";
-				if (fill_stream(si, media, session, i))
+				if (fill_stream(si, media, i))
 					goto error;
 
 				if (i == 0 && g_hash_table_contains(streamhash, si)) {
@@ -582,7 +587,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 			si->has_rtcp = 1;
 
 			si = g_slice_alloc0(sizeof(*si));
-			if (fill_stream_rtcp(si, media, session, attr->u.rtcp.port_num))
+			if (fill_stream_rtcp(si, media, attr->u.rtcp.port_num))
 				goto error;
 			si->stream.num = ++num;
 			si->consecutive_num = 1;
@@ -873,7 +878,9 @@ static GList *find_stream_num(GList *m, int num) {
 	return m;
 }
 
-static int has_rtcp(struct sdp_session *session, struct sdp_media *media) {
+static int has_rtcp(struct sdp_media *media) {
+	struct sdp_session *session = media->session;
+
 	if ((media->rr == -1 ? session->rr : media->rr) != 0
 			&& (media->rs == -1 ? session->rs : media->rs) != 0)
 		return 1;
@@ -916,7 +923,7 @@ out:
 }
 
 static void insert_candidates(struct sdp_chopper *chop, struct streamrelay *rtp, struct streamrelay *rtcp,
-		unsigned long priority, struct sdp_session *session, struct sdp_media *media)
+		unsigned long priority, struct sdp_media *media)
 {
 	chopper_append_c(chop, "a=candidate:");
 	chopper_append_str(chop, &ice_foundation_str);
@@ -924,7 +931,7 @@ static void insert_candidates(struct sdp_chopper *chop, struct streamrelay *rtp,
 	insert_ice_address(chop, rtp);
 	chopper_append_c(chop, " typ host\r\n");
 
-	if (has_rtcp(session, media)) {
+	if (has_rtcp(media)) {
 		chopper_append_c(chop, "a=candidate:");
 		chopper_append_str(chop, &ice_foundation_str);
 		chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
@@ -935,7 +942,7 @@ static void insert_candidates(struct sdp_chopper *chop, struct streamrelay *rtp,
 }
 
 static void insert_candidates_alt(struct sdp_chopper *chop, struct streamrelay *rtp, struct streamrelay *rtcp,
-		unsigned long priority, struct sdp_session *session, struct sdp_media *media)
+		unsigned long priority, struct sdp_media *media)
 {
 	chopper_append_c(chop, "a=candidate:");
 	chopper_append_str(chop, &ice_foundation_str_alt);
@@ -943,7 +950,7 @@ static void insert_candidates_alt(struct sdp_chopper *chop, struct streamrelay *
 	insert_ice_address_alt(chop, rtp);
 	chopper_append_c(chop, " typ host\r\n");
 
-	if (has_rtcp(session, media)) {
+	if (has_rtcp(media)) {
 		chopper_append_c(chop, "a=candidate:");
 		chopper_append_str(chop, &ice_foundation_str_alt);
 		chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
@@ -1018,7 +1025,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
-			if (fill_stream(&si, media, session, 0))
+			if (fill_stream(&si, media, 0))
 				goto error;
 
 			sip = g_hash_table_lookup(streamhash, &si);
@@ -1044,7 +1051,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 
 			copy_up_to_end_of(chop, &media->s);
 
-			if (has_rtcp(session, media)) {
+			if (has_rtcp(media)) {
 				chopper_append_c(chop, "a=rtcp:");
 				chopper_append_printf(chop, "%hu", rtcp->fd.localport);
 				chopper_append_c(chop, "\r\n");
@@ -1069,11 +1076,11 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			if (!flags->ice_remove) {
 				priority = new_priority(flags->ice_force ? NULL : media);
 
-				insert_candidates(chop, rtp, rtcp, priority, session, media);
+				insert_candidates(chop, rtp, rtcp, priority, media);
 
 				if (callmaster_has_ipv6(rtp->up->up->call->callmaster)) {
 					priority -= 256;
-					insert_candidates_alt(chop, rtp, rtcp, priority, session, media);
+					insert_candidates_alt(chop, rtp, rtcp, priority, media);
 				}
 			}
 		}
