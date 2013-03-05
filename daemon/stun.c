@@ -8,6 +8,7 @@
 
 #include "str.h"
 #include "aux.h"
+#include "log.h"
 
 
 
@@ -156,6 +157,7 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns) 
 				break;
 
 			default:
+				mylog(LOG_INFO, "Unknown STUN attribute: 0x%04x", type);
 				if ((type & 0x8000))
 					break;
 				unknowns[uc] = tlv->type;
@@ -398,31 +400,42 @@ static inline int u_int16_t_arr_len(u_int16_t *arr) {
 	return i;
 }
 
-/* XXX add error reporting */
+
+#define SLF " on port %hu from %s"
+#define SLP sr->fd.localport, addr
 int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	struct header *req = (void *) b->s;
 	int msglen, method, class;
 	str attr_str;
 	struct stun_attrs attrs;
 	u_int16_t unknowns[UNKNOWNS_COUNT];
+	const char *err;
+	char addr[64];
+
+	smart_ntop_port(addr, sin, sizeof(addr));
 
 	msglen = ntohs(req->msg_len);
+	err = "message-length mismatch";
 	if (msglen + 20 > b->len || msglen < 0)
-		return -1;
+		goto ignore;
 
 	class = method = ntohs(req->msg_type);
 	class = ((class & 0x10) >> 4) | ((class & 0x100) >> 7);
 	method = (method & 0xf) | ((method & 0xe0) >> 1) | ((method & 0x3e00) >> 2);
+	err = "unknown STUN method";
 	if (method != STUN_METHOD_BINDING)
-		return -1;
+		goto ignore;
 	if (class == STUN_CLASS_INDICATION)
 		return 0;
 
 	attr_str.s = &b->s[20];
 	attr_str.len = b->len - 20;
 	if (stun_attributes(&attrs, &attr_str, unknowns)) {
+		err = "failed to parse attributes";
 		if (unknowns[0] == 0xffff)
-			return -1;
+			goto ignore;
+		mylog(LOG_WARNING, "STUN packet contained unknown "
+				"\"comprehension required\" attribute(s)" SLF, SLP);
 		stun_error_attrs(sr->fd.fd, sin, req, 420, "Unknown attribute",
 				STUN_UNKNOWN_ATTRIBUTES, unknowns,
 				u_int16_t_arr_len(unknowns) * 2);
@@ -432,23 +445,36 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	if (class != STUN_CLASS_REQUEST)
 		return -1;
 
-	/* request */
-	if (!attrs.username.s || !attrs.msg_integrity.s || !attrs.fingerprint_attr)
+	err = "FINGERPRINT attribute missing";
+	if (!attrs.fingerprint_attr)
+		goto ignore;
+	err = "USERNAME attribute missing";
+	if (!attrs.username.s)
+		goto bad_req;
+	err = "MESSAGE_INTEGRITY attribute missing";
+	if (!attrs.msg_integrity.s)
 		goto bad_req;
 
+	err = "FINGERPRINT mismatch";
 	if (check_fingerprint(b, &attrs))
-		return -1;
+		goto ignore;
 	if (check_auth(b, &attrs, sr->up))
 		goto unauth;
 
+	mylog(LOG_NOTICE, "Successful STUN binding request" SLF, SLP);
 	stun_binding_success(sr->fd.fd, req, &attrs, sin, sr->up);
 
 	return 0;
 
 bad_req:
+	mylog(LOG_INFO, "Received invalid STUN packet" SLF ": %s", SLP, err);
 	stun_error(sr->fd.fd, sin, req, 400, "Bad request");
 	return 0;
 unauth:
+	mylog(LOG_INFO, "STUN authentication mismatch" SLF, SLP);
 	stun_error(sr->fd.fd, sin, req, 401, "Unauthorized");
 	return 0;
+ignore:
+	mylog(LOG_INFO, "Not handling potential STUN packet" SLF ": %s", SLP, err);
+	return -1;
 }
