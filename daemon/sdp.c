@@ -471,6 +471,10 @@ int sdp_parse(str *body, GQueue *sessions) {
 				goto error;
 		}
 
+		errstr = "SDP doesn't start with a session definition";
+		if (!session)
+			goto error;
+
 		adj_s = media ? &media->s : &session->s;
 		adj_s->len = (next_line ? : end) - adj_s->s;
 
