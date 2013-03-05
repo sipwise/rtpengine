@@ -711,12 +711,16 @@ static int skip_over(struct sdp_chopper *chop, str *where) {
 	return 0;
 }
 
-static void fill_relays(struct streamrelay **rtp, struct streamrelay **rtcp, GList *m, int off, struct stream_input *sip) {
+static void fill_relays(struct streamrelay **rtp, struct streamrelay **rtcp, GList *m,
+		int off, struct stream_input *sip)
+{
 	*rtp = &((struct callstream *) m->data)->peers[off].rtps[0];
-	if (rtcp)
+
+	if (rtcp) {
 		*rtcp = &((struct callstream *) m->data)->peers[off].rtps[1];
-	if (sip && sip->has_rtcp && m->next)
-		*rtcp = &((struct callstream *) m->next->data)->peers[off].rtps[0];
+		if (sip && sip->has_rtcp && m->next)
+			*rtcp = &((struct callstream *) m->next->data)->peers[off].rtps[0];
+	}
 }
 
 static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct streamrelay *sr) {
