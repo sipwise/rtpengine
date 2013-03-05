@@ -2328,12 +2328,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
 
+	call_ng_process_flags(&flags, &streams, input);
+
 	streamhash = g_hash_table_new((GHashFunc) stream_hash, (GEqualFunc) stream_equal);
 	errstr = "Incomplete SDP specification";
-	if (sdp_streams(&parsed, &streams, streamhash))
+	if (sdp_streams(&parsed, &streams, streamhash, &flags))
 		goto out;
-
-	call_ng_process_flags(&flags, &streams, input);
 
 	call = call_get_opmode(&callid, &viabranch, m, opmode);
 	errstr = "Unknown call-id";

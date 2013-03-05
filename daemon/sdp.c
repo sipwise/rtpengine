@@ -124,31 +124,38 @@ static inline int inet_pton_str(int af, str *src, void *dst) {
 	return ret;
 }
 
-static int parse_address(struct network_address *address) {
+static int __parse_address(struct in6_addr *out, str *network_type, str *address_type, str *address) {
 	struct in_addr in4;
 
-	if (address->network_type.len != 2)
-		return -1;
-	if (memcmp(address->network_type.s, "IN", 2)
-			&& memcmp(address->network_type.s, "in", 2))
-		return -1;
-	if (address->address_type.len != 3)
-		return -1;
-	if (!memcmp(address->address_type.s, "IP4", 3)
-			|| !memcmp(address->address_type.s, "ip4", 3)) {
-		if (inet_pton_str(AF_INET, &address->address, &in4) != 1)
+	if (network_type) {
+		if (network_type->len != 2)
 			return -1;
-		in4_to_6(&address->parsed, in4.s_addr);
+		if (memcmp(network_type->s, "IN", 2)
+				&& memcmp(network_type->s, "in", 2))
+			return -1;
 	}
-	else if (!memcmp(address->address_type.s, "IP6", 3)
-			|| !memcmp(address->address_type.s, "ip6", 3)) {
-		if (inet_pton_str(AF_INET6, &address->address, &address->parsed) != 1)
+	if (address_type->len != 3)
+		return -1;
+	if (!memcmp(address_type->s, "IP4", 3)
+			|| !memcmp(address_type->s, "ip4", 3)) {
+		if (inet_pton_str(AF_INET, address, &in4) != 1)
+			return -1;
+		in4_to_6(out, in4.s_addr);
+	}
+	else if (!memcmp(address_type->s, "IP6", 3)
+			|| !memcmp(address_type->s, "ip6", 3)) {
+		if (inet_pton_str(AF_INET6, address, out) != 1)
 			return -1;
 	}
 	else
 		return -1;
 
 	return 0;
+}
+
+static int parse_address(struct network_address *address) {
+	return __parse_address(&address->parsed, &address->network_type,
+			&address->address_type, &address->address);
 }
 
 static inline int extract_token(char **sp, char *end, str *out) {
@@ -513,10 +520,18 @@ void sdp_free(GQueue *sessions) {
 	}
 }
 
-static int fill_stream_address(struct stream_input *si, struct sdp_media *media) {
+static int fill_stream_address(struct stream_input *si, struct sdp_media *media, struct sdp_ng_flags *flags) {
 	struct sdp_session *session = media->session;
 
-	if (media->connection.parsed)
+	if (!flags->trust_address) {
+		if (is_addr_unspecified(&flags->parsed_address)) {
+			if (__parse_address(&si->stream.ip46, NULL, &flags->received_from_family,
+						&flags->received_from_address))
+				return -1;
+		}
+		si->stream.ip46 = flags->parsed_address;
+	}
+	else if (media->connection.parsed)
 		si->stream.ip46 = media->connection.address.parsed;
 	else if (session->connection.parsed)
 		si->stream.ip46 = session->connection.address.parsed;
@@ -525,8 +540,8 @@ static int fill_stream_address(struct stream_input *si, struct sdp_media *media)
 	return 0;
 }
 
-static int fill_stream(struct stream_input *si, struct sdp_media *media, int offset) {
-	if (fill_stream_address(si, media))
+static int fill_stream(struct stream_input *si, struct sdp_media *media, int offset, struct sdp_ng_flags *flags) {
+	if (fill_stream_address(si, media, flags))
 		return -1;
 
 	/* we ignore the media type */
@@ -535,14 +550,14 @@ static int fill_stream(struct stream_input *si, struct sdp_media *media, int off
 	return 0;
 }
 
-static int fill_stream_rtcp(struct stream_input *si, struct sdp_media *media, int port) {
-	if (fill_stream_address(si, media))
+static int fill_stream_rtcp(struct stream_input *si, struct sdp_media *media, int port, struct sdp_ng_flags *flags) {
+	if (fill_stream_address(si, media, flags))
 		return -1;
 	si->stream.port = port;
 	return 0;
 }
 
-int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash) {
+int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash, struct sdp_ng_flags *flags) {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	struct stream_input *si;
@@ -564,7 +579,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 				si = g_slice_alloc0(sizeof(*si));
 
 				errstr = "No address info found for stream";
-				if (fill_stream(si, media, i))
+				if (fill_stream(si, media, i, flags))
 					goto error;
 
 				if (i == 0 && g_hash_table_contains(streamhash, si)) {
@@ -591,7 +606,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash)
 			si->has_rtcp = 1;
 
 			si = g_slice_alloc0(sizeof(*si));
-			if (fill_stream_rtcp(si, media, attr->u.rtcp.port_num))
+			if (fill_stream_rtcp(si, media, attr->u.rtcp.port_num, flags))
 				goto error;
 			si->stream.num = ++num;
 			si->consecutive_num = 1;
@@ -1029,7 +1044,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
-			if (fill_stream(&si, media, 0))
+			if (fill_stream(&si, media, 0, flags))
 				goto error;
 
 			sip = g_hash_table_lookup(streamhash, &si);
