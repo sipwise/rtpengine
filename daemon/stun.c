@@ -22,8 +22,20 @@
 
 #define STUN_CLASS_REQUEST 0x00
 #define STUN_CLASS_INDICATION 0x01
-#define STUN_BINDING_SUCCESS_RESPONSE 0x0101
-#define STUN_BINDING_ERROR_RESPONSE 0x0111
+#define STUN_CLASS_SUCCESS 0x02
+#define STUN_CLASS_ERROR 0x03
+
+#define STUN_METHOD_BINDING 0x01
+
+#define STUN_MESSAGE_TYPE(method, class) \
+	(((method) & 0xf) | (((method) & 0x70) << 1) \
+	 | (((method) & 0x0f80) << 2) | (((class) & 0x1) << 4) \
+	 | (((class) & 0x2) << 7))
+
+#define STUN_BINDING_SUCCESS_RESPONSE \
+	STUN_MESSAGE_TYPE(STUN_METHOD_BINDING, STUN_CLASS_SUCCESS)
+#define STUN_BINDING_ERROR_RESPONSE \
+	STUN_MESSAGE_TYPE(STUN_METHOD_BINDING, STUN_CLASS_ERROR)
 
 #define UNKNOWNS_COUNT 16
 
@@ -401,7 +413,7 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	class = method = ntohs(req->msg_type);
 	class = ((class & 0x10) >> 4) | ((class & 0x100) >> 7);
 	method = (method & 0xf) | ((method & 0xe0) >> 1) | ((method & 0x3e00) >> 2);
-	if (method != 0x1) /* binding */
+	if (method != STUN_METHOD_BINDING)
 		return -1;
 	if (class == STUN_CLASS_INDICATION)
 		return 0;
