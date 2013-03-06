@@ -403,6 +403,11 @@ static inline int u_int16_t_arr_len(u_int16_t *arr) {
 
 #define SLF " on port %hu from %s"
 #define SLP sr->fd.localport, addr
+/* return values:
+ * 0  = stun packet processed successfully
+ * -1 = stun packet not processed, processing should continue as non-stun packet
+ * 1  = stun packet processed and "use candidate" was set
+ */
 int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	struct header *req = (void *) b->s;
 	int msglen, method, class;
@@ -464,7 +469,7 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	mylog(LOG_NOTICE, "Successful STUN binding request" SLF, SLP);
 	stun_binding_success(sr->fd.fd, req, &attrs, sin, sr->up);
 
-	return 0;
+	return attrs.use ? 1 : 0;
 
 bad_req:
 	mylog(LOG_INFO, "Received invalid STUN packet" SLF ": %s", SLP, err);
