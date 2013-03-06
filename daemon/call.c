@@ -213,7 +213,7 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 	struct streamrelay *p, *p2;
 	struct peer *pe, *pe2;
 	struct callstream *cs;
-	int ret, update = 0;
+	int ret, update = 0, stun_ret = 0;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
@@ -236,8 +236,13 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 	smart_ntop_port(addr, fsin, sizeof(addr));
 
 	if (r->stun && is_stun(s)) {
-		if (!stun(s, r, fsin))
+		stun_ret = stun(s, r, fsin);
+		if (!stun_ret)
 			return 0;
+		if (stun_ret == 1) /* use candidate */
+			goto peerinfo2;
+		else /* not an stun packet */
+			stun_ret = 0;
 	}
 
 	if (p->fd.fd == -1) {
@@ -271,6 +276,7 @@ peerinfo:
 			pe->codec = "unknown";
 	}
 
+peerinfo2:
 	p2 = &p->up->rtps[p->idx ^ 1];
 	p->peer.ip46 = fsin->sin6_addr;
 	p->peer.port = ntohs(fsin->sin6_port);
@@ -284,7 +290,8 @@ peerinfo:
 
 forward:
 	if (is_addr_unspecified(&r->peer_advertised.ip46)
-			|| !r->peer_advertised.port || !r->fd.fd_family)
+			|| !r->peer_advertised.port || !r->fd.fd_family
+			|| stun_ret)
 		goto drop;
 
 	ZERO(mh);
@@ -1647,6 +1654,8 @@ static str *streams_print(GQueue *s, int num, enum call_opmode opmode, const cha
 		goto out;
 
 	t = s->head->data;
+	mutex_lock(&t->lock);
+
 	if (format == SAF_TCP)
 		call_stream_address_gstring(o, &t->peers[off], format);
 
@@ -1660,6 +1669,8 @@ static str *streams_print(GQueue *s, int num, enum call_opmode opmode, const cha
 		af = call_stream_address_gstring(o, &t->peers[off], format);
 		g_string_append_printf(o, " %c", (af == AF_INET) ? '4' : '6');
 	}
+
+	mutex_unlock(&t->lock);
 
 out:
 	g_string_append(o, "\n");

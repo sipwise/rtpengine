@@ -767,7 +767,9 @@ static int insert_ice_address(struct sdp_chopper *chop, struct streamrelay *sr) 
 	char buf[64];
 	int len;
 
+	mutex_lock(&sr->up->up->lock);
 	call_stream_address(buf, sr->up, SAF_ICE, &len);
+	mutex_unlock(&sr->up->up->lock);
 	chopper_append_dup(chop, buf, len);
 	chopper_append_printf(chop, " %hu", sr->fd.localport);
 
@@ -778,7 +780,9 @@ static int insert_ice_address_alt(struct sdp_chopper *chop, struct streamrelay *
 	char buf[64];
 	int len;
 
+	mutex_lock(&sr->up->up->lock);
 	call_stream_address_alt(buf, sr->up, SAF_ICE, &len);
+	mutex_unlock(&sr->up->up->lock);
 	chopper_append_dup(chop, buf, len);
 	chopper_append_printf(chop, " %hu", sr->fd.localport);
 
@@ -794,7 +798,9 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
 
+	mutex_lock(&sr->up->up->lock);
 	call_stream_address(buf, sr->up, SAF_NG, &len);
+	mutex_unlock(&sr->up->up->lock);
 	chopper_append_dup(chop, buf, len);
 
 	if (skip_over(chop, &address->address))
@@ -1081,19 +1087,28 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			}
 
 			if (do_ice) {
-				/* XXX locking here? */
+				mutex_lock(&rtp->up->up->lock);
 				if (!rtp->up->ice_ufrag.s) {
 					create_random_string(call, &rtp->up->ice_ufrag, 8);
 					create_random_string(call, &rtp->up->ice_pwd, 28);
 				}
+				rtp->stun = 1;
+				mutex_unlock(&rtp->up->up->lock);
+
+				mutex_lock(&rtcp->up->up->lock);
+				if (rtp->up != rtcp->up && !rtcp->up->ice_ufrag.s) {
+					/* safe to read */
+					rtcp->up->ice_ufrag = rtp->up->ice_ufrag;
+					rtcp->up->ice_pwd = rtp->up->ice_pwd;
+				}
+				rtcp->stun = 1;
+				mutex_unlock(&rtcp->up->up->lock);
 
 				chopper_append_c(chop, "a=ice-ufrag:");
 				chopper_append_str(chop, &rtp->up->ice_ufrag);
 				chopper_append_c(chop, "\r\na=ice-pwd:");
 				chopper_append_str(chop, &rtp->up->ice_pwd);
 				chopper_append_c(chop, "\r\n");
-				rtp->stun = 1;
-				rtcp->stun = 1;
 			}
 
 			if (!flags->ice_remove) {
