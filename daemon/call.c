@@ -277,7 +277,7 @@ peerinfo:
 	}
 
 peerinfo2:
-	p2 = &p->up->rtps[p->idx ^ 1];
+	p2 = p->other;
 	p->peer.ip46 = fsin->sin6_addr;
 	p->peer.port = ntohs(fsin->sin6_port);
 	p2->peer.ip46 = p->peer.ip46;
@@ -1120,6 +1120,7 @@ void callstream_init(struct callstream *s, struct relays_cache *rc) {
 
 		p->idx = i;
 		p->up = s;
+		p->other = &s->peers[i ^ 1];
 		p->tag = STR_NULL;
 
 		for (j = 0; j < 2; j++) {
@@ -1128,6 +1129,7 @@ void callstream_init(struct callstream *s, struct relays_cache *rc) {
 			r->fd.fd = -1;
 			r->idx = j;
 			r->up = p;
+			r->other = &p->other->rtps[j];
 			r->last = poller_now;
 
 			if (relay_AB && relay_AB[j].fd != -1) {
@@ -1580,7 +1582,7 @@ static csa_func __call_stream_address(struct peer *p, int variant) {
 	assert(variant < ARRAYSIZE(variants));
 
 	m = p->up->call->callmaster;
-	other = &p->up->peers[p->idx ^ 1];
+	other = p->other;
 
 	variants[0] = call_stream_address4;
 	variants[1] = call_stream_address6;

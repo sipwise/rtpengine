@@ -75,6 +75,7 @@ struct streamrelay {
 	struct stream		peer_advertised;
 	unsigned char		idx;
 	struct peer		*up;
+	struct streamrelay	*other;
 	struct stats		stats;
 	struct stats		kstats;
 	time_t			last;
@@ -92,6 +93,7 @@ struct peer {
 	char			*codec;
 	unsigned char		idx;
 	struct callstream	*up;
+	struct peer		*other;
 	int			desired_family;
 	str			ice_ufrag;
 	str			ice_pwd;
