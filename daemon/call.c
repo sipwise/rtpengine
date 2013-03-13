@@ -1069,9 +1069,10 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	dest->filled = 1;
 	dest->tag = src->tag;
 	src->tag = STR_NULL;
-	//dest->kernelized = src->kernelized;
-	//src->kernelized = 0;
 	dest->desired_family = src->desired_family;
+	dest->ice_ufrag = src->ice_ufrag;
+	dest->ice_pwd = src->ice_pwd;
+	dest->protocol = src->protocol;
 
 	for (i = 0; i < 2; i++) {
 		sr = &dest->rtps[i];
@@ -1087,6 +1088,8 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		sr->fd = srs->fd;
 		sr->peer = srs->peer;
 		sr->peer_advertised = srs->peer_advertised;
+		sr->stun = srs->stun;
+		sr->rtcp = srs->rtcp;
 
 
 		srs->fd.fd = -1;
