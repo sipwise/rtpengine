@@ -557,6 +557,26 @@ static int fill_stream_rtcp(struct stream_input *si, struct sdp_media *media, in
 	return 0;
 }
 
+static enum transport_protocol transport_protocol(str *s) {
+	switch (s->len) {
+		case 7:
+			if (!str_cmp(s, "RTP/AVP"))
+				return PROTO_RTP_AVP;
+			break;
+		case 8:
+			if (!str_cmp(s, "RTP/SAVP"))
+				return PROTO_RTP_SAVP;
+			if (!str_cmp(s, "RTP/AVPF"))
+				return PROTO_RTP_AVPF;
+			break;
+		case 9:
+			if (!str_cmp(s, "RTP/SAVPF"))
+				return PROTO_RTP_SAVPF;
+			break;
+	}
+	return PROTO_UNKNOWN;
+}
+
 int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash, struct sdp_ng_flags *flags) {
 	struct sdp_session *session;
 	struct sdp_media *media;
@@ -566,6 +586,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 	int i, num;
 	str s;
 	struct sdp_attribute *attr;
+	enum transport_protocol tp;
 
 	num = 0;
 	for (l = sessions->head; l; l = l->next) {
@@ -573,6 +594,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
+			tp = transport_protocol(&media->transport);
 
 			si = NULL;
 			for (i = 0; i < media->port_count; i++) {
@@ -589,6 +611,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 
 				si->stream.num = ++num;
 				si->consecutive_num = (i == 0) ? media->port_count : 1;
+				si->protocol = tp;
 
 				g_hash_table_insert(streamhash, si, si);
 				g_queue_push_tail(streams, si);
@@ -610,6 +633,8 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 				goto error;
 			si->stream.num = ++num;
 			si->consecutive_num = 1;
+			si->is_rtcp = 1;
+			si->protocol = tp;
 
 			g_hash_table_insert(streamhash, si, si);
 			g_queue_push_tail(streams, si);

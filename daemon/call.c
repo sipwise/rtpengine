@@ -1019,6 +1019,9 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 		b->peer.port++;
 	a->peer_advertised = a->peer;
 	b->peer_advertised = b->peer;
+	a->rtcp = s->is_rtcp;
+	b->rtcp = 1;
+	p->protocol = s->protocol;
 
 	for (i = 0; i < 2; i++) {
 		switch (s->direction[i]) {

@@ -47,6 +47,14 @@ enum call_opmode {
 	OP_OTHER,
 };
 
+enum transport_protocol {
+	PROTO_UNKNOWN = 0,
+	PROTO_RTP_AVP,
+	PROTO_RTP_SAVP,
+	PROTO_RTP_AVPF,
+	PROTO_RTP_SAVPF,
+};
+
 struct stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
@@ -62,7 +70,9 @@ struct stream_input {
 	struct stream		stream;
 	enum stream_direction	direction[2];
 	int			consecutive_num;
+	enum transport_protocol	protocol;
 	int			has_rtcp:1;
+	int			is_rtcp:1;
 };
 struct udp_fd {
 	int			fd;
@@ -80,6 +90,7 @@ struct streamrelay {
 	struct stats		kstats;
 	time_t			last;
 	int			stun:1;
+	int			rtcp:1;
 };
 struct relays_cache {
 	struct udp_fd		relays_A[16];
@@ -97,6 +108,7 @@ struct peer {
 	int			desired_family;
 	str			ice_ufrag;
 	str			ice_pwd;
+	enum transport_protocol	protocol;
 	int			kernelized:1;
 	int			filled:1;
 	int			confirmed:1;
