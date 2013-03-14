@@ -209,10 +209,10 @@ void kernelize(struct callstream *c) {
 
 
 /* called with r->up (== cs) locked */
-static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsin) {
-	struct streamrelay *p, *p2;
-	struct peer *pe, *pe2;
-	struct callstream *cs;
+static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockaddr_in6 *fsin) {
+	struct streamrelay *sr_outgoing, *sr_out_rtcp;
+	struct peer *p_incoming, *p_outgoing;
+	struct callstream *cs_incoming;
 	int ret, update = 0, stun_ret = 0;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
@@ -227,16 +227,16 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 	unsigned char cc;
 	char addr[64];
 
-	pe = r->up;
-	cs = pe->up;
-	pe2 = pe->other;
-	p = r->other;
-	c = cs->call;
+	p_incoming = sr_incoming->up;
+	cs_incoming = p_incoming->up;
+	p_outgoing = p_incoming->other;
+	sr_outgoing = sr_incoming->other;
+	c = cs_incoming->call;
 	m = c->callmaster;
 	smart_ntop_port(addr, fsin, sizeof(addr));
 
-	if (r->stun && is_stun(s)) {
-		stun_ret = stun(s, r, fsin);
+	if (sr_incoming->stun && is_stun(s)) {
+		stun_ret = stun(s, sr_incoming, fsin);
 		if (!stun_ret)
 			return 0;
 		if (stun_ret == 1) /* use candidate */
@@ -245,10 +245,10 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 			stun_ret = 0;
 	}
 
-	if (p->fd.fd == -1) {
+	if (sr_outgoing->fd.fd == -1) {
 		mylog(LOG_WARNING, LOG_PREFIX_C "RTP packet to port %u discarded from %s", 
-			LOG_PARAMS_C(c), r->fd.localport, addr);
-		r->stats.errors++;
+			LOG_PARAMS_C(c), sr_incoming->fd.localport, addr);
+		sr_incoming->stats.errors++;
 		mutex_lock(&m->statspslock);
 		m->statsps.errors++;
 		mutex_unlock(&m->statspslock);
@@ -256,41 +256,41 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 	}
 
 use_cand:
-	if (pe->confirmed || !pe->filled || r->idx != 0)
+	if (p_incoming->confirmed || !p_incoming->filled || sr_incoming->idx != 0)
 		goto forward;
 
 	if (!c->lookup_done || poller_now <= c->lookup_done + 3)
 		goto peerinfo;
 
 	mylog(LOG_DEBUG, LOG_PREFIX_C "Confirmed peer information for port %u - %s", 
-		LOG_PARAMS_C(c), r->fd.localport, addr);
+		LOG_PARAMS_C(c), sr_incoming->fd.localport, addr);
 
-	pe->confirmed = 1;
+	p_incoming->confirmed = 1;
 
 peerinfo:
-	if (!stun_ret && !pe->codec && s->len >= 2) {
+	if (!stun_ret && !p_incoming->codec && s->len >= 2) {
 		cc = s->s[1];
 		cc &= 0x7f;
 		if (cc < G_N_ELEMENTS(rtp_codecs))
-			pe->codec = rtp_codecs[cc] ? : "unknown";
+			p_incoming->codec = rtp_codecs[cc] ? : "unknown";
 		else
-			pe->codec = "unknown";
+			p_incoming->codec = "unknown";
 	}
 
-	p2 = &p->up->rtps[1]; /* r->idx == 0 */
-	p->peer.ip46 = fsin->sin6_addr;
-	p->peer.port = ntohs(fsin->sin6_port);
-	p2->peer.ip46 = p->peer.ip46;
-	p2->peer.port = p->peer.port + 1; /* p2->idx == 1 */
+	sr_out_rtcp = &p_outgoing->rtps[1]; /* sr_incoming->idx == 0 */
+	sr_outgoing->peer.ip46 = fsin->sin6_addr;
+	sr_outgoing->peer.port = ntohs(fsin->sin6_port);
+	sr_out_rtcp->peer.ip46 = sr_outgoing->peer.ip46;
+	sr_out_rtcp->peer.port = sr_outgoing->peer.port + 1; /* sr_out_rtcp->idx == 1 */
 
-	if (pe->confirmed && pe2->confirmed && pe2->filled)
-		kernelize(cs);
+	if (p_incoming->confirmed && p_outgoing->confirmed && p_outgoing->filled)
+		kernelize(cs_incoming);
 
 	update = 1;
 
 forward:
-	if (is_addr_unspecified(&r->peer_advertised.ip46)
-			|| !r->peer_advertised.port || !r->fd.fd_family
+	if (is_addr_unspecified(&sr_incoming->peer_advertised.ip46)
+			|| !sr_incoming->peer_advertised.port || !sr_incoming->fd.fd_family
 			|| stun_ret)
 		goto drop;
 
@@ -301,12 +301,12 @@ forward:
 	ch = CMSG_FIRSTHDR(&mh);
 	ZERO(*ch);
 
-	switch (r->fd.fd_family) {
+	switch (sr_incoming->fd.fd_family) {
 		case AF_INET:
 			ZERO(sin);
 			sin.sin_family = AF_INET;
-			sin.sin_addr.s_addr = r->peer.ip46.s6_addr32[3];
-			sin.sin_port = htons(r->peer.port);
+			sin.sin_addr.s_addr = sr_incoming->peer.ip46.s6_addr32[3];
+			sin.sin_port = htons(sr_incoming->peer.port);
 			mh.msg_name = &sin;
 			mh.msg_namelen = sizeof(sin);
 
@@ -326,8 +326,8 @@ ipv4_src:
 		case AF_INET6:
 			ZERO(sin6);
 			sin6.sin6_family = AF_INET6;
-			sin6.sin6_addr = r->peer.ip46;
-			sin6.sin6_port = htons(r->peer.port);
+			sin6.sin6_addr = sr_incoming->peer.ip46;
+			sin6.sin6_port = htons(sr_incoming->peer.port);
 			mh.msg_name = &sin6;
 			mh.msg_namelen = sizeof(sin6);
 
@@ -357,10 +357,10 @@ ipv4_src:
 	mh.msg_iov = &iov;
 	mh.msg_iovlen = 1;
 
-	ret = sendmsg(p->fd.fd, &mh, 0);
+	ret = sendmsg(sr_outgoing->fd.fd, &mh, 0);
 
 	if (ret == -1) {
-		r->stats.errors++;
+		sr_incoming->stats.errors++;
 		mutex_lock(&m->statspslock);
 		m->statsps.errors++;
 		mutex_unlock(&m->statspslock);
@@ -369,9 +369,9 @@ ipv4_src:
 
 drop:
 	ret = 0;
-	r->stats.packets++;
-	r->stats.bytes += s->len;
-	r->last = poller_now;
+	sr_incoming->stats.packets++;
+	sr_incoming->stats.bytes += s->len;
+	sr_incoming->last = poller_now;
 	mutex_lock(&m->statspslock);
 	m->statsps.packets++;
 	m->statsps.bytes += s->len;
