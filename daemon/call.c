@@ -229,8 +229,8 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 
 	pe = r->up;
 	cs = pe->up;
-	pe2 = &cs->peers[pe->idx ^ 1];
-	p = &pe2->rtps[r->idx];
+	pe2 = pe->other;
+	p = r->other;
 	c = cs->call;
 	m = c->callmaster;
 	smart_ntop_port(addr, fsin, sizeof(addr));
@@ -240,7 +240,7 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 		if (!stun_ret)
 			return 0;
 		if (stun_ret == 1) /* use candidate */
-			goto peerinfo2;
+			goto use_cand;
 		else /* not an stun packet */
 			stun_ret = 0;
 	}
@@ -255,6 +255,7 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 		return 0;
 	}
 
+use_cand:
 	if (pe->confirmed || !pe->filled || r->idx != 0)
 		goto forward;
 
@@ -267,7 +268,7 @@ static int stream_packet(struct streamrelay *r, str *s, struct sockaddr_in6 *fsi
 	pe->confirmed = 1;
 
 peerinfo:
-	if (!pe->codec && s->len >= 2) {
+	if (!stun_ret && !pe->codec && s->len >= 2) {
 		cc = s->s[1];
 		cc &= 0x7f;
 		if (cc < G_N_ELEMENTS(rtp_codecs))
@@ -276,12 +277,11 @@ peerinfo:
 			pe->codec = "unknown";
 	}
 
-peerinfo2:
-	p2 = p->other;
+	p2 = &p->up->rtps[1]; /* r->idx == 0 */
 	p->peer.ip46 = fsin->sin6_addr;
 	p->peer.port = ntohs(fsin->sin6_port);
 	p2->peer.ip46 = p->peer.ip46;
-	p2->peer.port = p->peer.port + ((int) (p2->idx * 2) - 1);
+	p2->peer.port = p->peer.port + 1; /* p2->idx == 1 */
 
 	if (pe->confirmed && pe2->confirmed && pe2->filled)
 		kernelize(cs);
