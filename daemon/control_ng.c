@@ -12,6 +12,49 @@
 #include "sdp.h"
 
 
+static void pretty_print(bencode_item_t *el, GString *s) {
+	bencode_item_t *chld;
+	const char *sep;
+
+	switch (el->type) {
+		case BENCODE_STRING:
+			g_string_append(s, "\"");
+			g_string_append_len(s, el->iov[1].iov_base, el->iov[1].iov_len);
+			g_string_append(s, "\"");
+			break;
+
+		case BENCODE_INTEGER:
+			g_string_append_printf(s, "%lli", el->value);
+			break;
+
+		case BENCODE_LIST:
+			sep = "[ ";
+			for (chld = el->child; chld; chld = chld->sibling) {
+				g_string_append(s, sep);
+				pretty_print(chld, s);
+				sep = ", ";
+			}
+			g_string_append(s, " ]");
+			break;
+
+		case BENCODE_DICTIONARY:
+			sep = "{ ";
+			for (chld = el->child; chld; chld = chld->sibling) {
+				g_string_append(s, sep);
+				pretty_print(chld, s);
+				g_string_append(s, ": ");
+				chld = chld->sibling;
+				pretty_print(chld, s);
+				sep = ", ";
+			}
+			g_string_append(s, " }");
+			break;
+
+		default:
+			abort();
+	}
+}
+
 static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *sin, char *addr) {
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
@@ -20,6 +63,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	const char *errstr;
 	struct msghdr mh;
 	struct iovec iov[3];
+	GString *log_str;
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
@@ -56,7 +100,11 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	if (!cmd.s)
 		goto err_send;
 
-	mylog(LOG_INFO, "Got valid command from %s: %.*s [%.*s]", addr, STR_FMT(&cmd), STR_FMT(&data));
+	log_str = g_string_sized_new(256);
+	g_string_append_printf(log_str, "Got valid command from %s: %.*s - ", addr, STR_FMT(&cmd));
+	pretty_print(dict, log_str);
+	mylog(LOG_INFO, "%.*s", (int) log_str->len, log_str->str);
+	g_string_free(log_str, TRUE);
 
 	errstr = NULL;
 	if (!str_cmp(&cmd, "ping"))
