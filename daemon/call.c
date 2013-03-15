@@ -2285,15 +2285,15 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 
 		for (gl = streams->head; gl; gl = gl->next) {
 			si = gl->data;
-			si->direction[0] = dirs[1]; /* bencode list is traversed backwards */
-			si->direction[1] = dirs[0];
+			si->direction[0] = dirs[0];
+			si->direction[1] = dirs[1];
 		}
 	}
 
 	list = bencode_dictionary_get_expect(input, "received-from", BENCODE_LIST);
 	if (list && (it = list->child)) {
-		bencode_get_str(it, &out->received_from_address);
-		bencode_get_str(it->sibling, &out->received_from_family);
+		bencode_get_str(it, &out->received_from_family);
+		bencode_get_str(it->sibling, &out->received_from_address);
 	}
 
 	if (bencode_dictionary_get_str(input, "ICE", &s)) {

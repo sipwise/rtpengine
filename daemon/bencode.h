@@ -48,7 +48,7 @@ struct bencode_item {
 	unsigned int iov_cnt;
 	unsigned int str_len;	/* length of the whole ENCODED object. NOT the length of a byte string */
 	long long int value;	/* when decoding an integer, contains the value; otherwise used internally */
-	bencode_item_t *parent, *child, *sibling;
+	bencode_item_t *parent, *child, *last_child, *sibling;
 	bencode_buffer_t *buffer;
 	char __buf[0];
 };
@@ -257,17 +257,16 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len);
  *
  * The document tree can be traversed through the ->child and ->sibling pointers in each object. The
  * ->child pointer will be NULL for string and integer objects, as they don't contain other objects.
- * For lists and dictionaries, ->child will be a pointer to the LAST contained object. This last
- * contained object's ->sibling pointer will point to the last-but-one contained object of the list
- * or the dictionary, and so on. The FIRST contained element of a list of dictionary will have a
+ * For lists and dictionaries, ->child will be a pointer to the first contained object. This first
+ * contained object's ->sibling pointer will point to the next (second) contained object of the list
+ * or the dictionary, and so on. The last contained element of a list of dictionary will have a
  * NULL ->sibling pointer.
  *
- * Lists are built in reverse and so traversing a list by following the ->sibling pointers will
- * traverse all the elements in reverse as well. This includes the ordering of key/value pairs in
- * dictionary: The first element in the list (where ->child points to) will be the VALUE of the LAST
- * key/value pair. The next element (following one ->sibling) will be the KEY of the LAST key/value
- * pair (guaranteed to be a string and guaranteed to be present). Following another ->sibling will
- * point to the VALUE of the last-but-one key/value pair, and so on.
+ * Dictionaries are like lists with ordered key/value pairs. When traversing dictionaries like
+ * lists, the following applies: The first element in the list (where ->child points to) will be the
+ * key of the first key/value pair (guaranteed to be a string and guaranteed to be present). The
+ * next element (following one ->sibling) will be the value of the first key/value pair. Following
+ * another ->sibling will point to the key of the next (second) key/value pair, and so on.
  *
  * However, to access children objects of dictionaries, the special functions following the naming
  * scheme bencode_dictionary_get_* below should be used. They perform key lookup through a simple
