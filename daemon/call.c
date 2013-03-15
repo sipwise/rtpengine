@@ -2256,7 +2256,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
 			if (!bencode_strcmp(it, "trust-address"))
-				out->trust_address = 1; /* XXX support this somehow */
+				out->trust_address = 1;
 			else if (!bencode_strcmp(it, "symmetric"))
 				out->symmetric = 1;
 			else if (!bencode_strcmp(it, "asymmetric"))
