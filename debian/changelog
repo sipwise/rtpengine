@@ -1,6 +1,8 @@
-ngcp-mediaproxy-ng (2.2.0) UNRELEASED; urgency=low
+ngcp-mediaproxy-ng (2.2.0) unstable; urgency=low
 
   * Adds support for the new NG protocol
+  * Support ICE when running on NG protocol
+  * STUN support for ICE support
 
  -- Richard Fuchs <rfuchs@sipwise.com>  Wed, 06 Feb 2013 14:08:13 -0500
 
