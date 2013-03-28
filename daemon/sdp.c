@@ -217,7 +217,7 @@ static int parse_media(char *start, char *end, struct sdp_media *output) {
 	output->port_num = strtol(output->port.s, &ep, 10);
 	if (ep == output->port.s)
 		return -1;
-	if (output->port_num <= 0 || output->port_num > 0xffff)
+	if (output->port_num < 0 || output->port_num > 0xffff)
 		return -1;
 
 	if (*ep == '/') {
