@@ -751,6 +751,9 @@ static void fill_relays(struct streamrelay **rtp, struct streamrelay **rtcp, GLi
 static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct streamrelay *sr) {
 	str *port = &media->port;
 
+	if (!media->port_num)
+		return 0;
+
 	if (copy_up_to(chop, port))
 		return -1;
 
@@ -819,6 +822,9 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 {
 	char buf[64];
 	int len;
+
+	if (is_addr_unspecified(&address->parsed))
+		return 0;
 
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
