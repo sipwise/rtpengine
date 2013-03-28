@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.2.1) unstable; urgency=low
+
+  * Handle zero ports and addresses in NG protocol
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 28 Mar 2013 10:14:00 -0400
+
 ngcp-mediaproxy-ng (2.2.0) unstable; urgency=low
 
   * Adds support for the new NG protocol
