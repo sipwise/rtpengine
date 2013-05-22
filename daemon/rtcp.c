@@ -233,11 +233,11 @@ static struct rtcp_chain_element *rtcp_psfb(str *s) {
 	return rtcp_generic(s, RTCP_PT_PSFB);
 }
 
-static void rtcp_list_free_cb(void *d) {
-	g_slice_free1(sizeof(struct rtcp_chain_element), d);
-}
 static void rtcp_list_free(GQueue *q) {
-	g_queue_free_full(q, rtcp_list_free_cb);
+	struct rtcp_chain_element *el;
+
+	while ((el = g_queue_pop_head(q)))
+		g_slice_free1(sizeof(*el), el);
 }
 
 static int rtcp_parse(GQueue *q, str *_s) {
