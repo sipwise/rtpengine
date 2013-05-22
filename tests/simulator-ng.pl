@@ -8,6 +8,7 @@ use BSD::Resource;
 use Getopt::Long;
 use Socket6;
 use Bencode qw( bencode bdecode );
+use Time::HiRes;
 
 my ($NUM, $RUNTIME, $STREAMS) = (1000, 30, 1);
 my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES);
@@ -62,28 +63,79 @@ msg({command => 'ping'})->{result} eq 'pong' or die;
 
 my (@calls, %branches);
 
+sub send_receive {
+	my ($send_fd, $receive_fd, $payload, $destination) = @_;
+
+	send($send_fd, $payload, 0, $destination) or die $!;
+	my $x;
+	my $err = '';
+	alarm(1);
+	recv($receive_fd, $x, 0xffff, 0) or $err = "$!";
+	alarm(0);
+	$err && $err !~ /interrupt/i and die $err;
+	return $x;
+}
+
+sub send_expect {
+	my ($send_fd, $receive_fd, $payload, $expect, $destination) = @_;
+
+	my $x = send_receive($send_fd, $receive_fd, $payload, $destination);
+	if (($x || '') ne $expect) {
+		return 0;
+	}
+	return 1;
+}
+
+sub rtcp_sr {
+	my @now = Time::HiRes::gettimeofday();
+	my $secs = $now[0] + 2208988800;
+	my $frac = $now[1] / 1000000 * 2**32;
+	my $sr = pack('CCnN NNN NN', (2 << 6) | 1, 200, 12, rand() * 2**32, $secs, $frac,
+		12345, 0, 0);
+	$sr .= pack('N CCCC NNNN', 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	return $sr;
+}
+
+sub rtcp_rtpfb {
+	return pack('CCn NN', (2 << 6) | 1, 205, 2, rand() * 2**32, rand() * 2**32);
+}
+
+sub rtcp_avp {
+	my $sr = rtcp_sr();
+	return ($sr, $sr);
+}
+
+sub rtcp_avpf {
+	my ($recv) = @_;
+	my $sr = rtcp_sr();
+	my $fb = rtcp_rtpfb();
+	my $exp = $sr;
+	$$recv{name} eq 'RTP/AVPF' and $exp .= $fb;
+	return ($sr . $fb, $exp);
+}
+
 sub do_rtp {
 	print("sending rtp\n");
 	for my $c (@calls) {
 		$c or next;
-		my ($fds,$outputs,$protos) = @$c[0,4,6];
+		my ($fds,$outputs,$protos,$cfds,$trans) = @$c[0,4,6,7,8];
 		for my $j (0 .. $#{$$fds[0]}) {
 			for my $i ([0,1],[1,0]) {
 				my ($a, $b) = @$i;
 				my $pr = $$protos[$a];
+				my $addr = inet_pton($$pr{family}, $$outputs[$b][$j][1]);
 				my $payload = rand_str(100);
-				send($$fds[$a][$j], $payload, 0, $$pr{sockaddr}($$outputs[$b][$j][0],
-					inet_pton($$pr{family}, $$outputs[$b][$j][1]))) or die $!;
-				my $x;
-				my $err = '';
-				alarm(1);
-				recv($$fds[$b][$j], $x, 0xffff, 0) or $err = "$!";
-				alarm(0);
-				$err && $err !~ /interrupt/i and die $err;
-				if (($x || '') ne $payload) {
+				my $dst = $$pr{sockaddr}($$outputs[$b][$j][0], $addr);
+				if (!send_expect($$fds[$a][$j], $$fds[$b][$j], $payload, $payload, $dst)) {
 					warn("no rtp reply received, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]");
 					$KEEPGOING or undef($c);
 				}
+
+				my $expect;
+				($payload, $expect) = $$trans[$a]{func}($$trans[$b]);
+				$dst = $$pr{sockaddr}($$outputs[$b][$j][0] + 1, $addr);
+				my $repl = send_receive($$cfds[$a][$j], $$cfds[$b][$j], $payload, $dst);
+				$repl eq $expect or die;
 			}
 		}
 	}
@@ -114,6 +166,17 @@ $IP and push(@protos_avail, $proto_defs{ipv4});
 $IPV6 and push(@protos_avail, $proto_defs{ipv6});
 my @sides = qw(A B);
 
+my @transports = (
+	{
+		name => 'RTP/AVP',
+		func => \&rtcp_avp,
+	},
+	{
+		name => 'RTP/AVPF',
+		func => \&rtcp_avpf,
+	},
+);
+
 sub callid {
 	my $i = rand_str(50);
 	$BRANCHES or return [$i];
@@ -135,13 +198,21 @@ sub update_lookup {
 	my ($callid, $viabranch) = @$c_v;
 
 	my $protos = $$c[6] || ($$c[6] = []);
+	my $trans = $$c[8] || ($$c[8] = []);
 	my $fds_a = $$c[0] || ($$c[0] = []);
+	my $cfds_a = $$c[7] || ($$c[7] = []);
 	for my $x (0,1) {
 		$$protos[$x] and next;
 		$$protos[$x] = $protos_avail[rand(@protos_avail)];
 		undef($$fds_a[$x]);
 	}
+	for my $x (0,1) {
+		$$trans[$x] and next;
+		#$$trans[$x] = $transports[rand(@transports)];
+		$$trans[$x] = $transports[rand(@transports)];
+	}
 	my ($pr, $pr_o) = @$protos[$i, $j];
+	my ($tr, $tr_o) = @$trans[$i, $j];
 	my @commands = qw(offer answer);
 
 	my $ports_a = $$c[1] || ($$c[1] = []);
@@ -150,15 +221,23 @@ sub update_lookup {
 	my $ips_t = $$ips_a[$i] || ($$ips_a[$i] = []);
 	my $fds_t = $$fds_a[$i] || ($$fds_a[$i] = []);
 	my $fds_o = $$fds_a[$j];
+	my $cfds_t = $$cfds_a[$i] || ($$cfds_a[$i] = []);
+	my $cfds_o = $$cfds_a[$j];
 	my $num_streams = int(rand($STREAMS));
 	($fds_o && @$fds_o) and $num_streams = $#$fds_o;
 	for my $j (0 .. $num_streams) {
 		if (!$$fds_t[$j]) {
-			socket($$fds_t[$j], $$pr{family}, SOCK_DGRAM, 0) or die $!;
 			while (1) {
+				undef($$fds_t[$j]);
+				undef($$cfds_t[$j]);
+				socket($$fds_t[$j], $$pr{family}, SOCK_DGRAM, 0) or die $!;
+				socket($$cfds_t[$j], $$pr{family}, SOCK_DGRAM, 0) or die $!;
 				my $port = rand(0x7000) << 1 + 1024;
 				bind($$fds_t[$j], $$pr{sockaddr}($port,
-					inet_pton($$pr{family}, $$pr{address}))) and last;
+					inet_pton($$pr{family}, $$pr{address}))) or next;
+				bind($$cfds_t[$j], $$pr{sockaddr}($port + 1,
+					inet_pton($$pr{family}, $$pr{address}))) or next;
+				last;
 			}
 			my $addr = getsockname($$fds_t[$j]);
 			my $ip;
@@ -178,9 +257,11 @@ c=IN $$pr{family_str} $$ips_t[0]
 t=0 0
 !
 	for my $p (@$ports_t) {
+		my $cp = $p + 1;
 		$sdp .= <<"!";
-m=audio $p RTP/AVP 8
+m=audio $p $$tr{name} 8
 a=rtpmap:8 PCMA/8000
+a=rtcp:$cp
 !
 	}
 
@@ -190,6 +271,7 @@ a=rtpmap:8 PCMA/8000
 		replace => [ qw( origin session-connection ) ],
 		direction => [ $$pr{direction}, $$pr_o{direction} ],
 		'received-from' => [ qw(IP4 127.0.0.1) ],
+		'transport-protocol' => $$tr_o{name},
 	};
 	$viabranch and $dict->{'via-branch'} = $viabranch;
 	$i == 1 and $dict->{'to-tag'} = $$tags[1];
@@ -197,7 +279,7 @@ a=rtpmap:8 PCMA/8000
 	my $o = msg($dict);
 	$$o{result} eq 'ok' or die;
 	my ($rp_af, $rp_add) = $$o{sdp} =~ /c=IN IP([46]) (\S+)/s or die;
-	my @rp_ports = $$o{sdp} =~ /m=audio (\d+)/gs or die;
+	my @rp_ports = $$o{sdp} =~ /m=audio (\d+) \Q$$tr_o{name}\E /gs or die;
 	$rp_af ne $$pr_o{reply} and die "incorrect address family reply code";
 	my $rpl_a = $$c[4] || ($$c[4] = []);
 	my $rpl_t = $$rpl_a[$i] || ($$rpl_a[$i] = []);

@@ -53,7 +53,10 @@ enum transport_protocol {
 	PROTO_RTP_SAVP,
 	PROTO_RTP_AVPF,
 	PROTO_RTP_SAVPF,
+
+	__PROTO_RTP_LAST
 };
+extern const char *transport_protocol_strings[__PROTO_RTP_LAST];
 
 struct stats {
 	u_int64_t			packets;
@@ -65,12 +68,12 @@ struct stream {
 	struct in6_addr		ip46;
 	u_int16_t		port;
 	int			num;
+	enum transport_protocol	protocol;
 };
 struct stream_input {
 	struct stream		stream;
 	enum stream_direction	direction[2];
 	int			consecutive_num;
-	enum transport_protocol	protocol;
 	int			has_rtcp:1;
 	int			is_rtcp:1;
 };
@@ -79,6 +82,10 @@ struct udp_fd {
 	int			fd_family;
 	u_int16_t		localport;
 };
+
+typedef int (*stream_handler)(str *);
+int __dummy_stream_handler(str *);
+
 struct streamrelay {
 	struct udp_fd		fd;
 	struct stream		peer;
@@ -89,6 +96,7 @@ struct streamrelay {
 	struct stats		stats;
 	struct stats		kstats;
 	time_t			last;
+	stream_handler		handler;
 	int			stun:1;
 	int			rtcp:1;
 };
@@ -108,7 +116,6 @@ struct peer {
 	int			desired_family;
 	str			ice_ufrag;
 	str			ice_pwd;
-	enum transport_protocol	protocol;
 	int			kernelized:1;
 	int			filled:1;
 	int			confirmed:1;

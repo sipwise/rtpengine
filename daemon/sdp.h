@@ -10,6 +10,7 @@ struct sdp_ng_flags {
 	int desired_family[2];
 	str received_from_family;
 	str received_from_address;
+	str transport_protocol;
 	struct in6_addr parsed_address;
 	int asymmetric:1,
 	    symmetric:1,

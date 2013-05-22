@@ -562,15 +562,23 @@ static enum transport_protocol transport_protocol(str *s) {
 		case 7:
 			if (!str_cmp(s, "RTP/AVP"))
 				return PROTO_RTP_AVP;
+			if (!str_cmp(s, "rtp/avp"))
+				return PROTO_RTP_AVP;
 			break;
 		case 8:
 			if (!str_cmp(s, "RTP/SAVP"))
 				return PROTO_RTP_SAVP;
+			if (!str_cmp(s, "rtp/savp"))
+				return PROTO_RTP_SAVP;
 			if (!str_cmp(s, "RTP/AVPF"))
+				return PROTO_RTP_AVPF;
+			if (!str_cmp(s, "rtp/avpf"))
 				return PROTO_RTP_AVPF;
 			break;
 		case 9:
-			if (!str_cmp(s, "RTP/SAVPF"))
+			if (!str_cmp(s, "rtp/savpf"))
+				return PROTO_RTP_SAVPF;
+			if (!str_cmp(s, "rtp/savpf"))
 				return PROTO_RTP_SAVPF;
 			break;
 	}
@@ -611,7 +619,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 
 				si->stream.num = ++num;
 				si->consecutive_num = (i == 0) ? media->port_count : 1;
-				si->protocol = tp;
+				si->stream.protocol = tp;
 
 				g_hash_table_insert(streamhash, si, si);
 				g_queue_push_tail(streams, si);
@@ -634,7 +642,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 			si->stream.num = ++num;
 			si->consecutive_num = 1;
 			si->is_rtcp = 1;
-			si->protocol = tp;
+			si->stream.protocol = tp;
 
 			g_hash_table_insert(streamhash, si, si);
 			g_queue_push_tail(streams, si);
@@ -746,6 +754,24 @@ static void fill_relays(struct streamrelay **rtp, struct streamrelay **rtcp, GLi
 		if (sip && sip->has_rtcp && m->next)
 			*rtcp = &((struct callstream *) m->next->data)->peers[off].rtps[0];
 	}
+}
+
+static int replace_transport_protocol(struct sdp_chopper *chop,
+		struct sdp_media *media, struct streamrelay *sr)
+{
+	str *tp = &media->transport;
+	const char *new_tp = transport_protocol_strings[sr->peer.protocol];
+
+	if (!new_tp)
+		return 0; /* XXX correct? or give warning? */
+
+	if (copy_up_to(chop, tp))
+		return -1;
+	chopper_append_c(chop, new_tp);
+	if (skip_over(chop, tp))
+		return -1;
+
+	return 0;
 }
 
 static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct streamrelay *sr) {
@@ -1096,9 +1122,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				goto error;
 			fill_relays(&rtp, &rtcp, m, off, sip);
 
+			rtp->peer.protocol = transport_protocol(&flags->transport_protocol);
+			rtcp->peer.protocol = rtp->peer.protocol;
+
 			if (replace_media_port(chop, media, rtp))
 				goto error;
 			if (replace_consecutive_port_count(chop, media, rtp, m, off))
+				goto error;
+			if (replace_transport_protocol(chop, media, rtp))
 				goto error;
 
 			if (media->connection.parsed && flags->replace_sess_conn) {

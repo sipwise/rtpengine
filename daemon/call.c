@@ -27,6 +27,7 @@
 #include "sdp.h"
 #include "str.h"
 #include "stun.h"
+#include "rtcp.h"
 
 
 
@@ -110,6 +111,12 @@ static char *rtp_codecs[] = {
 	[32]	= "MPV",
 	[33]	= "MP2T",
 	[34]	= "H263",
+};
+const char *transport_protocol_strings[__PROTO_RTP_LAST] = {
+	[PROTO_RTP_AVP]		= "RTP/AVP",
+	[PROTO_RTP_SAVP]	= "RTP/SAVP",
+	[PROTO_RTP_AVPF]	= "RTP/AVPF",
+	[PROTO_RTP_SAVPF]	= "RTP/SAVPF",
 };
 
 
@@ -208,12 +215,39 @@ void kernelize(struct callstream *c) {
 
 
 
+int __dummy_stream_handler(str *s) {
+	abort();
+	return 0;
+}
+
+static stream_handler determine_handler(struct streamrelay *in) {
+	if (in->peer.protocol == in->peer_advertised.protocol)
+		goto dummy;
+	if (in->peer.protocol == PROTO_UNKNOWN)
+		goto dummy;
+	if (in->peer_advertised.protocol == PROTO_UNKNOWN)
+		goto dummy;
+
+	if (in->peer.protocol == PROTO_RTP_AVPF && in->peer_advertised.protocol == PROTO_RTP_AVP) {
+		if (!in->rtcp)
+			goto dummy;
+		return rtcp_avpf2avp;
+	}
+	if (in->peer.protocol == PROTO_RTP_AVP && in->peer_advertised.protocol == PROTO_RTP_AVPF)
+		goto dummy;
+
+	/* XXX warn? */
+
+dummy:
+	return __dummy_stream_handler;
+}
+
 /* called with r->up (== cs) locked */
 static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockaddr_in6 *fsin) {
 	struct streamrelay *sr_outgoing, *sr_out_rtcp;
 	struct peer *p_incoming, *p_outgoing;
 	struct callstream *cs_incoming;
-	int ret, update = 0, stun_ret = 0;
+	int ret, update = 0, stun_ret = 0, handler_ret = 0;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
@@ -255,6 +289,11 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 		return 0;
 	}
 
+	if (!sr_incoming->handler)
+		sr_incoming->handler = determine_handler(sr_incoming);
+	if (sr_incoming->handler != __dummy_stream_handler)
+		handler_ret = sr_incoming->handler(s);
+
 use_cand:
 	if (p_incoming->confirmed || !p_incoming->filled || sr_incoming->idx != 0)
 		goto forward;
@@ -283,15 +322,18 @@ peerinfo:
 	sr_out_rtcp->peer.ip46 = sr_outgoing->peer.ip46;
 	sr_out_rtcp->peer.port = sr_outgoing->peer.port + 1; /* sr_out_rtcp->idx == 1 */
 
+	update = 1;
+
+	if (sr_incoming->handler != __dummy_stream_handler)
+		goto forward;
+
 	if (p_incoming->confirmed && p_outgoing->confirmed && p_outgoing->filled)
 		kernelize(cs_incoming);
-
-	update = 1;
 
 forward:
 	if (is_addr_unspecified(&sr_incoming->peer_advertised.ip46)
 			|| !sr_incoming->peer_advertised.port || !sr_incoming->fd.fd_family
-			|| stun_ret)
+			|| stun_ret || handler_ret)
 		goto drop;
 
 	ZERO(mh);
@@ -1017,11 +1059,11 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	a->peer.port = b->peer.port = s->stream.port;
 	if (b->peer.port)
 		b->peer.port++;
+	a->peer.protocol = b->peer.protocol = s->stream.protocol;
 	a->peer_advertised = a->peer;
 	b->peer_advertised = b->peer;
 	a->rtcp = s->is_rtcp;
 	b->rtcp = 1;
-	p->protocol = s->protocol;
 
 	for (i = 0; i < 2; i++) {
 		switch (s->direction[i]) {
@@ -1072,7 +1114,6 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	dest->desired_family = src->desired_family;
 	dest->ice_ufrag = src->ice_ufrag;
 	dest->ice_pwd = src->ice_pwd;
-	dest->protocol = src->protocol;
 
 	for (i = 0; i < 2; i++) {
 		sr = &dest->rtps[i];
@@ -2302,6 +2343,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 		else if (!str_cmp(&s, "force"))
 			out->ice_force = 1;
 	}
+
+	bencode_dictionary_get_str(input, "transport-protocol", &out->transport_protocol);
 }
 
 static unsigned int stream_hash(struct stream_input *s) {
