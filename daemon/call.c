@@ -112,7 +112,7 @@ static char *rtp_codecs[] = {
 	[33]	= "MP2T",
 	[34]	= "H263",
 };
-const char *transport_protocol_strings[__PROTO_RTP_LAST] = {
+const char *transport_protocol_strings[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]		= "RTP/AVP",
 	[PROTO_RTP_SAVP]	= "RTP/SAVP",
 	[PROTO_RTP_AVPF]	= "RTP/AVPF",
@@ -2283,6 +2283,24 @@ struct callstream *callstream_new(struct call *ca, int num) {
 }
 
 
+enum transport_protocol transport_protocol(const str *s) {
+	int i;
+
+	if (!s || !s->s)
+		goto out;
+
+	for (i = PROTO_UNKNOWN + 1; i < __PROTO_LAST; i++) {
+		if (strlen(transport_protocol_strings[i]) != s->len)
+			continue;
+		if (strncasecmp(transport_protocol_strings[i], s->s, s->len))
+			continue;
+		return i;
+	}
+
+out:
+	return PROTO_UNKNOWN;
+}
+
 static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, bencode_item_t *input) {
 	bencode_item_t *list, *it;
 	struct stream_input *si;
@@ -2344,7 +2362,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 			out->ice_force = 1;
 	}
 
-	bencode_dictionary_get_str(input, "transport-protocol", &out->transport_protocol);
+	bencode_dictionary_get_str(input, "transport-protocol", &out->transport_protocol_str);
+	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
 }
 
 static unsigned int stream_hash(struct stream_input *s) {

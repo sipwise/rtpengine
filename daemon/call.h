@@ -54,9 +54,9 @@ enum transport_protocol {
 	PROTO_RTP_AVPF,
 	PROTO_RTP_SAVPF,
 
-	__PROTO_RTP_LAST
+	__PROTO_LAST
 };
-extern const char *transport_protocol_strings[__PROTO_RTP_LAST];
+extern const char *transport_protocol_strings[__PROTO_LAST];
 
 struct stats {
 	u_int64_t			packets;
@@ -241,6 +241,8 @@ static inline str *call_str_init_dup(struct call *c, char *s) {
 }
 
 
+
+enum transport_protocol transport_protocol(const str *s);
 
 
 #endif

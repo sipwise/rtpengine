@@ -4,11 +4,13 @@
 #include <netinet/in.h> 
 #include <netinet/ip.h> 
 #include <arpa/inet.h>
+#include <math.h>
 
 #include "call.h"
 #include "log.h"
 #include "str.h"
 #include "call.h"
+#include "crypto.h"
 
 struct network_address {
 	str network_type;
@@ -79,6 +81,26 @@ struct attribute_candidate {
 	int parsed:1;
 };
 
+struct attribute_crypto {
+	str tag_str;
+	str crypto_suite_str;
+	str key_params_str;
+	/* str session_params; */
+
+	str key_base64_str;
+	str lifetime_str;
+	str mki_str;
+
+	unsigned int tag;
+	enum crypto_suite crypto_suite;
+	str master_key;
+	str salt;
+	char key_salt_buf[30];
+	unsigned long long lifetime;
+	unsigned int mki,
+		     mki_len;
+};
+
 struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
@@ -92,11 +114,13 @@ struct sdp_attribute {
 		ATTR_RTCP,
 		ATTR_CANDIDATE,
 		ATTR_ICE,
+		ATTR_CRYPTO,
 	} attr;
 
 	union {
 		struct attribute_rtcp rtcp;
 		struct attribute_candidate candidate;
+		struct attribute_crypto crypto;
 	} u;
 };
 
@@ -240,6 +264,100 @@ static void attrs_init(struct sdp_attributes *a) {
 			NULL, (GDestroyNotify) g_queue_free);
 }
 
+static int parse_attribute_crypto(struct sdp_attribute *output) {
+	char *start, *end;
+	struct attribute_crypto *c;
+	const struct crypto_suite_params *cs;
+	int salt_key_len, enc_salt_key_len;
+	int b64_state = 0;
+	unsigned int b64_save = 0;
+	gsize ret;
+	str s;
+
+	output->attr = ATTR_CRYPTO;
+
+	start = output->value.s;
+	end = start + output->value.len;
+
+	EXTRACT_TOKEN(u.crypto.tag_str);
+	EXTRACT_TOKEN(u.crypto.crypto_suite_str);
+	EXTRACT_TOKEN(u.crypto.key_params_str);
+
+	c = &output->u.crypto;
+
+	c->crypto_suite = crypto_find_suite(&c->crypto_suite_str);
+	if (c->crypto_suite == CS_UNKNOWN)
+		return -1;
+	cs = &crypto_suite_params[c->crypto_suite];
+	/* assume everything is a multiple of 8 */
+	salt_key_len = (cs->master_key_len + cs->master_salt_len) / 8;
+	assert(sizeof(c->key_salt_buf) >= salt_key_len);
+	enc_salt_key_len = ceil((double) salt_key_len * 4.0/3.0);
+
+	if (c->key_params_str.len < 7 + enc_salt_key_len)
+		return -1;
+	if (strncasecmp(c->key_params_str.s, "inline:", 7))
+		return -1;
+	c->key_base64_str = c->key_params_str;
+	str_shift(&c->key_base64_str, 7);
+	ret = g_base64_decode_step(c->key_base64_str.s, enc_salt_key_len,
+			(guchar *) c->key_salt_buf, &b64_state, &b64_save);
+	if (ret != salt_key_len)
+		return -1;
+
+	c->master_key.s = c->key_salt_buf;
+	c->master_key.len = cs->master_key_len / 8;
+	c->salt.s = c->master_key.s + c->master_key.len;
+	c->salt.len = cs->master_salt_len / 8;
+
+	c->lifetime_str = c->key_params_str;
+	str_shift(&c->lifetime_str, 7 + enc_salt_key_len);
+	if (c->lifetime_str.len >= 2) {
+		if (c->lifetime_str.s[0] != '|')
+			return -1;
+		str_shift(&c->lifetime_str, 1);
+		str_chr_str(&c->mki_str, &c->lifetime_str, '|');
+		if (!c->mki_str.s) {
+			if (str_chr(&c->lifetime_str, ':')) {
+				c->mki_str = c->lifetime_str;
+				c->lifetime_str = STR_NULL;
+			}
+		}
+		else {
+			c->lifetime_str.len = c->mki_str.s - c->lifetime_str.s;
+			str_shift(&c->mki_str, 1);
+		}
+	}
+	else
+		c->lifetime_str = STR_NULL;
+
+	if (c->lifetime_str.s) {
+		if (c->lifetime_str.len >= 3 && !memcmp(c->lifetime_str.s, "2^", 2)) {
+			c->lifetime = strtoull(c->lifetime_str.s + 2, NULL, 10);
+			if (!c->lifetime || c->lifetime > 64)
+				return -1;
+			c->lifetime = 1 << c->lifetime;
+		}
+		else
+			c->lifetime = strtoull(c->lifetime_str.s, NULL, 10);
+
+		if (!c->lifetime || c->lifetime > cs->srtp_lifetime || c->lifetime > cs->srtcp_lifetime)
+			return -1;
+	}
+
+	if (c->mki_str.s) {
+		str_chr_str(&s, &c->mki_str, ':');
+		if (!s.s)
+			return -1;
+		c->mki = strtoul(c->mki_str.s, NULL, 10);
+		c->mki_len = strtoul(s.s + 1, NULL, 10);
+		if (!c->mki || !c->mki_len)
+			return -1;
+	}
+
+	return 0;
+}
+
 static int parse_attribute_rtcp(struct sdp_attribute *output) {
 	char *ep, *start, *end;
 
@@ -311,10 +429,15 @@ static void parse_attribute(struct sdp_attribute *a) {
 			a->key.len += 1 + a->value.len;
 	}
 
+	/* XXX add error handling */
 	switch (a->name.len) {
 		case 4:
 			if (!str_cmp(&a->name, "rtcp"))
 				parse_attribute_rtcp(a);
+			break;
+		case 6:
+			if (!str_cmp(&a->name, "crypto"))
+				parse_attribute_crypto(a);
 			break;
 		case 7:
 			if (!str_cmp(&a->name, "ice-pwd"))
@@ -555,34 +678,6 @@ static int fill_stream_rtcp(struct stream_input *si, struct sdp_media *media, in
 		return -1;
 	si->stream.port = port;
 	return 0;
-}
-
-static enum transport_protocol transport_protocol(str *s) {
-	switch (s->len) {
-		case 7:
-			if (!str_cmp(s, "RTP/AVP"))
-				return PROTO_RTP_AVP;
-			if (!str_cmp(s, "rtp/avp"))
-				return PROTO_RTP_AVP;
-			break;
-		case 8:
-			if (!str_cmp(s, "RTP/SAVP"))
-				return PROTO_RTP_SAVP;
-			if (!str_cmp(s, "rtp/savp"))
-				return PROTO_RTP_SAVP;
-			if (!str_cmp(s, "RTP/AVPF"))
-				return PROTO_RTP_AVPF;
-			if (!str_cmp(s, "rtp/avpf"))
-				return PROTO_RTP_AVPF;
-			break;
-		case 9:
-			if (!str_cmp(s, "rtp/savpf"))
-				return PROTO_RTP_SAVPF;
-			if (!str_cmp(s, "rtp/savpf"))
-				return PROTO_RTP_SAVPF;
-			break;
-	}
-	return PROTO_UNKNOWN;
 }
 
 int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash, struct sdp_ng_flags *flags) {
@@ -939,6 +1034,16 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attribu
 			case ATTR_RTCP:
 				goto strip;
 
+			case ATTR_CRYPTO:
+				switch (flags->transport_protocol) {
+					case PROTO_RTP_AVP:
+					case PROTO_RTP_AVPF:
+						goto strip;
+					default:
+						break;
+				}
+				break;
+
 			default:
 				break;
 		}
@@ -1122,7 +1227,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				goto error;
 			fill_relays(&rtp, &rtcp, m, off, sip);
 
-			rtp->peer.protocol = transport_protocol(&flags->transport_protocol);
+			rtp->peer.protocol = flags->transport_protocol;
 			rtcp->peer.protocol = rtp->peer.protocol;
 
 			if (replace_media_port(chop, media, rtp))
