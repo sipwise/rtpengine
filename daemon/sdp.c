@@ -34,7 +34,7 @@ struct sdp_connection {
 
 struct sdp_attributes {
 	GQueue list;
-	GHashTable *hash;
+	GHashTable *name_hash;
 	GHashTable *lists_hash;
 };
 
@@ -270,7 +270,7 @@ static int parse_media(char *start, char *end, struct sdp_media *output) {
 
 static void attrs_init(struct sdp_attributes *a) {
 	g_queue_init(&a->list);
-	a->hash = g_hash_table_new(str_hash, str_equal);
+	a->name_hash = g_hash_table_new(str_hash, str_equal);
 	a->lists_hash = g_hash_table_new_full(str_hash, str_equal,
 			NULL, (GDestroyNotify) g_queue_free);
 }
@@ -609,9 +609,9 @@ int sdp_parse(str *body, GQueue *sessions) {
 
 				attrs = media ? &media->attributes : &session->attributes;
 				g_queue_push_tail(&attrs->list, attr);
-				g_hash_table_insert(attrs->hash, &attr->name, attr);
+				g_hash_table_insert(attrs->name_hash, &attr->name, attr);
 				if (attr->key.s)
-					g_hash_table_insert(attrs->hash, &attr->key, attr);
+					g_hash_table_insert(attrs->name_hash, &attr->key, attr);
 
 				attr_queue = g_hash_table_lookup(attrs->lists_hash, &attr->name);
 				if (!attr_queue)
@@ -670,7 +670,7 @@ error:
 static void free_attributes(struct sdp_attributes *a) {
 	struct sdp_attribute *attr;
 
-	g_hash_table_destroy(a->hash);
+	g_hash_table_destroy(a->name_hash);
 	g_hash_table_destroy(a->lists_hash);
 	while ((attr = g_queue_pop_head(&a->list))) {
 		g_slice_free1(sizeof(*attr), attr);
@@ -771,7 +771,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 			if (!si || media->port_count != 1)
 				continue;
 			str_init(&s, "rtcp"); /* XXX use the enum for hash instead? */
-			attr = g_hash_table_lookup(media->attributes.hash, &s);
+			attr = g_hash_table_lookup(media->attributes.name_hash, &s);
 			if (!attr || !attr->u.rtcp.port_num)
 				continue;
 			if (attr->u.rtcp.port_num == si->stream.port + 1)
@@ -1210,13 +1210,13 @@ static int has_ice(GQueue *sessions) {
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
 
-		if (g_hash_table_lookup(session->attributes.hash, &s))
+		if (g_hash_table_lookup(session->attributes.name_hash, &s))
 			return 1;
 
 		for (m = session->media_streams.head; m; m = m->next) {
 			media = m->data;
 
-			if (g_hash_table_lookup(media->attributes.hash, &s))
+			if (g_hash_table_lookup(media->attributes.name_hash, &s))
 				return 1;
 		}
 	}
