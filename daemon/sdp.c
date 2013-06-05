@@ -93,7 +93,7 @@ struct attribute_crypto {
 	str mki_str;
 
 	unsigned int tag;
-	enum crypto_suite crypto_suite;
+	const struct crypto_suite *crypto_suite;
 	str master_key;
 	str salt;
 	char key_salt_buf[30];
@@ -309,7 +309,6 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 static int parse_attribute_crypto(struct sdp_attribute *output) {
 	char *start, *end;
 	struct attribute_crypto *c;
-	const struct crypto_suite_params *cs;
 	int salt_key_len, enc_salt_key_len;
 	int b64_state = 0;
 	unsigned int b64_save = 0;
@@ -328,11 +327,11 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	c = &output->u.crypto;
 
 	c->crypto_suite = crypto_find_suite(&c->crypto_suite_str);
-	if (c->crypto_suite == CS_UNKNOWN)
+	if (!c->crypto_suite)
 		return -1;
-	cs = &crypto_suite_params[c->crypto_suite];
 	/* assume everything is a multiple of 8 */
-	salt_key_len = (cs->master_key_len + cs->master_salt_len) / 8;
+	salt_key_len = (c->crypto_suite->master_key_len
+			+ c->crypto_suite->master_salt_len) / 8;
 	assert(sizeof(c->key_salt_buf) >= salt_key_len);
 	enc_salt_key_len = ceil((double) salt_key_len * 4.0/3.0);
 
@@ -348,9 +347,9 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 		return -1;
 
 	c->master_key.s = c->key_salt_buf;
-	c->master_key.len = cs->master_key_len / 8;
+	c->master_key.len = c->crypto_suite->master_key_len / 8;
 	c->salt.s = c->master_key.s + c->master_key.len;
-	c->salt.len = cs->master_salt_len / 8;
+	c->salt.len = c->crypto_suite->master_salt_len / 8;
 
 	c->lifetime_str = c->key_params_str;
 	str_shift(&c->lifetime_str, 7 + enc_salt_key_len);
@@ -383,7 +382,8 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 		else
 			c->lifetime = strtoull(c->lifetime_str.s, NULL, 10);
 
-		if (!c->lifetime || c->lifetime > cs->srtp_lifetime || c->lifetime > cs->srtcp_lifetime)
+		if (!c->lifetime || c->lifetime > c->crypto_suite->srtp_lifetime
+				|| c->lifetime > c->crypto_suite->srtcp_lifetime)
 			return -1;
 	}
 

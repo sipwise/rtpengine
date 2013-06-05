@@ -3,12 +3,13 @@
 #include <string.h>
 
 #include "str.h"
+#include "aux.h"
 
 
 
 /* all lengths are in bits, some code assumes everything to be multiples of 8 */
-const struct crypto_suite_params crypto_suite_params[__CS_LAST] = {
-	[CS_AES_CM_128_HMAC_SHA1_80] = {
+const struct crypto_suite crypto_suites[] = {
+	{
 		.name			= "AES_CM_128_HMAC_SHA1_80",
 		.master_key_len		= 128,
 		.master_salt_len	= 112,
@@ -22,7 +23,7 @@ const struct crypto_suite_params crypto_suite_params[__CS_LAST] = {
 		.srtp_auth_key_len	= 160,
 		.srtcp_auth_key_len	= 160,
 	},
-	[CS_AES_CM_128_HMAC_SHA1_32] = {
+	{
 		.name			= "AES_CM_128_HMAC_SHA1_32",
 		.master_key_len		= 128,
 		.master_salt_len	= 112,
@@ -36,7 +37,7 @@ const struct crypto_suite_params crypto_suite_params[__CS_LAST] = {
 		.srtp_auth_key_len	= 160,
 		.srtcp_auth_key_len	= 160,
 	},
-	[CS_F8_128_HMAC_SHA1_80] = {
+	{
 		.name			= "F8_128_HMAC_SHA1_80",
 		.master_key_len		= 128,
 		.master_salt_len	= 112,
@@ -52,15 +53,17 @@ const struct crypto_suite_params crypto_suite_params[__CS_LAST] = {
 	},
 };
 
+const int num_crypto_suites = ARRAYSIZE(crypto_suites);
 
 
 
-enum crypto_suite crypto_find_suite(const str *s) {
+
+const struct crypto_suite *crypto_find_suite(const str *s) {
 	int i, l;
-	const struct crypto_suite_params *cs;
+	const struct crypto_suite *cs;
 
-	for (i = CS_UNKNOWN + 1; i < __CS_LAST; i++) {
-		cs = &crypto_suite_params[i];
+	for (i = 0; i < num_crypto_suites; i++) {
+		cs = &crypto_suites[i];
 		if (!cs->name)
 			continue;
 
@@ -71,8 +74,8 @@ enum crypto_suite crypto_find_suite(const str *s) {
 		if (strncasecmp(cs->name, s->s, s->len))
 			continue;
 
-		return i;
+		return cs;
 	}
 
-	return CS_UNKNOWN;
+	return NULL;
 }

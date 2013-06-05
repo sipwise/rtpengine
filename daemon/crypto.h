@@ -8,15 +8,6 @@
 
 
 /* XXX get rid of the enums and replace with struct pointers? */
-enum crypto_suite {
-	CS_UNKNOWN = 0,
-	CS_AES_CM_128_HMAC_SHA1_80,
-	CS_AES_CM_128_HMAC_SHA1_32,
-	CS_F8_128_HMAC_SHA1_80,
-
-	__CS_LAST
-};
-
 enum cipher {
 	CIPHER_UNKNOWN = 0,
 	CIPHER_AES_CM,
@@ -32,7 +23,7 @@ enum mac {
 	__MAC_LAST
 };
 
-struct crypto_suite_params {
+struct crypto_suite {
 	const char *name;
 	unsigned int
 		master_key_len,
@@ -52,11 +43,12 @@ struct crypto_suite_params {
 
 
 
-extern const struct crypto_suite_params crypto_suite_params[__CS_LAST];
+extern const struct crypto_suite crypto_suites[];
+extern const int num_crypto_suites;
 
 
 
-enum crypto_suite crypto_find_suite(const str *);
+const struct crypto_suite *crypto_find_suite(const str *);
 
 
 
