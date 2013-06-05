@@ -119,6 +119,7 @@ struct sdp_attribute {
 	    param;	/* "PCMA/8000" */
 
 	enum {
+		ATTR_INVALID = -1,
 		ATTR_OTHER = 0,
 		ATTR_RTCP,
 		ATTR_CANDIDATE,
@@ -445,6 +446,8 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 }
 
 static void parse_attribute(struct sdp_attribute *a) {
+	int ret;
+
 	a->name = a->line_value;
 	str_chr_str(&a->value, &a->name, ':');
 	if (a->value.s) {
@@ -468,18 +471,17 @@ static void parse_attribute(struct sdp_attribute *a) {
 			a->key.len += 1 + a->value.len;
 	}
 
-	/* XXX add error handling */
+	ret = 0;
 	switch (a->name.len) {
 		case 4:
 			if (!str_cmp(&a->name, "rtcp"))
-				parse_attribute_rtcp(a);
+				ret = parse_attribute_rtcp(a);
 			else if (!str_cmp(&a->name, "ssrc"))
-				parse_attribute_ssrc(a);
-				;
+				ret = parse_attribute_ssrc(a);
 			break;
 		case 6:
 			if (!str_cmp(&a->name, "crypto"))
-				parse_attribute_crypto(a);
+				ret = parse_attribute_crypto(a);
 			break;
 		case 7:
 			if (!str_cmp(&a->name, "ice-pwd"))
@@ -491,7 +493,7 @@ static void parse_attribute(struct sdp_attribute *a) {
 			break;
 		case 9:
 			if (!str_cmp(&a->name, "candidate"))
-				parse_attribute_candidate(a);
+				ret = parse_attribute_candidate(a);
 			else if (!str_cmp(&a->name, "ice-ufrag"))
 				a->attr = ATTR_ICE;
 			break;
@@ -508,6 +510,9 @@ static void parse_attribute(struct sdp_attribute *a) {
 				a->attr = ATTR_ICE;
 			break;
 	}
+
+	if (ret)
+		a->attr = ATTR_INVALID;
 }
 
 int sdp_parse(str *body, GQueue *sessions) {
