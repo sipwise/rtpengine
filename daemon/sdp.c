@@ -101,6 +101,15 @@ struct attribute_crypto {
 		     mki_len;
 };
 
+struct attribute_ssrc {
+	str id_str;
+	str attr_str;
+
+	u_int32_t id;
+	str attr;
+	str value;
+};
+
 struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
@@ -115,12 +124,14 @@ struct sdp_attribute {
 		ATTR_CANDIDATE,
 		ATTR_ICE,
 		ATTR_CRYPTO,
+		ATTR_SSRC,
 	} attr;
 
 	union {
 		struct attribute_rtcp rtcp;
 		struct attribute_candidate candidate;
 		struct attribute_crypto crypto;
+		struct attribute_ssrc ssrc;
 	} u;
 };
 
@@ -262,6 +273,34 @@ static void attrs_init(struct sdp_attributes *a) {
 	a->hash = g_hash_table_new(str_hash, str_equal);
 	a->lists_hash = g_hash_table_new_full(str_hash, str_equal,
 			NULL, (GDestroyNotify) g_queue_free);
+}
+
+static int parse_attribute_ssrc(struct sdp_attribute *output) {
+	char *start, *end;
+	struct attribute_ssrc *s;
+
+	output->attr = ATTR_SSRC;
+
+	start = output->value.s;
+	end = start + output->value.len;
+
+	EXTRACT_TOKEN(u.ssrc.id_str);
+	EXTRACT_TOKEN(u.ssrc.attr_str);
+
+	s = &output->u.ssrc;
+
+	s->id = strtoul(s->id_str.s, NULL, 10);
+	if (!s->id)
+		return -1;
+
+	s->attr = s->attr_str;
+	str_chr_str(&s->value, &s->attr, ':');
+	if (s->value.s) {
+		s->attr.len = s->value.s - s->attr.s;
+		str_shift(&s->value, 1);
+	}
+
+	return 0;
 }
 
 static int parse_attribute_crypto(struct sdp_attribute *output) {
@@ -434,6 +473,9 @@ static void parse_attribute(struct sdp_attribute *a) {
 		case 4:
 			if (!str_cmp(&a->name, "rtcp"))
 				parse_attribute_rtcp(a);
+			else if (!str_cmp(&a->name, "ssrc"))
+				parse_attribute_ssrc(a);
+				;
 			break;
 		case 6:
 			if (!str_cmp(&a->name, "crypto"))
