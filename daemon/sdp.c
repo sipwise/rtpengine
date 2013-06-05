@@ -119,7 +119,6 @@ struct sdp_attribute {
 	    param;	/* "PCMA/8000" */
 
 	enum {
-		ATTR_INVALID = -1,
 		ATTR_OTHER = 0,
 		ATTR_RTCP,
 		ATTR_CANDIDATE,
@@ -445,7 +444,7 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 	return 0;
 }
 
-static void parse_attribute(struct sdp_attribute *a) {
+static int parse_attribute(struct sdp_attribute *a) {
 	int ret;
 
 	a->name = a->line_value;
@@ -511,8 +510,7 @@ static void parse_attribute(struct sdp_attribute *a) {
 			break;
 	}
 
-	if (ret)
-		a->attr = ATTR_INVALID;
+	return ret;
 }
 
 int sdp_parse(str *body, GQueue *sessions) {
@@ -604,7 +602,10 @@ int sdp_parse(str *body, GQueue *sessions) {
 				attr->line_value.s = value;
 				attr->line_value.len = line_end - value;
 
-				parse_attribute(attr);
+				if (parse_attribute(attr)) {
+					g_slice_free1(sizeof(*attr), attr);
+					break;
+				}
 
 				attrs = media ? &media->attributes : &session->attributes;
 				g_queue_push_tail(&attrs->list, attr);
