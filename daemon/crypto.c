@@ -131,7 +131,6 @@ static void aes_ctr_128(char *out, str *in, char *key, char *iv) {
 done:
 
 	EVP_EncryptFinal_ex(&ecc, key_block, &outlen);
-	/* assert(outlen == 0); */
 
 	EVP_CIPHER_CTX_cleanup(&ecc);
 }
