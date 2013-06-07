@@ -15,6 +15,7 @@
 #include "aux.h"
 #include "bencode.h"
 #include "str.h"
+#include "crypto.h"
 
 struct poller;
 struct control_stream;
@@ -26,6 +27,7 @@ struct callstream;
 struct call;
 struct callmaster;
 struct redis;
+struct crypto_suite;
 
 
 
@@ -69,6 +71,7 @@ struct stream {
 	u_int16_t		port;
 	int			num;
 	enum transport_protocol	protocol;
+	struct crypto_context	crypto;
 };
 struct stream_input {
 	struct stream		stream;
@@ -83,8 +86,8 @@ struct udp_fd {
 	u_int16_t		localport;
 };
 
-typedef int (*stream_handler)(str *);
-int __dummy_stream_handler(str *);
+struct streamrelay;
+typedef int (*stream_handler)(str *, struct streamrelay *);
 
 struct streamrelay {
 	struct udp_fd		fd;

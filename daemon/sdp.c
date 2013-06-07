@@ -97,7 +97,7 @@ struct attribute_crypto {
 	str master_key;
 	str salt;
 	char key_salt_buf[30];
-	unsigned long long lifetime;
+	u_int64_t lifetime;
 	unsigned int mki,
 		     mki_len;
 };
@@ -306,6 +306,7 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 	return 0;
 }
 
+/* XXX error handling/logging */
 static int parse_attribute_crypto(struct sdp_attribute *output) {
 	char *start, *end;
 	struct attribute_crypto *c;
@@ -393,7 +394,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 			return -1;
 		c->mki = strtoul(c->mki_str.s, NULL, 10);
 		c->mki_len = strtoul(s.s + 1, NULL, 10);
-		if (!c->mki || !c->mki_len)
+		if (!c->mki || !c->mki_len || c->mki_len > 128)
 			return -1;
 	}
 
@@ -790,6 +791,20 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 			si->consecutive_num = 1;
 			si->is_rtcp = 1;
 			si->stream.protocol = tp;
+
+			id = ATTR_CRYPTO;
+			attr = g_hash_table_lookup(media->attributes.id_hash, &id);
+			if (attr) {
+				si->stream.crypto.crypto_suite = attr->u.crypto.crypto_suite;
+				si->stream.crypto.mki = attr->u.crypto.mki;
+				si->stream.crypto.mki_len = attr->u.crypto.mki_len;
+				assert(sizeof(si->stream.crypto.master_key) >= attr->u.crypto.master_key.len);
+				assert(sizeof(si->stream.crypto.master_salt) >= attr->u.crypto.salt.len);
+				memcpy(si->stream.crypto.master_key, attr->u.crypto.master_key.s, attr->u.crypto.master_key.len);
+				memcpy(si->stream.crypto.master_salt, attr->u.crypto.salt.s, attr->u.crypto.salt.len);
+				assert(sizeof(si->stream.crypto.session_key) >= attr->u.crypto.crypto_suite->session_key_len);
+				assert(sizeof(si->stream.crypto.session_salt) >= attr->u.crypto.crypto_suite->session_salt_len);
+			}
 
 			g_hash_table_insert(streamhash, si, si);
 			g_queue_push_tail(streams, si);

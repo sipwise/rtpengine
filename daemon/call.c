@@ -28,6 +28,7 @@
 #include "str.h"
 #include "stun.h"
 #include "rtcp.h"
+#include "rtp.h"
 
 
 
@@ -215,28 +216,58 @@ void kernelize(struct callstream *c) {
 
 
 
-int __dummy_stream_handler(str *s) {
+static int __dummy_stream_handler(str *s, struct streamrelay *r) {
 	abort();
 	return 0;
 }
+static int call_avpf2avp(str *s, struct streamrelay *r) {
+	return rtcp_avpf2avp(s);
+}
+static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
+	return rtp_savp2avp(s, &r->peer.crypto);
+}
+static int call_avp2savp_rtcp(str *s, struct streamrelay *r) {
+	return 0;
+}
+
 
 static stream_handler determine_handler(struct streamrelay *in) {
 	if (in->peer.protocol == in->peer_advertised.protocol)
 		goto dummy;
-	if (in->peer.protocol == PROTO_UNKNOWN)
-		goto dummy;
 	if (in->peer_advertised.protocol == PROTO_UNKNOWN)
 		goto dummy;
 
-	if (in->peer.protocol == PROTO_RTP_AVPF && in->peer_advertised.protocol == PROTO_RTP_AVP) {
-		if (!in->rtcp)
+	switch (in->peer.protocol) {
+		case PROTO_UNKNOWN:
 			goto dummy;
-		return rtcp_avpf2avp;
-	}
-	if (in->peer.protocol == PROTO_RTP_AVP && in->peer_advertised.protocol == PROTO_RTP_AVPF)
-		goto dummy;
 
-	/* XXX warn? */
+		case PROTO_RTP_AVP:
+			switch (in->peer_advertised.protocol) {
+				case PROTO_RTP_AVPF:
+					goto dummy;
+
+				case PROTO_RTP_SAVP:
+					return in->rtcp ? call_avp2savp_rtcp
+						: call_avp2savp_rtp;
+
+				default:
+					abort();
+			}
+
+		case PROTO_RTP_AVPF:
+			switch (in->peer_advertised.protocol) {
+				case PROTO_RTP_AVP:
+					if (!in->rtcp)
+						goto dummy;
+					return call_avpf2avp;
+
+				default:
+					abort();
+			}
+
+		default:
+			abort();
+	}
 
 dummy:
 	return __dummy_stream_handler;
@@ -292,7 +323,7 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 	if (!sr_incoming->handler)
 		sr_incoming->handler = determine_handler(sr_incoming);
 	if (sr_incoming->handler != __dummy_stream_handler)
-		handler_ret = sr_incoming->handler(s);
+		handler_ret = sr_incoming->handler(s, sr_incoming);
 
 use_cand:
 	if (p_incoming->confirmed || !p_incoming->filled || sr_incoming->idx != 0)
@@ -1054,12 +1085,10 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 		unkernelize(&cs->peers[1]);
 	}
 
-	a->peer.ip46 = s->stream.ip46;
-	b->peer.ip46 = s->stream.ip46;
-	a->peer.port = b->peer.port = s->stream.port;
+	a->peer = s->stream;
+	b->peer = s->stream;
 	if (b->peer.port)
 		b->peer.port++;
-	a->peer.protocol = b->peer.protocol = s->stream.protocol;
 	a->peer_advertised = a->peer;
 	b->peer_advertised = b->peer;
 	a->rtcp = s->is_rtcp;

@@ -43,6 +43,8 @@ static inline int str_cmp_str(const str *a, const str *b);
 static inline int str_cmp_str0(const str *a, const str *b);
 /* inits a str object from a regular string */
 static inline void str_init(str *out, char *s);
+/* inits a str object from any binary string */
+static inline void str_init_len(str *out, char *s, int len);
 /* returns new str object allocated with malloc, including buffer */
 static inline str *str_dup(const str *s);
 /* returns new str object allocated from chunk, including buffer */
@@ -130,6 +132,10 @@ static inline int str_cmp_str0(const str *a, const str *b) {
 static inline void str_init(str *out, char *s) {
 	out->s = s;
 	out->len = s ? strlen(s) : 0;
+}
+static inline void str_init_len(str *out, char *s, int len) {
+	out->s = s;
+	out->len = len;
 }
 static inline str *str_dup(const str *s) {
 	str *r;
