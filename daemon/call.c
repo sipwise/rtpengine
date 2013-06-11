@@ -224,7 +224,7 @@ static int call_avpf2avp(str *s, struct streamrelay *r) {
 	return rtcp_avpf2avp(s);
 }
 static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
-	return rtp_savp2avp(s, &r->peer.crypto);
+	return rtp_savp2avp(s, &r->peer.crypto.out);
 }
 static int call_avp2savp_rtcp(str *s, struct streamrelay *r) {
 	return 0;
@@ -463,7 +463,7 @@ out:
 static void stream_readable(int fd, void *p, uintptr_t u) {
 	struct callstream *cs = p;
 	struct streamrelay *r;
-	char buf[8192];
+	char buf[RTP_BUFFER_SIZE];
 	int ret;
 	struct sockaddr_storage ss;
 	struct sockaddr_in6 sin6;
@@ -481,7 +481,8 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 
 	for (;;) {
 		sinlen = sizeof(ss);
-		ret = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr *) &ss, &sinlen);
+		ret = recvfrom(fd, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE,
+				0, (struct sockaddr *) &ss, &sinlen);
 
 		if (ret < 0) {
 			if (errno == EINTR)
@@ -492,7 +493,7 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 			stream_closed(fd, r, 0);
 			return;
 		}
-		if (ret >= sizeof(buf))
+		if (ret >= MAX_RTP_PACKET_SIZE)
 			mylog(LOG_WARNING, "UDP packet possibly truncated");
 
 		if (ss.ss_family != r->fd.fd_family)
@@ -508,8 +509,7 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 			in4_to_6(&sin6.sin6_addr, sin->sin_addr.s_addr);
 		}
 
-		s.s = buf;
-		s.len = ret;
+		str_init_len(&s, buf, ret);
 		ret = stream_packet(r, &s, sinp);
 		if (ret == -1) {
 			mylog(LOG_WARNING, "Write error on RTP socket");

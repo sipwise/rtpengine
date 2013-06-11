@@ -2,11 +2,16 @@
 
 #include <string.h>
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 
 #include "str.h"
 #include "aux.h"
+#include "rtp.h"
 
 
+
+static int aes_cm_encrypt_rtp(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
+static int hmac_sha1_rtp(struct crypto_context *, char *out, str *in);
 
 /* all lengths are in bits, some code assumes everything to be multiples of 8 */
 const struct crypto_suite crypto_suites[] = {
@@ -25,6 +30,8 @@ const struct crypto_suite crypto_suites[] = {
 		.srtcp_auth_tag		= 80,
 		.srtp_auth_key_len	= 160,
 		.srtcp_auth_key_len	= 160,
+		.encrypt_rtp		= aes_cm_encrypt_rtp,
+		.hash_rtp		= hmac_sha1_rtp,
 	},
 	{
 		.name			= "AES_CM_128_HMAC_SHA1_32",
@@ -41,6 +48,8 @@ const struct crypto_suite crypto_suites[] = {
 		.srtcp_auth_tag		= 80,
 		.srtp_auth_key_len	= 160,
 		.srtcp_auth_key_len	= 160,
+		.encrypt_rtp		= aes_cm_encrypt_rtp,
+		.hash_rtp		= hmac_sha1_rtp,
 	},
 	{
 		.name			= "F8_128_HMAC_SHA1_80",
@@ -57,6 +66,7 @@ const struct crypto_suite crypto_suites[] = {
 		.srtcp_auth_tag		= 80,
 		.srtp_auth_key_len	= 160,
 		.srtcp_auth_key_len	= 160,
+		.hash_rtp		= hmac_sha1_rtp,
 	},
 };
 
@@ -89,7 +99,8 @@ const struct crypto_suite *crypto_find_suite(const str *s) {
 
 
 
-/* rfc 3711 section 4.1 and 4.1.1 */
+/* rfc 3711 section 4.1 and 4.1.1
+ * "in" and "out" MAY point to the same buffer */
 static void aes_ctr_128(char *out, str *in, char *key, char *iv) {
 	EVP_CIPHER_CTX ecc;
 	unsigned char ivx[16];
@@ -103,7 +114,7 @@ static void aes_ctr_128(char *out, str *in, char *key, char *iv) {
 	q = (unsigned char *) out;
 	left = in->len;
 
-	/* XXX do this only once per thread? */
+	/* XXX do this only once per thread or maybe once per stream/key? */
 	EVP_CIPHER_CTX_init(&ecc);
 
 	EVP_EncryptInit_ex(&ecc, EVP_aes_128_ecb(), NULL, (unsigned char *) key, NULL);
@@ -179,6 +190,45 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 		x[i] = key_id[i - 7] ^ x[i];
 
 	prf_n(out, c->master_key, (char *) x);
+
+	return 0;
+}
+
+/* rfc 3711 section 4.1.1 */
+static int aes_cm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx) {
+	unsigned char iv[16];
+	unsigned char *p;
+	int i;
+
+	ZERO(iv);
+	memcpy(iv, c->session_salt, 14);
+
+	p = (void *) &r->ssrc;
+	for (i = 0; i < 4; i++)
+		iv[i + 4] = iv[i + 4] ^ p[i];
+
+	for (i = 0; i < 6; i++)
+		iv[i + 8] = iv[i + 8] ^ ((idx >> ((5 - i) * 8)) & 0xff);
+
+	aes_ctr_128(s->s, s, c->session_key, (char *) iv);
+
+	return 0;
+}
+
+/* rfc 3711, sections 4.2 and 4.2.1 */
+static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in) {
+	unsigned char hmac[20];
+	HMAC_CTX hc;
+	u_int32_t roc;
+
+	HMAC_Init(&hc, c->session_auth_key, c->crypto_suite->srtp_auth_key_len, EVP_sha1());
+	HMAC_Update(&hc, (unsigned char *) in->s, in->len);
+	roc = htonl(c->roc);
+	HMAC_Update(&hc, (unsigned char *) &roc, sizeof(roc));
+	HMAC_Final(&hc, hmac, NULL);
+	HMAC_CTX_cleanup(&hc);
+
+	memcpy(out, hmac, c->crypto_suite->srtp_auth_tag);
 
 	return 0;
 }

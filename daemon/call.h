@@ -17,11 +17,17 @@
 #include "str.h"
 #include "crypto.h"
 
+
+
+#define MAX_RTP_PACKET_SIZE	8192
+#define RTP_BUFFER_HEAD_ROOM	128
+#define RTP_BUFFER_TAIL_ROOM	256
+#define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
+
+
+
 struct poller;
 struct control_stream;
-
-
-
 struct peer;
 struct callstream;
 struct call;
@@ -71,7 +77,7 @@ struct stream {
 	u_int16_t		port;
 	int			num;
 	enum transport_protocol	protocol;
-	struct crypto_context	crypto;
+	struct crypto_context_pair crypto;
 };
 struct stream_input {
 	struct stream		stream;

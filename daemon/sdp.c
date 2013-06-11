@@ -795,15 +795,15 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 			id = ATTR_CRYPTO;
 			attr = g_hash_table_lookup(media->attributes.id_hash, &id);
 			if (attr) {
-				si->stream.crypto.crypto_suite = attr->u.crypto.crypto_suite;
-				si->stream.crypto.mki = attr->u.crypto.mki;
-				si->stream.crypto.mki_len = attr->u.crypto.mki_len;
-				assert(sizeof(si->stream.crypto.master_key) >= attr->u.crypto.master_key.len);
-				assert(sizeof(si->stream.crypto.master_salt) >= attr->u.crypto.salt.len);
-				memcpy(si->stream.crypto.master_key, attr->u.crypto.master_key.s, attr->u.crypto.master_key.len);
-				memcpy(si->stream.crypto.master_salt, attr->u.crypto.salt.s, attr->u.crypto.salt.len);
-				assert(sizeof(si->stream.crypto.session_key) >= attr->u.crypto.crypto_suite->session_key_len);
-				assert(sizeof(si->stream.crypto.session_salt) >= attr->u.crypto.crypto_suite->session_salt_len);
+				si->stream.crypto.in.crypto_suite = attr->u.crypto.crypto_suite;
+				si->stream.crypto.in.mki = attr->u.crypto.mki;
+				si->stream.crypto.in.mki_len = attr->u.crypto.mki_len;
+				assert(sizeof(si->stream.crypto.in.master_key) >= attr->u.crypto.master_key.len);
+				assert(sizeof(si->stream.crypto.in.master_salt) >= attr->u.crypto.salt.len);
+				memcpy(si->stream.crypto.in.master_key, attr->u.crypto.master_key.s, attr->u.crypto.master_key.len);
+				memcpy(si->stream.crypto.in.master_salt, attr->u.crypto.salt.s, attr->u.crypto.salt.len);
+				assert(sizeof(si->stream.crypto.in.session_key) >= attr->u.crypto.crypto_suite->session_key_len);
+				assert(sizeof(si->stream.crypto.in.session_salt) >= attr->u.crypto.crypto_suite->session_salt_len);
 			}
 
 			g_hash_table_insert(streamhash, si, si);

@@ -24,6 +24,12 @@ enum mac {
 	__MAC_LAST
 };
 
+struct crypto_context;
+struct rtp_header;
+
+typedef int (*crypto_func)(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
+typedef int (*hash_func)(struct crypto_context *, char *out, str *in);
+
 struct crypto_suite {
 	const char *name;
 	unsigned int
@@ -41,6 +47,8 @@ struct crypto_suite {
 		srtcp_lifetime;
 	enum cipher cipher;
 	enum mac mac;
+	crypto_func encrypt_rtp;
+	hash_func hash_rtp;
 };
 
 struct crypto_context {
@@ -58,11 +66,16 @@ struct crypto_context {
 	u_int64_t num_packets;
 	/* <from, to>? */
 
-	char session_key[16];
-	char session_salt[14];
+	char session_key[16]; /* k_e */
+	char session_salt[14]; /* k_s */
 	char session_auth_key[20];
 
 	int have_session_key:1;
+};
+
+struct crypto_context_pair {
+	struct crypto_context in,
+			      out;
 };
 
 
@@ -75,6 +88,15 @@ extern const int num_crypto_suites;
 
 const struct crypto_suite *crypto_find_suite(const str *);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char);
+
+static inline int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
+		str *payload, u_int64_t index)
+{
+	if (!c || !c->crypto_suite)
+		return -1;
+
+	return c->crypto_suite->encrypt_rtp(c, rtp, payload, index);
+}
 
 
 
