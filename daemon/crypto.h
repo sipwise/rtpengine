@@ -28,7 +28,7 @@ struct crypto_context;
 struct rtp_header;
 
 typedef int (*crypto_func)(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
-typedef int (*hash_func)(struct crypto_context *, char *out, str *in);
+typedef int (*hash_func)(struct crypto_context *, char *out, str *in, u_int64_t);
 
 struct crypto_suite {
 	const char *name;
@@ -47,7 +47,8 @@ struct crypto_suite {
 		srtcp_lifetime;
 	enum cipher cipher;
 	enum mac mac;
-	crypto_func encrypt_rtp;
+	crypto_func encrypt_rtp,
+		    decrypt_rtp;
 	hash_func hash_rtp;
 };
 
@@ -61,7 +62,7 @@ struct crypto_context {
 
 	/* from rfc 3711 */
 	u_int32_t roc;
-	u_int16_t s_l;
+	u_int64_t s_l;
 	/* XXX replay list */
 	u_int64_t num_packets;
 	/* <from, to>? */
@@ -96,6 +97,14 @@ static inline int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header
 		return -1;
 
 	return c->crypto_suite->encrypt_rtp(c, rtp, payload, index);
+}
+static inline int crypto_decrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
+		str *payload, u_int64_t index)
+{
+	if (!c || !c->crypto_suite)
+		return -1;
+
+	return c->crypto_suite->decrypt_rtp(c, rtp, payload, index);
 }
 
 

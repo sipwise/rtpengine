@@ -32,41 +32,40 @@ static inline int check_session_key(struct crypto_context *c) {
 	return 0;
 }
 
-/* XXX some error handling/logging here */
-int rtp_avp2savp(str *s, struct crypto_context *c) {
+static int rtp_payload(str *p, str *s) {
 	struct rtp_header *rtp;
-	str payload, to_auth;
 	struct rtp_extension *ext;
-	u_int16_t seq;
-	u_int64_t index, s_l_index;
-	long long int diff;
-	char *pl_end;
-	u_int32_t mki_part;
 
 	if (s->len < sizeof(*rtp))
-		return -1;
-	if (check_session_key(c))
 		return -1;
 
 	rtp = (void *) s->s;
 	if ((rtp->v_p_x_cc & 0xc0) != 0x80) /* version 2 */
 		return -1;
 
-	payload = *s;
+	*p = *s;
 	/* fixed header */
-	str_shift(&payload, sizeof(*rtp));
+	str_shift(p, sizeof(*rtp));
 	/* csrc list */
-	if (str_shift(&payload, (rtp->v_p_x_cc & 0xf) * 4))
+	if (str_shift(p, (rtp->v_p_x_cc & 0xf) * 4))
 		return -1;
 
 	if ((rtp->v_p_x_cc & 0x10)) {
 		/* extension */
-		if (payload.len < sizeof(*ext))
+		if (p->len < sizeof(*ext))
 			return -1;
-		ext = (void *) payload.s;
-		if (str_shift(&payload, 4 + ntohs(ext->length) * 4))
+		ext = (void *) p->s;
+		if (str_shift(p, 4 + ntohs(ext->length) * 4))
 			return -1;
 	}
+
+	return 0;
+}
+
+static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) {
+	u_int16_t seq;
+	u_int64_t index;
+	long long int diff;
 
 	seq = ntohs(rtp->seq_num);
 	/* rfc 3711 section 3.3.1 */
@@ -75,11 +74,10 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
 	index = ((u_int64_t) c->roc << 16) | seq;
-	s_l_index = ((u_int64_t) c->roc << 16) | c->s_l;
-	diff = index - s_l_index;
+	diff = index - c->s_l;
 	if (diff >= 0) {
 		if (diff < 0x8000)
-			;
+			c->s_l = index;
 		else if (index >= 0x10000)
 			index -= 0x10000;
 	}
@@ -89,8 +87,29 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 		else {
 			index += 0x10000;
 			c->roc++;
+			c->s_l = index;
 		}
 	}
+
+	return index;
+}
+
+/* rfc 3711, section 3.3 */
+/* XXX some error handling/logging here */
+int rtp_avp2savp(str *s, struct crypto_context *c) {
+	struct rtp_header *rtp;
+	str payload, to_auth;
+	u_int64_t index;
+	char *pl_end;
+	u_int32_t mki_part;
+
+	if (rtp_payload(&payload, s))
+		return -1;
+	if (check_session_key(c))
+		return -1;
+
+	rtp = (void *) s->s;
+	index = packet_index(c, rtp);
 
 	/* rfc 3711 section 3.1 */
 
@@ -123,8 +142,8 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 	}
 
 	if (c->crypto_suite->srtp_auth_tag) {
-		c->crypto_suite->hash_rtp(c, pl_end, &to_auth);
-		pl_end += c->crypto_suite->srtp_auth_tag;
+		c->crypto_suite->hash_rtp(c, pl_end, &to_auth, index);
+		pl_end += c->crypto_suite->srtp_auth_tag / 8;
 	}
 
 	s->len = pl_end - s->s;
@@ -132,8 +151,59 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 	return 0;
 }
 
+/* rfc 3711, section 3.3 */
 int rtp_savp2avp(str *s, struct crypto_context *c) {
+	struct rtp_header *rtp;
+	u_int64_t index;
+	str payload, mki, to_auth;
+	char hmac[20], *auth_tag = NULL;
+	int i;
+
+	if (rtp_payload(&payload, s))
+		return -1;
 	if (check_session_key(c))
 		return -1;
+
+	rtp = (void *) s->s;
+	index = packet_index(c, rtp);
+
+	/* rfc 3711 section 3.1 */
+
+	to_auth = *s;
+
+	if (c->crypto_suite->srtp_auth_tag) {
+		i = c->crypto_suite->srtp_auth_tag / 8;
+
+		assert(sizeof(hmac) >= i);
+		if (payload.len < i)
+			return -1;
+
+		auth_tag = payload.s + payload.len - i;
+		payload.len -= i;
+		to_auth.len -= i;
+	}
+
+	if (c->mki_len) {
+		if (payload.len < c->mki_len)
+			return -1;
+
+		str_init_len(&mki, payload.s - c->mki_len, c->mki_len);
+		payload.len -= c->mki_len;
+		to_auth.len -= c->mki_len;
+
+		/* ignoring the mki for now */
+	}
+
+	if (c->crypto_suite->srtp_auth_tag) {
+		c->crypto_suite->hash_rtp(c, hmac, &to_auth, index);
+		if (memcmp(hmac, auth_tag, c->crypto_suite->srtp_auth_tag / 8))
+			return -1;
+	}
+
+	if (crypto_decrypt_rtp(c, rtp, &payload, index))
+		return -1;
+
+	*s = to_auth;
+
 	return 0;
 }

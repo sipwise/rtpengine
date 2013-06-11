@@ -11,7 +11,7 @@
 
 
 static int aes_cm_encrypt_rtp(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
-static int hmac_sha1_rtp(struct crypto_context *, char *out, str *in);
+static int hmac_sha1_rtp(struct crypto_context *, char *out, str *in, u_int64_t);
 
 /* all lengths are in bits, some code assumes everything to be multiples of 8 */
 const struct crypto_suite crypto_suites[] = {
@@ -31,6 +31,7 @@ const struct crypto_suite crypto_suites[] = {
 		.srtp_auth_key_len	= 160,
 		.srtcp_auth_key_len	= 160,
 		.encrypt_rtp		= aes_cm_encrypt_rtp,
+		.decrypt_rtp		= aes_cm_encrypt_rtp,
 		.hash_rtp		= hmac_sha1_rtp,
 	},
 	{
@@ -49,6 +50,7 @@ const struct crypto_suite crypto_suites[] = {
 		.srtp_auth_key_len	= 160,
 		.srtcp_auth_key_len	= 160,
 		.encrypt_rtp		= aes_cm_encrypt_rtp,
+		.decrypt_rtp		= aes_cm_encrypt_rtp,
 		.hash_rtp		= hmac_sha1_rtp,
 	},
 	{
@@ -216,19 +218,20 @@ static int aes_cm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, st
 }
 
 /* rfc 3711, sections 4.2 and 4.2.1 */
-static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in) {
+static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in, u_int64_t index) {
 	unsigned char hmac[20];
 	HMAC_CTX hc;
 	u_int32_t roc;
 
-	HMAC_Init(&hc, c->session_auth_key, c->crypto_suite->srtp_auth_key_len, EVP_sha1());
+	HMAC_Init(&hc, c->session_auth_key, c->crypto_suite->srtp_auth_key_len / 8, EVP_sha1());
 	HMAC_Update(&hc, (unsigned char *) in->s, in->len);
-	roc = htonl(c->roc);
+	roc = htonl((index & 0xffffffff0000ULL) >> 16);
 	HMAC_Update(&hc, (unsigned char *) &roc, sizeof(roc));
 	HMAC_Final(&hc, hmac, NULL);
 	HMAC_CTX_cleanup(&hc);
 
-	memcpy(out, hmac, c->crypto_suite->srtp_auth_tag);
+	assert(sizeof(hmac) >= c->crypto_suite->srtp_auth_tag / 8);
+	memcpy(out, hmac, c->crypto_suite->srtp_auth_tag / 8);
 
 	return 0;
 }

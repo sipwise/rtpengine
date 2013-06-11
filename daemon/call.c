@@ -229,6 +229,12 @@ static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
 static int call_avp2savp_rtcp(str *s, struct streamrelay *r) {
 	return 0;
 }
+static int call_savp2avp_rtp(str *s, struct streamrelay *r) {
+	return rtp_savp2avp(s, &r->peer.crypto.in);
+}
+static int call_savp2avp_rtcp(str *s, struct streamrelay *r) {
+	return 0;
+}
 
 
 static stream_handler determine_handler(struct streamrelay *in) {
@@ -249,6 +255,17 @@ static stream_handler determine_handler(struct streamrelay *in) {
 				case PROTO_RTP_SAVP:
 					return in->rtcp ? call_avp2savp_rtcp
 						: call_avp2savp_rtp;
+
+				default:
+					abort();
+			}
+
+		case PROTO_RTP_SAVP:
+			switch (in->peer_advertised.protocol) {
+				case PROTO_RTP_AVP:
+				case PROTO_RTP_AVPF:
+					return in->rtcp ? call_savp2avp_rtcp
+						: call_savp2avp_rtp;
 
 				default:
 					abort();
