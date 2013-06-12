@@ -51,6 +51,8 @@ static inline str *str_dup(const str *s);
 static inline str *str_chunk_insert(GStringChunk *c, const str *s);
 /* shifts pointer by len chars and decrements len. returns -1 if buffer too short, 0 otherwise */
 static inline int str_shift(str *s, int len);
+/* binary compares str object with memory chunk of equal size */
+static inline int str_memcmp(const str *s, void *m);
 
 /* asprintf() analogs */
 #define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
@@ -195,6 +197,9 @@ static inline str *g_string_free_str(GString *gs) {
 	ret->len = gs->len - pl;
 	g_string_free(gs, FALSE);
 	return ret;
+}
+static inline int str_memcmp(const str *s, void *m) {
+	return memcmp(s->s, m, s->len);
 }
 
 #endif

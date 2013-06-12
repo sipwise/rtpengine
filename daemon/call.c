@@ -224,16 +224,16 @@ static int call_avpf2avp(str *s, struct streamrelay *r) {
 	return rtcp_avpf2avp(s);
 }
 static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
-	return rtp_savp2avp(s, &r->peer.crypto.out);
+	return rtp_avp2savp(s, &r->peer.crypto.out);
 }
 static int call_avp2savp_rtcp(str *s, struct streamrelay *r) {
-	return 0;
+	return rtcp_avp2savp(s, &r->peer.crypto.out);
 }
 static int call_savp2avp_rtp(str *s, struct streamrelay *r) {
 	return rtp_savp2avp(s, &r->peer.crypto.in);
 }
 static int call_savp2avp_rtcp(str *s, struct streamrelay *r) {
-	return 0;
+	return rtcp_savp2avp(s, &r->peer.crypto.in);
 }
 
 

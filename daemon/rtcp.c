@@ -7,6 +7,8 @@
 #include "str.h"
 #include "call.h"
 #include "log.h"
+#include "rtp.h"
+#include "crypto.h"
 
 
 
@@ -30,17 +32,6 @@
 #define SDES_TYPE_PRIV	8
 
 
-
-struct rtcp_header {
-	unsigned char v_p_x;
-	unsigned char pt;
-	u_int16_t length;
-} __attribute__ ((packed));
-
-struct rtcp_packet {
-	struct rtcp_header header;
-	u_int32_t ssrc;
-} __attribute__ ((packed));
 
 struct report_block {
 	u_int32_t ssrc;
@@ -317,6 +308,96 @@ int rtcp_avpf2avp(str *s) {
 	s->len -= removed;
 	if (!s->len)
 		return -1;
+
+	return 0;
+}
+
+
+static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
+	struct rtcp_packet *rtcp;
+
+	if (s->len < sizeof(*rtcp))
+		return -1;
+
+	rtcp = (void *) s->s;
+
+	if ((rtcp->header.v_p_x & 0xc0) != 0x80) /* version 2 */
+		return -1;
+	if (rtcp->header.pt != RTCP_PT_SR
+			&& rtcp->header.pt != RTCP_PT_RR)
+		return -1;
+
+	*p = *s;
+	str_shift(p, sizeof(*rtcp));
+	*out = rtcp;
+
+	return 0;
+}
+
+/* rfc 3711 section 3.4 */
+int rtcp_avp2savp(str *s, struct crypto_context *c) {
+	struct rtcp_packet *rtcp;
+	u_int32_t *idx;
+	str to_auth, payload;
+
+	if (rtcp_payload(&rtcp, &payload, s))
+		return -1;
+	if (crypto_check_session_keys(c))
+		return -1;
+
+	if (crypto_encrypt_rtcp(c, rtcp, &payload, c->num_packets))
+		return -1;
+
+	idx = (void *) s->s + s->len;
+	*idx = htonl(0x80000000ULL | c->num_packets++);
+	s->len += sizeof(*idx);
+
+	to_auth = *s;
+
+	rtp_append_mki(s, c);
+
+	c->crypto_suite->hash_rtcp(c, s->s + s->len, &to_auth);
+	s->len += c->crypto_suite->srtp_auth_tag / 8;
+
+	return 0;
+}
+
+
+/* rfc 3711 section 3.4 */
+int rtcp_savp2avp(str *s, struct crypto_context *c) {
+	struct rtcp_packet *rtcp;
+	str payload, to_auth, to_decrypt, auth_tag;
+	u_int32_t idx, *idx_p;
+	char hmac[20];
+
+	if (rtcp_payload(&rtcp, &payload, s))
+		return -1;
+	if (crypto_check_session_keys(c))
+		return -1;
+
+	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
+			c->crypto_suite->srtcp_auth_tag, c->mki_len,
+			s, &payload))
+		return -1;
+
+	if (to_decrypt.len < sizeof(idx))
+		return -1;
+	to_decrypt.len -= sizeof(idx);
+	idx_p = (void *) to_decrypt.s + to_decrypt.len;
+	idx = ntohl(*idx_p);
+
+	assert(sizeof(hmac) >= auth_tag.len);
+	c->crypto_suite->hash_rtcp(c, hmac, &to_auth);
+	if (str_memcmp(&auth_tag, hmac))
+		return -1;
+
+	if (idx & 0x80000000ULL) {
+		if (crypto_decrypt_rtcp(c, rtcp, &to_decrypt, idx & 0x7fffffffULL))
+			return -1;
+	}
+
+	*s = to_auth;
+	to_auth.len -= sizeof(idx);
 
 	return 0;
 }

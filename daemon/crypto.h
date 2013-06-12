@@ -26,9 +26,12 @@ enum mac {
 
 struct crypto_context;
 struct rtp_header;
+struct rtcp_packet;
 
-typedef int (*crypto_func)(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
-typedef int (*hash_func)(struct crypto_context *, char *out, str *in, u_int64_t);
+typedef int (*crypto_func_rtp)(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
+typedef int (*crypto_func_rtcp)(struct crypto_context *, struct rtcp_packet *, str *, u_int64_t);
+typedef int (*hash_func_rtp)(struct crypto_context *, char *out, str *in, u_int64_t);
+typedef int (*hash_func_rtcp)(struct crypto_context *, char *out, str *in);
 
 struct crypto_suite {
 	const char *name;
@@ -47,9 +50,12 @@ struct crypto_suite {
 		srtcp_lifetime;
 	enum cipher cipher;
 	enum mac mac;
-	crypto_func encrypt_rtp,
-		    decrypt_rtp;
-	hash_func hash_rtp;
+	crypto_func_rtp encrypt_rtp,
+			decrypt_rtp;
+	crypto_func_rtcp encrypt_rtcp,
+			 decrypt_rtcp;
+	hash_func_rtp hash_rtp;
+	hash_func_rtcp hash_rtcp;
 };
 
 struct crypto_context {
@@ -88,23 +94,35 @@ extern const int num_crypto_suites;
 
 
 const struct crypto_suite *crypto_find_suite(const str *);
+int crypto_gen_session_keys(struct crypto_context *c);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char);
 
 static inline int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
 		str *payload, u_int64_t index)
 {
-	if (!c || !c->crypto_suite)
-		return -1;
-
 	return c->crypto_suite->encrypt_rtp(c, rtp, payload, index);
 }
 static inline int crypto_decrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
 		str *payload, u_int64_t index)
 {
-	if (!c || !c->crypto_suite)
-		return -1;
-
 	return c->crypto_suite->decrypt_rtp(c, rtp, payload, index);
+}
+static inline int crypto_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
+		str *payload, u_int64_t index)
+{
+	return c->crypto_suite->encrypt_rtcp(c, rtcp, payload, index);
+}
+static inline int crypto_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
+		str *payload, u_int64_t index)
+{
+	return c->crypto_suite->decrypt_rtcp(c, rtcp, payload, index);
+}
+static inline int crypto_check_session_keys(struct crypto_context *c) {
+	if (c->have_session_key)
+		return 0;
+	if (!c->crypto_suite)
+		return -1;
+	return crypto_gen_session_keys(c);
 }
 
 

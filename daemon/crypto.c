@@ -7,11 +7,14 @@
 #include "str.h"
 #include "aux.h"
 #include "rtp.h"
+#include "rtcp.h"
 
 
 
 static int aes_cm_encrypt_rtp(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
+static int aes_cm_encrypt_rtcp(struct crypto_context *, struct rtcp_packet *, str *, u_int64_t);
 static int hmac_sha1_rtp(struct crypto_context *, char *out, str *in, u_int64_t);
+static int hmac_sha1_rtcp(struct crypto_context *, char *out, str *in);
 
 /* all lengths are in bits, some code assumes everything to be multiples of 8 */
 const struct crypto_suite crypto_suites[] = {
@@ -32,7 +35,10 @@ const struct crypto_suite crypto_suites[] = {
 		.srtcp_auth_key_len	= 160,
 		.encrypt_rtp		= aes_cm_encrypt_rtp,
 		.decrypt_rtp		= aes_cm_encrypt_rtp,
+		.encrypt_rtcp		= aes_cm_encrypt_rtcp,
+		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
+		.hash_rtcp		= hmac_sha1_rtcp,
 	},
 	{
 		.name			= "AES_CM_128_HMAC_SHA1_32",
@@ -51,7 +57,10 @@ const struct crypto_suite crypto_suites[] = {
 		.srtcp_auth_key_len	= 160,
 		.encrypt_rtp		= aes_cm_encrypt_rtp,
 		.decrypt_rtp		= aes_cm_encrypt_rtp,
+		.encrypt_rtcp		= aes_cm_encrypt_rtcp,
+		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
+		.hash_rtcp		= hmac_sha1_rtcp,
 	},
 	{
 		.name			= "F8_128_HMAC_SHA1_80",
@@ -69,6 +78,7 @@ const struct crypto_suite crypto_suites[] = {
 		.srtp_auth_key_len	= 160,
 		.srtcp_auth_key_len	= 160,
 		.hash_rtp		= hmac_sha1_rtp,
+		.hash_rtcp		= hmac_sha1_rtcp,
 	},
 };
 
@@ -197,7 +207,7 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 }
 
 /* rfc 3711 section 4.1.1 */
-static int aes_cm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx) {
+static int aes_cm_encrypt(struct crypto_context *c, u_int32_t ssrc, str *s, u_int64_t idx) {
 	unsigned char iv[16];
 	unsigned char *p;
 	int i;
@@ -205,7 +215,7 @@ static int aes_cm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, st
 	ZERO(iv);
 	memcpy(iv, c->session_salt, 14);
 
-	p = (void *) &r->ssrc;
+	p = (void *) &ssrc;
 	for (i = 0; i < 4; i++)
 		iv[i + 4] = iv[i + 4] ^ p[i];
 
@@ -215,6 +225,16 @@ static int aes_cm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, st
 	aes_ctr_128(s->s, s, c->session_key, (char *) iv);
 
 	return 0;
+}
+
+/* rfc 3711 section 4.1 */
+static int aes_cm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx) {
+	return aes_cm_encrypt(c, r->ssrc, s, idx);
+}
+
+/* rfc 3711 sections 3.4 and 4.1 */
+static int aes_cm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, u_int64_t idx) {
+	return aes_cm_encrypt(c, r->ssrc, s, idx);
 }
 
 /* rfc 3711, sections 4.2 and 4.2.1 */
@@ -233,5 +253,35 @@ static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in, u_int64_t
 	assert(sizeof(hmac) >= c->crypto_suite->srtp_auth_tag / 8);
 	memcpy(out, hmac, c->crypto_suite->srtp_auth_tag / 8);
 
+	return 0;
+}
+
+/* rfc 3711, sections 4.2 and 4.2.1 */
+static int hmac_sha1_rtcp(struct crypto_context *c, char *out, str *in) {
+	unsigned char hmac[20];
+
+	HMAC(EVP_sha1(), c->session_auth_key, c->crypto_suite->srtcp_auth_key_len / 8,
+			(unsigned char *) in->s, in->len, hmac, NULL);
+
+	assert(sizeof(hmac) >= c->crypto_suite->srtcp_auth_tag / 8);
+	memcpy(out, hmac, c->crypto_suite->srtcp_auth_tag / 8);
+
+	return 0;
+}
+
+int crypto_gen_session_keys(struct crypto_context *c) {
+	str s;
+
+	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
+	if (crypto_gen_session_key(c, &s, 0x00))
+		return -1;
+	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtp_auth_key_len);
+	if (crypto_gen_session_key(c, &s, 0x01))
+		return -1;
+	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
+	if (crypto_gen_session_key(c, &s, 0x02))
+		return -1;
+
+	c->have_session_key = 1;
 	return 0;
 }
