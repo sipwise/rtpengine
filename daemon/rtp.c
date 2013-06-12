@@ -10,6 +10,28 @@
 
 
 
+static inline int check_session_keys(struct crypto_context *c) {
+	str s;
+
+	if (c->have_session_key)
+		return 0;
+	if (!c->crypto_suite)
+		return -1;
+
+	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
+	if (crypto_gen_session_key(c, &s, 0x00, 6))
+		return -1;
+	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtp_auth_key_len);
+	if (crypto_gen_session_key(c, &s, 0x01, 6))
+		return -1;
+	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
+	if (crypto_gen_session_key(c, &s, 0x02, 6))
+		return -1;
+
+	c->have_session_key = 1;
+	return 0;
+}
+
 static int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 	struct rtp_header *rtp;
 	struct rtp_extension *ext;
@@ -111,7 +133,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
-	if (crypto_check_session_keys(c))
+	if (check_session_keys(c))
 		return -1;
 
 	index = packet_index(c, rtp);
@@ -142,7 +164,7 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
-	if (crypto_check_session_keys(c))
+	if (check_session_keys(c))
 		return -1;
 
 	index = packet_index(c, rtp);

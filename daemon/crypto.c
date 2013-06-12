@@ -184,7 +184,7 @@ static void prf_n(str *out, char *key, char *x) {
 
 
 /* rfc 3711 section 4.3.1 */
-int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char label) {
+int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char label, int index_len) {
 	unsigned char key_id[7]; /* [ label, 48-bit ROC || SEQ ] */
 	unsigned char x[14];
 	int i;
@@ -193,13 +193,13 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 		return -1;
 
 	ZERO(key_id);
-	/* key_id[1..6] := r
+	/* key_id[1..6] := r; or 1..4 for rtcp
 	 * key_derivation_rate == 0 --> r == 0 */
 
 	key_id[0] = label;
 	memcpy(x, c->master_salt, 14);
-	for (i = 7; i < 14; i++)
-		x[i] = key_id[i - 7] ^ x[i];
+	for (i = 13 - index_len; i < 14; i++)
+		x[i] = key_id[i - (13 - index_len)] ^ x[i];
 
 	prf_n(out, c->master_key, (char *) x);
 
@@ -266,22 +266,5 @@ static int hmac_sha1_rtcp(struct crypto_context *c, char *out, str *in) {
 	assert(sizeof(hmac) >= c->crypto_suite->srtcp_auth_tag / 8);
 	memcpy(out, hmac, c->crypto_suite->srtcp_auth_tag / 8);
 
-	return 0;
-}
-
-int crypto_gen_session_keys(struct crypto_context *c) {
-	str s;
-
-	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
-	if (crypto_gen_session_key(c, &s, 0x00))
-		return -1;
-	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtp_auth_key_len);
-	if (crypto_gen_session_key(c, &s, 0x01))
-		return -1;
-	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
-	if (crypto_gen_session_key(c, &s, 0x02))
-		return -1;
-
-	c->have_session_key = 1;
 	return 0;
 }

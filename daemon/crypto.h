@@ -94,8 +94,7 @@ extern const int num_crypto_suites;
 
 
 const struct crypto_suite *crypto_find_suite(const str *);
-int crypto_gen_session_keys(struct crypto_context *c);
-int crypto_gen_session_key(struct crypto_context *, str *, unsigned char);
+int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);
 
 static inline int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
 		str *payload, u_int64_t index)
@@ -116,13 +115,6 @@ static inline int crypto_decrypt_rtcp(struct crypto_context *c, struct rtcp_pack
 		str *payload, u_int64_t index)
 {
 	return c->crypto_suite->decrypt_rtcp(c, rtcp, payload, index);
-}
-static inline int crypto_check_session_keys(struct crypto_context *c) {
-	if (c->have_session_key)
-		return 0;
-	if (!c->crypto_suite)
-		return -1;
-	return crypto_gen_session_keys(c);
 }
 
 

@@ -313,6 +313,28 @@ int rtcp_avpf2avp(str *s) {
 }
 
 
+static inline int check_session_keys(struct crypto_context *c) {
+	str s;
+
+	if (c->have_session_key)
+		return 0;
+	if (!c->crypto_suite)
+		return -1;
+
+	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
+	if (crypto_gen_session_key(c, &s, 0x03, 4))
+		return -1;
+	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtcp_auth_key_len);
+	if (crypto_gen_session_key(c, &s, 0x04, 4))
+		return -1;
+	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
+	if (crypto_gen_session_key(c, &s, 0x05, 4))
+		return -1;
+
+	c->have_session_key = 1;
+	return 0;
+}
+
 static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 	struct rtcp_packet *rtcp;
 
@@ -342,7 +364,7 @@ int rtcp_avp2savp(str *s, struct crypto_context *c) {
 
 	if (rtcp_payload(&rtcp, &payload, s))
 		return -1;
-	if (crypto_check_session_keys(c))
+	if (check_session_keys(c))
 		return -1;
 
 	if (crypto_encrypt_rtcp(c, rtcp, &payload, c->num_packets))
@@ -372,7 +394,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 
 	if (rtcp_payload(&rtcp, &payload, s))
 		return -1;
-	if (crypto_check_session_keys(c))
+	if (check_session_keys(c))
 		return -1;
 
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
