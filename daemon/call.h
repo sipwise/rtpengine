@@ -77,12 +77,12 @@ struct stream {
 	u_int16_t		port;
 	int			num;
 	enum transport_protocol	protocol;
-	struct crypto_context_pair crypto;
 };
 struct stream_input {
 	struct stream		stream;
 	enum stream_direction	direction[2];
 	int			consecutive_num;
+	struct crypto_context	crypto;
 	int			has_rtcp:1;
 	int			is_rtcp:1;
 };
@@ -106,6 +106,7 @@ struct streamrelay {
 	struct stats		kstats;
 	time_t			last;
 	stream_handler		handler;
+	struct crypto_context_pair crypto;
 	int			stun:1;
 	int			rtcp:1;
 };

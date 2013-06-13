@@ -743,6 +743,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 	int i, num, id;
 	struct sdp_attribute *attr;
 	enum transport_protocol tp;
+	struct crypto_context cctx;
 
 	num = 0;
 	for (l = sessions->head; l; l = l->next) {
@@ -751,6 +752,21 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 			tp = transport_protocol(&media->transport);
+
+			ZERO(cctx);
+			id = ATTR_CRYPTO;
+			attr = g_hash_table_lookup(media->attributes.id_hash, &id);
+			if (attr) {
+				cctx.crypto_suite = attr->u.crypto.crypto_suite;
+				cctx.mki = attr->u.crypto.mki;
+				cctx.mki_len = attr->u.crypto.mki_len;
+				assert(sizeof(cctx.master_key) >= attr->u.crypto.master_key.len);
+				assert(sizeof(cctx.master_salt) >= attr->u.crypto.salt.len);
+				memcpy(cctx.master_key, attr->u.crypto.master_key.s, attr->u.crypto.master_key.len);
+				memcpy(cctx.master_salt, attr->u.crypto.salt.s, attr->u.crypto.salt.len);
+				assert(sizeof(cctx.session_key) >= cctx.crypto_suite->session_key_len / 8);
+				assert(sizeof(cctx.session_salt) >= cctx.crypto_suite->session_salt_len / 8);
+			}
 
 			si = NULL;
 			for (i = 0; i < media->port_count; i++) {
@@ -768,6 +784,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 				si->stream.num = ++num;
 				si->consecutive_num = (i == 0) ? media->port_count : 1;
 				si->stream.protocol = tp;
+				si->crypto = cctx;
 
 				g_hash_table_insert(streamhash, si, si);
 				g_queue_push_tail(streams, si);
@@ -791,20 +808,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 			si->consecutive_num = 1;
 			si->is_rtcp = 1;
 			si->stream.protocol = tp;
-
-			id = ATTR_CRYPTO;
-			attr = g_hash_table_lookup(media->attributes.id_hash, &id);
-			if (attr) {
-				si->stream.crypto.in.crypto_suite = attr->u.crypto.crypto_suite;
-				si->stream.crypto.in.mki = attr->u.crypto.mki;
-				si->stream.crypto.in.mki_len = attr->u.crypto.mki_len;
-				assert(sizeof(si->stream.crypto.in.master_key) >= attr->u.crypto.master_key.len);
-				assert(sizeof(si->stream.crypto.in.master_salt) >= attr->u.crypto.salt.len);
-				memcpy(si->stream.crypto.in.master_key, attr->u.crypto.master_key.s, attr->u.crypto.master_key.len);
-				memcpy(si->stream.crypto.in.master_salt, attr->u.crypto.salt.s, attr->u.crypto.salt.len);
-				assert(sizeof(si->stream.crypto.in.session_key) >= attr->u.crypto.crypto_suite->session_key_len);
-				assert(sizeof(si->stream.crypto.in.session_salt) >= attr->u.crypto.crypto_suite->session_salt_len);
-			}
+			si->crypto = cctx;
 
 			g_hash_table_insert(streamhash, si, si);
 			g_queue_push_tail(streams, si);
@@ -1270,9 +1274,9 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 	mutex_lock(&rtp->up->up->lock);
 
 	/* write-once, read-only */
-	c = &rtp->peer.crypto.out;
+	c = &rtp->crypto.out;
 	if (!c->crypto_suite) {
-		c->crypto_suite = rtp->peer.crypto.in.crypto_suite;
+		c->crypto_suite = rtp->crypto.in.crypto_suite;
 		if (!c->crypto_suite)
 			c->crypto_suite = &crypto_suites[0];
 		random_string((unsigned char *) c->master_key,
@@ -1298,11 +1302,11 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 
 	mutex_lock(&rtcp->up->up->lock);
 
-	c = &rtcp->peer.crypto.out;
-	c->crypto_suite = rtp->peer.crypto.out.crypto_suite;
-	memcpy(c->master_key, rtp->peer.crypto.out.master_key,
+	c = &rtcp->crypto.out;
+	c->crypto_suite = rtp->crypto.out.crypto_suite;
+	memcpy(c->master_key, rtp->crypto.out.master_key,
 			c->crypto_suite->master_key_len / 8);
-	memcpy(c->master_salt, rtp->peer.crypto.out.master_salt,
+	memcpy(c->master_salt, rtp->crypto.out.master_salt,
 			c->crypto_suite->master_salt_len / 8);
 
 	mutex_unlock(&rtcp->up->up->lock);
@@ -1394,7 +1398,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				chopper_append_c(chop, "\r\n");
 			}
 
-			generate_crypto(media, flags, rtp, rtcp, chop);
+			generate_crypto(media, flags, rtp->other, rtcp->other, chop);
 
 			if (do_ice) {
 				mutex_lock(&rtp->up->up->lock);

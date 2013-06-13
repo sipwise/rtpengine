@@ -223,16 +223,16 @@ static int call_avpf2avp(str *s, struct streamrelay *r) {
 	return rtcp_avpf2avp(s);
 }
 static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
-	return rtp_avp2savp(s, &r->other->peer.crypto.out);
+	return rtp_avp2savp(s, &r->crypto.out);
 }
 static int call_avp2savp_rtcp(str *s, struct streamrelay *r) {
-	return rtcp_avp2savp(s, &r->other->peer.crypto.out);
+	return rtcp_avp2savp(s, &r->crypto.out);
 }
 static int call_savp2avp_rtp(str *s, struct streamrelay *r) {
-	return rtp_savp2avp(s, &r->peer.crypto.in);
+	return rtp_savp2avp(s, &r->other->crypto.in);
 }
 static int call_savp2avp_rtcp(str *s, struct streamrelay *r) {
-	return rtcp_savp2avp(s, &r->peer.crypto.in);
+	return rtcp_savp2avp(s, &r->other->crypto.in);
 }
 
 
@@ -1108,6 +1108,8 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	b->peer_advertised = b->peer;
 	a->rtcp = s->is_rtcp;
 	b->rtcp = 1;
+	a->crypto.in = s->crypto;
+	b->crypto.in = s->crypto;
 
 	for (i = 0; i < 2; i++) {
 		switch (s->direction[i]) {
