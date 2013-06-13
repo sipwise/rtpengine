@@ -6,6 +6,7 @@
 
 #include "str.h"
 #include "crypto.h"
+#include "log.h"
 
 
 
@@ -16,20 +17,24 @@ static inline int check_session_keys(struct crypto_context *c) {
 	if (c->have_session_key)
 		return 0;
 	if (!c->crypto_suite)
-		return -1;
+		goto error;
 
 	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
 	if (crypto_gen_session_key(c, &s, 0x00, 6))
-		return -1;
+		goto error;
 	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtp_auth_key_len);
 	if (crypto_gen_session_key(c, &s, 0x01, 6))
-		return -1;
+		goto error;
 	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
 	if (crypto_gen_session_key(c, &s, 0x02, 6))
-		return -1;
+		goto error;
 
 	c->have_session_key = 1;
 	return 0;
+
+error:
+	mylog(LOG_WARNING, "Error generating SRTP session keys");
+	return -1;
 }
 
 static int rtp_payload(struct rtp_header **out, str *p, const str *s) {
@@ -37,31 +42,35 @@ static int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 	struct rtp_extension *ext;
 
 	if (s->len < sizeof(*rtp))
-		return -1;
+		goto error;
 
 	rtp = (void *) s->s;
 	if ((rtp->v_p_x_cc & 0xc0) != 0x80) /* version 2 */
-		return -1;
+		goto error;
 
 	*p = *s;
 	/* fixed header */
 	str_shift(p, sizeof(*rtp));
 	/* csrc list */
 	if (str_shift(p, (rtp->v_p_x_cc & 0xf) * 4))
-		return -1;
+		goto error;
 
 	if ((rtp->v_p_x_cc & 0x10)) {
 		/* extension */
 		if (p->len < sizeof(*ext))
-			return -1;
+			goto error;
 		ext = (void *) p->s;
 		if (str_shift(p, 4 + ntohs(ext->length) * 4))
-			return -1;
+			goto error;
 	}
 
 	*out = rtp;
 
 	return 0;
+
+error:
+	mylog(LOG_WARNING, "Error parsing RTP header");
+	return -1;
 }
 
 static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) {
@@ -125,7 +134,6 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 }
 
 /* rfc 3711, section 3.3 */
-/* XXX some error handling/logging here */
 int rtp_avp2savp(str *s, struct crypto_context *c) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
@@ -203,7 +211,7 @@ int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,
 	*auth_tag = STR_NULL;
 	if (auth_len) {
 		if (to_decrypt->len < auth_len)
-			return -1;
+			goto error;
 
 		str_init_len(auth_tag, to_decrypt->s + to_decrypt->len - auth_len, auth_len);
 		to_decrypt->len -= auth_len;
@@ -214,7 +222,7 @@ int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,
 		*mki = STR_NULL;
 	if (mki_len) {
 		if (to_decrypt->len < mki_len)
-			return -1;
+			goto error;
 
 		if (mki)
 			str_init_len(mki, to_decrypt->s - mki_len, mki_len);
@@ -223,4 +231,8 @@ int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,
 	}
 
 	return 0;
+
+error:
+	mylog(LOG_WARNING, "Invalid SRTP packet received");
+	return -1;
 }

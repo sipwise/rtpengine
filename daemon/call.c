@@ -217,17 +217,16 @@ void kernelize(struct callstream *c) {
 
 
 static int __dummy_stream_handler(str *s, struct streamrelay *r) {
-	abort();
 	return 0;
 }
 static int call_avpf2avp(str *s, struct streamrelay *r) {
 	return rtcp_avpf2avp(s);
 }
 static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
-	return rtp_avp2savp(s, &r->peer.crypto.out);
+	return rtp_avp2savp(s, &r->other->peer.crypto.out);
 }
 static int call_avp2savp_rtcp(str *s, struct streamrelay *r) {
-	return rtcp_avp2savp(s, &r->peer.crypto.out);
+	return rtcp_avp2savp(s, &r->other->peer.crypto.out);
 }
 static int call_savp2avp_rtp(str *s, struct streamrelay *r) {
 	return rtp_savp2avp(s, &r->peer.crypto.in);
@@ -339,8 +338,7 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 
 	if (!sr_incoming->handler)
 		sr_incoming->handler = determine_handler(sr_incoming);
-	if (sr_incoming->handler != __dummy_stream_handler)
-		handler_ret = sr_incoming->handler(s, sr_incoming);
+	handler_ret = sr_incoming->handler(s, sr_incoming);
 
 use_cand:
 	if (p_incoming->confirmed || !p_incoming->filled || sr_incoming->idx != 0)

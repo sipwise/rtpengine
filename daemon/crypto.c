@@ -189,9 +189,6 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 	unsigned char x[14];
 	int i;
 
-	if (!c->crypto_suite)
-		return -1;
-
 	ZERO(key_id);
 	/* key_id[1..6] := r; or 1..4 for rtcp
 	 * key_derivation_rate == 0 --> r == 0 */
