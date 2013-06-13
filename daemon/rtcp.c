@@ -321,13 +321,13 @@ static inline int check_session_keys(struct crypto_context *c) {
 	if (!c->crypto_suite)
 		return -1;
 
-	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
+	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x03, 4))
 		return -1;
-	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtcp_auth_key_len);
+	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtcp_auth_key_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x04, 4))
 		return -1;
-	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
+	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x05, 4))
 		return -1;
 

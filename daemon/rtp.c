@@ -19,13 +19,13 @@ static inline int check_session_keys(struct crypto_context *c) {
 	if (!c->crypto_suite)
 		goto error;
 
-	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
+	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x00, 6))
 		goto error;
-	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtp_auth_key_len);
+	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtp_auth_key_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x01, 6))
 		goto error;
-	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
+	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x02, 6))
 		goto error;
 
