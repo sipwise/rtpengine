@@ -1034,19 +1034,25 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 	g_slice_free1(sizeof(*chop), chop);
 }
 
-static void random_string(char *buf, int len) {
+/* XXX replace with better source of randomness */
+static void random_string(unsigned char *buf, int len) {
+	while (len--)
+		*buf++ = random() % 0x100;
+}
+
+static void random_ice_string(char *buf, int len) {
 	while (len--)
 		*buf++ = ice_chars[random() % strlen(ice_chars)];
 }
 
-static void create_random_string(struct call *call, str *s, int len) {
+static void create_random_ice_string(struct call *call, str *s, int len) {
 	char buf[30];
 
 	assert(len < sizeof(buf));
 	if (s->s)
 		return;
 
-	random_string(buf, len);
+	random_ice_string(buf, len);
 	call_str_cpy_len(call, s, buf, len);
 }
 
@@ -1243,6 +1249,72 @@ static int has_ice(GQueue *sessions) {
 	return 0;
 }
 
+static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
+		struct streamrelay *rtp, struct streamrelay *rtcp,
+		struct sdp_chopper *chop)
+{
+	int id;
+	struct crypto_context *c;
+	char b64_buf[64];
+	char *p;
+	int state = 0, save = 0;
+
+	if (flags->transport_protocol != PROTO_RTP_SAVP
+			&& flags->transport_protocol != PROTO_RTP_SAVPF)
+		return 0;
+
+	id = ATTR_CRYPTO;
+	if (g_hash_table_lookup(media->attributes.id_hash, &id))
+		return 0;
+
+	mutex_lock(&rtp->up->up->lock);
+
+	/* write-once, read-only */
+	c = &rtp->peer.crypto.out;
+	if (!c->crypto_suite) {
+		c->crypto_suite = &crypto_suites[0];
+		random_string((unsigned char *) c->master_key,
+				c->crypto_suite->master_key_len / 8);
+		random_string((unsigned char *) c->master_salt,
+				c->crypto_suite->master_salt_len / 8);
+		/* mki = mki_len = 0 */
+	}
+
+	mutex_unlock(&rtp->up->up->lock);
+
+	assert(sizeof(b64_buf) >= (((c->crypto_suite->master_key_len
+				+ c->crypto_suite->master_salt_len) / 8) / 3 + 1) * 4 + 4);
+
+	p = b64_buf;
+	p += g_base64_encode_step((unsigned char *) c->master_key,
+			c->crypto_suite->master_key_len / 8, 0,
+			p, &state, &save);
+	p += g_base64_encode_step((unsigned char *) c->master_salt,
+			c->crypto_suite->master_salt_len / 8, 0,
+			p, &state, &save);
+	p += g_base64_encode_close(0, p, &state, &save);
+
+	mutex_lock(&rtcp->up->up->lock);
+
+	c = &rtcp->peer.crypto.out;
+	c->crypto_suite = rtp->peer.crypto.out.crypto_suite;
+	memcpy(c->master_key, rtp->peer.crypto.out.master_key,
+			c->crypto_suite->master_key_len / 8);
+	memcpy(c->master_salt, rtp->peer.crypto.out.master_salt,
+			c->crypto_suite->master_salt_len / 8);
+
+	mutex_unlock(&rtcp->up->up->lock);
+
+	chopper_append_c(chop, "a=crypto:1 ");
+	chopper_append_c(chop, c->crypto_suite->name);
+	chopper_append_c(chop, " inline:");
+	chopper_append_dup(chop, b64_buf, p - b64_buf);
+	chopper_append_c(chop, "\r\n");
+
+	return 0;
+}
+
+
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
 {
@@ -1320,11 +1392,13 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				chopper_append_c(chop, "\r\n");
 			}
 
+			generate_crypto(media, flags, rtp, rtcp, chop);
+
 			if (do_ice) {
 				mutex_lock(&rtp->up->up->lock);
 				if (!rtp->up->ice_ufrag.s) {
-					create_random_string(call, &rtp->up->ice_ufrag, 8);
-					create_random_string(call, &rtp->up->ice_pwd, 28);
+					create_random_ice_string(call, &rtp->up->ice_ufrag, 8);
+					create_random_ice_string(call, &rtp->up->ice_pwd, 28);
 				}
 				rtp->stun = 1;
 				mutex_unlock(&rtp->up->up->lock);
@@ -1367,11 +1441,11 @@ error:
 }
 
 void sdp_init() {
-	random_string(ice_foundation, sizeof(ice_foundation) - 1);
+	random_ice_string(ice_foundation, sizeof(ice_foundation) - 1);
 	ice_foundation_str.s = ice_foundation;
 	ice_foundation_str.len = sizeof(ice_foundation) - 1;
 
-	random_string(ice_foundation_alt, sizeof(ice_foundation_alt) - 1);
+	random_ice_string(ice_foundation_alt, sizeof(ice_foundation_alt) - 1);
 	ice_foundation_str_alt.s = ice_foundation_alt;
 	ice_foundation_str_alt.len = sizeof(ice_foundation_alt) - 1;
 }
