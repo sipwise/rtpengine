@@ -101,12 +101,13 @@ sub rtcp_rtpfb {
 }
 
 sub rtcp_avp {
+	my ($recv, $send) = @_;
 	my $sr = rtcp_sr();
 	return ($sr, $sr);
 }
 
 sub rtcp_avpf {
-	my ($recv) = @_;
+	my ($recv, $send) = @_;
 	my $sr = rtcp_sr();
 	my $fb = rtcp_rtpfb();
 	my $exp = $sr;
@@ -118,7 +119,7 @@ sub do_rtp {
 	print("sending rtp\n");
 	for my $c (@calls) {
 		$c or next;
-		my ($fds,$outputs,$protos,$cfds,$trans) = @$c[0,4,6,7,8];
+		my ($fds,$outputs,$protos,$cfds,$trans) = @$c{qw(fds outputs protos rtcp_fds transports)};
 		for my $j (0 .. $#{$$fds[0]}) {
 			for my $i ([0,1],[1,0]) {
 				my ($a, $b) = @$i;
@@ -132,7 +133,7 @@ sub do_rtp {
 				}
 
 				my $expect;
-				($payload, $expect) = $$trans[$a]{func}($$trans[$b]);
+				($payload, $expect) = $$trans[$a]{rtcp_func}($$trans[$b], $$trans[$a]);
 				$dst = $$pr{sockaddr}($$outputs[$b][$j][0] + 1, $addr);
 				my $repl = send_receive($$cfds[$a][$j], $$cfds[$b][$j], $payload, $dst);
 				$repl eq $expect or die;
@@ -169,11 +170,11 @@ my @sides = qw(A B);
 my @transports = (
 	{
 		name => 'RTP/AVP',
-		func => \&rtcp_avp,
+		rtcp_func => \&rtcp_avp,
 	},
 	{
 		name => 'RTP/AVPF',
-		func => \&rtcp_avpf,
+		rtcp_func => \&rtcp_avpf,
 	},
 );
 
@@ -194,13 +195,13 @@ sub update_lookup {
 	my ($c, $i) = @_;
 	my $j = $i ^ 1;
 
-	my $c_v = $$c[5] || ($$c[5] = callid());
+	my $c_v = $$c{callid_viabranch} || ($$c{callid_viabranch} = callid());
 	my ($callid, $viabranch) = @$c_v;
 
-	my $protos = $$c[6] || ($$c[6] = []);
-	my $trans = $$c[8] || ($$c[8] = []);
-	my $fds_a = $$c[0] || ($$c[0] = []);
-	my $cfds_a = $$c[7] || ($$c[7] = []);
+	my $protos = $$c{protos} || ($$c{protos} = []);
+	my $trans = $$c{transports} || ($$c{transports} = []);
+	my $fds_a = $$c{fds} || ($$c{fds} = []);
+	my $cfds_a = $$c{rtcp_fds} || ($$c{rtcp_fds} = []);
 	for my $x (0,1) {
 		$$protos[$x] and next;
 		$$protos[$x] = $protos_avail[rand(@protos_avail)];
@@ -215,9 +216,9 @@ sub update_lookup {
 	my ($tr, $tr_o) = @$trans[$i, $j];
 	my @commands = qw(offer answer);
 
-	my $ports_a = $$c[1] || ($$c[1] = []);
+	my $ports_a = $$c{ports} || ($$c{ports} = []);
 	my $ports_t = $$ports_a[$i] || ($$ports_a[$i] = []);
-	my $ips_a = $$c[2] || ($$c[2] = []);
+	my $ips_a = $$c{ips} || ($$c{ips} = []);
 	my $ips_t = $$ips_a[$i] || ($$ips_a[$i] = []);
 	my $fds_t = $$fds_a[$i] || ($$fds_a[$i] = []);
 	my $fds_o = $$fds_a[$j];
@@ -246,7 +247,7 @@ sub update_lookup {
 		}
 	}
 
-	my $tags = $$c[3] || ($$c[3] = []);
+	my $tags = $$c{tags} || ($$c{tags} = []);
 	$$tags[$i] or $$tags[$i] = rand_str(15);
 
 	my $sdp = <<"!";
@@ -281,7 +282,7 @@ a=rtcp:$cp
 	my ($rp_af, $rp_add) = $$o{sdp} =~ /c=IN IP([46]) (\S+)/s or die;
 	my @rp_ports = $$o{sdp} =~ /m=audio (\d+) \Q$$tr_o{name}\E /gs or die;
 	$rp_af ne $$pr_o{reply} and die "incorrect address family reply code";
-	my $rpl_a = $$c[4] || ($$c[4] = []);
+	my $rpl_a = $$c{outputs} || ($$c{outputs} = []);
 	my $rpl_t = $$rpl_a[$i] || ($$rpl_a[$i] = []);
 	for my $rpl (@rp_ports) {
 		$rpl == 0 and die "mediaproxy ran out of ports";
@@ -292,7 +293,7 @@ a=rtcp:$cp
 for my $iter (1 .. $NUM) {
 	($iter % 10 == 0) and print("$iter\n"), do_rtp();
 
-	my $c = [];
+	my $c = {};
 	update_lookup($c, 0);
 	update_lookup($c, 1);
 	push(@calls, $c);
@@ -307,11 +308,11 @@ while (time() < $end) {
 
 	if ($REINVITES) {
 		my $c = $calls[rand(@calls)];
-		print("simulating re-invite on $$c[5][0]");
+		print("simulating re-invite on $$c{callid_viabranch}[0]");
 		for my $i (0,1) {
 			if (rand() < .5) {
 				print(", side $sides[$i]: new port");
-				undef($$c[0][$i]);
+				undef($$c{fds}[$i]);
 			}
 			else {
 				print(", side $sides[$i]: same port");
@@ -327,7 +328,7 @@ if (!$NODEL) {
 	print("deleting\n");
 	for my $c (@calls) {
 		$c or next;
-		my ($tags, $c_v) = @$c[3,5];
+		my ($tags, $c_v) = @$c{qw(tags callid_viabranch)};
 		my ($callid, $viabranch) = @$c_v;
 		my $dict = { command => 'delete', 'call-id' => $callid, 'from-tag' => $$tags[0],
 			'to-tag' => $$tags[1],
