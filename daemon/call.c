@@ -526,7 +526,7 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 			in4_to_6(&sin6.sin6_addr, sin->sin_addr.s_addr);
 		}
 
-		str_init_len(&s, buf, ret);
+		str_init_len(&s, buf + RTP_BUFFER_HEAD_ROOM, ret);
 		ret = stream_packet(r, &s, sinp);
 		if (ret == -1) {
 			mylog(LOG_WARNING, "Write error on RTP socket");
