@@ -1272,7 +1272,9 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 	/* write-once, read-only */
 	c = &rtp->peer.crypto.out;
 	if (!c->crypto_suite) {
-		c->crypto_suite = &crypto_suites[0];
+		c->crypto_suite = rtp->peer.crypto.in.crypto_suite;
+		if (!c->crypto_suite)
+			c->crypto_suite = &crypto_suites[0];
 		random_string((unsigned char *) c->master_key,
 				c->crypto_suite->master_key_len / 8);
 		random_string((unsigned char *) c->master_salt,
