@@ -33,18 +33,21 @@ static inline int check_session_keys(struct crypto_context *c) {
 	return 0;
 
 error:
-	mylog(LOG_WARNING, "Error generating SRTP session keys");
+	mylog(LOG_ERROR, "Error generating SRTP session keys");
 	return -1;
 }
 
 static int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 	struct rtp_header *rtp;
 	struct rtp_extension *ext;
+	const char *err;
 
+	err = "short packet (header)";
 	if (s->len < sizeof(*rtp))
 		goto error;
 
 	rtp = (void *) s->s;
+	err = "invalid header version";
 	if ((rtp->v_p_x_cc & 0xc0) != 0x80) /* version 2 */
 		goto error;
 
@@ -52,14 +55,17 @@ static int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 	/* fixed header */
 	str_shift(p, sizeof(*rtp));
 	/* csrc list */
+	err = "short packet (CSRC list)";
 	if (str_shift(p, (rtp->v_p_x_cc & 0xf) * 4))
 		goto error;
 
 	if ((rtp->v_p_x_cc & 0x10)) {
 		/* extension */
+		err = "short packet (extension header)";
 		if (p->len < sizeof(*ext))
 			goto error;
 		ext = (void *) p->s;
+		err = "short packet (header extensions)";
 		if (str_shift(p, 4 + ntohs(ext->length) * 4))
 			goto error;
 	}
@@ -69,7 +75,7 @@ static int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 	return 0;
 
 error:
-	mylog(LOG_WARNING, "Error parsing RTP header");
+	mylog(LOG_WARNING, "Error parsing RTP header: %s", err);
 	return -1;
 }
 
@@ -185,7 +191,7 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 		assert(sizeof(hmac) >= auth_tag.len);
 		c->crypto_suite->hash_rtp(c, hmac, &to_auth, index);
 		if (str_memcmp(&auth_tag, hmac))
-			return -1;
+			goto error;
 	}
 
 	if (crypto_decrypt_rtp(c, rtp, &to_decrypt, index))
@@ -194,6 +200,10 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 	*s = to_auth;
 
 	return 0;
+
+error:
+	mylog(LOG_WARNING, "Discarded invalid SRTP packet: authentication failed");
+	return -1;
 }
 
 /* rfc 3711 section 3.1 and 3.4 */
@@ -233,6 +243,6 @@ int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,
 	return 0;
 
 error:
-	mylog(LOG_WARNING, "Invalid SRTP packet received");
+	mylog(LOG_WARNING, "Invalid SRTP/SRTCP packet received (short packet)");
 	return -1;
 }

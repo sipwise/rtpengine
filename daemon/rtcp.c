@@ -319,41 +319,52 @@ static inline int check_session_keys(struct crypto_context *c) {
 	if (c->have_session_key)
 		return 0;
 	if (!c->crypto_suite)
-		return -1;
+		goto error;
 
 	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x03, 4))
-		return -1;
+		goto error;
 	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtcp_auth_key_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x04, 4))
-		return -1;
+		goto error;
 	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len / 8);
 	if (crypto_gen_session_key(c, &s, 0x05, 4))
-		return -1;
+		goto error;
 
 	c->have_session_key = 1;
 	return 0;
+
+error:
+	mylog(LOG_ERROR, "Error generating SRTP session keys");
+	return -1;
 }
 
 static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 	struct rtcp_packet *rtcp;
+	const char *err;
 
+	err = "short packet (header)";
 	if (s->len < sizeof(*rtcp))
-		return -1;
+		goto error;
 
 	rtcp = (void *) s->s;
 
+	err = "invalid header version";
 	if ((rtcp->header.v_p_x & 0xc0) != 0x80) /* version 2 */
-		return -1;
+		goto error;
+	err = "invalid packet type";
 	if (rtcp->header.pt != RTCP_PT_SR
 			&& rtcp->header.pt != RTCP_PT_RR)
-		return -1;
+		goto error;
 
 	*p = *s;
 	str_shift(p, sizeof(*rtcp));
 	*out = rtcp;
 
 	return 0;
+error:
+	mylog(LOG_WARNING, "Error parsing RTCP header: %s", err);
+	return -1;
 }
 
 /* rfc 3711 section 3.4 */
@@ -391,6 +402,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 	str payload, to_auth, to_decrypt, auth_tag;
 	u_int32_t idx, *idx_p;
 	char hmac[20];
+	const char *err;
 
 	if (rtcp_payload(&rtcp, &payload, s))
 		return -1;
@@ -402,16 +414,18 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 			s, &payload))
 		return -1;
 
+	err = "short packet";
 	if (to_decrypt.len < sizeof(idx))
-		return -1;
+		goto error;
 	to_decrypt.len -= sizeof(idx);
 	idx_p = (void *) to_decrypt.s + to_decrypt.len;
 	idx = ntohl(*idx_p);
 
 	assert(sizeof(hmac) >= auth_tag.len);
 	c->crypto_suite->hash_rtcp(c, hmac, &to_auth);
+	err = "authentication failed";
 	if (str_memcmp(&auth_tag, hmac))
-		return -1;
+		goto error;
 
 	if (idx & 0x80000000ULL) {
 		if (crypto_decrypt_rtcp(c, rtcp, &to_decrypt, idx & 0x7fffffffULL))
@@ -422,4 +436,8 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 	to_auth.len -= sizeof(idx);
 
 	return 0;
+
+error:
+	mylog(LOG_WARNING, "Discarded invalid SRTCP packet: %s", err);
+	return -1;
 }
