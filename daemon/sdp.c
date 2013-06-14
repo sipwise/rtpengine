@@ -1258,7 +1258,7 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 		struct sdp_chopper *chop)
 {
 	int id;
-	struct crypto_context *c;
+	struct crypto_context *c, *src = NULL;
 	char b64_buf[64];
 	char *p;
 	int state = 0, save = 0;
@@ -1268,8 +1268,25 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 		return 0;
 
 	id = ATTR_CRYPTO;
-	if (g_hash_table_lookup(media->attributes.id_hash, &id))
+	if (g_hash_table_lookup(media->attributes.id_hash, &id)) {
+		/* SRTP <> SRTP case, copy from other stream
+		 * and leave SDP untouched */
+		src = &rtp->other->crypto.in;
+
+		mutex_lock(&rtp->up->up->lock);
+		c = &rtp->crypto.out;
+		if (!c->crypto_suite)
+			*c = *src;
+		mutex_unlock(&rtp->up->up->lock);
+
+		mutex_lock(&rtcp->up->up->lock);
+		c = &rtcp->crypto.out;
+		if (!c->crypto_suite)
+			*c = *src;
+		mutex_unlock(&rtcp->up->up->lock);
+
 		return 0;
+	}
 
 	mutex_lock(&rtp->up->up->lock);
 

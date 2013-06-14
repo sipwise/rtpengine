@@ -335,7 +335,7 @@ static inline int check_session_keys(struct crypto_context *c) {
 	return 0;
 
 error:
-	mylog(LOG_ERROR, "Error generating SRTP session keys");
+	mylog(LOG_ERROR, "Error generating SRTCP session keys");
 	return -1;
 }
 

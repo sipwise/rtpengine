@@ -234,6 +234,30 @@ static int call_savp2avp_rtp(str *s, struct streamrelay *r) {
 static int call_savp2avp_rtcp(str *s, struct streamrelay *r) {
 	return rtcp_savp2avp(s, &r->other->crypto.in);
 }
+static int call_avpf2savp_rtcp(str *s, struct streamrelay *r) {
+	int ret;
+	ret = rtcp_avpf2avp(s);
+	if (ret)
+		return ret;
+	return rtcp_avp2savp(s, &r->crypto.out);
+}
+static int call_savpf2avp_rtcp(str *s, struct streamrelay *r) {
+	int ret;
+	ret = rtcp_savp2avp(s, &r->other->crypto.in);
+	if (ret)
+		return ret;
+	return rtcp_avpf2avp(s);
+}
+static int call_savpf2savp_rtcp(str *s, struct streamrelay *r) {
+	int ret;
+	ret = rtcp_savp2avp(s, &r->other->crypto.in);
+	if (ret)
+		return ret;
+	ret = rtcp_avpf2avp(s);
+	if (ret)
+		return ret;
+	return rtcp_avp2savp(s, &r->crypto.out);
+}
 
 
 static stream_handler determine_handler(struct streamrelay *in) {
@@ -252,6 +276,7 @@ static stream_handler determine_handler(struct streamrelay *in) {
 					goto dummy;
 
 				case PROTO_RTP_SAVP:
+				case PROTO_RTP_SAVPF:
 					return in->rtcp ? call_avp2savp_rtcp
 						: call_avp2savp_rtp;
 
@@ -266,6 +291,9 @@ static stream_handler determine_handler(struct streamrelay *in) {
 					return in->rtcp ? call_savp2avp_rtcp
 						: call_savp2avp_rtp;
 
+				case PROTO_RTP_SAVPF:
+					goto dummy;
+
 				default:
 					abort();
 			}
@@ -276,6 +304,32 @@ static stream_handler determine_handler(struct streamrelay *in) {
 					if (!in->rtcp)
 						goto dummy;
 					return call_avpf2avp;
+
+				case PROTO_RTP_SAVP:
+					return in->rtcp ? call_avpf2savp_rtcp
+						: call_avp2savp_rtp;
+
+				case PROTO_RTP_SAVPF:
+					return in->rtcp ? call_avp2savp_rtcp
+						: call_avp2savp_rtp;
+				default:
+					abort();
+			}
+
+		case PROTO_RTP_SAVPF:
+			switch (in->peer_advertised.protocol) {
+				case PROTO_RTP_AVP:
+					return in->rtcp ? call_savpf2avp_rtcp
+						: call_savp2avp_rtp;
+
+				case PROTO_RTP_AVPF:
+					return in->rtcp ? call_savp2avp_rtcp
+						: call_savp2avp_rtp;
+
+				case PROTO_RTP_SAVP:
+					if (!in->rtcp)
+						goto dummy;
+					return call_savpf2savp_rtcp;
 
 				default:
 					abort();

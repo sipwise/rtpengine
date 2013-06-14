@@ -266,6 +266,7 @@ sub rtcp_avp {
 	my $sr = rtcp_sr();
 	my $exp = $sr;
 	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
+	$$recv{name} eq 'RTP/SAVPF' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
 	return ($sr, $exp);
 }
 
@@ -275,6 +276,7 @@ sub rtcp_savp {
 	my $enc = rtcp_encrypt($sr, $ctx, 'out');
 	my $exp = $enc;
 	$$recv{name} eq 'RTP/AVP' and $exp = $sr;
+	$$recv{name} eq 'RTP/AVPF' and $exp = $sr;
 	return ($enc, $exp);
 }
 
@@ -284,7 +286,21 @@ sub rtcp_avpf {
 	my $fb = rtcp_rtpfb();
 	my $exp = $sr;
 	$$recv{name} eq 'RTP/AVPF' and $exp .= $fb;
+	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
+	$$recv{name} eq 'RTP/SAVPF' and $exp = rtcp_encrypt($sr . $fb, $ctx_o, 'in');
 	return ($sr . $fb, $exp);
+}
+
+sub rtcp_savpf {
+	my ($recv, $ctx, $ctx_o) = @_;
+	my $sr = rtcp_sr();
+	my $fb = rtcp_rtpfb();
+	my $enc = rtcp_encrypt($sr . $fb, $ctx, 'out');
+	my $exp = $enc;
+	$$recv{name} eq 'RTP/AVP' and $exp = $sr;
+	$$recv{name} eq 'RTP/AVPF' and $exp = $sr . $fb;
+	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
+	return ($enc, $exp);
 }
 
 sub rtp {
@@ -301,6 +317,7 @@ sub rtp_avp {
 	my $pack = rtp($ctx);
 	my $exp = $pack;
 	$$recv{name} eq 'RTP/SAVP' and $exp = rtp_encrypt($pack, $ctx_o, 'in');
+	$$recv{name} eq 'RTP/SAVPF' and $exp = rtp_encrypt($pack, $ctx_o, 'in');
 	return ($pack, $exp);
 }
 
@@ -310,6 +327,7 @@ sub rtp_savp {
 	my $enc = rtp_encrypt($pack, $ctx, 'out');
 	my $exp = $enc;
 	$$recv{name} eq 'RTP/AVP' and $exp = $pack;
+	$$recv{name} eq 'RTP/AVPF' and $exp = $pack;
 	return ($enc, $exp);
 }
 
@@ -353,12 +371,12 @@ sub do_rtp {
 					warn("no rtp reply received, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]");
 					$KEEPGOING or undef($c);
 				}
-				$repl eq $expect or die hexdump($repl, $expect);
+				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}";
 
 				($payload, $expect) = $$trans[$a]{rtcp_func}($$trans[$b], $tcx, $tcx_o);
 				$dst = $$pr{sockaddr}($$outputs[$b][$j][0] + 1, $addr);
 				$repl = send_receive($$cfds[$a][$j], $$cfds[$b][$j], $payload, $dst);
-				$repl eq $expect or die hexdump($repl, $expect);
+				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}";
 			}
 		}
 	}
@@ -395,17 +413,24 @@ my @transports = (
 		rtp_func => \&rtp_avp,
 		rtcp_func => \&rtcp_avp,
 	},
-#	{
-#		name => 'RTP/AVPF',
-#		rtp_func => &rtp_avpf,
-#		rtcp_func => \&rtcp_avpf,
-#	},
+	{
+		name => 'RTP/AVPF',
+		rtp_func => \&rtp_avp,
+		rtcp_func => \&rtcp_avpf,
+	},
 	{
 		name => 'RTP/SAVP',
 		sdp_media_params => \&savp_sdp,
 		sdp_parse_func => \&savp_crypto,
 		rtp_func => \&rtp_savp,
 		rtcp_func => \&rtcp_savp,
+	},
+	{
+		name => 'RTP/SAVPF',
+		sdp_media_params => \&savp_sdp,
+		sdp_parse_func => \&savp_crypto,
+		rtp_func => \&rtp_savp,
+		rtcp_func => \&rtcp_savpf,
 	},
 );
 
