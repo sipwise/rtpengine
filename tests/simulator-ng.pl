@@ -188,9 +188,9 @@ sub gen_rtcp_session_keys {
 sub rtcp_encrypt {
 	my ($r, $ctx, $dir) = @_;
 
-	if (!$$ctx{rtcp_session_key}) {
+	if (!$$ctx{$dir}{rtcp_session_key}) {
 		($$ctx{$dir}{rtcp_session_key}, $$ctx{$dir}{rtcp_session_auth_key}, $$ctx{$dir}{rtcp_session_salt})
-			= gen_rtp_session_keys($$ctx{$dir}{rtp_master_key}, $$ctx{$dir}{rtp_master_salt});
+			= gen_rtcp_session_keys($$ctx{$dir}{rtp_master_key}, $$ctx{$dir}{rtp_master_salt});
 	}
 
 	my $idx = $$ctx{$dir}{rtcp_index} || 0;
