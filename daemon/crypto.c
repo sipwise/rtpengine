@@ -132,10 +132,12 @@ static void aes_ctr_128(char *out, str *in, char *key, char *iv) {
 	unsigned char *p, *q;
 	unsigned int left;
 	int outlen, i;
+	u_int64_t *pi, *qi, *ki;
 
 	memcpy(ivx, iv, 16);
-	p = (unsigned char *) in->s;
-	q = (unsigned char *) out;
+	pi = (void *) in->s;
+	qi = (void *) out;
+	ki = (void *) key_block;
 	left = in->len;
 
 	/* XXX do this only once per thread or maybe once per stream/key? */
@@ -147,14 +149,21 @@ static void aes_ctr_128(char *out, str *in, char *key, char *iv) {
 		EVP_EncryptUpdate(&ecc, key_block, &outlen, ivx, 16);
 		assert(outlen == 16);
 
-		for (i = 0; i < 16; i++) {
-			*q = *p ^ key_block[i];
-			q++;
-			p++;
-			left--;
-			if (!left)
-				goto done;
+		if (G_UNLIKELY(left < 16)) {
+			p = (void *) pi;
+			q = (void *) qi;
+			for (i = 0; i < 16; i++) {
+				*q++ = *p++ ^ key_block[i];
+				left--;
+				if (!left)
+					goto done;
+			}
+			abort();
 		}
+
+		*qi++ = *pi++ ^ ki[0];
+		*qi++ = *pi++ ^ ki[1];
+		left -= 16;
 
 		for (i = 15; i >= 0; i--) {
 			ivx[i]++;
@@ -187,7 +196,7 @@ static void prf_n(str *out, char *key, char *x) {
 	memcpy(iv, x, 14);
 	/* iv[14] = iv[15] = 0;   := x << 16 */
 	ZERO(in); /* outputs the key stream */
-	str_init_len(&in_s, in, sizeof(in));
+	str_init_len(&in_s, in, out->len >= 16 ? 32 : 16);
 	aes_ctr_128(o, &in_s, key, iv);
 
 	memcpy(out->s, o, out->len);
@@ -240,18 +249,19 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 /* rfc 3711 section 4.1.1 */
 static int aes_cm_encrypt(struct crypto_context *c, u_int32_t ssrc, str *s, u_int64_t idx) {
 	unsigned char iv[16];
-	unsigned char *p;
-	int i;
+	u_int32_t *ivi;
+	u_int32_t idxh, idxl;
 
-	ZERO(iv);
 	memcpy(iv, c->session_salt, 14);
+	iv[14] = iv[15] = '\0';
+	ivi = (void *) iv;
+	idx <<= 16;
+	idxh = htonl((idx & 0xffffffff00000000ULL) >> 32);
+	idxl = htonl(idx & 0xffffffffULL);
 
-	p = (void *) &ssrc;
-	for (i = 0; i < 4; i++)
-		iv[i + 4] = iv[i + 4] ^ p[i];
-
-	for (i = 0; i < 6; i++)
-		iv[i + 8] = iv[i + 8] ^ ((idx >> ((5 - i) * 8)) & 0xff);
+	ivi[1] ^= ssrc;
+	ivi[2] ^= idxh;
+	ivi[3] ^= idxl;
 
 	aes_ctr_128(s->s, s, c->session_key, (char *) iv);
 
