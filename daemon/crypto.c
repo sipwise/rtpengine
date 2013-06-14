@@ -290,6 +290,8 @@ static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str 
 	int k_e_len, k_s_len; /* n_e, n_s */
 	u_int32_t j;
 	unsigned char *p, *key;
+	u_int64_t *pi, *ki, *lki, *xi;
+	u_int32_t *xu;
 
 	k_e_len = c->crypto_suite->session_key_len / 8;
 	k_s_len = c->crypto_suite->session_salt_len / 8;
@@ -311,7 +313,11 @@ static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str 
 	EVP_EncryptFinal_ex(&ecc, key_block, &outlen);
 	EVP_CIPHER_CTX_cleanup(&ecc);
 
-	p = (unsigned char *) s->s;
+	pi = (void *) s->s;
+	ki = (void *) key_block;
+	lki = (void *) last_key_block;
+	xi = (void *) x;
+	xu = (void *) x;
 	left = s->len;
 	j = 0;
 	ZERO(last_key_block);
@@ -323,24 +329,30 @@ static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str 
 		/* S(j) = E(k_e, IV' XOR j XOR S(j-1)) */
 		memcpy(x, ivx, 16);
 
-		x[12] ^= ((j >> 24) & 0xff);
-		x[13] ^= ((j >> 16) & 0xff);
-		x[14] ^= ((j >>  8) & 0xff);
-		x[15] ^= ((j >>  0) & 0xff);
+		xu[3] ^= htonl(j);
 
-		for (i = 0; i < 16; i++)
-			x[i] ^= last_key_block[i];
+		xi[0] ^= lki[0];
+		xi[1] ^= lki[1];
 
 		EVP_EncryptUpdate(&ecc, key_block, &outlen, x, 16);
 		assert(outlen == 16);
 
-		for (i = 0; i < 16; i++) {
-			*p ^= key_block[i];
-			p++;
-			left--;
-			if (!left)
-				goto done;
+		if (G_UNLIKELY(left < 16)) {
+			p = (void *) pi;
+			for (i = 0; i < 16; i++) {
+				*p++ ^= key_block[i];
+				left--;
+				if (!left)
+					goto done;
+			}
+			abort();
 		}
+
+		*pi++ ^= ki[0];
+		*pi++ ^= ki[1];
+		left -= 16;
+		if (!left)
+			break;
 
 		j++;
 		memcpy(last_key_block, key_block, 16);
