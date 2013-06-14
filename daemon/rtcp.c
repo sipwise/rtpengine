@@ -433,7 +433,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 	}
 
 	*s = to_auth;
-	to_auth.len -= sizeof(idx);
+	s->len -= sizeof(idx);
 
 	return 0;
 
