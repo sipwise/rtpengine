@@ -8,6 +8,12 @@
 #include "aux.h"
 #include "rtp.h"
 #include "rtcp.h"
+#include "log.h"
+
+
+
+
+#define CRYPTO_DEBUG 0
 
 
 
@@ -199,6 +205,28 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 		x[i] = key_id[i - (13 - index_len)] ^ x[i];
 
 	prf_n(out, c->master_key, (char *) x);
+
+#if CRYPTO_DEBUG
+	mylog(LOG_DEBUG, "Generated session key: master key "
+			"%02x%02x%02x%02x..., "
+			"master salt "
+			"%02x%02x%02x%02x..., "
+			"label %02x, length %i, result "
+			"%02x%02x%02x%02x...",
+			(unsigned char) c->master_key[0],
+			(unsigned char) c->master_key[1],
+			(unsigned char) c->master_key[2],
+			(unsigned char) c->master_key[3],
+			(unsigned char) c->master_salt[0],
+			(unsigned char) c->master_salt[1],
+			(unsigned char) c->master_salt[2],
+			(unsigned char) c->master_salt[3],
+			label, out->len,
+			(unsigned char) out->s[0],
+			(unsigned char) out->s[1],
+			(unsigned char) out->s[2],
+			(unsigned char) out->s[3]);
+#endif
 
 	return 0;
 }
