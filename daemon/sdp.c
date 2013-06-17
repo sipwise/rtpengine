@@ -327,6 +327,10 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 
 	c = &output->u.crypto;
 
+	c->tag = strtoul(c->tag_str.s, NULL, 10);
+	if (!c->tag)
+		return -1;
+
 	c->crypto_suite = crypto_find_suite(&c->crypto_suite_str);
 	if (!c->crypto_suite)
 		return -1;
@@ -760,6 +764,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 				cctx.crypto_suite = attr->u.crypto.crypto_suite;
 				cctx.mki = attr->u.crypto.mki;
 				cctx.mki_len = attr->u.crypto.mki_len;
+				cctx.tag = attr->u.crypto.tag;
 				assert(sizeof(cctx.master_key) >= attr->u.crypto.master_key.len);
 				assert(sizeof(cctx.master_salt) >= attr->u.crypto.salt.len);
 				memcpy(cctx.master_key, attr->u.crypto.master_key.s, attr->u.crypto.master_key.len);
@@ -1301,6 +1306,9 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 		random_string((unsigned char *) c->master_salt,
 				c->crypto_suite->master_salt_len / 8);
 		/* mki = mki_len = 0 */
+		c->tag = rtp->crypto.in.tag;
+		if (!c->tag)
+			c->tag++;
 	}
 
 	mutex_unlock(&rtp->up->up->lock);
@@ -1319,16 +1327,20 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 
 	mutex_lock(&rtcp->up->up->lock);
 
+	src = c;
 	c = &rtcp->crypto.out;
-	c->crypto_suite = rtp->crypto.out.crypto_suite;
-	memcpy(c->master_key, rtp->crypto.out.master_key,
+
+	c->crypto_suite = src->crypto_suite;
+	c->tag = src->tag;
+	memcpy(c->master_key, src->master_key,
 			c->crypto_suite->master_key_len / 8);
-	memcpy(c->master_salt, rtp->crypto.out.master_salt,
+	memcpy(c->master_salt, src->master_salt,
 			c->crypto_suite->master_salt_len / 8);
 
 	mutex_unlock(&rtcp->up->up->lock);
 
-	chopper_append_c(chop, "a=crypto:1 ");
+	chopper_append_c(chop, "a=crypto:");
+	chopper_append_printf(chop, "%u ", c->tag);
 	chopper_append_c(chop, c->crypto_suite->name);
 	chopper_append_c(chop, " inline:");
 	chopper_append_dup(chop, b64_buf, p - b64_buf);

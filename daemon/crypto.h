@@ -65,6 +65,7 @@ struct crypto_context {
 	char master_salt[14];
 	u_int64_t mki;
 	unsigned int mki_len;
+	unsigned int tag;
 
 	/* from rfc 3711 */
 	u_int32_t roc;
