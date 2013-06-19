@@ -127,6 +127,10 @@ struct sdp_attribute {
 		ATTR_ICE_UFRAG,
 		ATTR_CRYPTO,
 		ATTR_SSRC,
+		ATTR_INACTIVE,
+		ATTR_SENDRECV,
+		ATTR_SENDONLY,
+		ATTR_RECVONLY,
 	} attr;
 
 	union {
@@ -495,8 +499,24 @@ static int parse_attribute(struct sdp_attribute *a) {
 				a->attr = ATTR_ICE;
 			break;
 		case 8:
-			if (!str_cmp(&a->name, "ice-lite"))
-				a->attr = ATTR_ICE;
+			switch (a->name.s[0]) {
+				case 'i':
+					if (!str_cmp(&a->name, "ice-lite"))
+						a->attr = ATTR_ICE;
+					else if (!str_cmp(&a->name, "inactive"))
+						a->attr = ATTR_INACTIVE;
+					break;
+				case 's':
+					if (!str_cmp(&a->name, "sendrecv"))
+						a->attr = ATTR_SENDRECV;
+					else if (!str_cmp(&a->name, "sendonly"))
+						a->attr = ATTR_SENDONLY;
+					break;
+				case 'r':
+					if (!str_cmp(&a->name, "recvonly"))
+						a->attr = ATTR_RECVONLY;
+					break;
+			}
 			break;
 		case 9:
 			if (!str_cmp(&a->name, "candidate"))
