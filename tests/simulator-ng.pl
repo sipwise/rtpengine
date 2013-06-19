@@ -25,7 +25,7 @@ GetOptions(
 		'reinvites'	=> \$REINVITES,
 		'branches'	=> \$BRANCHES,
 		'max-streams=i'	=> \$STREAMS,
-		'protos=s'	=> \$PROTOS,		# "RTP/AVP,RTP/SAVP"
+		'protocols=s'	=> \$PROTOS,		# "RTP/AVP,RTP/SAVP"
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
