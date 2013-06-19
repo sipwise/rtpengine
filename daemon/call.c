@@ -1231,6 +1231,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		sr->peer_advertised = srs->peer_advertised;
 		sr->stun = srs->stun;
 		sr->rtcp = srs->rtcp;
+		sr->crypto = srs->crypto;
 
 
 		srs->fd.fd = -1;
