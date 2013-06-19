@@ -595,7 +595,8 @@ while (time() < $end) {
 
 	if ($now >= $countstop) {
 		my $span = $now - $countstart;
-		printf("%d RTP packets sent in %.1f seconds = %.1f packets per stream per second\n",
+		printf("[%05d] %d RTP packets sent in %.1f seconds = %.1f packets per stream per second\n",
+			$$,
 			$RTP_COUNT, $span,
 			$RTP_COUNT / $span / $NUM_STREAMS);
 		$RTP_COUNT = 0;
