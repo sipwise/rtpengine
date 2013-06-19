@@ -13,7 +13,8 @@ use Crypt::Rijndael;
 use Digest::SHA qw(hmac_sha1);
 use MIME::Base64;
 
-my ($NUM, $RUNTIME, $STREAMS) = (1000, 30, 1);
+my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
+	= (1000, 30, 1, 160, 20, 5, 5);
 my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS, $DEST);
 GetOptions(
 		'no-delete'	=> \$NODEL,
@@ -27,6 +28,10 @@ GetOptions(
 		'max-streams=i'	=> \$STREAMS,
 		'protocols=s'	=> \$PROTOS,		# "RTP/AVP,RTP/SAVP"
 		'destination=s'	=> \$DEST,
+		'payload-size=i'=> \$PAYLOAD,
+		'rtp-interval=i'=> \$INTERVAL,		# in ms
+		'rtcp-interval=i'=>\$RTCP_INTERVAL,	# in seconds
+		'stats-interval=i'=>\$STATS_INTERVAL,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -306,7 +311,7 @@ sub rtp {
 	my ($ctx) = @_;
 	my $seq = $$ctx{rtp_seqnum} || (int(rand(0xfffff)) + 1);
 	my $hdr = pack("CCnNN", 0x80, 0x00, $seq, rand(2**32), rand(2**32));
-	my $pack = $hdr . rand_str(100);
+	my $pack = $hdr . rand_str($PAYLOAD);
 	$$ctx{rtp_seqnum} = (++$seq & 0xffff);
 	return $pack;
 }
@@ -350,8 +355,10 @@ sub hexdump {
 	return $o;
 }
 
+my $RTP_COUNT = 0;
+
 sub do_rtp {
-	print("sending rtp\n");
+	my ($rtcp) = @_;
 	for my $c (@calls) {
 		$c or next;
 		my ($fds,$outputs,$protos,$cfds,$trans,$tctxs)
@@ -366,12 +373,14 @@ sub do_rtp {
 				my ($payload, $expect) = $$trans[$a]{rtp_func}($$trans[$b], $tcx, $tcx_o);
 				my $dst = $$pr{sockaddr}($$outputs[$b][$j][0], $addr);
 				my $repl = send_receive($$fds[$a][$j], $$fds[$b][$j], $payload, $dst);
+				$RTP_COUNT++;
 				if ($repl eq '') {
 					warn("no rtp reply received, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]");
 					$KEEPGOING or undef($c);
 				}
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}";
 
+				$rtcp or next;
 				($payload, $expect) = $$trans[$a]{rtcp_func}($$trans[$b], $tcx, $tcx_o);
 				$dst = $$pr{sockaddr}($$outputs[$b][$j][0] + 1, $addr);
 				$repl = send_receive($$cfds[$a][$j], $$cfds[$b][$j], $payload, $dst);
@@ -447,6 +456,7 @@ sub callid {
 	return [$i, $b];
 }
 
+my $NUM_STREAMS = 0;
 sub update_lookup {
 	my ($c, $i) = @_;
 	my $j = $i ^ 1;
@@ -488,6 +498,7 @@ sub update_lookup {
 	($fds_o && @$fds_o) and $num_streams = $#$fds_o;
 	for my $j (0 .. $num_streams) {
 		if (!$$fds_t[$j]) {
+			$NUM_STREAMS++;
 			while (1) {
 				undef($$fds_t[$j]);
 				undef($$cfds_t[$j]);
@@ -555,7 +566,7 @@ a=rtcp:$cp
 }
 
 for my $iter (1 .. $NUM) {
-	($iter % 10 == 0) and print("$iter\n"), do_rtp();
+	($iter % 10 == 0) and print("$iter calls established\n"), do_rtp();
 
 	my $c = {};
 	update_lookup($c, 0);
@@ -563,14 +574,39 @@ for my $iter (1 .. $NUM) {
 	push(@calls, $c);
 }
 
+print("all calls established\n");
+
 my $end = time() + $RUNTIME;
+my $rtptime = Time::HiRes::gettimeofday();
+my $rtcptime = $rtptime;
+my $countstart = $rtptime;
+my $countstop = $countstart + $STATS_INTERVAL;
 while (time() < $end) {
-	sleep(1);
-	do_rtp();
+	my $now = Time::HiRes::gettimeofday();
+	$now <= $rtptime and Time::HiRes::sleep($rtptime - $now);
+	$rtptime += $INTERVAL / 1000.0;
+
+	my $rtcp = 0;
+	if ($now >= $rtcptime) {
+		$rtcp = 1;
+		$rtcptime += $RTCP_INTERVAL;
+	}
+
+	if ($now >= $countstop) {
+		my $span = $now - $countstart;
+		printf("%d RTP packets sent in %.1f seconds = %.1f packets per stream per second\n",
+			$RTP_COUNT, $span,
+			$RTP_COUNT / $span / $NUM_STREAMS);
+		$RTP_COUNT = 0;
+		$countstart = $now;
+		$countstop = $countstart + $STATS_INTERVAL;
+	}
+
+	do_rtp($rtcp);
 
 	@calls = sort {rand() < .5} grep(defined, @calls);
 
-	if ($REINVITES) {
+	if ($REINVITES && int($now) % 5 == 0) {
 		my $c = $calls[rand(@calls)];
 		print("simulating re-invite on $$c{callid_viabranch}[0]");
 		for my $i (0,1) {
