@@ -1439,6 +1439,12 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 
 			copy_up_to_end_of(chop, &media->s);
 
+			if (!media->port_num) {
+				if (!attr_get_by_id(&media->attributes, ATTR_INACTIVE))
+					chopper_append_c(chop, "a=inactive\n");
+				continue;
+			}
+
 			if (has_rtcp(media)) {
 				chopper_append_c(chop, "a=rtcp:");
 				chopper_append_printf(chop, "%hu", rtcp->fd.localport);
