@@ -36,9 +36,8 @@ setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
 $PROTOS and $PROTOS = [split(/\s*[,;:]+\s*/, $PROTOS)];
 $DEST and $DEST = [split(/:/, $DEST)];
-$$DEST[0] or $$DEST[0] = 2223;
-$$DEST[1] or $$DEST[1] = $$DEST[0], undef($$DEST[0]);
 $$DEST[0] or $$DEST[0] = '127.0.0.1';
+$$DEST[1] or $$DEST[1] = 2223;
 
 my @chrs = ('a' .. 'z', 'A' .. 'Z', '0' .. '9');
 sub rand_str {
