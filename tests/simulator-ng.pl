@@ -14,7 +14,7 @@ use Digest::SHA qw(hmac_sha1);
 use MIME::Base64;
 
 my ($NUM, $RUNTIME, $STREAMS) = (1000, 30, 1);
-my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS);
+my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS, $DEST);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -26,6 +26,7 @@ GetOptions(
 		'branches'	=> \$BRANCHES,
 		'max-streams=i'	=> \$STREAMS,
 		'protocols=s'	=> \$PROTOS,		# "RTP/AVP,RTP/SAVP"
+		'destination=s'	=> \$DEST,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -34,6 +35,10 @@ $SIG{ALRM} = sub { print "alarm!\n"; };
 setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
 $PROTOS and $PROTOS = [split(/\s*[,;:]+\s*/, $PROTOS)];
+$DEST and $DEST = [split(/:/, $DEST)];
+$$DEST[0] or $$DEST[0] = 2223;
+$$DEST[1] or $$DEST[1] = $$DEST[0], undef($$DEST[0]);
+$$DEST[0] or $$DEST[0] = '127.0.0.1';
 
 my @chrs = ('a' .. 'z', 'A' .. 'Z', '0' .. '9');
 sub rand_str {
@@ -63,7 +68,7 @@ sub msg {
 }
 
 socket($fd, AF_INET, SOCK_DGRAM, 0) or die $!;
-connect($fd, sockaddr_in(2223, inet_aton("127.0.0.1"))) or die $!;
+connect($fd, sockaddr_in($$DEST[1], inet_aton($$DEST[0]))) or die $!;
 
 msg({command => 'ping'})->{result} eq 'pong' or die;
 
