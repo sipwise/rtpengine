@@ -153,6 +153,11 @@ static str ice_foundation_str_alt;
 
 
 
+static inline struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
+	return g_hash_table_lookup(a->id_hash, &id);
+}
+
+
 /* hack hack */
 static inline int inet_pton_str(int af, str *src, void *dst) {
 	char *s = src->s;
@@ -764,7 +769,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 	struct stream_input *si;
 	GList *l, *k;
 	const char *errstr;
-	int i, num, id;
+	int i, num;
 	struct sdp_attribute *attr;
 	enum transport_protocol tp;
 	struct crypto_context cctx;
@@ -778,8 +783,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 			tp = transport_protocol(&media->transport);
 
 			ZERO(cctx);
-			id = ATTR_CRYPTO;
-			attr = g_hash_table_lookup(media->attributes.id_hash, &id);
+			attr = attr_get_by_id(&media->attributes, ATTR_CRYPTO);
 			if (attr) {
 				cctx.crypto_suite = attr->u.crypto.crypto_suite;
 				cctx.mki = attr->u.crypto.mki;
@@ -817,8 +821,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 
 			if (!si || media->port_count != 1)
 				continue;
-			id = ATTR_RTCP;
-			attr = g_hash_table_lookup(media->attributes.id_hash, &id);
+			attr = attr_get_by_id(&media->attributes, ATTR_RTCP);
 			if (!attr || !attr->u.rtcp.port_num)
 				continue;
 			if (attr->u.rtcp.port_num == si->stream.port + 1)
@@ -1257,20 +1260,17 @@ static int has_ice(GQueue *sessions) {
 	GList *l, *m;
 	struct sdp_session *session;
 	struct sdp_media *media;
-	int id;
-
-	id = ATTR_ICE_UFRAG;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
 
-		if (g_hash_table_lookup(session->attributes.id_hash, &id))
+		if (attr_get_by_id(&session->attributes, ATTR_ICE_UFRAG))
 			return 1;
 
 		for (m = session->media_streams.head; m; m = m->next) {
 			media = m->data;
 
-			if (g_hash_table_lookup(media->attributes.id_hash, &id))
+			if (attr_get_by_id(&media->attributes, ATTR_ICE_UFRAG))
 				return 1;
 		}
 	}
@@ -1282,7 +1282,6 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 		struct streamrelay *rtp, struct streamrelay *rtcp,
 		struct sdp_chopper *chop)
 {
-	int id;
 	struct crypto_context *c, *src = NULL;
 	char b64_buf[64];
 	char *p;
@@ -1292,8 +1291,7 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 			&& flags->transport_protocol != PROTO_RTP_SAVPF)
 		return 0;
 
-	id = ATTR_CRYPTO;
-	if (g_hash_table_lookup(media->attributes.id_hash, &id)) {
+	if (attr_get_by_id(&media->attributes, ATTR_CRYPTO)) {
 		/* SRTP <> SRTP case, copy from other stream
 		 * and leave SDP untouched */
 		src = &rtp->other->crypto.in;
