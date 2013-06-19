@@ -32,6 +32,8 @@ typedef int (*crypto_func_rtp)(struct crypto_context *, struct rtp_header *, str
 typedef int (*crypto_func_rtcp)(struct crypto_context *, struct rtcp_packet *, str *, u_int64_t);
 typedef int (*hash_func_rtp)(struct crypto_context *, char *out, str *in, u_int64_t);
 typedef int (*hash_func_rtcp)(struct crypto_context *, char *out, str *in);
+typedef int (*session_key_init_func)(struct crypto_context *);
+typedef int (*session_key_cleanup_func)(struct crypto_context *);
 
 struct crypto_suite {
 	const char *name;
@@ -56,6 +58,8 @@ struct crypto_suite {
 			 decrypt_rtcp;
 	hash_func_rtp hash_rtp;
 	hash_func_rtcp hash_rtcp;
+	session_key_init_func session_key_init;
+	session_key_cleanup_func session_key_cleanup;
 };
 
 struct crypto_context {
@@ -77,6 +81,8 @@ struct crypto_context {
 	char session_key[16]; /* k_e */
 	char session_salt[14]; /* k_s */
 	char session_auth_key[20];
+
+	void *session_key_ctx;
 
 	int have_session_key:1;
 };
@@ -116,6 +122,14 @@ static inline int crypto_decrypt_rtcp(struct crypto_context *c, struct rtcp_pack
 		str *payload, u_int64_t index)
 {
 	return c->crypto_suite->decrypt_rtcp(c, rtcp, payload, index);
+}
+static inline int crypto_init_session_key(struct crypto_context *c) {
+	return c->crypto_suite->session_key_init(c);
+}
+static inline void crypto_cleanup(struct crypto_context *c) {
+	if (!c->crypto_suite)
+		return;
+	c->crypto_suite->session_key_cleanup(c);
 }
 
 

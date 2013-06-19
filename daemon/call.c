@@ -1614,6 +1614,9 @@ static void kill_callstream(struct callstream *s) {
 
 			if (r->fd.fd != -1)
 				poller_del_item(s->call->callmaster->poller, r->fd.fd);
+
+			crypto_cleanup(&r->crypto.in);
+			crypto_cleanup(&r->crypto.out);
 		}
 	}
 }

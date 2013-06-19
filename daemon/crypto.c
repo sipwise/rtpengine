@@ -3,6 +3,7 @@
 #include <string.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <glib.h>
 
 #include "str.h"
 #include "aux.h"
@@ -23,6 +24,8 @@ static int hmac_sha1_rtp(struct crypto_context *, char *out, str *in, u_int64_t)
 static int hmac_sha1_rtcp(struct crypto_context *, char *out, str *in);
 static int aes_f8_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx);
 static int aes_f8_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, u_int64_t idx);
+static int aes_session_key_init(struct crypto_context *c);
+static int aes_session_key_cleanup(struct crypto_context *c);
 
 /* all lengths are in bits, some code assumes everything to be multiples of 8 */
 const struct crypto_suite crypto_suites[] = {
@@ -47,6 +50,8 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
+		.session_key_init	= aes_session_key_init,
+		.session_key_cleanup	= aes_session_key_cleanup,
 	},
 	{
 		.name			= "AES_CM_128_HMAC_SHA1_32",
@@ -125,8 +130,7 @@ const struct crypto_suite *crypto_find_suite(const str *s) {
 
 /* rfc 3711 section 4.1 and 4.1.1
  * "in" and "out" MAY point to the same buffer */
-static void aes_ctr_128(char *out, str *in, char *key, char *iv) {
-	EVP_CIPHER_CTX ecc;
+static void aes_ctr_128(char *out, str *in, EVP_CIPHER_CTX *ecc, char *iv) {
 	unsigned char ivx[16];
 	unsigned char key_block[16];
 	unsigned char *p, *q;
@@ -134,19 +138,17 @@ static void aes_ctr_128(char *out, str *in, char *key, char *iv) {
 	int outlen, i;
 	u_int64_t *pi, *qi, *ki;
 
+	if (!ecc)
+		return;
+
 	memcpy(ivx, iv, 16);
 	pi = (void *) in->s;
 	qi = (void *) out;
 	ki = (void *) key_block;
 	left = in->len;
 
-	/* XXX do this only once per thread or maybe once per stream/key? */
-	EVP_CIPHER_CTX_init(&ecc);
-
-	EVP_EncryptInit_ex(&ecc, EVP_aes_128_ecb(), NULL, (unsigned char *) key, NULL);
-
 	while (left) {
-		EVP_EncryptUpdate(&ecc, key_block, &outlen, ivx, 16);
+		EVP_EncryptUpdate(ecc, key_block, &outlen, ivx, 16);
 		assert(outlen == 16);
 
 		if (G_UNLIKELY(left < 16)) {
@@ -173,10 +175,19 @@ static void aes_ctr_128(char *out, str *in, char *key, char *iv) {
 	}
 
 done:
+	;
+}
 
-	EVP_EncryptFinal_ex(&ecc, key_block, &outlen);
+static void aes_ctr_128_no_ctx(char *out, str *in, char *key, char *iv) {
+	EVP_CIPHER_CTX ctx;
+	unsigned char block[16];
+	int len;
 
-	EVP_CIPHER_CTX_cleanup(&ecc);
+	EVP_CIPHER_CTX_init(&ctx);
+	EVP_EncryptInit_ex(&ctx, EVP_aes_128_ecb(), NULL, (unsigned char *) key, NULL);
+	aes_ctr_128(out, in, &ctx, iv);
+	EVP_EncryptFinal_ex(&ctx, block, &len);
+	EVP_CIPHER_CTX_cleanup(&ctx);
 }
 
 /* rfc 3711 section 4.3.1 and 4.3.3
@@ -197,7 +208,7 @@ static void prf_n(str *out, char *key, char *x) {
 	/* iv[14] = iv[15] = 0;   := x << 16 */
 	ZERO(in); /* outputs the key stream */
 	str_init_len(&in_s, in, out->len >= 16 ? 32 : 16);
-	aes_ctr_128(o, &in_s, key, iv);
+	aes_ctr_128_no_ctx(o, &in_s, key, iv);
 
 	memcpy(out->s, o, out->len);
 }
@@ -263,7 +274,7 @@ static int aes_cm_encrypt(struct crypto_context *c, u_int32_t ssrc, str *s, u_in
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
 
-	aes_ctr_128(s->s, s, c->session_key, (char *) iv);
+	aes_ctr_128(s->s, s, c->session_key_ctx, (char *) iv);
 
 	return 0;
 }
@@ -420,6 +431,30 @@ static int hmac_sha1_rtcp(struct crypto_context *c, char *out, str *in) {
 
 	assert(sizeof(hmac) >= c->crypto_suite->srtcp_auth_tag / 8);
 	memcpy(out, hmac, c->crypto_suite->srtcp_auth_tag / 8);
+
+	return 0;
+}
+
+static int aes_session_key_init(struct crypto_context *c) {
+	aes_session_key_cleanup(c);
+	c->session_key_ctx = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	EVP_CIPHER_CTX_init(c->session_key_ctx);
+	EVP_EncryptInit_ex(c->session_key_ctx, EVP_aes_128_ecb(), NULL,
+			(unsigned char *) c->session_key, NULL);
+	return 0;
+}
+
+static int aes_session_key_cleanup(struct crypto_context *c) {
+	unsigned char block[16];
+	int len;
+
+	if (!c->session_key_ctx)
+		return 0;
+
+	EVP_EncryptFinal_ex(c->session_key_ctx, block, &len);
+	EVP_CIPHER_CTX_cleanup(c->session_key_ctx);
+	g_slice_free1(sizeof(EVP_CIPHER_CTX), c->session_key_ctx);
+	c->session_key_ctx = NULL;
 
 	return 0;
 }

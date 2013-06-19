@@ -30,6 +30,8 @@ static inline int check_session_keys(struct crypto_context *c) {
 		goto error;
 
 	c->have_session_key = 1;
+	crypto_init_session_key(c);
+
 	return 0;
 
 error:
