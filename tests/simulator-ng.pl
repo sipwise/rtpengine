@@ -14,7 +14,7 @@ use Digest::SHA qw(hmac_sha1);
 use MIME::Base64;
 
 my ($NUM, $RUNTIME, $STREAMS) = (1000, 30, 1);
-my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES);
+my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -25,6 +25,7 @@ GetOptions(
 		'reinvites'	=> \$REINVITES,
 		'branches'	=> \$BRANCHES,
 		'max-streams=i'	=> \$STREAMS,
+		'protos=s'	=> \$PROTOS,		# "RTP/AVP,RTP/SAVP"
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -32,13 +33,7 @@ GetOptions(
 $SIG{ALRM} = sub { print "alarm!\n"; };
 setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
-# global for now
-#my $srtp_master_key = pack("H*", 'E1F97A0D3E018BE0D64FA32C06DE4139');
-#my $srtp_master_salt = pack("H*", '0EC675AD498AFEEBB6960B3AABE6');
-#my ($srtp_session_key, $srtp_session_auth_key, $srtp_session_salt)
-#	= gen_rtp_session_keys($srtp_master_key, $srtp_master_salt);
-#my ($srtcp_session_key, $srtcp_session_auth_key, $srtcp_session_salt)
-#	= gen_rtcp_session_keys($srtp_master_key, $srtp_master_salt);
+$PROTOS and $PROTOS = [split(/\s*[,;:]+\s*/, $PROTOS)];
 
 my @chrs = ('a' .. 'z', 'A' .. 'Z', '0' .. '9');
 sub rand_str {
@@ -433,6 +428,7 @@ my @transports = (
 		rtcp_func => \&rtcp_savpf,
 	},
 );
+my %transports = map {$$_{name} => $_} @transports;
 
 sub callid {
 	my $i = rand_str(50);
@@ -466,8 +462,9 @@ sub update_lookup {
 	}
 	for my $x (0,1) {
 		$$trans[$x] and next;
-		#$$trans[$x] = $transports[rand(@transports)];
-		$$trans[$x] = $transports[rand(@transports)];
+		$$trans[$x] = ($PROTOS && $$PROTOS[$x] && $transports{$$PROTOS[$x]})
+			? $transports{$$PROTOS[$x]}
+			: $transports[rand(@transports)];
 	}
 	my ($pr, $pr_o) = @$protos[$i, $j];
 	my ($tr, $tr_o) = @$trans[$i, $j];
