@@ -309,7 +309,8 @@ sub rtcp_savpf {
 
 sub rtp {
 	my ($ctx) = @_;
-	my $seq = $$ctx{rtp_seqnum} || (int(rand(0xfffff)) + 1);
+	my $seq = $$ctx{rtp_seqnum};
+	defined($seq) or $seq = int(rand(0xfffff)) + 1;
 	my $hdr = pack("CCnNN", 0x80, 0x00, $seq, rand(2**32), rand(2**32));
 	my $pack = $hdr . rand_str($PAYLOAD);
 	$$ctx{rtp_seqnum} = (++$seq & 0xffff);
@@ -378,7 +379,7 @@ sub do_rtp {
 					warn("no rtp reply received, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]");
 					$KEEPGOING or undef($c);
 				}
-				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}";
+				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]";
 
 				$rtcp or next;
 				($payload, $expect) = $$trans[$a]{rtcp_func}($$trans[$b], $tcx, $tcx_o);
