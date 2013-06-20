@@ -330,9 +330,6 @@ static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str 
 	j = 0;
 	ZERO(last_key_block);
 
-	EVP_CIPHER_CTX_init(&ecc);
-	EVP_EncryptInit_ex(&ecc, EVP_aes_128_ecb(), NULL, (unsigned char *) c->session_key, NULL);
-
 	while (left) {
 		/* S(j) = E(k_e, IV' XOR j XOR S(j-1)) */
 		memcpy(x, ivx, 16);
@@ -342,7 +339,7 @@ static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str 
 		xi[0] ^= lki[0];
 		xi[1] ^= lki[1];
 
-		EVP_EncryptUpdate(&ecc, key_block, &outlen, x, 16);
+		EVP_EncryptUpdate(c->session_key_ctx, key_block, &outlen, x, 16);
 		assert(outlen == 16);
 
 		if (G_UNLIKELY(left < 16)) {
@@ -367,8 +364,7 @@ static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str 
 	}
 
 done:
-	EVP_EncryptFinal_ex(&ecc, key_block, &outlen);
-	EVP_CIPHER_CTX_cleanup(&ecc);
+	;
 }
 
 /* rfc 3711 section 4.1.2.2 */
