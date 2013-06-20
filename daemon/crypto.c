@@ -127,7 +127,7 @@ const struct crypto_suite *crypto_find_suite(const str *s) {
 
 /* rfc 3711 section 4.1 and 4.1.1
  * "in" and "out" MAY point to the same buffer */
-static void aes_ctr_128(char *out, str *in, EVP_CIPHER_CTX *ecc, char *iv) {
+static void aes_ctr_128(char *out, str *in, EVP_CIPHER_CTX *ecc, const char *iv) {
 	unsigned char ivx[16];
 	unsigned char key_block[16];
 	unsigned char *p, *q;
@@ -175,13 +175,13 @@ done:
 	;
 }
 
-static void aes_ctr_128_no_ctx(char *out, str *in, char *key, char *iv) {
+static void aes_ctr_128_no_ctx(char *out, str *in, const char *key, const char *iv) {
 	EVP_CIPHER_CTX ctx;
 	unsigned char block[16];
 	int len;
 
 	EVP_CIPHER_CTX_init(&ctx);
-	EVP_EncryptInit_ex(&ctx, EVP_aes_128_ecb(), NULL, (unsigned char *) key, NULL);
+	EVP_EncryptInit_ex(&ctx, EVP_aes_128_ecb(), NULL, (const unsigned char *) key, NULL);
 	aes_ctr_128(out, in, &ctx, iv);
 	EVP_EncryptFinal_ex(&ctx, block, &len);
 	EVP_CIPHER_CTX_cleanup(&ctx);
@@ -192,7 +192,7 @@ static void aes_ctr_128_no_ctx(char *out, str *in, char *key, char *iv) {
  * x: 112 bits
  * n <= 256
  * out->len := n / 8 */
-static void prf_n(str *out, char *key, char *x) {
+static void prf_n(str *out, const char *key, const char *x) {
 	char iv[16];
 	char o[32];
 	char in[32];
