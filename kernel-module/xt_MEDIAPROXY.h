@@ -1,5 +1,5 @@
-#ifndef IPT_RTPPROXY_H
-#define IPT_RTPPROXY_H
+#ifndef XT_RTPPROXY_H
+#define XT_RTPPROXY_H
 
 struct xt_mediaproxy_info {
 	u_int32_t			id;
@@ -58,7 +58,7 @@ struct mediaproxy_target {
 	u_int32_t			table;
 	struct mediaproxy_target_info	target;
 
-	spinlock_t			lock;
+	spinlock_t			stats_lock;
 	struct mediaproxy_stats		stats;
 };
 

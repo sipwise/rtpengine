@@ -539,10 +539,10 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	}
 
 	memset(&op, 0, sizeof(op));
-	spin_lock_irqsave(&g->lock, flags);
+	spin_lock_irqsave(&g->stats_lock, flags);
 	memcpy(&op.target, &g->target, sizeof(op.target));
 	memcpy(&op.stats, &g->stats, sizeof(op.stats));
-	spin_unlock_irqrestore(&g->lock, flags);
+	spin_unlock_irqrestore(&g->stats_lock, flags);
 
 	target_push(g);
 
@@ -667,14 +667,14 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	struct mediaproxy_target *g = v;
 	unsigned long flags;
 
-	spin_lock_irqsave(&g->lock, flags);
+	spin_lock_irqsave(&g->stats_lock, flags);
 	seq_printf(f, "port %5u:\n", g->target.target_port);
 	proc_list_addr_print(f, "src", &g->target.src_addr);
 	proc_list_addr_print(f, "dst", &g->target.dst_addr);
 	proc_list_addr_print(f, "mirror", &g->target.mirror_addr);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
 		g->stats.bytes, g->stats.packets, g->stats.errors);
-	spin_unlock_irqrestore(&g->lock, flags);
+	spin_unlock_irqrestore(&g->stats_lock, flags);
 
 	target_push(g);
 
@@ -773,7 +773,7 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 	memset(g, 0, sizeof(*g));
 	g->table = t->id;
 	atomic_set(&g->refcnt, 1);
-	spin_lock_init(&g->lock);
+	spin_lock_init(&g->stats_lock);
 	memcpy(&g->target, i, sizeof(*i));
 
 	if (update)
@@ -803,9 +803,9 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 		if (!og)
 			goto fail4;
 
-		spin_lock(&og->lock);	/* nested lock! irqs are disabled already */
+		spin_lock(&og->stats_lock);	/* nested lock! irqs are disabled already */
 		memcpy(&g->stats, &og->stats, sizeof(g->stats));
-		spin_unlock(&og->lock);
+		spin_unlock(&og->stats_lock);
 	}
 	else {
 		err = -EEXIST;
@@ -1223,22 +1223,22 @@ not_stun:
 		skb2 = skb_copy(skb, GFP_ATOMIC);
 		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
 		if (err) {
-			spin_lock_irqsave(&g->lock, flags);
+			spin_lock_irqsave(&g->stats_lock, flags);
 			g->stats.errors++;
-			spin_unlock_irqrestore(&g->lock, flags);
+			spin_unlock_irqrestore(&g->stats_lock, flags);
 		}
 	}
 
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
-	spin_lock_irqsave(&g->lock, flags);
+	spin_lock_irqsave(&g->stats_lock, flags);
 	if (err)
 		g->stats.errors++;
 	else {
 		g->stats.packets++;
 		g->stats.bytes += skb->len;
 	}
-	spin_unlock_irqrestore(&g->lock, flags);
+	spin_unlock_irqrestore(&g->stats_lock, flags);
 
 	target_push(g);
 	table_push(t);
