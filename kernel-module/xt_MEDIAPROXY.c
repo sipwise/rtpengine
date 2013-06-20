@@ -5,6 +5,9 @@
 #include <linux/udp.h>
 #include <linux/icmp.h>
 #include <linux/version.h>
+#include <linux/err.h>
+#include <linux/crypto.h>
+#include <crypto/aes.h>
 #include <net/icmp.h>
 #include <net/ip.h>
 #include <net/ipv6.h>
@@ -100,6 +103,63 @@ static void table_push(struct mediaproxy_table *);
 static struct mediaproxy_target *get_target(struct mediaproxy_table *, u_int16_t);
 
 
+
+
+
+
+struct mp_crypto_context {
+	spinlock_t			lock; /* protects roc and last_index */
+	unsigned char			session_key[16];
+	unsigned char			session_salt[14];
+	unsigned char			session_auth_key[20];
+	u_int32_t			roc;
+};
+
+struct mediaproxy_target {
+	atomic_t			refcnt;
+	u_int32_t			table;
+	struct mediaproxy_target_info	target;
+
+	spinlock_t			stats_lock;
+	struct mediaproxy_stats		stats;
+
+	struct mp_crypto_context	decrypt;
+	struct mp_crypto_context	encrypt;
+};
+
+struct mediaproxy_table {
+	atomic_t			refcnt;
+	rwlock_t			target_lock;
+	pid_t				pid;
+
+	u_int32_t			id;
+	struct proc_dir_entry		*proc;
+	struct proc_dir_entry		*status;
+	struct proc_dir_entry		*control;
+	struct proc_dir_entry		*list;
+	struct proc_dir_entry		*blist;
+
+	struct mediaproxy_target	**target[256];
+
+	unsigned int			buckets;
+	unsigned int			targets;
+};
+
+struct mp_cipher {
+	const char			*name;
+};
+
+struct mp_hmac {
+	const char			*name;
+};
+
+
+
+
+
+
+
+
 static const struct file_operations proc_control_ops = {
 	.write			= proc_control_write,
 	.open			= proc_control_open,
@@ -125,7 +185,7 @@ static const struct file_operations proc_blist_ops = {
 	.release		= proc_blist_close,
 };
 
-static struct seq_operations proc_list_seq_ops = {
+static const struct seq_operations proc_list_seq_ops = {
 	.start			= proc_list_start,
 	.next			= proc_list_next,
 	.stop			= proc_list_stop,
@@ -139,11 +199,38 @@ static const struct file_operations proc_main_list_ops = {
 	.release		= seq_release,
 };
 
-static struct seq_operations proc_main_list_seq_ops = {
+static const struct seq_operations proc_main_list_seq_ops = {
 	.start			= proc_main_list_start,
 	.next			= proc_main_list_next,
 	.stop			= proc_main_list_stop,
 	.show			= proc_main_list_show,
+};
+
+static const struct mp_cipher mp_ciphers[] = {
+	[MPC_INVALID] = {
+		.name		= NULL,
+	},
+	[MPC_NULL] = {
+		.name		= "NULL",
+	},
+	[MPC_AES_CM] = {
+		.name		= "AES-CM",
+	},
+	[MPC_AES_F8] = {
+		.name		= "AES-F8",
+	},
+};
+
+static const struct mp_hmac mp_hmacs[] = {
+	[MPH_INVALID] = {
+		.name		= NULL,
+	},
+	[MPH_NULL] = {
+		.name		= "NULL",
+	},
+	[MPH_HMAC_SHA1] = {
+		.name		= "HMAC-SHA1",
+	},
 };
 
 
@@ -740,6 +827,171 @@ static int is_valid_address(struct mp_address *mpa) {
 
 
 
+static int validate_srtp(struct mediaproxy_srtp *s) {
+	if (s->cipher <= MPC_INVALID)
+		return -1;
+	if (s->cipher >= __MPC_LAST)
+		return -1;
+	if (s->hmac <= MPH_INVALID)
+		return -1;
+	if (s->hmac >= __MPH_LAST)
+		return -1;
+	if (s->auth_tag_len > 20)
+		return -1;
+	if (s->mki_len > 128)
+		return -1;
+	return 0;
+}
+
+
+
+static void aes_ctr_128(unsigned char *out, const unsigned char *in, int in_len,
+		struct crypto_cipher *tfm, const char *iv)
+{
+	unsigned char ivx[16];
+	unsigned char key_block[16];
+	unsigned char *p, *q;
+	unsigned int left;
+	int i;
+	u_int64_t *pi, *qi, *ki;
+
+	if (!tfm)
+		return;
+
+	memcpy(ivx, iv, 16);
+	pi = (void *) in;
+	qi = (void *) out;
+	ki = (void *) key_block;
+	left = in_len;
+
+	while (left) {
+		crypto_cipher_encrypt_one(tfm, key_block, ivx);
+
+		if (unlikely(left < 16)) {
+			p = (void *) pi;
+			q = (void *) qi;
+			for (i = 0; i < 16; i++) {
+				*q++ = *p++ ^ key_block[i];
+				left--;
+				if (!left)
+					goto done;
+			}
+			panic("BUG!");
+		}
+
+		*qi++ = *pi++ ^ ki[0];
+		*qi++ = *pi++ ^ ki[1];
+		left -= 16;
+
+		for (i = 15; i >= 0; i--) {
+			ivx[i]++;
+			if (likely(ivx[i]))
+				break;
+		}
+	}
+
+done:
+	;
+}
+
+static int aes_ctr_128_no_ctx(unsigned char *out, const char *in, int in_len,
+		const unsigned char *key, const unsigned char *iv)
+{
+	struct crypto_cipher *tfm;
+
+	tfm = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
+	if (IS_ERR(tfm))
+		return PTR_ERR(tfm);
+
+	crypto_cipher_setkey(tfm, key, 16);
+	aes_ctr_128(out, in, in_len, tfm, iv);
+
+	crypto_free_cipher(tfm);
+	return 0;
+}
+
+static int prf_n(unsigned char *out, int len, const unsigned char *key, const unsigned char *x) {
+	unsigned char iv[16];
+	unsigned char o[32];
+	unsigned char in[32];
+	int in_len, ret;
+
+	memcpy(iv, x, 14);
+	iv[14] = iv[15] = 0;
+	in_len = len > 16 ? 32 : 16;
+	memset(in, 0, in_len);
+
+	ret = aes_ctr_128_no_ctx(o, in, in_len, key, iv);
+	if (ret)
+		return ret;
+
+	memcpy(out, o, len);
+
+	return 0;
+}
+
+static int gen_session_key(unsigned char *out, int len, struct mediaproxy_srtp *s, unsigned char label) {
+	unsigned char key_id[7];
+	unsigned char x[14];
+	int i, ret;
+
+	memset(key_id, 0, sizeof(key_id));
+
+	key_id[0] = label;
+
+	memcpy(x, s->master_salt, 14);
+	for (i = 13 - 6; i < 14; i++)
+		x[i] = key_id[i - (13 - 6)] ^ x[i];
+
+	ret = prf_n(out, len, s->master_key, x);
+	if (ret)
+		return ret;
+	return 0;
+}
+
+
+
+
+static int gen_session_keys(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
+	int ret;
+
+	if (s->cipher == MPC_NULL)
+		return 0;
+	ret = gen_session_key(c->session_key, 16, s, 0x00);
+	if (ret)
+		return ret;
+	ret = gen_session_key(c->session_auth_key, 20, s, 0x01);
+	if (ret)
+		return ret;
+	ret = gen_session_key(c->session_salt, 14, s, 0x02);
+	if (ret)
+		return ret;
+
+	DBG("master key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			s->master_key[0], s->master_key[1], s->master_key[2], s->master_key[3],
+			s->master_key[4], s->master_key[5], s->master_key[6], s->master_key[7],
+			s->master_key[8], s->master_key[9], s->master_key[10], s->master_key[11],
+			s->master_key[12], s->master_key[13], s->master_key[14], s->master_key[15]);
+	DBG("master salt %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			s->master_salt[0], s->master_salt[1], s->master_salt[2], s->master_salt[3],
+			s->master_salt[4], s->master_salt[5], s->master_salt[6], s->master_salt[7],
+			s->master_salt[8], s->master_salt[9], s->master_salt[10], s->master_salt[11],
+			s->master_salt[12], s->master_salt[13]);
+	DBG("session key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			c->session_key[0], c->session_key[1], c->session_key[2], c->session_key[3],
+			c->session_key[4], c->session_key[5], c->session_key[6], c->session_key[7],
+			c->session_key[8], c->session_key[9], c->session_key[10], c->session_key[11],
+			c->session_key[12], c->session_key[13], c->session_key[14], c->session_key[15]);
+	DBG("session salt %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			c->session_salt[0], c->session_salt[1], c->session_salt[2], c->session_salt[3],
+			c->session_salt[4], c->session_salt[5], c->session_salt[6], c->session_salt[7],
+			c->session_salt[8], c->session_salt[9], c->session_salt[10], c->session_salt[11],
+			c->session_salt[12], c->session_salt[13]);
+	return 0;
+}
+
+
+
 
 static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target_info *i, int update) {
 	unsigned char hi, lo;
@@ -763,6 +1015,10 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 		if (i->mirror_addr.family != i->src_addr.family)
 			return -EINVAL;
 	}
+	if (validate_srtp(&i->decrypt))
+		return -EINVAL;
+	if (validate_srtp(&i->encrypt))
+		return -EINVAL;
 
 	DBG("Creating new target\n");
 
@@ -774,8 +1030,18 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 	g->table = t->id;
 	atomic_set(&g->refcnt, 1);
 	spin_lock_init(&g->stats_lock);
+	spin_lock_init(&g->decrypt.lock);
+	spin_lock_init(&g->encrypt.lock);
 	memcpy(&g->target, i, sizeof(*i));
 
+	err = gen_session_keys(&g->decrypt, &g->target.decrypt);
+	if (err)
+		goto fail2;
+	err = gen_session_keys(&g->encrypt, &g->target.encrypt);
+	if (err)
+		goto fail2;
+
+	err = -ENOMEM;
 	if (update)
 		gp = NULL;
 	else {
@@ -982,7 +1248,7 @@ static ssize_t proc_control_write(struct file *file, const char __user *buf, siz
 	int err;
 
 	if (buflen != sizeof(msg))
-		return -EINVAL;
+		return -EIO;
 
 	inode = file->f_path.dentry->d_inode;
 	pde = PDE(inode);

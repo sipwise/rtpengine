@@ -24,6 +24,35 @@ struct mp_address {
 	u_int16_t			port;
 };
 
+enum mediaproxy_cipher {
+	MPC_INVALID	= 0,
+	MPC_NULL,
+	MPC_AES_CM,
+	MPC_AES_F8,
+
+	__MPC_LAST
+};
+
+enum mediaproxy_hmac {
+	MPH_INVALID	= 0,
+	MPH_NULL,
+	MPH_HMAC_SHA1,
+
+	__MPH_LAST
+};
+
+struct mediaproxy_srtp {
+	enum mediaproxy_cipher		cipher;
+	enum mediaproxy_hmac		hmac;
+	unsigned char			master_key[16];
+	unsigned char			master_salt[14];
+	u_int64_t			mki;
+	u_int64_t			last_index;
+	unsigned int			auth_tag_len; /* in bytes */
+	unsigned int			mki_len;
+};
+
+
 struct mediaproxy_target_info {
 	u_int16_t			target_port;
 
@@ -31,6 +60,9 @@ struct mediaproxy_target_info {
 	struct mp_address		dst_addr;
 
 	struct mp_address		mirror_addr;
+
+	struct mediaproxy_srtp		decrypt;
+	struct mediaproxy_srtp		encrypt;
 
 	unsigned char			tos;
 };
@@ -51,35 +83,5 @@ struct mediaproxy_list_entry {
 	struct mediaproxy_stats		stats;
 };
 
-#ifdef __KERNEL__
-
-struct mediaproxy_target {
-	atomic_t			refcnt;
-	u_int32_t			table;
-	struct mediaproxy_target_info	target;
-
-	spinlock_t			stats_lock;
-	struct mediaproxy_stats		stats;
-};
-
-struct mediaproxy_table {
-	atomic_t			refcnt;
-	rwlock_t			target_lock;
-	pid_t				pid;
-
-	u_int32_t			id;
-	struct proc_dir_entry		*proc;
-	struct proc_dir_entry		*status;
-	struct proc_dir_entry		*control;
-	struct proc_dir_entry		*list;
-	struct proc_dir_entry		*blist;
-
-	struct mediaproxy_target	**target[256];
-
-	unsigned int			buckets;
-	unsigned int			targets;
-};
-
-#endif
 
 #endif
