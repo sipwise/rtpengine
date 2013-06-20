@@ -27,23 +27,22 @@ static int aes_f8_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, 
 static int aes_session_key_init(struct crypto_context *c);
 static int aes_session_key_cleanup(struct crypto_context *c);
 
-/* all lengths are in bits, some code assumes everything to be multiples of 8 */
+/* all lengths are in bytes */
 const struct crypto_suite crypto_suites[] = {
 	{
 		.name			= "AES_CM_128_HMAC_SHA1_80",
-		.master_key_len		= 128,
-		.master_salt_len	= 112,
-		.session_key_len	= 128,
-		.session_salt_len	= 112,
+		.master_key_len		= 16,
+		.master_salt_len	= 14,
+		.session_key_len	= 16,
+		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
 		.cipher			= CIPHER_AES_CM,
-		.encryption_key		= 128,
 		.mac			= MAC_HMAC_SHA1,
-		.srtp_auth_tag		= 80,
-		.srtcp_auth_tag		= 80,
-		.srtp_auth_key_len	= 160,
-		.srtcp_auth_key_len	= 160,
+		.srtp_auth_tag		= 10,
+		.srtcp_auth_tag		= 10,
+		.srtp_auth_key_len	= 20,
+		.srtcp_auth_key_len	= 20,
 		.encrypt_rtp		= aes_cm_encrypt_rtp,
 		.decrypt_rtp		= aes_cm_encrypt_rtp,
 		.encrypt_rtcp		= aes_cm_encrypt_rtcp,
@@ -55,19 +54,18 @@ const struct crypto_suite crypto_suites[] = {
 	},
 	{
 		.name			= "AES_CM_128_HMAC_SHA1_32",
-		.master_key_len		= 128,
-		.master_salt_len	= 112,
-		.session_key_len	= 128,
-		.session_salt_len	= 112,
+		.master_key_len		= 16,
+		.master_salt_len	= 14,
+		.session_key_len	= 16,
+		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
 		.cipher			= CIPHER_AES_CM,
-		.encryption_key		= 128,
 		.mac			= MAC_HMAC_SHA1,
-		.srtp_auth_tag		= 32,
-		.srtcp_auth_tag		= 80,
-		.srtp_auth_key_len	= 160,
-		.srtcp_auth_key_len	= 160,
+		.srtp_auth_tag		= 4,
+		.srtcp_auth_tag		= 10,
+		.srtp_auth_key_len	= 20,
+		.srtcp_auth_key_len	= 20,
 		.encrypt_rtp		= aes_cm_encrypt_rtp,
 		.decrypt_rtp		= aes_cm_encrypt_rtp,
 		.encrypt_rtcp		= aes_cm_encrypt_rtcp,
@@ -77,19 +75,18 @@ const struct crypto_suite crypto_suites[] = {
 	},
 	{
 		.name			= "F8_128_HMAC_SHA1_80",
-		.master_key_len		= 128,
-		.master_salt_len	= 112,
-		.session_key_len	= 128,
-		.session_salt_len	= 112,
+		.master_key_len		= 16,
+		.master_salt_len	= 14,
+		.session_key_len	= 16,
+		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
 		.cipher			= CIPHER_AES_F8,
-		.encryption_key		= 128,
 		.mac			= MAC_HMAC_SHA1,
-		.srtp_auth_tag		= 80,
-		.srtcp_auth_tag		= 80,
-		.srtp_auth_key_len	= 160,
-		.srtcp_auth_key_len	= 160,
+		.srtp_auth_tag		= 10,
+		.srtcp_auth_tag		= 10,
+		.srtp_auth_key_len	= 20,
+		.srtcp_auth_key_len	= 20,
 		.encrypt_rtp		= aes_f8_encrypt_rtp,
 		.decrypt_rtp		= aes_f8_encrypt_rtp,
 		.encrypt_rtcp		= aes_f8_encrypt_rtcp,
@@ -304,8 +301,8 @@ static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str 
 	u_int64_t *pi, *ki, *lki, *xi;
 	u_int32_t *xu;
 
-	k_e_len = c->crypto_suite->session_key_len / 8;
-	k_s_len = c->crypto_suite->session_salt_len / 8;
+	k_e_len = c->crypto_suite->session_key_len;
+	k_s_len = c->crypto_suite->session_salt_len;
 	key = (unsigned char *) c->session_key;
 
 	/* m = k_s || 0x555..5 */
@@ -409,15 +406,15 @@ static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in, u_int64_t
 	HMAC_CTX hc;
 	u_int32_t roc;
 
-	HMAC_Init(&hc, c->session_auth_key, c->crypto_suite->srtp_auth_key_len / 8, EVP_sha1());
+	HMAC_Init(&hc, c->session_auth_key, c->crypto_suite->srtp_auth_key_len, EVP_sha1());
 	HMAC_Update(&hc, (unsigned char *) in->s, in->len);
 	roc = htonl((index & 0xffffffff0000ULL) >> 16);
 	HMAC_Update(&hc, (unsigned char *) &roc, sizeof(roc));
 	HMAC_Final(&hc, hmac, NULL);
 	HMAC_CTX_cleanup(&hc);
 
-	assert(sizeof(hmac) >= c->crypto_suite->srtp_auth_tag / 8);
-	memcpy(out, hmac, c->crypto_suite->srtp_auth_tag / 8);
+	assert(sizeof(hmac) >= c->crypto_suite->srtp_auth_tag);
+	memcpy(out, hmac, c->crypto_suite->srtp_auth_tag);
 
 	return 0;
 }
@@ -426,11 +423,11 @@ static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in, u_int64_t
 static int hmac_sha1_rtcp(struct crypto_context *c, char *out, str *in) {
 	unsigned char hmac[20];
 
-	HMAC(EVP_sha1(), c->session_auth_key, c->crypto_suite->srtcp_auth_key_len / 8,
+	HMAC(EVP_sha1(), c->session_auth_key, c->crypto_suite->srtcp_auth_key_len,
 			(unsigned char *) in->s, in->len, hmac, NULL);
 
-	assert(sizeof(hmac) >= c->crypto_suite->srtcp_auth_tag / 8);
-	memcpy(out, hmac, c->crypto_suite->srtcp_auth_tag / 8);
+	assert(sizeof(hmac) >= c->crypto_suite->srtcp_auth_tag);
+	memcpy(out, hmac, c->crypto_suite->srtcp_auth_tag);
 
 	return 0;
 }

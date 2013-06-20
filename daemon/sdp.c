@@ -343,9 +343,8 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	c->crypto_suite = crypto_find_suite(&c->crypto_suite_str);
 	if (!c->crypto_suite)
 		return -1;
-	/* assume everything is a multiple of 8 */
-	salt_key_len = (c->crypto_suite->master_key_len
-			+ c->crypto_suite->master_salt_len) / 8;
+	salt_key_len = c->crypto_suite->master_key_len
+			+ c->crypto_suite->master_salt_len;
 	assert(sizeof(c->key_salt_buf) >= salt_key_len);
 	enc_salt_key_len = ceil((double) salt_key_len * 4.0/3.0);
 
@@ -361,9 +360,9 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 		return -1;
 
 	c->master_key.s = c->key_salt_buf;
-	c->master_key.len = c->crypto_suite->master_key_len / 8;
+	c->master_key.len = c->crypto_suite->master_key_len;
 	c->salt.s = c->master_key.s + c->master_key.len;
-	c->salt.len = c->crypto_suite->master_salt_len / 8;
+	c->salt.len = c->crypto_suite->master_salt_len;
 
 	c->lifetime_str = c->key_params_str;
 	str_shift(&c->lifetime_str, 7 + enc_salt_key_len);
@@ -793,8 +792,8 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 				assert(sizeof(cctx.master_salt) >= attr->u.crypto.salt.len);
 				memcpy(cctx.master_key, attr->u.crypto.master_key.s, attr->u.crypto.master_key.len);
 				memcpy(cctx.master_salt, attr->u.crypto.salt.s, attr->u.crypto.salt.len);
-				assert(sizeof(cctx.session_key) >= cctx.crypto_suite->session_key_len / 8);
-				assert(sizeof(cctx.session_salt) >= cctx.crypto_suite->session_salt_len / 8);
+				assert(sizeof(cctx.session_key) >= cctx.crypto_suite->session_key_len);
+				assert(sizeof(cctx.session_salt) >= cctx.crypto_suite->session_salt_len);
 			}
 
 			si = NULL;
@@ -1320,9 +1319,9 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 		if (!c->crypto_suite)
 			c->crypto_suite = &crypto_suites[0];
 		random_string((unsigned char *) c->master_key,
-				c->crypto_suite->master_key_len / 8);
+				c->crypto_suite->master_key_len);
 		random_string((unsigned char *) c->master_salt,
-				c->crypto_suite->master_salt_len / 8);
+				c->crypto_suite->master_salt_len);
 		/* mki = mki_len = 0 */
 		c->tag = rtp->crypto.in.tag;
 		if (!c->tag)
@@ -1332,14 +1331,14 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 	mutex_unlock(&rtp->up->up->lock);
 
 	assert(sizeof(b64_buf) >= (((c->crypto_suite->master_key_len
-				+ c->crypto_suite->master_salt_len) / 8) / 3 + 1) * 4 + 4);
+				+ c->crypto_suite->master_salt_len)) / 3 + 1) * 4 + 4);
 
 	p = b64_buf;
 	p += g_base64_encode_step((unsigned char *) c->master_key,
-			c->crypto_suite->master_key_len / 8, 0,
+			c->crypto_suite->master_key_len, 0,
 			p, &state, &save);
 	p += g_base64_encode_step((unsigned char *) c->master_salt,
-			c->crypto_suite->master_salt_len / 8, 0,
+			c->crypto_suite->master_salt_len, 0,
 			p, &state, &save);
 	p += g_base64_encode_close(0, p, &state, &save);
 
@@ -1351,9 +1350,9 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 	c->crypto_suite = src->crypto_suite;
 	c->tag = src->tag;
 	memcpy(c->master_key, src->master_key,
-			c->crypto_suite->master_key_len / 8);
+			c->crypto_suite->master_key_len);
 	memcpy(c->master_salt, src->master_salt,
-			c->crypto_suite->master_salt_len / 8);
+			c->crypto_suite->master_salt_len);
 
 	mutex_unlock(&rtcp->up->up->lock);
 

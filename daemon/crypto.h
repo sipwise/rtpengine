@@ -42,7 +42,6 @@ struct crypto_suite {
 		master_salt_len,
 		session_key_len,	/* n_e */
 		session_salt_len,	/* n_s */
-		encryption_key,
 		srtp_auth_tag,		/* n_a */
 		srtcp_auth_tag,
 		srtp_auth_key_len,	/* n_a */

@@ -321,13 +321,13 @@ static inline int check_session_keys(struct crypto_context *c) {
 	if (!c->crypto_suite)
 		goto error;
 
-	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len / 8);
+	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
 	if (crypto_gen_session_key(c, &s, 0x03, 4))
 		goto error;
-	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtcp_auth_key_len / 8);
+	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtcp_auth_key_len);
 	if (crypto_gen_session_key(c, &s, 0x04, 4))
 		goto error;
-	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len / 8);
+	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
 	if (crypto_gen_session_key(c, &s, 0x05, 4))
 		goto error;
 
@@ -392,7 +392,7 @@ int rtcp_avp2savp(str *s, struct crypto_context *c) {
 	rtp_append_mki(s, c);
 
 	c->crypto_suite->hash_rtcp(c, s->s + s->len, &to_auth);
-	s->len += c->crypto_suite->srtp_auth_tag / 8;
+	s->len += c->crypto_suite->srtp_auth_tag;
 
 	return 0;
 }

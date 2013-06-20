@@ -19,13 +19,13 @@ static inline int check_session_keys(struct crypto_context *c) {
 	if (!c->crypto_suite)
 		goto error;
 
-	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len / 8);
+	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
 	if (crypto_gen_session_key(c, &s, 0x00, 6))
 		goto error;
-	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtp_auth_key_len / 8);
+	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtp_auth_key_len);
 	if (crypto_gen_session_key(c, &s, 0x01, 6))
 		goto error;
-	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len / 8);
+	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
 	if (crypto_gen_session_key(c, &s, 0x02, 6))
 		goto error;
 
@@ -165,7 +165,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 
 	if (c->crypto_suite->srtp_auth_tag) {
 		c->crypto_suite->hash_rtp(c, s->s + s->len, &to_auth, index);
-		s->len += c->crypto_suite->srtp_auth_tag / 8;
+		s->len += c->crypto_suite->srtp_auth_tag;
 	}
 
 	return 0;
@@ -213,7 +213,6 @@ int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,
 		int auth_len, int mki_len,
 		const str *packet, const str *payload)
 {
-	auth_len /= 8; /* given in bits */
 	*to_auth = *packet;
 	*to_decrypt = *payload;
 	/* packet and payload should be identical except for the respective header */
