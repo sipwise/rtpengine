@@ -204,7 +204,7 @@ static void prf_n(str *out, char *key, char *x) {
 	memcpy(iv, x, 14);
 	/* iv[14] = iv[15] = 0;   := x << 16 */
 	ZERO(in); /* outputs the key stream */
-	str_init_len(&in_s, in, out->len >= 16 ? 32 : 16);
+	str_init_len(&in_s, in, out->len > 16 ? 32 : 16);
 	aes_ctr_128_no_ctx(o, &in_s, key, iv);
 
 	memcpy(out->s, o, out->len);
