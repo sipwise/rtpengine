@@ -99,6 +99,10 @@ int kernel_add_stream(int fd, struct kernel_stream *info, int update) {
 	addr_copy(&msg.target.dst_addr, &info->dest);
 	addr_copy(&msg.target.mirror_addr, &info->mirror);
 	msg.target.tos = info->tos;
+	msg.target.decrypt.cipher = MPC_NULL;
+	msg.target.decrypt.hmac = MPH_NULL;
+	msg.target.encrypt.cipher = MPC_NULL;
+	msg.target.encrypt.hmac = MPH_NULL;
 
 	return write(fd, &msg, sizeof(msg)) <= 0 ? -1 : 0;
 }
