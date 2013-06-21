@@ -113,6 +113,7 @@ struct mp_crypto_context {
 	unsigned char			session_salt[14];
 	unsigned char			session_auth_key[20];
 	u_int32_t			roc;
+	struct crypto_cipher		*tfm;
 };
 
 struct mediaproxy_target {
@@ -360,6 +361,11 @@ static void target_push(struct mediaproxy_target *t) {
 		return;
 
 	DBG("Freeing target\n");
+
+	if (t->decrypt.tfm)
+		crypto_free_cipher(t->decrypt.tfm);
+	if (t->encrypt.tfm)
+		crypto_free_cipher(t->encrypt.tfm);
 
 	kfree(t);
 }
@@ -966,6 +972,14 @@ static int gen_session_keys(struct mp_crypto_context *c, struct mediaproxy_srtp 
 	ret = gen_session_key(c->session_salt, 14, s, 0x02);
 	if (ret)
 		return ret;
+
+	c->tfm = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
+	if (IS_ERR(c->tfm)) {
+		ret = PTR_ERR(c->tfm);
+		c->tfm = NULL;
+		return ret;
+	}
+	crypto_cipher_setkey(c->tfm, c->session_key, 16);
 
 	DBG("master key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
 			s->master_key[0], s->master_key[1], s->master_key[2], s->master_key[3],
