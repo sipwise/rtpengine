@@ -33,6 +33,7 @@ MODULE_LICENSE("GPL");
 
 
 #define MAX_ID 64 /* - 1 */
+#define MAX_SKB_TAIL_ROOM (128 + 20)
 
 #define MIPF		"%i:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%u"
 #define MIPP(x)		(x).family,		\
@@ -1552,23 +1553,23 @@ static int parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 	memset(rtp, 0, sizeof(*rtp));
 
 	if (skb->len < sizeof(*rtp->header))
-		return -1;
+		goto error;
 	rtp->header = (void *) skb->data;
 	if ((rtp->header->v_p_x_cc & 0xc0) != 0x80) /* version 2 */
-		return -1;
+		goto error;
 	rtp->header_len = sizeof(*rtp->header);
 
 	/* csrc list */
 	rtp->header_len += (rtp->header->v_p_x_cc & 0xf) * 4;
 	if (skb->len < rtp->header_len)
-		return -1;
+		goto error;
 	rtp->payload = skb->data + rtp->header_len;
 	rtp->payload_len = skb->len - rtp->header_len;
 
 	if ((rtp->header->v_p_x_cc & 0x10)) {
 		/* extension */
 		if (rtp->payload_len < sizeof(*ext))
-			return -1;
+			goto error;
 		ext = (void *) rtp->payload;
 		ext_len = 4 + ntohs(ext->length) * 4;
 		if (rtp->payload_len < ext_len)
@@ -1580,6 +1581,10 @@ static int parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 	DBG("rtp header parsed, payload length is %u\n", rtp->payload_len);
 
 	return 0;
+
+error:
+	memset(rtp, 0, sizeof(*rtp));
+	return -1;
 }
 
 /* XXX shared code */
@@ -1623,31 +1628,13 @@ static u_int64_t packet_index(struct mp_crypto_context *c,
 	return index;
 }
 
-static int srtp_auth_validate(struct mp_crypto_context *c,
+static int srtp_hash(unsigned char *hmac,
+		struct mp_crypto_context *c,
 		struct mediaproxy_srtp *s, struct rtp_parsed *r,
 		u_int64_t pkt_idx)
 {
-	unsigned char *auth_tag;
-	unsigned char hmac[20];
-	struct shash_desc *dsc;
 	u_int32_t roc;
-
-	if (s->hmac == MPH_NULL)
-		return 0;
-	if (!c->hmac)
-		return 0;
-	if (!c->shash)
-		return -1;
-
-	if (r->payload_len < s->auth_tag_len)
-		return -1;
-
-	r->payload_len -= s->auth_tag_len;
-	auth_tag = r->payload + r->payload_len;
-
-	if (r->payload_len < s->mki_len)
-		return -1;
-	r->payload_len -= s->mki_len;
+	struct shash_desc *dsc;
 
 	if (!s->auth_tag_len)
 		return 0;
@@ -1677,20 +1664,108 @@ static int srtp_auth_validate(struct mp_crypto_context *c,
 			hmac[8], hmac[9], hmac[10], hmac[11],
 			hmac[12], hmac[13], hmac[14], hmac[15],
 			hmac[16], hmac[17], hmac[18], hmac[19]);
-	DBG("packet auth tag %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
-			auth_tag[0], auth_tag[1], auth_tag[2], auth_tag[3],
-			auth_tag[4], auth_tag[5], auth_tag[6], auth_tag[7],
-			auth_tag[8], auth_tag[9], auth_tag[10], auth_tag[11],
-			auth_tag[12], auth_tag[13], auth_tag[14], auth_tag[15],
-			auth_tag[16], auth_tag[17], auth_tag[18], auth_tag[19]);
 
-	if (memcmp(auth_tag, hmac, s->auth_tag_len))
-		return -1;
 	return 0;
 
 error:
 	kfree(dsc);
 	return -1;
+}
+
+/* XXX shared code */
+static void rtp_append_mki(struct rtp_parsed *r, struct mediaproxy_srtp *c) {
+	u_int32_t mki_part;
+	unsigned char *p;
+
+	if (!c->mki_len)
+		return;
+
+	p = r->payload + r->payload_len;
+	memset(p, 0, c->mki_len);
+	if (c->mki_len > 4) {
+		mki_part = (c->mki & 0xffffffff00000000ULL) >> 32;
+		mki_part = htonl(mki_part);
+		if (c->mki_len < 8)
+			memcpy(p, ((char *) &mki_part) + (8 - c->mki_len), c->mki_len - 4);
+		else
+			memcpy(p + (c->mki_len - 8), &mki_part, 4);
+	}
+	mki_part = (c->mki & 0xffffffffULL);
+	mki_part = htonl(mki_part);
+	if (c->mki_len < 4)
+		memcpy(p, ((char *) &mki_part) + (4 - c->mki_len), c->mki_len);
+	else
+		memcpy(p + (c->mki_len - 4), &mki_part, 4);
+
+	r->payload_len += c->mki_len;
+}
+
+static int srtp_authenticate(struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
+{
+	unsigned char hmac[20];
+
+	if (!r->header)
+		return 0;
+	if (s->hmac == MPH_NULL)
+		return 0;
+	if (!c->hmac)
+		return 0;
+	if (!c->shash)
+		return -1;
+
+	if (srtp_hash(hmac, c, s, r, pkt_idx))
+		return -1;
+
+	rtp_append_mki(r, s);
+
+	memcpy(r->payload + r->payload_len, hmac, s->auth_tag_len);
+	r->payload_len += s->auth_tag_len;
+
+	return 0;
+}
+
+static int srtp_auth_validate(struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
+{
+	unsigned char *auth_tag;
+	unsigned char hmac[20];
+
+	if (s->hmac == MPH_NULL)
+		return 0;
+	if (!c->hmac)
+		return 0;
+	if (!c->shash)
+		return -1;
+
+	if (r->payload_len < s->auth_tag_len)
+		return -1;
+
+	r->payload_len -= s->auth_tag_len;
+	auth_tag = r->payload + r->payload_len;
+
+	if (r->payload_len < s->mki_len)
+		return -1;
+	r->payload_len -= s->mki_len;
+
+	if (!s->auth_tag_len)
+		return 0;
+
+	DBG("packet auth tag %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			auth_tag[0], auth_tag[1], auth_tag[2], auth_tag[3],
+			auth_tag[4], auth_tag[5], auth_tag[6], auth_tag[7],
+			auth_tag[8], auth_tag[9]);
+
+	if (srtp_hash(hmac, c, s, r, pkt_idx))
+		return -1;
+
+	if (memcmp(auth_tag, hmac, s->auth_tag_len))
+		return -1;
+
+	return 0;
+
 }
 
 
@@ -1729,6 +1804,8 @@ static inline int srtp_encrypt(struct mp_crypto_context *c,
 		struct mediaproxy_srtp *s, struct rtp_parsed *r,
 		u_int64_t pkt_idx)
 {
+	if (!r->header)
+		return 0;
 	if (!c->cipher->encrypt)
 		return 0;
 	return c->cipher->encrypt(c, s, r, pkt_idx);
@@ -1819,6 +1896,10 @@ not_rtp:
 		}
 	}
 
+	srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
+	skb_put(skb, g->target.encrypt.mki_len + g->target.encrypt.auth_tag_len);
+	srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
+
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
 	spin_lock_irqsave(&g->stats_lock, flags);
@@ -1857,17 +1938,12 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 	struct sk_buff *skb;
 	struct iphdr *ih;
 	struct mediaproxy_table *t;
-	int headroom;
 
 	t = get_table(pinfo->id);
 	if (!t)
 		goto skip;
 
-	headroom = MAX_HEADER - sizeof(*ih);
-	if (skb_headroom(oskb) >= headroom)
-		skb = skb_copy(oskb, GFP_ATOMIC);
-	else
-		skb = skb_copy_expand(oskb, headroom, 0, GFP_ATOMIC);
+	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 	if (!skb)
 		goto skip3;
 
@@ -1899,17 +1975,12 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 	struct sk_buff *skb;
 	struct ipv6hdr *ih;
 	struct mediaproxy_table *t;
-	int headroom;
 
 	t = get_table(pinfo->id);
 	if (!t)
 		goto skip;
 
-	headroom = MAX_HEADER - sizeof(*ih);
-	if (skb_headroom(oskb) >= headroom)
-		skb = skb_copy(oskb, GFP_ATOMIC);
-	else
-		skb = skb_copy_expand(oskb, headroom, 0, GFP_ATOMIC);
+	skb = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 	if (!skb)
 		goto skip3;
 
