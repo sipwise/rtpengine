@@ -17,11 +17,6 @@ struct rtp_header {
 	u_int32_t ssrc;
 	u_int32_t csrc[];
 } __attribute__ ((packed));
-struct rtp_extension {
-	u_int16_t undefined;
-	u_int16_t length;
-} __attribute__ ((packed));
-
 
 
 

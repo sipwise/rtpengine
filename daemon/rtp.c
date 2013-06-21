@@ -11,6 +11,14 @@
 
 
 
+struct rtp_extension {
+	u_int16_t undefined;
+	u_int16_t length;
+} __attribute__ ((packed));
+
+
+
+
 static inline int check_session_keys(struct crypto_context *c) {
 	str s;
 
