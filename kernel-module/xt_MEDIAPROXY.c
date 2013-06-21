@@ -1578,10 +1578,11 @@ static u_int64_t packet_index(struct mp_crypto_context *c,
 	u_int16_t seq;
 	u_int64_t index;
 	long long int diff;
+	unsigned long flags;
 
 	seq = ntohs(rtp->seq_num);
 
-	spin_lock(&c->lock);
+	spin_lock_irqsave(&c->lock, flags);
 
 	/* rfc 3711 section 3.3.1 */
 	if (unlikely(!s->last_index))
@@ -1606,7 +1607,7 @@ static u_int64_t packet_index(struct mp_crypto_context *c,
 		}
 	}
 
-	spin_unlock(&c->lock);
+	spin_unlock_irqrestore(&c->lock, flags);
 
 	return index;
 }
