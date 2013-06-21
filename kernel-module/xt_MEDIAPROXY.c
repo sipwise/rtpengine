@@ -65,6 +65,8 @@ MODULE_LICENSE("GPL");
 
 struct mp_hmac;
 struct mp_cipher;
+struct rtp_parsed;
+struct mp_crypto_context;
 
 
 
@@ -107,6 +109,9 @@ static int proc_main_list_show(struct seq_file *, void *);
 
 static void table_push(struct mediaproxy_table *);
 static struct mediaproxy_target *get_target(struct mediaproxy_table *, u_int16_t);
+
+static int srtp_encrypt_aes_cm(struct mp_crypto_context *, struct mediaproxy_srtp *,
+		struct rtp_parsed *, u_int64_t);
 
 
 
@@ -158,6 +163,10 @@ struct mediaproxy_table {
 struct mp_cipher {
 	const char			*name;
 	const char			*tfm_name;
+	int				(*decrypt)(struct mp_crypto_context *, struct mediaproxy_srtp *,
+			struct rtp_parsed *, u_int64_t);
+	int				(*encrypt)(struct mp_crypto_context *, struct mediaproxy_srtp *,
+			struct rtp_parsed *, u_int64_t);
 };
 
 struct mp_hmac {
@@ -250,6 +259,8 @@ static const struct mp_cipher mp_ciphers[] = {
 	[MPC_AES_CM] = {
 		.name		= "AES-CM",
 		.tfm_name	= "aes",
+		.decrypt	= srtp_encrypt_aes_cm,
+		.encrypt	= srtp_encrypt_aes_cm,
 	},
 	[MPC_AES_F8] = {
 		.name		= "AES-F8",
@@ -894,7 +905,7 @@ static int validate_srtp(struct mediaproxy_srtp *s) {
 
 /* XXX shared code */
 static void aes_ctr_128(unsigned char *out, const unsigned char *in, int in_len,
-		struct crypto_cipher *tfm, const char *iv)
+		struct crypto_cipher *tfm, const unsigned char *iv)
 {
 	unsigned char ivx[16];
 	unsigned char key_block[16];
@@ -1613,14 +1624,16 @@ static u_int64_t packet_index(struct mp_crypto_context *c,
 }
 
 static int srtp_auth_validate(struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_parsed *r)
+		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
 {
 	unsigned char *auth_tag;
 	unsigned char hmac[20];
 	struct shash_desc *dsc;
-	u_int64_t pkt_idx;
 	u_int32_t roc;
 
+	if (s->hmac == MPH_NULL)
+		return 0;
 	if (!c->hmac)
 		return 0;
 	if (!c->shash)
@@ -1639,7 +1652,6 @@ static int srtp_auth_validate(struct mp_crypto_context *c,
 	if (!s->auth_tag_len)
 		return 0;
 
-	pkt_idx = packet_index(c, s, r->header);
 	roc = htonl((pkt_idx & 0xffffffff0000ULL) >> 16);
 
 	dsc = kmalloc(sizeof(*dsc) + crypto_shash_descsize(c->shash), GFP_ATOMIC);
@@ -1681,6 +1693,56 @@ error:
 	return -1;
 }
 
+
+/* XXX shared code */
+static int srtp_encrypt_aes_cm(struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
+{
+	unsigned char iv[16];
+	u_int32_t *ivi;
+	u_int32_t idxh, idxl;
+
+	if (s->cipher == MPC_NULL)
+		return 0;
+	if (!c->cipher)
+		return 0;
+
+	memcpy(iv, c->session_salt, 14);
+	iv[14] = iv[15] = '\0';
+	ivi = (void *) iv;
+	pkt_idx <<= 16;
+	idxh = htonl((pkt_idx & 0xffffffff00000000ULL) >> 32);
+	idxl = htonl(pkt_idx & 0xffffffffULL);
+
+	ivi[1] ^= r->header->ssrc;
+	ivi[2] ^= idxh;
+	ivi[3] ^= idxl;
+
+	aes_ctr_128(r->payload, r->payload, r->payload_len, c->tfm, iv);
+
+	return 0;
+}
+
+
+static inline int srtp_encrypt(struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
+{
+	if (!c->cipher->encrypt)
+		return 0;
+	return c->cipher->encrypt(c, s, r, pkt_idx);
+}
+
+static inline int srtp_decrypt(struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
+{
+	if (!c->cipher->decrypt)
+		return 0;
+	return c->cipher->decrypt(c, s, r, pkt_idx);
+}
+
 static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t) {
 	struct udphdr *uh;
 	struct mediaproxy_target *g;
@@ -1690,6 +1752,7 @@ static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t
 	unsigned long flags;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
+	u_int64_t pkt_idx = 0;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -1729,8 +1792,20 @@ not_stun:
 
 	if (parse_rtp(&rtp, skb))
 		goto not_rtp;
-	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp))
+	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip3;
+	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
+		goto skip3;
+
+	skb_trim(skb, rtp.header_len + rtp.payload_len);
+
+	DBG("packet payload decrypted as %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x...\n",
+			rtp.payload[0], rtp.payload[1], rtp.payload[2], rtp.payload[3],
+			rtp.payload[4], rtp.payload[5], rtp.payload[6], rtp.payload[7],
+			rtp.payload[8], rtp.payload[9], rtp.payload[10], rtp.payload[11],
+			rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
+			rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
 
 not_rtp:
 	if (g->target.mirror_addr.family) {
