@@ -8,6 +8,7 @@
 #include <linux/err.h>
 #include <linux/crypto.h>
 #include <crypto/aes.h>
+#include <crypto/hash.h>
 #include <net/icmp.h>
 #include <net/ip.h>
 #include <net/ipv6.h>
@@ -59,6 +60,11 @@ MODULE_LICENSE("GPL");
 #define DBG(x...) ((void)0)
 #endif
 
+
+
+
+struct mp_hmac;
+struct mp_cipher;
 
 
 
@@ -114,6 +120,9 @@ struct mp_crypto_context {
 	unsigned char			session_auth_key[20];
 	u_int32_t			roc;
 	struct crypto_cipher		*tfm;
+	struct crypto_shash		*shash;
+	const struct mp_cipher		*cipher;
+	const struct mp_hmac		*hmac;
 };
 
 struct mediaproxy_target {
@@ -148,10 +157,34 @@ struct mediaproxy_table {
 
 struct mp_cipher {
 	const char			*name;
+	const char			*tfm_name;
 };
 
 struct mp_hmac {
 	const char			*name;
+	const char			*tfm_name;
+};
+
+/* XXX shared */
+struct rtp_header {
+	unsigned char v_p_x_cc;
+	unsigned char m_pt;
+	u_int16_t seq_num;
+	u_int32_t timestamp;
+	u_int32_t ssrc;
+	u_int32_t csrc[];
+} __attribute__ ((packed));
+struct rtp_extension {
+	u_int16_t undefined;
+	u_int16_t length;
+} __attribute__ ((packed));
+
+
+struct rtp_parsed {
+	struct rtp_header		*header;
+	unsigned int			header_len;
+	unsigned char			*payload;
+	unsigned int			payload_len;
 };
 
 
@@ -216,9 +249,11 @@ static const struct mp_cipher mp_ciphers[] = {
 	},
 	[MPC_AES_CM] = {
 		.name		= "AES-CM",
+		.tfm_name	= "aes",
 	},
 	[MPC_AES_F8] = {
 		.name		= "AES-F8",
+		.tfm_name	= "aes",
 	},
 };
 
@@ -231,6 +266,7 @@ static const struct mp_hmac mp_hmacs[] = {
 	},
 	[MPH_HMAC_SHA1] = {
 		.name		= "HMAC-SHA1",
+		.tfm_name	= "hmac(sha1)",
 	},
 };
 
@@ -353,6 +389,13 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 
 
 
+static void free_crypto_context(struct mp_crypto_context *c) {
+	if (c->tfm)
+		crypto_free_cipher(c->tfm);
+	if (c->shash)
+		crypto_free_shash(c->shash);
+}
+
 static void target_push(struct mediaproxy_target *t) {
 	if (!t)
 		return;
@@ -362,10 +405,8 @@ static void target_push(struct mediaproxy_target *t) {
 
 	DBG("Freeing target\n");
 
-	if (t->decrypt.tfm)
-		crypto_free_cipher(t->decrypt.tfm);
-	if (t->encrypt.tfm)
-		crypto_free_cipher(t->encrypt.tfm);
+	free_crypto_context(&t->decrypt);
+	free_crypto_context(&t->encrypt);
 
 	kfree(t);
 }
@@ -851,6 +892,7 @@ static int validate_srtp(struct mediaproxy_srtp *s) {
 
 
 
+/* XXX shared code */
 static void aes_ctr_128(unsigned char *out, const unsigned char *in, int in_len,
 		struct crypto_cipher *tfm, const char *iv)
 {
@@ -960,26 +1002,42 @@ static int gen_session_key(unsigned char *out, int len, struct mediaproxy_srtp *
 
 static int gen_session_keys(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
 	int ret;
+	const char *err;
 
-	if (s->cipher == MPC_NULL)
+	if (s->cipher == MPC_NULL && s->hmac == MPH_NULL)
 		return 0;
+	err = "failed to generate session key";
 	ret = gen_session_key(c->session_key, 16, s, 0x00);
 	if (ret)
-		return ret;
+		goto error;
 	ret = gen_session_key(c->session_auth_key, 20, s, 0x01);
 	if (ret)
-		return ret;
+		goto error;
 	ret = gen_session_key(c->session_salt, 14, s, 0x02);
 	if (ret)
-		return ret;
+		goto error;
 
-	c->tfm = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
-	if (IS_ERR(c->tfm)) {
-		ret = PTR_ERR(c->tfm);
-		c->tfm = NULL;
-		return ret;
+	if (c->cipher->tfm_name) {
+		err = "failed to load cipher";
+		c->tfm = crypto_alloc_cipher(c->cipher->tfm_name, 0, CRYPTO_ALG_ASYNC);
+		if (IS_ERR(c->tfm)) {
+			ret = PTR_ERR(c->tfm);
+			c->tfm = NULL;
+			goto error;
+		}
+		crypto_cipher_setkey(c->tfm, c->session_key, 16);
 	}
-	crypto_cipher_setkey(c->tfm, c->session_key, 16);
+
+	if (c->hmac->tfm_name) {
+		err = "failed to load HMAC";
+		c->shash = crypto_alloc_shash(c->hmac->tfm_name, 0, CRYPTO_ALG_ASYNC);
+		if (IS_ERR(c->shash)) {
+			ret = PTR_ERR(c->shash);
+			c->shash = NULL;
+			goto error;
+		}
+		crypto_shash_setkey(c->shash, c->session_auth_key, 20);
+	}
 
 	DBG("master key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
 			s->master_key[0], s->master_key[1], s->master_key[2], s->master_key[3],
@@ -1001,11 +1059,29 @@ static int gen_session_keys(struct mp_crypto_context *c, struct mediaproxy_srtp 
 			c->session_salt[4], c->session_salt[5], c->session_salt[6], c->session_salt[7],
 			c->session_salt[8], c->session_salt[9], c->session_salt[10], c->session_salt[11],
 			c->session_salt[12], c->session_salt[13]);
+	DBG("session auth key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			c->session_auth_key[0], c->session_auth_key[1], c->session_auth_key[2], c->session_auth_key[3],
+			c->session_auth_key[4], c->session_auth_key[5], c->session_auth_key[6], c->session_auth_key[7],
+			c->session_auth_key[8], c->session_auth_key[9], c->session_auth_key[10], c->session_auth_key[11],
+			c->session_auth_key[12], c->session_auth_key[13], c->session_auth_key[14], c->session_auth_key[15],
+			c->session_auth_key[16], c->session_auth_key[17], c->session_auth_key[18], c->session_auth_key[19]);
 	return 0;
+
+error:
+	if (c->tfm)
+		crypto_free_cipher(c->tfm);
+	if (c->shash)
+		crypto_free_shash(c->shash);
+	printk(KERN_ERR "Failed to generate session keys: %s\n", err);
+	return ret;
 }
 
 
 
+static void crypto_context_init(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
+	c->cipher = &mp_ciphers[s->cipher];
+	c->hmac = &mp_hmacs[s->hmac];
+}
 
 static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target_info *i, int update) {
 	unsigned char hi, lo;
@@ -1047,6 +1123,8 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 	spin_lock_init(&g->decrypt.lock);
 	spin_lock_init(&g->encrypt.lock);
 	memcpy(&g->target, i, sizeof(*i));
+	crypto_context_init(&g->decrypt, &g->target.decrypt);
+	crypto_context_init(&g->encrypt, &g->target.encrypt);
 
 	err = gen_session_keys(&g->decrypt, &g->target.decrypt);
 	if (err)
@@ -1455,6 +1533,153 @@ drop:
 
 
 
+/* XXX shared code */
+static int parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
+	struct rtp_extension *ext;
+	int ext_len;
+
+	memset(rtp, 0, sizeof(*rtp));
+
+	if (skb->len < sizeof(*rtp->header))
+		return -1;
+	rtp->header = (void *) skb->data;
+	if ((rtp->header->v_p_x_cc & 0xc0) != 0x80) /* version 2 */
+		return -1;
+	rtp->header_len = sizeof(*rtp->header);
+
+	/* csrc list */
+	rtp->header_len += (rtp->header->v_p_x_cc & 0xf) * 4;
+	if (skb->len < rtp->header_len)
+		return -1;
+	rtp->payload = skb->data + rtp->header_len;
+	rtp->payload_len = skb->len - rtp->header_len;
+
+	if ((rtp->header->v_p_x_cc & 0x10)) {
+		/* extension */
+		if (rtp->payload_len < sizeof(*ext))
+			return -1;
+		ext = (void *) rtp->payload;
+		ext_len = 4 + ntohs(ext->length) * 4;
+		if (rtp->payload_len < ext_len)
+			return -1;
+		rtp->payload += ext_len;
+		rtp->payload_len -= ext_len;
+	}
+
+	DBG("rtp header parsed, payload length is %u\n", rtp->payload_len);
+
+	return 0;
+}
+
+/* XXX shared code */
+static u_int64_t packet_index(struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, struct rtp_header *rtp)
+{
+	u_int16_t seq;
+	u_int64_t index;
+	long long int diff;
+
+	seq = ntohs(rtp->seq_num);
+
+	spin_lock(&c->lock);
+
+	/* rfc 3711 section 3.3.1 */
+	if (unlikely(!s->last_index))
+		s->last_index = seq;
+
+	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
+	index = ((u_int64_t) c->roc << 16) | seq;
+	diff = index - s->last_index;
+	if (diff >= 0) {
+		if (diff < 0x8000)
+			s->last_index = index;
+		else if (index >= 0x10000)
+			index -= 0x10000;
+	}
+	else {
+		if (diff >= -0x8000)
+			;
+		else {
+			index += 0x10000;
+			c->roc++;
+			s->last_index = index;
+		}
+	}
+
+	spin_unlock(&c->lock);
+
+	return index;
+}
+
+static int srtp_auth_validate(struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, struct rtp_parsed *r)
+{
+	unsigned char *auth_tag;
+	unsigned char hmac[20];
+	struct shash_desc *dsc;
+	u_int64_t pkt_idx;
+	u_int32_t roc;
+
+	if (!c->hmac)
+		return 0;
+	if (!c->shash)
+		return -1;
+
+	if (r->payload_len < s->auth_tag_len)
+		return -1;
+
+	r->payload_len -= s->auth_tag_len;
+	auth_tag = r->payload + r->payload_len;
+
+	if (r->payload_len < s->mki_len)
+		return -1;
+	r->payload_len -= s->mki_len;
+
+	if (!s->auth_tag_len)
+		return 0;
+
+	pkt_idx = packet_index(c, s, r->header);
+	roc = htonl((pkt_idx & 0xffffffff0000ULL) >> 16);
+
+	dsc = kmalloc(sizeof(*dsc) + crypto_shash_descsize(c->shash), GFP_ATOMIC);
+	if (!dsc)
+		return -1;
+
+	dsc->tfm = c->shash;
+	dsc->flags = 0;
+
+	if (crypto_shash_init(dsc))
+		goto error;
+
+	crypto_shash_update(dsc, (void *) r->header, r->header_len + r->payload_len);
+	crypto_shash_update(dsc, (void *) &roc, sizeof(roc));
+
+	crypto_shash_final(dsc, hmac);
+
+	kfree(dsc);
+
+	DBG("calculated HMAC %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			hmac[0], hmac[1], hmac[2], hmac[3],
+			hmac[4], hmac[5], hmac[6], hmac[7],
+			hmac[8], hmac[9], hmac[10], hmac[11],
+			hmac[12], hmac[13], hmac[14], hmac[15],
+			hmac[16], hmac[17], hmac[18], hmac[19]);
+	DBG("packet auth tag %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			auth_tag[0], auth_tag[1], auth_tag[2], auth_tag[3],
+			auth_tag[4], auth_tag[5], auth_tag[6], auth_tag[7],
+			auth_tag[8], auth_tag[9], auth_tag[10], auth_tag[11],
+			auth_tag[12], auth_tag[13], auth_tag[14], auth_tag[15],
+			auth_tag[16], auth_tag[17], auth_tag[18], auth_tag[19]);
+
+	if (memcmp(auth_tag, hmac, s->auth_tag_len))
+		return -1;
+	return 0;
+
+error:
+	kfree(dsc);
+	return -1;
+}
+
 static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t) {
 	struct udphdr *uh;
 	struct mediaproxy_target *g;
@@ -1463,6 +1688,7 @@ static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t
 	unsigned int datalen;
 	unsigned long flags;
 	u_int32_t *u32;
+	struct rtp_parsed rtp;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -1497,7 +1723,15 @@ not_stun:
 		goto skip2;
 
 	DBG("target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
+	DBG("target decrypt hmac and cipher are %s and %s", g->decrypt.hmac->name,
+			g->decrypt.cipher->name);
 
+	if (parse_rtp(&rtp, skb))
+		goto not_rtp;
+	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp))
+		goto skip3;
+
+not_rtp:
 	if (g->target.mirror_addr.family) {
 		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
@@ -1525,6 +1759,8 @@ not_stun:
 
 	return NF_DROP;
 
+skip3:
+	target_push(g);
 skip2:
 	kfree_skb(skb);
 	table_push(t);
@@ -1672,12 +1908,14 @@ static struct xt_target xt_mediaproxy_regs[] = {
 
 static int __init init(void) {
 	int ret;
+	const char *err;
 
 	printk(KERN_NOTICE "Registering xt_MEDIAPROXY module - version %s\n", MEDIAPROXY_VERSION);
 
 	rwlock_init(&table_lock);
 
 	ret = -ENOMEM;
+	err = "could not register /proc/ entries";
 	my_proc_root = proc_mkdir("mediaproxy", NULL);
 	if (!my_proc_root)
 		goto fail;
@@ -1695,6 +1933,7 @@ static int __init init(void) {
 	/* proc_list->owner = THIS_MODULE; */
 	proc_list->proc_fops = &proc_main_list_ops;
 
+	err = "could not register xtables target";
 	ret = xt_register_targets(xt_mediaproxy_regs, ARRAY_SIZE(xt_mediaproxy_regs));
 	if (ret)
 		goto fail;
@@ -1705,6 +1944,8 @@ fail:
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
+
+	printk(KERN_ERR "Failed to load xt_MEDIAPROXY module: %s\n", err);
 
 	return ret;
 }
