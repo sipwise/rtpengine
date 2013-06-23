@@ -123,6 +123,60 @@ const char *transport_protocol_strings[__PROTO_LAST] = {
 
 
 
+static int __k_null(struct mediaproxy_srtp *s, struct streamrelay *r);
+static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct streamrelay *r);
+static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct streamrelay *r);
+
+static int call_avp2savp_rtp(str *s, struct streamrelay *r);
+static int call_savp2avp_rtp(str *s, struct streamrelay *r);
+static int call_avp2savp_rtcp(str *s, struct streamrelay *r);
+static int call_savp2avp_rtcp(str *s, struct streamrelay *r);
+static int call_avpf2avp_rtcp(str *s, struct streamrelay *r);
+static int call_avpf2savp_rtcp(str *s, struct streamrelay *r);
+static int call_savpf2avp_rtcp(str *s, struct streamrelay *r);
+static int call_savpf2savp_rtcp(str *s, struct streamrelay *r);
+
+static const struct streamhandler __sh_noop = {
+	.kernel_decrypt		= __k_null,
+	.kernel_encrypt		= __k_null,
+};
+static const struct streamhandler __sh_rtp_avp2savp = {
+	.rewrite		= call_avp2savp_rtp,
+	.kernel_decrypt		= __k_null,
+	.kernel_encrypt		= __k_srtp_encrypt,
+};
+static const struct streamhandler __sh_rtp_savp2avp = {
+	.rewrite		= call_savp2avp_rtp,
+	.kernel_decrypt		= __k_srtp_decrypt,
+	.kernel_encrypt		= __k_null,
+};
+static const struct streamhandler __sh_rtcp_avp2savp = {
+	.rewrite		= call_avp2savp_rtcp,
+};
+static const struct streamhandler __sh_rtcp_savp2avp = {
+	.rewrite		= call_savp2avp_rtcp,
+};
+static const struct streamhandler __sh_rtcp_avpf2avp = {
+	.rewrite		= call_avpf2avp_rtcp,
+};
+static const struct streamhandler __sh_rtcp_avpf2savp = {
+	.rewrite		= call_avpf2savp_rtcp,
+};
+static const struct streamhandler __sh_rtcp_savpf2avp = {
+	.rewrite		= call_savpf2avp_rtcp,
+};
+static const struct streamhandler __sh_rtcp_savpf2savp = {
+	.rewrite		= call_savpf2savp_rtcp,
+};
+
+static const struct mediaproxy_srtp __mps_null = {
+	.cipher			= MPC_NULL,
+	.hmac			= MPH_NULL,
+};
+
+
+
+
 
 
 static void call_destroy(struct call *);
@@ -161,7 +215,7 @@ void kernelize(struct callstream *c) {
 	int i, j;
 	struct peer *p, *pp;
 	struct streamrelay *r, *rp;
-	struct kernel_stream ks;
+	struct mediaproxy_target_info mpt;
 	struct callmaster *cm = c->call->callmaster;
 
 	if (cm->conf.kernelfd < 0 || cm->conf.kernelid == -1)
@@ -169,7 +223,7 @@ void kernelize(struct callstream *c) {
 
 	mylog(LOG_DEBUG, LOG_PREFIX_C "Kernelizing RTP streams", LOG_PARAMS_C(c->call));
 
-	ZERO(ks);
+	ZERO(mpt);
 
 	for (i = 0; i < 2; i++) {
 		p = &c->peers[i];
@@ -184,29 +238,40 @@ void kernelize(struct callstream *c) {
 
 			if (is_addr_unspecified(&r->peer_advertised.ip46)
 					|| !r->fd.fd_family || !r->peer_advertised.port)
-				continue;
+				goto no_kernel_stream;
+			if (!r->handler->kernel_decrypt
+					|| !r->handler->kernel_encrypt)
+				goto no_kernel_stream;
 
-			ks.local_port = r->fd.localport;
-			ks.tos = cm->conf.tos;
-			ks.src.port = rp->fd.localport;
-			ks.dest.port = r->peer.port;
+			mpt.target_port = r->fd.localport;
+			mpt.tos = cm->conf.tos;
+			mpt.src_addr.port = rp->fd.localport;
+			mpt.dst_addr.port = r->peer.port;
 
 			if (IN6_IS_ADDR_V4MAPPED(&r->peer.ip46)) {
-				ks.src.family = AF_INET;
-				ks.src.ipv4 = cm->conf.ipv4;
-				ks.dest.family = AF_INET;
-				ks.dest.ipv4 = r->peer.ip46.s6_addr32[3];
+				mpt.src_addr.family = AF_INET;
+				mpt.src_addr.ipv4 = cm->conf.ipv4;
+				mpt.dst_addr.family = AF_INET;
+				mpt.dst_addr.ipv4 = r->peer.ip46.s6_addr32[3];
 			}
 			else {
-				ks.src.family = AF_INET6;
-				ks.src.ipv6 = cm->conf.ipv6;
-				ks.dest.family = AF_INET6;
-				ks.dest.ipv6 = r->peer.ip46;
+				mpt.src_addr.family = AF_INET6;
+				memcpy(mpt.src_addr.ipv6, &cm->conf.ipv6, sizeof(mpt.src_addr.ipv6));
+				mpt.dst_addr.family = AF_INET6;
+				memcpy(mpt.dst_addr.ipv6, &r->peer.ip46, sizeof(mpt.src_addr.ipv6));
 			}
+
+			r->handler->kernel_decrypt(&mpt.decrypt, r);
+			r->handler->kernel_encrypt(&mpt.encrypt, r);
 
 			ZERO(r->kstats);
 
-			kernel_add_stream(cm->conf.kernelfd, &ks, 0);
+			kernel_add_stream(cm->conf.kernelfd, &mpt, 0);
+			
+			continue;
+
+no_kernel_stream:
+			r->no_kernel_support = 1;
 		}
 
 		p->kernelized = 1;
@@ -216,10 +281,7 @@ void kernelize(struct callstream *c) {
 
 
 
-static int __dummy_stream_handler(str *s, struct streamrelay *r) {
-	return 0;
-}
-static int call_avpf2avp(str *s, struct streamrelay *r) {
+static int call_avpf2avp_rtcp(str *s, struct streamrelay *r) {
 	return rtcp_avpf2avp(s);
 }
 static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
@@ -260,25 +322,76 @@ static int call_savpf2savp_rtcp(str *s, struct streamrelay *r) {
 }
 
 
-static stream_handler determine_handler(struct streamrelay *in) {
-	if (in->peer.protocol == in->peer_advertised.protocol)
-		goto dummy;
-	if (in->peer_advertised.protocol == PROTO_UNKNOWN)
-		goto dummy;
+static int __k_null(struct mediaproxy_srtp *s, struct streamrelay *r) {
+	*s = __mps_null;
+	return 0;
+}
+static int __k_srtp_crypt(struct mediaproxy_srtp *s, struct crypto_context *c) {
+	*s = (struct mediaproxy_srtp) {
+		.cipher		= c->crypto_suite->kernel_cipher,
+		.hmac		= c->crypto_suite->kernel_hmac,
+		.mki		= c->mki,
+		.mki_len	= c->mki_len,
+		.last_index	= c->s_l,
+		.auth_tag_len	= c->crypto_suite->srtp_auth_tag,
+	};
+	memcpy(s->master_key, c->master_key, c->crypto_suite->master_key_len);
+	memcpy(s->master_salt, c->master_salt, c->crypto_suite->master_salt_len);
+	return 0;
+}
+static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct streamrelay *r) {
+	return __k_srtp_crypt(s, &r->crypto.out);
+}
+static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct streamrelay *r) {
+	return __k_srtp_crypt(s, &r->other->crypto.in);
+}
 
+static const struct streamhandler *determine_handler_rtp(struct streamrelay *in) {
 	switch (in->peer.protocol) {
-		case PROTO_UNKNOWN:
-			goto dummy;
-
 		case PROTO_RTP_AVP:
+		case PROTO_RTP_AVPF:
 			switch (in->peer_advertised.protocol) {
+				case PROTO_RTP_AVP:
 				case PROTO_RTP_AVPF:
-					goto dummy;
+					return NULL;
 
 				case PROTO_RTP_SAVP:
 				case PROTO_RTP_SAVPF:
-					return in->rtcp ? call_avp2savp_rtcp
-						: call_avp2savp_rtp;
+					return &__sh_rtp_avp2savp;
+
+				default:
+					abort();
+			}
+
+		case PROTO_RTP_SAVP:
+		case PROTO_RTP_SAVPF:
+			switch (in->peer_advertised.protocol) {
+				case PROTO_RTP_AVP:
+				case PROTO_RTP_AVPF:
+					return &__sh_rtp_savp2avp;
+
+				case PROTO_RTP_SAVPF:
+				case PROTO_RTP_SAVP:
+					return NULL;
+
+				default:
+					abort();
+			}
+
+		default:
+			abort();
+	}
+}
+static const struct streamhandler *determine_handler_rtcp(struct streamrelay *in) {
+	switch (in->peer.protocol) {
+		case PROTO_RTP_AVP:
+			switch (in->peer_advertised.protocol) {
+				case PROTO_RTP_AVPF:
+					return NULL;
+
+				case PROTO_RTP_SAVP:
+				case PROTO_RTP_SAVPF:
+					return &__sh_rtcp_avp2savp;
 
 				default:
 					abort();
@@ -288,11 +401,10 @@ static stream_handler determine_handler(struct streamrelay *in) {
 			switch (in->peer_advertised.protocol) {
 				case PROTO_RTP_AVP:
 				case PROTO_RTP_AVPF:
-					return in->rtcp ? call_savp2avp_rtcp
-						: call_savp2avp_rtp;
+					return &__sh_rtcp_savp2avp;
 
 				case PROTO_RTP_SAVPF:
-					goto dummy;
+					return NULL;
 
 				default:
 					abort();
@@ -301,17 +413,14 @@ static stream_handler determine_handler(struct streamrelay *in) {
 		case PROTO_RTP_AVPF:
 			switch (in->peer_advertised.protocol) {
 				case PROTO_RTP_AVP:
-					if (!in->rtcp)
-						goto dummy;
-					return call_avpf2avp;
+					return &__sh_rtcp_avpf2avp;
 
 				case PROTO_RTP_SAVP:
-					return in->rtcp ? call_avpf2savp_rtcp
-						: call_avp2savp_rtp;
+					return &__sh_rtcp_avpf2savp;
 
 				case PROTO_RTP_SAVPF:
-					return in->rtcp ? call_avp2savp_rtcp
-						: call_avp2savp_rtp;
+					return &__sh_rtcp_avp2savp;
+
 				default:
 					abort();
 			}
@@ -319,17 +428,13 @@ static stream_handler determine_handler(struct streamrelay *in) {
 		case PROTO_RTP_SAVPF:
 			switch (in->peer_advertised.protocol) {
 				case PROTO_RTP_AVP:
-					return in->rtcp ? call_savpf2avp_rtcp
-						: call_savp2avp_rtp;
+					return &__sh_rtcp_savpf2avp;
 
 				case PROTO_RTP_AVPF:
-					return in->rtcp ? call_savp2avp_rtcp
-						: call_savp2avp_rtp;
+					return &__sh_rtcp_savp2avp;
 
 				case PROTO_RTP_SAVP:
-					if (!in->rtcp)
-						goto dummy;
-					return call_savpf2savp_rtcp;
+					return &__sh_rtcp_savpf2savp;
 
 				default:
 					abort();
@@ -338,9 +443,28 @@ static stream_handler determine_handler(struct streamrelay *in) {
 		default:
 			abort();
 	}
+}
+static const struct streamhandler *determine_handler(struct streamrelay *in) {
+	const struct streamhandler *ret;
+
+	if (in->peer.protocol == in->peer_advertised.protocol)
+		goto dummy;
+	if (in->peer.protocol == PROTO_UNKNOWN)
+		goto dummy;
+	if (in->peer_advertised.protocol == PROTO_UNKNOWN)
+		goto dummy;
+
+	if (in->rtcp)
+		ret = determine_handler_rtcp(in);
+	else
+		ret = determine_handler_rtp(in);
+
+	if (!ret)
+		goto dummy;
+	return ret;
 
 dummy:
-	return __dummy_stream_handler;
+	return &__sh_noop;
 }
 
 /* called with r->up (== cs) locked */
@@ -392,7 +516,8 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 
 	if (!sr_incoming->handler)
 		sr_incoming->handler = determine_handler(sr_incoming);
-	handler_ret = sr_incoming->handler(s, sr_incoming);
+	if (sr_incoming->handler->rewrite)
+		handler_ret = sr_incoming->handler->rewrite(s, sr_incoming);
 
 use_cand:
 	if (p_incoming->confirmed || !p_incoming->filled || sr_incoming->idx != 0)
@@ -424,7 +549,7 @@ peerinfo:
 
 	update = 1;
 
-	if (sr_incoming->handler != __dummy_stream_handler)
+	if (sr_incoming->no_kernel_support)
 		goto forward;
 
 	if (p_incoming->confirmed && p_outgoing->confirmed && p_outgoing->filled)
@@ -1592,6 +1717,7 @@ static void unkernelize(struct peer *p) {
 	for (i = 0; i < 2; i++) {
 		r = &p->rtps[i];
 		kernel_del_stream(p->up->call->callmaster->conf.kernelfd, r->fd.localport);
+		r->no_kernel_support = 0;
 	}
 
 	p->kernelized = 0;

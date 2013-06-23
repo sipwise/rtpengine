@@ -8,22 +8,6 @@
 
 
 
-/* XXX get rid of the enums and replace with struct pointers? */
-enum cipher {
-	CIPHER_UNKNOWN = 0,
-	CIPHER_AES_CM,
-	CIPHER_AES_F8,
-
-	__CIPHER_LAST
-};
-
-enum mac {
-	MAC_UNKNOWN = 0,
-	MAC_HMAC_SHA1,
-
-	__MAC_LAST
-};
-
 struct crypto_context;
 struct rtp_header;
 struct rtcp_packet;
@@ -49,8 +33,8 @@ struct crypto_suite {
 	unsigned long long int
 		srtp_lifetime,
 		srtcp_lifetime;
-	enum cipher cipher;
-	enum mac mac;
+	int kernel_cipher;
+	int kernel_hmac;
 	crypto_func_rtp encrypt_rtp,
 			decrypt_rtp;
 	crypto_func_rtcp encrypt_rtcp,

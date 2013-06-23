@@ -5,6 +5,8 @@
 #include <openssl/hmac.h>
 #include <glib.h>
 
+#include "xt_MEDIAPROXY.h"
+
 #include "str.h"
 #include "aux.h"
 #include "rtp.h"
@@ -37,8 +39,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.cipher			= CIPHER_AES_CM,
-		.mac			= MAC_HMAC_SHA1,
+		.kernel_cipher		= MPC_AES_CM,
+		.kernel_hmac		= MPH_HMAC_SHA1,
 		.srtp_auth_tag		= 10,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,
@@ -60,8 +62,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.cipher			= CIPHER_AES_CM,
-		.mac			= MAC_HMAC_SHA1,
+		.kernel_cipher		= MPC_AES_CM,
+		.kernel_hmac		= MPH_HMAC_SHA1,
 		.srtp_auth_tag		= 4,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,
@@ -81,8 +83,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.cipher			= CIPHER_AES_F8,
-		.mac			= MAC_HMAC_SHA1,
+		.kernel_cipher		= 0,
+		.kernel_hmac		= MPH_HMAC_SHA1,
 		.srtp_auth_tag		= 10,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,

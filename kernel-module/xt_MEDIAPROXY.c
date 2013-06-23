@@ -809,18 +809,29 @@ static void proc_list_addr_print(struct seq_file *f, const char *s, const struct
 	}
 }
 
+static void proc_list_crypto_print(struct seq_file *f, struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
+	seq_printf(f, "        cipher: %s\n", c->cipher ? c->cipher->name : "<null>");
+	seq_printf(f, "            MKI: %llu length %u\n", (unsigned long long) s->mki, s->mki_len);
+	seq_printf(f, "        HMAC: %s\n", c->hmac ? c->hmac->name : "<null>");
+	seq_printf(f, "            auth tag length: %u\n", s->auth_tag_len);
+}
+
 static int proc_list_show(struct seq_file *f, void *v) {
 	struct mediaproxy_target *g = v;
 	unsigned long flags;
 
-	spin_lock_irqsave(&g->stats_lock, flags);
 	seq_printf(f, "port %5u:\n", g->target.target_port);
 	proc_list_addr_print(f, "src", &g->target.src_addr);
 	proc_list_addr_print(f, "dst", &g->target.dst_addr);
 	proc_list_addr_print(f, "mirror", &g->target.mirror_addr);
+	spin_lock_irqsave(&g->stats_lock, flags);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
 		g->stats.bytes, g->stats.packets, g->stats.errors);
 	spin_unlock_irqrestore(&g->stats_lock, flags);
+	seq_printf(f, "    SRTP in:\n");
+	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt);
+	seq_printf(f, "    SRTP out:\n");
+	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt);
 
 	target_push(g);
 

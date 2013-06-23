@@ -93,7 +93,12 @@ struct udp_fd {
 };
 
 struct streamrelay;
-typedef int (*stream_handler)(str *, struct streamrelay *);
+struct mediaproxy_srtp;
+struct streamhandler {
+	int			(*rewrite)(str *, struct streamrelay *);
+	int			(*kernel_decrypt)(struct mediaproxy_srtp *, struct streamrelay *);
+	int			(*kernel_encrypt)(struct mediaproxy_srtp *, struct streamrelay *);
+};
 
 struct streamrelay {
 	struct udp_fd		fd;
@@ -105,10 +110,11 @@ struct streamrelay {
 	struct stats		stats;
 	struct stats		kstats;
 	time_t			last;
-	stream_handler		handler;
+	const struct streamhandler *handler;
 	struct crypto_context_pair crypto;
 	int			stun:1;
 	int			rtcp:1;
+	int			no_kernel_support:1;
 };
 struct relays_cache {
 	struct udp_fd		relays_A[16];
