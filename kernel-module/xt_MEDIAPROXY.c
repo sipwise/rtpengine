@@ -685,10 +685,19 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	}
 
 	memset(&op, 0, sizeof(op));
-	spin_lock_irqsave(&g->stats_lock, flags);
 	memcpy(&op.target, &g->target, sizeof(op.target));
+
+	spin_lock_irqsave(&g->stats_lock, flags);
 	memcpy(&op.stats, &g->stats, sizeof(op.stats));
 	spin_unlock_irqrestore(&g->stats_lock, flags);
+
+	spin_lock_irqsave(&g->decrypt.lock, flags);
+	op.target.decrypt.last_index = g->target.decrypt.last_index;
+	spin_unlock_irqrestore(&g->decrypt.lock, flags);
+
+	spin_lock_irqsave(&g->encrypt.lock, flags);
+	op.target.encrypt.last_index = g->target.encrypt.last_index;
+	spin_unlock_irqrestore(&g->encrypt.lock, flags);
 
 	target_push(g);
 

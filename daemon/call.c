@@ -1038,6 +1038,12 @@ static void callmaster_timer(void *ptr) {
 		sr->kstats.packets = ke->stats.packets;
 		sr->kstats.bytes = ke->stats.bytes;
 		sr->kstats.errors = ke->stats.errors;
+
+		if (sr->crypto.out.crypto_suite)
+			sr->crypto.out.s_l = ke->target.encrypt.last_index;
+		if (sr->crypto.in.crypto_suite)
+			sr->other->crypto.in.s_l = ke->target.decrypt.last_index;
+
 		mutex_unlock(&cs->lock);
 
 next:
@@ -1715,7 +1721,11 @@ static void unkernelize(struct peer *p) {
 		return;
 
 	for (i = 0; i < 2; i++) {
+		if (!p->kernelized)
+			continue;
 		r = &p->rtps[i];
+		if (r->no_kernel_support)
+			continue;
 		kernel_del_stream(p->up->call->callmaster->conf.kernelfd, r->fd.localport);
 		r->no_kernel_support = 0;
 	}
