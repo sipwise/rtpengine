@@ -129,6 +129,43 @@ sub aes_cm {
 	return $out;
 }
 
+sub aes_f8 {
+	my ($data, $key, $iv, $salt) = @_;
+
+	my $m = $salt . "\x55\x55";
+	my $c = Crypt::Rijndael->new(xor_128($key, $m)) or die;
+	my $ivx = $c->encrypt($iv);
+	undef($c);
+
+	$c = Crypt::Rijndael->new($key) or die;
+	my $p_s = "\0" x 16;
+	my $j = 0;
+	my $out = '';
+
+	while ($data ne '') {
+		my $jx = ("\0" x 12) . pack("N", $j);
+		my $key_segment = $c->encrypt(xor_128($ivx, $jx, $p_s));
+			length($key_segment) == 16 or die;
+		my @ks = unpack("C16", $key_segment);
+		my @ds = unpack("C16", $data);
+
+		for my $i (0 .. $#ds) {
+			my $ss = $ds[$i];
+			my $kk = $ks[$i];
+			$out .= chr($ss ^ $kk);
+		}
+
+		substr($data, 0, 16, '');
+		$data eq '' and last;
+
+		$p_s = $key_segment;
+		$j++;
+	}
+
+	return $out;
+}
+
+
 sub prf_n {
 	my ($n, $key, $x) = @_;
 	my $d = "\0" x ($n / 8);
@@ -189,6 +226,41 @@ sub gen_rtcp_session_keys {
 	return ($session_key, $auth_key, $session_salt);
 }
 
+sub aes_cm_iv_rtp {
+	my ($ctx, $r) = @_;
+
+	my ($hdr, $seq, $ts, $ssrc) = unpack('a2na4a4', $r);
+	my $iv = xor_128($$ctx{rtp_session_salt} . "\0\0",
+		$ssrc . "\0\0\0\0\0\0\0\0", pack("Nnn", $$ctx{rtp_roc}, $seq, 0));
+	return $iv;
+}
+
+sub aes_cm_iv_rtcp {
+	my ($ctx, $r) = @_;
+
+	my $idx = $$ctx{rtcp_index} || 0;
+	my ($hdr, $ssrc) = unpack('a4a4', $r);
+	my $iv = xor_128($$ctx{rtcp_session_salt} . "\0\0",
+		$ssrc . "\0\0\0\0\0\0\0\0", pack("Nn", $idx, 0));
+	return $iv;
+}
+
+sub aes_f8_iv_rtp {
+	my ($ctx, $r) = @_;
+
+	my ($hdr, $fields) = unpack('a1a11', $r);
+	my $iv = pack('Ca*N', 0, $fields, $$ctx{rtp_roc});
+	return $iv;
+}
+
+sub aes_f8_iv_rtcp {
+	my ($ctx, $r) = @_;
+
+	my ($fields) = unpack('a8', $r);
+	my $iv = pack('a*Na*', "\0\0\0\0", (($$ctx{rtcp_index} || 0) | 0x80000000), $fields);
+	return $iv;
+}
+
 sub rtcp_encrypt {
 	my ($r, $ctx, $dir) = @_;
 
@@ -197,20 +269,19 @@ sub rtcp_encrypt {
 			= gen_rtcp_session_keys($$ctx{$dir}{rtp_master_key}, $$ctx{$dir}{rtp_master_salt});
 	}
 
-	my $idx = $$ctx{$dir}{rtcp_index} || 0;
-	my ($hdr, $ssrc, $to_enc) = unpack('a4a4a*', $r);
-	my $iv = xor_128($$ctx{$dir}{rtcp_session_salt} . "\0\0",
-		$ssrc . "\0\0\0\0\0\0\0\0", pack("Nn", $idx, 0));
-	my $enc = aes_cm($to_enc, $$ctx{$dir}{rtcp_session_key}, $iv);
-	my $pkt = $hdr . $ssrc . $enc;
-	$pkt .= pack("N", ($idx | 0x80000000));
+	my $iv = $$ctx{$dir}{crypto_suite}{iv_rtcp}->($$ctx{$dir}, $r);
+	my ($hdr, $to_enc) = unpack('a8a*', $r);
+	my $enc = $$ctx{$dir}{crypto_suite}{enc_func}->($to_enc, $$ctx{$dir}{rtcp_session_key},
+		$iv, $$ctx{$dir}{rtcp_session_salt});
+	my $pkt = $hdr . $enc;
+	$pkt .= pack("N", (($$ctx{$dir}{rtcp_index} || 0) | 0x80000000));
 
 	my $hmac = hmac_sha1($pkt, $$ctx{$dir}{rtcp_session_auth_key});
 
 	#$pkt .= pack("N", 1); # mki
 	$pkt .= substr($hmac, 0, 10);
 
-	$$ctx{$dir}{rtcp_index} = ++$idx;
+	$$ctx{$dir}{rtcp_index}++;
 
 	return $pkt;
 }
@@ -223,32 +294,61 @@ sub rtp_encrypt {
 			= gen_rtp_session_keys($$ctx{$dir}{rtp_master_key}, $$ctx{$dir}{rtp_master_salt});
 	}
 
+	my ($hdr, $seq, $h2, $to_enc) = unpack('a2na8a*', $r);
 	my $roc = $$ctx{$dir}{rtp_roc} || 0;
-	my ($hdr, $seq, $ts, $ssrc, $to_enc) = unpack('a2na4a4a*', $r);
 	$seq == 0 and $roc++;
-	my $iv = xor_128($$ctx{$dir}{rtp_session_salt} . "\0\0",
-		$ssrc . "\0\0\0\0\0\0\0\0", pack("Nnn", $roc, $seq, 0));
-	my $enc = aes_cm($to_enc, $$ctx{$dir}{rtp_session_key}, $iv);
-	my $pkt = pack("a*na*a*a*", $hdr, $seq, $ts, $ssrc, $enc);
+	$$ctx{$dir}{rtp_roc} = $roc;
 
-	my $hmac = hmac_sha1($pkt . pack("N", $roc), $$ctx{$dir}{rtp_session_auth_key});
+	my $iv = $$ctx{$dir}{crypto_suite}{iv_rtp}->($$ctx{$dir}, $r);
+	my $enc = $$ctx{$dir}{crypto_suite}{enc_func}->($to_enc, $$ctx{$dir}{rtp_session_key},
+		$iv, $$ctx{$dir}{rtp_session_salt});
+	my $pkt = pack('a*na*a*', $hdr, $seq, $h2, $enc);
+
+	my $hmac = hmac_sha1($pkt . pack("N", $$ctx{$dir}{rtp_roc}), $$ctx{$dir}{rtp_session_auth_key});
 #	print("HMAC for packet " . unpack("H*", $pkt) . " ROC $roc is " . unpack("H*", $hmac) . "\n");
 
 	#$pkt .= pack("N", 1); # mki
-	$pkt .= substr($hmac, 0, 10);
+	$pkt .= substr($hmac, 0, $$ctx{$dir}{crypto_suite}{auth_tag});
 
-	$$ctx{$dir}{rtp_roc} = $roc;
 
 	return $pkt;
 }
 
+my @crypto_suites = (
+	{
+		str		=> 'AES_CM_128_HMAC_SHA1_80',
+		auth_tag	=> 10,
+		enc_func	=> \&aes_cm,
+		iv_rtp		=> \&aes_cm_iv_rtp,
+		iv_rtcp		=> \&aes_cm_iv_rtcp,
+	},
+	{
+		str		=> 'AES_CM_128_HMAC_SHA1_32',
+		auth_tag	=> 4,
+		enc_func	=> \&aes_cm,
+		iv_rtp		=> \&aes_cm_iv_rtp,
+		iv_rtcp		=> \&aes_cm_iv_rtcp,
+	},
+	{
+		str		=> 'F8_128_HMAC_SHA1_80',
+		auth_tag	=> 10,
+		enc_func	=> \&aes_f8,
+		iv_rtp		=> \&aes_f8_iv_rtp,
+		iv_rtcp		=> \&aes_f8_iv_rtcp,
+	},
+);
+my %crypto_suites = map {$$_{str} => $_} @crypto_suites;
+
 sub savp_sdp {
 	my ($ctx) = @_;
+
+	$$ctx{out}{crypto_suite} or $$ctx{out}{crypto_suite} = $crypto_suites[rand(@crypto_suites)];
+
 	if (!$$ctx{out}{rtp_master_key}) {
 		$$ctx{out}{rtp_master_key} = rand_str(16);
 		$$ctx{out}{rtp_master_salt} = rand_str(14);
 	}
-	return "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:" . encode_base64($$ctx{out}{rtp_master_key} . $$ctx{out}{rtp_master_salt}, '') . "\n";
+	return "a=crypto:1 $$ctx{out}{crypto_suite}{str} inline:" . encode_base64($$ctx{out}{rtp_master_key} . $$ctx{out}{rtp_master_salt}, '') . "\n";
 }
 
 sub rtcp_sr {
@@ -337,15 +437,18 @@ sub rtp_savp {
 }
 
 sub savp_crypto {
-	my ($sdp, $ctx) = @_;
+	my ($sdp, $ctx, $ctx_o) = @_;
 
-	my @a = $sdp =~ /[\r\n]a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:([\w\/+]{40})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?[\r\n]/si;
+	my $cs = $$ctx_o{out}{crypto_suite}{str};
+	my $re = $cs ? qr/\Q$cs\E/ : qr/\w+/;
+	my @a = $sdp =~ /[\r\n]a=crypto:1 ($re) inline:([\w\/+]{40})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?[\r\n]/si;
 	@a or die;
-	my $ks = decode_base64($a[0]);
+	$$ctx{in}{crypto_suite} = $crypto_suites{$a[0]} or die;
+	my $ks = decode_base64($a[1]);
 	length($ks) == 30 or die;
 	($$ctx{in}{rtp_master_key}, $$ctx{in}{rtp_master_salt}) = unpack('a16a14', $ks);
-	$$ctx{in}{rtp_mki} = $a[3];
-	$$ctx{in}{rtp_mki_len} = $a[4];
+	$$ctx{in}{rtp_mki} = $a[4];
+	$$ctx{in}{rtp_mki_len} = $a[5];
 }
 
 sub hexdump {
@@ -563,7 +666,7 @@ a=rtcp:$cp
 		$rpl == 0 and die "mediaproxy ran out of ports";
 		push(@$rpl_t, [$rpl,$rp_add]);
 	}
-	$$tr_o{sdp_parse_func} and $$tr_o{sdp_parse_func}($$o{sdp}, $tcx_o);
+	$$tr_o{sdp_parse_func} and $$tr_o{sdp_parse_func}($$o{sdp}, $tcx_o, $tcx);
 }
 
 for my $iter (1 .. $NUM) {
