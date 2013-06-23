@@ -264,6 +264,11 @@ void kernelize(struct callstream *c) {
 			r->handler->kernel_decrypt(&mpt.decrypt, r);
 			r->handler->kernel_encrypt(&mpt.encrypt, r);
 
+			if (!mpt.encrypt.cipher || !mpt.encrypt.hmac)
+				goto no_kernel_stream;
+			if (!mpt.decrypt.cipher || !mpt.decrypt.hmac)
+				goto no_kernel_stream;
+
 			ZERO(r->kstats);
 
 			kernel_add_stream(cm->conf.kernelfd, &mpt, 0);
