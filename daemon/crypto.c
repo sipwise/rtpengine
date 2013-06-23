@@ -74,6 +74,8 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
+		.session_key_init	= aes_session_key_init,
+		.session_key_cleanup	= aes_session_key_cleanup,
 	},
 	{
 		.name			= "F8_128_HMAC_SHA1_80",
@@ -95,6 +97,8 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_f8_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
+		.session_key_init	= aes_session_key_init,
+		.session_key_cleanup	= aes_session_key_cleanup,
 	},
 };
 

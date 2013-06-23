@@ -392,7 +392,7 @@ int rtcp_avp2savp(str *s, struct crypto_context *c) {
 	rtp_append_mki(s, c);
 
 	c->crypto_suite->hash_rtcp(c, s->s + s->len, &to_auth);
-	s->len += c->crypto_suite->srtp_auth_tag;
+	s->len += c->crypto_suite->srtcp_auth_tag;
 
 	return 0;
 }

@@ -112,7 +112,8 @@ static inline int crypto_init_session_key(struct crypto_context *c) {
 static inline void crypto_cleanup(struct crypto_context *c) {
 	if (!c->crypto_suite)
 		return;
-	c->crypto_suite->session_key_cleanup(c);
+	if (c->crypto_suite->session_key_cleanup)
+		c->crypto_suite->session_key_cleanup(c);
 }
 
 
