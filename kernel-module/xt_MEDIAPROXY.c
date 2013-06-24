@@ -111,7 +111,10 @@ static int proc_main_list_show(struct seq_file *, void *);
 static void table_push(struct mediaproxy_table *);
 static struct mediaproxy_target *get_target(struct mediaproxy_table *, u_int16_t);
 
+static int aes_f8_session_key_init(struct mp_crypto_context *, struct mediaproxy_srtp *);
 static int srtp_encrypt_aes_cm(struct mp_crypto_context *, struct mediaproxy_srtp *,
+		struct rtp_parsed *, u_int64_t);
+static int srtp_encrypt_aes_f8(struct mp_crypto_context *, struct mediaproxy_srtp *,
 		struct rtp_parsed *, u_int64_t);
 
 
@@ -125,7 +128,7 @@ struct mp_crypto_context {
 	unsigned char			session_salt[14];
 	unsigned char			session_auth_key[20];
 	u_int32_t			roc;
-	struct crypto_cipher		*tfm;
+	struct crypto_cipher		*tfm[2];
 	struct crypto_shash		*shash;
 	const struct mp_cipher		*cipher;
 	const struct mp_hmac		*hmac;
@@ -168,6 +171,7 @@ struct mp_cipher {
 			struct rtp_parsed *, u_int64_t);
 	int				(*encrypt)(struct mp_crypto_context *, struct mediaproxy_srtp *,
 			struct rtp_parsed *, u_int64_t);
+	int				(*session_key_init)(struct mp_crypto_context *, struct mediaproxy_srtp *);
 };
 
 struct mp_hmac {
@@ -266,6 +270,9 @@ static const struct mp_cipher mp_ciphers[] = {
 	[MPC_AES_F8] = {
 		.name		= "AES-F8",
 		.tfm_name	= "aes",
+		.decrypt	= srtp_encrypt_aes_f8,
+		.encrypt	= srtp_encrypt_aes_f8,
+		.session_key_init = aes_f8_session_key_init,
 	},
 };
 
@@ -402,8 +409,12 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 
 
 static void free_crypto_context(struct mp_crypto_context *c) {
-	if (c->tfm)
-		crypto_free_cipher(c->tfm);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(c->tfm); i++) {
+		if (c->tfm[i])
+			crypto_free_cipher(c->tfm[i]);
+	}
 	if (c->shash)
 		crypto_free_shash(c->shash);
 }
@@ -974,6 +985,66 @@ done:
 	;
 }
 
+static void aes_f8(unsigned char *in_out, int in_len,
+		struct crypto_cipher *tfm, struct crypto_cipher *iv_tfm,
+		const unsigned char *iv)
+{
+	unsigned char key_block[16], last_key_block[16], /* S(j), S(j-1) */
+		      ivx[16], /* IV' */
+		      x[16];
+	int i, left;
+	u_int32_t j;
+	unsigned char *p;
+	u_int64_t *pi, *ki, *lki, *xi;
+	u_int32_t *xu;
+
+	crypto_cipher_encrypt_one(iv_tfm, ivx, iv);
+	
+	pi = (void *) in_out;
+	ki = (void *) key_block;
+	lki = (void *) last_key_block;
+	xi = (void *) x;
+	xu = (void *) x;
+	left = in_len;
+	j = 0;
+	memset(last_key_block, 0, sizeof(last_key_block));
+
+	while (left) {
+		/* S(j) = E(k_e, IV' XOR j XOR S(j-1)) */
+		memcpy(x, ivx, 16);
+
+		xu[3] ^= htonl(j);
+
+		xi[0] ^= lki[0];
+		xi[1] ^= lki[1];
+
+		crypto_cipher_encrypt_one(tfm, key_block, x);
+
+		if (unlikely(left < 16)) {
+			p = (void *) pi;
+			for (i = 0; i < 16; i++) {
+				*p++ ^= key_block[i];
+				left--;
+				if (!left)
+					goto done;
+			}
+			panic("BUG!");
+		}
+
+		*pi++ ^= ki[0];
+		*pi++ ^= ki[1];
+		left -= 16;
+		if (!left)
+			break;
+
+		j++;
+		memcpy(last_key_block, key_block, 16);
+	}
+
+done:
+	;
+}
+
 static int aes_ctr_128_no_ctx(unsigned char *out, const char *in, int in_len,
 		const unsigned char *key, const unsigned char *iv)
 {
@@ -1032,6 +1103,31 @@ static int gen_session_key(unsigned char *out, int len, struct mediaproxy_srtp *
 
 
 
+static int aes_f8_session_key_init(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
+	unsigned char m[16];
+	int i, ret;
+
+	/* m = k_s || 0x555..5 */
+	memcpy(m, c->session_salt, 14);
+	m[14] = m[15] = 0x55;
+	/* IV' = E(k_e XOR m, IV) */
+	for (i = 0; i < 16; i++)
+		m[i] ^= c->session_key[i];
+
+	c->tfm[1] = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
+	if (IS_ERR(c->tfm[1])) {
+		ret = PTR_ERR(c->tfm[1]);
+		c->tfm[1] = NULL;
+		goto error;
+	}
+	crypto_cipher_setkey(c->tfm[1], m, 16);
+
+	return 0;
+
+error:
+	return ret;
+}
+
 static int gen_session_keys(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
 	int ret;
 	const char *err;
@@ -1051,13 +1147,19 @@ static int gen_session_keys(struct mp_crypto_context *c, struct mediaproxy_srtp 
 
 	if (c->cipher->tfm_name) {
 		err = "failed to load cipher";
-		c->tfm = crypto_alloc_cipher(c->cipher->tfm_name, 0, CRYPTO_ALG_ASYNC);
-		if (IS_ERR(c->tfm)) {
-			ret = PTR_ERR(c->tfm);
-			c->tfm = NULL;
+		c->tfm[0] = crypto_alloc_cipher(c->cipher->tfm_name, 0, CRYPTO_ALG_ASYNC);
+		if (IS_ERR(c->tfm[0])) {
+			ret = PTR_ERR(c->tfm[0]);
+			c->tfm[0] = NULL;
 			goto error;
 		}
-		crypto_cipher_setkey(c->tfm, c->session_key, 16);
+		crypto_cipher_setkey(c->tfm[0], c->session_key, 16);
+	}
+
+	if (c->cipher->session_key_init) {
+		ret = c->cipher->session_key_init(c, s);
+		if (ret)
+			goto error;
 	}
 
 	if (c->hmac->tfm_name) {
@@ -1100,10 +1202,7 @@ static int gen_session_keys(struct mp_crypto_context *c, struct mediaproxy_srtp 
 	return 0;
 
 error:
-	if (c->tfm)
-		crypto_free_cipher(c->tfm);
-	if (c->shash)
-		crypto_free_shash(c->shash);
+	free_crypto_context(c);
 	printk(KERN_ERR "Failed to generate session keys: %s\n", err);
 	return ret;
 }
@@ -1798,11 +1897,6 @@ static int srtp_encrypt_aes_cm(struct mp_crypto_context *c,
 	u_int32_t *ivi;
 	u_int32_t idxh, idxl;
 
-	if (s->cipher == MPC_NULL)
-		return 0;
-	if (!c->cipher)
-		return 0;
-
 	memcpy(iv, c->session_salt, 14);
 	iv[14] = iv[15] = '\0';
 	ivi = (void *) iv;
@@ -1814,7 +1908,24 @@ static int srtp_encrypt_aes_cm(struct mp_crypto_context *c,
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
 
-	aes_ctr_128(r->payload, r->payload, r->payload_len, c->tfm, iv);
+	aes_ctr_128(r->payload, r->payload, r->payload_len, c->tfm[0], iv);
+
+	return 0;
+}
+
+static int srtp_encrypt_aes_f8(struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
+{
+	unsigned char iv[16];
+	u_int32_t roc;
+
+	iv[0] = 0;
+	memcpy(&iv[1], &r->header->m_pt, 11);
+	roc = htonl((pkt_idx & 0xffffffff0000ULL) >> 16);
+	memcpy(&iv[12], &roc, sizeof(roc));
+
+	aes_f8(r->payload, r->payload_len, c->tfm[0], c->tfm[1], iv);
 
 	return 0;
 }
