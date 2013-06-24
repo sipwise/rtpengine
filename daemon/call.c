@@ -123,6 +123,8 @@ const char *transport_protocol_strings[__PROTO_LAST] = {
 
 
 
+static void determine_handler(struct streamrelay *in);
+
 static int __k_null(struct mediaproxy_srtp *s, struct streamrelay *r);
 static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct streamrelay *r);
 static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct streamrelay *r);
@@ -235,6 +237,8 @@ void kernelize(struct callstream *c) {
 		for (j = 0; j < 2; j++) {
 			r = &p->rtps[j];
 			rp = &pp->rtps[j];
+
+			determine_handler(r);
 
 			if (is_addr_unspecified(&r->peer_advertised.ip46)
 					|| !r->fd.fd_family || !r->peer_advertised.port)
@@ -449,8 +453,11 @@ static const struct streamhandler *determine_handler_rtcp(struct streamrelay *in
 			abort();
 	}
 }
-static const struct streamhandler *determine_handler(struct streamrelay *in) {
+static void determine_handler(struct streamrelay *in) {
 	const struct streamhandler *ret;
+
+	if (in->handler)
+		return;
 
 	if (in->peer.protocol == in->peer_advertised.protocol)
 		goto dummy;
@@ -466,10 +473,13 @@ static const struct streamhandler *determine_handler(struct streamrelay *in) {
 
 	if (!ret)
 		goto dummy;
-	return ret;
+
+	in->handler = ret;
+
+	return;
 
 dummy:
-	return &__sh_noop;
+	in->handler = &__sh_noop;
 }
 
 /* called with r->up (== cs) locked */
@@ -519,8 +529,7 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 		return 0;
 	}
 
-	if (!sr_incoming->handler)
-		sr_incoming->handler = determine_handler(sr_incoming);
+	determine_handler(sr_incoming);
 	if (sr_incoming->handler->rewrite)
 		handler_ret = sr_incoming->handler->rewrite(s, sr_incoming);
 
