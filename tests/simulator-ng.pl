@@ -15,7 +15,7 @@ use MIME::Base64;
 
 my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
 	= (1000, 30, 1, 160, 20, 5, 5);
-my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS, $DEST, $SUITES);
+my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS, $DEST, $SUITES, $NOENC);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -33,6 +33,7 @@ GetOptions(
 		'rtcp-interval=i'=>\$RTCP_INTERVAL,	# in seconds
 		'stats-interval=i'=>\$STATS_INTERVAL,
 		'suites=s'	=> \$SUITES,
+		'no-encrypt'	=> \$NOENC,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -79,6 +80,7 @@ connect($fd, sockaddr_in($$DEST[1], inet_aton($$DEST[0]))) or die $!;
 msg({command => 'ping'})->{result} eq 'pong' or die;
 
 my (@calls, %branches);
+my %NOENC;
 
 sub send_receive {
 	my ($send_fd, $receive_fd, $payload, $destination) = @_;
@@ -271,6 +273,8 @@ sub rtcp_encrypt {
 			= gen_rtcp_session_keys($$ctx{$dir}{rtp_master_key}, $$ctx{$dir}{rtp_master_salt});
 	}
 
+	($NOENC && $NOENC{rtcp_packet}) and return $NOENC{rtcp_packet};
+
 	my $iv = $$ctx{$dir}{crypto_suite}{iv_rtcp}->($$ctx{$dir}, $r);
 	my ($hdr, $to_enc) = unpack('a8a*', $r);
 	my $enc = $$ctx{$dir}{crypto_suite}{enc_func}->($to_enc, $$ctx{$dir}{rtcp_session_key},
@@ -285,6 +289,8 @@ sub rtcp_encrypt {
 
 	$$ctx{$dir}{rtcp_index}++;
 
+	$NOENC{rtcp_packet} = $pkt;
+
 	return $pkt;
 }
 
@@ -295,6 +301,8 @@ sub rtp_encrypt {
 		($$ctx{$dir}{rtp_session_key}, $$ctx{$dir}{rtp_session_auth_key}, $$ctx{$dir}{rtp_session_salt})
 			= gen_rtp_session_keys($$ctx{$dir}{rtp_master_key}, $$ctx{$dir}{rtp_master_salt});
 	}
+
+	($NOENC && $NOENC{rtp_packet}) and return $NOENC{rtp_packet};
 
 	my ($hdr, $seq, $h2, $to_enc) = unpack('a2na8a*', $r);
 	my $roc = $$ctx{$dir}{rtp_roc} || 0;
@@ -312,6 +320,7 @@ sub rtp_encrypt {
 	#$pkt .= pack("N", 1); # mki
 	$pkt .= substr($hmac, 0, $$ctx{$dir}{crypto_suite}{auth_tag});
 
+	$NOENC{rtp_packet} = $pkt;
 
 	return $pkt;
 }
@@ -350,6 +359,12 @@ sub savp_sdp {
 	if (!$$ctx{out}{rtp_master_key}) {
 		$$ctx{out}{rtp_master_key} = rand_str(16);
 		$$ctx{out}{rtp_master_salt} = rand_str(14);
+		if ($NOENC && $NOENC{rtp_master_key}) {
+			$$ctx{out}{rtp_master_key} = $NOENC{rtp_master_key};
+			$$ctx{out}{rtp_master_salt} = $NOENC{rtp_master_salt};
+		}
+		$NOENC{rtp_master_key} = $$ctx{out}{rtp_master_key};
+		$NOENC{rtp_master_salt} = $$ctx{out}{rtp_master_salt};
 	}
 	return "a=crypto:1 $$ctx{out}{crypto_suite}{str} inline:" . encode_base64($$ctx{out}{rtp_master_key} . $$ctx{out}{rtp_master_salt}, '') . "\n";
 }
@@ -485,12 +500,14 @@ sub do_rtp {
 					warn("no rtp reply received, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]");
 					$KEEPGOING or undef($c);
 				}
+				$NOENC and $repl = $expect;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]";
 
 				$rtcp or next;
 				($payload, $expect) = $$trans[$a]{rtcp_func}($$trans[$b], $tcx, $tcx_o);
 				$dst = $$pr{sockaddr}($$outputs[$b][$j][0] + 1, $addr);
 				$repl = send_receive($$cfds[$a][$j], $$cfds[$b][$j], $payload, $dst);
+				$NOENC and $repl = $expect;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}";
 			}
 		}
