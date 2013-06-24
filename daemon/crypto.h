@@ -65,7 +65,7 @@ struct crypto_context {
 	char session_salt[14]; /* k_s */
 	char session_auth_key[20];
 
-	void *session_key_ctx;
+	void *session_key_ctx[2];
 
 	int have_session_key:1;
 };

@@ -26,8 +26,9 @@ static int hmac_sha1_rtp(struct crypto_context *, char *out, str *in, u_int64_t)
 static int hmac_sha1_rtcp(struct crypto_context *, char *out, str *in);
 static int aes_f8_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx);
 static int aes_f8_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, u_int64_t idx);
-static int aes_session_key_init(struct crypto_context *c);
-static int aes_session_key_cleanup(struct crypto_context *c);
+static int aes_cm_session_key_init(struct crypto_context *c);
+static int aes_f8_session_key_init(struct crypto_context *c);
+static int evp_session_key_cleanup(struct crypto_context *c);
 
 /* all lengths are in bytes */
 const struct crypto_suite crypto_suites[] = {
@@ -51,8 +52,8 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_session_key_init,
-		.session_key_cleanup	= aes_session_key_cleanup,
+		.session_key_init	= aes_cm_session_key_init,
+		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
 		.name			= "AES_CM_128_HMAC_SHA1_32",
@@ -74,8 +75,8 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_session_key_init,
-		.session_key_cleanup	= aes_session_key_cleanup,
+		.session_key_init	= aes_cm_session_key_init,
+		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
 		.name			= "F8_128_HMAC_SHA1_80",
@@ -97,8 +98,8 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_f8_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_session_key_init,
-		.session_key_cleanup	= aes_session_key_cleanup,
+		.session_key_init	= aes_f8_session_key_init,
+		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 };
 
@@ -277,7 +278,7 @@ static int aes_cm_encrypt(struct crypto_context *c, u_int32_t ssrc, str *s, u_in
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
 
-	aes_ctr_128(s->s, s, c->session_key_ctx, (char *) iv);
+	aes_ctr_128(s->s, s, c->session_key_ctx[0], (char *) iv);
 
 	return 0;
 }
@@ -295,37 +296,17 @@ static int aes_cm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, 
 /* rfc 3711 sections 4.1.2 and 4.1.2.1
  * encrypts in place */
 static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str *s) {
-	EVP_CIPHER_CTX ecc;
 	unsigned char key_block[16], last_key_block[16], /* S(j), S(j-1) */
 		      ivx[16], /* IV' */
-		      m[16],
 		      x[16];
 	int i, outlen, left;
-	int k_e_len, k_s_len; /* n_e, n_s */
 	u_int32_t j;
-	unsigned char *p, *key;
+	unsigned char *p;
 	u_int64_t *pi, *ki, *lki, *xi;
 	u_int32_t *xu;
 
-	k_e_len = c->crypto_suite->session_key_len;
-	k_s_len = c->crypto_suite->session_salt_len;
-	key = (unsigned char *) c->session_key;
-
-	/* m = k_s || 0x555..5 */
-	memcpy(m, c->session_salt, k_s_len);
-	for (i = k_s_len; i < k_e_len; i++)
-		m[i] = 0x55;
-
-	/* IV' = E(k_e XOR m, IV) */
-	for (i = 0; i < k_e_len; i++)
-		m[i] ^= key[i];
-
-	EVP_CIPHER_CTX_init(&ecc);
-	EVP_EncryptInit_ex(&ecc, EVP_aes_128_ecb(), NULL, m, NULL);
-	EVP_EncryptUpdate(&ecc, ivx, &outlen, iv, 16);
+	EVP_EncryptUpdate(c->session_key_ctx[1], ivx, &outlen, iv, 16);
 	assert(outlen == 16);
-	EVP_EncryptFinal_ex(&ecc, key_block, &outlen);
-	EVP_CIPHER_CTX_cleanup(&ecc);
 
 	pi = (void *) s->s;
 	ki = (void *) key_block;
@@ -345,7 +326,7 @@ static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str 
 		xi[0] ^= lki[0];
 		xi[1] ^= lki[1];
 
-		EVP_EncryptUpdate(c->session_key_ctx, key_block, &outlen, x, 16);
+		EVP_EncryptUpdate(c->session_key_ctx[0], key_block, &outlen, x, 16);
 		assert(outlen == 16);
 
 		if (G_UNLIKELY(left < 16)) {
@@ -434,26 +415,56 @@ static int hmac_sha1_rtcp(struct crypto_context *c, char *out, str *in) {
 	return 0;
 }
 
-static int aes_session_key_init(struct crypto_context *c) {
-	aes_session_key_cleanup(c);
-	c->session_key_ctx = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
-	EVP_CIPHER_CTX_init(c->session_key_ctx);
-	EVP_EncryptInit_ex(c->session_key_ctx, EVP_aes_128_ecb(), NULL,
+static int aes_cm_session_key_init(struct crypto_context *c) {
+	evp_session_key_cleanup(c);
+
+	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
+	EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_128_ecb(), NULL,
 			(unsigned char *) c->session_key, NULL);
 	return 0;
 }
 
-static int aes_session_key_cleanup(struct crypto_context *c) {
+static int aes_f8_session_key_init(struct crypto_context *c) {
+	unsigned char m[16];
+	int i;
+	int k_e_len, k_s_len; /* n_e, n_s */
+	unsigned char *key;
+
+	aes_cm_session_key_init(c);
+
+	k_e_len = c->crypto_suite->session_key_len;
+	k_s_len = c->crypto_suite->session_salt_len;
+	key = (unsigned char *) c->session_key;
+
+	/* m = k_s || 0x555..5 */
+	memcpy(m, c->session_salt, k_s_len);
+	for (i = k_s_len; i < k_e_len; i++)
+		m[i] = 0x55;
+	/* IV' = E(k_e XOR m, IV) */
+	for (i = 0; i < k_e_len; i++)
+		m[i] ^= key[i];
+
+	c->session_key_ctx[1] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	EVP_CIPHER_CTX_init(c->session_key_ctx[1]);
+	EVP_EncryptInit_ex(c->session_key_ctx[1], EVP_aes_128_ecb(), NULL, m, NULL);
+
+	return 0;
+}
+
+static int evp_session_key_cleanup(struct crypto_context *c) {
 	unsigned char block[16];
-	int len;
+	int len, i;
 
-	if (!c->session_key_ctx)
-		return 0;
+	for (i = 0; i < ARRAYSIZE(c->session_key_ctx); i++) {
+		if (!c->session_key_ctx[i])
+			continue;
 
-	EVP_EncryptFinal_ex(c->session_key_ctx, block, &len);
-	EVP_CIPHER_CTX_cleanup(c->session_key_ctx);
-	g_slice_free1(sizeof(EVP_CIPHER_CTX), c->session_key_ctx);
-	c->session_key_ctx = NULL;
+		EVP_EncryptFinal_ex(c->session_key_ctx[i], block, &len);
+		EVP_CIPHER_CTX_cleanup(c->session_key_ctx[i]);
+		g_slice_free1(sizeof(EVP_CIPHER_CTX), c->session_key_ctx[i]);
+		c->session_key_ctx[i] = NULL;
+	}
 
 	return 0;
 }
