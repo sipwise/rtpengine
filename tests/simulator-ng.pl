@@ -15,7 +15,7 @@ use MIME::Base64;
 
 my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
 	= (1000, 30, 1, 160, 20, 5, 5);
-my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS, $DEST);
+my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS, $DEST, $SUITES);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -32,6 +32,7 @@ GetOptions(
 		'rtp-interval=i'=> \$INTERVAL,		# in ms
 		'rtcp-interval=i'=>\$RTCP_INTERVAL,	# in seconds
 		'stats-interval=i'=>\$STATS_INTERVAL,
+		'suites=s'	=> \$SUITES,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -43,6 +44,7 @@ $PROTOS and $PROTOS = [split(/\s*[,;:]+\s*/, $PROTOS)];
 $DEST and $DEST = [split(/:/, $DEST)];
 $$DEST[0] or $$DEST[0] = '127.0.0.1';
 $$DEST[1] or $$DEST[1] = 2223;
+$SUITES and $SUITES = [split(/\s*[,;:]+\s*/, $SUITES)];
 
 my @chrs = ('a' .. 'z', 'A' .. 'Z', '0' .. '9');
 sub rand_str {
@@ -337,6 +339,7 @@ my @crypto_suites = (
 		iv_rtcp		=> \&aes_f8_iv_rtcp,
 	},
 );
+$SUITES and @crypto_suites = grep {my $x = $$_{str}; grep {$x eq $_} @$SUITES} @crypto_suites;
 my %crypto_suites = map {$$_{str} => $_} @crypto_suites;
 
 sub savp_sdp {
