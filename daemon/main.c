@@ -350,6 +350,8 @@ void redis_mod_verify(void *dlh) {
 
 	check_struct_size(call);
 	check_struct_size(callstream);
+	check_struct_size(crypto_suite);
+	check_struct_size(crypto_context);
 
 	check_struct_offset(call, callmaster);
 	check_struct_offset(call, chunk);
@@ -368,9 +370,12 @@ void redis_mod_verify(void *dlh) {
 	check_struct_offset(streamrelay, peer);
 	check_struct_offset(streamrelay, up);
 	check_struct_offset(streamrelay, last);
+	check_struct_offset(streamrelay, handler);
+	check_struct_offset(streamrelay, crypto);
 
 	check_struct_offset(stream, ip46);
 	check_struct_offset(stream, num);
+	check_struct_offset(stream, protocol);
 }
 
 void create_everything(struct main_context *ctx) {
