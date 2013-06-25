@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
+#include <glib.h>
 
 #include "str.h"
 #include "call.h"
@@ -246,7 +247,7 @@ static int rtcp_parse(GQueue *q, str *_s) {
 		if ((hdr->header.v_p_x & 0xc0) != 0x80) /* version 2 */
 			goto error;
 
-		if (hdr->header.pt >= ARRAYSIZE(handler_funcs))
+		if (hdr->header.pt >= G_N_ELEMENTS(handler_funcs))
 			goto error;
 		func = handler_funcs[hdr->header.pt];
 		if (!func)

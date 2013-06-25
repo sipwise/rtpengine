@@ -103,7 +103,7 @@ const struct crypto_suite crypto_suites[] = {
 	},
 };
 
-const int num_crypto_suites = ARRAYSIZE(crypto_suites);
+const int num_crypto_suites = G_N_ELEMENTS(crypto_suites);
 
 
 
@@ -456,7 +456,7 @@ static int evp_session_key_cleanup(struct crypto_context *c) {
 	unsigned char block[16];
 	int len, i;
 
-	for (i = 0; i < ARRAYSIZE(c->session_key_ctx); i++) {
+	for (i = 0; i < G_N_ELEMENTS(c->session_key_ctx); i++) {
 		if (!c->session_key_ctx[i])
 			continue;
 

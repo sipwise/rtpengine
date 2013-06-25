@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <zlib.h>
 #include <openssl/hmac.h>
+#include <glib.h>
 
 #include "str.h"
 #include "aux.h"
@@ -352,7 +353,7 @@ static int check_auth(str *msg, struct stun_attrs *attrs, struct peer *peer) {
 	iov[2].iov_base = msg->s + OFFSET_OF(struct header, cookie);
 	iov[2].iov_len = ntohs(lenX) + - 24 + 20 - OFFSET_OF(struct header, cookie);
 
-	__integrity(iov, ARRAYSIZE(iov), &peer->ice_pwd, digest);
+	__integrity(iov, G_N_ELEMENTS(iov), &peer->ice_pwd, digest);
 
 	return memcmp(digest, attrs->msg_integrity.s, 20) ? -1 : 0;
 }
