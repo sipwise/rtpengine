@@ -115,6 +115,12 @@ static inline void crypto_cleanup(struct crypto_context *c) {
 	if (c->crypto_suite->session_key_cleanup)
 		c->crypto_suite->session_key_cleanup(c);
 }
+static inline void crypto_context_pair_uninit(struct crypto_context_pair *p) {
+	p->in.session_key_ctx[0] = NULL;
+	p->in.session_key_ctx[1] = NULL;
+	p->out.session_key_ctx[0] = NULL;
+	p->out.session_key_ctx[1] = NULL;
+}
 
 
 

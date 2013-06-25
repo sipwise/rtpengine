@@ -1377,6 +1377,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		sr->stun = srs->stun;
 		sr->rtcp = srs->rtcp;
 		sr->crypto = srs->crypto;
+		crypto_context_pair_uninit(&srs->crypto);
 
 
 		srs->fd.fd = -1;
