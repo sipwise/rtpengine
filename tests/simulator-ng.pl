@@ -218,9 +218,9 @@ sub gen_rtp_session_keys {
 sub gen_rtcp_session_keys {
 	my ($master_key, $master_salt) = @_;
 
-	my $session_key = prf_n(128, $master_key, xor_112($master_salt, "\3\0\0\0\0"));
-	my $auth_key = prf_n(160, $master_key, xor_112($master_salt, "\4\0\0\0\0"));
-	my $session_salt = prf_n(112, $master_key, xor_112($master_salt, "\5\0\0\0\0"));
+	my $session_key = prf_n(128, $master_key, xor_112($master_salt, "\3\0\0\0\0\0\0"));
+	my $auth_key = prf_n(160, $master_key, xor_112($master_salt, "\4\0\0\0\0\0\0"));
+	my $session_salt = prf_n(112, $master_key, xor_112($master_salt, "\5\0\0\0\0\0\0"));
 #	print("RTCP keys generated for master key " . unpack("H8", $master_key) . "... and salt " .
 #		unpack("H8", $master_salt) . "... are: " .
 #		unpack("H8", $session_key) . "..., " .
