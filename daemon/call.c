@@ -1353,7 +1353,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	src->confirmed = 0;
 	unkernelize(src);
 
-	dest->filled = 1;
+	dest->filled = src->filled;
 	dest->tag = src->tag;
 	src->tag = STR_NULL;
 	dest->desired_family = src->desired_family;
@@ -1376,8 +1376,8 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		sr->peer_advertised = srs->peer_advertised;
 		sr->stun = srs->stun;
 		sr->rtcp = srs->rtcp;
-		sr->crypto = srs->crypto;
-		crypto_context_pair_uninit(&srs->crypto);
+		crypto_context_move(&sr->crypto.in, &srs->crypto.in);
+		crypto_context_move(&sr->other->crypto.out, &srs->other->crypto.out);
 
 
 		srs->fd.fd = -1;
@@ -2556,16 +2556,12 @@ out:
 	return PROTO_UNKNOWN;
 }
 
-static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, bencode_item_t *input) {
+static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
 	bencode_item_t *list, *it;
-	struct stream_input *si;
 	int diridx;
-	enum stream_direction dirs[2];
-	GList *gl;
 	str s;
 
 	ZERO(*out);
-	ZERO(dirs);
 
 	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
@@ -2592,15 +2588,9 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
 		for (it = list->child; it && diridx < 2; it = it->sibling) {
 			if (!bencode_strcmp(it, "internal"))
-				dirs[diridx++] = DIR_INTERNAL;
+				out->directions[diridx++] = DIR_INTERNAL;
 			else if (!bencode_strcmp(it, "external"))
-				dirs[diridx++] = DIR_EXTERNAL;
-		}
-
-		for (gl = streams->head; gl; gl = gl->next) {
-			si = gl->data;
-			si->direction[0] = dirs[0];
-			si->direction[1] = dirs[1];
+				out->directions[diridx++] = DIR_EXTERNAL;
 		}
 	}
 
@@ -2664,7 +2654,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
 
-	call_ng_process_flags(&flags, &streams, input);
+	call_ng_process_flags(&flags, input);
 
 	streamhash = g_hash_table_new((GHashFunc) stream_hash, (GEqualFunc) stream_equal);
 	errstr = "Incomplete SDP specification";

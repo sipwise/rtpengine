@@ -42,6 +42,7 @@ $SIG{ALRM} = sub { print "alarm!\n"; };
 setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
 $PROTOS and $PROTOS = [split(/\s*[,;:]+\s*/, $PROTOS)];
+$PROTOS && @$PROTOS == 1 and $$PROTOS[1] = $$PROTOS[0];
 $DEST and $DEST = [split(/:/, $DEST)];
 $$DEST[0] or $$DEST[0] = '127.0.0.1';
 $$DEST[1] or $$DEST[1] = 2223;
@@ -467,6 +468,8 @@ sub savp_crypto {
 	($$ctx{in}{rtp_master_key}, $$ctx{in}{rtp_master_salt}) = unpack('a16a14', $ks);
 	$$ctx{in}{rtp_mki} = $a[4];
 	$$ctx{in}{rtp_mki_len} = $a[5];
+	undef($$ctx{in}{rtp_session_key});
+	undef($$ctx{in}{rtcp_session_key});
 }
 
 sub hexdump {
@@ -681,7 +684,7 @@ a=rtcp:$cp
 	my @rp_ports = $$o{sdp} =~ /m=audio (\d+) \Q$$tr_o{name}\E /gs or die;
 	$rp_af ne $$pr_o{reply} and die "incorrect address family reply code";
 	my $rpl_a = $$c{outputs} || ($$c{outputs} = []);
-	my $rpl_t = $$rpl_a[$i] || ($$rpl_a[$i] = []);
+	my $rpl_t = $$rpl_a[$i] = [];
 	for my $rpl (@rp_ports) {
 		$rpl == 0 and die "mediaproxy ran out of ports";
 		push(@$rpl_t, [$rpl,$rp_add]);
@@ -705,6 +708,7 @@ my $rtptime = Time::HiRes::gettimeofday();
 my $rtcptime = $rtptime;
 my $countstart = $rtptime;
 my $countstop = $countstart + $STATS_INTERVAL;
+my $last_reinv = 0;
 while (time() < $end) {
 	my $now = Time::HiRes::gettimeofday();
 	$now <= $rtptime and Time::HiRes::sleep($rtptime - $now);
@@ -731,7 +735,8 @@ while (time() < $end) {
 
 	@calls = sort {rand() < .5} grep(defined, @calls);
 
-	if ($REINVITES && int($now) % 5 == 0) {
+	if ($REINVITES && $now >= $last_reinv + 5) {
+		$last_reinv = $now;
 		my $c = $calls[rand(@calls)];
 		print("simulating re-invite on $$c{callid_viabranch}[0]");
 		for my $i (0,1) {

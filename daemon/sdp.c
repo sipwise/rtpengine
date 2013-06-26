@@ -813,6 +813,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 				si->consecutive_num = (i == 0) ? media->port_count : 1;
 				si->stream.protocol = tp;
 				si->crypto = cctx;
+				memcpy(&si->direction, &flags->directions, sizeof(si->direction));
 
 				g_hash_table_insert(streamhash, si, si);
 				g_queue_push_tail(streams, si);
@@ -836,6 +837,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 			si->is_rtcp = 1;
 			si->stream.protocol = tp;
 			si->crypto = cctx;
+			memcpy(&si->direction, &flags->directions, sizeof(si->direction));
 
 			g_hash_table_insert(streamhash, si, si);
 			g_queue_push_tail(streams, si);

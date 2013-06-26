@@ -4,6 +4,7 @@
 
 
 #include <sys/types.h>
+#include <glib.h>
 #include "str.h"
 
 
@@ -120,6 +121,16 @@ static inline void crypto_context_pair_uninit(struct crypto_context_pair *p) {
 	p->in.session_key_ctx[1] = NULL;
 	p->out.session_key_ctx[0] = NULL;
 	p->out.session_key_ctx[1] = NULL;
+}
+static inline void crypto_context_move(struct crypto_context *dst, struct crypto_context *src) {
+	int i;
+
+	if (src == dst)
+		return;
+	crypto_cleanup(dst);
+	*dst = *src;
+	for (i = 0; i < G_N_ELEMENTS(dst->session_key_ctx); i++)
+		src->session_key_ctx[i] = NULL;
 }
 
 
