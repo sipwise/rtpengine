@@ -2002,9 +2002,9 @@ not_stun:
 		goto not_rtp;
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
-		goto skip3;
+		goto skip_error;
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
-		goto skip3;
+		goto skip_error;
 
 	skb_trim(skb, rtp.header_len + rtp.payload_len);
 
@@ -2047,7 +2047,10 @@ not_rtp:
 
 	return NF_DROP;
 
-skip3:
+skip_error:
+	spin_lock_irqsave(&g->stats_lock, flags);
+	g->stats.errors++;
+	spin_unlock_irqrestore(&g->stats_lock, flags);
 	target_push(g);
 skip2:
 	kfree_skb(skb);
