@@ -626,6 +626,7 @@ sub update_lookup {
 	for my $j (0 .. $num_streams) {
 		if (!$$fds_t[$j]) {
 			$NUM_STREAMS++;
+			undef($$tcx_o{in});
 			while (1) {
 				undef($$fds_t[$j]);
 				undef($$cfds_t[$j]);
@@ -664,7 +665,7 @@ a=rtcp:$cp
 !
 		$$tr{sdp_media_params} and $sdp .= $$tr{sdp_media_params}($tcx);
 	}
-#	$i or print("transport is $$tr{name} -> $$tr_o{name}\n");
+	$i or print("transport is $$tr{name} -> $$tr_o{name}\n");
 
 	my $dict = {sdp => $sdp, command => $commands[$i], 'call-id' => $callid,
 		'from-tag' => $$tags[0],
@@ -743,6 +744,7 @@ while (time() < $end) {
 			if (rand() < .5) {
 				print(", side $sides[$i]: new port");
 				undef($$c{fds}[$i]);
+				$NUM_STREAMS--;
 			}
 			else {
 				print(", side $sides[$i]: same port");

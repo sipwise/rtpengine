@@ -1376,7 +1376,8 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		sr->peer_advertised = srs->peer_advertised;
 		sr->stun = srs->stun;
 		sr->rtcp = srs->rtcp;
-		crypto_context_move(&sr->crypto.in, &srs->crypto.in);
+		crypto_context_move(&sr->other->crypto.in, &srs->other->crypto.in);
+		crypto_context_move(&sr->crypto.out, &srs->crypto.out);
 
 
 		srs->fd.fd = -1;
