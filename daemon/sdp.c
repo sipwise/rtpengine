@@ -1452,7 +1452,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				chopper_append_c(chop, "\r\n");
 			}
 
-			generate_crypto(media, flags, rtp->other, rtcp->other, chop);
+			generate_crypto(media, flags, rtp, rtcp, chop);
 
 			if (do_ice) {
 				mutex_lock(&rtp->up->up->lock);

@@ -294,40 +294,40 @@ static int call_avpf2avp_rtcp(str *s, struct streamrelay *r) {
 	return rtcp_avpf2avp(s);
 }
 static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
-	return rtp_avp2savp(s, &r->crypto.out);
+	return rtp_avp2savp(s, &r->other->crypto.out);
 }
 static int call_avp2savp_rtcp(str *s, struct streamrelay *r) {
-	return rtcp_avp2savp(s, &r->crypto.out);
+	return rtcp_avp2savp(s, &r->other->crypto.out);
 }
 static int call_savp2avp_rtp(str *s, struct streamrelay *r) {
-	return rtp_savp2avp(s, &r->other->crypto.in);
+	return rtp_savp2avp(s, &r->crypto.in);
 }
 static int call_savp2avp_rtcp(str *s, struct streamrelay *r) {
-	return rtcp_savp2avp(s, &r->other->crypto.in);
+	return rtcp_savp2avp(s, &r->crypto.in);
 }
 static int call_avpf2savp_rtcp(str *s, struct streamrelay *r) {
 	int ret;
 	ret = rtcp_avpf2avp(s);
 	if (ret)
 		return ret;
-	return rtcp_avp2savp(s, &r->crypto.out);
+	return rtcp_avp2savp(s, &r->other->crypto.out);
 }
 static int call_savpf2avp_rtcp(str *s, struct streamrelay *r) {
 	int ret;
-	ret = rtcp_savp2avp(s, &r->other->crypto.in);
+	ret = rtcp_savp2avp(s, &r->crypto.in);
 	if (ret)
 		return ret;
 	return rtcp_avpf2avp(s);
 }
 static int call_savpf2savp_rtcp(str *s, struct streamrelay *r) {
 	int ret;
-	ret = rtcp_savp2avp(s, &r->other->crypto.in);
+	ret = rtcp_savp2avp(s, &r->crypto.in);
 	if (ret)
 		return ret;
 	ret = rtcp_avpf2avp(s);
 	if (ret)
 		return ret;
-	return rtcp_avp2savp(s, &r->crypto.out);
+	return rtcp_avp2savp(s, &r->other->crypto.out);
 }
 
 
@@ -349,10 +349,10 @@ static int __k_srtp_crypt(struct mediaproxy_srtp *s, struct crypto_context *c) {
 	return 0;
 }
 static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct streamrelay *r) {
-	return __k_srtp_crypt(s, &r->crypto.out);
+	return __k_srtp_crypt(s, &r->other->crypto.out);
 }
 static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct streamrelay *r) {
-	return __k_srtp_crypt(s, &r->other->crypto.in);
+	return __k_srtp_crypt(s, &r->crypto.in);
 }
 
 static const struct streamhandler *determine_handler_rtp(struct streamrelay *in) {
@@ -1053,10 +1053,10 @@ static void callmaster_timer(void *ptr) {
 		sr->kstats.bytes = ke->stats.bytes;
 		sr->kstats.errors = ke->stats.errors;
 
-		if (sr->crypto.out.crypto_suite)
-			sr->crypto.out.s_l = ke->target.encrypt.last_index;
+		if (sr->other->crypto.out.crypto_suite)
+			sr->other->crypto.out.s_l = ke->target.encrypt.last_index;
 		if (sr->crypto.in.crypto_suite)
-			sr->other->crypto.in.s_l = ke->target.decrypt.last_index;
+			sr->crypto.in.s_l = ke->target.decrypt.last_index;
 
 		mutex_unlock(&cs->lock);
 
@@ -1307,8 +1307,8 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	b->peer_advertised = b->peer;
 	a->rtcp = s->is_rtcp;
 	b->rtcp = 1;
-	a->crypto.in = s->crypto;
-	b->crypto.in = s->crypto;
+	a->other->crypto.in = s->crypto;
+	b->other->crypto.in = s->crypto;
 
 	for (i = 0; i < 2; i++) {
 		switch (s->direction[i]) {
@@ -1377,7 +1377,6 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		sr->stun = srs->stun;
 		sr->rtcp = srs->rtcp;
 		crypto_context_move(&sr->crypto.in, &srs->crypto.in);
-		crypto_context_move(&sr->other->crypto.out, &srs->other->crypto.out);
 
 
 		srs->fd.fd = -1;
