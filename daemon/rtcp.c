@@ -13,6 +13,20 @@
 
 
 
+/* This toggles between two different and incompatible interpretations of
+ * RFC 3711, namely sections 4.3.2 and 4.3.1.
+ * See http://www.ietf.org/mail-archive/web/avt/current/msg06124.html
+ * The default (define not set) is to be compatible with libsrtp, but
+ * incompatible with a strict interpretation of the RFC.
+ */
+#ifdef SRTCP_KEY_DERIVATION_RFC_COMPLIANCE
+#define SRTCP_R_LENGTH 4
+#else
+#define SRTCP_R_LENGTH 6
+#endif
+
+
+
 
 #define RTCP_PT_SR	200	/* sender report */
 #define RTCP_PT_RR	201	/* receiver report */
@@ -323,13 +337,13 @@ static inline int check_session_keys(struct crypto_context *c) {
 		goto error;
 
 	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
-	if (crypto_gen_session_key(c, &s, 0x03, 6))
+	if (crypto_gen_session_key(c, &s, 0x03, SRTCP_R_LENGTH))
 		goto error;
 	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtcp_auth_key_len);
-	if (crypto_gen_session_key(c, &s, 0x04, 6))
+	if (crypto_gen_session_key(c, &s, 0x04, SRTCP_R_LENGTH))
 		goto error;
 	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
-	if (crypto_gen_session_key(c, &s, 0x05, 6))
+	if (crypto_gen_session_key(c, &s, 0x05, SRTCP_R_LENGTH))
 		goto error;
 
 	c->have_session_key = 1;

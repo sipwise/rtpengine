@@ -10,6 +10,8 @@ CFLAGS+=	-D_GNU_SOURCE
 CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
 CFLAGS+=	-DMP_PLUGIN_DIR="\"/usr/lib/mediaproxy-ng\""
 
+#CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
+
 ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1
 else
