@@ -1500,7 +1500,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 				chopper_append_c(chop, "\r\n");
 			}
 			else if (r_flags == 2) {
-				chopper_append_c(chop, "a=rtcp:1 IN IP4 0.0.0.0\r\na=rtcp-mux\r\n");
+				//chopper_append_c(chop, "a=rtcp:1 IN IP4 0.0.0.0\r\na=rtcp-mux\r\n");
 			}
 
 			generate_crypto(media, flags, rtp, rtcp, chop);
