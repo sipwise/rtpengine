@@ -1100,6 +1100,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 
 		switch (attr->attr) {
 			case ATTR_ICE:
+			case ATTR_ICE_UFRAG:
 			case ATTR_CANDIDATE:
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
@@ -1132,6 +1133,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attribu
 
 		switch (attr->attr) {
 			case ATTR_ICE:
+			case ATTR_ICE_UFRAG:
 			case ATTR_CANDIDATE:
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
@@ -1442,7 +1444,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 
 			if (!media->port_num) {
 				if (!attr_get_by_id(&media->attributes, ATTR_INACTIVE))
-					chopper_append_c(chop, "a=inactive\n");
+					chopper_append_c(chop, "a=inactive\r\n");
 				continue;
 			}
 
