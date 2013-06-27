@@ -1409,6 +1409,7 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 		sr->peer_advertised = srs->peer_advertised;
 		sr->stun = srs->stun;
 		sr->rtcp = srs->rtcp;
+		sr->rtcp_mux = srs->rtcp_mux;
 		crypto_context_move(&sr->other->crypto.in, &srs->other->crypto.in);
 		crypto_context_move(&sr->crypto.out, &srs->crypto.out);
 
