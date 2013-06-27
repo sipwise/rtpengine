@@ -43,6 +43,10 @@
 #define LOG_PARAMS_C(c) STR_FMT(&(c)->callid)
 #define LOG_PARAMS_CI(c) STR_FMT(&(c)->callid), STR_FMT0(log_info)
 
+#define IPV4_ONLY_SUPPORT 0
+
+
+
 static __thread const str *log_info;
 
 
@@ -504,7 +508,9 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 	struct peer *p_incoming, *p_outgoing;
 	struct callstream *cs_incoming;
 	int ret, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0;
+#if IPV4_ONLY_SUPPORT
 	struct sockaddr_in sin;
+#endif
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
 	struct iovec iov;
@@ -614,6 +620,7 @@ forward:
 	ch = CMSG_FIRSTHDR(&mh);
 	ZERO(*ch);
 
+#if IPV4_ONLY_SUPPORT
 	switch (sr_incoming->fd.fd_family) {
 		case AF_INET:
 			ZERO(sin);
@@ -623,6 +630,9 @@ forward:
 			mh.msg_name = &sin;
 			mh.msg_namelen = sizeof(sin);
 
+#else
+	goto ipv6;
+#endif
 ipv4_src:
 			ch->cmsg_len = CMSG_LEN(sizeof(*pi));
 			ch->cmsg_level = IPPROTO_IP;
@@ -633,10 +643,15 @@ ipv4_src:
 			pi->ipi_spec_dst.s_addr = m->conf.ipv4;
 
 			mh.msg_controllen = CMSG_SPACE(sizeof(*pi));
+#if IPV4_ONLY_SUPPORT
 
 			break;
 
 		case AF_INET6:
+#else
+	goto ipv6_done;
+ipv6:
+#endif
 			ZERO(sin6);
 			sin6.sin6_family = AF_INET6;
 			sin6.sin6_addr = sr_incoming->peer.ip46;
@@ -656,12 +671,16 @@ ipv4_src:
 			pi6->ipi6_addr = m->conf.ipv6;
 
 			mh.msg_controllen = CMSG_SPACE(sizeof(*pi6));
+#if IPV4_ONLY_SUPPORT
 
 			break;
 
 		default:
 			abort();
 	}
+#else
+ipv6_done:
+#endif
 
 	ZERO(iov);
 	iov.iov_base = s->s;
@@ -1147,6 +1166,7 @@ fail:
 
 
 
+#if IPV4_ONLY_SUPPORT
 static int get_port4(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 	int fd;
 	struct sockaddr_in sin;
@@ -1175,6 +1195,7 @@ fail:
 	close(fd);
 	return -1;
 }
+#endif
 
 static int get_port6(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 	int fd;
@@ -1225,9 +1246,11 @@ static int get_port(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
 
+#if IPV4_ONLY_SUPPORT
 	if (is_addr_unspecified(&m->conf.ipv6))
 		ret = get_port4(r, p, m);
 	else
+#endif
 		ret = get_port6(r, p, m);
 
 	if (ret) {
