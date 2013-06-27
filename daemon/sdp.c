@@ -34,8 +34,9 @@ struct sdp_connection {
 
 struct sdp_attributes {
 	GQueue list;
-	GHashTable *name_hash;
-	GHashTable *lists_hash;
+	/* GHashTable *name_hash; */
+	/* GHashTable *name_lists_hash; */
+	GHashTable *id_lists_hash;
 	GHashTable *id_hash;
 };
 
@@ -281,9 +282,11 @@ static int parse_media(char *start, char *end, struct sdp_media *output) {
 
 static void attrs_init(struct sdp_attributes *a) {
 	g_queue_init(&a->list);
-	a->name_hash = g_hash_table_new(str_hash, str_equal);
+	/* a->name_hash = g_hash_table_new(str_hash, str_equal); */
 	a->id_hash = g_hash_table_new(g_int_hash, g_int_equal);
-	a->lists_hash = g_hash_table_new_full(str_hash, str_equal,
+	/* a->name_lists_hash = g_hash_table_new_full(str_hash, str_equal,
+			NULL, (GDestroyNotify) g_queue_free); */
+	a->id_lists_hash = g_hash_table_new_full(g_int_hash, g_int_equal,
 			NULL, (GDestroyNotify) g_queue_free);
 }
 
@@ -641,14 +644,20 @@ int sdp_parse(str *body, GQueue *sessions) {
 
 				attrs = media ? &media->attributes : &session->attributes;
 				g_queue_push_tail(&attrs->list, attr);
-				g_hash_table_insert(attrs->name_hash, &attr->name, attr);
-				g_hash_table_insert(attrs->id_hash, &attr->attr, attr);
-				if (attr->key.s)
-					g_hash_table_insert(attrs->name_hash, &attr->key, attr);
+				/* g_hash_table_insert(attrs->name_hash, &attr->name, attr); */
+				if (!g_hash_table_lookup(attrs->id_hash, &attr->attr))
+					g_hash_table_insert(attrs->id_hash, &attr->attr, attr);
+				/* if (attr->key.s)
+					g_hash_table_insert(attrs->name_hash, &attr->key, attr); */
 
-				attr_queue = g_hash_table_lookup(attrs->lists_hash, &attr->name);
+				/* attr_queue = g_hash_table_lookup(attrs->name_lists_hash, &attr->name);
 				if (!attr_queue)
-					g_hash_table_insert(attrs->lists_hash, &attr->name,
+					g_hash_table_insert(attrs->name_lists_hash, &attr->name,
+							(attr_queue = g_queue_new()));
+				g_queue_push_tail(attr_queue, attr); */
+				attr_queue = g_hash_table_lookup(attrs->id_lists_hash, &attr->attr);
+				if (!attr_queue)
+					g_hash_table_insert(attrs->id_lists_hash, &attr->attr,
 							(attr_queue = g_queue_new()));
 				g_queue_push_tail(attr_queue, attr);
 
@@ -703,9 +712,10 @@ error:
 static void free_attributes(struct sdp_attributes *a) {
 	struct sdp_attribute *attr;
 
-	g_hash_table_destroy(a->name_hash);
+	/* g_hash_table_destroy(a->name_hash); */
 	g_hash_table_destroy(a->id_hash);
-	g_hash_table_destroy(a->lists_hash);
+	/* g_hash_table_destroy(a->name_lists_hash); */
+	g_hash_table_destroy(a->id_lists_hash);
 	while ((attr = g_queue_pop_head(&a->list))) {
 		g_slice_free1(sizeof(*attr), attr);
 	}
@@ -1191,7 +1201,7 @@ static unsigned long prio_calc(unsigned int pref) {
 }
 
 static unsigned long new_priority(struct sdp_media *media) {
-	str s;
+	int id;
 	GQueue *cands;
 	unsigned int pref;
 	unsigned long prio;
@@ -1204,8 +1214,8 @@ static unsigned long new_priority(struct sdp_media *media) {
 	if (!media)
 		goto out;
 
-	str_init(&s, "candidate");
-	cands = g_hash_table_lookup(media->attributes.lists_hash, &s);
+	id = ATTR_CANDIDATE;
+	cands = g_hash_table_lookup(media->attributes.id_lists_hash, &id);
 	if (!cands)
 		goto out;
 
