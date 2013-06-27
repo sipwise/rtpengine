@@ -165,6 +165,7 @@ struct mediaproxy_table {
 };
 
 struct mp_cipher {
+	enum mediaproxy_cipher		id;
 	const char			*name;
 	const char			*tfm_name;
 	int				(*decrypt)(struct mp_crypto_context *, struct mediaproxy_srtp *,
@@ -175,6 +176,7 @@ struct mp_cipher {
 };
 
 struct mp_hmac {
+	enum mediaproxy_hmac		id;
 	const char			*name;
 	const char			*tfm_name;
 };
@@ -256,18 +258,22 @@ static const struct seq_operations proc_main_list_seq_ops = {
 
 static const struct mp_cipher mp_ciphers[] = {
 	[MPC_INVALID] = {
+		.id		= MPC_INVALID,
 		.name		= NULL,
 	},
 	[MPC_NULL] = {
+		.id		= MPC_NULL,
 		.name		= "NULL",
 	},
 	[MPC_AES_CM] = {
+		.id		= MPC_AES_CM,
 		.name		= "AES-CM",
 		.tfm_name	= "aes",
 		.decrypt	= srtp_encrypt_aes_cm,
 		.encrypt	= srtp_encrypt_aes_cm,
 	},
 	[MPC_AES_F8] = {
+		.id		= MPC_AES_F8,
 		.name		= "AES-F8",
 		.tfm_name	= "aes",
 		.decrypt	= srtp_encrypt_aes_f8,
@@ -278,12 +284,15 @@ static const struct mp_cipher mp_ciphers[] = {
 
 static const struct mp_hmac mp_hmacs[] = {
 	[MPH_INVALID] = {
+		.id		= MPH_INVALID,
 		.name		= NULL,
 	},
 	[MPH_NULL] = {
+		.id		= MPH_NULL,
 		.name		= "NULL",
 	},
 	[MPH_HMAC_SHA1] = {
+		.id		= MPH_HMAC_SHA1,
 		.name		= "HMAC-SHA1",
 		.tfm_name	= "hmac(sha1)",
 	},
@@ -810,11 +819,11 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 }
 
 static void proc_list_addr_print(struct seq_file *f, const char *s, const struct mp_address *a) {
+	if (!a->family)
+		return;
+
 	seq_printf(f, "    %6s ", s);
 	switch (a->family) {
-		case 0:
-			seq_printf(f, "<none>\n");
-			break;
 		case AF_INET:
 			seq_printf(f, "inet4 %u.%u.%u.%u:%u\n", a->u8[0], a->u8[1], a->u8[2], a->u8[3], a->port);
 			break;
@@ -829,11 +838,24 @@ static void proc_list_addr_print(struct seq_file *f, const char *s, const struct
 	}
 }
 
-static void proc_list_crypto_print(struct seq_file *f, struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
-	seq_printf(f, "        cipher: %s\n", c->cipher ? c->cipher->name : "<null>");
-	seq_printf(f, "            MKI: %llu length %u\n", (unsigned long long) s->mki, s->mki_len);
-	seq_printf(f, "        HMAC: %s\n", c->hmac ? c->hmac->name : "<null>");
-	seq_printf(f, "            auth tag length: %u\n", s->auth_tag_len);
+static void proc_list_crypto_print(struct seq_file *f, struct mp_crypto_context *c,
+		struct mediaproxy_srtp *s, const char *label)
+{
+	int hdr = 0;
+
+	if (c->cipher && c->cipher->id != MPC_NULL) {
+		if (!hdr++)
+			seq_printf(f, "    SRTP %s parameters:\n", label);
+		seq_printf(f, "        cipher: %s\n", c->cipher->name ? : "<invalid>");
+		if (s->mki || s->mki_len)
+			seq_printf(f, "            MKI: %llu length %u\n", (unsigned long long) s->mki, s->mki_len);
+	}
+	if (c->hmac && c->hmac->id != MPH_NULL) {
+		if (!hdr++)
+			seq_printf(f, "    SRTP %s parameters:\n", label);
+		seq_printf(f, "        HMAC: %s\n", c->hmac->name ? : "<invalid>");
+		seq_printf(f, "            auth tag length: %u\n", s->auth_tag_len);
+	}
 }
 
 static int proc_list_show(struct seq_file *f, void *v) {
@@ -848,10 +870,10 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
 		g->stats.bytes, g->stats.packets, g->stats.errors);
 	spin_unlock_irqrestore(&g->stats_lock, flags);
-	seq_printf(f, "    SRTP in:\n");
-	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt);
-	seq_printf(f, "    SRTP out:\n");
-	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt);
+	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption (incoming)");
+	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt, "encryption (outgoing)");
+	if (g->target.rtcp_mux)
+		seq_printf(f, "    options: rtcp-mux\n");
 
 	target_push(g);
 
