@@ -325,7 +325,7 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 
 /* XXX error handling/logging */
 static int parse_attribute_crypto(struct sdp_attribute *output) {
-	char *start, *end;
+	char *start, *end, *endp;
 	struct attribute_crypto *c;
 	int salt_key_len, enc_salt_key_len;
 	int b64_state = 0;
@@ -344,8 +344,8 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 
 	c = &output->u.crypto;
 
-	c->tag = strtoul(c->tag_str.s, NULL, 10);
-	if (!c->tag)
+	c->tag = strtoul(c->tag_str.s, &endp, 10);
+	if (endp == c->tag_str.s)
 		return -1;
 
 	c->crypto_suite = crypto_find_suite(&c->crypto_suite_str);
