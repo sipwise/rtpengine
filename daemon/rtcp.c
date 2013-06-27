@@ -458,3 +458,20 @@ error:
 	mylog(LOG_WARNING, "Discarded invalid SRTCP packet: %s", err);
 	return -1;
 }
+
+
+/* RFC 5761 section 4 */
+int rtcp_demux_is_rtcp(const str *s) {
+	struct rtcp_packet *rtcp;
+
+	if (s->len < sizeof(*rtcp))
+		return 0;
+
+	rtcp = (void *) s->s;
+
+	if (rtcp->header.pt < 194)
+		return 0;
+	if (rtcp->header.pt > 223)
+		return 0;
+	return 1;
+}

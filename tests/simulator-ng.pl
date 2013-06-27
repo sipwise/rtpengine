@@ -15,7 +15,7 @@ use MIME::Base64;
 
 my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
 	= (1000, 30, 1, 160, 20, 5, 5);
-my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS, $DEST, $SUITES, $NOENC);
+my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $BRANCHES, $PROTOS, $DEST, $SUITES, $NOENC, $RTCPMUX);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -34,6 +34,7 @@ GetOptions(
 		'stats-interval=i'=>\$STATS_INTERVAL,
 		'suites=s'	=> \$SUITES,
 		'no-encrypt'	=> \$NOENC,
+		'rtcp-mux'	=> \$RTCPMUX,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -508,8 +509,20 @@ sub do_rtp {
 
 				$rtcp or next;
 				($payload, $expect) = $$trans[$a]{rtcp_func}($$trans[$b], $tcx, $tcx_o);
-				$dst = $$pr{sockaddr}($$outputs[$b][$j][0] + 1, $addr);
-				$repl = send_receive($$cfds[$a][$j], $$cfds[$b][$j], $payload, $dst);
+				my $dstport = $$outputs[$b][$j][0] + 1;
+				my $sendfd = $$cfds[$a][$j];
+				my $expfd = $$cfds[$b][$j];
+				if ($RTCPMUX && !$a) {
+					if (!$a) {
+						$dstport--;
+						$sendfd = $$fds[$a][$j];
+					}
+					else {
+						$expfd = $$fds[$b][$j];
+					}
+				}
+				$dst = $$pr{sockaddr}($dstport, $addr);
+				$repl = send_receive($sendfd, $expfd, $payload, $dst);
 				$NOENC and $repl = $expect;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}";
 			}
@@ -663,6 +676,13 @@ m=audio $p $$tr{name} 8
 a=rtpmap:8 PCMA/8000
 a=rtcp:$cp
 !
+		if ($RTCPMUX && !$i) {
+			$sdp .= "a=rtcp-mux\n";
+			rand() >= .5 and $sdp .= "a=rtcp:$p\n";
+		}
+		else {
+			$sdp .= "a=rtcp:$cp\n";
+		}
 		$$tr{sdp_media_params} and $sdp .= $$tr{sdp_media_params}($tcx);
 	}
 	$i or print("transport is $$tr{name} -> $$tr_o{name}\n");
@@ -682,6 +702,7 @@ a=rtcp:$cp
 
 	$$o{result} eq 'ok' or die;
 	my ($rp_af, $rp_add) = $$o{sdp} =~ /c=IN IP([46]) (\S+)/s or die;
+	$RTCPMUX && $i and ($$o{sdp} =~ /a=rtcp-mux/s or die);
 	my @rp_ports = $$o{sdp} =~ /m=audio (\d+) \Q$$tr_o{name}\E /gs or die;
 	$rp_af ne $$pr_o{reply} and die "incorrect address family reply code";
 	my $rpl_a = $$c{outputs} || ($$c{outputs} = []);

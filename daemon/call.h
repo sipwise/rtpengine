@@ -85,6 +85,7 @@ struct stream_input {
 	struct crypto_context	crypto;
 	int			has_rtcp:1;
 	int			is_rtcp:1;
+	int			rtcp_mux:1;
 };
 struct udp_fd {
 	int			fd;
@@ -94,11 +95,7 @@ struct udp_fd {
 
 struct streamrelay;
 struct mediaproxy_srtp;
-struct streamhandler {
-	int			(*rewrite)(str *, struct streamrelay *);
-	int			(*kernel_decrypt)(struct mediaproxy_srtp *, struct streamrelay *);
-	int			(*kernel_encrypt)(struct mediaproxy_srtp *, struct streamrelay *);
-};
+struct streamhandler;
 
 struct streamrelay {
 	struct udp_fd		fd;
@@ -114,6 +111,7 @@ struct streamrelay {
 	struct crypto_context_pair crypto;
 	int			stun:1;
 	int			rtcp:1;
+	int			rtcp_mux:1;
 	int			no_kernel_support:1;
 };
 struct relays_cache {

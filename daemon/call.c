@@ -89,6 +89,12 @@ struct call_stats {
 	struct stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
 };
 
+struct streamhandler {
+	int		(*rewrite)(str *, struct streamrelay *);
+	int		(*kernel_decrypt)(struct mediaproxy_srtp *, struct streamrelay *);
+	int		(*kernel_encrypt)(struct mediaproxy_srtp *, struct streamrelay *);
+};
+
 static char *rtp_codecs[] = {
 	[0]	= "G711u",
 	[1]	= "1016",
@@ -136,7 +142,7 @@ static int call_savp2avp_rtcp(str *s, struct streamrelay *r);
 static int call_avpf2avp_rtcp(str *s, struct streamrelay *r);
 static int call_avpf2savp_rtcp(str *s, struct streamrelay *r);
 static int call_savpf2avp_rtcp(str *s, struct streamrelay *r);
-static int call_savpf2savp_rtcp(str *s, struct streamrelay *r);
+static int call_savpf2savp_rtcp(str *s, struct streamrelay *t);
 
 static const struct streamhandler __sh_noop = {
 	.kernel_decrypt		= __k_null,
@@ -251,6 +257,7 @@ void kernelize(struct callstream *c) {
 			mpt.tos = cm->conf.tos;
 			mpt.src_addr.port = rp->fd.localport;
 			mpt.dst_addr.port = r->peer.port;
+			mpt.rtcp_mux = r->rtcp_mux;
 
 			if (IN6_IS_ADDR_V4MAPPED(&r->peer.ip46)) {
 				mpt.src_addr.family = AF_INET;
@@ -289,6 +296,15 @@ no_kernel_stream:
 
 
 
+
+/* returns: 0 = not a muxed stream, 1 = muxed, RTP, 2 = muxed, RTCP */
+static int rtcp_demux(str *s, struct streamrelay *r) {
+	if (r->idx != 0)
+		return 0;
+	if (!r->rtcp_mux)
+		return 0;
+	return rtcp_demux_is_rtcp(s) ? 2 : 1;
+}
 
 static int call_avpf2avp_rtcp(str *s, struct streamrelay *r) {
 	return rtcp_avpf2avp(s);
@@ -484,10 +500,10 @@ dummy:
 
 /* called with r->up (== cs) locked */
 static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockaddr_in6 *fsin) {
-	struct streamrelay *sr_outgoing, *sr_out_rtcp;
+	struct streamrelay *sr_outgoing, *sr_out_rtcp, *sr_in_rtcp;
 	struct peer *p_incoming, *p_outgoing;
 	struct callstream *cs_incoming;
-	int ret, update = 0, stun_ret = 0, handler_ret = 0;
+	int ret, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
@@ -529,9 +545,14 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 		return 0;
 	}
 
-	determine_handler(sr_incoming);
-	if (sr_incoming->handler->rewrite)
-		handler_ret = sr_incoming->handler->rewrite(s, sr_incoming);
+	sr_in_rtcp = sr_incoming;
+	muxed_rtcp = rtcp_demux(s, sr_incoming);
+	if (muxed_rtcp == 2)
+		sr_in_rtcp = &p_incoming->rtps[1];
+
+	determine_handler(sr_in_rtcp);
+	if (sr_in_rtcp->handler->rewrite)
+		handler_ret = sr_in_rtcp->handler->rewrite(s, sr_in_rtcp);
 
 use_cand:
 	if (p_incoming->confirmed || !p_incoming->filled || sr_incoming->idx != 0)
@@ -574,6 +595,17 @@ forward:
 			|| !sr_incoming->peer_advertised.port || !sr_incoming->fd.fd_family
 			|| stun_ret || handler_ret)
 		goto drop;
+
+	if (muxed_rtcp == 2) {
+		/* demux */
+		sr_incoming = sr_in_rtcp;
+		sr_outgoing = sr_incoming->other;
+	}
+	else if (sr_incoming->idx == 1 && sr_outgoing->rtcp_mux) {
+		/* mux */
+		sr_incoming = &p_incoming->rtps[0];
+		sr_outgoing = sr_incoming->other;
+	}
 
 	ZERO(mh);
 	mh.msg_control = buf;
@@ -1307,6 +1339,7 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	b->peer_advertised = b->peer;
 	a->rtcp = s->is_rtcp;
 	b->rtcp = 1;
+	a->other->rtcp_mux = s->rtcp_mux;
 	a->other->crypto.in = s->crypto;
 	b->other->crypto.in = s->crypto;
 

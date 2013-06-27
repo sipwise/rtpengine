@@ -25,6 +25,8 @@ int rtcp_avpf2avp(str *);
 int rtcp_avp2savp(str *, struct crypto_context *);
 int rtcp_savp2avp(str *, struct crypto_context *);
 
+int rtcp_demux_is_rtcp(const str *);
+
 
 
 #endif

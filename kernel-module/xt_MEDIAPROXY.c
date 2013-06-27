@@ -1951,6 +1951,14 @@ static inline int srtp_decrypt(struct mp_crypto_context *c,
 	return c->cipher->decrypt(c, s, r, pkt_idx);
 }
 
+static inline int is_muxed_rtcp(struct rtp_parsed *r) {
+	if (r->header->m_pt < 194)
+		return 0;
+	if (r->header->m_pt > 223)
+		return 0;
+	return 1;
+}
+
 static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t) {
 	struct udphdr *uh;
 	struct mediaproxy_target *g;
@@ -1999,7 +2007,9 @@ not_stun:
 			g->decrypt.cipher->name);
 
 	if (parse_rtp(&rtp, skb))
-		goto not_rtp;
+		goto skip1;
+	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
+		goto skip1;
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
@@ -2015,7 +2025,6 @@ not_stun:
 			rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
 			rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
 
-not_rtp:
 	if (g->target.mirror_addr.family) {
 		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
@@ -2051,6 +2060,7 @@ skip_error:
 	spin_lock_irqsave(&g->stats_lock, flags);
 	g->stats.errors++;
 	spin_unlock_irqrestore(&g->stats_lock, flags);
+skip1:
 	target_push(g);
 skip2:
 	kfree_skb(skb);
