@@ -133,6 +133,7 @@ struct sdp_attribute {
 		ATTR_SENDONLY,
 		ATTR_RECVONLY,
 		ATTR_RTCP_MUX,
+		ATTR_EXTMAP,
 	} attr;
 
 	union {
@@ -505,6 +506,8 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case 6:
 			if (!str_cmp(&a->name, "crypto"))
 				ret = parse_attribute_crypto(a);
+			if (!str_cmp(&a->name, "extmap"))
+				a->attr = ATTR_EXTMAP;
 			break;
 		case 7:
 			if (!str_cmp(&a->name, "ice-pwd"))
@@ -1141,6 +1144,9 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 					break;
 				goto strip;
 
+			case ATTR_EXTMAP:
+				goto strip;
+
 			default:
 				break;
 		}
@@ -1176,6 +1182,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attribu
 
 			case ATTR_RTCP:
 			case ATTR_RTCP_MUX:
+			case ATTR_EXTMAP:
 				goto strip;
 
 			case ATTR_CRYPTO:
