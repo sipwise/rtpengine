@@ -368,7 +368,7 @@ sub savp_sdp {
 		$NOENC{rtp_master_key} = $$ctx{out}{rtp_master_key};
 		$NOENC{rtp_master_salt} = $$ctx{out}{rtp_master_salt};
 	}
-	return "a=crypto:1 $$ctx{out}{crypto_suite}{str} inline:" . encode_base64($$ctx{out}{rtp_master_key} . $$ctx{out}{rtp_master_salt}, '') . "\n";
+	return "a=crypto:0 $$ctx{out}{crypto_suite}{str} inline:" . encode_base64($$ctx{out}{rtp_master_key} . $$ctx{out}{rtp_master_salt}, '') . "\n";
 }
 
 sub rtcp_sr {
@@ -461,7 +461,7 @@ sub savp_crypto {
 
 	my $cs = $$ctx_o{out}{crypto_suite}{str};
 	my $re = $cs ? qr/\Q$cs\E/ : qr/\w+/;
-	my @a = $sdp =~ /[\r\n]a=crypto:1 ($re) inline:([\w\/+]{40})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?[\r\n]/si;
+	my @a = $sdp =~ /[\r\n]a=crypto:\d+ ($re) inline:([\w\/+]{40})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?[\r\n]/si;
 	@a or die;
 	$$ctx{in}{crypto_suite} = $crypto_suites{$a[0]} or die;
 	my $ks = decode_base64($a[1]);
