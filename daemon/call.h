@@ -214,6 +214,11 @@ void relays_cache_init(struct relays_cache *c);
 int relays_cache_want_ports(struct relays_cache *c, int portA, int portB, struct call *call);
 void relays_cache_cleanup(struct relays_cache *c, struct callmaster *m);
 
+enum transport_protocol transport_protocol(const str *s);
+
+
+
+
 static inline char *call_strdup(struct call *c, const char *s) {
 	char *r;
 	if (!s)
@@ -253,9 +258,6 @@ static inline str *call_str_init_dup(struct call *c, char *s) {
 	return call_str_dup(c, &t);
 }
 
-
-
-enum transport_protocol transport_protocol(const str *s);
 
 
 #endif

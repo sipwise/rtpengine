@@ -505,6 +505,7 @@ sub do_rtp {
 					$KEEPGOING or undef($c);
 				}
 				$NOENC and $repl = $expect;
+				!$repl && $KEEPGOING and next;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}, ports $$outputs[$b][$j][0] and $$outputs[$a][$j][0]";
 
 				$rtcp or next;
@@ -524,6 +525,7 @@ sub do_rtp {
 				$dst = $$pr{sockaddr}($dstport, $addr);
 				$repl = send_receive($sendfd, $expfd, $payload, $dst);
 				$NOENC and $repl = $expect;
+				!$repl && $KEEPGOING and next;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans[$a]{name} > $$trans[$b]{name}";
 			}
 		}

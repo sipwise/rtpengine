@@ -517,6 +517,7 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 	struct callmaster *m;
 	unsigned char cc;
 	char addr[64];
+	struct stream s_copy;
 
 	p_incoming = sr_incoming->up;
 	cs_incoming = p_incoming->up;
@@ -566,6 +567,7 @@ use_cand:
 		LOG_PARAMS_C(c), sr_incoming->fd.localport, addr);
 
 	p_incoming->confirmed = 1;
+	update = 1;
 
 peerinfo:
 	if (!stun_ret && !p_incoming->codec && s->len >= 2) {
@@ -578,12 +580,14 @@ peerinfo:
 	}
 
 	sr_out_rtcp = &p_outgoing->rtps[1]; /* sr_incoming->idx == 0 */
+	s_copy = sr_outgoing->peer;
 	sr_outgoing->peer.ip46 = fsin->sin6_addr;
 	sr_outgoing->peer.port = ntohs(fsin->sin6_port);
-	sr_out_rtcp->peer.ip46 = sr_outgoing->peer.ip46;
-	sr_out_rtcp->peer.port = sr_outgoing->peer.port + 1; /* sr_out_rtcp->idx == 1 */
-
-	update = 1;
+	if (memcmp(&s_copy, &sr_outgoing->peer, sizeof(s_copy))) {
+		sr_out_rtcp->peer.ip46 = sr_outgoing->peer.ip46;
+		sr_out_rtcp->peer.port = sr_outgoing->peer.port + 1; /* sr_out_rtcp->idx == 1 */
+		update = 1;
+	}
 
 	if (sr_incoming->no_kernel_support)
 		goto forward;
@@ -744,7 +748,7 @@ out:
 	ca = cs->call;
 	mutex_unlock(&cs->lock);
 
-	if (update && redis_update)
+	if (update)
 		redis_update(ca, ca->callmaster->conf.redis);
 }
 
@@ -1026,7 +1030,7 @@ static void callmaster_timer(void *ptr) {
 	u_int64_t d;
 	struct stats tmpstats;
 	struct callstream *cs;
-	int j;
+	int j, update;
 
 	ZERO(hlp);
 
@@ -1064,12 +1068,23 @@ static void callmaster_timer(void *ptr) {
 		sr->kstats.bytes = ke->stats.bytes;
 		sr->kstats.errors = ke->stats.errors;
 
-		if (sr->other->crypto.out.crypto_suite)
+		update = 0;
+
+		if (sr->other->crypto.out.crypto_suite
+				&& ke->target.encrypt.last_index - sr->other->crypto.out.s_l > 0x4000) {
 			sr->other->crypto.out.s_l = ke->target.encrypt.last_index;
-		if (sr->crypto.in.crypto_suite)
+			update = 1;
+		}
+		if (sr->crypto.in.crypto_suite
+				&& ke->target.decrypt.last_index - sr->crypto.in.s_l > 0x4000) {
 			sr->crypto.in.s_l = ke->target.decrypt.last_index;
+			update = 1;
+		}
 
 		mutex_unlock(&cs->lock);
+
+		if (update)
+			redis_update(cs->call, m->conf.redis);
 
 next:
 		hlp.ports[ke->target.target_port] = NULL;
@@ -1765,8 +1780,7 @@ static void call_destroy(struct call *c) {
 
 	obj_put(c);
 
-	if (redis_delete)
-		redis_delete(c, m->conf.redis);
+	redis_delete(c, m->conf.redis);
 
 	mutex_lock(&c->lock);
 	/* at this point, no more callstreams can be added */
@@ -2129,8 +2143,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	ret = streams_print(c->callstreams, num, opmode, out[RE_UDP_COOKIE], SAF_UDP);
 	mutex_unlock(&c->lock);
 
-	if (redis_update)
-		redis_update(c, m->conf.redis);
+	redis_update(c, m->conf.redis);
 
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
 	goto out;
@@ -2177,8 +2190,7 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 
 	streams_free(&s);
 
-	if (redis_update)
-		redis_update(c, m->conf.redis);
+	redis_update(c, m->conf.redis);
 
 	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
 	obj_put(c);
@@ -2487,8 +2499,7 @@ static void calls_dump_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
 	struct callmaster *m = c->callmaster;
 
-	if (redis_update)
-		redis_update(c, m->conf.redis);
+	redis_update(c, m->conf.redis);
 }
 
 void calls_dump_redis(struct callmaster *m) {
@@ -2496,7 +2507,7 @@ void calls_dump_redis(struct callmaster *m) {
 		return;
 
 	mylog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe(m->conf.redis);
+	redis_wipe_mod(m->conf.redis);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	mylog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
 }
@@ -2652,6 +2663,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	ret = sdp_replace(chopper, &parsed, call, (num >= 0) ? opmode : (opmode ^ 1), &flags, streamhash);
 
 	mutex_unlock(&call->lock);
+	redis_update(call, m->conf.redis);
 	obj_put(call);
 
 	errstr = "Error rewriting SDP";

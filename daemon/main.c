@@ -27,8 +27,8 @@
 
 #define die(x...) do { fprintf(stderr, x); exit(-1); } while(0)
 #define dlresolve(n) do {								\
-	n = dlsym(dlh, "mod_" #n);							\
-	if (!n)										\
+	n ## _mod = dlsym(dlh, "mod_" #n);							\
+	if (!n ## _mod)										\
 		die("Failed to resolve symbol from plugin: %s\n", "mod_" #n);		\
 } while(0)
 #define check_struct_size(x) do {							\
@@ -460,7 +460,7 @@ void create_everything(struct main_context *ctx) {
 		if (!strp || !*strp || strcmp(*strp, "redis/3"))
 			die("Incorrect redis module version: %s\n", *strp);
 		redis_mod_verify(dlh);
-		mc.redis = redis_new(redis_ip, redis_port, redis_db);
+		mc.redis = redis_new_mod(redis_ip, redis_port, redis_db);
 		if (!mc.redis)
 			die("Cannot start up without Redis database\n");
 	}
@@ -471,10 +471,8 @@ void create_everything(struct main_context *ctx) {
 		daemonize();
 	wpidfile();
 
-	if (mc.redis) {
-		if (redis_restore(ctx->m, mc.redis))
-			die("Refusing to continue without working Redis database\n");
-	}
+	if (redis_restore(ctx->m, mc.redis))
+		die("Refusing to continue without working Redis database\n");
 }
 
 static void timer_loop(void *d) {

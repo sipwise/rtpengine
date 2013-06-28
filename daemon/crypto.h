@@ -59,7 +59,6 @@ struct crypto_context {
 	u_int32_t roc;
 	u_int64_t s_l;
 	/* XXX replay list */
-	u_int64_t num_packets;
 	/* <from, to>? */
 
 	char session_key[16]; /* k_e */

@@ -15,11 +15,30 @@ struct redis;
 
 
 
-extern struct redis *(*redis_new)(u_int32_t, u_int16_t, int);
-extern int (*redis_restore)(struct callmaster *, struct redis *);
-extern void (*redis_update)(struct call *, struct redis *);
-extern void (*redis_delete)(struct call *, struct redis *);
-extern void (*redis_wipe)(struct redis *);
+extern struct redis *(*redis_new_mod)(u_int32_t, u_int16_t, int);
+extern int (*redis_restore_mod)(struct callmaster *, struct redis *);
+extern void (*redis_update_mod)(struct call *, struct redis *);
+extern void (*redis_delete_mod)(struct call *, struct redis *);
+extern void (*redis_wipe_mod)(struct redis *);
+
+
+
+
+static inline void redis_update(struct call *c, struct redis *r) {
+	if (!redis_update_mod)
+		return;
+	redis_update_mod(c, r);
+}
+static inline void redis_delete(struct call *c, struct redis *r) {
+	if (!redis_delete_mod)
+		return;
+	redis_delete_mod(c, r);
+}
+static inline int redis_restore(struct callmaster *m, struct redis *r) {
+	if (!redis_restore_mod)
+		return 0;
+	return redis_restore_mod(m, r);
+}
 
 
 
