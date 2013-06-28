@@ -1372,8 +1372,6 @@ static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
 				c->crypto_suite->master_salt_len);
 		/* mki = mki_len = 0 */
 		c->tag = rtp->crypto.in.tag;
-		if (!c->tag)
-			c->tag++;
 	}
 
 	mutex_unlock(&rtp->up->up->lock);
