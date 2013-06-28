@@ -96,15 +96,15 @@ static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) 
 
 	seq = ntohs(rtp->seq_num);
 	/* rfc 3711 section 3.3.1 */
-	if (G_UNLIKELY(!c->s_l))
-		c->s_l = seq;
+	if (G_UNLIKELY(!c->last_index))
+		c->last_index = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	index = ((u_int64_t) c->roc << 16) | seq;
-	diff = index - c->s_l;
+	index = (c->last_index & 0xffffffff0000ULL) | seq;
+	diff = index - c->last_index;
 	if (diff >= 0) {
 		if (diff < 0x8000)
-			c->s_l = index;
+			c->last_index = index;
 		else if (index >= 0x10000)
 			index -= 0x10000;
 	}
@@ -113,8 +113,7 @@ static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) 
 			;
 		else {
 			index += 0x10000;
-			c->roc++;
-			c->s_l = index;
+			c->last_index = index;
 		}
 	}
 

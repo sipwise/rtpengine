@@ -359,7 +359,7 @@ static int __k_srtp_crypt(struct mediaproxy_srtp *s, struct crypto_context *c) {
 		.hmac		= c->crypto_suite->kernel_hmac,
 		.mki		= c->mki,
 		.mki_len	= c->mki_len,
-		.last_index	= c->s_l,
+		.last_index	= c->last_index,
 		.auth_tag_len	= c->crypto_suite->srtp_auth_tag,
 	};
 	memcpy(s->master_key, c->master_key, c->crypto_suite->master_key_len);
@@ -1071,13 +1071,13 @@ static void callmaster_timer(void *ptr) {
 		update = 0;
 
 		if (sr->other->crypto.out.crypto_suite
-				&& ke->target.encrypt.last_index - sr->other->crypto.out.s_l > 0x4000) {
-			sr->other->crypto.out.s_l = ke->target.encrypt.last_index;
+				&& ke->target.encrypt.last_index - sr->other->crypto.out.last_index > 0x4000) {
+			sr->other->crypto.out.last_index = ke->target.encrypt.last_index;
 			update = 1;
 		}
 		if (sr->crypto.in.crypto_suite
-				&& ke->target.decrypt.last_index - sr->crypto.in.s_l > 0x4000) {
-			sr->crypto.in.s_l = ke->target.decrypt.last_index;
+				&& ke->target.decrypt.last_index - sr->crypto.in.last_index > 0x4000) {
+			sr->crypto.in.last_index = ke->target.decrypt.last_index;
 			update = 1;
 		}
 

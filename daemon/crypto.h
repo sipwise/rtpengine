@@ -55,9 +55,7 @@ struct crypto_context {
 	unsigned int mki_len;
 	unsigned int tag;
 
-	/* from rfc 3711 */
-	u_int32_t roc;
-	u_int64_t s_l;
+	u_int64_t last_index;
 	/* XXX replay list */
 	/* <from, to>? */
 
