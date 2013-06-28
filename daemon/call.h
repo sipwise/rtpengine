@@ -89,7 +89,6 @@ struct stream_input {
 };
 struct udp_fd {
 	int			fd;
-	int			fd_family;
 	u_int16_t		localport;
 };
 

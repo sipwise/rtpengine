@@ -43,8 +43,6 @@
 #define LOG_PARAMS_C(c) STR_FMT(&(c)->callid)
 #define LOG_PARAMS_CI(c) STR_FMT(&(c)->callid), STR_FMT0(log_info)
 
-#define IPV4_ONLY_SUPPORT 0
-
 
 
 static __thread const str *log_info;
@@ -251,7 +249,7 @@ void kernelize(struct callstream *c) {
 			determine_handler(r);
 
 			if (is_addr_unspecified(&r->peer_advertised.ip46)
-					|| !r->fd.fd_family || !r->peer_advertised.port)
+					|| !r->peer_advertised.port)
 				goto no_kernel_stream;
 			if (!r->handler->kernel_decrypt
 					|| !r->handler->kernel_encrypt)
@@ -508,9 +506,6 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 	struct peer *p_incoming, *p_outgoing;
 	struct callstream *cs_incoming;
 	int ret, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0;
-#if IPV4_ONLY_SUPPORT
-	struct sockaddr_in sin;
-#endif
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
 	struct iovec iov;
@@ -598,7 +593,7 @@ peerinfo:
 
 forward:
 	if (is_addr_unspecified(&sr_incoming->peer_advertised.ip46)
-			|| !sr_incoming->peer_advertised.port || !sr_incoming->fd.fd_family
+			|| !sr_incoming->peer_advertised.port
 			|| stun_ret || handler_ret)
 		goto drop;
 
@@ -620,67 +615,35 @@ forward:
 	ch = CMSG_FIRSTHDR(&mh);
 	ZERO(*ch);
 
-#if IPV4_ONLY_SUPPORT
-	switch (sr_incoming->fd.fd_family) {
-		case AF_INET:
-			ZERO(sin);
-			sin.sin_family = AF_INET;
-			sin.sin_addr.s_addr = sr_incoming->peer.ip46.s6_addr32[3];
-			sin.sin_port = htons(sr_incoming->peer.port);
-			mh.msg_name = &sin;
-			mh.msg_namelen = sizeof(sin);
+	ZERO(sin6);
+	sin6.sin6_family = AF_INET6;
+	sin6.sin6_addr = sr_incoming->peer.ip46;
+	sin6.sin6_port = htons(sr_incoming->peer.port);
+	mh.msg_name = &sin6;
+	mh.msg_namelen = sizeof(sin6);
 
-#else
-	goto ipv6;
-#endif
-ipv4_src:
-			ch->cmsg_len = CMSG_LEN(sizeof(*pi));
-			ch->cmsg_level = IPPROTO_IP;
-			ch->cmsg_type = IP_PKTINFO;
+	if (IN6_IS_ADDR_V4MAPPED(&sin6.sin6_addr)) {
+		ch->cmsg_len = CMSG_LEN(sizeof(*pi));
+		ch->cmsg_level = IPPROTO_IP;
+		ch->cmsg_type = IP_PKTINFO;
 
-			pi = (void *) CMSG_DATA(ch);
-			ZERO(*pi);
-			pi->ipi_spec_dst.s_addr = m->conf.ipv4;
+		pi = (void *) CMSG_DATA(ch);
+		ZERO(*pi);
+		pi->ipi_spec_dst.s_addr = m->conf.ipv4;
 
-			mh.msg_controllen = CMSG_SPACE(sizeof(*pi));
-#if IPV4_ONLY_SUPPORT
-
-			break;
-
-		case AF_INET6:
-#else
-	goto ipv6_done;
-ipv6:
-#endif
-			ZERO(sin6);
-			sin6.sin6_family = AF_INET6;
-			sin6.sin6_addr = sr_incoming->peer.ip46;
-			sin6.sin6_port = htons(sr_incoming->peer.port);
-			mh.msg_name = &sin6;
-			mh.msg_namelen = sizeof(sin6);
-
-			if (IN6_IS_ADDR_V4MAPPED(&sin6.sin6_addr))
-				goto ipv4_src;
-
-			ch->cmsg_len = CMSG_LEN(sizeof(*pi6));
-			ch->cmsg_level = IPPROTO_IPV6;
-			ch->cmsg_type = IPV6_PKTINFO;
-
-			pi6 = (void *) CMSG_DATA(ch);
-			ZERO(*pi6);
-			pi6->ipi6_addr = m->conf.ipv6;
-
-			mh.msg_controllen = CMSG_SPACE(sizeof(*pi6));
-#if IPV4_ONLY_SUPPORT
-
-			break;
-
-		default:
-			abort();
+		mh.msg_controllen = CMSG_SPACE(sizeof(*pi));
 	}
-#else
-ipv6_done:
-#endif
+	else {
+		ch->cmsg_len = CMSG_LEN(sizeof(*pi6));
+		ch->cmsg_level = IPPROTO_IPV6;
+		ch->cmsg_type = IPV6_PKTINFO;
+
+		pi6 = (void *) CMSG_DATA(ch);
+		ZERO(*pi6);
+		pi6->ipi6_addr = m->conf.ipv6;
+
+		mh.msg_controllen = CMSG_SPACE(sizeof(*pi6));
+	}
 
 	ZERO(iov);
 	iov.iov_base = s->s;
@@ -754,9 +717,6 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 		}
 		if (ret >= MAX_RTP_PACKET_SIZE)
 			mylog(LOG_WARNING, "UDP packet possibly truncated");
-
-		if (ss.ss_family != r->fd.fd_family)
-			abort();
 
 		sinp = &ss;
 		if (ss.ss_family == AF_INET) {
@@ -1166,37 +1126,6 @@ fail:
 
 
 
-#if IPV4_ONLY_SUPPORT
-static int get_port4(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
-	int fd;
-	struct sockaddr_in sin;
-
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (fd < 0)
-		return -1;
-
-	nonblock(fd);
-	reuseaddr(fd);
-	if (m->conf.tos)
-		setsockopt(fd, IPPROTO_IP, IP_TOS, &m->conf.tos, sizeof(m->conf.tos));
-
-	ZERO(sin);
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(p);
-	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)))
-		goto fail;
-
-	r->fd = fd;
-	r->fd_family = AF_INET;
-
-	return 0;
-
-fail:
-	close(fd);
-	return -1;
-}
-#endif
-
 static int get_port6(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 	int fd;
 	struct sockaddr_in6 sin;
@@ -1224,7 +1153,6 @@ static int get_port6(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 		goto fail;
 
 	r->fd = fd;
-	r->fd_family = AF_INET6;
 
 	return 0;
 
@@ -1246,12 +1174,7 @@ static int get_port(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
 
-#if IPV4_ONLY_SUPPORT
-	if (is_addr_unspecified(&m->conf.ipv6))
-		ret = get_port4(r, p, m);
-	else
-#endif
-		ret = get_port6(r, p, m);
+	ret = get_port6(r, p, m);
 
 	if (ret) {
 		mutex_lock(&m->portlock);
@@ -1438,7 +1361,6 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 
 
 		srs->fd.fd = -1;
-		srs->fd.fd_family = 0;
 		srs->fd.localport = 0;
 		ZERO(srs->peer);
 		ZERO(srs->peer_advertised);
