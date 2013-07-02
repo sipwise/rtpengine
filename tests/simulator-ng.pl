@@ -354,9 +354,12 @@ $SUITES and @crypto_suites = grep {my $x = $$_{str}; grep {$x eq $_} @$SUITES} @
 my %crypto_suites = map {$$_{str} => $_} @crypto_suites;
 
 sub savp_sdp {
-	my ($ctx) = @_;
+	my ($ctx, $ctx_o) = @_;
 
-	$$ctx{out}{crypto_suite} or $$ctx{out}{crypto_suite} = $crypto_suites[rand(@crypto_suites)];
+	if (!$$ctx{out}{crypto_suite}) {
+		$$ctx{out}{crypto_suite} = $$ctx_o{in}{crypto_suite} ? $$ctx_o{in}{crypto_suite}
+			: $crypto_suites[rand(@crypto_suites)];
+	}
 
 	if (!$$ctx{out}{rtp_master_key}) {
 		$$ctx{out}{rtp_master_key} = rand_str(16);
@@ -685,7 +688,7 @@ a=rtcp:$cp
 		else {
 			$sdp .= "a=rtcp:$cp\n";
 		}
-		$$tr{sdp_media_params} and $sdp .= $$tr{sdp_media_params}($tcx);
+		$$tr{sdp_media_params} and $sdp .= $$tr{sdp_media_params}($tcx, $tcx_o);
 	}
 	$i or print("transport is $$tr{name} -> $$tr_o{name}\n");
 
