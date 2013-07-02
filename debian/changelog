@@ -1,3 +1,14 @@
+ngcp-mediaproxy-ng (2.3.0) unstable; urgency=low
+
+  * Implements RFC 3711 (SRTP, RTP/SAVP), RFC 4585 (RTP/AVPF),
+    RFC 4568 (SDES), RFC 5124 (RTP/SAVPF)
+  * Supports userspace and kernelspace bridging between RTP/AVP,
+    RTP/AVPF, RTP/SAVP and RTP/SAVPF in arbitrary combinations
+  * Supoprt for some additional SDP attributes
+  * Drops support for hosts without IPv6 stack
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 02 Jul 2013 15:07:30 -0400
+
 ngcp-mediaproxy-ng (2.2.1) unstable; urgency=low
 
   * Handle zero ports and addresses in NG protocol
