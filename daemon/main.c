@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <sys/resource.h>
 #include <glib.h>
+#include <glib/gstdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -452,7 +453,8 @@ void create_everything(struct main_context *ctx) {
 
 	if (redis_ip) {
 		dlh = dlopen(MP_PLUGIN_DIR "/mediaproxy-redis.so", RTLD_NOW | RTLD_GLOBAL);
-		if (!dlh && errno == ENOENT)
+		if (!dlh && !g_file_test(MP_PLUGIN_DIR "/mediaproxy-redis.so", G_FILE_TEST_IS_REGULAR)
+				&& g_file_test("../../mediaproxy-redis/redis.so", G_FILE_TEST_IS_REGULAR))
 			dlh = dlopen("../../mediaproxy-redis/redis.so", RTLD_NOW | RTLD_GLOBAL);
 		if (!dlh)
 			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
