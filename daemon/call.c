@@ -562,8 +562,11 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 		update = 1;
 
 use_cand:
-	if (p_incoming->confirmed || !p_incoming->filled || sr_incoming->idx != 0)
+	if (!p_incoming->filled || sr_incoming->idx != 0)
 		goto forward;
+
+	if (p_incoming->confirmed)
+		goto kernel_check;
 
 	if (!c->lookup_done || poller_now <= c->lookup_done + 3)
 		goto peerinfo;
@@ -594,6 +597,7 @@ peerinfo:
 		update = 1;
 	}
 
+kernel_check:
 	if (sr_incoming->no_kernel_support)
 		goto forward;
 
