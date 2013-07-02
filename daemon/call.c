@@ -326,24 +326,24 @@ static int call_savp2avp_rtcp(str *s, struct streamrelay *r) {
 static int call_avpf2savp_rtcp(str *s, struct streamrelay *r) {
 	int ret;
 	ret = rtcp_avpf2avp(s);
-	if (ret)
+	if (ret < 0)
 		return ret;
 	return rtcp_avp2savp(s, &r->other->crypto.out);
 }
 static int call_savpf2avp_rtcp(str *s, struct streamrelay *r) {
 	int ret;
 	ret = rtcp_savp2avp(s, &r->crypto.in);
-	if (ret)
+	if (ret < 0)
 		return ret;
 	return rtcp_avpf2avp(s);
 }
 static int call_savpf2savp_rtcp(str *s, struct streamrelay *r) {
 	int ret;
 	ret = rtcp_savp2avp(s, &r->crypto.in);
-	if (ret)
+	if (ret < 0)
 		return ret;
 	ret = rtcp_avpf2avp(s);
-	if (ret)
+	if (ret < 0)
 		return ret;
 	return rtcp_avp2savp(s, &r->other->crypto.out);
 }
@@ -555,6 +555,11 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 	determine_handler(sr_in_rtcp);
 	if (sr_in_rtcp->handler->rewrite)
 		handler_ret = sr_in_rtcp->handler->rewrite(s, sr_in_rtcp);
+		/* return values are: 0 = forward packet, -1 = error/dont forward,
+		 * 1 = forward and push update to redis */
+
+	if (handler_ret > 0)
+		update = 1;
 
 use_cand:
 	if (p_incoming->confirmed || !p_incoming->filled || sr_incoming->idx != 0)
@@ -598,7 +603,7 @@ peerinfo:
 forward:
 	if (is_addr_unspecified(&sr_incoming->peer_advertised.ip46)
 			|| !sr_incoming->peer_advertised.port
-			|| stun_ret || handler_ret)
+			|| stun_ret || handler_ret < 0)
 		goto drop;
 
 	if (muxed_rtcp == 2) {

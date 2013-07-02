@@ -409,7 +409,7 @@ int rtcp_avp2savp(str *s, struct crypto_context *c) {
 	c->crypto_suite->hash_rtcp(c, s->s + s->len, &to_auth);
 	s->len += c->crypto_suite->srtcp_auth_tag;
 
-	return 0;
+	return 1;
 }
 
 
@@ -444,7 +444,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 	if (str_memcmp(&auth_tag, hmac))
 		goto error;
 
-	if (idx & 0x80000000ULL) {
+	if ((idx & 0x80000000ULL)) {
 		if (crypto_decrypt_rtcp(c, rtcp, &to_decrypt, idx & 0x7fffffffULL))
 			return -1;
 	}
