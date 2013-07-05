@@ -75,7 +75,7 @@ struct mp_crypto_context;
 static struct proc_dir_entry *my_proc_root;
 static struct proc_dir_entry *proc_list;
 static struct proc_dir_entry *proc_control;
-static struct mediaproxy_table *table[64];
+static struct mediaproxy_table *table[MAX_ID];
 static rwlock_t table_lock;
 
 
