@@ -39,6 +39,7 @@ are available:
 - Support for RTCP profile with feedback extensions (RTP/AVPF)
 - Arbitrary bridging between any of the supported RTP profiles (RTP/AVP, RTP/AVPF,
   RTP/SAVP, RTP/SAVPF)
+- RTP/RTCP multiplexing (RFC 5761) and demultiplexing
 
 Mediaproxy-ng does not (yet) support:
 
@@ -46,6 +47,7 @@ Mediaproxy-ng does not (yet) support:
 * Playback of pre-recorded streams/announcements
 * Recording of media streams
 * ZRTP
+* DTLS-SRTP
 
 Compiling and Installing
 =========================
@@ -260,8 +262,9 @@ The options are described in more detail below.
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
-	/usr/sbin/mediaproxy-ng --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d --listen-udp=127.0.0.1:22222 \
-	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/mediaproxy-ng.pid
+	/usr/sbin/mediaproxy-ng --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
+	--listen-udp=127.0.0.1:22222 --listen-ng=127.0.0.1:2223 --tos=184 \
+	--pidfile=/var/run/mediaproxy-ng.pid
 
 In-kernel Packet Forwarding
 ---------------------------
@@ -544,6 +547,9 @@ Optionally included keys are:
 	specified as flags `ei`), then that would be rendered within the dictionary as:
 
   		{ ..., "direction": [ "external", "internal" ], ... }
+
+	*Mediaproxy-ng* uses the direction to implement bridging between IPv4 and IPv6: internal is seen as
+	IPv4 and external as IPv6.
 
 * `received-from`
 
