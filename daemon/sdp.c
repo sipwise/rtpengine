@@ -750,7 +750,7 @@ static int fill_stream_address(struct stream_input *si, struct sdp_media *media,
 
 	if (!flags->trust_address) {
 		if (is_addr_unspecified(&flags->parsed_address)) {
-			if (__parse_address(&si->stream.ip46, NULL, &flags->received_from_family,
+			if (__parse_address(&flags->parsed_address, NULL, &flags->received_from_family,
 						&flags->received_from_address))
 				return -1;
 		}
