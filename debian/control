@@ -10,6 +10,7 @@ Build-Depends: debhelper (>= 5),
                libpcre3-dev,
                libssl-dev,
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
+               markdown,
                zlib1g-dev
 Standards-Version: 3.9.3
 Homepage: http://sipwise.com/

@@ -48,6 +48,7 @@ clean:
 	rm -f iptables-extension/libxt_MEDIAPROXY.so
 	rm -f daemon/mediaproxy-ng daemon/build_time.h daemon/.depend kernel-module/.xt_MEDIAPROXY.o.d
 	rm -rf kernel-module/.tmp_versions
+	rm debian/README.html.gz debian/README.md.gz
 	dh_clean
 	-rm -rf debian/build
 
@@ -67,7 +68,7 @@ install: build
 
 	# Copy the needed debian/ pieces to the proper location
 	cp debian/*.modules.in* debian/$(psource)/usr/src/modules/$(sname)/debian
-	cp debian/control debian/changelog debian/copyright debian/README.Debian \
+	cp debian/control debian/changelog debian/copyright \
 		debian/compat debian/$(psource)/usr/src/modules/$(sname)/debian/
 	install -m 0755 debian/rules.modules debian/$(psource)/usr/src/modules/$(sname)/debian/rules
 	cd debian/$(psource)/usr/src && tar c modules | bzip2 -9 > $(sname).tar.bz2 && rm -rf modules
@@ -75,13 +76,17 @@ install: build
 	# Prepare dkms.conf from the dkms.conf.in template
 	sed "s/__VERSION__/$(sversion)/g" debian/dkms.conf.in > debian/$(pdkms)/usr/src/$(sname)-$(sversion)/dkms.conf
 
+	# markdown README
+	markdown README.md | gzip -9 > debian/README.html.gz
+	gzip -9 < README.md > debian/README.md.gz
+
 	dh_install
 
 %:
 	@echo "--- Building: $@"
 	dh_installdirs       -p$@ -P$(b)/$@
 	dh_link              -p$@ -P$(b)/$@
-	dh_installdocs       -p$@ -P$(b)/$@
+	dh_installdocs       -p$@ -P$(b)/$@ debian/README.md.gz debian/README.html.gz
 	dh_installchangelogs -p$@ -P$(b)/$@
 	dh_installinit       -p$@ -P$(b)/$@
 	dh_install           -p$@ -P$(b)/$@
