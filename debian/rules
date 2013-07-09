@@ -48,7 +48,7 @@ clean:
 	rm -f iptables-extension/libxt_MEDIAPROXY.so
 	rm -f daemon/mediaproxy-ng daemon/build_time.h daemon/.depend kernel-module/.xt_MEDIAPROXY.o.d
 	rm -rf kernel-module/.tmp_versions
-	rm debian/README.html.gz debian/README.md.gz
+	rm -f debian/README.html.gz debian/README.md.gz
 	dh_clean
 	-rm -rf debian/build
 
