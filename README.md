@@ -477,6 +477,10 @@ While the actual messages as encoded on the wire, including the message cookie, 
 All keys and values are case-sensitive unless specified otherwise. The requirement stipulated by the *bencode*
 standard that dictionary keys must be present in lexicographical order is not currently honoured.
 
+The *ng* protocol is used by the *rtpproxy-ng* module, currently available from the
+[Sipwise Kamailio](https://github.com/sipwise/kamailio) repository as a
+[patch file](https://github.com/sipwise/kamailio/blob/master/debian/patches/sipwise/rtproxy-ng.patch).
+
 `ping` Message
 --------------
 
