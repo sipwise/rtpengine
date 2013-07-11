@@ -457,6 +457,7 @@ a string and determines the type of message. Currently the following commands ar
 * answer
 * delete
 * query
+* start recording
 
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
@@ -799,3 +800,11 @@ A complete response message might look like this (formatted for readability):
 	    }
 	  }
 	}
+
+`start recording` Message
+-------------------------
+
+The `start recording` message must contain at least the key `call-id` and may optionally include `from-tag`,
+`to-tag` and `via-branch`, as defined above. The reply dictionary contains no additional keys.
+
+This is not implemented by *mediaproxy-ng*.
