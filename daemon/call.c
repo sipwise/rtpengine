@@ -2564,12 +2564,14 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "trust-address"))
+			if (!bencode_strcmp(it, "trust address"))
 				out->trust_address = 1;
 			else if (!bencode_strcmp(it, "symmetric"))
 				out->symmetric = 1;
 			else if (!bencode_strcmp(it, "asymmetric"))
 				out->asymmetric = 1;
+			else if (!bencode_strcmp(it, "trust-address"))
+				out->trust_address = 1;
 		}
 	}
 
@@ -2577,6 +2579,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		for (it = list->child; it; it = it->sibling) {
 			if (!bencode_strcmp(it, "origin"))
 				out->replace_origin = 1;
+			else if (!bencode_strcmp(it, "session connection"))
+				out->replace_sess_conn = 1;
 			else if (!bencode_strcmp(it, "session-connection"))
 				out->replace_sess_conn = 1;
 		}
@@ -2593,7 +2597,9 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 	}
 
-	list = bencode_dictionary_get_expect(input, "received-from", BENCODE_LIST);
+	list = bencode_dictionary_get_expect(input, "received from", BENCODE_LIST);
+	if (!list)
+		list = bencode_dictionary_get_expect(input, "received-from", BENCODE_LIST);
 	if (list && (it = list->child)) {
 		bencode_get_str(it, &out->received_from_family);
 		bencode_get_str(it->sibling, &out->received_from_address);
@@ -2606,7 +2612,9 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			out->ice_force = 1;
 	}
 
-	bencode_dictionary_get_str(input, "transport-protocol", &out->transport_protocol_str);
+	bencode_dictionary_get_str(input, "transport protocol", &out->transport_protocol_str);
+	if (!out->transport_protocol_str.s)
+		bencode_dictionary_get_str(input, "transport-protocol", &out->transport_protocol_str);
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
 }
 

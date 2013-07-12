@@ -516,10 +516,10 @@ Optionally included keys are:
 
 	The value of the `flags` key is a list. The list contains zero or more of the following strings:
 
-	- `trust-address`
+	- `trust address`
 
 		If given, the media addresses from the SDP body are trusted as correct endpoints. Otherwise, the
-		address is taken from the `received-from` key. Corresponds to the *rtpproxy* `r` flag.
+		address is taken from the `received from` key. Corresponds to the *rtpproxy* `r` flag.
 
 	- `symmetric`
 
@@ -539,7 +539,7 @@ Optionally included keys are:
 		Replace the address found in the *origin* (o=) line of the SDP body. Corresponds
 		to *rtpproxy* `o` flag.
 
-	- `session-connection`
+	- `session connection`
 
 		Replace the address found in the *session-level connection* (c=) line of the SDP body.
 		Corresponds to *rtpproxy* `c` flag.
@@ -556,11 +556,11 @@ Optionally included keys are:
 	*Mediaproxy-ng* uses the direction to implement bridging between IPv4 and IPv6: internal is seen as
 	IPv4 and external as IPv6.
 
-* `received-from`
+* `received from`
 
 	Contains a list of exactly two elements. The first element denotes the address family and the second
 	element is the SIP message's source address itself. The address family can be one of `IP4` or `IP6`.
-	Used if the `trust-address` flag isn't present.
+	Used if the `trust address` flag isn't present.
 
 * `ICE`
 
@@ -573,7 +573,7 @@ Optionally included keys are:
 
 	This flag operates independently of the `replace` flags.
 
-* `transport-protocol`
+* `transport protocol`
 
 	The transport protocol specified in the SDP body is to be rewritten to the string value given here.
 	The media
@@ -586,9 +586,9 @@ An example of a complete `offer` request dictionary could be (SDP body abbreviat
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",
 	"sdp": "v=0\r\no=...", "via-branch": "5KiTRPZHH1nL6",
-	"flags": [ "trust-address" ], "replace": [ "origin", "session-connection" ],
+	"flags": [ "trust address" ], "replace": [ "origin", "session connection" ],
 	"direction": [ "external", "external" ], "received-from": [ "IP4", "10.65.31.43" ],
-	"ICE": "force", "transport-protocol": "RTP/SAVPF" }
+	"ICE": "force", "transport protocol": "RTP/SAVPF" }
 
 The response message only contains the key `sdp` in addition to `result`, which contains the re-written
 SDP body that the SIP proxy should insert into the SIP message.
