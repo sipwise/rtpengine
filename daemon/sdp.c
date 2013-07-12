@@ -172,7 +172,7 @@ static inline int inet_pton_str(int af, str *src, void *dst) {
 	int ret;
 	p = s[src->len];
 	s[src->len] = '\0';
-	ret = inet_pton(af, src->s, dst);
+	ret = smart_pton(af, src->s, dst);
 	s[src->len] = p;
 	return ret;
 }
@@ -187,12 +187,22 @@ static int __parse_address(struct in6_addr *out, str *network_type, str *address
 				&& memcmp(network_type->s, "in", 2))
 			return -1;
 	}
+
+	if (!address_type) {
+		if (inet_pton_str(AF_INET, address, &in4) == 1)
+			goto ip4;
+		if (inet_pton_str(AF_INET6, address, out) == 1)
+			return 0;
+		return -1;
+	}
+
 	if (address_type->len != 3)
 		return -1;
 	if (!memcmp(address_type->s, "IP4", 3)
 			|| !memcmp(address_type->s, "ip4", 3)) {
 		if (inet_pton_str(AF_INET, address, &in4) != 1)
 			return -1;
+ip4:
 		in4_to_6(out, in4.s_addr);
 	}
 	else if (!memcmp(address_type->s, "IP6", 3)
@@ -748,13 +758,21 @@ void sdp_free(GQueue *sessions) {
 static int fill_stream_address(struct stream_input *si, struct sdp_media *media, struct sdp_ng_flags *flags) {
 	struct sdp_session *session = media->session;
 
-	if (!flags->trust_address) {
-		if (is_addr_unspecified(&flags->parsed_address)) {
-			if (__parse_address(&flags->parsed_address, NULL, &flags->received_from_family,
+	if (flags->media_address.s) {
+		if (is_addr_unspecified(&flags->parsed_media_address)) {
+			if (__parse_address(&flags->parsed_media_address, NULL, NULL,
+						&flags->media_address))
+				return -1;
+		}
+		si->stream.ip46 = flags->parsed_media_address;
+	}
+	else if (!flags->trust_address) {
+		if (is_addr_unspecified(&flags->parsed_received_from)) {
+			if (__parse_address(&flags->parsed_received_from, NULL, &flags->received_from_family,
 						&flags->received_from_address))
 				return -1;
 		}
-		si->stream.ip46 = flags->parsed_address;
+		si->stream.ip46 = flags->parsed_received_from;
 	}
 	else if (media->connection.parsed)
 		si->stream.ip46 = media->connection.address.parsed;

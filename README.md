@@ -520,6 +520,7 @@ Optionally included keys are:
 
 		If given, the media addresses from the SDP body are trusted as correct endpoints. Otherwise, the
 		address is taken from the `received from` key. Corresponds to the *rtpproxy* `r` flag.
+		Can be overridden through the `media address` key.
 
 	- `symmetric`
 
@@ -560,7 +561,7 @@ Optionally included keys are:
 
 	Contains a list of exactly two elements. The first element denotes the address family and the second
 	element is the SIP message's source address itself. The address family can be one of `IP4` or `IP6`.
-	Used if the `trust address` flag isn't present.
+	Used if neither the `trust address` flag nor the `media address` key is present.
 
 * `ICE`
 
@@ -582,13 +583,20 @@ Optionally included keys are:
 
 	Valid values are: `RTP/AVP`, `RTP/AVPF`, `RTP/SAVP`, `RTP/SAVPF`.
 
+* `media address`
+
+	This can be used to override both the addresses present in the SDP body
+	and the `received from` address. Contains either an IPv4 or an IPv6 address, expressed as a simple
+	string. The format must be dotted-quad notation for IPv4 or RFC 5952 notation for IPv6.
+	It's up to the RTP proxy to determine the address family type.
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",
 	"sdp": "v=0\r\no=...", "via-branch": "5KiTRPZHH1nL6",
 	"flags": [ "trust address" ], "replace": [ "origin", "session connection" ],
 	"direction": [ "external", "external" ], "received-from": [ "IP4", "10.65.31.43" ],
-	"ICE": "force", "transport protocol": "RTP/SAVPF" }
+	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b" }
 
 The response message only contains the key `sdp` in addition to `result`, which contains the re-written
 SDP body that the SIP proxy should insert into the SIP message.

@@ -2616,6 +2616,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	if (!out->transport_protocol_str.s)
 		bencode_dictionary_get_str(input, "transport-protocol", &out->transport_protocol_str);
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
+	bencode_dictionary_get_str(input, "media address", &out->media_address);
 }
 
 static unsigned int stream_hash(struct stream_input *s) {
