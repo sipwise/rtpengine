@@ -4,13 +4,40 @@ mediaproxy-ng for Enterprise Linux
 Installing from RPMs
 --------------------
 
-TBD
+There are three RPMs:
+
+- ngcp-mediaproxy-ng: the userspace daemon
+- ngcp-mediaproxy-ng-kernel: the iptables plugin
+- ngcp-mediaproxy-ng-dkms: the kernel module source
+
+All of the RPMs have correctly set dependencies and if you just want the
+userspace daemon you can install it with yum (assuming you have access to a
+CentOS repository).
+
+The ngcp-mediaproxy-ng-kernel package is dependent on the ngcp-mediaproxy-ng,
+and ngcp-mediaproxy-ng-dkms packages. The ngcp-mediaproxy-ng-dkms package has
+a dependency (DKMS) that cannot be met by the standard CentOS repository. If
+you want to use in-kernel forwarding you need to download and install the
+latest version of [DKMS](http://linux.dell.com/dkms/) before attempting to
+install ngcp-mediaproxy-ng-dkms or ngcp-mediaproxy-ng-kernel.
 
 
 RPM Compliation
 ---------------
 
-TBD
+To build the RPMs you need all of the packages listed in the Manual Compilation section (except for kernel-devel and kernel-headers) plus:
+
+- redhat-rpm-config
+- rpm-build
+
+To build the RPMs:
+1. Checkout (clone) the Git repository
+2. Create the "~/rpmbuild/SOURCES" directory
+3. Create a tar archive.  For example, from within the cloned directory you can use "git archive --output ~/rpmbuild/SOURCES/ngcp-mediaproxy-ng-<version>.tar.gz --prefix=ngcp-mediaproxy-ng-<version>/ master" (where <version> is the version number of the master branch)
+4. Build the RPMs. For example,
+   "rpmbuild -ta ~/rpmbuild/SOURCES/ngcp-mediaproxy-ng-<version>.tar.gz"
+
+Once the build has completed the binary RPMs will be in "~/rpmbuild/RPMS".
 
 
 Manual Compilation
