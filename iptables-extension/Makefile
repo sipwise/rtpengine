@@ -1,5 +1,14 @@
 CFLAGS		= -O2 -Wall -shared -fPIC
-CFLAGS		+= -DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
+ifneq ($(MEDIAPROXY_VERSION),)
+  CFLAGS	+= -DMEDIAPROXY_VERSION="\"$(MEDIAPROXY_VERSION)\""
+else
+  DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)
+  ifneq ($(DPKG_PRSCHNGLG),)
+    CFLAGS	+= -DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
+  else
+    CFLAGS	+= -DMEDIAPROXY_VERSION="\"undefined\""
+  endif
+endif
 
 XTABLES		= $(shell test -e /usr/include/xtables.h && echo 1)
 IPTABLES	= $(shell test -e /usr/include/iptables.h && echo 1)
