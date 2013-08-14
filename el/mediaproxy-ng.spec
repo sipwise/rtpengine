@@ -1,4 +1,4 @@
-Name:		mediaproxy-ng
+Name:		ngcp-mediaproxy-ng
 Version:	2.3.0
 Release:	1%{?dist}
 Summary:	The Sipwise NGCP mediaproxy-ng
@@ -23,13 +23,27 @@ drop-in replacement for any of the other available RTP and media proxies.
 
 
 %package kernel
-Summary:	In-kernel package forwarding support for mediaproxy-ng
+Summary:	NGCP mediaproxy-ng in-kernel packet forwarding
 Group:		System Environment/Daemons
-BuildRequires:	iptables-devel
-Requires:	iptables iptables-ipv6 mediaproxy-ng = %{version}
+BuildRequires:	gcc make redhat-rpm-config iptables-devel
+Requires:	iptables iptables-ipv6 ngcp-mediaproxy-ng = %{version}
+Requires:	ngcp-mediaproxy-ng-dkms = %{version}
 
 %description kernel
-iptables plugin and kernel module for mediaproxy-ng in-kernal package forwarding
+NGCP mediaproxy-ng in-kernel packet forwarding
+
+
+%package dkms
+Summary:	Kernel module for NGCP mediaproxy-ng in-kernel packet forwarding
+Group:		System Environment/Daemons
+BuildArch:	noarch
+BuildRequires:	redhat-rpm-config
+Requires:	gcc make
+Requires(post):	dkms
+Requires(preun): dkms
+
+%description dkms
+Kernel module for mediaproxy-ng in-kernel packet forwarding
 
 
 %prep
@@ -75,6 +89,17 @@ install -m644 debian/copyright \
 install -m644 el/README.md \
 	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/README.el.md
 
+## DKMS module source install
+mkdir -p $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}
+install -m644 kernel-module/Makefile \
+	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
+install -m644 kernel-module/xt_MEDIAPROXY.c \
+	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.c
+install -m644 kernel-module/xt_MEDIAPROXY.h \
+	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.h
+sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
+	$RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+
 
 %clean
 rm -rf %{buildroot}
@@ -90,10 +115,25 @@ rm -rf %{buildroot}
 #%post
 #/sbin/chkconfig --add mediaproxy-ng
 #
-#
+
+
+%post dkms
+# Add to DKMS registry, build, and install module
+dkms add -m %{name} -v %{version}-%{release} --rpm_safe_upgrade &&
+dkms build -m %{name} -v %{version}-%{release} --rpm_safe_upgrade &&
+dkms install -m %{name} -v %{version}-%{release} --rpm_safe_upgrade --force
+true
+
+
 #%preun
 #/sbin/service mediaproxy-ng stop
 #/sbin/chkconfig --del mediaproxy-ng
+
+
+%preun dkms
+# Remove from DKMS registry
+dkms remove -m %{name} -v %{version}-%{release} --rpm_safe_upgrade --all
+true
 
 
 %files
@@ -114,11 +154,18 @@ rm -rf %{buildroot}
 
 
 %files kernel
+%defattr(-,root,root,-)
 /%{_lib}/xtables/libxt_MEDIAPROXY.so
+
+
+%files dkms
+%defattr(-,root,root,0755)
+%{_usrsrc}/%{name}-%{version}-%{release}/
 
 
 %changelog
 * Wed Aug 14 2012 Peter Dunkley <peter.dunkley@crocodilertc.net>
   - First version of .spec file
   - Builds and installs userspace daemon (but no init.d scripts etc yet)
-  - Builds and installs the iptables plugin (but no kernel module yet)
+  - Builds and installs the iptables plugin
+  - DKMS package for the kernel module
