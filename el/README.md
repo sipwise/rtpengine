@@ -31,13 +31,13 @@ To build the RPMs you need all of the packages listed in the Manual Compilation 
 - rpm-build
 
 To build the RPMs:
-1. Checkout (clone) the Git repository
-2. Create the "~/rpmbuild/SOURCES" directory
-3. Create a tar archive.  For example, from within the cloned directory you can use "git archive --output ~/rpmbuild/SOURCES/ngcp-mediaproxy-ng-<version>.tar.gz --prefix=ngcp-mediaproxy-ng-<version>/ master" (where <version> is the version number of the master branch)
-4. Build the RPMs. For example,
-   "rpmbuild -ta ~/rpmbuild/SOURCES/ngcp-mediaproxy-ng-<version>.tar.gz"
+- Checkout (clone) the Git repository
+- Create the `~/rpmbuild/SOURCES` directory
+- Create a tar archive.  For example, from within the cloned directory you can use `git archive --output ~/rpmbuild/SOURCES/ngcp-mediaproxy-ng-<version>.tar.gz --prefix=ngcp-mediaproxy-ng-<version>/ master` (where <version> is the version number of the master branch)
+- Build the RPMs. For example,
+   `rpmbuild -ta ~/rpmbuild/SOURCES/ngcp-mediaproxy-ng-<version>.tar.gz`
 
-Once the build has completed the binary RPMs will be in "~/rpmbuild/RPMS".
+Once the build has completed the binary RPMs will be in `~/rpmbuild/RPMS`.
 
 
 Manual Compilation
