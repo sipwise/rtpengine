@@ -7,6 +7,7 @@ Group:		System Environment/Daemons
 License:	unknown
 URL:		https://github.com/crocodilertc/mediaproxy-ng
 Source:		%{name}-%{version}.tar.gz
+Conflicts:	%{name}-kernel < %{version}
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
@@ -21,12 +22,24 @@ media traffic. It's meant to be used with the Kamailio SIP proxy and forms a
 drop-in replacement for any of the other available RTP and media proxies.
 
 
+%package kernel
+Summary:	In-kernel package forwarding support for mediaproxy-ng
+Group:		System Environment/Daemons
+BuildRequires:	iptables-devel
+Requires:	iptables iptables-ipv6 mediaproxy-ng = %{version}
+
+%description kernel
+iptables plugin and kernel module for mediaproxy-ng in-kernal package forwarding
+
+
 %prep
 %setup -q
 
 
 %build
 cd daemon
+MEDIAPROXY_VERSION="\"%{version}-%{release}\"" make
+cd ../iptables-extension
 MEDIAPROXY_VERSION="\"%{version}-%{release}\"" make
 cd ..
 
@@ -45,6 +58,11 @@ install -m755 daemon/mediaproxy-ng $RPM_BUILD_ROOT/%{_sbindir}/mediaproxy-ng
 #mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig
 #install -m644 el/mediaproxy-ng.sysconfig \
 #	$RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig/mediaproxy-ng
+
+# Install the iptables plugin
+mkdir -p $RPM_BUILD_ROOT/%{_lib}/xtables
+install -m755 iptables-extension/libxt_MEDIAPROXY.so \
+	$RPM_BUILD_ROOT/%{_lib}/xtables/libxt_MEDIAPROXY.so
 
 # Install the documentation
 mkdir -p $RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}
@@ -95,7 +113,12 @@ rm -rf %{buildroot}
 %doc %{_docdir}/%{name}-%{version}-%{release}/README.el.md
 
 
+%files kernel
+/%{_lib}/xtables/libxt_MEDIAPROXY.so
+
+
 %changelog
 * Wed Aug 14 2012 Peter Dunkley <peter.dunkley@crocodilertc.net>
   - First version of .spec file
-  - Builds and instals userspace daemon (but no init.d scripts etc yet)
+  - Builds and installs userspace daemon (but no init.d scripts etc yet)
+  - Builds and installs the iptables plugin (but no kernel module yet)
