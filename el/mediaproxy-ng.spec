@@ -66,12 +66,13 @@ mkdir -p $RPM_BUILD_ROOT/%{_sbindir}
 install -m755 daemon/mediaproxy-ng $RPM_BUILD_ROOT/%{_sbindir}/mediaproxy-ng
 
 ## Install the init.d script and configuration file
-#mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/rc.d/init.d
-#install -m755 el/mediaproxy-ng.init \
-#	$RPM_BUILD_ROOT/%{_sysconfdir}/rc.d/init.d/mediaproxy-ng
-#mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig
-#install -m644 el/mediaproxy-ng.sysconfig \
-#	$RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig/mediaproxy-ng
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/rc.d/init.d
+install -m755 el/mediaproxy-ng.init \
+	$RPM_BUILD_ROOT/%{_sysconfdir}/rc.d/init.d/mediaproxy-ng
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig
+install -m644 el/mediaproxy-ng.sysconfig \
+	$RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig/mediaproxy-ng
+mkdir -p $RPM_BUILD_ROOT/%{_sharedstatedir}/mediaproxy-ng
 
 # Install the iptables plugin
 mkdir -p $RPM_BUILD_ROOT/%{_lib}/xtables
@@ -142,8 +143,9 @@ true
 %{_sbindir}/mediaproxy-ng
 
 # init.d script and configuration file
-#%{_sysconfdir}/rc.d/init.d/mediaproxy-ng
-#%{_sysconfdir}/sysconfig/mediaproxy-ng
+%{_sysconfdir}/rc.d/init.d/mediaproxy-ng
+%config(noreplace) %{_sysconfdir}/sysconfig/mediaproxy-ng
+%dir %{_sharedstatedir}/mediaproxy-ng
 
 # Documentation
 %dir %{_docdir}/%{name}-%{version}-%{release}
@@ -164,7 +166,9 @@ true
 
 
 %changelog
-* Wed Aug 14 2012 Peter Dunkley <peter.dunkley@crocodilertc.net>
+* Thu Aug 15 2013 Peter Dunkley <peter.dunkley@crocodilertc.net>
+  - init.d scripts and configuration file
+* Wed Aug 14 2013 Peter Dunkley <peter.dunkley@crocodilertc.net>
   - First version of .spec file
   - Builds and installs userspace daemon (but no init.d scripts etc yet)
   - Builds and installs the iptables plugin
