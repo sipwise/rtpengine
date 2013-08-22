@@ -113,9 +113,8 @@ rm -rf %{buildroot}
 	2> /dev/null || :
 
 
-#%post
-#/sbin/chkconfig --add mediaproxy-ng
-#
+%post
+/sbin/chkconfig --add mediaproxy-ng
 
 
 %post dkms
@@ -126,9 +125,9 @@ dkms install -m %{name} -v %{version}-%{release} --rpm_safe_upgrade --force
 true
 
 
-#%preun
-#/sbin/service mediaproxy-ng stop
-#/sbin/chkconfig --del mediaproxy-ng
+%preun
+/sbin/service mediaproxy-ng stop
+/sbin/chkconfig --del mediaproxy-ng
 
 
 %preun dkms

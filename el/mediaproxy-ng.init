@@ -2,7 +2,7 @@
 #
 # mediaproxy-ng		Startup script for NGCP mediaproxy-ng
 #
-# chkconfig: - 345 84 16
+# chkconfig: 345 84 16
 # description: NGCP mediaproxy-ng
 #
 # processname: mediaproxy-ng
