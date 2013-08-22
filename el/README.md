@@ -6,29 +6,39 @@ Installing from RPMs
 
 There are three RPMs:
 
-- ngcp-mediaproxy-ng: the userspace daemon
-- ngcp-mediaproxy-ng-kernel: the iptables plugin
-- ngcp-mediaproxy-ng-dkms: the kernel module source
+- *ngcp-mediaproxy-ng*: the userspace daemon
+- *ngcp-mediaproxy-ng-kernel*: the iptables plugin
+- *ngcp-mediaproxy-ng-dkms*: the kernel module source
 
 All of the RPMs have correctly set dependencies and if you just want the
 userspace daemon you can install it with yum (assuming you have access to a
 CentOS repository).
 
-The ngcp-mediaproxy-ng-kernel package is dependent on the ngcp-mediaproxy-ng,
-and ngcp-mediaproxy-ng-dkms packages. The ngcp-mediaproxy-ng-dkms package has
-a dependency (DKMS) that cannot be met by the standard CentOS repository. If
-you want to use in-kernel forwarding you need to download and install the
-latest version of [DKMS](http://linux.dell.com/dkms/) before attempting to
-install ngcp-mediaproxy-ng-dkms or ngcp-mediaproxy-ng-kernel.
+The *ngcp-mediaproxy-ng-kernel* package is dependent on the
+*ngcp-mediaproxy-ng*, and *ngcp-mediaproxy-ng-dkms* packages. The
+*ngcp-mediaproxy-ng-dkms* package has a dependency (DKMS) that cannot be met
+by the standard CentOS repository. If you want to use in-kernel forwarding you
+need to download and install the latest version of the
+[*dkms*](http://linux.dell.com/dkms/) package before attempting to install
+*ngcp-mediaproxy-ng-dkms* or *ngcp-mediaproxy-ng-kernel*.
+
+Note: installing *ngcp-mediaproxy-ng-dkms* builds a kernel module which requires
+the sources for the running kernel. The *kernel-devel* and *kernel-headers*
+packages are meta-packages that install the headers and source for the latest
+kernel version. This will be what what you want unless you are running a custom
+or older kernel. *ngcp-mediaproxy-ng-dkms* does not have *kernel-devel* and
+*kernel-headers* as dependencies as this could cause problems if you are using
+a custom or older kernel, so you need to install these manually.
 
 
 RPM Compliation
 ---------------
 
-To build the RPMs you need all of the packages listed in the Manual Compilation section (except for kernel-devel and kernel-headers) plus:
+To build the RPMs you need all of the packages listed in the Manual Compilation
+section (except for *kernel-devel* and *kernel-headers*) plus:
 
-- redhat-rpm-config
-- rpm-build
+- *redhat-rpm-config*
+- *rpm-build*
 
 To build the RPMs:
 - Checkout (clone) the Git repository
