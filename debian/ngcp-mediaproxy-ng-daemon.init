@@ -72,11 +72,13 @@ case "$1" in
         set +e
 	modprobe xt_MEDIAPROXY
 	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
-	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
-	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
-	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
-	iptables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
-	ip6tables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
+	iptables -N mediaproxy
+	iptables -t filter -A INPUT -j mediaproxy
+	iptables -D mediaproxy -j MEDIAPROXY --id $TABLE 2>/dev/null
+	iptables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	iptables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
+	ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
 	set -e
 	start-stop-daemon --start --quiet --pidfile $PIDFILE \
 		--exec $DAEMON -- $OPTIONS || echo -n " already running"
@@ -91,9 +93,11 @@ case "$1" in
 	fi
 	set +e
 	echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
-	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
-	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
-	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	iptables -N mediaproxy
+	iptables -t filter -A INPUT -j mediaproxy
+	iptables -D mediaproxy -j MEDIAPROXY --id $TABLE 2>/dev/null
+	iptables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	rmmod ipt_MEDIAPROXY 2>/dev/null
 	rmmod xt_MEDIAPROXY 2>/dev/null
 	set -e
@@ -114,14 +118,16 @@ case "$1" in
 	if [ -e /proc/mediaproxy/control ]; then
 		echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 	fi
-	iptables -D INPUT -j MEDIAPROXY --id $TABLE 2>/dev/null
-	iptables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
-	ip6tables -D INPUT -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	iptables -N mediaproxy
+	iptables -t filter -A INPUT -j mediaproxy
+	iptables -D mediaproxy -j MEDIAPROXY --id $TABLE 2>/dev/null
+	iptables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+	ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
 	rmmod ipt_MEDIAPROXY 2>/dev/null
 	rmmod xt_MEDIAPROXY 2>/dev/null
 	modprobe xt_MEDIAPROXY
-	iptables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
-	ip6tables -I INPUT -p udp -j MEDIAPROXY --id $TABLE
+	iptables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
+	ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
 	set -e
 	start-stop-daemon --start --quiet --pidfile \
 		$PIDFILE --exec $DAEMON  -- $OPTIONS
