@@ -174,9 +174,14 @@ out:
 }
 
 static void output_init(struct msghdr *mh, struct iovec *iov, struct sockaddr_in6 *sin,
-		struct header *hdr, unsigned short code, u_int32_t *transaction)
+		struct header *hdr, unsigned short code, u_int32_t *transaction,
+		unsigned char *buf, int buflen)
 {
 	ZERO(*mh);
+
+	mh->msg_control = buf;
+	mh->msg_controllen = buflen;
+
 	mh->msg_name = sin;
 	mh->msg_namelen = sizeof(*sin);
 	mh->msg_iov = iov;
@@ -222,11 +227,13 @@ static inline void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int
 	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, data, len)
 
 
-static void output_finish(struct msghdr *mh) {
+static void output_finish(struct msghdr *mh, struct callmaster *cm) {
 	struct header *hdr;
 
 	hdr = mh->msg_iov->iov_base;
 	hdr->msg_len = htons(hdr->msg_len);
+
+	callmaster_msg_mh_src(cm, mh);
 }
 
 static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
@@ -278,7 +285,7 @@ static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
 
 static void stun_error_len(int fd, struct sockaddr_in6 *sin, struct header *req,
 		int code, char *reason, int len, u_int16_t add_attr, void *attr_cont,
-		int attr_len)
+		int attr_len, struct callmaster *cm)
 {
 	struct header hdr;
 	struct error_code ec;
@@ -286,8 +293,9 @@ static void stun_error_len(int fd, struct sockaddr_in6 *sin, struct header *req,
 	struct generic aa;
 	struct msghdr mh;
 	struct iovec iov[6]; /* hdr, ec, reason, aa, attr_cont, fp */
+	unsigned char buf[256];
 
-	output_init(&mh, iov, sin, &hdr, STUN_BINDING_ERROR_RESPONSE, req->transaction);
+	output_init(&mh, iov, sin, &hdr, STUN_BINDING_ERROR_RESPONSE, req->transaction, buf, sizeof(buf));
 
 	ec.codes = htonl(((code / 100) << 8) | (code % 100));
 	output_add_data(&mh, &ec, STUN_ERROR_CODE, reason, len);
@@ -296,16 +304,16 @@ static void stun_error_len(int fd, struct sockaddr_in6 *sin, struct header *req,
 
 	fingerprint(&mh, &fp);
 
-	output_finish(&mh);
+	output_finish(&mh, cm);
 	sendmsg(fd, &mh, 0);
 }
 
-#define stun_error(fd, sin, str, code, reason) \
+#define stun_error(cm, fd, sin, str, code, reason) \
 	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason), \
-			0, NULL, 0)
-#define stun_error_attrs(fd, sin, str, code, reason, type, content, len) \
+			0, NULL, 0, cm)
+#define stun_error_attrs(cm, fd, sin, str, code, reason, type, content, len) \
 	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason), \
-			type, content, len)
+			type, content, len, cm)
 
 
 
@@ -367,8 +375,10 @@ static int stun_binding_success(int fd, struct header *req, struct stun_attrs *a
 	struct fingerprint fp;
 	struct msghdr mh;
 	struct iovec iov[4]; /* hdr, xma, mi, fp */
+	unsigned char buf[256];
+	struct callmaster *cm = peer->up->call->callmaster;
 
-	output_init(&mh, iov, sin, &hdr, STUN_BINDING_SUCCESS_RESPONSE, req->transaction);
+	output_init(&mh, iov, sin, &hdr, STUN_BINDING_SUCCESS_RESPONSE, req->transaction, buf, sizeof(buf));
 
 	xma.port = sin->sin6_port ^ htons(STUN_COOKIE >> 16);
 	if (IN6_IS_ADDR_V4MAPPED(&sin->sin6_addr)) {
@@ -388,7 +398,7 @@ static int stun_binding_success(int fd, struct header *req, struct stun_attrs *a
 	integrity(&mh, &mi, &peer->ice_pwd);
 	fingerprint(&mh, &fp);
 
-	output_finish(&mh);
+	output_finish(&mh, cm);
 	sendmsg(fd, &mh, 0);
 
 	return 0;
@@ -417,6 +427,7 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 	u_int16_t unknowns[UNKNOWNS_COUNT];
 	const char *err;
 	char addr[64];
+	struct callmaster *cm = sr->up->up->call->callmaster;
 
 	smart_ntop_port(addr, sin, sizeof(addr));
 
@@ -442,7 +453,7 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 			goto ignore;
 		mylog(LOG_WARNING, "STUN packet contained unknown "
 				"\"comprehension required\" attribute(s)" SLF, SLP);
-		stun_error_attrs(sr->fd.fd, sin, req, 420, "Unknown attribute",
+		stun_error_attrs(cm, sr->fd.fd, sin, req, 420, "Unknown attribute",
 				STUN_UNKNOWN_ATTRIBUTES, unknowns,
 				u_int16_t_arr_len(unknowns) * 2);
 		return 0;
@@ -474,11 +485,11 @@ int stun(str *b, struct streamrelay *sr, struct sockaddr_in6 *sin) {
 
 bad_req:
 	mylog(LOG_INFO, "Received invalid STUN packet" SLF ": %s", SLP, err);
-	stun_error(sr->fd.fd, sin, req, 400, "Bad request");
+	stun_error(cm, sr->fd.fd, sin, req, 400, "Bad request");
 	return 0;
 unauth:
 	mylog(LOG_INFO, "STUN authentication mismatch" SLF, SLP);
-	stun_error(sr->fd.fd, sin, req, 401, "Unauthorized");
+	stun_error(cm, sr->fd.fd, sin, req, 401, "Unauthorized");
 	return 0;
 ignore:
 	mylog(LOG_INFO, "Not handling potential STUN packet" SLF ": %s", SLP, err);

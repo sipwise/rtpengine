@@ -500,6 +500,41 @@ dummy:
 	in->handler = &__sh_noop;
 }
 
+void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
+	struct cmsghdr *ch;
+	struct in_pktinfo *pi;
+	struct in6_pktinfo *pi6;
+	struct sockaddr_in6 *sin6;
+
+	sin6 = mh->msg_name;
+
+	ch = CMSG_FIRSTHDR(mh);
+	ZERO(*ch);
+
+	if (IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr)) {
+		ch->cmsg_len = CMSG_LEN(sizeof(*pi));
+		ch->cmsg_level = IPPROTO_IP;
+		ch->cmsg_type = IP_PKTINFO;
+
+		pi = (void *) CMSG_DATA(ch);
+		ZERO(*pi);
+		pi->ipi_spec_dst.s_addr = cm->conf.ipv4;
+
+		mh->msg_controllen = CMSG_SPACE(sizeof(*pi));
+	}
+	else {
+		ch->cmsg_len = CMSG_LEN(sizeof(*pi6));
+		ch->cmsg_level = IPPROTO_IPV6;
+		ch->cmsg_type = IPV6_PKTINFO;
+
+		pi6 = (void *) CMSG_DATA(ch);
+		ZERO(*pi6);
+		pi6->ipi6_addr = cm->conf.ipv6;
+
+		mh->msg_controllen = CMSG_SPACE(sizeof(*pi6));
+	}
+}
+
 /* called with r->up (== cs) locked */
 static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockaddr_in6 *fsin) {
 	struct streamrelay *sr_outgoing, *sr_out_rtcp, *sr_in_rtcp;
@@ -510,9 +545,6 @@ static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockadd
 	struct msghdr mh;
 	struct iovec iov;
 	unsigned char buf[256];
-	struct cmsghdr *ch;
-	struct in_pktinfo *pi;
-	struct in6_pktinfo *pi6;
 	struct call *c;
 	struct callmaster *m;
 	unsigned char cc;
@@ -625,9 +657,6 @@ forward:
 	mh.msg_control = buf;
 	mh.msg_controllen = sizeof(buf);
 
-	ch = CMSG_FIRSTHDR(&mh);
-	ZERO(*ch);
-
 	ZERO(sin6);
 	sin6.sin6_family = AF_INET6;
 	sin6.sin6_addr = sr_incoming->peer.ip46;
@@ -635,28 +664,7 @@ forward:
 	mh.msg_name = &sin6;
 	mh.msg_namelen = sizeof(sin6);
 
-	if (IN6_IS_ADDR_V4MAPPED(&sin6.sin6_addr)) {
-		ch->cmsg_len = CMSG_LEN(sizeof(*pi));
-		ch->cmsg_level = IPPROTO_IP;
-		ch->cmsg_type = IP_PKTINFO;
-
-		pi = (void *) CMSG_DATA(ch);
-		ZERO(*pi);
-		pi->ipi_spec_dst.s_addr = m->conf.ipv4;
-
-		mh.msg_controllen = CMSG_SPACE(sizeof(*pi));
-	}
-	else {
-		ch->cmsg_len = CMSG_LEN(sizeof(*pi6));
-		ch->cmsg_level = IPPROTO_IPV6;
-		ch->cmsg_type = IPV6_PKTINFO;
-
-		pi6 = (void *) CMSG_DATA(ch);
-		ZERO(*pi6);
-		pi6->ipi6_addr = m->conf.ipv6;
-
-		mh.msg_controllen = CMSG_SPACE(sizeof(*pi6));
-	}
+	callmaster_msg_mh_src(m, &mh);
 
 	ZERO(iov);
 	iov.iov_base = s->s;
