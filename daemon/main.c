@@ -85,7 +85,7 @@ static u_int32_t redis_ip;
 static u_int16_t redis_port;
 static int redis_db = -1;
 static char *b2b_url;
-
+static int log_level = LOG_INFO;
 
 
 
@@ -97,6 +97,8 @@ static void sighandler(gpointer x) {
 	sigemptyset(&ss);
 	sigaddset(&ss, SIGINT);
 	sigaddset(&ss, SIGTERM);
+	sigaddset(&ss, SIGUSR1);
+	sigaddset(&ss, SIGUSR2);
 
 	ts.tv_sec = 0;
 	ts.tv_nsec = 100000000; /* 0.1 sec */
@@ -108,9 +110,23 @@ static void sighandler(gpointer x) {
 				continue;
 			abort();
 		}
-
+		
 		if (ret == SIGINT || ret == SIGTERM)
 			global_shutdown = 1;
+		else if (ret == SIGUSR1) {
+		    if (log_level > 0) {
+			log_level--;
+		 	setlogmask(LOG_UPTO(log_level));
+			mylog(log_level, "Set log level to %d\n", log_level);
+		    }
+		}
+		else if (ret == SIGUSR2) {
+		    if (log_level < 7) {
+			log_level++;
+		 	setlogmask(LOG_UPTO(log_level));
+			mylog(log_level, "Set log level to %d\n", log_level);
+		    }
+		}
 		else
 			abort();
 	}
@@ -236,6 +252,7 @@ static void options(int *argc, char ***argv) {
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
 		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
+		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	&log_level,	"Mask log priorities above this level",	"INT"	},
 		{ NULL, }
 	};
 
@@ -301,6 +318,10 @@ static void options(int *argc, char ***argv) {
 		if (redis_db < 0)
 			die("Must specify Redis DB number (--redis-db) when using Redis\n");
 	}
+	
+	if ((log_level < LOG_EMERG) || (log_level > LOG_DEBUG))
+	        die("Invalid log level (--log_level)\n");
+	setlogmask(LOG_UPTO(log_level));
 }
 
 
