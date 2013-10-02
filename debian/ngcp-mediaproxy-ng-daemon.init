@@ -61,6 +61,7 @@ OPTIONS=""
 [ -z "$B2B_URL" ] || OPTIONS="$OPTIONS --b2b-url=$B2B_URL"
 [ -z "$NO_FALLBACK" -o \( "$NO_FALLBACK" != "1" -a "$NO_FALLBACK" != "yes" \) ] || OPTIONS="$OPTIONS --no-fallback"
 OPTIONS="$OPTIONS --table=$TABLE"
+[ -z "$LOG_LEVEL" ] || OPTIONS="$OPTIONS --log-level=$LOG_LEVEL"
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"    
 fi

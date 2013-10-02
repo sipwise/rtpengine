@@ -114,18 +114,18 @@ static void sighandler(gpointer x) {
 		if (ret == SIGINT || ret == SIGTERM)
 			global_shutdown = 1;
 		else if (ret == SIGUSR1) {
-		    if (log_level > 0) {
-			log_level--;
-		 	setlogmask(LOG_UPTO(log_level));
-			mylog(log_level, "Set log level to %d\n", log_level);
-		    }
+		        if (log_level > 0) {
+			        log_level--;
+				setlogmask(LOG_UPTO(log_level));
+				mylog(log_level, "Set log level to %d\n", log_level);
+			}
 		}
 		else if (ret == SIGUSR2) {
-		    if (log_level < 7) {
-			log_level++;
-		 	setlogmask(LOG_UPTO(log_level));
-			mylog(log_level, "Set log level to %d\n", log_level);
-		    }
+		        if (log_level < 7) {
+			        log_level++;
+				setlogmask(LOG_UPTO(log_level));
+				mylog(log_level, "Set log level to %d\n", log_level);
+			}
 		}
 		else
 			abort();
