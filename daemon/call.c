@@ -1559,6 +1559,8 @@ static int call_streams(struct call *c, GQueue *s, const str *tag, enum call_opm
 			mutex_lock(&cs_o->lock);
 			for (x = 0; x < 2; x++) {
 				matched_relay = &cs_o->peers[x].rtps[0];
+				if (matched_relay->peer.num != t->stream.num)
+					continue;
 				DBG("comparing new ["IP6F"]:%u/%.*s to old ["IP6F"]:%u/%.*s",
 					IP6P(&t->stream.ip46), t->stream.port, STR_FMT(tag),
 					IP6P(&matched_relay->peer_advertised.ip46),
