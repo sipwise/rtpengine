@@ -175,12 +175,13 @@ stop() {
 		. "$cachefile"
 		echo "Unloading module for in-kernel packet forwarding"
 		echo "del $TABLE" > /proc/mediaproxy/control
-		iptables -D mediaproxy -j MEDIAPROXY --id $CUR_TABLE
 		iptables -D mediaproxy -p udp -j MEDIAPROXY --id $CUR_TABLE
 		if [[ CUR_IP6 == 1 ]]
 		then
     			ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $CUR_TABLE
   		fi
+		iptables -t filter -D INPUT -j mediaproxy
+		iptables -X mediaproxy
 #		rmmod xt_MEDIAPROXY
 		rm -f $cachefile	
 	fi
