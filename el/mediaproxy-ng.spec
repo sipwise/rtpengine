@@ -1,6 +1,6 @@
 Name:		ngcp-mediaproxy-ng
 Version:	2.3.0
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	The Sipwise NGCP mediaproxy-ng
 
 Group:		System Environment/Daemons
