@@ -17,9 +17,9 @@ CentOS repository).
 The *ngcp-mediaproxy-ng-kernel* package is dependent on the
 *ngcp-mediaproxy-ng*, and *ngcp-mediaproxy-ng-dkms* packages. The
 *ngcp-mediaproxy-ng-dkms* package has a dependency (DKMS) that cannot be met
-by the standard CentOS repository. If you want to use in-kernel forwarding you
-need to download and install the latest version of the
-[*dkms*](http://linux.dell.com/dkms/) package before attempting to install
+by the CentOS base repository. If you want to use in-kernel forwarding you
+need to add the [*EPEL*](http://fedoraproject.org/wiki/EPEL) repository and
+install the *dkms* package before attempting to install
 *ngcp-mediaproxy-ng-dkms* or *ngcp-mediaproxy-ng-kernel*.
 
 Note: installing *ngcp-mediaproxy-ng-dkms* builds a kernel module which requires

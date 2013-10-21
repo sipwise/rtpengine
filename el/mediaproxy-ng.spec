@@ -1,6 +1,6 @@
 Name:		ngcp-mediaproxy-ng
 Version:	2.3.0
-Release:	2%{?dist}
+Release:	3%{?dist}
 Summary:	The Sipwise NGCP mediaproxy-ng
 
 Group:		System Environment/Daemons
@@ -39,8 +39,8 @@ Group:		System Environment/Daemons
 BuildArch:	noarch
 BuildRequires:	redhat-rpm-config
 Requires:	gcc make
-Requires(post):	dkms
-Requires(preun): dkms
+Requires(post):	epel-release dkms
+Requires(preun): epel-release dkms
 
 %description dkms
 Kernel module for mediaproxy-ng in-kernel packet forwarding
