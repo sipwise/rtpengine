@@ -1,0 +1,39 @@
+# For more information on configuring mediaproxy-ng see
+# http://github.com/sipwise/mediproxy-ng
+#
+# (m) means the item is mandatory, (o) means the item is optional
+#
+KERNEL=yes		# (m) "yes" enable in-kernel forwarding, "no" disables
+TABLE=0			# (o) iptables table for in-kernel forwarding rules
+			#     comment out when "KERNEL=no"
+FALLBACK=yes		# (m) "yes" enables fallback to userspace forwarding
+			#     only, "no" disables
+RTP_IP=127.0.0.1	# (m) Local IPv4 address for packet forwarding
+#RTP_ADV_IP=127.0.0.1	# (o) IPv4 address to "advertise" for packet forwarding
+#RTP_IP6=::1		# (o) Local IPv6 address for packet forwarding
+#RTP_ADV_IP6=::1	# (o) IPv6 address to "advertise" for packet forwarding
+#
+# At least one of LISTEN_(TCP|UDP|NG) is required
+#LISTEN_TCP=127.0.0.1:2222	# IP address and port combination for TCP
+				# control
+LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
+				# control
+#LISTEN_NG=127.0.0.1:2223 	# IP address and port combination for NG (UDP)
+				# control
+#
+#TOS=184		# (o) TOS value to use in outgoing packets
+#TIMEOUT=60		# (o) Number of seconds after which a media stream is
+			#     considered dead if there is no traffic.
+			#     Default: 60
+#SILENT_TIMEOUT=3600	# (o) Number of seconds after which a muted or inactive
+			#     stream is considered dead. Default: 3600
+#PORT_MIN=30000		# (o) Lowest port in the local port range for media
+			#     traffic. Default: 30000
+#PORT_MAX=40000		# (o) Highest port in the local port range for media
+			#     traffic. Default: 40000 
+#
+#LOG_LEVEL=6		# Log level to use
+# The following items are for use with NGCP
+#REDIS=127.0.0.1:6379
+#REDIS_DB=0
+#B2B_URL=http://127.0.0.1:8080/xmlrpc

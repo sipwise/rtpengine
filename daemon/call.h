@@ -183,6 +183,7 @@ struct callmaster *callmaster_new(struct poller *);
 void callmaster_config(struct callmaster *m, struct callmaster_config *c);
 void callmaster_exclude_port(struct callmaster *m, u_int16_t p);
 int callmaster_has_ipv6(struct callmaster *);
+void callmaster_msg_mh_src(struct callmaster *, struct msghdr *);
 
 
 str *call_request_tcp(char **, struct callmaster *);
