@@ -1,4 +1,4 @@
-ngcp-mediaproxy-ng (2.3.1) UNRELEASED; urgency=low
+ngcp-mediaproxy-ng (2.3.1) unstable; urgency=low
 
   * Enforce stream correlation against same-numbered old streams
   * Fix incorrect source address of STUN binding responses
