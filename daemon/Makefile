@@ -5,7 +5,7 @@ CFLAGS+=	`pkg-config --cflags gthread-2.0`
 CFLAGS+=	`pkg-config --cflags zlib`
 CFLAGS+=	`pkg-config --cflags openssl`
 CFLAGS+=	`pcre-config --cflags`
-CFLAGS+=	-I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
+CFLAGS+=	-I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
 ifneq ($(MEDIAPROXY_VERSION),)
   CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(MEDIAPROXY_VERSION)\""
