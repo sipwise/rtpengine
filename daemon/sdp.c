@@ -1446,7 +1446,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 	struct sdp_session *session;
 	struct sdp_media *media;
 	GList *l, *k, *m;
-	int off, do_ice, r_flags;
+	int off, do_ice, r_flags, sess_conn;
 	struct stream_input si, *sip;
 	struct streamrelay *rtp, *rtcp;
 	unsigned long priority;
@@ -1458,13 +1458,26 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
 
+		sess_conn = 0;
+		if (flags->replace_sess_conn)
+			sess_conn = 1;
+		else {
+			for (k = session->media_streams.head; k; k = k->next) {
+				media = k->data;
+				if (!media->connection.parsed) {
+					sess_conn = 1;
+					break;
+				}
+			}
+		}
+
 		fill_relays(&rtp, &rtcp, m, off, NULL, NULL);
 
 		if (session->origin.parsed && flags->replace_origin) {
 			if (replace_network_address(chop, &session->origin.address, rtp))
 				goto error;
 		}
-		if (session->connection.parsed) {
+		if (session->connection.parsed && sess_conn) {
 			if (replace_network_address(chop, &session->connection.address, rtp))
 				goto error;
 		}
@@ -1501,7 +1514,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			if (replace_transport_protocol(chop, media, rtp))
 				goto error;
 
-			if (media->connection.parsed && flags->replace_sess_conn) {
+			if (media->connection.parsed) {
 				if (replace_network_address(chop, &media->connection.address, rtp))
 					goto error;
 			}
