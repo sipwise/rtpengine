@@ -274,8 +274,10 @@ void kernelize(struct callstream *c) {
 				memcpy(mpt.dst_addr.ipv6, &r->peer.ip46, sizeof(mpt.src_addr.ipv6));
 			}
 
-			r->handler->kernel_decrypt(&mpt.decrypt, r);
-			r->handler->kernel_encrypt(&mpt.encrypt, r);
+			if (r->handler->kernel_decrypt(&mpt.decrypt, r))
+				goto no_kernel_stream;
+			if (r->handler->kernel_encrypt(&mpt.encrypt, r))
+				goto no_kernel_stream;
 
 			if (!mpt.encrypt.cipher || !mpt.encrypt.hmac)
 				goto no_kernel_stream;
@@ -354,6 +356,9 @@ static int __k_null(struct mediaproxy_srtp *s, struct streamrelay *r) {
 	return 0;
 }
 static int __k_srtp_crypt(struct mediaproxy_srtp *s, struct crypto_context *c) {
+	if (!c->crypto_suite)
+		return -1;
+
 	*s = (struct mediaproxy_srtp) {
 		.cipher		= c->crypto_suite->kernel_cipher,
 		.hmac		= c->crypto_suite->kernel_hmac,
