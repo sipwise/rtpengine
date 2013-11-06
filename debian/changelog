@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.3.3) unstable; urgency=low
+
+  * fix possible segfault on incorrect sp/SP flag usage
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Wed, 06 Nov 2013 10:27:10 -0500
+
 ngcp-mediaproxy-ng (2.3.2) unstable; urgency=low
 
   [ Richard Fuchs ]
