@@ -1,11 +1,18 @@
 PWD    := $(shell pwd)
 KSRC   ?= /lib/modules/$(shell uname -r)/build
 KBUILD := $(KSRC)
-ifeq ($(origin MEDIAPROXY_VERSION), undefined)
-MEDIAPROXY_VERSION := $(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')
-export MEDIAPROXY_VERSION
+
+ifneq ($(MEDIAPROXY_VERSION),)
+  EXTRA_CFLAGS += -DMEDIAPROXY_VERSION="\"$(MEDIAPROXY_VERSION)\""
+else
+  DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)
+  ifneq ($(DPKG_PRSCHNGLG),)
+    EXTRA_CFLAGS += -DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
+  else
+    EXTRA_CFLAGS += -DMEDIAPROXY_VERSION="\"undefined\""
+  endif
 endif
-EXTRA_CFLAGS += -DMEDIAPROXY_VERSION="\"$(MEDIAPROXY_VERSION)\"" -D__MP_EXTERNAL
+EXTRA_CFLAGS += -D__MP_EXTERNAL
 
 obj-m        += xt_MEDIAPROXY.o
 

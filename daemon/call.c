@@ -274,8 +274,10 @@ void kernelize(struct callstream *c) {
 				memcpy(mpt.dst_addr.ipv6, &r->peer.ip46, sizeof(mpt.src_addr.ipv6));
 			}
 
-			r->handler->kernel_decrypt(&mpt.decrypt, r);
-			r->handler->kernel_encrypt(&mpt.encrypt, r);
+			if (r->handler->kernel_decrypt(&mpt.decrypt, r))
+				goto no_kernel_stream;
+			if (r->handler->kernel_encrypt(&mpt.encrypt, r))
+				goto no_kernel_stream;
 
 			if (!mpt.encrypt.cipher || !mpt.encrypt.hmac)
 				goto no_kernel_stream;
@@ -354,6 +356,9 @@ static int __k_null(struct mediaproxy_srtp *s, struct streamrelay *r) {
 	return 0;
 }
 static int __k_srtp_crypt(struct mediaproxy_srtp *s, struct crypto_context *c) {
+	if (!c->crypto_suite)
+		return -1;
+
 	*s = (struct mediaproxy_srtp) {
 		.cipher		= c->crypto_suite->kernel_cipher,
 		.hmac		= c->crypto_suite->kernel_hmac,
@@ -2722,6 +2727,8 @@ const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_
 
 const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str fromtag, totag, viabranch, callid;
+	bencode_item_t *flags, *it;
+	int fatal = 0;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -2730,8 +2737,19 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 	bencode_dictionary_get_str(input, "to-tag", &totag);
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 
-	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag, output))
-		return "Call-ID not found or tags didn't match";
+	flags = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST);
+	if (flags) {
+		for (it = flags->child; it; it = it->sibling) {
+			if (!bencode_strcmp(it, "fatal"))
+				fatal = 1;
+		}
+	}
+
+	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag, output)) {
+		if (fatal)
+			return "Call-ID not found or tags didn't match";
+		bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
+	}
 
 	bencode_dictionary_add_string(output, "result", "ok");
 	return NULL;

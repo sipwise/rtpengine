@@ -462,7 +462,8 @@ a string and determines the type of message. Currently the following commands ar
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
 `error-reason` must be given, containing a string with a human-readable error message. No other keys should
-be present in the error case.
+be present in the error case. If the result is `ok`, the optional key `warning` may be present, containing a
+human-readable warning message. This can be used for non-fatal errors.
 
 For readabilty, all data objects below are represented in a JSON-like notation and without the message cookie.
 For example, a `ping` message and its corresponding `pong` reply would be written as:
@@ -618,7 +619,15 @@ The reply message is identical as in the `offer` reply.
 ----------------
 
 The `delete` message must contain at least the keys `call-id` and `from-tag` and may optionally include
-`to-tag` and `via-branch`, as defined above.
+`to-tag` and `via-branch`, as defined above. It may also optionally include a key `flags` containing a list
+of zero or more strings. The following flags are defined:
+
+* `fatal`
+
+	Specifies that any non-syntactical error encountered when deleting the stream
+	(such as unknown call-ID) shall
+	result in an error reply (i.e. `"result": "error"`). The default is to reply with a warning only
+	(i.e. `"result": "ok", "warning": ...`).
 
 The reply message may contain additional keys with statistics about the deleted call. Those additional keys
 are the same as used in the `query` reply.

@@ -1,3 +1,52 @@
+ngcp-mediaproxy-ng (2.3.2) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [7d82cd2] updating README
+  * [2f0ad34] update init script to "provide itself"
+  * [97d3414] fix bug when trust-address isnt given
+  * [5fa1c1e] dont fail on failed rm
+  * [13ad042] rename some keys in the ng protocol (replace dash with space) but retain compatibility
+  * [bbc5339] implement and document ng "media address"
+  * [7e88b38] change port range defaults to match docs
+  * [d63df52] merge bencode fix from kamailio source
+  * [1a83499] fix incorrect source address of STUN binding responses
+  * [f023ab4] update init script to handle ipv6 tables properly
+  * [ace8130] merge bencode fix from kamailio source
+  * [e90a7ec] change port range defaults to match docs
+  * [b18d14e] Implement non-fatal warnings in NG replies and use them in "delete"
+    (Closes: #12)
+
+  [ Peter Dunkley ]
+  * [130d485] Updated Makefiles and added compilation instructions to work with Enterprise Linux (tested on CentOS 6.4 64-bit).
+  * [c7c3ee0] First go at creating a .spec file to build mediaproxy-ng for Enterprise Linux
+  * [44fc40f] .spec file now builds iptables plugin. Kernel module (using DKMS) to follow.
+  * [e322989] Updated documentation for Enterprise Linux
+  * [6830b16] .spec file now builds kernel module using DKMS
+  * [ce9ac35] Updated readme for Enterprise Linux
+  * [c0572a0] More tidying of EL docs
+  * [f16afa8] Added init.d script and config file
+  * [3468c17] Fixes to init.d script and .spec
+  * [10d991c] Updated documentation for Enterprise Linux
+  * [7a14c45] updated to support new --log-level argument and use a new iptables chain
+  * [454f65f] fix to iptables usage in init.d script
+  * [dfe9cfb] updated rel in .spec file
+  * [829e835] Updated to use DKMS from EPEL for Enterprise Linux builds
+
+  [ Jon Bonilla ]
+  * [ffd3231] Make mediaproxy use a new iptables chain
+
+  [ oboisti ]
+  * [d74c24f] added --log-level option and USR1 and USR2 signals to update log level on the fly
+
+  [ Juha Heinanen ]
+  * [e84c2f5] added log level handling to debian default file and init script
+
+  [ Michael Prokop ]
+  * [a1d21dc] MT#4569 ngcp-mediaproxy-ng-daemon does not need to Pre-Depend on ngcp-mediaproxy-ng-kernel-dkms.
+    Thanks to Peter Dunkley for reporting (Closes: #9)
+
+ -- Victor Seva <vseva@sipwise.com>  Tue, 29 Oct 2013 10:37:41 +0100
+
 ngcp-mediaproxy-ng (2.3.1) unstable; urgency=low
 
   * Enforce stream correlation against same-numbered old streams

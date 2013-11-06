@@ -5,9 +5,18 @@ CFLAGS+=	`pkg-config --cflags gthread-2.0`
 CFLAGS+=	`pkg-config --cflags zlib`
 CFLAGS+=	`pkg-config --cflags openssl`
 CFLAGS+=	`pcre-config --cflags`
-CFLAGS+=	-I/lib/modules/`uname -r`/build/include/ -I../kernel-module/
+CFLAGS+=	-I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
-CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
+ifneq ($(MEDIAPROXY_VERSION),)
+  CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(MEDIAPROXY_VERSION)\""
+else
+  DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)
+  ifneq ($(DPKG_PRSCHNGLG),)
+    CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
+  else
+    CFLAGS+=	-DMEDIAPROXY_VERSION="\"undefined\""
+  endif
+endif
 CFLAGS+=	-DMP_PLUGIN_DIR="\"/usr/lib/mediaproxy-ng\""
 
 #CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
@@ -27,10 +36,13 @@ LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`xmlrpc-c-config client --libs`
 
 ifneq ($(DBG),yes)
-# support http://wiki.debian.org/Hardening for >=wheezy
-CFLAGS+=        `dpkg-buildflags --get CFLAGS`
-CPPFLAGS+=      `dpkg-buildflags --get CPPFLAGS`
-LDFLAGS+=       `dpkg-buildflags --get LDFLAGS`
+  DPKG_BLDFLGS=	$(shell which dpkg-buildflags 2>/dev/null)
+  ifneq ($(DPKG_BLDFLGS),)
+    # support http://wiki.debian.org/Hardening for >=wheezy
+    CFLAGS+=	`dpkg-buildflags --get CFLAGS`
+    CPPFLAGS+=	`dpkg-buildflags --get CPPFLAGS`
+    LDFLAGS+=	`dpkg-buildflags --get LDFLAGS`
+  endif
 endif
 
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c streambuf.c call.c control_udp.c redis.c \

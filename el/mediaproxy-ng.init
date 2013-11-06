@@ -1,0 +1,219 @@
+#!/bin/bash
+#
+# mediaproxy-ng		Startup script for NGCP mediaproxy-ng
+#
+# chkconfig: 345 84 16
+# description: NGCP mediaproxy-ng
+#
+# processname: mediaproxy-ng
+# config: /etc/sysconfig/mediaproxy-ng
+# pidfile: /var/run/mediaproxy-ng.pid
+#
+### BEGIN INIT INFO
+# Provides: mediaproxy-ng
+# Required-Start: $local_fs $network
+# Short-Description: NGCP mediaproxy-ng
+# Description: NGCP mediaproxy-ng 
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+if [ -f /etc/sysconfig/mediaproxy-ng ]
+then
+        . /etc/sysconfig/mediaproxy-ng
+else
+	echo "Error: /etc/sysconfig/mediproxy-ng not present"
+	exit -1
+fi
+
+mediaproxy_ng=/usr/sbin/mediaproxy-ng
+prog=mediaproxy-ng
+pidfile=${PIDFILE-/var/run/mediaproxy-ng.pid}
+lockfile=${LOCKFILE-/var/lock/subsys/mediaproxy-ng}
+cachefile=/var/lib/mediaproxy-ng/mediaproxy-ng.cfg
+RETVAL=0
+
+OPTS="--pidfile $pidfile"
+MODULE=0
+IP6=0
+
+build_opts() {
+	shopt -s nocasematch
+	RPMS=`rpm -qa | grep ngcp-mediaproxy-ng-kernel`
+	if [[ "$KERNEL" == "yes" && -n "$TABLE" && -n "$RPMS" ]]
+	then
+		MODULE=1
+		OPTS+=" --table=$TABLE"
+	else
+		MODULE=0
+		OPTS+=" --table=-1"
+	fi
+
+	if [[ "$FALLBACK" != "yes" ]]
+	then
+		OPTS+=" --no-fallback"
+	fi
+	shopt -u nocasematch
+
+	if [[ -n "$RTP_IP" ]]
+	then
+		OPTS+=" --ip=$RTP_IP"
+	fi
+
+	if [[ -n "$RTP_ADV_IP" ]]
+	then
+		OPTS+=" --advertised-ip=$RTP_ADV_IP"
+	fi
+
+	if [[ -n "$RTP_IP6" ]]
+	then
+		OPTS+=" --ip6=$RTP_IP6"
+		IP6=1
+	fi
+
+	if [[ -n "$RTP_ADV_IP6" ]]
+	then
+		OPTS+=" --advertised-ip6=$RTP_ADV_IP6"
+	fi
+
+	if [[ -n "$LISTEN_TCP" ]]
+	then
+		OPTS+=" --listen-tcp=$LISTEN_TCP"
+	fi
+
+	if [[ -n "$LISTEN_UDP" ]]
+	then
+		OPTS+=" --listen-udp=$LISTEN_UDP"
+	fi
+
+	if [[ -n "$LISTEN_NG" ]]
+	then
+		OPTS+=" --listen-ng=$LISTEN_NG"
+	fi
+
+	if [[ -n "$TOS" ]]
+	then
+		OPTS+=" --tos=$TOS"
+	fi
+
+	if [[ -n "$TIMEOUT" ]]
+	then
+		OPTS+=" --timeout=$TIMEOUT"
+	fi
+
+	if [[ -n "$SILENT_TIMEOUT" ]]
+	then
+		OPTS+=" --silent-timeout=$SILENT_TIMEOUT"
+	fi
+
+	if [[ -n "$PORT_MIN" ]]
+	then
+		OPTS+=" --port-min=$PORT_MIN"
+	fi
+
+	if [[ -n "$PORT_MAX" ]]
+	then
+		OPTS+=" --port-max=$PORT_MAX"
+	fi
+
+	if [[ -n "$REDIS" ]]
+	then
+		OPTS+=" --redis=$REDIS"
+	fi
+
+	if [[ -n "$REDIS_DB" ]]
+	then
+		OPTS+=" --redis-db=$REDIS_DB"
+	fi
+
+	if [[ -n "$B2B_URL" ]]
+	then
+		OPTS+=" --b2b-url=$B2B_URL"
+	fi
+
+	if [[ -n "$LOG_LEVEL" ]]
+	then
+		OPTS+=" --log-level=$LOG_LEVEL"
+	fi
+}
+
+start() {
+	build_opts
+	if [[ $MODULE == 1 ]]
+	then
+		echo "Loading module for in-kernel packet forwarding"
+		modprobe xt_MEDIAPROXY
+		iptables -N mediaproxy
+		iptables -t filter -A INPUT -j mediaproxy
+		iptables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
+		if [[ IP6 == 1 ]]
+		then
+    			ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
+  		fi
+
+		cat <<EOF > "$cachefile"
+CUR_TABLE=$TABLE
+CUR_IP6=$IP6
+EOF
+	fi
+        echo -n $"Starting $prog: "
+        daemon --pidfile=${pidfile} $mediaproxy_ng $OPTS
+        RETVAL=$?
+        echo
+        [ $RETVAL = 0 ] && touch ${lockfile}
+        return $RETVAL
+}
+
+stop() {
+	echo -n $"Stopping $prog: "
+	killproc -p ${pidfile} $mediaproxy_ng
+	RETVAL=$?
+	echo
+	if [ -f "$cachefile" ]
+	then
+		. "$cachefile"
+		echo "Unloading module for in-kernel packet forwarding"
+		echo "del $TABLE" > /proc/mediaproxy/control
+		iptables -D mediaproxy -p udp -j MEDIAPROXY --id $CUR_TABLE
+		if [[ CUR_IP6 == 1 ]]
+		then
+    			ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $CUR_TABLE
+  		fi
+		iptables -t filter -D INPUT -j mediaproxy
+		iptables -X mediaproxy
+#		rmmod xt_MEDIAPROXY
+		rm -f $cachefile	
+	fi
+ 
+	[ $RETVAL = 0 ] && rm -f ${lockfile} ${pidfile}
+}
+
+# See how we were called.
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  status)
+        status -p ${pidfile} $mediaproxy_ng
+	RETVAL=$?
+	;;
+  restart)
+	stop
+	start
+	;;
+  condrestart|try-restart)
+	if status -p ${pidfile} $mediaproxy_ng >&/dev/null; then
+		stop
+		start
+	fi
+	;;
+  *)
+	echo $"Usage: $prog {start|stop|restart|condrestart|try-restart|status}"
+	RETVAL=2
+esac
+
+exit $RETVAL
