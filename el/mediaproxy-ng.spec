@@ -1,10 +1,10 @@
 Name:		ngcp-mediaproxy-ng
-Version:	2.3.0
-Release:	3%{?dist}
+Version:	2.3.2
+Release:	0%{?dist}
 Summary:	The Sipwise NGCP mediaproxy-ng
 
 Group:		System Environment/Daemons
-License:	unknown
+License:	GPLv3
 URL:		https://github.com/crocodilertc/mediaproxy-ng
 Source:		%{name}-%{version}.tar.gz
 Conflicts:	%{name}-kernel < %{version}
@@ -165,6 +165,9 @@ true
 
 
 %changelog
+* Mon Nov 11 2013 Peter Dunkley <peter.dunkley@crocodilertc.net>
+  - Updated version to 2.3.2
+  - Set license to GPLv3
 * Thu Aug 15 2013 Peter Dunkley <peter.dunkley@crocodilertc.net>
   - init.d scripts and configuration file
 * Wed Aug 14 2013 Peter Dunkley <peter.dunkley@crocodilertc.net>
