@@ -63,6 +63,12 @@ MODULE_LICENSE("GPL");
 
 
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+#define PDE_DATA(i) (PDE(i)->data)
+#endif
+
+
+
 
 struct mp_hmac;
 struct mp_cipher;
@@ -84,7 +90,8 @@ static rwlock_t table_lock;
 static ssize_t proc_control_write(struct file *, const char __user *, size_t, loff_t *);
 static int proc_control_open(struct inode *, struct file *);
 static int proc_control_close(struct inode *, struct file *);
-static int proc_status(char *, char **, off_t, int, int *, void *);
+
+static ssize_t proc_status(struct file *, char __user *, size_t, loff_t *);
 
 static ssize_t proc_main_control_write(struct file *, const char __user *, size_t, loff_t *);
 static int proc_main_control_open(struct inode *, struct file *);
@@ -222,6 +229,10 @@ static const struct file_operations proc_main_control_ops = {
 	.release		= proc_main_control_close,
 };
 
+static const struct file_operations proc_status_ops = {
+	.read			= proc_status,
+};
+
 static const struct file_operations proc_list_ops = {
 	.open			= proc_list_open,
 	.read			= seq_read,
@@ -341,38 +352,29 @@ static int table_create_proc(struct mediaproxy_table *t, u_int32_t id) {
 
 	sprintf(num, "%u", id);
 
-	t->proc = create_proc_entry(num, S_IFDIR | S_IRUGO | S_IXUGO, my_proc_root);
+	t->proc = proc_mkdir_mode(num, S_IRUGO | S_IXUGO, my_proc_root);
 	if (!t->proc)
 		return -1;
-	/* t->proc->owner = THIS_MODULE; */
 
-	t->status = create_proc_entry("status", S_IFREG | S_IRUGO, t->proc);
+	t->status = proc_create_data("status", S_IFREG | S_IRUGO, t->proc, &proc_status_ops,
+		(void *) (unsigned long) id);
 	if (!t->status)
 		return -1;
-	/* t->status->owner = THIS_MODULE; */
-	t->status->read_proc = proc_status;
-	t->status->data = (void *) (unsigned long) id;
 
-	t->control = create_proc_entry("control", S_IFREG | S_IWUSR | S_IWGRP, t->proc);
+	t->control = proc_create_data("control", S_IFREG | S_IWUSR | S_IWGRP, t->proc,
+			&proc_control_ops, (void *) (unsigned long) id);
 	if (!t->control)
 		return -1;
-	/* t->control->owner = THIS_MODULE; */
-	t->control->proc_fops = &proc_control_ops;
-	t->control->data = (void *) (unsigned long) id;
 
-	t->list = create_proc_entry("list", S_IFREG | S_IRUGO, t->proc);
+	t->list = proc_create_data("list", S_IFREG | S_IRUGO, t->proc,
+			&proc_list_ops, (void *) (unsigned long) id);
 	if (!t->list)
 		return -1;
-	/* t->list->owner = THIS_MODULE; */
-	t->list->proc_fops = &proc_list_ops;
-	t->list->data = (void *) (unsigned long) id;
 
-	t->blist = create_proc_entry("blist", S_IFREG | S_IRUGO, t->proc);
+	t->blist = proc_create_data("blist", S_IFREG | S_IRUGO, t->proc,
+			&proc_blist_ops, (void *) (unsigned long) id);
 	if (!t->blist)
 		return -1;
-	/* t->blist->owner = THIS_MODULE; */
-	t->blist->proc_fops = &proc_blist_ops;
-	t->blist->data = (void *) (unsigned long) id;
 
 	return 0;
 }
@@ -461,7 +463,11 @@ static void clear_proc(struct proc_dir_entry **e) {
 	if (!e || !*e)
 		return;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
 	remove_proc_entry((*e)->name, (*e)->parent);
+#else
+	proc_remove(*e);
+#endif
 	*e = NULL;
 }
 
@@ -564,28 +570,39 @@ static struct mediaproxy_table *get_table(u_int32_t id) {
 
 
 
-static int proc_status(char *page, char **start, off_t off, int count, int *eof, void *data) {
+static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) {
+	struct inode *inode;
+	char buf[256];
 	struct mediaproxy_table *t;
 	int len = 0;
 	unsigned long flags;
+	u_int32_t id;
 
-	u_int32_t id = (u_int32_t) (unsigned long) data;
+	if (*o)
+		return -EINVAL;
+	if (l < sizeof(buf))
+		return -EINVAL;
+
+	inode = f->f_path.dentry->d_inode;
+	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
 
 	read_lock_irqsave(&t->target_lock, flags);
-	len += sprintf(page + len, "Refcount:    %u\n", atomic_read(&t->refcnt) - 1);
-	len += sprintf(page + len, "Control PID: %u\n", t->pid);
-	len += sprintf(page + len, "Targets:     %u\n", t->targets);
-	len += sprintf(page + len, "Buckets:     %u\n", t->buckets);
+	len += sprintf(buf + len, "Refcount:    %u\n", atomic_read(&t->refcnt) - 1);
+	len += sprintf(buf + len, "Control PID: %u\n", t->pid);
+	len += sprintf(buf + len, "Targets:     %u\n", t->targets);
+	len += sprintf(buf + len, "Buckets:     %u\n", t->buckets);
 	read_unlock_irqrestore(&t->target_lock, flags);
 
 	table_push(t);
 
+	if (copy_to_user(b, buf, len))
+		return -EFAULT;
+
 	return len;
 }
-
 
 
 
@@ -641,12 +658,10 @@ static int proc_main_list_show(struct seq_file *f, void *v) {
 
 
 static int proc_blist_open(struct inode *i, struct file *f) {
-	struct proc_dir_entry *pde;
 	u_int32_t id;
 	struct mediaproxy_table *t;
 
-	pde = PDE(i);
-	id = (u_int32_t) (unsigned long) pde->data;
+	id = (u_int32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -657,12 +672,10 @@ static int proc_blist_open(struct inode *i, struct file *f) {
 }
 
 static int proc_blist_close(struct inode *i, struct file *f) {
-	struct proc_dir_entry *pde;
 	u_int32_t id;
 	struct mediaproxy_table *t;
 
-	pde = PDE(i);
-	id = (u_int32_t) (unsigned long) pde->data;
+	id = (u_int32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
 	if (!t)
 		return 0;
@@ -674,7 +687,6 @@ static int proc_blist_close(struct inode *i, struct file *f) {
 
 static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t *o) {
 	struct inode *inode;
-	struct proc_dir_entry *pde;
 	u_int32_t id;
 	struct mediaproxy_table *t;
 	struct mediaproxy_list_entry op;
@@ -688,8 +700,7 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 		return -EINVAL;
 
 	inode = f->f_path.dentry->d_inode;
-	pde = PDE(inode);
-	id = (u_int32_t) (unsigned long) pde->data;
+	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -740,12 +751,10 @@ err:
 static int proc_list_open(struct inode *i, struct file *f) {
 	int err;
 	struct seq_file *p;
-	struct proc_dir_entry *pde;
 	u_int32_t id;
 	struct mediaproxy_table *t;
 
-	pde = PDE(i);
-	id = (u_int32_t) (unsigned long) pde->data;
+	id = (u_int32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -1439,13 +1448,11 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 
 
 static int proc_control_open(struct inode *inode, struct file *file) {
-	struct proc_dir_entry *pde;
 	u_int32_t id;
 	struct mediaproxy_table *t;
 	unsigned long flags;
 
-	pde = PDE(inode);
-	id = (u_int32_t) (unsigned long) pde->data;
+	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -1464,13 +1471,11 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 }
 
 static int proc_control_close(struct inode *inode, struct file *file) {
-	struct proc_dir_entry *pde;
 	u_int32_t id;
 	struct mediaproxy_table *t;
 	unsigned long flags;
 
-	pde = PDE(inode);
-	id = (u_int32_t) (unsigned long) pde->data;
+	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return 0;
@@ -1486,7 +1491,6 @@ static int proc_control_close(struct inode *inode, struct file *file) {
 
 static ssize_t proc_control_write(struct file *file, const char __user *buf, size_t buflen, loff_t *off) {
 	struct inode *inode;
-	struct proc_dir_entry *pde;
 	u_int32_t id;
 	struct mediaproxy_table *t;
 	struct mediaproxy_message msg;
@@ -1496,8 +1500,7 @@ static ssize_t proc_control_write(struct file *file, const char __user *buf, siz
 		return -EIO;
 
 	inode = file->f_path.dentry->d_inode;
-	pde = PDE(inode);
-	id = (u_int32_t) (unsigned long) pde->data;
+	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -2234,17 +2237,14 @@ static int __init init(void) {
 		goto fail;
 	/* my_proc_root->owner = THIS_MODULE; */
 
-	proc_control = create_proc_entry("control", S_IFREG | S_IWUSR | S_IWGRP, my_proc_root);
+	proc_control = proc_create("control", S_IFREG | S_IWUSR | S_IWGRP, my_proc_root,
+			&proc_main_control_ops);
 	if (!proc_control)
 		goto fail;
-	/* proc_control->owner = THIS_MODULE; */
-	proc_control->proc_fops = &proc_main_control_ops;
 
-	proc_list = create_proc_entry("list", S_IFREG | S_IRUGO, my_proc_root);
+	proc_list = proc_create("list", S_IFREG | S_IRUGO, my_proc_root, &proc_main_list_ops);
 	if (!proc_list)
 		goto fail;
-	/* proc_list->owner = THIS_MODULE; */
-	proc_list->proc_fops = &proc_main_list_ops;
 
 	err = "could not register xtables target";
 	ret = xt_register_targets(xt_mediaproxy_regs, ARRAY_SIZE(xt_mediaproxy_regs));

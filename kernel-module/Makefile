@@ -7,7 +7,7 @@ ifneq ($(MEDIAPROXY_VERSION),)
 else
   DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)
   ifneq ($(DPKG_PRSCHNGLG),)
-    EXTRA_CFLAGS += -DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
+    EXTRA_CFLAGS += -DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l$(M)/../debian/changelog | awk '/^Version: / {print $$2}')\""
   else
     EXTRA_CFLAGS += -DMEDIAPROXY_VERSION="\"undefined\""
   endif
