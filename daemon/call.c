@@ -191,6 +191,8 @@ static const struct mediaproxy_srtp __mps_null = {
 
 static void call_destroy(struct call *);
 static void unkernelize(struct peer *);
+static void unconfirm(struct peer *);
+static void unconfirm_cs(struct callstream *);
 static void relays_cache_port_used(struct relays_cache *c);
 static void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output);
 
@@ -1307,12 +1309,8 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	b = &p->rtps[1];
 
 	if (a->peer_advertised.port != s->stream.port
-			|| !IN6_ARE_ADDR_EQUAL(&a->peer_advertised.ip46, &s->stream.ip46)) {
-		cs->peers[0].confirmed = 0;
-		unkernelize(&cs->peers[0]);
-		cs->peers[1].confirmed = 0;
-		unkernelize(&cs->peers[1]);
-	}
+			|| !IN6_ARE_ADDR_EQUAL(&a->peer_advertised.ip46, &s->stream.ip46))
+		unconfirm_cs(cs);
 
 	a->peer = s->stream;
 	b->peer = s->stream;
@@ -1364,10 +1362,8 @@ static void steal_peer(struct peer *dest, struct peer *src) {
 	mylog(LOG_DEBUG, LOG_PREFIX_CI "Re-using existing open RTP port %u", 
 		LOG_PARAMS_CI(c), r->fd.localport);
 
-	dest->confirmed = 0;
-	unkernelize(dest);
-	src->confirmed = 0;
-	unkernelize(src);
+	unconfirm(dest);
+	unconfirm(src);
 
 	dest->filled = src->filled;
 	dest->tag = src->tag;
@@ -1590,6 +1586,7 @@ static int call_streams(struct call *c, GQueue *s, const str *tag, enum call_opm
 				if (str_cmp_str0(&cs_o->peers[x].tag, tag))
 					continue;
 				DBG("found existing call stream to steal");
+				unconfirm_cs(cs_o);
 				goto found;
 			}
 			mutex_unlock(&cs_o->lock);
@@ -1658,6 +1655,7 @@ found:
 got_cs:
 		/* cs and cs_o remain locked, and maybe cs == cs_o */
 		/* matched_relay == peer[x].rtp[0] of cs_o */
+		unconfirm_cs(cs);
 		g_queue_delete_link(c->callstreams, l); /* steal cs ref */
 		p = &cs->peers[1];
 		p2 = &cs->peers[0];
@@ -1713,9 +1711,8 @@ got_cs:
 			g_queue_push_tail(c->callstreams, cs_o); /* hand over ref to original cs */
 		}
 
-		time(&c->lookup_done);
-
 skip:
+		time(&c->lookup_done);
 		g_queue_push_tail(q, p->up); /* hand over ref to cs */
 		mutex_unlock(&cs->lock);
 		if (cs_o && cs_o != cs)
@@ -1746,6 +1743,15 @@ skip:
 
 
 
+static void unconfirm(struct peer *p) {
+	p->confirmed = 0;
+	unkernelize(p);
+}
+static void unconfirm_cs(struct callstream *cs) {
+	unconfirm(&cs->peers[0]);
+	unconfirm(&cs->peers[1]);
+}
+
 static void unkernelize(struct peer *p) {
 	struct streamrelay *r;
 	int i;
@@ -1754,8 +1760,6 @@ static void unkernelize(struct peer *p) {
 		return;
 
 	for (i = 0; i < 2; i++) {
-		if (!p->kernelized)
-			continue;
 		r = &p->rtps[i];
 		if (r->no_kernel_support)
 			continue;
