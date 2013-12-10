@@ -578,7 +578,9 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 	unsigned long flags;
 	u_int32_t id;
 
-	if (*o)
+	if (*o > 0)
+		return 0;
+	if (*o < 0)
 		return -EINVAL;
 	if (l < sizeof(buf))
 		return -EINVAL;
@@ -600,6 +602,7 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 
 	if (copy_to_user(b, buf, len))
 		return -EFAULT;
+	*o += len;
 
 	return len;
 }
