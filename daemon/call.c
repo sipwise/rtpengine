@@ -1666,9 +1666,12 @@ got_cs:
 			   the appropriate details. if no matching stream was found, results are
 			   undefined. */
 			DBG("double lookup");
-			if (p == matched_relay->up)
+			if (p == matched_relay->up) {
+				DBG("forward direction");
 				goto skip;
+			}
 			if (p2 == matched_relay->up) {
+				DBG("backward direction");
 				ret = -1;
 				goto skip;
 			}
