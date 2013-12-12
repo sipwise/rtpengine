@@ -1,3 +1,11 @@
+ngcp-mediaproxy-ng (2.3.4) unstable; urgency=low
+
+  * Kernel module compile fixes for kernels >= 3.10
+  * Re-learn peer addresses after each signalling
+  * Fix erroneous double lookup detection
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 12 Dec 2013 05:48:12 -0500
+
 ngcp-mediaproxy-ng (2.3.3) unstable; urgency=low
 
   * fix possible segfault on incorrect sp/SP flag usage
