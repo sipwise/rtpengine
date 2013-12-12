@@ -1662,7 +1662,10 @@ got_cs:
 		p = &cs->peers[1];
 		p2 = &cs->peers[0];
 
-		if (c->lookup_done && matched_relay) {
+		if (c->lookup_done && matched_relay
+				&& t->stream.port == matched_relay->peer_advertised.port
+				&& IN6_ARE_ADDR_EQUAL(&t->stream.ip46, &matched_relay->peer_advertised.ip46))
+		{
 			/* duplicate/stray lookup. don't do anything except replying with something
 			   we already have. check whether the direction is reversed or not and return
 			   the appropriate details. if no matching stream was found, results are
