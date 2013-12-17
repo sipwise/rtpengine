@@ -352,7 +352,11 @@ static int table_create_proc(struct mediaproxy_table *t, u_int32_t id) {
 
 	sprintf(num, "%u", id);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
+	t->proc = create_proc_entry(num, S_IFDIR | S_IRUGO | S_IXUGO, my_proc_root);
+#else
 	t->proc = proc_mkdir_mode(num, S_IRUGO | S_IXUGO, my_proc_root);
+#endif
 	if (!t->proc)
 		return -1;
 
