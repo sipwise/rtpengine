@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.2.2) unstable; urgency=low
+
+  * [634b645] MT#5393 Properly set dir flags for v4/v6 handling.
+
+ -- Andreas Granig <agranig@sipwise.com>  Thu, 02 Jan 2014 16:52:33 +0100
+
 ngcp-mediaproxy-ng (2.2.1) unstable; urgency=low
 
   * Handle zero ports and addresses in NG protocol
