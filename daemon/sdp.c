@@ -547,6 +547,9 @@ static int fill_stream(struct stream_input *si, struct sdp_media *media, int off
 	/* we ignore the media type */
 	si->stream.port = (media->port_num + (offset * 2)) & 0xffff;
 
+	si->direction[0] = flags->desired_family[0];
+	si->direction[1] = flags->desired_family[1];
+
 	return 0;
 }
 

@@ -122,9 +122,6 @@ static void unkernelize(struct peer *);
 static void relays_cache_port_used(struct relays_cache *c);
 static void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output);
 
-
-
-
 static void stream_closed(int fd, void *p, uintptr_t u) {
 	struct callstream *cs = p;
 	struct streamrelay *r;
@@ -1027,11 +1024,14 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 		switch (s->direction[i]) {
 			case DIR_INTERNAL:
 				cs->peers[i ^ p->idx].desired_family = AF_INET;
+				mylog(LOG_DEBUG, "dir %d/%d/%d is internal, use AF_INET", i, p->idx, i ^ p->idx);
 				break;
 			case DIR_EXTERNAL:
 				cs->peers[i ^ p->idx].desired_family = AF_INET6;
+				mylog(LOG_DEBUG, "dir %d/%d/%d is external, use AF_INET6", i, p->idx, i ^ p->idx);
 				break;
 			default:
+				mylog(LOG_DEBUG, "dir %d unknown (%d)", i, s->direction[i]);
 				break;
 		}
 	}
@@ -2274,13 +2274,18 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, GQueue *streams, ben
 	}
 
 	/* XXX convert to a "desired-family" kinda thing instead */
-	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
+		diridx = 0;
 		for (it = list->child; it && diridx < 2; it = it->sibling) {
-			if (!bencode_strcmp(it, "internal"))
-				dirs[diridx++] = DIR_INTERNAL;
-			else if (!bencode_strcmp(it, "external"))
-				dirs[diridx++] = DIR_EXTERNAL;
+			if (!bencode_strcmp(it, "internal")) {
+				dirs[diridx] = DIR_INTERNAL;
+				out->desired_family[diridx] = DIR_INTERNAL;
+			}
+			else if (!bencode_strcmp(it, "external")) {
+				dirs[diridx] = DIR_EXTERNAL;
+				out->desired_family[diridx] = DIR_EXTERNAL;
+			}
+			++diridx;
 		}
 
 		for (gl = streams->head; gl; gl = gl->next) {
