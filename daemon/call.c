@@ -989,12 +989,28 @@ fail:
 	return -1;
 }
 
+static void setup_stream_families(struct callstream *cs, struct stream_input *s, int idx) {
+	int i;
+
+	for (i = 0; i < 2; i++) {
+		switch (s->direction[i]) {
+			case DIR_INTERNAL:
+				cs->peers[i ^ idx].desired_family = AF_INET;
+				break;
+			case DIR_EXTERNAL:
+				cs->peers[i ^ idx].desired_family = AF_INET6;
+				break;
+			default:
+				break;
+		}
+	}
+}
+
 /* caller is responsible for appropriate locking */
 static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	struct streamrelay *a, *b;
 	struct callstream *cs;
 	struct call *ca;
-	int i;
 
 	cs = p->up;
 	ca = cs->call;
@@ -1020,21 +1036,7 @@ static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
 	b->rtcp = 1;
 	p->protocol = s->protocol;
 
-	for (i = 0; i < 2; i++) {
-		switch (s->direction[i]) {
-			case DIR_INTERNAL:
-				cs->peers[i ^ p->idx].desired_family = AF_INET;
-				mylog(LOG_DEBUG, "dir %d/%d/%d is internal, use AF_INET", i, p->idx, i ^ p->idx);
-				break;
-			case DIR_EXTERNAL:
-				cs->peers[i ^ p->idx].desired_family = AF_INET6;
-				mylog(LOG_DEBUG, "dir %d/%d/%d is external, use AF_INET6", i, p->idx, i ^ p->idx);
-				break;
-			default:
-				mylog(LOG_DEBUG, "dir %d unknown (%d)", i, s->direction[i]);
-				break;
-		}
-	}
+	setup_stream_families(cs, s, p->idx);
 
 	call_str_cpy(ca, &p->tag, tag);
 	p->filled = 1;
@@ -1322,6 +1324,7 @@ found:
 					steal_peer(&cs->peers[0], &cs_o->peers[1]);
 					steal_peer(&cs->peers[1], &cs_o->peers[0]);
 				}
+				setup_stream_families(cs, t, 0);
 				mutex_unlock(&cs_o->lock);
 			}
 
