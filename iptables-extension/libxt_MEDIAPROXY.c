@@ -90,7 +90,7 @@ static void print(const void *ip, const struct xt_entry_target *target, int nume
 #endif
 	struct xt_mediaproxy_info *info = (void *) target->data;
 
-	printf("id %u", info->id);
+	printf(" MEDIAPROXY id:%u", info->id);
 }
 
 #if defined(__ipt)
@@ -102,7 +102,7 @@ static void save(const void *ip, const struct xt_entry_target *target) {
 #endif
 	struct xt_mediaproxy_info *info = (void *) target->data;
 
-	printf("--id %u", info->id);
+	printf(" --id %u", info->id);
 }
 
 static struct option opts[] = {
