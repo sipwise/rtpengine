@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.3.5) unstable; urgency=low
+
+  * update desired address family (based on "direction") when branching
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 07 Jan 2014 16:09:50 -0500
+
 ngcp-mediaproxy-ng (2.3.4) unstable; urgency=low
 
   * Kernel module compile fixes for kernels >= 3.10
