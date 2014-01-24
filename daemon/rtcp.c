@@ -320,6 +320,8 @@ int rtcp_avpf2avp(str *s) {
 		}
 	}
 
+	rtcp_list_free(&rtcp_list);
+
 	s->len -= removed;
 	if (!s->len)
 		return -1;
