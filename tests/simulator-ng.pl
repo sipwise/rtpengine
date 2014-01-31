@@ -516,7 +516,7 @@ sub do_rtp {
 				my $dstport = $$outputs[$b][$j][0] + 1;
 				my $sendfd = $$cfds[$a][$j];
 				my $expfd = $$cfds[$b][$j];
-				if ($RTCPMUX && !$a) {
+				if ($RTCPMUX) {
 					if (!$a) {
 						$dstport--;
 						$sendfd = $$fds[$a][$j];
@@ -679,7 +679,6 @@ t=0 0
 		$sdp .= <<"!";
 m=audio $p $$tr{name} 8
 a=rtpmap:8 PCMA/8000
-a=rtcp:$cp
 !
 		if ($RTCPMUX && !$i) {
 			$sdp .= "a=rtcp-mux\n";
