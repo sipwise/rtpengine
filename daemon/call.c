@@ -1702,6 +1702,9 @@ got_cs:
 			/* found something, but it's linked to a different stream */
 			DBG("case 2");
 			steal_peer(p, matched_relay->up);
+			if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46)
+					|| matched_relay->peer_advertised.port != t->stream.port)
+				setup_peer(p, t, tag);
 		}
 		else if (!matched_relay && !p->filled) {
 			/* nothing found to steal, but this end is open */
