@@ -1,0 +1,98 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+use Bencode qw(bencode bdecode);
+use Getopt::Long;
+use Socket;
+use Socket6;
+use Data::Dumper;
+
+my %options = ('proxy-address' => 'localhost', 'proxy-port' => 2223);
+
+GetOptions(
+	'proxy-address=s'		=> \$options{'proxy-address'},
+	'proxy-port=s'			=> \$options{'proxy-port'},
+	'from-tag=s'			=> \$options{'from-tag'},
+	'to-tag=s'			=> \$options{'to-tag'},
+	'call-id=s'			=> \$options{'call-id'},
+	'protocol=s'			=> \$options{'transport protocol'},
+	'trust-address'			=> \$options{'trust address'},
+	'symmetric'			=> \$options{'symmetric'},
+	'asymmetric'			=> \$options{'asymmetric'},
+	'replace-origin'		=> \$options{'replace-origin'},
+	'replace-session-connection'	=> \$options{'replace-session connection'},
+	'client-address=s'		=> \$options{'client-address'},
+	'sdp=s'				=> \$options{'sdp'},
+	'sdp-file=s'			=> \$options{'sdp-file'},
+	'ICE=s'				=> \$options{'ICE'},
+	'force'				=> \$options{'force'},
+	'v|verbose'			=> \$options{'verbose'},
+) or die;
+
+my $cmd = shift(@ARGV) or die;
+
+my %packet = (command => $cmd);
+
+for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE')) {
+	defined($options{$x}) and $packet{$x} = $options{$x};
+}
+for my $x (split(',', 'trust address,symmetric,asymmetric,force')) {
+	defined($options{$x}) and push(@{$packet{flags}}, $x);
+}
+for my $x (split(',', 'origin,session connection')) {
+	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
+}
+
+if (defined($options{sdp})) {
+	$packet{sdp} = $options{sdp};
+}
+elsif (defined($options{'sdp-file'})) {
+	open(F, '<', $options{'sdp-file'}) or die $!;
+	my @sdp = <F> or die $!;
+	close(F);
+	$packet{sdp} = join('', @sdp);
+}
+elsif (@ARGV && $ARGV[0] eq 'sdp') {
+	shift(@ARGV);
+	$options{'client-address'} or die;
+	my ($ca, $cp);
+	if ($ca = inet_pton(AF_INET, $options{'client-address'})) {
+		$ca = inet_ntop(AF_INET, $ca);
+		$cp = "IP4";
+	}
+	elsif ($ca = inet_pton(AF_INET6, $options{'client-address'})) {
+		$ca = inet_ntop(AF_INET6, $ca);
+		$cp = "IP6";
+	}
+	$ca or die;
+	my $sdp = "v=0\r\no=- 12345 67890 IN $cp $ca\r\ns=session\r\nc=IN $cp $ca\r\nt=0 0\r\n";
+
+	$packet{sdp} = $sdp;
+}
+
+$options{verbose} and print Dumper \%packet;
+
+my $cookie = rand() . ' ';
+my $packet = $cookie . bencode(\%packet);
+
+socket(S, AF_INET, SOCK_DGRAM, 0) or die $!;
+send(S, $packet, 0, pack_sockaddr_in($options{'proxy-port'}, inet_aton($options{'proxy-address'}))) or die $!;
+my $ret;
+recv(S, $ret, 0x10000, 0);
+$ret =~ s/^\Q$cookie\E//s or die $ret;
+my $resp = bdecode($ret, 1);
+
+#print Dumper $resp;
+#exit;
+
+exists($$resp{result}) or die Dumper $resp;
+print("Result: \"$$resp{result}\"\n");
+if ($$resp{result} eq 'error') {
+	print("Error reason: \"$$resp{'error-reason'}\"\n");
+	exit(1);
+}
+if (defined($$resp{sdp})) {
+	print("New SDP:\n-----8<-----8<-----8<-----8<-----8<-----\n$$resp{sdp}\n".
+		"----->8----->8----->8----->8----->8-----\n");
+}
