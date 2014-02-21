@@ -73,17 +73,6 @@ mkdir -p $RPM_BUILD_ROOT/%{_sharedstatedir}/mediaproxy-ng
 install -D -p -m755 iptables-extension/libxt_MEDIAPROXY.so \
 	$RPM_BUILD_ROOT/%{_lib}/xtables/libxt_MEDIAPROXY.so
 
-# Install the documentation
-mkdir -p $RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}
-install -m644 README.md \
-	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/README.md
-install -m644 debian/changelog \
-	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/changelog
-install -m644 debian/copyright \
-	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/copyright
-install -m644 el/README.md \
-	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/README.el.md
-
 ## DKMS module source install
 install -D -p -m644 kernel-module/Makefile \
 	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
@@ -143,11 +132,7 @@ true
 %dir %{_sharedstatedir}/mediaproxy-ng
 
 # Documentation
-%dir %{_docdir}/%{name}-%{version}-%{release}
-%doc %{_docdir}/%{name}-%{version}-%{release}/README.md
-%doc %{_docdir}/%{name}-%{version}-%{release}/changelog
-%doc %{_docdir}/%{name}-%{version}-%{release}/copyright
-%doc %{_docdir}/%{name}-%{version}-%{release}/README.el.md
+%doc LICENSE README.md el/README.el.md debian/changelog debian/copyright
 
 
 %files kernel
