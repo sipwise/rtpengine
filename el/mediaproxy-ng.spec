@@ -109,7 +109,7 @@ rm -rf %{buildroot}
 %pre
 /usr/sbin/groupadd -r mediaproxy-ng 2> /dev/null || :
 /usr/sbin/useradd -r -g mediaproxy-ng -s /sbin/nologin -c "mediaproxy-ng daemon" \
-	-d %{_docdir}/%{name}-%{version}-%{release} mediaproxy-ng \
+	-d %{_sharedstatedir}/mediaproxy-ng mediaproxy-ng \
 	2> /dev/null || :
 
 
