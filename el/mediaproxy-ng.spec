@@ -139,7 +139,6 @@ true
 
 
 %files
-%defattr(-,root,root,-)
 # Userspace daemon
 %{_sbindir}/mediaproxy-ng
 
@@ -157,13 +156,11 @@ true
 
 
 %files kernel
-%defattr(-,root,root,-)
 /%{_lib}/xtables/libxt_MEDIAPROXY.so
 
 
 %files dkms
-%defattr(-,root,root,0755)
-%{_usrsrc}/%{name}-%{version}-%{release}/
+%attr(0755,root,root) %{_usrsrc}/%{name}-%{version}-%{release}/
 
 
 %changelog
