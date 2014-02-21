@@ -114,7 +114,9 @@ rm -rf %{buildroot}
 
 
 %post
-/sbin/chkconfig --add mediaproxy-ng
+if [ $1 -eq 1 ]; then
+        /sbin/chkconfig --add %{name} || :
+fi
 
 
 %post dkms
