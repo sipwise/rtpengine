@@ -5,7 +5,7 @@ Summary:	The Sipwise NGCP mediaproxy-ng
 
 Group:		System Environment/Daemons
 License:	GPLv3
-URL:		https://github.com/crocodilertc/mediaproxy-ng
+URL:		https://github.com/sipwise/mediaproxy-ng
 Source:		%{name}-%{version}.tar.gz
 Conflicts:	%{name}-kernel < %{version}
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
