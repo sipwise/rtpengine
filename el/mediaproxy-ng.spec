@@ -1,5 +1,5 @@
 Name:		ngcp-mediaproxy-ng
-Version:	2.3.2
+Version:	2.3.5
 Release:	0%{?dist}
 Summary:	The Sipwise NGCP mediaproxy-ng
 
