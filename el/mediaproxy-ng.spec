@@ -59,8 +59,6 @@ cd ..
 
 
 %install
-[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf "$RPM_BUILD_ROOT"
-
 # Install the userspace daemon
 mkdir -p $RPM_BUILD_ROOT/%{_sbindir}
 install -m755 daemon/mediaproxy-ng $RPM_BUILD_ROOT/%{_sbindir}/mediaproxy-ng
