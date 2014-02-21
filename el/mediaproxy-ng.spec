@@ -60,21 +60,17 @@ cd ..
 
 %install
 # Install the userspace daemon
-mkdir -p $RPM_BUILD_ROOT/%{_sbindir}
-install -p -m755 daemon/mediaproxy-ng $RPM_BUILD_ROOT/%{_sbindir}/mediaproxy-ng
+install -D -p -m755 daemon/mediaproxy-ng $RPM_BUILD_ROOT/%{_sbindir}/mediaproxy-ng
 
 ## Install the init.d script and configuration file
-mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/rc.d/init.d
-install -p -m755 el/mediaproxy-ng.init \
+install -D -p -m755 el/mediaproxy-ng.init \
 	$RPM_BUILD_ROOT/%{_sysconfdir}/rc.d/init.d/mediaproxy-ng
-mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig
-install -p -m644 el/mediaproxy-ng.sysconfig \
+install -D -p -m644 el/mediaproxy-ng.sysconfig \
 	$RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig/mediaproxy-ng
 mkdir -p $RPM_BUILD_ROOT/%{_sharedstatedir}/mediaproxy-ng
 
 # Install the iptables plugin
-mkdir -p $RPM_BUILD_ROOT/%{_lib}/xtables
-install -p -m755 iptables-extension/libxt_MEDIAPROXY.so \
+install -D -p -m755 iptables-extension/libxt_MEDIAPROXY.so \
 	$RPM_BUILD_ROOT/%{_lib}/xtables/libxt_MEDIAPROXY.so
 
 # Install the documentation
@@ -89,12 +85,11 @@ install -m644 el/README.md \
 	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/README.el.md
 
 ## DKMS module source install
-mkdir -p $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}
-install -p -m644 kernel-module/Makefile \
+install -D -p -m644 kernel-module/Makefile \
 	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
-install -p -m644 kernel-module/xt_MEDIAPROXY.c \
+install -D -p -m644 kernel-module/xt_MEDIAPROXY.c \
 	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.c
-install -p -m644 kernel-module/xt_MEDIAPROXY.h \
+install -D -p -m644 kernel-module/xt_MEDIAPROXY.h \
 	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.h
 sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
 	$RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
