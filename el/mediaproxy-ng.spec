@@ -128,8 +128,10 @@ true
 
 
 %preun
-/sbin/service mediaproxy-ng stop
-/sbin/chkconfig --del mediaproxy-ng
+if [ $1 = 0 ] ; then
+        /sbin/service %{name} stop >/dev/null 2>&1
+        /sbin/chkconfig --del %{name}
+fi
 
 
 %preun dkms
