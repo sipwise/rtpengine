@@ -865,14 +865,16 @@ static int get_port6(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 
 	nonblock(fd);
 	reuseaddr(fd);
-	tos = m->conf.tos;
+	ipv6only(fd, 0);
+	if (m->conf.tos)
+		setsockopt(fd, IPPROTO_IP, IP_TOS, &m->conf.tos, sizeof(m->conf.tos));
 #ifdef IPV6_TCLASS
+	tos = m->conf.tos;
 	if (tos)
 		setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
 #else
 #warning "Will not set IPv6 traffic class"
 #endif
-	ipv6only(fd, 0);
 
 	ZERO(sin);
 	sin.sin6_family = AF_INET6;
