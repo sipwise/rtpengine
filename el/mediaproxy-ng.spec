@@ -1,12 +1,12 @@
 Name:		ngcp-mediaproxy-ng
-Version:	2.3.2
+Version:	2.3.5
 Release:	0%{?dist}
 Summary:	The Sipwise NGCP mediaproxy-ng
 
 Group:		System Environment/Daemons
 License:	GPLv3
-URL:		https://github.com/crocodilertc/mediaproxy-ng
-Source:		%{name}-%{version}.tar.gz
+URL:		https://github.com/sipwise/mediaproxy-ng
+Source0:	https://github.com/sipwise/mediaproxy-ng/archive/%{version}/%{name}-%{version}.tar.gz
 Conflicts:	%{name}-kernel < %{version}
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
@@ -59,47 +59,29 @@ cd ..
 
 
 %install
-[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf "$RPM_BUILD_ROOT"
-
 # Install the userspace daemon
-mkdir -p $RPM_BUILD_ROOT/%{_sbindir}
-install -m755 daemon/mediaproxy-ng $RPM_BUILD_ROOT/%{_sbindir}/mediaproxy-ng
+install -D -p -m755 daemon/mediaproxy-ng %{buildroot}/%{_sbindir}/mediaproxy-ng
 
 ## Install the init.d script and configuration file
-mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/rc.d/init.d
-install -m755 el/mediaproxy-ng.init \
-	$RPM_BUILD_ROOT/%{_sysconfdir}/rc.d/init.d/mediaproxy-ng
-mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig
-install -m644 el/mediaproxy-ng.sysconfig \
-	$RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig/mediaproxy-ng
-mkdir -p $RPM_BUILD_ROOT/%{_sharedstatedir}/mediaproxy-ng
+install -D -p -m755 el/mediaproxy-ng.init \
+	%{buildroot}/%{_sysconfdir}/rc.d/init.d/mediaproxy-ng
+install -D -p -m644 el/mediaproxy-ng.sysconfig \
+	%{buildroot}/%{_sysconfdir}/sysconfig/mediaproxy-ng
+mkdir -p %{buildroot}/%{_sharedstatedir}/mediaproxy-ng
 
 # Install the iptables plugin
-mkdir -p $RPM_BUILD_ROOT/%{_lib}/xtables
-install -m755 iptables-extension/libxt_MEDIAPROXY.so \
-	$RPM_BUILD_ROOT/%{_lib}/xtables/libxt_MEDIAPROXY.so
-
-# Install the documentation
-mkdir -p $RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}
-install -m644 README.md \
-	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/README.md
-install -m644 debian/changelog \
-	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/changelog
-install -m644 debian/copyright \
-	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/copyright
-install -m644 el/README.md \
-	$RPM_BUILD_ROOT/%{_docdir}/%{name}-%{version}-%{release}/README.el.md
+install -D -p -m755 iptables-extension/libxt_MEDIAPROXY.so \
+	%{buildroot}/%{_lib}/xtables/libxt_MEDIAPROXY.so
 
 ## DKMS module source install
-mkdir -p $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}
-install -m644 kernel-module/Makefile \
-	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
-install -m644 kernel-module/xt_MEDIAPROXY.c \
-	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.c
-install -m644 kernel-module/xt_MEDIAPROXY.h \
-	 $RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.h
+install -D -p -m644 kernel-module/Makefile \
+	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
+install -D -p -m644 kernel-module/xt_MEDIAPROXY.c \
+	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.c
+install -D -p -m644 kernel-module/xt_MEDIAPROXY.h \
+	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.h
 sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
-	$RPM_BUILD_ROOT/%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+	%{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
 
 %clean
@@ -108,13 +90,15 @@ rm -rf %{buildroot}
 
 %pre
 /usr/sbin/groupadd -r mediaproxy-ng 2> /dev/null || :
-/usr/sbin/usradd -r -g mediaproxy-ng -s /bin/false -c "mediaproxy-ng daemon" \
-	-d %{_docdir}/%{name}-%{version}-%{release} mediaproxy-ng \
+/usr/sbin/useradd -r -g mediaproxy-ng -s /sbin/nologin -c "mediaproxy-ng daemon" \
+	-d %{_sharedstatedir}/mediaproxy-ng mediaproxy-ng \
 	2> /dev/null || :
 
 
 %post
-/sbin/chkconfig --add mediaproxy-ng
+if [ $1 -eq 1 ]; then
+        /sbin/chkconfig --add %{name} || :
+fi
 
 
 %post dkms
@@ -126,8 +110,10 @@ true
 
 
 %preun
-/sbin/service mediaproxy-ng stop
-/sbin/chkconfig --del mediaproxy-ng
+if [ $1 = 0 ] ; then
+        /sbin/service %{name} stop >/dev/null 2>&1
+        /sbin/chkconfig --del %{name}
+fi
 
 
 %preun dkms
@@ -137,7 +123,6 @@ true
 
 
 %files
-%defattr(-,root,root,-)
 # Userspace daemon
 %{_sbindir}/mediaproxy-ng
 
@@ -147,21 +132,15 @@ true
 %dir %{_sharedstatedir}/mediaproxy-ng
 
 # Documentation
-%dir %{_docdir}/%{name}-%{version}-%{release}
-%doc %{_docdir}/%{name}-%{version}-%{release}/README.md
-%doc %{_docdir}/%{name}-%{version}-%{release}/changelog
-%doc %{_docdir}/%{name}-%{version}-%{release}/copyright
-%doc %{_docdir}/%{name}-%{version}-%{release}/README.el.md
+%doc LICENSE README.md el/README.el.md debian/changelog debian/copyright
 
 
 %files kernel
-%defattr(-,root,root,-)
 /%{_lib}/xtables/libxt_MEDIAPROXY.so
 
 
 %files dkms
-%defattr(-,root,root,0755)
-%{_usrsrc}/%{name}-%{version}-%{release}/
+%attr(0755,root,root) %{_usrsrc}/%{name}-%{version}-%{release}/
 
 
 %changelog
