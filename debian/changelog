@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.2.4) unstable; urgency=low
+
+  * fix IPv4 TOS when IPv6 is enabled
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Mon, 24 Feb 2014 12:25:06 -0500
+
 ngcp-mediaproxy-ng (2.2.3) unstable; urgency=low
 
   * Update desired address family (based on "direction") when branching
