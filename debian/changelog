@@ -1,4 +1,4 @@
-ngcp-mediaproxy-ng (2.3.6) unstable; urgency=low
+ngcp-mediaproxy-ng (2.3.6+0~mr3.3) unstable; urgency=low
 
   * fix IPv4 TOS
 
