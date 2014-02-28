@@ -694,7 +694,7 @@ static inline void bitfield_set(struct mp_bitfield *bf, unsigned char i) {
 
 	b = bitfield_slot(i);
 	m = bitfield_bit(i);
-	k = 1 << m;
+	k = 1UL << m;
 	if ((bf->b[b] & k))
 		return;
 	bf->b[b] |= k;
@@ -706,7 +706,7 @@ static inline void bitfield_clear(struct mp_bitfield *bf, unsigned char i) {
 
 	b = bitfield_slot(i);
 	m = bitfield_bit(i);
-	k = 1 << m;
+	k = 1UL << m;
 	if (!(bf->b[b] & k))
 		return;
 	bf->b[b] &= ~k;

@@ -38,7 +38,7 @@
 #define DF			IPF ":%u"
 #define DP(x)			IPP((x).sin_addr.s_addr), ntohs((x).sin_port)
 
-#define BIT_ARRAY_DECLARE(name, size)	int name[((size) + sizeof(int) * 8 - 1) / (sizeof(int) * 8)]
+#define BIT_ARRAY_DECLARE(name, size)	unsigned long name[((size) + sizeof(long) * 8 - 1) / (sizeof(long) * 8)]
 
 #define UINT64F			"%" G_GUINT64_FORMAT
 
@@ -91,16 +91,16 @@ static inline void ipv6only(int fd, int yn) {
 	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
 }
 
-static inline int bit_array_isset(int *name, unsigned int bit) {
-	return name[(bit) / (sizeof(int) * 8)] & (1 << ((bit) % (sizeof(int) * 8)));
+static inline int bit_array_isset(unsigned long *name, unsigned int bit) {
+	return name[(bit) / (sizeof(long) * 8)] & (1UL << ((bit) % (sizeof(long) * 8)));
 }
 
-static inline void bit_array_set(int *name, unsigned int bit) {
-	name[(bit) / (sizeof(int) * 8)] |= 1 << ((bit) % (sizeof(int) * 8));
+static inline void bit_array_set(unsigned long *name, unsigned int bit) {
+	name[(bit) / (sizeof(long) * 8)] |= 1UL << ((bit) % (sizeof(long) * 8));
 }
 
-static inline void bit_array_clear(int *name, unsigned int bit) {
-	name[(bit) / (sizeof(int) * 8)] &= ~(1 << ((bit) % (sizeof(int) * 8)));
+static inline void bit_array_clear(unsigned long *name, unsigned int bit) {
+	name[(bit) / (sizeof(long) * 8)] &= ~(1UL << ((bit) % (sizeof(long) * 8)));
 }
 
 static inline char chrtoupper(char x) {
