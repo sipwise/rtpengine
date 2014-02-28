@@ -153,6 +153,16 @@ struct mediaproxy_target {
 	struct mp_crypto_context	encrypt;
 };
 
+struct mp_bitfield {
+	unsigned long			b[256 / (sizeof(unsigned long) * 8)];
+	unsigned int			used;
+};
+
+struct mp_bucket {
+	struct mp_bitfield		targets;
+	struct mediaproxy_target	*target[256];
+};
+
 struct mediaproxy_table {
 	atomic_t			refcnt;
 	rwlock_t			target_lock;
@@ -165,9 +175,9 @@ struct mediaproxy_table {
 	struct proc_dir_entry		*list;
 	struct proc_dir_entry		*blist;
 
-	struct mediaproxy_target	**target[256];
+	struct mp_bitfield		buckets;
+	struct mp_bucket		*bucket[256];
 
-	unsigned int			buckets;
 	unsigned int			targets;
 };
 
@@ -481,6 +491,7 @@ static void clear_proc(struct proc_dir_entry **e) {
 
 static void table_push(struct mediaproxy_table *t) {
 	int i, j;
+	struct mp_bucket *b;
 
 	if (!t)
 		return;
@@ -491,19 +502,20 @@ static void table_push(struct mediaproxy_table *t) {
 	DBG("Freeing table\n");
 
 	for (i = 0; i < 256; i++) {
-		if (!t->target[i])
+		b = t->bucket[i];
+		if (!b)
 			continue;
 
 		for (j = 0; j < 256; j++) {
-			if (!t->target[i][j])
+			if (!b->target[j])
 				continue;
-			t->target[i][j]->table = -1;
-			target_push(t->target[i][j]);
-			t->target[i][j] = NULL;
+			b->target[j]->table = -1;
+			target_push(b->target[j]);
+			b->target[j] = NULL;
 		}
 
-		kfree(t->target[i]);
-		t->target[i] = NULL;
+		kfree(b);
+		t->bucket[i] = NULL;
 	}
 
 	clear_proc(&t->status);
@@ -599,7 +611,7 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 	len += sprintf(buf + len, "Refcount:    %u\n", atomic_read(&t->refcnt) - 1);
 	len += sprintf(buf + len, "Control PID: %u\n", t->pid);
 	len += sprintf(buf + len, "Targets:     %u\n", t->targets);
-	len += sprintf(buf + len, "Buckets:     %u\n", t->buckets);
+	len += sprintf(buf + len, "Buckets:     %u\n", t->buckets.used);
 	read_unlock_irqrestore(&t->target_lock, flags);
 
 	table_push(t);
@@ -664,6 +676,105 @@ static int proc_main_list_show(struct seq_file *f, void *v) {
 
 
 
+static inline unsigned char bitfield_next_slot(unsigned int slot) {
+	unsigned char c;
+	c = slot * (sizeof(unsigned long) * 8);
+	c += sizeof(unsigned long) * 8;
+	return c;
+}
+static inline unsigned int bitfield_slot(unsigned char i) {
+	return i / (sizeof(unsigned long) * 8);
+}
+static inline unsigned int bitfield_bit(unsigned char i) {
+	return i % (sizeof(unsigned long) * 8);
+}
+static inline void bitfield_set(struct mp_bitfield *bf, unsigned char i) {
+	unsigned int b, m;
+	unsigned long k;
+
+	b = bitfield_slot(i);
+	m = bitfield_bit(i);
+	k = 1 << m;
+	if ((bf->b[b] & k))
+		return;
+	bf->b[b] |= k;
+	bf->used++;
+}
+static inline void bitfield_clear(struct mp_bitfield *bf, unsigned char i) {
+	unsigned int b, m;
+	unsigned long k;
+
+	b = bitfield_slot(i);
+	m = bitfield_bit(i);
+	k = 1 << m;
+	if (!(bf->b[b] & k))
+		return;
+	bf->b[b] &= ~k;
+	bf->used--;
+}
+static inline struct mediaproxy_target *find_next_target(struct mediaproxy_table *t, int *port) {
+	unsigned long flags;
+	struct mp_bucket *b;
+	unsigned char hi, lo;
+	unsigned int hi_b, lo_b;
+	struct mediaproxy_target *g;
+
+	if (*port < 0 || *port > 0xffff)
+		return NULL;
+
+	hi = (*port & 0xff00) >> 8;
+	lo = *port & 0xff;
+
+	read_lock_irqsave(&t->target_lock, flags);
+
+	for (;;) {
+		hi_b = bitfield_slot(hi);
+		if (!t->buckets.b[hi_b]) {
+			hi = bitfield_next_slot(hi_b);
+			lo = 0;
+			goto next;
+		}
+
+		b = t->bucket[hi];
+		if (!b) {
+			hi++;
+			lo = 0;
+			goto next;
+		}
+
+		lo_b = bitfield_slot(lo);
+		if (!b->targets.b[lo_b]) {
+			lo = bitfield_next_slot(lo_b);
+			goto next_lo;
+		}
+
+		g = b->target[lo];
+		if (!g) {
+			lo++;
+			goto next_lo;
+		}
+
+		target_hold(g);
+		break;
+
+next_lo:
+		if (!lo)
+			hi++;
+next:
+		if (!hi && !lo)
+			break;
+	}
+
+	read_unlock_irqrestore(&t->target_lock, flags);
+
+	*port = (hi << 8) | lo;
+	(*port)++;
+
+	return g;
+}
+
+
+
 static int proc_blist_open(struct inode *i, struct file *f) {
 	u_int32_t id;
 	struct mediaproxy_table *t;
@@ -700,6 +811,7 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	int err;
 	struct mediaproxy_target *g;
 	unsigned long flags;
+	int port;
 
 	if (l != sizeof(op))
 		return -EINVAL;
@@ -712,15 +824,12 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	if (!t)
 		return -ENOENT;
 
-	for (;;) {
-		err = 0;
-		if (*o > 0xffff)
-			goto err;
-
-		g = get_target(t, (*o)++);
-		if (g)
-			break;
-	}
+	port = (int) *o;
+	g = find_next_target(t, &port);
+	*o = port;
+	err = 0;
+	if (!g)
+		goto err;
 
 	memset(&op, 0, sizeof(op));
 	memcpy(&op.target, &g->target, sizeof(op.target));
@@ -789,46 +898,19 @@ static void proc_list_stop(struct seq_file *f, void *v) {
 
 static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is invalid */
 	u_int32_t id = (u_int32_t) (unsigned long) f->private;
-	struct mediaproxy_target *g = NULL;
 	struct mediaproxy_table *t;
-	u_int16_t port;
-	unsigned char hi, lo;
-	unsigned long flags;
+	struct mediaproxy_target *g;
+	int port;
 
-	if (*o < 0 || *o > 0xffff)
-		return NULL;
-	port = (u_int16_t) *o;
+	port = (int) *o;
 
 	t = get_table(id);
 	if (!t)
 		return NULL;
 
-	hi = (port & 0xff00) >> 8;
-	lo = port & 0xff;
+	g = find_next_target(t, &port);
 
-	read_lock_irqsave(&t->target_lock, flags);
-	for (;;) {
-		lo++;	/* will make the iteration start from 1 */
-		if (lo == 0) {
-			hi++;
-			if (hi == 0)
-				break;
-		}
-		if (!t->target[hi]) {
-			lo = 0xff;
-			continue;
-		}
-
-		g = t->target[hi][lo];
-		if (!g)
-			continue;
-
-		target_hold(g);
-		break;
-	}
-	read_unlock_irqrestore(&t->target_lock, flags);
-
-	*o = (hi << 8) | lo;
+	*o = port;
 	table_push(t);
 
 	return g;
@@ -902,7 +984,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 
 static int table_del_target(struct mediaproxy_table *t, u_int16_t port) {
 	unsigned char hi, lo;
-	struct mediaproxy_target *g;
+	struct mp_bucket *b;
+	struct mediaproxy_target *g = NULL;
 	unsigned long flags;
 
 	if (!port)
@@ -912,15 +995,30 @@ static int table_del_target(struct mediaproxy_table *t, u_int16_t port) {
 	lo = port & 0xff;
 
 	write_lock_irqsave(&t->target_lock, flags);
-	g = t->target[hi] ? t->target[hi][lo] : NULL;
-	if (g) {
-		t->target[hi][lo] = NULL;
-		t->targets--;
+	b = t->bucket[hi];
+	if (!b)
+		goto out;
+	g = b->target[lo];
+	if (!g)
+		goto out;
+
+	b->target[lo] = NULL;
+	bitfield_clear(&b->targets, lo);
+	t->targets--;
+	if (!b->targets.used) {
+		t->bucket[hi] = NULL;
+		bitfield_clear(&t->buckets, hi);
 	}
+	else
+		b = NULL;
+
+out:
 	write_unlock_irqrestore(&t->target_lock, flags);
 
 	if (!g)
 		return -ENOENT;
+	if (b)
+		kfree(b);
 
 	target_push(g);
 
@@ -1247,6 +1345,7 @@ error:
 
 
 
+
 static void crypto_context_init(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
 	c->cipher = &mp_ciphers[s->cipher];
 	c->hmac = &mp_hmacs[s->hmac];
@@ -1255,7 +1354,7 @@ static void crypto_context_init(struct mp_crypto_context *c, struct mediaproxy_s
 static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target_info *i, int update) {
 	unsigned char hi, lo;
 	struct mediaproxy_target *g;
-	struct mediaproxy_target **gp;
+	struct mp_bucket *b, *ba = NULL;
 	struct mediaproxy_target *og = NULL;
 	int err;
 	unsigned long flags;
@@ -1302,31 +1401,37 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 	if (err)
 		goto fail2;
 
-	err = -ENOMEM;
-	if (update)
-		gp = NULL;
-	else {
-		gp = kmalloc(sizeof(void *) * 256, GFP_KERNEL);
-		if (!gp)
-			goto fail2;
-		memset(gp, 0, sizeof(void *) * 256);
-	}
-
 	hi = (i->target_port & 0xff00) >> 8;
 	lo = i->target_port & 0xff;
 
 	write_lock_irqsave(&t->target_lock, flags);
-	if (!t->target[hi]) {
+	if (!(b = t->bucket[hi])) {
 		err = -ENOENT;
 		if (update)
 			goto fail4;
-		t->target[hi] = gp;
-		gp = NULL;
-		t->buckets++;
+
+		write_unlock_irqrestore(&t->target_lock, flags);
+
+		b = kmalloc(sizeof(*b), GFP_KERNEL);
+		err = -ENOMEM;
+		if (!b)
+			goto fail2;
+		memset(b, 0, sizeof(*b));
+
+		write_lock_irqsave(&t->target_lock, flags);
+
+		if (!t->bucket[hi]) {
+			t->bucket[hi] = b;
+			bitfield_set(&t->buckets, hi);
+		}
+		else {
+			ba = b;
+			b = t->bucket[hi];
+		}
 	}
 	if (update) {
 		err = -ENOENT;
-		og = t->target[hi][lo];
+		og = b->target[lo];
 		if (!og)
 			goto fail4;
 
@@ -1336,18 +1441,18 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 	}
 	else {
 		err = -EEXIST;
-		if (t->target[hi][lo])
+		if (b->target[lo])
 			goto fail4;
+		bitfield_set(&b->targets, lo);
+		t->targets++;
 	}
 
-	t->target[hi][lo] = g;
+	b->target[lo] = g;
 	g = NULL;
-	if (!update)
-		t->targets++;
 	write_unlock_irqrestore(&t->target_lock, flags);
 
-	if (gp)
-		kfree(gp);
+	if (ba)
+		kfree(ba);
 	if (og)
 		target_push(og);
 
@@ -1355,8 +1460,8 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 
 fail4:
 	write_unlock_irqrestore(&t->target_lock, flags);
-	if (gp)
-		kfree(gp);
+	if (ba)
+		kfree(ba);
 fail2:
 	kfree(g);
 fail1:
@@ -1381,7 +1486,7 @@ static struct mediaproxy_target *get_target(struct mediaproxy_table *t, u_int16_
 	lo = port & 0xff;
 
 	read_lock_irqsave(&t->target_lock, flags);
-	r = t->target[hi] ? t->target[hi][lo] : NULL;
+	r = t->bucket[hi] ? t->bucket[hi]->target[lo] : NULL;
 	if (r)
 		target_hold(r);
 	read_unlock_irqrestore(&t->target_lock, flags);
