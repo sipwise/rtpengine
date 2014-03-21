@@ -1,3 +1,9 @@
+ngcp-mediaproxy-ng (2.3.6.1+0~mr3.2.1.1) unstable; urgency=low
+
+  * New release.
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 21 Mar 2014 17:30:58 +0100
+
 ngcp-mediaproxy-ng (2.3.6+0~mr3.2.1) unstable; urgency=low
 
   * fix IPv4 TOS
