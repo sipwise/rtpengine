@@ -1,3 +1,11 @@
+ngcp-mediaproxy-ng (2.4.0.0+0~mr3.3.0.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [9edb5a3] attempt to lower idle CPU usage when reading list/blist
+  * [50573f4] bit field/array fixes
+
+ -- Alexander Lutay <alutay@sipwise.com>  Fri, 21 Mar 2014 15:26:25 +0100
+
 ngcp-mediaproxy-ng (2.3.6+0~mr3.3) unstable; urgency=low
 
   * fix IPv4 TOS
