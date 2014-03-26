@@ -96,7 +96,7 @@ int bencode_buffer_init(bencode_buffer_t *buf) {
 	return 0;
 }
 
-static void *__bencode_alloc(bencode_buffer_t *buf, unsigned int size) {
+void *bencode_buffer_alloc(bencode_buffer_t *buf, unsigned int size) {
 	struct __bencode_buffer_piece *piece;
 	void *ret;
 
@@ -143,7 +143,7 @@ void bencode_buffer_free(bencode_buffer_t *buf) {
 static bencode_item_t *__bencode_item_alloc(bencode_buffer_t *buf, unsigned int payload) {
 	bencode_item_t *ret;
 
-	ret = __bencode_alloc(buf, sizeof(struct bencode_item) + payload);
+	ret = bencode_buffer_alloc(buf, sizeof(struct bencode_item) + payload);
 	if (!ret)
 		return NULL;
 	ret->buffer = buf;
@@ -218,7 +218,7 @@ static bencode_item_t *__bencode_string_alloc(bencode_buffer_t *buf, const void 
 }
 
 bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, int len) {
-	char *sd = __bencode_alloc(buf, len);
+	char *sd = bencode_buffer_alloc(buf, len);
 	if (!sd)
 		return NULL;
 	memcpy(sd, s, len);
@@ -361,7 +361,7 @@ struct iovec *bencode_iovec(bencode_item_t *root, int *cnt, unsigned int head, u
 	assert(cnt != NULL);
 	assert(root->iov_cnt > 0);
 
-	ret = __bencode_alloc(root->buffer, sizeof(*ret) * (root->iov_cnt + head + tail));
+	ret = bencode_buffer_alloc(root->buffer, sizeof(*ret) * (root->iov_cnt + head + tail));
 	if (!ret)
 		return NULL;
 	*cnt = __bencode_iovec_dump(ret + head, root);
@@ -376,7 +376,7 @@ char *bencode_collapse(bencode_item_t *root, int *len) {
 		return NULL;
 	assert(root->str_len > 0);
 
-	ret = __bencode_alloc(root->buffer, root->str_len + 1);
+	ret = bencode_buffer_alloc(root->buffer, root->str_len + 1);
 	if (!ret)
 		return NULL;
 	l = __bencode_str_dump(ret, root);
@@ -693,7 +693,7 @@ void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t func, void *p
 
 	if (!p)
 		return;
-	li = __bencode_alloc(buf, sizeof(*li));
+	li = bencode_buffer_alloc(buf, sizeof(*li));
 	if (!li)
 		return;
 	li->ptr = p;

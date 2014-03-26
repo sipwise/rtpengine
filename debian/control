@@ -8,7 +8,7 @@ Build-Depends: debhelper (>= 5),
   libcurl3-openssl-dev | libcurl3-gnutls-dev,
                libglib2.0-dev,
                libpcre3-dev,
-               libssl-dev,
+               libssl-dev (>= 1.0.1),
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
                markdown,
                zlib1g-dev

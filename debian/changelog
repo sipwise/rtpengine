@@ -1,3 +1,13 @@
+ngcp-mediaproxy-ng (2.9.9) unstable; urgency=low
+
+  * Complete rewrite of internal media streams handling
+  * Support for DTLS-SRTP
+  * Support for unBUNDLE
+  * Improved support for rtcp-mux
+  * WIP
+
+ -- Richard Fuchs <rfuchs@sipwise.com>  Tue, 04 Mar 2014 11:06:23 -0500
+
 ngcp-mediaproxy-ng (2.4.0.0+0~mr3.3.0.0) unstable; urgency=low
 
   [ Richard Fuchs ]

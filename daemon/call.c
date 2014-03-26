@@ -29,31 +29,18 @@
 #include "stun.h"
 #include "rtcp.h"
 #include "rtp.h"
+#include "call_interfaces.h"
 
 
 
-#ifdef __DEBUG
-#define DBG(x...) mylog(LOG_DEBUG, x)
-#else
-#define DBG(x...) ((void)0)
-#endif
-
-#define LOG_PREFIX_C "[%.*s] "
-#define LOG_PREFIX_CI "[%.*s - %.*s] "
-#define LOG_PARAMS_C(c) STR_FMT(&(c)->callid)
-#define LOG_PARAMS_CI(c) STR_FMT(&(c)->callid), STR_FMT0(log_info)
 
 
-
-static __thread const str *log_info;
-
-
-
+typedef int (*rewrite_func)(str *, struct packet_stream *);
 
 /* also serves as array index for callstream->peers[] */
 struct iterator_helper {
 	GSList			*del;
-	struct streamrelay	*ports[0x10000];
+	struct stream_fd	*ports[0x10000];
 };
 struct xmlrpc_helper {
 	GStringChunk		*c;
@@ -61,123 +48,211 @@ struct xmlrpc_helper {
 	GSList			*tags;
 };
 
-
-struct callmaster {
-	struct obj		obj;
-
-	rwlock_t		hashlock;
-	GHashTable		*callhash;
-
-	mutex_t			portlock;
-	u_int16_t		lastport;
-	BIT_ARRAY_DECLARE(ports_used, 0x10000);
-
-	mutex_t			statspslock;
-	struct stats		statsps;	/* per second stats, running timer */
-	mutex_t			statslock;
-	struct stats		stats;		/* copied from statsps once a second */
-
-	struct poller		*poller;
-	pcre			*info_re;
-	pcre_extra		*info_ree;
-	pcre			*streams_re;
-	pcre_extra		*streams_ree;
-
-	struct callmaster_config conf;
+struct streamhandler_io {
+	rewrite_func	rtp;
+	rewrite_func	rtcp;
+	int		(*kernel)(struct mediaproxy_srtp *, struct packet_stream *);
 };
-
-struct call_stats {
-	time_t		newest;
-	struct stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
-};
-
 struct streamhandler {
-	int		(*rewrite)(str *, struct streamrelay *);
-	int		(*kernel_decrypt)(struct mediaproxy_srtp *, struct streamrelay *);
-	int		(*kernel_encrypt)(struct mediaproxy_srtp *, struct streamrelay *);
+	const struct streamhandler_io	*in;
+	const struct streamhandler_io	*out;
 };
 
-static char *rtp_codecs[] = {
-	[0]	= "G711u",
-	[1]	= "1016",
-	[2]	= "G721",
-	[3]	= "GSM",
-	[4]	= "G723",
-	[5]	= "DVI4",
-	[6]	= "DVI4",
-	[7]	= "LPC",
-	[8]	= "G711a",
-	[9]	= "G722",
-	[10]	= "L16",
-	[11]	= "L16",
-	[14]	= "MPA",
-	[15]	= "G728",
-	[18]	= "G729",
-	[25]	= "CelB",
-	[26]	= "JPEG",
-	[28]	= "nv",
-	[31]	= "H261",
-	[32]	= "MPV",
-	[33]	= "MP2T",
-	[34]	= "H263",
+const struct transport_protocol transport_protocols[] = {
+	[PROTO_RTP_AVP] = {
+		.index		= PROTO_RTP_AVP,
+		.name		= "RTP/AVP",
+		.srtp		= 0,
+		.avpf		= 0,
+	},
+	[PROTO_RTP_SAVP] = {
+		.index		= PROTO_RTP_SAVP,
+		.name		= "RTP/SAVP",
+		.srtp		= 1,
+		.avpf		= 0,
+	},
+	[PROTO_RTP_AVPF] = {
+		.index		= PROTO_RTP_AVPF,
+		.name		= "RTP/AVPF",
+		.srtp		= 0,
+		.avpf		= 1,
+	},
+	[PROTO_RTP_SAVPF] = {
+		.index		= PROTO_RTP_SAVPF,
+		.name		= "RTP/SAVPF",
+		.srtp		= 1,
+		.avpf		= 1,
+	},
+	[PROTO_UDP_TLS_RTP_SAVP] = {
+		.index		= PROTO_UDP_TLS_RTP_SAVP,
+		.name		= "UDP/TLS/RTP/SAVP",
+		.srtp		= 1,
+		.avpf		= 0,
+	},
+	[PROTO_UDP_TLS_RTP_SAVPF] = {
+		.index		= PROTO_UDP_TLS_RTP_SAVPF,
+		.name		= "UDP/TLS/RTP/SAVPF",
+		.srtp		= 1,
+		.avpf		= 1,
+	},
 };
-const char *transport_protocol_strings[__PROTO_LAST] = {
-	[PROTO_RTP_AVP]		= "RTP/AVP",
-	[PROTO_RTP_SAVP]	= "RTP/SAVP",
-	[PROTO_RTP_AVPF]	= "RTP/AVPF",
-	[PROTO_RTP_SAVPF]	= "RTP/SAVPF",
+const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
+
+
+
+
+static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
+
+static int __k_null(struct mediaproxy_srtp *s, struct packet_stream *);
+static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct packet_stream *);
+static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct packet_stream *);
+
+static int call_avp2savp_rtp(str *s, struct packet_stream *);
+static int call_savp2avp_rtp(str *s, struct packet_stream *);
+static int call_avp2savp_rtcp(str *s, struct packet_stream *);
+static int call_savp2avp_rtcp(str *s, struct packet_stream *);
+static int call_avpf2avp_rtcp(str *s, struct packet_stream *);
+//static int call_avpf2savp_rtcp(str *s, struct packet_stream *);
+static int call_savpf2avp_rtcp(str *s, struct packet_stream *);
+//static int call_savpf2savp_rtcp(str *s, struct packet_stream *);
+
+
+/* ********** */
+
+static const struct streamhandler_io __shio_noop = {
+	.kernel		= __k_null,
+};
+static const struct streamhandler_io __shio_decrypt = {
+	.kernel		= __k_srtp_decrypt,
+	.rtp		= call_savp2avp_rtp,
+	.rtcp		= call_savp2avp_rtcp,
+};
+static const struct streamhandler_io __shio_encrypt = {
+	.kernel		= __k_srtp_encrypt,
+	.rtp		= call_avp2savp_rtp,
+	.rtcp		= call_avp2savp_rtcp,
+};
+static const struct streamhandler_io __shio_avpf_strip = {
+	.kernel		= __k_null,
+	.rtcp		= call_avpf2avp_rtcp,
+};
+static const struct streamhandler_io __shio_decrypt_avpf_strip = {
+	.kernel		= __k_srtp_decrypt,
+	.rtp		= call_savp2avp_rtp,
+	.rtcp		= call_savpf2avp_rtcp,
 };
 
-
-
-
-static void determine_handler(struct streamrelay *in);
-
-static int __k_null(struct mediaproxy_srtp *s, struct streamrelay *r);
-static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct streamrelay *r);
-static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct streamrelay *r);
-
-static int call_avp2savp_rtp(str *s, struct streamrelay *r);
-static int call_savp2avp_rtp(str *s, struct streamrelay *r);
-static int call_avp2savp_rtcp(str *s, struct streamrelay *r);
-static int call_savp2avp_rtcp(str *s, struct streamrelay *r);
-static int call_avpf2avp_rtcp(str *s, struct streamrelay *r);
-static int call_avpf2savp_rtcp(str *s, struct streamrelay *r);
-static int call_savpf2avp_rtcp(str *s, struct streamrelay *r);
-static int call_savpf2savp_rtcp(str *s, struct streamrelay *t);
+/* ********** */
 
 static const struct streamhandler __sh_noop = {
-	.kernel_decrypt		= __k_null,
-	.kernel_encrypt		= __k_null,
+	.in		= &__shio_noop,
+	.out		= &__shio_noop,
 };
-static const struct streamhandler __sh_rtp_avp2savp = {
-	.rewrite		= call_avp2savp_rtp,
-	.kernel_decrypt		= __k_null,
-	.kernel_encrypt		= __k_srtp_encrypt,
+static const struct streamhandler __sh_savp2avp = {
+	.in		= &__shio_decrypt,
+	.out		= &__shio_noop,
 };
-static const struct streamhandler __sh_rtp_savp2avp = {
-	.rewrite		= call_savp2avp_rtp,
-	.kernel_decrypt		= __k_srtp_decrypt,
-	.kernel_encrypt		= __k_null,
+static const struct streamhandler __sh_avp2savp = {
+	.in		= &__shio_noop,
+	.out		= &__shio_encrypt,
 };
-static const struct streamhandler __sh_rtcp_avp2savp = {
-	.rewrite		= call_avp2savp_rtcp,
+static const struct streamhandler __sh_avpf2avp = {
+	.in		= &__shio_avpf_strip,
+	.out		= &__shio_noop,
 };
-static const struct streamhandler __sh_rtcp_savp2avp = {
-	.rewrite		= call_savp2avp_rtcp,
+static const struct streamhandler __sh_avpf2savp = {
+	.in		= &__shio_avpf_strip,
+	.out		= &__shio_encrypt,
 };
-static const struct streamhandler __sh_rtcp_avpf2avp = {
-	.rewrite		= call_avpf2avp_rtcp,
+static const struct streamhandler __sh_savpf2avp = {
+	.in		= &__shio_decrypt_avpf_strip,
+	.out		= &__shio_noop,
 };
-static const struct streamhandler __sh_rtcp_avpf2savp = {
-	.rewrite		= call_avpf2savp_rtcp,
+static const struct streamhandler __sh_savp2savp = {
+	.in		= &__shio_decrypt,
+	.out		= &__shio_encrypt,
 };
-static const struct streamhandler __sh_rtcp_savpf2avp = {
-	.rewrite		= call_savpf2avp_rtcp,
+static const struct streamhandler __sh_savpf2savpf = {
+	.in		= &__shio_decrypt,
+	.out		= &__shio_encrypt,
 };
-static const struct streamhandler __sh_rtcp_savpf2savp = {
-	.rewrite		= call_savpf2savp_rtcp,
+static const struct streamhandler __sh_savpf2savp = {
+	.in		= &__shio_decrypt_avpf_strip,
+	.out		= &__shio_encrypt,
 };
+
+/* ********** */
+
+static const struct streamhandler *__sh_matrix_in_rtp_avp[] = {
+	[PROTO_RTP_AVP]			= &__sh_noop,
+	[PROTO_RTP_AVPF]		= &__sh_noop,
+	[PROTO_RTP_SAVP]		= &__sh_avp2savp,
+	[PROTO_RTP_SAVPF]		= &__sh_avp2savp,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avp2savp,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_avp2savp,
+};
+static const struct streamhandler *__sh_matrix_in_rtp_avpf[] = {
+	[PROTO_RTP_AVP]			= &__sh_avpf2avp,
+	[PROTO_RTP_AVPF]		= &__sh_noop,
+	[PROTO_RTP_SAVP]		= &__sh_avpf2savp,
+	[PROTO_RTP_SAVPF]		= &__sh_avp2savp,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avpf2savp,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_avp2savp,
+};
+static const struct streamhandler *__sh_matrix_in_rtp_savp[] = {
+	[PROTO_RTP_AVP]			= &__sh_savp2avp,
+	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
+	[PROTO_RTP_SAVP]		= &__sh_noop,
+	[PROTO_RTP_SAVPF]		= &__sh_noop,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_noop,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
+};
+static const struct streamhandler *__sh_matrix_in_rtp_savpf[] = {
+	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
+	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
+	[PROTO_RTP_SAVP]		= &__sh_savpf2savp,
+	[PROTO_RTP_SAVPF]		= &__sh_noop,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savpf2savp,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
+};
+static const struct streamhandler *__sh_matrix_in_rtp_savp_dtls[] = {
+	[PROTO_RTP_AVP]			= &__sh_savp2avp,
+	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
+	[PROTO_RTP_SAVP]		= &__sh_savp2savp,
+	[PROTO_RTP_SAVPF]		= &__sh_savp2savp,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savp2savp,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp,
+};
+static const struct streamhandler *__sh_matrix_in_rtp_savpf_dtls[] = {
+	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
+	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
+	[PROTO_RTP_SAVP]		= &__sh_savpf2savp,
+	[PROTO_RTP_SAVPF]		= &__sh_savp2savp,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savpf2savp,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp,
+};
+
+/* ********** */
+
+static const struct streamhandler **__sh_matrix[] = {
+	[PROTO_RTP_AVP]			= __sh_matrix_in_rtp_avp,
+	[PROTO_RTP_AVPF]		= __sh_matrix_in_rtp_avpf,
+	[PROTO_RTP_SAVP]		= __sh_matrix_in_rtp_savp,
+	[PROTO_RTP_SAVPF]		= __sh_matrix_in_rtp_savpf,
+	[PROTO_UDP_TLS_RTP_SAVP]	= __sh_matrix_in_rtp_savp,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= __sh_matrix_in_rtp_savpf,
+};
+/* special case for DTLS as we can't pass through SRTP<>SRTP */
+static const struct streamhandler **__sh_matrix_dtls[] = {
+	[PROTO_RTP_AVP]			= __sh_matrix_in_rtp_avp,
+	[PROTO_RTP_AVPF]		= __sh_matrix_in_rtp_avpf,
+	[PROTO_RTP_SAVP]		= __sh_matrix_in_rtp_savp_dtls,
+	[PROTO_RTP_SAVPF]		= __sh_matrix_in_rtp_savpf_dtls,
+	[PROTO_UDP_TLS_RTP_SAVP]	= __sh_matrix_in_rtp_savp_dtls,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= __sh_matrix_in_rtp_savpf_dtls,
+};
+
+/* ********** */
 
 static const struct mediaproxy_srtp __mps_null = {
 	.cipher			= MPC_NULL,
@@ -190,31 +265,26 @@ static const struct mediaproxy_srtp __mps_null = {
 
 
 static void call_destroy(struct call *);
-static void unkernelize(struct peer *);
-static void unconfirm(struct peer *);
-static void unconfirm_cs(struct callstream *);
-static void relays_cache_port_used(struct relays_cache *c);
-static void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output);
+static void unkernelize(struct packet_stream *);
 
 
 
 
-static void stream_closed(int fd, void *p, uintptr_t u) {
-	struct callstream *cs = p;
-	struct streamrelay *r;
+/* called lock-free */
+static void stream_fd_closed(int fd, void *p, uintptr_t u) {
+	struct stream_fd *sfd = p;
 	struct call *c;
 	int i;
 	socklen_t j;
 
-	mutex_lock(&cs->lock);
-	r = &cs->peers[u >> 1].rtps[u & 1];
-	assert(r->fd.fd == fd);
-	mutex_unlock(&cs->lock);
-	c = cs->call;
+	assert(sfd->fd.fd == fd);
+	c = sfd->call;
+	if (!c)
+		return;
 
 	j = sizeof(i);
 	getsockopt(fd, SOL_SOCKET, SO_ERROR, &i, &j);
-	mylog(LOG_WARNING, LOG_PREFIX_C "Read error on RTP socket: %i (%s) -- closing call", LOG_PARAMS_C(c), i, strerror(i));
+	ilog(LOG_WARNING, "Read error on media socket: %i (%s) -- closing call", i, strerror(i));
 
 	call_destroy(c);
 }
@@ -222,289 +292,181 @@ static void stream_closed(int fd, void *p, uintptr_t u) {
 
 
 
-/* called with callstream->lock held */
-void kernelize(struct callstream *c) {
-	int i, j;
-	struct peer *p, *pp;
-	struct streamrelay *r, *rp;
+/* called with in_lock held */
+void kernelize(struct packet_stream *stream) {
 	struct mediaproxy_target_info mpt;
-	struct callmaster *cm = c->call->callmaster;
+	struct call *call = stream->call;
+	struct callmaster *cm = call->callmaster;
+	struct packet_stream *sink = NULL;
 
-	if (cm->conf.kernelfd < 0 || cm->conf.kernelid == -1)
+	if (stream->kernelized)
 		return;
+	if (cm->conf.kernelfd < 0 || cm->conf.kernelid == -1)
+		goto no_kernel;
+	if (!stream->rtp)
+		goto no_kernel;
+	if (!stream->sfd)
+		goto no_kernel;
 
-	mylog(LOG_DEBUG, LOG_PREFIX_C "Kernelizing RTP streams", LOG_PARAMS_C(c->call));
+	ilog(LOG_DEBUG, "Kernelizing media stream with local port %u",
+			stream->sfd->fd.localport);
+
+	sink = packet_stream_sink(stream);
+	if (!sink) {
+		ilog(LOG_WARNING, "Attempt to kernelize stream without sink");
+		goto no_kernel;
+	}
 
 	ZERO(mpt);
 
-	for (i = 0; i < 2; i++) {
-		p = &c->peers[i];
-		pp = &c->peers[i ^ 1];
+	determine_handler(stream, sink);
 
-		if (p->kernelized)
-			continue;
+	if (is_addr_unspecified(&sink->advertised_endpoint.ip46)
+			|| !sink->advertised_endpoint.port)
+		goto no_kernel;
+	if (!stream->handler->in->kernel
+			|| !stream->handler->out->kernel)
+		goto no_kernel;
 
-		for (j = 0; j < 2; j++) {
-			r = &p->rtps[j];
-			rp = &pp->rtps[j];
+	mutex_lock(&sink->out_lock);
 
-			determine_handler(r);
+	mpt.target_port = stream->sfd->fd.localport;
+	mpt.tos = cm->conf.tos;
+	mpt.src_addr.port = sink->sfd->fd.localport;
+	mpt.dst_addr.port = sink->endpoint.port;
+	mpt.rtcp_mux = stream->media->rtcp_mux;
+	mpt.dtls = stream->media->dtls;
 
-			if (is_addr_unspecified(&r->peer_advertised.ip46)
-					|| !r->peer_advertised.port)
-				goto no_kernel_stream;
-			if (!r->handler->kernel_decrypt
-					|| !r->handler->kernel_encrypt)
-				goto no_kernel_stream;
-
-			mpt.target_port = r->fd.localport;
-			mpt.tos = cm->conf.tos;
-			mpt.src_addr.port = rp->fd.localport;
-			mpt.dst_addr.port = r->peer.port;
-			mpt.rtcp_mux = r->rtcp_mux;
-
-			if (IN6_IS_ADDR_V4MAPPED(&r->peer.ip46)) {
-				mpt.src_addr.family = AF_INET;
-				mpt.src_addr.ipv4 = cm->conf.ipv4;
-				mpt.dst_addr.family = AF_INET;
-				mpt.dst_addr.ipv4 = r->peer.ip46.s6_addr32[3];
-			}
-			else {
-				mpt.src_addr.family = AF_INET6;
-				memcpy(mpt.src_addr.ipv6, &cm->conf.ipv6, sizeof(mpt.src_addr.ipv6));
-				mpt.dst_addr.family = AF_INET6;
-				memcpy(mpt.dst_addr.ipv6, &r->peer.ip46, sizeof(mpt.src_addr.ipv6));
-			}
-
-			if (r->handler->kernel_decrypt(&mpt.decrypt, r))
-				goto no_kernel_stream;
-			if (r->handler->kernel_encrypt(&mpt.encrypt, r))
-				goto no_kernel_stream;
-
-			if (!mpt.encrypt.cipher || !mpt.encrypt.hmac)
-				goto no_kernel_stream;
-			if (!mpt.decrypt.cipher || !mpt.decrypt.hmac)
-				goto no_kernel_stream;
-
-			ZERO(r->kstats);
-
-			kernel_add_stream(cm->conf.kernelfd, &mpt, 0);
-			
-			continue;
-
-no_kernel_stream:
-			r->no_kernel_support = 1;
-		}
-
-		p->kernelized = 1;
+	if (IN6_IS_ADDR_V4MAPPED(&sink->endpoint.ip46)) {
+		mpt.src_addr.family = AF_INET;
+		mpt.src_addr.ipv4 = cm->conf.ipv4;
+		mpt.dst_addr.family = AF_INET;
+		mpt.dst_addr.ipv4 = sink->endpoint.ip46.s6_addr32[3];
 	}
+	else {
+		mpt.src_addr.family = AF_INET6;
+		memcpy(mpt.src_addr.ipv6, &cm->conf.ipv6, sizeof(mpt.src_addr.ipv6));
+		mpt.dst_addr.family = AF_INET6;
+		memcpy(mpt.dst_addr.ipv6, &sink->endpoint.ip46, sizeof(mpt.src_addr.ipv6));
+	}
+
+	stream->handler->in->kernel(&mpt.decrypt, stream);
+	stream->handler->out->kernel(&mpt.encrypt, sink);
+
+	mutex_unlock(&sink->out_lock);
+
+	if (!mpt.encrypt.cipher || !mpt.encrypt.hmac)
+		goto no_kernel;
+	if (!mpt.decrypt.cipher || !mpt.decrypt.hmac)
+		goto no_kernel;
+
+	ZERO(stream->kernel_stats);
+
+	kernel_add_stream(cm->conf.kernelfd, &mpt, 0);
+	stream->kernelized = 1;
+
+	return;
+	
+no_kernel:
+	stream->kernelized = 1;
+	stream->no_kernel_support = 1;
 }
 
 
 
 
 /* returns: 0 = not a muxed stream, 1 = muxed, RTP, 2 = muxed, RTCP */
-static int rtcp_demux(str *s, struct streamrelay *r) {
-	if (r->idx != 0)
-		return 0;
-	if (!r->rtcp_mux)
+static int rtcp_demux(str *s, struct call_media *media) {
+	if (!media->rtcp_mux)
 		return 0;
 	return rtcp_demux_is_rtcp(s) ? 2 : 1;
 }
 
-static int call_avpf2avp_rtcp(str *s, struct streamrelay *r) {
+static int call_avpf2avp_rtcp(str *s, struct packet_stream *stream) {
 	return rtcp_avpf2avp(s);
 }
-static int call_avp2savp_rtp(str *s, struct streamrelay *r) {
-	return rtp_avp2savp(s, &r->other->crypto.out);
+static int call_avp2savp_rtp(str *s, struct packet_stream *stream) {
+	return rtp_avp2savp(s, &stream->crypto);
 }
-static int call_avp2savp_rtcp(str *s, struct streamrelay *r) {
-	return rtcp_avp2savp(s, &r->other->crypto.out);
+static int call_avp2savp_rtcp(str *s, struct packet_stream *stream) {
+	return rtcp_avp2savp(s, &stream->crypto);
 }
-static int call_savp2avp_rtp(str *s, struct streamrelay *r) {
-	return rtp_savp2avp(s, &r->crypto.in);
+static int call_savp2avp_rtp(str *s, struct packet_stream *stream) {
+	return rtp_savp2avp(s, &stream->sfd->crypto);
 }
-static int call_savp2avp_rtcp(str *s, struct streamrelay *r) {
-	return rtcp_savp2avp(s, &r->crypto.in);
+static int call_savp2avp_rtcp(str *s, struct packet_stream *stream) {
+	return rtcp_savp2avp(s, &stream->sfd->crypto);
 }
-static int call_avpf2savp_rtcp(str *s, struct streamrelay *r) {
+static int call_savpf2avp_rtcp(str *s, struct packet_stream *stream) {
 	int ret;
-	ret = rtcp_avpf2avp(s);
-	if (ret < 0)
-		return ret;
-	return rtcp_avp2savp(s, &r->other->crypto.out);
-}
-static int call_savpf2avp_rtcp(str *s, struct streamrelay *r) {
-	int ret;
-	ret = rtcp_savp2avp(s, &r->crypto.in);
+	ret = rtcp_savp2avp(s, &stream->sfd->crypto);
 	if (ret < 0)
 		return ret;
 	return rtcp_avpf2avp(s);
 }
-static int call_savpf2savp_rtcp(str *s, struct streamrelay *r) {
-	int ret;
-	ret = rtcp_savp2avp(s, &r->crypto.in);
-	if (ret < 0)
-		return ret;
-	ret = rtcp_avpf2avp(s);
-	if (ret < 0)
-		return ret;
-	return rtcp_avp2savp(s, &r->other->crypto.out);
-}
 
 
-static int __k_null(struct mediaproxy_srtp *s, struct streamrelay *r) {
+static int __k_null(struct mediaproxy_srtp *s, struct packet_stream *stream) {
 	*s = __mps_null;
 	return 0;
 }
 static int __k_srtp_crypt(struct mediaproxy_srtp *s, struct crypto_context *c) {
-	if (!c->crypto_suite)
+	if (!c->params.crypto_suite)
 		return -1;
 
 	*s = (struct mediaproxy_srtp) {
-		.cipher		= c->crypto_suite->kernel_cipher,
-		.hmac		= c->crypto_suite->kernel_hmac,
-		.mki		= c->mki,
-		.mki_len	= c->mki_len,
+		.cipher		= c->params.crypto_suite->kernel_cipher,
+		.hmac		= c->params.crypto_suite->kernel_hmac,
+		.mki_len	= c->params.mki_len,
 		.last_index	= c->last_index,
-		.auth_tag_len	= c->crypto_suite->srtp_auth_tag,
+		.auth_tag_len	= c->params.crypto_suite->srtp_auth_tag,
 	};
-	memcpy(s->master_key, c->master_key, c->crypto_suite->master_key_len);
-	memcpy(s->master_salt, c->master_salt, c->crypto_suite->master_salt_len);
+	if (c->params.mki_len)
+		memcpy(s->mki, c->params.mki, c->params.mki_len);
+	memcpy(s->master_key, c->params.master_key, c->params.crypto_suite->master_key_len);
+	memcpy(s->master_salt, c->params.master_salt, c->params.crypto_suite->master_salt_len);
 	return 0;
 }
-static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct streamrelay *r) {
-	return __k_srtp_crypt(s, &r->other->crypto.out);
+static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct packet_stream *stream) {
+	return __k_srtp_crypt(s, &stream->crypto);
 }
-static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct streamrelay *r) {
-	return __k_srtp_crypt(s, &r->crypto.in);
+static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct packet_stream *stream) {
+	return __k_srtp_crypt(s, &stream->sfd->crypto);
 }
 
-static const struct streamhandler *determine_handler_rtp(struct streamrelay *in) {
-	switch (in->peer.protocol) {
-		case PROTO_RTP_AVP:
-		case PROTO_RTP_AVPF:
-			switch (in->peer_advertised.protocol) {
-				case PROTO_RTP_AVP:
-				case PROTO_RTP_AVPF:
-					return NULL;
+/* must be called with call->master_lock held in R, and in->in_lock held */
+static void determine_handler(struct packet_stream *in, const struct packet_stream *out) {
+	const struct streamhandler **sh_pp, *sh;
+	const struct streamhandler ***matrix;
 
-				case PROTO_RTP_SAVP:
-				case PROTO_RTP_SAVPF:
-					return &__sh_rtp_avp2savp;
-
-				default:
-					abort();
-			}
-
-		case PROTO_RTP_SAVP:
-		case PROTO_RTP_SAVPF:
-			switch (in->peer_advertised.protocol) {
-				case PROTO_RTP_AVP:
-				case PROTO_RTP_AVPF:
-					return &__sh_rtp_savp2avp;
-
-				case PROTO_RTP_SAVPF:
-				case PROTO_RTP_SAVP:
-					return NULL;
-
-				default:
-					abort();
-			}
-
-		default:
-			abort();
-	}
-}
-static const struct streamhandler *determine_handler_rtcp(struct streamrelay *in) {
-	switch (in->peer.protocol) {
-		case PROTO_RTP_AVP:
-			switch (in->peer_advertised.protocol) {
-				case PROTO_RTP_AVPF:
-					return NULL;
-
-				case PROTO_RTP_SAVP:
-				case PROTO_RTP_SAVPF:
-					return &__sh_rtcp_avp2savp;
-
-				default:
-					abort();
-			}
-
-		case PROTO_RTP_SAVP:
-			switch (in->peer_advertised.protocol) {
-				case PROTO_RTP_AVP:
-				case PROTO_RTP_AVPF:
-					return &__sh_rtcp_savp2avp;
-
-				case PROTO_RTP_SAVPF:
-					return NULL;
-
-				default:
-					abort();
-			}
-
-		case PROTO_RTP_AVPF:
-			switch (in->peer_advertised.protocol) {
-				case PROTO_RTP_AVP:
-					return &__sh_rtcp_avpf2avp;
-
-				case PROTO_RTP_SAVP:
-					return &__sh_rtcp_avpf2savp;
-
-				case PROTO_RTP_SAVPF:
-					return &__sh_rtcp_avp2savp;
-
-				default:
-					abort();
-			}
-
-		case PROTO_RTP_SAVPF:
-			switch (in->peer_advertised.protocol) {
-				case PROTO_RTP_AVP:
-					return &__sh_rtcp_savpf2avp;
-
-				case PROTO_RTP_AVPF:
-					return &__sh_rtcp_savp2avp;
-
-				case PROTO_RTP_SAVP:
-					return &__sh_rtcp_savpf2savp;
-
-				default:
-					abort();
-			}
-
-		default:
-			abort();
-	}
-}
-static void determine_handler(struct streamrelay *in) {
-	const struct streamhandler *ret;
-
-	if (in->handler)
+	if (in->has_handler)
 		return;
 
-	if (in->peer.protocol == in->peer_advertised.protocol)
-		goto dummy;
-	if (in->peer.protocol == PROTO_UNKNOWN)
-		goto dummy;
-	if (in->peer_advertised.protocol == PROTO_UNKNOWN)
-		goto dummy;
+	if (!in->media->protocol)
+		goto err;
+	if (!out->media->protocol)
+		goto err;
 
-	if (in->rtcp)
-		ret = determine_handler_rtcp(in);
-	else
-		ret = determine_handler_rtp(in);
+	matrix = __sh_matrix;
+	if (in->media->dtls && out->media->dtls)
+		matrix = __sh_matrix_dtls;
 
-	if (!ret)
-		goto dummy;
+	sh_pp = matrix[in->media->protocol->index];
+	if (!sh_pp)
+		goto err;
+	sh = sh_pp[out->media->protocol->index];
+	if (!sh)
+		goto err;
+	in->handler = sh;
 
-	in->handler = ret;
-
+done:
+	in->has_handler = 1;
 	return;
 
-dummy:
+err:
+	ilog(LOG_WARNING, "Unknown transport protocol encountered");
 	in->handler = &__sh_noop;
+	goto done;
 }
 
 void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
@@ -542,123 +504,167 @@ void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
 	}
 }
 
-/* called with r->up (== cs) locked */
-static int stream_packet(struct streamrelay *sr_incoming, str *s, struct sockaddr_in6 *fsin) {
-	struct streamrelay *sr_outgoing, *sr_out_rtcp, *sr_in_rtcp;
-	struct peer *p_incoming, *p_outgoing;
-	struct callstream *cs_incoming;
-	int ret, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0;
+/* called lock-free */
+static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsin) {
+	struct packet_stream *stream = sfd->stream,
+			     *sink = NULL,
+			     *in_srtp, *out_srtp;
+	struct call_media *media;
+	int ret = 0, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0, rtcp = 0;
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
 	struct iovec iov;
 	unsigned char buf[256];
-	struct call *c;
-	struct callmaster *m;
-	unsigned char cc;
+	struct call *call;
+	struct callmaster *cm;
+	/*unsigned char cc;*/
 	char addr[64];
-	struct stream s_copy;
+	struct endpoint endpoint;
+	rewrite_func rwf_in, rwf_out;
 
-	p_incoming = sr_incoming->up;
-	cs_incoming = p_incoming->up;
-	p_outgoing = p_incoming->other;
-	sr_outgoing = sr_incoming->other;
-	c = cs_incoming->call;
-	m = c->callmaster;
+	assert(stream != NULL);
+	media = stream->media;
+	call = stream->call;
+	cm = call->callmaster;
 	smart_ntop_port(addr, fsin, sizeof(addr));
 
-	if (sr_incoming->stun && is_stun(s)) {
-		stun_ret = stun(s, sr_incoming, fsin);
+	rwlock_lock_r(&call->master_lock);
+	mutex_lock(&stream->in_lock);
+
+	if (!stream->sfd)
+		goto done;
+
+	if (media->dtls && is_dtls(s)) {
+		ret = dtls(stream, s, fsin);
+		if (!ret)
+			goto done;
+	}
+
+	if (stream->stun && is_stun(s)) {
+		stun_ret = stun(s, stream, fsin);
 		if (!stun_ret)
-			return 0;
+			goto done;
 		if (stun_ret == 1) /* use candidate */
 			goto use_cand;
 		else /* not an stun packet */
 			stun_ret = 0;
 	}
 
-	if (sr_outgoing->fd.fd == -1) {
-		mylog(LOG_WARNING, LOG_PREFIX_C "RTP packet to port %u discarded from %s", 
-			LOG_PARAMS_C(c), sr_incoming->fd.localport, addr);
-		sr_incoming->stats.errors++;
-		mutex_lock(&m->statspslock);
-		m->statsps.errors++;
-		mutex_unlock(&m->statspslock);
-		return 0;
+	mutex_unlock(&stream->in_lock);
+
+	in_srtp = stream;
+	sink = stream->rtp_sink;
+	if (!sink && stream->rtcp) {
+		sink = stream->rtcp_sink;
+		rtcp = 1;
+	}
+	else if (stream->rtcp_sink) {
+		muxed_rtcp = rtcp_demux(s, media);
+		if (muxed_rtcp == 2) {
+			sink = stream->rtcp_sink;
+			rtcp = 1;
+			in_srtp = stream->rtcp_sibling;
+		}
+	}
+	out_srtp = sink;
+	if (rtcp && sink && sink->rtcp_sibling)
+		out_srtp = sink->rtcp_sibling;
+
+	if (!sink || !sink->sfd || !out_srtp->sfd || !in_srtp->sfd) {
+		ilog(LOG_WARNING, "RTP packet to port %u discarded from %s", 
+			sfd->fd.localport, addr);
+		mutex_lock(&stream->in_lock);
+		stream->stats.errors++;
+		mutex_lock(&cm->statspslock);
+		cm->statsps.errors++;
+		mutex_unlock(&cm->statspslock);
+		goto done;
 	}
 
-	sr_in_rtcp = sr_incoming;
-	muxed_rtcp = rtcp_demux(s, sr_incoming);
-	if (muxed_rtcp == 2)
-		sr_in_rtcp = &p_incoming->rtps[1];
+	mutex_lock(&in_srtp->in_lock);
 
-	determine_handler(sr_in_rtcp);
-	if (sr_in_rtcp->handler->rewrite)
-		handler_ret = sr_in_rtcp->handler->rewrite(s, sr_in_rtcp);
-		/* return values are: 0 = forward packet, -1 = error/dont forward,
-		 * 1 = forward and push update to redis */
+	determine_handler(in_srtp, sink);
+
+	if (!rtcp) {
+		rwf_in = in_srtp->handler->in->rtp;
+		rwf_out = in_srtp->handler->out->rtp;
+	}
+	else {
+		rwf_in = in_srtp->handler->in->rtcp;
+		rwf_out = in_srtp->handler->out->rtcp;
+	}
+
+	mutex_lock(&out_srtp->out_lock);
+
+	/* return values are: 0 = forward packet, -1 = error/dont forward,
+	 * 1 = forward and push update to redis */
+	if (rwf_in)
+		handler_ret = rwf_in(s, in_srtp);
+	if (handler_ret >= 0 && rwf_out)
+		handler_ret += rwf_out(s, out_srtp);
 
 	if (handler_ret > 0)
 		update = 1;
 
+	mutex_unlock(&out_srtp->out_lock);
+	mutex_unlock(&in_srtp->in_lock);
+
+	mutex_lock(&stream->in_lock);
+
 use_cand:
-	if (!p_incoming->filled || sr_incoming->idx != 0)
+	if (!stream->filled)
 		goto forward;
 
-	if (p_incoming->confirmed)
+	if (media->asymmetric)
+		stream->confirmed = 1;
+
+	if (stream->confirmed)
 		goto kernel_check;
 
-	if (!c->lookup_done || poller_now <= c->lookup_done + 3)
+	if (!call->last_signal || poller_now <= call->last_signal + 3)
 		goto peerinfo;
 
-	mylog(LOG_DEBUG, LOG_PREFIX_C "Confirmed peer information for port %u - %s", 
-		LOG_PARAMS_C(c), sr_incoming->fd.localport, addr);
+	ilog(LOG_DEBUG, "Confirmed peer information for port %u - %s", 
+		sfd->fd.localport, addr);
 
-	p_incoming->confirmed = 1;
+	stream->confirmed = 1;
 	update = 1;
 
 peerinfo:
-	if (!stun_ret && !p_incoming->codec && s->len >= 2) {
+	/*
+	if (!stun_ret && !stream->codec && s->len >= 2) {
 		cc = s->s[1];
 		cc &= 0x7f;
 		if (cc < G_N_ELEMENTS(rtp_codecs))
-			p_incoming->codec = rtp_codecs[cc] ? : "unknown";
+			stream->codec = rtp_codecs[cc] ? : "unknown";
 		else
-			p_incoming->codec = "unknown";
+			stream->codec = "unknown";
 	}
+	*/
 
-	sr_out_rtcp = &p_outgoing->rtps[1]; /* sr_incoming->idx == 0 */
-	s_copy = sr_outgoing->peer;
-	sr_outgoing->peer.ip46 = fsin->sin6_addr;
-	sr_outgoing->peer.port = ntohs(fsin->sin6_port);
-	if (memcmp(&s_copy, &sr_outgoing->peer, sizeof(s_copy))) {
-		sr_out_rtcp->peer.ip46 = sr_outgoing->peer.ip46;
-		sr_out_rtcp->peer.port = sr_outgoing->peer.port + 1; /* sr_out_rtcp->idx == 1 */
+	mutex_lock(&stream->out_lock);
+	endpoint = stream->endpoint;
+	stream->endpoint.ip46 = fsin->sin6_addr;
+	stream->endpoint.port = ntohs(fsin->sin6_port);
+	if (memcmp(&endpoint, &stream->endpoint, sizeof(endpoint)))
 		update = 1;
-	}
+	mutex_unlock(&stream->out_lock);
 
 kernel_check:
-	if (sr_incoming->no_kernel_support)
+	if (stream->no_kernel_support)
 		goto forward;
 
-	if (p_incoming->confirmed && p_outgoing->confirmed && p_outgoing->filled)
-		kernelize(cs_incoming);
+	if (stream->confirmed && sink && sink->confirmed && sink->filled)
+		kernelize(stream);
 
 forward:
-	if (is_addr_unspecified(&sr_incoming->peer_advertised.ip46)
-			|| !sr_incoming->peer_advertised.port
+	if (sink)
+		mutex_lock(&sink->out_lock);
+
+	if (!sink || is_addr_unspecified(&sink->advertised_endpoint.ip46)
+			|| !sink->advertised_endpoint.port
 			|| stun_ret || handler_ret < 0)
 		goto drop;
-
-	if (muxed_rtcp == 2) {
-		/* demux */
-		sr_incoming = sr_in_rtcp;
-		sr_outgoing = sr_incoming->other;
-	}
-	else if (sr_incoming->idx == 1 && sr_outgoing->rtcp_mux) {
-		/* mux */
-		sr_incoming = &p_incoming->rtps[0];
-		sr_outgoing = sr_incoming->other;
-	}
 
 	ZERO(mh);
 	mh.msg_control = buf;
@@ -666,12 +672,14 @@ forward:
 
 	ZERO(sin6);
 	sin6.sin6_family = AF_INET6;
-	sin6.sin6_addr = sr_incoming->peer.ip46;
-	sin6.sin6_port = htons(sr_incoming->peer.port);
+	sin6.sin6_addr = sink->endpoint.ip46;
+	sin6.sin6_port = htons(sink->endpoint.port);
 	mh.msg_name = &sin6;
 	mh.msg_namelen = sizeof(sin6);
 
-	callmaster_msg_mh_src(m, &mh);
+	mutex_unlock(&sink->out_lock);
+
+	callmaster_msg_mh_src(cm, &mh);
 
 	ZERO(iov);
 	iov.iov_base = s->s;
@@ -680,29 +688,37 @@ forward:
 	mh.msg_iov = &iov;
 	mh.msg_iovlen = 1;
 
-	ret = sendmsg(sr_outgoing->fd.fd, &mh, 0);
+	ret = sendmsg(sink->sfd->fd.fd, &mh, 0);
 
 	if (ret == -1) {
-		sr_incoming->stats.errors++;
-		mutex_lock(&m->statspslock);
-		m->statsps.errors++;
-		mutex_unlock(&m->statspslock);
+		stream->stats.errors++;
+		mutex_lock(&cm->statspslock);
+		cm->statsps.errors++;
+		mutex_unlock(&cm->statspslock);
 		goto out;
 	}
 
+	sink = NULL;
+
 drop:
+	if (sink)
+		mutex_unlock(&sink->out_lock);
 	ret = 0;
-	sr_incoming->stats.packets++;
-	sr_incoming->stats.bytes += s->len;
-	sr_incoming->last = poller_now;
-	mutex_lock(&m->statspslock);
-	m->statsps.packets++;
-	m->statsps.bytes += s->len;
-	mutex_unlock(&m->statspslock);
+	stream->stats.packets++;
+	stream->stats.bytes += s->len;
+	stream->last_packet = poller_now;
+	mutex_lock(&cm->statspslock);
+	cm->statsps.packets++;
+	cm->statsps.bytes += s->len;
+	mutex_unlock(&cm->statspslock);
 
 out:
 	if (ret == 0 && update)
 		ret = 1;
+
+done:
+	mutex_unlock(&stream->in_lock);
+	rwlock_unlock_r(&call->master_lock);
 
 	return ret;
 }
@@ -710,9 +726,8 @@ out:
 
 
 
-static void stream_readable(int fd, void *p, uintptr_t u) {
-	struct callstream *cs = p;
-	struct streamrelay *r;
+static void stream_fd_readable(int fd, void *p, uintptr_t u) {
+	struct stream_fd *sfd = p;
 	char buf[RTP_BUFFER_SIZE];
 	int ret;
 	struct sockaddr_storage ss;
@@ -724,10 +739,10 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 	struct call *ca;
 	str s;
 
-	mutex_lock(&cs->lock);
-	r = &cs->peers[u >> 1].rtps[u & 1];
-	if (r->fd.fd != fd)
+	if (sfd->fd.fd != fd)
 		goto out;
+
+	log_info_stream_fd(sfd);
 
 	for (;;) {
 		sinlen = sizeof(ss);
@@ -739,12 +754,11 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 				continue;
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
-			mutex_unlock(&cs->lock);
-			stream_closed(fd, r, 0);
-			return;
+			stream_fd_closed(fd, sfd, 0);
+			goto done;
 		}
 		if (ret >= MAX_RTP_PACKET_SIZE)
-			mylog(LOG_WARNING, "UDP packet possibly truncated");
+			ilog(LOG_WARNING, "UDP packet possibly truncated");
 
 		sinp = &ss;
 		if (ss.ss_family == AF_INET) {
@@ -757,11 +771,10 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 		}
 
 		str_init_len(&s, buf + RTP_BUFFER_HEAD_ROOM, ret);
-		ret = stream_packet(r, &s, sinp);
+		ret = stream_packet(sfd, &s, sinp);
 		if (ret == -1) {
-			mylog(LOG_WARNING, "Write error on RTP socket");
-			mutex_unlock(&cs->lock);
-			call_destroy(cs->call);
+			ilog(LOG_WARNING, "Write error on RTP socket");
+			call_destroy(sfd->call);
 			return;
 		}
 		if (ret == 1)
@@ -769,73 +782,15 @@ static void stream_readable(int fd, void *p, uintptr_t u) {
 	}
 
 out:
-	ca = cs->call;
-	mutex_unlock(&cs->lock);
+	ca = sfd->call ? : NULL;
 
-	if (update)
-		redis_update(ca, ca->callmaster->conf.redis);
+	if (ca && update)
+		redis_update(ca, sfd->call->callmaster->conf.redis);
+done:
+	log_info_clear();
 }
 
 
-
-
-
-static int info_parse_func(char **a, void **ret, void *p) {
-	GHashTable *ih = p;
-
-	g_hash_table_replace(ih, a[0], a[1]);
-
-	return -1;
-}
-
-
-static void info_parse(const char *s, GHashTable *ih, struct callmaster *m) {
-	pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, ih, NULL);
-}
-
-
-static int streams_parse_func(char **a, void **ret, void *p) {
-	struct stream_input *st;
-	u_int32_t ip;
-	int *i;
-
-	i = p;
-	st = g_slice_alloc0(sizeof(*st));
-
-	ip = inet_addr(a[0]);
-	if (ip == -1)
-		goto fail;
-
-	in4_to_6(&st->stream.ip46, ip);
-	st->stream.port = atoi(a[1]);
-	st->stream.num = ++(*i);
-	st->consecutive_num = 1;
-
-	if (!st->stream.port && strcmp(a[1], "0"))
-		goto fail;
-
-	*ret = st;
-	return 0;
-
-fail:
-	mylog(LOG_WARNING, "Failed to parse a media stream: %s:%s", a[0], a[1]);
-	g_slice_free1(sizeof(*st), st);
-	return -1;
-}
-
-
-static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
-	int i;
-	i = 0;
-	pcre_multi_match(m->streams_re, m->streams_ree, s, 3, streams_parse_func, &i, q);
-}
-
-static void streams_free(GQueue *q) {
-	struct stream_input *s;
-
-	while ((s = g_queue_pop_head(q)))
-		g_slice_free1(sizeof(*s), s);
-}
 
 
 
@@ -843,66 +798,62 @@ static void streams_free(GQueue *q) {
 static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
 	struct iterator_helper *hlp = ptr;
-	GList *it;
-	struct callstream *cs;
-	int i, j;
-	struct peer *p;
+	GSList *it;
 	struct callmaster *cm;
 	unsigned int check;
-	struct streamrelay *sr;
 	int good = 0;
+	struct packet_stream *ps;
+	struct stream_fd *sfd;
 
-	mutex_lock(&c->lock);
+	rwlock_lock_r(&c->master_lock);
 
-	if (!c->callstreams->head)
+	if (!c->streams)
 		goto drop;
 
 	cm = c->callmaster;
 
-	for (it = c->callstreams->head; it; it = it->next) {
-		cs = it->data;
-		mutex_lock(&cs->lock);
+	for (it = c->streams; it; it = it->next) {
+		ps = it->data;
+		mutex_lock(&ps->in_lock);
 
-		for (i = 0; i < 2; i++) {
-			p = &cs->peers[i];
-			for (j = 0; j < 2; j++) {
-				sr = &p->rtps[j];
-				if (!sr->fd.localport)
-					continue;
-				if (hlp->ports[sr->fd.localport])
-					abort();
-				hlp->ports[sr->fd.localport] = sr;
-				obj_hold(cs);
+		sfd = ps->sfd;
+		if (!sfd || !ps->media)
+			goto next;
 
-				if (good)
-					continue;
+		if (ps->media->dtls && sfd->dtls.init && !sfd->dtls.connected)
+			dtls(ps, NULL, NULL);
 
-				check = cm->conf.timeout;
-				if (!sr->peer_advertised.port)
-					check = cm->conf.silent_timeout;
-				else if (is_addr_unspecified(&sr->peer_advertised.ip46))
-					check = cm->conf.silent_timeout;
+		if (hlp->ports[sfd->fd.localport])
+			goto next;
+		hlp->ports[sfd->fd.localport] = sfd;
+		obj_hold(sfd);
 
-				if (poller_now - sr->last < check)
-					good = 1;
-			}
-		}
-		mutex_unlock(&cs->lock);
+		if (good)
+			goto next;
+
+		check = cm->conf.timeout;
+		if (!ps->media->recv || !ps->sfd)
+			check = cm->conf.silent_timeout;
+
+		if (poller_now - ps->last_packet < check)
+			good = 1;
+
+next:
+		mutex_unlock(&ps->in_lock);
 	}
 
 	if (good)
 		goto out;
 
-	mylog(LOG_INFO, LOG_PREFIX_C "Closing call branch due to timeout", 
-		LOG_PARAMS_C(c));
+	ilog(LOG_INFO, "Closing call branch due to timeout");
 
 drop:
-	mutex_unlock(&c->lock);
+	rwlock_unlock_r(&c->master_lock);
 	hlp->del = g_slist_prepend(hlp->del, obj_get(c));
 	return;
 
 out:
-	mutex_unlock(&c->lock);
+	rwlock_unlock_r(&c->master_lock);
 }
 
 void xmlrpc_kill_calls(void *p) {
@@ -919,7 +870,7 @@ void xmlrpc_kill_calls(void *p) {
 	while (xh->tags) {
 		tag = xh->tags->data;
 
-		mylog(LOG_INFO, "Forking child to close call with tag %.*s via XMLRPC", STR_FMT(tag));
+		ilog(LOG_INFO, "Forking child to close call with tag "STR_FORMAT" via XMLRPC", STR_FMT(tag));
 		pid = fork();
 
 		if (pid) {
@@ -932,7 +883,7 @@ retry:
 			else {
 				if (pid == -1 && errno == EINTR)
 					goto retry;
-				mylog(LOG_INFO, "XMLRPC child exited with status %i", status);
+				ilog(LOG_INFO, "XMLRPC child exited with status %i", status);
 				i++;
 			}
 			continue;
@@ -950,7 +901,7 @@ retry:
 			close(i);
 
 		openlog("mediaproxy-ng/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
-		mylog(LOG_INFO, "Initiating XMLRPC call for tag %.*s", STR_FMT(tag));
+		ilog(LOG_INFO, "Initiating XMLRPC call for tag "STR_FORMAT"", STR_FMT(tag));
 
 		alarm(5);
 
@@ -976,7 +927,7 @@ retry:
 		_exit(0);
 
 fault:
-		mylog(LOG_WARNING, "XMLRPC fault occurred: %s", e.fault_string);
+		ilog(LOG_WARNING, "XMLRPC fault occurred: %s", e.fault_string);
 		_exit(1);
 	}
 
@@ -986,8 +937,8 @@ fault:
 
 void kill_calls_timer(GSList *list, struct callmaster *m) {
 	struct call *ca;
-	GList *csl;
-	struct callstream *cs;
+	GSList *csl;
+	struct call_monologue *cm;
 	const char *url;
 	struct xmlrpc_helper *xh = NULL;
 
@@ -1006,26 +957,28 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 
 	while (list) {
 		ca = list->data;
+		log_info_call(ca);
 		if (!url)
 			goto destroy;
 
-		mutex_lock(&ca->lock);
+		rwlock_lock_r(&ca->master_lock);
 
-		for (csl = ca->callstreams->head; csl; csl = csl->next) {
-			cs = csl->data;
-			mutex_lock(&cs->lock);
-			if (!cs->peers[1].tag.s || !cs->peers[1].tag.len)
+		for (csl = ca->monologues; csl; csl = csl->next) {
+			cm = csl->data;
+			if (!cm->tag.s || !cm->tag.len)
 				goto next;
-			xh->tags = g_slist_prepend(xh->tags, str_chunk_insert(xh->c, &cs->peers[1].tag));
+			xh->tags = g_slist_prepend(xh->tags, str_chunk_insert(xh->c, &cm->tag));
 next:
-			mutex_unlock(&cs->lock);
+			;
 		}
-		mutex_unlock(&ca->lock);
+
+		rwlock_unlock_r(&ca->master_lock);
 
 destroy:
 		call_destroy(ca);
 		obj_put(ca);
 		list = g_slist_delete_link(list, list);
+		log_info_clear();
 	}
 
 	if (xh)
@@ -1034,13 +987,13 @@ destroy:
 
 
 #define DS(x) do {							\
-		mutex_lock(&cs->lock);					\
-		if (ke->stats.x < sr->kstats.x)				\
+		mutex_lock(&ps->in_lock);				\
+		if (ke->stats.x < ps->kernel_stats.x)			\
 			d = 0;						\
 		else							\
-			d = ke->stats.x - sr->kstats.x;			\
-		sr->stats.x += d;					\
-		mutex_unlock(&cs->lock);				\
+			d = ke->stats.x - ps->kernel_stats.x;		\
+		ps->stats.x += d;					\
+		mutex_unlock(&ps->in_lock);				\
 		mutex_lock(&m->statspslock);				\
 		m->statsps.x += d;					\
 		mutex_unlock(&m->statspslock);				\
@@ -1050,11 +1003,11 @@ static void callmaster_timer(void *ptr) {
 	struct iterator_helper hlp;
 	GList *i;
 	struct mediaproxy_list_entry *ke;
-	struct streamrelay *sr;
+	struct packet_stream *ps, *sink;
 	u_int64_t d;
 	struct stats tmpstats;
-	struct callstream *cs;
 	int j, update;
+	struct stream_fd *sfd;
 
 	ZERO(hlp);
 
@@ -1074,53 +1027,69 @@ static void callmaster_timer(void *ptr) {
 	while (i) {
 		ke = i->data;
 
-		cs = NULL;
-		sr = hlp.ports[ke->target.target_port];
-		if (!sr)
+		sfd = hlp.ports[ke->target.target_port];
+		if (!sfd)
 			goto next;
-		cs = sr->up->up;
+
+		rwlock_lock_r(&sfd->call->master_lock);
+
+		ps = sfd->stream;
+		if (!ps || ps->sfd != sfd) {
+			rwlock_unlock_r(&sfd->call->master_lock);
+			goto next;
+		}
 
 		DS(packets);
 		DS(bytes);
 		DS(errors);
 
-		mutex_lock(&cs->lock);
-		if (ke->stats.packets != sr->kstats.packets)
-			sr->last = poller_now;
+		mutex_lock(&ps->in_lock);
 
-		sr->kstats.packets = ke->stats.packets;
-		sr->kstats.bytes = ke->stats.bytes;
-		sr->kstats.errors = ke->stats.errors;
+		if (ke->stats.packets != ps->kernel_stats.packets)
+			ps->last_packet = poller_now;
+
+		ps->kernel_stats.packets = ke->stats.packets;
+		ps->kernel_stats.bytes = ke->stats.bytes;
+		ps->kernel_stats.errors = ke->stats.errors;
 
 		update = 0;
 
-		if (sr->other->crypto.out.crypto_suite
-				&& ke->target.encrypt.last_index - sr->other->crypto.out.last_index > 0x4000) {
-			sr->other->crypto.out.last_index = ke->target.encrypt.last_index;
+		sink = packet_stream_sink(ps);
+
+		if (sink)
+			mutex_lock(&sink->out_lock);
+
+		/* XXX this only works if the kernel module actually gets to see the packets. */
+		if (sink && sink->crypto.params.crypto_suite
+				&& ke->target.encrypt.last_index - sink->crypto.last_index > 0x4000) {
+			sink->crypto.last_index = ke->target.encrypt.last_index;
 			update = 1;
 		}
-		if (sr->crypto.in.crypto_suite
-				&& ke->target.decrypt.last_index - sr->crypto.in.last_index > 0x4000) {
-			sr->crypto.in.last_index = ke->target.decrypt.last_index;
+		if (sfd->crypto.params.crypto_suite
+				&& ke->target.decrypt.last_index - sfd->crypto.last_index > 0x4000) {
+			sfd->crypto.last_index = ke->target.decrypt.last_index;
 			update = 1;
 		}
 
-		mutex_unlock(&cs->lock);
+		if (sink)
+			mutex_unlock(&sink->out_lock);
+		mutex_unlock(&ps->in_lock);
+		rwlock_unlock_r(&sfd->call->master_lock);
 
 		if (update)
-			redis_update(cs->call, m->conf.redis);
+			redis_update(ps->call, m->conf.redis);
 
 next:
 		hlp.ports[ke->target.target_port] = NULL;
 		g_slice_free1(sizeof(*ke), ke);
 		i = g_list_delete_link(i, i);
-		if (cs)
-			obj_put(cs);
+		if (sfd)
+			obj_put(sfd);
 	}
 
 	for (j = 0; j < (sizeof(hlp.ports) / sizeof(*hlp.ports)); j++)
 		if (hlp.ports[j])
-			obj_put(hlp.ports[j]->up->up);
+			obj_put(hlp.ports[j]);
 
 	if (!hlp.del)
 		return;
@@ -1155,7 +1124,6 @@ struct callmaster *callmaster_new(struct poller *p) {
 
 	poller_add_timer(p, callmaster_timer, &c->obj);
 
-	obj_put(c);
 	return c;
 
 fail:
@@ -1240,11 +1208,13 @@ static void release_port(struct udp_fd *r, struct callmaster *m) {
 	r->localport = 0;
 }
 
-static int get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, struct call *c) {
+static int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, struct call *c) {
 	int i, j, cycle = 0;
 	struct udp_fd *it;
 	u_int16_t port;
 	struct callmaster *m = c->callmaster;
+
+	memset(array, -1, sizeof(*array) * array_len);
 
 	if (wanted_start_port > 0)
 		port = wanted_start_port;
@@ -1289,529 +1259,606 @@ release_restart:
 	m->lastport = port;
 	mutex_unlock(&m->portlock);
 
-	mylog(LOG_DEBUG, LOG_PREFIX_CI "Opened ports %u..%u for RTP", 
-		LOG_PARAMS_CI(c), array[0].localport, array[array_len - 1].localport);
+	ilog(LOG_DEBUG, "Opened ports %u..%u for media relay", 
+		array[0].localport, array[array_len - 1].localport);
 	return 0;
 
 fail:
-	mylog(LOG_ERR, LOG_PREFIX_CI "Failed to get RTP port pair", LOG_PARAMS_CI(c));
+	ilog(LOG_ERR, "Failed to get %u consecutive UDP ports for relay",
+			array_len);
 	return -1;
 }
 
-static void setup_stream_families(struct callstream *cs, struct stream_input *s, int idx) {
-	int i;
+static struct call_media *__get_media(struct call_monologue *ml, GList **it, const struct stream_params *sp) {
+	struct call_media *med;
 
-	for (i = 0; i < 2; i++) {
-		switch (s->direction[i]) {
-			case DIR_INTERNAL:
-				cs->peers[i ^ idx].desired_family = AF_INET;
-				break;
-			case DIR_EXTERNAL:
-				cs->peers[i ^ idx].desired_family = AF_INET6;
-				break;
-			default:
-				break;
+	/* iterator points to last seen element, or NULL if uninitialized */
+	if (!*it)
+		*it = ml->medias.head;
+	else
+		*it = (*it)->next;
+
+	/* possible incremental update, hunt for correct media struct */
+	while (*it) {
+		med = (*it)->data;
+		if (med->index == sp->index) {
+			__C_DBG("found existing call_media for stream #%u", sp->index);
+			return med;
 		}
+		*it = (*it)->next;
 	}
+
+	__C_DBG("allocating new call_media for stream #%u", sp->index);
+	med = g_slice_alloc0(sizeof(*med));
+	med->monologue = ml;
+	med->call = ml->call;
+	med->index = sp->index;
+	call_str_cpy(ml->call, &med->type, &sp->type);
+
+	g_queue_push_tail(&ml->medias, med);
+	*it = ml->medias.tail;
+
+	return med;
 }
 
-/* caller is responsible for appropriate locking */
-static int setup_peer(struct peer *p, struct stream_input *s, const str *tag) {
-	struct streamrelay *a, *b;
-	struct callstream *cs;
-	struct call *ca;
+static void stream_fd_free(void *p) {
+	struct stream_fd *f = p;
+	struct callmaster *m = f->call->callmaster;
 
-	cs = p->up;
-	ca = cs->call;
-	a = &p->rtps[0];
-	b = &p->rtps[1];
+	release_port(&f->fd, m);
+	crypto_cleanup(&f->crypto);
+	dtls_connection_cleanup(&f->dtls);
 
-	if (a->peer_advertised.port != s->stream.port
-			|| !IN6_ARE_ADDR_EQUAL(&a->peer_advertised.ip46, &s->stream.ip46))
-		unconfirm_cs(cs);
-
-	a->peer = s->stream;
-	b->peer = s->stream;
-	if (b->peer.port)
-		b->peer.port++;
-	a->peer_advertised = a->peer;
-	b->peer_advertised = b->peer;
-	a->rtcp = s->is_rtcp;
-	b->rtcp = 1;
-	a->other->rtcp_mux = s->rtcp_mux;
-	a->other->crypto.in = s->crypto;
-	b->other->crypto.in = s->crypto;
-
-	setup_stream_families(cs, s, p->idx);
-
-	call_str_cpy(ca, &p->tag, tag);
-	p->filled = 1;
-
-	return 0;
+	obj_put(f->call);
 }
 
-/* caller is responsible for appropriate locking */
-static void steal_peer(struct peer *dest, struct peer *src) {
-	struct streamrelay *r;
-	int i;
+static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
+		const struct endpoint *ep)
+{
+	GSList *l;
+	struct endpoint_map *em;
+	struct udp_fd fd_arr[16];
+	unsigned int i;
+	struct stream_fd *sfd;
+	struct call *call = media->call;
 	struct poller_item pi;
-	struct streamrelay *sr, *srs;
-	struct call *c;
-	struct callmaster *m;
-	struct poller *po;
+	struct poller *po = call->callmaster->poller;
 
-	ZERO(pi);
-	r = &src->rtps[0];
-	c = src->up->call;
-	m = c->callmaster;
-	po = m->poller;
-
-	mylog(LOG_DEBUG, LOG_PREFIX_CI "Re-using existing open RTP port %u", 
-		LOG_PARAMS_CI(c), r->fd.localport);
-
-	unconfirm(dest);
-	unconfirm(src);
-
-	dest->filled = src->filled;
-	dest->tag = src->tag;
-	src->tag = STR_NULL;
-	dest->desired_family = src->desired_family;
-	dest->ice_ufrag = src->ice_ufrag;
-	dest->ice_pwd = src->ice_pwd;
-
-	for (i = 0; i < 2; i++) {
-		sr = &dest->rtps[i];
-		srs = &src->rtps[i];
-
-		if (sr->fd.fd != -1) {
-			mylog(LOG_DEBUG, LOG_PREFIX_CI "Closing port %u in favor of re-use", 
-				LOG_PARAMS_CI(c), sr->fd.localport);
-			poller_del_item(po, sr->fd.fd);
-			release_port(&sr->fd, m);
-		}
-
-		sr->fd = srs->fd;
-		sr->peer = srs->peer;
-		sr->peer_advertised = srs->peer_advertised;
-		sr->stun = srs->stun;
-		sr->rtcp = srs->rtcp;
-		sr->rtcp_mux = srs->rtcp_mux;
-		crypto_context_move(&sr->other->crypto.in, &srs->other->crypto.in);
-		crypto_context_move(&sr->crypto.out, &srs->crypto.out);
-
-
-		srs->fd.fd = -1;
-		srs->fd.localport = 0;
-		ZERO(srs->peer);
-		ZERO(srs->peer_advertised);
-
-		pi.fd = sr->fd.fd;
-		pi.obj = &sr->up->up->obj;
-		pi.uintp = i | (dest->idx << 1);
-		pi.readable = stream_readable;
-		pi.closed = stream_closed;
-
-		poller_update_item(po, &pi);
-	}
-}
-
-
-void callstream_init(struct callstream *s, struct relays_cache *rc) {
-	int i, j;
-	struct peer *p;
-	struct streamrelay *r;
-	struct udp_fd *relay_AB;
-	struct poller_item pi;
-	struct call *c = s->call;
-	struct poller *po = c->callmaster->poller;
-
-	ZERO(pi);
-
-	for (i = 0; i < 2; i++) {
-		p = &s->peers[i];
-		relay_AB = rc ? rc->array_ptrs[i] : NULL;
-
-		p->idx = i;
-		p->up = s;
-		p->other = &s->peers[i ^ 1];
-		p->tag = STR_NULL;
-
-		for (j = 0; j < 2; j++) {
-			r = &p->rtps[j];
-
-			r->fd.fd = -1;
-			r->idx = j;
-			r->up = p;
-			r->other = &p->other->rtps[j];
-			r->last = poller_now;
-
-			if (relay_AB && relay_AB[j].fd != -1) {
-				r->fd = relay_AB[j];
-
-				pi.fd = r->fd.fd;
-				pi.obj = &s->obj;
-				pi.uintp = (i << 1) | j;
-				pi.readable = stream_readable;
-				pi.closed = stream_closed;
-
-				poller_add_item(po, &pi);
-
-				relay_AB[j].fd = -1;
+	for (l = media->endpoint_maps; l; l = l->next) {
+		em = l->data;
+		if (em->wildcard && em->sfds.length >= num_ports) {
+			__C_DBG("found a wildcard endpoint map%s", ep ? " and filling it in" : "");
+			if (ep) {
+				em->endpoint = *ep;
+				em->wildcard = 0;
 			}
+			return em;
 		}
-	}
-
-	if (rc)
-		relays_cache_port_used(rc);
-}
-
-
-
-static void callstream_free(void *ptr) {
-	struct callstream *s = ptr;
-	struct callmaster *m = s->call->callmaster;
-	int i, j;       
-	struct peer *p;
-	struct streamrelay *r;
-
-	for (i = 0; i < 2; i++) {
-		p = &s->peers[i];
-
-		for (j = 0; j < 2; j++) {
-			r = &p->rtps[j];
-			release_port(&r->fd, m);
-		}
-	}
-	mutex_destroy(&s->lock);
-	obj_put(s->call);
-}
-
-void relays_cache_init(struct relays_cache *c) {
-	memset(c, -1, sizeof(*c));
-	c->relays_open = 0;
-	c->array_ptrs[0] = c->relays_A;
-	c->array_ptrs[1] = c->relays_B;
-}
-
-int relays_cache_want_ports(struct relays_cache *c, int portA, int portB, struct call *call) {
-	if (c->relays_open + 2 > G_N_ELEMENTS(c->relays_A))
-		return -1;
-	if (get_consecutive_ports(&c->relays_A[c->relays_open], 2, portA, call))
-		return -1;
-	if (get_consecutive_ports(&c->relays_B[c->relays_open], 2, portB, call))
-		return -1;
-	c->relays_open += 2;
-	return 0;
-}
-
-static int relays_cache_get_ports(struct relays_cache *c, int num, struct call *call) {
-	num *= 2;
-	if (c->relays_open >= num)
-		return 0;
-
-	if (c->relays_open + num > G_N_ELEMENTS(c->relays_A))
-		return -1;
-	if (get_consecutive_ports(&c->relays_A[c->relays_open], num, 0, call))
-		return -1;
-	if (get_consecutive_ports(&c->relays_B[c->relays_open], num, 0, call))
-		return -1;
-	c->relays_open += num;
-	return 0;
-}
-
-static void relays_cache_port_used(struct relays_cache *c) {
-	if (c->relays_open < 2)
-		return;
-
-	c->relays_open -= 2;
-	if (c->relays_open) {
-		memmove(&c->relays_A[0], &c->relays_A[2], c->relays_open * sizeof(*c->relays_A));
-		memmove(&c->relays_B[0], &c->relays_B[2], c->relays_open * sizeof(*c->relays_B));
-	}
-	c->relays_A[c->relays_open].fd = -1;
-	c->relays_B[c->relays_open].fd = -1;
-	c->relays_A[c->relays_open + 1].fd = -1;
-	c->relays_B[c->relays_open + 1].fd = -1;
-}
-
-void relays_cache_cleanup(struct relays_cache *c, struct callmaster *m) {
-	int i;
-
-	for (i = 0; i < G_N_ELEMENTS(c->relays_A); i++) {
-		if (c->relays_A[i].fd == -1)
+		if (!ep) /* creating wildcard map */
 			break;
-		release_port(&c->relays_A[i], m);
-	}
-	for (i = 0; i < G_N_ELEMENTS(c->relays_B); i++) {
-		if (c->relays_B[i].fd == -1)
-			break;
-		release_port(&c->relays_B[i], m);
-	}
-}
-
-/* called with call->lock held */
-static int call_streams(struct call *c, GQueue *s, const str *tag, enum call_opmode opmode) {
-	GQueue *q;
-	GList *i, *l;
-	struct stream_input *t;
-	int x;
-	struct streamrelay *matched_relay;
-	struct callstream *cs, *cs_o;
-	struct peer *p, *p2;
-	int ret = 1;
-	struct relays_cache relays_cache;
-
-	q = g_queue_new();	/* new callstreams list */
-	relays_cache_init(&relays_cache);
-
-	for (i = s->head; i; i = i->next) {
-		t = i->data;
-
-		p = NULL;
-
-		/* look for an existing call stream with identical parameters */
-		for (l = c->callstreams->head; l; l = l->next) {
-			cs_o = l->data;
-			mutex_lock(&cs_o->lock);
-			for (x = 0; x < 2; x++) {
-				matched_relay = &cs_o->peers[x].rtps[0];
-				if (matched_relay->peer.num != t->stream.num)
-					continue;
-				DBG("comparing new ["IP6F"]:%u/%.*s to old ["IP6F"]:%u/%.*s",
-					IP6P(&t->stream.ip46), t->stream.port, STR_FMT(tag),
-					IP6P(&matched_relay->peer_advertised.ip46),
-					matched_relay->peer_advertised.port, STR_FMT(&cs_o->peers[x].tag));
-
-				if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46)
-						&& !is_addr_unspecified(&matched_relay->peer_advertised.ip46)
-						&& !is_addr_unspecified(&t->stream.ip46))
-					continue;
-				if (matched_relay->peer_advertised.port != t->stream.port
-						&& matched_relay->peer_advertised.port
-						&& t->stream.port)
-					continue;
-				if (str_cmp_str0(&cs_o->peers[x].tag, tag))
-					continue;
-				DBG("found existing call stream to steal");
-				unconfirm_cs(cs_o);
-				goto found;
-			}
-			mutex_unlock(&cs_o->lock);
-		}
-
-		/* not found */
-		matched_relay = NULL;
-		cs_o = NULL;
-		l = NULL;
-
-found:
-		/* cs_o remains locked if set */
-		if (opmode == OP_OFFER) {
-			DBG("creating new callstream");
-
-			cs = callstream_new(c, t->stream.num);
-			mutex_lock(&cs->lock);
-
-			if (!matched_relay) {
-				/* nothing found to re-use, use new ports */
-				relays_cache_get_ports(&relays_cache, t->consecutive_num, c);
-				callstream_init(cs, &relays_cache);
-				p = &cs->peers[0];
-				setup_peer(p, t, tag);
-			}
-			else {
-				/* re-use, so don't use new ports */
-				callstream_init(cs, NULL);
-				if (matched_relay->up->idx == 0) {
-					/* request/lookup came in the same order as before */
-					steal_peer(&cs->peers[0], &cs_o->peers[0]);
-					steal_peer(&cs->peers[1], &cs_o->peers[1]);
-				}
-				else {
-					/* reversed request/lookup */
-					steal_peer(&cs->peers[0], &cs_o->peers[1]);
-					steal_peer(&cs->peers[1], &cs_o->peers[0]);
-				}
-				setup_stream_families(cs, t, 0);
-				mutex_unlock(&cs_o->lock);
-			}
-
-			mutex_unlock(&cs->lock);
-			g_queue_push_tail(q, cs); /* hand over the ref of new cs */
-			ZERO(c->lookup_done);
+		if (memcmp(&em->endpoint, ep, sizeof(*ep)))
 			continue;
-		}
-
-		/* lookup */
-		for (l = c->callstreams->head; l; l = l->next) {
-			cs = l->data;
-			if (cs != cs_o)
-				mutex_lock(&cs->lock);
-			DBG("hunting for callstream, %i <> %i", cs->num, t->stream.num);
-			if (cs->num == t->stream.num)
-				goto got_cs;
-			if (cs != cs_o)
-				mutex_unlock(&cs->lock);
-		}
-
-		mylog(LOG_WARNING, LOG_PREFIX_CI "Got LOOKUP, but no usable callstreams found", 
-			LOG_PARAMS_CI(c));
-		if (cs_o)
-			mutex_unlock(&cs_o->lock);
-		break;
-
-got_cs:
-		/* cs and cs_o remain locked, and maybe cs == cs_o */
-		/* matched_relay == peer[x].rtp[0] of cs_o */
-		unconfirm_cs(cs);
-		g_queue_delete_link(c->callstreams, l); /* steal cs ref */
-		p = &cs->peers[1];
-		p2 = &cs->peers[0];
-
-		if (c->lookup_done && matched_relay
-				&& t->stream.port == matched_relay->peer_advertised.port
-				&& IN6_ARE_ADDR_EQUAL(&t->stream.ip46, &matched_relay->peer_advertised.ip46))
-		{
-			/* duplicate/stray lookup. don't do anything except replying with something
-			   we already have. check whether the direction is reversed or not and return
-			   the appropriate details. if no matching stream was found, results are
-			   undefined. */
-			DBG("double lookup");
-			if (p == matched_relay->up) {
-				DBG("forward direction");
-				goto skip;
-			}
-			if (p2 == matched_relay->up) {
-				DBG("backward direction");
-				ret = -1;
-				goto skip;
-			}
-		}
-
-
-		if (matched_relay && p == matched_relay->up) {
-			/* best case, nothing to do */
-			DBG("case 1");
-			/* ... unless we (un)silenced the stream, in which case
-			   we need to copy the new information */
-			if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46)
-					|| matched_relay->peer_advertised.port != t->stream.port)
-				setup_peer(p, t, tag);
-		}
-		else if (matched_relay && cs_o != cs) {
-			/* found something, but it's linked to a different stream */
-			DBG("case 2");
-			steal_peer(p, matched_relay->up);
-		}
-		else if (!matched_relay && !p->filled) {
-			/* nothing found to steal, but this end is open */
-			DBG("case 3");
-			setup_peer(p, t, tag);
-		}
-		else {
-			/* nothing found to steal and this end is used */
-			/* need a new call stream after all */
-			DBG("case 4");
-			if (cs_o && cs_o != cs)
-				mutex_unlock(&cs_o->lock);
-			cs_o = cs;
-			cs = callstream_new(c, t->stream.num);
-			mutex_lock(&cs->lock);
-			relays_cache_get_ports(&relays_cache, t->consecutive_num, c);
-			callstream_init(cs, &relays_cache);
-			steal_peer(&cs->peers[0], &cs_o->peers[0]);
-			p = &cs->peers[1];
-			setup_peer(p, t, tag);
-			g_queue_push_tail(c->callstreams, cs_o); /* hand over ref to original cs */
-		}
-
-skip:
-		time(&c->lookup_done);
-		g_queue_push_tail(q, p->up); /* hand over ref to cs */
-		mutex_unlock(&cs->lock);
-		if (cs_o && cs_o != cs)
-			mutex_unlock(&cs_o->lock);
+		if (em->sfds.length >= num_ports)
+			return em;
+		/* endpoint matches, but not enough ports. flush existing ports
+		 * and allocate a new set. */
+		__C_DBG("endpoint matches, doesn't have enough ports");
+		g_queue_clear(&em->sfds);
+		goto alloc;
 	}
 
-	ret = ret * q->length;
+	__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
+	em = g_slice_alloc0(sizeof(*em));
+	if (ep)
+		em->endpoint = *ep;
+	else
+		em->wildcard = 1;
+	g_queue_init(&em->sfds);
+	media->endpoint_maps = g_slist_prepend(media->endpoint_maps, em);
 
-	if (!q->head)
-		g_queue_free(q);
-	else {
-		if (c->callstreams->head) {
-			q->tail->next = c->callstreams->head;
-			c->callstreams->head->prev = q->tail;
-			q->tail = c->callstreams->tail;
-			q->length += c->callstreams->length;
-			c->callstreams->head = c->callstreams->tail = NULL;
-			c->callstreams->length = 0;
-		}
-		g_queue_free(c->callstreams);
-		c->callstreams = q;
+alloc:
+	if (num_ports > G_N_ELEMENTS(fd_arr))
+		return NULL;
+	if (__get_consecutive_ports(fd_arr, num_ports, 0, media->call))
+		return NULL;
+
+	__C_DBG("allocating stream_fds for %u ports", num_ports);
+	for (i = 0; i < num_ports; i++) {
+		sfd = obj_alloc0("stream_fd", sizeof(*sfd), stream_fd_free);
+		sfd->fd = fd_arr[i];
+		sfd->call = obj_get(call);
+		g_queue_push_tail(&em->sfds, sfd); /* not referenced */
+		call->stream_fds = g_slist_prepend(call->stream_fds, sfd); /* hand over ref */
+
+		ZERO(pi);
+		pi.fd = sfd->fd.fd;
+		pi.obj = &sfd->obj;
+		pi.readable = stream_fd_readable;
+		pi.closed = stream_fd_closed;
+
+		poller_add_item(po, &pi);
 	}
 
-	relays_cache_cleanup(&relays_cache, c->callmaster);
+	return em;
+}
+
+static void __assign_stream_fds(struct call_media *media, GList *sfds) {
+	GList *l;
+	struct packet_stream *ps;
+	struct stream_fd *sfd;
+
+	for (l = media->streams.head; l; l = l->next) {
+		assert(sfds != NULL);
+		ps = l->data;
+		sfd = sfds->data;
+		ps->sfd = sfd;
+		sfd->stream = ps;
+		sfds = sfds->next;
+	}
+}
+
+static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_ports) {
+	struct endpoint_map *em;
+
+	em = __get_endpoint_map(media, num_ports, NULL);
+	if (!em)
+		return -1;
+
+	__assign_stream_fds(media, em->sfds.head);
+
+	return 0;
+}
+
+static int __num_media_streams(struct call_media *media, unsigned int num_ports) {
+	struct packet_stream *stream;
+	struct call *call = media->call;
+	int ret = 0;
+
+	__C_DBG("allocating %i new packet_streams", num_ports - media->streams.length);
+	while (media->streams.length < num_ports) {
+		stream = g_slice_alloc0(sizeof(*stream));
+		mutex_init(&stream->in_lock);
+		mutex_init(&stream->out_lock);
+		stream->call = call;
+		stream->media = media;
+		stream->last_packet = poller_now;
+		g_queue_push_tail(&media->streams, stream);
+		call->streams = g_slist_prepend(call->streams, stream);
+		ret++;
+	}
+
+	g_queue_truncate(&media->streams, num_ports);
+
 	return ret;
 }
 
-
-
-
-static void unconfirm(struct peer *p) {
-	p->confirmed = 0;
-	unkernelize(p);
+static void __fill_stream(struct packet_stream *ps, const struct endpoint *ep, unsigned int port_off) {
+	ps->endpoint = *ep;
+	ps->endpoint.port += port_off;
+	/* we SHOULD remember the crypto contexts of previously used endpoints,
+	 * but instead we reset it every time it changes, which is incompatible
+	 * with what we're doing on our side (remembers in the stream_fd) */
+	if (memcmp(&ps->advertised_endpoint, &ps->endpoint, sizeof(ps->endpoint)))
+		crypto_reset(&ps->crypto);
+	ps->advertised_endpoint = ps->endpoint;
+	ps->filled = 1;
 }
-static void unconfirm_cs(struct callstream *cs) {
-	unconfirm(&cs->peers[0]);
-	unconfirm(&cs->peers[1]);
+
+static int __init_stream(struct packet_stream *ps) {
+	struct call_media *media = ps->media;
+	struct call *call = ps->call;
+	int active;
+
+	if (ps->sfd) {
+		if (media->sdes)
+			crypto_init(&ps->sfd->crypto, &media->sdes_in.params);
+
+		if (media->dtls && !ps->fallback_rtcp) {
+			active = (ps->filled && media->setup_active);
+			dtls_connection_init(ps, active, call->dtls_cert);
+
+			if (!ps->fingerprint_verified && media->fingerprint.hash_func && ps->dtls_cert) {
+				if (dtls_verify_cert(ps))
+					return -1;
+			}
+		}
+	}
+
+	if (media->sdes)
+		crypto_init(&ps->crypto, &media->sdes_out.params);
+
+	return 0;
 }
 
-static void unkernelize(struct peer *p) {
-	struct streamrelay *r;
-	int i;
+static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp) {
+	GList *la, *lb;
+	struct packet_stream *a, *ax, *b;
+	unsigned int port_off = 0;
 
-	if (!p->kernelized)
+	la = A->streams.head;
+	lb = B->streams.head;
+
+	while (la) {
+		assert(lb != NULL);
+		a = la->data;
+		b = lb->data;
+
+		/* RTP */
+		a->rtp_sink = b;
+		a->rtp = 1;
+
+		if (sp)
+			__fill_stream(a, &sp->rtp_endpoint, port_off);
+		if (__init_stream(a))
+			return -1;
+
+		/* RTCP */
+		if (!B->rtcp_mux) {
+			lb = lb->next;
+			assert(lb != NULL);
+			b = lb->data;
+		}
+
+		if (!A->rtcp_mux) {
+			a->rtcp_sink = NULL;
+			a->rtcp = 0;
+		}
+		else {
+			a->rtcp_sink = b;
+			a->rtcp = 1;
+			a->implicit_rtcp = 0;
+		}
+
+		ax = a;
+
+		/* if muxing, this is the fallback RTCP port. it also contains the RTCP
+		 * crypto context */
+		la = la->next;
+		assert(la != NULL);
+		a = la->data;
+
+		a->rtp_sink = NULL;
+		a->rtcp_sink = b;
+		a->rtp = 0;
+		a->rtcp = 1;
+		a->rtcp_sibling = NULL;
+		a->fallback_rtcp = ax->rtcp;
+
+		ax->rtcp_sibling = a;
+
+		if (sp) {
+			if (!sp->implicit_rtcp) {
+				__fill_stream(a, &sp->rtcp_endpoint, port_off);
+				a->implicit_rtcp = 0;
+			}
+			else {
+				__fill_stream(a, &sp->rtp_endpoint, port_off + 1);
+				a->implicit_rtcp = 1;
+			}
+		}
+		if (__init_stream(a))
+			return -1;
+
+		la = la->next;
+		lb = lb->next;
+
+		port_off += 2;
+	}
+
+	return 0;
+}
+
+/* generates SDES parametes for outgoing SDP, which is our media "out" direction */
+static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_media *this,
+		struct call_media *other)
+{
+	struct crypto_params *cp = &this->sdes_out.params,
+			     *cp_in = &this->sdes_in.params;
+
+	if (!flags)
 		return;
 
-	for (i = 0; i < 2; i++) {
-		r = &p->rtps[i];
-		if (r->no_kernel_support)
-			continue;
-		kernel_del_stream(p->up->call->callmaster->conf.kernelfd, r->fd.localport);
-		r->no_kernel_support = 0;
+	if (!this->protocol || !this->protocol->srtp) {
+		cp->crypto_suite = NULL;
+		this->dtls = 0;
+		this->sdes = 0;
+		this->setup_passive = 0;
+		this->setup_active = 0;
+		return;
 	}
+
+	if (flags->opmode == OP_OFFER) {
+		/* we use this to remember the peer's preference DTLS vs SDES */
+		if (!this->initialized) {
+			this->dtls = 1;
+			this->sdes = 1;
+		}
+		/* we always offer actpass */
+		this->setup_passive = 1;
+		this->setup_active = 1;
+	}
+	else {
+		/* if we can be active, we will, otherwise we'll be passive */
+		if (this->setup_active)
+			this->setup_passive = 0;
+
+		/* if we're answering and doing DTLS, then skip the SDES stuff */
+		if (this->dtls) {
+			this->sdes = 0;
+			goto skip_sdes;
+		}
+	}
+
+	/* for answer case, otherwise defaults to zero */
+	this->sdes_out.tag = this->sdes_in.tag;
+
+	if (other->sdes_in.params.crypto_suite) {
+		/* SRTP <> SRTP case, copy from other stream */
+		crypto_params_copy(cp, &other->sdes_in.params);
+		return;
+	}
+
+	if (cp->crypto_suite)
+		return;
+
+	cp->crypto_suite = cp_in->crypto_suite;
+	if (!cp->crypto_suite)
+		cp->crypto_suite = &crypto_suites[0];
+	random_string((unsigned char *) cp->master_key,
+			cp->crypto_suite->master_key_len);
+	random_string((unsigned char *) cp->master_salt,
+			cp->crypto_suite->master_salt_len);
+	/* mki = mki_len = 0 */
+
+skip_sdes:
+	;
+}
+
+
+static void __disable_streams(struct call_media *media, unsigned int num_ports) {
+	GList *l;
+	struct packet_stream *ps;
+
+	__num_media_streams(media, num_ports);
+
+	for (l = media->streams.head; l; l = l->next) {
+		ps = l->data;
+		ps->sfd = NULL;
+	}
+}
+
+static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media *media,
+		struct call_media *other_media)
+{
+	if (!flags)
+		return;
+
+	if (flags->opmode == OP_ANSWER) {
+		/* default is to go with the client's choice, unless we were instructed not
+		 * to do that in the offer (see below) */
+		if (!media->rtcp_mux_override)
+			media->rtcp_mux = other_media->rtcp_mux;
+
+		return;
+	}
+
+	if (flags->opmode != OP_OFFER)
+		return;
+
+
+	/* default is to pass through the client's choice, unless our peer is already
+	 * talking rtcp-mux, then we stick to that */
+	if (!media->rtcp_mux)
+		media->rtcp_mux = other_media->rtcp_mux;
+	/* in our offer, we can override the client's choice */
+	if (flags->rtcp_mux_offer)
+		media->rtcp_mux = 1;
+	else if (flags->rtcp_mux_demux)
+		media->rtcp_mux = 0;
+
+	/* we can also control what's going to happen in the answer. it
+	 * depends on what was offered, but by default we go with the other
+	 * client's choice */
+	other_media->rtcp_mux_override = 0;
+	if (other_media->rtcp_mux) {
+		if (!media->rtcp_mux) {
+			/* rtcp-mux was offered, but we don't offer it ourselves.
+			 * the answer will not accept rtcp-mux (wasn't offered).
+			 * the default is to accept the offer, unless we want to
+			 * explicitly reject it. */
+			other_media->rtcp_mux_override = 1;
+			if (flags->rtcp_mux_reject)
+				other_media->rtcp_mux = 0;
+		}
+		else {
+			/* rtcp-mux was offered and we offer it too. default is
+			 * to go with the other client's choice, unless we want to
+			 * either explicitly accept it (possibly demux) or reject
+			 * it (possible reverse demux). */
+			if (flags->rtcp_mux_accept)
+				other_media->rtcp_mux_override = 1;
+			else if (flags->rtcp_mux_reject) {
+				other_media->rtcp_mux_override = 1;
+				other_media->rtcp_mux = 0;
+			}
+		}
+	}
+	else {
+		/* rtcp-mux was not offered. we may offer it, but since it wasn't
+		 * offered to us, we must not accept it. */
+		other_media->rtcp_mux_override = 1;
+	}
+}
+
+static void __unverify_fingerprint(struct call_media *m) {
+	GList *l;
+	struct packet_stream *ps;
+
+	for (l = m->streams.head; l; l = l->next) {
+		ps = l->data;
+		ps->fingerprint_verified = 0;
+	}
+}
+
+/* called with call->master_lock held in W */
+int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
+		const struct sdp_ng_flags *flags)
+{
+	struct stream_params *sp;
+	GList *media_iter, *ml_media, *other_ml_media;
+	struct call_media *media, *other_media;
+	unsigned int num_ports;
+	struct call_monologue *other_ml = monologue->active_dialogue;
+	struct endpoint_map *em;
+
+	monologue->call->last_signal = poller_now;
+
+	/* we must have a complete dialogue, even though the to-tag (other_ml->tag)
+	 * may not be known yet */
+	if (!other_ml)
+		return -1;
+
+	ml_media = other_ml_media = NULL;
+
+	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
+		sp = media_iter->data;
+		__C_DBG("processing media stream #%u", sp->index);
+
+		/* first, check for existance of call_media struct on both sides of
+		 * the dialogue */
+		media = __get_media(monologue, &ml_media, sp);
+		other_media = __get_media(other_ml, &other_ml_media, sp);
+		/* THIS side corresponds to what's being sent to the recipient of the
+		 * offer/answer. The OTHER side corresponds to what WILL BE sent to the
+		 * offerer or WAS sent to the answerer. */
+
+		/* deduct protocol from stream parameters received */
+		if (!other_media->protocol) {
+			other_media->protocol = sp->protocol;
+			if (!other_media->protocol)
+				other_media->protocol = &transport_protocols[PROTO_RTP_AVP];
+		}
+		/* allow override of outgoing protocol even if we know it already */
+		if (flags && flags->transport_protocol)
+			media->protocol = flags->transport_protocol;
+		else if (!media->protocol)
+			media->protocol = other_media->protocol;
+
+		/* copy parameters advertised by the sender of this message */
+		other_media->rtcp_mux = sp->rtcp_mux;
+		crypto_params_copy(&other_media->sdes_in.params, &sp->crypto);
+		other_media->sdes_in.tag = sp->sdes_tag;
+		other_media->asymmetric = sp->asymmetric;
+
+		other_media->recv = media->send = sp->send;
+		other_media->send = media->recv = sp->recv;
+
+		other_media->setup_passive = sp->setup_active;
+		other_media->setup_active = sp->setup_passive;
+		if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
+			__unverify_fingerprint(other_media);
+			other_media->fingerprint = sp->fingerprint;
+		}
+		other_media->dtls = 0;
+		if ((other_media->setup_passive || other_media->setup_active)
+				&& other_media->fingerprint.hash_func)
+			other_media->dtls = 1;
+
+		/* control rtcp-mux */
+		__rtcp_mux_logic(flags, media, other_media);
+
+		/* SDES and DTLS */
+		__generate_crypto(flags, media, other_media);
+
+		/* deduct address family from stream parameters received */
+		other_media->desired_family = AF_INET;
+		if (!IN6_IS_ADDR_V4MAPPED(&sp->rtp_endpoint.ip46))
+			other_media->desired_family = AF_INET6;
+		/* for outgoing SDP, use "direction"/DF or default to IPv4 (?) */
+		if (!media->desired_family)
+			media->desired_family = AF_INET;
+		if (sp->desired_family)
+			media->desired_family = sp->desired_family;
+		else if (sp->direction[1] == DIR_EXTERNAL)
+			media->desired_family = AF_INET6;
+
+
+		/* mark initial offer/answer as done */
+		media->initialized = 1;
+
+
+		/* determine number of consecutive ports needed locally.
+		 * XXX only do *=2 for RTP streams? */
+		num_ports = sp->consecutive_ports;
+		num_ports *= 2;
+
+
+		if (!sp->rtp_endpoint.port || is_addr_unspecified(&sp->rtp_endpoint.ip46)) {
+			/* Zero port or endpoint: stream has been rejected.
+			 * RFC 3264, chapter 6:
+			 * If a stream is rejected, the offerer and answerer MUST NOT
+			 * generate media (or RTCP packets) for that stream. */
+			__disable_streams(media, num_ports);
+			__disable_streams(other_media, num_ports);
+			goto init;
+		}
+
+
+		/* get that many ports for each side, and one packet stream for each port, then
+		 * assign the ports to the streams */
+		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint);
+		if (!em)
+			goto error;
+
+		__num_media_streams(media, num_ports);
+		__assign_stream_fds(media, em->sfds.head);
+
+		if (__num_media_streams(other_media, num_ports)) {
+			/* new streams created on OTHER side. normally only happens in
+			 * initial offer. create a wildcard endpoint_map to be filled in
+			 * when the answer comes. */
+			if (__wildcard_endpoint_map(other_media, num_ports))
+				goto error;
+		}
+
+init:
+		if (__init_streams(media, other_media, NULL))
+			return -1;
+		if (__init_streams(other_media, media, sp))
+			return -1;
+	}
+
+	return 0;
+
+error:
+	ilog(LOG_ERR, "Error allocating media ports");
+	return -1;
+}
+
+/* must be called with in_lock held or call->master_lock held in W */
+static void unkernelize(struct packet_stream *p) {
+	if (!p->kernelized)
+		return;
+	if (p->no_kernel_support)
+		return;
+
+	kernel_del_stream(p->call->callmaster->conf.kernelfd, p->sfd->fd.localport);
 
 	p->kernelized = 0;
 }
 
-
-/* called with callstream->lock held */
-static void kill_callstream(struct callstream *s) {
-	int i, j;
-	struct peer *p;
-	struct streamrelay *r;
-
-	for (i = 0; i < 2; i++) {
-		p = &s->peers[i];
-
-		unkernelize(p);
-
-		for (j = 0; j < 2; j++) {
-			r = &p->rtps[j];
-
-			if (r->fd.fd != -1)
-				poller_del_item(s->call->callmaster->poller, r->fd.fd);
-
-			crypto_cleanup(&r->crypto.in);
-			crypto_cleanup(&r->crypto.out);
-		}
-	}
-}
-
+/* called lock-free, but must hold a reference to the call */
 static void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
-	struct callstream *s;
+	struct packet_stream *ps;
+	struct stream_fd *sfd;
+	struct poller *p = m->poller;
+	GSList *l;
 	int ret;
+	struct call_monologue *ml;
+	struct call_media *md;
+	GList *k, *o;
+	char buf[64];
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
@@ -1824,46 +1871,72 @@ static void call_destroy(struct call *c) {
 
 	redis_delete(c, m->conf.redis);
 
-	mutex_lock(&c->lock);
-	/* at this point, no more callstreams can be added */
-	mylog(LOG_INFO, LOG_PREFIX_C "Final packet stats:", LOG_PARAMS_C(c));
-	while (c->callstreams->head) {
-		s = g_queue_pop_head(c->callstreams);
-		mutex_unlock(&c->lock);
-		mutex_lock(&s->lock);
-		mylog(LOG_INFO, LOG_PREFIX_C
-			"--- "
-			"side A: "
-			"RTP[%u] %lu p, %lu b, %lu e; "
-			"RTCP[%u] %lu p, %lu b, %lu e; "
-			"side B: "
-			"RTP[%u] %lu p, %lu b, %lu e; "
-			"RTCP[%u] %lu p, %lu b, %lu e",
-			LOG_PARAMS_C(c),
-			s->peers[0].rtps[0].fd.localport, s->peers[0].rtps[0].stats.packets,
-			s->peers[0].rtps[0].stats.bytes, s->peers[0].rtps[0].stats.errors,
-			s->peers[0].rtps[1].fd.localport, s->peers[0].rtps[1].stats.packets,
-			s->peers[0].rtps[1].stats.bytes, s->peers[0].rtps[1].stats.errors,
-			s->peers[1].rtps[0].fd.localport, s->peers[1].rtps[0].stats.packets,
-			s->peers[1].rtps[0].stats.bytes, s->peers[1].rtps[0].stats.errors,
-			s->peers[1].rtps[1].fd.localport, s->peers[1].rtps[1].stats.packets,
-			s->peers[1].rtps[1].stats.bytes, s->peers[1].rtps[1].stats.errors);
-		kill_callstream(s);
-		mutex_unlock(&s->lock);
-		obj_put(s);
-		mutex_lock(&c->lock);
+	rwlock_lock_w(&c->master_lock);
+	/* at this point, no more packet streams can be added */
+
+	ilog(LOG_INFO, "Final packet stats:");
+
+	for (l = c->monologues; l; l = l->next) {
+		ml = l->data;
+		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"', created "
+				"%u:%02u ago, in dialogue with '"STR_FORMAT"'",
+				STR_FMT(&ml->tag),
+				(unsigned int) (poller_now - ml->created) / 60,
+				(unsigned int) (poller_now - ml->created) % 60,
+				ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
+				ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+
+		for (k = ml->medias.head; k; k = k->next) {
+			md = k->data;
+
+			for (o = md->streams.head; o; o = o->next) {
+				ps = o->data;
+
+				if (ps->fallback_rtcp)
+					continue;
+
+				smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
+				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
+						"%lu p, %lu b, %lu e",
+						md->index,
+						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						buf, ps->endpoint.port,
+						(!ps->rtp && ps->rtcp) ? " (RTCP)" : "",
+						ps->stats.packets,
+						ps->stats.bytes,
+						ps->stats.errors);
+			}
+		}
 	}
-	mutex_unlock(&c->lock);
+
+	for (l = c->streams; l; l = l->next) {
+		ps = l->data;
+
+		unkernelize(ps);
+		ps->sfd = NULL;
+		crypto_cleanup(&ps->crypto);
+
+		ps->rtp_sink = NULL;
+		ps->rtcp_sink = NULL;
+	}
+
+	while (c->stream_fds) {
+		sfd = c->stream_fds->data;
+		c->stream_fds = g_slist_delete_link(c->stream_fds, c->stream_fds);
+		poller_del_item(p, sfd->fd.fd);
+		obj_put(sfd);
+	}
+
+	rwlock_unlock_w(&c->master_lock);
 }
 
 
 
-typedef int (*csa_func)(char *o, struct peer *p, enum stream_address_format format, int *len);
+typedef int (*csa_func)(char *o, struct packet_stream *ps, enum stream_address_format format, int *len);
 
-static int call_stream_address4(char *o, struct peer *p, enum stream_address_format format, int *len) {
-	struct callstream *cs = p->up;
+static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
 	u_int32_t ip4;
-	struct callmaster *m = cs->call->callmaster;
+	struct callmaster *m = ps->call->callmaster;
 	int l = 0;
 
 	if (format == SAF_NG) {
@@ -1871,7 +1944,7 @@ static int call_stream_address4(char *o, struct peer *p, enum stream_address_for
 		l = 4;
 	}
 
-	ip4 = p->rtps[0].peer_advertised.ip46.s6_addr32[3];
+	ip4 = ps->advertised_endpoint.ip46.s6_addr32[3];
 	if (!ip4) {
 		strcpy(o + l, "0.0.0.0");
 		l += 7;
@@ -1885,8 +1958,8 @@ static int call_stream_address4(char *o, struct peer *p, enum stream_address_for
 	return AF_INET;
 }
 
-static int call_stream_address6(char *o, struct peer *p, enum stream_address_format format, int *len) {
-	struct callmaster *m = p->up->call->callmaster;
+static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
+	struct callmaster *m = ps->call->callmaster;
 	int l = 0;
 
 	if (format == SAF_NG) {
@@ -1894,7 +1967,7 @@ static int call_stream_address6(char *o, struct peer *p, enum stream_address_for
 		l += 4;
 	}
 
-	if (is_addr_unspecified(&p->rtps[0].peer_advertised.ip46)) {
+	if (is_addr_unspecified(&ps->advertised_endpoint.ip46)) {
 		strcpy(o + l, "::");
 		l += 2;
 	}
@@ -1910,16 +1983,18 @@ static int call_stream_address6(char *o, struct peer *p, enum stream_address_for
 	return AF_INET6;
 }
 
-static csa_func __call_stream_address(struct peer *p, int variant) {
+static csa_func __call_stream_address(struct packet_stream *ps, int variant) {
 	struct callmaster *m;
-	struct peer *other;
+	struct packet_stream *sink;
+	struct call_media *sink_media;
 	csa_func variants[2];
 
 	assert(variant >= 0);
 	assert(variant < G_N_ELEMENTS(variants));
 
-	m = p->up->call->callmaster;
-	other = p->other;
+	m = ps->call->callmaster;
+	sink = packet_stream_sink(ps);
+	sink_media = sink->media;
 
 	variants[0] = call_stream_address4;
 	variants[1] = call_stream_address6;
@@ -1928,11 +2003,11 @@ static csa_func __call_stream_address(struct peer *p, int variant) {
 		variants[1] = NULL;
 		goto done;
 	}
-	if (other->desired_family == AF_INET)
+	if (sink_media->desired_family == AF_INET)
 		goto done;
-	if (other->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&other->rtps[0].peer.ip46))
+	if (sink_media->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&sink->endpoint.ip46))
 		goto done;
-	if (other->desired_family == 0 && is_addr_unspecified(&other->rtps[0].peer_advertised.ip46))
+	if (sink_media->desired_family == 0 && is_addr_unspecified(&sink->advertised_endpoint.ip46))
 		goto done;
 
 	variants[0] = call_stream_address6;
@@ -1943,109 +2018,88 @@ done:
 	return variants[variant];
 }
 
-int call_stream_address(char *o, struct peer *p, enum stream_address_format format, int *len) {
+int call_stream_address(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
 	csa_func f;
 
-	f = __call_stream_address(p, 0);
-	return f(o, p, format, len);
+	ps = packet_stream_sink(ps);
+	f = __call_stream_address(ps, 0);
+	return f(o, ps, format, len);
 }
 
-int call_stream_address_alt(char *o, struct peer *p, enum stream_address_format format, int *len) {
+int call_stream_address_alt(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
 	csa_func f;
 
-	f = __call_stream_address(p, 1);
-	return f ? f(o, p, format, len) : -1;
-}
-
-int callmaster_has_ipv6(struct callmaster *m) {
-	return is_addr_unspecified(&m->conf.ipv6) ? 0 : 1;
-}
-
-static int call_stream_address_gstring(GString *o, struct peer *p, enum stream_address_format format) {
-	int len, ret;
-	char buf[64]; /* 64 bytes ought to be enough for anybody */
-
-	ret = call_stream_address(buf, p, format, &len);
-	g_string_append_len(o, buf, len);
-	return ret;
+	ps = packet_stream_sink(ps);
+	f = __call_stream_address(ps, 1);
+	return f ? f(o, ps, format, len) : -1;
 }
 
 
-
-static str *streams_print(GQueue *s, int num, enum call_opmode opmode, const char *prefix, enum stream_address_format format) {
-	GString *o;
-	int i, off;
-	GList *l;
-	struct callstream *t;
-	struct streamrelay *x;
-	int af;
-
-	off = opmode; /* 0 or 1 */
-	if (num < 0)
-		off ^= 1; /* 1 or 0 */
-	num = abs(num);
-
-	o = g_string_new_str();
-	if (prefix)
-		g_string_append_printf(o, "%s ", prefix);
-
-	if (!s->head)
-		goto out;
-
-	t = s->head->data;
-	mutex_lock(&t->lock);
-
-	if (format == SAF_TCP)
-		call_stream_address_gstring(o, &t->peers[off], format);
-
-	for (i = 0, l = s->head; i < num && l; i++, l = l->next) {
-		t = l->data;
-		x = &t->peers[off].rtps[0];
-		g_string_append_printf(o, (format == 1) ? "%u " : " %u", x->fd.localport);
-	}
-
-	if (format == SAF_UDP) {
-		af = call_stream_address_gstring(o, &t->peers[off], format);
-		g_string_append_printf(o, " %c", (af == AF_INET) ? '4' : '6');
-	}
-
-	mutex_unlock(&t->lock);
-
-out:
-	g_string_append(o, "\n");
-
-	return g_string_free_str(o);
-}
-
-static void call_free(void *p) {
+static void __call_free(void *p) {
 	struct call *c = p;
+	struct call_monologue *m;
+	struct call_media *md;
+	struct packet_stream *ps;
+	struct endpoint_map *em;
+	GList *it;
 
-	g_hash_table_destroy(c->branches);
-	g_queue_free(c->callstreams);
-	mutex_destroy(&c->lock);
-	mutex_destroy(&c->chunk_lock);
-	g_string_chunk_free(c->chunk);
+	call_buffer_free(&c->buffer);
+	mutex_destroy(&c->buffer_lock);
+	rwlock_destroy(&c->master_lock);
+	obj_put(c->dtls_cert);
+
+	while (c->monologues) {
+		m = c->monologues->data;
+		c->monologues = g_slist_delete_link(c->monologues, c->monologues);
+
+		g_hash_table_destroy(m->other_tags);
+
+		for (it = m->medias.head; it; it = it->next) {
+			md = it->data;
+			g_queue_clear(&md->streams);
+			while (md->endpoint_maps) {
+				em = md->endpoint_maps->data;
+				md->endpoint_maps = g_slist_delete_link(md->endpoint_maps, md->endpoint_maps);
+				g_queue_clear(&em->sfds);
+				g_slice_free1(sizeof(*em), em);
+			}
+			g_slice_free1(sizeof(*md), md);
+		}
+		g_queue_clear(&m->medias);
+
+		g_slice_free1(sizeof(*m), m);
+	}
+
+	g_hash_table_destroy(c->tags);
+
+	while (c->streams) {
+		ps = c->streams->data;
+		c->streams = g_slist_delete_link(c->streams, c->streams);
+		g_slice_free1(sizeof(*ps), ps);
+	}
+
+	assert(c->stream_fds == NULL);
 }
 
 static struct call *call_create(const str *callid, struct callmaster *m) {
 	struct call *c;
 
-	mylog(LOG_NOTICE, LOG_PREFIX_C "Creating new call",
+	ilog(LOG_NOTICE, "["STR_FORMAT"] Creating new call",
 		STR_FMT(callid));	/* XXX will spam syslog on recovery from DB */
-	c = obj_alloc0("call", sizeof(*c), call_free);
+	c = obj_alloc0("call", sizeof(*c), __call_free);
 	c->callmaster = m;
-	c->chunk = g_string_chunk_new(256);
-	mutex_init(&c->chunk_lock);
+	mutex_init(&c->buffer_lock);
+	call_buffer_init(&c->buffer);
+	rwlock_init(&c->master_lock);
+	c->tags = g_hash_table_new(str_hash, str_equal);
 	call_str_cpy(c, &c->callid, callid);
-	c->callstreams = g_queue_new();
 	c->created = poller_now;
-	c->branches = g_hash_table_new(str_hash, str_equal);
-	mutex_init(&c->lock);
+	c->dtls_cert = dtls_cert();
 	return c;
 }
 
-/* returns call with lock held */
-struct call *call_get_or_create(const str *callid, const str *viabranch, struct callmaster *m) {
+/* returns call with master_lock held in W */
+struct call *call_get_or_create(const str *callid, struct callmaster *m) {
 	struct call *c;
 
 restart:
@@ -2063,25 +2117,21 @@ restart:
 			goto restart;
 		}
 		g_hash_table_insert(m->callhash, &c->callid, obj_get(c));
-		mutex_lock(&c->lock);
+		rwlock_lock_w(&c->master_lock);
 		rwlock_unlock_w(&m->hashlock);
 	}
 	else {
 		obj_hold(c);
-		mutex_lock(&c->lock);
+		rwlock_lock_w(&c->master_lock);
 		rwlock_unlock_r(&m->hashlock);
 	}
 
-	if (viabranch && viabranch->s && viabranch->len
-			&& !g_hash_table_lookup(c->branches, viabranch))
-		g_hash_table_insert(c->branches, call_str_dup(c, viabranch),
-		(void *) 0x1);
-
+	log_info_call(c);
 	return c;
 }
 
-/* returns call with lock held, or NULL if not found */
-static struct call *call_get(const str *callid, const str *viabranch, struct callmaster *m) {
+/* returns call with master_lock held in W, or NULL if not found */
+static struct call *call_get(const str *callid, struct callmaster *m) {
 	struct call *ret;
 
 	rwlock_lock_r(&m->hashlock);
@@ -2091,450 +2141,326 @@ static struct call *call_get(const str *callid, const str *viabranch, struct cal
 		return NULL;
 	}
 
-	mutex_lock(&ret->lock);
+	rwlock_lock_w(&ret->master_lock);
 	obj_hold(ret);
 	rwlock_unlock_r(&m->hashlock);
 
-	if (viabranch && viabranch->s && viabranch->len) {
-		if (!g_hash_table_lookup(ret->branches, viabranch))
-			g_hash_table_insert(ret->branches, call_str_dup(ret, viabranch), (void *) 0x1);
-	}
-
+	log_info_call(ret);
 	return ret;
 }
 
-/* returns call with lock held, or possibly NULL iff opmode == OP_ANSWER */
-static struct call *call_get_opmode(const str *callid, const str *viabranch, struct callmaster *m, enum call_opmode opmode) {
+/* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
+struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
-		return call_get_or_create(callid, viabranch, m);
-	return call_get(callid, viabranch, m);
+		return call_get_or_create(callid, m);
+	return call_get(callid, m);
 }
 
-static int addr_parse_udp(struct stream_input *st, char **out) {
-	u_int32_t ip4;
-	const char *cp;
-	char c;
-	int i;
+/* must be called with call->master_lock held in W */
+static struct call_monologue *__monologue_create(struct call *call) {
+	struct call_monologue *ret;
 
-	ZERO(*st);
-	if (out[RE_UDP_UL_ADDR4] && *out[RE_UDP_UL_ADDR4]) {
-		ip4 = inet_addr(out[RE_UDP_UL_ADDR4]);
-		if (ip4 == -1)
-			goto fail;
-		in4_to_6(&st->stream.ip46, ip4);
-	}
-	else if (out[RE_UDP_UL_ADDR6] && *out[RE_UDP_UL_ADDR6]) {
-		if (inet_pton(AF_INET6, out[RE_UDP_UL_ADDR6], &st->stream.ip46) != 1)
-			goto fail;
-	}
-	else
-		goto fail;
+	__C_DBG("creating new monologue");
+	ret = g_slice_alloc0(sizeof(*ret));
 
-	st->stream.port = atoi(out[RE_UDP_UL_PORT]);
-	if (!st->stream.port && strcmp(out[RE_UDP_UL_PORT], "0"))
-		goto fail;
+	ret->call = call;
+	ret->created = poller_now;
+	ret->other_tags = g_hash_table_new(str_hash, str_equal);
+	g_queue_init(&ret->medias);
 
-	if (out[RE_UDP_UL_FLAGS] && *out[RE_UDP_UL_FLAGS]) {
-		i = 0;
-		for (cp =out[RE_UDP_UL_FLAGS]; *cp && i < 2; cp++) {
-			c = chrtoupper(*cp);
-			if (c == 'E')
-				st->direction[i++] = DIR_EXTERNAL;
-			else if (c == 'I')
-				st->direction[i++] = DIR_INTERNAL;
-		}
-	}
+	call->monologues = g_slist_prepend(call->monologues, ret);
 
-	if (out[RE_UDP_UL_NUM] && *out[RE_UDP_UL_NUM])
-		st->stream.num = atoi(out[RE_UDP_UL_NUM]);
-	if (!st->stream.num)
-		st->stream.num = 1;
-	st->consecutive_num = 1;
-
-	return 0;
-fail:
-	return -1;
-}
-
-static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, int tagidx) {
-	struct call *c;
-	GQueue q = G_QUEUE_INIT;
-	struct stream_input st;
-	int num;
-	str *ret, callid, viabranch, tag;
-
-	str_init(&callid, out[RE_UDP_UL_CALLID]);
-	str_init(&viabranch, out[RE_UDP_UL_VIABRANCH]);
-	str_init(&tag, out[tagidx]);
-
-	c = call_get_opmode(&callid, &viabranch, m, opmode);
-	if (!c) {
-		mylog(LOG_WARNING, LOG_PREFIX_CI "Got UDP LOOKUP for unknown call-id",
-			STR_FMT(&callid), STR_FMT(&viabranch));
-		return str_sprintf("%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
-	}
-	log_info = &viabranch;
-
-	if (addr_parse_udp(&st, out))
-		goto fail;
-
-	g_queue_push_tail(&q, &st);
-	num = call_streams(c, &q, &tag, opmode);
-	g_queue_clear(&q);
-
-	ret = streams_print(c->callstreams, num, opmode, out[RE_UDP_COOKIE], SAF_UDP);
-	mutex_unlock(&c->lock);
-
-	redis_update(c, m->conf.redis);
-
-	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
-	goto out;
-
-fail:
-	mutex_unlock(&c->lock);
-	mylog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
-	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
-out:
-	log_info = NULL;
-	obj_put(c);
 	return ret;
 }
 
-str *call_update_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_OFFER, RE_UDP_UL_FROMTAG);
-}
-str *call_lookup_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_ANSWER, RE_UDP_UL_TOTAG);
+/* must be called with call->master_lock held in W */
+static void __monologue_tag(struct call_monologue *ml, const str *tag) {
+	struct call *call = ml->call;
+
+	__C_DBG("tagging monologue with '"STR_FORMAT"'", STR_FMT(tag));
+	call_str_cpy(call, &ml->tag, tag);
+	g_hash_table_insert(call->tags, &ml->tag, ml);
 }
 
-static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_opmode opmode, const char *tagstr) {
-	struct call *c;
-	GQueue s = G_QUEUE_INIT;
-	int num;
-	str *ret = NULL, callid, tag;
-	GHashTable *infohash;
+static void __stream_unkernelize(struct packet_stream *ps) {
+	unkernelize(ps);
+	ps->confirmed = 0;
+	ps->has_handler = 0;
+}
 
-	str_init(&callid, out[RE_TCP_RL_CALLID]);
-	infohash = g_hash_table_new(g_str_hash, g_str_equal);
-	c = call_get_opmode(&callid, NULL, m, opmode);
-	if (!c) {
-		mylog(LOG_WARNING, LOG_PREFIX_C "Got LOOKUP for unknown call-id", STR_FMT(&callid));
-		goto out;
+/* must be called with call->master_lock held in W */
+static void __monologue_unkernelize(struct call_monologue *monologue) {
+	GList *l, *m;
+	struct call_media *media;
+	struct packet_stream *stream;
+
+	if (!monologue)
+		return;
+
+	for (l = monologue->medias.head; l; l = l->next) {
+		media = l->data;
+
+		for (m = media->streams.head; m; m = m->next) {
+			stream = m->data;
+			__stream_unkernelize(stream);
+			if (stream->rtp_sink)
+				__stream_unkernelize(stream->rtp_sink);
+			if (stream->rtcp_sink)
+				__stream_unkernelize(stream->rtcp_sink);
+		}
+	}
+}
+
+/* must be called with call->master_lock held in W */
+static void __monologue_destroy(struct call_monologue *monologue) {
+	struct call *call;
+	struct call_monologue *dialogue;
+	GList *l;
+
+	call = monologue->call;
+
+	g_hash_table_remove(call->tags, &monologue->tag);
+
+	l = g_hash_table_get_values(monologue->other_tags);
+
+	while (l) {
+		dialogue = l->data;
+		l = g_list_delete_link(l, l);
+		g_hash_table_remove(dialogue->other_tags, &monologue->tag);
+		if (!g_hash_table_size(dialogue->other_tags))
+			__monologue_destroy(dialogue);
+	}
+}
+
+/* must be called with call->master_lock held in W */
+static struct call_monologue *call_get_monologue(struct call *call, const str *fromtag) {
+	struct call_monologue *ret;
+
+	__C_DBG("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
+			STR_FMT(fromtag), STR_FMT(&call->callid));
+	ret = g_hash_table_lookup(call->tags, fromtag);
+	if (ret) {
+		__C_DBG("found existing monologue");
+		__monologue_unkernelize(ret);
+		__monologue_unkernelize(ret->active_dialogue);
+		return ret;
 	}
 
-	info_parse(out[RE_TCP_RL_INFO], infohash, m);
-	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
-	str_init(&tag, g_hash_table_lookup(infohash, tagstr));
-	num = call_streams(c, &s, &tag, opmode);
+	ret = __monologue_create(call);
+	__monologue_tag(ret, fromtag);
+	/* we need both sides of the dialogue even in the initial offer, so create
+	 * another monologue without to-tag (to be filled in later) */
+	ret->active_dialogue = __monologue_create(call);
 
-	ret = streams_print(c->callstreams, num, opmode, NULL, SAF_TCP);
-	mutex_unlock(&c->lock);
-
-	streams_free(&s);
-
-	redis_update(c, m->conf.redis);
-
-	mylog(LOG_INFO, LOG_PREFIX_CI "Returning to SIP proxy: %.*s", LOG_PARAMS_CI(c), STR_FMT(ret));
-	obj_put(c);
-
-out:
-	g_hash_table_destroy(infohash);
 	return ret;
 }
 
-str *call_request_tcp(char **out, struct callmaster *m) {
-	return call_request_lookup_tcp(out, m, OP_OFFER, "fromtag");
-}
-str *call_lookup_tcp(char **out, struct callmaster *m) {
-	return call_request_lookup_tcp(out, m, OP_ANSWER, "totag");
-}
+/* must be called with call->master_lock held in W */
+static struct call_monologue *call_get_dialogue(struct call *call, const str *fromtag, const str *totag) {
+	struct call_monologue *ft, *ret, *tt;
 
-static int tags_match(const struct peer *p, const struct peer *px, const str *fromtag, const str *totag) {
-	if (!fromtag || !fromtag->len)
-		return 1;
-	if (str_cmp_str(&p->tag, fromtag))
-		return 0;
-	if (!totag || !totag->len)
-		return 1;
-	if (str_cmp_str(&px->tag, totag))
-		return 0;
-	return 1;
-}
+	__C_DBG("getting dialogue for tags '"STR_FORMAT"'<>'"STR_FORMAT"' in call '"STR_FORMAT"'",
+			STR_FMT(fromtag), STR_FMT(totag), STR_FMT(&call->callid));
+	/* if the to-tag is known already, return that */
+	tt = g_hash_table_lookup(call->tags, totag);
+	if (tt) {
+		__C_DBG("found existing dialogue");
+		__monologue_unkernelize(tt);
+		__monologue_unkernelize(tt->active_dialogue);
 
-/* cs must be unlocked */
-static int tags_match_cs(struct callstream *cs, const str *fromtag, const str *totag) {
-	int i;
-
-	mutex_lock(&cs->lock);
-
-	for (i = 0; i < 2; i++) {
-		if (tags_match(&cs->peers[i], &cs->peers[i ^ 1], fromtag, totag)) {
-			mutex_unlock(&cs->lock);
-			return 1;
-		}
+		/* make sure that the dialogue is actually intact */
+		if (!str_cmp_str(fromtag, &tt->active_dialogue->tag))
+			return tt;
 	}
 
-	mutex_unlock(&cs->lock);
-	return 0;
+	/* otherwise, at least the from-tag has to be known. it's an error if it isn't */
+	ft = g_hash_table_lookup(call->tags, fromtag);
+	if (!ft)
+		return NULL;
+
+	__monologue_unkernelize(ft);
+
+	/* check for a half-complete dialogue and fill in the missing half if possible */
+	ret = ft->active_dialogue;
+	__monologue_unkernelize(ret);
+
+	if (!ret->tag.s)
+		goto tag;
+
+	/* we may have seen both tags previously and they just need to be linked up */
+	if (tt) {
+		ret = tt;
+		goto link;
+	}
+
+	/* this is an additional dialogue created from a single from-tag */
+	ret = __monologue_create(call);
+
+tag:
+	__monologue_tag(ret, totag);
+link:
+	g_hash_table_insert(ret->other_tags, &ft->tag, ft);
+	g_hash_table_insert(ft->other_tags, &ret->tag, ret);
+	ret->active_dialogue = ft;
+	ft->active_dialogue = ret;
+
+	return ret;
 }
 
-static int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
+struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag) {
+	if (!totag || !totag->s) /* offer, not answer */
+		return call_get_monologue(call, fromtag);
+	return call_get_dialogue(call, fromtag, totag);
+}
+
+
+int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output)
 {
 	struct call *c;
-	GList *l;
+	struct call_monologue *ml;
 	int ret;
+	const str *match_tag;
 
-	c = call_get(callid, NULL, m);
+	c = call_get(callid, m);
 	if (!c) {
-		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to delete not found", STR_FMT(callid));
+		ilog(LOG_INFO, "["STR_FORMAT"] Call-ID to delete not found", STR_FMT(callid));
 		goto err;
 	}
 
-	log_info = branch;
+	if (!fromtag || !fromtag->s || !fromtag->len)
+		goto del_all;
 
-	for (l = c->callstreams->head; l; l = l->next) {
-		if (tags_match_cs(l->data, fromtag, totag))
-			goto tag_match;
+	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
+
+	ml = g_hash_table_lookup(c->tags, match_tag);
+	if (!ml) {
+		ilog(LOG_INFO, "Tag '"STR_FORMAT"' in delete message not found, ignoring",
+				STR_FMT(match_tag));
+		goto err;
 	}
 
-	mylog(LOG_INFO, LOG_PREFIX_C "Tags didn't match for delete message, ignoring", LOG_PARAMS_C(c));
-	goto err;
-
-tag_match:
 	if (output)
 		ng_call_stats(c, fromtag, totag, output);
 
+/*
 	if (branch && branch->len) {
 		if (!g_hash_table_remove(c->branches, branch)) {
-			mylog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", STR_FMT(&c->callid), STR_FMT(branch));
+			ilog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", STR_FMT(&c->callid), STR_FMT(branch));
 			goto err;
 		}
 
-		mylog(LOG_INFO, LOG_PREFIX_CI "Branch deleted", LOG_PARAMS_CI(c));
+		ilog(LOG_INFO, LOG_PREFIX_CI "Branch deleted", LOG_PARAMS_CI(c));
 		if (g_hash_table_size(c->branches))
 			goto success_unlock;
 		else
 			DBG("no branches left, deleting full call");
 	}
+*/
 
-	mutex_unlock(&c->lock);
-	mylog(LOG_INFO, LOG_PREFIX_C "Deleting full call", LOG_PARAMS_C(c));
+	__monologue_destroy(ml);
+	if (g_hash_table_size(c->tags)) {
+		ilog(LOG_INFO, "Call branch deleted (other branches still active)");
+		goto success_unlock;
+	}
+
+del_all:
+	rwlock_unlock_w(&c->master_lock);
+	ilog(LOG_INFO, "Deleting full call");
 	call_destroy(c);
 	goto success;
 
 success_unlock:
-	mutex_unlock(&c->lock);
+	rwlock_unlock_w(&c->master_lock);
 success:
 	ret = 0;
 	goto out;
 
 err:
 	if (c)
-		mutex_unlock(&c->lock);
+		rwlock_unlock_w(&c->master_lock);
 	ret = -1;
 	goto out;
 
 out:
-	log_info = NULL;
 	if (c)
 		obj_put(c);
 	return ret;
 }
 
-str *call_delete_udp(char **out, struct callmaster *m) {
-	str callid, branch, fromtag, totag;
-
-	DBG("got delete for callid '%s' and viabranch '%s'", 
-		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
-
-	str_init(&callid, out[RE_UDP_DQ_CALLID]);
-	str_init(&branch, out[RE_UDP_DQ_VIABRANCH]);
-	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
-	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
-
-	if (call_delete_branch(m, &callid, &branch, &fromtag, &totag, NULL))
-		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
-
-	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
-}
 
 #define SSUM(x) \
-	stats->totals[0].x += p->rtps[0].stats.x; \
-	stats->totals[1].x += p->rtps[1].stats.x; \
-	stats->totals[2].x += px->rtps[0].stats.x; \
-	stats->totals[3].x += px->rtps[1].stats.x
-/* call must be locked */
-static void stats_query(struct call *call, const str *fromtag, const str *totag, struct call_stats *stats,
-	void (*cb)(struct peer *, struct peer *, void *), void *arg)
+	stats->totals[0].x += stream->stats.x;
+/* call->master_lock must be held in W */
+/* XXX possibly eliminate W lock, should work with R only */
+void stats_query(struct call *call, const str *fromtag, const str *totag, struct call_stats *stats,
+	void (*cb)(struct packet_stream *, void *), void *arg)
 {
-	GList *l;
-	struct callstream *cs;
-	int i;
-	struct peer *p, *px;
+	const str *match_tag;
+	struct call_monologue *ml;
+	struct call_media *media;
+	GList *l, *k;
+	GSList *ml_l = NULL;
+	struct packet_stream *stream;
 
 	ZERO(*stats);
 
-	for (l = call->callstreams->head; l; l = l->next) {
-		cs = l->data;
-		mutex_lock(&cs->lock);
+	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
+	if (!match_tag) {
+		ml_l = call->monologues;
+		if (!ml_l)
+			goto out;
+		ml = ml_l->data;
+	}
+	else
+		ml = g_hash_table_lookup(call->tags, match_tag);
 
-		for (i = 0; i < 2; i++) {
-			p = &cs->peers[i];
-			px = &cs->peers[i ^ 1];
+	while (ml) {
+		l = ml->medias.head;
+		for (l = ml->medias.head; l; l = l->next) {
+			media = l->data;
 
-			if (p->rtps[0].last > stats->newest)
-				stats->newest = p->rtps[0].last;
-			if (p->rtps[1].last > stats->newest)
-				stats->newest = p->rtps[1].last;
+			for (k = media->streams.head; k; k = k->next) {
+				stream = k->data;
 
-			if (!tags_match(p, px, fromtag, totag))
-				continue;
+				if (stream->last_packet > stats->newest)
+					stats->newest = stream->last_packet;
 
-			if (cb)
-				cb(p, px, arg);
+				if (cb)
+					cb(stream, arg);
 
-			SSUM(packets);
-			SSUM(bytes);
-			SSUM(errors);
+				SSUM(packets);
+				SSUM(bytes);
+				SSUM(errors);
 
-			break;
+				/* XXX more meaningful stats */
+			}
 		}
 
-		mutex_unlock(&cs->lock);
+		if (!ml_l)
+			break;
+		ml_l = ml_l->next;
+		if (!ml_l)
+			break;
+		ml = ml_l->data;
 	}
-}
-
-str *call_query_udp(char **out, struct callmaster *m) {
-	struct call *c;
-	str *ret, callid, fromtag, totag;
-	struct call_stats stats;
-
-	DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
-
-	str_init(&callid, out[RE_UDP_DQ_CALLID]);
-	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
-	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
-
-	c = call_get_opmode(&callid, NULL, m, OP_OTHER);
-	if (!c) {
-		mylog(LOG_INFO, LOG_PREFIX_C "Call-ID to query not found", STR_FMT(&callid));
-		goto err;
-	}
-
-	stats_query(c, &fromtag, &totag, &stats, NULL, NULL);
-
-	mutex_unlock(&c->lock);
-
-	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
-		(long long int) m->conf.silent_timeout - (poller_now - stats.newest),
-		stats.totals[0].packets, stats.totals[1].packets,
-		stats.totals[2].packets, stats.totals[3].packets);
-	goto out;
-
-err:
-	if (c)
-		mutex_unlock(&c->lock);
-	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
-	goto out;
 
 out:
-	if (c)
-		obj_put(c);
-	return ret;
+	;
 }
 
-void call_delete_tcp(char **out, struct callmaster *m) {
-	str callid;
-
-	str_init(&callid, out[RE_TCP_D_CALLID]);
-	call_delete_branch(m, &callid, NULL, NULL, NULL, NULL);
-}
-
-
-
-static void call_status_iterator(struct call *c, struct control_stream *s) {
-	GList *l;
-	struct callstream *cs;
-	struct peer *p;
-	struct streamrelay *r1, *r2;
-	struct streamrelay *rx1, *rx2;
-	struct callmaster *m;
-	char addr1[64], addr2[64], addr3[64];
-
-	m = c->callmaster;
-	mutex_lock(&c->lock);
-
-	control_stream_printf(s, "session %.*s - - - - %i\n",
-		STR_FMT(&c->callid),
-		(int) (poller_now - c->created));
-
-	for (l = c->callstreams->head; l; l = l->next) {
-		cs = l->data;
-		mutex_lock(&cs->lock);
-
-		p = &cs->peers[0];
-		r1 = &p->rtps[0];
-		r2 = &cs->peers[1].rtps[0];
-		rx1 = &p->rtps[1];
-		rx2 = &cs->peers[1].rtps[1];
-
-		if (r1->fd.fd == -1 || r2->fd.fd == -1)
-			goto next;
-
-		smart_ntop_p(addr1, &r1->peer.ip46, sizeof(addr1));
-		smart_ntop_p(addr2, &r2->peer.ip46, sizeof(addr2));
-		if (IN6_IS_ADDR_V4MAPPED(&r1->peer.ip46))
-			inet_ntop(AF_INET, &m->conf.ipv4, addr3, sizeof(addr3));
-		else
-			smart_ntop_p(addr3, &m->conf.ipv6, sizeof(addr3));
-
-		control_stream_printf(s, "stream %s:%u %s:%u %s:%u "UINT64F"/"UINT64F"/"UINT64F" %s %s - %i\n",
-			addr1, r1->peer.port,
-			addr2, r2->peer.port,
-			addr3, r1->fd.localport,
-			r1->stats.bytes + rx1->stats.bytes, r2->stats.bytes + rx2->stats.bytes,
-			r1->stats.bytes + rx1->stats.bytes + r2->stats.bytes + rx2->stats.bytes,
-			"active",
-			p->codec ? : "unknown",
-			(int) (poller_now - r1->last));
-next:
-		mutex_unlock(&cs->lock);
-	}
-	mutex_unlock(&c->lock);
-}
 
 static void callmaster_get_all_calls_interator(void *key, void *val, void *ptr) {
 	GQueue *q = ptr;
-	g_queue_push_tail(q, obj_get(val));
+	g_queue_push_tail(q, obj_get_o(val));
 }
 
-void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
-	struct stats st;
-	GQueue q = G_QUEUE_INIT;
-	struct call *c;
-
-	mutex_lock(&m->statslock);
-	st = m->stats;
-	mutex_unlock(&m->statslock);
-
+void callmaster_get_all_calls(struct callmaster *m, GQueue *q) {
 	rwlock_lock_r(&m->hashlock);
 	g_hash_table_foreach(m->callhash, callmaster_get_all_calls_interator, &q);
 	rwlock_unlock_r(&m->hashlock);
 
-	control_stream_printf(s, "proxy %u "UINT64F"/"UINT64F"/"UINT64F"\n",
-		g_queue_get_length(&q),
-		st.bytes, st.bytes - st.errors,
-		st.bytes * 2 - st.errors);
-
-	while (q.head) {
-		c = g_queue_pop_head(&q);
-		call_status_iterator(c, s);
-		obj_put(c);
-	}
 }
-
-
 
 
 static void calls_dump_iterator(void *key, void *val, void *ptr) {
@@ -2548,350 +2474,26 @@ void calls_dump_redis(struct callmaster *m) {
 	if (!m->conf.redis)
 		return;
 
-	mylog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
+	ilog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
 	redis_wipe_mod(m->conf.redis);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
-	mylog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
+	ilog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
 }
 
-void callmaster_config(struct callmaster *m, struct callmaster_config *c) {
-	m->conf = *c;
-}
-
-struct callstream *callstream_new(struct call *ca, int num) {
-	struct callstream *s;
-
-	s = obj_alloc0("callstream", sizeof(*s), callstream_free);
-	s->call = obj_get(ca);
-	s->num = num;
-	mutex_init(&s->lock);
-
-	return s;
-}
-
-
-enum transport_protocol transport_protocol(const str *s) {
+const struct transport_protocol *transport_protocol(const str *s) {
 	int i;
 
 	if (!s || !s->s)
 		goto out;
 
-	for (i = PROTO_UNKNOWN + 1; i < __PROTO_LAST; i++) {
-		if (strlen(transport_protocol_strings[i]) != s->len)
+	for (i = 0; i < num_transport_protocols; i++) {
+		if (strlen(transport_protocols[i].name) != s->len)
 			continue;
-		if (strncasecmp(transport_protocol_strings[i], s->s, s->len))
+		if (strncasecmp(transport_protocols[i].name, s->s, s->len))
 			continue;
-		return i;
+		return &transport_protocols[i];
 	}
 
 out:
-	return PROTO_UNKNOWN;
-}
-
-static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
-	bencode_item_t *list, *it;
-	int diridx;
-	str s;
-
-	ZERO(*out);
-
-	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "trust address"))
-				out->trust_address = 1;
-			else if (!bencode_strcmp(it, "symmetric"))
-				out->symmetric = 1;
-			else if (!bencode_strcmp(it, "asymmetric"))
-				out->asymmetric = 1;
-			else if (!bencode_strcmp(it, "trust-address"))
-				out->trust_address = 1;
-		}
-	}
-
-	if ((list = bencode_dictionary_get_expect(input, "replace", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "origin"))
-				out->replace_origin = 1;
-			else if (!bencode_strcmp(it, "session connection"))
-				out->replace_sess_conn = 1;
-			else if (!bencode_strcmp(it, "session-connection"))
-				out->replace_sess_conn = 1;
-		}
-	}
-
-	/* XXX convert to a "desired-family" kinda thing instead */
-	diridx = 0;
-	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
-		for (it = list->child; it && diridx < 2; it = it->sibling) {
-			if (!bencode_strcmp(it, "internal"))
-				out->directions[diridx++] = DIR_INTERNAL;
-			else if (!bencode_strcmp(it, "external"))
-				out->directions[diridx++] = DIR_EXTERNAL;
-		}
-	}
-
-	list = bencode_dictionary_get_expect(input, "received from", BENCODE_LIST);
-	if (!list)
-		list = bencode_dictionary_get_expect(input, "received-from", BENCODE_LIST);
-	if (list && (it = list->child)) {
-		bencode_get_str(it, &out->received_from_family);
-		bencode_get_str(it->sibling, &out->received_from_address);
-	}
-
-	if (bencode_dictionary_get_str(input, "ICE", &s)) {
-		if (!str_cmp(&s, "remove"))
-			out->ice_remove = 1;
-		else if (!str_cmp(&s, "force"))
-			out->ice_force = 1;
-	}
-
-	bencode_dictionary_get_str(input, "transport protocol", &out->transport_protocol_str);
-	if (!out->transport_protocol_str.s)
-		bencode_dictionary_get_str(input, "transport-protocol", &out->transport_protocol_str);
-	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
-	bencode_dictionary_get_str(input, "media address", &out->media_address);
-}
-
-static unsigned int stream_hash(struct stream_input *s) {
-	unsigned int ret, *p;
-
-	ret = s->stream.port;
-	p = (void *) &s->stream.ip46;
-	while (((void *) p) < (((void *) &s->stream.ip46) + sizeof(s->stream.ip46))) {
-		ret ^= *p;
-		p++;
-	}
-	return ret;
-}
-
-static int stream_equal(struct stream_input *a, struct stream_input *b) {
-	if (a->stream.port != b->stream.port)
-		return 0;
-	if (memcmp(&a->stream.ip46, &b->stream.ip46, sizeof(a->stream.ip46)))
-		return 0;
-	return 1;
-}
-
-static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, enum call_opmode opmode, const char *tagname) {
-	str sdp, fromtag, viabranch, callid;
-	char *errstr;
-	GQueue parsed = G_QUEUE_INIT;
-	GQueue streams = G_QUEUE_INIT;
-	struct call *call;
-	int ret, num;
-	struct sdp_ng_flags flags;
-	struct sdp_chopper *chopper;
-	GHashTable *streamhash;
-
-	if (!bencode_dictionary_get_str(input, "sdp", &sdp))
-		return "No SDP body in message";
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
-		return "No call-id in message";
-	if (!bencode_dictionary_get_str(input, tagname, &fromtag))
-		return "No from-tag in message";
-	bencode_dictionary_get_str(input, "via-branch", &viabranch);
-	log_info = &viabranch;
-
-	if (sdp_parse(&sdp, &parsed))
-		return "Failed to parse SDP";
-
-	call_ng_process_flags(&flags, input);
-
-	streamhash = g_hash_table_new((GHashFunc) stream_hash, (GEqualFunc) stream_equal);
-	errstr = "Incomplete SDP specification";
-	if (sdp_streams(&parsed, &streams, streamhash, &flags))
-		goto out;
-
-	call = call_get_opmode(&callid, &viabranch, m, opmode);
-	errstr = "Unknown call-id";
-	if (!call)
-		goto out;
-	log_info = &viabranch;
-
-	chopper = sdp_chopper_new(&sdp);
-	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
-	num = call_streams(call, &streams, &fromtag, opmode);
-	ret = sdp_replace(chopper, &parsed, call, (num >= 0) ? opmode : (opmode ^ 1), &flags, streamhash);
-
-	mutex_unlock(&call->lock);
-	redis_update(call, m->conf.redis);
-	obj_put(call);
-
-	errstr = "Error rewriting SDP";
-	if (ret)
-		goto out;
-
-	bencode_dictionary_add_iovec(output, "sdp", &g_array_index(chopper->iov, struct iovec, 0),
-		chopper->iov_num, chopper->str_len);
-	bencode_dictionary_add_string(output, "result", "ok");
-
-	errstr = NULL;
-out:
-	sdp_free(&parsed);
-	streams_free(&streams);
-	g_hash_table_destroy(streamhash);
-	log_info = NULL;
-
-	return errstr;
-}
-
-const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_OFFER, "from-tag");
-}
-
-const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_ANSWER, "to-tag");
-}
-
-const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	str fromtag, totag, viabranch, callid;
-	bencode_item_t *flags, *it;
-	int fatal = 0;
-
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
-		return "No call-id in message";
-	if (!bencode_dictionary_get_str(input, "from-tag", &fromtag))
-		return "No from-tag in message";
-	bencode_dictionary_get_str(input, "to-tag", &totag);
-	bencode_dictionary_get_str(input, "via-branch", &viabranch);
-
-	flags = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST);
-	if (flags) {
-		for (it = flags->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "fatal"))
-				fatal = 1;
-		}
-	}
-
-	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag, output)) {
-		if (fatal)
-			return "Call-ID not found or tags didn't match";
-		bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
-	}
-
-	bencode_dictionary_add_string(output, "result", "ok");
-	return NULL;
-}
-
-void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
-	mutex_lock(&m->portlock);
-	bit_array_set(m->ports_used, p);
-	mutex_unlock(&m->portlock);
-}
-
-static bencode_item_t *peer_address(bencode_buffer_t *b, struct stream *s) {
-	bencode_item_t *d;
-	char buf[64];
-
-	d = bencode_dictionary(b);
-	if (IN6_IS_ADDR_V4MAPPED(&s->ip46)) {
-		bencode_dictionary_add_string(d, "family", "IPv4");
-		inet_ntop(AF_INET, &(s->ip46.s6_addr32[3]), buf, sizeof(buf));
-	}
-	else {
-		bencode_dictionary_add_string(d, "family", "IPv6");
-		inet_ntop(AF_INET6, &s->ip46, buf, sizeof(buf));
-	}
-	bencode_dictionary_add_string_dup(d, "address", buf);
-	bencode_dictionary_add_integer(d, "port", s->port);
-
-	return d;
-}
-
-static bencode_item_t *stats_encode(bencode_buffer_t *b, struct stats *s) {
-	bencode_item_t *d;
-
-	d = bencode_dictionary(b);
-	bencode_dictionary_add_integer(d, "packets", s->packets);
-	bencode_dictionary_add_integer(d, "bytes", s->bytes);
-	bencode_dictionary_add_integer(d, "errors", s->errors);
-	return d;
-}
-
-static bencode_item_t *streamrelay_stats(bencode_buffer_t *b, struct streamrelay *r) {
-	bencode_item_t *d;
-
-	d = bencode_dictionary(b);
-
-	bencode_dictionary_add(d, "counters", stats_encode(b, &r->stats));
-	bencode_dictionary_add(d, "peer address", peer_address(b, &r->peer));
-	bencode_dictionary_add(d, "advertised peer address", peer_address(b, &r->peer_advertised));
-
-	bencode_dictionary_add_integer(d, "local port", r->fd.localport);
-
-	return d;
-}
-
-static bencode_item_t *rtp_rtcp_stats(bencode_buffer_t *b, struct stats *rtp, struct stats *rtcp) {
-	bencode_item_t *s;
-	s = bencode_dictionary(b);
-	bencode_dictionary_add(s, "rtp", stats_encode(b, rtp));
-	bencode_dictionary_add(s, "rtcp", stats_encode(b, rtcp));
-	return s;
-}
-
-static bencode_item_t *peer_stats(bencode_buffer_t *b, struct peer *p) {
-	bencode_item_t *d, *s;
-
-	d = bencode_dictionary(b);
-
-	bencode_dictionary_add_str_dup(d, "tag", &p->tag);
-	if (p->codec)
-		bencode_dictionary_add_string(d, "codec", p->codec);
-	if (p->kernelized)
-		bencode_dictionary_add_string(d, "status", "in kernel");
-	else if (p->confirmed)
-		bencode_dictionary_add_string(d, "status", "confirmed peer address");
-	else if (p->filled)
-		bencode_dictionary_add_string(d, "status", "known but unconfirmed peer address");
-	else
-		bencode_dictionary_add_string(d, "status", "unknown peer address");
-
-	s = bencode_dictionary_add_dictionary(d, "stats");
-	bencode_dictionary_add(s, "rtp", streamrelay_stats(b, &p->rtps[0]));
-	bencode_dictionary_add(s, "rtcp", streamrelay_stats(b, &p->rtps[1]));
-
-	return d;
-}
-
-static void ng_stats_cb(struct peer *p, struct peer *px, void *streams) {
-	bencode_item_t *stream;
-
-	stream = bencode_list_add_list(streams);
-	bencode_list_add(stream, peer_stats(stream->buffer, p));
-	bencode_list_add(stream, peer_stats(stream->buffer, px));
-}
-
-/* call must be locked */
-static void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output) {
-	bencode_item_t *streams, *dict;
-	struct call_stats stats;
-
-	bencode_dictionary_add_integer(output, "created", call->created);
-
-	streams = bencode_dictionary_add_list(output, "streams");
-	stats_query(call, fromtag, totag, &stats, ng_stats_cb, streams);
-
-	dict = bencode_dictionary_add_dictionary(output, "totals");
-	bencode_dictionary_add(dict, "input", rtp_rtcp_stats(output->buffer, &stats.totals[0], &stats.totals[1]));
-	bencode_dictionary_add(dict, "output", rtp_rtcp_stats(output->buffer, &stats.totals[2], &stats.totals[3]));
-}
-
-const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	str callid, fromtag, totag;
-	struct call *call;
-
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
-		return "No call-id in message";
-	call = call_get_opmode(&callid, NULL, m, OP_OTHER);
-	if (!call)
-		return "Unknown call-id";
-	bencode_dictionary_get_str(input, "from-tag", &fromtag);
-	bencode_dictionary_get_str(input, "to-tag", &totag);
-
-	bencode_dictionary_add_string(output, "result", "ok");
-	ng_call_stats(call, &fromtag, &totag, output);
-	mutex_unlock(&call->lock);
-
 	return NULL;
 }

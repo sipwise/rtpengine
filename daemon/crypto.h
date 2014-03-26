@@ -9,6 +9,14 @@
 
 
 
+#define SRTP_MAX_MASTER_KEY_LEN 16
+#define SRTP_MAX_MASTER_SALT_LEN 14
+#define SRTP_MAX_SESSION_KEY_LEN 16
+#define SRTP_MAX_SESSION_SALT_LEN 14
+#define SRTP_MAX_SESSION_AUTH_LEN 20
+
+
+
 struct crypto_context;
 struct rtp_header;
 struct rtcp_packet;
@@ -22,6 +30,7 @@ typedef int (*session_key_cleanup_func)(struct crypto_context *);
 
 struct crypto_suite {
 	const char *name;
+	const char *dtls_name;
 	unsigned int
 		master_key_len,
 		master_salt_len,
@@ -44,33 +53,32 @@ struct crypto_suite {
 	hash_func_rtcp hash_rtcp;
 	session_key_init_func session_key_init;
 	session_key_cleanup_func session_key_cleanup;
+	const char *dtls_profile_code;
+};
+
+struct crypto_params {
+	const struct crypto_suite *crypto_suite;
+	/* we only support one master key for now */
+	unsigned char master_key[SRTP_MAX_MASTER_KEY_LEN];
+	unsigned char master_salt[SRTP_MAX_MASTER_SALT_LEN];
+	unsigned char *mki;
+	unsigned int mki_len;
 };
 
 struct crypto_context {
-	const struct crypto_suite *crypto_suite;
-	/* we only support one master key for now */
-	char master_key[16];
-	char master_salt[14];
-	u_int64_t mki;
-	unsigned int mki_len;
-	unsigned int tag;
+	struct crypto_params params;
+
+	char session_key[SRTP_MAX_SESSION_KEY_LEN]; /* k_e */
+	char session_salt[SRTP_MAX_SESSION_SALT_LEN]; /* k_s */
+	char session_auth_key[SRTP_MAX_SESSION_AUTH_LEN];
 
 	u_int64_t last_index;
 	/* XXX replay list */
 	/* <from, to>? */
 
-	char session_key[16]; /* k_e */
-	char session_salt[14]; /* k_s */
-	char session_auth_key[20];
-
 	void *session_key_ctx[2];
 
 	int have_session_key:1;
-};
-
-struct crypto_context_pair {
-	struct crypto_context in,
-			      out;
 };
 
 
@@ -87,41 +95,57 @@ int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);
 static inline int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
 		str *payload, u_int64_t index)
 {
-	return c->crypto_suite->encrypt_rtp(c, rtp, payload, index);
+	return c->params.crypto_suite->encrypt_rtp(c, rtp, payload, index);
 }
 static inline int crypto_decrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
 		str *payload, u_int64_t index)
 {
-	return c->crypto_suite->decrypt_rtp(c, rtp, payload, index);
+	return c->params.crypto_suite->decrypt_rtp(c, rtp, payload, index);
 }
 static inline int crypto_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
 		str *payload, u_int64_t index)
 {
-	return c->crypto_suite->encrypt_rtcp(c, rtcp, payload, index);
+	return c->params.crypto_suite->encrypt_rtcp(c, rtcp, payload, index);
 }
 static inline int crypto_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
 		str *payload, u_int64_t index)
 {
-	return c->crypto_suite->decrypt_rtcp(c, rtcp, payload, index);
+	return c->params.crypto_suite->decrypt_rtcp(c, rtcp, payload, index);
 }
 static inline int crypto_init_session_key(struct crypto_context *c) {
-	return c->crypto_suite->session_key_init(c);
+	return c->params.crypto_suite->session_key_init(c);
+}
+
+static inline void crypto_params_cleanup(struct crypto_params *p) {
+	if (p->mki)
+		free(p->mki);
+	p->mki = NULL;
 }
 static inline void crypto_cleanup(struct crypto_context *c) {
-	if (!c->crypto_suite)
+	if (!c->params.crypto_suite)
 		return;
-	if (c->crypto_suite->session_key_cleanup)
-		c->crypto_suite->session_key_cleanup(c);
+	if (c->params.crypto_suite->session_key_cleanup)
+		c->params.crypto_suite->session_key_cleanup(c);
+	c->have_session_key = 0;
+	crypto_params_cleanup(&c->params);
 }
-static inline void crypto_context_move(struct crypto_context *dst, struct crypto_context *src) {
-	int i;
-
-	if (src == dst)
-		return;
-	crypto_cleanup(dst);
-	*dst = *src;
-	for (i = 0; i < G_N_ELEMENTS(src->session_key_ctx); i++)
-		src->session_key_ctx[i] = NULL;
+static inline void crypto_reset(struct crypto_context *c) {
+	crypto_cleanup(c);
+	c->last_index = 0;
+}
+static inline void crypto_params_copy(struct crypto_params *o, const struct crypto_params *i) {
+	crypto_params_cleanup(o);
+	*o = *i;
+	if (o->mki_len > 255)
+		o->mki_len = 0;
+	if (o->mki_len) {
+		o->mki = malloc(i->mki_len);
+		memcpy(o->mki, i->mki, i->mki_len);
+	}
+}
+static inline void crypto_init(struct crypto_context *c, const struct crypto_params *p) {
+	crypto_cleanup(c);
+	crypto_params_copy(&c->params, p);
 }
 
 

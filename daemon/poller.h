@@ -7,7 +7,10 @@
 #include <stdint.h>
 #include <time.h>
 #include <glib.h>
-#include "obj.h"
+
+
+
+struct obj;
 
 
 

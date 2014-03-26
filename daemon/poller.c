@@ -92,7 +92,7 @@ static void poller_fd_timer(void *p) {
 
 static void poller_item_free(void *p) {
 	struct poller_item_int *i = p;
-	obj_put(i->item.obj);
+	obj_put_o(i->item.obj);
 }
 
 
@@ -132,7 +132,7 @@ static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lo
 
 	ip = obj_alloc0("poller_item_int", sizeof(*ip), poller_item_free);
 	memcpy(&ip->item, i, sizeof(*i));
-	obj_hold(ip->item.obj); /* new ref in *ip */
+	obj_hold_o(ip->item.obj); /* new ref in *ip */
 	p->items[i->fd] = obj_get(ip);
 
 	mutex_unlock(&p->lock);
@@ -209,8 +209,8 @@ int poller_update_item(struct poller *p, struct poller_item *i) {
 	if (i->fd >= p->items_size || !(np = p->items[i->fd]))
 		return __poller_add_item(p, i, 1);
 
-	obj_hold(i->obj);
-	obj_put(np->item.obj);
+	obj_hold_o(i->obj);
+	obj_put_o(np->item.obj);
 	np->item.obj = i->obj;
 	np->item.uintp = i->uintp;
 	np->item.readable = i->readable;
@@ -257,12 +257,12 @@ next:
 found:
 		l = *ll;
 		*ll = (*ll)->next;
-		obj_put(l->data);
+		obj_put_o(l->data);
 		g_slist_free_1(l);
 
 		l = *kk;
 		*kk = (*kk)->next;
-		obj_put(l->data);
+		obj_put_o(l->data);
 		g_slist_free_1(l);
 	}
 }
@@ -443,19 +443,20 @@ out:
 
 static void timer_item_free(void *p) {
 	struct timer_item *i = p;
-	obj_put(i->obj_ptr);
+	if (i->obj_ptr)
+		obj_put_o(i->obj_ptr);
 }
 
 static int poller_timer_link(struct poller *p, GSList **lp, void (*f)(void *), struct obj *o) {
 	struct timer_item *i;
 
-	if (!o || !f)
+	if (!f)
 		return -1;
 
 	i = obj_alloc0("timer_item", sizeof(*i), timer_item_free);
 
 	i->func = f;
-	i->obj_ptr = obj_hold(o);
+	i->obj_ptr = o ? obj_hold_o(o) : NULL;
 
 	mutex_lock(&p->timers_add_del_lock);
 	*lp = g_slist_prepend(*lp, i);

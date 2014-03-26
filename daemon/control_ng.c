@@ -67,7 +67,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
-		mylog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: %.*s", addr, STR_FMT(buf));
+		ilog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: "STR_FORMAT, addr, STR_FMT(buf));
 		return;
 	}
 
@@ -85,7 +85,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 
 	to_send = cookie_cache_lookup(&c->cookie_cache, &cookie);
 	if (to_send) {
-		mylog(LOG_INFO, "Detected command from %s as a duplicate", addr);
+		ilog(LOG_INFO, "Detected command from %s as a duplicate", addr);
 		resp = NULL;
 		goto send_only;
 	}
@@ -103,7 +103,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	log_str = g_string_sized_new(256);
 	g_string_append_printf(log_str, "Got valid command from %s: %.*s - ", addr, STR_FMT(&cmd));
 	pretty_print(dict, log_str);
-	mylog(LOG_INFO, "%.*s", (int) log_str->len, log_str->str);
+	ilog(LOG_INFO, "%.*s", (int) log_str->len, log_str->str);
 	g_string_free(log_str, TRUE);
 
 	errstr = NULL;
@@ -126,7 +126,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	goto send_resp;
 
 err_send:
-	mylog(LOG_WARNING, "Protocol error in packet from %s: %s [%.*s]", addr, errstr, STR_FMT(&data));
+	ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]", addr, errstr, STR_FMT(&data));
 	bencode_dictionary_add_string(resp, "result", "error");
 	bencode_dictionary_add_string(resp, "error-reason", errstr);
 	goto send_resp;
@@ -136,7 +136,7 @@ send_resp:
 	to_send = &reply;
 
 send_only:
-	mylog(LOG_INFO, "Returning to SIP proxy: %.*s", STR_FMT(to_send));
+	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT, STR_FMT(to_send));
 
 	ZERO(mh);
 	mh.msg_name = sin;
@@ -162,6 +162,7 @@ send_only:
 
 out:
 	bencode_buffer_free(&bencbuf);
+	log_info_clear();
 }
 
 

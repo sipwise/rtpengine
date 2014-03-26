@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
+#include <openssl/ssl.h>
 
 #include "poller.h"
 #include "control_tcp.h"
@@ -22,6 +23,7 @@
 #include "kernel.h"
 #include "redis.h"
 #include "sdp.h"
+#include "dtls.h"
 
 
 
@@ -85,7 +87,6 @@ static u_int32_t redis_ip;
 static u_int16_t redis_port;
 static int redis_db = -1;
 static char *b2b_url;
-static int log_level = LOG_INFO;
 
 
 
@@ -114,17 +115,19 @@ static void sighandler(gpointer x) {
 		if (ret == SIGINT || ret == SIGTERM)
 			global_shutdown = 1;
 		else if (ret == SIGUSR1) {
-		        if (log_level > 0) {
-			        log_level--;
-				setlogmask(LOG_UPTO(log_level));
-				mylog(log_level, "Set log level to %d\n", log_level);
+		        if (g_atomic_int_get(&log_level) > 0) {
+				g_atomic_int_add(&log_level, -1);
+				setlogmask(LOG_UPTO(g_atomic_int_get(&log_level)));
+				ilog(g_atomic_int_get(&log_level), "Set log level to %d\n",
+						g_atomic_int_get(&log_level));
 			}
 		}
 		else if (ret == SIGUSR2) {
-		        if (log_level < 7) {
-			        log_level++;
-				setlogmask(LOG_UPTO(log_level));
-				mylog(log_level, "Set log level to %d\n", log_level);
+		        if (g_atomic_int_get(&log_level) < 7) {
+				g_atomic_int_add(&log_level, 1);
+				setlogmask(LOG_UPTO(g_atomic_int_get(&log_level)));
+				ilog(g_atomic_int_get(&log_level), "Set log level to %d\n",
+						g_atomic_int_get(&log_level));
 			}
 		}
 		else
@@ -252,7 +255,7 @@ static void options(int *argc, char ***argv) {
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
 		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
-		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	&log_level,	"Mask log priorities above this level",	"INT"	},
+		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,	"Mask log priorities above this level",	"INT"	},
 		{ NULL, }
 	};
 
@@ -353,6 +356,8 @@ static void init_everything() {
 
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
+	SSL_library_init();
+	SSL_load_error_strings();
 
 #if !GLIB_CHECK_VERSION(2,32,0)
 	g_thread_init(NULL);
@@ -361,6 +366,7 @@ static void init_everything() {
 	signals();
 	resources();
 	sdp_init();
+	dtls_init();
 }
 
 void redis_mod_verify(void *dlh) {
@@ -370,6 +376,7 @@ void redis_mod_verify(void *dlh) {
 	dlresolve(redis_delete);
 	dlresolve(redis_wipe);
 
+	/*
 	check_struct_size(call);
 	check_struct_size(callstream);
 	check_struct_size(crypto_suite);
@@ -398,6 +405,7 @@ void redis_mod_verify(void *dlh) {
 	check_struct_offset(stream, ip46);
 	check_struct_offset(stream, num);
 	check_struct_offset(stream, protocol);
+	*/
 }
 
 void create_everything(struct main_context *ctx) {
@@ -411,7 +419,7 @@ void create_everything(struct main_context *ctx) {
 
 	if (table >= 0 && kernel_create_table(table)) {
 		fprintf(stderr, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-		mylog(LOG_CRIT, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
+		ilog(LOG_CRIT, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
 		table = -1;
 		if (no_fallback)
 			exit(-1);
@@ -420,7 +428,7 @@ void create_everything(struct main_context *ctx) {
 		kfd = kernel_open_table(table);
 		if (kfd == -1) {
 			fprintf(stderr, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-			mylog(LOG_CRIT, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
+			ilog(LOG_CRIT, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
 			table = -1;
 			if (no_fallback)
 				exit(-1);
@@ -434,6 +442,8 @@ void create_everything(struct main_context *ctx) {
 	ctx->m = callmaster_new(ctx->p);
 	if (!ctx->m)
 		die("callmaster creation failed\n");
+
+	dtls_timer(ctx->p);
 
 	ZERO(mc);
 	mc.kernelfd = kfd;
@@ -488,7 +498,7 @@ void create_everything(struct main_context *ctx) {
 			die("Cannot start up without Redis database\n");
 	}
 
-	callmaster_config(ctx->m, &mc);
+	ctx->m->conf = mc;
 
 	if (!foreground)
 		daemonize();
@@ -519,7 +529,7 @@ int main(int argc, char **argv) {
 	options(&argc, &argv);
 	create_everything(&ctx);
 
-	mylog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
+	ilog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
 
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(timer_loop, ctx.p);
@@ -535,7 +545,7 @@ int main(int argc, char **argv) {
 
 	threads_join_all(1);
 
-	mylog(LOG_INFO, "Version %s shutting down", MEDIAPROXY_VERSION);
+	ilog(LOG_INFO, "Version %s shutting down", MEDIAPROXY_VERSION);
 
 	return 0;
 }

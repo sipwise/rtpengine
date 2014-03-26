@@ -9,7 +9,6 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "log.h"
 
 
 
@@ -37,25 +36,59 @@ struct obj {
 
 
 
+
+
 #if OBJ_DEBUG
 
 #define OBJ_MAGIC 0xf1eef1ee
 
 #define obj_alloc(t,a,b)	__obj_alloc(a,b,t,__FILE__,__LINE__)
 #define obj_alloc0(t,a,b)	__obj_alloc0(a,b,t,__FILE__,__LINE__)
-#define obj_hold(a)		__obj_hold(a,__FILE__,__LINE__)
-#define obj_get(a)		__obj_get(a,__FILE__,__LINE__)
-#define obj_put(a)		__obj_put(a,__FILE__,__LINE__)
+#define obj_hold(a)		__obj_hold(&(a)->obj,__FILE__,__LINE__)
+#define obj_get(a)		__obj_get(&(a)->obj,__FILE__,__LINE__)
+#define obj_put(a)		__obj_put(&(a)->obj,__FILE__,__LINE__)
+#define obj_hold_o(a)		__obj_hold(a,__FILE__,__LINE__)
+#define obj_get_o(a)		__obj_get(a,__FILE__,__LINE__)
+#define obj_put_o(a)		__obj_put(a,__FILE__,__LINE__)
+
+static inline void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *),
+		const char *type, const char *file, unsigned int line);
+static inline void *__obj_alloc(unsigned int size, void (*free_func)(void *),
+		const char *type, const char *file, unsigned int line);
+static inline void *__obj_alloc0(unsigned int size, void (*free_func)(void *),
+		const char *type, const char *file, unsigned int line);
+static inline struct obj *__obj_hold(struct obj *o,
+		const char *type, const char *file, unsigned int line);
+static inline void *__obj_get(struct obj *o,
+		const char *type, const char *file, unsigned int line);
+static inline void __obj_put(struct obj *o,,
+		const char *type, const char *file, unsigned int line);
 
 #else
 
 #define obj_alloc(t,a,b)	__obj_alloc(a,b)
 #define obj_alloc0(t,a,b)	__obj_alloc0(a,b)
-#define obj_hold(a)		__obj_hold(a)
-#define obj_get(a)		__obj_get(a)
-#define obj_put(a)		__obj_put(a)
+#define obj_hold(a)		__obj_hold(&(a)->obj)
+#define obj_get(a)		__obj_get(&(a)->obj)
+#define obj_put(a)		__obj_put(&(a)->obj)
+#define obj_hold_o(a)		__obj_hold(a)
+#define obj_get_o(a)		__obj_get(a)
+#define obj_put_o(a)		__obj_put(a)
+
+static inline void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *));
+static inline void *__obj_alloc(unsigned int size, void (*free_func)(void *));
+static inline void *__obj_alloc0(unsigned int size, void (*free_func)(void *));
+static inline struct obj *__obj_hold(struct obj *o);
+static inline void *__obj_get(struct obj *o);
+static inline void __obj_put(struct obj *o);
 
 #endif
+
+
+
+#include "log.h"
+
+
 
 static inline void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *)
 #if OBJ_DEBUG
@@ -104,12 +137,11 @@ static inline void *__obj_alloc0(unsigned int size, void (*free_func)(void *)
 	return r;
 }
 
-static inline struct obj *__obj_hold(void *p
+static inline struct obj *__obj_hold(struct obj *o
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif
 ) {
-	struct obj *o = p;
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
 	mylog(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt before %u [%s:%u]",
@@ -123,24 +155,23 @@ static inline struct obj *__obj_hold(void *p
 	return o;
 }
 
-static inline void *__obj_get(void *p
+static inline void *__obj_get(struct obj *o
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif
 ) {
-	return __obj_hold(p
+	return __obj_hold(o
 #if OBJ_DEBUG
 	, file, line
 #endif
 	);
 }
 
-static inline void __obj_put(void *p
+static inline void __obj_put(struct obj *o
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif
 ) {
-	struct obj *o = p;
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
 	mylog(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt before %u [%s:%u]",

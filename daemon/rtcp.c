@@ -332,19 +332,22 @@ int rtcp_avpf2avp(str *s) {
 
 static inline int check_session_keys(struct crypto_context *c) {
 	str s;
+	const char *err;
 
 	if (c->have_session_key)
 		return 0;
-	if (!c->crypto_suite)
+	err = "SRTCP output wanted, but no crypto suite was negotiated";
+	if (!c->params.crypto_suite)
 		goto error;
 
-	str_init_len(&s, c->session_key, c->crypto_suite->session_key_len);
+	err = "Failed to generate SRTCP session keys";
+	str_init_len_assert(&s, c->session_key, c->params.crypto_suite->session_key_len);
 	if (crypto_gen_session_key(c, &s, 0x03, SRTCP_R_LENGTH))
 		goto error;
-	str_init_len(&s, c->session_auth_key, c->crypto_suite->srtcp_auth_key_len);
+	str_init_len_assert(&s, c->session_auth_key, c->params.crypto_suite->srtcp_auth_key_len);
 	if (crypto_gen_session_key(c, &s, 0x04, SRTCP_R_LENGTH))
 		goto error;
-	str_init_len(&s, c->session_salt, c->crypto_suite->session_salt_len);
+	str_init_len_assert(&s, c->session_salt, c->params.crypto_suite->session_salt_len);
 	if (crypto_gen_session_key(c, &s, 0x05, SRTCP_R_LENGTH))
 		goto error;
 
@@ -354,7 +357,7 @@ static inline int check_session_keys(struct crypto_context *c) {
 	return 0;
 
 error:
-	mylog(LOG_ERROR, "Error generating SRTCP session keys");
+	ilog(LOG_ERROR, "%s", err);
 	return -1;
 }
 
@@ -382,7 +385,7 @@ static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 
 	return 0;
 error:
-	mylog(LOG_WARNING, "Error parsing RTCP header: %s", err);
+	ilog(LOG_WARNING, "Error parsing RTCP header: %s", err);
 	return -1;
 }
 
@@ -408,8 +411,8 @@ int rtcp_avp2savp(str *s, struct crypto_context *c) {
 
 	rtp_append_mki(s, c);
 
-	c->crypto_suite->hash_rtcp(c, s->s + s->len, &to_auth);
-	s->len += c->crypto_suite->srtcp_auth_tag;
+	c->params.crypto_suite->hash_rtcp(c, s->s + s->len, &to_auth);
+	s->len += c->params.crypto_suite->srtcp_auth_tag;
 
 	return 1;
 }
@@ -429,7 +432,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 		return -1;
 
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
-			c->crypto_suite->srtcp_auth_tag, c->mki_len,
+			c->params.crypto_suite->srtcp_auth_tag, c->params.mki_len,
 			s, &payload))
 		return -1;
 
@@ -441,7 +444,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 	idx = ntohl(*idx_p);
 
 	assert(sizeof(hmac) >= auth_tag.len);
-	c->crypto_suite->hash_rtcp(c, hmac, &to_auth);
+	c->params.crypto_suite->hash_rtcp(c, hmac, &to_auth);
 	err = "authentication failed";
 	if (str_memcmp(&auth_tag, hmac))
 		goto error;
@@ -457,7 +460,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 	return 0;
 
 error:
-	mylog(LOG_WARNING, "Discarded invalid SRTCP packet: %s", err);
+	ilog(LOG_WARNING, "Discarded invalid SRTCP packet: %s", err);
 	return -1;
 }
 

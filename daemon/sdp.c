@@ -11,6 +11,7 @@
 #include "str.h"
 #include "call.h"
 #include "crypto.h"
+#include "dtls.h"
 
 struct network_address {
 	str network_type;
@@ -97,10 +98,10 @@ struct attribute_crypto {
 	const struct crypto_suite *crypto_suite;
 	str master_key;
 	str salt;
-	char key_salt_buf[30];
+	char key_salt_buf[SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN];
 	u_int64_t lifetime;
-	unsigned int mki,
-		     mki_len;
+	unsigned char mki[256];
+	unsigned int mki_len;
 };
 
 struct attribute_ssrc {
@@ -110,6 +111,32 @@ struct attribute_ssrc {
 	u_int32_t id;
 	str attr;
 	str value;
+};
+
+struct attribute_group {
+	enum {
+		GROUP_OTHER = 0,
+		GROUP_BUNDLE,
+	} semantics;
+};
+
+struct attribute_fingerprint {
+	str hash_func_str;
+	str fingerprint_str;
+
+	const struct dtls_hash_func *hash_func;
+	unsigned char fingerprint[DTLS_MAX_DIGEST_LEN];
+};
+
+struct attribute_setup {
+	str s;
+	enum {
+		SETUP_UNKNOWN = 0,
+		SETUP_ACTPASS,
+		SETUP_ACTIVE,
+		SETUP_PASSIVE,
+		SETUP_HOLDCONN,
+	} value;
 };
 
 struct sdp_attribute {
@@ -134,6 +161,10 @@ struct sdp_attribute {
 		ATTR_RECVONLY,
 		ATTR_RTCP_MUX,
 		ATTR_EXTMAP,
+		ATTR_GROUP,
+		ATTR_MID,
+		ATTR_FINGERPRINT,
+		ATTR_SETUP,
 	} attr;
 
 	union {
@@ -141,6 +172,9 @@ struct sdp_attribute {
 		struct attribute_candidate candidate;
 		struct attribute_crypto crypto;
 		struct attribute_ssrc ssrc;
+		struct attribute_group group;
+		struct attribute_fingerprint fingerprint;
+		struct attribute_setup setup;
 	} u;
 };
 
@@ -156,12 +190,21 @@ static str ice_foundation_str_alt;
 
 
 
-static int has_rtcp(struct sdp_media *media);
+//static int has_rtcp(struct sdp_media *media);
 
 
 
 static inline struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
 	return g_hash_table_lookup(a->id_hash, &id);
+}
+
+static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, int id) {
+	struct sdp_attribute *a;
+
+	a = attr_get_by_id(&m->attributes, id);
+	if (a)
+		return a;
+	return attr_get_by_id(&m->session->attributes, id);
 }
 
 
@@ -177,8 +220,24 @@ static inline int inet_pton_str(int af, str *src, void *dst) {
 	return ret;
 }
 
+int address_family(const str *s) {
+	if (s->len != 3)
+		return 0;
+
+	if (!memcmp(s->s, "IP4", 3)
+			|| !memcmp(s->s, "ip4", 3))
+		return AF_INET;
+
+	if (!memcmp(s->s, "IP6", 3)
+			|| !memcmp(s->s, "ip6", 3))
+		return AF_INET6;
+
+	return 0;
+}
+
 static int __parse_address(struct in6_addr *out, str *network_type, str *address_type, str *address) {
 	struct in_addr in4;
+	int af;
 
 	if (network_type) {
 		if (network_type->len != 2)
@@ -196,17 +255,15 @@ static int __parse_address(struct in6_addr *out, str *network_type, str *address
 		return -1;
 	}
 
-	if (address_type->len != 3)
-		return -1;
-	if (!memcmp(address_type->s, "IP4", 3)
-			|| !memcmp(address_type->s, "ip4", 3)) {
+	af = address_family(address_type);
+
+	if (af == AF_INET) {
 		if (inet_pton_str(AF_INET, address, &in4) != 1)
 			return -1;
 ip4:
 		in4_to_6(out, in4.s_addr);
 	}
-	else if (!memcmp(address_type->s, "IP6", 3)
-			|| !memcmp(address_type->s, "ip6", 3)) {
+	else if (af == AF_INET6) {
 		if (inet_pton_str(AF_INET6, address, out) != 1)
 			return -1;
 	}
@@ -306,6 +363,16 @@ static void attrs_init(struct sdp_attributes *a) {
 			NULL, (GDestroyNotify) g_queue_free);
 }
 
+static int parse_attribute_group(struct sdp_attribute *output) {
+	output->attr = ATTR_GROUP;
+
+	output->u.group.semantics = GROUP_OTHER;
+	if (output->value.len >= 7 && !strncmp(output->value.s, "BUNDLE ", 7))
+		output->u.group.semantics = GROUP_BUNDLE;
+
+	return 0;
+}
+
 static int parse_attribute_ssrc(struct sdp_attribute *output) {
 	char *start, *end;
 	struct attribute_ssrc *s;
@@ -334,7 +401,6 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 	return 0;
 }
 
-/* XXX error handling/logging */
 static int parse_attribute_crypto(struct sdp_attribute *output) {
 	char *start, *end, *endp;
 	struct attribute_crypto *c;
@@ -343,6 +409,8 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	unsigned int b64_save = 0;
 	gsize ret;
 	str s;
+	u_int32_t u32;
+	const char *err;
 
 	output->attr = ATTR_CRYPTO;
 
@@ -356,27 +424,31 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	c = &output->u.crypto;
 
 	c->tag = strtoul(c->tag_str.s, &endp, 10);
+	err = "invalid 'tag'";
 	if (endp == c->tag_str.s)
-		return -1;
+		goto error;
 
 	c->crypto_suite = crypto_find_suite(&c->crypto_suite_str);
+	err = "unknown crypto suite";
 	if (!c->crypto_suite)
-		return -1;
+		goto error;
 	salt_key_len = c->crypto_suite->master_key_len
 			+ c->crypto_suite->master_salt_len;
-	assert(sizeof(c->key_salt_buf) >= salt_key_len);
 	enc_salt_key_len = ceil((double) salt_key_len * 4.0/3.0);
 
+	err = "invalid key parameter length";
 	if (c->key_params_str.len < 7 + enc_salt_key_len)
-		return -1;
+		goto error;
+	err = "unknown key method";
 	if (strncasecmp(c->key_params_str.s, "inline:", 7))
-		return -1;
+		goto error;
 	c->key_base64_str = c->key_params_str;
 	str_shift(&c->key_base64_str, 7);
 	ret = g_base64_decode_step(c->key_base64_str.s, enc_salt_key_len,
 			(guchar *) c->key_salt_buf, &b64_state, &b64_save);
+	err = "invalid base64 encoding";
 	if (ret != salt_key_len)
-		return -1;
+		goto error;
 
 	c->master_key.s = c->key_salt_buf;
 	c->master_key.len = c->crypto_suite->master_key_len;
@@ -386,8 +458,9 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	c->lifetime_str = c->key_params_str;
 	str_shift(&c->lifetime_str, 7 + enc_salt_key_len);
 	if (c->lifetime_str.len >= 2) {
+		err = "invalid key parameter syntax";
 		if (c->lifetime_str.s[0] != '|')
-			return -1;
+			goto error;
 		str_shift(&c->lifetime_str, 1);
 		str_chr_str(&c->mki_str, &c->lifetime_str, '|');
 		if (!c->mki_str.s) {
@@ -407,29 +480,42 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	if (c->lifetime_str.s) {
 		if (c->lifetime_str.len >= 3 && !memcmp(c->lifetime_str.s, "2^", 2)) {
 			c->lifetime = strtoull(c->lifetime_str.s + 2, NULL, 10);
+			err = "invalid key lifetime";
 			if (!c->lifetime || c->lifetime > 64)
-				return -1;
+				goto error;
 			c->lifetime = 1 << c->lifetime;
 		}
 		else
 			c->lifetime = strtoull(c->lifetime_str.s, NULL, 10);
 
+		err = "invalid key lifetime";
 		if (!c->lifetime || c->lifetime > c->crypto_suite->srtp_lifetime
 				|| c->lifetime > c->crypto_suite->srtcp_lifetime)
-			return -1;
+			goto error;
 	}
 
 	if (c->mki_str.s) {
 		str_chr_str(&s, &c->mki_str, ':');
+		err = "invalid MKI specification";
 		if (!s.s)
-			return -1;
-		c->mki = strtoul(c->mki_str.s, NULL, 10);
+			goto error;
+		u32 = htonl(strtoul(c->mki_str.s, NULL, 10));
 		c->mki_len = strtoul(s.s + 1, NULL, 10);
-		if (!c->mki || !c->mki_len || c->mki_len > 128)
-			return -1;
+		err = "MKI too long";
+		if (c->mki_len > sizeof(c->mki))
+			goto error;
+		memset(c->mki, 0, c->mki_len);
+		if (sizeof(u32) >= c->mki_len)
+			memcpy(c->mki, ((void *) &u32) + (sizeof(u32) - c->mki_len), c->mki_len);
+		else
+			memcpy(c->mki + (c->mki_len - sizeof(u32)), &u32, sizeof(u32));
 	}
 
 	return 0;
+
+error:
+	ilog(LOG_ERROR, "Failed to parse a=crypto attribute: %s", err);
+	return -1;
 }
 
 static int parse_attribute_rtcp(struct sdp_attribute *output) {
@@ -479,6 +565,76 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 	return 0;
 }
 
+static int parse_attribute_fingerprint(struct sdp_attribute *output) {
+	char *end, *start;
+	unsigned char *c;
+	int i;
+
+	start = output->value.s;
+	end = start + output->value.len;
+	output->attr = ATTR_FINGERPRINT;
+
+	EXTRACT_TOKEN(u.fingerprint.hash_func_str);
+	EXTRACT_TOKEN(u.fingerprint.fingerprint_str);
+
+	output->u.fingerprint.hash_func = dtls_find_hash_func(&output->u.fingerprint.hash_func_str);
+	if (!output->u.fingerprint.hash_func)
+		return -1;
+
+	assert(sizeof(output->u.fingerprint.fingerprint) >= output->u.fingerprint.hash_func->num_bytes);
+
+	c = (unsigned char *) output->u.fingerprint.fingerprint_str.s;
+	for (i = 0; i < output->u.fingerprint.hash_func->num_bytes; i++) {
+		if (c[0] >= '0' && c[0] <= '9')
+			output->u.fingerprint.fingerprint[i] = c[0] - '0';
+		else if (c[0] >= 'a' && c[0] <= 'f')
+			output->u.fingerprint.fingerprint[i] = c[0] - 'a' + 10;
+		else if (c[0] >= 'A' && c[0] <= 'F')
+			output->u.fingerprint.fingerprint[i] = c[0] - 'A' + 10;
+		else
+			return -1;
+
+		output->u.fingerprint.fingerprint[i] <<= 4;
+
+		if (c[1] >= '0' && c[1] <= '9')
+			output->u.fingerprint.fingerprint[i] |= c[1] - '0';
+		else if (c[1] >= 'a' && c[1] <= 'f')
+			output->u.fingerprint.fingerprint[i] |= c[1] - 'a' + 10;
+		else if (c[1] >= 'A' && c[1] <= 'F')
+			output->u.fingerprint.fingerprint[i] |= c[1] - 'A' + 10;
+		else
+			return -1;
+
+		if (c[2] != ':')
+			goto done;
+
+		c += 3;
+	}
+
+	return -1;
+
+done:
+	if (++i != output->u.fingerprint.hash_func->num_bytes)
+		return -1;
+
+	return 0;
+}
+
+static int parse_attribute_setup(struct sdp_attribute *output) {
+	output->attr = ATTR_SETUP;
+
+	if (!str_cmp(&output->value, "actpass"))
+		output->u.setup.value = SETUP_ACTPASS;
+	else if (!str_cmp(&output->value, "active"))
+		output->u.setup.value = SETUP_ACTIVE;
+	else if (!str_cmp(&output->value, "passive"))
+		output->u.setup.value = SETUP_PASSIVE;
+	else if (!str_cmp(&output->value, "holdconn"))
+		output->u.setup.value = SETUP_HOLDCONN;
+
+	return 0;
+}
+
 static int parse_attribute(struct sdp_attribute *a) {
 	int ret;
 
@@ -507,16 +663,26 @@ static int parse_attribute(struct sdp_attribute *a) {
 
 	ret = 0;
 	switch (a->name.len) {
+		case 3:
+			if (!str_cmp(&a->name, "mid"))
+				a->attr = ATTR_MID;
+			break;
 		case 4:
 			if (!str_cmp(&a->name, "rtcp"))
 				ret = parse_attribute_rtcp(a);
 			else if (!str_cmp(&a->name, "ssrc"))
 				ret = parse_attribute_ssrc(a);
 			break;
+		case 5:
+			if (!str_cmp(&a->name, "group"))
+				ret = parse_attribute_group(a);
+			else if (!str_cmp(&a->name, "setup"))
+				ret = parse_attribute_setup(a);
+			break;
 		case 6:
 			if (!str_cmp(&a->name, "crypto"))
 				ret = parse_attribute_crypto(a);
-			if (!str_cmp(&a->name, "extmap"))
+			else if (!str_cmp(&a->name, "extmap"))
 				a->attr = ATTR_EXTMAP;
 			break;
 		case 7:
@@ -554,6 +720,8 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case 11:
 			if (!str_cmp(&a->name, "ice-options"))
 				a->attr = ATTR_ICE;
+			else if (!str_cmp(&a->name, "fingerprint"))
+				ret = parse_attribute_fingerprint(a);
 			break;
 		case 12:
 			if (!str_cmp(&a->name, "ice-mismatch"))
@@ -724,7 +892,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 	return 0;
 
 error:
-	mylog(LOG_WARNING, "Error parsing SDP at offset %li: %s", b - body->s, errstr);
+	ilog(LOG_WARNING, "Error parsing SDP at offset %li: %s", b - body->s, errstr);
 	sdp_free(sessions);
 	return -1;
 }
@@ -755,7 +923,8 @@ void sdp_free(GQueue *sessions) {
 	}
 }
 
-static int fill_stream_address(struct stream_input *si, struct sdp_media *media, struct sdp_ng_flags *flags) {
+static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, struct sdp_ng_flags *flags,
+		struct network_address *address, long int port) {
 	struct sdp_session *session = media->session;
 
 	if (!flags->trust_address) {
@@ -764,44 +933,31 @@ static int fill_stream_address(struct stream_input *si, struct sdp_media *media,
 						&flags->received_from_address))
 				return -1;
 		}
-		si->stream.ip46 = flags->parsed_received_from;
+		ep->ip46 = flags->parsed_received_from;
 	}
+	else if (address && !is_addr_unspecified(&address->parsed))
+		ep->ip46 = address->parsed;
 	else if (media->connection.parsed)
-		si->stream.ip46 = media->connection.address.parsed;
+		ep->ip46 = media->connection.address.parsed;
 	else if (session->connection.parsed)
-		si->stream.ip46 = session->connection.address.parsed;
+		ep->ip46 = session->connection.address.parsed;
 	else
 		return -1;
-	return 0;
-}
 
-static int fill_stream(struct stream_input *si, struct sdp_media *media, int offset, struct sdp_ng_flags *flags) {
-	if (fill_stream_address(si, media, flags))
-		return -1;
-
-	/* we ignore the media type */
-	si->stream.port = (media->port_num + (offset * 2)) & 0xffff;
+	ep->port = port;
 
 	return 0;
 }
 
-static int fill_stream_rtcp(struct stream_input *si, struct sdp_media *media, int port, struct sdp_ng_flags *flags) {
-	if (fill_stream_address(si, media, flags))
-		return -1;
-	si->stream.port = port;
-	return 0;
-}
 
-int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash, struct sdp_ng_flags *flags) {
+int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *flags) {
 	struct sdp_session *session;
 	struct sdp_media *media;
-	struct stream_input *si;
+	struct stream_params *sp;
 	GList *l, *k;
 	const char *errstr;
-	int i, num;
+	int num;
 	struct sdp_attribute *attr;
-	enum transport_protocol tp;
-	struct crypto_context cctx;
 
 	num = 0;
 	for (l = sessions->head; l; l = l->next) {
@@ -809,87 +965,106 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, GHashTable *streamhash,
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
-			tp = transport_protocol(&media->transport);
 
-			ZERO(cctx);
+			sp = g_slice_alloc0(sizeof(*sp));
+			sp->index = ++num;
+
+			errstr = "No address info found for stream";
+			if (fill_endpoint(&sp->rtp_endpoint, media, flags, NULL, media->port_num))
+				goto error;
+
+			sp->consecutive_ports = media->port_count;
+			sp->protocol = transport_protocol(&media->transport);
+			sp->type = media->media_type;
+			memcpy(sp->direction, flags->directions, sizeof(sp->direction));
+			sp->desired_family = flags->address_family;
+			sp->asymmetric = flags->asymmetric;
+
+			/* a=crypto */
 			attr = attr_get_by_id(&media->attributes, ATTR_CRYPTO);
 			if (attr) {
-				cctx.crypto_suite = attr->u.crypto.crypto_suite;
-				cctx.mki = attr->u.crypto.mki;
-				cctx.mki_len = attr->u.crypto.mki_len;
-				cctx.tag = attr->u.crypto.tag;
-				assert(sizeof(cctx.master_key) >= attr->u.crypto.master_key.len);
-				assert(sizeof(cctx.master_salt) >= attr->u.crypto.salt.len);
-				memcpy(cctx.master_key, attr->u.crypto.master_key.s, attr->u.crypto.master_key.len);
-				memcpy(cctx.master_salt, attr->u.crypto.salt.s, attr->u.crypto.salt.len);
-				assert(sizeof(cctx.session_key) >= cctx.crypto_suite->session_key_len);
-				assert(sizeof(cctx.session_salt) >= cctx.crypto_suite->session_salt_len);
-			}
-
-			si = NULL;
-			for (i = 0; i < media->port_count; i++) {
-				si = g_slice_alloc0(sizeof(*si));
-
-				errstr = "No address info found for stream";
-				if (fill_stream(si, media, i, flags))
-					goto error;
-
-				if (i == 0 && g_hash_table_contains(streamhash, si)) {
-					g_slice_free1(sizeof(*si), si);
-					continue;
+				sp->crypto.crypto_suite = attr->u.crypto.crypto_suite;
+				sp->crypto.mki_len = attr->u.crypto.mki_len;
+				if (sp->crypto.mki_len) {
+					sp->crypto.mki = malloc(sp->crypto.mki_len);
+					memcpy(sp->crypto.mki, attr->u.crypto.mki, sp->crypto.mki_len);
 				}
-
-				si->stream.num = ++num;
-				si->consecutive_num = (i == 0) ? media->port_count : 1;
-				si->stream.protocol = tp;
-				si->crypto = cctx;
-				memcpy(&si->direction, &flags->directions, sizeof(si->direction));
-
-				g_hash_table_insert(streamhash, si, si);
-				g_queue_push_tail(streams, si);
+				sp->sdes_tag = attr->u.crypto.tag;
+				assert(sizeof(sp->crypto.master_key) >= attr->u.crypto.master_key.len);
+				assert(sizeof(sp->crypto.master_salt) >= attr->u.crypto.salt.len);
+				memcpy(sp->crypto.master_key, attr->u.crypto.master_key.s,
+						attr->u.crypto.master_key.len);
+				memcpy(sp->crypto.master_salt, attr->u.crypto.salt.s,
+						attr->u.crypto.salt.len);
 			}
 
-			if (!si || media->port_count != 1)
-				continue;
+			/* a=sendrecv/sendonly/recvonly/inactive */
+			sp->send = 1;
+			sp->recv = 1;
+			if (attr_get_by_id_m_s(media, ATTR_RECVONLY))
+				sp->send = 0;
+			else if (attr_get_by_id_m_s(media, ATTR_SENDONLY))
+				sp->recv = 0;
+			else if (attr_get_by_id_m_s(media, ATTR_INACTIVE))
+			{
+				sp->recv = 0;
+				sp->send = 0;
+			}
+
+			/* a=setup */
+			attr = attr_get_by_id_m_s(media, ATTR_SETUP);
+			if (attr) {
+				if (attr->u.setup.value == SETUP_ACTPASS
+						|| attr->u.setup.value == SETUP_ACTIVE)
+					sp->setup_active = 1;
+				if (attr->u.setup.value == SETUP_ACTPASS
+						|| attr->u.setup.value == SETUP_PASSIVE)
+					sp->setup_passive = 1;
+			}
+
+			/* a=fingerprint */
+			attr = attr_get_by_id_m_s(media, ATTR_FINGERPRINT);
+			if (attr && attr->u.fingerprint.hash_func) {
+				sp->fingerprint.hash_func = attr->u.fingerprint.hash_func;
+				memcpy(sp->fingerprint.digest, attr->u.fingerprint.fingerprint,
+						sp->fingerprint.hash_func->num_bytes);
+			}
+
+			/* determine RTCP endpoint */
 
 			if (attr_get_by_id(&media->attributes, ATTR_RTCP_MUX)) {
-				si->rtcp_mux = 1;
-				continue;
+				sp->rtcp_mux = 1;
+				goto next;
 			}
+
+			if (media->port_count != 1)
+				goto next;
 
 			attr = attr_get_by_id(&media->attributes, ATTR_RTCP);
-			if (!attr || !attr->u.rtcp.port_num)
-				continue;
-			if (attr->u.rtcp.port_num == si->stream.port) {
-				si->rtcp_mux = 1;
-				continue;
+			if (!attr) {
+				sp->implicit_rtcp = 1;
+				goto next;
 			}
-			if (attr->u.rtcp.port_num == si->stream.port + 1)
-				continue;
-
-			si->has_rtcp = 1;
-
-			si = g_slice_alloc0(sizeof(*si));
-			if (fill_stream_rtcp(si, media, attr->u.rtcp.port_num, flags))
+			if (attr->u.rtcp.port_num == sp->rtp_endpoint.port) {
+				sp->rtcp_mux = 1;
+				goto next;
+			}
+			errstr = "Invalid RTCP attribute";
+			if (fill_endpoint(&sp->rtcp_endpoint, media, flags, &attr->u.rtcp.address,
+						attr->u.rtcp.port_num))
 				goto error;
-			si->stream.num = ++num;
-			si->consecutive_num = 1;
-			si->is_rtcp = 1;
-			si->stream.protocol = tp;
-			si->crypto = cctx;
-			memcpy(&si->direction, &flags->directions, sizeof(si->direction));
 
-			g_hash_table_insert(streamhash, si, si);
-			g_queue_push_tail(streams, si);
+next:
+			g_queue_push_tail(streams, sp);
 		}
 	}
 
 	return 0;
 
 error:
-	mylog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
-	if (si)
-		g_slice_free1(sizeof(*si), si);
+	ilog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
+	if (sp)
+		g_slice_free1(sizeof(*sp), sp);
 	return -1;
 }
 
@@ -924,7 +1099,7 @@ static void chopper_append_dup(struct sdp_chopper *c, const char *s, int len) {
 static void chopper_append_printf(struct sdp_chopper *c, const char *fmt, ...) __attribute__((format(printf,2,3)));
 
 static void chopper_append_printf(struct sdp_chopper *c, const char *fmt, ...) {
-	char buf[32];
+	char buf[512];
 	int l;
 	va_list va;
 
@@ -943,7 +1118,7 @@ static int copy_up_to_ptr(struct sdp_chopper *chop, const char *b) {
 
 	len = offset - chop->position;
 	if (len < 0) {
-		mylog(LOG_WARNING, "Malformed SDP, cannot rewrite");
+		ilog(LOG_WARNING, "Malformed SDP, cannot rewrite");
 		return -1;
 	}
 	chopper_append(chop, chop->input->s + chop->position, len);
@@ -972,53 +1147,33 @@ static int skip_over(struct sdp_chopper *chop, str *where) {
 
 	len = offset - chop->position;
 	if (len < 0) {
-		mylog(LOG_WARNING, "Malformed SDP, cannot rewrite");
+		ilog(LOG_WARNING, "Malformed SDP, cannot rewrite");
 		return -1;
 	}
 	chop->position += len;
 	return 0;
 }
 
-static int fill_relays(struct streamrelay **rtp, struct streamrelay **rtcp, GList *m,
-		int off, struct stream_input *sip, struct sdp_media *media)
-{
-	*rtp = &((struct callstream *) m->data)->peers[off].rtps[0];
-
-	if (!rtcp)
-		return 1;
-
-	*rtcp = &((struct callstream *) m->data)->peers[off].rtps[1];
-	if (sip && sip->has_rtcp && m->next)
-		*rtcp = &((struct callstream *) m->next->data)->peers[off].rtps[0];
-
-	if ((*rtp)->rtcp_mux)
-		return 2;
-	if (!has_rtcp(media))
-		return 3;
-
-	return 0;
-}
-
 static int replace_transport_protocol(struct sdp_chopper *chop,
-		struct sdp_media *media, struct streamrelay *sr)
+		struct sdp_media *media, struct call_media *cm)
 {
 	str *tp = &media->transport;
-	const char *new_tp = transport_protocol_strings[sr->peer.protocol];
 
-	if (!new_tp)
+	if (!cm->protocol)
 		return 0; /* XXX correct? or give warning? */
 
 	if (copy_up_to(chop, tp))
 		return -1;
-	chopper_append_c(chop, new_tp);
+	chopper_append_c(chop, cm->protocol->name);
 	if (skip_over(chop, tp))
 		return -1;
 
 	return 0;
 }
 
-static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct streamrelay *sr) {
+static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct packet_stream *ps) {
 	str *port = &media->port;
+	unsigned int p;
 
 	if (!media->port_num)
 		return 0;
@@ -1026,7 +1181,8 @@ static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media,
 	if (copy_up_to(chop, port))
 		return -1;
 
-	chopper_append_printf(chop, "%hu", sr->fd.localport);
+	p = ps->sfd ? ps->sfd->fd.localport : 0;
+	chopper_append_printf(chop, "%u", p);
 
 	if (skip_over(chop, port))
 		return -1;
@@ -1035,22 +1191,22 @@ static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media,
 }
 
 static int replace_consecutive_port_count(struct sdp_chopper *chop, struct sdp_media *media,
-		struct streamrelay *rtp, GList *m, int off)
+		struct packet_stream *ps, GList *j)
 {
 	int cons;
-	struct streamrelay *sr;
+	struct packet_stream *ps_n;
 
-	if (media->port_count == 1)
+	if (media->port_count == 1 || !ps->sfd)
 		return 0;
 
 	for (cons = 1; cons < media->port_count; cons++) {
-		m = m->next;
-		if (!m)
+		j = j->next;
+		if (!j)
 			goto warn;
-		fill_relays(&sr, NULL, m, off, NULL, media);
-		if (sr->fd.localport != rtp->fd.localport + cons * 2) {
+		ps_n = j->data;
+		if (ps_n->sfd->fd.localport != ps->sfd->fd.localport + cons * 2) {
 warn:
-			mylog(LOG_WARN, "Failed to handle consecutive ports");
+			ilog(LOG_WARN, "Failed to handle consecutive ports");
 			break;
 		}
 	}
@@ -1060,34 +1216,30 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(struct sdp_chopper *chop, struct streamrelay *sr) {
+static int insert_ice_address(struct sdp_chopper *chop, struct packet_stream *ps) {
 	char buf[64];
 	int len;
 
-	mutex_lock(&sr->up->up->lock);
-	call_stream_address(buf, sr->up, SAF_ICE, &len);
-	mutex_unlock(&sr->up->up->lock);
+	call_stream_address(buf, ps, SAF_ICE, &len);
 	chopper_append_dup(chop, buf, len);
-	chopper_append_printf(chop, " %hu", sr->fd.localport);
+	chopper_append_printf(chop, " %hu", ps->sfd->fd.localport);
 
 	return 0;
 }
 
-static int insert_ice_address_alt(struct sdp_chopper *chop, struct streamrelay *sr) {
+static int insert_ice_address_alt(struct sdp_chopper *chop, struct packet_stream *ps) {
 	char buf[64];
 	int len;
 
-	mutex_lock(&sr->up->up->lock);
-	call_stream_address_alt(buf, sr->up, SAF_ICE, &len);
-	mutex_unlock(&sr->up->up->lock);
+	call_stream_address_alt(buf, ps, SAF_ICE, &len);
 	chopper_append_dup(chop, buf, len);
-	chopper_append_printf(chop, " %hu", sr->fd.localport);
+	chopper_append_printf(chop, " %hu", ps->sfd->fd.localport);
 
 	return 0;
 }
 
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
-		struct streamrelay *sr, struct sdp_ng_flags *flags)
+		struct packet_stream *ps, struct sdp_ng_flags *flags)
 {
 	char buf[64];
 	int len;
@@ -1098,6 +1250,9 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
 
+	if (flags->media_address.s && is_addr_unspecified(&flags->parsed_media_address))
+		__parse_address(&flags->parsed_media_address, NULL, NULL, &flags->media_address);
+
 	if (!is_addr_unspecified(&flags->parsed_media_address)) {
 		if (IN6_IS_ADDR_V4MAPPED(&flags->parsed_media_address))
 			len = sprintf(buf, "IP4 " IPF, IPP(flags->parsed_media_address.s6_addr32[3]));
@@ -1107,11 +1262,8 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 			len = strlen(buf);
 		}
 	}
-	else {
-		mutex_lock(&sr->up->up->lock);
-		call_stream_address(buf, sr->up, SAF_NG, &len);
-		mutex_unlock(&sr->up->up->lock);
-	}
+	else
+		call_stream_address(buf, ps, SAF_NG, &len);
 	chopper_append_dup(chop, buf, len);
 
 	if (skip_over(chop, &address->address))
@@ -1124,12 +1276,6 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 	g_string_chunk_free(chop->chunk);
 	g_array_free(chop->iov, 1);
 	g_slice_free1(sizeof(*chop), chop);
-}
-
-/* XXX replace with better source of randomness */
-static void random_string(unsigned char *buf, int len) {
-	while (len--)
-		*buf++ = random() % 0x100;
 }
 
 static void random_ice_string(char *buf, int len) {
@@ -1166,7 +1312,18 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 				goto strip;
 
 			case ATTR_EXTMAP:
+			case ATTR_INACTIVE:
+			case ATTR_SENDONLY:
+			case ATTR_RECVONLY:
+			case ATTR_SENDRECV:
+			case ATTR_FINGERPRINT:
+			case ATTR_SETUP:
 				goto strip;
+
+			case ATTR_GROUP:
+				if (attr->u.group.semantics == GROUP_BUNDLE)
+					goto strip;
+				break;
 
 			default:
 				break;
@@ -1184,11 +1341,12 @@ strip:
 	return 0;
 }
 
-static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,
-		struct sdp_ng_flags *flags)
+static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *sdp,
+		struct sdp_ng_flags *flags, struct call_media *media)
 {
 	GList *l;
-	struct sdp_attribute *attr;
+	struct sdp_attributes *attrs = &sdp->attributes;
+	struct sdp_attribute *attr, *a;
 
 	for (l = attrs->list.head; l; l = l->next) {
 		attr = l->data;
@@ -1204,16 +1362,19 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_attribu
 			case ATTR_RTCP:
 			case ATTR_RTCP_MUX:
 			case ATTR_EXTMAP:
+			case ATTR_CRYPTO:
+			case ATTR_INACTIVE:
+			case ATTR_SENDONLY:
+			case ATTR_RECVONLY:
+			case ATTR_SENDRECV:
+			case ATTR_FINGERPRINT:
+			case ATTR_SETUP:
 				goto strip;
 
-			case ATTR_CRYPTO:
-				switch (flags->transport_protocol) {
-					case PROTO_RTP_AVP:
-					case PROTO_RTP_AVPF:
-						goto strip;
-					default:
-						break;
-				}
+			case ATTR_MID:
+				a = attr_get_by_id(&sdp->session->attributes, ATTR_GROUP);
+				if (a && a->u.group.semantics == GROUP_BUNDLE)
+					goto strip;
 				break;
 
 			default:
@@ -1229,29 +1390,6 @@ strip:
 			return -1;
 	}
 
-	return 0;
-}
-
-static GList *find_stream_num(GList *m, int num) {
-	/* XXX use a hash instead? must link input streams to output streams */
-	while (m && ((struct callstream *) m->data)->num < num)
-		m = m->next;
-	while (m && ((struct callstream *) m->data)->num > num)
-		m = m->prev;
-	return m;
-}
-
-static int has_rtcp(struct sdp_media *media) {
-	struct sdp_session *session;
-
-	if (!media)
-		return 0;
-
-	session = media->session;
-
-	if ((media->rr == -1 ? session->rr : media->rr) != 0
-			&& (media->rs == -1 ? session->rs : media->rs) != 0)
-		return 1;
 	return 0;
 }
 
@@ -1290,7 +1428,7 @@ out:
 	return prio;
 }
 
-static void insert_candidates(struct sdp_chopper *chop, struct streamrelay *rtp, struct streamrelay *rtcp,
+static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rtp, struct packet_stream *rtcp,
 		unsigned long priority, struct sdp_media *media)
 {
 	chopper_append_c(chop, "a=candidate:");
@@ -1310,7 +1448,7 @@ static void insert_candidates(struct sdp_chopper *chop, struct streamrelay *rtp,
 
 }
 
-static void insert_candidates_alt(struct sdp_chopper *chop, struct streamrelay *rtp, struct streamrelay *rtcp,
+static void insert_candidates_alt(struct sdp_chopper *chop, struct packet_stream *rtp, struct packet_stream *rtcp,
 		unsigned long priority, struct sdp_media *media)
 {
 	chopper_append_c(chop, "a=candidate:");
@@ -1351,144 +1489,129 @@ static int has_ice(GQueue *sessions) {
 	return 0;
 }
 
-static int generate_crypto(struct sdp_media *media, struct sdp_ng_flags *flags,
-		struct streamrelay *rtp, struct streamrelay *rtcp,
-		struct sdp_chopper *chop)
-{
-	struct crypto_context *c, *src = NULL;
-	char b64_buf[64];
+static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
+	char hexbuf[DTLS_MAX_DIGEST_LEN * 3 + 2];
+	unsigned char *p;
+	char *o;
+	int i;
+	const struct dtls_hash_func *hf;
+	const char *actpass;
+	struct call *call = media->call;
+
+	if (!call->dtls_cert || !media->dtls)
+		return;
+
+	hf = call->dtls_cert->fingerprint.hash_func;
+
+	assert(hf->num_bytes > 0);
+
+	p = call->dtls_cert->fingerprint.digest;
+	o = hexbuf;
+	for (i = 0; i < hf->num_bytes; i++)
+		o += sprintf(o, "%02X:", *p++);
+	*(--o) = '\0';
+
+	actpass = "holdconn";
+	if (media->setup_passive) {
+		if (media->setup_active)
+			actpass = "actpass";
+		else
+			actpass = "passive";
+	}
+	else if (media->setup_active)
+		actpass = "active";
+
+	chopper_append_c(chop, "a=setup:");
+	chopper_append_c(chop, actpass);
+	chopper_append_c(chop, "\r\na=fingerprint:");
+	chopper_append_c(chop, hf->name);
+	chopper_append_c(chop, " ");
+	chopper_append_dup(chop, hexbuf, o - hexbuf);
+	chopper_append_c(chop, "\r\n");
+}
+
+static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
+	char b64_buf[((SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN) / 3 + 1) * 4 + 4];
 	char *p;
-	int state = 0, save = 0;
+	int state = 0, save = 0, i;
+	struct crypto_params *cp = &media->sdes_out.params;
+	unsigned long long ull;
 
-	if (flags->transport_protocol != PROTO_RTP_SAVP
-			&& flags->transport_protocol != PROTO_RTP_SAVPF)
-		return 0;
-
-	if (attr_get_by_id(&media->attributes, ATTR_CRYPTO)) {
-		/* SRTP <> SRTP case, copy from other stream
-		 * and leave SDP untouched */
-		src = &rtp->other->crypto.in;
-
-		mutex_lock(&rtp->up->up->lock);
-		c = &rtp->crypto.out;
-		if (!c->crypto_suite)
-			*c = *src;
-		mutex_unlock(&rtp->up->up->lock);
-
-		if (rtcp) {
-			mutex_lock(&rtcp->up->up->lock);
-			c = &rtcp->crypto.out;
-			if (!c->crypto_suite)
-				*c = *src;
-			mutex_unlock(&rtcp->up->up->lock);
-		}
-
-		return 0;
-	}
-
-	mutex_lock(&rtp->up->up->lock);
-
-	/* write-once, read-only */
-	c = &rtp->crypto.out;
-	if (!c->crypto_suite) {
-		c->crypto_suite = rtp->crypto.in.crypto_suite;
-		if (!c->crypto_suite)
-			c->crypto_suite = &crypto_suites[0];
-		random_string((unsigned char *) c->master_key,
-				c->crypto_suite->master_key_len);
-		random_string((unsigned char *) c->master_salt,
-				c->crypto_suite->master_salt_len);
-		/* mki = mki_len = 0 */
-		c->tag = rtp->crypto.in.tag;
-	}
-
-	mutex_unlock(&rtp->up->up->lock);
-
-	assert(sizeof(b64_buf) >= (((c->crypto_suite->master_key_len
-				+ c->crypto_suite->master_salt_len)) / 3 + 1) * 4 + 4);
+	if (!cp->crypto_suite || !media->sdes)
+		return;
 
 	p = b64_buf;
-	p += g_base64_encode_step((unsigned char *) c->master_key,
-			c->crypto_suite->master_key_len, 0,
+	p += g_base64_encode_step((unsigned char *) cp->master_key,
+			cp->crypto_suite->master_key_len, 0,
 			p, &state, &save);
-	p += g_base64_encode_step((unsigned char *) c->master_salt,
-			c->crypto_suite->master_salt_len, 0,
+	p += g_base64_encode_step((unsigned char *) cp->master_salt,
+			cp->crypto_suite->master_salt_len, 0,
 			p, &state, &save);
 	p += g_base64_encode_close(0, p, &state, &save);
 
-	if (rtcp) {
-		mutex_lock(&rtcp->up->up->lock);
-
-		src = c;
-		c = &rtcp->crypto.out;
-
-		c->crypto_suite = src->crypto_suite;
-		c->tag = src->tag;
-		memcpy(c->master_key, src->master_key,
-				c->crypto_suite->master_key_len);
-		memcpy(c->master_salt, src->master_salt,
-				c->crypto_suite->master_salt_len);
-
-		mutex_unlock(&rtcp->up->up->lock);
-	}
-
 	chopper_append_c(chop, "a=crypto:");
-	chopper_append_printf(chop, "%u ", c->tag);
-	chopper_append_c(chop, c->crypto_suite->name);
+	chopper_append_printf(chop, "%u ", media->sdes_out.tag);
+	chopper_append_c(chop, cp->crypto_suite->name);
 	chopper_append_c(chop, " inline:");
 	chopper_append_dup(chop, b64_buf, p - b64_buf);
+	if (cp->mki_len) {
+		ull = 0;
+		for (i = 0; i < cp->mki_len && i < sizeof(ull); i++)
+			ull |= cp->mki[cp->mki_len - i - 1] << (i * 8);
+		chopper_append_printf(chop, "|%llu:%u", ull, cp->mki_len);
+	}
 	chopper_append_c(chop, "\r\n");
-
-	return 0;
 }
 
 
-int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
-		enum call_opmode opmode, struct sdp_ng_flags *flags, GHashTable *streamhash)
+/* called with call->master_lock held in W */
+int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue,
+		struct sdp_ng_flags *flags)
 {
 	struct sdp_session *session;
-	struct sdp_media *media;
-	GList *l, *k, *m;
-	int off, do_ice, r_flags, sess_conn;
-	struct stream_input si, *sip;
-	struct streamrelay *rtp, *rtcp;
+	struct sdp_media *sdp_media;
+	GList *l, *k, *m, *j;
+	int do_ice,  media_index, sess_conn;
 	unsigned long priority;
+	struct call_media *call_media;
+	struct packet_stream *ps, *ps_rtcp;
+	struct call *call;
 
-	off = opmode;
-	m = call->callstreams->head;
+	m = monologue->medias.head;
 	do_ice = (flags->ice_force || (!has_ice(sessions) && !flags->ice_remove)) ? 1 : 0;
-	if (flags->media_address.s) {
-		if (is_addr_unspecified(&flags->parsed_media_address)) {
-			if (__parse_address(&flags->parsed_media_address, NULL, NULL,
-						&flags->media_address))
-				return -1;
-		}
-	}
+	call = monologue->call;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
+		if (!m)
+			goto error;
+		call_media = m->data;
+		if (call_media->index != 1)
+			goto error;
+		j = call_media->streams.head;
+		if (!j)
+			goto error;
+		ps = j->data;
 
 		sess_conn = 0;
 		if (flags->replace_sess_conn)
 			sess_conn = 1;
 		else {
 			for (k = session->media_streams.head; k; k = k->next) {
-				media = k->data;
-				if (!media->connection.parsed) {
+				sdp_media = k->data;
+				if (!sdp_media->connection.parsed) {
 					sess_conn = 1;
 					break;
 				}
 			}
 		}
 
-		fill_relays(&rtp, &rtcp, m, off, NULL, NULL);
-
 		if (session->origin.parsed && flags->replace_origin) {
-			if (replace_network_address(chop, &session->origin.address, rtp, flags))
+			if (replace_network_address(chop, &session->origin.address, ps, flags))
 				goto error;
 		}
 		if (session->connection.parsed && sess_conn) {
-			if (replace_network_address(chop, &session->connection.address, rtp, flags))
+			if (replace_network_address(chop, &session->connection.address, ps, flags))
 				goto error;
 		}
 
@@ -1500,96 +1623,110 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 			chopper_append_c(chop, "a=ice-lite\r\n");
 		}
 
+		media_index = 1;
+
 		for (k = session->media_streams.head; k; k = k->next) {
-			media = k->data;
-
-			if (fill_stream(&si, media, 0, flags))
-				goto error;
-
-			sip = g_hash_table_lookup(streamhash, &si);
-			if (!sip)
-				goto error;
-			m = find_stream_num(m, sip->stream.num);
+			sdp_media = k->data;
 			if (!m)
 				goto error;
-			r_flags = fill_relays(&rtp, &rtcp, m, off, sip, media);
-
-			rtp->peer.protocol = flags->transport_protocol;
-			rtcp->peer.protocol = rtp->peer.protocol;
-
-			if (replace_media_port(chop, media, rtp))
+			call_media = m->data;
+			if (call_media->index != media_index)
 				goto error;
-			if (replace_consecutive_port_count(chop, media, rtp, m, off))
+			j = call_media->streams.head;
+			if (!j)
 				goto error;
-			if (replace_transport_protocol(chop, media, rtp))
+			ps = j->data;
+
+			if (replace_media_port(chop, sdp_media, ps))
+				goto error;
+			if (replace_consecutive_port_count(chop, sdp_media, ps, j))
+				goto error;
+			if (replace_transport_protocol(chop, sdp_media, call_media))
 				goto error;
 
-			if (media->connection.parsed) {
-				if (replace_network_address(chop, &media->connection.address, rtp, flags))
+			if (sdp_media->connection.parsed) {
+				if (replace_network_address(chop, &sdp_media->connection.address, ps, flags))
 					goto error;
 			}
 
-			if (process_media_attributes(chop, &media->attributes, flags))
+			if (process_media_attributes(chop, sdp_media, flags, call_media))
 				goto error;
 
-			copy_up_to_end_of(chop, &media->s);
+			copy_up_to_end_of(chop, &sdp_media->s);
 
-			if (!media->port_num) {
-				if (!attr_get_by_id(&media->attributes, ATTR_INACTIVE))
-					chopper_append_c(chop, "a=inactive\r\n");
-				continue;
+			ps_rtcp = NULL;
+			if (ps->rtcp_sibling) {
+				ps_rtcp = ps->rtcp_sibling;
+				j = j->next;
+				if (!j)
+					goto error;
+				assert(j->data == ps_rtcp);
 			}
 
-			if (r_flags == 0) {
-				chopper_append_c(chop, "a=rtcp:");
-				chopper_append_printf(chop, "%hu", rtcp->fd.localport);
-				chopper_append_c(chop, "\r\n");
+			if (!sdp_media->port_num || !ps->sfd) {
+				chopper_append_c(chop, "a=inactive\r\n");
+				goto next;
 			}
-			else if (r_flags == 2) {
+
+			if (call_media->send && call_media->recv)
+				chopper_append_c(chop, "a=sendrecv\r\n");
+			else if (call_media->send && !call_media->recv)
+				chopper_append_c(chop, "a=sendonly\r\n");
+			else if (!call_media->send && call_media->recv)
+				chopper_append_c(chop, "a=recvonly\r\n");
+			else
+				chopper_append_c(chop, "a=inactive\r\n");
+
+			if (call_media->rtcp_mux && flags->opmode == OP_ANSWER) {
 				chopper_append_c(chop, "a=rtcp:");
-				chopper_append_printf(chop, "%hu", rtp->fd.localport);
+				chopper_append_printf(chop, "%hu", ps->sfd->fd.localport);
 				chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+				ps_rtcp = NULL;
+			}
+			else if (ps_rtcp) {
+				chopper_append_c(chop, "a=rtcp:");
+				chopper_append_printf(chop, "%hu", ps_rtcp->sfd->fd.localport);
+				if (!call_media->rtcp_mux)
+					chopper_append_c(chop, "\r\n");
+				else
+					chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
 			}
 
-			generate_crypto(media, flags, rtp, rtcp, chop);
+			insert_crypto(call_media, chop);
+			insert_dtls(call_media, chop);
 
 			if (do_ice) {
-				mutex_lock(&rtp->up->up->lock);
-				if (!rtp->up->ice_ufrag.s) {
-					create_random_ice_string(call, &rtp->up->ice_ufrag, 8);
-					create_random_ice_string(call, &rtp->up->ice_pwd, 28);
+				if (!call_media->ice_ufrag.s) {
+					create_random_ice_string(call, &call_media->ice_ufrag, 8);
+					create_random_ice_string(call, &call_media->ice_pwd, 28);
 				}
-				rtp->stun = 1;
-				mutex_unlock(&rtp->up->up->lock);
-
-				mutex_lock(&rtcp->up->up->lock);
-				if (rtp->up != rtcp->up && !rtcp->up->ice_ufrag.s) {
-					/* safe to read */
-					rtcp->up->ice_ufrag = rtp->up->ice_ufrag;
-					rtcp->up->ice_pwd = rtp->up->ice_pwd;
-				}
-				rtcp->stun = 1;
-				mutex_unlock(&rtcp->up->up->lock);
+				ps->stun = 1;
+				if (ps_rtcp)
+					ps_rtcp->stun = 1;
 
 				chopper_append_c(chop, "a=ice-ufrag:");
-				chopper_append_str(chop, &rtp->up->ice_ufrag);
+				chopper_append_str(chop, &call_media->ice_ufrag);
 				chopper_append_c(chop, "\r\na=ice-pwd:");
-				chopper_append_str(chop, &rtp->up->ice_pwd);
+				chopper_append_str(chop, &call_media->ice_pwd);
 				chopper_append_c(chop, "\r\n");
 			}
 
 			if (!flags->ice_remove) {
-				priority = new_priority(flags->ice_force ? NULL : media);
+				priority = new_priority(flags->ice_force ? NULL : sdp_media);
 
-				insert_candidates(chop, rtp, (r_flags == 2) ? NULL : rtcp,
-						priority, media);
+				insert_candidates(chop, ps, ps_rtcp,
+						priority, sdp_media);
 
-				if (callmaster_has_ipv6(rtp->up->up->call->callmaster)) {
+				if (callmaster_has_ipv6(call->callmaster)) {
 					priority -= 256;
-					insert_candidates_alt(chop, rtp, (r_flags == 2) ? NULL : rtcp,
-							priority, media);
+					insert_candidates_alt(chop, ps, ps_rtcp,
+							priority, sdp_media);
 				}
 			}
+
+next:
+			media_index++;
+			m = m->next;
 		}
 	}
 
@@ -1597,7 +1734,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call *call,
 	return 0;
 
 error:
-	mylog(LOG_ERROR, "Error rewriting SDP");
+	ilog(LOG_ERROR, "Error rewriting SDP");
 	return -1;
 }
 

@@ -10,6 +10,8 @@
 #include "poller.h"
 #include "aux.h"
 #include "str.h"
+#include "log.h"
+#include "obj.h"
 
 struct udp_listener_callback {
 	struct obj obj;
@@ -26,7 +28,7 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 	struct sockaddr_in6 sin;
 	socklen_t sin_len;
 	int len;
-	char buf[8192];
+	char buf[0x10000];
 	char addr[64];
 	str str;
 
@@ -39,7 +41,7 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 			if (errno == EINTR)
 				continue;
 			if (errno != EWOULDBLOCK && errno != EAGAIN)
-				mylog(LOG_WARNING, "Error reading from UDP socket");
+				ilog(LOG_WARNING, "Error reading from UDP socket");
 			return;
 		}
 
@@ -58,7 +60,7 @@ int udp_listener_init(struct udp_listener *u, struct poller *p, struct in6_addr 
 
 	cb = obj_alloc("udp_listener_callback", sizeof(*cb), NULL);
 	cb->func = func;
-	cb->p = obj_get(obj);
+	cb->p = obj_get_o(obj);
 
 	u->fd = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (u->fd == -1)
@@ -88,7 +90,7 @@ int udp_listener_init(struct udp_listener *u, struct poller *p, struct in6_addr 
 fail:
 	if (u->fd != -1)
 		close(u->fd);
-	obj_put(obj);
-	obj_put(&cb->obj);
+	obj_put_o(obj);
+	obj_put(cb);
 	return -1;
 }

@@ -11,7 +11,7 @@
 #define STUN_COOKIE 0x2112A442UL
 
 
-static inline int is_stun(str *s) {
+static inline int is_stun(const str *s) {
 	const unsigned char *b = (const void *) s->s;
 	const u_int32_t *u;
 
@@ -29,7 +29,7 @@ static inline int is_stun(str *s) {
 }
 
 
-int stun(str *, struct streamrelay *, struct sockaddr_in6 *);
+int stun(str *, struct packet_stream *, struct sockaddr_in6 *);
 
 
 #endif

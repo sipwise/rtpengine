@@ -56,7 +56,7 @@ static void control_stream_closed(int fd, void *p, uintptr_t u) {
 	struct control_tcp *c;
 	GList *l = NULL;
 
-	mylog(LOG_INFO, "Control connection from " DF " closed", DP(s->inaddr));
+	ilog(LOG_INFO, "Control connection from " DF " closed", DP(s->inaddr));
 
 	c = s->control;
 
@@ -105,11 +105,11 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 
 	ret = pcre_exec(c->parse_re, c->parse_ree, line, strlen(line), 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
-		mylog(LOG_WARNING, "Unable to parse command line from " DF ": %s", DP(s->inaddr), line);
+		ilog(LOG_WARNING, "Unable to parse command line from " DF ": %s", DP(s->inaddr), line);
 		return -1;
 	}
 
-	mylog(LOG_INFO, "Got valid command from " DF ": %s", DP(s->inaddr), line);
+	ilog(LOG_INFO, "Got valid command from " DF ": %s", DP(s->inaddr), line);
 
 	pcre_get_substring_list(line, ovec, ret, (const char ***) &out);
 
@@ -137,6 +137,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	}
 
 	pcre_free(out);
+	log_info_clear();
 	return -1;
 }
 
@@ -166,7 +167,7 @@ static void control_stream_readable(int fd, void *p, uintptr_t u) {
 
 	while ((line = streambuf_getline(s->inbuf))) {
 		mutex_unlock(&s->lock);
-		mylog(LOG_DEBUG, "Got control line from " DF ": %s", DP(s->inaddr), line);
+		ilog(LOG_DEBUG, "Got control line from " DF ": %s", DP(s->inaddr), line);
 		ret = control_stream_parse(s, line);
 		free(line);
 		if (ret)
@@ -175,7 +176,7 @@ static void control_stream_readable(int fd, void *p, uintptr_t u) {
 	}
 
 	if (streambuf_bufsize(s->inbuf) > 1024) {
-		mylog(LOG_WARNING, "Buffer length exceeded in control connection from " DF, DP(s->inaddr));
+		ilog(LOG_WARNING, "Buffer length exceeded in control connection from " DF, DP(s->inaddr));
 		goto close;
 	}
 
@@ -226,7 +227,7 @@ next:
 	}
 	nonblock(nfd);
 
-	mylog(LOG_INFO, "New control connection from " DF, DP(sin));
+	ilog(LOG_INFO, "New control connection from " DF, DP(sin));
 
 	s = obj_alloc0("control_stream", sizeof(*s), control_stream_free);
 

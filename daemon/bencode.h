@@ -72,6 +72,9 @@ struct bencode_buffer {
  * Returns 0 on success or -1 on failure (if no memory could be allocated). */
 int bencode_buffer_init(bencode_buffer_t *buf);
 
+/* Allocate a piece of memory from the given buffer object */
+void *bencode_buffer_alloc(bencode_buffer_t *, unsigned int);
+
 /* Destroys a previously initialized bencode_buffer_t object. All memory used by the object is freed
  * and all objects created through it become invalid. */
 void bencode_buffer_free(bencode_buffer_t *buf);

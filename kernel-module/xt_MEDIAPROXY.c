@@ -33,7 +33,7 @@ MODULE_LICENSE("GPL");
 
 
 #define MAX_ID 64 /* - 1 */
-#define MAX_SKB_TAIL_ROOM (128 + 20)
+#define MAX_SKB_TAIL_ROOM (sizeof(((struct mediaproxy_srtp *) 0)->mki) + 20)
 
 #define MIPF		"%i:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%u"
 #define MIPP(x)		(x).family,		\
@@ -945,8 +945,11 @@ static void proc_list_crypto_print(struct seq_file *f, struct mp_crypto_context 
 		if (!hdr++)
 			seq_printf(f, "    SRTP %s parameters:\n", label);
 		seq_printf(f, "        cipher: %s\n", c->cipher->name ? : "<invalid>");
-		if (s->mki || s->mki_len)
-			seq_printf(f, "            MKI: %llu length %u\n", (unsigned long long) s->mki, s->mki_len);
+		if (s->mki_len)
+			seq_printf(f, "            MKI: length %u, %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x...\n",
+					s->mki_len,
+					s->mki[0], s->mki[1], s->mki[2], s->mki[3],
+					s->mki[4], s->mki[5], s->mki[6], s->mki[7]);
 	}
 	if (c->hmac && c->hmac->id != MPH_NULL) {
 		if (!hdr++)
@@ -1064,7 +1067,7 @@ static int validate_srtp(struct mediaproxy_srtp *s) {
 		return -1;
 	if (s->auth_tag_len > 20)
 		return -1;
-	if (s->mki_len > 128)
+	if (s->mki_len > sizeof(s->mki))
 		return -1;
 	return 0;
 }
@@ -1930,29 +1933,13 @@ error:
 
 /* XXX shared code */
 static void rtp_append_mki(struct rtp_parsed *r, struct mediaproxy_srtp *c) {
-	u_int32_t mki_part;
 	unsigned char *p;
 
 	if (!c->mki_len)
 		return;
 
 	p = r->payload + r->payload_len;
-	memset(p, 0, c->mki_len);
-	if (c->mki_len > 4) {
-		mki_part = (c->mki & 0xffffffff00000000ULL) >> 32;
-		mki_part = htonl(mki_part);
-		if (c->mki_len < 8)
-			memcpy(p, ((char *) &mki_part) + (8 - c->mki_len), c->mki_len - 4);
-		else
-			memcpy(p + (c->mki_len - 8), &mki_part, 4);
-	}
-	mki_part = (c->mki & 0xffffffffULL);
-	mki_part = htonl(mki_part);
-	if (c->mki_len < 4)
-		memcpy(p, ((char *) &mki_part) + (4 - c->mki_len), c->mki_len);
-	else
-		memcpy(p + (c->mki_len - 4), &mki_part, 4);
-
+	memcpy(p, c->mki, c->mki_len);
 	r->payload_len += c->mki_len;
 }
 
@@ -2096,6 +2083,14 @@ static inline int is_muxed_rtcp(struct rtp_parsed *r) {
 	return 1;
 }
 
+static inline int is_dtls(struct rtp_parsed *r) {
+	if (r->header->m_pt < 20)
+		return 0;
+	if (r->header->m_pt > 63)
+		return 0;
+	return 1;
+}
+
 static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t) {
 	struct udphdr *uh;
 	struct mediaproxy_target *g;
@@ -2146,6 +2141,8 @@ not_stun:
 	if (parse_rtp(&rtp, skb))
 		goto skip1;
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
+		goto skip1;
+	if (g->target.dtls && is_dtls(&rtp))
 		goto skip1;
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))

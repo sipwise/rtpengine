@@ -15,6 +15,13 @@
 #include <pthread.h>
 #include <sys/resource.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+
+
+#if 0 && defined(__DEBUG)
+#define __THREAD_DEBUG 1
+#endif
 
 
 
@@ -64,6 +71,16 @@ static inline int g_hash_table_contains(GHashTable *h, const void *k) {
 	return g_hash_table_lookup(h, k) ? 1 : 0;
 }
 #endif
+
+static inline void g_queue_move(GQueue *dst, GQueue *src) {
+	GList *l;
+	while ((l = g_queue_pop_head_link(src)))
+		g_queue_push_tail_link(dst, l);
+}
+static inline void g_queue_truncate(GQueue *q, unsigned int len) {
+	while (q->length > len)
+		g_queue_pop_tail(q);
+}
 
 
 static inline void strmove(char **d, char **s) {
@@ -192,30 +209,130 @@ static inline int strmemcmp(const void *mem, int len, const char *str) {
 	return memcmp(mem, str, len);
 }
 
+/* XXX replace with better source of randomness */
+static inline void random_string(unsigned char *buf, int len) {
+	while (len--)
+		*buf++ = random() % 0x100;
+}
+
 
 
 typedef pthread_mutex_t mutex_t;
 typedef pthread_rwlock_t rwlock_t;
 typedef pthread_cond_t cond_t;
 
-#define mutex_init(m) pthread_mutex_init(m, NULL)
-#define mutex_destroy(m) pthread_mutex_destroy(m)
-#define mutex_lock(m) pthread_mutex_lock(m)
-#define mutex_trylock(m) pthread_mutex_trylock(m)
-#define mutex_unlock(m) pthread_mutex_unlock(m)
+#define mutex_init(m) __debug_mutex_init(m, __FILE__, __LINE__)
+#define mutex_destroy(m) __debug_mutex_destroy(m, __FILE__, __LINE__)
+#define mutex_lock(m) __debug_mutex_lock(m, __FILE__, __LINE__)
+#define mutex_trylock(m) __debug_mutex_trylock(m, __FILE__, __LINE__)
+#define mutex_unlock(m) __debug_mutex_unlock(m, __FILE__, __LINE__)
 #define MUTEX_STATIC_INIT PTHREAD_MUTEX_INITIALIZER
 
-#define rwlock_init(l) pthread_rwlock_init(l, NULL)
-#define rwlock_lock_r(l) pthread_rwlock_rdlock(l)
-#define rwlock_unlock_r(l) pthread_rwlock_unlock(l)
-#define rwlock_lock_w(l) pthread_rwlock_wrlock(l)
-#define rwlock_unlock_w(l) pthread_rwlock_unlock(l)
+#define rwlock_init(l) __debug_rwlock_init(l, __FILE__, __LINE__)
+#define rwlock_destroy(l) __debug_rwlock_destroy(l, __FILE__, __LINE__)
+#define rwlock_lock_r(l) __debug_rwlock_lock_r(l, __FILE__, __LINE__)
+#define rwlock_unlock_r(l) __debug_rwlock_unlock_r(l, __FILE__, __LINE__)
+#define rwlock_lock_w(l) __debug_rwlock_lock_w(l, __FILE__, __LINE__)
+#define rwlock_unlock_w(l) __debug_rwlock_unlock_w(l, __FILE__, __LINE__)
 
-#define cond_init(c) pthread_cond_init(c, NULL)
-#define cond_wait(c,m) pthread_cond_wait(c,m)
-#define cond_signal(c) pthread_cond_signal(c)
-#define cond_broadcast(c) pthread_cond_broadcast(c)
+#define cond_init(c) __debug_cond_init(c, __FILE__, __LINE__)
+#define cond_wait(c,m) __debug_cond_wait(c,m, __FILE__, __LINE__)
+#define cond_signal(c) __debug_cond_signal(c, __FILE__, __LINE__)
+#define cond_broadcast(c) __debug_cond_broadcast(c, __FILE__, __LINE__)
 #define COND_STATIC_INIT PTHREAD_COND_INITIALIZER
+
+#ifndef __THREAD_DEBUG
+
+#define __debug_mutex_init(m, F, L) pthread_mutex_init(m, NULL)
+#define __debug_mutex_destroy(m, F, L) pthread_mutex_destroy(m)
+#define __debug_mutex_lock(m, F, L) pthread_mutex_lock(m)
+#define __debug_mutex_trylock(m, F, L) pthread_mutex_trylock(m)
+#define __debug_mutex_unlock(m, F, L) pthread_mutex_unlock(m)
+
+#define __debug_rwlock_init(l, F, L) pthread_rwlock_init(l, NULL)
+#define __debug_rwlock_destroy(l, F, L) pthread_rwlock_destroy(l)
+#define __debug_rwlock_lock_r(l, F, L) pthread_rwlock_rdlock(l)
+#define __debug_rwlock_unlock_r(l, F, L) pthread_rwlock_unlock(l)
+#define __debug_rwlock_lock_w(l, F, L) pthread_rwlock_wrlock(l)
+#define __debug_rwlock_unlock_w(l, F, L) pthread_rwlock_unlock(l)
+
+#define __debug_cond_init(c, F, L) pthread_cond_init(c, NULL)
+#define __debug_cond_wait(c, m, F, L) pthread_cond_wait(c,m)
+#define __debug_cond_signal(c, F, L) pthread_cond_signal(c)
+#define __debug_cond_broadcast(c, F, L) pthread_cond_broadcast(c)
+
+#else
+
+
+#include "log.h"
+
+
+
+static inline int __debug_mutex_init(mutex_t *m, const char *file, unsigned int line) {
+	mylog(LOG_DEBUG, "mutex_init(%p) at %s:%u", m, file, line);
+	return pthread_mutex_init(m, NULL);
+}
+static inline int __debug_mutex_destroy(mutex_t *m, const char *file, unsigned int line) {
+	mylog(LOG_DEBUG, "mutex_destroy(%p) at %s:%u", m, file, line);
+	return pthread_mutex_destroy(m);
+}
+static inline int __debug_mutex_lock(mutex_t *m, const char *file, unsigned int line) {
+	int ret;
+	mylog(LOG_DEBUG, "mutex_lock(%p) at %s:%u ...", m, file, line);
+	ret = pthread_mutex_lock(m);
+	mylog(LOG_DEBUG, "mutex_lock(%p) at %s:%u returning %i", m, file, line, ret);
+	return ret;
+}
+static inline int __debug_mutex_trylock(mutex_t *m, const char *file, unsigned int line) {
+	int ret;
+	mylog(LOG_DEBUG, "mutex_trylock(%p) at %s:%u ...", m, file, line);
+	ret = pthread_mutex_trylock(m);
+	mylog(LOG_DEBUG, "mutex_trylock(%p) at %s:%u returning %i", m, file, line, ret);
+	return ret;
+}
+static inline int __debug_mutex_unlock(mutex_t *m, const char *file, unsigned int line) {
+	mylog(LOG_DEBUG, "mutex_unlock(%p) at %s:%u", m, file, line);
+	return pthread_mutex_unlock(m);
+}
+
+static inline int __debug_rwlock_init(rwlock_t *m, const char *file, unsigned int line) {
+	mylog(LOG_DEBUG, "rwlock_init(%p) at %s:%u", m, file, line);
+	return pthread_rwlock_init(m, NULL);
+}
+static inline int __debug_rwlock_destroy(rwlock_t *m, const char *file, unsigned int line) {
+	mylog(LOG_DEBUG, "rwlock_destroy(%p) at %s:%u", m, file, line);
+	return pthread_rwlock_destroy(m);
+}
+static inline int __debug_rwlock_lock_r(rwlock_t *m, const char *file, unsigned int line) {
+	int ret;
+	mylog(LOG_DEBUG, "rwlock_lock_r(%p) at %s:%u ...", m, file, line);
+	ret = pthread_rwlock_rdlock(m);
+	mylog(LOG_DEBUG, "rwlock_lock_r(%p) at %s:%u returning %i", m, file, line, ret);
+	return ret;
+}
+static inline int __debug_rwlock_lock_w(rwlock_t *m, const char *file, unsigned int line) {
+	int ret;
+	mylog(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u ...", m, file, line);
+	ret = pthread_rwlock_wrlock(m);
+	mylog(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u returning %i", m, file, line, ret);
+	return ret;
+}
+static inline int __debug_rwlock_unlock_r(rwlock_t *m, const char *file, unsigned int line) {
+	mylog(LOG_DEBUG, "rwlock_unlock_r(%p) at %s:%u", m, file, line);
+	return pthread_rwlock_unlock(m);
+}
+static inline int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int line) {
+	mylog(LOG_DEBUG, "rwlock_unlock_w(%p) at %s:%u", m, file, line);
+	return pthread_rwlock_unlock(m);
+}
+
+#define __debug_cond_init(c, F, L) pthread_cond_init(c, NULL)
+#define __debug_cond_wait(c, m, F, L) pthread_cond_wait(c,m)
+#define __debug_cond_signal(c, F, L) pthread_cond_signal(c)
+#define __debug_cond_broadcast(c, F, L) pthread_cond_broadcast(c)
+
+#endif
+
 
 
 void threads_join_all(int);

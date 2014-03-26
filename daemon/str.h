@@ -45,6 +45,8 @@ static inline int str_cmp_str0(const str *a, const str *b);
 static inline str *str_init(str *out, char *s);
 /* inits a str object from any binary string. returns out */
 static inline str *str_init_len(str *out, char *s, int len);
+static inline str *str_init_len_assert_len(str *out, char *s, int buflen, int len);
+#define str_init_len_assert(out, s, len) str_init_len_assert_len(out, s, sizeof(s), len)
 /* returns new str object allocated with malloc, including buffer */
 static inline str *str_dup(const str *s);
 /* returns new str object allocated from chunk, including buffer */
@@ -140,6 +142,10 @@ static inline str *str_init_len(str *out, char *s, int len) {
 	out->s = s;
 	out->len = len;
 	return out;
+}
+static inline str *str_init_len_assert_len(str *out, char *s, int buflen, int len) {
+	assert(buflen >= len);
+	return str_init_len(out, s, len);
 }
 static inline str *str_dup(const str *s) {
 	str *r;

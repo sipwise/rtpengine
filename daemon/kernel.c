@@ -85,7 +85,7 @@ int kernel_add_stream(int fd, struct mediaproxy_target_info *mti, int update) {
 	if (ret > 0)
 		return 0;
 
-	mylog(LOG_ERROR, "Failed to push relay stream to kernel: %s", strerror(errno));
+	ilog(LOG_ERROR, "Failed to push relay stream to kernel: %s", strerror(errno));
 	return -1;
 }
 
@@ -102,7 +102,7 @@ int kernel_del_stream(int fd, u_int16_t p) {
 	if (ret > 0)
 		return 0;
 
-	mylog(LOG_ERROR, "Failed to delete relay stream from kernel: %s", strerror(errno));
+	ilog(LOG_ERROR, "Failed to delete relay stream from kernel: %s", strerror(errno));
 	return -1;
 }
 

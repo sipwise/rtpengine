@@ -26,6 +26,11 @@ GetOptions(
 	'sdp=s'				=> \$options{'sdp'},
 	'sdp-file=s'			=> \$options{'sdp-file'},
 	'ICE=s'				=> \$options{'ICE'},
+	'rtcp-mux-offer'		=> \$options{'rtcp-mux-offer'},
+	'rtcp-mux-demux'		=> \$options{'rtcp-mux-demux'},
+	'rtcp-mux-accept'		=> \$options{'rtcp-mux-accept'},
+	'rtcp-mux-reject'		=> \$options{'rtcp-mux-reject'},
+	'address-family=s'		=> \$options{'address family'},
 	'force'				=> \$options{'force'},
 	'v|verbose'			=> \$options{'verbose'},
 ) or die;
@@ -34,7 +39,7 @@ my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE')) {
+for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
 for my $x (split(',', 'trust address,symmetric,asymmetric,force')) {
@@ -42,6 +47,9 @@ for my $x (split(',', 'trust address,symmetric,asymmetric,force')) {
 }
 for my $x (split(',', 'origin,session connection')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
+}
+for my $x (split(',', 'offer,demux,accept,reject')) {
+	defined($options{'rtcp-mux-' . $x}) and push(@{$packet{'rtcp-mux'}}, $x);
 }
 
 if (defined($options{sdp})) {

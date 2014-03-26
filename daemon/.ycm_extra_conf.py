@@ -21,6 +21,7 @@ flags = [
 '-pthread',
 '-I../kernel-module/',
 '-D_GNU_SOURCE',
+'-D__DEBUG=1',
 '-DMEDIAPROXY_VERSION="dummy"',
 '-DMP_PLUGIN_DIR="/usr/lib/mediaproxy-ng"',
 '-O2',
