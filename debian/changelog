@@ -1,8 +1,8 @@
-ngcp-mediaproxy-ng (2.3.7.0+0~mr3.2.2.0) unstable; urgency=low
+ngcp-mediaproxy-ng (2.3.6.1) unstable; urgency=low
 
-  * New release.
+  * fix answer silencing case
 
- -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 21 Mar 2014 17:31:05 +0100
+ -- Richard Fuchs <rfuchs@sipwise.com>  Thu, 27 Mar 2014 11:29:19 -0400
 
 ngcp-mediaproxy-ng (2.3.6+0~mr3.2.1) unstable; urgency=low
 
