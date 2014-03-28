@@ -362,7 +362,7 @@ static void init_everything() {
 #if !GLIB_CHECK_VERSION(2,32,0)
 	g_thread_init(NULL);
 #endif
-	openlog("mediaproxy-ng", LOG_PID | LOG_NDELAY, LOG_DAEMON);
+	openlog("rtpengine", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 	signals();
 	resources();
 	sdp_init();

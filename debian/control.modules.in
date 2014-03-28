@@ -1,4 +1,4 @@
-Source: ngcp-mediaproxy-ng-kernel
+Source: ngcp-rtpengine-kernel
 Section: kernel
 Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
@@ -6,10 +6,10 @@ Build-Depends: debhelper (>= 5)
 Standards-Version: 3.9.3
 Homepage: http://sipwise.com/
 
-Package: ngcp-mediaproxy-ng-kernel-modules-_KVERS_
+Package: ngcp-rtpengine-kernel-modules-_KVERS_
 Architecture: any
 Depends: linux-modules-_KVERS_ | linux-image-_KVERS_
-Provides: ngcp-mediaproxy-ng-kernel
+Provides: ngcp-rtpengine-kernel
 Description: TODO
- This package provides the ngcp-mediaproxy-ng module for
+ This package provides the ngcp-rtpengine module for
  the Linux kernel version _KVERS_.

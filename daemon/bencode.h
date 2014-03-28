@@ -13,7 +13,7 @@
 # define BENCODE_FREE pkg_free
 # endif
 #else
-/* mediaproxy-ng */
+/* rtpengine */
 # include "str.h"
 # ifndef BENCODE_MALLOC
 # define BENCODE_MALLOC malloc

@@ -900,14 +900,14 @@ retry:
 		for (i = 0; i < 100; i++)
 			close(i);
 
-		openlog("mediaproxy-ng/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
+		openlog("rtpengine/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 		ilog(LOG_INFO, "Initiating XMLRPC call for tag "STR_FORMAT"", STR_FMT(tag));
 
 		alarm(5);
 
 		xmlrpc_env_init(&e);
 		xmlrpc_client_setup_global_const(&e);
-		xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-mediaproxy-ng", MEDIAPROXY_VERSION,
+		xmlrpc_client_create(&e, XMLRPC_CLIENT_NO_FLAGS, "ngcp-rtpengine", MEDIAPROXY_VERSION,
 			NULL, 0, &c);
 		if (e.fault_occurred)
 			goto fault;

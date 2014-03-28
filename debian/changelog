@@ -1,5 +1,6 @@
-ngcp-mediaproxy-ng (2.9.9) unstable; urgency=low
+ngcp-rtpengine (2.9.9) unstable; urgency=low
 
+  * Rename from mediaproxy-ng to rtpengine
   * Complete rewrite of internal media streams handling
   * Support for DTLS-SRTP
   * Support for unBUNDLE

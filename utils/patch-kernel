@@ -38,15 +38,15 @@ if ! grep -q CONFIG_NETFILTER_XT_TARGET_MEDIAPROXY "$KERN"/net/netfilter/Makefil
 	) >> "$KERN"/net/netfilter/Makefile
 fi
 
-if ! grep -q Kconfig\\.mediaproxy-ng "$KERN"/net/netfilter/Kconfig; then
-	cat >> "$KERN"/net/netfilter/Kconfig.mediaproxy-ng << \__EOF
+if ! grep -q Kconfig\\.rtpengine "$KERN"/net/netfilter/Kconfig; then
+	cat >> "$KERN"/net/netfilter/Kconfig.rtpengine << \__EOF
 config NETFILTER_XT_TARGET_MEDIAPROXY
 	tristate "Sipwise NGCP MEDIAPROXY target support"
 	depends on IP_NF_FILTER
 	help
-	  Sipwise NGCP mediaproxy-ng kernel support
+	  Sipwise NGCP rtpengine kernel support
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 __EOF
-	echo 'source "net/netfilter/Kconfig.mediaproxy-ng"' >> "$KERN"/net/netfilter/Kconfig
+	echo 'source "net/netfilter/Kconfig.rtpengine"' >> "$KERN"/net/netfilter/Kconfig
 fi

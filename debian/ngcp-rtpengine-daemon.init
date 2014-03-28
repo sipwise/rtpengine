@@ -1,6 +1,6 @@
 #! /bin/sh
 ### BEGIN INIT INFO
-# Provides:          ngcp-mediaproxy-ng-daemon
+# Provides:          ngcp-rtpengine-daemon
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
@@ -11,7 +11,7 @@
 
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-NAME=ngcp-mediaproxy-ng-daemon
+NAME=ngcp-rtpengine-daemon
 DESC="RTP/media proxy"
 RUN_MEDIAPROXY=no
 TABLE=0
@@ -21,7 +21,7 @@ case $(dirname $0) in
         *)  FULLPATH=$(pwd)/$(dirname $0);;
 esac
 
-DAEMON=`which mediaproxy-ng`
+DAEMON=`which rtpengine`
 DEFAULTS=/etc/default/${NAME}
 
 test -f $DAEMON || exit 0
@@ -32,10 +32,10 @@ if [ -f $DEFAULTS ]; then
 fi
 
 if [ "$RUN_MEDIAPROXY" != "yes" ]; then
-    echo "mediaproxy-ng not yet configured. Edit $DEFAULTS first."
+    echo "rtpengine not yet configured. Edit $DEFAULTS first."
     exit 0
 fi
-[ -z "$PIDFILE" ] && PIDFILE="/var/run/mediaproxy-ng.pid"
+[ -z "$PIDFILE" ] && PIDFILE="/var/run/rtpengine.pid"
 
 set -e
 

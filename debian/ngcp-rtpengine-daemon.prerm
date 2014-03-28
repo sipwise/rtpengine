@@ -1,11 +1,11 @@
 #!/bin/sh
-# prerm script for ngcp-mediaproxy-ng-daemon
+# prerm script for ngcp-rtpengine-daemon
 
 set -e
 
 stop_handler() {
-  if [ -x "/etc/init.d/ngcp-mediaproxy-ng-daemon" ]; then
-    invoke-rc.d ngcp-mediaproxy-ng-daemon stop || exit $?
+  if [ -x "/etc/init.d/ngcp-rtpengine-daemon" ]; then
+    invoke-rc.d ngcp-rtpengine-daemon stop || exit $?
   fi
 }
 
@@ -17,7 +17,7 @@ stop_daemon() {
   else
     case "$2" in
       upgrade)
-	echo "Detected upgrade procedure, not stopping ngcp-mediaproxy-ng-daemon service."
+	echo "Detected upgrade procedure, not stopping ngcp-rtpengine-daemon service."
 	;;
       remove|purge)
         stop_handler

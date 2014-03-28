@@ -1,22 +1,22 @@
 #!/bin/sh
-# postinst script for ngcp-mediaproxy-ng-daemon
+# postinst script for ngcp-rtpengine-daemon
 
 set -e
 
 restart_handler() {
-  if [ -x "/etc/init.d/ngcp-mediaproxy-ng-daemon" ]; then
+  if [ -x "/etc/init.d/ngcp-rtpengine-daemon" ]; then
     if [ -x "$(which invoke-rc.d 2>/dev/null)" ]; then
-      invoke-rc.d ngcp-mediaproxy-ng-daemon restart || exit $?
+      invoke-rc.d ngcp-rtpengine-daemon restart || exit $?
     else
-      /etc/init.d/ngcp-mediaproxy-ng-daemon restart || exit $?
+      /etc/init.d/ngcp-rtpengine-daemon restart || exit $?
     fi
   fi
 }
 
 initscript_handler() {
-  if [ -x "/etc/init.d/ngcp-mediaproxy-ng-daemon" ]; then
-    update-rc.d ngcp-mediaproxy-ng-daemon defaults >/dev/null
-    invoke-rc.d ngcp-mediaproxy-ng-daemon start || exit $?
+  if [ -x "/etc/init.d/ngcp-rtpengine-daemon" ]; then
+    update-rc.d ngcp-rtpengine-daemon defaults >/dev/null
+    invoke-rc.d ngcp-rtpengine-daemon start || exit $?
   fi
 }
 
@@ -29,10 +29,10 @@ init_handler() {
     initscript_handler
   else # do not restart daemon on inactive node in pro systems
     if ngcp-check_active ; then
-      echo "Active node detected, restarting ngcp-mediaproxy-ng-daemon"
+      echo "Active node detected, restarting ngcp-rtpengine-daemon"
       restart_handler
     else
-      echo "Inactive node detected, ignoring request to restart ngcp-mediaproxy-ng-daemon"
+      echo "Inactive node detected, ignoring request to restart ngcp-rtpengine-daemon"
     fi
   fi
 }

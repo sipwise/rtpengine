@@ -17,7 +17,7 @@ else
     CFLAGS+=	-DMEDIAPROXY_VERSION="\"undefined\""
   endif
 endif
-CFLAGS+=	-DMP_PLUGIN_DIR="\"/usr/lib/mediaproxy-ng\""
+CFLAGS+=	-DMP_PLUGIN_DIR="\"/usr/lib/rtpengine\""
 
 #CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
 
@@ -54,7 +54,7 @@ OBJS=		$(SRCS:.c=.o)
 .PHONY:		all dep clean tests debug
 
 all:
-	$(MAKE) mediaproxy-ng
+	$(MAKE) rtpengine
 
 debug:
 	$(MAKE) DBG=yes all
@@ -62,12 +62,12 @@ debug:
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) mediaproxy-ng .depend core
+	rm -f $(OBJS) rtpengine .depend core
 
 .depend:	$(SRCS) Makefile
 	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
 
-mediaproxy-ng:	$(OBJS) .depend
+rtpengine:	$(OBJS) .depend
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
 

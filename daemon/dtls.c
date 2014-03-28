@@ -170,7 +170,7 @@ static int cert_init() {
 	/* common name */
 
 	if (!X509_NAME_add_entry_by_NID(name, NID_commonName, MBSTRING_UTF8,
-				(unsigned char *) "mediaproxy-ng", -1, -1, 0))
+				(unsigned char *) "rtpengine", -1, -1, 0))
 		goto err;
 
 	if (!X509_set_subject_name(x509, name))

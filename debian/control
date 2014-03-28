@@ -1,4 +1,4 @@
-Source: ngcp-mediaproxy-ng
+Source: ngcp-rtpengine
 Section: net
 Priority: extra
 Maintainer: Sipwise Development Team <support@sipwise.com>
@@ -15,69 +15,83 @@ Build-Depends: debhelper (>= 5),
 Standards-Version: 3.9.3
 Homepage: http://sipwise.com/
 
-Package: ngcp-mediaproxy-ng-daemon
+Package: ngcp-rtpengine-daemon
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
+Conflicts: ngcp-mediaproxy-ng-daemon
+Replaces: ngcp-mediaproxy-ng-daemon
 Description: Proxy for RTP and media streams used in NGCP, userspace part.
  This daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
 
-Package: ngcp-mediaproxy-ng-iptables
+Package: ngcp-rtpengine-iptables
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
+Conflicts: ngcp-mediaproxy-ng-iptables
+Replaces: ngcp-mediaproxy-ng-iptables
 Description: IPtables extension module for the kernel-space NGCP media proxy.
  Provides the IPtables extension needed to configure the mediaproxy rule.
 
-Package: ngcp-mediaproxy-ng
+Package: ngcp-rtpengine
 Architecture: all
-Depends: ngcp-mediaproxy-ng-daemon (>= ${source:Version}),
-         ngcp-mediaproxy-ng-iptables (>= ${source:Version}),
-         ngcp-mediaproxy-ng-kernel-dkms (>= ${source:Version})
+Depends: ngcp-rtpengine-daemon (>= ${source:Version}),
+         ngcp-rtpengine-iptables (>= ${source:Version}),
+         ngcp-rtpengine-kernel-dkms (>= ${source:Version})
+Conflicts: ngcp-mediaproxy-ng
+Replaces: ngcp-mediaproxy-ng
 Description: NGCP RTP/media proxy - meta package.
  This is a meta package for easy installation of all three parts of the NGCP
  media proxy. It will install the user-space daemon, the kernel-space IPtables
  module, and the IPtables extension module.
 
-Package: ngcp-mediaproxy-ng-kernel-source
+Package: ngcp-rtpengine-kernel-source
 Architecture: all
 Depends: debhelper (>= 5), module-assistant, ${misc:Depends}
+Conflicts: ngcp-mediaproxy-ng-kernel-source
+Replaces: ngcp-mediaproxy-ng-kernel-source
 Description: IPtables kernel module for the NGCP media proxy - source.
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
  This package contains the source to be built with module-assistant or
  kernel-package.
 
-Package: ngcp-mediaproxy-ng-kernel-dkms
+Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
 Depends: dkms (>= 1.95), ${misc:Depends}
+Conflicts: ngcp-mediaproxy-ng-kernel-dkms
+Replaces: ngcp-mediaproxy-ng-kernel-dkms
 Description: IPtables kernel module for the NGCP media proxy - DKMS.
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
  This package contains the source to be built with dkms.
 
-Package: ngcp-mediaproxy-ng-dev
+Package: ngcp-rtpengine-dev
 Architecture: all
 Section: libdevel
 Depends: ${misc:Depends}
-Description: Development files for mediaproxy-ng
- This package provides the header files of the mediaproxy-ng
+Conflicts: ngcp-mediaproxy-ng-dev
+Replaces: ngcp-mediaproxy-ng-dev
+Description: Development files for rtpengine
+ This package provides the header files of the rtpengine
  software.
  .
  Install this package if you wish to develop your own programs using
- mediaproxy-ng.
+ rtpengine.
 
-Package: ngcp-mediaproxy-ng-dbg
+Package: ngcp-rtpengine-dbg
 Architecture: any
 Section: debug
-Depends: ngcp-mediaproxy-ng-daemon (= ${binary:Version}),
-         ngcp-mediaproxy-ng-iptables (= ${binary:Version}),
+Depends: ngcp-rtpengine-daemon (= ${binary:Version}),
+         ngcp-rtpengine-iptables (= ${binary:Version}),
          ${misc:Depends}
-Description: debugging symbols for ngcp-mediaproxy-ng
- The ngcp-mediaproxy-ng daemon handles the first stages of proxying media streams and talks to
+Conflicts: ngcp-mediaproxy-ng-dbg
+Replaces: ngcp-mediaproxy-ng-dbg
+Description: debugging symbols for ngcp-rtpengine
+ The ngcp-rtpengine daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
  .
- ngcp-mediaproxy-ng-iptables provides the IPtables extension needed
+ ngcp-rtpengine-iptables provides the IPtables extension needed
  to configure the mediaproxy rule.
  .
- This package contains the debugging symbols for ngcp-mediaproxy-ng-daemon
- and ngcp-mediaproxy-ng-iptables
+ This package contains the debugging symbols for ngcp-rtpengine-daemon
+ and ngcp-rtpengine-iptables

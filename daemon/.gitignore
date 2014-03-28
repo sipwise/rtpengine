@@ -1,5 +1,6 @@
 .depend
 *.o
-mediaproxy-ng
+rtpengine
 core
+core.*
 .ycm_extra_conf.pyc

@@ -13,15 +13,15 @@ b=$(CURDIR)/debian
 
 ## kernel package specific stuff
 # Name of the source package
-psource:=ngcp-mediaproxy-ng-kernel-source
+psource:=ngcp-rtpengine-kernel-source
 # Name of the dkms package
-pdkms:=ngcp-mediaproxy-ng-kernel-dkms
+pdkms:=ngcp-rtpengine-kernel-dkms
 # short upstream name, used for module source directory
-sname:=ngcp-mediaproxy-ng
+sname:=ngcp-rtpengine
 # Source version
 sversion:=$(shell dpkg-parsechangelog|grep "^Version:"|cut -d" " -f2|rev|cut -d- -f2-|rev|cut -d':' -f2)
 
-PACKAGE=ngcp-mediaproxy-ng-kernel
+PACKAGE=ngcp-rtpengine-kernel
 MA_DIR ?= /usr/share/modass
 -include $(MA_DIR)/include/generic.make
 -include $(MA_DIR)/include/common-rules.make
@@ -46,7 +46,7 @@ clean:
 	cd daemon && $(MAKE) clean && cd ..
 	rm -f build-stamp
 	rm -f iptables-extension/libxt_MEDIAPROXY.so
-	rm -f daemon/mediaproxy-ng daemon/build_time.h daemon/.depend kernel-module/.xt_MEDIAPROXY.o.d
+	rm -f daemon/rtpengine daemon/build_time.h daemon/.depend kernel-module/.xt_MEDIAPROXY.o.d
 	rm -rf kernel-module/.tmp_versions
 	rm -f debian/README.html.gz debian/README.md.gz
 	dh_clean
@@ -90,7 +90,7 @@ install: build
 	dh_installchangelogs -p$@ -P$(b)/$@
 	dh_installinit       -p$@ -P$(b)/$@
 	dh_install           -p$@ -P$(b)/$@
-	dh_strip             --dbg-package=ngcp-mediaproxy-ng-dbg
+	dh_strip             --dbg-package=ngcp-rtpengine-dbg
 	dh_compress          -p$@ -P$(b)/$@
 	dh_fixperms          -p$@ -P$(b)/$@
 	dh_makeshlibs        -p$@ -P$(b)/$@ -V
@@ -103,16 +103,16 @@ install: build
 
 # Build architecture dependant packages
 binary-arch: install \
-	ngcp-mediaproxy-ng-daemon \
-	ngcp-mediaproxy-ng-dbg \
-	ngcp-mediaproxy-ng-iptables
+	ngcp-rtpengine-daemon \
+	ngcp-rtpengine-dbg \
+	ngcp-rtpengine-iptables
 
 # Build architecture independant packages
 binary-indep: build install \
-	ngcp-mediaproxy-ng \
-	ngcp-mediaproxy-ng-dev \
-	ngcp-mediaproxy-ng-kernel-dkms \
-	ngcp-mediaproxy-ng-kernel-source
+	ngcp-rtpengine \
+	ngcp-rtpengine-dev \
+	ngcp-rtpengine-kernel-dkms \
+	ngcp-rtpengine-kernel-source
 
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
