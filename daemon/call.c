@@ -1632,6 +1632,9 @@ found:
 					steal_peer(&cs->peers[0], &cs_o->peers[1]);
 					steal_peer(&cs->peers[1], &cs_o->peers[0]);
 				}
+				if (!IN6_ARE_ADDR_EQUAL(&matched_relay->peer_advertised.ip46, &t->stream.ip46)
+						|| matched_relay->peer_advertised.port != t->stream.port)
+					setup_peer(&cs->peers[0], t, tag);
 				setup_stream_families(cs, t, 0);
 				mutex_unlock(&cs_o->lock);
 			}
