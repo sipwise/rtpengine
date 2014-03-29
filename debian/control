@@ -68,7 +68,7 @@ Description: IPtables kernel module for the NGCP media proxy - DKMS.
 Package: ngcp-rtpengine-dev
 Architecture: all
 Section: libdevel
-Depends: ${misc:Depends}
+Depends: libglib2.0-dev, libpcre3-dev, libssl-dev (>= 1.0.1), ${misc: Depends}
 Conflicts: ngcp-mediaproxy-ng-dev
 Replaces: ngcp-mediaproxy-ng-dev
 Description: Development files for rtpengine
