@@ -299,11 +299,11 @@ void kernelize(struct packet_stream *stream) {
 	struct callmaster *cm = call->callmaster;
 	struct packet_stream *sink = NULL;
 
-	if (stream->kernelized)
+	if (PS_ISSET(stream, KERNELIZED))
 		return;
 	if (cm->conf.kernelfd < 0 || cm->conf.kernelid == -1)
 		goto no_kernel;
-	if (!stream->rtp)
+	if (!PS_ISSET(stream, RTP))
 		goto no_kernel;
 	if (!stream->sfd)
 		goto no_kernel;
@@ -334,8 +334,8 @@ void kernelize(struct packet_stream *stream) {
 	mpt.tos = cm->conf.tos;
 	mpt.src_addr.port = sink->sfd->fd.localport;
 	mpt.dst_addr.port = sink->endpoint.port;
-	mpt.rtcp_mux = stream->media->rtcp_mux;
-	mpt.dtls = stream->media->dtls;
+	mpt.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
+	mpt.dtls = MEDIA_ISSET(stream->media, DTLS);
 
 	if (IN6_IS_ADDR_V4MAPPED(&sink->endpoint.ip46)) {
 		mpt.src_addr.family = AF_INET;
@@ -363,13 +363,13 @@ void kernelize(struct packet_stream *stream) {
 	ZERO(stream->kernel_stats);
 
 	kernel_add_stream(cm->conf.kernelfd, &mpt, 0);
-	stream->kernelized = 1;
+	PS_SET(stream, KERNELIZED);
 
 	return;
 	
 no_kernel:
-	stream->kernelized = 1;
-	stream->no_kernel_support = 1;
+	PS_SET(stream, KERNELIZED);
+	PS_SET(stream, NO_KERNEL_SUPPORT);
 }
 
 
@@ -377,7 +377,7 @@ no_kernel:
 
 /* returns: 0 = not a muxed stream, 1 = muxed, RTP, 2 = muxed, RTCP */
 static int rtcp_demux(str *s, struct call_media *media) {
-	if (!media->rtcp_mux)
+	if (!MEDIA_ISSET(media, RTCP_MUX))
 		return 0;
 	return rtcp_demux_is_rtcp(s) ? 2 : 1;
 }
@@ -439,7 +439,7 @@ static void determine_handler(struct packet_stream *in, const struct packet_stre
 	const struct streamhandler **sh_pp, *sh;
 	const struct streamhandler ***matrix;
 
-	if (in->has_handler)
+	if (PS_ISSET(in, HAS_HANDLER))
 		return;
 
 	if (!in->media->protocol)
@@ -448,7 +448,7 @@ static void determine_handler(struct packet_stream *in, const struct packet_stre
 		goto err;
 
 	matrix = __sh_matrix;
-	if (in->media->dtls && out->media->dtls)
+	if (MEDIA_ISSET(in->media, DTLS) && MEDIA_ISSET(out->media, DTLS))
 		matrix = __sh_matrix_dtls;
 
 	sh_pp = matrix[in->media->protocol->index];
@@ -460,7 +460,7 @@ static void determine_handler(struct packet_stream *in, const struct packet_stre
 	in->handler = sh;
 
 done:
-	in->has_handler = 1;
+	PS_SET(in, HAS_HANDLER);
 	return;
 
 err:
@@ -534,13 +534,13 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	if (!stream->sfd)
 		goto done;
 
-	if (media->dtls && is_dtls(s)) {
+	if (MEDIA_ISSET(media, DTLS) && is_dtls(s)) {
 		ret = dtls(stream, s, fsin);
 		if (!ret)
 			goto done;
 	}
 
-	if (stream->stun && is_stun(s)) {
+	if (PS_ISSET(stream, STUN) && is_stun(s)) {
 		stun_ret = stun(s, stream, fsin);
 		if (!stun_ret)
 			goto done;
@@ -554,7 +554,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 
 	in_srtp = stream;
 	sink = stream->rtp_sink;
-	if (!sink && stream->rtcp) {
+	if (!sink && PS_ISSET(stream, RTCP)) {
 		sink = stream->rtcp_sink;
 		rtcp = 1;
 	}
@@ -612,13 +612,13 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	mutex_lock(&stream->in_lock);
 
 use_cand:
-	if (!stream->filled)
+	if (!PS_ISSET(stream, FILLED))
 		goto forward;
 
-	if (media->asymmetric)
-		stream->confirmed = 1;
+	if (MEDIA_ISSET(media, ASYMMETRIC))
+		PS_SET(stream, CONFIRMED);
 
-	if (stream->confirmed)
+	if (PS_ISSET(stream, CONFIRMED))
 		goto kernel_check;
 
 	if (!call->last_signal || poller_now <= call->last_signal + 3)
@@ -627,7 +627,7 @@ use_cand:
 	ilog(LOG_DEBUG, "Confirmed peer information for port %u - %s", 
 		sfd->fd.localport, addr);
 
-	stream->confirmed = 1;
+	PS_SET(stream, CONFIRMED);
 	update = 1;
 
 peerinfo:
@@ -651,10 +651,10 @@ peerinfo:
 	mutex_unlock(&stream->out_lock);
 
 kernel_check:
-	if (stream->no_kernel_support)
+	if (PS_ISSET(stream, NO_KERNEL_SUPPORT))
 		goto forward;
 
-	if (stream->confirmed && sink && sink->confirmed && sink->filled)
+	if (PS_ISSET(stream, CONFIRMED) && sink && PS_ISSET(sink, CONFIRMED) && PS_ISSET(sink, FILLED))
 		kernelize(stream);
 
 forward:
@@ -820,7 +820,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 		if (!sfd || !ps->media)
 			goto next;
 
-		if (ps->media->dtls && sfd->dtls.init && !sfd->dtls.connected)
+		if (MEDIA_ISSET(ps->media, DTLS) && sfd->dtls.init && !sfd->dtls.connected)
 			dtls(ps, NULL, NULL);
 
 		if (hlp->ports[sfd->fd.localport])
@@ -832,7 +832,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 			goto next;
 
 		check = cm->conf.timeout;
-		if (!ps->media->recv || !ps->sfd)
+		if (!MEDIA_ISSET(ps->media, RECV) || !ps->sfd)
 			check = cm->conf.silent_timeout;
 
 		if (poller_now - ps->last_packet < check)
@@ -1441,7 +1441,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *ep, u
 	if (memcmp(&ps->advertised_endpoint, &ps->endpoint, sizeof(ps->endpoint)))
 		crypto_reset(&ps->crypto);
 	ps->advertised_endpoint = ps->endpoint;
-	ps->filled = 1;
+	PS_SET(ps, FILLED);
 }
 
 static int __init_stream(struct packet_stream *ps) {
@@ -1450,21 +1450,23 @@ static int __init_stream(struct packet_stream *ps) {
 	int active;
 
 	if (ps->sfd) {
-		if (media->sdes)
+		if (MEDIA_ISSET(media, SDES))
 			crypto_init(&ps->sfd->crypto, &media->sdes_in.params);
 
-		if (media->dtls && !ps->fallback_rtcp) {
-			active = (ps->filled && media->setup_active);
+		if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
+			active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
 			dtls_connection_init(ps, active, call->dtls_cert);
 
-			if (!ps->fingerprint_verified && media->fingerprint.hash_func && ps->dtls_cert) {
+			if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
+					&& ps->dtls_cert)
+			{
 				if (dtls_verify_cert(ps))
 					return -1;
 			}
 		}
 	}
 
-	if (media->sdes)
+	if (MEDIA_ISSET(media, SDES))
 		crypto_init(&ps->crypto, &media->sdes_out.params);
 
 	return 0;
@@ -1485,7 +1487,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 
 		/* RTP */
 		a->rtp_sink = b;
-		a->rtp = 1;
+		PS_SET(a, RTP);
 
 		if (sp)
 			__fill_stream(a, &sp->rtp_endpoint, port_off);
@@ -1493,20 +1495,20 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 			return -1;
 
 		/* RTCP */
-		if (!B->rtcp_mux) {
+		if (!MEDIA_ISSET(B, RTCP_MUX)) {
 			lb = lb->next;
 			assert(lb != NULL);
 			b = lb->data;
 		}
 
-		if (!A->rtcp_mux) {
+		if (!MEDIA_ISSET(A, RTCP_MUX)) {
 			a->rtcp_sink = NULL;
-			a->rtcp = 0;
+			PS_CLEAR(a, RTCP);
 		}
 		else {
 			a->rtcp_sink = b;
-			a->rtcp = 1;
-			a->implicit_rtcp = 0;
+			PS_SET(a, RTCP);
+			PS_CLEAR(a, IMPLICIT_RTCP);
 		}
 
 		ax = a;
@@ -1519,21 +1521,21 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 
 		a->rtp_sink = NULL;
 		a->rtcp_sink = b;
-		a->rtp = 0;
-		a->rtcp = 1;
+		PS_CLEAR(a, RTP);
+		PS_SET(a, RTCP);
 		a->rtcp_sibling = NULL;
-		a->fallback_rtcp = ax->rtcp;
+		bf_copy(&a->ps_flags, PS_FLAG_FALLBACK_RTCP, &ax->ps_flags, PS_FLAG_RTCP);
 
 		ax->rtcp_sibling = a;
 
 		if (sp) {
-			if (!sp->implicit_rtcp) {
+			if (!SP_ISSET(sp, IMPLICIT_RTCP)) {
 				__fill_stream(a, &sp->rtcp_endpoint, port_off);
-				a->implicit_rtcp = 0;
+				PS_CLEAR(a, IMPLICIT_RTCP);
 			}
 			else {
 				__fill_stream(a, &sp->rtp_endpoint, port_off + 1);
-				a->implicit_rtcp = 1;
+				PS_SET(a, IMPLICIT_RTCP);
 			}
 		}
 		if (__init_stream(a))
@@ -1560,31 +1562,31 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 
 	if (!this->protocol || !this->protocol->srtp) {
 		cp->crypto_suite = NULL;
-		this->dtls = 0;
-		this->sdes = 0;
-		this->setup_passive = 0;
-		this->setup_active = 0;
+		MEDIA_CLEAR(this, DTLS);
+		MEDIA_CLEAR(this, SDES);
+		MEDIA_CLEAR(this, SETUP_PASSIVE);
+		MEDIA_CLEAR(this, SETUP_ACTIVE);
 		return;
 	}
 
 	if (flags->opmode == OP_OFFER) {
 		/* we use this to remember the peer's preference DTLS vs SDES */
-		if (!this->initialized) {
-			this->dtls = 1;
-			this->sdes = 1;
+		if (!MEDIA_ISSET(this, INITIALIZED)) {
+			MEDIA_SET(this, DTLS);
+			MEDIA_SET(this, SDES);
 		}
 		/* we always offer actpass */
-		this->setup_passive = 1;
-		this->setup_active = 1;
+		MEDIA_SET(this, SETUP_PASSIVE);
+		MEDIA_SET(this, SETUP_ACTIVE);
 	}
 	else {
 		/* if we can be active, we will, otherwise we'll be passive */
-		if (this->setup_active)
-			this->setup_passive = 0;
+		if (MEDIA_ISSET(this, SETUP_ACTIVE))
+			MEDIA_CLEAR(this, SETUP_PASSIVE);
 
 		/* if we're answering and doing DTLS, then skip the SDES stuff */
-		if (this->dtls) {
-			this->sdes = 0;
+		if (MEDIA_ISSET(this, DTLS)) {
+			MEDIA_CLEAR(this, SDES);
 			goto skip_sdes;
 		}
 	}
@@ -1636,8 +1638,8 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 	if (flags->opmode == OP_ANSWER) {
 		/* default is to go with the client's choice, unless we were instructed not
 		 * to do that in the offer (see below) */
-		if (!media->rtcp_mux_override)
-			media->rtcp_mux = other_media->rtcp_mux;
+		if (!MEDIA_ISSET(media, RTCP_MUX_OVERRIDE))
+			bf_copy_same(&media->media_flags, &other_media->media_flags, MEDIA_FLAG_RTCP_MUX);
 
 		return;
 	}
@@ -1648,27 +1650,27 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 
 	/* default is to pass through the client's choice, unless our peer is already
 	 * talking rtcp-mux, then we stick to that */
-	if (!media->rtcp_mux)
-		media->rtcp_mux = other_media->rtcp_mux;
+	if (!MEDIA_ISSET(media, RTCP_MUX))
+		bf_copy_same(&media->media_flags, &other_media->media_flags, MEDIA_FLAG_RTCP_MUX);
 	/* in our offer, we can override the client's choice */
 	if (flags->rtcp_mux_offer)
-		media->rtcp_mux = 1;
+		MEDIA_SET(media, RTCP_MUX);
 	else if (flags->rtcp_mux_demux)
-		media->rtcp_mux = 0;
+		MEDIA_CLEAR(media, RTCP_MUX);
 
 	/* we can also control what's going to happen in the answer. it
 	 * depends on what was offered, but by default we go with the other
 	 * client's choice */
-	other_media->rtcp_mux_override = 0;
-	if (other_media->rtcp_mux) {
-		if (!media->rtcp_mux) {
+	MEDIA_CLEAR(other_media, RTCP_MUX_OVERRIDE);
+	if (MEDIA_ISSET(other_media, RTCP_MUX)) {
+		if (!MEDIA_ISSET(media, RTCP_MUX)) {
 			/* rtcp-mux was offered, but we don't offer it ourselves.
 			 * the answer will not accept rtcp-mux (wasn't offered).
 			 * the default is to accept the offer, unless we want to
 			 * explicitly reject it. */
-			other_media->rtcp_mux_override = 1;
+			MEDIA_SET(other_media, RTCP_MUX_OVERRIDE);
 			if (flags->rtcp_mux_reject)
-				other_media->rtcp_mux = 0;
+				MEDIA_CLEAR(other_media, RTCP_MUX);
 		}
 		else {
 			/* rtcp-mux was offered and we offer it too. default is
@@ -1676,17 +1678,17 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 			 * either explicitly accept it (possibly demux) or reject
 			 * it (possible reverse demux). */
 			if (flags->rtcp_mux_accept)
-				other_media->rtcp_mux_override = 1;
+				MEDIA_SET(other_media, RTCP_MUX_OVERRIDE);
 			else if (flags->rtcp_mux_reject) {
-				other_media->rtcp_mux_override = 1;
-				other_media->rtcp_mux = 0;
+				MEDIA_SET(other_media, RTCP_MUX_OVERRIDE);
+				MEDIA_CLEAR(other_media, RTCP_MUX);
 			}
 		}
 	}
 	else {
 		/* rtcp-mux was not offered. we may offer it, but since it wasn't
 		 * offered to us, we must not accept it. */
-		other_media->rtcp_mux_override = 1;
+		MEDIA_SET(other_media, RTCP_MUX_OVERRIDE);
 	}
 }
 
@@ -1696,7 +1698,7 @@ static void __unverify_fingerprint(struct call_media *m) {
 
 	for (l = m->streams.head; l; l = l->next) {
 		ps = l->data;
-		ps->fingerprint_verified = 0;
+		PS_CLEAR(ps, FINGERPRINT_VERIFIED);
 	}
 }
 
@@ -1745,24 +1747,28 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 			media->protocol = other_media->protocol;
 
 		/* copy parameters advertised by the sender of this message */
-		other_media->rtcp_mux = sp->rtcp_mux;
+		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
+				SP_FLAG_RTCP_MUX | SP_FLAG_ASYMMETRIC);
 		crypto_params_copy(&other_media->sdes_in.params, &sp->crypto);
 		other_media->sdes_in.tag = sp->sdes_tag;
-		other_media->asymmetric = sp->asymmetric;
 
-		other_media->recv = media->send = sp->send;
-		other_media->send = media->recv = sp->recv;
+		bf_copy_same(&media->media_flags, &sp->sp_flags,
+				SP_FLAG_SEND | SP_FLAG_RECV);
+		bf_copy(&other_media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
+		bf_copy(&other_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
-		other_media->setup_passive = sp->setup_active;
-		other_media->setup_active = sp->setup_passive;
+		bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_PASSIVE,
+				&sp->sp_flags, SP_FLAG_SETUP_ACTIVE);
+		bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_ACTIVE,
+				&sp->sp_flags, SP_FLAG_SETUP_PASSIVE);
 		if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
 			__unverify_fingerprint(other_media);
 			other_media->fingerprint = sp->fingerprint;
 		}
-		other_media->dtls = 0;
-		if ((other_media->setup_passive || other_media->setup_active)
+		MEDIA_CLEAR(other_media, DTLS);
+		if ((MEDIA_ISSET(other_media, SETUP_PASSIVE) || MEDIA_ISSET(other_media, SETUP_ACTIVE))
 				&& other_media->fingerprint.hash_func)
-			other_media->dtls = 1;
+			MEDIA_SET(other_media, DTLS);
 
 		/* control rtcp-mux */
 		__rtcp_mux_logic(flags, media, other_media);
@@ -1784,7 +1790,7 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 
 
 		/* mark initial offer/answer as done */
-		media->initialized = 1;
+		MEDIA_SET(media, INITIALIZED);
 
 
 		/* determine number of consecutive ports needed locally.
@@ -1837,14 +1843,14 @@ error:
 
 /* must be called with in_lock held or call->master_lock held in W */
 static void unkernelize(struct packet_stream *p) {
-	if (!p->kernelized)
+	if (!PS_ISSET(p, KERNELIZED))
 		return;
-	if (p->no_kernel_support)
+	if (PS_ISSET(p, NO_KERNEL_SUPPORT))
 		return;
 
 	kernel_del_stream(p->call->callmaster->conf.kernelfd, p->sfd->fd.localport);
 
-	p->kernelized = 0;
+	PS_CLEAR(p, KERNELIZED);
 }
 
 /* called lock-free, but must hold a reference to the call */
@@ -1892,7 +1898,7 @@ static void call_destroy(struct call *c) {
 			for (o = md->streams.head; o; o = o->next) {
 				ps = o->data;
 
-				if (ps->fallback_rtcp)
+				if (PS_ISSET(ps, FALLBACK_RTCP))
 					continue;
 
 				smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
@@ -1901,7 +1907,7 @@ static void call_destroy(struct call *c) {
 						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						buf, ps->endpoint.port,
-						(!ps->rtp && ps->rtcp) ? " (RTCP)" : "",
+						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 						ps->stats.packets,
 						ps->stats.bytes,
 						ps->stats.errors);
@@ -2184,8 +2190,8 @@ static void __monologue_tag(struct call_monologue *ml, const str *tag) {
 
 static void __stream_unkernelize(struct packet_stream *ps) {
 	unkernelize(ps);
-	ps->confirmed = 0;
-	ps->has_handler = 0;
+	PS_CLEAR(ps, CONFIRMED);
+	PS_CLEAR(ps, HAS_HANDLER);
 }
 
 /* must be called with call->master_lock held in W */

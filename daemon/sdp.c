@@ -978,7 +978,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			sp->type = media->media_type;
 			memcpy(sp->direction, flags->directions, sizeof(sp->direction));
 			sp->desired_family = flags->address_family;
-			sp->asymmetric = flags->asymmetric;
+			bf_xset(&sp->sp_flags, SP_FLAG_ASYMMETRIC, flags->asymmetric);
 
 			/* a=crypto */
 			attr = attr_get_by_id(&media->attributes, ATTR_CRYPTO);
@@ -999,16 +999,16 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			}
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
-			sp->send = 1;
-			sp->recv = 1;
+			SP_SET(sp, SEND);
+			SP_SET(sp, RECV);
 			if (attr_get_by_id_m_s(media, ATTR_RECVONLY))
-				sp->send = 0;
+				SP_CLEAR(sp, SEND);
 			else if (attr_get_by_id_m_s(media, ATTR_SENDONLY))
-				sp->recv = 0;
+				SP_CLEAR(sp, RECV);
 			else if (attr_get_by_id_m_s(media, ATTR_INACTIVE))
 			{
-				sp->recv = 0;
-				sp->send = 0;
+				SP_CLEAR(sp, RECV);
+				SP_CLEAR(sp, SEND);
 			}
 
 			/* a=setup */
@@ -1016,10 +1016,10 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			if (attr) {
 				if (attr->u.setup.value == SETUP_ACTPASS
 						|| attr->u.setup.value == SETUP_ACTIVE)
-					sp->setup_active = 1;
+					SP_SET(sp, SETUP_ACTIVE);
 				if (attr->u.setup.value == SETUP_ACTPASS
 						|| attr->u.setup.value == SETUP_PASSIVE)
-					sp->setup_passive = 1;
+					SP_SET(sp, SETUP_PASSIVE);
 			}
 
 			/* a=fingerprint */
@@ -1033,7 +1033,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			/* determine RTCP endpoint */
 
 			if (attr_get_by_id(&media->attributes, ATTR_RTCP_MUX)) {
-				sp->rtcp_mux = 1;
+				SP_SET(sp, RTCP_MUX);
 				goto next;
 			}
 
@@ -1042,11 +1042,11 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 
 			attr = attr_get_by_id(&media->attributes, ATTR_RTCP);
 			if (!attr) {
-				sp->implicit_rtcp = 1;
+				SP_SET(sp, IMPLICIT_RTCP);
 				goto next;
 			}
 			if (attr->u.rtcp.port_num == sp->rtp_endpoint.port) {
-				sp->rtcp_mux = 1;
+				SP_SET(sp, RTCP_MUX);
 				goto next;
 			}
 			errstr = "Invalid RTCP attribute";
@@ -1498,7 +1498,7 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	const char *actpass;
 	struct call *call = media->call;
 
-	if (!call->dtls_cert || !media->dtls)
+	if (!call->dtls_cert || !MEDIA_ISSET(media, DTLS))
 		return;
 
 	hf = call->dtls_cert->fingerprint.hash_func;
@@ -1512,13 +1512,13 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	*(--o) = '\0';
 
 	actpass = "holdconn";
-	if (media->setup_passive) {
-		if (media->setup_active)
+	if (MEDIA_ISSET(media, SETUP_PASSIVE)) {
+		if (MEDIA_ISSET(media, SETUP_ACTIVE))
 			actpass = "actpass";
 		else
 			actpass = "passive";
 	}
-	else if (media->setup_active)
+	else if (MEDIA_ISSET(media, SETUP_ACTIVE))
 		actpass = "active";
 
 	chopper_append_c(chop, "a=setup:");
@@ -1537,7 +1537,7 @@ static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
 	struct crypto_params *cp = &media->sdes_out.params;
 	unsigned long long ull;
 
-	if (!cp->crypto_suite || !media->sdes)
+	if (!cp->crypto_suite || !MEDIA_ISSET(media, SDES))
 		return;
 
 	p = b64_buf;
@@ -1668,16 +1668,16 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto next;
 			}
 
-			if (call_media->send && call_media->recv)
+			if (MEDIA_ISSET(call_media, SEND) && MEDIA_ISSET(call_media, RECV))
 				chopper_append_c(chop, "a=sendrecv\r\n");
-			else if (call_media->send && !call_media->recv)
+			else if (MEDIA_ISSET(call_media, SEND) && !MEDIA_ISSET(call_media, RECV))
 				chopper_append_c(chop, "a=sendonly\r\n");
-			else if (!call_media->send && call_media->recv)
+			else if (!MEDIA_ISSET(call_media, SEND) && MEDIA_ISSET(call_media, RECV))
 				chopper_append_c(chop, "a=recvonly\r\n");
 			else
 				chopper_append_c(chop, "a=inactive\r\n");
 
-			if (call_media->rtcp_mux && flags->opmode == OP_ANSWER) {
+			if (MEDIA_ISSET(call_media, RTCP_MUX) && flags->opmode == OP_ANSWER) {
 				chopper_append_c(chop, "a=rtcp:");
 				chopper_append_printf(chop, "%hu", ps->sfd->fd.localport);
 				chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
@@ -1686,7 +1686,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			else if (ps_rtcp) {
 				chopper_append_c(chop, "a=rtcp:");
 				chopper_append_printf(chop, "%hu", ps_rtcp->sfd->fd.localport);
-				if (!call_media->rtcp_mux)
+				if (!MEDIA_ISSET(call_media, RTCP_MUX))
 					chopper_append_c(chop, "\r\n");
 				else
 					chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
@@ -1700,9 +1700,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 					create_random_ice_string(call, &call_media->ice_ufrag, 8);
 					create_random_ice_string(call, &call_media->ice_pwd, 28);
 				}
-				ps->stun = 1;
+				PS_SET(ps, STUN);
 				if (ps_rtcp)
-					ps_rtcp->stun = 1;
+					PS_SET(ps_rtcp, STUN);
 
 				chopper_append_c(chop, "a=ice-ufrag:");
 				chopper_append_str(chop, &call_media->ice_ufrag);

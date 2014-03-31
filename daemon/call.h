@@ -67,6 +67,55 @@ struct call_monologue;
 
 
 
+/* struct stream_params */
+#define SP_FLAG_NO_RTCP				0x00000001
+#define SP_FLAG_IMPLICIT_RTCP			0x00000002
+#define SP_FLAG_RTCP_MUX			0x00000004
+#define SP_FLAG_SEND				0x00000008
+#define SP_FLAG_RECV				0x00000010
+#define SP_FLAG_ASYMMETRIC			0x00000020
+#define SP_FLAG_SETUP_ACTIVE			0x00000040
+#define SP_FLAG_SETUP_PASSIVE			0x00000080
+
+/* struct packet_stream */
+#define PS_FLAG_RTP				0x00000100
+#define PS_FLAG_RTCP				0x00000200
+#define PS_FLAG_IMPLICIT_RTCP			SP_FLAG_IMPLICIT_RTCP
+#define PS_FLAG_FALLBACK_RTCP			0x00000400
+#define PS_FLAG_STUN				0x00000800
+#define PS_FLAG_FILLED				0x00001000
+#define PS_FLAG_CONFIRMED			0x00002000
+#define PS_FLAG_KERNELIZED			0x00004000
+#define PS_FLAG_NO_KERNEL_SUPPORT		0x00008000
+#define PS_FLAG_HAS_HANDLER			0x00010000
+#define PS_FLAG_FINGERPRINT_VERIFIED		0x00020000
+
+/* struct call_media */
+#define MEDIA_FLAG_INITIALIZED			0x00040000
+#define MEDIA_FLAG_ASYMMETRIC			SP_FLAG_ASYMMETRIC
+#define MEDIA_FLAG_SEND				SP_FLAG_SEND
+#define MEDIA_FLAG_RECV				SP_FLAG_RECV
+#define MEDIA_FLAG_RTCP_MUX			SP_FLAG_RTCP_MUX
+#define MEDIA_FLAG_RTCP_MUX_OVERRIDE		0x00080000
+#define MEDIA_FLAG_DTLS				0x00100000
+#define MEDIA_FLAG_SDES				0x00200000
+#define MEDIA_FLAG_SETUP_ACTIVE			SP_FLAG_SETUP_ACTIVE
+#define MEDIA_FLAG_SETUP_PASSIVE		SP_FLAG_SETUP_PASSIVE
+
+/* access macros */
+#define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
+#define SP_SET(p, f)		bf_set(&(p)->sp_flags, SP_FLAG_ ## f)
+#define SP_CLEAR(p, f)		bf_clear(&(p)->sp_flags, SP_FLAG_ ## f)
+#define PS_ISSET(p, f)		bf_isset(&(p)->ps_flags, PS_FLAG_ ## f)
+#define PS_SET(p, f)		bf_set(&(p)->ps_flags, PS_FLAG_ ## f)
+#define PS_CLEAR(p, f)		bf_clear(&(p)->ps_flags, PS_FLAG_ ## f)
+#define MEDIA_ISSET(p, f)	bf_isset(&(p)->media_flags, MEDIA_FLAG_ ## f)
+#define MEDIA_SET(p, f)		bf_set(&(p)->media_flags, MEDIA_FLAG_ ## f)
+#define MEDIA_CLEAR(p, f)	bf_clear(&(p)->media_flags, MEDIA_FLAG_ ## f)
+
+
+
+
 struct poller;
 struct control_stream;
 struct call;
@@ -122,15 +171,7 @@ struct stream_params {
 	enum stream_direction	direction[2];
 	int			desired_family;
 	struct dtls_fingerprint fingerprint;
-
-	int			no_rtcp:1;
-	int			implicit_rtcp:1;
-	int			rtcp_mux:1;
-	int			send:1;
-	int			recv:1;
-	int			asymmetric:1;
-	int			setup_active:1;
-	int			setup_passive:1;
+	unsigned int		sp_flags;
 };
 
 struct stream_fd {
@@ -175,17 +216,7 @@ struct packet_stream {
 
 	/* in_lock must be held for SETTING these: */
 	/* (XXX replace with atomic ops where appropriate) */
-	int			rtp:1;
-	int			rtcp:1;	
-	int			implicit_rtcp:1;
-	int			fallback_rtcp:1;
-	int			stun:1;	
-	int			filled:1;
-	int			confirmed:1;
-	int			kernelized:1;
-	int			no_kernel_support:1;
-	int			has_handler:1;
-	int			fingerprint_verified:1;
+	unsigned int		ps_flags;
 };
 
 /* protected by call->master_lock, except the RO elements */
@@ -211,16 +242,7 @@ struct call_media {
 	GQueue			streams; /* normally RTP + RTCP */
 	GSList			*endpoint_maps;
 
-	int			initialized:1;
-	int			asymmetric:1;
-	int			send:1;
-	int			recv:1;
-	int			rtcp_mux:1;
-	int			rtcp_mux_override:1;
-	int			dtls:1;
-	int			sdes:1;
-	int			setup_active:1;
-	int			setup_passive:1;
+	unsigned int		media_flags;
 };
 
 /* half a dialogue */

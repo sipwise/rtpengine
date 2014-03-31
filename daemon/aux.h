@@ -16,6 +16,7 @@
 #include <sys/resource.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 
 
@@ -358,6 +359,36 @@ static inline int is_addr_unspecified(const struct in6_addr *a) {
 	if (a->s6_addr32[2] == 0 || a->s6_addr32[2] == htonl(0xffff))
 		return 1;
 	return 0;
+}
+
+/* checks if at least one of the flags is set */
+static inline int bf_isset(const unsigned int *u, unsigned int f) {
+	if ((*u & f))
+		return -1;
+	return 0;
+}
+static inline void bf_set(unsigned int *u, unsigned int f) {
+	*u |= f;
+}
+static inline void bf_clear(unsigned int *u, unsigned int f) {
+	*u &= ~f;
+}
+static inline void bf_xset(unsigned int *u, unsigned int f, int cond) {
+	bf_clear(u, f);
+	bf_set(u, cond ? f : 0);
+}
+/* works only for single flags */
+static inline void bf_copy(unsigned int *u, unsigned int f, const unsigned int *s, unsigned int g) {
+	/* a good compiler will optimize out the calls to log2() */
+	*u &= ~f;
+	if (f >= g)
+		*u |= (*s & g) << (int) (log2(f) - log2(g));
+	else
+		*u |= (*s & g) >> (int) (log2(g) - log2(f));
+}
+/* works for multiple flags */
+static inline void bf_copy_same(unsigned int *u, const unsigned int *s, unsigned int g) {
+	bf_copy(u, g, s, g);
 }
 
 #endif

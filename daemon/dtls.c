@@ -337,7 +337,7 @@ static int verify_callback(int ok, X509_STORE_CTX *store) {
 	ps = sfd->stream;
 	if (!ps)
 		return 0;
-	if (ps->fingerprint_verified)
+	if (PS_ISSET(ps, FINGERPRINT_VERIFIED))
 		return 1;
 	media = ps->media;
 	if (!media)
@@ -377,7 +377,7 @@ int dtls_verify_cert(struct packet_stream *ps) {
 		return -1;
 	}
 
-	ps->fingerprint_verified = 1;
+	PS_SET(ps, FINGERPRINT_VERIFIED);
 	ilog(LOG_INFO, "DTLS: Peer certificate accepted");
 
 	return 0;
@@ -594,7 +594,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 	if (s) {
 		BIO_write(d->r_bio, s->s, s->len);
 		/* we understand this as preference of DTLS over SDES */
-		ps->media->sdes = 0;
+		MEDIA_CLEAR(ps->media, SDES);
 	}
 
 	ret = try_connect(d);
@@ -610,7 +610,9 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 		/* connected! */
 		if (dtls_setup_crypto(ps, d))
 			/* XXX ?? */ ;
-		if (ps->rtp && ps->rtcp && ps->rtcp_sibling && ps->media->rtcp_mux) {
+		if (PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP) && ps->rtcp_sibling
+				&& MEDIA_ISSET(ps->media, RTCP_MUX))
+		{
 			if (dtls_setup_crypto(ps->rtcp_sibling, d))
 				/* XXX ?? */ ;
 		}
