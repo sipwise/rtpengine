@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <glib.h>
 
+#include "compat.h"
 #include "str.h"
 #include "crypto.h"
 #include "log.h"
@@ -19,7 +20,7 @@ struct rtp_extension {
 
 
 
-static inline int check_session_keys(struct crypto_context *c) {
+INLINE int check_session_keys(struct crypto_context *c) {
 	str s;
 	const char *err;
 

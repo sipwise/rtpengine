@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "compat.h"
 
 
 
@@ -57,8 +58,8 @@ typedef int (*parse_func)(char **, void **, void *);
 
 GList *g_list_link(GList *, GList *);
 int pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *, GQueue *);
-static inline void strmove(char **, char **);
-static inline void strdupfree(char **, const char *);
+INLINE void strmove(char **, char **);
+INLINE void strdupfree(char **, const char *);
 
 
 #if !GLIB_CHECK_VERSION(2,14,0)
@@ -68,64 +69,64 @@ void g_queue_clear(GQueue *);
 #endif
 
 #if !GLIB_CHECK_VERSION(2,32,0)
-static inline int g_hash_table_contains(GHashTable *h, const void *k) {
+INLINE int g_hash_table_contains(GHashTable *h, const void *k) {
 	return g_hash_table_lookup(h, k) ? 1 : 0;
 }
 #endif
 
-static inline void g_queue_move(GQueue *dst, GQueue *src) {
+INLINE void g_queue_move(GQueue *dst, GQueue *src) {
 	GList *l;
 	while ((l = g_queue_pop_head_link(src)))
 		g_queue_push_tail_link(dst, l);
 }
-static inline void g_queue_truncate(GQueue *q, unsigned int len) {
+INLINE void g_queue_truncate(GQueue *q, unsigned int len) {
 	while (q->length > len)
 		g_queue_pop_tail(q);
 }
 
 
-static inline void strmove(char **d, char **s) {
+INLINE void strmove(char **d, char **s) {
 	if (*d)
 		free(*d);
 	*d = *s;
 	*s = strdup("");
 }
 
-static inline void strdupfree(char **d, const char *s) {
+INLINE void strdupfree(char **d, const char *s) {
 	if (*d)
 		free(*d);
 	*d = strdup(s);
 }
 
 
-static inline void nonblock(int fd) {
+INLINE void nonblock(int fd) {
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 }
-static inline void reuseaddr(int fd) {
+INLINE void reuseaddr(int fd) {
 	int one = 1;
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 }
-static inline void ipv6only(int fd, int yn) {
+INLINE void ipv6only(int fd, int yn) {
 	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
 }
 
-static inline int bit_array_isset(unsigned long *name, unsigned int bit) {
+INLINE int bit_array_isset(unsigned long *name, unsigned int bit) {
 	return name[(bit) / (sizeof(long) * 8)] & (1UL << ((bit) % (sizeof(long) * 8)));
 }
 
-static inline void bit_array_set(unsigned long *name, unsigned int bit) {
+INLINE void bit_array_set(unsigned long *name, unsigned int bit) {
 	name[(bit) / (sizeof(long) * 8)] |= 1UL << ((bit) % (sizeof(long) * 8));
 }
 
-static inline void bit_array_clear(unsigned long *name, unsigned int bit) {
+INLINE void bit_array_clear(unsigned long *name, unsigned int bit) {
 	name[(bit) / (sizeof(long) * 8)] &= ~(1UL << ((bit) % (sizeof(long) * 8)));
 }
 
-static inline char chrtoupper(char x) {
+INLINE char chrtoupper(char x) {
 	return x & 0xdf;
 }
 
-static inline void swap_ptrs(void *a, void *b) {
+INLINE void swap_ptrs(void *a, void *b) {
 	void *t, **aa, **bb;
 	aa = a;
 	bb = b;
@@ -134,14 +135,14 @@ static inline void swap_ptrs(void *a, void *b) {
 	*bb = t;
 }
 
-static inline void in4_to_6(struct in6_addr *o, u_int32_t ip) {
+INLINE void in4_to_6(struct in6_addr *o, u_int32_t ip) {
 	o->s6_addr32[0] = 0;
 	o->s6_addr32[1] = 0;
 	o->s6_addr32[2] = htonl(0xffff);
 	o->s6_addr32[3] = ip;
 }
 
-static inline void smart_ntop(char *o, struct in6_addr *a, size_t len) {
+INLINE void smart_ntop(char *o, struct in6_addr *a, size_t len) {
 	const char *r;
 
 	if (IN6_IS_ADDR_V4MAPPED(a))
@@ -153,7 +154,7 @@ static inline void smart_ntop(char *o, struct in6_addr *a, size_t len) {
 		*o = '\0';
 }
 
-static inline char *smart_ntop_p(char *o, struct in6_addr *a, size_t len) {
+INLINE char *smart_ntop_p(char *o, struct in6_addr *a, size_t len) {
 	int l;
 
 	if (IN6_IS_ADDR_V4MAPPED(a)) {
@@ -175,7 +176,7 @@ static inline char *smart_ntop_p(char *o, struct in6_addr *a, size_t len) {
 	}
 }
 
-static inline void smart_ntop_port(char *o, struct sockaddr_in6 *a, size_t len) {
+INLINE void smart_ntop_port(char *o, struct sockaddr_in6 *a, size_t len) {
 	char *e;
 
 	e = smart_ntop_p(o, &a->sin6_addr, len);
@@ -186,7 +187,7 @@ static inline void smart_ntop_port(char *o, struct sockaddr_in6 *a, size_t len) 
 	sprintf(e, ":%hu", ntohs(a->sin6_port));
 }
 
-static inline int smart_pton(int af, char *src, void *dst) {
+INLINE int smart_pton(int af, char *src, void *dst) {
 	char *p;
 	int ret;
 
@@ -201,7 +202,7 @@ static inline int smart_pton(int af, char *src, void *dst) {
 	return inet_pton(af, src, dst);
 }
 
-static inline int strmemcmp(const void *mem, int len, const char *str) {
+INLINE int strmemcmp(const void *mem, int len, const char *str) {
 	int l = strlen(str);
 	if (l < len)
 		return -1;
@@ -211,7 +212,7 @@ static inline int strmemcmp(const void *mem, int len, const char *str) {
 }
 
 /* XXX replace with better source of randomness */
-static inline void random_string(unsigned char *buf, int len) {
+INLINE void random_string(unsigned char *buf, int len) {
 	while (len--)
 		*buf++ = random() % 0x100;
 }
@@ -269,60 +270,60 @@ typedef pthread_cond_t cond_t;
 
 
 
-static inline int __debug_mutex_init(mutex_t *m, const char *file, unsigned int line) {
+INLINE int __debug_mutex_init(mutex_t *m, const char *file, unsigned int line) {
 	mylog(LOG_DEBUG, "mutex_init(%p) at %s:%u", m, file, line);
 	return pthread_mutex_init(m, NULL);
 }
-static inline int __debug_mutex_destroy(mutex_t *m, const char *file, unsigned int line) {
+INLINE int __debug_mutex_destroy(mutex_t *m, const char *file, unsigned int line) {
 	mylog(LOG_DEBUG, "mutex_destroy(%p) at %s:%u", m, file, line);
 	return pthread_mutex_destroy(m);
 }
-static inline int __debug_mutex_lock(mutex_t *m, const char *file, unsigned int line) {
+INLINE int __debug_mutex_lock(mutex_t *m, const char *file, unsigned int line) {
 	int ret;
 	mylog(LOG_DEBUG, "mutex_lock(%p) at %s:%u ...", m, file, line);
 	ret = pthread_mutex_lock(m);
 	mylog(LOG_DEBUG, "mutex_lock(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
-static inline int __debug_mutex_trylock(mutex_t *m, const char *file, unsigned int line) {
+INLINE int __debug_mutex_trylock(mutex_t *m, const char *file, unsigned int line) {
 	int ret;
 	mylog(LOG_DEBUG, "mutex_trylock(%p) at %s:%u ...", m, file, line);
 	ret = pthread_mutex_trylock(m);
 	mylog(LOG_DEBUG, "mutex_trylock(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
-static inline int __debug_mutex_unlock(mutex_t *m, const char *file, unsigned int line) {
+INLINE int __debug_mutex_unlock(mutex_t *m, const char *file, unsigned int line) {
 	mylog(LOG_DEBUG, "mutex_unlock(%p) at %s:%u", m, file, line);
 	return pthread_mutex_unlock(m);
 }
 
-static inline int __debug_rwlock_init(rwlock_t *m, const char *file, unsigned int line) {
+INLINE int __debug_rwlock_init(rwlock_t *m, const char *file, unsigned int line) {
 	mylog(LOG_DEBUG, "rwlock_init(%p) at %s:%u", m, file, line);
 	return pthread_rwlock_init(m, NULL);
 }
-static inline int __debug_rwlock_destroy(rwlock_t *m, const char *file, unsigned int line) {
+INLINE int __debug_rwlock_destroy(rwlock_t *m, const char *file, unsigned int line) {
 	mylog(LOG_DEBUG, "rwlock_destroy(%p) at %s:%u", m, file, line);
 	return pthread_rwlock_destroy(m);
 }
-static inline int __debug_rwlock_lock_r(rwlock_t *m, const char *file, unsigned int line) {
+INLINE int __debug_rwlock_lock_r(rwlock_t *m, const char *file, unsigned int line) {
 	int ret;
 	mylog(LOG_DEBUG, "rwlock_lock_r(%p) at %s:%u ...", m, file, line);
 	ret = pthread_rwlock_rdlock(m);
 	mylog(LOG_DEBUG, "rwlock_lock_r(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
-static inline int __debug_rwlock_lock_w(rwlock_t *m, const char *file, unsigned int line) {
+INLINE int __debug_rwlock_lock_w(rwlock_t *m, const char *file, unsigned int line) {
 	int ret;
 	mylog(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u ...", m, file, line);
 	ret = pthread_rwlock_wrlock(m);
 	mylog(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
-static inline int __debug_rwlock_unlock_r(rwlock_t *m, const char *file, unsigned int line) {
+INLINE int __debug_rwlock_unlock_r(rwlock_t *m, const char *file, unsigned int line) {
 	mylog(LOG_DEBUG, "rwlock_unlock_r(%p) at %s:%u", m, file, line);
 	return pthread_rwlock_unlock(m);
 }
-static inline int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int line) {
+INLINE int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int line) {
 	mylog(LOG_DEBUG, "rwlock_unlock_w(%p) at %s:%u", m, file, line);
 	return pthread_rwlock_unlock(m);
 }
@@ -341,7 +342,7 @@ void thread_create_detach(void (*)(void *), void *);
 
 
 
-static inline int rlim(int res, rlim_t val) {
+INLINE int rlim(int res, rlim_t val) {
 	struct rlimit rlim;
 
 	ZERO(rlim);
@@ -349,7 +350,7 @@ static inline int rlim(int res, rlim_t val) {
 	return setrlimit(res, &rlim);
 }
 
-static inline int is_addr_unspecified(const struct in6_addr *a) {
+INLINE int is_addr_unspecified(const struct in6_addr *a) {
 	if (a->s6_addr32[0])
 		return 0;
 	if (a->s6_addr32[1])
@@ -362,23 +363,23 @@ static inline int is_addr_unspecified(const struct in6_addr *a) {
 }
 
 /* checks if at least one of the flags is set */
-static inline int bf_isset(const unsigned int *u, unsigned int f) {
+INLINE int bf_isset(const unsigned int *u, unsigned int f) {
 	if ((*u & f))
 		return -1;
 	return 0;
 }
-static inline void bf_set(unsigned int *u, unsigned int f) {
+INLINE void bf_set(unsigned int *u, unsigned int f) {
 	*u |= f;
 }
-static inline void bf_clear(unsigned int *u, unsigned int f) {
+INLINE void bf_clear(unsigned int *u, unsigned int f) {
 	*u &= ~f;
 }
-static inline void bf_xset(unsigned int *u, unsigned int f, int cond) {
+INLINE void bf_xset(unsigned int *u, unsigned int f, int cond) {
 	bf_clear(u, f);
 	bf_set(u, cond ? f : 0);
 }
 /* works only for single flags */
-static inline void bf_copy(unsigned int *u, unsigned int f, const unsigned int *s, unsigned int g) {
+INLINE void bf_copy(unsigned int *u, unsigned int f, const unsigned int *s, unsigned int g) {
 	/* a good compiler will optimize out the calls to log2() */
 	*u &= ~f;
 	if (f >= g)
@@ -387,7 +388,7 @@ static inline void bf_copy(unsigned int *u, unsigned int f, const unsigned int *
 		*u |= (*s & g) >> (int) (log2(g) - log2(f));
 }
 /* works for multiple flags */
-static inline void bf_copy_same(unsigned int *u, const unsigned int *s, unsigned int g) {
+INLINE void bf_copy_same(unsigned int *u, const unsigned int *s, unsigned int g) {
 	bf_copy(u, g, s, g);
 }
 

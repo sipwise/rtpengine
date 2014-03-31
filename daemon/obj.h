@@ -8,6 +8,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include "compat.h"
 
 
 
@@ -51,17 +52,17 @@ struct obj {
 #define obj_get_o(a)		__obj_get(a,__FILE__,__LINE__)
 #define obj_put_o(a)		__obj_put(a,__FILE__,__LINE__)
 
-static inline void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *),
+INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *),
 		const char *type, const char *file, unsigned int line);
-static inline void *__obj_alloc(unsigned int size, void (*free_func)(void *),
+INLINE void *__obj_alloc(unsigned int size, void (*free_func)(void *),
 		const char *type, const char *file, unsigned int line);
-static inline void *__obj_alloc0(unsigned int size, void (*free_func)(void *),
+INLINE void *__obj_alloc0(unsigned int size, void (*free_func)(void *),
 		const char *type, const char *file, unsigned int line);
-static inline struct obj *__obj_hold(struct obj *o,
+INLINE struct obj *__obj_hold(struct obj *o,
 		const char *type, const char *file, unsigned int line);
-static inline void *__obj_get(struct obj *o,
+INLINE void *__obj_get(struct obj *o,
 		const char *type, const char *file, unsigned int line);
-static inline void __obj_put(struct obj *o,,
+INLINE void __obj_put(struct obj *o,,
 		const char *type, const char *file, unsigned int line);
 
 #else
@@ -75,12 +76,12 @@ static inline void __obj_put(struct obj *o,,
 #define obj_get_o(a)		__obj_get(a)
 #define obj_put_o(a)		__obj_put(a)
 
-static inline void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *));
-static inline void *__obj_alloc(unsigned int size, void (*free_func)(void *));
-static inline void *__obj_alloc0(unsigned int size, void (*free_func)(void *));
-static inline struct obj *__obj_hold(struct obj *o);
-static inline void *__obj_get(struct obj *o);
-static inline void __obj_put(struct obj *o);
+INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *));
+INLINE void *__obj_alloc(unsigned int size, void (*free_func)(void *));
+INLINE void *__obj_alloc0(unsigned int size, void (*free_func)(void *));
+INLINE struct obj *__obj_hold(struct obj *o);
+INLINE void *__obj_get(struct obj *o);
+INLINE void __obj_put(struct obj *o);
 
 #endif
 
@@ -90,7 +91,7 @@ static inline void __obj_put(struct obj *o);
 
 
 
-static inline void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *)
+INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *)
 #if OBJ_DEBUG
 , const char *type, const char *file, unsigned int line
 #endif
@@ -105,7 +106,7 @@ static inline void __obj_init(struct obj *o, unsigned int size, void (*free_func
 	o->size = size;
 }
 
-static inline void *__obj_alloc(unsigned int size, void (*free_func)(void *)
+INLINE void *__obj_alloc(unsigned int size, void (*free_func)(void *)
 #if OBJ_DEBUG
 , const char *type, const char *file, unsigned int line
 #endif
@@ -121,7 +122,7 @@ static inline void *__obj_alloc(unsigned int size, void (*free_func)(void *)
 	return r;
 }
 
-static inline void *__obj_alloc0(unsigned int size, void (*free_func)(void *)
+INLINE void *__obj_alloc0(unsigned int size, void (*free_func)(void *)
 #if OBJ_DEBUG
 , const char *type, const char *file, unsigned int line
 #endif
@@ -137,7 +138,7 @@ static inline void *__obj_alloc0(unsigned int size, void (*free_func)(void *)
 	return r;
 }
 
-static inline struct obj *__obj_hold(struct obj *o
+INLINE struct obj *__obj_hold(struct obj *o
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif
@@ -155,7 +156,7 @@ static inline struct obj *__obj_hold(struct obj *o
 	return o;
 }
 
-static inline void *__obj_get(struct obj *o
+INLINE void *__obj_get(struct obj *o
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif
@@ -167,7 +168,7 @@ static inline void *__obj_get(struct obj *o
 	);
 }
 
-static inline void __obj_put(struct obj *o
+INLINE void __obj_put(struct obj *o
 #if OBJ_DEBUG
 , const char *file, unsigned int line
 #endif

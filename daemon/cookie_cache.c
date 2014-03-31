@@ -3,13 +3,14 @@
 #include <time.h>
 #include <glib.h>
 
+#include "compat.h"
 #include "aux.h"
 #include "poller.h"
 #include "str.h"
 
 static const char *cookie_in_use = "MAGIC";
 
-static inline void cookie_cache_state_init(struct cookie_cache_state *s) {
+INLINE void cookie_cache_state_init(struct cookie_cache_state *s) {
 	s->cookies = g_hash_table_new(str_hash, str_equal);
 	s->chunks = g_string_chunk_new(4 * 1024);
 }

@@ -5,6 +5,7 @@
 
 #include <sys/types.h>
 #include <glib.h>
+#include "compat.h"
 #include "str.h"
 
 
@@ -92,36 +93,36 @@ extern const int num_crypto_suites;
 const struct crypto_suite *crypto_find_suite(const str *);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);
 
-static inline int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
+INLINE int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
 		str *payload, u_int64_t index)
 {
 	return c->params.crypto_suite->encrypt_rtp(c, rtp, payload, index);
 }
-static inline int crypto_decrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
+INLINE int crypto_decrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
 		str *payload, u_int64_t index)
 {
 	return c->params.crypto_suite->decrypt_rtp(c, rtp, payload, index);
 }
-static inline int crypto_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
+INLINE int crypto_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
 		str *payload, u_int64_t index)
 {
 	return c->params.crypto_suite->encrypt_rtcp(c, rtcp, payload, index);
 }
-static inline int crypto_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
+INLINE int crypto_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
 		str *payload, u_int64_t index)
 {
 	return c->params.crypto_suite->decrypt_rtcp(c, rtcp, payload, index);
 }
-static inline int crypto_init_session_key(struct crypto_context *c) {
+INLINE int crypto_init_session_key(struct crypto_context *c) {
 	return c->params.crypto_suite->session_key_init(c);
 }
 
-static inline void crypto_params_cleanup(struct crypto_params *p) {
+INLINE void crypto_params_cleanup(struct crypto_params *p) {
 	if (p->mki)
 		free(p->mki);
 	p->mki = NULL;
 }
-static inline void crypto_cleanup(struct crypto_context *c) {
+INLINE void crypto_cleanup(struct crypto_context *c) {
 	if (!c->params.crypto_suite)
 		return;
 	if (c->params.crypto_suite->session_key_cleanup)
@@ -129,11 +130,11 @@ static inline void crypto_cleanup(struct crypto_context *c) {
 	c->have_session_key = 0;
 	crypto_params_cleanup(&c->params);
 }
-static inline void crypto_reset(struct crypto_context *c) {
+INLINE void crypto_reset(struct crypto_context *c) {
 	crypto_cleanup(c);
 	c->last_index = 0;
 }
-static inline void crypto_params_copy(struct crypto_params *o, const struct crypto_params *i) {
+INLINE void crypto_params_copy(struct crypto_params *o, const struct crypto_params *i) {
 	crypto_params_cleanup(o);
 	*o = *i;
 	if (o->mki_len > 255)
@@ -143,7 +144,7 @@ static inline void crypto_params_copy(struct crypto_params *o, const struct cryp
 		memcpy(o->mki, i->mki, i->mki_len);
 	}
 }
-static inline void crypto_init(struct crypto_context *c, const struct crypto_params *p) {
+INLINE void crypto_init(struct crypto_context *c, const struct crypto_params *p) {
 	crypto_cleanup(c);
 	crypto_params_copy(&c->params, p);
 }

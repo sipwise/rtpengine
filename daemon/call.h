@@ -9,6 +9,7 @@
 #include <time.h>
 #include <pcre.h>
 #include <openssl/x509.h>
+#include "compat.h"
 
 
 
@@ -369,7 +370,7 @@ const struct transport_protocol *transport_protocol(const str *s);
 
 
 
-static inline void *call_malloc(struct call *c, size_t l) {
+INLINE void *call_malloc(struct call *c, size_t l) {
 	void *ret;
 	mutex_lock(&c->buffer_lock);
 	ret = call_buffer_alloc(&c->buffer, l);
@@ -377,7 +378,7 @@ static inline void *call_malloc(struct call *c, size_t l) {
 	return ret;
 }
 
-static inline char *call_strdup_len(struct call *c, const char *s, unsigned int len) {
+INLINE char *call_strdup_len(struct call *c, const char *s, unsigned int len) {
 	char *r;
 	r = call_malloc(c, len + 1);
 	memcpy(r, s, len);
@@ -385,12 +386,12 @@ static inline char *call_strdup_len(struct call *c, const char *s, unsigned int 
 	return r;
 }
 
-static inline char *call_strdup(struct call *c, const char *s) {
+INLINE char *call_strdup(struct call *c, const char *s) {
 	if (!s)
 		return NULL;
 	return call_strdup_len(c, s, strlen(s));
 }
-static inline str *call_str_cpy_len(struct call *c, str *out, const char *in, int len) {
+INLINE str *call_str_cpy_len(struct call *c, str *out, const char *in, int len) {
 	if (!in) {
 		*out = STR_NULL;
 		return out;
@@ -399,33 +400,33 @@ static inline str *call_str_cpy_len(struct call *c, str *out, const char *in, in
 	out->len = len;
 	return out;
 }
-static inline str *call_str_cpy(struct call *c, str *out, const str *in) {
+INLINE str *call_str_cpy(struct call *c, str *out, const str *in) {
 	return call_str_cpy_len(c, out, in ? in->s : NULL, in ? in->len : 0);
 }
-static inline str *call_str_cpy_c(struct call *c, str *out, const char *in) {
+INLINE str *call_str_cpy_c(struct call *c, str *out, const char *in) {
 	return call_str_cpy_len(c, out, in, in ? strlen(in) : 0);
 }
-static inline str *call_str_dup(struct call *c, const str *in) {
+INLINE str *call_str_dup(struct call *c, const str *in) {
 	str *out;
 	out = call_malloc(c, sizeof(*out));
 	call_str_cpy_len(c, out, in->s, in->len);
 	return out;
 }
-static inline str *call_str_init_dup(struct call *c, char *s) {
+INLINE str *call_str_init_dup(struct call *c, char *s) {
 	str t;
 	str_init(&t, s);
 	return call_str_dup(c, &t);
 }
-static inline int callmaster_has_ipv6(struct callmaster *m) {
+INLINE int callmaster_has_ipv6(struct callmaster *m) {
 	return is_addr_unspecified(&m->conf.ipv6) ? 0 : 1;
 }
-static inline void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
+INLINE void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
 	/* XXX atomic bit field? */
 	mutex_lock(&m->portlock);
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
 }
-static inline struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
+INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	struct packet_stream *ret;
 	ret = ps->rtp_sink;
 	if (!ret)

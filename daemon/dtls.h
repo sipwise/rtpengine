@@ -8,6 +8,7 @@
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 
+#include "compat.h"
 #include "str.h"
 #include "obj.h"
 
@@ -70,7 +71,7 @@ void dtls_connection_cleanup(struct dtls_connection *);
 
 
 
-static inline void __dtls_hash(const struct dtls_hash_func *hash_func, X509 *cert, unsigned char *out,
+INLINE void __dtls_hash(const struct dtls_hash_func *hash_func, X509 *cert, unsigned char *out,
 		unsigned int bufsize)
 {
 	unsigned int n;
@@ -81,11 +82,11 @@ static inline void __dtls_hash(const struct dtls_hash_func *hash_func, X509 *cer
 }
 #define dtls_hash(hash_func, cert, outbuf) __dtls_hash(hash_func, cert, outbuf, sizeof(outbuf))
 
-static inline void dtls_fingerprint_hash(struct dtls_fingerprint *fp, X509 *cert) {
+INLINE void dtls_fingerprint_hash(struct dtls_fingerprint *fp, X509 *cert) {
 	__dtls_hash(fp->hash_func, cert, fp->digest, sizeof(fp->digest));
 }
 
-static inline int is_dtls(const str *s) {
+INLINE int is_dtls(const str *s) {
 	const unsigned char *b = (const void *) s->s;
 
 	if (s->len < 1)

@@ -5,6 +5,7 @@
 
 
 #include <sys/types.h>
+#include "compat.h"
 
 
 
@@ -24,17 +25,17 @@ extern void (*redis_wipe_mod)(struct redis *);
 
 
 
-static inline void redis_update(struct call *c, struct redis *r) {
+INLINE void redis_update(struct call *c, struct redis *r) {
 	if (!redis_update_mod)
 		return;
 	redis_update_mod(c, r);
 }
-static inline void redis_delete(struct call *c, struct redis *r) {
+INLINE void redis_delete(struct call *c, struct redis *r) {
 	if (!redis_delete_mod)
 		return;
 	redis_delete_mod(c, r);
 }
-static inline int redis_restore(struct callmaster *m, struct redis *r) {
+INLINE int redis_restore(struct callmaster *m, struct redis *r) {
 	if (!redis_restore_mod)
 		return 0;
 	return redis_restore_mod(m, r);

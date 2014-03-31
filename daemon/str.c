@@ -1,5 +1,6 @@
 #include "str.h"
 #include <assert.h>
+#include <stdarg.h>
 
 guint str_hash(gconstpointer ss) {
 	const str *s = ss;
@@ -29,4 +30,13 @@ guint str_hash(gconstpointer ss) {
 
 gboolean str_equal(gconstpointer a, gconstpointer b) {
 	return str_cmp_str((str *) a, (str *) b) == 0;
+}
+
+str *__str_sprintf(const char *fmt, ...) {
+	str *ret;
+	va_list ap;
+	va_start(ap, fmt);
+	ret = __str_vsprintf(fmt, ap);
+	va_end(ap);
+	return ret;
 }

@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <glib.h>
 
+#include "compat.h"
 #include "str.h"
 #include "call.h"
 #include "log.h"
@@ -330,7 +331,7 @@ int rtcp_avpf2avp(str *s) {
 }
 
 
-static inline int check_session_keys(struct crypto_context *c) {
+INLINE int check_session_keys(struct crypto_context *c) {
 	str s;
 	const char *err;
 

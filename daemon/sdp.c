@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <math.h>
 
+#include "compat.h"
 #include "call.h"
 #include "log.h"
 #include "str.h"
@@ -194,7 +195,7 @@ static str ice_foundation_str_alt;
 
 
 
-static inline struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
+INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
 	return g_hash_table_lookup(a->id_hash, &id);
 }
 
@@ -209,7 +210,7 @@ static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, int id) {
 
 
 /* hack hack */
-static inline int inet_pton_str(int af, str *src, void *dst) {
+INLINE int inet_pton_str(int af, str *src, void *dst) {
 	char *s = src->s;
 	char p;
 	int ret;
@@ -278,7 +279,7 @@ static int parse_address(struct network_address *address) {
 			&address->address_type, &address->address);
 }
 
-static inline int extract_token(char **sp, char *end, str *out) {
+INLINE int extract_token(char **sp, char *end, str *out) {
 	char *space;
 
 	out->s = *sp;
@@ -1076,7 +1077,7 @@ struct sdp_chopper *sdp_chopper_new(str *input) {
 	return c;
 }
 
-static void chopper_append(struct sdp_chopper *c, const char *s, int len) {
+INLINE void chopper_append(struct sdp_chopper *c, const char *s, int len) {
 	struct iovec *iov;
 
 	g_array_set_size(c->iov, ++c->iov_num);
@@ -1085,10 +1086,10 @@ static void chopper_append(struct sdp_chopper *c, const char *s, int len) {
 	iov->iov_len = len;
 	c->str_len += len;
 }
-static inline void chopper_append_c(struct sdp_chopper *c, const char *s) {
+INLINE void chopper_append_c(struct sdp_chopper *c, const char *s) {
 	chopper_append(c, s, strlen(s));
 }
-static inline void chopper_append_str(struct sdp_chopper *c, const str *s) {
+INLINE void chopper_append_str(struct sdp_chopper *c, const str *s) {
 	chopper_append(c, s->s, s->len);
 }
 

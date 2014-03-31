@@ -4,6 +4,7 @@
 
 #include <syslog.h>
 #include <glib.h>
+#include "compat.h"
 
 
 
@@ -38,7 +39,7 @@ void ilog(int prio, const char *fmt, ...)__attribute__ ((format (printf, 2, 3)))
 
 
 
-static inline void log_info_clear() {
+INLINE void log_info_clear() {
 	switch (log_info.e) {
 		case LOG_INFO_NONE:
 			return;
@@ -51,14 +52,14 @@ static inline void log_info_clear() {
 	}
 	log_info.e = LOG_INFO_NONE;
 }
-static inline void log_info_call(struct call *c) {
+INLINE void log_info_call(struct call *c) {
 	log_info_clear();
 	if (!c)
 		return;
 	log_info.e = LOG_INFO_CALL;
 	log_info.u.call =  __obj_get((void *) c);
 }
-static inline void log_info_stream_fd(struct stream_fd *sfd) {
+INLINE void log_info_stream_fd(struct stream_fd *sfd) {
 	log_info_clear();
 	if (!sfd)
 		return;

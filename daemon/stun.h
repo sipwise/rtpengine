@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <arpa/inet.h>
+#include "compat.h"
 #include "call.h"
 #include "str.h"
 
@@ -11,7 +12,7 @@
 #define STUN_COOKIE 0x2112A442UL
 
 
-static inline int is_stun(const str *s) {
+INLINE int is_stun(const str *s) {
 	const unsigned char *b = (const void *) s->s;
 	const u_int32_t *u;
 

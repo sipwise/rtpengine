@@ -7,6 +7,7 @@
 #include <openssl/hmac.h>
 #include <glib.h>
 
+#include "compat.h"
 #include "str.h"
 #include "aux.h"
 #include "log.h"
@@ -196,7 +197,7 @@ static void output_init(struct msghdr *mh, struct iovec *iov, struct sockaddr_in
 	memcpy(&hdr->transaction, transaction, sizeof(hdr->transaction));
 }
 
-static inline void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u_int16_t code,
+INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u_int16_t code,
 		void *append, unsigned int append_len)
 {
 	struct iovec *iov;
@@ -404,7 +405,7 @@ static int stun_binding_success(int fd, struct header *req, struct stun_attrs *a
 	return 0;
 }
 
-static inline int u_int16_t_arr_len(u_int16_t *arr) {
+INLINE int u_int16_t_arr_len(u_int16_t *arr) {
 	int i;
 	for (i = 0; arr[i] != 0xffff; i++)
 		;
