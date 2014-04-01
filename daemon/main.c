@@ -502,10 +502,10 @@ void create_everything(struct main_context *ctx) {
 	}
 
 	if (redis_ip) {
-		dlh = dlopen(MP_PLUGIN_DIR "/mediaproxy-redis.so", RTLD_NOW | RTLD_GLOBAL);
-		if (!dlh && !g_file_test(MP_PLUGIN_DIR "/mediaproxy-redis.so", G_FILE_TEST_IS_REGULAR)
-				&& g_file_test("../../mediaproxy-redis/redis.so", G_FILE_TEST_IS_REGULAR))
-			dlh = dlopen("../../mediaproxy-redis/redis.so", RTLD_NOW | RTLD_GLOBAL);
+		dlh = dlopen(MP_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
+		if (!dlh && !g_file_test(MP_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
+				&& g_file_test("../../rtpengine-redis/redis.so", G_FILE_TEST_IS_REGULAR))
+			dlh = dlopen("../../rtpengine-redis/redis.so", RTLD_NOW | RTLD_GLOBAL);
 		if (!dlh)
 			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
 		strp = dlsym(dlh, "__module_version");
