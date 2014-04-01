@@ -277,7 +277,6 @@ struct call {
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 
 	str			callid;	
-	char			redis_uuid[37];
 	time_t			created;
 	time_t			last_signal;
 };
