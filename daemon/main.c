@@ -30,14 +30,14 @@
 
 #define die(x...) do { fprintf(stderr, x); exit(-1); } while(0)
 #define dlresolve(n) do {								\
-	n ## _mod = dlsym(dlh, "mod_" #n);							\
-	if (!n ## _mod)										\
+	n ## _mod = dlsym(dlh, "mod_" #n);						\
+	if (!n ## _mod)									\
 		die("Failed to resolve symbol from plugin: %s\n", "mod_" #n);		\
 } while(0)
 #define check_struct_size(x) do {							\
 	unsigned long *uip;								\
 	uip = dlsym(dlh, "__size_struct_" #x);						\
-	if (!uip)										\
+	if (!uip)									\
 		die("Failed to resolve symbol from plugin: %s\n", "__size_struct_" #x);	\
 	if (*uip != sizeof(struct x))							\
 		die("Struct size mismatch in plugin: %s\n", #x);			\
@@ -45,11 +45,17 @@
 #define check_struct_offset(x,y) do {							\
 	unsigned long *uip;								\
 	uip = dlsym(dlh, "__offset_struct_" #x "_" #y);					\
-	if (!uip)										\
+	if (!uip)									\
 		die("Failed to resolve symbol from plugin: %s\n", 			\
 		"__offset_struct_" #x "_" #y);						\
 	if (*uip != (unsigned long) &(((struct x *) 0)->y))				\
 		die("Struct offset mismatch in plugin: %s->%s\n", #x, #y);		\
+	uip = dlsym(dlh, "__size_struct_" #x "_" #y);					\
+	if (!uip)									\
+		die("Failed to resolve symbol from plugin: %s\n", 			\
+		"__size_struct_" #x "_" #y);						\
+	if (*uip != sizeof(((struct x *) 0)->y))					\
+		die("Struct member size mismatch in plugin: %s->%s\n", #x, #y);		\
 } while(0)
 
 
@@ -376,36 +382,49 @@ void redis_mod_verify(void *dlh) {
 	dlresolve(redis_delete);
 	dlresolve(redis_wipe);
 
-	/*
 	check_struct_size(call);
-	check_struct_size(callstream);
+	check_struct_size(packet_stream);
+	check_struct_size(call_media);
+	check_struct_size(call_monologue);
 	check_struct_size(crypto_suite);
 	check_struct_size(crypto_context);
 
 	check_struct_offset(call, callmaster);
-	check_struct_offset(call, chunk);
-	check_struct_offset(call, callstreams);
-	check_struct_offset(call, branches);
+	check_struct_offset(call, master_lock);
+	check_struct_offset(call, monologues);
+	check_struct_offset(call, tags);
+	check_struct_offset(call, streams);
+	check_struct_offset(call, stream_fds);
+	check_struct_offset(call, dtls_cert);
 	check_struct_offset(call, callid);
+	check_struct_offset(call, last_signal);
 
-	check_struct_offset(callstream, peers);
-	check_struct_offset(callstream, call);
+	check_struct_offset(packet_stream, media);
+	check_struct_offset(packet_stream, call);
+	check_struct_offset(packet_stream, rtcp_sibling);
+	check_struct_offset(packet_stream, handler);
+	check_struct_offset(packet_stream, crypto);
+	check_struct_offset(packet_stream, dtls_cert);
+	check_struct_offset(packet_stream, ps_flags);
 
-	check_struct_offset(peer, rtps);
-	check_struct_offset(peer, tag);
-	check_struct_offset(peer, up);
+	check_struct_offset(call_media, monologue);
+	check_struct_offset(call_media, call);
+	check_struct_offset(call_media, protocol);
+	check_struct_offset(call_media, fingerprint);
+	check_struct_offset(call_media, streams);
+	check_struct_offset(call_media, media_flags);
 
-	check_struct_offset(streamrelay, fd);
-	check_struct_offset(streamrelay, peer);
-	check_struct_offset(streamrelay, up);
-	check_struct_offset(streamrelay, last);
-	check_struct_offset(streamrelay, handler);
-	check_struct_offset(streamrelay, crypto);
+	check_struct_offset(call_monologue, call);
+	check_struct_offset(call_monologue, tag);
+	check_struct_offset(call_monologue, created);
+	check_struct_offset(call_monologue, other_tags);
+	check_struct_offset(call_monologue, active_dialogue);
+	check_struct_offset(call_monologue, medias);
 
-	check_struct_offset(stream, ip46);
-	check_struct_offset(stream, num);
-	check_struct_offset(stream, protocol);
-	*/
+	check_struct_offset(stream_fd, fd);
+	check_struct_offset(stream_fd, call);
+	check_struct_offset(stream_fd, stream);
+	check_struct_offset(stream_fd, dtls);
 }
 
 void create_everything(struct main_context *ctx) {
@@ -490,7 +509,7 @@ void create_everything(struct main_context *ctx) {
 		if (!dlh)
 			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
 		strp = dlsym(dlh, "__module_version");
-		if (!strp || !*strp || strcmp(*strp, "redis/3"))
+		if (!strp || !*strp || strcmp(*strp, "redis/4"))
 			die("Incorrect redis module version: %s\n", *strp);
 		redis_mod_verify(dlh);
 		mc.redis = redis_new_mod(redis_ip, redis_port, redis_db);
