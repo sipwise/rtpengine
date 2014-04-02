@@ -12,12 +12,13 @@ Build-Depends: debhelper (>= 5),
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
                markdown,
                zlib1g-dev
-Standards-Version: 3.9.3
+Standards-Version: 3.9.5
 Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
 Conflicts: ngcp-mediaproxy-ng-daemon
 Replaces: ngcp-mediaproxy-ng-daemon
 Description: Proxy for RTP and media streams used in NGCP, userspace part.
@@ -26,7 +27,8 @@ Description: Proxy for RTP and media streams used in NGCP, userspace part.
 
 Package: ngcp-rtpengine-iptables
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
 Conflicts: ngcp-mediaproxy-ng-iptables
 Replaces: ngcp-mediaproxy-ng-iptables
 Description: IPtables extension module for the kernel-space NGCP media proxy.
@@ -46,7 +48,9 @@ Description: NGCP RTP/media proxy - meta package.
 
 Package: ngcp-rtpengine-kernel-source
 Architecture: all
-Depends: debhelper (>= 5), module-assistant, ${misc:Depends}
+Depends: debhelper (>= 5),
+         module-assistant,
+         ${misc:Depends}
 Conflicts: ngcp-mediaproxy-ng-kernel-source
 Replaces: ngcp-mediaproxy-ng-kernel-source
 Description: IPtables kernel module for the NGCP media proxy - source.
@@ -57,7 +61,8 @@ Description: IPtables kernel module for the NGCP media proxy - source.
 
 Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
-Depends: dkms (>= 1.95), ${misc:Depends}
+Depends: dkms (>= 1.95),
+         ${misc:Depends}
 Conflicts: ngcp-mediaproxy-ng-kernel-dkms
 Replaces: ngcp-mediaproxy-ng-kernel-dkms
 Description: IPtables kernel module for the NGCP media proxy - DKMS.
@@ -68,7 +73,10 @@ Description: IPtables kernel module for the NGCP media proxy - DKMS.
 Package: ngcp-rtpengine-dev
 Architecture: all
 Section: libdevel
-Depends: libglib2.0-dev, libpcre3-dev, libssl-dev (>= 1.0.1), ${misc:Depends}
+Depends: libglib2.0-dev,
+         libpcre3-dev,
+         libssl-dev (>= 1.0.1),
+         ${misc:Depends}
 Conflicts: ngcp-mediaproxy-ng-dev
 Replaces: ngcp-mediaproxy-ng-dev
 Description: Development files for rtpengine
