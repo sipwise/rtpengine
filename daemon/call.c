@@ -1208,7 +1208,7 @@ static void release_port(struct udp_fd *r, struct callmaster *m) {
 	r->localport = 0;
 }
 
-static int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, struct call *c) {
+int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, struct call *c) {
 	int i, j, cycle = 0;
 	struct udp_fd *it;
 	u_int16_t port;
@@ -1312,6 +1312,27 @@ static void stream_fd_free(void *p) {
 	obj_put(f->call);
 }
 
+struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call) {
+	struct stream_fd *sfd;
+	struct poller_item pi;
+	struct poller *po = call->callmaster->poller;
+
+	sfd = obj_alloc0("stream_fd", sizeof(*sfd), stream_fd_free);
+	sfd->fd = *fd;
+	sfd->call = obj_get(call);
+	call->stream_fds = g_slist_prepend(call->stream_fds, sfd); /* hand over ref */
+
+	ZERO(pi);
+	pi.fd = sfd->fd.fd;
+	pi.obj = &sfd->obj;
+	pi.readable = stream_fd_readable;
+	pi.closed = stream_fd_closed;
+
+	poller_add_item(po, &pi);
+
+	return sfd;
+}
+
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
 		const struct endpoint *ep)
 {
@@ -1321,8 +1342,6 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	unsigned int i;
 	struct stream_fd *sfd;
 	struct call *call = media->call;
-	struct poller_item pi;
-	struct poller *po = call->callmaster->poller;
 
 	for (l = media->endpoint_maps; l; l = l->next) {
 		em = l->data;
@@ -1364,19 +1383,8 @@ alloc:
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
 	for (i = 0; i < num_ports; i++) {
-		sfd = obj_alloc0("stream_fd", sizeof(*sfd), stream_fd_free);
-		sfd->fd = fd_arr[i];
-		sfd->call = obj_get(call);
+		sfd = __stream_fd_new(&fd_arr[i], call);
 		g_queue_push_tail(&em->sfds, sfd); /* not referenced */
-		call->stream_fds = g_slist_prepend(call->stream_fds, sfd); /* hand over ref */
-
-		ZERO(pi);
-		pi.fd = sfd->fd.fd;
-		pi.obj = &sfd->obj;
-		pi.readable = stream_fd_readable;
-		pi.closed = stream_fd_closed;
-
-		poller_add_item(po, &pi);
 	}
 
 	return em;
@@ -1409,6 +1417,19 @@ static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_po
 	return 0;
 }
 
+struct packet_stream *__packet_stream_new(struct call *call) {
+	struct packet_stream *stream;
+
+	stream = g_slice_alloc0(sizeof(*stream));
+	mutex_init(&stream->in_lock);
+	mutex_init(&stream->out_lock);
+	stream->call = call;
+	stream->last_packet = poller_now;
+	call->streams = g_slist_prepend(call->streams, stream);
+
+	return stream;
+}
+
 static int __num_media_streams(struct call_media *media, unsigned int num_ports) {
 	struct packet_stream *stream;
 	struct call *call = media->call;
@@ -1416,14 +1437,9 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 
 	__C_DBG("allocating %i new packet_streams", num_ports - media->streams.length);
 	while (media->streams.length < num_ports) {
-		stream = g_slice_alloc0(sizeof(*stream));
-		mutex_init(&stream->in_lock);
-		mutex_init(&stream->out_lock);
-		stream->call = call;
+		stream = __packet_stream_new(call);
 		stream->media = media;
-		stream->last_packet = poller_now;
 		g_queue_push_tail(&media->streams, stream);
-		call->streams = g_slist_prepend(call->streams, stream);
 		ret++;
 	}
 
@@ -2163,7 +2179,7 @@ struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_
 }
 
 /* must be called with call->master_lock held in W */
-static struct call_monologue *__monologue_create(struct call *call) {
+struct call_monologue *__monologue_create(struct call *call) {
 	struct call_monologue *ret;
 
 	__C_DBG("creating new monologue");
@@ -2180,7 +2196,7 @@ static struct call_monologue *__monologue_create(struct call *call) {
 }
 
 /* must be called with call->master_lock held in W */
-static void __monologue_tag(struct call_monologue *ml, const str *tag) {
+void __monologue_tag(struct call_monologue *ml, const str *tag) {
 	struct call *call = ml->call;
 
 	__C_DBG("tagging monologue with '"STR_FORMAT"'", STR_FMT(tag));

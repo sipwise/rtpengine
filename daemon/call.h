@@ -350,6 +350,12 @@ const char *call_query_ng(bencode_item_t *, struct callmaster *, bencode_item_t 
 
 
 void calls_dump_redis(struct callmaster *);
+struct call_monologue *__monologue_create(struct call *call);
+void __monologue_tag(struct call_monologue *ml, const str *tag);
+struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call);
+int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, struct call *c);
+struct packet_stream *__packet_stream_new(struct call *call);
+
 
 struct call *call_get_or_create(const str *callid, struct callmaster *m);
 struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode);
