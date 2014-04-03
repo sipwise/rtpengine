@@ -63,7 +63,7 @@ debug:
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) rtpengine .depend core
+	rm -f $(OBJS) rtpengine .depend core core.*
 
 .depend:	$(SRCS) Makefile
 	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
