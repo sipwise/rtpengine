@@ -1,3 +1,11 @@
+mediaproxy-ng is now rtpengine
+==============================
+
+This git repository has been obsoleted due to the name change, please go to
+https://github.com/sipwise/rtpengine for this project's new home.
+
+The documentation below is provided for posterity.
+
 What is mediaproxy-ng?
 =======================
 
