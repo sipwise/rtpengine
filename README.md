@@ -1,7 +1,7 @@
-What is mediaproxy-ng?
+What is rtpengine?
 =======================
 
-The [Sipwise](http://www.sipwise.com/) NGCP mediaproxy-ng is a proxy for RTP traffic and other UDP based
+The [Sipwise](http://www.sipwise.com/) NGCP rtpengine is a proxy for RTP traffic and other UDP based
 media traffic. It's meant to be used with the [Kamailio SIP proxy](http://www.kamailio.org/)
 and forms a drop-in replacement for any of the other available RTP and media
 proxies.
@@ -22,24 +22,26 @@ Features
 * Support for *Kamailio*'s *rtpproxy* module
 * Legacy support for old *OpenSER* *mediaproxy* module
 
-When used through the *rtpproxy-ng* module, the following additional features
-are available:
+When used through the *rtpengine* module (or its older counterpart called *rtpproxy-ng*),
+the following additional features are available:
 
 - Full SDP parsing and rewriting
-- Supports non-standard RTCP ports
-- ICE support:
+- Supports non-standard RTCP ports (RFC 3605)
+- ICE (RFC 5245) support:
   + Bridging between ICE-enabled and ICE-unaware user agents
   + Optionally acting only as additional ICE relay/candidate
   + Optionally forcing relay of media streams by removing other ICE candidates
-- SRTP support:
-  + Support for SDES
+  + Supports ice-lite only
+- SRTP (RFC 3711) support:
+  + Support for SDES (RFC 4568) and DTLS-SRTP (RFC 5764)
   + AES-CM and AES-F8 ciphers, both in userspace and in kernel
   + HMAC-SHA1 packet authentication
   + Bridging between RTP and SRTP user agents
-- Support for RTCP profile with feedback extensions (RTP/AVPF)
+- Support for RTCP profile with feedback extensions (RTP/AVPF, RFC 4585 and 5124)
 - Arbitrary bridging between any of the supported RTP profiles (RTP/AVP, RTP/AVPF,
   RTP/SAVP, RTP/SAVPF)
 - RTP/RTCP multiplexing (RFC 5761) and demultiplexing
+- Breaking of BUNDLE'd media streams (draft-ietf-mmusic-sdp-bundle-negotiation)
 
 Mediaproxy-ng does not (yet) support:
 
@@ -47,7 +49,6 @@ Mediaproxy-ng does not (yet) support:
 * Playback of pre-recorded streams/announcements
 * Recording of media streams
 * ZRTP
-* DTLS-SRTP
 
 Compiling and Installing
 =========================
@@ -65,34 +66,34 @@ This will produce a number of `.deb` files, which can then be installed using th
 
 The generated files are (with version 2.3.0 being built on an amd64 system):
 
-* `ngcp-mediaproxy-ng_2.3.0_all.deb`
+* `ngcp-rtpengine_2.3.0_all.deb`
 
 	This is a meta-package, which doesn't contain or install anything on its own, but rather
 	only depends on the other packages to be installed. Not strictly necessary to be installed.
 
-* `ngcp-mediaproxy-ng-daemon_2.3.0_amd64.deb`
+* `ngcp-rtpengine-daemon_2.3.0_amd64.deb`
 
-	This installed the userspace daemon, which is the main workhorse of mediaproxy-ng. This is
+	This installed the userspace daemon, which is the main workhorse of rtpengine. This is
 	the minimum requirement for anything to work.
 
-* `ngcp-mediaproxy-ng-dbg_2.3.0_amd64.deb`
+* `ngcp-rtpengine-dbg_2.3.0_amd64.deb`
 
 	Debugging symbols for the daemon. Optional.
 
-* `ngcp-mediaproxy-ng-dev_2.3.0_all.deb`
+* `ngcp-rtpengine-dev_2.3.0_all.deb`
 
 	Development headers from the daemon. Only necessary if additional modules need to be compiled.
 
-* `ngcp-mediaproxy-ng-iptables_2.3.0_amd64.deb`
+* `ngcp-rtpengine-iptables_2.3.0_amd64.deb`
 
 	Installs the plugin for `iptables` and `ip6tables`. Necessary for in-kernel operation.
 
-* `ngcp-mediaproxy-ng-kernel-dkms_2.3.0_all.deb`
+* `ngcp-rtpengine-kernel-dkms_2.3.0_all.deb`
 
 	Kernel module, DKMS version of the package. Recommended for in-kernel operation. The kernel
 	module will be compiled against the currently running kernel using DKMS.
 
-* `ngcp-mediaproxy-ng-kernel-source_2.3.0_all.deb`
+* `ngcp-rtpengine-kernel-source_2.3.0_all.deb`
 
 	If DKMS is unavailable or not desired, then this package will install the sources for the kernel
 	module for manual compilation. Required for in-kernel operation, but only if the DKMS package
@@ -101,12 +102,12 @@ The generated files are (with version 2.3.0 being built on an amd64 system):
 Manual Compilation
 ------------------
 
-There's 3 parts to mediaproxy-ng, which can be found in the respective subdirectories.
+There's 3 parts to rtpengine, which can be found in the respective subdirectories.
 
 * `daemon`
 
 	The userspace daemon and workhorse, minimum requirement for anything to work. Running `make`
-	will compile the binary, which will be called `mediaproxy-ng`. The following software packages
+	will compile the binary, which will be called `rtpengine`. The following software packages
 	including their development headers are required to compile the daemon:
 
 	- *pkg-config*
@@ -181,7 +182,7 @@ The options are described in more detail below.
 
 * -v, --version
 
-	If called with this option, the *mediaproxy-ng* daemon will simply print its version number
+	If called with this option, the *rtpengine* daemon will simply print its version number
 	and exit.
 
 * -t, --table
@@ -204,7 +205,7 @@ The options are described in more detail below.
 * -a, --advertised-ip, -A, --advertised-ip6
 
 	Takes an IPv4 address and an IPv6 address as argument, respectively. Optional. If specified,
-	*mediaproxy-ng* will advertise addresses different from those given in the `--ip` and `--ip6` options
+	*rtpengine* will advertise addresses different from those given in the `--ip` and `--ip6` options
 	as its local address. This is useful for operation behind NAT.
 
 * -l, --listen-tcp, -u, --listen-udp, -n, --listen-ng
@@ -216,11 +217,11 @@ The options are described in more detail below.
 	The *tcp* protocol is obsolete. It was used by old versions of *OpenSER* and its *mediaproxy* module.
 	It's provided for backwards compatibility.
 
-	The *udp* protocol is used by Kamailio's *rtpproxy* module. In this mode, *mediaproxy-ng* can
+	The *udp* protocol is used by Kamailio's *rtpproxy* module. In this mode, *rtpengine* can
 	be used as a drop-in replacement for any other compatible RTP proxy.
 
-	The *ng* protocol is an advanced control protocol and can be used with *Kamailio*'s *rtpproxy-ng*
-	module. With this protocol, the complete SDP body is passed to *mediaproxy-ng*, rewritten and
+	The *ng* protocol is an advanced control protocol and can be used with *Kamailio*'s *rtpengine*
+	module. With this protocol, the complete SDP body is passed to *rtpengine*, rewritten and
 	passed back to *Kamailio*. Several additional features are available with this protocol, such as
 	ICE handling, SRTP bridging, etc.
 
@@ -235,7 +236,7 @@ The options are described in more detail below.
 
 	Takes the number of seconds as argument after which a media stream should be considered dead if no media
 	traffic has been received. If all media streams belonging to a particular call go dead, then the call
-	is removed from *mediaproxy-ng*'s internal state table. Defaults to 60 seconds.
+	is removed from *rtpengine*'s internal state table. Defaults to 60 seconds.
 
 * -s, --silent-timeout
 
@@ -253,7 +254,7 @@ The options are described in more detail below.
 
 * -m, --port-min, -M, --port-max
 
-	Both take an integer as argument and together define the local port range from which *mediaproxy-ng*
+	Both take an integer as argument and together define the local port range from which *rtpengine*
 	will allocate UDP ports for media traffic relay. Default to 30000 and 40000 respectively.
 
 *  -r, --redis, -R, --redis-db, -b, --b2b-url
@@ -262,9 +263,9 @@ The options are described in more detail below.
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
-	/usr/sbin/mediaproxy-ng --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
+	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
 	--listen-udp=127.0.0.1:22222 --listen-ng=127.0.0.1:2223 --tos=184 \
-	--pidfile=/var/run/mediaproxy-ng.pid
+	--pidfile=/var/run/rtpengine.pid
 
 In-kernel Packet Forwarding
 ---------------------------
@@ -281,7 +282,7 @@ All this wouldn't be a big deal if it wasn't for the fact that RTP traffic gener
 packets being tranferred at high rates. Since the forwarding overhead is incurred on a per-packet basis, the
 ratio of useful data processed to overhead drops dramatically.
 
-For these reasons, *mediaproxy-ng* provides a kernel module to offload the bulk of the packet forwarding
+For these reasons, *rtpengine* provides a kernel module to offload the bulk of the packet forwarding
 duties from user space to kernel space. Using this technique, a large percentage of the overhead can be
 eliminated, CPU usage greatly reduced and the number of concurrent calls possible to be handled increased.
 
@@ -299,13 +300,13 @@ In short, the prerequisites for in-kernel packet forwarding are:
 2. An `iptables` and/or `ip6tables` rule must be present in the `INPUT` chain to send packets
    to the `MEDIAPROXY` target. This rule should be limited to UDP packets, but otherwise there
    are no restrictions.
-3. The `mediaproxy-ng` daemon must be running.
+3. The `rtpengine` daemon must be running.
 4. All of the above must be set up with the same forwarding table ID (see below).
 
 The sequence of events for a newly established media stream is then:
 
-1. The SIP proxy (e.g. *Kamailio*) controls *mediaproxy-ng* and informs it about a newly established call.
-2. The `mediaproxy-ng` daemon allocates local UDP ports and sets up preliminary forward rules
+1. The SIP proxy (e.g. *Kamailio*) controls *rtpengine* and informs it about a newly established call.
+2. The `rtpengine` daemon allocates local UDP ports and sets up preliminary forward rules
    based on the info received
    from the SIP proxy. Only userspace forwarding is set up, nothing is pushed to the kernel module yet.
 3. An RTP packet is received on the local port.
@@ -331,7 +332,7 @@ by *iptables*), which are identified through their ID number. By default, up to 
 can be created and used, giving them the ID numbers 0 through 63.
 
 Each forwarding table can be thought of a separate proxy instance. Each running instance of the
-*mediaproxy-ng* daemon controls one such table, and each table can only be controlled by one
+*rtpengine* daemon controls one such table, and each table can only be controlled by one
 running instance of the daemon at any given time. In the most common setup, there will be only a single
 instance of the daemon running and there will be only a single forwarding table in use, with ID zero.
 
@@ -351,11 +352,11 @@ directory called `42` in `/proc/mediaproxy/`, which contains additional pseudo-f
 particular forwarding table.
 
 To delete this forwarding table, the command `del 42` can be issued like above. This will only work
-if no *mediaproxy-ng* daemon is currently running and controlling this table.
+if no *rtpengine* daemon is currently running and controlling this table.
 
 Each subdirectory `/proc/mediaproxy/$ID/` corresponding to each fowarding table contains the pseudo-files
 `blist`, `control`, `list` and `status`. The `control` file is write-only while the others are read-only.
-The `control` file will be kept open by the *mediaproxy-ng* daemon while it's running to issue updates
+The `control` file will be kept open by the *rtpengine* daemon while it's running to issue updates
 to the forwarding rules during runtime. The daemon also reads the `blist` file on a regular basis, which
 produces a list of currently active forwarding rules together with their stats and other details
 within that table in a binary format. The same output,
@@ -380,7 +381,7 @@ for forwarding table 42, this can be done through:
 If IPv6 traffic is expected, the same should be done using `ip6tables`.
 
 It is possible but not strictly
-necessary to restrict the rules to the UDP port range used by *mediaproxy-ng*, e.g. by supplying a parameter
+necessary to restrict the rules to the UDP port range used by *rtpengine*, e.g. by supplying a parameter
 like `--dport 30000:40000`. If the kernel module receives a packet that it doesn't recognize as belonging
 to an active media stream, it will simply ignore it and hand it back to the network stack for normal
 processing.
@@ -400,13 +401,13 @@ A typical start-up sequence including in-kernel forwarding might look like this:
 	echo 'del 0' > /proc/mediaproxy/control
 
 	# start daemon
-	/usr/sbin/mediaproxy-ng --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
-	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/mediaproxy-ng.pid --no-fallback
+	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
+	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine.pid --no-fallback
 
 Running Multiple Instances
 --------------------------
 
-In some cases it may be desired to run multiple instances of *mediaproxy-ng* on the same machine, for example
+In some cases it may be desired to run multiple instances of *rtpengine* on the same machine, for example
 if the host is multi-homed and has multiple usable network interfaces with different addresses. This is
 supported by running multiple instances of the daemon using different command-line options (different
 local addresses and different listening ports), together with
@@ -422,19 +423,19 @@ then the start-up sequence might look like this:
 	echo 'del 0' > /proc/mediaproxy/control
 	echo 'del 1' > /proc/mediaproxy/control
 
-	/usr/sbin/mediaproxy-ng --table=0 --ip=10.64.73.31 \
-	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/mediaproxy-ng-10.pid --no-fallback
-	/usr/sbin/mediaproxy-ng --table=1 --ip=192.168.65.73 \
-	--listen-ng=127.0.0.1:2224 --tos=184 --pidfile=/var/run/mediaproxy-ng-192.pid --no-fallback
+	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 \
+	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine-10.pid --no-fallback
+	/usr/sbin/rtpengine --table=1 --ip=192.168.65.73 \
+	--listen-ng=127.0.0.1:2224 --tos=184 --pidfile=/var/run/rtpengine-192.pid --no-fallback
 
-With this setup, the SIP proxy can choose which instance of *mediaproxy-ng* to talk to and thus which local
+With this setup, the SIP proxy can choose which instance of *rtpengine* to talk to and thus which local
 interface to use by sending its control messages to either port 2223 or port 2224.
 
 The *ng* Control Protocol
 =========================
 
-In order to enable several advanced features in *mediaproxy-ng*, a new advanced control protocol has been devised
-which passes the complete SDP body from the SIP proxy to the *mediaproxy-ng* daemon, has the body rewritten in
+In order to enable several advanced features in *rtpengine*, a new advanced control protocol has been devised
+which passes the complete SDP body from the SIP proxy to the *rtpengine* daemon, has the body rewritten in
 the daemon, and then passed back to the SIP proxy to embed into the SIP message.
 
 This control protocol is based on the [bencode](http://en.wikipedia.org/wiki/Bencode) standard and runs over
@@ -479,9 +480,7 @@ While the actual messages as encoded on the wire, including the message cookie, 
 All keys and values are case-sensitive unless specified otherwise. The requirement stipulated by the *bencode*
 standard that dictionary keys must be present in lexicographical order is not currently honoured.
 
-The *ng* protocol is used by the *rtpproxy-ng* module, currently available from the
-[Sipwise Kamailio](https://github.com/sipwise/kamailio) repository as a
-[patch file](https://github.com/sipwise/kamailio/blob/master/debian/patches/sipwise/rtproxy-ng.patch).
+The *ng* protocol is used by *Kamailio*'s *rtpengine* module, which is based on the older module called *rtpproxy-ng*.
 
 `ping` Message
 --------------
@@ -525,11 +524,11 @@ Optionally included keys are:
 
 	- `symmetric`
 
-		Corresponds to the *rtpproxy* `w` flag. Not used by *mediaproxy-ng*.
+		Corresponds to the *rtpproxy* `w` flag. Not used by *rtpengine*.
 
 	- `asymmetric`
 
-		Corresponds to the *rtpproxy* `a` flag. Not used by *mediaproxy-ng*.
+		Corresponds to the *rtpproxy* `a` flag. Not used by *rtpengine*.
 
 * `replace`
 
@@ -824,4 +823,4 @@ A complete response message might look like this (formatted for readability):
 The `start recording` message must contain at least the key `call-id` and may optionally include `from-tag`,
 `to-tag` and `via-branch`, as defined above. The reply dictionary contains no additional keys.
 
-This is not implemented by *mediaproxy-ng*.
+This is not implemented by *rtpengine*.
