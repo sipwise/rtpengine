@@ -1,3 +1,14 @@
+ngcp-mediaproxy-ng (2.3.8.0+0~mr3.2.2.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [d53c485] fix answer silencing case
+  * [9e8cd5e] MT#6421 fix un-silencing case also for offer
+
+  [ Alexander Lutay ]
+  * MT#6553 Bump package version to fix upgrade mr3.2.1->mr3.2.2
+
+ -- Alexander Lutay <alutay@sipwise.com>  Fri, 04 Apr 2014 13:42:00 +0200
+
 ngcp-mediaproxy-ng (2.3.7.0+0~mr3.2.2.0) unstable; urgency=low
 
   * New release.
