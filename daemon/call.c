@@ -2107,7 +2107,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	struct call *c;
 
 	ilog(LOG_NOTICE, "["STR_FORMAT"] Creating new call",
-		STR_FMT(callid));	/* XXX will spam syslog on recovery from DB */
+		STR_FMT(callid));
 	c = obj_alloc0("call", sizeof(*c), __call_free);
 	c->callmaster = m;
 	mutex_init(&c->buffer_lock);

@@ -76,5 +76,10 @@ INLINE void log_info_stream_fd(struct stream_fd *sfd) {
 #define LOG_WARN LOG_WARNING
 
 
+#define LOG_LEVEL_MASK(v)	((v) & 0x0f)
+
+#define LOG_FLAG_RESTORE	0x10
+
+
 
 #endif

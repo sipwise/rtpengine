@@ -17,10 +17,18 @@ void ilog(int prio, const char *fmt, ...) {
 	char prefix[256];
 	char *msg;
 	va_list ap;
-	int ret;
+	int ret, xprio;
 
-	if (prio > g_atomic_int_get(&log_level))
+	xprio = LOG_LEVEL_MASK(prio);
+
+#ifndef __DEBUG
+	int level; /* thank you C99 */
+	level = g_atomic_int_get(&log_level);
+	if (xprio > LOG_LEVEL_MASK(level))
 		return;
+	if ((level & LOG_FLAG_RESTORE) && !(prio & LOG_FLAG_RESTORE))
+		return;
+#endif
 
 	switch (log_info.e) {
 		case LOG_INFO_NONE:
@@ -47,7 +55,7 @@ void ilog(int prio, const char *fmt, ...) {
 		return;
 	}
 
-	syslog(prio, "%s%s", prefix, msg);
+	syslog(xprio, "%s%s", prefix, msg);
 
 	free(msg);
 }
