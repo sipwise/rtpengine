@@ -450,7 +450,7 @@ static void determine_handler(struct packet_stream *in, const struct packet_stre
 		goto err;
 
 	matrix = __sh_matrix;
-	if (MEDIA_ISSET(in->media, DTLS) && MEDIA_ISSET(out->media, DTLS))
+	if (MEDIA_ISSET(in->media, DTLS) || MEDIA_ISSET(out->media, DTLS))
 		matrix = __sh_matrix_dtls;
 
 	sh_pp = matrix[in->media->protocol->index];
