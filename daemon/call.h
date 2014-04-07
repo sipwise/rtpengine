@@ -76,6 +76,7 @@ struct call_monologue;
 #define SHARED_FLAG_RTCP_MUX			0x00000010
 #define SHARED_FLAG_SETUP_ACTIVE		0x00000020
 #define SHARED_FLAG_SETUP_PASSIVE		0x00000040
+#define SHARED_FLAG_ICE				0x00000080
 
 /* struct stream_params */
 #define SP_FLAG_NO_RTCP				0x00010000
@@ -86,6 +87,7 @@ struct call_monologue;
 #define SP_FLAG_ASYMMETRIC			SHARED_FLAG_ASYMMETRIC
 #define SP_FLAG_SETUP_ACTIVE			SHARED_FLAG_SETUP_ACTIVE
 #define SP_FLAG_SETUP_PASSIVE			SHARED_FLAG_SETUP_PASSIVE
+#define SP_FLAG_ICE				SHARED_FLAG_ICE
 
 /* struct packet_stream */
 #define PS_FLAG_RTP				0x00010000
@@ -112,6 +114,7 @@ struct call_monologue;
 #define MEDIA_FLAG_SETUP_ACTIVE			SHARED_FLAG_SETUP_ACTIVE
 #define MEDIA_FLAG_SETUP_PASSIVE		SHARED_FLAG_SETUP_PASSIVE
 #define MEDIA_FLAG_PASSTHRU			0x00100000
+#define MEDIA_FLAG_ICE				SHARED_FLAG_ICE
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)

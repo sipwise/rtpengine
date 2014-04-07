@@ -1031,6 +1031,10 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 						sp->fingerprint.hash_func->num_bytes);
 			}
 
+			/* a=candidate */
+			if (attr_get_by_id(&media->attributes, ATTR_CANDIDATE))
+				SP_SET(sp, ICE);
+
 			/* determine RTCP endpoint */
 
 			if (attr_get_by_id(&media->attributes, ATTR_RTCP_MUX)) {
@@ -1356,23 +1360,31 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
 			case ATTR_CANDIDATE:
+				if (MEDIA_ISSET(media, PASSTHRU))
+					break;
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
 				goto strip;
 
 			case ATTR_RTCP:
 			case ATTR_RTCP_MUX:
-			case ATTR_EXTMAP:
-			case ATTR_CRYPTO:
 			case ATTR_INACTIVE:
 			case ATTR_SENDONLY:
 			case ATTR_RECVONLY:
 			case ATTR_SENDRECV:
+				goto strip;
+
+			case ATTR_EXTMAP:
+			case ATTR_CRYPTO:
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:
+				if (MEDIA_ISSET(media, PASSTHRU))
+					break;
 				goto strip;
 
 			case ATTR_MID:
+				if (MEDIA_ISSET(media, PASSTHRU))
+					break;
 				a = attr_get_by_id(&sdp->session->attributes, ATTR_GROUP);
 				if (a && a->u.group.semantics == GROUP_BUNDLE)
 					goto strip;
@@ -1499,7 +1511,7 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	const char *actpass;
 	struct call *call = media->call;
 
-	if (!call->dtls_cert || !MEDIA_ISSET(media, DTLS))
+	if (!call->dtls_cert || !MEDIA_ISSET(media, DTLS) || MEDIA_ISSET(media, PASSTHRU))
 		return;
 
 	hf = call->dtls_cert->fingerprint.hash_func;
@@ -1538,7 +1550,7 @@ static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
 	struct crypto_params *cp = &media->sdes_out.params;
 	unsigned long long ull;
 
-	if (!cp->crypto_suite || !MEDIA_ISSET(media, SDES))
+	if (!cp->crypto_suite || !MEDIA_ISSET(media, SDES) || MEDIA_ISSET(media, PASSTHRU))
 		return;
 
 	p = b64_buf;
@@ -1616,12 +1628,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto error;
 		}
 
-		if (process_session_attributes(chop, &session->attributes, flags))
-			goto error;
+		if (!MEDIA_ISSET(call_media, PASSTHRU)) {
+			if (process_session_attributes(chop, &session->attributes, flags))
+				goto error;
 
-		if (do_ice) {
-			copy_up_to_end_of(chop, &session->s);
-			chopper_append_c(chop, "a=ice-lite\r\n");
+			if (do_ice) {
+				copy_up_to_end_of(chop, &session->s);
+				chopper_append_c(chop, "a=ice-lite\r\n");
+			}
 		}
 
 		media_index = 1;
@@ -1696,7 +1710,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			insert_crypto(call_media, chop);
 			insert_dtls(call_media, chop);
 
-			if (do_ice) {
+			if (do_ice && !MEDIA_ISSET(call_media, PASSTHRU)) {
 				if (!call_media->ice_ufrag.s) {
 					create_random_ice_string(call, &call_media->ice_ufrag, 8);
 					create_random_ice_string(call, &call_media->ice_pwd, 28);

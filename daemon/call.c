@@ -441,6 +441,8 @@ static void determine_handler(struct packet_stream *in, const struct packet_stre
 
 	if (PS_ISSET(in, HAS_HANDLER))
 		return;
+	if (MEDIA_ISSET(in->media, PASSTHRU))
+		goto noop;
 
 	if (!in->media->protocol)
 		goto err;
@@ -465,6 +467,7 @@ done:
 
 err:
 	ilog(LOG_WARNING, "Unknown transport protocol encountered");
+noop:
 	in->handler = &__sh_noop;
 	goto done;
 }
@@ -1566,6 +1569,29 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 	return 0;
 }
 
+static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *this,
+		struct call_media *other)
+{
+	if (!flags)
+		return;
+
+	/* we offer ICE by default */
+	if (flags->opmode == OP_OFFER) {
+		if (!MEDIA_ISSET(this, INITIALIZED))
+			MEDIA_SET(this, ICE);
+	}
+	if (flags->ice_remove)
+		MEDIA_CLEAR(this, ICE);
+
+	/* special case: if doing ICE on both sides and ice_force is not set, we cannot
+	 * be sure that media will pass through us, so we have to disable certain features */
+	if (MEDIA_ISSET(this, ICE) && MEDIA_ISSET(other, ICE) && !flags->ice_force) {
+		ilog(LOG_DEBUG, "enabling passthrough mode");
+		MEDIA_SET(this, PASSTHRU);
+		MEDIA_SET(other, PASSTHRU);
+	}
+}
+
 /* generates SDES parametes for outgoing SDP, which is our media "out" direction */
 static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other)
@@ -1576,7 +1602,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 	if (!flags)
 		return;
 
-	if (!this->protocol || !this->protocol->srtp) {
+	if (!this->protocol || !this->protocol->srtp || MEDIA_ISSET(this, PASSTHRU)) {
 		cp->crypto_suite = NULL;
 		MEDIA_CLEAR(this, DTLS);
 		MEDIA_CLEAR(this, SDES);
@@ -1764,7 +1790,7 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 
 		/* copy parameters advertised by the sender of this message */
 		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
-				SP_FLAG_RTCP_MUX | SP_FLAG_ASYMMETRIC);
+				SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_ICE);
 
 		crypto_params_copy(&other_media->sdes_in.params, &sp->crypto);
 		other_media->sdes_in.tag = sp->sdes_tag;
@@ -1788,6 +1814,9 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 		if ((MEDIA_ISSET(other_media, SETUP_PASSIVE) || MEDIA_ISSET(other_media, SETUP_ACTIVE))
 				&& other_media->fingerprint.hash_func)
 			MEDIA_SET(other_media, DTLS);
+
+		/* ICE negotiation */
+		__ice_offer(flags, media, other_media);
 
 		/* control rtcp-mux */
 		__rtcp_mux_logic(flags, media, other_media);
