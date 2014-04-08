@@ -923,12 +923,14 @@ static void proc_list_addr_print(struct seq_file *f, const char *s, const struct
 	seq_printf(f, "    %6s ", s);
 	switch (a->family) {
 		case AF_INET:
-			seq_printf(f, "inet4 %u.%u.%u.%u:%u\n", a->u8[0], a->u8[1], a->u8[2], a->u8[3], a->port);
+			seq_printf(f, "inet4 %u.%u.%u.%u:%u\n", a->u.u8[0], a->u.u8[1], a->u.u8[2],
+					a->u.u8[3], a->port);
 			break;
 		case AF_INET6:
-			seq_printf(f, "inet6 [%x:%x:%x:%x:%x:%x:%x:%x]:%u\n", htons(a->u16[0]), htons(a->u16[1]),
-				htons(a->u16[2]), htons(a->u16[3]), htons(a->u16[4]), htons(a->u16[5]),
-				htons(a->u16[6]), htons(a->u16[7]), a->port);
+			seq_printf(f, "inet6 [%x:%x:%x:%x:%x:%x:%x:%x]:%u\n",
+				htons(a->u.u16[0]), htons(a->u.u16[1]),
+				htons(a->u.u16[2]), htons(a->u.u16[3]), htons(a->u.u16[4]), htons(a->u.u16[5]),
+				htons(a->u.u16[6]), htons(a->u.u16[7]), a->port);
 			break;
 		default:
 			seq_printf(f, "<unknown>\n");
@@ -1034,12 +1036,12 @@ out:
 static int is_valid_address(struct mp_address *mpa) {
 	switch (mpa->family) {
 		case AF_INET:
-			if (!mpa->ipv4)
+			if (!mpa->u.ipv4)
 				return 0;
 			break;
 
 		case AF_INET6:
-			if (!mpa->u32[0] && !mpa->u32[1] && !mpa->u32[2] && !mpa->u32[3])
+			if (!mpa->u.u32[0] && !mpa->u.u32[1] && !mpa->u.u32[2] && !mpa->u.u32[3])
 				return 0;
 			break;
 
@@ -1693,13 +1695,13 @@ static int send_proxy_packet4(struct sk_buff *skb, struct mp_address *src, struc
 		.tot_len	= htons(sizeof(*ih) + datalen),
 		.ttl		= 64,
 		.protocol	= IPPROTO_UDP,
-		.saddr		= src->ipv4,
-		.daddr		= dst->ipv4,
+		.saddr		= src->u.ipv4,
+		.daddr		= dst->u.ipv4,
 	};
 
 	skb->csum_start = skb_transport_header(skb) - skb->head;
 	skb->csum_offset = offsetof(struct udphdr, check);
-	uh->check = csum_tcpudp_magic(src->ipv4, dst->ipv4, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
+	uh->check = csum_tcpudp_magic(src->u.ipv4, dst->u.ipv4, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
 	if (uh->check == 0)
 		uh->check = CSUM_MANGLED_0;
 
@@ -1750,8 +1752,8 @@ static int send_proxy_packet6(struct sk_buff *skb, struct mp_address *src, struc
 		.nexthdr	= IPPROTO_UDP,
 		.hop_limit	= 64,
 	};
-	memcpy(&ih->saddr, src->ipv6, sizeof(ih->saddr));
-	memcpy(&ih->daddr, dst->ipv6, sizeof(ih->daddr));
+	memcpy(&ih->saddr, src->u.ipv6, sizeof(ih->saddr));
+	memcpy(&ih->daddr, dst->u.ipv6, sizeof(ih->daddr));
 
 	skb->csum_start = skb_transport_header(skb) - skb->head;
 	skb->csum_offset = offsetof(struct udphdr, check);

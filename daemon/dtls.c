@@ -624,7 +624,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 
 	if (ret > sizeof(buf)) {
 		ilog(LOG_ERROR, "BIO buffer overflow");
-		BIO_reset(d->w_bio);
+		(void) BIO_reset(d->w_bio);
 		return 0;
 	}
 

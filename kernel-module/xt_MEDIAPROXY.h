@@ -20,7 +20,7 @@ struct mp_address {
 		unsigned char		u8[16];
 		u_int16_t		u16[8];
 		u_int32_t		u32[4];
-	};
+	}				u;
 	u_int16_t			port;
 };
 

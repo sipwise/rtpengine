@@ -339,15 +339,15 @@ void kernelize(struct packet_stream *stream) {
 
 	if (IN6_IS_ADDR_V4MAPPED(&sink->endpoint.ip46)) {
 		mpt.src_addr.family = AF_INET;
-		mpt.src_addr.ipv4 = cm->conf.ipv4;
+		mpt.src_addr.u.ipv4 = cm->conf.ipv4;
 		mpt.dst_addr.family = AF_INET;
-		mpt.dst_addr.ipv4 = sink->endpoint.ip46.s6_addr32[3];
+		mpt.dst_addr.u.ipv4 = sink->endpoint.ip46.s6_addr32[3];
 	}
 	else {
 		mpt.src_addr.family = AF_INET6;
-		memcpy(mpt.src_addr.ipv6, &cm->conf.ipv6, sizeof(mpt.src_addr.ipv6));
+		memcpy(mpt.src_addr.u.ipv6, &cm->conf.ipv6, sizeof(mpt.src_addr.u.ipv6));
 		mpt.dst_addr.family = AF_INET6;
-		memcpy(mpt.dst_addr.ipv6, &sink->endpoint.ip46, sizeof(mpt.src_addr.ipv6));
+		memcpy(mpt.dst_addr.u.ipv6, &sink->endpoint.ip46, sizeof(mpt.src_addr.u.ipv6));
 	}
 
 	stream->handler->in->kernel(&mpt.decrypt, stream);
