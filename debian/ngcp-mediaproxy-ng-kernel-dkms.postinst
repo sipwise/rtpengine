@@ -19,7 +19,7 @@ if [ "$1" = 'configure' ] ; then
 
         # try to start the daemon
         if [ -x /etc/init.d/ngcp-mediaproxy-ng-daemon ] ; then
-		invoke-rc.d ngcp-mediaproxy-ng-daemon start || true
+		invoke-rc.d ngcp-mediaproxy-ng-daemon restart || true
         fi
 fi
 
