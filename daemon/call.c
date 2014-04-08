@@ -1951,14 +1951,14 @@ static void call_destroy(struct call *c) {
 
 				smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-						"%lu p, %lu b, %lu e",
+						"%llu p, %llu b, %llu e",
 						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						buf, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						ps->stats.packets,
-						ps->stats.bytes,
-						ps->stats.errors);
+						(unsigned long long) ps->stats.packets,
+						(unsigned long long) ps->stats.bytes,
+						(unsigned long long) ps->stats.errors);
 			}
 		}
 	}
