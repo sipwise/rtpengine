@@ -25,6 +25,7 @@ struct sdp_ng_flags {
 	    replace_sess_conn:1,
 	    ice_remove:1,
 	    ice_force:1,
+	    ice_force_relay:1,
 	    rtcp_mux_offer:1,
 	    rtcp_mux_demux:1,
 	    rtcp_mux_accept:1,

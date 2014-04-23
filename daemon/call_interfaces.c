@@ -462,6 +462,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			out->ice_remove = 1;
 		else if (!str_cmp(&s, "force"))
 			out->ice_force = 1;
+		else if (!str_cmp(&s, "force_relay"))
+			out->ice_force_relay = 1;
 	}
 
 	if ((list = bencode_dictionary_get_expect(input, "rtcp-mux", BENCODE_LIST))) {

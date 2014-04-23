@@ -78,7 +78,10 @@ struct attribute_candidate {
 	str component_str;
 	str transport;
 	str priority_str;
-	/* incomplete */
+	str ip_str;
+	str port_str;
+	str typ_str;
+	str type_str;
 
 	unsigned long component;
 	unsigned long priority;
@@ -554,6 +557,10 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 	EXTRACT_TOKEN(u.candidate.component_str);
 	EXTRACT_TOKEN(u.candidate.transport);
 	EXTRACT_TOKEN(u.candidate.priority_str);
+	EXTRACT_TOKEN(u.candidate.ip_str);
+	EXTRACT_TOKEN(u.candidate.port_str);
+	EXTRACT_TOKEN(u.candidate.typ_str);
+	EXTRACT_TOKEN(u.candidate.type_str);
 
 	output->u.candidate.component = strtoul(output->u.candidate.component_str.s, &ep, 10);
 	if (ep == output->u.candidate.component_str.s)
@@ -1311,7 +1318,18 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 		switch (attr->attr) {
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
+				if (!flags->ice_remove && !flags->ice_force)
+					break;
+				goto strip;
+
 			case ATTR_CANDIDATE:
+				if (flags->ice_force_relay) {
+					if ((attr->u.candidate.type_str.len == 5) &&
+					    (strncasecmp(attr->u.candidate.type_str.s, "relay", 5) == 0))
+						goto strip;
+					else
+						break;
+				}
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
 				goto strip;
@@ -1359,9 +1377,22 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 		switch (attr->attr) {
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
+				if (MEDIA_ISSET(media, PASSTHRU))
+					break;
+				if (!flags->ice_remove && !flags->ice_force)
+					break;
+				goto strip;
+
 			case ATTR_CANDIDATE:
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
+				if (flags->ice_force_relay) {
+					if ((attr->u.candidate.type_str.len == 5) &&
+					    (strncasecmp(attr->u.candidate.type_str.s, "relay", 5) == 0))
+						goto strip;
+					else
+						break;
+				}
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
 				goto strip;
@@ -1442,13 +1473,17 @@ out:
 }
 
 static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rtp, struct packet_stream *rtcp,
-		unsigned long priority, struct sdp_media *media)
+			      unsigned long priority, struct sdp_media *media,
+			      unsigned int relay)
 {
 	chopper_append_c(chop, "a=candidate:");
 	chopper_append_str(chop, &ice_foundation_str);
 	chopper_append_printf(chop, " 1 UDP %lu ", priority);
 	insert_ice_address(chop, rtp);
-	chopper_append_c(chop, " typ host\r\n");
+	if (relay == 1)
+	    chopper_append_c(chop, " typ relay\r\n");
+	else
+	    chopper_append_c(chop, " typ host\r\n");
 
 	if (rtcp) {
 		/* rtcp-mux only possible in answer */
@@ -1456,26 +1491,36 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 		chopper_append_str(chop, &ice_foundation_str);
 		chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
 		insert_ice_address(chop, rtcp);
-		chopper_append_c(chop, " typ host\r\n");
+		if (relay)
+		    chopper_append_c(chop, " typ relay\r\n");
+		else
+		    chopper_append_c(chop, " typ host\r\n");
 	}
 
 }
 
 static void insert_candidates_alt(struct sdp_chopper *chop, struct packet_stream *rtp, struct packet_stream *rtcp,
-		unsigned long priority, struct sdp_media *media)
+				  unsigned long priority, struct sdp_media *media,
+				  unsigned int relay)
 {
 	chopper_append_c(chop, "a=candidate:");
 	chopper_append_str(chop, &ice_foundation_str_alt);
 	chopper_append_printf(chop, " 1 UDP %lu ", priority);
 	insert_ice_address_alt(chop, rtp);
-	chopper_append_c(chop, " typ host\r\n");
+	if (relay == 1)
+	    chopper_append_c(chop, " typ relay\r\n");
+	else
+	    chopper_append_c(chop, " typ host\r\n");
 
 	if (rtcp) {
 		chopper_append_c(chop, "a=candidate:");
 		chopper_append_str(chop, &ice_foundation_str_alt);
 		chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
 		insert_ice_address_alt(chop, rtcp);
-		chopper_append_c(chop, " typ host\r\n");
+		if (relay)
+		    chopper_append_c(chop, " typ relay\r\n");
+		else
+		    chopper_append_c(chop, " typ host\r\n");
 	}
 
 }
@@ -1591,7 +1636,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 	struct call *call;
 
 	m = monologue->medias.head;
-	do_ice = (flags->ice_force || (!has_ice(sessions) && !flags->ice_remove)) ? 1 : 0;
+	do_ice = (flags->ice_force || flags->ice_force_relay ||
+		  (!has_ice(sessions) && !flags->ice_remove)) ? 1 : 0;
 	call = monologue->call;
 
 	for (l = sessions->head; l; l = l->next) {
@@ -1730,12 +1776,13 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				priority = new_priority(flags->ice_force ? NULL : sdp_media);
 
 				insert_candidates(chop, ps, ps_rtcp,
-						priority, sdp_media);
+						  priority, sdp_media, flags->ice_force_relay);
 
 				if (callmaster_has_ipv6(call->callmaster)) {
 					priority -= 256;
 					insert_candidates_alt(chop, ps, ps_rtcp,
-							priority, sdp_media);
+							      priority, sdp_media,
+							      flags->ice_force_relay);
 				}
 			}
 
