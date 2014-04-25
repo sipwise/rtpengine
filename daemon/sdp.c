@@ -1480,7 +1480,7 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 	chopper_append_str(chop, &ice_foundation_str);
 	chopper_append_printf(chop, " 1 UDP %lu ", priority);
 	insert_ice_address(chop, rtp);
-	if (relay == 1)
+	if (relay)
 	    chopper_append_c(chop, " typ relay\r\n");
 	else
 	    chopper_append_c(chop, " typ host\r\n");
@@ -1507,7 +1507,7 @@ static void insert_candidates_alt(struct sdp_chopper *chop, struct packet_stream
 	chopper_append_str(chop, &ice_foundation_str_alt);
 	chopper_append_printf(chop, " 1 UDP %lu ", priority);
 	insert_ice_address_alt(chop, rtp);
-	if (relay == 1)
+	if (relay)
 	    chopper_append_c(chop, " typ relay\r\n");
 	else
 	    chopper_append_c(chop, " typ host\r\n");
