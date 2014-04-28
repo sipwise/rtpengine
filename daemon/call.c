@@ -172,10 +172,6 @@ static const struct streamhandler __sh_savp2savp = {
 	.in		= &__shio_decrypt,
 	.out		= &__shio_encrypt,
 };
-static const struct streamhandler __sh_savpf2savpf = {
-	.in		= &__shio_decrypt,
-	.out		= &__shio_encrypt,
-};
 static const struct streamhandler __sh_savpf2savp = {
 	.in		= &__shio_decrypt_avpf_strip,
 	.out		= &__shio_encrypt,
