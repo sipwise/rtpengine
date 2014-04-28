@@ -1437,20 +1437,24 @@ strip:
 	return 0;
 }
 
-static unsigned long prio_calc(unsigned int pref) {
-	return (1 << 24) * 126 + (1 << 8) * pref + 256 * 1;
+INLINE unsigned long prio_calc(unsigned int pref, unsigned int tpref) {
+	return (1 << 24) * tpref + (1 << 8) * pref + 256 * 1;
 }
 
-static unsigned long new_priority(struct sdp_media *media) {
+static unsigned long new_priority(struct sdp_media *media, int relay) {
 	int id;
 	GQueue *cands;
-	unsigned int pref;
-	unsigned long prio;
+	int pref;
+	unsigned long prio, tpref;
 	GList *l;
+	struct sdp_attribute *a;
 	struct attribute_candidate *c;
 
+	tpref = 126;
+	if (relay)
+		tpref = 0;
 	pref = 65535;
-	prio = prio_calc(pref);
+	prio = prio_calc(pref, tpref);
 
 	if (!media)
 		goto out;
@@ -1461,10 +1465,11 @@ static unsigned long new_priority(struct sdp_media *media) {
 		goto out;
 
 	for (l = cands->head; l; l = l->next) {
-		c = l->data;
-		while (c->priority >= prio) {
+		a = l->data;
+		c = &a->u.candidate;
+		while (c->priority >= prio && pref >= 1) {
 			pref--;
-			prio = prio_calc(pref);
+			prio = prio_calc(pref, tpref);
 		}
 	}
 
@@ -1773,7 +1778,10 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			}
 
 			if (!flags->ice_remove) {
-				priority = new_priority(flags->ice_force ? NULL : sdp_media);
+				priority = new_priority(
+						(flags->ice_force || flags->ice_force_relay) ? NULL : sdp_media,
+						flags->ice_force_relay
+				);
 
 				insert_candidates(chop, ps, ps_rtcp,
 						  priority, sdp_media, flags->ice_force_relay);
