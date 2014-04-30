@@ -2093,6 +2093,8 @@ static void __call_free(void *p) {
 	struct endpoint_map *em;
 	GList *it;
 
+	__C_DBG("freeing call struct");
+
 	call_buffer_free(&c->buffer);
 	mutex_destroy(&c->buffer_lock);
 	rwlock_destroy(&c->master_lock);
@@ -2391,7 +2393,7 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	}
 
 	if (output)
-		ng_call_stats(c, fromtag, totag, output);
+		ng_call_stats(c, fromtag, totag, output, NULL);
 
 /*
 	if (branch && branch->len) {
@@ -2436,67 +2438,6 @@ out:
 	if (c)
 		obj_put(c);
 	return ret;
-}
-
-
-#define SSUM(x) \
-	stats->totals[0].x += stream->stats.x;
-/* call->master_lock must be held in W */
-/* XXX possibly eliminate W lock, should work with R only */
-void stats_query(struct call *call, const str *fromtag, const str *totag, struct call_stats *stats,
-	void (*cb)(struct packet_stream *, void *), void *arg)
-{
-	const str *match_tag;
-	struct call_monologue *ml;
-	struct call_media *media;
-	GList *l, *k;
-	GSList *ml_l = NULL;
-	struct packet_stream *stream;
-
-	ZERO(*stats);
-
-	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
-	if (!match_tag) {
-		ml_l = call->monologues;
-		if (!ml_l)
-			goto out;
-		ml = ml_l->data;
-	}
-	else
-		ml = g_hash_table_lookup(call->tags, match_tag);
-
-	while (ml) {
-		l = ml->medias.head;
-		for (l = ml->medias.head; l; l = l->next) {
-			media = l->data;
-
-			for (k = media->streams.head; k; k = k->next) {
-				stream = k->data;
-
-				if (stream->last_packet > stats->newest)
-					stats->newest = stream->last_packet;
-
-				if (cb)
-					cb(stream, arg);
-
-				SSUM(packets);
-				SSUM(bytes);
-				SSUM(errors);
-
-				/* XXX more meaningful stats */
-			}
-		}
-
-		if (!ml_l)
-			break;
-		ml_l = ml_l->next;
-		if (!ml_l)
-			break;
-		ml = ml_l->data;
-	}
-
-out:
-	;
 }
 
 

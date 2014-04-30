@@ -328,12 +328,12 @@ str *call_query_udp(char **out, struct callmaster *m) {
 		goto err;
 	}
 
-	stats_query(c, &fromtag, &totag, &stats, NULL, NULL);
+	ng_call_stats(c, &fromtag, &totag, NULL, &stats);
 
 	rwlock_unlock_w(&c->master_lock);
 
 	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
-		(long long int) m->conf.silent_timeout - (poller_now - stats.newest),
+		(long long int) m->conf.silent_timeout - (poller_now - stats.last_packet),
 		stats.totals[0].packets, stats.totals[1].packets,
 		stats.totals[2].packets, stats.totals[3].packets);
 	goto out;
@@ -407,6 +407,20 @@ void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
 
 
 
+
+static void call_release_ref(void *p) {
+	struct call *c = p;
+	obj_put(c);
+}
+INLINE void call_bencode_hold_ref(struct call *c, bencode_item_t *bi) {
+	/* We cannot guarantee that the "call" structures are still around at the time
+	 * when the bencode reply is finally read and sent out. Since we use scatter/gather
+	 * to avoid duplication of strings and stuff, we reserve a reference to the call
+	 * structs and have it released when the bencode buffer is destroyed. This is
+	 * necessary every time the bencode response may reference strings contained
+	 * within the call structs. */
+	bencode_buffer_destroy_add(bi->buffer, call_release_ref, obj_get(c));
+}
 
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
 	bencode_item_t *list, *it;
@@ -528,6 +542,10 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (!call)
 		goto out;
 
+	/* At least the random ICE strings are contained within the call struct, so we
+	 * need to hold a ref until we're done sending the reply */
+	call_bencode_hold_ref(call, output);
+
 	monologue = call_get_mono_dialogue(call, &fromtag, &totag);
 
 	chopper = sdp_chopper_new(&sdp);
@@ -594,114 +612,189 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 	return NULL;
 }
 
-#if 0
-static bencode_item_t *peer_address(bencode_buffer_t *b, struct stream *s) {
-	bencode_item_t *d;
-	char buf[64];
-
-	d = bencode_dictionary(b);
-	if (IN6_IS_ADDR_V4MAPPED(&s->ip46)) {
-		bencode_dictionary_add_string(d, "family", "IPv4");
-		inet_ntop(AF_INET, &(s->ip46.s6_addr32[3]), buf, sizeof(buf));
-	}
-	else {
-		bencode_dictionary_add_string(d, "family", "IPv6");
-		inet_ntop(AF_INET6, &s->ip46, buf, sizeof(buf));
-	}
-	bencode_dictionary_add_string_dup(d, "address", buf);
-	bencode_dictionary_add_integer(d, "port", s->port);
-
-	return d;
-}
-#endif
-
-#if 0
-static bencode_item_t *stats_encode(bencode_buffer_t *b, struct stats *s) {
-	bencode_item_t *d;
-
-	d = bencode_dictionary(b);
+static void ng_stats(bencode_item_t *d, const struct stats *s, struct stats *totals) {
 	bencode_dictionary_add_integer(d, "packets", s->packets);
 	bencode_dictionary_add_integer(d, "bytes", s->bytes);
 	bencode_dictionary_add_integer(d, "errors", s->errors);
-	return d;
-}
-#endif
-
-#if 0
-static bencode_item_t *streamrelay_stats(bencode_buffer_t *b, struct packet_stream *ps) {
-	bencode_item_t *d;
-
-	d = bencode_dictionary(b);
-
-	// XXX
-	//bencode_dictionary_add(d, "counters", stats_encode(b, &r->stats));
-	//bencode_dictionary_add(d, "peer address", peer_address(b, &r->peer));
-	//bencode_dictionary_add(d, "advertised peer address", peer_address(b, &r->peer_advertised));
-
-	bencode_dictionary_add_integer(d, "local port", ps->fd.localport);
-
-	return d;
-}
-#endif
-
-#if 0
-static bencode_item_t *rtp_rtcp_stats(bencode_buffer_t *b, struct stats *rtp, struct stats *rtcp) {
-	bencode_item_t *s;
-	s = bencode_dictionary(b);
-	bencode_dictionary_add(s, "rtp", stats_encode(b, rtp));
-	bencode_dictionary_add(s, "rtcp", stats_encode(b, rtcp));
-	return s;
-}
-#endif
-
-#if 0
-XXX
-static bencode_item_t *peer_stats(bencode_buffer_t *b, struct peer *p) {
-	bencode_item_t *d, *s;
-
-	d = bencode_dictionary(b);
-
-	bencode_dictionary_add_str_dup(d, "tag", &p->tag);
-	if (p->codec)
-		bencode_dictionary_add_string(d, "codec", p->codec);
-	if (p->kernelized)
-		bencode_dictionary_add_string(d, "status", "in kernel");
-	else if (p->confirmed)
-		bencode_dictionary_add_string(d, "status", "confirmed peer address");
-	else if (p->filled)
-		bencode_dictionary_add_string(d, "status", "known but unconfirmed peer address");
-	else
-		bencode_dictionary_add_string(d, "status", "unknown peer address");
-
-	s = bencode_dictionary_add_dictionary(d, "stats");
-	bencode_dictionary_add(s, "rtp", streamrelay_stats(b, &p->rtps[0]));
-	bencode_dictionary_add(s, "rtcp", streamrelay_stats(b, &p->rtps[1]));
-
-	return d;
+	if (!totals)
+		return;
+	totals->packets += s->packets;
+	totals->bytes += s->bytes;
+	totals->errors += s->errors;
 }
 
-static void ng_stats_cb(struct peer *p, struct peer *px, void *streams) {
-	bencode_item_t *stream;
+static void ng_stats_endpoint(bencode_item_t *dict, const struct endpoint *ep) {
+	char buf[64];
 
-	stream = bencode_list_add_list(streams);
-	bencode_list_add(stream, peer_stats(stream->buffer, p));
-	bencode_list_add(stream, peer_stats(stream->buffer, px));
+	if (IN6_IS_ADDR_V4MAPPED(&ep->ip46)) {
+		bencode_dictionary_add_string(dict, "family", "IPv4");
+		inet_ntop(AF_INET, &(ep->ip46.s6_addr32[3]), buf, sizeof(buf));
+	}
+	else {
+		bencode_dictionary_add_string(dict, "family", "IPv6");
+		inet_ntop(AF_INET6, &ep->ip46, buf, sizeof(buf));
+	}
+	bencode_dictionary_add_string_dup(dict, "address", buf);
+	bencode_dictionary_add_integer(dict, "port", ep->port);
 }
-#endif
+
+#define BF_PS(k, f) if (PS_ISSET(ps, f)) bencode_list_add_string(flags, k)
+
+static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps,
+		struct call_stats *totals)
+{
+	bencode_item_t *dict = NULL, *flags;
+	struct stats *s;
+
+	if (!list)
+		goto stats;
+
+	dict = bencode_list_add_dictionary(list);
+
+	if (ps->sfd)
+		bencode_dictionary_add_integer(dict, "local port", ps->sfd->fd.localport);
+	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "endpoint"), &ps->endpoint);
+	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "advertised endpoint"),
+			&ps->advertised_endpoint);
+	if (ps->crypto.params.crypto_suite)
+		bencode_dictionary_add_string(dict, "crypto suite",
+				ps->crypto.params.crypto_suite->name);
+	bencode_dictionary_add_integer(dict, "last packet", ps->last_packet);
+
+	flags = bencode_dictionary_add_list(dict, "flags");
+
+	BF_PS("RTP", RTP);
+	BF_PS("RTCP", RTCP);
+	BF_PS("fallback RTCP", FALLBACK_RTCP);
+	BF_PS("filled", FILLED);
+	BF_PS("confirmed", CONFIRMED);
+	BF_PS("kernelized", KERNELIZED);
+	BF_PS("no kernel support", NO_KERNEL_SUPPORT);
+
+stats:
+	if (totals->last_packet < ps->last_packet)
+		totals->last_packet = ps->last_packet;
+
+	/* XXX distinguish between input and output */
+	s = &totals->totals[0];
+	if (!PS_ISSET(ps, RTP))
+		s = &totals->totals[1];
+	ng_stats(bencode_dictionary_add_dictionary(dict, "stats"), &ps->stats, s);
+}
+
+#define BF_M(k, f) if (MEDIA_ISSET(m, f)) bencode_list_add_string(flags, k)
+
+static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
+		struct call_stats *totals)
+{
+	bencode_item_t *dict, *streams = NULL, *flags;
+	GList *l;
+	struct packet_stream *ps;
+
+	if (!list)
+		goto stats;
+
+	dict = bencode_list_add_dictionary(list);
+
+	bencode_dictionary_add_integer(dict, "index", m->index);
+	bencode_dictionary_add_str(dict, "type", &m->type);
+	if (m->protocol)
+		bencode_dictionary_add_string(dict, "protocol", m->protocol->name);
+
+	streams = bencode_dictionary_add_list(dict, "streams");
+
+	flags = bencode_dictionary_add_list(dict, "flags");
+
+	BF_M("initialized", INITIALIZED);
+	BF_M("rtcp-mux", RTCP_MUX);
+	BF_M("DTLS-SRTP", DTLS);
+	BF_M("SDES", SDES);
+	BF_M("passthrough", PASSTHRU);
+	BF_M("ICE", ICE);
+
+stats:
+	for (l = m->streams.head; l; l = l->next) {
+		ps = l->data;
+		ng_stats_stream(streams, ps, totals);
+	}
+}
+
+static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue *ml,
+		struct call_stats *totals)
+{
+	bencode_item_t *sub, *medias = NULL;
+	GList *l;
+	struct call_media *m;
+
+	if (!ml)
+		return;
+
+	if (!dict)
+		goto stats;
+
+	sub = bencode_dictionary_add_dictionary(dict, ml->tag.s);
+
+	bencode_dictionary_add_str(sub, "tag", &ml->tag);
+	bencode_dictionary_add_integer(sub, "created", ml->created);
+	if (ml->active_dialogue)
+		bencode_dictionary_add_str(sub, "in dialogue with", &ml->active_dialogue->tag);
+
+	medias = bencode_dictionary_add_list(sub, "medias");
+
+stats:
+	for (l = ml->medias.head; l; l = l->next) {
+		m = l->data;
+		ng_stats_media(medias, m, totals);
+	}
+}
 
 /* call must be locked */
-void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output) {
-	//bencode_item_t *streams, *dict;
-//	struct call_stats stats;
+void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output,
+		struct call_stats *totals)
+{
+	bencode_item_t *tags = NULL, *dict;
+	const str *match_tag;
+	GSList *l;
+	struct call_monologue *ml;
+	struct call_stats t_b;
 
-//	bencode_dictionary_add_integer(output, "created", call->created);
+	if (!totals)
+		totals = &t_b;
+	ZERO(*totals);
 
-	//streams = bencode_dictionary_add_list(output, "streams");
-	//stats_query(call, fromtag, totag, &stats, ng_stats_cb, streams); XXX
+	if (!output)
+		goto stats;
 
-//	dict = bencode_dictionary_add_dictionary(output, "totals");
-//	bencode_dictionary_add(dict, "input", rtp_rtcp_stats(output->buffer, &stats.totals[0], &stats.totals[1]));
-//	bencode_dictionary_add(dict, "output", rtp_rtcp_stats(output->buffer, &stats.totals[2], &stats.totals[3]));
+	call_bencode_hold_ref(call, output);
+
+	bencode_dictionary_add_integer(output, "created", call->created);
+	bencode_dictionary_add_integer(output, "last_signal", call->last_signal);
+
+	tags = bencode_dictionary_add_dictionary(output, "tags");
+
+stats:
+	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
+
+	if (!match_tag) {
+		for (l = call->monologues; l; l = l->next) {
+			ml = l->data;
+			ng_stats_monologue(tags, ml, totals);
+		}
+	}
+	else {
+		ml = g_hash_table_lookup(call->tags, match_tag);
+		if (ml) {
+			ng_stats_monologue(tags, ml, totals);
+			ng_stats_monologue(tags, ml->active_dialogue, totals);
+		}
+	}
+
+	if (!output)
+		return;
+
+	dict = bencode_dictionary_add_dictionary(output, "totals");
+	ng_stats(bencode_dictionary_add_dictionary(dict, "RTP"), &totals->totals[0], NULL);
+	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
 }
 
 const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
@@ -717,8 +810,9 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	bencode_dictionary_get_str(input, "to-tag", &totag);
 
 	bencode_dictionary_add_string(output, "result", "ok");
-	ng_call_stats(call, &fromtag, &totag, output);
+	ng_call_stats(call, &fromtag, &totag, output, NULL);
 	rwlock_unlock_w(&call->master_lock);
+	obj_put(call);
 
 	return NULL;
 }

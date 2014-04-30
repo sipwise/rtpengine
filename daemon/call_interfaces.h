@@ -9,10 +9,12 @@
 
 
 struct call;
+struct call_stats;
 
 
 
-void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output);
+void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output,
+		struct call_stats *totals);
 
 
 #endif

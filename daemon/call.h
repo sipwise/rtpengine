@@ -335,7 +335,7 @@ struct callmaster {
 };
 
 struct call_stats {
-	time_t		newest;
+	time_t		last_packet;
 	struct stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
 };
 
@@ -376,8 +376,6 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output);
-void stats_query(struct call *call, const str *fromtag, const str *totag, struct call_stats *stats,
-	void (*cb)(struct packet_stream *, void *), void *arg);
 
 void kernelize(struct packet_stream *);
 int call_stream_address_alt(char *, struct packet_stream *, enum stream_address_format, int *);

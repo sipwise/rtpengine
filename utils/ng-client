@@ -104,3 +104,11 @@ if (defined($$resp{sdp})) {
 	print("New SDP:\n-----8<-----8<-----8<-----8<-----8<-----\n$$resp{sdp}\n".
 		"----->8----->8----->8----->8----->8-----\n");
 }
+else {
+	local $Data::Dumper::Indent = 1;
+	local $Data::Dumper::Terse = 1;
+	local $Data::Dumper::Quotekeys = 0;
+	print("Result dictionary:\n-----8<-----8<-----8<-----8<-----8<-----\n"
+		. Dumper($resp)
+		. "----->8----->8----->8----->8----->8-----\n");
+}
