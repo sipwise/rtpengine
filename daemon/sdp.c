@@ -1399,6 +1399,8 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 
 			case ATTR_RTCP:
 			case ATTR_RTCP_MUX:
+				if (flags->ice_force_relay)
+					break;
 			case ATTR_INACTIVE:
 			case ATTR_SENDONLY:
 			case ATTR_RECVONLY:
@@ -1670,11 +1672,13 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			}
 		}
 
-		if (session->origin.parsed && flags->replace_origin) {
+		if (session->origin.parsed && flags->replace_origin &&
+		    !flags->ice_force_relay) {
 			if (replace_network_address(chop, &session->origin.address, ps, flags))
 				goto error;
 		}
-		if (session->connection.parsed && sess_conn) {
+		if (session->connection.parsed && sess_conn &&
+		    !flags->ice_force_relay) {
 			if (replace_network_address(chop, &session->connection.address, ps, flags))
 				goto error;
 		}
@@ -1703,16 +1707,18 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto error;
 			ps = j->data;
 
-			if (replace_media_port(chop, sdp_media, ps))
-				goto error;
-			if (replace_consecutive_port_count(chop, sdp_media, ps, j))
-				goto error;
-			if (replace_transport_protocol(chop, sdp_media, call_media))
-				goto error;
+			if (!flags->ice_force_relay) {
+			        if (replace_media_port(chop, sdp_media, ps))
+				        goto error;
+			        if (replace_consecutive_port_count(chop, sdp_media, ps, j))
+				        goto error;
+				if (replace_transport_protocol(chop, sdp_media, call_media))
+				        goto error;
 
-			if (sdp_media->connection.parsed) {
-				if (replace_network_address(chop, &sdp_media->connection.address, ps, flags))
-					goto error;
+				if (sdp_media->connection.parsed) {
+				        if (replace_network_address(chop, &sdp_media->connection.address, ps, flags))
+					        goto error;
+				}
 			}
 
 			if (process_media_attributes(chop, sdp_media, flags, call_media))
@@ -1749,7 +1755,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
 				ps_rtcp = NULL;
 			}
-			else if (ps_rtcp) {
+			else if (ps_rtcp && !flags->ice_force_relay) {
 				chopper_append_c(chop, "a=rtcp:");
 				chopper_append_printf(chop, "%hu", ps_rtcp->sfd->fd.localport);
 				if (!MEDIA_ISSET(call_media, RTCP_MUX))
