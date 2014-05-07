@@ -28,7 +28,9 @@ struct sdp_ng_flags {
 	    rtcp_mux_offer:1,
 	    rtcp_mux_demux:1,
 	    rtcp_mux_accept:1,
-	    rtcp_mux_reject:1;
+	    rtcp_mux_reject:1,
+	    strict_source:1,
+	    media_handover:1;
 };
 
 struct sdp_chopper {

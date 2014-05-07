@@ -437,6 +437,10 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->asymmetric = 1;
 			else if (!bencode_strcmp(it, "trust-address"))
 				out->trust_address = 1;
+			else if (!bencode_strcmp(it, "strict source"))
+				out->strict_source = 1;
+			else if (!bencode_strcmp(it, "media handover"))
+				out->media_handover = 1;
 		}
 	}
 
