@@ -19,7 +19,6 @@ struct sdp_ng_flags {
 	enum stream_direction directions[2];
 	int address_family;
 	int asymmetric:1,
-	    symmetric:1,
 	    trust_address:1,
 	    replace_origin:1,
 	    replace_sess_conn:1,
