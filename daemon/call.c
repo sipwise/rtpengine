@@ -852,7 +852,9 @@ next:
 	if (good)
 		goto out;
 
+	log_info_call(c);
 	ilog(LOG_INFO, "Closing call branch due to timeout");
+	log_info_clear();
 
 drop:
 	rwlock_unlock_r(&c->master_lock);
