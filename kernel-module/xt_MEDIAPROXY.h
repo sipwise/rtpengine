@@ -41,6 +41,7 @@ enum mediaproxy_hmac {
 	__MPH_LAST
 };
 
+
 struct mediaproxy_srtp {
 	enum mediaproxy_cipher		cipher;
 	enum mediaproxy_hmac		hmac;
@@ -53,10 +54,18 @@ struct mediaproxy_srtp {
 };
 
 
+enum mediaproxy_src_mismatch {
+	MSM_IGNORE	= 0,	/* process packet as normal */
+	MSM_DROP,		/* drop packet */
+	MSM_PROPAGATE,		/* propagate to userspace daemon */
+};
+
 struct mediaproxy_target_info {
 	u_int16_t			target_port;
+	struct mp_address		expected_src; /* for incoming packets */
+	enum mediaproxy_src_mismatch	src_mismatch;
 
-	struct mp_address		src_addr;
+	struct mp_address		src_addr; /* for outgoing packets */
 	struct mp_address		dst_addr;
 
 	struct mp_address		mirror_addr;

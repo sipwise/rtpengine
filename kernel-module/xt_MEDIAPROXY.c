@@ -2092,7 +2092,7 @@ static inline int is_dtls(struct rtp_parsed *r) {
 	return 1;
 }
 
-static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t) {
+static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t, struct mp_address *src) {
 	struct udphdr *uh;
 	struct mediaproxy_target *g;
 	struct sk_buff *skb2;
@@ -2113,6 +2113,8 @@ static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t
 	datalen -= sizeof(*uh);
 	DBG("udp payload = %u\n", datalen);
 	skb_trim(skb, datalen);
+
+	src->port = ntohs(uh->source);
 
 	g = get_target(t, ntohs(uh->dest));
 	if (!g)
@@ -2141,6 +2143,17 @@ static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t
 	goto skip1;
 
 not_stun:
+	if (g->target.src_mismatch == MSM_IGNORE)
+		goto src_check_ok;
+	if (!memcmp(&g->target.expected_src, src, sizeof(*src)))
+		goto src_check_ok;
+	if (g->target.src_mismatch == MSM_PROPAGATE)
+		goto skip1;
+	/* MSM_DROP */
+	err = -1;
+	goto out;
+
+src_check_ok:
 	parse_rtp(&rtp, skb);
 	if (rtp.ok) {
 		if (g->target.rtp_only)
@@ -2186,6 +2199,7 @@ not_rtp:
 
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
+out:
 	spin_lock_irqsave(&g->stats_lock, flags);
 	if (err)
 		g->stats.errors++;
@@ -2226,6 +2240,7 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 	struct sk_buff *skb;
 	struct iphdr *ih;
 	struct mediaproxy_table *t;
+	struct mp_address src;
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -2241,7 +2256,11 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 	if (ih->protocol != IPPROTO_UDP)
 		goto skip2;
 
-	return mediaproxy46(skb, t);
+	memset(&src, 0, sizeof(src));
+	src.family = AF_INET;
+	src.u.ipv4 = ih->saddr;
+
+	return mediaproxy46(skb, t, &src);
 
 skip2:
 	kfree_skb(skb);
@@ -2263,6 +2282,7 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 	struct sk_buff *skb;
 	struct ipv6hdr *ih;
 	struct mediaproxy_table *t;
+	struct mp_address src;
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -2278,7 +2298,11 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 	if (ih->nexthdr != IPPROTO_UDP)
 		goto skip2;
 
-	return mediaproxy46(skb, t);
+	memset(&src, 0, sizeof(src));
+	src.family = AF_INET6;
+	memcpy(&src.u.ipv6, &ih->saddr, sizeof(src.u.ipv6));
+
+	return mediaproxy46(skb, t, &src);
 
 skip2:
 	kfree_skb(skb);
