@@ -296,7 +296,7 @@ struct call {
 
 struct callmaster_config {
 	int			kernelfd;
-	unsigned int		kernelid;
+	int			kernelid;
 	u_int32_t		ipv4;
 	u_int32_t		adv_ipv4;
 	struct in6_addr		ipv6;

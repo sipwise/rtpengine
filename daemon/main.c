@@ -83,7 +83,7 @@ static u_int16_t udp_listenport;
 static struct in6_addr ng_listenp;
 static u_int16_t ng_listenport;
 static int tos;
-static int table;
+static int table = -1;
 static int no_fallback;
 static int timeout;
 static int silent_timeout;
@@ -436,24 +436,25 @@ void create_everything(struct main_context *ctx) {
 	void *dlh;
 	const char **strp;
 
-	if (table >= 0 && kernel_create_table(table)) {
+	if (table < 0)
+		goto no_kernel;
+	if (kernel_create_table(table)) {
 		fprintf(stderr, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
 		ilog(LOG_CRIT, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-		table = -1;
 		if (no_fallback)
 			exit(-1);
+		goto no_kernel;
 	}
-	if (table >= 0) {
-		kfd = kernel_open_table(table);
-		if (kfd == -1) {
-			fprintf(stderr, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-			ilog(LOG_CRIT, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-			table = -1;
-			if (no_fallback)
-				exit(-1);
-		}
+	kfd = kernel_open_table(table);
+	if (kfd == -1) {
+		fprintf(stderr, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
+		ilog(LOG_CRIT, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
+		if (no_fallback)
+			exit(-1);
+		goto no_kernel;
 	}
 
+no_kernel:
 	ctx->p = poller_new();
 	if (!ctx->p)
 		die("poller creation failed\n");

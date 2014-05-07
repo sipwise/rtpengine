@@ -297,10 +297,12 @@ void kernelize(struct packet_stream *stream) {
 
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
-	if (cm->conf.kernelfd < 0 || cm->conf.kernelid == -1)
+	if (cm->conf.kernelid < 0)
 		goto no_kernel;
+	if (cm->conf.kernelfd < 0)
+		goto no_kernel_warn;
 	if (!PS_ISSET(stream, RTP))
-		goto no_kernel;
+		goto no_kernel_warn;
 	if (!stream->sfd)
 		goto no_kernel;
 
@@ -313,8 +315,6 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	}
 
-	ZERO(mpt);
-
 	determine_handler(stream, sink);
 
 	if (is_addr_unspecified(&sink->advertised_endpoint.ip46)
@@ -322,7 +322,9 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (!stream->handler->in->kernel
 			|| !stream->handler->out->kernel)
-		goto no_kernel;
+		goto no_kernel_warn;
+
+	ZERO(mpt);
 
 	mutex_lock(&sink->out_lock);
 
@@ -353,9 +355,9 @@ void kernelize(struct packet_stream *stream) {
 	mutex_unlock(&sink->out_lock);
 
 	if (!mpt.encrypt.cipher || !mpt.encrypt.hmac)
-		goto no_kernel;
+		goto no_kernel_warn;
 	if (!mpt.decrypt.cipher || !mpt.decrypt.hmac)
-		goto no_kernel;
+		goto no_kernel_warn;
 
 	ZERO(stream->kernel_stats);
 
@@ -364,6 +366,8 @@ void kernelize(struct packet_stream *stream) {
 
 	return;
 	
+no_kernel_warn:
+	ilog(LOG_WARNING, "No support for kernel packet forwarding available");
 no_kernel:
 	PS_SET(stream, KERNELIZED);
 	PS_SET(stream, NO_KERNEL_SUPPORT);
@@ -1026,7 +1030,7 @@ static void callmaster_timer(void *ptr) {
 	memcpy(&m->stats, &tmpstats, sizeof(m->stats));
 	mutex_unlock(&m->statslock);
 
-	i = (m->conf.kernelid != -1) ? kernel_list(m->conf.kernelid) : NULL;
+	i = (m->conf.kernelid >= 0) ? kernel_list(m->conf.kernelid) : NULL;
 	while (i) {
 		ke = i->data;
 
@@ -1896,7 +1900,8 @@ static void unkernelize(struct packet_stream *p) {
 	if (PS_ISSET(p, NO_KERNEL_SUPPORT))
 		return;
 
-	kernel_del_stream(p->call->callmaster->conf.kernelfd, p->sfd->fd.localport);
+	if (p->call->callmaster->conf.kernelfd >= 0)
+		kernel_del_stream(p->call->callmaster->conf.kernelfd, p->sfd->fd.localport);
 
 	PS_CLEAR(p, KERNELIZED);
 }
