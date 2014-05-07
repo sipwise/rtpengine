@@ -815,9 +815,11 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 		ps = it->data;
 		mutex_lock(&ps->in_lock);
 
-		sfd = ps->sfd;
-		if (!sfd || !ps->media)
+		if (!ps->media)
 			goto next;
+		sfd = ps->sfd;
+		if (!sfd)
+			goto no_sfd;
 
 		if (MEDIA_ISSET(ps->media, DTLS) && sfd->dtls.init && !sfd->dtls.connected)
 			dtls(ps, NULL, NULL);
@@ -827,11 +829,12 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 		hlp->ports[sfd->fd.localport] = sfd;
 		obj_hold(sfd);
 
+no_sfd:
 		if (good)
 			goto next;
 
 		check = cm->conf.timeout;
-		if (!MEDIA_ISSET(ps->media, RECV) || !ps->sfd)
+		if (!MEDIA_ISSET(ps->media, RECV) || !sfd)
 			check = cm->conf.silent_timeout;
 
 		if (poller_now - ps->last_packet < check)
