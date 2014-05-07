@@ -575,8 +575,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 		out_srtp = sink->rtcp_sibling;
 
 	if (!sink || !sink->sfd || !out_srtp->sfd || !in_srtp->sfd) {
-		ilog(LOG_WARNING, "RTP packet to port %u discarded from %s", 
-			sfd->fd.localport, addr);
+		ilog(LOG_WARNING, "RTP packet from %s discarded", addr);
 		mutex_lock(&stream->in_lock);
 		stream->stats.errors++;
 		mutex_lock(&cm->statspslock);
