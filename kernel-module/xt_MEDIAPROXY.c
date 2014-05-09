@@ -978,7 +978,7 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	proc_list_addr_print(f, "mirror", &g->target.mirror_addr);
 	proc_list_addr_print(f, "expect", &g->target.expected_src);
 	if (g->target.src_mismatch > 0 && g->target.src_mismatch <= ARRAY_SIZE(mp_msm_strings))
-		seq_printf(f, "src mismatch action: %s\n", mp_msm_strings[g->target.src_mismatch]);
+		seq_printf(f, "    src mismatch action: %s\n", mp_msm_strings[g->target.src_mismatch]);
 	spin_lock_irqsave(&g->stats_lock, flags);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
 		g->stats.bytes, g->stats.packets, g->stats.errors);
