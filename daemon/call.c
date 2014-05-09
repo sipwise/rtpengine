@@ -263,6 +263,7 @@ static const struct mediaproxy_srtp __mps_null = {
 static void call_destroy(struct call *);
 static void unkernelize(struct packet_stream *);
 static void __stream_unkernelize(struct packet_stream *ps);
+static void stream_unkernelize(struct packet_stream *ps);
 
 
 
@@ -531,7 +532,8 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 			     *sink = NULL,
 			     *in_srtp, *out_srtp;
 	struct call_media *media;
-	int ret = 0, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0, rtcp = 0;
+	int ret = 0, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0, rtcp = 0,
+	    unk = 0;
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
 	struct iovec iov;
@@ -654,7 +656,7 @@ use_cand:
 			if (tmp && PS_ISSET(stream, MEDIA_HANDOVER)) {
 				/* out_lock remains locked */
 				ilog(LOG_INFO, "Peer address changed to %s", addr);
-				__stream_unkernelize(stream);
+				unk = 1;
 				goto update_addr;
 			}
 
@@ -755,7 +757,13 @@ out:
 		ret = 1;
 
 done:
+	if (unk)
+		__stream_unkernelize(stream);
 	mutex_unlock(&stream->in_lock);
+	if (unk) {
+		stream_unkernelize(stream->rtp_sink);
+		stream_unkernelize(stream->rtcp_sink);
+	}
 	rwlock_unlock_r(&call->master_lock);
 
 	return ret;
@@ -2288,6 +2296,13 @@ static void __stream_unkernelize(struct packet_stream *ps) {
 	unkernelize(ps);
 	PS_CLEAR(ps, CONFIRMED);
 	PS_CLEAR(ps, HAS_HANDLER);
+}
+static void stream_unkernelize(struct packet_stream *ps) {
+	if (!ps)
+		return;
+	mutex_lock(&ps->in_lock);
+	__stream_unkernelize(ps);
+	mutex_unlock(&ps->in_lock);
 }
 
 /* must be called with call->master_lock held in W */
