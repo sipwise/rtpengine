@@ -320,6 +320,12 @@ static const struct mp_hmac mp_hmacs[] = {
 	},
 };
 
+static const char *mp_msm_strings[] = {
+	[MSM_IGNORE]		= "",
+	[MSM_DROP]		= "drop",
+	[MSM_PROPAGATE]		= "propagate",
+};
+
 
 
 
@@ -970,6 +976,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	proc_list_addr_print(f, "src", &g->target.src_addr);
 	proc_list_addr_print(f, "dst", &g->target.dst_addr);
 	proc_list_addr_print(f, "mirror", &g->target.mirror_addr);
+	proc_list_addr_print(f, "expect", &g->target.expected_src);
+	if (g->target.src_mismatch > 0 && g->target.src_mismatch <= ARRAY_SIZE(mp_msm_strings))
+		seq_printf(f, "src mismatch action: %s\n", mp_msm_strings[g->target.src_mismatch]);
 	spin_lock_irqsave(&g->stats_lock, flags);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
 		g->stats.bytes, g->stats.packets, g->stats.errors);
@@ -977,7 +986,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption (incoming)");
 	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt, "encryption (outgoing)");
 	if (g->target.rtcp_mux)
-		seq_printf(f, "    options: rtcp-mux\n");
+		seq_printf(f, "    option: rtcp-mux\n");
+	if (g->target.dtls)
+		seq_printf(f, "    option: dtls\n");
 
 	target_push(g);
 
