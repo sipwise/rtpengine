@@ -77,6 +77,8 @@ struct call_monologue;
 #define SHARED_FLAG_SETUP_ACTIVE		0x00000020
 #define SHARED_FLAG_SETUP_PASSIVE		0x00000040
 #define SHARED_FLAG_ICE				0x00000080
+#define SHARED_FLAG_STRICT_SOURCE		0x00000100
+#define SHARED_FLAG_MEDIA_HANDOVER		0x00000200
 
 /* struct stream_params */
 #define SP_FLAG_NO_RTCP				0x00010000
@@ -88,6 +90,8 @@ struct call_monologue;
 #define SP_FLAG_SETUP_ACTIVE			SHARED_FLAG_SETUP_ACTIVE
 #define SP_FLAG_SETUP_PASSIVE			SHARED_FLAG_SETUP_PASSIVE
 #define SP_FLAG_ICE				SHARED_FLAG_ICE
+#define SP_FLAG_STRICT_SOURCE			SHARED_FLAG_STRICT_SOURCE
+#define SP_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
 
 /* struct packet_stream */
 #define PS_FLAG_RTP				0x00010000
@@ -101,6 +105,8 @@ struct call_monologue;
 #define PS_FLAG_NO_KERNEL_SUPPORT		0x00800000
 #define PS_FLAG_HAS_HANDLER			0x01000000
 #define PS_FLAG_FINGERPRINT_VERIFIED		0x02000000
+#define PS_FLAG_STRICT_SOURCE			SHARED_FLAG_STRICT_SOURCE
+#define PS_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
 
 /* struct call_media */
 #define MEDIA_FLAG_INITIALIZED			0x00010000
@@ -320,6 +326,7 @@ struct callmaster {
 	u_int16_t		lastport;
 	BIT_ARRAY_DECLARE(ports_used, 0x10000);
 
+	/* XXX rework these */
 	mutex_t			statspslock;
 	struct stats		statsps;	/* per second stats, running timer */
 	mutex_t			statslock;

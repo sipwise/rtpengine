@@ -262,6 +262,7 @@ static const struct mediaproxy_srtp __mps_null = {
 
 static void call_destroy(struct call *);
 static void unkernelize(struct packet_stream *);
+static void __stream_unkernelize(struct packet_stream *ps);
 
 
 
@@ -288,6 +289,18 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 
 
 
+INLINE void __mp_address_translate(struct mp_address *o, const struct endpoint *ep) {
+	if (IN6_IS_ADDR_V4MAPPED(&ep->ip46)) {
+		o->family = AF_INET;
+		o->u.ipv4 = ep->ip46.s6_addr32[3];
+	}
+	else {
+		o->family = AF_INET6;
+		memcpy(o->u.ipv6, &ep->ip46, sizeof(o->u.ipv6));
+	}
+	o->port = ep->port;
+}
+
 /* called with in_lock held */
 void kernelize(struct packet_stream *stream) {
 	struct mediaproxy_target_info mpt;
@@ -306,8 +319,7 @@ void kernelize(struct packet_stream *stream) {
 	if (!stream->sfd)
 		goto no_kernel;
 
-	ilog(LOG_DEBUG, "Kernelizing media stream with local port %u",
-			stream->sfd->fd.localport);
+	ilog(LOG_INFO, "Kernelizing media stream");
 
 	sink = packet_stream_sink(stream);
 	if (!sink) {
@@ -326,28 +338,33 @@ void kernelize(struct packet_stream *stream) {
 
 	ZERO(mpt);
 
+	if (PS_ISSET(stream, STRICT_SOURCE) || PS_ISSET(stream, MEDIA_HANDOVER)) {
+		mutex_lock(&stream->out_lock);
+		__mp_address_translate(&mpt.expected_src, &stream->endpoint);
+		mutex_unlock(&stream->out_lock);
+		if (PS_ISSET(stream, STRICT_SOURCE))
+			mpt.src_mismatch = MSM_DROP;
+		else if (PS_ISSET(stream, MEDIA_HANDOVER))
+			mpt.src_mismatch = MSM_PROPAGATE;
+	}
+
 	mutex_lock(&sink->out_lock);
 
 	mpt.target_port = stream->sfd->fd.localport;
 	mpt.tos = cm->conf.tos;
-	mpt.src_addr.port = sink->sfd->fd.localport;
-	mpt.dst_addr.port = sink->endpoint.port;
 	mpt.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
 	mpt.dtls = MEDIA_ISSET(stream->media, DTLS);
 	mpt.stun = PS_ISSET(stream, STUN);
 
-	if (IN6_IS_ADDR_V4MAPPED(&sink->endpoint.ip46)) {
-		mpt.src_addr.family = AF_INET;
+	__mp_address_translate(&mpt.dst_addr, &sink->endpoint);
+
+	mpt.src_addr.family = mpt.dst_addr.family;
+	mpt.src_addr.port = sink->sfd->fd.localport;
+
+	if (mpt.src_addr.family == AF_INET)
 		mpt.src_addr.u.ipv4 = cm->conf.ipv4;
-		mpt.dst_addr.family = AF_INET;
-		mpt.dst_addr.u.ipv4 = sink->endpoint.ip46.s6_addr32[3];
-	}
-	else {
-		mpt.src_addr.family = AF_INET6;
+	else
 		memcpy(mpt.src_addr.u.ipv6, &cm->conf.ipv6, sizeof(mpt.src_addr.u.ipv6));
-		mpt.dst_addr.family = AF_INET6;
-		memcpy(mpt.dst_addr.u.ipv6, &sink->endpoint.ip46, sizeof(mpt.src_addr.u.ipv6));
-	}
 
 	stream->handler->in->kernel(&mpt.decrypt, stream);
 	stream->handler->out->kernel(&mpt.encrypt, sink);
@@ -615,37 +632,55 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	mutex_lock(&stream->in_lock);
 
 use_cand:
+	/* we're OK to (potentially) use the source address of this packet as destination
+	 * in the other direction. */
+	/* if the other side hasn't been signalled yet, just forward the packet */
 	if (!PS_ISSET(stream, FILLED))
 		goto forward;
 
+	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
 	if (MEDIA_ISSET(media, ASYMMETRIC))
 		PS_SET(stream, CONFIRMED);
 
-	if (PS_ISSET(stream, CONFIRMED))
+	/* if we have already updated the endpoint in the past ... */
+	if (PS_ISSET(stream, CONFIRMED)) {
+		/* see if we need to compare the source address with the known endpoint */
+		if (PS_ISSET(stream, STRICT_SOURCE) || PS_ISSET(stream, MEDIA_HANDOVER)) {
+			endpoint.ip46 = fsin->sin6_addr;
+			endpoint.port = ntohs(fsin->sin6_port);
+			mutex_lock(&stream->out_lock);
+
+			int tmp = memcmp(&endpoint, &stream->endpoint, sizeof(endpoint));
+			if (tmp && PS_ISSET(stream, MEDIA_HANDOVER)) {
+				/* out_lock remains locked */
+				ilog(LOG_INFO, "Peer address changed to %s", addr);
+				__stream_unkernelize(stream);
+				goto update_addr;
+			}
+
+			mutex_unlock(&stream->out_lock);
+
+			if (tmp && PS_ISSET(stream, STRICT_SOURCE)) {
+				stream->stats.errors++;
+				goto drop;
+			}
+		}
 		goto kernel_check;
+	}
 
+	/* wait at least 3 seconds after last signal before committing to a particular
+	 * endpoint address */
 	if (!call->last_signal || poller_now <= call->last_signal + 3)
-		goto peerinfo;
+		goto update_peerinfo;
 
-	ilog(LOG_DEBUG, "Confirmed peer information for port %u - %s", 
-		sfd->fd.localport, addr);
+	ilog(LOG_INFO, "Confirmed peer address as %s", addr);
 
 	PS_SET(stream, CONFIRMED);
 	update = 1;
 
-peerinfo:
-	/*
-	if (!stun_ret && !stream->codec && s->len >= 2) {
-		cc = s->s[1];
-		cc &= 0x7f;
-		if (cc < G_N_ELEMENTS(rtp_codecs))
-			stream->codec = rtp_codecs[cc] ? : "unknown";
-		else
-			stream->codec = "unknown";
-	}
-	*/
-
+update_peerinfo:
 	mutex_lock(&stream->out_lock);
+update_addr:
 	endpoint = stream->endpoint;
 	stream->endpoint.ip46 = fsin->sin6_addr;
 	stream->endpoint.port = ntohs(fsin->sin6_port);
@@ -1513,8 +1548,11 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		a->rtp_sink = b;
 		PS_SET(a, RTP);
 
-		if (sp)
+		if (sp) {
 			__fill_stream(a, &sp->rtp_endpoint, port_off);
+			bf_copy_same(&a->ps_flags, &sp->sp_flags,
+					SHARED_FLAG_STRICT_SOURCE | SHARED_FLAG_MEDIA_HANDOVER);
+		}
 		if (__init_stream(a))
 			return -1;
 
@@ -1561,6 +1599,8 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 				__fill_stream(a, &sp->rtp_endpoint, port_off + 1);
 				PS_SET(a, IMPLICIT_RTCP);
 			}
+			bf_copy_same(&a->ps_flags, &sp->sp_flags,
+					SHARED_FLAG_STRICT_SOURCE | SHARED_FLAG_MEDIA_HANDOVER);
 		}
 		if (__init_stream(a))
 			return -1;

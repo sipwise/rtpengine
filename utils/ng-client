@@ -33,6 +33,8 @@ GetOptions(
 	'address-family=s'		=> \$options{'address family'},
 	'force'				=> \$options{'force'},
 	'v|verbose'			=> \$options{'verbose'},
+	'strict-source'			=> \$options{'strict source'},
+	'media-handover'		=> \$options{'media handover'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -42,7 +44,7 @@ my %packet = (command => $cmd);
 for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(',', 'trust address,symmetric,asymmetric,force')) {
+for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(',', 'origin,session connection')) {
