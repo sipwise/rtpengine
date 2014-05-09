@@ -332,6 +332,7 @@ void kernelize(struct packet_stream *stream) {
 	mpt.dst_addr.port = sink->endpoint.port;
 	mpt.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
 	mpt.dtls = MEDIA_ISSET(stream->media, DTLS);
+	mpt.stun = PS_ISSET(stream, STUN);
 
 	if (IN6_IS_ADDR_V4MAPPED(&sink->endpoint.ip46)) {
 		mpt.src_addr.family = AF_INET;

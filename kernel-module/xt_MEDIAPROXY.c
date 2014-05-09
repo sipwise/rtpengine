@@ -218,6 +218,7 @@ struct rtp_parsed {
 	unsigned int			header_len;
 	unsigned char			*payload;
 	unsigned int			payload_len;
+	int				ok;
 };
 
 
@@ -1807,11 +1808,9 @@ drop:
 
 
 /* XXX shared code */
-static int parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
+static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 	struct rtp_extension *ext;
 	int ext_len;
-
-	memset(rtp, 0, sizeof(*rtp));
 
 	if (skb->len < sizeof(*rtp->header))
 		goto error;
@@ -1834,18 +1833,18 @@ static int parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 		ext = (void *) rtp->payload;
 		ext_len = 4 + ntohs(ext->length) * 4;
 		if (rtp->payload_len < ext_len)
-			return -1;
+			goto error;
 		rtp->payload += ext_len;
 		rtp->payload_len -= ext_len;
 	}
 
 	DBG("rtp header parsed, payload length is %u\n", rtp->payload_len);
 
-	return 0;
+	rtp->ok = 1;
+	return;
 
 error:
-	memset(rtp, 0, sizeof(*rtp));
-	return -1;
+	rtp->ok = 0;
 }
 
 /* XXX shared code */
@@ -2115,6 +2114,16 @@ static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t
 	DBG("udp payload = %u\n", datalen);
 	skb_trim(skb, datalen);
 
+	g = get_target(t, ntohs(uh->dest));
+	if (!g)
+		goto skip2;
+
+	DBG("target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
+	DBG("target decrypt hmac and cipher are %s and %s", g->decrypt.hmac->name,
+			g->decrypt.cipher->name);
+
+	if (!g->target.stun)
+		goto not_stun;
 	if (datalen < 28)
 		goto not_stun;
 	if ((datalen & 0x3))
@@ -2129,19 +2138,15 @@ static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t
 		goto not_stun;
 
 	/* probably stun, pass to application */
-	goto skip2;
+	goto skip1;
 
 not_stun:
-	g = get_target(t, ntohs(uh->dest));
-	if (!g)
-		goto skip2;
-
-	DBG("target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
-	DBG("target decrypt hmac and cipher are %s and %s", g->decrypt.hmac->name,
-			g->decrypt.cipher->name);
-
-	if (parse_rtp(&rtp, skb))
-		goto skip1;
+	parse_rtp(&rtp, skb);
+	if (rtp.ok) {
+		if (g->target.rtp_only)
+			goto skip1;
+		goto not_rtp;
+	}
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
 		goto skip1;
 	if (g->target.dtls && is_dtls(&rtp))
@@ -2161,6 +2166,7 @@ not_stun:
 			rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
 			rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
 
+not_rtp:
 	if (g->target.mirror_addr.family) {
 		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
@@ -2172,9 +2178,11 @@ not_stun:
 		}
 	}
 
-	srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
-	skb_put(skb, g->target.encrypt.mki_len + g->target.encrypt.auth_tag_len);
-	srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
+	if (rtp.ok) {
+		srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
+		skb_put(skb, g->target.encrypt.mki_len + g->target.encrypt.auth_tag_len);
+		srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
+	}
 
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
