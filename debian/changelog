@@ -1,3 +1,12 @@
+ngcp-mediaproxy-ng (2.3.9.0+0~mr3.2.3.0) unstable; urgency=low
+
+  [ Andrew Pogrebennyk ]
+  * [651d7ec] MT#6631 restart the daemon in postinst to ensure kernel support is enabled.
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 13 May 2014 12:01:42 +0200
+
 ngcp-mediaproxy-ng (2.3.8.0+0~mr3.2.2.0) unstable; urgency=low
 
   [ Richard Fuchs ]
