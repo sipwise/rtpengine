@@ -260,7 +260,6 @@ static const struct mediaproxy_srtp __mps_null = {
 
 
 
-static void call_destroy(struct call *);
 static void unkernelize(struct packet_stream *);
 static void __stream_unkernelize(struct packet_stream *ps);
 static void stream_unkernelize(struct packet_stream *ps);
@@ -1956,7 +1955,7 @@ static void unkernelize(struct packet_stream *p) {
 }
 
 /* called lock-free, but must hold a reference to the call */
-static void call_destroy(struct call *c) {
+void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
 	struct packet_stream *ps;
 	struct stream_fd *sfd;

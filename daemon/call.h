@@ -383,6 +383,7 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output);
+void call_destroy(struct call *);
 
 void kernelize(struct packet_stream *);
 int call_stream_address_alt(char *, struct packet_stream *, enum stream_address_format, int *);
