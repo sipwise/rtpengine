@@ -1,4 +1,4 @@
-ngcp-rtpengine (2.9.9.0+0~mr3.3.0.0) unstable; urgency=medium
+ngcp-rtpengine (3.3.0.0+0~mr3.3.0.0) unstable; urgency=medium
 
   [ Victor Seva ]
   * [1b486a7] MT#6449 add -dev packages needed to build something with ngcp-librtpengine-dev
