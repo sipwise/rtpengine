@@ -1,3 +1,57 @@
+ngcp-rtpengine (2.9.9.0+0~mr3.3.0.0) unstable; urgency=medium
+
+  [ Victor Seva ]
+  * [1b486a7] MT#6449 add -dev packages needed to build something with ngcp-librtpengine-dev
+  * [d025f4b] MT#6449 fix typo
+
+  [ Richard Fuchs ]
+  * [f638f36] replace implicit bit fields with explicit ones
+  * [5faf5e6] switch to C99 standard
+  * [05e429c] C99 inlining rules
+  * [c372019] re-enable redis module compatibility checks
+  * [b6643e3] eliminate redis_uuid
+  * [ec3daab] change name of redis plugin file
+  * [91cae48] add core.* files to "make clean" target
+  * [7c0cc4c] updates for redis support
+  * [e19ca0a] introduce log level flags (LOG_FLAG_RESTORE)
+  * [e2901eb] update README (primarily name change)
+  * [5d49022] set media SDES flag when appropriate
+  * [b132d80] redo flags to have a "shared flags namespace"
+  * [aa5bae9] implement experimental passthrough relay mode
+  * [9f1696d] use srtp<>srtp transcode if either side uses dtls
+  * [838917b] compile fixes for older gcc versions
+  * [88dfeee] fix compiler warning
+  * [6c1cb06] fix relay ICE candidate type for RTP candidate
+  * [09b9303] fix ICE priority calculation
+  * [92cab83] remove unused variable
+  * [011a426] restore query/stats output
+  * [0a42f4a] fix timeout handling for silenced streams
+  * [940030d] support kernel forward of non-rtp packets
+  * [7d82016] implement source address checking - kernel part
+  * [bb84ea5] implement explicit warning when kernel support is missing
+  * [b9cf00b] obsolete the "symmetric" flag
+  * [2036322] parse "strict source" and "media handover" flags
+  * [eb59af9] more verbose timeout log message
+  * [b8a39be] avoid log message redundancy
+  * [4ded03d] implement media-handover and strict-source logic
+  * [b905e73] included expected source in /proc output
+  * [4fb151a] /proc output indentation fix
+  * [3030324] sink must also be unlocked when peer address changes
+  * [e9ff918] make call_destroy() global
+  * [40790a7] whitespace cleanup & remove obsolete code
+
+  [ Michael Prokop ]
+  * [8e11a60] MT#6511 Bump Standards-Version to 3.9.5
+
+  [ Juha Heinanen ]
+  * [2dae4fb] support ICE=force_relay flag
+  * [5198233] make ICE=force_relay leave SDP endpoint details alone
+
+  [ Pablo Ruiz García ]
+  * [cf76901] Do not try to install & initialize module if in kernel suppor has been specifically disabled (ie. TABLE < 0)
+
+ -- Victor Seva <vseva@sipwise.com>  Mon, 26 May 2014 12:23:29 +0200
+
 ngcp-rtpengine (2.9.9) unstable; urgency=low
 
   * Rename from mediaproxy-ng to rtpengine
