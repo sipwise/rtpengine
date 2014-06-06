@@ -140,9 +140,11 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 		return str_sprintf("%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
 	}
 	monologue = call_get_mono_dialogue(c, &fromtag, &totag);
+	if (!monologue)
+		goto ml_fail;
 
 	if (addr_parse_udp(&sp, out))
-		goto fail;
+		goto addr_fail;
 
 	g_queue_push_tail(&q, &sp);
 	/* XXX return value */
@@ -157,9 +159,17 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT(ret));
 	goto out;
 
-fail:
+ml_fail:
+	rwlock_unlock_w(&c->master_lock);
+	ilog(LOG_WARNING, "Invalid dialogue association");
+	goto fail_out;
+
+addr_fail:
 	rwlock_unlock_w(&c->master_lock);
 	ilog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
+	goto fail_out;
+
+fail_out:
 	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 out:
 	obj_put(c);
@@ -269,6 +279,10 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 	}
 
 	monologue = call_get_mono_dialogue(c, &fromtag, &totag);
+	if (!monologue) {
+		ilog(LOG_WARNING, "Invalid dialogue association");
+		goto out2;
+	}
 	/* XXX return value */
 	monologue_offer_answer(monologue, &s, NULL);
 
@@ -549,6 +563,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	call_bencode_hold_ref(call, output);
 
 	monologue = call_get_mono_dialogue(call, &fromtag, &totag);
+	errstr = "Invalid dialogue association";
+	if (!monologue)
+		goto out;
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
