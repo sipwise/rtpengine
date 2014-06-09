@@ -43,7 +43,7 @@ the following additional features are available:
 - RTP/RTCP multiplexing (RFC 5761) and demultiplexing
 - Breaking of BUNDLE'd media streams (draft-ietf-mmusic-sdp-bundle-negotiation)
 
-Mediaproxy-ng does not (yet) support:
+Rtpengine does not (yet) support:
 
 * Repacketization or transcoding
 * Playback of pre-recorded streams/announcements
@@ -174,6 +174,7 @@ option and which are reproduced below:
 	  -r, --redis=IP:PORT              Connect to Redis database
 	  -R, --redis-db=INT               Which Redis DB to use
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
+	  -L, --log-level=INT              Mask log priorities above this level
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify a local
 IPv4 address through `--ip`, and at least one of the `--listen-...` options must be given.
@@ -257,7 +258,13 @@ The options are described in more detail below.
 	Both take an integer as argument and together define the local port range from which *rtpengine*
 	will allocate UDP ports for media traffic relay. Default to 30000 and 40000 respectively.
 
-*  -r, --redis, -R, --redis-db, -b, --b2b-url
+* -L, --log-level
+
+	Takes an integer as argument and controls the highest log level which will be sent to syslog.
+	The log levels correspond to the ones found in the syslog(3) man page. The default value is
+	6, equivalent to LOG_INFO. The highest possible value is 7 (LOG_DEBUG) which will log everything.
+
+* -r, --redis, -R, --redis-db, -b, --b2b-url
 
 	NGCP-specific options
 
@@ -524,11 +531,32 @@ Optionally included keys are:
 
 	- `symmetric`
 
-		Corresponds to the *rtpproxy* `w` flag. Not used by *rtpengine*.
+		Corresponds to the *rtpproxy* `w` flag. Not used by *rtpengine* as this is the default,
+		unless `asymmetric` is specified.
 
 	- `asymmetric`
 
-		Corresponds to the *rtpproxy* `a` flag. Not used by *rtpengine*.
+		Corresponds to the *rtpproxy* `a` flag. Advertises an RTP endpoint which uses asymmetric
+		RTP, which disables learning of endpoint addresses (see below).
+
+	- `strict source`
+
+		Normally, *rtpengine* attempts to learn the correct endpoint address for every stream during
+		the first few seconds after signalling by observing the source address and port of incoming
+		packets (unless `asymmetric` is specified). Afterwards, source address and port of incoming
+		packets are normally ignored and packets are forwarded regardless of where they're coming from.
+		With the `strict source` option set, *rtpengine* will continue to inspect the source address
+		and port of incoming packets after the learning phase and compare them with the endpoint
+		address that has been learned before. If there's a mismatch, the packet will be dropped and
+		not forwarded.
+
+	- `media handover`
+
+		Similar to the `strict source` option, but instead of dropping packets when the source address
+		or port don't match, the endpoint address will be re-learned and moved to the new address. This
+		allows endpoint addresses to change on the fly without going through signalling again. Note that
+		this opens a security hole and potentially allows RTP streams to be hijacked, either partly or
+		in whole.
 
 * `replace`
 
@@ -554,8 +582,9 @@ Optionally included keys are:
 
   		{ ..., "direction": [ "external", "internal" ], ... }
 
-	*Mediaproxy-ng* uses the direction to implement bridging between IPv4 and IPv6: internal is seen as
-	IPv4 and external as IPv6.
+	*Rtpengine* uses the direction to implement bridging between IPv4 and IPv6: internal is seen as
+	IPv4 and external as IPv6. However, this mechanism for selecting the address family is now obsolete
+	and the `address family` dictionary key should be used instead.
 
 * `received from`
 
@@ -565,12 +594,17 @@ Optionally included keys are:
 
 * `ICE`
 
-	Contains a string, valid values are either `remove` or `force`. With `remove`, any ICE attributes are
+	Contains a string, valid values are `remove`, `force` or `force_relay`.
+	With `remove`, any ICE attributes are
 	stripped from the SDP body. With `force`, ICE attributes are first stripped, then new attributes are
 	generated and inserted, which leaves the media proxy as the only ICE candidate. The default behavior
 	(no `ICE` key present at all) is: if no ICE attributes are present, a new set is generated and the
 	media proxy lists itself as ICE candidate; otherwise, the media proxy inserts itself as a
 	low-priority candidate.
+
+	With `force_relay`, existing ICE candidates are left in place except `relay`
+	type candidates, and *rtpengine* inserts itself as a `relay` candidate. It will also leave SDP
+	c= and m= lines unchanged.
 
 	This flag operates independently of the `replace` flags.
 
@@ -590,12 +624,43 @@ Optionally included keys are:
 	string. The format must be dotted-quad notation for IPv4 or RFC 5952 notation for IPv6.
 	It's up to the RTP proxy to determine the address family type.
 
+* `address family`
+
+	A string value of either `IP4` or `IP6` to select the primary address family in the substituted SDP
+	body. The default is to auto-detect the address family if possible (if the recieving end is known
+	already) or otherwise to leave it unchanged.
+
+* `rtcp-mux`
+
+	A list of strings controlling the behaviour regarding rtcp-mux (multiplexing RTP and RTCP on a single
+	port, RFC 5761). The default behaviour is to go along with the client's preference. The list can contain
+	zero of more of the following strings. Note that some of them are mutually exclusive.
+
+	- `offer`
+
+		Instructs *rtpengine* to always offer rtcp-mux, even if the client itself doesn't offer it.
+
+	- `demux`
+
+		If the client is offering rtcp-mux, don't offer it to the other side, but accept it back to
+		the offering client.
+
+	- `accept`
+
+		Instructs *rtpengine* to accept rtcp-mux and also offer it to the other side if it has been
+		offered.
+
+	- `reject`
+
+		Reject rtcp-mux if it has been offered. Can be used together with `offer` to achieve the opposite
+		effect of `demux`.
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",
 	"sdp": "v=0\r\no=...", "via-branch": "5KiTRPZHH1nL6",
 	"flags": [ "trust address" ], "replace": [ "origin", "session connection" ],
-	"direction": [ "external", "external" ], "received-from": [ "IP4", "10.65.31.43" ],
+	"address family": "IP6", "received-from": [ "IP4", "10.65.31.43" ],
 	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b" }
 
 The response message only contains the key `sdp` in addition to `result`, which contains the re-written
