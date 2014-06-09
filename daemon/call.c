@@ -315,7 +315,7 @@ void kernelize(struct packet_stream *stream) {
 	if (cm->conf.kernelfd < 0)
 		goto no_kernel_warn;
 	if (!PS_ISSET(stream, RTP))
-		goto no_kernel_warn;
+		goto no_kernel;
 	if (!stream->sfd)
 		goto no_kernel;
 
