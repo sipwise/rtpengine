@@ -264,6 +264,9 @@ The options are described in more detail below.
 	The log levels correspond to the ones found in the syslog(3) man page. The default value is
 	6, equivalent to LOG_INFO. The highest possible value is 7 (LOG_DEBUG) which will log everything.
 
+	During runtime, the log level can be decreased by sending the signal SIGURS1 to the daemon and can
+	be increased with the signal SIGUSR2.
+
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 
 	NGCP-specific options
