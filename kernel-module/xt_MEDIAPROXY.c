@@ -2166,7 +2166,7 @@ not_stun:
 
 src_check_ok:
 	parse_rtp(&rtp, skb);
-	if (rtp.ok) {
+	if (!rtp.ok) {
 		if (g->target.rtp_only)
 			goto skip1;
 		goto not_rtp;
