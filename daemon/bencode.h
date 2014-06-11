@@ -4,7 +4,7 @@
 #include <sys/uio.h>
 #include <string.h>
 
-#if defined(PKG_MALLOC) || defined(pkg_malloc)
+#if defined(SHM_MEM) || defined(PKG_MALLOC) || defined(pkg_malloc)
 /* kamailio */
 # include "../../mem/mem.h"
 # include "../../str.h"
@@ -110,6 +110,7 @@ INLINE bencode_buffer_t *bencode_item_buffer(bencode_item_t *);
  * the same order as they've been added. The key must a null-terminated string.
  * The value to be added must not have been previously linked into any other dictionary or list. */
 INLINE bencode_item_t *bencode_dictionary_add(bencode_item_t *dict, const char *key, bencode_item_t *val);
+INLINE bencode_item_t *bencode_dictionary_str_add(bencode_item_t *dict, const str *key, bencode_item_t *val);
 
 /* Identical to bencode_dictionary_add() but doesn't require the key string to be null-terminated */
 bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, int keylen, bencode_item_t *val);
@@ -121,6 +122,7 @@ INLINE bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *dict, c
 
 /* Ditto, but for a "str" object */
 INLINE bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
+INLINE bencode_item_t *bencode_dictionary_str_add_str(bencode_item_t *dict, const str *key, const str *val);
 INLINE bencode_item_t *bencode_dictionary_add_str_dup(bencode_item_t *dict, const char *key, const str *val);
 
 /* Ditto, but adds a string created through an iovec array to the dictionary. See
@@ -145,6 +147,7 @@ bencode_item_t *bencode_list_add(bencode_item_t *list, bencode_item_t *item);
 
 /* Convenience function to add the respective (newly created) objects to a list */
 INLINE bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char *s);
+INLINE bencode_item_t *bencode_list_add_str(bencode_item_t *list, const str *s);
 INLINE bencode_item_t *bencode_list_add_list(bencode_item_t *list);
 INLINE bencode_item_t *bencode_list_add_dictionary(bencode_item_t *list);
 
@@ -380,6 +383,12 @@ INLINE bencode_item_t *bencode_dictionary_add(bencode_item_t *dict, const char *
 	return bencode_dictionary_add_len(dict, key, strlen(key), val);
 }
 
+INLINE bencode_item_t *bencode_dictionary_str_add(bencode_item_t *dict, const str *key, bencode_item_t *val) {
+	if (!key)
+		return NULL;
+	return bencode_dictionary_add_len(dict, key->s, key->len, val);
+}
+
 INLINE bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict, const char *key, const char *val) {
 	if (!val)
 		return NULL;
@@ -396,6 +405,12 @@ INLINE bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const ch
 	if (!val)
 		return NULL;
 	return bencode_dictionary_add(dict, key, bencode_str(bencode_item_buffer(dict), val));
+}
+
+INLINE bencode_item_t *bencode_dictionary_str_add_str(bencode_item_t *dict, const str *key, const str *val) {
+	if (!val)
+		return NULL;
+	return bencode_dictionary_str_add(dict, key, bencode_str(bencode_item_buffer(dict), val));
 }
 
 INLINE bencode_item_t *bencode_dictionary_add_str_dup(bencode_item_t *dict, const char *key, const str *val) {
@@ -418,6 +433,10 @@ INLINE bencode_item_t *bencode_dictionary_add_list(bencode_item_t *dict, const c
 
 INLINE bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char *s) {
 	return bencode_list_add(list, bencode_string(bencode_item_buffer(list), s));
+}
+
+INLINE bencode_item_t *bencode_list_add_str(bencode_item_t *list, const str *s) {
+	return bencode_list_add(list, bencode_str(bencode_item_buffer(list), s));
 }
 
 INLINE bencode_item_t *bencode_list_add_list(bencode_item_t *list) {
