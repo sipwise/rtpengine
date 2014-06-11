@@ -787,7 +787,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 	call_bencode_hold_ref(call, output);
 
 	bencode_dictionary_add_integer(output, "created", call->created);
-	bencode_dictionary_add_integer(output, "last_signal", call->last_signal);
+	bencode_dictionary_add_integer(output, "last signal", call->last_signal);
 
 	tags = bencode_dictionary_add_dictionary(output, "tags");
 
