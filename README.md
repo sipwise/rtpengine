@@ -712,178 +712,262 @@ The response dictionary contains the following keys:
 	Contains an integer corresponding to the creation time of this call within the media proxy,
 	expressed as seconds since the UNIX epoch.
 
-* `streams`
+* `last signal`
 
-	**SUBJECT TO CHANGE**
+	The last time a signalling event (offer, answer, etc) occurred. Also expressed as an integer
+	UNIX timestamp.
 
-	Contains a list of media streams associated with this call. Each list element corresponds to one
-	bi-directional media stream and is itself a list with two elements. The first element of each
-	sub-list corresponds to side A of the media stream, the second element corresponds to side B.
-	Each element of the sub-list is a dictionary with the following keys:
+* `tags`
+
+	Contains a dictionary. The keys of the dictionary are all the SIP tags (From-tag, To-Tag) known
+	by *rtpengine* related to this call. One of the keys may be an empty string, which corresponds to
+	one side of a dialogue which hasn't signalled its SIP tag yet. Each value of the dictionary is
+	another dictionary with the following keys:
+
+	- `created`
+
+		UNIX timestamp of when this SIP tag was first seen by *rtpengine*.
 
 	- `tag`
 
-		The SIP tag (either `From` or `To` tag depending on side A or B)
+		Identical to the corresponding key of the `tags` dictionary. Provided to allow for easy
+		traversing of the dictionary values without paying attention to the keys.
 
-	- `codec`
+	- `in dialogue with`
 
-		The codec is the media stream, if known.
+		Contains the SIP tag of the other side of this dialogue. May be missing in case of a
+		half-established dialogue, in which case the other side is represented by the null-string
+		entry of the `tags` dictionary.
 
-	- `status`
+	- `medias`
 
-		A human readable description of the stream's status, such as `in kernel` or `unknown peer address`.
+		Contains a list of dictionaries, one for each SDP media stream known to *rtpengine*. The
+		dictionaries contain the following keys:
 
-	- `stats`
+		+ `index`
 
-		A dictionary with two elements, `rtp` and `rtcp`. Each in turn contains the following keys:
+			Integer, sequentially numbered index of the media, starting with one.
 
-		+ `counters`
+		+ `type`
 
-			Contains another dictionary with counters (each encoded as integers) for `packets`,
-			`bytes` and `errors`.
+			Media type as string, usually `audio` or `video`.
 
-		+ `peer address`
+		+ `protocol`
 
-			Contains a dictionary describing the peer's `family` (address family) as either
-			`IPv4` or `IPv6`, the `address` in human-readable string encoding, and `port`
-			encoded as integer.
+			If the protocol is recognized by *rtpengine*, this string contains it.
+			Usually `RTP/AVP` or `RTP/SAVPF`.
 
-		+ `advertised peer address`
+		+ `flags`
 
-			Identical to `peer address`, but contains whatever endpoint was advertised in the
-			SDP body.
+			A list of strings containing various status flags. Contains zero of more
+			of: `initialized`, `rtcp-mux`, `DTLS-SRTP`, `SDES`, `passthrough`, `ICE`.
+
+		+ `streams`
+
+			Contains a list of dictionary representing the packet streams associated
+			with this SDP media. Usually contains two entries, one for RTP and one for RTCP.
+			The keys found in these dictionaries are listed below:
 
 		+ `local port`
 
-			The local port allocated by the media proxy expressed as an integer.
+			Integer representing the local UDP port. May be missing in case of an inactive stream.
+
+		+ `endpoint`
+
+			Contains a dictionary with the keys `family`, `address` and `port`. Represents the
+			endpoint address used for packet forwarding. The `family` may be one of `IPv4` or
+			`IPv6`.
+
+		+ `advertised endpoint`
+
+			As above, but representing the endpoint address advertised in the SDP body.
+
+		+ `crypto suite`
+
+			Contains a string such as `AES_CM_128_HMAC_SHA1_80` representing the encryption
+			in effect. Missing if no encryption is active.
+
+		+ `last packet`
+
+			UNIX timestamp of when the last UDP packet was received on this port.
+
+		+ `flags`
+
+			A list of strings with various internal flags. Contains zero or more of:
+			`RTP`, `RTCP`, `fallback RTCP`, `filled`, `confirmed`, `kernelized,`
+			`no kernel support`.
+
+		+ `stats`
+
+			Contains a dictionary with the keys `bytes`, `packets` and `errors`.
+			Statistics counters for this packet stream.
 
 * `totals`
 
-	Contains a dictionary with two keys, `input` and `output`. Each value contains a dictionary with two
-	keys, `rtp` and `rtcp`. Each value in turn is identical to the `counters` key described above.
+	Contains a dictionary with two keys, `RTP` and `RTCP`, each one containing another dictionary
+	identical to the `stats` dictionary described above.
 
 A complete response message might look like this (formatted for readability):
 
-	{
-	  "created": 1373052990,
-	  "result": "ok",
-	  "streams": [
-	    [
-	      {
-	        "codec": "G711u",
-	        "stats": {
-	          "rtcp": {
-	            "advertised peer address": {
-	              "address": "10.76.83.64",
-	              "family": "IPv4",
-	              "port": 43007
-	            },
-	            "counters": {
-	              "bytes": 792,
-	              "errors": 0,
-	              "packets": 12
-	            },
-	            "local port": 40059,
-	            "peer address": {
-	              "address": "10.76.83.64",
-	              "family": "IPv4",
-	              "port": 43007
-	            }
-	          },
-	          "rtp": {
-	            "advertised peer address": {
-	              "address": "10.76.83.64",
-	              "family": "IPv4",
-	              "port": 43006
-	            },
-	            "counters": {
-	              "bytes": 265408,
-	              "errors": 0,
-	              "packets": 1508
-	            },
-	            "local port": 40058,
-	            "peer address": {
-	              "address": "10.76.83.64",
-	              "family": "IPv4",
-	              "port": 43006
-	            }
-	          }
-	        },
-	        "status": "confirmed peer address",
-	        "tag": "Ao5Tg1fidmnZRhn"
-	      },
-	      {
-	        "codec": "G711u",
-	        "stats": {
-	          "rtcp": {
-	            "advertised peer address": {
-	              "address": "2001:db8::6f24:65b",
-	              "family": "IPv6",
-	              "port": 7183
-	            },
-	            "counters": {
-	              "bytes": 624,
-	              "errors": 0,
-	              "packets": 12
-	            },
-	            "local port": 40061,
-	            "peer address": {
-	              "address": "2001:db8::6f24:65b",
-	              "family": "IPv6",
-	              "port": 7183
-	            }
-	          },
-	          "rtp": {
-	            "advertised peer address": {
-	              "address": "2001:db8::6f24:65b",
-	              "family": "IPv6",
-	              "port": 7182
-	            },
-	            "counters": {
-	              "bytes": 259376,
-	              "errors": 0,
-	              "packets": 1508
-	            },
-	            "local port": 40060,
-	            "peer address": {
-	              "address": "2001:db8::6f24:65b",
-	              "family": "IPv6",
-	              "port": 7182
-	            }
-	          }
-	        },
-	        "status": "confirmed peer address",
-	        "tag": "DiQOJkgsesbFYpC"
-	      }
-	    ]
-	  ],
-	  "totals": {
-	    "input": {
-	      "rtcp": {
-	        "bytes": 792,
-	        "errors": 0,
-	        "packets": 12
-	      },
-	      "rtp": {
-	        "bytes": 265408,
-	        "errors": 0,
-	        "packets": 1508
-	      },
-	      "output": {
-	        "rtcp": {
-	          "bytes": 624,
-	          "errors": 0,
-	          "packets": 12
-	        },
-	        "rtp": {
-	          "bytes": 259376,
-	          "errors": 0,
-	          "packets": 1508
-	        }
-	      }
-	    }
-	  }
-	}
+          {
+            "totals": {
+              "RTCP": {
+                    "bytes": 2244,
+                    "errors": 0,
+                    "packets": 22
+                  },
+              "RTP": {
+                   "bytes": 100287,
+                   "errors": 0,
+                   "packets": 705
+                 }
+                  },
+            "last_signal": 1402064116,
+            "tags": {
+                  "cs6kn1rloc": {
+                  "created": 1402064111,
+                  "medias": [
+                          {
+                      "flags": [
+                             "initialized"
+                           ],
+                      "streams": [
+                               {
+                           "endpoint": {
+                               "port": 57370,
+                               "address": "10.xx.xx.xx",
+                               "family": "IPv4"
+                                   },
+                           "flags": [
+                                  "RTP",
+                                  "filled",
+                                  "confirmed",
+                                  "kernelized"
+                                ],
+                           "local port": 30018,
+                           "last packet": 1402064124,
+                           "stats": {
+                                  "packets": 343,
+                                  "errors": 0,
+                                  "bytes": 56950
+                                },
+                           "advertised endpoint": {
+                                    "family": "IPv4",
+                                    "port": 57370,
+                                    "address": "10.xx.xx.xx"
+                                  }
+                               },
+                               {
+                           "stats": {
+                                  "bytes": 164,
+                                  "errors": 0,
+                                  "packets": 2
+                                },
+                           "advertised endpoint": {
+                                    "family": "IPv4",
+                                    "port": 57371,
+                                    "address": "10.xx.xx.xx"
+                                  },
+                           "endpoint": {
+                               "address": "10.xx.xx.xx",
+                               "port": 57371,
+                               "family": "IPv4"
+                                   },
+                           "last packet": 1402064123,
+                           "local port": 30019,
+                           "flags": [
+                                  "RTCP",
+                                  "filled",
+                                  "confirmed",
+                                  "kernelized",
+                                  "no kernel support"
+                                ]
+                               }
+                             ],
+                      "protocol": "RTP/AVP",
+                      "index": 1,
+                      "type": "audio"
+                          }
+                        ],
+                  "in dialogue with": "0f0d2e18",
+                  "tag": "cs6kn1rloc"
+                      },
+                  "0f0d2e18": {
+                      "in dialogue with": "cs6kn1rloc",
+                      "tag": "0f0d2e18",
+                      "medias": [
+                        {
+                          "protocol": "RTP/SAVPF",
+                          "index": 1,
+                          "type": "audio",
+                          "streams": [
+                             {
+                               "endpoint": {
+                                   "family": "IPv4",
+                                   "address": "10.xx.xx.xx",
+                                   "port": 58493
+                                 },
+                               "crypto suite": "AES_CM_128_HMAC_SHA1_80",
+                               "local port": 30016,
+                               "last packet": 1402064124,
+                               "flags": [
+                                "RTP",
+                                "filled",
+                                "confirmed",
+                                "kernelized"
+                              ],
+                               "stats": {
+                                "bytes": 43337,
+                                "errors": 0,
+                                "packets": 362
+                              },
+                               "advertised endpoint": {
+                                  "address": "10.xx.xx.xx",
+                                  "port": 58493,
+                                  "family": "IPv4"
+                                }
+                             },
+                             {
+                               "local port": 30017,
+                               "last packet": 1402064124,
+                               "flags": [
+                                "RTCP",
+                                "filled",
+                                "confirmed",
+                                "kernelized",
+                                "no kernel support"
+                              ],
+                               "endpoint": {
+                                   "family": "IPv4",
+                                   "port": 60193,
+                                   "address": "10.xx.xx.xx"
+                                 },
+                               "crypto suite": "AES_CM_128_HMAC_SHA1_80",
+                               "advertised endpoint": {
+                                  "family": "IPv4",
+                                  "port": 60193,
+                                  "address": "10.xx.xx.xx"
+                                },
+                               "stats": {
+                                "packets": 20,
+                                "bytes": 2080,
+                                "errors": 0
+                              }
+                             }
+                           ],
+                          "flags": [
+                           "initialized",
+                           "DTLS-SRTP",
+                           "ICE"
+                         ]
+                        }
+                      ],
+                      "created": 1402064111
+                    }
+                },
+            "created": 1402064111,
+            "result": "ok"
+          }
 
 `start recording` Message
 -------------------------
