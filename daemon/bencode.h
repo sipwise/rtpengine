@@ -65,6 +65,13 @@ struct bencode_buffer {
 
 
 
+/* to embed BENCODE_STRING objects into printf-like functions */
+#define BENCODE_FORMAT "%.*s"
+#define BENCODE_FMT(b) (int) (b)->iov[1].iov_len, (char *) (b)->iov[1].iov_base
+
+
+
+
 /*** INIT & DESTROY ***/
 
 /* Initializes a bencode_buffer_t object. This object is used to group together all memory allocations

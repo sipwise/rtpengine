@@ -436,6 +436,20 @@ INLINE void call_bencode_hold_ref(struct call *c, bencode_item_t *bi) {
 	bencode_buffer_destroy_add(bi->buffer, call_release_ref, obj_get(c));
 }
 
+INLINE void str_hyphenate(bencode_item_t *it) {
+	char *p;
+	p = memchr(it->iov[1].iov_base, ' ', it->iov[1].iov_len);
+	if (!p)
+		return;
+	*p = '-';
+}
+INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two, str *out) {
+	char *o;
+	if ((o = bencode_dictionary_get_str(i, one, out)))
+		return o;
+	return bencode_dictionary_get_str(i, two, out);
+}
+
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
 	bencode_item_t *list, *it;
 	int diridx;
@@ -445,27 +459,31 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "trust address"))
+			str_hyphenate(it);
+			if (!bencode_strcmp(it, "trust-address"))
 				out->trust_address = 1;
 			else if (!bencode_strcmp(it, "asymmetric"))
 				out->asymmetric = 1;
-			else if (!bencode_strcmp(it, "trust-address"))
-				out->trust_address = 1;
-			else if (!bencode_strcmp(it, "strict source"))
+			else if (!bencode_strcmp(it, "strict-source"))
 				out->strict_source = 1;
-			else if (!bencode_strcmp(it, "media handover"))
+			else if (!bencode_strcmp(it, "media-handover"))
 				out->media_handover = 1;
+			else
+				ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
+						BENCODE_FMT(it));
 		}
 	}
 
 	if ((list = bencode_dictionary_get_expect(input, "replace", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
+			str_hyphenate(it);
 			if (!bencode_strcmp(it, "origin"))
 				out->replace_origin = 1;
-			else if (!bencode_strcmp(it, "session connection"))
-				out->replace_sess_conn = 1;
 			else if (!bencode_strcmp(it, "session-connection"))
 				out->replace_sess_conn = 1;
+			else
+				ilog(LOG_WARN, "Unknown 'replace' flag encountered: '"BENCODE_FORMAT"'",
+						BENCODE_FMT(it));
 		}
 	}
 
@@ -476,6 +494,9 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->directions[diridx++] = DIR_INTERNAL;
 			else if (!bencode_strcmp(it, "external"))
 				out->directions[diridx++] = DIR_EXTERNAL;
+			else
+				ilog(LOG_WARN, "Unknown 'direction' flag encountered: '"BENCODE_FORMAT"'",
+						BENCODE_FMT(it));
 		}
 	}
 
@@ -494,6 +515,9 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			out->ice_force = 1;
 		else if (!str_cmp(&s, "force_relay"))
 			out->ice_force_relay = 1;
+		else
+			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '"STR_FORMAT"'",
+					STR_FMT(&s));
 	}
 
 	if ((list = bencode_dictionary_get_expect(input, "rtcp-mux", BENCODE_LIST))) {
@@ -506,15 +530,16 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->rtcp_mux_accept = 1;
 			else if (!bencode_strcmp(it, "reject"))
 				out->rtcp_mux_reject = 1;
+			else
+				ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '"BENCODE_FORMAT"'",
+						BENCODE_FMT(it));
 		}
 	}
 
-	bencode_dictionary_get_str(input, "transport protocol", &out->transport_protocol_str);
-	if (!out->transport_protocol_str.s)
-		bencode_dictionary_get_str(input, "transport-protocol", &out->transport_protocol_str);
+	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
-	bencode_dictionary_get_str(input, "media address", &out->media_address);
-	if (bencode_dictionary_get_str(input, "address family", &out->address_family_str))
+	bencode_get_alt(input, "media-address", "media address", &out->media_address);
+	if (bencode_get_alt(input, "address-family", "address family", &out->address_family_str))
 		out->address_family = address_family(&out->address_family_str);
 }
 
