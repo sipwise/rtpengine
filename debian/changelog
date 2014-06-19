@@ -1,3 +1,13 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.3.1.1) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [bd829cb] possible segfault fix
+  * [f860c68] kernel srtp fix
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 19 Jun 2014 07:33:02 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.3.1.0) unstable; urgency=low
 
   * New release.
