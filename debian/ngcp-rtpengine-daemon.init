@@ -67,6 +67,12 @@ if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"
 fi
 
+if [ -x /usr/sbin/ngcp-virt-identify ]; then
+	if /usr/sbin/ngcp-virt-identify --type container; then
+		VIRT="yes"
+	fi
+fi
+
 case "$1" in
   start)
 	set +e
@@ -84,7 +90,7 @@ case "$1" in
 	  esac
 	fi
 	echo -n "Starting $DESC: $NAME"
-	if [ $TABLE -ge 0 ] && ! /usr/sbin/ngcp-virt-identify --type container; then
+	if [ $TABLE -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		set +e
 		modprobe xt_MEDIAPROXY
 		if [ -e /proc/mediaproxy/control ]; then
@@ -113,7 +119,7 @@ case "$1" in
 	if [ "$?" -ne 0 ]; then
 		return $?
 	fi
-	if [ $TABLE -ge 0 ] && ! /usr/sbin/ngcp-virt-identify --type container; then
+	if [ $TABLE -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		set +e
 		if [ -e /proc/mediaproxy/control ]; then
 			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
@@ -150,7 +156,7 @@ case "$1" in
 	      ;;
 	  esac
 	fi
-	if [ $TABLE -ge 0 ] && ! /usr/sbin/ngcp-virt-identify --type container; then
+	if [ $TABLE -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		sleep 1
 		set +e
 		if [ -e /proc/mediaproxy/control ]; then

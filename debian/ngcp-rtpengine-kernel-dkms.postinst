@@ -8,7 +8,14 @@ name=ngcp-rtpengine
 version=`dpkg-query -W -f='${Version}' "$package" \
 		|rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n"`
 
-if /usr/sbin/ngcp-virt-identify --type container; then
+
+if [ -x /usr/sbin/ngcp-virt-identify ]; then
+	if /usr/sbin/ngcp-virt-identify --type container; then
+		VIRT="yes"
+	fi
+fi
+
+if [ "$VIRT" = "yes" ]; then
 	echo "Container environment detected. Skip dkms"
 else
 	isadded=`dkms status -m "$name" -v "$version"`
