@@ -13,7 +13,11 @@ if [ -x /etc/init.d/ngcp-rtpengine-daemon ] ; then
 	invoke-rc.d ngcp-rtpengine-daemon stop || true
 fi
 
-dkms remove -m "$name" -v "$version" --all || true
+if /usr/sbin/ngcp-virt-identify --type container; then
+	echo "Container environment detected. Skip dkms"
+else
+	dkms remove -m "$name" -v "$version" --all || true
+fi
 
 #DEBHELPER#
 

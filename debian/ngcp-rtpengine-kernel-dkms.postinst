@@ -6,21 +6,24 @@ package=ngcp-rtpengine-kernel-dkms
 name=ngcp-rtpengine
 
 version=`dpkg-query -W -f='${Version}' "$package" \
-        |rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n"`
+		|rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n"`
 
-isadded=`dkms status -m "$name" -v "$version"`
+if /usr/sbin/ngcp-virt-identify --type container; then
+	echo "Container environment detected. Skip dkms"
+else
+	isadded=`dkms status -m "$name" -v "$version"`
+	if [ "x${isadded}" = "x" ] ; then
+		dkms add -m "$name" -v "$version"
+	fi
 
-if [ "x${isadded}" = "x" ] ; then
-        dkms add -m "$name" -v "$version"
-fi
+	if [ "$1" = 'configure' ] ; then
+		dkms build -m "$name" -v "$version" && dkms install -m "$name" -v "$version" || true
 
-if [ "$1" = 'configure' ] ; then
-        dkms build -m "$name" -v "$version" && dkms install -m "$name" -v "$version" || true
-
-        # try to start the daemon
-        if [ -x /etc/init.d/ngcp-rtpengine-daemon ] ; then
-		invoke-rc.d ngcp-rtpengine-daemon restart || true
-        fi
+		# try to start the daemon
+		if [ -x /etc/init.d/ngcp-rtpengine-daemon ] ; then
+			invoke-rc.d ngcp-rtpengine-daemon restart || true
+		fi
+	fi
 fi
 
 #DEBHELPER#
