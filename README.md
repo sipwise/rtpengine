@@ -57,9 +57,11 @@ On a Debian System
 ------------------
 
 On a Debian system, everything can be built and packaged into Debian packages
-by executing `dpkg-buildpackage` (which can be found in the `dpkg-dev` package) in the main directory. 
+by executing `dpkg-buildpackage` (which can be found in the `dpkg-dev` package) in the main directory.
 This script will issue an error and stop if any of the dependency packages are
 not installed.
+
+Before that, run `./debian/flavors/no_ngcp` in order to remove any NGCP dependence.
 
 This will produce a number of `.deb` files, which can then be installed using the
 `dpkg -i` command.

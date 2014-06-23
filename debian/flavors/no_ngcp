@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# remove ngcp-system-tools Pre-Depends
+sed -i -e '/^Pre-Depends: ngcp-system-tools\s*$/d' debian/control
+
+exit 0
