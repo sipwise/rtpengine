@@ -1405,10 +1405,18 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		}
 		if (!ep) /* creating wildcard map */
 			break;
-		if (memcmp(&em->endpoint, ep, sizeof(*ep)))
+		/* handle zero endpoint address */
+		if (is_addr_unspecified(&ep->ip46) || is_addr_unspecified(&em->endpoint.ip46)) {
+			if (ep->port != em->endpoint.port)
+				continue;
+		}
+		else if (memcmp(&em->endpoint, ep, sizeof(*ep)))
 			continue;
-		if (em->sfds.length >= num_ports)
+		if (em->sfds.length >= num_ports) {
+			if (is_addr_unspecified(&em->endpoint.ip46))
+				em->endpoint.ip46 = ep->ip46;
 			return em;
+		}
 		/* endpoint matches, but not enough ports. flush existing ports
 		 * and allocate a new set. */
 		__C_DBG("endpoint matches, doesn't have enough ports");
@@ -1899,14 +1907,20 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 		num_ports *= 2;
 
 
-		if (!sp->rtp_endpoint.port || is_addr_unspecified(&sp->rtp_endpoint.ip46)) {
-			/* Zero port or endpoint: stream has been rejected.
+		if (!sp->rtp_endpoint.port) {
+			/* Zero port: stream has been rejected.
 			 * RFC 3264, chapter 6:
 			 * If a stream is rejected, the offerer and answerer MUST NOT
 			 * generate media (or RTCP packets) for that stream. */
 			__disable_streams(media, num_ports);
 			__disable_streams(other_media, num_ports);
 			goto init;
+		}
+		if (is_addr_unspecified(&sp->rtp_endpoint.ip46)) {
+			/* Zero endpoint address, equivalent to setting the media stream
+			 * to sendonly or inactive */
+			MEDIA_CLEAR(media, RECV);
+			MEDIA_CLEAR(other_media, SEND);
 		}
 
 
