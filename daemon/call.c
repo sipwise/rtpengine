@@ -544,7 +544,8 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	struct endpoint endpoint;
 	rewrite_func rwf_in, rwf_out;
 
-	assert(stream != NULL);
+	if (!stream)
+		return 0;
 	media = stream->media;
 	call = stream->call;
 	cm = call->callmaster;
