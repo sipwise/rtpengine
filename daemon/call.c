@@ -527,7 +527,7 @@ void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
 
 /* called lock-free */
 static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsin) {
-	struct packet_stream *stream = sfd->stream,
+	struct packet_stream *stream,
 			     *sink = NULL,
 			     *in_srtp, *out_srtp;
 	struct call_media *media;
@@ -544,15 +544,19 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	struct endpoint endpoint;
 	rewrite_func rwf_in, rwf_out;
 
-	if (!stream)
-		return 0;
-	media = stream->media;
-	call = stream->call;
+	call = sfd->call;
 	cm = call->callmaster;
 	smart_ntop_port(addr, fsin, sizeof(addr));
 
 	rwlock_lock_r(&call->master_lock);
+
+	stream = sfd->stream;
+	if (!stream)
+		goto unlock_out;
+
 	mutex_lock(&stream->in_lock);
+
+	media = stream->media;
 
 	if (!stream->sfd)
 		goto done;
@@ -764,6 +768,7 @@ done:
 		stream_unkernelize(stream->rtp_sink);
 		stream_unkernelize(stream->rtcp_sink);
 	}
+unlock_out:
 	rwlock_unlock_r(&call->master_lock);
 
 	return ret;
