@@ -541,6 +541,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	bencode_get_alt(input, "media-address", "media address", &out->media_address);
 	if (bencode_get_alt(input, "address-family", "address family", &out->address_family_str))
 		out->address_family = address_family(&out->address_family_str);
+	out->tos = bencode_dictionary_get_integer(input, "TOS", 256);
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m,

@@ -351,7 +351,7 @@ void kernelize(struct packet_stream *stream) {
 	mutex_lock(&sink->out_lock);
 
 	mpt.target_port = stream->sfd->fd.localport;
-	mpt.tos = cm->conf.tos;
+	mpt.tos = call->tos;
 	mpt.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
 	mpt.dtls = MEDIA_ISSET(stream->media, DTLS);
 	mpt.stun = PS_ISSET(stream, STUN);
@@ -1189,10 +1189,21 @@ fail:
 
 
 
-static int get_port6(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
+static void __set_tos(int fd, const struct call *c) {
+	int tos;
+
+	setsockopt(fd, IPPROTO_IP, IP_TOS, &c->tos, sizeof(c->tos));
+#ifdef IPV6_TCLASS
+	tos = c->tos;
+	setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
+#else
+#warning "Will not set IPv6 traffic class"
+#endif
+}
+
+static int get_port6(struct udp_fd *r, u_int16_t p, const struct call *c) {
 	int fd;
 	struct sockaddr_in6 sin;
-	int tos;
 
 	fd = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (fd < 0)
@@ -1201,15 +1212,7 @@ static int get_port6(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 	nonblock(fd);
 	reuseaddr(fd);
 	ipv6only(fd, 0);
-	if (m->conf.tos)
-		setsockopt(fd, IPPROTO_IP, IP_TOS, &m->conf.tos, sizeof(m->conf.tos));
-#ifdef IPV6_TCLASS
-	tos = m->conf.tos;
-	if (tos)
-		setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
-#else
-#warning "Will not set IPv6 traffic class"
-#endif
+	__set_tos(fd, c);
 
 	ZERO(sin);
 	sin.sin6_family = AF_INET6;
@@ -1226,8 +1229,9 @@ fail:
 	return -1;
 }
 
-static int get_port(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
+static int get_port(struct udp_fd *r, u_int16_t p, const struct call *c) {
 	int ret;
+	struct callmaster *m = c->callmaster;
 
 	assert(r->fd == -1);
 
@@ -1239,7 +1243,7 @@ static int get_port(struct udp_fd *r, u_int16_t p, struct callmaster *m) {
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
 
-	ret = get_port6(r, p, m);
+	ret = get_port6(r, p, c);
 
 	if (ret) {
 		mutex_lock(&m->portlock);
@@ -1264,7 +1268,7 @@ static void release_port(struct udp_fd *r, struct callmaster *m) {
 	r->localport = 0;
 }
 
-int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, struct call *c) {
+int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c) {
 	int i, j, cycle = 0;
 	struct udp_fd *it;
 	u_int16_t port;
@@ -1297,7 +1301,7 @@ int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_star
 				goto release_restart;
 			}
 
-			if (get_port(it, port++, m))
+			if (get_port(it, port++, c))
 				goto release_restart;
 		}
 		break;
@@ -1810,6 +1814,37 @@ static void __unverify_fingerprint(struct call_media *m) {
 	}
 }
 
+static void __set_all_tos(struct call *c) {
+	GSList *l;
+	struct stream_fd *sfd;
+
+	for (l = c->stream_fds; l; l = l->next) {
+		sfd = l->data;
+		__set_tos(sfd->fd.fd, c);
+	}
+}
+
+static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
+	unsigned char new_tos;
+
+	/* Handle TOS= parameter. Negative value = no change, not present or too large =
+	 * revert to default, otherwise set specified value. We only do it in an offer, but
+	 * then for both directions. */
+	if (flags->opmode != OP_OFFER || flags->tos < 0)
+		return;
+
+	if (flags->tos > 255)
+		new_tos = call->callmaster->conf.default_tos;
+	else
+		new_tos = flags->tos;
+
+	if (new_tos == call->tos)
+		return;
+
+	call->tos = new_tos;
+	__set_all_tos(call);
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 		const struct sdp_ng_flags *flags)
@@ -1827,6 +1862,8 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 	 * may not be known yet */
 	if (!other_ml)
 		return -1;
+
+	__tos_change(monologue->call, flags);
 
 	ml_media = other_ml_media = NULL;
 
@@ -2224,6 +2261,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	call_str_cpy(c, &c->callid, callid);
 	c->created = poller_now;
 	c->dtls_cert = dtls_cert();
+	c->tos = m->conf.default_tos;
 	return c;
 }
 

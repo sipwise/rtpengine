@@ -18,6 +18,7 @@ struct sdp_ng_flags {
 	struct in6_addr parsed_media_address;
 	enum stream_direction directions[2];
 	int address_family;
+	int tos;
 	int asymmetric:1,
 	    trust_address:1,
 	    replace_origin:1,

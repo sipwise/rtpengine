@@ -298,6 +298,7 @@ struct call {
 	str			callid;	
 	time_t			created;
 	time_t			last_signal;
+	unsigned char		tos;
 };
 
 struct callmaster_config {
@@ -313,7 +314,7 @@ struct callmaster_config {
 	unsigned int		silent_timeout;
 	struct redis		*redis;
 	char			*b2b_url;
-	unsigned char		tos;
+	unsigned char		default_tos;
 };
 
 struct callmaster {
@@ -373,7 +374,7 @@ void calls_dump_redis(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call);
-int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, struct call *c);
+int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
