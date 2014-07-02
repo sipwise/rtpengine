@@ -287,9 +287,9 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 	monologue_offer_answer(monologue, &s, NULL);
 
 	ret = streams_print(&monologue->medias, 1, s.length, NULL, SAF_TCP);
-	rwlock_unlock_w(&c->master_lock);
 
 out2:
+	rwlock_unlock_w(&c->master_lock);
 	streams_free(&s);
 
 	redis_update(c, m->conf.redis);
@@ -590,8 +590,11 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	monologue = call_get_mono_dialogue(call, &fromtag, &totag);
 	errstr = "Invalid dialogue association";
-	if (!monologue)
+	if (!monologue) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
 		goto out;
+	}
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
