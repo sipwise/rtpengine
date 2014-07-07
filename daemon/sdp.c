@@ -1442,7 +1442,13 @@ strip:
 }
 
 INLINE unsigned long prio_calc(unsigned int pref, unsigned int tpref) {
-	return (1 << 24) * tpref + (1 << 8) * pref + 256 * 1;
+	return (1 << 24) * tpref + (1 << 8) * pref + (256 - 1);
+}
+INLINE unsigned long pref_from_prio(unsigned int prio) {
+	return (prio & 0xffff00) >> 8;
+}
+INLINE unsigned long type_from_prio(unsigned int prio) {
+	return (prio & 0xff000000) >> 24;
 }
 
 static unsigned long new_priority(struct sdp_media *media, int relay) {
@@ -1471,8 +1477,20 @@ static unsigned long new_priority(struct sdp_media *media, int relay) {
 	for (l = cands->head; l; l = l->next) {
 		a = l->data;
 		c = &a->u.candidate;
-		while (c->priority >= prio && pref >= 1) {
-			pref--;
+		if (c->priority <= prio && !str_cmp(&c->type_str, "host")) {
+			/* tpref should come out as 126 here, unless the client isn't following
+			 * the RFC, in which case we must adapt */
+			tpref = type_from_prio(c->priority);
+
+			pref = pref_from_prio(c->priority);
+			if (pref)
+				pref--;
+			else {
+				/* we must deviate from the RFC recommended values */
+				if (tpref)
+					tpref--;
+				pref = 65535;
+			}
 			prio = prio_calc(pref, tpref);
 		}
 	}
