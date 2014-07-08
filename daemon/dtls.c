@@ -343,7 +343,9 @@ static int verify_callback(int ok, X509_STORE_CTX *store) {
 	if (!media)
 		return 0;
 
-	ps->dtls_cert = X509_STORE_CTX_get_current_cert(store);
+	if (ps->dtls_cert)
+		X509_free(ps->dtls_cert);
+	ps->dtls_cert = X509_dup(X509_STORE_CTX_get_current_cert(store));
 
 	if (!media->fingerprint.hash_func)
 		return 1; /* delay verification */

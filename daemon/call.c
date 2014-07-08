@@ -2260,6 +2260,8 @@ static void __call_free(void *p) {
 
 	while (c->streams) {
 		ps = c->streams->data;
+		if (ps->dtls_cert)
+			X509_free(ps->dtls_cert);
 		c->streams = g_slist_delete_link(c->streams, c->streams);
 		g_slice_free1(sizeof(*ps), ps);
 	}
