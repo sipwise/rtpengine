@@ -1,3 +1,36 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.5.0.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [cbe1f80] possible segfault fix
+  * [ba1bd04] silence warning for kernelizing rtcp
+  * [c9a101c] docs update
+  * [ca138c3] fix kernel module debug output
+  * [aa4f2fa] document SIGUSR1/2
+  * [0bc4d3c] kernel srtp fix
+  * [be500e1] prefer space to underscore in bencode
+  * [c730895] update "query" output docs
+  * [56ca361] sync bencode from kamailio
+  * [b0c0e39] allow hyphenated versions of NG protocol flags
+  * [a7784f5] try to fix null c= address issue
+  * [2e9ae75] remove needless assertion
+  * [e381e10] configurable per-call TOS value
+  * [69dec02] fix inappropriate locking sequenece
+  * [68d94c6] add --TOS to ng-client
+  * [1564099] fix possible deadlock
+  * [2a38b51] better ICE priority calc for non-RFC clients
+  * [f6290f3] sample CLI usage for ng-client
+  * [d37d385] properly handle unknown transport protocols
+  * [9cbe157] properly support the udptl protocol
+
+  [ Victor Seva ]
+  * [02832db] MT#6485 detect container environment
+  * [eb9dbd8] MT#6485 add proper checks for virt-identify
+  * [c7e3911] MT#6485 add no_ngcp script to remove NGCP dependences
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 10 Jul 2014 15:36:42 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.4.0.0) unstable; urgency=low
 
   * New release.
