@@ -1903,8 +1903,13 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 		 * offerer or WAS sent to the answerer. */
 
 		/* deduct protocol from stream parameters received */
-		if (!other_media->protocol)
+		if (other_media->protocol != sp->protocol) {
 			other_media->protocol = sp->protocol;
+			/* if the endpoint changes the protocol, we reset the other side's
+			 * protocol as well. this lets us remember our previous overrides,
+			 * but also lets endpoints re-negotiate. */
+			media->protocol = NULL;
+		}
 		/* allow override of outgoing protocol even if we know it already */
 		if (flags && flags->transport_protocol)
 			media->protocol = flags->transport_protocol;
