@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+# sample usage:
+# ./ng-client offer --trust-address --from-tag=sgadhdagf --call-id=sfghjfsh --sdp=$'v=0\no=moo 1 2 IN IP4 192.168.1.90\ns=-\nc=IN IP4 192.168.1.90\nt=0 0\nm=audio 3456 RTP/AVP 0\n'
+
 use warnings;
 use strict;
 use Bencode qw(bencode bdecode);
