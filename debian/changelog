@@ -1,3 +1,13 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.3.1.3) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [7b90fb6] properly handle unknown transport protocols
+  * [379cfcc] properly support the udptl protocol
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 10 Jul 2014 15:54:18 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.3.1.2) unstable; urgency=low
 
   * New release.
