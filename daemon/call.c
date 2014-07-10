@@ -95,6 +95,12 @@ const struct transport_protocol transport_protocols[] = {
 		.srtp		= 1,
 		.avpf		= 1,
 	},
+	[PROTO_UDPTL] = {
+		.index		= PROTO_UDPTL,
+		.name		= "udptl",
+		.srtp		= 0,
+		.avpf		= 0,
+	},
 };
 const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
@@ -186,6 +192,7 @@ static const struct streamhandler *__sh_matrix_in_rtp_avp[] = {
 	[PROTO_RTP_SAVPF]		= &__sh_avp2savp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avp2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_avp2savp,
+	[PROTO_UDPTL]			= &__sh_noop,
 };
 static const struct streamhandler *__sh_matrix_in_rtp_avpf[] = {
 	[PROTO_RTP_AVP]			= &__sh_avpf2avp,
@@ -194,6 +201,7 @@ static const struct streamhandler *__sh_matrix_in_rtp_avpf[] = {
 	[PROTO_RTP_SAVPF]		= &__sh_avp2savp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avpf2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_avp2savp,
+	[PROTO_UDPTL]			= &__sh_noop,
 };
 static const struct streamhandler *__sh_matrix_in_rtp_savp[] = {
 	[PROTO_RTP_AVP]			= &__sh_savp2avp,
@@ -202,6 +210,7 @@ static const struct streamhandler *__sh_matrix_in_rtp_savp[] = {
 	[PROTO_RTP_SAVPF]		= &__sh_noop,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_noop,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
+	[PROTO_UDPTL]			= &__sh_noop,
 };
 static const struct streamhandler *__sh_matrix_in_rtp_savpf[] = {
 	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
@@ -210,6 +219,7 @@ static const struct streamhandler *__sh_matrix_in_rtp_savpf[] = {
 	[PROTO_RTP_SAVPF]		= &__sh_noop,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savpf2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
+	[PROTO_UDPTL]			= &__sh_noop,
 };
 static const struct streamhandler *__sh_matrix_in_rtp_savp_dtls[] = {
 	[PROTO_RTP_AVP]			= &__sh_savp2avp,
@@ -218,6 +228,7 @@ static const struct streamhandler *__sh_matrix_in_rtp_savp_dtls[] = {
 	[PROTO_RTP_SAVPF]		= &__sh_savp2savp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savp2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp,
+	[PROTO_UDPTL]			= &__sh_noop,
 };
 static const struct streamhandler *__sh_matrix_in_rtp_savpf_dtls[] = {
 	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
@@ -226,6 +237,16 @@ static const struct streamhandler *__sh_matrix_in_rtp_savpf_dtls[] = {
 	[PROTO_RTP_SAVPF]		= &__sh_savp2savp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savpf2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp,
+	[PROTO_UDPTL]			= &__sh_noop,
+};
+static const struct streamhandler *__sh_matrix_noop[] = {
+	[PROTO_RTP_AVP]			= &__sh_noop,
+	[PROTO_RTP_AVPF]		= &__sh_noop,
+	[PROTO_RTP_SAVP]		= &__sh_noop,
+	[PROTO_RTP_SAVPF]		= &__sh_noop,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_noop,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
+	[PROTO_UDPTL]			= &__sh_noop,
 };
 
 /* ********** */
@@ -237,6 +258,7 @@ static const struct streamhandler **__sh_matrix[] = {
 	[PROTO_RTP_SAVPF]		= __sh_matrix_in_rtp_savpf,
 	[PROTO_UDP_TLS_RTP_SAVP]	= __sh_matrix_in_rtp_savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= __sh_matrix_in_rtp_savpf,
+	[PROTO_UDPTL]			= __sh_matrix_noop,
 };
 /* special case for DTLS as we can't pass through SRTP<>SRTP */
 static const struct streamhandler **__sh_matrix_dtls[] = {
@@ -246,6 +268,7 @@ static const struct streamhandler **__sh_matrix_dtls[] = {
 	[PROTO_RTP_SAVPF]		= __sh_matrix_in_rtp_savpf_dtls,
 	[PROTO_UDP_TLS_RTP_SAVP]	= __sh_matrix_in_rtp_savp_dtls,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= __sh_matrix_in_rtp_savpf_dtls,
+	[PROTO_UDPTL]			= __sh_matrix_noop,
 };
 
 /* ********** */
