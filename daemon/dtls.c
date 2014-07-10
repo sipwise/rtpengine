@@ -602,8 +602,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 		if (ps->sfd)
 			ilog(LOG_ERROR, "DTLS error on local port %hu", ps->sfd->fd.localport);
 		/* fatal error */
-		d->init = 0;
-		/* XXX ?? */
+		dtls_connection_cleanup(d);
 		return 0;
 	}
 	else if (ret == 1) {
