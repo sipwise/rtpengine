@@ -1174,7 +1174,7 @@ static int replace_transport_protocol(struct sdp_chopper *chop,
 	str *tp = &media->transport;
 
 	if (!cm->protocol)
-		return 0; /* XXX correct? or give warning? */
+		return 0;
 
 	if (copy_up_to(chop, tp))
 		return -1;
