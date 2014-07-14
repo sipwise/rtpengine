@@ -1,3 +1,18 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.3.2.1) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [53e2fab] try to fix null c= address issue
+  * [b449b9f] remove needless assertion
+  * [189d660] fix inappropriate locking sequenece
+  * [079929f] fix possible deadlock
+  * [949391a] properly handle unknown transport protocols
+  * [c2f5b60] properly support the udptl protocol
+  * [9107d0a] allow for protocol renegotiation
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 14 Jul 2014 17:12:36 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.3.2.0) unstable; urgency=low
 
   [ Richard Fuchs ]
