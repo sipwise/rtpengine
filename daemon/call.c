@@ -1675,10 +1675,8 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 		return;
 
 	/* we offer ICE by default */
-	if (flags->opmode == OP_OFFER) {
-		if (!MEDIA_ISSET(this, INITIALIZED))
-			MEDIA_SET(this, ICE);
-	}
+	if (!MEDIA_ISSET(this, INITIALIZED))
+		MEDIA_SET(this, ICE);
 	if (flags->ice_remove)
 		MEDIA_CLEAR(this, ICE);
 
@@ -1710,12 +1708,20 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		return;
 	}
 
-	if (flags->opmode == OP_OFFER) {
-		/* we use this to remember the peer's preference DTLS vs SDES */
-		if (!MEDIA_ISSET(this, INITIALIZED)) {
-			MEDIA_SET(this, DTLS);
-			MEDIA_SET(this, SDES);
+	if (!MEDIA_ISSET(this, INITIALIZED)) {
+		/* we offer both DTLS and SDES by default */
+		MEDIA_SET(this, DTLS);
+		MEDIA_SET(this, SDES);
+	}
+	else {
+		/* if we're talking to someone understanding DTLS, then skip the SDES stuff */
+		if (MEDIA_ISSET(this, DTLS)) {
+			MEDIA_CLEAR(this, SDES);
+			goto skip_sdes;
 		}
+	}
+
+	if (flags->opmode == OP_OFFER) {
 		/* we always offer actpass */
 		MEDIA_SET(this, SETUP_PASSIVE);
 		MEDIA_SET(this, SETUP_ACTIVE);
@@ -1724,12 +1730,6 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		/* if we can be active, we will, otherwise we'll be passive */
 		if (MEDIA_ISSET(this, SETUP_ACTIVE))
 			MEDIA_CLEAR(this, SETUP_PASSIVE);
-
-		/* if we're answering and doing DTLS, then skip the SDES stuff */
-		if (MEDIA_ISSET(this, DTLS)) {
-			MEDIA_CLEAR(this, SDES);
-			goto skip_sdes;
-		}
 	}
 
 	/* for answer case, otherwise we default to one */
@@ -1971,8 +1971,8 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 			media->desired_family = AF_INET6;
 
 
-		/* mark initial offer/answer as done */
-		MEDIA_SET(media, INITIALIZED);
+		/* we now know what's being advertised by the other side */
+		MEDIA_SET(other_media, INITIALIZED);
 
 
 		/* determine number of consecutive ports needed locally.
