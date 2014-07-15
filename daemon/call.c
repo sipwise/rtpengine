@@ -1258,17 +1258,22 @@ static int get_port(struct udp_fd *r, u_int16_t p, const struct call *c) {
 
 	assert(r->fd == -1);
 
+	__C_DBG("attempting to open port %u", p);
+
 	mutex_lock(&m->portlock);
 	if (bit_array_isset(m->ports_used, p)) {
 		mutex_unlock(&m->portlock);
+		__C_DBG("port in use");
 		return -1;
 	}
 	bit_array_set(m->ports_used, p);
 	mutex_unlock(&m->portlock);
+	__C_DBG("port locked");
 
 	ret = get_port6(r, p, c);
 
 	if (ret) {
+		__C_DBG("couldn't open port");
 		mutex_lock(&m->portlock);
 		bit_array_clear(m->ports_used, p);
 		mutex_unlock(&m->portlock);
@@ -1283,6 +1288,7 @@ static int get_port(struct udp_fd *r, u_int16_t p, const struct call *c) {
 static void release_port(struct udp_fd *r, struct callmaster *m) {
 	if (r->fd == -1 || !r->localport)
 		return;
+	__C_DBG("releasing port %u", r->localport);
 	mutex_lock(&m->portlock);
 	bit_array_clear(m->ports_used, r->localport);
 	mutex_unlock(&m->portlock);
