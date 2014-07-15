@@ -110,7 +110,7 @@ INLINE void ipv6only(int fd, int yn) {
 	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
 }
 
-INLINE int bit_array_isset(unsigned long *name, unsigned int bit) {
+INLINE unsigned long bit_array_isset(unsigned long *name, unsigned int bit) {
 	return name[(bit) / (sizeof(long) * 8)] & (1UL << ((bit) % (sizeof(long) * 8)));
 }
 
