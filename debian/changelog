@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.3.2.2) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [d1dd609] fix incorrect port allocations
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 15 Jul 2014 18:12:24 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.3.2.1) unstable; urgency=low
 
   [ Richard Fuchs ]
