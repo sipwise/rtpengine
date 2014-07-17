@@ -845,6 +845,21 @@ stats:
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
 }
 
+void ng_list_add_call(gpointer key, gpointer value, gpointer user_data) {
+
+    bencode_item_t *output = (bencode_item_t *) user_data;
+
+    bencode_list_add_str(output, key);
+}
+
+void ng_list_calls( struct callmaster *m, bencode_item_t *output) {
+    rwlock_lock_r(&m->hashlock);
+    g_hash_table_foreach (m->callhash, ng_list_add_call, output);
+    rwlock_unlock_r(&m->hashlock);
+}
+
+
+
 const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str callid, fromtag, totag;
 	struct call *call;
@@ -863,4 +878,15 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	obj_put(call);
 
 	return NULL;
+}
+
+
+const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+    bencode_item_t *calls = NULL;
+
+    bencode_dictionary_add_string(output, "result", "ok");
+    calls = bencode_dictionary_add_list(output, "calls");
+    ng_list_calls(m, calls);
+
+    return NULL;
 }
