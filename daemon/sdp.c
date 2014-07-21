@@ -487,7 +487,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 			err = "invalid key lifetime";
 			if (!c->lifetime || c->lifetime > 64)
 				goto error;
-			c->lifetime = 1 << c->lifetime;
+			c->lifetime = 1ULL << c->lifetime;
 		}
 		else
 			c->lifetime = strtoull(c->lifetime_str.s, NULL, 10);
