@@ -1755,10 +1755,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				assert(j->data == ps_rtcp);
 			}
 
-			if (!sdp_media->port_num || !ps->sfd) {
-				chopper_append_c(chop, "a=inactive\r\n");
+			if (!sdp_media->port_num || !ps->sfd)
 				goto next;
-			}
 
 			if (MEDIA_ISSET(call_media, SEND) && MEDIA_ISSET(call_media, RECV))
 				chopper_append_c(chop, "a=sendrecv\r\n");
