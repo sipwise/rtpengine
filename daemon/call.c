@@ -1708,6 +1708,17 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		return;
 	}
 
+	if (flags->opmode == OP_OFFER) {
+		/* we always offer actpass */
+		MEDIA_SET(this, SETUP_PASSIVE);
+		MEDIA_SET(this, SETUP_ACTIVE);
+	}
+	else {
+		/* if we can be active, we will, otherwise we'll be passive */
+		if (MEDIA_ISSET(this, SETUP_ACTIVE))
+			MEDIA_CLEAR(this, SETUP_PASSIVE);
+	}
+
 	if (!MEDIA_ISSET(this, INITIALIZED)) {
 		/* we offer both DTLS and SDES by default */
 		MEDIA_SET(this, DTLS);
@@ -1719,17 +1730,6 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			MEDIA_CLEAR(this, SDES);
 			goto skip_sdes;
 		}
-	}
-
-	if (flags->opmode == OP_OFFER) {
-		/* we always offer actpass */
-		MEDIA_SET(this, SETUP_PASSIVE);
-		MEDIA_SET(this, SETUP_ACTIVE);
-	}
-	else {
-		/* if we can be active, we will, otherwise we'll be passive */
-		if (MEDIA_ISSET(this, SETUP_ACTIVE))
-			MEDIA_CLEAR(this, SETUP_PASSIVE);
 	}
 
 	/* for answer case, otherwise we default to one */
