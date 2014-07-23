@@ -823,7 +823,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 stats:
 	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
 
-	if (!match_tag) {
+	if (!match_tag || !match_tag->len) {
 		for (l = call->monologues; l; l = l->next) {
 			ml = l->data;
 			ng_stats_monologue(tags, ml, totals);
