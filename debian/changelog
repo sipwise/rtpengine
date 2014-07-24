@@ -1,3 +1,14 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.4.2.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [c21def4] allow for protocol renegotiation
+  * [102dd65] fix incorrect port allocations
+  * [2078b14] remove unnecessary a=inactive for zero-port media
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 24 Jul 2014 18:09:09 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.4.1.0) unstable; urgency=low
 
   [ Richard Fuchs ]
