@@ -8,16 +8,27 @@ CFLAGS+=	`pkg-config --cflags openssl`
 CFLAGS+=	`pcre-config --cflags`
 CFLAGS+=	-I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
-ifneq ($(MEDIAPROXY_VERSION),)
-  CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(MEDIAPROXY_VERSION)\""
-else
+
+ifeq ($(RTPENGINE_VERSION),)
   DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)
   ifneq ($(DPKG_PRSCHNGLG),)
-    CFLAGS+=	-DMEDIAPROXY_VERSION="\"$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')\""
-  else
-    CFLAGS+=	-DMEDIAPROXY_VERSION="\"undefined\""
+    DPKG_PRSCHNGLG=$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')
+  endif
+  GIT_BR_COMMIT=$(shell git branch --no-color --no-column -v 2> /dev/null | awk -e '/^\*/ {OFS="-"; print "git", $$2, $$3}')
+
+  ifneq ($(DPKG_PRSCHNGLG),)
+    RTPENGINE_VERSION+=$(DPKG_PRSCHNGLG)
+  endif
+  ifneq ($(GIT_BR_COMMIT),)
+    RTPENGINE_VERSION+=$(GIT_BR_COMMIT)
+  endif
+
+  ifeq ($(RTPENGINE_VERSION),)
+    RTPENGINE_VERSION+=undefined
   endif
 endif
+CFLAGS+=	-DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
+
 CFLAGS+=	-DMP_PLUGIN_DIR="\"/usr/lib/rtpengine\""
 
 #CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE

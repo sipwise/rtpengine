@@ -123,7 +123,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "status"))
 		calls_status_tcp(c->callmaster, s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "build") | !strcmp(out[RE_TCP_DIV_CMD], "version"))
-		control_stream_printf(s, "Version: %s\n", MEDIAPROXY_VERSION);
+		control_stream_printf(s, "Version: %s\n", RTPENGINE_VERSION);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "controls"))
 		control_list(c, s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "quit") || !strcmp(out[RE_TCP_DIV_CMD], "exit"))

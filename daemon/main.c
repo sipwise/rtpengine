@@ -274,7 +274,7 @@ static void options(int *argc, char ***argv) {
 		die("Bad command line: %s\n", er->message);
 
 	if (version)
-		die("%s\n", MEDIAPROXY_VERSION);
+		die("%s\n", RTPENGINE_VERSION);
 
 	if (!ipv4s)
 		die("Missing option --ip\n");
@@ -549,7 +549,7 @@ int main(int argc, char **argv) {
 	options(&argc, &argv);
 	create_everything(&ctx);
 
-	ilog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
+	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(timer_loop, ctx.p);
@@ -565,7 +565,7 @@ int main(int argc, char **argv) {
 
 	threads_join_all(1);
 
-	ilog(LOG_INFO, "Version %s shutting down", MEDIAPROXY_VERSION);
+	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
 
 	return 0;
 }
