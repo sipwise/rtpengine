@@ -10,12 +10,16 @@
 
 struct log_info __thread log_info;
 volatile gint log_level = LOG_INFO;
+#ifndef MAX_LOG_LINE_LENGTH
+#define MAX_LOG_LINE_LENGTH 500
+#endif
 
 
 
 void ilog(int prio, const char *fmt, ...) {
 	char prefix[256];
-	char *msg;
+	char *msg, *piece;
+	const char *infix = "";
 	va_list ap;
 	int ret, xprio;
 
@@ -55,7 +59,16 @@ void ilog(int prio, const char *fmt, ...) {
 		return;
 	}
 
-	syslog(xprio, "%s%s", prefix, msg);
+	piece = msg;
+
+	while (ret > MAX_LOG_LINE_LENGTH) {
+		syslog(xprio, "%s%s%.*s ...", prefix, infix, MAX_LOG_LINE_LENGTH, piece);
+		ret -= MAX_LOG_LINE_LENGTH;
+		piece += MAX_LOG_LINE_LENGTH;
+		infix = "... ";
+	}
+
+	syslog(xprio, "%s%s%s", prefix, infix, piece);
 
 	free(msg);
 }
