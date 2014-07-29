@@ -93,7 +93,7 @@ static u_int32_t redis_ip;
 static u_int16_t redis_port;
 static int redis_db = -1;
 static char *b2b_url;
-
+static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 
 
 static void sighandler(gpointer x) {
@@ -262,6 +262,7 @@ static void options(int *argc, char ***argv) {
 		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,	"Mask log priorities above this level",	"INT"	},
+		{ "xmlrpc-format",	'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ NULL, }
 	};
 
@@ -328,6 +329,10 @@ static void options(int *argc, char ***argv) {
 			die("Must specify Redis DB number (--redis-db) when using Redis\n");
 	}
 	
+	if (xmlrpc_fmt < 0 || xmlrpc_fmt > 1) {
+		die("Invalid XMLRPC format\n");
+	}
+
 	if ((log_level < LOG_EMERG) || (log_level > LOG_DEBUG))
 	        die("Invalid log level (--log_level)\n");
 	setlogmask(LOG_UPTO(log_level));
@@ -478,6 +483,7 @@ no_kernel:
 	mc.silent_timeout = silent_timeout;
 	mc.default_tos = tos;
 	mc.b2b_url = b2b_url;
+	mc.fmt = xmlrpc_fmt;
 
 	ct = NULL;
 	if (listenport) {
