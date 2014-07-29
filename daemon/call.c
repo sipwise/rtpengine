@@ -43,6 +43,7 @@ struct iterator_helper {
 	struct stream_fd	*ports[0x10000];
 };
 struct xmlrpc_helper {
+	enum xmlrpc_format fmt;
 	GStringChunk		*c;
 	char			*url;
 	GSList			*tags;
@@ -992,8 +993,16 @@ retry:
 			goto fault;
 
 		r = NULL;
-		xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
-			"sbc", "postControlCmd", tag->s, "teardown");
+		switch (xh->fmt) {
+		case XF_SEMS:
+			xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
+						"sbc", "postControlCmd", tag->s, "teardown");
+			break;
+		case XF_CALLID:
+			xmlrpc_client_call2f(&e, c, xh->url, "teardown", &r, "(s)", tag->s);
+			break;
+		}
+
 		if (r)
 			xmlrpc_DECREF(r);
 		if (e.fault_occurred)
@@ -1032,6 +1041,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 		xh->c = g_string_chunk_new(64);
 		xh->url = g_string_chunk_insert(xh->c, url);
 		xh->tags = NULL;
+		xh->fmt = m->conf.fmt;
 	}
 
 	while (list) {
@@ -1042,13 +1052,18 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 
 		rwlock_lock_r(&ca->master_lock);
 
-		for (csl = ca->monologues; csl; csl = csl->next) {
-			cm = csl->data;
-			if (!cm->tag.s || !cm->tag.len)
-				goto next;
-			xh->tags = g_slist_prepend(xh->tags, str_chunk_insert(xh->c, &cm->tag));
-next:
-			;
+		switch (m->conf.fmt) {
+		case XF_SEMS:
+			for (csl = ca->monologues; csl; csl = csl->next) {
+				cm = csl->data;
+				if (cm->tag.s && cm->tag.len) {
+					xh->tags = g_slist_prepend(xh->tags, str_chunk_insert(xh->c, &cm->tag));
+				}
+			}
+			break;
+		case XF_CALLID:
+			xh->tags = g_slist_prepend(xh->tags, str_chunk_insert(xh->c, &ca->callid));
+			break;
 		}
 
 		rwlock_unlock_r(&ca->master_lock);

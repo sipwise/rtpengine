@@ -41,6 +41,11 @@ enum transport_protocol_index {
 	PROTO_UDPTL,
 };
 
+enum xmlrpc_format {
+	XF_SEMS = 0,
+	XF_CALLID,
+};
+
 struct call_monologue;
 
 
@@ -316,6 +321,7 @@ struct callmaster_config {
 	struct redis		*redis;
 	char			*b2b_url;
 	unsigned char		default_tos;
+	enum xmlrpc_format fmt;
 };
 
 struct callmaster {
