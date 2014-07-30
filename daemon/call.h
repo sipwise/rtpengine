@@ -375,6 +375,7 @@ const char *call_offer_ng(bencode_item_t *, struct callmaster *, bencode_item_t 
 const char *call_answer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_query_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
+const char *call_list_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 
 
 void calls_dump_redis(struct callmaster *);

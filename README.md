@@ -701,6 +701,17 @@ of zero or more strings. The following flags are defined:
 The reply message may contain additional keys with statistics about the deleted call. Those additional keys
 are the same as used in the `query` reply.
 
+`list` Message
+----------------
+
+The `list` command retrieves the list of currently active call-ids. This list is limited to 32 elements by
+default.
+
+* `limit`
+
+	Optional integer value that specifies the maximum number of results (default: 32). Must be > 0. Be
+	careful when setting big values, as the response may not fit in a UDP packet, and therefore be invalid.
+
 `query` Message
 ---------------
 
