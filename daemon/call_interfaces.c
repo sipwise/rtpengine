@@ -845,6 +845,22 @@ stats:
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
 }
 
+void ng_list_calls( struct callmaster *m, bencode_item_t *output, long long int limit) {
+	GHashTableIter iter;
+	gpointer key, value;
+
+	rwlock_lock_r(&m->hashlock);
+
+	g_hash_table_iter_init (&iter, m->callhash);
+	while (limit-- && g_hash_table_iter_next (&iter, &key, &value)) {
+		bencode_list_add_str_dup(output, key);
+	}
+
+	rwlock_unlock_r(&m->hashlock);
+}
+
+
+
 const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str callid, fromtag, totag;
 	struct call *call;
@@ -861,6 +877,24 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	ng_call_stats(call, &fromtag, &totag, output, NULL);
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
+
+	return NULL;
+}
+
+
+const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	bencode_item_t *calls = NULL;
+	long long int limit;
+
+	limit = bencode_dictionary_get_integer(input, "limit", 32);
+
+	if (limit < 0) {
+		return "invalid limit, must be >= 0";
+	}
+	bencode_dictionary_add_string(output, "result", "ok");
+	calls = bencode_dictionary_add_list(output, "calls");
+
+	ng_list_calls(m, calls, limit);
 
 	return NULL;
 }

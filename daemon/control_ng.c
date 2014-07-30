@@ -117,6 +117,8 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 		errstr = call_delete_ng(dict, c->callmaster, resp);
 	else if (!str_cmp(&cmd, "query"))
 		errstr = call_query_ng(dict, c->callmaster, resp);
+	else if (!str_cmp(&cmd, "list"))
+	    errstr = call_list_ng(dict, c->callmaster, resp);
 	else
 		errstr = "Unrecognized command";
 

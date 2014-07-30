@@ -154,7 +154,9 @@ bencode_item_t *bencode_list_add(bencode_item_t *list, bencode_item_t *item);
 
 /* Convenience function to add the respective (newly created) objects to a list */
 INLINE bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char *s);
+INLINE bencode_item_t *bencode_list_add_string_dup(bencode_item_t *list, const char *s);
 INLINE bencode_item_t *bencode_list_add_str(bencode_item_t *list, const str *s);
+INLINE bencode_item_t *bencode_list_add_str_dup(bencode_item_t *list, const str *s);
 INLINE bencode_item_t *bencode_list_add_list(bencode_item_t *list);
 INLINE bencode_item_t *bencode_list_add_dictionary(bencode_item_t *list);
 
@@ -442,8 +444,20 @@ INLINE bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char 
 	return bencode_list_add(list, bencode_string(bencode_item_buffer(list), s));
 }
 
+INLINE bencode_item_t *bencode_list_add_string_dup(bencode_item_t *list, const char *s) {
+	if (!s)
+		return NULL;
+	return bencode_list_add(list, bencode_string_dup(bencode_item_buffer(list), s));
+}
+
 INLINE bencode_item_t *bencode_list_add_str(bencode_item_t *list, const str *s) {
 	return bencode_list_add(list, bencode_str(bencode_item_buffer(list), s));
+}
+
+INLINE bencode_item_t *bencode_list_add_str_dup(bencode_item_t *list, const str *s) {
+	if (!s)
+		return NULL;
+	return bencode_list_add(list, bencode_str_dup(bencode_item_buffer(list), s));
 }
 
 INLINE bencode_item_t *bencode_list_add_list(bencode_item_t *list) {
