@@ -1874,10 +1874,10 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 	/* Handle TOS= parameter. Negative value = no change, not present or too large =
 	 * revert to default, otherwise set specified value. We only do it in an offer, but
 	 * then for both directions. */
-	if (!flags || flags->opmode != OP_OFFER || flags->tos < 0)
+	if (flags && (flags->opmode != OP_OFFER || flags->tos < 0))
 		return;
 
-	if (flags->tos > 255)
+	if (!flags || flags->tos > 255)
 		new_tos = call->callmaster->conf.default_tos;
 	else
 		new_tos = flags->tos;
