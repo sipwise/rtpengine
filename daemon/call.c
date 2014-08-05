@@ -595,8 +595,10 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 		stun_ret = stun(s, stream, fsin);
 		if (!stun_ret)
 			goto done;
-		if (stun_ret == 1) /* use candidate */
+		if (stun_ret == 1) {
+			ilog(LOG_INFO, "STUN: using this candidate");
 			goto use_cand;
+		}
 		else /* not an stun packet */
 			stun_ret = 0;
 	}

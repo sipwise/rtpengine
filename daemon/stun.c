@@ -159,7 +159,7 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns) 
 				break;
 
 			default:
-				ilog(LOG_INFO, "Unknown STUN attribute: 0x%04x", type);
+				ilog(LOG_NOTICE, "Unknown STUN attribute: 0x%04x", type);
 				if ((type & 0x8000))
 					break;
 				unknowns[uc] = tlv->type;
@@ -479,20 +479,20 @@ int stun(str *b, struct packet_stream *ps, struct sockaddr_in6 *sin) {
 	if (check_auth(b, &attrs, ps->media))
 		goto unauth;
 
-	ilog(LOG_NOTICE, "Successful STUN binding request" SLF, SLP);
+	ilog(LOG_INFO, "Successful STUN binding request" SLF, SLP);
 	stun_binding_success(ps->sfd->fd.fd, req, &attrs, sin, ps->media);
 
 	return attrs.use ? 1 : 0;
 
 bad_req:
-	ilog(LOG_INFO, "Received invalid STUN packet" SLF ": %s", SLP, err);
+	ilog(LOG_NOTICE, "Received invalid STUN packet" SLF ": %s", SLP, err);
 	stun_error(cm, ps->sfd->fd.fd, sin, req, 400, "Bad request");
 	return 0;
 unauth:
-	ilog(LOG_INFO, "STUN authentication mismatch" SLF, SLP);
+	ilog(LOG_NOTICE, "STUN authentication mismatch" SLF, SLP);
 	stun_error(cm, ps->sfd->fd.fd, sin, req, 401, "Unauthorized");
 	return 0;
 ignore:
-	ilog(LOG_INFO, "Not handling potential STUN packet" SLF ": %s", SLP, err);
+	ilog(LOG_NOTICE, "Not handling potential STUN packet" SLF ": %s", SLP, err);
 	return -1;
 }
