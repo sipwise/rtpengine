@@ -39,7 +39,7 @@ static str *streams_print(GQueue *s, int start, int end, const char *prefix, enu
 	if (prefix)
 		g_string_append_printf(o, "%s ", prefix);
 
-	for (i = start; i < end; i++) {
+	for (i = start; i <= end; i++) {
 		for (l = s->head; l; l = l->next) {
 			media = l->data;
 			if (media->index == i)
