@@ -9,7 +9,12 @@
 
 
 struct log_info __thread log_info;
+#ifndef __DEBUG
 volatile gint log_level = LOG_INFO;
+#else
+volatile gint log_level = LOG_DEBUG;
+#endif
+
 #ifndef MAX_LOG_LINE_LENGTH
 #define MAX_LOG_LINE_LENGTH 500
 #endif
