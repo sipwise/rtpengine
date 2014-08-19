@@ -302,11 +302,16 @@ INLINE int extract_token(char **sp, char *end, str *out) {
 	
 }
 #define EXTRACT_TOKEN(field) if (extract_token(&start, end, &output->field)) return -1
-#define EXTRACT_NETWORK_ADDRESS(field) \
-	EXTRACT_TOKEN(field.network_type); \
-	EXTRACT_TOKEN(field.address_type); \
-	EXTRACT_TOKEN(field.address); \
-	if (parse_address(&output->field)) return -1
+#define EXTRACT_NETWORK_ADDRESS_NP(field)			\
+		EXTRACT_TOKEN(field.network_type);		\
+		EXTRACT_TOKEN(field.address_type);		\
+		EXTRACT_TOKEN(field.address)
+#define EXTRACT_NETWORK_ADDRESS(field)				\
+		EXTRACT_NETWORK_ADDRESS_NP(field);		\
+		if (parse_address(&output->field)) return -1
+#define EXTRACT_NETWORK_ADDRESS_NF(field)			\
+		EXTRACT_NETWORK_ADDRESS_NP(field);		\
+		if (parse_address(&output->field)) output->field.parsed.s6_addr32[0] = 0xfe
 
 static int parse_origin(char *start, char *end, struct sdp_origin *output) {
 	if (output->parsed)
@@ -315,7 +320,7 @@ static int parse_origin(char *start, char *end, struct sdp_origin *output) {
 	EXTRACT_TOKEN(username);
 	EXTRACT_TOKEN(session_id);
 	EXTRACT_TOKEN(version);
-	EXTRACT_NETWORK_ADDRESS(address);
+	EXTRACT_NETWORK_ADDRESS_NF(address);
 
 	output->parsed = 1;
 	return 0;
