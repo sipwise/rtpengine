@@ -1,4 +1,4 @@
-mediaproxy-ng for Enterprise Linux
+rtpengine for Enterprise Linux
 ==================================
 
 Installing from RPMs
@@ -6,27 +6,27 @@ Installing from RPMs
 
 There are three RPMs:
 
-- *ngcp-mediaproxy-ng*: the userspace daemon
-- *ngcp-mediaproxy-ng-kernel*: the iptables plugin
-- *ngcp-mediaproxy-ng-dkms*: the kernel module source
+- *ngcp-rtpengine*: the userspace daemon
+- *ngcp-rtpengine-kernel*: the iptables plugin
+- *ngcp-rtpengine-dkms*: the kernel module source
 
 All of the RPMs have correctly set dependencies and if you just want the
 userspace daemon you can install it with yum (assuming you have access to a
 CentOS repository).
 
-The *ngcp-mediaproxy-ng-kernel* package is dependent on the
-*ngcp-mediaproxy-ng*, and *ngcp-mediaproxy-ng-dkms* packages. The
-*ngcp-mediaproxy-ng-dkms* package has a dependency (DKMS) that cannot be met
+The *ngcp-rtpengine-kernel* package is dependent on the
+*ngcp-rtpengine*, and *ngcp-rtpengine-dkms* packages. The
+*ngcp-rtpengine-dkms* package has a dependency (DKMS) that cannot be met
 by the CentOS base repository. If you want to use in-kernel forwarding you
 need to add the [*EPEL*](http://fedoraproject.org/wiki/EPEL) repository and
 install the *dkms* package before attempting to install
-*ngcp-mediaproxy-ng-dkms* or *ngcp-mediaproxy-ng-kernel*.
+*ngcp-rtpengine-dkms* or *ngcp-rtpengine-kernel*.
 
-Note: installing *ngcp-mediaproxy-ng-dkms* builds a kernel module which requires
+Note: installing *ngcp-rtpengine-dkms* builds a kernel module which requires
 the sources for the running kernel. The *kernel-devel* and *kernel-headers*
 packages are meta-packages that install the headers and source for the latest
 kernel version. This will be what what you want unless you are running a custom
-or older kernel. *ngcp-mediaproxy-ng-dkms* does not have *kernel-devel* and
+or older kernel. *ngcp-rtpengine-dkms* does not have *kernel-devel* and
 *kernel-headers* as dependencies as this could cause problems if you are using
 a custom or older kernel, so you need to install these manually.
 
@@ -45,10 +45,10 @@ To build the RPMs:
 - Create the `~/rpmbuild/SOURCES` directory
 - Create a tar archive.  For example, from within the cloned directory you can
   use
-  `git archive --output ~/rpmbuild/SOURCES/ngcp-mediaproxy-ng-<version number>.tar.gz --prefix=ngcp-mediaproxy-ng-<version number>/ master`
+  `git archive --output ~/rpmbuild/SOURCES/ngcp-rtpengine-<version number>.tar.gz --prefix=ngcp-rtpengine-<version number>/ master`
   where `<version number>` is the version number of the master branch
 - Build the RPMs. For example,
-   `rpmbuild -ta ~/rpmbuild/SOURCES/ngcp-mediaproxy-ng-<version number>.tar.gz`
+   `rpmbuild -ta ~/rpmbuild/SOURCES/ngcp-rtpengine-<version number>.tar.gz`
 
 Once the build has completed the binary RPMs will be in `~/rpmbuild/RPMS`.
 
@@ -56,14 +56,14 @@ Once the build has completed the binary RPMs will be in `~/rpmbuild/RPMS`.
 Manual Compilation
 ------------------
 
-There are three parts to mediaproxy-ng, each of which can be found in the
+There are three parts to rtpengine, each of which can be found in the
 respective subdirectories.
 
 * `daemon`
 
 	The userspace daemon and workhorse, minimum requirement for anything
 	to work. Running `MEDIAPROXY_VERSION="\"<version number>\"" make` will
-	compile the binary, which will be called `mediaproxy-ng`. The
+	compile the binary, which will be called `rtpengine`. The
 	following software packages are required to compile the daemon:
 
 	- *gcc*
