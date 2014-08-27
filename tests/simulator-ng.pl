@@ -391,9 +391,12 @@ sub savp_sdp {
 		}
 	}
 
-	if (!$$ctx{out}{rtp_master_key}) {
+	if (!$$ctx{out}{rtp_master_key} || rand() < .2) {
+		$$ctx{out}{rtp_master_key} and print("new key\n");
 		$$ctx{out}{rtp_master_key} = rand_str(16);
 		$$ctx{out}{rtp_master_salt} = rand_str(14);
+		undef($$ctx{out}{rtp_session_key});
+		undef($$ctx{out}{rtcp_session_key});
 		if ($NOENC && $NOENC{rtp_master_key}) {
 			$$ctx{out}{rtp_master_key} = $NOENC{rtp_master_key};
 			$$ctx{out}{rtp_master_salt} = $NOENC{rtp_master_salt};
