@@ -34,12 +34,20 @@
 
 
 
+#ifndef DELETE_DELAY
+#define DELETE_DELAY 30
+#endif
+
+
+
+
 
 typedef int (*rewrite_func)(str *, struct packet_stream *);
 
 /* also serves as array index for callstream->peers[] */
 struct iterator_helper {
-	GSList			*del;
+	GSList			*del_timeout;
+	GSList			*del_scheduled;
 	struct stream_fd	*ports[0x10000];
 };
 struct xmlrpc_helper {
@@ -286,6 +294,7 @@ static const struct mediaproxy_srtp __mps_null = {
 static void unkernelize(struct packet_stream *);
 static void __stream_unkernelize(struct packet_stream *ps);
 static void stream_unkernelize(struct packet_stream *ps);
+static void __monologue_destroy(struct call_monologue *monologue);
 
 
 
@@ -868,6 +877,53 @@ done:
 
 
 
+/* called with call->master_lock held in R */
+static int call_timer_delete_monologues(struct call *c) {
+	GSList *i;
+	struct call_monologue *ml;
+	int ret = 0;
+	time_t min_deleted = 0;
+
+	/* we need a write lock here */
+	rwlock_unlock_r(&c->master_lock);
+	rwlock_lock_w(&c->master_lock);
+
+	for (i = c->monologues; i; i = i->next) {
+		ml = i->data;
+
+		if (!ml->deleted)
+			continue;
+		if (ml->deleted > poller_now) {
+			if (!min_deleted || ml->deleted < min_deleted)
+				min_deleted = ml->deleted;
+			continue;
+		}
+
+		__monologue_destroy(ml);
+		ml->deleted = 0;
+
+		if (!g_hash_table_size(c->tags)) {
+			ilog(LOG_INFO, "Call branch '"STR_FORMAT"' deleted, no more branches remaining",
+					STR_FMT(&ml->tag));
+			ret = 1; /* destroy call */
+			goto out;
+		}
+
+		ilog(LOG_INFO, "Call branch "STR_FORMAT" deleted",
+				STR_FMT(&ml->tag));
+	}
+
+out:
+	c->ml_deleted = min_deleted;
+
+	rwlock_unlock_w(&c->master_lock);
+	rwlock_lock_r(&c->master_lock);
+
+	return ret;
+}
+
+
+
 /* called with callmaster->hashlock held */
 static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
@@ -880,6 +936,16 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct stream_fd *sfd;
 
 	rwlock_lock_r(&c->master_lock);
+	log_info_call(c);
+
+	if (c->deleted && poller_now >= c->deleted
+			&& c->last_signal <= c->deleted)
+		goto delete;
+
+	if (c->ml_deleted && poller_now >= c->ml_deleted) {
+		if (call_timer_delete_monologues(c))
+			goto delete;
+	}
 
 	if (!c->streams)
 		goto drop;
@@ -922,17 +988,19 @@ next:
 	if (good)
 		goto out;
 
-	log_info_call(c);
-	ilog(LOG_INFO, "Closing call branch due to timeout");
-	log_info_clear();
+	ilog(LOG_INFO, "Closing call due to timeout");
 
 drop:
-	rwlock_unlock_r(&c->master_lock);
-	hlp->del = g_slist_prepend(hlp->del, obj_get(c));
-	return;
+	hlp->del_timeout = g_slist_prepend(hlp->del_timeout, obj_get(c));
+	goto out;
+
+delete:
+	hlp->del_scheduled = g_slist_prepend(hlp->del_scheduled, obj_get(c));
+	goto out;
 
 out:
 	rwlock_unlock_r(&c->master_lock);
+	log_info_clear();
 }
 
 void xmlrpc_kill_calls(void *p) {
@@ -1022,11 +1090,10 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 	struct xmlrpc_helper *xh = NULL;
 
 	if (!list)
-		return; /* shouldn't happen */
+		return;
 
-	ca = list->data;
-	m = ca->callmaster; /* same callmaster for all of them */
-	url = m->conf.b2b_url;
+	/* if m is NULL, it's the scheduled deletions, otherwise it's the timeouts */
+	url = m ? m->conf.b2b_url : NULL;
 	if (url) {
 		xh = g_slice_alloc(sizeof(*xh));
 		xh->c = g_string_chunk_new(64);
@@ -1170,10 +1237,8 @@ next:
 		if (hlp.ports[j])
 			obj_put(hlp.ports[j]);
 
-	if (!hlp.del)
-		return;
-
-	kill_calls_timer(hlp.del, m);
+	kill_calls_timer(hlp.del_scheduled, NULL);
+	kill_calls_timer(hlp.del_timeout, m);
 }
 #undef DS
 
@@ -1880,6 +1945,7 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 	struct endpoint_map *em;
 
 	monologue->call->last_signal = poller_now;
+	monologue->call->deleted = 0;
 
 	/* we must have a complete dialogue, even though the to-tag (other_ml->tag)
 	 * may not be known yet */
@@ -2396,6 +2462,9 @@ static void __monologue_unkernelize(struct call_monologue *monologue) {
 	if (!monologue)
 		return;
 
+	monologue->deleted = 0; /* not really related, but indicates activity, so cancel
+				   any pending deletion */
+
 	for (l = monologue->medias.head; l; l = l->next) {
 		media = l->data;
 
@@ -2557,16 +2626,17 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	}
 */
 
-	__monologue_destroy(ml);
-	if (g_hash_table_size(c->tags)) {
-		ilog(LOG_INFO, "Call branch deleted (other branches still active)");
-		goto success_unlock;
-	}
+	ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' in %d seconds",
+			STR_FMT(&ml->tag), DELETE_DELAY);
+	ml->deleted = poller_now + 30;
+	if (!c->ml_deleted || c->ml_deleted > ml->deleted)
+		c->ml_deleted = ml->deleted;
+	goto success_unlock;
 
 del_all:
+	ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", DELETE_DELAY);
+	c->deleted = poller_now + DELETE_DELAY;
 	rwlock_unlock_w(&c->master_lock);
-	ilog(LOG_INFO, "Deleting full call");
-	call_destroy(c);
 	goto success;
 
 success_unlock:
