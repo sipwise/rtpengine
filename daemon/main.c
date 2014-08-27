@@ -28,6 +28,11 @@
 
 
 
+#define REDIS_MODULE_VERSION "redis/5"
+
+
+
+
 #define die(x...) do { fprintf(stderr, x); exit(-1); } while(0)
 #define dlresolve(n) do {								\
 	n ## _mod = dlsym(dlh, "mod_" #n);						\
@@ -516,7 +521,7 @@ no_kernel:
 		if (!dlh)
 			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
 		strp = dlsym(dlh, "__module_version");
-		if (!strp || !*strp || strcmp(*strp, "redis/4"))
+		if (!strp || !*strp || strcmp(*strp, REDIS_MODULE_VERSION))
 			die("Incorrect redis module version: %s\n", *strp);
 		redis_mod_verify(dlh);
 		mc.redis = redis_new_mod(redis_ip, redis_port, redis_db);

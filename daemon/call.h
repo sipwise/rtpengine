@@ -278,6 +278,7 @@ struct call_monologue {
 
 	str			tag;	
 	time_t			created;	/* RO */
+	time_t			deleted;
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
 
@@ -304,6 +305,8 @@ struct call {
 	str			callid;	
 	time_t			created;
 	time_t			last_signal;
+	time_t			deleted;
+	time_t			ml_deleted;
 	unsigned char		tos;
 };
 
