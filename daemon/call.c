@@ -1815,7 +1815,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 	}
 
 	/* for answer case, otherwise we default to one */
-	this->sdes_out.tag = this->sdes_in.params.crypto_suite ? this->sdes_in.tag : 1;
+	this->sdes_out.tag = cp_in->crypto_suite ? this->sdes_in.tag : 1;
 
 	if (other->sdes_in.params.crypto_suite) {
 		/* SRTP <> SRTP case, copy from other stream */
