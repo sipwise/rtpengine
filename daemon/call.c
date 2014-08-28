@@ -38,6 +38,11 @@
 #define DELETE_DELAY 30
 #endif
 
+#ifndef PORT_RANDOM_MIN
+#define PORT_RANDOM_MIN 6
+#define PORT_RANDOM_MAX 20
+#endif
+
 
 
 
@@ -1382,7 +1387,7 @@ static void release_port(struct udp_fd *r, struct callmaster *m) {
 int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c) {
 	int i, j, cycle = 0;
 	struct udp_fd *it;
-	u_int16_t port;
+	int port;
 	struct callmaster *m = c->callmaster;
 
 	memset(array, -1, sizeof(*array) * array_len);
@@ -1393,6 +1398,9 @@ int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_star
 		mutex_lock(&m->portlock);
 		port = m->lastport;
 		mutex_unlock(&m->portlock);
+#if PORT_RANDOM_MIN && PORT_RANDOM_MAX
+		port += PORT_RANDOM_MIN + (random() % (PORT_RANDOM_MAX - PORT_RANDOM_MIN));
+#endif
 	}
 
 	while (1) {
