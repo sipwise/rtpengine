@@ -1957,23 +1957,26 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 }
 
 /* called with call->master_lock held in W */
-int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
+int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		const struct sdp_ng_flags *flags)
 {
 	struct stream_params *sp;
 	GList *media_iter, *ml_media, *other_ml_media;
 	struct call_media *media, *other_media;
 	unsigned int num_ports;
-	struct call_monologue *other_ml = monologue->active_dialogue;
+	struct call_monologue *monologue = other_ml->active_dialogue;
 	struct endpoint_map *em;
 
 	monologue->call->last_signal = poller_now;
 	monologue->call->deleted = 0;
 
-	/* we must have a complete dialogue, even though the to-tag (other_ml->tag)
+	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
 	 * may not be known yet */
-	if (!other_ml)
+	if (!other_ml) {
+		ilog(LOG_ERROR, "Incomplete dialogue association");
 		return -1;
+	}
+	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
 	__tos_change(monologue->call, flags);
 
@@ -1987,9 +1990,12 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 		 * the dialogue */
 		media = __get_media(monologue, &ml_media, sp);
 		other_media = __get_media(other_ml, &other_ml_media, sp);
-		/* THIS side corresponds to what's being sent to the recipient of the
-		 * offer/answer. The OTHER side corresponds to what WILL BE sent to the
-		 * offerer or WAS sent to the answerer. */
+		/* OTHER is the side which has sent the message. SDP parameters in
+		 * "sp" are as advertised by OTHER side. The message will be sent to
+		 * THIS side. Parameters sent to THIS side may be overridden by
+		 * what's in "flags". If this is an answer, or if we have talked to
+		 * THIS side (recipient) before, then the structs will be populated with
+		 * details already. */
 
 		/* deduct protocol from stream parameters received */
 		if (other_media->protocol != sp->protocol) {
@@ -2014,11 +2020,13 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
 		if (other_media->sdes_in.params.crypto_suite)
 			MEDIA_SET(other_media, SDES);
 
+		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
 				SP_FLAG_SEND | SP_FLAG_RECV);
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
+		/* active and passive are also from our POV */
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_PASSIVE,
 				&sp->sp_flags, SP_FLAG_SETUP_ACTIVE);
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_ACTIVE,

@@ -126,6 +126,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	GQueue q = G_QUEUE_INIT;
 	struct stream_params sp;
 	str *ret, callid, viabranch, fromtag, totag = STR_NULL;
+	int i;
 
 	str_init(&callid, out[RE_UDP_UL_CALLID]);
 	str_init(&viabranch, out[RE_UDP_UL_VIABRANCH]);
@@ -147,11 +148,14 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 		goto addr_fail;
 
 	g_queue_push_tail(&q, &sp);
-	/* XXX return value */
-	monologue_offer_answer(monologue, &q, NULL);
+	i = monologue_offer_answer(monologue, &q, NULL);
 	g_queue_clear(&q);
 
-	ret = streams_print(&monologue->medias, sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
+	if (i)
+		goto unlock_fail;
+
+	ret = streams_print(&monologue->active_dialogue->medias,
+			sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
 	rwlock_unlock_w(&c->master_lock);
 
 	redis_update(c, m->conf.redis);
@@ -160,16 +164,16 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	goto out;
 
 ml_fail:
-	rwlock_unlock_w(&c->master_lock);
-	ilog(LOG_WARNING, "Invalid dialogue association");
-	goto fail_out;
+	ilog(LOG_ERR, "Invalid dialogue association");
+	goto unlock_fail;
 
 addr_fail:
-	rwlock_unlock_w(&c->master_lock);
-	ilog(LOG_WARNING, "Failed to parse a media stream: %s/%s:%s", out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
-	goto fail_out;
+	ilog(LOG_ERR, "Failed to parse a media stream: %s/%s:%s",
+			out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
+	goto unlock_fail;
 
-fail_out:
+unlock_fail:
+	rwlock_unlock_w(&c->master_lock);
 	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 out:
 	obj_put(c);
@@ -283,10 +287,10 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
 	}
-	/* XXX return value */
-	monologue_offer_answer(monologue, &s, NULL);
+	if (monologue_offer_answer(monologue, &s, NULL))
+		goto out2;
 
-	ret = streams_print(&monologue->medias, 1, s.length, NULL, SAF_TCP);
+	ret = streams_print(&monologue->active_dialogue->medias, 1, s.length, NULL, SAF_TCP);
 
 out2:
 	rwlock_unlock_w(&c->master_lock);
@@ -598,9 +602,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
-	/* XXX return value */
-	monologue_offer_answer(monologue, &streams, &flags);
-	ret = sdp_replace(chopper, &parsed, monologue, &flags);
+	ret = monologue_offer_answer(monologue, &streams, &flags);
+	if (!ret)
+		ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
 
 	rwlock_unlock_w(&call->master_lock);
 	redis_update(call, m->conf.redis);
