@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.4.3.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [e347a6c] implement delayed call/branch deletion
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 29 Aug 2014 16:20:33 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.4.2.0) unstable; urgency=low
 
   [ Richard Fuchs ]
