@@ -65,6 +65,12 @@ struct call_monologue;
 #define RTP_BUFFER_TAIL_ROOM	512
 #define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
 
+#ifndef RTP_LOOP_PROTECT
+#define RTP_LOOP_PROTECT	16 /* number of bytes */
+#define RTP_LOOP_PACKETS	2  /* number of packets */
+#define RTP_LOOP_MAX_COUNT	30 /* number of consecutively detected dupes to trigger protection */
+#endif
+
 #ifdef __DEBUG
 #define __C_DBG(x...) ilog(LOG_DEBUG, x)
 #else
@@ -215,6 +221,11 @@ struct endpoint_map {
 	int			wildcard:1;
 };
 
+struct loop_protector {
+	unsigned int		len;
+	unsigned char		buf[RTP_LOOP_PROTECT];
+};
+
 struct packet_stream {
 	mutex_t			in_lock,
 				out_lock;
@@ -237,6 +248,13 @@ struct packet_stream {
 	struct stats		stats;		/* LOCK: in_lock */
 	struct stats		kernel_stats;	/* LOCK: in_lock */
 	time_t			last_packet;	/* LOCK: in_lock */
+
+#if RTP_LOOP_PROTECT
+	/* LOCK: in_lock: */
+	unsigned int		lp_idx;
+	struct loop_protector	lp_buf[RTP_LOOP_PACKETS];
+	unsigned int		lp_count;
+#endif
 
 	X509			*dtls_cert;	/* LOCK: in_lock */
 

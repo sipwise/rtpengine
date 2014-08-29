@@ -575,6 +575,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	struct call_media *media;
 	int ret = 0, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0, rtcp = 0,
 	    unk = 0;
+	int i;
 	struct sockaddr_in6 sin6;
 	struct msghdr mh;
 	struct iovec iov;
@@ -620,6 +621,32 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 		else /* not an stun packet */
 			stun_ret = 0;
 	}
+
+#if RTP_LOOP_PROTECT
+	for (i = 0; i < RTP_LOOP_PACKETS; i++) {
+		if (stream->lp_buf[i].len != s->len)
+			continue;
+		if (memcmp(stream->lp_buf[i].buf, s->s, MIN(s->len, RTP_LOOP_PROTECT)))
+			continue;
+
+		__C_DBG("packet dupe");
+		if (stream->lp_count >= RTP_LOOP_MAX_COUNT) {
+			ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet "
+					"to avoid potential loop", RTP_LOOP_MAX_COUNT);
+			goto done;
+		}
+
+		stream->lp_count++;
+		goto loop_ok;
+	}
+
+	/* not a dupe */
+	stream->lp_count = 0;
+	stream->lp_buf[stream->lp_idx].len = s->len;
+	memcpy(stream->lp_buf[stream->lp_idx].buf, s->s, MIN(s->len, RTP_LOOP_PROTECT));
+	stream->lp_idx = (stream->lp_idx + 1) % RTP_LOOP_PACKETS;
+loop_ok:
+#endif
 
 	mutex_unlock(&stream->in_lock);
 
