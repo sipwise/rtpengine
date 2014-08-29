@@ -43,6 +43,10 @@
 #define PORT_RANDOM_MAX 20
 #endif
 
+#ifndef MAX_RECV_ITERS
+#define MAX_RECV_ITERS 50
+#endif
+
 
 
 
@@ -820,7 +824,7 @@ unlock_out:
 static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	struct stream_fd *sfd = p;
 	char buf[RTP_BUFFER_SIZE];
-	int ret;
+	int ret, iters;
 	struct sockaddr_storage ss;
 	struct sockaddr_in6 sin6;
 	struct sockaddr_in *sin;
@@ -835,7 +839,15 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 
 	log_info_stream_fd(sfd);
 
-	for (;;) {
+	for (iters = 0; ; iters++) {
+#if MAX_RECV_ITERS
+		if (iters >= MAX_RECV_ITERS) {
+			ilog(LOG_ERROR, "Too many packets in UDP receive queue (more than %d), "
+					"aborting loop. Dropped packets possible", iters);
+			break;
+		}
+#endif
+
 		sinlen = sizeof(ss);
 		ret = recvfrom(fd, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE,
 				0, (struct sockaddr *) &ss, &sinlen);
