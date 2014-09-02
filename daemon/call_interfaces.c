@@ -81,6 +81,11 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 	int i;
 
 	ZERO(*sp);
+
+	SP_SET(sp, SEND);
+	SP_SET(sp, RECV);
+	sp->protocol = &transport_protocols[PROTO_RTP_AVP];
+
 	if (out[RE_UDP_UL_ADDR4] && *out[RE_UDP_UL_ADDR4]) {
 		ip4 = inet_addr(out[RE_UDP_UL_ADDR4]);
 		if (ip4 == -1)
@@ -114,6 +119,9 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 	if (!sp->index)
 		sp->index = 1;
 	sp->consecutive_ports = 1;
+
+	sp->rtcp_endpoint = sp->rtp_endpoint;
+	sp->rtcp_endpoint.port++;
 
 	return 0;
 fail:
@@ -208,6 +216,10 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 
 	i = p;
 	sp = g_slice_alloc0(sizeof(*sp));
+
+	SP_SET(sp, SEND);
+	SP_SET(sp, RECV);
+	sp->protocol = &transport_protocols[PROTO_RTP_AVP];
 
 	ip = inet_addr(a[0]);
 	if (ip == -1)
