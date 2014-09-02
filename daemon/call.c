@@ -2745,7 +2745,7 @@ static void callmaster_get_all_calls_interator(void *key, void *val, void *ptr) 
 
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q) {
 	rwlock_lock_r(&m->hashlock);
-	g_hash_table_foreach(m->callhash, callmaster_get_all_calls_interator, &q);
+	g_hash_table_foreach(m->callhash, callmaster_get_all_calls_interator, q);
 	rwlock_unlock_r(&m->hashlock);
 
 }
