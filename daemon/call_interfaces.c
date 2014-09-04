@@ -146,7 +146,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	if (!c) {
 		ilog(LOG_WARNING, "["STR_FORMAT"] Got UDP LOOKUP for unknown call-id",
 			STR_FMT(&callid));
-		return str_sprintf("%s 0 " IPF "\n", out[RE_UDP_COOKIE], IPP(m->conf.ipv4));
+		return str_sprintf("%s 0 0.0.0.0\n", out[RE_UDP_COOKIE]);
 	}
 	monologue = call_get_mono_dialogue(c, &fromtag, &totag);
 	if (!monologue)

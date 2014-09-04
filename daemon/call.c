@@ -334,7 +334,7 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 INLINE void __mp_address_translate(struct mp_address *o, const struct endpoint *ep) {
 	if (IN6_IS_ADDR_V4MAPPED(&ep->ip46)) {
 		o->family = AF_INET;
-		o->u.ipv4 = ep->ip46.s6_addr32[3];
+		o->u.ipv4 = in6_to_4(&ep->ip46);
 	}
 	else {
 		o->family = AF_INET6;
@@ -349,6 +349,7 @@ void kernelize(struct packet_stream *stream) {
 	struct call *call = stream->call;
 	struct callmaster *cm = call->callmaster;
 	struct packet_stream *sink = NULL;
+	struct interface_address *ifa;
 
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
@@ -403,10 +404,11 @@ void kernelize(struct packet_stream *stream) {
 	mpt.src_addr.family = mpt.dst_addr.family;
 	mpt.src_addr.port = sink->sfd->fd.localport;
 
+	ifa = get_first_interface_address(cm, NULL, mpt.src_addr.family); /* XXX */
 	if (mpt.src_addr.family == AF_INET)
-		mpt.src_addr.u.ipv4 = cm->conf.ipv4;
+		mpt.src_addr.u.ipv4 = in6_to_4(&ifa->addr);
 	else
-		memcpy(mpt.src_addr.u.ipv6, &cm->conf.ipv6, sizeof(mpt.src_addr.u.ipv6));
+		memcpy(mpt.src_addr.u.ipv6, &ifa->addr, sizeof(mpt.src_addr.u.ipv6));
 
 	stream->handler->in->kernel(&mpt.decrypt, stream);
 	stream->handler->out->kernel(&mpt.encrypt, sink);
@@ -537,6 +539,8 @@ void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
 	struct in_pktinfo *pi;
 	struct in6_pktinfo *pi6;
 	struct sockaddr_in6 *sin6;
+	struct interface_address *ifa;
+
 
 	sin6 = mh->msg_name;
 
@@ -548,9 +552,10 @@ void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
 		ch->cmsg_level = IPPROTO_IP;
 		ch->cmsg_type = IP_PKTINFO;
 
+		ifa = get_first_interface_address(cm, NULL, AF_INET);
 		pi = (void *) CMSG_DATA(ch);
 		ZERO(*pi);
-		pi->ipi_spec_dst.s_addr = cm->conf.ipv4;
+		pi->ipi_spec_dst.s_addr = in6_to_4(&ifa->addr);
 
 		mh->msg_controllen = CMSG_SPACE(sizeof(*pi));
 	}
@@ -559,9 +564,10 @@ void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
 		ch->cmsg_level = IPPROTO_IPV6;
 		ch->cmsg_type = IPV6_PKTINFO;
 
+		ifa = get_first_interface_address(cm, NULL, AF_INET);
 		pi6 = (void *) CMSG_DATA(ch);
 		ZERO(*pi6);
-		pi6->ipi6_addr = cm->conf.ipv6;
+		pi6->ipi6_addr = ifa->addr;
 
 		mh->msg_controllen = CMSG_SPACE(sizeof(*pi6));
 	}
@@ -2273,21 +2279,23 @@ static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_a
 	u_int32_t ip4;
 	struct callmaster *m = ps->call->callmaster;
 	int l = 0;
+	struct interface_address *ifa;
+
+	ifa = get_first_interface_address(m, NULL, AF_INET);
 
 	if (format == SAF_NG) {
 		strcpy(o + l, "IP4 ");
 		l = 4;
 	}
 
-	ip4 = ps->advertised_endpoint.ip46.s6_addr32[3];
-	if (!ip4) {
+	if (!in6_to_4(&ps->advertised_endpoint.ip46)) {
 		strcpy(o + l, "0.0.0.0");
 		l += 7;
 	}
-	else if (m->conf.adv_ipv4)
-		l += sprintf(o + l, IPF, IPP(m->conf.adv_ipv4));
-	else
-		l += sprintf(o + l, IPF, IPP(m->conf.ipv4));
+	else {
+		ip4 = in6_to_4(&ifa->advertised);
+		l += sprintf(o + l, IPF, IPP(ip4));
+	}
 
 	*len = l;
 	return AF_INET;
@@ -2296,6 +2304,9 @@ static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_a
 static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
 	struct callmaster *m = ps->call->callmaster;
 	int l = 0;
+	struct interface_address *ifa;
+
+	ifa = get_first_interface_address(m, NULL, AF_INET6);
 
 	if (format == SAF_NG) {
 		strcpy(o + l, "IP6 ");
@@ -2307,10 +2318,7 @@ static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_a
 		l += 2;
 	}
 	else {
-		if (!is_addr_unspecified(&m->conf.adv_ipv6))
-			inet_ntop(AF_INET6, &m->conf.adv_ipv6, o + l, 45); /* lies... */
-		else
-			inet_ntop(AF_INET6, &m->conf.ipv6, o + l, 45);
+		inet_ntop(AF_INET6, &ifa->advertised, o + l, 45); /* lies ... */
 		l += strlen(o + l);
 	}
 
@@ -2323,6 +2331,7 @@ static csa_func __call_stream_address(struct packet_stream *ps, int variant) {
 	struct packet_stream *sink;
 	struct call_media *sink_media;
 	csa_func variants[2];
+	struct interface_address *ifa;
 
 	assert(variant >= 0);
 	assert(variant < G_N_ELEMENTS(variants));
@@ -2330,11 +2339,12 @@ static csa_func __call_stream_address(struct packet_stream *ps, int variant) {
 	m = ps->call->callmaster;
 	sink = packet_stream_sink(ps);
 	sink_media = sink->media;
+	ifa = get_first_interface_address(m, NULL, AF_INET6);
 
 	variants[0] = call_stream_address4;
 	variants[1] = call_stream_address6;
 
-	if (is_addr_unspecified(&m->conf.ipv6)) {
+	if (!ifa) {
 		variants[1] = NULL;
 		goto done;
 	}
@@ -2786,4 +2796,64 @@ const struct transport_protocol *transport_protocol(const str *s) {
 
 out:
 	return NULL;
+}
+
+void callmaster_config_init(struct callmaster *m) {
+	GList *l;
+	struct interface_address *ifa;
+	struct local_interface *lif;
+
+	m->interfaces = g_hash_table_new(str_hash, str_equal);
+
+	for (l = m->conf.interfaces->head; l; l = l->next) {
+		ifa = l->data;
+
+		lif = g_hash_table_lookup(m->interfaces, &ifa->interface_name);
+		if (!lif) {
+			lif = g_slice_alloc0(sizeof(*lif));
+			lif->name = ifa->interface_name;
+			g_hash_table_insert(m->interfaces, &lif->name, lif);
+			g_queue_push_tail(&m->interface_list, lif);
+		}
+
+		if (IN6_IS_ADDR_V4MAPPED(&ifa->addr))
+			g_queue_push_tail(&lif->ipv4, ifa);
+		else
+			g_queue_push_tail(&lif->ipv6, ifa);
+	}
+}
+
+struct local_interface *get_local_interface(struct callmaster *m, str *name) {
+	struct local_interface *lif;
+
+	if (!name)
+		return m->interface_list.head->data;
+
+	lif = g_hash_table_lookup(m->interfaces, name);
+	return lif;
+}
+
+struct interface_address *get_first_interface_address(struct callmaster *m, str *name, int family) {
+	struct local_interface *lif;
+	GQueue *q;
+
+	lif = get_local_interface(m, name);
+	if (!lif)
+		return NULL;
+
+	switch (family) {
+		case AF_INET:
+			q = &lif->ipv4;
+			break;
+		case AF_INET6:
+			q = &lif->ipv6;
+			break;
+		default:
+			return NULL;
+	}
+
+	if (!q->head)
+		return NULL;
+
+	return q->head->data;
 }

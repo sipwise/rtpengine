@@ -328,13 +328,21 @@ struct call {
 	unsigned char		tos;
 };
 
+struct local_interface {
+	str			name;
+	GQueue			ipv4; /* struct interface_address */
+	GQueue			ipv6; /* struct interface_address */
+};
+struct interface_address {
+	str			interface_name;
+	struct in6_addr		addr;
+	struct in6_addr		advertised;
+};
+
 struct callmaster_config {
 	int			kernelfd;
 	int			kernelid;
-	u_int32_t		ipv4;
-	u_int32_t		adv_ipv4;
-	struct in6_addr		ipv6;
-	struct in6_addr		adv_ipv6;
+	GQueue			*interfaces; /* struct interface_address */
 	int			port_min;
 	int			port_max;
 	unsigned int		timeout;
@@ -342,7 +350,7 @@ struct callmaster_config {
 	struct redis		*redis;
 	char			*b2b_url;
 	unsigned char		default_tos;
-	enum xmlrpc_format fmt;
+	enum xmlrpc_format	fmt;
 };
 
 struct callmaster {
@@ -350,6 +358,9 @@ struct callmaster {
 
 	rwlock_t		hashlock;
 	GHashTable		*callhash;
+
+	GHashTable		*interfaces; /* struct local_interface */
+	GQueue			interface_list; /* ditto */
 
 	mutex_t			portlock;
 	u_int16_t		lastport;
@@ -378,6 +389,7 @@ struct call_stats {
 
 
 struct callmaster *callmaster_new(struct poller *);
+void callmaster_config_init(struct callmaster *);
 void callmaster_msg_mh_src(struct callmaster *, struct msghdr *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 
@@ -418,6 +430,8 @@ void call_destroy(struct call *);
 void kernelize(struct packet_stream *);
 int call_stream_address_alt(char *, struct packet_stream *, enum stream_address_format, int *);
 int call_stream_address(char *, struct packet_stream *, enum stream_address_format, int *);
+struct local_interface *get_local_interface(struct callmaster *m, str *name);
+struct interface_address *get_first_interface_address(struct callmaster *m, str *name, int family);
 
 const struct transport_protocol *transport_protocol(const str *s);
 
@@ -472,7 +486,9 @@ INLINE str *call_str_init_dup(struct call *c, char *s) {
 	return call_str_dup(c, &t);
 }
 INLINE int callmaster_has_ipv6(struct callmaster *m) {
-	return is_addr_unspecified(&m->conf.ipv6) ? 0 : 1;
+	if (get_first_interface_address(m, NULL, AF_INET6))
+		return 1;
+	return 0;
 }
 INLINE void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
 	/* XXX atomic bit field? */

@@ -141,6 +141,9 @@ INLINE void in4_to_6(struct in6_addr *o, u_int32_t ip) {
 	o->s6_addr32[2] = htonl(0xffff);
 	o->s6_addr32[3] = ip;
 }
+INLINE u_int32_t in6_to_4(const struct in6_addr *a) {
+	return a->s6_addr32[3];
+}
 
 INLINE void smart_ntop(char *o, struct in6_addr *a, size_t len) {
 	const char *r;
@@ -200,6 +203,18 @@ INLINE int smart_pton(int af, char *src, void *dst) {
 		}
 	}
 	return inet_pton(af, src, dst);
+}
+
+INLINE int pton_46(struct in6_addr *dst, const char *src) {
+	u_int32_t in4;
+
+	if (inet_pton(AF_INET6, src, dst) == 1)
+		return 0;
+	in4 = inet_addr(src);
+	if (in4 == INADDR_NONE)
+		return -1;
+	in4_to_6(dst, in4);
+	return 0;
 }
 
 INLINE int strmemcmp(const void *mem, int len, const char *str) {
