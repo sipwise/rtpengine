@@ -382,6 +382,12 @@ INLINE int is_addr_unspecified(const struct in6_addr *a) {
 	return 0;
 }
 
+INLINE int family_from_address(const struct in6_addr *a) {
+	if (IN6_IS_ADDR_V4MAPPED(a))
+		return AF_INET;
+	return AF_INET6;
+}
+
 /* checks if at least one of the flags is set */
 INLINE int bf_isset(const unsigned int *u, unsigned int f) {
 	if ((*u & f))

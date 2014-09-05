@@ -985,7 +985,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			sp->consecutive_ports = media->port_count;
 			sp->protocol = transport_protocol(&media->transport);
 			sp->type = media->media_type;
-			memcpy(sp->direction, flags->directions, sizeof(sp->direction));
+			memcpy(sp->direction, flags->direction, sizeof(sp->direction));
 			sp->desired_family = flags->address_family;
 			bf_xset(&sp->sp_flags, SP_FLAG_ASYMMETRIC, flags->asymmetric);
 			bf_xset(&sp->sp_flags, SP_FLAG_STRICT_SOURCE, flags->strict_source);

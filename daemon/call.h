@@ -20,11 +20,6 @@ enum stream_address_format {
 	SAF_NG,
 	SAF_ICE,
 };
-enum stream_direction {
-	DIR_UNKNOWN = 0,
-	DIR_INTERNAL,
-	DIR_EXTERNAL,
-};
 enum call_opmode {
 	OP_OFFER = 0,
 	OP_ANSWER = 1,
@@ -201,7 +196,7 @@ struct stream_params {
 	const struct transport_protocol *protocol;
 	struct crypto_params	crypto;
 	unsigned int		sdes_tag;
-	enum stream_direction	direction[2];
+	str			direction[2];
 	int			desired_family;
 	struct dtls_fingerprint fingerprint;
 	unsigned int		sp_flags;

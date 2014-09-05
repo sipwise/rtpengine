@@ -16,7 +16,7 @@ struct sdp_ng_flags {
 	const struct transport_protocol *transport_protocol;
 	struct in6_addr parsed_received_from;
 	struct in6_addr parsed_media_address;
-	enum stream_direction directions[2];
+	str direction[2];
 	int address_family;
 	int tos;
 	int asymmetric:1,

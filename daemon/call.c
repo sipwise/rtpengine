@@ -307,8 +307,9 @@ static void stream_unkernelize(struct packet_stream *ps);
 static void __monologue_destroy(struct call_monologue *monologue);
 static struct interface_address *get_interface_from_address(struct local_interface *lif, struct in6_addr *addr);
 static struct interface_address *get_interface_address(struct local_interface *lif, int family);
-static struct local_interface *get_local_interface(struct callmaster *m, str *name);
+static struct local_interface *get_local_interface(struct callmaster *m, const str *name);
 static const GQueue *get_interface_addresses(struct local_interface *lif, int family);
+static struct interface_address *get_any_interface_address(struct local_interface *lif);
 
 
 
@@ -336,14 +337,11 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 
 
 INLINE void __mp_address_translate(struct mp_address *o, const struct endpoint *ep) {
-	if (IN6_IS_ADDR_V4MAPPED(&ep->ip46)) {
-		o->family = AF_INET;
+	o->family = family_from_address(&ep->ip46);
+	if (o->family == AF_INET)
 		o->u.ipv4 = in6_to_4(&ep->ip46);
-	}
-	else {
-		o->family = AF_INET6;
+	else
 		memcpy(o->u.ipv6, &ep->ip46, sizeof(o->u.ipv6));
-	}
 	o->port = ep->port;
 }
 
@@ -781,12 +779,12 @@ update_addr:
 		char ifa_buf[64];
 		smart_ntop(ifa_buf, dst, sizeof(ifa_buf));
 		ifa = get_interface_from_address(media->interface, dst);
-		if (!ifa)
+		if (!ifa) {
 			ilog(LOG_ERROR, "No matching local interface for destination address %s found", ifa_buf);
-		else {
-			ilog(LOG_INFO, "Switching local interface to %s", ifa_buf);
-			media->local_address = ifa;
+			goto drop;
 		}
+		ilog(LOG_INFO, "Switching local interface to %s", ifa_buf);
+		media->local_address = ifa;
 		update = 1;
 	}
 
@@ -2046,6 +2044,34 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 	__set_all_tos(call);
 }
 
+static void __init_interface(struct call_media *media, const str *ifname) {
+	if (!media->interface || !media->local_address)
+		goto get;
+	if (!ifname || !ifname->s)
+		return;
+	if (!str_cmp_str(&media->interface->name, ifname))
+		return;
+get:
+	media->interface = get_local_interface(media->call->callmaster, ifname);
+	if (!media->interface) {
+		media->interface = get_local_interface(media->call->callmaster, NULL);
+		/* legacy support */
+		if (!str_cmp(ifname, "internal"))
+			media->desired_family = AF_INET;
+		else if (!str_cmp(ifname, "external"))
+			media->desired_family = AF_INET6;
+		else
+			ilog(LOG_WARNING, "Interface '"STR_FORMAT"' not found, using default", STR_FMT(ifname));
+	}
+	media->local_address = get_interface_address(media->interface, media->desired_family);
+	if (!media->local_address) {
+		ilog(LOG_WARNING, "No usable address in interface '"STR_FORMAT"' found, using default",
+				STR_FMT(ifname));
+		media->local_address = get_any_interface_address(media->interface);
+		media->desired_family = family_from_address(&media->local_address->addr);
+	}
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		const struct sdp_ng_flags *flags)
@@ -2057,10 +2083,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	struct call_monologue *monologue = other_ml->active_dialogue;
 	struct endpoint_map *em;
 	struct call *call;
-	struct callmaster *cm;
 
 	call = monologue->call;
-	cm = call->callmaster;
 
 	call->last_signal = poller_now;
 	call->deleted = 0;
@@ -2145,25 +2169,17 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		__generate_crypto(flags, media, other_media);
 
 		/* deduct address family from stream parameters received */
-		other_media->desired_family = AF_INET;
-		if (!IN6_IS_ADDR_V4MAPPED(&sp->rtp_endpoint.ip46))
-			other_media->desired_family = AF_INET6;
+		other_media->desired_family = family_from_address(&sp->rtp_endpoint.ip46);
 		/* for outgoing SDP, use "direction"/DF or default to what was offered */
 		if (!media->desired_family)
 			media->desired_family = other_media->desired_family;
 		if (sp->desired_family)
 			media->desired_family = sp->desired_family;
-		else if (sp->direction[1] == DIR_EXTERNAL)
-			media->desired_family = AF_INET6;
 
 
-		/* local interface selection XXX */
-		media->interface = get_local_interface(cm, NULL);
-		media->local_address = get_interface_address(media->interface, media->desired_family);
-		other_media->interface = get_local_interface(cm, NULL);
-		other_media->local_address = get_interface_address(other_media->interface,
-				other_media->desired_family);
-
+		/* local interface selection */
+		__init_interface(media, &sp->direction[1]);
+		__init_interface(other_media, &sp->direction[0]);
 
 
 		/* we now know what's being advertised by the other side */
@@ -2840,10 +2856,10 @@ void callmaster_config_init(struct callmaster *m) {
 	}
 }
 
-static struct local_interface *get_local_interface(struct callmaster *m, str *name) {
+static struct local_interface *get_local_interface(struct callmaster *m, const str *name) {
 	struct local_interface *lif;
 
-	if (!name)
+	if (!name || !name->s)
 		return m->interface_list.head->data;
 
 	lif = g_hash_table_lookup(m->interfaces, name);
@@ -2873,6 +2889,17 @@ static struct interface_address *get_interface_address(struct local_interface *l
 	if (!q || !q->head)
 		return NULL;
 	return q->head->data;
+}
+
+/* safety fallback */
+static struct interface_address *get_any_interface_address(struct local_interface *lif) {
+	struct interface_address *ifa;
+	GQueue q = G_QUEUE_INIT;
+
+	get_all_interface_addresses(&q, lif, AF_INET);
+	ifa = q.head->data;
+	g_queue_clear(&q);
+	return ifa;
 }
 
 void get_all_interface_addresses(GQueue *q, struct local_interface *lif, int family) {

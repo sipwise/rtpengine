@@ -108,9 +108,9 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 		for (cp =out[RE_UDP_UL_FLAGS]; *cp && i < 2; cp++) {
 			c = chrtoupper(*cp);
 			if (c == 'E')
-				sp->direction[i++] = DIR_EXTERNAL;
+				str_init(&sp->direction[i++], "external");
 			else if (c == 'I')
-				sp->direction[i++] = DIR_INTERNAL;
+				str_init(&sp->direction[i++], "internal");
 		}
 	}
 
@@ -505,15 +505,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
-		for (it = list->child; it && diridx < 2; it = it->sibling) {
-			if (!bencode_strcmp(it, "internal"))
-				out->directions[diridx++] = DIR_INTERNAL;
-			else if (!bencode_strcmp(it, "external"))
-				out->directions[diridx++] = DIR_EXTERNAL;
-			else
-				ilog(LOG_WARN, "Unknown 'direction' flag encountered: '"BENCODE_FORMAT"'",
-						BENCODE_FMT(it));
-		}
+		for (it = list->child; it && diridx < 2; it = it->sibling)
+			bencode_get_str(it, &out->direction[diridx++]);
 	}
 
 	list = bencode_dictionary_get_expect(input, "received from", BENCODE_LIST);

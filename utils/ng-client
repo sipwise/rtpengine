@@ -34,6 +34,7 @@ GetOptions(
 	'rtcp-mux-accept'		=> \$options{'rtcp-mux-accept'},
 	'rtcp-mux-reject'		=> \$options{'rtcp-mux-reject'},
 	'address-family=s'		=> \$options{'address family'},
+	'direction=s'			=> \$options{'direction'},
 	'force'				=> \$options{'force'},
 	'v|verbose'			=> \$options{'verbose'},
 	'strict-source'			=> \$options{'strict source'},
@@ -56,6 +57,10 @@ for my $x (split(',', 'origin,session connection')) {
 }
 for my $x (split(',', 'offer,demux,accept,reject')) {
 	defined($options{'rtcp-mux-' . $x}) and push(@{$packet{'rtcp-mux'}}, $x);
+}
+if (defined($options{direction})) {
+	$options{direction} =~ /(.*),(.*)/ or die;
+	$packet{direction} = [$1,$2];
 }
 
 if (defined($options{sdp})) {
