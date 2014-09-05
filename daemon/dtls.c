@@ -660,7 +660,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 	iov.iov_base = buf;
 	iov.iov_len = ret;
 
-	callmaster_msg_mh_src(ps->call->callmaster, &mh);
+	stream_msg_mh_src(ps, &mh);
 
 	sendmsg(ps->sfd->fd.fd, &mh, 0);
 

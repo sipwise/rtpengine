@@ -261,6 +261,7 @@ static struct interface_address *if_addr_parse(char *s) {
 	char *c;
 	struct in6_addr addr, adv;
 	struct interface_address *ifa;
+	int family;
 
 	/* name */
 	c = strchr(s, '/');
@@ -278,12 +279,12 @@ static struct interface_address *if_addr_parse(char *s) {
 		*c++ = 0;
 
 	/* address */
-	if (pton_46(&addr, s))
+	if (pton_46(&addr, s, &family))
 		return NULL;
 
 	adv = addr;
 	if (c) {
-		if (pton_46(&adv, c))
+		if (pton_46(&adv, c, NULL))
 			return NULL;
 	}
 
@@ -291,6 +292,7 @@ static struct interface_address *if_addr_parse(char *s) {
 	ifa->interface_name = name;
 	ifa->addr = addr;
 	ifa->advertised = adv;
+	ifa->family = family;
 
 	return ifa;
 }
@@ -319,7 +321,7 @@ static void options(int *argc, char ***argv) {
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
-		{ "pidfile",	'p', 0, G_OPTION_ARG_STRING,	&pidfile,	"Write PID to file",		"FILE"		},
+		{ "pidfile",	'p', 0, G_OPTION_ARG_FILENAME,	&pidfile,	"Write PID to file",		"FILE"		},
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},

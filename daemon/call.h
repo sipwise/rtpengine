@@ -156,6 +156,7 @@ struct crypto_suite;
 struct mediaproxy_srtp;
 struct streamhandler;
 struct sdp_ng_flags;
+struct local_interface;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -272,6 +273,8 @@ struct call_media {
 	str			type;		/* RO */
 	const struct transport_protocol *protocol;
 	int			desired_family;
+	struct local_interface	*interface;
+	struct interface_address *local_address;
 
 	str			ice_ufrag;
 	str			ice_pwd;
@@ -335,8 +338,11 @@ struct local_interface {
 };
 struct interface_address {
 	str			interface_name;
+	int			family;
 	struct in6_addr		addr;
 	struct in6_addr		advertised;
+	str			ice_foundation;
+	char			foundation_buf[16];
 };
 
 struct callmaster_config {
@@ -390,7 +396,7 @@ struct call_stats {
 
 struct callmaster *callmaster_new(struct poller *);
 void callmaster_config_init(struct callmaster *);
-void callmaster_msg_mh_src(struct callmaster *, struct msghdr *);
+void stream_msg_mh_src(struct packet_stream *, struct msghdr *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 
 
@@ -428,10 +434,13 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 void call_destroy(struct call *);
 
 void kernelize(struct packet_stream *);
-int call_stream_address_alt(char *, struct packet_stream *, enum stream_address_format, int *);
 int call_stream_address(char *, struct packet_stream *, enum stream_address_format, int *);
+int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
+		int *len, struct interface_address *ifa);
 struct local_interface *get_local_interface(struct callmaster *m, str *name);
-struct interface_address *get_first_interface_address(struct callmaster *m, str *name, int family);
+const GQueue *get_interface_addresses(struct local_interface *lif, int family);
+struct interface_address *get_interface_address(struct local_interface *lif, int family);
+void get_all_interface_addresses(GQueue *q, struct local_interface *lif, int family);
 
 const struct transport_protocol *transport_protocol(const str *s);
 
@@ -484,11 +493,6 @@ INLINE str *call_str_init_dup(struct call *c, char *s) {
 	str t;
 	str_init(&t, s);
 	return call_str_dup(c, &t);
-}
-INLINE int callmaster_has_ipv6(struct callmaster *m) {
-	if (get_first_interface_address(m, NULL, AF_INET6))
-		return 1;
-	return 0;
 }
 INLINE void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
 	/* XXX atomic bit field? */

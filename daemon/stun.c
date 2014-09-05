@@ -228,13 +228,13 @@ INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u
 	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, data, len)
 
 
-static void output_finish(struct msghdr *mh, struct callmaster *cm) {
+static void output_finish(struct msghdr *mh, struct packet_stream *ps) {
 	struct header *hdr;
 
 	hdr = mh->msg_iov->iov_base;
 	hdr->msg_len = htons(hdr->msg_len);
 
-	callmaster_msg_mh_src(cm, mh);
+	stream_msg_mh_src(ps, mh);
 }
 
 static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
@@ -284,9 +284,9 @@ static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
 	hdr->msg_len = ntohs(hdr->msg_len);
 }
 
-static void stun_error_len(int fd, struct sockaddr_in6 *sin, struct header *req,
+static void stun_error_len(struct packet_stream *ps, struct sockaddr_in6 *sin, struct header *req,
 		int code, char *reason, int len, u_int16_t add_attr, void *attr_cont,
-		int attr_len, struct callmaster *cm)
+		int attr_len)
 {
 	struct header hdr;
 	struct error_code ec;
@@ -305,16 +305,16 @@ static void stun_error_len(int fd, struct sockaddr_in6 *sin, struct header *req,
 
 	fingerprint(&mh, &fp);
 
-	output_finish(&mh, cm);
-	sendmsg(fd, &mh, 0);
+	output_finish(&mh, ps);
+	sendmsg(ps->sfd->fd.fd, &mh, 0);
 }
 
-#define stun_error(cm, fd, sin, str, code, reason) \
-	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason), \
-			0, NULL, 0, cm)
-#define stun_error_attrs(cm, fd, sin, str, code, reason, type, content, len) \
-	stun_error_len(fd, sin, str, code, reason "\0\0\0", strlen(reason), \
-			type, content, len, cm)
+#define stun_error(ps, sin, str, code, reason) \
+	stun_error_len(ps, sin, str, code, reason "\0\0\0", strlen(reason), \
+			0, NULL, 0)
+#define stun_error_attrs(ps, sin, str, code, reason, type, content, len) \
+	stun_error_len(ps, sin, str, code, reason "\0\0\0", strlen(reason), \
+			type, content, len)
 
 
 
@@ -367,8 +367,8 @@ static int check_auth(str *msg, struct stun_attrs *attrs, struct call_media *med
 	return memcmp(digest, attrs->msg_integrity.s, 20) ? -1 : 0;
 }
 
-static int stun_binding_success(int fd, struct header *req, struct stun_attrs *attrs,
-		struct sockaddr_in6 *sin, struct call_media *media)
+static int stun_binding_success(struct packet_stream *ps, struct header *req, struct stun_attrs *attrs,
+		struct sockaddr_in6 *sin)
 {
 	struct header hdr;
 	struct xor_mapped_address xma;
@@ -377,7 +377,6 @@ static int stun_binding_success(int fd, struct header *req, struct stun_attrs *a
 	struct msghdr mh;
 	struct iovec iov[4]; /* hdr, xma, mi, fp */
 	unsigned char buf[256];
-	struct callmaster *cm = media->call->callmaster;
 
 	output_init(&mh, iov, sin, &hdr, STUN_BINDING_SUCCESS_RESPONSE, req->transaction, buf, sizeof(buf));
 
@@ -396,11 +395,11 @@ static int stun_binding_success(int fd, struct header *req, struct stun_attrs *a
 		output_add(&mh, &xma, STUN_XOR_MAPPED_ADDRESS);
 	}
 
-	integrity(&mh, &mi, &media->ice_pwd);
+	integrity(&mh, &mi, &ps->media->ice_pwd);
 	fingerprint(&mh, &fp);
 
-	output_finish(&mh, cm);
-	sendmsg(fd, &mh, 0);
+	output_finish(&mh, ps);
+	sendmsg(ps->sfd->fd.fd, &mh, 0);
 
 	return 0;
 }
@@ -428,7 +427,6 @@ int stun(str *b, struct packet_stream *ps, struct sockaddr_in6 *sin) {
 	u_int16_t unknowns[UNKNOWNS_COUNT];
 	const char *err;
 	char addr[64];
-	struct callmaster *cm = ps->call->callmaster;
 
 	smart_ntop_port(addr, sin, sizeof(addr));
 
@@ -454,7 +452,7 @@ int stun(str *b, struct packet_stream *ps, struct sockaddr_in6 *sin) {
 			goto ignore;
 		ilog(LOG_WARNING, "STUN packet contained unknown "
 				"\"comprehension required\" attribute(s)" SLF, SLP);
-		stun_error_attrs(cm, ps->sfd->fd.fd, sin, req, 420, "Unknown attribute",
+		stun_error_attrs(ps, sin, req, 420, "Unknown attribute",
 				STUN_UNKNOWN_ATTRIBUTES, unknowns,
 				u_int16_t_arr_len(unknowns) * 2);
 		return 0;
@@ -480,17 +478,17 @@ int stun(str *b, struct packet_stream *ps, struct sockaddr_in6 *sin) {
 		goto unauth;
 
 	ilog(LOG_INFO, "Successful STUN binding request" SLF, SLP);
-	stun_binding_success(ps->sfd->fd.fd, req, &attrs, sin, ps->media);
+	stun_binding_success(ps, req, &attrs, sin);
 
 	return attrs.use ? 1 : 0;
 
 bad_req:
 	ilog(LOG_NOTICE, "Received invalid STUN packet" SLF ": %s", SLP, err);
-	stun_error(cm, ps->sfd->fd.fd, sin, req, 400, "Bad request");
+	stun_error(ps, sin, req, 400, "Bad request");
 	return 0;
 unauth:
 	ilog(LOG_NOTICE, "STUN authentication mismatch" SLF, SLP);
-	stun_error(cm, ps->sfd->fd.fd, sin, req, 401, "Unauthorized");
+	stun_error(ps, sin, req, 401, "Unauthorized");
 	return 0;
 ignore:
 	ilog(LOG_NOTICE, "Not handling potential STUN packet" SLF ": %s", SLP, err);

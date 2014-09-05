@@ -404,7 +404,7 @@ void kernelize(struct packet_stream *stream) {
 	mpt.src_addr.family = mpt.dst_addr.family;
 	mpt.src_addr.port = sink->sfd->fd.localport;
 
-	ifa = get_first_interface_address(cm, NULL, mpt.src_addr.family); /* XXX */
+	ifa = sink->media->local_address;
 	if (mpt.src_addr.family == AF_INET)
 		mpt.src_addr.u.ipv4 = in6_to_4(&ifa->addr);
 	else
@@ -534,7 +534,7 @@ noop:
 	goto done;
 }
 
-void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
+void stream_msg_mh_src(struct packet_stream *ps, struct msghdr *mh) {
 	struct cmsghdr *ch;
 	struct in_pktinfo *pi;
 	struct in6_pktinfo *pi6;
@@ -543,6 +543,7 @@ void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
 
 
 	sin6 = mh->msg_name;
+	ifa = ps->media->local_address;
 
 	ch = CMSG_FIRSTHDR(mh);
 	ZERO(*ch);
@@ -552,7 +553,6 @@ void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
 		ch->cmsg_level = IPPROTO_IP;
 		ch->cmsg_type = IP_PKTINFO;
 
-		ifa = get_first_interface_address(cm, NULL, AF_INET);
 		pi = (void *) CMSG_DATA(ch);
 		ZERO(*pi);
 		pi->ipi_spec_dst.s_addr = in6_to_4(&ifa->addr);
@@ -564,7 +564,6 @@ void callmaster_msg_mh_src(struct callmaster *cm, struct msghdr *mh) {
 		ch->cmsg_level = IPPROTO_IPV6;
 		ch->cmsg_type = IPV6_PKTINFO;
 
-		ifa = get_first_interface_address(cm, NULL, AF_INET);
 		pi6 = (void *) CMSG_DATA(ch);
 		ZERO(*pi6);
 		pi6->ipi6_addr = ifa->addr;
@@ -800,7 +799,7 @@ forward:
 
 	mutex_unlock(&sink->out_lock);
 
-	callmaster_msg_mh_src(cm, &mh);
+	stream_msg_mh_src(sink, &mh);
 
 	ZERO(iov);
 	iov.iov_base = s->s;
@@ -2021,9 +2020,14 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	unsigned int num_ports;
 	struct call_monologue *monologue = other_ml->active_dialogue;
 	struct endpoint_map *em;
+	struct call *call;
+	struct callmaster *cm;
 
-	monologue->call->last_signal = poller_now;
-	monologue->call->deleted = 0;
+	call = monologue->call;
+	cm = call->callmaster;
+
+	call->last_signal = poller_now;
+	call->deleted = 0;
 
 	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
 	 * may not be known yet */
@@ -2033,7 +2037,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	}
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
-	__tos_change(monologue->call, flags);
+	__tos_change(call, flags);
 
 	ml_media = other_ml_media = NULL;
 
@@ -2108,13 +2112,22 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		other_media->desired_family = AF_INET;
 		if (!IN6_IS_ADDR_V4MAPPED(&sp->rtp_endpoint.ip46))
 			other_media->desired_family = AF_INET6;
-		/* for outgoing SDP, use "direction"/DF or default to IPv4 (?) */
+		/* for outgoing SDP, use "direction"/DF or default to what was offered */
 		if (!media->desired_family)
-			media->desired_family = AF_INET;
+			media->desired_family = other_media->desired_family;
 		if (sp->desired_family)
 			media->desired_family = sp->desired_family;
 		else if (sp->direction[1] == DIR_EXTERNAL)
 			media->desired_family = AF_INET6;
+
+
+		/* local interface selection XXX */
+		media->interface = get_local_interface(cm, NULL);
+		media->local_address = get_interface_address(media->interface, media->desired_family);
+		other_media->interface = get_local_interface(cm, NULL);
+		other_media->local_address = get_interface_address(other_media->interface,
+				other_media->desired_family);
+
 
 
 		/* we now know what's being advertised by the other side */
@@ -2273,15 +2286,11 @@ void call_destroy(struct call *c) {
 
 
 
-typedef int (*csa_func)(char *o, struct packet_stream *ps, enum stream_address_format format, int *len);
-
-static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
+static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_address_format format,
+		int *len, struct interface_address *ifa)
+{
 	u_int32_t ip4;
-	struct callmaster *m = ps->call->callmaster;
 	int l = 0;
-	struct interface_address *ifa;
-
-	ifa = get_first_interface_address(m, NULL, AF_INET);
 
 	if (format == SAF_NG) {
 		strcpy(o + l, "IP4 ");
@@ -2301,12 +2310,10 @@ static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_a
 	return AF_INET;
 }
 
-static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
-	struct callmaster *m = ps->call->callmaster;
+static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_address_format format,
+		int *len, struct interface_address *ifa)
+{
 	int l = 0;
-	struct interface_address *ifa;
-
-	ifa = get_first_interface_address(m, NULL, AF_INET6);
 
 	if (format == SAF_NG) {
 		strcpy(o + l, "IP6 ");
@@ -2326,57 +2333,29 @@ static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_a
 	return AF_INET6;
 }
 
-static csa_func __call_stream_address(struct packet_stream *ps, int variant) {
-	struct callmaster *m;
+
+int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
+		int *len, struct interface_address *ifa)
+{
 	struct packet_stream *sink;
-	struct call_media *sink_media;
-	csa_func variants[2];
-	struct interface_address *ifa;
 
-	assert(variant >= 0);
-	assert(variant < G_N_ELEMENTS(variants));
-
-	m = ps->call->callmaster;
 	sink = packet_stream_sink(ps);
-	sink_media = sink->media;
-	ifa = get_first_interface_address(m, NULL, AF_INET6);
-
-	variants[0] = call_stream_address4;
-	variants[1] = call_stream_address6;
-
-	if (!ifa) {
-		variants[1] = NULL;
-		goto done;
-	}
-	if (sink_media->desired_family == AF_INET)
-		goto done;
-	if (sink_media->desired_family == 0 && IN6_IS_ADDR_V4MAPPED(&sink->endpoint.ip46))
-		goto done;
-	if (sink_media->desired_family == 0 && is_addr_unspecified(&sink->advertised_endpoint.ip46))
-		goto done;
-
-	variants[0] = call_stream_address6;
-	variants[1] = call_stream_address4;
-	goto done;
-
-done:
-	return variants[variant];
+	if (ifa->family == AF_INET)
+		return call_stream_address4(o, sink, format, len, ifa);
+	return call_stream_address6(o, sink, format, len, ifa);
 }
 
 int call_stream_address(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
-	csa_func f;
+	struct interface_address *ifa;
+	struct call_media *media;
 
-	ps = packet_stream_sink(ps);
-	f = __call_stream_address(ps, 0);
-	return f(o, ps, format, len);
-}
+	media = ps->media;
 
-int call_stream_address_alt(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
-	csa_func f;
+	ifa = media->local_address;
+	if (!ifa)
+		return -1;
 
-	ps = packet_stream_sink(ps);
-	f = __call_stream_address(ps, 1);
-	return f ? f(o, ps, format, len) : -1;
+	return call_stream_address46(o, ps, format, len, ifa);
 }
 
 
@@ -2820,6 +2799,8 @@ void callmaster_config_init(struct callmaster *m) {
 			g_queue_push_tail(&lif->ipv4, ifa);
 		else
 			g_queue_push_tail(&lif->ipv6, ifa);
+
+		sdp_ice_foundation(ifa);
 	}
 }
 
@@ -2833,27 +2814,35 @@ struct local_interface *get_local_interface(struct callmaster *m, str *name) {
 	return lif;
 }
 
-struct interface_address *get_first_interface_address(struct callmaster *m, str *name, int family) {
-	struct local_interface *lif;
-	GQueue *q;
-
-	lif = get_local_interface(m, name);
+const GQueue *get_interface_addresses(struct local_interface *lif, int family) {
 	if (!lif)
 		return NULL;
 
 	switch (family) {
 		case AF_INET:
-			q = &lif->ipv4;
+			return &lif->ipv4;
 			break;
 		case AF_INET6:
-			q = &lif->ipv6;
+			return &lif->ipv6;
 			break;
 		default:
 			return NULL;
 	}
+}
 
-	if (!q->head)
+struct interface_address *get_interface_address(struct local_interface *lif, int family) {
+	const GQueue *q;
+
+	q = get_interface_addresses(lif, family);
+	if (!q || !q->head)
 		return NULL;
-
 	return q->head->data;
+}
+
+void get_all_interface_addresses(GQueue *q, struct local_interface *lif, int family) {
+	g_queue_append(q, get_interface_addresses(lif, family));
+	if (family == AF_INET)
+		g_queue_append(q, get_interface_addresses(lif, AF_INET6));
+	else
+		g_queue_append(q, get_interface_addresses(lif, AF_INET));
 }

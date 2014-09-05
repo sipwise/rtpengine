@@ -205,15 +205,20 @@ INLINE int smart_pton(int af, char *src, void *dst) {
 	return inet_pton(af, src, dst);
 }
 
-INLINE int pton_46(struct in6_addr *dst, const char *src) {
+INLINE int pton_46(struct in6_addr *dst, const char *src, int *family) {
 	u_int32_t in4;
 
-	if (inet_pton(AF_INET6, src, dst) == 1)
+	if (inet_pton(AF_INET6, src, dst) == 1) {
+		if (family)
+			*family = AF_INET6;
 		return 0;
+	}
 	in4 = inet_addr(src);
 	if (in4 == INADDR_NONE)
 		return -1;
 	in4_to_6(dst, in4);
+	if (family)
+		*family = AF_INET;
 	return 0;
 }
 
@@ -405,6 +410,13 @@ INLINE void bf_copy(unsigned int *u, unsigned int f, const unsigned int *s, unsi
 /* works for multiple flags */
 INLINE void bf_copy_same(unsigned int *u, const unsigned int *s, unsigned int g) {
 	bf_copy(u, g, s, g);
+}
+INLINE void g_queue_append(GQueue *dst, const GQueue *src) {
+	GList *l;
+	if (!src || !dst)
+		return;
+	for (l = src->head; l; l = l->next)
+		g_queue_push_tail(dst, l->data);
 }
 
 #endif
