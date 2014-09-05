@@ -437,9 +437,6 @@ void kernelize(struct packet_stream *);
 int call_stream_address(char *, struct packet_stream *, enum stream_address_format, int *);
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
 		int *len, struct interface_address *ifa);
-struct local_interface *get_local_interface(struct callmaster *m, str *name);
-const GQueue *get_interface_addresses(struct local_interface *lif, int family);
-struct interface_address *get_interface_address(struct local_interface *lif, int family);
 void get_all_interface_addresses(GQueue *q, struct local_interface *lif, int family);
 
 const struct transport_protocol *transport_protocol(const str *s);

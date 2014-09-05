@@ -305,6 +305,10 @@ static void unkernelize(struct packet_stream *);
 static void __stream_unkernelize(struct packet_stream *ps);
 static void stream_unkernelize(struct packet_stream *ps);
 static void __monologue_destroy(struct call_monologue *monologue);
+static struct interface_address *get_interface_from_address(struct local_interface *lif, struct in6_addr *addr);
+static struct interface_address *get_interface_address(struct local_interface *lif, int family);
+static struct local_interface *get_local_interface(struct callmaster *m, str *name);
+static const GQueue *get_interface_addresses(struct local_interface *lif, int family);
 
 
 
@@ -573,7 +577,7 @@ void stream_msg_mh_src(struct packet_stream *ps, struct msghdr *mh) {
 }
 
 /* called lock-free */
-static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsin) {
+static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsin, struct in6_addr *dst) {
 	struct packet_stream *stream,
 			     *sink = NULL,
 			     *in_srtp, *out_srtp;
@@ -770,6 +774,23 @@ update_addr:
 		update = 1;
 	mutex_unlock(&stream->out_lock);
 
+	/* check the destination address of the received packet against what we think our
+	 * local interface to use is */
+	if (dst && memcmp(dst, &media->local_address->addr, sizeof(*dst))) {
+		struct interface_address *ifa;
+		char ifa_buf[64];
+		smart_ntop(ifa_buf, dst, sizeof(ifa_buf));
+		ifa = get_interface_from_address(media->interface, dst);
+		if (!ifa)
+			ilog(LOG_ERROR, "No matching local interface for destination address %s found", ifa_buf);
+		else {
+			ilog(LOG_INFO, "Switching local interface to %s", ifa_buf);
+			media->local_address = ifa;
+		}
+		update = 1;
+	}
+
+
 kernel_check:
 	if (PS_ISSET(stream, NO_KERNEL_SUPPORT))
 		goto forward;
@@ -857,14 +878,16 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	struct stream_fd *sfd = p;
 	char buf[RTP_BUFFER_SIZE];
 	int ret, iters;
-	struct sockaddr_storage ss;
-	struct sockaddr_in6 sin6;
-	struct sockaddr_in *sin;
-	unsigned int sinlen;
-	void *sinp;
+	struct sockaddr_in6 sin6_src;
 	int update = 0;
 	struct call *ca;
 	str s;
+	struct msghdr mh;
+	struct iovec iov;
+	char control[128];
+	struct cmsghdr *cmh;
+	struct in6_pktinfo *pi6;
+	struct in6_addr *dst;
 
 	if (sfd->fd.fd != fd)
 		goto out;
@@ -880,9 +903,17 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		}
 #endif
 
-		sinlen = sizeof(ss);
-		ret = recvfrom(fd, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE,
-				0, (struct sockaddr *) &ss, &sinlen);
+		ZERO(mh);
+		mh.msg_name = &sin6_src;
+		mh.msg_namelen = sizeof(sin6_src);
+		mh.msg_iov = &iov;
+		mh.msg_iovlen = 1;
+		mh.msg_control = control;
+		mh.msg_controllen = sizeof(control);
+		iov.iov_base = buf + RTP_BUFFER_HEAD_ROOM;
+		iov.iov_len = MAX_RTP_PACKET_SIZE;
+
+		ret = recvmsg(fd, &mh, 0);
 
 		if (ret < 0) {
 			if (errno == EINTR)
@@ -895,18 +926,16 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		if (ret >= MAX_RTP_PACKET_SIZE)
 			ilog(LOG_WARNING, "UDP packet possibly truncated");
 
-		sinp = &ss;
-		if (ss.ss_family == AF_INET) {
-			sin = sinp;
-			sinp = &sin6;
-			ZERO(sin6);
-			sin6.sin6_family = AF_INET6;
-			sin6.sin6_port = sin->sin_port;
-			in4_to_6(&sin6.sin6_addr, sin->sin_addr.s_addr);
+		dst = NULL;
+		for (cmh = CMSG_FIRSTHDR(&mh); cmh; cmh = CMSG_NXTHDR(&mh, cmh)) {
+			if (cmh->cmsg_level == IPPROTO_IPV6 && cmh->cmsg_type == IPV6_PKTINFO) {
+				pi6 = (void *) CMSG_DATA(cmh);
+				dst = &pi6->ipi6_addr;
+			}
 		}
 
 		str_init_len(&s, buf + RTP_BUFFER_HEAD_ROOM, ret);
-		ret = stream_packet(sfd, &s, sinp);
+		ret = stream_packet(sfd, &s, &sin6_src, dst);
 		if (ret == -1) {
 			ilog(LOG_WARNING, "Write error on RTP socket");
 			call_destroy(sfd->call);
@@ -1357,6 +1386,12 @@ static void __set_tos(int fd, const struct call *c) {
 #endif
 }
 
+static void __get_pktinfo(int fd) {
+	int x;
+	x = 1;
+	setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &x, sizeof(x));
+}
+
 static int get_port6(struct udp_fd *r, u_int16_t p, const struct call *c) {
 	int fd;
 	struct sockaddr_in6 sin;
@@ -1369,6 +1404,7 @@ static int get_port6(struct udp_fd *r, u_int16_t p, const struct call *c) {
 	reuseaddr(fd);
 	ipv6only(fd, 0);
 	__set_tos(fd, c);
+	__get_pktinfo(fd);
 
 	ZERO(sin);
 	sin.sin6_family = AF_INET6;
@@ -2804,7 +2840,7 @@ void callmaster_config_init(struct callmaster *m) {
 	}
 }
 
-struct local_interface *get_local_interface(struct callmaster *m, str *name) {
+static struct local_interface *get_local_interface(struct callmaster *m, str *name) {
 	struct local_interface *lif;
 
 	if (!name)
@@ -2814,7 +2850,7 @@ struct local_interface *get_local_interface(struct callmaster *m, str *name) {
 	return lif;
 }
 
-const GQueue *get_interface_addresses(struct local_interface *lif, int family) {
+static const GQueue *get_interface_addresses(struct local_interface *lif, int family) {
 	if (!lif)
 		return NULL;
 
@@ -2830,7 +2866,7 @@ const GQueue *get_interface_addresses(struct local_interface *lif, int family) {
 	}
 }
 
-struct interface_address *get_interface_address(struct local_interface *lif, int family) {
+static struct interface_address *get_interface_address(struct local_interface *lif, int family) {
 	const GQueue *q;
 
 	q = get_interface_addresses(lif, family);
@@ -2845,4 +2881,23 @@ void get_all_interface_addresses(GQueue *q, struct local_interface *lif, int fam
 		g_queue_append(q, get_interface_addresses(lif, AF_INET6));
 	else
 		g_queue_append(q, get_interface_addresses(lif, AF_INET));
+}
+
+static struct interface_address *get_interface_from_address(struct local_interface *lif, struct in6_addr *addr) {
+	GQueue *q;
+	GList *l;
+	struct interface_address *ifa;
+
+	if (IN6_IS_ADDR_V4MAPPED(addr))
+		q = &lif->ipv4;
+	else
+		q = &lif->ipv6;
+
+	for (l = q->head; l; l = l->next) {
+		ifa = l->data;
+		if (!memcmp(&ifa->addr, addr, sizeof(*addr)))
+			return ifa;
+	}
+
+	return NULL;
 }
