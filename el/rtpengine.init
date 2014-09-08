@@ -136,6 +136,11 @@ build_opts() {
 	then
 		OPTS+=" --log-level=$LOG_LEVEL"
 	fi
+
+	if [[ -n "$LOG_FACILITY" ]]
+        then
+                OPTS+=" --log-facility=$LOG_FACILITY"
+        fi
 }
 
 start() {

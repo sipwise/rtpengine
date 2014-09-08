@@ -33,6 +33,8 @@ LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
 			#     traffic. Default: 40000 
 #
 #LOG_LEVEL=6		# Log level to use
+#LOG_FACILITY=daemon    # Syslog facility to use
+
 # The following items are for use with NGCP
 #REDIS=127.0.0.1:6379
 #REDIS_DB=0

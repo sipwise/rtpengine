@@ -19,7 +19,65 @@ volatile gint log_level = LOG_DEBUG;
 #define MAX_LOG_LINE_LENGTH 500
 #endif
 
+write_log_t write_log = (write_log_t) syslog;
 
+const _fac_code_t _facilitynames[] =
+	{
+		{ "auth", LOG_AUTH },
+		{ "authpriv", LOG_AUTHPRIV },
+		{ "cron", LOG_CRON },
+		{ "daemon", LOG_DAEMON },
+		{ "ftp", LOG_FTP },
+		{ "kern", LOG_KERN },
+		{ "lpr", LOG_LPR },
+		{ "mail", LOG_MAIL },
+		{ "news", LOG_NEWS },
+		{ "syslog", LOG_SYSLOG },
+		{ "user", LOG_USER },
+		{ "uucp", LOG_UUCP },
+		{ "local0", LOG_LOCAL0 },
+		{ "local1", LOG_LOCAL1 },
+		{ "local2", LOG_LOCAL2 },
+		{ "local3", LOG_LOCAL3 },
+		{ "local4", LOG_LOCAL4 },
+		{ "local5", LOG_LOCAL5 },
+		{ "local6", LOG_LOCAL6 },
+		{ "local7", LOG_LOCAL7 },
+		{ NULL, -1 }
+	};
+
+const char const* prio_str[] = {
+		"EMERG",
+		"ALERT",
+		"CRIT",
+		"ERR",
+		"WARNING",
+		"NOTICE",
+		"INFO",
+		"DEBUG"
+	};
+
+gboolean _log_stderr = 0;
+int _log_facility = LOG_DAEMON;
+
+void log_to_stderr(int facility_priority, char *format, ...) {
+	char *msg;
+	int ret;
+	va_list ap;
+
+	va_start(ap, format);
+	ret = vasprintf(&msg, format, ap);
+	va_end(ap);
+
+	if (ret < 0) {
+		fprintf(stderr,"ERR: Failed to print log message - message dropped\n");
+		return;
+	}
+
+	fprintf(stderr, "%s: %s\n", prio_str[facility_priority & LOG_PRIMASK], msg);
+
+	free(msg);
+}
 
 void ilog(int prio, const char *fmt, ...) {
 	char prefix[256];
@@ -60,20 +118,20 @@ void ilog(int prio, const char *fmt, ...) {
 	va_end(ap);
 
 	if (ret < 0) {
-		syslog(LOG_ERROR, "Failed to print syslog message - message dropped");
+		write_log(LOG_ERROR, "Failed to print syslog message - message dropped");
 		return;
 	}
 
 	piece = msg;
 
 	while (ret > MAX_LOG_LINE_LENGTH) {
-		syslog(xprio, "%s%s%.*s ...", prefix, infix, MAX_LOG_LINE_LENGTH, piece);
+		write_log(xprio, "%s%s%.*s ...", prefix, infix, MAX_LOG_LINE_LENGTH, piece);
 		ret -= MAX_LOG_LINE_LENGTH;
 		piece += MAX_LOG_LINE_LENGTH;
 		infix = "... ";
 	}
 
-	syslog(xprio, "%s%s%s", prefix, infix, piece);
+	write_log(xprio, "%s%s%s", prefix, infix, piece);
 
 	free(msg);
 }
