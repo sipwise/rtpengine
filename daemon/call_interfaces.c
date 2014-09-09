@@ -529,7 +529,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			out->ice_remove = 1;
 		else if (!str_cmp(&s, "force"))
 			out->ice_force = 1;
-		else if (!str_cmp(&s, "force_relay"))
+		else if (!str_cmp(&s, "force_relay") || !str_cmp(&s, "force-relay"))
 			out->ice_force_relay = 1;
 		else
 			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '"STR_FORMAT"'",

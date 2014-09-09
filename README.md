@@ -599,7 +599,7 @@ Optionally included keys are:
 
 * `ICE`
 
-	Contains a string, valid values are `remove`, `force` or `force_relay`.
+	Contains a string, valid values are `remove`, `force` or `force-relay`.
 	With `remove`, any ICE attributes are
 	stripped from the SDP body. With `force`, ICE attributes are first stripped, then new attributes are
 	generated and inserted, which leaves the media proxy as the only ICE candidate. The default behavior
@@ -607,7 +607,7 @@ Optionally included keys are:
 	media proxy lists itself as ICE candidate; otherwise, the media proxy inserts itself as a
 	low-priority candidate.
 
-	With `force_relay`, existing ICE candidates are left in place except `relay`
+	With `force-relay`, existing ICE candidates are left in place except `relay`
 	type candidates, and *rtpengine* inserts itself as a `relay` candidate. It will also leave SDP
 	c= and m= lines unchanged.
 
