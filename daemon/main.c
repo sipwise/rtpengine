@@ -232,6 +232,26 @@ fail:
 	return -1;
 }
 
+static int parse_log_facility(char *name, int *dst) {
+	int i;
+	for (i = 0 ; _facilitynames[i].c_name; i++) {
+		if (strcmp(_facilitynames[i].c_name, name) == 0) {
+			*dst = _facilitynames[i].c_val;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void print_available_log_facilities () {
+	int i;
+
+	fprintf(stderr, "available facilities:");
+	for (i = 0 ; _facilitynames[i].c_name; i++) {
+		fprintf(stderr, " %s",  _facilitynames[i].c_name);
+	}
+	fprintf(stderr, "\n");
+}
 
 
 static void options(int *argc, char ***argv) {
@@ -243,6 +263,7 @@ static void options(int *argc, char ***argv) {
 	char *listenudps = NULL;
 	char *listenngs = NULL;
 	char *redisps = NULL;
+	char *log_facility_s = NULL;
 	int version = 0;
 
 	GOptionEntry e[] = {
@@ -267,6 +288,8 @@ static void options(int *argc, char ***argv) {
 		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,	"Mask log priorities above this level",	"INT"	},
+		{ "log-facility",	0,	0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
+		{ "log-stderr",	'E', 0, G_OPTION_ARG_NONE,	&_log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "xmlrpc-format",	'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ NULL, }
 	};
@@ -341,6 +364,17 @@ static void options(int *argc, char ***argv) {
 	if ((log_level < LOG_EMERG) || (log_level > LOG_DEBUG))
 	        die("Invalid log level (--log_level)\n");
 	setlogmask(LOG_UPTO(log_level));
+
+	if (log_facility_s) {
+		if (!parse_log_facility(log_facility_s, &_log_facility)) {
+			print_available_log_facilities();
+			die ("Invalid log facility '%s' (--log-facility)\n", log_facility_s);
+		}
+	}
+
+	if (_log_stderr) {
+		write_log = log_to_stderr;
+	}
 }
 
 
@@ -378,7 +412,8 @@ static void init_everything() {
 #if !GLIB_CHECK_VERSION(2,32,0)
 	g_thread_init(NULL);
 #endif
-	openlog("rtpengine", LOG_PID | LOG_NDELAY, LOG_DAEMON);
+	if (!_log_stderr)
+		openlog("rtpengine", LOG_PID | LOG_NDELAY, _log_facility);
 	signals();
 	resources();
 	sdp_init();
@@ -556,8 +591,8 @@ static void poller_loop(void *d) {
 int main(int argc, char **argv) {
 	struct main_context ctx;
 
-	init_everything();
 	options(&argc, &argv);
+	init_everything();
 	create_everything(&ctx);
 
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
