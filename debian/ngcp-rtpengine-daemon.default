@@ -19,3 +19,4 @@ TABLE=0
 # REDIS_DB=1
 # B2B_URL=http://127.0.0.1:8090/
 # LOG_LEVEL=6
+# LOG_FACILITY=daemon
