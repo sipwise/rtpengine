@@ -13,6 +13,7 @@ Features
 
 * Media traffic running over either IPv4 or IPv6
 * Bridging between IPv4 and IPv6 user agents
+* Bridging between different IP networks or interfaces
 * TOS/QoS field setting
 * Customizable port range
 * Multi-threaded
@@ -61,7 +62,7 @@ by executing `dpkg-buildpackage` (which can be found in the `dpkg-dev` package) 
 This script will issue an error and stop if any of the dependency packages are
 not installed.
 
-Before that, run `./debian/flavors/no_ngcp` in order to remove any NGCP dependence.
+Before that, run `./debian/flavors/no_ngcp` in order to remove any NGCP dependencies.
 
 This will produce a number of `.deb` files, which can then be installed using the
 `dpkg -i` command.
@@ -159,10 +160,7 @@ option and which are reproduced below:
 	  -v, --version                    Print build time and exit
 	  -t, --table=INT                  Kernel table to use
 	  -F, --no-fallback                Only start when kernel module is available
-	  -i, --ip=IP                      Local IPv4 address for RTP
-	  -a, --advertised-ip=IP           IPv4 address to advertise
-	  -I, --ip6=IP6                    Local IPv6 address for RTP
-	  -A, --advertised-ip6=IP6         IPv6 address to advertise
+	  -i, --interface=[NAME/]IP[!IP]   Local interface for RTP
 	  -l, --listen-tcp=[IP:]PORT       TCP port to listen on
 	  -u, --listen-udp=[IP46:]PORT     UDP port to listen on
 	  -n, --listen-ng=[IP46:]PORT      UDP port to listen on, NG protocol
@@ -177,9 +175,12 @@ option and which are reproduced below:
 	  -R, --redis-db=INT               Which Redis DB to use
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
+	  --log-facility=daemon|local0|... Syslog facility to use for logging
+	  -E, --log-stderr                 Log on stderr instead of syslog
+	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 
-Most of these options are indeed optional, with two exceptions. It's mandatory to specify a local
-IPv4 address through `--ip`, and at least one of the `--listen-...` options must be given.
+Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
+IP address through `--interface`, and at least one of the `--listen-...` options must be given.
 
 The options are described in more detail below.
 
@@ -199,22 +200,54 @@ The options are described in more detail below.
 	Will prevent fallback to userspace-only operation if the kernel module is unavailable. In this case,
 	startup of the daemon will fail with an error if this option is given.
 
-* -i, --ip, -I, --ip6
+* -i, --interface
 
-	Takes an IPv4 address and an IPv6 address as argument, respectively. Specifies the local interfaces to
-	use for packet forwarding and to allocate UDP ports from. IPv4 address is mandatory, IPv6 is optional and
-	will result in IPv6 not being available if not specified.
+	Specifies a local network interface for RTP. At least one must be given, but multiple can be specified.
+	The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address or an IPv6 address.
 
-* -a, --advertised-ip, -A, --advertised-ip6
+	The second IP address after the exclamation point is optional and can be used if the address to advertise
+	in outgoing SDP bodies should be different from the actual local address. This can be useful in certain
+	cases, such as your SIP proxy being behind NAT. For example, `--interface=10.65.76.2!192.0.2.4` means
+	that 10.65.76.2 is the actual local address on the server, but outgoing SDP bodies should advertise
+	192.0.2.4 as the address that endpoints should talk to. Note that you may have to escape the exlamation
+	point from your shell, e.g. using `\!`.
 
-	Takes an IPv4 address and an IPv6 address as argument, respectively. Optional. If specified,
-	*rtpengine* will advertise addresses different from those given in the `--ip` and `--ip6` options
-	as its local address. This is useful for operation behind NAT.
+	Giving an interface a name (separated from the address by a slash) is optional; if omitted, the name
+	`default` is used. Names are useful to create logical interfaces which consist of one or more local
+	addresses. It is then possible to instruct *rtpengine* to use particular interfaces when processing
+	an SDP message, to use different local addresses when talking to different endpoints. The most common use
+	case for this is to bridge between one or more private IP networks and the public internet.
+
+	For example, if clients coming from a private IP network must communicate their RTP with the local
+	address 10.35.2.75, while clients coming from the public internet must communicate with your other
+	local address 192.0.2.67, you could create one logical interface `pub` and a second one `priv` by
+	using `--interface=pub/192.0.2.67 --interface=priv/10.35.2.75`. You can then use the `direction`
+	option to tell *rtpengine* which local address to use for which endpoints (either `pub` or `priv`).
+
+	If multiple logical interfaces are configured, but the `direction` option isn't given in a
+	particular call, then the first interface given on the command line will be used.
+
+	It is possible to specify multiple addresses for the same logical interface (the same name). Most
+	commonly this would be one IPv4 addrsess and one IPv6 address, for example:
+	`--interface=192.168.63.1 --interface=fe80::800:27ff:fe00:0`. In this example, no interface name
+	is given, therefore both addresses will be added to a logical interface named `default`. You would use
+	the `address family` option to tell *rtpengine* which address to use in a particular case.
+
+	It is also possible to have multiple addresses of the same family in a logical network interface. In
+	this case, the first address (of a particular family) given for an interface will be the primary address
+	used by *rtpengine* for most purposes. Any additional addresses will be advertised as additional ICE
+	candidates with increasingly lower priority. This is useful on multi-homed systems and allows endpoints
+	to choose the best possible path to reach the RTP proxy. If ICE is not being used, then additional
+	addresses will go unused.
+
+	If you're not using the NG protocol but rather the legacy UDP protocol used by the *rtpproxy* module,
+	the interfaces must be named `internal` and `external` corresponding to the `i` and `e` flags if you
+	wish to use network bridging in this mode.
 
 * -l, --listen-tcp, -u, --listen-udp, -n, --listen-ng
 
 	These options each enable one of the 3 available control protocols if given and each take either
-	just a port number as argument, or an *address:port* pair, separated by colon. At least one of these
+	just a port number as argument, or an `address:port` pair, separated by colon. At least one of these
 	3 options must be given.
 
 	The *tcp* protocol is obsolete. It was used by old versions of *OpenSER* and its *mediaproxy* module.
@@ -233,7 +266,7 @@ The options are described in more detail below.
 * -t, --tos
 
 	Takes an integer as argument and if given, specifies the TOS value that should be set in outgoing
-	packets. The default is to leave the TOS field untouched. A typical value is 184 (Expedited Forwarding).
+	packets. The default is to leave the TOS field untouched. A typical value is 184 (*Expedited Forwarding*).
 
 * -o, --timeout
 
@@ -269,13 +302,21 @@ The options are described in more detail below.
 	During runtime, the log level can be decreased by sending the signal SIGURS1 to the daemon and can
 	be increased with the signal SIGUSR2.
 
+* --log-facilty=daemon|local0|...|local7|...
+
+	The syslog facilty to use when sending log messages to the syslog daemon. Defaults to `daemon`.
+
+* -E, --log-stderr
+
+	Log to stderr instead of syslog. Only useful in combination with `--foreground`.
+
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 
 	NGCP-specific options
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
-	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
+	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
 	--listen-udp=127.0.0.1:22222 --listen-ng=127.0.0.1:2223 --tos=184 \
 	--pidfile=/var/run/rtpengine.pid
 
@@ -580,15 +621,22 @@ Optionally included keys are:
 
 * `direction`
 
-	Contains a list of zero, one or two elements, and corresponds to the *rtpproxy* `e` and `i` flags. Each
-	element may be either the string `internal` or `external`. For example, if side A is considered to be
-	on the external network and side B on the internal network (which in the *rtpproxy* module would be
-	specified as flags `ei`), then that would be rendered within the dictionary as:
+	Contains a list of two strings and corresponds to the *rtpproxy* `e` and `i` flags. Each element must
+	correspond to one of the named logical interfaces configured on the
+	command line (through `--interface`). For example, if there is one logical interface named `pub` and
+	another one named `priv`, then if side A (originator of the message) is considered to be
+	on the private network and side B (destination of the message) on the public network, then that would
+	be rendered within the dictionary as:
 
-  		{ ..., "direction": [ "external", "internal" ], ... }
+		{ ..., "direction": [ "priv", "pub" ], ... }
 
-	*Rtpengine* uses the direction to implement bridging between IPv4 and IPv6: internal is seen as
-	IPv4 and external as IPv6. However, this mechanism for selecting the address family is now obsolete
+	This only needs to be done for an initial `offer`; for the `answer` and any subsequent offers (between
+	the same endpoints) *rtpengine* will remember the selected network interface.
+
+	As a special case to support legacy usage of this option, if the given interface names are
+	`internal` or `external` and if no such interfaces have been configured, then they're understood as
+	selectors between IPv4 and IPv6 addresses.
+	However, this mechanism for selecting the address family is now obsolete
 	and the `address family` dictionary key should be used instead.
 
 * `received from`
@@ -659,6 +707,13 @@ Optionally included keys are:
 
 		Reject rtcp-mux if it has been offered. Can be used together with `offer` to achieve the opposite
 		effect of `demux`.
+
+* `TOS`
+
+	Contains an integer. If present, changes the TOS value for the entire call, i.e. the TOS value used
+	in outgoing RTP packets of all RTP streams in all directions. If a negative value is used, the previously
+	used TOS value is left unchanged. If this key is not present or its value is too large (256 or more), then
+	the TOS value is reverted to the default (as per `--tos` command line).
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
