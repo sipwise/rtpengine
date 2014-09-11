@@ -58,23 +58,23 @@ build_opts() {
 
 	if [[ -n "$RTP_IP" ]]
 	then
-		OPTS+=" --ip=$RTP_IP"
+		OPTS+=" --interface=$RTP_IP"
 	fi
 
 	if [[ -n "$RTP_ADV_IP" ]]
 	then
-		OPTS+=" --advertised-ip=$RTP_ADV_IP"
+		OPTS+="\!$RTP_ADV_IP"
 	fi
 
 	if [[ -n "$RTP_IP6" ]]
 	then
-		OPTS+=" --ip6=$RTP_IP6"
+		OPTS+=" --interface=$RTP_IP6"
 		IP6=1
 	fi
 
 	if [[ -n "$RTP_ADV_IP6" ]]
 	then
-		OPTS+=" --advertised-ip6=$RTP_ADV_IP6"
+		OPTS+="\!$RTP_ADV_IP6"
 	fi
 
 	if [[ -n "$LISTEN_TCP" ]]
