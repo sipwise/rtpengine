@@ -28,7 +28,7 @@
 
 
 
-#define REDIS_MODULE_VERSION "redis/5"
+#define REDIS_MODULE_VERSION "redis/6"
 
 
 

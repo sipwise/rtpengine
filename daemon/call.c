@@ -305,11 +305,8 @@ static void unkernelize(struct packet_stream *);
 static void __stream_unkernelize(struct packet_stream *ps);
 static void stream_unkernelize(struct packet_stream *ps);
 static void __monologue_destroy(struct call_monologue *monologue);
-static struct interface_address *get_interface_from_address(struct local_interface *lif, struct in6_addr *addr);
 static struct interface_address *get_interface_address(struct local_interface *lif, int family);
-static struct local_interface *get_local_interface(struct callmaster *m, const str *name);
 static const GQueue *get_interface_addresses(struct local_interface *lif, int family);
-static struct interface_address *get_any_interface_address(struct local_interface *lif);
 
 
 
@@ -2067,7 +2064,7 @@ get:
 	if (!media->local_address) {
 		ilog(LOG_WARNING, "No usable address in interface '"STR_FORMAT"' found, using default",
 				STR_FMT(ifname));
-		media->local_address = get_any_interface_address(media->interface);
+		media->local_address = get_any_interface_address(media->interface, media->desired_family);
 		media->desired_family = family_from_address(&media->local_address->addr);
 	}
 }
@@ -2856,7 +2853,7 @@ void callmaster_config_init(struct callmaster *m) {
 	}
 }
 
-static struct local_interface *get_local_interface(struct callmaster *m, const str *name) {
+struct local_interface *get_local_interface(struct callmaster *m, const str *name) {
 	struct local_interface *lif;
 
 	if (!name || !name->s)
@@ -2892,11 +2889,11 @@ static struct interface_address *get_interface_address(struct local_interface *l
 }
 
 /* safety fallback */
-static struct interface_address *get_any_interface_address(struct local_interface *lif) {
+struct interface_address *get_any_interface_address(struct local_interface *lif, int family) {
 	struct interface_address *ifa;
 	GQueue q = G_QUEUE_INIT;
 
-	get_all_interface_addresses(&q, lif, AF_INET);
+	get_all_interface_addresses(&q, lif, family);
 	ifa = q.head->data;
 	g_queue_clear(&q);
 	return ifa;
@@ -2910,7 +2907,7 @@ void get_all_interface_addresses(GQueue *q, struct local_interface *lif, int fam
 		g_queue_append(q, get_interface_addresses(lif, AF_INET));
 }
 
-static struct interface_address *get_interface_from_address(struct local_interface *lif, struct in6_addr *addr) {
+struct interface_address *get_interface_from_address(struct local_interface *lif, const struct in6_addr *addr) {
 	GQueue *q;
 	GList *l;
 	struct interface_address *ifa;
