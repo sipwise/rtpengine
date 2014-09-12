@@ -269,7 +269,11 @@ struct call_media {
 	const struct transport_protocol *protocol;
 	int			desired_family;
 	struct local_interface	*interface;
-	struct interface_address *local_address;
+
+	/* local_address is protected by call->master_lock in W mode, but may
+	 * still be modified if the lock is held in R mode, therefore we use
+	 * atomic ops to access it when holding an R lock. */
+	volatile struct interface_address *local_address;
 
 	str			ice_ufrag;
 	str			ice_pwd;

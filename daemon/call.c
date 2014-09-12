@@ -403,7 +403,7 @@ void kernelize(struct packet_stream *stream) {
 	mpt.src_addr.family = mpt.dst_addr.family;
 	mpt.src_addr.port = sink->sfd->fd.localport;
 
-	ifa = sink->media->local_address;
+	ifa = g_atomic_pointer_get(&sink->media->local_address);
 	if (mpt.src_addr.family == AF_INET)
 		mpt.src_addr.u.ipv4 = in6_to_4(&ifa->addr);
 	else
@@ -542,7 +542,7 @@ void stream_msg_mh_src(struct packet_stream *ps, struct msghdr *mh) {
 
 
 	sin6 = mh->msg_name;
-	ifa = ps->media->local_address;
+	ifa = g_atomic_pointer_get(&ps->media->local_address);
 
 	ch = CMSG_FIRSTHDR(mh);
 	ZERO(*ch);
@@ -590,6 +590,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	char addr[64];
 	struct endpoint endpoint;
 	rewrite_func rwf_in, rwf_out;
+	struct interface_address *loc_addr;
 
 	call = sfd->call;
 	cm = call->callmaster;
@@ -771,7 +772,8 @@ update_addr:
 
 	/* check the destination address of the received packet against what we think our
 	 * local interface to use is */
-	if (dst && memcmp(dst, &media->local_address->addr, sizeof(*dst))) {
+	loc_addr = g_atomic_pointer_get(&media->local_address);
+	if (dst && memcmp(dst, &loc_addr->addr, sizeof(*dst))) {
 		struct interface_address *ifa;
 		char ifa_buf[64];
 		smart_ntop(ifa_buf, dst, sizeof(ifa_buf));
@@ -780,9 +782,10 @@ update_addr:
 			ilog(LOG_ERROR, "No matching local interface for destination address %s found", ifa_buf);
 			goto drop;
 		}
-		ilog(LOG_INFO, "Switching local interface to %s", ifa_buf);
-		media->local_address = ifa;
-		update = 1;
+		if (g_atomic_pointer_compare_and_exchange(&media->local_address, loc_addr, ifa)) {
+			ilog(LOG_INFO, "Switching local interface to %s", ifa_buf);
+			update = 1;
+		}
 	}
 
 
@@ -2042,7 +2045,11 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 }
 
 static void __init_interface(struct call_media *media, const str *ifname) {
-	if (!media->interface || !media->local_address)
+	/* we're holding master_lock in W mode here, so we can safely ignore the
+	 * atomic ops */
+	struct interface_address *ifa = (void *) media->local_address;
+
+	if (!media->interface || !ifa)
 		goto get;
 	if (!ifname || !ifname->s)
 		return;
@@ -2060,12 +2067,12 @@ get:
 		else
 			ilog(LOG_WARNING, "Interface '"STR_FORMAT"' not found, using default", STR_FMT(ifname));
 	}
-	media->local_address = get_interface_address(media->interface, media->desired_family);
-	if (!media->local_address) {
+	media->local_address = ifa = get_interface_address(media->interface, media->desired_family);
+	if (!ifa) {
 		ilog(LOG_WARNING, "No usable address in interface '"STR_FORMAT"' found, using default",
 				STR_FMT(ifname));
-		media->local_address = get_any_interface_address(media->interface, media->desired_family);
-		media->desired_family = family_from_address(&media->local_address->addr);
+		media->local_address = ifa = get_any_interface_address(media->interface, media->desired_family);
+		media->desired_family = family_from_address(&ifa->addr);
 	}
 }
 
@@ -2400,7 +2407,7 @@ int call_stream_address(char *o, struct packet_stream *ps, enum stream_address_f
 
 	media = ps->media;
 
-	ifa = media->local_address;
+	ifa = g_atomic_pointer_get(&media->local_address);
 	if (!ifa)
 		return -1;
 
