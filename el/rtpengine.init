@@ -63,7 +63,7 @@ build_opts() {
 
 	if [[ -n "$RTP_ADV_IP" ]]
 	then
-		OPTS+="\!$RTP_ADV_IP"
+		OPTS+="!$RTP_ADV_IP"
 	fi
 
 	if [[ -n "$RTP_IP6" ]]
@@ -74,7 +74,7 @@ build_opts() {
 
 	if [[ -n "$RTP_ADV_IP6" ]]
 	then
-		OPTS+="\!$RTP_ADV_IP6"
+		OPTS+="!$RTP_ADV_IP6"
 	fi
 
 	if [[ -n "$LISTEN_TCP" ]]
