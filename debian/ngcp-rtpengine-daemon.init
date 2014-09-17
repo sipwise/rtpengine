@@ -14,7 +14,6 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-daemon
 DESC="RTP/media proxy"
-RUN_MEDIAPROXY=no
 TABLE=0
 
 case $(dirname $0) in
@@ -32,7 +31,7 @@ if [ -f $DEFAULTS ]; then
 	. $DEFAULTS || true
 fi
 
-if [ "$RUN_MEDIAPROXY" != "yes" ]; then
+if [ "$RUN_RTPENGINE" != "yes" -a "$RUN_MEDIAPROXY" != "yes" ]; then
 	echo "rtpengine not yet configured. Edit $DEFAULTS first."
 	exit 0
 fi
