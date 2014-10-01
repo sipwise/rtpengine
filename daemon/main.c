@@ -432,6 +432,7 @@ static void wpidfile(void) {
 static void init_everything() {
 	struct timespec ts;
 
+	log_init();
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
 	SSL_library_init();

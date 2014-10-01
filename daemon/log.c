@@ -5,6 +5,7 @@
 #include <glib.h>
 #include "str.h"
 #include "call.h"
+#include "poller.h"
 
 
 
@@ -59,6 +60,13 @@ const char const* prio_str[] = {
 
 gboolean _log_stderr = 0;
 int _log_facility = LOG_DAEMON;
+
+
+static GHashTable *__log_limiter;
+static mutex_t __log_limiter_lock;
+static GStringChunk *__log_limiter_strings;
+static unsigned int __log_limiter_count;
+
 
 void log_to_stderr(int facility_priority, char *format, ...) {
 	char *msg;
@@ -122,6 +130,31 @@ void ilog(int prio, const char *fmt, ...) {
 		return;
 	}
 
+	if ((prio & LOG_FLAG_LIMIT)) {
+		time_t when;
+
+		mutex_lock(&__log_limiter_lock);
+
+		if (__log_limiter_count > 10000) {
+			g_hash_table_remove_all(__log_limiter);
+			g_string_chunk_clear(__log_limiter_strings);
+			__log_limiter_count = 0;
+		}
+
+		when = (time_t) g_hash_table_lookup(__log_limiter, msg);
+		if (!when || (poller_now - when) >= 15) {
+			g_hash_table_insert(__log_limiter, g_string_chunk_insert(__log_limiter_strings,
+						msg), (void *) poller_now);
+			__log_limiter_count++;
+			when = 0;
+		}
+
+		mutex_unlock(&__log_limiter_lock);
+
+		if (when)
+			goto out;
+	}
+
 	piece = msg;
 
 	while (ret > MAX_LOG_LINE_LENGTH) {
@@ -133,7 +166,13 @@ void ilog(int prio, const char *fmt, ...) {
 
 	write_log(xprio, "%s%s%s", prefix, infix, piece);
 
+out:
 	free(msg);
 }
 
 
+void log_init() {
+	mutex_init(&__log_limiter_lock);
+	__log_limiter = g_hash_table_new(g_str_hash, g_str_equal);
+	__log_limiter_strings = g_string_chunk_new(1024);
+}

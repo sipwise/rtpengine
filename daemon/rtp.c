@@ -47,7 +47,7 @@ INLINE int check_session_keys(struct crypto_context *c) {
 	return 0;
 
 error:
-	ilog(LOG_ERROR, "%s", err);
+	ilog(LOG_ERROR | LOG_FLAG_LIMIT, "%s", err);
 	return -1;
 }
 
@@ -89,7 +89,7 @@ static int rtp_payload(struct rtp_header **out, str *p, const str *s) {
 	return 0;
 
 error:
-	ilog(LOG_WARNING, "Error parsing RTP header: %s", err);
+	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Error parsing RTP header: %s", err);
 	return -1;
 }
 
@@ -199,7 +199,7 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 	return 0;
 
 error:
-	ilog(LOG_WARNING, "Discarded invalid SRTP packet: authentication failed");
+	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded invalid SRTP packet: authentication failed");
 	return -1;
 }
 
@@ -239,6 +239,6 @@ int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,
 	return 0;
 
 error:
-	ilog(LOG_WARNING, "Invalid SRTP/SRTCP packet received (short packet)");
+	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Invalid SRTP/SRTCP packet received (short packet)");
 	return -1;
 }

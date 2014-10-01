@@ -358,7 +358,7 @@ INLINE int check_session_keys(struct crypto_context *c) {
 	return 0;
 
 error:
-	ilog(LOG_ERROR, "%s", err);
+	ilog(LOG_ERROR | LOG_FLAG_LIMIT, "%s", err);
 	return -1;
 }
 
@@ -386,7 +386,7 @@ static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 
 	return 0;
 error:
-	ilog(LOG_WARNING, "Error parsing RTCP header: %s", err);
+	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Error parsing RTCP header: %s", err);
 	return -1;
 }
 
@@ -461,7 +461,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 	return 0;
 
 error:
-	ilog(LOG_WARNING, "Discarded invalid SRTCP packet: %s", err);
+	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded invalid SRTCP packet: %s", err);
 	return -1;
 }
 

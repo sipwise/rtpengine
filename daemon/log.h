@@ -42,6 +42,7 @@ extern volatile gint log_level;
 
 
 
+void log_init(void);
 void ilog(int prio, const char *fmt, ...)__attribute__ ((format (printf, 2, 3)));
 
 
@@ -92,6 +93,7 @@ INLINE void log_info_stream_fd(struct stream_fd *sfd) {
 #define LOG_LEVEL_MASK(v)	((v) & 0x0f)
 
 #define LOG_FLAG_RESTORE	0x10
+#define LOG_FLAG_LIMIT		0x20
 
 
 
