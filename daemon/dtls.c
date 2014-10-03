@@ -429,7 +429,7 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	__DBG("dtls_connection_init(%i)", active);
 
 	if (d->init) {
-		if (d->active == active)
+		if ((d->active && active) || (!d->active && !active))
 			goto connect;
 		dtls_connection_cleanup(d);
 	}
@@ -465,7 +465,7 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
 	d->init = 1;
-	d->active = active;
+	d->active = active ? -1 : 0;
 
 connect:
 	dtls(ps, NULL, NULL);
