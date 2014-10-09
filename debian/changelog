@@ -1,3 +1,68 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.6.0.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [062256b] segfault fix for DTLS protocol errors
+  * [b0c7efb] duplicate x509 in mem for delayed verification
+  * [9ecb7da] allow for protocol renegotiation
+  * [759ea60] adding some debug messages
+  * [e1cfc19] fix incorrect port allocations
+  * [e7aa743] change default a=crypto: tag from zero to one
+  * [e883f57] better support protocol switching within a call
+  * [4bf2ec7] correct data type for key lifetime
+  * [b6ff15c] remove unnecessary a=inactive for zero-port media
+  * [964b644] don't skip setting stream to actpass when not using sdes
+  * [681b2c1] version reporting: use git branch and commit if available
+  * [77829f9] split very long log lines into smaller pieces
+  * [9d001e3] fix segfault if NG protocol is not used
+  * [ec21806] use default TOS if not using NG protocol
+  * [58940b5] change stun log levels
+  * [8f4e345] increase default log level for debug builds
+  * [e0957d1] fix TCP/UDP protocol stream output
+  * [50f2bfb] allow for fqdn in o= line
+  * [73b56db] Update CentOS definitions
+  * [1f4f0d6] implement delayed call/branch deletion
+  * [8a8dee5] support sdes key change in simulations
+  * [5e129dd] brevity
+  * [16b42fb] Switch around internal fromtag/totag/endpoint representation
+  * [fe65671] simple port randomizer
+  * [65812fa] limit the number of times the receive loop can run without breaking
+  * [c0f8196] implement detection of duplicate packets to catch and avoid forwarding loops
+  * [fccad69] segfault fix for tcp status command
+  * [54f903d] bugfixes for legacy control protocols
+  * [4d00147] s/force_relay/force-relay/
+  * [0cbb466] paving the way to multi-interface support
+  * [513ac44] incorporate new local-interface infrastructure into appropriate places
+  * [e365572] receive local address from kernel and use it for outgoing packets
+  * [45dee75] support specifying interfaces to use in control protocols
+  * [1a39b86] readme update
+  * [ddcf0f3] update init.d file
+  * [d1165df] update EL specs/init file
+  * [e830bf5] update for redis module
+  * [af9625d] make multi-homing thread safe
+  * [34ca29b] dont escape exclamation points in sh scripts
+  * [3de07be] s/MEDIAPROXY/RTPENGINE/
+  * [c1d7a52] MT#9065 daemon: don't restart if kernel is needed but not yet installed
+  * [6379883] fix str_hash() for archs enforcing aligned pointers
+  * [4658526] implement a crude log limiter
+  * [6cf604d] fix comparison between int and bitfield
+
+  [ Camille Oudot ]
+  * [47b0252] fix null/empty string check in ng_call_stats
+  * [a51db71] new command: 'list' to retreive the list of active call-ids
+  * [6005d14] XMLRPC notifications: more formats
+  * [81d8616] list command: several fixes + documentation
+  * [faf3e22] logging: choose the log facility from the command line, or log to stderr
+
+  [ Victor Seva ]
+  * [f562844] MT8741 remove init script tricks
+
+  [ Dipak Malla ]
+  * [bfb41d1] Fixed linking error in Makefile
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 09 Oct 2014 16:54:38 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.5.0.0) unstable; urgency=low
 
   [ Richard Fuchs ]
