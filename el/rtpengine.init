@@ -141,6 +141,11 @@ build_opts() {
         then
                 OPTS+=" --log-facility=$LOG_FACILITY"
         fi
+
+	if [[ -n "$NUM_THREADS" ]]
+        then
+                OPTS+=" --num-threads=$NUM_THREADS"
+        fi
 }
 
 start() {
