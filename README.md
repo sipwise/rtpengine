@@ -178,6 +178,7 @@ option and which are reproduced below:
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
+	  --num-threads=INT                Number of worker threads to create
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -309,6 +310,17 @@ The options are described in more detail below.
 * -E, --log-stderr
 
 	Log to stderr instead of syslog. Only useful in combination with `--foreground`.
+
+* -x, --xmlrpc-format
+
+	Selects the internal format of the XMLRPC callback message for B2BUA call teardown. 0 is for SEMS,
+	1 is for a generic format containing the call-ID only.
+
+* --num-threads
+
+	How many worker threads to create, must be at least one. The default is to create as many threads
+	as there are CPU cores available. If the number of CPU cores cannot be determined, the default is
+	four.
 
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 
