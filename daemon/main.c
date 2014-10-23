@@ -617,6 +617,7 @@ static void poller_loop(void *d) {
 
 int main(int argc, char **argv) {
 	struct main_context ctx;
+	int idx=0, numCPU=0;
 
 	options(&argc, &argv);
 	init_everything();
@@ -626,10 +627,12 @@ int main(int argc, char **argv) {
 
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(timer_loop, ctx.p);
-	thread_create_detach(poller_loop, ctx.p);
-	thread_create_detach(poller_loop, ctx.p);
-	thread_create_detach(poller_loop, ctx.p);
-	thread_create_detach(poller_loop, ctx.p);
+
+	numCPU = sysconf( _SC_NPROCESSORS_ONLN );
+
+	for (;idx<numCPU;++idx) {
+		thread_create_detach(poller_loop, ctx.p);
+	}
 
 	while (!global_shutdown) {
 		usleep(100000);
