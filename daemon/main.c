@@ -101,6 +101,7 @@ static u_int16_t redis_port;
 static int redis_db = -1;
 static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
+static int num_threads;
 
 
 static void sighandler(gpointer x) {
@@ -332,6 +333,7 @@ static void options(int *argc, char ***argv) {
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
 		{ "log-stderr",	'E', 0, G_OPTION_ARG_NONE,	&_log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
+		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads to create",	"INT"	},
 		{ NULL, }
 	};
 
@@ -617,7 +619,7 @@ static void poller_loop(void *d) {
 
 int main(int argc, char **argv) {
 	struct main_context ctx;
-	int idx=0, numCPU=0;
+	int idx=0;
 
 	options(&argc, &argv);
 	init_everything();
@@ -628,9 +630,15 @@ int main(int argc, char **argv) {
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(timer_loop, ctx.p);
 
-	numCPU = sysconf( _SC_NPROCESSORS_ONLN );
+	if (num_threads < 1) {
+#ifdef _SC_NPROCESSORS_ONLN
+		num_threads = sysconf( _SC_NPROCESSORS_ONLN );
+#endif
+		if (num_threads < 1)
+			num_threads = 4;
+	}
 
-	for (;idx<numCPU;++idx) {
+	for (;idx<num_threads;++idx) {
 		thread_create_detach(poller_loop, ctx.p);
 	}
 
