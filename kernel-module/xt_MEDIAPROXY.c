@@ -2095,10 +2095,12 @@ static inline int is_muxed_rtcp(struct rtp_parsed *r) {
 	return 1;
 }
 
-static inline int is_dtls(struct rtp_parsed *r) {
-	if (r->header->m_pt < 20)
+static inline int is_dtls(struct sk_buff *skb) {
+	if (skb->len < 1)
 		return 0;
-	if (r->header->m_pt > 63)
+	if (skb->data[0] < 20)
+		return 0;
+	if (skb->data[0] > 63)
 		return 0;
 	return 1;
 }
@@ -2165,6 +2167,8 @@ not_stun:
 	goto out;
 
 src_check_ok:
+	if (g->target.dtls && is_dtls(skb))
+		goto skip1;
 	parse_rtp(&rtp, skb);
 	if (!rtp.ok) {
 		if (g->target.rtp_only)
@@ -2172,8 +2176,6 @@ src_check_ok:
 		goto not_rtp;
 	}
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
-		goto skip1;
-	if (g->target.dtls && is_dtls(&rtp))
 		goto skip1;
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
