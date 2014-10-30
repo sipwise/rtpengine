@@ -1,3 +1,18 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.7.0.0) unstable; urgency=low
+
+  [ Frederic-Philippe Metz ]
+  * [e77dd1a] create as many threads as cpus
+
+  [ Richard Fuchs ]
+  * [b66091b] make number of threads configurable
+  * [07b6ea4] document new CLI flags
+  * [a5c55fc] add NUM_THREADS to init scripts
+  * [ba5ed24] kernel module didn't handle DTLS packets properly
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 30 Oct 2014 17:30:10 +0100
+
 ngcp-rtpengine (3.3.0.0+0~mr3.6.0.0) unstable; urgency=low
 
   [ Richard Fuchs ]
