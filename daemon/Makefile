@@ -14,7 +14,7 @@ ifeq ($(RTPENGINE_VERSION),)
   ifneq ($(DPKG_PRSCHNGLG),)
     DPKG_PRSCHNGLG=$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')
   endif
-  GIT_BR_COMMIT=$(shell git branch --no-color --no-column -v 2> /dev/null | awk -e '/^\*/ {OFS="-"; print "git", $$2, $$3}')
+  GIT_BR_COMMIT=$(shell git branch --no-color --no-column -v 2> /dev/null | awk '/^\*/ {OFS="-"; print "git", $$2, $$3}')
 
   ifneq ($(DPKG_PRSCHNGLG),)
     RTPENGINE_VERSION+=$(DPKG_PRSCHNGLG)
