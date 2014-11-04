@@ -399,23 +399,6 @@ void stream_msg_mh_src(struct packet_stream *, struct msghdr *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 
 
-str *call_request_tcp(char **, struct callmaster *);
-str *call_lookup_tcp(char **, struct callmaster *);
-void call_delete_tcp(char **, struct callmaster *);
-void calls_status_tcp(struct callmaster *, struct control_stream *);
-
-str *call_update_udp(char **, struct callmaster *);
-str *call_lookup_udp(char **, struct callmaster *);
-str *call_delete_udp(char **, struct callmaster *);
-str *call_query_udp(char **, struct callmaster *);
-
-const char *call_offer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
-const char *call_answer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
-const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
-const char *call_query_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
-const char *call_list_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
-
-
 void calls_dump_redis(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);

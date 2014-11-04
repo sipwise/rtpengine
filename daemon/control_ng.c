@@ -10,6 +10,7 @@
 #include "cookie_cache.h"
 #include "call.h"
 #include "sdp.h"
+#include "call_interfaces.h"
 
 
 static void pretty_print(bencode_item_t *el, GString *s) {
@@ -117,8 +118,10 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 		errstr = call_delete_ng(dict, c->callmaster, resp);
 	else if (!str_cmp(&cmd, "query"))
 		errstr = call_query_ng(dict, c->callmaster, resp);
+#if GLIB_CHECK_VERSION(2,16,0)
 	else if (!str_cmp(&cmd, "list"))
 	    errstr = call_list_ng(dict, c->callmaster, resp);
+#endif
 	else
 		errstr = "Unrecognized command";
 

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <pcre.h>
 
+#include "call_interfaces.h"
 #include "call.h"
 #include "aux.h"
 #include "log.h"
@@ -854,7 +855,8 @@ stats:
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
 }
 
-void ng_list_calls( struct callmaster *m, bencode_item_t *output, long long int limit) {
+#if GLIB_CHECK_VERSION(2,16,0)
+static void ng_list_calls( struct callmaster *m, bencode_item_t *output, long long int limit) {
 	GHashTableIter iter;
 	gpointer key, value;
 
@@ -867,6 +869,7 @@ void ng_list_calls( struct callmaster *m, bencode_item_t *output, long long int 
 
 	rwlock_unlock_r(&m->hashlock);
 }
+#endif
 
 
 
@@ -891,6 +894,7 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 }
 
 
+#if GLIB_CHECK_VERSION(2,16,0)
 const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	bencode_item_t *calls = NULL;
 	long long int limit;
@@ -907,3 +911,4 @@ const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_it
 
 	return NULL;
 }
+#endif
