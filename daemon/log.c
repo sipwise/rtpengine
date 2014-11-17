@@ -44,7 +44,7 @@ const _fac_code_t _facilitynames[] =
 		{ NULL, -1 }
 	};
 
-const char const* prio_str[] = {
+static const char* const prio_str[] = {
 		"EMERG",
 		"ALERT",
 		"CRIT",
