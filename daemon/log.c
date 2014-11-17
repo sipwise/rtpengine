@@ -16,10 +16,7 @@ volatile gint log_level = LOG_INFO;
 volatile gint log_level = LOG_DEBUG;
 #endif
 
-#ifndef MAX_LOG_LINE_LENGTH
-#define MAX_LOG_LINE_LENGTH 500
-#endif
-
+unsigned int max_log_line_length = 500;
 write_log_t write_log = (write_log_t) syslog;
 
 const _fac_code_t _facilitynames[] =
@@ -157,10 +154,10 @@ void ilog(int prio, const char *fmt, ...) {
 
 	piece = msg;
 
-	while (ret > MAX_LOG_LINE_LENGTH) {
-		write_log(xprio, "%s%s%.*s ...", prefix, infix, MAX_LOG_LINE_LENGTH, piece);
-		ret -= MAX_LOG_LINE_LENGTH;
-		piece += MAX_LOG_LINE_LENGTH;
+	while (max_log_line_length && ret > max_log_line_length) {
+		write_log(xprio, "%s%s%.*s ...", prefix, infix, max_log_line_length, piece);
+		ret -= max_log_line_length;
+		piece += max_log_line_length;
 		infix = "... ";
 	}
 

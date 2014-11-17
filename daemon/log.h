@@ -38,6 +38,7 @@ void log_to_stderr(int facility_priority, char *format, ...) __attribute__ ((for
 
 extern struct log_info __thread log_info;
 extern volatile gint log_level;
+extern unsigned int max_log_line_length;
 
 
 

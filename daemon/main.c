@@ -404,6 +404,7 @@ static void options(int *argc, char ***argv) {
 
 	if (_log_stderr) {
 		write_log = log_to_stderr;
+		max_log_line_length = 0;
 	}
 }
 
