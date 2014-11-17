@@ -2083,7 +2083,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	struct stream_params *sp;
 	GList *media_iter, *ml_media, *other_ml_media;
 	struct call_media *media, *other_media;
-	unsigned int num_ports;
+	unsigned int num_ports, tmp;
 	struct call_monologue *monologue = other_ml->active_dialogue;
 	struct endpoint_map *em;
 	struct call *call;
@@ -2150,10 +2150,19 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
 		/* active and passive are also from our POV */
+		tmp = other_media->media_flags;
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_PASSIVE,
 				&sp->sp_flags, SP_FLAG_SETUP_ACTIVE);
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_ACTIVE,
 				&sp->sp_flags, SP_FLAG_SETUP_PASSIVE);
+		/* Special case: if this is an offer and actpass is being offered (as it should),
+		 * we would normally choose to be active. However, if this is a reinvite and we
+		 * were passive previously, we should retain this role. */
+		if (flags->opmode == OP_OFFER && MEDIA_ISSET(other_media, SETUP_ACTIVE)
+				&& MEDIA_ISSET(other_media, SETUP_PASSIVE)
+				&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
+				== MEDIA_FLAG_SETUP_PASSIVE)
+			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 		if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
 			__unverify_fingerprint(other_media);
 			other_media->fingerprint = sp->fingerprint;
