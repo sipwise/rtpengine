@@ -2003,13 +2003,17 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 	}
 }
 
-static void __unverify_fingerprint(struct call_media *m) {
+static void __fingerprint_changed(struct call_media *m) {
 	GList *l;
 	struct packet_stream *ps;
+
+	if (m->fingerprint.hash_func)
+		ilog(LOG_INFO, "DTLS fingerprint changed, restarting DTLS");
 
 	for (l = m->streams.head; l; l = l->next) {
 		ps = l->data;
 		PS_CLEAR(ps, FINGERPRINT_VERIFIED);
+		dtls_shutdown(ps);
 	}
 }
 
@@ -2164,7 +2168,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				== MEDIA_FLAG_SETUP_PASSIVE)
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 		if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
-			__unverify_fingerprint(other_media);
+			__fingerprint_changed(other_media);
 			other_media->fingerprint = sp->fingerprint;
 		}
 		MEDIA_CLEAR(other_media, DTLS);
@@ -2332,6 +2336,7 @@ void call_destroy(struct call *c) {
 		ps = l->data;
 
 		unkernelize(ps);
+		dtls_shutdown(ps);
 		ps->sfd = NULL;
 		crypto_cleanup(&ps->crypto);
 
@@ -2465,8 +2470,6 @@ static void __call_free(void *p) {
 
 	while (c->streams) {
 		ps = c->streams->data;
-		if (ps->dtls_cert)
-			X509_free(ps->dtls_cert);
 		c->streams = g_slist_delete_link(c->streams, c->streams);
 		g_slice_free1(sizeof(*ps), ps);
 	}

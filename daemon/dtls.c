@@ -667,6 +667,31 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 	return 0;
 }
 
+void dtls_shutdown(struct packet_stream *ps) {
+	struct dtls_connection *d = &ps->sfd->dtls;
+	struct sockaddr_in6 sin;
+
+	if (!d->init)
+		return;
+
+	if (d->connected && d->ssl) {
+		ZERO(sin);
+		sin.sin6_family = AF_INET6;
+		sin.sin6_addr = ps->endpoint.ip46;
+		sin.sin6_port = htons(ps->endpoint.port);
+
+		SSL_shutdown(d->ssl);
+		dtls(ps, NULL, &sin);
+	}
+
+	dtls_connection_cleanup(&ps->sfd->dtls);
+
+	if (ps->dtls_cert) {
+		X509_free(ps->dtls_cert);
+		ps->dtls_cert = NULL;
+	}
+}
+
 void dtls_connection_cleanup(struct dtls_connection *c) {
 	__DBG("dtls_connection_cleanup");
 
