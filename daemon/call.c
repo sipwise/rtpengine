@@ -2164,13 +2164,13 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		/* Special case: if this is an offer and actpass is being offered (as it should),
 		 * we would normally choose to be active. However, if this is a reinvite and we
 		 * were passive previously, we should retain this role. */
-		if (flags->opmode == OP_OFFER && MEDIA_ISSET(other_media, SETUP_ACTIVE)
+		if (flags && flags->opmode == OP_OFFER && MEDIA_ISSET(other_media, SETUP_ACTIVE)
 				&& MEDIA_ISSET(other_media, SETUP_PASSIVE)
 				&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
 				== MEDIA_FLAG_SETUP_PASSIVE)
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 		/* if passive mode is requested, honour it if we can */
-		if (flags->dtls_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
+		if (flags && flags->dtls_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 
 		if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
