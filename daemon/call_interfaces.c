@@ -530,6 +530,14 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 					STR_FMT(&s));
 	}
 
+	if (bencode_dictionary_get_str(input, "DTLS", &s)) {
+		if (!str_cmp(&s, "passive"))
+			out->dtls_passive = 1;
+		else
+			ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '"STR_FORMAT"'",
+					STR_FMT(&s));
+	}
+
 	if ((list = bencode_dictionary_get_expect(input, "rtcp-mux", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
 			if (!bencode_strcmp(it, "offer"))

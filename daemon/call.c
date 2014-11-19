@@ -1884,6 +1884,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		MEDIA_SET(this, SETUP_ACTIVE);
 	}
 	else {
+		if (flags->dtls_passive && MEDIA_ISSET(this, SETUP_PASSIVE))
+			MEDIA_CLEAR(this, SETUP_ACTIVE);
 		/* if we can be active, we will, otherwise we'll be passive */
 		if (MEDIA_ISSET(this, SETUP_ACTIVE))
 			MEDIA_CLEAR(this, SETUP_PASSIVE);
@@ -2167,6 +2169,10 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
 				== MEDIA_FLAG_SETUP_PASSIVE)
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+		/* if passive mode is requested, honour it if we can */
+		if (flags->dtls_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
+			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+
 		if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
 			__fingerprint_changed(other_media);
 			other_media->fingerprint = sp->fingerprint;

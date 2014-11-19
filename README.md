@@ -727,13 +727,22 @@ Optionally included keys are:
 	used TOS value is left unchanged. If this key is not present or its value is too large (256 or more), then
 	the TOS value is reverted to the default (as per `--tos` command line).
 
+* `DTLS`
+
+	Contains a string and influences the behaviour of DTLS-SRTP. Currently the only recognized option
+	is `passive`, which instructs *rtpengine* to prefer the passive (i.e. server) role for the DTLS
+	handshake. The default is to take the active (client) role if possible. This is useful in cases where
+	the SRTP endpoint isn't able to receive or process the DTLS handshake packets, for example when it's
+	behind NAT or needs to finish ICE processing first.
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",
 	"sdp": "v=0\r\no=...", "via-branch": "5KiTRPZHH1nL6",
 	"flags": [ "trust address" ], "replace": [ "origin", "session connection" ],
 	"address family": "IP6", "received-from": [ "IP4", "10.65.31.43" ],
-	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b" }
+	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b",
+	"DTLS": "passive" }
 
 The response message only contains the key `sdp` in addition to `result`, which contains the re-written
 SDP body that the SIP proxy should insert into the SIP message.
