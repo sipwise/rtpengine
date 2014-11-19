@@ -19,6 +19,10 @@
 
 
 
+int trust_address_def;
+
+
+
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
 	int len, ret;
@@ -454,11 +458,16 @@ INLINE void call_bencode_hold_ref(struct call *c, bencode_item_t *bi) {
 }
 
 INLINE void str_hyphenate(bencode_item_t *it) {
-	char *p;
-	p = memchr(it->iov[1].iov_base, ' ', it->iov[1].iov_len);
-	if (!p)
+	str s;
+	if (!bencode_get_str(it, &s))
 		return;
-	*p = '-';
+	while (s.len) {
+		str_chr_str(&s, &s, ' ');
+		if (!s.s || !s.len)
+			break;
+		*s.s = '-';
+		str_shift(&s, 1);
+	}
 }
 INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two, str *out) {
 	char *o;
@@ -474,11 +483,15 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	ZERO(*out);
 
+	out->trust_address = trust_address_def;
+
 	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
 			str_hyphenate(it);
 			if (!bencode_strcmp(it, "trust-address"))
 				out->trust_address = 1;
+			else if (!bencode_strcmp(it, "SIP-source-address"))
+				out->trust_address = 0;
 			else if (!bencode_strcmp(it, "asymmetric"))
 				out->asymmetric = 1;
 			else if (!bencode_strcmp(it, "strict-source"))
@@ -523,7 +536,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			out->ice_remove = 1;
 		else if (!str_cmp(&s, "force"))
 			out->ice_force = 1;
-		else if (!str_cmp(&s, "force_relay") || !str_cmp(&s, "force-relay"))
+		else if (!str_cmp(&s, "force_relay") || !str_cmp(&s, "force-relay")
+				|| !str_cmp(&s, "force relay"))
 			out->ice_force_relay = 1;
 		else
 			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '"STR_FORMAT"'",

@@ -94,8 +94,14 @@ INLINE char *str_chr(const str *s, int c) {
 	return memchr(s->s, c, s->len);
 }
 INLINE str *str_chr_str(str *out, const str *s, int c) {
-	out->s = str_chr(s, c);
-	out->len = out->s ? (s->len - (out->s - s->s)) : 0;
+	char *p;
+	p = str_chr(s, c);
+	if (!p) {
+		*out = STR_NULL;
+		return out;
+	}
+	*out = *s;
+	str_shift(out, p - out->s);
 	return out;
 }
 INLINE int str_cmp_len(const str *a, const char *b, int l) {

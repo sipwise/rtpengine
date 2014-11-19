@@ -21,6 +21,7 @@ GetOptions(
 	'call-id=s'			=> \$options{'call-id'},
 	'protocol=s'			=> \$options{'transport protocol'},
 	'trust-address'			=> \$options{'trust address'},
+	'sip-source-address'		=> \$options{'sip source address'},
 	'symmetric'			=> \$options{'symmetric'},
 	'asymmetric'			=> \$options{'asymmetric'},
 	'replace-origin'		=> \$options{'replace-origin'},
@@ -50,7 +51,7 @@ my %packet = (command => $cmd);
 for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,TOS,DTLS')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover')) {
+for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(',', 'origin,session connection')) {

@@ -24,6 +24,7 @@
 #include "redis.h"
 #include "sdp.h"
 #include "dtls.h"
+#include "call_interfaces.h"
 
 
 
@@ -310,6 +311,7 @@ static void options(int *argc, char ***argv) {
 	char *redisps = NULL;
 	char *log_facility_s = NULL;
 	int version = 0;
+	int sip_source = 0;
 
 	GOptionEntry e[] = {
 		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
@@ -334,6 +336,7 @@ static void options(int *argc, char ***argv) {
 		{ "log-stderr",	'E', 0, G_OPTION_ARG_NONE,	&_log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads to create",	"INT"	},
+		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ NULL, }
 	};
 
@@ -406,6 +409,9 @@ static void options(int *argc, char ***argv) {
 		write_log = log_to_stderr;
 		max_log_line_length = 0;
 	}
+
+	if (!sip_source)
+		trust_address_def = 1;
 }
 
 

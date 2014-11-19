@@ -179,6 +179,7 @@ option and which are reproduced below:
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 	  --num-threads=INT                Number of worker threads to create
+	  --sip-source                     Use SIP source address by default
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -321,6 +322,13 @@ The options are described in more detail below.
 	How many worker threads to create, must be at least one. The default is to create as many threads
 	as there are CPU cores available. If the number of CPU cores cannot be determined, the default is
 	four.
+
+* --sip-source
+
+	The original *rtpproxy* as well as older version of *rtpengine* by default didn't honour IP
+	addresses given in the SDP body, and instead used the source address of the received SIP
+	message as default endpoint address. Newer versions of *rtpengine* reverse this behaviour and
+	honour the addresses given in the SDP body by default. This option restores the old behaviour.
 
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 
@@ -579,12 +587,21 @@ Optionally included keys are:
 
 * `flags`
 
-	The value of the `flags` key is a list. The list contains zero or more of the following strings:
+	The value of the `flags` key is a list. The list contains zero or more of the following strings.
+	Spaces in each string my be replaced by hyphens.
+
+	- `SIP source address`
+
+		Ignore any IP addresses given in the SDP body and use the source address of the received
+		SIP message (given in `received from`) as default endpoint address. This was the default
+		behaviour of older versions of *rtpengine* and can still be made the default behaviour
+		through the `--sip-source` CLI switch.
+		Can be overridden through the `media address` key.
 
 	- `trust address`
 
-		If given, the media addresses from the SDP body are trusted as correct endpoints. Otherwise, the
-		address is taken from the `received from` key. Corresponds to the *rtpproxy* `r` flag.
+		The opposite of `SIP source address`. This is the default behaviour unless the CLI switch
+		`--sip-source` is active. Corresponds to the *rtpproxy* `r` flag.
 		Can be overridden through the `media address` key.
 
 	- `symmetric`
@@ -626,7 +643,7 @@ Optionally included keys are:
 		Replace the address found in the *origin* (o=) line of the SDP body. Corresponds
 		to *rtpproxy* `o` flag.
 
-	- `session connection`
+	- `session connection` or `session-connection`
 
 		Replace the address found in the *session-level connection* (c=) line of the SDP body.
 		Corresponds to *rtpproxy* `c` flag.
@@ -655,7 +672,8 @@ Optionally included keys are:
 
 	Contains a list of exactly two elements. The first element denotes the address family and the second
 	element is the SIP message's source address itself. The address family can be one of `IP4` or `IP6`.
-	Used if neither the `trust address` flag nor the `media address` key is present.
+	Used if SDP addresses are neither trusted (through `SIP source address` or `--sip-source`) nor the
+	`media address` key is present.
 
 * `ICE`
 

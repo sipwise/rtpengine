@@ -15,6 +15,9 @@ struct callmaster;
 struct control_stream;
 
 
+extern int trust_address_def;
+
+
 str *call_request_tcp(char **, struct callmaster *);
 str *call_lookup_tcp(char **, struct callmaster *);
 void call_delete_tcp(char **, struct callmaster *);
