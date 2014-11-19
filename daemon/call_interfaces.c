@@ -752,6 +752,9 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	BF_PS("confirmed", CONFIRMED);
 	BF_PS("kernelized", KERNELIZED);
 	BF_PS("no kernel support", NO_KERNEL_SUPPORT);
+	BF_PS("DTLS fingerprint verified", FINGERPRINT_VERIFIED);
+	BF_PS("strict source address", STRICT_SOURCE);
+	BF_PS("media handover", MEDIA_HANDOVER);
 
 stats:
 	if (totals->last_packet < ps->last_packet)
@@ -788,8 +791,13 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	flags = bencode_dictionary_add_list(dict, "flags");
 
 	BF_M("initialized", INITIALIZED);
+	BF_M("asymmetric", ASYMMETRIC);
+	BF_M("send", SEND);
+	BF_M("recv", RECV);
 	BF_M("rtcp-mux", RTCP_MUX);
 	BF_M("DTLS-SRTP", DTLS);
+	BF_M("DTLS role active", SETUP_ACTIVE);
+	BF_M("DTLS role passive", SETUP_PASSIVE);
 	BF_M("SDES", SDES);
 	BF_M("passthrough", PASSTHRU);
 	BF_M("ICE", ICE);
