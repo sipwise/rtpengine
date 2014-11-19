@@ -16,6 +16,7 @@ struct control_stream;
 
 
 extern int trust_address_def;
+extern int dtls_passive_def;
 
 
 str *call_request_tcp(char **, struct callmaster *);

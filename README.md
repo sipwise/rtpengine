@@ -180,6 +180,7 @@ option and which are reproduced below:
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 	  --num-threads=INT                Number of worker threads to create
 	  --sip-source                     Use SIP source address by default
+	  --dtls-passive                   Always prefer DTLS passive role
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -329,6 +330,10 @@ The options are described in more detail below.
 	addresses given in the SDP body, and instead used the source address of the received SIP
 	message as default endpoint address. Newer versions of *rtpengine* reverse this behaviour and
 	honour the addresses given in the SDP body by default. This option restores the old behaviour.
+
+* --dtls-passive
+
+	Enabled the `DTLS=passive` flag for all calls unconditionally.
 
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 

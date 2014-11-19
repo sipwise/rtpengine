@@ -20,6 +20,7 @@
 
 
 int trust_address_def;
+int dtls_passive_def;
 
 
 
@@ -484,6 +485,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	ZERO(*out);
 
 	out->trust_address = trust_address_def;
+	out->dtls_passive = dtls_passive_def;
 
 	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
