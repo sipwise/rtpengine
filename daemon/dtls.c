@@ -667,6 +667,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 	return 0;
 }
 
+/* call must be locked */
 void dtls_shutdown(struct packet_stream *ps) {
 	struct dtls_connection *d = &ps->sfd->dtls;
 	struct sockaddr_in6 sin;
@@ -690,6 +691,9 @@ void dtls_shutdown(struct packet_stream *ps) {
 		X509_free(ps->dtls_cert);
 		ps->dtls_cert = NULL;
 	}
+
+	crypto_reset(&ps->crypto);
+	crypto_reset(&ps->sfd->crypto);
 }
 
 void dtls_connection_cleanup(struct dtls_connection *c) {
