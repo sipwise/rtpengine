@@ -1666,6 +1666,13 @@ static void __assign_stream_fds(struct call_media *media, GList *sfds) {
 		assert(sfds != NULL);
 		ps = l->data;
 		sfd = sfds->data;
+
+		/* if we switch local ports, we reset crypto params */
+		if (ps->sfd && ps->sfd != sfd) {
+			dtls_shutdown(ps);
+			crypto_reset(&ps->sfd->crypto);
+		}
+
 		ps->sfd = sfd;
 		sfd->stream = ps;
 		sfds = sfds->next;
@@ -1718,11 +1725,11 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 static void __fill_stream(struct packet_stream *ps, const struct endpoint *ep, unsigned int port_off) {
 	ps->endpoint = *ep;
 	ps->endpoint.port += port_off;
-	/* we SHOULD remember the crypto contexts of previously used endpoints,
-	 * but instead we reset it every time it changes, which is incompatible
-	 * with what we're doing on our side (remembers in the stream_fd) */
-	if (memcmp(&ps->advertised_endpoint, &ps->endpoint, sizeof(ps->endpoint)))
+	/* we reset crypto params whenever the endpoint changes */
+	if (memcmp(&ps->advertised_endpoint, &ps->endpoint, sizeof(ps->endpoint))) {
 		crypto_reset(&ps->crypto);
+		dtls_shutdown(ps);
+	}
 	ps->advertised_endpoint = ps->endpoint;
 	PS_SET(ps, FILLED);
 }
