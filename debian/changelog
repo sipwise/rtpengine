@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.6.2.1) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [fc79675] avoid DTLS role change on reinvite
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 28 Nov 2014 16:34:35 +0100
+
 ngcp-rtpengine (3.3.0.0+0~mr3.6.2.0) unstable; urgency=low
 
   * New release.
