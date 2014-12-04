@@ -14,6 +14,8 @@
 #include <time.h>
 #include <xmlrpc_client.h>
 #include <sys/wait.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -1086,7 +1088,8 @@ next:
 
 	for (i = c->monologues; i; i = i->next) {
 		ml = i->data;
-		ml->terminated = time(NULL);
+		memset(&ml->terminated,0,sizeof(struct timeval));
+		gettimeofday(&(ml->terminated),NULL);
 		if (tmp_t_reason==1) {
 			ml->term_reason = TIMEOUT;
 		} else if (tmp_t_reason==2) {
@@ -2327,6 +2330,14 @@ static void unkernelize(struct packet_stream *p) {
 	PS_CLEAR(p, KERNELIZED);
 }
 
+void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b) {
+	long microseconds=0;
+
+	microseconds = (a->tv_sec - b->tv_sec) * 1000000 + ((long)a->tv_usec - (long)b->tv_usec);
+	result->tv_sec = microseconds/1000000;
+	result->tv_usec = microseconds%1000000;
+}
+
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
@@ -2339,6 +2350,7 @@ void call_destroy(struct call *c) {
 	struct call_media *md;
 	GList *k, *o;
 	char buf[64];
+	struct timeval tim_result;
 	static const int CDRBUFLENGTH = 4096*2;
 	char reasonbuf[16]; memset(&reasonbuf,0,16);
         char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
@@ -2366,15 +2378,17 @@ void call_destroy(struct call *c) {
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 		if (_log_facility_cdr) {
-		    cdrbufcur += sprintf(cdrbufcur, "ml%i_start_time=%u, "
-		            "ml%i_end_time=%u, "
-		            "ml%i_duration=%u, "
+			memset(&tim_result,0,sizeof(struct timeval));
+			timeval_subtract(&tim_result,&ml->terminated,&ml->started);
+		    cdrbufcur += sprintf(cdrbufcur, "ml%i_start_time=%ld.%06lu, "
+		            "ml%i_end_time=%ld.%06ld, "
+		            "ml%i_duration=%ld.%06ld, "
 		            "ml%i_termination=%s, "
 		            "ml%i_local_tag=%s, "
 		            "ml%i_remote_tag=%s, ",
-		            cdrlinecnt, (unsigned int)ml->created,
-		            cdrlinecnt, (unsigned int)ml->terminated,
-		            cdrlinecnt, (unsigned int)ml->terminated-(unsigned int)ml->created,
+		            cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
+		            cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
+		            cdrlinecnt, tim_result.tv_sec, tim_result.tv_usec,
 		            cdrlinecnt, get_term_reason_text(reasonbuf,ml->term_reason),
 		            cdrlinecnt, ml->tag.s,
 		            cdrlinecnt, ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
@@ -2841,7 +2855,8 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 
 	for (i = c->monologues; i; i = i->next) {
 		ml = i->data;
-		ml->terminated = time(NULL);
+		memset(&ml->terminated,0,sizeof(struct timeval));
+		gettimeofday(&(ml->terminated), NULL);
 		ml->term_reason = REGULAR;
 	}
 

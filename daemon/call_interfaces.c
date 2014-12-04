@@ -174,6 +174,8 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 
 	redis_update(c, m->conf.redis);
 
+	gettimeofday(&(monologue->started), NULL);
+
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT(ret));
 	goto out;
 

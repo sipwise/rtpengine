@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <glib.h>
 #include <time.h>
+#include <sys/time.h>
 #include <pcre.h>
 #include <openssl/x509.h>
 #include "compat.h"
@@ -305,7 +306,8 @@ struct call_monologue {
 	str			tag;	
 	time_t			created;	/* RO */
 	time_t			deleted;
-	time_t          terminated;
+	struct timeval         started; /* for CDR */
+	struct timeval         terminated; /* for CDR */
 	enum termination_reason term_reason;
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
