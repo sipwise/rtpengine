@@ -20,6 +20,7 @@ LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
 				# control
 #LISTEN_NG=127.0.0.1:2223 	# IP address and port combination for NG (UDP)
 				# control
+#LISTEN_CLI=127.0.0.1:9900
 #
 #TOS=184		# (o) TOS value to use in outgoing packets
 #TIMEOUT=60		# (o) Number of seconds after which a media stream is

@@ -1,0 +1,69 @@
+#!/bin/bash
+#
+
+host=127.0.0.1
+port=9900
+error_rc=255
+
+prgname=${0##*/}
+prgdir=${0%$prgname}
+
+showusage() {
+    echo ""
+    echo "    rectl [ -ip <ipaddress> -port <port> ] <command>"
+    echo ""
+    echo "    Supported commands are:"
+    echo ""
+    echo "    list [ numsessions | sessions | session <callid> ]"
+    echo "         numsessions           : prints the number of sessions"
+    echo "         sessions              : print one-liner session information"
+    echo "         session <callid>      : print detail about one session"
+    echo ""
+    echo "    terminate [ all | <callid> ]"
+    echo "         all                   : terminates all current sessions"
+    echo "         <callid>              : session is immediately terminated"
+    echo ""
+    echo ""
+    echo "    Return Value:"
+    echo "    0 on success with ouput from server side, other values for failure."
+    echo ""
+    exit 0
+}
+
+if [ $# -eq 0 ]; then showusage; fi
+
+
+command -v nc 2>&1 >/dev/null
+if [ $? -ne 0 ]; then
+    echo "Error: rectl requires netcat to be installed."
+    exit 0
+fi
+
+while [ $# -gt 0 ]; do
+    case $1 in
+   "-?"|"-help"|"-h")
+       showusage
+       ;;
+   "-ip")
+       shift
+       if [ $# -gt 0 ]; then
+       host=$1
+       else
+       echo "Missing parameter for option '-ip'" >&2
+       fi
+       ;;
+   "-port")
+       shift
+       if [ $# -gt 0 ]; then
+       port=$1
+       else
+       echo "Missing parameter for option '-port'" >&2
+       fi
+       ;;
+   *)
+       varargs="$varargs $1"
+    esac
+    shift
+done
+
+echo -n ${varargs} | nc ${host} ${port}

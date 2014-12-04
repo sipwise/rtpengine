@@ -162,6 +162,7 @@ option and which are reproduced below:
 	  -F, --no-fallback                Only start when kernel module is available
 	  -i, --interface=[NAME/]IP[!IP]   Local interface for RTP
 	  -l, --listen-tcp=[IP:]PORT       TCP port to listen on
+	  -c, --listen-cli=[IP46:]PORT     TCP port to listen on, CLI (command line interface)
 	  -u, --listen-udp=[IP46:]PORT     UDP port to listen on
 	  -n, --listen-ng=[IP46:]PORT      UDP port to listen on, NG protocol
 	  -T, --tos=INT                    TOS value to set on streams
@@ -266,6 +267,10 @@ The options are described in more detail below.
 	ICE handling, SRTP bridging, etc.
 
 	It is recommended to specify not only a local port number, but also 127.0.0.1 as interface to bind to.
+
+* -c, --listen-cli
+
+   TCP ip and port to listen for the CLI (command line interface).
 
 * -t, --tos
 

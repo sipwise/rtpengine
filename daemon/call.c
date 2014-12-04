@@ -2645,7 +2645,7 @@ restart:
 }
 
 /* returns call with master_lock held in W, or NULL if not found */
-static struct call *call_get(const str *callid, struct callmaster *m) {
+struct call *call_get(const str *callid, struct callmaster *m) {
 	struct call *ret;
 
 	rwlock_lock_r(&m->hashlock);

@@ -420,6 +420,7 @@ struct packet_stream *__packet_stream_new(struct call *call);
 struct call *call_get_or_create(const str *callid, struct callmaster *m);
 struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode);
 struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag);
+struct call *call_get(const str *callid, struct callmaster *m);
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output);

@@ -92,6 +92,11 @@ build_opts() {
 		OPTS+=" --listen-ng=$LISTEN_NG"
 	fi
 
+	if [[ -n "$LISTEN_CLI" ]]
+	then
+	    OPTS+=" --listen-cli=$LISTEN_CLI"
+	fi
+
 	if [[ -n "$TOS" ]]
 	then
 		OPTS+=" --tos=$TOS"

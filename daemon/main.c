@@ -25,6 +25,7 @@
 #include "sdp.h"
 #include "dtls.h"
 #include "call_interfaces.h"
+#include "cli.h"
 
 
 
@@ -91,6 +92,8 @@ static struct in6_addr udp_listenp;
 static u_int16_t udp_listenport;
 static struct in6_addr ng_listenp;
 static u_int16_t ng_listenport;
+static u_int32_t cli_listenp;
+static u_int16_t cli_listenport;
 static int tos;
 static int table = -1;
 static int no_fallback;
@@ -309,6 +312,7 @@ static void options(int *argc, char ***argv) {
 	char *listenps = NULL;
 	char *listenudps = NULL;
 	char *listenngs = NULL;
+	char *listencli = NULL;
 	char *redisps = NULL;
 	char *log_facility_s = NULL;
         char *log_facility_cdr_s = NULL;
@@ -323,6 +327,7 @@ static void options(int *argc, char ***argv) {
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
+        { "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
@@ -378,6 +383,10 @@ static void options(int *argc, char ***argv) {
 	if (listenngs) {
 		if (parse_ip6_port(&ng_listenp, &ng_listenport, listenngs))
 			die("Invalid IP or port (--listen-ng)");
+	}
+
+	if (listencli) {if (parse_ip_port(&cli_listenp, &cli_listenport, listencli))
+	    die("Invalid IP or port (--listen-cli)");
 	}
 
 	if (tos < 0 || tos > 255)
@@ -557,6 +566,7 @@ void create_everything(struct main_context *ctx) {
 	struct control_tcp *ct;
 	struct control_udp *cu;
 	struct control_ng *cn;
+	struct cli *cl;
 	int kfd = -1;
 	void *dlh;
 	const char **strp;
@@ -623,6 +633,14 @@ no_kernel:
 		cn = control_ng_new(ctx->p, ng_listenp, ng_listenport, ctx->m);
 		if (!cn)
 			die("Failed to open UDP control connection port");
+	}
+
+	cl = NULL;
+	if (cli_listenport) {
+	    callmaster_exclude_port(ctx->m, cli_listenport);
+	    cl = cli_new(ctx->p, cli_listenp, cli_listenport, ctx->m);
+	    if (!cl)
+	        die("Failed to open UDP CLI connection port");
 	}
 
 	if (redis_ip) {
