@@ -12,7 +12,13 @@
 #include "compat.h"
 
 
-
+enum termination_reason {
+	UNKNOWN=0,
+	REGULAR=1,
+	FORCED=2,
+	TIMEOUT=3,
+	SILENT_TIMEOUT=4
+};
 
 enum stream_address_format {
 	SAF_TCP,
@@ -299,6 +305,8 @@ struct call_monologue {
 	str			tag;	
 	time_t			created;	/* RO */
 	time_t			deleted;
+	time_t          terminated;
+	enum termination_reason term_reason;
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
 
