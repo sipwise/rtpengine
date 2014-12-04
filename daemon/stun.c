@@ -158,6 +158,9 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns) 
 				out->priority = ntohl(*((u_int32_t *) attr.s));
 				break;
 
+			case 0x8022: /* software */
+				break; /* ignore but suppress warning message */
+
 			default:
 				ilog(LOG_NOTICE, "Unknown STUN attribute: 0x%04x", type);
 				if ((type & 0x8000))
