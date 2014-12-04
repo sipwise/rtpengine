@@ -33,6 +33,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    GList *k, *o;
    char buf[64];
    int printlen=0;
+   char tagtypebuf[16]; memset(&tagtypebuf,0,16);
 
    if (len<=1) {
        printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
@@ -56,9 +57,9 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    for (l = c->monologues; l; l = l->next) {
        ml = l->data;
 
-       printlen = snprintf(replybuffer,(outbufend-replybuffer), "--- Tag '"STR_FORMAT"', callduration "
+       printlen = snprintf(replybuffer,(outbufend-replybuffer), "--- Tag '"STR_FORMAT"' type: %s, callduration "
             "%u:%02u , in dialogue with '"STR_FORMAT"'\n",
-            STR_FMT(&ml->tag),
+			STR_FMT(&ml->tag), get_tag_type_text(tagtypebuf,ml->tagtype),
             (unsigned int) (poller_now - ml->created) / 60,
             (unsigned int) (poller_now - ml->created) % 60,
             ml->active_dialogue ? ml->active_dialogue->tag.len : 6,

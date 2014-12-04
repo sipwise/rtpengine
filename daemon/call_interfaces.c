@@ -163,6 +163,12 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	if (!monologue)
 		goto ml_fail;
 
+	if (!totag.s || totag.len==0) {
+		monologue->tagtype = FROM_TAG;
+	} else {
+		monologue->tagtype = TO_TAG;
+	}
+
 	if (addr_parse_udp(&sp, out))
 		goto addr_fail;
 

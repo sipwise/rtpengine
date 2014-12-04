@@ -21,6 +21,12 @@ enum termination_reason {
 	SILENT_TIMEOUT=4
 };
 
+enum tag_type {
+	UNKNOWN_TAG=0,
+	FROM_TAG=1,
+	TO_TAG=2
+};
+
 enum stream_address_format {
 	SAF_TCP,
 	SAF_UDP,
@@ -303,7 +309,8 @@ struct call_media {
 struct call_monologue {
 	struct call		*call;		/* RO */
 
-	str			tag;	
+	str			tag;
+	enum tag_type    tagtype;
 	time_t			created;	/* RO */
 	time_t			deleted;
 	struct timeval         started; /* for CDR */
@@ -502,5 +509,6 @@ INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	return ret;
 }
 
+const char * get_tag_type_text(char *buf, enum tag_type t);
 
 #endif

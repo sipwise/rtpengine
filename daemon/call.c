@@ -134,6 +134,13 @@ const char * get_term_reason_text(char *buf, enum termination_reason t) {
 	return buf;
 }
 
+const char * get_tag_type_text(char *buf, enum tag_type t) {
+	if (t==FROM_TAG) { buf = "FROM_TAG"; return buf; }
+	if (t==TO_TAG) { buf = "TO_TAG"; return buf; }
+
+	buf = "UNKNOWN";
+	return buf;
+}
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
 
@@ -2353,6 +2360,7 @@ void call_destroy(struct call *c) {
 	struct timeval tim_result;
 	static const int CDRBUFLENGTH = 4096*2;
 	char reasonbuf[16]; memset(&reasonbuf,0,16);
+	char tagtypebuf[16]; memset(&tagtypebuf,0,16);
         char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
         char* cdrbufcur = cdrbuffer;
         int cdrlinecnt = 0;
@@ -2375,7 +2383,7 @@ void call_destroy(struct call *c) {
 
 	/* CDRs and statistics */
 	cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
-	cdrbufcur += sprintf(cdrbufcur,"created_from=%s", c->created_from);
+	cdrbufcur += sprintf(cdrbufcur,"created_from=%s, ", c->created_from);
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 		if (_log_facility_cdr) {
@@ -2386,12 +2394,14 @@ void call_destroy(struct call *c) {
 		            "ml%i_duration=%ld.%06ld, "
 		            "ml%i_termination=%s, "
 		            "ml%i_local_tag=%s, "
+		            "ml%i_local_tag_type=%s, "
 		            "ml%i_remote_tag=%s, ",
 		            cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
 		            cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
 		            cdrlinecnt, tim_result.tv_sec, tim_result.tv_usec,
 		            cdrlinecnt, get_term_reason_text(reasonbuf,ml->term_reason),
 		            cdrlinecnt, ml->tag.s,
+		            cdrlinecnt, get_tag_type_text(tagtypebuf,ml->tagtype),
 		            cdrlinecnt, ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
 		}
 
