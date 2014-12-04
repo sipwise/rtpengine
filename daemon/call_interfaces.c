@@ -156,7 +156,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	}
 
 	if (addr) {
-		memcpy(c->created_from, addr, strlen(addr));
+		c->created_from = call_strdup(c, addr);
 	}
 
 	monologue = call_get_mono_dialogue(c, &fromtag, &totag);

@@ -338,7 +338,7 @@ struct call {
 	time_t			deleted;
 	time_t			ml_deleted;
 	unsigned char		tos;
-	char created_from[64];
+	char			*created_from;
 };
 
 struct local_interface {
