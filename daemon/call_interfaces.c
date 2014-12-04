@@ -592,7 +592,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m,
-		bencode_item_t *output, enum call_opmode opmode)
+		bencode_item_t *output, enum call_opmode opmode, const char* addr)
 {
 	str sdp, fromtag, totag = STR_NULL, callid;
 	char *errstr;
@@ -631,6 +631,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (!call)
 		goto out;
 
+	if (addr) {
+		memcpy(call->created_from, addr, strlen(addr));
+	}
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
 	call_bencode_hold_ref(call, output);
@@ -643,6 +646,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 	}
 
+	if (!totag.s || totag.len==0) {
+		monologue->tagtype = FROM_TAG;
+	} else {
+		monologue->tagtype = TO_TAG;
+	}
+
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 	ret = monologue_offer_answer(monologue, &streams, &flags);
@@ -652,6 +661,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	rwlock_unlock_w(&call->master_lock);
 	redis_update(call, m->conf.redis);
 	obj_put(call);
+
+	gettimeofday(&(monologue->started), NULL);
 
 	errstr = "Error rewriting SDP";
 	if (ret)
@@ -669,12 +680,12 @@ out:
 	return errstr;
 }
 
-const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_OFFER);
+const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr) {
+	return call_offer_answer_ng(input, m, output, OP_OFFER, addr);
 }
 
 const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_ANSWER);
+	return call_offer_answer_ng(input, m, output, OP_ANSWER, NULL);
 }
 
 const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {

@@ -29,7 +29,7 @@ str *call_lookup_udp(char **, struct callmaster *);
 str *call_delete_udp(char **, struct callmaster *);
 str *call_query_udp(char **, struct callmaster *);
 
-const char *call_offer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
+const char *call_offer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *, const char*);
 const char *call_answer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_query_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
