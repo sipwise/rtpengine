@@ -632,7 +632,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 
 	if (addr) {
-		memcpy(call->created_from, addr, strlen(addr));
+		call->created_from = call_strdup(call, addr);
 	}
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
