@@ -22,6 +22,7 @@ Depends: ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: ngcp-mediaproxy-ng-daemon
 Replaces: ngcp-mediaproxy-ng-daemon
+Recommends: netcat-openbsd | netcat
 Description: Proxy for RTP and media streams used in NGCP, userspace part.
  This daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
