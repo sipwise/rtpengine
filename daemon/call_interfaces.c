@@ -134,7 +134,7 @@ fail:
 	return -1;
 }
 
-static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode) {
+static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, const char* addr) {
 	struct call *c;
 	struct call_monologue *monologue;
 	GQueue q = G_QUEUE_INIT;
@@ -154,6 +154,11 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 			STR_FMT(&callid));
 		return str_sprintf("%s 0 0.0.0.0\n", out[RE_UDP_COOKIE]);
 	}
+
+	if (addr) {
+		memcpy(c->created_from, addr, strlen(addr));
+	}
+
 	monologue = call_get_mono_dialogue(c, &fromtag, &totag);
 	if (!monologue)
 		goto ml_fail;
@@ -196,11 +201,11 @@ out:
 	return ret;
 }
 
-str *call_update_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_OFFER);
+str *call_update_udp(char **out, struct callmaster *m, const char* addr) {
+	return call_update_lookup_udp(out, m, OP_OFFER, addr);
 }
 str *call_lookup_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_ANSWER);
+	return call_update_lookup_udp(out, m, OP_ANSWER, NULL);
 }
 
 

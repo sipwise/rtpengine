@@ -50,7 +50,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
        return;
    }
 
-   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %30s | deletionmark:%4s | created:%12i\n\n", c->callid.s , c->ml_deleted?"yes":"no", (int)c->created);
+   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %30s | deletionmark:%4s | created:%12i  | proxy:%s\n\n", c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from);
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues; l; l = l->next) {
@@ -130,7 +130,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        while (g_hash_table_iter_next (&iter, &key, &value)) {
            ptrkey = (str*)key;
            call = (struct call*)value;
-           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %30s | deletionmark:%4s | created:%12i\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created);
+           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %30s | deletionmark:%4s | created:%12i  | proxy:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from);
            ADJUSTLEN(printlen,outbufend,replybuffer);
        }
        rwlock_unlock_r(&m->hashlock);

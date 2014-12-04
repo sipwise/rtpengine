@@ -83,7 +83,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 	}
 
 	if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U')
-		reply = call_update_udp(out, u->callmaster);
+		reply = call_update_udp(out, u->callmaster, addr);
 	else if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')
 		reply = call_lookup_udp(out, u->callmaster);
 	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'D')

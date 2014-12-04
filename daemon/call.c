@@ -2375,6 +2375,7 @@ void call_destroy(struct call *c) {
 
 	/* CDRs and statistics */
 	cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
+	cdrbufcur += sprintf(cdrbufcur,"created_from=%s", c->created_from);
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 		if (_log_facility_cdr) {
