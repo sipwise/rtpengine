@@ -831,6 +831,7 @@ forward:
 
 	if (ret == -1) {
 		ret = -errno;
+                ilog(LOG_DEBUG,"Error when sending message. Error:%s\n",strerror(errno));
 		stream->stats.errors++;
 		mutex_lock(&cm->statspslock);
 		cm->statsps.errors++;
@@ -2311,6 +2312,10 @@ void call_destroy(struct call *c) {
 	struct call_media *md;
 	GList *k, *o;
 	char buf[64];
+	static const int CDRBUFLENGTH = 4096*2;
+        char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
+        char* cdrbufcur = cdrbuffer;
+        int cdrlinecnt = 0;
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
@@ -2328,8 +2333,26 @@ void call_destroy(struct call *c) {
 
 	ilog(LOG_INFO, "Final packet stats:");
 
+	/* CDRs and statistics */
+	cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
+		if (_log_facility_cdr) {
+		    cdrbufcur += sprintf(cdrbufcur, "ml%i_start_time=%u, "
+		            "ml%i_end_time=%u, "
+		            "ml%i_duration=%u, "
+		            "ml%i_termination=%s, "
+		            "ml%i_local_tag=%s, "
+		            "ml%i_remote_tag=%s, ",
+
+		            cdrlinecnt, (unsigned int)ml->created,
+		            cdrlinecnt, (unsigned int)poller_now,
+		            cdrlinecnt, (unsigned int)poller_now-(unsigned int)ml->created,
+		            cdrlinecnt, "TOBEDONE",
+		            cdrlinecnt, ml->tag.s,
+		            cdrlinecnt, ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+		}
+
 		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"', created "
 				"%u:%02u ago, in dialogue with '"STR_FORMAT"'",
 				STR_FMT(&ml->tag),
@@ -2348,6 +2371,24 @@ void call_destroy(struct call *c) {
 					continue;
 
 				smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
+
+				if (_log_facility_cdr) {
+				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
+				    cdrbufcur += sprintf(cdrbufcur,
+				            "ml%i_midx%u_%s_endpoint_ip=%s, "
+				            "ml%i_midx%u_%s_endpoint_port=%u, "
+				            "ml%i_midx%u_%s_local_relay_port=%u, "
+				            "ml%i_midx%u_%s_relayed_packets=%llu, "
+				            "ml%i_midx%u_%s_relayed_bytes=%llu, "
+				            "ml%i_midx%u_%s_relayed_errors=%llu, ",
+				            cdrlinecnt, md->index, protocol, buf,
+				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
+				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors);
+				}
+
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
 						"%llu p, %llu b, %llu e",
 						md->index,
@@ -2359,7 +2400,13 @@ void call_destroy(struct call *c) {
 						(unsigned long long) ps->stats.errors);
 			}
 		}
+		if (_log_facility_cdr)
+		    ++cdrlinecnt;
 	}
+
+	if (_log_facility_cdr)
+	    /* log it */
+	    cdrlog(cdrbuffer);
 
 	for (l = c->streams; l; l = l->next) {
 		ps = l->data;

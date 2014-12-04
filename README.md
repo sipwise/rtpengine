@@ -176,6 +176,7 @@ option and which are reproduced below:
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
+	  --log-facility-cdr=local0|...    Syslog facility to use for logging CDRs
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 	  --num-threads=INT                Number of worker threads to create
@@ -308,6 +309,10 @@ The options are described in more detail below.
 * --log-facilty=daemon|local0|...|local7|...
 
 	The syslog facilty to use when sending log messages to the syslog daemon. Defaults to `daemon`.
+
+* --log-facilty-cdr=daemon|local0|...|local7|...
+
+	Same as --log-facility with the difference that only CDRs are written to this log facility.
 
 * -E, --log-stderr
 

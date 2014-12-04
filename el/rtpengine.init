@@ -146,6 +146,11 @@ build_opts() {
         then
                 OPTS+=" --num-threads=$NUM_THREADS"
         fi
+
+	if [[ -n "$LOG_FACILITY_CDR" ]]
+        then
+                OPTS+=" --log-facility-cdr=$LOG_FACILITY_CDR"
+        fi
 }
 
 start() {

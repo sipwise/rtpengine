@@ -22,6 +22,7 @@ struct log_info {
 
 extern gboolean _log_stderr;
 extern int _log_facility;
+extern int _log_facility_cdr;
 
 
 typedef struct _fac_code {
@@ -46,13 +47,10 @@ extern unsigned int max_log_line_length;
 void log_init(void);
 void ilog(int prio, const char *fmt, ...)__attribute__ ((format (printf, 2, 3)));
 
-
+void cdrlog(const char* cdrbuffer);
 
 
 #include "obj.h"
-
-
-
 
 INLINE void log_info_clear() {
 	switch (log_info.e) {
