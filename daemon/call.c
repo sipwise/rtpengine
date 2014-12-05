@@ -36,10 +36,6 @@
 
 
 
-#ifndef DELETE_DELAY
-#define DELETE_DELAY 30
-#endif
-
 #ifndef PORT_RANDOM_MIN
 #define PORT_RANDOM_MIN 6
 #define PORT_RANDOM_MAX 20
@@ -1091,6 +1087,9 @@ next:
 	}
 
 	if (good)
+		goto out;
+
+	if (c->ml_deleted)
 		goto out;
 
 	for (i = c->monologues; i; i = i->next) {
@@ -2902,15 +2901,15 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 */
 
 	ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' in %d seconds",
-			STR_FMT(&ml->tag), DELETE_DELAY);
-	ml->deleted = poller_now + DELETE_DELAY;
+			STR_FMT(&ml->tag), m->conf.delete_delay);
+	ml->deleted = poller_now + m->conf.delete_delay;
 	if (!c->ml_deleted || c->ml_deleted > ml->deleted)
 		c->ml_deleted = ml->deleted;
 	goto success_unlock;
 
 del_all:
-	ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", DELETE_DELAY);
-	c->deleted = poller_now + DELETE_DELAY;
+	ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", m->conf.delete_delay);
+	c->deleted = poller_now + m->conf.delete_delay;
 	rwlock_unlock_w(&c->master_lock);
 	goto success;
 

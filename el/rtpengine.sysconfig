@@ -37,6 +37,7 @@ LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
 #LOG_FACILITY=daemon    # Syslog facility to use
 #LOG_FACILITY_CDR=daemon        # Syslog facility to write CDRs
 #NUM_THREADS=5		# How many worker threads to launch
+#DELETE_DELAY=30        # Delay to delete session from memory
 
 # The following items are for use with NGCP
 #REDIS=127.0.0.1:6379

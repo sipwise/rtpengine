@@ -370,6 +370,7 @@ struct callmaster_config {
 	int			port_max;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
+	unsigned int		delete_delay;
 	struct redis		*redis;
 	char			*b2b_url;
 	unsigned char		default_tos;

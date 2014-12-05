@@ -181,6 +181,7 @@ option and which are reproduced below:
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 	  --num-threads=INT                Number of worker threads to create
+	  -d, --delete-delay               Delay for deleting a session from memory.
 	  --sip-source                     Use SIP source address by default
 	  --dtls-passive                   Always prefer DTLS passive role
 
@@ -344,6 +345,10 @@ The options are described in more detail below.
 * --dtls-passive
 
 	Enabled the `DTLS=passive` flag for all calls unconditionally.
+
+* -d, --delete-delay
+
+	Delete the call from memory after the specified delay from memory.
 
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 

@@ -152,6 +152,11 @@ build_opts() {
                 OPTS+=" --num-threads=$NUM_THREADS"
         fi
 
+        if [[ -n "$DELETE_DELAY" ]]
+         then
+                 OPTS+=" --delete-delay=$DELETE_DELAY"
+        fi
+
 	if [[ -n "$LOG_FACILITY_CDR" ]]
         then
                 OPTS+=" --log-facility-cdr=$LOG_FACILITY_CDR"
