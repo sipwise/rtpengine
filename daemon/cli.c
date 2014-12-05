@@ -62,6 +62,8 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    char buf[64];
    int printlen=0;
    char tagtypebuf[16]; memset(&tagtypebuf,0,16);
+   struct timeval tim_result_duration; memset(&tim_result_duration,0,sizeof(struct timeval));
+   struct timeval now; memset(&now,0,sizeof(struct timeval));
 
    if (len<=1) {
        printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
@@ -83,13 +85,18 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues; l; l = l->next) {
-       ml = l->data;
-
-       printlen = snprintf(replybuffer,(outbufend-replybuffer), "--- Tag '"STR_FORMAT"' type: %s, callduration "
-            "%u:%02u , in dialogue with '"STR_FORMAT"'\n",
+	   ml = l->data;
+	   if (!ml->terminated.tv_sec) {
+		   gettimeofday(&now, NULL);
+	   } else {
+		   now = ml->terminated;
+	   }
+	   timeval_subtract(&tim_result_duration,&now,&ml->started);
+	   printlen = snprintf(replybuffer,(outbufend-replybuffer), "--- Tag '"STR_FORMAT"' type: %s, callduration "
+            "%ld.%06ld , in dialogue with '"STR_FORMAT"'\n",
 			STR_FMT(&ml->tag), get_tag_type_text(tagtypebuf,ml->tagtype),
-            (unsigned int) (poller_now - ml->created) / 60,
-            (unsigned int) (poller_now - ml->created) % 60,
+            tim_result_duration.tv_sec,
+            tim_result_duration.tv_usec,
             ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
                 ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
        ADJUSTLEN(printlen,outbufend,replybuffer);

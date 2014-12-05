@@ -461,7 +461,10 @@ struct interface_address *get_interface_from_address(struct local_interface *lif
 
 const struct transport_protocol *transport_protocol(const str *s);
 
-
+void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b);
+void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier);
+void timeval_devide(struct timeval *result, const struct timeval *a, const long devisor);
+void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b);
 
 
 INLINE void *call_malloc(struct call *c, size_t l) {
