@@ -23,6 +23,34 @@ static const char* TRUNCATED = "    ... Output truncated. Increase Output Buffer
                            truncate_output(replybuffer); \
        replybuffer += (printlen>=outbufend-replybuffer)?outbufend-replybuffer:printlen; } while (0);
 
+static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nTotal statistics (does not include current running sessions):\n\n");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Uptime of rtpengine                             :%llu seconds\n", (unsigned long long)time(NULL)-m->totalstats.started);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total managed sessions                          :%llu\n", (unsigned long long)m->totalstats.total_managed_sess);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via TIMEOUT            :%llu\n",(unsigned long long)m->totalstats.total_timeout_sess);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via SILENT_TIMEOUT     :%llu\n",(unsigned long long)m->totalstats.total_silent_timeout_sess);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total regular terminated sessions               :%llu\n",(unsigned long long)m->totalstats.total_regular_term_sess);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total forced terminated sessions                :%llu\n",(unsigned long long)m->totalstats.total_forced_term_sess);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packets                           :%llu\n",(unsigned long long)m->totalstats.total_relayed_packets);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packet errors                     :%llu\n",(unsigned long long)m->totalstats.total_relayed_errors);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of streams with no relayed packets :%llu\n", (unsigned long long)m->totalstats.total_nopacket_relayed_sess);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of 1-way streams                   :%llu\n",(unsigned long long)m->totalstats.total_oneway_stream_sess);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",m->totalstats.total_average_call_dur.tv_sec,m->totalstats.total_average_call_dur.tv_usec);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+}
+
 static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
    str callid;
    struct call* c=0;
@@ -106,6 +134,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
    static const char* LIST_NUMSESSIONS = "numsessions";
    static const char* LIST_SESSIONS = "sessions";
    static const char* LIST_SESSION = "session";
+   static const char* LIST_TOTALS = "totals";
 
    if (len<=1) {
        printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
@@ -137,6 +166,8 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        rwlock_unlock_r(&m->hashlock);
    } else if (len>=strlen(LIST_SESSION) && strncmp(buffer,LIST_SESSION,strlen(LIST_SESSION)) == 0) {
        cli_incoming_list_callid(buffer+strlen(LIST_SESSION), len-strlen(LIST_SESSION), m, replybuffer, outbufend);
+   } else if (len>=strlen(LIST_TOTALS) && strncmp(buffer,LIST_TOTALS,strlen(LIST_TOTALS)) == 0) {
+       cli_incoming_list_totals(buffer+strlen(LIST_TOTALS), len-strlen(LIST_TOTALS), m, replybuffer, outbufend);
    } else {
        printlen = snprintf(replybuffer, outbufend-replybuffer, "%s:%s\n", "Unknown 'list' command", buffer);
        ADJUSTLEN(printlen,outbufend,replybuffer);
@@ -149,6 +180,8 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
    int printlen=0;
    GHashTableIter iter;
    gpointer key, value;
+   struct call_monologue *ml;
+   GSList *i;
 
    if (len<=1) {
        printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
@@ -165,6 +198,14 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
            g_hash_table_iter_next (&iter, &key, &value);
            c = (struct call*)value;
            if (!c) continue;
+           if (!c->ml_deleted) {
+        	   for (i = c->monologues; i; i = i->next) {
+        		   ml = i->data;
+        		   memset(&ml->terminated,0,sizeof(struct timeval));
+        		   gettimeofday(&(ml->terminated), NULL);
+        		   ml->term_reason = FORCED;
+        	   }
+           }
            call_destroy(c);
        }
        ilog(LOG_INFO,"All calls terminated by operator.");
@@ -180,6 +221,15 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
        printlen = snprintf(replybuffer, outbufend-replybuffer, "\nCall Id not found (%s).\n\n",termparam.s);
        ADJUSTLEN(printlen,outbufend,replybuffer);
        return;
+   }
+
+   if (!c->ml_deleted) {
+	   for (i = c->monologues; i; i = i->next) {
+		   ml = i->data;
+		   memset(&ml->terminated,0,sizeof(struct timeval));
+		   gettimeofday(&(ml->terminated), NULL);
+		   ml->term_reason = FORCED;
+	   }
    }
    call_destroy(c);
 

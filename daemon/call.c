@@ -438,7 +438,7 @@ void kernelize(struct packet_stream *stream) {
 	PS_SET(stream, KERNELIZED);
 
 	return;
-	
+
 no_kernel_warn:
 	ilog(LOG_WARNING, "No support for kernel packet forwarding available");
 no_kernel:
@@ -1036,6 +1036,8 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	rwlock_lock_r(&c->master_lock);
 	log_info_call(c);
 
+	cm = c->callmaster;
+
 	if (c->deleted && poller_now >= c->deleted
 			&& c->last_signal <= c->deleted)
 		goto delete;
@@ -1047,8 +1049,6 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 
 	if (!c->streams)
 		goto drop;
-
-	cm = c->callmaster;
 
 	for (it = c->streams; it; it = it->next) {
 		ps = it->data;
@@ -2338,16 +2338,36 @@ static void unkernelize(struct packet_stream *p) {
 
 void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b) {
 	long microseconds=0;
+	microseconds = ((long)a->tv_sec - (long)b->tv_sec) * 1000000 + ((long)a->tv_usec - (long)b->tv_usec);
+	result->tv_sec = microseconds/(long)1000000;
+	result->tv_usec = microseconds%(long)1000000;
+}
 
-	microseconds = (a->tv_sec - b->tv_sec) * 1000000 + ((long)a->tv_usec - (long)b->tv_usec);
-	result->tv_sec = microseconds/1000000;
-	result->tv_usec = microseconds%1000000;
+void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier) {
+	long microseconds=0;
+	microseconds = (((long)a->tv_sec * 1000000) + (long)a->tv_usec) * multiplier;
+	result->tv_sec = microseconds/(long)1000000;
+	result->tv_usec = microseconds%(long)1000000;
+}
+
+void timeval_devide(struct timeval *result, const struct timeval *a, const long devisor) {
+	long microseconds=0;
+	microseconds = (((long)a->tv_sec * 1000000) + (long)a->tv_usec) / devisor;
+	result->tv_sec = microseconds/(long)1000000;
+	result->tv_usec = microseconds%(long)1000000;
+}
+
+void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {
+	long microseconds=0;
+	microseconds = ((long)a->tv_sec + (long)b->tv_sec) * (long)1000000 + ((long)a->tv_usec + (long)b->tv_usec);
+	result->tv_sec = microseconds/(long)1000000;
+	result->tv_usec = microseconds%(long)1000000;
 }
 
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
-	struct packet_stream *ps;
+	struct packet_stream *ps=0, *ps2=0;
 	struct stream_fd *sfd;
 	struct poller *p = m->poller;
 	GSList *l;
@@ -2356,13 +2376,15 @@ void call_destroy(struct call *c) {
 	struct call_media *md;
 	GList *k, *o;
 	char buf[64];
-	struct timeval tim_result;
+	struct timeval tim_result_duration;
 	static const int CDRBUFLENGTH = 4096*2;
 	char reasonbuf[16]; memset(&reasonbuf,0,16);
 	char tagtypebuf[16]; memset(&tagtypebuf,0,16);
-        char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
-        char* cdrbufcur = cdrbuffer;
-        int cdrlinecnt = 0;
+	char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
+	char* cdrbufcur = cdrbuffer;
+	int cdrlinecnt = 0;
+	int found = 0;
+	//char tmpstreampairstatus[2]; memset(&tmpstreampairstatus,0,2);
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
@@ -2386,8 +2408,8 @@ void call_destroy(struct call *c) {
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 		if (_log_facility_cdr) {
-			memset(&tim_result,0,sizeof(struct timeval));
-			timeval_subtract(&tim_result,&ml->terminated,&ml->started);
+			memset(&tim_result_duration,0,sizeof(struct timeval));
+			timeval_subtract(&tim_result_duration,&ml->terminated,&ml->started);
 		    cdrbufcur += sprintf(cdrbufcur, "ml%i_start_time=%ld.%06lu, "
 		            "ml%i_end_time=%ld.%06ld, "
 		            "ml%i_duration=%ld.%06ld, "
@@ -2397,7 +2419,7 @@ void call_destroy(struct call *c) {
 		            "ml%i_remote_tag=%s, ",
 		            cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
 		            cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
-		            cdrlinecnt, tim_result.tv_sec, tim_result.tv_usec,
+		            cdrlinecnt, tim_result_duration.tv_sec, tim_result_duration.tv_usec,
 		            cdrlinecnt, get_term_reason_text(reasonbuf,ml->term_reason),
 		            cdrlinecnt, ml->tag.s,
 		            cdrlinecnt, get_tag_type_text(tagtypebuf,ml->tagtype),
@@ -2449,11 +2471,75 @@ void call_destroy(struct call *c) {
 						(unsigned long long) ps->stats.packets,
 						(unsigned long long) ps->stats.bytes,
 						(unsigned long long) ps->stats.errors);
+				m->totalstats.total_relayed_packets += (unsigned long long) ps->stats.packets;
+				m->totalstats.total_relayed_errors  += (unsigned long long) ps->stats.errors;
 			}
 		}
 		if (_log_facility_cdr)
 		    ++cdrlinecnt;
 	}
+
+	// --- for statistics getting one way stream or no relay at all
+	m->totalstats.total_nopacket_relayed_sess *= 2;
+	for (l = c->monologues; l; l = l->next) {
+		ml = l->data;
+
+		// --- go through partner ml and search the RTP
+		for (k = ml->medias.head; k; k = k->next) {
+			md = k->data;
+
+			for (o = md->streams.head; o; o = o->next) {
+				ps = o->data;
+				if ((PS_ISSET(ps, RTP) && !PS_ISSET(ps, RTCP))) {
+					// --- only RTP is interesting
+					found = 1;
+					break;
+				}
+			}
+			if (found) { break; }
+		}
+		found = 0;
+
+		// --- go through partner ml and search the RTP
+		for (k = ml->active_dialogue->medias.head; k; k = k->next) {
+			md = k->data;
+
+			for (o = md->streams.head; o; o = o->next) {
+				ps2 = o->data;
+				if ((PS_ISSET(ps2, RTP) && !PS_ISSET(ps2, RTCP))) {
+					// --- only RTP is interesting
+					found = 1;
+					break;
+				}
+			}
+			if (found) { break; }
+		}
+
+		if (ps && ps2 && ps->stats.packets!=0 && ps2->stats.packets==0)
+			m->totalstats.total_oneway_stream_sess++;
+
+		if (ps && ps2 && ps->stats.packets==0 && ps2->stats.packets==0)
+			m->totalstats.total_nopacket_relayed_sess++;
+
+	}
+	m->totalstats.total_nopacket_relayed_sess /= 2;
+
+	m->totalstats.total_managed_sess += 1;
+
+	ml = c->monologues->data;
+	if (ml->term_reason==TIMEOUT) {
+		m->totalstats.total_timeout_sess++;
+	} else if (ml->term_reason==SILENT_TIMEOUT) {
+		m->totalstats.total_silent_timeout_sess++;
+	} else if (ml->term_reason==REGULAR) {
+		m->totalstats.total_regular_term_sess++;
+	} else if (ml->term_reason==FORCED) {
+		m->totalstats.total_forced_term_sess++;
+	}
+
+	timeval_multiply(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess-1);
+	timeval_add(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,&tim_result_duration);
+	timeval_devide(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess);
 
 	if (_log_facility_cdr)
 	    /* log it */

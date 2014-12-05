@@ -192,6 +192,20 @@ struct stats {
 	u_int64_t			errors;
 };
 
+struct totalstats {
+	time_t 				started;
+	u_int64_t			total_managed_sess;
+	u_int64_t			total_timeout_sess;
+	u_int64_t			total_silent_timeout_sess;
+	u_int64_t			total_regular_term_sess;
+	u_int64_t			total_forced_term_sess;
+	u_int64_t			total_relayed_packets;
+	u_int64_t			total_relayed_errors;
+	u_int64_t			total_nopacket_relayed_sess;
+	u_int64_t			total_oneway_stream_sess;
+	struct timeval		total_average_call_dur;
+};
+
 struct udp_fd {
 	int			fd;
 	u_int16_t		localport;
@@ -395,6 +409,7 @@ struct callmaster {
 	struct stats		statsps;	/* per second stats, running timer */
 	mutex_t			statslock;
 	struct stats		stats;		/* copied from statsps once a second */
+	struct totalstats   totalstats;
 
 	struct poller		*poller;
 	pcre			*info_re;

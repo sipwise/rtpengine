@@ -18,6 +18,7 @@ showusage() {
     echo "         numsessions           : prints the number of sessions"
     echo "         sessions              : print one-liner session information"
     echo "         session <callid>      : print detail about one session"
+    echo "         totals                : print total statistics (does not include current sessions)"
     echo ""
     echo "    terminate [ all | <callid> ]"
     echo "         all                   : terminates all current sessions"

@@ -665,6 +665,9 @@ no_kernel:
 	ctx->m->conf = mc;
 	callmaster_config_init(ctx->m);
 
+	ZERO(ctx->m->totalstats);
+	ctx->m->totalstats.started = time(NULL);
+
 	if (!foreground)
 		daemonize();
 	wpidfile();
