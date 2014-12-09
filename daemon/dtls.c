@@ -684,6 +684,8 @@ void dtls_shutdown(struct packet_stream *ps) {
 	if (!ps || !ps->sfd)
 		return;
 
+	__DBG("dtls_shutdown");
+
 	d = &ps->sfd->dtls;
 	if (!d->init)
 		return;

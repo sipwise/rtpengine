@@ -1726,7 +1726,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *ep, u
 	ps->endpoint = *ep;
 	ps->endpoint.port += port_off;
 	/* we reset crypto params whenever the endpoint changes */
-	if (memcmp(&ps->advertised_endpoint, &ps->endpoint, sizeof(ps->endpoint))) {
+	if (PS_ISSET(ps, FILLED) && memcmp(&ps->advertised_endpoint, &ps->endpoint, sizeof(ps->endpoint))) {
 		crypto_reset(&ps->crypto);
 		dtls_shutdown(ps);
 	}
@@ -2016,8 +2016,10 @@ static void __fingerprint_changed(struct call_media *m) {
 	GList *l;
 	struct packet_stream *ps;
 
-	if (m->fingerprint.hash_func)
-		ilog(LOG_INFO, "DTLS fingerprint changed, restarting DTLS");
+	if (!m->fingerprint.hash_func)
+		return;
+
+	ilog(LOG_INFO, "DTLS fingerprint changed, restarting DTLS");
 
 	for (l = m->streams.head; l; l = l->next) {
 		ps = l->data;
