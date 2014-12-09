@@ -423,10 +423,15 @@ static int try_connect(struct dtls_connection *d) {
 }
 
 int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert *cert) {
-	struct dtls_connection *d = &ps->sfd->dtls;
+	struct dtls_connection *d;
 	unsigned long err;
 
+	if (!ps || !ps->sfd)
+		return 0;
+
 	__DBG("dtls_connection_init(%i)", active);
+
+	d = &ps->sfd->dtls;
 
 	if (d->init) {
 		if ((d->active && active) || (!d->active && !active))
@@ -572,12 +577,17 @@ error:
 }
 
 int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
-	struct dtls_connection *d = &ps->sfd->dtls;
+	struct dtls_connection *d;
 	int ret;
 	unsigned char buf[0x10000], ctrl[256];
 	struct msghdr mh;
 	struct iovec iov;
 	struct sockaddr_in6 sin;
+
+	if (!ps || !ps->sfd)
+		return 0;
+
+	d = &ps->sfd->dtls;
 
 	if (s)
 		__DBG("dtls packet input: len %u %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
@@ -601,8 +611,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 
 	ret = try_connect(d);
 	if (ret == -1) {
-		if (ps->sfd)
-			ilog(LOG_ERROR, "DTLS error on local port %hu", ps->sfd->fd.localport);
+		ilog(LOG_ERROR, "DTLS error on local port %hu", ps->sfd->fd.localport);
 		/* fatal error */
 		dtls_connection_cleanup(d);
 		return 0;
@@ -669,9 +678,13 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 
 /* call must be locked */
 void dtls_shutdown(struct packet_stream *ps) {
-	struct dtls_connection *d = &ps->sfd->dtls;
+	struct dtls_connection *d;
 	struct sockaddr_in6 sin;
 
+	if (!ps || !ps->sfd)
+		return;
+
+	d = &ps->sfd->dtls;
 	if (!d->init)
 		return;
 
@@ -685,7 +698,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 		dtls(ps, NULL, &sin);
 	}
 
-	dtls_connection_cleanup(&ps->sfd->dtls);
+	dtls_connection_cleanup(d);
 
 	if (ps->dtls_cert) {
 		X509_free(ps->dtls_cert);
