@@ -43,6 +43,11 @@ set -e
 
 OPTIONS=""
 
+if [ ! -z "$INTERFACES" ]; then
+	for interface in $INTERFACES; do
+		OPTIONS="$OPTIONS --interface=$interface"
+	done
+fi
 [ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --interface=$ADDRESS"
 [ -z "$ADV_ADDRESS" ] || OPTIONS="$OPTIONS!$ADV_ADDRESS"
 [ -z "$ADDRESS_IPV6" ] || OPTIONS="$OPTIONS --interface=$ADDRESS_IPV6"
