@@ -129,7 +129,7 @@ There's 3 parts to rtpengine, which can be found in the respective subdirectorie
 	Required for in-kernel packet forwarding.
 
 	With the `iptables` development headers installed, issuing `make` will compile the plugin for
-	`iptables` and `ip6tables`. The file will be called `libxt_MEDIAPROXY.so` and should be copied
+	`iptables` and `ip6tables`. The file will be called `libxt_RTPENGINE.so` and should be copied
 	into the directory `/lib/xtables/`.
 
 * `kernel-module`
@@ -142,11 +142,11 @@ There's 3 parts to rtpengine, which can be found in the respective subdirectorie
 	must be present in `/lib/modules/3.9-1-amd64/build/`. The last component of this path (`build`)
 	is usually a symlink somewhere into `/usr/src/`, which is fine.
 
-	Successful compilation of the module will produce the file `xt_MEDIAPROXY.ko`. The module can be inserted
-	into the running kernel manually through `insmod xt_MEDIAPROXY.ko` (which will result in an error if
+	Successful compilation of the module will produce the file `xt_RTPENGINE.ko`. The module can be inserted
+	into the running kernel manually through `insmod xt_RTPENGINE.ko` (which will result in an error if
 	depending modules aren't loaded, for example the `x_tables` module), but it's recommended to copy the
 	module into `/lib/modules/$VERSION/updates/`, followed by running `depmod -a`. After this, the module can
-	be loaded by issuing `modprobe xt_MEDIAPROXY`.
+	be loaded by issuing `modprobe xt_RTPENGINE`.
 
 Usage
 =====
@@ -366,7 +366,7 @@ eliminated, CPU usage greatly reduced and the number of concurrent calls possibl
 
 In-kernel packet forwarding is implemented as an *iptables* module
 (or more precisely, an *x\_tables* module). As such, it comes in two parts, both of
-which are required for proper operation. One part is the actual kernel module called `xt_MEDIAPROXY`. The
+which are required for proper operation. One part is the actual kernel module called `xt_RTPENGINE`. The
 second part is a plugin to the `iptables` and `ip6tables` command-line utilities to make it possible to
 actually add the required rule to the tables.
 
@@ -374,9 +374,9 @@ actually add the required rule to the tables.
 
 In short, the prerequisites for in-kernel packet forwarding are:
 
-1. The `xt_MEDIAPROXY` kernel module must be loaded.
+1. The `xt_RTPENGINE` kernel module must be loaded.
 2. An `iptables` and/or `ip6tables` rule must be present in the `INPUT` chain to send packets
-   to the `MEDIAPROXY` target. This rule should be limited to UDP packets, but otherwise there
+   to the `RTPENGINE` target. This rule should be limited to UDP packets, but otherwise there
    are no restrictions.
 3. The `rtpengine` daemon must be running.
 4. All of the above must be set up with the same forwarding table ID (see below).
@@ -388,7 +388,7 @@ The sequence of events for a newly established media stream is then:
    based on the info received
    from the SIP proxy. Only userspace forwarding is set up, nothing is pushed to the kernel module yet.
 3. An RTP packet is received on the local port.
-4. It traverses the *iptables* chains and gets passed to the *xt\_MEDIAPROXY* module.
+4. It traverses the *iptables* chains and gets passed to the *xt\_RTPENGINE* module.
 5. The module doesn't recognize it as belonging to an established stream and thus ignores it.
 6. The packet continues normal processing and eventually ends up in the daemon's receive queue.
 7. The daemon reads it, processes it and forwards it. It also updates some internal data.
@@ -414,8 +414,8 @@ Each forwarding table can be thought of a separate proxy instance. Each running 
 running instance of the daemon at any given time. In the most common setup, there will be only a single
 instance of the daemon running and there will be only a single forwarding table in use, with ID zero.
 
-The kernel module can be loaded with the command `modprobe xt_MEDIAPROXY`. With the module loaded, a new
-directory will appear in `/proc/`, namely `/proc/mediaproxy/`. After loading, the directory will contain
+The kernel module can be loaded with the command `modprobe xt_RTPENGINE`. With the module loaded, a new
+directory will appear in `/proc/`, namely `/proc/rtpengine/`. After loading, the directory will contain
 only two pseudo-files, `control` and `list`. The `control` file is write-only and is used to create and
 delete forwarding tables, while the `list` file is read-only and will produce a list of currently
 active forwarding tables. With no tables active, it will produce an empty output.
@@ -423,16 +423,16 @@ active forwarding tables. With no tables active, it will produce an empty output
 The `control` pseudo-file supports two commands, `add` and `del`, each followed by the forwarding table
 ID number. To manually create a forwarding table with ID 42, the following command can be used:
 
-	echo 'add 42' > /proc/mediaproxy/control
+	echo 'add 42' > /proc/rtpengine/control
 
 After this, the `list` pseudo-file will produce the single line `42` as output. This will also create a
-directory called `42` in `/proc/mediaproxy/`, which contains additional pseudo-files to control this
+directory called `42` in `/proc/rtpengine/`, which contains additional pseudo-files to control this
 particular forwarding table.
 
 To delete this forwarding table, the command `del 42` can be issued like above. This will only work
 if no *rtpengine* daemon is currently running and controlling this table.
 
-Each subdirectory `/proc/mediaproxy/$ID/` corresponding to each fowarding table contains the pseudo-files
+Each subdirectory `/proc/rtpengine/$ID/` corresponding to each fowarding table contains the pseudo-files
 `blist`, `control`, `list` and `status`. The `control` file is write-only while the others are read-only.
 The `control` file will be kept open by the *rtpengine* daemon while it's running to issue updates
 to the forwarding rules during runtime. The daemon also reads the `blist` file on a regular basis, which
@@ -445,7 +445,7 @@ Manual creation of forwarding tables is normally not required as the daemon will
 deletion of tables may be required after shutdown of the daemon or before a restart to ensure that the
 daemon can create the table it wants to use.
 
-The kernel module can be unloaded through `rmmod xt_MEDIAPROXY`, however this only works if no forwarding
+The kernel module can be unloaded through `rmmod xt_RTPENGINE`, however this only works if no forwarding
 table currently exists and no *iptables* rule currently exists.
 
 ### The *iptables* module ###
@@ -454,7 +454,7 @@ In order for the kernel module to be able to actually forward packets, an *iptab
 to send packets into the module. Each such rule is associated with one forwarding table. In the simplest case,
 for forwarding table 42, this can be done through:
 
-	iptables -I INPUT -p udp -j MEDIAPROXY --id 42
+	iptables -I INPUT -p udp -j RTPENGINE --id 42
 
 If IPv6 traffic is expected, the same should be done using `ip6tables`.
 
@@ -470,13 +470,13 @@ Summary
 A typical start-up sequence including in-kernel forwarding might look like this:
 
 	# this only needs to be one once after system (re-) boot
-	modprobe xt_MEDIAPROXY
-	iptables -I INPUT -p udp -j MEDIAPROXY --id 0
-	ip6tables -I INPUT -p udp -j MEDIAPROXY --id 0
+	modprobe xt_RTPENGINE
+	iptables -I INPUT -p udp -j RTPENGINE --id 0
+	ip6tables -I INPUT -p udp -j RTPENGINE --id 0
 
 	# ensure that the table we want to use doesn't exist - usually needed after a daemon
 	# restart, otherwise will error
-	echo 'del 0' > /proc/mediaproxy/control
+	echo 'del 0' > /proc/rtpengine/control
 
 	# start daemon
 	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
@@ -494,12 +494,12 @@ multiple different kernel forwarding tables.
 For example, if one local network interface has address 10.64.73.31 and another has address 192.168.65.73,
 then the start-up sequence might look like this:
 
-	modprobe xt_MEDIAPROXY
-	iptables -I INPUT -p udp -d 10.64.73.31 -j MEDIAPROXY --id 0
-	iptables -I INPUT -p udp -d 192.168.65.73 -j MEDIAPROXY --id 1
+	modprobe xt_RTPENGINE
+	iptables -I INPUT -p udp -d 10.64.73.31 -j RTPENGINE --id 0
+	iptables -I INPUT -p udp -d 192.168.65.73 -j RTPENGINE --id 1
 
-	echo 'del 0' > /proc/mediaproxy/control
-	echo 'del 1' > /proc/mediaproxy/control
+	echo 'del 0' > /proc/rtpengine/control
+	echo 'del 1' > /proc/rtpengine/control
 
 	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 \
 	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine-10.pid --no-fallback

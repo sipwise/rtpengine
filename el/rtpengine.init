@@ -27,7 +27,7 @@ else
 	exit -1
 fi
 
-mediaproxy_ng=/usr/sbin/rtpengine
+rtpengine=/usr/sbin/rtpengine
 prog=rtpengine
 pidfile=${PIDFILE-/var/run/rtpengine.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine}
@@ -153,13 +153,14 @@ start() {
 	if [[ $MODULE == 1 ]]
 	then
 		echo "Loading module for in-kernel packet forwarding"
-		modprobe xt_MEDIAPROXY
-		iptables -N mediaproxy
-		iptables -t filter -A INPUT -j mediaproxy
-		iptables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
-		if [[ IP6 == 1 ]]
+		rmmod xt_MEDIAPROXY 2> /dev/null
+		modprobe xt_RTPENGINE
+		iptables -N rtpengine
+		iptables -t filter -A INPUT -j rtpengine
+		iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
+		if [[ $IP6 == 1 ]]
 		then
-    			ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
+    			ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
   		fi
 
 		cat <<EOF > "$cachefile"
@@ -168,7 +169,7 @@ CUR_IP6=$IP6
 EOF
 	fi
         echo -n $"Starting $prog: "
-        daemon --pidfile=${pidfile} $mediaproxy_ng $OPTS
+        daemon --pidfile=${pidfile} $rtpengine $OPTS
         RETVAL=$?
         echo
         [ $RETVAL = 0 ] && touch ${lockfile}
@@ -177,22 +178,22 @@ EOF
 
 stop() {
 	echo -n $"Stopping $prog: "
-	killproc -p ${pidfile} $mediaproxy_ng
+	killproc -p ${pidfile} $rtpengine
 	RETVAL=$?
 	echo
 	if [ -f "$cachefile" ]
 	then
 		. "$cachefile"
 		echo "Unloading module for in-kernel packet forwarding"
-		echo "del $TABLE" > /proc/mediaproxy/control
-		iptables -D mediaproxy -p udp -j MEDIAPROXY --id $CUR_TABLE
-		if [[ CUR_IP6 == 1 ]]
+		echo "del $TABLE" > /proc/rtpengine/control
+		iptables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
+		if [[ $CUR_IP6 == 1 ]]
 		then
-    			ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $CUR_TABLE
+    			ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
   		fi
-		iptables -t filter -D INPUT -j mediaproxy
-		iptables -X mediaproxy
-#		rmmod xt_MEDIAPROXY
+		iptables -t filter -D INPUT -j rtpengine
+		iptables -X rtpengine
+#		rmmod xt_RTPENGINE
 		rm -f $cachefile	
 	fi
  
@@ -208,7 +209,7 @@ case "$1" in
 	stop
 	;;
   status)
-        status -p ${pidfile} $mediaproxy_ng
+        status -p ${pidfile} $rtpengine
 	RETVAL=$?
 	;;
   restart)
@@ -216,7 +217,7 @@ case "$1" in
 	start
 	;;
   condrestart|try-restart)
-	if status -p ${pidfile} $mediaproxy_ng >&/dev/null; then
+	if status -p ${pidfile} $rtpengine >&/dev/null; then
 		stop
 		start
 	fi

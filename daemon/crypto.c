@@ -5,7 +5,7 @@
 #include <openssl/hmac.h>
 #include <glib.h>
 
-#include "xt_MEDIAPROXY.h"
+#include "xt_RTPENGINE.h"
 
 #include "str.h"
 #include "aux.h"
@@ -43,8 +43,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.kernel_cipher		= MPC_AES_CM,
-		.kernel_hmac		= MPH_HMAC_SHA1,
+		.kernel_cipher		= REC_AES_CM,
+		.kernel_hmac		= REH_HMAC_SHA1,
 		.srtp_auth_tag		= 10,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,
@@ -67,8 +67,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.kernel_cipher		= MPC_AES_CM,
-		.kernel_hmac		= MPH_HMAC_SHA1,
+		.kernel_cipher		= REC_AES_CM,
+		.kernel_hmac		= REH_HMAC_SHA1,
 		.srtp_auth_tag		= 4,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,
@@ -91,8 +91,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.kernel_cipher		= MPC_AES_F8,
-		.kernel_hmac		= MPH_HMAC_SHA1,
+		.kernel_cipher		= REC_AES_F8,
+		.kernel_hmac		= REH_HMAC_SHA1,
 		.srtp_auth_tag		= 10,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,
@@ -115,8 +115,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 14,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.kernel_cipher		= MPC_AES_F8,
-		.kernel_hmac		= MPH_HMAC_SHA1,
+		.kernel_cipher		= REC_AES_F8,
+		.kernel_hmac		= REH_HMAC_SHA1,
 		.srtp_auth_tag		= 4,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,
@@ -139,8 +139,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 0,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.kernel_cipher		= MPC_NULL,
-		.kernel_hmac		= MPH_HMAC_SHA1,
+		.kernel_cipher		= REC_NULL,
+		.kernel_hmac		= REH_HMAC_SHA1,
 		.srtp_auth_tag		= 10,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,
@@ -162,8 +162,8 @@ const struct crypto_suite crypto_suites[] = {
 		.session_salt_len	= 0,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		.kernel_cipher		= MPC_NULL,
-		.kernel_hmac		= MPH_HMAC_SHA1,
+		.kernel_cipher		= REC_NULL,
+		.kernel_hmac		= REH_HMAC_SHA1,
 		.srtp_auth_tag		= 4,
 		.srtcp_auth_tag		= 10,
 		.srtp_auth_key_len	= 20,

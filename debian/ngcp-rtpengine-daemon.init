@@ -98,20 +98,31 @@ case "$1" in
 	echo -n "Starting $DESC: $NAME"
 	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		set +e
-		modprobe xt_MEDIAPROXY
+		modprobe xt_RTPENGINE
 		if [ -e /proc/mediaproxy/control ]; then
 			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 		fi
-		iptables -N mediaproxy 2> /dev/null
+		if [ -e /proc/rtpengine/control ]; then
+			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
+		fi
 		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -I INPUT -j mediaproxy
-		iptables -D mediaproxy -p udp -j MEDIAPROXY --id "$TABLE" 2>/dev/null
-		iptables -I mediaproxy -p udp -j MEDIAPROXY --id "$TABLE"
-		ip6tables -N mediaproxy 2> /dev/null
+		iptables -F mediaproxy 2> /dev/null
+		iptables -X mediaproxy 2> /dev/null
 		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -I INPUT -j mediaproxy
-		ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id "$TABLE" 2>/dev/null
-		ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id "$TABLE"
+		ip6tables -F mediaproxy 2> /dev/null
+		ip6tables -X mediaproxy 2> /dev/null
+		rmmod xt_MEDIAPROXY 2>/dev/null
+
+		iptables -N rtpengine 2> /dev/null
+		iptables -D INPUT -j rtpengine 2> /dev/null
+		iptables -I INPUT -j rtpengine
+		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		ip6tables -N rtpengine 2> /dev/null
+		ip6tables -D INPUT -j rtpengine 2> /dev/null
+		ip6tables -I INPUT -j rtpengine
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
 		set -e
 	fi
 	start-stop-daemon --start --quiet --pidfile $PIDFILE \
@@ -130,11 +141,22 @@ case "$1" in
 		if [ -e /proc/mediaproxy/control ]; then
 			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 		fi
+		if [ -e /proc/rtpengine/control ]; then
+			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
+		fi
 		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -D mediaproxy -p udp -j MEDIAPROXY --id "$TABLE" 2>/dev/null
+		iptables -F mediaproxy 2> /dev/null
+		iptables -X mediaproxy 2> /dev/null
 		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id "$TABLE" 2>/dev/null
+		ip6tables -F mediaproxy 2> /dev/null
+		ip6tables -X mediaproxy 2> /dev/null
+
+		iptables -D INPUT -j mediaproxy 2> /dev/null
+		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		ip6tables -D INPUT -j mediaproxy 2> /dev/null
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
 		rmmod xt_MEDIAPROXY 2>/dev/null
+		rmmod xt_RTPENGINE 2>/dev/null
 		set -e
 	fi
 	rm -f $PIDFILE
@@ -168,18 +190,30 @@ case "$1" in
 		if [ -e /proc/mediaproxy/control ]; then
 			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 		fi
+		if [ -e /proc/rtpengine/control ]; then
+			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
+		fi
 		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -D mediaproxy -p udp -j MEDIAPROXY --id "$TABLE" 2>/dev/null
+		iptables -F mediaproxy 2> /dev/null
+		iptables -X mediaproxy 2> /dev/null
 		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id "$TABLE" 2>/dev/null
+		ip6tables -F mediaproxy 2> /dev/null
+		ip6tables -X mediaproxy 2> /dev/null
 		rmmod xt_MEDIAPROXY 2>/dev/null
-		modprobe xt_MEDIAPROXY
-		iptables -N mediaproxy 2> /dev/null
-		iptables -I INPUT -j mediaproxy
-		iptables -I mediaproxy -p udp -j MEDIAPROXY --id "$TABLE"
-		ip6tables -N mediaproxy 2> /dev/null
-		ip6tables -I INPUT -j mediaproxy
-		ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id "$TABLE"
+
+		iptables -D INPUT -j rtpengine 2> /dev/null
+		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		ip6tables -D INPUT -j rtpengine 2> /dev/null
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		rmmod xt_RTPENGINE 2>/dev/null
+
+		modprobe xt_RTPENGINE
+		iptables -N rtpengine 2> /dev/null
+		iptables -I INPUT -j rtpengine
+		iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		ip6tables -N rtpengine 2> /dev/null
+		ip6tables -I INPUT -j rtpengine
+		ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
 		set -e
 	fi
 	start-stop-daemon --start --quiet --pidfile \

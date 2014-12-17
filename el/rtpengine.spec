@@ -52,9 +52,9 @@ Kernel module for rtpengine in-kernel packet forwarding
 
 %build
 cd daemon
-MEDIAPROXY_VERSION="\"%{version}-%{release}\"" make
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ../iptables-extension
-MEDIAPROXY_VERSION="\"%{version}-%{release}\"" make
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ..
 
 
@@ -70,16 +70,16 @@ install -D -p -m644 el/rtpengine.sysconfig \
 mkdir -p %{buildroot}/%{_sharedstatedir}/rtpengine
 
 # Install the iptables plugin
-install -D -p -m755 iptables-extension/libxt_MEDIAPROXY.so \
-	%{buildroot}/%{_lib}/xtables/libxt_MEDIAPROXY.so
+install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
+	%{buildroot}/%{_lib}/xtables/libxt_RTPENGINE.so
 
 ## DKMS module source install
 install -D -p -m644 kernel-module/Makefile \
 	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
-install -D -p -m644 kernel-module/xt_MEDIAPROXY.c \
-	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.c
-install -D -p -m644 kernel-module/xt_MEDIAPROXY.h \
-	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_MEDIAPROXY.h
+install -D -p -m644 kernel-module/xt_RTPENGINE.c \
+	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
+install -D -p -m644 kernel-module/xt_RTPENGINE.h \
+	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
 sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
 	%{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
@@ -136,7 +136,7 @@ true
 
 
 %files kernel
-/%{_lib}/xtables/libxt_MEDIAPROXY.so
+/%{_lib}/xtables/libxt_RTPENGINE.so
 
 
 %files dkms

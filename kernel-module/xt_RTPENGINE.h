@@ -1,17 +1,17 @@
 #ifndef XT_RTPPROXY_H
 #define XT_RTPPROXY_H
 
-struct xt_mediaproxy_info {
+struct xt_rtpengine_info {
 	u_int32_t			id;
 };
 
-struct mediaproxy_stats {
+struct rtpengine_stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
 	u_int64_t			errors;
 };
 
-struct mp_address {
+struct re_address {
 	int				family;
 	union {
 		unsigned char		ipv6[16];
@@ -24,27 +24,27 @@ struct mp_address {
 	u_int16_t			port;
 };
 
-enum mediaproxy_cipher {
-	MPC_INVALID	= 0,
-	MPC_NULL,
-	MPC_AES_CM,
-	MPC_AES_F8,
+enum rtpengine_cipher {
+	REC_INVALID	= 0,
+	REC_NULL,
+	REC_AES_CM,
+	REC_AES_F8,
 
-	__MPC_LAST
+	__REC_LAST
 };
 
-enum mediaproxy_hmac {
-	MPH_INVALID	= 0,
-	MPH_NULL,
-	MPH_HMAC_SHA1,
+enum rtpengine_hmac {
+	REH_INVALID	= 0,
+	REH_NULL,
+	REH_HMAC_SHA1,
 
-	__MPH_LAST
+	__REH_LAST
 };
 
 
-struct mediaproxy_srtp {
-	enum mediaproxy_cipher		cipher;
-	enum mediaproxy_hmac		hmac;
+struct rtpengine_srtp {
+	enum rtpengine_cipher		cipher;
+	enum rtpengine_hmac		hmac;
 	unsigned char			master_key[16];
 	unsigned char			master_salt[14];
 	unsigned char			mki[256]; /* XXX uses too much memory? */
@@ -54,24 +54,24 @@ struct mediaproxy_srtp {
 };
 
 
-enum mediaproxy_src_mismatch {
+enum rtpengine_src_mismatch {
 	MSM_IGNORE	= 0,	/* process packet as normal */
 	MSM_DROP,		/* drop packet */
 	MSM_PROPAGATE,		/* propagate to userspace daemon */
 };
 
-struct mediaproxy_target_info {
+struct rtpengine_target_info {
 	u_int16_t			target_port;
-	struct mp_address		expected_src; /* for incoming packets */
-	enum mediaproxy_src_mismatch	src_mismatch;
+	struct re_address		expected_src; /* for incoming packets */
+	enum rtpengine_src_mismatch	src_mismatch;
 
-	struct mp_address		src_addr; /* for outgoing packets */
-	struct mp_address		dst_addr;
+	struct re_address		src_addr; /* for outgoing packets */
+	struct re_address		dst_addr;
 
-	struct mp_address		mirror_addr;
+	struct re_address		mirror_addr;
 
-	struct mediaproxy_srtp		decrypt;
-	struct mediaproxy_srtp		encrypt;
+	struct rtpengine_srtp		decrypt;
+	struct rtpengine_srtp		encrypt;
 
 	unsigned char			tos;
 	int				rtcp_mux:1,
@@ -80,7 +80,7 @@ struct mediaproxy_target_info {
 					rtp_only:1;
 };
 
-struct mediaproxy_message {
+struct rtpengine_message {
 	enum {
 		MMG_NOOP = 1,
 		MMG_ADD,
@@ -88,12 +88,12 @@ struct mediaproxy_message {
 		MMG_UPDATE,
 	}				cmd;
 
-	struct mediaproxy_target_info	target;
+	struct rtpengine_target_info	target;
 };
 
-struct mediaproxy_list_entry {
-	struct mediaproxy_target_info	target;
-	struct mediaproxy_stats		stats;
+struct rtpengine_list_entry {
+	struct rtpengine_target_info	target;
+	struct rtpengine_stats		stats;
 };
 
 

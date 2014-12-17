@@ -23,15 +23,15 @@
 #include <linux/netfilter/x_tables.h>
 #endif
 
-#include "../kernel-module/xt_MEDIAPROXY.h"
+#include "../kernel-module/xt_RTPENGINE.h"
 
 
 static void help(void) {
 	printf(
-		"MEDIAPROXY (version %s) target options:\n"
+		"RTPENGINE (version %s) target options:\n"
 		" --id <id>\n"
 		"          Unique ID for this instance\n",
-		MEDIAPROXY_VERSION
+		RTPENGINE_VERSION
 	);
 }
 
@@ -58,7 +58,7 @@ static int parse(int c,
 			struct xt_entry_target **target) {
 #endif
 
-	struct xt_mediaproxy_info *info = (void *) (*target)->data;
+	struct xt_rtpengine_info *info = (void *) (*target)->data;
 
 	if (c == '1') {
 		info->id = atoi(optarg);
@@ -88,9 +88,9 @@ static void print(const struct ip6t_ip6 *ip, const struct xt_entry_target *targe
 #else
 static void print(const void *ip, const struct xt_entry_target *target, int numeric) {
 #endif
-	struct xt_mediaproxy_info *info = (void *) target->data;
+	struct xt_rtpengine_info *info = (void *) target->data;
 
-	printf(" MEDIAPROXY id:%u", info->id);
+	printf(" RTPENGINE id:%u", info->id);
 }
 
 #if defined(__ipt)
@@ -100,7 +100,7 @@ static void save(const struct ip6t_ip6 *ip, const struct xt_entry_target *target
 #else
 static void save(const void *ip, const struct xt_entry_target *target) {
 #endif
-	struct xt_mediaproxy_info *info = (void *) target->data;
+	struct xt_rtpengine_info *info = (void *) target->data;
 
 	printf(" --id %u", info->id);
 }
@@ -112,11 +112,11 @@ static struct option opts[] = {
 
 
 #if defined(__ipt)
-static struct iptables_target mediaproxy4 = {
-	.name			= "MEDIAPROXY",
+static struct iptables_target rtpengine4 = {
+	.name			= "RTPENGINE",
 	.version		= "1.3.6",
-	.size			= IPT_ALIGN(sizeof(struct xt_mediaproxy_info)),
-	.userspacesize		= IPT_ALIGN(sizeof(struct xt_mediaproxy_info)),
+	.size			= IPT_ALIGN(sizeof(struct xt_rtpengine_info)),
+	.userspacesize		= IPT_ALIGN(sizeof(struct xt_rtpengine_info)),
 	.help			= help,
 	.parse			= parse,
 	.final_check		= final_check,
@@ -125,11 +125,11 @@ static struct iptables_target mediaproxy4 = {
 	.extra_opts		= opts,
 };
 #elif defined(__ip6t)
-static struct ip6tables_target mediaproxy6 = {
-	.name			= "MEDIAPROXY",
+static struct ip6tables_target rtpengine6 = {
+	.name			= "RTPENGINE",
 	.version		= "1.3.6",
-	.size			= IP6T_ALIGN(sizeof(struct xt_mediaproxy_info)),
-	.userspacesize		= IP6T_ALIGN(sizeof(struct xt_mediaproxy_info)),
+	.size			= IP6T_ALIGN(sizeof(struct xt_rtpengine_info)),
+	.userspacesize		= IP6T_ALIGN(sizeof(struct xt_rtpengine_info)),
 	.help			= help,
 	.parse			= parse,
 	.final_check		= final_check,
@@ -138,12 +138,12 @@ static struct ip6tables_target mediaproxy6 = {
 	.extra_opts		= opts,
 };
 #else
-static struct xtables_target mediaproxy4 = {
-	.name			= "MEDIAPROXY",
+static struct xtables_target rtpengine4 = {
+	.name			= "RTPENGINE",
 	.family			= NFPROTO_IPV4,
 	.version		= XTABLES_VERSION,
-	.size			= XT_ALIGN(sizeof(struct xt_mediaproxy_info)),
-	.userspacesize		= XT_ALIGN(sizeof(struct xt_mediaproxy_info)),
+	.size			= XT_ALIGN(sizeof(struct xt_rtpengine_info)),
+	.userspacesize		= XT_ALIGN(sizeof(struct xt_rtpengine_info)),
 	.help			= help,
 	.parse			= parse,
 	.final_check		= final_check,
@@ -152,12 +152,12 @@ static struct xtables_target mediaproxy4 = {
 	.extra_opts		= opts,
 };
 
-static struct xtables_target mediaproxy6 = {
-	.name			= "MEDIAPROXY",
+static struct xtables_target rtpengine6 = {
+	.name			= "RTPENGINE",
 	.family			= NFPROTO_IPV6,
 	.version		= XTABLES_VERSION,
-	.size			= XT_ALIGN(sizeof(struct xt_mediaproxy_info)),
-	.userspacesize		= XT_ALIGN(sizeof(struct xt_mediaproxy_info)),
+	.size			= XT_ALIGN(sizeof(struct xt_rtpengine_info)),
+	.userspacesize		= XT_ALIGN(sizeof(struct xt_rtpengine_info)),
 	.help			= help,
 	.parse			= parse,
 	.final_check		= final_check,
@@ -169,11 +169,11 @@ static struct xtables_target mediaproxy6 = {
 
 void _init(void) {
 #if defined(__ipt)
-	register_target(&mediaproxy4);
+	register_target(&rtpengine4);
 #elif defined(__ip6t)
-	register_target6(&mediaproxy6);
+	register_target6(&rtpengine6);
 #else
-	xtables_register_target(&mediaproxy4);
-	xtables_register_target(&mediaproxy6);
+	xtables_register_target(&rtpengine4);
+	xtables_register_target(&rtpengine6);
 #endif
 }

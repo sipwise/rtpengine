@@ -3,7 +3,7 @@
 set -e
 
 default=/etc/default/ngcp-rtpengine-daemon
-modname=xt_MEDIAPROXY
+modname=xt_RTPENGINE
 
 if [ -x /usr/sbin/ngcp-virt-identify ]; then
 	if /usr/sbin/ngcp-virt-identify --type container; then

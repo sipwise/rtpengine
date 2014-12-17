@@ -27,21 +27,21 @@ done
 
 set -e
 
-cp -v xt_MEDIAPROXY.h "$KERN"/include/linux/netfilter/
-cp -v xt_MEDIAPROXY.c "$KERN"/net/netfilter/
+cp -v xt_RTPENGINE.h "$KERN"/include/linux/netfilter/
+cp -v xt_RTPENGINE.c "$KERN"/net/netfilter/
 
-if ! grep -q CONFIG_NETFILTER_XT_TARGET_MEDIAPROXY "$KERN"/net/netfilter/Makefile; then
+if ! grep -q CONFIG_NETFILTER_XT_TARGET_RTPENGINE "$KERN"/net/netfilter/Makefile; then
 	(
 		echo
-		echo "EXTRA_CFLAGS += -DMEDIAPROXY_VERSION=\"\\\"$4\\\"\""
-		echo 'obj-$(CONFIG_NETFILTER_XT_TARGET_MEDIAPROXY) += xt_MEDIAPROXY.o'
+		echo "EXTRA_CFLAGS += -DRTPENGINE_VERSION=\"\\\"$4\\\"\""
+		echo 'obj-$(CONFIG_NETFILTER_XT_TARGET_RTPENGINE) += xt_RTPENGINE.o'
 	) >> "$KERN"/net/netfilter/Makefile
 fi
 
 if ! grep -q Kconfig\\.rtpengine "$KERN"/net/netfilter/Kconfig; then
 	cat >> "$KERN"/net/netfilter/Kconfig.rtpengine << \__EOF
-config NETFILTER_XT_TARGET_MEDIAPROXY
-	tristate "Sipwise NGCP MEDIAPROXY target support"
+config NETFILTER_XT_TARGET_RTPENGINE
+	tristate "Sipwise NGCP RTPENGINE target support"
 	depends on IP_NF_FILTER
 	help
 	  Sipwise NGCP rtpengine kernel support

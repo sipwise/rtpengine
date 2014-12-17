@@ -120,14 +120,14 @@ print("A tells B: send RTP to $lp1\n");
 brk();
 
 my ($mpip1, $mpport1) = sim_rq($callid1, $local_ip, $lp1, $fromtag1);
-print("mediaproxy: tell B to send to $mpport1 instead of $lp1\n");
+print("rtpengine: tell B to send to $mpport1 instead of $lp1\n");
 brk();
 
 print("B tells A: send RTP to $lp2\n");
 brk();
 
 my ($mpip2, $mpport2) = sim_lk($callid1, $local_ip, $lp2, $fromtag1, $totag1);
-print("mediaproxy: tell A to send to $mpport2 instead of $lp2\n");
+print("rtpengine: tell A to send to $mpport2 instead of $lp2\n");
 brk();
 
 send_rcv4($client2, $mpip1, $mpport1, $client1, $mpip2, $mpport2);
@@ -146,14 +146,14 @@ print("B tells A: send RTP to 0.0.0.0\n");
 brk();
 
 my ($mpip3, $mpport3) = sim_rq($callid1, '0.0.0.0', $lp2, $totag1, $fromtag1);
-print("mediaproxy: tell A to send to $mpip3:$mpport3 instead of 0.0.0.0:$lp2\n");
+print("rtpengine: tell A to send to $mpip3:$mpport3 instead of 0.0.0.0:$lp2\n");
 brk();
 
 print("A tells B: send RTP to 0.0.0.0\n");
 brk();
 
 my ($mpip4, $mpport4) = sim_lk($callid1, '0.0.0.0', $lp1, $totag1, $fromtag1);
-print("mediaproxy: tell B to send to $mpip4:$mpport4 instead of 0.0.0.0:$lp1\n");
+print("rtpengine: tell B to send to $mpip4:$mpport4 instead of 0.0.0.0:$lp1\n");
 brk();
 
 
@@ -168,14 +168,14 @@ print("B tells C: send RTP to $lp3\n");
 brk();
 
 my ($mpip5, $mpport5) = sim_rq($callid2, $local_ip, $lp3, $fromtag2);
-print("mediaproxy: tell C to send to $mpport5 instead of $lp3\n");
+print("rtpengine: tell C to send to $mpport5 instead of $lp3\n");
 brk();
 
 print("C tells B: send RTP to $lp4\n");
 brk();
 
 my ($mpip6, $mpport6) = sim_lk($callid2, $local_ip, $lp4, $fromtag2, $totag2);
-print("mediaproxy: tell B to send to $mpport6 instead of $lp4\n");
+print("rtpengine: tell B to send to $mpport6 instead of $lp4\n");
 brk();
 
 send_rcv4($client4, $mpip5, $mpport5, $client3, $mpip6, $mpport6);
@@ -194,14 +194,14 @@ print("B tells A: send RTP to $lp2\n");
 brk();
 
 my ($mpip7, $mpport7) = sim_rq($callid1, $local_ip, $lp2, $totag1, $fromtag1);
-print("mediaproxy: tell A to send to $mpport7 instead of $lp2\n");
+print("rtpengine: tell A to send to $mpport7 instead of $lp2\n");
 brk();
 
 print("A tells B: send RTP to $lp1\n");
 brk();
 
 my ($mpip8, $mpport8) = sim_lk($callid1, $local_ip, $lp1, $totag1, $fromtag1);
-print("mediaproxy: tell B to send to $mpport8 instead of $lp1\n");
+print("rtpengine: tell B to send to $mpport8 instead of $lp1\n");
 brk();
 
 send_rcv4($client2, $mpip1, $mpport1, $client1, $mpip2, $mpport2);
@@ -218,19 +218,19 @@ print("B tells C [call 2]: send RTP to $mpip8:$mpport8\n");
 brk();
 
 my ($mpip9, $mpport9) = sim_rq($callid2, $mpip8, $mpport8, $fromtag2, $totag2);
-print("mediaproxy: tell C to send to $mpport9 instead of $mpip8:$mpport8\n");
+print("rtpengine: tell C to send to $mpport9 instead of $mpip8:$mpport8\n");
 brk();
 
 print("C tells B: send RTP to $lp4\n");
 my ($mpip10, $mpport10) = sim_lk($callid2, $local_ip, $lp4, $fromtag2, $totag2);
-print("mediaproxy: tell B to send to $mpport10 instead of $lp4\n");
+print("rtpengine: tell B to send to $mpport10 instead of $lp4\n");
 brk();
 
 
 print("B tells A [call 1]: send RTP to $mpip10:$mpport10\n");
 
 my ($mpip11, $mpport11) = sim_rq($callid1, $mpip10, $mpport10, $totag1, $fromtag1);
-print("mediaproxy: tell A to send to $mpport11 instead of $mpip10:$mpport10\n");
+print("rtpengine: tell A to send to $mpport11 instead of $mpip10:$mpport10\n");
 brk();
 
 if (1) {
@@ -240,7 +240,7 @@ if (1) {
 
 print("A tells B: send RTP to $lp1\n");
 my ($mpip12, $mpport12) = sim_lk($callid1, $local_ip, $lp1, $totag1, $fromtag1);
-print("mediaproxy: tell B to send to $mpport12 instead of $lp1\n");
+print("rtpengine: tell B to send to $mpport12 instead of $lp1\n");
 brk();
 
 send_rcv4($client4, $mpip9, $mpport9, $client1, $mpip11, $mpport11);

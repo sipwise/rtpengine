@@ -22,7 +22,7 @@
 #include "control_tcp.h"
 #include "streambuf.h"
 #include "redis.h"
-#include "xt_MEDIAPROXY.h"
+#include "xt_RTPENGINE.h"
 #include "bencode.h"
 #include "sdp.h"
 #include "str.h"
@@ -69,7 +69,7 @@ struct xmlrpc_helper {
 struct streamhandler_io {
 	rewrite_func	rtp;
 	rewrite_func	rtcp;
-	int		(*kernel)(struct mediaproxy_srtp *, struct packet_stream *);
+	int		(*kernel)(struct rtpengine_srtp *, struct packet_stream *);
 };
 struct streamhandler {
 	const struct streamhandler_io	*in;
@@ -127,9 +127,9 @@ const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
 
-static int __k_null(struct mediaproxy_srtp *s, struct packet_stream *);
-static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct packet_stream *);
-static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct packet_stream *);
+static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
+static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
+static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *);
 
 static int call_avp2savp_rtp(str *s, struct packet_stream *);
 static int call_savp2avp_rtp(str *s, struct packet_stream *);
@@ -291,9 +291,9 @@ static const struct streamhandler **__sh_matrix_dtls[] = {
 
 /* ********** */
 
-static const struct mediaproxy_srtp __mps_null = {
-	.cipher			= MPC_NULL,
-	.hmac			= MPH_NULL,
+static const struct rtpengine_srtp __res_null = {
+	.cipher			= REC_NULL,
+	.hmac			= REH_NULL,
 };
 
 
@@ -333,7 +333,7 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 
 
 
-INLINE void __mp_address_translate(struct mp_address *o, const struct endpoint *ep) {
+INLINE void __re_address_translate(struct re_address *o, const struct endpoint *ep) {
 	o->family = family_from_address(&ep->ip46);
 	if (o->family == AF_INET)
 		o->u.ipv4 = in6_to_4(&ep->ip46);
@@ -344,7 +344,7 @@ INLINE void __mp_address_translate(struct mp_address *o, const struct endpoint *
 
 /* called with in_lock held */
 void kernelize(struct packet_stream *stream) {
-	struct mediaproxy_target_info mpt;
+	struct rtpengine_target_info reti;
 	struct call *call = stream->call;
 	struct callmaster *cm = call->callmaster;
 	struct packet_stream *sink = NULL;
@@ -378,50 +378,50 @@ void kernelize(struct packet_stream *stream) {
 			|| !stream->handler->out->kernel)
 		goto no_kernel_warn;
 
-	ZERO(mpt);
+	ZERO(reti);
 
 	if (PS_ISSET(stream, STRICT_SOURCE) || PS_ISSET(stream, MEDIA_HANDOVER)) {
 		mutex_lock(&stream->out_lock);
-		__mp_address_translate(&mpt.expected_src, &stream->endpoint);
+		__re_address_translate(&reti.expected_src, &stream->endpoint);
 		mutex_unlock(&stream->out_lock);
 		if (PS_ISSET(stream, STRICT_SOURCE))
-			mpt.src_mismatch = MSM_DROP;
+			reti.src_mismatch = MSM_DROP;
 		else if (PS_ISSET(stream, MEDIA_HANDOVER))
-			mpt.src_mismatch = MSM_PROPAGATE;
+			reti.src_mismatch = MSM_PROPAGATE;
 	}
 
 	mutex_lock(&sink->out_lock);
 
-	mpt.target_port = stream->sfd->fd.localport;
-	mpt.tos = call->tos;
-	mpt.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
-	mpt.dtls = MEDIA_ISSET(stream->media, DTLS);
-	mpt.stun = PS_ISSET(stream, STUN);
+	reti.target_port = stream->sfd->fd.localport;
+	reti.tos = call->tos;
+	reti.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
+	reti.dtls = MEDIA_ISSET(stream->media, DTLS);
+	reti.stun = PS_ISSET(stream, STUN);
 
-	__mp_address_translate(&mpt.dst_addr, &sink->endpoint);
+	__re_address_translate(&reti.dst_addr, &sink->endpoint);
 
-	mpt.src_addr.family = mpt.dst_addr.family;
-	mpt.src_addr.port = sink->sfd->fd.localport;
+	reti.src_addr.family = reti.dst_addr.family;
+	reti.src_addr.port = sink->sfd->fd.localport;
 
 	ifa = g_atomic_pointer_get(&sink->media->local_address);
-	if (mpt.src_addr.family == AF_INET)
-		mpt.src_addr.u.ipv4 = in6_to_4(&ifa->addr);
+	if (reti.src_addr.family == AF_INET)
+		reti.src_addr.u.ipv4 = in6_to_4(&ifa->addr);
 	else
-		memcpy(mpt.src_addr.u.ipv6, &ifa->addr, sizeof(mpt.src_addr.u.ipv6));
+		memcpy(reti.src_addr.u.ipv6, &ifa->addr, sizeof(reti.src_addr.u.ipv6));
 
-	stream->handler->in->kernel(&mpt.decrypt, stream);
-	stream->handler->out->kernel(&mpt.encrypt, sink);
+	stream->handler->in->kernel(&reti.decrypt, stream);
+	stream->handler->out->kernel(&reti.encrypt, sink);
 
 	mutex_unlock(&sink->out_lock);
 
-	if (!mpt.encrypt.cipher || !mpt.encrypt.hmac)
+	if (!reti.encrypt.cipher || !reti.encrypt.hmac)
 		goto no_kernel_warn;
-	if (!mpt.decrypt.cipher || !mpt.decrypt.hmac)
+	if (!reti.decrypt.cipher || !reti.decrypt.hmac)
 		goto no_kernel_warn;
 
 	ZERO(stream->kernel_stats);
 
-	kernel_add_stream(cm->conf.kernelfd, &mpt, 0);
+	kernel_add_stream(cm->conf.kernelfd, &reti, 0);
 	PS_SET(stream, KERNELIZED);
 
 	return;
@@ -467,15 +467,15 @@ static int call_savpf2avp_rtcp(str *s, struct packet_stream *stream) {
 }
 
 
-static int __k_null(struct mediaproxy_srtp *s, struct packet_stream *stream) {
-	*s = __mps_null;
+static int __k_null(struct rtpengine_srtp *s, struct packet_stream *stream) {
+	*s = __res_null;
 	return 0;
 }
-static int __k_srtp_crypt(struct mediaproxy_srtp *s, struct crypto_context *c) {
+static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c) {
 	if (!c->params.crypto_suite)
 		return -1;
 
-	*s = (struct mediaproxy_srtp) {
+	*s = (struct rtpengine_srtp) {
 		.cipher		= c->params.crypto_suite->kernel_cipher,
 		.hmac		= c->params.crypto_suite->kernel_hmac,
 		.mki_len	= c->params.mki_len,
@@ -488,10 +488,10 @@ static int __k_srtp_crypt(struct mediaproxy_srtp *s, struct crypto_context *c) {
 	memcpy(s->master_salt, c->params.master_salt, c->params.crypto_suite->master_salt_len);
 	return 0;
 }
-static int __k_srtp_encrypt(struct mediaproxy_srtp *s, struct packet_stream *stream) {
+static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *stream) {
 	return __k_srtp_crypt(s, &stream->crypto);
 }
-static int __k_srtp_decrypt(struct mediaproxy_srtp *s, struct packet_stream *stream) {
+static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *stream) {
 	return __k_srtp_crypt(s, &stream->sfd->crypto);
 }
 
@@ -1243,7 +1243,7 @@ static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
 	struct iterator_helper hlp;
 	GList *i;
-	struct mediaproxy_list_entry *ke;
+	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps, *sink;
 	u_int64_t d;
 	struct stats tmpstats;

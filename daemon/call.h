@@ -148,7 +148,7 @@ struct control_stream;
 struct call;
 struct redis;
 struct crypto_suite;
-struct mediaproxy_srtp;
+struct rtpengine_srtp;
 struct streamhandler;
 struct sdp_ng_flags;
 struct local_interface;

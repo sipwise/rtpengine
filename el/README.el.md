@@ -62,7 +62,7 @@ respective subdirectories.
 * `daemon`
 
 	The userspace daemon and workhorse, minimum requirement for anything
-	to work. Running `MEDIAPROXY_VERSION="\"<version number>\"" make` will
+	to work. Running `RTPENGINE_VERSION="\"<version number>\"" make` will
 	compile the binary, which will be called `rtpengine`. The
 	following software packages are required to compile the daemon:
 
@@ -79,9 +79,9 @@ respective subdirectories.
 * `iptables-extension`
 
 	Required for in-kernel packet forwarding. Running
-	`MEDIAPROXY_VERSION="\"<version number>\"" make` will compile the plugin
+	`RTPENGINE_VERSION="\"<version number>\"" make` will compile the plugin
 	for `iptables` and `ip6tables`. The file will be called
-	`libxt_MEDIAPROXY.so` and should be copied into the directory
+	`libxt_RTPENGINE.so` and should be copied into the directory
 	`/lib/xtables/` in 32-bit environments and `/lib64/xtables/` in 64-bit
 	environments. The following software packages are required to compile
 	the plugin:
@@ -95,17 +95,17 @@ respective subdirectories.
 	Required for in-kernel packet forwarding. Compilation of the kernel
 	module requires the kernel development packages for the kernel version
 	you are using (see output of `uname -r`) to be installed. Running
-	`MEDIAPROXY_VERSION="\"<version number>\"" make` will compile the kernel
+	`RTPENGINE_VERSION="\"<version number>\"" make` will compile the kernel
 	module.
 
 	Successful compilation of the module will produce the file
-	`xt_MEDIAPROXY.ko`. The module can be inserted into the running kernel
-	manually through `insmod xt_MEDIAPROXY.ko` (which will result in an
+	`xt_RTPENGINE.ko`. The module can be inserted into the running kernel
+	manually through `insmod xt_RTPENGINE.ko` (which will result in an
 	error if depending modules aren't loaded, for example the `x_tables`
 	module), but it's recommended to copy the module into
 	`/lib/modules/<version number>/updates/`, followed by running
 	`depmod -a`. After this, the module can be loaded by issuing
-	`modprobe xt_MEDIAPROXY`.
+	`modprobe xt_RTPENGINE`.
 
 	The following software packages are required to compile the plugin:
 
