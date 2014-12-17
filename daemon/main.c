@@ -444,7 +444,7 @@ static void cb_openssl_threadid(CRYPTO_THREADID *tid) {
 }
 
 static void cb_openssl_lock(int mode, int type, const char *file, int line) {
-	if ((type & CRYPTO_LOCK))
+	if ((mode & CRYPTO_LOCK))
 		mutex_lock(&openssl_locks[type]);
 	else
 		mutex_unlock(&openssl_locks[type]);
