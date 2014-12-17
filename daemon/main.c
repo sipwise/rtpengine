@@ -79,6 +79,7 @@ struct main_context {
 
 
 static int global_shutdown;
+static mutex_t *openssl_locks;
 
 static char *pidfile;
 static gboolean foreground;
@@ -429,6 +430,36 @@ static void wpidfile(void) {
 }
 
 
+static void cb_openssl_threadid(CRYPTO_THREADID *tid) {
+	pthread_t me;
+
+	me = pthread_self();
+
+	if (sizeof(me) == sizeof(void *))
+		CRYPTO_THREADID_set_pointer(tid, (void *) me);
+	else
+		CRYPTO_THREADID_set_numeric(tid, (unsigned long) me);
+}
+
+static void cb_openssl_lock(int mode, int type, const char *file, int line) {
+	if ((type & CRYPTO_LOCK))
+		mutex_lock(&openssl_locks[type]);
+	else
+		mutex_unlock(&openssl_locks[type]);
+}
+
+static void make_OpenSSL_thread_safe(void) {
+	int i;
+
+	openssl_locks = malloc(sizeof(*openssl_locks) * CRYPTO_num_locks());
+	for (i = 0; i < CRYPTO_num_locks(); i++)
+		mutex_init(&openssl_locks[i]);
+
+	CRYPTO_THREADID_set_callback(cb_openssl_threadid);
+	CRYPTO_set_locking_callback(cb_openssl_lock);
+}
+
+
 static void init_everything() {
 	struct timespec ts;
 
@@ -437,6 +468,7 @@ static void init_everything() {
 	srandom(ts.tv_sec ^ ts.tv_nsec);
 	SSL_library_init();
 	SSL_load_error_strings();
+	make_OpenSSL_thread_safe();
 
 #if !GLIB_CHECK_VERSION(2,32,0)
 	g_thread_init(NULL);
