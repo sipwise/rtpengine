@@ -830,6 +830,7 @@ forward:
 	ret = sendmsg(sink->sfd->fd.fd, &mh, 0);
 
 	if (ret == -1) {
+		ret = -errno;
 		stream->stats.errors++;
 		mutex_lock(&cm->statspslock);
 		cm->statsps.errors++;
@@ -934,8 +935,8 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 
 		str_init_len(&s, buf + RTP_BUFFER_HEAD_ROOM, ret);
 		ret = stream_packet(sfd, &s, &sin6_src, dst);
-		if (ret == -1) {
-			ilog(LOG_WARNING, "Write error on RTP socket");
+		if (ret < 0) {
+			ilog(LOG_WARNING, "Write error on RTP socket: %s", strerror(-ret));
 			call_destroy(sfd->call);
 			return;
 		}
