@@ -10,7 +10,7 @@ prgdir=${0%$prgname}
 
 showusage() {
     echo ""
-    echo "    rectl [ -ip <ipaddress> -port <port> ] <command>"
+    echo "    $0 [ -ip <ipaddress> -port <port> ] <command>"
     echo ""
     echo "    Supported commands are:"
     echo ""
@@ -36,7 +36,7 @@ if [ $# -eq 0 ]; then showusage; fi
 
 command -v nc 2>&1 >/dev/null
 if [ $? -ne 0 ]; then
-    echo "Error: rectl requires netcat to be installed."
+    echo "Error: $0 requires netcat to be installed."
     exit 0
 fi
 
