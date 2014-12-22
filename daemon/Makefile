@@ -1,4 +1,4 @@
-CC=		gcc
+CC?=gcc
 CFLAGS=		-g -Wall -pthread -fno-strict-aliasing
 CFLAGS+=	-std=c99
 CFLAGS+=	`pkg-config --cflags glib-2.0`
