@@ -844,7 +844,7 @@ forward:
 
 	if (ret == -1) {
 		ret = -errno;
-                ilog(LOG_DEBUG,"Error when sending message. Error:%s\n",strerror(errno));
+                ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
 		stream->stats.errors++;
 		mutex_lock(&cm->statspslock);
 		cm->statsps.errors++;
