@@ -2500,19 +2500,21 @@ void call_destroy(struct call *c) {
 		}
 		found = 0;
 
-		// --- go through partner ml and search the RTP
-		for (k = ml->active_dialogue->medias.head; k; k = k->next) {
-			md = k->data;
+		if (ml->active_dialogue) {
+			// --- go through partner ml and search the RTP
+			for (k = ml->active_dialogue->medias.head; k; k = k->next) {
+				md = k->data;
 
-			for (o = md->streams.head; o; o = o->next) {
-				ps2 = o->data;
-				if ((PS_ISSET(ps2, RTP) && !PS_ISSET(ps2, RTCP))) {
-					// --- only RTP is interesting
-					found = 1;
-					break;
+				for (o = md->streams.head; o; o = o->next) {
+					ps2 = o->data;
+					if ((PS_ISSET(ps2, RTP) && !PS_ISSET(ps2, RTCP))) {
+						// --- only RTP is interesting
+						found = 1;
+						break;
+					}
 				}
+				if (found) { break; }
 			}
-			if (found) { break; }
 		}
 
 		if (ps && ps2 && ps->stats.packets!=0 && ps2->stats.packets==0)
