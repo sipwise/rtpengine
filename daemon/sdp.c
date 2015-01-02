@@ -759,6 +759,12 @@ int sdp_parse(str *body, GQueue *sessions) {
 	end = str_end(body);
 
 	while (b && b < end - 1) {
+#ifdef TERMINATE_SDP_AT_BLANK_LINE
+		if (b[0] == '\n' || b[0] == '\r') {
+			body->len = b - body->s;
+			break;
+		}
+#endif
 		errstr = "Missing '=' sign";
 		if (b[1] != '=')
 			goto error;
