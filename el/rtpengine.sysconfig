@@ -8,10 +8,8 @@ TABLE=0			# (o) iptables table for in-kernel forwarding rules
 			#     comment out when "KERNEL=no"
 FALLBACK=yes		# (m) "yes" enables fallback to userspace forwarding
 			#     only, "no" disables
-RTP_IP=127.0.0.1	# (m) Local IPv4 address for packet forwarding
-#RTP_ADV_IP=127.0.0.1	# (o) IPv4 address to "advertise" for packet forwarding
-#RTP_IP6=::1		# (o) Local IPv6 address for packet forwarding
-#RTP_ADV_IP6=::1	# (o) IPv6 address to "advertise" for packet forwarding
+RTP_IP[0]=127.0.0.1	# (m) Local IPv4 address for RTP. The format of the value is [NAME/]IP[!IP].
+#RTP_IP6[0]=::1		# (o) Local IPv6 address for RTP. The format of the value is [NAME/]IP[!IP].
 #
 # At least one of LISTEN_(TCP|UDP|NG) is required
 #LISTEN_TCP=127.0.0.1:2222	# IP address and port combination for TCP
