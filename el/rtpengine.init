@@ -36,7 +36,6 @@ RETVAL=0
 
 OPTS="--pidfile $pidfile"
 MODULE=0
-IP6=0
 
 build_opts() {
 	shopt -s nocasematch
@@ -62,15 +61,6 @@ build_opts() {
                 do
                         OPTS+=" --interface=$IP"
                 done
-        fi
-
-        if [[ -n "$RTP_IP6" ]]
-        then
-                for IP6 in "${RTP_IP6[@]}"
-                do
-                        OPTS+=" --interface=$IP6"
-                done
-                IP6=1
         fi
 
 	if [[ -n "$LISTEN_TCP" ]]
@@ -154,14 +144,10 @@ start() {
 		iptables -N rtpengine
 		iptables -t filter -A INPUT -j rtpengine
 		iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
-		if [[ $IP6 == 1 ]]
-		then
-    			ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
-  		fi
+		ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
 
 		cat <<EOF > "$cachefile"
 CUR_TABLE=$TABLE
-CUR_IP6=$IP6
 EOF
 	fi
         echo -n $"Starting $prog: "
@@ -183,10 +169,7 @@ stop() {
 		echo "Unloading module for in-kernel packet forwarding"
 		echo "del $TABLE" > /proc/rtpengine/control
 		iptables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
-		if [[ $CUR_IP6 == 1 ]]
-		then
-    			ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
-  		fi
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
 		iptables -t filter -D INPUT -j rtpengine
 		iptables -X rtpengine
 #		rmmod xt_RTPENGINE
