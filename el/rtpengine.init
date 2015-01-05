@@ -56,26 +56,22 @@ build_opts() {
 	fi
 	shopt -u nocasematch
 
-	if [[ -n "$RTP_IP" ]]
-	then
-		OPTS+=" --interface=$RTP_IP"
-	fi
+        if [[ -n "$RTP_IP" ]]
+        then
+                for IP in "${RTP_IP[@]}"
+                do
+                        OPTS+=" --interface=$IP"
+                done
+        fi
 
-	if [[ -n "$RTP_ADV_IP" ]]
-	then
-		OPTS+="!$RTP_ADV_IP"
-	fi
-
-	if [[ -n "$RTP_IP6" ]]
-	then
-		OPTS+=" --interface=$RTP_IP6"
-		IP6=1
-	fi
-
-	if [[ -n "$RTP_ADV_IP6" ]]
-	then
-		OPTS+="!$RTP_ADV_IP6"
-	fi
+        if [[ -n "$RTP_IP6" ]]
+        then
+                for IP6 in "${RTP_IP6[@]}"
+                do
+                        OPTS+=" --interface=$IP6"
+                done
+                IP6=1
+        fi
 
 	if [[ -n "$LISTEN_TCP" ]]
 	then
