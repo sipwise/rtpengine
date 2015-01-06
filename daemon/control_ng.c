@@ -111,7 +111,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	if (!str_cmp(&cmd, "ping"))
 		bencode_dictionary_add_string(resp, "result", "pong");
 	else if (!str_cmp(&cmd, "offer"))
-		errstr = call_offer_ng(dict, c->callmaster, resp);
+		errstr = call_offer_ng(dict, c->callmaster, resp, addr);
 	else if (!str_cmp(&cmd, "answer"))
 		errstr = call_answer_ng(dict, c->callmaster, resp);
 	else if (!str_cmp(&cmd, "delete"))

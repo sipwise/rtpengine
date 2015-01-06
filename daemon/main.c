@@ -25,6 +25,7 @@
 #include "sdp.h"
 #include "dtls.h"
 #include "call_interfaces.h"
+#include "cli.h"
 
 
 
@@ -91,6 +92,8 @@ static struct in6_addr udp_listenp;
 static u_int16_t udp_listenport;
 static struct in6_addr ng_listenp;
 static u_int16_t ng_listenport;
+static u_int32_t cli_listenp;
+static u_int16_t cli_listenport;
 static int tos;
 static int table = -1;
 static int no_fallback;
@@ -104,6 +107,7 @@ static int redis_db = -1;
 static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
+static int delete_delay = 30;
 
 
 static void sighandler(gpointer x) {
@@ -309,8 +313,10 @@ static void options(int *argc, char ***argv) {
 	char *listenps = NULL;
 	char *listenudps = NULL;
 	char *listenngs = NULL;
+	char *listencli = NULL;
 	char *redisps = NULL;
 	char *log_facility_s = NULL;
+        char *log_facility_cdr_s = NULL;
 	int version = 0;
 	int sip_source = 0;
 
@@ -322,6 +328,7 @@ static void options(int *argc, char ***argv) {
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
+        { "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
@@ -334,9 +341,11 @@ static void options(int *argc, char ***argv) {
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
+		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
 		{ "log-stderr",	'E', 0, G_OPTION_ARG_NONE,	&_log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads to create",	"INT"	},
+		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
 		{ NULL, }
@@ -378,6 +387,10 @@ static void options(int *argc, char ***argv) {
 			die("Invalid IP or port (--listen-ng)");
 	}
 
+	if (listencli) {if (parse_ip_port(&cli_listenp, &cli_listenport, listencli))
+	    die("Invalid IP or port (--listen-cli)");
+	}
+
 	if (tos < 0 || tos > 255)
 		die("Invalid TOS value");
 
@@ -406,6 +419,13 @@ static void options(int *argc, char ***argv) {
 			die ("Invalid log facility '%s' (--log-facility)\n", log_facility_s);
 		}
 	}
+
+        if (log_facility_cdr_s) {
+                if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
+                        print_available_log_facilities();
+                        die ("Invalid log facility for CDR '%s' (--log-facility-cdr)\n", log_facility_cdr_s);
+                }
+        }
 
 	if (_log_stderr) {
 		write_log = log_to_stderr;
@@ -548,6 +568,7 @@ void create_everything(struct main_context *ctx) {
 	struct control_tcp *ct;
 	struct control_udp *cu;
 	struct control_ng *cn;
+	struct cli *cl;
 	int kfd = -1;
 	void *dlh;
 	const char **strp;
@@ -589,6 +610,7 @@ no_kernel:
 	mc.port_max = port_max;
 	mc.timeout = timeout;
 	mc.silent_timeout = silent_timeout;
+	mc.delete_delay = delete_delay;
 	mc.default_tos = tos;
 	mc.b2b_url = b2b_url;
 	mc.fmt = xmlrpc_fmt;
@@ -616,6 +638,14 @@ no_kernel:
 			die("Failed to open UDP control connection port");
 	}
 
+	cl = NULL;
+	if (cli_listenport) {
+	    callmaster_exclude_port(ctx->m, cli_listenport);
+	    cl = cli_new(ctx->p, cli_listenp, cli_listenport, ctx->m);
+	    if (!cl)
+	        die("Failed to open UDP CLI connection port");
+	}
+
 	if (redis_ip) {
 		dlh = dlopen(MP_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
 		if (!dlh && !g_file_test(MP_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
@@ -634,6 +664,9 @@ no_kernel:
 
 	ctx->m->conf = mc;
 	callmaster_config_init(ctx->m);
+
+	ZERO(ctx->m->totalstats);
+	ctx->m->totalstats.started = time(NULL);
 
 	if (!foreground)
 		daemonize();

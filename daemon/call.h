@@ -7,12 +7,25 @@
 #include <sys/types.h>
 #include <glib.h>
 #include <time.h>
+#include <sys/time.h>
 #include <pcre.h>
 #include <openssl/x509.h>
 #include "compat.h"
 
 
+enum termination_reason {
+	UNKNOWN=0,
+	REGULAR=1,
+	FORCED=2,
+	TIMEOUT=3,
+	SILENT_TIMEOUT=4
+};
 
+enum tag_type {
+	UNKNOWN_TAG=0,
+	FROM_TAG=1,
+	TO_TAG=2
+};
 
 enum stream_address_format {
 	SAF_TCP,
@@ -179,6 +192,20 @@ struct stats {
 	u_int64_t			errors;
 };
 
+struct totalstats {
+	time_t 				started;
+	u_int64_t			total_managed_sess;
+	u_int64_t			total_timeout_sess;
+	u_int64_t			total_silent_timeout_sess;
+	u_int64_t			total_regular_term_sess;
+	u_int64_t			total_forced_term_sess;
+	u_int64_t			total_relayed_packets;
+	u_int64_t			total_relayed_errors;
+	u_int64_t			total_nopacket_relayed_sess;
+	u_int64_t			total_oneway_stream_sess;
+	struct timeval		total_average_call_dur;
+};
+
 struct udp_fd {
 	int			fd;
 	u_int16_t		localport;
@@ -296,9 +323,13 @@ struct call_media {
 struct call_monologue {
 	struct call		*call;		/* RO */
 
-	str			tag;	
+	str			tag;
+	enum tag_type    tagtype;
 	time_t			created;	/* RO */
 	time_t			deleted;
+	struct timeval         started; /* for CDR */
+	struct timeval         terminated; /* for CDR */
+	enum termination_reason term_reason;
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
 
@@ -328,6 +359,7 @@ struct call {
 	time_t			deleted;
 	time_t			ml_deleted;
 	unsigned char		tos;
+	char			*created_from;
 };
 
 struct local_interface {
@@ -352,6 +384,7 @@ struct callmaster_config {
 	int			port_max;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
+	unsigned int		delete_delay;
 	struct redis		*redis;
 	char			*b2b_url;
 	unsigned char		default_tos;
@@ -376,6 +409,7 @@ struct callmaster {
 	struct stats		statsps;	/* per second stats, running timer */
 	mutex_t			statslock;
 	struct stats		stats;		/* copied from statsps once a second */
+	struct totalstats   totalstats;
 
 	struct poller		*poller;
 	pcre			*info_re;
@@ -410,6 +444,7 @@ struct packet_stream *__packet_stream_new(struct call *call);
 struct call *call_get_or_create(const str *callid, struct callmaster *m);
 struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode);
 struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag);
+struct call *call_get(const str *callid, struct callmaster *m);
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output);
@@ -426,7 +461,10 @@ struct interface_address *get_interface_from_address(struct local_interface *lif
 
 const struct transport_protocol *transport_protocol(const str *s);
 
-
+void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b);
+void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier);
+void timeval_devide(struct timeval *result, const struct timeval *a, const long devisor);
+void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b);
 
 
 INLINE void *call_malloc(struct call *c, size_t l) {
@@ -490,5 +528,6 @@ INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	return ret;
 }
 
+const char * get_tag_type_text(char *buf, enum tag_type t);
 
 #endif

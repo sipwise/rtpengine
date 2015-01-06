@@ -162,6 +162,7 @@ option and which are reproduced below:
 	  -F, --no-fallback                Only start when kernel module is available
 	  -i, --interface=[NAME/]IP[!IP]   Local interface for RTP
 	  -l, --listen-tcp=[IP:]PORT       TCP port to listen on
+	  -c, --listen-cli=[IP46:]PORT     TCP port to listen on, CLI (command line interface)
 	  -u, --listen-udp=[IP46:]PORT     UDP port to listen on
 	  -n, --listen-ng=[IP46:]PORT      UDP port to listen on, NG protocol
 	  -T, --tos=INT                    TOS value to set on streams
@@ -176,9 +177,11 @@ option and which are reproduced below:
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
+	  --log-facility-cdr=local0|...    Syslog facility to use for logging CDRs
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 	  --num-threads=INT                Number of worker threads to create
+	  -d, --delete-delay               Delay for deleting a session from memory.
 	  --sip-source                     Use SIP source address by default
 	  --dtls-passive                   Always prefer DTLS passive role
 
@@ -266,6 +269,10 @@ The options are described in more detail below.
 
 	It is recommended to specify not only a local port number, but also 127.0.0.1 as interface to bind to.
 
+* -c, --listen-cli
+
+   TCP ip and port to listen for the CLI (command line interface).
+
 * -t, --tos
 
 	Takes an integer as argument and if given, specifies the TOS value that should be set in outgoing
@@ -309,6 +316,10 @@ The options are described in more detail below.
 
 	The syslog facilty to use when sending log messages to the syslog daemon. Defaults to `daemon`.
 
+* --log-facilty-cdr=daemon|local0|...|local7|...
+
+	Same as --log-facility with the difference that only CDRs are written to this log facility.
+
 * -E, --log-stderr
 
 	Log to stderr instead of syslog. Only useful in combination with `--foreground`.
@@ -334,6 +345,10 @@ The options are described in more detail below.
 * --dtls-passive
 
 	Enabled the `DTLS=passive` flag for all calls unconditionally.
+
+* -d, --delete-delay
+
+	Delete the call from memory after the specified delay from memory.
 
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 

@@ -78,6 +78,11 @@ build_opts() {
 		OPTS+=" --listen-ng=$LISTEN_NG"
 	fi
 
+	if [[ -n "$LISTEN_CLI" ]]
+	then
+	    OPTS+=" --listen-cli=$LISTEN_CLI"
+	fi
+
 	if [[ -n "$TOS" ]]
 	then
 		OPTS+=" --tos=$TOS"
@@ -131,6 +136,16 @@ build_opts() {
 	if [[ -n "$NUM_THREADS" ]]
         then
                 OPTS+=" --num-threads=$NUM_THREADS"
+        fi
+
+        if [[ -n "$DELETE_DELAY" ]]
+         then
+                 OPTS+=" --delete-delay=$DELETE_DELAY"
+        fi
+
+	if [[ -n "$LOG_FACILITY_CDR" ]]
+        then
+                OPTS+=" --log-facility-cdr=$LOG_FACILITY_CDR"
         fi
 }
 

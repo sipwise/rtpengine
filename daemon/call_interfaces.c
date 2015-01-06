@@ -134,7 +134,7 @@ fail:
 	return -1;
 }
 
-static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode) {
+static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, const char* addr) {
 	struct call *c;
 	struct call_monologue *monologue;
 	GQueue q = G_QUEUE_INIT;
@@ -154,9 +154,20 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 			STR_FMT(&callid));
 		return str_sprintf("%s 0 0.0.0.0\n", out[RE_UDP_COOKIE]);
 	}
+
+	if (addr) {
+		c->created_from = call_strdup(c, addr);
+	}
+
 	monologue = call_get_mono_dialogue(c, &fromtag, &totag);
 	if (!monologue)
 		goto ml_fail;
+
+	if (!totag.s || totag.len==0) {
+		monologue->tagtype = FROM_TAG;
+	} else {
+		monologue->tagtype = TO_TAG;
+	}
 
 	if (addr_parse_udp(&sp, out))
 		goto addr_fail;
@@ -173,6 +184,8 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	rwlock_unlock_w(&c->master_lock);
 
 	redis_update(c, m->conf.redis);
+
+	gettimeofday(&(monologue->started), NULL);
 
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT(ret));
 	goto out;
@@ -194,11 +207,11 @@ out:
 	return ret;
 }
 
-str *call_update_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_OFFER);
+str *call_update_udp(char **out, struct callmaster *m, const char* addr) {
+	return call_update_lookup_udp(out, m, OP_OFFER, addr);
 }
 str *call_lookup_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_ANSWER);
+	return call_update_lookup_udp(out, m, OP_ANSWER, NULL);
 }
 
 
@@ -579,7 +592,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m,
-		bencode_item_t *output, enum call_opmode opmode)
+		bencode_item_t *output, enum call_opmode opmode, const char* addr)
 {
 	str sdp, fromtag, totag = STR_NULL, callid;
 	char *errstr;
@@ -618,6 +631,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (!call)
 		goto out;
 
+	if (addr) {
+		call->created_from = call_strdup(call, addr);
+	}
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
 	call_bencode_hold_ref(call, output);
@@ -630,6 +646,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 	}
 
+	if (!totag.s || totag.len==0) {
+		monologue->tagtype = FROM_TAG;
+	} else {
+		monologue->tagtype = TO_TAG;
+	}
+
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 	ret = monologue_offer_answer(monologue, &streams, &flags);
@@ -639,6 +661,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	rwlock_unlock_w(&call->master_lock);
 	redis_update(call, m->conf.redis);
 	obj_put(call);
+
+	gettimeofday(&(monologue->started), NULL);
 
 	errstr = "Error rewriting SDP";
 	if (ret)
@@ -656,12 +680,12 @@ out:
 	return errstr;
 }
 
-const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_OFFER);
+const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr) {
+	return call_offer_answer_ng(input, m, output, OP_OFFER, addr);
 }
 
 const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_ANSWER);
+	return call_offer_answer_ng(input, m, output, OP_ANSWER, NULL);
 }
 
 const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {

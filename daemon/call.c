@@ -14,6 +14,8 @@
 #include <time.h>
 #include <xmlrpc_client.h>
 #include <sys/wait.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -33,10 +35,6 @@
 
 
 
-
-#ifndef DELETE_DELAY
-#define DELETE_DELAY 30
-#endif
 
 #ifndef PORT_RANDOM_MIN
 #define PORT_RANDOM_MIN 6
@@ -122,8 +120,23 @@ const struct transport_protocol transport_protocols[] = {
 };
 const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
+const char * get_term_reason_text(char *buf, enum termination_reason t) {
+	if (t==TIMEOUT) { buf = "TIMEOUT"; return buf; }
+	if (t==REGULAR) { buf = "REGULAR"; return buf; }
+	if (t==FORCED) { buf = "FORCED"; return buf; }
+	if (t==SILENT_TIMEOUT) { buf = "SILENT_TIMEOUT"; return buf; }
 
+	buf = "UNKNOWN";
+	return buf;
+}
 
+const char * get_tag_type_text(char *buf, enum tag_type t) {
+	if (t==FROM_TAG) { buf = "FROM_TAG"; return buf; }
+	if (t==TO_TAG) { buf = "TO_TAG"; return buf; }
+
+	buf = "UNKNOWN";
+	return buf;
+}
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
 
@@ -425,7 +438,7 @@ void kernelize(struct packet_stream *stream) {
 	PS_SET(stream, KERNELIZED);
 
 	return;
-	
+
 no_kernel_warn:
 	ilog(LOG_WARNING, "No support for kernel packet forwarding available");
 no_kernel:
@@ -831,6 +844,7 @@ forward:
 
 	if (ret == -1) {
 		ret = -errno;
+                ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
 		stream->stats.errors++;
 		mutex_lock(&cm->statspslock);
 		cm->statsps.errors++;
@@ -980,6 +994,7 @@ static int call_timer_delete_monologues(struct call *c) {
 		}
 
 		__monologue_destroy(ml);
+
 		ml->deleted = 0;
 
 		if (!g_hash_table_size(c->tags)) {
@@ -1014,9 +1029,14 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	int good = 0;
 	struct packet_stream *ps;
 	struct stream_fd *sfd;
+	int tmp_t_reason=0;
+	struct call_monologue *ml;
+	GSList *i;
 
 	rwlock_lock_r(&c->master_lock);
 	log_info_call(c);
+
+	cm = c->callmaster;
 
 	if (c->deleted && poller_now >= c->deleted
 			&& c->last_signal <= c->deleted)
@@ -1029,8 +1049,6 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 
 	if (!c->streams)
 		goto drop;
-
-	cm = c->callmaster;
 
 	for (it = c->streams; it; it = it->next) {
 		ps = it->data;
@@ -1055,8 +1073,11 @@ no_sfd:
 			goto next;
 
 		check = cm->conf.timeout;
-		if (!MEDIA_ISSET(ps->media, RECV) || !sfd)
+		tmp_t_reason = 1;
+		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
 			check = cm->conf.silent_timeout;
+			tmp_t_reason = 2;
+		}
 
 		if (poller_now - ps->last_packet < check)
 			good = 1;
@@ -1067,6 +1088,22 @@ next:
 
 	if (good)
 		goto out;
+
+	if (c->ml_deleted)
+		goto out;
+
+	for (i = c->monologues; i; i = i->next) {
+		ml = i->data;
+		memset(&ml->terminated,0,sizeof(struct timeval));
+		gettimeofday(&(ml->terminated),NULL);
+		if (tmp_t_reason==1) {
+			ml->term_reason = TIMEOUT;
+		} else if (tmp_t_reason==2) {
+			ml->term_reason = SILENT_TIMEOUT;
+		} else {
+			ml->term_reason = UNKNOWN;
+		}
+	}
 
 	ilog(LOG_INFO, "Closing call due to timeout");
 
@@ -2299,10 +2336,38 @@ static void unkernelize(struct packet_stream *p) {
 	PS_CLEAR(p, KERNELIZED);
 }
 
+void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b) {
+	long microseconds=0;
+	microseconds = ((long)a->tv_sec - (long)b->tv_sec) * 1000000 + ((long)a->tv_usec - (long)b->tv_usec);
+	result->tv_sec = microseconds/(long)1000000;
+	result->tv_usec = microseconds%(long)1000000;
+}
+
+void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier) {
+	long microseconds=0;
+	microseconds = (((long)a->tv_sec * 1000000) + (long)a->tv_usec) * multiplier;
+	result->tv_sec = microseconds/(long)1000000;
+	result->tv_usec = microseconds%(long)1000000;
+}
+
+void timeval_devide(struct timeval *result, const struct timeval *a, const long devisor) {
+	long microseconds=0;
+	microseconds = (((long)a->tv_sec * 1000000) + (long)a->tv_usec) / devisor;
+	result->tv_sec = microseconds/(long)1000000;
+	result->tv_usec = microseconds%(long)1000000;
+}
+
+void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {
+	long microseconds=0;
+	microseconds = ((long)a->tv_sec + (long)b->tv_sec) * (long)1000000 + ((long)a->tv_usec + (long)b->tv_usec);
+	result->tv_sec = microseconds/(long)1000000;
+	result->tv_usec = microseconds%(long)1000000;
+}
+
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
-	struct packet_stream *ps;
+	struct packet_stream *ps=0, *ps2=0;
 	struct stream_fd *sfd;
 	struct poller *p = m->poller;
 	GSList *l;
@@ -2311,6 +2376,15 @@ void call_destroy(struct call *c) {
 	struct call_media *md;
 	GList *k, *o;
 	char buf[64];
+	struct timeval tim_result_duration;
+	static const int CDRBUFLENGTH = 4096*2;
+	char reasonbuf[16]; memset(&reasonbuf,0,16);
+	char tagtypebuf[16]; memset(&tagtypebuf,0,16);
+	char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
+	char* cdrbufcur = cdrbuffer;
+	int cdrlinecnt = 0;
+	int found = 0;
+	//char tmpstreampairstatus[2]; memset(&tmpstreampairstatus,0,2);
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
@@ -2328,8 +2402,30 @@ void call_destroy(struct call *c) {
 
 	ilog(LOG_INFO, "Final packet stats:");
 
+	/* CDRs and statistics */
+	cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
+	cdrbufcur += sprintf(cdrbufcur,"created_from=%s, ", c->created_from);
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
+		if (_log_facility_cdr) {
+			memset(&tim_result_duration,0,sizeof(struct timeval));
+			timeval_subtract(&tim_result_duration,&ml->terminated,&ml->started);
+		    cdrbufcur += sprintf(cdrbufcur, "ml%i_start_time=%ld.%06lu, "
+		            "ml%i_end_time=%ld.%06ld, "
+		            "ml%i_duration=%ld.%06ld, "
+		            "ml%i_termination=%s, "
+		            "ml%i_local_tag=%s, "
+		            "ml%i_local_tag_type=%s, "
+		            "ml%i_remote_tag=%s, ",
+		            cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
+		            cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
+		            cdrlinecnt, tim_result_duration.tv_sec, tim_result_duration.tv_usec,
+		            cdrlinecnt, get_term_reason_text(reasonbuf,ml->term_reason),
+		            cdrlinecnt, ml->tag.s,
+		            cdrlinecnt, get_tag_type_text(tagtypebuf,ml->tagtype),
+		            cdrlinecnt, ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+		}
+
 		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"', created "
 				"%u:%02u ago, in dialogue with '"STR_FORMAT"'",
 				STR_FMT(&ml->tag),
@@ -2348,6 +2444,24 @@ void call_destroy(struct call *c) {
 					continue;
 
 				smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
+
+				if (_log_facility_cdr) {
+				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
+				    cdrbufcur += sprintf(cdrbufcur,
+				            "ml%i_midx%u_%s_endpoint_ip=%s, "
+				            "ml%i_midx%u_%s_endpoint_port=%u, "
+				            "ml%i_midx%u_%s_local_relay_port=%u, "
+				            "ml%i_midx%u_%s_relayed_packets=%llu, "
+				            "ml%i_midx%u_%s_relayed_bytes=%llu, "
+				            "ml%i_midx%u_%s_relayed_errors=%llu, ",
+				            cdrlinecnt, md->index, protocol, buf,
+				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
+				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors);
+				}
+
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
 						"%llu p, %llu b, %llu e",
 						md->index,
@@ -2357,9 +2471,81 @@ void call_destroy(struct call *c) {
 						(unsigned long long) ps->stats.packets,
 						(unsigned long long) ps->stats.bytes,
 						(unsigned long long) ps->stats.errors);
+				m->totalstats.total_relayed_packets += (unsigned long long) ps->stats.packets;
+				m->totalstats.total_relayed_errors  += (unsigned long long) ps->stats.errors;
 			}
 		}
+		if (_log_facility_cdr)
+		    ++cdrlinecnt;
 	}
+
+	// --- for statistics getting one way stream or no relay at all
+	m->totalstats.total_nopacket_relayed_sess *= 2;
+	for (l = c->monologues; l; l = l->next) {
+		ml = l->data;
+
+		// --- go through partner ml and search the RTP
+		for (k = ml->medias.head; k; k = k->next) {
+			md = k->data;
+
+			for (o = md->streams.head; o; o = o->next) {
+				ps = o->data;
+				if ((PS_ISSET(ps, RTP) && !PS_ISSET(ps, RTCP))) {
+					// --- only RTP is interesting
+					found = 1;
+					break;
+				}
+			}
+			if (found) { break; }
+		}
+		found = 0;
+
+		if (ml->active_dialogue) {
+			// --- go through partner ml and search the RTP
+			for (k = ml->active_dialogue->medias.head; k; k = k->next) {
+				md = k->data;
+
+				for (o = md->streams.head; o; o = o->next) {
+					ps2 = o->data;
+					if ((PS_ISSET(ps2, RTP) && !PS_ISSET(ps2, RTCP))) {
+						// --- only RTP is interesting
+						found = 1;
+						break;
+					}
+				}
+				if (found) { break; }
+			}
+		}
+
+		if (ps && ps2 && ps->stats.packets!=0 && ps2->stats.packets==0)
+			m->totalstats.total_oneway_stream_sess++;
+
+		if (ps && ps2 && ps->stats.packets==0 && ps2->stats.packets==0)
+			m->totalstats.total_nopacket_relayed_sess++;
+
+	}
+	m->totalstats.total_nopacket_relayed_sess /= 2;
+
+	m->totalstats.total_managed_sess += 1;
+
+	ml = c->monologues->data;
+	if (ml->term_reason==TIMEOUT) {
+		m->totalstats.total_timeout_sess++;
+	} else if (ml->term_reason==SILENT_TIMEOUT) {
+		m->totalstats.total_silent_timeout_sess++;
+	} else if (ml->term_reason==REGULAR) {
+		m->totalstats.total_regular_term_sess++;
+	} else if (ml->term_reason==FORCED) {
+		m->totalstats.total_forced_term_sess++;
+	}
+
+	timeval_multiply(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess-1);
+	timeval_add(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,&tim_result_duration);
+	timeval_devide(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess);
+
+	if (_log_facility_cdr)
+	    /* log it */
+	    cdrlog(cdrbuffer);
 
 	for (l = c->streams; l; l = l->next) {
 		ps = l->data;
@@ -2557,7 +2743,7 @@ restart:
 }
 
 /* returns call with master_lock held in W, or NULL if not found */
-static struct call *call_get(const str *callid, struct callmaster *m) {
+struct call *call_get(const str *callid, struct callmaster *m) {
 	struct call *ret;
 
 	rwlock_lock_r(&m->hashlock);
@@ -2757,11 +2943,19 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	struct call_monologue *ml;
 	int ret;
 	const str *match_tag;
+	GSList *i;
 
 	c = call_get(callid, m);
 	if (!c) {
 		ilog(LOG_INFO, "["STR_FORMAT"] Call-ID to delete not found", STR_FMT(callid));
 		goto err;
+	}
+
+	for (i = c->monologues; i; i = i->next) {
+		ml = i->data;
+		memset(&ml->terminated,0,sizeof(struct timeval));
+		gettimeofday(&(ml->terminated), NULL);
+		ml->term_reason = REGULAR;
 	}
 
 	if (!fromtag || !fromtag->s || !fromtag->len)
@@ -2795,15 +2989,15 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 */
 
 	ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' in %d seconds",
-			STR_FMT(&ml->tag), DELETE_DELAY);
-	ml->deleted = poller_now + 30;
+			STR_FMT(&ml->tag), m->conf.delete_delay);
+	ml->deleted = poller_now + m->conf.delete_delay;
 	if (!c->ml_deleted || c->ml_deleted > ml->deleted)
 		c->ml_deleted = ml->deleted;
 	goto success_unlock;
 
 del_all:
-	ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", DELETE_DELAY);
-	c->deleted = poller_now + DELETE_DELAY;
+	ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", m->conf.delete_delay);
+	c->deleted = poller_now + m->conf.delete_delay;
 	rwlock_unlock_w(&c->master_lock);
 	goto success;
 
