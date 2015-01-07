@@ -1,3 +1,61 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.7.1.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [2460836] remove -e argument from awk
+  * [19e0281] disable "list" NG command if glib version is too low
+  * [b49f57b] avoid DTLS role change on reinvite
+  * [d0beccb] dont break log lines when logging to stderr
+  * [8c8ff56] fix pointer const declaration and make it static
+  * [955de10] support proper DTLS shutdown and restart DTLS on FP change
+  * [6757c27] add DTLS=passive option
+  * [97b472b] dont break legacy control protocols
+  * [f826d01] make "trust address" the default behaviour
+  * [4c408e5] add --dtls-passive switch
+  * [d272e9e] add more flags to stats output
+  * [e09fbd2] dtls shutdown clears crypto context as well
+  * [91221ef] move DTLS setup logic into separate function for readability
+  * [50d1839] reset DTLS and crypto params when endpoints change
+  * [3478629] dont output error message on stun SOFTWARE attribute
+  * [a1786d6] segfault fix: ps->sfd can be null
+  * [4077225] avoid unnecessary DTLS restarts
+  * [7e72bfc] MT#10059 allow freeform interface definitions in init.d script
+  * [935487b] avoid race condition by making OpenSSL thread safe
+  * [dcfd703] deadlock fix
+  * [0113991] MT#9585 rename kernel module and all related items from MEDIAPROXY to RTPENGINE
+  * [276c7c8] report errno in log on sendmsg() error
+  * [cccb0bf] add Recommends: netcat-openbsd | netcat for CLI patch
+  * [43bcbcc] change created_from to an allocated string buffer
+  * [0e531eb] change created_from to an allocated string buffer
+  * [a8e5582] rtpengine-ctl: use $0 as name in help output
+  * [d79bcfe] remove extraneous linefeed
+  * [3cfeb5d] optionally allow broken SDPs as compile switch
+  * [458a84c] remove obsolete RH $RTP_IP6 sysconfig option
+
+  [ Frederic-Philippe Metz ]
+  * [9886de4] cdrpatch.dpatch:
+  * [947b35e] fixed_callduration_and_added_termination_reason_20141125:
+  * [ee655bd] added_milliseconds_precision_for_CDR.patch:
+  * [131c9e8] cli
+  * [a871cd7] added_address_of_invoking_proxy
+  * [5342158] added_information_of_from_to_tag:
+  * [d623710] adaptions_for_ng_protocol:
+  * [59329dd] VOIPTEST_220_delete delay
+  * [4882d91] RTPENGINE-1_total_statistics_rectl.patch:
+  * [b566581] VOIPTEST-231_session_duration_rectl_milliseconds.patch
+  * [a4168be] RTPENGINE-12_Fixed_Segmentation_fault_if_only_offer_received.patch
+
+  [ Victor Seva ]
+  * [66a5137] Allow to choose CC
+  * [f8e16b9] Add travis-ci configuration
+
+  [ sybasesql ]
+  * [b94bae8] Update rtpengine.init
+  * [08ffc9c] Update rtpengine.sysconfig
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 07 Jan 2015 21:39:10 +0100
+
 ngcp-rtpengine (3.3.0.0+0~mr3.7.0.0) unstable; urgency=low
 
   [ Frederic-Philippe Metz ]
