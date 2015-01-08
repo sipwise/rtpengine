@@ -97,7 +97,7 @@ rm -rf %{buildroot}
 
 %post
 if [ $1 -eq 1 ]; then
-        /sbin/chkconfig --add %{name} || :
+        /sbin/chkconfig --add rtpengine || :
 fi
 
 
@@ -111,8 +111,8 @@ true
 
 %preun
 if [ $1 = 0 ] ; then
-        /sbin/service %{name} stop >/dev/null 2>&1
-        /sbin/chkconfig --del %{name}
+        /sbin/service rtpengine stop >/dev/null 2>&1
+        /sbin/chkconfig --del rtpengine
 fi
 
 
