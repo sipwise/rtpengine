@@ -495,7 +495,10 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 
 		err = "invalid key lifetime";
 		if (!c->lifetime || c->lifetime > c->crypto_suite->srtp_lifetime
-				|| c->lifetime > c->crypto_suite->srtcp_lifetime)
+#ifdef STRICT_SDES_KEY_LIFETIME
+				|| c->lifetime > c->crypto_suite->srtcp_lifetime
+#endif
+				)
 			goto error;
 	}
 
