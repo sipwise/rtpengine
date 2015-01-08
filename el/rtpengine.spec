@@ -13,7 +13,7 @@ BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel
-Requires:	glibc libcurl openssl pcre xmlrpc-c
+Requires:	glibc libcurl openssl pcre xmlrpc-c nmap-ncat
 
 
 %description
@@ -61,6 +61,8 @@ cd ..
 %install
 # Install the userspace daemon
 install -D -p -m755 daemon/rtpengine %{buildroot}/%{_sbindir}/rtpengine
+# Install CLI (command line interface)
+install -D -p -m755 utils/rtpengine-ctl %{buildroot}/%{_sbindir}/rtpengine-ctl
 
 ## Install the init.d script and configuration file
 install -D -p -m755 el/rtpengine.init \
@@ -97,7 +99,7 @@ rm -rf %{buildroot}
 
 %post
 if [ $1 -eq 1 ]; then
-        /sbin/chkconfig --add %{name} || :
+        /sbin/chkconfig --add rtpengine || :
 fi
 
 
@@ -111,8 +113,8 @@ true
 
 %preun
 if [ $1 = 0 ] ; then
-        /sbin/service %{name} stop >/dev/null 2>&1
-        /sbin/chkconfig --del %{name}
+        /sbin/service rtpengine stop >/dev/null 2>&1
+        /sbin/chkconfig --del rtpengine
 fi
 
 
@@ -125,6 +127,8 @@ true
 %files
 # Userspace daemon
 %{_sbindir}/rtpengine
+# CLI (command line interface)
+%{_sbindir}/rtpengine-ctl
 
 # init.d script and configuration file
 %{_sysconfdir}/rc.d/init.d/rtpengine
