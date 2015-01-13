@@ -46,9 +46,9 @@ setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
 $PROTOS and $PROTOS = [split(/\s*[,;:]+\s*/, $PROTOS)];
 $PROTOS && @$PROTOS == 1 and $$PROTOS[1] = $$PROTOS[0];
-$DEST and $DEST = [split(/:/, $DEST)];
-$$DEST[0] or $$DEST[0] = '127.0.0.1';
-$$DEST[1] or $$DEST[1] = 2223;
+$DEST and $DEST = [$DEST =~ /^(?:([a-z.-]+)(?::(\d+))?|([\d.]+)(?::(\d+))?|([\da-f:]+)|\[([\da-f:]+)\]:(\d+))$/si];
+my $dest_host = $$DEST[0] || $$DEST[2] || $$DEST[4] || $$DEST[5] || 'localhost';
+my $dest_port = $$DEST[1] || $$DEST[3] || $$DEST[6] || 2223;
 $SUITES and $SUITES = [split(/\s*[,;:]+\s*/, $SUITES)];
 
 my @chrs = ('a' .. 'z', 'A' .. 'Z', '0' .. '9');
@@ -78,8 +78,14 @@ sub msg {
 	return $r ? bdecode($r, 1) : undef;
 }
 
-socket($fd, AF_INET, SOCK_DGRAM, 0) or die $!;
-connect($fd, sockaddr_in($$DEST[1], inet_aton($$DEST[0]))) or die $!;
+my @dests = getaddrinfo($dest_host, $dest_port, AF_UNSPEC, SOCK_DGRAM);
+while (@dests >= 5) {
+	my ($fam, $type, $prot, $addr, $canon, @dests) = @dests;
+	socket($fd, $fam, $type, $prot) or undef($fd), next;
+	connect($fd, $addr) or undef($fd), next;
+	last;
+}
+$fd or die($!);
 
 msg({command => 'ping'})->{result} eq 'pong' or die;
 
