@@ -134,7 +134,9 @@ fail:
 	return -1;
 }
 
-static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, const char* addr) {
+static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, const char* addr,
+		const struct sockaddr_in6 *sin)
+{
 	struct call *c;
 	struct call_monologue *monologue;
 	GQueue q = G_QUEUE_INIT;
@@ -155,8 +157,9 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 		return str_sprintf("%s 0 0.0.0.0\n", out[RE_UDP_COOKIE]);
 	}
 
-	if (addr) {
+	if (!c->created_from && addr) {
 		c->created_from = call_strdup(c, addr);
+		c->created_from_addr = *sin;
 	}
 
 	monologue = call_get_mono_dialogue(c, &fromtag, &totag);
@@ -207,11 +210,11 @@ out:
 	return ret;
 }
 
-str *call_update_udp(char **out, struct callmaster *m, const char* addr) {
-	return call_update_lookup_udp(out, m, OP_OFFER, addr);
+str *call_update_udp(char **out, struct callmaster *m, const char* addr, const struct sockaddr_in6 *sin) {
+	return call_update_lookup_udp(out, m, OP_OFFER, addr, sin);
 }
 str *call_lookup_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_ANSWER, NULL);
+	return call_update_lookup_udp(out, m, OP_ANSWER, NULL, NULL);
 }
 
 
@@ -592,7 +595,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m,
-		bencode_item_t *output, enum call_opmode opmode, const char* addr)
+		bencode_item_t *output, enum call_opmode opmode, const char* addr,
+		const struct sockaddr_in6 *sin)
 {
 	str sdp, fromtag, totag = STR_NULL, callid;
 	char *errstr;
@@ -631,8 +635,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (!call)
 		goto out;
 
-	if (addr) {
+	if (!call->created_from && addr) {
 		call->created_from = call_strdup(call, addr);
+		call->created_from_addr = *sin;
 	}
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
@@ -680,12 +685,14 @@ out:
 	return errstr;
 }
 
-const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr) {
-	return call_offer_answer_ng(input, m, output, OP_OFFER, addr);
+const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr,
+		const struct sockaddr_in6 *sin)
+{
+	return call_offer_answer_ng(input, m, output, OP_OFFER, addr, sin);
 }
 
 const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_ANSWER, NULL);
+	return call_offer_answer_ng(input, m, output, OP_ANSWER, NULL, NULL);
 }
 
 const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
