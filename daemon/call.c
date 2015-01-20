@@ -1921,11 +1921,15 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		MEDIA_CLEAR(this, SDES);
 		MEDIA_CLEAR(this, SETUP_PASSIVE);
 		MEDIA_CLEAR(this, SETUP_ACTIVE);
-		/* clear crypto for the other leg as well b/c passthrough only works if it is done for both legs */
-		MEDIA_CLEAR(other, DTLS);
-		MEDIA_CLEAR(other, SDES);
-		MEDIA_CLEAR(other, SETUP_PASSIVE);
-		MEDIA_CLEAR(other, SETUP_ACTIVE);
+
+		if (MEDIA_ISSET(this, PASSTHRU)) {
+			/* clear crypto for the other leg as well b/c passthrough only
+			 * works if it is done for both legs */
+			MEDIA_CLEAR(other, DTLS);
+			MEDIA_CLEAR(other, SDES);
+			MEDIA_CLEAR(other, SETUP_PASSIVE);
+			MEDIA_CLEAR(other, SETUP_ACTIVE);
+		}
 
 		return;
 	}
