@@ -455,6 +455,8 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 
 	if (SSL_CTX_set_tlsext_use_srtp(d->ssl_ctx, ciphers_str))
 		goto error;
+	if (SSL_CTX_set_read_ahead(d->ssl_ctx, 1))
+		goto error;
 
 	d->ssl = SSL_new(d->ssl_ctx);
 	if (!d->ssl)
