@@ -360,6 +360,7 @@ struct call {
 	time_t			ml_deleted;
 	unsigned char		tos;
 	char			*created_from;
+	struct sockaddr_in6	created_from_addr;
 };
 
 struct local_interface {

@@ -60,8 +60,7 @@ struct iterator_helper {
 struct xmlrpc_helper {
 	enum xmlrpc_format fmt;
 	GStringChunk		*c;
-	char			*url;
-	GSList			*tags;
+	GSList			*tags_urls;
 };
 
 struct streamhandler_io {
@@ -1130,18 +1129,22 @@ void xmlrpc_kill_calls(void *p) {
 	int i = 0;
 	int status;
 	str *tag;
+	const char *url;
 
-	while (xh->tags) {
-		tag = xh->tags->data;
+	while (xh->tags_urls && xh->tags_urls->next) {
+		tag = xh->tags_urls->data;
+		url = xh->tags_urls->next->data;
 
-		ilog(LOG_INFO, "Forking child to close call with tag "STR_FORMAT" via XMLRPC", STR_FMT(tag));
+		ilog(LOG_INFO, "Forking child to close call with tag "STR_FORMAT" via XMLRPC call to %s",
+				STR_FMT(tag), url);
 		pid = fork();
 
 		if (pid) {
 retry:
 			pid = waitpid(pid, &status, 0);
 			if ((pid > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) || i >= 3) {
-				xh->tags = g_slist_delete_link(xh->tags, xh->tags);
+				xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
+				xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
 				i = 0;
 			}
 			else {
@@ -1181,11 +1184,11 @@ retry:
 		r = NULL;
 		switch (xh->fmt) {
 		case XF_SEMS:
-			xmlrpc_client_call2f(&e, c, xh->url, "di", &r, "(ssss)",
+			xmlrpc_client_call2f(&e, c, url, "di", &r, "(ssss)",
 						"sbc", "postControlCmd", tag->s, "teardown");
 			break;
 		case XF_CALLID:
-			xmlrpc_client_call2f(&e, c, xh->url, "teardown", &r, "(s)", tag->s);
+			xmlrpc_client_call2f(&e, c, url, "teardown", &r, "(s)", tag->s);
 			break;
 		}
 
@@ -1195,7 +1198,8 @@ retry:
 			goto fault;
 
 		xmlrpc_client_destroy(c);
-		xh->tags = g_slist_delete_link(xh->tags, xh->tags);
+		xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
+		xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
 		xmlrpc_env_clean(&e);
 
 		_exit(0);
@@ -1213,8 +1217,9 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 	struct call *ca;
 	GSList *csl;
 	struct call_monologue *cm;
-	const char *url;
+	const char *url, *url_prefix, *url_suffix;
 	struct xmlrpc_helper *xh = NULL;
+	char addr[64], url_buf[128];
 
 	if (!list)
 		return;
@@ -1224,8 +1229,15 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 	if (url) {
 		xh = g_slice_alloc(sizeof(*xh));
 		xh->c = g_string_chunk_new(64);
-		xh->url = g_string_chunk_insert(xh->c, url);
-		xh->tags = NULL;
+		url_prefix = NULL;
+		url_suffix = strstr(url, "%%");
+		if (url_suffix) {
+			url_prefix = g_string_chunk_insert_len(xh->c, url, url_suffix - url);
+			url_suffix = g_string_chunk_insert(xh->c, url_suffix + 2);
+		}
+		else
+			url_suffix = g_string_chunk_insert(xh->c, url);
+		xh->tags_urls = NULL;
 		xh->fmt = m->conf.fmt;
 	}
 
@@ -1237,17 +1249,27 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 
 		rwlock_lock_r(&ca->master_lock);
 
+		if (url_prefix) {
+			smart_ntop_p(addr, &ca->created_from_addr.sin6_addr, sizeof(addr));
+			snprintf(url_buf, sizeof(url_buf), "%s%s%s",
+					url_prefix, addr, url_suffix);
+		}
+		else
+			snprintf(url_buf, sizeof(url_buf), "%s", url_suffix);
+
 		switch (m->conf.fmt) {
 		case XF_SEMS:
 			for (csl = ca->monologues; csl; csl = csl->next) {
 				cm = csl->data;
 				if (cm->tag.s && cm->tag.len) {
-					xh->tags = g_slist_prepend(xh->tags, str_chunk_insert(xh->c, &cm->tag));
+					xh->tags_urls = g_slist_prepend(xh->tags_urls, g_string_chunk_insert(xh->c, url_buf));
+					xh->tags_urls = g_slist_prepend(xh->tags_urls, str_chunk_insert(xh->c, &cm->tag));
 				}
 			}
 			break;
 		case XF_CALLID:
-			xh->tags = g_slist_prepend(xh->tags, str_chunk_insert(xh->c, &ca->callid));
+			xh->tags_urls = g_slist_prepend(xh->tags_urls, g_string_chunk_insert(xh->c, url_buf));
+			xh->tags_urls = g_slist_prepend(xh->tags_urls, str_chunk_insert(xh->c, &ca->callid));
 			break;
 		}
 
