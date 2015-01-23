@@ -181,66 +181,6 @@ static void resources(void) {
 
 
 
-static int parse_ip_port(u_int32_t *ip, u_int16_t *port, char *s) {
-	char *p = NULL;
-	int ret = -1;
-
-	p = strchr(s, ':');
-	if (p) {
-		*p++ = 0;
-		*ip = inet_addr(s);
-		if (*ip == -1)
-			goto out;
-		*port = atoi(p);
-	}
-	else {
-		*ip = 0;
-		if (strchr(s, '.'))
-			goto out;
-		*port = atoi(s);
-	}
-	if (!*port)
-		goto out;
-
-	ret = 0;
-
-out:
-	if (p)
-		*--p = ':';
-	return ret;
-}
-
-static int parse_ip6_port(struct in6_addr *ip6, u_int16_t *port, char *s) {
-	u_int32_t ip;
-	char *p;
-
-	if (!parse_ip_port(&ip, port, s)) {
-		if (ip)
-			in4_to_6(ip6, ip);
-		else
-			*ip6 = in6addr_any;
-		return 0;
-	}
-	if (*s != '[')
-		return -1;
-	p = strstr(s, "]:");
-	if (!p)
-		return -1;
-	*p = '\0';
-	if (inet_pton(AF_INET6, s+1, ip6) != 1)
-		goto fail;
-	*p = ']';
-	*port = atoi(p+2);
-	if (!*port)
-		return -1;
-
-	return 0;
-
-fail:
-	*p = ']';
-	return -1;
-}
-
 static int parse_log_facility(char *name, int *dst) {
 	int i;
 	for (i = 0 ; _facilitynames[i].c_name; i++) {
