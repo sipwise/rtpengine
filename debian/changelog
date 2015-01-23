@@ -1,3 +1,13 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.4.2.2) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [1bc0b9c] avoid race condition by making OpenSSL thread safe
+  * [68e105f] deadlock fix
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 23 Jan 2015 17:52:52 +0100
+
 ngcp-rtpengine (3.3.0.0+0~mr3.4.2.1) unstable; urgency=low
 
   [ Richard Fuchs ]
