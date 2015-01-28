@@ -18,8 +18,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "compat.h"
-
-
+#include <openssl/rand.h>
 
 #if 0 && defined(__DEBUG)
 #define __THREAD_DEBUG 1
@@ -292,10 +291,8 @@ INLINE int strmemcmp(const void *mem, int len, const char *str) {
 	return memcmp(mem, str, len);
 }
 
-/* XXX replace with better source of randomness */
 INLINE void random_string(unsigned char *buf, int len) {
-	while (len--)
-		*buf++ = random() % 0x100;
+	RAND_bytes(buf, len);
 }
 
 
