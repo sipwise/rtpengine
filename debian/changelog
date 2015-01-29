@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.4.2.3) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [cd30d68] segfault fix for DTLS protocol errors
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 29 Jan 2015 14:57:00 +0100
+
 ngcp-rtpengine (3.3.0.0+0~mr3.4.2.2) unstable; urgency=low
 
   [ Richard Fuchs ]
