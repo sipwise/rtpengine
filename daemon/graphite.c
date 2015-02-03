@@ -22,7 +22,7 @@ struct totalstats totalstats_prev;
 int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 
 	graphite_sock=0;
-	int reconnect=0, MAXRECONNECTS=5;
+	int reconnect=0;
 	int rc=0;
 	struct sockaddr_in sin;
 	memset(&sin,0,sizeof(sin));
@@ -47,25 +47,18 @@ int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 		return -1;
 	}
 
-	while (reconnect<MAXRECONNECTS) {
-		struct in_addr ip;
-		ip.s_addr = graphite_ipaddress;
-		ilog(LOG_INFO, "Connecting to graphite server %s at port:%i with fd:%i",inet_ntoa(ip),graphite_port,graphite_sock);
-		rc = connect(graphite_sock, (struct sockaddr *)&sin, sizeof(sin));
-		if (rc==-1) {
-			ilog(LOG_ERROR, "Connection could not be established. Trying again in 5 seconds...");
-			sleep(5);
-			++reconnect;
-			if (reconnect==MAXRECONNECTS) {
-				ilog(LOG_ERROR, "Giving 5 seconds retry timer connection to grahpite. Trying again when graphite data is sent.");
-			}
-			continue;
-		}
-		ilog(LOG_INFO, "Graphite server connected.");
-		break;
+	struct in_addr ip;
+	ip.s_addr = graphite_ipaddress;
+	ilog(LOG_INFO, "Connecting to graphite server %s at port:%i with fd:%i",inet_ntoa(ip),graphite_port,graphite_sock);
+	rc = connect(graphite_sock, (struct sockaddr *)&sin, sizeof(sin));
+	if (rc==-1) {
+		ilog(LOG_ERROR, "Connection could not be established. Trying again next time of graphite-interval.");
+		return -1;
 	}
 
-	return rc==-1?-1:graphite_sock;
+	ilog(LOG_INFO, "Graphite server connected.");
+
+	return graphite_sock;
 }
 
 int send_graphite_data() {
@@ -118,12 +111,17 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 	if (!cm)
 		cm = callmaster;
 
-	rc = send_graphite_data();
-	if (rc<0) {
+	if (!graphite_sock) {
 		rc = connect_to_graphite_server(graphite_ipaddress, graphite_port);
+	}
+
+	if (rc>=0) {
+		rc = send_graphite_data();
 		if (rc<0) {
-			return;
+			ilog(LOG_ERROR,"Sending graphite data failed.");
+			graphite_sock=0;
 		}
 	}
+
 	sleep(seconds);
 }
