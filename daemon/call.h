@@ -11,7 +11,7 @@
 #include <pcre.h>
 #include <openssl/x509.h>
 #include "compat.h"
-
+#include "control_ng.h"
 
 enum termination_reason {
 	UNKNOWN=0,
@@ -412,6 +412,7 @@ struct callmaster {
 	struct stats		stats;		/* copied from statsps once a second */
 	struct totalstats   totalstats;
 	struct totalstats   totalstats_interval;
+	struct control_ng_stats* control_ng_stats;
 
 	struct poller		*poller;
 	pcre			*info_re;

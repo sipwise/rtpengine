@@ -56,6 +56,44 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 	}
 }
 
+struct control_ng_stats* get_control_ng_stats(struct control_ng* c, struct sockaddr_in6* sin) {
+
+	// seems to be the first address
+	if (!c->callmaster->control_ng_stats) {
+		c->callmaster->control_ng_stats = malloc(sizeof(struct control_ng_stats));
+		memset(c->callmaster->control_ng_stats,0,sizeof(struct control_ng_stats));
+		memcpy(&(c->callmaster->control_ng_stats->proxy),sin,sizeof(struct sockaddr_in6));
+		char buf[128]; memset(&buf,0,128);
+	    smart_ntop_p(buf, &sin->sin6_addr, sizeof(buf));
+		ilog(LOG_INFO,"Adding a first proxy for control ng stats:%s\n",buf);
+		return c->callmaster->control_ng_stats;
+	}
+
+	struct control_ng_stats* cur = c->callmaster->control_ng_stats;
+	struct control_ng_stats* last;
+
+	while (cur) {
+		last = cur;
+		if (memcmp((const void*)(&(cur->proxy.sin6_addr)),(const void*)(&(sin->sin6_addr)),sizeof(struct in6_addr))==0) {
+			ilog(LOG_DEBUG,"Already found proxy for control ng stats.\n");
+			return cur;
+		}
+		cur = cur->next;
+	}
+
+	// add a new one
+	char buf[128]; memset(&buf,0,128);
+    smart_ntop_p(buf, &sin->sin6_addr, sizeof(buf));
+	ilog(LOG_INFO,"Adding a new proxy for control ng stats:%s\n",buf);
+
+	cur = malloc(sizeof(struct control_ng_stats));
+	memset(cur,0,sizeof(struct control_ng_stats));
+	memcpy(cur,sin,sizeof(struct sockaddr_in6));
+	last->next = cur;
+
+	return cur;
+}
+
 static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *sin, char *addr) {
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
@@ -65,6 +103,8 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	struct msghdr mh;
 	struct iovec iov[3];
 	GString *log_str;
+
+	struct control_ng_stats* cur = get_control_ng_stats(c,sin);
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
@@ -108,19 +148,31 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	g_string_free(log_str, TRUE);
 
 	errstr = NULL;
-	if (!str_cmp(&cmd, "ping"))
+	if (!str_cmp(&cmd, "ping")) {
 		bencode_dictionary_add_string(resp, "result", "pong");
-	else if (!str_cmp(&cmd, "offer"))
+		cur->ping++;
+	}
+	else if (!str_cmp(&cmd, "offer")) {
 		errstr = call_offer_ng(dict, c->callmaster, resp, addr, sin);
-	else if (!str_cmp(&cmd, "answer"))
+		cur->offer++;
+	}
+	else if (!str_cmp(&cmd, "answer")) {
 		errstr = call_answer_ng(dict, c->callmaster, resp);
-	else if (!str_cmp(&cmd, "delete"))
+		cur->answer++;
+	}
+	else if (!str_cmp(&cmd, "delete")) {
 		errstr = call_delete_ng(dict, c->callmaster, resp);
-	else if (!str_cmp(&cmd, "query"))
+		cur->delete++;
+	}
+	else if (!str_cmp(&cmd, "query")) {
 		errstr = call_query_ng(dict, c->callmaster, resp);
+		cur->query++;
+	}
 #if GLIB_CHECK_VERSION(2,16,0)
-	else if (!str_cmp(&cmd, "list"))
+	else if (!str_cmp(&cmd, "list")) {
 	    errstr = call_list_ng(dict, c->callmaster, resp);
+	    cur->list++;
+	}
 #endif
 	else
 		errstr = "Unrecognized command";
@@ -134,6 +186,7 @@ err_send:
 	ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]", addr, errstr, STR_FMT(&data));
 	bencode_dictionary_add_string(resp, "result", "error");
 	bencode_dictionary_add_string(resp, "error-reason", errstr);
+	cur->errors++;
 	goto send_resp;
 
 send_resp:

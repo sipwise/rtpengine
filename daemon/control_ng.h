@@ -9,6 +9,18 @@
 struct poller;
 struct callmaster;
 
+struct control_ng_stats {
+	struct sockaddr_in6 proxy;
+	u_int32_t ping;
+	u_int32_t offer;
+	u_int32_t answer;
+	u_int32_t delete;
+	u_int32_t query;
+	u_int32_t list;
+	u_int32_t errors;
+	struct control_ng_stats* next;
+};
+
 struct control_ng {
 	struct obj obj;
 	struct callmaster *callmaster;

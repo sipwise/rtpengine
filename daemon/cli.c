@@ -49,6 +49,35 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",m->totalstats.total_average_call_dur.tv_sec,m->totalstats.total_average_call_dur.tv_usec);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
+			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "Errors");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	struct control_ng_stats* cur = m->control_ng_stats;
+
+	if (!cur) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n                  No proxies have yet tried to send data.");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+	while (cur) {
+		char buf[128]; memset(&buf,0,128);
+		smart_ntop_p(buf, &(cur->proxy.sin6_addr), sizeof(buf));
+
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
+				buf,
+				cur->offer,
+				cur->answer,
+				cur->delete,
+				cur->ping,
+				cur->list,
+				cur->query,
+				cur->errors);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		cur = cur->next;
+	}
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n\n");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
 }
 
 static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
