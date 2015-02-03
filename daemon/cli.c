@@ -49,6 +49,35 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",m->totalstats.total_average_call_dur.tv_sec,m->totalstats.total_average_call_dur.tv_usec);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
+			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "Errors");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	struct control_ng_stats* cur = m->control_ng_stats;
+
+	if (!cur) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n                  No proxies have yet tried to send data.");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+	while (cur) {
+		char buf[128]; memset(&buf,0,128);
+		smart_ntop_p(buf, &(cur->proxy.sin6_addr), sizeof(buf));
+
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
+				buf,
+				cur->offer,
+				cur->answer,
+				cur->delete,
+				cur->ping,
+				cur->list,
+				cur->query,
+				cur->errors);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		cur = cur->next;
+	}
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n\n");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
 }
 
 static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
@@ -81,7 +110,8 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
        return;
    }
 
-   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %30s | deletionmark:%4s | created:%12i  | proxy:%s\n\n", c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from);
+   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %30s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu\n\n",
+		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal);
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues; l; l = l->next) {
@@ -113,14 +143,15 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
 
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-                    "%llu p, %llu b, %llu e\n",
+                    "%llu p, %llu b, %llu e, %llu last_packet\n",
                     md->index,
                     (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
                     buf, ps->endpoint.port,
                     (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
                         (unsigned long long) ps->stats.packets,
                         (unsigned long long) ps->stats.bytes,
-                        (unsigned long long) ps->stats.errors);
+                        (unsigned long long) ps->stats.errors,
+                        (unsigned long long) ps->last_packet);
                ADJUSTLEN(printlen,outbufend,replybuffer);
            }
        }

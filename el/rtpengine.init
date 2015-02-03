@@ -143,6 +143,16 @@ build_opts() {
                  OPTS+=" --delete-delay=$DELETE_DELAY"
         fi
 
+        if [[ -n "$GRAPHITE" ]]
+         then
+                 OPTS+=" --graphite=$GRAPHITE"
+        fi
+
+        if [[ -n "$GRAPHITE_INTERVAL" ]]
+         then
+                 OPTS+=" --graphite-interval=$GRAPHITE_INTERVAL"
+        fi
+
 	if [[ -n "$LOG_FACILITY_CDR" ]]
         then
                 OPTS+=" --log-facility-cdr=$LOG_FACILITY_CDR"
