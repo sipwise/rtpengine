@@ -411,6 +411,7 @@ struct callmaster {
 	mutex_t			statslock;
 	struct stats		stats;		/* copied from statsps once a second */
 	struct totalstats   totalstats;
+	struct totalstats   totalstats_interval;
 
 	struct poller		*poller;
 	pcre			*info_re;
