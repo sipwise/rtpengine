@@ -81,7 +81,8 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
        return;
    }
 
-   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %30s | deletionmark:%4s | created:%12i  | proxy:%s\n\n", c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from);
+   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %30s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu\n\n",
+		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal);
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues; l; l = l->next) {
@@ -113,14 +114,15 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
 
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-                    "%llu p, %llu b, %llu e\n",
+                    "%llu p, %llu b, %llu e, %llu last_packet\n",
                     md->index,
                     (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
                     buf, ps->endpoint.port,
                     (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
                         (unsigned long long) ps->stats.packets,
                         (unsigned long long) ps->stats.bytes,
-                        (unsigned long long) ps->stats.errors);
+                        (unsigned long long) ps->stats.errors,
+                        (unsigned long long) ps->last_packet);
                ADJUSTLEN(printlen,outbufend,replybuffer);
            }
        }

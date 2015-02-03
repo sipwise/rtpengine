@@ -2438,6 +2438,8 @@ void call_destroy(struct call *c) {
 	/* CDRs and statistics */
 	cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
 	cdrbufcur += sprintf(cdrbufcur,"created_from=%s, ", c->created_from);
+	cdrbufcur += sprintf(cdrbufcur,"last_signal=%llu, ", (unsigned long long)c->last_signal);
+	cdrbufcur += sprintf(cdrbufcur,"tos=%u, ", (unsigned int)c->tos);
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 		if (_log_facility_cdr) {
@@ -2486,24 +2488,27 @@ void call_destroy(struct call *c) {
 				            "ml%i_midx%u_%s_local_relay_port=%u, "
 				            "ml%i_midx%u_%s_relayed_packets=%llu, "
 				            "ml%i_midx%u_%s_relayed_bytes=%llu, "
-				            "ml%i_midx%u_%s_relayed_errors=%llu, ",
+				            "ml%i_midx%u_%s_relayed_errors=%llu, "
+				            "ml%i_midx%u_%s_last_packet=%llu, ",
 				            cdrlinecnt, md->index, protocol, buf,
 				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
 				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors);
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
 				}
 
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-						"%llu p, %llu b, %llu e",
+						"%llu p, %llu b, %llu e, %llu last_packet",
 						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						buf, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 						(unsigned long long) ps->stats.packets,
 						(unsigned long long) ps->stats.bytes,
-						(unsigned long long) ps->stats.errors);
+						(unsigned long long) ps->stats.errors,
+						(unsigned long long) ps->last_packet);
 				m->totalstats.total_relayed_packets += (unsigned long long) ps->stats.packets;
 				m->totalstats_interval.total_relayed_packets += (unsigned long long) ps->stats.packets;
 				m->totalstats.total_relayed_errors  += (unsigned long long) ps->stats.errors;
