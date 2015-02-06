@@ -2397,7 +2397,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* copy parameters advertised by the sender of this message */
 		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
-				SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_ICE);
+				SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_ICE
+				| SHARED_FLAG_TRICKLE_ICE);
 
 		crypto_params_copy(&other_media->sdes_in.params, &sp->crypto);
 		other_media->sdes_in.tag = sp->sdes_tag;
@@ -2457,7 +2458,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			__disable_streams(other_media, num_ports);
 			goto init;
 		}
-		if (is_addr_unspecified(&sp->rtp_endpoint.ip46)) {
+		if (is_addr_unspecified(&sp->rtp_endpoint.ip46) && !is_trickle_ice_address(&sp->rtp_endpoint)) {
 			/* Zero endpoint address, equivalent to setting the media stream
 			 * to sendonly or inactive */
 			MEDIA_CLEAR(media, RECV);
@@ -2856,7 +2857,7 @@ static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_a
 		l = 4;
 	}
 
-	if (!in6_to_4(&ps->advertised_endpoint.ip46)) {
+	if (!in6_to_4(&ps->advertised_endpoint.ip46) && !is_trickle_ice_address(&ps->advertised_endpoint)) {
 		strcpy(o + l, "0.0.0.0");
 		l += 7;
 	}
@@ -2879,7 +2880,8 @@ static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_a
 		l += 4;
 	}
 
-	if (is_addr_unspecified(&ps->advertised_endpoint.ip46)) {
+	if (is_addr_unspecified(&ps->advertised_endpoint.ip46)
+			&& !is_trickle_ice_address(&ps->advertised_endpoint)) {
 		strcpy(o + l, "::");
 		l += 2;
 	}

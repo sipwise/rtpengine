@@ -104,6 +104,7 @@ struct call_monologue;
 #define SHARED_FLAG_ICE				0x00000080
 #define SHARED_FLAG_STRICT_SOURCE		0x00000100
 #define SHARED_FLAG_MEDIA_HANDOVER		0x00000200
+#define SHARED_FLAG_TRICKLE_ICE			0x00000400
 
 /* struct stream_params */
 #define SP_FLAG_NO_RTCP				0x00010000
@@ -117,6 +118,7 @@ struct call_monologue;
 #define SP_FLAG_ICE				SHARED_FLAG_ICE
 #define SP_FLAG_STRICT_SOURCE			SHARED_FLAG_STRICT_SOURCE
 #define SP_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
+#define SP_FLAG_TRICKLE_ICE			SHARED_FLAG_TRICKLE_ICE
 
 /* struct packet_stream */
 #define PS_FLAG_RTP				0x00010000
@@ -146,6 +148,7 @@ struct call_monologue;
 #define MEDIA_FLAG_SETUP_PASSIVE		SHARED_FLAG_SETUP_PASSIVE
 #define MEDIA_FLAG_PASSTHRU			0x00100000
 #define MEDIA_FLAG_ICE				SHARED_FLAG_ICE
+#define MEDIA_FLAG_TRICKLE_ICE			SHARED_FLAG_TRICKLE_ICE
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)

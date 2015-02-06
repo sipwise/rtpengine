@@ -57,4 +57,10 @@ void sdp_chopper_destroy(struct sdp_chopper *chop);
 
 int address_family(const str *s);
 
+INLINE int is_trickle_ice_address(const struct endpoint *ep) {
+	if (is_addr_unspecified(&ep->ip46) && ep->port == 9)
+		return 1;
+	return 0;
+}
+
 #endif
