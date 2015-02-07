@@ -92,6 +92,10 @@ extern const int num_crypto_suites;
 
 const struct crypto_suite *crypto_find_suite(const str *);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);
+void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out);
+
+
+
 
 INLINE int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
 		str *payload, u_int64_t index)

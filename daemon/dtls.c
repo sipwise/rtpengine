@@ -112,6 +112,52 @@ static void cert_free(void *p) {
 		X509_free(cert->x509);
 }
 
+static void buf_dump_free(char *buf, size_t len) {
+	char *p, *f;
+	int llen;
+
+	p = buf;
+	while (len) {
+		f = memchr(p, '\n', len);
+		if (f)
+			llen = f - p;
+		else
+			llen = len;
+
+		ilog(LOG_DEBUG, "--- %.*s", llen, p);
+
+		len -= llen + 1;
+		p = f + 1;
+	}
+
+	free(buf);
+}
+
+static void dump_cert(struct dtls_cert *cert) {
+	FILE *fp;
+	char *buf;
+	size_t len;
+
+	if (get_log_level() < LOG_DEBUG)
+		return;
+
+	/* cert */
+	fp = open_memstream(&buf, &len);
+	PEM_write_X509(fp, cert->x509);
+	fclose(fp);
+
+	ilog(LOG_DEBUG, "Dump of DTLS certificate:");
+	buf_dump_free(buf, len);
+
+	/* key */
+	fp = open_memstream(&buf, &len);
+	PEM_write_PrivateKey(fp, cert->pkey, NULL, NULL, 0, 0, NULL);
+	fclose(fp);
+
+	ilog(LOG_DEBUG, "Dump of DTLS private key:");
+	buf_dump_free(buf, len);
+}
+
 static int cert_init() {
 	X509 *x509 = NULL;
 	EVP_PKEY *pkey = NULL;
@@ -201,6 +247,8 @@ static int cert_init() {
 	new_cert->x509 = x509;
 	new_cert->pkey = pkey;
 	new_cert->expires = time(NULL) + CERT_EXPIRY_TIME;
+
+	dump_cert(new_cert);
 
 	/* swap out certs */
 
@@ -566,6 +614,8 @@ found:
 		crypto_init(&ps->crypto, &server);
 		crypto_init(&ps->sfd->crypto, &client);
 	}
+
+	crypto_dump_keys(&ps->crypto, &ps->sfd->crypto);
 
 	return 0;
 

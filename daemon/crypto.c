@@ -550,3 +550,25 @@ static int null_crypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s
 static int null_crypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, u_int64_t idx) {
 	return 0;
 }
+
+static void dump_key(struct crypto_context *c) {
+	char *k, *s;
+
+	k = g_base64_encode(c->params.master_key, c->params.crypto_suite->master_key_len);
+	s = g_base64_encode(c->params.master_salt, c->params.crypto_suite->master_salt_len);
+
+	ilog(LOG_DEBUG, "--- %s key %s salt %s", c->params.crypto_suite->name, k, s);
+
+	g_free(k);
+	g_free(s);
+}
+
+void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out) {
+	if (get_log_level() < LOG_DEBUG)
+		return;
+
+	ilog(LOG_DEBUG, "SRTP keys, incoming:");
+	dump_key(in);
+	ilog(LOG_DEBUG, "SRTP keys, outgoing:");
+	dump_key(out);
+}
