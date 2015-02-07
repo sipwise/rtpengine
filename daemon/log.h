@@ -79,6 +79,9 @@ INLINE void log_info_stream_fd(struct stream_fd *sfd) {
 	log_info.e = LOG_INFO_STREAM_FD;
 	log_info.u.stream_fd = __obj_get((void *) sfd);
 }
+INLINE int get_log_level(void) {
+	return g_atomic_int_get(&log_level);
+}
 
 
 

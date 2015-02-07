@@ -96,7 +96,7 @@ void ilog(int prio, const char *fmt, ...) {
 
 #ifndef __DEBUG
 	int level; /* thank you C99 */
-	level = g_atomic_int_get(&log_level);
+	level = get_log_level();
 	if (xprio > LOG_LEVEL_MASK(level))
 		return;
 	if ((level & LOG_FLAG_RESTORE) && !(prio & LOG_FLAG_RESTORE))

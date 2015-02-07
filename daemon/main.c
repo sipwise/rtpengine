@@ -135,19 +135,19 @@ static void sighandler(gpointer x) {
 		if (ret == SIGINT || ret == SIGTERM)
 			global_shutdown = 1;
 		else if (ret == SIGUSR1) {
-		        if (g_atomic_int_get(&log_level) > 0) {
+		        if (get_log_level() > 0) {
 				g_atomic_int_add(&log_level, -1);
-				setlogmask(LOG_UPTO(g_atomic_int_get(&log_level)));
-				ilog(g_atomic_int_get(&log_level), "Set log level to %d\n",
-						g_atomic_int_get(&log_level));
+				setlogmask(LOG_UPTO(get_log_level()));
+				ilog(get_log_level(), "Set log level to %d\n",
+						get_log_level());
 			}
 		}
 		else if (ret == SIGUSR2) {
-		        if (g_atomic_int_get(&log_level) < 7) {
+		        if (get_log_level() < 7) {
 				g_atomic_int_add(&log_level, 1);
-				setlogmask(LOG_UPTO(g_atomic_int_get(&log_level)));
-				ilog(g_atomic_int_get(&log_level), "Set log level to %d\n",
-						g_atomic_int_get(&log_level));
+				setlogmask(LOG_UPTO(get_log_level()));
+				ilog(get_log_level(), "Set log level to %d\n",
+						get_log_level());
 			}
 		}
 		else
