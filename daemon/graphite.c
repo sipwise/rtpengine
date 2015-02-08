@@ -13,7 +13,7 @@
 #include "log.h"
 #include "call.h"
 
-int graphite_sock=0;
+int graphite_sock=-1;
 u_int32_t graphite_ipaddress;
 int graphite_port=0;
 struct callmaster* cm=0;
@@ -21,7 +21,7 @@ struct totalstats totalstats_prev;
 
 int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 
-	graphite_sock=0;
+	graphite_sock=-1;
 	//int reconnect=0;
 	int rc=0;
 	struct sockaddr_in sin;
@@ -44,7 +44,7 @@ int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 	rc = setsockopt(graphite_sock,SOL_SOCKET,SO_REUSEADDR, &val,sizeof(val));
 	if(rc<0) {
 		ilog(LOG_ERROR,"Couldn't set sockopt for graphite descriptor.");
-		return -1;
+		goto error;
 	}
 
 	struct in_addr ip;
@@ -53,19 +53,24 @@ int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 	rc = connect(graphite_sock, (struct sockaddr *)&sin, sizeof(sin));
 	if (rc==-1) {
 		ilog(LOG_ERROR, "Connection could not be established. Trying again next time of graphite-interval.");
-		return -1;
+		goto error;
 	}
 
 	ilog(LOG_INFO, "Graphite server connected.");
 
 	return graphite_sock;
+
+error:
+	close(graphite_sock);
+	graphite_sock = -1;
+	return -1;
 }
 
 int send_graphite_data() {
 
 	int rc=0;
 
-	if (!graphite_sock) {
+	if (graphite_sock < 0) {
 		ilog(LOG_ERROR,"Graphite socket is not connected.");
 		return -1;
 	}
@@ -75,7 +80,7 @@ int send_graphite_data() {
 	rc = gethostname(hostname,256);
 	if (rc<0) {
 		ilog(LOG_ERROR, "Could not retrieve host name information.");
-		return -1;
+		goto error;
 	}
 
 	char data_to_send[8192]; memset(&data_to_send,0,8192);
@@ -102,10 +107,13 @@ int send_graphite_data() {
 	rc = write(graphite_sock, data_to_send, strlen(data_to_send));
 	if (rc<0) {
 		ilog(LOG_ERROR,"Could not write to graphite socket. Disconnecting graphite server.");
-		close(graphite_sock); graphite_sock=0;
-		return -1;
+		goto error;
 	}
 	return 0;
+
+error:
+	close(graphite_sock); graphite_sock=-1;
+	return -1;
 }
 
 void graphite_loop_run(struct callmaster* callmaster, int seconds) {
@@ -115,7 +123,7 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 	if (!cm)
 		cm = callmaster;
 
-	if (!graphite_sock) {
+	if (graphite_sock < 0) {
 		rc = connect_to_graphite_server(graphite_ipaddress, graphite_port);
 	}
 
@@ -123,7 +131,6 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 		rc = send_graphite_data();
 		if (rc<0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
-			graphite_sock=0;
 		}
 	}
 
