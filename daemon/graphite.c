@@ -13,11 +13,11 @@
 #include "log.h"
 #include "call.h"
 
-int graphite_sock=-1;
-u_int32_t graphite_ipaddress;
-int graphite_port=0;
-struct callmaster* cm=0;
-struct totalstats totalstats_prev;
+static int graphite_sock=-1;
+static u_int32_t graphite_ipaddress;
+static int graphite_port=0;
+static struct callmaster* cm=0;
+//struct totalstats totalstats_prev;
 
 int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 
