@@ -416,7 +416,7 @@ INLINE int u_int16_t_arr_len(u_int16_t *arr) {
 
 
 #define SLF " from %s"
-#define SLP addr
+#define SLP smart_ntop_port_buf(sin)
 /* return values:
  * 0  = stun packet processed successfully
  * -1 = stun packet not processed, processing should continue as non-stun packet
@@ -429,9 +429,6 @@ int stun(str *b, struct packet_stream *ps, struct sockaddr_in6 *sin) {
 	struct stun_attrs attrs;
 	u_int16_t unknowns[UNKNOWNS_COUNT];
 	const char *err;
-	char addr[64];
-
-	smart_ntop_port(addr, sin, sizeof(addr));
 
 	msglen = ntohs(req->msg_len);
 	err = "message-length mismatch";

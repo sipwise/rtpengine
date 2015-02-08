@@ -50,6 +50,9 @@
 
 #define UINT64F			"%" G_GUINT64_FORMAT
 
+#define THREAD_BUF_SIZE		64
+#define NUM_THREAD_BUFS		8
+
 
 
 
@@ -59,6 +62,7 @@ GList *g_list_link(GList *, GList *);
 int pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *, GQueue *);
 INLINE void strmove(char **, char **);
 INLINE void strdupfree(char **, const char *);
+char *get_thread_buf(void);
 
 
 #if !GLIB_CHECK_VERSION(2,14,0)
@@ -156,6 +160,12 @@ INLINE void smart_ntop(char *o, const struct in6_addr *a, size_t len) {
 		*o = '\0';
 }
 
+INLINE char *smart_ntop_buf(const struct in6_addr *a) {
+	char *buf = get_thread_buf();
+	smart_ntop(buf, a, THREAD_BUF_SIZE);
+	return buf;
+}
+
 INLINE char *smart_ntop_p(char *o, const struct in6_addr *a, size_t len) {
 	int l;
 
@@ -178,6 +188,12 @@ INLINE char *smart_ntop_p(char *o, const struct in6_addr *a, size_t len) {
 	}
 }
 
+INLINE char *smart_ntop_p_buf(const struct in6_addr *a) {
+	char *buf = get_thread_buf();
+	smart_ntop_p(buf, a, THREAD_BUF_SIZE);
+	return buf;
+}
+
 INLINE void smart_ntop_port(char *o, const struct sockaddr_in6 *a, size_t len) {
 	char *e;
 
@@ -187,6 +203,12 @@ INLINE void smart_ntop_port(char *o, const struct sockaddr_in6 *a, size_t len) {
 	if (len - (e - o) < 7)
 		return;
 	sprintf(e, ":%hu", ntohs(a->sin6_port));
+}
+
+INLINE char *smart_ntop_port_buf(const struct sockaddr_in6 *a) {
+	char *buf = get_thread_buf();
+	smart_ntop_port(buf, a, THREAD_BUF_SIZE);
+	return buf;
 }
 
 INLINE int smart_pton(int af, char *src, void *dst) {

@@ -70,11 +70,9 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	}
 	for (GList *l = list; l; l = l->next) {
 		struct control_ng_stats* cur = l->data;
-		char buf[128]; memset(&buf,0,128);
-		smart_ntop_p(buf, &(cur->proxy), sizeof(buf));
 
 		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
-				buf,
+				smart_ntop_p_buf(&cur->proxy),
 				cur->offer,
 				cur->answer,
 				cur->delete,
@@ -98,7 +96,6 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    struct packet_stream *ps;
    GSList *l;
    GList *k, *o;
-   char buf[64];
    int printlen=0;
    char tagtypebuf[16]; memset(&tagtypebuf,0,16);
    struct timeval tim_result_duration; memset(&tim_result_duration,0,sizeof(struct timeval));
@@ -150,13 +147,11 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                if (PS_ISSET(ps, FALLBACK_RTCP))
                    continue;
 
-               smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
-
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
                     "%llu p, %llu b, %llu e, %llu last_packet\n",
                     md->index,
                     (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-                    buf, ps->endpoint.port,
+                    smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
                     (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
                         (unsigned long long) ps->stats.packets,
                         (unsigned long long) ps->stats.bytes,

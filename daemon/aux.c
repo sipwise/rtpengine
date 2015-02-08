@@ -21,12 +21,18 @@ struct detach_thread {
 	void		(*func)(void *);
 	void		*data;
 };
+struct thread_buf {
+	char buf[THREAD_BUF_SIZE];
+};
 
 
 static mutex_t threads_lists_lock = MUTEX_STATIC_INIT;
 static GList *threads_to_join;
 static GList *threads_running;
 static cond_t threads_cond = COND_STATIC_INIT;
+
+static struct thread_buf __thread t_bufs[NUM_THREAD_BUFS];
+static int __thread t_buf_idx;
 
 
 
@@ -39,7 +45,9 @@ GList *g_list_link(GList *list, GList *el) {
 }
 
 
-int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num, parse_func f, void *p, GQueue *q) {
+int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num, parse_func f,
+		void *p, GQueue *q)
+{
 	unsigned int start, len;
 	int ovec[60];
 	int *ov;
@@ -201,4 +209,13 @@ unsigned int in6_addr_hash(const void *p) {
 int in6_addr_eq(const void *a, const void *b) {
 	const struct in6_addr *A = a, *B = b;
 	return !memcmp(A, B, sizeof(*A));
+}
+
+char *get_thread_buf(void) {
+	char *ret;
+	ret = t_bufs[t_buf_idx].buf;
+	t_buf_idx++;
+	if (t_buf_idx >= G_N_ELEMENTS(t_bufs))
+		t_buf_idx = 0;
+	return ret;
 }

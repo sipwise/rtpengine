@@ -599,14 +599,14 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	struct call *call;
 	struct callmaster *cm;
 	/*unsigned char cc;*/
-	char addr[64];
+	char *addr;
 	struct endpoint endpoint;
 	rewrite_func rwf_in, rwf_out;
 	struct interface_address *loc_addr;
 
 	call = sfd->call;
 	cm = call->callmaster;
-	smart_ntop_port(addr, fsin, sizeof(addr));
+	addr = smart_ntop_port_buf(fsin);
 
 	rwlock_lock_r(&call->master_lock);
 
@@ -787,15 +787,15 @@ update_addr:
 	loc_addr = g_atomic_pointer_get(&media->local_address);
 	if (dst && memcmp(dst, &loc_addr->addr, sizeof(*dst))) {
 		struct interface_address *ifa;
-		char ifa_buf[64];
-		smart_ntop(ifa_buf, dst, sizeof(ifa_buf));
 		ifa = get_interface_from_address(media->interface, dst);
 		if (!ifa) {
-			ilog(LOG_ERROR, "No matching local interface for destination address %s found", ifa_buf);
+			ilog(LOG_ERROR, "No matching local interface for destination address %s found",
+					smart_ntop_buf(dst));
 			goto drop;
 		}
 		if (g_atomic_pointer_compare_and_exchange(&media->local_address, loc_addr, ifa)) {
-			ilog(LOG_INFO, "Switching local interface to %s", ifa_buf);
+			ilog(LOG_INFO, "Switching local interface to %s",
+					smart_ntop_buf(dst));
 			update = 1;
 		}
 	}
@@ -1219,7 +1219,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 	struct call_monologue *cm;
 	const char *url, *url_prefix, *url_suffix;
 	struct xmlrpc_helper *xh = NULL;
-	char addr[64], url_buf[128];
+	char url_buf[128];
 
 	if (!list)
 		return;
@@ -1250,9 +1250,9 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 		rwlock_lock_r(&ca->master_lock);
 
 		if (url_prefix) {
-			smart_ntop_p(addr, &ca->created_from_addr.sin6_addr, sizeof(addr));
 			snprintf(url_buf, sizeof(url_buf), "%s%s%s",
-					url_prefix, addr, url_suffix);
+					url_prefix, smart_ntop_p_buf(&ca->created_from_addr.sin6_addr),
+					url_suffix);
 		}
 		else
 			snprintf(url_buf, sizeof(url_buf), "%s", url_suffix);
@@ -2414,7 +2414,6 @@ void call_destroy(struct call *c) {
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k, *o;
-	char buf[64];
 	struct timeval tim_result_duration;
 	static const int CDRBUFLENGTH = 4096*2;
 	char reasonbuf[16]; memset(&reasonbuf,0,16);
@@ -2484,7 +2483,7 @@ void call_destroy(struct call *c) {
 				if (PS_ISSET(ps, FALLBACK_RTCP))
 					continue;
 
-				smart_ntop_p(buf, &ps->endpoint.ip46, sizeof(buf));
+				char *addr = smart_ntop_p_buf(&ps->endpoint.ip46);
 
 				if (_log_facility_cdr) {
 				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
@@ -2496,7 +2495,7 @@ void call_destroy(struct call *c) {
 				            "ml%i_midx%u_%s_relayed_bytes=%llu, "
 				            "ml%i_midx%u_%s_relayed_errors=%llu, "
 				            "ml%i_midx%u_%s_last_packet=%llu, ",
-				            cdrlinecnt, md->index, protocol, buf,
+				            cdrlinecnt, md->index, protocol, addr,
 				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
@@ -2509,7 +2508,7 @@ void call_destroy(struct call *c) {
 						"%llu p, %llu b, %llu e, %llu last_packet",
 						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-						buf, ps->endpoint.port,
+						addr, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 						(unsigned long long) ps->stats.packets,
 						(unsigned long long) ps->stats.bytes,

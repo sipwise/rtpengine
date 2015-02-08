@@ -65,9 +65,7 @@ struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const struct
 	if (!cur) {
 		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
 		cur->proxy = *addr;
-		char buf[128]; memset(&buf,0,128);
-	    smart_ntop_p(buf, addr, sizeof(buf));
-		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s",buf);
+		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s", smart_ntop_p_buf(addr));
 		g_hash_table_insert(m->cngs_hash, &cur->proxy, cur);
 	}
 	mutex_unlock(&m->cngs_lock);
