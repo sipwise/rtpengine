@@ -60,15 +60,18 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
 			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "Errors");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	struct control_ng_stats* cur = m->control_ng_stats;
 
-	if (!cur) {
+	mutex_lock(&m->cngs_lock);
+	GList *list = g_hash_table_get_values(m->cngs_hash);
+
+	if (!list) {
 		printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n                  No proxies have yet tried to send data.");
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
-	while (cur) {
+	for (GList *l = list; l; l = l->next) {
+		struct control_ng_stats* cur = l->data;
 		char buf[128]; memset(&buf,0,128);
-		smart_ntop_p(buf, &(cur->proxy.sin6_addr), sizeof(buf));
+		smart_ntop_p(buf, &(cur->proxy), sizeof(buf));
 
 		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
 				buf,
@@ -80,10 +83,11 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 				cur->query,
 				cur->errors);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
-		cur = cur->next;
 	}
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
+	mutex_unlock(&m->cngs_lock);
+	g_list_free(list);
 }
 
 static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {

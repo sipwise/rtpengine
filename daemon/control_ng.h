@@ -10,15 +10,14 @@ struct poller;
 struct callmaster;
 
 struct control_ng_stats {
-	struct sockaddr_in6 proxy;
-	u_int32_t ping;
-	u_int32_t offer;
-	u_int32_t answer;
-	u_int32_t delete;
-	u_int32_t query;
-	u_int32_t list;
-	u_int32_t errors;
-	struct control_ng_stats* next;
+	struct in6_addr proxy;
+	int ping;
+	int offer;
+	int answer;
+	int delete;
+	int query;
+	int list;
+	int errors;
 };
 
 struct control_ng {
@@ -29,6 +28,5 @@ struct control_ng {
 };
 
 struct control_ng *control_ng_new(struct poller *, struct in6_addr, u_int16_t, struct callmaster *);
-
 
 #endif

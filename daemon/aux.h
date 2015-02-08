@@ -144,7 +144,7 @@ INLINE u_int32_t in6_to_4(const struct in6_addr *a) {
 	return a->s6_addr32[3];
 }
 
-INLINE void smart_ntop(char *o, struct in6_addr *a, size_t len) {
+INLINE void smart_ntop(char *o, const struct in6_addr *a, size_t len) {
 	const char *r;
 
 	if (IN6_IS_ADDR_V4MAPPED(a))
@@ -156,7 +156,7 @@ INLINE void smart_ntop(char *o, struct in6_addr *a, size_t len) {
 		*o = '\0';
 }
 
-INLINE char *smart_ntop_p(char *o, struct in6_addr *a, size_t len) {
+INLINE char *smart_ntop_p(char *o, const struct in6_addr *a, size_t len) {
 	int l;
 
 	if (IN6_IS_ADDR_V4MAPPED(a)) {
@@ -178,7 +178,7 @@ INLINE char *smart_ntop_p(char *o, struct in6_addr *a, size_t len) {
 	}
 }
 
-INLINE void smart_ntop_port(char *o, struct sockaddr_in6 *a, size_t len) {
+INLINE void smart_ntop_port(char *o, const struct sockaddr_in6 *a, size_t len) {
 	char *e;
 
 	e = smart_ntop_p(o, &a->sin6_addr, len);
@@ -482,5 +482,10 @@ INLINE void g_queue_append(GQueue *dst, const GQueue *src) {
 	for (l = src->head; l; l = l->next)
 		g_queue_push_tail(dst, l->data);
 }
+
+
+
+unsigned int in6_addr_hash(const void *p);
+int in6_addr_eq(const void *a, const void *b);
 
 #endif

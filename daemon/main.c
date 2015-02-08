@@ -620,8 +620,6 @@ no_kernel:
 
 	if (redis_restore(ctx->m, mc.redis))
 		die("Refusing to continue without working Redis database");
-
-	ZERO(ctx->m->control_ng_stats);
 }
 
 static void timer_loop(void *d) {

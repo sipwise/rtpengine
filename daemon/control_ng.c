@@ -56,41 +56,21 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 	}
 }
 
-struct control_ng_stats* get_control_ng_stats(struct control_ng* c, struct sockaddr_in6* sin) {
+struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const struct in6_addr *addr) {
+	struct callmaster *m = c->callmaster;
+	struct control_ng_stats* cur;
 
-	// seems to be the first address
-	if (!c->callmaster->control_ng_stats) {
-		c->callmaster->control_ng_stats = malloc(sizeof(struct control_ng_stats));
-		memset(c->callmaster->control_ng_stats,0,sizeof(struct control_ng_stats));
-		memcpy(&(c->callmaster->control_ng_stats->proxy),sin,sizeof(struct sockaddr_in6));
+	mutex_lock(&m->cngs_lock);
+	cur = g_hash_table_lookup(m->cngs_hash, addr);
+	if (!cur) {
+		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
+		cur->proxy = *addr;
 		char buf[128]; memset(&buf,0,128);
-	    smart_ntop_p(buf, &sin->sin6_addr, sizeof(buf));
-		ilog(LOG_INFO,"Adding a first proxy for control ng stats:%s\n",buf);
-		return c->callmaster->control_ng_stats;
+	    smart_ntop_p(buf, addr, sizeof(buf));
+		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s",buf);
+		g_hash_table_insert(m->cngs_hash, &cur->proxy, cur);
 	}
-
-	struct control_ng_stats* cur = c->callmaster->control_ng_stats;
-	struct control_ng_stats* last;
-
-	while (cur) {
-		last = cur;
-		if (memcmp((const void*)(&(cur->proxy.sin6_addr)),(const void*)(&(sin->sin6_addr)),sizeof(struct in6_addr))==0) {
-			ilog(LOG_DEBUG,"Already found proxy for control ng stats.\n");
-			return cur;
-		}
-		cur = cur->next;
-	}
-
-	// add a new one
-	char buf[128]; memset(&buf,0,128);
-    smart_ntop_p(buf, &sin->sin6_addr, sizeof(buf));
-	ilog(LOG_INFO,"Adding a new proxy for control ng stats:%s\n",buf);
-
-	cur = malloc(sizeof(struct control_ng_stats));
-	memset(cur,0,sizeof(struct control_ng_stats));
-	memcpy(cur,sin,sizeof(struct sockaddr_in6));
-	last->next = cur;
-
+	mutex_unlock(&m->cngs_lock);
 	return cur;
 }
 
@@ -104,7 +84,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	struct iovec iov[3];
 	GString *log_str;
 
-	struct control_ng_stats* cur = get_control_ng_stats(c,sin);
+	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->sin6_addr);
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
@@ -150,28 +130,28 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	errstr = NULL;
 	if (!str_cmp(&cmd, "ping")) {
 		bencode_dictionary_add_string(resp, "result", "pong");
-		cur->ping++;
+		g_atomic_int_inc(&cur->ping);
 	}
 	else if (!str_cmp(&cmd, "offer")) {
 		errstr = call_offer_ng(dict, c->callmaster, resp, addr, sin);
-		cur->offer++;
+		g_atomic_int_inc(&cur->offer);
 	}
 	else if (!str_cmp(&cmd, "answer")) {
 		errstr = call_answer_ng(dict, c->callmaster, resp);
-		cur->answer++;
+		g_atomic_int_inc(&cur->answer);
 	}
 	else if (!str_cmp(&cmd, "delete")) {
 		errstr = call_delete_ng(dict, c->callmaster, resp);
-		cur->delete++;
+		g_atomic_int_inc(&cur->delete);
 	}
 	else if (!str_cmp(&cmd, "query")) {
 		errstr = call_query_ng(dict, c->callmaster, resp);
-		cur->query++;
+		g_atomic_int_inc(&cur->query);
 	}
 #if GLIB_CHECK_VERSION(2,16,0)
 	else if (!str_cmp(&cmd, "list")) {
 	    errstr = call_list_ng(dict, c->callmaster, resp);
-	    cur->list++;
+	    g_atomic_int_inc(&cur->list);
 	}
 #endif
 	else
@@ -186,7 +166,7 @@ err_send:
 	ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]", addr, errstr, STR_FMT(&data));
 	bencode_dictionary_add_string(resp, "result", "error");
 	bencode_dictionary_add_string(resp, "error-reason", errstr);
-	cur->errors++;
+	g_atomic_int_inc(&cur->errors);
 	goto send_resp;
 
 send_resp:

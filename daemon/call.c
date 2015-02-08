@@ -1426,6 +1426,9 @@ struct callmaster *callmaster_new(struct poller *p) {
 	mutex_init(&c->totalstats_lock);
 	c->totalstats.started = poller_now;
 
+	mutex_init(&c->cngs_lock);
+	c->cngs_hash = g_hash_table_new(in6_addr_hash, in6_addr_eq);
+
 	return c;
 
 fail:
