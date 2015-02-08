@@ -18,6 +18,7 @@ static u_int32_t graphite_ipaddress;
 static int graphite_port=0;
 static struct callmaster* cm=0;
 //struct totalstats totalstats_prev;
+static time_t g_now, next_run;
 
 int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 
@@ -120,6 +121,12 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 
 	int rc=0;
 
+	g_now = time(NULL);
+	if (g_now < next_run)
+		goto sleep;
+
+	next_run = g_now + seconds;
+
 	if (!cm)
 		cm = callmaster;
 
@@ -134,5 +141,6 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 		}
 	}
 
-	sleep(seconds);
+sleep:
+	usleep(100000);
 }
