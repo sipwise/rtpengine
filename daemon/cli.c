@@ -25,6 +25,9 @@ static const char* TRUNCATED = "    ... Output truncated. Increase Output Buffer
 
 static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
+
+	mutex_lock(&m->totalstats_lock);
+
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nTotal statistics (does not include current running sessions):\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Uptime of rtpengine                             :%llu seconds\n", (unsigned long long)time(NULL)-m->totalstats.started);
@@ -49,6 +52,9 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",m->totalstats.total_average_call_dur.tv_sec,m->totalstats.total_average_call_dur.tv_usec);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	mutex_unlock(&m->totalstats_lock);
+
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",

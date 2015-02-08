@@ -1423,6 +1423,9 @@ struct callmaster *callmaster_new(struct poller *p) {
 
 	poller_add_timer(p, callmaster_timer, &c->obj);
 
+	mutex_init(&c->totalstats_lock);
+	c->totalstats.started = poller_now;
+
 	return c;
 
 fail:
@@ -2509,10 +2512,13 @@ void call_destroy(struct call *c) {
 						(unsigned long long) ps->stats.bytes,
 						(unsigned long long) ps->stats.errors,
 						(unsigned long long) ps->last_packet);
+
+				mutex_lock(&m->totalstats_lock);
 				m->totalstats.total_relayed_packets += (unsigned long long) ps->stats.packets;
 				m->totalstats_interval.total_relayed_packets += (unsigned long long) ps->stats.packets;
 				m->totalstats.total_relayed_errors  += (unsigned long long) ps->stats.errors;
 				m->totalstats_interval.total_relayed_errors  += (unsigned long long) ps->stats.errors;
+				mutex_unlock(&m->totalstats_lock);
 			}
 		}
 		if (_log_facility_cdr)
@@ -2520,8 +2526,11 @@ void call_destroy(struct call *c) {
 	}
 
 	// --- for statistics getting one way stream or no relay at all
+	mutex_lock(&m->totalstats_lock);
 	m->totalstats.total_nopacket_relayed_sess *= 2;
 	m->totalstats_interval.total_nopacket_relayed_sess *= 2;
+	mutex_unlock(&m->totalstats_lock);
+
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 
@@ -2558,17 +2567,22 @@ void call_destroy(struct call *c) {
 			}
 		}
 
-		if (ps && ps2 && ps->stats.packets!=0 && ps2->stats.packets==0) {
-			m->totalstats.total_oneway_stream_sess++;
-			m->totalstats_interval.total_oneway_stream_sess++;
+		if (ps && ps2 && ps2->stats.packets==0) {
+			mutex_lock(&m->totalstats_lock);
+			if (ps->stats.packets!=0) {
+				m->totalstats.total_oneway_stream_sess++;
+				m->totalstats_interval.total_oneway_stream_sess++;
+			}
+			else {
+				m->totalstats.total_nopacket_relayed_sess++;
+				m->totalstats_interval.total_nopacket_relayed_sess++;
+			}
+			mutex_unlock(&m->totalstats_lock);
 		}
-
-		if (ps && ps2 && ps->stats.packets==0 && ps2->stats.packets==0) {
-			m->totalstats.total_nopacket_relayed_sess++;
-			m->totalstats_interval.total_nopacket_relayed_sess++;
-		}
-
 	}
+
+	mutex_lock(&m->totalstats_lock);
+
 	m->totalstats.total_nopacket_relayed_sess /= 2;
 	m->totalstats_interval.total_nopacket_relayed_sess /= 2;
 
@@ -2597,6 +2611,8 @@ void call_destroy(struct call *c) {
 	timeval_multiply(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,m->totalstats_interval.total_managed_sess-1);
 	timeval_add(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,&tim_result_duration);
 	timeval_devide(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,m->totalstats_interval.total_managed_sess);
+
+	mutex_unlock(&m->totalstats_lock);
 
 	if (_log_facility_cdr)
 	    /* log it */

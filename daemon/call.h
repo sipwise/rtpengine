@@ -410,6 +410,7 @@ struct callmaster {
 	struct stats		statsps;	/* per second stats, running timer */
 	mutex_t			statslock;
 	struct stats		stats;		/* copied from statsps once a second */
+	mutex_t			totalstats_lock; /* for both of them */
 	struct totalstats   totalstats;
 	struct totalstats   totalstats_interval;
 	struct control_ng_stats* control_ng_stats;

@@ -81,6 +81,8 @@ int send_graphite_data() {
 	char data_to_send[8192]; memset(&data_to_send,0,8192);
 	char* ptr = data_to_send;
 
+	mutex_lock(&cm->totalstats_lock);
+
 	rc = sprintf(ptr,"%s.totals.average_call_dur.tv_sec %i %u\n",hostname, cm->totalstats_interval.total_average_call_dur.tv_sec,(unsigned)time(NULL)); ptr += rc;
 	rc = sprintf(ptr,"%s.totals.average_call_dur.tv_usec %i %u\n",hostname, cm->totalstats_interval.total_average_call_dur.tv_usec,(unsigned)time(NULL)); ptr += rc;
 	rc = sprintf(ptr,"%s.totals.forced_term_sess %i %u\n",hostname, cm->totalstats_interval.total_forced_term_sess,(unsigned)time(NULL)); ptr += rc;
@@ -94,6 +96,8 @@ int send_graphite_data() {
 	rc = sprintf(ptr,"%s.totals.timeout_sess %i %u\n",hostname, cm->totalstats_interval.total_timeout_sess,(unsigned)time(NULL)); ptr += rc;
 
 	ZERO(cm->totalstats_interval);
+
+	mutex_unlock(&cm->totalstats_lock);
 
 	rc = write(graphite_sock, data_to_send, strlen(data_to_send));
 	if (rc<0) {
