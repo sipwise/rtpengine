@@ -1423,6 +1423,12 @@ struct callmaster *callmaster_new(struct poller *p) {
 
 	poller_add_timer(p, callmaster_timer, &c->obj);
 
+	mutex_init(&c->totalstats_lock);
+	c->totalstats.started = poller_now;
+
+	mutex_init(&c->cngs_lock);
+	c->cngs_hash = g_hash_table_new(in6_addr_hash, in6_addr_eq);
+
 	return c;
 
 fail:
@@ -2438,6 +2444,8 @@ void call_destroy(struct call *c) {
 	/* CDRs and statistics */
 	cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
 	cdrbufcur += sprintf(cdrbufcur,"created_from=%s, ", c->created_from);
+	cdrbufcur += sprintf(cdrbufcur,"last_signal=%llu, ", (unsigned long long)c->last_signal);
+	cdrbufcur += sprintf(cdrbufcur,"tos=%u, ", (unsigned int)c->tos);
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 		if (_log_facility_cdr) {
@@ -2486,26 +2494,34 @@ void call_destroy(struct call *c) {
 				            "ml%i_midx%u_%s_local_relay_port=%u, "
 				            "ml%i_midx%u_%s_relayed_packets=%llu, "
 				            "ml%i_midx%u_%s_relayed_bytes=%llu, "
-				            "ml%i_midx%u_%s_relayed_errors=%llu, ",
+				            "ml%i_midx%u_%s_relayed_errors=%llu, "
+				            "ml%i_midx%u_%s_last_packet=%llu, ",
 				            cdrlinecnt, md->index, protocol, buf,
 				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
 				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors);
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
+				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
 				}
 
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-						"%llu p, %llu b, %llu e",
+						"%llu p, %llu b, %llu e, %llu last_packet",
 						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						buf, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 						(unsigned long long) ps->stats.packets,
 						(unsigned long long) ps->stats.bytes,
-						(unsigned long long) ps->stats.errors);
+						(unsigned long long) ps->stats.errors,
+						(unsigned long long) ps->last_packet);
+
+				mutex_lock(&m->totalstats_lock);
 				m->totalstats.total_relayed_packets += (unsigned long long) ps->stats.packets;
+				m->totalstats_interval.total_relayed_packets += (unsigned long long) ps->stats.packets;
 				m->totalstats.total_relayed_errors  += (unsigned long long) ps->stats.errors;
+				m->totalstats_interval.total_relayed_errors  += (unsigned long long) ps->stats.errors;
+				mutex_unlock(&m->totalstats_lock);
 			}
 		}
 		if (_log_facility_cdr)
@@ -2513,7 +2529,11 @@ void call_destroy(struct call *c) {
 	}
 
 	// --- for statistics getting one way stream or no relay at all
+	mutex_lock(&m->totalstats_lock);
 	m->totalstats.total_nopacket_relayed_sess *= 2;
+	m->totalstats_interval.total_nopacket_relayed_sess *= 2;
+	mutex_unlock(&m->totalstats_lock);
+
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 
@@ -2550,31 +2570,52 @@ void call_destroy(struct call *c) {
 			}
 		}
 
-		if (ps && ps2 && ps->stats.packets!=0 && ps2->stats.packets==0)
-			m->totalstats.total_oneway_stream_sess++;
-
-		if (ps && ps2 && ps->stats.packets==0 && ps2->stats.packets==0)
-			m->totalstats.total_nopacket_relayed_sess++;
-
+		if (ps && ps2 && ps2->stats.packets==0) {
+			mutex_lock(&m->totalstats_lock);
+			if (ps->stats.packets!=0) {
+				m->totalstats.total_oneway_stream_sess++;
+				m->totalstats_interval.total_oneway_stream_sess++;
+			}
+			else {
+				m->totalstats.total_nopacket_relayed_sess++;
+				m->totalstats_interval.total_nopacket_relayed_sess++;
+			}
+			mutex_unlock(&m->totalstats_lock);
+		}
 	}
+
+	mutex_lock(&m->totalstats_lock);
+
 	m->totalstats.total_nopacket_relayed_sess /= 2;
+	m->totalstats_interval.total_nopacket_relayed_sess /= 2;
 
 	m->totalstats.total_managed_sess += 1;
+	m->totalstats_interval.total_managed_sess += 1;
 
 	ml = c->monologues->data;
 	if (ml->term_reason==TIMEOUT) {
 		m->totalstats.total_timeout_sess++;
+		m->totalstats_interval.total_timeout_sess++;
 	} else if (ml->term_reason==SILENT_TIMEOUT) {
 		m->totalstats.total_silent_timeout_sess++;
+		m->totalstats_interval.total_silent_timeout_sess++;
 	} else if (ml->term_reason==REGULAR) {
 		m->totalstats.total_regular_term_sess++;
+		m->totalstats_interval.total_regular_term_sess++;
 	} else if (ml->term_reason==FORCED) {
 		m->totalstats.total_forced_term_sess++;
+		m->totalstats_interval.total_forced_term_sess++;
 	}
 
 	timeval_multiply(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess-1);
 	timeval_add(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,&tim_result_duration);
 	timeval_devide(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess);
+
+	timeval_multiply(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,m->totalstats_interval.total_managed_sess-1);
+	timeval_add(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,&tim_result_duration);
+	timeval_devide(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,m->totalstats_interval.total_managed_sess);
+
+	mutex_unlock(&m->totalstats_lock);
 
 	if (_log_facility_cdr)
 	    /* log it */

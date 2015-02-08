@@ -192,3 +192,13 @@ void thread_create_detach(void (*f)(void *), void *d) {
 	if (thread_create(thread_detach_func, dt, 1, NULL))
 		abort();
 }
+
+unsigned int in6_addr_hash(const void *p) {
+	const struct in6_addr *a = p;
+	return a->s6_addr32[0] ^ a->s6_addr32[3];
+}
+
+int in6_addr_eq(const void *a, const void *b) {
+	const struct in6_addr *A = a, *B = b;
+	return !memcmp(A, B, sizeof(*A));
+}

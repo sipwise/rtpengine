@@ -26,7 +26,7 @@
 #include "dtls.h"
 #include "call_interfaces.h"
 #include "cli.h"
-
+#include "graphite.h"
 
 
 
@@ -108,7 +108,9 @@ static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
 static int delete_delay = 30;
-
+static u_int32_t graphite_ip = 0;
+static u_int16_t graphite_port;
+static int graphite_interval = 0;
 
 static void sighandler(gpointer x) {
 	sigset_t ss;
@@ -254,6 +256,7 @@ static void options(int *argc, char ***argv) {
 	char *listenudps = NULL;
 	char *listenngs = NULL;
 	char *listencli = NULL;
+	char *graphitep = NULL;
 	char *redisps = NULL;
 	char *log_facility_s = NULL;
         char *log_facility_cdr_s = NULL;
@@ -269,6 +272,8 @@ static void options(int *argc, char ***argv) {
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
         { "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
+        { "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "[IP46:]PORT"     },
+		{ "graphite-interval",  'w', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
@@ -329,6 +334,10 @@ static void options(int *argc, char ***argv) {
 
 	if (listencli) {if (parse_ip_port(&cli_listenp, &cli_listenport, listencli))
 	    die("Invalid IP or port (--listen-cli)");
+	}
+
+	if (graphitep) {if (parse_ip_port(&graphite_ip, &graphite_port, graphitep))
+	    die("Invalid IP or port (--graphite)");
 	}
 
 	if (tos < 0 || tos > 255)
@@ -605,9 +614,6 @@ no_kernel:
 	ctx->m->conf = mc;
 	callmaster_config_init(ctx->m);
 
-	ZERO(ctx->m->totalstats);
-	ctx->m->totalstats.started = time(NULL);
-
 	if (!foreground)
 		daemonize();
 	wpidfile();
@@ -621,6 +627,20 @@ static void timer_loop(void *d) {
 
 	while (!global_shutdown)
 		poller_timers_wait_run(p, 100);
+}
+
+static void graphite_loop(void *d) {
+	struct callmaster *cm = d;
+
+	if (!graphite_interval) {
+		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
+		graphite_interval=1;
+	}
+
+	connect_to_graphite_server(graphite_ip,graphite_port);
+
+	while (!global_shutdown)
+		graphite_loop_run(cm,graphite_interval); // time in seconds
 }
 
 static void poller_loop(void *d) {
@@ -642,6 +662,8 @@ int main(int argc, char **argv) {
 
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(timer_loop, ctx.p);
+	if (graphite_ip)
+		thread_create_detach(graphite_loop, ctx.m);
 
 	if (num_threads < 1) {
 #ifdef _SC_NPROCESSORS_ONLN
