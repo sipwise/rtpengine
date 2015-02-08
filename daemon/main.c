@@ -108,7 +108,7 @@ static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
 static int delete_delay = 30;
-static u_int32_t graphite_ip = NULL;
+static u_int32_t graphite_ip = 0;
 static u_int16_t graphite_port;
 static int graphite_interval = 0;
 
