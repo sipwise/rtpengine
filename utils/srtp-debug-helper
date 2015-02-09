@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use MIME::Base64;
+use SRTP;
+
+my $cs = $SRTP::crypto_suites{$ARGV[0]} or die;
+my $inline_key = $ARGV[1] or die;
+my ($key, $salt) = SRTP::decode_inline_base64($inline_key);
+my ($skey, $sauth, $ssalt) = SRTP::gen_rtp_session_keys($key, $salt);
+print("Master key:           " . unpack("H*", $key) . "\n");
+print("Master salt:          " . unpack("H*", $salt) . "\n");
+print("RTP session key:      " . unpack("H*", $skey) . "\n");
+print("RTP session auth key: " . unpack("H*", $sauth) . "\n");
+print("RTP session salt:     " . unpack("H*", $ssalt) . "\n");
+
+my $pack = $ARGV[2];
+my @pack;
+if ($pack =~ /:/) {
+	my @pack = split(/:/, $pack);
+	$pack = join('', (map {chr(hex($_))} @pack));
+}
+else {
+	$pack = pack("H*", $pack);
+}
+
+print("Packet length:        " . length($pack) . " bytes\n");
+
+my ($dec, $roc, $tag, $hmac) = SRTP::decrypt_rtp($cs, $skey, $ssalt, $sauth, 0, $pack);
+
+print("Auth tag from packet: " . unpack("H*", $tag) . "\n");
+print("Computer auth tag:    " . unpack("H*", $hmac) . "\n");
+
+
