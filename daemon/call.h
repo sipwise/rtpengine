@@ -195,16 +195,18 @@ struct stats {
 
 struct totalstats {
 	time_t 				started;
+	atomic_uint64			total_timeout_sess;
+	atomic_uint64			total_silent_timeout_sess;
+	atomic_uint64			total_regular_term_sess;
+	atomic_uint64			total_forced_term_sess;
+	atomic_uint64			total_relayed_packets;
+	atomic_uint64			total_relayed_errors;
+	atomic_uint64			total_nopacket_relayed_sess;
+	atomic_uint64			total_oneway_stream_sess;
+
+	mutex_t				total_average_lock; /* for these two below */
 	u_int64_t			total_managed_sess;
-	u_int64_t			total_timeout_sess;
-	u_int64_t			total_silent_timeout_sess;
-	u_int64_t			total_regular_term_sess;
-	u_int64_t			total_forced_term_sess;
-	u_int64_t			total_relayed_packets;
-	u_int64_t			total_relayed_errors;
-	u_int64_t			total_nopacket_relayed_sess;
-	u_int64_t			total_oneway_stream_sess;
-	struct timeval		total_average_call_dur;
+	struct timeval			total_average_call_dur;
 };
 
 struct udp_fd {
@@ -409,7 +411,6 @@ struct callmaster {
 	/* XXX rework these */
 	struct stats		statsps;	/* per second stats, running timer */
 	struct stats		stats;		/* copied from statsps once a second */
-	mutex_t			totalstats_lock; /* for both of them */
 	struct totalstats   totalstats;
 	struct totalstats   totalstats_interval;
 	/* control_ng_stats stuff */
@@ -468,7 +469,7 @@ const struct transport_protocol *transport_protocol(const str *s);
 
 void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b);
 void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier);
-void timeval_devide(struct timeval *result, const struct timeval *a, const long devisor);
+void timeval_divide(struct timeval *result, const struct timeval *a, const long divisor);
 void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b);
 
 

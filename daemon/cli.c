@@ -25,35 +25,38 @@ static const char* TRUNCATED = "    ... Output truncated. Increase Output Buffer
 
 static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
+	struct timeval avg;
+	u_int64_t num_sessions;
 
-	mutex_lock(&m->totalstats_lock);
+	mutex_lock(&m->totalstats.total_average_lock);
+	avg = m->totalstats.total_average_call_dur;
+	num_sessions = m->totalstats.total_managed_sess;
+	mutex_unlock(&m->totalstats.total_average_lock);
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nTotal statistics (does not include current running sessions):\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Uptime of rtpengine                             :%llu seconds\n", (unsigned long long)time(NULL)-m->totalstats.started);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total managed sessions                          :"UINT64F"\n", m->totalstats.total_managed_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total managed sessions                          :"UINT64F"\n", num_sessions);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via TIMEOUT            :"UINT64F"\n",m->totalstats.total_timeout_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via TIMEOUT            :"UINT64F"\n",atomic_uint64_get(&m->totalstats.total_timeout_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via SILENT_TIMEOUT     :"UINT64F"\n",m->totalstats.total_silent_timeout_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via SILENT_TIMEOUT     :"UINT64F"\n",atomic_uint64_get(&m->totalstats.total_silent_timeout_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total regular terminated sessions               :"UINT64F"\n",m->totalstats.total_regular_term_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total regular terminated sessions               :"UINT64F"\n",atomic_uint64_get(&m->totalstats.total_regular_term_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total forced terminated sessions                :"UINT64F"\n",m->totalstats.total_forced_term_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total forced terminated sessions                :"UINT64F"\n",atomic_uint64_get(&m->totalstats.total_forced_term_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packets                           :"UINT64F"\n",m->totalstats.total_relayed_packets);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packets                           :"UINT64F"\n",atomic_uint64_get(&m->totalstats.total_relayed_packets));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packet errors                     :"UINT64F"\n",m->totalstats.total_relayed_errors);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packet errors                     :"UINT64F"\n",atomic_uint64_get(&m->totalstats.total_relayed_errors));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of streams with no relayed packets :"UINT64F"\n", m->totalstats.total_nopacket_relayed_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of streams with no relayed packets :"UINT64F"\n", atomic_uint64_get(&m->totalstats.total_nopacket_relayed_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of 1-way streams                   :"UINT64F"\n",m->totalstats.total_oneway_stream_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of 1-way streams                   :"UINT64F"\n",atomic_uint64_get(&m->totalstats.total_oneway_stream_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",m->totalstats.total_average_call_dur.tv_sec,m->totalstats.total_average_call_dur.tv_usec);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",avg.tv_sec,avg.tv_usec);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-
-	mutex_unlock(&m->totalstats_lock);
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);

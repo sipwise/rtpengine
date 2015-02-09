@@ -547,6 +547,11 @@ INLINE u_int64_t atomic_uint64_get_set(atomic_uint64 *u, u_int64_t a) {
 			return old;
 	} while (1);
 }
+INLINE void atomic_uint64_local_copy_zero(atomic_uint64 *dst, atomic_uint64 *src) {
+	atomic_uint64_set_na(dst, atomic_uint64_get_set(src, 0));
+}
+#define atomic_uint64_local_copy_zero_struct(d, s, member) \
+	atomic_uint64_local_copy_zero(&((d)->member), &((s)->member))
 
 #endif
 
