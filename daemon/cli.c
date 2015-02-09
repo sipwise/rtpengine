@@ -309,7 +309,7 @@ next:
            sprintf(replybuffer, "Could currently not accept CLI commands. Reason:%s\n", strerror(errno));
            goto cleanup;
        }
-       ilog(LOG_INFO, "Accept error:%s\n", strerror(errno));
+       ilog(LOG_INFO, "Accept error:%s", strerror(errno));
        goto next;
    }
 
@@ -319,15 +319,15 @@ next:
        readbytes = read(nfd, inbuf+inlen, MAXINPUT);
        if (readbytes == -1) {
            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-               ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s\n", strerror(errno));
+               ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s", strerror(errno));
                goto cleanup;
            }
-           ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s\n", strerror(errno));
+           ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s", strerror(errno));
        }
        inlen += readbytes;
    } while (readbytes > 0);
 
-   ilog(LOG_INFO, "Got CLI command:%s\n",inbuf);
+   ilog(LOG_INFO, "Got CLI command:%s",inbuf);
 
    static const char* LIST = "list";
    static const char* TERMINATE = "terminate";
