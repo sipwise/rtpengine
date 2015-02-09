@@ -2481,32 +2481,32 @@ void call_destroy(struct call *c) {
 				            "ml%i_midx%u_%s_endpoint_ip=%s, "
 				            "ml%i_midx%u_%s_endpoint_port=%u, "
 				            "ml%i_midx%u_%s_local_relay_port=%u, "
-				            "ml%i_midx%u_%s_relayed_packets=%llu, "
-				            "ml%i_midx%u_%s_relayed_bytes=%llu, "
-				            "ml%i_midx%u_%s_relayed_errors=%llu, "
+				            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
+				            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
+				            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
 				            "ml%i_midx%u_%s_last_packet=%llu, ",
 				            cdrlinecnt, md->index, protocol, addr,
 				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 				            cdrlinecnt, md->index, protocol,
-					    (unsigned long long) atomic_uint64_get(&ps->stats.packets),
+					    atomic_uint64_get(&ps->stats.packets),
 				            cdrlinecnt, md->index, protocol,
-					    (unsigned long long) atomic_uint64_get(&ps->stats.bytes),
+					    atomic_uint64_get(&ps->stats.bytes),
 				            cdrlinecnt, md->index, protocol,
-					    (unsigned long long) atomic_uint64_get(&ps->stats.errors),
+					    atomic_uint64_get(&ps->stats.errors),
 				            cdrlinecnt, md->index, protocol,
 					    (unsigned long long) atomic_uint64_get(&ps->last_packet));
 				}
 
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-						"%llu p, %llu b, %llu e, %llu last_packet",
+						""UINT64F" p, "UINT64F" b, "UINT64F" e, %llu last_packet",
 						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						addr, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						(unsigned long long) atomic_uint64_get(&ps->stats.packets),
-						(unsigned long long) atomic_uint64_get(&ps->stats.bytes),
-						(unsigned long long) atomic_uint64_get(&ps->stats.errors),
+						atomic_uint64_get(&ps->stats.packets),
+						atomic_uint64_get(&ps->stats.bytes),
+						atomic_uint64_get(&ps->stats.errors),
 						(unsigned long long) atomic_uint64_get(&ps->last_packet));
 
 				mutex_lock(&m->totalstats_lock);

@@ -91,15 +91,15 @@ int send_graphite_data() {
 
 	rc = sprintf(ptr,"%s.totals.average_call_dur.tv_sec %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_average_call_dur.tv_sec,(unsigned long long)g_now); ptr += rc;
 	rc = sprintf(ptr,"%s.totals.average_call_dur.tv_usec %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_average_call_dur.tv_usec,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.forced_term_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_forced_term_sess,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.managed_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_managed_sess,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.nopacket_relayed_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_nopacket_relayed_sess,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.oneway_stream_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_oneway_stream_sess,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.regular_term_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_regular_term_sess,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.relayed_errors %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_relayed_errors,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.relayed_packets %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_relayed_packets,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.silent_timeout_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_silent_timeout_sess,(unsigned long long)g_now); ptr += rc;
-	rc = sprintf(ptr,"%s.totals.timeout_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_timeout_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.forced_term_sess "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_forced_term_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.managed_sess "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_managed_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.nopacket_relayed_sess "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_nopacket_relayed_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.oneway_stream_sess "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_oneway_stream_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.regular_term_sess "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_regular_term_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.relayed_errors "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_relayed_errors,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.relayed_packets "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_relayed_packets,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.silent_timeout_sess "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_silent_timeout_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.timeout_sess "UINT64F" %llu\n",hostname, cm->totalstats_interval.total_timeout_sess,(unsigned long long)g_now); ptr += rc;
 
 	ZERO(cm->totalstats_interval);
 
