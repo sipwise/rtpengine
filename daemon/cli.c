@@ -165,6 +165,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    rwlock_unlock_w(&c->master_lock); // because of call_get(..)
+   obj_put(c);
 }
 
 static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
@@ -274,13 +275,15 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 		   ml->term_reason = FORCED;
 	   }
    }
-   call_destroy(c);
 
    printlen = snprintf(replybuffer, outbufend-replybuffer, "\nCall Id (%s) successfully terminated by operator.\n\n",termparam.s);
    ADJUSTLEN(printlen,outbufend,replybuffer);
    ilog(LOG_WARN, "Call Id (%s) successfully terminated by operator.",termparam.s);
 
    rwlock_unlock_w(&c->master_lock);
+
+   call_destroy(c);
+   obj_put(c);
 }
 
 static void cli_incoming(int fd, void *p, uintptr_t u) {
