@@ -153,10 +153,10 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                     (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
                     smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
                     (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-                        (unsigned long long) ps->stats.packets,
-                        (unsigned long long) ps->stats.bytes,
-                        (unsigned long long) ps->stats.errors,
-                        (unsigned long long) ps->last_packet);
+                        (unsigned long long) atomic_uint64_get(&ps->stats.packets),
+                        (unsigned long long) atomic_uint64_get(&ps->stats.bytes),
+                        (unsigned long long) atomic_uint64_get(&ps->stats.errors),
+                        (unsigned long long) atomic_uint64_get(&ps->last_packet));
                ADJUSTLEN(printlen,outbufend,replybuffer);
            }
        }

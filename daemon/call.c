@@ -687,12 +687,9 @@ loop_ok:
 
 	if (!sink || !sink->sfd || !out_srtp->sfd || !in_srtp->sfd) {
 		ilog(LOG_WARNING, "RTP packet from %s discarded", addr);
-		mutex_lock(&stream->in_lock);
-		stream->stats.errors++;
-		mutex_lock(&cm->statspslock);
-		cm->statsps.errors++;
-		mutex_unlock(&cm->statspslock);
-		goto done;
+		atomic_uint64_inc(&stream->stats.errors);
+		atomic_uint64_inc(&cm->statsps.errors);
+		goto unlock_out;
 	}
 
 	mutex_lock(&in_srtp->in_lock);
@@ -755,7 +752,7 @@ use_cand:
 			mutex_unlock(&stream->out_lock);
 
 			if (tmp && PS_ISSET(stream, STRICT_SOURCE)) {
-				stream->stats.errors++;
+				atomic_uint64_inc(&stream->stats.errors);
 				goto drop;
 			}
 		}
@@ -844,10 +841,8 @@ forward:
 	if (ret == -1) {
 		ret = -errno;
                 ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
-		stream->stats.errors++;
-		mutex_lock(&cm->statspslock);
-		cm->statsps.errors++;
-		mutex_unlock(&cm->statspslock);
+		atomic_uint64_inc(&stream->stats.errors);
+		atomic_uint64_inc(&cm->statsps.errors);
 		goto out;
 	}
 
@@ -857,13 +852,11 @@ drop:
 	if (sink)
 		mutex_unlock(&sink->out_lock);
 	ret = 0;
-	stream->stats.packets++;
-	stream->stats.bytes += s->len;
-	stream->last_packet = poller_now;
-	mutex_lock(&cm->statspslock);
-	cm->statsps.packets++;
-	cm->statsps.bytes += s->len;
-	mutex_unlock(&cm->statspslock);
+	atomic_uint64_inc(&stream->stats.packets);
+	atomic_uint64_add(&stream->stats.bytes, s->len);
+	atomic_uint64_set(&stream->last_packet, poller_now);
+	atomic_uint64_inc(&cm->statsps.packets);
+	atomic_uint64_add(&cm->statsps.bytes, s->len);
 
 out:
 	if (ret == 0 && update)
@@ -1078,7 +1071,7 @@ no_sfd:
 			tmp_t_reason = 2;
 		}
 
-		if (poller_now - ps->last_packet < check)
+		if (poller_now - atomic_uint64_get(&ps->last_packet) < check)
 			good = 1;
 
 next:
@@ -1288,16 +1281,14 @@ destroy:
 
 
 #define DS(x) do {							\
-		mutex_lock(&ps->in_lock);				\
-		if (ke->stats.x < ps->kernel_stats.x)			\
+		u_int64_t ks_val, d;					\
+		ks_val = atomic_uint64_get(&ps->kernel_stats.x);	\
+		if (ke->stats.x < ks_val)				\
 			d = 0;						\
 		else							\
-			d = ke->stats.x - ps->kernel_stats.x;		\
-		ps->stats.x += d;					\
-		mutex_unlock(&ps->in_lock);				\
-		mutex_lock(&m->statspslock);				\
-		m->statsps.x += d;					\
-		mutex_unlock(&m->statspslock);				\
+			d = ke->stats.x - ks_val;			\
+		atomic_uint64_add(&ps->stats.x, d);			\
+		atomic_uint64_add(&m->statsps.x, d);			\
 	} while (0)
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
@@ -1305,7 +1296,6 @@ static void callmaster_timer(void *ptr) {
 	GList *i;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps, *sink;
-	u_int64_t d;
 	struct stats tmpstats;
 	int j, update;
 	struct stream_fd *sfd;
@@ -1316,13 +1306,13 @@ static void callmaster_timer(void *ptr) {
 	g_hash_table_foreach(m->callhash, call_timer_iterator, &hlp);
 	rwlock_unlock_r(&m->hashlock);
 
-	mutex_lock(&m->statspslock);
-	memcpy(&tmpstats, &m->statsps, sizeof(tmpstats));
-	ZERO(m->statsps);
-	mutex_unlock(&m->statspslock);
-	mutex_lock(&m->statslock);
-	memcpy(&m->stats, &tmpstats, sizeof(m->stats));
-	mutex_unlock(&m->statslock);
+	atomic_uint64_set_na(&tmpstats.bytes, atomic_uint64_get_set(&m->statsps.bytes, 0));
+	atomic_uint64_set_na(&tmpstats.packets, atomic_uint64_get_set(&m->statsps.packets, 0));
+	atomic_uint64_set_na(&tmpstats.errors, atomic_uint64_get_set(&m->statsps.errors, 0));
+
+	atomic_uint64_set(&m->stats.bytes, atomic_uint64_get_na(&tmpstats.bytes));
+	atomic_uint64_set(&m->stats.packets, atomic_uint64_get_na(&tmpstats.packets));
+	atomic_uint64_set(&m->stats.errors, atomic_uint64_get_na(&tmpstats.errors));
 
 	i = (m->conf.kernelid >= 0) ? kernel_list(m->conf.kernelid) : NULL;
 	while (i) {
@@ -1346,12 +1336,12 @@ static void callmaster_timer(void *ptr) {
 
 		mutex_lock(&ps->in_lock);
 
-		if (ke->stats.packets != ps->kernel_stats.packets)
-			ps->last_packet = poller_now;
+		if (ke->stats.packets != atomic_uint64_get(&ps->kernel_stats.packets))
+			atomic_uint64_set(&ps->last_packet, poller_now);
 
-		ps->kernel_stats.packets = ke->stats.packets;
-		ps->kernel_stats.bytes = ke->stats.bytes;
-		ps->kernel_stats.errors = ke->stats.errors;
+		atomic_uint64_set(&ps->kernel_stats.bytes, ke->stats.bytes);
+		atomic_uint64_set(&ps->kernel_stats.packets, ke->stats.packets);
+		atomic_uint64_set(&ps->kernel_stats.errors, ke->stats.errors);
 
 		update = 0;
 
@@ -1764,7 +1754,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
-	stream->last_packet = poller_now;
+	atomic_uint64_set_na(&stream->last_packet, poller_now);
 	call->streams = g_slist_prepend(call->streams, stream);
 
 	return stream;
@@ -2498,10 +2488,14 @@ void call_destroy(struct call *c) {
 				            cdrlinecnt, md->index, protocol, addr,
 				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
+				            cdrlinecnt, md->index, protocol,
+					    (unsigned long long) atomic_uint64_get(&ps->stats.packets),
+				            cdrlinecnt, md->index, protocol,
+					    (unsigned long long) atomic_uint64_get(&ps->stats.bytes),
+				            cdrlinecnt, md->index, protocol,
+					    (unsigned long long) atomic_uint64_get(&ps->stats.errors),
+				            cdrlinecnt, md->index, protocol,
+					    (unsigned long long) atomic_uint64_get(&ps->last_packet));
 				}
 
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
@@ -2510,16 +2504,16 @@ void call_destroy(struct call *c) {
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						addr, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						(unsigned long long) ps->stats.packets,
-						(unsigned long long) ps->stats.bytes,
-						(unsigned long long) ps->stats.errors,
-						(unsigned long long) ps->last_packet);
+						(unsigned long long) atomic_uint64_get(&ps->stats.packets),
+						(unsigned long long) atomic_uint64_get(&ps->stats.bytes),
+						(unsigned long long) atomic_uint64_get(&ps->stats.errors),
+						(unsigned long long) atomic_uint64_get(&ps->last_packet));
 
 				mutex_lock(&m->totalstats_lock);
-				m->totalstats.total_relayed_packets += (unsigned long long) ps->stats.packets;
-				m->totalstats_interval.total_relayed_packets += (unsigned long long) ps->stats.packets;
-				m->totalstats.total_relayed_errors  += (unsigned long long) ps->stats.errors;
-				m->totalstats_interval.total_relayed_errors  += (unsigned long long) ps->stats.errors;
+				m->totalstats.total_relayed_packets += atomic_uint64_get(&ps->stats.packets);
+				m->totalstats_interval.total_relayed_packets += atomic_uint64_get(&ps->stats.packets);
+				m->totalstats.total_relayed_errors  += atomic_uint64_get(&ps->stats.errors);
+				m->totalstats_interval.total_relayed_errors  += atomic_uint64_get(&ps->stats.errors);
 				mutex_unlock(&m->totalstats_lock);
 			}
 		}
@@ -2569,9 +2563,9 @@ void call_destroy(struct call *c) {
 			}
 		}
 
-		if (ps && ps2 && ps2->stats.packets==0) {
+		if (ps && ps2 && atomic_uint64_get(&ps2->stats.packets)==0) {
 			mutex_lock(&m->totalstats_lock);
-			if (ps->stats.packets!=0) {
+			if (atomic_uint64_get(&ps->stats.packets)!=0) {
 				m->totalstats.total_oneway_stream_sess++;
 				m->totalstats_interval.total_oneway_stream_sess++;
 			}

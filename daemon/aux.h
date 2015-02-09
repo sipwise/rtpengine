@@ -510,4 +510,46 @@ INLINE void g_queue_append(GQueue *dst, const GQueue *src) {
 unsigned int in6_addr_hash(const void *p);
 int in6_addr_eq(const void *a, const void *b);
 
+
+
+#if GLIB_SIZEOF_VOID_P >= 8
+
+typedef struct {
+	void *p;
+} atomic_uint64;
+
+INLINE u_int64_t atomic_uint64_get(const atomic_uint64 *u) {
+	return (u_int64_t) g_atomic_pointer_get(&u->p);
+}
+INLINE u_int64_t atomic_uint64_get_na(const atomic_uint64 *u) {
+	return (u_int64_t) u->p;
+}
+INLINE void atomic_uint64_set(atomic_uint64 *u, u_int64_t a) {
+	g_atomic_pointer_set(&u->p, (void *) a);
+}
+INLINE void atomic_uint64_set_na(atomic_uint64 *u, u_int64_t a) {
+	u->p = (void *) a;
+}
+INLINE void atomic_uint64_inc(atomic_uint64 *u) {
+	g_atomic_pointer_add(&u->p, 1);
+}
+INLINE void atomic_uint64_add(atomic_uint64 *u, u_int64_t a) {
+	g_atomic_pointer_add(&u->p, a);
+}
+INLINE void atomic_uint64_add_na(atomic_uint64 *u, u_int64_t a) {
+	u->p = (void *) (((u_int64_t) u->p) + a);
+}
+INLINE u_int64_t atomic_uint64_get_set(atomic_uint64 *u, u_int64_t a) {
+	u_int64_t old;
+	do {
+		old = atomic_uint64_get(u);
+		if (g_atomic_pointer_compare_and_exchange(&u->p, (void *) old, (void *) a))
+			return old;
+	} while (1);
+}
+
+#endif
+
+
+
 #endif

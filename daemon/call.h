@@ -12,6 +12,7 @@
 #include <openssl/x509.h>
 #include "compat.h"
 #include "control_ng.h"
+#include "aux.h"
 
 enum termination_reason {
 	UNKNOWN=0,
@@ -187,9 +188,9 @@ extern const struct transport_protocol transport_protocols[];
 
 
 struct stats {
-	u_int64_t			packets;
-	u_int64_t			bytes;
-	u_int64_t			errors;
+	atomic_uint64			packets;
+	atomic_uint64			bytes;
+	atomic_uint64			errors;
 };
 
 struct totalstats {
@@ -268,9 +269,9 @@ struct packet_stream {
 	struct endpoint		advertised_endpoint; /* RO */
 	struct crypto_context	crypto;		/* OUT direction, LOCK: out_lock */
 
-	struct stats		stats;		/* LOCK: in_lock */
-	struct stats		kernel_stats;	/* LOCK: in_lock */
-	time_t			last_packet;	/* LOCK: in_lock */
+	struct stats		stats;
+	struct stats		kernel_stats;
+	atomic_uint64		last_packet;
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: in_lock: */
@@ -406,9 +407,7 @@ struct callmaster {
 	BIT_ARRAY_DECLARE(ports_used, 0x10000);
 
 	/* XXX rework these */
-	mutex_t			statspslock;
 	struct stats		statsps;	/* per second stats, running timer */
-	mutex_t			statslock;
 	struct stats		stats;		/* copied from statsps once a second */
 	mutex_t			totalstats_lock; /* for both of them */
 	struct totalstats   totalstats;
