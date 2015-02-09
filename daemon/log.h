@@ -45,7 +45,20 @@ extern unsigned int max_log_line_length;
 
 
 void log_init(void);
-void ilog(int prio, const char *fmt, ...)__attribute__ ((format (printf, 2, 3)));
+void __ilog(int prio, const char *fmt, ...)__attribute__ ((format (printf, 2, 3)));
+#ifndef __DEBUG
+#define ilog(prio, fmt...)									\
+	do {											\
+		int loglevel = get_log_level();							\
+		if (LOG_LEVEL_MASK((prio)) > LOG_LEVEL_MASK(loglevel))				\
+			break;									\
+		if ((loglevel & LOG_FLAG_RESTORE) && !((prio) & LOG_FLAG_RESTORE))		\
+			break;									\
+		__ilog(prio, fmt);								\
+	} while (0)
+#else
+#define ilog(prio, fmt...) __ilog(prio, fmt)
+#endif
 
 void cdrlog(const char* cdrbuffer);
 

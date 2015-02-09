@@ -85,7 +85,7 @@ void log_to_stderr(int facility_priority, char *format, ...) {
 	free(msg);
 }
 
-void ilog(int prio, const char *fmt, ...) {
+void __ilog(int prio, const char *fmt, ...) {
 	char prefix[256];
 	char *msg, *piece;
 	const char *infix = "";
@@ -93,15 +93,6 @@ void ilog(int prio, const char *fmt, ...) {
 	int ret, xprio;
 
 	xprio = LOG_LEVEL_MASK(prio);
-
-#ifndef __DEBUG
-	int level; /* thank you C99 */
-	level = get_log_level();
-	if (xprio > LOG_LEVEL_MASK(level))
-		return;
-	if ((level & LOG_FLAG_RESTORE) && !(prio & LOG_FLAG_RESTORE))
-		return;
-#endif
 
 	switch (log_info.e) {
 		case LOG_INFO_NONE:
