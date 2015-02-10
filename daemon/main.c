@@ -30,7 +30,7 @@
 
 
 
-#define REDIS_MODULE_VERSION "redis/6"
+#define REDIS_MODULE_VERSION "redis/7"
 
 
 

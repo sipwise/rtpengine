@@ -910,7 +910,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 	return 0;
 
 error:
-	ilog(LOG_WARNING, "Error parsing SDP at offset %li: %s", b - body->s, errstr);
+	ilog(LOG_WARNING, "Error parsing SDP at offset %li: %s", (long) (b - body->s), errstr);
 	sdp_free(sessions);
 	return -1;
 }

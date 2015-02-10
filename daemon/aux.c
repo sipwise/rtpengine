@@ -34,6 +34,10 @@ static cond_t threads_cond = COND_STATIC_INIT;
 static struct thread_buf __thread t_bufs[NUM_THREAD_BUFS];
 static int __thread t_buf_idx;
 
+#ifdef NEED_ATOMIC64_MUTEX
+mutex_t __atomic64_mutex = MUTEX_STATIC_INIT;
+#endif
+
 
 
 GList *g_list_link(GList *list, GList *el) {

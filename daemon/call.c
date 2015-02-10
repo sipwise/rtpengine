@@ -687,12 +687,9 @@ loop_ok:
 
 	if (!sink || !sink->sfd || !out_srtp->sfd || !in_srtp->sfd) {
 		ilog(LOG_WARNING, "RTP packet from %s discarded", addr);
-		mutex_lock(&stream->in_lock);
-		stream->stats.errors++;
-		mutex_lock(&cm->statspslock);
-		cm->statsps.errors++;
-		mutex_unlock(&cm->statspslock);
-		goto done;
+		atomic64_inc(&stream->stats.errors);
+		atomic64_inc(&cm->statsps.errors);
+		goto unlock_out;
 	}
 
 	mutex_lock(&in_srtp->in_lock);
@@ -755,7 +752,7 @@ use_cand:
 			mutex_unlock(&stream->out_lock);
 
 			if (tmp && PS_ISSET(stream, STRICT_SOURCE)) {
-				stream->stats.errors++;
+				atomic64_inc(&stream->stats.errors);
 				goto drop;
 			}
 		}
@@ -844,10 +841,8 @@ forward:
 	if (ret == -1) {
 		ret = -errno;
                 ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
-		stream->stats.errors++;
-		mutex_lock(&cm->statspslock);
-		cm->statsps.errors++;
-		mutex_unlock(&cm->statspslock);
+		atomic64_inc(&stream->stats.errors);
+		atomic64_inc(&cm->statsps.errors);
 		goto out;
 	}
 
@@ -857,13 +852,11 @@ drop:
 	if (sink)
 		mutex_unlock(&sink->out_lock);
 	ret = 0;
-	stream->stats.packets++;
-	stream->stats.bytes += s->len;
-	stream->last_packet = poller_now;
-	mutex_lock(&cm->statspslock);
-	cm->statsps.packets++;
-	cm->statsps.bytes += s->len;
-	mutex_unlock(&cm->statspslock);
+	atomic64_inc(&stream->stats.packets);
+	atomic64_add(&stream->stats.bytes, s->len);
+	atomic64_set(&stream->last_packet, poller_now);
+	atomic64_inc(&cm->statsps.packets);
+	atomic64_add(&cm->statsps.bytes, s->len);
 
 out:
 	if (ret == 0 && update)
@@ -1078,7 +1071,7 @@ no_sfd:
 			tmp_t_reason = 2;
 		}
 
-		if (poller_now - ps->last_packet < check)
+		if (poller_now - atomic64_get(&ps->last_packet) < check)
 			good = 1;
 
 next:
@@ -1093,7 +1086,6 @@ next:
 
 	for (i = c->monologues; i; i = i->next) {
 		ml = i->data;
-		memset(&ml->terminated,0,sizeof(struct timeval));
 		gettimeofday(&(ml->terminated),NULL);
 		if (tmp_t_reason==1) {
 			ml->term_reason = TIMEOUT;
@@ -1288,16 +1280,14 @@ destroy:
 
 
 #define DS(x) do {							\
-		mutex_lock(&ps->in_lock);				\
-		if (ke->stats.x < ps->kernel_stats.x)			\
+		u_int64_t ks_val, d;					\
+		ks_val = atomic64_get(&ps->kernel_stats.x);	\
+		if (ke->stats.x < ks_val)				\
 			d = 0;						\
 		else							\
-			d = ke->stats.x - ps->kernel_stats.x;		\
-		ps->stats.x += d;					\
-		mutex_unlock(&ps->in_lock);				\
-		mutex_lock(&m->statspslock);				\
-		m->statsps.x += d;					\
-		mutex_unlock(&m->statspslock);				\
+			d = ke->stats.x - ks_val;			\
+		atomic64_add(&ps->stats.x, d);			\
+		atomic64_add(&m->statsps.x, d);			\
 	} while (0)
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
@@ -1305,7 +1295,6 @@ static void callmaster_timer(void *ptr) {
 	GList *i;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps, *sink;
-	u_int64_t d;
 	struct stats tmpstats;
 	int j, update;
 	struct stream_fd *sfd;
@@ -1316,13 +1305,13 @@ static void callmaster_timer(void *ptr) {
 	g_hash_table_foreach(m->callhash, call_timer_iterator, &hlp);
 	rwlock_unlock_r(&m->hashlock);
 
-	mutex_lock(&m->statspslock);
-	memcpy(&tmpstats, &m->statsps, sizeof(tmpstats));
-	ZERO(m->statsps);
-	mutex_unlock(&m->statspslock);
-	mutex_lock(&m->statslock);
-	memcpy(&m->stats, &tmpstats, sizeof(m->stats));
-	mutex_unlock(&m->statslock);
+	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, bytes);
+	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, packets);
+	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, errors);
+
+	atomic64_set(&m->stats.bytes, atomic64_get_na(&tmpstats.bytes));
+	atomic64_set(&m->stats.packets, atomic64_get_na(&tmpstats.packets));
+	atomic64_set(&m->stats.errors, atomic64_get_na(&tmpstats.errors));
 
 	i = (m->conf.kernelid >= 0) ? kernel_list(m->conf.kernelid) : NULL;
 	while (i) {
@@ -1346,12 +1335,12 @@ static void callmaster_timer(void *ptr) {
 
 		mutex_lock(&ps->in_lock);
 
-		if (ke->stats.packets != ps->kernel_stats.packets)
-			ps->last_packet = poller_now;
+		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
+			atomic64_set(&ps->last_packet, poller_now);
 
-		ps->kernel_stats.packets = ke->stats.packets;
-		ps->kernel_stats.bytes = ke->stats.bytes;
-		ps->kernel_stats.errors = ke->stats.errors;
+		atomic64_set(&ps->kernel_stats.bytes, ke->stats.bytes);
+		atomic64_set(&ps->kernel_stats.packets, ke->stats.packets);
+		atomic64_set(&ps->kernel_stats.errors, ke->stats.errors);
 
 		update = 0;
 
@@ -1423,7 +1412,8 @@ struct callmaster *callmaster_new(struct poller *p) {
 
 	poller_add_timer(p, callmaster_timer, &c->obj);
 
-	mutex_init(&c->totalstats_lock);
+	mutex_init(&c->totalstats.total_average_lock);
+	mutex_init(&c->totalstats_interval.total_average_lock);
 	c->totalstats.started = poller_now;
 
 	mutex_init(&c->cngs_lock);
@@ -1764,7 +1754,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
-	stream->last_packet = poller_now;
+	atomic64_set_na(&stream->last_packet, poller_now);
 	call->streams = g_slist_prepend(call->streams, stream);
 
 	return stream;
@@ -2376,31 +2366,56 @@ static void unkernelize(struct packet_stream *p) {
 }
 
 void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	long microseconds=0;
-	microseconds = ((long)a->tv_sec - (long)b->tv_sec) * 1000000 + ((long)a->tv_usec - (long)b->tv_usec);
-	result->tv_sec = microseconds/(long)1000000;
-	result->tv_usec = microseconds%(long)1000000;
+	u_int64_t microseconds=0;
+	microseconds = ((u_int64_t)a->tv_sec - (u_int64_t)b->tv_sec) * 1000000LLU + (a->tv_usec - b->tv_usec);
+	result->tv_sec = microseconds/1000000LLU;
+	result->tv_usec = microseconds%1000000LLU;
 }
 
 void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier) {
-	long microseconds=0;
-	microseconds = (((long)a->tv_sec * 1000000) + (long)a->tv_usec) * multiplier;
-	result->tv_sec = microseconds/(long)1000000;
-	result->tv_usec = microseconds%(long)1000000;
+	u_int64_t microseconds=0;
+	microseconds = (((u_int64_t)a->tv_sec * 1000000LLU) + a->tv_usec) * multiplier;
+	result->tv_sec = microseconds/1000000LLU;
+	result->tv_usec = microseconds%1000000LLU;
 }
 
-void timeval_devide(struct timeval *result, const struct timeval *a, const long devisor) {
-	long microseconds=0;
-	microseconds = (((long)a->tv_sec * 1000000) + (long)a->tv_usec) / devisor;
-	result->tv_sec = microseconds/(long)1000000;
-	result->tv_usec = microseconds%(long)1000000;
+void timeval_divide(struct timeval *result, const struct timeval *a, const long divisor) {
+	u_int64_t microseconds=0;
+	microseconds = (((u_int64_t)a->tv_sec * 1000000LLU) + a->tv_usec) / divisor;
+	result->tv_sec = microseconds/1000000LLU;
+	result->tv_usec = microseconds%1000000LLU;
 }
 
 void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	long microseconds=0;
-	microseconds = ((long)a->tv_sec + (long)b->tv_sec) * (long)1000000 + ((long)a->tv_usec + (long)b->tv_usec);
-	result->tv_sec = microseconds/(long)1000000;
-	result->tv_usec = microseconds%(long)1000000;
+	u_int64_t microseconds=0;
+	microseconds = ((u_int64_t)a->tv_sec + (u_int64_t)b->tv_sec) * 1000000LLU + (a->tv_usec + b->tv_usec);
+	result->tv_sec = microseconds/1000000LLU;
+	result->tv_usec = microseconds%1000000LLU;
+}
+
+static void timeval_totalstats_average_add(struct totalstats *s, const struct timeval *add) {
+	struct timeval dp, oa;
+
+	mutex_lock(&s->total_average_lock);
+
+	// new average = ((old average * old num sessions) + datapoint) / new num sessions
+	// ... but this will overflow when num sessions becomes very large
+
+	// timeval_multiply(&t, &s->total_average_call_dur, s->total_managed_sess);
+	// timeval_add(&t, &t, add);
+	// s->total_managed_sess++;
+	// timeval_divide(&s->total_average_call_dur, &t, s->total_managed_sess);
+
+	// alternative:
+	// new average = old average + (datapoint / new num sessions) - (old average / new num sessions)
+
+	s->total_managed_sess++;
+	timeval_divide(&dp, add, s->total_managed_sess);
+	timeval_divide(&oa, &s->total_average_call_dur, s->total_managed_sess);
+	timeval_add(&s->total_average_call_dur, &s->total_average_call_dur, &dp);
+	timeval_subtract(&s->total_average_call_dur, &s->total_average_call_dur, &oa);
+
+	mutex_unlock(&s->total_average_lock);
 }
 
 /* called lock-free, but must hold a reference to the call */
@@ -2447,9 +2462,8 @@ void call_destroy(struct call *c) {
 	cdrbufcur += sprintf(cdrbufcur,"tos=%u, ", (unsigned int)c->tos);
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
+		timeval_subtract(&tim_result_duration,&ml->terminated,&ml->started);
 		if (_log_facility_cdr) {
-			memset(&tim_result_duration,0,sizeof(struct timeval));
-			timeval_subtract(&tim_result_duration,&ml->terminated,&ml->started);
 		    cdrbufcur += sprintf(cdrbufcur, "ml%i_start_time=%ld.%06lu, "
 		            "ml%i_end_time=%ld.%06ld, "
 		            "ml%i_duration=%ld.%06ld, "
@@ -2491,36 +2505,42 @@ void call_destroy(struct call *c) {
 				            "ml%i_midx%u_%s_endpoint_ip=%s, "
 				            "ml%i_midx%u_%s_endpoint_port=%u, "
 				            "ml%i_midx%u_%s_local_relay_port=%u, "
-				            "ml%i_midx%u_%s_relayed_packets=%llu, "
-				            "ml%i_midx%u_%s_relayed_bytes=%llu, "
-				            "ml%i_midx%u_%s_relayed_errors=%llu, "
-				            "ml%i_midx%u_%s_last_packet=%llu, ",
+				            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
+				            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
+				            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
+				            "ml%i_midx%u_%s_last_packet="UINT64F", ",
 				            cdrlinecnt, md->index, protocol, addr,
 				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
+				            cdrlinecnt, md->index, protocol,
+					    atomic64_get(&ps->stats.packets),
+				            cdrlinecnt, md->index, protocol,
+					    atomic64_get(&ps->stats.bytes),
+				            cdrlinecnt, md->index, protocol,
+					    atomic64_get(&ps->stats.errors),
+				            cdrlinecnt, md->index, protocol,
+					    atomic64_get(&ps->last_packet));
 				}
 
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-						"%llu p, %llu b, %llu e, %llu last_packet",
+						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet",
 						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						addr, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						(unsigned long long) ps->stats.packets,
-						(unsigned long long) ps->stats.bytes,
-						(unsigned long long) ps->stats.errors,
-						(unsigned long long) ps->last_packet);
+						atomic64_get(&ps->stats.packets),
+						atomic64_get(&ps->stats.bytes),
+						atomic64_get(&ps->stats.errors),
+						atomic64_get(&ps->last_packet));
 
-				mutex_lock(&m->totalstats_lock);
-				m->totalstats.total_relayed_packets += (unsigned long long) ps->stats.packets;
-				m->totalstats_interval.total_relayed_packets += (unsigned long long) ps->stats.packets;
-				m->totalstats.total_relayed_errors  += (unsigned long long) ps->stats.errors;
-				m->totalstats_interval.total_relayed_errors  += (unsigned long long) ps->stats.errors;
-				mutex_unlock(&m->totalstats_lock);
+				atomic64_add(&m->totalstats.total_relayed_packets,
+						atomic64_get(&ps->stats.packets));
+				atomic64_add(&m->totalstats_interval.total_relayed_packets,
+					atomic64_get(&ps->stats.packets));
+				atomic64_add(&m->totalstats.total_relayed_errors,
+					atomic64_get(&ps->stats.errors));
+				atomic64_add(&m->totalstats_interval.total_relayed_errors,
+					atomic64_get(&ps->stats.errors));
 			}
 		}
 		if (_log_facility_cdr)
@@ -2528,10 +2548,7 @@ void call_destroy(struct call *c) {
 	}
 
 	// --- for statistics getting one way stream or no relay at all
-	mutex_lock(&m->totalstats_lock);
-	m->totalstats.total_nopacket_relayed_sess *= 2;
-	m->totalstats_interval.total_nopacket_relayed_sess *= 2;
-	mutex_unlock(&m->totalstats_lock);
+	int total_nopacket_relayed_sess = 0;
 
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
@@ -2569,52 +2586,38 @@ void call_destroy(struct call *c) {
 			}
 		}
 
-		if (ps && ps2 && ps2->stats.packets==0) {
-			mutex_lock(&m->totalstats_lock);
-			if (ps->stats.packets!=0) {
-				m->totalstats.total_oneway_stream_sess++;
-				m->totalstats_interval.total_oneway_stream_sess++;
+		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
+			if (atomic64_get(&ps->stats.packets)!=0) {
+				atomic64_inc(&m->totalstats.total_oneway_stream_sess);
+				atomic64_inc(&m->totalstats_interval.total_oneway_stream_sess);
 			}
 			else {
-				m->totalstats.total_nopacket_relayed_sess++;
-				m->totalstats_interval.total_nopacket_relayed_sess++;
+				total_nopacket_relayed_sess++;
 			}
-			mutex_unlock(&m->totalstats_lock);
 		}
 	}
 
-	mutex_lock(&m->totalstats_lock);
 
-	m->totalstats.total_nopacket_relayed_sess /= 2;
-	m->totalstats_interval.total_nopacket_relayed_sess /= 2;
-
-	m->totalstats.total_managed_sess += 1;
-	m->totalstats_interval.total_managed_sess += 1;
+	atomic64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+	atomic64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 
 	ml = c->monologues->data;
 	if (ml->term_reason==TIMEOUT) {
-		m->totalstats.total_timeout_sess++;
-		m->totalstats_interval.total_timeout_sess++;
+		atomic64_inc(&m->totalstats.total_timeout_sess);
+		atomic64_inc(&m->totalstats_interval.total_timeout_sess);
 	} else if (ml->term_reason==SILENT_TIMEOUT) {
-		m->totalstats.total_silent_timeout_sess++;
-		m->totalstats_interval.total_silent_timeout_sess++;
+		atomic64_inc(&m->totalstats.total_silent_timeout_sess);
+		atomic64_inc(&m->totalstats_interval.total_silent_timeout_sess);
 	} else if (ml->term_reason==REGULAR) {
-		m->totalstats.total_regular_term_sess++;
-		m->totalstats_interval.total_regular_term_sess++;
+		atomic64_inc(&m->totalstats.total_regular_term_sess);
+		atomic64_inc(&m->totalstats_interval.total_regular_term_sess);
 	} else if (ml->term_reason==FORCED) {
-		m->totalstats.total_forced_term_sess++;
-		m->totalstats_interval.total_forced_term_sess++;
+		atomic64_inc(&m->totalstats.total_forced_term_sess);
+		atomic64_inc(&m->totalstats_interval.total_forced_term_sess);
 	}
 
-	timeval_multiply(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess-1);
-	timeval_add(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,&tim_result_duration);
-	timeval_devide(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess);
-
-	timeval_multiply(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,m->totalstats_interval.total_managed_sess-1);
-	timeval_add(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,&tim_result_duration);
-	timeval_devide(&m->totalstats_interval.total_average_call_dur,&m->totalstats_interval.total_average_call_dur,m->totalstats_interval.total_managed_sess);
-
-	mutex_unlock(&m->totalstats_lock);
+	timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
+	timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
 
 	if (_log_facility_cdr)
 	    /* log it */
@@ -2852,6 +2855,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->created = poller_now;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
 	g_queue_init(&ret->medias);
+	gettimeofday(&ret->started, NULL);
 
 	call->monologues = g_slist_prepend(call->monologues, ret);
 
@@ -3026,7 +3030,6 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 
 	for (i = c->monologues; i; i = i->next) {
 		ml = i->data;
-		memset(&ml->terminated,0,sizeof(struct timeval));
 		gettimeofday(&(ml->terminated), NULL);
 		ml->term_reason = REGULAR;
 	}
