@@ -261,7 +261,7 @@ sub rtcp_savpf {
 sub rtp {
 	my ($ctx) = @_;
 	my $seq = $$ctx{rtp_seqnum};
-	defined($seq) or $seq = int(rand(0xfffff)) + 1;
+	defined($seq) or $seq = int(rand(0xfffe)) + 1;
 	my $hdr = pack("CCnNN", 0x80, 0x00, $seq, rand(2**32), rand(2**32));
 	my $pack = $hdr . rand_str($PAYLOAD);
 	$$ctx{rtp_seqnum} = (++$seq & 0xffff);
