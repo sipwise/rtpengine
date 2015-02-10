@@ -530,9 +530,6 @@ INLINE void atomic64_set(atomic64 *u, u_int64_t a) {
 INLINE void atomic64_set_na(atomic64 *u, u_int64_t a) {
 	u->p = (void *) a;
 }
-INLINE void atomic64_inc(atomic64 *u) {
-	g_atomic_pointer_add(&u->p, 1);
-}
 INLINE void atomic64_add(atomic64 *u, u_int64_t a) {
 	g_atomic_pointer_add(&u->p, a);
 }
@@ -547,13 +544,64 @@ INLINE u_int64_t atomic64_get_set(atomic64 *u, u_int64_t a) {
 			return old;
 	} while (1);
 }
+
+#else
+
+/* Simulate atomic u64 with a global mutex on non-64-bit platforms.
+ * Bad performance possible, thus not recommended. */
+
+typedef struct {
+	u_int64_t u;
+} atomic64;
+
+#define NEED_ATOMIC64_MUTEX
+extern mutex_t __atomic64_mutex;
+
+INLINE u_int64_t atomic64_get(const atomic64 *u) {
+	u_int64_t ret;
+	mutex_lock(&__atomic64_mutex);
+	ret = u->u;
+	mutex_unlock(&__atomic64_mutex);
+	return ret;
+}
+INLINE u_int64_t atomic64_get_na(const atomic64 *u) {
+	return u->u;
+}
+INLINE void atomic64_set(atomic64 *u, u_int64_t a) {
+	mutex_lock(&__atomic64_mutex);
+	u->u = a;
+	mutex_unlock(&__atomic64_mutex);
+}
+INLINE void atomic64_set_na(atomic64 *u, u_int64_t a) {
+	u->u = a;
+}
+INLINE void atomic64_add(atomic64 *u, u_int64_t a) {
+	mutex_lock(&__atomic64_mutex);
+	u->u += a;
+	mutex_unlock(&__atomic64_mutex);
+}
+INLINE void atomic64_add_na(atomic64 *u, u_int64_t a) {
+	u->u += a;
+}
+INLINE u_int64_t atomic64_get_set(atomic64 *u, u_int64_t a) {
+	u_int64_t old;
+	mutex_lock(&__atomic64_mutex);
+	old = u->u;
+	u->u = a;
+	mutex_unlock(&__atomic64_mutex);
+	return old;
+}
+
+#endif
+
+INLINE void atomic64_inc(atomic64 *u) {
+	atomic64_add(u, 1);
+}
 INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 	atomic64_set_na(dst, atomic64_get_set(src, 0));
 }
 #define atomic64_local_copy_zero_struct(d, s, member) \
 	atomic64_local_copy_zero(&((d)->member), &((s)->member))
-
-#endif
 
 
 
