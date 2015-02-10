@@ -2366,31 +2366,31 @@ static void unkernelize(struct packet_stream *p) {
 }
 
 void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	long microseconds=0;
-	microseconds = ((long)a->tv_sec - (long)b->tv_sec) * 1000000 + ((long)a->tv_usec - (long)b->tv_usec);
-	result->tv_sec = microseconds/(long)1000000;
-	result->tv_usec = microseconds%(long)1000000;
+	u_int64_t microseconds=0;
+	microseconds = ((u_int64_t)a->tv_sec - (u_int64_t)b->tv_sec) * 1000000LLU + (a->tv_usec - b->tv_usec);
+	result->tv_sec = microseconds/1000000LLU;
+	result->tv_usec = microseconds%1000000LLU;
 }
 
 void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier) {
-	long microseconds=0;
-	microseconds = (((long)a->tv_sec * 1000000) + (long)a->tv_usec) * multiplier;
-	result->tv_sec = microseconds/(long)1000000;
-	result->tv_usec = microseconds%(long)1000000;
+	u_int64_t microseconds=0;
+	microseconds = (((u_int64_t)a->tv_sec * 1000000LLU) + a->tv_usec) * multiplier;
+	result->tv_sec = microseconds/1000000LLU;
+	result->tv_usec = microseconds%1000000LLU;
 }
 
 void timeval_divide(struct timeval *result, const struct timeval *a, const long divisor) {
-	long microseconds=0;
-	microseconds = (((long)a->tv_sec * 1000000) + (long)a->tv_usec) / divisor;
-	result->tv_sec = microseconds/(long)1000000;
-	result->tv_usec = microseconds%(long)1000000;
+	u_int64_t microseconds=0;
+	microseconds = (((u_int64_t)a->tv_sec * 1000000LLU) + a->tv_usec) / divisor;
+	result->tv_sec = microseconds/1000000LLU;
+	result->tv_usec = microseconds%1000000LLU;
 }
 
 void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	long microseconds=0;
-	microseconds = ((long)a->tv_sec + (long)b->tv_sec) * (long)1000000 + ((long)a->tv_usec + (long)b->tv_usec);
-	result->tv_sec = microseconds/(long)1000000;
-	result->tv_usec = microseconds%(long)1000000;
+	u_int64_t microseconds=0;
+	microseconds = ((u_int64_t)a->tv_sec + (u_int64_t)b->tv_sec) * 1000000LLU + (a->tv_usec + b->tv_usec);
+	result->tv_sec = microseconds/1000000LLU;
+	result->tv_usec = microseconds%1000000LLU;
 }
 
 static void timeval_totalstats_average_add(struct totalstats *s, const struct timeval *add) {
