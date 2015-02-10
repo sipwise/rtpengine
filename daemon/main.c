@@ -596,8 +596,8 @@ no_kernel:
 	}
 
 	if (redis_ip) {
-		dlh = dlopen(MP_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
-		if (!dlh && !g_file_test(MP_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
+		dlh = dlopen(RE_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
+		if (!dlh && !g_file_test(RE_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
 				&& g_file_test("../../rtpengine-redis/redis.so", G_FILE_TEST_IS_REGULAR))
 			dlh = dlopen("../../rtpengine-redis/redis.so", RTLD_NOW | RTLD_GLOBAL);
 		if (!dlh)
