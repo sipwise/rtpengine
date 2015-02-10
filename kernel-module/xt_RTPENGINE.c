@@ -1899,6 +1899,17 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 	return index;
 }
 
+static void update_packet_index(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, u_int64_t idx)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&c->lock, flags);
+	s->last_index = idx;
+	c->roc = (idx >> 16);
+	spin_unlock_irqrestore(&c->lock, flags);
+}
+
 static int srtp_hash(unsigned char *hmac,
 		struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
@@ -1983,10 +1994,11 @@ static int srtp_authenticate(struct re_crypto_context *c,
 
 static int srtp_auth_validate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		u_int64_t *pkt_idx_p)
 {
 	unsigned char *auth_tag;
 	unsigned char hmac[20];
+	u_int64_t pkt_idx = *pkt_idx_p;
 
 	if (s->hmac == REH_NULL)
 		return 0;
@@ -2015,12 +2027,36 @@ static int srtp_auth_validate(struct re_crypto_context *c,
 
 	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
 
-	if (memcmp(auth_tag, hmac, s->auth_tag_len))
+	/* possible ROC mismatch, attempt to guess */
+	/* first, let's see if we missed a rollover */
+	pkt_idx += 0x10000;
+	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
+	/* or maybe we did a rollover too many */
+	if (pkt_idx >= 0x20000) {
+		pkt_idx -= 0x20000;
+		if (srtp_hash(hmac, c, s, r, pkt_idx))
+			return -1;
+		if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+			goto ok;
+	}
+	/* last guess: reset ROC to zero */
+	pkt_idx &= 0xffff;
+	if (srtp_hash(hmac, c, s, r, pkt_idx))
+		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
 
+	return -1;
+
+ok:
+	*pkt_idx_p = pkt_idx;
 	return 0;
-
 }
 
 
@@ -2114,7 +2150,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	unsigned long flags;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
-	u_int64_t pkt_idx = 0;
+	u_int64_t pkt_idx = 0, pkt_idx_u;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -2177,9 +2213,11 @@ src_check_ok:
 	}
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
 		goto skip1;
-	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
-	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
+	pkt_idx_u = pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
 		goto skip_error;
+	if (pkt_idx != pkt_idx_u)
+		update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx);
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
 

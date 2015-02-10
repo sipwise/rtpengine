@@ -184,13 +184,37 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 			s, &payload))
 		return -1;
 
-	if (auth_tag.len) {
-		assert(sizeof(hmac) >= auth_tag.len);
-		c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
-		if (str_memcmp(&auth_tag, hmac))
-			goto error;
-	}
+	if (!auth_tag.len)
+		goto decrypt;
 
+	/* authenticate */
+	assert(sizeof(hmac) >= auth_tag.len);
+	c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
+	if (!str_memcmp(&auth_tag, hmac))
+		goto decrypt;
+	/* possible ROC mismatch, attempt to guess */
+	/* first, let's see if we missed a rollover */
+	index += 0x10000;
+	c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
+	if (!str_memcmp(&auth_tag, hmac))
+		goto decrypt_idx;
+	/* or maybe we did a rollover too many */
+	if (index >= 0x20000) {
+		index -= 0x20000;
+		c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
+		if (!str_memcmp(&auth_tag, hmac))
+			goto decrypt_idx;
+	}
+	/* last guess: reset ROC to zero */
+	index &= 0xffff;
+	c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
+	if (!str_memcmp(&auth_tag, hmac))
+		goto decrypt_idx;
+	goto error;
+
+decrypt_idx:
+	c->last_index = index;
+decrypt:
 	if (crypto_decrypt_rtp(c, rtp, &to_decrypt, index))
 		return -1;
 
