@@ -386,8 +386,8 @@ str *call_query_udp(char **out, struct callmaster *m) {
 
 	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
 		(long long int) m->conf.silent_timeout - (poller_now - stats.last_packet),
-		atomic_uint64_get_na(&stats.totals[0].packets), atomic_uint64_get_na(&stats.totals[1].packets),
-		atomic_uint64_get_na(&stats.totals[2].packets), atomic_uint64_get_na(&stats.totals[3].packets));
+		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
+		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
 	goto out;
 
 err:
@@ -438,7 +438,7 @@ void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
 
 	control_stream_printf(s, "proxy %u "UINT64F"/%i/%i\n",
 		g_queue_get_length(&q),
-		atomic_uint64_get(&m->stats.bytes), 0, 0);
+		atomic64_get(&m->stats.bytes), 0, 0);
 
 	while (q.head) {
 		c = g_queue_pop_head(&q);
@@ -720,14 +720,14 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 }
 
 static void ng_stats(bencode_item_t *d, const struct stats *s, struct stats *totals) {
-	bencode_dictionary_add_integer(d, "packets", atomic_uint64_get(&s->packets));
-	bencode_dictionary_add_integer(d, "bytes", atomic_uint64_get(&s->bytes));
-	bencode_dictionary_add_integer(d, "errors", atomic_uint64_get(&s->errors));
+	bencode_dictionary_add_integer(d, "packets", atomic64_get(&s->packets));
+	bencode_dictionary_add_integer(d, "bytes", atomic64_get(&s->bytes));
+	bencode_dictionary_add_integer(d, "errors", atomic64_get(&s->errors));
 	if (!totals)
 		return;
-	atomic_uint64_add_na(&totals->packets, atomic_uint64_get(&s->packets));
-	atomic_uint64_add_na(&totals->bytes, atomic_uint64_get(&s->bytes));
-	atomic_uint64_add_na(&totals->errors, atomic_uint64_get(&s->errors));
+	atomic64_add_na(&totals->packets, atomic64_get(&s->packets));
+	atomic64_add_na(&totals->bytes, atomic64_get(&s->bytes));
+	atomic64_add_na(&totals->errors, atomic64_get(&s->errors));
 }
 
 static void ng_stats_endpoint(bencode_item_t *dict, const struct endpoint *ep) {
@@ -766,7 +766,7 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	if (ps->crypto.params.crypto_suite)
 		bencode_dictionary_add_string(dict, "crypto suite",
 				ps->crypto.params.crypto_suite->name);
-	bencode_dictionary_add_integer(dict, "last packet", atomic_uint64_get(&ps->last_packet));
+	bencode_dictionary_add_integer(dict, "last packet", atomic64_get(&ps->last_packet));
 
 	flags = bencode_dictionary_add_list(dict, "flags");
 
@@ -782,8 +782,8 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	BF_PS("media handover", MEDIA_HANDOVER);
 
 stats:
-	if (totals->last_packet < atomic_uint64_get(&ps->last_packet))
-		totals->last_packet = atomic_uint64_get(&ps->last_packet);
+	if (totals->last_packet < atomic64_get(&ps->last_packet))
+		totals->last_packet = atomic64_get(&ps->last_packet);
 
 	/* XXX distinguish between input and output */
 	s = &totals->totals[0];

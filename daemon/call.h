@@ -188,21 +188,21 @@ extern const struct transport_protocol transport_protocols[];
 
 
 struct stats {
-	atomic_uint64			packets;
-	atomic_uint64			bytes;
-	atomic_uint64			errors;
+	atomic64			packets;
+	atomic64			bytes;
+	atomic64			errors;
 };
 
 struct totalstats {
 	time_t 				started;
-	atomic_uint64			total_timeout_sess;
-	atomic_uint64			total_silent_timeout_sess;
-	atomic_uint64			total_regular_term_sess;
-	atomic_uint64			total_forced_term_sess;
-	atomic_uint64			total_relayed_packets;
-	atomic_uint64			total_relayed_errors;
-	atomic_uint64			total_nopacket_relayed_sess;
-	atomic_uint64			total_oneway_stream_sess;
+	atomic64			total_timeout_sess;
+	atomic64			total_silent_timeout_sess;
+	atomic64			total_regular_term_sess;
+	atomic64			total_forced_term_sess;
+	atomic64			total_relayed_packets;
+	atomic64			total_relayed_errors;
+	atomic64			total_nopacket_relayed_sess;
+	atomic64			total_oneway_stream_sess;
 
 	mutex_t				total_average_lock; /* for these two below */
 	u_int64_t			total_managed_sess;
@@ -273,7 +273,7 @@ struct packet_stream {
 
 	struct stats		stats;
 	struct stats		kernel_stats;
-	atomic_uint64		last_packet;
+	atomic64		last_packet;
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: in_lock: */

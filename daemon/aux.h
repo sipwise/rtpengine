@@ -516,42 +516,42 @@ int in6_addr_eq(const void *a, const void *b);
 
 typedef struct {
 	void *p;
-} atomic_uint64;
+} atomic64;
 
-INLINE u_int64_t atomic_uint64_get(const atomic_uint64 *u) {
+INLINE u_int64_t atomic64_get(const atomic64 *u) {
 	return (u_int64_t) g_atomic_pointer_get(&u->p);
 }
-INLINE u_int64_t atomic_uint64_get_na(const atomic_uint64 *u) {
+INLINE u_int64_t atomic64_get_na(const atomic64 *u) {
 	return (u_int64_t) u->p;
 }
-INLINE void atomic_uint64_set(atomic_uint64 *u, u_int64_t a) {
+INLINE void atomic64_set(atomic64 *u, u_int64_t a) {
 	g_atomic_pointer_set(&u->p, (void *) a);
 }
-INLINE void atomic_uint64_set_na(atomic_uint64 *u, u_int64_t a) {
+INLINE void atomic64_set_na(atomic64 *u, u_int64_t a) {
 	u->p = (void *) a;
 }
-INLINE void atomic_uint64_inc(atomic_uint64 *u) {
+INLINE void atomic64_inc(atomic64 *u) {
 	g_atomic_pointer_add(&u->p, 1);
 }
-INLINE void atomic_uint64_add(atomic_uint64 *u, u_int64_t a) {
+INLINE void atomic64_add(atomic64 *u, u_int64_t a) {
 	g_atomic_pointer_add(&u->p, a);
 }
-INLINE void atomic_uint64_add_na(atomic_uint64 *u, u_int64_t a) {
+INLINE void atomic64_add_na(atomic64 *u, u_int64_t a) {
 	u->p = (void *) (((u_int64_t) u->p) + a);
 }
-INLINE u_int64_t atomic_uint64_get_set(atomic_uint64 *u, u_int64_t a) {
+INLINE u_int64_t atomic64_get_set(atomic64 *u, u_int64_t a) {
 	u_int64_t old;
 	do {
-		old = atomic_uint64_get(u);
+		old = atomic64_get(u);
 		if (g_atomic_pointer_compare_and_exchange(&u->p, (void *) old, (void *) a))
 			return old;
 	} while (1);
 }
-INLINE void atomic_uint64_local_copy_zero(atomic_uint64 *dst, atomic_uint64 *src) {
-	atomic_uint64_set_na(dst, atomic_uint64_get_set(src, 0));
+INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
+	atomic64_set_na(dst, atomic64_get_set(src, 0));
 }
-#define atomic_uint64_local_copy_zero_struct(d, s, member) \
-	atomic_uint64_local_copy_zero(&((d)->member), &((s)->member))
+#define atomic64_local_copy_zero_struct(d, s, member) \
+	atomic64_local_copy_zero(&((d)->member), &((s)->member))
 
 #endif
 

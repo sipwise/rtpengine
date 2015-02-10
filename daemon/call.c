@@ -687,8 +687,8 @@ loop_ok:
 
 	if (!sink || !sink->sfd || !out_srtp->sfd || !in_srtp->sfd) {
 		ilog(LOG_WARNING, "RTP packet from %s discarded", addr);
-		atomic_uint64_inc(&stream->stats.errors);
-		atomic_uint64_inc(&cm->statsps.errors);
+		atomic64_inc(&stream->stats.errors);
+		atomic64_inc(&cm->statsps.errors);
 		goto unlock_out;
 	}
 
@@ -752,7 +752,7 @@ use_cand:
 			mutex_unlock(&stream->out_lock);
 
 			if (tmp && PS_ISSET(stream, STRICT_SOURCE)) {
-				atomic_uint64_inc(&stream->stats.errors);
+				atomic64_inc(&stream->stats.errors);
 				goto drop;
 			}
 		}
@@ -841,8 +841,8 @@ forward:
 	if (ret == -1) {
 		ret = -errno;
                 ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
-		atomic_uint64_inc(&stream->stats.errors);
-		atomic_uint64_inc(&cm->statsps.errors);
+		atomic64_inc(&stream->stats.errors);
+		atomic64_inc(&cm->statsps.errors);
 		goto out;
 	}
 
@@ -852,11 +852,11 @@ drop:
 	if (sink)
 		mutex_unlock(&sink->out_lock);
 	ret = 0;
-	atomic_uint64_inc(&stream->stats.packets);
-	atomic_uint64_add(&stream->stats.bytes, s->len);
-	atomic_uint64_set(&stream->last_packet, poller_now);
-	atomic_uint64_inc(&cm->statsps.packets);
-	atomic_uint64_add(&cm->statsps.bytes, s->len);
+	atomic64_inc(&stream->stats.packets);
+	atomic64_add(&stream->stats.bytes, s->len);
+	atomic64_set(&stream->last_packet, poller_now);
+	atomic64_inc(&cm->statsps.packets);
+	atomic64_add(&cm->statsps.bytes, s->len);
 
 out:
 	if (ret == 0 && update)
@@ -1071,7 +1071,7 @@ no_sfd:
 			tmp_t_reason = 2;
 		}
 
-		if (poller_now - atomic_uint64_get(&ps->last_packet) < check)
+		if (poller_now - atomic64_get(&ps->last_packet) < check)
 			good = 1;
 
 next:
@@ -1281,13 +1281,13 @@ destroy:
 
 #define DS(x) do {							\
 		u_int64_t ks_val, d;					\
-		ks_val = atomic_uint64_get(&ps->kernel_stats.x);	\
+		ks_val = atomic64_get(&ps->kernel_stats.x);	\
 		if (ke->stats.x < ks_val)				\
 			d = 0;						\
 		else							\
 			d = ke->stats.x - ks_val;			\
-		atomic_uint64_add(&ps->stats.x, d);			\
-		atomic_uint64_add(&m->statsps.x, d);			\
+		atomic64_add(&ps->stats.x, d);			\
+		atomic64_add(&m->statsps.x, d);			\
 	} while (0)
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
@@ -1305,13 +1305,13 @@ static void callmaster_timer(void *ptr) {
 	g_hash_table_foreach(m->callhash, call_timer_iterator, &hlp);
 	rwlock_unlock_r(&m->hashlock);
 
-	atomic_uint64_local_copy_zero_struct(&tmpstats, &m->statsps, bytes);
-	atomic_uint64_local_copy_zero_struct(&tmpstats, &m->statsps, packets);
-	atomic_uint64_local_copy_zero_struct(&tmpstats, &m->statsps, errors);
+	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, bytes);
+	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, packets);
+	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, errors);
 
-	atomic_uint64_set(&m->stats.bytes, atomic_uint64_get_na(&tmpstats.bytes));
-	atomic_uint64_set(&m->stats.packets, atomic_uint64_get_na(&tmpstats.packets));
-	atomic_uint64_set(&m->stats.errors, atomic_uint64_get_na(&tmpstats.errors));
+	atomic64_set(&m->stats.bytes, atomic64_get_na(&tmpstats.bytes));
+	atomic64_set(&m->stats.packets, atomic64_get_na(&tmpstats.packets));
+	atomic64_set(&m->stats.errors, atomic64_get_na(&tmpstats.errors));
 
 	i = (m->conf.kernelid >= 0) ? kernel_list(m->conf.kernelid) : NULL;
 	while (i) {
@@ -1335,12 +1335,12 @@ static void callmaster_timer(void *ptr) {
 
 		mutex_lock(&ps->in_lock);
 
-		if (ke->stats.packets != atomic_uint64_get(&ps->kernel_stats.packets))
-			atomic_uint64_set(&ps->last_packet, poller_now);
+		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
+			atomic64_set(&ps->last_packet, poller_now);
 
-		atomic_uint64_set(&ps->kernel_stats.bytes, ke->stats.bytes);
-		atomic_uint64_set(&ps->kernel_stats.packets, ke->stats.packets);
-		atomic_uint64_set(&ps->kernel_stats.errors, ke->stats.errors);
+		atomic64_set(&ps->kernel_stats.bytes, ke->stats.bytes);
+		atomic64_set(&ps->kernel_stats.packets, ke->stats.packets);
+		atomic64_set(&ps->kernel_stats.errors, ke->stats.errors);
 
 		update = 0;
 
@@ -1754,7 +1754,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
-	atomic_uint64_set_na(&stream->last_packet, poller_now);
+	atomic64_set_na(&stream->last_packet, poller_now);
 	call->streams = g_slist_prepend(call->streams, stream);
 
 	return stream;
@@ -2508,39 +2508,39 @@ void call_destroy(struct call *c) {
 				            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
 				            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
 				            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
-				            "ml%i_midx%u_%s_last_packet=%llu, ",
+				            "ml%i_midx%u_%s_last_packet="UINT64F", ",
 				            cdrlinecnt, md->index, protocol, addr,
 				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 				            cdrlinecnt, md->index, protocol,
-					    atomic_uint64_get(&ps->stats.packets),
+					    atomic64_get(&ps->stats.packets),
 				            cdrlinecnt, md->index, protocol,
-					    atomic_uint64_get(&ps->stats.bytes),
+					    atomic64_get(&ps->stats.bytes),
 				            cdrlinecnt, md->index, protocol,
-					    atomic_uint64_get(&ps->stats.errors),
+					    atomic64_get(&ps->stats.errors),
 				            cdrlinecnt, md->index, protocol,
-					    (unsigned long long) atomic_uint64_get(&ps->last_packet));
+					    atomic64_get(&ps->last_packet));
 				}
 
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-						""UINT64F" p, "UINT64F" b, "UINT64F" e, %llu last_packet",
+						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet",
 						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						addr, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						atomic_uint64_get(&ps->stats.packets),
-						atomic_uint64_get(&ps->stats.bytes),
-						atomic_uint64_get(&ps->stats.errors),
-						(unsigned long long) atomic_uint64_get(&ps->last_packet));
+						atomic64_get(&ps->stats.packets),
+						atomic64_get(&ps->stats.bytes),
+						atomic64_get(&ps->stats.errors),
+						atomic64_get(&ps->last_packet));
 
-				atomic_uint64_add(&m->totalstats.total_relayed_packets,
-						atomic_uint64_get(&ps->stats.packets));
-				atomic_uint64_add(&m->totalstats_interval.total_relayed_packets,
-					atomic_uint64_get(&ps->stats.packets));
-				atomic_uint64_add(&m->totalstats.total_relayed_errors,
-					atomic_uint64_get(&ps->stats.errors));
-				atomic_uint64_add(&m->totalstats_interval.total_relayed_errors,
-					atomic_uint64_get(&ps->stats.errors));
+				atomic64_add(&m->totalstats.total_relayed_packets,
+						atomic64_get(&ps->stats.packets));
+				atomic64_add(&m->totalstats_interval.total_relayed_packets,
+					atomic64_get(&ps->stats.packets));
+				atomic64_add(&m->totalstats.total_relayed_errors,
+					atomic64_get(&ps->stats.errors));
+				atomic64_add(&m->totalstats_interval.total_relayed_errors,
+					atomic64_get(&ps->stats.errors));
 			}
 		}
 		if (_log_facility_cdr)
@@ -2586,10 +2586,10 @@ void call_destroy(struct call *c) {
 			}
 		}
 
-		if (ps && ps2 && atomic_uint64_get(&ps2->stats.packets)==0) {
-			if (atomic_uint64_get(&ps->stats.packets)!=0) {
-				atomic_uint64_inc(&m->totalstats.total_oneway_stream_sess);
-				atomic_uint64_inc(&m->totalstats_interval.total_oneway_stream_sess);
+		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
+			if (atomic64_get(&ps->stats.packets)!=0) {
+				atomic64_inc(&m->totalstats.total_oneway_stream_sess);
+				atomic64_inc(&m->totalstats_interval.total_oneway_stream_sess);
 			}
 			else {
 				total_nopacket_relayed_sess++;
@@ -2598,22 +2598,22 @@ void call_destroy(struct call *c) {
 	}
 
 
-	atomic_uint64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
-	atomic_uint64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+	atomic64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+	atomic64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 
 	ml = c->monologues->data;
 	if (ml->term_reason==TIMEOUT) {
-		atomic_uint64_inc(&m->totalstats.total_timeout_sess);
-		atomic_uint64_inc(&m->totalstats_interval.total_timeout_sess);
+		atomic64_inc(&m->totalstats.total_timeout_sess);
+		atomic64_inc(&m->totalstats_interval.total_timeout_sess);
 	} else if (ml->term_reason==SILENT_TIMEOUT) {
-		atomic_uint64_inc(&m->totalstats.total_silent_timeout_sess);
-		atomic_uint64_inc(&m->totalstats_interval.total_silent_timeout_sess);
+		atomic64_inc(&m->totalstats.total_silent_timeout_sess);
+		atomic64_inc(&m->totalstats_interval.total_silent_timeout_sess);
 	} else if (ml->term_reason==REGULAR) {
-		atomic_uint64_inc(&m->totalstats.total_regular_term_sess);
-		atomic_uint64_inc(&m->totalstats_interval.total_regular_term_sess);
+		atomic64_inc(&m->totalstats.total_regular_term_sess);
+		atomic64_inc(&m->totalstats_interval.total_regular_term_sess);
 	} else if (ml->term_reason==FORCED) {
-		atomic_uint64_inc(&m->totalstats.total_forced_term_sess);
-		atomic_uint64_inc(&m->totalstats_interval.total_forced_term_sess);
+		atomic64_inc(&m->totalstats.total_forced_term_sess);
+		atomic64_inc(&m->totalstats_interval.total_forced_term_sess);
 	}
 
 	timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
