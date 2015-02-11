@@ -77,14 +77,14 @@ int send_graphite_data() {
 	}
 
 	// format hostname "." totals.subkey SPACE value SPACE timestamp
-	char hostname[256]; memset(&hostname,0,256);
+	char hostname[256];
 	rc = gethostname(hostname,256);
 	if (rc<0) {
 		ilog(LOG_ERROR, "Could not retrieve host name information.");
 		goto error;
 	}
 
-	char data_to_send[8192]; memset(&data_to_send,0,8192);
+	char data_to_send[8192];
 	char* ptr = data_to_send;
 
 	struct totalstats ts;

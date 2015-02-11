@@ -2431,11 +2431,10 @@ void call_destroy(struct call *c) {
 	GList *k, *o;
 	struct timeval tim_result_duration;
 	static const int CDRBUFLENGTH = 4096*2;
-	char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
+	char cdrbuffer[CDRBUFLENGTH];
 	char* cdrbufcur = cdrbuffer;
 	int cdrlinecnt = 0;
 	int found = 0;
-	//char tmpstreampairstatus[2]; memset(&tmpstreampairstatus,0,2);
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);

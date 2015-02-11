@@ -100,8 +100,8 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    GSList *l;
    GList *k, *o;
    int printlen=0;
-   struct timeval tim_result_duration; memset(&tim_result_duration,0,sizeof(struct timeval));
-   struct timeval now; memset(&now,0,sizeof(struct timeval));
+   struct timeval tim_result_duration;
+   struct timeval now;
 
    if (len<=1) {
        printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
@@ -247,7 +247,6 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
            if (!c->ml_deleted) {
         	   for (i = c->monologues; i; i = i->next) {
         		   ml = i->data;
-        		   memset(&ml->terminated,0,sizeof(struct timeval));
         		   gettimeofday(&(ml->terminated), NULL);
         		   ml->term_reason = FORCED;
         	   }
@@ -272,7 +271,6 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
    if (!c->ml_deleted) {
 	   for (i = c->monologues; i; i = i->next) {
 		   ml = i->data;
-		   memset(&ml->terminated,0,sizeof(struct timeval));
 		   gettimeofday(&(ml->terminated), NULL);
 		   ml->term_reason = FORCED;
 	   }
@@ -294,11 +292,11 @@ static void cli_incoming(int fd, void *p, uintptr_t u) {
    struct cli *cli = (void *) p;
    socklen_t sinl;
    static const int BUFLENGTH = 4096*1024;
-        char replybuffer[BUFLENGTH]; memset(&replybuffer,0,BUFLENGTH);
+        char replybuffer[BUFLENGTH];
         char* outbuf = replybuffer;
         const char* outbufend = replybuffer+BUFLENGTH;
    static const int MAXINPUT = 1024;
-   char inbuf[MAXINPUT]; memset(&inbuf,0,MAXINPUT);
+   char inbuf[MAXINPUT];
    int inlen = 0, readbytes = 0;
    int rc=0;
 
