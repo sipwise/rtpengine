@@ -119,22 +119,22 @@ const struct transport_protocol transport_protocols[] = {
 };
 const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
-const char * get_term_reason_text(char *buf, enum termination_reason t) {
-	if (t==TIMEOUT) { buf = "TIMEOUT"; return buf; }
-	if (t==REGULAR) { buf = "REGULAR"; return buf; }
-	if (t==FORCED) { buf = "FORCED"; return buf; }
-	if (t==SILENT_TIMEOUT) { buf = "SILENT_TIMEOUT"; return buf; }
+static const char * const __term_reason_texts[] = {
+	[TIMEOUT] = "TIMEOUT",
+	[REGULAR] = "REGULAR",
+	[FORCED] = "FORCED",
+	[SILENT_TIMEOUT] = "SILENT_TIMEOUT",
+};
+static const char * const __tag_type_texts[] = {
+	[FROM_TAG] = "FROM_TAG",
+	[TO_TAG] = "TO_TAG",
+};
 
-	buf = "UNKNOWN";
-	return buf;
+static const char * get_term_reason_text(enum termination_reason t) {
+	return get_enum_array_text(__term_reason_texts, t, "UNKNOWN");
 }
-
-const char * get_tag_type_text(char *buf, enum tag_type t) {
-	if (t==FROM_TAG) { buf = "FROM_TAG"; return buf; }
-	if (t==TO_TAG) { buf = "TO_TAG"; return buf; }
-
-	buf = "UNKNOWN";
-	return buf;
+const char * get_tag_type_text(enum tag_type t) {
+	return get_enum_array_text(__tag_type_texts, t, "UNKNOWN");
 }
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
@@ -2431,8 +2431,6 @@ void call_destroy(struct call *c) {
 	GList *k, *o;
 	struct timeval tim_result_duration;
 	static const int CDRBUFLENGTH = 4096*2;
-	char reasonbuf[16]; memset(&reasonbuf,0,16);
-	char tagtypebuf[16]; memset(&tagtypebuf,0,16);
 	char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
 	char* cdrbufcur = cdrbuffer;
 	int cdrlinecnt = 0;
@@ -2474,9 +2472,9 @@ void call_destroy(struct call *c) {
 		            cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
 		            cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
 		            cdrlinecnt, tim_result_duration.tv_sec, tim_result_duration.tv_usec,
-		            cdrlinecnt, get_term_reason_text(reasonbuf,ml->term_reason),
+		            cdrlinecnt, get_term_reason_text(ml->term_reason),
 		            cdrlinecnt, ml->tag.s,
-		            cdrlinecnt, get_tag_type_text(tagtypebuf,ml->tagtype),
+		            cdrlinecnt, get_tag_type_text(ml->tagtype),
 		            cdrlinecnt, ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
 		}
 

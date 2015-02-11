@@ -605,4 +605,19 @@ INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 
 
 
+
+INLINE const char *__get_enum_array_text(const char * const *array, unsigned int idx,
+		unsigned int len, const char *deflt)
+{
+	const char *ret;
+	if (idx >= len)
+		return deflt;
+	ret = array[idx];
+	return ret ? : deflt;
+}
+#define get_enum_array_text(array, idx, deflt) \
+	__get_enum_array_text(array, idx, G_N_ELEMENTS(array), deflt)
+
+
+
 #endif

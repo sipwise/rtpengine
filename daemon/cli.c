@@ -100,7 +100,6 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    GSList *l;
    GList *k, *o;
    int printlen=0;
-   char tagtypebuf[16]; memset(&tagtypebuf,0,16);
    struct timeval tim_result_duration; memset(&tim_result_duration,0,sizeof(struct timeval));
    struct timeval now; memset(&now,0,sizeof(struct timeval));
 
@@ -134,7 +133,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 	   timeval_subtract(&tim_result_duration,&now,&ml->started);
 	   printlen = snprintf(replybuffer,(outbufend-replybuffer), "--- Tag '"STR_FORMAT"' type: %s, callduration "
             "%ld.%06ld , in dialogue with '"STR_FORMAT"'\n",
-			STR_FMT(&ml->tag), get_tag_type_text(tagtypebuf,ml->tagtype),
+			STR_FMT(&ml->tag), get_tag_type_text(ml->tagtype),
             tim_result_duration.tv_sec,
             tim_result_duration.tv_usec,
             ml->active_dialogue ? ml->active_dialogue->tag.len : 6,

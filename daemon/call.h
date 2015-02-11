@@ -534,6 +534,6 @@ INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	return ret;
 }
 
-const char * get_tag_type_text(char *buf, enum tag_type t);
+const char * get_tag_type_text(enum tag_type t);
 
 #endif
