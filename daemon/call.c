@@ -361,11 +361,13 @@ void kernelize(struct packet_stream *stream) {
 	struct callmaster *cm = call->callmaster;
 	struct packet_stream *sink = NULL;
 	struct interface_address *ifa;
+	const char *nk_warn_msg;
 
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
 	if (cm->conf.kernelid < 0)
 		goto no_kernel;
+	nk_warn_msg = "interface to kernel module not open";
 	if (cm->conf.kernelfd < 0)
 		goto no_kernel_warn;
 	if (!PS_ISSET(stream, RTP))
@@ -386,6 +388,7 @@ void kernelize(struct packet_stream *stream) {
 	if (is_addr_unspecified(&sink->advertised_endpoint.ip46)
 			|| !sink->advertised_endpoint.port)
 		goto no_kernel;
+	nk_warn_msg = "protocol not supported by kernel module";
 	if (!stream->handler->in->kernel
 			|| !stream->handler->out->kernel)
 		goto no_kernel_warn;
@@ -426,8 +429,10 @@ void kernelize(struct packet_stream *stream) {
 
 	mutex_unlock(&sink->out_lock);
 
+	nk_warn_msg = "encryption cipher or HMAC not supported by kernel module";
 	if (!reti.encrypt.cipher || !reti.encrypt.hmac)
 		goto no_kernel_warn;
+	nk_warn_msg = "decryption cipher or HMAC not supported by kernel module";
 	if (!reti.decrypt.cipher || !reti.decrypt.hmac)
 		goto no_kernel_warn;
 
@@ -439,7 +444,7 @@ void kernelize(struct packet_stream *stream) {
 	return;
 
 no_kernel_warn:
-	ilog(LOG_WARNING, "No support for kernel packet forwarding available");
+	ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", nk_warn_msg);
 no_kernel:
 	PS_SET(stream, KERNELIZED);
 	PS_SET(stream, NO_KERNEL_SUPPORT);
