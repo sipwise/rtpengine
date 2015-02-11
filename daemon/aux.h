@@ -515,7 +515,7 @@ int in6_addr_eq(const void *a, const void *b);
 #if GLIB_SIZEOF_VOID_P >= 8
 
 typedef struct {
-	void *p;
+	volatile void *p;
 } atomic64;
 
 INLINE u_int64_t atomic64_get(const atomic64 *u) {
