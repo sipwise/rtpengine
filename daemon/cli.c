@@ -306,7 +306,7 @@ next:
    nfd = accept(fd, (struct sockaddr *) &sin, &sinl);
    if (nfd == -1) {
        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-           sprintf(replybuffer, "Could currently not accept CLI commands. Reason:%s\n", strerror(errno));
+           ilog(LOG_INFO, "Could currently not accept CLI commands. Reason:%s", strerror(errno));
            goto cleanup;
        }
        ilog(LOG_INFO, "Accept error:%s", strerror(errno));
@@ -325,17 +325,18 @@ next:
            ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s", strerror(errno));
        }
        inlen += readbytes;
-   } while (readbytes > 0);
+   } while (readbytes > 0 && inlen < sizeof(inbuf)-1);
 
+   inbuf[inlen] = 0;
    ilog(LOG_INFO, "Got CLI command:%s",inbuf);
 
    static const char* LIST = "list";
    static const char* TERMINATE = "terminate";
 
-   if (inlen>=strlen(LIST) && strncmp(inbuf,LIST,strlen(LIST)) == 0) {
+   if (strncmp(inbuf,LIST,strlen(LIST)) == 0) {
        cli_incoming_list(inbuf+strlen(LIST), inlen-strlen(LIST), cli->callmaster, outbuf, outbufend);
 
-   } else  if (inlen>=strlen(TERMINATE) && strncmp(inbuf,TERMINATE,strlen(TERMINATE)) == 0) {
+   } else  if (strncmp(inbuf,TERMINATE,strlen(TERMINATE)) == 0) {
        cli_incoming_terminate(inbuf+strlen(TERMINATE), inlen-strlen(TERMINATE), cli->callmaster, outbuf, outbufend);
    } else {
        sprintf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", inbuf);

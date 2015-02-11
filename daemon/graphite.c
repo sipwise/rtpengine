@@ -118,7 +118,7 @@ int send_graphite_data() {
 	rc = sprintf(ptr,"%s.totals.silent_timeout_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_silent_timeout_sess),(unsigned long long)g_now); ptr += rc;
 	rc = sprintf(ptr,"%s.totals.timeout_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_timeout_sess),(unsigned long long)g_now); ptr += rc;
 
-	rc = write(graphite_sock, data_to_send, strlen(data_to_send));
+	rc = write(graphite_sock, data_to_send, ptr - data_to_send);
 	if (rc<0) {
 		ilog(LOG_ERROR,"Could not write to graphite socket. Disconnecting graphite server.");
 		goto error;
