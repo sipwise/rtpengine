@@ -1333,8 +1333,6 @@ static void callmaster_timer(void *ptr) {
 		DS(bytes);
 		DS(errors);
 
-		mutex_lock(&ps->in_lock);
-
 		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
 			atomic64_set(&ps->last_packet, poller_now);
 
@@ -1346,24 +1344,25 @@ static void callmaster_timer(void *ptr) {
 
 		sink = packet_stream_sink(ps);
 
-		if (sink)
-			mutex_lock(&sink->out_lock);
-
 		/* XXX this only works if the kernel module actually gets to see the packets. */
-		if (sink && sink->crypto.params.crypto_suite
-				&& ke->target.encrypt.last_index - sink->crypto.last_index > 0x4000) {
-			sink->crypto.last_index = ke->target.encrypt.last_index;
-			update = 1;
+		if (sink) {
+			mutex_lock(&sink->out_lock);
+			if (sink->crypto.params.crypto_suite
+					&& ke->target.encrypt.last_index - sink->crypto.last_index > 0x4000) {
+				sink->crypto.last_index = ke->target.encrypt.last_index;
+				update = 1;
+			}
+			mutex_unlock(&sink->out_lock);
 		}
+
+		mutex_lock(&ps->in_lock);
 		if (sfd->crypto.params.crypto_suite
 				&& ke->target.decrypt.last_index - sfd->crypto.last_index > 0x4000) {
 			sfd->crypto.last_index = ke->target.decrypt.last_index;
 			update = 1;
 		}
-
-		if (sink)
-			mutex_unlock(&sink->out_lock);
 		mutex_unlock(&ps->in_lock);
+
 		rwlock_unlock_r(&sfd->call->master_lock);
 
 		if (update)
