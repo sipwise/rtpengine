@@ -9,6 +9,14 @@
 
 
 
+
+struct log_limiter_entry {
+	char *prefix;
+	char *msg;
+};
+
+
+
 struct log_info __thread log_info;
 #ifndef __DEBUG
 volatile gint log_level = LOG_INFO;
@@ -121,6 +129,10 @@ void __ilog(int prio, const char *fmt, ...) {
 
 	if ((prio & LOG_FLAG_LIMIT)) {
 		time_t when;
+		struct log_limiter_entry lle, *llep;
+
+		lle.prefix = prefix;
+		lle.msg = msg;
 
 		mutex_lock(&__log_limiter_lock);
 
@@ -130,10 +142,13 @@ void __ilog(int prio, const char *fmt, ...) {
 			__log_limiter_count = 0;
 		}
 
-		when = (time_t) g_hash_table_lookup(__log_limiter, msg);
+		when = (time_t) g_hash_table_lookup(__log_limiter, &lle);
 		if (!when || (poller_now - when) >= 15) {
-			g_hash_table_insert(__log_limiter, g_string_chunk_insert(__log_limiter_strings,
-						msg), (void *) poller_now);
+			lle.prefix = g_string_chunk_insert(__log_limiter_strings, prefix);
+			lle.msg = g_string_chunk_insert(__log_limiter_strings, msg);
+			llep = (void *) g_string_chunk_insert_len(__log_limiter_strings,
+					(void *) &lle, sizeof(lle));
+			g_hash_table_insert(__log_limiter, llep, (void *) poller_now);
 			__log_limiter_count++;
 			when = 0;
 		}
@@ -167,8 +182,21 @@ void cdrlog(const char* cdrbuffer) {
     setlogmask(previous);
 }
 
+static unsigned int log_limiter_entry_hash(const void *p) {
+	const struct log_limiter_entry *lle = p;
+	return g_str_hash(lle->msg) ^ g_str_hash(lle->prefix);
+}
+static int log_limiter_entry_equal(const void *a, const void *b) {
+	const struct log_limiter_entry *A = a, *B = b;
+	if (!g_str_equal(A->msg, B->msg))
+		return 0;
+	if (!g_str_equal(A->prefix, B->prefix))
+		return 0;
+	return 1;
+}
+
 void log_init() {
 	mutex_init(&__log_limiter_lock);
-	__log_limiter = g_hash_table_new(g_str_hash, g_str_equal);
+	__log_limiter = g_hash_table_new(log_limiter_entry_hash, log_limiter_entry_equal);
 	__log_limiter_strings = g_string_chunk_new(1024);
 }
