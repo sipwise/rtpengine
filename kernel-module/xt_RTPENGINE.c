@@ -17,6 +17,7 @@
 #include <net/dst.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
+#include <linux/bsearch.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
@@ -148,6 +149,7 @@ struct rtpengine_target {
 
 	spinlock_t			stats_lock;
 	struct rtpengine_stats		stats;
+	struct rtpengine_rtp_stats	rtp_stats[NUM_PAYLOAD_TYPES];
 
 	struct re_crypto_context	decrypt;
 	struct re_crypto_context	encrypt;
@@ -843,6 +845,7 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 
 	spin_lock_irqsave(&g->stats_lock, flags);
 	memcpy(&op.stats, &g->stats, sizeof(op.stats));
+	memcpy(&op.rtp_stats, &g->rtp_stats, sizeof(op.rtp_stats));
 	spin_unlock_irqrestore(&g->stats_lock, flags);
 
 	spin_lock_irqsave(&g->decrypt.lock, flags);
@@ -971,6 +974,7 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 static int proc_list_show(struct seq_file *f, void *v) {
 	struct rtpengine_target *g = v;
 	unsigned long flags;
+	int i;
 
 	seq_printf(f, "port %5u:\n", g->target.target_port);
 	proc_list_addr_print(f, "src", &g->target.src_addr);
@@ -982,6 +986,10 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	spin_lock_irqsave(&g->stats_lock, flags);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
 		g->stats.bytes, g->stats.packets, g->stats.errors);
+	for (i = 0; i < g->target.num_payload_types; i++)
+		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
+			g->target.payload_types[i],
+			g->rtp_stats[i].bytes, g->rtp_stats[i].packets);
 	spin_unlock_irqrestore(&g->stats_lock, flags);
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption (incoming)");
 	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt, "encryption (outgoing)");
@@ -1454,6 +1462,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 
 		spin_lock(&og->stats_lock);	/* nested lock! irqs are disabled already */
 		memcpy(&g->stats, &og->stats, sizeof(g->stats));
+		memcpy(&g->rtp_stats, &og->rtp_stats, sizeof(g->rtp_stats));
 		spin_unlock(&og->stats_lock);
 	}
 	else {
@@ -2141,11 +2150,30 @@ static inline int is_dtls(struct sk_buff *skb) {
 	return 1;
 }
 
+static int rtp_payload_match(const void *a, const void *b) {
+	const unsigned char *A = a, *B = b;
+
+	if (*A < *B)
+		return -1;
+	if (*A > *B)
+		return 1;
+	return 0;
+}
+static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rtpengine_target_info *tg) {
+	unsigned char pt, *match;
+
+	pt = hdr->m_pt & 0x7f;
+	match = bsearch(&pt, tg->payload_types, tg->num_payload_types, sizeof(pt), rtp_payload_match);
+	if (!match)
+		return -1;
+	return match - tg->payload_types;
+}
+
 static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src) {
 	struct udphdr *uh;
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
-	int err;
+	int err, rtp_pt_idx = -2;
 	unsigned int datalen;
 	unsigned long flags;
 	u_int32_t *u32;
@@ -2205,14 +2233,23 @@ not_stun:
 src_check_ok:
 	if (g->target.dtls && is_dtls(skb))
 		goto skip1;
+
+	rtp.ok = 0;
+	if (!g->target.rtp)
+		goto not_rtp;
+
 	parse_rtp(&rtp, skb);
 	if (!rtp.ok) {
 		if (g->target.rtp_only)
 			goto skip1;
 		goto not_rtp;
 	}
+
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
 		goto skip1;
+
+	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
+
 	pkt_idx_u = pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
 		goto skip_error;
@@ -2258,6 +2295,14 @@ out:
 		g->stats.packets++;
 		g->stats.bytes += datalen;
 	}
+	if (rtp_pt_idx >= 0) {
+		g->rtp_stats[rtp_pt_idx].packets++;
+		g->rtp_stats[rtp_pt_idx].bytes += datalen;
+	}
+	else if (rtp_pt_idx == -2)
+		/* not RTP */ ;
+	else if (rtp_pt_idx == -1)
+		g->stats.errors++;
 	spin_unlock_irqrestore(&g->stats_lock, flags);
 
 	target_push(g);

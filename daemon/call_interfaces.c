@@ -16,6 +16,7 @@
 #include "str.h"
 #include "control_tcp.h"
 #include "control_udp.h"
+#include "rtp.h"
 
 
 
@@ -274,14 +275,20 @@ static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
 	pcre_multi_match(m->streams_re, m->streams_ree, s, 3, streams_parse_func, &i, q);
 }
 
-static void streams_free(GQueue *q) {
-	struct stream_params *s;
+/* XXX move these somewhere else */
+static void rtp_pt_free(void *p) {
+	g_slice_free1(sizeof(struct rtp_payload_type), p);
+}
+static void sp_free(void *p) {
+	struct stream_params *s = p;
 
-	while ((s = g_queue_pop_head(q))) {
-		if (s->crypto.mki)
-			free(s->crypto.mki);
-		g_slice_free1(sizeof(*s), s);
-	}
+	if (s->crypto.mki)
+		free(s->crypto.mki);
+	g_queue_clear_full(&s->rtp_payload_types, rtp_pt_free);
+	g_slice_free1(sizeof(*s), s);
+}
+static void streams_free(GQueue *q) {
+	g_queue_clear_full(q, sp_free);
 }
 
 

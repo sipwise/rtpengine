@@ -25,6 +25,7 @@ typedef struct _str str;
 #define STR_FMT0(str) ((str) ? (str)->len : 6), ((str) ? (str)->s : "(NULL)")
 #define STR_NULL ((str) { NULL, 0 })
 #define STR_EMPTY ((str) { "", 0 })
+#define STR_CONST_INIT(str) { str, sizeof(str)-1 }
 
 
 
@@ -69,6 +70,9 @@ INLINE str *g_string_free_str(GString *gs);
 /* for GHashTables */
 guint str_hash(gconstpointer s);
 gboolean str_equal(gconstpointer a, gconstpointer b);
+
+/* destroy function, frees a slice-alloc'd str */
+void str_slice_free(void *);
 
 
 

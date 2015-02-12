@@ -86,6 +86,11 @@ INLINE void g_queue_truncate(GQueue *q, unsigned int len) {
 	while (q->length > len)
 		g_queue_pop_tail(q);
 }
+INLINE void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
+	void *p;
+	while ((p = g_queue_pop_head(q)))
+		free_func(p);
+}
 
 
 INLINE void strmove(char **d, char **s) {

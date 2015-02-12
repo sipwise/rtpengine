@@ -77,42 +77,49 @@ const struct transport_protocol transport_protocols[] = {
 	[PROTO_RTP_AVP] = {
 		.index		= PROTO_RTP_AVP,
 		.name		= "RTP/AVP",
+		.rtp		= 1,
 		.srtp		= 0,
 		.avpf		= 0,
 	},
 	[PROTO_RTP_SAVP] = {
 		.index		= PROTO_RTP_SAVP,
 		.name		= "RTP/SAVP",
+		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 0,
 	},
 	[PROTO_RTP_AVPF] = {
 		.index		= PROTO_RTP_AVPF,
 		.name		= "RTP/AVPF",
+		.rtp		= 1,
 		.srtp		= 0,
 		.avpf		= 1,
 	},
 	[PROTO_RTP_SAVPF] = {
 		.index		= PROTO_RTP_SAVPF,
 		.name		= "RTP/SAVPF",
+		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 1,
 	},
 	[PROTO_UDP_TLS_RTP_SAVP] = {
 		.index		= PROTO_UDP_TLS_RTP_SAVP,
 		.name		= "UDP/TLS/RTP/SAVP",
+		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 0,
 	},
 	[PROTO_UDP_TLS_RTP_SAVPF] = {
 		.index		= PROTO_UDP_TLS_RTP_SAVPF,
 		.name		= "UDP/TLS/RTP/SAVPF",
+		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 1,
 	},
 	[PROTO_UDPTL] = {
 		.index		= PROTO_UDPTL,
 		.name		= "udptl",
+		.rtp		= 0,
 		.srtp		= 0,
 		.avpf		= 0,
 	},
@@ -354,6 +361,16 @@ INLINE void __re_address_translate(struct re_address *o, const struct endpoint *
 	o->port = ep->port;
 }
 
+static int __rtp_stats_pt_sort(const void *ap, const void *bp) {
+	const struct rtp_stats *a = ap, *b = bp;
+
+	if (a->payload_type < b->payload_type)
+		return -1;
+	if (a->payload_type > b->payload_type)
+		return 1;
+	return 0;
+}
+
 /* called with in_lock held */
 void kernelize(struct packet_stream *stream) {
 	struct rtpengine_target_info reti;
@@ -437,6 +454,23 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel_warn;
 
 	ZERO(stream->kernel_stats);
+
+	if (stream->media->protocol && stream->media->protocol->rtp) {
+		GList *values, *l;
+		struct rtp_stats *rs;
+
+		reti.rtp = 1;
+		values = g_hash_table_get_values(stream->rtp_stats);
+		values = g_list_sort(values, __rtp_stats_pt_sort);
+		for (l = values; l; l = l->next) {
+			if (reti.num_payload_types >= G_N_ELEMENTS(reti.payload_types)) {
+				ilog(LOG_WARNING, "Too many RTP payload types for kernel module");
+				break;
+			}
+			rs = l->data;
+			reti.payload_types[reti.num_payload_types++] = rs->payload_type;
+		}
+	}
 
 	kernel_add_stream(cm->conf.kernelfd, &reti, 0);
 	PS_SET(stream, KERNELIZED);
@@ -588,6 +622,7 @@ void stream_msg_mh_src(struct packet_stream *ps, struct msghdr *mh) {
 	}
 }
 
+/* XXX split this function into pieces */
 /* called lock-free */
 static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsin, struct in6_addr *dst) {
 	struct packet_stream *stream,
@@ -608,6 +643,8 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	struct endpoint endpoint;
 	rewrite_func rwf_in, rwf_out;
 	struct interface_address *loc_addr;
+	struct rtp_header *rtp_h;
+	struct rtp_stats *rtp_s;
 
 	call = sfd->call;
 	cm = call->callmaster;
@@ -625,6 +662,9 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 
 	if (!stream->sfd)
 		goto done;
+
+
+	/* demux other protocols running on this port */
 
 	if (MEDIA_ISSET(media, DTLS) && is_dtls(s)) {
 		ret = dtls(stream, s, fsin);
@@ -672,6 +712,9 @@ loop_ok:
 
 	mutex_unlock(&stream->in_lock);
 
+
+	/* demux RTCP */
+
 	in_srtp = stream;
 	sink = stream->rtp_sink;
 	if (!sink && PS_ISSET(stream, RTCP)) {
@@ -690,12 +733,38 @@ loop_ok:
 	if (rtcp && sink && sink->rtcp_sibling)
 		out_srtp = sink->rtcp_sibling;
 
+
+	/* stats per RTP payload type */
+
+	if (media->protocol && media->protocol->rtp && !rtcp && !rtp_payload(&rtp_h, NULL, s)) {
+		i = (rtp_h->m_pt & 0x7f);
+
+		rtp_s = g_hash_table_lookup(stream->rtp_stats, &i);
+		if (!rtp_s) {
+			ilog(LOG_WARNING | LOG_FLAG_LIMIT,
+					"RTP packet with unknown payload type %u received", i);
+			atomic64_inc(&stream->stats.errors);
+			atomic64_inc(&cm->statsps.errors);
+		}
+
+		else {
+			atomic64_inc(&rtp_s->packets);
+			atomic64_add(&rtp_s->bytes, s->len);
+		}
+	}
+
+
+	/* do we have somewhere to forward it to? */
+
 	if (!sink || !sink->sfd || !out_srtp->sfd || !in_srtp->sfd) {
 		ilog(LOG_WARNING, "RTP packet from %s discarded", addr);
 		atomic64_inc(&stream->stats.errors);
 		atomic64_inc(&cm->statsps.errors);
 		goto unlock_out;
 	}
+
+
+	/* transcoding stuff, in and out */
 
 	mutex_lock(&in_srtp->in_lock);
 
@@ -1303,6 +1372,8 @@ static void callmaster_timer(void *ptr) {
 	struct stats tmpstats;
 	int j, update;
 	struct stream_fd *sfd;
+	struct rtp_stats *rs;
+	unsigned int pt;
 
 	ZERO(hlp);
 
@@ -1344,6 +1415,21 @@ static void callmaster_timer(void *ptr) {
 		atomic64_set(&ps->kernel_stats.bytes, ke->stats.bytes);
 		atomic64_set(&ps->kernel_stats.packets, ke->stats.packets);
 		atomic64_set(&ps->kernel_stats.errors, ke->stats.errors);
+
+		for (j = 0; j < ke->target.num_payload_types; j++) {
+			pt = ke->target.payload_types[j];
+			rs = g_hash_table_lookup(ps->rtp_stats, &pt);
+			if (!rs)
+				continue;
+			if (ke->rtp_stats[j].packets > atomic64_get(&rs->packets))
+				atomic64_add(&rs->packets,
+						ke->rtp_stats[j].packets - atomic64_get(&rs->packets));
+			if (ke->rtp_stats[j].bytes > atomic64_get(&rs->bytes))
+				atomic64_add(&rs->bytes,
+						ke->rtp_stats[j].bytes - atomic64_get(&rs->bytes));
+			atomic64_set(&rs->kernel_packets, ke->rtp_stats[j].packets);
+			atomic64_set(&rs->kernel_bytes, ke->rtp_stats[j].bytes);
+		}
 
 		update = 0;
 
@@ -1588,6 +1674,10 @@ fail:
 	return -1;
 }
 
+static void __payload_type_free(void *p) {
+	g_slice_free1(sizeof(struct rtp_payload_type), p);
+}
+
 static struct call_media *__get_media(struct call_monologue *ml, GList **it, const struct stream_params *sp) {
 	struct call_media *med;
 
@@ -1613,6 +1703,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->call = ml->call;
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
+	med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
 
 	g_queue_push_tail(&ml->medias, med);
 	*it = ml->medias.tail;
@@ -1751,6 +1842,10 @@ static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_po
 	return 0;
 }
 
+static void __rtp_stats_free(void *p) {
+	g_slice_free1(sizeof(struct rtp_stats), p);
+}
+
 struct packet_stream *__packet_stream_new(struct call *call) {
 	struct packet_stream *stream;
 
@@ -1759,6 +1854,8 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	mutex_init(&stream->out_lock);
 	stream->call = call;
 	atomic64_set_na(&stream->last_packet, poller_now);
+	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
+
 	call->streams = g_slist_prepend(call->streams, stream);
 
 	return stream;
@@ -1822,6 +1919,32 @@ static int __init_stream(struct packet_stream *ps) {
 	return 0;
 }
 
+static void __rtp_stats_update(GHashTable *dst, GHashTable *src) {
+	struct rtp_stats *rs;
+	struct rtp_payload_type *pt;
+	GList *values, *l;
+
+	/* "src" is a call_media->rtp_payload_types table, while "dst" is a
+	 * packet_stream->rtp_stats table */
+
+	values = g_hash_table_get_values(src);
+
+	for (l = values; l; l = l->next) {
+		pt = l->data;
+		rs = g_hash_table_lookup(dst, &pt->payload_type);
+		if (rs)
+			continue;
+
+		rs = g_slice_alloc0(sizeof(*rs));
+		rs->payload_type = pt->payload_type;
+		g_hash_table_insert(dst, &rs->payload_type, rs);
+	}
+
+	g_list_free(values);
+
+	/* we leave previously added but now removed payload types in place */
+}
+
 static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp) {
 	GList *la, *lb;
 	struct packet_stream *a, *ax, *b;
@@ -1837,7 +1960,9 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 
 		/* RTP */
 		a->rtp_sink = b;
-		PS_SET(a, RTP);
+		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
+
+		__rtp_stats_update(a->rtp_stats, A->rtp_payload_types);
 
 		if (sp) {
 			__fill_stream(a, &sp->rtp_endpoint, port_off);
@@ -2199,6 +2324,19 @@ static void __dtls_logic(const struct sdp_ng_flags *flags, struct call_media *me
 		MEDIA_SET(other_media, DTLS);
 }
 
+static void __rtp_payload_types(struct call_media *media, GQueue *types) {
+	struct rtp_payload_type *pt;
+	struct call *call = media->call;
+
+	/* we steal the entire list to avoid duplicate allocs */
+	while ((pt = g_queue_pop_head(types))) {
+		/* but we must duplicate the contents */
+		call_str_cpy(call, &pt->encoding, &pt->encoding);
+		call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
+		g_hash_table_replace(media->rtp_payload_types, &pt->payload_type, pt);
+	}
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		const struct sdp_ng_flags *flags)
@@ -2265,6 +2403,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		other_media->sdes_in.tag = sp->sdes_tag;
 		if (other_media->sdes_in.params.crypto_suite)
 			MEDIA_SET(other_media, SDES);
+
+		__rtp_payload_types(media, &sp->rtp_payload_types);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
@@ -2422,6 +2562,47 @@ static void timeval_totalstats_average_add(struct totalstats *s, const struct ti
 	mutex_unlock(&s->total_average_lock);
 }
 
+static int __rtp_stats_sort(const void *ap, const void *bp) {
+	const struct rtp_stats *a = ap, *b = bp;
+
+	/* descending order */
+	if (atomic64_get(&a->packets) > atomic64_get(&b->packets))
+		return -1;
+	if (atomic64_get(&a->packets) < atomic64_get(&b->packets))
+		return 1;
+	return 0;
+}
+
+static const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
+	struct packet_stream *ps;
+	GList *values;
+	struct rtp_stats *rtp_s;
+	const struct rtp_payload_type *rtp_pt = NULL;
+
+	/* we only use the primary packet stream for the time being */
+	if (!m->streams.head)
+		return NULL;
+
+	ps = m->streams.head->data;
+
+	values = g_hash_table_get_values(ps->rtp_stats);
+	if (!values)
+		return NULL;
+
+	values = g_list_sort(values, __rtp_stats_sort);
+
+	/* payload type with the most packets */
+	rtp_s = values->data;
+	if (atomic64_get(&rtp_s->packets) == 0)
+		goto out;
+
+	rtp_pt = rtp_payload_type(rtp_s->payload_type, m->rtp_payload_types);
+
+out:
+	g_list_free(values);
+	return rtp_pt; /* may be NULL */
+}
+
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
@@ -2439,6 +2620,7 @@ void call_destroy(struct call *c) {
 	char* cdrbufcur = cdrbuffer;
 	int cdrlinecnt = 0;
 	int found = 0;
+	const struct rtp_payload_type *rtp_pt;
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
@@ -2492,6 +2674,22 @@ void call_destroy(struct call *c) {
 		for (k = ml->medias.head; k; k = k->next) {
 			md = k->data;
 
+			rtp_pt = __rtp_stats_codec(md);
+#define MLL_PREFIX "------ Media #%u ("STR_FORMAT" over %s) using " /* media log line prefix */
+#define MLL_COMMON /* common args */						\
+					md->index,				\
+					STR_FMT(&md->type),			\
+					md->protocol ? md->protocol->name : "(unknown)"
+			if (!rtp_pt)
+				ilog(LOG_INFO, MLL_PREFIX "unknown codec", MLL_COMMON);
+			else if (!rtp_pt->encoding_parameters.s)
+				ilog(LOG_INFO, MLL_PREFIX ""STR_FORMAT"/%u", MLL_COMMON,
+						STR_FMT(&rtp_pt->encoding), rtp_pt->clock_rate);
+			else
+				ilog(LOG_INFO, MLL_PREFIX ""STR_FORMAT"/%u/"STR_FORMAT"", MLL_COMMON,
+						STR_FMT(&rtp_pt->encoding), rtp_pt->clock_rate,
+						STR_FMT(&rtp_pt->encoding_parameters));
+
 			for (o = md->streams.head; o; o = o->next) {
 				ps = o->data;
 
@@ -2523,9 +2721,8 @@ void call_destroy(struct call *c) {
 					    atomic64_get(&ps->last_packet));
 				}
 
-				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "
+				ilog(LOG_INFO, "--------- Port %5u <> %15s:%-5hu%s, "
 						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet",
-						md->index,
 						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						addr, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
@@ -2751,6 +2948,7 @@ static void __call_free(void *p) {
 				g_queue_clear(&em->sfds);
 				g_slice_free1(sizeof(*em), em);
 			}
+			g_hash_table_destroy(md->rtp_payload_types);
 			g_slice_free1(sizeof(*md), md);
 		}
 		g_queue_clear(&m->medias);
@@ -2763,6 +2961,7 @@ static void __call_free(void *p) {
 	while (c->streams) {
 		ps = c->streams->data;
 		c->streams = g_slist_delete_link(c->streams, c->streams);
+		g_hash_table_destroy(ps->rtp_stats);
 		g_slice_free1(sizeof(*ps), ps);
 	}
 

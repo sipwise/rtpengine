@@ -3,6 +3,9 @@
 
 
 
+/* XXX split everything into call_signalling.[ch] and call_packets.[ch] or w/e */
+
+
 
 #include <sys/types.h>
 #include <glib.h>
@@ -66,6 +69,7 @@ struct call_monologue;
 #include "str.h"
 #include "crypto.h"
 #include "dtls.h"
+#include "rtp.h"
 
 
 
@@ -179,6 +183,7 @@ typedef bencode_buffer_t call_buffer_t;
 struct transport_protocol {
 	enum transport_protocol_index	index;
 	const char			*name;
+	int				rtp:1; /* also set to 1 for SRTP */
 	int				srtp:1;
 	int				avpf:1;
 };
@@ -230,6 +235,7 @@ struct stream_params {
 	int			desired_family;
 	struct dtls_fingerprint fingerprint;
 	unsigned int		sp_flags;
+	GQueue			rtp_payload_types; /* slice-alloc'd */
 };
 
 struct stream_fd {
@@ -250,6 +256,14 @@ struct endpoint_map {
 struct loop_protector {
 	unsigned int		len;
 	unsigned char		buf[RTP_LOOP_PROTECT];
+};
+
+struct rtp_stats {
+	unsigned int		payload_type;
+	atomic64		packets;
+	atomic64		bytes;
+	atomic64		kernel_packets;
+	atomic64		kernel_bytes;
 };
 
 struct packet_stream {
@@ -274,6 +288,7 @@ struct packet_stream {
 	struct stats		stats;
 	struct stats		kernel_stats;
 	atomic64		last_packet;
+	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: in_lock: */
@@ -317,6 +332,7 @@ struct call_media {
 
 	GQueue			streams; /* normally RTP + RTCP */
 	GSList			*endpoint_maps;
+	GHashTable		*rtp_payload_types;
 
 	unsigned int		media_flags;
 };
@@ -483,6 +499,8 @@ INLINE void *call_malloc(struct call *c, size_t l) {
 
 INLINE char *call_strdup_len(struct call *c, const char *s, unsigned int len) {
 	char *r;
+	if (!s)
+		return NULL;
 	r = call_malloc(c, len + 1);
 	memcpy(r, s, len);
 	r[len] = 0;

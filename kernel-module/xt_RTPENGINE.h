@@ -1,6 +1,12 @@
 #ifndef XT_RTPPROXY_H
 #define XT_RTPPROXY_H
 
+
+
+#define NUM_PAYLOAD_TYPES 16
+
+
+
 struct xt_rtpengine_info {
 	u_int32_t			id;
 };
@@ -9,6 +15,10 @@ struct rtpengine_stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
 	u_int64_t			errors;
+};
+struct rtpengine_rtp_stats {
+	u_int64_t			packets;
+	u_int64_t			bytes;
 };
 
 struct re_address {
@@ -73,10 +83,14 @@ struct rtpengine_target_info {
 	struct rtpengine_srtp		decrypt;
 	struct rtpengine_srtp		encrypt;
 
+	unsigned char			payload_types[NUM_PAYLOAD_TYPES]; /* must be sorted */
+	unsigned int			num_payload_types;
+
 	unsigned char			tos;
 	int				rtcp_mux:1,
 					dtls:1,
 					stun:1,
+					rtp:1,
 					rtp_only:1;
 };
 
@@ -94,6 +108,7 @@ struct rtpengine_message {
 struct rtpengine_list_entry {
 	struct rtpengine_target_info	target;
 	struct rtpengine_stats		stats;
+	struct rtpengine_rtp_stats	rtp_stats[NUM_PAYLOAD_TYPES];
 };
 
 

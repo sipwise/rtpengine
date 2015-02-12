@@ -13,6 +13,7 @@
 #include "call.h"
 #include "crypto.h"
 #include "dtls.h"
+#include "rtp.h"
 
 struct network_address {
 	str network_type;
@@ -58,7 +59,7 @@ struct sdp_media {
 	str media_type;
 	str port;
 	str transport;
-	/* ... format list */
+	str formats; /* space separated */
 
 	long int port_num;
 	int port_count;
@@ -66,6 +67,7 @@ struct sdp_media {
 	struct sdp_connection connection;
 	int rr, rs;
 	struct sdp_attributes attributes;
+	GQueue format_list; /* list of slice-alloc'd str objects */
 };
 
 struct attribute_rtcp {
@@ -143,6 +145,14 @@ struct attribute_setup {
 	} value;
 };
 
+struct attribute_rtpmap {
+	str payload_type_str;
+	str encoding_str;
+	str clock_rate_str;
+
+	struct rtp_payload_type rtp_pt;
+};
+
 struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
@@ -169,6 +179,7 @@ struct sdp_attribute {
 		ATTR_MID,
 		ATTR_FINGERPRINT,
 		ATTR_SETUP,
+		ATTR_RTPMAP,
 	} attr;
 
 	union {
@@ -179,6 +190,7 @@ struct sdp_attribute {
 		struct attribute_group group;
 		struct attribute_fingerprint fingerprint;
 		struct attribute_setup setup;
+		struct attribute_rtpmap rtpmap;
 	} u;
 };
 
@@ -190,12 +202,11 @@ static const char ice_chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJK
 
 
 
-//static int has_rtcp(struct sdp_media *media);
-
-
-
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
 	return g_hash_table_lookup(a->id_hash, &id);
+}
+INLINE GQueue *attr_list_get_by_id(struct sdp_attributes *a, int id) {
+	return g_hash_table_lookup(a->id_lists_hash, &id);
 }
 
 static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, int id) {
@@ -309,6 +320,9 @@ INLINE int extract_token(char **sp, char *end, str *out) {
 		EXTRACT_NETWORK_ADDRESS_NP(field);		\
 		if (parse_address(&output->field)) output->field.parsed.s6_addr32[0] = 0xfe
 
+#define PARSE_DECL char *end, *start
+#define PARSE_INIT start = output->value.s; end = start + output->value.len
+
 static int parse_origin(char *start, char *end, struct sdp_origin *output) {
 	if (output->parsed)
 		return -1;
@@ -334,10 +348,12 @@ static int parse_connection(char *start, char *end, struct sdp_connection *outpu
 
 static int parse_media(char *start, char *end, struct sdp_media *output) {
 	char *ep;
+	str s, *sp;
 
 	EXTRACT_TOKEN(media_type);
 	EXTRACT_TOKEN(port);
 	EXTRACT_TOKEN(transport);
+	str_init_len(&output->formats, start, end - start);
 
 	output->port_num = strtol(output->port.s, &ep, 10);
 	if (ep == output->port.s)
@@ -354,6 +370,15 @@ static int parse_media(char *start, char *end, struct sdp_media *output) {
 	}
 	else
 		output->port_count = 1;
+
+	/* to split the "formats" list into tokens, we abuse some vars */
+	start = output->formats.s;
+	end = start + output->formats.len;
+	while (!extract_token(&start, end, &s)) {
+		sp = g_slice_alloc(sizeof(*sp));
+		*sp = s;
+		g_queue_push_tail(&output->format_list, sp);
+	}
 
 	return 0;
 }
@@ -379,14 +404,12 @@ static int parse_attribute_group(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_ssrc(struct sdp_attribute *output) {
-	char *start, *end;
+	PARSE_DECL;
 	struct attribute_ssrc *s;
 
 	output->attr = ATTR_SSRC;
 
-	start = output->value.s;
-	end = start + output->value.len;
-
+	PARSE_INIT;
 	EXTRACT_TOKEN(u.ssrc.id_str);
 	EXTRACT_TOKEN(u.ssrc.attr_str);
 
@@ -407,7 +430,8 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_crypto(struct sdp_attribute *output) {
-	char *start, *end, *endp;
+	PARSE_DECL;
+	char *endp;
 	struct attribute_crypto *c;
 	int salt_key_len, enc_salt_key_len;
 	int b64_state = 0;
@@ -419,9 +443,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 
 	output->attr = ATTR_CRYPTO;
 
-	start = output->value.s;
-	end = start + output->value.len;
-
+	PARSE_INIT;
 	EXTRACT_TOKEN(u.crypto.tag_str);
 	EXTRACT_TOKEN(u.crypto.crypto_suite_str);
 	EXTRACT_TOKEN(u.crypto.key_params_str);
@@ -551,12 +573,12 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_candidate(struct sdp_attribute *output) {
-	char *end, *start, *ep;
+	PARSE_DECL;
+	char *ep;
 
-	start = output->value.s;
-	end = start + output->value.len;
 	output->attr = ATTR_CANDIDATE;
 
+	PARSE_INIT;
 	EXTRACT_TOKEN(u.candidate.foundation);
 	EXTRACT_TOKEN(u.candidate.component_str);
 	EXTRACT_TOKEN(u.candidate.transport);
@@ -578,14 +600,13 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_fingerprint(struct sdp_attribute *output) {
-	char *end, *start;
+	PARSE_DECL;
 	unsigned char *c;
 	int i;
 
-	start = output->value.s;
-	end = start + output->value.len;
 	output->attr = ATTR_FINGERPRINT;
 
+	PARSE_INIT;
 	EXTRACT_TOKEN(u.fingerprint.hash_func_str);
 	EXTRACT_TOKEN(u.fingerprint.fingerprint_str);
 
@@ -647,6 +668,49 @@ static int parse_attribute_setup(struct sdp_attribute *output) {
 	return 0;
 }
 
+static int parse_attribute_rtpmap(struct sdp_attribute *output) {
+	PARSE_DECL;
+	char *ep;
+	struct attribute_rtpmap *a;
+	struct rtp_payload_type *pt;
+
+	output->attr = ATTR_RTPMAP;
+
+	PARSE_INIT;
+	EXTRACT_TOKEN(u.rtpmap.payload_type_str);
+	EXTRACT_TOKEN(u.rtpmap.encoding_str);
+
+	a = &output->u.rtpmap;
+	pt = &a->rtp_pt;
+
+	pt->payload_type = strtoul(a->payload_type_str.s, &ep, 10);
+	if (ep == a->payload_type_str.s)
+		return -1;
+
+	str_chr_str(&a->clock_rate_str, &a->encoding_str, '/');
+	if (!a->clock_rate_str.s)
+		return -1;
+
+	pt->encoding = a->encoding_str;
+	pt->encoding.len -= a->clock_rate_str.len;
+	str_shift(&a->clock_rate_str, 1);
+
+	str_chr_str(&pt->encoding_parameters, &a->clock_rate_str, '/');
+	if (pt->encoding_parameters.s) {
+		a->clock_rate_str.len -= pt->encoding_parameters.len;
+		str_shift(&pt->encoding_parameters, 1);
+	}
+
+	if (!a->clock_rate_str.len)
+		return -1;
+
+	pt->clock_rate = strtoul(a->clock_rate_str.s, &ep, 10);
+	if (ep && ep != a->clock_rate_str.s + a->clock_rate_str.len)
+		return -1;
+
+	return 0;
+}
+
 static int parse_attribute(struct sdp_attribute *a) {
 	int ret;
 
@@ -696,6 +760,8 @@ static int parse_attribute(struct sdp_attribute *a) {
 				ret = parse_attribute_crypto(a);
 			else if (!str_cmp(&a->name, "extmap"))
 				a->attr = ATTR_EXTMAP;
+			else if (!str_cmp(&a->name, "rtpmap"))
+				ret = parse_attribute_rtpmap(a);
 			break;
 		case 7:
 			if (!str_cmp(&a->name, "ice-pwd"))
@@ -915,30 +981,30 @@ error:
 	return -1;
 }
 
+static void attr_free(void *p) {
+	g_slice_free1(sizeof(struct sdp_attribute), p);
+}
 static void free_attributes(struct sdp_attributes *a) {
-	struct sdp_attribute *attr;
-
 	/* g_hash_table_destroy(a->name_hash); */
 	g_hash_table_destroy(a->id_hash);
 	/* g_hash_table_destroy(a->name_lists_hash); */
 	g_hash_table_destroy(a->id_lists_hash);
-	while ((attr = g_queue_pop_head(&a->list))) {
-		g_slice_free1(sizeof(*attr), attr);
-	}
+	g_queue_clear_full(&a->list, attr_free);
 }
-
+static void media_free(void *p) {
+	struct sdp_media *media = p;
+	free_attributes(&media->attributes);
+	g_queue_clear_full(&media->format_list, str_slice_free);
+	g_slice_free1(sizeof(*media), media);
+}
+static void session_free(void *p) {
+	struct sdp_session *session = p;
+	g_queue_clear_full(&session->media_streams, media_free);
+	free_attributes(&session->attributes);
+	g_slice_free1(sizeof(*session), session);
+}
 void sdp_free(GQueue *sessions) {
-	struct sdp_session *session;
-	struct sdp_media *media;
-
-	while ((session = g_queue_pop_head(sessions))) {
-		while ((media = g_queue_pop_head(&session->media_streams))) {
-			free_attributes(&media->attributes);
-			g_slice_free1(sizeof(*media), media);
-		}
-		free_attributes(&session->attributes);
-		g_slice_free1(sizeof(*session), session);
-	}
+	g_queue_clear_full(sessions, session_free);
 }
 
 static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, struct sdp_ng_flags *flags,
@@ -968,6 +1034,66 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, str
 }
 
 
+
+static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media)
+{
+	GHashTable *ht;
+	GQueue *q;
+	GList *ql;
+	struct sdp_attribute *attr;
+	int ret = 0;
+
+	if (!sp->protocol || !sp->protocol->rtp)
+		return 0;
+
+	/* first go through a=rtpmap and build a hash table of attrs */
+	ht = g_hash_table_new(g_int_hash, g_int_equal);
+	q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
+	for (ql = q->head; ql; ql = ql->next) {
+		struct rtp_payload_type *pt;
+		attr = ql->data;
+		pt = &attr->u.rtpmap.rtp_pt;
+		g_hash_table_insert(ht, &pt->payload_type, pt);
+	}
+	/* a=fmtp processing would go here */
+
+	/* then go through the format list and associate */
+	for (ql = media->format_list.head; ql; ql = ql->next) {
+		char *ep;
+		str *s;
+		unsigned int i;
+		struct rtp_payload_type *pt;
+		const struct rtp_payload_type *ptl;
+
+		s = ql->data;
+		i = (unsigned int) strtoul(s->s, &ep, 10);
+		if (ep == s->s || i > 127)
+			goto error;
+
+		/* first look in rtpmap for a match, then check RFC types,
+		 * else fall back to an "unknown" type */
+		ptl = rtp_payload_type(i, ht);
+
+		pt = g_slice_alloc0(sizeof(*pt));
+		if (ptl)
+			*pt = *ptl;
+		else
+			pt->payload_type = i;
+		g_queue_push_tail(&sp->rtp_payload_types, pt);
+	}
+
+	goto out;
+
+error:
+	ret = -1;
+	goto out;
+out:
+	g_hash_table_destroy(ht);
+	return ret;
+}
+
+
+/* XXX split this function up */
 int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *flags) {
 	struct sdp_session *session;
 	struct sdp_media *media;
@@ -999,6 +1125,10 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			bf_xset(&sp->sp_flags, SP_FLAG_ASYMMETRIC, flags->asymmetric);
 			bf_xset(&sp->sp_flags, SP_FLAG_STRICT_SOURCE, flags->strict_source);
 			bf_xset(&sp->sp_flags, SP_FLAG_MEDIA_HANDOVER, flags->media_handover);
+
+			errstr = "Invalid RTP payload types";
+			if (__rtp_payload_types(sp, media))
+				goto error;
 
 			/* a=crypto */
 			attr = attr_get_by_id(&media->attributes, ATTR_CRYPTO);
@@ -1451,7 +1581,6 @@ INLINE unsigned long type_from_prio(unsigned int prio) {
 }
 
 static unsigned long new_priority(struct sdp_media *media, int relay) {
-	int id;
 	GQueue *cands;
 	int pref;
 	unsigned long prio, tpref;
@@ -1468,8 +1597,7 @@ static unsigned long new_priority(struct sdp_media *media, int relay) {
 	if (!media)
 		goto out;
 
-	id = ATTR_CANDIDATE;
-	cands = g_hash_table_lookup(media->attributes.id_lists_hash, &id);
+	cands = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
 	if (!cands)
 		goto out;
 

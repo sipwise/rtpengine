@@ -558,8 +558,9 @@ t=0 0
 			and $cp = $p;
 
 		$sdp .= <<"!";
-m=audio $p $$tr{name} 8
+m=audio $p $$tr{name} 0 8 111
 a=rtpmap:8 PCMA/8000
+a=rtpmap:111 opus/48000/2
 !
 		if ($$A{want_rtcpmux} && $op eq 'offer') {
 			$sdp .= "a=rtcp-mux\n";
