@@ -2949,6 +2949,8 @@ static void __call_free(void *p) {
 				g_slice_free1(sizeof(*em), em);
 			}
 			g_hash_table_destroy(md->rtp_payload_types);
+			crypto_params_cleanup(&md->sdes_in.params);
+			crypto_params_cleanup(&md->sdes_out.params);
 			g_slice_free1(sizeof(*md), md);
 		}
 		g_queue_clear(&m->medias);
@@ -2962,6 +2964,7 @@ static void __call_free(void *p) {
 		ps = c->streams->data;
 		c->streams = g_slist_delete_link(c->streams, c->streams);
 		g_hash_table_destroy(ps->rtp_stats);
+		crypto_cleanup(&ps->crypto);
 		g_slice_free1(sizeof(*ps), ps);
 	}
 
