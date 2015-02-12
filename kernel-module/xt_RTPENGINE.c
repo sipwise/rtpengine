@@ -2256,7 +2256,7 @@ out:
 		g->stats.errors++;
 	else {
 		g->stats.packets++;
-		g->stats.bytes += skb->len;
+		g->stats.bytes += datalen;
 	}
 	spin_unlock_irqrestore(&g->stats_lock, flags);
 
