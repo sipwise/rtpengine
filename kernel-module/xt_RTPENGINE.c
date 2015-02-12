@@ -18,6 +18,7 @@
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
 #include <linux/bsearch.h>
+#include <linux/atomic.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
@@ -142,14 +143,22 @@ struct re_crypto_context {
 	const struct re_hmac		*hmac;
 };
 
+struct rtpengine_stats_a {
+	atomic64_t			packets;
+	atomic64_t			bytes;
+	atomic64_t			errors;
+};
+struct rtpengine_rtp_stats_a {
+	atomic64_t			packets;
+	atomic64_t			bytes;
+};
 struct rtpengine_target {
 	atomic_t			refcnt;
 	u_int32_t			table;
 	struct rtpengine_target_info	target;
 
-	spinlock_t			stats_lock;
-	struct rtpengine_stats		stats;
-	struct rtpengine_rtp_stats	rtp_stats[NUM_PAYLOAD_TYPES];
+	struct rtpengine_stats_a	stats;
+	struct rtpengine_rtp_stats_a	rtp_stats[NUM_PAYLOAD_TYPES];
 
 	struct re_crypto_context	decrypt;
 	struct re_crypto_context	encrypt;
@@ -817,10 +826,9 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	u_int32_t id;
 	struct rtpengine_table *t;
 	struct rtpengine_list_entry op;
-	int err;
+	int err, port, i;
 	struct rtpengine_target *g;
 	unsigned long flags;
-	int port;
 
 	if (l != sizeof(op))
 		return -EINVAL;
@@ -843,10 +851,14 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	memset(&op, 0, sizeof(op));
 	memcpy(&op.target, &g->target, sizeof(op.target));
 
-	spin_lock_irqsave(&g->stats_lock, flags);
-	memcpy(&op.stats, &g->stats, sizeof(op.stats));
-	memcpy(&op.rtp_stats, &g->rtp_stats, sizeof(op.rtp_stats));
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+	op.stats.packets = atomic64_read(&g->stats.packets);
+	op.stats.bytes = atomic64_read(&g->stats.bytes);
+	op.stats.errors = atomic64_read(&g->stats.errors);
+
+	for (i = 0; i < g->target.num_payload_types; i++) {
+		op.rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
+		op.rtp_stats[i].bytes = atomic64_read(&g->rtp_stats[i].bytes);
+	}
 
 	spin_lock_irqsave(&g->decrypt.lock, flags);
 	op.target.decrypt.last_index = g->target.decrypt.last_index;
@@ -973,7 +985,6 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 
 static int proc_list_show(struct seq_file *f, void *v) {
 	struct rtpengine_target *g = v;
-	unsigned long flags;
 	int i;
 
 	seq_printf(f, "port %5u:\n", g->target.target_port);
@@ -983,14 +994,15 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	proc_list_addr_print(f, "expect", &g->target.expected_src);
 	if (g->target.src_mismatch > 0 && g->target.src_mismatch <= ARRAY_SIZE(re_msm_strings))
 		seq_printf(f, "    src mismatch action: %s\n", re_msm_strings[g->target.src_mismatch]);
-	spin_lock_irqsave(&g->stats_lock, flags);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
-		g->stats.bytes, g->stats.packets, g->stats.errors);
+		(unsigned long long) atomic64_read(&g->stats.bytes),
+		(unsigned long long) atomic64_read(&g->stats.packets),
+		(unsigned long long) atomic64_read(&g->stats.errors));
 	for (i = 0; i < g->target.num_payload_types; i++)
 		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
 			g->target.payload_types[i],
-			g->rtp_stats[i].bytes, g->rtp_stats[i].packets);
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+			(unsigned long long) atomic64_read(&g->rtp_stats[i].bytes),
+			(unsigned long long) atomic64_read(&g->rtp_stats[i].packets));
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption (incoming)");
 	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt, "encryption (outgoing)");
 	if (g->target.rtcp_mux)
@@ -1381,7 +1393,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	struct rtpengine_target *g;
 	struct re_bucket *b, *ba = NULL;
 	struct rtpengine_target *og = NULL;
-	int err;
+	int err, j;
 	unsigned long flags;
 
 	if (!i->target_port)
@@ -1412,7 +1424,6 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	memset(g, 0, sizeof(*g));
 	g->table = t->id;
 	atomic_set(&g->refcnt, 1);
-	spin_lock_init(&g->stats_lock);
 	spin_lock_init(&g->decrypt.lock);
 	spin_lock_init(&g->encrypt.lock);
 	memcpy(&g->target, i, sizeof(*i));
@@ -1460,10 +1471,14 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		if (!og)
 			goto fail4;
 
-		spin_lock(&og->stats_lock);	/* nested lock! irqs are disabled already */
-		memcpy(&g->stats, &og->stats, sizeof(g->stats));
-		memcpy(&g->rtp_stats, &og->rtp_stats, sizeof(g->rtp_stats));
-		spin_unlock(&og->stats_lock);
+		atomic64_set(&g->stats.packets, atomic64_read(&og->stats.packets));
+		atomic64_set(&g->stats.bytes, atomic64_read(&og->stats.bytes));
+		atomic64_set(&g->stats.errors, atomic64_read(&og->stats.errors));
+
+		for (j = 0; j < NUM_PAYLOAD_TYPES; j++) {
+			atomic64_set(&g->rtp_stats[j].packets, atomic64_read(&og->rtp_stats[j].packets));
+			atomic64_set(&g->rtp_stats[j].bytes, atomic64_read(&og->rtp_stats[j].bytes));
+		}
 	}
 	else {
 		err = -EEXIST;
@@ -2175,7 +2190,6 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	struct sk_buff *skb2;
 	int err, rtp_pt_idx = -2;
 	unsigned int datalen;
-	unsigned long flags;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
 	u_int64_t pkt_idx = 0, pkt_idx_u;
@@ -2272,11 +2286,8 @@ not_rtp:
 		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
 		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
-		if (err) {
-			spin_lock_irqsave(&g->stats_lock, flags);
-			g->stats.errors++;
-			spin_unlock_irqrestore(&g->stats_lock, flags);
-		}
+		if (err)
+			atomic64_inc(&g->stats.errors);
 	}
 
 	if (rtp.ok) {
@@ -2288,22 +2299,20 @@ not_rtp:
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
 out:
-	spin_lock_irqsave(&g->stats_lock, flags);
 	if (err)
-		g->stats.errors++;
+		atomic64_inc(&g->stats.errors);
 	else {
-		g->stats.packets++;
-		g->stats.bytes += datalen;
+		atomic64_inc(&g->stats.packets);
+		atomic64_add(datalen, &g->stats.bytes);
 	}
 	if (rtp_pt_idx >= 0) {
-		g->rtp_stats[rtp_pt_idx].packets++;
-		g->rtp_stats[rtp_pt_idx].bytes += datalen;
+		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
+		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
 	}
 	else if (rtp_pt_idx == -2)
 		/* not RTP */ ;
 	else if (rtp_pt_idx == -1)
-		g->stats.errors++;
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+		atomic64_inc(&g->stats.errors);
 
 	target_push(g);
 	table_push(t);
@@ -2311,9 +2320,7 @@ out:
 	return NF_DROP;
 
 skip_error:
-	spin_lock_irqsave(&g->stats_lock, flags);
-	g->stats.errors++;
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+	atomic64_inc(&g->stats.errors);
 skip1:
 	target_push(g);
 skip2:
