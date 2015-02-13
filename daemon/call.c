@@ -2646,7 +2646,14 @@ void call_destroy(struct call *c) {
 	cdrbufcur += sprintf(cdrbufcur,"tos=%u, ", (unsigned int)c->tos);
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
+
+		if (!ml->terminated.tv_sec) {
+			gettimeofday(&ml->terminated, NULL);
+			ml->term_reason = UNKNOWN;
+		}
+
 		timeval_subtract(&tim_result_duration,&ml->terminated,&ml->started);
+
 		if (_log_facility_cdr) {
 		    cdrbufcur += sprintf(cdrbufcur, "ml%i_start_time=%ld.%06lu, "
 		            "ml%i_end_time=%ld.%06ld, "
@@ -2815,10 +2822,11 @@ void call_destroy(struct call *c) {
 			atomic64_inc(&m->totalstats.total_forced_term_sess);
 			atomic64_inc(&m->totalstats_interval.total_forced_term_sess);
 		}
+
+		timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
+		timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
 	}
 
-	timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
-	timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
 
 	if (_log_facility_cdr)
 	    /* log it */
