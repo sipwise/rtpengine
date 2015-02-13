@@ -222,7 +222,7 @@ str *call_lookup_udp(char **out, struct callmaster *m) {
 static int info_parse_func(char **a, void **ret, void *p) {
 	GHashTable *ih = p;
 
-	g_hash_table_replace(ih, a[0], a[1]);
+	g_hash_table_replace(ih, strdup(a[0]), strdup(a[1]));
 
 	return -1;
 }
@@ -301,7 +301,7 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 	GHashTable *infohash;
 
 	str_init(&callid, out[RE_TCP_RL_CALLID]);
-	infohash = g_hash_table_new(g_str_hash, g_str_equal);
+	infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c = call_get_opmode(&callid, m, opmode);
 	if (!c) {
 		ilog(LOG_WARNING, "["STR_FORMAT"] Got LOOKUP for unknown call-id", STR_FMT(&callid));
