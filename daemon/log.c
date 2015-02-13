@@ -116,6 +116,13 @@ void __ilog(int prio, const char *fmt, ...) {
 						STR_FMT(&log_info.u.stream_fd->call->callid),
 						log_info.u.stream_fd->fd.localport);
 			break;
+		case LOG_INFO_STR:
+			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"] ",
+					STR_FMT(log_info.u.str));
+			break;
+		case LOG_INFO_C_STRING:
+			snprintf(prefix, sizeof(prefix), "[%s] ", log_info.u.cstr);
+			break;
 	}
 
 	va_start(ap, fmt);
@@ -126,6 +133,9 @@ void __ilog(int prio, const char *fmt, ...) {
 		write_log(LOG_ERROR, "Failed to print syslog message - message dropped");
 		return;
 	}
+
+	while (ret > 0 && msg[ret-1] == '\n')
+		ret--;
 
 	if ((prio & LOG_FLAG_LIMIT)) {
 		time_t when;
@@ -168,7 +178,7 @@ void __ilog(int prio, const char *fmt, ...) {
 		infix = "... ";
 	}
 
-	write_log(xprio, "%s%s%s", prefix, infix, piece);
+	write_log(xprio, "%s%s%.*s", prefix, infix, ret, piece);
 
 out:
 	free(msg);

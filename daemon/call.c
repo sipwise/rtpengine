@@ -2978,8 +2978,7 @@ static void __call_free(void *p) {
 static struct call *call_create(const str *callid, struct callmaster *m) {
 	struct call *c;
 
-	ilog(LOG_NOTICE, "["STR_FORMAT"] Creating new call",
-		STR_FMT(callid));
+	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0("call", sizeof(*c), __call_free);
 	c->callmaster = m;
 	mutex_init(&c->buffer_lock);
@@ -3231,7 +3230,7 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 
 	c = call_get(callid, m);
 	if (!c) {
-		ilog(LOG_INFO, "["STR_FORMAT"] Call-ID to delete not found", STR_FMT(callid));
+		ilog(LOG_INFO, "Call-ID to delete not found");
 		goto err;
 	}
 

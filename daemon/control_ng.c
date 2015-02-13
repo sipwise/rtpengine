@@ -76,7 +76,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
 	bencode_item_t *dict, *resp;
-	str cmd, cookie, data, reply, *to_send;
+	str cmd, cookie, data, reply, *to_send, callid;
 	const char *errstr;
 	struct msghdr mh;
 	struct iovec iov[3];
@@ -119,11 +119,18 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	if (!cmd.s)
 		goto err_send;
 
-	log_str = g_string_sized_new(256);
-	g_string_append_printf(log_str, "Got valid command from %s: %.*s - ", addr, STR_FMT(&cmd));
-	pretty_print(dict, log_str);
-	ilog(LOG_INFO, "%.*s", (int) log_str->len, log_str->str);
-	g_string_free(log_str, TRUE);
+	bencode_dictionary_get_str(dict, "call-id", &callid);
+	log_info_str(&callid);
+
+	ilog(LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
+
+	if (get_log_level() >= LOG_DEBUG) {
+		log_str = g_string_sized_new(256);
+		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: ", STR_FMT(&cmd), addr);
+		pretty_print(dict, log_str);
+		ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+		g_string_free(log_str, TRUE);
+	}
 
 	errstr = NULL;
 	if (!str_cmp(&cmd, "ping")) {
@@ -165,15 +172,29 @@ err_send:
 	bencode_dictionary_add_string(resp, "result", "error");
 	bencode_dictionary_add_string(resp, "error-reason", errstr);
 	g_atomic_int_inc(&cur->errors);
-	goto send_resp;
+	cmd = STR_NULL;
 
 send_resp:
 	bencode_collapse_str(resp, &reply);
 	to_send = &reply;
 
-send_only:
-	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT, STR_FMT(to_send));
+	if (cmd.s) {
+		ilog(LOG_INFO, "Replying to '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
 
+		if (get_log_level() >= LOG_DEBUG) {
+			dict = bencode_decode_expect_str(&bencbuf, to_send, BENCODE_DICTIONARY);
+			if (dict) {
+				log_str = g_string_sized_new(256);
+				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: ",
+						STR_FMT(&cmd), addr);
+				pretty_print(dict, log_str);
+				ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+				g_string_free(log_str, TRUE);
+			}
+		}
+	}
+
+send_only:
 	ZERO(mh);
 	mh.msg_name = sin;
 	mh.msg_namelen = sizeof(*sin);
