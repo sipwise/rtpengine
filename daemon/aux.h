@@ -474,34 +474,40 @@ INLINE int family_from_address(const struct in6_addr *a) {
 }
 
 /* checks if at least one of the flags is set */
-INLINE int bf_isset(const unsigned int *u, unsigned int f) {
-	if ((*u & f))
+INLINE int bf_isset(const volatile unsigned int *u, unsigned int f) {
+	if ((g_atomic_int_get(u) & f))
 		return -1;
 	return 0;
 }
-INLINE void bf_set(unsigned int *u, unsigned int f) {
-	*u |= f;
+INLINE void bf_set(volatile unsigned int *u, unsigned int f) {
+	g_atomic_int_or(u, f);
 }
-INLINE void bf_clear(unsigned int *u, unsigned int f) {
-	*u &= ~f;
+INLINE void bf_clear(volatile unsigned int *u, unsigned int f) {
+	g_atomic_int_and(u, ~f);
 }
-INLINE void bf_xset(unsigned int *u, unsigned int f, int cond) {
-	bf_clear(u, f);
-	bf_set(u, cond ? f : 0);
+INLINE void bf_set_clear(volatile unsigned int *u, unsigned int f, int cond) {
+	if (cond)
+		bf_set(u, f);
+	else
+		bf_clear(u, f);
 }
 /* works only for single flags */
-INLINE void bf_copy(unsigned int *u, unsigned int f, const unsigned int *s, unsigned int g) {
-	/* a good compiler will optimize out the calls to log2() */
-	*u &= ~f;
-	if (f >= g)
-		*u |= (*s & g) << (int) (log2(f) - log2(g));
-	else
-		*u |= (*s & g) >> (int) (log2(g) - log2(f));
+INLINE void bf_copy(volatile unsigned int *u, unsigned int f,
+		const volatile unsigned int *s, unsigned int g)
+{
+	bf_set_clear(u, f, bf_isset(s, g));
 }
 /* works for multiple flags */
-INLINE void bf_copy_same(unsigned int *u, const unsigned int *s, unsigned int g) {
-	bf_copy(u, g, s, g);
+INLINE void bf_copy_same(volatile unsigned int *u, const volatile unsigned int *s, unsigned int g) {
+	unsigned int old, set, clear;
+	old = g_atomic_int_get(s);
+	set = old & g;
+	clear = ~old & g;
+	bf_set(u, set);
+	bf_clear(u, clear);
 }
+
+
 INLINE void g_queue_append(GQueue *dst, const GQueue *src) {
 	GList *l;
 	if (!src || !dst)

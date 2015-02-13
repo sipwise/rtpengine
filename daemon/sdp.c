@@ -1123,9 +1123,9 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			sp->type = media->media_type;
 			memcpy(sp->direction, flags->direction, sizeof(sp->direction));
 			sp->desired_family = flags->address_family;
-			bf_xset(&sp->sp_flags, SP_FLAG_ASYMMETRIC, flags->asymmetric);
-			bf_xset(&sp->sp_flags, SP_FLAG_STRICT_SOURCE, flags->strict_source);
-			bf_xset(&sp->sp_flags, SP_FLAG_MEDIA_HANDOVER, flags->media_handover);
+			bf_set_clear(&sp->sp_flags, SP_FLAG_ASYMMETRIC, flags->asymmetric);
+			bf_set_clear(&sp->sp_flags, SP_FLAG_STRICT_SOURCE, flags->strict_source);
+			bf_set_clear(&sp->sp_flags, SP_FLAG_MEDIA_HANDOVER, flags->media_handover);
 
 			errstr = "Invalid RTP payload types";
 			if (__rtp_payload_types(sp, media))

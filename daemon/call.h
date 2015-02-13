@@ -303,8 +303,7 @@ struct packet_stream {
 	X509			*dtls_cert;	/* LOCK: in_lock */
 
 	/* in_lock must be held for SETTING these: */
-	/* (XXX replace with atomic ops where appropriate) */
-	unsigned int		ps_flags;
+	volatile unsigned int	ps_flags;
 };
 
 /* protected by call->master_lock, except the RO elements */
@@ -337,7 +336,7 @@ struct call_media {
 	GSList			*endpoint_maps;
 	GHashTable		*rtp_payload_types;
 
-	unsigned int		media_flags;
+	volatile unsigned int	media_flags;
 };
 
 /* half a dialogue */
