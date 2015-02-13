@@ -551,7 +551,7 @@ static void determine_handler(struct packet_stream *in, const struct packet_stre
 	const struct streamhandler **sh_pp, *sh;
 	const struct streamhandler ***matrix;
 
-	if (PS_ISSET(in, HAS_HANDLER))
+	if (in->handler)
 		return;
 	if (MEDIA_ISSET(in->media, PASSTHRU))
 		goto noop;
@@ -573,15 +573,13 @@ static void determine_handler(struct packet_stream *in, const struct packet_stre
 		goto err;
 	in->handler = sh;
 
-done:
-	PS_SET(in, HAS_HANDLER);
 	return;
 
 err:
 	ilog(LOG_WARNING, "Unknown transport protocol encountered");
 noop:
 	in->handler = &__sh_noop;
-	goto done;
+	return;
 }
 
 void stream_msg_mh_src(struct packet_stream *ps, struct msghdr *mh) {
@@ -3088,7 +3086,7 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 static void __stream_unkernelize(struct packet_stream *ps) {
 	unkernelize(ps);
 	PS_CLEAR(ps, CONFIRMED);
-	PS_CLEAR(ps, HAS_HANDLER);
+	ps->handler = NULL;
 }
 static void stream_unkernelize(struct packet_stream *ps) {
 	if (!ps)
