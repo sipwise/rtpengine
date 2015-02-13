@@ -2800,19 +2800,21 @@ void call_destroy(struct call *c) {
 	atomic64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 	atomic64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 
-	ml = c->monologues->data;
-	if (ml->term_reason==TIMEOUT) {
-		atomic64_inc(&m->totalstats.total_timeout_sess);
-		atomic64_inc(&m->totalstats_interval.total_timeout_sess);
-	} else if (ml->term_reason==SILENT_TIMEOUT) {
-		atomic64_inc(&m->totalstats.total_silent_timeout_sess);
-		atomic64_inc(&m->totalstats_interval.total_silent_timeout_sess);
-	} else if (ml->term_reason==REGULAR) {
-		atomic64_inc(&m->totalstats.total_regular_term_sess);
-		atomic64_inc(&m->totalstats_interval.total_regular_term_sess);
-	} else if (ml->term_reason==FORCED) {
-		atomic64_inc(&m->totalstats.total_forced_term_sess);
-		atomic64_inc(&m->totalstats_interval.total_forced_term_sess);
+	if (c->monologues) {
+		ml = c->monologues->data;
+		if (ml->term_reason==TIMEOUT) {
+			atomic64_inc(&m->totalstats.total_timeout_sess);
+			atomic64_inc(&m->totalstats_interval.total_timeout_sess);
+		} else if (ml->term_reason==SILENT_TIMEOUT) {
+			atomic64_inc(&m->totalstats.total_silent_timeout_sess);
+			atomic64_inc(&m->totalstats_interval.total_silent_timeout_sess);
+		} else if (ml->term_reason==REGULAR) {
+			atomic64_inc(&m->totalstats.total_regular_term_sess);
+			atomic64_inc(&m->totalstats_interval.total_regular_term_sess);
+		} else if (ml->term_reason==FORCED) {
+			atomic64_inc(&m->totalstats.total_forced_term_sess);
+			atomic64_inc(&m->totalstats_interval.total_forced_term_sess);
+		}
 	}
 
 	timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
