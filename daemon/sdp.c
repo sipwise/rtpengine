@@ -1050,7 +1050,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	/* first go through a=rtpmap and build a hash table of attrs */
 	ht = g_hash_table_new(g_int_hash, g_int_equal);
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
-	for (ql = q->head; ql; ql = ql->next) {
+	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
 		struct rtp_payload_type *pt;
 		attr = ql->data;
 		pt = &attr->u.rtpmap.rtp_pt;
