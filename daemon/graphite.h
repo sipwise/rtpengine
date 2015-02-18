@@ -13,5 +13,6 @@
 int connect_to_graphite_server(u_int32_t ipaddress, int port);
 int send_graphite_data();
 void graphite_loop_run(struct callmaster* cm, int seconds);
+void set_prefix(char* prefix);
 
 #endif /* GRAPHITE_H_ */

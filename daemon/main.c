@@ -257,9 +257,10 @@ static void options(int *argc, char ***argv) {
 	char *listenngs = NULL;
 	char *listencli = NULL;
 	char *graphitep = NULL;
+	char *graphite_prefix_s = NULL;
 	char *redisps = NULL;
 	char *log_facility_s = NULL;
-        char *log_facility_cdr_s = NULL;
+	char *log_facility_cdr_s = NULL;
 	int version = 0;
 	int sip_source = 0;
 
@@ -274,6 +275,7 @@ static void options(int *argc, char ***argv) {
         { "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
         { "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "[IP46:]PORT"     },
 		{ "graphite-interval",  'w', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
+		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
@@ -340,6 +342,9 @@ static void options(int *argc, char ***argv) {
 	    die("Invalid IP or port (--graphite)");
 	}
 
+	if (graphite_prefix_s)
+		set_prefix(graphite_prefix_s);
+
 	if (tos < 0 || tos > 255)
 		die("Invalid TOS value");
 
@@ -369,12 +374,12 @@ static void options(int *argc, char ***argv) {
 		}
 	}
 
-        if (log_facility_cdr_s) {
-                if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
-                        print_available_log_facilities();
-                        die ("Invalid log facility for CDR '%s' (--log-facility-cdr)\n", log_facility_cdr_s);
-                }
-        }
+	if (log_facility_cdr_s) {
+		if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
+			print_available_log_facilities();
+			die ("Invalid log facility for CDR '%s' (--log-facility-cdr)\n", log_facility_cdr_s);
+		}
+	}
 
 	if (_log_stderr) {
 		write_log = log_to_stderr;
