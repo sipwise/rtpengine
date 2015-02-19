@@ -190,6 +190,8 @@ struct stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
 	u_int64_t			errors;
+	struct timespec		start;
+	struct timespec		end;
 };
 
 struct totalstats {

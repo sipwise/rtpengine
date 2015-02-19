@@ -1344,6 +1344,12 @@ static void callmaster_timer(void *ptr) {
 		DS(bytes);
 		DS(errors);
 
+		mutex_lock(&m->statspslock);
+		ilog(LOG_INFO, "Start time:%llu\n", ke->stats.start.tv_nsec);
+		m->statsps.start = ke->stats.start;
+		m->statsps.end = ke->stats.end;
+		mutex_unlock(&m->statspslock);
+
 		mutex_lock(&ps->in_lock);
 
 		if (ke->stats.packets != ps->kernel_stats.packets)
@@ -1352,6 +1358,9 @@ static void callmaster_timer(void *ptr) {
 		ps->kernel_stats.packets = ke->stats.packets;
 		ps->kernel_stats.bytes = ke->stats.bytes;
 		ps->kernel_stats.errors = ke->stats.errors;
+
+		ps->kernel_stats.start = ke->stats.start;
+		ps->kernel_stats.end = ke->stats.end;
 
 		update = 0;
 
@@ -2373,6 +2382,13 @@ static void unkernelize(struct packet_stream *p) {
 		kernel_del_stream(p->call->callmaster->conf.kernelfd, p->sfd->fd.localport);
 
 	PS_CLEAR(p, KERNELIZED);
+}
+
+void timespec_subtract (struct timespec *result, const struct timespec *a, const struct timespec *b) {
+	long long nanoseconds=0;
+	nanoseconds = ((long)a->tv_sec - (long long)b->tv_sec) * 1000000000 + ((long long)a->tv_nsec - (long long)b->tv_nsec);
+	result->tv_sec = nanoseconds/(long long)1000000000;
+	result->tv_nsec = nanoseconds%(long long)1000000000;
 }
 
 void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b) {

@@ -7,6 +7,8 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <glib.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -146,9 +148,10 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 
                if (PS_ISSET(ps, FALLBACK_RTCP))
                    continue;
-
+               struct timespec result;
+               timespec_subtract(&result,&(ps->stats.end),&(ps->stats.start));
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-                    "%llu p, %llu b, %llu e, %llu last_packet\n",
+                    "%llu p, %llu b, %llu e, %llu last_packet, %llu.%9llu delay\n",
                     md->index,
                     (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
                     smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
@@ -156,7 +159,9 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                         (unsigned long long) ps->stats.packets,
                         (unsigned long long) ps->stats.bytes,
                         (unsigned long long) ps->stats.errors,
-                        (unsigned long long) ps->last_packet);
+                        (unsigned long long) ps->last_packet,
+						(unsigned long long) result.tv_sec,
+						(unsigned long long) result.tv_nsec);
                ADJUSTLEN(printlen,outbufend,replybuffer);
            }
        }

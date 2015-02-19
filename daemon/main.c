@@ -27,6 +27,7 @@
 #include "call_interfaces.h"
 #include "cli.h"
 #include "graphite.h"
+#include "measuredelay.h"
 
 
 
@@ -629,6 +630,13 @@ static void timer_loop(void *d) {
 		poller_timers_wait_run(p, 100);
 }
 
+static void measuredelay_loop(void *d) {
+	struct callmaster *cm = d;
+
+	while (!global_shutdown)
+		measuredelay_loop_run(cm,1); // time in seconds
+}
+
 static void graphite_loop(void *d) {
 	struct callmaster *cm = d;
 
@@ -662,6 +670,7 @@ int main(int argc, char **argv) {
 
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(timer_loop, ctx.p);
+	thread_create_detach(measuredelay_loop, ctx.m);
 	if (graphite_ip)
 		thread_create_detach(graphite_loop, ctx.m);
 
