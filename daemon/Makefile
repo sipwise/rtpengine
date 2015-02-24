@@ -83,8 +83,10 @@ clean:
 .depend:	$(SRCS) Makefile
 	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
 
-rtpengine:	$(OBJS) .depend
+rtpengine:	$(OBJS) .depend Makefile
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+$(OBJS):	Makefile
 
 
 include		.depend
