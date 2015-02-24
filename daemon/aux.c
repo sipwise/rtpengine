@@ -83,38 +83,6 @@ int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num,
 
 
 
-#if !GLIB_CHECK_VERSION(2,14,0)
-
-void g_string_vprintf(GString *string, const gchar *format, va_list args) {
-	char *s;
-	int r;
-
-	r = vasprintf(&s, format, args);
-	if (r < 0)
-		return;
-
-	g_string_assign(string, s);
-	free(s);
-}
-
-void g_queue_clear(GQueue *q) {
-	GList *l, *n;
-
-	if (!q)
-		return;
-
-	for (l = q->head; l; l = n) {
-		n = l->next;
-		g_list_free_1(l);
-	}
-
-	q->head = q->tail = NULL;
-	q->length = 0;
-}
-
-#endif
-
-
 
 static void thread_join_me() {
 	pthread_t *me;

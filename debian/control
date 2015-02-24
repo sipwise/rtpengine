@@ -6,7 +6,7 @@ Build-Depends: debhelper (>= 5),
                iptables-dev (>= 1.4),
                libcurl4-openssl-dev | libcurl4-gnutls-dev |
   libcurl3-openssl-dev | libcurl3-gnutls-dev,
-               libglib2.0-dev,
+               libglib2.0-dev (>= 2.30),
                libpcre3-dev,
                libssl-dev (>= 1.0.1),
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),

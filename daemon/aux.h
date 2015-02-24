@@ -65,12 +65,6 @@ INLINE void strdupfree(char **, const char *);
 char *get_thread_buf(void);
 
 
-#if !GLIB_CHECK_VERSION(2,14,0)
-#define G_QUEUE_INIT { NULL, NULL, 0 }
-void g_string_vprintf(GString *string, const gchar *format, va_list args);
-void g_queue_clear(GQueue *);
-#endif
-
 #if !GLIB_CHECK_VERSION(2,32,0)
 INLINE int g_hash_table_contains(GHashTable *h, const void *k) {
 	return g_hash_table_lookup(h, k) ? 1 : 0;
