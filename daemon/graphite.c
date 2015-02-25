@@ -9,12 +9,18 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <string.h>
 
 #include "log.h"
 #include "call.h"
 #include "graphite.h"
 
 static int graphite_sock=-1;
+static int connectinprogress=0;
 static u_int32_t graphite_ipaddress;
 static int graphite_port=0;
 static struct callmaster* cm=0;
@@ -26,10 +32,34 @@ void set_prefix(char* prefix) {
 	graphite_prefix = prefix;
 }
 
+/**
+ * Set a file descriptor to blocking or non-blocking mode.
+ *
+ * @param fd The file descriptor
+ * @param blocking 0:non-blocking mode, 1:blocking mode
+ *
+ * @return 1:success, 0:failure.
+ **/
+int fd_set_blocking(int fd, int blocking) {
+	/* Save the current flags */
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1)
+		return 0;
+
+	if (blocking)
+		flags &= ~O_NONBLOCK;
+	else
+		flags |= O_NONBLOCK;
+	return fcntl(fd, F_SETFL, flags) != -1;
+}
+
 int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 
+	if (graphite_sock>0)
+		close(graphite_sock);
+
 	graphite_sock=-1;
-	//int reconnect=0;
+
 	int rc=0;
 	struct sockaddr_in sin;
 	memset(&sin,0,sizeof(sin));
@@ -38,9 +68,9 @@ int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 	graphite_ipaddress = ipaddress;
 	graphite_port = port;
 
-	rc = graphite_sock = socket(AF_INET, SOCK_STREAM,0);
-	if(rc<0) {
-		ilog(LOG_ERROR,"Couldn't make socket for connecting to graphite.");
+	graphite_sock = socket(AF_INET, SOCK_STREAM,0);
+	if(graphite_sock<0) {
+		ilog(LOG_ERROR,"Couldn't make socket for connecting to graphite.Reason:%s\n",strerror(errno));
 		return -1;
 	}
 
@@ -54,18 +84,26 @@ int connect_to_graphite_server(u_int32_t ipaddress, int port) {
 		goto error;
 	}
 
+	rc = fd_set_blocking(graphite_sock,0);
+	if (!rc) {
+		ilog(LOG_ERROR,"Could not set the socket to nonblocking.");
+		goto error;
+	}
+
 	struct in_addr ip;
 	ip.s_addr = graphite_ipaddress;
 	ilog(LOG_INFO, "Connecting to graphite server %s at port:%i with fd:%i",inet_ntoa(ip),graphite_port,graphite_sock);
 	rc = connect(graphite_sock, (struct sockaddr *)&sin, sizeof(sin));
 	if (rc==-1) {
-		ilog(LOG_ERROR, "Connection could not be established. Trying again next time of graphite-interval.");
+		ilog(LOG_WARN, "Connection information:%s\n",strerror(errno));
+		if (errno==EINPROGRESS) {
+			connectinprogress=1;
+			return 0;
+		}
 		goto error;
 	}
 
-	ilog(LOG_INFO, "Graphite server connected.");
-
-	return graphite_sock;
+	return 0;
 
 error:
 	close(graphite_sock);
@@ -137,27 +175,71 @@ error:
 void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 
 	int rc=0;
+	fd_set wfds;
+	FD_ZERO(&wfds);
+	struct timeval tv;
+	int optval=0;
+	socklen_t optlen=sizeof(optval);
+
+	if (connectinprogress && graphite_sock>0) {
+		FD_SET(graphite_sock,&wfds);
+		tv.tv_sec = 0;
+		tv.tv_usec = 1000000;
+
+		rc = select (graphite_sock+1, NULL, &wfds, NULL, &tv);
+		if ((rc == -1) && (errno == EINTR)) {
+			ilog(LOG_ERROR,"Error on the socket.");
+		    close(graphite_sock);
+			graphite_sock=-1;connectinprogress=0;
+			return;
+		} else if (rc==0) {
+			// timeout
+			return;
+		} else {
+			if (!FD_ISSET(graphite_sock,&wfds)) {
+				ilog(LOG_WARN,"fd active but not the graphite fd.");
+			    close(graphite_sock);
+				graphite_sock=-1;connectinprogress=0;
+				return;
+			}
+			rc = getsockopt(graphite_sock, SOL_SOCKET, SO_ERROR, &optval, &optlen);
+			if (rc) ilog(LOG_ERROR,"getsockopt failure.");
+			if (optval != 0) {
+			    ilog(LOG_ERROR,"Socket connect failed. fd: %i, Reason: %s\n",graphite_sock, strerror(optval));
+			    close(graphite_sock);
+				graphite_sock=-1;connectinprogress=0;
+				return;
+			}
+			ilog(LOG_INFO, "Graphite server connected.");
+			connectinprogress=0;
+			next_run=0; // fake next run to skip sleep after reconnect
+		}
+	}
 
 	g_now = time(NULL);
-	if (g_now < next_run)
-		goto sleep;
+	if (g_now < next_run) {
+		usleep(100000);
+		return;
+	}
 
 	next_run = g_now + seconds;
 
 	if (!cm)
 		cm = callmaster;
 
-	if (graphite_sock < 0) {
+	if (graphite_sock < 0 && !connectinprogress) {
 		rc = connect_to_graphite_server(graphite_ipaddress, graphite_port);
+		if (rc) {
+		    close(graphite_sock);
+			graphite_sock=-1;
+		}
 	}
 
-	if (rc>=0) {
+	if (graphite_sock>0 && !connectinprogress) {
 		rc = send_graphite_data();
 		if (rc<0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
 		}
 	}
 
-sleep:
-	usleep(100000);
 }
