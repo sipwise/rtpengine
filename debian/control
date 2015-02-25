@@ -12,7 +12,7 @@ Build-Depends: debhelper (>= 5),
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
                markdown,
                zlib1g-dev
-Standards-Version: 3.9.5
+Standards-Version: 3.9.6
 Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
