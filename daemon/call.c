@@ -2362,7 +2362,7 @@ static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_a
 		l = 4;
 	}
 
-	if (!in6_to_4(&ps->advertised_endpoint.ip46)) {
+	if (is_addr_unspecified(&ps->advertised_endpoint.ip46)) {
 		strcpy(o + l, "0.0.0.0");
 		l += 7;
 	}
