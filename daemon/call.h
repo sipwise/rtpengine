@@ -506,6 +506,7 @@ INLINE struct interface_address *get_interface_from_address(struct local_interfa
 {
 	return g_hash_table_lookup(lif->addr_hash, addr);
 }
+struct interface_address *get_any_interface_address(struct local_interface *lif, int family);
 
 const struct transport_protocol *transport_protocol(const str *s);
 

@@ -326,7 +326,6 @@ static void __stream_unconfirm(struct packet_stream *ps);
 static void stream_unconfirm(struct packet_stream *ps);
 static void __monologue_destroy(struct call_monologue *monologue);
 static struct interface_address *get_interface_address(struct local_interface *lif, int family);
-static struct interface_address *get_any_interface_address(struct local_interface *lif, int family);
 
 
 
@@ -3549,7 +3548,7 @@ static struct interface_address *get_interface_address(struct local_interface *l
 }
 
 /* safety fallback */
-static struct interface_address *get_any_interface_address(struct local_interface *lif, int family) {
+struct interface_address *get_any_interface_address(struct local_interface *lif, int family) {
 	struct interface_address *ifa;
 
 	ifa = get_interface_address(lif, family);
