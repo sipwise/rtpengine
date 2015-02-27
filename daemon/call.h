@@ -431,6 +431,9 @@ struct callmaster_config {
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;
+	u_int32_t		graphite_ip;
+	u_int16_t		graphite_port;
+	int			graphite_interval;
 };
 
 struct callmaster {

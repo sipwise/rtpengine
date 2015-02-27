@@ -157,3 +157,17 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 sleep:
 	usleep(100000);
 }
+
+void graphite_loop(void *d) {
+	struct callmaster *cm = d;
+
+	if (!cm->conf.graphite_interval) {
+		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
+		cm->conf.graphite_interval=1;
+	}
+
+	connect_to_graphite_server(cm->conf.graphite_ip,graphite_port);
+
+	while (!g_shutdown)
+		graphite_loop_run(cm,cm->conf.graphite_interval); // time in seconds
+}

@@ -564,6 +564,9 @@ no_kernel:
 	mc.default_tos = tos;
 	mc.b2b_url = b2b_url;
 	mc.fmt = xmlrpc_fmt;
+	mc.graphite_port = graphite_port;
+	mc.graphite_ip = graphite_ip;
+	mc.graphite_interval = graphite_interval;
 
 	ct = NULL;
 	if (listenport) {
@@ -623,35 +626,6 @@ no_kernel:
 		die("Refusing to continue without working Redis database");
 }
 
-/* XXX move loop functions */
-static void timer_loop(void *d) {
-	struct poller *p = d;
-
-	while (!g_shutdown)
-		poller_timers_wait_run(p, 100);
-}
-
-static void graphite_loop(void *d) {
-	struct callmaster *cm = d;
-
-	if (!graphite_interval) {
-		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
-		graphite_interval=1;
-	}
-
-	connect_to_graphite_server(graphite_ip,graphite_port);
-
-	while (!g_shutdown)
-		graphite_loop_run(cm,graphite_interval); // time in seconds
-}
-
-static void poller_loop(void *d) {
-	struct poller *p = d;
-
-	while (!g_shutdown)
-		poller_poll(p, 100);
-}
-
 int main(int argc, char **argv) {
 	struct main_context ctx;
 	int idx=0;
@@ -663,7 +637,7 @@ int main(int argc, char **argv) {
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
 	thread_create_detach(sighandler, NULL);
-	thread_create_detach(timer_loop, ctx.p);
+	thread_create_detach(poller_timer_loop, ctx.p);
 	if (graphite_ip)
 		thread_create_detach(graphite_loop, ctx.m);
 	thread_create_detach(ice_thread_run, NULL);
