@@ -2561,58 +2561,6 @@ static void __unkernelize(struct packet_stream *p) {
 	PS_CLEAR(p, KERNELIZED);
 }
 
-/* XXX move these somewhere else */
-u_int64_t timeval_diff(const struct timeval *a, const struct timeval *b) {
-	u_int64_t microseconds;
-	microseconds = ((u_int64_t)a->tv_sec - (u_int64_t)b->tv_sec) * 1000000LLU + (a->tv_usec - b->tv_usec);
-	return microseconds;
-}
-void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	u_int64_t microseconds;
-	microseconds = timeval_diff(a, b);
-	result->tv_sec = microseconds/1000000LLU;
-	result->tv_usec = microseconds%1000000LLU;
-}
-
-void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier) {
-	u_int64_t microseconds;
-	microseconds = (((u_int64_t)a->tv_sec * 1000000LLU) + a->tv_usec) * multiplier;
-	result->tv_sec = microseconds/1000000LLU;
-	result->tv_usec = microseconds%1000000LLU;
-}
-
-void timeval_divide(struct timeval *result, const struct timeval *a, const long divisor) {
-	u_int64_t microseconds;
-	microseconds = (((u_int64_t)a->tv_sec * 1000000LLU) + a->tv_usec) / divisor;
-	result->tv_sec = microseconds/1000000LLU;
-	result->tv_usec = microseconds%1000000LLU;
-}
-
-void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	u_int64_t microseconds;
-	microseconds = ((u_int64_t)a->tv_sec + (u_int64_t)b->tv_sec) * 1000000LLU + (a->tv_usec + b->tv_usec);
-	result->tv_sec = microseconds/1000000LLU;
-	result->tv_usec = microseconds%1000000LLU;
-}
-void timeval_add_usec(struct timeval *tv, long usec) {
-	struct timeval a;
-	a.tv_sec = usec / 1000000LLU;
-	a.tv_usec = usec % 1000000LLU;
-	timeval_add(tv, tv, &a);
-}
-
-int timeval_cmp(const struct timeval *a, const struct timeval *b) {
-	if (a->tv_sec < b->tv_sec)
-		return -1;
-	if (a->tv_sec > b->tv_sec)
-		return 1;
-	if (a->tv_usec < b->tv_usec)
-		return -1;
-	if (a->tv_usec > b->tv_usec)
-		return 1;
-	return 0;
-}
-
 static void timeval_totalstats_average_add(struct totalstats *s, const struct timeval *add) {
 	struct timeval dp, oa;
 

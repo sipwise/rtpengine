@@ -510,19 +510,6 @@ struct interface_address *get_any_interface_address(struct local_interface *lif,
 
 const struct transport_protocol *transport_protocol(const str *s);
 
-void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b);
-void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier);
-void timeval_divide(struct timeval *result, const struct timeval *a, const long divisor);
-void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b);
-int timeval_cmp(const struct timeval *a, const struct timeval *b);
-void timeval_add_usec(struct timeval *tv, long usec);
-u_int64_t timeval_diff(const struct timeval *a, const struct timeval *b);
-INLINE void timeval_lowest(struct timeval *l, const struct timeval *n) {
-	if (!n->tv_sec)
-		return;
-	if (!l->tv_sec || timeval_cmp(l, n) == 1)
-		*l = *n;
-}
 
 
 INLINE void *call_malloc(struct call *c, size_t l) {

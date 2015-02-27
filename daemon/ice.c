@@ -493,7 +493,7 @@ static void __agent_schedule(struct ice_agent *ag, unsigned long usec) {
 }
 static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv) {
 	struct timeval nxt;
-	unsigned long diff;
+	long long diff;
 
 	nxt = *tv;
 
@@ -1264,7 +1264,7 @@ err:
 void ice_thread_run(void *p) {
 	struct ice_agent *ag;
 	struct call *call;
-	unsigned long sleeptime;
+	long long sleeptime;
 	struct timeval tv;
 
 	mutex_lock(&ice_agents_timers_lock);
