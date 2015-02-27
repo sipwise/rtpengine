@@ -15,6 +15,7 @@ struct log_info {
 		const struct stream_fd *stream_fd;
 		const str *str;
 		const char *cstr;
+		const struct ice_agent *ice_agent;
 		const void *ptr;
 	} u;
 	enum {
@@ -23,6 +24,7 @@ struct log_info {
 		LOG_INFO_STREAM_FD,
 		LOG_INFO_STR,
 		LOG_INFO_C_STRING,
+		LOG_INFO_ICE_AGENT,
 	} e;
 };
 
@@ -76,10 +78,9 @@ INLINE void log_info_clear() {
 		case LOG_INFO_NONE:
 			return;
 		case LOG_INFO_CALL:
-			__obj_put((void *) log_info.u.call);
-			break;
 		case LOG_INFO_STREAM_FD:
-			__obj_put((void *) log_info.u.stream_fd);
+		case LOG_INFO_ICE_AGENT:
+			__obj_put((void *) log_info.u.ptr);
 			break;
 		case LOG_INFO_STR:
 		case LOG_INFO_C_STRING:
@@ -115,6 +116,13 @@ INLINE void log_info_c_string(const char *s) {
 		return;
 	log_info.e = LOG_INFO_C_STRING;
 	log_info.u.cstr = s;
+}
+INLINE void log_info_ice_agent(const struct ice_agent *ag) {
+	log_info_clear();
+	if (!ag)
+		return;
+	log_info.e = LOG_INFO_ICE_AGENT;
+	log_info.u.ice_agent = __obj_get((void *) ag);
 }
 INLINE int get_log_level(void) {
 	return g_atomic_int_get(&log_level);

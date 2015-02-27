@@ -50,18 +50,12 @@ struct poller {
 
 
 
-__thread time_t poller_now;
-
-
-
-
-
 struct poller *poller_new(void) {
 	struct poller *p;
 
 	p = malloc(sizeof(*p));
 	memset(p, 0, sizeof(*p));
-	poller_now = time(NULL);
+	gettimeofday(&g_now, NULL);
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
 		abort();
@@ -315,7 +309,7 @@ int poller_poll(struct poller *p, int timeout) {
 	if (ret <= 0)
 		goto out;
 
-	poller_now = time(NULL);
+	gettimeofday(&g_now, NULL);
 
 	for (i = 0; i < ret; i++) {
 		ev = &evs[i];
@@ -502,6 +496,6 @@ retry:
 	goto retry;
 
 now:
-	poller_now = tv.tv_sec;
+	gettimeofday(&g_now, NULL);
 	poller_timers_run(p);
 }

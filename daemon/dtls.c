@@ -16,6 +16,7 @@
 #include "log.h"
 #include "call.h"
 #include "poller.h"
+#include "ice.h"
 
 
 
@@ -483,7 +484,7 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 
 	if (d->init) {
 		if ((d->active && active) || (!d->active && !active))
-			goto connect;
+			goto done;
 		dtls_connection_cleanup(d);
 	}
 
@@ -522,9 +523,7 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	d->init = 1;
 	d->active = active ? -1 : 0;
 
-connect:
-	dtls(ps, NULL, NULL);
-
+done:
 	return 0;
 
 error:
@@ -628,6 +627,7 @@ error:
 	return -1;
 }
 
+/* called with call locked in W or R with ps->in_lock held */
 int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 	struct dtls_connection *d;
 	int ret;
@@ -637,6 +637,8 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 	struct sockaddr_in6 sin;
 
 	if (!ps || !ps->sfd)
+		return 0;
+	if (!MEDIA_ISSET(ps->media, DTLS))
 		return 0;
 
 	d = &ps->sfd->dtls;

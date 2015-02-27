@@ -45,7 +45,6 @@ struct sdp_chopper {
 };
 
 void sdp_init(void);
-void sdp_ice_foundation(struct interface_address *ifa);
 
 int sdp_parse(str *body, GQueue *sessions);
 int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *);

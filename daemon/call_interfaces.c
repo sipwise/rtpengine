@@ -17,6 +17,7 @@
 #include "control_tcp.h"
 #include "control_udp.h"
 #include "rtp.h"
+#include "ice.h"
 
 
 
@@ -285,6 +286,7 @@ static void sp_free(void *p) {
 	if (s->crypto.mki)
 		free(s->crypto.mki);
 	g_queue_clear_full(&s->rtp_payload_types, rtp_pt_free);
+	ice_candidates_free(&s->ice_candidates);
 	g_slice_free1(sizeof(*s), s);
 }
 static void streams_free(GQueue *q) {

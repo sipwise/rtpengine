@@ -14,6 +14,7 @@
 #include "crypto.h"
 #include "dtls.h"
 #include "rtp.h"
+#include "ice.h"
 
 struct network_address {
 	str network_type;
@@ -76,17 +77,17 @@ struct attribute_rtcp {
 };
 
 struct attribute_candidate {
-	str foundation;
 	str component_str;
-	str transport;
+	str transport_str;
 	str priority_str;
-	str ip_str;
+	str address_str;
 	str port_str;
 	str typ_str;
 	str type_str;
+	str related_address_str;
+	str related_port_str;
 
-	unsigned long component;
-	unsigned long priority;
+	struct ice_candidate cand_parsed;
 	int parsed:1;
 };
 
@@ -166,8 +167,10 @@ struct sdp_attribute {
 		ATTR_RTCP,
 		ATTR_CANDIDATE,
 		ATTR_ICE,
+		ATTR_ICE_LITE,
 		ATTR_ICE_OPTIONS,
 		ATTR_ICE_UFRAG,
+		ATTR_ICE_PWD,
 		ATTR_CRYPTO,
 		ATTR_SSRC,
 		ATTR_INACTIVE,
@@ -194,11 +197,6 @@ struct sdp_attribute {
 		struct attribute_rtpmap rtpmap;
 	} u;
 };
-
-
-
-
-static const char ice_chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 
 
@@ -576,27 +574,59 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 static int parse_attribute_candidate(struct sdp_attribute *output) {
 	PARSE_DECL;
 	char *ep;
+	struct attribute_candidate *c;
 
 	output->attr = ATTR_CANDIDATE;
+	c = &output->u.candidate;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.candidate.foundation);
+	EXTRACT_TOKEN(u.candidate.cand_parsed.foundation);
 	EXTRACT_TOKEN(u.candidate.component_str);
-	EXTRACT_TOKEN(u.candidate.transport);
+	EXTRACT_TOKEN(u.candidate.transport_str);
 	EXTRACT_TOKEN(u.candidate.priority_str);
-	EXTRACT_TOKEN(u.candidate.ip_str);
+	EXTRACT_TOKEN(u.candidate.address_str);
 	EXTRACT_TOKEN(u.candidate.port_str);
 	EXTRACT_TOKEN(u.candidate.typ_str);
 	EXTRACT_TOKEN(u.candidate.type_str);
 
-	output->u.candidate.component = strtoul(output->u.candidate.component_str.s, &ep, 10);
-	if (ep == output->u.candidate.component_str.s)
-		return -1;
-	output->u.candidate.priority = strtoul(output->u.candidate.priority_str.s, &ep, 10);
-	if (ep == output->u.candidate.priority_str.s)
+	c->cand_parsed.component_id = strtoul(c->component_str.s, &ep, 10);
+	if (ep == c->component_str.s)
 		return -1;
 
-	output->u.candidate.parsed = 1;
+	c->cand_parsed.transport = ice_transport(&c->transport_str);
+	if (!c->cand_parsed.transport)
+		return 0;
+
+	c->cand_parsed.priority = strtoul(c->priority_str.s, &ep, 10);
+	if (ep == c->priority_str.s)
+		return -1;
+
+	if (__parse_address(&c->cand_parsed.endpoint.ip46, NULL, NULL, &c->address_str))
+		return 0;
+
+	c->cand_parsed.endpoint.port = strtoul(c->port_str.s, &ep, 10);
+	if (ep == c->port_str.s)
+		return -1;
+
+	if (str_cmp(&c->typ_str, "typ"))
+		return -1;
+
+	c->cand_parsed.type = ice_candidate_type(&c->type_str);
+	if (!c->cand_parsed.type)
+		return 0;
+
+	if (!ice_has_related(c->cand_parsed.type))
+		goto done;
+
+	if (__parse_address(&c->cand_parsed.related_address, NULL, NULL, &c->related_address_str))
+		return 0;
+
+	c->cand_parsed.related_port = strtoul(c->related_port_str.s, &ep, 10);
+	if (ep == c->related_port_str.s)
+		return -1;
+
+done:
+	c->parsed = 1;
 	return 0;
 }
 
@@ -766,13 +796,13 @@ static int parse_attribute(struct sdp_attribute *a) {
 			break;
 		case 7:
 			if (!str_cmp(&a->name, "ice-pwd"))
-				a->attr = ATTR_ICE;
+				a->attr = ATTR_ICE_PWD;
 			break;
 		case 8:
 			switch (a->name.s[0]) {
 				case 'i':
 					if (!str_cmp(&a->name, "ice-lite"))
-						a->attr = ATTR_ICE;
+						a->attr = ATTR_ICE_LITE;
 					else if (!str_cmp(&a->name, "inactive"))
 						a->attr = ATTR_INACTIVE;
 					break;
@@ -1093,6 +1123,48 @@ out:
 	return ret;
 }
 
+static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
+	struct sdp_attribute *attr;
+	struct attribute_candidate *ac;
+	struct ice_candidate *cand;
+	GQueue *q;
+	GList *ql;
+
+	q = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
+	if (!q)
+		return;
+
+	SP_SET(sp, ICE);
+
+	for (ql = q->head; ql; ql = ql->next) {
+		attr = ql->data;
+		ac = &attr->u.candidate;
+		if (!ac->parsed)
+			continue;
+		cand = g_slice_alloc(sizeof(*cand));
+		*cand = ac->cand_parsed;
+		g_queue_push_tail(&sp->ice_candidates, cand);
+	}
+
+	if ((attr = attr_get_by_id(&media->attributes, ATTR_ICE_OPTIONS))) {
+		if (str_str(&attr->value, "trickle") >= 0)
+			SP_SET(sp, TRICKLE_ICE);
+	}
+	else if (is_trickle_ice_address(&sp->rtp_endpoint))
+		SP_SET(sp, TRICKLE_ICE);
+
+	if (attr_get_by_id(&media->attributes, ATTR_ICE_LITE))
+		SP_SET(sp, ICE_LITE);
+
+	attr = attr_get_by_id_m_s(media, ATTR_ICE_UFRAG);
+	if (attr)
+		sp->ice_ufrag = attr->value;
+
+	attr = attr_get_by_id_m_s(media, ATTR_ICE_PWD);
+	if (attr)
+		sp->ice_pwd = attr->value;
+}
+
 
 /* XXX split this function up */
 int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *flags) {
@@ -1181,15 +1253,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 						sp->fingerprint.hash_func->num_bytes);
 			}
 
-			/* ICE stuff */
-			if (attr_get_by_id(&media->attributes, ATTR_CANDIDATE))
-				SP_SET(sp, ICE);
-			if ((attr = attr_get_by_id(&media->attributes, ATTR_ICE_OPTIONS))) {
-				if (str_str(&attr->value, "trickle") >= 0)
-					SP_SET(sp, TRICKLE_ICE);
-			}
-			else if (is_trickle_ice_address(&sp->rtp_endpoint))
-				SP_SET(sp, TRICKLE_ICE);
+			__sdp_ice(sp, media);
 
 			/* determine RTCP endpoint */
 
@@ -1430,22 +1494,6 @@ void sdp_chopper_destroy(struct sdp_chopper *chop) {
 	g_slice_free1(sizeof(*chop), chop);
 }
 
-static void random_ice_string(char *buf, int len) {
-	while (len--)
-		*buf++ = ice_chars[random() % strlen(ice_chars)];
-}
-
-static void create_random_ice_string(struct call *call, str *s, int len) {
-	char buf[30];
-
-	assert(len < sizeof(buf));
-	if (s->s)
-		return;
-
-	random_ice_string(buf, len);
-	call_str_cpy_len(call, s, buf, len);
-}
-
 static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,
 		struct sdp_ng_flags *flags)
 {
@@ -1458,6 +1506,9 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 		switch (attr->attr) {
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
+			case ATTR_ICE_PWD:
+			case ATTR_ICE_OPTIONS:
+			case ATTR_ICE_LITE:
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
 				goto strip;
@@ -1517,6 +1568,9 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 		switch (attr->attr) {
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
+			case ATTR_ICE_PWD:
+			case ATTR_ICE_OPTIONS:
+			case ATTR_ICE_LITE:
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
 				if (!flags->ice_remove && !flags->ice_force)
@@ -1579,32 +1633,19 @@ strip:
 	return 0;
 }
 
-INLINE unsigned long prio_calc(unsigned int pref, unsigned int tpref) {
-	return (1 << 24) * tpref + (1 << 8) * pref + (256 - 1);
-}
-INLINE unsigned long pref_from_prio(unsigned int prio) {
-	return (prio & 0xffff00) >> 8;
-}
-INLINE unsigned long type_from_prio(unsigned int prio) {
-	return (prio & 0xff000000) >> 24;
-}
-
-static unsigned long new_priority(struct sdp_media *media, int relay) {
+static void new_priority(struct sdp_media *media, enum ice_candidate_type type, unsigned int *tprefp,
+		unsigned int *lprefp)
+{
 	GQueue *cands;
-	int pref;
-	unsigned long prio, tpref;
+	unsigned int lpref, tpref;
+	u_int32_t prio;
 	GList *l;
 	struct sdp_attribute *a;
 	struct attribute_candidate *c;
 
-	tpref = 126;
-	if (relay)
-		tpref = 0;
-	pref = 65535;
-	prio = prio_calc(pref, tpref);
-
-	if (!media)
-		goto out;
+	lpref = 0;
+	tpref = ice_type_preference(type);
+	prio = ice_priority_pref(tpref, lpref, 1);
 
 	cands = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
 	if (!cands)
@@ -1613,88 +1654,111 @@ static unsigned long new_priority(struct sdp_media *media, int relay) {
 	for (l = cands->head; l; l = l->next) {
 		a = l->data;
 		c = &a->u.candidate;
-		if (c->priority <= prio && !str_cmp(&c->type_str, "host")) {
-			/* tpref should come out as 126 here, unless the client isn't following
+		if (c->cand_parsed.priority <= prio && c->cand_parsed.type == type
+				&& c->cand_parsed.component_id == 1)
+		{
+			/* tpref should come out as 126 (if host) here, unless the client isn't following
 			 * the RFC, in which case we must adapt */
-			tpref = type_from_prio(c->priority);
+			tpref = ice_type_pref_from_prio(c->cand_parsed.priority);
 
-			pref = pref_from_prio(c->priority);
-			if (pref)
-				pref--;
+			lpref = ice_local_pref_from_prio(c->cand_parsed.priority);
+			if (lpref)
+				lpref--;
 			else {
 				/* we must deviate from the RFC recommended values */
 				if (tpref)
 					tpref--;
-				pref = 65535;
+				lpref = 65535;
 			}
-			prio = prio_calc(pref, tpref);
+			prio = ice_priority_pref(tpref, lpref, 1);
 		}
 	}
 
 out:
-	return prio;
+	*tprefp = tpref;
+	*lprefp = lpref;
+}
+
+static void insert_candidate(struct sdp_chopper *chop, struct packet_stream *ps, unsigned int component,
+		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
+		struct interface_address *ifa)
+{
+	unsigned long priority;
+
+	priority = ice_priority_pref(type_pref, local_pref, component);
+	chopper_append_c(chop, "a=candidate:");
+	chopper_append_str(chop, &ifa->ice_foundation);
+	chopper_append_printf(chop, " %u UDP %lu ", component, priority);
+	insert_ice_address(chop, ps, ifa);
+	chopper_append_c(chop, " typ ");
+	chopper_append_c(chop, ice_candidate_type_str(type));
+	chopper_append_c(chop, "\r\n");
 }
 
 static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rtp, struct packet_stream *rtcp,
-			      unsigned long priority, struct sdp_media *media,
-			      unsigned int relay)
+		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
-	GQueue addrs = G_QUEUE_INIT;
 	GList *l;
 	struct interface_address *ifa;
+	unsigned int pref;
+	struct call_media *media;
+	struct local_interface *lif;
+	struct ice_agent *ag;
+	unsigned int type_pref, local_pref;
+	enum ice_candidate_type cand_type;
+	struct ice_candidate *cand;
 
-	get_all_interface_addresses(&addrs, rtp->media->interface, rtp->media->desired_family);
+	media = rtp->media;
 
-	for (l = addrs.head; l; l = l->next) {
+	cand_type = ICT_HOST;
+	if (flags->ice_force_relay)
+		cand_type = ICT_RELAY;
+	if (MEDIA_ISSET(media, PASSTHRU))
+		new_priority(sdp_media, cand_type, &type_pref, &local_pref);
+	else {
+		type_pref = ice_type_preference(cand_type);
+		local_pref = -1;
+	}
+
+	ag = media->ice_agent;
+	lif = ag ? ag->local_interface : media->interface;
+
+	if (ag && AGENT_ISSET(ag, COMPLETED)) {
+		ifa = g_atomic_pointer_get(&media->local_address);
+		insert_candidate(chop, rtp, 1, type_pref, ifa->preference, cand_type, ifa);
+		if (rtcp) /* rtcp-mux only possible in answer */
+			insert_candidate(chop, rtcp, 2, type_pref, ifa->preference, cand_type, ifa);
+
+		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
+			GQueue rc;
+			GList *l;
+			chopper_append_c(chop, "a=remote-candidates:");
+			ice_remote_candidates(&rc, ag);
+			for (l = rc.head; l; l = l->next) {
+				if (l != rc.head)
+					chopper_append_c(chop, " ");
+				cand = l->data;
+				chopper_append_printf(chop, "%lu %s %u", cand->component_id,
+						smart_ntop_buf(&cand->endpoint.ip46), cand->endpoint.port);
+			}
+			chopper_append_c(chop, "\r\n");
+			g_queue_clear(&rc);
+		}
+		return;
+	}
+
+	for (l = lif->list.head; l; l = l->next) {
 		ifa = l->data;
+		pref = (local_pref == -1) ? ifa->preference : local_pref;
 
-		chopper_append_c(chop, "a=candidate:");
-		chopper_append_str(chop, &ifa->ice_foundation);
-		chopper_append_printf(chop, " 1 UDP %lu ", priority);
-		insert_ice_address(chop, rtp, ifa);
-		if (relay)
-		    chopper_append_c(chop, " typ relay\r\n");
-		else
-		    chopper_append_c(chop, " typ host\r\n");
+		insert_candidate(chop, rtp, 1, type_pref, pref, cand_type, ifa);
 
-		if (rtcp) {
-			/* rtcp-mux only possible in answer */
-			chopper_append_c(chop, "a=candidate:");
-			chopper_append_str(chop, &ifa->ice_foundation);
-			chopper_append_printf(chop, " 2 UDP %lu ", priority - 1);
-			insert_ice_address(chop, rtcp, ifa);
-			if (relay)
-			    chopper_append_c(chop, " typ relay\r\n");
-			else
-			    chopper_append_c(chop, " typ host\r\n");
-		}
+		if (rtcp) /* rtcp-mux only possible in answer */
+			insert_candidate(chop, rtcp, 2, type_pref, pref, cand_type, ifa);
 
-		priority -= 256;
+		if (local_pref != -1)
+			local_pref++;
 	}
-
-	g_queue_clear(&addrs);
-}
-
-static int has_ice(GQueue *sessions) {
-	GList *l, *m;
-	struct sdp_session *session;
-	struct sdp_media *media;
-
-	for (l = sessions->head; l; l = l->next) {
-		session = l->data;
-
-		if (attr_get_by_id(&session->attributes, ATTR_ICE_UFRAG))
-			return 1;
-
-		for (m = session->media_streams.head; m; m = m->next) {
-			media = m->data;
-
-			if (attr_get_by_id(&media->attributes, ATTR_ICE_UFRAG))
-				return 1;
-		}
-	}
-
-	return 0;
 }
 
 static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
@@ -1720,12 +1784,10 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	*(--o) = '\0';
 
 	actpass = "holdconn";
-	if (MEDIA_ISSET(media, SETUP_PASSIVE)) {
-		if (MEDIA_ISSET(media, SETUP_ACTIVE))
-			actpass = "actpass";
-		else
-			actpass = "passive";
-	}
+	if (MEDIA_ARESET2(media, SETUP_PASSIVE, SETUP_ACTIVE))
+		actpass = "actpass";
+	else if (MEDIA_ISSET(media, SETUP_PASSIVE))
+		actpass = "passive";
 	else if (MEDIA_ISSET(media, SETUP_ACTIVE))
 		actpass = "active";
 
@@ -1779,16 +1841,11 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 	struct sdp_session *session;
 	struct sdp_media *sdp_media;
 	GList *l, *k, *m, *j;
-	int do_ice,  media_index, sess_conn;
-	unsigned long priority;
+	int media_index, sess_conn;
 	struct call_media *call_media;
 	struct packet_stream *ps, *ps_rtcp;
-	struct call *call;
 
 	m = monologue->medias.head;
-	do_ice = (flags->ice_force || flags->ice_force_relay ||
-		  (!has_ice(sessions) && !flags->ice_remove)) ? 1 : 0;
-	call = monologue->call;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
@@ -1829,11 +1886,6 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		if (!MEDIA_ISSET(call_media, PASSTHRU)) {
 			if (process_session_attributes(chop, &session->attributes, flags))
 				goto error;
-
-			if (do_ice) {
-				copy_up_to_end_of(chop, &session->s);
-				chopper_append_c(chop, "a=ice-lite\r\n");
-			}
 		}
 
 		media_index = 1;
@@ -1881,11 +1933,11 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			if (!sdp_media->port_num || !ps->sfd)
 				goto next;
 
-			if (MEDIA_ISSET(call_media, SEND) && MEDIA_ISSET(call_media, RECV))
+			if (MEDIA_ARESET2(call_media, SEND, RECV))
 				chopper_append_c(chop, "a=sendrecv\r\n");
-			else if (MEDIA_ISSET(call_media, SEND) && !MEDIA_ISSET(call_media, RECV))
+			else if (MEDIA_ISSET(call_media, SEND))
 				chopper_append_c(chop, "a=sendonly\r\n");
-			else if (!MEDIA_ISSET(call_media, SEND) && MEDIA_ISSET(call_media, RECV))
+			else if (MEDIA_ISSET(call_media, RECV))
 				chopper_append_c(chop, "a=recvonly\r\n");
 			else
 				chopper_append_c(chop, "a=inactive\r\n");
@@ -1908,31 +1960,16 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			insert_crypto(call_media, chop);
 			insert_dtls(call_media, chop);
 
-			if (do_ice && !MEDIA_ISSET(call_media, PASSTHRU)) {
-				if (!call_media->ice_ufrag.s) {
-					create_random_ice_string(call, &call_media->ice_ufrag, 8);
-					create_random_ice_string(call, &call_media->ice_pwd, 28);
-				}
-				PS_SET(ps, STUN);
-				if (ps_rtcp)
-					PS_SET(ps_rtcp, STUN);
-
+			if (call_media->ice_agent) {
 				chopper_append_c(chop, "a=ice-ufrag:");
-				chopper_append_str(chop, &call_media->ice_ufrag);
+				chopper_append_str(chop, &call_media->ice_agent->ufrag[1]);
 				chopper_append_c(chop, "\r\na=ice-pwd:");
-				chopper_append_str(chop, &call_media->ice_pwd);
+				chopper_append_str(chop, &call_media->ice_agent->pwd[1]);
 				chopper_append_c(chop, "\r\n");
 			}
 
-			if (!flags->ice_remove) {
-				priority = new_priority(
-						(flags->ice_force || flags->ice_force_relay) ? NULL : sdp_media,
-						flags->ice_force_relay
-				);
-
-				insert_candidates(chop, ps, ps_rtcp,
-						  priority, sdp_media, flags->ice_force_relay);
-			}
+			if (!flags->ice_remove)
+				insert_candidates(chop, ps, ps_rtcp, flags, sdp_media);
 
 next:
 			media_index++;
@@ -1949,9 +1986,4 @@ error:
 }
 
 void sdp_init() {
-}
-
-void sdp_ice_foundation(struct interface_address *ifa) {
-	random_ice_string(ifa->foundation_buf, sizeof(ifa->foundation_buf));
-	str_init_len(&ifa->ice_foundation, ifa->foundation_buf, sizeof(ifa->foundation_buf));
 }

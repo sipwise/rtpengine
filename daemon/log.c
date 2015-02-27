@@ -6,6 +6,7 @@
 #include "str.h"
 #include "call.h"
 #include "poller.h"
+#include "ice.h"
 
 
 
@@ -88,7 +89,8 @@ void log_to_stderr(int facility_priority, char *format, ...) {
 		return;
 	}
 
-	fprintf(stderr, "%s: %s\n", prio_str[facility_priority & LOG_PRIMASK], msg);
+	fprintf(stderr, "[%lu.%06lu] %s: %s\n", (unsigned long) g_now.tv_sec, (unsigned long) g_now.tv_usec,
+			prio_str[facility_priority & LOG_PRIMASK], msg);
 
 	free(msg);
 }
@@ -122,6 +124,12 @@ void __ilog(int prio, const char *fmt, ...) {
 			break;
 		case LOG_INFO_C_STRING:
 			snprintf(prefix, sizeof(prefix), "[%s] ", log_info.u.cstr);
+			break;
+		case LOG_INFO_ICE_AGENT:
+			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"/"STR_FORMAT"/%u] ",
+					STR_FMT(&log_info.u.ice_agent->call->callid),
+					STR_FMT(&log_info.u.ice_agent->media->monologue->tag),
+					log_info.u.ice_agent->media->index);
 			break;
 	}
 
