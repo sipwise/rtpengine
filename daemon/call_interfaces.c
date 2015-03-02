@@ -66,7 +66,7 @@ found:
 		if (format == SAF_TCP)
 			call_stream_address_gstring(o, ps, format);
 
-		port = ps->sfd ? ps->sfd->fd.localport : 0;
+		port = ps->sfd ? ps->sfd->socket.local.port : 0;
 		g_string_append_printf(o, (format == 1) ? "%i " : " %i", port);
 
 		if (format == SAF_UDP) {
@@ -83,7 +83,6 @@ out:
 }
 
 static int addr_parse_udp(struct stream_params *sp, char **out) {
-	u_int32_t ip4;
 	const char *cp;
 	char c;
 	int i;
@@ -95,13 +94,11 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 	sp->protocol = &transport_protocols[PROTO_RTP_AVP];
 
 	if (out[RE_UDP_UL_ADDR4] && *out[RE_UDP_UL_ADDR4]) {
-		ip4 = inet_addr(out[RE_UDP_UL_ADDR4]);
-		if (ip4 == -1)
+		if (sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR4]))
 			goto fail;
-		in4_to_6(&sp->rtp_endpoint.ip46, ip4);
 	}
 	else if (out[RE_UDP_UL_ADDR6] && *out[RE_UDP_UL_ADDR6]) {
-		if (inet_pton(AF_INET6, out[RE_UDP_UL_ADDR6], &sp->rtp_endpoint.ip46) != 1)
+		if (sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR4]))
 			goto fail;
 	}
 	else
@@ -137,7 +134,7 @@ fail:
 }
 
 static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, const char* addr,
-		const struct sockaddr_in6 *sin)
+		const endpoint_t *sin)
 {
 	struct call *c;
 	struct call_monologue *monologue;
@@ -162,7 +159,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 
 	if (!c->created_from && addr) {
 		c->created_from = call_strdup(c, addr);
-		c->created_from_addr = *sin;
+		c->created_from_addr = sin->address;
 	}
 
 	monologue = call_get_mono_dialogue(c, &fromtag, &totag, NULL);
@@ -213,7 +210,7 @@ out:
 	return ret;
 }
 
-str *call_update_udp(char **out, struct callmaster *m, const char* addr, const struct sockaddr_in6 *sin) {
+str *call_update_udp(char **out, struct callmaster *m, const char* addr, const endpoint_t *sin) {
 	return call_update_lookup_udp(out, m, OP_OFFER, addr, sin);
 }
 str *call_lookup_udp(char **out, struct callmaster *m) {
@@ -236,7 +233,6 @@ static void info_parse(const char *s, GHashTable *ih, struct callmaster *m) {
 
 static int streams_parse_func(char **a, void **ret, void *p) {
 	struct stream_params *sp;
-	u_int32_t ip;
 	int *i;
 
 	i = p;
@@ -246,12 +242,9 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 	SP_SET(sp, RECV);
 	sp->protocol = &transport_protocols[PROTO_RTP_AVP];
 
-	ip = inet_addr(a[0]);
-	if (ip == -1)
+	if (endpoint_parse_port_any(&sp->rtp_endpoint, a[0], atoi(a[1])))
 		goto fail;
 
-	in4_to_6(&sp->rtp_endpoint.ip46, ip);
-	sp->rtp_endpoint.port = atoi(a[1]);
 	sp->index = ++(*i);
 	sp->consecutive_ports = 1;
 
@@ -638,13 +631,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
 	bencode_get_alt(input, "media-address", "media address", &out->media_address);
 	if (bencode_get_alt(input, "address-family", "address family", &out->address_family_str))
-		out->address_family = address_family(&out->address_family_str);
+		out->address_family = get_socket_family_rfc(&out->address_family_str);
 	out->tos = bencode_dictionary_get_integer(input, "TOS", 256);
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
-		const struct sockaddr_in6 *sin)
+		const endpoint_t *sin)
 {
 	str sdp, fromtag, totag = STR_NULL, callid, viabranch;
 	char *errstr;
@@ -687,7 +680,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	if (!call->created_from && addr) {
 		call->created_from = call_strdup(call, addr);
-		call->created_from_addr = *sin;
+		call->created_from_addr = sin->address;
 	}
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
@@ -736,7 +729,7 @@ out:
 }
 
 const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr,
-		const struct sockaddr_in6 *sin)
+		const endpoint_t *sin)
 {
 	return call_offer_answer_ng(input, m, output, OP_OFFER, addr, sin);
 }
@@ -797,18 +790,11 @@ static void ng_stats(bencode_item_t *d, const struct stats *s, struct stats *tot
 	atomic64_add_na(&totals->errors, atomic64_get(&s->errors));
 }
 
-static void ng_stats_endpoint(bencode_item_t *dict, const struct endpoint *ep) {
-	char buf[64];
-
-	if (IN6_IS_ADDR_V4MAPPED(&ep->ip46)) {
-		bencode_dictionary_add_string(dict, "family", "IPv4");
-		inet_ntop(AF_INET, &(ep->ip46.s6_addr32[3]), buf, sizeof(buf));
-	}
-	else {
-		bencode_dictionary_add_string(dict, "family", "IPv6");
-		inet_ntop(AF_INET6, &ep->ip46, buf, sizeof(buf));
-	}
-	bencode_dictionary_add_string_dup(dict, "address", buf);
+static void ng_stats_endpoint(bencode_item_t *dict, const endpoint_t *ep) {
+	if (!ep->address.family)
+		return;
+	bencode_dictionary_add_string(dict, "family", ep->address.family->name);
+	bencode_dictionary_add_string_dup(dict, "address", sockaddr_print_buf(&ep->address));
 	bencode_dictionary_add_integer(dict, "port", ep->port);
 }
 
@@ -826,7 +812,7 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	dict = bencode_list_add_dictionary(list);
 
 	if (ps->sfd)
-		bencode_dictionary_add_integer(dict, "local port", ps->sfd->fd.localport);
+		bencode_dictionary_add_integer(dict, "local port", ps->sfd->socket.local.port);
 	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "endpoint"), &ps->endpoint);
 	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "advertised endpoint"),
 			&ps->advertised_endpoint);

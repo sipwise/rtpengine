@@ -628,13 +628,12 @@ error:
 }
 
 /* called with call locked in W or R with ps->in_lock held */
-int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
+int dtls(struct packet_stream *ps, const str *s, const endpoint_t *fsin) {
 	struct dtls_connection *d;
 	int ret;
 	unsigned char buf[0x10000], ctrl[256];
 	struct msghdr mh;
 	struct iovec iov;
-	struct sockaddr_in6 sin;
 
 	if (!ps || !ps->sfd)
 		return 0;
@@ -665,7 +664,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 
 	ret = try_connect(d);
 	if (ret == -1) {
-		ilog(LOG_ERROR, "DTLS error on local port %hu", ps->sfd->fd.localport);
+		ilog(LOG_ERROR, "DTLS error on local port %u", ps->sfd->socket.local.port);
 		/* fatal error */
 		dtls_connection_cleanup(d);
 		return 0;
@@ -703,19 +702,12 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 		buf[8], buf[9], buf[10], buf[11],
 		buf[12], buf[13], buf[14], buf[15]);
 
-	if (!fsin) {
-		ZERO(sin);
-		sin.sin6_family = AF_INET6;
-		sin.sin6_addr = ps->endpoint.ip46;
-		sin.sin6_port = htons(ps->endpoint.port);
-		fsin = &sin;
-	}
+	if (!fsin)
+		fsin = &ps->endpoint;
 
 	ZERO(mh);
 	mh.msg_control = ctrl;
 	mh.msg_controllen = sizeof(ctrl);
-	mh.msg_name = fsin;
-	mh.msg_namelen = sizeof(*fsin);
 	mh.msg_iov = &iov;
 	mh.msg_iovlen = 1;
 
@@ -725,7 +717,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 
 	stream_msg_mh_src(ps, &mh);
 
-	sendmsg(ps->sfd->fd.fd, &mh, 0);
+	socket_sendmsg(&ps->sfd->socket, &mh, fsin);
 
 	return 0;
 }
@@ -733,7 +725,6 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 /* call must be locked */
 void dtls_shutdown(struct packet_stream *ps) {
 	struct dtls_connection *d;
-	struct sockaddr_in6 sin;
 
 	if (!ps || !ps->sfd)
 		return;
@@ -745,13 +736,8 @@ void dtls_shutdown(struct packet_stream *ps) {
 		return;
 
 	if (d->connected && d->ssl) {
-		ZERO(sin);
-		sin.sin6_family = AF_INET6;
-		sin.sin6_addr = ps->endpoint.ip46;
-		sin.sin6_port = htons(ps->endpoint.port);
-
 		SSL_shutdown(d->ssl);
-		dtls(ps, NULL, &sin);
+		dtls(ps, NULL, &ps->endpoint);
 	}
 
 	dtls_connection_cleanup(d);

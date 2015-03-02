@@ -8,6 +8,7 @@
 #include "compat.h"
 #include "call.h"
 #include "str.h"
+#include "socket.h"
 
 
 #define STUN_COOKIE 0x2112A442UL
@@ -22,8 +23,7 @@ struct stun_attrs {
 	char *fingerprint_attr;
 	u_int32_t fingerprint;
 	u_int64_t tiebreaker;
-	struct in6_addr mapped_address;
-	unsigned int mapped_port; /* XXX use struct endpoint */
+	endpoint_t mapped;
 	unsigned int error_code;
 	int use:1,
 	    controlled:1,
@@ -49,10 +49,10 @@ INLINE int is_stun(const str *s) {
 }
 
 
-int stun(str *, struct packet_stream *, struct sockaddr_in6 *, struct in6_addr *);
+int stun(str *, struct packet_stream *, const endpoint_t *, const sockaddr_t *);
 
-int stun_binding_request(struct sockaddr_in6 *dst, u_int32_t transaction[3], str *pwd,
+int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *pwd,
 		str ufrags[2], int controlling, u_int64_t tiebreaker, u_int32_t priority,
-		struct in6_addr *src, int fd, int);
+		const sockaddr_t *src, socket_t *, int);
 
 #endif

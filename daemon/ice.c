@@ -28,7 +28,7 @@
 
 #define PAIR_FORMAT STR_FORMAT":"STR_FORMAT":%lu"
 #define PAIR_FMT(p) 								\
-			STR_FMT(&(p)->local_address->ice_foundation),		\
+			STR_FMT(&(p)->local_intf->spec->ice_foundation),	\
 			STR_FMT(&(p)->remote_candidate->foundation),		\
 			(p)->remote_candidate->component_id
 
@@ -39,7 +39,7 @@ static void __ice_agent_free(void *p);
 static void create_random_ice_string(struct call *call, str *s, int len);
 static void __do_ice_checks(struct ice_agent *ag);
 static struct ice_candidate_pair *__pair_lookup(struct ice_agent *, struct ice_candidate *cand,
-		struct interface_address *ifa);
+		const struct local_intf *ifa);
 static void __recalc_pair_prios(struct ice_agent *ag);
 static void __role_change(struct ice_agent *ag, int new_controlling);
 static void __get_complete_components(GQueue *out, struct ice_agent *ag, GTree *t, unsigned int);
@@ -88,18 +88,6 @@ enum ice_candidate_type ice_candidate_type(const str *s) {
 	return ICT_UNKNOWN;
 }
 
-enum ice_transport ice_transport(const str *s) {
-	if (!str_cmp(s, "udp"))
-		return ITP_UDP;
-//	if (!str_cmp(s, "tcp"))
-//		return ITP_TCP;
-	if (!str_cmp(s, "UDP"))
-		return ITP_UDP;
-//	if (!str_cmp(s, "TCP"))
-//		return ITP_TCP;
-	return ITP_UNKNOWN;
-}
-
 int ice_has_related(enum ice_candidate_type t) {
 	if (t == ICT_HOST)
 		return 0;
@@ -109,7 +97,7 @@ int ice_has_related(enum ice_candidate_type t) {
 
 
 
-static u_int64_t __ice_pair_priority(struct interface_address *ifa, struct ice_candidate *cand,
+static u_int64_t __ice_pair_priority(const struct local_intf *ifa, struct ice_candidate *cand,
 		int controlling)
 {
 	u_int64_t g, d;
@@ -126,7 +114,7 @@ static u_int64_t __ice_pair_priority(struct interface_address *ifa, struct ice_c
 	return (MIN(g,d) << 32) + (MAX(g,d) << 1) + (g > d ? 1 : 0);
 }
 static void __do_ice_pair_priority(struct ice_candidate_pair *pair) {
-	pair->pair_priority = __ice_pair_priority(pair->local_address, pair->remote_candidate,
+	pair->pair_priority = __ice_pair_priority(pair->local_intf, pair->remote_candidate,
 			AGENT_ISSET(pair->agent, CONTROLLING));
 }
 static void __new_stun_transaction(struct ice_candidate_pair *pair) {
@@ -144,19 +132,19 @@ static void __all_pairs_list(struct ice_agent *ag) {
 }
 
 /* agent must be locked */
-static struct ice_candidate_pair *__pair_candidate(struct interface_address *addr, struct ice_agent *ag,
+static struct ice_candidate_pair *__pair_candidate(const struct local_intf *addr, struct ice_agent *ag,
 		struct ice_candidate *cand, struct packet_stream *ps)
 {
 	struct ice_candidate_pair *pair;
 
-	if (addr->family != family_from_address(&cand->endpoint.ip46))
+	if (addr->spec->address.addr.family != cand->endpoint.address.family)
 		return NULL;
 
 	pair = g_slice_alloc0(sizeof(*pair));
 
 	pair->agent = ag;
 	pair->remote_candidate = cand;
-	pair->local_address = addr;
+	pair->local_intf = addr;
 	pair->packet_stream = ps;
 	if (cand->component_id != 1)
 		PAIR_SET(pair, FROZEN);
@@ -168,7 +156,8 @@ static struct ice_candidate_pair *__pair_candidate(struct interface_address *add
 	g_tree_insert(ag->all_pairs, pair, pair);
 
 	ilog(LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s, type %s", PAIR_FMT(pair),
-			smart_ntop_buf(&addr->addr), smart_ntop_ep_buf(&cand->endpoint),
+			sockaddr_print_buf(&addr->spec->address.addr),
+			endpoint_print_buf(&cand->endpoint),
 			ice_candidate_type_str(cand->type));
 
 	return pair;
@@ -176,22 +165,21 @@ static struct ice_candidate_pair *__pair_candidate(struct interface_address *add
 
 static unsigned int __pair_hash(const void *p) {
 	const struct ice_candidate_pair *pair = p;
-	return g_direct_hash(pair->local_address) ^ g_direct_hash(pair->remote_candidate);
+	return g_direct_hash(pair->local_intf) ^ g_direct_hash(pair->remote_candidate);
 }
 static int __pair_equal(const void *a, const void *b) {
 	const struct ice_candidate_pair *A = a, *B = b;
-	return A->local_address == B->local_address
+	return A->local_intf == B->local_intf
 		&& A->remote_candidate == B->remote_candidate;
 }
 static unsigned int __cand_hash(const void *p) {
 	const struct ice_candidate *cand = p;
-	return in6_addr_hash(&cand->endpoint.ip46) ^ cand->endpoint.port ^ cand->component_id;
+	return endpoint_hash(&cand->endpoint) ^ cand->component_id;
 }
 static int __cand_equal(const void *a, const void *b) {
 	const struct ice_candidate *A = a, *B = b;
-	return A->endpoint.port == B->endpoint.port
-		&& A->component_id == B->component_id
-		&& in6_addr_eq(&A->endpoint.ip46, &B->endpoint.ip46);
+	return endpoint_eq(&A->endpoint, &B->endpoint)
+		&& A->component_id == B->component_id;
 }
 static unsigned int __found_hash(const void *p) {
 	const struct ice_candidate *cand = p;
@@ -223,9 +211,9 @@ static int __pair_prio_cmp(const void *a, const void *b) {
 	if (A->remote_candidate->component_id > B->remote_candidate->component_id)
 		return 1;
 	/* highest local preference first, which is lowest number first */
-	if (A->local_address->preference < B->local_address->preference)
+	if (A->local_intf->preference < B->local_intf->preference)
 		return -1;
-	if (A->local_address->preference > B->local_address->preference)
+	if (A->local_intf->preference > B->local_intf->preference)
 		return 1;
 	return 0;
 }
@@ -240,7 +228,7 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 	ag->foundation_hash = g_hash_table_new(__found_hash, __found_equal);
 	ag->agent_flags = 0;
 	bf_copy(&ag->agent_flags, ICE_AGENT_CONTROLLING, &media->media_flags, MEDIA_FLAG_ICE_CONTROLLING);
-	ag->local_interface = media->interface;
+	ag->logical_intf = media->logical_intf;
 	ag->desired_family = media->desired_family;
 	ag->nominated_pairs = g_tree_new(__pair_prio_cmp);
 	ag->valid_pairs = g_tree_new(__pair_prio_cmp);
@@ -336,7 +324,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 			__ice_restart(ag);
 		else if (ag->pwd[0].s && sp->ice_pwd.s && str_cmp_str(&ag->pwd[0], &sp->ice_pwd))
 			__ice_restart(ag);
-		else if (ag->local_interface != media->interface)
+		else if (ag->logical_intf != media->logical_intf)
 			__ice_restart(ag);
 
 		/* update remote info */
@@ -424,7 +412,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 pair:
 		if (!ps)
 			continue;
-		for (k = ag->local_interface->list.head; k; k = k->next) {
+		for (k = ag->logical_intf->list.head; k; k = k->next) {
 			/* skip duplicates here also */
 			if (__pair_lookup(ag, dup, k->data))
 				continue;
@@ -586,7 +574,6 @@ static void __fail_pair(struct ice_candidate_pair *pair) {
 
 /* agent must NOT be locked, but call must be locked in R */
 static void __do_ice_check(struct ice_candidate_pair *pair) {
-	struct sockaddr_in6 dst;
 	struct packet_stream *ps = pair->packet_stream;
 	struct ice_agent *ag = pair->agent;
 	u_int32_t prio, transact[3];
@@ -597,12 +584,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 	if (!ag->pwd[0].s)
 		return;
 
-	ZERO(dst);
-	dst.sin6_port = htons(pair->remote_candidate->endpoint.port);
-	dst.sin6_addr = pair->remote_candidate->endpoint.ip46;
-	dst.sin6_family = AF_INET6;
-
-	prio = ice_priority(ICT_PRFLX, pair->local_address->preference,
+	prio = ice_priority(ICT_PRFLX, pair->local_intf->preference,
 			pair->remote_candidate->component_id);
 
 	mutex_lock(&ag->lock);
@@ -633,12 +615,12 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	ilog(LOG_DEBUG, "Sending %sICE/STUN request for candidate pair "PAIR_FORMAT" from %s to %s",
 			PAIR_ISSET(pair, TO_USE) ? "nominating " : "",
-			PAIR_FMT(pair), smart_ntop_buf(&pair->local_address->addr),
-			smart_ntop_ep_buf(&pair->remote_candidate->endpoint));
+			PAIR_FMT(pair), sockaddr_print_buf(&pair->local_intf->spec->address.addr),
+			endpoint_print_buf(&pair->remote_candidate->endpoint));
 
-	stun_binding_request(&dst, transact, &ag->pwd[0], ag->ufrag,
+	stun_binding_request(&pair->remote_candidate->endpoint, transact, &ag->pwd[0], ag->ufrag,
 			AGENT_ISSET(ag, CONTROLLING), tie_breaker,
-			prio, &pair->local_address->addr, ps->sfd->fd.fd,
+			prio, &pair->local_intf->spec->address.addr, &ps->sfd->socket,
 			PAIR_ISSET(pair, TO_USE));
 
 }
@@ -802,13 +784,12 @@ static void __agent_shutdown(struct ice_agent *ag) {
 }
 
 /* agent must be locked for these */
-static struct ice_candidate *__cand_lookup(struct ice_agent *ag, const struct sockaddr_in6 *sin,
+static struct ice_candidate *__cand_lookup(struct ice_agent *ag, const endpoint_t *sin,
 		unsigned int component)
 {
 	struct ice_candidate d;
 
-	d.endpoint.port = ntohs(sin->sin6_port);
-	d.endpoint.ip46 = sin->sin6_addr;
+	d.endpoint = *sin;
 	d.component_id = component;
 	return g_hash_table_lookup(ag->candidate_hash, &d);
 }
@@ -822,11 +803,11 @@ static struct ice_candidate *__foundation_lookup(struct ice_agent *ag, const str
 	return g_hash_table_lookup(ag->foundation_hash, &d);
 }
 static struct ice_candidate_pair *__pair_lookup(struct ice_agent *ag, struct ice_candidate *cand,
-		struct interface_address *ifa)
+		const struct local_intf *ifa)
 {
 	struct ice_candidate_pair p;
 
-	p.local_address = ifa;
+	p.local_intf = ifa;
 	p.remote_candidate = cand;
 	return g_hash_table_lookup(ag->pair_hash, &p);
 }
@@ -835,18 +816,14 @@ static void __cand_ice_foundation(struct call *call, struct ice_candidate *cand)
 	char buf[64];
 	int len;
 
-	len = sprintf(buf, "%lx%lx%lx%lx%x%x",
-			(long unsigned) cand->endpoint.ip46.s6_addr32[0],
-			(long unsigned) cand->endpoint.ip46.s6_addr32[1],
-			(long unsigned) cand->endpoint.ip46.s6_addr32[2],
-			(long unsigned) cand->endpoint.ip46.s6_addr32[3],
-			cand->type, cand->transport);
+	len = sprintf(buf, "%x%x%x", endpoint_hash(&cand->endpoint),
+			cand->type, g_direct_hash(cand->transport));
 	call_str_cpy_len(call, &cand->foundation, buf, len);
 }
 
 /* agent must be locked */
 static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, struct packet_stream *ps,
-		struct sockaddr_in6 *src, struct interface_address *ifa, unsigned long priority)
+		const endpoint_t *src, const struct local_intf *ifa, unsigned long priority)
 {
 	struct ice_candidate *cand, *old_cand;
 	struct ice_candidate_pair *pair;
@@ -854,10 +831,9 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 
 	cand = g_slice_alloc0(sizeof(*cand));
 	cand->component_id = ps->component;
-	cand->transport = ITP_UDP;
+	cand->transport = ifa->spec->address.type;
 	cand->priority = priority;
-	cand->endpoint.ip46 = src->sin6_addr;
-	cand->endpoint.port = ntohs(src->sin6_port);
+	cand->endpoint = *src;
 	cand->type = ICT_PRFLX;
 	__cand_ice_foundation(call, cand);
 
@@ -972,7 +948,7 @@ static void __get_complete_components(GQueue *out, struct ice_agent *ag, GTree *
 			cand = __foundation_lookup(ag, &pair1->remote_candidate->foundation, i);
 			if (!cand)
 				goto next_foundation;
-			pairX = __pair_lookup(ag, cand, pair1->local_address);
+			pairX = __pair_lookup(ag, cand, pair1->local_intf);
 			if (!pairX)
 				goto next_foundation;
 			if (!bf_isset(&pairX->pair_flags, flag))
@@ -999,7 +975,7 @@ static int __check_valid(struct ice_agent *ag) {
 	GList *l, *k;
 	GQueue all_compos;
 	struct ice_candidate_pair *pair;
-	struct interface_address *ifa;
+	const struct local_intf *ifa;
 
 	__get_complete_valid_pairs(&all_compos, ag);
 
@@ -1012,11 +988,12 @@ static int __check_valid(struct ice_agent *ag) {
 	ilog(LOG_DEBUG, "ICE completed, using pair "PAIR_FORMAT, PAIR_FMT(pair));
 	AGENT_SET(ag, COMPLETED);
 
-	ifa = g_atomic_pointer_get(&media->local_address);
-	if (ifa != pair->local_address
-			&& g_atomic_pointer_compare_and_exchange(&media->local_address, ifa,
-				pair->local_address))
-		ilog(LOG_INFO, "ICE negotiated: local interface %s", smart_ntop_buf(&pair->local_address->addr));
+	ifa = g_atomic_pointer_get(&media->local_intf);
+	if (ifa != pair->local_intf
+			&& g_atomic_pointer_compare_and_exchange(&media->local_intf, ifa,
+				pair->local_intf))
+		ilog(LOG_INFO, "ICE negotiated: local interface %s",
+				sockaddr_print_buf(&pair->local_intf->spec->address.addr));
 
 	for (l = media->streams.head, k = all_compos.head; l && k; l = l->next, k = k->next) {
 		ps = l->data;
@@ -1025,7 +1002,7 @@ static int __check_valid(struct ice_agent *ag) {
 		mutex_lock(&ps->out_lock);
 		if (memcmp(&ps->endpoint, &pair->remote_candidate->endpoint, sizeof(ps->endpoint))) {
 			ilog(LOG_INFO, "ICE negotiated: peer for component %u is %s", ps->component,
-					smart_ntop_ep_buf(&pair->remote_candidate->endpoint));
+					endpoint_print_buf(&pair->remote_candidate->endpoint));
 			ps->endpoint = pair->remote_candidate->endpoint;
 		}
 		mutex_unlock(&ps->out_lock);
@@ -1045,18 +1022,18 @@ static int __check_valid(struct ice_agent *ag) {
  * -1 = generic error, process packet as normal
  * -2 = role conflict
  */
-int ice_request(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_addr *dst,
+int ice_request(struct packet_stream *ps, const endpoint_t *src, const sockaddr_t *dst,
 		struct stun_attrs *attrs)
 {
 	struct call_media *media = ps->media;
 	struct ice_agent *ag;
-	struct interface_address *ifa;
+	const struct local_intf *ifa;
 	const char *err;
 	struct ice_candidate *cand;
 	struct ice_candidate_pair *pair;
 	int ret;
 
-	__DBG("received ICE request from %s on %s", smart_ntop_port_buf(src), smart_ntop_buf(dst));
+	__DBG("received ICE request from %s on %s", endpoint_print_buf(src), sockaddr_print_buf(dst));
 
 	ag = media->ice_agent;
 	if (!ag)
@@ -1064,7 +1041,7 @@ int ice_request(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_a
 
 	atomic64_set(&ag->last_activity, poller_now);
 
-	ifa = get_interface_from_address(ag->local_interface, dst);
+	ifa = get_interface_from_address(ag->logical_intf, dst, NULL); /* XXX type */
 	err = "ICE/STUN binding request received on unknown local interface address";
 	if (!ifa)
 		goto err;
@@ -1130,7 +1107,7 @@ int ice_request(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_a
 err_unlock:
 	mutex_unlock(&ag->lock);
 err:
-	ilog(LOG_NOTICE, "%s (from %s on interface %s)", err, smart_ntop_port_buf(src), smart_ntop_buf(dst));
+	ilog(LOG_NOTICE, "%s (from %s on interface %s)", err, endpoint_print_buf(src), sockaddr_print_buf(dst));
 	return 0;
 }
 
@@ -1154,7 +1131,7 @@ static int __check_succeeded_complete(struct ice_agent *ag) {
 }
 
 /* call is locked in R */
-int ice_response(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_addr *dst,
+int ice_response(struct packet_stream *ps, const endpoint_t *src, const sockaddr_t *dst,
 		struct stun_attrs *attrs, u_int32_t transaction[3])
 {
 	struct ice_candidate_pair *pair, *opair;
@@ -1163,10 +1140,10 @@ int ice_response(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_
 	const char *err;
 	unsigned int component;
 	struct ice_candidate *cand;
-	struct interface_address *ifa;
+	const struct local_intf *ifa;
 	int ret, was_ctl;
 
-	__DBG("received ICE response from %s on %s", smart_ntop_port_buf(src), smart_ntop_buf(dst));
+	__DBG("received ICE response from %s on %s", endpoint_print_buf(src), sockaddr_print_buf(dst));
 
 	ag = media->ice_agent;
 	if (!ag)
@@ -1184,22 +1161,20 @@ int ice_response(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_
 
 	mutex_unlock(&ag->lock);
 
-	ifa = pair->local_address;
+	ifa = pair->local_intf;
 
 	ilog(LOG_DEBUG, "Received ICE/STUN response code %u for candidate pair "PAIR_FORMAT" from %s to %s",
 			attrs->error_code, PAIR_FMT(pair),
-			smart_ntop_ep_buf(&pair->remote_candidate->endpoint),
-			smart_ntop_buf(&ifa->addr));
+			endpoint_print_buf(&pair->remote_candidate->endpoint),
+			sockaddr_print_buf(&ifa->spec->address.addr));
 
 	/* verify endpoints */
 	err = "ICE/STUN response received, but source address didn't match remote candidate address";
-	if (memcmp(&src->sin6_addr, &pair->remote_candidate->endpoint.ip46, sizeof(src->sin6_addr)))
-		goto err;
-	if (ntohs(src->sin6_port) != pair->remote_candidate->endpoint.port)
+	if (!endpoint_eq(src, &pair->remote_candidate->endpoint))
 		goto err;
 
 	err = "ICE/STUN response received, but destination address didn't match local interface address";
-	if (memcmp(dst, &ifa->addr, sizeof(*dst)))
+	if (!sockaddr_eq(dst, &ifa->spec->address.addr)) /* XXX lots of references to this struct member */
 		goto err;
 	if (pair->packet_stream != ps)
 		goto err;
@@ -1283,7 +1258,7 @@ err_unlock:
 err:
 	if (err)
 		ilog(LOG_NOTICE, "%s (from %s on interface %s)",
-				err, smart_ntop_port_buf(src), smart_ntop_buf(dst));
+				err, endpoint_print_buf(src), sockaddr_print_buf(dst));
 
 	if (pair && attrs->error_code)
 		__fail_pair(pair);
@@ -1364,9 +1339,9 @@ static void create_random_ice_string(struct call *call, str *s, int len) {
 	call_str_cpy_len(call, s, buf, len);
 }
 
-void ice_foundation(struct interface_address *ifa) {
-	random_ice_string(ifa->foundation_buf, sizeof(ifa->foundation_buf));
-	str_init_len(&ifa->ice_foundation, ifa->foundation_buf, sizeof(ifa->foundation_buf));
+void ice_foundation(str *s) {
+	str_init_len(s, malloc(ICE_FOUNDATION_LENGTH), ICE_FOUNDATION_LENGTH);
+	random_ice_string(s->s, ICE_FOUNDATION_LENGTH);
 }
 
 void ice_remote_candidates(GQueue *out, struct ice_agent *ag) {

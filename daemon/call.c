@@ -327,7 +327,6 @@ static void __stream_unconfirm(struct packet_stream *ps);
 static void stream_unconfirm(struct packet_stream *ps);
 static void __monologue_destroy(struct call_monologue *monologue);
 static int monologue_destroy(struct call_monologue *ml);
-static struct interface_address *get_interface_address(struct local_interface *lif, int family);
 
 
 
@@ -339,7 +338,7 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 	int i;
 	socklen_t j;
 
-	assert(sfd->fd.fd == fd);
+	assert(sfd->socket.fd == fd);
 	c = sfd->call;
 	if (!c)
 		return;
@@ -354,12 +353,16 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 
 
 
-INLINE void __re_address_translate(struct re_address *o, const struct endpoint *ep) {
-	o->family = family_from_address(&ep->ip46);
+/* XXX unify this */
+INLINE void __re_address_translate(struct re_address *o, const sockaddr_t *address) {
+	o->family = address->family->af;
 	if (o->family == AF_INET)
-		o->u.ipv4 = in6_to_4(&ep->ip46);
+		o->u.ipv4 = address->u.ipv4.s_addr;
 	else
-		memcpy(o->u.ipv6, &ep->ip46, sizeof(o->u.ipv6));
+		memcpy(o->u.ipv6, &address->u.ipv6, sizeof(o->u.ipv6));
+}
+INLINE void __re_address_translate_ep(struct re_address *o, const endpoint_t *ep) {
+	__re_address_translate(o, &ep->address);
 	o->port = ep->port;
 }
 
@@ -379,7 +382,7 @@ void kernelize(struct packet_stream *stream) {
 	struct call *call = stream->call;
 	struct callmaster *cm = call->callmaster;
 	struct packet_stream *sink = NULL;
-	struct interface_address *ifa;
+	struct local_intf *ifa;
 	const char *nk_warn_msg;
 
 	if (PS_ISSET(stream, KERNELIZED))
@@ -404,7 +407,7 @@ void kernelize(struct packet_stream *stream) {
 
 	determine_handler(stream, sink);
 
-	if (is_addr_unspecified(&sink->advertised_endpoint.ip46)
+	if (is_addr_unspecified(&sink->advertised_endpoint.address)
 			|| !sink->advertised_endpoint.port)
 		goto no_kernel;
 	nk_warn_msg = "protocol not supported by kernel module";
@@ -416,7 +419,7 @@ void kernelize(struct packet_stream *stream) {
 
 	if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
 		mutex_lock(&stream->out_lock);
-		__re_address_translate(&reti.expected_src, &stream->endpoint);
+		__re_address_translate_ep(&reti.expected_src, &stream->endpoint);
 		mutex_unlock(&stream->out_lock);
 		if (PS_ISSET(stream, STRICT_SOURCE))
 			reti.src_mismatch = MSM_DROP;
@@ -426,23 +429,17 @@ void kernelize(struct packet_stream *stream) {
 
 	mutex_lock(&sink->out_lock);
 
-	reti.target_port = stream->sfd->fd.localport;
+	reti.target_port = stream->sfd->socket.local.port;
 	reti.tos = call->tos;
 	reti.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
 	reti.dtls = MEDIA_ISSET(stream->media, DTLS);
 	reti.stun = stream->media->ice_agent ? 1 : 0;
 
-	__re_address_translate(&reti.dst_addr, &sink->endpoint);
-
-	reti.src_addr.family = reti.dst_addr.family;
-	reti.src_addr.port = sink->sfd->fd.localport;
+	ifa = g_atomic_pointer_get(&sink->media->local_intf);
+	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
+	__re_address_translate(&reti.src_addr, &ifa->spec->address.addr);
+	reti.src_addr.port = sink->sfd->socket.local.port;
 	reti.ssrc = sink->crypto.ssrc;
-
-	ifa = g_atomic_pointer_get(&sink->media->local_address);
-	if (reti.src_addr.family == AF_INET)
-		reti.src_addr.u.ipv4 = in6_to_4(&ifa->addr);
-	else
-		memcpy(reti.src_addr.u.ipv6, &ifa->addr, sizeof(reti.src_addr.u.ipv6));
 
 	stream->handler->in->kernel(&reti.decrypt, stream);
 	stream->handler->out->kernel(&reti.encrypt, sink);
@@ -597,15 +594,15 @@ noop:
 }
 
 void stream_msg_mh_src(struct packet_stream *ps, struct msghdr *mh) {
-	struct interface_address *ifa;
+	struct local_intf *ifa;
 
-	ifa = g_atomic_pointer_get(&ps->media->local_address);
-	msg_mh_src(&ifa->addr, mh);
+	ifa = g_atomic_pointer_get(&ps->media->local_intf);
+	msg_mh_src(&ifa->spec->address.addr, mh);
 }
 
 /* XXX split this function into pieces */
 /* called lock-free */
-static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsin, struct in6_addr *dst) {
+static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, const sockaddr_t *dst) {
 	struct packet_stream *stream,
 			     *sink = NULL,
 			     *in_srtp, *out_srtp;
@@ -613,7 +610,6 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	int ret = 0, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0, rtcp = 0,
 	    unk = 0;
 	int i;
-	struct sockaddr_in6 sin6;
 	struct msghdr mh;
 	struct iovec iov;
 	unsigned char buf[256];
@@ -623,13 +619,13 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 	char *addr;
 	struct endpoint endpoint;
 	rewrite_func rwf_in, rwf_out;
-	struct interface_address *loc_addr;
+	struct local_intf *loc_addr;
 	struct rtp_header *rtp_h;
 	struct rtp_stats *rtp_s;
 
 	call = sfd->call;
 	cm = call->callmaster;
-	addr = smart_ntop_port_buf(fsin);
+	addr = endpoint_print_buf(fsin);
 
 	rwlock_lock_r(&call->master_lock);
 
@@ -803,8 +799,7 @@ loop_ok:
 	if (PS_ISSET(stream, CONFIRMED)) {
 		/* see if we need to compare the source address with the known endpoint */
 		if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
-			endpoint.ip46 = fsin->sin6_addr;
-			endpoint.port = ntohs(fsin->sin6_port);
+			endpoint = *fsin;
 			mutex_lock(&stream->out_lock);
 
 			int tmp = memcmp(&endpoint, &stream->endpoint, sizeof(endpoint));
@@ -839,28 +834,28 @@ update_peerinfo:
 	mutex_lock(&stream->out_lock);
 update_addr:
 	endpoint = stream->endpoint;
-	stream->endpoint.ip46 = fsin->sin6_addr;
-	stream->endpoint.port = ntohs(fsin->sin6_port);
+	stream->endpoint = *fsin;
 	if (memcmp(&endpoint, &stream->endpoint, sizeof(endpoint)))
 		update = 1;
 	mutex_unlock(&stream->out_lock);
 
 	/* check the destination address of the received packet against what we think our
 	 * local interface to use is */
-	loc_addr = g_atomic_pointer_get(&media->local_address);
-	if (dst && memcmp(dst, &loc_addr->addr, sizeof(*dst))) {
-		struct interface_address *ifa;
-		ifa = get_interface_from_address(media->interface, dst);
-		if (!ifa) {
-			ilog(LOG_ERROR, "No matching local interface for destination address %s found",
-					smart_ntop_buf(dst));
-			goto drop;
-		}
-		if (g_atomic_pointer_compare_and_exchange(&media->local_address, loc_addr, ifa)) {
-			ilog(LOG_INFO, "Switching local interface to %s",
-					smart_ntop_buf(dst));
-			update = 1;
-		}
+	loc_addr = g_atomic_pointer_get(&media->local_intf);
+	if (dst && !sockaddr_eq(dst, &loc_addr->spec->address.addr)) {
+		// XXX restore this
+//		struct interface_address *ifa;
+//		ifa = get_interface_from_address(media->logical_intf, dst);
+//		if (!ifa) {
+//			ilog(LOG_ERROR, "No matching local interface for destination address %s found",
+//					smart_ntop_buf(dst));
+//			goto drop;
+//		}
+//		if (g_atomic_pointer_compare_and_exchange(&media->local_address, loc_addr, ifa)) {
+//			ilog(LOG_INFO, "Switching local interface to %s",
+//					smart_ntop_buf(dst));
+//			update = 1;
+//		}
 	}
 
 
@@ -877,7 +872,7 @@ forward:
 
 	if (!sink
 			|| !sink->advertised_endpoint.port
-			|| (is_addr_unspecified(&sink->advertised_endpoint.ip46)
+			|| (is_addr_unspecified(&sink->advertised_endpoint.address)
 				&& !is_trickle_ice_address(&sink->advertised_endpoint))
 			|| stun_ret || handler_ret < 0)
 		goto drop;
@@ -885,13 +880,6 @@ forward:
 	ZERO(mh);
 	mh.msg_control = buf;
 	mh.msg_controllen = sizeof(buf);
-
-	ZERO(sin6);
-	sin6.sin6_family = AF_INET6;
-	sin6.sin6_addr = sink->endpoint.ip46;
-	sin6.sin6_port = htons(sink->endpoint.port);
-	mh.msg_name = &sin6;
-	mh.msg_namelen = sizeof(sin6);
 
 	mutex_unlock(&sink->out_lock);
 
@@ -904,7 +892,7 @@ forward:
 	mh.msg_iov = &iov;
 	mh.msg_iovlen = 1;
 
-	ret = sendmsg(sink->sfd->fd.fd, &mh, 0);
+	ret = socket_sendmsg(&sink->sfd->socket, &mh, &sink->endpoint);
 
 	if (ret == -1) {
 		ret = 0; /* temp for address family mismatches */
@@ -960,10 +948,12 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	char control[128];
 	struct cmsghdr *cmh;
 	struct in6_pktinfo *pi6;
-	struct in6_addr dst_buf, *dst;
-	struct in_pktinfo *pi;
+	struct in6_addr /*dst_buf,*/ *dst;
+	//struct in_pktinfo *pi;
+	endpoint_t ep;
+	sockaddr_t sa;
 
-	if (sfd->fd.fd != fd)
+	if (sfd->socket.fd != fd)
 		goto out;
 
 	log_info_stream_fd(sfd);
@@ -1006,12 +996,13 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 				dst = &pi6->ipi6_addr;
 				goto got_dst;
 			}
-			if (cmh->cmsg_level == IPPROTO_IP && cmh->cmsg_type == IP_PKTINFO) {
-				pi = (void *) CMSG_DATA(cmh);
-				in4_to_6(&dst_buf, pi->ipi_addr.s_addr);
-				dst = &dst_buf;
-				goto got_dst;
-			}
+			// XXX
+//			if (cmh->cmsg_level == IPPROTO_IP && cmh->cmsg_type == IP_PKTINFO) {
+//				pi = (void *) CMSG_DATA(cmh);
+//				in4_to_6(&dst_buf, pi->ipi_addr.s_addr);
+//				dst = &dst_buf;
+//				goto got_dst;
+//			}
 		}
 
 		ilog(LOG_WARNING, "No pkt_info present in received UDP packet, cannot handle packet");
@@ -1019,7 +1010,11 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 
 got_dst:
 		str_init_len(&s, buf + RTP_BUFFER_HEAD_ROOM, ret);
-		ret = stream_packet(sfd, &s, &sin6_src, dst);
+		// XXX
+		ep.port = ntohs(sin6_src.sin6_port);
+		ep.address.u.ipv6 = sin6_src.sin6_addr;
+		sa.u.ipv6 = *dst;
+		ret = stream_packet(sfd, &s, &ep, &sa);
 		if (ret < 0) {
 			ilog(LOG_WARNING, "Write error on RTP socket: %s", strerror(-ret));
 			call_destroy(sfd->call);
@@ -1132,9 +1127,9 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 		if (css == CSS_ICE)
 			timestamp = &ps->media->ice_agent->last_activity;
 
-		if (hlp->ports[sfd->fd.localport])
+		if (hlp->ports[sfd->socket.local.port])
 			goto next;
-		hlp->ports[sfd->fd.localport] = sfd;
+		hlp->ports[sfd->socket.local.port] = sfd;
 		obj_hold(sfd);
 
 no_sfd:
@@ -1320,7 +1315,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 
 		if (url_prefix) {
 			snprintf(url_buf, sizeof(url_buf), "%s%s%s",
-					url_prefix, smart_ntop_p_buf(&ca->created_from_addr.sin6_addr),
+					url_prefix, sockaddr_print_buf(&ca->created_from_addr),
 					url_suffix);
 		}
 		else
@@ -1524,7 +1519,7 @@ struct callmaster *callmaster_new(struct poller *p) {
 	c->totalstats.started = poller_now;
 
 	mutex_init(&c->cngs_lock);
-	c->cngs_hash = g_hash_table_new(in6_addr_hash, in6_addr_eq);
+	c->cngs_hash = g_hash_table_new(g_sockaddr_hash, g_sockaddr_eq);
 
 	return c;
 
@@ -1535,103 +1530,25 @@ fail:
 
 
 
-static void __set_tos(int fd, const struct call *c) {
-	int tos;
-
-	setsockopt(fd, IPPROTO_IP, IP_TOS, &c->tos, sizeof(c->tos));
-#ifdef IPV6_TCLASS
-	tos = c->tos;
-	setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
-#else
-#warning "Will not set IPv6 traffic class"
-#endif
-}
-
-static void __get_pktinfo(int fd) {
-	int x;
-	x = 1;
-	setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &x, sizeof(x));
-	setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &x, sizeof(x));
-}
-
-static int get_port6(struct udp_fd *r, u_int16_t p, const struct call *c) {
-	int fd;
-	struct sockaddr_in6 sin;
-
-	fd = socket(AF_INET6, SOCK_DGRAM, 0);
-	if (fd < 0)
-		return -1;
-
-	nonblock(fd);
-	reuseaddr(fd);
-	ipv6only(fd, 0);
-	__set_tos(fd, c);
-	__get_pktinfo(fd);
-
-	ZERO(sin);
-	sin.sin6_family = AF_INET6;
-	sin.sin6_port = htons(p);
-	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)))
-		goto fail;
-
-	r->fd = fd;
-
-	return 0;
-
-fail:
-	close(fd);
-	return -1;
-}
-
-static int get_port(struct udp_fd *r, u_int16_t p, const struct call *c) {
-	int ret;
-	struct callmaster *m = c->callmaster;
-
-	assert(r->fd == -1);
-
-	__C_DBG("attempting to open port %u", p);
-
-	if (bit_array_set(m->ports_used, p)) {
-		__C_DBG("port in use");
-		return -1;
-	}
-	__C_DBG("port locked");
-
-	ret = get_port6(r, p, c);
-
-	if (ret) {
-		__C_DBG("couldn't open port");
-		bit_array_clear(m->ports_used, p);
-		return ret;
-	}
-
-	r->localport = p;
-
-	return 0;
-}
-
-static void release_port(struct udp_fd *r, struct callmaster *m) {
-	if (r->fd == -1 || !r->localport)
-		return;
-	__C_DBG("releasing port %u", r->localport);
-	bit_array_clear(m->ports_used, r->localport);
-	close(r->fd);
-	r->fd = -1;
-	r->localport = 0;
-}
-
-int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c) {
+int __get_consecutive_ports(socket_t *array, int array_len, int wanted_start_port,
+		const struct call_media *media)
+{
 	int i, j, cycle = 0;
-	struct udp_fd *it;
+	socket_t *it;
 	int port;
-	struct callmaster *m = c->callmaster;
+	struct intf_spec *spec;
+	struct port_pool *pp;
+	const struct call *c = media->call;
+	const struct local_intf *lif = g_atomic_pointer_get(&media->local_intf);
 
 	memset(array, -1, sizeof(*array) * array_len);
+	spec = lif->spec;
+	pp = &spec->port_pool;
 
 	if (wanted_start_port > 0)
 		port = wanted_start_port;
 	else {
-		port = g_atomic_int_get(&m->lastport);
+		port = g_atomic_int_get(&pp->last_used);
 #if PORT_RANDOM_MIN && PORT_RANDOM_MAX
 		port += PORT_RANDOM_MIN + (random() % (PORT_RANDOM_MAX - PORT_RANDOM_MIN));
 #endif
@@ -1639,8 +1556,8 @@ int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_star
 
 	while (1) {
 		if (!wanted_start_port) {
-			if (port < m->conf.port_min)
-				port = m->conf.port_min;
+			if (port < pp->min)
+				port = pp->min;
 			if ((port & 1))
 				port++;
 		}
@@ -1648,30 +1565,30 @@ int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_star
 		for (i = 0; i < array_len; i++) {
 			it = &array[i];
 
-			if (!wanted_start_port && port > m->conf.port_max) {
+			if (!wanted_start_port && port > pp->max) {
 				port = 0;
 				cycle++;
 				goto release_restart;
 			}
 
-			if (get_port(it, port++, c))
+			if (get_port(it, port++, lif, c))
 				goto release_restart;
 		}
 		break;
 
 release_restart:
 		for (j = 0; j < i; j++)
-			release_port(&array[j], m);
+			release_port(&array[j], lif);
 
 		if (cycle >= 2 || wanted_start_port > 0)
 			goto fail;
 	}
 
 	/* success */
-	g_atomic_int_set(&m->lastport, port);
+	g_atomic_int_set(&pp->last_used, port);
 
 	ilog(LOG_DEBUG, "Opened ports %u..%u for media relay", 
-		array[0].localport, array[array_len - 1].localport);
+		array[0].local.port, array[array_len - 1].local.port);
 	return 0;
 
 fail:
@@ -1719,27 +1636,28 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 
 static void stream_fd_free(void *p) {
 	struct stream_fd *f = p;
-	struct callmaster *m = f->call->callmaster;
 
-	release_port(&f->fd, m);
+	release_port(&f->socket, f->local_intf);
 	crypto_cleanup(&f->crypto);
 	dtls_connection_cleanup(&f->dtls);
 
 	obj_put(f->call);
 }
 
-struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call) {
+struct stream_fd *__stream_fd_new(socket_t *fd, struct call_media *media) {
+	struct call *call = media->call;
 	struct stream_fd *sfd;
 	struct poller_item pi;
 	struct poller *po = call->callmaster->poller;
 
 	sfd = obj_alloc0("stream_fd", sizeof(*sfd), stream_fd_free);
-	sfd->fd = *fd;
+	sfd->socket = *fd;
 	sfd->call = obj_get(call);
+	sfd->local_intf = g_atomic_pointer_get(&media->local_intf);
 	call->stream_fds = g_slist_prepend(call->stream_fds, sfd); /* hand over ref */
 
 	ZERO(pi);
-	pi.fd = sfd->fd.fd;
+	pi.fd = sfd->socket.fd;
 	pi.obj = &sfd->obj;
 	pi.readable = stream_fd_readable;
 	pi.closed = stream_fd_closed;
@@ -1754,10 +1672,9 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 {
 	GSList *l;
 	struct endpoint_map *em;
-	struct udp_fd fd_arr[16];
+	socket_t fd_arr[16];
 	unsigned int i;
 	struct stream_fd *sfd;
-	struct call *call = media->call;
 
 	for (l = media->endpoint_maps; l; l = l->next) {
 		em = l->data;
@@ -1772,15 +1689,15 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		if (!ep) /* creating wildcard map */
 			break;
 		/* handle zero endpoint address */
-		if (is_addr_unspecified(&ep->ip46) || is_addr_unspecified(&em->endpoint.ip46)) {
+		if (is_addr_unspecified(&ep->address) || is_addr_unspecified(&em->endpoint.address)) {
 			if (ep->port != em->endpoint.port)
 				continue;
 		}
 		else if (memcmp(&em->endpoint, ep, sizeof(*ep)))
 			continue;
 		if (em->sfds.length >= num_ports) {
-			if (is_addr_unspecified(&em->endpoint.ip46))
-				em->endpoint.ip46 = ep->ip46;
+			if (is_addr_unspecified(&em->endpoint.address))
+				em->endpoint.address = ep->address;
 			return em;
 		}
 		/* endpoint matches, but not enough ports. flush existing ports
@@ -1802,12 +1719,12 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 alloc:
 	if (num_ports > G_N_ELEMENTS(fd_arr))
 		return NULL;
-	if (__get_consecutive_ports(fd_arr, num_ports, 0, media->call))
+	if (__get_consecutive_ports(fd_arr, num_ports, 0, media))
 		return NULL;
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
 	for (i = 0; i < num_ports; i++) {
-		sfd = __stream_fd_new(&fd_arr[i], call);
+		sfd = __stream_fd_new(&fd_arr[i], media);
 		g_queue_push_tail(&em->sfds, sfd); /* not referenced */
 	}
 
@@ -2337,7 +2254,7 @@ static void __set_all_tos(struct call *c) {
 
 	for (l = c->stream_fds; l; l = l->next) {
 		sfd = l->data;
-		__set_tos(sfd->fd.fd, c);
+		set_tos(sfd->socket.fd, c->tos);
 	}
 }
 
@@ -2365,32 +2282,32 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 static void __init_interface(struct call_media *media, const str *ifname) {
 	/* we're holding master_lock in W mode here, so we can safely ignore the
 	 * atomic ops */
-	struct interface_address *ifa = (void *) media->local_address;
+	struct local_intf *ifa = (void *) media->local_intf;
 
-	if (!media->interface || !ifa)
+	if (!media->logical_intf || !ifa)
 		goto get;
 	if (!ifname || !ifname->s)
 		return;
-	if (!str_cmp_str(&media->interface->name, ifname))
+	if (!str_cmp_str(&media->logical_intf->name, ifname))
 		return;
 get:
-	media->interface = get_local_interface(media->call->callmaster, ifname, media->desired_family);
-	if (!media->interface) {
+	media->logical_intf = get_logical_interface(ifname, media->desired_family);
+	if (!media->logical_intf) {
 		/* legacy support */
 		if (!str_cmp(ifname, "internal"))
-			media->desired_family = AF_INET;
+			media->desired_family = __get_socket_family_enum(SF_IP4);
 		else if (!str_cmp(ifname, "external"))
-			media->desired_family = AF_INET6;
+			media->desired_family = __get_socket_family_enum(SF_IP6);
 		else
 			ilog(LOG_WARNING, "Interface '"STR_FORMAT"' not found, using default", STR_FMT(ifname));
-		media->interface = get_local_interface(media->call->callmaster, NULL, media->desired_family);
+		media->logical_intf = get_logical_interface(NULL, media->desired_family);
 	}
-	media->local_address = ifa = get_interface_address(media->interface, media->desired_family);
+	media->local_intf = ifa = get_interface_address(media->logical_intf, media->desired_family);
 	if (!ifa) {
 		ilog(LOG_WARNING, "No usable address in interface '"STR_FORMAT"' found, using default",
 				STR_FMT(ifname));
-		media->local_address = ifa = get_any_interface_address(media->interface, media->desired_family);
-		media->desired_family = family_from_address(&ifa->addr);
+		media->local_intf = ifa = get_any_interface_address(media->logical_intf, media->desired_family);
+		media->desired_family = ifa->spec->address.addr.family;
 	}
 }
 
@@ -2547,7 +2464,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			__generate_crypto(flags, media, other_media);
 
 			/* deduct address family from stream parameters received */
-			other_media->desired_family = family_from_address(&sp->rtp_endpoint.ip46);
+			other_media->desired_family = sp->rtp_endpoint.address.family;
 			/* for outgoing SDP, use "direction"/DF or default to what was offered */
 			if (!media->desired_family)
 				media->desired_family = other_media->desired_family;
@@ -2585,7 +2502,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			__disable_streams(other_media, num_ports);
 			goto init;
 		}
-		if (is_addr_unspecified(&sp->rtp_endpoint.ip46) && !is_trickle_ice_address(&sp->rtp_endpoint)) {
+		if (is_addr_unspecified(&sp->rtp_endpoint.address) && !is_trickle_ice_address(&sp->rtp_endpoint)) {
 			/* Zero endpoint address, equivalent to setting the media stream
 			 * to sendonly or inactive */
 			MEDIA_CLEAR(media, RECV);
@@ -2636,7 +2553,7 @@ static void __unkernelize(struct packet_stream *p) {
 		return;
 
 	if (p->call->callmaster->conf.kernelfd >= 0)
-		kernel_del_stream(p->call->callmaster->conf.kernelfd, p->sfd->fd.localport);
+		kernel_del_stream(p->call->callmaster->conf.kernelfd, p->sfd->socket.local.port);
 
 	PS_CLEAR(p, KERNELIZED);
 }
@@ -2811,7 +2728,7 @@ void call_destroy(struct call *c) {
 				if (PS_ISSET(ps, FALLBACK_RTCP))
 					continue;
 
-				char *addr = smart_ntop_p_buf(&ps->endpoint.ip46);
+				char *addr = sockaddr_print_buf(&ps->endpoint.address);
 
 				if (_log_facility_cdr) {
 				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
@@ -2828,7 +2745,8 @@ void call_destroy(struct call *c) {
 				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 					            cdrlinecnt, md->index, protocol, addr,
 					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
-					            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						    cdrlinecnt, md->index, protocol,
+						    (ps->sfd ? ps->sfd->socket.local.port : 0),
 					            cdrlinecnt, md->index, protocol,
 						    atomic64_get(&ps->stats.packets),
 					            cdrlinecnt, md->index, protocol,
@@ -2881,7 +2799,8 @@ void call_destroy(struct call *c) {
 				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 					            cdrlinecnt, md->index, protocol, addr,
 					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
-					            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						    cdrlinecnt, md->index, protocol,
+						    (ps->sfd ? ps->sfd->socket.local.port : 0),
 					            cdrlinecnt, md->index, protocol,
 						    atomic64_get(&ps->stats.packets),
 					            cdrlinecnt, md->index, protocol,
@@ -2897,9 +2816,9 @@ void call_destroy(struct call *c) {
 				    }
 				}
 
-				ilog(LOG_INFO, "--------- Port %5u <> %15s:%-5hu%s, "
+				ilog(LOG_INFO, "--------- Port %5u <> %15s:%-5u%s, "
 						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet",
-						(unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						(unsigned int) (ps->sfd ? ps->sfd->socket.local.port : 0),
 						addr, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 						atomic64_get(&ps->stats.packets),
@@ -3017,7 +2936,7 @@ void call_destroy(struct call *c) {
 	while (c->stream_fds) {
 		sfd = c->stream_fds->data;
 		c->stream_fds = g_slist_delete_link(c->stream_fds, c->stream_fds);
-		poller_del_item(p, sfd->fd.fd);
+		poller_del_item(p, sfd->socket.fd);
 		obj_put(sfd);
 	}
 
@@ -3026,10 +2945,10 @@ void call_destroy(struct call *c) {
 
 
 
+/* XXX unify and move these */
 static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, struct interface_address *ifa)
+		int *len, struct local_intf *ifa)
 {
-	u_int32_t ip4;
 	int l = 0;
 
 	if (format == SAF_NG) {
@@ -3037,14 +2956,13 @@ static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_a
 		l = 4;
 	}
 
-	if (is_addr_unspecified(&ps->advertised_endpoint.ip46)
+	if (is_addr_unspecified(&ps->advertised_endpoint.address)
 			&& !is_trickle_ice_address(&ps->advertised_endpoint)) {
 		strcpy(o + l, "0.0.0.0");
 		l += 7;
 	}
 	else {
-		ip4 = in6_to_4(&ifa->advertised);
-		l += sprintf(o + l, IPF, IPP(ip4));
+		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->spec->address.advertised));
 	}
 
 	*len = l;
@@ -3052,7 +2970,7 @@ static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_a
 }
 
 static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, struct interface_address *ifa)
+		int *len, struct local_intf *ifa)
 {
 	int l = 0;
 
@@ -3061,14 +2979,13 @@ static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_a
 		l += 4;
 	}
 
-	if (is_addr_unspecified(&ps->advertised_endpoint.ip46)
+	if (is_addr_unspecified(&ps->advertised_endpoint.address)
 			&& !is_trickle_ice_address(&ps->advertised_endpoint)) {
 		strcpy(o + l, "::");
 		l += 2;
 	}
 	else {
-		inet_ntop(AF_INET6, &ifa->advertised, o + l, 45); /* lies ... */
-		l += strlen(o + l);
+		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->spec->address.advertised));
 	}
 
 	*len = l;
@@ -3077,23 +2994,23 @@ static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_a
 
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, struct interface_address *ifa)
+		int *len, struct local_intf *ifa)
 {
 	struct packet_stream *sink;
 
 	sink = packet_stream_sink(ps);
-	if (ifa->family == AF_INET)
+	if (ifa->spec->address.addr.family->af == AF_INET) /* XXX fix */
 		return call_stream_address4(o, sink, format, len, ifa);
 	return call_stream_address6(o, sink, format, len, ifa);
 }
 
 int call_stream_address(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
-	struct interface_address *ifa;
+	struct local_intf *ifa;
 	struct call_media *media;
 
 	media = ps->media;
 
-	ifa = g_atomic_pointer_get(&media->local_address);
+	ifa = g_atomic_pointer_get(&media->local_intf);
 	if (!ifa)
 		return -1;
 
@@ -3641,116 +3558,4 @@ const struct transport_protocol *transport_protocol(const str *s) {
 
 out:
 	return NULL;
-}
-
-static unsigned int __local_interface_hash(const void *p) {
-	const struct local_interface *lif = p;
-	return str_hash(&lif->name) ^ lif->preferred_family;
-}
-static int __local_interface_eq(const void *a, const void *b) {
-	const struct local_interface *A = a, *B = b;
-	return str_equal(&A->name, &B->name) && A->preferred_family == B->preferred_family;
-}
-static GQueue *__interface_list_for_family(struct callmaster *m, int family) {
-	return (family == AF_INET6) ? &m->interface_list_v6 : &m->interface_list_v4;
-}
-static void __interface_append(struct callmaster *m, struct interface_address *ifa, int family) {
-	struct local_interface *lif;
-	GQueue *q;
-	struct interface_address *ifc;
-
-	lif = get_local_interface(m, &ifa->interface_name, family);
-
-	if (!lif) {
-		lif = g_slice_alloc0(sizeof(*lif));
-		lif->name = ifa->interface_name;
-		lif->preferred_family = family;
-		lif->addr_hash = g_hash_table_new(in6_addr_hash, in6_addr_eq);
-		g_hash_table_insert(m->interfaces, lif, lif);
-		if (ifa->family == family) {
-			q = __interface_list_for_family(m, family);
-			g_queue_push_tail(q, lif);
-		}
-	}
-
-	if (!ifa->ice_foundation.s)
-		ice_foundation(ifa);
-
-	ifc = g_slice_alloc(sizeof(*ifc));
-	*ifc = *ifa;
-	ifc->preference = lif->list.length;
-
-	g_queue_push_tail(&lif->list, ifc);
-	g_hash_table_insert(lif->addr_hash, &ifc->addr, ifc);
-}
-
-/* XXX interface handling should go somewhere else */
-void callmaster_config_init(struct callmaster *m) {
-	GList *l;
-	struct interface_address *ifa;
-
-	m->interfaces = g_hash_table_new(__local_interface_hash, __local_interface_eq);
-
-	/* build primary lists first */
-	for (l = m->conf.interfaces->head; l; l = l->next) {
-		ifa = l->data;
-		__interface_append(m, ifa, ifa->family);
-	}
-
-	/* then append to each other as lower-preference alternatives */
-	for (l = m->conf.interfaces->head; l; l = l->next) {
-		ifa = l->data;
-		if (ifa->family == AF_INET)
-			__interface_append(m, ifa, AF_INET6);
-		else if (ifa->family == AF_INET6)
-			__interface_append(m, ifa, AF_INET);
-		else
-			abort();
-	}
-}
-
-struct local_interface *get_local_interface(struct callmaster *m, const str *name, int family) {
-	struct local_interface d, *lif;
-
-	if (!name || !name->s) {
-		GQueue *q;
-		q = __interface_list_for_family(m, family);
-		if (q->head)
-			return q->head->data;
-		q = __interface_list_for_family(m, AF_INET);
-		if (q->head)
-			return q->head->data;
-		q = __interface_list_for_family(m, AF_INET6);
-		if (q->head)
-			return q->head->data;
-		return NULL;
-	}
-
-	d.name = *name;
-	d.preferred_family = family;
-
-	lif = g_hash_table_lookup(m->interfaces, &d);
-	return lif;
-}
-
-static struct interface_address *get_interface_address(struct local_interface *lif, int family) {
-	const GQueue *q;
-
-	q = &lif->list;
-	if (!q->head)
-		return NULL;
-	return q->head->data;
-}
-
-/* safety fallback */
-struct interface_address *get_any_interface_address(struct local_interface *lif, int family) {
-	struct interface_address *ifa;
-
-	ifa = get_interface_address(lif, family);
-	if (ifa)
-		return ifa;
-	ifa = get_interface_address(lif, AF_INET);
-	if (ifa)
-		return ifa;
-	return get_interface_address(lif, AF_INET6);
 }

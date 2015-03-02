@@ -4,18 +4,19 @@
 #include <netinet/in.h>
 #include "poller.h"
 #include "str.h"
+#include "socket.h"
 
 
 struct poller;
 struct obj;
 
-typedef void (*udp_listener_callback_t)(struct obj *p, str *buf, struct sockaddr_in6 *sin, char *addr);
+typedef void (*udp_listener_callback_t)(struct obj *p, str *buf, const endpoint_t *ep, char *addr);
 
 struct udp_listener {
-	int fd;
+	socket_t sock;
 	struct poller *poller;
 };
 
-int udp_listener_init(struct udp_listener *, struct poller *p, struct in6_addr ip, u_int16_t port, udp_listener_callback_t, struct obj *);
+int udp_listener_init(struct udp_listener *, struct poller *p, const endpoint_t *, udp_listener_callback_t, struct obj *);
 
 #endif

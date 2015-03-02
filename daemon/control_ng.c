@@ -11,6 +11,7 @@
 #include "call.h"
 #include "sdp.h"
 #include "call_interfaces.h"
+#include "socket.h"
 
 
 static void pretty_print(bencode_item_t *el, GString *s) {
@@ -58,7 +59,7 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 	}
 }
 
-struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const struct in6_addr *addr) {
+struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const sockaddr_t *addr) {
 	struct callmaster *m = c->callmaster;
 	struct control_ng_stats* cur;
 
@@ -67,14 +68,14 @@ struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const struct
 	if (!cur) {
 		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
 		cur->proxy = *addr;
-		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s", smart_ntop_p_buf(addr));
+		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
 		g_hash_table_insert(m->cngs_hash, &cur->proxy, cur);
 	}
 	mutex_unlock(&m->cngs_lock);
 	return cur;
 }
 
-static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *sin, char *addr) {
+static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr) {
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
 	bencode_item_t *dict, *resp;
@@ -84,7 +85,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	struct iovec iov[3];
 	GString *log_str;
 
-	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->sin6_addr);
+	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->address);
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
@@ -196,8 +197,6 @@ send_resp:
 
 send_only:
 	ZERO(mh);
-	mh.msg_name = sin;
-	mh.msg_namelen = sizeof(*sin);
 	mh.msg_iov = iov;
 	mh.msg_iovlen = 3;
 
@@ -208,7 +207,7 @@ send_only:
 	iov[2].iov_base = to_send->s;
 	iov[2].iov_len = to_send->len;
 
-	sendmsg(c->udp_listener.fd, &mh, 0);
+	socket_sendmsg(&c->udp_listener.sock, &mh, sin);
 
 	if (resp)
 		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);
@@ -224,7 +223,7 @@ out:
 
 
 
-struct control_ng *control_ng_new(struct poller *p, struct in6_addr ip, u_int16_t port, struct callmaster *m) {
+struct control_ng *control_ng_new(struct poller *p, const endpoint_t *ep, struct callmaster *m) {
 	struct control_ng *c;
 
 	if (!p || !m)
@@ -235,7 +234,7 @@ struct control_ng *control_ng_new(struct poller *p, struct in6_addr ip, u_int16_
 	c->callmaster = m;
 	cookie_cache_init(&c->cookie_cache);
 
-	if (udp_listener_init(&c->udp_listener, p, ip, port, control_ng_incoming, &c->obj))
+	if (udp_listener_init(&c->udp_listener, p, ep, control_ng_incoming, &c->obj))
 		goto fail2;
 
 	return c;

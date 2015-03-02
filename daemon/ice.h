@@ -11,6 +11,8 @@
 #include "obj.h"
 #include "aux.h"
 #include "call.h"
+#include "media_socket.h"
+#include "socket.h"
 
 
 
@@ -20,6 +22,7 @@
 #define STUN_RETRANSMIT_INTERVAL	100 /* ms, with exponential backoff */
 #define STUN_MAX_RETRANSMITS		7
 #define MAX_ICE_CANDIDATES		100
+#define ICE_FOUNDATION_LENGTH		16
 
 
 
@@ -52,8 +55,8 @@
 
 
 
-struct local_interface;
-struct interface_address;
+struct logical_intf;
+struct local_intf;
 struct packet_stream;
 struct call_media;
 struct call;
@@ -72,26 +75,19 @@ enum ice_candidate_type {
 	__ICT_LAST,
 };
 
-enum ice_transport {
-	ITP_UNKNOWN = 0,
-	ITP_UDP,
-//	ITP_TCP,
-};
-
 struct ice_candidate {
 	str			foundation;
 	unsigned long		component_id;
-	enum ice_transport	transport;
+	socktype_t		*transport;
 	unsigned long		priority;
-	struct endpoint		endpoint;
+	endpoint_t		endpoint;
 	enum ice_candidate_type type;
-	struct in6_addr		related_address;
-	unsigned int		related_port;
+	endpoint_t		related;
 };
 
 struct ice_candidate_pair {
 	struct ice_candidate	*remote_candidate;
-	struct interface_address *local_address;
+	const struct local_intf	*local_intf;
 	struct packet_stream	*packet_stream;
 	volatile unsigned int	pair_flags;
 	u_int32_t		stun_transaction[3]; /* belongs to transaction_hash, thus agent->lock */
@@ -109,8 +105,8 @@ struct ice_agent {
 	struct obj		obj;
 	struct call		*call; /* main reference */
 	struct call_media	*media;
-	struct local_interface	*local_interface;
-	int			desired_family;
+	const struct logical_intf	*logical_intf;
+	sockfamily_t		*desired_family;
 	atomic64		last_activity;
 
 	mutex_t			lock; /* for elements below. and call must be locked in R */
@@ -150,9 +146,8 @@ extern const char * const ice_type_strings[];
 void ice_init(void);
 
 enum ice_candidate_type ice_candidate_type(const str *s);
-enum ice_transport ice_transport(const str *s);
 int ice_has_related(enum ice_candidate_type);
-void ice_foundation(struct interface_address *ifa);
+void ice_foundation(str *);
 
 void ice_agent_init(struct ice_agent **agp, struct call_media *media);
 void ice_update(struct ice_agent *, struct stream_params *);
@@ -164,8 +159,8 @@ void ice_remote_candidates(GQueue *, struct ice_agent *);
 
 void ice_thread_run(void *);
 
-int ice_request(struct packet_stream *, struct sockaddr_in6 *, struct in6_addr *, struct stun_attrs *);
-int ice_response(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_addr *dst,
+int ice_request(struct packet_stream *, const endpoint_t *, const sockaddr_t *, struct stun_attrs *);
+int ice_response(struct packet_stream *ps, const endpoint_t *src, const sockaddr_t *dst,
 		struct stun_attrs *attrs, u_int32_t transaction[3]);
 
 /* returns 0 if ICE still has work to do, 1 otherwise */

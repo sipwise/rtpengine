@@ -4,6 +4,7 @@
 #include <glib.h>
 #include "str.h"
 #include "call.h"
+#include "media_socket.h"
 
 
 struct sdp_ng_flags {
@@ -14,10 +15,10 @@ struct sdp_ng_flags {
 	str transport_protocol_str;
 	str address_family_str;
 	const struct transport_protocol *transport_protocol;
-	struct in6_addr parsed_received_from;
-	struct in6_addr parsed_media_address;
+	sockaddr_t parsed_received_from;
+	sockaddr_t parsed_media_address;
 	str direction[2];
-	int address_family;
+	sockfamily_t *address_family;
 	int tos;
 	int asymmetric:1,
 	    trust_address:1,
@@ -62,10 +63,8 @@ int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, struct 
 struct sdp_chopper *sdp_chopper_new(str *input);
 void sdp_chopper_destroy(struct sdp_chopper *chop);
 
-int address_family(const str *s);
-
 INLINE int is_trickle_ice_address(const struct endpoint *ep) {
-	if (is_addr_unspecified(&ep->ip46) && ep->port == 9)
+	if (is_addr_unspecified(&ep->address) && ep->port == 9)
 		return 1;
 	return 0;
 }

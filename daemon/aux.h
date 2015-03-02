@@ -40,15 +40,6 @@
 
 
 
-/*** TYPES ***/
-
-struct endpoint {
-	struct in6_addr		ip46;
-	u_int16_t		port;
-};
-
-
-
 /*** GLOBALS ***/
 
 extern __thread struct timeval g_now;
@@ -191,22 +182,6 @@ INLINE const char *__get_enum_array_text(const char * const *array, unsigned int
 
 
 
-/*** SOCKET/FD HELPERS ***/
-
-INLINE void nonblock(int fd) {
-	fcntl(fd, F_SETFL, O_NONBLOCK);
-}
-INLINE void reuseaddr(int fd) {
-	int one = 1;
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-}
-INLINE void ipv6only(int fd, int yn) {
-	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
-}
-
-
-
-
 /*** GENERIC HELPERS ***/
 
 INLINE char chrtoupper(char x) {
@@ -250,223 +225,28 @@ INLINE int rlim(int res, rlim_t val) {
 #define DF			IPF ":%u"
 #define DP(x)			IPP((x).sin_addr.s_addr), ntohs((x).sin_port)
 
-INLINE void in4_to_6(struct in6_addr *o, u_int32_t ip) {
-	o->s6_addr32[0] = 0;
-	o->s6_addr32[1] = 0;
-	o->s6_addr32[2] = htonl(0xffff);
-	o->s6_addr32[3] = ip;
-}
-INLINE u_int32_t in6_to_4(const struct in6_addr *a) {
-	return a->s6_addr32[3];
-}
+/* XXX to be removed */
 
-INLINE void smart_ntop(char *o, const struct in6_addr *a, size_t len) {
-	const char *r;
+#include "socket.h"
 
-	if (IN6_IS_ADDR_V4MAPPED(a))
-		r = inet_ntop(AF_INET, &(a->s6_addr32[3]), o, len);
-	else
-		r = inet_ntop(AF_INET6, a, o, len);
-
-	if (!r)
-		*o = '\0';
-}
-
-INLINE char *smart_ntop_buf(const struct in6_addr *a) {
-	char *buf = get_thread_buf();
-	smart_ntop(buf, a, THREAD_BUF_SIZE);
-	return buf;
-}
-
-INLINE char *smart_ntop_p(char *o, const struct in6_addr *a, size_t len) {
-	int l;
-
-	if (IN6_IS_ADDR_V4MAPPED(a)) {
-		if (inet_ntop(AF_INET, &(a->s6_addr32[3]), o, len))
-			return o + strlen(o);
-		*o = '\0';
-		return NULL;
-	}
-	else {
-		*o = '[';
-		if (!inet_ntop(AF_INET6, a, o+1, len-2)) {
-			*o = '\0';
-			return NULL;
-		}
-		l = strlen(o);
-		o[l] = ']';
-		o[l+1] = '\0';
-		return o + (l + 1);
-	}
-}
-
-INLINE char *smart_ntop_p_buf(const struct in6_addr *a) {
-	char *buf = get_thread_buf();
-	smart_ntop_p(buf, a, THREAD_BUF_SIZE);
-	return buf;
-}
-
-INLINE void smart_ntop_ap(char *o, const struct in6_addr *a, unsigned int port, size_t len) {
-	char *e;
-
-	e = smart_ntop_p(o, a, len);
-	if (!e)
-		return;
-	if (len - (e - o) < 7)
-		return;
-	sprintf(e, ":%u", port);
-}
-
-INLINE void smart_ntop_port(char *o, const struct sockaddr_in6 *a, size_t len) {
-	return smart_ntop_ap(o, &a->sin6_addr, ntohs(a->sin6_port), len);
-}
-
-INLINE char *smart_ntop_port_buf(const struct sockaddr_in6 *a) {
-	char *buf = get_thread_buf();
-	smart_ntop_port(buf, a, THREAD_BUF_SIZE);
-	return buf;
-}
-
-INLINE char *smart_ntop_ap_buf(const struct in6_addr *a, unsigned int port) {
-	char *buf = get_thread_buf();
-	smart_ntop_ap(buf, a, port, THREAD_BUF_SIZE);
-	return buf;
-}
-
-INLINE char *smart_ntop_ep_buf(const struct endpoint *ep) {
-	char *buf = get_thread_buf();
-	smart_ntop_ap(buf, &ep->ip46, ep->port, THREAD_BUF_SIZE);
-	return buf;
-}
-
-INLINE int smart_pton(int af, char *src, void *dst) {
-	char *p;
-	int ret;
-
-	if (af == AF_INET6) {
-		if (src[0] == '[' && (p = strchr(src, ']'))) {
-			*p = '\0';
-			ret = inet_pton(af, src+1, dst);
-			*p = ']';
-			return ret;
-		}
-	}
-	return inet_pton(af, src, dst);
-}
-
-INLINE int pton_46(struct in6_addr *dst, const char *src, int *family) {
-	u_int32_t in4;
-
-	if (inet_pton(AF_INET6, src, dst) == 1) {
-		if (family)
-			*family = AF_INET6;
-		return 0;
-	}
-	in4 = inet_addr(src);
-	if (in4 == INADDR_NONE)
-		return -1;
-	in4_to_6(dst, in4);
-	if (family)
-		*family = AF_INET;
-	return 0;
-}
-
-INLINE int parse_ip_port(u_int32_t *ip, u_int16_t *port, char *s) {
-	char *p = NULL;
-	int ret = -1;
-
-	p = strchr(s, ':');
-	if (p) {
-		*p++ = 0;
-		*ip = inet_addr(s);
-		if (*ip == -1)
-			goto out;
-		*port = atoi(p);
-	}
-	else {
-		*ip = 0;
-		if (strchr(s, '.'))
-			goto out;
-		*port = atoi(s);
-	}
-	if (!*port)
-		goto out;
-
-	ret = 0;
-
-out:
-	if (p)
-		*--p = ':';
-	return ret;
-}
-
-INLINE int parse_ip6_port(struct in6_addr *ip6, u_int16_t *port, char *s) {
-	u_int32_t ip;
-	char *p;
-
-	if (!parse_ip_port(&ip, port, s)) {
-		if (ip)
-			in4_to_6(ip6, ip);
-		else
-			*ip6 = in6addr_any;
-		return 0;
-	}
-	if (*s != '[')
-		return -1;
-	p = strstr(s, "]:");
-	if (!p)
-		return -1;
-	*p = '\0';
-	if (inet_pton(AF_INET6, s+1, ip6) != 1)
-		goto fail;
-	*p = ']';
-	*port = atoi(p+2);
-	if (!*port)
-		return -1;
-
-	return 0;
-
-fail:
-	*p = ']';
-	return -1;
-}
-
-INLINE int is_addr_unspecified(const struct in6_addr *a) {
-	if (a->s6_addr32[0])
-		return 0;
-	if (a->s6_addr32[1])
-		return 0;
-	if (a->s6_addr32[3])
-		return 0;
-	if (a->s6_addr32[2] == 0 || a->s6_addr32[2] == htonl(0xffff))
-		return 1;
-	return 0;
-}
-
-INLINE int family_from_address(const struct in6_addr *a) {
-	if (IN6_IS_ADDR_V4MAPPED(a))
-		return AF_INET;
-	return AF_INET6;
-}
-
-INLINE void msg_mh_src(const struct in6_addr *src, struct msghdr *mh) {
+INLINE void msg_mh_src(const sockaddr_t *src, struct msghdr *mh) {
 	struct cmsghdr *ch;
 	struct in_pktinfo *pi;
 	struct in6_pktinfo *pi6;
-	struct sockaddr_in6 *sin6;
+	//struct sockaddr_in6 *sin6;
 
-	sin6 = mh->msg_name;
+	//sin6 = mh->msg_name;
 	ch = CMSG_FIRSTHDR(mh);
 	ZERO(*ch);
 
-	if (IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr)) {
+	if (src->family->af == AF_INET) {
 		ch->cmsg_len = CMSG_LEN(sizeof(*pi));
 		ch->cmsg_level = IPPROTO_IP;
 		ch->cmsg_type = IP_PKTINFO;
 
 		pi = (void *) CMSG_DATA(ch);
 		ZERO(*pi);
-		pi->ipi_spec_dst.s_addr = in6_to_4(src);
+		pi->ipi_spec_dst = src->u.ipv4;
 
 		mh->msg_controllen = CMSG_SPACE(sizeof(*pi));
 	}
@@ -477,7 +257,7 @@ INLINE void msg_mh_src(const struct in6_addr *src, struct msghdr *mh) {
 
 		pi6 = (void *) CMSG_DATA(ch);
 		ZERO(*pi6);
-		pi6->ipi6_addr = *src;
+		pi6->ipi6_addr = src->u.ipv6;
 
 		mh->msg_controllen = CMSG_SPACE(sizeof(*pi6));
 	}

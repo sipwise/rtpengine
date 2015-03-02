@@ -6,6 +6,7 @@
 
 #include <sys/types.h>
 #include "compat.h"
+#include "socket.h"
 
 
 
@@ -16,7 +17,7 @@ struct redis;
 
 
 
-extern struct redis *(*redis_new_mod)(u_int32_t, u_int16_t, int);
+extern struct redis *(*redis_new_mod)(const endpoint_t *, int);
 extern int (*redis_restore_mod)(struct callmaster *, struct redis *);
 extern void (*redis_update_mod)(struct call *, struct redis *);
 extern void (*redis_delete_mod)(struct call *, struct redis *);

@@ -4,13 +4,14 @@
 #include "obj.h"
 #include "cookie_cache.h"
 #include "udp_listener.h"
+#include "socket.h"
 
 
 struct poller;
 struct callmaster;
 
 struct control_ng_stats {
-	struct in6_addr proxy;
+	sockaddr_t proxy;
 	int ping;
 	int offer;
 	int answer;
@@ -27,6 +28,6 @@ struct control_ng {
 	struct udp_listener udp_listener;
 };
 
-struct control_ng *control_ng_new(struct poller *, struct in6_addr, u_int16_t, struct callmaster *);
+struct control_ng *control_ng_new(struct poller *, const endpoint_t *, struct callmaster *);
 
 #endif

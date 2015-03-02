@@ -13,6 +13,7 @@
 #include "log.h"
 #include "call.h"
 #include "cli.h"
+#include "socket.h"
 
 #include "rtpengine_config.h"
 
@@ -78,7 +79,7 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 		struct control_ng_stats* cur = l->data;
 
 		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
-				smart_ntop_p_buf(&cur->proxy),
+				sockaddr_print_buf(&cur->proxy),
 				cur->offer,
 				cur->answer,
 				cur->delete,
@@ -180,11 +181,11 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 								   (double) ps->stats.delay_max / 1000000);
                }
 #else
-               printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
+               printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5u%s, "
                     ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
                     md->index,
-                    (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-                    smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
+                    (unsigned int) (ps->sfd ? ps->sfd->socket.local.port : 0),
+                    sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port,
                     (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
                          atomic64_get(&ps->stats.packets),
                          atomic64_get(&ps->stats.bytes),
@@ -387,40 +388,28 @@ static void control_closed(int fd, void *p, uintptr_t u) {
    abort();
 }
 
-struct cli *cli_new(struct poller *p, u_int32_t ip, u_int16_t port, struct callmaster *m) {
+struct cli *cli_new(struct poller *p, const endpoint_t *ep, struct callmaster *m) {
    struct cli *c;
-   int fd;
-   struct sockaddr_in sin;
+   socket_t sock;
    struct poller_item i;
 
    if (!p || !m)
        return NULL;
 
-   fd = socket(AF_INET, SOCK_STREAM, 0);
-   if (fd == -1)
-       return NULL;
+   if (open_socket(&sock, SOCK_STREAM, ep->port, &ep->address))
+	   return NULL;
 
-   nonblock(fd);
-   reuseaddr(fd);
-
-   ZERO(sin);
-   sin.sin_family = AF_INET;
-   sin.sin_addr.s_addr = ip;
-   sin.sin_port = htons(port);
-   if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)))
-       goto fail;
-
-   if (listen(fd, 5))
+   if (listen(sock.fd, 5))
        goto fail;
 
    c = obj_alloc0("cli_udp", sizeof(*c), NULL);
-   c->fd = fd;
+   c->sock = sock;
    c->poller = p;
    c->callmaster = m;
    mutex_init(&c->lock);
 
    ZERO(i);
-   i.fd = fd;
+   i.fd = sock.fd;
    i.closed = control_closed;
    i.readable = cli_incoming;
    i.obj = &c->obj;
@@ -433,6 +422,6 @@ struct cli *cli_new(struct poller *p, u_int32_t ip, u_int16_t port, struct callm
 fail2:
    obj_put(c);
 fail:
-   close(fd);
+   close_socket(&sock);
    return NULL;
 }

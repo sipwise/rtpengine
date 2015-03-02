@@ -16,6 +16,8 @@
 #include "compat.h"
 #include "control_ng.h"
 #include "aux.h"
+#include "socket.h"
+#include "media_socket.h"
 
 enum termination_reason {
 	UNKNOWN=0,
@@ -236,10 +238,6 @@ struct totalstats {
 	struct timeval			total_average_call_dur;
 };
 
-struct udp_fd {
-	int			fd;
-	u_int16_t		localport;
-};
 struct stream_params {
 	unsigned int		index; /* starting with 1 */
 	str			type;
@@ -250,22 +248,13 @@ struct stream_params {
 	struct crypto_params	crypto;
 	unsigned int		sdes_tag;
 	str			direction[2];
-	int			desired_family;
+	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
 	unsigned int		sp_flags;
 	GQueue			rtp_payload_types; /* slice-alloc'd */
 	GQueue			ice_candidates; /* slice-alloc'd */
 	str			ice_ufrag;
 	str			ice_pwd;
-};
-
-struct stream_fd {
-	struct obj		obj;
-	struct udp_fd		fd;		/* RO */
-	struct call		*call;		/* RO */
-	struct packet_stream	*stream;	/* LOCK: call->master_lock */
-	struct crypto_context	crypto;		/* IN direction, LOCK: stream->in_lock */
-	struct dtls_connection	dtls;		/* LOCK: stream->in_lock */
 };
 
 struct endpoint_map {
@@ -334,13 +323,13 @@ struct call_media {
 	unsigned int		index;		/* RO */
 	str			type;		/* RO */
 	const struct transport_protocol *protocol;
-	int			desired_family;
-	struct local_interface	*interface;
+	sockfamily_t		*desired_family;
+	const struct logical_intf *logical_intf;
 
 	/* local_address is protected by call->master_lock in W mode, but may
 	 * still be modified if the lock is held in R mode, therefore we use
 	 * atomic ops to access it when holding an R lock. */
-	volatile struct interface_address *local_address;
+	const volatile struct local_intf *local_intf;
 
 	struct ice_agent	*ice_agent;
 
@@ -402,31 +391,12 @@ struct call {
 	time_t			ml_deleted;
 	unsigned char		tos;
 	char			*created_from;
-	struct sockaddr_in6	created_from_addr;
-};
-
-struct local_interface {
-	str			name;
-	int			preferred_family;
-	GQueue			list; /* struct interface_address */
-	GHashTable		*addr_hash;
-};
-struct interface_address {
-	str			interface_name;
-	int			family;
-	struct in6_addr		addr;
-	struct in6_addr		advertised;
-	str			ice_foundation;
-	char			foundation_buf[16];
-	unsigned int		preference; /* starting with 0 */
+	sockaddr_t		created_from_addr;
 };
 
 struct callmaster_config {
 	int			kernelfd;
 	int			kernelid;
-	GQueue			*interfaces; /* struct interface_address */
-	int			port_min;
-	int			port_max;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
 	unsigned int		delete_delay;
@@ -434,8 +404,7 @@ struct callmaster_config {
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;
-	u_int32_t		graphite_ip;
-	u_int16_t		graphite_port;
+	endpoint_t		graphite_ep;
 	int			graphite_interval;
 };
 
@@ -444,13 +413,6 @@ struct callmaster {
 
 	rwlock_t		hashlock;
 	GHashTable		*callhash;
-
-	GHashTable		*interfaces; /* struct local_interface */
-	GQueue			interface_list_v4; /* ditto */
-	GQueue			interface_list_v6; /* ditto */
-
-	volatile unsigned int	lastport;
-	BIT_ARRAY_DECLARE(ports_used, 0x10000);
 
 	/* XXX rework these */
 	struct stats		statsps;	/* per second stats, running timer */
@@ -478,7 +440,6 @@ struct call_stats {
 
 
 struct callmaster *callmaster_new(struct poller *);
-void callmaster_config_init(struct callmaster *);
 void stream_msg_mh_src(struct packet_stream *, struct msghdr *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 
@@ -487,8 +448,8 @@ void calls_dump_redis(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
-struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call);
-int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c);
+struct stream_fd *__stream_fd_new(socket_t *fd, struct call_media *);
+int __get_consecutive_ports(socket_t *array, int array_len, int wanted_start_port, const struct call_media *);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
@@ -507,14 +468,7 @@ void call_media_unkernelize(struct call_media *media);
 void kernelize(struct packet_stream *);
 int call_stream_address(char *, struct packet_stream *, enum stream_address_format, int *);
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, struct interface_address *ifa);
-struct local_interface *get_local_interface(struct callmaster *m, const str *name, int familiy);
-INLINE struct interface_address *get_interface_from_address(struct local_interface *lif,
-		const struct in6_addr *addr)
-{
-	return g_hash_table_lookup(lif->addr_hash, addr);
-}
-struct interface_address *get_any_interface_address(struct local_interface *lif, int family);
+		int *len, struct local_intf *ifa);
 
 const struct transport_protocol *transport_protocol(const str *s);
 
@@ -570,7 +524,7 @@ INLINE str *call_str_init_dup(struct call *c, char *s) {
 	return call_str_dup(c, &t);
 }
 INLINE void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
-	bit_array_set(m->ports_used, p);
+	//bit_array_set(m->ports_used, p); /* XXX fix */
 }
 INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	struct packet_stream *ret;
