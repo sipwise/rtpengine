@@ -84,7 +84,9 @@ struct attribute_candidate {
 	str port_str;
 	str typ_str;
 	str type_str;
+	str raddr_str;
 	str related_address_str;
+	str rport_str;
 	str related_port_str;
 
 	struct ice_candidate cand_parsed;
@@ -617,6 +619,16 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 
 	if (!ice_has_related(c->cand_parsed.type))
 		goto done;
+
+	EXTRACT_TOKEN(u.candidate.raddr_str);
+	EXTRACT_TOKEN(u.candidate.related_address_str);
+	EXTRACT_TOKEN(u.candidate.rport_str);
+	EXTRACT_TOKEN(u.candidate.related_port_str);
+
+	if (str_cmp(&c->raddr_str, "raddr"))
+		return -1;
+	if (str_cmp(&c->rport_str, "rport"))
+		return -1;
 
 	if (__parse_address(&c->cand_parsed.related_address, NULL, NULL, &c->related_address_str))
 		return 0;
