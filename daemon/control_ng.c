@@ -81,8 +81,8 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	bencode_item_t *dict, *resp;
 	str cmd, cookie, data, reply, *to_send, callid;
 	const char *errstr;
-	struct msghdr mh;
 	struct iovec iov[3];
+	unsigned int iovlen;
 	GString *log_str;
 
 	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->address);
@@ -196,9 +196,7 @@ send_resp:
 	}
 
 send_only:
-	ZERO(mh);
-	mh.msg_iov = iov;
-	mh.msg_iovlen = 3;
+	iovlen = 3;
 
 	iov[0].iov_base = cookie.s;
 	iov[0].iov_len = cookie.len;
@@ -207,7 +205,7 @@ send_only:
 	iov[2].iov_base = to_send->s;
 	iov[2].iov_len = to_send->len;
 
-	socket_sendmsg(&c->udp_listener.sock, &mh, sin);
+	socket_sendiov(&c->udp_listener.sock, iov, iovlen, sin);
 
 	if (resp)
 		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);

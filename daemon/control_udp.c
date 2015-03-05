@@ -25,8 +25,8 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 	int ret;
 	int ovec[100];
 	char **out;
-	struct msghdr mh;
 	struct iovec iov[10];
+	unsigned int iovlen;
 	str cookie, *reply;
 
 	ret = pcre_exec(u->parse_re, u->parse_ree, buf->s, buf->len, 0, 0, ovec, G_N_ELEMENTS(ovec));
@@ -41,10 +41,6 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 
 		pcre_get_substring_list(buf->s, ovec, ret, (const char ***) &out);
 
-		/* XXX abstraction for iovec sending */
-		ZERO(mh);
-		mh.msg_iov = iov;
-
 		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
 		iov[0].iov_len = strlen(out[RE_UDP_COOKIE]);
 		if (out[RE_UDP_UL_CMD] && (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U' || chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')) {
@@ -54,15 +50,15 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iov[2].iov_len = strlen(out[3]);
 			iov[3].iov_base = "\n";
 			iov[3].iov_len = 1;
-			mh.msg_iovlen = 4;
+			iovlen = 4;
 		}
 		else {
 			iov[1].iov_base = " E8\n";
 			iov[1].iov_len = 4;
-			mh.msg_iovlen = 2;
+			iovlen = 2;
 		}
 
-		socket_sendmsg(&u->udp_listener.sock, &mh, sin);
+		socket_sendiov(&u->udp_listener.sock, iov, iovlen, sin);
 
 		pcre_free(out);
 
@@ -96,9 +92,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'Q')
 		reply = call_query_udp(out, u->callmaster);
 	else if (chrtoupper(out[RE_UDP_V_CMD][0]) == 'V') {
-		ZERO(mh);
-		mh.msg_iov = iov;
-		mh.msg_iovlen = 2;
+		iovlen = 2;
 
 		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
 		iov[0].iov_len = strlen(out[RE_UDP_COOKIE]);
@@ -115,14 +109,14 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 				ret = 1;
 			iov[2].iov_base = ret ? "1\n" : "0\n";
 			iov[2].iov_len = 2;
-			mh.msg_iovlen++;
+			iovlen++;
 		}
 		else {
 			iov[2].iov_base = "20040107\n";
 			iov[2].iov_len = 9;
-			mh.msg_iovlen++;
+			iovlen++;
 		}
-		socket_sendmsg(&u->udp_listener.sock, &mh, sin);
+		socket_sendiov(&u->udp_listener.sock, iov, iovlen, sin);
 	}
 
 	if (reply) {

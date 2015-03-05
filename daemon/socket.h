@@ -141,6 +141,13 @@ INLINE int is_addr_unspecified(const sockaddr_t *a) {
 #define socket_recvfrom(s,a...) (s)->family->recvfrom((s), a)
 #define socket_sendmsg(s,a...) (s)->family->sendmsg((s), a)
 #define socket_sendto(s,a...) (s)->family->sendto((s), a)
+INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int len, const endpoint_t *dst) {
+	struct msghdr mh;
+	ZERO(mh);
+	mh.msg_iov = (void *) v;
+	mh.msg_iovlen = len;
+	return socket_sendmsg(s, &mh, dst);
+}
 
 
 
