@@ -378,7 +378,7 @@ static void stun_error_len(struct packet_stream *ps, const endpoint_t *sin, cons
 	fingerprint(&mh, &fp);
 
 	output_finish_src(&mh, dst);
-	socket_sendmsg(&ps->sfd->socket, &mh, sin);
+	socket_sendmsg(&ps->selected_sfd->socket, &mh, sin);
 }
 
 #define stun_error(ps, sin, dst, req, code, reason) \
@@ -479,7 +479,7 @@ static int stun_binding_success(struct packet_stream *ps, struct header *req, st
 	fingerprint(&mh, &fp);
 
 	output_finish_src(&mh, dst);
-	socket_sendmsg(&ps->sfd->socket, &mh, sin);
+	socket_sendmsg(&ps->selected_sfd->socket, &mh, sin);
 
 	return 0;
 }

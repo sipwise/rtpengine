@@ -31,7 +31,7 @@ static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enu
 	int len, ret;
 	char buf[64]; /* 64 bytes ought to be enough for anybody */
 
-	ret = call_stream_address(buf, ps, format, &len);
+	ret = call_stream_address46(buf, ps, format, &len, NULL);
 	g_string_append_len(o, buf, len);
 	return ret;
 }
@@ -66,7 +66,7 @@ found:
 		if (format == SAF_TCP)
 			call_stream_address_gstring(o, ps, format);
 
-		port = ps->sfd ? ps->sfd->socket.local.port : 0;
+		port = ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0;
 		g_string_append_printf(o, (format == 1) ? "%i " : " %i", port);
 
 		if (format == SAF_UDP) {
@@ -811,8 +811,8 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 
 	dict = bencode_list_add_dictionary(list);
 
-	if (ps->sfd)
-		bencode_dictionary_add_integer(dict, "local port", ps->sfd->socket.local.port);
+	if (ps->selected_sfd)
+		bencode_dictionary_add_integer(dict, "local port", ps->selected_sfd->socket.local.port);
 	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "endpoint"), &ps->endpoint);
 	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "advertised endpoint"),
 			&ps->advertised_endpoint);

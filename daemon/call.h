@@ -259,7 +259,9 @@ struct stream_params {
 
 struct endpoint_map {
 	struct endpoint		endpoint;
-	GQueue			sfds;
+	unsigned int		num_ports;
+	const struct logical_intf *logical_intf;
+	GQueue			intf_sfds; /* list of struct intf_list - contains stream_fd list */
 	int			wildcard:1;
 };
 
@@ -288,7 +290,8 @@ struct packet_stream {
 	struct call		*call;		/* RO */
 	unsigned int		component;	/* RO, starts with 1 */
 
-	struct stream_fd	*sfd;		/* LOCK: call->master_lock */
+	GQueue			sfds;		/* LOCK: call->master_lock */
+	struct stream_fd * volatile selected_sfd;
 	struct packet_stream	*rtp_sink;	/* LOCK: call->master_lock */
 	struct packet_stream	*rtcp_sink;	/* LOCK: call->master_lock */
 	struct packet_stream	*rtcp_sibling;	/* LOCK: call->master_lock */
@@ -329,7 +332,7 @@ struct call_media {
 	/* local_address is protected by call->master_lock in W mode, but may
 	 * still be modified if the lock is held in R mode, therefore we use
 	 * atomic ops to access it when holding an R lock. */
-	const volatile struct local_intf *local_intf;
+	//const volatile struct local_intf *local_intf;
 
 	struct ice_agent	*ice_agent;
 
@@ -449,7 +452,6 @@ struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct stream_fd *__stream_fd_new(socket_t *fd, struct call_media *);
-int __get_consecutive_ports(socket_t *array, int array_len, int wanted_start_port, const struct call_media *);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
@@ -463,12 +465,11 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
+void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media);
 
-void kernelize(struct packet_stream *);
-int call_stream_address(char *, struct packet_stream *, enum stream_address_format, int *);
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, struct local_intf *ifa);
+		int *len, const struct local_intf *ifa);
 
 const struct transport_protocol *transport_protocol(const str *s);
 

@@ -620,7 +620,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	stun_binding_request(&pair->remote_candidate->endpoint, transact, &ag->pwd[0], ag->ufrag,
 			AGENT_ISSET(ag, CONTROLLING), tie_breaker,
-			prio, &pair->local_intf->spec->address.addr, &ps->sfd->socket,
+			prio, &pair->local_intf->spec->address.addr, &ps->selected_sfd->socket,
 			PAIR_ISSET(pair, TO_USE));
 
 }
@@ -711,7 +711,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 
 		/* skip dead streams */
 		ps = pair->packet_stream;
-		if (!ps || !ps->sfd)
+		if (!ps || !ps->selected_sfd)
 			continue;
 		if (PAIR_ISSET(pair, FAILED))
 			continue;
@@ -972,10 +972,11 @@ found:
 static int __check_valid(struct ice_agent *ag) {
 	struct call_media *media = ag->media;
 	struct packet_stream *ps;
-	GList *l, *k;
+	GList *l, *k, *m;
 	GQueue all_compos;
 	struct ice_candidate_pair *pair;
-	const struct local_intf *ifa;
+//	const struct local_intf *ifa;
+	struct stream_fd *sfd;
 
 	__get_complete_valid_pairs(&all_compos, ag);
 
@@ -988,12 +989,13 @@ static int __check_valid(struct ice_agent *ag) {
 	ilog(LOG_DEBUG, "ICE completed, using pair "PAIR_FORMAT, PAIR_FMT(pair));
 	AGENT_SET(ag, COMPLETED);
 
-	ifa = g_atomic_pointer_get(&media->local_intf);
-	if (ifa != pair->local_intf
-			&& g_atomic_pointer_compare_and_exchange(&media->local_intf, ifa,
-				pair->local_intf))
-		ilog(LOG_INFO, "ICE negotiated: local interface %s",
-				sockaddr_print_buf(&pair->local_intf->spec->address.addr));
+//	XXX restore this
+//	ifa = g_atomic_pointer_get(&media->local_intf);
+//	if (ifa != pair->local_intf
+//			&& g_atomic_pointer_compare_and_exchange(&media->local_intf, ifa,
+//				pair->local_intf))
+//		ilog(LOG_INFO, "ICE negotiated: local interface %s",
+//				sockaddr_print_buf(&pair->local_intf->spec->address.addr));
 
 	for (l = media->streams.head, k = all_compos.head; l && k; l = l->next, k = k->next) {
 		ps = l->data;
@@ -1006,6 +1008,13 @@ static int __check_valid(struct ice_agent *ag) {
 			ps->endpoint = pair->remote_candidate->endpoint;
 		}
 		mutex_unlock(&ps->out_lock);
+
+		for (m = ps->sfds.head; m; m = m->next) {
+			sfd = m->data;
+			if (sfd->local_intf != pair->local_intf)
+				continue;
+			ps->selected_sfd = sfd;
+		}
 	}
 
 	call_media_unkernelize(media);

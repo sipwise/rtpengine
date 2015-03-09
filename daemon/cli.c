@@ -184,7 +184,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5u%s, "
                     ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
                     md->index,
-                    (unsigned int) (ps->sfd ? ps->sfd->socket.local.port : 0),
+                    (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
                     sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port,
                     (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
                          atomic64_get(&ps->stats.packets),

@@ -49,6 +49,10 @@ struct local_intf {
 	unsigned int			preference; /* starting with 0 */
 	const struct logical_intf	*logical;
 };
+struct intf_list {
+	const struct local_intf		*local_intf;
+	GQueue				list;
+};
 struct stream_fd {
 	struct obj			obj;
 	socket_t			socket;		/* RO */
@@ -67,13 +71,23 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam);
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 struct local_intf *get_any_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 
-int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const struct call *c);
-void release_port(socket_t *r, const struct local_intf *);
-void set_tos(int fd, unsigned int tos);
+//int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const struct call *c);
+//void release_port(socket_t *r, const struct local_intf *);
+void set_tos(socket_t *, unsigned int tos);
+int get_consecutive_ports(GQueue *out, unsigned int num_ports, const struct logical_intf *log);
+struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct local_intf *lif);
+
+void free_intf_list(struct intf_list *il);
+void free_socket_intf_list(struct intf_list *il);
 
 INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_intf *lif) {
 	return open_socket(r, SOCK_DGRAM, port, &lif->spec->address.addr);
 }
+
+void kernelize(struct packet_stream *);
+void __unkernelize(struct packet_stream *);
+void unkernelize(struct packet_stream *);
+void __stream_unconfirm(struct packet_stream *);
 
 /* XXX shouldnt be necessary */
 INLINE struct local_intf *get_interface_from_address(const struct logical_intf *lif,
