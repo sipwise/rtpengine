@@ -1464,6 +1464,20 @@ static int insert_ice_address(struct sdp_chopper *chop, struct packet_stream *ps
 	return 0;
 }
 
+static int insert_raddr_rport(struct sdp_chopper *chop, struct packet_stream *ps, struct interface_address *ifa) {
+        char buf[64];
+        int len;
+
+	chopper_append_c(chop, " raddr ");
+	call_stream_address46(buf, ps, SAF_ICE, &len, ifa);
+	chopper_append_dup(chop, buf, len);
+	chopper_append_c(chop, " rport ");
+	chopper_append_printf(chop, "%hu", ps->sfd->fd.localport);
+
+	return 0;
+}
+
+
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
 		struct packet_stream *ps, struct sdp_ng_flags *flags)
 {
@@ -1704,6 +1718,9 @@ static void insert_candidate(struct sdp_chopper *chop, struct packet_stream *ps,
 	insert_ice_address(chop, ps, ifa);
 	chopper_append_c(chop, " typ ");
 	chopper_append_c(chop, ice_candidate_type_str(type));
+	/* raddr and rport are required for non-host candidates: rfc5245 section-15.1 */
+	if(type != ICT_HOST)
+		insert_raddr_rport(chop, ps, ifa);
 	chopper_append_c(chop, "\r\n");
 }
 
