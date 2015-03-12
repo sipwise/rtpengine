@@ -32,7 +32,6 @@ the following additional features are available:
   + Bridging between ICE-enabled and ICE-unaware user agents
   + Optionally acting only as additional ICE relay/candidate
   + Optionally forcing relay of media streams by removing other ICE candidates
-  + Supports ice-lite only
 - SRTP (RFC 3711) support:
   + Support for SDES (RFC 4568) and DTLS-SRTP (RFC 5764)
   + AES-CM and AES-F8 ciphers, both in userspace and in kernel
