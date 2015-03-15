@@ -1624,9 +1624,6 @@ static ssize_t proc_control_write(struct file *file, const char __user *buf, siz
 	struct rtpengine_table *t;
 	struct rtpengine_message msg;
 	int err;
-	int port;
-	struct rtpengine_target *g;
-	unsigned long flags;
 
 	if (buflen != sizeof(msg))
 		return -EIO;
@@ -1662,19 +1659,6 @@ static ssize_t proc_control_write(struct file *file, const char __user *buf, siz
 			err = table_new_target(t, &msg.target, 1);
 			if (err)
 				goto err;
-			break;
-
-		case MMG_MEASUREDELAY:
-			port=0;
-			if (t==NULL)
-				break;
-			g = find_next_target(t, &port);
-			while (g != NULL) {
-				spin_lock_irqsave(&g->stats_lock, flags);
-				g->stats.measureactive=1;
-				spin_unlock_irqrestore(&g->stats_lock, flags);
-				g = find_next_target(t, &port);
-			}
 			break;
 
 		default:
@@ -1808,8 +1792,6 @@ drop:
 
 
 static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst, unsigned char tos) {
-	printk(KERN_WARNING "xt_RTPENGINE send_proxy_packet\n");
-
 	if (src->family != dst->family)
 		goto drop;
 
@@ -2123,7 +2105,7 @@ static inline int is_dtls(struct sk_buff *skb) {
 	return 1;
 }
 
-static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, struct timespec *starttime) {
+static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src) {
 	struct udphdr *uh;
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
@@ -2230,15 +2212,8 @@ not_rtp:
 
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
-
 out:
 	spin_lock_irqsave(&g->stats_lock, flags);
-	if (g->stats.measureactive==1) {
-		g->stats.start = *starttime;
-		getnstimeofday(&g->stats.end);
-		g->stats.measureactive=0;
-	}
-	printk(KERN_WARNING "xt_RTPENGINE failed to create /proc entry for ID %llu\n", g->stats.start.tv_nsec);
 	if (err)
 		g->stats.errors++;
 	else {
@@ -2279,8 +2254,6 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	struct iphdr *ih;
 	struct rtpengine_table *t;
 	struct re_address src;
-	struct timespec starttime;
-	getnstimeofday(&starttime);
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -2299,7 +2272,8 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	memset(&src, 0, sizeof(src));
 	src.family = AF_INET;
 	src.u.ipv4 = ih->saddr;
-	return rtpengine46(skb, t, &src, &starttime);
+
+	return rtpengine46(skb, t, &src);
 
 skip2:
 	kfree_skb(skb);
@@ -2322,8 +2296,6 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	struct ipv6hdr *ih;
 	struct rtpengine_table *t;
 	struct re_address src;
-	struct timespec starttime;
-	getnstimeofday(&starttime);
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -2342,7 +2314,8 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	memset(&src, 0, sizeof(src));
 	src.family = AF_INET6;
 	memcpy(&src.u.ipv6, &ih->saddr, sizeof(src.u.ipv6));
-	return rtpengine46(skb, t, &src, &starttime);
+
+	return rtpengine46(skb, t, &src);
 
 skip2:
 	kfree_skb(skb);

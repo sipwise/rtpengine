@@ -144,4 +144,3 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 sleep:
 	usleep(100000);
 }
-
