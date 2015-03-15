@@ -151,7 +151,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                struct timespec result;
                timespec_subtract(&result,&(ps->stats.end),&(ps->stats.start));
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-                    "%llu p, %llu b, %llu e, %llu last_packet, %llu.%9llu delay\n",
+                    "%llu p, %llu b, %llu e, %llu last_packet, %llu.%09llu delay\n",
                     md->index,
                     (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
                     smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,

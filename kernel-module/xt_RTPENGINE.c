@@ -1808,7 +1808,6 @@ drop:
 
 
 static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst, unsigned char tos) {
-	printk(KERN_WARNING "xt_RTPENGINE send_proxy_packet\n");
 
 	if (src->family != dst->family)
 		goto drop;
@@ -2238,7 +2237,7 @@ out:
 		getnstimeofday(&g->stats.end);
 		g->stats.measureactive=0;
 	}
-	printk(KERN_WARNING "xt_RTPENGINE failed to create /proc entry for ID %llu\n", g->stats.start.tv_nsec);
+
 	if (err)
 		g->stats.errors++;
 	else {

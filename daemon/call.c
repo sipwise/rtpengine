@@ -1345,9 +1345,8 @@ static void callmaster_timer(void *ptr) {
 		DS(errors);
 
 		mutex_lock(&m->statspslock);
-		ilog(LOG_INFO, "Start time:%llu\n", ke->stats.start.tv_nsec);
-		m->statsps.start = ke->stats.start;
-		m->statsps.end = ke->stats.end;
+		ps->stats.start = m->statsps.start = ke->stats.start;
+		ps->stats.end   = m->statsps.end   = ke->stats.end;
 		mutex_unlock(&m->statspslock);
 
 		mutex_lock(&ps->in_lock);
