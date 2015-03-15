@@ -13,6 +13,7 @@ use Crypt::Rijndael;
 use Digest::SHA qw(hmac_sha1);
 use MIME::Base64;
 use Data::Dumper;
+use SRTP;
 
 my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
 	= (1000, 30, 1, 160, 20, 5, 5);
@@ -105,216 +106,33 @@ sub send_receive {
 	return $x;
 }
 
-sub aes_cm {
-	my ($data, $key, $iv) = @_;
-
-	my $c = Crypt::Rijndael->new($key) or die;
-	length($iv) == 16 or die;
-	my @iv = unpack("C16", $iv);
-	my $out = '';
-
-	while ($data ne '') {
-		$iv = pack("C16", @iv);
-		my $key_segment = $c->encrypt($iv);
-		length($key_segment) == 16 or die;
-		my @ks = unpack("C16", $key_segment);
-		my @ds = unpack("C16", $data);
-
-		for my $i (0 .. $#ds) {
-			my $ss = $ds[$i];
-			my $kk = $ks[$i];
-			$out .= chr($ss ^ $kk);
-		}
-
-		substr($data, 0, 16, '');
-		$data eq '' and last;
-
-		for my $i (reverse(0 .. 15)) {
-			$iv[$i]++;
-			if ($iv[$i] == 256) {
-				$iv[$i] = 0;
-			}
-			else {
-				last;
-			}
-		}
-	}
-
-	return $out;
-}
-
-sub aes_f8 {
-	my ($data, $key, $iv, $salt) = @_;
-
-	my $m = $salt . "\x55\x55";
-	my $c = Crypt::Rijndael->new(xor_128($key, $m)) or die;
-	my $ivx = $c->encrypt($iv);
-	undef($c);
-
-	$c = Crypt::Rijndael->new($key) or die;
-	my $p_s = "\0" x 16;
-	my $j = 0;
-	my $out = '';
-
-	while ($data ne '') {
-		my $jx = ("\0" x 12) . pack("N", $j);
-		my $key_segment = $c->encrypt(xor_128($ivx, $jx, $p_s));
-			length($key_segment) == 16 or die;
-		my @ks = unpack("C16", $key_segment);
-		my @ds = unpack("C16", $data);
-
-		for my $i (0 .. $#ds) {
-			my $ss = $ds[$i];
-			my $kk = $ks[$i];
-			$out .= chr($ss ^ $kk);
-		}
-
-		substr($data, 0, 16, '');
-		$data eq '' and last;
-
-		$p_s = $key_segment;
-		$j++;
-	}
-
-	return $out;
-}
-
-
-sub prf_n {
-	my ($n, $key, $x) = @_;
-	my $d = "\0" x ($n / 8);
-	my $ks = aes_cm($d, $key, $x . "\0\0");
-	return substr($ks, 0, $n / 8);
-}
-
-sub xor_n {
-	my ($n, @l) = @_;
-	$n /= 8;
-	my @o = (0) x $n;
-	for my $e (@l) {
-		my @e = unpack("C$n", $e);
-		if (@e < $n) {
-			unshift(@e, ((0) x ($n - @e)));
-		}
-		for my $i (0 .. $#o) {
-			$o[$i] ^= $e[$i];
-		}
-	}
-	return pack("C$n", @o);
-}
-
-sub xor_112 {
-	return xor_n(112, @_);
-}
-sub xor_128 {
-	return xor_n(128, @_);
-}
-
-sub gen_rtp_session_keys {
-	my ($master_key, $master_salt) = @_;
-
-	my $session_key = prf_n(128, $master_key, xor_112($master_salt, "\0\0\0\0\0\0\0"));
-	my $auth_key = prf_n(160, $master_key, xor_112($master_salt, "\1\0\0\0\0\0\0"));
-	my $session_salt = prf_n(112, $master_key, xor_112($master_salt, "\2\0\0\0\0\0\0"));
-#	print("RTP keys generated for master key " . unpack("H8", $master_key) . "... and salt " .
-#		unpack("H8", $master_salt) . "... are: " .
-#		unpack("H8", $session_key) . "..., " .
-#		unpack("H*", $auth_key) . ", " .
-#		unpack("H8", $session_salt) . "...\n");
-
-	return ($session_key, $auth_key, $session_salt);
-}
-
-sub gen_rtcp_session_keys {
-	my ($master_key, $master_salt) = @_;
-
-	my $session_key = prf_n(128, $master_key, xor_112($master_salt, "\3\0\0\0\0\0\0"));
-	my $auth_key = prf_n(160, $master_key, xor_112($master_salt, "\4\0\0\0\0\0\0"));
-	my $session_salt = prf_n(112, $master_key, xor_112($master_salt, "\5\0\0\0\0\0\0"));
-#	print("RTCP keys generated for master key " . unpack("H8", $master_key) . "... and salt " .
-#		unpack("H8", $master_salt) . "... are: " .
-#		unpack("H8", $session_key) . "..., " .
-#		unpack("H*", $auth_key) . ", " .
-#		unpack("H8", $session_salt) . "...\n");
-
-	return ($session_key, $auth_key, $session_salt);
-}
-
-sub aes_cm_iv_rtp {
-	my ($ctx, $r) = @_;
-
-	my ($hdr, $seq, $ts, $ssrc) = unpack('a2na4a4', $r);
-	my $iv = xor_128($$ctx{rtp_session_salt} . "\0\0",
-		$ssrc . "\0\0\0\0\0\0\0\0", pack("Nnn", $$ctx{rtp_roc}, $seq, 0));
-	return $iv;
-}
-
-sub aes_cm_iv_rtcp {
-	my ($ctx, $r) = @_;
-
-	my $idx = $$ctx{rtcp_index} || 0;
-	my ($hdr, $ssrc) = unpack('a4a4', $r);
-	my $iv = xor_128($$ctx{rtcp_session_salt} . "\0\0",
-		$ssrc . "\0\0\0\0\0\0\0\0", pack("Nn", $idx, 0));
-	return $iv;
-}
-
-sub aes_f8_iv_rtp {
-	my ($ctx, $r) = @_;
-
-	my ($hdr, $fields) = unpack('a1a11', $r);
-	my $iv = pack('Ca*N', 0, $fields, $$ctx{rtp_roc});
-	return $iv;
-}
-
-sub aes_f8_iv_rtcp {
-	my ($ctx, $r) = @_;
-
-	my ($fields) = unpack('a8', $r);
-	my $iv = pack('a*Na*', "\0\0\0\0", (($$ctx{rtcp_index} || 0) | 0x80000000), $fields);
-	return $iv;
-}
-
-sub append_mki {
-	my ($ctx_dir, $pack_r) = @_;
-
-	$$ctx_dir{rtp_mki_len} or return;
-
-	my $mki = pack('N', $$ctx_dir{rtp_mki});
-	while (length($mki) < $$ctx_dir{rtp_mki_len}) {
-		$mki = "\x00" . $mki;
-	}
-	if (length($mki) > $$ctx_dir{rtp_mki_len}) {
-		$mki = substr($mki, -$$ctx_dir{rtp_mki_len});
-	}
-	$$pack_r .= $mki;
-}
-
 sub rtcp_encrypt {
 	my ($r, $ctx, $dir) = @_;
 
-	if (!$$ctx{$dir}{rtcp_session_key}) {
-		($$ctx{$dir}{rtcp_session_key}, $$ctx{$dir}{rtcp_session_auth_key}, $$ctx{$dir}{rtcp_session_salt})
-			= gen_rtcp_session_keys($$ctx{$dir}{rtp_master_key}, $$ctx{$dir}{rtp_master_salt});
+	my $dctx = $$ctx{$dir};
+
+	if (!$$dctx{rtcp_session_key}) {
+		($$dctx{rtcp_session_key}, $$dctx{rtcp_session_auth_key}, $$dctx{rtcp_session_salt})
+			= SRTP::gen_rtcp_session_keys($$dctx{rtp_master_key}, $$dctx{rtp_master_salt});
 	}
 
 	($NOENC && $NOENC{rtcp_packet}) and return $NOENC{rtcp_packet};
 
-	my $iv = $$ctx{$dir}{crypto_suite}{iv_rtcp}->($$ctx{$dir}, $r);
+	my $iv = $$dctx{crypto_suite}{iv_rtcp}->($dctx, $r);
 	my ($hdr, $to_enc) = unpack('a8a*', $r);
-	my $enc = $$ctx{$dir}{crypto_suite}{enc_func}->($to_enc, $$ctx{$dir}{rtcp_session_key},
-		$iv, $$ctx{$dir}{rtcp_session_salt});
+	my $enc = $$dctx{crypto_suite}{enc_func}->($to_enc, $$dctx{rtcp_session_key},
+		$iv, $$dctx{rtcp_session_salt});
 	my $pkt = $hdr . $enc;
-	$pkt .= pack("N", (($$ctx{$dir}{rtcp_index} || 0) | 0x80000000));
+	$pkt .= pack("N", (($$dctx{rtcp_index} || 0) | 0x80000000));
 
-	my $hmac = hmac_sha1($pkt, $$ctx{$dir}{rtcp_session_auth_key});
+	my $hmac = hmac_sha1($pkt, $$dctx{rtcp_session_auth_key});
 
-	append_mki($$ctx{$dir}, \$pkt);
+	SRTP::append_mki(\$pkt, @$dctx{qw(rtp_mki_len rtp_mki)});
 
 	#$pkt .= pack("N", 1); # mki
 	$pkt .= substr($hmac, 0, 10);
 
-	$$ctx{$dir}{rtcp_index}++;
+	$$dctx{rtcp_index}++;
 
 	$NOENC{rtcp_packet} = $pkt;
 
@@ -324,68 +142,32 @@ sub rtcp_encrypt {
 sub rtp_encrypt {
 	my ($r, $ctx, $dir) = @_;
 
-	if (!$$ctx{$dir}{rtp_session_key}) {
-		($$ctx{$dir}{rtp_session_key}, $$ctx{$dir}{rtp_session_auth_key}, $$ctx{$dir}{rtp_session_salt})
-			= gen_rtp_session_keys($$ctx{$dir}{rtp_master_key}, $$ctx{$dir}{rtp_master_salt});
+	my $dctx = $$ctx{$dir};
+
+	if (!$$dctx{rtp_session_key}) {
+		($$dctx{rtp_session_key}, $$dctx{rtp_session_auth_key}, $$dctx{rtp_session_salt})
+			= SRTP::gen_rtp_session_keys($$dctx{rtp_master_key}, $$dctx{rtp_master_salt});
 	}
 
 	($NOENC && $NOENC{rtp_packet}) and return $NOENC{rtp_packet};
 
-	my ($hdr, $seq, $h2, $to_enc) = unpack('a2na8a*', $r);
-	my $roc = $$ctx{$dir}{rtp_roc} || 0;
-	$seq == 0 and $roc++;
-	$$ctx{$dir}{rtp_roc} = $roc;
-
-	my $iv = $$ctx{$dir}{crypto_suite}{iv_rtp}->($$ctx{$dir}, $r);
-	my $enc = $$ctx{$dir}{crypto_suite}{enc_func}->($to_enc, $$ctx{$dir}{rtp_session_key},
-		$iv, $$ctx{$dir}{rtp_session_salt});
-	my $pkt = pack('a*na*a*', $hdr, $seq, $h2, $enc);
-
-	my $hmac = hmac_sha1($pkt . pack("N", $$ctx{$dir}{rtp_roc}), $$ctx{$dir}{rtp_session_auth_key});
-#	print("HMAC for packet " . unpack("H*", $pkt) . " ROC $roc is " . unpack("H*", $hmac) . "\n");
-
-	append_mki($$ctx{$dir}, \$pkt);
-
-	#$pkt .= pack("N", 1); # mki
-	$pkt .= substr($hmac, 0, $$ctx{$dir}{crypto_suite}{auth_tag});
+	my ($pkt, $roc) = SRTP::encrypt_rtp(@$dctx{qw(crypto_suite rtp_session_key rtp_session_salt
+		rtp_session_auth_key rtp_roc rtp_mki rtp_mki_len)}, $r);
+	$$dctx{rtp_roc} = $roc;
 
 	$NOENC{rtp_packet} = $pkt;
 
 	return $pkt;
 }
 
-my @crypto_suites = (
-	{
-		str		=> 'AES_CM_128_HMAC_SHA1_80',
-		auth_tag	=> 10,
-		enc_func	=> \&aes_cm,
-		iv_rtp		=> \&aes_cm_iv_rtp,
-		iv_rtcp		=> \&aes_cm_iv_rtcp,
-	},
-	{
-		str		=> 'AES_CM_128_HMAC_SHA1_32',
-		auth_tag	=> 4,
-		enc_func	=> \&aes_cm,
-		iv_rtp		=> \&aes_cm_iv_rtp,
-		iv_rtcp		=> \&aes_cm_iv_rtcp,
-	},
-	{
-		str		=> 'F8_128_HMAC_SHA1_80',
-		auth_tag	=> 10,
-		enc_func	=> \&aes_f8,
-		iv_rtp		=> \&aes_f8_iv_rtp,
-		iv_rtcp		=> \&aes_f8_iv_rtcp,
-	},
-);
-$SUITES and @crypto_suites = grep {my $x = $$_{str}; grep {$x eq $_} @$SUITES} @crypto_suites;
-my %crypto_suites = map {$$_{str} => $_} @crypto_suites;
+$SUITES and @SRTP::crypto_suites = grep {my $x = $$_{str}; grep {$x eq $_} @$SUITES} @SRTP::crypto_suites;
 
 sub savp_sdp {
 	my ($ctx, $ctx_o) = @_;
 
 	if (!$$ctx{out}{crypto_suite}) {
 		$$ctx{out}{crypto_suite} = $$ctx_o{in}{crypto_suite} ? $$ctx_o{in}{crypto_suite}
-			: $crypto_suites[rand(@crypto_suites)];
+			: $SRTP::crypto_suites[rand(@SRTP::crypto_suites)];
 
 		$$ctx{out}{rtp_mki_len} = 0;
 		if (rand() > .5) {
@@ -479,7 +261,7 @@ sub rtcp_savpf {
 sub rtp {
 	my ($ctx) = @_;
 	my $seq = $$ctx{rtp_seqnum};
-	defined($seq) or $seq = int(rand(0xfffff)) + 1;
+	defined($seq) or $seq = int(rand(0xfffe)) + 1;
 	my $hdr = pack("CCnNN", 0x80, 0x00, $seq, rand(2**32), rand(2**32));
 	my $pack = $hdr . rand_str($PAYLOAD);
 	$$ctx{rtp_seqnum} = (++$seq & 0xffff);
@@ -512,10 +294,9 @@ sub savp_crypto {
 	@a or die;
 	my $i = 0;
 	while (@a >= 6) {
-		$$ctx[$i]{in}{crypto_suite} = $crypto_suites{$a[0]} or die;
-		my $ks = decode_base64($a[1]);
-		length($ks) == 30 or die;
-		($$ctx[$i]{in}{rtp_master_key}, $$ctx[$i]{in}{rtp_master_salt}) = unpack('a16a14', $ks);
+		$$ctx[$i]{in}{crypto_suite} = $SRTP::crypto_suites{$a[0]} or die;
+		($$ctx[$i]{in}{rtp_master_key}, $$ctx[$i]{in}{rtp_master_salt})
+			= SRTP::decode_inline_base64($a[1]);
 		$$ctx[$i]{in}{rtp_mki} = $a[4];
 		$$ctx[$i]{in}{rtp_mki_len} = $a[5];
 		undef($$ctx[$i]{in}{rtp_session_key});
@@ -777,8 +558,9 @@ t=0 0
 			and $cp = $p;
 
 		$sdp .= <<"!";
-m=audio $p $$tr{name} 8
+m=audio $p $$tr{name} 0 8 111
 a=rtpmap:8 PCMA/8000
+a=rtpmap:111 opus/48000/2
 !
 		if ($$A{want_rtcpmux} && $op eq 'offer') {
 			$sdp .= "a=rtcp-mux\n";

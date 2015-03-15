@@ -27,10 +27,11 @@
 #include "call_interfaces.h"
 #include "cli.h"
 #include "graphite.h"
+#include "ice.h"
 
 
 
-#define REDIS_MODULE_VERSION "redis/6"
+#define REDIS_MODULE_VERSION "redis/8"
 
 
 
@@ -80,7 +81,6 @@ struct main_context {
 
 
 
-static int global_shutdown;
 static mutex_t *openssl_locks;
 
 static char *pidfile;
@@ -126,7 +126,7 @@ static void sighandler(gpointer x) {
 	ts.tv_sec = 0;
 	ts.tv_nsec = 100000000; /* 0.1 sec */
 
-	while (!global_shutdown) {
+	while (!g_shutdown) {
 		ret = sigtimedwait(&ss, NULL, &ts);
 		if (ret == -1) {
 			if (errno == EAGAIN || errno == EINTR)
@@ -135,7 +135,7 @@ static void sighandler(gpointer x) {
 		}
 		
 		if (ret == SIGINT || ret == SIGTERM)
-			global_shutdown = 1;
+			g_shutdown = 1;
 		else if (ret == SIGUSR1) {
 		        if (get_log_level() > 0) {
 				g_atomic_int_add(&log_level, -1);
@@ -237,7 +237,7 @@ static struct interface_address *if_addr_parse(char *s) {
 			return NULL;
 	}
 
-	ifa = g_slice_alloc(sizeof(*ifa));
+	ifa = g_slice_alloc0(sizeof(*ifa));
 	ifa->interface_name = name;
 	ifa->addr = addr;
 	ifa->advertised = adv;
@@ -463,6 +463,7 @@ static void init_everything() {
 	resources();
 	sdp_init();
 	dtls_init();
+	ice_init();
 }
 
 void redis_mod_verify(void *dlh) {
@@ -568,6 +569,9 @@ no_kernel:
 	mc.default_tos = tos;
 	mc.b2b_url = b2b_url;
 	mc.fmt = xmlrpc_fmt;
+	mc.graphite_port = graphite_port;
+	mc.graphite_ip = graphite_ip;
+	mc.graphite_interval = graphite_interval;
 
 	ct = NULL;
 	if (listenport) {
@@ -601,8 +605,8 @@ no_kernel:
 	}
 
 	if (redis_ip) {
-		dlh = dlopen(MP_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
-		if (!dlh && !g_file_test(MP_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
+		dlh = dlopen(RE_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
+		if (!dlh && !g_file_test(RE_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
 				&& g_file_test("../../rtpengine-redis/redis.so", G_FILE_TEST_IS_REGULAR))
 			dlh = dlopen("../../rtpengine-redis/redis.so", RTLD_NOW | RTLD_GLOBAL);
 		if (!dlh)
@@ -627,34 +631,6 @@ no_kernel:
 		die("Refusing to continue without working Redis database");
 }
 
-static void timer_loop(void *d) {
-	struct poller *p = d;
-
-	while (!global_shutdown)
-		poller_timers_wait_run(p, 100);
-}
-
-static void graphite_loop(void *d) {
-	struct callmaster *cm = d;
-
-	if (!graphite_interval) {
-		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
-		graphite_interval=1;
-	}
-
-	connect_to_graphite_server(graphite_ip,graphite_port);
-
-	while (!global_shutdown)
-		graphite_loop_run(cm,graphite_interval); // time in seconds
-}
-
-static void poller_loop(void *d) {
-	struct poller *p = d;
-
-	while (!global_shutdown)
-		poller_poll(p, 100);
-}
-
 int main(int argc, char **argv) {
 	struct main_context ctx;
 	int idx=0;
@@ -666,9 +642,10 @@ int main(int argc, char **argv) {
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
 	thread_create_detach(sighandler, NULL);
-	thread_create_detach(timer_loop, ctx.p);
+	thread_create_detach(poller_timer_loop, ctx.p);
 	if (graphite_ip)
 		thread_create_detach(graphite_loop, ctx.m);
+	thread_create_detach(ice_thread_run, NULL);
 
 	if (num_threads < 1) {
 #ifdef _SC_NPROCESSORS_ONLN
@@ -682,7 +659,7 @@ int main(int argc, char **argv) {
 		thread_create_detach(poller_loop, ctx.p);
 	}
 
-	while (!global_shutdown) {
+	while (!g_shutdown) {
 		usleep(100000);
 		threads_join_all(0);
 	}

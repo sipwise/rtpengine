@@ -3,6 +3,9 @@
 
 
 
+/* XXX split everything into call_signalling.[ch] and call_packets.[ch] or w/e */
+
+
 
 #include <sys/types.h>
 #include <glib.h>
@@ -12,6 +15,7 @@
 #include <openssl/x509.h>
 #include "compat.h"
 #include "control_ng.h"
+#include "aux.h"
 
 enum termination_reason {
 	UNKNOWN=0,
@@ -54,7 +58,14 @@ enum xmlrpc_format {
 	XF_CALLID,
 };
 
-struct call_monologue;
+enum call_stream_state {
+	CSS_UNKNOWN = 0,
+	CSS_SHUTDOWN,
+	CSS_ICE,
+	CSS_DTLS,
+	CSS_RUNNING,
+};
+
 
 
 
@@ -65,6 +76,7 @@ struct call_monologue;
 #include "str.h"
 #include "crypto.h"
 #include "dtls.h"
+#include "rtp.h"
 
 
 
@@ -99,6 +111,8 @@ struct call_monologue;
 #define SHARED_FLAG_ICE				0x00000080
 #define SHARED_FLAG_STRICT_SOURCE		0x00000100
 #define SHARED_FLAG_MEDIA_HANDOVER		0x00000200
+#define SHARED_FLAG_TRICKLE_ICE			0x00000400
+#define SHARED_FLAG_ICE_LITE			0x00000800
 
 /* struct stream_params */
 #define SP_FLAG_NO_RTCP				0x00010000
@@ -112,21 +126,24 @@ struct call_monologue;
 #define SP_FLAG_ICE				SHARED_FLAG_ICE
 #define SP_FLAG_STRICT_SOURCE			SHARED_FLAG_STRICT_SOURCE
 #define SP_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
+#define SP_FLAG_TRICKLE_ICE			SHARED_FLAG_TRICKLE_ICE
+#define SP_FLAG_ICE_LITE			SHARED_FLAG_ICE_LITE
 
 /* struct packet_stream */
 #define PS_FLAG_RTP				0x00010000
 #define PS_FLAG_RTCP				0x00020000
 #define PS_FLAG_IMPLICIT_RTCP			SHARED_FLAG_IMPLICIT_RTCP
 #define PS_FLAG_FALLBACK_RTCP			0x00040000
-#define PS_FLAG_STUN				0x00080000
+#define PS_FLAG_UNUSED2				0x00080000
 #define PS_FLAG_FILLED				0x00100000
 #define PS_FLAG_CONFIRMED			0x00200000
 #define PS_FLAG_KERNELIZED			0x00400000
 #define PS_FLAG_NO_KERNEL_SUPPORT		0x00800000
-#define PS_FLAG_HAS_HANDLER			0x01000000
+#define PS_FLAG_UNUSED				0x01000000
 #define PS_FLAG_FINGERPRINT_VERIFIED		0x02000000
 #define PS_FLAG_STRICT_SOURCE			SHARED_FLAG_STRICT_SOURCE
 #define PS_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
+#define PS_FLAG_ICE				SHARED_FLAG_ICE
 
 /* struct call_media */
 #define MEDIA_FLAG_INITIALIZED			0x00010000
@@ -141,15 +158,22 @@ struct call_monologue;
 #define MEDIA_FLAG_SETUP_PASSIVE		SHARED_FLAG_SETUP_PASSIVE
 #define MEDIA_FLAG_PASSTHRU			0x00100000
 #define MEDIA_FLAG_ICE				SHARED_FLAG_ICE
+#define MEDIA_FLAG_TRICKLE_ICE			SHARED_FLAG_TRICKLE_ICE
+#define MEDIA_FLAG_ICE_LITE			SHARED_FLAG_ICE_LITE
+#define MEDIA_FLAG_ICE_CONTROLLING		0x00200000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
 #define SP_SET(p, f)		bf_set(&(p)->sp_flags, SP_FLAG_ ## f)
 #define SP_CLEAR(p, f)		bf_clear(&(p)->sp_flags, SP_FLAG_ ## f)
 #define PS_ISSET(p, f)		bf_isset(&(p)->ps_flags, PS_FLAG_ ## f)
+#define PS_ISSET2(p, f, g)	bf_isset(&(p)->ps_flags, PS_FLAG_ ## f | PS_FLAG_ ## g)
+#define PS_ARESET2(p, f, g)	bf_areset(&(p)->ps_flags, PS_FLAG_ ## f | PS_FLAG_ ## g)
 #define PS_SET(p, f)		bf_set(&(p)->ps_flags, PS_FLAG_ ## f)
 #define PS_CLEAR(p, f)		bf_clear(&(p)->ps_flags, PS_FLAG_ ## f)
 #define MEDIA_ISSET(p, f)	bf_isset(&(p)->media_flags, MEDIA_FLAG_ ## f)
+#define MEDIA_ISSET2(p, f, g)	bf_isset(&(p)->media_flags, MEDIA_FLAG_ ## f | MEDIA_FLAG_ ## g)
+#define MEDIA_ARESET2(p, f, g)	bf_areset(&(p)->media_flags, MEDIA_FLAG_ ## f | MEDIA_FLAG_ ## g)
 #define MEDIA_SET(p, f)		bf_set(&(p)->media_flags, MEDIA_FLAG_ ## f)
 #define MEDIA_CLEAR(p, f)	bf_clear(&(p)->media_flags, MEDIA_FLAG_ ## f)
 
@@ -165,6 +189,8 @@ struct rtpengine_srtp;
 struct streamhandler;
 struct sdp_ng_flags;
 struct local_interface;
+struct call_monologue;
+struct ice_agent;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -178,6 +204,7 @@ typedef bencode_buffer_t call_buffer_t;
 struct transport_protocol {
 	enum transport_protocol_index	index;
 	const char			*name;
+	int				rtp:1; /* also set to 1 for SRTP */
 	int				srtp:1;
 	int				avpf:1;
 };
@@ -187,32 +214,30 @@ extern const struct transport_protocol transport_protocols[];
 
 
 struct stats {
-	u_int64_t			packets;
-	u_int64_t			bytes;
-	u_int64_t			errors;
+	atomic64			packets;
+	atomic64			bytes;
+	atomic64			errors;
 };
 
 struct totalstats {
 	time_t 				started;
+	atomic64			total_timeout_sess;
+	atomic64			total_silent_timeout_sess;
+	atomic64			total_regular_term_sess;
+	atomic64			total_forced_term_sess;
+	atomic64			total_relayed_packets;
+	atomic64			total_relayed_errors;
+	atomic64			total_nopacket_relayed_sess;
+	atomic64			total_oneway_stream_sess;
+
+	mutex_t				total_average_lock; /* for these two below */
 	u_int64_t			total_managed_sess;
-	u_int64_t			total_timeout_sess;
-	u_int64_t			total_silent_timeout_sess;
-	u_int64_t			total_regular_term_sess;
-	u_int64_t			total_forced_term_sess;
-	u_int64_t			total_relayed_packets;
-	u_int64_t			total_relayed_errors;
-	u_int64_t			total_nopacket_relayed_sess;
-	u_int64_t			total_oneway_stream_sess;
-	struct timeval		total_average_call_dur;
+	struct timeval			total_average_call_dur;
 };
 
 struct udp_fd {
 	int			fd;
 	u_int16_t		localport;
-};
-struct endpoint {
-	struct in6_addr		ip46;
-	u_int16_t		port;
 };
 struct stream_params {
 	unsigned int		index; /* starting with 1 */
@@ -227,6 +252,10 @@ struct stream_params {
 	int			desired_family;
 	struct dtls_fingerprint fingerprint;
 	unsigned int		sp_flags;
+	GQueue			rtp_payload_types; /* slice-alloc'd */
+	GQueue			ice_candidates; /* slice-alloc'd */
+	str			ice_ufrag;
+	str			ice_pwd;
 };
 
 struct stream_fd {
@@ -249,6 +278,14 @@ struct loop_protector {
 	unsigned char		buf[RTP_LOOP_PROTECT];
 };
 
+struct rtp_stats {
+	unsigned int		payload_type;
+	atomic64		packets;
+	atomic64		bytes;
+	atomic64		kernel_packets;
+	atomic64		kernel_bytes;
+};
+
 struct packet_stream {
 	mutex_t			in_lock,
 				out_lock;
@@ -258,6 +295,7 @@ struct packet_stream {
 
 	struct call_media	*media;		/* RO */
 	struct call		*call;		/* RO */
+	unsigned int		component;	/* RO, starts with 1 */
 
 	struct stream_fd	*sfd;		/* LOCK: call->master_lock */
 	struct packet_stream	*rtp_sink;	/* LOCK: call->master_lock */
@@ -268,9 +306,10 @@ struct packet_stream {
 	struct endpoint		advertised_endpoint; /* RO */
 	struct crypto_context	crypto;		/* OUT direction, LOCK: out_lock */
 
-	struct stats		stats;		/* LOCK: in_lock */
-	struct stats		kernel_stats;	/* LOCK: in_lock */
-	time_t			last_packet;	/* LOCK: in_lock */
+	struct stats		stats;
+	struct stats		kernel_stats;
+	atomic64		last_packet;
+	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: in_lock: */
@@ -282,8 +321,7 @@ struct packet_stream {
 	X509			*dtls_cert;	/* LOCK: in_lock */
 
 	/* in_lock must be held for SETTING these: */
-	/* (XXX replace with atomic ops where appropriate) */
-	unsigned int		ps_flags;
+	volatile unsigned int	ps_flags;
 };
 
 /* protected by call->master_lock, except the RO elements */
@@ -302,8 +340,8 @@ struct call_media {
 	 * atomic ops to access it when holding an R lock. */
 	volatile struct interface_address *local_address;
 
-	str			ice_ufrag;
-	str			ice_pwd;
+	struct ice_agent	*ice_agent;
+
 	struct {
 		struct crypto_params	params;
 		unsigned int		tag;
@@ -314,8 +352,9 @@ struct call_media {
 
 	GQueue			streams; /* normally RTP + RTCP */
 	GSList			*endpoint_maps;
+	GHashTable		*rtp_payload_types;
 
-	unsigned int		media_flags;
+	volatile unsigned int	media_flags;
 };
 
 /* half a dialogue */
@@ -365,8 +404,9 @@ struct call {
 
 struct local_interface {
 	str			name;
-	GQueue			ipv4; /* struct interface_address */
-	GQueue			ipv6; /* struct interface_address */
+	int			preferred_family;
+	GQueue			list; /* struct interface_address */
+	GHashTable		*addr_hash;
 };
 struct interface_address {
 	str			interface_name;
@@ -375,6 +415,7 @@ struct interface_address {
 	struct in6_addr		advertised;
 	str			ice_foundation;
 	char			foundation_buf[16];
+	unsigned int		preference; /* starting with 0 */
 };
 
 struct callmaster_config {
@@ -390,6 +431,9 @@ struct callmaster_config {
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;
+	u_int32_t		graphite_ip;
+	u_int16_t		graphite_port;
+	int			graphite_interval;
 };
 
 struct callmaster {
@@ -399,18 +443,15 @@ struct callmaster {
 	GHashTable		*callhash;
 
 	GHashTable		*interfaces; /* struct local_interface */
-	GQueue			interface_list; /* ditto */
+	GQueue			interface_list_v4; /* ditto */
+	GQueue			interface_list_v6; /* ditto */
 
-	mutex_t			portlock;
-	u_int16_t		lastport;
+	volatile unsigned int	lastport;
 	BIT_ARRAY_DECLARE(ports_used, 0x10000);
 
 	/* XXX rework these */
-	mutex_t			statspslock;
 	struct stats		statsps;	/* per second stats, running timer */
-	mutex_t			statslock;
 	struct stats		stats;		/* copied from statsps once a second */
-	mutex_t			totalstats_lock; /* for both of them */
 	struct totalstats   totalstats;
 	struct totalstats   totalstats_interval;
 	/* control_ng_stats stuff */
@@ -455,22 +496,23 @@ int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, co
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output);
 void call_destroy(struct call *);
+enum call_stream_state call_stream_state_machine(struct packet_stream *);
+void call_media_unkernelize(struct call_media *media);
 
 void kernelize(struct packet_stream *);
 int call_stream_address(char *, struct packet_stream *, enum stream_address_format, int *);
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
 		int *len, struct interface_address *ifa);
-void get_all_interface_addresses(GQueue *q, struct local_interface *lif, int family);
-struct local_interface *get_local_interface(struct callmaster *m, const str *name);
+struct local_interface *get_local_interface(struct callmaster *m, const str *name, int familiy);
+INLINE struct interface_address *get_interface_from_address(struct local_interface *lif,
+		const struct in6_addr *addr)
+{
+	return g_hash_table_lookup(lif->addr_hash, addr);
+}
 struct interface_address *get_any_interface_address(struct local_interface *lif, int family);
-struct interface_address *get_interface_from_address(struct local_interface *lif, const struct in6_addr *addr);
 
 const struct transport_protocol *transport_protocol(const str *s);
 
-void timeval_subtract (struct timeval *result, const struct timeval *a, const struct timeval *b);
-void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier);
-void timeval_devide(struct timeval *result, const struct timeval *a, const long devisor);
-void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b);
 
 
 INLINE void *call_malloc(struct call *c, size_t l) {
@@ -483,6 +525,8 @@ INLINE void *call_malloc(struct call *c, size_t l) {
 
 INLINE char *call_strdup_len(struct call *c, const char *s, unsigned int len) {
 	char *r;
+	if (!s)
+		return NULL;
 	r = call_malloc(c, len + 1);
 	memcpy(r, s, len);
 	r[len] = 0;
@@ -521,10 +565,7 @@ INLINE str *call_str_init_dup(struct call *c, char *s) {
 	return call_str_dup(c, &t);
 }
 INLINE void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
-	/* XXX atomic bit field? */
-	mutex_lock(&m->portlock);
 	bit_array_set(m->ports_used, p);
-	mutex_unlock(&m->portlock);
 }
 INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	struct packet_stream *ret;
@@ -534,6 +575,6 @@ INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	return ret;
 }
 
-const char * get_tag_type_text(char *buf, enum tag_type t);
+const char * get_tag_type_text(enum tag_type t);
 
 #endif

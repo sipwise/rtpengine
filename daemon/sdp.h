@@ -45,7 +45,6 @@ struct sdp_chopper {
 };
 
 void sdp_init(void);
-void sdp_ice_foundation(struct interface_address *ifa);
 
 int sdp_parse(str *body, GQueue *sessions);
 int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *);
@@ -56,5 +55,11 @@ struct sdp_chopper *sdp_chopper_new(str *input);
 void sdp_chopper_destroy(struct sdp_chopper *chop);
 
 int address_family(const str *s);
+
+INLINE int is_trickle_ice_address(const struct endpoint *ep) {
+	if (is_addr_unspecified(&ep->ip46) && ep->port == 9)
+		return 1;
+	return 0;
+}
 
 #endif

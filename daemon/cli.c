@@ -25,35 +25,38 @@ static const char* TRUNCATED = "    ... Output truncated. Increase Output Buffer
 
 static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
+	struct timeval avg;
+	u_int64_t num_sessions;
 
-	mutex_lock(&m->totalstats_lock);
+	mutex_lock(&m->totalstats.total_average_lock);
+	avg = m->totalstats.total_average_call_dur;
+	num_sessions = m->totalstats.total_managed_sess;
+	mutex_unlock(&m->totalstats.total_average_lock);
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nTotal statistics (does not include current running sessions):\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Uptime of rtpengine                             :%llu seconds\n", (unsigned long long)time(NULL)-m->totalstats.started);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total managed sessions                          :%llu\n", (unsigned long long)m->totalstats.total_managed_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total managed sessions                          :"UINT64F"\n", num_sessions);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via TIMEOUT            :%llu\n",(unsigned long long)m->totalstats.total_timeout_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via TIMEOUT            :"UINT64F"\n",atomic64_get(&m->totalstats.total_timeout_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via SILENT_TIMEOUT     :%llu\n",(unsigned long long)m->totalstats.total_silent_timeout_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via SILENT_TIMEOUT     :"UINT64F"\n",atomic64_get(&m->totalstats.total_silent_timeout_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total regular terminated sessions               :%llu\n",(unsigned long long)m->totalstats.total_regular_term_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total regular terminated sessions               :"UINT64F"\n",atomic64_get(&m->totalstats.total_regular_term_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total forced terminated sessions                :%llu\n",(unsigned long long)m->totalstats.total_forced_term_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total forced terminated sessions                :"UINT64F"\n",atomic64_get(&m->totalstats.total_forced_term_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packets                           :%llu\n",(unsigned long long)m->totalstats.total_relayed_packets);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packets                           :"UINT64F"\n",atomic64_get(&m->totalstats.total_relayed_packets));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packet errors                     :%llu\n",(unsigned long long)m->totalstats.total_relayed_errors);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total relayed packet errors                     :"UINT64F"\n",atomic64_get(&m->totalstats.total_relayed_errors));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of streams with no relayed packets :%llu\n", (unsigned long long)m->totalstats.total_nopacket_relayed_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of streams with no relayed packets :"UINT64F"\n", atomic64_get(&m->totalstats.total_nopacket_relayed_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of 1-way streams                   :%llu\n",(unsigned long long)m->totalstats.total_oneway_stream_sess);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total number of 1-way streams                   :"UINT64F"\n",atomic64_get(&m->totalstats.total_oneway_stream_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",m->totalstats.total_average_call_dur.tv_sec,m->totalstats.total_average_call_dur.tv_usec);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",avg.tv_sec,avg.tv_usec);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-
-	mutex_unlock(&m->totalstats_lock);
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
@@ -97,9 +100,8 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    GSList *l;
    GList *k, *o;
    int printlen=0;
-   char tagtypebuf[16]; memset(&tagtypebuf,0,16);
-   struct timeval tim_result_duration; memset(&tim_result_duration,0,sizeof(struct timeval));
-   struct timeval now; memset(&now,0,sizeof(struct timeval));
+   struct timeval tim_result_duration;
+   struct timeval now;
 
    if (len<=1) {
        printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
@@ -131,7 +133,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 	   timeval_subtract(&tim_result_duration,&now,&ml->started);
 	   printlen = snprintf(replybuffer,(outbufend-replybuffer), "--- Tag '"STR_FORMAT"' type: %s, callduration "
             "%ld.%06ld , in dialogue with '"STR_FORMAT"'\n",
-			STR_FMT(&ml->tag), get_tag_type_text(tagtypebuf,ml->tagtype),
+			STR_FMT(&ml->tag), get_tag_type_text(ml->tagtype),
             tim_result_duration.tv_sec,
             tim_result_duration.tv_usec,
             ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
@@ -148,15 +150,15 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                    continue;
 
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-                    "%llu p, %llu b, %llu e, %llu last_packet\n",
+                    ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
                     md->index,
                     (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
                     smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
                     (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-                        (unsigned long long) ps->stats.packets,
-                        (unsigned long long) ps->stats.bytes,
-                        (unsigned long long) ps->stats.errors,
-                        (unsigned long long) ps->last_packet);
+                         atomic64_get(&ps->stats.packets),
+                         atomic64_get(&ps->stats.bytes),
+                         atomic64_get(&ps->stats.errors),
+                        atomic64_get(&ps->last_packet));
                ADJUSTLEN(printlen,outbufend,replybuffer);
            }
        }
@@ -165,6 +167,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    rwlock_unlock_w(&c->master_lock); // because of call_get(..)
+   obj_put(c);
 }
 
 static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
@@ -244,7 +247,6 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
            if (!c->ml_deleted) {
         	   for (i = c->monologues; i; i = i->next) {
         		   ml = i->data;
-        		   memset(&ml->terminated,0,sizeof(struct timeval));
         		   gettimeofday(&(ml->terminated), NULL);
         		   ml->term_reason = FORCED;
         	   }
@@ -269,18 +271,19 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
    if (!c->ml_deleted) {
 	   for (i = c->monologues; i; i = i->next) {
 		   ml = i->data;
-		   memset(&ml->terminated,0,sizeof(struct timeval));
 		   gettimeofday(&(ml->terminated), NULL);
 		   ml->term_reason = FORCED;
 	   }
    }
-   call_destroy(c);
 
    printlen = snprintf(replybuffer, outbufend-replybuffer, "\nCall Id (%s) successfully terminated by operator.\n\n",termparam.s);
    ADJUSTLEN(printlen,outbufend,replybuffer);
    ilog(LOG_WARN, "Call Id (%s) successfully terminated by operator.",termparam.s);
 
    rwlock_unlock_w(&c->master_lock);
+
+   call_destroy(c);
+   obj_put(c);
 }
 
 static void cli_incoming(int fd, void *p, uintptr_t u) {
@@ -289,11 +292,11 @@ static void cli_incoming(int fd, void *p, uintptr_t u) {
    struct cli *cli = (void *) p;
    socklen_t sinl;
    static const int BUFLENGTH = 4096*1024;
-        char replybuffer[BUFLENGTH]; memset(&replybuffer,0,BUFLENGTH);
+        char replybuffer[BUFLENGTH];
         char* outbuf = replybuffer;
         const char* outbufend = replybuffer+BUFLENGTH;
    static const int MAXINPUT = 1024;
-   char inbuf[MAXINPUT]; memset(&inbuf,0,MAXINPUT);
+   char inbuf[MAXINPUT];
    int inlen = 0, readbytes = 0;
    int rc=0;
 
@@ -303,10 +306,10 @@ next:
    nfd = accept(fd, (struct sockaddr *) &sin, &sinl);
    if (nfd == -1) {
        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-           sprintf(replybuffer, "Could currently not accept CLI commands. Reason:%s\n", strerror(errno));
+           ilog(LOG_INFO, "Could currently not accept CLI commands. Reason:%s", strerror(errno));
            goto cleanup;
        }
-       ilog(LOG_INFO, "Accept error:%s\n", strerror(errno));
+       ilog(LOG_INFO, "Accept error:%s", strerror(errno));
        goto next;
    }
 
@@ -316,23 +319,24 @@ next:
        readbytes = read(nfd, inbuf+inlen, MAXINPUT);
        if (readbytes == -1) {
            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-               ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s\n", strerror(errno));
+               ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s", strerror(errno));
                goto cleanup;
            }
-           ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s\n", strerror(errno));
+           ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s", strerror(errno));
        }
        inlen += readbytes;
-   } while (readbytes > 0);
+   } while (readbytes > 0 && inlen < sizeof(inbuf)-1);
 
-   ilog(LOG_INFO, "Got CLI command:%s\n",inbuf);
+   inbuf[inlen] = 0;
+   ilog(LOG_INFO, "Got CLI command:%s",inbuf);
 
    static const char* LIST = "list";
    static const char* TERMINATE = "terminate";
 
-   if (inlen>=strlen(LIST) && strncmp(inbuf,LIST,strlen(LIST)) == 0) {
+   if (strncmp(inbuf,LIST,strlen(LIST)) == 0) {
        cli_incoming_list(inbuf+strlen(LIST), inlen-strlen(LIST), cli->callmaster, outbuf, outbufend);
 
-   } else  if (inlen>=strlen(TERMINATE) && strncmp(inbuf,TERMINATE,strlen(TERMINATE)) == 0) {
+   } else  if (strncmp(inbuf,TERMINATE,strlen(TERMINATE)) == 0) {
        cli_incoming_terminate(inbuf+strlen(TERMINATE), inlen-strlen(TERMINATE), cli->callmaster, outbuf, outbufend);
    } else {
        sprintf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", inbuf);

@@ -17,6 +17,8 @@
 #include <net/dst.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
+#include <linux/bsearch.h>
+#include <linux/atomic.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
@@ -141,13 +143,22 @@ struct re_crypto_context {
 	const struct re_hmac		*hmac;
 };
 
+struct rtpengine_stats_a {
+	atomic64_t			packets;
+	atomic64_t			bytes;
+	atomic64_t			errors;
+};
+struct rtpengine_rtp_stats_a {
+	atomic64_t			packets;
+	atomic64_t			bytes;
+};
 struct rtpengine_target {
 	atomic_t			refcnt;
 	u_int32_t			table;
 	struct rtpengine_target_info	target;
 
-	spinlock_t			stats_lock;
-	struct rtpengine_stats		stats;
+	struct rtpengine_stats_a	stats;
+	struct rtpengine_rtp_stats_a	rtp_stats[NUM_PAYLOAD_TYPES];
 
 	struct re_crypto_context	decrypt;
 	struct re_crypto_context	encrypt;
@@ -815,10 +826,9 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	u_int32_t id;
 	struct rtpengine_table *t;
 	struct rtpengine_list_entry op;
-	int err;
+	int err, port, i;
 	struct rtpengine_target *g;
 	unsigned long flags;
-	int port;
 
 	if (l != sizeof(op))
 		return -EINVAL;
@@ -841,9 +851,14 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	memset(&op, 0, sizeof(op));
 	memcpy(&op.target, &g->target, sizeof(op.target));
 
-	spin_lock_irqsave(&g->stats_lock, flags);
-	memcpy(&op.stats, &g->stats, sizeof(op.stats));
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+	op.stats.packets = atomic64_read(&g->stats.packets);
+	op.stats.bytes = atomic64_read(&g->stats.bytes);
+	op.stats.errors = atomic64_read(&g->stats.errors);
+
+	for (i = 0; i < g->target.num_payload_types; i++) {
+		op.rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
+		op.rtp_stats[i].bytes = atomic64_read(&g->rtp_stats[i].bytes);
+	}
 
 	spin_lock_irqsave(&g->decrypt.lock, flags);
 	op.target.decrypt.last_index = g->target.decrypt.last_index;
@@ -970,7 +985,7 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 
 static int proc_list_show(struct seq_file *f, void *v) {
 	struct rtpengine_target *g = v;
-	unsigned long flags;
+	int i;
 
 	seq_printf(f, "port %5u:\n", g->target.target_port);
 	proc_list_addr_print(f, "src", &g->target.src_addr);
@@ -979,10 +994,15 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	proc_list_addr_print(f, "expect", &g->target.expected_src);
 	if (g->target.src_mismatch > 0 && g->target.src_mismatch <= ARRAY_SIZE(re_msm_strings))
 		seq_printf(f, "    src mismatch action: %s\n", re_msm_strings[g->target.src_mismatch]);
-	spin_lock_irqsave(&g->stats_lock, flags);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
-		g->stats.bytes, g->stats.packets, g->stats.errors);
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+		(unsigned long long) atomic64_read(&g->stats.bytes),
+		(unsigned long long) atomic64_read(&g->stats.packets),
+		(unsigned long long) atomic64_read(&g->stats.errors));
+	for (i = 0; i < g->target.num_payload_types; i++)
+		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
+			g->target.payload_types[i],
+			(unsigned long long) atomic64_read(&g->rtp_stats[i].bytes),
+			(unsigned long long) atomic64_read(&g->rtp_stats[i].packets));
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption (incoming)");
 	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt, "encryption (outgoing)");
 	if (g->target.rtcp_mux)
@@ -1373,7 +1393,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	struct rtpengine_target *g;
 	struct re_bucket *b, *ba = NULL;
 	struct rtpengine_target *og = NULL;
-	int err;
+	int err, j;
 	unsigned long flags;
 
 	if (!i->target_port)
@@ -1404,7 +1424,6 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	memset(g, 0, sizeof(*g));
 	g->table = t->id;
 	atomic_set(&g->refcnt, 1);
-	spin_lock_init(&g->stats_lock);
 	spin_lock_init(&g->decrypt.lock);
 	spin_lock_init(&g->encrypt.lock);
 	memcpy(&g->target, i, sizeof(*i));
@@ -1452,9 +1471,14 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		if (!og)
 			goto fail4;
 
-		spin_lock(&og->stats_lock);	/* nested lock! irqs are disabled already */
-		memcpy(&g->stats, &og->stats, sizeof(g->stats));
-		spin_unlock(&og->stats_lock);
+		atomic64_set(&g->stats.packets, atomic64_read(&og->stats.packets));
+		atomic64_set(&g->stats.bytes, atomic64_read(&og->stats.bytes));
+		atomic64_set(&g->stats.errors, atomic64_read(&og->stats.errors));
+
+		for (j = 0; j < NUM_PAYLOAD_TYPES; j++) {
+			atomic64_set(&g->rtp_stats[j].packets, atomic64_read(&og->rtp_stats[j].packets));
+			atomic64_set(&g->rtp_stats[j].bytes, atomic64_read(&og->rtp_stats[j].bytes));
+		}
 	}
 	else {
 		err = -EEXIST;
@@ -1899,6 +1923,17 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 	return index;
 }
 
+static void update_packet_index(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, u_int64_t idx)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&c->lock, flags);
+	s->last_index = idx;
+	c->roc = (idx >> 16);
+	spin_unlock_irqrestore(&c->lock, flags);
+}
+
 static int srtp_hash(unsigned char *hmac,
 		struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
@@ -1983,10 +2018,11 @@ static int srtp_authenticate(struct re_crypto_context *c,
 
 static int srtp_auth_validate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		u_int64_t *pkt_idx_p)
 {
 	unsigned char *auth_tag;
 	unsigned char hmac[20];
+	u_int64_t pkt_idx = *pkt_idx_p;
 
 	if (s->hmac == REH_NULL)
 		return 0;
@@ -2015,12 +2051,36 @@ static int srtp_auth_validate(struct re_crypto_context *c,
 
 	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
 
-	if (memcmp(auth_tag, hmac, s->auth_tag_len))
+	/* possible ROC mismatch, attempt to guess */
+	/* first, let's see if we missed a rollover */
+	pkt_idx += 0x10000;
+	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
+	/* or maybe we did a rollover too many */
+	if (pkt_idx >= 0x20000) {
+		pkt_idx -= 0x20000;
+		if (srtp_hash(hmac, c, s, r, pkt_idx))
+			return -1;
+		if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+			goto ok;
+	}
+	/* last guess: reset ROC to zero */
+	pkt_idx &= 0xffff;
+	if (srtp_hash(hmac, c, s, r, pkt_idx))
+		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
 
+	return -1;
+
+ok:
+	*pkt_idx_p = pkt_idx;
 	return 0;
-
 }
 
 
@@ -2105,16 +2165,34 @@ static inline int is_dtls(struct sk_buff *skb) {
 	return 1;
 }
 
+static int rtp_payload_match(const void *a, const void *b) {
+	const unsigned char *A = a, *B = b;
+
+	if (*A < *B)
+		return -1;
+	if (*A > *B)
+		return 1;
+	return 0;
+}
+static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rtpengine_target_info *tg) {
+	unsigned char pt, *match;
+
+	pt = hdr->m_pt & 0x7f;
+	match = bsearch(&pt, tg->payload_types, tg->num_payload_types, sizeof(pt), rtp_payload_match);
+	if (!match)
+		return -1;
+	return match - tg->payload_types;
+}
+
 static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src) {
 	struct udphdr *uh;
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
-	int err;
+	int err, rtp_pt_idx = -2;
 	unsigned int datalen;
-	unsigned long flags;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
-	u_int64_t pkt_idx = 0;
+	u_int64_t pkt_idx = 0, pkt_idx_u;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -2169,17 +2247,28 @@ not_stun:
 src_check_ok:
 	if (g->target.dtls && is_dtls(skb))
 		goto skip1;
+
+	rtp.ok = 0;
+	if (!g->target.rtp)
+		goto not_rtp;
+
 	parse_rtp(&rtp, skb);
 	if (!rtp.ok) {
 		if (g->target.rtp_only)
 			goto skip1;
 		goto not_rtp;
 	}
+
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
 		goto skip1;
-	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
-	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
+
+	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
+
+	pkt_idx_u = pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
 		goto skip_error;
+	if (pkt_idx != pkt_idx_u)
+		update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx);
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
 
@@ -2197,11 +2286,8 @@ not_rtp:
 		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
 		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
-		if (err) {
-			spin_lock_irqsave(&g->stats_lock, flags);
-			g->stats.errors++;
-			spin_unlock_irqrestore(&g->stats_lock, flags);
-		}
+		if (err)
+			atomic64_inc(&g->stats.errors);
 	}
 
 	if (rtp.ok) {
@@ -2213,14 +2299,20 @@ not_rtp:
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
 out:
-	spin_lock_irqsave(&g->stats_lock, flags);
 	if (err)
-		g->stats.errors++;
+		atomic64_inc(&g->stats.errors);
 	else {
-		g->stats.packets++;
-		g->stats.bytes += skb->len;
+		atomic64_inc(&g->stats.packets);
+		atomic64_add(datalen, &g->stats.bytes);
 	}
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+	if (rtp_pt_idx >= 0) {
+		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
+		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
+	}
+	else if (rtp_pt_idx == -2)
+		/* not RTP */ ;
+	else if (rtp_pt_idx == -1)
+		atomic64_inc(&g->stats.errors);
 
 	target_push(g);
 	table_push(t);
@@ -2228,9 +2320,7 @@ out:
 	return NF_DROP;
 
 skip_error:
-	spin_lock_irqsave(&g->stats_lock, flags);
-	g->stats.errors++;
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+	atomic64_inc(&g->stats.errors);
 skip1:
 	target_push(g);
 skip2:

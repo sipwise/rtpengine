@@ -25,7 +25,8 @@ static u_int32_t graphite_ipaddress;
 static int graphite_port=0;
 static struct callmaster* cm=0;
 //struct totalstats totalstats_prev;
-static time_t g_now, next_run;
+static time_t next_run;
+// HEAD: static time_t g_now, next_run;
 static char* graphite_prefix = NULL;
 
 void set_prefix(char* prefix) {
@@ -121,44 +122,58 @@ int send_graphite_data() {
 	}
 
 	// format hostname "." totals.subkey SPACE value SPACE timestamp
-	char hostname[256]; memset(&hostname,0,256);
+	char hostname[256];
 	rc = gethostname(hostname,256);
 	if (rc<0) {
 		ilog(LOG_ERROR, "Could not retrieve host name information.");
 		goto error;
 	}
 
-	char data_to_send[8192]; memset(&data_to_send,0,8192);
+	char data_to_send[8192];
 	char* ptr = data_to_send;
+	struct totalstats ts;
 
-	mutex_lock(&cm->totalstats_lock);
+	/* atomically copy values to stack and reset to zero */
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_timeout_sess);
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_silent_timeout_sess);
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_regular_term_sess);
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_forced_term_sess);
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_relayed_packets);
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_relayed_errors);
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_nopacket_relayed_sess);
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_oneway_stream_sess);
+
+	mutex_lock(&cm->totalstats_interval.total_average_lock);
+	ts.total_average_call_dur = cm->totalstats_interval.total_average_call_dur;
+	ts.total_managed_sess = cm->totalstats_interval.total_managed_sess;
+	ZERO(ts.total_average_call_dur);
+	ZERO(ts.total_managed_sess);
+	mutex_unlock(&cm->totalstats_interval.total_average_lock);
 
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.average_call_dur %llu.%06llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_average_call_dur.tv_sec,(unsigned long long) cm->totalstats_interval.total_average_call_dur.tv_usec,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.average_call_dur.tv_sec %llu %llu\n",hostname, (unsigned long long) ts.total_average_call_dur.tv_sec,(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.forced_term_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_forced_term_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.average_call_dur.tv_usec %lu %llu\n",hostname, ts.total_average_call_dur.tv_usec,(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.managed_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_managed_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.forced_term_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_forced_term_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.nopacket_relayed_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_nopacket_relayed_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.managed_sess "UINT64F" %llu\n",hostname, ts.total_managed_sess,(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.oneway_stream_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_oneway_stream_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.nopacket_relayed_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_nopacket_relayed_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.regular_term_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_regular_term_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.oneway_stream_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_oneway_stream_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.relayed_errors %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_relayed_errors,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.regular_term_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_regular_term_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.relayed_packets %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_relayed_packets,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.relayed_errors "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_relayed_errors),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.silent_timeout_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_silent_timeout_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.relayed_packets "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_relayed_packets),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"%s.totals.timeout_sess %llu %llu\n",hostname, (unsigned long long) cm->totalstats_interval.total_timeout_sess,(unsigned long long)g_now); ptr += rc;
+	rc = sprintf(ptr,"%s.totals.silent_timeout_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_silent_timeout_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"%s.totals.timeout_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_timeout_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 
-	ZERO(cm->totalstats_interval);
-
-	mutex_unlock(&cm->totalstats_lock);
-
-	rc = write(graphite_sock, data_to_send, strlen(data_to_send));
+	rc = write(graphite_sock, data_to_send, ptr - data_to_send);
 	if (rc<0) {
 		ilog(LOG_ERROR,"Could not write to graphite socket. Disconnecting graphite server.");
 		goto error;
@@ -214,13 +229,13 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 		}
 	}
 
-	g_now = time(NULL);
-	if (g_now < next_run) {
+	gettimeofday(&g_now, NULL);
+	if (g_now.tv_sec < next_run) {
 		usleep(100000);
 		return;
 	}
 
-	next_run = g_now + seconds;
+	next_run = g_now.tv_sec + seconds;
 
 	if (!cm)
 		cm = callmaster;
@@ -240,4 +255,18 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 		}
 	}
 
+}
+
+void graphite_loop(void *d) {
+	struct callmaster *cm = d;
+
+	if (!cm->conf.graphite_interval) {
+		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
+		cm->conf.graphite_interval=1;
+	}
+
+	connect_to_graphite_server(cm->conf.graphite_ip,cm->conf.graphite_port);
+
+	while (!g_shutdown)
+		graphite_loop_run(cm,cm->conf.graphite_interval); // time in seconds
 }

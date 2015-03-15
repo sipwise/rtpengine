@@ -29,3 +29,7 @@ str *__str_sprintf(const char *fmt, ...) {
 	va_end(ap);
 	return ret;
 }
+
+void str_slice_free(void *p) {
+	g_slice_free1(sizeof(str), p);
+}

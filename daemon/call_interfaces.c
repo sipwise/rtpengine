@@ -16,6 +16,8 @@
 #include "str.h"
 #include "control_tcp.h"
 #include "control_udp.h"
+#include "rtp.h"
+#include "ice.h"
 
 
 
@@ -221,7 +223,7 @@ str *call_lookup_udp(char **out, struct callmaster *m) {
 static int info_parse_func(char **a, void **ret, void *p) {
 	GHashTable *ih = p;
 
-	g_hash_table_replace(ih, a[0], a[1]);
+	g_hash_table_replace(ih, strdup(a[0]), strdup(a[1]));
 
 	return -1;
 }
@@ -274,14 +276,21 @@ static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
 	pcre_multi_match(m->streams_re, m->streams_ree, s, 3, streams_parse_func, &i, q);
 }
 
-static void streams_free(GQueue *q) {
-	struct stream_params *s;
+/* XXX move these somewhere else */
+static void rtp_pt_free(void *p) {
+	g_slice_free1(sizeof(struct rtp_payload_type), p);
+}
+static void sp_free(void *p) {
+	struct stream_params *s = p;
 
-	while ((s = g_queue_pop_head(q))) {
-		if (s->crypto.mki)
-			free(s->crypto.mki);
-		g_slice_free1(sizeof(*s), s);
-	}
+	if (s->crypto.mki)
+		free(s->crypto.mki);
+	g_queue_clear_full(&s->rtp_payload_types, rtp_pt_free);
+	ice_candidates_free(&s->ice_candidates);
+	g_slice_free1(sizeof(*s), s);
+}
+static void streams_free(GQueue *q) {
+	g_queue_clear_full(q, sp_free);
 }
 
 
@@ -294,7 +303,7 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 	GHashTable *infohash;
 
 	str_init(&callid, out[RE_TCP_RL_CALLID]);
-	infohash = g_hash_table_new(g_str_hash, g_str_equal);
+	infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c = call_get_opmode(&callid, m, opmode);
 	if (!c) {
 		ilog(LOG_WARNING, "["STR_FORMAT"] Got LOOKUP for unknown call-id", STR_FMT(&callid));
@@ -386,8 +395,8 @@ str *call_query_udp(char **out, struct callmaster *m) {
 
 	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
 		(long long int) m->conf.silent_timeout - (poller_now - stats.last_packet),
-		stats.totals[0].packets, stats.totals[1].packets,
-		stats.totals[2].packets, stats.totals[3].packets);
+		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
+		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
 	goto out;
 
 err:
@@ -431,20 +440,14 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 }
 
 void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
-	struct stats st;
 	GQueue q = G_QUEUE_INIT;
 	struct call *c;
 
-	mutex_lock(&m->statslock);
-	st = m->stats;
-	mutex_unlock(&m->statslock);
-
 	callmaster_get_all_calls(m, &q);
 
-	control_stream_printf(s, "proxy %u "UINT64F"/"UINT64F"/"UINT64F"\n",
+	control_stream_printf(s, "proxy %u "UINT64F"/%i/%i\n",
 		g_queue_get_length(&q),
-		st.bytes, st.bytes - st.errors,
-		st.bytes * 2 - st.errors);
+		atomic64_get(&m->stats.bytes), 0, 0);
 
 	while (q.head) {
 		c = g_queue_pop_head(&q);
@@ -726,14 +729,14 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 }
 
 static void ng_stats(bencode_item_t *d, const struct stats *s, struct stats *totals) {
-	bencode_dictionary_add_integer(d, "packets", s->packets);
-	bencode_dictionary_add_integer(d, "bytes", s->bytes);
-	bencode_dictionary_add_integer(d, "errors", s->errors);
+	bencode_dictionary_add_integer(d, "packets", atomic64_get(&s->packets));
+	bencode_dictionary_add_integer(d, "bytes", atomic64_get(&s->bytes));
+	bencode_dictionary_add_integer(d, "errors", atomic64_get(&s->errors));
 	if (!totals)
 		return;
-	totals->packets += s->packets;
-	totals->bytes += s->bytes;
-	totals->errors += s->errors;
+	atomic64_add_na(&totals->packets, atomic64_get(&s->packets));
+	atomic64_add_na(&totals->bytes, atomic64_get(&s->bytes));
+	atomic64_add_na(&totals->errors, atomic64_get(&s->errors));
 }
 
 static void ng_stats_endpoint(bencode_item_t *dict, const struct endpoint *ep) {
@@ -772,7 +775,7 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	if (ps->crypto.params.crypto_suite)
 		bencode_dictionary_add_string(dict, "crypto suite",
 				ps->crypto.params.crypto_suite->name);
-	bencode_dictionary_add_integer(dict, "last packet", ps->last_packet);
+	bencode_dictionary_add_integer(dict, "last packet", atomic64_get(&ps->last_packet));
 
 	flags = bencode_dictionary_add_list(dict, "flags");
 
@@ -788,8 +791,8 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	BF_PS("media handover", MEDIA_HANDOVER);
 
 stats:
-	if (totals->last_packet < ps->last_packet)
-		totals->last_packet = ps->last_packet;
+	if (totals->last_packet < atomic64_get(&ps->last_packet))
+		totals->last_packet = atomic64_get(&ps->last_packet);
 
 	/* XXX distinguish between input and output */
 	s = &totals->totals[0];
@@ -918,7 +921,6 @@ stats:
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
 }
 
-#if GLIB_CHECK_VERSION(2,16,0)
 static void ng_list_calls( struct callmaster *m, bencode_item_t *output, long long int limit) {
 	GHashTableIter iter;
 	gpointer key, value;
@@ -932,7 +934,6 @@ static void ng_list_calls( struct callmaster *m, bencode_item_t *output, long lo
 
 	rwlock_unlock_r(&m->hashlock);
 }
-#endif
 
 
 
@@ -957,7 +958,6 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 }
 
 
-#if GLIB_CHECK_VERSION(2,16,0)
 const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	bencode_item_t *calls = NULL;
 	long long int limit;
@@ -974,4 +974,3 @@ const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_it
 
 	return NULL;
 }
-#endif

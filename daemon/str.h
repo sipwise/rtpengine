@@ -25,6 +25,7 @@ typedef struct _str str;
 #define STR_FMT0(str) ((str) ? (str)->len : 6), ((str) ? (str)->s : "(NULL)")
 #define STR_NULL ((str) { NULL, 0 })
 #define STR_EMPTY ((str) { "", 0 })
+#define STR_CONST_INIT(str) { str, sizeof(str)-1 }
 
 
 
@@ -56,6 +57,8 @@ INLINE str *str_chunk_insert(GStringChunk *c, const str *s);
 INLINE int str_shift(str *s, int len);
 /* binary compares str object with memory chunk of equal size */
 INLINE int str_memcmp(const str *s, void *m);
+/* locate a substring within a string, returns character index or -1 */
+INLINE int str_str(const str *s, const char *sub);
 
 /* asprintf() analogs */
 #define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
@@ -69,6 +72,9 @@ INLINE str *g_string_free_str(GString *gs);
 /* for GHashTables */
 guint str_hash(gconstpointer s);
 gboolean str_equal(gconstpointer a, gconstpointer b);
+
+/* destroy function, frees a slice-alloc'd str */
+void str_slice_free(void *);
 
 
 
@@ -207,6 +213,23 @@ INLINE str *g_string_free_str(GString *gs) {
 }
 INLINE int str_memcmp(const str *s, void *m) {
 	return memcmp(s->s, m, s->len);
+}
+INLINE int str_str(const str *s, const char *sub) {
+	int len = strlen(sub);
+	void *p, *e;
+
+	p = s->s;
+	e = p + (s->len - len);
+	while (p < e) {
+		p = memchr(p, sub[0], e - p);
+		if (!p)
+			return -1;
+		if (!memcmp(p, sub, len))
+			return p - (void *) s->s;
+		p++;
+	}
+
+	return -1;
 }
 
 #endif

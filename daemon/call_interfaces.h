@@ -35,9 +35,7 @@ const char *call_offer_ng(bencode_item_t *, struct callmaster *, bencode_item_t 
 const char *call_answer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_query_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
-#if GLIB_CHECK_VERSION(2,16,0)
 const char *call_list_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
-#endif
 void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output,
 		struct call_stats *totals);
 

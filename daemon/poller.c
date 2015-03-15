@@ -50,18 +50,12 @@ struct poller {
 
 
 
-__thread time_t poller_now;
-
-
-
-
-
 struct poller *poller_new(void) {
 	struct poller *p;
 
 	p = malloc(sizeof(*p));
 	memset(p, 0, sizeof(*p));
-	poller_now = time(NULL);
+	gettimeofday(&g_now, NULL);
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
 		abort();
@@ -315,7 +309,7 @@ int poller_poll(struct poller *p, int timeout) {
 	if (ret <= 0)
 		goto out;
 
-	poller_now = time(NULL);
+	gettimeofday(&g_now, NULL);
 
 	for (i = 0; i < ret; i++) {
 		ev = &evs[i];
@@ -480,28 +474,30 @@ int poller_add_timer(struct poller *p, void (*f)(void *), struct obj *o) {
 }
 
 /* run in thread separate from poller_poll() */
-void poller_timers_wait_run(struct poller *p, int max) {
+void poller_timer_loop(void *d) {
+	struct poller *p = d;
 	struct timeval tv;
 	int wt;
-	int i = 0;
 
-	max *= 1000;
+	while (!g_shutdown) {
+		gettimeofday(&tv, NULL);
+		if (tv.tv_sec != poller_now)
+			goto now;
 
-retry:
-	gettimeofday(&tv, NULL);
-	if (tv.tv_sec != poller_now)
-		goto now;
-	if (i)
-		return;
-
-	wt = 1000000 - tv.tv_usec;
-	if (max >= 0 && max < wt)
-		wt = max;
-	usleep(wt);
-	i = 1;
-	goto retry;
+		wt = 1000000 - tv.tv_usec;
+		wt = MIN(wt, 100000);
+		usleep(wt);
+		continue;
 
 now:
-	poller_now = tv.tv_sec;
-	poller_timers_run(p);
+		gettimeofday(&g_now, NULL);
+		poller_timers_run(p);
+	}
+}
+
+void poller_loop(void *d) {
+	struct poller *p = d;
+
+	while (!g_shutdown)
+		poller_poll(p, 100);
 }
