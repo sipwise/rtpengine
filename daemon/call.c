@@ -2434,11 +2434,14 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			 * but also lets endpoints re-negotiate. */
 			media->protocol = NULL;
 		}
-		/* allow override of outgoing protocol even if we know it already */
-		if (flags && flags->transport_protocol)
-			media->protocol = flags->transport_protocol;
-		else if (!media->protocol)
+		/* default is to leave the protocol unchanged */
+		if (!media->protocol)
 			media->protocol = other_media->protocol;
+		/* allow override of outgoing protocol even if we know it already */
+		/* but only if this is an RTP-based protocol */
+		if (flags && flags->transport_protocol
+				&& other_media->protocol && other_media->protocol->rtp)
+			media->protocol = flags->transport_protocol;
 
 		/* copy parameters advertised by the sender of this message */
 		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
