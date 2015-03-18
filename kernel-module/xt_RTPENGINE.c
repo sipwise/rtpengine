@@ -27,6 +27,8 @@
 #include "xt_RTPENGINE.h"
 #endif
 
+#include "rtpengine_config.h"
+
 MODULE_LICENSE("GPL");
 
 
@@ -1664,19 +1666,6 @@ static ssize_t proc_control_write(struct file *file, const char __user *buf, siz
 				goto err;
 			break;
 
-		case MMG_MEASUREDELAY:
-			port=0;
-			if (t==NULL)
-				break;
-			g = find_next_target(t, &port);
-			while (g != NULL) {
-				spin_lock_irqsave(&g->stats_lock, flags);
-				g->stats.measureactive=1;
-				spin_unlock_irqrestore(&g->stats_lock, flags);
-				g = find_next_target(t, &port);
-			}
-			break;
-
 		default:
 			printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", msg.cmd);
 			err = -EINVAL;
@@ -2122,7 +2111,48 @@ static inline int is_dtls(struct sk_buff *skb) {
 	return 1;
 }
 
-static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, struct timespec *starttime) {
+static void re_timespec_subtract (struct timespec *result, const struct timespec *a, const struct timespec *b) {
+	long long nanoseconds=0;
+	nanoseconds = ((long)a->tv_sec - (long long)b->tv_sec) * (long long)1000000000 + ((long long)a->tv_nsec - (long long)b->tv_nsec);
+	result->tv_sec = nanoseconds/(long long)1000000000;
+	result->tv_nsec = nanoseconds%(long long)1000000000;
+}
+
+static void re_timespec_multiply(struct timespec *result, const struct timespec *a, const long long multiplier) {
+	long long nanoseconds=0;
+	nanoseconds = ((long)a->tv_sec * (long long)1000000000) + (long long)a->tv_nsec * multiplier;
+	result->tv_sec = nanoseconds/(long long)1000000000;
+	result->tv_nsec = nanoseconds%(long long)1000000000;
+}
+
+static void re_timespec_devide(struct timespec *result, const struct timespec *a, const long devisor) {
+	long long nanoseconds=0;
+	nanoseconds = ((long)a->tv_sec * (long long)1000000000) + (long long)a->tv_nsec / devisor;
+	result->tv_sec = nanoseconds/(long long)1000000000;
+	result->tv_nsec = nanoseconds%(long long)1000000000;
+}
+
+static void re_timespec_add(struct timespec *result, const struct timespec *a, const struct timespec *b) {
+	long long nanoseconds=0;
+	nanoseconds = ((long)a->tv_sec + (long long)b->tv_sec) * (long long)1000000000 + ((long long)a->tv_nsec + (long long)b->tv_nsec);
+	result->tv_sec = nanoseconds/(long long)1000000000;
+	result->tv_nsec = nanoseconds%(long long)1000000000;
+}
+
+/* Return negative, zero, positive if A < B, A == B, A > B, respectively.
+   Assume the nanosecond components are in range, or close to it.  */
+static int re_timespec_cmp (struct timespec *a, struct timespec *b)
+{
+  return (a->tv_sec < b->tv_sec ? -1
+	  : a->tv_sec > b->tv_sec ? 1
+	  : a->tv_nsec - b->tv_nsec);
+}
+
+#if (RE_HAS_MEASUREDELAY)
+	static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, struct timespec *starttime) {
+#else
+	static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src) {
+#endif
 	struct udphdr *uh;
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
@@ -2132,6 +2162,10 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
 	u_int64_t pkt_idx = 0;
+
+#if (RE_HAS_MEASUREDELAY)
+	struct timespec endtime, delay;
+#endif
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -2232,17 +2266,35 @@ not_rtp:
 
 out:
 	spin_lock_irqsave(&g->stats_lock, flags);
-	if (g->stats.measureactive==1) {
-		g->stats.start = *starttime;
-		getnstimeofday(&g->stats.end);
-		g->stats.measureactive=0;
-	}
 
 	if (err)
 		g->stats.errors++;
 	else {
 		g->stats.packets++;
 		g->stats.bytes += skb->len;
+
+#if (RE_HAS_MEASUREDELAY)
+		getnstimeofday(&endtime);
+
+		re_timespec_subtract(&delay,&endtime, starttime);
+
+		if (g->stats.packets==1) {
+			g->stats.delay_min=delay;
+			g->stats.delay_avg=delay;
+			g->stats.delay_max=delay;
+		} else {
+			if (re_timespec_cmp(&g->stats.delay_min,&delay)>0) {
+				g->stats.delay_min = delay;
+			}
+			if (re_timespec_cmp(&g->stats.delay_max,&delay)<0) {
+				g->stats.delay_max = delay;
+			}
+
+			re_timespec_multiply(&g->stats.delay_avg,&g->stats.delay_avg,g->stats.packets-1);
+			re_timespec_add(&g->stats.delay_avg,&g->stats.delay_avg,&delay);
+			re_timespec_devide(&g->stats.delay_avg,&g->stats.delay_avg,g->stats.packets);
+		}
+#endif
 	}
 	spin_unlock_irqrestore(&g->stats_lock, flags);
 
@@ -2278,8 +2330,11 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	struct iphdr *ih;
 	struct rtpengine_table *t;
 	struct re_address src;
+
+#if (RE_HAS_MEASUREDELAY)
 	struct timespec starttime;
 	getnstimeofday(&starttime);
+#endif
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -2298,8 +2353,11 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	memset(&src, 0, sizeof(src));
 	src.family = AF_INET;
 	src.u.ipv4 = ih->saddr;
+#if (RE_HAS_MEASUREDELAY)
 	return rtpengine46(skb, t, &src, &starttime);
-
+#else
+	return rtpengine46(skb, t, &src);
+#endif
 skip2:
 	kfree_skb(skb);
 skip3:
@@ -2321,8 +2379,11 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	struct ipv6hdr *ih;
 	struct rtpengine_table *t;
 	struct re_address src;
+
+#if (RE_HAS_MEASUREDELAY)
 	struct timespec starttime;
 	getnstimeofday(&starttime);
+#endif
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -2341,7 +2402,11 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	memset(&src, 0, sizeof(src));
 	src.family = AF_INET6;
 	memcpy(&src.u.ipv6, &ih->saddr, sizeof(src.u.ipv6));
+#if (RE_HAS_MEASUREDELAY)
 	return rtpengine46(skb, t, &src, &starttime);
+#else
+	return rtpengine46(skb, t, &src);
+#endif
 
 skip2:
 	kfree_skb(skb);

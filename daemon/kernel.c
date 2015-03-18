@@ -102,21 +102,6 @@ int kernel_del_stream(int fd, u_int16_t p) {
 	return -1;
 }
 
-int kernel_measure_delay(int fd) {
-	struct rtpengine_message msg;
-	int ret;
-
-	ZERO(msg);
-	msg.cmd = MMG_MEASUREDELAY;
-
-	ret = write(fd, &msg, sizeof(msg));
-	if (ret > 0)
-		return 0;
-
-	ilog(LOG_ERROR, "Failed to delete relay stream from kernel: %s", strerror(errno));
-	return -1;
-}
-
 GList *kernel_list(unsigned int id) {
 	char str[64];
 	int fd;
