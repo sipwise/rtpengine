@@ -559,6 +559,7 @@ void ice_init(void) {
 static void __fail_pair(struct ice_candidate_pair *pair) {
 	ilog(LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as failed", PAIR_FMT(pair));
 	PAIR_SET(pair, FAILED);
+	PAIR_CLEAR(pair, IN_PROGRESS);
 }
 
 /* agent must NOT be locked, but call must be locked in R */
@@ -869,7 +870,9 @@ static void __trigger_check(struct ice_candidate_pair *pair) {
 	ilog(LOG_DEBUG, "Triggering check for "PAIR_FORMAT, PAIR_FMT(pair));
 
 	mutex_lock(&ag->lock);
-	PAIR_CLEAR(pair, FAILED);
+	pair->retransmits = 0;
+	if (PAIR_CLEAR(pair, FAILED))
+		PAIR_CLEAR(pair, IN_PROGRESS);
 	if (ag->triggered.length < 4 * MAX_ICE_CANDIDATES && !PAIR_SET(pair, TRIGGERED))
 		g_queue_push_tail(&ag->triggered, pair);
 	mutex_unlock(&ag->lock);
