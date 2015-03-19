@@ -64,6 +64,9 @@ struct crypto_params {
 	unsigned char master_salt[SRTP_MAX_MASTER_SALT_LEN];
 	unsigned char *mki;
 	unsigned int mki_len;
+	int unencrypted_srtcp:1,
+	    unencrypted_srtp:1,
+	    unauthenticated_srtp:1;
 };
 
 struct crypto_context {

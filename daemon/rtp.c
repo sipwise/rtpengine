@@ -201,14 +201,14 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 
 	/* rfc 3711 section 3.1 */
 
-	if (crypto_encrypt_rtp(c, rtp, &payload, index))
+	if (!c->params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, index))
 		return -1;
 
 	to_auth = *s;
 
 	rtp_append_mki(s, c);
 
-	if (c->params.crypto_suite->srtp_auth_tag) {
+	if (!c->params.unauthenticated_srtp && c->params.crypto_suite->srtp_auth_tag) {
 		c->params.crypto_suite->hash_rtp(c, s->s + s->len, &to_auth, index);
 		s->len += c->params.crypto_suite->srtp_auth_tag;
 	}
@@ -230,7 +230,8 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 
 	index = packet_index(c, rtp);
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
-			c->params.crypto_suite->srtp_auth_tag, c->params.mki_len,
+			c->params.unauthenticated_srtp ? 0 : c->params.crypto_suite->srtp_auth_tag,
+			c->params.mki_len,
 			s, &payload))
 		return -1;
 
@@ -265,7 +266,7 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 decrypt_idx:
 	c->last_index = index;
 decrypt:
-	if (crypto_decrypt_rtp(c, rtp, &to_decrypt, index))
+	if (!c->params.unencrypted_srtp && crypto_decrypt_rtp(c, rtp, &to_decrypt, index))
 		return -1;
 
 	*s = to_auth;

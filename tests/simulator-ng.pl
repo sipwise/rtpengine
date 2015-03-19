@@ -120,10 +120,11 @@ sub rtcp_encrypt {
 
 	my $iv = $$dctx{crypto_suite}{iv_rtcp}->($dctx, $r);
 	my ($hdr, $to_enc) = unpack('a8a*', $r);
-	my $enc = $$dctx{crypto_suite}{enc_func}->($to_enc, $$dctx{rtcp_session_key},
+	my $enc = $$dctx{unenc_srtcp} ? $to_enc :
+		$$dctx{crypto_suite}{enc_func}->($to_enc, $$dctx{rtcp_session_key},
 		$iv, $$dctx{rtcp_session_salt});
 	my $pkt = $hdr . $enc;
-	$pkt .= pack("N", (($$dctx{rtcp_index} || 0) | 0x80000000));
+	$pkt .= pack("N", (($$dctx{rtcp_index} || 0) | ($$dctx{unenc_srtcp} ? 0 : 0x80000000)));
 
 	my $hmac = hmac_sha1($pkt, $$dctx{rtcp_session_auth_key});
 
@@ -152,7 +153,7 @@ sub rtp_encrypt {
 	($NOENC && $NOENC{rtp_packet}) and return $NOENC{rtp_packet};
 
 	my ($pkt, $roc) = SRTP::encrypt_rtp(@$dctx{qw(crypto_suite rtp_session_key rtp_session_salt
-		rtp_session_auth_key rtp_roc rtp_mki rtp_mki_len)}, $r);
+		rtp_session_auth_key rtp_roc rtp_mki rtp_mki_len unenc_srtp unauth_srtp)}, $r);
 	$$dctx{rtp_roc} = $roc;
 
 	$NOENC{rtp_packet} = $pkt;
@@ -166,8 +167,20 @@ sub savp_sdp {
 	my ($ctx, $ctx_o) = @_;
 
 	if (!$$ctx{out}{crypto_suite}) {
-		$$ctx{out}{crypto_suite} = $$ctx_o{in}{crypto_suite} ? $$ctx_o{in}{crypto_suite}
-			: $SRTP::crypto_suites[rand(@SRTP::crypto_suites)];
+		if ($$ctx{in}{crypto_suite}) {
+			$$ctx{out}{crypto_suite} = $$ctx{in}{crypto_suite};
+			$$ctx{out}{crypto_tag} = $$ctx{in}{crypto_tag};
+			$$ctx{out}{unenc_srtp} = $$ctx{in}{unenc_srtp};
+			$$ctx{out}{unenc_srtcp} = $$ctx{in}{unenc_srtcp};
+			$$ctx{out}{unauth_srtp} = $$ctx{in}{unauth_srtp};
+		}
+		else {
+			$$ctx{out}{crypto_suite} = $SRTP::crypto_suites[rand(@SRTP::crypto_suites)];
+			$$ctx{out}{crypto_tag} = int(rand(100));
+			$$ctx{out}{unenc_srtp} = rand() < .5 ? 0 : 1;
+			$$ctx{out}{unenc_srtcp} = rand() < .5 ? 0 : 1;
+			$$ctx{out}{unauth_srtp} = rand() < .5 ? 0 : 1;
+		}
 
 		$$ctx{out}{rtp_mki_len} = 0;
 		if (rand() > .5) {
@@ -193,10 +206,12 @@ sub savp_sdp {
 		$NOENC{rtp_master_salt} = $$ctx{out}{rtp_master_salt};
 	}
 
-	my $ret = "a=crypto:0 $$ctx{out}{crypto_suite}{str} inline:" . encode_base64($$ctx{out}{rtp_master_key} . $$ctx{out}{rtp_master_salt}, '');
-	if ($$ctx{out}{rtp_mki_len}) {
-		$ret .= "|$$ctx{out}{rtp_mki}:$$ctx{out}{rtp_mki_len}";
-	}
+	my $ret = "a=crypto:$$ctx{out}{crypto_tag} $$ctx{out}{crypto_suite}{str} inline:" . encode_base64($$ctx{out}{rtp_master_key} . $$ctx{out}{rtp_master_salt}, '');
+	$$ctx{out}{rtp_mki_len} and $ret .= "|$$ctx{out}{rtp_mki}:$$ctx{out}{rtp_mki_len}";
+
+	$$ctx{out}{unenc_srtp} and $ret .= " UNENCRYPTED_SRTP";
+	$$ctx{out}{unenc_srtcp} and $ret .= " UNENCRYPTED_SRTCP";
+	$$ctx{out}{unauth_srtp} and $ret .= " UNAUTHENTICATED_SRTP";
 
 	$ret .= "\n";
 	return $ret;
@@ -290,20 +305,24 @@ sub rtp_savp {
 sub savp_crypto {
 	my ($sdp, $ctx, $ctx_o) = @_;
 
-	my @a = $sdp =~ /[\r\n]a=crypto:\d+ (\w+) inline:([\w\/+]{40})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?[\r\n]/sig;
+	my @a = $sdp =~ /[\r\n]a=crypto:(\d+) (\w+) inline:([\w\/+]{40})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?(?: (.*?))?[\r\n]/sig;
 	@a or die;
 	my $i = 0;
-	while (@a >= 6) {
-		$$ctx[$i]{in}{crypto_suite} = $SRTP::crypto_suites{$a[0]} or die;
+	while (@a >= 8) {
+		$$ctx[$i]{in}{crypto_suite} = $SRTP::crypto_suites{$a[1]} or die;
+		$$ctx[$i]{in}{crypto_tag} = $a[0];
 		($$ctx[$i]{in}{rtp_master_key}, $$ctx[$i]{in}{rtp_master_salt})
-			= SRTP::decode_inline_base64($a[1]);
-		$$ctx[$i]{in}{rtp_mki} = $a[4];
-		$$ctx[$i]{in}{rtp_mki_len} = $a[5];
+			= SRTP::decode_inline_base64($a[2]);
+		$$ctx[$i]{in}{rtp_mki} = $a[5];
+		$$ctx[$i]{in}{rtp_mki_len} = $a[6];
 		undef($$ctx[$i]{in}{rtp_session_key});
 		undef($$ctx[$i]{in}{rtcp_session_key});
+		($a[7] || '') =~ /UNENCRYPTED_SRTP/ and $$ctx[$i]{in}{unenc_srtp} = 1;
+		($a[7] || '') =~ /UNENCRYPTED_SRTCP/ and $$ctx[$i]{in}{unenc_srtcp} = 1;
+		($a[7] || '') =~ /UNAUTHENTICATED_SRTP/ and $$ctx[$i]{in}{unauth_srtp} = 1;
 
 		$i++;
-		@a = @a[6 .. $#a];
+		@a = @a[8 .. $#a];
 	}
 }
 

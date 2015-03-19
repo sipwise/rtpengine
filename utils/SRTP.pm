@@ -215,14 +215,14 @@ sub decode_inline_base64 {
 }
 
 sub encrypt_rtp {
-	my ($suite, $skey, $ssalt, $sauth, $roc, $mki, $mki_len, $packet) = @_;
+	my ($suite, $skey, $ssalt, $sauth, $roc, $mki, $mki_len, $unenc_srtp, $unauth_srtp, $packet) = @_;
 
 	my ($hdr, $seq, $h2, $to_enc) = unpack('a2na8a*', $packet);
 	$roc = $roc || 0;
 	$seq == 0 and $roc++;
 
 	my $iv = $$suite{iv_rtp}->($packet, $ssalt, $roc);
-	my $enc = $$suite{enc_func}->($to_enc, $skey,
+	my $enc = $unenc_srtp ? $to_enc : $$suite{enc_func}->($to_enc, $skey,
 		$iv, $ssalt);
 	my $pkt = pack('a*na*a*', $hdr, $seq, $h2, $enc);
 
@@ -232,7 +232,7 @@ sub encrypt_rtp {
 	append_mki(\$pkt, $mki_len, $mki);
 
 	#$pkt .= pack("N", 1); # mki
-	$pkt .= substr($hmac, 0, $$suite{auth_tag});
+	$pkt .= substr($hmac, 0, $unauth_srtp ? 0 : $$suite{auth_tag});
 
 	return ($pkt, $roc);
 }

@@ -2182,6 +2182,9 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			cp->crypto_suite->master_key_len);
 	random_string((unsigned char *) cp->master_salt,
 			cp->crypto_suite->master_salt_len);
+	cp->unencrypted_srtp = cp_in->unencrypted_srtp;
+	cp->unencrypted_srtcp = cp_in->unencrypted_srtcp;
+	cp->unauthenticated_srtp = cp_in->unauthenticated_srtp;
 	/* mki = mki_len = 0 */
 
 skip_sdes:
