@@ -1081,10 +1081,8 @@ int ice_request(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_a
 
 	ret = 0;
 
-	if (attrs->use) {
+	if (attrs->use && !PAIR_SET(pair, NOMINATED)) {
 		ilog(LOG_DEBUG, "ICE pair "PAIR_FORMAT" has been nominated by peer", PAIR_FMT(pair));
-
-		PAIR_SET(pair, NOMINATED);
 
 		mutex_lock(&ag->lock);
 
