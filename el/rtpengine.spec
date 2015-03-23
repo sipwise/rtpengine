@@ -84,8 +84,8 @@ install -D -p -m644 kernel-module/xt_RTPENGINE.c \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
 install -D -p -m644 kernel-module/xt_RTPENGINE.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
-sed "s/__VERSION__/%{version}-%{release}/g;s/ngcp-rtpengine/rtpengine/g" debian/dkms.conf.in > \
-	%{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+sed -i -e "s/__VERSION__/%{version}-%{release}/g;s/ngcp-rtpengine/rtpengine/g" debian/dkms.conf.in
+install -D -p -m644 debian/dkms.conf.in %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
 
 %pre
