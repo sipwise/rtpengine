@@ -8,7 +8,6 @@ License:	GPLv3
 URL:		https://github.com/sipwise/rtpengine
 Source0:	https://github.com/sipwise/rtpengine/archive/%{version}/%{name}-%{version}.tar.gz
 Conflicts:	%{name}-kernel < %{version}
-BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
