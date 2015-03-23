@@ -29,7 +29,7 @@ Requires:	iptables iptables-ipv6 ngcp-rtpengine = %{version}
 Requires:	ngcp-rtpengine-dkms = %{version}
 
 %description kernel
-NGCP rtpengine in-kernel packet forwarding
+%{summary}.
 
 
 %package dkms
@@ -42,7 +42,7 @@ Requires(post):	epel-release dkms
 Requires(preun): epel-release dkms
 
 %description dkms
-Kernel module for rtpengine in-kernel packet forwarding
+%{summary}.
 
 
 %prep
