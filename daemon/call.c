@@ -1863,15 +1863,21 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	return ret;
 }
 
-static void __fill_stream(struct packet_stream *ps, const struct endpoint *ep, unsigned int port_off) {
-	ps->endpoint = *ep;
-	ps->endpoint.port += port_off;
+static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, unsigned int port_off) {
+	struct endpoint ep;
+
+	ep = *epp;
+	ep.port += port_off;
+
+	/* if the endpoint hasn't changed, we do nothing */
+	if (PS_ISSET(ps, FILLED) && !memcmp(&ps->advertised_endpoint, &ep, sizeof(ep)))
+		return;
+
+	ps->endpoint = ep;
+	ps->advertised_endpoint = ep;
 	/* we reset crypto params whenever the endpoint changes */
-	if (PS_ISSET(ps, FILLED) && memcmp(&ps->advertised_endpoint, &ps->endpoint, sizeof(ps->endpoint))) {
-		crypto_reset(&ps->crypto);
-		dtls_shutdown(ps);
-	}
-	ps->advertised_endpoint = ps->endpoint;
+	crypto_reset(&ps->crypto);
+	dtls_shutdown(ps);
 	PS_SET(ps, FILLED);
 }
 
