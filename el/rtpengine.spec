@@ -141,7 +141,7 @@ true
 
 
 %files dkms
-%attr(0755,root,root) %{_usrsrc}/%{name}-%{version}-%{release}/
+%{_usrsrc}/%{name}-%{version}-%{release}/
 
 
 %changelog
