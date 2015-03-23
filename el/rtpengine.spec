@@ -12,7 +12,7 @@ Conflicts:	%{name}-kernel < %{version}
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel
-Requires:	glibc libcurl openssl pcre xmlrpc-c nmap-ncat
+Requires:	nmap-ncat
 
 
 %description
