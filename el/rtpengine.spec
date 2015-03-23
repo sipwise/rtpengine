@@ -66,7 +66,7 @@ install -D -p -m755 utils/rtpengine-ctl %{buildroot}/%{_sbindir}/rtpengine-ctl
 
 ## Install the init.d script and configuration file
 install -D -p -m755 el/rtpengine.init \
-	%{buildroot}/%{_sysconfdir}/rc.d/init.d/rtpengine
+	%{buildroot}/%{_initrddir}/rtpengine
 install -D -p -m644 el/rtpengine.sysconfig \
 	%{buildroot}/%{_sysconfdir}/sysconfig/rtpengine
 mkdir -p %{buildroot}/%{_sharedstatedir}/rtpengine
@@ -127,7 +127,7 @@ true
 %{_sbindir}/rtpengine-ctl
 
 # init.d script and configuration file
-%{_sysconfdir}/rc.d/init.d/rtpengine
+%{_initrddir}/rtpengine
 %config(noreplace) %{_sysconfdir}/sysconfig/rtpengine
 %dir %{_sharedstatedir}/rtpengine
 
