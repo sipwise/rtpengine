@@ -7,7 +7,7 @@ Group:		System Environment/Daemons
 License:	GPLv3
 URL:		https://github.com/sipwise/rtpengine
 Source0:	https://github.com/sipwise/rtpengine/archive/%{version}/%{name}-%{version}.tar.gz
-Conflicts:	%{name}-kernel < %{version}
+Conflicts:	%{name}-kernel < %{version}-%{release}
 
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
@@ -25,8 +25,9 @@ drop-in replacement for any of the other available RTP and media proxies.
 Summary:	NGCP rtpengine in-kernel packet forwarding
 Group:		System Environment/Daemons
 BuildRequires:	gcc make redhat-rpm-config iptables-devel
-Requires:	iptables iptables-ipv6 ngcp-rtpengine = %{version}
-Requires:	ngcp-rtpengine-dkms = %{version}
+Requires:	iptables iptables-ipv6
+Requires:	%{name}%{?_isa} = %{version}-%{release}
+Requires:	%{name}-dkms%{?_isa} = %{version}-%{release}
 
 %description kernel
 %{summary}.
