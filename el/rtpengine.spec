@@ -130,7 +130,7 @@ true
 # init.d script and configuration file
 %{_initrddir}/%{name}
 %config(noreplace) %{_sysconfdir}/sysconfig/%{name}
-%dir %{_sharedstatedir}/%{name}
+%attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{name}
 
 # Documentation
 %doc LICENSE README.md el/README.el.md debian/changelog debian/copyright
