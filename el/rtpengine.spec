@@ -1,4 +1,4 @@
-Name:		ngcp-rtpengine
+Name:		rtpengine
 Version:	2.3.6
 Release:	0%{?dist}
 Summary:	The Sipwise NGCP rtpengine
@@ -13,6 +13,8 @@ BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel
 Requires:	nc
+# Remain compat with other installations
+Provides:	ngcp-rtpengine = %{version}-%{release}
 
 
 %description
@@ -60,16 +62,16 @@ cd ..
 
 %install
 # Install the userspace daemon
-install -D -p -m755 daemon/rtpengine %{buildroot}%{_sbindir}/rtpengine
+install -D -p -m755 daemon/%{name} %{buildroot}%{_sbindir}/%{name}
 # Install CLI (command line interface)
-install -D -p -m755 utils/rtpengine-ctl %{buildroot}%{_sbindir}/rtpengine-ctl
+install -D -p -m755 utils/%{name}-ctl %{buildroot}%{_sbindir}/%{name}-ctl
 
 ## Install the init.d script and configuration file
-install -D -p -m755 el/rtpengine.init \
-	%{buildroot}%{_initrddir}/rtpengine
-install -D -p -m644 el/rtpengine.sysconfig \
-	%{buildroot}%{_sysconfdir}/sysconfig/rtpengine
-mkdir -p %{buildroot}%{_sharedstatedir}/rtpengine
+install -D -p -m755 el/%{name}.init \
+	%{buildroot}%{_initrddir}/%{name}
+install -D -p -m644 el/%{name}.sysconfig \
+	%{buildroot}%{_sysconfdir}/sysconfig/%{name}
+mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 
 # Install the iptables plugin
 install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
@@ -82,20 +84,19 @@ install -D -p -m644 kernel-module/xt_RTPENGINE.c \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
 install -D -p -m644 kernel-module/xt_RTPENGINE.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
-sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
+sed "s/__VERSION__/%{version}-%{release}/g;s/ngcp-rtpengine/rtpengine/g" debian/dkms.conf.in > \
 	%{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
 
 %pre
-getent group rtpengine >/dev/null || /usr/sbin/groupadd -r rtpengine
-getent passwd rtpengine >/dev/null || /usr/sbin/useradd -r -g rtpengine \
-	-s /sbin/nologin -c "rtpengine daemon" -d %{_sharedstatedir}/rtpengine \
-	rtpengine
+getent group %{name} >/dev/null || /usr/sbin/groupadd -r %{name}
+getent passwd %{name} >/dev/null || /usr/sbin/useradd -r -g %{name} \
+	-s /sbin/nologin -c "%{name} daemon" -d %{_sharedstatedir}/%{name} %{name}
 
 
 %post
 if [ $1 -eq 1 ]; then
-        /sbin/chkconfig --add rtpengine || :
+        /sbin/chkconfig --add %{name} || :
 fi
 
 
@@ -109,8 +110,8 @@ true
 
 %preun
 if [ $1 = 0 ] ; then
-        /sbin/service rtpengine stop >/dev/null 2>&1
-        /sbin/chkconfig --del rtpengine
+        /sbin/service %{name} stop >/dev/null 2>&1
+        /sbin/chkconfig --del %{name}
 fi
 
 
@@ -122,14 +123,14 @@ true
 
 %files
 # Userspace daemon
-%{_sbindir}/rtpengine
+%{_sbindir}/%{name}
 # CLI (command line interface)
-%{_sbindir}/rtpengine-ctl
+%{_sbindir}/%{name}-ctl
 
 # init.d script and configuration file
-%{_initrddir}/rtpengine
-%config(noreplace) %{_sysconfdir}/sysconfig/rtpengine
-%dir %{_sharedstatedir}/rtpengine
+%{_initrddir}/%{name}
+%config(noreplace) %{_sysconfdir}/sysconfig/%{name}
+%dir %{_sharedstatedir}/%{name}
 
 # Documentation
 %doc LICENSE README.md el/README.el.md debian/changelog debian/copyright
