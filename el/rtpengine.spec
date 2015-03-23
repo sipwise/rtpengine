@@ -87,10 +87,10 @@ sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
 
 
 %pre
-/usr/sbin/groupadd -r rtpengine 2> /dev/null || :
-/usr/sbin/useradd -r -g rtpengine -s /sbin/nologin -c "rtpengine daemon" \
-	-d %{_sharedstatedir}/rtpengine rtpengine \
-	2> /dev/null || :
+getent group rtpengine >/dev/null || /usr/sbin/groupadd -r rtpengine
+getent passwd rtpengine >/dev/null || /usr/sbin/useradd -r -g rtpengine \
+	-s /sbin/nologin -c "rtpengine daemon" -d %{_sharedstatedir}/rtpengine \
+	rtpengine
 
 
 %post
