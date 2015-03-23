@@ -86,10 +86,6 @@ sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
 	%{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
 
-%clean
-rm -rf %{buildroot}
-
-
 %pre
 /usr/sbin/groupadd -r rtpengine 2> /dev/null || :
 /usr/sbin/useradd -r -g rtpengine -s /sbin/nologin -c "rtpengine daemon" \
