@@ -60,16 +60,16 @@ cd ..
 
 %install
 # Install the userspace daemon
-install -D -p -m755 daemon/rtpengine %{buildroot}/%{_sbindir}/rtpengine
+install -D -p -m755 daemon/rtpengine %{buildroot}%{_sbindir}/rtpengine
 # Install CLI (command line interface)
-install -D -p -m755 utils/rtpengine-ctl %{buildroot}/%{_sbindir}/rtpengine-ctl
+install -D -p -m755 utils/rtpengine-ctl %{buildroot}%{_sbindir}/rtpengine-ctl
 
 ## Install the init.d script and configuration file
 install -D -p -m755 el/rtpengine.init \
-	%{buildroot}/%{_initrddir}/rtpengine
+	%{buildroot}%{_initrddir}/rtpengine
 install -D -p -m644 el/rtpengine.sysconfig \
-	%{buildroot}/%{_sysconfdir}/sysconfig/rtpengine
-mkdir -p %{buildroot}/%{_sharedstatedir}/rtpengine
+	%{buildroot}%{_sysconfdir}/sysconfig/rtpengine
+mkdir -p %{buildroot}%{_sharedstatedir}/rtpengine
 
 # Install the iptables plugin
 install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
@@ -77,13 +77,13 @@ install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
 
 ## DKMS module source install
 install -D -p -m644 kernel-module/Makefile \
-	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
 install -D -p -m644 kernel-module/xt_RTPENGINE.c \
-	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
 install -D -p -m644 kernel-module/xt_RTPENGINE.h \
-	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
 sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
-	%{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+	%{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
 
 %pre
