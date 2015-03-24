@@ -3485,7 +3485,15 @@ struct local_interface *get_local_interface(struct callmaster *m, const str *nam
 	if (!name || !name->s) {
 		GQueue *q;
 		q = __interface_list_for_family(m, family);
-		return q->head ? q->head->data : NULL;
+		if (q->head)
+			return q->head->data;
+		q = __interface_list_for_family(m, AF_INET);
+		if (q->head)
+			return q->head->data;
+		q = __interface_list_for_family(m, AF_INET6);
+		if (q->head)
+			return q->head->data;
+		return NULL;
 	}
 
 	d.name = *name;
