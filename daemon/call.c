@@ -538,6 +538,12 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c) {
 		memcpy(s->mki, c->params.mki, c->params.mki_len);
 	memcpy(s->master_key, c->params.master_key, c->params.crypto_suite->master_key_len);
 	memcpy(s->master_salt, c->params.master_salt, c->params.crypto_suite->master_salt_len);
+
+	if (c->params.unencrypted_srtp)
+		s->cipher = REC_NULL;
+	if (c->params.unauthenticated_srtp)
+		s->auth_tag_len = 0;
+
 	return 0;
 }
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *stream) {
