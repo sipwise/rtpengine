@@ -146,6 +146,7 @@ const char * get_tag_type_text(enum tag_type t) {
 }
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
+static void __call_media_state_machine(struct call_media *m);
 
 static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
@@ -645,7 +646,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 		if (!stun_ret)
 			goto unlock_out;
 		if (stun_ret == 1) {
-			call_stream_state_machine(stream);
+			__call_media_state_machine(media);
 			mutex_lock(&stream->in_lock); /* for the jump */
 			goto kernel_check;
 		}
@@ -1904,6 +1905,13 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 	return CSS_RUNNING;
 }
 
+static void __call_media_state_machine(struct call_media *m) {
+	GList *l;
+
+	for (l = m->streams.head; l; l = l->next)
+		call_stream_state_machine(l->data);
+}
+
 static int __init_stream(struct packet_stream *ps) {
 	struct call_media *media = ps->media;
 	struct call *call = ps->call;
@@ -2472,7 +2480,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* control rtcp-mux */
 		__rtcp_mux_logic(flags, media, other_media);
-		/* XXX update ICE if rtcp-mux changes */
 
 		/* SDES and DTLS */
 		__generate_crypto(flags, media, other_media);
@@ -2548,6 +2555,7 @@ init:
 
 		/* we are now ready to fire up ICE if so desired and requested */
 		ice_update(other_media->ice_agent, sp);
+		ice_update(media->ice_agent, NULL); /* this is in case rtcp-mux has changed */
 	}
 
 	return 0;

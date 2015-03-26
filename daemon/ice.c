@@ -317,8 +317,9 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 	int recalc = 0;
 	unsigned int comps;
 	struct packet_stream *components[MAX_COMPONENTS], *ps;
+	GQueue *candidates;
 
-	if (!ag || !sp)
+	if (!ag)
 		return;
 
 	media = ag->media;
@@ -326,19 +327,25 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 
 	__role_change(ag, MEDIA_ISSET(media, ICE_CONTROLLING));
 
-	/* check for ICE restarts */
-	if (ag->ufrag[0].s && sp->ice_ufrag.s && str_cmp_str(&ag->ufrag[0], &sp->ice_ufrag))
-		__ice_restart(ag);
-	else if (ag->pwd[0].s && sp->ice_pwd.s && str_cmp_str(&ag->pwd[0], &sp->ice_pwd))
-		__ice_restart(ag);
-	else if (ag->local_interface != media->interface)
-		__ice_restart(ag);
+	if (sp) {
+		/* check for ICE restarts */
+		if (ag->ufrag[0].s && sp->ice_ufrag.s && str_cmp_str(&ag->ufrag[0], &sp->ice_ufrag))
+			__ice_restart(ag);
+		else if (ag->pwd[0].s && sp->ice_pwd.s && str_cmp_str(&ag->pwd[0], &sp->ice_pwd))
+			__ice_restart(ag);
+		else if (ag->local_interface != media->interface)
+			__ice_restart(ag);
 
-	/* update remote info */
-	if (sp->ice_ufrag.s)
-		call_str_cpy(call, &ag->ufrag[0], &sp->ice_ufrag);
-	if (sp->ice_pwd.s)
-		call_str_cpy(call, &ag->pwd[0], &sp->ice_pwd);
+		/* update remote info */
+		if (sp->ice_ufrag.s)
+			call_str_cpy(call, &ag->ufrag[0], &sp->ice_ufrag);
+		if (sp->ice_pwd.s)
+			call_str_cpy(call, &ag->pwd[0], &sp->ice_pwd);
+
+		candidates = &sp->ice_candidates;
+	}
+	else /* this is a dummy update in case rtcp-mux has changed */
+		candidates = &ag->remote_candidates;
 
 	/* get our component streams */
 	ZERO(components);
@@ -349,7 +356,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 		components[1] = NULL;
 
 	comps = 0;
-	for (l = sp->ice_candidates.head; l; l = l->next) {
+	for (l = candidates->head; l; l = l->next) {
 		if (ag->remote_candidates.length >= MAX_ICE_CANDIDATES) {
 			ilog(LOG_WARNING, "Maxmimum number of ICE candidates exceeded");
 			break;
@@ -360,15 +367,16 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 		/* skip invalid */
 		if (!cand->component_id || cand->component_id > G_N_ELEMENTS(components))
 			continue;
-		/* skip if we don't have a candidate of our own */
 		ps = components[cand->component_id - 1];
-		if (!ps)
-			continue;
 
-		comps = MAX(comps, cand->component_id);
+		if (ps) /* only count active components */
+			comps = MAX(comps, cand->component_id);
+
+		dup = g_hash_table_lookup(ag->candidate_hash, cand);
+		if (!sp && dup) /* this isn't a real update, so only check pairings */
+			goto pair;
 
 		/* check for duplicates */
-		dup = g_hash_table_lookup(ag->candidate_hash, cand);
 		if (dup) {
 			/* if this is peer reflexive, we've learned it through STUN.
 			 * otherwise it's simply one we've seen before. */
@@ -410,6 +418,9 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 
 		g_hash_table_insert(ag->foundation_hash, dup, dup);
 
+pair:
+		if (!ps)
+			continue;
 		for (k = ag->local_interface->list.head; k; k = k->next) {
 			/* skip duplicates here also */
 			if (__pair_lookup(ag, dup, k->data))
@@ -1088,8 +1099,10 @@ int ice_request(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_a
 
 		g_tree_insert(ag->nominated_pairs, pair, pair);
 
-		if (PAIR_ISSET(pair, SUCCEEDED))
+		if (PAIR_ISSET(pair, SUCCEEDED)) {
+			PAIR_SET(pair, VALID);
 			g_tree_insert(ag->valid_pairs, pair, pair);
+		}
 
 		if (!AGENT_ISSET(ag, CONTROLLING))
 			ret = __check_valid(ag);
@@ -1129,7 +1142,7 @@ static int __check_succeeded_complete(struct ice_agent *ag) {
 int ice_response(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_addr *dst,
 		struct stun_attrs *attrs, u_int32_t transaction[3])
 {
-	struct ice_candidate_pair *pair;
+	struct ice_candidate_pair *pair, *opair;
 	struct ice_agent *ag;
 	struct call_media *media = ps->media;
 	const char *err;
@@ -1222,20 +1235,21 @@ int ice_response(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_
 		cand = __foundation_lookup(ag, &pair->remote_candidate->foundation, component);
 		if (!cand)
 			continue;
-		pair = __pair_lookup(ag, cand, ifa);
-		if (!pair)
+		opair = __pair_lookup(ag, cand, ifa);
+		if (!opair)
 			continue;
 
-		if (PAIR_ISSET(pair, FAILED))
+		if (PAIR_ISSET(opair, FAILED))
 			continue;
-		if (!PAIR_CLEAR(pair, FROZEN))
+		if (!PAIR_CLEAR(opair, FROZEN))
 			continue;
 
-		ilog(LOG_DEBUG, "Unfreezing related ICE pair "PAIR_FORMAT, PAIR_FMT(pair));
+		ilog(LOG_DEBUG, "Unfreezing related ICE pair "PAIR_FORMAT, PAIR_FMT(opair));
 	}
 
 	/* if this was previously nominated by the peer, it's now valid */
 	if (PAIR_ISSET(pair, NOMINATED)) {
+		PAIR_SET(pair, VALID);
 		g_tree_insert(ag->valid_pairs, pair, pair);
 
 		if (!AGENT_ISSET(ag, CONTROLLING))
