@@ -885,7 +885,7 @@ forward:
 	ret = sendmsg(sink->sfd->fd.fd, &mh, 0);
 
 	if (ret == -1) {
-		ret = -errno;
+		ret = 0; /* temp for address family mismatches */
                 ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
 		atomic64_inc(&stream->stats.errors);
 		atomic64_inc(&cm->statsps.errors);
