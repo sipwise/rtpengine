@@ -1,0 +1,4 @@
+[gerrit]
+host=gerrit.mgm.sipwise.com
+port=29418
+project=rtpengine
