@@ -146,6 +146,7 @@ const char * get_tag_type_text(enum tag_type t) {
 }
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
+static void __call_media_state_machine(struct call_media *m);
 
 static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
@@ -645,7 +646,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, struct sockaddr_in6 *fsi
 		if (!stun_ret)
 			goto unlock_out;
 		if (stun_ret == 1) {
-			call_stream_state_machine(stream);
+			__call_media_state_machine(media);
 			mutex_lock(&stream->in_lock); /* for the jump */
 			goto kernel_check;
 		}
@@ -885,7 +886,7 @@ forward:
 	ret = sendmsg(sink->sfd->fd.fd, &mh, 0);
 
 	if (ret == -1) {
-		ret = -errno;
+		ret = 0; /* temp for address family mismatches */
                 ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
 		atomic64_inc(&stream->stats.errors);
 		atomic64_inc(&cm->statsps.errors);
@@ -1863,15 +1864,21 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	return ret;
 }
 
-static void __fill_stream(struct packet_stream *ps, const struct endpoint *ep, unsigned int port_off) {
-	ps->endpoint = *ep;
-	ps->endpoint.port += port_off;
+static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, unsigned int port_off) {
+	struct endpoint ep;
+
+	ep = *epp;
+	ep.port += port_off;
+
+	/* if the endpoint hasn't changed, we do nothing */
+	if (PS_ISSET(ps, FILLED) && !memcmp(&ps->advertised_endpoint, &ep, sizeof(ep)))
+		return;
+
+	ps->endpoint = ep;
+	ps->advertised_endpoint = ep;
 	/* we reset crypto params whenever the endpoint changes */
-	if (PS_ISSET(ps, FILLED) && memcmp(&ps->advertised_endpoint, &ps->endpoint, sizeof(ps->endpoint))) {
-		crypto_reset(&ps->crypto);
-		dtls_shutdown(ps);
-	}
-	ps->advertised_endpoint = ps->endpoint;
+	crypto_reset(&ps->crypto);
+	dtls_shutdown(ps);
 	PS_SET(ps, FILLED);
 }
 
@@ -1896,6 +1903,13 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 	}
 
 	return CSS_RUNNING;
+}
+
+static void __call_media_state_machine(struct call_media *m) {
+	GList *l;
+
+	for (l = m->streams.head; l; l = l->next)
+		call_stream_state_machine(l->data);
 }
 
 static int __init_stream(struct packet_stream *ps) {
@@ -2434,11 +2448,14 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			 * but also lets endpoints re-negotiate. */
 			media->protocol = NULL;
 		}
-		/* allow override of outgoing protocol even if we know it already */
-		if (flags && flags->transport_protocol)
-			media->protocol = flags->transport_protocol;
-		else if (!media->protocol)
+		/* default is to leave the protocol unchanged */
+		if (!media->protocol)
 			media->protocol = other_media->protocol;
+		/* allow override of outgoing protocol even if we know it already */
+		/* but only if this is an RTP-based protocol */
+		if (flags && flags->transport_protocol
+				&& other_media->protocol && other_media->protocol->rtp)
+			media->protocol = flags->transport_protocol;
 
 		/* copy parameters advertised by the sender of this message */
 		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
@@ -2463,7 +2480,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* control rtcp-mux */
 		__rtcp_mux_logic(flags, media, other_media);
-		/* XXX update ICE if rtcp-mux changes */
 
 		/* SDES and DTLS */
 		__generate_crypto(flags, media, other_media);
@@ -2539,6 +2555,7 @@ init:
 
 		/* we are now ready to fire up ICE if so desired and requested */
 		ice_update(other_media->ice_agent, sp);
+		ice_update(media->ice_agent, NULL); /* this is in case rtcp-mux has changed */
 	}
 
 	return 0;
@@ -3476,7 +3493,15 @@ struct local_interface *get_local_interface(struct callmaster *m, const str *nam
 	if (!name || !name->s) {
 		GQueue *q;
 		q = __interface_list_for_family(m, family);
-		return q->head ? q->head->data : NULL;
+		if (q->head)
+			return q->head->data;
+		q = __interface_list_for_family(m, AF_INET);
+		if (q->head)
+			return q->head->data;
+		q = __interface_list_for_family(m, AF_INET6);
+		if (q->head)
+			return q->head->data;
+		return NULL;
 	}
 
 	d.name = *name;

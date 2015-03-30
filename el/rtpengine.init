@@ -39,7 +39,7 @@ MODULE=0
 
 build_opts() {
 	shopt -s nocasematch
-	RPMS=`rpm -qa | grep ngcp-rtpengine-kernel`
+	RPMS=`rpm -qa | grep rtpengine-kernel`
 	if [[ "$KERNEL" == "yes" && -n "$TABLE" && -n "$RPMS" ]]
 	then
 		MODULE=1
