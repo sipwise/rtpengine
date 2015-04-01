@@ -2528,15 +2528,17 @@ void call_destroy(struct call *c) {
 
 	m->totalstats.total_managed_sess += 1;
 
-	ml = c->monologues->data;
-	if (ml->term_reason==TIMEOUT) {
-		m->totalstats.total_timeout_sess++;
-	} else if (ml->term_reason==SILENT_TIMEOUT) {
-		m->totalstats.total_silent_timeout_sess++;
-	} else if (ml->term_reason==REGULAR) {
-		m->totalstats.total_regular_term_sess++;
-	} else if (ml->term_reason==FORCED) {
-		m->totalstats.total_forced_term_sess++;
+	if (c->monologues) {
+		ml = c->monologues->data;
+		if (ml->term_reason==TIMEOUT) {
+			m->totalstats.total_timeout_sess++;
+		} else if (ml->term_reason==SILENT_TIMEOUT) {
+			m->totalstats.total_silent_timeout_sess++;
+		} else if (ml->term_reason==REGULAR) {
+			m->totalstats.total_regular_term_sess++;
+		} else if (ml->term_reason==FORCED) {
+			m->totalstats.total_forced_term_sess++;
+		}
 	}
 
 	timeval_multiply(&m->totalstats.total_average_call_dur,&m->totalstats.total_average_call_dur,m->totalstats.total_managed_sess-1);
