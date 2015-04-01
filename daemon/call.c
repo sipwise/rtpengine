@@ -539,9 +539,9 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c) {
 	memcpy(s->master_key, c->params.master_key, c->params.crypto_suite->master_key_len);
 	memcpy(s->master_salt, c->params.master_salt, c->params.crypto_suite->master_salt_len);
 
-	if (c->params.unencrypted_srtp)
+	if (c->params.session_params.unencrypted_srtp)
 		s->cipher = REC_NULL;
-	if (c->params.unauthenticated_srtp)
+	if (c->params.session_params.unauthenticated_srtp)
 		s->auth_tag_len = 0;
 
 	return 0;
@@ -2158,10 +2158,21 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 
 	if (!MEDIA_ISSET(this, INITIALIZED)) {
 		/* we offer both DTLS and SDES by default */
-		MEDIA_SET(this, DTLS);
-		MEDIA_SET(this, SDES);
+		/* unless this is overridden by flags */
+		if (!flags->dtls_off)
+			MEDIA_SET(this, DTLS);
+		if (!flags->sdes_off)
+			MEDIA_SET(this, SDES);
+		else
+			goto skip_sdes;
 	}
 	else {
+		/* if both SDES and DTLS are supported, we may use the flags to select one
+		 * over the other */
+		if (MEDIA_ARESET2(this, DTLS, SDES) && flags->dtls_off)
+			MEDIA_CLEAR(this, DTLS);
+		/* flags->sdes_off is ignored as we prefer DTLS by default */
+
 		/* if we're talking to someone understanding DTLS, then skip the SDES stuff */
 		if (MEDIA_ISSET(this, DTLS)) {
 			MEDIA_CLEAR(this, SDES);
@@ -2169,17 +2180,19 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		}
 	}
 
+	/* SDES parameters below */
+
 	/* for answer case, otherwise we default to one */
 	this->sdes_out.tag = cp_in->crypto_suite ? this->sdes_in.tag : 1;
 
 	if (other->sdes_in.params.crypto_suite) {
 		/* SRTP <> SRTP case, copy from other stream */
-		crypto_params_copy(cp, &other->sdes_in.params);
-		return;
+		cp->session_params = cp_in->session_params;
+		crypto_params_copy(cp, &other->sdes_in.params, (flags->opmode == OP_OFFER) ? 1 : 0);
 	}
 
 	if (cp->crypto_suite)
-		return;
+		goto apply_sdes_flags;
 
 	cp->crypto_suite = cp_in->crypto_suite;
 	if (!cp->crypto_suite)
@@ -2188,10 +2201,24 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			cp->crypto_suite->master_key_len);
 	random_string((unsigned char *) cp->master_salt,
 			cp->crypto_suite->master_salt_len);
-	cp->unencrypted_srtp = cp_in->unencrypted_srtp;
-	cp->unencrypted_srtcp = cp_in->unencrypted_srtcp;
-	cp->unauthenticated_srtp = cp_in->unauthenticated_srtp;
 	/* mki = mki_len = 0 */
+	cp->session_params.unencrypted_srtp = cp_in->session_params.unencrypted_srtp;
+	cp->session_params.unencrypted_srtcp = cp_in->session_params.unencrypted_srtcp;
+	cp->session_params.unauthenticated_srtp = cp_in->session_params.unauthenticated_srtp;
+
+apply_sdes_flags:
+	if (flags->sdes_unencrypted_srtp && flags->opmode == OP_OFFER)
+		cp_in->session_params.unencrypted_srtp = cp->session_params.unencrypted_srtp = 1;
+	else if (flags->sdes_encrypted_srtp)
+		cp_in->session_params.unencrypted_srtp = cp->session_params.unencrypted_srtp = 0;
+	if (flags->sdes_unencrypted_srtcp && flags->opmode == OP_OFFER)
+		cp_in->session_params.unencrypted_srtcp = cp->session_params.unencrypted_srtcp = 1;
+	else if (flags->sdes_encrypted_srtcp)
+		cp_in->session_params.unencrypted_srtcp = cp->session_params.unencrypted_srtcp = 0;
+	if (flags->sdes_unauthenticated_srtp && flags->opmode == OP_OFFER)
+		cp_in->session_params.unauthenticated_srtp = cp->session_params.unauthenticated_srtp = 1;
+	else if (flags->sdes_authenticated_srtp)
+		cp_in->session_params.unauthenticated_srtp = cp->session_params.unauthenticated_srtp = 0;
 
 skip_sdes:
 	;
@@ -2478,7 +2505,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 					SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_ICE
 					| SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE);
 
-			crypto_params_copy(&other_media->sdes_in.params, &sp->crypto);
+			crypto_params_copy(&other_media->sdes_in.params, &sp->crypto, 1);
 			other_media->sdes_in.tag = sp->sdes_tag;
 			if (other_media->sdes_in.params.crypto_suite)
 				MEDIA_SET(other_media, SDES);

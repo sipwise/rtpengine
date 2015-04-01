@@ -626,6 +626,25 @@ a=rtpmap:111 opus/48000/2
 	{
 		$$dict{'address family'} = $$pr_o{family_str};
 		$$dict{'transport protocol'} = $$tr_o{name};
+
+		if ($$tr_o{name} =~ /SAVP/ && $op eq 'offer') {
+			my (@opts, @opt);
+			rand() < .2 and @opt = ('unencrypted_srtp');
+			rand() < .2 and @opt = ('encrypted_srtp');
+			rand() < .5 and @opt = ();
+			push(@opts, @opt);
+			@opt = ();
+			rand() < .2 and @opt = ('unencrypted_srtcp');
+			rand() < .2 and @opt = ('encrypted_srtcp');
+			rand() < .5 and @opt = ();
+			push(@opts, @opt);
+			@opt = ();
+			rand() < .2 and @opt = ('unauthenticated_srtp');
+			rand() < .2 and @opt = ('authenticated_srtp');
+			rand() < .5 and @opt = ();
+			push(@opts, @opt);
+			$$dict{SDES} = \@opts;
+		}
 	}
 
 	#print(Dumper($dict) . "\n\n");

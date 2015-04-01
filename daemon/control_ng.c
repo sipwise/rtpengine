@@ -29,7 +29,8 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 			break;
 
 		case BENCODE_LIST:
-			sep = "[ ";
+			g_string_append(s, "[ ");
+			sep = "";
 			for (chld = el->child; chld; chld = chld->sibling) {
 				g_string_append(s, sep);
 				pretty_print(chld, s);
@@ -39,7 +40,8 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 			break;
 
 		case BENCODE_DICTIONARY:
-			sep = "{ ";
+			g_string_append(s, "{ ");
+			sep = "";
 			for (chld = el->child; chld; chld = chld->sibling) {
 				g_string_append(s, sep);
 				pretty_print(chld, s);

@@ -57,6 +57,12 @@ struct crypto_suite {
 	const char *dtls_profile_code;
 };
 
+struct crypto_session_params {
+	int unencrypted_srtcp:1,
+	    unencrypted_srtp:1,
+	    unauthenticated_srtp:1;
+};
+
 struct crypto_params {
 	const struct crypto_suite *crypto_suite;
 	/* we only support one master key for now */
@@ -64,9 +70,7 @@ struct crypto_params {
 	unsigned char master_salt[SRTP_MAX_MASTER_SALT_LEN];
 	unsigned char *mki;
 	unsigned int mki_len;
-	int unencrypted_srtcp:1,
-	    unencrypted_srtp:1,
-	    unauthenticated_srtp:1;
+	struct crypto_session_params session_params;
 };
 
 struct crypto_context {
@@ -144,9 +148,17 @@ INLINE void crypto_reset(struct crypto_context *c) {
 	c->last_index = 0;
 	c->ssrc = 0;
 }
-INLINE void crypto_params_copy(struct crypto_params *o, const struct crypto_params *i) {
+INLINE void crypto_params_copy(struct crypto_params *o, const struct crypto_params *i, int copy_sp) {
+	struct crypto_session_params sp;
+
 	crypto_params_cleanup(o);
+
+	if (!copy_sp)
+		sp = o->session_params;
 	*o = *i;
+	if (!copy_sp)
+		o->session_params = sp;
+
 	if (o->mki_len > 255)
 		o->mki_len = 0;
 	if (o->mki_len) {
@@ -156,7 +168,7 @@ INLINE void crypto_params_copy(struct crypto_params *o, const struct crypto_para
 }
 INLINE void crypto_init(struct crypto_context *c, const struct crypto_params *p) {
 	crypto_cleanup(c);
-	crypto_params_copy(&c->params, p);
+	crypto_params_copy(&c->params, p, 1);
 }
 INLINE int crypto_params_cmp(const struct crypto_params *a, const struct crypto_params *b) {
        if (a->crypto_suite != b->crypto_suite)

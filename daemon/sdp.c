@@ -1245,9 +1245,9 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 						attr->u.crypto.master_key.len);
 				memcpy(sp->crypto.master_salt, attr->u.crypto.salt.s,
 						attr->u.crypto.salt.len);
-				sp->crypto.unencrypted_srtp = attr->u.crypto.unencrypted_srtp;
-				sp->crypto.unencrypted_srtcp = attr->u.crypto.unencrypted_srtcp;
-				sp->crypto.unauthenticated_srtp = attr->u.crypto.unauthenticated_srtp;
+				sp->crypto.session_params.unencrypted_srtp = attr->u.crypto.unencrypted_srtp;
+				sp->crypto.session_params.unencrypted_srtcp = attr->u.crypto.unencrypted_srtcp;
+				sp->crypto.session_params.unauthenticated_srtp = attr->u.crypto.unauthenticated_srtp;
 			}
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
@@ -1878,11 +1878,11 @@ static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
 			ull |= cp->mki[cp->mki_len - i - 1] << (i * 8);
 		chopper_append_printf(chop, "|%llu:%u", ull, cp->mki_len);
 	}
-	if (cp->unencrypted_srtp)
+	if (cp->session_params.unencrypted_srtp)
 		chopper_append_c(chop, " UNENCRYPTED_SRTP");
-	if (cp->unencrypted_srtcp)
+	if (cp->session_params.unencrypted_srtcp)
 		chopper_append_c(chop, " UNENCRYPTED_SRTCP");
-	if (cp->unauthenticated_srtp)
+	if (cp->session_params.unauthenticated_srtp)
 		chopper_append_c(chop, " UNAUTHENTICATED_SRTP");
 	chopper_append_c(chop, "\r\n");
 }

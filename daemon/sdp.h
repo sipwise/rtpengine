@@ -32,7 +32,15 @@ struct sdp_ng_flags {
 	    rtcp_mux_reject:1,
 	    strict_source:1,
 	    media_handover:1,
-	    dtls_passive:1;
+	    dtls_passive:1,
+	    dtls_off:1,
+	    sdes_off:1,
+	    sdes_unencrypted_srtp:1,
+	    sdes_unencrypted_srtcp:1,
+	    sdes_unauthenticated_srtp:1,
+	    sdes_encrypted_srtp:1,
+	    sdes_encrypted_srtcp:1,
+	    sdes_authenticated_srtp:1;
 };
 
 struct sdp_chopper {
