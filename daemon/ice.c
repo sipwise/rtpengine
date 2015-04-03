@@ -470,8 +470,6 @@ void ice_shutdown(struct ice_agent **agp) {
 	obj_put(ag);
 }
 static void __ice_agent_free_components(struct ice_agent *ag) {
-	ice_candidates_free(&ag->remote_candidates);
-	ice_candidate_pairs_free(&ag->candidate_pairs);
 	g_queue_clear(&ag->triggered);
 	g_hash_table_destroy(ag->candidate_hash);
 	g_hash_table_destroy(ag->pair_hash);
@@ -482,6 +480,8 @@ static void __ice_agent_free_components(struct ice_agent *ag) {
 	g_tree_destroy(ag->nominated_pairs);
 	g_tree_destroy(ag->succeeded_pairs);
 	g_tree_destroy(ag->valid_pairs);
+	ice_candidates_free(&ag->remote_candidates);
+	ice_candidate_pairs_free(&ag->candidate_pairs);
 }
 static void __ice_agent_free(void *p) {
 	struct ice_agent *ag = p;
