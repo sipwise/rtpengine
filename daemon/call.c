@@ -33,7 +33,7 @@
 #include "rtp.h"
 #include "call_interfaces.h"
 #include "ice.h"
-
+#include "rtpengine_config.h"
 
 
 
@@ -1401,6 +1401,14 @@ static void callmaster_timer(void *ptr) {
 		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
 			atomic64_set(&ps->last_packet, poller_now);
 
+#if (RE_HAS_MEASUREDELAY)
+		mutex_lock(&m->statspslock);
+		ps->stats.delay_min = m->statsps.delay_min = ke->stats.delay_min;
+		ps->stats.delay_avg = m->statsps.delay_avg = ke->stats.delay_avg;
+		ps->stats.delay_max = m->statsps.delay_max = ke->stats.delay_max;
+		mutex_unlock(&m->statspslock);
+#endif
+
 		atomic64_set(&ps->kernel_stats.bytes, ke->stats.bytes);
 		atomic64_set(&ps->kernel_stats.packets, ke->stats.packets);
 		atomic64_set(&ps->kernel_stats.errors, ke->stats.errors);
@@ -1419,6 +1427,14 @@ static void callmaster_timer(void *ptr) {
 			atomic64_set(&rs->kernel_packets, ke->rtp_stats[j].packets);
 			atomic64_set(&rs->kernel_bytes, ke->rtp_stats[j].bytes);
 		}
+
+#if (RE_HAS_MEASUREDELAY)
+		mutex_lock(&m->statspslock);
+		ps->kernel_stats.delay_min = ke->stats.delay_min;
+		ps->kernel_stats.delay_avg = ke->stats.delay_avg;
+		ps->kernel_stats.delay_max = ke->stats.delay_max;
+		mutex_unlock(&m->statspslock);
+#endif
 
 		update = 0;
 
@@ -2731,25 +2747,76 @@ void call_destroy(struct call *c) {
 
 				if (_log_facility_cdr) {
 				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
-				    cdrbufcur += sprintf(cdrbufcur,
-				            "ml%i_midx%u_%s_endpoint_ip=%s, "
-				            "ml%i_midx%u_%s_endpoint_port=%u, "
-				            "ml%i_midx%u_%s_local_relay_port=%u, "
-				            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
-				            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
-				            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
-				            "ml%i_midx%u_%s_last_packet="UINT64F", ",
-				            cdrlinecnt, md->index, protocol, addr,
-				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
-				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-				            cdrlinecnt, md->index, protocol,
-					    atomic64_get(&ps->stats.packets),
-				            cdrlinecnt, md->index, protocol,
-					    atomic64_get(&ps->stats.bytes),
-				            cdrlinecnt, md->index, protocol,
-					    atomic64_get(&ps->stats.errors),
-				            cdrlinecnt, md->index, protocol,
-					    atomic64_get(&ps->last_packet));
+
+				    if(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) {
+					    cdrbufcur += sprintf(cdrbufcur,
+					            "ml%i_midx%u_%s_endpoint_ip=%s, "
+					            "ml%i_midx%u_%s_endpoint_port=%u, "
+					            "ml%i_midx%u_%s_local_relay_port=%u, "
+					            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
+					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
+					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
+					            "ml%i_midx%u_%s_last_packet="UINT64F", ",
+					            cdrlinecnt, md->index, protocol, addr,
+					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
+					            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.packets),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.bytes),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.errors),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->last_packet));
+				    } else {
+#if (RE_HAS_MEASUREDELAY)
+				    	cdrbufcur += sprintf(cdrbufcur,
+					            "ml%i_midx%u_%s_endpoint_ip=%s, "
+					            "ml%i_midx%u_%s_endpoint_port=%u, "
+					            "ml%i_midx%u_%s_local_relay_port=%u, "
+					            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
+					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
+					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
+					            "ml%i_midx%u_%s_last_packet="UINT64F", "
+				    			"ml%i_midx%u_%s_delay_min=%llu.%09llu, "
+				    			"ml%i_midx%u_%s_delay_avg=%llu.%09llu, "
+				    			"ml%i_midx%u_%s_delay_max=%llu.%09llu, ",
+					            cdrlinecnt, md->index, protocol, addr,
+					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
+					            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.packets),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.bytes),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.errors),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->last_packet),
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_min.tv_sec, (unsigned long long) ps->stats.delay_min.tv_nsec,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_avg.tv_sec, (unsigned long long) ps->stats.delay_avg.tv_nsec,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_max.tv_sec, (unsigned long long) ps->stats.delay_max.tv_nsec);
+#else
+					    cdrbufcur += sprintf(cdrbufcur,
+					            "ml%i_midx%u_%s_endpoint_ip=%s, "
+					            "ml%i_midx%u_%s_endpoint_port=%u, "
+					            "ml%i_midx%u_%s_local_relay_port=%u, "
+					            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
+					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
+					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
+					            "ml%i_midx%u_%s_last_packet="UINT64F", ",
+					            cdrlinecnt, md->index, protocol, addr,
+					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
+					            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.packets),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.bytes),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->stats.errors),
+					            cdrlinecnt, md->index, protocol,
+						    atomic64_get(&ps->last_packet));
+#endif
+				    }
 				}
 
 				ilog(LOG_INFO, "--------- Port %5u <> %15s:%-5hu%s, "

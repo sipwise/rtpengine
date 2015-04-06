@@ -643,6 +643,7 @@ int main(int argc, char **argv) {
 
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(poller_timer_loop, ctx.p);
+
 	if (graphite_ip)
 		thread_create_detach(graphite_loop, ctx.m);
 	thread_create_detach(ice_thread_run, NULL);
