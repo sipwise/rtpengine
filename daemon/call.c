@@ -32,7 +32,7 @@
 #include "rtcp.h"
 #include "rtp.h"
 #include "call_interfaces.h"
-
+#include "rtpengine_config.h"
 
 
 
@@ -1344,6 +1344,14 @@ static void callmaster_timer(void *ptr) {
 		DS(bytes);
 		DS(errors);
 
+#if (RE_HAS_MEASUREDELAY)
+		mutex_lock(&m->statspslock);
+		ps->stats.delay_min = m->statsps.delay_min = ke->stats.delay_min;
+		ps->stats.delay_avg = m->statsps.delay_avg = ke->stats.delay_avg;
+		ps->stats.delay_max = m->statsps.delay_max = ke->stats.delay_max;
+		mutex_unlock(&m->statspslock);
+#endif
+
 		mutex_lock(&ps->in_lock);
 
 		if (ke->stats.packets != ps->kernel_stats.packets)
@@ -1352,6 +1360,12 @@ static void callmaster_timer(void *ptr) {
 		ps->kernel_stats.packets = ke->stats.packets;
 		ps->kernel_stats.bytes = ke->stats.bytes;
 		ps->kernel_stats.errors = ke->stats.errors;
+
+#if (RE_HAS_MEASUREDELAY)
+		ps->kernel_stats.delay_min = ke->stats.delay_min;
+		ps->kernel_stats.delay_avg = ke->stats.delay_avg;
+		ps->kernel_stats.delay_max = ke->stats.delay_max;
+#endif
 
 		update = 0;
 
@@ -2487,21 +2501,63 @@ void call_destroy(struct call *c) {
 
 				if (_log_facility_cdr) {
 				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
-				    cdrbufcur += sprintf(cdrbufcur,
-				            "ml%i_midx%u_%s_endpoint_ip=%s, "
-				            "ml%i_midx%u_%s_endpoint_port=%u, "
-				            "ml%i_midx%u_%s_local_relay_port=%u, "
-				            "ml%i_midx%u_%s_relayed_packets=%llu, "
-				            "ml%i_midx%u_%s_relayed_bytes=%llu, "
-				            "ml%i_midx%u_%s_relayed_errors=%llu, "
-				            "ml%i_midx%u_%s_last_packet=%llu, ",
-				            cdrlinecnt, md->index, protocol, addr,
-				            cdrlinecnt, md->index, protocol, ps->endpoint.port,
-				            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
-				            cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
+				    if(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) {
+				    	cdrbufcur += sprintf(cdrbufcur,
+				    			"ml%i_midx%u_%s_endpoint_ip=%s, "
+				    			"ml%i_midx%u_%s_endpoint_port=%u, "
+				    			"ml%i_midx%u_%s_local_relay_port=%u, "
+				    			"ml%i_midx%u_%s_relayed_packets=%llu, "
+				    			"ml%i_midx%u_%s_relayed_bytes=%llu, "
+				    			"ml%i_midx%u_%s_relayed_errors=%llu, "
+				    			"ml%i_midx%u_%s_last_packet=%llu, ",
+								cdrlinecnt, md->index, protocol, addr,
+								cdrlinecnt, md->index, protocol, ps->endpoint.port,
+								cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
+				    } else {
+#if (RE_HAS_MEASUREDELAY)
+				    	cdrbufcur += sprintf(cdrbufcur,
+				    			"ml%i_midx%u_%s_endpoint_ip=%s, "
+				    			"ml%i_midx%u_%s_endpoint_port=%u, "
+				    			"ml%i_midx%u_%s_local_relay_port=%u, "
+				    			"ml%i_midx%u_%s_relayed_packets=%llu, "
+				    			"ml%i_midx%u_%s_relayed_bytes=%llu, "
+				    			"ml%i_midx%u_%s_relayed_errors=%llu, "
+				    			"ml%i_midx%u_%s_last_packet=%llu, "
+				    			"ml%i_midx%u_%s_delay_min=%llu.%09llu, "
+				    			"ml%i_midx%u_%s_delay_avg=%llu.%09llu, "
+				    			"ml%i_midx%u_%s_delay_max=%llu.%09llu, ",
+								cdrlinecnt, md->index, protocol, addr,
+								cdrlinecnt, md->index, protocol, ps->endpoint.port,
+								cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_min.tv_sec, (unsigned long long) ps->stats.delay_min.tv_nsec,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_avg.tv_sec, (unsigned long long) ps->stats.delay_avg.tv_nsec,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_max.tv_sec, (unsigned long long) ps->stats.delay_max.tv_nsec);
+#else
+				    	cdrbufcur += sprintf(cdrbufcur,
+				    			"ml%i_midx%u_%s_endpoint_ip=%s, "
+				    			"ml%i_midx%u_%s_endpoint_port=%u, "
+				    			"ml%i_midx%u_%s_local_relay_port=%u, "
+				    			"ml%i_midx%u_%s_relayed_packets=%llu, "
+				    			"ml%i_midx%u_%s_relayed_bytes=%llu, "
+				    			"ml%i_midx%u_%s_relayed_errors=%llu, "
+				    			"ml%i_midx%u_%s_last_packet=%llu, ",
+								cdrlinecnt, md->index, protocol, addr,
+								cdrlinecnt, md->index, protocol, ps->endpoint.port,
+								cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
+#endif
+				    }
 				}
 
 				ilog(LOG_INFO, "------ Media #%u, port %5u <> %15s:%-5hu%s, "

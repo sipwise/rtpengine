@@ -190,6 +190,9 @@ struct stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
 	u_int64_t			errors;
+	struct timespec		delay_min;
+	struct timespec		delay_avg;
+	struct timespec		delay_max;
 };
 
 struct totalstats {

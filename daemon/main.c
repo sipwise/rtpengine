@@ -662,6 +662,7 @@ int main(int argc, char **argv) {
 
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(timer_loop, ctx.p);
+
 	if (graphite_ip)
 		thread_create_detach(graphite_loop, ctx.m);
 

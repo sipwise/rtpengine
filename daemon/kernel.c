@@ -102,7 +102,6 @@ int kernel_del_stream(int fd, u_int16_t p) {
 	return -1;
 }
 
-
 GList *kernel_list(unsigned int id) {
 	char str[64];
 	int fd;

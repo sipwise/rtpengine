@@ -9,6 +9,9 @@ struct rtpengine_stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
 	u_int64_t			errors;
+	struct timespec     delay_min;
+	struct timespec     delay_avg;
+	struct timespec     delay_max;
 };
 
 struct re_address {
@@ -85,7 +88,7 @@ struct rtpengine_message {
 		MMG_NOOP = 1,
 		MMG_ADD,
 		MMG_DEL,
-		MMG_UPDATE,
+		MMG_UPDATE
 	}				cmd;
 
 	struct rtpengine_target_info	target;
