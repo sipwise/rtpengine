@@ -259,7 +259,8 @@ static void options(int *argc, char ***argv) {
 	char *graphitep = NULL;
 	char *redisps = NULL;
 	char *log_facility_s = NULL;
-        char *log_facility_cdr_s = NULL;
+    char *log_facility_cdr_s = NULL;
+    char *log_facility_rtcp_s = NULL;
 	int version = 0;
 	int sip_source = 0;
 
@@ -287,6 +288,7 @@ static void options(int *argc, char ***argv) {
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
+		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
 		{ "log-stderr",	'E', 0, G_OPTION_ARG_NONE,	&_log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads to create",	"INT"	},
@@ -369,12 +371,19 @@ static void options(int *argc, char ***argv) {
 		}
 	}
 
-        if (log_facility_cdr_s) {
-                if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
-                        print_available_log_facilities();
-                        die ("Invalid log facility for CDR '%s' (--log-facility-cdr)\n", log_facility_cdr_s);
-                }
-        }
+	if (log_facility_cdr_s) {
+		if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
+			print_available_log_facilities();
+			die ("Invalid log facility for CDR '%s' (--log-facility-cdr)\n", log_facility_cdr_s);
+		}
+	}
+
+	if (log_facility_rtcp_s) {
+		if (!parse_log_facility(log_facility_rtcp_s, &_log_facility_rtcp)) {
+			print_available_log_facilities();
+			die ("Invalid log facility for RTCP '%s' (--log-facility-rtcp)\n", log_facility_rtcp_s);
+		}
+	}
 
 	if (_log_stderr) {
 		write_log = log_to_stderr;

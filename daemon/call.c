@@ -672,6 +672,9 @@ loop_ok:
 	if (!sink && PS_ISSET(stream, RTCP)) {
 		sink = stream->rtcp_sink;
 		rtcp = 1;
+		if (_log_facility_rtcp) {
+			parse_and_log_rtcp_report(sfd, s->s, s->len);
+		}
 	}
 	else if (stream->rtcp_sink) {
 		muxed_rtcp = rtcp_demux(s, media);

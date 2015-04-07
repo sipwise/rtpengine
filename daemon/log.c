@@ -58,6 +58,7 @@ static const char* const prio_str[] = {
 gboolean _log_stderr = 0;
 int _log_facility = LOG_DAEMON;
 int _log_facility_cdr = 0;
+int _log_facility_rtcp = 0;
 
 
 static GHashTable *__log_limiter;
@@ -173,6 +174,14 @@ void cdrlog(const char* cdrbuffer) {
     int mask = LOG_MASK (LOG_INFO);
     previous = setlogmask(mask);
     syslog(LOG_INFO | _log_facility_cdr, "%s", cdrbuffer);
+    setlogmask(previous);
+}
+
+void rtcplog(const char* cdrbuffer) {
+    int previous;
+    int mask = LOG_MASK (LOG_INFO);
+    previous = setlogmask(mask);
+    syslog(LOG_INFO | _log_facility_rtcp, "%s", cdrbuffer);
     setlogmask(previous);
 }
 

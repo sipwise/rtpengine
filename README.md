@@ -178,6 +178,7 @@ option and which are reproduced below:
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
 	  --log-facility-cdr=local0|...    Syslog facility to use for logging CDRs
+	  --log-facility-rtcp=local0|...   Syslog facility to use for logging RTCP data (take care of traffic amount)
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 	  --num-threads=INT                Number of worker threads to create
@@ -321,6 +322,11 @@ The options are described in more detail below.
 * --log-facilty-cdr=daemon|local0|...|local7|...
 
 	Same as --log-facility with the difference that only CDRs are written to this log facility.
+
+* --log-facilty-rtcp=daemon|local0|...|local7|...
+
+	Same as --log-facility with the difference that only RTCP data is written to this log facility.
+	Be careful with this parameter since there may be a lot of information written to it.
 
 * -E, --log-stderr
 

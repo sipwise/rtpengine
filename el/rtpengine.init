@@ -157,6 +157,11 @@ build_opts() {
         then
                 OPTS+=" --log-facility-cdr=$LOG_FACILITY_CDR"
         fi
+
+	if [[ -n "$LOG_FACILITY_RTCP" ]]
+        then
+                OPTS+=" --log-facility-rtcp=$LOG_FACILITY_RTCP"
+        fi
 }
 
 start() {
