@@ -1,3 +1,17 @@
+ngcp-rtpengine (3.3.0.0+0~mr3.8.2.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [640183c] reset ICE/STUN retransmit data on triggered checks
+  * [a85cc83] process nominating ICE request only once per pair
+  * [0048d1c] don't relearn addresses if the endpoint hasn't changed
+  * [fdde644] Fall back to a different address family if the requested one is unavailable
+  * [677ca0d] don't close call on UDP send error
+  * [789402d] various fixes related to ICE negotation and rtcp-mux
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 08 Apr 2015 13:03:29 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.8.1.0) unstable; urgency=low
 
   [ Sergey Lavrov ]
