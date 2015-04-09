@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.8.1.3+0~mr3.8.1.3) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [f62d06e] fix refcount bug
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 09 Apr 2015 16:07:21 +0200
+
 ngcp-rtpengine (3.8.1.2+0~mr3.8.1.2) unstable; urgency=low
 
   * New release.
