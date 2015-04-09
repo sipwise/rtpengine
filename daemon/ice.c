@@ -283,11 +283,11 @@ static int __copy_cand(struct call *call, struct ice_candidate *dst, const struc
 }
 
 static void __ice_reset(struct ice_agent *ag) {
+	__agent_deschedule(ag);
 	AGENT_CLEAR2(ag, COMPLETED, NOMINATING);
 	__ice_agent_free_components(ag);
 	ZERO(ag->active_components);
 	ZERO(ag->start_nominating);
-	ZERO(ag->next_check);
 	ZERO(ag->last_run);
 	__ice_agent_initialize(ag);
 }
@@ -518,7 +518,7 @@ static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv)
 	if (ag->next_check.tv_sec && timeval_cmp(&ag->next_check, &nxt) <= 0)
 		goto nope; /* already scheduled sooner */
 	if (!g_tree_remove(ice_agents_timers, ag))
-		obj_hold(ag); /* if it wasn't removed (should never happen), we make a new reference */
+		obj_hold(ag); /* if it wasn't removed, we make a new reference */
 	ag->next_check = nxt;
 	g_tree_insert(ice_agents_timers, ag, ag);
 	cond_broadcast(&ice_agents_timers_cond);
@@ -532,7 +532,7 @@ static void __agent_deschedule(struct ice_agent *ag) {
 		goto nope; /* already descheduled */
 	ret = g_tree_remove(ice_agents_timers, ag);
 	ZERO(ag->next_check);
-	if (ret) /* should always be true */
+	if (ret)
 		obj_put(ag);
 nope:
 	mutex_unlock(&ice_agents_timers_lock);
