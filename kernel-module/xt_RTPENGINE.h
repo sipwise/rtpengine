@@ -12,6 +12,7 @@ struct rtpengine_stats {
 	struct timespec     delay_min;
 	struct timespec     delay_avg;
 	struct timespec     delay_max;
+	u_int8_t            in_tos;
 };
 
 struct re_address {

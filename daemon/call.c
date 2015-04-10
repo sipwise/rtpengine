@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <sys/time.h>
+#include <inttypes.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -1347,6 +1348,10 @@ static void callmaster_timer(void *ptr) {
 		DS(bytes);
 		DS(errors);
 
+		mutex_lock(&m->statspslock);
+		ps->stats.in_tos_tclass = m->statsps.in_tos_tclass = ke->stats.in_tos;
+		mutex_unlock(&m->statspslock);
+
 #if (RE_HAS_MEASUREDELAY)
 		mutex_lock(&m->statspslock);
 		ps->stats.delay_min = m->statsps.delay_min = ke->stats.delay_min;
@@ -1363,6 +1368,7 @@ static void callmaster_timer(void *ptr) {
 		ps->kernel_stats.packets = ke->stats.packets;
 		ps->kernel_stats.bytes = ke->stats.bytes;
 		ps->kernel_stats.errors = ke->stats.errors;
+		ps->kernel_stats.in_tos_tclass = ke->stats.in_tos;
 
 #if (RE_HAS_MEASUREDELAY)
 		ps->kernel_stats.delay_min = ke->stats.delay_min;
@@ -2512,14 +2518,16 @@ void call_destroy(struct call *c) {
 				    			"ml%i_midx%u_%s_relayed_packets=%llu, "
 				    			"ml%i_midx%u_%s_relayed_bytes=%llu, "
 				    			"ml%i_midx%u_%s_relayed_errors=%llu, "
-				    			"ml%i_midx%u_%s_last_packet=%llu, ",
+				    			"ml%i_midx%u_%s_last_packet=%llu, "
+				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 								cdrlinecnt, md->index, protocol, addr,
 								cdrlinecnt, md->index, protocol, ps->endpoint.port,
 								cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
-								cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet,
+								cdrlinecnt, md->index, protocol, ((unsigned int) ps->stats.in_tos_tclass) & 0xff);
 				    } else {
 #if (RE_HAS_MEASUREDELAY)
 				    	cdrbufcur += sprintf(cdrbufcur,
@@ -2530,6 +2538,7 @@ void call_destroy(struct call *c) {
 				    			"ml%i_midx%u_%s_relayed_bytes=%llu, "
 				    			"ml%i_midx%u_%s_relayed_errors=%llu, "
 				    			"ml%i_midx%u_%s_last_packet=%llu, "
+				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", "
 				    			"ml%i_midx%u_%s_delay_min=%llu.%09llu, "
 				    			"ml%i_midx%u_%s_delay_avg=%llu.%09llu, "
 				    			"ml%i_midx%u_%s_delay_max=%llu.%09llu, ",
@@ -2540,6 +2549,7 @@ void call_destroy(struct call *c) {
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet,
+								cdrlinecnt, md->index, protocol, ((unsigned int) ps->stats.in_tos_tclass) & 0xff,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_min.tv_sec, (unsigned long long) ps->stats.delay_min.tv_nsec,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_avg.tv_sec, (unsigned long long) ps->stats.delay_avg.tv_nsec,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_max.tv_sec, (unsigned long long) ps->stats.delay_max.tv_nsec);
@@ -2551,14 +2561,16 @@ void call_destroy(struct call *c) {
 				    			"ml%i_midx%u_%s_relayed_packets=%llu, "
 				    			"ml%i_midx%u_%s_relayed_bytes=%llu, "
 				    			"ml%i_midx%u_%s_relayed_errors=%llu, "
-				    			"ml%i_midx%u_%s_last_packet=%llu, ",
+				    			"ml%i_midx%u_%s_last_packet=%llu, "
+				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 								cdrlinecnt, md->index, protocol, addr,
 								cdrlinecnt, md->index, protocol, ps->endpoint.port,
 								cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.packets,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.bytes,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.errors,
-								cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet);
+								cdrlinecnt, md->index, protocol, (unsigned long long) ps->last_packet,
+								cdrlinecnt, md->index, protocol, ((unsigned int) ps->stats.in_tos_tclass) & 0xff);
 #endif
 				    }
 				}
