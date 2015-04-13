@@ -17,7 +17,7 @@ Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
-Pre-Depends: ngcp-system-tools
+Suggests: ngcp-system-tools
 Depends: ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: ngcp-mediaproxy-ng-daemon
@@ -63,7 +63,7 @@ Description: IPtables kernel module for the NGCP media proxy - source.
 
 Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
-Pre-Depends: ngcp-system-tools
+Suggests: ngcp-system-tools
 Depends: dkms (>= 1.95),
          ${misc:Depends}
 Conflicts: ngcp-mediaproxy-ng-kernel-dkms
