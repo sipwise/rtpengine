@@ -1085,6 +1085,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct call_monologue *ml;
 	GSList *i;
 	enum call_stream_state css;
+	atomic64 *timestamp;
 
 	rwlock_lock_r(&c->master_lock);
 	log_info_call(c);
@@ -1106,6 +1107,8 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	for (it = c->streams; it; it = it->next) {
 		ps = it->data;
 
+		timestamp = &ps->last_packet;
+
 		if (!ps->media)
 			goto next;
 		sfd = ps->sfd;
@@ -1116,10 +1119,8 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 
 		css = call_stream_state_machine(ps);
 
-		if (css == CSS_ICE) {
-			good = 1;
-			goto next;
-		}
+		if (css == CSS_ICE)
+			timestamp = &ps->media->ice_agent->last_activity;
 
 		if (hlp->ports[sfd->fd.localport])
 			goto next;
@@ -1137,7 +1138,7 @@ no_sfd:
 			tmp_t_reason = 2;
 		}
 
-		if (poller_now - atomic64_get(&ps->last_packet) < check)
+		if (poller_now - atomic64_get(timestamp) < check)
 			good = 1;
 
 next:
