@@ -111,6 +111,7 @@ struct ice_agent {
 	struct call_media	*media;
 	struct local_interface	*local_interface;
 	int			desired_family;
+	atomic64		last_activity;
 
 	mutex_t			lock; /* for elements below. and call must be locked in R */
 				/* lock order: in_lock first, then agent->lock */

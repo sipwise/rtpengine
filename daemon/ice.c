@@ -249,6 +249,8 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 
 	create_random_ice_string(call, &ag->ufrag[1], 8);
 	create_random_ice_string(call, &ag->pwd[1], 26);
+
+	atomic64_set(&ag->last_activity, poller_now);
 }
 
 static struct ice_agent *__ice_agent_new(struct call_media *media) {
@@ -322,6 +324,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 	if (!ag)
 		return;
 
+	atomic64_set(&ag->last_activity, poller_now);
 	media = ag->media;
 	call = media->call;
 
@@ -690,6 +693,8 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	if (!ag->pwd[0].s)
 		return;
 
+	atomic64_set(&ag->last_activity, poller_now);
+
 	__DBG("running checks, call "STR_FORMAT" tag "STR_FORMAT"", STR_FMT(&ag->call->callid),
 			STR_FMT(&ag->media->monologue->tag));
 
@@ -1049,6 +1054,8 @@ int ice_request(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_a
 	if (!ag)
 		return -1;
 
+	atomic64_set(&ag->last_activity, poller_now);
+
 	ifa = get_interface_from_address(ag->local_interface, dst);
 	err = "ICE/STUN binding request received on unknown local interface address";
 	if (!ifa)
@@ -1156,6 +1163,8 @@ int ice_response(struct packet_stream *ps, struct sockaddr_in6 *src, struct in6_
 	ag = media->ice_agent;
 	if (!ag)
 		return -1;
+
+	atomic64_set(&ag->last_activity, poller_now);
 
 	mutex_lock(&ag->lock);
 
