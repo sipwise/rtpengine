@@ -271,6 +271,11 @@ INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u
 		iov = &mh->msg_iov[mh->msg_iovlen++];
 		iov->iov_base = append; /* must have space for padding */
 		iov->iov_len = (append_len + 3) & 0xfffc;
+
+		if ((append_len & 0x3)) {
+			if (memcmp(append + append_len, "\0\0\0", 4 - (append_len & 0x3)))
+				memset(append + append_len, 0, 4 - (append_len & 0x3));
+		}
 	}
 }
 

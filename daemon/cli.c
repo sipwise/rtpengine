@@ -18,11 +18,13 @@
 
 static const char* TRUNCATED = "    ... Output truncated. Increase Output Buffer ...\n";
 
-#define truncate_output(x) do { x -= strlen(TRUNCATED)+1; x += sprintf(x,"%s",TRUNCATED); } while (0);
+#define truncate_output(x) strcpy(x - strlen(TRUNCATED) - 1, TRUNCATED)
 
-#define ADJUSTLEN(printlen,outbuflen,replybuffer) do { if (printlen>=(outbufend-replybuffer)) \
-                           truncate_output(replybuffer); \
-       replybuffer += (printlen>=outbufend-replybuffer)?outbufend-replybuffer:printlen; } while (0);
+#define ADJUSTLEN(printlen,outbuflen,replybuffer) do { \
+               replybuffer += (printlen>=outbufend-replybuffer)?outbufend-replybuffer:printlen; \
+               if (replybuffer == outbufend) \
+                       truncate_output(replybuffer); \
+       } while (0);
 
 static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;

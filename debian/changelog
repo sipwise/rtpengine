@@ -1,3 +1,35 @@
+ngcp-rtpengine (4.0.0.0+0~mr4.0.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2db33ef] reset ICE/STUN retransmit data on triggered checks
+  * [20ac7cd] process nominating ICE request only once per pair
+  * [93294f8] don't relearn addresses if the endpoint hasn't changed
+  * [0b202d8] Fall back to a different address family if the requested one is unavailable
+  * [fd99ecf] don't close call on UDP send error
+  * [c0fab9b] various fixes related to ICE negotation and rtcp-mux
+  * [2cfc12b] fix incorrect free order of ICE components
+
+  [ Peter Lemenkov ]
+  * [eba4414] Remove BuildRoot
+  * [597c35a] Remove duplicated text in descriptions
+  * [49ed2a8] Remove autoadded deps
+  * [b0240ee] Use generic dependency name for nc
+  * [cd70a8f] Use proper versionin scheme
+  * [8d56ed5] Typo fix in Source0 url
+  * [9890371] Remove no longer required section
+  * [234b454] Use macro instead of /etc/rc.d/init.d
+  * [882731b] Remove double slash
+  * [d25b697] Check for username,group before creating
+  * [e71a7e1] Consistently use rtpengine name everywhere
+  * [a6ab5b5] Restrict access to a working directory
+  * [9a12b49] Don't specify access rights for _usrsrc dir
+  * [3b27031] Explicitly set rights on dkms.conf as 644
+
+  [ Alexander Lutay ]
+  * [3a45a16] MT#7505 Add .gitreview file for rtpengine
+
+ -- Alexander Lutay <alutay@sipwise.com>  Wed, 08 Apr 2015 17:26:40 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr4.0.0.0) unstable; urgency=low
 
   [ Sergey Lavrov ]
