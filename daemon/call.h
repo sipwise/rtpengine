@@ -217,6 +217,7 @@ struct stats {
 	struct timespec		delay_min;
 	struct timespec		delay_avg;
 	struct timespec		delay_max;
+	atomic64			in_tos_tclass;
 };
 
 struct totalstats {
@@ -284,6 +285,7 @@ struct rtp_stats {
 	atomic64		bytes;
 	atomic64		kernel_packets;
 	atomic64		kernel_bytes;
+	atomic64		in_tos_tclass;
 };
 
 struct packet_stream {

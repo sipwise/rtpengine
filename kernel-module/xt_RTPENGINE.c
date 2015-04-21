@@ -152,6 +152,7 @@ struct rtpengine_stats_a {
 	struct timespec     delay_min;
 	struct timespec     delay_avg;
 	struct timespec     delay_max;
+	atomic_t          in_tos;
 };
 struct rtpengine_rtp_stats_a {
 	atomic64_t			packets;
@@ -862,6 +863,7 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	op.stats.delay_min = g->stats.delay_min;
 	op.stats.delay_max = g->stats.delay_max;
 	op.stats.delay_avg = g->stats.delay_avg;
+	op.stats.in_tos = atomic64_read(&g->stats.in_tos);
 
 	for (i = 0; i < g->target.num_payload_types; i++) {
 		op.rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
@@ -2230,9 +2232,9 @@ static int re_timespec_cmp (struct timespec *a, struct timespec *b)
 }
 
 #if (RE_HAS_MEASUREDELAY)
-	static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, struct timespec *starttime) {
+	static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, struct timespec *starttime, u_int8_t in_tos) {
 #else
-	static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src) {
+	static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, u_int8_t in_tos) {
 #endif
 	struct udphdr *uh;
 	struct rtpengine_target *g;
@@ -2352,6 +2354,10 @@ not_rtp:
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
 out:
+
+	if (atomic64_read(&g->stats.packets)==0)
+		atomic_set(&g->stats.in_tos,in_tos);
+
 	if (err)
 		atomic64_inc(&g->stats.errors);
 	else {
@@ -2445,9 +2451,9 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	src.u.ipv4 = ih->saddr;
 
 #if (RE_HAS_MEASUREDELAY)
-	return rtpengine46(skb, t, &src, &starttime);
+	return rtpengine46(skb, t, &src, &starttime, (u_int8_t)ih->tos);
 #else
-	return rtpengine46(skb, t, &src);
+	return rtpengine46(skb, t, &src, (u_int8_t)ih->tos);
 #endif
 
 skip2:
@@ -2487,6 +2493,7 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 
 	skb_reset_network_header(skb);
 	ih = ipv6_hdr(skb);
+
 	skb_pull(skb, sizeof(*ih));
 	if (ih->nexthdr != IPPROTO_UDP)
 		goto skip2;
@@ -2496,9 +2503,9 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	memcpy(&src.u.ipv6, &ih->saddr, sizeof(src.u.ipv6));
 
 #if (RE_HAS_MEASUREDELAY)
-	return rtpengine46(skb, t, &src, &starttime);
+	return rtpengine46(skb, t, &src, &starttime, ipv6_get_dsfield(ih));
 #else
-	return rtpengine46(skb, t, &src);
+	return rtpengine46(skb, t, &src, ipv6_get_dsfield(ih));
 #endif
 
 skip2:

@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <sys/time.h>
+#include <inttypes.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -691,6 +692,9 @@ loop_ok:
 	if (!sink && PS_ISSET(stream, RTCP)) {
 		sink = stream->rtcp_sink;
 		rtcp = 1;
+		if (_log_facility_rtcp) {
+			parse_and_log_rtcp_report(sfd, s->s, s->len);
+		}
 	}
 	else if (stream->rtcp_sink) {
 		muxed_rtcp = rtcp_demux(s, media);
@@ -1400,8 +1404,12 @@ static void callmaster_timer(void *ptr) {
 		DS(bytes);
 		DS(errors);
 
+
 		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
 			atomic64_set(&ps->last_packet, poller_now);
+
+		atomic64_set(&ps->stats.in_tos_tclass, ke->stats.in_tos);
+		atomic64_set(&m->statsps.in_tos_tclass, ke->stats.in_tos);
 
 #if (RE_HAS_MEASUREDELAY)
 		mutex_lock(&m->statspslock);
@@ -1414,6 +1422,7 @@ static void callmaster_timer(void *ptr) {
 		atomic64_set(&ps->kernel_stats.bytes, ke->stats.bytes);
 		atomic64_set(&ps->kernel_stats.packets, ke->stats.packets);
 		atomic64_set(&ps->kernel_stats.errors, ke->stats.errors);
+		atomic64_set(&ps->kernel_stats.in_tos_tclass, ke->stats.in_tos);
 
 		for (j = 0; j < ke->target.num_payload_types; j++) {
 			pt = ke->target.payload_types[j];
@@ -2774,7 +2783,8 @@ void call_destroy(struct call *c) {
 					            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
 					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
 					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
-					            "ml%i_midx%u_%s_last_packet="UINT64F", ",
+					            "ml%i_midx%u_%s_last_packet="UINT64F", "
+				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 					            cdrlinecnt, md->index, protocol, addr,
 					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 					            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
@@ -2785,7 +2795,9 @@ void call_destroy(struct call *c) {
 					            cdrlinecnt, md->index, protocol,
 						    atomic64_get(&ps->stats.errors),
 					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->last_packet));
+						    atomic64_get(&ps->last_packet),
+								cdrlinecnt, md->index, protocol,
+							atomic64_get(&ps->stats.in_tos_tclass));
 				    } else {
 #if (RE_HAS_MEASUREDELAY)
 				    	cdrbufcur += sprintf(cdrbufcur,
@@ -2796,6 +2808,7 @@ void call_destroy(struct call *c) {
 					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
 					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
 					            "ml%i_midx%u_%s_last_packet="UINT64F", "
+				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", "
 				    			"ml%i_midx%u_%s_delay_min=%llu.%09llu, "
 				    			"ml%i_midx%u_%s_delay_avg=%llu.%09llu, "
 				    			"ml%i_midx%u_%s_delay_max=%llu.%09llu, ",
@@ -2810,6 +2823,8 @@ void call_destroy(struct call *c) {
 						    atomic64_get(&ps->stats.errors),
 					            cdrlinecnt, md->index, protocol,
 						    atomic64_get(&ps->last_packet),
+								cdrlinecnt, md->index, protocol,
+							atomic64_get(&ps->stats.in_tos_tclass),
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_min.tv_sec, (unsigned long long) ps->stats.delay_min.tv_nsec,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_avg.tv_sec, (unsigned long long) ps->stats.delay_avg.tv_nsec,
 								cdrlinecnt, md->index, protocol, (unsigned long long) ps->stats.delay_max.tv_sec, (unsigned long long) ps->stats.delay_max.tv_nsec);
@@ -2821,7 +2836,8 @@ void call_destroy(struct call *c) {
 					            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
 					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
 					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
-					            "ml%i_midx%u_%s_last_packet="UINT64F", ",
+					            "ml%i_midx%u_%s_last_packet="UINT64F", "
+				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 					            cdrlinecnt, md->index, protocol, addr,
 					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
 					            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
@@ -2832,7 +2848,10 @@ void call_destroy(struct call *c) {
 					            cdrlinecnt, md->index, protocol,
 						    atomic64_get(&ps->stats.errors),
 					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->last_packet));
+						    atomic64_get(&ps->last_packet),
+								cdrlinecnt, md->index, protocol,
+							atomic64_get(&ps->stats.in_tos_tclass));
+
 #endif
 				    }
 				}
