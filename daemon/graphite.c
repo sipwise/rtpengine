@@ -146,8 +146,8 @@ int send_graphite_data() {
 	mutex_lock(&cm->totalstats_interval.total_average_lock);
 	ts.total_average_call_dur = cm->totalstats_interval.total_average_call_dur;
 	ts.total_managed_sess = cm->totalstats_interval.total_managed_sess;
-	ZERO(ts.total_average_call_dur);
-	ZERO(ts.total_managed_sess);
+	ZERO(cm->totalstats_interval.total_average_call_dur);
+	ZERO(cm->totalstats_interval.total_managed_sess);
 	mutex_unlock(&cm->totalstats_interval.total_average_lock);
 
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
