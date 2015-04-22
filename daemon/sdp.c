@@ -1284,7 +1284,9 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				SP_SET(sp, IMPLICIT_RTCP);
 				goto next;
 			}
-			if (attr->u.rtcp.port_num == sp->rtp_endpoint.port) {
+			if (attr->u.rtcp.port_num == sp->rtp_endpoint.port
+					&& !is_trickle_ice_address(&sp->rtp_endpoint))
+			{
 				SP_SET(sp, RTCP_MUX);
 				goto next;
 			}
