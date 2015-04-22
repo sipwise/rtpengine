@@ -1142,11 +1142,16 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 	GQueue *q;
 	GList *ql;
 
-	q = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
-	if (!q)
+	attr = attr_get_by_id_m_s(media, ATTR_ICE_UFRAG);
+	if (!attr)
 		return;
+	sp->ice_ufrag = attr->value;
 
 	SP_SET(sp, ICE);
+
+	q = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
+	if (!q)
+		goto no_cand;
 
 	for (ql = q->head; ql; ql = ql->next) {
 		attr = ql->data;
@@ -1158,6 +1163,7 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 		g_queue_push_tail(&sp->ice_candidates, cand);
 	}
 
+no_cand:
 	if ((attr = attr_get_by_id(&media->attributes, ATTR_ICE_OPTIONS))) {
 		if (str_str(&attr->value, "trickle") >= 0)
 			SP_SET(sp, TRICKLE_ICE);
@@ -1167,10 +1173,6 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 
 	if (attr_get_by_id(&media->attributes, ATTR_ICE_LITE))
 		SP_SET(sp, ICE_LITE);
-
-	attr = attr_get_by_id_m_s(media, ATTR_ICE_UFRAG);
-	if (attr)
-		sp->ice_ufrag = attr->value;
 
 	attr = attr_get_by_id_m_s(media, ATTR_ICE_PWD);
 	if (attr)
