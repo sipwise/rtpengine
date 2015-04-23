@@ -432,7 +432,15 @@ pair:
 		}
 	}
 
-	ag->active_components = comps;
+	if (comps)
+		ag->active_components = comps;
+	if (!ag->active_components) {
+		/* determine components for tricke-ice case */
+		comps = 2;
+		if (!components[1])
+			comps = 1;
+		ag->active_components = comps;
+	}
 
 	/* if we're here, we can start our ICE checks */
 	if (recalc)
