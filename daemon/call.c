@@ -2457,15 +2457,17 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				&& other_media->protocol && other_media->protocol->rtp)
 			media->protocol = flags->transport_protocol;
 
-		/* copy parameters advertised by the sender of this message */
-		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
-				SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_ICE
-				| SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE);
+		if (sp->rtp_endpoint.port) {
+			/* copy parameters advertised by the sender of this message */
+			bf_copy_same(&other_media->media_flags, &sp->sp_flags,
+					SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_ICE
+					| SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE);
 
-		crypto_params_copy(&other_media->sdes_in.params, &sp->crypto);
-		other_media->sdes_in.tag = sp->sdes_tag;
-		if (other_media->sdes_in.params.crypto_suite)
-			MEDIA_SET(other_media, SDES);
+			crypto_params_copy(&other_media->sdes_in.params, &sp->crypto);
+			other_media->sdes_in.tag = sp->sdes_tag;
+			if (other_media->sdes_in.params.crypto_suite)
+				MEDIA_SET(other_media, SDES);
+		}
 
 		__rtp_payload_types(media, &sp->rtp_payload_types);
 
@@ -2475,22 +2477,24 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
-		/* DTLS stuff */
-		__dtls_logic(flags, media, other_media, sp);
+		if (sp->rtp_endpoint.port) {
+			/* DTLS stuff */
+			__dtls_logic(flags, media, other_media, sp);
 
-		/* control rtcp-mux */
-		__rtcp_mux_logic(flags, media, other_media);
+			/* control rtcp-mux */
+			__rtcp_mux_logic(flags, media, other_media);
 
-		/* SDES and DTLS */
-		__generate_crypto(flags, media, other_media);
+			/* SDES and DTLS */
+			__generate_crypto(flags, media, other_media);
 
-		/* deduct address family from stream parameters received */
-		other_media->desired_family = family_from_address(&sp->rtp_endpoint.ip46);
-		/* for outgoing SDP, use "direction"/DF or default to what was offered */
-		if (!media->desired_family)
-			media->desired_family = other_media->desired_family;
-		if (sp->desired_family)
-			media->desired_family = sp->desired_family;
+			/* deduct address family from stream parameters received */
+			other_media->desired_family = family_from_address(&sp->rtp_endpoint.ip46);
+			/* for outgoing SDP, use "direction"/DF or default to what was offered */
+			if (!media->desired_family)
+				media->desired_family = other_media->desired_family;
+			if (sp->desired_family)
+				media->desired_family = sp->desired_family;
+		}
 
 		/* local interface selection */
 		__init_interface(media, &sp->direction[1]);
