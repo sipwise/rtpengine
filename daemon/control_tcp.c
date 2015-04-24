@@ -115,6 +115,12 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	pcre_get_substring_list(line, ovec, ret, (const char ***) &out);
 
 
+	if (out[RE_TCP_RL_CALLID])
+		log_info_c_string(out[RE_TCP_RL_CALLID]);
+	else if (out[RE_TCP_D_CALLID])
+		log_info_c_string(out[RE_TCP_D_CALLID]);
+
+
 	if (!strcmp(out[RE_TCP_RL_CMD], "request"))
 		output = call_request_tcp(out, c->callmaster);
 	else if (!strcmp(out[RE_TCP_RL_CMD], "lookup"))

@@ -6,6 +6,15 @@
 #include "str.h"
 #include "call.h"
 #include "poller.h"
+#include "ice.h"
+
+
+
+
+struct log_limiter_entry {
+	char *prefix;
+	char *msg;
+};
 
 
 
@@ -81,12 +90,13 @@ void log_to_stderr(int facility_priority, char *format, ...) {
 		return;
 	}
 
-	fprintf(stderr, "%s: %s\n", prio_str[facility_priority & LOG_PRIMASK], msg);
+	fprintf(stderr, "[%lu.%06lu] %s: %s\n", (unsigned long) g_now.tv_sec, (unsigned long) g_now.tv_usec,
+			prio_str[facility_priority & LOG_PRIMASK], msg);
 
 	free(msg);
 }
 
-void ilog(int prio, const char *fmt, ...) {
+void __ilog(int prio, const char *fmt, ...) {
 	char prefix[256];
 	char *msg, *piece;
 	const char *infix = "";
@@ -94,15 +104,6 @@ void ilog(int prio, const char *fmt, ...) {
 	int ret, xprio;
 
 	xprio = LOG_LEVEL_MASK(prio);
-
-#ifndef __DEBUG
-	int level; /* thank you C99 */
-	level = get_log_level();
-	if (xprio > LOG_LEVEL_MASK(level))
-		return;
-	if ((level & LOG_FLAG_RESTORE) && !(prio & LOG_FLAG_RESTORE))
-		return;
-#endif
 
 	switch (log_info.e) {
 		case LOG_INFO_NONE:
@@ -118,6 +119,19 @@ void ilog(int prio, const char *fmt, ...) {
 						STR_FMT(&log_info.u.stream_fd->call->callid),
 						log_info.u.stream_fd->fd.localport);
 			break;
+		case LOG_INFO_STR:
+			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"] ",
+					STR_FMT(log_info.u.str));
+			break;
+		case LOG_INFO_C_STRING:
+			snprintf(prefix, sizeof(prefix), "[%s] ", log_info.u.cstr);
+			break;
+		case LOG_INFO_ICE_AGENT:
+			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"/"STR_FORMAT"/%u] ",
+					STR_FMT(&log_info.u.ice_agent->call->callid),
+					STR_FMT(&log_info.u.ice_agent->media->monologue->tag),
+					log_info.u.ice_agent->media->index);
+			break;
 	}
 
 	va_start(ap, fmt);
@@ -129,8 +143,15 @@ void ilog(int prio, const char *fmt, ...) {
 		return;
 	}
 
+	while (ret > 0 && msg[ret-1] == '\n')
+		ret--;
+
 	if ((prio & LOG_FLAG_LIMIT)) {
 		time_t when;
+		struct log_limiter_entry lle, *llep;
+
+		lle.prefix = prefix;
+		lle.msg = msg;
 
 		mutex_lock(&__log_limiter_lock);
 
@@ -140,10 +161,13 @@ void ilog(int prio, const char *fmt, ...) {
 			__log_limiter_count = 0;
 		}
 
-		when = (time_t) g_hash_table_lookup(__log_limiter, msg);
+		when = (time_t) g_hash_table_lookup(__log_limiter, &lle);
 		if (!when || (poller_now - when) >= 15) {
-			g_hash_table_insert(__log_limiter, g_string_chunk_insert(__log_limiter_strings,
-						msg), (void *) poller_now);
+			lle.prefix = g_string_chunk_insert(__log_limiter_strings, prefix);
+			lle.msg = g_string_chunk_insert(__log_limiter_strings, msg);
+			llep = (void *) g_string_chunk_insert_len(__log_limiter_strings,
+					(void *) &lle, sizeof(lle));
+			g_hash_table_insert(__log_limiter, llep, (void *) poller_now);
 			__log_limiter_count++;
 			when = 0;
 		}
@@ -163,7 +187,7 @@ void ilog(int prio, const char *fmt, ...) {
 		infix = "... ";
 	}
 
-	write_log(xprio, "%s%s%s", prefix, infix, piece);
+	write_log(xprio, "%s%s%.*s", prefix, infix, ret, piece);
 
 out:
 	free(msg);
@@ -177,6 +201,20 @@ void cdrlog(const char* cdrbuffer) {
     setlogmask(previous);
 }
 
+static unsigned int log_limiter_entry_hash(const void *p) {
+	const struct log_limiter_entry *lle = p;
+	return g_str_hash(lle->msg) ^ g_str_hash(lle->prefix);
+}
+
+static int log_limiter_entry_equal(const void *a, const void *b) {
+	const struct log_limiter_entry *A = a, *B = b;
+	if (!g_str_equal(A->msg, B->msg))
+		return 0;
+	if (!g_str_equal(A->prefix, B->prefix))
+		return 0;
+	return 1;
+}
+
 void rtcplog(const char* cdrbuffer) {
     int previous;
     int mask = LOG_MASK (LOG_INFO);
@@ -187,6 +225,6 @@ void rtcplog(const char* cdrbuffer) {
 
 void log_init() {
 	mutex_init(&__log_limiter_lock);
-	__log_limiter = g_hash_table_new(g_str_hash, g_str_equal);
+	__log_limiter = g_hash_table_new(log_limiter_entry_hash, log_limiter_entry_equal);
 	__log_limiter_strings = g_string_chunk_new(1024);
 }

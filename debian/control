@@ -6,18 +6,18 @@ Build-Depends: debhelper (>= 5),
                iptables-dev (>= 1.4),
                libcurl4-openssl-dev | libcurl4-gnutls-dev |
   libcurl3-openssl-dev | libcurl3-gnutls-dev,
-               libglib2.0-dev,
+               libglib2.0-dev (>= 2.30),
                libpcre3-dev,
                libssl-dev (>= 1.0.1),
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
                markdown,
                zlib1g-dev
-Standards-Version: 3.9.5
+Standards-Version: 3.9.6
 Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
-Pre-Depends: ngcp-system-tools
+Suggests: ngcp-system-tools
 Depends: ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: ngcp-mediaproxy-ng-daemon
@@ -63,7 +63,7 @@ Description: IPtables kernel module for the NGCP media proxy - source.
 
 Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
-Pre-Depends: ngcp-system-tools
+Suggests: ngcp-system-tools
 Depends: dkms (>= 1.95),
          ${misc:Depends}
 Conflicts: ngcp-mediaproxy-ng-kernel-dkms

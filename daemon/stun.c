@@ -6,11 +6,13 @@
 #include <zlib.h>
 #include <openssl/hmac.h>
 #include <glib.h>
+#include <endian.h>
 
 #include "compat.h"
 #include "str.h"
 #include "aux.h"
 #include "log.h"
+#include "ice.h"
 
 
 
@@ -21,7 +23,11 @@
 #define STUN_ERROR_CODE 0x0009
 #define STUN_UNKNOWN_ATTRIBUTES 0x000a
 #define STUN_XOR_MAPPED_ADDRESS 0x0020
+#define STUN_PRIORITY 0x0024
+#define STUN_USE_CANDIDATE 0x0025
 #define STUN_FINGERPRINT 0x8028
+#define STUN_ICE_CONTROLLED 0x8029
+#define STUN_ICE_CONTROLLING 0x802a
 
 #define STUN_CLASS_REQUEST 0x00
 #define STUN_CLASS_INDICATION 0x01
@@ -35,6 +41,8 @@
 	 | (((method) & 0x0f80) << 2) | (((class) & 0x1) << 4) \
 	 | (((class) & 0x2) << 7))
 
+#define STUN_BINDING_REQUEST \
+	STUN_MESSAGE_TYPE(STUN_METHOD_BINDING, STUN_CLASS_REQUEST)
 #define STUN_BINDING_SUCCESS_RESPONSE \
 	STUN_MESSAGE_TYPE(STUN_METHOD_BINDING, STUN_CLASS_SUCCESS)
 #define STUN_BINDING_ERROR_RESPONSE \
@@ -43,18 +51,6 @@
 #define UNKNOWNS_COUNT 16
 
 
-
-struct stun_attrs {
-	str username;
-	char *msg_integrity_attr;
-	str msg_integrity;
-	u_int32_t priority;
-	char *fingerprint_attr;
-	u_int32_t fingerprint;
-	int use:1,
-	    controlled:1,
-	    controlling:1;
-};
 
 struct header {
 	u_int16_t msg_type;
@@ -94,9 +90,23 @@ struct xor_mapped_address {
 	u_int32_t address[4];
 } __attribute__ ((packed));
 
+struct controlled_ing {
+	struct tlv tlv;
+	u_int64_t tiebreaker;
+} __attribute__ ((packed));
+
+struct priority {
+	struct tlv tlv;
+	u_int32_t priority;
+} __attribute__ ((packed));
 
 
-static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns) {
+
+
+/* XXX add const in functions */
+
+
+static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, struct header *req) {
 	struct tlv *tlv;
 	int len, type, uc;
 	str attr;
@@ -129,12 +139,14 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns) 
 			case STUN_USERNAME:
 				out->username = attr;
 				break;
+
 			case STUN_MESSAGE_INTEGRITY:
 				if (attr.len != 20)
 					return -1;
 				out->msg_integrity_attr = (void *) tlv;
 				out->msg_integrity = attr;
 				break;
+
 			case STUN_FINGERPRINT:
 				if (attr.len != 4)
 					return -1;
@@ -142,17 +154,29 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns) 
 				out->fingerprint = ntohl(*(u_int32_t *) attr.s);
 				goto out;
 
-			case 0x0025: /* use-candidate */
+			case STUN_USE_CANDIDATE:
 				out->use = 1;
 				break;
-			case 0x8029: /* ice-controlled */
+
+			case STUN_ICE_CONTROLLED:
+				if (out->controlling)
+					return -1;
+				if (attr.len != 8)
+					return -1;
+				out->tiebreaker = be64toh(*((u_int64_t *) attr.s));
 				out->controlled = 1;
 				break;
-			case 0x802a: /* ice-controlling */
+
+			case STUN_ICE_CONTROLLING:
+				if (out->controlled)
+					return -1;
+				if (attr.len != 8)
+					return -1;
+				out->tiebreaker = be64toh(*((u_int64_t *) attr.s));
 				out->controlling = 1;
 				break;
 
-			case 0x0024: /* priority */
+			case STUN_PRIORITY:
 				if (attr.len != 4)
 					return -1;
 				out->priority = ntohl(*((u_int32_t *) attr.s));
@@ -160,6 +184,33 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns) 
 
 			case 0x8022: /* software */
 				break; /* ignore but suppress warning message */
+
+			case STUN_XOR_MAPPED_ADDRESS:
+				if (attr.len < 8)
+					return -1;
+				out->mapped_port = ntohs(*((u_int16_t *) (&attr.s[2]))) ^ (STUN_COOKIE >> 16);
+				if (attr.len == 8 && ntohs(*((u_int16_t *) attr.s)) == 1)
+					in4_to_6(&out->mapped_address,
+							ntohl(*((u_int32_t *) (&attr.s[4]))) ^ STUN_COOKIE);
+				else if (attr.len == 20 && ntohs(*((u_int16_t *) attr.s)) == 1) {
+					out->mapped_address.s6_addr32[0]
+						= *((u_int32_t *) (&attr.s[4])) ^ htonl(STUN_COOKIE);
+					out->mapped_address.s6_addr32[1]
+						= *((u_int32_t *) (&attr.s[8])) ^ req->transaction[0];
+					out->mapped_address.s6_addr32[2]
+						= *((u_int32_t *) (&attr.s[12])) ^ req->transaction[1];
+					out->mapped_address.s6_addr32[3]
+						= *((u_int32_t *) (&attr.s[16])) ^ req->transaction[2];
+				}
+				break;
+
+			case STUN_ERROR_CODE:
+				if (attr.len < 4)
+					return -1;
+				out->error_code = ntohl(*((u_int32_t *) attr.s));
+				out->error_code = ((out->error_code & 0x700) >> 8) * 100
+					+ (out->error_code & 0x0ff);
+				break;
 
 			default:
 				ilog(LOG_NOTICE, "Unknown STUN attribute: 0x%04x", type);
@@ -220,6 +271,11 @@ INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u
 		iov = &mh->msg_iov[mh->msg_iovlen++];
 		iov->iov_base = append; /* must have space for padding */
 		iov->iov_len = (append_len + 3) & 0xfffc;
+
+		if ((append_len & 0x3)) {
+			if (memcmp(append + append_len, "\0\0\0", 4 - (append_len & 0x3)))
+				memset(append + append_len, 0, 4 - (append_len & 0x3));
+		}
 	}
 }
 
@@ -231,13 +287,19 @@ INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u
 	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, data, len)
 
 
-static void output_finish(struct msghdr *mh, struct packet_stream *ps) {
+static void __output_finish(struct msghdr *mh) {
 	struct header *hdr;
 
 	hdr = mh->msg_iov->iov_base;
 	hdr->msg_len = htons(hdr->msg_len);
-
-	stream_msg_mh_src(ps, mh);
+}
+//static void output_finish_ps(struct msghdr *mh, struct packet_stream *ps) {
+//	__output_finish(mh);
+//	stream_msg_mh_src(ps, mh);
+//}
+static void output_finish_src(struct msghdr *mh, const struct in6_addr *src) {
+	__output_finish(mh);
+	msg_mh_src(src, mh);
 }
 
 static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
@@ -277,6 +339,9 @@ static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
 	struct iovec *iov;
 	struct header *hdr;
 
+	if (!pwd || !pwd->s)
+		return;
+
 	output_add(mh, mi, STUN_MESSAGE_INTEGRITY);
 	iov = mh->msg_iov;
 	hdr = iov->iov_base;
@@ -287,16 +352,18 @@ static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
 	hdr->msg_len = ntohs(hdr->msg_len);
 }
 
-static void stun_error_len(struct packet_stream *ps, struct sockaddr_in6 *sin, struct header *req,
+static void stun_error_len(struct packet_stream *ps, struct sockaddr_in6 *sin, struct in6_addr *dst,
+		struct header *req,
 		int code, char *reason, int len, u_int16_t add_attr, void *attr_cont,
 		int attr_len)
 {
 	struct header hdr;
 	struct error_code ec;
+	struct msg_integrity mi;
 	struct fingerprint fp;
 	struct generic aa;
 	struct msghdr mh;
-	struct iovec iov[6]; /* hdr, ec, reason, aa, attr_cont, fp */
+	struct iovec iov[7]; /* hdr, ec, reason, aa, attr_cont, mi, fp */
 	unsigned char buf[256];
 
 	output_init(&mh, iov, sin, &hdr, STUN_BINDING_ERROR_RESPONSE, req->transaction, buf, sizeof(buf));
@@ -306,17 +373,18 @@ static void stun_error_len(struct packet_stream *ps, struct sockaddr_in6 *sin, s
 	if (attr_cont)
 		output_add_data(&mh, &aa, add_attr, attr_cont, attr_len);
 
+	integrity(&mh, &mi, &ps->media->ice_agent->pwd[0]);
 	fingerprint(&mh, &fp);
 
-	output_finish(&mh, ps);
+	output_finish_src(&mh, dst);
 	sendmsg(ps->sfd->fd.fd, &mh, 0);
 }
 
-#define stun_error(ps, sin, str, code, reason) \
-	stun_error_len(ps, sin, str, code, reason "\0\0\0", strlen(reason), \
+#define stun_error(ps, sin, dst, req, code, reason) \
+	stun_error_len(ps, sin, dst, req, code, reason "\0\0\0", strlen(reason), \
 			0, NULL, 0)
-#define stun_error_attrs(ps, sin, str, code, reason, type, content, len) \
-	stun_error_len(ps, sin, str, code, reason "\0\0\0", strlen(reason), \
+#define stun_error_attrs(ps, sin, dst, req, code, reason, type, content, len) \
+	stun_error_len(ps, sin, dst, req, code, reason "\0\0\0", strlen(reason), \
 			type, content, len)
 
 
@@ -334,28 +402,35 @@ static int check_fingerprint(str *msg, struct stun_attrs *attrs) {
 	return 0;
 }
 
-static int check_auth(str *msg, struct stun_attrs *attrs, struct call_media *media) {
+static int check_auth(str *msg, struct stun_attrs *attrs, struct call_media *media, int dst, int src) {
 	u_int16_t lenX;
 	char digest[20];
 	str ufrag[2];
 	struct iovec iov[3];
+	struct ice_agent *ag;
 
-	if (!media->ice_ufrag.s || !media->ice_ufrag.len)
+	ag = media->ice_agent;
+	if (!ag)
 		return -1;
-	if (!media->ice_pwd.s || !media->ice_pwd.len)
+	if (!ag->ufrag[dst].s || !ag->ufrag[dst].len)
+		return -1;
+	if (!ag->pwd[dst].s || !ag->pwd[dst].len)
 		return -1;
 
-	ufrag[0] = attrs->username;
-	str_chr_str(&ufrag[1], &ufrag[0], ':');
-	if (!ufrag[1].s)
-		return -1;
-	ufrag[0].len -= ufrag[1].len;
-	str_shift(&ufrag[1], 1);
+	if (attrs->username.s) {
+		/* request */
+		ufrag[dst] = attrs->username;
+		str_chr_str(&ufrag[src], &ufrag[dst], ':');
+		if (!ufrag[src].s)
+			return -1;
+		ufrag[dst].len -= ufrag[src].len;
+		str_shift(&ufrag[src], 1);
 
-	if (!ufrag[0].len || !ufrag[1].len)
-		return -1;
-	if (str_cmp_str(&ufrag[0], &media->ice_ufrag))
-		return -1;
+		if (!ufrag[src].len || !ufrag[dst].len)
+			return -1;
+		if (str_cmp_str(&ufrag[dst], &ag->ufrag[dst]))
+			return -1;
+	}
 
 	lenX = htons((attrs->msg_integrity_attr - msg->s) - 20 + 24);
 	iov[0].iov_base = msg->s;
@@ -365,13 +440,14 @@ static int check_auth(str *msg, struct stun_attrs *attrs, struct call_media *med
 	iov[2].iov_base = msg->s + OFFSET_OF(struct header, cookie);
 	iov[2].iov_len = ntohs(lenX) + - 24 + 20 - OFFSET_OF(struct header, cookie);
 
-	__integrity(iov, G_N_ELEMENTS(iov), &media->ice_pwd, digest);
+	__integrity(iov, G_N_ELEMENTS(iov), &ag->pwd[dst], digest);
 
 	return memcmp(digest, attrs->msg_integrity.s, 20) ? -1 : 0;
 }
 
+/* XXX way too many parameters being passed around here, unify into a struct */
 static int stun_binding_success(struct packet_stream *ps, struct header *req, struct stun_attrs *attrs,
-		struct sockaddr_in6 *sin)
+		struct sockaddr_in6 *sin, struct in6_addr *dst)
 {
 	struct header hdr;
 	struct xor_mapped_address xma;
@@ -398,10 +474,10 @@ static int stun_binding_success(struct packet_stream *ps, struct header *req, st
 		output_add(&mh, &xma, STUN_XOR_MAPPED_ADDRESS);
 	}
 
-	integrity(&mh, &mi, &ps->media->ice_pwd);
+	integrity(&mh, &mi, &ps->media->ice_agent->pwd[1]);
 	fingerprint(&mh, &fp);
 
-	output_finish(&mh, ps);
+	output_finish_src(&mh, dst);
 	sendmsg(ps->sfd->fd.fd, &mh, 0);
 
 	return 0;
@@ -415,20 +491,56 @@ INLINE int u_int16_t_arr_len(u_int16_t *arr) {
 }
 
 
+
 #define SLF " from %s"
 #define SLP smart_ntop_port_buf(sin)
+static int __stun_request(struct packet_stream *ps, struct sockaddr_in6 *sin,
+		struct in6_addr *dst, struct header *req, struct stun_attrs *attrs)
+{
+	int ret;
+
+	ret = ice_request(ps, sin, dst, attrs);
+
+	if (ret == -2) {
+		ilog(LOG_DEBUG, "ICE role conflict detected");
+		stun_error(ps, sin, dst, req, 487, "Role conflict");
+		return 0;
+	}
+	if (ret < 0)
+		return -1;
+
+	ilog(LOG_DEBUG, "Successful STUN binding request" SLF, SLP);
+	stun_binding_success(ps, req, attrs, sin, dst);
+
+	return ret;
+}
+static int __stun_success(struct packet_stream *ps, struct sockaddr_in6 *sin,
+		struct in6_addr *dst, struct header *req, struct stun_attrs *attrs)
+{
+	return ice_response(ps, sin, dst, attrs, req->transaction);
+}
+static int __stun_error(struct packet_stream *ps, struct sockaddr_in6 *sin,
+		struct in6_addr *dst, struct header *req, struct stun_attrs *attrs)
+{
+	return ice_response(ps, sin, dst, attrs, req->transaction);
+}
+
+
 /* return values:
  * 0  = stun packet processed successfully
  * -1 = stun packet not processed, processing should continue as non-stun packet
- * 1  = stun packet processed and "use candidate" was set
+ * 1  = stun packet processed and ICE has completed
+ *
+ * call is locked in R
  */
-int stun(str *b, struct packet_stream *ps, struct sockaddr_in6 *sin) {
+int stun(str *b, struct packet_stream *ps, struct sockaddr_in6 *sin, struct in6_addr *dst) {
 	struct header *req = (void *) b->s;
 	int msglen, method, class;
 	str attr_str;
 	struct stun_attrs attrs;
 	u_int16_t unknowns[UNKNOWNS_COUNT];
 	const char *err;
+	int dst_idx, src_idx;
 
 	msglen = ntohs(req->msg_len);
 	err = "message-length mismatch";
@@ -446,51 +558,107 @@ int stun(str *b, struct packet_stream *ps, struct sockaddr_in6 *sin) {
 
 	attr_str.s = &b->s[20];
 	attr_str.len = b->len - 20;
-	if (stun_attributes(&attrs, &attr_str, unknowns)) {
+	if (stun_attributes(&attrs, &attr_str, unknowns, req)) {
 		err = "failed to parse attributes";
 		if (unknowns[0] == 0xffff)
 			goto ignore;
 		ilog(LOG_WARNING, "STUN packet contained unknown "
 				"\"comprehension required\" attribute(s)" SLF, SLP);
-		stun_error_attrs(ps, sin, req, 420, "Unknown attribute",
+		stun_error_attrs(ps, sin, dst, req, 420, "Unknown attribute",
 				STUN_UNKNOWN_ATTRIBUTES, unknowns,
 				u_int16_t_arr_len(unknowns) * 2);
 		return 0;
 	}
 
-	if (class != STUN_CLASS_REQUEST)
-		return -1;
-
 	err = "FINGERPRINT attribute missing";
 	if (!attrs.fingerprint_attr)
 		goto ignore;
-	err = "USERNAME attribute missing";
-	if (!attrs.username.s)
-		goto bad_req;
 	err = "MESSAGE_INTEGRITY attribute missing";
 	if (!attrs.msg_integrity.s)
 		goto bad_req;
 
+	if (class == STUN_CLASS_REQUEST) {
+		err = "USERNAME attribute missing";
+		if (!attrs.username.s)
+			goto bad_req;
+		dst_idx = 1;
+		src_idx = 0;
+	}
+	else {
+		dst_idx = 0;
+		src_idx = 1;
+	}
+
 	err = "FINGERPRINT mismatch";
 	if (check_fingerprint(b, &attrs))
 		goto ignore;
-	if (check_auth(b, &attrs, ps->media))
+	if (check_auth(b, &attrs, ps->media, dst_idx, src_idx))
 		goto unauth;
 
-	ilog(LOG_INFO, "Successful STUN binding request" SLF, SLP);
-	stun_binding_success(ps, req, &attrs, sin);
-
-	return attrs.use ? 1 : 0;
+	switch (class) {
+		case STUN_CLASS_REQUEST:
+			return __stun_request(ps, sin, dst, req, &attrs);
+		case STUN_CLASS_SUCCESS:
+			return __stun_success(ps, sin, dst, req, &attrs);
+		case STUN_CLASS_ERROR:
+			return __stun_error(ps, sin, dst, req, &attrs);
+		default:
+			return -1;
+	}
+	/* notreached */
 
 bad_req:
 	ilog(LOG_NOTICE, "Received invalid STUN packet" SLF ": %s", SLP, err);
-	stun_error(ps, sin, req, 400, "Bad request");
+	stun_error(ps, sin, dst, req, 400, "Bad request");
 	return 0;
 unauth:
 	ilog(LOG_NOTICE, "STUN authentication mismatch" SLF, SLP);
-	stun_error(ps, sin, req, 401, "Unauthorized");
+	stun_error(ps, sin, dst, req, 401, "Unauthorized");
 	return 0;
 ignore:
 	ilog(LOG_NOTICE, "Not handling potential STUN packet" SLF ": %s", SLP, err);
 	return -1;
+}
+
+int stun_binding_request(struct sockaddr_in6 *dst, u_int32_t transaction[3], str *pwd,
+		str ufrags[2], int controlling, u_int64_t tiebreaker, u_int32_t priority,
+		struct in6_addr *src, int fd, int to_use)
+{
+	struct header hdr;
+	struct msghdr mh;
+	struct iovec iov[8]; /* hdr, username x2, ice_controlled/ing, priority, uc, fp, mi */
+	unsigned char buf[256];
+	char username_buf[256];
+	int i;
+	struct generic un_attr;
+	struct controlled_ing cc;
+	struct priority prio;
+	struct generic uc;
+	struct fingerprint fp;
+	struct msg_integrity mi;
+
+	output_init(&mh, iov, dst, &hdr, STUN_BINDING_REQUEST, transaction, buf, sizeof(buf));
+
+	i = snprintf(username_buf, sizeof(username_buf), STR_FORMAT":"STR_FORMAT,
+			STR_FMT(&ufrags[0]), STR_FMT(&ufrags[1]));
+	if (i <= 0 || i >= sizeof(username_buf))
+		return -1;
+	output_add_data(&mh, &un_attr, STUN_USERNAME, username_buf, i);
+
+	cc.tiebreaker = htobe64(tiebreaker);
+	output_add(&mh, &cc, controlling ? STUN_ICE_CONTROLLING : STUN_ICE_CONTROLLED);
+
+	prio.priority = htonl(priority);
+	output_add(&mh, &prio, STUN_PRIORITY);
+
+	if (to_use)
+		output_add(&mh, &uc, STUN_USE_CANDIDATE);
+
+	integrity(&mh, &mi, pwd);
+	fingerprint(&mh, &fp);
+
+	output_finish_src(&mh, src);
+	sendmsg(fd, &mh, 0);
+
+	return 0;
 }

@@ -1,4 +1,4 @@
-Name:		ngcp-rtpengine
+Name:		rtpengine
 Version:	2.3.6
 Release:	0%{?dist}
 Summary:	The Sipwise NGCP rtpengine
@@ -6,14 +6,15 @@ Summary:	The Sipwise NGCP rtpengine
 Group:		System Environment/Daemons
 License:	GPLv3
 URL:		https://github.com/sipwise/rtpengine
-Source0:	https://github.com/sipwise/rtpengine/archive/%{version}/%{name}-%{version}.tar.gz
-Conflicts:	%{name}-kernel < %{version}
-BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+Source0:	https://github.com/sipwise/rtpengine/archive/mr%{version}/%{name}-%{version}.tar.gz
+Conflicts:	%{name}-kernel < %{version}-%{release}
 
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel
-Requires:	glibc libcurl openssl pcre xmlrpc-c nmap-ncat
+Requires:	nc
+# Remain compat with other installations
+Provides:	ngcp-rtpengine = %{version}-%{release}
 
 
 %description
@@ -26,11 +27,12 @@ drop-in replacement for any of the other available RTP and media proxies.
 Summary:	NGCP rtpengine in-kernel packet forwarding
 Group:		System Environment/Daemons
 BuildRequires:	gcc make redhat-rpm-config iptables-devel
-Requires:	iptables iptables-ipv6 ngcp-rtpengine = %{version}
-Requires:	ngcp-rtpengine-dkms = %{version}
+Requires:	iptables iptables-ipv6
+Requires:	%{name}%{?_isa} = %{version}-%{release}
+Requires:	%{name}-dkms%{?_isa} = %{version}-%{release}
 
 %description kernel
-NGCP rtpengine in-kernel packet forwarding
+%{summary}.
 
 
 %package dkms
@@ -43,7 +45,7 @@ Requires(post):	epel-release dkms
 Requires(preun): epel-release dkms
 
 %description dkms
-Kernel module for rtpengine in-kernel packet forwarding
+%{summary}.
 
 
 %prep
@@ -60,16 +62,16 @@ cd ..
 
 %install
 # Install the userspace daemon
-install -D -p -m755 daemon/rtpengine %{buildroot}/%{_sbindir}/rtpengine
+install -D -p -m755 daemon/%{name} %{buildroot}%{_sbindir}/%{name}
 # Install CLI (command line interface)
-install -D -p -m755 utils/rtpengine-ctl %{buildroot}/%{_sbindir}/rtpengine-ctl
+install -D -p -m755 utils/%{name}-ctl %{buildroot}%{_sbindir}/%{name}-ctl
 
 ## Install the init.d script and configuration file
-install -D -p -m755 el/rtpengine.init \
-	%{buildroot}/%{_sysconfdir}/rc.d/init.d/rtpengine
-install -D -p -m644 el/rtpengine.sysconfig \
-	%{buildroot}/%{_sysconfdir}/sysconfig/rtpengine
-mkdir -p %{buildroot}/%{_sharedstatedir}/rtpengine
+install -D -p -m755 el/%{name}.init \
+	%{buildroot}%{_initrddir}/%{name}
+install -D -p -m644 el/%{name}.sysconfig \
+	%{buildroot}%{_sysconfdir}/sysconfig/%{name}
+mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 
 # Install the iptables plugin
 install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
@@ -77,29 +79,24 @@ install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
 
 ## DKMS module source install
 install -D -p -m644 kernel-module/Makefile \
-	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/Makefile
 install -D -p -m644 kernel-module/xt_RTPENGINE.c \
-	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
 install -D -p -m644 kernel-module/xt_RTPENGINE.h \
-	 %{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
-sed "s/__VERSION__/%{version}-%{release}/g" debian/dkms.conf.in > \
-	%{buildroot}/%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
-
-
-%clean
-rm -rf %{buildroot}
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
+sed -i -e "s/__VERSION__/%{version}-%{release}/g;s/ngcp-rtpengine/rtpengine/g" debian/dkms.conf.in
+install -D -p -m644 debian/dkms.conf.in %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
 
 %pre
-/usr/sbin/groupadd -r rtpengine 2> /dev/null || :
-/usr/sbin/useradd -r -g rtpengine -s /sbin/nologin -c "rtpengine daemon" \
-	-d %{_sharedstatedir}/rtpengine rtpengine \
-	2> /dev/null || :
+getent group %{name} >/dev/null || /usr/sbin/groupadd -r %{name}
+getent passwd %{name} >/dev/null || /usr/sbin/useradd -r -g %{name} \
+	-s /sbin/nologin -c "%{name} daemon" -d %{_sharedstatedir}/%{name} %{name}
 
 
 %post
 if [ $1 -eq 1 ]; then
-        /sbin/chkconfig --add rtpengine || :
+        /sbin/chkconfig --add %{name} || :
 fi
 
 
@@ -113,8 +110,8 @@ true
 
 %preun
 if [ $1 = 0 ] ; then
-        /sbin/service rtpengine stop >/dev/null 2>&1
-        /sbin/chkconfig --del rtpengine
+        /sbin/service %{name} stop >/dev/null 2>&1
+        /sbin/chkconfig --del %{name}
 fi
 
 
@@ -126,14 +123,14 @@ true
 
 %files
 # Userspace daemon
-%{_sbindir}/rtpengine
+%{_sbindir}/%{name}
 # CLI (command line interface)
-%{_sbindir}/rtpengine-ctl
+%{_sbindir}/%{name}-ctl
 
 # init.d script and configuration file
-%{_sysconfdir}/rc.d/init.d/rtpengine
-%config(noreplace) %{_sysconfdir}/sysconfig/rtpengine
-%dir %{_sharedstatedir}/rtpengine
+%{_initrddir}/%{name}
+%config(noreplace) %{_sysconfdir}/sysconfig/%{name}
+%attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{name}
 
 # Documentation
 %doc LICENSE README.md el/README.el.md debian/changelog debian/copyright
@@ -144,7 +141,7 @@ true
 
 
 %files dkms
-%attr(0755,root,root) %{_usrsrc}/%{name}-%{version}-%{release}/
+%{_usrsrc}/%{name}-%{version}-%{release}/
 
 
 %changelog

@@ -34,6 +34,13 @@ static cond_t threads_cond = COND_STATIC_INIT;
 static struct thread_buf __thread t_bufs[NUM_THREAD_BUFS];
 static int __thread t_buf_idx;
 
+__thread struct timeval g_now;
+volatile int g_shutdown;
+
+#ifdef NEED_ATOMIC64_MUTEX
+mutex_t __atomic64_mutex = MUTEX_STATIC_INIT;
+#endif
+
 
 
 GList *g_list_link(GList *list, GList *el) {
@@ -77,38 +84,6 @@ int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num,
 	return q ? q->length : 0;
 }
 
-
-
-#if !GLIB_CHECK_VERSION(2,14,0)
-
-void g_string_vprintf(GString *string, const gchar *format, va_list args) {
-	char *s;
-	int r;
-
-	r = vasprintf(&s, format, args);
-	if (r < 0)
-		return;
-
-	g_string_assign(string, s);
-	free(s);
-}
-
-void g_queue_clear(GQueue *q) {
-	GList *l, *n;
-
-	if (!q)
-		return;
-
-	for (l = q->head; l; l = n) {
-		n = l->next;
-		g_list_free_1(l);
-	}
-
-	q->head = q->tail = NULL;
-	q->length = 0;
-}
-
-#endif
 
 
 
@@ -218,4 +193,22 @@ char *get_thread_buf(void) {
 	if (t_buf_idx >= G_N_ELEMENTS(t_bufs))
 		t_buf_idx = 0;
 	return ret;
+}
+
+int g_tree_find_first_cmp(void *k, void *v, void *d) {
+	void **p = d;
+	GEqualFunc f = p[1];
+	if (!f || f(v, p[0])) {
+		p[2] = v;
+		return TRUE;
+	}
+	return FALSE;
+}
+int g_tree_find_all_cmp(void *k, void *v, void *d) {
+	void **p = d;
+	GEqualFunc f = p[1];
+	GQueue *q = p[2];
+	if (!f || f(v, p[0]))
+		g_queue_push_tail(q, v);
+	return FALSE;
 }

@@ -1,3 +1,125 @@
+ngcp-rtpengine (4.0.0.0+0~mr4.0.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2db33ef] reset ICE/STUN retransmit data on triggered checks
+  * [20ac7cd] process nominating ICE request only once per pair
+  * [93294f8] don't relearn addresses if the endpoint hasn't changed
+  * [0b202d8] Fall back to a different address family if the requested one is unavailable
+  * [fd99ecf] don't close call on UDP send error
+  * [c0fab9b] various fixes related to ICE negotation and rtcp-mux
+  * [2cfc12b] fix incorrect free order of ICE components
+
+  [ Peter Lemenkov ]
+  * [eba4414] Remove BuildRoot
+  * [597c35a] Remove duplicated text in descriptions
+  * [49ed2a8] Remove autoadded deps
+  * [b0240ee] Use generic dependency name for nc
+  * [cd70a8f] Use proper versionin scheme
+  * [8d56ed5] Typo fix in Source0 url
+  * [9890371] Remove no longer required section
+  * [234b454] Use macro instead of /etc/rc.d/init.d
+  * [882731b] Remove double slash
+  * [d25b697] Check for username,group before creating
+  * [e71a7e1] Consistently use rtpengine name everywhere
+  * [a6ab5b5] Restrict access to a working directory
+  * [9a12b49] Don't specify access rights for _usrsrc dir
+  * [3b27031] Explicitly set rights on dkms.conf as 644
+
+  [ Alexander Lutay ]
+  * [3a45a16] MT#7505 Add .gitreview file for rtpengine
+
+ -- Alexander Lutay <alutay@sipwise.com>  Wed, 08 Apr 2015 17:26:40 +0200
+
+ngcp-rtpengine (3.3.0.0+0~mr4.0.0.0) unstable; urgency=low
+
+  [ Sergey Lavrov ]
+  * [bb14eba] Fix %post/%preun directives.
+  * [fe5e129] Added rtpengine-ctl and dependency to spec file.
+
+  [ Richard Fuchs ]
+  * [a0068f4] relax sdes key lifetime validation check
+  * [caba5be] MT#10583 remember the "created from" address in raw format
+  * [6e32379] MT#10583 support ipv6 control connection in simulator
+  * [02d27d5] MT#10583 support b2bua callback to sip proxy address
+  * [43cd3f5] reset other side's crypto params only in passthru mode
+  * [2af682b] use SSL_CTX_set_read_ahead to fix for openssl 1.0.1k
+  * [e24253a] move parse_ip(6)_port into aux.h
+  * [a81588e] provide convenience function get_log_level()
+  * [37d98ad] dump DTLS cert and keys
+  * [57c0a84] add locking to totalstats
+  * [f544471] fix compiler warnings
+  * [36c7141] change control_ng_stats into a hash and use locking and atomic ops
+  * [c0b2f3d] fix graphite code not to leak fds in error cases
+  * [965d989] static'ize graphite global vars
+  * [7175a26] decrease sleep time of graphite loop
+  * [3882285] decrease calls to time() in graphite code
+  * [de37ac0] use TLS buffer array for temporary strings
+  * [ee4f2d2] convert ilog() into macro
+  * [411a888] use atomic ops for stats
+  * [28c6db9] fix references and locking in CLI
+  * [20fd255] use UINT64F instead of %llu where appropriate
+  * [3bc1672] more atomic stats, and fix average length calc
+  * [fedaadd] remove superfluous \n from log messages
+  * [1e3f06a] split some perl SRTP stuff into module and add debug script
+  * [deba231] rename an old MP_ variable to RE_
+  * [fb9ed6e] use trial & error approach to guess ROC in case of SRTP auth failures
+  * [f6dee07] fix initial seqnum in simulator
+  * [787d90f] rename atomic_uint64 to atomic64 for brevity
+  * [49328cd] implement atomic64 for non-64-bit platforms
+  * [da6b6a1] fix compiler warning on 32bit
+  * [ca149e6] "long" can be 32 bits only and may truncate math
+  * [b023d6c] update redis mod version to 7
+  * [adeb0b3] the log rate limiter must take the prefix into account
+  * [fb667a8] turn tag and termination texts into array lookups
+  * [d79c68f] remove some unnecessary memsets
+  * [a5f7315] string handling fixes and improvements
+  * [037c6aa] shorter locking in stats loop
+  * [f7a1594] more descriptive warning for failed kernelizing
+  * [5fa9902] atomic vars should be volatile
+  * [c21193a] fix byte stats in kernel module
+  * [c2ff5c3] MT#9935 understand, learn, remember and report RTP payload types (codecs)
+  * [b586fa7] fix memory leak
+  * [65b3f66] use atomic64_t for kernel stats
+  * [4a97bb1] attempt to work around trickle ice
+  * [b44bb28] segfault fix
+  * [015b2a9] legacy tcp protocol fix
+  * [016f8b3] Rework logging a bit (primarily in NG)
+  * [91a85e6] fix for skewed stats
+  * [6173a7a] implement atomic bitfield ops
+  * [1f7c8a2] remove obsolete HAS_HANDLER flag
+  * [f224bab] segfault fix if no rtpmap attribute is present
+  * [26ca844] drop support for glib versions older than 2.30
+  * [b83e80c] add makefile dependency to itself
+  * [956d07d] fix erroneously reported 0.0.0.0 address when bridging from ipv6
+  * [f99d6d4] implement full ICE support
+  * [98e0b6d] update for redis plugin
+  * [0e4e6f2] revamp and move timeval functions
+  * [26137d2] move thread loop functions out of main.c
+  * [5fca71d] fix segfault when parsing server reflexive ICE candidates
+  * [3520617] remove ice-lite mention from readme
+  * [9593519] Leave unsupported (non-RTP) protocols alone when translation is requested
+
+  [ Eric Tamme ]
+  * [b8b17bf] clear crypto for BOTH legs when in passthrough mode
+  * [506076b] add raddr and rport on all non host type candidates per rfc5245 section-15.1
+
+  [ Carsten Bock ]
+  * [9a2da87] Fix randomness source for key generation.
+
+  [ Frederic-Philippe Metz ]
+  * [2ae0e35] Added functionality to report statistics to graphite
+  * [7446822] Forgot the files ..
+  * [61a72b1] Added some more statistics.
+  * [0ccb11a] Added statistics on control ng interface.
+  * [794709f] Changed retry behaviour for connecting to graphite server.
+
+  [ Michael Prokop ]
+  * [fca4500] MT#9127 Bump Standards-Version to 3.9.6
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 18 Mar 2015 14:15:06 +0100
+
 ngcp-rtpengine (3.3.0.0+0~mr3.8.0.0) unstable; urgency=low
 
   [ Richard Fuchs ]

@@ -23,7 +23,7 @@ flags = [
 '-D_GNU_SOURCE',
 '-D__DEBUG=1',
 '-DRTPENGINE_VERSION="dummy"',
-'-DMP_PLUGIN_DIR="/usr/lib/rtpengine"',
+'-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
 '-O2',
 '-fstack-protector',
 '--param=ssp-buffer-size=4',

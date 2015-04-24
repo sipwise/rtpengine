@@ -127,12 +127,13 @@ INLINE void crypto_params_cleanup(struct crypto_params *p) {
 	p->mki = NULL;
 }
 INLINE void crypto_cleanup(struct crypto_context *c) {
+	crypto_params_cleanup(&c->params);
 	if (!c->params.crypto_suite)
 		return;
 	if (c->params.crypto_suite->session_key_cleanup)
 		c->params.crypto_suite->session_key_cleanup(c);
 	c->have_session_key = 0;
-	crypto_params_cleanup(&c->params);
+	c->params.crypto_suite = NULL;
 }
 INLINE void crypto_reset(struct crypto_context *c) {
 	crypto_cleanup(c);

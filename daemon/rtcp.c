@@ -239,11 +239,11 @@ static struct rtcp_chain_element *rtcp_psfb(str *s) {
 	return rtcp_generic(s, RTCP_PT_PSFB);
 }
 
+static void rtcp_ce_free(void *p) {
+	g_slice_free1(sizeof(struct rtcp_chain_element), p);
+}
 static void rtcp_list_free(GQueue *q) {
-	struct rtcp_chain_element *el;
-
-	while ((el = g_queue_pop_head(q)))
-		g_slice_free1(sizeof(*el), el);
+	g_queue_clear_full(q, rtcp_ce_free);
 }
 
 static int rtcp_parse(GQueue *q, str *_s) {
@@ -483,11 +483,11 @@ int rtcp_demux_is_rtcp(const str *s) {
 
 void print_rtcp_common(char** cdrbufcur, const pjmedia_rtcp_common *common) {
 	*cdrbufcur += sprintf(*cdrbufcur,"version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ssrc=%u, ",
-			ntohl(common->version),
-			ntohl(common->p),
-			ntohl(common->count),
-			ntohl(common->pt),
-			ntohl(common->length),
+			common->version,
+			common->p,
+			common->count,
+			common->pt,
+			common->length,
 			ntohl(common->ssrc));
 }
 
