@@ -155,6 +155,21 @@ INLINE void crypto_init(struct crypto_context *c, const struct crypto_params *p)
 	crypto_cleanup(c);
 	crypto_params_copy(&c->params, p);
 }
+INLINE int crypto_params_cmp(const struct crypto_params *a, const struct crypto_params *b) {
+       if (a->crypto_suite != b->crypto_suite)
+               return 1;
+       if (!a->crypto_suite)
+               return 0;
+       if (memcmp(a->master_key, b->master_key, a->crypto_suite->master_key_len))
+               return 1;
+       if (memcmp(a->master_salt, b->master_salt, a->crypto_suite->master_salt_len))
+               return 1;
+       if (a->mki_len != b->mki_len)
+               return 1;
+       if (a->mki_len && memcmp(a->mki, b->mki, a->mki_len))
+               return 1;
+       return 0;
+}
 
 
 

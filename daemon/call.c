@@ -260,7 +260,7 @@ static const struct streamhandler *__sh_matrix_in_rtp_savpf[] = {
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
 	[PROTO_UDPTL]			= &__sh_noop,
 };
-static const struct streamhandler *__sh_matrix_in_rtp_savp_dtls[] = {
+static const struct streamhandler *__sh_matrix_in_rtp_savp_recrypt[] = {
 	[PROTO_RTP_AVP]			= &__sh_savp2avp,
 	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
 	[PROTO_RTP_SAVP]		= &__sh_savp2savp,
@@ -269,7 +269,7 @@ static const struct streamhandler *__sh_matrix_in_rtp_savp_dtls[] = {
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp,
 	[PROTO_UDPTL]			= &__sh_noop,
 };
-static const struct streamhandler *__sh_matrix_in_rtp_savpf_dtls[] = {
+static const struct streamhandler *__sh_matrix_in_rtp_savpf_recrypt[] = {
 	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
 	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
 	[PROTO_RTP_SAVP]		= &__sh_savpf2savp,
@@ -300,13 +300,13 @@ static const struct streamhandler **__sh_matrix[] = {
 	[PROTO_UDPTL]			= __sh_matrix_noop,
 };
 /* special case for DTLS as we can't pass through SRTP<>SRTP */
-static const struct streamhandler **__sh_matrix_dtls[] = {
+static const struct streamhandler **__sh_matrix_recrypt[] = {
 	[PROTO_RTP_AVP]			= __sh_matrix_in_rtp_avp,
 	[PROTO_RTP_AVPF]		= __sh_matrix_in_rtp_avpf,
-	[PROTO_RTP_SAVP]		= __sh_matrix_in_rtp_savp_dtls,
-	[PROTO_RTP_SAVPF]		= __sh_matrix_in_rtp_savpf_dtls,
-	[PROTO_UDP_TLS_RTP_SAVP]	= __sh_matrix_in_rtp_savp_dtls,
-	[PROTO_UDP_TLS_RTP_SAVPF]	= __sh_matrix_in_rtp_savpf_dtls,
+	[PROTO_RTP_SAVP]		= __sh_matrix_in_rtp_savp_recrypt,
+	[PROTO_RTP_SAVPF]		= __sh_matrix_in_rtp_savpf_recrypt,
+	[PROTO_UDP_TLS_RTP_SAVP]	= __sh_matrix_in_rtp_savp_recrypt,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= __sh_matrix_in_rtp_savpf_recrypt,
 	[PROTO_UDPTL]			= __sh_matrix_noop,
 };
 
@@ -564,7 +564,12 @@ static void determine_handler(struct packet_stream *in, const struct packet_stre
 
 	matrix = __sh_matrix;
 	if (MEDIA_ISSET(in->media, DTLS) || MEDIA_ISSET(out->media, DTLS))
-		matrix = __sh_matrix_dtls;
+		matrix = __sh_matrix_recrypt;
+	else if (in->media->protocol->srtp && out->media->protocol->srtp
+			&& in->sfd && out->sfd
+			&& (crypto_params_cmp(&in->crypto.params, &out->sfd->crypto.params)
+				|| crypto_params_cmp(&out->crypto.params, &in->sfd->crypto.params)))
+		matrix = __sh_matrix_recrypt;
 
 	sh_pp = matrix[in->media->protocol->index];
 	if (!sh_pp)
