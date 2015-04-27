@@ -86,7 +86,7 @@ enum call_stream_state {
 #define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
 
 #ifndef RTP_LOOP_PROTECT
-#define RTP_LOOP_PROTECT	16 /* number of bytes */
+#define RTP_LOOP_PROTECT	28 /* number of bytes */
 #define RTP_LOOP_PACKETS	2  /* number of packets */
 #define RTP_LOOP_MAX_COUNT	30 /* number of consecutively detected dupes to trigger protection */
 #endif
