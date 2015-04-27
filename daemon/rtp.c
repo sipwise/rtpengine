@@ -189,6 +189,14 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 	if (check_session_keys(c))
 		return -1;
 
+	/* SSRC is part of the crypto context and ROC must be reset when it changes */
+	if (G_UNLIKELY(!c->ssrc))
+		c->ssrc = rtp->ssrc;
+	else if (G_UNLIKELY(c->ssrc != rtp->ssrc)) {
+		c->last_index = 0;
+		c->ssrc = rtp->ssrc;
+	}
+
 	index = packet_index(c, rtp);
 
 	/* rfc 3711 section 3.1 */
