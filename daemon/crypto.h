@@ -183,6 +183,8 @@ INLINE int crypto_params_cmp(const struct crypto_params *a, const struct crypto_
                return 1;
        if (a->mki_len && memcmp(a->mki, b->mki, a->mki_len))
                return 1;
+       if (memcmp(&a->session_params, &b->session_params, sizeof(a->session_params)))
+	       return 1;
        return 0;
 }
 
