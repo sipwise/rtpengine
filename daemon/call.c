@@ -2427,10 +2427,11 @@ void call_destroy(struct call *c) {
 		}
 
 		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"', created "
-				"%u:%02u ago, in dialogue with '"STR_FORMAT"'",
+				"%u:%02u ago for branch '"STR_FORMAT"', in dialogue with '"STR_FORMAT"'",
 				STR_FMT(&ml->tag),
 				(unsigned int) (poller_now - ml->created) / 60,
 				(unsigned int) (poller_now - ml->created) % 60,
+				STR_FMT(&ml->viabranch),
 				ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
 				ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
 
@@ -2684,6 +2685,7 @@ static void __call_free(void *p) {
 	}
 
 	g_hash_table_destroy(c->tags);
+	g_hash_table_destroy(c->viabranches);
 
 	while (c->streams) {
 		ps = c->streams->data;
@@ -2705,6 +2707,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	call_buffer_init(&c->buffer);
 	rwlock_init(&c->master_lock);
 	c->tags = g_hash_table_new(str_hash, str_equal);
+	c->viabranches = g_hash_table_new(str_hash, str_equal);
 	call_str_cpy(c, &c->callid, callid);
 	c->created = poller_now;
 	c->dtls_cert = dtls_cert();
@@ -2795,6 +2798,18 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 	call_str_cpy(call, &ml->tag, tag);
 	g_hash_table_insert(call->tags, &ml->tag, ml);
 }
+static void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
+	struct call *call = ml->call;
+
+	if (!viabranch)
+		return;
+
+	__C_DBG("tagging monologue with viabranch '"STR_FORMAT"'", STR_FMT(viabranch));
+	if (ml->viabranch.s)
+		g_hash_table_remove(call->viabranches, &ml->viabranch);
+	call_str_cpy(call, &ml->viabranch, viabranch);
+	g_hash_table_insert(call->viabranches, &ml->viabranch, ml);
+}
 
 static void __stream_unkernelize(struct packet_stream *ps) {
 	unkernelize(ps);
@@ -2857,8 +2872,8 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 }
 
 /* must be called with call->master_lock held in W */
-static struct call_monologue *call_get_monologue(struct call *call, const str *fromtag) {
-	struct call_monologue *ret;
+static struct call_monologue *call_get_monologue(struct call *call, const str *fromtag, const str *viabranch) {
+	struct call_monologue *ret, *os;
 
 	__C_DBG("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(&call->callid));
@@ -2867,74 +2882,109 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 		__C_DBG("found existing monologue");
 		__monologue_unkernelize(ret);
 		__monologue_unkernelize(ret->active_dialogue);
-		return ret;
+
+		if (!viabranch)
+			return ret;
+
+		/* check the viabranch. if it's not known, then this is a branched offer and we need
+		 * to create a new "other side" for this branch. */
+		if (!ret->active_dialogue->viabranch.s) {
+			/* previous "other side" hasn't been tagged with the via-branch, so we'll just
+			 * use this one and tag it */
+			__monologue_viabranch(ret->active_dialogue, viabranch);
+			return ret;
+		}
+		if (!str_cmp_str(&ret->active_dialogue->viabranch, viabranch))
+			return ret; /* dialogue still intact */
+		os = g_hash_table_lookup(call->viabranches, viabranch);
+		if (os) {
+			/* previously seen branch. use it */
+			__monologue_unkernelize(os);
+			os->active_dialogue = ret;
+			ret->active_dialogue = os;
+			return ret;
+		}
+		goto new_branch;
 	}
 
+	__C_DBG("creating new monologue");
 	ret = __monologue_create(call);
 	__monologue_tag(ret, fromtag);
 	/* we need both sides of the dialogue even in the initial offer, so create
 	 * another monologue without to-tag (to be filled in later) */
+new_branch:
+	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT(viabranch));
 	ret->active_dialogue = __monologue_create(call);
+	__monologue_viabranch(ret->active_dialogue, viabranch);
 
 	return ret;
 }
 
 /* must be called with call->master_lock held in W */
-static struct call_monologue *call_get_dialogue(struct call *call, const str *fromtag, const str *totag) {
-	struct call_monologue *ft, *ret, *tt;
+static struct call_monologue *call_get_dialogue(struct call *call, const str *fromtag, const str *totag,
+		const str *viabranch)
+{
+	struct call_monologue *ft, *tt;
 
 	__C_DBG("getting dialogue for tags '"STR_FORMAT"'<>'"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(totag), STR_FMT(&call->callid));
-	/* if the to-tag is known already, return that */
-	tt = g_hash_table_lookup(call->tags, totag);
-	if (tt) {
+
+	/* if the from-tag is known already, return that */
+	ft = g_hash_table_lookup(call->tags, fromtag);
+	if (ft) {
 		__C_DBG("found existing dialogue");
-		__monologue_unkernelize(tt);
-		__monologue_unkernelize(tt->active_dialogue);
 
 		/* make sure that the dialogue is actually intact */
-		if (!str_cmp_str(fromtag, &tt->active_dialogue->tag))
-			return tt;
+		/* fastpath for a common case */
+		if (!str_cmp_str(totag, &ft->active_dialogue->tag))
+			goto done;
+	}
+	else {
+		/* perhaps we can determine the monologue from the viabranch */
+		if (viabranch)
+			ft = g_hash_table_lookup(call->viabranches, viabranch);
 	}
 
-	/* otherwise, at least the from-tag has to be known. it's an error if it isn't */
-	ft = g_hash_table_lookup(call->tags, fromtag);
-	if (!ft)
+	/* the to-tag has to be known. it's an error if it isn't */
+	tt = g_hash_table_lookup(call->tags, totag);
+	if (!tt)
 		return NULL;
 
-	__monologue_unkernelize(ft);
-
-	/* check for a half-complete dialogue and fill in the missing half if possible */
-	ret = ft->active_dialogue;
-	__monologue_unkernelize(ret);
-
-	if (!ret->tag.s)
-		goto tag;
-
-	/* we may have seen both tags previously and they just need to be linked up */
-	if (tt) {
-		ret = tt;
-		goto link;
+	if (!ft) {
+		/* if we don't have a fromtag monologue yet, we can use a half-complete dialogue
+		 * from the totag if there is one. otherwise we have to create a new one. */
+		ft = tt->active_dialogue;
+		if (ft->tag.s)
+			ft = __monologue_create(call);
 	}
 
-	/* this is an additional dialogue created from a single from-tag */
-	ret = __monologue_create(call);
+	/* the fromtag monologue may be newly created, or half-complete from the totag, or
+	 * derived from the viabranch. */
+	if (!ft->tag.s)
+		__monologue_tag(ft, fromtag);
 
-tag:
-	__monologue_tag(ret, totag);
-link:
-	g_hash_table_insert(ret->other_tags, &ft->tag, ft);
-	g_hash_table_insert(ft->other_tags, &ret->tag, ret);
-	ret->active_dialogue = ft;
-	ft->active_dialogue = ret;
+	g_hash_table_insert(ft->other_tags, &tt->tag, tt);
+	g_hash_table_insert(tt->other_tags, &ft->tag, ft);
+	__monologue_unkernelize(ft->active_dialogue);
+	__monologue_unkernelize(tt->active_dialogue);
+	ft->active_dialogue = tt;
+	tt->active_dialogue = ft;
 
-	return ret;
+done:
+	__monologue_unkernelize(ft);
+	__monologue_unkernelize(ft->active_dialogue);
+	return ft;
 }
 
-struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag) {
-	if (!totag || !totag->s) /* offer, not answer */
-		return call_get_monologue(call, fromtag);
-	return call_get_dialogue(call, fromtag, totag);
+/* fromtag and totag strictly correspond to the directionality of the message, not to the actual
+ * SIP headers. IOW, the fromtag corresponds to the monologue sending this message, even if the
+ * tag is actually from the TO header of the SIP message (as it would be in a 200 OK) */
+struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag,
+		const str *viabranch)
+{
+	if (!totag || !totag->s) /* initial offer */
+		return call_get_monologue(call, fromtag, viabranch);
+	return call_get_dialogue(call, fromtag, totag, viabranch);
 }
 
 

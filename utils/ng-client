@@ -19,6 +19,7 @@ GetOptions(
 	'from-tag=s'			=> \$options{'from-tag'},
 	'to-tag=s'			=> \$options{'to-tag'},
 	'call-id=s'			=> \$options{'call-id'},
+	'via-branch=s'			=> \$options{'via-branch'},
 	'protocol=s'			=> \$options{'transport protocol'},
 	'trust-address'			=> \$options{'trust address'},
 	'sip-source-address'		=> \$options{'sip source address'},
@@ -48,7 +49,7 @@ my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,TOS,DTLS')) {
+for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,TOS,DTLS,via-branch')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
 for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address')) {
