@@ -1924,8 +1924,11 @@ static int __init_stream(struct packet_stream *ps) {
 	int active;
 
 	if (ps->sfd) {
-		if (MEDIA_ISSET(media, SDES))
+		if (MEDIA_ISSET(media, SDES)) {
+			if (crypto_params_cmp(&ps->sfd->crypto.params, &media->sdes_in.params))
+				ps->crypto.last_index = 0;
 			crypto_init(&ps->sfd->crypto, &media->sdes_in.params);
+		}
 
 		if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
 			active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
