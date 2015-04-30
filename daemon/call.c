@@ -861,8 +861,10 @@ forward:
 	if (sink)
 		mutex_lock(&sink->out_lock);
 
-	if (!sink || is_addr_unspecified(&sink->advertised_endpoint.ip46)
+	if (!sink
 			|| !sink->advertised_endpoint.port
+			|| (is_addr_unspecified(&sink->advertised_endpoint.ip46)
+				&& !is_trickle_ice_address(&sink->advertised_endpoint))
 			|| stun_ret || handler_ret < 0)
 		goto drop;
 
