@@ -691,6 +691,18 @@ out:
 const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr,
 		const struct sockaddr_in6 *sin)
 {
+	static char *errstr[64]; memset(errstr,0,64);
+
+	if (m->conf.max_sessions>0) {
+		rwlock_lock_r(&m->hashlock);
+		if (g_hash_table_size(m->callhash) >= m->conf.max_sessions) {
+			rwlock_unlock_r(&m->hashlock);
+			ilog(LOG_ERROR, "Parallel session limit reached (%i)",m->conf.max_sessions);
+			snprintf(errstr, 64, "Parallel session limit reached (%i)",m->conf.max_sessions);
+			return errstr;
+		}
+		rwlock_unlock_r(&m->hashlock);
+	}
 	return call_offer_answer_ng(input, m, output, OP_OFFER, addr, sin);
 }
 

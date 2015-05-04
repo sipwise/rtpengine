@@ -426,6 +426,7 @@ struct callmaster_config {
 	GQueue			*interfaces; /* struct interface_address */
 	int			port_min;
 	int			port_max;
+	int			max_sessions;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
 	unsigned int		delete_delay;
