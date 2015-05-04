@@ -401,6 +401,7 @@ struct call {
 struct callmaster_config {
 	int			kernelfd;
 	int			kernelid;
+	int			max_sessions;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
 	unsigned int		delete_delay;

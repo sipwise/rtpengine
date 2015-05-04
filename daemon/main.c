@@ -101,6 +101,7 @@ static int timeout;
 static int silent_timeout;
 static int port_min = 30000;
 static int port_max = 40000;
+static int max_sessions = 0;
 static int redis_db = -1;
 static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
@@ -291,6 +292,7 @@ static void options(int *argc, char ***argv) {
 		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
+		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&max_sessions,	"Limit of maximum number of sessions",	NULL	},
 		{ NULL, }
 	};
 
@@ -566,6 +568,7 @@ no_kernel:
 	ZERO(mc);
 	mc.kernelfd = kfd;
 	mc.kernelid = table;
+	mc.max_sessions = max_sessions;
 	mc.timeout = timeout;
 	mc.silent_timeout = silent_timeout;
 	mc.delete_delay = delete_delay;
