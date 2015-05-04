@@ -496,6 +496,33 @@ INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two
 	return bencode_dictionary_get_str(i, two, out);
 }
 
+INLINE void ng_sdes_option(struct sdp_ng_flags *out, bencode_item_t *it, unsigned int strip) {
+	str s;
+
+	if (!bencode_get_str(it, &s))
+		return;
+	str_shift(&s, strip);
+
+	if (!str_cmp(&s, "no") || !str_cmp(&s, "off") || !str_cmp(&s, "disabled")
+			|| !str_cmp(&s, "disable"))
+		out->sdes_off = 1;
+	else if (!str_cmp(&s, "unencrypted_srtp") || !str_cmp(&s, "UNENCRYPTED_SRTP"))
+		out->sdes_unencrypted_srtp = 1;
+	else if (!str_cmp(&s, "unencrypted_srtcp") || !str_cmp(&s, "UNENCRYPTED_SRTCP"))
+		out->sdes_unencrypted_srtcp = 1;
+	else if (!str_cmp(&s, "unauthenticated_srtp") || !str_cmp(&s, "UNAUTHENTICATED_SRTP"))
+		out->sdes_unauthenticated_srtp = 1;
+	else if (!str_cmp(&s, "encrypted_srtp") || !str_cmp(&s, "ENCRYPTED_SRTP"))
+		out->sdes_encrypted_srtp = 1;
+	else if (!str_cmp(&s, "encrypted_srtcp") || !str_cmp(&s, "ENCRYPTED_SRTCP"))
+		out->sdes_encrypted_srtcp = 1;
+	else if (!str_cmp(&s, "authenticated_srtp") || !str_cmp(&s, "AUTHENTICATED_SRTP"))
+		out->sdes_authenticated_srtp = 1;
+	else
+		ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
+				STR_FMT(&s));
+}
+
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
 	bencode_item_t *list, *it;
 	int diridx;
@@ -508,7 +535,11 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling) {
+			if (it->type !=  BENCODE_STRING)
+				continue;
+
 			str_hyphenate(it);
+
 			if (!bencode_strcmp(it, "trust-address"))
 				out->trust_address = 1;
 			else if (!bencode_strcmp(it, "SIP-source-address"))
@@ -519,6 +550,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->strict_source = 1;
 			else if (!bencode_strcmp(it, "media-handover"))
 				out->media_handover = 1;
+			else if (it->iov[1].iov_len >= 5 && !memcmp(it->iov[1].iov_base, "SDES-", 5))
+				ng_sdes_option(out, it, 5);
 			else
 				ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
 						BENCODE_FMT(it));
@@ -568,6 +601,9 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	if (bencode_dictionary_get_str(input, "DTLS", &s)) {
 		if (!str_cmp(&s, "passive"))
 			out->dtls_passive = 1;
+		else if (!str_cmp(&s, "no") || !str_cmp(&s, "off") || !str_cmp(&s, "disabled")
+				|| !str_cmp(&s, "disable"))
+			out->dtls_off = 1;
 		else
 			ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '"STR_FORMAT"'",
 					STR_FMT(&s));
@@ -587,6 +623,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '"BENCODE_FORMAT"'",
 						BENCODE_FMT(it));
 		}
+	}
+
+	/* XXX abstractize the other list walking functions using callbacks */
+	/* XXX module still needs to support this list */
+	if ((list = bencode_dictionary_get_expect(input, "SDES", BENCODE_LIST))) {
+		for (it = list->child; it; it = it->sibling)
+			ng_sdes_option(out, it, 0);
 	}
 
 	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);

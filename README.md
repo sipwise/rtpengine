@@ -345,7 +345,7 @@ The options are described in more detail below.
 
 * --dtls-passive
 
-	Enabled the `DTLS=passive` flag for all calls unconditionally.
+	Enables the `DTLS=passive` flag for all calls unconditionally.
 
 * -d, --delete-delay
 
@@ -776,11 +776,44 @@ Optionally included keys are:
 
 * `DTLS`
 
-	Contains a string and influences the behaviour of DTLS-SRTP. Currently the only recognized option
-	is `passive`, which instructs *rtpengine* to prefer the passive (i.e. server) role for the DTLS
-	handshake. The default is to take the active (client) role if possible. This is useful in cases where
-	the SRTP endpoint isn't able to receive or process the DTLS handshake packets, for example when it's
-	behind NAT or needs to finish ICE processing first.
+	Contains a string and influences the behaviour of DTLS-SRTP. Possible values are:
+
+	- `off` or `no` or `disable`
+
+		Prevents *rtpengine* from offering or acceping DTLS-SRTP when otherwise it would. The default
+		is to offer DTLS-SRTP when encryption is desired and to favour it over SDES when accepting
+		an offer.
+
+	- `passive`
+
+		Instructs *rtpengine* to prefer the passive (i.e. server) role for the DTLS
+		handshake. The default is to take the active (client) role if possible. This is useful in cases
+		where the SRTP endpoint isn't able to receive or process the DTLS handshake packets, for example
+		when it's behind NAT or needs to finish ICE processing first.
+
+* `SDES`
+
+	A list of strings controlling the behaviour regarding SDES. The default is to offer SDES without any
+	session parameters when encryption is desired, and to accept it when DTLS-SRTP is unavailable. If two
+	SDES endpoints are connected to each other, then the default is to offer SDES with the same options
+	as were received from the other endpoint.
+
+	These options can also be put into the `flags` list using a prefix of `SDES-`. All options controlling
+	SDES session parameters can be used either in all lower case or in all upper case.
+
+	- `off` or `no` or `disable`
+
+		Prevents *rtpengine* from offering SDES, leaving DTLS-SRTP as the other option.
+
+	- `unencrypted_srtp`, `unencrypted_srtcp` and `unauthenticated_srtp`
+
+		Enables the respective SDES session parameter (see section 6.3 or RFC 4568). The default is to
+		copy these options from the offering client, or not to have them enabled if SDES wasn't offered.
+
+	- `encrypted_srtp`, `encrypted_srtcp` and `authenticated_srtp`
+
+		Negates the respective option. This is useful if one of the session parameters was offered by
+		an SDES endpoint, but it should not be offered on the far side if this endpoint also speaks SDES.
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 

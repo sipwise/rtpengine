@@ -401,11 +401,11 @@ int rtcp_avp2savp(str *s, struct crypto_context *c) {
 	if (check_session_keys(c))
 		return -1;
 
-	if (crypto_encrypt_rtcp(c, rtcp, &payload, c->last_index))
+	if (!c->params.session_params.unencrypted_srtcp && crypto_encrypt_rtcp(c, rtcp, &payload, c->last_index))
 		return -1;
 
 	idx = (void *) s->s + s->len;
-	*idx = htonl(0x80000000ULL | c->last_index++);
+	*idx = htonl((c->params.session_params.unencrypted_srtcp ? 0ULL : 0x80000000ULL) | c->last_index++);
 	s->len += sizeof(*idx);
 
 	to_auth = *s;

@@ -97,13 +97,13 @@ struct attribute_crypto {
 	str tag_str;
 	str crypto_suite_str;
 	str key_params_str;
-	/* str session_params; */
 
 	str key_base64_str;
 	str lifetime_str;
 	str mki_str;
 
 	unsigned int tag;
+	/* XXX use struct crypto_params for these below? */
 	const struct crypto_suite *crypto_suite;
 	str master_key;
 	str salt;
@@ -111,6 +111,9 @@ struct attribute_crypto {
 	u_int64_t lifetime;
 	unsigned char mki[256];
 	unsigned int mki_len;
+	int unencrypted_srtcp:1,
+	    unencrypted_srtp:1,
+	    unauthenticated_srtp:1;
 };
 
 struct attribute_ssrc {
@@ -540,6 +543,15 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 			memcpy(c->mki, ((void *) &u32) + (sizeof(u32) - c->mki_len), c->mki_len);
 		else
 			memcpy(c->mki + (c->mki_len - sizeof(u32)), &u32, sizeof(u32));
+	}
+
+	while (extract_token(&start, end, &s) == 0) {
+		if (!str_cmp(&s, "UNENCRYPTED_SRTCP"))
+			c->unencrypted_srtcp = 1;
+		else if (!str_cmp(&s, "UNENCRYPTED_SRTP"))
+			c->unencrypted_srtp = 1;
+		else if (!str_cmp(&s, "UNAUTHENTICATED_SRTP"))
+			c->unauthenticated_srtp = 1;
 	}
 
 	return 0;
@@ -1233,6 +1245,9 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 						attr->u.crypto.master_key.len);
 				memcpy(sp->crypto.master_salt, attr->u.crypto.salt.s,
 						attr->u.crypto.salt.len);
+				sp->crypto.session_params.unencrypted_srtp = attr->u.crypto.unencrypted_srtp;
+				sp->crypto.session_params.unencrypted_srtcp = attr->u.crypto.unencrypted_srtcp;
+				sp->crypto.session_params.unauthenticated_srtp = attr->u.crypto.unauthenticated_srtp;
 			}
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
@@ -1863,6 +1878,12 @@ static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
 			ull |= cp->mki[cp->mki_len - i - 1] << (i * 8);
 		chopper_append_printf(chop, "|%llu:%u", ull, cp->mki_len);
 	}
+	if (cp->session_params.unencrypted_srtp)
+		chopper_append_c(chop, " UNENCRYPTED_SRTP");
+	if (cp->session_params.unencrypted_srtcp)
+		chopper_append_c(chop, " UNENCRYPTED_SRTCP");
+	if (cp->session_params.unauthenticated_srtp)
+		chopper_append_c(chop, " UNAUTHENTICATED_SRTP");
 	chopper_append_c(chop, "\r\n");
 }
 
