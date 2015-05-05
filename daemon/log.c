@@ -67,6 +67,7 @@ static const char* const prio_str[] = {
 gboolean _log_stderr = 0;
 int _log_facility = LOG_DAEMON;
 int _log_facility_cdr = 0;
+int _log_facility_rtcp = 0;
 
 
 static GHashTable *__log_limiter;
@@ -204,6 +205,7 @@ static unsigned int log_limiter_entry_hash(const void *p) {
 	const struct log_limiter_entry *lle = p;
 	return g_str_hash(lle->msg) ^ g_str_hash(lle->prefix);
 }
+
 static int log_limiter_entry_equal(const void *a, const void *b) {
 	const struct log_limiter_entry *A = a, *B = b;
 	if (!g_str_equal(A->msg, B->msg))
@@ -211,6 +213,14 @@ static int log_limiter_entry_equal(const void *a, const void *b) {
 	if (!g_str_equal(A->prefix, B->prefix))
 		return 0;
 	return 1;
+}
+
+void rtcplog(const char* cdrbuffer) {
+    int previous;
+    int mask = LOG_MASK (LOG_INFO);
+    previous = setlogmask(mask);
+    syslog(LOG_INFO | _log_facility_rtcp, "%s", cdrbuffer);
+    setlogmask(previous);
 }
 
 void log_init() {

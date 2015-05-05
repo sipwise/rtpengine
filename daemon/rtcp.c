@@ -11,6 +11,7 @@
 #include "log.h"
 #include "rtp.h"
 #include "crypto.h"
+#include "rtcp_xr.h"
 
 
 
@@ -26,9 +27,6 @@
 #define SRTCP_R_LENGTH 6
 #endif
 
-
-
-
 #define RTCP_PT_SR	200	/* sender report */
 #define RTCP_PT_RR	201	/* receiver report */
 #define RTCP_PT_SDES	202	/* source description */
@@ -36,6 +34,7 @@
 #define RTCP_PT_APP	204	/* application specific */
 #define RTCP_PT_RTPFB	205	/* transport layer feedback message (RTP/AVPF) */
 #define RTCP_PT_PSFB	206	/* payload-specific feedback message (RTP/AVPF) */
+#define RTCP_PT_XR   207
 
 #define SDES_TYPE_END	0
 #define SDES_TYPE_CNAME	1
@@ -480,4 +479,74 @@ int rtcp_demux_is_rtcp(const str *s) {
 	if (rtcp->header.pt > 223)
 		return 0;
 	return 1;
+}
+
+void print_rtcp_common(char** cdrbufcur, const pjmedia_rtcp_common *common) {
+	*cdrbufcur += sprintf(*cdrbufcur,"version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ssrc=%u, ",
+			common->version,
+			common->p,
+			common->count,
+			common->pt,
+			common->length,
+			ntohl(common->ssrc));
+}
+
+void print_rtcp_sr(char** cdrbufcur, const pjmedia_rtcp_sr* sr) {
+	*cdrbufcur += sprintf(*cdrbufcur,"ntp_sec=%u, ntp_fractions=%u, rtp_ts=%u, sender_packets=%u, sender_bytes=%u, ",
+			ntohl(sr->ntp_sec),
+			ntohl(sr->ntp_frac),
+			ntohl(sr->rtp_ts),
+			ntohl(sr->sender_pcount),
+			ntohl(sr->sender_bcount));
+}
+
+void print_rtcp_rr(char** cdrbufcur, const pjmedia_rtcp_rr* rr) {
+    /* Get packet loss */
+    u_int32_t packet_loss=0;
+    packet_loss = (rr->total_lost_2 << 16) +
+			 (rr->total_lost_1 << 8) +
+			  rr->total_lost_0;
+
+    *cdrbufcur += sprintf(*cdrbufcur,"ssrc=%u, fraction_lost=%u, packet_loss=%u, last_seq=%u, jitter=%u, last_sr=%u, delay_since_last_sr=%u, ",
+			ntohl(rr->ssrc),
+			ntohl(rr->fract_lost),
+			ntohl(packet_loss),
+			ntohl(rr->last_seq),
+			ntohl(rr->jitter),
+			ntohl(rr->lsr),
+			ntohl(rr->dlsr));
+}
+
+void parse_and_log_rtcp_report(struct stream_fd *sfd, const void *pkt, long size) {
+
+	static const int CDRBUFLENGTH = 1024*1024*1; // 1 MB
+	char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
+	char* cdrbufcur = cdrbuffer;
+	pjmedia_rtcp_common *common = (pjmedia_rtcp_common*) pkt;
+	const pjmedia_rtcp_rr *rr = NULL;
+	const pjmedia_rtcp_sr *sr = NULL;
+
+	cdrbufcur += sprintf(cdrbufcur,"[%s] ",sfd->stream->call->callid);
+
+	print_rtcp_common(&cdrbufcur,common);
+
+	/* Parse RTCP */
+	if (common->pt == RTCP_PT_SR) {
+		sr = (pjmedia_rtcp_sr*) (((char*)pkt) + sizeof(pjmedia_rtcp_common));
+
+		print_rtcp_sr(&cdrbufcur,sr);
+
+		if (common->count > 0 && size >= (sizeof(pjmedia_rtcp_sr_pkt))) {
+			rr = (pjmedia_rtcp_rr*)(((char*)pkt) + (sizeof(pjmedia_rtcp_common)
+					+ sizeof(pjmedia_rtcp_sr)));
+			print_rtcp_rr(&cdrbufcur,rr);
+		}
+	} else if (common->pt == RTCP_PT_RR && common->count > 0) {
+		rr = (pjmedia_rtcp_rr*)(((char*)pkt) + sizeof(pjmedia_rtcp_common));
+		print_rtcp_rr(&cdrbufcur,rr);
+
+	} else if (common->pt == RTCP_PT_XR) {
+		pjmedia_rtcp_xr_rx_rtcp_xr(&cdrbufcur, pkt, size);
+	}
+	rtcplog(cdrbuffer);
 }

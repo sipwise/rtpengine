@@ -1,70 +1,76 @@
-#!/bin/bash
-#
+#!/usr/bin/perl
 
-host=127.0.0.1
-port=9900
-error_rc=255
+use IO::Socket::INET;
 
-prgname=${0##*/}
-prgdir=${0%$prgname}
-
-showusage() {
-    echo ""
-    echo "    $0 [ -ip <ipaddress> -port <port> ] <command>"
-    echo ""
-    echo "    Supported commands are:"
-    echo ""
-    echo "    list [ numsessions | sessions | session <callid> ]"
-    echo "         numsessions           : prints the number of sessions"
-    echo "         sessions              : print one-liner session information"
-    echo "         session <callid>      : print detail about one session"
-    echo "         totals                : print total statistics (does not include current sessions)"
-    echo ""
-    echo "    terminate [ all | <callid> ]"
-    echo "         all                   : terminates all current sessions"
-    echo "         <callid>              : session is immediately terminated"
-    echo ""
-    echo ""
-    echo "    Return Value:"
-    echo "    0 on success with ouput from server side, other values for failure."
-    echo ""
-    exit 0
+$num_args = $#ARGV + 1;
+if ($num_args == 0) {
+    showusage();
+    exit;
 }
 
-if [ $# -eq 0 ]; then showusage; fi
+# auto-flush on socket
+$| = 1;
+ 
+my $argumentstring = "";
+my $ip = "127.0.0.1";
+my $port = "9900";
 
+for (my $argnum=0; $argnum <= $#ARGV; $argnum++) {
+    if ($ARGV[$argnum] eq "-ip") {
+	die "No argument after -ip\n" unless $argnum+1<=$#ARGV;
+        $argnum = $argnum+1;
+	$ip = $ARGV[$argnum];
+    } elsif ($ARGV[$argnum] eq "-port") {
+	die "No argument after -port\n" unless $argnum+1<=$#ARGV;
+        $argnum = $argnum+1;
+	$port = $ARGV[$argnum];
+    } else {
+	$argumentstring .= "$ARGV[$argnum] ";
+    }
+}
 
-command -v nc 2>&1 >/dev/null
-if [ $? -ne 0 ]; then
-    echo "Error: $0 requires netcat to be installed."
-    exit 0
-fi
+# create a connecting socket
+my $socket = new IO::Socket::INET (
+    PeerHost => $ip,
+    PeerPort => $port,
+    Proto => 'tcp',
+);
+die "Cannot connect to the rtpengine $!\n" unless $socket;
+ 
+$argumentstring = trim($argumentstring);
+my $size = $socket->send($argumentstring);
+ 
+# notify server that request has been sent
+shutdown($socket, 1);
+ 
+# receive a response of up to 10MB
+my $response = "";
+$socket->recv($response, 1024*1024*10);
 
-while [ $# -gt 0 ]; do
-    case $1 in
-   "-?"|"-help"|"-h")
-       showusage
-       ;;
-   "-ip")
-       shift
-       if [ $# -gt 0 ]; then
-       host=$1
-       else
-       echo "Missing parameter for option '-ip'" >&2
-       fi
-       ;;
-   "-port")
-       shift
-       if [ $# -gt 0 ]; then
-       port=$1
-       else
-       echo "Missing parameter for option '-port'" >&2
-       fi
-       ;;
-   *)
-       varargs="$varargs $1"
-    esac
-    shift
-done
+print $response; 
 
-echo -n ${varargs} | nc ${host} ${port}
+$socket->close();
+
+sub showusage {
+    print "\n";
+    print "    rtpengine-ctl [ -ip <ipaddress> -port <port> ] <command>\n";
+    print "\n";
+    print "    Supported commands are:\n";
+    print "\n";
+    print "    list [ numsessions | sessions | session <callid> | totals ]\n";
+    print "         numsessions           : prints the number of sessions\n";
+    print "         sessions              : print one-liner session information\n";
+    print "         session <callid>      : print detail about one session\n";
+    print "         totals                : print total statistics\n";
+    print "\n";
+    print "    terminate [ all | <callid> ]\n";
+    print "         all                   : terminates all current sessions\n";
+    print "         <callid>              : session is immediately terminated\n";
+    print "\n";
+    print "\n";
+    print "    Return Value:\n";
+    print "    0 on success with ouput from server side, other values for failure.\n";
+    print "\n";
+}
+
+sub  trim { my $s = shift; $s =~ s/^\s+|\s+$//g; return $s };

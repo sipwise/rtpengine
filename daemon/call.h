@@ -210,13 +210,14 @@ struct transport_protocol {
 };
 extern const struct transport_protocol transport_protocols[];
 
-
-
-
 struct stats {
 	atomic64			packets;
 	atomic64			bytes;
 	atomic64			errors;
+	struct timespec		delay_min;
+	struct timespec		delay_avg;
+	struct timespec		delay_max;
+	atomic64			in_tos_tclass;
 };
 
 struct totalstats {
@@ -284,6 +285,7 @@ struct rtp_stats {
 	atomic64		bytes;
 	atomic64		kernel_packets;
 	atomic64		kernel_bytes;
+	atomic64		in_tos_tclass;
 };
 
 struct packet_stream {
@@ -452,6 +454,7 @@ struct callmaster {
 	/* XXX rework these */
 	struct stats		statsps;	/* per second stats, running timer */
 	struct stats		stats;		/* copied from statsps once a second */
+	mutex_t			statspslock;
 	struct totalstats   totalstats;
 	struct totalstats   totalstats_interval;
 	/* control_ng_stats stuff */
