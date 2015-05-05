@@ -115,6 +115,9 @@ void pjmedia_rtcp_xr_rx_rtcp_xr(char* cdrbufcur, const void *pkt, size_t size) {
 								rtcp_xr->buf;
 	unsigned pkt_len, rb_len;
 
+	if (size < sizeof(*rtcp_xr))
+		return;
+
 	if (rtcp_xr->common.pt != RTCP_XR)
 		return;
 

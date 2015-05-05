@@ -520,18 +520,24 @@ void print_rtcp_rr(char** cdrbufcur, const pjmedia_rtcp_rr* rr) {
 void parse_and_log_rtcp_report(struct stream_fd *sfd, const void *pkt, long size) {
 
 	static const int CDRBUFLENGTH = 1024*1024*1; // 1 MB
-	char cdrbuffer[CDRBUFLENGTH]; memset(&cdrbuffer,0,CDRBUFLENGTH);
+	char cdrbuffer[CDRBUFLENGTH];
 	char* cdrbufcur = cdrbuffer;
 	pjmedia_rtcp_common *common = (pjmedia_rtcp_common*) pkt;
 	const pjmedia_rtcp_rr *rr = NULL;
 	const pjmedia_rtcp_sr *sr = NULL;
 
-	cdrbufcur += sprintf(cdrbufcur,"[%s] ",sfd->stream->call->callid);
+	cdrbufcur += sprintf(cdrbufcur,"["STR_FORMAT"] ", STR_FMT(&sfd->stream->call->callid));
+
+	if (size < sizeof(*common))
+		return;
 
 	print_rtcp_common(&cdrbufcur,common);
 
 	/* Parse RTCP */
 	if (common->pt == RTCP_PT_SR) {
+		if (size < (sizeof(*common) + sizeof(*sr)))
+			return;
+
 		sr = (pjmedia_rtcp_sr*) (((char*)pkt) + sizeof(pjmedia_rtcp_common));
 
 		print_rtcp_sr(&cdrbufcur,sr);
@@ -542,11 +548,14 @@ void parse_and_log_rtcp_report(struct stream_fd *sfd, const void *pkt, long size
 			print_rtcp_rr(&cdrbufcur,rr);
 		}
 	} else if (common->pt == RTCP_PT_RR && common->count > 0) {
+		if (size < (sizeof(*common) + sizeof(*rr)))
+			return;
+
 		rr = (pjmedia_rtcp_rr*)(((char*)pkt) + sizeof(pjmedia_rtcp_common));
 		print_rtcp_rr(&cdrbufcur,rr);
 
 	} else if (common->pt == RTCP_PT_XR) {
-		pjmedia_rtcp_xr_rx_rtcp_xr(&cdrbufcur, pkt, size);
+		pjmedia_rtcp_xr_rx_rtcp_xr(cdrbufcur, pkt, size);
 	}
 	rtcplog(cdrbuffer);
 }
