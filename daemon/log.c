@@ -194,11 +194,7 @@ out:
 }
 
 void cdrlog(const char* cdrbuffer) {
-    int previous;
-    int mask = LOG_MASK (LOG_INFO);
-    previous = setlogmask(mask);
     syslog(LOG_INFO | _log_facility_cdr, "%s", cdrbuffer);
-    setlogmask(previous);
 }
 
 static unsigned int log_limiter_entry_hash(const void *p) {
@@ -216,11 +212,7 @@ static int log_limiter_entry_equal(const void *a, const void *b) {
 }
 
 void rtcplog(const char* cdrbuffer) {
-    int previous;
-    int mask = LOG_MASK (LOG_INFO);
-    previous = setlogmask(mask);
     syslog(LOG_INFO | _log_facility_rtcp, "%s", cdrbuffer);
-    setlogmask(previous);
 }
 
 void log_init() {

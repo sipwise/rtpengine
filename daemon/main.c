@@ -139,7 +139,6 @@ static void sighandler(gpointer x) {
 		else if (ret == SIGUSR1) {
 		        if (get_log_level() > 0) {
 				g_atomic_int_add(&log_level, -1);
-				setlogmask(LOG_UPTO(get_log_level()));
 				ilog(get_log_level(), "Set log level to %d\n",
 						get_log_level());
 			}
@@ -147,7 +146,6 @@ static void sighandler(gpointer x) {
 		else if (ret == SIGUSR2) {
 		        if (get_log_level() < 7) {
 				g_atomic_int_add(&log_level, 1);
-				setlogmask(LOG_UPTO(get_log_level()));
 				ilog(get_log_level(), "Set log level to %d\n",
 						get_log_level());
 			}
@@ -367,7 +365,6 @@ static void options(int *argc, char ***argv) {
 
 	if ((log_level < LOG_EMERG) || (log_level > LOG_DEBUG))
 	        die("Invalid log level (--log_level)");
-	setlogmask(LOG_UPTO(log_level));
 
 	if (log_facility_s) {
 		if (!parse_log_facility(log_facility_s, &_log_facility)) {
