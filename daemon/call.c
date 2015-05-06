@@ -716,10 +716,6 @@ loop_ok:
 	if (rtcp && sink && sink->rtcp_sibling)
 		out_srtp = sink->rtcp_sibling;
 
-	if (rtcp && _log_facility_rtcp) {
-		parse_and_log_rtcp_report(sfd, s->s, s->len);
-	}
-
 
 	/* stats per RTP payload type */
 
@@ -772,8 +768,12 @@ loop_ok:
 	 * 1 = forward and push update to redis */
 	if (rwf_in)
 		handler_ret = rwf_in(s, in_srtp);
-	if (handler_ret >= 0 && rwf_out)
-		handler_ret += rwf_out(s, out_srtp);
+	if (handler_ret >= 0) {
+		if (rtcp && _log_facility_rtcp)
+			parse_and_log_rtcp_report(sfd, s->s, s->len);
+		if (rwf_out)
+			handler_ret += rwf_out(s, out_srtp);
+	}
 
 	if (handler_ret > 0)
 		update = 1;
