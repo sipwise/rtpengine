@@ -149,9 +149,9 @@ struct rtpengine_stats_a {
 	atomic64_t			packets;
 	atomic64_t			bytes;
 	atomic64_t			errors;
-	struct timespec     delay_min;
-	struct timespec     delay_avg;
-	struct timespec     delay_max;
+	u_int64_t			delay_min;
+	u_int64_t			delay_avg;
+	u_int64_t			delay_max;
 	atomic_t          in_tos;
 };
 struct rtpengine_rtp_stats_a {
@@ -863,7 +863,7 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	op.stats.delay_min = g->stats.delay_min;
 	op.stats.delay_max = g->stats.delay_max;
 	op.stats.delay_avg = g->stats.delay_avg;
-	op.stats.in_tos = atomic64_read(&g->stats.in_tos);
+	op.stats.in_tos = atomic_read(&g->stats.in_tos);
 
 	for (i = 0; i < g->target.num_payload_types; i++) {
 		op.rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
@@ -1483,6 +1483,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		g->stats.delay_min = og->stats.delay_min;
 		g->stats.delay_max = og->stats.delay_max;
 		g->stats.delay_avg = og->stats.delay_avg;
+		atomic_set(&g->stats.in_tos, atomic_read(&og->stats.in_tos));
 
 		for (j = 0; j < NUM_PAYLOAD_TYPES; j++) {
 			atomic64_set(&g->rtp_stats[j].packets, atomic64_read(&og->rtp_stats[j].packets));
@@ -2194,48 +2195,7 @@ static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rt
 	return match - tg->payload_types;
 }
 
-static void re_timespec_subtract (struct timespec *result, const struct timespec *a, const struct timespec *b) {
-	long long nanoseconds=0;
-	nanoseconds = ((long)a->tv_sec - (long long)b->tv_sec) * (long long)1000000000 + ((long long)a->tv_nsec - (long long)b->tv_nsec);
-	result->tv_sec = nanoseconds/(long long)1000000000;
-	result->tv_nsec = nanoseconds%(long long)1000000000;
-}
-
-static void re_timespec_multiply(struct timespec *result, const struct timespec *a, const long long multiplier) {
-	long long nanoseconds=0;
-	nanoseconds = ((long)a->tv_sec * (long long)1000000000) + (long long)a->tv_nsec * multiplier;
-	result->tv_sec = nanoseconds/(long long)1000000000;
-	result->tv_nsec = nanoseconds%(long long)1000000000;
-}
-
-static void re_timespec_devide(struct timespec *result, const struct timespec *a, const long devisor) {
-	long long nanoseconds=0;
-	nanoseconds = ((long)a->tv_sec * (long long)1000000000) + (long long)a->tv_nsec / devisor;
-	result->tv_sec = nanoseconds/(long long)1000000000;
-	result->tv_nsec = nanoseconds%(long long)1000000000;
-}
-
-static void re_timespec_add(struct timespec *result, const struct timespec *a, const struct timespec *b) {
-	long long nanoseconds=0;
-	nanoseconds = ((long)a->tv_sec + (long long)b->tv_sec) * (long long)1000000000 + ((long long)a->tv_nsec + (long long)b->tv_nsec);
-	result->tv_sec = nanoseconds/(long long)1000000000;
-	result->tv_nsec = nanoseconds%(long long)1000000000;
-}
-
-/* Return negative, zero, positive if A < B, A == B, A > B, respectively.
-   Assume the nanosecond components are in range, or close to it.  */
-static int re_timespec_cmp (struct timespec *a, struct timespec *b)
-{
-  return (a->tv_sec < b->tv_sec ? -1
-	  : a->tv_sec > b->tv_sec ? 1
-	  : a->tv_nsec - b->tv_nsec);
-}
-
-#if (RE_HAS_MEASUREDELAY)
-	static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, struct timespec *starttime, u_int8_t in_tos) {
-#else
-	static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, u_int8_t in_tos) {
-#endif
+static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src, u_int8_t in_tos) {
 	struct udphdr *uh;
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
@@ -2246,7 +2206,7 @@ static int re_timespec_cmp (struct timespec *a, struct timespec *b)
 	u_int64_t pkt_idx = 0, pkt_idx_u;
 
 #if (RE_HAS_MEASUREDELAY)
-	struct timespec endtime, delay;
+	u_int64_t starttime, endtime, delay;
 #endif
 
 	skb_reset_transport_header(skb);
@@ -2369,25 +2329,27 @@ out:
 		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
 
 #if (RE_HAS_MEASUREDELAY)
-		getnstimeofday(&endtime);
+		starttime = ktime_to_ns(skb->tstamp);
+		endtime = ktime_to_ns(ktime_get_real());
 
-		re_timespec_subtract(&delay,&endtime, starttime);
+		delay = endtime - starttime;
 
+		/* XXX needs locking - not atomic */
 		if (atomic64_read(&g->stats.packets)==1) {
 			g->stats.delay_min=delay;
 			g->stats.delay_avg=delay;
 			g->stats.delay_max=delay;
 		} else {
-			if (re_timespec_cmp(&g->stats.delay_min,&delay)>0) {
+			if (g->stats.delay_min > delay) {
 				g->stats.delay_min = delay;
 			}
-			if (re_timespec_cmp(&g->stats.delay_max,&delay)<0) {
+			if (g->stats.delay_max < delay) {
 				g->stats.delay_max = delay;
 			}
 
-			re_timespec_multiply(&g->stats.delay_avg,&g->stats.delay_avg,atomic64_read(&g->stats.packets)-1);
-			re_timespec_add(&g->stats.delay_avg,&g->stats.delay_avg,&delay);
-			re_timespec_devide(&g->stats.delay_avg,&g->stats.delay_avg,atomic64_read(&g->stats.packets));
+			g->stats.delay_avg = g->stats.delay_avg * (atomic64_read(&g->stats.packets)-1);
+			g->stats.delay_avg = g->stats.delay_avg + delay;
+			g->stats.delay_avg = g->stats.delay_avg / atomic64_read(&g->stats.packets);
 		}
 #endif
 	}
@@ -2427,11 +2389,6 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	struct rtpengine_table *t;
 	struct re_address src;
 
-#if (RE_HAS_MEASUREDELAY)
-	struct timespec starttime;
-	getnstimeofday(&starttime);
-#endif
-
 	t = get_table(pinfo->id);
 	if (!t)
 		goto skip;
@@ -2450,11 +2407,7 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	src.family = AF_INET;
 	src.u.ipv4 = ih->saddr;
 
-#if (RE_HAS_MEASUREDELAY)
-	return rtpengine46(skb, t, &src, &starttime, (u_int8_t)ih->tos);
-#else
 	return rtpengine46(skb, t, &src, (u_int8_t)ih->tos);
-#endif
 
 skip2:
 	kfree_skb(skb);
@@ -2478,11 +2431,6 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	struct rtpengine_table *t;
 	struct re_address src;
 
-#if (RE_HAS_MEASUREDELAY)
-	struct timespec starttime;
-	getnstimeofday(&starttime);
-#endif
-
 	t = get_table(pinfo->id);
 	if (!t)
 		goto skip;
@@ -2502,11 +2450,7 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	src.family = AF_INET6;
 	memcpy(&src.u.ipv6, &ih->saddr, sizeof(src.u.ipv6));
 
-#if (RE_HAS_MEASUREDELAY)
-	return rtpengine46(skb, t, &src, &starttime, ipv6_get_dsfield(ih));
-#else
 	return rtpengine46(skb, t, &src, ipv6_get_dsfield(ih));
-#endif
 
 skip2:
 	kfree_skb(skb);

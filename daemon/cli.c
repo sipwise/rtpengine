@@ -166,7 +166,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 								   atomic64_get(&ps->last_packet));
                } else {
             	   printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
-            			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, %llu.%09llu delay_min, %llu.%09llu delay_avg, %llu.%09llu delay_max\n",
+			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, %.9f delay_min, %.9f delay_avg, %.9f delay_max\n",
 						   md->index,
 						   (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						   smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
@@ -175,12 +175,9 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 								   atomic64_get(&ps->stats.bytes),
 								   atomic64_get(&ps->stats.errors),
 								   atomic64_get(&ps->last_packet),
-								   (unsigned long long) ps->stats.delay_min.tv_sec,
-								   (unsigned long long) ps->stats.delay_min.tv_nsec,
-								   (unsigned long long) ps->stats.delay_avg.tv_sec,
-								   (unsigned long long) ps->stats.delay_avg.tv_nsec,
-								   (unsigned long long) ps->stats.delay_max.tv_sec,
-								   (unsigned long long) ps->stats.delay_max.tv_nsec);
+								   (double) ps->stats.delay_min / 1000000,
+								   (double) ps->stats.delay_avg / 1000000,
+								   (double) ps->stats.delay_max / 1000000);
                }
 #else
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "

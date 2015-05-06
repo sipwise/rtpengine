@@ -214,10 +214,10 @@ struct stats {
 	atomic64			packets;
 	atomic64			bytes;
 	atomic64			errors;
-	struct timespec		delay_min;
-	struct timespec		delay_avg;
-	struct timespec		delay_max;
-	atomic64			in_tos_tclass;
+	u_int64_t			delay_min;
+	u_int64_t			delay_avg;
+	u_int64_t			delay_max;
+	u_int8_t			in_tos_tclass; /* XXX shouldn't be here - not stats */
 };
 
 struct totalstats {
@@ -454,7 +454,6 @@ struct callmaster {
 	/* XXX rework these */
 	struct stats		statsps;	/* per second stats, running timer */
 	struct stats		stats;		/* copied from statsps once a second */
-	mutex_t			statspslock;
 	struct totalstats   totalstats;
 	struct totalstats   totalstats_interval;
 	/* control_ng_stats stuff */
