@@ -301,13 +301,6 @@ int rtcp_avpf2avp(str *s) {
 		left -= el->len;
 
 		switch (el->type) {
-			case RTCP_PT_SR:
-			case RTCP_PT_RR:
-			case RTCP_PT_SDES:
-			case RTCP_PT_BYE:
-			case RTCP_PT_APP:
-				break;
-
 			case RTCP_PT_RTPFB:
 			case RTCP_PT_PSFB:
 				start = el->u.buf;
@@ -316,7 +309,7 @@ int rtcp_avpf2avp(str *s) {
 				break;
 
 			default:
-				abort();
+				break;
 		}
 	}
 
