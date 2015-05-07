@@ -49,10 +49,10 @@ INLINE int is_stun(const str *s) {
 }
 
 
-int stun(str *, struct packet_stream *, const endpoint_t *, const sockaddr_t *);
+int stun(str *, struct stream_fd *, const endpoint_t *);
 
 int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *pwd,
 		str ufrags[2], int controlling, u_int64_t tiebreaker, u_int32_t priority,
-		const sockaddr_t *src, socket_t *, int);
+		socket_t *, int);
 
 #endif

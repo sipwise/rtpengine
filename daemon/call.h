@@ -443,7 +443,6 @@ struct call_stats {
 
 
 struct callmaster *callmaster_new(struct poller *);
-void stream_msg_mh_src(struct packet_stream *, struct msghdr *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 
 

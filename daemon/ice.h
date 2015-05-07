@@ -159,8 +159,8 @@ void ice_remote_candidates(GQueue *, struct ice_agent *);
 
 void ice_thread_run(void *);
 
-int ice_request(struct packet_stream *, const endpoint_t *, const sockaddr_t *, struct stun_attrs *);
-int ice_response(struct packet_stream *ps, const endpoint_t *src, const sockaddr_t *dst,
+int ice_request(struct stream_fd *, const endpoint_t *, struct stun_attrs *);
+int ice_response(struct stream_fd *, const endpoint_t *src,
 		struct stun_attrs *attrs, u_int32_t transaction[3]);
 
 /* returns 0 if ICE still has work to do, 1 otherwise */

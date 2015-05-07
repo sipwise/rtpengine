@@ -620,7 +620,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	stun_binding_request(&pair->remote_candidate->endpoint, transact, &ag->pwd[0], ag->ufrag,
 			AGENT_ISSET(ag, CONTROLLING), tie_breaker,
-			prio, &pair->local_intf->spec->address.addr, &ps->selected_sfd->socket,
+			prio, &ps->selected_sfd->socket,
 			PAIR_ISSET(pair, TO_USE));
 
 }
@@ -1031,9 +1031,10 @@ static int __check_valid(struct ice_agent *ag) {
  * -1 = generic error, process packet as normal
  * -2 = role conflict
  */
-int ice_request(struct packet_stream *ps, const endpoint_t *src, const sockaddr_t *dst,
+int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 		struct stun_attrs *attrs)
 {
+	struct packet_stream *ps = sfd->stream;
 	struct call_media *media = ps->media;
 	struct ice_agent *ag;
 	const struct local_intf *ifa;
@@ -1042,7 +1043,8 @@ int ice_request(struct packet_stream *ps, const endpoint_t *src, const sockaddr_
 	struct ice_candidate_pair *pair;
 	int ret;
 
-	__DBG("received ICE request from %s on %s", endpoint_print_buf(src), sockaddr_print_buf(dst));
+	__DBG("received ICE request from %s on %s", endpoint_print_buf(src),
+			endpoint_print_buf(&sfd->socket.local));
 
 	ag = media->ice_agent;
 	if (!ag)
@@ -1050,10 +1052,7 @@ int ice_request(struct packet_stream *ps, const endpoint_t *src, const sockaddr_
 
 	atomic64_set(&ag->last_activity, poller_now);
 
-	ifa = get_interface_from_address(ag->logical_intf, dst, NULL); /* XXX type */
-	err = "ICE/STUN binding request received on unknown local interface address";
-	if (!ifa)
-		goto err;
+	ifa = sfd->local_intf;
 
 	/* determine candidate pair */
 	mutex_lock(&ag->lock);
@@ -1115,8 +1114,8 @@ int ice_request(struct packet_stream *ps, const endpoint_t *src, const sockaddr_
 
 err_unlock:
 	mutex_unlock(&ag->lock);
-err:
-	ilog(LOG_NOTICE, "%s (from %s on interface %s)", err, endpoint_print_buf(src), sockaddr_print_buf(dst));
+	ilog(LOG_NOTICE, "%s (from %s on interface %s)", err, endpoint_print_buf(src),
+			endpoint_print_buf(&sfd->socket.local));
 	return 0;
 }
 
@@ -1140,11 +1139,12 @@ static int __check_succeeded_complete(struct ice_agent *ag) {
 }
 
 /* call is locked in R */
-int ice_response(struct packet_stream *ps, const endpoint_t *src, const sockaddr_t *dst,
+int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 		struct stun_attrs *attrs, u_int32_t transaction[3])
 {
 	struct ice_candidate_pair *pair, *opair;
 	struct ice_agent *ag;
+	struct packet_stream *ps = sfd->stream;
 	struct call_media *media = ps->media;
 	const char *err;
 	unsigned int component;
@@ -1152,7 +1152,8 @@ int ice_response(struct packet_stream *ps, const endpoint_t *src, const sockaddr
 	const struct local_intf *ifa;
 	int ret, was_ctl;
 
-	__DBG("received ICE response from %s on %s", endpoint_print_buf(src), sockaddr_print_buf(dst));
+	__DBG("received ICE response from %s on %s", endpoint_print_buf(src),
+			endpoint_print_buf(&sfd->socket.local));
 
 	ag = media->ice_agent;
 	if (!ag)
@@ -1183,8 +1184,6 @@ int ice_response(struct packet_stream *ps, const endpoint_t *src, const sockaddr
 		goto err;
 
 	err = "ICE/STUN response received, but destination address didn't match local interface address";
-	if (!sockaddr_eq(dst, &ifa->spec->address.addr)) /* XXX lots of references to this struct member */
-		goto err;
 	if (pair->packet_stream != ps)
 		goto err;
 
@@ -1267,7 +1266,7 @@ err_unlock:
 err:
 	if (err)
 		ilog(LOG_NOTICE, "%s (from %s on interface %s)",
-				err, endpoint_print_buf(src), sockaddr_print_buf(dst));
+				err, endpoint_print_buf(src), endpoint_print_buf(&sfd->socket.local));
 
 	if (pair && attrs->error_code)
 		__fail_pair(pair);

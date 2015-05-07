@@ -827,7 +827,7 @@ noop:
 
 /* XXX split this function into pieces */
 /* called lock-free */
-static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, const sockaddr_t *dst) {
+static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin) {
 	struct packet_stream *stream,
 			     *sink = NULL,
 			     *in_srtp, *out_srtp;
@@ -835,9 +835,6 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	int ret = 0, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0, rtcp = 0,
 	    unk = 0;
 	int i;
-	struct msghdr mh;
-	struct iovec iov;
-	unsigned char buf[256];
 	struct call *call;
 	struct callmaster *cm;
 	/*unsigned char cc;*/
@@ -876,7 +873,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	}
 
 	if (media->ice_agent && is_stun(s)) {
-		stun_ret = stun(s, stream, fsin, dst);
+		stun_ret = stun(s, sfd, fsin);
 		if (!stun_ret)
 			goto unlock_out;
 		if (stun_ret == 1) {
@@ -1102,22 +1099,9 @@ forward:
 			|| stun_ret || handler_ret < 0)
 		goto drop;
 
-	ZERO(mh);
-	mh.msg_control = buf;
-	mh.msg_controllen = sizeof(buf);
+	ret = socket_sendto(&sink->selected_sfd->socket, s->s, s->len, &sink->endpoint);
 
 	mutex_unlock(&sink->out_lock);
-
-	stream_msg_mh_src(sink, &mh);
-
-	ZERO(iov);
-	iov.iov_base = s->s;
-	iov.iov_len = s->len;
-
-	mh.msg_iov = &iov;
-	mh.msg_iovlen = 1;
-
-	ret = socket_sendmsg(&sink->selected_sfd->socket, &mh, &sink->endpoint);
 
 	if (ret == -1) {
 		ret = -errno;
@@ -1164,19 +1148,10 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	struct stream_fd *sfd = p;
 	char buf[RTP_BUFFER_SIZE];
 	int ret, iters;
-	struct sockaddr_in6 sin6_src;
 	int update = 0;
 	struct call *ca;
 	str s;
-	struct msghdr mh;
-	struct iovec iov;
-	char control[128];
-	struct cmsghdr *cmh;
-	struct in6_pktinfo *pi6;
-	struct in6_addr /*dst_buf,*/ *dst;
-	//struct in_pktinfo *pi;
 	endpoint_t ep;
-	sockaddr_t sa;
 
 	if (sfd->socket.fd != fd)
 		goto out;
@@ -1192,17 +1167,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		}
 #endif
 
-		ZERO(mh);
-		mh.msg_name = &sin6_src;
-		mh.msg_namelen = sizeof(sin6_src);
-		mh.msg_iov = &iov;
-		mh.msg_iovlen = 1;
-		mh.msg_control = control;
-		mh.msg_controllen = sizeof(control);
-		iov.iov_base = buf + RTP_BUFFER_HEAD_ROOM;
-		iov.iov_len = MAX_RTP_PACKET_SIZE;
-
-		ret = recvmsg(fd, &mh, 0);
+		ret = socket_recvfrom(&sfd->socket, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE, &ep);
 
 		if (ret < 0) {
 			if (errno == EINTR)
@@ -1215,31 +1180,8 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		if (ret >= MAX_RTP_PACKET_SIZE)
 			ilog(LOG_WARNING, "UDP packet possibly truncated");
 
-		for (cmh = CMSG_FIRSTHDR(&mh); cmh; cmh = CMSG_NXTHDR(&mh, cmh)) {
-			if (cmh->cmsg_level == IPPROTO_IPV6 && cmh->cmsg_type == IPV6_PKTINFO) {
-				pi6 = (void *) CMSG_DATA(cmh);
-				dst = &pi6->ipi6_addr;
-				goto got_dst;
-			}
-			// XXX
-//			if (cmh->cmsg_level == IPPROTO_IP && cmh->cmsg_type == IP_PKTINFO) {
-//				pi = (void *) CMSG_DATA(cmh);
-//				in4_to_6(&dst_buf, pi->ipi_addr.s_addr);
-//				dst = &dst_buf;
-//				goto got_dst;
-//			}
-		}
-
-		ilog(LOG_WARNING, "No pkt_info present in received UDP packet, cannot handle packet");
-		goto done;
-
-got_dst:
 		str_init_len(&s, buf + RTP_BUFFER_HEAD_ROOM, ret);
-		// XXX
-		ep.port = ntohs(sin6_src.sin6_port);
-		ep.address.u.ipv6 = sin6_src.sin6_addr;
-		sa.u.ipv6 = *dst;
-		ret = stream_packet(sfd, &s, &ep, &sa);
+		ret = stream_packet(sfd, &s, &ep);
 		if (ret < 0) {
 			ilog(LOG_WARNING, "Write error on RTP socket: %s", strerror(-ret));
 			call_destroy(sfd->call);

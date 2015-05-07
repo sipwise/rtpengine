@@ -232,13 +232,9 @@ out:
 }
 
 static void output_init(struct msghdr *mh, struct iovec *iov,
-		struct header *hdr, unsigned short code, u_int32_t *transaction,
-		unsigned char *buf, int buflen)
+		struct header *hdr, unsigned short code, u_int32_t *transaction)
 {
 	ZERO(*mh);
-
-	mh->msg_control = buf;
-	mh->msg_controllen = buflen;
 
 	mh->msg_iov = iov;
 	mh->msg_iovlen = 1;
@@ -294,13 +290,8 @@ static void __output_finish(struct msghdr *mh) {
 	hdr = mh->msg_iov->iov_base;
 	hdr->msg_len = htons(hdr->msg_len);
 }
-//static void output_finish_ps(struct msghdr *mh, struct packet_stream *ps) {
-//	__output_finish(mh);
-//	stream_msg_mh_src(ps, mh);
-//}
-static void output_finish_src(struct msghdr *mh, const sockaddr_t *src) {
+static void output_finish_src(struct msghdr *mh) {
 	__output_finish(mh);
-	msg_mh_src(src, mh);
 }
 
 static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
@@ -353,7 +344,7 @@ static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
 	hdr->msg_len = ntohs(hdr->msg_len);
 }
 
-static void stun_error_len(struct packet_stream *ps, const endpoint_t *sin, const sockaddr_t *dst,
+static void stun_error_len(struct stream_fd *sfd, const endpoint_t *sin,
 		struct header *req,
 		int code, char *reason, int len, u_int16_t add_attr, void *attr_cont,
 		int attr_len)
@@ -365,27 +356,26 @@ static void stun_error_len(struct packet_stream *ps, const endpoint_t *sin, cons
 	struct generic aa;
 	struct msghdr mh;
 	struct iovec iov[7]; /* hdr, ec, reason, aa, attr_cont, mi, fp */
-	unsigned char buf[256];
 
-	output_init(&mh, iov, &hdr, STUN_BINDING_ERROR_RESPONSE, req->transaction, buf, sizeof(buf));
+	output_init(&mh, iov, &hdr, STUN_BINDING_ERROR_RESPONSE, req->transaction);
 
 	ec.codes = htonl(((code / 100) << 8) | (code % 100));
 	output_add_data(&mh, &ec, STUN_ERROR_CODE, reason, len);
 	if (attr_cont)
 		output_add_data(&mh, &aa, add_attr, attr_cont, attr_len);
 
-	integrity(&mh, &mi, &ps->media->ice_agent->pwd[0]);
+	integrity(&mh, &mi, &sfd->stream->media->ice_agent->pwd[0]);
 	fingerprint(&mh, &fp);
 
-	output_finish_src(&mh, dst);
-	socket_sendmsg(&ps->selected_sfd->socket, &mh, sin);
+	output_finish_src(&mh);
+	socket_sendmsg(&sfd->socket, &mh, sin);
 }
 
-#define stun_error(ps, sin, dst, req, code, reason) \
-	stun_error_len(ps, sin, dst, req, code, reason "\0\0\0", strlen(reason), \
+#define stun_error(sfd, sin, req, code, reason) \
+	stun_error_len(sfd, sin, req, code, reason "\0\0\0", strlen(reason), \
 			0, NULL, 0)
-#define stun_error_attrs(ps, sin, dst, req, code, reason, type, content, len) \
-	stun_error_len(ps, sin, dst, req, code, reason "\0\0\0", strlen(reason), \
+#define stun_error_attrs(sfd, sin, req, code, reason, type, content, len) \
+	stun_error_len(sfd, sin, req, code, reason "\0\0\0", strlen(reason), \
 			type, content, len)
 
 
@@ -447,8 +437,8 @@ static int check_auth(str *msg, struct stun_attrs *attrs, struct call_media *med
 }
 
 /* XXX way too many parameters being passed around here, unify into a struct */
-static int stun_binding_success(struct packet_stream *ps, struct header *req, struct stun_attrs *attrs,
-		const endpoint_t *sin, const sockaddr_t *dst)
+static int stun_binding_success(struct stream_fd *sfd, struct header *req, struct stun_attrs *attrs,
+		const endpoint_t *sin)
 {
 	struct header hdr;
 	struct xor_mapped_address xma;
@@ -456,9 +446,8 @@ static int stun_binding_success(struct packet_stream *ps, struct header *req, st
 	struct fingerprint fp;
 	struct msghdr mh;
 	struct iovec iov[4]; /* hdr, xma, mi, fp */
-	unsigned char buf[256];
 
-	output_init(&mh, iov, &hdr, STUN_BINDING_SUCCESS_RESPONSE, req->transaction, buf, sizeof(buf));
+	output_init(&mh, iov, &hdr, STUN_BINDING_SUCCESS_RESPONSE, req->transaction);
 
 	xma.port = htons(sin->port) ^ (STUN_COOKIE >> 16);
 	if (sin->address.family->af == AF_INET) {
@@ -475,11 +464,11 @@ static int stun_binding_success(struct packet_stream *ps, struct header *req, st
 		output_add(&mh, &xma, STUN_XOR_MAPPED_ADDRESS);
 	}
 
-	integrity(&mh, &mi, &ps->media->ice_agent->pwd[1]);
+	integrity(&mh, &mi, &sfd->stream->media->ice_agent->pwd[1]);
 	fingerprint(&mh, &fp);
 
-	output_finish_src(&mh, dst);
-	socket_sendmsg(&ps->selected_sfd->socket, &mh, sin);
+	output_finish_src(&mh);
+	socket_sendmsg(&sfd->socket, &mh, sin);
 
 	return 0;
 }
@@ -495,35 +484,35 @@ INLINE int u_int16_t_arr_len(u_int16_t *arr) {
 
 #define SLF " from %s"
 #define SLP endpoint_print_buf(sin)
-static int __stun_request(struct packet_stream *ps, const endpoint_t *sin,
-		const sockaddr_t *dst, struct header *req, struct stun_attrs *attrs)
+static int __stun_request(struct stream_fd *sfd, const endpoint_t *sin,
+		struct header *req, struct stun_attrs *attrs)
 {
 	int ret;
 
-	ret = ice_request(ps, sin, dst, attrs);
+	ret = ice_request(sfd, sin, attrs);
 
 	if (ret == -2) {
 		ilog(LOG_DEBUG, "ICE role conflict detected");
-		stun_error(ps, sin, dst, req, 487, "Role conflict");
+		stun_error(sfd, sin, req, 487, "Role conflict");
 		return 0;
 	}
 	if (ret < 0)
 		return -1;
 
 	ilog(LOG_DEBUG, "Successful STUN binding request" SLF, SLP);
-	stun_binding_success(ps, req, attrs, sin, dst);
+	stun_binding_success(sfd, req, attrs, sin);
 
 	return ret;
 }
-static int __stun_success(struct packet_stream *ps, const endpoint_t *sin,
-		const sockaddr_t *dst, struct header *req, struct stun_attrs *attrs)
+static int __stun_success(struct stream_fd *sfd, const endpoint_t *sin,
+		struct header *req, struct stun_attrs *attrs)
 {
-	return ice_response(ps, sin, dst, attrs, req->transaction);
+	return ice_response(sfd, sin, attrs, req->transaction);
 }
-static int __stun_error(struct packet_stream *ps, const endpoint_t *sin,
-		const sockaddr_t *dst, struct header *req, struct stun_attrs *attrs)
+static int __stun_error(struct stream_fd *sfd, const endpoint_t *sin,
+		struct header *req, struct stun_attrs *attrs)
 {
-	return ice_response(ps, sin, dst, attrs, req->transaction);
+	return ice_response(sfd, sin, attrs, req->transaction);
 }
 
 
@@ -534,7 +523,7 @@ static int __stun_error(struct packet_stream *ps, const endpoint_t *sin,
  *
  * call is locked in R
  */
-int stun(str *b, struct packet_stream *ps, const endpoint_t *sin, const sockaddr_t *dst) {
+int stun(str *b, struct stream_fd *sfd, const endpoint_t *sin) {
 	struct header *req = (void *) b->s;
 	int msglen, method, class;
 	str attr_str;
@@ -542,6 +531,7 @@ int stun(str *b, struct packet_stream *ps, const endpoint_t *sin, const sockaddr
 	u_int16_t unknowns[UNKNOWNS_COUNT];
 	const char *err;
 	int dst_idx, src_idx;
+	struct packet_stream *ps = sfd->stream;
 
 	msglen = ntohs(req->msg_len);
 	err = "message-length mismatch";
@@ -565,7 +555,7 @@ int stun(str *b, struct packet_stream *ps, const endpoint_t *sin, const sockaddr
 			goto ignore;
 		ilog(LOG_WARNING, "STUN packet contained unknown "
 				"\"comprehension required\" attribute(s)" SLF, SLP);
-		stun_error_attrs(ps, sin, dst, req, 420, "Unknown attribute",
+		stun_error_attrs(sfd, sin, req, 420, "Unknown attribute",
 				STUN_UNKNOWN_ATTRIBUTES, unknowns,
 				u_int16_t_arr_len(unknowns) * 2);
 		return 0;
@@ -598,11 +588,11 @@ int stun(str *b, struct packet_stream *ps, const endpoint_t *sin, const sockaddr
 
 	switch (class) {
 		case STUN_CLASS_REQUEST:
-			return __stun_request(ps, sin, dst, req, &attrs);
+			return __stun_request(sfd, sin, req, &attrs);
 		case STUN_CLASS_SUCCESS:
-			return __stun_success(ps, sin, dst, req, &attrs);
+			return __stun_success(sfd, sin, req, &attrs);
 		case STUN_CLASS_ERROR:
-			return __stun_error(ps, sin, dst, req, &attrs);
+			return __stun_error(sfd, sin, req, &attrs);
 		default:
 			return -1;
 	}
@@ -610,11 +600,11 @@ int stun(str *b, struct packet_stream *ps, const endpoint_t *sin, const sockaddr
 
 bad_req:
 	ilog(LOG_NOTICE, "Received invalid STUN packet" SLF ": %s", SLP, err);
-	stun_error(ps, sin, dst, req, 400, "Bad request");
+	stun_error(sfd, sin, req, 400, "Bad request");
 	return 0;
 unauth:
 	ilog(LOG_NOTICE, "STUN authentication mismatch" SLF, SLP);
-	stun_error(ps, sin, dst, req, 401, "Unauthorized");
+	stun_error(sfd, sin, req, 401, "Unauthorized");
 	return 0;
 ignore:
 	ilog(LOG_NOTICE, "Not handling potential STUN packet" SLF ": %s", SLP, err);
@@ -623,12 +613,11 @@ ignore:
 
 int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *pwd,
 		str ufrags[2], int controlling, u_int64_t tiebreaker, u_int32_t priority,
-		const sockaddr_t *src, socket_t *sock, int to_use)
+		socket_t *sock, int to_use)
 {
 	struct header hdr;
 	struct msghdr mh;
 	struct iovec iov[8]; /* hdr, username x2, ice_controlled/ing, priority, uc, fp, mi */
-	unsigned char buf[256];
 	char username_buf[256];
 	int i;
 	struct generic un_attr;
@@ -638,7 +627,7 @@ int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *p
 	struct fingerprint fp;
 	struct msg_integrity mi;
 
-	output_init(&mh, iov, &hdr, STUN_BINDING_REQUEST, transaction, buf, sizeof(buf));
+	output_init(&mh, iov, &hdr, STUN_BINDING_REQUEST, transaction);
 
 	i = snprintf(username_buf, sizeof(username_buf), STR_FORMAT":"STR_FORMAT,
 			STR_FMT(&ufrags[0]), STR_FMT(&ufrags[1]));
@@ -658,7 +647,7 @@ int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *p
 	integrity(&mh, &mi, pwd);
 	fingerprint(&mh, &fp);
 
-	output_finish_src(&mh, src);
+	output_finish_src(&mh);
 	socket_sendmsg(sock, &mh, dst);
 
 	return 0;

@@ -225,44 +225,6 @@ INLINE int rlim(int res, rlim_t val) {
 #define DF			IPF ":%u"
 #define DP(x)			IPP((x).sin_addr.s_addr), ntohs((x).sin_port)
 
-/* XXX to be removed */
-
-#include "socket.h"
-
-INLINE void msg_mh_src(const sockaddr_t *src, struct msghdr *mh) {
-	struct cmsghdr *ch;
-	struct in_pktinfo *pi;
-	struct in6_pktinfo *pi6;
-	//struct sockaddr_in6 *sin6;
-
-	//sin6 = mh->msg_name;
-	ch = CMSG_FIRSTHDR(mh);
-	ZERO(*ch);
-
-	if (src->family->af == AF_INET) {
-		ch->cmsg_len = CMSG_LEN(sizeof(*pi));
-		ch->cmsg_level = IPPROTO_IP;
-		ch->cmsg_type = IP_PKTINFO;
-
-		pi = (void *) CMSG_DATA(ch);
-		ZERO(*pi);
-		pi->ipi_spec_dst = src->u.ipv4;
-
-		mh->msg_controllen = CMSG_SPACE(sizeof(*pi));
-	}
-	else {
-		ch->cmsg_len = CMSG_LEN(sizeof(*pi6));
-		ch->cmsg_level = IPPROTO_IPV6;
-		ch->cmsg_type = IPV6_PKTINFO;
-
-		pi6 = (void *) CMSG_DATA(ch);
-		ZERO(*pi6);
-		pi6->ipi6_addr = src->u.ipv6;
-
-		mh->msg_controllen = CMSG_SPACE(sizeof(*pi6));
-	}
-}
-
 
 
 /*** MUTEX ABSTRACTION ***/

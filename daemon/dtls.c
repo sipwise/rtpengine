@@ -631,9 +631,7 @@ error:
 int dtls(struct packet_stream *ps, const str *s, const endpoint_t *fsin) {
 	struct dtls_connection *d;
 	int ret;
-	unsigned char buf[0x10000], ctrl[256];
-	struct msghdr mh;
-	struct iovec iov;
+	unsigned char buf[0x10000];
 
 	if (!ps || !ps->selected_sfd)
 		return 0;
@@ -705,19 +703,7 @@ int dtls(struct packet_stream *ps, const str *s, const endpoint_t *fsin) {
 	if (!fsin)
 		fsin = &ps->endpoint;
 
-	ZERO(mh);
-	mh.msg_control = ctrl;
-	mh.msg_controllen = sizeof(ctrl);
-	mh.msg_iov = &iov;
-	mh.msg_iovlen = 1;
-
-	ZERO(iov);
-	iov.iov_base = buf;
-	iov.iov_len = ret;
-
-	stream_msg_mh_src(ps, &mh);
-
-	socket_sendmsg(&ps->selected_sfd->socket, &mh, fsin);
+	socket_sendto(&ps->selected_sfd->socket, buf, ret, fsin);
 
 	return 0;
 }
