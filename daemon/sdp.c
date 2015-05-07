@@ -2014,7 +2014,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			insert_crypto(call_media, chop);
 			insert_dtls(call_media, chop);
 
-			if (call_media->ice_agent) {
+			if (MEDIA_ISSET(call_media, ICE)) {
 				chopper_append_c(chop, "a=ice-ufrag:");
 				chopper_append_str(chop, &call_media->ice_agent->ufrag[1]);
 				chopper_append_c(chop, "\r\na=ice-pwd:");

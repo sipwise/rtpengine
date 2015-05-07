@@ -2432,10 +2432,12 @@ static void __rtp_payload_types(struct call_media *media, GQueue *types) {
 }
 
 static void __ice_start(struct call_media *media) {
-	if (!MEDIA_ISSET(media, ICE) || MEDIA_ISSET(media, PASSTHRU)) {
+	if (MEDIA_ISSET(media, PASSTHRU)) {
 		ice_shutdown(&media->ice_agent);
 		return;
 	}
+	if (!MEDIA_ISSET(media, ICE)) /* don't init new ICE agent but leave it running if there is one */
+		return;
 
 	ice_agent_init(&media->ice_agent, media);
 }
