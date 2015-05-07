@@ -1435,13 +1435,13 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(struct sdp_chopper *chop, struct packet_stream *ps, const struct local_intf *ifa) {
+static int insert_ice_address(struct sdp_chopper *chop, struct stream_fd *sfd) {
 	char buf[64];
 	int len;
 
-	call_stream_address46(buf, ps, SAF_ICE, &len, ifa);
+	call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf);
 	chopper_append_dup(chop, buf, len);
-	chopper_append_printf(chop, " %u", ps->selected_sfd->socket.local.port);
+	chopper_append_printf(chop, " %u", sfd->socket.local.port);
 
 	return 0;
 }
@@ -1680,17 +1680,21 @@ out:
 	*lprefp = lpref;
 }
 
-static void insert_candidate(struct sdp_chopper *chop, struct packet_stream *ps, unsigned int component,
-		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
-		const struct local_intf *ifa)
+static void insert_candidate(struct sdp_chopper *chop, struct stream_fd *sfd,
+		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type)
 {
 	unsigned long priority;
+	struct packet_stream *ps = sfd->stream;
+	const struct local_intf *ifa = sfd->local_intf;
 
-	priority = ice_priority_pref(type_pref, local_pref, component);
+	if (local_pref == -1)
+		local_pref = ifa->preference;
+
+	priority = ice_priority_pref(type_pref, local_pref, ps->component);
 	chopper_append_c(chop, "a=candidate:");
 	chopper_append_str(chop, &ifa->spec->ice_foundation);
-	chopper_append_printf(chop, " %u UDP %lu ", component, priority);
-	insert_ice_address(chop, ps, ifa);
+	chopper_append_printf(chop, " %u UDP %lu ", ps->component, priority);
+	insert_ice_address(chop, sfd);
 	chopper_append_c(chop, " typ ");
 	chopper_append_c(chop, ice_candidate_type_str(type));
 	/* raddr and rport are required for non-host candidates: rfc5245 section-15.1 */
@@ -1699,14 +1703,26 @@ static void insert_candidate(struct sdp_chopper *chop, struct packet_stream *ps,
 	chopper_append_c(chop, "\r\n");
 }
 
+static void insert_sfd_candidates(struct sdp_chopper *chop, struct packet_stream *ps,
+		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type)
+{
+	GList *l;
+	struct stream_fd *sfd;
+
+	for (l = ps->sfds.head; l; l = l->next) {
+		sfd = l->data;
+		insert_candidate(chop, sfd, type_pref, local_pref, type);
+
+		if (local_pref != -1)
+			local_pref++;
+	}
+}
+
 static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rtp, struct packet_stream *rtcp,
 		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
-	GList *l;
 	const struct local_intf *ifa;
-	unsigned int pref;
 	struct call_media *media;
-	const struct logical_intf *lif;
 	struct ice_agent *ag;
 	unsigned int type_pref, local_pref;
 	enum ice_candidate_type cand_type;
@@ -1725,13 +1741,12 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 	}
 
 	ag = media->ice_agent;
-	lif = ag ? ag->logical_intf : media->logical_intf;
 
 	if (ag && AGENT_ISSET(ag, COMPLETED)) {
 		ifa = rtp->selected_sfd->local_intf;
-		insert_candidate(chop, rtp, 1, type_pref, ifa->preference, cand_type, ifa);
+		insert_candidate(chop, rtp->selected_sfd, type_pref, ifa->preference, cand_type);
 		if (rtcp) /* rtcp-mux only possible in answer */
-			insert_candidate(chop, rtcp, 2, type_pref, ifa->preference, cand_type, ifa);
+			insert_candidate(chop, rtcp->selected_sfd, type_pref, ifa->preference, cand_type);
 
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
 			GQueue rc;
@@ -1751,18 +1766,10 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 		return;
 	}
 
-	for (l = lif->list.head; l; l = l->next) {
-		ifa = l->data;
-		pref = (local_pref == -1) ? ifa->preference : local_pref;
+	insert_sfd_candidates(chop, rtp, type_pref, local_pref, cand_type);
 
-		insert_candidate(chop, rtp, 1, type_pref, pref, cand_type, ifa);
-
-		if (rtcp) /* rtcp-mux only possible in answer */
-			insert_candidate(chop, rtcp, 2, type_pref, pref, cand_type, ifa);
-
-		if (local_pref != -1)
-			local_pref++;
-	}
+	if (rtcp) /* rtcp-mux only possible in answer */
+		insert_sfd_candidates(chop, rtcp, type_pref, local_pref, cand_type);
 }
 
 static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {

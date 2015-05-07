@@ -16,6 +16,20 @@
 #include "sdp.h"
 
 
+
+
+#ifndef PORT_RANDOM_MIN
+#define PORT_RANDOM_MIN 6
+#define PORT_RANDOM_MAX 20
+#endif
+
+#ifndef MAX_RECV_ITERS
+#define MAX_RECV_ITERS 50
+#endif
+
+
+
+
 typedef int (*rewrite_func)(str *, struct packet_stream *);
 
 

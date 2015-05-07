@@ -38,20 +38,6 @@
 
 
 
-#ifndef PORT_RANDOM_MIN
-#define PORT_RANDOM_MIN 6
-#define PORT_RANDOM_MAX 20
-#endif
-
-#ifndef MAX_RECV_ITERS
-#define MAX_RECV_ITERS 50
-#endif
-
-
-
-
-
-
 /* also serves as array index for callstream->peers[] */
 struct iterator_helper {
 	GSList			*del_timeout;
@@ -785,6 +771,7 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 			if (first)
 				g_queue_clear(&ps->sfds);
 
+			sfd->stream = ps;
 			g_queue_push_tail(&ps->sfds, sfd);
 
 			if (!ps->selected_sfd)

@@ -451,7 +451,6 @@ void calls_dump_redis(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
-struct stream_fd *__stream_fd_new(socket_t *fd, struct call_media *);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
