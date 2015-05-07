@@ -20,7 +20,8 @@
 #include "socket.h"
 
 
-static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr) {
+static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
+		struct udp_listener *ul) {
 	struct control_udp *u = (void *) obj;
 	int ret;
 	int ovec[100];
@@ -58,7 +59,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iovlen = 2;
 		}
 
-		socket_sendiov(&u->udp_listener.sock, iov, iovlen, sin);
+		socket_sendiov(&ul->sock, iov, iovlen, sin);
 
 		pcre_free(out);
 
@@ -73,7 +74,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
 	if (reply) {
 		ilog(LOG_INFO, "Detected command from udp:%s as a duplicate", addr);
-		socket_sendto(&u->udp_listener.sock, reply->s, reply->len, sin);
+		socket_sendto(&ul->sock, reply->s, reply->len, sin);
 		free(reply);
 		goto out;
 	}
@@ -116,11 +117,11 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iov[2].iov_len = 9;
 			iovlen++;
 		}
-		socket_sendiov(&u->udp_listener.sock, iov, iovlen, sin);
+		socket_sendiov(&ul->sock, iov, iovlen, sin);
 	}
 
 	if (reply) {
-		socket_sendto(&u->udp_listener.sock, reply->s, reply->len, sin);
+		socket_sendto(&ul->sock, reply->s, reply->len, sin);
 		cookie_cache_insert(&u->cookie_cache, &cookie, reply);
 		free(reply);
 	}
@@ -132,7 +133,7 @@ out:
 	log_info_clear();
 }
 
-struct control_udp *control_udp_new(struct poller *p, const endpoint_t *ep, struct callmaster *m) {
+struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep, struct callmaster *m) {
 	struct control_udp *c;
 	const char *errptr;
 	int erroff;
@@ -164,7 +165,9 @@ struct control_udp *control_udp_new(struct poller *p, const endpoint_t *ep, stru
 
 	cookie_cache_init(&c->cookie_cache);
 
-	if (udp_listener_init(&c->udp_listener, p, ep, control_udp_incoming, &c->obj))
+	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_udp_incoming, &c->obj))
+		goto fail2;
+	if (ipv46_any_convert(ep) && udp_listener_init(&c->udp_listeners[1], p, ep, control_udp_incoming, &c->obj))
 		goto fail2;
 
 	return c;

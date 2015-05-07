@@ -75,7 +75,9 @@ struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const sockad
 	return cur;
 }
 
-static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr) {
+static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
+		struct udp_listener *ul)
+{
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
 	bencode_item_t *dict, *resp;
@@ -205,7 +207,7 @@ send_only:
 	iov[2].iov_base = to_send->s;
 	iov[2].iov_len = to_send->len;
 
-	socket_sendiov(&c->udp_listener.sock, iov, iovlen, sin);
+	socket_sendiov(&ul->sock, iov, iovlen, sin);
 
 	if (resp)
 		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);
@@ -221,7 +223,7 @@ out:
 
 
 
-struct control_ng *control_ng_new(struct poller *p, const endpoint_t *ep, struct callmaster *m) {
+struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, struct callmaster *m) {
 	struct control_ng *c;
 
 	if (!p || !m)
@@ -232,7 +234,9 @@ struct control_ng *control_ng_new(struct poller *p, const endpoint_t *ep, struct
 	c->callmaster = m;
 	cookie_cache_init(&c->cookie_cache);
 
-	if (udp_listener_init(&c->udp_listener, p, ep, control_ng_incoming, &c->obj))
+	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_ng_incoming, &c->obj))
+		goto fail2;
+	if (ipv46_any_convert(ep) && udp_listener_init(&c->udp_listeners[1], p, ep, control_ng_incoming, &c->obj))
 		goto fail2;
 
 	return c;

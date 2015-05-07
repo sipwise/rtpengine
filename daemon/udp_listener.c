@@ -53,7 +53,7 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 		endpoint_print(&sin, addr, sizeof(addr));
 
 		str.len = len;
-		cb->func(cb->p, &str, &sin, addr);
+		cb->func(cb->p, &str, &sin, addr, ul);
 	}
 }
 
@@ -71,7 +71,7 @@ int udp_listener_init(struct udp_listener *u, struct poller *p, const endpoint_t
 	if (open_socket(&u->sock, SOCK_DGRAM, ep->port, &ep->address))
 		goto fail;
 
-	ipv6only(u->sock.fd, 0);
+	ipv6only(u->sock.fd, 1);
 
 	ZERO(i);
 	i.fd = u->sock.fd;

@@ -200,6 +200,15 @@ INLINE int endpoint_parse_port_any(endpoint_t *e, const char *p, unsigned int po
 	e->port = port;
 	return sockaddr_parse_any(&e->address, p);
 }
+INLINE int ipv46_any_convert(endpoint_t *ep) {
+	if (ep->address.family->af != AF_INET)
+		return 0;
+	if (!is_addr_unspecified(&ep->address))
+		return 0;
+	ep->address.family = __get_socket_family_enum(SF_IP6);
+	ZERO(ep->address.u.ipv6);
+	return 1;
+}
 
 
 

@@ -9,8 +9,10 @@
 
 struct poller;
 struct obj;
+struct udp_listener;
 
-typedef void (*udp_listener_callback_t)(struct obj *p, str *buf, const endpoint_t *ep, char *addr);
+typedef void (*udp_listener_callback_t)(struct obj *p, str *buf, const endpoint_t *ep, char *addr,
+		struct udp_listener *);
 
 struct udp_listener {
 	socket_t sock;
