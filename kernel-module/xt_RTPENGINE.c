@@ -2264,11 +2264,19 @@ src_check_ok:
 
 	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
 
-	pkt_idx_u = pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
-	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
-		goto skip_error;
-	if (pkt_idx != pkt_idx_u)
-		update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx);
+	if ((&g->decrypt)->cipher->decrypt) {
+		pkt_idx_u = pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+		if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
+			goto skip_error;
+		if (pkt_idx != pkt_idx_u)
+			update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx);
+	} else {
+		pkt_idx_u = pkt_idx = packet_index(&g->encrypt, &g->target.encrypt, rtp.header);
+
+		if (pkt_idx != pkt_idx_u)
+			update_packet_index(&g->encrypt, &g->target.encrypt, pkt_idx);
+	}
+
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
 
