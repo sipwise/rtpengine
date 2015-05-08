@@ -1908,7 +1908,7 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 	if (unlikely(!s->last_index))
 		s->last_index = seq;
 
-  /* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
+	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
 	s_l = (s->last_index & 0x00000000ffffULL);
 	roc = (s->last_index & 0xffffffff0000ULL) >> 16;
 	v = 0;
