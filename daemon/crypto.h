@@ -88,10 +88,16 @@ struct crypto_context {
 	void *session_key_ctx[2];
 
 	int have_session_key:1;
+
+	struct rtp_ssrc_entry   *ssrc_list;
+	int                     ssrc_mismatch;
 };
 
-
-
+struct rtp_ssrc_entry {
+	u_int32_t ssrc;
+	u_int64_t index;
+	struct rtp_ssrc_entry *next;
+};
 
 extern const struct crypto_suite crypto_suites[];
 extern const int num_crypto_suites;
@@ -102,7 +108,10 @@ const struct crypto_suite *crypto_find_suite(const str *);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);
 void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out);
 
-
+struct rtp_ssrc_entry *find_ssrc(u_int32_t, struct rtp_ssrc_entry *);
+void add_ssrc_entry(struct rtp_ssrc_entry *, struct rtp_ssrc_entry *);
+struct rtp_ssrc_entry *create_ssrc_entry(u_int32_t, u_int64_t);
+void free_ssrc_list(struct rtp_ssrc_entry *);
 
 
 INLINE int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,

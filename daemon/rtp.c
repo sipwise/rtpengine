@@ -182,26 +182,41 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 int rtp_avp2savp(str *s, struct crypto_context *c) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
-	u_int64_t index;
+	struct rtp_ssrc_entry *cur_ssrc;
 
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
 
-	/* SSRC is part of the crypto context and ROC must be reset when it changes */
-	if (G_UNLIKELY(!c->ssrc))
-		c->ssrc = rtp->ssrc;
-	else if (G_UNLIKELY(c->ssrc != rtp->ssrc)) {
-		c->last_index = 0;
-		c->ssrc = rtp->ssrc;
+	if (G_UNLIKELY(!c->ssrc_list))
+		c->ssrc_list = create_ssrc_entry(rtp->ssrc, ntohs(rtp->seq_num));
+
+	// Find the entry for the current SSRC.
+	cur_ssrc = find_ssrc(rtp->ssrc, c->ssrc_list);
+	// If it doesn't exist, create a new entry.
+	if (G_UNLIKELY(!cur_ssrc)) {
+		cur_ssrc = create_ssrc_entry(rtp->ssrc, ntohs(rtp->seq_num));
+		add_ssrc_entry(cur_ssrc, c->ssrc_list);
 	}
 
-	index = packet_index(c, rtp);
+	// New SSRC, set the crypto context.
+	if (G_UNLIKELY(!c->ssrc))
+		c->ssrc = rtp->ssrc;
+	// SSRC has changed.
+	else if (G_UNLIKELY(c->ssrc != rtp->ssrc)) {
+		// Signal stream_packet() to unkernelize.
+		c->ssrc_mismatch = 1;
+		c->ssrc = rtp->ssrc;
+		c->last_index = cur_ssrc->index;
+	} else {
+		c->ssrc_mismatch = 0;
+	}
+
+	cur_ssrc->index = packet_index(c, rtp);
 
 	/* rfc 3711 section 3.1 */
-
-	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, index))
+	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, cur_ssrc->index))
 		return -1;
 
 	to_auth = *s;
@@ -209,7 +224,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 	rtp_append_mki(s, c);
 
 	if (!c->params.session_params.unauthenticated_srtp && c->params.crypto_suite->srtp_auth_tag) {
-		c->params.crypto_suite->hash_rtp(c, s->s + s->len, &to_auth, index);
+		c->params.crypto_suite->hash_rtp(c, s->s + s->len, &to_auth, cur_ssrc->index);
 		s->len += c->params.crypto_suite->srtp_auth_tag;
 	}
 
