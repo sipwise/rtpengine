@@ -161,8 +161,6 @@ static int call_avpf2avp_rtcp(str *s, struct packet_stream *);
 static int call_savpf2avp_rtcp(str *s, struct packet_stream *);
 //static int call_savpf2savp_rtcp(str *s, struct packet_stream *);
 
-static void unkernelize(struct packet_stream *);
-
 /* ********** */
 
 static const struct streamhandler_io __shio_noop = {
