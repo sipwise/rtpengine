@@ -848,6 +848,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	crypto_reset(&ps->crypto);
 	dtls_shutdown(ps);
 	PS_SET(ps, FILLED);
+	/* XXX reset/repair ICE */
 }
 
 /* called with call locked in R or W, but ps not locked */

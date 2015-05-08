@@ -88,7 +88,7 @@ struct ice_candidate {
 struct ice_candidate_pair {
 	struct ice_candidate	*remote_candidate;
 	const struct local_intf	*local_intf;
-	struct packet_stream	*packet_stream;
+	struct stream_fd	*sfd;
 	volatile unsigned int	pair_flags;
 	u_int32_t		stun_transaction[3]; /* belongs to transaction_hash, thus agent->lock */
 	unsigned int		retransmit_ms;

@@ -132,20 +132,20 @@ static void __all_pairs_list(struct ice_agent *ag) {
 }
 
 /* agent must be locked */
-static struct ice_candidate_pair *__pair_candidate(const struct local_intf *addr, struct ice_agent *ag,
-		struct ice_candidate *cand, struct packet_stream *ps)
+static struct ice_candidate_pair *__pair_candidate(struct stream_fd *sfd, struct ice_agent *ag,
+		struct ice_candidate *cand)
 {
 	struct ice_candidate_pair *pair;
 
-	if (addr->spec->address.addr.family != cand->endpoint.address.family)
+	if (sfd->socket.family != cand->endpoint.address.family)
 		return NULL;
 
 	pair = g_slice_alloc0(sizeof(*pair));
 
 	pair->agent = ag;
 	pair->remote_candidate = cand;
-	pair->local_intf = addr;
-	pair->packet_stream = ps;
+	pair->local_intf = sfd->local_intf;
+	pair->sfd = sfd;
 	if (cand->component_id != 1)
 		PAIR_SET(pair, FROZEN);
 	__do_ice_pair_priority(pair);
@@ -156,7 +156,7 @@ static struct ice_candidate_pair *__pair_candidate(const struct local_intf *addr
 	g_tree_insert(ag->all_pairs, pair, pair);
 
 	ilog(LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s, type %s", PAIR_FMT(pair),
-			sockaddr_print_buf(&addr->spec->address.addr),
+			sockaddr_print_buf(&sfd->socket.local.address),
 			endpoint_print_buf(&cand->endpoint),
 			ice_candidate_type_str(cand->type));
 
@@ -308,6 +308,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 	unsigned int comps;
 	struct packet_stream *components[MAX_COMPONENTS], *ps;
 	GQueue *candidates;
+	struct stream_fd *sfd;
 
 	if (!ag)
 		return;
@@ -412,11 +413,13 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 pair:
 		if (!ps)
 			continue;
-		for (k = ag->logical_intf->list.head; k; k = k->next) {
+
+		for (k = ps->sfds.head; k; k = k->next) {
+			sfd = k->data;
 			/* skip duplicates here also */
-			if (__pair_lookup(ag, dup, k->data))
+			if (__pair_lookup(ag, dup, sfd->local_intf))
 				continue;
-			__pair_candidate(k->data, ag, dup, ps);
+			__pair_candidate(sfd, ag, dup);
 		}
 	}
 
@@ -574,7 +577,7 @@ static void __fail_pair(struct ice_candidate_pair *pair) {
 
 /* agent must NOT be locked, but call must be locked in R */
 static void __do_ice_check(struct ice_candidate_pair *pair) {
-	struct packet_stream *ps = pair->packet_stream;
+	struct stream_fd *sfd = pair->sfd;
 	struct ice_agent *ag = pair->agent;
 	u_int32_t prio, transact[3];
 
@@ -620,7 +623,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	stun_binding_request(&pair->remote_candidate->endpoint, transact, &ag->pwd[0], ag->ufrag,
 			AGENT_ISSET(ag, CONTROLLING), tie_breaker,
-			prio, &ps->selected_sfd->socket,
+			prio, &sfd->socket,
 			PAIR_ISSET(pair, TO_USE));
 
 }
@@ -675,7 +678,7 @@ static void __nominate_pairs(struct ice_agent *ag) {
 static void __do_ice_checks(struct ice_agent *ag) {
 	GList *l;
 	struct ice_candidate_pair *pair, *highest = NULL, *frozen = NULL, *valid;
-	struct packet_stream *ps;
+	struct stream_fd *sfd;
 	GQueue retransmits = G_QUEUE_INIT;
 	struct timeval next_run = {0,0};
 	int have_more = 0;
@@ -710,8 +713,8 @@ static void __do_ice_checks(struct ice_agent *ag) {
 		pair = l->data;
 
 		/* skip dead streams */
-		ps = pair->packet_stream;
-		if (!ps || !ps->selected_sfd)
+		sfd = pair->sfd;
+		if (!sfd || !sfd->stream || !sfd->stream->selected_sfd)
 			continue;
 		if (PAIR_ISSET(pair, FAILED))
 			continue;
@@ -822,16 +825,17 @@ static void __cand_ice_foundation(struct call *call, struct ice_candidate *cand)
 }
 
 /* agent must be locked */
-static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, struct packet_stream *ps,
-		const endpoint_t *src, const struct local_intf *ifa, unsigned long priority)
+static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, struct stream_fd *sfd,
+		const endpoint_t *src, unsigned long priority)
 {
 	struct ice_candidate *cand, *old_cand;
 	struct ice_candidate_pair *pair;
 	struct call *call = ag->call;
+	struct packet_stream *ps = sfd->stream;
 
 	cand = g_slice_alloc0(sizeof(*cand));
 	cand->component_id = ps->component;
-	cand->transport = ifa->spec->address.type;
+	cand->transport = sfd->local_intf->spec->address.type; // XXX add socket type into socket_t?
 	cand->priority = priority;
 	cand->endpoint = *src;
 	cand->type = ICT_PRFLX;
@@ -843,7 +847,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 		 * address, but from different ports. we cannot distinguish such candidates and
 		 * will drop the one with the lower priority */
 		g_slice_free1(sizeof(*cand), cand);
-		pair = __pair_lookup(ag, old_cand, ifa);
+		pair = __pair_lookup(ag, old_cand, sfd->local_intf);
 		if (pair)
 			goto out; /* nothing to do */
 		cand = old_cand;
@@ -855,7 +859,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 	g_hash_table_insert(ag->foundation_hash, cand, cand);
 
 pair:
-	pair = __pair_candidate(ifa, ag, cand, ps);
+	pair = __pair_candidate(sfd, ag, cand);
 	PAIR_SET(pair, LEARNED);
 	__all_pairs_list(ag);
 
@@ -1060,9 +1064,9 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 	cand = __cand_lookup(ag, src, ps->component);
 
 	if (!cand)
-		pair = __learned_candidate(ag, ps, src, ifa, attrs->priority);
+		pair = __learned_candidate(ag, sfd, src, attrs->priority);
 	else
-		pair = __pair_lookup(ag, cand, ifa);
+		pair = __pair_lookup(ag, cand, sfd->local_intf);
 
 	err = "Failed to determine ICE candidate from STUN request";
 	if (!pair)
@@ -1184,7 +1188,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 		goto err;
 
 	err = "ICE/STUN response received, but destination address didn't match local interface address";
-	if (pair->packet_stream != ps)
+	if (pair->sfd != sfd)
 		goto err;
 
 	PAIR_CLEAR(pair, IN_PROGRESS);
