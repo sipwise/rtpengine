@@ -137,8 +137,6 @@ error:
 
 static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) {
 	u_int16_t seq;
-	u_int64_t index;
-	long long int diff;
 
 	seq = ntohs(rtp->seq_num);
 	/* rfc 3711 section 3.3.1 */
@@ -146,24 +144,24 @@ static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) 
 		c->last_index = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	index = (c->last_index & 0xffffffff0000ULL) | seq;
-	diff = index - c->last_index;
-	if (diff >= 0) {
-		if (diff < 0x8000)
-			c->last_index = index;
-		else if (index >= 0x10000)
-			index -= 0x10000;
-	}
-	else {
-		if (diff >= -0x8000)
-			;
-		else {
-			index += 0x10000;
-			c->last_index = index;
-		}
+	u_int16_t s_l = (c->last_index & 0x00000000ffffULL);
+	u_int32_t roc = (c->last_index & 0xffffffff0000ULL) >> 16;
+	u_int32_t v = 0;
+
+	if (s_l < 0x8000) {
+		if (((seq - s_l) > 0x8000) && roc > 0)
+			v = (roc - 1) % 0x10000;
+		else
+			v = roc;
+	} else {
+		if ((s_l - 0x8000) > seq)
+			v = (roc + 1) % 0x10000;
+		else
+			v = roc;
 	}
 
-	return index;
+	c->last_index = (u_int64_t)(((v << 16) | seq) & 0xffffffffffffULL);
+	return c->last_index;
 }
 
 void rtp_append_mki(str *s, struct crypto_context *c) {

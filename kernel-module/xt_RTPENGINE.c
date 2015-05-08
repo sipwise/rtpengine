@@ -1889,8 +1889,10 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 {
 	u_int16_t seq;
 	u_int64_t index;
-	long long int diff;
 	unsigned long flags;
+	u_int16_t s_l;
+	u_int32_t roc;
+	u_int32_t v;
 
 	// Keep the crypt context SSRC in sync.
 	if (unlikely(!c->ssrc))
@@ -1906,24 +1908,26 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 	if (unlikely(!s->last_index))
 		s->last_index = seq;
 
-	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	index = ((u_int64_t) c->roc << 16) | seq;
-	diff = index - s->last_index;
-	if (diff >= 0) {
-		if (diff < 0x8000)
-			s->last_index = index;
-		else if (index >= 0x10000)
-			index -= 0x10000;
+  /* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
+	s_l = (s->last_index & 0x00000000ffffULL);
+	roc = (s->last_index & 0xffffffff0000ULL) >> 16;
+	v = 0;
+
+	if (s_l < 0x8000) {
+		if (((seq - s_l) > 0x8000) && roc > 0)
+			v = (roc - 1) % 0x10000;
+		else
+			v = roc;
+	} else {
+		if ((s_l - 0x8000) > seq)
+			v = (roc + 1) % 0x10000;
+		else
+			v = roc;
 	}
-	else {
-		if (diff >= -0x8000)
-			;
-		else {
-			index += 0x10000;
-			c->roc++;
-			s->last_index = index;
-		}
-	}
+
+	index = (v << 16) | seq;
+	s->last_index = index;
+	c->roc = v;
 
 	spin_unlock_irqrestore(&c->lock, flags);
 
