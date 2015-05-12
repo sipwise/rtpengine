@@ -2071,26 +2071,28 @@ static int srtp_auth_validate(struct re_crypto_context *c,
 	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
 	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
-		goto ok;
+		goto ok_update;
 	/* or maybe we did a rollover too many */
 	if (pkt_idx >= 0x20000) {
 		pkt_idx -= 0x20000;
 		if (srtp_hash(hmac, c, s, r, pkt_idx))
 			return -1;
 		if (!memcmp(auth_tag, hmac, s->auth_tag_len))
-			goto ok;
+			goto ok_update;
 	}
 	/* last guess: reset ROC to zero */
 	pkt_idx &= 0xffff;
 	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
 	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
-		goto ok;
+		goto ok_update;
 
 	return -1;
 
-ok:
+ok_update:
 	*pkt_idx_p = pkt_idx;
+	update_packet_index(c, s, pkt_idx);
+ok:
 	return 0;
 }
 
@@ -2203,7 +2205,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	unsigned int datalen;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
-	u_int64_t pkt_idx = 0, pkt_idx_u;
+	u_int64_t pkt_idx;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -2275,22 +2277,13 @@ src_check_ok:
 
 	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
 
-	if ((&g->decrypt)->cipher->decrypt) {
-		pkt_idx_u = pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
-		if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
-			goto skip_error;
-		if (pkt_idx != pkt_idx_u)
-			update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx);
-	} else {
-		// Pass to userspace if SSRC has changed.
-		if ((g->encrypt.ssrc) && (g->encrypt.ssrc != rtp.header->ssrc))
-			goto skip_error;
-		pkt_idx_u = pkt_idx = packet_index(&g->encrypt, &g->target.encrypt, rtp.header);
+	// Pass to userspace if SSRC has changed.
+	if ((g->encrypt.ssrc) && (g->encrypt.ssrc != rtp.header->ssrc))
+		goto skip_error;
 
-		if (pkt_idx != pkt_idx_u)
-			update_packet_index(&g->encrypt, &g->target.encrypt, pkt_idx);
-	}
-
+	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
+		goto skip_error;
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
 
@@ -2313,6 +2306,7 @@ not_rtp:
 	}
 
 	if (rtp.ok) {
+		pkt_idx = packet_index(&g->encrypt, &g->target.encrypt, rtp.header);
 		srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
 		skb_put(skb, g->target.encrypt.mki_len + g->target.encrypt.auth_tag_len);
 		srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
