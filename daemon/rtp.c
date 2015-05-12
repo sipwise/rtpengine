@@ -180,41 +180,54 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 int rtp_avp2savp(str *s, struct crypto_context *c) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
+	u_int64_t index;
 	struct rtp_ssrc_entry *cur_ssrc;
+	int update_kernel = 0;
 
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
 
-	if (G_UNLIKELY(!c->ssrc_list))
-		c->ssrc_list = create_ssrc_entry(rtp->ssrc, ntohs(rtp->seq_num));
+	/* check last known SSRC */
+	if (G_LIKELY(rtp->ssrc == c->ssrc))
+		goto ssrc_ok;
+	if (!c->ssrc) {
+		c->ssrc = rtp->ssrc;
+		update_kernel = 1;
+		goto ssrc_ok;
+	}
 
-	// Find the entry for the current SSRC.
-	cur_ssrc = find_ssrc(rtp->ssrc, c->ssrc_list);
+	/* SSRC mismatch. stash away last know info */
+	ilog(LOG_DEBUG, "SSRC changed, updating SRTP crypto contexts");
+	if (G_UNLIKELY(!c->ssrc_hash))
+		c->ssrc_hash = create_ssrc_table();
+
+	// Find the entry for the last SSRC.
+	cur_ssrc = find_ssrc(c->ssrc, c->ssrc_hash);
 	// If it doesn't exist, create a new entry.
 	if (G_UNLIKELY(!cur_ssrc)) {
-		cur_ssrc = create_ssrc_entry(rtp->ssrc, ntohs(rtp->seq_num));
-		add_ssrc_entry(cur_ssrc, c->ssrc_list);
+		cur_ssrc = create_ssrc_entry(c->ssrc, c->last_index);
+		add_ssrc_entry(cur_ssrc, c->ssrc_hash);
 	}
+	else
+		cur_ssrc->index = c->last_index;
 
 	// New SSRC, set the crypto context.
-	if (G_UNLIKELY(!c->ssrc))
-		c->ssrc = rtp->ssrc;
-	// SSRC has changed.
-	else if (G_UNLIKELY(c->ssrc != rtp->ssrc)) {
-		// Signal stream_packet() to unkernelize.
-		c->ssrc_mismatch = 1;
-		c->ssrc = rtp->ssrc;
+	c->ssrc = rtp->ssrc;
+	cur_ssrc = find_ssrc(rtp->ssrc, c->ssrc_hash);
+	if (G_UNLIKELY(!cur_ssrc))
+		c->last_index = 0;
+	else
 		c->last_index = cur_ssrc->index;
-	} else {
-		c->ssrc_mismatch = 0;
-	}
 
-	cur_ssrc->index = packet_index(c, rtp);
+	update_kernel = 1;
+
+ssrc_ok:
+	index = packet_index(c, rtp);
 
 	/* rfc 3711 section 3.1 */
-	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, cur_ssrc->index))
+	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, index))
 		return -1;
 
 	to_auth = *s;
@@ -222,11 +235,11 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 	rtp_append_mki(s, c);
 
 	if (!c->params.session_params.unauthenticated_srtp && c->params.crypto_suite->srtp_auth_tag) {
-		c->params.crypto_suite->hash_rtp(c, s->s + s->len, &to_auth, cur_ssrc->index);
+		c->params.crypto_suite->hash_rtp(c, s->s + s->len, &to_auth, index);
 		s->len += c->params.crypto_suite->srtp_auth_tag;
 	}
 
-	return 0;
+	return update_kernel ? 1 : 0;
 }
 
 /* rfc 3711, section 3.3 */

@@ -141,7 +141,6 @@ struct re_crypto_context {
 	struct crypto_shash		*shash;
 	const struct re_cipher		*cipher;
 	const struct re_hmac		*hmac;
-        u_int32_t                       ssrc;
 };
 
 struct rtpengine_stats_a {
@@ -1894,12 +1893,6 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 	u_int32_t roc;
 	u_int32_t v;
 
-	// Keep the crypt context SSRC in sync.
-	if (unlikely(!c->ssrc))
-		c->ssrc = rtp->ssrc;
-	else if (unlikely(c->ssrc != rtp->ssrc))
-		c->ssrc = rtp->ssrc;
-
 	seq = ntohs(rtp->seq_num);
 
 	spin_lock_irqsave(&c->lock, flags);
@@ -2278,7 +2271,7 @@ src_check_ok:
 	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
 
 	// Pass to userspace if SSRC has changed.
-	if ((g->encrypt.ssrc) && (g->encrypt.ssrc != rtp.header->ssrc))
+	if (unlikely((g->target.ssrc) && (g->target.ssrc != rtp.header->ssrc)))
 		goto skip_error;
 
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);

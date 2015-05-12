@@ -86,17 +86,14 @@ struct crypto_context {
 	/* <from, to>? */
 
 	void *session_key_ctx[2];
+	GHashTable *ssrc_hash;
 
 	int have_session_key:1;
-
-	struct rtp_ssrc_entry   *ssrc_list;
-	int                     ssrc_mismatch;
 };
 
 struct rtp_ssrc_entry {
 	u_int32_t ssrc;
 	u_int64_t index;
-	struct rtp_ssrc_entry *next;
 };
 
 extern const struct crypto_suite crypto_suites[];
@@ -108,10 +105,11 @@ const struct crypto_suite *crypto_find_suite(const str *);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);
 void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out);
 
-struct rtp_ssrc_entry *find_ssrc(u_int32_t, struct rtp_ssrc_entry *);
-void add_ssrc_entry(struct rtp_ssrc_entry *, struct rtp_ssrc_entry *);
+struct rtp_ssrc_entry *find_ssrc(u_int32_t, GHashTable *);
+void add_ssrc_entry(struct rtp_ssrc_entry *, GHashTable *);
 struct rtp_ssrc_entry *create_ssrc_entry(u_int32_t, u_int64_t);
-void free_ssrc_list(struct rtp_ssrc_entry *);
+void free_ssrc_table(GHashTable **);
+GHashTable *create_ssrc_table(void);
 
 
 INLINE int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
@@ -145,6 +143,7 @@ INLINE void crypto_params_cleanup(struct crypto_params *p) {
 }
 INLINE void crypto_cleanup(struct crypto_context *c) {
 	crypto_params_cleanup(&c->params);
+	free_ssrc_table(&c->ssrc_hash);
 	if (!c->params.crypto_suite)
 		return;
 	if (c->params.crypto_suite->session_key_cleanup)

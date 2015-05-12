@@ -764,14 +764,16 @@ loop_ok:
 	mutex_lock(&out_srtp->out_lock);
 
 	/* return values are: 0 = forward packet, -1 = error/dont forward,
-	 * 1 = forward and push update to redis */
+	 * 1 = forward and push update to redis and kernel */
 	if (rwf_in)
 		handler_ret = rwf_in(s, in_srtp);
 	if (handler_ret >= 0 && rwf_out)
 		handler_ret += rwf_out(s, out_srtp);
 
-	if (handler_ret > 0)
+	if (handler_ret > 0) {
+		__unkernelize(stream);
 		update = 1;
+	}
 
 	mutex_unlock(&out_srtp->out_lock);
 	mutex_unlock(&in_srtp->in_lock);
@@ -859,12 +861,6 @@ update_addr:
 kernel_check:
 	if (PS_ISSET(stream, NO_KERNEL_SUPPORT))
 		goto forward;
-
-	if (sink && sink->crypto.ssrc_mismatch && !stun_ret) {
-		ilog(LOG_INFO, "SSRC changed, unkernelizing media stream");
-		__unkernelize(stream);
-		goto forward;
-	}
 
 	if (PS_ISSET(stream, CONFIRMED) && sink && PS_ARESET2(sink, CONFIRMED, FILLED))
 		kernelize(stream);
@@ -1384,7 +1380,6 @@ static void callmaster_timer(void *ptr) {
 	struct stream_fd *sfd;
 	struct rtp_stats *rs;
 	unsigned int pt;
-	struct rtp_ssrc_entry *cur_ssrc;
 
 	ZERO(hlp);
 
@@ -1451,11 +1446,6 @@ static void callmaster_timer(void *ptr) {
 			mutex_lock(&sink->out_lock);
 			if (sink->crypto.params.crypto_suite
 					&& ke->target.encrypt.last_index - sink->crypto.last_index > 0x4000) {
-				// Keep the SSRC list in sync too.
-			  	cur_ssrc = find_ssrc(ke->target.ssrc, sink->crypto.ssrc_list);
-				if (cur_ssrc)
-					cur_ssrc->index = ke->target.encrypt.last_index;
-
 				sink->crypto.last_index = ke->target.encrypt.last_index;
 				update = 1;
 			}
@@ -2943,7 +2933,6 @@ void call_destroy(struct call *c) {
 		dtls_shutdown(ps);
 		ps->sfd = NULL;
 		crypto_cleanup(&ps->crypto);
-		free_ssrc_list(ps->crypto.ssrc_list);
 
 		ps->rtp_sink = NULL;
 		ps->rtcp_sink = NULL;
