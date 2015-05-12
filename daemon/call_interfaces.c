@@ -697,6 +697,8 @@ const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 		rwlock_lock_r(&m->hashlock);
 		if (g_hash_table_size(m->callhash) >= m->conf.max_sessions) {
 			rwlock_unlock_r(&m->hashlock);
+            atomic64_inc(&m->totalstats.total_rejected_sess);
+            atomic64_inc(&m->totalstats_interval.total_rejected_sess);
 			ilog(LOG_ERROR, "Parallel session limit reached (%i)",m->conf.max_sessions);
 			snprintf(errstr, 64, "Parallel session limit reached (%i)",m->conf.max_sessions);
 			return errstr;
