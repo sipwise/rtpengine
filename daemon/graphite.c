@@ -83,6 +83,7 @@ int send_graphite_data() {
 
 	/* atomically copy values to stack and reset to zero */
 	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_timeout_sess);
+	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_rejected_sess);
 	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_silent_timeout_sess);
 	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_regular_term_sess);
 	atomic64_local_copy_zero_struct(&ts, &cm->totalstats_interval, total_forced_term_sess);
@@ -141,6 +142,8 @@ int send_graphite_data() {
 	rc = sprintf(ptr,"%s.totals.silent_timeout_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_silent_timeout_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"%s.totals.timeout_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_timeout_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"%s.totals.reject_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_rejected_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 
 	ilog(LOG_DEBUG, "min_sessions:%u max_sessions:%u, call_dur_per_interval:%llu.%06llu at time %llu\n",
 			ts.managed_sess_min,  ts.managed_sess_max, 
