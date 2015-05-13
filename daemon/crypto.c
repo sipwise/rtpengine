@@ -572,32 +572,3 @@ void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out) {
 	ilog(LOG_DEBUG, "SRTP keys, outgoing:");
 	dump_key(out);
 }
-
-struct rtp_ssrc_entry *find_ssrc(u_int32_t ssrc, GHashTable *ht) {
-	return g_hash_table_lookup(ht, &ssrc);
-}
-
-void add_ssrc_entry(struct rtp_ssrc_entry *ent, GHashTable *ht) {
-	g_hash_table_insert(ht, &ent->ssrc, ent);
-}
-
-struct rtp_ssrc_entry *create_ssrc_entry(u_int32_t ssrc, u_int64_t index) {
-	struct rtp_ssrc_entry *ent;
-	ent = g_slice_alloc(sizeof(struct rtp_ssrc_entry));
-	ent->ssrc = ssrc;
-	ent->index = index;
-	return ent;
-}
-
-void free_ssrc_table(GHashTable **ht) {
-	if (!*ht)
-		return;
-	g_hash_table_destroy(*ht);
-	*ht = NULL;
-}
-static void free_ssrc_entry(void *p) {
-	g_slice_free1(sizeof(struct rtp_ssrc_entry), p);
-}
-GHashTable *create_ssrc_table(void) {
-	return g_hash_table_new_full(uint32_hash, uint32_eq, free_ssrc_entry, NULL);
-}
