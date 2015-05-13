@@ -176,26 +176,15 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 	s->len += c->params.mki_len;
 }
 
-/* rfc 3711, section 3.3 */
-int rtp_avp2savp(str *s, struct crypto_context *c) {
-	struct rtp_header *rtp;
-	str payload, to_auth;
-	u_int64_t index;
+static int rtp_ssrc_check(const struct rtp_header *rtp, struct crypto_context *c) {
 	struct rtp_ssrc_entry *cur_ssrc;
-	int update_kernel = 0;
-
-	if (rtp_payload(&rtp, &payload, s))
-		return -1;
-	if (check_session_keys(c))
-		return -1;
 
 	/* check last known SSRC */
 	if (G_LIKELY(rtp->ssrc == c->ssrc))
-		goto ssrc_ok;
+		return 0;
 	if (!c->ssrc) {
 		c->ssrc = rtp->ssrc;
-		update_kernel = 1;
-		goto ssrc_ok;
+		return 1;
 	}
 
 	/* SSRC mismatch. stash away last know info */
@@ -221,9 +210,22 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 	else
 		c->last_index = cur_ssrc->index;
 
-	update_kernel = 1;
+	return 1;
+}
 
-ssrc_ok:
+/* rfc 3711, section 3.3 */
+int rtp_avp2savp(str *s, struct crypto_context *c) {
+	struct rtp_header *rtp;
+	str payload, to_auth;
+	u_int64_t index;
+	int ret = 0;
+
+	if (rtp_payload(&rtp, &payload, s))
+		return -1;
+	if (check_session_keys(c))
+		return -1;
+
+	ret = rtp_ssrc_check(rtp, c);
 	index = packet_index(c, rtp);
 
 	/* rfc 3711 section 3.1 */
@@ -239,7 +241,7 @@ ssrc_ok:
 		s->len += c->params.crypto_suite->srtp_auth_tag;
 	}
 
-	return update_kernel ? 1 : 0;
+	return ret;
 }
 
 /* rfc 3711, section 3.3 */
@@ -248,12 +250,14 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 	u_int64_t index;
 	str payload, to_auth, to_decrypt, auth_tag;
 	char hmac[20];
+	int ret = 0;
 
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
 
+	ret = rtp_ssrc_check(rtp, c);
 	index = packet_index(c, rtp);
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
 			c->params.session_params.unauthenticated_srtp ? 0 : c->params.crypto_suite->srtp_auth_tag,
@@ -297,7 +301,7 @@ decrypt:
 
 	*s = to_auth;
 
-	return 0;
+	return ret;
 
 error:
 	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded invalid SRTP packet: authentication failed");
