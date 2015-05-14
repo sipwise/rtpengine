@@ -1888,8 +1888,10 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 {
 	u_int16_t seq;
 	u_int64_t index;
-	long long int diff;
 	unsigned long flags;
+	u_int16_t s_l;
+	u_int32_t roc;
+	u_int32_t v;
 
 	seq = ntohs(rtp->seq_num);
 
@@ -1900,23 +1902,25 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 		s->last_index = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	index = ((u_int64_t) c->roc << 16) | seq;
-	diff = index - s->last_index;
-	if (diff >= 0) {
-		if (diff < 0x8000)
-			s->last_index = index;
-		else if (index >= 0x10000)
-			index -= 0x10000;
+	s_l = (s->last_index & 0x00000000ffffULL);
+	roc = (s->last_index & 0xffffffff0000ULL) >> 16;
+	v = 0;
+
+	if (s_l < 0x8000) {
+		if (((seq - s_l) > 0x8000) && roc > 0)
+			v = (roc - 1) % 0x10000;
+		else
+			v = roc;
+	} else {
+		if ((s_l - 0x8000) > seq)
+			v = (roc + 1) % 0x10000;
+		else
+			v = roc;
 	}
-	else {
-		if (diff >= -0x8000)
-			;
-		else {
-			index += 0x10000;
-			c->roc++;
-			s->last_index = index;
-		}
-	}
+
+	index = (v << 16) | seq;
+	s->last_index = index;
+	c->roc = v;
 
 	spin_unlock_irqrestore(&c->lock, flags);
 
@@ -2060,26 +2064,28 @@ static int srtp_auth_validate(struct re_crypto_context *c,
 	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
 	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
-		goto ok;
+		goto ok_update;
 	/* or maybe we did a rollover too many */
 	if (pkt_idx >= 0x20000) {
 		pkt_idx -= 0x20000;
 		if (srtp_hash(hmac, c, s, r, pkt_idx))
 			return -1;
 		if (!memcmp(auth_tag, hmac, s->auth_tag_len))
-			goto ok;
+			goto ok_update;
 	}
 	/* last guess: reset ROC to zero */
 	pkt_idx &= 0xffff;
 	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
 	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
-		goto ok;
+		goto ok_update;
 
 	return -1;
 
-ok:
+ok_update:
 	*pkt_idx_p = pkt_idx;
+	update_packet_index(c, s, pkt_idx);
+ok:
 	return 0;
 }
 
@@ -2192,7 +2198,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	unsigned int datalen;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
-	u_int64_t pkt_idx = 0, pkt_idx_u;
+	u_int64_t pkt_idx;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -2264,11 +2270,13 @@ src_check_ok:
 
 	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
 
-	pkt_idx_u = pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+	// Pass to userspace if SSRC has changed.
+	if (unlikely((g->target.ssrc) && (g->target.ssrc != rtp.header->ssrc)))
+		goto skip_error;
+
+	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
 		goto skip_error;
-	if (pkt_idx != pkt_idx_u)
-		update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx);
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
 
@@ -2291,6 +2299,7 @@ not_rtp:
 	}
 
 	if (rtp.ok) {
+		pkt_idx = packet_index(&g->encrypt, &g->target.encrypt, rtp.header);
 		srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
 		skb_put(skb, g->target.encrypt.mki_len + g->target.encrypt.auth_tag_len);
 		srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);

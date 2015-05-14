@@ -17,7 +17,8 @@ use SRTP;
 
 my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
 	= (1000, 30, 1, 160, 20, 5, 5);
-my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $PROTOS, $DEST, $SUITES, $NOENC, $RTCPMUX, $BUNDLE, $LAZY);
+my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $PROTOS, $DEST, $SUITES, $NOENC, $RTCPMUX, $BUNDLE, $LAZY,
+	$CHANGE_SSRC);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -38,6 +39,7 @@ GetOptions(
 		'rtcp-mux'	=> \$RTCPMUX,
 		'bundle'	=> \$BUNDLE,
 		'lazy-params'	=> \$LAZY,
+		'change-ssrc'   => \$CHANGE_SSRC,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -154,6 +156,7 @@ sub rtp_encrypt {
 
 	my ($pkt, $roc) = SRTP::encrypt_rtp(@$dctx{qw(crypto_suite rtp_session_key rtp_session_salt
 		rtp_session_auth_key rtp_roc rtp_mki rtp_mki_len unenc_srtp unauth_srtp)}, $r);
+	$roc == ($$dctx{rtp_roc} // 0) or print("ROC is now $roc\n");
 	$$dctx{rtp_roc} = $roc;
 
 	$NOENC{rtp_packet} = $pkt;
@@ -271,9 +274,10 @@ sub rtcp_savpf {
 
 sub rtp {
 	my ($ctx) = @_;
+	my $ssrc = $$ctx{ssrc} // ($$ctx{ssrc} = rand(2**32));
 	my $seq = $$ctx{rtp_seqnum};
 	defined($seq) or $seq = int(rand(0xfffe)) + 1;
-	my $hdr = pack("CCnNN", 0x80, 0x00, $seq, rand(2**32), rand(2**32));
+	my $hdr = pack("CCnNN", 0x80, 0x00, $seq, rand(2**32), $ssrc);
 	my $pack = $hdr . rand_str($PAYLOAD);
 	$$ctx{rtp_seqnum} = (++$seq & 0xffff);
 	return $pack;
@@ -776,6 +780,21 @@ while (time() < $end) {
 		}
 		offer($c, 0, 1);
 		answer($c, 1, 0);
+	}
+
+	if ($CHANGE_SSRC && rand() < .001) {
+		my $c = $calls[rand(@calls)];
+		my $s = $$c{sides}[rand(2)];
+		my $st = rand($$s{num_streams});
+		my $d = (qw(in out))[rand(2)];
+		my $stc = $$s{trans_contexts}[$st];
+		my $ct = $$stc{$d};
+		if (defined($$ct{rtp_roc}) && $$stc{ssrc}) {
+			my $nssrc = rand(2 ** 32);
+			print("change SSRC from $$stc{ssrc} to $nssrc\n");
+			$$stc{ssrc} = $nssrc;
+			$$ct{roc} = 0;
+		}
 	}
 }
 

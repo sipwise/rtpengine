@@ -67,6 +67,8 @@ INLINE void strdupfree(char **, const char *);
 char *get_thread_buf(void);
 unsigned int in6_addr_hash(const void *p);
 int in6_addr_eq(const void *a, const void *b);
+unsigned int uint32_hash(const void *p);
+int uint32_eq(const void *a, const void *b);
 
 
 

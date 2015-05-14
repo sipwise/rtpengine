@@ -7,6 +7,7 @@
 #include <glib.h>
 #include "compat.h"
 #include "str.h"
+#include "aux.h"
 
 
 
@@ -86,12 +87,15 @@ struct crypto_context {
 	/* <from, to>? */
 
 	void *session_key_ctx[2];
+	GHashTable *ssrc_hash;
 
 	int have_session_key:1;
 };
 
-
-
+struct rtp_ssrc_entry {
+	u_int32_t ssrc;
+	u_int64_t index;
+};
 
 extern const struct crypto_suite crypto_suites[];
 extern const int num_crypto_suites;
@@ -102,7 +106,11 @@ const struct crypto_suite *crypto_find_suite(const str *);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);
 void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out);
 
-
+INLINE struct rtp_ssrc_entry *find_ssrc(u_int32_t, GHashTable *);
+INLINE void add_ssrc_entry(struct rtp_ssrc_entry *, GHashTable *);
+INLINE struct rtp_ssrc_entry *create_ssrc_entry(u_int32_t, u_int64_t);
+INLINE void free_ssrc_table(GHashTable **);
+INLINE GHashTable *create_ssrc_table(void);
 
 
 INLINE int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
@@ -136,6 +144,7 @@ INLINE void crypto_params_cleanup(struct crypto_params *p) {
 }
 INLINE void crypto_cleanup(struct crypto_context *c) {
 	crypto_params_cleanup(&c->params);
+	free_ssrc_table(&c->ssrc_hash);
 	if (!c->params.crypto_suite)
 		return;
 	if (c->params.crypto_suite->session_key_cleanup)
@@ -188,6 +197,33 @@ INLINE int crypto_params_cmp(const struct crypto_params *a, const struct crypto_
        return 0;
 }
 
+
+
+INLINE struct rtp_ssrc_entry *find_ssrc(u_int32_t ssrc, GHashTable *ht) {
+	return g_hash_table_lookup(ht, &ssrc);
+}
+INLINE void add_ssrc_entry(struct rtp_ssrc_entry *ent, GHashTable *ht) {
+	g_hash_table_insert(ht, &ent->ssrc, ent);
+}
+INLINE struct rtp_ssrc_entry *create_ssrc_entry(u_int32_t ssrc, u_int64_t index) {
+	struct rtp_ssrc_entry *ent;
+	ent = g_slice_alloc(sizeof(struct rtp_ssrc_entry));
+	ent->ssrc = ssrc;
+	ent->index = index;
+	return ent;
+}
+INLINE void free_ssrc_table(GHashTable **ht) {
+	if (!*ht)
+		return;
+	g_hash_table_destroy(*ht);
+	*ht = NULL;
+}
+INLINE void free_ssrc_entry(void *p) {
+	g_slice_free1(sizeof(struct rtp_ssrc_entry), p);
+}
+INLINE GHashTable *create_ssrc_table(void) {
+	return g_hash_table_new_full(uint32_hash, uint32_eq, free_ssrc_entry, NULL);
+}
 
 
 #endif

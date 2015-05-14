@@ -137,8 +137,6 @@ error:
 
 static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) {
 	u_int16_t seq;
-	u_int64_t index;
-	long long int diff;
 
 	seq = ntohs(rtp->seq_num);
 	/* rfc 3711 section 3.3.1 */
@@ -146,24 +144,24 @@ static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) 
 		c->last_index = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	index = (c->last_index & 0xffffffff0000ULL) | seq;
-	diff = index - c->last_index;
-	if (diff >= 0) {
-		if (diff < 0x8000)
-			c->last_index = index;
-		else if (index >= 0x10000)
-			index -= 0x10000;
-	}
-	else {
-		if (diff >= -0x8000)
-			;
-		else {
-			index += 0x10000;
-			c->last_index = index;
-		}
+	u_int16_t s_l = (c->last_index & 0x00000000ffffULL);
+	u_int32_t roc = (c->last_index & 0xffffffff0000ULL) >> 16;
+	u_int32_t v = 0;
+
+	if (s_l < 0x8000) {
+		if (((seq - s_l) > 0x8000) && roc > 0)
+			v = (roc - 1) % 0x10000;
+		else
+			v = roc;
+	} else {
+		if ((s_l - 0x8000) > seq)
+			v = (roc + 1) % 0x10000;
+		else
+			v = roc;
 	}
 
-	return index;
+	c->last_index = (u_int64_t)(((v << 16) | seq) & 0xffffffffffffULL);
+	return c->last_index;
 }
 
 void rtp_append_mki(str *s, struct crypto_context *c) {
@@ -178,29 +176,59 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 	s->len += c->params.mki_len;
 }
 
+static int rtp_ssrc_check(const struct rtp_header *rtp, struct crypto_context *c) {
+	struct rtp_ssrc_entry *cur_ssrc;
+
+	/* check last known SSRC */
+	if (G_LIKELY(rtp->ssrc == c->ssrc))
+		return 0;
+	if (!c->ssrc) {
+		c->ssrc = rtp->ssrc;
+		return 1;
+	}
+
+	/* SSRC mismatch. stash away last know info */
+	ilog(LOG_DEBUG, "SSRC changed, updating SRTP crypto contexts");
+	if (G_UNLIKELY(!c->ssrc_hash))
+		c->ssrc_hash = create_ssrc_table();
+
+	// Find the entry for the last SSRC.
+	cur_ssrc = find_ssrc(c->ssrc, c->ssrc_hash);
+	// If it doesn't exist, create a new entry.
+	if (G_UNLIKELY(!cur_ssrc)) {
+		cur_ssrc = create_ssrc_entry(c->ssrc, c->last_index);
+		add_ssrc_entry(cur_ssrc, c->ssrc_hash);
+	}
+	else
+		cur_ssrc->index = c->last_index;
+
+	// New SSRC, set the crypto context.
+	c->ssrc = rtp->ssrc;
+	cur_ssrc = find_ssrc(rtp->ssrc, c->ssrc_hash);
+	if (G_UNLIKELY(!cur_ssrc))
+		c->last_index = 0;
+	else
+		c->last_index = cur_ssrc->index;
+
+	return 1;
+}
+
 /* rfc 3711, section 3.3 */
 int rtp_avp2savp(str *s, struct crypto_context *c) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
 	u_int64_t index;
+	int ret = 0;
 
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
 
-	/* SSRC is part of the crypto context and ROC must be reset when it changes */
-	if (G_UNLIKELY(!c->ssrc))
-		c->ssrc = rtp->ssrc;
-	else if (G_UNLIKELY(c->ssrc != rtp->ssrc)) {
-		c->last_index = 0;
-		c->ssrc = rtp->ssrc;
-	}
-
+	ret = rtp_ssrc_check(rtp, c);
 	index = packet_index(c, rtp);
 
 	/* rfc 3711 section 3.1 */
-
 	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, index))
 		return -1;
 
@@ -213,7 +241,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 		s->len += c->params.crypto_suite->srtp_auth_tag;
 	}
 
-	return 0;
+	return ret;
 }
 
 /* rfc 3711, section 3.3 */
@@ -222,12 +250,14 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 	u_int64_t index;
 	str payload, to_auth, to_decrypt, auth_tag;
 	char hmac[20];
+	int ret = 0;
 
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
 
+	ret = rtp_ssrc_check(rtp, c);
 	index = packet_index(c, rtp);
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
 			c->params.session_params.unauthenticated_srtp ? 0 : c->params.crypto_suite->srtp_auth_tag,
@@ -271,7 +301,7 @@ decrypt:
 
 	*s = to_auth;
 
-	return 0;
+	return ret;
 
 error:
 	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded invalid SRTP packet: authentication failed");

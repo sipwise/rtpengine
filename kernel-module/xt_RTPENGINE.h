@@ -82,6 +82,7 @@ struct rtpengine_target_info {
 
 	struct rtpengine_srtp		decrypt;
 	struct rtpengine_srtp		encrypt;
+        u_int32_t                       ssrc; // Expose the SSRC to userspace when we resync.
 
 	unsigned char			payload_types[NUM_PAYLOAD_TYPES]; /* must be sorted */
 	unsigned int			num_payload_types;

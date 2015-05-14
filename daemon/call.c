@@ -161,7 +161,6 @@ static int call_avpf2avp_rtcp(str *s, struct packet_stream *);
 static int call_savpf2avp_rtcp(str *s, struct packet_stream *);
 //static int call_savpf2savp_rtcp(str *s, struct packet_stream *);
 
-
 /* ********** */
 
 static const struct streamhandler_io __shio_noop = {
@@ -435,6 +434,7 @@ void kernelize(struct packet_stream *stream) {
 
 	reti.src_addr.family = reti.dst_addr.family;
 	reti.src_addr.port = sink->sfd->fd.localport;
+	reti.ssrc = sink->crypto.ssrc;
 
 	ifa = g_atomic_pointer_get(&sink->media->local_address);
 	if (reti.src_addr.family == AF_INET)
@@ -764,14 +764,16 @@ loop_ok:
 	mutex_lock(&out_srtp->out_lock);
 
 	/* return values are: 0 = forward packet, -1 = error/dont forward,
-	 * 1 = forward and push update to redis */
+	 * 1 = forward and push update to redis and kernel */
 	if (rwf_in)
 		handler_ret = rwf_in(s, in_srtp);
 	if (handler_ret >= 0 && rwf_out)
 		handler_ret += rwf_out(s, out_srtp);
 
-	if (handler_ret > 0)
+	if (handler_ret > 0) {
+		__unkernelize(stream);
 		update = 1;
+	}
 
 	mutex_unlock(&out_srtp->out_lock);
 	mutex_unlock(&in_srtp->in_lock);
