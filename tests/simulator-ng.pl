@@ -247,6 +247,8 @@ sub rtcp_savp {
 	my $exp = $enc;
 	$$recv{name} eq 'RTP/AVP' and $exp = $sr;
 	$$recv{name} eq 'RTP/AVPF' and $exp = $sr;
+	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
+	$$recv{name} eq 'RTP/SAVPF' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
 	return ($enc, $exp);
 }
 
@@ -270,6 +272,7 @@ sub rtcp_savpf {
 	$$recv{name} eq 'RTP/AVP' and $exp = $sr;
 	$$recv{name} eq 'RTP/AVPF' and $exp = $sr . $fb;
 	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
+	$$recv{name} eq 'RTP/SAVPF' and $exp = rtcp_encrypt($sr . $fb, $ctx_o, 'in');
 	return ($enc, $exp);
 }
 
@@ -299,6 +302,8 @@ sub rtp_savp {
 	my $exp = $enc;
 	$$recv{name} eq 'RTP/AVP' and $exp = $pack;
 	$$recv{name} eq 'RTP/AVPF' and $exp = $pack;
+	$$recv{name} eq 'RTP/SAVP' and $exp = rtp_encrypt($pack, $ctx_o, 'in');
+	$$recv{name} eq 'RTP/SAVPF' and $exp = rtp_encrypt($pack, $ctx_o, 'in');
 	return ($enc, $exp);
 }
 
@@ -629,20 +634,9 @@ a=rtpmap:111 opus/48000/2
 
 		if ($$tr_o{name} =~ /SAVP/ && $op eq 'offer') {
 			my (@opts, @opt);
-			rand() < .2 and @opt = ('unencrypted_srtp');
-			rand() < .2 and @opt = ('encrypted_srtp');
-			rand() < .5 and @opt = ();
-			push(@opts, @opt);
-			@opt = ();
-			rand() < .2 and @opt = ('unencrypted_srtcp');
-			rand() < .2 and @opt = ('encrypted_srtcp');
-			rand() < .5 and @opt = ();
-			push(@opts, @opt);
-			@opt = ();
-			rand() < .2 and @opt = ('unauthenticated_srtp');
-			rand() < .2 and @opt = ('authenticated_srtp');
-			rand() < .5 and @opt = ();
-			push(@opts, @opt);
+			rand() < .5 and push(@opts, (qw(unencrypted_srtp encrypted_srtp))[rand(2)]);
+			rand() < .5 and push(@opts, (qw(unencrypted_srtcp encrypted_srtcp))[rand(2)]);
+			rand() < .5 and push(@opts, (qw(unauthenticated_srtp authenticated_srtp))[rand(2)]);
 			$$dict{SDES} = \@opts;
 		}
 	}
