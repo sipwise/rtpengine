@@ -235,8 +235,7 @@ sub rtcp_avp {
 	my ($recv, $ctx, $ctx_o) = @_;
 	my $sr = rtcp_sr();
 	my $exp = $sr;
-	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
-	$$recv{name} eq 'RTP/SAVPF' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
+	$$recv{srtp} and $exp = rtcp_encrypt($exp, $ctx_o, 'in');
 	return ($sr, $exp);
 }
 
@@ -244,11 +243,8 @@ sub rtcp_savp {
 	my ($recv, $ctx, $ctx_o) = @_;
 	my $sr = rtcp_sr();
 	my $enc = rtcp_encrypt($sr, $ctx, 'out');
-	my $exp = $enc;
-	$$recv{name} eq 'RTP/AVP' and $exp = $sr;
-	$$recv{name} eq 'RTP/AVPF' and $exp = $sr;
-	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
-	$$recv{name} eq 'RTP/SAVPF' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
+	my $exp = $sr;
+	$$recv{srtp} and $exp = rtcp_encrypt($exp, $ctx_o, 'in');
 	return ($enc, $exp);
 }
 
@@ -257,9 +253,8 @@ sub rtcp_avpf {
 	my $sr = rtcp_sr();
 	my $fb = rtcp_rtpfb();
 	my $exp = $sr;
-	$$recv{name} eq 'RTP/AVPF' and $exp .= $fb;
-	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
-	$$recv{name} eq 'RTP/SAVPF' and $exp = rtcp_encrypt($sr . $fb, $ctx_o, 'in');
+	$$recv{avpf} and $exp .= $fb;
+	$$recv{srtp} and $exp = rtcp_encrypt($exp, $ctx_o, 'in');
 	return ($sr . $fb, $exp);
 }
 
@@ -268,11 +263,9 @@ sub rtcp_savpf {
 	my $sr = rtcp_sr();
 	my $fb = rtcp_rtpfb();
 	my $enc = rtcp_encrypt($sr . $fb, $ctx, 'out');
-	my $exp = $enc;
-	$$recv{name} eq 'RTP/AVP' and $exp = $sr;
-	$$recv{name} eq 'RTP/AVPF' and $exp = $sr . $fb;
-	$$recv{name} eq 'RTP/SAVP' and $exp = rtcp_encrypt($sr, $ctx_o, 'in');
-	$$recv{name} eq 'RTP/SAVPF' and $exp = rtcp_encrypt($sr . $fb, $ctx_o, 'in');
+	my $exp = $sr;
+	$$recv{avpf} and $exp .= $fb;
+	$$recv{srtp} and $exp = rtcp_encrypt($exp, $ctx_o, 'in');
 	return ($enc, $exp);
 }
 
@@ -290,8 +283,7 @@ sub rtp_avp {
 	my ($recv, $ctx, $ctx_o) = @_;
 	my $pack = rtp($ctx);
 	my $exp = $pack;
-	$$recv{name} eq 'RTP/SAVP' and $exp = rtp_encrypt($pack, $ctx_o, 'in');
-	$$recv{name} eq 'RTP/SAVPF' and $exp = rtp_encrypt($pack, $ctx_o, 'in');
+	$$recv{srtp} and $exp = rtp_encrypt($exp, $ctx_o, 'in');
 	return ($pack, $exp);
 }
 
@@ -299,11 +291,8 @@ sub rtp_savp {
 	my ($recv, $ctx, $ctx_o) = @_;
 	my $pack = rtp($ctx);
 	my $enc = rtp_encrypt($pack, $ctx, 'out');
-	my $exp = $enc;
-	$$recv{name} eq 'RTP/AVP' and $exp = $pack;
-	$$recv{name} eq 'RTP/AVPF' and $exp = $pack;
-	$$recv{name} eq 'RTP/SAVP' and $exp = rtp_encrypt($pack, $ctx_o, 'in');
-	$$recv{name} eq 'RTP/SAVPF' and $exp = rtp_encrypt($pack, $ctx_o, 'in');
+	my $exp = $pack;
+	$$recv{srtp} and $exp = rtp_encrypt($pack, $ctx_o, 'in');
 	return ($enc, $exp);
 }
 
@@ -434,11 +423,15 @@ my @transports = (
 		name => 'RTP/AVP',
 		rtp_func => \&rtp_avp,
 		rtcp_func => \&rtcp_avp,
+		srtp => 0,
+		avpf => 0,
 	},
 	{
 		name => 'RTP/AVPF',
 		rtp_func => \&rtp_avp,
 		rtcp_func => \&rtcp_avpf,
+		srtp => 0,
+		avpf => 1,
 	},
 	{
 		name => 'RTP/SAVP',
@@ -446,6 +439,8 @@ my @transports = (
 		sdp_parse_func => \&savp_crypto,
 		rtp_func => \&rtp_savp,
 		rtcp_func => \&rtcp_savp,
+		srtp => 1,
+		avpf => 0,
 	},
 	{
 		name => 'RTP/SAVPF',
@@ -453,6 +448,26 @@ my @transports = (
 		sdp_parse_func => \&savp_crypto,
 		rtp_func => \&rtp_savp,
 		rtcp_func => \&rtcp_savpf,
+		srtp => 1,
+		avpf => 1,
+	},
+	{
+		name => 'UDP/TLS/RTP/SAVP',
+		sdp_media_params => \&savp_sdp,
+		sdp_parse_func => \&savp_crypto,
+		rtp_func => \&rtp_savp,
+		rtcp_func => \&rtcp_savp,
+		srtp => 1,
+		avpf => 0,
+	},
+	{
+		name => 'UDP/TLS/RTP/SAVPF',
+		sdp_media_params => \&savp_sdp,
+		sdp_parse_func => \&savp_crypto,
+		rtp_func => \&rtp_savp,
+		rtcp_func => \&rtcp_savpf,
+		srtp => 1,
+		avpf => 1,
 	},
 );
 my %transports = map {$$_{name} => $_} @transports;
@@ -632,7 +647,7 @@ a=rtpmap:111 opus/48000/2
 		$$dict{'address family'} = $$pr_o{family_str};
 		$$dict{'transport protocol'} = $$tr_o{name};
 
-		if ($$tr_o{name} =~ /SAVP/ && $op eq 'offer') {
+		if ($$tr_o{srtp} && $op eq 'offer') {
 			my (@opts, @opt);
 			rand() < .5 and push(@opts, (qw(unencrypted_srtp encrypted_srtp))[rand(2)]);
 			rand() < .5 and push(@opts, (qw(unencrypted_srtcp encrypted_srtcp))[rand(2)]);
