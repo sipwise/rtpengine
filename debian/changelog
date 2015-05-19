@@ -1,3 +1,15 @@
+ngcp-rtpengine (3.8.1.5+0~mr3.8.1.5) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [7e7798a] fix call timeout when ICE fails
+  * [9ce8e4a] fix ICE when no candidates are present (trickle ICE)
+  * [21d956c] do not detect trickle ICE RTCP port as rtcp-mux
+  * [8c0fe27] fix number of ICE components for tricke-ICE no-components case
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 19 May 2015 16:48:51 +0200
+
 ngcp-rtpengine (3.8.1.4+0~mr3.8.1.4) unstable; urgency=low
 
   [ Richard Fuchs ]
