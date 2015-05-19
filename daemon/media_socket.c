@@ -838,7 +838,6 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin) 
 	struct call *call;
 	struct callmaster *cm;
 	/*unsigned char cc;*/
-	char *addr;
 	struct endpoint endpoint;
 	rewrite_func rwf_in, rwf_out;
 	//struct local_intf *loc_addr;
@@ -847,7 +846,6 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin) 
 
 	call = sfd->call;
 	cm = call->callmaster;
-	addr = endpoint_print_buf(fsin);
 
 	rwlock_lock_r(&call->master_lock);
 
@@ -959,7 +957,7 @@ loop_ok:
 	/* do we have somewhere to forward it to? */
 
 	if (!sink || !sink->selected_sfd || !out_srtp->selected_sfd || !in_srtp->selected_sfd) {
-		ilog(LOG_WARNING, "RTP packet from %s discarded", addr);
+		ilog(LOG_WARNING, "RTP packet from %s discarded", endpoint_print_buf(fsin));
 		atomic64_inc(&stream->stats.errors);
 		atomic64_inc(&cm->statsps.errors);
 		goto unlock_out;
@@ -1027,7 +1025,7 @@ loop_ok:
 			int tmp = memcmp(&endpoint, &stream->endpoint, sizeof(endpoint));
 			if (tmp && PS_ISSET(stream, MEDIA_HANDOVER)) {
 				/* out_lock remains locked */
-				ilog(LOG_INFO, "Peer address changed to %s", addr);
+				ilog(LOG_INFO, "Peer address changed to %s", endpoint_print_buf(fsin));
 				unk = 1;
 				goto update_addr;
 			}
@@ -1047,7 +1045,7 @@ loop_ok:
 	if (!call->last_signal || poller_now <= call->last_signal + 3)
 		goto update_peerinfo;
 
-	ilog(LOG_INFO, "Confirmed peer address as %s", addr);
+	ilog(LOG_INFO, "Confirmed peer address as %s", endpoint_print_buf(fsin));
 
 	PS_SET(stream, CONFIRMED);
 	update = 1;
