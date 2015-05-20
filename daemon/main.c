@@ -31,7 +31,7 @@
 
 
 
-#define REDIS_MODULE_VERSION "redis/8"
+#define REDIS_MODULE_VERSION "redis/9"
 
 
 
