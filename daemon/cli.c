@@ -14,6 +14,7 @@
 #include "call.h"
 #include "cli.h"
 
+#include "rtpengine_config.h"
 
 static const char* TRUNCATED = "    ... Output truncated. Increase Output Buffer ...\n";
 
@@ -151,6 +152,34 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                if (PS_ISSET(ps, FALLBACK_RTCP))
                    continue;
 
+#if (RE_HAS_MEASUREDELAY)
+               if (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) {
+            	   printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
+            			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
+						   md->index,
+						   (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						   smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
+						   (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
+								   atomic64_get(&ps->stats.packets),
+								   atomic64_get(&ps->stats.bytes),
+								   atomic64_get(&ps->stats.errors),
+								   atomic64_get(&ps->last_packet));
+               } else {
+            	   printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
+			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, %.9f delay_min, %.9f delay_avg, %.9f delay_max\n",
+						   md->index,
+						   (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						   smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
+						   (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
+								   atomic64_get(&ps->stats.packets),
+								   atomic64_get(&ps->stats.bytes),
+								   atomic64_get(&ps->stats.errors),
+								   atomic64_get(&ps->last_packet),
+								   (double) ps->stats.delay_min / 1000000,
+								   (double) ps->stats.delay_avg / 1000000,
+								   (double) ps->stats.delay_max / 1000000);
+               }
+#else
                printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
                     ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
                     md->index,
@@ -160,7 +189,8 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                          atomic64_get(&ps->stats.packets),
                          atomic64_get(&ps->stats.bytes),
                          atomic64_get(&ps->stats.errors),
-                        atomic64_get(&ps->last_packet));
+                         atomic64_get(&ps->last_packet));
+#endif
                ADJUSTLEN(printlen,outbufend,replybuffer);
            }
        }

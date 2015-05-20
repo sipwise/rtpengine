@@ -15,6 +15,10 @@ struct rtpengine_stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
 	u_int64_t			errors;
+	u_int64_t			delay_min;
+	u_int64_t			delay_avg;
+	u_int64_t			delay_max;
+	u_int8_t            in_tos;
 };
 struct rtpengine_rtp_stats {
 	u_int64_t			packets;
@@ -100,7 +104,7 @@ struct rtpengine_message {
 		MMG_NOOP = 1,
 		MMG_ADD,
 		MMG_DEL,
-		MMG_UPDATE,
+		MMG_UPDATE
 	}				cmd;
 
 	struct rtpengine_target_info	target;
