@@ -2751,10 +2751,13 @@ void call_destroy(struct call *c) {
 	ilog(LOG_INFO, "Final packet stats:");
 
 	/* CDRs and statistics */
-	cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
-	cdrbufcur += sprintf(cdrbufcur,"created_from=%s, ", c->created_from);
-	cdrbufcur += sprintf(cdrbufcur,"last_signal=%llu, ", (unsigned long long)c->last_signal);
-	cdrbufcur += sprintf(cdrbufcur,"tos=%u, ", (unsigned int)c->tos);
+	if (_log_facility_cdr) {
+		cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
+		cdrbufcur += sprintf(cdrbufcur,"created_from=%s, ", c->created_from);
+		cdrbufcur += sprintf(cdrbufcur,"last_signal=%llu, ", (unsigned long long)c->last_signal);
+		cdrbufcur += sprintf(cdrbufcur,"tos=%u, ", (unsigned int)c->tos);
+	}
+
 	for (l = c->monologues; l; l = l->next) {
 		ml = l->data;
 
