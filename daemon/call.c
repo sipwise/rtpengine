@@ -2895,7 +2895,7 @@ void call_destroy(struct call *c) {
 					            cdrlinecnt, md->index, protocol,
 						    atomic64_get(&ps->last_packet),
 								cdrlinecnt, md->index, protocol,
-							atomic64_get(&ps->stats.in_tos_tclass));
+							ps->stats.in_tos_tclass);
 
 #endif
 				    }
