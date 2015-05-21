@@ -2917,8 +2917,10 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 	 * another monologue without to-tag (to be filled in later) */
 new_branch:
 	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT(viabranch));
-	ret->active_dialogue = __monologue_create(call);
-	__monologue_viabranch(ret->active_dialogue, viabranch);
+	os = __monologue_create(call);
+	ret->active_dialogue = os;
+	os->active_dialogue = ret;
+	__monologue_viabranch(os, viabranch);
 
 ok_check_tag:
 	if (totag && totag->s && !ret->active_dialogue->tag.s)
