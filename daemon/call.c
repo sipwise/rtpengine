@@ -2872,19 +2872,22 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 }
 
 /* must be called with call->master_lock held in W */
-static struct call_monologue *call_get_monologue(struct call *call, const str *fromtag, const str *viabranch) {
+static struct call_monologue *call_get_monologue(struct call *call, const str *fromtag, const str *totag,
+		const str *viabranch)
+{
 	struct call_monologue *ret, *os;
 
 	__C_DBG("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(&call->callid));
 	ret = g_hash_table_lookup(call->tags, fromtag);
+	/* XXX reverse the conditional */
 	if (ret) {
 		__C_DBG("found existing monologue");
 		__monologue_unkernelize(ret);
 		__monologue_unkernelize(ret->active_dialogue);
 
 		if (!viabranch)
-			return ret;
+			goto ok_check_tag;
 
 		/* check the viabranch. if it's not known, then this is a branched offer and we need
 		 * to create a new "other side" for this branch. */
@@ -2892,17 +2895,17 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 			/* previous "other side" hasn't been tagged with the via-branch, so we'll just
 			 * use this one and tag it */
 			__monologue_viabranch(ret->active_dialogue, viabranch);
-			return ret;
+			goto ok_check_tag;
 		}
 		if (!str_cmp_str(&ret->active_dialogue->viabranch, viabranch))
-			return ret; /* dialogue still intact */
+			goto ok_check_tag; /* dialogue still intact */
 		os = g_hash_table_lookup(call->viabranches, viabranch);
 		if (os) {
 			/* previously seen branch. use it */
 			__monologue_unkernelize(os);
 			os->active_dialogue = ret;
 			ret->active_dialogue = os;
-			return ret;
+			goto ok_check_tag;
 		}
 		goto new_branch;
 	}
@@ -2917,6 +2920,9 @@ new_branch:
 	ret->active_dialogue = __monologue_create(call);
 	__monologue_viabranch(ret->active_dialogue, viabranch);
 
+ok_check_tag:
+	if (totag && totag->s && !ret->active_dialogue->tag.s)
+		__monologue_tag(ret->active_dialogue, totag);
 	return ret;
 }
 
@@ -2928,6 +2934,11 @@ static struct call_monologue *call_get_dialogue(struct call *call, const str *fr
 
 	__C_DBG("getting dialogue for tags '"STR_FORMAT"'<>'"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(totag), STR_FMT(&call->callid));
+
+	/* we start with the to-tag. if it's not known, we treat it as a branched offer */
+	tt = g_hash_table_lookup(call->tags, totag);
+	if (!tt)
+		return call_get_monologue(call, fromtag, totag, viabranch);
 
 	/* if the from-tag is known already, return that */
 	ft = g_hash_table_lookup(call->tags, fromtag);
@@ -2944,11 +2955,6 @@ static struct call_monologue *call_get_dialogue(struct call *call, const str *fr
 		if (viabranch)
 			ft = g_hash_table_lookup(call->viabranches, viabranch);
 	}
-
-	/* the to-tag has to be known. it's an error if it isn't */
-	tt = g_hash_table_lookup(call->tags, totag);
-	if (!tt)
-		return NULL;
 
 	if (!ft) {
 		/* if we don't have a fromtag monologue yet, we can use a half-complete dialogue
@@ -2983,7 +2989,7 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 		const str *viabranch)
 {
 	if (!totag || !totag->s) /* initial offer */
-		return call_get_monologue(call, fromtag, viabranch);
+		return call_get_monologue(call, fromtag, NULL, viabranch);
 	return call_get_dialogue(call, fromtag, totag, viabranch);
 }
 
