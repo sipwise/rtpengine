@@ -363,6 +363,7 @@ struct call_monologue {
 	struct call		*call;		/* RO */
 
 	str			tag;
+	str			viabranch;
 	enum tag_type    tagtype;
 	time_t			created;	/* RO */
 	time_t			deleted;
@@ -387,7 +388,7 @@ struct call {
 	rwlock_t		master_lock;
 	GSList			*monologues;
 	GHashTable		*tags;	
-	//GHashTable		*branches;
+	GHashTable		*viabranches;
 	GSList			*streams;
 	GSList			*stream_fds;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
@@ -483,6 +484,7 @@ void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 void calls_dump_redis(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
+void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call);
 int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c);
 struct packet_stream *__packet_stream_new(struct call *call);
@@ -490,7 +492,8 @@ struct packet_stream *__packet_stream_new(struct call *call);
 
 struct call *call_get_or_create(const str *callid, struct callmaster *m);
 struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode);
-struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag);
+struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag,
+		const str *viabranch);
 struct call *call_get(const str *callid, struct callmaster *m);
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,

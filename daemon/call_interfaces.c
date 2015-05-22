@@ -149,8 +149,9 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	str_init(&callid, out[RE_UDP_UL_CALLID]);
 	str_init(&viabranch, out[RE_UDP_UL_VIABRANCH]);
 	str_init(&fromtag, out[RE_UDP_UL_FROMTAG]);
+	str_init(&totag, out[RE_UDP_UL_TOTAG]);
 	if (opmode == OP_ANSWER)
-		str_init(&totag, out[RE_UDP_UL_TOTAG]);
+		str_swap(&fromtag, &totag);
 
 	c = call_get_opmode(&callid, m, opmode);
 	if (!c) {
@@ -164,11 +165,11 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 		c->created_from_addr = *sin;
 	}
 
-	monologue = call_get_mono_dialogue(c, &fromtag, &totag);
+	monologue = call_get_mono_dialogue(c, &fromtag, &totag, NULL);
 	if (!monologue)
 		goto ml_fail;
 
-	if (!totag.s || totag.len==0) {
+	if (opmode == OP_OFFER) {
 		monologue->tagtype = FROM_TAG;
 	} else {
 		monologue->tagtype = TO_TAG;
@@ -317,15 +318,16 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 		ilog(LOG_WARNING, "No from-tag in message");
 		goto out2;
 	}
+	str_init(&totag, g_hash_table_lookup(infohash, "totag"));
 	if (opmode == OP_ANSWER) {
-		str_init(&totag, g_hash_table_lookup(infohash, "totag"));
 		if (!totag.s) {
 			ilog(LOG_WARNING, "No to-tag in message");
 			goto out2;
 		}
+		str_swap(&fromtag, &totag);
 	}
 
-	monologue = call_get_mono_dialogue(c, &fromtag, &totag);
+	monologue = call_get_mono_dialogue(c, &fromtag, &totag, NULL);
 	if (!monologue) {
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
@@ -601,7 +603,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const struct sockaddr_in6 *sin)
 {
-	str sdp, fromtag, totag = STR_NULL, callid;
+	str sdp, fromtag, totag = STR_NULL, callid, viabranch;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -617,11 +619,13 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		return "No call-id in message";
 	if (!bencode_dictionary_get_str(input, "from-tag", &fromtag))
 		return "No from-tag in message";
+	bencode_dictionary_get_str(input, "to-tag", &totag);
 	if (opmode == OP_ANSWER) {
-		if (!bencode_dictionary_get_str(input, "to-tag", &totag))
+		if (!totag.s)
 			return "No to-tag in message";
+		str_swap(&totag, &fromtag);
 	}
-	//bencode_dictionary_get_str(input, "via-branch", &viabranch);
+	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
@@ -646,7 +650,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	 * need to hold a ref until we're done sending the reply */
 	call_bencode_hold_ref(call, output);
 
-	monologue = call_get_mono_dialogue(call, &fromtag, &totag);
+	monologue = call_get_mono_dialogue(call, &fromtag, &totag, viabranch.s ? &viabranch : NULL);
 	errstr = "Invalid dialogue association";
 	if (!monologue) {
 		rwlock_unlock_w(&call->master_lock);
@@ -654,7 +658,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 	}
 
-	if (!totag.s || totag.len==0) {
+	if (opmode == OP_OFFER) {
 		monologue->tagtype = FROM_TAG;
 	} else {
 		monologue->tagtype = TO_TAG;
@@ -859,6 +863,8 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 	sub = bencode_dictionary_add_dictionary(dict, ml->tag.s);
 
 	bencode_dictionary_add_str(sub, "tag", &ml->tag);
+	if (ml->viabranch.s)
+		bencode_dictionary_add_str(sub, "via-branch", &ml->viabranch);
 	bencode_dictionary_add_integer(sub, "created", ml->created);
 	if (ml->active_dialogue)
 		bencode_dictionary_add_str(sub, "in dialogue with", &ml->active_dialogue->tag);
