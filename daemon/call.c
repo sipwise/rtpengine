@@ -1133,7 +1133,7 @@ no_sfd:
 
 		check = cm->conf.timeout;
 		tmp_t_reason = 1;
-		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
+		if (!MEDIA_ISSET(ps->media, RECV) || !sfd || !PS_ISSET(ps, FILLED)) {
 			check = cm->conf.silent_timeout;
 			tmp_t_reason = 2;
 		}
