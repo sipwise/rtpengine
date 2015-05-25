@@ -2916,7 +2916,7 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 	/* we need both sides of the dialogue even in the initial offer, so create
 	 * another monologue without to-tag (to be filled in later) */
 new_branch:
-	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT(viabranch));
+	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
 	ret->active_dialogue = os;
 	os->active_dialogue = ret;
