@@ -499,7 +499,7 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 struct call *call_get(const str *callid, struct callmaster *m);
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
-	const str *fromtag, const str *totag, bencode_item_t *output);
+	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
 void call_media_unkernelize(struct call_media *media);

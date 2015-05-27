@@ -356,7 +356,8 @@ The options are described in more detail below.
 
 * -d, --delete-delay
 
-	Delete the call from memory after the specified delay from memory.
+	Delete the call from memory after the specified delay from memory. Can be set to zero for
+	immediate call deletion.
 
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 
@@ -864,6 +865,13 @@ of zero or more strings. The following flags are defined:
 	(such as unknown call-ID) shall
 	result in an error reply (i.e. `"result": "error"`). The default is to reply with a warning only
 	(i.e. `"result": "ok", "warning": ...`).
+
+Other optional keys are:
+
+* `delete delay`
+
+	Contains an integer and overrides the global command-line option `delete-delay`. Call/branch will be
+	deleted immediately if a zero is given. Value must be positive (in seconds) otherwise.
 
 The reply message may contain additional keys with statistics about the deleted call. Those additional keys
 are the same as used in the `query` reply.

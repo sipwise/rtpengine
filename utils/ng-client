@@ -41,13 +41,14 @@ GetOptions(
 	'strict-source'			=> \$options{'strict source'},
 	'media-handover'		=> \$options{'media handover'},
 	'TOS=i'				=> \$options{'TOS'},
+	'delete-delay=i'		=> \$options{'delete-delay'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,TOS,DTLS,via-branch')) {
+for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,TOS,DTLS,via-branch,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
 for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address')) {

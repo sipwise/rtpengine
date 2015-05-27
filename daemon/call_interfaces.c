@@ -369,7 +369,7 @@ str *call_delete_udp(char **out, struct callmaster *m) {
 	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
 	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
 
-	if (call_delete_branch(m, &callid, &branch, &fromtag, &totag, NULL))
+	if (call_delete_branch(m, &callid, &branch, &fromtag, &totag, NULL, -1))
 		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
@@ -417,7 +417,7 @@ void call_delete_tcp(char **out, struct callmaster *m) {
 	str callid;
 
 	str_init(&callid, out[RE_TCP_D_CALLID]);
-	call_delete_branch(m, &callid, NULL, NULL, NULL, NULL);
+	call_delete_branch(m, &callid, NULL, NULL, NULL, NULL, -1);
 }
 
 static void call_status_iterator(struct call *c, struct control_stream *s) {
@@ -748,7 +748,7 @@ const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_
 const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str fromtag, totag, viabranch, callid;
 	bencode_item_t *flags, *it;
-	int fatal = 0;
+	int fatal = 0, delete_delay;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -764,8 +764,11 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 				fatal = 1;
 		}
 	}
+	delete_delay = bencode_dictionary_get_integer(input, "delete-delay", -1);
+	if (delete_delay == -1)
+		delete_delay = bencode_dictionary_get_integer(input, "delete delay", -1);
 
-	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag, output)) {
+	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag, output, delete_delay)) {
 		if (fatal)
 			return "Call-ID not found or tags didn't match";
 		bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");

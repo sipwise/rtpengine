@@ -3495,13 +3495,16 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 
 
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
-	const str *fromtag, const str *totag, bencode_item_t *output)
+	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
 {
 	struct call *c;
 	struct call_monologue *ml;
 	int ret;
 	const str *match_tag;
 	GSList *i;
+
+	if (delete_delay < 0)
+		delete_delay = m->conf.delete_delay;
 
 	c = call_get(callid, m);
 	if (!c) {
@@ -3545,10 +3548,10 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	}
 */
 
-	if (m->conf.delete_delay > 0) {
+	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' in %d seconds",
-				STR_FMT(&ml->tag), m->conf.delete_delay);
-		ml->deleted = poller_now + m->conf.delete_delay;
+				STR_FMT(&ml->tag), delete_delay);
+		ml->deleted = poller_now + delete_delay;
 		if (!c->ml_deleted || c->ml_deleted > ml->deleted)
 			c->ml_deleted = ml->deleted;
 	}
@@ -3561,9 +3564,9 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	goto success_unlock;
 
 del_all:
-	if (m->conf.delete_delay > 0) {
-		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", m->conf.delete_delay);
-		c->deleted = poller_now + m->conf.delete_delay;
+	if (delete_delay > 0) {
+		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);
+		c->deleted = poller_now + delete_delay;
 		rwlock_unlock_w(&c->master_lock);
 	}
 	else {
