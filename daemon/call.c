@@ -326,6 +326,7 @@ static void __unkernelize(struct packet_stream *);
 static void __stream_unconfirm(struct packet_stream *ps);
 static void stream_unconfirm(struct packet_stream *ps);
 static void __monologue_destroy(struct call_monologue *monologue);
+static int monologue_destroy(struct call_monologue *ml);
 static struct interface_address *get_interface_address(struct local_interface *lif, int family);
 
 
@@ -1063,19 +1064,10 @@ static int call_timer_delete_monologues(struct call *c) {
 			continue;
 		}
 
-		__monologue_destroy(ml);
-
-		ml->deleted = 0;
-
-		if (!g_hash_table_size(c->tags)) {
-			ilog(LOG_INFO, "Call branch '"STR_FORMAT"' deleted, no more branches remaining",
-					STR_FMT(&ml->tag));
+		if (monologue_destroy(ml)) {
 			ret = 1; /* destroy call */
 			goto out;
 		}
-
-		ilog(LOG_INFO, "Call branch "STR_FORMAT" deleted",
-				STR_FMT(&ml->tag));
 	}
 
 out:
@@ -3356,6 +3348,25 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 		if (!g_hash_table_size(dialogue->other_tags))
 			__monologue_destroy(dialogue);
 	}
+
+	monologue->deleted = 0;
+}
+
+/* must be called with call->master_lock held in W */
+static int monologue_destroy(struct call_monologue *ml) {
+	struct call *c = ml->call;
+
+	__monologue_destroy(ml);
+
+	if (!g_hash_table_size(c->tags)) {
+		ilog(LOG_INFO, "Call branch '"STR_FORMAT"' deleted, no more branches remaining",
+				STR_FMT(&ml->tag));
+		return 1; /* destroy call */
+	}
+
+	ilog(LOG_INFO, "Call branch "STR_FORMAT" deleted",
+			STR_FMT(&ml->tag));
+	return 0;
 }
 
 /* must be called with call->master_lock held in W */
@@ -3534,17 +3545,32 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	}
 */
 
-	ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' in %d seconds",
-			STR_FMT(&ml->tag), m->conf.delete_delay);
-	ml->deleted = poller_now + m->conf.delete_delay;
-	if (!c->ml_deleted || c->ml_deleted > ml->deleted)
-		c->ml_deleted = ml->deleted;
+	if (m->conf.delete_delay > 0) {
+		ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' in %d seconds",
+				STR_FMT(&ml->tag), m->conf.delete_delay);
+		ml->deleted = poller_now + m->conf.delete_delay;
+		if (!c->ml_deleted || c->ml_deleted > ml->deleted)
+			c->ml_deleted = ml->deleted;
+	}
+	else {
+		ilog(LOG_INFO, "Deleting call branch '"STR_FORMAT"'",
+				STR_FMT(&ml->tag));
+		if (monologue_destroy(ml))
+			goto del_all;
+	}
 	goto success_unlock;
 
 del_all:
-	ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", m->conf.delete_delay);
-	c->deleted = poller_now + m->conf.delete_delay;
-	rwlock_unlock_w(&c->master_lock);
+	if (m->conf.delete_delay > 0) {
+		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", m->conf.delete_delay);
+		c->deleted = poller_now + m->conf.delete_delay;
+		rwlock_unlock_w(&c->master_lock);
+	}
+	else {
+		ilog(LOG_INFO, "Deleting entire call");
+		rwlock_unlock_w(&c->master_lock);
+		call_destroy(c);
+	}
 	goto success;
 
 success_unlock:
