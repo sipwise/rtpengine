@@ -61,6 +61,8 @@ INLINE int str_memcmp(const str *s, void *m);
 INLINE int str_str(const str *s, const char *sub);
 /* swaps the contents of two str objects */
 INLINE void str_swap(str *a, str *b);
+/* parses a string into an int, returns default if conversion fails */
+INLINE int str_to_i(str *s, int def);
 
 /* asprintf() analogs */
 #define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
@@ -238,6 +240,20 @@ INLINE void str_swap(str *a, str *b) {
 	t = *a;
 	*a = *b;
 	*b = t;
+}
+
+INLINE int str_to_i(str *s, int def) {
+	char c, *ep;
+	long ret;
+	if (s->len <= 0)
+		return def;
+	c = s->s[s->len];
+	s->s[s->len] = '\0';
+	ret = strtol(s->s, &ep, 10);
+	s->s[s->len] = c;
+	if (ep == s->s)
+		return def;
+	return ret;
 }
 
 #endif
