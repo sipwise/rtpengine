@@ -223,6 +223,7 @@ struct stats {
 struct totalstats {
 	time_t 				started;
 	atomic64			total_timeout_sess;
+	atomic64            total_rejected_sess;
 	atomic64			total_silent_timeout_sess;
 	atomic64			total_regular_term_sess;
 	atomic64			total_forced_term_sess;
@@ -426,6 +427,7 @@ struct callmaster_config {
 	GQueue			*interfaces; /* struct interface_address */
 	int			port_min;
 	int			port_max;
+	int			max_sessions;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
 	unsigned int		delete_delay;
