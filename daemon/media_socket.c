@@ -746,6 +746,7 @@ void kernelize(struct packet_stream *stream) {
 			rs = l->data;
 			reti.payload_types[reti.num_payload_types++] = rs->payload_type;
 		}
+		g_list_free(values);
 	}
 
 	kernel_add_stream(cm->conf.kernelfd, &reti, 0);
