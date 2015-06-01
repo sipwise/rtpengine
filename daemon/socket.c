@@ -347,7 +347,7 @@ int endpoint_parse_any(endpoint_t *d, const char *s) {
 	d->port = atoi(ep+1);
 	if (d->port > 0xffff)
 		return -1;
-	sprintf(buf, "%.*s", len-1, s);
+	sprintf(buf, "%.*s", len, s);
 
 	for (i = 0; i < __SF_LAST; i++) {
 		fam = &__socket_families[i];
