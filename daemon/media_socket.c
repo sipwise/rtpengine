@@ -1060,22 +1060,11 @@ update_addr:
 
 	/* check the destination address of the received packet against what we think our
 	 * local interface to use is */
-//	loc_addr = g_atomic_pointer_get(&media->local_intf);
-//	if (dst && !sockaddr_eq(dst, &loc_addr->spec->address.addr)) {
-		// XXX restore this
-//		struct interface_address *ifa;
-//		ifa = get_interface_from_address(media->logical_intf, dst);
-//		if (!ifa) {
-//			ilog(LOG_ERROR, "No matching local interface for destination address %s found",
-//					smart_ntop_buf(dst));
-//			goto drop;
-//		}
-//		if (g_atomic_pointer_compare_and_exchange(&media->local_address, loc_addr, ifa)) {
-//			ilog(LOG_INFO, "Switching local interface to %s",
-//					smart_ntop_buf(dst));
-//			update = 1;
-//		}
-//	}
+	if (sfd && stream->selected_sfd && sfd != stream->selected_sfd) {
+		ilog(LOG_INFO, "Switching local interface to %s", endpoint_print_buf(&sfd->socket.local));
+		stream->selected_sfd = sfd;
+		update = 1;
+	}
 
 
 kernel_check:
