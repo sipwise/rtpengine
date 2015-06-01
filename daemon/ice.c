@@ -1036,7 +1036,6 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 	struct packet_stream *ps = sfd->stream;
 	struct call_media *media = ps->media;
 	struct ice_agent *ag;
-	const struct local_intf *ifa;
 	const char *err;
 	struct ice_candidate *cand;
 	struct ice_candidate_pair *pair;
@@ -1050,8 +1049,6 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 		return -1;
 
 	atomic64_set(&ag->last_activity, poller_now);
-
-	ifa = sfd->local_intf;
 
 	/* determine candidate pair */
 	mutex_lock(&ag->lock);
