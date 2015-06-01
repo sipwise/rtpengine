@@ -60,6 +60,7 @@ struct socket_family {
 	ssize_t				(*recvfrom)(socket_t *, void *, size_t, endpoint_t *);
 	ssize_t				(*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *);
 	ssize_t				(*sendto)(socket_t *, const void *, size_t, const endpoint_t *);
+	int				(*tos)(socket_t *, unsigned int);
 };
 struct socket_address {
 	sockfamily_t			*family;

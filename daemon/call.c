@@ -735,6 +735,7 @@ alloc:
 		g_queue_push_tail(&em->intf_sfds, em_il);
 
 		while ((sock = g_queue_pop_head(&il->list))) {
+			set_tos(sock, media->call->tos);
 			sfd = stream_fd_new(sock, media->call, il->local_intf);
 			g_queue_push_tail(&em_il->list, sfd); /* not referenced */
 		}

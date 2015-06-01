@@ -27,6 +27,8 @@ static int __ip6_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep);
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep);
 static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpoint_t *ep);
+static int __ip4_tos(socket_t *, unsigned int);
+static int __ip6_tos(socket_t *, unsigned int);
 
 
 
@@ -57,6 +59,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.recvfrom		= __ip_recvfrom,
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
+		.tos			= __ip4_tos,
 	},
 	[SF_IP6] = {
 		.af			= AF_INET6,
@@ -77,6 +80,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.recvfrom		= __ip_recvfrom,
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
+		.tos			= __ip6_tos,
 	},
 };
 
@@ -232,6 +236,16 @@ static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpo
 
 	s->family->endpoint2sockaddr(&sin, ep);
 	return sendto(s->fd, buf, len, 0, (void *) &sin, s->family->sockaddr_size);
+}
+static int __ip4_tos(socket_t *s, unsigned int tos) {
+	unsigned char ctos;
+	ctos = tos;
+	setsockopt(s->fd, IPPROTO_IP, IP_TOS, &ctos, sizeof(ctos));
+	return 0;
+}
+static int __ip6_tos(socket_t *s, unsigned int tos) {
+	setsockopt(s->fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
+	return 0;
 }
 
 

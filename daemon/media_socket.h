@@ -74,7 +74,9 @@ void interfaces_exclude_port(unsigned int port);
 
 //int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const struct call *c);
 //void release_port(socket_t *r, const struct local_intf *);
-void set_tos(socket_t *, unsigned int tos);
+INLINE void set_tos(socket_t *s, unsigned int tos) {
+	s->family->tos(s, tos);
+}
 int get_consecutive_ports(GQueue *out, unsigned int num_ports, const struct logical_intf *log);
 struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct local_intf *lif);
 

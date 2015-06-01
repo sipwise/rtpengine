@@ -377,23 +377,7 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 
 
 
-/* XXX family specific */
-void set_tos(socket_t *sock, unsigned int tos) {
-	unsigned char ctos;
-
-	ctos = tos;
-
-	setsockopt(sock->fd, IPPROTO_IP, IP_TOS, &ctos, sizeof(tos));
-#ifdef IPV6_TCLASS
-	setsockopt(sock->fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
-#else
-#warning "Will not set IPv6 traffic class"
-#endif
-}
-
-
 /* XXX family specific? unify? */
-/* XXX set TOS after opening! */
 static int get_port6(socket_t *r, unsigned int port, struct intf_spec *spec) {
 	if (open_socket(r, SOCK_DGRAM, port, &spec->address.addr))
 		return -1;
