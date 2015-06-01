@@ -2243,39 +2243,39 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 	__C_DBG("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(&call->callid));
 	ret = g_hash_table_lookup(call->tags, fromtag);
-	/* XXX reverse the conditional */
-	if (ret) {
-		__C_DBG("found existing monologue");
-		__monologue_unkernelize(ret);
-		__monologue_unkernelize(ret->active_dialogue);
-
-		if (!viabranch)
-			goto ok_check_tag;
-
-		/* check the viabranch. if it's not known, then this is a branched offer and we need
-		 * to create a new "other side" for this branch. */
-		if (!ret->active_dialogue->viabranch.s) {
-			/* previous "other side" hasn't been tagged with the via-branch, so we'll just
-			 * use this one and tag it */
-			__monologue_viabranch(ret->active_dialogue, viabranch);
-			goto ok_check_tag;
-		}
-		if (!str_cmp_str(&ret->active_dialogue->viabranch, viabranch))
-			goto ok_check_tag; /* dialogue still intact */
-		os = g_hash_table_lookup(call->viabranches, viabranch);
-		if (os) {
-			/* previously seen branch. use it */
-			__monologue_unkernelize(os);
-			os->active_dialogue = ret;
-			ret->active_dialogue = os;
-			goto ok_check_tag;
-		}
+	if (!ret) {
+		__C_DBG("creating new monologue");
+		ret = __monologue_create(call);
+		__monologue_tag(ret, fromtag);
 		goto new_branch;
 	}
 
-	__C_DBG("creating new monologue");
-	ret = __monologue_create(call);
-	__monologue_tag(ret, fromtag);
+	__C_DBG("found existing monologue");
+	__monologue_unkernelize(ret);
+	__monologue_unkernelize(ret->active_dialogue);
+
+	if (!viabranch)
+		goto ok_check_tag;
+
+	/* check the viabranch. if it's not known, then this is a branched offer and we need
+	 * to create a new "other side" for this branch. */
+	if (!ret->active_dialogue->viabranch.s) {
+		/* previous "other side" hasn't been tagged with the via-branch, so we'll just
+		 * use this one and tag it */
+		__monologue_viabranch(ret->active_dialogue, viabranch);
+		goto ok_check_tag;
+	}
+	if (!str_cmp_str(&ret->active_dialogue->viabranch, viabranch))
+		goto ok_check_tag; /* dialogue still intact */
+	os = g_hash_table_lookup(call->viabranches, viabranch);
+	if (os) {
+		/* previously seen branch. use it */
+		__monologue_unkernelize(os);
+		os->active_dialogue = ret;
+		ret->active_dialogue = os;
+		goto ok_check_tag;
+	}
+
 	/* we need both sides of the dialogue even in the initial offer, so create
 	 * another monologue without to-tag (to be filled in later) */
 new_branch:
