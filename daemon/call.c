@@ -1959,65 +1959,30 @@ void call_destroy(struct call *c) {
 
 
 
-/* XXX unify and move these */
-static int call_stream_address4(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, const struct local_intf *ifa)
-{
-	int l = 0;
-
-	if (format == SAF_NG) {
-		strcpy(o + l, "IP4 ");
-		l = 4;
-	}
-
-	if (is_addr_unspecified(&ps->advertised_endpoint.address)
-			&& !is_trickle_ice_address(&ps->advertised_endpoint)) {
-		strcpy(o + l, "0.0.0.0");
-		l += 7;
-	}
-	else {
-		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->spec->address.advertised));
-	}
-
-	*len = l;
-	return AF_INET;
-}
-
-static int call_stream_address6(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, const struct local_intf *ifa)
-{
-	int l = 0;
-
-	if (format == SAF_NG) {
-		strcpy(o + l, "IP6 ");
-		l += 4;
-	}
-
-	if (is_addr_unspecified(&ps->advertised_endpoint.address)
-			&& !is_trickle_ice_address(&ps->advertised_endpoint)) {
-		strcpy(o + l, "::");
-		l += 2;
-	}
-	else {
-		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->spec->address.advertised));
-	}
-
-	*len = l;
-	return AF_INET6;
-}
-
-
+/* XXX move these */
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
 		int *len, const struct local_intf *ifa)
 {
 	struct packet_stream *sink;
+	int l = 0;
+	const struct intf_address *ifa_addr;
 
 	sink = packet_stream_sink(ps);
 	if (!ifa)
 		ifa = sink->selected_sfd->local_intf;
-	if (ifa->spec->address.addr.family->af == AF_INET) /* XXX fix */
-		return call_stream_address4(o, sink, format, len, ifa);
-	return call_stream_address6(o, sink, format, len, ifa);
+	ifa_addr = &ifa->spec->address;
+
+	if (format == SAF_NG)
+		l += sprintf(o + l, "%s ", ifa_addr->addr.family->rfc_name);
+
+	if (is_addr_unspecified(&ps->advertised_endpoint.address)
+			&& !is_trickle_ice_address(&ps->advertised_endpoint))
+		l += sprintf(o + l, "%s", sockaddr_print_buf(&ps->advertised_endpoint.address));
+	else
+		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa_addr->advertised));
+
+	*len = l;
+	return ifa_addr->addr.family->af;
 }
 
 
