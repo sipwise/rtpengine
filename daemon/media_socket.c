@@ -337,6 +337,20 @@ void interfaces_init(GQueue *interfaces) {
 	}
 }
 
+void interfaces_exclude_port(unsigned int port) {
+	GList *vals, *l;
+	struct intf_spec *spec;
+
+	vals = g_hash_table_get_values(__intf_spec_addr_type_hash);
+
+	for (l = vals; l; l = l->next) {
+		spec = l->data;
+		bit_array_set(spec->port_pool.ports_used, port);
+	}
+
+	g_list_free(vals);
+}
+
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam) {
 	const GQueue *q;
 

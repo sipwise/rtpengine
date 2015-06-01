@@ -517,9 +517,6 @@ INLINE str *call_str_init_dup(struct call *c, char *s) {
 	str_init(&t, s);
 	return call_str_dup(c, &t);
 }
-INLINE void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
-	//bit_array_set(m->ports_used, p); /* XXX fix */
-}
 INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	struct packet_stream *ret;
 	ret = ps->rtp_sink;

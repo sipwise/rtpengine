@@ -70,6 +70,7 @@ void interfaces_init(GQueue *interfaces);
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam);
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 struct local_intf *get_any_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
+void interfaces_exclude_port(unsigned int port);
 
 //int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const struct call *c);
 //void release_port(socket_t *r, const struct local_intf *);

@@ -583,7 +583,7 @@ no_kernel:
 
 	cu = NULL;
 	if (udp_listen_ep.port) {
-		// callmaster_exclude_port(ctx->m, udp_listenport); /* XXX fix */
+		interfaces_exclude_port(udp_listen_ep.port);
 		cu = control_udp_new(ctx->p, &udp_listen_ep, ctx->m);
 		if (!cu)
 			die("Failed to open UDP control connection port");
@@ -591,7 +591,7 @@ no_kernel:
 
 	cn = NULL;
 	if (ng_listen_ep.port) {
-		// callmaster_exclude_port(ctx->m, ng_listenport); /* XXX fix */
+		interfaces_exclude_port(ng_listen_ep.port);
 		cn = control_ng_new(ctx->p, &ng_listen_ep, ctx->m);
 		if (!cn)
 			die("Failed to open UDP control connection port");
@@ -599,7 +599,7 @@ no_kernel:
 
 	cl = NULL;
 	if (tcp_listen_ep.port) {
-	    // callmaster_exclude_port(ctx->m, cli_listenport); /* XXX fix */
+		interfaces_exclude_port(cli_listen_ep.port);
 	    cl = cli_new(ctx->p, &cli_listen_ep, ctx->m);
 	    if (!cl)
 	        die("Failed to open UDP CLI connection port");
