@@ -993,14 +993,6 @@ static int __check_valid(struct ice_agent *ag) {
 	ilog(LOG_DEBUG, "ICE completed, using pair "PAIR_FORMAT, PAIR_FMT(pair));
 	AGENT_SET(ag, COMPLETED);
 
-//	XXX restore this
-//	ifa = g_atomic_pointer_get(&media->local_intf);
-//	if (ifa != pair->local_intf
-//			&& g_atomic_pointer_compare_and_exchange(&media->local_intf, ifa,
-//				pair->local_intf))
-//		ilog(LOG_INFO, "ICE negotiated: local interface %s",
-//				sockaddr_print_buf(&pair->local_intf->spec->address.addr));
-
 	for (l = media->streams.head, k = all_compos.head; l && k; l = l->next, k = k->next) {
 		ps = l->data;
 		pair = k->data;
@@ -1018,6 +1010,9 @@ static int __check_valid(struct ice_agent *ag) {
 			if (sfd->local_intf != pair->local_intf)
 				continue;
 			ps->selected_sfd = sfd;
+			if (ps->component == 1)
+				ilog(LOG_INFO, "ICE negotiated: local interface %s",
+						sockaddr_print_buf(&pair->local_intf->spec->address.addr));
 		}
 	}
 

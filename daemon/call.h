@@ -329,11 +329,6 @@ struct call_media {
 	sockfamily_t		*desired_family;
 	const struct logical_intf *logical_intf;
 
-	/* local_address is protected by call->master_lock in W mode, but may
-	 * still be modified if the lock is held in R mode, therefore we use
-	 * atomic ops to access it when holding an R lock. */
-	//const volatile struct local_intf *local_intf;
-
 	struct ice_agent	*ice_agent;
 
 	struct {
