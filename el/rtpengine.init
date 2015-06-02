@@ -167,6 +167,11 @@ build_opts() {
         then
                 OPTS+=" --log-facility-rtcp=$LOG_FACILITY_RTCP"
         fi
+
+	if [[ -n "$MAX_SESSIONS" ]]
+        then
+                OPTS+=" --max-sessions=$MAX_SESSIONS"
+        fi
 }
 
 start() {

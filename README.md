@@ -187,6 +187,7 @@ option and which are reproduced below:
 	  -g, --graphite=[IP46:]PORT       TCP address of graphite statistics server
 	  -w, --graphite-interval=INT      Graphite data statistics send interval
 	  --graphite-prefix=STRING         Graphite prefix for every line
+	  --max-sessions=INT               Limit the number of maximum concurrent sessions
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
