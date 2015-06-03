@@ -1,3 +1,26 @@
+ngcp-rtpengine (3.8.3.0+0~mr3.8.3.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [a7c7a50] fix refcount bug
+  * [cff417f] fix call timeout when ICE fails
+  * [0270dff] fix ICE when no candidates are present (trickle ICE)
+  * [507f3cb] do not detect trickle ICE RTCP port as rtcp-mux
+  * [4038732] fix number of ICE components for tricke-ICE no-components case
+  * [adde79c] don't reset certain stream flags for disabled (zero port) streams
+  * [b4f5312] increase size of RTP loop protection buffer to 28 for RTCP
+  * [a7d18ae] reset SRTP ROC to zero when SSRC changes
+  * [208fbfa] RTP forwarding fix for trickle ICE
+  * [bd810b2] MT#13067 fix premature call timeout for un-answered calls
+  * [ac8165c] MT#12691 implement via-branch handling
+  * [b9c065d] segfault fix for debug builds
+
+  [ Victor Seva ]
+  * [508e606] MT#12519 debian/control: switch from Pre-Depends to Suggests for ngcp-system-tools package
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 03 Jun 2015 16:46:58 +0200
+
 ngcp-rtpengine (3.8.2.0+0~mr3.8.2.0) unstable; urgency=low
 
   [ Richard Fuchs ]
