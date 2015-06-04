@@ -689,7 +689,7 @@ void kernelize(struct packet_stream *stream) {
 
 	mutex_lock(&sink->out_lock);
 
-	reti.target_port = stream->selected_sfd->socket.local.port;
+	__re_address_translate_ep(&reti.local, &stream->selected_sfd->socket.local);
 	reti.tos = call->tos;
 	reti.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
 	reti.dtls = MEDIA_ISSET(stream->media, DTLS);
@@ -747,13 +747,17 @@ no_kernel:
 
 /* must be called with in_lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p) {
+	struct re_address rea;
+
 	if (!PS_ISSET(p, KERNELIZED))
 		return;
 	if (PS_ISSET(p, NO_KERNEL_SUPPORT))
 		return;
 
-	if (p->call->callmaster->conf.kernelfd >= 0)
-		kernel_del_stream(p->call->callmaster->conf.kernelfd, p->selected_sfd->socket.local.port);
+	if (p->call->callmaster->conf.kernelfd >= 0) {
+		__re_address_translate_ep(&rea, &p->selected_sfd->socket.local);
+		kernel_del_stream(p->call->callmaster->conf.kernelfd, &rea);
+	}
 
 	PS_CLEAR(p, KERNELIZED);
 }

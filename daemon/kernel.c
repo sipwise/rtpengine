@@ -86,13 +86,13 @@ int kernel_add_stream(int fd, struct rtpengine_target_info *mti, int update) {
 }
 
 
-int kernel_del_stream(int fd, u_int16_t p) {
+int kernel_del_stream(int fd, const struct re_address *a) {
 	struct rtpengine_message msg;
 	int ret;
 
 	ZERO(msg);
 	msg.cmd = MMG_DEL;
-	msg.target.target_port = p;
+	msg.target.local = *a;
 
 	ret = write(fd, &msg, sizeof(msg));
 	if (ret > 0)

@@ -75,7 +75,7 @@ enum rtpengine_src_mismatch {
 };
 
 struct rtpengine_target_info {
-	u_int16_t			target_port;
+	struct re_address		local;
 	struct re_address		expected_src; /* for incoming packets */
 	enum rtpengine_src_mismatch	src_mismatch;
 

@@ -488,7 +488,7 @@ static void callmaster_timer(void *ptr) {
 	while (i) {
 		ke = i->data;
 
-		sfd = hlp.ports[ke->target.target_port];
+		sfd = hlp.ports[ke->target.local.port]; // XXX fix for multiple addresses
 		if (!sfd)
 			goto next;
 
@@ -569,7 +569,7 @@ static void callmaster_timer(void *ptr) {
 			redis_update(ps->call, m->conf.redis);
 
 next:
-		hlp.ports[ke->target.target_port] = NULL;
+		hlp.ports[ke->target.local.port] = NULL;
 		g_slice_free1(sizeof(*ke), ke);
 		i = g_list_delete_link(i, i);
 		if (sfd)
