@@ -93,6 +93,7 @@ void unkernelize(struct packet_stream *);
 void __stream_unconfirm(struct packet_stream *);
 
 /* XXX shouldnt be necessary */
+/*
 INLINE struct local_intf *get_interface_from_address(const struct logical_intf *lif,
 		const sockaddr_t *addr, socktype_t *type)
 {
@@ -101,6 +102,7 @@ INLINE struct local_intf *get_interface_from_address(const struct logical_intf *
 	a.addr = *addr;
 	return g_hash_table_lookup(lif->addr_hash, &a);
 }
+*/
 
 
 #endif
