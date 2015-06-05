@@ -46,6 +46,7 @@ struct socket_family {
 	size_t				sockaddr_size;
 	const char			*name; /* "IPv4" */
 	const char			*rfc_name; /* "IP4" */
+	const char			*unspec_string; /* 0.0.0.0 or :: */
 	unsigned int			(*hash)(const sockaddr_t *);
 	int				(*eq)(const sockaddr_t *, const sockaddr_t *);
 	int				(*addr_parse)(sockaddr_t *, const char *);

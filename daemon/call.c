@@ -1968,17 +1968,18 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 	int l = 0;
 	const struct intf_address *ifa_addr;
 
-	sink = packet_stream_sink(ps);
 	if (!ifa)
-		ifa = sink->selected_sfd->local_intf;
+		ifa = ps->selected_sfd->local_intf;
 	ifa_addr = &ifa->spec->address;
+
+	sink = packet_stream_sink(ps);
 
 	if (format == SAF_NG)
 		l += sprintf(o + l, "%s ", ifa_addr->addr.family->rfc_name);
 
-	if (is_addr_unspecified(&ps->advertised_endpoint.address)
-			&& !is_trickle_ice_address(&ps->advertised_endpoint))
-		l += sprintf(o + l, "%s", sockaddr_print_buf(&ps->advertised_endpoint.address));
+	if (is_addr_unspecified(&sink->advertised_endpoint.address)
+			&& !is_trickle_ice_address(&sink->advertised_endpoint))
+		l += sprintf(o + l, "%s", ifa_addr->addr.family->unspec_string);
 	else
 		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa_addr->advertised));
 
