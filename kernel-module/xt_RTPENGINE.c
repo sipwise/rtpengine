@@ -763,31 +763,39 @@ static inline struct rtpengine_target *find_next_target(struct rtpengine_table *
 	unsigned long flags;
 	struct re_dest_addr *rda;
 	struct re_bucket *b;
-	unsigned char hi, lo;
+	unsigned char hi, lo, ab;
 	unsigned int rda_b, hi_b, lo_b;
 	struct rtpengine_target *g;
 
-	if (*addr_bucket < 0 || *addr_bucket > 255)
+	if (*port < 0)
 		return NULL;
-
-	if (*port < 0 || *port > 0xffff)
+	if (*port > 0xffff) {
+		*port = 0;
+		(*addr_bucket)++;
+	}
+	if (*addr_bucket < 0 || *addr_bucket > 255)
 		return NULL;
 
 	hi = (*port & 0xff00) >> 8;
 	lo = *port & 0xff;
+	ab = *addr_bucket;
 
 	read_lock_irqsave(&t->target_lock, flags);
 
 	for (;;) {
-		rda_b = bitfield_slot(*addr_bucket);
+		rda_b = bitfield_slot(ab);
 		if (!t->dest_addr_hash.addrs_bf.b[rda_b]) {
-			*addr_bucket = bitfield_next_slot(rda_b);
+			ab = bitfield_next_slot(rda_b);
+			hi = 0;
+			lo = 0;
 			goto next_rda;
 		}
 
-		rda = t->dest_addr_hash.addrs[*addr_bucket];
+		rda = t->dest_addr_hash.addrs[ab];
 		if (!rda) {
-			(*addr_bucket)++;
+			ab++;
+			hi = 0;
+			lo = 0;
 			goto next_rda;
 		}
 
@@ -825,14 +833,15 @@ next_lo:
 			hi++;
 next_hi:
 		if (!hi && !lo)
-			(*addr_bucket)++;
+			ab++;
 next_rda:
-		if (!*addr_bucket && !hi && !lo)
+		if (!ab && !hi && !lo)
 			break;
 	}
 
 	read_unlock_irqrestore(&t->target_lock, flags);
 
+	*addr_bucket = ab;
 	*port = (hi << 8) | lo;
 	(*port)++;
 
@@ -889,10 +898,10 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	if (!t)
 		return -ENOENT;
 
-	addr_bucket = ((int) *o) >> 16;
-	port = ((int) *o) & 0xffff;
+	addr_bucket = ((int) *o) >> 17;
+	port = ((int) *o) & 0x1ffff;
 	g = find_next_target(t, &addr_bucket, &port);
-	*o = (addr_bucket << 16) | port;
+	*o = (addr_bucket << 17) | port;
 	err = 0;
 	if (!g)
 		goto err;
@@ -973,8 +982,8 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 	struct rtpengine_target *g;
 	int port, addr_bucket;
 
-	addr_bucket = ((int) *o) >> 16;
-	port = ((int) *o) & 0xffff;
+	addr_bucket = ((int) *o) >> 17;
+	port = ((int) *o) & 0x1ffff;
 
 	t = get_table(id);
 	if (!t)
@@ -982,7 +991,7 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 
 	g = find_next_target(t, &addr_bucket, &port);
 
-	*o = (addr_bucket << 16) | port;
+	*o = (addr_bucket << 17) | port;
 	table_push(t);
 
 	return g;
