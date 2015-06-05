@@ -233,9 +233,20 @@ static GQueue __preferred_lists_for_family[__SF_LAST];
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam) {
 	struct logical_intf d, *lif;
 
-	if (!name || !name->s) {
+	if (G_UNLIKELY(!name || !name->s)) {
 		GQueue *q;
-		q = __interface_list_for_family(fam);
+		if (fam)
+			q = __interface_list_for_family(fam);
+		else {
+			for (int i = 0; i < __SF_LAST; i++) {
+				q = &__preferred_lists_for_family[i];
+				if (q->length)
+					goto got_some;
+			}
+			abort();
+got_some:
+			;
+		}
 		return q->head ? q->head->data : NULL;
 	}
 

@@ -1319,7 +1319,7 @@ static void __init_interface(struct call_media *media, const str *ifname) {
 		return;
 get:
 	media->logical_intf = get_logical_interface(ifname, media->desired_family);
-	if (!media->logical_intf) {
+	if (G_UNLIKELY(!media->logical_intf)) {
 		/* legacy support */
 		if (!str_cmp(ifname, "internal"))
 			media->desired_family = __get_socket_family_enum(SF_IP4);
@@ -1328,6 +1328,11 @@ get:
 		else
 			ilog(LOG_WARNING, "Interface '"STR_FORMAT"' not found, using default", STR_FMT(ifname));
 		media->logical_intf = get_logical_interface(NULL, media->desired_family);
+		if (!media->logical_intf) {
+			ilog(LOG_WARNING, "Requested address family (%s) not supported",
+					media->desired_family->name);
+			media->logical_intf = get_logical_interface(NULL, NULL);
+		}
 	}
 //	media->local_intf = ifa = get_interface_address(media->logical_intf, media->desired_family);
 //	if (!ifa) {
