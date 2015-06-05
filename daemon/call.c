@@ -42,7 +42,7 @@
 struct iterator_helper {
 	GSList			*del_timeout;
 	GSList			*del_scheduled;
-	struct stream_fd	*ports[0x10000];
+	GHashTable		*addr_sfd;
 };
 struct xmlrpc_helper {
 	enum xmlrpc_format fmt;
@@ -224,10 +224,9 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 		if (css == CSS_ICE)
 			timestamp = &ps->media->ice_agent->last_activity;
 
-		if (hlp->ports[sfd->socket.local.port])
+		if (g_hash_table_contains(hlp->addr_sfd, &sfd->socket.local))
 			goto next;
-		hlp->ports[sfd->socket.local.port] = sfd;
-		obj_hold(sfd);
+		g_hash_table_insert(hlp->addr_sfd, &sfd->socket.local, obj_get(sfd));
 
 no_sfd:
 		if (good)
@@ -461,7 +460,7 @@ destroy:
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
 	struct iterator_helper hlp;
-	GList *i;
+	GList *i, *l;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps, *sink;
 	struct stats tmpstats;
@@ -469,8 +468,10 @@ static void callmaster_timer(void *ptr) {
 	struct stream_fd *sfd;
 	struct rtp_stats *rs;
 	unsigned int pt;
+	endpoint_t ep;
 
 	ZERO(hlp);
+	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
 
 	rwlock_lock_r(&m->hashlock);
 	g_hash_table_foreach(m->callhash, call_timer_iterator, &hlp);
@@ -488,7 +489,8 @@ static void callmaster_timer(void *ptr) {
 	while (i) {
 		ke = i->data;
 
-		sfd = hlp.ports[ke->target.local.port]; // XXX fix for multiple addresses
+		kernel2endpoint(&ep, &ke->target.local);
+		sfd = g_hash_table_lookup(hlp.addr_sfd, &ep);
 		if (!sfd)
 			goto next;
 
@@ -569,16 +571,18 @@ static void callmaster_timer(void *ptr) {
 			redis_update(ps->call, m->conf.redis);
 
 next:
-		hlp.ports[ke->target.local.port] = NULL;
+		g_hash_table_remove(hlp.addr_sfd, &ep);
 		g_slice_free1(sizeof(*ke), ke);
 		i = g_list_delete_link(i, i);
 		if (sfd)
 			obj_put(sfd);
 	}
 
-	for (j = 0; j < (sizeof(hlp.ports) / sizeof(*hlp.ports)); j++)
-		if (hlp.ports[j])
-			obj_put(hlp.ports[j]);
+	l = g_hash_table_get_values(hlp.addr_sfd);
+	for (i = l; i; i = i->next)
+		obj_put((struct stream_fd *) i->data);
+	g_list_free(l);
+	g_hash_table_destroy(hlp.addr_sfd);
 
 	kill_calls_timer(hlp.del_scheduled, NULL);
 	kill_calls_timer(hlp.del_timeout, m);

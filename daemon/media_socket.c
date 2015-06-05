@@ -623,17 +623,8 @@ static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *stre
 	return __k_srtp_crypt(s, &stream->selected_sfd->crypto);
 }
 
-/* XXX unify this */
-INLINE void __re_address_translate(struct re_address *o, const sockaddr_t *address) {
-	o->family = address->family->af;
-	if (o->family == AF_INET)
-		o->u.ipv4 = address->u.ipv4.s_addr;
-	else
-		memcpy(o->u.ipv6, &address->u.ipv6, sizeof(o->u.ipv6));
-}
 INLINE void __re_address_translate_ep(struct re_address *o, const endpoint_t *ep) {
-	__re_address_translate(o, &ep->address);
-	o->port = ep->port;
+	ep->address.family->endpoint2kernel(o, ep);
 }
 
 static int __rtp_stats_pt_sort(const void *ap, const void *bp) {
@@ -653,7 +644,6 @@ void kernelize(struct packet_stream *stream) {
 	struct call *call = stream->call;
 	struct callmaster *cm = call->callmaster;
 	struct packet_stream *sink = NULL;
-	const struct local_intf *ifa;
 	const char *nk_warn_msg;
 
 	if (PS_ISSET(stream, KERNELIZED))
@@ -706,10 +696,8 @@ void kernelize(struct packet_stream *stream) {
 	reti.dtls = MEDIA_ISSET(stream->media, DTLS);
 	reti.stun = stream->media->ice_agent ? 1 : 0;
 
-	ifa = sink->selected_sfd->local_intf;
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
-	__re_address_translate(&reti.src_addr, &ifa->spec->address.addr);
-	reti.src_addr.port = sink->selected_sfd->socket.local.port;
+	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);
 	reti.ssrc = sink->crypto.ssrc;
 
 	stream->handler->in->kernel(&reti.decrypt, stream);

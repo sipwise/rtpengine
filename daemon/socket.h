@@ -21,6 +21,7 @@ struct socket_type;
 struct socket_family;
 struct endpoint;
 struct socket;
+struct re_address;
 
 typedef struct socket_address sockaddr_t;
 typedef struct endpoint endpoint_t;
@@ -62,6 +63,8 @@ struct socket_family {
 	ssize_t				(*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *);
 	ssize_t				(*sendto)(socket_t *, const void *, size_t, const endpoint_t *);
 	int				(*tos)(socket_t *, unsigned int);
+	void				(*endpoint2kernel)(struct re_address *, const endpoint_t *);
+	void				(*kernel2endpoint)(endpoint_t *, const struct re_address *);
 };
 struct socket_address {
 	sockfamily_t			*family;
@@ -180,6 +183,7 @@ int sockaddr_parse_any(sockaddr_t *dst, const char *src);
 int sockaddr_parse_any_str(sockaddr_t *dst, const str *src);
 int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
 int endpoint_parse_any(endpoint_t *, const char *);
+void kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
 
 unsigned int sockaddr_hash(const sockaddr_t *);
 int sockaddr_eq(const sockaddr_t *, const sockaddr_t *); /* true/false */

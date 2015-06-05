@@ -4,6 +4,7 @@
 #include <errno.h>
 #include "str.h"
 #include "media_socket.h"
+#include "xt_RTPENGINE.h"
 
 static int __ip4_addr_parse(sockaddr_t *dst, const char *src);
 static int __ip6_addr_parse(sockaddr_t *dst, const char *src);
@@ -29,6 +30,10 @@ static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep
 static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpoint_t *ep);
 static int __ip4_tos(socket_t *, unsigned int);
 static int __ip6_tos(socket_t *, unsigned int);
+static void __ip4_endpoint2kernel(struct re_address *, const endpoint_t *);
+static void __ip6_endpoint2kernel(struct re_address *, const endpoint_t *);
+static void __ip4_kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
+static void __ip6_kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
 
 
 
@@ -61,6 +66,8 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
 		.tos			= __ip4_tos,
+		.endpoint2kernel	= __ip4_endpoint2kernel,
+		.kernel2endpoint	= __ip4_kernel2endpoint,
 	},
 	[SF_IP6] = {
 		.af			= AF_INET6,
@@ -83,6 +90,8 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
 		.tos			= __ip6_tos,
+		.endpoint2kernel	= __ip6_endpoint2kernel,
+		.kernel2endpoint	= __ip6_kernel2endpoint,
 	},
 };
 
@@ -249,7 +258,32 @@ static int __ip6_tos(socket_t *s, unsigned int tos) {
 	setsockopt(s->fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
 	return 0;
 }
-
+static void __ip4_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
+	ra->family = AF_INET;
+	ra->u.ipv4 = ep->address.u.ipv4.s_addr;
+	ra->port = ep->port;
+}
+static void __ip6_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
+	ra->family = AF_INET6;
+	memcpy(ra->u.ipv6, &ep->address.u.ipv6, sizeof(ra->u.ipv6));
+	ra->port = ep->port;
+}
+void kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
+	if (ra->family == AF_INET)
+		ep->address.family = __get_socket_family_enum(SF_IP4);
+	else if (ra->family == AF_INET6)
+		ep->address.family = __get_socket_family_enum(SF_IP6);
+	else
+		abort();
+	ep->port = ra->port;
+	ep->address.family->kernel2endpoint(ep, ra);
+}
+static void __ip4_kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
+	ep->address.u.ipv4.s_addr = ra->u.ipv4;
+}
+static void __ip6_kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
+	memcpy(&ep->address.u.ipv6, ra->u.ipv6, sizeof(ep->address.u.ipv6));
+}
 
 
 
