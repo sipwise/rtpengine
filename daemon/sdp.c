@@ -1959,20 +1959,24 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			else
 				chopper_append_c(chop, "a=inactive\r\n");
 
-			if (MEDIA_ISSET(call_media, RTCP_MUX) && flags->opmode == OP_ANSWER) {
-				chopper_append_c(chop, "a=rtcp:");
-				chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
-				chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
-				ps_rtcp = NULL;
-			}
-			else if (ps_rtcp && !flags->ice_force_relay) {
-				chopper_append_c(chop, "a=rtcp:");
-				chopper_append_printf(chop, "%u", ps_rtcp->selected_sfd->socket.local.port);
-				if (!MEDIA_ISSET(call_media, RTCP_MUX))
-					chopper_append_c(chop, "\r\n");
-				else
+			if (call_media->protocol && call_media->protocol->rtp) {
+				if (MEDIA_ISSET(call_media, RTCP_MUX) && flags->opmode == OP_ANSWER) {
+					chopper_append_c(chop, "a=rtcp:");
+					chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
 					chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					ps_rtcp = NULL;
+				}
+				else if (ps_rtcp && !flags->ice_force_relay) {
+					chopper_append_c(chop, "a=rtcp:");
+					chopper_append_printf(chop, "%u", ps_rtcp->selected_sfd->socket.local.port);
+					if (!MEDIA_ISSET(call_media, RTCP_MUX))
+						chopper_append_c(chop, "\r\n");
+					else
+						chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+				}
 			}
+			else
+				ps_rtcp = NULL;
 
 			insert_crypto(call_media, chop);
 			insert_dtls(call_media, chop);
