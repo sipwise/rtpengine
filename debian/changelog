@@ -1,3 +1,15 @@
+ngcp-rtpengine (3.8.1.6+0~mr3.8.1.6) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [3cd0954] MT#13067 fix premature call timeout for un-answered calls
+  * [c532314] MT#12691 implement via-branch handling
+  * [0a26934] segfault fix for debug builds
+  * [39e1878] MT#13737 don't add a=rtcp for non-RTP protocols
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 06 Jul 2015 17:42:58 +0200
+
 ngcp-rtpengine (3.8.1.5+0~mr3.8.1.5) unstable; urgency=low
 
   [ Richard Fuchs ]
