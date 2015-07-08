@@ -520,6 +520,13 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	SSL_set_bio(d->ssl, d->r_bio, d->w_bio);
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
+	EC_KEY* ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+	if (ecdh == NULL)
+		goto error;
+	SSL_set_options(d->ssl, SSL_OP_SINGLE_ECDH_USE);
+	SSL_set_tmp_ecdh(d->ssl, ecdh);
+	EC_KEY_free(ecdh);
+
 	d->init = 1;
 	d->active = active ? -1 : 0;
 
