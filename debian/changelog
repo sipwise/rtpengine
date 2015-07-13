@@ -1,3 +1,96 @@
+ngcp-rtpengine (4.1.0.0+0~mr4.1.0.0) unstable; urgency=low
+
+  [ Frederic-Philippe Metz ]
+  * [ec5a543] Added prefix config parameter to graphite acc. to OPS
+  * [6bc7a77] First try of implementation of measureing delay.
+  * [d98d17b] Implemented non blocking connect to graphite due to firewall issues.
+  * [6e7a287] Modified average_dur format for graphite.
+  * [e0f9c59] Implemented stage 1 of measuring delay
+  * [bd24127] Revert "First try of implementation of measureing delay."
+  * [6d33ef7] Implemented delay measurement of RTP packets in kernel.
+  * [cca0f2b] Replaced rtpengine-ctl shell script with perl script.
+  * [070212e] Added RTCP parsing and option to log that information
+  * [f8aaf35] Implemented TOS/Traffic Class bit in received first RTP packet
+  * [5635a8c] Replaced rtpengine-ctl shell script with perl script.
+  * [8a0fbf2] Fixed RTCP parsing of bitfield structs.
+  * [1d1b8f2] Fixed RTCP Parsing also for XR reports.
+  * [cb85cbf] Fixed wrong Zeroing of stats member
+  * [c444c05] Implemented MAX_SESSIONS limit or calls.
+
+  [ Richard Fuchs ]
+  * [3acc850] zero-fill padding bytes
+  * [d502084] fix refcount bug
+  * [4ea8d96] remove stray compiler warning
+  * [ba48d7b] fix call timeout when ICE fails
+  * [13d8b8a] fix ICE when no candidates are present (trickle ICE)
+  * [46ebfa3] do not detect trickle ICE RTCP port as rtcp-mux
+  * [83a4082] fix number of ICE components for tricke-ICE no-components case
+  * [b0edf59] don't reset certain stream flags for disabled (zero port) streams
+  * [e7868da] increase size of RTP loop protection buffer to 28 for RTCP
+  * [39a305f] reset SRTP ROC to zero when SSRC changes
+  * [fd42645] use SRTP<>SRTP transcoding when crypto parameters differ
+  * [96e3b91] Implement support for some SDES session parameters
+  * [d422237] support SDES session parameters in kernel module
+  * [144a451] support selective SDES session parameters
+  * [85dc64d] compare SRTP session params for equality
+  * [b205691] RTP forwarding fix for trickle ICE
+  * [0abf5b1] process muxed RTCP
+  * [ae46036] RTCP logging fixes
+  * [29cf9f8] remove redundant code
+  * [18977d4] remove calls to setlogmask (not atomic)
+  * [ed2c101] preliminary fixup of new kernel stats - needs more work
+  * [a3bcdc5] dont abort on unknown RTCP payload type
+  * [0381b15] further move RTCP logging until after SRTCP decryption
+  * [92cc560] don't shut down ICE agent on consecutive re-invites
+  * [9c3ad50] use appropriate crypto context for encryption and decryption
+  * [76f3893] ssrc tracking improvements
+  * [c3c6d37] convert ssrc tracking functions to inline
+  * [39392e2] fix ssrc in simulator-ng.pl
+  * [5d6604a] SSRC/ROC debug tools for simulator-ng
+  * [87fbbb8] implement ssrc/roc tracking in encryption as well
+  * [409638e] simulator fixes for SDES session parameters
+  * [e0fec75] kinda support the UDP/TLS/ protocols in simulator-ng
+  * [f398d83] double check kernel SSRC when updating last index/ROC
+  * [80b8815] fix force-relay segfault
+  * [d567908] disable measuredelay features by default
+  * [4893487] fix compiler warning
+  * [d0ac721] skip printing cdr info when cdrs are disabled
+  * [8eaf812] update redis version
+  * [1e4d67a] fix for bf5a00fd1b
+  * [a6d9c78] MT#13067 fix premature call timeout for un-answered calls
+  * [eea3256] MT#12691 implement via-branch handling
+  * [d17e26a] segfault fix for debug builds
+  * [7ed4ed9] support immediate call deletion with delete-delay=0
+  * [a811adb] support custom per-call/branch delete delay
+  * [d9d8f97] support delete-delay passed as a string
+  * [4b1d190] fix compiler warning - return const string
+  * [5ba8e2e] MT#13737 don't add a=rtcp for non-RTP protocols
+  * [21e1fb6] support elliptic curve key exchange for DTLS-SRTP
+
+  [ Victor Seva ]
+  * [46c60e5] MT#12519 debian/control: switch from Pre-Depends to Suggests for ngcp-system-tools package
+
+  [ pkuzak ]
+  * [6255d1f] Disable delay measurement by default
+
+  [ Marc Soda ]
+  * [65a3587] Use the proper ROC when encrypting.
+  * [16b9184] Track SSRCs and sequence numbers.  Sync between userspace and the kernel.
+  * [0ac1ed2] Remove unnecessary prototype.
+
+  [ Kevin McAllister ]
+  * [965fa39] Change packet_index functions to more closely match RFC
+  * [3097f71] convert spaces to tab on comment.
+
+  [ Pawel Kuzak ]
+  * [ef84259] Added MAX_SESSIONS to README
+  * [369316a] Added rejected sessions statistics to total stats and graphite
+  * [bf5a00f] Modified average_dur format for graphite.
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 13 Jul 2015 15:35:03 +0200
+
 ngcp-rtpengine (4.0.0.0+0~mr4.0.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
