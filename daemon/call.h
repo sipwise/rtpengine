@@ -499,7 +499,9 @@ struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_
 struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag,
 		const str *viabranch);
 struct call *call_get(const str *callid, struct callmaster *m);
-int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
+int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams,
+        const struct sdp_ng_flags *flags,
+        unsigned int wanted_start_port1, unsigned int wanted_start_port2);
 int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);

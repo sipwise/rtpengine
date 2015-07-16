@@ -179,7 +179,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 		goto addr_fail;
 
 	g_queue_push_tail(&q, &sp);
-	i = monologue_offer_answer(monologue, &q, NULL);
+	i = monologue_offer_answer(monologue, &q, NULL, 0, 0);
 	g_queue_clear(&q);
 
 	if (i)
@@ -332,7 +332,7 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
 	}
-	if (monologue_offer_answer(monologue, &s, NULL))
+	if (monologue_offer_answer(monologue, &s, NULL, 0, 0))
 		goto out2;
 
 	ret = streams_print(&monologue->active_dialogue->medias, 1, s.length, NULL, SAF_TCP);
@@ -709,7 +709,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
-	ret = monologue_offer_answer(monologue, &streams, &flags);
+	ret = monologue_offer_answer(monologue, &streams, &flags, 0, 0);
 	if (!ret)
 		ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
 
