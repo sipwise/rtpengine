@@ -1750,7 +1750,7 @@ struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call) {
 }
 
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
-		const struct endpoint *ep)
+		const struct endpoint *ep, unsigned int wanted_start_port)
 {
 	GSList *l;
 	struct endpoint_map *em;
@@ -1802,7 +1802,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 alloc:
 	if (num_ports > G_N_ELEMENTS(fd_arr))
 		return NULL;
-	if (__get_consecutive_ports(fd_arr, num_ports, 0, media->call))
+	if (__get_consecutive_ports(fd_arr, num_ports, wanted_start_port, media->call))
 		return NULL;
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
@@ -1841,10 +1841,10 @@ static void __assign_stream_fds(struct call_media *media, GList *sfds) {
 		ice_restart(media->ice_agent);
 }
 
-static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_ports) {
+static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_ports, unsigned int wanted_start_port) {
 	struct endpoint_map *em;
 
-	em = __get_endpoint_map(media, num_ports, NULL);
+	em = __get_endpoint_map(media, num_ports, NULL, wanted_start_port);
 	if (!em)
 		return -1;
 
@@ -2457,7 +2457,8 @@ static void __ice_start(struct call_media *media) {
 
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
-		const struct sdp_ng_flags *flags)
+		const struct sdp_ng_flags *flags,
+        unsigned int wanted_start_port1, unsigned int wanted_start_port2)
 {
 	struct stream_params *sp;
 	GList *media_iter, *ml_media, *other_ml_media;
@@ -2595,7 +2596,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* get that many ports for each side, and one packet stream for each port, then
 		 * assign the ports to the streams */
-		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint);
+		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint, wanted_start_port1);
 		if (!em)
 			goto error;
 
@@ -2606,7 +2607,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			/* new streams created on OTHER side. normally only happens in
 			 * initial offer. create a wildcard endpoint_map to be filled in
 			 * when the answer comes. */
-			if (__wildcard_endpoint_map(other_media, num_ports))
+			if (__wildcard_endpoint_map(other_media, num_ports, wanted_start_port2))
 				goto error;
 		}
 
