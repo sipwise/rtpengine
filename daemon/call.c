@@ -1745,6 +1745,14 @@ void call_destroy(struct call *c) {
 						STR_FMT(&rtp_pt->encoding), rtp_pt->clock_rate,
 						STR_FMT(&rtp_pt->encoding_parameters));
 
+			/* add PayloadType(codec) info in CDR logging */
+			if (_log_facility_cdr && rtp_pt) {
+				cdrbufcur += sprintf(cdrbufcur,
+					"payload_type=%u, ", rtp_pt->payload_type);
+			} else if (_log_facility_cdr && !rtp_pt) {
+				cdrbufcur += sprintf(cdrbufcur, "payload_type=unknown, ");
+			}
+
 			for (o = md->streams.head; o; o = o->next) {
 				ps = o->data;
 
