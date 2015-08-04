@@ -386,17 +386,18 @@ struct call {
 
 	mutex_t			buffer_lock;
 	call_buffer_t		buffer;
+	GQueue			rtp_bridge_ports;
 
 	/* everything below protected by master_lock */
 	rwlock_t		master_lock;
 	GSList			*monologues;
-	GHashTable		*tags;	
+	GHashTable		*tags;
 	GHashTable		*viabranches;
 	GSList			*streams;
 	GSList			*stream_fds;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 
-	str			callid;	
+	str			callid;
 	time_t			created;
 	time_t			last_signal;
 	time_t			deleted;
