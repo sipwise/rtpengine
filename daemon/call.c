@@ -803,6 +803,7 @@ loop_ok:
 	if (PS_ISSET(stream, CONFIRMED)) {
 		/* see if we need to compare the source address with the known endpoint */
 		if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
+			memset(&endpoint, 0, sizeof(endpoint));
 			endpoint.ip46 = fsin->sin6_addr;
 			endpoint.port = ntohs(fsin->sin6_port);
 			mutex_lock(&stream->out_lock);
