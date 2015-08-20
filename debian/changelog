@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.8.4.0+0~mr3.8.4.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b27abca] MT#13737 don't add a=rtcp for non-RTP protocols
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 20 Aug 2015 23:27:54 +0200
+
 ngcp-rtpengine (3.8.3.0+0~mr3.8.3.0) unstable; urgency=low
 
   [ Richard Fuchs ]
