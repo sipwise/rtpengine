@@ -1555,23 +1555,30 @@ static void __get_pktinfo(int fd) {
 	setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &x, sizeof(x));
 }
 
-static int get_port6(struct udp_fd *r, u_int16_t p, const struct call *c) {
+static int get_port4(struct udp_fd *r, u_int16_t p, const struct call_media *media) {
 	int fd;
-	struct sockaddr_in6 sin;
+	struct sockaddr_in sin;
+	struct interface_address *ifa = (struct interface_address *)media->local_address;
 
-	fd = socket(AF_INET6, SOCK_DGRAM, 0);
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd < 0)
 		return -1;
 
 	nonblock(fd);
 	reuseaddr(fd);
-	ipv6only(fd, 0);
-	__set_tos(fd, c);
+	__set_tos(fd, media->call);
 	__get_pktinfo(fd);
 
 	ZERO(sin);
-	sin.sin6_family = AF_INET6;
-	sin.sin6_port = htons(p);
+	sin.sin_family = AF_INET;
+	sin.sin_port = htons(p);
+
+	/* bind on media local_address if found */
+	if (ifa) {
+		memcpy(&sin.sin_addr.s_addr, &ifa->addr.s6_addr32[3], sizeof(sin.sin_addr));
+	} 
+
+	/* bind on all IPs if media local_address not found */
 	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)))
 		goto fail;
 
@@ -1584,9 +1591,45 @@ fail:
 	return -1;
 }
 
-static int get_port(struct udp_fd *r, u_int16_t p, const struct call *c) {
+static int get_port6(struct udp_fd *r, u_int16_t p, const struct call_media *media) {
+	int fd;
+	struct sockaddr_in6 sin;
+	struct interface_address *ifa = (struct interface_address *)media->local_address;
+
+	fd = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (fd < 0)
+		return -1;
+
+	nonblock(fd);
+	reuseaddr(fd);
+	ipv6only(fd, 0);
+	__set_tos(fd, media->call);
+	__get_pktinfo(fd);
+
+	ZERO(sin);
+	sin.sin6_family = AF_INET6;
+	sin.sin6_port = htons(p);
+
+	/* bind on media local_address if found */
+	if (ifa) {
+		memcpy(&sin.sin6_addr.s6_addr, &ifa->addr.s6_addr, sizeof(sin.sin6_addr));
+	}
+
+	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)))
+		goto fail;
+
+	r->fd = fd;
+
+	return 0;
+
+fail:
+	close(fd);
+	return -1;
+}
+
+static int get_port(struct udp_fd *r, u_int16_t p, const struct call_media *media) {
 	int ret;
-	struct callmaster *m = c->callmaster;
+	struct callmaster *m = media->call->callmaster;
 
 	assert(r->fd == -1);
 
@@ -1598,7 +1641,13 @@ static int get_port(struct udp_fd *r, u_int16_t p, const struct call *c) {
 	}
 	__C_DBG("port locked");
 
-	ret = get_port6(r, p, c);
+	if (media->local_address->family == AF_INET) {
+		ret = get_port4(r, p, media);
+	} else if (media->local_address->family == AF_INET6) {
+		ret = get_port6(r, p, media);
+	} else {
+		ret = -1;
+	}
 
 	if (ret) {
 		__C_DBG("couldn't open port");
@@ -1621,11 +1670,11 @@ static void release_port(struct udp_fd *r, struct callmaster *m) {
 	r->localport = 0;
 }
 
-int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c) {
+int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call_media *media) {
 	int i, j, cycle = 0;
 	struct udp_fd *it;
 	int port;
-	struct callmaster *m = c->callmaster;
+	struct callmaster *m = media->call->callmaster;
 
 	memset(array, -1, sizeof(*array) * array_len);
 
@@ -1655,7 +1704,7 @@ int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_star
 				goto release_restart;
 			}
 
-			if (get_port(it, port++, c))
+			if (get_port(it, port++, media))
 				goto release_restart;
 		}
 		break;
@@ -1803,7 +1852,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 alloc:
 	if (num_ports > G_N_ELEMENTS(fd_arr))
 		return NULL;
-	if (__get_consecutive_ports(fd_arr, num_ports, wanted_start_port, media->call))
+	if (__get_consecutive_ports(fd_arr, num_ports, wanted_start_port, media))
 		return NULL;
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
