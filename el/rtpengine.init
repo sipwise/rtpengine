@@ -192,13 +192,15 @@ start() {
 			firewall-cmd --direct --add-chain ipv4 filter rtpengine
 			firewall-cmd --direct --add-rule ipv4 filter INPUT_prefilter 0 -j rtpengine
 			firewall-cmd --direct --add-rule ipv4 filter rtpengine 0 -p udp -j RTPENGINE --id $TABLE
-			firewall-cmd --reload
+			firewall-cmd --direct --add-rule ipv6 filter rtpengine 0 -p udp -j RTPENGINE --id $TABLE
+  			firewall-cmd --reload
 		else
 			iptables -N rtpengine
 			# We insert the rtpengine rule at the top of the input chain
 			iptables -t filter -I INPUT_prefilter -j rtpengine
 			iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
-  		fi
+			ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
+		fi
 
 		cat <<EOF > "$cachefile"
 CUR_TABLE=$TABLE
@@ -226,11 +228,13 @@ stop() {
 		if [[ $? == 0 ]]
 		then
 			firewall-cmd --direct --remove-rules ipv4 filter rtpengine
+			firewall-cmd --direct --remove-rules ipv6 filter rtpengine
 			firewall-cmd --direct --remove-rule ipv4 filter INPUT_prefilter 0 -j rtpengine
 			firewall-cmd --direct --remove-chain ipv4 filter rtpengine
 			firewall-cmd --reload
 		else
 			iptables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
+			ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
 			iptables -t filter -D INPUT -j rtpengine
 			iptables -X rtpengine
 		fi
