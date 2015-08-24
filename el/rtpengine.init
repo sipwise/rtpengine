@@ -179,12 +179,33 @@ start() {
 	if [[ $MODULE == 1 ]]
 	then
 		echo "Loading module for in-kernel packet forwarding"
-		rmmod xt_MEDIAPROXY 2> /dev/null
+		rmmod xt_RTPENGINE 2> /dev/null
 		modprobe xt_RTPENGINE
-		iptables -N rtpengine
-		iptables -t filter -A INPUT -j rtpengine
-		iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
-		ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
+		temp=`firewall-cmd --state 2>/dev/null`
+		if [[ $? == 0 ]]
+		then
+			# Using firewalld
+			# Need to check if the INPUT_prefilter chain is present (permanently)
+			firewall-cmd --permanent --direct --query-chain ipv4 filter INPUT_prefilter > /dev/null
+			if [[ $? != 0 ]]
+			then
+				firewall-cmd --permanent --direct --add-chain ipv4 filter INPUT_prefilter
+				firewall-cmd --permanent --direct --passthrough ipv4 -t filter -I INPUT -j INPUT_prefilter
+				firewall-cmd --reload
+			fi
+				
+			firewall-cmd --direct --add-chain ipv4 filter rtpengine
+			firewall-cmd --direct --add-rule ipv4 filter INPUT_prefilter 0 -j rtpengine
+			firewall-cmd --direct --add-rule ipv4 filter rtpengine 0 -p udp -j RTPENGINE --id $TABLE
+			firewall-cmd --direct --add-rule ipv6 filter rtpengine 0 -p udp -j RTPENGINE --id $TABLE
+  			firewall-cmd --reload
+		else
+			iptables -N rtpengine
+			# We insert the rtpengine rule at the top of the input chain
+			iptables -t filter -I INPUT_prefilter -j rtpengine
+			iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
+			ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
+		fi
 
 		cat <<EOF > "$cachefile"
 CUR_TABLE=$TABLE
@@ -208,11 +229,21 @@ stop() {
 		. "$cachefile"
 		echo "Unloading module for in-kernel packet forwarding"
 		echo "del $TABLE" > /proc/rtpengine/control
-		iptables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
-		ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
-		iptables -t filter -D INPUT -j rtpengine
-		iptables -X rtpengine
-#		rmmod xt_RTPENGINE
+		temp=`firewall-cmd --state 2>/dev/null`
+		if [[ $? == 0 ]]
+		then
+			firewall-cmd --direct --remove-rules ipv4 filter rtpengine
+			firewall-cmd --direct --remove-rules ipv6 filter rtpengine
+			firewall-cmd --direct --remove-rule ipv4 filter INPUT_prefilter 0 -j rtpengine
+			firewall-cmd --direct --remove-chain ipv4 filter rtpengine
+			firewall-cmd --reload
+		else
+			iptables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
+			ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
+			iptables -t filter -D INPUT -j rtpengine
+			iptables -X rtpengine
+		fi
+		rmmod xt_RTPENGINE
 		rm -f $cachefile	
 	fi
  
