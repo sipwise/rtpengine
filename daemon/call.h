@@ -491,7 +491,7 @@ struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call);
-int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c);
+int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call_media *media);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
