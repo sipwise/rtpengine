@@ -36,7 +36,6 @@ RETVAL=0
 
 OPTS="--pidfile $pidfile"
 MODULE=0
-IP6=0
 
 build_opts() {
 	shopt -s nocasematch
@@ -63,25 +62,6 @@ build_opts() {
                         OPTS+=" --interface=$IP"
                 done
         fi
-
-	if [[ -n "$RTP_ADV_IP" ]]
-	then
-		OPTS+="!$RTP_ADV_IP"
-	fi
-
-	if [[ -n "$RTP_IP6" ]]
-	then
-		for IP in "${RTP_IP6[@]}"
-                do
-                        OPTS+=" --interface=$IP"
-                done
-		IP6=1
-	fi
-
-	if [[ -n "$RTP_ADV_IP6" ]]
-	then
-		OPTS+="!$RTP_ADV_IP6"
-	fi
 
 	if [[ -n "$LISTEN_TCP" ]]
 	then
@@ -212,25 +192,16 @@ start() {
 			firewall-cmd --direct --add-chain ipv4 filter rtpengine
 			firewall-cmd --direct --add-rule ipv4 filter INPUT_prefilter 0 -j rtpengine
 			firewall-cmd --direct --add-rule ipv4 filter rtpengine 0 -p udp -j RTPENGINE --id $TABLE
-			if [[ $IP6 == 1 ]]
-			then
-				firewall-cmd --direct --add-rule ipv6 filter rtpengine 0 -p udp -j RTPENGINE --id $TABLE
-  			fi
 			firewall-cmd --reload
 		else
 			iptables -N rtpengine
 			# We insert the rtpengine rule at the top of the input chain
 			iptables -t filter -I INPUT_prefilter -j rtpengine
 			iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
-			if [[ $IP6 == 1 ]]
-			then
-    				ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
-			fi
   		fi
 
 		cat <<EOF > "$cachefile"
 CUR_TABLE=$TABLE
-CUR_IP6=$IP6
 EOF
 	fi
         echo -n $"Starting $prog: "
@@ -255,19 +226,11 @@ stop() {
 		if [[ $? == 0 ]]
 		then
 			firewall-cmd --direct --remove-rules ipv4 filter rtpengine
-			if [[ $CUR_IP6 == 1 ]]
-			then
-				firewall-cmd --direct --remove-rules ipv6 filter rtpengine
-  			fi
 			firewall-cmd --direct --remove-rule ipv4 filter INPUT_prefilter 0 -j rtpengine
 			firewall-cmd --direct --remove-chain ipv4 filter rtpengine
 			firewall-cmd --reload
 		else
 			iptables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
-			if [[ $CUR_IP6 == 1 ]]
-			then
-    				ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
-  			fi
 			iptables -t filter -D INPUT -j rtpengine
 			iptables -X rtpengine
 		fi
