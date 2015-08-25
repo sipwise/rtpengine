@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.8.1.7+0~mr3.8.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e9fbaa4] MT#14817 don't reset crypto on non-filled packet stream
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 25 Aug 2015 16:44:51 +0200
+
 ngcp-rtpengine (3.8.1.6+0~mr3.8.1.6) unstable; urgency=low
 
   [ Richard Fuchs ]
