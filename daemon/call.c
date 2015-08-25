@@ -1903,9 +1903,13 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 
 	ps->endpoint = ep;
 	ps->advertised_endpoint = ep;
-	/* we reset crypto params whenever the endpoint changes */
-	crypto_reset(&ps->crypto);
-	dtls_shutdown(ps);
+
+	if (PS_ISSET(ps, FILLED)) {
+		/* we reset crypto params whenever the endpoint changes */
+		crypto_reset(&ps->crypto);
+		dtls_shutdown(ps);
+	}
+
 	PS_SET(ps, FILLED);
 }
 
