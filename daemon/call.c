@@ -837,8 +837,11 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	return ret;
 }
 
-static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, unsigned int port_off) {
+static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, unsigned int port_off,
+		const struct stream_params *sp)
+{
 	struct endpoint ep;
+	struct call_media *media = ps->media;
 
 	ep = *epp;
 	ep.port += port_off;
@@ -847,8 +850,14 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	if (PS_ISSET(ps, FILLED) && !memcmp(&ps->advertised_endpoint, &ep, sizeof(ep)))
 		return;
 
-	ps->endpoint = ep;
 	ps->advertised_endpoint = ep;
+
+	/* ignore endpoint changes if we're ICE-enabled and ICE data hasn't changed */
+	if (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, ICE) && media->ice_agent && sp
+			&& !ice_ufrag_cmp(media->ice_agent, &sp->ice_ufrag))
+		return;
+
+	ps->endpoint = ep;
 
 	if (PS_ISSET(ps, FILLED)) {
 		/* we reset crypto params whenever the endpoint changes */
@@ -966,7 +975,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		__rtp_stats_update(a->rtp_stats, A->rtp_payload_types);
 
 		if (sp) {
-			__fill_stream(a, &sp->rtp_endpoint, port_off);
+			__fill_stream(a, &sp->rtp_endpoint, port_off, sp);
 			bf_copy_same(&a->ps_flags, &sp->sp_flags,
 					SHARED_FLAG_STRICT_SOURCE | SHARED_FLAG_MEDIA_HANDOVER);
 		}
@@ -1011,11 +1020,11 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 
 		if (sp) {
 			if (!SP_ISSET(sp, IMPLICIT_RTCP)) {
-				__fill_stream(a, &sp->rtcp_endpoint, port_off);
+				__fill_stream(a, &sp->rtcp_endpoint, port_off, sp);
 				PS_CLEAR(a, IMPLICIT_RTCP);
 			}
 			else {
-				__fill_stream(a, &sp->rtp_endpoint, port_off + 1);
+				__fill_stream(a, &sp->rtp_endpoint, port_off + 1, sp);
 				PS_SET(a, IMPLICIT_RTCP);
 			}
 			bf_copy_same(&a->ps_flags, &sp->sp_flags,
