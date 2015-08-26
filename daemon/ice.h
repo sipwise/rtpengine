@@ -203,6 +203,9 @@ INLINE const char *ice_candidate_type_str(enum ice_candidate_type type) {
 		return 0;
 	return ice_type_strings[type];
 }
+INLINE int ice_ufrag_cmp(struct ice_agent *ag, const str *s) {
+	return str_cmp_str0(&ag->ufrag[0], s);
+}
 
 
 
