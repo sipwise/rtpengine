@@ -566,8 +566,13 @@ static void callmaster_timer(void *ptr) {
 
 		rwlock_unlock_r(&sfd->call->master_lock);
 
-		if (update)
-			redis_update(ps->call, m->conf.redis);
+		if (update) {
+			if (m->conf.redis_write) {
+				redis_update(ps->call, m->conf.redis_write, ANY_REDIS_ROLE);
+			} else if (m->conf.redis) {
+				redis_update(ps->call, m->conf.redis, MASTER_REDIS_ROLE);
+			}
+		}
 
 next:
 		g_hash_table_remove(hlp.addr_sfd, &ep);
@@ -1819,7 +1824,11 @@ void call_destroy(struct call *c) {
 
 	obj_put(c);
 
-	redis_delete(c, m->conf.redis);
+	if (m->conf.redis_write) {
+		redis_delete(c, m->conf.redis_write, ANY_REDIS_ROLE);
+	} else if (m->conf.redis) {
+		redis_delete(c, m->conf.redis, MASTER_REDIS_ROLE);
+	}
 
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */
@@ -2655,7 +2664,11 @@ static void calls_dump_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
 	struct callmaster *m = c->callmaster;
 
-	redis_update(c, m->conf.redis);
+	if (m->conf.redis_write) {
+		redis_update(c, m->conf.redis_write, ANY_REDIS_ROLE);
+	} else if (m->conf.redis) {
+		redis_update(c, m->conf.redis, MASTER_REDIS_ROLE);
+	}
 }
 
 void calls_dump_redis(struct callmaster *m) {
@@ -2663,9 +2676,29 @@ void calls_dump_redis(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe(m->conf.redis);
+	redis_wipe(m->conf.redis, MASTER_REDIS_ROLE);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
+}
+
+void calls_dump_redis_read(struct callmaster *m) {
+	if (!m->conf.redis_read)
+		return;
+
+	ilog(LOG_DEBUG, "Start dumping all call data to read Redis...\n");
+	redis_wipe(m->conf.redis_read, ANY_REDIS_ROLE);
+	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
+	ilog(LOG_DEBUG, "Finished dumping all call data to read Redis\n");
+}
+
+void calls_dump_redis_write(struct callmaster *m) {
+	if (!m->conf.redis_write)
+		return;
+
+	ilog(LOG_DEBUG, "Start dumping all call data to write Redis...\n");
+	redis_wipe(m->conf.redis_write, ANY_REDIS_ROLE);
+	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
+	ilog(LOG_DEBUG, "Finished dumping all call data to write Redis\n");
 }
 
 const struct transport_protocol *transport_protocol(const str *s) {
