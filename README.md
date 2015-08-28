@@ -167,8 +167,12 @@ option and which are reproduced below:
 	  -f, --foreground                 Don't fork to background
 	  -m, --port-min=INT               Lowest port to use for RTP
 	  -M, --port-max=INT               Highest port to use for RTP
-	  -r, --redis=IP:PORT              Connect to Redis database
-	  -R, --redis-db=INT               Which Redis DB to use
+	  -z, --redis=IP:PORT              Connect to Redis database
+	  -Z, --redis-db=INT               Which Redis DB to use
+	  -r, --redis-read=IP:PORT         Connect to Redis read database
+	  -R, --redis-read-db=INT          Which Redis read DB to use
+	  -w, --redis-write=IP:PORT        Connect to Redis write database
+	  -W, --redis-write-db=INT         Which Redis write DB to use
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
@@ -181,7 +185,7 @@ option and which are reproduced below:
 	  --sip-source                     Use SIP source address by default
 	  --dtls-passive                   Always prefer DTLS passive role
 	  -g, --graphite=[IP46:]PORT       TCP address of graphite statistics server
-	  -w, --graphite-interval=INT      Graphite data statistics send interval
+	  -G, --graphite-interval=INT      Graphite data statistics send interval
 	  --graphite-prefix=STRING         Graphite prefix for every line
 	  --max-sessions=INT               Limit the number of maximum concurrent sessions
 
@@ -356,7 +360,7 @@ The options are described in more detail below.
 	Delete the call from memory after the specified delay from memory. Can be set to zero for
 	immediate call deletion.
 
-* -r, --redis, -R, --redis-db, -b, --b2b-url
+*  -z, --redis, -Z, --redis-db, -r, --redis-read, -R, --redis-read-db, -w, --redis-write, -W, --redis-write-db, -b, --b2b-url
 
 	NGCP-specific options
 

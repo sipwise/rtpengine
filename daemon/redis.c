@@ -123,7 +123,7 @@ static void redis_consume(struct redis *r) {
 
 
 /* called with r->lock held if necessary */
-static int redis_connect(struct redis *r, int wait) {
+static int redis_connect(struct redis *r, int wait, int role) {
 	struct timeval tv;
 	redisReply *rp;
 	char *s;
@@ -150,22 +150,37 @@ static int redis_connect(struct redis *r, int wait) {
 	while (wait-- >= 0) {
 		ilog(LOG_INFO, "Asking Redis whether it's master or slave...");
 		rp = redisCommand(r->ctx, "INFO");
-		if (!rp)
+		if (!rp) {
 			goto err2;
+		}
 
 		s = strstr(rp->str, "role:");
-		if (!s)
+		if (!s) {
 			goto err3;
-		if (!memcmp(s, "role:master", 9))
-			goto done;
-		else if (!memcmp(s, "role:slave", 8))
-			goto next;
-		else
+		}
+
+		if (!memcmp(s, "role:master", 9)) {
+			if (role == MASTER_REDIS_ROLE || role == ANY_REDIS_ROLE) {
+				ilog(LOG_INFO, "Connected to Redis in master mode");
+				goto done;
+			} else if (role == SLAVE_REDIS_ROLE) {
+				ilog(LOG_INFO, "Connected to Redis in master mode, but wanted mode is slave; retrying...");
+				goto next;
+			}
+		} else if (!memcmp(s, "role:slave", 8)) {
+			if (role == SLAVE_REDIS_ROLE || role == ANY_REDIS_ROLE) {
+				ilog(LOG_INFO, "Connected to Redis in slave mode");
+				goto done;
+			} else if (role == MASTER_REDIS_ROLE) {
+				ilog(LOG_INFO, "Connected to Redis in slave mode, but wanted mode is master; retrying...");
+				goto next;
+			}
+		} else {
 			goto err3;
+		}
 
 next:
 		freeReplyObject(rp);
-		rlog(LOG_INFO, "Connected to Redis, but it's in slave mode");
 		usleep(1000000);
 	}
 
@@ -174,7 +189,6 @@ next:
 done:
 	freeReplyObject(rp);
 	redis_check_type(r, "calls", NULL, "set");
-	ilog(LOG_INFO, "Connected to Redis");
 	return 0;
 
 err3:
@@ -191,7 +205,7 @@ err:
 
 
 
-struct redis *redis_new(u_int32_t ip, u_int16_t port, int db) {
+struct redis *redis_new(u_int32_t ip, u_int16_t port, int db, int role) {
 	struct redis *r;
 
 	r = g_slice_alloc0(sizeof(*r));
@@ -202,7 +216,7 @@ struct redis *redis_new(u_int32_t ip, u_int16_t port, int db) {
 	r->db = db;
 	mutex_init(&r->lock);
 
-	if (redis_connect(r, 10))
+	if (redis_connect(r, 10, role))
 		goto err;
 
 	return r;
@@ -225,11 +239,11 @@ static void redis_close(struct redis *r) {
 
 
 /* called with r->lock held if necessary */
-static void redis_check_conn(struct redis *r) {
+static void redis_check_conn(struct redis *r, int role) {
 	if (redisCommandNR(r->ctx, "PING") == 0)
 		return;
 	rlog(LOG_INFO, "Lost connection to Redis");
-	if (redis_connect(r, 1))
+	if (redis_connect(r, 1, role))
 		abort();
 }
 
@@ -945,7 +959,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	mutex_unlock(&ctx->r_m);
 }
 
-int redis_restore(struct callmaster *m, struct redis *r) {
+int redis_restore(struct callmaster *m, struct redis *r, int role) {
 	redisReply *calls, *call;
 	int i, ret = -1;
 	GThreadPool *gtp;
@@ -957,7 +971,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	log_level |= LOG_FLAG_RESTORE;
 
 	rlog(LOG_DEBUG, "Restoring calls from Redis...");
-	redis_check_conn(r);
+	redis_check_conn(r, role);
 
 	calls = redis_get(r, REDIS_REPLY_ARRAY, "SMEMBERS calls");
 
@@ -970,7 +984,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
 	for (i = 0; i < RESTORE_NUM_THREADS; i++)
-		g_queue_push_tail(&ctx.r_q, redis_new(r->ip, r->port, r->db));
+		g_queue_push_tail(&ctx.r_q, redis_new(r->ip, r->port, r->db, role));
 	gtp = g_thread_pool_new(restore_thread, &ctx, RESTORE_NUM_THREADS, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {
@@ -1059,7 +1073,7 @@ static void redis_update_dtls_fingerprint(struct redis *r, const char *pref, voi
 
 
 /* must be called lock-free */
-void redis_update(struct call *c, struct redis *r) {
+void redis_update(struct call *c, struct redis *r, int role) {
 	GSList *l, *n;
 	GList *k, *m;
 	struct call_monologue *ml;
@@ -1073,7 +1087,7 @@ void redis_update(struct call *c, struct redis *r) {
 		return;
 
 	mutex_lock(&r->lock);
-	redis_check_conn(r);
+	redis_check_conn(r, role);
 
 	rwlock_lock_r(&c->master_lock);
 
@@ -1239,12 +1253,12 @@ void redis_update(struct call *c, struct redis *r) {
 
 
 /* must be called lock-free */
-void redis_delete(struct call *c, struct redis *r) {
+void redis_delete(struct call *c, struct redis *r, int role) {
 	if (!r)
 		return;
 
 	mutex_lock(&r->lock);
-	redis_check_conn(r);
+	redis_check_conn(r, role);
 	rwlock_lock_r(&c->master_lock);
 
 	redis_delete_call(c, r);
@@ -1257,12 +1271,12 @@ void redis_delete(struct call *c, struct redis *r) {
 
 
 
-void redis_wipe(struct redis *r) {
+void redis_wipe(struct redis *r, int role) {
 	if (!r)
 		return;
 
 	mutex_lock(&r->lock);
-	redis_check_conn(r);
+	redis_check_conn(r, role);
 	redisCommandNR(r->ctx, "DEL calls");
 	mutex_unlock(&r->lock);
 }

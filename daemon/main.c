@@ -76,6 +76,12 @@ static int max_sessions = 0;
 static u_int32_t redis_ip;
 static u_int16_t redis_port;
 static int redis_db = -1;
+static u_int32_t redis_read_ip;
+static u_int32_t redis_write_ip;
+static u_int16_t redis_read_port;
+static u_int16_t redis_write_port;
+static int redis_read_db = -1;
+static int redis_write_db = -1;
 static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
@@ -229,6 +235,7 @@ static void options(int *argc, char ***argv) {
 	char *graphitep = NULL;
 	char *graphite_prefix_s = NULL;
 	char *redisps = NULL;
+	char *redisps_read = NULL, *redisps_write = NULL;
 	char *log_facility_s = NULL;
     char *log_facility_cdr_s = NULL;
     char *log_facility_rtcp_s = NULL;
@@ -243,9 +250,9 @@ static void options(int *argc, char ***argv) {
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
-        { "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
-        { "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "[IP46:]PORT"     },
-		{ "graphite-interval",  'w', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
+		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
+		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "[IP46:]PORT"     },
+		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
@@ -254,8 +261,12 @@ static void options(int *argc, char ***argv) {
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
-		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
-		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
+		{ "redis",	'z', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
+		{ "redis-db",	'Z', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
+		{ "redis-read", 'r', 0, G_OPTION_ARG_STRING,    &redisps_read,  "Connect to Redis read database",       "IP:PORT"       },
+		{ "redis-read-db",      'R', 0, G_OPTION_ARG_INT,       &redis_read_db, "Which Redis read DB to use",   "INT"   },
+		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "IP:PORT"       },
+		{ "redis-write-db",     'W', 0, G_OPTION_ARG_INT,       &redis_write_db,"Which Redis write DB to use",  "INT"   },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
@@ -332,7 +343,21 @@ static void options(int *argc, char ***argv) {
 		if (redis_db < 0)
 			die("Must specify Redis DB number (--redis-db) when using Redis");
 	}
-	
+
+	if (redisps_read) {
+		if (parse_ip_port(&redis_read_ip, &redis_read_port, redisps_read) || !redis_read_ip)
+			die("Invalid Redis read IP or port (--redis-read)");
+		if (redis_read_db < 0)
+			die("Must specify Redis read DB number (--redis-read-db) when using Redis");
+	}
+
+	if (redisps_write) {
+		if (parse_ip_port(&redis_write_ip, &redis_write_port, redisps_write) || !redis_write_ip)
+			die("Invalid Redis write IP or port (--redis-write)");
+		if (redis_write_db < 0)
+			die("Must specify Redis write DB number (--redis-write-db) when using Redis");
+	}
+
 	if (xmlrpc_fmt > 1)
 		die("Invalid XMLRPC format");
 
@@ -532,9 +557,21 @@ no_kernel:
 	}
 
 	if (redis_ip) {
-		mc.redis = redis_new(redis_ip, redis_port, redis_db);
+		mc.redis = redis_new(redis_ip, redis_port, redis_db, MASTER_REDIS_ROLE);
 		if (!mc.redis)
 			die("Cannot start up without Redis database");
+	}
+
+	if (redis_read_ip) {
+		mc.redis_read = redis_new(redis_read_ip, redis_read_port, redis_read_db, ANY_REDIS_ROLE);
+		if (!mc.redis_read)
+			die("Cannot start up without Redis read database");
+	}
+
+	if (redis_write_ip) {
+		mc.redis_write = redis_new(redis_write_ip, redis_write_port, redis_write_db, ANY_REDIS_ROLE);
+		if (!mc.redis_write)
+			die("Cannot start up without Redis write database");
 	}
 
 	ctx->m->conf = mc;
@@ -544,8 +581,13 @@ no_kernel:
 		daemonize();
 	wpidfile();
 
-	if (redis_restore(ctx->m, mc.redis))
-		die("Refusing to continue without working Redis database");
+	if (mc.redis_read) {
+		if (redis_restore(ctx->m, mc.redis_read, ANY_REDIS_ROLE))
+			die("Refusing to continue without working Redis read database");
+	} else if (mc.redis) {
+		if (redis_restore(ctx->m, mc.redis, MASTER_REDIS_ROLE))
+			die("Refusing to continue without working Redis database");
+	}
 
 	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);
 
