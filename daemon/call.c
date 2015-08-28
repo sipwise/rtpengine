@@ -617,7 +617,12 @@ struct callmaster *callmaster_new(struct poller *p) {
 
 	mutex_init(&c->totalstats.total_average_lock);
 	mutex_init(&c->totalstats_interval.total_average_lock);
+	mutex_init(&c->totalstats_interval.managed_sess_lock);
+	mutex_init(&c->totalstats_interval.total_calls_duration_lock);
+
 	c->totalstats.started = poller_now;
+	c->totalstats_interval.managed_sess_min = 0;
+	c->totalstats_interval.managed_sess_max = 0;
 
 	mutex_init(&c->cngs_lock);
 	c->cngs_hash = g_hash_table_new(g_sockaddr_hash, g_sockaddr_eq);
@@ -1619,6 +1624,23 @@ static void timeval_totalstats_average_add(struct totalstats *s, const struct ti
 	mutex_unlock(&s->total_average_lock);
 }
 
+static void timeval_totalstats_interval_call_duration_add(struct totalstats *s,
+		const struct timeval *call_start, const struct timeval *call_stop,
+		const struct timeval *interval_start) {
+	struct timeval call_duration;
+	struct timeval const *call_start_in_interval = call_start;
+
+	if (timercmp(interval_start, call_start, >))
+		call_start_in_interval = interval_start;
+
+	timeval_subtract(&call_duration, call_stop, call_start_in_interval);
+
+	mutex_lock(&s->total_calls_duration_lock);
+	timeval_add(&s->total_calls_duration_interval,
+			&s->total_calls_duration_interval, &call_duration);
+	mutex_unlock(&s->total_calls_duration_lock);
+}
+
 static int __rtp_stats_sort(const void *ap, const void *bp) {
 	const struct rtp_stats *a = ap, *b = bp;
 
@@ -1660,6 +1682,44 @@ out:
 	return rtp_pt; /* may be NULL */
 }
 
+void add_total_calls_duration_in_interval(struct callmaster *cm,
+		struct timeval *interval_tv) {
+	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(cm,
+			&cm->latest_graphite_interval_start, interval_tv);
+
+	mutex_lock(&cm->totalstats_interval.total_calls_duration_lock);
+	timeval_add(&cm->totalstats_interval.total_calls_duration_interval,
+			&cm->totalstats_interval.total_calls_duration_interval,
+			&ongoing_calls_dur);
+	mutex_unlock(&cm->totalstats_interval.total_calls_duration_lock);
+}
+
+struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
+		struct timeval *interval_start, struct timeval *interval_duration) {
+	GHashTableIter iter;
+	gpointer key, value;
+	struct timeval call_duration, now, res = {0};
+	struct call *call;
+	struct call_monologue *ml;
+
+	rwlock_lock_r(&m->hashlock);
+	g_hash_table_iter_init(&iter, m->callhash);
+
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		call = (struct call*) value;
+		ml = call->monologues->data;
+		if (timercmp(interval_start, &ml->started, >)) {
+			timeval_add(&res, &res, interval_duration);
+		} else {
+			gettimeofday(&now, NULL);
+			timeval_subtract(&call_duration, &now, &ml->started);
+			timeval_add(&res, &res, &call_duration);
+		}
+	}
+	rwlock_unlock_r(&m->hashlock);
+	return res;
+}
+
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
@@ -1682,6 +1742,12 @@ void call_destroy(struct call *c) {
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
 	rwlock_unlock_w(&m->hashlock);
+
+	mutex_lock(&m->totalstats_interval.managed_sess_lock);
+	m->totalstats.managed_sess_crt--;
+	m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_crt,
+			m->totalstats_interval.managed_sess_min);
+	mutex_unlock(&m->totalstats_interval.managed_sess_lock);
 
 	if (!ret)
 		return;
@@ -1958,6 +2024,8 @@ void call_destroy(struct call *c) {
 
 		timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
 		timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
+		timeval_totalstats_interval_call_duration_add(&m->totalstats_interval,
+				&ml->started, &g_now, &m->latest_graphite_interval_start);
 	}
 
 
@@ -2109,6 +2177,11 @@ restart:
 			goto restart;
 		}
 		g_hash_table_insert(m->callhash, &c->callid, obj_get(c));
+		mutex_lock(&m->totalstats_interval.managed_sess_lock);
+		m->totalstats.managed_sess_crt++;
+		m->totalstats_interval.managed_sess_max = MAX(m->totalstats_interval.managed_sess_max,
+				m->totalstats.managed_sess_crt);
+		mutex_unlock(&m->totalstats_interval.managed_sess_lock);
 		rwlock_lock_w(&c->master_lock);
 		rwlock_unlock_w(&m->hashlock);
 	}
