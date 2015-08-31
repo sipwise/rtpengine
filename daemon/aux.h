@@ -20,6 +20,28 @@
 #include "compat.h"
 #include <openssl/rand.h>
 
+#if !(GLIB_CHECK_VERSION(2,30,0))
+#define g_atomic_int_and(atomic, val) \
+(G_GNUC_EXTENSION ({                                                          \
+G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
+(void) (0 ? *(atomic) ^ (val) : 0);                                      \
+(guint) __sync_fetch_and_and ((atomic), (val));                          \
+}))
+#define g_atomic_int_or(atomic, val) \
+(G_GNUC_EXTENSION ({                                                          \
+G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
+(void) (0 ? *(atomic) ^ (val) : 0);                                      \
+(guint) __sync_fetch_and_or ((atomic), (val));                           \
+}))
+#define g_atomic_pointer_add(atomic, val) \
+(G_GNUC_EXTENSION ({                                                          \
+    G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gpointer));            \
+    (void) (0 ? (gpointer) *(atomic) : 0);                              \
+    (void) (0 ? (val) ^ (val) : 0);                                     \
+    (gssize) __sync_fetch_and_add ((atomic), (val));                    \
+}))
+#endif
+
 #if 0 && defined(__DEBUG)
 #define __THREAD_DEBUG 1
 #endif
