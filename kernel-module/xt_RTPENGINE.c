@@ -17,7 +17,9 @@
 #include <net/dst.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 #include <linux/bsearch.h>
+#endif
 #include <linux/atomic.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
@@ -2385,6 +2387,7 @@ static inline int is_dtls(struct sk_buff *skb) {
 	return 1;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 static int rtp_payload_match(const void *a, const void *b) {
 	const unsigned char *A = a, *B = b;
 
@@ -2403,6 +2406,7 @@ static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rt
 		return -1;
 	return match - tg->payload_types;
 }
+#endif
 
 static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, u_int8_t in_tos)
@@ -2410,7 +2414,10 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	struct udphdr *uh;
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
-	int err, rtp_pt_idx = -2;
+	int err;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
+	int rtp_pt_idx = -2;
+#endif
 	unsigned int datalen;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
@@ -2489,7 +2496,9 @@ src_check_ok:
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
 		goto skip1;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
+#endif
 
 	// Pass to userspace if SSRC has changed.
 	if (unlikely((g->target.ssrc) && (g->target.ssrc != rtp.header->ssrc)))
@@ -2539,6 +2548,8 @@ out:
 		atomic64_inc(&g->stats.packets);
 		atomic64_add(datalen, &g->stats.bytes);
 	}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	if (rtp_pt_idx >= 0) {
 		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
 		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
@@ -2572,6 +2583,7 @@ out:
 		/* not RTP */ ;
 	else if (rtp_pt_idx == -1)
 		atomic64_inc(&g->stats.errors);
+#endif
 
 	target_push(g);
 	table_push(t);
