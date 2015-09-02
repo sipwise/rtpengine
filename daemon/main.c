@@ -535,6 +535,7 @@ void create_everything(struct main_context *ctx) {
 	int kfd = -1;
 	void *dlh;
 	const char **strp;
+	struct timeval tmp_tv;
 
 	if (table < 0)
 		goto no_kernel;
@@ -638,6 +639,11 @@ no_kernel:
 
 	if (redis_restore(ctx->m, mc.redis))
 		die("Refusing to continue without working Redis database");
+
+	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);
+
+	timeval_from_ms(&tmp_tv, graphite_interval*1000000);
+	set_graphite_interval_tv(&tmp_tv);
 }
 
 int main(int argc, char **argv) {

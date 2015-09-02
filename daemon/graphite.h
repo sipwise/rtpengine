@@ -15,5 +15,6 @@ int send_graphite_data();
 void graphite_loop_run(struct callmaster* cm, int seconds);
 void set_prefix(char* prefix);
 void graphite_loop(void *d);
-
+void set_latest_graphite_interval_start(struct timeval *tv);
+void set_graphite_interval_tv(struct timeval *tv);
 #endif /* GRAPHITE_H_ */
