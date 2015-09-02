@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.3.0.1+0~mr3.4.2.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c46ed8d] MT#14777 coredump fix when running out of ports
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 02 Sep 2015 18:14:02 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.4.2.3) unstable; urgency=low
 
   [ Richard Fuchs ]
