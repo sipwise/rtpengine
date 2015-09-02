@@ -2210,7 +2210,11 @@ done:
 int call_stream_address(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
 	csa_func f;
 
+	o[0] = 0;
+	*len = 0;
 	ps = packet_stream_sink(ps);
+	if (!ps)
+		return -1;
 	f = __call_stream_address(ps, 0);
 	return f(o, ps, format, len);
 }
@@ -2218,7 +2222,11 @@ int call_stream_address(char *o, struct packet_stream *ps, enum stream_address_f
 int call_stream_address_alt(char *o, struct packet_stream *ps, enum stream_address_format format, int *len) {
 	csa_func f;
 
+	o[0] = 0;
+	*len = 0;
 	ps = packet_stream_sink(ps);
+	if (!ps)
+		return -1;
 	f = __call_stream_address(ps, 1);
 	return f ? f(o, ps, format, len) : -1;
 }
