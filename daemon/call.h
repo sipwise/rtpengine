@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <pcre.h>
 #include <openssl/x509.h>
+#include <limits.h>
 #include "compat.h"
 #include "control_ng.h"
 #include "aux.h"
@@ -65,10 +66,6 @@ enum call_stream_state {
 	CSS_DTLS,
 	CSS_RUNNING,
 };
-
-
-
-
 
 #include "obj.h"
 #include "aux.h"
@@ -223,7 +220,7 @@ struct stats {
 struct totalstats {
 	time_t 				started;
 	atomic64			total_timeout_sess;
-	atomic64            total_rejected_sess;
+	atomic64  		        total_rejected_sess;
 	atomic64			total_silent_timeout_sess;
 	atomic64			total_regular_term_sess;
 	atomic64			total_forced_term_sess;
@@ -234,7 +231,15 @@ struct totalstats {
 
 	mutex_t				total_average_lock; /* for these two below */
 	u_int64_t			total_managed_sess;
-	struct timeval			total_average_call_dur;
+	struct timeval		        total_average_call_dur;
+
+	mutex_t				managed_sess_lock; /* for these below */
+	u_int64_t			managed_sess_crt;
+	u_int64_t			managed_sess_max; /* per graphite interval statistic */
+	u_int64_t			managed_sess_min; /* per graphite interval statistic */
+
+	mutex_t				total_calls_duration_lock; /* for these two below */
+	struct timeval		        total_calls_duration_interval;
 };
 
 struct udp_fd {
@@ -385,7 +390,7 @@ struct call {
 	struct callmaster	*callmaster;	/* RO */
 
 	mutex_t			buffer_lock;
-	call_buffer_t		buffer;
+	call_buffer_t	        buffer;
 	GQueue			rtp_bridge_ports;
 
 	/* everything below protected by master_lock */
@@ -402,7 +407,7 @@ struct call {
 	time_t			last_signal;
 	time_t			deleted;
 	time_t			ml_deleted;
-	unsigned char		tos;
+	unsigned char	        tos;
 	char			*created_from;
 	struct sockaddr_in6	created_from_addr;
 };
@@ -426,7 +431,7 @@ struct interface_address {
 struct callmaster_config {
 	int			kernelfd;
 	int			kernelid;
-	GQueue			*interfaces; /* struct interface_address */
+	GQueue		        *interfaces; /* struct interface_address */
 	int			port_min;
 	int			port_max;
 	int			max_sessions;
@@ -471,6 +476,7 @@ struct callmaster {
 	pcre_extra		*streams_ree;
 
 	struct callmaster_config conf;
+	struct timeval  latest_graphite_interval_start;
 };
 
 struct call_stats {
@@ -484,7 +490,8 @@ struct callmaster *callmaster_new(struct poller *);
 void callmaster_config_init(struct callmaster *);
 void stream_msg_mh_src(struct packet_stream *, struct msghdr *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
-
+struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
+		struct timeval *iv_start, struct timeval *iv_duration);
 
 void calls_dump_redis(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
@@ -520,7 +527,7 @@ INLINE struct interface_address *get_interface_from_address(struct local_interfa
 struct interface_address *get_any_interface_address(struct local_interface *lif, int family);
 
 const struct transport_protocol *transport_protocol(const str *s);
-
+void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval *interval_tv);
 
 
 INLINE void *call_malloc(struct call *c, size_t l) {
