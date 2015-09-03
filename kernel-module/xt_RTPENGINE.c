@@ -20,7 +20,7 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 #include <linux/bsearch.h>
 #endif
-#include <linux/atomic.h>
+#include <asm/atomic.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
