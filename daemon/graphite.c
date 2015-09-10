@@ -145,8 +145,9 @@ int send_graphite_data() {
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s.",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"%s.totals.reject_sess "UINT64F" %llu\n",hostname, atomic64_get_na(&ts.total_rejected_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 
-	ilog(LOG_DEBUG, "min_sessions:%u max_sessions:%u, call_dur_per_interval:%llu.%06llu at time %llu\n",
-			ts.managed_sess_min,  ts.managed_sess_max, 
+	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%llu.%06llu at time %llu\n",
+			(unsigned long long) ts.managed_sess_min,
+			(unsigned long long) ts.managed_sess_max, 
 			(unsigned long long ) ts.total_calls_duration_interval.tv_sec,
 			(unsigned long long ) ts.total_calls_duration_interval.tv_usec,
 			(unsigned long long ) g_now.tv_sec);
