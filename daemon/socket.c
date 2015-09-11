@@ -167,6 +167,7 @@ static int __ip4_sockaddr2endpoint(endpoint_t *ep, const void *p) {
 	const struct sockaddr_in *sin = p;
 	if (sin->sin_family != AF_INET)
 		return -1;
+	ZERO(*ep);
 	ep->address.family = &__socket_families[SF_IP4];
 	ep->address.u.ipv4 = sin->sin_addr;
 	ep->port = ntohs(sin->sin_port);
@@ -176,6 +177,7 @@ static int __ip6_sockaddr2endpoint(endpoint_t *ep, const void *p) {
 	const struct sockaddr_in6 *sin = p;
 	if (sin->sin6_family != AF_INET6)
 		return -1;
+	ZERO(*ep);
 	ep->address.family = &__socket_families[SF_IP6];
 	ep->address.u.ipv6 = sin->sin6_addr;
 	ep->port = ntohs(sin->sin6_port);
@@ -259,16 +261,19 @@ static int __ip6_tos(socket_t *s, unsigned int tos) {
 	return 0;
 }
 static void __ip4_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
+	ZERO(*ra);
 	ra->family = AF_INET;
 	ra->u.ipv4 = ep->address.u.ipv4.s_addr;
 	ra->port = ep->port;
 }
 static void __ip6_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
+	ZERO(*ra);
 	ra->family = AF_INET6;
 	memcpy(ra->u.ipv6, &ep->address.u.ipv6, sizeof(ra->u.ipv6));
 	ra->port = ep->port;
 }
 void kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
+	ZERO(*ep);
 	if (ra->family == AF_INET)
 		ep->address.family = __get_socket_family_enum(SF_IP4);
 	else if (ra->family == AF_INET6)
