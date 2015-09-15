@@ -3721,7 +3721,7 @@ void calls_dump_redis(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe_mod(m->conf.redis);
+	redis_wipe(m->conf.redis);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
 }

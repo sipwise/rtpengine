@@ -7,6 +7,7 @@ Build-Depends: debhelper (>= 5),
                libcurl4-openssl-dev | libcurl4-gnutls-dev |
   libcurl3-openssl-dev | libcurl3-gnutls-dev,
                libglib2.0-dev (>= 2.30),
+               libhiredis-dev,
                libpcre3-dev,
                libssl-dev (>= 1.0.1),
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
@@ -20,8 +21,10 @@ Architecture: any
 Suggests: ngcp-system-tools
 Depends: ${misc:Depends},
          ${shlibs:Depends}
-Conflicts: ngcp-mediaproxy-ng-daemon
-Replaces: ngcp-mediaproxy-ng-daemon
+Conflicts: ngcp-mediaproxy-ng-daemon,
+           ngcp-rtpengine-redis1
+Replaces: ngcp-mediaproxy-ng-daemon,
+          ngcp-rtpengine-redis1
 Recommends: netcat-openbsd | netcat
 Description: Proxy for RTP and media streams used in NGCP, userspace part.
  This daemon handles the first stages of proxying media streams and talks to
@@ -72,22 +75,6 @@ Description: IPtables kernel module for the NGCP media proxy - DKMS.
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
  This package contains the source to be built with dkms.
-
-Package: ngcp-rtpengine-dev
-Architecture: all
-Section: libdevel
-Depends: libglib2.0-dev,
-         libpcre3-dev,
-         libssl-dev (>= 1.0.1),
-         ${misc:Depends}
-Conflicts: ngcp-mediaproxy-ng-dev
-Replaces: ngcp-mediaproxy-ng-dev
-Description: Development files for rtpengine
- This package provides the header files of the rtpengine
- software.
- .
- Install this package if you wish to develop your own programs using
- rtpengine.
 
 Package: ngcp-rtpengine-dbg
 Architecture: any

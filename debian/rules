@@ -110,7 +110,6 @@ binary-arch: install \
 # Build architecture independant packages
 binary-indep: build install \
 	ngcp-rtpengine \
-	ngcp-rtpengine-dev \
 	ngcp-rtpengine-kernel-dkms \
 	ngcp-rtpengine-kernel-source
 
