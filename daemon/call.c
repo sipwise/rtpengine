@@ -2066,8 +2066,12 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 	int l = 0;
 	const struct intf_address *ifa_addr;
 
-	if (!ifa)
-		ifa = ps->selected_sfd->local_intf;
+	if (!ifa) {
+		if (ps->selected_sfd)
+			ifa = ps->selected_sfd->local_intf;
+		else
+			ifa = get_any_interface_address(ps->media->logical_intf, ps->media->desired_family);
+	}
 	ifa_addr = &ifa->spec->address;
 
 	sink = packet_stream_sink(ps);
