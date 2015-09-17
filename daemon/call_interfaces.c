@@ -647,7 +647,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
-	str sdp, fromtag, totag = STR_NULL, callid, viabranch;
+	str sdp, fromtag, totag = STR_NULL, callid, viabranch, recordcall = STR_NULL;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -670,6 +670,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		str_swap(&totag, &fromtag);
 	}
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
+	bencode_dictionary_get_str(input, "record-call", &recordcall);
 
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
@@ -685,6 +686,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	errstr = "Unknown call-id";
 	if (!call)
 		goto out;
+
+	if (recordcall.s && !str_cmp(&recordcall, "yes")) {
+		call->record_call = 1;
+	} else {
+		call->record_call = 0;
+	}
 
 	if (!call->created_from && addr) {
 		call->created_from = call_strdup(call, addr);
@@ -733,6 +740,13 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	bencode_dictionary_add_iovec(output, "sdp", &g_array_index(chopper->iov, struct iovec, 0),
 		chopper->iov_num, chopper->str_len);
 	bencode_dictionary_add_string(output, "result", "ok");
+	bencode_item_t *recordings = bencode_dictionary_add_list(output, "recordings");
+	GList *l;
+	char *recording_path;
+	for (l = call->recording_pcaps; l; l = l->next) {
+		ilog(LOG_INFO, "xxegreen: Recording path %s", l->data);
+		bencode_list_add_string(recordings, l->data);
+	}
 
 	errstr = NULL;
 out:

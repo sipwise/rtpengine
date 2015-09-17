@@ -146,7 +146,7 @@ enum call_type {
 #define PS_FLAG_CONFIRMED			0x00200000
 #define PS_FLAG_KERNELIZED			0x00400000
 #define PS_FLAG_NO_KERNEL_SUPPORT		0x00800000
-#define PS_FLAG_UNUSED				0x01000000
+#define PS_FLAG_FORCE_DAEMON_MODE				0x01000000
 #define PS_FLAG_FINGERPRINT_VERIFIED		0x02000000
 #define PS_FLAG_STRICT_SOURCE			SHARED_FLAG_STRICT_SOURCE
 #define PS_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
@@ -397,7 +397,7 @@ struct call_monologue {
 	enum termination_reason term_reason;
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
-
+	int recording_fd;
 	GQueue			medias;
 };
 
@@ -413,14 +413,17 @@ struct call {
 	rwlock_t		master_lock;
 	GQueue			monologues;
 	GQueue			medias;
-	GHashTable		*tags;	
+	GHashTable		*tags;
 	GHashTable		*viabranches;
 	GQueue			streams;
 	GQueue			stream_fds;
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 
-	str			callid;	
+	unsigned int record_call;
+	GSList			*recording_pcaps;
+
+	str			callid;
 	time_t			created;
 	time_t			last_signal;
 	time_t			deleted;

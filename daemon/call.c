@@ -2210,6 +2210,11 @@ void call_destroy(struct call *c) {
 		obj_put(sfd);
 	}
 
+	while (c->recording_pcaps) {
+		free(c->recording_pcaps->data);
+		c->recording_pcaps = g_slist_delete_link(c->recording_pcaps, c->recording_pcaps);
+	}
+
 	rwlock_unlock_w(&c->master_lock);
 }
 
@@ -2401,6 +2406,27 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = poller_now;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
+	if (call->record_call) {
+		char recording_path[15];
+		char logbuf[15];
+	    /*
+	     *
+	     * create a file descriptor per monologue which can be used for writing rtp to disk
+	     * aka call recording.
+		 */
+
+		sprintf(recording_path, "/tmp/%d", rand());
+		GSList *list = NULL;
+		call->recording_pcaps = g_slist_prepend(call->recording_pcaps, g_strdup(recording_path));
+		ilog(LOG_INFO, "xxegreen: path2 %s", call->recording_pcaps->data);
+		ilog(LOG_INFO, "XXXECT: Creating new file descriptor for recording at path %s", recording_path);
+		ret->recording_fd = open(recording_path, O_WRONLY | O_CREAT | O_TRUNC);
+		sprintf(logbuf, "%d", ret->recording_fd);
+		ilog(LOG_INFO, "XXXECT: FD created: %s", logbuf);
+	} else {
+		ret->recording_fd = -1;
+	}
+
 	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);
 
@@ -2474,6 +2500,9 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 	GList *l;
 
 	call = monologue->call;
+    /* XXXECT BEGIN */
+    close(monologue->recording_fd);
+    /* XXXECT END */
 
 	g_hash_table_remove(call->tags, &monologue->tag);
 

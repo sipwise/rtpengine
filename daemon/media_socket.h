@@ -64,6 +64,7 @@ struct stream_fd {
 	struct packet_stream		*stream;	/* LOCK: call->master_lock */
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection		dtls;		/* LOCK: stream->in_lock */
+	int recording_fd; /* XXEGREEN file descriptor to record rtp to */
 };
 
 
