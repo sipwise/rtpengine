@@ -498,6 +498,9 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 const struct transport_protocol *transport_protocol(const str *s);
 void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval *interval_tv);
 
+void __payload_type_free(void *p);
+void __rtp_stats_update(GHashTable *dst, GHashTable *src);
+
 
 INLINE void *call_malloc(struct call *c, size_t l) {
 	void *ret;

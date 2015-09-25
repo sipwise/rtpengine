@@ -269,6 +269,7 @@ static void redis_delete_call(struct call *c, struct redis *r) {
 	redis_delete_list(r, &c->callid, "media", &c->medias);
 	redis_delete_list(r, &c->callid, "streams", &c->medias);
 	redis_delete_list(r, &c->callid, "maps", &c->medias);
+	redis_delete_list(r, &c->callid, "payload_types", &c->medias);
 	redis_delete_list(r, &c->callid, "map", &c->endpoint_maps);
 	redis_delete_list(r, &c->callid, "map_sfds", &c->endpoint_maps);
 
@@ -434,26 +435,28 @@ static void *redis_list_get_ptr(struct redis_list *list, struct redis_hash *rh, 
 }
 static int redis_build_list_cb(GQueue *q, struct redis *r, const char *key, const str *callid,
 		unsigned int idx, struct redis_list *list,
-		int (*cb)(const char *, GQueue *, struct redis_list *, void *), void *ptr)
+		int (*cb)(str *, GQueue *, struct redis_list *, void *), void *ptr)
 {
 	redisReply *rr;
 	int i;
+	str s;
 
-	rr = redis_get(r, REDIS_REPLY_ARRAY, "LRANGE %s-"PB"-%u 0 -1", key, STR(callid));
+	rr = redis_get(r, REDIS_REPLY_ARRAY, "LRANGE %s-"PB"-%u 0 -1", key, STR(callid), idx);
 	if (!rr)
 		return -1;
 
 	for (i = 0; i < rr->elements; i++) {
 		if (rr->element[i]->type != REDIS_REPLY_STRING)
 			return -1;
-		if (cb(rr->element[i]->str, q, list, ptr))
+		str_init_len(&s, rr->element[i]->str, rr->element[i]->len);
+		if (cb(&s, q, list, ptr))
 			return -1;
 	}
 	return 0;
 }
-static int rbl_cb_simple(const char *s, GQueue *q, struct redis_list *list, void *ptr) {
+static int rbl_cb_simple(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	int j;
-	j = atoi(s);
+	j = str_to_i(s, 0);
 	g_queue_push_tail(q, redis_list_get_idx_ptr(list, (unsigned) j));
 	return 0;
 }
@@ -656,7 +659,31 @@ static int redis_tags(struct call *c, struct redis_list *tags) {
 	return 0;
 }
 
-static int redis_medias(struct call *c, struct redis_list *medias) {
+static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+	struct rtp_payload_type *pt;
+	str ptype, enc, clock, parms;
+	struct call_media *med = ptr;
+	struct call *call = med->call;
+
+	if (str_token(&ptype, s, '/'))
+		return -1;
+	if (str_token(&enc, s, '/'))
+		return -1;
+	if (str_token(&clock, s, '/'))
+		return -1;
+	parms = *s;
+
+	// from call.c
+	// XXX remove all the duplicate code
+	pt = g_slice_alloc0(sizeof(*pt));
+	pt->payload_type = str_to_ui(&ptype, 0);
+	call_str_cpy(call, &pt->encoding, &enc);
+	pt->clock_rate = str_to_ui(&clock, 0);
+	call_str_cpy(call, &pt->encoding_parameters, &parms);
+	g_hash_table_replace(med->rtp_payload_types, &pt->payload_type, pt);
+	return 0;
+}
+static int redis_medias(struct redis *r, struct call *c, struct redis_list *medias) {
 	unsigned int i;
 	struct redis_hash *rh;
 	struct call_media *med;
@@ -668,6 +695,8 @@ static int redis_medias(struct call *c, struct redis_list *medias) {
 		/* from call.c:__get_media() */
 		med = uid_slice_alloc0(med, &c->medias);
 		med->call = c;
+		med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
+				__payload_type_free);
 
 		if (redis_hash_get_unsigned(&med->index, rh, "index"))
 			return -1;
@@ -701,8 +730,9 @@ static int redis_medias(struct call *c, struct redis_list *medias) {
 			return -1;
 		if (redis_hash_get_crypto_params(&med->sdes_out.params, rh, "sdes_out") < 0)
 			return -1;
+
+		redis_build_list_cb(NULL, r, "payload_types", &c->callid, i, NULL, rbl_cb_plts, med);
 		/* XXX dtls */
-		// XXX payload types
 
 		medias->ptrs[i] = med;
 	}
@@ -806,6 +836,9 @@ static int redis_link_streams(struct redis *r, struct call *c, struct redis_list
 
 		if (redis_build_list(&ps->sfds, r, "stream_sfds", &c->callid, i, sfds))
 			return -1;
+
+		if (ps->media)
+			__rtp_stats_update(ps->rtp_stats, ps->media->rtp_payload_types);
 	}
 
 	return 0;
@@ -831,15 +864,15 @@ static int redis_link_medias(struct redis *r, struct call *c, struct redis_list 
 	return 0;
 }
 
-static int rbl_cb_intf_sfds(const char *s, GQueue *q, struct redis_list *list, void *ptr) {
+static int rbl_cb_intf_sfds(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	int i;
 	struct intf_list *il;
 	struct endpoint_map *em;
 
-	if (!strncmp(s, "loc-", 4)) {
+	if (!strncmp(s->s, "loc-", 4)) {
 		il = g_slice_alloc0(sizeof(*il));
 		em = ptr;
-		i = atoi(s+4);
+		i = atoi(s->s+4);
 		il->local_intf = g_queue_peek_nth((GQueue*) &em->logical_intf->list, i);
 		if (!il->local_intf)
 			return -1;
@@ -850,7 +883,7 @@ static int rbl_cb_intf_sfds(const char *s, GQueue *q, struct redis_list *list, v
 	il = g_queue_peek_tail(q);
 	if (!il)
 		return -1;
-	g_queue_push_tail(&il->list, redis_list_get_idx_ptr(list, atoi(s)));
+	g_queue_push_tail(&il->list, redis_list_get_idx_ptr(list, atoi(s->s)));
 	return 0;
 }
 static int redis_link_maps(struct redis *r, struct call *c, struct redis_list *maps,
@@ -936,7 +969,7 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 	if (redis_tags(c, &tags))
 		goto err6;
 	err = "failed to create medias";
-	if (redis_medias(c, &medias))
+	if (redis_medias(r, c, &medias))
 		goto err6;
 	err = "failed to create maps";
 	if (redis_maps(c, &maps))
@@ -1160,6 +1193,7 @@ void redis_update(struct call *c, struct redis *r, int role) {
 	struct stream_fd *sfd;
 	struct intf_list *il;
 	struct endpoint_map *ep;
+	struct rtp_payload_type *pt;
 
 	if (!r)
 		return;
@@ -1295,8 +1329,8 @@ void redis_update(struct call *c, struct redis *r, int role) {
 				STR(&c->callid), ml->unique_id + 1);
 	}
 
-	redis_pipe(r, "DEL media-"PB"-0 streams-"PB"-0 maps-"PB"-0",
-			STR(&c->callid), STR(&c->callid), STR(&c->callid));
+	redis_pipe(r, "DEL media-"PB"-0 streams-"PB"-0 maps-"PB"-0 payload_types-"PB"-0",
+			STR(&c->callid), STR(&c->callid), STR(&c->callid), STR(&c->callid));
 
 	for (l = c->medias.head; l; l = l->next) {
 		media = l->data;
@@ -1335,11 +1369,23 @@ void redis_update(struct call *c, struct redis *r, int role) {
 				ep->unique_id);
 		}
 
+		k = g_hash_table_get_values(media->rtp_payload_types);
+		for (m = k; m; m = m->next) {
+			pt = m->data;
+			redis_pipe(r, "RPUSH payload_types-"PB"-%u %u/"PB"/%u/"PB"",
+				STR(&c->callid), media->unique_id,
+				pt->payload_type, STR(&pt->encoding),
+				pt->clock_rate, STR(&pt->encoding_parameters));
+		}
+		g_list_free(k);
+
 		redis_pipe(r, "EXPIRE media-"PB"-%u", STR(&c->callid), media->unique_id);
 		redis_pipe(r, "EXPIRE streams-"PB"-%u", STR(&c->callid), media->unique_id);
 		redis_pipe(r, "EXPIRE maps-"PB"-%u", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE payload_types-"PB"-%u", STR(&c->callid), media->unique_id);
 
-		redis_pipe(r, "DEL media-"PB"-%u streams-"PB"-%u maps-"PB"-%u",
+		redis_pipe(r, "DEL media-"PB"-%u streams-"PB"-%u maps-"PB"-%u payload_types-"PB"-%u",
+				STR(&c->callid), media->unique_id + 1,
 				STR(&c->callid), media->unique_id + 1,
 				STR(&c->callid), media->unique_id + 1,
 				STR(&c->callid), media->unique_id + 1);

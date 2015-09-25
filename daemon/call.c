@@ -640,7 +640,7 @@ fail:
 
 
 
-static void __payload_type_free(void *p) {
+void __payload_type_free(void *p) {
 	g_slice_free1(sizeof(struct rtp_payload_type), p);
 }
 
@@ -941,7 +941,7 @@ static int __init_stream(struct packet_stream *ps) {
 	return 0;
 }
 
-static void __rtp_stats_update(GHashTable *dst, GHashTable *src) {
+void __rtp_stats_update(GHashTable *dst, GHashTable *src) {
 	struct rtp_stats *rs;
 	struct rtp_payload_type *pt;
 	GList *values, *l;
