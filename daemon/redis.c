@@ -264,9 +264,9 @@ static void redis_delete_call(struct call *c, struct redis *r) {
 		for (k = ml->medias.head; k; k = k->next) {
 			media = k->data;
 
-			redis_pipe(r, "DEL media-%llu streams-%llu maps-%llu",
+			redis_pipe(r, "DEL media-%llu streams-%llu maps-%llu payload_types-%llu",
 				(long long unsigned) k->data, (long long unsigned) k->data,
-				(long long unsigned) k->data);
+				(long long unsigned) k->data, (long long unsigned) k->data);
 
 			for (n = media->endpoint_maps; n; n = n->next)
 				redis_pipe(r, "DEL map-%llu sfds-%llu",
@@ -694,16 +694,21 @@ static int redis_link_sfds(struct redis_list *sfds, struct redis_list *streams) 
 static int redis_tags_populate(struct redis *r, struct redis_list *tags, struct redis_list *streams,
 		struct redis_list *sfds)
 {
-	GList *l_tags, *l_medias, *l_ems;
+	GList *l_tags, *l_medias, *l_ems, *l_streams;
 	struct list_item *it_tag, *it_media, *it_em;
+	struct packet_stream *it_stream;
 	struct call_monologue *ml;
 	struct redis_list rl_medias, rl_ems;
 	int i;
 	struct call_media *med;
 	str s;
-	struct endpoint_map *em;
+	struct endpoint_map *em = NULL;
 	struct callmaster *cm;
 	struct in6_addr in6a;
+	struct rtp_payload_type *pt = NULL;
+	struct redis_hash pt_hash;
+	unsigned int pt_index, pt_totals;
+	char hash_key[32];
 
 	for (l_tags = tags->q.head; l_tags; l_tags = l_tags->next) {
 		it_tag = l_tags->data;
@@ -726,6 +731,7 @@ static int redis_tags_populate(struct redis *r, struct redis_list *tags, struct 
 			med->monologue = ml;
 			med->call = ml->call;
 			med->index = i;
+			med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
 			g_queue_push_tail(&ml->medias, med);
 
 			if (redis_hash_get_str(&s, &it_media->rh, "type"))
@@ -789,14 +795,48 @@ static int redis_tags_populate(struct redis *r, struct redis_list *tags, struct 
 					goto free2;
 				em->wildcard = redis_hash_get_bool_flag(&it_em->rh, "wildcard");
 			}
+
+			// get payload_types hash content (e.g 0:pt0, 1:pt1, ...)
+			if (redis_get_hash(&pt_hash, r, "payload_types", it_media->id))
+				goto free3;
+
+			// fill media rtp_payload_types
+			pt_totals = (unsigned int)g_hash_table_size(pt_hash.ht);
+			for (pt_index = 0; pt_index < pt_totals; pt_index++) {
+				pt = g_slice_alloc0(sizeof(*pt));
+				if (!pt) {
+					goto free3;
+				}
+
+				sprintf(hash_key,"%u", pt_index);
+				if (redis_hash_get_unsigned(&pt->payload_type, &pt_hash, hash_key)) {
+					goto free3;
+				}
+
+				g_hash_table_insert(med->rtp_payload_types, &pt->payload_type, pt);
+			}
+
+			// fill streams rtp_stats
+			for (l_streams = med->streams.head; l_streams; l_streams = l_streams->next) {
+				it_stream = l_streams->data;
+				__rtp_stats_update(it_stream->rtp_stats, med->rtp_payload_types);
+			}
+
 		}
 	}
 
 	return 0;
 
+free3:
+	redis_destroy_hash(&pt_hash);
+	if (pt) {
+		g_slice_free1(sizeof(*pt), pt);
+	}
 free2:
 	med->endpoint_maps = g_slist_delete_link(med->endpoint_maps, med->endpoint_maps);
-	g_slice_free1(sizeof(*em), em);
+	if (em) {
+		g_slice_free1(sizeof(*em), em);
+	}
 free1:
 	g_queue_pop_tail(&ml->medias);
 	g_queue_clear(&med->streams);
@@ -1061,13 +1101,16 @@ static void redis_update_dtls_fingerprint(struct redis *r, const char *pref, voi
 /* must be called lock-free */
 void redis_update(struct call *c, struct redis *r) {
 	GSList *l, *n;
+	GList *pt_list, *pt_iter;
 	GList *k, *m;
 	struct call_monologue *ml;
 	struct call_media *media;
 	struct packet_stream *ps;
 	struct stream_fd *sfd;
 	struct endpoint_map *ep;
+        struct rtp_payload_type *pt;
 	char a[64];
+	unsigned int pt_index;
 
 	if (!r)
 		return;
@@ -1210,9 +1253,22 @@ void redis_update(struct call *c, struct redis *r) {
 					(long long unsigned) media, (long long unsigned) ep);
 			}
 
+			pt_list = g_hash_table_get_values(media->rtp_payload_types);
+			pt_index = 0;
+			for (pt_iter = pt_list; pt_iter; pt_iter = pt_iter->next) {
+				pt = pt_iter->data;
+				redis_pipe(r, "HSET payload_types-%llu %u %u",
+					(long long unsigned) media,
+					(unsigned int) pt_index,
+					(unsigned int) pt->payload_type);
+				pt_index++;
+			}
+			g_list_free(pt_list);
+
 			redis_pipe(r, "EXPIRE media-%llu 86400", (long long unsigned) media);
 			redis_pipe(r, "EXPIRE streams-%llu 86400", (long long unsigned) media);
 			redis_pipe(r, "EXPIRE maps-%llu 86400", (long long unsigned) media);
+			redis_pipe(r, "EXPIRE payload_types-%llu 86400", (long long unsigned) media);
 			redis_pipe(r, "LPUSH medias-%llu %llu",
 				(long long unsigned) ml, (long long unsigned) media);
 		}
