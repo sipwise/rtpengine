@@ -550,30 +550,30 @@ INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 
 /*** TIMEVAL FUNCTIONS ***/
 
-INLINE long long timeval_ms(const struct timeval *t) {
+INLINE long long timeval_us(const struct timeval *t) {
 	return (long long) ((long long) t->tv_sec * 1000000LL) + t->tv_usec;
 }
-INLINE void timeval_from_ms(struct timeval *t, long long ms) {
+INLINE void timeval_from_us(struct timeval *t, long long ms) {
 	t->tv_sec = ms/1000000LL;
 	t->tv_usec = ms%1000000LL;
 }
 INLINE long long timeval_diff(const struct timeval *a, const struct timeval *b) {
-	return timeval_ms(a) - timeval_ms(b);
+	return timeval_us(a) - timeval_us(b);
 }
 INLINE void timeval_subtract(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	timeval_from_ms(result, timeval_diff(a, b));
+	timeval_from_us(result, timeval_diff(a, b));
 }
 INLINE void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier) {
-	timeval_from_ms(result, timeval_ms(a) * multiplier);
+	timeval_from_us(result, timeval_us(a) * multiplier);
 }
 INLINE void timeval_divide(struct timeval *result, const struct timeval *a, const long divisor) {
-	timeval_from_ms(result, timeval_ms(a) / divisor);
+	timeval_from_us(result, timeval_us(a) / divisor);
 }
 INLINE void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	timeval_from_ms(result, timeval_ms(a) + timeval_ms(b));
+	timeval_from_us(result, timeval_us(a) + timeval_us(b));
 }
 INLINE void timeval_add_usec(struct timeval *tv, long usec) {
-	timeval_from_ms(tv, timeval_ms(tv) + usec);
+	timeval_from_us(tv, timeval_us(tv) + usec);
 }
 INLINE int timeval_cmp(const struct timeval *a, const struct timeval *b) {
 	long long diff;

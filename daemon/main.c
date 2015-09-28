@@ -65,6 +65,8 @@ endpoint_t ng_listen_ep;
 endpoint_t cli_listen_ep;
 endpoint_t graphite_ep;
 endpoint_t redis_ep;
+endpoint_t redis_read_ep;
+endpoint_t redis_write_ep;
 static int tos;
 static int table = -1;
 static int no_fallback;
@@ -74,10 +76,6 @@ static int port_min = 30000;
 static int port_max = 40000;
 static int max_sessions = 0;
 static int redis_db = -1;
-static u_int32_t redis_read_ip;
-static u_int32_t redis_write_ip;
-static u_int16_t redis_read_port;
-static u_int16_t redis_write_port;
 static int redis_read_db = -1;
 static int redis_write_db = -1;
 static char *b2b_url;
@@ -345,14 +343,14 @@ static void options(int *argc, char ***argv) {
 	}
 
 	if (redisps_read) {
-		if (parse_ip_port(&redis_read_ip, &redis_read_port, redisps_read) || !redis_read_ip)
+		if (endpoint_parse_any(&redis_read_ep, redisps_read))
 			die("Invalid Redis read IP or port (--redis-read)");
 		if (redis_read_db < 0)
 			die("Must specify Redis read DB number (--redis-read-db) when using Redis");
 	}
 
 	if (redisps_write) {
-		if (parse_ip_port(&redis_write_ip, &redis_write_port, redisps_write) || !redis_write_ip)
+		if (endpoint_parse_any(&redis_write_ep, redisps_write))
 			die("Invalid Redis write IP or port (--redis-write)");
 		if (redis_write_db < 0)
 			die("Must specify Redis write DB number (--redis-write-db) when using Redis");
@@ -472,6 +470,7 @@ static void init_everything() {
 	interfaces_init(&interfaces);
 }
 
+
 void create_everything(struct main_context *ctx) {
 	struct callmaster_config mc;
 	struct control_tcp *ct;
@@ -480,6 +479,8 @@ void create_everything(struct main_context *ctx) {
 	struct cli *cl;
 	int kfd = -1;
 	struct timeval tmp_tv;
+	struct timeval redis_start, redis_stop;
+	double redis_diff = 0;
 
 	if (table < 0)
 		goto no_kernel;
@@ -560,14 +561,14 @@ no_kernel:
 			die("Cannot start up without Redis database");
 	}
 
-	if (redis_read_ip) {
-		mc.redis_read = redis_new(redis_read_ip, redis_read_port, redis_read_db, ANY_REDIS_ROLE);
+	if (!is_addr_unspecified(&redis_read_ep.address)) {
+		mc.redis_read = redis_new(&redis_read_ep, redis_read_db, ANY_REDIS_ROLE);
 		if (!mc.redis_read)
 			die("Cannot start up without Redis read database");
 	}
 
-	if (redis_write_ip) {
-		mc.redis_write = redis_new(redis_write_ip, redis_write_port, redis_write_db, ANY_REDIS_ROLE);
+	if (!is_addr_unspecified(&redis_write_ep.address)) {
+		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, ANY_REDIS_ROLE);
 		if (!mc.redis_write)
 			die("Cannot start up without Redis write database");
 	}
@@ -581,6 +582,7 @@ no_kernel:
 	// start redis restore timer
 	gettimeofday(&redis_start, NULL);
 
+	// restore
 	if (mc.redis_read) {
 		if (redis_restore(ctx->m, mc.redis_read, ANY_REDIS_ROLE))
 			die("Refusing to continue without working Redis read database");
@@ -589,9 +591,16 @@ no_kernel:
 			die("Refusing to continue without working Redis database");
 	}
 
+	// stop redis restore timer
+	gettimeofday(&redis_stop, NULL);
+
+	// print redis restore duration
+	redis_diff += timeval_diff(&redis_start, &redis_stop) / 1000.0;
+	ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
+
 	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);
 
-	timeval_from_ms(&tmp_tv, graphite_interval*1000000);
+	timeval_from_us(&tmp_tv, graphite_interval*1000000);
 	set_graphite_interval_tv(&tmp_tv);
 }
 
