@@ -1657,9 +1657,10 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_MID:
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
-				a = attr_get_by_id(&sdp->session->attributes, ATTR_GROUP);
-				if (a && a->u.group.semantics == GROUP_BUNDLE)
-					goto strip;
+//				a = attr_get_by_id(&sdp->session->attributes, ATTR_GROUP);
+//				if (a && a->u.group.semantics == GROUP_BUNDLE)
+//					goto strip;
+				goto strip; // hack/workaround: always remove a=mid
 				break;
 
 			default:
