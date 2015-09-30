@@ -445,6 +445,20 @@ static void init_everything() {
 	ice_init();
 }
 
+
+static double time_diff_ms(struct timeval x , struct timeval y)
+{
+	double x_ms , y_ms , diff;
+
+	x_ms = (double)x.tv_sec * 1000 + (double)x.tv_usec / 1000;
+	y_ms = (double)y.tv_sec * 1000 + (double)y.tv_usec / 1000;
+
+	diff = (double)y_ms - (double)x_ms;
+
+	return diff;
+}
+
+
 void create_everything(struct main_context *ctx) {
 	struct callmaster_config mc;
 	struct control_tcp *ct;
@@ -453,6 +467,8 @@ void create_everything(struct main_context *ctx) {
 	struct cli *cl;
 	int kfd = -1;
 	struct timeval tmp_tv;
+	struct timeval redis_start, redis_stop;
+	double redis_diff = 0;
 
 	if (table < 0)
 		goto no_kernel;
@@ -544,8 +560,19 @@ no_kernel:
 		daemonize();
 	wpidfile();
 
+	// start redis restore timer
+	gettimeofday(&redis_start, NULL);
+
+	// restore
 	if (redis_restore(ctx->m, mc.redis))
 		die("Refusing to continue without working Redis database");
+
+	// stop redis restore timer
+	gettimeofday(&redis_stop, NULL);
+
+	// print redis restore duration
+	redis_diff += time_diff_ms(redis_start, redis_stop);
+	ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
 
 	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);
 
