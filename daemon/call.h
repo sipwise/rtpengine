@@ -442,20 +442,23 @@ struct callmaster {
 	/* XXX rework these */
 	struct stats		statsps;	/* per second stats, running timer */
 	struct stats		stats;		/* copied from statsps once a second */
-	struct totalstats   totalstats;
-	struct totalstats   totalstats_interval;
+	struct totalstats       totalstats;
+	struct totalstats       totalstats_interval;
+	mutex_t		        totalstats_lastinterval_lock;
+	struct totalstats       totalstats_lastinterval;
+
 	/* control_ng_stats stuff */
 	mutex_t			cngs_lock;
 	GHashTable		*cngs_hash;
 
-	struct poller		*poller;
+	struct poller	        *poller;
 	pcre			*info_re;
 	pcre_extra		*info_ree;
 	pcre			*streams_re;
 	pcre_extra		*streams_ree;
 
 	struct callmaster_config conf;
-	struct timeval  latest_graphite_interval_start;
+	struct timeval          latest_graphite_interval_start;
 };
 
 struct call_stats {
