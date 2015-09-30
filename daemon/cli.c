@@ -54,6 +54,24 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Average call duration                           :%ld.%06ld\n\n",avg.tv_sec,avg.tv_usec);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 
+	mutex_lock(&m->totalstats_lastinterval_lock);
+	calls_dur_iv = m->totalstats_lastinterval.total_calls_duration_interval;
+	min_sess_iv = m->totalstats_lastinterval.managed_sess_min;
+	max_sess_iv = m->totalstats_lastinterval.managed_sess_max;
+	mutex_unlock(&m->totalstats_lastinterval_lock);
+
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nGraphite interval statistics (last reported values to graphite):\n");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total calls duration                            :%ld.%06ld\n\n",calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min managed sessions                            :"UINT64F"\n", min_sess_iv);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Max managed sessions                            :"UINT64F"\n", max_sess_iv);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n\n");
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
@@ -85,24 +103,6 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	mutex_unlock(&m->cngs_lock);
 	g_list_free(list);
-
-	mutex_lock(&m->totalstats_lastinterval_lock);
-	calls_dur_iv = m->totalstats_lastinterval.total_calls_duration_interval;
-	min_sess_iv = m->totalstats_lastinterval.managed_sess_min;
-	max_sess_iv = m->totalstats_lastinterval.managed_sess_max;
-	mutex_unlock(&m->totalstats_lastinterval_lock);
-
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nGraphite interval statistics (last reported values to graphite):\n");
-	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total calls duration                            :%ld.%06ld\n\n",calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
-	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min managed sessions                            :"UINT64F"\n", min_sess_iv);
-	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Max managed sessions                            :"UINT64F"\n", max_sess_iv);
-	ADJUSTLEN(printlen,outbufend,replybuffer);
-
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n\n");
-	ADJUSTLEN(printlen,outbufend,replybuffer);
 }
 
 static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
