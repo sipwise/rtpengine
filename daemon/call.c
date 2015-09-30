@@ -1529,6 +1529,7 @@ struct callmaster *callmaster_new(struct poller *p) {
 	c->totalstats_interval.managed_sess_min = 0;
 	c->totalstats_interval.managed_sess_max = 0;
 
+	mutex_init(&c->totalstats_lastinterval_lock);
 	mutex_init(&c->cngs_lock);
 	c->cngs_hash = g_hash_table_new(in6_addr_hash, in6_addr_eq);
 
