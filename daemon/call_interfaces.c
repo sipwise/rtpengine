@@ -714,7 +714,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	errstr = "Error rewriting SDP";
 
-	if (ret == ERROR_NO_FREE_PORTS) {
+	if (ret == ERROR_NO_FREE_PORTS || ret == ERROR_NO_FREE_LOGS) {
 		ilog(LOG_ERR, "Destroying call");
 		call_destroy(call);
 	}

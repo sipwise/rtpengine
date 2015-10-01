@@ -870,6 +870,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		dtls_shutdown(ps);
 	}
 
+	ilog(LOG_DEBUG, "set FILLED flag for stream %s:%d", sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port);
 	PS_SET(ps, FILLED);
 	/* XXX reset/repair ICE */
 }
@@ -1328,7 +1329,7 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 	__set_all_tos(call);
 }
 
-static void __init_interface(struct call_media *media, const str *ifname) {
+static void __init_interface(struct call_media *media, const str *ifname, int num_ports) {
 	/* we're holding master_lock in W mode here, so we can safely ignore the
 	 * atomic ops */
 	//struct local_intf *ifa = (void *) media->local_intf;
@@ -1337,10 +1338,10 @@ static void __init_interface(struct call_media *media, const str *ifname) {
 		goto get;
 	if (!ifname || !ifname->s)
 		return;
-	if (!str_cmp_str(&media->logical_intf->name, ifname))
+	if (!str_cmp_str(&media->logical_intf->name, ifname) || !str_cmp(ifname, ALGORITHM_ROUND_ROBIN_CALLS))
 		return;
 get:
-	media->logical_intf = get_logical_interface(ifname, media->desired_family);
+	media->logical_intf = get_logical_interface(ifname, media->desired_family, num_ports);
 	if (G_UNLIKELY(!media->logical_intf)) {
 		/* legacy support */
 		if (!str_cmp(ifname, "internal"))
@@ -1349,11 +1350,11 @@ get:
 			media->desired_family = __get_socket_family_enum(SF_IP6);
 		else
 			ilog(LOG_WARNING, "Interface '"STR_FORMAT"' not found, using default", STR_FMT(ifname));
-		media->logical_intf = get_logical_interface(NULL, media->desired_family);
+		media->logical_intf = get_logical_interface(NULL, media->desired_family, num_ports);
 		if (!media->logical_intf) {
 			ilog(LOG_WARNING, "Requested address family (%s) not supported",
 					media->desired_family->name);
-			media->logical_intf = get_logical_interface(NULL, NULL);
+			media->logical_intf = get_logical_interface(NULL, NULL, 0);
 		}
 	}
 //	media->local_intf = ifa = get_interface_address(media->logical_intf, media->desired_family);
@@ -1426,6 +1427,33 @@ static void __ice_start(struct call_media *media) {
 	ice_agent_init(&media->ice_agent, media);
 }
 
+static int get_algorithm_num_ports(GQueue *streams, char *algorithm) {
+	unsigned int algorithm_ports = 0;
+	struct stream_params *sp;
+	GList *media_iter;
+
+	if (algorithm == NULL) {
+		return 0;
+	}
+
+	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
+		sp = media_iter->data;
+
+		if (!str_cmp(&sp->direction[0], algorithm)) {
+			algorithm_ports += sp->consecutive_ports;
+		}
+
+		if (!str_cmp(&sp->direction[1], algorithm)) {
+			algorithm_ports += sp->consecutive_ports;
+		}
+	}
+
+	// XXX only do *=2 for RTP streams?
+	algorithm_ports *= 2;
+
+	return algorithm_ports;
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		const struct sdp_ng_flags *flags)
@@ -1434,14 +1462,19 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	GList *media_iter, *ml_media, *other_ml_media;
 	struct call_media *media, *other_media;
 	unsigned int num_ports;
+	unsigned int rr_calls_ports;
 	struct call_monologue *monologue = other_ml->active_dialogue;
 	struct endpoint_map *em;
 	struct call *call;
+
 
 	call = monologue->call;
 
 	call->last_signal = poller_now;
 	call->deleted = 0;
+
+	// get the total number of ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
+	rr_calls_ports = get_algorithm_num_ports(streams, ALGORITHM_ROUND_ROBIN_CALLS);
 
 	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
 	 * may not be known yet */
@@ -1458,6 +1491,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
 		sp = media_iter->data;
 		__C_DBG("processing media stream #%u", sp->index);
+		__C_DBG("free ports needed for round-robin-calls, left for this call %u", rr_calls_ports);
 
 		/* first, check for existance of call_media struct on both sides of
 		 * the dialogue */
@@ -1527,8 +1561,12 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		}
 
 		/* local interface selection */
-		__init_interface(media, &sp->direction[1]);
-		__init_interface(other_media, &sp->direction[0]);
+		__init_interface(media, &sp->direction[1], rr_calls_ports);
+		__init_interface(other_media, &sp->direction[0], rr_calls_ports);
+
+		if (media->logical_intf == NULL || other_media->logical_intf == NULL) {
+			goto error_intf;
+		}
 
 		/* ICE stuff - must come after interface and address family selection */
 		__ice_offer(flags, media, other_media);
@@ -1567,8 +1605,14 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		/* get that many ports for each side, and one packet stream for each port, then
 		 * assign the ports to the streams */
 		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint);
-		if (!em)
-			goto error;
+		if (!em) {
+			goto error_ports;
+		} else {
+			// update the ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
+			if (str_cmp(&sp->direction[1], ALGORITHM_ROUND_ROBIN_CALLS) == 0) {
+				rr_calls_ports -= num_ports;
+			}
+		}
 
 		__num_media_streams(media, num_ports);
 		__assign_stream_fds(media, &em->intf_sfds);
@@ -1578,7 +1622,12 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			 * initial offer. create a wildcard endpoint_map to be filled in
 			 * when the answer comes. */
 			if (__wildcard_endpoint_map(other_media, num_ports))
-				goto error;
+				goto error_ports;
+
+			// update the ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
+			if (str_cmp(&sp->direction[0], ALGORITHM_ROUND_ROBIN_CALLS) == 0) {
+				rr_calls_ports -= num_ports;
+			}
 		}
 
 init:
@@ -1594,9 +1643,13 @@ init:
 
 	return 0;
 
-error:
+error_ports:
 	ilog(LOG_ERR, "Error allocating media ports");
 	return ERROR_NO_FREE_PORTS;
+
+error_intf:
+	ilog(LOG_ERR, "Error finding logical interface with free ports");
+	return ERROR_NO_FREE_LOGS;
 }
 
 static void timeval_totalstats_average_add(struct totalstats *s, const struct timeval *add) {

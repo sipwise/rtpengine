@@ -26,6 +26,7 @@ struct logical_intf {
 struct port_pool {
 	BIT_ARRAY_DECLARE(ports_used, 0x10000);
 	volatile unsigned int		last_used;
+	volatile unsigned int		free_ports;
 
 	unsigned int			min, max;
 };
@@ -67,7 +68,7 @@ struct stream_fd {
 
 void interfaces_init(GQueue *interfaces);
 
-struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam);
+struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, int num_ports);
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 struct local_intf *get_any_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 void interfaces_exclude_port(unsigned int port);

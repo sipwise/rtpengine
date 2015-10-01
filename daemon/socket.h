@@ -175,7 +175,7 @@ void socket_init(void);
 int open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *);
 int connect_socket(socket_t *r, int type, const endpoint_t *ep);
 int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep);
-void close_socket(socket_t *r);
+int close_socket(socket_t *r);
 
 sockfamily_t *get_socket_family_rfc(const str *s);
 sockfamily_t *__get_socket_family_enum(enum socket_families);
