@@ -602,7 +602,7 @@ no_kernel:
 	}
 
 	cl = NULL;
-	if (tcp_listen_ep.port) {
+	if (cli_listen_ep.port) {
 		interfaces_exclude_port(cli_listen_ep.port);
 	    cl = cli_new(ctx->p, &cli_listen_ep, ctx->m);
 	    if (!cl)
