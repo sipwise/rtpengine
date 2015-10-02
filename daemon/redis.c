@@ -1207,9 +1207,9 @@ void redis_update(struct call *c, struct redis *r) {
 		for (k = ml->medias.head; k; k = k->next) {
 			media = k->data;
 
-			redis_pipe(r, "DEL media-%llu streams-%llu maps-%llu",
+			redis_pipe(r, "DEL media-%llu streams-%llu maps-%llu payload_types-%llu",
 				(long long unsigned) media, (long long unsigned) media,
-				(long long unsigned) media);
+				(long long unsigned) media, (long long unsigned) media);
 			redis_pipe(r, "HMSET media-%llu "
 				"type "PB" protocol %s desired_family %i "
 				"sdes_in_tag %u sdes_out_tag %u interface "PB" local_address "IP6F" "
