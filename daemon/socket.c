@@ -5,6 +5,7 @@
 #include "str.h"
 #include "media_socket.h"
 #include "xt_RTPENGINE.h"
+#include "call.h"
 
 static int __ip4_addr_parse(sockaddr_t *dst, const char *src);
 static int __ip6_addr_parse(sockaddr_t *dst, const char *src);
@@ -211,16 +212,25 @@ static int __ip_bind(socket_t *s, unsigned int port, const sockaddr_t *a) {
 	struct sockaddr_storage sin;
 
 	s->family->addrport2sockaddr(&sin, a, port);
-	if (bind(s->fd, (struct sockaddr *) &sin, s->family->sockaddr_size))
+	if (bind(s->fd, (struct sockaddr *) &sin, s->family->sockaddr_size)) {
+		__C_DBG("bind fail, fd=%d, port=%d", s->fd, s->local.port);
 		return -1;
+	} else {
+		__C_DBG("bind success, fd=%d, port=%d", s->fd, s->local.port);
+	}
+
 	return 0;
 }
 static int __ip_connect(socket_t *s, const endpoint_t *ep) {
 	struct sockaddr_storage sin;
 
 	s->family->endpoint2sockaddr(&sin, ep);
-	if (connect(s->fd, (struct sockaddr *) &sin, s->family->sockaddr_size))
+	if (connect(s->fd, (struct sockaddr *) &sin, s->family->sockaddr_size)) {
+		__C_DBG("connect fail, fd=%d, port=%d", s->fd, s->local.port);
 		return -1;
+	} else {
+		__C_DBG("connect succes, fd=%d, port=%d", s->fd, s->local.port);
+	}
 	return 0;
 }
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep) {
@@ -404,8 +414,12 @@ static int __socket(socket_t *r, int type, sockfamily_t *fam) {
 	ZERO(*r);
 	r->family = fam;
 	r->fd = socket(fam->af, type, 0);
-	if (r->fd == -1)
+	if (r->fd == -1) {
+		__C_DBG("socket() syscall fail, fd=%d", r->fd);
 		return -1;
+	} else {
+		__C_DBG("socket() syscall success, fd=%d", r->fd);
+	}
 
 	return 0;
 }
@@ -415,20 +429,28 @@ int open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa) 
 
 	fam = sa->family;
 
-	if (__socket(r, type, fam))
+	if (__socket(r, type, fam)) {
+		__C_DBG("open socket fail, fd=%d", r->fd);
 		return -1;
+	}
 
 	nonblock(r->fd);
 	reuseaddr(r->fd);
 
-	if (port > 0xffff)
+	if (port > 0xffff) {
+		__C_DBG("open socket fail, port=%d > 0xfffffd", port);
 		goto fail;
+	}
 
-	if (fam->bind(r, port, sa))
+	if (fam->bind(r, port, sa)) {
+		__C_DBG("open socket fail, fd=%d, port=%d", r->fd, port);
 		goto fail;
+	}
 
 	r->local.port = port;
 	r->local.address = *sa;
+
+	__C_DBG("open socket success, fd=%d, port=%d", r->fd, port);
 
 	return 0;
 
@@ -481,9 +503,17 @@ fail:
 }
 
 void close_socket(socket_t *r) {
-	if (!r || r->fd == -1)
+	if (!r || r->fd == -1) {
+		__C_DBG("close() syscall not called, fd=%d", r->fd);
 		return;
-	close(r->fd);
+	}
+
+	if (close(r->fd) != 0) {
+		__C_DBG("close() syscall fail, fd=%d", r->fd);
+	}
+
+	__C_DBG("close() syscall success, fd=%d", r->fd);
+
 	r->fd = -1;
 	ZERO(r->local);
 	ZERO(r->remote);

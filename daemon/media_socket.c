@@ -447,16 +447,29 @@ static int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned
 
 	pp = &spec->port_pool;
 
-	if (wanted_start_port > 0)
+	__C_DBG("wanted_start_port=%d", wanted_start_port);
+
+	if (wanted_start_port > 0) {
 		port = wanted_start_port;
-	else {
+		__C_DBG("port=%d", port);
+	} else {
 		port = g_atomic_int_get(&pp->last_used);
+		__C_DBG("before randomization port=%d", port);
 #if PORT_RANDOM_MIN && PORT_RANDOM_MAX
 		port += PORT_RANDOM_MIN + (random() % (PORT_RANDOM_MAX - PORT_RANDOM_MIN));
 #endif
+		__C_DBG("after  randomization port=%d", port);
+	}
+
+	// debug msg if port is in the given interval
+	if (bit_array_isset(pp->ports_used, port)) {
+		__C_DBG("port %d is USED in port pool", port);
+	} else {
+		__C_DBG("port %d is NOOT USED in port pool", port);
 	}
 
 	while (1) {
+		__C_DBG("cycle=%d, port=%d", cycle, port);
 		if (!wanted_start_port) {
 			if (port < pp->min)
 				port = pp->min;
@@ -466,6 +479,9 @@ static int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned
 
 		for (i = 0; i < num_ports; i++) {
 			sk = g_slice_alloc0(sizeof(*sk));
+			// fd=0 is a valid file descriptor that may be closed
+			// accidentally by free_port if previously bounded
+			sk->fd = -1;
 			g_queue_push_tail(out, sk);
 
 			if (!wanted_start_port && port > pp->max) {
@@ -1212,6 +1228,8 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 	sfd->call = obj_get(call);
 	sfd->local_intf = lif;
 	call->stream_fds = g_slist_prepend(call->stream_fds, sfd); /* hand over ref */
+
+	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
 
 	ZERO(pi);
 	pi.fd = sfd->socket.fd;
