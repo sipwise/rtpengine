@@ -127,7 +127,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	bencode_dictionary_get_str(dict, "call-id", &callid);
 	log_info_str(&callid);
 
-	ilog(LOG_INFO, "Received command '"STR_FORMAT"' from %s for call "STR_FORMAT"", STR_FMT(&cmd), addr, STR_FMT(&callid));
+	ilog(LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
 
 	if (get_log_level() >= LOG_DEBUG) {
 		log_str = g_string_sized_new(256);

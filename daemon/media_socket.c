@@ -540,8 +540,8 @@ int get_consecutive_ports(GQueue *out, unsigned int num_ports, const struct logi
 	return 0;
 
 error_ports:
-	ilog(LOG_ERR, "Failed to get %d consecutive ports on all locals of logical [%.*s]",
-		num_ports, log->name.len, log->name.s);
+	ilog(LOG_ERR, "Failed to get %d consecutive ports on all locals of logical '"STR_FORMAT"'",
+		num_ports, STR_FMT(&log->name));
 
 	// free all ports alloc'ed so far for the previous local interfaces
 	while ((il = g_queue_pop_head(out))) {
