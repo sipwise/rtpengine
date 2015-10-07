@@ -1595,7 +1595,8 @@ init:
 	return 0;
 
 error:
-	ilog(LOG_ERR, "Error allocating media ports");
+	ilog(LOG_ERR, "Error allocating media ports, destroying call %.*s", call->callid.len, call->callid.s);
+	call_destroy(call);
 	return -1;
 }
 
@@ -2482,7 +2483,7 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 
 	c = call_get(callid, m);
 	if (!c) {
-		ilog(LOG_INFO, "Call-ID to delete not found");
+		ilog(LOG_INFO, "Call-ID "STR_FORMAT" to delete not found", STR_FMT(callid));
 		goto err;
 	}
 

@@ -528,16 +528,27 @@ int get_consecutive_ports(GQueue *out, unsigned int num_ports, const struct logi
 		il = g_slice_alloc0(sizeof(*il));
 		il->local_intf = loc;
 		g_queue_push_tail(out, il);
-		if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec)))
-			continue; /* success */
+		if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec))) {
+			// success - found available ports on local interfaces, so far
+			continue;
+		}
 
-		/* error - clean up */
-		g_queue_pop_tail(out);
-		g_slice_free1(sizeof(*il), il);
-		continue;
+		// error - found at least one local interface with no ports available
+		goto error_ports;
 	}
 
 	return 0;
+
+error_ports:
+	ilog(LOG_ERR, "Failed to get %d consecutive ports on all locals of logical [%.*s]",
+		num_ports, log->name.len, log->name.s);
+
+	// free all ports alloc'ed so far for the previous local interfaces
+	while ((il = g_queue_pop_head(out))) {
+		free_socket_intf_list(il);
+	}
+
+	return -1;
 }
 void free_socket_intf_list(struct intf_list *il) {
 	socket_t *sock;
