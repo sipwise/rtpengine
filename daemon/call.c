@@ -1337,7 +1337,7 @@ static void __init_interface(struct call_media *media, const str *ifname) {
 		goto get;
 	if (!ifname || !ifname->s)
 		return;
-	if (!str_cmp_str(&media->logical_intf->name, ifname))
+	if (!str_cmp_str(&media->logical_intf->name, ifname) || !str_cmp(ifname, "round-robin-streams"))
 		return;
 get:
 	media->logical_intf = get_logical_interface(ifname, media->desired_family);
@@ -1530,6 +1530,10 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		__init_interface(media, &sp->direction[1]);
 		__init_interface(other_media, &sp->direction[0]);
 
+		if (media->logical_intf == NULL || other_media->logical_intf == NULL) {
+			goto error_intf;
+		}
+
 		/* ICE stuff - must come after interface and address family selection */
 		__ice_offer(flags, media, other_media);
 		__ice_start(other_media);
@@ -1568,7 +1572,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		 * assign the ports to the streams */
 		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint);
 		if (!em)
-			goto error;
+			goto error_ports;
 
 		__num_media_streams(media, num_ports);
 		__assign_stream_fds(media, &em->intf_sfds);
@@ -1578,7 +1582,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			 * initial offer. create a wildcard endpoint_map to be filled in
 			 * when the answer comes. */
 			if (__wildcard_endpoint_map(other_media, num_ports))
-				goto error;
+				goto error_ports;
 		}
 
 init:
@@ -1594,8 +1598,13 @@ init:
 
 	return 0;
 
-error:
+error_ports:
 	ilog(LOG_ERR, "Error allocating media ports, destroying call");
+	call_destroy(call);
+	return -1;
+
+error_intf:
+	ilog(LOG_ERR, "Error finding logical interface with free ports, destroying call");
 	call_destroy(call);
 	return -1;
 }

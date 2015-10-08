@@ -28,6 +28,7 @@
 #endif
 
 
+#define PORTS_PER_STREAM 4
 
 
 typedef int (*rewrite_func)(str *, struct packet_stream *);
@@ -226,15 +227,93 @@ static GHashTable *__logical_intf_name_family_hash;
 static GHashTable *__intf_spec_addr_type_hash;
 static GQueue __preferred_lists_for_family[__SF_LAST];
 
+static unsigned int selection_index = 0;
+static unsigned int selection_count = 0;
 
 
+/* checks for free no_ports on a local interface */
+static int has_free_ports_loc(struct local_intf *loc, unsigned int no_ports) {
+	if (loc == NULL) {
+		ilog(LOG_ERR, "has_free_ports_loc - NULL local interface");
+		return 0;
+	}
+	
+	struct port_pool *pp = &loc->spec->port_pool;
+	unsigned int port;
+	unsigned int ok = 0;
+	
+	for (port = pp->min; port <= pp->max; port++) {
+		if (!bit_array_isset(pp->ports_used, port)) {
+			ok ++;
+			if (ok == no_ports) {
+				ilog(LOG_INFO, "Found %d ports available for %.*s/%s",
+					no_ports, loc->logical->name.len, loc->logical->name.s,
+					sockaddr_print_buf(&loc->spec->address.addr));
+				return 1;
+			}
+		}
+	}
 
+	ilog(LOG_ERR, "Didn't found %d ports available for %.*s/%s",
+		no_ports, loc->logical->name.len, loc->logical->name.s,
+		sockaddr_print_buf(&loc->spec->address.addr));
+	return 0;
+}
+
+/* checks for free no_ports on at least one local interface of a logical interface */
+static int has_free_ports_log_any(struct logical_intf *log, unsigned int nr_ports) {
+	if (log == NULL) {
+		ilog(LOG_ERR, "has_free_ports_log_any - NULL logical interface");
+		return 0;
+	}
+
+	struct local_intf *loc;
+	GList *l;
+
+	for (l = log->list.head; l; l = l->next) {
+		loc = l->data;
+
+		if (has_free_ports_loc(loc, nr_ports)) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/* checks for free nr_ports on all local interfaces of a logical interface */
+static int has_free_ports_log_all(struct logical_intf *log, unsigned int nr_ports) {
+	if (log == NULL) {
+		ilog(LOG_ERR, "has_free_ports_log_all - NULL logical interface");
+		return 0;
+	}
+
+	struct local_intf *loc;
+	GList *l;
+
+	for (l = log->list.head; l; l = l->next) {
+		loc = l->data;
+
+		if (!has_free_ports_loc(loc, nr_ports)) {
+			return 0;
+		}
+	}
+
+	return 1;
+}
 
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam) {
-	struct logical_intf d, *lif;
+	struct logical_intf d, *log = NULL;
 
-	if (G_UNLIKELY(!name || !name->s)) {
+	if (G_UNLIKELY(!name || !name->s ||
+	   str_cmp(name, "round-robin-streams") == 0)) {
+
 		GQueue *q;
+		GList *log_iter;
+		unsigned int index = 0;
+		unsigned int nr_tries = 0;
+		unsigned int nr_logs = 0;
+
 		if (fam)
 			q = __interface_list_for_family(fam);
 		else {
@@ -247,14 +326,65 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam) {
 got_some:
 			;
 		}
+
+		// check for special direction algorithm
+		nr_logs = g_queue_get_length(q);
+		log_iter = q->head;
+		if (name && name->s && str_cmp(name, "round-robin-streams") == 0) {
+			ilog(LOG_INFO, "Round Robin algorithm for media logical interface");
+select_log:
+			// choose the next logical interface
+			index = 0;
+			while (index < selection_index && log_iter) {
+				index++;
+				log_iter = log_iter->next;
+			}
+
+			if (log_iter) {
+				log = log_iter->data;
+				ilog(LOG_INFO, "Trying %d ports on logical interface %.*s", PORTS_PER_STREAM, log->name.len, log->name.s);
+			}
+
+			// test for free ports for the logical interface
+			if(!has_free_ports_log_all(log, PORTS_PER_STREAM)) {
+				// count the logical interfaces tried
+				nr_tries++;
+
+				// the logical interface selected has no ports available, try another one
+				selection_index ++;
+				selection_index = selection_index % nr_logs;
+				log_iter = q->head;
+
+				// all the logical interfaces have no ports available
+				if (nr_tries == nr_logs) {
+					ilog(LOG_ERR, "No logical interface with free ports found; fallback to default behaviour");
+					return NULL;
+				}
+
+				goto select_log;
+			}
+
+			// 1 audio		=> 4 ports	=> 2 x get_logical_interface calls at offer
+			// 1 audio + 1 video	=> 4 + 4 ports	=> (2 + 2) x get_logical_interface calls at offer
+			selection_count ++;
+			if (selection_count % (PORTS_PER_STREAM / 2) == 0) {
+				selection_count = 0; 
+				selection_index ++;
+				selection_index = selection_index % nr_logs;
+			}
+
+			return log;
+		}
+
 		return q->head ? q->head->data : NULL;
 	}
 
 	d.name = *name;
 	d.preferred_family = fam;
 
-	lif = g_hash_table_lookup(__logical_intf_name_family_hash, &d);
-	return lif;
+	log = g_hash_table_lookup(__logical_intf_name_family_hash, &d);
+
+	return log;
 }
 
 static unsigned int __name_family_hash(const void *p) {
