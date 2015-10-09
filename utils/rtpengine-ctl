@@ -3,7 +3,9 @@
 use IO::Socket::INET;
 
 $num_args = $#ARGV + 1;
-if ($num_args == 0) {
+if ( ($num_args == 0) or
+     (($num_args == 1) && (($ARGV[0] eq "--help") or ($ARGV[0] eq "-h"))) )
+{
     showusage();
     exit;
 }
@@ -45,9 +47,12 @@ shutdown($socket, 1);
  
 # receive a response of up to 10MB
 my $response = "";
-$socket->recv($response, 1024*1024*10);
 
-print $response; 
+do {
+   $response = "";
+   $socket->recv($response, 1024*1024*10);
+   print $response; 
+} while ( not $response eq "");
 
 $socket->close();
 
