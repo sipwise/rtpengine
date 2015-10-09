@@ -540,7 +540,7 @@ static void table_push(struct rtpengine_table *t) {
 	DBG("Freeing table\n");
 
 	for (k = 0; k < 256; k++) {
-		rda = t->dest_addr_hash.addrs[i];
+		rda = t->dest_addr_hash.addrs[k];
 		if (!rda)
 			continue;
 
@@ -562,7 +562,7 @@ static void table_push(struct rtpengine_table *t) {
 		}
 
 		kfree(rda);
-		t->dest_addr_hash.addrs[i] = NULL;
+		t->dest_addr_hash.addrs[k] = NULL;
 	}
 
 
