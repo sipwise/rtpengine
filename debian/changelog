@@ -1,3 +1,46 @@
+ngcp-rtpengine (4.1.1.0+0~mr4.1.1.0) unstable; urgency=medium
+
+  [ Stefan Mititelu ]
+  * [47ac2c7] Added a bridgeport GQueue to the 'struct call'
+  * [159d86d] Add codec info in CDR logging
+
+  [ Richard Fuchs ]
+  * [08cb513] fix missing stack var initialization
+  * [87feafc] MT#14817 don't reset crypto on non-filled packet stream
+  * [59b0f33] ignore endpoint changes when ICE is in use
+  * [c6ff5e7] disable in-kernel RTP PT stats for kernels < 3.0
+  * [e7ad477] fix kernel compilation for older kernel versions
+  * [a934fb4] fix compiler warning
+  * [dafde10] MT#15157 integrate redis module into main code tree
+  * [1956712] always strip a=mid attributes
+  * [83ebe70] clean up payload_types-X before populating it
+
+  [ Damian Ivereigh ]
+  * [0390782] Now works with firewalld - creates a permanent chain called INPUT_prefilter which is before the conntrack stuff in the INPUT tables. We then create our temporary rtpengine chain from that. Also brought in some of the IPv6 stuff from the standard Centos init script
+  * [57e25ea] Added back in volga629's changes to allow multiple interfaces - also duplicated the same for IPv6
+  * [198b0c9] Removed all the IP6 options
+  * [76bebd5] Put back the ipv6 tables entries (without the IF wrapper).
+
+  [ Eric Tamme ]
+  * [bef76d4] add macros that get older versions of glib to compile if gcc is being used - credit to paulandrewhughes
+
+  [ Lucian Balaceanu ]
+  * [f864da7] Adding per graphite interval statistics: min/max concurrent calls, total call time per interval
+  * [482b004] CLI output for Graphite statistics
+  * [e5665c8] Add --help/-h. Fix truncated ctl output for large commands
+
+  [ smititelu ]
+  * [2ed14aa] Solve packet errors due to payload type
+  * [63db6b6] Log redis restore time
+  * [72cf55b] Specific REDIS read and write databases
+
+  [ Pawel Kuzak ]
+  * [c214996] Reorganized CLI output
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 12 Oct 2015 15:46:02 +0200
+
 ngcp-rtpengine (4.1.0.0+0~mr4.1.0.0) unstable; urgency=low
 
   [ Frederic-Philippe Metz ]
