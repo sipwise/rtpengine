@@ -713,6 +713,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	gettimeofday(&(monologue->started), NULL);
 
 	errstr = "Error rewriting SDP";
+
+	if (ret == ERROR_NO_FREE_PORTS) {
+		ilog(LOG_ERR, "Destroying call");
+		call_destroy(call);
+	}
+
 	if (ret)
 		goto out;
 

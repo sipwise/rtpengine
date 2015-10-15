@@ -1595,9 +1595,8 @@ init:
 	return 0;
 
 error:
-	ilog(LOG_ERR, "Error allocating media ports, destroying call");
-	call_destroy(call);
-	return -1;
+	ilog(LOG_ERR, "Error allocating media ports");
+	return ERROR_NO_FREE_PORTS;
 }
 
 static void timeval_totalstats_average_add(struct totalstats *s, const struct timeval *add) {

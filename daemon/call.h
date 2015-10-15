@@ -78,6 +78,8 @@ enum call_stream_state {
 #include "rtp.h"
 
 
+#define ERROR_NO_FREE_PORTS	-100
+
 
 #define MAX_RTP_PACKET_SIZE	8192
 #define RTP_BUFFER_HEAD_ROOM	128
