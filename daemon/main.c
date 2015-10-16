@@ -168,7 +168,7 @@ static void resources(void) {
 	int tryv;
 
 	rlim(RLIMIT_CORE, RLIM_INFINITY);
-	for (tryv = ((1<<16) - 1); tryv && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
+	for (tryv = ((1<<20) - 1); tryv && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
 		;
 
 	rlim(RLIMIT_DATA, RLIM_INFINITY);

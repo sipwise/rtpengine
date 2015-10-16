@@ -72,6 +72,9 @@ sub showusage {
     print "         all                   : terminates all current sessions\n";
     print "         <callid>              : session is immediately terminated\n";
     print "\n";
+    print "    set [ max-open-files <uint> ]\n";
+    print "         max-open-files <uint> : increase the max nr of allowed open files\n";
+    print "\n";
     print "\n";
     print "    Return Value:\n";
     print "    0 on success with ouput from server side, other values for failure.\n";
