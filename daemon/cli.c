@@ -212,6 +212,45 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    obj_put(c);
 }
 
+static void cli_incoming_set_max_open_files(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen = 0;
+	unsigned int open_files_num;
+	str open_files;
+	pid_t pid;
+
+	// limit the minimum number of open files to avoid rtpengine freeze for low open_files_num values
+	unsigned int min_open_files_num = (1 << 16);
+
+	if (len<=1) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	}
+
+	++buffer; --len; // one space
+	open_files.s = buffer;
+	open_files.len = len;
+	open_files_num = str_to_ui(&open_files, -1);
+
+	if (open_files_num == -1) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; not an unsigned integer\n", open_files.len, open_files.s);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	} else if (open_files_num < min_open_files_num) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; can't set it under %u\n", open_files.len, open_files.s, min_open_files_num);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	} else if (rlim(RLIMIT_NOFILE, open_files_num) == -1){
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; errno = %d\n", open_files.len, open_files.s, errno);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	} else {
+		pid = getpid();
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting open_files to %.*s; cat /proc/%u/limits\n", open_files.len, open_files.s, pid);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+}
+
 static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
    GHashTableIter iter;
    gpointer key, value;
@@ -260,6 +299,26 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        printlen = snprintf(replybuffer, outbufend-replybuffer, "%s:%s\n", "Unknown 'list' command", buffer);
        ADJUSTLEN(printlen,outbufend,replybuffer);
    }
+}
+
+static void cli_incoming_set(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+
+	static const char* SET_OPEN_FILES = "max-open-files";
+
+	if (len<=1) {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	}
+	++buffer; --len; // one space
+
+	if (len>=strlen(SET_OPEN_FILES) && strncmp(buffer,SET_OPEN_FILES,strlen(SET_OPEN_FILES)) == 0) {
+		cli_incoming_set_max_open_files(buffer+strlen(SET_OPEN_FILES), len-strlen(SET_OPEN_FILES), m, replybuffer, outbufend);
+	} else {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s:%s\n", "Unknown 'set' command", buffer);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
 }
 
 static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
@@ -334,9 +393,9 @@ static void cli_incoming(int fd, void *p, uintptr_t u) {
    struct cli *cli = (void *) p;
    socklen_t sinl;
    static const int BUFLENGTH = 4096*1024;
-        char replybuffer[BUFLENGTH];
-        char* outbuf = replybuffer;
-        const char* outbufend = replybuffer+BUFLENGTH;
+   char replybuffer[BUFLENGTH];
+   char* outbuf = replybuffer;
+   const char* outbufend = replybuffer+BUFLENGTH;
    static const int MAXINPUT = 1024;
    char inbuf[MAXINPUT];
    int inlen = 0, readbytes = 0;
@@ -374,12 +433,14 @@ next:
 
    static const char* LIST = "list";
    static const char* TERMINATE = "terminate";
+   static const char* SET = "set";
 
    if (strncmp(inbuf,LIST,strlen(LIST)) == 0) {
        cli_incoming_list(inbuf+strlen(LIST), inlen-strlen(LIST), cli->callmaster, outbuf, outbufend);
-
    } else  if (strncmp(inbuf,TERMINATE,strlen(TERMINATE)) == 0) {
        cli_incoming_terminate(inbuf+strlen(TERMINATE), inlen-strlen(TERMINATE), cli->callmaster, outbuf, outbufend);
+   } else  if (strncmp(inbuf,SET,strlen(SET)) == 0) {
+       cli_incoming_set(inbuf+strlen(SET), inlen-strlen(SET), cli->callmaster, outbuf, outbufend);
    } else {
        sprintf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", inbuf);
    }
