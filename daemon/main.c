@@ -165,10 +165,14 @@ static void signals(void) {
 }
 
 static void resources(void) {
+	struct rlimit rl;
 	int tryv;
 
 	rlim(RLIMIT_CORE, RLIM_INFINITY);
-	for (tryv = ((1<<20) - 1); tryv && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
+
+	if (getrlimit(RLIMIT_NOFILE, &rl))
+		rl.rlim_cur = 0;
+	for (tryv = ((1<<20) - 1); tryv && tryv > rl.rlim_cur && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
 		;
 
 	rlim(RLIMIT_DATA, RLIM_INFINITY);
