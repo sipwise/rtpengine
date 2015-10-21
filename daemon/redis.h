@@ -45,7 +45,7 @@ struct list_item {
 };
 
 
-
+#define HKEY(ptr) ptr ? ptr->redis_hkey : "0"
 
 
 
