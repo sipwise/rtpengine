@@ -16,16 +16,6 @@
 
 #include "rtpengine_config.h"
 
-static const char* TRUNCATED = "    ... Output truncated. Increase Output Buffer ...\n";
-
-#define truncate_output(x) strcpy(x - strlen(TRUNCATED) - 1, TRUNCATED)
-
-#define ADJUSTLEN(printlen,outbuflen,replybuffer) do { \
-               replybuffer += (printlen>=outbufend-replybuffer)?outbufend-replybuffer:printlen; \
-               if (replybuffer == outbufend) \
-                       truncate_output(replybuffer); \
-       } while (0);
-
 static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
 	struct timeval avg, calls_dur_iv;
