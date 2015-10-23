@@ -20,6 +20,16 @@
 #include "socket.h"
 #include "media_socket.h"
 
+#define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
+
+#define truncate_output(x) strcpy(x - strlen(TRUNCATED) - 1, TRUNCATED)
+
+#define ADJUSTLEN(printlen,outbufend,replybuffer) do { \
+               replybuffer += (printlen>=outbufend-replybuffer)?outbufend-replybuffer:printlen; \
+               if (replybuffer == outbufend) \
+                       truncate_output(replybuffer); \
+       } while (0);
+
 enum termination_reason {
 	UNKNOWN=0,
 	REGULAR=1,

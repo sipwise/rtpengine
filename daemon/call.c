@@ -1720,6 +1720,8 @@ struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 	return res;
 }
 
+#define CDRBUFREMAINDER cdrbufend-cdrbufcur
+
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
 	struct callmaster *m = c->callmaster;
@@ -1735,7 +1737,9 @@ void call_destroy(struct call *c) {
 	static const int CDRBUFLENGTH = 4096*2;
 	char cdrbuffer[CDRBUFLENGTH];
 	char* cdrbufcur = cdrbuffer;
+	char* cdrbufend = cdrbuffer+CDRBUFLENGTH-1;
 	int cdrlinecnt = 0;
+	int printlen=0;
 	int found = 0;
 	const struct rtp_payload_type *rtp_pt;
 
@@ -1763,10 +1767,14 @@ void call_destroy(struct call *c) {
 
 	/* CDRs and statistics */
 	if (_log_facility_cdr) {
-		cdrbufcur += sprintf(cdrbufcur,"ci=%s, ",c->callid.s);
-		cdrbufcur += sprintf(cdrbufcur,"created_from=%s, ", c->created_from);
-		cdrbufcur += sprintf(cdrbufcur,"last_signal=%llu, ", (unsigned long long)c->last_signal);
-		cdrbufcur += sprintf(cdrbufcur,"tos=%u, ", (unsigned int)c->tos);
+		printlen = snprintf(cdrbufcur,CDRBUFREMAINDER,"ci=%s, ",c->callid.s);
+		ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
+		printlen = snprintf(cdrbufcur,CDRBUFREMAINDER,"created_from=%s, ", c->created_from);
+		ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
+		printlen = snprintf(cdrbufcur,CDRBUFREMAINDER,"last_signal=%llu, ", (unsigned long long)c->last_signal);
+		ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
+		printlen = snprintf(cdrbufcur,CDRBUFREMAINDER,"tos=%u, ", (unsigned int)c->tos);
+		ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 	}
 
 	for (l = c->monologues; l; l = l->next) {
@@ -1780,20 +1788,22 @@ void call_destroy(struct call *c) {
 		timeval_subtract(&tim_result_duration,&ml->terminated,&ml->started);
 
 		if (_log_facility_cdr) {
-		    cdrbufcur += sprintf(cdrbufcur, "ml%i_start_time=%ld.%06lu, "
-		            "ml%i_end_time=%ld.%06ld, "
-		            "ml%i_duration=%ld.%06ld, "
-		            "ml%i_termination=%s, "
-		            "ml%i_local_tag=%s, "
-		            "ml%i_local_tag_type=%s, "
-		            "ml%i_remote_tag=%s, ",
-		            cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
-		            cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
-		            cdrlinecnt, tim_result_duration.tv_sec, tim_result_duration.tv_usec,
-		            cdrlinecnt, get_term_reason_text(ml->term_reason),
-		            cdrlinecnt, ml->tag.s,
-		            cdrlinecnt, get_tag_type_text(ml->tagtype),
-		            cdrlinecnt, ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+			printlen = snprintf(cdrbufcur, CDRBUFREMAINDER,
+				"ml%i_start_time=%ld.%06lu, "
+				"ml%i_end_time=%ld.%06ld, "
+				"ml%i_duration=%ld.%06ld, "
+				"ml%i_termination=%s, "
+				"ml%i_local_tag=%s, "
+				"ml%i_local_tag_type=%s, "
+				"ml%i_remote_tag=%s, ",
+				cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
+				cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
+				cdrlinecnt, tim_result_duration.tv_sec, tim_result_duration.tv_usec,
+				cdrlinecnt, get_term_reason_text(ml->term_reason),
+				cdrlinecnt, ml->tag.s,
+				cdrlinecnt, get_tag_type_text(ml->tagtype),
+				cdrlinecnt, ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+			ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 		}
 
 		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"', created "
@@ -1826,10 +1836,11 @@ void call_destroy(struct call *c) {
 
 			/* add PayloadType(codec) info in CDR logging */
 			if (_log_facility_cdr && rtp_pt) {
-				cdrbufcur += sprintf(cdrbufcur,
-					"payload_type=%u, ", rtp_pt->payload_type);
+				printlen = snprintf(cdrbufcur, CDRBUFREMAINDER, "payload_type=%u, ", rtp_pt->payload_type);
+				ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 			} else if (_log_facility_cdr && !rtp_pt) {
-				cdrbufcur += sprintf(cdrbufcur, "payload_type=unknown, ");
+				printlen = snprintf(cdrbufcur, CDRBUFREMAINDER, "payload_type=unknown, ");
+				ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 			}
 
 			for (o = md->streams.head; o; o = o->next) {
@@ -1844,84 +1855,86 @@ void call_destroy(struct call *c) {
 				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
 
 				    if(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) {
-					    cdrbufcur += sprintf(cdrbufcur,
-					            "ml%i_midx%u_%s_endpoint_ip=%s, "
-					            "ml%i_midx%u_%s_endpoint_port=%u, "
-					            "ml%i_midx%u_%s_local_relay_port=%u, "
-					            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
-					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
-					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
-					            "ml%i_midx%u_%s_last_packet="UINT64F", "
-				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
-					            cdrlinecnt, md->index, protocol, addr,
-					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
-						    cdrlinecnt, md->index, protocol,
-						    (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.packets),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.bytes),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.errors),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->last_packet),
-								cdrlinecnt, md->index, protocol,
-							ps->stats.in_tos_tclass);
+					printlen = snprintf(cdrbufcur, CDRBUFREMAINDER,
+						"ml%i_midx%u_%s_endpoint_ip=%s, "
+						"ml%i_midx%u_%s_endpoint_port=%u, "
+						"ml%i_midx%u_%s_local_relay_port=%u, "
+						"ml%i_midx%u_%s_relayed_packets="UINT64F", "
+						"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
+						"ml%i_midx%u_%s_relayed_errors="UINT64F", "
+						"ml%i_midx%u_%s_last_packet="UINT64F", "
+						"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
+						cdrlinecnt, md->index, protocol, addr,
+						cdrlinecnt, md->index, protocol, ps->endpoint.port,
+						cdrlinecnt, md->index, protocol,
+						(ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.packets),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.bytes),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.errors),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->last_packet),
+						cdrlinecnt, md->index, protocol,
+						ps->stats.in_tos_tclass);
+					ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 				    } else {
 #if (RE_HAS_MEASUREDELAY)
-				    	cdrbufcur += sprintf(cdrbufcur,
-					            "ml%i_midx%u_%s_endpoint_ip=%s, "
-					            "ml%i_midx%u_%s_endpoint_port=%u, "
-					            "ml%i_midx%u_%s_local_relay_port=%u, "
-					            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
-					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
-					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
-					            "ml%i_midx%u_%s_last_packet="UINT64F", "
-						    "ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", "
-						    "ml%i_midx%u_%s_delay_min=%.9f, "
-						    "ml%i_midx%u_%s_delay_avg=%.9f, "
-						    "ml%i_midx%u_%s_delay_max=%.9f, ",
-					            cdrlinecnt, md->index, protocol, addr,
-					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
-					            cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.packets),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.bytes),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.errors),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->last_packet),
-								cdrlinecnt, md->index, protocol,
-							ps->stats.in_tos_tclass,
-								cdrlinecnt, md->index, protocol, (double) ps->stats.delay_min / 1000000,
-								cdrlinecnt, md->index, protocol, (double) ps->stats.delay_avg / 1000000,
-								cdrlinecnt, md->index, protocol, (double) ps->stats.delay_max / 1000000);
+				    	printlen = snprintf(cdrbufcur, CDRBUFREMAINDER,
+						"ml%i_midx%u_%s_endpoint_ip=%s, "
+						"ml%i_midx%u_%s_endpoint_port=%u, "
+						"ml%i_midx%u_%s_local_relay_port=%u, "
+						"ml%i_midx%u_%s_relayed_packets="UINT64F", "
+						"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
+						"ml%i_midx%u_%s_relayed_errors="UINT64F", "
+						"ml%i_midx%u_%s_last_packet="UINT64F", "
+						"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", "
+						"ml%i_midx%u_%s_delay_min=%.9f, "
+						"ml%i_midx%u_%s_delay_avg=%.9f, "
+						"ml%i_midx%u_%s_delay_max=%.9f, ",
+						cdrlinecnt, md->index, protocol, addr,
+						cdrlinecnt, md->index, protocol, ps->endpoint.port,
+						cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.packets),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.bytes),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.errors),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->last_packet),
+						cdrlinecnt, md->index, protocol,
+						ps->stats.in_tos_tclass,
+						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_min / 1000000,
+						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_avg / 1000000,
+						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_max / 1000000);
+					ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 #else
-					    cdrbufcur += sprintf(cdrbufcur,
-					            "ml%i_midx%u_%s_endpoint_ip=%s, "
-					            "ml%i_midx%u_%s_endpoint_port=%u, "
-					            "ml%i_midx%u_%s_local_relay_port=%u, "
-					            "ml%i_midx%u_%s_relayed_packets="UINT64F", "
-					            "ml%i_midx%u_%s_relayed_bytes="UINT64F", "
-					            "ml%i_midx%u_%s_relayed_errors="UINT64F", "
-					            "ml%i_midx%u_%s_last_packet="UINT64F", "
-				    			"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
-					            cdrlinecnt, md->index, protocol, addr,
-					            cdrlinecnt, md->index, protocol, ps->endpoint.port,
-						    cdrlinecnt, md->index, protocol,
-						    (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.packets),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.bytes),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->stats.errors),
-					            cdrlinecnt, md->index, protocol,
-						    atomic64_get(&ps->last_packet),
-								cdrlinecnt, md->index, protocol,
-							ps->stats.in_tos_tclass);
-
+					printlen = snprintf(cdrbufcur, CDRBUFREMAINDER,
+						"ml%i_midx%u_%s_endpoint_ip=%s, "
+						"ml%i_midx%u_%s_endpoint_port=%u, "
+						"ml%i_midx%u_%s_local_relay_port=%u, "
+						"ml%i_midx%u_%s_relayed_packets="UINT64F", "
+						"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
+						"ml%i_midx%u_%s_relayed_errors="UINT64F", "
+						"ml%i_midx%u_%s_last_packet="UINT64F", "
+						"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
+						cdrlinecnt, md->index, protocol, addr,
+						cdrlinecnt, md->index, protocol, ps->endpoint.port,
+						cdrlinecnt, md->index, protocol,
+						(ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.packets),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.bytes),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->stats.errors),
+						cdrlinecnt, md->index, protocol,
+						atomic64_get(&ps->last_packet),
+						cdrlinecnt, md->index, protocol,
+						ps->stats.in_tos_tclass);
+					ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 #endif
 				    }
 				}
