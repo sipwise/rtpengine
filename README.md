@@ -82,10 +82,6 @@ The generated files are (with version 2.3.0 being built on an amd64 system):
 
 	Debugging symbols for the daemon. Optional.
 
-* `ngcp-rtpengine-dev_2.3.0_all.deb`
-
-	Development headers from the daemon. Only necessary if additional modules need to be compiled.
-
 * `ngcp-rtpengine-iptables_2.3.0_amd64.deb`
 
 	Installs the plugin for `iptables` and `ip6tables`. Necessary for in-kernel operation.

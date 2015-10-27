@@ -102,7 +102,7 @@ static u_int64_t __ice_pair_priority(const struct local_intf *ifa, struct ice_ca
 {
 	u_int64_t g, d;
 
-	g = ice_priority(ICT_HOST, ifa->preference, cand->component_id);
+	g = ice_priority(ICT_HOST, ifa->unique_id, cand->component_id);
 	d = cand->priority;
 
 	if (!controlling) {
@@ -210,10 +210,10 @@ static int __pair_prio_cmp(const void *a, const void *b) {
 		return -1;
 	if (A->remote_candidate->component_id > B->remote_candidate->component_id)
 		return 1;
-	/* highest local preference first, which is lowest number first */
-	if (A->local_intf->preference < B->local_intf->preference)
+	/* highest local preference first, which is lowest unique_id first */
+	if (A->local_intf->unique_id < B->local_intf->unique_id)
 		return -1;
-	if (A->local_intf->preference > B->local_intf->preference)
+	if (A->local_intf->unique_id > B->local_intf->unique_id)
 		return 1;
 	return 0;
 }
@@ -617,7 +617,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 	if (!ag->pwd[0].s)
 		return;
 
-	prio = ice_priority(ICT_PRFLX, pair->local_intf->preference,
+	prio = ice_priority(ICT_PRFLX, pair->local_intf->unique_id,
 			pair->remote_candidate->component_id);
 
 	mutex_lock(&ag->lock);

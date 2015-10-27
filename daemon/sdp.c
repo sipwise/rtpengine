@@ -1688,7 +1688,7 @@ static void insert_candidate(struct sdp_chopper *chop, struct stream_fd *sfd,
 	const struct local_intf *ifa = sfd->local_intf;
 
 	if (local_pref == -1)
-		local_pref = ifa->preference;
+		local_pref = ifa->unique_id;
 
 	priority = ice_priority_pref(type_pref, local_pref, ps->component);
 	chopper_append_c(chop, "a=candidate:");
@@ -1744,9 +1744,9 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 
 	if (ag && AGENT_ISSET(ag, COMPLETED)) {
 		ifa = rtp->selected_sfd->local_intf;
-		insert_candidate(chop, rtp->selected_sfd, type_pref, ifa->preference, cand_type);
+		insert_candidate(chop, rtp->selected_sfd, type_pref, ifa->unique_id, cand_type);
 		if (rtcp) /* rtcp-mux only possible in answer */
-			insert_candidate(chop, rtcp->selected_sfd, type_pref, ifa->preference, cand_type);
+			insert_candidate(chop, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type);
 
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
 			GQueue rc;

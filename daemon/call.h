@@ -276,6 +276,7 @@ struct stream_params {
 };
 
 struct endpoint_map {
+	unsigned int		unique_id;
 	struct endpoint		endpoint;
 	unsigned int		num_ports;
 	const struct logical_intf *logical_intf;
@@ -307,6 +308,7 @@ struct packet_stream {
 	struct call_media	*media;		/* RO */
 	struct call		*call;		/* RO */
 	unsigned int		component;	/* RO, starts with 1 */
+	unsigned int		unique_id;	/* RO */
 
 	GQueue			sfds;		/* LOCK: call->master_lock */
 	struct stream_fd * volatile selected_sfd;
@@ -342,6 +344,7 @@ struct call_media {
 	struct call		*call;		/* RO */
 
 	unsigned int		index;		/* RO */
+	unsigned int		unique_id;	/* RO */
 	str			type;		/* RO */
 	const struct transport_protocol *protocol;
 	sockfamily_t		*desired_family;
@@ -358,7 +361,7 @@ struct call_media {
 	struct dtls_fingerprint fingerprint; /* as received */
 
 	GQueue			streams; /* normally RTP + RTCP */
-	GSList			*endpoint_maps;
+	GQueue			endpoint_maps;
 	GHashTable		*rtp_payload_types;
 
 	volatile unsigned int	media_flags;
@@ -368,6 +371,7 @@ struct call_media {
 /* protected by call->master_lock, except the RO elements */
 struct call_monologue {
 	struct call		*call;		/* RO */
+	unsigned int		unique_id;	/* RO */
 
 	str			tag;
 	str			viabranch;
@@ -393,11 +397,13 @@ struct call {
 
 	/* everything below protected by master_lock */
 	rwlock_t		master_lock;
-	GSList			*monologues;
+	GQueue			monologues;
+	GQueue			medias;
 	GHashTable		*tags;	
 	GHashTable		*viabranches;
-	GSList			*streams;
-	GSList			*stream_fds;
+	GQueue			streams;
+	GQueue			stream_fds;
+	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 
 	str			callid;	

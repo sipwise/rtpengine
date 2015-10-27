@@ -425,11 +425,11 @@ static int check_auth(str *msg, struct stun_attrs *attrs, struct call_media *med
 
 	lenX = htons((attrs->msg_integrity_attr - msg->s) - 20 + 24);
 	iov[0].iov_base = msg->s;
-	iov[0].iov_len = OFFSET_OF(struct header, msg_len);
+	iov[0].iov_len = G_STRUCT_OFFSET(struct header, msg_len);
 	iov[1].iov_base = &lenX;
 	iov[1].iov_len = sizeof(lenX);
-	iov[2].iov_base = msg->s + OFFSET_OF(struct header, cookie);
-	iov[2].iov_len = ntohs(lenX) + - 24 + 20 - OFFSET_OF(struct header, cookie);
+	iov[2].iov_base = msg->s + G_STRUCT_OFFSET(struct header, cookie);
+	iov[2].iov_len = ntohs(lenX) + - 24 + 20 - G_STRUCT_OFFSET(struct header, cookie);
 
 	__integrity(iov, G_N_ELEMENTS(iov), &ag->pwd[dst], digest);
 

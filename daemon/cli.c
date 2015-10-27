@@ -93,7 +93,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    struct call_monologue *ml;
    struct call_media *md;
    struct packet_stream *ps;
-   GSList *l;
+   GList *l;
    GList *k, *o;
    int printlen=0;
    struct timeval tim_result_duration;
@@ -119,7 +119,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal);
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
-   for (l = c->monologues; l; l = l->next) {
+   for (l = c->monologues.head; l; l = l->next) {
 	   ml = l->data;
 	   if (!ml->terminated.tv_sec) {
 		   gettimeofday(&now, NULL);
@@ -311,7 +311,7 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
    GHashTableIter iter;
    gpointer key, value;
    struct call_monologue *ml;
-   GSList *i;
+   GList *i;
 
    if (len<=1) {
        printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
@@ -329,7 +329,7 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
            c = (struct call*)value;
            if (!c) continue;
            if (!c->ml_deleted) {
-        	   for (i = c->monologues; i; i = i->next) {
+        	   for (i = c->monologues.head; i; i = i->next) {
         		   ml = i->data;
         		   gettimeofday(&(ml->terminated), NULL);
         		   ml->term_reason = FORCED;
@@ -353,7 +353,7 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
    }
 
    if (!c->ml_deleted) {
-	   for (i = c->monologues; i; i = i->next) {
+	   for (i = c->monologues.head; i; i = i->next) {
 		   ml = i->data;
 		   gettimeofday(&(ml->terminated), NULL);
 		   ml->term_reason = FORCED;

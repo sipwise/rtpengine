@@ -14,6 +14,7 @@
 #include "xt_RTPENGINE.h"
 #include "rtcp.h"
 #include "sdp.h"
+#include "aux.h"
 
 
 
@@ -453,12 +454,10 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 		g_hash_table_insert(__intf_spec_addr_type_hash, &spec->address, spec);
 	}
 
-	ifc = g_slice_alloc(sizeof(*ifc));
+	ifc = uid_slice_alloc(ifc, &lif->list);
 	ifc->spec = spec;
-	ifc->preference = lif->list.length;
 	ifc->logical = lif;
 
-	g_queue_push_tail(&lif->list, ifc);
 	g_hash_table_insert(lif->addr_hash, (void *) &ifc->spec->address, ifc);
 }
 
@@ -590,7 +589,7 @@ static void free_port(socket_t *r, struct intf_spec *spec) {
 
 
 /* puts list of socket_t into "out" */
-static int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
+int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec)
 {
 	int i, cycle = 0;
@@ -1414,10 +1413,11 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 	struct poller *po = call->callmaster->poller;
 
 	sfd = obj_alloc0("stream_fd", sizeof(*sfd), stream_fd_free);
+	sfd->unique_id = g_queue_get_length(&call->stream_fds);
 	sfd->socket = *fd;
 	sfd->call = obj_get(call);
 	sfd->local_intf = lif;
-	call->stream_fds = g_slist_prepend(call->stream_fds, sfd); /* hand over ref */
+	g_queue_push_tail(&call->stream_fds, sfd); /* hand over ref */
 
 	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
 

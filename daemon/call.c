@@ -136,7 +136,7 @@ static int monologue_destroy(struct call_monologue *ml);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
-	GSList *i;
+	GList *i;
 	struct call_monologue *ml;
 	int ret = 0;
 	time_t min_deleted = 0;
@@ -145,7 +145,7 @@ static int call_timer_delete_monologues(struct call *c) {
 	rwlock_unlock_r(&c->master_lock);
 	rwlock_lock_w(&c->master_lock);
 
-	for (i = c->monologues; i; i = i->next) {
+	for (i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
 
 		if (!ml->deleted)
@@ -177,7 +177,7 @@ out:
 static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
 	struct iterator_helper *hlp = ptr;
-	GSList *it;
+	GList *it;
 	struct callmaster *cm;
 	unsigned int check;
 	int good = 0;
@@ -185,7 +185,6 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	struct stream_fd *sfd;
 	int tmp_t_reason=0;
 	struct call_monologue *ml;
-	GSList *i;
 	enum call_stream_state css;
 	atomic64 *timestamp;
 
@@ -203,10 +202,10 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 			goto delete;
 	}
 
-	if (!c->streams)
+	if (!c->streams.head)
 		goto drop;
 
-	for (it = c->streams; it; it = it->next) {
+	for (it = c->streams.head; it; it = it->next) {
 		ps = it->data;
 
 		timestamp = &ps->last_packet;
@@ -252,8 +251,8 @@ next:
 	if (c->ml_deleted)
 		goto out;
 
-	for (i = c->monologues; i; i = i->next) {
-		ml = i->data;
+	for (it = c->monologues.head; it; it = it->next) {
+		ml = it->data;
 		gettimeofday(&(ml->terminated),NULL);
 		if (tmp_t_reason==1) {
 			ml->term_reason = TIMEOUT;
@@ -375,7 +374,7 @@ fault:
 
 void kill_calls_timer(GSList *list, struct callmaster *m) {
 	struct call *ca;
-	GSList *csl;
+	GList *csl;
 	struct call_monologue *cm;
 	const char *url, *url_prefix, *url_suffix;
 	struct xmlrpc_helper *xh = NULL;
@@ -419,7 +418,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 
 		switch (m->conf.fmt) {
 		case XF_SEMS:
-			for (csl = ca->monologues; csl; csl = csl->next) {
+			for (csl = ca->monologues.head; csl; csl = csl->next) {
 				cm = csl->data;
 				if (cm->tag.s && cm->tag.len) {
 					xh->tags_urls = g_slist_prepend(xh->tags_urls, g_string_chunk_insert(xh->c, url_buf));
@@ -642,6 +641,7 @@ static void __payload_type_free(void *p) {
 
 static struct call_media *__get_media(struct call_monologue *ml, GList **it, const struct stream_params *sp) {
 	struct call_media *med;
+	struct call *call;
 
 	/* iterator points to last seen element, or NULL if uninitialized */
 	if (!*it)
@@ -660,7 +660,8 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	}
 
 	__C_DBG("allocating new call_media for stream #%u", sp->index);
-	med = g_slice_alloc0(sizeof(*med));
+	call = ml->call;
+	med = uid_slice_alloc0(med, &call->medias);
 	med->monologue = ml;
 	med->call = ml->call;
 	med->index = sp->index;
@@ -668,6 +669,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
 
 	g_queue_push_tail(&ml->medias, med);
+
 	*it = ml->medias.tail;
 
 	return med;
@@ -676,14 +678,14 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
 		const struct endpoint *ep)
 {
-	GSList *l;
+	GList *l;
 	struct endpoint_map *em;
 	struct stream_fd *sfd;
 	GQueue intf_sockets = G_QUEUE_INIT;
 	socket_t *sock;
 	struct intf_list *il, *em_il;
 
-	for (l = media->endpoint_maps; l; l = l->next) {
+	for (l = media->endpoint_maps.tail; l; l = l->prev) {
 		em = l->data;
 		if (em->logical_intf != media->logical_intf)
 			continue;
@@ -717,7 +719,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	}
 
 	__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
-	em = g_slice_alloc0(sizeof(*em));
+	em = uid_slice_alloc0(em, &media->call->endpoint_maps);
 	if (ep)
 		em->endpoint = *ep;
 	else
@@ -725,7 +727,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	em->logical_intf = media->logical_intf;
 	em->num_ports = num_ports;
 	g_queue_init(&em->intf_sfds);
-	media->endpoint_maps = g_slist_prepend(media->endpoint_maps, em);
+	g_queue_push_tail(&media->endpoint_maps, em);
 
 alloc:
 	if (num_ports > 16)
@@ -811,14 +813,12 @@ static void __rtp_stats_free(void *p) {
 struct packet_stream *__packet_stream_new(struct call *call) {
 	struct packet_stream *stream;
 
-	stream = g_slice_alloc0(sizeof(*stream));
+	stream = uid_slice_alloc0(stream, &call->streams);
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
 	atomic64_set_na(&stream->last_packet, poller_now);
 	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
-
-	call->streams = g_slist_prepend(call->streams, stream);
 
 	return stream;
 }
@@ -911,6 +911,7 @@ static int __init_stream(struct packet_stream *ps) {
 	int active;
 
 	if (ps->selected_sfd) {
+		// XXX apply SDES parms to all sfds?
 		if (MEDIA_ISSET(media, SDES))
 			crypto_init(&ps->selected_sfd->crypto, &media->sdes_in.params);
 
@@ -1299,10 +1300,10 @@ static void __fingerprint_changed(struct call_media *m) {
 }
 
 static void __set_all_tos(struct call *c) {
-	GSList *l;
+	GList *l;
 	struct stream_fd *sfd;
 
-	for (l = c->stream_fds; l; l = l->next) {
+	for (l = c->stream_fds.head; l; l = l->next) {
 		sfd = l->data;
 		set_tos(&sfd->socket, c->tos);
 	}
@@ -1765,7 +1766,9 @@ struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		call = (struct call*) value;
-		ml = call->monologues->data;
+		if (!call->monologues.head)
+			continue;
+		ml = call->monologues.head->data;
 		if (timercmp(interval_start, &ml->started, >)) {
 			timeval_add(&res, &res, interval_duration);
 		} else {
@@ -1786,7 +1789,7 @@ void call_destroy(struct call *c) {
 	struct packet_stream *ps=0, *ps2=0;
 	struct stream_fd *sfd;
 	struct poller *p = m->poller;
-	GSList *l;
+	GList *l;
 	int ret;
 	struct call_monologue *ml;
 	struct call_media *md;
@@ -1835,7 +1838,7 @@ void call_destroy(struct call *c) {
 		ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 	}
 
-	for (l = c->monologues; l; l = l->next) {
+	for (l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
 
 		if (!ml->terminated.tv_sec) {
@@ -2026,7 +2029,7 @@ void call_destroy(struct call *c) {
 	// --- for statistics getting one way stream or no relay at all
 	int total_nopacket_relayed_sess = 0;
 
-	for (l = c->monologues; l; l = l->next) {
+	for (l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
 
 		// --- go through partner ml and search the RTP
@@ -2077,8 +2080,8 @@ void call_destroy(struct call *c) {
 	atomic64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 	atomic64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 
-	if (c->monologues) {
-		ml = c->monologues->data;
+	if (c->monologues.head) {
+		ml = c->monologues.head->data;
 		if (ml->term_reason==TIMEOUT) {
 			atomic64_inc(&m->totalstats.total_timeout_sess);
 			atomic64_inc(&m->totalstats_interval.total_timeout_sess);
@@ -2104,7 +2107,7 @@ void call_destroy(struct call *c) {
 	    /* log it */
 	    cdrlog(cdrbuffer);
 
-	for (l = c->streams; l; l = l->next) {
+	for (l = c->streams.head; l; l = l->next) {
 		ps = l->data;
 
 		__unkernelize(ps);
@@ -2117,9 +2120,8 @@ void call_destroy(struct call *c) {
 		ps->rtcp_sink = NULL;
 	}
 
-	while (c->stream_fds) {
-		sfd = c->stream_fds->data;
-		c->stream_fds = g_slist_delete_link(c->stream_fds, c->stream_fds);
+	while (c->stream_fds.head) {
+		sfd = g_queue_pop_head(&c->stream_fds);
 		poller_del_item(p, sfd->socket.fd);
 		obj_put(sfd);
 	}
@@ -2176,18 +2178,16 @@ static void __call_free(void *p) {
 	rwlock_destroy(&c->master_lock);
 	obj_put(c->dtls_cert);
 
-	while (c->monologues) {
-		m = c->monologues->data;
-		c->monologues = g_slist_delete_link(c->monologues, c->monologues);
+	while (c->monologues.head) {
+		m = g_queue_pop_head(&c->monologues);
 
 		g_hash_table_destroy(m->other_tags);
 
 		for (it = m->medias.head; it; it = it->next) {
 			md = it->data;
 			g_queue_clear(&md->streams);
-			while (md->endpoint_maps) {
-				em = md->endpoint_maps->data;
-				md->endpoint_maps = g_slist_delete_link(md->endpoint_maps, md->endpoint_maps);
+			while (md->endpoint_maps.head) {
+				em = g_queue_pop_head(&md->endpoint_maps);
 				g_queue_clear_full(&em->intf_sfds, (void *) free_intf_list);
 				g_slice_free1(sizeof(*em), em);
 			}
@@ -2203,16 +2203,16 @@ static void __call_free(void *p) {
 
 	g_hash_table_destroy(c->tags);
 	g_hash_table_destroy(c->viabranches);
+	g_queue_clear(&c->medias);
 
-	while (c->streams) {
-		ps = c->streams->data;
-		c->streams = g_slist_delete_link(c->streams, c->streams);
+	while (c->streams.head) {
+		ps = g_queue_pop_head(&c->streams);
 		g_hash_table_destroy(ps->rtp_stats);
 		crypto_cleanup(&ps->crypto);
 		g_slice_free1(sizeof(*ps), ps);
 	}
 
-	assert(c->stream_fds == NULL);
+	assert(c->stream_fds.head == NULL);
 }
 
 static struct call *call_create(const str *callid, struct callmaster *m) {
@@ -2301,15 +2301,13 @@ struct call_monologue *__monologue_create(struct call *call) {
 	struct call_monologue *ret;
 
 	__C_DBG("creating new monologue");
-	ret = g_slice_alloc0(sizeof(*ret));
+	ret = uid_slice_alloc0(ret, &call->monologues);
 
 	ret->call = call;
 	ret->created = poller_now;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
 	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);
-
-	call->monologues = g_slist_prepend(call->monologues, ret);
 
 	return ret;
 }
@@ -2546,7 +2544,7 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	struct call_monologue *ml;
 	int ret;
 	const str *match_tag;
-	GSList *i;
+	GList *i;
 
 	if (delete_delay < 0)
 		delete_delay = m->conf.delete_delay;
@@ -2557,7 +2555,7 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 		goto err;
 	}
 
-	for (i = c->monologues; i; i = i->next) {
+	for (i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
 		gettimeofday(&(ml->terminated), NULL);
 		ml->term_reason = REGULAR;
@@ -2665,7 +2663,7 @@ void calls_dump_redis(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe_mod(m->conf.redis);
+	redis_wipe(m->conf.redis);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
 }

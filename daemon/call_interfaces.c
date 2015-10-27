@@ -943,7 +943,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 {
 	bencode_item_t *tags = NULL, *dict;
 	const str *match_tag;
-	GSList *l;
+	GList *l;
 	struct call_monologue *ml;
 	struct call_stats t_b;
 
@@ -965,7 +965,7 @@ stats:
 	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
 
 	if (!match_tag || !match_tag->len) {
-		for (l = call->monologues; l; l = l->next) {
+		for (l = call->monologues.head; l; l = l->next) {
 			ml = l->data;
 			ng_stats_monologue(tags, ml, totals);
 		}

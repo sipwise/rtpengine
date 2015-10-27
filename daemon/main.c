@@ -7,7 +7,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <dlfcn.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
@@ -43,34 +42,6 @@
 	fprintf(stderr, "\n");								\
 	ilog(LOG_CRIT, x);								\
 	exit(-1);									\
-} while(0)
-#define dlresolve(n) do {								\
-	n ## _mod = dlsym(dlh, "mod_" #n);						\
-	if (!n ## _mod)									\
-		die("Failed to resolve symbol from plugin: %s", "mod_" #n);		\
-} while(0)
-#define check_struct_size(x) do {							\
-	unsigned long *uip;								\
-	uip = dlsym(dlh, "__size_struct_" #x);						\
-	if (!uip)									\
-		die("Failed to resolve symbol from plugin: %s", "__size_struct_" #x);	\
-	if (*uip != sizeof(struct x))							\
-		die("Struct size mismatch in plugin: %s", #x);				\
-} while(0)
-#define check_struct_offset(x,y) do {							\
-	unsigned long *uip;								\
-	uip = dlsym(dlh, "__offset_struct_" #x "_" #y);					\
-	if (!uip)									\
-		die("Failed to resolve symbol from plugin: %s", 			\
-		"__offset_struct_" #x "_" #y);						\
-	if (*uip != (unsigned long) &(((struct x *) 0)->y))				\
-		die("Struct offset mismatch in plugin: %s->%s", #x, #y);		\
-	uip = dlsym(dlh, "__size_struct_" #x "_" #y);					\
-	if (!uip)									\
-		die("Failed to resolve symbol from plugin: %s", 			\
-		"__size_struct_" #x "_" #y);						\
-	if (*uip != sizeof(((struct x *) 0)->y))					\
-		die("Struct member size mismatch in plugin: %s->%s", #x, #y);		\
 } while(0)
 
 
@@ -476,59 +447,6 @@ static void init_everything() {
 	interfaces_init(&interfaces);
 }
 
-void redis_mod_verify(void *dlh) {
-	dlresolve(redis_new);
-	dlresolve(redis_restore);
-	dlresolve(redis_update);
-	dlresolve(redis_delete);
-	dlresolve(redis_wipe);
-
-	check_struct_size(call);
-	check_struct_size(packet_stream);
-	check_struct_size(call_media);
-	check_struct_size(call_monologue);
-	check_struct_size(crypto_suite);
-	check_struct_size(crypto_context);
-
-	check_struct_offset(call, callmaster);
-	check_struct_offset(call, master_lock);
-	check_struct_offset(call, monologues);
-	check_struct_offset(call, tags);
-	check_struct_offset(call, streams);
-	check_struct_offset(call, stream_fds);
-	check_struct_offset(call, dtls_cert);
-	check_struct_offset(call, callid);
-	check_struct_offset(call, last_signal);
-
-	check_struct_offset(packet_stream, media);
-	check_struct_offset(packet_stream, call);
-	check_struct_offset(packet_stream, rtcp_sibling);
-	check_struct_offset(packet_stream, handler);
-	check_struct_offset(packet_stream, crypto);
-	check_struct_offset(packet_stream, dtls_cert);
-	check_struct_offset(packet_stream, ps_flags);
-
-	check_struct_offset(call_media, monologue);
-	check_struct_offset(call_media, call);
-	check_struct_offset(call_media, protocol);
-	check_struct_offset(call_media, fingerprint);
-	check_struct_offset(call_media, streams);
-	check_struct_offset(call_media, media_flags);
-
-	check_struct_offset(call_monologue, call);
-	check_struct_offset(call_monologue, tag);
-	check_struct_offset(call_monologue, created);
-	check_struct_offset(call_monologue, other_tags);
-	check_struct_offset(call_monologue, active_dialogue);
-	check_struct_offset(call_monologue, medias);
-
-	/* XXX adapt checks */
-//	check_struct_offset(stream_fd, fd);
-//	check_struct_offset(stream_fd, call);
-//	check_struct_offset(stream_fd, stream);
-//	check_struct_offset(stream_fd, dtls);
-}
-
 void create_everything(struct main_context *ctx) {
 	struct callmaster_config mc;
 	struct control_tcp *ct;
@@ -536,8 +454,6 @@ void create_everything(struct main_context *ctx) {
 	struct control_ng *cn;
 	struct cli *cl;
 	int kfd = -1;
-	void *dlh;
-	const char **strp;
 	struct timeval tmp_tv;
 
 	if (table < 0)
@@ -614,17 +530,7 @@ no_kernel:
 	}
 
 	if (!is_addr_unspecified(&redis_ep.address)) {
-		dlh = dlopen(RE_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
-		if (!dlh && !g_file_test(RE_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
-				&& g_file_test("../../rtpengine-redis/redis.so", G_FILE_TEST_IS_REGULAR))
-			dlh = dlopen("../../rtpengine-redis/redis.so", RTLD_NOW | RTLD_GLOBAL);
-		if (!dlh)
-			die("Failed to open redis plugin, aborting (%s)", dlerror());
-		strp = dlsym(dlh, "__module_version");
-		if (!strp || !*strp || strcmp(*strp, REDIS_MODULE_VERSION))
-			die("Incorrect redis module version: %s", *strp);
-		redis_mod_verify(dlh);
-		mc.redis = redis_new_mod(&redis_ep, redis_db);
+		mc.redis = redis_new(&redis_ep, redis_db);
 		if (!mc.redis)
 			die("Cannot start up without Redis database");
 	}

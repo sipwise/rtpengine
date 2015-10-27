@@ -41,7 +41,7 @@ else
 CFLAGS+=	-O3
 endif
 
-LDFLAGS=	-ldl -rdynamic -lm
+LDFLAGS=	-lm
 LDFLAGS+=	`pkg-config --libs glib-2.0`
 LDFLAGS+=	`pkg-config --libs gthread-2.0`
 LDFLAGS+=	`pkg-config --libs zlib`
@@ -50,6 +50,7 @@ LDFLAGS+=       `pkg-config --libs libcrypto`
 LDFLAGS+=	`pkg-config --libs openssl`
 LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`xmlrpc-c-config client --libs`
+LDFLAGS+=	-lhiredis
 
 ifneq ($(DBG),yes)
   DPKG_BLDFLGS=	$(shell which dpkg-buildflags 2>/dev/null)

@@ -51,7 +51,6 @@ G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
 
 /*** HELPER MACROS ***/
 
-#define OFFSET_OF(t,e)		((unsigned int) (unsigned long) &(((t *) 0)->e))
 #define ZERO(x)			memset(&(x), 0, sizeof(x))
 
 #define UINT64F			"%" G_GUINT64_FORMAT
@@ -591,5 +590,34 @@ INLINE void timeval_lowest(struct timeval *l, const struct timeval *n) {
 	if (!l->tv_sec || timeval_cmp(l, n) == 1)
 		*l = *n;
 }
+
+
+
+
+/*** ALLOC WITH UNIQUE ID HELPERS ***/
+
+#define uid_slice_alloc(ptr, q) __uid_slice_alloc(sizeof(*(ptr)), q, \
+		G_STRUCT_OFFSET(__typeof__(*(ptr)), unique_id))
+#define uid_slice_alloc0(ptr, q) __uid_slice_alloc0(sizeof(*(ptr)), q, \
+		G_STRUCT_OFFSET(__typeof__(*(ptr)), unique_id))
+INLINE void __uid_slice_alloc_fill(void *ptr, GQueue *q, unsigned int offset) {
+	unsigned int *id;
+	id = G_STRUCT_MEMBER_P(ptr, offset);
+	*id = g_queue_get_length(q);
+	g_queue_push_tail(q, ptr);
+}
+INLINE void *__uid_slice_alloc(unsigned int size, GQueue *q, unsigned int offset) {
+	void *ret;
+	ret = g_slice_alloc(size);
+	__uid_slice_alloc_fill(ret, q, offset);
+	return ret;
+}
+INLINE void *__uid_slice_alloc0(unsigned int size, GQueue *q, unsigned int offset) {
+	void *ret;
+	ret = g_slice_alloc0(size);
+	__uid_slice_alloc_fill(ret, q, offset);
+	return ret;
+}
+
 
 #endif
