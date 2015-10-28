@@ -462,9 +462,18 @@ static void ice_candidate_pairs_free(GQueue *q) {
 
 /* call must be locked */
 void ice_shutdown(struct ice_agent **agp) {
-	struct ice_agent *ag = *agp;
-	if (!ag)
+	struct ice_agent *ag;
+
+	if (!agp) {
+		ilog(LOG_ERR, "ice agp is NULL");
+		return ;
+	}
+
+	ag = *agp;
+	if (!ag) {
+		ilog(LOG_ERR, "ice ag is NULL");
 		return;
+	}
 
 	__agent_deschedule(ag);
 
@@ -472,6 +481,11 @@ void ice_shutdown(struct ice_agent **agp) {
 	obj_put(ag);
 }
 static void __ice_agent_free_components(struct ice_agent *ag) {
+	if (!ag) {
+		ilog(LOG_ERR, "ice ag is NULL");
+		return;
+	}
+
 	g_queue_clear(&ag->triggered);
 	g_hash_table_destroy(ag->candidate_hash);
 	g_hash_table_destroy(ag->pair_hash);
@@ -487,6 +501,11 @@ static void __ice_agent_free_components(struct ice_agent *ag) {
 }
 static void __ice_agent_free(void *p) {
 	struct ice_agent *ag = p;
+
+	if (!ag) {
+		ilog(LOG_ERR, "ice ag is NULL");
+		return;
+	}
 
 	__DBG("freeing ice_agent");
 
@@ -507,6 +526,11 @@ static void __agent_schedule(struct ice_agent *ag, unsigned long usec) {
 static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv) {
 	struct timeval nxt;
 	long long diff;
+
+	if (!ag) {
+		ilog(LOG_ERR, "ice ag is NULL");
+		return;
+	}
 
 	nxt = *tv;
 
@@ -529,6 +553,12 @@ nope:
 }
 static void __agent_deschedule(struct ice_agent *ag) {
 	int ret;
+
+	if (!ag) {
+		ilog(LOG_ERR, "ice ag is NULL");
+		return;
+	}
+
 	mutex_lock(&ice_agents_timers_lock);
 	if (!ag->next_check.tv_sec)
 		goto nope; /* already descheduled */
@@ -682,6 +712,11 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	GQueue retransmits = G_QUEUE_INIT;
 	struct timeval next_run = {0,0};
 	int have_more = 0;
+
+	if (!ag) {
+		ilog(LOG_ERR, "ice ag is NULL");
+		return;
+	}
 
 	if (!ag->pwd[0].s)
 		return;
@@ -981,6 +1016,11 @@ static int __check_valid(struct ice_agent *ag) {
 	struct ice_candidate_pair *pair;
 //	const struct local_intf *ifa;
 	struct stream_fd *sfd;
+
+	if (!ag) {
+		ilog(LOG_ERR, "ice ag is NULL");
+		return 0;
+	}
 
 	__get_complete_valid_pairs(&all_compos, ag);
 
