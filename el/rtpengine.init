@@ -180,7 +180,12 @@ start() {
 	then
 		echo "Loading module for in-kernel packet forwarding"
 		rmmod xt_RTPENGINE 2> /dev/null
-		modprobe xt_RTPENGINE
+		if [[ -n "$RE_USER" ]]
+		then
+			modprobe xt_RTPENGINE set_proc_id=1 proc_uid=$(id $RE_USER -u) proc_gid=$(id $RE_USER -g)
+		else
+			modprobe xt_RTPENGINE
+		fi
 		temp=`firewall-cmd --state 2>/dev/null`
 		if [[ $? == 0 ]]
 		then
@@ -212,7 +217,12 @@ CUR_TABLE=$TABLE
 EOF
 	fi
         echo -n $"Starting $prog: "
-        daemon --pidfile=${pidfile} $rtpengine $OPTS
+	if [[ -n "$RE_USER" ]]
+	then
+		daemon --user $RE_USER --pidfile=${pidfile} $rtpengine $OPTS
+	else
+		daemon --pidfile=${pidfile} $rtpengine $OPTS
+	fi
         RETVAL=$?
         echo
         [ $RETVAL = 0 ] && touch ${lockfile}
