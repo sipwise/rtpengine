@@ -376,7 +376,6 @@ got_some:
 					name->len, name->s);
 			} else {
 				__C_DBG("Choose logical interface NULL because of direction %.*s",
-					log->name.len, log->name.s,
 					name->len, name->s);
 			}
 			return log;
@@ -396,7 +395,6 @@ got_some:
 			name->len, name->s);
 	} else {
 		__C_DBG("Choose logical interface NULL because of direction %.*s",
-			log->name.len, log->name.s,
 			name->len, name->s);
 	}
 
