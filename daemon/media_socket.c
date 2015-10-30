@@ -250,6 +250,7 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 	return 1;
 }
 
+#if 0
 /* checks for free num_ports on at least one local interface of a logical interface */
 static int has_free_ports_log_any(struct logical_intf *log, unsigned int num_ports) {
 	if (log == NULL) {
@@ -270,6 +271,7 @@ static int has_free_ports_log_any(struct logical_intf *log, unsigned int num_por
 
 	return 0;
 }
+#endif
 
 /* checks for free num_ports on all local interfaces of a logical interface */
 static int has_free_ports_log_all(struct logical_intf *log, unsigned int num_ports) {
