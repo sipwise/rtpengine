@@ -28,8 +28,6 @@
 #endif
 
 
-
-
 typedef int (*rewrite_func)(str *, struct packet_stream *);
 
 
@@ -226,14 +224,127 @@ static GHashTable *__logical_intf_name_family_hash;
 static GHashTable *__intf_spec_addr_type_hash;
 static GQueue __preferred_lists_for_family[__SF_LAST];
 
+static volatile __thread unsigned int selection_index = 0;
+static volatile __thread unsigned int selection_count = 0;
 
 
+/* checks for free no_ports on a local interface */
+static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
+	if (loc == NULL) {
+		ilog(LOG_ERR, "has_free_ports_loc - NULL local interface");
+		return 0;
+	}
+	
+	if (num_ports > loc->spec->port_pool.free_ports) {
+		ilog(LOG_ERR, "Didn't found %d ports available for %.*s/%s",
+			num_ports, loc->logical->name.len, loc->logical->name.s,
+			sockaddr_print_buf(&loc->spec->address.addr));
+		return 0;
+	}
 
+	__C_DBG("Found %d ports available for %.*s/%s from total of %d free ports",
+		num_ports, loc->logical->name.len, loc->logical->name.s,
+		sockaddr_print_buf(&loc->spec->address.addr),
+		loc->spec->port_pool.free_ports);
 
-struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam) {
-	struct logical_intf d, *lif;
+	return 1;
+}
 
-	if (G_UNLIKELY(!name || !name->s)) {
+/* checks for free num_ports on at least one local interface of a logical interface */
+static int has_free_ports_log_any(struct logical_intf *log, unsigned int num_ports) {
+	if (log == NULL) {
+		ilog(LOG_ERR, "has_free_ports_log_any - NULL logical interface");
+		return 0;
+	}
+
+	struct local_intf *loc;
+	GList *l;
+
+	for (l = log->list.head; l; l = l->next) {
+		loc = l->data;
+
+		if (has_free_ports_loc(loc, num_ports)) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/* checks for free num_ports on all local interfaces of a logical interface */
+static int has_free_ports_log_all(struct logical_intf *log, unsigned int num_ports) {
+	if (log == NULL) {
+		ilog(LOG_ERR, "has_free_ports_log_all - NULL logical interface");
+		return 0;
+	}
+
+	struct local_intf *loc;
+	GList *l;
+
+	for (l = log->list.head; l; l = l->next) {
+		loc = l->data;
+
+		if (!has_free_ports_loc(loc, num_ports)) {
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+/* run round-robin-calls algorithm */ 
+static struct logical_intf* run_round_robin_calls(GQueue *q, unsigned int num_ports) {
+	struct logical_intf *log = NULL;
+	volatile unsigned int nr_tries = 0;
+	unsigned int nr_logs = 0;
+
+	nr_logs = g_queue_get_length(q);
+
+select_log:
+	// choose the next logical interface
+	log = g_queue_peek_nth(q, selection_index);
+	__C_DBG("Trying %d ports on logical interface %.*s", num_ports, log->name.len, log->name.s);
+
+	// test for free ports for the logical interface
+	if(!has_free_ports_log_all(log, num_ports)) {
+		// count the logical interfaces tried
+		nr_tries++;
+
+		// the logical interface selected has no ports available, try another one
+		selection_index ++;
+		selection_index = selection_index % nr_logs;
+
+		// all the logical interfaces have no ports available
+		if (nr_tries == nr_logs) {
+			ilog(LOG_ERR, "No logical interface with free ports found; fallback to default behaviour");
+			return NULL;
+		}
+
+		goto select_log;
+	}
+
+	__C_DBG("Round Robin Calls algorithm found logical %.*s; count=%u index=%u", log->name.len, log->name.s, selection_count, selection_index);
+
+	// 1 stream	=> 2 x get_logical_interface calls at offer
+	// 2 streams	=> 4 x get_logical_interface calls at offer
+	selection_count ++;
+	if (selection_count % (num_ports / 2) == 0) {
+		selection_count = 0; 
+		selection_index ++;
+		selection_index = selection_index % nr_logs;
+	}
+
+	return log;
+}
+
+struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, int num_ports) {
+	struct logical_intf d, *log = NULL;
+
+	__C_DBG("Get logical interface for %d ports", num_ports);
+
+	if (G_UNLIKELY(!name || !name->s ||
+	   str_cmp(name, ALGORITHM_ROUND_ROBIN_CALLS) == 0)) {
+
 		GQueue *q;
 		if (fam)
 			q = __interface_list_for_family(fam);
@@ -247,14 +358,41 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam) {
 got_some:
 			;
 		}
+
+		// round-robin-calls behaviour - return next interface with free ports
+		if (name && name->s && str_cmp(name, ALGORITHM_ROUND_ROBIN_CALLS) == 0 && num_ports > 0) {
+			log = run_round_robin_calls(q, num_ports);
+			if (log) {
+				__C_DBG("Choose logical interface %.*s because of direction %.*s",
+					log->name.len, log->name.s,
+					name->len, name->s);
+			} else {
+				__C_DBG("Choose logical interface NULL because of direction %.*s",
+					log->name.len, log->name.s,
+					name->len, name->s);
+			}
+			return log;
+		}
+
+		// default behaviour - return first logical interface
 		return q->head ? q->head->data : NULL;
 	}
 
 	d.name = *name;
 	d.preferred_family = fam;
 
-	lif = g_hash_table_lookup(__logical_intf_name_family_hash, &d);
-	return lif;
+	log = g_hash_table_lookup(__logical_intf_name_family_hash, &d);
+	if (log) {
+		__C_DBG("Choose logical interface %.*s because of direction %.*s",
+			log->name.len, log->name.s,
+			name->len, name->s);
+	} else {
+		__C_DBG("Choose logical interface NULL because of direction %.*s",
+			log->name.len, log->name.s,
+			name->len, name->s);
+	}
+
+	return log;
 }
 
 static unsigned int __name_family_hash(const void *p) {
@@ -284,7 +422,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 	struct local_intf *ifc;
 	struct intf_spec *spec;
 
-	lif = get_logical_interface(&ifa->name, fam);
+	lif = get_logical_interface(&ifa->name, fam, 0);
 
 	if (!lif) {
 		lif = g_slice_alloc0(sizeof(*lif));
@@ -305,6 +443,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 		ice_foundation(&spec->ice_foundation);
 		spec->port_pool.min = ifa->port_min;
 		spec->port_pool.max = ifa->port_max;
+		spec->port_pool.free_ports = spec->port_pool.max - spec->port_pool.min + 1;
 		g_hash_table_insert(__intf_spec_addr_type_hash, &spec->address, spec);
 	}
 
@@ -418,13 +557,24 @@ static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec) {
 		return ret;
 	}
 
+	g_atomic_int_dec_and_test(&pp->free_ports);
+	__C_DBG("%d free ports remaining on interface %s", pp->free_ports, sockaddr_print_buf(&spec->address.addr));
+
 	return 0;
 }
 
 static void release_port(socket_t *r, struct intf_spec *spec) {
-	__C_DBG("releasing port %u", r->local.port);
-	bit_array_clear(spec->port_pool.ports_used, r->local.port);
-	close_socket(r);
+	unsigned int port = r->local.port;
+
+	__C_DBG("trying to release port %u", port);
+
+	if (close_socket(r) == 0) {
+		__C_DBG("port %u is released", port);
+		bit_array_clear(spec->port_pool.ports_used, port);
+		g_atomic_int_inc(&spec->port_pool.free_ports);
+	} else {
+		__C_DBG("port %u is NOT released", port);
+	}
 }
 static void free_port(socket_t *r, struct intf_spec *spec) {
 	release_port(r, spec);
@@ -506,7 +656,7 @@ release_restart:
 	/* success */
 	g_atomic_int_set(&pp->last_used, port);
 
-	ilog(LOG_DEBUG, "Opened ports %u.. on interface %s for media relay",
+	__C_DBG("Opened ports %u.. on interface %s for media relay",
 		((socket_t *) out->head->data)->local.port, sockaddr_print_buf(&spec->address.addr));
 	return 0;
 
@@ -1037,8 +1187,10 @@ loop_ok:
 	/* we're OK to (potentially) use the source address of this packet as destination
 	 * in the other direction. */
 	/* if the other side hasn't been signalled yet, just forward the packet */
-	if (!PS_ISSET(stream, FILLED))
+	if (!PS_ISSET(stream, FILLED)) {
+		__C_DBG("stream %s:%d not FILLED", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
 		goto forward;
+	}
 
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
 	if (MEDIA_ISSET(media, ASYMMETRIC))
@@ -1098,11 +1250,32 @@ update_addr:
 
 
 kernel_check:
-	if (PS_ISSET(stream, NO_KERNEL_SUPPORT))
+	if (PS_ISSET(stream, NO_KERNEL_SUPPORT)) {
+		__C_DBG("stream %s:%d NO_KERNEL_SUPPORT", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
 		goto forward;
+	}
 
-	if (PS_ISSET(stream, CONFIRMED) && sink && PS_ARESET2(sink, CONFIRMED, FILLED))
-		kernelize(stream);
+	if (!PS_ISSET(stream, CONFIRMED)) {
+		__C_DBG("stream %s:%d not CONFIRMED", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
+		goto forward;
+	}
+
+	if (!sink) {
+		__C_DBG("sink is NULL for stream %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
+		goto forward;
+	}
+
+	if (!PS_ISSET(sink, CONFIRMED)) {
+		__C_DBG("sink not CONFIRMED for stream %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
+		goto forward;
+	}
+
+	if (!PS_ISSET(sink, FILLED)) {
+		__C_DBG("sink not FILLED for stream %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
+		goto forward;
+	}
+
+	kernelize(stream);
 
 forward:
 	if (sink)

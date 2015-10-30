@@ -502,14 +502,15 @@ fail:
 	return -1;
 }
 
-void close_socket(socket_t *r) {
+int close_socket(socket_t *r) {
 	if (!r || r->fd == -1) {
 		__C_DBG("close() syscall not called, fd=%d", r->fd);
-		return;
+		return -1;
 	}
 
 	if (close(r->fd) != 0) {
 		__C_DBG("close() syscall fail, fd=%d", r->fd);
+		return -1;
 	}
 
 	__C_DBG("close() syscall success, fd=%d", r->fd);
@@ -517,6 +518,8 @@ void close_socket(socket_t *r) {
 	r->fd = -1;
 	ZERO(r->local);
 	ZERO(r->remote);
+
+	return 0;
 }
 
 

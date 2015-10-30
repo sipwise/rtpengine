@@ -89,7 +89,7 @@ enum call_stream_state {
 
 
 #define ERROR_NO_FREE_PORTS	-100
-
+#define ERROR_NO_FREE_LOGS	-101
 
 #define MAX_RTP_PACKET_SIZE	8192
 #define RTP_BUFFER_HEAD_ROOM	128
