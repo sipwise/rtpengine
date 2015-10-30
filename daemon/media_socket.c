@@ -305,6 +305,12 @@ static struct logical_intf* run_round_robin_calls(GQueue *q, unsigned int num_po
 select_log:
 	// choose the next logical interface
 	log = g_queue_peek_nth(q, selection_index);
+	if (!log) {
+		if (selection_index == 0)
+			return NULL;
+		selection_index = 0;
+		goto select_log;
+	}
 	__C_DBG("Trying %d ports on logical interface %.*s", num_ports, log->name.len, log->name.s);
 
 	// test for free ports for the logical interface
