@@ -224,8 +224,8 @@ static GHashTable *__logical_intf_name_family_hash;
 static GHashTable *__intf_spec_addr_type_hash;
 static GQueue __preferred_lists_for_family[__SF_LAST];
 
-static volatile __thread unsigned int selection_index = 0;
-static volatile __thread unsigned int selection_count = 0;
+static __thread unsigned int selection_index = 0;
+static __thread unsigned int selection_count = 0;
 
 
 /* checks for free no_ports on a local interface */
