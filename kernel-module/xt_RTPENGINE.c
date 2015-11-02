@@ -82,10 +82,6 @@ struct rtp_parsed;
 struct re_crypto_context;
 
 
-bool set_proc_id = true;
-module_param(set_proc_id, bool, 0);
-MODULE_PARM_DESC(set_proc_id, "set specific user and group ids for the rtpengine procfs tree");
-
 kuid_t proc_kuid;
 uint proc_uid = 0;
 module_param(proc_uid, uint, 0);
@@ -410,40 +406,35 @@ static int table_create_proc(struct rtpengine_table *t, u_int32_t id) {
 	if (!t->proc)
 		return -1;
 
-	if (set_proc_id)
-		proc_set_user(t->proc, proc_kuid, proc_kgid);
+	proc_set_user(t->proc, proc_kuid, proc_kgid);
 
 	t->status = proc_create_data("status", S_IFREG | S_IRUGO, t->proc, &proc_status_ops,
 		(void *) (unsigned long) id);
 	if (!t->status)
 		return -1;
 
-	if (set_proc_id)
-		proc_set_user(t->status, proc_kuid, proc_kgid);
+	proc_set_user(t->status, proc_kuid, proc_kgid);
 
 	t->control = proc_create_data("control", S_IFREG | S_IWUSR | S_IWGRP, t->proc,
 			&proc_control_ops, (void *) (unsigned long) id);
 	if (!t->control)
 		return -1;
 
-	if (set_proc_id)
-		proc_set_user(t->control, proc_kuid, proc_kgid);
+	proc_set_user(t->control, proc_kuid, proc_kgid);
 
 	t->list = proc_create_data("list", S_IFREG | S_IRUGO, t->proc,
 			&proc_list_ops, (void *) (unsigned long) id);
 	if (!t->list)
 		return -1;
 
-	if (set_proc_id)
-		proc_set_user(t->list, proc_kuid, proc_kgid);
+	proc_set_user(t->list, proc_kuid, proc_kgid);
 
 	t->blist = proc_create_data("blist", S_IFREG | S_IRUGO, t->proc,
 			&proc_blist_ops, (void *) (unsigned long) id);
 	if (!t->blist)
 		return -1;
 
-	if (set_proc_id)
-		proc_set_user(t->blist, proc_kuid, proc_kgid);
+	proc_set_user(t->blist, proc_kuid, proc_kgid);
 
 	return 0;
 }
@@ -2568,11 +2559,9 @@ static int __init init(void) {
 	const char *err;
 
 	printk(KERN_NOTICE "Registering xt_RTPENGINE module - version %s\n", RTPENGINE_VERSION);
-	if (set_proc_id) {
-		printk(KERN_NOTICE "using uid %u, gid %d\n", proc_uid, proc_gid);
-		proc_kuid = KUIDT_INIT(proc_uid);
-		proc_kgid = KGIDT_INIT(proc_gid);
-	}
+	printk(KERN_DEBUG "using uid %u, gid %d\n", proc_uid, proc_gid);
+	proc_kuid = KUIDT_INIT(proc_uid);
+	proc_kgid = KGIDT_INIT(proc_gid);
 
 	rwlock_init(&table_lock);
 
@@ -2582,8 +2571,7 @@ static int __init init(void) {
 	if (!my_proc_root)
 		goto fail;
 
-	if (set_proc_id)
-		proc_set_user(my_proc_root, proc_kuid, proc_kgid);
+	proc_set_user(my_proc_root, proc_kuid, proc_kgid);
 	/* my_proc_root->owner = THIS_MODULE; */
 
 	proc_control = proc_create("control", S_IFREG | S_IWUSR | S_IWGRP, my_proc_root,
@@ -2591,15 +2579,13 @@ static int __init init(void) {
 	if (!proc_control)
 		goto fail;
 
-	if (set_proc_id)
-		proc_set_user(proc_control, proc_kuid, proc_kgid);
+	proc_set_user(proc_control, proc_kuid, proc_kgid);
 
 	proc_list = proc_create("list", S_IFREG | S_IRUGO, my_proc_root, &proc_main_list_ops);
 	if (!proc_list)
 		goto fail;
 
-	if (set_proc_id)
-		proc_set_user(proc_list, proc_kuid, proc_kgid);
+	proc_set_user(proc_list, proc_kuid, proc_kgid);
 
 	err = "could not register xtables target";
 	ret = xt_register_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
