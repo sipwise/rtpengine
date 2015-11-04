@@ -521,6 +521,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->strict_source = 1;
 			else if (!bencode_strcmp(it, "media-handover"))
 				out->media_handover = 1;
+			else if (!bencode_strcmp(it, "reset"))
+				out->reset = 1;
 			else
 				ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
 						BENCODE_FMT(it));
