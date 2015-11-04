@@ -2529,6 +2529,11 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		 * THIS side (recipient) before, then the structs will be populated with
 		 * details already. */
 
+		if (flags && flags->opmode == OP_OFFER && flags->reset) {
+			MEDIA_CLEAR(media, INITIALIZED);
+			MEDIA_CLEAR(other_media, INITIALIZED);
+		}
+
 		/* deduct protocol from stream parameters received */
 		if (other_media->protocol != sp->protocol) {
 			other_media->protocol = sp->protocol;
