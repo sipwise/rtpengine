@@ -662,6 +662,17 @@ Optionally included keys are:
 		this opens a security hole and potentially allows RTP streams to be hijacked, either partly or
 		in whole.
 
+	- `reset`
+
+		This causes *rtpengine* to un-learn certain aspects of the RTP endpoints involved, such as
+		support for ICE or support for SRTP. For example, if `ICE=force` is given, then *rtpengine*
+		will initially offer ICE to the remote endpoint. However, if a subsequent answer from that
+		same endpoint indicates that it doesn't support ICE, then no more ICE offers will be made
+		towards that endpoint, even if `ICE=force` is still specified. With the `reset` flag given,
+		this aspect will be un-learned and *rtpengine* will again offer ICE to this endpoint.
+		This flag is valid only in an `offer` message and is useful when the call has been
+		transferred to a new endpoint without change of `From` or `To` tags.
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.
