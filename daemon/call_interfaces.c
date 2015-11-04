@@ -560,6 +560,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->strict_source = 1;
 			else if (!bencode_strcmp(it, "media-handover"))
 				out->media_handover = 1;
+			else if (!bencode_strcmp(it, "reset"))
+				out->reset = 1;
 			else if (it->iov[1].iov_len >= 5 && !memcmp(it->iov[1].iov_base, "SDES-", 5))
 				ng_sdes_option(out, it, 5);
 			else
