@@ -1,3 +1,15 @@
+ngcp-rtpengine (3.8.3.3+0~mr3.8.3.3) unstable; urgency=medium
+
+  [ Alexander Lutay ]
+  * [00fa79a] MT#7505 Add .gitreview file for rtpengine
+
+  [ Richard Fuchs ]
+  * [69b7586] MT#15289 add "reset" flag to un-learn certain parameters
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 05 Nov 2015 14:43:06 +0100
+
 ngcp-rtpengine (3.8.3.2+0~mr3.8.3.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
