@@ -1,3 +1,12 @@
+ngcp-rtpengine (4.1.1.2+0~mr4.1.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [04e32f7] MT#15289 add "reset" flag to un-learn certain parameters
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 05 Nov 2015 14:45:47 +0100
+
 ngcp-rtpengine (4.1.1.1+0~mr4.1.1.1) unstable; urgency=medium
 
   * New release.
