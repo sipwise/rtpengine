@@ -1398,7 +1398,7 @@ void redis_update(struct call *c, struct redis *r, int role) {
 		ep = l->data;
 
 		redis_pipe(r, "HMSET map-"PB"-%u wildcard %i num_ports %u intf_preferred_family %s "
-			"logical_intf %s",
+			"logical_intf "PB"",
 			STR(&c->callid), ep->unique_id,
 			ep->wildcard,
 			ep->num_ports,

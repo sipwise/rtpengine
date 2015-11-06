@@ -22,6 +22,7 @@ flags = [
 '-I../kernel-module/',
 '-D_GNU_SOURCE',
 '-D__DEBUG=1',
+'-D__YCM=1',
 '-DRTPENGINE_VERSION="dummy"',
 '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
 '-O2',
