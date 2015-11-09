@@ -42,6 +42,7 @@ GetOptions(
 	'media-handover'		=> \$options{'media handover'},
 	'TOS=i'				=> \$options{'TOS'},
 	'delete-delay=i'		=> \$options{'delete-delay'},
+	'reset'				=> \$options{'reset'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -51,7 +52,7 @@ my %packet = (command => $cmd);
 for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,TOS,DTLS,via-branch,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address')) {
+for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(',', 'origin,session connection')) {
