@@ -479,10 +479,8 @@ void ice_shutdown(struct ice_agent **agp) {
 	}
 
 	ag = *agp;
-	if (!ag) {
-		ilog(LOG_ERR, "ice ag is NULL");
+	if (!ag)
 		return;
-	}
 
 	__agent_deschedule(ag);
 
