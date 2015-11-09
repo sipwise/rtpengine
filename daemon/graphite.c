@@ -237,7 +237,7 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
 		}
 
-		copy_with_lock(&cm->totalstats_lastinterval, &graphite_stats, &cm->totalstats_lastinterval);
+		copy_with_lock(&cm->totalstats_lastinterval, &graphite_stats, &cm->totalstats_lastinterval.total_average_lock);
 	}
 
 }

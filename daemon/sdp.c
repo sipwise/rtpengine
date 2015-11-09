@@ -1561,7 +1561,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 {
 	GList *l;
 	struct sdp_attributes *attrs = &sdp->attributes;
-	struct sdp_attribute *attr, *a;
+	struct sdp_attribute *attr /* , *a */;
 
 	for (l = attrs->list.head; l; l = l->next) {
 		attr = l->data;
