@@ -655,9 +655,6 @@ int dtls(struct packet_stream *ps, const str *s, const endpoint_t *fsin) {
 			(unsigned char) s->s[8], (unsigned char) s->s[9], (unsigned char) s->s[10], (unsigned char) s->s[11],
 			(unsigned char) s->s[12], (unsigned char) s->s[13], (unsigned char) s->s[14], (unsigned char) s->s[15]);
 
-	if (d->connected)
-		return 0;
-
 	if (!d->init || !d->ssl)
 		return -1;
 
@@ -687,32 +684,34 @@ int dtls(struct packet_stream *ps, const str *s, const endpoint_t *fsin) {
 		}
 	}
 
-	ret = BIO_ctrl_pending(d->w_bio);
-	if (ret <= 0)
-		return 0;
+	while (1) {
+		ret = BIO_ctrl_pending(d->w_bio);
+		if (ret <= 0)
+			break;
 
-	if (ret > sizeof(buf)) {
-		ilog(LOG_ERROR, "BIO buffer overflow");
-		(void) BIO_reset(d->w_bio);
-		return 0;
+		if (ret > sizeof(buf)) {
+			ilog(LOG_ERROR, "BIO buffer overflow");
+			(void) BIO_reset(d->w_bio);
+			break;
+		}
+
+		ret = BIO_read(d->w_bio, buf, ret);
+		if (ret <= 0)
+			break;
+
+		__DBG("dtls packet output: len %u %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+			ret,
+			buf[0], buf[1], buf[2], buf[3],
+			buf[4], buf[5], buf[6], buf[7],
+			buf[8], buf[9], buf[10], buf[11],
+			buf[12], buf[13], buf[14], buf[15]);
+
+		if (!fsin)
+			fsin = &ps->endpoint;
+
+		ilog(LOG_DEBUG, "Sending DTLS packet");
+		socket_sendto(&ps->selected_sfd->socket, buf, ret, fsin);
 	}
-
-	ret = BIO_read(d->w_bio, buf, ret);
-	if (ret <= 0)
-		return 0;
-
-	__DBG("dtls packet output: len %u %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-		ret,
-		buf[0], buf[1], buf[2], buf[3],
-		buf[4], buf[5], buf[6], buf[7],
-		buf[8], buf[9], buf[10], buf[11],
-		buf[12], buf[13], buf[14], buf[15]);
-
-	if (!fsin)
-		fsin = &ps->endpoint;
-
-	ilog(LOG_DEBUG, "Sending DTLS packet");
-	socket_sendto(&ps->selected_sfd->socket, buf, ret, fsin);
 
 	return 0;
 }
