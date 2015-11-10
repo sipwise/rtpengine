@@ -17,6 +17,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <inttypes.h>
+#include <pcap.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -698,6 +699,8 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	GQueue intf_sockets = G_QUEUE_INIT;
 	socket_t *sock;
 	struct intf_list *il, *em_il;
+
+	ilog(LOG_INFO, "XXDylan: __get_endpoint_map");
 
 	for (l = media->endpoint_maps.tail; l; l = l->prev) {
 		em = l->data;
@@ -1503,7 +1506,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	struct endpoint_map *em;
 	struct call *call;
 
-
 	call = monologue->call;
 
 	call->last_signal = poller_now;
@@ -1523,6 +1525,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	__tos_change(call, flags);
 
 	ml_media = other_ml_media = NULL;
+
+	setup_recording_files(call, monologue);
 
 	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
 		sp = media_iter->data;
@@ -2406,26 +2410,8 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = poller_now;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
-	if (call->record_call) {
-		char recording_path[15];
-		char logbuf[15];
-	    /*
-	     *
-	     * create a file descriptor per monologue which can be used for writing rtp to disk
-	     * aka call recording.
-		 */
-
-		sprintf(recording_path, "/tmp/%d", rand());
-		GSList *list = NULL;
-		call->recording_pcaps = g_slist_prepend(call->recording_pcaps, g_strdup(recording_path));
-		ilog(LOG_INFO, "xxegreen: path2 %s", call->recording_pcaps->data);
-		ilog(LOG_INFO, "XXXECT: Creating new file descriptor for recording at path %s", recording_path);
-		ret->recording_fd = open(recording_path, O_WRONLY | O_CREAT | O_TRUNC);
-		sprintf(logbuf, "%d", ret->recording_fd);
-		ilog(LOG_INFO, "XXXECT: FD created: %s", logbuf);
-	} else {
-		ret->recording_fd = -1;
-	}
+	ret->recording_pd = NULL;
+	ret->recording_pdumper = NULL;
 
 	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);
@@ -2500,9 +2486,14 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 	GList *l;
 
 	call = monologue->call;
-    /* XXXECT BEGIN */
-    close(monologue->recording_fd);
-    /* XXXECT END */
+	ilog(LOG_INFO, "XXXDylan: closing pcap stuff");
+	if (monologue->recording_pdumper != NULL) {
+		pcap_dump_flush(monologue->recording_pdumper);
+		pcap_dump_close(monologue->recording_pdumper);
+	}
+	if (monologue->recording_pd != NULL) {
+		pcap_close(monologue->recording_pd);
+	}
 
 	g_hash_table_remove(call->tags, &monologue->tag);
 
@@ -2861,4 +2852,27 @@ const struct transport_protocol *transport_protocol(const str *s) {
 
 out:
 	return NULL;
+}
+
+void setup_recording_files(struct call *call, struct call_monologue *monologue) {
+	if (call->record_call
+	    && monologue->recording_pd == NULL && monologue->recording_pdumper == NULL) {
+    char rec_path_prefix[16];
+		char recording_path[21];
+		/*
+		 *
+		 * create a file descriptor per monologue which can be used for writing rtp to disk
+		 * aka call recording.
+		 */
+
+		snprintf(rec_path_prefix, 15, "/tmp/%d", rand());
+		snprintf(recording_path, 20, "%s.pcap", rec_path_prefix);
+		call->recording_pcaps = g_slist_prepend(call->recording_pcaps, g_strdup(recording_path));
+		ilog(LOG_INFO, "XXXDylan: Creating new pcap dumper for recording at path %s", recording_path);
+		monologue->recording_pd = pcap_open_dead(DLT_RAW, 65535);
+		monologue->recording_pdumper = pcap_dump_open(monologue->recording_pd, recording_path);
+	} else {
+		monologue->recording_pd = NULL;
+		monologue->recording_pdumper = NULL;
+	}
 }

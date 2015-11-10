@@ -108,7 +108,7 @@ static void sighandler(gpointer x) {
 				continue;
 			abort();
 		}
-		
+
 		if (ret == SIGINT || ret == SIGTERM)
 			g_shutdown = 1;
 		else if (ret == SIGUSR1) {

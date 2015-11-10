@@ -3,6 +3,7 @@
 #include <string.h>
 #include <glib.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include "str.h"
 #include "ice.h"
 #include "socket.h"
@@ -46,6 +47,8 @@ struct streamhandler {
 
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
+
+static void stream_pcap_dump(pcap_dumper_t *pdumper, str *s);
 
 static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
@@ -1027,8 +1030,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	int ret = 0, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0, rtcp = 0,
 	    unk = 0;
 	int i;
-	// XXEGREEN... This makes me nervous.
-	int recording_fd = sfd->stream->media->monologue->recording_fd;
+	pcap_dumper_t *recording_pdumper;
 	struct call *call;
 	struct callmaster *cm;
 	/*unsigned char cc;*/
@@ -1038,6 +1040,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	struct rtp_header *rtp_h;
 	struct rtp_stats *rtp_s;
 
+	recording_pdumper = sfd->stream->media->monologue->recording_pdumper;
 	call = sfd->call;
 	cm = call->callmaster;
 
@@ -1179,20 +1182,13 @@ loop_ok:
 	 * 1 = forward and push update to redis */
 	if (rwf_in) {
 		handler_ret = rwf_in(s, in_srtp);
-		ilog(LOG_INFO, "xxegreen peer address as %s", endpoint_print_buf(fsin));
 	}
-	// This might be the hook that rfuchs might be referring to
-	// ilog(LOG_WARNING, "xxegreen0: %s", s->s);
-	// EGREEN: This is working pretty nicely but we need to remove the first 12 bytes from each packet that it is dumping
-	if (recording_fd && recording_fd != -1) {
-	   // I am aware that we need to do better and that this is a naive approach
-	   int writelen = (s->len)-12;
-	   char towrite[writelen];
-	   memcpy(towrite, &s->s[12], writelen);
-	   write(recording_fd, towrite, writelen);
 
-	   // EGREEN: This is going to happen for every packet. We need to do better
-	   PS_SET(stream, FORCE_DAEMON_MODE);
+	// If recording pcap dumper is set, then we record the call.
+	if (recording_pdumper != NULL) {
+		stream_pcap_dump(recording_pdumper, s);
+		// EGREEN: This is going to happen for every packet. We need to do better
+		PS_SET(stream, FORCE_DAEMON_MODE);
 	}
 
 	if (handler_ret >= 0) {
@@ -1329,7 +1325,6 @@ forward:
 		goto drop;
 
 	// s is my packet?
-	ilog(LOG_INFO, "XXEGREEN NOT");
 	ret = socket_sendto(&sink->selected_sfd->socket, s->s, s->len, &sink->endpoint);
 	__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&sink->endpoint.address), sink->endpoint.port);
 
@@ -1374,6 +1369,54 @@ unlock_out:
 }
 
 
+static void stream_pcap_dump(pcap_dumper_t *pdumper, str *s) {
+	// Wrap RTP in fake UDP packet header
+	// Right now, we spoof it all
+	u_int16_t udp_len = ((u_int16_t)s->len) + 8;
+	u_int16_t udp_header[4];
+	udp_header[0] = htons(5028); // source port
+	udp_header[1] = htons(50116); // destination port
+	udp_header[2] = htons(udp_len); // packet length
+	udp_header[3] = 0; // checksum
+
+	// Wrap RTP in fake IP packet header
+	u_int8_t ip_header[20];
+	u_int16_t *ip_total_length = (u_int16_t*)(ip_header + 2);
+	u_int32_t *ip_src_addr = (u_int32_t*)(ip_header + 12);
+	u_int32_t *ip_dst_addr = (u_int32_t*)(ip_header + 16);
+	memset(ip_header, 0, 20);
+	ip_header[0] = 4 << 4; // IP version - 4 bits
+	ip_header[0] = ip_header[0] | 5; // Internet Header Length (IHL) - 4 bits
+	ip_header[1] = 0; // DSCP - 6 bits
+	ip_header[1] = 0; // ECN - 2 bits
+	*ip_total_length = htons(udp_len + 20); // Total Length (entire packet size) - 2 bytes
+	ip_header[4] = 0; ip_header[5] = 0 ; // Identification - 2 bytes
+	ip_header[6] = 0; // Flags - 3 bits
+	ip_header[7] = 0; // Fragment Offset - 13 bits
+	ip_header[8] = 64; // TTL - 1 byte
+	ip_header[9] = 17; // Protocol (defines protocol in data portion) - 1 byte
+	ip_header[10] = 0; ip_header[11] = 0; // Header Checksum - 2 bytes
+	*ip_src_addr = htonl(2130706433); // Source IP (set to localhost) - 4 bytes
+	*ip_dst_addr = htonl(2130706433); // Destination IP (set to localhost) - 4 bytes
+
+	// Set up PCAP packet header
+	struct pcap_pkthdr header;
+	ZERO(header);
+	header.ts = g_now;
+	header.caplen = s->len + 28;
+	// This must be the same value we use in `pcap_open_dead`
+	header.len = s->len + 28;
+
+  // Copy all the headers and payload into a new string
+	unsigned char pkt_s[*ip_total_length];
+	memcpy(pkt_s, ip_header, 20);
+	memcpy(pkt_s + 20, udp_header, 8);
+	memcpy(pkt_s + 28, s->s, s->len);
+
+	// Write the packet to the PCAP file
+	// Casting quiets compiler warning.
+	pcap_dump((unsigned char *)pdumper, &header, (unsigned char *)pkt_s);
+}
 
 
 static void stream_fd_readable(int fd, void *p, uintptr_t u) {
@@ -1472,7 +1515,6 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 	sfd->call = obj_get(call);
 	sfd->local_intf = lif;
 	g_queue_push_tail(&call->stream_fds, sfd); /* hand over ref */
-	//sfd->recording_fd = recording_fd;
 
 	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
 

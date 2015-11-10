@@ -14,6 +14,7 @@
 #include <pcre.h>
 #include <openssl/x509.h>
 #include <limits.h>
+#include <pcap.h>
 #include "compat.h"
 #include "socket.h"
 
@@ -397,8 +398,9 @@ struct call_monologue {
 	enum termination_reason term_reason;
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
-	int recording_fd;
 	GQueue			medias;
+	pcap_t *recording_pd;
+	pcap_dumper_t *recording_pdumper;
 };
 
 struct call {
