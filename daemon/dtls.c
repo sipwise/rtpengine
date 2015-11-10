@@ -658,9 +658,6 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 			(unsigned char) s->s[8], (unsigned char) s->s[9], (unsigned char) s->s[10], (unsigned char) s->s[11],
 			(unsigned char) s->s[12], (unsigned char) s->s[13], (unsigned char) s->s[14], (unsigned char) s->s[15]);
 
-	if (d->connected)
-		return 0;
-
 	if (!d->init || !d->ssl)
 		return -1;
 
@@ -690,51 +687,53 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 		}
 	}
 
-	ret = BIO_ctrl_pending(d->w_bio);
-	if (ret <= 0)
-		return 0;
+	while (1) {
+		ret = BIO_ctrl_pending(d->w_bio);
+		if (ret <= 0)
+			break;
 
-	if (ret > sizeof(buf)) {
-		ilog(LOG_ERROR, "BIO buffer overflow");
-		(void) BIO_reset(d->w_bio);
-		return 0;
+		if (ret > sizeof(buf)) {
+			ilog(LOG_ERROR, "BIO buffer overflow");
+			(void) BIO_reset(d->w_bio);
+			break;
+		}
+
+		ret = BIO_read(d->w_bio, buf, ret);
+		if (ret <= 0)
+			break;
+
+		__DBG("dtls packet output: len %u %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+			ret,
+			buf[0], buf[1], buf[2], buf[3],
+			buf[4], buf[5], buf[6], buf[7],
+			buf[8], buf[9], buf[10], buf[11],
+			buf[12], buf[13], buf[14], buf[15]);
+
+		if (!fsin) {
+			ZERO(sin);
+			sin.sin6_family = AF_INET6;
+			sin.sin6_addr = ps->endpoint.ip46;
+			sin.sin6_port = htons(ps->endpoint.port);
+			fsin = &sin;
+		}
+
+		ZERO(mh);
+		mh.msg_control = ctrl;
+		mh.msg_controllen = sizeof(ctrl);
+		mh.msg_name = fsin;
+		mh.msg_namelen = sizeof(*fsin);
+		mh.msg_iov = &iov;
+		mh.msg_iovlen = 1;
+
+		ZERO(iov);
+		iov.iov_base = buf;
+		iov.iov_len = ret;
+
+		stream_msg_mh_src(ps, &mh);
+
+		ilog(LOG_DEBUG, "Sending DTLS packet");
+		sendmsg(ps->sfd->fd.fd, &mh, 0);
 	}
-
-	ret = BIO_read(d->w_bio, buf, ret);
-	if (ret <= 0)
-		return 0;
-
-	__DBG("dtls packet output: len %u %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-		ret,
-		buf[0], buf[1], buf[2], buf[3],
-		buf[4], buf[5], buf[6], buf[7],
-		buf[8], buf[9], buf[10], buf[11],
-		buf[12], buf[13], buf[14], buf[15]);
-
-	if (!fsin) {
-		ZERO(sin);
-		sin.sin6_family = AF_INET6;
-		sin.sin6_addr = ps->endpoint.ip46;
-		sin.sin6_port = htons(ps->endpoint.port);
-		fsin = &sin;
-	}
-
-	ZERO(mh);
-	mh.msg_control = ctrl;
-	mh.msg_controllen = sizeof(ctrl);
-	mh.msg_name = fsin;
-	mh.msg_namelen = sizeof(*fsin);
-	mh.msg_iov = &iov;
-	mh.msg_iovlen = 1;
-
-	ZERO(iov);
-	iov.iov_base = buf;
-	iov.iov_len = ret;
-
-	stream_msg_mh_src(ps, &mh);
-
-	ilog(LOG_DEBUG, "Sending DTLS packet");
-	sendmsg(ps->sfd->fd.fd, &mh, 0);
 
 	return 0;
 }
