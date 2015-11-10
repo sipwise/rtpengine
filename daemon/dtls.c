@@ -662,6 +662,7 @@ int dtls(struct packet_stream *ps, const str *s, const endpoint_t *fsin) {
 		return -1;
 
 	if (s) {
+		ilog(LOG_DEBUG, "Processing incoming DTLS packet");
 		BIO_write(d->r_bio, s->s, s->len);
 		/* we understand this as preference of DTLS over SDES */
 		MEDIA_CLEAR(ps->media, SDES);
@@ -710,6 +711,7 @@ int dtls(struct packet_stream *ps, const str *s, const endpoint_t *fsin) {
 	if (!fsin)
 		fsin = &ps->endpoint;
 
+	ilog(LOG_DEBUG, "Sending DTLS packet");
 	socket_sendto(&ps->selected_sfd->socket, buf, ret, fsin);
 
 	return 0;
