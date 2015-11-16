@@ -1,3 +1,14 @@
+ngcp-rtpengine (4.0.2.1+0~mr4.0.2.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3cda752] MT#14817 don't reset crypto on non-filled packet stream
+  * [93332f0] MT#15289 add "reset" flag to un-learn certain parameters
+  * [64f01a6] fix a memory leak
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 16 Nov 2015 14:44:22 +0100
+
 ngcp-rtpengine (4.0.2.0+0~mr4.0.2.0) unstable; urgency=medium
 
   * New release.
