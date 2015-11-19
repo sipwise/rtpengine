@@ -549,15 +549,15 @@ static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec) {
 	pp = &spec->port_pool;
 
 	if (bit_array_set(pp->ports_used, port)) {
-		__C_DBG("port in use");
+		__C_DBG("port %d in use", port);
 		return -1;
 	}
-	__C_DBG("port locked");
+	__C_DBG("port %d locked", port);
 
 	ret = get_port6(r, port, spec);
 
 	if (ret) {
-		__C_DBG("couldn't open port");
+		__C_DBG("couldn't open port %d", port);
 		bit_array_clear(pp->ports_used, port);
 		return ret;
 	}
@@ -840,7 +840,7 @@ void kernelize(struct packet_stream *stream) {
 	if (!stream->selected_sfd)
 		goto no_kernel;
 
-	ilog(LOG_INFO, "Kernelizing media stream");
+        ilog(LOG_INFO, "Kernelizing media stream: %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
 
 	sink = packet_stream_sink(stream);
 	if (!sink) {
@@ -1036,6 +1036,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin) 
 	stream = sfd->stream;
 	if (!stream)
 		goto unlock_out;
+	__C_DBG("Try to Kernelizing media stream: %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
 
 
 	media = stream->media;
@@ -1219,6 +1220,9 @@ loop_ok:
 			mutex_unlock(&stream->out_lock);
 
 			if (tmp && PS_ISSET(stream, STRICT_SOURCE)) {
+				ilog(LOG_INFO, "Drop due to strict-source attribute; got %s:%d, expected %s:%d",
+					sockaddr_print_buf(&endpoint.address), endpoint.port,
+					sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
 				atomic64_inc(&stream->stats.errors);
 				goto drop;
 			}
@@ -1294,6 +1298,7 @@ forward:
 		goto drop;
 
 	ret = socket_sendto(&sink->selected_sfd->socket, s->s, s->len, &sink->endpoint);
+	__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&sink->endpoint.address), sink->endpoint.port);
 
 	mutex_unlock(&sink->out_lock);
 
