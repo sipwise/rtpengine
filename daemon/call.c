@@ -394,7 +394,7 @@ void kernelize(struct packet_stream *stream) {
 	if (!stream->sfd)
 		goto no_kernel;
 
-	ilog(LOG_INFO, "Kernelizing media stream");
+        ilog(LOG_INFO, "Kernelizing media stream: %s:%d", smart_ntop_p_buf(&stream->endpoint.ip46), stream->endpoint.port);
 
 	sink = packet_stream_sink(stream);
 	if (!sink) {
@@ -820,6 +820,9 @@ loop_ok:
 			mutex_unlock(&stream->out_lock);
 
 			if (tmp && PS_ISSET(stream, STRICT_SOURCE)) {
+				ilog(LOG_INFO, "Drop due to strict-source attribute; got endpoint: %s:%d, expected stream_endpoint: %s:%d",
+					smart_ntop_p_buf(&endpoint.ip46), endpoint.port, 
+					smart_ntop_p_buf(&stream->endpoint.ip46), stream->endpoint.port);
 				atomic64_inc(&stream->stats.errors);
 				goto drop;
 			}
@@ -867,11 +870,32 @@ update_addr:
 
 
 kernel_check:
-	if (PS_ISSET(stream, NO_KERNEL_SUPPORT))
+	if (PS_ISSET(stream, NO_KERNEL_SUPPORT)) {
+		__C_DBG("No kernel support found for stream: %s:%d", smart_ntop_p_buf(&stream->endpoint.ip46), stream->endpoint.port);
 		goto forward;
+	}
 
-	if (PS_ISSET(stream, CONFIRMED) && sink && PS_ARESET2(sink, CONFIRMED, FILLED))
-		kernelize(stream);
+	if (!PS_ISSET(stream, CONFIRMED)) {
+		__C_DBG("stream %s:%d not CONFIRMED", smart_ntop_p_buf(&stream->endpoint.ip46), stream->endpoint.port);
+		goto forward;
+	}
+
+	if (!sink) {
+		__C_DBG("sink is NULL for stream %s:%d", smart_ntop_p_buf(&stream->endpoint.ip46), stream->endpoint.port);
+		goto forward;
+	}
+
+	if (!PS_ISSET(sink, CONFIRMED)) {
+		__C_DBG("sink not CONFIRMED for stream %s:%d", smart_ntop_p_buf(&stream->endpoint.ip46), stream->endpoint.port);
+		goto forward;
+	}
+
+	if (!PS_ISSET(sink, FILLED)) {
+		__C_DBG("sink not FILLED for stream %s:%d", smart_ntop_p_buf(&stream->endpoint.ip46), stream->endpoint.port);
+		goto forward;
+	}
+
+	kernelize(stream);
 
 forward:
 	if (sink)
@@ -907,6 +931,7 @@ forward:
 	mh.msg_iovlen = 1;
 
 	ret = sendmsg(sink->sfd->fd.fd, &mh, 0);
+	__C_DBG("Forward to sink endpoint: %s:%d", smart_ntop_p_buf(&sink->endpoint.ip46), sink->endpoint.port);
 
 	if (ret == -1) {
 		ret = 0; /* temp for address family mismatches */
@@ -1610,15 +1635,15 @@ static int get_port(struct udp_fd *r, u_int16_t p, const struct call *c) {
 	__C_DBG("attempting to open port %u", p);
 
 	if (bit_array_set(m->ports_used, p)) {
-		__C_DBG("port in use");
+		__C_DBG("port %d in use", port);
 		return -1;
 	}
-	__C_DBG("port locked");
+	__C_DBG("port %d locked", port);
 
 	ret = get_port6(r, p, c);
 
 	if (ret) {
-		__C_DBG("couldn't open port");
+		__C_DBG("couldn't open port %d", port);
 		bit_array_clear(m->ports_used, p);
 		return ret;
 	}
@@ -1930,6 +1955,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		return;
 
 	ps->endpoint = ep;
+	__C_DBG("filling stream endpoint: %s:%d", smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port);
 
 	if (PS_ISSET(ps, FILLED)) {
 		/* we reset crypto params whenever the endpoint changes */
