@@ -92,6 +92,8 @@ enum call_stream_state {
 #define RTP_BUFFER_TAIL_ROOM	512
 #define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
 
+#define MAX_REDIS_HKEY_SIZE 150
+
 #ifndef RTP_LOOP_PROTECT
 #define RTP_LOOP_PROTECT	28 /* number of bytes */
 #define RTP_LOOP_PACKETS	2  /* number of packets */
@@ -184,8 +186,8 @@ enum call_stream_state {
 #define MEDIA_SET(p, f)		bf_set(&(p)->media_flags, MEDIA_FLAG_ ## f)
 #define MEDIA_CLEAR(p, f)	bf_clear(&(p)->media_flags, MEDIA_FLAG_ ## f)
 
-
-
+typedef enum { RC_SFD, RC_EM, RC_PS, RC_MEDIA, RC_MONO, RC_LIMIT} rc_type;
+typedef struct redis_hkey_counters { unsigned char val[RC_LIMIT]; } redis_hkey_counters;
 
 struct poller;
 struct control_stream;
@@ -282,12 +284,14 @@ struct stream_fd {
 	struct packet_stream	*stream;	/* LOCK: call->master_lock */
 	struct crypto_context	crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection	dtls;		/* LOCK: stream->in_lock */
+	char	                redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 struct endpoint_map {
 	struct endpoint		endpoint;
 	GQueue			sfds;
 	int			wildcard:1;
+	char		redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 struct loop_protector {
@@ -296,7 +300,7 @@ struct loop_protector {
 };
 
 struct rtp_stats {
-	unsigned int		payload_type;
+	unsigned int	payload_type;
 	atomic64		packets;
 	atomic64		bytes;
 	atomic64		kernel_packets;
@@ -340,6 +344,7 @@ struct packet_stream {
 
 	/* in_lock must be held for SETTING these: */
 	volatile unsigned int	ps_flags;
+	char					redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 /* protected by call->master_lock, except the RO elements */
@@ -373,6 +378,7 @@ struct call_media {
 	GHashTable		*rtp_payload_types;
 
 	volatile unsigned int	media_flags;
+ 	char					redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 /* half a dialogue */
@@ -392,6 +398,7 @@ struct call_monologue {
 	struct call_monologue	*active_dialogue;
 
 	GQueue			medias;
+	char			redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 struct call {
@@ -412,14 +419,16 @@ struct call {
 	GSList			*stream_fds;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 
-	str			callid;
+	str			    callid;
 	time_t			created;
 	time_t			last_signal;
 	time_t			deleted;
 	time_t			ml_deleted;
-	unsigned char	        tos;
+	unsigned char	tos;
 	char			*created_from;
 	struct sockaddr_in6	created_from_addr;
+
+	struct 	redis_hkey_counters	rc;
 };
 
 struct local_interface {
@@ -608,6 +617,11 @@ INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	if (!ret)
 		ret = ps->rtcp_sink;
 	return ret;
+}
+
+INLINE  void redis_hkey_cpy(char *dst, char *src) {
+	strncpy(dst, src, MAX_REDIS_HKEY_SIZE);
+	dst[MAX_REDIS_HKEY_SIZE-1] = '\0';
 }
 
 const char * get_tag_type_text(enum tag_type t);

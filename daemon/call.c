@@ -353,6 +353,14 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 
 
 
+INLINE int _redis_id_generate(struct call *c, rc_type id_type) {
+	return c->rc.val[id_type]++;
+}
+
+INLINE void redis_hkey_generate(char *out, struct call *c, rc_type rc_kind) {
+	snprintf(out, MAX_REDIS_HKEY_SIZE, "%.*s_%d", c->callid.len, c->callid.s,
+			_redis_id_generate(c, rc_kind));
+}
 
 INLINE void __re_address_translate(struct re_address *o, const struct endpoint *ep) {
 	o->family = family_from_address(&ep->ip46);
@@ -1751,6 +1759,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->monologue = ml;
 	med->call = ml->call;
 	med->index = sp->index;
+	redis_hkey_generate(med->redis_hkey, ml->call, RC_MEDIA);
 	call_str_cpy(ml->call, &med->type, &sp->type);
 	med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
 
@@ -1839,6 +1848,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		em->endpoint = *ep;
 	else
 		em->wildcard = 1;
+	redis_hkey_generate(em->redis_hkey, call, RC_EM);
 	g_queue_init(&em->sfds);
 	media->endpoint_maps = g_slist_prepend(media->endpoint_maps, em);
 
@@ -1851,6 +1861,7 @@ alloc:
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
 	for (i = 0; i < num_ports; i++) {
 		sfd = __stream_fd_new(&fd_arr[i], call);
+		redis_hkey_generate(sfd->redis_hkey, call, RC_SFD);
 		g_queue_push_tail(&em->sfds, sfd); /* not referenced */
 	}
 
@@ -1923,6 +1934,7 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	__C_DBG("allocating %i new packet_streams", num_ports - media->streams.length);
 	while (media->streams.length < num_ports) {
 		stream = __packet_stream_new(call);
+		redis_hkey_generate(stream->redis_hkey, call, RC_PS);
 		stream->media = media;
 		g_queue_push_tail(&media->streams, stream);
 		stream->component = media->streams.length;
@@ -3571,12 +3583,14 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 
 	__C_DBG("creating new monologue");
 	ret = __monologue_create(call);
+	redis_hkey_generate(ret->redis_hkey, call, RC_MONO);
 	__monologue_tag(ret, fromtag);
 	/* we need both sides of the dialogue even in the initial offer, so create
 	 * another monologue without to-tag (to be filled in later) */
 new_branch:
 	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
+	redis_hkey_generate(os->redis_hkey, call, RC_MONO);
 	ret->active_dialogue = os;
 	os->active_dialogue = ret;
 	__monologue_viabranch(os, viabranch);
@@ -3621,8 +3635,10 @@ static struct call_monologue *call_get_dialogue(struct call *call, const str *fr
 		/* if we don't have a fromtag monologue yet, we can use a half-complete dialogue
 		 * from the totag if there is one. otherwise we have to create a new one. */
 		ft = tt->active_dialogue;
-		if (ft->tag.s)
+		if (ft->tag.s) {
 			ft = __monologue_create(call);
+			redis_hkey_generate(ft->redis_hkey, call, RC_MONO);
+		}
 	}
 
 	/* the fromtag monologue may be newly created, or half-complete from the totag, or
