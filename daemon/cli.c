@@ -287,6 +287,8 @@ static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmast
 static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen = 0;
 	int maxsessions_num;
+	int err = 0x80000000;
+	int disabled = -1;
 	str maxsessions;
 
 	if (len<=1) {
@@ -298,22 +300,27 @@ static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaste
 	++buffer; --len; // one space
 	maxsessions.s = buffer;
 	maxsessions.len = len;
-	maxsessions_num = str_to_i(&maxsessions, -1);
+	maxsessions_num = str_to_i(&maxsessions, err);
 
-	if (maxsessions_num == -1) {
+	if (maxsessions_num == err) {
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %.*s; not an integer\n", maxsessions.len, maxsessions.s);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
-		return;
-	} else if (maxsessions_num < 0) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %d; negative value\n", maxsessions_num);
+	} else if (maxsessions_num < disabled) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %d; either positive or -1 values allowed\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
-		return;
+	} else if (maxsessions_num == disabled) {
+		/* don't lock anything while writing the value - only this command modifies its value */
+		m->conf.max_sessions = maxsessions_num;
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %d; disable feature\n", maxsessions_num);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
 	} else {
 		/* don't lock anything while writing the value - only this command modifies its value */
 		m->conf.max_sessions = maxsessions_num;
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %d\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
+
+	return;
 }
 
 static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {

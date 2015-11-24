@@ -74,7 +74,7 @@ static int timeout;
 static int silent_timeout;
 static int port_min = 30000;
 static int port_max = 40000;
-static int max_sessions = 0;
+static int max_sessions = -1;
 static int redis_db = -1;
 static int redis_read_db = -1;
 static int redis_write_db = -1;
@@ -514,6 +514,9 @@ no_kernel:
 	ZERO(mc);
 	mc.kernelfd = kfd;
 	mc.kernelid = table;
+	if (max_sessions < -1) {
+		max_sessions = -1;
+	}
 	mc.max_sessions = max_sessions;
 	mc.timeout = timeout;
 	mc.silent_timeout = silent_timeout;
