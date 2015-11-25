@@ -2219,6 +2219,9 @@ void call_destroy(struct call *c) {
 		c->recording_pcaps = g_slist_delete_link(c->recording_pcaps, c->recording_pcaps);
 	}
 
+	// TODO - here is where we write out metadata for IPC communication
+	free(c->metadata);
+
 	rwlock_unlock_w(&c->master_lock);
 }
 
@@ -2857,7 +2860,7 @@ out:
 void setup_recording_files(struct call *call, struct call_monologue *monologue) {
 	if (call->record_call
 	    && monologue->recording_pd == NULL && monologue->recording_pdumper == NULL) {
-    char rec_path_prefix[16];
+		char rec_path_prefix[16];
 		char recording_path[21];
 		/*
 		 *

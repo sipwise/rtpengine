@@ -1407,7 +1407,7 @@ static void stream_pcap_dump(pcap_dumper_t *pdumper, str *s) {
 	// This must be the same value we use in `pcap_open_dead`
 	header.len = s->len + 28;
 
-  // Copy all the headers and payload into a new string
+	// Copy all the headers and payload into a new string
 	unsigned char pkt_s[*ip_total_length];
 	memcpy(pkt_s, ip_header, 20);
 	memcpy(pkt_s + 20, udp_header, 8);

@@ -647,7 +647,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
-	str sdp, fromtag, totag = STR_NULL, callid, viabranch, recordcall = STR_NULL;
+	str sdp, fromtag, totag = STR_NULL, callid, viabranch, recordcall = STR_NULL, metadata = STR_NULL;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -683,6 +683,10 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 
 	call = call_get_opmode(&callid, m, opmode);
+
+	bencode_dictionary_get_str(input, "metadata", &metadata);
+	call->metadata = str_dup(&metadata);
+
 	errstr = "Unknown call-id";
 	if (!call)
 		goto out;

@@ -147,7 +147,7 @@ enum call_type {
 #define PS_FLAG_CONFIRMED			0x00200000
 #define PS_FLAG_KERNELIZED			0x00400000
 #define PS_FLAG_NO_KERNEL_SUPPORT		0x00800000
-#define PS_FLAG_FORCE_DAEMON_MODE				0x01000000
+#define PS_FLAG_FORCE_DAEMON_MODE		0x01000000
 #define PS_FLAG_FINGERPRINT_VERIFIED		0x02000000
 #define PS_FLAG_STRICT_SOURCE			SHARED_FLAG_STRICT_SOURCE
 #define PS_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
@@ -399,8 +399,8 @@ struct call_monologue {
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
 	GQueue			medias;
-	pcap_t *recording_pd;
-	pcap_dumper_t *recording_pdumper;
+	pcap_t			*recording_pd;
+	pcap_dumper_t		*recording_pdumper;
 };
 
 struct call {
@@ -436,6 +436,7 @@ struct call {
 
 	unsigned int		redis_hosted_db;
 	unsigned int		foreign_call; // created_via_redis_notify call
+	str			*metadata;
 };
 
 struct callmaster_config {
