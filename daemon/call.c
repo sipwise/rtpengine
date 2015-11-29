@@ -1643,15 +1643,15 @@ static int get_port(struct udp_fd *r, u_int16_t p, const struct call *c) {
 	__C_DBG("attempting to open port %u", p);
 
 	if (bit_array_set(m->ports_used, p)) {
-		__C_DBG("port %d in use", port);
+		__C_DBG("port %d in use", p);
 		return -1;
 	}
-	__C_DBG("port %d locked", port);
+	__C_DBG("port %d locked", p);
 
 	ret = get_port6(r, p, c);
 
 	if (ret) {
-		__C_DBG("couldn't open port %d", port);
+		__C_DBG("couldn't open port %d", p);
 		bit_array_clear(m->ports_used, p);
 		return ret;
 	}
