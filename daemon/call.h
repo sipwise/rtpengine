@@ -437,6 +437,9 @@ struct call {
 
 	unsigned int		redis_hosted_db;
 	unsigned int		foreign_call; // created_via_redis_notify call
+
+	str			*meta_filepath;
+	FILE		*meta_fp;
 	str			*metadata;
 };
 
