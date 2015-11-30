@@ -72,7 +72,7 @@ static int timeout;
 static int silent_timeout;
 static int port_min = 30000;
 static int port_max = 40000;
-static int max_sessions = 0;
+static int max_sessions = -1;
 static u_int32_t redis_ip;
 static u_int16_t redis_port;
 static int redis_db = -1;
@@ -149,7 +149,7 @@ static void resources(void) {
 	int tryv;
 
 	rlim(RLIMIT_CORE, RLIM_INFINITY);
-	for (tryv = ((1<<16) - 1); tryv && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
+	for (tryv = ((1<<20) - 1); tryv && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
 		;
 
 	rlim(RLIMIT_DATA, RLIM_INFINITY);
@@ -530,6 +530,9 @@ no_kernel:
 	mc.interfaces = &interfaces;
 	mc.port_min = port_min;
 	mc.port_max = port_max;
+	if (max_sessions < -1) {
+		max_sessions = -1;
+	}
 	mc.max_sessions = max_sessions;
 	mc.timeout = timeout;
 	mc.silent_timeout = silent_timeout;

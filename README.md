@@ -376,6 +376,16 @@ The options are described in more detail below.
 
 	Add a prefix for every graphite line.
 
+* --max-sessions
+
+	Limit the number of maximum concurrent sessions. Set at startup via MAX_SESSIONS in config file. Set at runtime via rtpengine-ctl util.
+	Setting the 'rtpengine-ctl set maxsessions 0' can be used in draining rtpengine sessions.
+	Enable feature: 'MAX_SESSIONS=1000'
+	Enable feature: 'rtpengine-ctl set maxsessions' >=0
+	Disable feature: 'rtpengine-ctl set maxsessions -1'
+	By default, the feature is disabled (i.e. maxsessions == -1).
+
+
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
 	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
