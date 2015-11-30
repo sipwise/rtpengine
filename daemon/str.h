@@ -249,6 +249,8 @@ INLINE void str_swap(str *a, str *b) {
 INLINE int str_to_i(str *s, int def) {
 	char c, *ep;
 	long ret;
+	int maxint = 0x7FFFFFFF;
+	int minint = 0x80000000;
 	if (s->len <= 0)
 		return def;
 	c = s->s[s->len];
@@ -256,6 +258,10 @@ INLINE int str_to_i(str *s, int def) {
 	ret = strtol(s->s, &ep, 10);
 	s->s[s->len] = c;
 	if (ep == s->s)
+		return def;
+	if (ret > maxint)
+		return def;
+	if (ret < minint)
 		return def;
 	return ret;
 }

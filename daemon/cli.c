@@ -105,6 +105,38 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	g_list_free(list);
 }
 
+static void cli_incoming_list_maxsessions(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+
+	/* don't lock anything while reading the value */
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Maximum sessions configured on rtpengine: %d\n", m->conf.max_sessions);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	return ;
+}
+
+static void cli_incoming_list_maxopenfiles(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+	struct rlimit rlim;
+	pid_t pid = getpid();
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) == -1) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "Fail getting rtpengine configured limits; cat /proc/%u/limits\n", pid);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return ;
+	}
+
+	if (rlim.rlim_cur == RLIM_INFINITY) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "Maximum open-files configured on rtpengine: infinite; cat /proc/%u/limits\n", pid);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	} else {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "Maximum open-files configured on rtpengine: %lld; cat /proc/%u/limits\n", (long long) rlim.rlim_cur, pid);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+
+	return ;
+}
+
 static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
    str callid;
    struct call* c=0;
@@ -213,7 +245,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    obj_put(c);
 }
 
-static void cli_incoming_set_max_open_files(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen = 0;
 	unsigned int open_files_num;
 	str open_files;
@@ -252,6 +284,45 @@ static void cli_incoming_set_max_open_files(char* buffer, int len, struct callma
 	}
 }
 
+static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen = 0;
+	int maxsessions_num;
+	int err = 0x80000000;
+	int disabled = -1;
+	str maxsessions;
+
+	if (len<=1) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	}
+
+	++buffer; --len; // one space
+	maxsessions.s = buffer;
+	maxsessions.len = len;
+	maxsessions_num = str_to_i(&maxsessions, err);
+
+	if (maxsessions_num == err) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %.*s; not an integer\n", maxsessions.len, maxsessions.s);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	} else if (maxsessions_num < disabled) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %d; either positive or -1 values allowed\n", maxsessions_num);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	} else if (maxsessions_num == disabled) {
+		/* don't lock anything while writing the value - only this command modifies its value */
+		m->conf.max_sessions = maxsessions_num;
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %d; disable feature\n", maxsessions_num);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	} else {
+		/* don't lock anything while writing the value - only this command modifies its value */
+		m->conf.max_sessions = maxsessions_num;
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %d\n", maxsessions_num);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+
+	return;
+}
+
 static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
    GHashTableIter iter;
    gpointer key, value;
@@ -263,6 +334,8 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
    static const char* LIST_SESSIONS = "sessions";
    static const char* LIST_SESSION = "session";
    static const char* LIST_TOTALS = "totals";
+   static const char* LIST_MAX_OPEN_FILES = "maxopenfiles";
+   static const char* LIST_MAX_SESSIONS = "maxsessions";
 
    if (len<=1) {
        printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
@@ -273,7 +346,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
 
    if (len>=strlen(LIST_NUMSESSIONS) && strncmp(buffer,LIST_NUMSESSIONS,strlen(LIST_NUMSESSIONS)) == 0) {
        rwlock_lock_r(&m->hashlock);
-       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current Sessions on rtpengine:%i\n", g_hash_table_size(m->callhash));
+       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current sessions running on rtpengine: %i\n", g_hash_table_size(m->callhash));
        ADJUSTLEN(printlen,outbufend,replybuffer);
        rwlock_unlock_r(&m->hashlock);
    } else if (len>=strlen(LIST_SESSIONS) && strncmp(buffer,LIST_SESSIONS,strlen(LIST_SESSIONS)) == 0) {
@@ -296,6 +369,10 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        cli_incoming_list_callid(buffer+strlen(LIST_SESSION), len-strlen(LIST_SESSION), m, replybuffer, outbufend);
    } else if (len>=strlen(LIST_TOTALS) && strncmp(buffer,LIST_TOTALS,strlen(LIST_TOTALS)) == 0) {
        cli_incoming_list_totals(buffer+strlen(LIST_TOTALS), len-strlen(LIST_TOTALS), m, replybuffer, outbufend);
+   } else if (len>=strlen(LIST_MAX_SESSIONS) && strncmp(buffer,LIST_MAX_SESSIONS,strlen(LIST_MAX_SESSIONS)) == 0) {
+       cli_incoming_list_maxsessions(buffer+strlen(LIST_MAX_SESSIONS), len-strlen(LIST_MAX_SESSIONS), m, replybuffer, outbufend);
+   } else if (len>=strlen(LIST_MAX_OPEN_FILES) && strncmp(buffer,LIST_MAX_OPEN_FILES,strlen(LIST_MAX_OPEN_FILES)) == 0) {
+       cli_incoming_list_maxopenfiles(buffer+strlen(LIST_MAX_OPEN_FILES), len-strlen(LIST_MAX_OPEN_FILES), m, replybuffer, outbufend);
    } else {
        printlen = snprintf(replybuffer, outbufend-replybuffer, "%s:%s\n", "Unknown 'list' command", buffer);
        ADJUSTLEN(printlen,outbufend,replybuffer);
@@ -305,7 +382,8 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
 static void cli_incoming_set(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
 
-	static const char* SET_OPEN_FILES = "max-open-files";
+	static const char* SET_MAX_OPEN_FILES = "maxopenfiles";
+	static const char* SET_MAX_SESSIONS = "maxsessions";
 
 	if (len<=1) {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
@@ -314,8 +392,10 @@ static void cli_incoming_set(char* buffer, int len, struct callmaster* m, char* 
 	}
 	++buffer; --len; // one space
 
-	if (len>=strlen(SET_OPEN_FILES) && strncmp(buffer,SET_OPEN_FILES,strlen(SET_OPEN_FILES)) == 0) {
-		cli_incoming_set_max_open_files(buffer+strlen(SET_OPEN_FILES), len-strlen(SET_OPEN_FILES), m, replybuffer, outbufend);
+	if (len>=strlen(SET_MAX_OPEN_FILES) && strncmp(buffer,SET_MAX_OPEN_FILES,strlen(SET_MAX_OPEN_FILES)) == 0) {
+		cli_incoming_set_maxopenfiles(buffer+strlen(SET_MAX_OPEN_FILES), len-strlen(SET_MAX_OPEN_FILES), m, replybuffer, outbufend);
+	} else if (len>=strlen(SET_MAX_SESSIONS) && strncmp(buffer,SET_MAX_SESSIONS,strlen(SET_MAX_SESSIONS)) == 0) {
+		cli_incoming_set_maxsessions(buffer+strlen(SET_MAX_SESSIONS), len-strlen(SET_MAX_SESSIONS), m, replybuffer, outbufend);
 	} else {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s:%s\n", "Unknown 'set' command", buffer);
 		ADJUSTLEN(printlen,outbufend,replybuffer);

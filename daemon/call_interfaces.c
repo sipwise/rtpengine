@@ -751,7 +751,7 @@ out:
 const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr,
 		const endpoint_t *sin)
 {
-	if (m->conf.max_sessions>0) {
+	if (m->conf.max_sessions>=0) {
 		rwlock_lock_r(&m->hashlock);
 		if (g_hash_table_size(m->callhash) >= m->conf.max_sessions) {
 			rwlock_unlock_r(&m->hashlock);
