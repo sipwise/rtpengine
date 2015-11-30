@@ -2571,6 +2571,10 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		if (flags && flags->opmode == OP_OFFER && flags->reset) {
 			MEDIA_CLEAR(media, INITIALIZED);
 			MEDIA_CLEAR(other_media, INITIALIZED);
+			if (media->ice_agent)
+				ice_restart(media->ice_agent);
+			if (other_media->ice_agent)
+				ice_restart(other_media->ice_agent);
 		}
 
 		/* deduct protocol from stream parameters received */
