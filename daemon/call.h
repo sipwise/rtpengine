@@ -401,6 +401,7 @@ struct call_monologue {
 	GQueue			medias;
 	pcap_t			*recording_pd;
 	pcap_dumper_t		*recording_pdumper;
+	str		*recording_path;
 };
 
 struct call {

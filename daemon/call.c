@@ -132,6 +132,12 @@ const char * get_tag_type_text(enum tag_type t) {
 static void __monologue_destroy(struct call_monologue *monologue);
 static int monologue_destroy(struct call_monologue *ml);
 
+/* Generate a random PCAP filepath to write recorded RTP stream. */
+void setup_recording_files(struct call *call, struct call_monologue *monologue);
+/* Generates a random string sandwiched between affixes. */
+char *rand_affixed_str(int num_bytes, char *prefix, char *suffix);
+/* Generates a hex string representing n random bytes. len(rand_str) = 2*num_bytes + 1 */
+char *rand_hex_str(char *rand_str, int num_bytes);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -2857,25 +2863,70 @@ out:
 	return NULL;
 }
 
+
+/**
+ * Generate a random PCAP filepath to write recorded RTP stream.
+ */
 void setup_recording_files(struct call *call, struct call_monologue *monologue) {
 	if (call->record_call
 	    && monologue->recording_pd == NULL && monologue->recording_pdumper == NULL) {
-		char rec_path_prefix[16];
-		char recording_path[21];
-		/*
-		 *
-		 * create a file descriptor per monologue which can be used for writing rtp to disk
-		 * aka call recording.
-		 */
+		int rand_bytes = 16;
+		str *recording_path = malloc(sizeof(str));
+		char *path_chars = rand_affixed_str(rand_bytes, "/tmp/", ".pcap");
 
-		snprintf(rec_path_prefix, 15, "/tmp/%d", rand());
-		snprintf(recording_path, 20, "%s.pcap", rec_path_prefix);
-		call->recording_pcaps = g_slist_prepend(call->recording_pcaps, g_strdup(recording_path));
-		ilog(LOG_INFO, "XXXDylan: Creating new pcap dumper for recording at path %s", recording_path);
+		recording_path = str_init(recording_path, path_chars);
+		monologue->recording_path = recording_path;
+
+		call->recording_pcaps = g_slist_prepend(call->recording_pcaps, g_strdup(path_chars));
+		/* monologue->recording_file */
 		monologue->recording_pd = pcap_open_dead(DLT_RAW, 65535);
 		monologue->recording_pdumper = pcap_dump_open(monologue->recording_pd, recording_path);
 	} else {
 		monologue->recording_pd = NULL;
 		monologue->recording_pdumper = NULL;
 	}
+}
+
+/**
+ * Generates a random string sandwiched between affixes.
+ * Will create the char string for you. Don't forget to clean up!
+ */
+char *rand_affixed_str(int num_bytes, char *prefix, char *suffix) {
+  int rand_len = num_bytes*2 + 1;
+	char rand_prefix[rand_len];
+	int prefix_len = strlen(prefix);
+	int suffix_len = strlen(suffix);
+	char *full_path = calloc(rand_len + prefix_len + suffix_len, sizeof(char));
+
+	rand_hex_str(rand_prefix, num_bytes);
+	snprintf(full_path, rand_len+prefix_len, "%s%s", prefix, rand_prefix);
+	snprintf(full_path + rand_len+prefix_len-1, suffix_len+1, "%s", suffix);
+	return full_path;
+}
+
+/**
+ * Generates a random hexadecimal string representing n random bytes.
+ * rand_str length must be 2*num_bytes + 1.
+ */
+char *rand_hex_str(char *rand_str, int num_bytes) {
+	char rand_tmp[3];
+	u_int8_t rand_byte;
+	int i, n;
+	// We might convert an int to a hex string shorter than 2 digits.
+	// This causes those strings to have leading '0' characters.
+	for (i=0; i<num_bytes*2 + 1; i++) {
+		rand_str[i] = '0';
+	}
+
+	for (i=0; i<num_bytes; i++) {
+		// Determine the length of the hex byte string.
+		// If less than two, offset by 2-len to pad with prefix zeroes.
+		rand_byte = (u_int8_t)rand();
+		snprintf(rand_tmp, 3, "%x", rand_byte);
+		n = strlen(rand_tmp);
+		snprintf(rand_str + i*2 + (2-n), 3, "%s", rand_tmp);
+		rand_str[i*2 + 2] = '0';
+	}
+	rand_str[num_bytes*2] = '\0';
+	return rand_str;
 }
