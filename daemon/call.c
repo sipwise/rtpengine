@@ -2416,13 +2416,14 @@ static int monologue_destroy(struct call_monologue *ml) {
 	__monologue_destroy(ml);
 
 	if (!g_hash_table_size(c->tags)) {
-		ilog(LOG_INFO, "Call branch '"STR_FORMAT"' deleted, no more branches remaining",
-				STR_FMT(&ml->tag));
+		ilog(LOG_INFO, "Call branch '"STR_FORMAT"' (via-branch '"STR_FORMAT"') "
+				"deleted, no more branches remaining",
+				STR_FMT(&ml->tag), STR_FMT0(&ml->viabranch));
 		return 1; /* destroy call */
 	}
 
-	ilog(LOG_INFO, "Call branch "STR_FORMAT" deleted",
-			STR_FMT(&ml->tag));
+	ilog(LOG_INFO, "Call branch '"STR_FORMAT"' (via-branch '"STR_FORMAT"') deleted",
+			STR_FMT(&ml->tag), STR_FMT0(&ml->viabranch));
 	return 0;
 }
 
@@ -2575,46 +2576,55 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 		ml->term_reason = REGULAR;
 	}
 
-	if (!fromtag || !fromtag->s || !fromtag->len)
+	if (!fromtag || !fromtag->len)
 		goto del_all;
 
-	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
+	if ((!totag || !totag->len) && branch && branch->len) {
+		// try a via-branch match
+		ml = g_hash_table_lookup(c->viabranches, branch);
+		if (ml)
+			goto do_delete;
+	}
+
+	match_tag = (totag && totag->len) ? totag : fromtag;
 
 	ml = g_hash_table_lookup(c->tags, match_tag);
 	if (!ml) {
+		if (branch && branch->len) {
+			// also try a via-branch match here
+			ml = g_hash_table_lookup(c->viabranches, branch);
+			if (ml)
+				goto do_delete;
+		}
+
+		// last resort: try the from-tag if we tried the to-tag before and see
+		// if the associated dialogue has an empty tag (unknown)
+		if (match_tag == totag) {
+			ml = g_hash_table_lookup(c->tags, fromtag);
+			if (ml && ml->active_dialogue && ml->active_dialogue->tag.len == 0)
+				goto do_delete;
+		}
+
 		ilog(LOG_INFO, "Tag '"STR_FORMAT"' in delete message not found, ignoring",
 				STR_FMT(match_tag));
 		goto err;
 	}
 
+do_delete:
 	if (output)
 		ng_call_stats(c, fromtag, totag, output, NULL);
 
-/*
-	if (branch && branch->len) {
-		if (!g_hash_table_remove(c->branches, branch)) {
-			ilog(LOG_INFO, LOG_PREFIX_CI "Branch to delete doesn't exist", STR_FMT(&c->callid), STR_FMT(branch));
-			goto err;
-		}
-
-		ilog(LOG_INFO, LOG_PREFIX_CI "Branch deleted", LOG_PARAMS_CI(c));
-		if (g_hash_table_size(c->branches))
-			goto success_unlock;
-		else
-			DBG("no branches left, deleting full call");
-	}
-*/
-
 	if (delete_delay > 0) {
-		ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' in %d seconds",
-				STR_FMT(&ml->tag), delete_delay);
+		ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' "
+				"(via-branch '"STR_FORMAT"') in %d seconds",
+				STR_FMT(&ml->tag), STR_FMT0(branch), delete_delay);
 		ml->deleted = poller_now + delete_delay;
 		if (!c->ml_deleted || c->ml_deleted > ml->deleted)
 			c->ml_deleted = ml->deleted;
 	}
 	else {
-		ilog(LOG_INFO, "Deleting call branch '"STR_FORMAT"'",
-				STR_FMT(&ml->tag));
+		ilog(LOG_INFO, "Deleting call branch '"STR_FORMAT"' (via-branch '"STR_FORMAT"')",
+				STR_FMT(&ml->tag), STR_FMT0(branch));
 		if (monologue_destroy(ml))
 			goto del_all;
 	}

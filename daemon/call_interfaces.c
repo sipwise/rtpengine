@@ -776,8 +776,7 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	if (!bencode_dictionary_get_str(input, "from-tag", &fromtag))
-		return "No from-tag in message";
+	bencode_dictionary_get_str(input, "from-tag", &fromtag);
 	bencode_dictionary_get_str(input, "to-tag", &totag);
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 
