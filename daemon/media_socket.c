@@ -18,6 +18,7 @@
 #include "aux.h"
 #include "log_funcs.h"
 #include "poller.h"
+#include "fs.h"
 
 
 
@@ -47,8 +48,6 @@ struct streamhandler {
 
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
-
-static void stream_pcap_dump(pcap_dumper_t *pdumper, str *s);
 
 static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
@@ -1366,56 +1365,6 @@ unlock_out:
 	rwlock_unlock_r(&call->master_lock);
 
 	return ret;
-}
-
-
-static void stream_pcap_dump(pcap_dumper_t *pdumper, str *s) {
-	// Wrap RTP in fake UDP packet header
-	// Right now, we spoof it all
-	u_int16_t udp_len = ((u_int16_t)s->len) + 8;
-	u_int16_t udp_header[4];
-	udp_header[0] = htons(5028); // source port
-	udp_header[1] = htons(50116); // destination port
-	udp_header[2] = htons(udp_len); // packet length
-	udp_header[3] = 0; // checksum
-
-	// Wrap RTP in fake IP packet header
-	u_int8_t ip_header[20];
-	u_int16_t *ip_total_length = (u_int16_t*)(ip_header + 2);
-	u_int32_t *ip_src_addr = (u_int32_t*)(ip_header + 12);
-	u_int32_t *ip_dst_addr = (u_int32_t*)(ip_header + 16);
-	memset(ip_header, 0, 20);
-	ip_header[0] = 4 << 4; // IP version - 4 bits
-	ip_header[0] = ip_header[0] | 5; // Internet Header Length (IHL) - 4 bits
-	ip_header[1] = 0; // DSCP - 6 bits
-	ip_header[1] = 0; // ECN - 2 bits
-	*ip_total_length = htons(udp_len + 20); // Total Length (entire packet size) - 2 bytes
-	ip_header[4] = 0; ip_header[5] = 0 ; // Identification - 2 bytes
-	ip_header[6] = 0; // Flags - 3 bits
-	ip_header[7] = 0; // Fragment Offset - 13 bits
-	ip_header[8] = 64; // TTL - 1 byte
-	ip_header[9] = 17; // Protocol (defines protocol in data portion) - 1 byte
-	ip_header[10] = 0; ip_header[11] = 0; // Header Checksum - 2 bytes
-	*ip_src_addr = htonl(2130706433); // Source IP (set to localhost) - 4 bytes
-	*ip_dst_addr = htonl(2130706433); // Destination IP (set to localhost) - 4 bytes
-
-	// Set up PCAP packet header
-	struct pcap_pkthdr header;
-	ZERO(header);
-	header.ts = g_now;
-	header.caplen = s->len + 28;
-	// This must be the same value we use in `pcap_open_dead`
-	header.len = s->len + 28;
-
-	// Copy all the headers and payload into a new string
-	unsigned char pkt_s[*ip_total_length];
-	memcpy(pkt_s, ip_header, 20);
-	memcpy(pkt_s + 20, udp_header, 8);
-	memcpy(pkt_s + 28, s->s, s->len);
-
-	// Write the packet to the PCAP file
-	// Casting quiets compiler warning.
-	pcap_dump((unsigned char *)pdumper, &header, (unsigned char *)pkt_s);
 }
 
 

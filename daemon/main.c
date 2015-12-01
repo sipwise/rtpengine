@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <openssl/ssl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 #include "poller.h"
 #include "control_tcp.h"
@@ -32,6 +30,7 @@
 #include "socket.h"
 #include "media_socket.h"
 #include "homer.h"
+#include "fs.h"
 
 
 
@@ -520,6 +519,7 @@ static void init_everything() {
 
 	socket_init();
 	log_init();
+	fs_init("/var/spool/rtpengine");
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
 	SSL_library_init();
@@ -550,13 +550,6 @@ static void create_everything(struct main_context *ctx) {
 	struct timeval tmp_tv;
 	struct timeval redis_start, redis_stop;
 	double redis_diff = 0;
-
-	// TODO this should be a configurable path
-	char spoolpath[] = "/var/spool/rtpengine";
-	if (!maybe_create_spool_dir(spoolpath)) {
-		fprintf(stderr, "Error while setting up spool directory \"%s\".\n", spoolpath);
-		exit(-1);
-	}
 
 	if (table < 0)
 		goto no_kernel;
@@ -695,53 +688,6 @@ no_kernel:
 	set_graphite_interval_tv(&tmp_tv);
 }
 
-
-/**
- * Sets up the spool directory for RTP Engine.
- * If the directory does not exist, return FALSE.
- * If the directory exists, but "$dirpath/metadata" or "$dirpath/recordings"
- * exist as non-directory files, return FALSE.
- * Otherwise, return TRUE.
- *
- * Create the "metadata" and "recordings" directories if they are not there.
- */
-int maybe_create_spool_dir(char *dirpath) {
-	struct stat info;
-	int spool_good = TRUE;
-
-	if (stat(dirpath, &info) != 0) {
-		fprintf(stderr, "Spool directory \"%s\" does not exist.\n", dirpath);
-		spool_good = FALSE;
-	} else if (!S_ISDIR(info.st_mode)) {
-		fprintf(stderr, "Spool file exists, but \"%s\" is not a directory.\n", dirpath);
-		spool_good = FALSE;
-	} else {
-		// Spool directory exists. Make sure it has inner directories.
-		int path_len = strlen(dirpath);
-		char meta_path[path_len + 10];
-		char rec_path[path_len + 12];
-		snprintf(meta_path, path_len + 10, "%s/metadata", dirpath);
-		snprintf(rec_path, path_len + 12, "%s/recordings", dirpath);
-
-		if (stat(meta_path, &info) != 0) {
-			fprintf(stdout, "Creating metadata directory \"%s\".\n", meta_path);
-			mkdir(meta_path, 0700);
-		} else if(!S_ISDIR(info.st_mode)) {
-			fprintf(stderr, "Metadata file exists, but \"%s\" is not a directory.\n", meta_path);
-			spool_good = FALSE;
-		}
-
-		if (stat(rec_path, &info) != 0) {
-			fprintf(stdout, "Creating recordings directory \"%s\".\n", rec_path);
-			mkdir(rec_path, 0700);
-		} else if(!S_ISDIR(info.st_mode)) {
-			fprintf(stderr, "Recordings file exists, but \"%s\" is not a directory.\n", rec_path);
-			spool_good = FALSE;
-		}
-	}
-
-	return spool_good;
-}
 
 int main(int argc, char **argv) {
 	struct main_context ctx;

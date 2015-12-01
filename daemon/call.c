@@ -37,6 +37,7 @@
 #include "ice.h"
 #include "rtpengine_config.h"
 #include "log_funcs.h"
+#include "fs.h"
 
 
 
@@ -131,13 +132,6 @@ const char * get_tag_type_text(enum tag_type t) {
 
 static void __monologue_destroy(struct call_monologue *monologue);
 static int monologue_destroy(struct call_monologue *ml);
-
-/* Generate a random PCAP filepath to write recorded RTP stream. */
-str *setup_recording_file(struct call *call, struct call_monologue *monologue);
-/* Generates a random string sandwiched between affixes. */
-char *rand_affixed_str(int num_bytes, char *prefix, char *suffix);
-/* Generates a hex string representing n random bytes. len(rand_str) = 2*num_bytes + 1 */
-char *rand_hex_str(char *rand_str, int num_bytes);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -2234,46 +2228,6 @@ void call_destroy(struct call *c) {
 	rwlock_unlock_w(&c->master_lock);
 }
 
-/**
- * Writes metadata to metafile, closes file, and renames it to finished location.
- * Returns non-zero for failure.
- */
-int meta_file_finish(struct call *call) {
-	int return_code = 0;
-
-	if (call->meta_fp != NULL) {
-		fprintf(call->meta_fp, "\n%s\n", call->metadata->s);
-		fclose(call->meta_fp);
-
-		// Get the filename (in between its directory and the file extension)
-		// and move it to the finished file location.
-		// Rename extension to ".txt".
-		int fn_len;
-		char *meta_filename = strrchr(call->meta_filepath->s, '/');
-		char *meta_ext = NULL;
-		if (meta_filename == NULL)
-			meta_filename = call->meta_filepath->s;
-		else
-			meta_filename = meta_filename + 1;
-		// We can always expect a file extension
-		meta_ext = strrchr(meta_filename, '.');
-		fn_len = meta_ext - meta_filename;
-		int prefix_len = 30; // for "/var/spool/rtpengine/metadata/"
-		int ext_len = 4;     // for ".txt"
-		char new_metapath[prefix_len + fn_len + ext_len + 1];
-		snprintf(new_metapath, prefix_len+fn_len+1, "/var/spool/rtpengine/metadata/%s", meta_filename);
-		snprintf(new_metapath + prefix_len+fn_len, ext_len+1, ".txt");
-		return_code = return_code | rename(call->meta_filepath->s, new_metapath);
-	}
-	if (call->meta_filepath != NULL) {
-		free(call->meta_filepath->s);
-		free(call->meta_filepath);
-	}
-
-	return return_code;
-}
-
-
 
 /* XXX move these */
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
@@ -2377,20 +2331,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	c->dtls_cert = dtls_cert();
 	c->tos = m->conf.default_tos;
 
-	int rand_bytes = 16;
-	str *meta_filepath = malloc(sizeof(str));
-	// Initially file extension is ".tmp". When call is over, it changes to ".txt".
-	char *path_chars = rand_affixed_str(rand_bytes, "/tmp/rtpengine-meta-", ".tmp");
-	meta_filepath = str_init(meta_filepath, path_chars);
-	c->meta_filepath = meta_filepath;
-	FILE *mfp = fopen(meta_filepath->s, "w");
-	if (mfp == NULL) {
-		ilog(LOG_ERROR, "Could not open metadata file: %s", meta_filepath->s);
-		free(c->meta_filepath->s);
-		free(c->meta_filepath);
-		c->meta_filepath = NULL;
-	}
-	c->meta_fp = mfp;
+	setup_meta_file(c);
 
 	return c;
 }
@@ -2919,76 +2860,4 @@ const struct transport_protocol *transport_protocol(const str *s) {
 
 out:
 	return NULL;
-}
-
-
-/**
- * Generate a random PCAP filepath to write recorded RTP stream.
- */
-str *setup_recording_file(struct call *call, struct call_monologue *monologue) {
-	str *recording_path = NULL;
-	if (call->record_call
-	    && monologue->recording_pd == NULL && monologue->recording_pdumper == NULL) {
-		int rand_bytes = 16;
-		recording_path = malloc(sizeof(str));
-		char *path_chars = rand_affixed_str(rand_bytes, "/var/spool/rtpengine/recordings/", ".pcap");
-
-		recording_path = str_init(recording_path, path_chars);
-		monologue->recording_path = recording_path;
-
-		call->recording_pcaps = g_slist_prepend(call->recording_pcaps, g_strdup(path_chars));
-		/* monologue->recording_file */
-		monologue->recording_pd = pcap_open_dead(DLT_RAW, 65535);
-		monologue->recording_pdumper = pcap_dump_open(monologue->recording_pd, recording_path);
-	} else {
-		monologue->recording_path = NULL;
-		monologue->recording_pd = NULL;
-		monologue->recording_pdumper = NULL;
-	}
-
-	return recording_path;
-}
-
-/**
- * Generates a random string sandwiched between affixes.
- * Will create the char string for you. Don't forget to clean up!
- */
-char *rand_affixed_str(int num_bytes, char *prefix, char *suffix) {
-  int rand_len = num_bytes*2 + 1;
-	char rand_prefix[rand_len];
-	int prefix_len = strlen(prefix);
-	int suffix_len = strlen(suffix);
-	char *full_path = calloc(rand_len + prefix_len + suffix_len, sizeof(char));
-
-	rand_hex_str(rand_prefix, num_bytes);
-	snprintf(full_path, rand_len+prefix_len, "%s%s", prefix, rand_prefix);
-	snprintf(full_path + rand_len+prefix_len-1, suffix_len+1, "%s", suffix);
-	return full_path;
-}
-
-/**
- * Generates a random hexadecimal string representing n random bytes.
- * rand_str length must be 2*num_bytes + 1.
- */
-char *rand_hex_str(char *rand_str, int num_bytes) {
-	char rand_tmp[3];
-	u_int8_t rand_byte;
-	int i, n;
-	// We might convert an int to a hex string shorter than 2 digits.
-	// This causes those strings to have leading '0' characters.
-	for (i=0; i<num_bytes*2 + 1; i++) {
-		rand_str[i] = '0';
-	}
-
-	for (i=0; i<num_bytes; i++) {
-		// Determine the length of the hex byte string.
-		// If less than two, offset by 2-len to pad with prefix zeroes.
-		rand_byte = (u_int8_t)rand();
-		snprintf(rand_tmp, 3, "%x", rand_byte);
-		n = strlen(rand_tmp);
-		snprintf(rand_str + i*2 + (2-n), 3, "%s", rand_tmp);
-		rand_str[i*2 + 2] = '0';
-	}
-	rand_str[num_bytes*2] = '\0';
-	return rand_str;
 }
