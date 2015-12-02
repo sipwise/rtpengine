@@ -74,7 +74,7 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
 			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "Errors");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 
@@ -87,8 +87,7 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	}
 	for (GList *l = list; l; l = l->next) {
 		struct control_ng_stats* cur = l->data;
-
-		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %10s | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %20s | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
 				sockaddr_print_buf(&cur->proxy),
 				cur->offer,
 				cur->answer,
@@ -165,7 +164,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
        return;
    }
 
-   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %30s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu\n\n",
+   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu\n\n",
 		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal);
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
@@ -201,7 +200,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
             			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
 						   md->index,
 						   (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-						   smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
+						   sockaddr_print_buf(&ps->endpoint.ip46), ps->endpoint.port,
 						   (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 								   atomic64_get(&ps->stats.packets),
 								   atomic64_get(&ps->stats.bytes),
@@ -212,7 +211,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, %.9f delay_min, %.9f delay_avg, %.9f delay_max\n",
 						   md->index,
 						   (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-						   smart_ntop_p_buf(&ps->endpoint.ip46), ps->endpoint.port,
+						   sockaddr_print_buf(&ps->endpoint.ip46), ps->endpoint.port,
 						   (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 								   atomic64_get(&ps->stats.packets),
 								   atomic64_get(&ps->stats.bytes),
@@ -361,7 +360,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        while (g_hash_table_iter_next (&iter, &key, &value)) {
            ptrkey = (str*)key;
            call = (struct call*)value;
-           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %30s | deletionmark:%4s | created:%12i  | proxy:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from);
+           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i  | proxy:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from);
            ADJUSTLEN(printlen,outbufend,replybuffer);
        }
        rwlock_unlock_r(&m->hashlock);
