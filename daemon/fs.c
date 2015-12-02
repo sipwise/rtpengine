@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
+#include <time.h>
 #include "call.h"
 
 
@@ -101,7 +102,27 @@ str *setup_meta_file(struct call *call) {
 int meta_file_finish(struct call *call) {
 	int return_code = 0;
 
+
 	if (call->meta_fp != NULL) {
+		// Print start timestamp and end timestamp
+		// YYYY-MM-DDThh:mm:ss
+		time_t start = 0, end = 0;
+		char timebuffer[20];
+		struct tm *timeinfo;
+		if (call->monologues.head) {
+			struct call_monologue *ml;
+			ml = call->monologues.head->data;
+			start = ml->started.tv_sec;
+			end = g_now.tv_sec;
+		}
+		timeinfo = localtime(&start);
+		strftime(timebuffer, 20, "%FT%T", timeinfo);
+		fprintf(call->meta_fp, "\n%s\n", timebuffer);
+		timeinfo = localtime(&end);
+		strftime(timebuffer, 20, "%FT%T", timeinfo);
+		fprintf(call->meta_fp, "%s\n", timebuffer);
+
+		// Print metadata
 		fprintf(call->meta_fp, "\n%s\n", call->metadata->s);
 		fclose(call->meta_fp);
 
