@@ -15,12 +15,13 @@
 #include "dtls.h"
 #include "rtp.h"
 #include "ice.h"
+#include "socket.h"
 
 struct network_address {
 	str network_type;
 	str address_type;
 	str address;
-	struct in6_addr parsed;
+	sockaddr_t parsed;
 };
 
 struct sdp_origin {
@@ -223,36 +224,8 @@ static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, int id) {
 }
 
 
-/* hack hack */
-INLINE int inet_pton_str(int af, str *src, void *dst) {
-	char *s = src->s;
-	char p;
-	int ret;
-	p = s[src->len];
-	s[src->len] = '\0';
-	ret = smart_pton(af, src->s, dst);
-	s[src->len] = p;
-	return ret;
-}
-
-int address_family(const str *s) {
-	if (s->len != 3)
-		return 0;
-
-	if (!memcmp(s->s, "IP4", 3)
-			|| !memcmp(s->s, "ip4", 3))
-		return AF_INET;
-
-	if (!memcmp(s->s, "IP6", 3)
-			|| !memcmp(s->s, "ip6", 3))
-		return AF_INET6;
-
-	return 0;
-}
-
-static int __parse_address(struct in6_addr *out, str *network_type, str *address_type, str *address) {
-	struct in_addr in4;
-	int af;
+static int __parse_address(sockaddr_t *out, str *network_type, str *address_type, str *address) {
+	sockfamily_t *af;
 
 	if (network_type) {
 		if (network_type->len != 2)
@@ -263,26 +236,13 @@ static int __parse_address(struct in6_addr *out, str *network_type, str *address
 	}
 
 	if (!address_type) {
-		if (inet_pton_str(AF_INET, address, &in4) == 1)
-			goto ip4;
-		if (inet_pton_str(AF_INET6, address, out) == 1)
-			return 0;
-		return -1;
+		if (sockaddr_parse_any_str(out, address))
+			return -1;
+		return 0;
 	}
 
-	af = address_family(address_type);
-
-	if (af == AF_INET) {
-		if (inet_pton_str(AF_INET, address, &in4) != 1)
-			return -1;
-ip4:
-		in4_to_6(out, in4.s_addr);
-	}
-	else if (af == AF_INET6) {
-		if (inet_pton_str(AF_INET6, address, out) != 1)
-			return -1;
-	}
-	else
+	af = get_socket_family_rfc(address_type);
+	if (sockaddr_parse_str(out, af, address))
 		return -1;
 
 	return 0;
@@ -322,7 +282,10 @@ INLINE int extract_token(char **sp, char *end, str *out) {
 		if (parse_address(&output->field)) return -1
 #define EXTRACT_NETWORK_ADDRESS_NF(field)			\
 		EXTRACT_NETWORK_ADDRESS_NP(field);		\
-		if (parse_address(&output->field)) output->field.parsed.s6_addr32[0] = 0xfe
+		if (parse_address(&output->field)) do {		\
+			output->field.parsed.family = get_socket_family_enum(SF_IP4); \
+			output->field.parsed.u.ipv4.s_addr = 1;	\
+		} while (0)
 
 #define PARSE_DECL char *end, *start
 #define PARSE_INIT start = output->value.s; end = start + output->value.len
@@ -607,7 +570,7 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 	if (ep == c->component_str.s)
 		return -1;
 
-	c->cand_parsed.transport = ice_transport(&c->transport_str);
+	c->cand_parsed.transport = get_socket_type(&c->transport_str);
 	if (!c->cand_parsed.transport)
 		return 0;
 
@@ -615,7 +578,7 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 	if (ep == c->priority_str.s)
 		return -1;
 
-	if (__parse_address(&c->cand_parsed.endpoint.ip46, NULL, NULL, &c->address_str))
+	if (__parse_address(&c->cand_parsed.endpoint.address, NULL, NULL, &c->address_str))
 		return 0;
 
 	c->cand_parsed.endpoint.port = strtoul(c->port_str.s, &ep, 10);
@@ -642,10 +605,10 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 	if (str_cmp(&c->rport_str, "rport"))
 		return -1;
 
-	if (__parse_address(&c->cand_parsed.related_address, NULL, NULL, &c->related_address_str))
+	if (__parse_address(&c->cand_parsed.related.address, NULL, NULL, &c->related_address_str))
 		return 0;
 
-	c->cand_parsed.related_port = strtoul(c->related_port_str.s, &ep, 10);
+	c->cand_parsed.related.port = strtoul(c->related_port_str.s, &ep, 10);
 	if (ep == c->related_port_str.s)
 		return -1;
 
@@ -1072,14 +1035,14 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, str
 						&flags->received_from_address))
 				return -1;
 		}
-		ep->ip46 = flags->parsed_received_from;
+		ep->address = flags->parsed_received_from;
 	}
 	else if (address && !is_addr_unspecified(&address->parsed))
-		ep->ip46 = address->parsed;
+		ep->address = address->parsed;
 	else if (media->connection.parsed)
-		ep->ip46 = media->connection.address.parsed;
+		ep->address = media->connection.address.parsed;
 	else if (session->connection.parsed)
-		ep->ip46 = session->connection.address.parsed;
+		ep->address = session->connection.address.parsed;
 	else
 		return -1;
 
@@ -1437,7 +1400,7 @@ static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media,
 	if (copy_up_to(chop, port))
 		return -1;
 
-	p = ps->sfd ? ps->sfd->fd.localport : 0;
+	p = ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0;
 	chopper_append_printf(chop, "%u", p);
 
 	if (skip_over(chop, port))
@@ -1452,7 +1415,7 @@ static int replace_consecutive_port_count(struct sdp_chopper *chop, struct sdp_m
 	int cons;
 	struct packet_stream *ps_n;
 
-	if (media->port_count == 1 || !ps->sfd)
+	if (media->port_count == 1 || !ps->selected_sfd)
 		return 0;
 
 	for (cons = 1; cons < media->port_count; cons++) {
@@ -1460,7 +1423,7 @@ static int replace_consecutive_port_count(struct sdp_chopper *chop, struct sdp_m
 		if (!j)
 			goto warn;
 		ps_n = j->data;
-		if (ps_n->sfd->fd.localport != ps->sfd->fd.localport + cons * 2) {
+		if (ps_n->selected_sfd->socket.local.port != ps->selected_sfd->socket.local.port + cons * 2) {
 warn:
 			ilog(LOG_WARN, "Failed to handle consecutive ports");
 			break;
@@ -1472,18 +1435,18 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(struct sdp_chopper *chop, struct packet_stream *ps, struct interface_address *ifa) {
+static int insert_ice_address(struct sdp_chopper *chop, struct stream_fd *sfd) {
 	char buf[64];
 	int len;
 
-	call_stream_address46(buf, ps, SAF_ICE, &len, ifa);
+	call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf);
 	chopper_append_dup(chop, buf, len);
-	chopper_append_printf(chop, " %hu", ps->sfd->fd.localport);
+	chopper_append_printf(chop, " %u", sfd->socket.local.port);
 
 	return 0;
 }
 
-static int insert_raddr_rport(struct sdp_chopper *chop, struct packet_stream *ps, struct interface_address *ifa) {
+static int insert_raddr_rport(struct sdp_chopper *chop, struct packet_stream *ps, const struct local_intf *ifa) {
         char buf[64];
         int len;
 
@@ -1491,7 +1454,7 @@ static int insert_raddr_rport(struct sdp_chopper *chop, struct packet_stream *ps
 	call_stream_address46(buf, ps, SAF_ICE, &len, ifa);
 	chopper_append_dup(chop, buf, len);
 	chopper_append_c(chop, " rport ");
-	chopper_append_printf(chop, "%hu", ps->sfd->fd.localport);
+	chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
 
 	return 0;
 }
@@ -1514,17 +1477,10 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 	if (flags->media_address.s && is_addr_unspecified(&flags->parsed_media_address))
 		__parse_address(&flags->parsed_media_address, NULL, NULL, &flags->media_address);
 
-	if (!is_addr_unspecified(&flags->parsed_media_address)) {
-		if (IN6_IS_ADDR_V4MAPPED(&flags->parsed_media_address))
-			len = sprintf(buf, "IP4 " IPF, IPP(flags->parsed_media_address.s6_addr32[3]));
-		else {
-			memcpy(buf, "IP6 ", 4);
-			inet_ntop(AF_INET6, &flags->parsed_media_address, buf + 4, sizeof(buf)-4);
-			len = strlen(buf);
-		}
-	}
+	if (!is_addr_unspecified(&flags->parsed_media_address))
+		len = sprintf(buf, "%s", sockaddr_print_buf(&flags->parsed_media_address));
 	else
-		call_stream_address(buf, ps, SAF_NG, &len);
+		call_stream_address46(buf, ps, SAF_NG, &len, NULL);
 	chopper_append_dup(chop, buf, len);
 
 	if (skip_over(chop, &address->address))
@@ -1725,17 +1681,21 @@ out:
 	*lprefp = lpref;
 }
 
-static void insert_candidate(struct sdp_chopper *chop, struct packet_stream *ps, unsigned int component,
-		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
-		struct interface_address *ifa)
+static void insert_candidate(struct sdp_chopper *chop, struct stream_fd *sfd,
+		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type)
 {
 	unsigned long priority;
+	struct packet_stream *ps = sfd->stream;
+	const struct local_intf *ifa = sfd->local_intf;
 
-	priority = ice_priority_pref(type_pref, local_pref, component);
+	if (local_pref == -1)
+		local_pref = ifa->unique_id;
+
+	priority = ice_priority_pref(type_pref, local_pref, ps->component);
 	chopper_append_c(chop, "a=candidate:");
-	chopper_append_str(chop, &ifa->ice_foundation);
-	chopper_append_printf(chop, " %u UDP %lu ", component, priority);
-	insert_ice_address(chop, ps, ifa);
+	chopper_append_str(chop, &ifa->spec->ice_foundation);
+	chopper_append_printf(chop, " %u UDP %lu ", ps->component, priority);
+	insert_ice_address(chop, sfd);
 	chopper_append_c(chop, " typ ");
 	chopper_append_c(chop, ice_candidate_type_str(type));
 	/* raddr and rport are required for non-host candidates: rfc5245 section-15.1 */
@@ -1744,14 +1704,26 @@ static void insert_candidate(struct sdp_chopper *chop, struct packet_stream *ps,
 	chopper_append_c(chop, "\r\n");
 }
 
+static void insert_sfd_candidates(struct sdp_chopper *chop, struct packet_stream *ps,
+		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type)
+{
+	GList *l;
+	struct stream_fd *sfd;
+
+	for (l = ps->sfds.head; l; l = l->next) {
+		sfd = l->data;
+		insert_candidate(chop, sfd, type_pref, local_pref, type);
+
+		if (local_pref != -1)
+			local_pref++;
+	}
+}
+
 static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rtp, struct packet_stream *rtcp,
 		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
-	GList *l;
-	struct interface_address *ifa;
-	unsigned int pref;
+	const struct local_intf *ifa;
 	struct call_media *media;
-	struct local_interface *lif;
 	struct ice_agent *ag;
 	unsigned int type_pref, local_pref;
 	enum ice_candidate_type cand_type;
@@ -1770,13 +1742,12 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 	}
 
 	ag = media->ice_agent;
-	lif = ag ? ag->local_interface : media->interface;
 
 	if (ag && AGENT_ISSET(ag, COMPLETED)) {
-		ifa = g_atomic_pointer_get(&media->local_address);
-		insert_candidate(chop, rtp, 1, type_pref, ifa->preference, cand_type, ifa);
+		ifa = rtp->selected_sfd->local_intf;
+		insert_candidate(chop, rtp->selected_sfd, type_pref, ifa->unique_id, cand_type);
 		if (rtcp) /* rtcp-mux only possible in answer */
-			insert_candidate(chop, rtcp, 2, type_pref, ifa->preference, cand_type, ifa);
+			insert_candidate(chop, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type);
 
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
 			GQueue rc;
@@ -1788,7 +1759,7 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 					chopper_append_c(chop, " ");
 				cand = l->data;
 				chopper_append_printf(chop, "%lu %s %u", cand->component_id,
-						smart_ntop_buf(&cand->endpoint.ip46), cand->endpoint.port);
+						sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port);
 			}
 			chopper_append_c(chop, "\r\n");
 			g_queue_clear(&rc);
@@ -1796,18 +1767,10 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 		return;
 	}
 
-	for (l = lif->list.head; l; l = l->next) {
-		ifa = l->data;
-		pref = (local_pref == -1) ? ifa->preference : local_pref;
+	insert_sfd_candidates(chop, rtp, type_pref, local_pref, cand_type);
 
-		insert_candidate(chop, rtp, 1, type_pref, pref, cand_type, ifa);
-
-		if (rtcp) /* rtcp-mux only possible in answer */
-			insert_candidate(chop, rtcp, 2, type_pref, pref, cand_type, ifa);
-
-		if (local_pref != -1)
-			local_pref++;
-	}
+	if (rtcp) /* rtcp-mux only possible in answer */
+		insert_sfd_candidates(chop, rtcp, type_pref, local_pref, cand_type);
 }
 
 static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
@@ -1985,7 +1948,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				assert(j->data == ps_rtcp);
 			}
 
-			if (!sdp_media->port_num || !ps->sfd)
+			if (!sdp_media->port_num || !ps->selected_sfd)
 				goto next;
 
 			if (MEDIA_ARESET2(call_media, SEND, RECV))
@@ -2000,13 +1963,13 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			if (call_media->protocol && call_media->protocol->rtp) {
 				if (MEDIA_ISSET(call_media, RTCP_MUX) && flags->opmode == OP_ANSWER) {
 					chopper_append_c(chop, "a=rtcp:");
-					chopper_append_printf(chop, "%hu", ps->sfd->fd.localport);
+					chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
 					chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
 					ps_rtcp = NULL;
 				}
 				else if (ps_rtcp && !flags->ice_force_relay) {
 					chopper_append_c(chop, "a=rtcp:");
-					chopper_append_printf(chop, "%hu", ps_rtcp->sfd->fd.localport);
+					chopper_append_printf(chop, "%u", ps_rtcp->selected_sfd->socket.local.port);
 					if (!MEDIA_ISSET(call_media, RTCP_MUX))
 						chopper_append_c(chop, "\r\n");
 					else

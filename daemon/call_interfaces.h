@@ -6,6 +6,7 @@
 #include <glib.h>
 #include "str.h"
 #include "bencode.h"
+#include "socket.h"
 
 
 
@@ -25,13 +26,13 @@ str *call_lookup_tcp(char **, struct callmaster *);
 void call_delete_tcp(char **, struct callmaster *);
 void calls_status_tcp(struct callmaster *, struct control_stream *);
 
-str *call_update_udp(char **, struct callmaster *, const char*, const struct sockaddr_in6 *);
+str *call_update_udp(char **, struct callmaster *, const char*, const endpoint_t *);
 str *call_lookup_udp(char **, struct callmaster *);
 str *call_delete_udp(char **, struct callmaster *);
 str *call_query_udp(char **, struct callmaster *);
 
 const char *call_offer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *, const char*,
-		const struct sockaddr_in6 *);
+		const endpoint_t *);
 const char *call_answer_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_delete_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);
 const char *call_query_ng(bencode_item_t *, struct callmaster *, bencode_item_t *);

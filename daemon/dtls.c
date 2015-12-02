@@ -475,12 +475,12 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	struct dtls_connection *d;
 	unsigned long err;
 
-	if (!ps || !ps->sfd)
+	if (!ps || !ps->selected_sfd)
 		return 0;
 
 	__DBG("dtls_connection_init(%i)", active);
 
-	d = &ps->sfd->dtls;
+	d = &ps->selected_sfd->dtls;
 
 	if (d->init) {
 		if ((d->active && active) || (!d->active && !active))
@@ -516,7 +516,7 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	if (!d->r_bio || !d->w_bio)
 		goto error;
 
-	SSL_set_app_data(d->ssl, ps->sfd); /* XXX obj reference here? */
+	SSL_set_app_data(d->ssl, ps->selected_sfd); /* XXX obj reference here? */
 	SSL_set_bio(d->ssl, d->r_bio, d->w_bio);
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
@@ -613,15 +613,15 @@ found:
 	if (d->active) {
 		/* we're the client */
 		crypto_init(&ps->crypto, &client);
-		crypto_init(&ps->sfd->crypto, &server);
+		crypto_init(&ps->selected_sfd->crypto, &server);
 	}
 	else {
 		/* we're the server */
 		crypto_init(&ps->crypto, &server);
-		crypto_init(&ps->sfd->crypto, &client);
+		crypto_init(&ps->selected_sfd->crypto, &client);
 	}
 
-	crypto_dump_keys(&ps->crypto, &ps->sfd->crypto);
+	crypto_dump_keys(&ps->crypto, &ps->selected_sfd->crypto);
 
 	return 0;
 
@@ -635,20 +635,17 @@ error:
 }
 
 /* called with call locked in W or R with ps->in_lock held */
-int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
+int dtls(struct packet_stream *ps, const str *s, const endpoint_t *fsin) {
 	struct dtls_connection *d;
 	int ret;
-	unsigned char buf[0x10000], ctrl[256];
-	struct msghdr mh;
-	struct iovec iov;
-	struct sockaddr_in6 sin;
+	unsigned char buf[0x10000];
 
-	if (!ps || !ps->sfd)
+	if (!ps || !ps->selected_sfd)
 		return 0;
 	if (!MEDIA_ISSET(ps->media, DTLS))
 		return 0;
 
-	d = &ps->sfd->dtls;
+	d = &ps->selected_sfd->dtls;
 
 	if (s)
 		__DBG("dtls packet input: len %u %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
@@ -670,7 +667,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 
 	ret = try_connect(d);
 	if (ret == -1) {
-		ilog(LOG_ERROR, "DTLS error on local port %hu", ps->sfd->fd.localport);
+		ilog(LOG_ERROR, "DTLS error on local port %u", ps->selected_sfd->socket.local.port);
 		/* fatal error */
 		dtls_connection_cleanup(d);
 		return 0;
@@ -709,30 +706,11 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 			buf[8], buf[9], buf[10], buf[11],
 			buf[12], buf[13], buf[14], buf[15]);
 
-		if (!fsin) {
-			ZERO(sin);
-			sin.sin6_family = AF_INET6;
-			sin.sin6_addr = ps->endpoint.ip46;
-			sin.sin6_port = htons(ps->endpoint.port);
-			fsin = &sin;
-		}
-
-		ZERO(mh);
-		mh.msg_control = ctrl;
-		mh.msg_controllen = sizeof(ctrl);
-		mh.msg_name = fsin;
-		mh.msg_namelen = sizeof(*fsin);
-		mh.msg_iov = &iov;
-		mh.msg_iovlen = 1;
-
-		ZERO(iov);
-		iov.iov_base = buf;
-		iov.iov_len = ret;
-
-		stream_msg_mh_src(ps, &mh);
+		if (!fsin)
+			fsin = &ps->endpoint;
 
 		ilog(LOG_DEBUG, "Sending DTLS packet");
-		sendmsg(ps->sfd->fd.fd, &mh, 0);
+		socket_sendto(&ps->selected_sfd->socket, buf, ret, fsin);
 	}
 
 	return 0;
@@ -741,25 +719,19 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 /* call must be locked */
 void dtls_shutdown(struct packet_stream *ps) {
 	struct dtls_connection *d;
-	struct sockaddr_in6 sin;
 
-	if (!ps || !ps->sfd)
+	if (!ps || !ps->selected_sfd)
 		return;
 
 	__DBG("dtls_shutdown");
 
-	d = &ps->sfd->dtls;
+	d = &ps->selected_sfd->dtls;
 	if (!d->init)
 		return;
 
 	if (d->connected && d->ssl) {
-		ZERO(sin);
-		sin.sin6_family = AF_INET6;
-		sin.sin6_addr = ps->endpoint.ip46;
-		sin.sin6_port = htons(ps->endpoint.port);
-
 		SSL_shutdown(d->ssl);
-		dtls(ps, NULL, &sin);
+		dtls(ps, NULL, &ps->endpoint);
 	}
 
 	dtls_connection_cleanup(d);
@@ -770,7 +742,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 	}
 
 	crypto_reset(&ps->crypto);
-	crypto_reset(&ps->sfd->crypto);
+	crypto_reset(&ps->selected_sfd->crypto);
 }
 
 void dtls_connection_cleanup(struct dtls_connection *c) {

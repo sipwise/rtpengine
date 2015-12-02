@@ -115,9 +115,9 @@ void __ilog(int prio, const char *fmt, ...) {
 			break;
 		case LOG_INFO_STREAM_FD:
 			if (log_info.u.stream_fd->call)
-				snprintf(prefix, sizeof(prefix), "["STR_FORMAT" port %5hu] ",
+				snprintf(prefix, sizeof(prefix), "["STR_FORMAT" port %5u] ",
 						STR_FMT(&log_info.u.stream_fd->call->callid),
-						log_info.u.stream_fd->fd.localport);
+						log_info.u.stream_fd->socket.local.port);
 			break;
 		case LOG_INFO_STR:
 			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"] ",

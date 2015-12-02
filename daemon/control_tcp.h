@@ -11,6 +11,7 @@
 
 #include "obj.h"
 #include "aux.h"
+#include "socket.h"
 
 
 #define RE_TCP_RL_CMD 		1
@@ -35,7 +36,7 @@ struct control_stream;
 
 
 
-struct control_tcp *control_tcp_new(struct poller *, u_int32_t, u_int16_t, struct callmaster *);
+struct control_tcp *control_tcp_new(struct poller *, const endpoint_t *, struct callmaster *);
 void control_stream_printf(struct control_stream *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
 
 
