@@ -3548,6 +3548,20 @@ static int monologue_destroy(struct call_monologue *ml) {
 }
 
 /* must be called with call->master_lock held in W */
+static void __fix_other_tags(struct call_monologue *one) {
+	struct call_monologue *two;
+
+	if (!one || !one->tag.len)
+		return;
+	two = one->active_dialogue;
+	if (!two || !two->tag.len)
+		return;
+
+	g_hash_table_insert(one->other_tags, &two->tag, two);
+	g_hash_table_insert(two->other_tags, &one->tag, one);
+}
+
+/* must be called with call->master_lock held in W */
 static struct call_monologue *call_get_monologue(struct call *call, const str *fromtag, const str *totag,
 		const str *viabranch)
 {
@@ -3556,40 +3570,39 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 	__C_DBG("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(&call->callid));
 	ret = g_hash_table_lookup(call->tags, fromtag);
-	/* XXX reverse the conditional */
-	if (ret) {
-		__C_DBG("found existing monologue");
-		__monologue_unkernelize(ret);
-		__monologue_unkernelize(ret->active_dialogue);
-
-		if (!viabranch)
-			goto ok_check_tag;
-
-		/* check the viabranch. if it's not known, then this is a branched offer and we need
-		 * to create a new "other side" for this branch. */
-		if (!ret->active_dialogue->viabranch.s) {
-			/* previous "other side" hasn't been tagged with the via-branch, so we'll just
-			 * use this one and tag it */
-			__monologue_viabranch(ret->active_dialogue, viabranch);
-			goto ok_check_tag;
-		}
-		if (!str_cmp_str(&ret->active_dialogue->viabranch, viabranch))
-			goto ok_check_tag; /* dialogue still intact */
-		os = g_hash_table_lookup(call->viabranches, viabranch);
-		if (os) {
-			/* previously seen branch. use it */
-			__monologue_unkernelize(os);
-			os->active_dialogue = ret;
-			ret->active_dialogue = os;
-			goto ok_check_tag;
-		}
+	if (!ret) {
+		ret = __monologue_create(call);
+		redis_hkey_generate(ret->redis_hkey, call, RC_MONO);
+		__monologue_tag(ret, fromtag);
 		goto new_branch;
 	}
 
-	__C_DBG("creating new monologue");
-	ret = __monologue_create(call);
-	redis_hkey_generate(ret->redis_hkey, call, RC_MONO);
-	__monologue_tag(ret, fromtag);
+	__C_DBG("found existing monologue");
+	__monologue_unkernelize(ret);
+	__monologue_unkernelize(ret->active_dialogue);
+
+	if (!viabranch)
+		goto ok_check_tag;
+
+	/* check the viabranch. if it's not known, then this is a branched offer and we need
+	 * to create a new "other side" for this branch. */
+	if (!ret->active_dialogue->viabranch.s) {
+		/* previous "other side" hasn't been tagged with the via-branch, so we'll just
+		 * use this one and tag it */
+		__monologue_viabranch(ret->active_dialogue, viabranch);
+		goto ok_check_tag;
+	}
+	if (!str_cmp_str(&ret->active_dialogue->viabranch, viabranch))
+		goto ok_check_tag; /* dialogue still intact */
+	os = g_hash_table_lookup(call->viabranches, viabranch);
+	if (os) {
+		/* previously seen branch. use it */
+		__monologue_unkernelize(os);
+		os->active_dialogue = ret;
+		ret->active_dialogue = os;
+		goto ok_check_tag;
+	}
+
 	/* we need both sides of the dialogue even in the initial offer, so create
 	 * another monologue without to-tag (to be filled in later) */
 new_branch:
@@ -3601,8 +3614,11 @@ new_branch:
 	__monologue_viabranch(os, viabranch);
 
 ok_check_tag:
-	if (totag && totag->s && !ret->active_dialogue->tag.s)
-		__monologue_tag(ret->active_dialogue, totag);
+	os = ret->active_dialogue;
+	if (totag && totag->s && !os->tag.s) {
+		__monologue_tag(os, totag);
+		__fix_other_tags(ret);
+	}
 	return ret;
 }
 
@@ -3651,12 +3667,11 @@ static struct call_monologue *call_get_dialogue(struct call *call, const str *fr
 	if (!ft->tag.s)
 		__monologue_tag(ft, fromtag);
 
-	g_hash_table_insert(ft->other_tags, &tt->tag, tt);
-	g_hash_table_insert(tt->other_tags, &ft->tag, ft);
 	__monologue_unkernelize(ft->active_dialogue);
 	__monologue_unkernelize(tt->active_dialogue);
 	ft->active_dialogue = tt;
 	tt->active_dialogue = ft;
+	__fix_other_tags(ft);
 
 done:
 	__monologue_unkernelize(ft);
