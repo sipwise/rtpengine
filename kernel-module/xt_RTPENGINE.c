@@ -81,7 +81,7 @@ struct re_cipher;
 struct rtp_parsed;
 struct re_crypto_context;
 
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 kuid_t proc_kuid;
 uint proc_uid = 0;
 module_param(proc_uid, uint, 0);
@@ -92,7 +92,7 @@ kgid_t proc_kgid;
 uint proc_gid = 0;
 module_param(proc_gid, uint, 0);
 MODULE_PARM_DESC(proc_gid, "rtpengine procfs tree group id");
-
+#endif
 
 static struct proc_dir_entry *my_proc_root;
 static struct proc_dir_entry *proc_list;
@@ -405,37 +405,37 @@ static int table_create_proc(struct rtpengine_table *t, u_int32_t id) {
 #endif
 	if (!t->proc)
 		return -1;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(t->proc, proc_kuid, proc_kgid);
-
+#endif
 	t->status = proc_create_data("status", S_IFREG | S_IRUGO, t->proc, &proc_status_ops,
 		(void *) (unsigned long) id);
 	if (!t->status)
 		return -1;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(t->status, proc_kuid, proc_kgid);
-
+#endif
 	t->control = proc_create_data("control", S_IFREG | S_IWUSR | S_IWGRP, t->proc,
 			&proc_control_ops, (void *) (unsigned long) id);
 	if (!t->control)
 		return -1;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(t->control, proc_kuid, proc_kgid);
-
+#endif
 	t->list = proc_create_data("list", S_IFREG | S_IRUGO, t->proc,
 			&proc_list_ops, (void *) (unsigned long) id);
 	if (!t->list)
 		return -1;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(t->list, proc_kuid, proc_kgid);
-
+#endif
 	t->blist = proc_create_data("blist", S_IFREG | S_IRUGO, t->proc,
 			&proc_blist_ops, (void *) (unsigned long) id);
 	if (!t->blist)
 		return -1;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(t->blist, proc_kuid, proc_kgid);
-
+#endif
 	return 0;
 }
 
@@ -2559,10 +2559,11 @@ static int __init init(void) {
 	const char *err;
 
 	printk(KERN_NOTICE "Registering xt_RTPENGINE module - version %s\n", RTPENGINE_VERSION);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	printk(KERN_DEBUG "using uid %u, gid %d\n", proc_uid, proc_gid);
 	proc_kuid = KUIDT_INIT(proc_uid);
 	proc_kgid = KGIDT_INIT(proc_gid);
-
+#endif
 	rwlock_init(&table_lock);
 
 	ret = -ENOMEM;
@@ -2570,23 +2571,24 @@ static int __init init(void) {
 	my_proc_root = proc_mkdir("rtpengine", NULL);
 	if (!my_proc_root)
 		goto fail;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(my_proc_root, proc_kuid, proc_kgid);
+#endif
 	/* my_proc_root->owner = THIS_MODULE; */
 
 	proc_control = proc_create("control", S_IFREG | S_IWUSR | S_IWGRP, my_proc_root,
 			&proc_main_control_ops);
 	if (!proc_control)
 		goto fail;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(proc_control, proc_kuid, proc_kgid);
-
+#endif
 	proc_list = proc_create("list", S_IFREG | S_IRUGO, my_proc_root, &proc_main_list_ops);
 	if (!proc_list)
 		goto fail;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(proc_list, proc_kuid, proc_kgid);
-
+#endif
 	err = "could not register xtables target";
 	ret = xt_register_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
 	if (ret)
