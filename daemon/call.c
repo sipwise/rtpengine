@@ -2428,6 +2428,20 @@ static int monologue_destroy(struct call_monologue *ml) {
 }
 
 /* must be called with call->master_lock held in W */
+static void __fix_other_tags(struct call_monologue *one) {
+	struct call_monologue *two;
+
+	if (!one || !one->tag.len)
+		return;
+	two = one->active_dialogue;
+	if (!two || !two->tag.len)
+		return;
+
+	g_hash_table_insert(one->other_tags, &two->tag, two);
+	g_hash_table_insert(two->other_tags, &one->tag, one);
+}
+
+/* must be called with call->master_lock held in W */
 static struct call_monologue *call_get_monologue(struct call *call, const str *fromtag, const str *totag,
 		const str *viabranch)
 {
@@ -2437,7 +2451,6 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 			STR_FMT(fromtag), STR_FMT(&call->callid));
 	ret = g_hash_table_lookup(call->tags, fromtag);
 	if (!ret) {
-		__C_DBG("creating new monologue");
 		ret = __monologue_create(call);
 		__monologue_tag(ret, fromtag);
 		goto new_branch;
@@ -2479,8 +2492,11 @@ new_branch:
 	__monologue_viabranch(os, viabranch);
 
 ok_check_tag:
-	if (totag && totag->s && !ret->active_dialogue->tag.s)
-		__monologue_tag(ret->active_dialogue, totag);
+	os = ret->active_dialogue;
+	if (totag && totag->s && !os->tag.s) {
+		__monologue_tag(os, totag);
+		__fix_other_tags(ret);
+	}
 	return ret;
 }
 
@@ -2527,12 +2543,11 @@ static struct call_monologue *call_get_dialogue(struct call *call, const str *fr
 	if (!ft->tag.s)
 		__monologue_tag(ft, fromtag);
 
-	g_hash_table_insert(ft->other_tags, &tt->tag, tt);
-	g_hash_table_insert(tt->other_tags, &ft->tag, ft);
 	__monologue_unkernelize(ft->active_dialogue);
 	__monologue_unkernelize(tt->active_dialogue);
 	ft->active_dialogue = tt;
 	tt->active_dialogue = ft;
+	__fix_other_tags(ft);
 
 done:
 	__monologue_unkernelize(ft);
