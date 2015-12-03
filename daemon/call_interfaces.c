@@ -354,7 +354,7 @@ str *call_lookup_tcp(char **out, struct callmaster *m) {
 str *call_delete_udp(char **out, struct callmaster *m) {
 	str callid, branch, fromtag, totag;
 
-	__C_DBG("got delete for callid '%s' and viabranch '%s'", 
+	__C_DBG("got delete for callid '%s' and viabranch '%s'",
 		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
 
 	str_init(&callid, out[RE_UDP_DQ_CALLID]);
@@ -684,15 +684,20 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	call = call_get_opmode(&callid, m, opmode);
 
-	bencode_dictionary_get_str(input, "metadata", &metadata);
-	call->metadata = str_dup(&metadata);
-
 	errstr = "Unknown call-id";
 	if (!call)
 		goto out;
 
 	if (recordcall.s && !str_cmp(&recordcall, "yes")) {
-		call->record_call = 1;
+		if (!call->record_call) {
+			setup_meta_file(call);
+			call->record_call = 1;
+		}
+		bencode_dictionary_get_str(input, "metadata", &metadata);
+		if (metadata.len > 0) {
+			free(call->metadata);
+			call->metadata = str_dup(&metadata);
+		}
 	} else {
 		call->record_call = 0;
 	}
@@ -748,7 +753,6 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	GList *l;
 	char *recording_path;
 	for (l = call->recording_pcaps; l; l = l->next) {
-		ilog(LOG_INFO, "xxegreen: Recording path %s", l->data);
 		bencode_list_add_string(recordings, l->data);
 	}
 

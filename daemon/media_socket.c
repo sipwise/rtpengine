@@ -834,9 +834,7 @@ void kernelize(struct packet_stream *stream) {
 	struct packet_stream *sink = NULL;
 	const char *nk_warn_msg;
 
-	if (PS_ISSET(stream, KERNELIZED))
-		return;
-	if (PS_ISSET(stream, FORCE_DAEMON_MODE))
+	if (PS_ISSET(stream, KERNELIZED) || call->record_call)
 		return;
 	if (cm->conf.kernelid < 0)
 		goto no_kernel;
@@ -941,8 +939,6 @@ void __unkernelize(struct packet_stream *p) {
 	if (!PS_ISSET(p, KERNELIZED))
 		return;
 	if (PS_ISSET(p, NO_KERNEL_SUPPORT))
-		return;
-	if (PS_ISSET(p, FORCE_DAEMON_MODE))
 		return;
 
 	if (p->call->callmaster->conf.kernelfd >= 0) {
@@ -1186,8 +1182,6 @@ loop_ok:
 	// If recording pcap dumper is set, then we record the call.
 	if (recording_pdumper != NULL) {
 		stream_pcap_dump(recording_pdumper, s);
-		// EGREEN: This is going to happen for every packet. We need to do better
-		PS_SET(stream, FORCE_DAEMON_MODE);
 	}
 
 	if (handler_ret >= 0) {
