@@ -1379,10 +1379,10 @@ void redis_update(struct call *c, struct redis *r, int role) {
 		}
 		g_list_free(k);
 
-		redis_pipe(r, "EXPIRE media-"PB"-%u", STR(&c->callid), media->unique_id);
-		redis_pipe(r, "EXPIRE streams-"PB"-%u", STR(&c->callid), media->unique_id);
-		redis_pipe(r, "EXPIRE maps-"PB"-%u", STR(&c->callid), media->unique_id);
-		redis_pipe(r, "EXPIRE payload_types-"PB"-%u", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE media-"PB"-%u 86400", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE streams-"PB"-%u 86400", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE maps-"PB"-%u 86400", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE payload_types-"PB"-%u 86400", STR(&c->callid), media->unique_id);
 
 		redis_pipe(r, "DEL media-"PB"-%u streams-"PB"-%u maps-"PB"-%u payload_types-"PB"-%u",
 				STR(&c->callid), media->unique_id + 1,
