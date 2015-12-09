@@ -17,6 +17,8 @@
 #include "compat.h"
 #include "control_ng.h"
 #include "aux.h"
+#include "socket.h"
+#include "media_socket.h"
 
 #define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
 
@@ -86,13 +88,13 @@ enum call_stream_state {
 #include "rtp.h"
 
 
+#define ERROR_NO_FREE_PORTS	-100
+#define ERROR_NO_FREE_LOGS	-101
 
 #define MAX_RTP_PACKET_SIZE	8192
 #define RTP_BUFFER_HEAD_ROOM	128
 #define RTP_BUFFER_TAIL_ROOM	512
 #define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
-
-#define MAX_REDIS_HKEY_SIZE 150
 
 #ifndef RTP_LOOP_PROTECT
 #define RTP_LOOP_PROTECT	28 /* number of bytes */
@@ -186,8 +188,8 @@ enum call_stream_state {
 #define MEDIA_SET(p, f)		bf_set(&(p)->media_flags, MEDIA_FLAG_ ## f)
 #define MEDIA_CLEAR(p, f)	bf_clear(&(p)->media_flags, MEDIA_FLAG_ ## f)
 
-typedef enum { RC_SFD, RC_EM, RC_PS, RC_MEDIA, RC_MONO, RC_LIMIT} rc_type;
-typedef struct redis_hkey_counters { unsigned char val[RC_LIMIT]; } redis_hkey_counters;
+
+
 
 struct poller;
 struct control_stream;
@@ -243,7 +245,7 @@ struct totalstats {
 
 	mutex_t				total_average_lock; /* for these two below */
 	u_int64_t			total_managed_sess;
-	struct timeval		        total_average_call_dur;
+	struct timeval			total_average_call_dur;
 
 	mutex_t				managed_sess_lock; /* for these below */
 	u_int64_t			managed_sess_crt;
@@ -254,10 +256,6 @@ struct totalstats {
 	struct timeval		        total_calls_duration_interval;
 };
 
-struct udp_fd {
-	int			fd;
-	u_int16_t		localport;
-};
 struct stream_params {
 	unsigned int		index; /* starting with 1 */
 	str			type;
@@ -268,7 +266,7 @@ struct stream_params {
 	struct crypto_params	crypto;
 	unsigned int		sdes_tag;
 	str			direction[2];
-	int			desired_family;
+	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
 	unsigned int		sp_flags;
 	GQueue			rtp_payload_types; /* slice-alloc'd */
@@ -277,21 +275,13 @@ struct stream_params {
 	str			ice_pwd;
 };
 
-struct stream_fd {
-	struct obj		obj;
-	struct udp_fd		fd;		/* RO */
-	struct call		*call;		/* RO */
-	struct packet_stream	*stream;	/* LOCK: call->master_lock */
-	struct crypto_context	crypto;		/* IN direction, LOCK: stream->in_lock */
-	struct dtls_connection	dtls;		/* LOCK: stream->in_lock */
-	char	                redis_hkey[MAX_REDIS_HKEY_SIZE];
-};
-
 struct endpoint_map {
+	unsigned int		unique_id;
 	struct endpoint		endpoint;
-	GQueue			sfds;
+	unsigned int		num_ports;
+	const struct logical_intf *logical_intf;
+	GQueue			intf_sfds; /* list of struct intf_list - contains stream_fd list */
 	int			wildcard:1;
-	char		redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 struct loop_protector {
@@ -300,7 +290,7 @@ struct loop_protector {
 };
 
 struct rtp_stats {
-	unsigned int	payload_type;
+	unsigned int		payload_type;
 	atomic64		packets;
 	atomic64		bytes;
 	atomic64		kernel_packets;
@@ -318,8 +308,10 @@ struct packet_stream {
 	struct call_media	*media;		/* RO */
 	struct call		*call;		/* RO */
 	unsigned int		component;	/* RO, starts with 1 */
+	unsigned int		unique_id;	/* RO */
 
-	struct stream_fd	*sfd;		/* LOCK: call->master_lock */
+	GQueue			sfds;		/* LOCK: call->master_lock */
+	struct stream_fd * volatile selected_sfd;
 	struct packet_stream	*rtp_sink;	/* LOCK: call->master_lock */
 	struct packet_stream	*rtcp_sink;	/* LOCK: call->master_lock */
 	struct packet_stream	*rtcp_sibling;	/* LOCK: call->master_lock */
@@ -344,7 +336,6 @@ struct packet_stream {
 
 	/* in_lock must be held for SETTING these: */
 	volatile unsigned int	ps_flags;
-	char					redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 /* protected by call->master_lock, except the RO elements */
@@ -353,15 +344,11 @@ struct call_media {
 	struct call		*call;		/* RO */
 
 	unsigned int		index;		/* RO */
+	unsigned int		unique_id;	/* RO */
 	str			type;		/* RO */
 	const struct transport_protocol *protocol;
-	int			desired_family;
-	struct local_interface	*interface;
-
-	/* local_address is protected by call->master_lock in W mode, but may
-	 * still be modified if the lock is held in R mode, therefore we use
-	 * atomic ops to access it when holding an R lock. */
-	volatile struct interface_address *local_address;
+	sockfamily_t		*desired_family;
+	const struct logical_intf *logical_intf;
 
 	struct ice_agent	*ice_agent;
 
@@ -374,17 +361,17 @@ struct call_media {
 	struct dtls_fingerprint fingerprint; /* as received */
 
 	GQueue			streams; /* normally RTP + RTCP */
-	GSList			*endpoint_maps;
+	GQueue			endpoint_maps;
 	GHashTable		*rtp_payload_types;
 
 	volatile unsigned int	media_flags;
- 	char					redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 /* half a dialogue */
 /* protected by call->master_lock, except the RO elements */
 struct call_monologue {
 	struct call		*call;		/* RO */
+	unsigned int		unique_id;	/* RO */
 
 	str			tag;
 	str			viabranch;
@@ -398,7 +385,6 @@ struct call_monologue {
 	struct call_monologue	*active_dialogue;
 
 	GQueue			medias;
-	char			redis_hkey[MAX_REDIS_HKEY_SIZE];
 };
 
 struct call {
@@ -407,52 +393,32 @@ struct call {
 	struct callmaster	*callmaster;	/* RO */
 
 	mutex_t			buffer_lock;
-	call_buffer_t	        buffer;
-	GQueue			rtp_bridge_ports;
+	call_buffer_t		buffer;
 
 	/* everything below protected by master_lock */
 	rwlock_t		master_lock;
-	GSList			*monologues;
-	GHashTable		*tags;
+	GQueue			monologues;
+	GQueue			medias;
+	GHashTable		*tags;	
 	GHashTable		*viabranches;
-	GSList			*streams;
-	GSList			*stream_fds;
+	GQueue			streams;
+	GQueue			stream_fds;
+	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 
-	str			    callid;
+	str			callid;	
 	time_t			created;
 	time_t			last_signal;
 	time_t			deleted;
 	time_t			ml_deleted;
-	unsigned char	tos;
+	unsigned char		tos;
 	char			*created_from;
-	struct sockaddr_in6	created_from_addr;
-
-	struct 	redis_hkey_counters	rc;
-};
-
-struct local_interface {
-	str			name;
-	int			preferred_family;
-	GQueue			list; /* struct interface_address */
-	GHashTable		*addr_hash;
-};
-struct interface_address {
-	str			interface_name;
-	int			family;
-	struct in6_addr		addr;
-	struct in6_addr		advertised;
-	str			ice_foundation;
-	char			foundation_buf[16];
-	unsigned int		preference; /* starting with 0 */
+	sockaddr_t		created_from_addr;
 };
 
 struct callmaster_config {
 	int			kernelfd;
 	int			kernelid;
-	GQueue		        *interfaces; /* struct interface_address */
-	int			port_min;
-	int			port_max;
 	int			max_sessions;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
@@ -463,8 +429,7 @@ struct callmaster_config {
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;
-	u_int32_t		graphite_ip;
-	u_int16_t		graphite_port;
+	endpoint_t		graphite_ep;
 	int			graphite_interval;
 };
 
@@ -473,13 +438,6 @@ struct callmaster {
 
 	rwlock_t		hashlock;
 	GHashTable		*callhash;
-
-	GHashTable		*interfaces; /* struct local_interface */
-	GQueue			interface_list_v4; /* ditto */
-	GQueue			interface_list_v6; /* ditto */
-
-	volatile unsigned int	lastport;
-	BIT_ARRAY_DECLARE(ports_used, 0x10000);
 
 	/* XXX rework these */
 	struct stats		statsps;	/* per second stats, running timer */
@@ -511,8 +469,6 @@ struct call_stats {
 
 
 struct callmaster *callmaster_new(struct poller *);
-void callmaster_config_init(struct callmaster *);
-void stream_msg_mh_src(struct packet_stream *, struct msghdr *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 		struct timeval *iv_start, struct timeval *iv_duration);
@@ -523,8 +479,6 @@ void calls_dump_redis_write(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
-struct stream_fd *__stream_fd_new(struct udp_fd *fd, struct call *call);
-int __get_consecutive_ports(struct udp_fd *array, int array_len, int wanted_start_port, const struct call *c);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
@@ -538,19 +492,11 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
+void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media);
 
-void kernelize(struct packet_stream *);
-int call_stream_address(char *, struct packet_stream *, enum stream_address_format, int *);
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, struct interface_address *ifa);
-struct local_interface *get_local_interface(struct callmaster *m, const str *name, int familiy);
-INLINE struct interface_address *get_interface_from_address(struct local_interface *lif,
-		const struct in6_addr *addr)
-{
-	return g_hash_table_lookup(lif->addr_hash, addr);
-}
-struct interface_address *get_any_interface_address(struct local_interface *lif, int family);
+		int *len, const struct local_intf *ifa);
 
 const struct transport_protocol *transport_protocol(const str *s);
 void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval *interval_tv);
@@ -608,20 +554,12 @@ INLINE str *call_str_init_dup(struct call *c, char *s) {
 	str_init(&t, s);
 	return call_str_dup(c, &t);
 }
-INLINE void callmaster_exclude_port(struct callmaster *m, u_int16_t p) {
-	bit_array_set(m->ports_used, p);
-}
 INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	struct packet_stream *ret;
 	ret = ps->rtp_sink;
 	if (!ret)
 		ret = ps->rtcp_sink;
 	return ret;
-}
-
-INLINE  void redis_hkey_cpy(char *dst, char *src) {
-	strncpy(dst, src, MAX_REDIS_HKEY_SIZE);
-	dst[MAX_REDIS_HKEY_SIZE-1] = '\0';
 }
 
 const char * get_tag_type_text(enum tag_type t);

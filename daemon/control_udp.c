@@ -17,15 +17,17 @@
 #include "call.h"
 #include "udp_listener.h"
 #include "call_interfaces.h"
+#include "socket.h"
 
 
-static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *sin, char *addr) {
+static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
+		struct udp_listener *ul) {
 	struct control_udp *u = (void *) obj;
 	int ret;
 	int ovec[100];
 	char **out;
-	struct msghdr mh;
 	struct iovec iov[10];
+	unsigned int iovlen;
 	str cookie, *reply;
 
 	ret = pcre_exec(u->parse_re, u->parse_ree, buf->s, buf->len, 0, 0, ovec, G_N_ELEMENTS(ovec));
@@ -40,11 +42,6 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 
 		pcre_get_substring_list(buf->s, ovec, ret, (const char ***) &out);
 
-		ZERO(mh);
-		mh.msg_name = sin;
-		mh.msg_namelen = sizeof(*sin);
-		mh.msg_iov = iov;
-
 		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
 		iov[0].iov_len = strlen(out[RE_UDP_COOKIE]);
 		if (out[RE_UDP_UL_CMD] && (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U' || chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')) {
@@ -54,15 +51,15 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 			iov[2].iov_len = strlen(out[3]);
 			iov[3].iov_base = "\n";
 			iov[3].iov_len = 1;
-			mh.msg_iovlen = 4;
+			iovlen = 4;
 		}
 		else {
 			iov[1].iov_base = " E8\n";
 			iov[1].iov_len = 4;
-			mh.msg_iovlen = 2;
+			iovlen = 2;
 		}
 
-		sendmsg(u->udp_listener.fd, &mh, 0);
+		socket_sendiov(&ul->sock, iov, iovlen, sin);
 
 		pcre_free(out);
 
@@ -77,7 +74,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
 	if (reply) {
 		ilog(LOG_INFO, "Detected command from udp:%s as a duplicate", addr);
-		sendto(u->udp_listener.fd, reply->s, reply->len, 0, (struct sockaddr *) sin, sizeof(*sin));
+		socket_sendto(&ul->sock, reply->s, reply->len, sin);
 		free(reply);
 		goto out;
 	}
@@ -96,11 +93,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'Q')
 		reply = call_query_udp(out, u->callmaster);
 	else if (chrtoupper(out[RE_UDP_V_CMD][0]) == 'V') {
-		ZERO(mh);
-		mh.msg_name = sin;
-		mh.msg_namelen = sizeof(*sin);
-		mh.msg_iov = iov;
-		mh.msg_iovlen = 2;
+		iovlen = 2;
 
 		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
 		iov[0].iov_len = strlen(out[RE_UDP_COOKIE]);
@@ -117,18 +110,18 @@ static void control_udp_incoming(struct obj *obj, str *buf, struct sockaddr_in6 
 				ret = 1;
 			iov[2].iov_base = ret ? "1\n" : "0\n";
 			iov[2].iov_len = 2;
-			mh.msg_iovlen++;
+			iovlen++;
 		}
 		else {
 			iov[2].iov_base = "20040107\n";
 			iov[2].iov_len = 9;
-			mh.msg_iovlen++;
+			iovlen++;
 		}
-		sendmsg(u->udp_listener.fd, &mh, 0);
+		socket_sendiov(&ul->sock, iov, iovlen, sin);
 	}
 
 	if (reply) {
-		sendto(u->udp_listener.fd, reply->s, reply->len, 0, (struct sockaddr *) sin, sizeof(*sin));
+		socket_sendto(&ul->sock, reply->s, reply->len, sin);
 		cookie_cache_insert(&u->cookie_cache, &cookie, reply);
 		free(reply);
 	}
@@ -140,7 +133,7 @@ out:
 	log_info_clear();
 }
 
-struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int16_t port, struct callmaster *m) {
+struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep, struct callmaster *m) {
 	struct control_udp *c;
 	const char *errptr;
 	int erroff;
@@ -172,7 +165,9 @@ struct control_udp *control_udp_new(struct poller *p, struct in6_addr ip, u_int1
 
 	cookie_cache_init(&c->cookie_cache);
 
-	if (udp_listener_init(&c->udp_listener, p, ip, port, control_udp_incoming, &c->obj))
+	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_udp_incoming, &c->obj))
+		goto fail2;
+	if (ipv46_any_convert(ep) && udp_listener_init(&c->udp_listeners[1], p, ep, control_udp_incoming, &c->obj))
 		goto fail2;
 
 	return c;

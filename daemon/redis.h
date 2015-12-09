@@ -4,6 +4,9 @@
 
 
 
+#include <sys/types.h>
+#include "compat.h"
+#include "socket.h"
 #include "aux.h"
 
 #include <glib.h>
@@ -22,9 +25,8 @@ struct call;
 
 
 struct redis {
-	u_int32_t	ip;
-	char		host[32];
-	int		port;
+	endpoint_t	endpoint;
+	char		host[64];
 
 	redisContext	*ctx;
 	int		db;
@@ -36,17 +38,13 @@ struct redis_hash {
 	GHashTable *ht;
 };
 struct redis_list {
-	GQueue q;
-	struct redis_hash rh;
-};
-struct list_item {
-	redisReply *id;
-	struct redis_hash rh;
-	void *ptr;
+	unsigned int len;
+	struct redis_hash *rh;
+	void **ptrs;
 };
 
 
-#define HKEY(ptr) ptr ? ptr->redis_hkey : "0"
+
 
 
 
@@ -79,7 +77,7 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 void redis_notify(void *d);
 
 
-struct redis *redis_new(u_int32_t, u_int16_t, int, int);
+struct redis *redis_new(const endpoint_t *, int, int);
 int redis_restore(struct callmaster *, struct redis *, int);
 void redis_update(struct call *, struct redis *, int, enum call_opmode);
 void redis_delete(struct call *, struct redis *, int);

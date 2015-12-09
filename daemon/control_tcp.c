@@ -16,6 +16,7 @@
 #include "log.h"
 #include "call.h"
 #include "call_interfaces.h"
+#include "socket.h"
 
 
 
@@ -271,11 +272,10 @@ fail:
 }
 
 
-struct control_tcp *control_tcp_new(struct poller *p, u_int32_t ip, u_int16_t port, struct callmaster *m) {
-	int fd;
+struct control_tcp *control_tcp_new(struct poller *p, const endpoint_t *ep, struct callmaster *m) {
+	socket_t sock;
 	struct control_tcp *c;
 	struct poller_item i;
-	struct sockaddr_in sin;
 	const char *errptr;
 	int erroff;
 
@@ -284,21 +284,10 @@ struct control_tcp *control_tcp_new(struct poller *p, u_int32_t ip, u_int16_t po
 	if (!m)
 		return NULL;
 
-	fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (fd == -1)
+	if (open_socket(&sock, SOCK_STREAM, ep->port, &ep->address))
 		return NULL;
 
-	nonblock(fd);
-	reuseaddr(fd);
-
-	ZERO(sin);
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = ip;
-	sin.sin_port = htons(port);
-	if (bind(fd, (struct sockaddr *) &sin, sizeof(sin)))
-		goto fail;
-
-	if (listen(fd, 5))
+	if (listen(sock.fd, 5))
 		goto fail;
 
 
@@ -310,13 +299,13 @@ struct control_tcp *control_tcp_new(struct poller *p, u_int32_t ip, u_int16_t po
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 
-	c->fd = fd;
+	c->fd = sock.fd;
 	c->poller = p;
 	c->callmaster = m;
 	mutex_init(&c->lock);
 
 	ZERO(i);
-	i.fd = fd;
+	i.fd = sock.fd;
 	i.closed = control_closed;
 	i.readable = control_incoming;
 	i.obj = &c->obj;
@@ -329,7 +318,7 @@ struct control_tcp *control_tcp_new(struct poller *p, u_int32_t ip, u_int16_t po
 fail2:
 	obj_put(c);
 fail:
-	close(fd);
+	close_socket(&sock);
 	return NULL;
 }
 

@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <glib.h>
+#include <stdarg.h>
 
 #include <glib.h>
 #include "redis.h"
@@ -133,7 +134,7 @@ static int redis_connect(struct redis *r, int wait, int role) {
 
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
-	r->ctx = redisConnectWithTimeout(r->host, r->port, tv);
+	r->ctx = redisConnectWithTimeout(r->host, r->endpoint.port, tv);
 
 	if (!r->ctx)
 		goto err;
@@ -268,7 +269,7 @@ void redis_notify(void *d) {
 
     struct event_base *base = event_base_new();
 
-    redisAsyncContext *c = redisAsyncConnect(r->host, r->port);
+    redisAsyncContext *c = redisAsyncConnect(r->host, r->endpoint.port);
     if (c->err) {
         printf("error: %s\n", c->errstr);
         return;
@@ -280,14 +281,13 @@ void redis_notify(void *d) {
     event_base_dispatch(base);
 }
 
-struct redis *redis_new(u_int32_t ip, u_int16_t port, int db, int role) {
+struct redis *redis_new(const endpoint_t *ep, int db, int role) {
 	struct redis *r;
 
 	r = g_slice_alloc0(sizeof(*r));
 
-	r->ip = ip;
-	sprintf(r->host, IPF, IPP(ip));
-	r->port = port;
+	r->endpoint = *ep;
+	sockaddr_print(&ep->address, r->host, sizeof(r->host));
 	r->db = db;
 	mutex_init(&r->lock);
 
@@ -322,64 +322,32 @@ static void redis_check_conn(struct redis *r, int role) {
 		abort();
 }
 
-/*
-static void _redis_pipe(struct redis *r, const char *fmt, ...) {
-	va_list ap;
-	char interm[200];
 
-	va_start(ap, fmt);
-	sprintf(interm, fmt, ap);
-	va_end(ap);
-	ilog(LOG_ERR, "<< %s >>> \n", interm);
+
+static void redis_delete_list(struct redis *r, const str *callid, const char *prefix, GQueue *q) {
+	unsigned int i;
+
+	for (i = 0; i < g_queue_get_length(q); i++)
+		redis_pipe(r, "DEL %s-"PB"-%u", prefix, STR(callid), i);
 }
-*/
 
 /* called with r->lock held and c->master_lock held */
 static void redis_delete_call(struct call *c, struct redis *r) {
-	GSList *l, *n;
-	GList *k;
-	struct call_monologue *ml;
-	struct call_media *media;
-	struct stream_fd *sfd;
-	struct packet_stream *ps;
-	struct endpoint_map *em;
-	char *mono_key, *media_key, *em_key;
-
 	redis_pipe(r, "DEL notifier-"PB"", STR(&c->callid));
 	redis_pipe(r, "SREM calls "PB"", STR(&c->callid));
-	redis_pipe(r, "DEL call-"PB" tags-"PB" sfds-"PB" streams-"PB"",
-			STR(&c->callid), STR(&c->callid), STR(&c->callid), STR(&c->callid));
-
-	for (l = c->stream_fds; l; l = l->next) {
-		sfd = l->data;
-		redis_pipe(r, "DEL sfd-%s", HKEY(sfd));
-	}
-	for (l = c->streams; l; l = l->next) {
-		ps = l->data;
-		redis_pipe(r, "DEL stream-%s", HKEY(ps));
-	}
-
-	for (l = c->monologues; l; l = l->next) {
-		ml = l->data;
-		mono_key = HKEY(ml);
-
-		redis_pipe(r, "DEL tag-%s other_tags-%s medias-%s", mono_key, mono_key,
-				mono_key);
-
-		for (k = ml->medias.head; k; k = k->next) {
-			media = k->data;
-			media_key = HKEY(media);
-
-			redis_pipe(r, "DEL media-%s streams-%s maps-%s payload_types-%s",
-					media_key, media_key, media_key, media_key);
-
-			for (n = media->endpoint_maps; n; n = n->next) {
-				em = n->data;
-				em_key = HKEY(em);
-				redis_pipe(r, "DEL map-%s sfds-%s", em_key, em_key);
-			}
-		}
-	}
+	redis_pipe(r, "DEL call-"PB"", STR(&c->callid));
+	redis_delete_list(r, &c->callid, "sfd", &c->stream_fds);
+	redis_delete_list(r, &c->callid, "stream", &c->streams);
+	redis_delete_list(r, &c->callid, "stream_sfds", &c->streams);
+	redis_delete_list(r, &c->callid, "tag", &c->monologues);
+	redis_delete_list(r, &c->callid, "other_tags", &c->monologues);
+	redis_delete_list(r, &c->callid, "medias", &c->monologues);
+	redis_delete_list(r, &c->callid, "media", &c->medias);
+	redis_delete_list(r, &c->callid, "streams", &c->medias);
+	redis_delete_list(r, &c->callid, "maps", &c->medias);
+	redis_delete_list(r, &c->callid, "payload_types", &c->medias);
+	redis_delete_list(r, &c->callid, "map", &c->endpoint_maps);
+	redis_delete_list(r, &c->callid, "map_sfds", &c->endpoint_maps);
 
 	redis_consume(r);
 }
@@ -387,14 +355,19 @@ static void redis_delete_call(struct call *c, struct redis *r) {
 
 
 
-static int redis_get_hash(struct redis_hash *out, struct redis *r, const char *key, const redisReply *which) {
+static int redis_get_hash(struct redis_hash *out, struct redis *r, const char *key, const redisReply *which,
+		unsigned int id)
+{
 	redisReply *k, *v;
 	int i;
 
 	out->ht = g_hash_table_new(g_str_hash, g_str_equal);
 	if (!out->ht)
 		goto err;
-	out->rr = redis_get(r, REDIS_REPLY_ARRAY, "HGETALL %s-"PB"", key, STR_R(which));
+	if (id == -1)
+		out->rr = redis_get(r, REDIS_REPLY_ARRAY, "HGETALL %s-"PB"", key, STR_R(which));
+	else
+		out->rr = redis_get(r, REDIS_REPLY_ARRAY, "HGETALL %s-"PB"-%u", key, STR_R(which), id);
 	if (!out->rr)
 		goto err2;
 
@@ -417,90 +390,20 @@ err2:
 err:
 	return -1;
 }
-/*
-static struct redis_hash *redis_get_hash_new(struct redis *r, const char *key, const redisReply *which) {
-	struct redis_hash *out;
-
-	out = g_slice_alloc(sizeof(*out));
-	if (!out)
-		return NULL;
-	if (!redis_get_hash(out, r, key, which))
-		return out;
-	g_slice_free1(sizeof(*out), out);
-	return NULL;
-}
-*/
-
 
 
 static void redis_destroy_hash(struct redis_hash *rh) {
 	freeReplyObject(rh->rr);
 	g_hash_table_destroy(rh->ht);
 }
-/*
-static void redis_free_hash(struct redis_hash *rh) {
-	redis_destroy_hash(rh);
-	g_slice_free1(sizeof(*rh), rh);
-}
-*/
 static void redis_destroy_list(struct redis_list *rl) {
-	struct list_item *it;
+	unsigned int i;
 
-	redis_destroy_hash(&rl->rh);
-	while ((it = g_queue_pop_head(&rl->q)))
-		g_slice_free1(sizeof(*it), it);
-}
-
-
-
-static int redis_get_list_hash(struct redis_list *out, struct redis *r, const char *key, const redisReply *id,
-		const char *sub)
-{
-	redisReply *el;
-	int i;
-	struct list_item *it;
-
-	g_queue_init(&out->q);
-	out->rh.ht = g_hash_table_new(g_str_hash, g_str_equal);
-	if (!out->rh.ht)
-		return -1;
-
-	out->rh.rr = redis_get(r, REDIS_REPLY_ARRAY, "LRANGE %s-"PB" 0 -1", key, STR_R(id));
-	if (!out->rh.rr)
-		goto err;
-
-	for (i = 0; i < out->rh.rr->elements; i++) {
-		el = out->rh.rr->element[i];
-		if (el->type != REDIS_REPLY_STRING)
-			continue;
-
-		it = g_slice_alloc(sizeof(*it));
-		if (!it)
-			goto err2;
-
-		it->id = el;
-
-		if (redis_get_hash(&it->rh, r, sub, el))
-			goto err3;
-
-		if (g_hash_table_insert_check(out->rh.ht, el->str, it) != TRUE)
-			goto err4;
-
-		g_queue_push_tail(&out->q, it);
+	for (i = 0; i < rl->len; i++) {
+		redis_destroy_hash(&rl->rh[i]);
 	}
-
-	return 0;
-
-err4:
-	redis_destroy_hash(&it->rh);
-err3:
-	g_slice_free1(sizeof(*it), it);
-err2:
-	freeReplyObject(out->rh.rr);
-err:
-	g_hash_table_destroy(out->rh.ht);
-	g_queue_clear(&out->q);
-	return -1;
+	free(rl->rh);
+	free(rl->ptrs);
 }
 
 
@@ -532,12 +435,14 @@ static atomic64 strtoa64(const char *c, char **endp, int base) {
 define_get_int_type(time_t, time_t, strtoull);
 define_get_int_type(int, int, strtol);
 define_get_int_type(unsigned, unsigned int, strtol);
-define_get_int_type(u16, u_int16_t, strtol);
+//define_get_int_type(u16, u_int16_t, strtol);
 define_get_int_type(u64, u_int64_t, strtoull);
 define_get_int_type(a64, atomic64, strtoa64);
 
 define_get_type_format(str, str);
-define_get_type_format(u16, u_int16_t);
+define_get_type_format(int, int);
+//define_get_type_format(unsigned, unsigned int);
+//define_get_type_format(u16, u_int16_t);
 //define_get_type_format(u64, u_int64_t);
 define_get_type_format(a64, atomic64);
 
@@ -577,11 +482,9 @@ static int redis_hash_get_bool_flag(const struct redis_hash *h, const char *k) {
 static int redis_hash_get_endpoint(struct endpoint *out, const struct redis_hash *h, const char *k) {
 	str s;
 
-	if (redis_hash_get_str_f(&s, h, "%s-addr", k))
+	if (redis_hash_get_str(&s, h, k))
 		return -1;
-	if (inet_pton(AF_INET6, s.s, &out->ip46) != 1)
-		return -1;
-	if (redis_hash_get_u16_f(&out->port, h, "%s-port", k))
+	if (endpoint_parse_any(out, s.s))
 		return -1;
 
 	return 0;
@@ -595,32 +498,88 @@ static int redis_hash_get_stats(struct stats *out, const struct redis_hash *h, c
 		return -1;
 	return 0;
 }
-static void *redis_hash_get_ptr(struct redis_list *list, const char *key) {
-	struct list_item *it;
-
-	if (!strcmp(key, "0"))
+static void *redis_list_get_idx_ptr(struct redis_list *list, unsigned int idx) {
+	if (idx > list->len)
 		return NULL;
-	it = g_hash_table_lookup(list->rh.ht, key);
-	if (!it)
-		return NULL;
-	return it->ptr;
+	return list->ptrs[idx];
 }
-static void *redis_hash_get_ptr_rr(struct redis_list *list, const redisReply *rr) {
-	if (rr->type != REDIS_REPLY_STRING)
+static void *redis_list_get_ptr(struct redis_list *list, struct redis_hash *rh, const char *key) {
+	unsigned int idx;
+	if (redis_hash_get_unsigned(&idx, rh, key))
 		return NULL;
-	return redis_hash_get_ptr(list, rr->str);
+	return redis_list_get_idx_ptr(list, idx);
 }
-static void *redis_hash_get_ptr_hash(struct redis_list *list, struct redis_hash *rh, const char *key) {
+static int redis_build_list_cb(GQueue *q, struct redis *r, const char *key, const str *callid,
+		unsigned int idx, struct redis_list *list,
+		int (*cb)(str *, GQueue *, struct redis_list *, void *), void *ptr)
+{
+	redisReply *rr;
+	int i;
 	str s;
 
-	if (redis_hash_get_str(&s, rh, key))
-		return NULL;
-	return redis_hash_get_ptr(list, s.s);
+	rr = redis_get(r, REDIS_REPLY_ARRAY, "LRANGE %s-"PB"-%u 0 -1", key, STR(callid), idx);
+	if (!rr)
+		return -1;
+
+	for (i = 0; i < rr->elements; i++) {
+		if (rr->element[i]->type != REDIS_REPLY_STRING)
+			return -1;
+		str_init_len(&s, rr->element[i]->str, rr->element[i]->len);
+		if (cb(&s, q, list, ptr))
+			return -1;
+	}
+	return 0;
 }
+static int rbl_cb_simple(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+	int j;
+	j = str_to_i(s, 0);
+	g_queue_push_tail(q, redis_list_get_idx_ptr(list, (unsigned) j));
+	return 0;
+}
+static int redis_build_list(GQueue *q, struct redis *r, const char *key, const str *callid,
+		unsigned int idx, struct redis_list *list)
+{
+	return redis_build_list_cb(q, r, key, callid, idx, list, rbl_cb_simple, NULL);
+}
+static int redis_get_list_hash(struct redis_list *out, struct redis *r, const char *key, const redisReply *id,
+		const struct redis_hash *rh, const char *rh_num_key)
+{
+	unsigned int i;
+
+	if (redis_hash_get_unsigned(&out->len, rh, rh_num_key))
+		return -1;
+	out->rh = malloc(sizeof(*out->rh) * out->len);
+	if (!out->rh)
+		return -1;
+	out->ptrs = malloc(sizeof(*out->ptrs) * out->len);
+	if (!out->ptrs)
+		goto err1;
+
+	for (i = 0; i < out->len; i++) {
+		if (redis_get_hash(&out->rh[i], r, key, id, i))
+			goto err2;
+	}
+
+	return 0;
+
+err2:
+	free(out->ptrs);
+	while (i) {
+		i--;
+		redis_destroy_hash(&out->rh[i]);
+	}
+err1:
+	free(out->rh);
+	return -1;
+}
+
+
+
 
 /* can return 1, 0 or -1 */
 static int redis_hash_get_crypto_params(struct crypto_params *out, const struct redis_hash *h, const char *k) {
 	str s;
+	int i;
 
 	if (redis_hash_get_str_f(&s, h, "%s-crypto_suite", k))
 		return 1;
@@ -638,7 +597,15 @@ static int redis_hash_get_crypto_params(struct crypto_params *out, const struct 
 			return -1;
 		out->mki = malloc(s.len);
 		memcpy(out->mki, s.s, s.len);
+		out->mki_len = s.len;
 	}
+
+	if (!redis_hash_get_int_f(&i, h, "%s-unenc-srtp", k))
+		out->session_params.unencrypted_srtp = i;
+	if (!redis_hash_get_int_f(&i, h, "%s-unenc-srtcp", k))
+		out->session_params.unencrypted_srtcp = i;
+	if (!redis_hash_get_int_f(&i, h, "%s-unauth-srtp", k))
+		out->session_params.unauthenticated_srtp = i;
 
 	return 0;
 }
@@ -650,108 +617,91 @@ static int redis_hash_get_crypto_context(struct crypto_context *out, const struc
 		return 0;
 	else if (ret)
 		return -1;
+
 	if (redis_hash_get_u64(&out->last_index, h, "last_index"))
 		return -1;
+	redis_hash_get_unsigned(&out->ssrc, h, "ssrc");
 
 	return 0;
 }
-
-static int redis_hash_build_list(struct redis *r, const char *key, redisReply *tag, struct redis_list *list,
-		int (*func)(void *, void *), void *up) {
-	redisReply *rr;
-	void *ptr;
-	int i, ret = -1;
-
-	rr = redis_get(r, REDIS_REPLY_ARRAY, "LRANGE %s-"PB" 0 -1", key, STR_R(tag));
-	if (!rr)
-		return -1;
-
-	for (i = 0; i < rr->elements; i++) {
-		ptr = redis_hash_get_ptr_rr(list, rr->element[i]);
-		if (!ptr)
-			goto out;
-		if (func(up, ptr))
-			goto out;
-	}
-
-	ret = 0;
-out:
-	freeReplyObject(rr);
-	return ret;
-}
-static int redis_build_other_tags(void *a, void *b) {
-	struct call_monologue *A = a, *B = b;
-
-	g_hash_table_insert(A->other_tags, &B->tag, B);
-	return 0;
-}
-static int redis_build_streams(void *a, void *b) {
-	struct call_media *med = a;
-	struct packet_stream *ps = b;
-
-	g_queue_push_tail(&med->streams, ps);
-	ps->media = med;
-	return 0;
-}
-static int redis_build_em_sfds(void *a, void *b) {
-	struct endpoint_map *em = a;
-
-	g_queue_push_tail(&em->sfds, b);
-	return 0;
-}
-
 
 
 
 static int redis_sfds(struct call *c, struct redis_list *sfds) {
-	GList *l;
-	struct list_item *it;
+	unsigned int i;
+	str family, intf_name;
+	struct redis_hash *rh;
+	sockfamily_t *fam;
+	struct logical_intf *lif;
+	struct local_intf *loc;
+	GQueue q = G_QUEUE_INIT;
+	unsigned int loc_uid;
 	struct stream_fd *sfd;
-	struct udp_fd fd;
+	socket_t *sock;
 	int port;
 
-	for (l = sfds->q.head; l; l = l->next) {
-		it = l->data;
+	for (i = 0; i < sfds->len; i++) {
+		rh = &sfds->rh[i];
 
-		if (redis_hash_get_int(&port, &it->rh, "localport"))
+		if (redis_hash_get_int(&port, rh, "localport"))
 			return -1;
-		if (__get_consecutive_ports(&fd, 1, port, c))
+		if (redis_hash_get_str(&family, rh, "pref_family"))
 			return -1;
-		sfd = __stream_fd_new(&fd, c);
-		redis_hkey_cpy( sfd->redis_hkey, it->id->str);
+		if (redis_hash_get_str(&intf_name, rh, "logical_intf"))
+			return -1;
+		if (redis_hash_get_unsigned(&loc_uid, rh, "local_intf_uid"))
+			return -1;
 
-		if (redis_hash_get_crypto_context(&sfd->crypto, &it->rh))
+		fam = get_socket_family_rfc(&family);
+		if (!fam)
 			return -1;
-		it->ptr = sfd;
+		lif = get_logical_interface(&intf_name, fam, 0);
+		if (!lif)
+			return -1;
+		loc = g_queue_peek_nth(&lif->list, loc_uid);
+		if (!loc)
+			return -1;
+
+		if (__get_consecutive_ports(&q, 1, port, loc->spec))
+			return -1;
+		sock = g_queue_pop_head(&q);
+		if (!sock)
+			return -1;
+		sfd = stream_fd_new(sock, c, loc);
+		// XXX tos
+		if (redis_hash_get_crypto_context(&sfd->crypto, rh))
+			return -1;
+
+		sfds->ptrs[i] = sfd;
 	}
 	return 0;
 }
 
 static int redis_streams(struct call *c, struct redis_list *streams) {
-	GList *l;
-	struct list_item *it;
+	unsigned int i;
+	struct redis_hash *rh;
 	struct packet_stream *ps;
 
-	for (l = streams->q.head; l; l = l->next) {
-		it = l->data;
+	for (i = 0; i < streams->len; i++) {
+		rh = &streams->rh[i];
 
 		ps = __packet_stream_new(c);
 		if (!ps)
 			return -1;
 
 		atomic64_set_na(&ps->last_packet, time(NULL));
-		if (redis_hash_get_unsigned((unsigned int *) &ps->ps_flags, &it->rh, "ps_flags"))
+		if (redis_hash_get_unsigned((unsigned int *) &ps->ps_flags, rh, "ps_flags"))
 			return -1;
-		if (redis_hash_get_endpoint(&ps->endpoint, &it->rh, "endpoint"))
+		if (redis_hash_get_endpoint(&ps->endpoint, rh, "endpoint"))
 			return -1;
-		if (redis_hash_get_endpoint(&ps->advertised_endpoint, &it->rh, "advertised_endpoint"))
+		if (redis_hash_get_endpoint(&ps->advertised_endpoint, rh, "advertised_endpoint"))
 			return -1;
-		if (redis_hash_get_stats(&ps->stats, &it->rh, "stats"))
+		if (redis_hash_get_stats(&ps->stats, rh, "stats"))
 			return -1;
-		if (redis_hash_get_crypto_context(&ps->crypto, &it->rh))
+		if (redis_hash_get_crypto_context(&ps->crypto, rh))
 			return -1;
-		it->ptr = ps;
-		redis_hkey_cpy(ps->redis_hkey, it->id->str);
+
+		streams->ptrs[i] = ps;
 
 		PS_CLEAR(ps, KERNELIZED);
 	}
@@ -759,42 +709,158 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 }
 
 static int redis_tags(struct call *c, struct redis_list *tags) {
-	GList *l;
-	struct list_item *it;
+	unsigned int i;
+	struct redis_hash *rh;
 	struct call_monologue *ml;
 	str s;
 
-	for (l = tags->q.head; l; l = l->next) {
-		it = l->data;
+	for (i = 0; i < tags->len; i++) {
+		rh = &tags->rh[i];
 
 		ml = __monologue_create(c);
 		if (!ml)
 			return -1;
 
-		redis_hkey_cpy(ml->redis_hkey, it->id->str);
-
-		if (redis_hash_get_time_t(&ml->created, &it->rh, "created"))
+		if (redis_hash_get_time_t(&ml->created, rh, "created"))
 			return -1;
-		if (!redis_hash_get_str(&s, &it->rh, "tag"))
+		if (!redis_hash_get_str(&s, rh, "tag"))
 			__monologue_tag(ml, &s);
-		if (!redis_hash_get_str(&s, &it->rh, "via-branch"))
+		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
-		redis_hash_get_time_t(&ml->deleted, &it->rh, "deleted");
-		it->ptr = ml;
+		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
+
+		tags->ptrs[i] = ml;
+	}
+
+	return 0;
+}
+
+static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+	struct rtp_payload_type *pt;
+	str ptype, enc, clock, parms;
+	struct call_media *med = ptr;
+	struct call *call = med->call;
+
+	if (str_token(&ptype, s, '/'))
+		return -1;
+	if (str_token(&enc, s, '/'))
+		return -1;
+	if (str_token(&clock, s, '/'))
+		return -1;
+	parms = *s;
+
+	// from call.c
+	// XXX remove all the duplicate code
+	pt = g_slice_alloc0(sizeof(*pt));
+	pt->payload_type = str_to_ui(&ptype, 0);
+	call_str_cpy(call, &pt->encoding, &enc);
+	pt->clock_rate = str_to_ui(&clock, 0);
+	call_str_cpy(call, &pt->encoding_parameters, &parms);
+	g_hash_table_replace(med->rtp_payload_types, &pt->payload_type, pt);
+	return 0;
+}
+static int redis_medias(struct redis *r, struct call *c, struct redis_list *medias) {
+	unsigned int i;
+	struct redis_hash *rh;
+	struct call_media *med;
+	str s;
+
+	for (i = 0; i < medias->len; i++) {
+		rh = &medias->rh[i];
+
+		/* from call.c:__get_media() */
+		med = uid_slice_alloc0(med, &c->medias);
+		med->call = c;
+		med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
+				__payload_type_free);
+
+		if (redis_hash_get_unsigned(&med->index, rh, "index"))
+			return -1;
+		if (redis_hash_get_str(&s, rh, "type"))
+			return -1;
+		call_str_cpy(c, &med->type, &s);
+
+		if (redis_hash_get_str(&s, rh, "protocol"))
+			return -1;
+		med->protocol = transport_protocol(&s);
+
+		if (redis_hash_get_str(&s, rh, "desired_family"))
+			return -1;
+		med->desired_family = get_socket_family_rfc(&s);
+
+		if (redis_hash_get_str(&s, rh, "logical_intf")
+				|| !(med->logical_intf = get_logical_interface(&s, med->desired_family, 0)))
+		{
+			rlog(LOG_ERR, "unable to find specified local interface");
+			med->logical_intf = get_logical_interface(NULL, med->desired_family, 0);
+		}
+
+		if (redis_hash_get_unsigned(&med->sdes_in.tag, rh, "sdes_in_tag"))
+			return -1;
+		if (redis_hash_get_unsigned(&med->sdes_out.tag, rh, "sdes_out_tag"))
+			return -1;
+		if (redis_hash_get_unsigned((unsigned int *) &med->media_flags, rh,
+					"media_flags"))
+			return -1;
+		if (redis_hash_get_crypto_params(&med->sdes_in.params, rh, "sdes_in") < 0)
+			return -1;
+		if (redis_hash_get_crypto_params(&med->sdes_out.params, rh, "sdes_out") < 0)
+			return -1;
+
+		redis_build_list_cb(NULL, r, "payload_types", &c->callid, i, NULL, rbl_cb_plts, med);
+		/* XXX dtls */
+
+		medias->ptrs[i] = med;
+	}
+
+	return 0;
+}
+
+static int redis_maps(struct call *c, struct redis_list *maps) {
+	unsigned int i;
+	struct redis_hash *rh;
+	struct endpoint_map *em;
+	str s, t;
+	sockfamily_t *fam;
+
+	for (i = 0; i < maps->len; i++) {
+		rh = &maps->rh[i];
+
+		/* from call.c:__get_endpoint_map() */
+		em = uid_slice_alloc0(em, &c->endpoint_maps);
+		g_queue_init(&em->intf_sfds);
+
+		em->wildcard = redis_hash_get_bool_flag(rh, "wildcard");
+		if (redis_hash_get_unsigned(&em->num_ports, rh, "num_ports"))
+			return -1;
+		if (redis_hash_get_str(&t, rh, "intf_preferred_family"))
+			return -1;
+		fam = get_socket_family_rfc(&t);
+		if (!fam)
+			return -1;
+		if (redis_hash_get_str(&s, rh, "logical_intf")
+				|| !(em->logical_intf = get_logical_interface(&s, fam, 0)))
+		{
+			rlog(LOG_ERR, "unable to find specified local interface");
+			em->logical_intf = get_logical_interface(NULL, fam, 0);
+		}
+		if (redis_hash_get_endpoint(&em->endpoint, rh, "endpoint"))
+			return -1;
+
+		maps->ptrs[i] = em;
 	}
 
 	return 0;
 }
 
 static int redis_link_sfds(struct redis_list *sfds, struct redis_list *streams) {
-	GList *l;
-	struct list_item *it;
+	unsigned int i;
 	struct stream_fd *sfd;
 
-	for (l = sfds->q.head; l; l = l->next) {
-		it = l->data;
-		sfd = it->ptr;
-		sfd->stream = redis_hash_get_ptr_hash(streams, &it->rh, "stream");
+	for (i = 0; i < sfds->len; i++) {
+		sfd = sfds->ptrs[i];
+
+		sfd->stream = redis_list_get_ptr(streams, &sfds->rh[i], "stream");
 		if (!sfd->stream)
 			return -1;
 	}
@@ -802,181 +868,116 @@ static int redis_link_sfds(struct redis_list *sfds, struct redis_list *streams) 
 	return 0;
 }
 
-static int redis_tags_populate(struct redis *r, struct redis_list *tags, struct redis_list *streams,
-		struct redis_list *sfds)
+static int redis_link_tags(struct redis *r, struct call *c, struct redis_list *tags, struct redis_list *medias)
 {
-	GList *l_tags, *l_medias, *l_ems, *l_streams;
-	struct list_item *it_tag, *it_media, *it_em;
-	struct packet_stream *it_stream;
-	struct call_monologue *ml;
-	struct redis_list rl_medias, rl_ems;
-	int i;
-	struct call_media *med;
-	str s;
-	struct endpoint_map *em = NULL;
-	struct callmaster *cm;
-	struct in6_addr in6a;
-	struct rtp_payload_type *pt = NULL;
-	struct redis_hash pt_hash;
-	unsigned int pt_index, pt_totals;
-	char hash_key[32];
+	unsigned int i;
+	struct call_monologue *ml, *other_ml;
+	GQueue q = G_QUEUE_INIT;
+	GList *l;
 
-	for (l_tags = tags->q.head; l_tags; l_tags = l_tags->next) {
-		it_tag = l_tags->data;
-		ml = it_tag->ptr;
+	for (i = 0; i < tags->len; i++) {
+		ml = tags->ptrs[i];
 
-		cm = ml->call->callmaster;
+		ml->active_dialogue = redis_list_get_ptr(tags, &tags->rh[i], "active");
 
-		if (redis_hash_build_list(r, "other_tags", it_tag->id, tags, redis_build_other_tags, ml))
+		if (redis_build_list(&q, r, "other_tags", &c->callid, i, tags))
 			return -1;
-		ml->active_dialogue = redis_hash_get_ptr_hash(tags, &it_tag->rh, "active");
-
-		if (redis_get_list_hash(&rl_medias, r, "medias", it_tag->id, "media"))
-			return -1;
-
-		for (i = 1, l_medias = rl_medias.q.head; l_medias; i++, l_medias = l_medias->next) {
-			it_media = l_medias->data;
-
-			/* from call.c:__get_media() */
-			med = g_slice_alloc0(sizeof(*med));
-			med->monologue = ml;
-			med->call = ml->call;
-			med->index = i;
-			med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
-
-			redis_hkey_cpy(med->redis_hkey, it_media->id->str);
-
-			g_queue_push_tail(&ml->medias, med);
-
-			if (redis_hash_get_str(&s, &it_media->rh, "type"))
-				goto free1;
-			call_str_cpy(ml->call, &med->type, &s);
-
-			if (redis_hash_get_str(&s, &it_media->rh, "protocol"))
-				goto free1;
-			med->protocol = transport_protocol(&s);
-
-			if (redis_hash_get_int(&med->desired_family, &it_media->rh, "desired_family"))
-				goto free1;
-
-			if (redis_hash_get_str(&s, &it_media->rh, "interface")
-					|| !(med->interface = get_local_interface(cm, &s, med->desired_family)))
-			{
-				rlog(LOG_ERR, "unable to find specified local interface");
-				med->interface = get_local_interface(cm, NULL, med->desired_family);
-			}
-
-			if (redis_hash_get_str(&s, &it_media->rh, "local_address")
-					|| inet_pton(AF_INET6, s.s, &in6a) != 1
-					|| !(med->local_address = get_interface_from_address(med->interface,
-							&in6a)))
-			{
-				rlog(LOG_ERR, "unable to find specified local address");
-				med->local_address = get_any_interface_address(med->interface,
-						med->desired_family);
-			}
-
-			if (redis_hash_get_unsigned(&med->sdes_in.tag, &it_media->rh, "sdes_in_tag"))
-				goto free1;
-			if (redis_hash_get_unsigned(&med->sdes_out.tag, &it_media->rh, "sdes_out_tag"))
-				goto free1;
-			if (redis_hash_get_unsigned((unsigned int *) &med->media_flags, &it_media->rh,
-						"media_flags"))
-				goto free1;
-			if (redis_hash_get_crypto_params(&med->sdes_in.params, &it_media->rh, "sdes_in") < 0)
-				goto free1;
-			if (redis_hash_get_crypto_params(&med->sdes_out.params, &it_media->rh, "sdes_out") < 0)
-				goto free1;
-			/* XXX dtls */
-
-			if (redis_hash_build_list(r, "streams", it_media->id, streams, redis_build_streams, med))
-				goto free1;
-
-			if (redis_get_list_hash(&rl_ems, r, "maps", it_media->id, "map"))
-				goto free1;
-
-			for (l_ems = rl_ems.q.head; l_ems; l_ems = l_ems->next) {
-				it_em = l_ems->data;
-
-				/* from call.c:__get_endpoint_map() */
-				em = g_slice_alloc0(sizeof(*em));
-				g_queue_init(&em->sfds);
-				med->endpoint_maps = g_slist_prepend(med->endpoint_maps, em);
-
-				redis_hkey_cpy(em->redis_hkey, it_em->id->str);
-
-				if (redis_hash_get_endpoint(&em->endpoint, &it_em->rh, "endpoint"))
-					goto free2;
-				if (redis_hash_build_list(r, "sfds", it_em->id, sfds, redis_build_em_sfds, em))
-					goto free2;
-				em->wildcard = redis_hash_get_bool_flag(&it_em->rh, "wildcard");
-			}
-
-			// get payload_types hash content (e.g 0:pt0, 1:pt1, ...)
-			if (redis_get_hash(&pt_hash, r, "payload_types", it_media->id))
-				goto free3;
-
-			// fill media rtp_payload_types
-			pt_totals = (unsigned int)g_hash_table_size(pt_hash.ht);
-			for (pt_index = 0; pt_index < pt_totals; pt_index++) {
-				pt = g_slice_alloc0(sizeof(*pt));
-				if (!pt) {
-					goto free3;
-				}
-
-				sprintf(hash_key,"%u", pt_index);
-				if (redis_hash_get_unsigned(&pt->payload_type, &pt_hash, hash_key)) {
-					goto free3;
-				}
-
-				g_hash_table_insert(med->rtp_payload_types, &pt->payload_type, pt);
-			}
-
-			// fill streams rtp_stats
-			for (l_streams = med->streams.head; l_streams; l_streams = l_streams->next) {
-				it_stream = l_streams->data;
-				__rtp_stats_update(it_stream->rtp_stats, med->rtp_payload_types);
-			}
-
+		for (l = q.head; l; l = l->next) {
+			other_ml = l->data;
+			g_hash_table_insert(ml->other_tags, &other_ml->tag, other_ml);
 		}
+		g_queue_clear(&q);
+
+		if (redis_build_list(&ml->medias, r, "medias", &c->callid, i, medias))
+			return -1;
 	}
 
 	return 0;
-
-free3:
-	redis_destroy_hash(&pt_hash);
-	if (pt) {
-		g_slice_free1(sizeof(*pt), pt);
-	}
-free2:
-	med->endpoint_maps = g_slist_delete_link(med->endpoint_maps, med->endpoint_maps);
-	if (em) {
-		g_slice_free1(sizeof(*em), em);
-	}
-free1:
-	g_queue_pop_tail(&ml->medias);
-	g_queue_clear(&med->streams);
-	g_slice_free1(sizeof(*med), med);
-	return -1;
 }
 
-static int redis_link_streams(struct redis_list *streams, struct redis_list *sfds) {
-	GList *l;
-	struct list_item *it;
+static int redis_link_streams(struct redis *r, struct call *c, struct redis_list *streams,
+		struct redis_list *sfds, struct redis_list *medias)
+{
+	unsigned int i;
 	struct packet_stream *ps;
 
-	for (l = streams->q.head; l; l = l->next) {
-		it = l->data;
-		ps = it->ptr;
+	for (i = 0; i < streams->len; i++) {
+		ps = streams->ptrs[i];
 
-		ps->sfd = redis_hash_get_ptr_hash(sfds, &it->rh, "sfd");
-		ps->rtp_sink = redis_hash_get_ptr_hash(streams, &it->rh, "rtp_sink");
-		ps->rtcp_sink = redis_hash_get_ptr_hash(streams, &it->rh, "rtcp_sink");
-		ps->rtcp_sibling = redis_hash_get_ptr_hash(streams, &it->rh, "rtcp_sibling");
+		ps->media = redis_list_get_ptr(medias, &streams->rh[i], "media");
+		ps->selected_sfd = redis_list_get_ptr(sfds, &streams->rh[i], "sfd");
+		ps->rtp_sink = redis_list_get_ptr(streams, &streams->rh[i], "rtp_sink");
+		ps->rtcp_sink = redis_list_get_ptr(streams, &streams->rh[i], "rtcp_sink");
+		ps->rtcp_sibling = redis_list_get_ptr(streams, &streams->rh[i], "rtcp_sibling");
+
+		if (redis_build_list(&ps->sfds, r, "stream_sfds", &c->callid, i, sfds))
+			return -1;
+
+		if (ps->media)
+			__rtp_stats_update(ps->rtp_stats, ps->media->rtp_payload_types);
 	}
 
 	return 0;
 }
+
+static int redis_link_medias(struct redis *r, struct call *c, struct redis_list *medias,
+		struct redis_list *streams, struct redis_list *maps, struct redis_list *tags)
+{
+	unsigned int i;
+	struct call_media *med;
+
+	for (i = 0; i < medias->len; i++) {
+		med = medias->ptrs[i];
+
+		med->monologue = redis_list_get_ptr(tags, &medias->rh[i], "tag");
+		if (!med->monologue)
+			return -1;
+		if (redis_build_list(&med->streams, r, "streams", &c->callid, i, streams))
+			return -1;
+		if (redis_build_list(&med->endpoint_maps, r, "maps", &c->callid, i, maps))
+			return -1;
+	}
+	return 0;
+}
+
+static int rbl_cb_intf_sfds(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+	int i;
+	struct intf_list *il;
+	struct endpoint_map *em;
+
+	if (!strncmp(s->s, "loc-", 4)) {
+		il = g_slice_alloc0(sizeof(*il));
+		em = ptr;
+		i = atoi(s->s+4);
+		il->local_intf = g_queue_peek_nth((GQueue*) &em->logical_intf->list, i);
+		if (!il->local_intf)
+			return -1;
+		g_queue_push_tail(q, il);
+		return 0;
+	}
+
+	il = g_queue_peek_tail(q);
+	if (!il)
+		return -1;
+	g_queue_push_tail(&il->list, redis_list_get_idx_ptr(list, atoi(s->s)));
+	return 0;
+}
+static int redis_link_maps(struct redis *r, struct call *c, struct redis_list *maps,
+		struct redis_list *sfds)
+{
+	unsigned int i;
+	struct endpoint_map *em;
+
+	for (i = 0; i < maps->len; i++) {
+		em = maps->ptrs[i];
+
+		if (redis_build_list_cb(&em->intf_sfds, r, "map_sfds", &c->callid, em->unique_id, sfds,
+					rbl_cb_intf_sfds, em))
+			return -1;
+	}
+	return 0;
+}
+
 
 
 
@@ -984,31 +985,38 @@ static int redis_link_streams(struct redis_list *streams, struct redis_list *sfd
 
 static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id) {
 	struct redis_hash call;
-	struct redis_list tags, sfds, streams;
+	struct redis_list tags, sfds, streams, medias, maps;
 	struct call *c = NULL;
 	str s;
 	const char *err;
 	int i;
 
 	err = "'call' data incomplete";
-	if (redis_get_hash(&call, r, "call", id))
+	if (redis_get_hash(&call, r, "call", id, -1))
 		goto err1;
 	err = "'tags' incomplete";
-	if (redis_get_list_hash(&tags, r, "tags", id, "tag"))
+	if (redis_get_list_hash(&tags, r, "tag", id, &call, "num_tags"))
 		goto err2;
 	err = "'sfds' incomplete";
-	if (redis_get_list_hash(&sfds, r, "sfds", id, "sfd"))
+	if (redis_get_list_hash(&sfds, r, "sfd", id, &call, "num_sfds"))
 		goto err3;
 	err = "'streams' incomplete";
-	if (redis_get_list_hash(&streams, r, "streams", id, "stream"))
+	if (redis_get_list_hash(&streams, r, "stream", id, &call, "num_streams"))
 		goto err4;
+	err = "'medias' incomplete";
+	if (redis_get_list_hash(&medias, r, "media", id, &call, "num_medias"))
+		goto err5;
+	err = "'maps' incomplete";
+	if (redis_get_list_hash(&maps, r, "map", id, &call, "num_maps"))
+		goto err7;
 
-	s.s = id->str;
-	s.len = id->len;
+	str_init_len(&s, id->str, id->len);
+	//s.s = id->str;
+	//s.len = id->len;
 	c = call_get_or_create(&s, m);
 	err = "failed to create call struct";
 	if (!c)
-		goto err5;
+		goto err8;
 
 	err = "missing 'created' timestamp";
 	if (redis_hash_get_time_t(&c->created, &call, "created"))
@@ -1024,11 +1032,8 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 	redis_hash_get_time_t(&c->ml_deleted, &call, "ml_deleted");
 	if (!redis_hash_get_str(&s, &call, "created_from"))
 		c->created_from = call_strdup(c, s.s);
-	if (!redis_hash_get_str(&s, &call, "created_from_addr")) {
-		parse_ip6_port(&c->created_from_addr.sin6_addr, &c->created_from_addr.sin6_port, s.s);
-		c->created_from_addr.sin6_port = htons(c->created_from_addr.sin6_port);
-		c->created_from_addr.sin6_family = AF_INET6;
-	}
+	if (!redis_hash_get_str(&s, &call, "created_from_addr"))
+		sockaddr_parse_any_str(&c->created_from_addr, &s);
 
 	err = "failed to create sfds";
 	if (redis_sfds(c, &sfds))
@@ -1039,15 +1044,27 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 	err = "failed to create tags";
 	if (redis_tags(c, &tags))
 		goto err6;
+	err = "failed to create medias";
+	if (redis_medias(r, c, &medias))
+		goto err6;
+	err = "failed to create maps";
+	if (redis_maps(c, &maps))
+		goto err6;
 
 	err = "failed to link sfds";
 	if (redis_link_sfds(&sfds, &streams))
 		goto err6;
-	err = "failed to populate tags";
-	if (redis_tags_populate(r, &tags, &streams, &sfds))
-		goto err6;
 	err = "failed to link streams";
-	if (redis_link_streams(&streams, &sfds))
+	if (redis_link_streams(r, c, &streams, &sfds, &medias))
+		goto err6;
+	err = "failed to link tags";
+	if (redis_link_tags(r, c, &tags, &medias))
+		goto err6;
+	err = "failed to link medias";
+	if (redis_link_medias(r, c, &medias, &streams, &maps, &tags))
+		goto err6;
+	err = "failed to link maps";
+	if (redis_link_maps(r, c, &maps, &sfds))
 		goto err6;
 
 	err = NULL;
@@ -1055,6 +1072,10 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 
 err6:
 	rwlock_unlock_w(&c->master_lock);
+err8:
+	redis_destroy_list(&maps);
+err7:
+	redis_destroy_list(&medias);
 err5:
 	redis_destroy_list(&streams);
 err4:
@@ -1071,6 +1092,8 @@ err1:
 			call_destroy(c);
 			obj_put(c);
 		}
+		else
+			redisCommandNR(r->ctx, "SREM calls "PB"", STR_R(id));
 	}
 }
 
@@ -1126,7 +1149,7 @@ int redis_restore(struct callmaster *m, struct redis *r, int role) {
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
 	for (i = 0; i < RESTORE_NUM_THREADS; i++)
-		g_queue_push_tail(&ctx.r_q, redis_new(r->ip, r->port, r->db, role));
+		g_queue_push_tail(&ctx.r_q, redis_new(&r->endpoint, r->db, role));
 	gtp = g_thread_pool_new(restore_thread, &ctx, RESTORE_NUM_THREADS, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {
@@ -1149,76 +1172,106 @@ err:
 
 
 
-static int redis_update_crypto_params(struct redis *r, const char *pref, void *suff,
+static int redis_update_crypto_params(struct redis *r, const char *pref, const str *callid,
+		unsigned int unique_id,
 		const char *key, const struct crypto_params *p)
 {
 	if (!p->crypto_suite)
 		return -1;
-	redis_pipe(r, "HMSET %s-%s %s-crypto_suite %s %s-master_key "PB" %s-master_salt "PB"",
-		pref, suff,
+	redis_pipe(r, "HMSET %s-"PB"-%u %s-crypto_suite %s %s-master_key "PB" %s-master_salt "PB" "
+			"%s-unenc-srtp %i %s-unenc-srtcp %i %s-unauth-srtp %i",
+		pref, STR(callid), unique_id,
 		key, p->crypto_suite->name,
 		key, S_LEN(p->master_key, sizeof(p->master_key)),
-		key, S_LEN(p->master_salt, sizeof(p->master_salt)));
+		key, S_LEN(p->master_salt, sizeof(p->master_salt)),
+		key, p->session_params.unencrypted_srtp,
+		key, p->session_params.unencrypted_srtcp,
+		key, p->session_params.unauthenticated_srtp);
 	if (p->mki)
-		redis_pipe(r, "HMSET %s-%s %s-mki "PB"", pref, suff, key, S_LEN(p->mki, p->mki_len));
+		redis_pipe(r, "HMSET %s-"PB"-%u %s-mki "PB"",
+			pref, STR(callid), unique_id,
+			key,
+			S_LEN(p->mki, p->mki_len));
 
 	return 0;
 }
-static void redis_update_crypto_context(struct redis *r, const char *pref, void *suff,
+static void redis_update_crypto_context(struct redis *r, const char *pref, const str *callid,
+		unsigned int unique_id,
 		const struct crypto_context *c)
 {
-	if (redis_update_crypto_params(r, pref, suff, "", &c->params))
+	if (redis_update_crypto_params(r, pref, callid, unique_id, "", &c->params))
 		return;
-	redis_pipe(r, "HMSET %s-%s last_index "UINT64F"",
-		pref, suff, c->last_index);
+	redis_pipe(r, "HMSET %s-"PB"-%u last_index "UINT64F" ssrc %u",
+		pref, STR(callid), unique_id,
+		c->last_index, (unsigned) c->ssrc);
 }
-static void redis_update_endpoint(struct redis *r, const char *pref, void *suff,
+static void redis_update_endpoint(struct redis *r, const char *pref, const str *callid,
+		unsigned int unique_id,
 		const char *key, const struct endpoint *e)
 {
-	char a[64];
-
-	inet_ntop(AF_INET6, &e->ip46, a, sizeof(a));
-	redis_pipe(r, "HMSET %s-%s %s-addr %s %s-port %hu",
-		pref, suff, key, a, key, (short unsigned) e->port);
+	redis_pipe(r, "HMSET %s-"PB"-%u %s %s",
+		pref, STR(callid), unique_id,
+		key, endpoint_print_buf(e));
 }
-static void redis_update_stats(struct redis *r, const char *pref, void *suff,
+static void redis_update_stats(struct redis *r, const char *pref, const str *callid,
+		unsigned int unique_id,
 		const char *key, const struct stats *s)
 {
-	redis_pipe(r, "HMSET %s-%s %s-packets "UINT64F" %s-bytes "UINT64F" %s-errors "UINT64F"",
-		pref, suff,
+	redis_pipe(r, "HMSET %s-"PB"-%u %s-packets "UINT64F" %s-bytes "UINT64F" %s-errors "UINT64F"",
+		pref, STR(callid), unique_id,
 		key, atomic64_get(&s->packets), key, atomic64_get(&s->bytes),
 		key, atomic64_get(&s->errors));
 }
-static void redis_update_dtls_fingerprint(struct redis *r, const char *pref, void *suff,
+static void redis_update_dtls_fingerprint(struct redis *r, const char *pref, const str *callid,
+		unsigned int unique_id,
 		const struct dtls_fingerprint *f)
 {
 	if (!f->hash_func)
 		return;
-	redis_pipe(r, "HMSET %s-%s hash_func %s fingerprint "PB"",
-		pref, suff,
+	redis_pipe(r, "HMSET %s-"PB"-%u hash_func %s fingerprint "PB"",
+		pref, STR(callid), unique_id,
 		f->hash_func->name,
 		S_LEN(f->digest, sizeof(f->digest)));
 }
 
 
 
+/*
+ * Redis data structure:
+ *
+ * SET: calls %s %s %s ...
+ *
+ * HASH: call-$callid num_sfds %u num_streams %u num_medias %u num_tags %u num_maps %u
+ * 
+ * HASH: sfd-$callid-$num stream %u
+ * 
+ * HASH: stream-$callid-$num media %u sfd %u rtp_sink %u rtcp_sink %u rtcp_sibling %u
+ * LIST: stream_sfds-$callid-$num %u %u ...
+ * 
+ * HASH: tag-$callid-$num
+ * LIST: other_tags-$callid-$num %u %u ...
+ * LIST: medias-$callid-$num %u %u ...
+ * 
+ * HASH: media-$callid-$num tag %u
+ * LIST: streams-$callid-$num %u %u ...
+ * LIST: maps-$callid-$num %u %u ...
+ * 
+ * HASH: map-$callid-$num
+ * LIST: map_sfds-$callid-$num %u %u ...
+ */
 
 /* must be called lock-free */
+
 void redis_update(struct call *c, struct redis *r, int role, enum call_opmode opmode) {
-	GSList *l, *n;
-	GList *pt_list, *pt_iter;
-	GList *k, *m;
-	struct call_monologue *ml;
+	GList *l, *n, *k, *m;
+	struct call_monologue *ml, *ml2;
+
 	struct call_media *media;
 	struct packet_stream *ps;
 	struct stream_fd *sfd;
+	struct intf_list *il;
 	struct endpoint_map *ep;
-        struct rtp_payload_type *pt;
-	char a[64];
-	unsigned int pt_index;
-	char *sfd_key, *ps_key, *mono_key, *active_mono_key, *other_mono_key,
-		*media_key, *em_key, *ps_rtp_sink_key, *ps_rtcp_sink_key,
-		*ps_rtcp_sibling_key;
+	struct rtp_payload_type *pt;
 
 	if (!r)
 		return;
@@ -1230,158 +1283,234 @@ void redis_update(struct call *c, struct redis *r, int role, enum call_opmode op
 
 	redis_pipe(r, "DEL notifier-"PB"", STR(&c->callid));
 	redis_pipe(r, "SREM calls "PB"", STR(&c->callid));
-	redis_pipe(r, "DEL call-"PB" tags-"PB" sfds-"PB" streams-"PB"", STR(&c->callid), STR(&c->callid),
-		STR(&c->callid), STR(&c->callid));
-	smart_ntop_port(a, &c->created_from_addr, sizeof(a));
+	redis_pipe(r, "DEL call-"PB"", STR(&c->callid));
 	redis_pipe(r, "HMSET call-"PB" created %llu last_signal %llu tos %i deleted %llu "
+			"num_sfds %u num_streams %u num_medias %u num_tags %u "
+			"num_maps %u "
 			"ml_deleted %llu created_from %s created_from_addr %s",
 		STR(&c->callid), (long long unsigned) c->created, (long long unsigned) c->last_signal,
-		(int) c->tos, (long long unsigned) c->deleted, (long long unsigned) c->ml_deleted,
-		c->created_from, a);
+		(int) c->tos, (long long unsigned) c->deleted,
+		g_queue_get_length(&c->stream_fds), g_queue_get_length(&c->streams),
+		g_queue_get_length(&c->medias), g_queue_get_length(&c->monologues),
+		g_queue_get_length(&c->endpoint_maps),
+		(long long unsigned) c->ml_deleted,
+		c->created_from, sockaddr_print_buf(&c->created_from_addr));
 	/* XXX DTLS cert?? */
 
-	for (l = c->stream_fds; l; l = l->next) {
-		sfd = l->data;
-		sfd_key = HKEY(sfd) ;
-		ps_key = HKEY(sfd->stream);
+	redis_pipe(r, "DEL sfd-"PB"-0", STR(&c->callid));
 
-		redis_pipe(r, "DEL sfd-%s", sfd_key);
-		redis_pipe(r, "HMSET sfd-%s localport %hu stream %s",
-			sfd_key, (short unsigned) sfd->fd.localport, ps_key);
-		redis_update_crypto_context(r, "sfd", sfd, &sfd->crypto);
+	for (l = c->stream_fds.head; l; l = l->next) {
+		sfd = l->data;
+
+		redis_pipe(r, "HMSET sfd-"PB"-%u pref_family %s localport %u logical_intf "PB" "
+			"local_intf_uid %u "
+			"stream %u",
+			STR(&c->callid), sfd->unique_id,
+			sfd->local_intf->logical->preferred_family->rfc_name,
+			sfd->socket.local.port,
+			STR(&sfd->local_intf->logical->name),
+			sfd->local_intf->unique_id,
+			sfd->stream->unique_id);
+		redis_update_crypto_context(r, "sfd", &c->callid, sfd->unique_id, &sfd->crypto);
 		/* XXX DTLS?? */
-		redis_pipe(r, "EXPIRE sfd-%s 86400", sfd_key);
-		redis_pipe(r, "LPUSH sfds-"PB" %s", STR(&c->callid), sfd_key);
+		redis_pipe(r, "EXPIRE sfd-"PB"-%u 86400", STR(&c->callid), sfd->unique_id);
+
+		redis_pipe(r, "DEL sfd-"PB"-%u", STR(&c->callid), sfd->unique_id + 1);
 	}
 
-	for (l = c->streams; l; l = l->next) {
+	redis_pipe(r, "DEL stream-"PB"-0 stream_sfds-"PB"-0", STR(&c->callid), STR(&c->callid));
+
+	for (l = c->streams.head; l; l = l->next) {
 		ps = l->data;
 
 		mutex_lock(&ps->in_lock);
 		mutex_lock(&ps->out_lock);
 
-		ps_key = HKEY(ps);
- 		ps_rtp_sink_key = HKEY(ps->rtp_sink);
-		ps_rtcp_sink_key = HKEY(ps->rtcp_sink);
- 		ps_rtcp_sibling_key = HKEY(ps->rtcp_sibling);
-		media_key = HKEY(ps->media);
-		sfd_key = HKEY(ps->sfd);
-
-		redis_pipe(r, "DEL stream-%s", ps_key);
-		redis_pipe(r, "HMSET stream-%s media %s sfd %s rtp_sink %s "
-			"rtcp_sink %s rtcp_sibling %s last_packet "UINT64F" "
+		redis_pipe(r, "HMSET stream-"PB"-%u media %u sfd %u rtp_sink %u "
+			"rtcp_sink %u rtcp_sibling %u last_packet "UINT64F" "
 			"ps_flags %u",
-			ps_key, media_key, sfd_key, ps_rtp_sink_key,
-			ps_rtcp_sink_key, ps_rtcp_sibling_key, atomic64_get(&ps->last_packet),
+			STR(&c->callid), ps->unique_id,
+			ps->media->unique_id,
+			ps->selected_sfd ? ps->selected_sfd->unique_id : -1,
+			ps->rtp_sink ? ps->rtp_sink->unique_id : -1,
+			ps->rtcp_sink ? ps->rtcp_sink->unique_id : -1,
+			ps->rtcp_sibling ? ps->rtcp_sibling->unique_id : -1,
+			atomic64_get(&ps->last_packet),
 			ps->ps_flags);
-		redis_update_endpoint(r, "stream", ps_key, "endpoint", &ps->endpoint);
-		redis_update_endpoint(r, "stream", ps_key, "advertised_endpoint", &ps->advertised_endpoint);
-		redis_update_stats(r, "stream", ps_key, "stats", &ps->stats);
-		redis_update_crypto_context(r, "stream", ps_key, &ps->crypto);
+		redis_update_endpoint(r, "stream", &c->callid, ps->unique_id, "endpoint", &ps->endpoint);
+		redis_update_endpoint(r, "stream", &c->callid, ps->unique_id, "advertised_endpoint",
+				&ps->advertised_endpoint);
+		redis_update_stats(r, "stream", &c->callid, ps->unique_id, "stats", &ps->stats);
+		redis_update_crypto_context(r, "stream", &c->callid, ps->unique_id, &ps->crypto);
 		/* XXX DTLS?? */
+
+		for (k = ps->sfds.head; k; k = k->next) {
+			sfd = k->data;
+			redis_pipe(r, "RPUSH stream_sfds-"PB"-%u %u",
+				STR(&c->callid), ps->unique_id,
+				sfd->unique_id);
+		}
 
 		mutex_unlock(&ps->in_lock);
 		mutex_unlock(&ps->out_lock);
 
-		redis_pipe(r, "EXPIRE stream-%s 86400", ps_key);
-		redis_pipe(r, "LPUSH streams-"PB" %s", STR(&c->callid), ps_key);
+		redis_pipe(r, "EXPIRE stream-"PB"-%u 86400", STR(&c->callid), ps->unique_id);
+		redis_pipe(r, "EXPIRE stream_sfds-"PB"-%u 86400", STR(&c->callid), ps->unique_id);
+
+		redis_pipe(r, "DEL stream-"PB"-%u stream_sfds-"PB"-%u",
+				STR(&c->callid), ps->unique_id + 1,
+				STR(&c->callid), ps->unique_id + 1);
 	}
 
-	for (l = c->monologues; l; l = l->next) {
-		ml = l->data;
-		mono_key = HKEY(ml);
-		active_mono_key = HKEY(ml->active_dialogue);
+	redis_pipe(r, "DEL tag-"PB"-0 other_tags-"PB"-0 medias-"PB"-0",
+			STR(&c->callid), STR(&c->callid), STR(&c->callid));
 
-		redis_pipe(r, "DEL tag-%s other_tags-%s medias-%s",
-			mono_key, mono_key, mono_key);
-		redis_pipe(r, "HMSET tag-%s created %llu active %s deleted %llu",
-			mono_key, (long long unsigned) ml->created,
-			active_mono_key, (long long unsigned) ml->deleted);
+	for (l = c->monologues.head; l; l = l->next) {
+		ml = l->data;
+
+		redis_pipe(r, "HMSET tag-"PB"-%u created %llu active %u deleted %llu",
+			STR(&c->callid), ml->unique_id,
+			(long long unsigned) ml->created,
+			ml->active_dialogue ? ml->active_dialogue->unique_id : -1,
+			(long long unsigned) ml->deleted);
 		if (ml->tag.s)
-			redis_pipe(r, "HMSET tag-%s tag "PB"", mono_key, STR(&ml->tag));
+			redis_pipe(r, "HMSET tag-"PB"-%u tag "PB"",
+				STR(&c->callid), ml->unique_id,
+				STR(&ml->tag));
 		if (ml->viabranch.s)
-			redis_pipe(r, "HMSET tag-%s via-branch "PB"", mono_key, STR(&ml->viabranch));
+			redis_pipe(r, "HMSET tag-"PB"-%u via-branch "PB"",
+				STR(&c->callid), ml->unique_id,
+				STR(&ml->viabranch));
 
 		k = g_hash_table_get_values(ml->other_tags);
 		for (m = k; m; m = m->next) {
-			other_mono_key = HKEY(((struct call_monologue *) m->data));
-			redis_pipe(r, "RPUSH other_tags-%s %s", mono_key, other_mono_key);
+			ml2 = m->data;
+			redis_pipe(r, "RPUSH other_tags-"PB"-%u %u",
+				STR(&c->callid), ml->unique_id,
+				ml2->unique_id);
 		}
 		g_list_free(k);
 
 		for (k = ml->medias.head; k; k = k->next) {
 			media = k->data;
-			media_key = HKEY(media);
-
-			redis_pipe(r, "DEL media-%s streams-%s maps-%s payload_types-%s",
-				media_key, media_key,
-				media_key, media_key);
-			redis_pipe(r, "HMSET media-%s "
-				"type "PB" protocol %s desired_family %i "
-				"sdes_in_tag %u sdes_out_tag %u interface "PB" local_address "IP6F" "
-				"media_flags %u",
-				media_key,
-				STR(&media->type), media->protocol ? media->protocol->name : "",
-				media->desired_family,
-				media->sdes_in.tag, media->sdes_out.tag,
-				STR(&media->interface->name), IP6P(&media->local_address->addr.s6_addr),
-				media->media_flags);
-			redis_update_crypto_params(r, "media", media_key, "sdes_in", &media->sdes_in.params);
-			redis_update_crypto_params(r, "media", media_key, "sdes_out", &media->sdes_out.params);
-			redis_update_dtls_fingerprint(r, "media", media_key, &media->fingerprint);
-
-			for (m = media->streams.head; m; m = m->next) {
-				ps_key = HKEY(((struct packet_stream *) m->data));
-				redis_pipe(r, "RPUSH streams-%s %s", media_key, ps_key);
-			}
-
-			for (n = media->endpoint_maps; n; n = n->next) {
-				ep = n->data;
-				em_key = HKEY(ep);
-
-				redis_pipe(r, "DEL map-%s sfds-%s", em_key, em_key);
-				redis_pipe(r, "HMSET map-%s wildcard %i", em_key, ep->wildcard);
-				redis_update_endpoint(r, "map", em_key, "endpoint", &ep->endpoint);
-
-				for (m = ep->sfds.head; m; m = m->next) {
-					sfd_key = HKEY(((struct stream_fd *) m->data));
-					redis_pipe(r, "RPUSH sfds-%s %s", em_key, sfd_key);
-				}
-
-				redis_pipe(r, "EXPIRE map-%s 86400", em_key);
-				redis_pipe(r, "EXPIRE sfds-%s 86400", em_key);
-				redis_pipe(r, "LPUSH maps-%s %s", media_key, em_key);
-			}
-
-			pt_list = g_hash_table_get_values(media->rtp_payload_types);
-			pt_index = 0;
-			for (pt_iter = pt_list; pt_iter; pt_iter = pt_iter->next) {
-				pt = pt_iter->data;
-				redis_pipe(r, "HSET payload_types-%s %u %u",
-					media_key,
-					(unsigned int) pt_index,
-					(unsigned int) pt->payload_type);
-				pt_index++;
-			}
-			g_list_free(pt_list);
-
-			redis_pipe(r, "EXPIRE media-%s 86400", media_key);
-			redis_pipe(r, "EXPIRE streams-%s 86400", media_key);
-			redis_pipe(r, "EXPIRE maps-%s 86400", media_key);
-			redis_pipe(r, "EXPIRE payload_types-%s 86400", media_key);
-			redis_pipe(r, "LPUSH medias-%s %s", mono_key, media_key);
+			redis_pipe(r, "RPUSH medias-"PB"-%u %u",
+				STR(&c->callid), ml->unique_id,
+				media->unique_id);
 		}
 
-		redis_pipe(r, "EXPIRE tag-%s 86400", mono_key);
-		redis_pipe(r, "EXPIRE other_tags-%s 86400", mono_key);
-		redis_pipe(r, "EXPIRE medias-%s 86400", mono_key);
-		redis_pipe(r, "LPUSH tags-"PB" %s", STR(&c->callid), mono_key);
+		redis_pipe(r, "EXPIRE tag-"PB"-%u 86400", STR(&c->callid), ml->unique_id);
+		redis_pipe(r, "EXPIRE other_tags-"PB"-%u 86400", STR(&c->callid), ml->unique_id);
+		redis_pipe(r, "EXPIRE medias-"PB"-%u 86400", STR(&c->callid), ml->unique_id);
+
+		redis_pipe(r, "DEL tag-"PB"-%u other_tags-"PB"-%u medias-"PB"-%u",
+				STR(&c->callid), ml->unique_id + 1,
+				STR(&c->callid), ml->unique_id + 1,
+				STR(&c->callid), ml->unique_id + 1);
+	}
+
+	redis_pipe(r, "DEL media-"PB"-0 streams-"PB"-0 maps-"PB"-0 payload_types-"PB"-0",
+			STR(&c->callid), STR(&c->callid), STR(&c->callid), STR(&c->callid));
+
+	for (l = c->medias.head; l; l = l->next) {
+		media = l->data;
+
+		redis_pipe(r, "HMSET media-"PB"-%u "
+			"tag %u "
+			"index %u "
+			"type "PB" protocol %s desired_family %s "
+			"sdes_in_tag %u sdes_out_tag %u logical_intf "PB" "
+			"media_flags %u",
+			STR(&c->callid), media->unique_id,
+			media->monologue->unique_id,
+			media->index,
+			STR(&media->type), media->protocol ? media->protocol->name : "",
+			media->desired_family ? media->desired_family->rfc_name : "",
+			media->sdes_in.tag, media->sdes_out.tag,
+			STR(&media->logical_intf->name),
+			media->media_flags);
+		redis_update_crypto_params(r, "media", &c->callid, media->unique_id, "sdes_in",
+				&media->sdes_in.params);
+		redis_update_crypto_params(r, "media", &c->callid, media->unique_id, "sdes_out",
+				&media->sdes_out.params);
+		redis_update_dtls_fingerprint(r, "media", &c->callid, media->unique_id, &media->fingerprint);
+
+		for (m = media->streams.head; m; m = m->next) {
+			ps = m->data;
+			redis_pipe(r, "RPUSH streams-"PB"-%u %u",
+				STR(&c->callid), media->unique_id,
+				ps->unique_id);
+		}
+
+		for (m = media->endpoint_maps.head; m; m = m->next) {
+			ep = m->data;
+			redis_pipe(r, "RPUSH maps-"PB"-%u %u",
+				STR(&c->callid), media->unique_id,
+				ep->unique_id);
+		}
+
+		k = g_hash_table_get_values(media->rtp_payload_types);
+		for (m = k; m; m = m->next) {
+			pt = m->data;
+			redis_pipe(r, "RPUSH payload_types-"PB"-%u %u/"PB"/%u/"PB"",
+				STR(&c->callid), media->unique_id,
+				pt->payload_type, STR(&pt->encoding),
+				pt->clock_rate, STR(&pt->encoding_parameters));
+		}
+		g_list_free(k);
+
+		redis_pipe(r, "EXPIRE media-"PB"-%u 86400", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE streams-"PB"-%u 86400", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE maps-"PB"-%u 86400", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE payload_types-"PB"-%u 86400", STR(&c->callid), media->unique_id);
+
+		redis_pipe(r, "DEL media-"PB"-%u streams-"PB"-%u maps-"PB"-%u payload_types-"PB"-%u",
+				STR(&c->callid), media->unique_id + 1,
+				STR(&c->callid), media->unique_id + 1,
+				STR(&c->callid), media->unique_id + 1,
+				STR(&c->callid), media->unique_id + 1);
+	}
+
+	redis_pipe(r, "DEL map-"PB"-0 map_sfds-"PB"-0",
+			STR(&c->callid), STR(&c->callid));
+
+	for (l = c->endpoint_maps.head; l; l = l->next) {
+		ep = l->data;
+
+		redis_pipe(r, "HMSET map-"PB"-%u wildcard %i num_ports %u intf_preferred_family %s "
+			"logical_intf "PB"",
+			STR(&c->callid), ep->unique_id,
+			ep->wildcard,
+			ep->num_ports,
+			ep->logical_intf->preferred_family->rfc_name,
+			STR(&ep->logical_intf->name));
+		redis_update_endpoint(r, "map", &c->callid, ep->unique_id, "endpoint", &ep->endpoint);
+
+		for (m = ep->intf_sfds.head; m; m = m->next) {
+			il = m->data;
+
+			redis_pipe(r, "RPUSH map_sfds-"PB"-%u loc-%u",
+				STR(&c->callid), ep->unique_id,
+				il->local_intf->unique_id);
+
+			for (n = il->list.head; n; n = n->next) {
+				sfd = n->data;
+
+				redis_pipe(r, "RPUSH map_sfds-"PB"-%u %u",
+					STR(&c->callid), ep->unique_id,
+					sfd->unique_id);
+			}
+
+		}
+
+		redis_pipe(r, "EXPIRE map-"PB"-%u 86400", STR(&c->callid), ep->unique_id);
+		redis_pipe(r, "EXPIRE map_sfds-"PB"-%u 86400", STR(&c->callid), ep->unique_id);
+
+		redis_pipe(r, "DEL map-"PB"-%u map_sfds-"PB"-%u",
+				STR(&c->callid), ep->unique_id + 1,
+				STR(&c->callid), ep->unique_id + 1);
 	}
 
 	redis_pipe(r, "EXPIRE call-"PB" 86400", STR(&c->callid));
-	redis_pipe(r, "EXPIRE tags-"PB" 86400", STR(&c->callid));
-	redis_pipe(r, "EXPIRE sfds-"PB" 86400", STR(&c->callid));
-	redis_pipe(r, "EXPIRE streams-"PB" 86400", STR(&c->callid));
 	redis_pipe(r, "SADD calls "PB"", STR(&c->callid));
 	if (opmode==OP_ANSWER) {
 		redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));

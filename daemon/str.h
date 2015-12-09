@@ -65,6 +65,8 @@ INLINE void str_swap(str *a, str *b);
 INLINE int str_to_i(str *s, int def);
 /* parses a string uinto an int, returns default if conversion fails */
 INLINE uint str_to_ui(str *s, int def);
+/* extracts the first/next token into "new_token" and modifies "ori_and_remainer" in place */
+INLINE int str_token(str *new_token, str *ori_and_remainder, int sep);
 
 /* asprintf() analogs */
 #define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
@@ -276,6 +278,17 @@ INLINE unsigned int str_to_ui(str *s, int def) {
 	if (ep == s->s)
 		return def;
 	return ret;
+}
+
+// XXX use this for sdp.c token extraction
+INLINE int str_token(str *new_token, str *ori_and_remainder, int sep) {
+	*new_token = *ori_and_remainder;
+	if (!str_chr_str(ori_and_remainder, ori_and_remainder, sep))
+		return -1;
+	new_token->len = ori_and_remainder->s - new_token->s;
+	if (str_shift(ori_and_remainder, 1))
+		return -1;
+	return 0;
 }
 
 #endif

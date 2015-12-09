@@ -27,6 +27,8 @@
 #include "cli.h"
 #include "graphite.h"
 #include "ice.h"
+#include "socket.h"
+#include "media_socket.h"
 
 
 
@@ -57,14 +59,14 @@ static mutex_t *openssl_locks;
 static char *pidfile;
 static gboolean foreground;
 static GQueue interfaces = G_QUEUE_INIT;
-static u_int32_t listenp;
-static u_int16_t listenport;
-static struct in6_addr udp_listenp;
-static u_int16_t udp_listenport;
-static struct in6_addr ng_listenp;
-static u_int16_t ng_listenport;
-static u_int32_t cli_listenp;
-static u_int16_t cli_listenport;
+endpoint_t tcp_listen_ep;
+endpoint_t udp_listen_ep;
+endpoint_t ng_listen_ep;
+endpoint_t cli_listen_ep;
+endpoint_t graphite_ep;
+endpoint_t redis_ep;
+endpoint_t redis_read_ep;
+endpoint_t redis_write_ep;
 static int tos;
 static int table = -1;
 static int no_fallback;
@@ -73,21 +75,13 @@ static int silent_timeout;
 static int port_min = 30000;
 static int port_max = 40000;
 static int max_sessions = -1;
-static u_int32_t redis_ip;
-static u_int16_t redis_port;
 static int redis_db = -1;
-static u_int32_t redis_read_ip;
-static u_int32_t redis_write_ip;
-static u_int16_t redis_read_port;
-static u_int16_t redis_write_port;
 static int redis_read_db = -1;
 static int redis_write_db = -1;
 static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
 static int delete_delay = 30;
-static u_int32_t graphite_ip = 0;
-static u_int16_t graphite_port;
 static int graphite_interval = 0;
 
 static void sighandler(gpointer x) {
@@ -146,10 +140,14 @@ static void signals(void) {
 }
 
 static void resources(void) {
+	struct rlimit rl;
 	int tryv;
 
 	rlim(RLIMIT_CORE, RLIM_INFINITY);
-	for (tryv = ((1<<20) - 1); tryv && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
+
+	if (getrlimit(RLIMIT_NOFILE, &rl))
+		rl.rlim_cur = 0;
+	for (tryv = ((1<<20) - 1); tryv && tryv > rl.rlim_cur && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
 		;
 
 	rlim(RLIMIT_DATA, RLIM_INFINITY);
@@ -181,12 +179,11 @@ static void print_available_log_facilities () {
 }
 
 
-static struct interface_address *if_addr_parse(char *s) {
+static struct intf_config *if_addr_parse(char *s) {
 	str name;
 	char *c;
-	struct in6_addr addr, adv;
-	struct interface_address *ifa;
-	int family;
+	sockaddr_t addr, adv;
+	struct intf_config *ifa;
 
 	/* name */
 	c = strchr(s, '/');
@@ -204,20 +201,21 @@ static struct interface_address *if_addr_parse(char *s) {
 		*c++ = 0;
 
 	/* address */
-	if (pton_46(&addr, s, &family))
+	if (sockaddr_parse_any(&addr, s))
 		return NULL;
 
 	adv = addr;
 	if (c) {
-		if (pton_46(&adv, c, NULL))
+		if (sockaddr_parse_any(&adv, c))
 			return NULL;
 	}
 
 	ifa = g_slice_alloc0(sizeof(*ifa));
-	ifa->interface_name = name;
-	ifa->addr = addr;
-	ifa->advertised = adv;
-	ifa->family = family;
+	ifa->name = name;
+	ifa->address.addr = addr;
+	ifa->address.advertised = adv;
+	ifa->port_min = port_min;
+	ifa->port_max = port_max;
 
 	return ifa;
 }
@@ -227,7 +225,7 @@ static struct interface_address *if_addr_parse(char *s) {
 static void options(int *argc, char ***argv) {
 	char **if_a = NULL;
 	char **iter;
-	struct interface_address *ifa;
+	struct intf_config *ifa;
 	char *listenps = NULL;
 	char *listenudps = NULL;
 	char *listenngs = NULL;
@@ -306,23 +304,23 @@ static void options(int *argc, char ***argv) {
 	}
 
 	if (listenps) {
-		if (parse_ip_port(&listenp, &listenport, listenps))
+		if (endpoint_parse_any(&tcp_listen_ep, listenps))
 			die("Invalid IP or port (--listen-tcp)");
 	}
 	if (listenudps) {
-		if (parse_ip6_port(&udp_listenp, &udp_listenport, listenudps))
+		if (endpoint_parse_any(&udp_listen_ep, listenudps))
 			die("Invalid IP or port (--listen-udp)");
 	}
 	if (listenngs) {
-		if (parse_ip6_port(&ng_listenp, &ng_listenport, listenngs))
+		if (endpoint_parse_any(&ng_listen_ep, listenngs))
 			die("Invalid IP or port (--listen-ng)");
 	}
 
-	if (listencli) {if (parse_ip_port(&cli_listenp, &cli_listenport, listencli))
+	if (listencli) {if (endpoint_parse_any(&cli_listen_ep, listencli))
 	    die("Invalid IP or port (--listen-cli)");
 	}
 
-	if (graphitep) {if (parse_ip_port(&graphite_ip, &graphite_port, graphitep))
+	if (graphitep) {if (endpoint_parse_any(&graphite_ep, graphitep))
 	    die("Invalid IP or port (--graphite)");
 	}
 
@@ -338,21 +336,21 @@ static void options(int *argc, char ***argv) {
 		silent_timeout = 3600;
 
 	if (redisps) {
-		if (parse_ip_port(&redis_ip, &redis_port, redisps) || !redis_ip)
+		if (endpoint_parse_any(&redis_ep, redisps))
 			die("Invalid IP or port (--redis)");
 		if (redis_db < 0)
 			die("Must specify Redis DB number (--redis-db) when using Redis");
 	}
 
 	if (redisps_read) {
-		if (parse_ip_port(&redis_read_ip, &redis_read_port, redisps_read) || !redis_read_ip)
+		if (endpoint_parse_any(&redis_read_ep, redisps_read))
 			die("Invalid Redis read IP or port (--redis-read)");
 		if (redis_read_db < 0)
 			die("Must specify Redis read DB number (--redis-read-db) when using Redis");
 	}
 
 	if (redisps_write) {
-		if (parse_ip_port(&redis_write_ip, &redis_write_port, redisps_write) || !redis_write_ip)
+		if (endpoint_parse_any(&redis_write_ep, redisps_write))
 			die("Invalid Redis write IP or port (--redis-write)");
 		if (redis_write_db < 0)
 			die("Must specify Redis write DB number (--redis-write-db) when using Redis");
@@ -451,6 +449,7 @@ static void make_OpenSSL_thread_safe(void) {
 static void init_everything() {
 	struct timespec ts;
 
+	socket_init();
 	log_init();
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
@@ -468,19 +467,7 @@ static void init_everything() {
 	sdp_init();
 	dtls_init();
 	ice_init();
-}
-
-
-static double time_diff_ms(struct timeval x , struct timeval y)
-{
-	double x_ms , y_ms , diff;
-
-	x_ms = (double)x.tv_sec * 1000 + (double)x.tv_usec / 1000;
-	y_ms = (double)y.tv_sec * 1000 + (double)y.tv_usec / 1000;
-
-	diff = (double)y_ms - (double)x_ms;
-
-	return diff;
+	interfaces_init(&interfaces);
 }
 
 
@@ -527,9 +514,6 @@ no_kernel:
 	ZERO(mc);
 	mc.kernelfd = kfd;
 	mc.kernelid = table;
-	mc.interfaces = &interfaces;
-	mc.port_min = port_min;
-	mc.port_max = port_max;
 	if (max_sessions < -1) {
 		max_sessions = -1;
 	}
@@ -540,61 +524,59 @@ no_kernel:
 	mc.default_tos = tos;
 	mc.b2b_url = b2b_url;
 	mc.fmt = xmlrpc_fmt;
-	mc.graphite_port = graphite_port;
-	mc.graphite_ip = graphite_ip;
+	mc.graphite_ep = graphite_ep;
 	mc.graphite_interval = graphite_interval;
 
 	ct = NULL;
-	if (listenport) {
-		ct = control_tcp_new(ctx->p, listenp, listenport, ctx->m);
+	if (tcp_listen_ep.port) {
+		ct = control_tcp_new(ctx->p, &tcp_listen_ep, ctx->m);
 		if (!ct)
 			die("Failed to open TCP control connection port");
 	}
 
 	cu = NULL;
-	if (udp_listenport) {
-		callmaster_exclude_port(ctx->m, udp_listenport);
-		cu = control_udp_new(ctx->p, udp_listenp, udp_listenport, ctx->m);
+	if (udp_listen_ep.port) {
+		interfaces_exclude_port(udp_listen_ep.port);
+		cu = control_udp_new(ctx->p, &udp_listen_ep, ctx->m);
 		if (!cu)
 			die("Failed to open UDP control connection port");
 	}
 
 	cn = NULL;
-	if (ng_listenport) {
-		callmaster_exclude_port(ctx->m, ng_listenport);
-		cn = control_ng_new(ctx->p, ng_listenp, ng_listenport, ctx->m);
+	if (ng_listen_ep.port) {
+		interfaces_exclude_port(ng_listen_ep.port);
+		cn = control_ng_new(ctx->p, &ng_listen_ep, ctx->m);
 		if (!cn)
 			die("Failed to open UDP control connection port");
 	}
 
 	cl = NULL;
-	if (cli_listenport) {
-	    callmaster_exclude_port(ctx->m, cli_listenport);
-	    cl = cli_new(ctx->p, cli_listenp, cli_listenport, ctx->m);
+	if (cli_listen_ep.port) {
+		interfaces_exclude_port(cli_listen_ep.port);
+	    cl = cli_new(ctx->p, &cli_listen_ep, ctx->m);
 	    if (!cl)
 	        die("Failed to open UDP CLI connection port");
 	}
 
-	if (redis_ip) {
-		mc.redis = redis_new(redis_ip, redis_port, redis_db, MASTER_REDIS_ROLE);
+	if (!is_addr_unspecified(&redis_ep.address)) {
+		mc.redis = redis_new(&redis_ep, redis_db, MASTER_REDIS_ROLE);
 		if (!mc.redis)
 			die("Cannot start up without Redis database");
 	}
 
-	if (redis_read_ip) {
-		mc.redis_read = redis_new(redis_read_ip, redis_read_port, redis_read_db, ANY_REDIS_ROLE);
+	if (!is_addr_unspecified(&redis_read_ep.address)) {
+		mc.redis_read = redis_new(&redis_read_ep, redis_read_db, ANY_REDIS_ROLE);
 		if (!mc.redis_read)
 			die("Cannot start up without Redis read database");
 	}
 
-	if (redis_write_ip) {
-		mc.redis_write = redis_new(redis_write_ip, redis_write_port, redis_write_db, ANY_REDIS_ROLE);
+	if (!is_addr_unspecified(&redis_write_ep.address)) {
+		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, ANY_REDIS_ROLE);
 		if (!mc.redis_write)
 			die("Cannot start up without Redis write database");
 	}
 
 	ctx->m->conf = mc;
-	callmaster_config_init(ctx->m);
 
 	if (!foreground)
 		daemonize();
@@ -603,6 +585,7 @@ no_kernel:
 	// start redis restore timer
 	gettimeofday(&redis_start, NULL);
 
+	// restore
 	if (mc.redis_read) {
 		if (redis_restore(ctx->m, mc.redis_read, ANY_REDIS_ROLE))
 			die("Refusing to continue without working Redis read database");
@@ -615,12 +598,12 @@ no_kernel:
 	gettimeofday(&redis_stop, NULL);
 
 	// print redis restore duration
-	redis_diff += time_diff_ms(redis_start, redis_stop);
+	redis_diff += timeval_diff(&redis_start, &redis_stop) / 1000.0;
 	ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
 
 	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);
 
-	timeval_from_ms(&tmp_tv, graphite_interval*1000000);
+	timeval_from_us(&tmp_tv, graphite_interval*1000000);
 	set_graphite_interval_tv(&tmp_tv);
 }
 
@@ -637,11 +620,12 @@ int main(int argc, char **argv) {
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(poller_timer_loop, ctx.p);
 
-	// TODO: if redis notify enabled.
-	thread_create_detach(redis_notify, ctx.m);
+	if (!is_addr_unspecified(&redis_read_ep.address))
+		thread_create_detach(redis_notify, ctx.m);
 
-	if (graphite_ip)
+	if (!is_addr_unspecified(&graphite_ep.address))
 		thread_create_detach(graphite_loop, ctx.m);
+
 	thread_create_detach(ice_thread_run, NULL);
 
 	if (num_threads < 1) {

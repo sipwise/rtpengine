@@ -731,6 +731,25 @@ Optionally included keys are:
 	However, this mechanism for selecting the address family is now obsolete
 	and the `address family` dictionary key should be used instead.
 
+	A direction keyword is *round-robin-calls*. If this is received, a round robin algorithm runs for
+	choosing the logical interface for the current stream(e.g. audio, video).
+	The algorithm checks that all local interfaces of the tried logical interface have free ports for
+	call streams. If a logical interface fails the check, the next one is tried. If there is no logical
+	interface found with this property, it fallbacks to the default behaviour (e.g. return first logical
+	interface in --interface list even if no free ports are available). The attribute is ignored for
+	answers() because the logical interface was already selected at offers().
+	Naming an interface "round-robin-calls" and trying to select it using direction will
+	__run the above algorithm__!
+
+	Round robin for both legs of the stream:
+		{ ..., "direction": [ "round-robin-calls", "round-robin-calls" ], ... } 
+
+	Round robin for first leg and and select "pub" for the second leg of the stream:
+		{ ..., "direction": [ "round-robin-calls", "pub" ], ... }
+
+	Round robin for first leg and and default behaviour for the second leg of the stream:
+		{ ..., "direction": [ "round-robin-calls" ], ... }
+
 * `received from`
 
 	Contains a list of exactly two elements. The first element denotes the address family and the second
