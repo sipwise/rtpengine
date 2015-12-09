@@ -30,19 +30,19 @@ void fs_init(char *spooldir);
  *     metadata
  *
  */
-str *setup_meta_file(struct call *call);
+str *meta_setup_file(struct call *call);
 
 /**
  * Writes metadata to metafile, closes file, and renames it to finished location.
  * Returns non-zero for failure.
  */
-int meta_file_finish(struct call *call);
+int meta_finish_file(struct call *call);
 
 /**
  * Generate a random PCAP filepath to write recorded RTP stream.
  * Returns path to created file.
  */
-str *setup_recording_file(struct call *call, struct call_monologue *monologue);
+str *recording_setup_file(struct call *call, struct call_monologue *monologue);
 
 /**
  * Write out a PCAP packet with payload string.

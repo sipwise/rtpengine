@@ -690,7 +690,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	if (recordcall.s && !str_cmp(&recordcall, "yes")) {
 		if (!call->record_call) {
-			setup_meta_file(call);
+			meta_setup_file(call);
 			call->record_call = 1;
 		}
 		bencode_dictionary_get_str(input, "metadata", &metadata);

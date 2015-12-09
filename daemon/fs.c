@@ -12,6 +12,8 @@
 
 int maybe_create_spool_dir(char *dirpath);
 
+// Global file reference to the spool directory.
+static char *spooldir = NULL;
 
 
 /**
@@ -19,53 +21,70 @@ int maybe_create_spool_dir(char *dirpath);
  * Check for or create the RTP Engine spool directory.
  */
 void fs_init(char *spoolpath) {
-	// TODO should we change the umask at all?
+	// Whether or not to fail if the spool directory does not exist.
+	int dne_fail;
+	if (spoolpath == NULL || spoolpath[0] == '\0') {
+		spoolpath = "/var/spool/rtpengine";
+		dne_fail = FALSE;
+	} else {
+		dne_fail = TRUE;
+		int path_len = strlen(spoolpath);
+		// Get rid of trailing "/" if it exists. Other code adds that in when needed.
+		if (spoolpath[path_len-1] == '/') {
+			spoolpath[path_len-1] = '\0';
+		}
+	}
 	if (!maybe_create_spool_dir(spoolpath)) {
 		fprintf(stderr, "Error while setting up spool directory \"%s\".\n", spoolpath);
-		exit(-1);
+		if (dne_fail) {
+			fprintf(stderr, "Please run `mkdir %s` and start rtpengine again.\n", spoolpath);
+			exit(-1);
+		}
+	} else {
+		spooldir = strdup(spoolpath);
 	}
 }
 
 /**
  * Sets up the spool directory for RTP Engine.
  * If the directory does not exist, return FALSE.
- * If the directory exists, but "$dirpath/metadata" or "$dirpath/recordings"
+ * If the directory exists, but "$spoolpath/metadata" or "$spoolpath/pcaps"
  * exist as non-directory files, return FALSE.
  * Otherwise, return TRUE.
  *
- * Create the "metadata" and "recordings" directories if they are not there.
+ * Create the "metadata" and "pcaps" directories if they are not there.
  */
-int maybe_create_spool_dir(char *dirpath) {
+int maybe_create_spool_dir(char *spoolpath) {
 	struct stat info;
 	int spool_good = TRUE;
 
-	if (stat(dirpath, &info) != 0) {
-		fprintf(stderr, "Spool directory \"%s\" does not exist.\n", dirpath);
+	if (stat(spoolpath, &info) != 0) {
+		fprintf(stderr, "Spool directory \"%s\" does not exist.\n", spoolpath);
 		spool_good = FALSE;
 	} else if (!S_ISDIR(info.st_mode)) {
-		fprintf(stderr, "Spool file exists, but \"%s\" is not a directory.\n", dirpath);
+		fprintf(stderr, "Spool file exists, but \"%s\" is not a directory.\n", spoolpath);
 		spool_good = FALSE;
 	} else {
 		// Spool directory exists. Make sure it has inner directories.
-		int path_len = strlen(dirpath);
+		int path_len = strlen(spoolpath);
 		char meta_path[path_len + 10];
-		char rec_path[path_len + 12];
-		snprintf(meta_path, path_len + 10, "%s/metadata", dirpath);
-		snprintf(rec_path, path_len + 12, "%s/recordings", dirpath);
+		char rec_path[path_len + 7];
+		snprintf(meta_path, path_len + 10, "%s/metadata", spoolpath);
+		snprintf(rec_path, path_len + 7, "%s/pcaps", spoolpath);
 
 		if (stat(meta_path, &info) != 0) {
 			fprintf(stdout, "Creating metadata directory \"%s\".\n", meta_path);
 			mkdir(meta_path, 0660);
 		} else if(!S_ISDIR(info.st_mode)) {
-			fprintf(stderr, "Metadata file exists, but \"%s\" is not a directory.\n", meta_path);
+			fprintf(stderr, "metadata file exists, but \"%s\" is not a directory.\n", meta_path);
 			spool_good = FALSE;
 		}
 
 		if (stat(rec_path, &info) != 0) {
-			fprintf(stdout, "Creating recordings directory \"%s\".\n", rec_path);
+			fprintf(stdout, "Creating pcaps directory \"%s\".\n", rec_path);
 			mkdir(rec_path, 0660);
 		} else if(!S_ISDIR(info.st_mode)) {
-			fprintf(stderr, "Recordings file exists, but \"%s\" is not a directory.\n", rec_path);
+			fprintf(stderr, "pcaps file exists, but \"%s\" is not a directory.\n", rec_path);
 			spool_good = FALSE;
 		}
 	}
@@ -77,29 +96,35 @@ int maybe_create_spool_dir(char *dirpath) {
  * Create a call metadata file in a temporary location.
  * Attaches the filepath and the file pointer to the call struct.
  */
-str *setup_meta_file(struct call *call) {
-	int rand_bytes = 16;
-	str *meta_filepath = malloc(sizeof(str));
-	// Initially file extension is ".tmp". When call is over, it changes to ".txt".
-	char *path_chars = rand_affixed_str(rand_bytes, "/tmp/rtpengine-meta-", ".tmp");
-	meta_filepath = str_init(meta_filepath, path_chars);
-	call->meta_filepath = meta_filepath;
-	FILE *mfp = fopen(meta_filepath->s, "w");
-	if (mfp == NULL) {
-		ilog(LOG_ERROR, "Could not open metadata file: %s", meta_filepath->s);
-		free(call->meta_filepath->s);
-		free(call->meta_filepath);
-		call->meta_filepath = NULL;
+str *meta_setup_file(struct call *call) {
+	if (spooldir == NULL) {
+		// No spool directory was created, so we cannot have metadata files.
+		return NULL;
 	}
-	call->meta_fp = mfp;
-	return meta_filepath;
+	else {
+		int rand_bytes = 16;
+		str *meta_filepath = malloc(sizeof(str));
+		// Initially file extension is ".tmp". When call is over, it changes to ".txt".
+		char *path_chars = rand_affixed_str(rand_bytes, "/tmp/rtpengine-meta-", ".tmp");
+		meta_filepath = str_init(meta_filepath, path_chars);
+		call->meta_filepath = meta_filepath;
+		FILE *mfp = fopen(meta_filepath->s, "w");
+		if (mfp == NULL) {
+			ilog(LOG_ERROR, "Could not open metadata file: %s", meta_filepath->s);
+			free(call->meta_filepath->s);
+			free(call->meta_filepath);
+			call->meta_filepath = NULL;
+		}
+		call->meta_fp = mfp;
+		return meta_filepath;
+	}
 }
 
 /**
  * Writes metadata to metafile, closes file, and renames it to finished location.
  * Returns non-zero for failure.
  */
-int meta_file_finish(struct call *call) {
+int meta_finish_file(struct call *call) {
 	int return_code = 0;
 
 
@@ -139,10 +164,10 @@ int meta_file_finish(struct call *call) {
 		// We can always expect a file extension
 		meta_ext = strrchr(meta_filename, '.');
 		fn_len = meta_ext - meta_filename;
-		int prefix_len = 30; // for "/var/spool/rtpengine/metadata/"
+		int prefix_len = strlen(spooldir) + 10; // constant for "/metadata/" suffix
 		int ext_len = 4;     // for ".txt"
 		char new_metapath[prefix_len + fn_len + ext_len + 1];
-		snprintf(new_metapath, prefix_len+fn_len+1, "/var/spool/rtpengine/metadata/%s", meta_filename);
+		snprintf(new_metapath, prefix_len+fn_len+1, "%s/metadata/%s", spooldir, meta_filename);
 		snprintf(new_metapath + prefix_len+fn_len, ext_len+1, ".txt");
 		return_code = return_code | rename(call->meta_filepath->s, new_metapath);
 	}
@@ -157,19 +182,22 @@ int meta_file_finish(struct call *call) {
 /**
  * Generate a random PCAP filepath to write recorded RTP stream.
  */
-str *setup_recording_file(struct call *call, struct call_monologue *monologue) {
+str *recording_setup_file(struct call *call, struct call_monologue *monologue) {
 	str *recording_path = NULL;
-	if (call->record_call
+	if (spooldir != NULL
+      && call->record_call
 	    && monologue->recording_pd == NULL && monologue->recording_pdumper == NULL) {
 		int rand_bytes = 16;
-		recording_path = malloc(sizeof(str));
-		char *path_chars = rand_affixed_str(rand_bytes, "/var/spool/rtpengine/recordings/", ".pcap");
+		int rec_path_len = strlen(spooldir) + 8; // spool directory path + "/pcaps/"
+		char rec_path[rec_path_len];
+		snprintf(rec_path, rec_path_len, "%s/pcaps/", spooldir);
+		char *path_chars = rand_affixed_str(rand_bytes, rec_path, ".pcap");
 
+		recording_path = malloc(sizeof(str));
 		recording_path = str_init(recording_path, path_chars);
 		monologue->recording_path = recording_path;
 
 		call->recording_pcaps = g_slist_prepend(call->recording_pcaps, g_strdup(path_chars));
-		/* monologue->recording_file */
 		monologue->recording_pd = pcap_open_dead(DLT_RAW, 65535);
 		monologue->recording_pdumper = pcap_dump_open(monologue->recording_pd, path_chars);
 	} else {

@@ -87,6 +87,7 @@ static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
 static int delete_delay = 30;
 static int graphite_interval = 0;
+static char *spooldir;
 
 static void sighandler(gpointer x) {
 	sigset_t ss;
@@ -323,6 +324,7 @@ static void options(int *argc, char ***argv) {
 		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46:PORT"},
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
 		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
+		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
 		{ NULL, }
 	};
 
@@ -519,7 +521,7 @@ static void init_everything() {
 
 	socket_init();
 	log_init();
-	fs_init("/var/spool/rtpengine");
+	fs_init(spooldir);
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
 	SSL_library_init();

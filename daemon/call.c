@@ -1526,7 +1526,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 	ml_media = other_ml_media = NULL;
 
-	str *pcap_path = setup_recording_file(call, monologue);
+	str *pcap_path = recording_setup_file(call, monologue);
 	if (pcap_path != NULL && call->meta_fp != NULL) {
 		fprintf(call->meta_fp, "%s\n", pcap_path->s);
 	}
@@ -2222,7 +2222,7 @@ void call_destroy(struct call *c) {
 		c->recording_pcaps = g_slist_delete_link(c->recording_pcaps, c->recording_pcaps);
 	}
 
-	meta_file_finish(c);
+	meta_finish_file(c);
 	free(c->metadata);
 
 	rwlock_unlock_w(&c->master_lock);
