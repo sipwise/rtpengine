@@ -1820,8 +1820,8 @@ void call_destroy(struct call *c) {
 
 	mutex_lock(&m->totalstats_interval.managed_sess_lock);
 	m->totalstats.managed_sess_crt--;
-	m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_crt,
-			m->totalstats_interval.managed_sess_min);
+	m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_min,
+			m->totalstats.managed_sess_crt);
 	mutex_unlock(&m->totalstats_interval.managed_sess_lock);
 
 	if (!ret)
