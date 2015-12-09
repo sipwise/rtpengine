@@ -1069,17 +1069,14 @@ out:
 
 	if (ca && update) {
 		if (sfd->call->callmaster->conf.redis_write) {
-			redis_update(ca, sfd->call->callmaster->conf.redis_write, ANY_REDIS_ROLE);
+			redis_update(ca, sfd->call->callmaster->conf.redis_write, ANY_REDIS_ROLE, OP_OTHER);
 		} else if (sfd->call->callmaster->conf.redis) {
-			redis_update(ca, sfd->call->callmaster->conf.redis, MASTER_REDIS_ROLE);
+			redis_update(ca, sfd->call->callmaster->conf.redis, MASTER_REDIS_ROLE, OP_OTHER);
 		}
 	}
 done:
 	log_info_clear();
 }
-
-
-
 
 
 /* called with call->master_lock held in R */
@@ -1515,9 +1512,9 @@ static void callmaster_timer(void *ptr) {
 
 		if (update) {
 			if (m->conf.redis_write) {
-				redis_update(ps->call, m->conf.redis_write, ANY_REDIS_ROLE);
+				redis_update(ps->call, m->conf.redis_write, ANY_REDIS_ROLE, OP_OTHER);
 			} else if (m->conf.redis) {
-				redis_update(ps->call, m->conf.redis, MASTER_REDIS_ROLE);
+				redis_update(ps->call, m->conf.redis, MASTER_REDIS_ROLE, OP_OTHER);
 			}
 		}
 
@@ -2847,10 +2844,10 @@ struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
-	struct callmaster *m = c->callmaster;
+	struct callmaster *m;
 	struct packet_stream *ps=0, *ps2=0;
 	struct stream_fd *sfd;
-	struct poller *p = m->poller;
+	struct poller *p;
 	GSList *l;
 	int ret;
 	struct call_monologue *ml;
@@ -2865,6 +2862,13 @@ void call_destroy(struct call *c) {
 	int printlen=0;
 	int found = 0;
 	const struct rtp_payload_type *rtp_pt;
+
+	if (!c) {
+		return;
+	}
+
+	m = c->callmaster;
+	p = m->poller;
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
@@ -3794,9 +3798,9 @@ static void calls_dump_iterator(void *key, void *val, void *ptr) {
 	struct callmaster *m = c->callmaster;
 
 	if (m->conf.redis_write) {
-		redis_update(c, m->conf.redis_write, ANY_REDIS_ROLE);
+		redis_update(c, m->conf.redis_write, ANY_REDIS_ROLE, OP_OTHER);
 	} else if (m->conf.redis) {
-		redis_update(c, m->conf.redis, MASTER_REDIS_ROLE);
+		redis_update(c, m->conf.redis, MASTER_REDIS_ROLE, OP_OTHER);
 	}
 }
 

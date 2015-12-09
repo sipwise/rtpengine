@@ -9,6 +9,7 @@
 #include <glib.h>
 #include <sys/types.h>
 #include <hiredis/hiredis.h>
+#include "call.h"
 
 
 #define MASTER_REDIS_ROLE	0
@@ -75,11 +76,12 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 #define REDIS_FMT(x) (x)->len, (x)->str
 
 
+void redis_notify(void *d);
 
 
 struct redis *redis_new(u_int32_t, u_int16_t, int, int);
 int redis_restore(struct callmaster *, struct redis *, int);
-void redis_update(struct call *, struct redis *, int);
+void redis_update(struct call *, struct redis *, int, enum call_opmode);
 void redis_delete(struct call *, struct redis *, int);
 void redis_wipe(struct redis *, int);
 

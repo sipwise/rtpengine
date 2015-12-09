@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <glib.h>
 
+#include <glib.h>
 #include "redis.h"
 #include "compat.h"
 #include "aux.h"
@@ -13,11 +14,9 @@
 #include "str.h"
 #include "crypto.h"
 #include "dtls.h"
-
-
-
-
-
+#include "hiredis/hiredis.h"
+#include "hiredis/async.h"
+#include "hiredis/adapters/libevent.h"
 
 INLINE redisReply *redis_expect(int type, redisReply *r) {
 	if (!r)
@@ -203,7 +202,83 @@ err:
 	return -1;
 }
 
+int str_cut(char *str, int begin, int len) {
+    int l = strlen(str);
 
+    if (len < 0) len = l - begin;
+    if (begin + len > l) len = l - begin;
+    memmove(str + begin, str + begin + len, l - len + 1);
+
+    return len;
+}
+
+static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id);
+
+void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
+
+	struct callmaster *cm = privdata;
+	struct redis *r = cm->conf.redis;
+	struct call* c;
+	str callid;
+
+	redisReply *rr = (redisReply*)reply;
+
+	if (reply == NULL || rr->type != REDIS_REPLY_ARRAY)
+		return;
+
+	for (int j = 0; j < rr->elements; j++) {
+		rlog(LOG_INFO, "Redis-Notify: %u) %s\n", j, rr->element[j]->str);
+	}
+
+	if (rr->elements != 4)
+		return;
+
+	char *pch = strstr(rr->element[2]->str, "notifier-");
+	if (pch == NULL) {
+		rlog(LOG_ERROR,"Redis-Notifier: The substring 'notifier-' has not been found in the redis notification !\n");
+		return;
+	}
+
+	pch += strlen("notifier-");
+	str_cut(rr->element[2]->str,0,pch-rr->element[2]->str);
+	rr->element[2]->len = strlen(rr->element[2]->str);
+	rlog(LOG_INFO,"Redis-Notifier: Processing call with callid:%s\n",rr->element[2]->str);
+
+	str_init(&callid,rr->element[2]->str);
+
+	c = g_hash_table_lookup(cm->callhash, &callid);
+
+	if (strncmp(rr->element[3]->str,"sadd",4)==0) {
+		if (c) {
+			rlog(LOG_INFO, "Redis-Notifier: Call already exists with this callid:%s\n", rr->element[2]->str);
+			return;
+		}
+		redis_restore_call(r, cm, rr->element[2]);
+	}
+
+	if (strncmp(rr->element[3]->str,"del",3)==0) {
+		call_destroy(c);
+	}
+
+}
+
+void redis_notify(void *d) {
+	struct callmaster *cm = d;
+	struct redis *r = cm->conf.redis;
+
+    struct event_base *base = event_base_new();
+
+    redisAsyncContext *c = redisAsyncConnect(r->host, r->port);
+    if (c->err) {
+        printf("error: %s\n", c->errstr);
+        return;
+    }
+
+    redisLibeventAttach(c, base);
+    // redisAsyncCommand(c, onRedisNotification, d, "SUBSCRIBE testtopic");
+    redisAsyncCommand(c, onRedisNotification, d, "psubscribe __key*__:notifier-*");
+    event_base_dispatch(base);
+}
 
 struct redis *redis_new(u_int32_t ip, u_int16_t port, int db, int role) {
 	struct redis *r;
@@ -270,6 +345,7 @@ static void redis_delete_call(struct call *c, struct redis *r) {
 	struct endpoint_map *em;
 	char *mono_key, *media_key, *em_key;
 
+	redis_pipe(r, "DEL notifier-"PB"", STR(&c->callid));
 	redis_pipe(r, "SREM calls "PB"", STR(&c->callid));
 	redis_pipe(r, "DEL call-"PB" tags-"PB" sfds-"PB" streams-"PB"",
 			STR(&c->callid), STR(&c->callid), STR(&c->callid), STR(&c->callid));
@@ -1128,7 +1204,7 @@ static void redis_update_dtls_fingerprint(struct redis *r, const char *pref, voi
 
 
 /* must be called lock-free */
-void redis_update(struct call *c, struct redis *r, int role) {
+void redis_update(struct call *c, struct redis *r, int role, enum call_opmode opmode) {
 	GSList *l, *n;
 	GList *pt_list, *pt_iter;
 	GList *k, *m;
@@ -1152,6 +1228,7 @@ void redis_update(struct call *c, struct redis *r, int role) {
 
 	rwlock_lock_r(&c->master_lock);
 
+	redis_pipe(r, "DEL notifier-"PB"", STR(&c->callid));
 	redis_pipe(r, "SREM calls "PB"", STR(&c->callid));
 	redis_pipe(r, "DEL call-"PB" tags-"PB" sfds-"PB" streams-"PB"", STR(&c->callid), STR(&c->callid),
 		STR(&c->callid), STR(&c->callid));
@@ -1306,6 +1383,9 @@ void redis_update(struct call *c, struct redis *r, int role) {
 	redis_pipe(r, "EXPIRE sfds-"PB" 86400", STR(&c->callid));
 	redis_pipe(r, "EXPIRE streams-"PB" 86400", STR(&c->callid));
 	redis_pipe(r, "SADD calls "PB"", STR(&c->callid));
+	if (opmode==OP_ANSWER) {
+		redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));
+	}
 
 	redis_consume(r);
 	mutex_unlock(&r->lock);
