@@ -17,7 +17,6 @@
 #include <time.h>
 #include <sys/time.h>
 #include <inttypes.h>
-#include <pcap.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -699,8 +698,6 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	GQueue intf_sockets = G_QUEUE_INIT;
 	socket_t *sock;
 	struct intf_list *il, *em_il;
-
-	ilog(LOG_INFO, "XXDylan: __get_endpoint_map");
 
 	for (l = media->endpoint_maps.tail; l; l = l->prev) {
 		em = l->data;
@@ -1527,7 +1524,9 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	ml_media = other_ml_media = NULL;
 
 	str *pcap_path = recording_setup_file(call, monologue);
-	if (pcap_path != NULL && call->meta_fp != NULL) {
+	if (pcap_path != NULL != NULL && monologue->recording_pdumper != NULL
+	    && call->meta_fp) {
+		// Write the location of the PCAP file to the metadata file
 		fprintf(call->meta_fp, "%s\n", pcap_path->s);
 	}
 
@@ -2492,14 +2491,7 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 	GList *l;
 
 	call = monologue->call;
-	ilog(LOG_INFO, "XXXDylan: closing pcap stuff");
-	if (monologue->recording_pdumper != NULL) {
-		pcap_dump_flush(monologue->recording_pdumper);
-		pcap_dump_close(monologue->recording_pdumper);
-	}
-	if (monologue->recording_pd != NULL) {
-		pcap_close(monologue->recording_pd);
-	}
+	recording_finish_file(monologue);
 
 	g_hash_table_remove(call->tags, &monologue->tag);
 

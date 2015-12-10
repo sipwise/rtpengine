@@ -1306,7 +1306,6 @@ kernel_check:
 	kernelize(stream);
 
 forward:
-	// ilog(LOG_INFO, "XXEGREENSTREAM: %s", s->s);
 	if (sink)
 		mutex_lock(&sink->out_lock);
 
@@ -1376,20 +1375,6 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		goto out;
 
 	log_info_stream_fd(sfd);
-
-	/*
-	 * I should be able to create a filedescriptor here for each stream and pass it
-	 * to stream_packet. Each file descriptor should then receive one side of the
-	 * rtp for each call. I fully expect some packets to get dropped using this
-	 * naive method. If we are seeing problems in testing we could use a RAM disk.
-	 */
-
-	//  var egreentmp1[15] = "/tmp" + rand();
-	//  ilog(LOG_INFO, "XXEGREEN: Creting new file descriptor for recording %s", egreentmp1);
-	//  int egreenFD = open(egreentmp1, O_WRONLY | O_CREAT | O_TRUNC);
-	//  char egreentmp[15];
-	//  sprintf(egreentmp, "%d", egreenFD);
-	//  ilog(LOG_INFO, "XXEGREEN: FD created: %s", egreentmp);
 
 	for (iters = 0; ; iters++) {
 #if MAX_RECV_ITERS

@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <time.h>
 #include "call.h"
+#include <pcap.h>
 
 
 
@@ -116,6 +117,7 @@ str *meta_setup_file(struct call *call) {
 			call->meta_filepath = NULL;
 		}
 		call->meta_fp = mfp;
+		ilog(LOG_INFO, "Wrote metadata file to temporary path: %s", meta_filepath->s);
 		return meta_filepath;
 	}
 }
@@ -126,7 +128,6 @@ str *meta_setup_file(struct call *call) {
  */
 int meta_finish_file(struct call *call) {
 	int return_code = 0;
-
 
 	if (call->meta_fp != NULL) {
 		// Print start timestamp and end timestamp
@@ -157,10 +158,12 @@ int meta_finish_file(struct call *call) {
 		int fn_len;
 		char *meta_filename = strrchr(call->meta_filepath->s, '/');
 		char *meta_ext = NULL;
-		if (meta_filename == NULL)
+		if (meta_filename == NULL) {
 			meta_filename = call->meta_filepath->s;
-		else
+		}
+		else {
 			meta_filename = meta_filename + 1;
+		}
 		// We can always expect a file extension
 		meta_ext = strrchr(meta_filename, '.');
 		fn_len = meta_ext - meta_filename;
@@ -169,7 +172,14 @@ int meta_finish_file(struct call *call) {
 		char new_metapath[prefix_len + fn_len + ext_len + 1];
 		snprintf(new_metapath, prefix_len+fn_len+1, "%s/metadata/%s", spooldir, meta_filename);
 		snprintf(new_metapath + prefix_len+fn_len, ext_len+1, ".txt");
-		return_code = return_code | rename(call->meta_filepath->s, new_metapath);
+		return_code = return_code || rename(call->meta_filepath->s, new_metapath);
+		if (return_code != 0) {
+			ilog(LOG_ERROR, "Could not move metadata file \"%s\" to \"%s/metadata/\"",
+					 call->meta_filepath->s, spooldir);
+		} else {
+			ilog(LOG_INFO, "Moved metadata file \"%s\" to \"%s/metadata\"",
+					 call->meta_filepath->s, spooldir);
+		}
 	}
 	if (call->meta_filepath != NULL) {
 		free(call->meta_filepath->s);
@@ -200,6 +210,13 @@ str *recording_setup_file(struct call *call, struct call_monologue *monologue) {
 		call->recording_pcaps = g_slist_prepend(call->recording_pcaps, g_strdup(path_chars));
 		monologue->recording_pd = pcap_open_dead(DLT_RAW, 65535);
 		monologue->recording_pdumper = pcap_dump_open(monologue->recording_pd, path_chars);
+		if (monologue->recording_pdumper == NULL) {
+			pcap_close(monologue->recording_pd);
+			monologue->recording_pd = NULL;
+			ilog(LOG_INFO, "Failed to write recording file: %s", recording_path->s);
+		} else {
+			ilog(LOG_INFO, "Writing recording file: %s", recording_path->s);
+		}
 	} else {
 		monologue->recording_path = NULL;
 		monologue->recording_pd = NULL;
@@ -207,6 +224,21 @@ str *recording_setup_file(struct call *call, struct call_monologue *monologue) {
 	}
 
 	return recording_path;
+}
+
+/**
+ * Flushes PCAP file, closes the dumper and descriptors, and frees object memory.
+ */
+void recording_finish_file(struct call_monologue *monologue) {
+	if (monologue->recording_pdumper != NULL) {
+		pcap_dump_flush(monologue->recording_pdumper);
+		pcap_dump_close(monologue->recording_pdumper);
+		free(monologue->recording_path->s);
+		free(monologue->recording_path);
+	}
+	if (monologue->recording_pd != NULL) {
+		pcap_close(monologue->recording_pd);
+	}
 }
 
 /**

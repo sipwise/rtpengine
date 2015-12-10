@@ -27,7 +27,7 @@ void fs_init(char *spooldir);
  *     start timestamp (YYYY-MM-DDThh:mm:ss)
  *     end timestamp   (YYYY-MM-DDThh:mm:ss)
  *
- *     metadata
+ *     generic metadata
  *
  */
 str *meta_setup_file(struct call *call);
@@ -43,6 +43,11 @@ int meta_finish_file(struct call *call);
  * Returns path to created file.
  */
 str *recording_setup_file(struct call *call, struct call_monologue *monologue);
+
+/**
+ * Flushes PCAP file, closes the dumper and descriptors, and frees object memory.
+ */
+void recording_finish_file(struct call_monologue *monologue);
 
 /**
  * Write out a PCAP packet with payload string.
