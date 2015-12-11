@@ -556,6 +556,26 @@ then the start-up sequence might look like this:
 With this setup, the SIP proxy can choose which instance of *rtpengine* to talk to and thus which local
 interface to use by sending its control messages to either port 2223 or port 2224.
 
+REDIS Database interaction 
+-------------------------
+
+Rtpengine is able to write call details in redis database and retore the calls from the same database.
+To configure the redis parameters have a look on -r/-R, -z/-Z, -w/-W parameters.
+
+The three REDIS params could be specified in rtpengine's config file:
+* REDIS -> specify the redis database for both read and write ops; expected role of redis is checked to be master and won't start if it is not
+* REDIS_READ -> specify the redis database for read ops; expected role of redis may be any, master or slave
+* REDIS_WRITE -> specify the redis database for write ops; expected role of redis could be any, master or slave
+
+One can specify combinations of REDIS/REDIS_READ/WRITE at the same time. For example:
+* REDIS=IP1 -> will use IP1 for read and write operations
+* REDIS=IP1, REDIS_READ=IP2 -> will use IP1 for write and IP2 for read operations
+* REDIS=IP1, REDIS_WRITE=IP2 -> will use IP1 for read and IP2 for write operations
+* REDIS=IP1, REDIS_READ=IP2, REDIS_WRITE=IP3 -> will use IP2 for read and IP3 for write operations
+* REDIS_READ=IP1, REDIS_WRITE=IP2 -> will use IP1 for read and IP2 for write operations
+* REDIS_READ=IP1 -> will use IP1 for read operations; write operations are ignored
+* REDIS_WRITE=IP1 -> will use IP1 for write operations; read operations are ignored
+
 The *ng* Control Protocol
 =========================
 
