@@ -82,7 +82,7 @@ int redis_restore(struct callmaster *, struct redis *, int);
 void redis_update(struct call *, struct redis *, int, enum call_opmode);
 void redis_delete(struct call *, struct redis *, int);
 void redis_wipe(struct redis *, int);
-
+void redis_notify_event_base_loopbreak(struct callmaster *cm);
 
 
 

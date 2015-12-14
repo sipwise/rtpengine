@@ -645,6 +645,8 @@ int main(int argc, char **argv) {
 		threads_join_all(0);
 	}
 
+	redis_notify_event_base_loopbreak(ctx.m);
+
 	threads_join_all(1);
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);

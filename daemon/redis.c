@@ -263,6 +263,14 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 }
 
+void redis_notify_event_base_loopbreak(struct callmaster *cm) {
+	if (cm->conf.redis_notify_event_base) {
+		event_base_loopbreak(cm->conf.redis_notify_event_base);
+		free(cm->conf.redis_notify_event_base);
+		cm->conf.redis_notify_event_base = 0;
+	}
+}
+
 void redis_notify(void *d) {
 	struct callmaster *cm = d;
 	struct redis *r = 0;
@@ -275,7 +283,7 @@ void redis_notify(void *d) {
 		return;
 	}
 
-    struct event_base *base = event_base_new();
+	cm->conf.redis_notify_event_base = event_base_new();
 
     redisAsyncContext *c = redisAsyncConnect(r->host, r->endpoint.port);
     if (c->err) {
@@ -283,10 +291,10 @@ void redis_notify(void *d) {
         return;
     }
 
-    redisLibeventAttach(c, base);
-    // redisAsyncCommand(c, onRedisNotification, d, "SUBSCRIBE testtopic");
+    redisLibeventAttach(c, cm->conf.redis_notify_event_base);
+
     redisAsyncCommand(c, onRedisNotification, d, "psubscribe __key*__:notifier-*");
-    event_base_dispatch(base);
+    event_base_dispatch(cm->conf.redis_notify_event_base);
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, int role) {

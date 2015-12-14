@@ -426,6 +426,7 @@ struct callmaster_config {
 	struct redis		*redis;
 	struct redis		*redis_read;
 	struct redis		*redis_write;
+	struct event_base   *redis_notify_event_base;
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;
