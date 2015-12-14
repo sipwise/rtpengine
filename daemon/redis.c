@@ -265,13 +265,21 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 void redis_notify(void *d) {
 	struct callmaster *cm = d;
-	struct redis *r = cm->conf.redis;
+	struct redis *r = 0;
+	if (cm->conf.redis_read) {
+		r = cm->conf.redis_read;
+	} else if (cm->conf.redis) {
+		r = cm->conf.redis;
+	} else {
+		rlog(LOG_INFO,"Neither redis master nor redis_read configured. redis notification aborted.");
+		return;
+	}
 
     struct event_base *base = event_base_new();
 
     redisAsyncContext *c = redisAsyncConnect(r->host, r->endpoint.port);
     if (c->err) {
-        printf("error: %s\n", c->errstr);
+    	rlog(LOG_ERROR, "error: %s\n", c->errstr);
         return;
     }
 
