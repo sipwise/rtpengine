@@ -620,7 +620,7 @@ int main(int argc, char **argv) {
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(poller_timer_loop, ctx.p);
 
-	if (!is_addr_unspecified(&redis_read_ep.address))
+	if (!is_addr_unspecified(&redis_read_ep.address) || !is_addr_unspecified(&redis_ep.address))
 		thread_create_detach(redis_notify, ctx.m);
 
 	if (!is_addr_unspecified(&graphite_ep.address))
