@@ -18,7 +18,7 @@
 #include "aux.h"
 #include "log_funcs.h"
 #include "poller.h"
-#include "fs.h"
+#include "recording.h"
 
 
 
@@ -834,7 +834,7 @@ void kernelize(struct packet_stream *stream) {
 	struct packet_stream *sink = NULL;
 	const char *nk_warn_msg;
 
-	if (PS_ISSET(stream, KERNELIZED) || call->record_call)
+	if (PS_ISSET(stream, KERNELIZED) || call->recording != NULL)
 		return;
 	if (cm->conf.kernelid < 0)
 		goto no_kernel;
@@ -1035,8 +1035,8 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	struct rtp_header *rtp_h;
 	struct rtp_stats *rtp_s;
 
-	recording_pdumper = sfd->stream->media->monologue->recording_pdumper;
 	call = sfd->call;
+	recording_pdumper = call->recording != NULL ? call->recording->recording_pdumper : NULL;
 	cm = call->callmaster;
 
 	rwlock_lock_r(&call->master_lock);

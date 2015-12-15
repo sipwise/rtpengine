@@ -18,6 +18,7 @@
 #include "control_udp.h"
 #include "rtp.h"
 #include "ice.h"
+#include "recording.h"
 
 
 
@@ -689,17 +690,26 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 
 	if (recordcall.s && !str_cmp(&recordcall, "yes")) {
-		if (!call->record_call) {
-			meta_setup_file(call);
-			call->record_call = 1;
+		if (call->recording == NULL) {
+			call->recording = g_slice_alloc0(sizeof(struct recording));
+			call->recording->recording_pd = NULL;
+			call->recording->recording_pdumper = NULL;
+			meta_setup_file(call->recording);
 		}
 		bencode_dictionary_get_str(input, "metadata", &metadata);
 		if (metadata.len > 0) {
-			free(call->metadata);
-			call->metadata = str_dup(&metadata);
+			free(call->recording->metadata);
+			call->recording->metadata = str_dup(&metadata);
 		}
 	} else {
-		call->record_call = 0;
+		if (call->recording != NULL) {
+			g_slice_free1(sizeof(*(call->recording)), call->recording);
+			str *rec_metadata = call->recording->metadata;
+			if (rec_metadata != NULL) {
+				free(rec_metadata);
+			}
+		}
+		call->recording = NULL;
 	}
 
 	if (!call->created_from && addr) {
@@ -750,10 +760,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		chopper->iov_num, chopper->str_len);
 	bencode_dictionary_add_string(output, "result", "ok");
 	bencode_item_t *recordings = bencode_dictionary_add_list(output, "recordings");
-	GList *l;
-	char *recording_path;
-	for (l = call->recording_pcaps; l; l = l->next) {
-		bencode_list_add_string(recordings, l->data);
+	if (call->recording != NULL && call->recording->recording_path != NULL) {
+		char *recording_path = call->recording->recording_path->s;
+		bencode_list_add_string(recordings, recording_path);
 	}
 
 	errstr = NULL;

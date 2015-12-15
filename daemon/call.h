@@ -399,9 +399,6 @@ struct call_monologue {
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
 	GQueue			medias;
-	pcap_t			*recording_pd;
-	pcap_dumper_t		*recording_pdumper;
-	str		*recording_path;
 };
 
 struct call {
@@ -423,9 +420,6 @@ struct call {
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 
-	unsigned int record_call;
-	GSList			*recording_pcaps;
-
 	str			callid;
 	time_t			created;
 	time_t			last_signal;
@@ -438,9 +432,7 @@ struct call {
 	unsigned int		redis_hosted_db;
 	unsigned int		foreign_call; // created_via_redis_notify call
 
-	str			*meta_filepath;
-	FILE		*meta_fp;
-	str			*metadata;
+	struct recording 	*recording;
 };
 
 struct callmaster_config {

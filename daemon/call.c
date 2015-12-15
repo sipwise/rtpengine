@@ -36,7 +36,7 @@
 #include "ice.h"
 #include "rtpengine_config.h"
 #include "log_funcs.h"
-#include "fs.h"
+#include "recording.h"
 
 
 
@@ -1523,11 +1523,13 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 	ml_media = other_ml_media = NULL;
 
-	str *pcap_path = recording_setup_file(call, monologue);
-	if (pcap_path != NULL != NULL && monologue->recording_pdumper != NULL
-	    && call->meta_fp) {
-		// Write the location of the PCAP file to the metadata file
-		fprintf(call->meta_fp, "%s\n", pcap_path->s);
+	if (call->recording != NULL && call->recording->recording_pdumper == NULL) {
+		str *pcap_path = recording_setup_file(call->recording);
+		if (pcap_path != NULL && call->recording->recording_pdumper != NULL
+				&& call->recording->meta_fp) {
+			// Write the location of the PCAP file to the metadata file
+			fprintf(call->recording->meta_fp, "%s\n", pcap_path->s);
+		}
 	}
 
 	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
@@ -2216,13 +2218,12 @@ void call_destroy(struct call *c) {
 		obj_put(sfd);
 	}
 
-	while (c->recording_pcaps) {
-		free(c->recording_pcaps->data);
-		c->recording_pcaps = g_slist_delete_link(c->recording_pcaps, c->recording_pcaps);
+	if (c->recording != NULL) {
+		recording_finish_file(c->recording);
+		free(c->recording->metadata);
 	}
-
 	meta_finish_file(c);
-	free(c->metadata);
+
 
 	rwlock_unlock_w(&c->master_lock);
 }
@@ -2319,6 +2320,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0("call", sizeof(*c), __call_free);
+	c->recording = NULL;
 	c->callmaster = m;
 	mutex_init(&c->buffer_lock);
 	call_buffer_init(&c->buffer);
@@ -2415,8 +2417,6 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = poller_now;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
-	ret->recording_pd = NULL;
-	ret->recording_pdumper = NULL;
 
 	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);
@@ -2491,7 +2491,6 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 	GList *l;
 
 	call = monologue->call;
-	recording_finish_file(monologue);
 
 	g_hash_table_remove(call->tags, &monologue->tag);
 
