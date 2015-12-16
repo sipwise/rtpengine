@@ -1,3 +1,52 @@
+ngcp-rtpengine (4.2.1.0+0~mr4.2.1.0) unstable; urgency=medium
+
+  [ Frederic-Philippe Metz ]
+  * [10f6e51] Replaced sprintf by snprintf for cdrbuffer
+  * [8219921] Extended callid space for list_* output
+
+  [ smititelu ]
+  * [c406e6d] Some ICE NULL checks
+  * [637f9f9] Add logging related to kernelization and strict-source flag - master branch
+  * [4b92d14] Allow more than 65536 open files
+  * [c44c35a] Add 'rtpengine-ctl list maxsessions' command
+  * [00bb10b] Add 'rtpengine-ctl set maxsessions X' command
+  * [012bcc4] Add 'rtpengine-ctl list maxopenfiles' command
+  * [06b1293] Update rtpengine-ctl util
+  * [c969ab9] Change maxsessions feature behaviour
+  * [32a4299] Update README.md for --max-sessions
+  * [0309123] Update README with REDIS details
+
+  [ Camille Oudot ]
+  * [fad4074] allow non-root users to control the kernel module
+  * [5a8f5c3] add possibility to choose rtpengine process user
+  * [88ce85e] remove kernel module uid/gid global switch
+  * [6f6a703] add option to set the group owning /proc/rtpengine
+  * [548b710] disable procfs uid/gid for kernels prior to 3.10
+
+  [ Richard Fuchs ]
+  * [99a3faf] MT#15289 add "reset" flag to un-learn certain parameters
+  * [ed75c99] fix a memory leak
+  * [1a67331] fix compiler warnings
+  * [28d877b] remove superfluous ice agent warning
+  * [2cff49b] support reset flag in ng-client
+  * [1c6eec4] additional DTLS debug log messages
+  * [59a69f0] Improve DTLS packet processing
+  * [cae0b4b] compile fix for debug builds
+  * [afa46a4] use `reset` flag to also reset and restart ICE agents
+  * [6d3865b] Mass update - manual merge of rfuchs/socket-rework branch
+  * [6b5c4e8] Mass update for non-daemon code (see `6d3865b`)
+  * [31d28a3] MT#16783 support via-branch matching in `delete` messages
+  * [cd34dde] fix missing redis expiry times
+  * [cb53218] fix incomplete dialogue association when initial offer contains to-tag
+
+  [ Lucian Balaceanu ]
+  * [41fa252] Replacing redis hashkeys with -CALLID_IDX instead of -POINTER
+  * [8ee14e5] Fixing managed_sess_min interval statistic.
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 16 Dec 2015 09:33:00 +0100
+
 ngcp-rtpengine (4.2.0.0+0~mr4.2.0.0) unstable; urgency=medium
 
   [ Stefan Mititelu ]
