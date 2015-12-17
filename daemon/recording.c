@@ -245,13 +245,18 @@ void recording_finish_file(struct recording *recording) {
  * Write out a PCAP packet with payload string.
  * A fair amount extraneous of packet data is spoofed.
  */
-void stream_pcap_dump(pcap_dumper_t *pdumper, str *s) {
+void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *sink, str *s) {
+	endpoint_t src_endpoint = sink->advertised_endpoint;
+	endpoint_t dst_endpoint = sink->endpoint;
+
 	// Wrap RTP in fake UDP packet header
 	// Right now, we spoof it all
 	u_int16_t udp_len = ((u_int16_t)s->len) + 8;
 	u_int16_t udp_header[4];
-	udp_header[0] = htons(5028); // source port
-	udp_header[1] = htons(50116); // destination port
+	u_int16_t src_port = (u_int16_t) src_endpoint.port;
+	u_int16_t dst_port = (u_int16_t) dst_endpoint.port;
+	udp_header[0] = htons(src_port); // source port
+	udp_header[1] = htons(dst_port); // destination port
 	udp_header[2] = htons(udp_len); // packet length
 	udp_header[3] = 0; // checksum
 
@@ -260,6 +265,8 @@ void stream_pcap_dump(pcap_dumper_t *pdumper, str *s) {
 	u_int16_t *ip_total_length = (u_int16_t*)(ip_header + 2);
 	u_int32_t *ip_src_addr = (u_int32_t*)(ip_header + 12);
 	u_int32_t *ip_dst_addr = (u_int32_t*)(ip_header + 16);
+	unsigned long src_ip = src_endpoint.address.u.ipv4.s_addr;
+	unsigned long dst_ip = dst_endpoint.address.u.ipv4.s_addr;
 	memset(ip_header, 0, 20);
 	ip_header[0] = 4 << 4; // IP version - 4 bits
 	ip_header[0] = ip_header[0] | 5; // Internet Header Length (IHL) - 4 bits
@@ -272,8 +279,8 @@ void stream_pcap_dump(pcap_dumper_t *pdumper, str *s) {
 	ip_header[8] = 64; // TTL - 1 byte
 	ip_header[9] = 17; // Protocol (defines protocol in data portion) - 1 byte
 	ip_header[10] = 0; ip_header[11] = 0; // Header Checksum - 2 bytes
-	*ip_src_addr = htonl(2130706433); // Source IP (set to localhost) - 4 bytes
-	*ip_dst_addr = htonl(2130706433); // Destination IP (set to localhost) - 4 bytes
+	*ip_src_addr = src_ip; // Source IP (set to localhost) - 4 bytes
+	*ip_dst_addr = dst_ip; // Destination IP (set to localhost) - 4 bytes
 
 	// Set up PCAP packet header
 	struct pcap_pkthdr header;
@@ -283,7 +290,7 @@ void stream_pcap_dump(pcap_dumper_t *pdumper, str *s) {
 	// This must be the same value we use in `pcap_open_dead`
 	header.len = s->len + 28;
 
-  // Copy all the headers and payload into a new string
+	// Copy all the headers and payload into a new string
 	unsigned char pkt_s[*ip_total_length];
 	memcpy(pkt_s, ip_header, 20);
 	memcpy(pkt_s + 20, udp_header, 8);

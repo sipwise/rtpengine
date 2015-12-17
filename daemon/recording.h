@@ -71,6 +71,6 @@ void recording_finish_file(struct recording *recording);
  * Write out a PCAP packet with payload string.
  * A fair amount extraneous of packet data is spoofed.
  */
-void stream_pcap_dump(pcap_dumper_t *pdumper, str *s);
+void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *sink, str *s);
 
 #endif
