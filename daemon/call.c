@@ -2220,10 +2220,9 @@ void call_destroy(struct call *c) {
 
 	if (c->recording != NULL) {
 		recording_finish_file(c->recording);
-		free(c->recording->metadata);
+		meta_finish_file(c);
+		g_slice_free1(sizeof(*(c->recording)), c->recording);
 	}
-	meta_finish_file(c);
-	g_slice_free1(sizeof(*(c->recording)), c->recording);
 
 
 	rwlock_unlock_w(&c->master_lock);

@@ -151,6 +151,7 @@ int meta_finish_file(struct call *call) {
 
 		// Print metadata
 		fprintf(recording->meta_fp, "\n%s\n", recording->metadata->s);
+		free(recording->metadata);
 		fclose(recording->meta_fp);
 
 		// Get the filename (in between its directory and the file extension)
