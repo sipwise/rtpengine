@@ -472,10 +472,7 @@ The options are described in more detail below.
 
 	The format for a metadata file is (with a trailing newline):
 
-		/path/to/rec-pcap01.pcap
-		/path/to/rec-pcap02.pcap
-		...
-		/path/to/rec-pcap0n.pcap
+		/path/to/recording-pcap.pcap
 
 		start timestamp (YYYY-MM-DDThh:mm:ss)
 		end timestamp   (YYYY-MM-DDThh:mm:ss)

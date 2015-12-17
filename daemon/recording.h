@@ -37,10 +37,7 @@ void recording_fs_init(char *spooldir);
  *
  * Metadata file format is (with trailing newline):
  *
- *     /path/to/rec-pcap01.pcap
- *     /path/to/rec-pcap02.pcap
- *     ...
- *     /path/to/rec-pcap0n.pcap
+ *     /path/to/recording-pcap.pcap
  *
  *     start timestamp (YYYY-MM-DDThh:mm:ss)
  *     end timestamp   (YYYY-MM-DDThh:mm:ss)
