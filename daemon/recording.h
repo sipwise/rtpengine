@@ -44,20 +44,29 @@ void recording_fs_init(char *spooldir);
  *
  *     generic metadata
  *
+ * Temporary files go in /tmp/. They will end up in
+ * ${RECORDING_DIR}/metadata/. They are named like:
+ * ${CALL_ID}-${RAND-HEX}.pcap
+ *
  */
-str *meta_setup_file(struct recording *recording);
+str *meta_setup_file(struct recording *recording, str callid);
 
 /**
- * Writes metadata to metafile, closes file, and renames it to finished location.
+ * Writes metadata to metafile, closes file, and moves it to finished location.
  * Returns non-zero for failure.
+ *
+ * Metadata files are moved to ${RECORDING_DIR}/metadata/
  */
 int meta_finish_file(struct call *call);
 
 /**
  * Generate a random PCAP filepath to write recorded RTP stream.
  * Returns path to created file.
+ *
+ * Files go in ${RECORDING_DIR}/pcaps, and are named like:
+ * ${CALL_ID}-${RAND-HEX}.pcap
  */
-str *recording_setup_file(struct recording *recording);
+str *recording_setup_file(struct recording *recording, str callid);
 
 /**
  * Flushes PCAP file, closes the dumper and descriptors, and frees object memory.

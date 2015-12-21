@@ -294,7 +294,7 @@ INLINE int str_token(str *new_token, str *ori_and_remainder, int sep) {
 
 
 /* Generates a random string sandwiched between affixes. */
-char *rand_affixed_str(int num_bytes, char *prefix, char *suffix);
+char *rand_affixed_str(char *prefix, int num_bytes, char *suffix);
 /* Generates a hex string representing n random bytes. len(rand_str) = 2*num_bytes + 1 */
 char *rand_hex_str(char *rand_str, int num_bytes);
 

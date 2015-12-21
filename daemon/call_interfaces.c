@@ -694,7 +694,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 			call->recording = g_slice_alloc0(sizeof(struct recording));
 			call->recording->recording_pd = NULL;
 			call->recording->recording_pdumper = NULL;
-			meta_setup_file(call->recording);
+			meta_setup_file(call->recording, call->callid);
 		}
 		bencode_dictionary_get_str(input, "metadata", &metadata);
 		if (metadata.len > 0) {

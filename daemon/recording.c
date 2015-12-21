@@ -97,16 +97,20 @@ int maybe_create_spool_dir(char *spoolpath) {
  * Create a call metadata file in a temporary location.
  * Attaches the filepath and the file pointer to the call struct.
  */
-str *meta_setup_file(struct recording *recording) {
+str *meta_setup_file(struct recording *recording, str callid) {
 	if (spooldir == NULL) {
 		// No spool directory was created, so we cannot have metadata files.
 		return NULL;
 	}
 	else {
-		int rand_bytes = 16;
+		int rand_bytes = 8;
 		str *meta_filepath = malloc(sizeof(str));
+		int mid_len = 20 + callid.len + 1 + 1;
+		// Length for spool directory path + "/tmp/rtpengine-meta-${CALLID}-"
+		char suffix_chars[mid_len];
+		snprintf(suffix_chars, mid_len, "/tmp/rtpengine-meta-%s-", callid.s);
 		// Initially file extension is ".tmp". When call is over, it changes to ".txt".
-		char *path_chars = rand_affixed_str(rand_bytes, "/tmp/rtpengine-meta-", ".tmp");
+		char *path_chars = rand_affixed_str(suffix_chars, rand_bytes, ".tmp");
 		meta_filepath = str_init(meta_filepath, path_chars);
 		recording->meta_filepath = meta_filepath;
 		FILE *mfp = fopen(meta_filepath->s, "w");
@@ -193,17 +197,19 @@ int meta_finish_file(struct call *call) {
 
 /**
  * Generate a random PCAP filepath to write recorded RTP stream.
+ * Returns path to created file.
  */
-str *recording_setup_file(struct recording *recording) {
+str *recording_setup_file(struct recording *recording, str callid) {
 	str *recording_path = NULL;
 	if (spooldir != NULL
       && recording != NULL
 	    && recording->recording_pd == NULL && recording->recording_pdumper == NULL) {
-		int rand_bytes = 16;
-		int rec_path_len = strlen(spooldir) + 8; // spool directory path + "/pcaps/"
+		int rand_bytes = 8;
+		// Length for spool directory path + "/pcaps/${CALLID}-"
+		int rec_path_len = strlen(spooldir) + 7 + callid.len + 1 + 1;
 		char rec_path[rec_path_len];
-		snprintf(rec_path, rec_path_len, "%s/pcaps/", spooldir);
-		char *path_chars = rand_affixed_str(rand_bytes, rec_path, ".pcap");
+		snprintf(rec_path, rec_path_len, "%s/pcaps/%s-", spooldir, callid.s);
+		char *path_chars = rand_affixed_str(rec_path, rand_bytes, ".pcap");
 
 		recording_path = malloc(sizeof(str));
 		recording_path = str_init(recording_path, path_chars);

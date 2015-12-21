@@ -41,13 +41,13 @@ void str_slice_free(void *p) {
  */
 char *rand_affixed_str(int num_bytes, char *prefix, char *suffix) {
 	int rand_len = num_bytes*2 + 1;
-	char rand_prefix[rand_len];
+	char rand_affix[rand_len];
 	int prefix_len = strlen(prefix);
 	int suffix_len = strlen(suffix);
 	char *full_path = calloc(rand_len + prefix_len + suffix_len, sizeof(char));
 
-	rand_hex_str(rand_prefix, num_bytes);
-	snprintf(full_path, rand_len+prefix_len, "%s%s", prefix, rand_prefix);
+	rand_hex_str(rand_affix, num_bytes);
+	snprintf(full_path, rand_len+prefix_len, "%s%s", prefix, rand_affix);
 	snprintf(full_path + rand_len+prefix_len-1, suffix_len+1, "%s", suffix);
 	return full_path;
 }
