@@ -689,29 +689,28 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (!call)
 		goto out;
 
-	if (recordcall.s && !str_cmp(&recordcall, "yes")) {
-		if (call->recording == NULL) {
-			call->recording = g_slice_alloc0(sizeof(struct recording));
-			call->recording->recording_pd = NULL;
-			call->recording->recording_pdumper = NULL;
-			meta_setup_file(call->recording, call->callid);
-		}
-		bencode_dictionary_get_str(input, "metadata", &metadata);
-		if (metadata.len > 0) {
-			if (call->recording->metadata != NULL) {
-				free(call->recording->metadata);
+	if (recordcall.s) {
+		if (!str_cmp(&recordcall, "yes")) {
+			call->record_call = TRUE;
+			if (call->recording == NULL) {
+				call->recording = g_slice_alloc0(sizeof(struct recording));
+				call->recording->recording_pd = NULL;
+				call->recording->recording_pdumper = NULL;
+				meta_setup_file(call->recording, call->callid);
 			}
-			call->recording->metadata = str_dup(&metadata);
+		} else if (!str_cmp(&recordcall, "no")) {
+			call->record_call = FALSE;
+		} else {
+			ilog(LOG_INFO, "\"record-call\" flag %s is invalid flag.", recordcall.s);
 		}
-	} else {
-		if (call->recording != NULL) {
-			g_slice_free1(sizeof(*(call->recording)), call->recording);
-			str *rec_metadata = call->recording->metadata;
-			if (rec_metadata != NULL) {
-				free(rec_metadata);
-			}
+	}
+
+	bencode_dictionary_get_str(input, "metadata", &metadata);
+	if (metadata.len > 0 && call->recording != NULL) {
+		if (call->recording->metadata != NULL) {
+			free(call->recording->metadata);
 		}
-		call->recording = NULL;
+		call->recording->metadata = str_dup(&metadata);
 	}
 
 	if (!call->created_from && addr) {

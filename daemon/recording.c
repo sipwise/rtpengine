@@ -186,6 +186,8 @@ int meta_finish_file(struct call *call) {
 			ilog(LOG_INFO, "Moved metadata file \"%s\" to \"%s/metadata\"",
 					 recording->meta_filepath->s, spooldir);
 		}
+	} else {
+		ilog(LOG_INFO, "Trying to clean up recording meta file without a file pointer opened.");
 	}
 	if (recording != NULL && recording->meta_filepath != NULL) {
 		free(recording->meta_filepath->s);

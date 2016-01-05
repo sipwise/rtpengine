@@ -432,6 +432,7 @@ struct call {
 	unsigned int		redis_hosted_db;
 	unsigned int		foreign_call; // created_via_redis_notify call
 
+	int			record_call;
 	struct recording 	*recording;
 };
 
