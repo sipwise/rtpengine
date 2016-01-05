@@ -598,7 +598,7 @@ no_kernel:
 	gettimeofday(&redis_stop, NULL);
 
 	// print redis restore duration
-	redis_diff += timeval_diff(&redis_start, &redis_stop) / 1000.0;
+	redis_diff += timeval_diff(&redis_stop, &redis_start) / 1000.0;
 	ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
 
 	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);

@@ -126,16 +126,24 @@ case "$1" in
 		ip6tables -X mediaproxy 2> /dev/null
 		rmmod xt_MEDIAPROXY 2>/dev/null
 
-		iptables -N rtpengine 2> /dev/null
-		iptables -D INPUT -j rtpengine 2> /dev/null
-		iptables -I INPUT -j rtpengine
-		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-		iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-		ip6tables -N rtpengine 2> /dev/null
-		ip6tables -D INPUT -j rtpengine 2> /dev/null
-		ip6tables -I INPUT -j rtpengine
-		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-		ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		if [ "$CREATE_IPTABLES_CHAIN" != "no" ]; then
+			iptables -N rtpengine 2> /dev/null
+			iptables -D INPUT -j rtpengine 2> /dev/null
+			iptables -I INPUT -j rtpengine
+			ip6tables -N rtpengine 2> /dev/null
+			ip6tables -D INPUT -j rtpengine 2> /dev/null
+			ip6tables -I INPUT -j rtpengine
+		fi
+		if iptables -C INPUT -j rtpengine 1> /dev/null 2> /dev/null && iptables -n --list rtpengine 1> /dev/null 2> /dev/null; then
+			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+			iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		else
+			echo ""
+			echo "Missing rtpengine iptables chain - not starting"
+			exit 0
+		fi
 		set -e
 	fi
 	start-stop-daemon --start --quiet --pidfile $PIDFILE \
@@ -213,20 +221,26 @@ case "$1" in
 		ip6tables -F mediaproxy 2> /dev/null
 		ip6tables -X mediaproxy 2> /dev/null
 		rmmod xt_MEDIAPROXY 2>/dev/null
-
-		iptables -D INPUT -j rtpengine 2> /dev/null
-		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-		ip6tables -D INPUT -j rtpengine 2> /dev/null
-		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
 		rmmod xt_RTPENGINE 2>/dev/null
-
 		modprobe xt_RTPENGINE
-		iptables -N rtpengine 2> /dev/null
-		iptables -I INPUT -j rtpengine
-		iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-		ip6tables -N rtpengine 2> /dev/null
-		ip6tables -I INPUT -j rtpengine
-		ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		if [ "$CREATE_IPTABLES_CHAIN" != "no" ]; then
+			iptables -D INPUT -j rtpengine 2> /dev/null
+			ip6tables -D INPUT -j rtpengine 2> /dev/null
+			iptables -N rtpengine 2> /dev/null
+			iptables -I INPUT -j rtpengine
+			ip6tables -N rtpengine 2> /dev/null
+			ip6tables -I INPUT -j rtpengine
+		fi
+		if iptables -C INPUT -j rtpengine 1> /dev/null 2> /dev/null && iptables -n --list rtpengine 1> /dev/null 2> /dev/null; then
+			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+			iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		else
+			echo ""
+                        echo "Missing rtpengine iptables chain - not starting"
+                        exit 0
+		fi
 		set -e
 	fi
 	start-stop-daemon --start --quiet --pidfile \
