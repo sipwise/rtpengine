@@ -75,7 +75,7 @@ int maybe_create_spool_dir(char *spoolpath) {
 
 		if (stat(meta_path, &info) != 0) {
 			fprintf(stdout, "Creating metadata directory \"%s\".\n", meta_path);
-			mkdir(meta_path, 0660);
+			mkdir(meta_path, 0777);
 		} else if(!S_ISDIR(info.st_mode)) {
 			fprintf(stderr, "metadata file exists, but \"%s\" is not a directory.\n", meta_path);
 			spool_good = FALSE;
@@ -83,7 +83,7 @@ int maybe_create_spool_dir(char *spoolpath) {
 
 		if (stat(rec_path, &info) != 0) {
 			fprintf(stdout, "Creating pcaps directory \"%s\".\n", rec_path);
-			mkdir(rec_path, 0660);
+			mkdir(rec_path, 0777);
 		} else if(!S_ISDIR(info.st_mode)) {
 			fprintf(stderr, "pcaps file exists, but \"%s\" is not a directory.\n", rec_path);
 			spool_good = FALSE;
