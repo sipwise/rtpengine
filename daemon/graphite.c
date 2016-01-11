@@ -21,7 +21,7 @@
 #include "socket.h"
 
 static socket_t graphite_sock;
-static int connectinprogress=0;
+static int connection_state = STATE_DISCONNECTED;
 //struct totalstats totalstats_prev;
 static time_t next_run;
 // HEAD: static time_t g_now, next_run;
@@ -57,7 +57,7 @@ int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	else {
 		/* EINPROGRESS */
 		ilog(LOG_INFO, "Connection to graphite is in progress.");
-		connectinprogress = 1;
+		connection_state = STATE_IN_PROGRESS;
 	}
 
 	return 0;
@@ -200,7 +200,7 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
                 return ;
         }
 
-	if (connectinprogress && graphite_sock.fd >= 0) {
+	if (connection_state == STATE_IN_PROGRESS && graphite_sock.fd >= 0) {
 		FD_SET(graphite_sock.fd,&wfds);
 		tv.tv_sec = 0;
 		tv.tv_usec = 1000000;
@@ -209,6 +209,7 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 		if ((rc == -1) && (errno == EINTR)) {
 			ilog(LOG_ERROR,"Error on the socket.");
 			close_socket(&graphite_sock);
+			connection_state = STATE_DISCONNECTED;
 			return;
 		} else if (rc==0) {
 			// timeout
@@ -216,6 +217,8 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 		} else {
 			if (!FD_ISSET(graphite_sock.fd,&wfds)) {
 				ilog(LOG_WARN,"fd active but not the graphite fd.");
+				close_socket(&graphite_sock);
+				connection_state = STATE_DISCONNECTED;
 				return;
 			}
 			rc = getsockopt(graphite_sock.fd, SOL_SOCKET, SO_ERROR, &optval, &optlen);
@@ -223,10 +226,11 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 			if (optval != 0) {
 				ilog(LOG_ERROR,"Socket connect failed. fd: %i, Reason: %s\n",graphite_sock.fd, strerror(optval));
 				close_socket(&graphite_sock);
+				connection_state = STATE_DISCONNECTED;
 				return;
 			}
 			ilog(LOG_INFO, "Graphite server connected.");
-			connectinprogress=0;
+			connection_state = STATE_CONNECTED;
 			next_run=0; // fake next run to skip sleep after reconnect
 		}
 	}
@@ -239,17 +243,19 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 
 	next_run = g_now.tv_sec + seconds;
 
-	if (graphite_sock.fd < 0 && !connectinprogress) {
+	if (graphite_sock.fd < 0 && connection_state == STATE_DISCONNECTED) {
 		rc = connect_to_graphite_server(graphite_ep);
 	}
 
-	if (graphite_sock.fd >= 0 && !connectinprogress) {
+	if (graphite_sock.fd >= 0 && connection_state == STATE_CONNECTED) {
 		add_total_calls_duration_in_interval(cm, &graphite_interval_tv);
 
 		rc = send_graphite_data(cm, &graphite_stats);
 		gettimeofday(&cm->latest_graphite_interval_start, NULL);
-		if (rc<0) {
+		if (rc < 0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
+			close_socket(&graphite_sock);
+			connection_state = STATE_DISCONNECTED;
 		}
 
 		copy_with_lock(&cm->totalstats_lastinterval, &graphite_stats, &cm->totalstats_lastinterval.total_average_lock);
@@ -266,7 +272,7 @@ void graphite_loop(void *d) {
                 return ;
         }
 
-	if (!cm->conf.graphite_interval) {
+	if (cm->conf.graphite_interval <= 0) {
 		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
 		cm->conf.graphite_interval=1;
 	}

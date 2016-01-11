@@ -10,6 +10,12 @@
 
 #include "call.h"
 
+enum connection_state {
+	STATE_DISCONNECTED = 0,
+	STATE_IN_PROGRESS,
+	STATE_CONNECTED,
+};
+
 int connect_to_graphite_server(const endpoint_t *ep);
 int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data);
 void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int seconds);
