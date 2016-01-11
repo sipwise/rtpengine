@@ -21,9 +21,7 @@
 #include "socket.h"
 
 static socket_t graphite_sock;
-static const endpoint_t *graphite_ep;
 static int connectinprogress=0;
-static struct callmaster* cm=0;
 //struct totalstats totalstats_prev;
 static time_t next_run;
 // HEAD: static time_t g_now, next_run;
@@ -39,13 +37,17 @@ void set_prefix(char* prefix) {
 	graphite_prefix = prefix;
 }
 
-int connect_to_graphite_server(const endpoint_t *ep) {
-	graphite_ep = ep;
+int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	int rc;
 
-	ilog(LOG_INFO, "Connecting to graphite server %s", endpoint_print_buf(ep));
+        if (!graphite_ep) {
+                ilog(LOG_ERROR, "NULL graphite_ep");
+                return -1;
+        }
 
-	rc = connect_socket_nb(&graphite_sock, SOCK_STREAM, ep);
+	ilog(LOG_INFO, "Connecting to graphite server %s", endpoint_print_buf(graphite_ep));
+
+	rc = connect_socket_nb(&graphite_sock, SOCK_STREAM, graphite_ep);
 	if (rc == -1) {
 		ilog(LOG_ERROR,"Couldn't make socket for connecting to graphite.");
 		return -1;
@@ -61,9 +63,15 @@ int connect_to_graphite_server(const endpoint_t *ep) {
 	return 0;
 }
 
-int send_graphite_data(struct totalstats *sent_data) {
+int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 
 	int rc=0;
+
+        // sanity checks
+        if (!cm) {
+                ilog(LOG_ERROR, "NULL callmaster when trying to send data");
+                return -1;
+        }
 
 	if (graphite_sock.fd < 0) {
 		ilog(LOG_ERROR,"Graphite socket is not connected.");
@@ -172,7 +180,7 @@ static inline void copy_with_lock(struct totalstats *ts_dst, struct totalstats *
 	mutex_unlock(ts_lock);
 }
 
-void graphite_loop_run(struct callmaster* callmaster, int seconds) {
+void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int seconds) {
 
 	int rc=0;
 	fd_set wfds;
@@ -180,6 +188,17 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 	struct timeval tv;
 	int optval=0;
 	socklen_t optlen=sizeof(optval);
+
+        // sanity checks
+        if (!cm) {
+                ilog(LOG_ERROR, "NULL callmaster");
+                return ;
+        }
+
+        if (!graphite_ep) {
+                ilog(LOG_ERROR, "NULL graphite_ep");
+                return ;
+        }
 
 	if (connectinprogress && graphite_sock.fd >= 0) {
 		FD_SET(graphite_sock.fd,&wfds);
@@ -197,7 +216,6 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 		} else {
 			if (!FD_ISSET(graphite_sock.fd,&wfds)) {
 				ilog(LOG_WARN,"fd active but not the graphite fd.");
-			close_socket(&graphite_sock);
 				return;
 			}
 			rc = getsockopt(graphite_sock.fd, SOL_SOCKET, SO_ERROR, &optval, &optlen);
@@ -221,9 +239,6 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 
 	next_run = g_now.tv_sec + seconds;
 
-	if (!cm)
-		cm = callmaster;
-
 	if (graphite_sock.fd < 0 && !connectinprogress) {
 		rc = connect_to_graphite_server(graphite_ep);
 	}
@@ -231,7 +246,7 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 	if (graphite_sock.fd >= 0 && !connectinprogress) {
 		add_total_calls_duration_in_interval(cm, &graphite_interval_tv);
 
-		rc = send_graphite_data(&graphite_stats);
+		rc = send_graphite_data(cm, &graphite_stats);
 		gettimeofday(&cm->latest_graphite_interval_start, NULL);
 		if (rc<0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
@@ -245,6 +260,12 @@ void graphite_loop_run(struct callmaster* callmaster, int seconds) {
 void graphite_loop(void *d) {
 	struct callmaster *cm = d;
 
+        // sanity checks
+        if (!cm) {
+                ilog(LOG_ERROR, "NULL callmaster");
+                return ;
+        }
+
 	if (!cm->conf.graphite_interval) {
 		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
 		cm->conf.graphite_interval=1;
@@ -253,5 +274,5 @@ void graphite_loop(void *d) {
 	connect_to_graphite_server(&cm->conf.graphite_ep);
 
 	while (!g_shutdown)
-		graphite_loop_run(cm,cm->conf.graphite_interval); // time in seconds
+		graphite_loop_run(cm, &cm->conf.graphite_ep, cm->conf.graphite_interval); // time in seconds
 }

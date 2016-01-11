@@ -11,8 +11,8 @@
 #include "call.h"
 
 int connect_to_graphite_server(const endpoint_t *ep);
-int send_graphite_data();
-void graphite_loop_run(struct callmaster* cm, int seconds);
+int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data);
+void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int seconds);
 void set_prefix(char* prefix);
 void graphite_loop(void *d);
 void set_latest_graphite_interval_start(struct timeval *tv);
