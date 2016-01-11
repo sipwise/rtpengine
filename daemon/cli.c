@@ -164,8 +164,8 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
        return;
    }
 
-   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu\n\n",
-		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal);
+   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu | redis_keyspace:%i\n\n",
+		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db);
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues.head; l; l = l->next) {
@@ -360,7 +360,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        while (g_hash_table_iter_next (&iter, &key, &value)) {
            ptrkey = (str*)key;
            call = (struct call*)value;
-           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i  | proxy:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from);
+           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db);
            ADJUSTLEN(printlen,outbufend,replybuffer);
        }
        rwlock_unlock_r(&m->hashlock);
@@ -467,6 +467,52 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
    obj_put(c);
 }
 
+static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+
+	unsigned int keyspace_db;
+	str str_keyspace_db;
+
+	if (len<=1) {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	}
+	++buffer; --len; // one space
+
+	str_keyspace_db.s = buffer;
+	str_keyspace_db.len = len;
+	keyspace_db = str_to_i(&str_keyspace_db, -1);
+
+	redis_notify_subscribe_keyspace(m,keyspace_db);
+
+	printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully added keyspace %i to redis notifications.\n", keyspace_db);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+}
+
+static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+
+	unsigned int keyspace_db;
+	str str_keyspace_db;
+
+	if (len<=1) {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	}
+	++buffer; --len; // one space
+
+	str_keyspace_db.s = buffer;
+	str_keyspace_db.len = len;
+	keyspace_db = str_to_i(&str_keyspace_db, -1);
+
+	redis_notify_unsubscribe_keyspace(m,keyspace_db);
+
+	printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully removed keyspace %i to redis notifications.\n", keyspace_db);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+}
+
 static void cli_incoming(int fd, void *p, uintptr_t u) {
    int nfd;
    struct sockaddr_in sin;
@@ -514,6 +560,8 @@ next:
    static const char* LIST = "list";
    static const char* TERMINATE = "terminate";
    static const char* SET = "set";
+   static const char* KSADD = "ksadd";
+   static const char* KSRM = "ksrm";
 
    if (strncmp(inbuf,LIST,strlen(LIST)) == 0) {
        cli_incoming_list(inbuf+strlen(LIST), inlen-strlen(LIST), cli->callmaster, outbuf, outbufend);
@@ -521,6 +569,10 @@ next:
        cli_incoming_terminate(inbuf+strlen(TERMINATE), inlen-strlen(TERMINATE), cli->callmaster, outbuf, outbufend);
    } else  if (strncmp(inbuf,SET,strlen(SET)) == 0) {
        cli_incoming_set(inbuf+strlen(SET), inlen-strlen(SET), cli->callmaster, outbuf, outbufend);
+   } else  if (strncmp(inbuf,KSADD,strlen(KSADD)) == 0) {
+       cli_incoming_ksadd(inbuf+strlen(KSADD), inlen-strlen(KSADD), cli->callmaster, outbuf, outbufend);
+   } else  if (strncmp(inbuf,KSRM,strlen(KSRM)) == 0) {
+       cli_incoming_ksrm(inbuf+strlen(KSRM), inlen-strlen(KSRM), cli->callmaster, outbuf, outbufend);
    } else {
        sprintf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", inbuf);
    }

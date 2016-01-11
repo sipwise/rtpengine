@@ -414,6 +414,7 @@ struct call {
 	unsigned char		tos;
 	char			*created_from;
 	sockaddr_t		created_from_addr;
+	int             redis_hosted_db;
 };
 
 struct callmaster_config {

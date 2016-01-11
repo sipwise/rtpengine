@@ -221,6 +221,10 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 	struct redis *r = 0;
 	struct call* c;
 	str callid;
+	char db_str[16]; memset(&db_str, 0, 8);
+	char* pdbstr = db_str;
+	unsigned char* p = 0;
+	int dbno;
 
 	if (cm->conf.redis_read) {
 		r = cm->conf.redis_read;
@@ -249,6 +253,20 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 		return;
 	}
 
+
+	// extract <db> from __keyspace@<db>__ prefix
+	p = strstr(rr->element[2]->str, "@");
+	++p;
+	while (isdigit(*p)) {
+		*pdbstr = *p;
+		++pdbstr; ++p;
+		if (pdbstr-db_str>15) {
+			rlog(LOG_ERROR, "Could not extract keyspace db from notification.");
+			return;
+		}
+	}
+	dbno = atoi(db_str);
+
 	pch += strlen("notifier-");
 	str_cut(rr->element[2]->str,0,pch-rr->element[2]->str);
 	rr->element[2]->len = strlen(rr->element[2]->str);
@@ -264,6 +282,12 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 			return;
 		}
 		redis_restore_call(r, cm, rr->element[2]);
+
+		// we lookup again to retrieve the call to insert the kayspace db id
+		c = g_hash_table_lookup(cm->callhash, &callid);
+		if (c) {
+			c->redis_hosted_db = dbno;
+		}
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
@@ -275,6 +299,20 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 void redis_notify_event_base_loopbreak(struct callmaster *cm) {
 	event_base_loopbreak(cm->conf.redis_notify_event_base);
     redisAsyncCommand(cm->conf.redis_notify_async_context, onRedisNotification, NULL, "punsubscribe");
+}
+
+void redis_notify_subscribe_keyspace(struct callmaster *cm, int keyspace) {
+    char* main_db_str[256];
+    sprintf(main_db_str,"psubscribe __keyspace@%i*:notifier-*", keyspace);
+
+    redisAsyncCommand(cm->conf.redis_notify_async_context, onRedisNotification, (void*)cm, main_db_str);
+}
+
+void redis_notify_unsubscribe_keyspace(struct callmaster *cm, int keyspace) {
+    char* main_db_str[256];
+    sprintf(main_db_str,"punsubscribe __keyspace@%i*:notifier-*", keyspace);
+
+    redisAsyncCommand(cm->conf.redis_notify_async_context, onRedisNotification, (void*)cm, main_db_str);
 }
 
 void redis_notify(void *d) {
@@ -299,8 +337,9 @@ void redis_notify(void *d) {
 
     redisLibeventAttach(cm->conf.redis_notify_async_context, cm->conf.redis_notify_event_base);
 
-    redisAsyncCommand(cm->conf.redis_notify_async_context, onRedisNotification, d, "psubscribe __key*__:notifier-*");
+    redis_notify_subscribe_keyspace(cm,r->db);
     event_base_dispatch(cm->conf.redis_notify_event_base);
+
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, int role) {
@@ -1001,10 +1040,6 @@ static int redis_link_maps(struct redis *r, struct call *c, struct redis_list *m
 }
 
 
-
-
-
-
 static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id) {
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
@@ -1090,6 +1125,7 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 		goto err6;
 
 	err = NULL;
+	c->redis_hosted_db = r->db;
 	obj_put(c);
 
 err6:
@@ -1537,6 +1573,7 @@ void redis_update(struct call *c, struct redis *r, int role, enum call_opmode op
 	if (opmode==OP_ANSWER) {
 		redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));
 	}
+	c->redis_hosted_db = r->db;
 
 	redis_consume(r);
 	mutex_unlock(&r->lock);
