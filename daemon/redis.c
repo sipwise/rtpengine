@@ -226,14 +226,21 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 	unsigned char* p = 0;
 	int dbno;
 
-	if (cm->conf.redis_read) {
-		r = cm->conf.redis_read;
-	} else if (cm->conf.redis) {
-		r = cm->conf.redis;
-	} else {
+	if (!(cm->conf.redis_read) && !(cm->conf.redis)) {
 		rlog(LOG_ERROR, "A redis notification has been there but role was not 'master' or 'read'");
 		return;
 	}
+
+	r = cm->conf.redis_read_notify;
+
+//	if (cm->conf.redis_read) {
+//		r = cm->conf.redis_read_notify;
+//	} else if (cm->conf.redis) {
+//		r = cm->conf.redis_read_notify;
+//	} else {
+//		rlog(LOG_ERROR, "A redis notification has been there but role was not 'master' or 'read'");
+//		return;
+//	}
 
 	redisReply *rr = (redisReply*)reply;
 
@@ -265,7 +272,16 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 			return;
 		}
 	}
-	dbno = atoi(db_str);
+	dbno = r->db = atoi(db_str);
+
+	// select the right db for restoring the call
+	if (redisCommandNR(r->ctx, "SELECT %i", r->db)) {
+		if (r->ctx->err)
+			rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
+		redisFree(r->ctx);
+		r->ctx = NULL;
+		return;
+	}
 
 	pch += strlen("notifier-");
 	str_cut(rr->element[2]->str,0,pch-rr->element[2]->str);
@@ -302,14 +318,14 @@ void redis_notify_event_base_loopbreak(struct callmaster *cm) {
 }
 
 void redis_notify_subscribe_keyspace(struct callmaster *cm, int keyspace) {
-    char* main_db_str[256];
+    char* main_db_str[256]; memset(&main_db_str,0,256);
     sprintf(main_db_str,"psubscribe __keyspace@%i*:notifier-*", keyspace);
 
     redisAsyncCommand(cm->conf.redis_notify_async_context, onRedisNotification, (void*)cm, main_db_str);
 }
 
 void redis_notify_unsubscribe_keyspace(struct callmaster *cm, int keyspace) {
-    char* main_db_str[256];
+    char* main_db_str[256]; memset(&main_db_str,0,256);
     sprintf(main_db_str,"punsubscribe __keyspace@%i*:notifier-*", keyspace);
 
     redisAsyncCommand(cm->conf.redis_notify_async_context, onRedisNotification, (void*)cm, main_db_str);

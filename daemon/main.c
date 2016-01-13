@@ -559,19 +559,19 @@ no_kernel:
 	}
 
 	if (!is_addr_unspecified(&redis_ep.address)) {
-		mc.redis = redis_new(&redis_ep, redis_db, MASTER_REDIS_ROLE);
+		mc.redis = mc.redis_read_notify = redis_new(&redis_ep, redis_db, MASTER_REDIS_ROLE);
 		if (!mc.redis)
 			die("Cannot start up without Redis database");
 	}
 
 	if (!is_addr_unspecified(&redis_read_ep.address)) {
-		mc.redis_read = redis_new(&redis_read_ep, redis_read_db, ANY_REDIS_ROLE);
+		mc.redis_read = mc.redis_read_notify = redis_new(&redis_read_ep, redis_read_db, ANY_REDIS_ROLE);
 		if (!mc.redis_read)
 			die("Cannot start up without Redis read database");
 	}
 
 	if (!is_addr_unspecified(&redis_write_ep.address)) {
-		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, ANY_REDIS_ROLE);
+		mc.redis_write = mc.redis_read_notify = redis_new(&redis_write_ep, redis_write_db, ANY_REDIS_ROLE);
 		if (!mc.redis_write)
 			die("Cannot start up without Redis write database");
 	}
