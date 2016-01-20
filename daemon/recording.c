@@ -185,6 +185,19 @@ str *meta_setup_file(struct recording *recording, str callid) {
 }
 
 /**
+ * Write out a block of SDP to the metadata file.
+ */
+ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt) {
+	fprintf(meta_fp, "\n");
+	int meta_fd = fileno(meta_fp);
+	// File pointers buffer data, whereas direct writing using the file
+	// descriptor does not. Make sure to flush any unwritten contents
+	// so the file contents appear in order.
+	fflush(meta_fp);
+	writev(meta_fd, sdp_iov, iovcnt);
+}
+
+/**
  * Writes metadata to metafile, closes file, and renames it to finished location.
  * Returns non-zero for failure.
  */

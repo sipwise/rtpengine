@@ -64,6 +64,11 @@ int detect_setup_recording(struct call *call, str recordcall);
 str *meta_setup_file(struct recording *recording, str callid);
 
 /**
+ * Write out a block of SDP to the metadata file.
+ */
+ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt);
+
+/**
  * Writes metadata to metafile, closes file, and moves it to finished location.
  * Returns non-zero for failure.
  *
