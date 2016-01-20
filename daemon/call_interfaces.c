@@ -25,7 +25,7 @@
 int trust_address_def;
 int dtls_passive_def;
 
-
+int set_record_call(struct call *call, str recordcall);
 
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
@@ -689,19 +689,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (!call)
 		goto out;
 
-	if (recordcall.s) {
-		if (!str_cmp(&recordcall, "yes")) {
-			call->record_call = TRUE;
-			if (call->recording == NULL) {
-				call->recording = g_slice_alloc0(sizeof(struct recording));
-				call->recording->recording_pd = NULL;
-				call->recording->recording_pdumper = NULL;
-				meta_setup_file(call->recording, call->callid);
-			}
-		} else if (!str_cmp(&recordcall, "no")) {
-			call->record_call = FALSE;
-		} else {
-			ilog(LOG_INFO, "\"record-call\" flag %s is invalid flag.", recordcall.s);
+	if (opmode == OP_ANSWER) {
+		if (recordcall.s) {
+			set_record_call(call, recordcall);
 		}
 	}
 
@@ -1083,4 +1073,28 @@ const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_it
 	ng_list_calls(m, calls, limit);
 
 	return NULL;
+}
+
+/**
+ * Controls the setting of recording variables on a `struct call *`.
+ * Sets the `record_call` value on the `struct call`, initializing the
+ * recording struct if necessary.
+ *
+ * Returns a boolean for whether or not the call is being recorded.
+ */
+int set_record_call(struct call *call, str recordcall) {
+	if (!str_cmp(&recordcall, "yes")) {
+		call->record_call = TRUE;
+		if (call->recording == NULL) {
+			call->recording = g_slice_alloc0(sizeof(struct recording));
+			call->recording->recording_pd = NULL;
+			call->recording->recording_pdumper = NULL;
+			meta_setup_file(call->recording, call->callid);
+		}
+	} else if (!str_cmp(&recordcall, "no")) {
+		call->record_call = FALSE;
+	} else {
+		ilog(LOG_INFO, "\"record-call\" flag %s is invalid flag.", recordcall.s);
+	}
+	return call->record_call;
 }
