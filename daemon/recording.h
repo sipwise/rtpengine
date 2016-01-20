@@ -51,6 +51,14 @@ int detect_setup_recording(struct call *call, str recordcall);
  *
  *     /path/to/recording-pcap.pcap
  *
+ *     first SDP answer
+ *
+ *     second SDP answer
+ *
+ *     ...
+ *
+ *     n-th and final SDP answer
+ *
  *     start timestamp (YYYY-MM-DDThh:mm:ss)
  *     end timestamp   (YYYY-MM-DDThh:mm:ss)
  *
