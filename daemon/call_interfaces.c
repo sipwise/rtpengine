@@ -25,8 +25,6 @@
 int trust_address_def;
 int dtls_passive_def;
 
-int set_record_call(struct call *call, str recordcall);
-
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
 	int len, ret;
@@ -671,7 +669,6 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		str_swap(&totag, &fromtag);
 	}
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
-	bencode_dictionary_get_str(input, "record-call", &recordcall);
 
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
@@ -688,24 +685,6 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	errstr = "Unknown call-id";
 	if (!call)
 		goto out;
-
-	if (opmode == OP_ANSWER) {
-		if (recordcall.s) {
-			set_record_call(call, recordcall);
-		}
-		struct recording *recording = call->recording;
-		if (call->record_call && recording != NULL && recording->meta_fp != NULL) {
-			fprintf(recording->meta_fp, "\n%s\n", sdp.s);
-		}
-	}
-
-	bencode_dictionary_get_str(input, "metadata", &metadata);
-	if (metadata.len > 0 && call->recording != NULL) {
-		if (call->recording->metadata != NULL) {
-			free(call->recording->metadata);
-		}
-		call->recording->metadata = str_dup(&metadata);
-	}
 
 	if (!call->created_from && addr) {
 		call->created_from = call_strdup(call, addr);
@@ -731,6 +710,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
+
+	bencode_dictionary_get_str(input, "record-call", &recordcall);
+	if (opmode == OP_ANSWER && recordcall.s) {
+		detect_setup_recording(call, recordcall);
+	}
+
 	ret = monologue_offer_answer(monologue, &streams, &flags);
 	if (!ret)
 		ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
@@ -754,6 +739,14 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	bencode_dictionary_add_iovec(output, "sdp", &g_array_index(chopper->iov, struct iovec, 0),
 		chopper->iov_num, chopper->str_len);
 	bencode_dictionary_add_string(output, "result", "ok");
+
+	bencode_dictionary_get_str(input, "metadata", &metadata);
+	if (metadata.len > 0 && call->recording != NULL) {
+		if (call->recording->metadata != NULL) {
+			free(call->recording->metadata);
+		}
+		call->recording->metadata = str_dup(&metadata);
+	}
 	bencode_item_t *recordings = bencode_dictionary_add_list(output, "recordings");
 	if (call->recording != NULL && call->recording->recording_path != NULL) {
 		char *recording_path = call->recording->recording_path->s;
@@ -1077,28 +1070,4 @@ const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_it
 	ng_list_calls(m, calls, limit);
 
 	return NULL;
-}
-
-/**
- * Controls the setting of recording variables on a `struct call *`.
- * Sets the `record_call` value on the `struct call`, initializing the
- * recording struct if necessary.
- *
- * Returns a boolean for whether or not the call is being recorded.
- */
-int set_record_call(struct call *call, str recordcall) {
-	if (!str_cmp(&recordcall, "yes")) {
-		call->record_call = TRUE;
-		if (call->recording == NULL) {
-			call->recording = g_slice_alloc0(sizeof(struct recording));
-			call->recording->recording_pd = NULL;
-			call->recording->recording_pdumper = NULL;
-			meta_setup_file(call->recording, call->callid);
-		}
-	} else if (!str_cmp(&recordcall, "no")) {
-		call->record_call = FALSE;
-	} else {
-		ilog(LOG_INFO, "\"record-call\" flag %s is invalid flag.", recordcall.s);
-	}
-	return call->record_call;
 }

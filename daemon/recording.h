@@ -31,6 +31,18 @@ struct recording {
 void recording_fs_init(char *spooldir);
 
 /**
+ *
+ * Controls the setting of recording variables on a `struct call *`.
+ * Sets the `record_call` value on the `struct call`, initializing the
+ * recording struct if necessary.
+ * If we do not yet have a PCAP file associated with the call, create it
+ * and write its file URL to the metadata file.
+ *
+ * Returns a boolean for whether or not the call is being recorded.
+ */
+int detect_setup_recording(struct call *call, str recordcall);
+
+/**
  * Create a call metadata file in a temporary location.
  * Attaches the filepath and the file pointer to the call struct.
  * Returns path to created file.

@@ -1523,15 +1523,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 	ml_media = other_ml_media = NULL;
 
-	if (call->recording != NULL && call->recording->recording_pdumper == NULL) {
-		str *pcap_path = recording_setup_file(call->recording, call->callid);
-		if (pcap_path != NULL && call->recording->recording_pdumper != NULL
-				&& call->recording->meta_fp) {
-			// Write the location of the PCAP file to the metadata file
-			fprintf(call->recording->meta_fp, "%s\n", pcap_path->s);
-		}
-	}
-
 	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
 		sp = media_iter->data;
 		__C_DBG("processing media stream #%u", sp->index);

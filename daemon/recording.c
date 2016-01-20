@@ -12,6 +12,8 @@
 
 
 int maybe_create_spool_dir(char *dirpath);
+int set_record_call(struct call *call, str recordcall);
+str *init_write_pcap_file(struct call *call);
 
 // Global file reference to the spool directory.
 static char *spooldir = NULL;
@@ -91,6 +93,62 @@ int maybe_create_spool_dir(char *spoolpath) {
 	}
 
 	return spool_good;
+}
+
+/**
+ *
+ * Controls the setting of recording variables on a `struct call *`.
+ * Sets the `record_call` value on the `struct call`, initializing the
+ * recording struct if necessary.
+ * If we do not yet have a PCAP file associated with the call, create it
+ * and write its file URL to the metadata file.
+ *
+ * Returns a boolean for whether or not the call is being recorded.
+ */
+int detect_setup_recording(struct call *call, str recordcall) {
+	int is_recording = set_record_call(call, recordcall);
+	struct recording *recording = call->recording;
+	if (is_recording && recording != NULL && recording->recording_pdumper == NULL) {
+		// We haven't set up the PCAP file, so set it up and write the URL to metadata
+		init_write_pcap_file(call);
+	}
+}
+
+/**
+ * Controls the setting of recording variables on a `struct call *`.
+ * Sets the `record_call` value on the `struct call`, initializing the
+ * recording struct if necessary.
+ *
+ * Returns a boolean for whether or not the call is being recorded.
+ */
+int set_record_call(struct call *call, str recordcall) {
+	if (!str_cmp(&recordcall, "yes")) {
+		call->record_call = TRUE;
+		if (call->recording == NULL) {
+			call->recording = g_slice_alloc0(sizeof(struct recording));
+			call->recording->recording_pd = NULL;
+			call->recording->recording_pdumper = NULL;
+			meta_setup_file(call->recording, call->callid);
+		}
+	} else if (!str_cmp(&recordcall, "no")) {
+		call->record_call = FALSE;
+	} else {
+		ilog(LOG_INFO, "\"record-call\" flag %s is invalid flag.", recordcall.s);
+	}
+	return call->record_call;
+}
+
+/**
+ * Checks if we have a PCAP file for the call yet.
+ * If not, create it and write its location to the metadata file.
+ */
+str *init_write_pcap_file(struct call *call) {
+	str *pcap_path = recording_setup_file(call->recording, call->callid);
+	if (pcap_path != NULL && call->recording->recording_pdumper != NULL
+	    && call->recording->meta_fp) {
+		// Write the location of the PCAP file to the metadata file
+		fprintf(call->recording->meta_fp, "%s\n", pcap_path->s);
+	}
 }
 
 /**
