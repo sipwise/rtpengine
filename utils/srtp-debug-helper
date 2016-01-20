@@ -25,11 +25,14 @@ else {
 	$pack = pack("H*", $pack);
 }
 
+my $roc = $ARGV[3] // 0;
+
 print("Packet length:        " . length($pack) . " bytes\n");
 
-my ($dec, $roc, $tag, $hmac) = SRTP::decrypt_rtp($cs, $skey, $ssalt, $sauth, 0, $pack);
+my ($dec, $roc, $tag, $hmac) = SRTP::decrypt_rtp($cs, $skey, $ssalt, $sauth, $roc, $pack);
 
 print("Auth tag from packet: " . unpack("H*", $tag) . "\n");
-print("Computer auth tag:    " . unpack("H*", $hmac) . "\n");
+print("Computed auth tag:    " . unpack("H*", $hmac) . "\n");
+print("Decoded packet:       " . unpack("H*", $dec) . "\n");
 
 
