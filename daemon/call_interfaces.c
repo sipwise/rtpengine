@@ -693,6 +693,10 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		if (recordcall.s) {
 			set_record_call(call, recordcall);
 		}
+		struct recording *recording = call->recording;
+		if (call->record_call && recording != NULL && recording->meta_fp != NULL) {
+			fprintf(recording->meta_fp, "\n%s\n", sdp.s);
+		}
 	}
 
 	bencode_dictionary_get_str(input, "metadata", &metadata);
