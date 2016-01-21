@@ -51,6 +51,7 @@ int detect_setup_recording(struct call *call, str recordcall);
  *
  *     /path/to/recording-pcap.pcap
  *
+ *
  *     first SDP answer
  *
  *     second SDP answer
@@ -59,11 +60,15 @@ int detect_setup_recording(struct call *call, str recordcall);
  *
  *     n-th and final SDP answer
  *
+ *
  *     start timestamp (YYYY-MM-DDThh:mm:ss)
  *     end timestamp   (YYYY-MM-DDThh:mm:ss)
  *
+ *
  *     generic metadata
  *
+ * There are two empty lines between each logic block of metadata.
+ * The generic metadata at the end can be any length with any number of lines.
  * Temporary files go in /tmp/. They will end up in
  * ${RECORDING_DIR}/metadata/. They are named like:
  * ${CALL_ID}-${RAND-HEX}.pcap

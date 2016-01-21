@@ -147,7 +147,7 @@ str *init_write_pcap_file(struct call *call) {
 	if (pcap_path != NULL && call->recording->recording_pdumper != NULL
 	    && call->recording->meta_fp) {
 		// Write the location of the PCAP file to the metadata file
-		fprintf(call->recording->meta_fp, "%s\n", pcap_path->s);
+		fprintf(call->recording->meta_fp, "%s\n\n", pcap_path->s);
 	}
 }
 
@@ -219,13 +219,13 @@ int meta_finish_file(struct call *call) {
 		}
 		timeinfo = localtime(&start);
 		strftime(timebuffer, 20, "%FT%T", timeinfo);
-		fprintf(recording->meta_fp, "\n%s\n", timebuffer);
+		fprintf(recording->meta_fp, "\n\n%s\n", timebuffer);
 		timeinfo = localtime(&end);
 		strftime(timebuffer, 20, "%FT%T", timeinfo);
 		fprintf(recording->meta_fp, "%s\n", timebuffer);
 
 		// Print metadata
-		fprintf(recording->meta_fp, "\n%s\n", recording->metadata->s);
+		fprintf(recording->meta_fp, "\n\n%s\n", recording->metadata->s);
 		free(recording->metadata);
 		fclose(recording->meta_fp);
 

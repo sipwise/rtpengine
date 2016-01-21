@@ -474,13 +474,28 @@ The options are described in more detail below.
 
 		/path/to/recording-pcap.pcap
 
+
+		first SDP answer
+
+		second SDP answer
+
+		...
+
+		n-th and final SDP answer
+
+
 		start timestamp (YYYY-MM-DDThh:mm:ss)
 		end timestamp   (YYYY-MM-DDThh:mm:ss)
 
+
 		generic metadata
 
-	Metadata files will appear in the subdirectory when the call completes.
-	PCAP files will be written to the subdirectory as the call is being recorded.
+    There are two empty lines between each logic block of metadata.
+    We write out all answer SDP, each separated from one another by one empty
+    line. The generic metadata at the end can be any length with any number of
+    lines. Metadata files will appear in the subdirectory when the call
+    completes. PCAP files will be written to the subdirectory as the call is
+    being recorded.
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
