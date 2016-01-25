@@ -2218,6 +2218,7 @@ static void __call_free(void *p) {
 	g_hash_table_destroy(c->tags);
 	g_hash_table_destroy(c->viabranches);
 	g_queue_clear(&c->medias);
+	g_queue_clear(&c->endpoint_maps);
 
 	while (c->streams.head) {
 		ps = g_queue_pop_head(&c->streams);
