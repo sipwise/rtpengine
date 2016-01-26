@@ -922,7 +922,13 @@ static int __init_stream(struct packet_stream *ps) {
 			crypto_init(&ps->selected_sfd->crypto, &media->sdes_in.params);
 
 		if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
-			active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
+			active = dtls_is_active(&ps->selected_sfd->dtls);
+			// we try to retain our role if possible, but must handle a role switch
+			if ((active && !MEDIA_ISSET(media, SETUP_ACTIVE))
+					|| (!active && !MEDIA_ISSET(media, SETUP_PASSIVE)))
+				active = -1;
+			if (active == -1)
+				active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
 			dtls_connection_init(ps, active, call->dtls_cert);
 
 			if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
@@ -1132,7 +1138,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 	}
 
 	if (flags->opmode == OP_OFFER) {
-		/* we always offer actpass */
+		/* we always must offer actpass */
 		MEDIA_SET(this, SETUP_PASSIVE);
 		MEDIA_SET(this, SETUP_ACTIVE);
 	}
@@ -1374,7 +1380,8 @@ get:
 }
 
 
-static void __dtls_logic(const struct sdp_ng_flags *flags, struct call_media *media,
+// process received a=setup and related attributes
+static void __dtls_logic(const struct sdp_ng_flags *flags,
 		struct call_media *other_media, struct stream_params *sp)
 {
 	unsigned int tmp;
@@ -1390,8 +1397,7 @@ static void __dtls_logic(const struct sdp_ng_flags *flags, struct call_media *me
 		/* Special case: if this is an offer and actpass is being offered (as it should),
 		 * we would normally choose to be active. However, if this is a reinvite and we
 		 * were passive previously, we should retain this role. */
-		if (flags && flags->opmode == OP_OFFER && MEDIA_ISSET(other_media, SETUP_ACTIVE)
-				&& MEDIA_ISSET(other_media, SETUP_PASSIVE)
+		if (flags && flags->opmode == OP_OFFER && MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE)
 				&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
 				== MEDIA_FLAG_SETUP_PASSIVE)
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
@@ -1559,7 +1565,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		if (sp->rtp_endpoint.port) {
 			/* DTLS stuff */
-			__dtls_logic(flags, media, other_media, sp);
+			__dtls_logic(flags, other_media, sp);
 
 			/* control rtcp-mux */
 			__rtcp_mux_logic(flags, media, other_media);

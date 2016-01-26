@@ -100,6 +100,14 @@ INLINE int is_dtls(const str *s) {
 	return 0;
 }
 
+// -1: not initialized, unknown or invalid
+// 0 or 1: passive or active
+INLINE int dtls_is_active(const struct dtls_connection *d) {
+	if (!d || !d->init)
+		return -1;
+	return d->active ? 1 : 0;
+}
+
 
 
 
