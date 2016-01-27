@@ -994,6 +994,9 @@ Optionally included keys are:
 	Contains either the string "yes" or the string "no". This tells the rtpengine
 	whether or not to record the call to PCAP files. If the call is recorded, it
 	will generate PCAP files for each stream and a metadata file for each call.
+	Note that rtpengine *will not* force itself into the media path, and other
+	flags like `ICE=force` may be necessary to ensure the call is recorded.
+
 
 	See the `--recording-dir` option above.
 
