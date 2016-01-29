@@ -16,6 +16,7 @@
 #include "rtp.h"
 #include "ice.h"
 #include "socket.h"
+#include "call_interfaces.h"
 
 struct network_address {
 	str network_type;
