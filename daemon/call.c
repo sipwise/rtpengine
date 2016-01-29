@@ -682,7 +682,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 }
 
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
-		const struct endpoint *ep)
+		const struct endpoint *ep, const struct sdp_ng_flags *flags)
 {
 	GList *l;
 	struct endpoint_map *em;
@@ -705,13 +705,17 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		}
 		if (!ep) /* creating wildcard map */
 			break;
-		/* handle zero endpoint address */
-		if (is_addr_unspecified(&ep->address) || is_addr_unspecified(&em->endpoint.address)) {
+
+		if (flags && flags->port_latching)
+			/* do nothing - ignore endpoint addresses */ ;
+		else if (is_addr_unspecified(&ep->address) || is_addr_unspecified(&em->endpoint.address)) {
+			/* handle zero endpoint address: only compare ports */
 			if (ep->port != em->endpoint.port)
 				continue;
 		}
 		else if (memcmp(&em->endpoint, ep, sizeof(*ep)))
 			continue;
+
 		if (em->num_ports >= num_ports) {
 			if (is_addr_unspecified(&em->endpoint.address))
 				em->endpoint.address = ep->address;
@@ -809,7 +813,7 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_ports) {
 	struct endpoint_map *em;
 
-	em = __get_endpoint_map(media, num_ports, NULL);
+	em = __get_endpoint_map(media, num_ports, NULL, NULL);
 	if (!em)
 		return -1;
 
@@ -1632,7 +1636,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* get that many ports for each side, and one packet stream for each port, then
 		 * assign the ports to the streams */
-		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint);
+		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint, flags);
 		if (!em) {
 			goto error_ports;
 		} else {

@@ -717,6 +717,12 @@ Optionally included keys are:
 		This flag is valid only in an `offer` message and is useful when the call has been
 		transferred to a new endpoint without change of `From` or `To` tags.
 
+	- `port latching`
+
+		Forces *rtpengine* to retain its local ports during a signalling exchange even when the
+		remote endpoint changes its port.
+
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.

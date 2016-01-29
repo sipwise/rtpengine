@@ -557,6 +557,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->reset = 1;
 			else if (it->iov[1].iov_len >= 5 && !memcmp(it->iov[1].iov_base, "SDES-", 5))
 				ng_sdes_option(out, it, 5);
+			else if (!bencode_strcmp(it, "port-latching"))
+				out->port_latching = 1;
 			else
 				ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
 						BENCODE_FMT(it));
