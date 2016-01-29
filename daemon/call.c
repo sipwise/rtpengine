@@ -765,38 +765,44 @@ next_il:
 }
 
 static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
-	GList *l, *k, *m;
+	GList *l, *k;
 	struct packet_stream *ps;
-	struct stream_fd *sfd;
+	struct stream_fd *sfd, *intf_sfd;
 	struct intf_list *il;
-	int first = 1;
+	int sfd_found;
 
-	for (l = intf_sfds->head; l; l = l->next) {
-		il = l->data;
+	for (k = media->streams.head; k; k = k->next) {
+		ps = k->data;
 
-		for (m = il->list.head, k = media->streams.head; m && k; m = m->next, k = k->next) {
-			sfd = m->data;
-			ps = k->data;
+		g_queue_clear(&ps->sfds);
+		sfd_found = 0;
+		intf_sfd = NULL;
 
-			if (first)
-				g_queue_clear(&ps->sfds);
+		for (l = intf_sfds->head; l; l = l->next) {
+			il = l->data;
+
+			sfd = g_queue_peek_nth(&il->list, ps->component - 1);
 
 			sfd->stream = ps;
 			g_queue_push_tail(&ps->sfds, sfd);
 
-			if (!ps->selected_sfd)
-				ps->selected_sfd = sfd;
-
-			/* XXX:
-			 * check whether previous/currect selected_sfd is actually part of
-			 * current sfds list.
-			 * if selected_sfd changes, take previously selected interface into account.
-			 * handle crypto/dtls resets by moving contexts into sfd struct.
-			 * handle ice resets too.
-			 */
+			if (ps->selected_sfd == sfd)
+				sfd_found = 1;
+			if (ps->selected_sfd && sfd->local_intf == ps->selected_sfd->local_intf)
+				intf_sfd = sfd;
 		}
 
-		first = 0;
+		if (!ps->selected_sfd || !sfd_found) {
+			if (intf_sfd)
+				ps->selected_sfd = intf_sfd;
+			else
+				ps->selected_sfd = g_queue_peek_nth(&ps->sfds, 0);
+		}
+
+		/* XXX:
+		 * handle crypto/dtls resets by moving contexts into sfd struct.
+		 * handle ice resets too.
+		 */
 	}
 }
 
