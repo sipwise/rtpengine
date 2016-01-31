@@ -415,6 +415,9 @@ struct call {
 	char			*created_from;
 	sockaddr_t		created_from_addr;
 	int             redis_hosted_db;
+	// following flag servers as a mark that this
+	// call is either created by me or where I took over the responsibility (a packet has seen)
+	int             redis_call_responsible;
 };
 
 struct callmaster_config {

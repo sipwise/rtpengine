@@ -259,6 +259,11 @@ next:
 		}
 	}
 
+	if (!(c->redis_call_responsible)) {
+		ilog(LOG_INFO, "Timeout did not lead to close the call since I am not responisble");
+		goto out;
+	}
+
 	ilog(LOG_INFO, "Closing call due to timeout");
 
 drop:
@@ -531,6 +536,10 @@ static void callmaster_timer(void *ptr) {
 						ke->rtp_stats[j].bytes - atomic64_get(&rs->bytes));
 			atomic64_set(&rs->kernel_packets, ke->rtp_stats[j].packets);
 			atomic64_set(&rs->kernel_bytes, ke->rtp_stats[j].bytes);
+			if (ps && !(ps->call->redis_call_responsible) && ke->rtp_stats[j].packets >0) {
+				ilog(LOG_DEBUG, "Taking over resposibility now for that call since I saw packets.");
+				ps->call->redis_call_responsible = 1;
+			}
 		}
 
 		update = 0;
@@ -1832,12 +1841,13 @@ void call_destroy(struct call *c) {
 
 	obj_put(c);
 
-	if (m->conf.redis_write) {
-		redis_delete(c, m->conf.redis_write, ANY_REDIS_ROLE);
-	} else if (m->conf.redis) {
-		redis_delete(c, m->conf.redis, MASTER_REDIS_ROLE);
+	if (c->redis_call_responsible) {
+		if (m->conf.redis_write) {
+			redis_delete(c, m->conf.redis_write, ANY_REDIS_ROLE);
+		} else if (m->conf.redis) {
+			redis_delete(c, m->conf.redis, MASTER_REDIS_ROLE);
+		}
 	}
-
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */
 

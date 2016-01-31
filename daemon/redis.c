@@ -292,6 +292,11 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 	c = g_hash_table_lookup(cm->callhash, &callid);
 
+	if (c && c->redis_call_responsible) {
+		rlog(LOG_DEBUG,"I am responsible for that call so I ignore redis notifications.");
+		return;
+	}
+
 	if (strncmp(rr->element[3]->str,"sadd",4)==0) {
 		if (c) {
 			rlog(LOG_INFO, "Redis-Notifier: Call already exists with this callid:%s\n", rr->element[2]->str);
@@ -1586,10 +1591,11 @@ void redis_update(struct call *c, struct redis *r, int role, enum call_opmode op
 
 	redis_pipe(r, "EXPIRE call-"PB" 86400", STR(&c->callid));
 	redis_pipe(r, "SADD calls "PB"", STR(&c->callid));
-	if (opmode==OP_ANSWER) {
+//	if (opmode==OP_ANSWER) {
 		redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));
-	}
+//	}
 	c->redis_hosted_db = r->db;
+	c->redis_call_responsible = 1;
 
 	redis_consume(r);
 	mutex_unlock(&r->lock);
