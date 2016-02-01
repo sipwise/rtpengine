@@ -160,9 +160,9 @@ static int __ip4_is_specified(const sockaddr_t *a) {
 }
 static int __ip6_is_specified(const sockaddr_t *a) {
 	return a->u.ipv6.s6_addr32[0] != 0
-		&& a->u.ipv6.s6_addr32[1] != 0
-		&& a->u.ipv6.s6_addr32[2] != 0
-		&& a->u.ipv6.s6_addr32[3] != 0;
+		|| a->u.ipv6.s6_addr32[1] != 0
+		|| a->u.ipv6.s6_addr32[2] != 0
+		|| a->u.ipv6.s6_addr32[3] != 0;
 }
 static int __ip4_sockaddr2endpoint(endpoint_t *ep, const void *p) {
 	const struct sockaddr_in *sin = p;
