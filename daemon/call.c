@@ -189,6 +189,12 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 
 	cm = c->callmaster;
 
+	if (!(c->redis_call_responsible)) {
+		ilog(LOG_DEBUG, "Redis-Notification: Timeout resets the deletion timers for a call where I am not responsible.");
+		c->deleted = c->ml_deleted = poller_now + cm->conf.delete_delay;
+		goto out;
+	}
+
 	if (c->deleted && poller_now >= c->deleted
 			&& c->last_signal <= c->deleted)
 		goto delete;
@@ -257,11 +263,6 @@ next:
 		} else {
 			ml->term_reason = UNKNOWN;
 		}
-	}
-
-	if (!(c->redis_call_responsible)) {
-		ilog(LOG_INFO, "Timeout did not lead to close the call since I am not responisble");
-		goto out;
 	}
 
 	ilog(LOG_INFO, "Closing call due to timeout");
