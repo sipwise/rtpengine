@@ -1355,9 +1355,10 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 static void __init_interface(struct call_media *media, const str *ifname, int num_ports) {
 	/* we're holding master_lock in W mode here, so we can safely ignore the
 	 * atomic ops */
-	//struct local_intf *ifa = (void *) media->local_intf;
 
-	if (!media->logical_intf /* || !ifa */)
+	if (!media->logical_intf)
+		goto get;
+	if (media->logical_intf->preferred_family != media->desired_family)
 		goto get;
 	if (!ifname || !ifname->s)
 		return;
