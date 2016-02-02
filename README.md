@@ -115,6 +115,7 @@ There's 3 parts to rtpengine, which can be found in the respective subdirectorie
 	- *PCRE* library
 	- *libcurl*
 	- *XMLRPC-C* version 1.16.08 or higher
+	- *hiredis* library
 
 	The `Makefile` contains a few Debian-specific flags, which may have to removed for compilation to
 	be successful. This will not affect operation in any way.
