@@ -11,6 +11,7 @@ our $SRTP_DEBUG = 0;
 our @crypto_suites = (
 	{
 		str		=> 'AES_CM_128_HMAC_SHA1_80',
+		dtls_name	=> 'SRTP_AES128_CM_SHA1_80',
 		auth_tag	=> 10,
 		enc_func	=> \&aes_cm,
 		iv_rtp		=> \&aes_cm_iv_rtp,
@@ -18,6 +19,7 @@ our @crypto_suites = (
 	},
 	{
 		str		=> 'AES_CM_128_HMAC_SHA1_32',
+		dtls_name	=> 'SRTP_AES128_CM_SHA1_32',
 		auth_tag	=> 4,
 		enc_func	=> \&aes_cm,
 		iv_rtp		=> \&aes_cm_iv_rtp,
