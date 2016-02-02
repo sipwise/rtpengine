@@ -25,6 +25,7 @@
 #define STUN_XOR_MAPPED_ADDRESS 0x0020
 #define STUN_PRIORITY 0x0024
 #define STUN_USE_CANDIDATE 0x0025
+#define STUN_SOFTWARE 0x8022
 #define STUN_FINGERPRINT 0x8028
 #define STUN_ICE_CONTROLLED 0x8029
 #define STUN_ICE_CONTROLLING 0x802a
@@ -98,6 +99,11 @@ struct controlled_ing {
 struct priority {
 	struct tlv tlv;
 	u_int32_t priority;
+} __attribute__ ((packed));
+
+struct software {
+	struct tlv tlv;
+	char str[128];
 } __attribute__ ((packed));
 
 
@@ -182,7 +188,7 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, 
 				out->priority = ntohl(*((u_int32_t *) attr.s));
 				break;
 
-			case 0x8022: /* software */
+			case STUN_SOFTWARE:
 				break; /* ignore but suppress warning message */
 
 			case STUN_XOR_MAPPED_ADDRESS:
@@ -294,6 +300,12 @@ static void output_finish_src(struct msghdr *mh) {
 	__output_finish(mh);
 }
 
+static void software(struct msghdr *mh, struct software *sw) {
+	int i;
+	i = snprintf(sw->str, sizeof(sw->str) - 1, "rtpengine-%s", RTPENGINE_VERSION);
+	output_add_len(mh, sw, STUN_SOFTWARE, i);
+}
+
 static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
 	int i;
 	struct iovec *iov;
@@ -355,9 +367,11 @@ static void stun_error_len(struct stream_fd *sfd, const endpoint_t *sin,
 	struct fingerprint fp;
 	struct generic aa;
 	struct msghdr mh;
-	struct iovec iov[7]; /* hdr, ec, reason, aa, attr_cont, mi, fp */
+	struct software sw;
+	struct iovec iov[8]; /* hdr, ec, reason, aa, attr_cont, mi, fp, sw */
 
 	output_init(&mh, iov, &hdr, STUN_BINDING_ERROR_RESPONSE, req->transaction);
+	software(&mh, &sw);
 
 	ec.codes = htonl(((code / 100) << 8) | (code % 100));
 	output_add_data(&mh, &ec, STUN_ERROR_CODE, reason, len);
@@ -445,9 +459,11 @@ static int stun_binding_success(struct stream_fd *sfd, struct header *req, struc
 	struct msg_integrity mi;
 	struct fingerprint fp;
 	struct msghdr mh;
-	struct iovec iov[4]; /* hdr, xma, mi, fp */
+	struct software sw;
+	struct iovec iov[5]; /* hdr, xma, mi, fp, sw */
 
 	output_init(&mh, iov, &hdr, STUN_BINDING_SUCCESS_RESPONSE, req->transaction);
+	software(&mh, &sw);
 
 	xma.port = htons(sin->port) ^ (STUN_COOKIE >> 16);
 	if (sin->address.family->af == AF_INET) {
@@ -617,7 +633,7 @@ int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *p
 {
 	struct header hdr;
 	struct msghdr mh;
-	struct iovec iov[8]; /* hdr, username x2, ice_controlled/ing, priority, uc, fp, mi */
+	struct iovec iov[9]; /* hdr, username x2, ice_controlled/ing, priority, uc, fp, mi, sw */
 	char username_buf[256];
 	int i;
 	struct generic un_attr;
@@ -626,8 +642,10 @@ int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *p
 	struct generic uc;
 	struct fingerprint fp;
 	struct msg_integrity mi;
+	struct software sw;
 
 	output_init(&mh, iov, &hdr, STUN_BINDING_REQUEST, transaction);
+	software(&mh, &sw);
 
 	i = snprintf(username_buf, sizeof(username_buf), STR_FORMAT":"STR_FORMAT,
 			STR_FMT(&ufrags[0]), STR_FMT(&ufrags[1]));
