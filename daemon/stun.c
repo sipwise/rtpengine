@@ -303,7 +303,7 @@ static void output_finish_src(struct msghdr *mh) {
 static void software(struct msghdr *mh, struct software *sw) {
 	int i;
 	i = snprintf(sw->str, sizeof(sw->str) - 1, "rtpengine-%s", RTPENGINE_VERSION);
-	output_add_len(mh, sw, STUN_SOFTWARE, i);
+	output_add_data(mh, sw, STUN_SOFTWARE, sw->str, i);
 }
 
 static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
