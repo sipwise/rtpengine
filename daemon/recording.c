@@ -8,6 +8,7 @@
 #include <time.h>
 #include "call.h"
 #include <pcap.h>
+#include <curl/curl.h>
 
 
 
@@ -17,6 +18,8 @@ str *init_write_pcap_file(struct call *call);
 
 // Global file reference to the spool directory.
 static char *spooldir = NULL;
+// Used for URL encoding functions
+CURL *curl;
 
 
 /**
@@ -24,6 +27,7 @@ static char *spooldir = NULL;
  * Check for or create the RTP Engine spool directory.
  */
 void recording_fs_init(char *spoolpath) {
+	curl = curl_easy_init();
 	// Whether or not to fail if the spool directory does not exist.
 	int dne_fail;
 	if (spoolpath == NULL || spoolpath[0] == '\0') {
@@ -163,10 +167,14 @@ str *meta_setup_file(struct recording *recording, str callid) {
 	else {
 		int rand_bytes = 8;
 		str *meta_filepath = malloc(sizeof(str));
-		int mid_len = 20 + callid.len + 1 + 1;
+		// We don't want weird characters like ":" or "@" showing up in filenames
+		char *escaped_callid = curl_easy_escape(curl, callid.s, callid.len);
+		int escaped_callid_len = strlen(escaped_callid);
 		// Length for spool directory path + "/tmp/rtpengine-meta-${CALLID}-"
+		int mid_len = 20 + escaped_callid_len + 1 + 1;
 		char suffix_chars[mid_len];
-		snprintf(suffix_chars, mid_len, "/tmp/rtpengine-meta-%s-", callid.s);
+		snprintf(suffix_chars, mid_len, "/tmp/rtpengine-meta-%s-", escaped_callid);
+		curl_free(escaped_callid);
 		// Initially file extension is ".tmp". When call is over, it changes to ".txt".
 		char *path_chars = rand_affixed_str(suffix_chars, rand_bytes, ".tmp");
 		meta_filepath = str_init(meta_filepath, path_chars);
@@ -278,10 +286,14 @@ str *recording_setup_file(struct recording *recording, str callid) {
       && recording != NULL
 	    && recording->recording_pd == NULL && recording->recording_pdumper == NULL) {
 		int rand_bytes = 8;
+		// We don't want weird characters like ":" or "@" showing up in filenames
+		char *escaped_callid = curl_easy_escape(curl, callid.s, callid.len);
+		int escaped_callid_len = strlen(escaped_callid);
 		// Length for spool directory path + "/pcaps/${CALLID}-"
-		int rec_path_len = strlen(spooldir) + 7 + callid.len + 1 + 1;
+		int rec_path_len = strlen(spooldir) + 7 + escaped_callid_len + 1 + 1;
 		char rec_path[rec_path_len];
-		snprintf(rec_path, rec_path_len, "%s/pcaps/%s-", spooldir, callid.s);
+		snprintf(rec_path, rec_path_len, "%s/pcaps/%s-", spooldir, escaped_callid);
+		curl_free(escaped_callid);
 		char *path_chars = rand_affixed_str(rec_path, rand_bytes, ".pcap");
 
 		recording_path = malloc(sizeof(str));
