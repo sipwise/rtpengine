@@ -233,15 +233,6 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 	r = cm->conf.redis_read_notify;
 
-//	if (cm->conf.redis_read) {
-//		r = cm->conf.redis_read_notify;
-//	} else if (cm->conf.redis) {
-//		r = cm->conf.redis_read_notify;
-//	} else {
-//		rlog(LOG_ERROR, "A redis notification has been there but role was not 'master' or 'read'");
-//		return;
-//	}
-
 	redisReply *rr = (redisReply*)reply;
 
 	if (reply == NULL || rr->type != REDIS_REPLY_ARRAY)
@@ -1360,6 +1351,9 @@ void redis_update(struct call *c, struct redis *r, int role, enum call_opmode op
 
 	rwlock_lock_r(&c->master_lock);
 
+	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db))
+		goto err;
+
 	redis_pipe(r, "DEL notifier-"PB"", STR(&c->callid));
 	redis_pipe(r, "SREM calls "PB"", STR(&c->callid));
 	redis_pipe(r, "DEL call-"PB"", STR(&c->callid));
@@ -1591,20 +1585,22 @@ void redis_update(struct call *c, struct redis *r, int role, enum call_opmode op
 
 	redis_pipe(r, "EXPIRE call-"PB" 86400", STR(&c->callid));
 	redis_pipe(r, "SADD calls "PB"", STR(&c->callid));
-//	if (opmode==OP_ANSWER) {
-		redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));
-//	}
-	c->redis_hosted_db = r->db;
+	redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));
+	if (!c->redis_hosted_db)
+		c->redis_hosted_db = r->db;
 	c->redis_call_responsible = 1;
 
 	redis_consume(r);
+
+err:
+
 	mutex_unlock(&r->lock);
 	rwlock_unlock_r(&c->master_lock);
+	if (r->ctx->err)
+		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
+	redisFree(r->ctx);
+	r->ctx = NULL;
 }
-
-
-
-
 
 /* must be called lock-free */
 void redis_delete(struct call *c, struct redis *r, int role) {
@@ -1615,10 +1611,19 @@ void redis_delete(struct call *c, struct redis *r, int role) {
 	redis_check_conn(r, role);
 	rwlock_lock_r(&c->master_lock);
 
+	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db))
+		goto err;
+
 	redis_delete_call(c, r);
 
+err:
 	rwlock_unlock_r(&c->master_lock);
 	mutex_unlock(&r->lock);
+
+	if (r->ctx->err)
+		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
+	redisFree(r->ctx);
+	r->ctx = NULL;
 }
 
 
