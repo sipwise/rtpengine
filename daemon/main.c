@@ -212,8 +212,8 @@ static struct intf_config *if_addr_parse(char *s) {
 
 	ifa = g_slice_alloc0(sizeof(*ifa));
 	ifa->name = name;
-	ifa->address.addr = addr;
-	ifa->address.advertised = adv;
+	ifa->local_address.addr = addr;
+	ifa->advertised_address = adv;
 	ifa->port_min = port_min;
 	ifa->port_max = port_max;
 

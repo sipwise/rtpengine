@@ -239,13 +239,13 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 	if (num_ports > loc->spec->port_pool.free_ports) {
 		ilog(LOG_ERR, "Didn't found %d ports available for %.*s/%s",
 			num_ports, loc->logical->name.len, loc->logical->name.s,
-			sockaddr_print_buf(&loc->spec->address.addr));
+			sockaddr_print_buf(&loc->spec->local_address.addr));
 		return 0;
 	}
 
 	__C_DBG("Found %d ports available for %.*s/%s from total of %d free ports",
 		num_ports, loc->logical->name.len, loc->logical->name.s,
-		sockaddr_print_buf(&loc->spec->address.addr),
+		sockaddr_print_buf(&loc->spec->local_address.addr),
 		loc->spec->port_pool.free_ports);
 
 	return 1;
@@ -437,28 +437,29 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 		lif->preferred_family = fam;
 		lif->addr_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 		g_hash_table_insert(__logical_intf_name_family_hash, lif, lif);
-		if (ifa->address.addr.family == fam) {
+		if (ifa->local_address.addr.family == fam) {
 			q = __interface_list_for_family(fam);
 			g_queue_push_tail(q, lif);
 		}
 	}
 
-	spec = g_hash_table_lookup(__intf_spec_addr_type_hash, &ifa->address);
+	spec = g_hash_table_lookup(__intf_spec_addr_type_hash, &ifa->local_address);
 	if (!spec) {
 		spec = g_slice_alloc0(sizeof(*spec));
-		spec->address = ifa->address;
-		ice_foundation(&spec->ice_foundation);
+		spec->local_address = ifa->local_address;
 		spec->port_pool.min = ifa->port_min;
 		spec->port_pool.max = ifa->port_max;
 		spec->port_pool.free_ports = spec->port_pool.max - spec->port_pool.min + 1;
-		g_hash_table_insert(__intf_spec_addr_type_hash, &spec->address, spec);
+		g_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
 	}
 
 	ifc = uid_slice_alloc(ifc, &lif->list);
+	ice_foundation(&ifc->ice_foundation);
+	ifc->advertised_address = ifa->advertised_address;
 	ifc->spec = spec;
 	ifc->logical = lif;
 
-	g_hash_table_insert(lif->addr_hash, (void *) &ifc->spec->address, ifc);
+	g_hash_table_insert(lif->addr_hash, (void *) &ifc->spec->local_address, ifc);
 }
 
 void interfaces_init(GQueue *interfaces) {
@@ -477,7 +478,7 @@ void interfaces_init(GQueue *interfaces) {
 	/* build primary lists first */
 	for (l = interfaces->head; l; l = l->next) {
 		ifa = l->data;
-		__interface_append(ifa, ifa->address.addr.family);
+		__interface_append(ifa, ifa->local_address.addr.family);
 	}
 
 	/* then append to each other as lower-preference alternatives */
@@ -485,7 +486,7 @@ void interfaces_init(GQueue *interfaces) {
 		fam = get_socket_family_enum(i);
 		for (l = interfaces->head; l; l = l->next) {
 			ifa = l->data;
-			if (ifa->address.addr.family == fam)
+			if (ifa->local_address.addr.family == fam)
 				continue;
 			__interface_append(ifa, fam);
 		}
@@ -534,7 +535,7 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 
 /* XXX family specific? unify? */
 static int get_port6(socket_t *r, unsigned int port, struct intf_spec *spec) {
-	if (open_socket(r, SOCK_DGRAM, port, &spec->address.addr))
+	if (open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr))
 		return -1;
 
 	return 0;
@@ -563,7 +564,8 @@ static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec) {
 	}
 
 	g_atomic_int_dec_and_test(&pp->free_ports);
-	__C_DBG("%d free ports remaining on interface %s", pp->free_ports, sockaddr_print_buf(&spec->address.addr));
+	__C_DBG("%d free ports remaining on interface %s", pp->free_ports,
+			sockaddr_print_buf(&spec->local_address.addr));
 
 	return 0;
 }
@@ -662,12 +664,12 @@ release_restart:
 	g_atomic_int_set(&pp->last_used, port);
 
 	__C_DBG("Opened ports %u.. on interface %s for media relay",
-		((socket_t *) out->head->data)->local.port, sockaddr_print_buf(&spec->address.addr));
+		((socket_t *) out->head->data)->local.port, sockaddr_print_buf(&spec->local_address.addr));
 	return 0;
 
 fail:
 	ilog(LOG_ERR, "Failed to get %u consecutive ports on interface %s for media relay",
-			num_ports, sockaddr_print_buf(&spec->address.addr));
+			num_ports, sockaddr_print_buf(&spec->local_address.addr));
 	return -1;
 }
 

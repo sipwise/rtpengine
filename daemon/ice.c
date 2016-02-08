@@ -28,7 +28,7 @@
 
 #define PAIR_FORMAT STR_FORMAT":"STR_FORMAT":%lu"
 #define PAIR_FMT(p) 								\
-			STR_FMT(&(p)->local_intf->spec->ice_foundation),	\
+			STR_FMT(&(p)->local_intf->ice_foundation),		\
 			STR_FMT(&(p)->remote_candidate->foundation),		\
 			(p)->remote_candidate->component_id
 
@@ -646,7 +646,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	ilog(LOG_DEBUG, "Sending %sICE/STUN request for candidate pair "PAIR_FORMAT" from %s to %s",
 			PAIR_ISSET(pair, TO_USE) ? "nominating " : "",
-			PAIR_FMT(pair), sockaddr_print_buf(&pair->local_intf->spec->address.addr),
+			PAIR_FMT(pair), sockaddr_print_buf(&pair->local_intf->spec->local_address.addr),
 			endpoint_print_buf(&pair->remote_candidate->endpoint));
 
 	stun_binding_request(&pair->remote_candidate->endpoint, transact, &ag->pwd[0], ag->ufrag,
@@ -868,7 +868,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 
 	cand = g_slice_alloc0(sizeof(*cand));
 	cand->component_id = ps->component;
-	cand->transport = sfd->local_intf->spec->address.type; // XXX add socket type into socket_t?
+	cand->transport = sfd->local_intf->spec->local_address.type; // XXX add socket type into socket_t?
 	cand->priority = priority;
 	cand->endpoint = *src;
 	cand->type = ICT_PRFLX;
@@ -1050,7 +1050,7 @@ static int __check_valid(struct ice_agent *ag) {
 			ps->selected_sfd = sfd;
 			if (ps->component == 1)
 				ilog(LOG_INFO, "ICE negotiated: local interface %s",
-						sockaddr_print_buf(&pair->local_intf->spec->address.addr));
+						sockaddr_print_buf(&pair->local_intf->spec->local_address.addr));
 		}
 	}
 
@@ -1210,7 +1210,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 	ilog(LOG_DEBUG, "Received ICE/STUN response code %u for candidate pair "PAIR_FORMAT" from %s to %s",
 			attrs->error_code, PAIR_FMT(pair),
 			endpoint_print_buf(&pair->remote_candidate->endpoint),
-			sockaddr_print_buf(&ifa->spec->address.addr));
+			sockaddr_print_buf(&ifa->spec->local_address.addr));
 
 	/* verify endpoints */
 	err = "ICE/STUN response received, but source address didn't match remote candidate address";

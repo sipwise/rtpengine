@@ -2176,7 +2176,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 		else
 			ifa = get_any_interface_address(ps->media->logical_intf, ps->media->desired_family);
 	}
-	ifa_addr = &ifa->spec->address;
+	ifa_addr = &ifa->spec->local_address;
 
 	sink = packet_stream_sink(ps);
 
@@ -2187,7 +2187,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 			&& !is_trickle_ice_address(&sink->advertised_endpoint))
 		l += sprintf(o + l, "%s", ifa_addr->addr.family->unspec_string);
 	else
-		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa_addr->advertised));
+		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->advertised_address));
 
 	*len = l;
 	return ifa_addr->addr.family->af;

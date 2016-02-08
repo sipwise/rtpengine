@@ -1699,7 +1699,7 @@ static void insert_candidate(struct sdp_chopper *chop, struct stream_fd *sfd,
 
 	priority = ice_priority_pref(type_pref, local_pref, ps->component);
 	chopper_append_c(chop, "a=candidate:");
-	chopper_append_str(chop, &ifa->spec->ice_foundation);
+	chopper_append_str(chop, &ifa->ice_foundation);
 	chopper_append_printf(chop, " %u UDP %lu ", ps->component, priority);
 	insert_ice_address(chop, sfd);
 	chopper_append_c(chop, " typ ");
