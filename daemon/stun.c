@@ -288,6 +288,8 @@ INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u
 	__output_add(mh, &(attr)->tlv, len + sizeof(struct tlv), code, NULL, 0)
 #define output_add_data(mh, attr, code, data, len) \
 	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, data, len)
+#define output_add_data_len_pad(mh, attr, code, data, len) \
+	__output_add(mh, &(attr)->tlv, sizeof((attr)->tlv), code, data, len)
 
 
 static void __output_finish(struct msghdr *mh) {
@@ -303,7 +305,7 @@ static void output_finish_src(struct msghdr *mh) {
 static void software(struct msghdr *mh, struct software *sw) {
 	int i;
 	i = snprintf(sw->str, sizeof(sw->str) - 1, "rtpengine-%s", RTPENGINE_VERSION);
-	output_add_data(mh, sw, STUN_SOFTWARE, sw->str, i);
+	output_add_data_len_pad(mh, sw, STUN_SOFTWARE, sw->str, i);
 }
 
 static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
