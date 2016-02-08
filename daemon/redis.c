@@ -231,24 +231,26 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 		return;
 	}
 
+	mutex_lock(&r->lock);
+
 	r = cm->conf.redis_read_notify;
 
 	redisReply *rr = (redisReply*)reply;
 
 	if (reply == NULL || rr->type != REDIS_REPLY_ARRAY)
-		return;
+		goto err;
 
 	for (int j = 0; j < rr->elements; j++) {
 		rlog(LOG_INFO, "Redis-Notify: %u) %s\n", j, rr->element[j]->str);
 	}
 
 	if (rr->elements != 4)
-		return;
+		goto err;
 
 	char *pch = strstr(rr->element[2]->str, "notifier-");
 	if (pch == NULL) {
 		rlog(LOG_ERROR,"Redis-Notifier: The substring 'notifier-' has not been found in the redis notification !\n");
-		return;
+		goto err;
 	}
 
 
@@ -260,7 +262,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 		++pdbstr; ++p;
 		if (pdbstr-db_str>15) {
 			rlog(LOG_ERROR, "Could not extract keyspace db from notification.");
-			return;
+			goto err;
 		}
 	}
 	dbno = r->db = atoi(db_str);
@@ -271,7 +273,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 			rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
 		redisFree(r->ctx);
 		r->ctx = NULL;
-		return;
+		goto err;
 	}
 
 	pch += strlen("notifier-");
@@ -285,13 +287,13 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 	if (c && c->redis_call_responsible) {
 		rlog(LOG_DEBUG,"I am responsible for that call so I ignore redis notifications.");
-		return;
+		goto err;
 	}
 
 	if (strncmp(rr->element[3]->str,"sadd",4)==0) {
 		if (c) {
 			rlog(LOG_INFO, "Redis-Notifier: Call already exists with this callid:%s\n", rr->element[2]->str);
-			return;
+			goto err;
 		}
 		redis_restore_call(r, cm, rr->element[2]);
 
@@ -306,6 +308,8 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 		call_destroy(c);
 	}
 
+err:
+	mutex_unlock(&r->lock);
 }
 
 void redis_notify_event_base_loopbreak(struct callmaster *cm) {
