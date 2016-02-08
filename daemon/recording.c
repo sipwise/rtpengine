@@ -337,9 +337,9 @@ void recording_finish_file(struct recording *recording) {
  * Write out a PCAP packet with payload string.
  * A fair amount extraneous of packet data is spoofed.
  */
-void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *sink, str *s) {
-	endpoint_t src_endpoint = sink->advertised_endpoint;
-	endpoint_t dst_endpoint = sink->endpoint;
+void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, str *s) {
+	endpoint_t src_endpoint = stream->advertised_endpoint;
+	endpoint_t dst_endpoint = stream->selected_sfd->socket.local;
 
 	// Wrap RTP in fake UDP packet header
 	// Right now, we spoof it all
