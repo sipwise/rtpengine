@@ -1,3 +1,9 @@
+ngcp-rtpengine (3.8.6.0+0~mr3.8.6.0) unstable; urgency=medium
+
+  * New release.
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 09 Feb 2016 20:35:22 +0100
+
 ngcp-rtpengine (3.8.5.0+0~mr3.8.5.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
