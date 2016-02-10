@@ -587,10 +587,10 @@ no_kernel:
 
 	// restore
 	if (mc.redis_read) {
-		if (redis_restore(ctx->m, mc.redis_read, ANY_REDIS_ROLE))
+		if (redis_restore(ctx->m, mc.redis_read))
 			die("Refusing to continue without working Redis read database");
 	} else if (mc.redis) {
-		if (redis_restore(ctx->m, mc.redis, MASTER_REDIS_ROLE))
+		if (redis_restore(ctx->m, mc.redis))
 			die("Refusing to continue without working Redis database");
 	}
 

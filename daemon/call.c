@@ -568,9 +568,9 @@ static void callmaster_timer(void *ptr) {
 
 		if (update) {
 			if (m->conf.redis_write) {
-				redis_update(ps->call, m->conf.redis_write, ANY_REDIS_ROLE);
+				redis_update(ps->call, m->conf.redis_write);
 			} else if (m->conf.redis) {
-				redis_update(ps->call, m->conf.redis, MASTER_REDIS_ROLE);
+				redis_update(ps->call, m->conf.redis);
 			}
 		}
 
@@ -1847,9 +1847,9 @@ void call_destroy(struct call *c) {
 	obj_put(c);
 
 	if (m->conf.redis_write) {
-		redis_delete(c, m->conf.redis_write, ANY_REDIS_ROLE);
+		redis_delete(c, m->conf.redis_write);
 	} else if (m->conf.redis) {
-		redis_delete(c, m->conf.redis, MASTER_REDIS_ROLE);
+		redis_delete(c, m->conf.redis);
 	}
 
 	rwlock_lock_w(&c->master_lock);
@@ -2713,9 +2713,9 @@ static void calls_dump_iterator(void *key, void *val, void *ptr) {
 	struct callmaster *m = c->callmaster;
 
 	if (m->conf.redis_write) {
-		redis_update(c, m->conf.redis_write, ANY_REDIS_ROLE);
+		redis_update(c, m->conf.redis_write);
 	} else if (m->conf.redis) {
-		redis_update(c, m->conf.redis, MASTER_REDIS_ROLE);
+		redis_update(c, m->conf.redis);
 	}
 }
 
@@ -2724,7 +2724,7 @@ void calls_dump_redis(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe(m->conf.redis, MASTER_REDIS_ROLE);
+	redis_wipe(m->conf.redis);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
 }
@@ -2734,7 +2734,7 @@ void calls_dump_redis_read(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to read Redis...\n");
-	redis_wipe(m->conf.redis_read, ANY_REDIS_ROLE);
+	redis_wipe(m->conf.redis_read);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to read Redis\n");
 }
@@ -2744,7 +2744,7 @@ void calls_dump_redis_write(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to write Redis...\n");
-	redis_wipe(m->conf.redis_write, ANY_REDIS_ROLE);
+	redis_wipe(m->conf.redis_write);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to write Redis\n");
 }

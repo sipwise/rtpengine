@@ -14,9 +14,11 @@
 #include <hiredis/hiredis.h>
 
 
-#define MASTER_REDIS_ROLE	0
-#define SLAVE_REDIS_ROLE	1
-#define ANY_REDIS_ROLE		2
+enum redis_role {
+	MASTER_REDIS_ROLE = 0,
+	SLAVE_REDIS_ROLE = 1,
+	ANY_REDIS_ROLE = 2,
+};
 
 struct callmaster;
 struct call;
@@ -26,6 +28,7 @@ struct call;
 struct redis {
 	endpoint_t	endpoint;
 	char		host[64];
+	enum redis_role	role;
 
 	redisContext	*ctx;
 	int		db;
@@ -75,11 +78,11 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 
 
 
-struct redis *redis_new(const endpoint_t *, int, int);
-int redis_restore(struct callmaster *, struct redis *, int);
-void redis_update(struct call *, struct redis *, int);
-void redis_delete(struct call *, struct redis *, int);
-void redis_wipe(struct redis *, int);
+struct redis *redis_new(const endpoint_t *, int, enum redis_role);
+int redis_restore(struct callmaster *, struct redis *);
+void redis_update(struct call *, struct redis *);
+void redis_delete(struct call *, struct redis *);
+void redis_wipe(struct redis *);
 
 
 

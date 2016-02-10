@@ -1397,9 +1397,9 @@ out:
 
 	if (ca && update) {
 		if (ca->callmaster->conf.redis_write) {
-			redis_update(ca, ca->callmaster->conf.redis, ANY_REDIS_ROLE);
+			redis_update(ca, ca->callmaster->conf.redis);
 		} else if (ca->callmaster->conf.redis) {
-			redis_update(ca, ca->callmaster->conf.redis, MASTER_REDIS_ROLE);
+			redis_update(ca, ca->callmaster->conf.redis);
 		}
 	}
 done:
