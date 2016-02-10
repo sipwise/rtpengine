@@ -127,6 +127,9 @@ int detect_setup_recording(struct call *call, str recordcall) {
  */
 int set_record_call(struct call *call, str recordcall) {
 	if (!str_cmp(&recordcall, "yes")) {
+		if (call->record_call == FALSE) {
+			ilog(LOG_NOTICE, "Turning on call recording.");
+		}
 		call->record_call = TRUE;
 		if (call->recording == NULL) {
 			call->recording = g_slice_alloc0(sizeof(struct recording));
@@ -135,6 +138,9 @@ int set_record_call(struct call *call, str recordcall) {
 			meta_setup_file(call->recording, call->callid);
 		}
 	} else if (!str_cmp(&recordcall, "no")) {
+		if (call->record_call == TRUE) {
+			ilog(LOG_NOTICE, "Turning off call recording.");
+		}
 		call->record_call = FALSE;
 	} else {
 		ilog(LOG_INFO, "\"record-call\" flag %s is invalid flag.", recordcall.s);
@@ -187,7 +193,7 @@ str *meta_setup_file(struct recording *recording, str callid) {
 			recording->meta_filepath = NULL;
 		}
 		recording->meta_fp = mfp;
-		ilog(LOG_INFO, "Wrote metadata file to temporary path: %s", meta_filepath->s);
+		ilog(LOG_DEBUG, "Wrote metadata file to temporary path: %s", meta_filepath->s);
 		return meta_filepath;
 	}
 }
