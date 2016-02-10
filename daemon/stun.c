@@ -370,7 +370,7 @@ static void stun_error_len(struct stream_fd *sfd, const endpoint_t *sin,
 	struct generic aa;
 	struct msghdr mh;
 	struct software sw;
-	struct iovec iov[8]; /* hdr, ec, reason, aa, attr_cont, mi, fp, sw */
+	struct iovec iov[9]; /* hdr, ec, reason, aa, attr_cont, mi, fp, sw x2 */
 
 	output_init(&mh, iov, &hdr, STUN_BINDING_ERROR_RESPONSE, req->transaction);
 	software(&mh, &sw);
@@ -462,7 +462,7 @@ static int stun_binding_success(struct stream_fd *sfd, struct header *req, struc
 	struct fingerprint fp;
 	struct msghdr mh;
 	struct software sw;
-	struct iovec iov[5]; /* hdr, xma, mi, fp, sw */
+	struct iovec iov[6]; /* hdr, xma, mi, fp, sw x2 */
 
 	output_init(&mh, iov, &hdr, STUN_BINDING_SUCCESS_RESPONSE, req->transaction);
 	software(&mh, &sw);
@@ -635,7 +635,7 @@ int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *p
 {
 	struct header hdr;
 	struct msghdr mh;
-	struct iovec iov[9]; /* hdr, username x2, ice_controlled/ing, priority, uc, fp, mi, sw */
+	struct iovec iov[10]; /* hdr, username x2, ice_controlled/ing, priority, uc, fp, mi, sw x2 */
 	char username_buf[256];
 	int i;
 	struct generic un_attr;
