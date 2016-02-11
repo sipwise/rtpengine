@@ -467,7 +467,7 @@ static int stun_binding_success(struct stream_fd *sfd, struct header *req, struc
 	output_init(&mh, iov, &hdr, STUN_BINDING_SUCCESS_RESPONSE, req->transaction);
 	software(&mh, &sw);
 
-	xma.port = htons(sin->port) ^ (STUN_COOKIE >> 16);
+	xma.port = htons(sin->port ^ (STUN_COOKIE >> 16));
 	if (sin->address.family->af == AF_INET) {
 		xma.family = htons(0x01);
 		xma.address[0] = sin->address.u.ipv4.s_addr ^ htonl(STUN_COOKIE);
