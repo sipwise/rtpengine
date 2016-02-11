@@ -566,13 +566,8 @@ static void callmaster_timer(void *ptr) {
 
 		rwlock_unlock_r(&sfd->call->master_lock);
 
-		if (update) {
-			if (m->conf.redis_write) {
-				redis_update(ps->call, m->conf.redis_write);
-			} else if (m->conf.redis) {
-				redis_update(ps->call, m->conf.redis);
-			}
-		}
+		if (update)
+			redis_update(ps->call, m->conf.redis_write);
 
 next:
 		g_hash_table_remove(hlp.addr_sfd, &ep);
@@ -1846,11 +1841,7 @@ void call_destroy(struct call *c) {
 
 	obj_put(c);
 
-	if (m->conf.redis_write) {
-		redis_delete(c, m->conf.redis_write);
-	} else if (m->conf.redis) {
-		redis_delete(c, m->conf.redis);
-	}
+	redis_delete(c, m->conf.redis_write);
 
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */
@@ -2708,6 +2699,9 @@ void callmaster_get_all_calls(struct callmaster *m, GQueue *q) {
 }
 
 
+#if 0
+// unused
+// simplifty redis_write <> redis if put back into use
 static void calls_dump_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
 	struct callmaster *m = c->callmaster;
@@ -2748,6 +2742,7 @@ void calls_dump_redis_write(struct callmaster *m) {
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to write Redis\n");
 }
+#endif
 
 const struct transport_protocol *transport_protocol(const str *s) {
 	int i;

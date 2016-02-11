@@ -186,11 +186,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 			sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
 	rwlock_unlock_w(&c->master_lock);
 
-	if (m->conf.redis_write) {
-		redis_update(c, m->conf.redis_write);
-	} else if (m->conf.redis) {
-		redis_update(c, m->conf.redis);
-	}
+	redis_update(c, m->conf.redis_write);
 
 	gettimeofday(&(monologue->started), NULL);
 
@@ -338,11 +334,7 @@ out2:
 	rwlock_unlock_w(&c->master_lock);
 	streams_free(&s);
 
-	if (m->conf.redis_write) {
-		redis_update(c, m->conf.redis_write);
-	} else if (m->conf.redis) {
-		redis_update(c, m->conf.redis);
-	}
+	redis_update(c, m->conf.redis_write);
 
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT0(ret));
 	obj_put(c);
@@ -719,11 +711,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
 
 	rwlock_unlock_w(&call->master_lock);
-	if (m->conf.redis_write) {
-		redis_update(call, m->conf.redis_write);
-	} else if (m->conf.redis) {
-		redis_update(call, m->conf.redis);
-	}
+	redis_update(call, m->conf.redis_write);
 	obj_put(call);
 
 	gettimeofday(&(monologue->started), NULL);

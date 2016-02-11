@@ -170,8 +170,6 @@ option and which are reproduced below:
 	  -M, --port-max=INT               Highest port to use for RTP
 	  -r, --redis=IP:PORT              Connect to Redis database
 	  -R, --redis-db=INT               Which Redis DB to use
-	  -z, --redis-read=IP:PORT         Connect to Redis read database
-	  -Z, --redis-read-db=INT          Which Redis read DB to use
 	  -w, --redis-write=IP:PORT        Connect to Redis write database
 	  -W, --redis-write-db=INT         Which Redis write DB to use
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
@@ -334,11 +332,6 @@ The options are described in more detail below.
 
 	Log to stderr instead of syslog. Only useful in combination with `--foreground`.
 
-* -x, --xmlrpc-format
-
-	Selects the internal format of the XMLRPC callback message for B2BUA call teardown. 0 is for SEMS,
-	1 is for a generic format containing the call-ID only.
-
 * --num-threads
 
 	How many worker threads to create, must be at least one. The default is to create as many threads
@@ -361,9 +354,36 @@ The options are described in more detail below.
 	Delete the call from memory after the specified delay from memory. Can be set to zero for
 	immediate call deletion.
 
-*  -r, --redis, -R, --redis-db, -z, --redis-read, -Z, --redis-read-db, -w, --redis-write, -W, --redis-write-db, -b, --b2b-url
+*  -r, --redis, -R, --redis-db
 
-	NGCP-specific options
+	Connect to specified Redis database (with the given database number) and use it for persistence
+	storage. On startup, *rtpengine* will read the contents of this database and restore all calls
+	stored therein. During runtime operation, *rtpengine* will continually update the database's
+	contents to keep it current, so that in case of a service disruption, the last state can be restored
+	upon a restart.
+
+	When this option is given, *rtpengine* will delay startup until the Redis database adopts the
+	master role (but see below).
+
+*  -w, --redis-write, -W, --redis-write-db
+
+	Configures a second Redis database for write operations. If this option is given in addition to the
+	first one, then the first database will be used for read operations (i.e. to restore calls from) while
+	the second one will be used for write operations (to update states in the database).
+
+	When both options are given, *rtpengine* will start and use the Redis database regardless of the
+	database's role (master or slave).
+
+*  -b, --b2b-url
+
+	Enables and sets the URI for an XMLRPC callback to be made when a call is torn down due to packet
+	timeout. The special code `%%` can be used in place of an IP address, in which case the source address
+	of the originating request will be used.
+
+* -x, --xmlrpc-format
+
+	Selects the internal format of the XMLRPC callback message for B2BUA call teardown. 0 is for SEMS,
+	1 is for a generic format containing the call-ID only.
 
 * -g, --graphite
 
@@ -556,26 +576,6 @@ then the start-up sequence might look like this:
 
 With this setup, the SIP proxy can choose which instance of *rtpengine* to talk to and thus which local
 interface to use by sending its control messages to either port 2223 or port 2224.
-
-REDIS Database interaction 
--------------------------
-
-Rtpengine is able to write call details in redis database and retore the calls from the same database.
-To configure the redis parameters have a look on -r/-R, -z/-Z, -w/-W parameters.
-
-The three REDIS params could be specified in rtpengine's config file:
-* REDIS -> specify the redis database for both read and write ops; expected role of redis is checked to be master and won't start if it is not
-* REDIS_READ -> specify the redis database for read ops; expected role of redis may be any, master or slave
-* REDIS_WRITE -> specify the redis database for write ops; expected role of redis could be any, master or slave
-
-One can specify combinations of REDIS/REDIS_READ/WRITE at the same time. For example:
-* REDIS=IP1 -> will use IP1 for read and write operations
-* REDIS=IP1, REDIS_READ=IP2 -> will use IP1 for write and IP2 for read operations
-* REDIS=IP1, REDIS_WRITE=IP2 -> will use IP1 for read and IP2 for write operations
-* REDIS=IP1, REDIS_READ=IP2, REDIS_WRITE=IP3 -> will use IP2 for read and IP3 for write operations
-* REDIS_READ=IP1, REDIS_WRITE=IP2 -> will use IP1 for read and IP2 for write operations
-* REDIS_READ=IP1 -> will use IP1 for read operations; write operations are ignored
-* REDIS_WRITE=IP1 -> will use IP1 for write operations; read operations are ignored
 
 The *ng* Control Protocol
 =========================

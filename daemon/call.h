@@ -424,7 +424,6 @@ struct callmaster_config {
 	unsigned int		silent_timeout;
 	unsigned int		delete_delay;
 	struct redis		*redis;
-	struct redis		*redis_read;
 	struct redis		*redis_write;
 	char			*b2b_url;
 	unsigned char		default_tos;
@@ -473,9 +472,9 @@ void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 		struct timeval *iv_start, struct timeval *iv_duration);
 
-void calls_dump_redis(struct callmaster *);
-void calls_dump_redis_read(struct callmaster *);
-void calls_dump_redis_write(struct callmaster *);
+//void calls_dump_redis(struct callmaster *);
+//void calls_dump_redis_read(struct callmaster *);
+//void calls_dump_redis_write(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);

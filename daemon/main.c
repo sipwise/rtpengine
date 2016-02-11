@@ -32,11 +32,6 @@
 
 
 
-#define REDIS_MODULE_VERSION "redis/9"
-
-
-
-
 #define die(x...) do {									\
 	fprintf(stderr, x);								\
 	fprintf(stderr, "\n");								\
@@ -65,7 +60,6 @@ endpoint_t ng_listen_ep;
 endpoint_t cli_listen_ep;
 endpoint_t graphite_ep;
 endpoint_t redis_ep;
-endpoint_t redis_read_ep;
 endpoint_t redis_write_ep;
 static int tos;
 static int table = -1;
@@ -76,7 +70,6 @@ static int port_min = 30000;
 static int port_max = 40000;
 static int max_sessions = -1;
 static int redis_db = -1;
-static int redis_read_db = -1;
 static int redis_write_db = -1;
 static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
@@ -233,7 +226,7 @@ static void options(int *argc, char ***argv) {
 	char *graphitep = NULL;
 	char *graphite_prefix_s = NULL;
 	char *redisps = NULL;
-	char *redisps_read = NULL, *redisps_write = NULL;
+	char *redisps_write = NULL;
 	char *log_facility_s = NULL;
     char *log_facility_cdr_s = NULL;
     char *log_facility_rtcp_s = NULL;
@@ -261,8 +254,6 @@ static void options(int *argc, char ***argv) {
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
 		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
-		{ "redis-read", 'z', 0, G_OPTION_ARG_STRING,    &redisps_read,  "Connect to Redis read database",       "IP:PORT"       },
-		{ "redis-read-db",      'Z', 0, G_OPTION_ARG_INT,       &redis_read_db, "Which Redis read DB to use",   "INT"   },
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "IP:PORT"       },
 		{ "redis-write-db",     'W', 0, G_OPTION_ARG_INT,       &redis_write_db,"Which Redis write DB to use",  "INT"   },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
@@ -276,7 +267,7 @@ static void options(int *argc, char ***argv) {
 		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
-		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&max_sessions,	"Limit of maximum number of sessions",	NULL	},
+		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&max_sessions,	"Limit of maximum number of sessions",	"INT"	},
 		{ NULL, }
 	};
 
@@ -340,13 +331,6 @@ static void options(int *argc, char ***argv) {
 			die("Invalid IP or port (--redis)");
 		if (redis_db < 0)
 			die("Must specify Redis DB number (--redis-db) when using Redis");
-	}
-
-	if (redisps_read) {
-		if (endpoint_parse_any(&redis_read_ep, redisps_read))
-			die("Invalid Redis read IP or port (--redis-read)");
-		if (redis_read_db < 0)
-			die("Must specify Redis read DB number (--redis-read-db) when using Redis");
 	}
 
 	if (redisps_write) {
@@ -558,22 +542,19 @@ no_kernel:
 	        die("Failed to open UDP CLI connection port");
 	}
 
-	if (!is_addr_unspecified(&redis_ep.address)) {
-		mc.redis = redis_new(&redis_ep, redis_db, MASTER_REDIS_ROLE);
-		if (!mc.redis)
-			die("Cannot start up without Redis database");
-	}
-
-	if (!is_addr_unspecified(&redis_read_ep.address)) {
-		mc.redis_read = redis_new(&redis_read_ep, redis_read_db, ANY_REDIS_ROLE);
-		if (!mc.redis_read)
-			die("Cannot start up without Redis read database");
-	}
-
 	if (!is_addr_unspecified(&redis_write_ep.address)) {
 		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, ANY_REDIS_ROLE);
 		if (!mc.redis_write)
 			die("Cannot start up without Redis write database");
+	}
+
+	if (!is_addr_unspecified(&redis_ep.address)) {
+		mc.redis = redis_new(&redis_ep, redis_db, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE);
+		if (!mc.redis)
+			die("Cannot start up without Redis database");
+
+		if (!mc.redis_write)
+			mc.redis_write = mc.redis;
 	}
 
 	ctx->m->conf = mc;
@@ -586,13 +567,8 @@ no_kernel:
 	gettimeofday(&redis_start, NULL);
 
 	// restore
-	if (mc.redis_read) {
-		if (redis_restore(ctx->m, mc.redis_read))
-			die("Refusing to continue without working Redis read database");
-	} else if (mc.redis) {
-		if (redis_restore(ctx->m, mc.redis))
-			die("Refusing to continue without working Redis database");
-	}
+	if (redis_restore(ctx->m, mc.redis))
+		die("Refusing to continue without working Redis database");
 
 	// stop redis restore timer
 	gettimeofday(&redis_stop, NULL);
