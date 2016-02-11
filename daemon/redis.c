@@ -210,10 +210,8 @@ err3:
 err2:
 	if (r->ctx->err)
 		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
-	redisFree(r->ctx);
-	r->ctx = NULL;
 err:
-	rlog(LOG_ERR, "Failed to connect to master Redis database");
+	rlog(LOG_ERR, "Failed to connect to Redis %s", sockaddr_print_buf(&r->endpoint.address));
 	return -1;
 }
 
@@ -234,6 +232,12 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum red
 	if (redis_connect(r, 10))
 		goto err;
 
+	// redis is connected
+	if (r->state == REDIS_STATE_DISCONNECTED) {
+		rlog(LOG_INFO, "Established connection to Redis %s", sockaddr_print_buf(&r->endpoint.address));
+		r->state = REDIS_STATE_CONNECTED;
+	}
+
 	return r;
 
 err:
@@ -253,13 +257,36 @@ static void redis_close(struct redis *r) {
 
 
 
-/* called with r->lock held if necessary */
-static void redis_check_conn(struct redis *r) {
-	if (redisCommandNR(r->ctx, "PING") == 0)
-		return;
-	rlog(LOG_INFO, "Lost connection to Redis");
-	if (redis_connect(r, 1))
-		abort();
+/* must be called with r->lock held */
+static int redis_check_conn(struct redis *r) {
+	// try redis connection
+	if (redisCommandNR(r->ctx, "PING") == 0) {
+		// redis is connected
+		// redis_check_conn() executed well
+		return 0;
+	}
+
+	// redis is disconnected
+	if (r->state == REDIS_STATE_CONNECTED) {
+		rlog(LOG_ERR, "Lost connection to Redis %s", sockaddr_print_buf(&r->endpoint.address));
+		r->state = REDIS_STATE_DISCONNECTED;
+	}
+
+	// try redis reconnect -> will free current r->ctx
+	if (redis_connect(r, 1)) {
+		// redis is disconnected
+		// redis_check_conn() executed well
+		return 0;
+	}
+
+	// redis is connected
+	if (r->state == REDIS_STATE_DISCONNECTED) {
+		rlog(LOG_INFO, "RE-Established connection to Redis %s", sockaddr_print_buf(&r->endpoint.address));
+		r->state = REDIS_STATE_CONNECTED;
+	}
+
+	// redis_check_conn() executed well
+	return 0;
 }
 
 
@@ -1075,7 +1102,15 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	log_level |= LOG_FLAG_RESTORE;
 
 	rlog(LOG_DEBUG, "Restoring calls from Redis...");
+
+	mutex_lock(&r->lock);
 	redis_check_conn(r);
+	if (r->state == REDIS_STATE_DISCONNECTED) {
+		mutex_unlock(&r->lock);
+		ret = 0;
+		goto err;
+	}
+	mutex_unlock(&r->lock);
 
 	calls = redis_get(r, REDIS_REPLY_ARRAY, "SMEMBERS calls");
 
@@ -1215,6 +1250,10 @@ void redis_update(struct call *c, struct redis *r) {
 
 	mutex_lock(&r->lock);
 	redis_check_conn(r);
+	if (r->state == REDIS_STATE_DISCONNECTED) {
+		mutex_unlock(&r->lock);
+		return ;
+	}
 
 	rwlock_lock_r(&c->master_lock);
 
@@ -1465,6 +1504,10 @@ void redis_delete(struct call *c, struct redis *r) {
 
 	mutex_lock(&r->lock);
 	redis_check_conn(r);
+	if (r->state == REDIS_STATE_DISCONNECTED) {
+		mutex_unlock(&r->lock);
+		return ;
+	}
 	rwlock_lock_r(&c->master_lock);
 
 	redis_delete_call(c, r);
@@ -1483,6 +1526,10 @@ void redis_wipe(struct redis *r) {
 
 	mutex_lock(&r->lock);
 	redis_check_conn(r);
+	if (r->state == REDIS_STATE_DISCONNECTED) {
+		mutex_unlock(&r->lock);
+		return ;
+	}
 	redisCommandNR(r->ctx, "DEL calls");
 	mutex_unlock(&r->lock);
 }

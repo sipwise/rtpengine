@@ -20,6 +20,9 @@ enum redis_role {
 	ANY_REDIS_ROLE = 2,
 };
 
+#define REDIS_STATE_DISCONNECTED	0
+#define REDIS_STATE_CONNECTED		1
+
 struct callmaster;
 struct call;
 
@@ -35,6 +38,8 @@ struct redis {
 	const char	*auth;
 	mutex_t		lock;
 	unsigned int	pipeline;
+
+	int		state;
 };
 struct redis_hash {
 	redisReply *rr;
