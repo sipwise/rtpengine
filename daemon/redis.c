@@ -175,18 +175,22 @@ static int redis_connect(struct redis *r, int wait) {
 
 		if (!memcmp(s, "role:master", 9)) {
 			if (r->role == MASTER_REDIS_ROLE || r->role == ANY_REDIS_ROLE) {
-				ilog(LOG_INFO, "Connected to Redis in master mode");
+				ilog(LOG_INFO, "Connected to Redis %s in master mode", 
+					endpoint_print_buf(&r->endpoint));
 				goto done;
 			} else if (r->role == SLAVE_REDIS_ROLE) {
-				ilog(LOG_INFO, "Connected to Redis in master mode, but wanted mode is slave; retrying...");
+				ilog(LOG_INFO, "Connected to Redis %s in master mode, but wanted mode is slave; retrying...",
+					endpoint_print_buf(&r->endpoint));
 				goto next;
 			}
 		} else if (!memcmp(s, "role:slave", 8)) {
 			if (r->role == SLAVE_REDIS_ROLE || r->role == ANY_REDIS_ROLE) {
-				ilog(LOG_INFO, "Connected to Redis in slave mode");
+				ilog(LOG_INFO, "Connected to Redis %s in slave mode",
+					endpoint_print_buf(&r->endpoint));
 				goto done;
 			} else if (r->role == MASTER_REDIS_ROLE) {
-				ilog(LOG_INFO, "Connected to Redis in slave mode, but wanted mode is master; retrying...");
+				ilog(LOG_INFO, "Connected to Redis %s in slave mode, but wanted mode is master; retrying...",
+					endpoint_print_buf(&r->endpoint));
 				goto next;
 			}
 		} else {
@@ -209,9 +213,11 @@ err3:
 	freeReplyObject(rp);
 err2:
 	if (r->ctx->err)
-		rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
+		rlog(LOG_ERR, "Redis %s error: %s",
+			endpoint_print_buf(&r->endpoint), r->ctx->errstr);
 err:
-	rlog(LOG_ERR, "Failed to connect to Redis %s", sockaddr_print_buf(&r->endpoint.address));
+	rlog(LOG_ERR, "Failed to connect to Redis %s",
+		endpoint_print_buf(&r->endpoint));
 	return -1;
 }
 
@@ -234,7 +240,8 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum red
 
 	// redis is connected
 	if (r->state == REDIS_STATE_DISCONNECTED) {
-		rlog(LOG_INFO, "Established connection to Redis %s", sockaddr_print_buf(&r->endpoint.address));
+		rlog(LOG_INFO, "Established connection to Redis %s",
+			endpoint_print_buf(&r->endpoint));
 		r->state = REDIS_STATE_CONNECTED;
 	}
 
@@ -268,7 +275,8 @@ static int redis_check_conn(struct redis *r) {
 
 	// redis is disconnected
 	if (r->state == REDIS_STATE_CONNECTED) {
-		rlog(LOG_ERR, "Lost connection to Redis %s", sockaddr_print_buf(&r->endpoint.address));
+		rlog(LOG_ERR, "Lost connection to Redis %s",
+			endpoint_print_buf(&r->endpoint));
 		r->state = REDIS_STATE_DISCONNECTED;
 	}
 
@@ -281,7 +289,8 @@ static int redis_check_conn(struct redis *r) {
 
 	// redis is connected
 	if (r->state == REDIS_STATE_DISCONNECTED) {
-		rlog(LOG_INFO, "RE-Established connection to Redis %s", sockaddr_print_buf(&r->endpoint.address));
+		rlog(LOG_INFO, "RE-Established connection to Redis %s",
+			endpoint_print_buf(&r->endpoint));
 		r->state = REDIS_STATE_CONNECTED;
 	}
 
