@@ -231,9 +231,9 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 		return;
 	}
 
-	mutex_lock(&r->lock);
-
 	r = cm->conf.redis_read_notify;
+
+	mutex_lock(&r->lock);
 
 	redisReply *rr = (redisReply*)reply;
 
@@ -296,6 +296,8 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 			goto err;
 		}
 		redis_restore_call(r, cm, rr->element[2]);
+		atomic64_inc(&cm->stats.foreign_sessions);
+		atomic64_inc(&cm->totalstats.total_foreign_sessions);
 
 		// we lookup again to retrieve the call to insert the kayspace db id
 		c = g_hash_table_lookup(cm->callhash, &callid);
@@ -306,6 +308,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
 		call_destroy(c);
+		atomic64_dec(&cm->stats.foreign_sessions);
 	}
 
 err:
@@ -1142,6 +1145,7 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 
 	err = NULL;
 	c->redis_hosted_db = r->db;
+	c->redis_call_responsible = 1;
 	obj_put(c);
 
 err6:
@@ -1355,8 +1359,10 @@ void redis_update(struct call *c, struct redis *r, int role, enum call_opmode op
 
 	rwlock_lock_r(&c->master_lock);
 
-	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db))
+	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db)) {
+		rlog(LOG_ERR, " >>>>>>>>>>>>>>>>> Redis error.");
 		goto err;
+	}
 
 	redis_pipe(r, "DEL notifier-"PB"", STR(&c->callid));
 	redis_pipe(r, "SREM calls "PB"", STR(&c->callid));
@@ -1596,6 +1602,10 @@ void redis_update(struct call *c, struct redis *r, int role, enum call_opmode op
 
 	redis_consume(r);
 
+	mutex_unlock(&r->lock);
+	rwlock_unlock_r(&c->master_lock);
+
+	return;
 err:
 
 	mutex_unlock(&r->lock);
@@ -1619,6 +1629,10 @@ void redis_delete(struct call *c, struct redis *r, int role) {
 		goto err;
 
 	redis_delete_call(c, r);
+
+	rwlock_unlock_r(&c->master_lock);
+	mutex_unlock(&r->lock);
+	return;
 
 err:
 	rwlock_unlock_r(&c->master_lock);

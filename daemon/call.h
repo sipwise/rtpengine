@@ -229,12 +229,14 @@ struct stats {
 	u_int64_t			delay_avg;
 	u_int64_t			delay_max;
 	u_int8_t			in_tos_tclass; /* XXX shouldn't be here - not stats */
+	atomic64			foreign_sessions; // unresponsible via redis notification
 };
 
 struct totalstats {
 	time_t 				started;
 	atomic64			total_timeout_sess;
-	atomic64  		        total_rejected_sess;
+	atomic64			total_foreign_sessions;
+	atomic64			total_rejected_sess;
 	atomic64			total_silent_timeout_sess;
 	atomic64			total_regular_term_sess;
 	atomic64			total_forced_term_sess;
@@ -245,7 +247,7 @@ struct totalstats {
 
 	mutex_t				total_average_lock; /* for these two below */
 	u_int64_t			total_managed_sess;
-	struct timeval			total_average_call_dur;
+	struct timeval		total_average_call_dur;
 
 	mutex_t				managed_sess_lock; /* for these below */
 	u_int64_t			managed_sess_crt;

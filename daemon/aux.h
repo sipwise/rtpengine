@@ -539,6 +539,9 @@ INLINE u_int64_t atomic64_get_set(atomic64 *u, u_int64_t a) {
 INLINE void atomic64_inc(atomic64 *u) {
 	atomic64_add(u, 1);
 }
+INLINE void atomic64_dec(atomic64 *u) {
+	atomic64_add(u, -1);
+}
 INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 	atomic64_set_na(dst, atomic64_get_set(src, 0));
 }

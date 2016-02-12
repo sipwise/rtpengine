@@ -33,6 +33,8 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total managed sessions                          :"UINT64F"\n", num_sessions);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total foreign sessions                          :"UINT64F"\n", atomic64_get(&m->totalstats.total_foreign_sessions));
+	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total rejected sessions                         :"UINT64F"\n", atomic64_get(&m->totalstats.total_rejected_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via TIMEOUT            :"UINT64F"\n",atomic64_get(&m->totalstats.total_timeout_sess));
@@ -164,8 +166,8 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
        return;
    }
 
-   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu | redis_keyspace:%i\n\n",
-		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db);
+   printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu | redis_keyspace:%i | foreign:%s\n\n",
+		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db, c->redis_call_responsible?"no":"yes");
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues.head; l; l = l->next) {
@@ -345,7 +347,9 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
 
    if (len>=strlen(LIST_NUMSESSIONS) && strncmp(buffer,LIST_NUMSESSIONS,strlen(LIST_NUMSESSIONS)) == 0) {
        rwlock_lock_r(&m->hashlock);
-       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current sessions running on rtpengine: %i\n", g_hash_table_size(m->callhash));
+       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current sessions (own and foreign) running on rtpengine: %i\n", g_hash_table_size(m->callhash));
+       ADJUSTLEN(printlen,outbufend,replybuffer);
+       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current foreign sessions on rtpengine: %i\n", atomic64_get(&m->stats.foreign_sessions));
        ADJUSTLEN(printlen,outbufend,replybuffer);
        rwlock_unlock_r(&m->hashlock);
    } else if (len>=strlen(LIST_SESSIONS) && strncmp(buffer,LIST_SESSIONS,strlen(LIST_SESSIONS)) == 0) {
@@ -360,7 +364,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        while (g_hash_table_iter_next (&iter, &key, &value)) {
            ptrkey = (str*)key;
            call = (struct call*)value;
-           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db);
+           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db, call->redis_call_responsible?"no":"yes");
            ADJUSTLEN(printlen,outbufend,replybuffer);
        }
        rwlock_unlock_r(&m->hashlock);

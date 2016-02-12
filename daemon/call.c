@@ -540,6 +540,7 @@ static void callmaster_timer(void *ptr) {
 			if (ps && !(ps->call->redis_call_responsible) && ke->rtp_stats[j].packets >0) {
 				ilog(LOG_DEBUG, "Taking over resposibility now for that call since I saw packets.");
 				ps->call->redis_call_responsible = 1;
+				atomic64_dec(&m->stats.foreign_sessions);
 			}
 		}
 
