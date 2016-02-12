@@ -142,8 +142,14 @@ static int redis_connect(struct redis *r, int wait) {
 	if (r->ctx->err)
 		goto err2;
 
-	if (redisCommandNR(r->ctx, "PING"))
-		goto err2;
+	if (r->auth) {
+		if (redisCommandNR(r->ctx, "AUTH %s", r->auth))
+			goto err2;
+	}
+	else {
+		if (redisCommandNR(r->ctx, "PING"))
+			goto err2;
+	}
 
 	if (redisCommandNR(r->ctx, "SELECT %i", r->db))
 		goto err2;
@@ -206,7 +212,7 @@ err:
 
 
 
-struct redis *redis_new(const endpoint_t *ep, int db, enum redis_role role) {
+struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum redis_role role) {
 	struct redis *r;
 
 	r = g_slice_alloc0(sizeof(*r));
@@ -214,6 +220,7 @@ struct redis *redis_new(const endpoint_t *ep, int db, enum redis_role role) {
 	r->endpoint = *ep;
 	sockaddr_print(&ep->address, r->host, sizeof(r->host));
 	r->db = db;
+	r->auth = auth;
 	r->role = role;
 	mutex_init(&r->lock);
 
@@ -1074,7 +1081,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
 	for (i = 0; i < RESTORE_NUM_THREADS; i++)
-		g_queue_push_tail(&ctx.r_q, redis_new(&r->endpoint, r->db, r->role));
+		g_queue_push_tail(&ctx.r_q, redis_new(&r->endpoint, r->db, r->auth, r->role));
 	gtp = g_thread_pool_new(restore_thread, &ctx, RESTORE_NUM_THREADS, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {

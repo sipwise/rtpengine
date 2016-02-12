@@ -71,6 +71,8 @@ static int port_max = 40000;
 static int max_sessions = -1;
 static int redis_db = -1;
 static int redis_write_db = -1;
+static char *redis_auth;
+static char *redis_write_auth;
 static char *b2b_url;
 static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
@@ -215,9 +217,18 @@ static struct intf_config *if_addr_parse(char *s) {
 
 
 
-static int redis_ep_parse(endpoint_t *ep, int *db, char *str) {
+static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth_env, char *str) {
 	char *sl;
 	long l;
+
+	sl = strchr(str, '@');
+	if (sl) {
+		*sl = 0;
+		*auth = str;
+		str = sl+1;
+	}
+	else if ((sl = getenv(auth_env)))
+		*auth = sl;
 
 	sl = strchr(str, '/');
 	if (!sl)
@@ -276,8 +287,8 @@ static void options(int *argc, char ***argv) {
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
-		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT/INT"	},
-		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "IP:PORT/INT"       },
+		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
+		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
@@ -349,11 +360,12 @@ static void options(int *argc, char ***argv) {
 		silent_timeout = 3600;
 
 	if (redisps)
-		if (redis_ep_parse(&redis_ep, &redis_db, redisps))
+		if (redis_ep_parse(&redis_ep, &redis_db, &redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
 			die("Invalid Redis endpoint [IP:PORT/INT] (--redis)");
 
 	if (redisps_write)
-		if (redis_ep_parse(&redis_write_ep, &redis_write_db, redisps_write))
+		if (redis_ep_parse(&redis_write_ep, &redis_write_db, &redis_write_auth,
+					"RTPENGINE_REDIS_WRITE_AUTH_PW", redisps_write))
 			die("Invalid Redis endpoint [IP:PORT/INT] (--redis-write)");
 
 	if (xmlrpc_fmt > 1)
@@ -559,13 +571,13 @@ no_kernel:
 	}
 
 	if (!is_addr_unspecified(&redis_write_ep.address)) {
-		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, ANY_REDIS_ROLE);
+		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, redis_write_auth, ANY_REDIS_ROLE);
 		if (!mc.redis_write)
 			die("Cannot start up without Redis write database");
 	}
 
 	if (!is_addr_unspecified(&redis_ep.address)) {
-		mc.redis = redis_new(&redis_ep, redis_db, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE);
+		mc.redis = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE);
 		if (!mc.redis)
 			die("Cannot start up without Redis database");
 

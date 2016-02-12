@@ -168,8 +168,8 @@ option and which are reproduced below:
 	  -f, --foreground                 Don't fork to background
 	  -m, --port-min=INT               Lowest port to use for RTP
 	  -M, --port-max=INT               Highest port to use for RTP
-	  -r, --redis=IP:PORT/INT          Connect to Redis database
-	  -w, --redis-write=IP:PORT/INT    Connect to Redis write database
+	  -r, --redis=[PW@]IP:PORT/INT   Connect to Redis database
+	  -w, --redis-write=[PW@]IP:PORT/INT Connect to Redis write database
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
@@ -358,6 +358,13 @@ The options are described in more detail below.
 	storage. The format of this option is `ADDRESS:PORT/DBNUM`, for example `127.0.0.1:6379/12`
 	to connect to the Redis DB number 12 running on localhost on the default Redis port.
 
+	If the Redis database is protected with an authentication password, the password can be supplied
+	by prefixing the argument value with the password, separated by an `@` symbol, for example
+	`foobar@127.0.0.1:6379/12`. Note that this leaves the password visible in the process list,
+	posing a security risk if untrusted users access the same system. As an alternative, the password
+	can also be supplied in the shell environment through the environment variable
+	`RTPENGINE_REDIS_AUTH_PW`.
+
 	On startup, *rtpengine* will read the contents of this database and restore all calls
 	stored therein. During runtime operation, *rtpengine* will continually update the database's
 	contents to keep it current, so that in case of a service disruption, the last state can be restored
@@ -371,6 +378,9 @@ The options are described in more detail below.
 	Configures a second Redis database for write operations. If this option is given in addition to the
 	first one, then the first database will be used for read operations (i.e. to restore calls from) while
 	the second one will be used for write operations (to update states in the database).
+
+	For password protected Redis servers, the environment variable for the password is
+	`RTPENGINE_REDIS_WRITE_AUTH_PW`.
 
 	When both options are given, *rtpengine* will start and use the Redis database regardless of the
 	database's role (master or slave).
