@@ -168,10 +168,8 @@ option and which are reproduced below:
 	  -f, --foreground                 Don't fork to background
 	  -m, --port-min=INT               Lowest port to use for RTP
 	  -M, --port-max=INT               Highest port to use for RTP
-	  -r, --redis=IP:PORT              Connect to Redis database
-	  -R, --redis-db=INT               Which Redis DB to use
-	  -w, --redis-write=IP:PORT        Connect to Redis write database
-	  -W, --redis-write-db=INT         Which Redis write DB to use
+	  -r, --redis=IP:PORT/INT          Connect to Redis database
+	  -w, --redis-write=IP:PORT/INT    Connect to Redis write database
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
@@ -354,10 +352,13 @@ The options are described in more detail below.
 	Delete the call from memory after the specified delay from memory. Can be set to zero for
 	immediate call deletion.
 
-*  -r, --redis, -R, --redis-db
+*  -r, --redis
 
 	Connect to specified Redis database (with the given database number) and use it for persistence
-	storage. On startup, *rtpengine* will read the contents of this database and restore all calls
+	storage. The format of this option is `ADDRESS:PORT/DBNUM`, for example `127.0.0.1:6379/12`
+	to connect to the Redis DB number 12 running on localhost on the default Redis port.
+
+	On startup, *rtpengine* will read the contents of this database and restore all calls
 	stored therein. During runtime operation, *rtpengine* will continually update the database's
 	contents to keep it current, so that in case of a service disruption, the last state can be restored
 	upon a restart.
@@ -365,7 +366,7 @@ The options are described in more detail below.
 	When this option is given, *rtpengine* will delay startup until the Redis database adopts the
 	master role (but see below).
 
-*  -w, --redis-write, -W, --redis-write-db
+*  -w, --redis-write
 
 	Configures a second Redis database for write operations. If this option is given in addition to the
 	first one, then the first database will be used for read operations (i.e. to restore calls from) while

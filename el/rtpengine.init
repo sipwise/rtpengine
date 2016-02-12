@@ -108,14 +108,9 @@ build_opts() {
 		OPTS+=" --port-max=$PORT_MAX"
 	fi
 
-	if [[ -n "$REDIS" ]]
+	if [[ -n "$REDIS" -a -n "$REDIS_DB" ]]
 	then
-		OPTS+=" --redis=$REDIS"
-	fi
-
-	if [[ -n "$REDIS_DB" ]]
-	then
-		OPTS+=" --redis-db=$REDIS_DB"
+		OPTS+=" --redis=$REDIS/$REDIS_DB"
 	fi
 
 	if [[ -n "$B2B_URL" ]]

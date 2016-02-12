@@ -215,6 +215,30 @@ static struct intf_config *if_addr_parse(char *s) {
 
 
 
+static int redis_ep_parse(endpoint_t *ep, int *db, char *str) {
+	char *sl;
+	long l;
+
+	sl = strchr(str, '/');
+	if (!sl)
+		return -1;
+	*sl = 0;
+	sl++;
+	if (!*sl)
+		return -1;
+	l = strtol(sl, &sl, 10);
+	if (*sl != 0)
+		return -1;
+	if (l < 0)
+		return -1;
+	*db = l;
+	if (endpoint_parse_any(ep, str))
+		return -1;
+	return 0;
+}
+
+
+
 static void options(int *argc, char ***argv) {
 	char **if_a = NULL;
 	char **iter;
@@ -252,10 +276,8 @@ static void options(int *argc, char ***argv) {
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
-		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
-		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
-		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "IP:PORT"       },
-		{ "redis-write-db",     'W', 0, G_OPTION_ARG_INT,       &redis_write_db,"Which Redis write DB to use",  "INT"   },
+		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT/INT"	},
+		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "IP:PORT/INT"       },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
@@ -326,19 +348,13 @@ static void options(int *argc, char ***argv) {
 	if (silent_timeout <= 0)
 		silent_timeout = 3600;
 
-	if (redisps) {
-		if (endpoint_parse_any(&redis_ep, redisps))
-			die("Invalid IP or port (--redis)");
-		if (redis_db < 0)
-			die("Must specify Redis DB number (--redis-db) when using Redis");
-	}
+	if (redisps)
+		if (redis_ep_parse(&redis_ep, &redis_db, redisps))
+			die("Invalid Redis endpoint [IP:PORT/INT] (--redis)");
 
-	if (redisps_write) {
-		if (endpoint_parse_any(&redis_write_ep, redisps_write))
-			die("Invalid Redis write IP or port (--redis-write)");
-		if (redis_write_db < 0)
-			die("Must specify Redis write DB number (--redis-write-db) when using Redis");
-	}
+	if (redisps_write)
+		if (redis_ep_parse(&redis_write_ep, &redis_write_db, redisps_write))
+			die("Invalid Redis endpoint [IP:PORT/INT] (--redis-write)");
 
 	if (xmlrpc_fmt > 1)
 		die("Invalid XMLRPC format");
@@ -563,19 +579,21 @@ no_kernel:
 		daemonize();
 	wpidfile();
 
-	// start redis restore timer
-	gettimeofday(&redis_start, NULL);
+	if (mc.redis) {
+		// start redis restore timer
+		gettimeofday(&redis_start, NULL);
 
-	// restore
-	if (redis_restore(ctx->m, mc.redis))
-		die("Refusing to continue without working Redis database");
+		// restore
+		if (redis_restore(ctx->m, mc.redis))
+			die("Refusing to continue without working Redis database");
 
-	// stop redis restore timer
-	gettimeofday(&redis_stop, NULL);
+		// stop redis restore timer
+		gettimeofday(&redis_stop, NULL);
 
-	// print redis restore duration
-	redis_diff += timeval_diff(&redis_stop, &redis_start) / 1000.0;
-	ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
+		// print redis restore duration
+		redis_diff += timeval_diff(&redis_stop, &redis_start) / 1000.0;
+		ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
+	}
 
 	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);
 
