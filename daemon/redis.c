@@ -76,15 +76,22 @@ static redisReply *redis_get(struct redis *r, int type, const char *fmt, ...) {
 static int redisCommandNR(redisContext *r, const char *fmt, ...) {
 	va_list ap;
 	redisReply *ret;
+	int i = 0;
 
 	va_start(ap, fmt);
 	ret = redisvCommand(r, fmt, ap);
 	va_end(ap);
 
-	if (ret)
-		freeReplyObject(ret);
+	if (!ret)
+		return -1;
 
-	return ret ? 0 : -1;
+	if (ret->type == REDIS_REPLY_ERROR) {
+		i = -1;
+		ilog(LOG_WARNING, "Redis returned error to command '%s': %s", fmt, ret->str);
+	}
+
+	freeReplyObject(ret);
+	return i;
 }
 
 
