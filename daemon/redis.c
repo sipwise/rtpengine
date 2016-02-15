@@ -212,9 +212,11 @@ done:
 err3:
 	freeReplyObject(rp);
 err2:
-	if (r->ctx->err)
-		rlog(LOG_ERR, "Redis %s error: %s",
+	if (r->ctx->err) {
+		rlog(LOG_ERR, "Failed to connect to Redis %s, error: %s",
 			endpoint_print_buf(&r->endpoint), r->ctx->errstr);
+		return -1;
+	}
 err:
 	rlog(LOG_ERR, "Failed to connect to Redis %s",
 		endpoint_print_buf(&r->endpoint));
