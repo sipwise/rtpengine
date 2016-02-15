@@ -20,8 +20,10 @@ enum redis_role {
 	ANY_REDIS_ROLE = 2,
 };
 
-#define REDIS_STATE_DISCONNECTED	0
-#define REDIS_STATE_CONNECTED		1
+enum redis_state {
+	REDIS_STATE_DISCONNECTED = 0,
+	REDIS_STATE_CONNECTED = 1,
+};
 
 struct callmaster;
 struct call;

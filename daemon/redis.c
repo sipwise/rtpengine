@@ -233,24 +233,21 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum red
 	r->db = db;
 	r->auth = auth;
 	r->role = role;
+	r->state = REDIS_STATE_DISCONNECTED;
 	mutex_init(&r->lock);
 
-	if (redis_connect(r, 10))
-		goto err;
-
-	// redis is connected
-	if (r->state == REDIS_STATE_DISCONNECTED) {
-		rlog(LOG_INFO, "Established connection to Redis %s",
+	if (redis_connect(r, 10)) {
+		rlog(LOG_WARN, "Starting with no initial connection to Redis %s !",
 			endpoint_print_buf(&r->endpoint));
-		r->state = REDIS_STATE_CONNECTED;
+		return r;
 	}
 
-	return r;
+	// redis is connected
+	rlog(LOG_INFO, "Established initial connection to Redis %s",
+		endpoint_print_buf(&r->endpoint));
+	r->state = REDIS_STATE_CONNECTED;
 
-err:
-	mutex_destroy(&r->lock);
-	g_slice_free1(sizeof(*r), r);
-	return NULL;
+	return r;
 }
 
 
