@@ -168,8 +168,9 @@ option and which are reproduced below:
 	  -f, --foreground                 Don't fork to background
 	  -m, --port-min=INT               Lowest port to use for RTP
 	  -M, --port-max=INT               Highest port to use for RTP
-	  -r, --redis=[PW@]IP:PORT/INT   Connect to Redis database
+	  -r, --redis=[PW@]IP:PORT/INT     Connect to Redis database
 	  -w, --redis-write=[PW@]IP:PORT/INT Connect to Redis write database
+	  -q, --no-redis-required          Start even if can't connect to redis databases
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
@@ -384,6 +385,13 @@ The options are described in more detail below.
 
 	When both options are given, *rtpengine* will start and use the Redis database regardless of the
 	database's role (master or slave).
+
+*  -q, --no-redis-required
+	When this paramter is present or NO_REDIS_REQUIRED='yes' or '1' in config file, rtpengine starts even
+	if there is no initial connection to redis databases(either to -r or to -w or to both redis).
+
+	Be aware that if the -r redis can't be initially connected, sessions are not reloaded upon rtpengine startup,
+	even though rtpengine still starts.
 
 *  -b, --b2b-url
 
