@@ -42,6 +42,7 @@ struct redis {
 	unsigned int	pipeline;
 
 	int		state;
+	int		no_redis_required;
 };
 struct redis_hash {
 	redisReply *rr;
@@ -86,7 +87,7 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 
 
 
-struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role);
+struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int no_redis_required);
 int redis_restore(struct callmaster *, struct redis *);
 void redis_update(struct call *, struct redis *);
 void redis_delete(struct call *, struct redis *);

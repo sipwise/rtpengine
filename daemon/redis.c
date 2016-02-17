@@ -225,7 +225,7 @@ err:
 
 
 
-struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum redis_role role) {
+struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum redis_role role, int no_redis_required) {
 	struct redis *r;
 
 	r = g_slice_alloc0(sizeof(*r));
@@ -236,20 +236,28 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum red
 	r->auth = auth;
 	r->role = role;
 	r->state = REDIS_STATE_DISCONNECTED;
+	r->no_redis_required = no_redis_required;
 	mutex_init(&r->lock);
 
 	if (redis_connect(r, 10)) {
-		rlog(LOG_WARN, "Starting with no initial connection to Redis %s !",
-			endpoint_print_buf(&r->endpoint));
-		return r;
+		if (r->no_redis_required) {
+			rlog(LOG_WARN, "Starting with no initial connection to Redis %s !",
+				endpoint_print_buf(&r->endpoint));
+			return r;
+		}
+		goto err;
 	}
 
 	// redis is connected
 	rlog(LOG_INFO, "Established initial connection to Redis %s",
 		endpoint_print_buf(&r->endpoint));
 	r->state = REDIS_STATE_CONNECTED;
-
 	return r;
+
+err:
+	mutex_destroy(&r->lock);
+	g_slice_free1(sizeof(*r), r);
+	return NULL;
 }
 
 
@@ -1131,7 +1139,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
 	for (i = 0; i < RESTORE_NUM_THREADS; i++)
-		g_queue_push_tail(&ctx.r_q, redis_new(&r->endpoint, r->db, r->auth, r->role));
+		g_queue_push_tail(&ctx.r_q, redis_new(&r->endpoint, r->db, r->auth, r->role, r->no_redis_required));
 	gtp = g_thread_pool_new(restore_thread, &ctx, RESTORE_NUM_THREADS, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {

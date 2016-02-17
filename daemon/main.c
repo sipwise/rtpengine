@@ -71,6 +71,7 @@ static int port_max = 40000;
 static int max_sessions = -1;
 static int redis_db = -1;
 static int redis_write_db = -1;
+static int no_redis_required;
 static char *redis_auth;
 static char *redis_write_auth;
 static char *b2b_url;
@@ -289,6 +290,7 @@ static void options(int *argc, char ***argv) {
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
+		{ "no-redis-required", 'Q', 0, G_OPTION_ARG_NONE, &no_redis_required, "Start no matter of redis connection state", NULL },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
@@ -571,15 +573,17 @@ no_kernel:
 	}
 
 	if (!is_addr_unspecified(&redis_write_ep.address)) {
-		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, redis_write_auth, ANY_REDIS_ROLE);
+		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, redis_write_auth, ANY_REDIS_ROLE, no_redis_required);
 		if (!mc.redis_write)
-			die("Cannot start up without Redis write database");
+			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED paramter.",
+				endpoint_print_buf(&redis_write_ep));
 	}
 
 	if (!is_addr_unspecified(&redis_ep.address)) {
-		mc.redis = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE);
+		mc.redis = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
 		if (!mc.redis)
-			die("Cannot start up without Redis database");
+			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED paramter.",
+				endpoint_print_buf(&redis_ep));
 
 		if (!mc.redis_write)
 			mc.redis_write = mc.redis;
