@@ -80,21 +80,23 @@ sub add_candidate {
 	my $comps = [];
 	my $comp_id = 1;
 	for my $c (@components) {
-		my $comp = { socket => $c, component => $comp_id,
+		my $comp = bless { socket => $c, component => $comp_id,
 				priority => calc_priority($type, $local_pref, $comp_id),
 				foundation => $foundation,
 				protocol => 'UDP', af => $c->sockdomain(),
-				address => $c->sockhost(), port => $c->sockport() };
+				address => $c->sockhost(), port => $c->sockport(),
+				agent => $self }, 'ICE::Component';
 		push(@$comps, $comp);
-		$self->debug("$foundation/$comp_id is $comp->{address}/$comp->{port}\n");
+		$comp->debug("is $comp->{address}/$comp->{port}\n");
 
 		$comp_id++;
 	}
 
-	$cands->{$foundation} = { foundation => $foundation, preference => $local_pref,
+	$cands->{$foundation} = bless { foundation => $foundation, preference => $local_pref,
 		base_priority => calc_priority($type, $local_pref, 0),
 		type => $type, components => $comps, protocol => 'UDP',
-		af => $comps->[0]->{af}, address => $comps->[0]->{address} };
+		af => $comps->[0]->{af}, address => $comps->[0]->{address},
+		agent => $self }, 'ICE::Candidate';
 
 	$self->pair_candidates();
 }
@@ -283,8 +285,8 @@ sub pair_candidates {
 
 			my $foundation = $loc->{foundation} . $rem->{foundation};
 			my $pair = $pairs->{$foundation} || ($pairs->{$foundation} =
-					{ foundation => $foundation, local => $loc, remote => $rem,
-					components => []}
+					bless { foundation => $foundation, local => $loc, remote => $rem,
+					components => [], agent => $self}, 'ICE::Candidate::Pair'
 				);
 			my $comps = $pair->{components};
 
@@ -293,29 +295,15 @@ sub pair_candidates {
 				defined($rem->{components}->[$idx]) or next;
 
 				my $c = $comps->[$idx] || ($comps->[$idx] =
-					{ foundation => $foundation,
+					bless { foundation => $foundation,
 					local => $loc->{components}->[$idx],
-					remote => $rem->{components}->[$idx] });
+					remote => $rem->{components}->[$idx],
+					agent => $self},
+					'ICE::Component::Pair');
 				$c->{state} = $c->{state} || ($idx == 0 ? 'waiting' : 'frozen');
 			}
 		}
 	}
-}
-
-sub pair_priority {
-	my ($self, $pair) = @_;
-	# could be a candidate pair or a component pair. only components have priorities
-	my $gk = $self->{controlling} ? 'local' : 'remote';
-	my $dk = $self->{controlling} ? 'remote' : 'local';
-	my $gc = $pair->{$gk};
-	my $dc = $pair->{$dk};
-	if (exists($gc->{components})) {
-		$gc = $gc->{components}->[0];
-		$dc = $dc->{components}->[0];
-	}
-	my $g = $gc->{priority};
-	my $d = $dc->{priority};
-	return (($g < $d ? $g : $d) << 32) + (($g > $d ? $g : $d) * 2) + ($g > $d ? 1 : 0);
 }
 
 sub get_pair {
@@ -518,7 +506,7 @@ sub stun_handler_binding_request {
 	# get candidate pair and trigger check
 	my $pair = $self->get_pair($comp->{foundation}, $cand->{foundation}, $comp->{component});
 	$pair or die;
-	$self->trigger_check($pair);
+	$pair->trigger_check();
 
 	# set and check nominations
 	if ($hash->{use}) {
@@ -559,7 +547,7 @@ sub check_nominations {
 		return;
 	}
 
-	@nominated = $self->sort_pairs(\@nominated);
+	@nominated = sort_pairs(\@nominated);
 	my $pair = $nominated[0];
 	$self->debug("highest priority nominated pair is $pair->{foundation}\n");
 }
@@ -714,8 +702,8 @@ sub timer {
 	defined($self->{other_ufrag}) && defined($self->{other_pwd}) or return; # not enough info
 
 	if (my $pair = shift(@{$self->{triggered_checks}})) {
-		$self->debug("$pair->{foundation} - running triggered check\n");
-		$self->run_check($pair);
+		$pair->debug("running triggered check\n");
+		$pair->run_check();
 		return;
 	}
 
@@ -723,81 +711,125 @@ sub timer {
 
 	my @candidate_pairs = values(%{$self->{candidate_pairs}});
 	my @component_pairs = map {@{$_->{components}}} @candidate_pairs;
-	my @sorted_pairs = $self->sort_pairs(\@component_pairs);
+	my @sorted_pairs = sort_pairs(\@component_pairs);
 	my @waiting_pairs = grep {$_->{state} eq 'waiting'} @sorted_pairs;
 
 	if (my $pair = shift(@waiting_pairs)) {
-		$self->debug("$pair->{foundation} - running scheduled check (waiting state)\n");
-		$self->run_check($pair);
+		$pair->debug("running scheduled check (waiting state)\n");
+		$pair->run_check();
 		return;
 	}
 }
 
 sub sort_pairs {
-	my ($self, $pair_list) = @_;
-	return sort {$self->pair_priority($a) <=> $self->pair_priority($b)} @$pair_list;
+	my ($pair_list) = @_;
+	return sort {$a->priority() <=> $b->priority()} @$pair_list;
+}
+
+package ICE::Candidate;
+
+sub debug {
+	my ($self, @rest) = @_;
+	$self->{agent}->debug("candidate", $self->{foundation}, ' - ', @rest);
+}
+
+package ICE::Component;
+
+sub debug {
+	my ($self, @rest) = @_;
+	$self->{agent}->debug("component $self->{foundation}/$self->{component}", ' - ', @rest);
+}
+
+package ICE::Candidate::Pair;
+
+sub priority {
+	my ($self) = @_;
+	my $firstcomp = $self->{components}->[0];
+	return $firstcomp->priority();
+}
+
+sub debug {
+	my ($self, @rest) = @_;
+	$self->{agent}->debug("candidate pair $self->{foundation}", ' - ', @rest);
+}
+
+package ICE::Component::Pair;
+
+sub debug {
+	my ($self, @rest) = @_;
+	$self->{agent}->debug("component pair $self->{foundation}", ' - ', @rest);
+}
+
+sub priority {
+	my ($self) = @_;
+	my $agent = $self->{agent};
+	my $gk = $agent->{controlling} ? 'local' : 'remote';
+	my $dk = $agent->{controlling} ? 'remote' : 'local';
+	my $gc = $self->{$gk};
+	my $dc = $self->{$dk};
+	my $g = $gc->{priority};
+	my $d = $dc->{priority};
+	return (($g < $d ? $g : $d) << 32) + (($g > $d ? $g : $d) * 2) + ($g > $d ? 1 : 0);
 }
 
 sub trigger_check {
-	my ($self, $pair) = @_;
-	$self->debug("$pair->{foundation} - trigger check\n");
-	if ($pair->{state} eq 'succeeded') {
-		$self->debug("$pair->{foundation} - already succeeded\n");
+	my ($self) = @_;
+	$self->debug("trigger check\n");
+	if ($self->{state} eq 'succeeded') {
+		$self->debug("already succeeded\n");
 		return;
 	}
-	if ($pair->{state} eq 'in progress') {
-		$self->cancel_check($pair);
+	if ($self->{state} eq 'in progress') {
+		$self->cancel_check();
 	}
-	push(@{$self->{triggered_checks}}, $pair);
+	push(@{$self->{agent}->{triggered_checks}}, $self);
 }
 
 sub run_check {
-	my ($self, $pair) = @_;
+	my ($self) = @_;
 
-	$pair->{state} eq 'in progress' and return;
+	$self->{state} eq 'in progress' and return;
 
-	$self->debug("$pair->{foundation} - running check\n");
-	$pair->{state} = 'in progress';
-	$pair->{transaction} = random_string(12);
-	$self->send_check($pair);
+	$self->debug("running check\n");
+	$self->{state} = 'in progress';
+	$self->{transaction} = ICE::random_string(12);
+	$self->send_check();
 }
 
 sub cancel_check {
-	my ($self, $pair) = @_;
-	$self->debug("$pair->{foundation} - canceling existing check $pair->{transaction}\n");
-	$pair->{previous_transactions}->{$pair->{transaction}} = 1;
-	delete $pair->{transaction};
-	$pair->{state} = 'waiting';
+	my ($self) = @_;
+	$self->debug("canceling existing check $self->{transaction}\n");
+	$self->{previous_transactions}->{$self->{transaction}} = 1;
+	delete $self->{transaction};
+	$self->{state} = 'waiting';
 }
 
 sub send_check {
-	my ($self, $pair) = @_;
+	my ($self) = @_;
 
-	$self->debug("$pair->{foundation} - sending check $pair->{transaction}\n");
+	$self->debug("sending check $self->{transaction}\n");
 
-	$pair->{last_transmit} = time();
-	my $local_comp = $pair->{local};
-	my $remote_comp = $pair->{remote};
-	my $local_cand = $self->{candidates}->{$local_comp->{foundation}};
+	$self->{last_transmit} = time();
+	my $local_comp = $self->{local};
+	my $remote_comp = $self->{remote};
+	my $local_cand = $self->{agent}->{candidates}->{$local_comp->{foundation}};
 
 	my $attrs = [];
-	unshift(@$attrs, attr(0x8022, 'perl:ICE.pm'));
-	my $hexbrk = $self->{tie_breaker}->as_hex();
+	unshift(@$attrs, ICE::attr(0x8022, 'perl:ICE.pm'));
+	my $hexbrk = $self->{agent}->{tie_breaker}->as_hex();
 	$hexbrk =~ s/^0x// or die;
 	$hexbrk = ('0' x (16 - length($hexbrk))) . $hexbrk;
-	unshift(@$attrs, attr($self->{controlling} ? 0x802a : 0x8029, pack('H*', $hexbrk)));
-	unshift(@$attrs, attr(0x0024, pack('N', calc_priority('prflx',
+	unshift(@$attrs, ICE::attr($self->{agent}->{controlling} ? 0x802a : 0x8029, pack('H*', $hexbrk)));
+	unshift(@$attrs, ICE::attr(0x0024, pack('N', ICE::calc_priority('prflx',
 				$local_cand->{preference}, $local_comp->{component}))));
-	unshift(@$attrs, attr(0x0006, "$self->{other_ufrag}:$self->{my_ufrag}"));
+	unshift(@$attrs, ICE::attr(0x0006, "$self->{agent}->{other_ufrag}:$self->{agent}->{my_ufrag}"));
 
-	$self->integrity($attrs, 1, $pair->{transaction}, $self->{other_pwd});
-	$self->fingerprint($attrs, 1, $pair->{transaction});
+	$self->{agent}->integrity($attrs, 1, $self->{transaction}, $self->{agent}->{other_pwd});
+	$self->{agent}->fingerprint($attrs, 1, $self->{transaction});
 
 	my $packet = join('', @$attrs);
-	$packet = pack('nnNa12', 1, length($packet), 0x2112A442, $pair->{transaction}) . $packet;
+	$packet = pack('nnNa12', 1, length($packet), 0x2112A442, $self->{transaction}) . $packet;
 	$local_comp->{socket}->send($packet, 0, $remote_comp->{packed_peer});
 }
-
-# XXX use multiple packages here for candidates, components and pairs
 
 1;
