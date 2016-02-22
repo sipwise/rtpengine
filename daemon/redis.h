@@ -14,6 +14,9 @@
 #include <hiredis/hiredis.h>
 
 
+#define REDIS_RESTORE_NUM_THREADS 4
+
+
 enum redis_role {
 	MASTER_REDIS_ROLE = 0,
 	SLAVE_REDIS_ROLE = 1,

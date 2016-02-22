@@ -1086,7 +1086,6 @@ struct thread_ctx {
 	GQueue r_q;
 	mutex_t r_m;
 };
-#define RESTORE_NUM_THREADS 4
 
 static void restore_thread(void *call_p, void *ctx_p) {
 	struct thread_ctx *ctx = ctx_p;
@@ -1138,9 +1137,9 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	ctx.m = m;
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
-	for (i = 0; i < RESTORE_NUM_THREADS; i++)
+	for (i = 0; i < m->conf.redis_num_threads; i++)
 		g_queue_push_tail(&ctx.r_q, redis_new(&r->endpoint, r->db, r->auth, r->role, r->no_redis_required));
-	gtp = g_thread_pool_new(restore_thread, &ctx, RESTORE_NUM_THREADS, TRUE, NULL);
+	gtp = g_thread_pool_new(restore_thread, &ctx, m->conf.redis_num_threads, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {
 		call = calls->element[i];

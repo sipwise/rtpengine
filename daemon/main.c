@@ -71,6 +71,7 @@ static int port_max = 40000;
 static int max_sessions = -1;
 static int redis_db = -1;
 static int redis_write_db = -1;
+static int redis_num_threads;
 static int no_redis_required;
 static char *redis_auth;
 static char *redis_write_auth;
@@ -290,6 +291,7 @@ static void options(int *argc, char ***argv) {
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
+		{ "redis-num-threads", 'w', 0, G_OPTION_ARG_INT, &redis_num_threads, "Number of Redis restore threads",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &no_redis_required, "Start no matter of redis connection state", NULL },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
@@ -540,6 +542,15 @@ no_kernel:
 	mc.fmt = xmlrpc_fmt;
 	mc.graphite_ep = graphite_ep;
 	mc.graphite_interval = graphite_interval;
+	if (redis_num_threads < 1) {
+#ifdef _SC_NPROCESSORS_ONLN
+		redis_num_threads = sysconf( _SC_NPROCESSORS_ONLN );
+#endif
+		if (redis_num_threads < 1) {
+			redis_num_threads = REDIS_RESTORE_NUM_THREADS;
+		}
+	}
+	mc.redis_num_threads = redis_num_threads;
 
 	ct = NULL;
 	if (tcp_listen_ep.port) {

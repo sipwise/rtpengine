@@ -430,6 +430,8 @@ struct callmaster_config {
 	enum xmlrpc_format	fmt;
 	endpoint_t		graphite_ep;
 	int			graphite_interval;
+
+	int			redis_num_threads;
 };
 
 struct callmaster {
