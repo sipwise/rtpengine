@@ -170,6 +170,7 @@ option and which are reproduced below:
 	  -M, --port-max=INT               Highest port to use for RTP
 	  -r, --redis=[PW@]IP:PORT/INT     Connect to Redis database
 	  -w, --redis-write=[PW@]IP:PORT/INT Connect to Redis write database
+	  --redis-num-threads=INT          Number of Redis restore threads
 	  -q, --no-redis-required          Start even if can't connect to redis databases
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
@@ -385,6 +386,10 @@ The options are described in more detail below.
 
 	When both options are given, *rtpengine* will start and use the Redis database regardless of the
 	database's role (master or slave).
+
+* --redis-num-threads
+
+	How many redis restore threads to create. The default is four.
 
 *  -q, --no-redis-required
 	When this paramter is present or NO_REDIS_REQUIRED='yes' or '1' in config file, rtpengine starts even
