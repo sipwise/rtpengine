@@ -1,4 +1,4 @@
-Source: ngcp-rtpengine-kernel
+Source: ngcp-rtpengine
 Section: kernel
 Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
