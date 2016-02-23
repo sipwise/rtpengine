@@ -7,7 +7,7 @@ ifneq ($(RTPENGINE_VERSION),)
 else
   DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)
   ifneq ($(DPKG_PRSCHNGLG),)
-    EXTRA_CFLAGS += -DRTPENGINE_VERSION="\"$(shell dpkg-parsechangelog -l$(M)/../debian/changelog | awk '/^Version: / {print $$2}')\""
+    EXTRA_CFLAGS += -DRTPENGINE_VERSION="\"$(shell dpkg-parsechangelog -l$(M)/debian/changelog | awk '/^Version: / {print $$2}')\""
   else
     EXTRA_CFLAGS += -DRTPENGINE_VERSION="\"undefined\""
   endif
