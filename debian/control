@@ -4,8 +4,7 @@ Priority: extra
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Build-Depends: debhelper (>= 5),
                iptables-dev (>= 1.4),
-               libcurl4-openssl-dev | libcurl4-gnutls-dev |
-  libcurl3-openssl-dev | libcurl3-gnutls-dev,
+               libcurl4-openssl-dev | libcurl4-gnutls-dev | libcurl3-openssl-dev | libcurl3-gnutls-dev,
                libglib2.0-dev (>= 2.30),
                libhiredis-dev,
                libpcre3-dev,
@@ -13,7 +12,7 @@ Build-Depends: debhelper (>= 5),
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
                markdown,
                zlib1g-dev
-Standards-Version: 3.9.6
+Standards-Version: 3.9.7
 Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
