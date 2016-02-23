@@ -1,15 +1,15 @@
-Source: ngcp-rtpengine-kernel
+Source: ngcp-rtpengine
 Section: kernel
 Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Build-Depends: debhelper (>= 5)
-Standards-Version: 3.9.3
+Standards-Version: 3.9.7
 Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-kernel-modules-_KVERS_
 Architecture: any
 Depends: linux-modules-_KVERS_ | linux-image-_KVERS_
 Provides: ngcp-rtpengine-kernel
-Description: TODO
+Description: IPtables kernel module for the NGCP media proxy
  This package provides the ngcp-rtpengine module for
  the Linux kernel version _KVERS_.
