@@ -33,22 +33,23 @@ struct port_pool {
 struct intf_address {
 	socktype_t			*type;
 	sockaddr_t			addr;
-	sockaddr_t			advertised;
 };
 struct intf_config {
 	str				name;
-	struct intf_address		address;
+	struct intf_address		local_address;
+	sockaddr_t			advertised_address;
 	unsigned int			port_min, port_max;
 };
 struct intf_spec {
-	struct intf_address		address;
-	str				ice_foundation;
+	struct intf_address		local_address;
 	struct port_pool		port_pool;
 };
 struct local_intf {
 	struct intf_spec		*spec;
+	sockaddr_t			advertised_address;
 	unsigned int			unique_id; /* starting with 0 - serves as preference */
 	const struct logical_intf	*logical;
+	str				ice_foundation;
 };
 struct intf_list {
 	const struct local_intf		*local_intf;
@@ -88,7 +89,7 @@ void free_intf_list(struct intf_list *il);
 void free_socket_intf_list(struct intf_list *il);
 
 INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_intf *lif) {
-	return open_socket(r, SOCK_DGRAM, port, &lif->spec->address.addr);
+	return open_socket(r, SOCK_DGRAM, port, &lif->spec->local_address.addr);
 }
 
 void kernelize(struct packet_stream *);

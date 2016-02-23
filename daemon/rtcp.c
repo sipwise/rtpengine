@@ -480,7 +480,7 @@ void print_rtcp_common(char** cdrbufcur, const pjmedia_rtcp_common *common) {
 			common->p,
 			common->count,
 			common->pt,
-			common->length,
+			ntohl(common->length),
 			ntohl(common->ssrc));
 }
 
@@ -502,8 +502,8 @@ void print_rtcp_rr(char** cdrbufcur, const pjmedia_rtcp_rr* rr) {
 
     *cdrbufcur += sprintf(*cdrbufcur,"ssrc=%u, fraction_lost=%u, packet_loss=%u, last_seq=%u, jitter=%u, last_sr=%u, delay_since_last_sr=%u, ",
 			ntohl(rr->ssrc),
-			ntohl(rr->fract_lost),
-			ntohl(packet_loss),
+			rr->fract_lost,
+			packet_loss,
 			ntohl(rr->last_seq),
 			ntohl(rr->jitter),
 			ntohl(rr->lsr),

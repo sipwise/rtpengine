@@ -14,6 +14,7 @@
 #include "call.h"
 #include "cli.h"
 #include "socket.h"
+#include "redis.h"
 
 #include "rtpengine_config.h"
 
@@ -349,7 +350,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        rwlock_lock_r(&m->hashlock);
        printlen = snprintf(replybuffer, outbufend-replybuffer, "Current sessions (own and foreign) running on rtpengine: %i\n", g_hash_table_size(m->callhash));
        ADJUSTLEN(printlen,outbufend,replybuffer);
-       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current foreign sessions on rtpengine: %i\n", atomic64_get(&m->stats.foreign_sessions));
+       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current foreign sessions on rtpengine: "UINT64F"\n", atomic64_get(&m->stats.foreign_sessions));
        ADJUSTLEN(printlen,outbufend,replybuffer);
        rwlock_unlock_r(&m->hashlock);
    } else if (len>=strlen(LIST_SESSIONS) && strncmp(buffer,LIST_SESSIONS,strlen(LIST_SESSIONS)) == 0) {

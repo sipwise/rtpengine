@@ -16,6 +16,7 @@
 #include "rtp.h"
 #include "ice.h"
 #include "socket.h"
+#include "call_interfaces.h"
 
 struct network_address {
 	str network_type;
@@ -190,6 +191,7 @@ struct sdp_attribute {
 		ATTR_FINGERPRINT,
 		ATTR_SETUP,
 		ATTR_RTPMAP,
+		ATTR_IGNORE,
 	} attr;
 
 	union {
@@ -520,8 +522,9 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	return 0;
 
 error:
-	ilog(LOG_ERROR, "Failed to parse a=crypto attribute: %s", err);
-	return -1;
+	ilog(LOG_ERROR, "Failed to parse a=crypto attribute, ignoring: %s", err);
+	output->attr = ATTR_IGNORE;
+	return 0;
 }
 
 static int parse_attribute_rtcp(struct sdp_attribute *output) {
@@ -1533,6 +1536,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 			case ATTR_SENDRECV:
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:
+			case ATTR_IGNORE:
 				goto strip;
 
 			case ATTR_GROUP:
@@ -1596,10 +1600,12 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_RTCP_MUX:
 				if (flags->ice_force_relay)
 					break;
+				// fall thru
 			case ATTR_INACTIVE:
 			case ATTR_SENDONLY:
 			case ATTR_RECVONLY:
 			case ATTR_SENDRECV:
+			case ATTR_IGNORE:
 				goto strip;
 
 			case ATTR_EXTMAP:
@@ -1693,7 +1699,7 @@ static void insert_candidate(struct sdp_chopper *chop, struct stream_fd *sfd,
 
 	priority = ice_priority_pref(type_pref, local_pref, ps->component);
 	chopper_append_c(chop, "a=candidate:");
-	chopper_append_str(chop, &ifa->spec->ice_foundation);
+	chopper_append_str(chop, &ifa->ice_foundation);
 	chopper_append_printf(chop, " %u UDP %lu ", ps->component, priority);
 	insert_ice_address(chop, sfd);
 	chopper_append_c(chop, " typ ");

@@ -15,9 +15,19 @@
 #include "call.h"
 
 
-#define MASTER_REDIS_ROLE	0
-#define SLAVE_REDIS_ROLE	1
-#define ANY_REDIS_ROLE		2
+#define REDIS_RESTORE_NUM_THREADS 4
+
+
+enum redis_role {
+	MASTER_REDIS_ROLE = 0,
+	SLAVE_REDIS_ROLE = 1,
+	ANY_REDIS_ROLE = 2,
+};
+
+enum redis_state {
+	REDIS_STATE_DISCONNECTED = 0,
+	REDIS_STATE_CONNECTED = 1,
+};
 
 struct callmaster;
 struct call;
@@ -27,11 +37,16 @@ struct call;
 struct redis {
 	endpoint_t	endpoint;
 	char		host[64];
+	enum redis_role	role;
 
 	redisContext	*ctx;
 	int		db;
+	const char	*auth;
 	mutex_t		lock;
 	unsigned int	pipeline;
+
+	int		state;
+	int		no_redis_required;
 };
 struct redis_hash {
 	redisReply *rr;
@@ -77,11 +92,11 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 void redis_notify(void *d);
 
 
-struct redis *redis_new(const endpoint_t *, int, int);
-int redis_restore(struct callmaster *, struct redis *, int);
-void redis_update(struct call *, struct redis *, int, enum call_opmode);
-void redis_delete(struct call *, struct redis *, int);
-void redis_wipe(struct redis *, int);
+struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int no_redis_required);
+int redis_restore(struct callmaster *, struct redis *);
+void redis_update(struct call *, struct redis *);
+void redis_delete(struct call *, struct redis *);
+void redis_wipe(struct redis *);
 void redis_notify_event_base_loopbreak(struct callmaster *cm);
 void redis_notify_subscribe_keyspace(struct callmaster *cm, int keyspace);
 void redis_notify_unsubscribe_keyspace(struct callmaster *cm, int keyspace);

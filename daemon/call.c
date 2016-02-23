@@ -573,13 +573,8 @@ static void callmaster_timer(void *ptr) {
 
 		rwlock_unlock_r(&sfd->call->master_lock);
 
-		if (update) {
-			if (m->conf.redis_write) {
-				redis_update(ps->call, m->conf.redis_write, ANY_REDIS_ROLE, OP_OTHER);
-			} else if (m->conf.redis) {
-				redis_update(ps->call, m->conf.redis, MASTER_REDIS_ROLE, OP_OTHER);
-			}
-		}
+		if (update)
+			redis_update(ps->call, m->conf.redis_write);
 
 next:
 		g_hash_table_remove(hlp.addr_sfd, &ep);
@@ -689,7 +684,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 }
 
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
-		const struct endpoint *ep)
+		const struct endpoint *ep, const struct sdp_ng_flags *flags)
 {
 	GList *l;
 	struct endpoint_map *em;
@@ -712,13 +707,17 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		}
 		if (!ep) /* creating wildcard map */
 			break;
-		/* handle zero endpoint address */
-		if (is_addr_unspecified(&ep->address) || is_addr_unspecified(&em->endpoint.address)) {
+
+		if (flags && flags->port_latching)
+			/* do nothing - ignore endpoint addresses */ ;
+		else if (is_addr_unspecified(&ep->address) || is_addr_unspecified(&em->endpoint.address)) {
+			/* handle zero endpoint address: only compare ports */
 			if (ep->port != em->endpoint.port)
 				continue;
 		}
 		else if (memcmp(&em->endpoint, ep, sizeof(*ep)))
 			continue;
+
 		if (em->num_ports >= num_ports) {
 			if (is_addr_unspecified(&em->endpoint.address))
 				em->endpoint.address = ep->address;
@@ -772,45 +771,51 @@ next_il:
 }
 
 static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
-	GList *l, *k, *m;
+	GList *l, *k;
 	struct packet_stream *ps;
-	struct stream_fd *sfd;
+	struct stream_fd *sfd, *intf_sfd;
 	struct intf_list *il;
-	int first = 1;
+	int sfd_found;
 
-	for (l = intf_sfds->head; l; l = l->next) {
-		il = l->data;
+	for (k = media->streams.head; k; k = k->next) {
+		ps = k->data;
 
-		for (m = il->list.head, k = media->streams.head; m && k; m = m->next, k = k->next) {
-			sfd = m->data;
-			ps = k->data;
+		g_queue_clear(&ps->sfds);
+		sfd_found = 0;
+		intf_sfd = NULL;
 
-			if (first)
-				g_queue_clear(&ps->sfds);
+		for (l = intf_sfds->head; l; l = l->next) {
+			il = l->data;
+
+			sfd = g_queue_peek_nth(&il->list, ps->component - 1);
 
 			sfd->stream = ps;
 			g_queue_push_tail(&ps->sfds, sfd);
 
-			if (!ps->selected_sfd)
-				ps->selected_sfd = sfd;
-
-			/* XXX:
-			 * check whether previous/currect selected_sfd is actually part of
-			 * current sfds list.
-			 * if selected_sfd changes, take previously selected interface into account.
-			 * handle crypto/dtls resets by moving contexts into sfd struct.
-			 * handle ice resets too.
-			 */
+			if (ps->selected_sfd == sfd)
+				sfd_found = 1;
+			if (ps->selected_sfd && sfd->local_intf == ps->selected_sfd->local_intf)
+				intf_sfd = sfd;
 		}
 
-		first = 0;
+		if (!ps->selected_sfd || !sfd_found) {
+			if (intf_sfd)
+				ps->selected_sfd = intf_sfd;
+			else
+				ps->selected_sfd = g_queue_peek_nth(&ps->sfds, 0);
+		}
+
+		/* XXX:
+		 * handle crypto/dtls resets by moving contexts into sfd struct.
+		 * handle ice resets too.
+		 */
 	}
 }
 
 static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_ports) {
 	struct endpoint_map *em;
 
-	em = __get_endpoint_map(media, num_ports, NULL);
+	em = __get_endpoint_map(media, num_ports, NULL, NULL);
 	if (!em)
 		return -1;
 
@@ -929,7 +934,13 @@ static int __init_stream(struct packet_stream *ps) {
 			crypto_init(&ps->selected_sfd->crypto, &media->sdes_in.params);
 
 		if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
-			active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
+			active = dtls_is_active(&ps->selected_sfd->dtls);
+			// we try to retain our role if possible, but must handle a role switch
+			if ((active && !MEDIA_ISSET(media, SETUP_ACTIVE))
+					|| (!active && !MEDIA_ISSET(media, SETUP_PASSIVE)))
+				active = -1;
+			if (active == -1)
+				active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
 			dtls_connection_init(ps, active, call->dtls_cert);
 
 			if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
@@ -1139,7 +1150,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 	}
 
 	if (flags->opmode == OP_OFFER) {
-		/* we always offer actpass */
+		/* we always must offer actpass */
 		MEDIA_SET(this, SETUP_PASSIVE);
 		MEDIA_SET(this, SETUP_ACTIVE);
 	}
@@ -1346,9 +1357,10 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 static void __init_interface(struct call_media *media, const str *ifname, int num_ports) {
 	/* we're holding master_lock in W mode here, so we can safely ignore the
 	 * atomic ops */
-	//struct local_intf *ifa = (void *) media->local_intf;
 
-	if (!media->logical_intf /* || !ifa */)
+	if (!media->logical_intf)
+		goto get;
+	if (media->logical_intf->preferred_family != media->desired_family)
 		goto get;
 	if (!ifname || !ifname->s)
 		return;
@@ -1381,7 +1393,8 @@ get:
 }
 
 
-static void __dtls_logic(const struct sdp_ng_flags *flags, struct call_media *media,
+// process received a=setup and related attributes
+static void __dtls_logic(const struct sdp_ng_flags *flags,
 		struct call_media *other_media, struct stream_params *sp)
 {
 	unsigned int tmp;
@@ -1397,8 +1410,7 @@ static void __dtls_logic(const struct sdp_ng_flags *flags, struct call_media *me
 		/* Special case: if this is an offer and actpass is being offered (as it should),
 		 * we would normally choose to be active. However, if this is a reinvite and we
 		 * were passive previously, we should retain this role. */
-		if (flags && flags->opmode == OP_OFFER && MEDIA_ISSET(other_media, SETUP_ACTIVE)
-				&& MEDIA_ISSET(other_media, SETUP_PASSIVE)
+		if (flags && flags->opmode == OP_OFFER && MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE)
 				&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
 				== MEDIA_FLAG_SETUP_PASSIVE)
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
@@ -1566,7 +1578,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		if (sp->rtp_endpoint.port) {
 			/* DTLS stuff */
-			__dtls_logic(flags, media, other_media, sp);
+			__dtls_logic(flags, other_media, sp);
 
 			/* control rtcp-mux */
 			__rtcp_mux_logic(flags, media, other_media);
@@ -1627,7 +1639,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* get that many ports for each side, and one packet stream for each port, then
 		 * assign the ports to the streams */
-		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint);
+		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint, flags);
 		if (!em) {
 			goto error_ports;
 		} else {
@@ -1806,7 +1818,7 @@ void call_destroy(struct call *c) {
 	struct packet_stream *ps=0, *ps2=0;
 	struct stream_fd *sfd;
 	struct poller *p;
-	GSList *l;
+	GList *l;
 	int ret;
 	struct call_monologue *ml;
 	struct call_media *md;
@@ -1844,12 +1856,9 @@ void call_destroy(struct call *c) {
 	obj_put(c);
 
 	if (c->redis_call_responsible) {
-		if (m->conf.redis_write) {
-			redis_delete(c, m->conf.redis_write, ANY_REDIS_ROLE);
-		} else if (m->conf.redis) {
-			redis_delete(c, m->conf.redis, MASTER_REDIS_ROLE);
-		}
+		redis_delete(c, m->conf.redis_write);
 	}
+
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */
 
@@ -2174,7 +2183,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 		else
 			ifa = get_any_interface_address(ps->media->logical_intf, ps->media->desired_family);
 	}
-	ifa_addr = &ifa->spec->address;
+	ifa_addr = &ifa->spec->local_address;
 
 	sink = packet_stream_sink(ps);
 
@@ -2185,7 +2194,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 			&& !is_trickle_ice_address(&sink->advertised_endpoint))
 		l += sprintf(o + l, "%s", ifa_addr->addr.family->unspec_string);
 	else
-		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa_addr->advertised));
+		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->advertised_address));
 
 	*len = l;
 	return ifa_addr->addr.family->af;
@@ -2233,6 +2242,7 @@ static void __call_free(void *p) {
 	g_hash_table_destroy(c->tags);
 	g_hash_table_destroy(c->viabranches);
 	g_queue_clear(&c->medias);
+	g_queue_clear(&c->endpoint_maps);
 
 	while (c->streams.head) {
 		ps = g_queue_pop_head(&c->streams);
@@ -2705,14 +2715,17 @@ void callmaster_get_all_calls(struct callmaster *m, GQueue *q) {
 }
 
 
+#if 0
+// unused
+// simplifty redis_write <> redis if put back into use
 static void calls_dump_iterator(void *key, void *val, void *ptr) {
 	struct call *c = val;
 	struct callmaster *m = c->callmaster;
 
 	if (m->conf.redis_write) {
-		redis_update(c, m->conf.redis_write, ANY_REDIS_ROLE, OP_OTHER);
+		redis_update(c, m->conf.redis_write);
 	} else if (m->conf.redis) {
-		redis_update(c, m->conf.redis, MASTER_REDIS_ROLE, OP_OTHER);
+		redis_update(c, m->conf.redis);
 	}
 }
 
@@ -2721,7 +2734,7 @@ void calls_dump_redis(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe(m->conf.redis, MASTER_REDIS_ROLE);
+	redis_wipe(m->conf.redis);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
 }
@@ -2731,7 +2744,7 @@ void calls_dump_redis_read(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to read Redis...\n");
-	redis_wipe(m->conf.redis_read, ANY_REDIS_ROLE);
+	redis_wipe(m->conf.redis_read);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to read Redis\n");
 }
@@ -2741,10 +2754,11 @@ void calls_dump_redis_write(struct callmaster *m) {
 		return;
 
 	ilog(LOG_DEBUG, "Start dumping all call data to write Redis...\n");
-	redis_wipe(m->conf.redis_write, ANY_REDIS_ROLE);
+	redis_wipe(m->conf.redis_write);
 	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
 	ilog(LOG_DEBUG, "Finished dumping all call data to write Redis\n");
 }
+#endif
 
 const struct transport_protocol *transport_protocol(const str *s) {
 	int i;
