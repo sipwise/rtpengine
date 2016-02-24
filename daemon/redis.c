@@ -674,6 +674,8 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 		atomic64_set_na(&ps->last_packet, time(NULL));
 		if (redis_hash_get_unsigned((unsigned int *) &ps->ps_flags, rh, "ps_flags"))
 			return -1;
+		if (redis_hash_get_unsigned((unsigned int *) &ps->component, rh, "component"))
+			return -1;
 		if (redis_hash_get_endpoint(&ps->endpoint, rh, "endpoint"))
 			return -1;
 		if (redis_hash_get_endpoint(&ps->advertised_endpoint, rh, "advertised_endpoint"))
@@ -1318,7 +1320,7 @@ void redis_update(struct call *c, struct redis *r) {
 
 		redis_pipe(r, "HMSET stream-"PB"-%u media %u sfd %u rtp_sink %u "
 			"rtcp_sink %u rtcp_sibling %u last_packet "UINT64F" "
-			"ps_flags %u",
+			"ps_flags %u component %u",
 			STR(&c->callid), ps->unique_id,
 			ps->media->unique_id,
 			ps->selected_sfd ? ps->selected_sfd->unique_id : -1,
@@ -1326,7 +1328,8 @@ void redis_update(struct call *c, struct redis *r) {
 			ps->rtcp_sink ? ps->rtcp_sink->unique_id : -1,
 			ps->rtcp_sibling ? ps->rtcp_sibling->unique_id : -1,
 			atomic64_get(&ps->last_packet),
-			ps->ps_flags);
+			ps->ps_flags,
+			ps->component);
 		redis_update_endpoint(r, "stream", &c->callid, ps->unique_id, "endpoint", &ps->endpoint);
 		redis_update_endpoint(r, "stream", &c->callid, ps->unique_id, "advertised_endpoint",
 				&ps->advertised_endpoint);
