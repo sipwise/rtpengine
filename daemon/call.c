@@ -781,6 +781,7 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 			il = l->data;
 
 			sfd = g_queue_peek_nth(&il->list, ps->component - 1);
+			if (!sfd) return ;
 
 			sfd->stream = ps;
 			g_queue_push_tail(&ps->sfds, sfd);
