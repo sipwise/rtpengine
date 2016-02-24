@@ -170,6 +170,7 @@ option and which are reproduced below:
 	  -M, --port-max=INT               Highest port to use for RTP
 	  -r, --redis=[PW@]IP:PORT/INT     Connect to Redis database
 	  -w, --redis-write=[PW@]IP:PORT/INT Connect to Redis write database
+	  -k, --subscribe-keyspace         Subscription keyspace list
 	  --redis-num-threads=INT          Number of Redis restore threads
 	  -q, --no-redis-required          Start even if can't connect to redis databases
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
@@ -387,7 +388,13 @@ The options are described in more detail below.
 	When both options are given, *rtpengine* will start and use the Redis database regardless of the
 	database's role (master or slave).
 
-* --redis-num-threads
+*  -k, --subscribe-keyspace
+
+	List of redis keyspaces to subscribe. If this is not present, no keyspaces are subscribed (default behaviour). 
+	Further subscriptions could be added/removed via 'rtpengine-ctl ksadd/ksrm'.
+	This may lead to enabling/disabling of the redis keyspace notification feature.
+
+*  --redis-num-threads
 
 	How many redis restore threads to create. The default is four.
 

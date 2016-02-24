@@ -234,6 +234,7 @@ int str_cut(char *str, int begin, int len) {
 }
 
 static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id);
+static int redis_check_conn(struct redis *r);
 
 void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
@@ -244,14 +245,13 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 	char db_str[16]; memset(&db_str, 0, 8);
 	char *pdbstr = db_str;
 	char *p = 0;
-	int dbno;
 
 	if (!(cm->conf.redis)) {
 		rlog(LOG_ERROR, "A redis notification has been there but role was not 'master' or 'read'");
 		return;
 	}
 
-	r = cm->conf.redis_read_notify;
+	r = cm->conf.redis_notify;
 
 	mutex_lock(&r->lock);
 
@@ -285,7 +285,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 			goto err;
 		}
 	}
-	dbno = r->db = atoi(db_str);
+	r->db = atoi(db_str);
 
 	// select the right db for restoring the call
 	if (redisCommandNR(r->ctx, "SELECT %i", r->db)) {
@@ -305,7 +305,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 	c = g_hash_table_lookup(cm->callhash, &callid);
 
-	if (c && c->redis_call_responsible) {
+	if (c && !c->redis_foreign_call) {
 		rlog(LOG_DEBUG,"I am responsible for that call so I ignore redis notifications.");
 		goto err;
 	}
@@ -322,13 +322,13 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 		// we lookup again to retrieve the call to insert the kayspace db id
 		c = g_hash_table_lookup(cm->callhash, &callid);
 		if (c) {
-			c->redis_hosted_db = dbno;
+			c->redis_foreign_call = 1;
+			c->is_backup_call = 1;
 		}
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
 		call_destroy(c);
-		atomic64_dec(&cm->stats.foreign_sessions);
 	}
 
 err:
@@ -358,13 +358,15 @@ void redis_notify_unsubscribe_keyspace(struct callmaster *cm, int keyspace) {
 	redisAsyncCommand(cm->conf.redis_notify_async_context, onRedisNotification, (void*)cm, main_db_str);
 }
 
-void redis_notify(void *d) {
-	struct callmaster *cm = d;
+static void redis_notify(struct callmaster *cm) {
 	struct redis *r = 0;
-	if (cm->conf.redis) {
-		r = cm->conf.redis;
+	GList *l;
+
+	if (cm->conf.redis_notify) {
+		r = cm->conf.redis_notify;
+		rlog(LOG_INFO, "Use Redis %s to subscribe to notifications", endpoint_print_buf(&r->endpoint));
 	} else {
-		rlog(LOG_INFO, "I do not subscribe to redis notifications since no REDIS is configured");
+		rlog(LOG_INFO, "Don't use Redis notifications. See --redis-notifications parameter.");
 		return;
 	}
 
@@ -372,15 +374,57 @@ void redis_notify(void *d) {
 
 	cm->conf.redis_notify_async_context = redisAsyncConnect(r->host, r->endpoint.port);
 	if (cm->conf.redis_notify_async_context->err) {
-		rlog(LOG_ERROR, "Redis Notification error: %s\n", cm->conf.redis_notify_async_context->errstr);
+		rlog(LOG_ERROR, "Redis notification error: %s\n", cm->conf.redis_notify_async_context->errstr);
 		return;
 	}
 
 	redisLibeventAttach(cm->conf.redis_notify_async_context, cm->conf.redis_notify_event_base);
 
-	redis_notify_subscribe_keyspace(cm,r->db);
+	/* Subscribing to the values in the configured keyspaces */
+	for (l = cm->conf.redis_subscribed_keyspaces->head; l; l = l->next) {
+		redis_notify_subscribe_keyspace(cm,*(int *)(l->data));
+	}
+
 	event_base_dispatch(cm->conf.redis_notify_event_base);
 
+}
+
+void redis_notify_loop(void *d) {
+	int seconds = 1;
+	time_t next_run = g_now.tv_sec;
+	struct callmaster *cm = (struct callmaster *)d;
+	struct redis *r;
+
+	// sanity checks
+	if (!cm) {
+		ilog(LOG_ERROR, "NULL callmaster");
+		return ;
+	}
+
+	r = cm->conf.redis_notify;
+	if (!r) {
+		return ;
+	}
+
+	// initial redis_notify
+	if (redis_check_conn(r) == REDIS_STATE_CONNECTED) {
+		redis_notify(cm);
+	}
+
+	// loop redis_notify => in case of lost connection
+	while (!g_shutdown) {
+		gettimeofday(&g_now, NULL);
+		if (g_now.tv_sec < next_run) {
+			usleep(100000);
+			continue;
+		}
+
+		next_run = g_now.tv_sec + seconds;
+
+		if (redis_check_conn(r) == REDIS_STATE_RECONNECTED) {
+			redis_notify(cm);
+		}
+	}
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum redis_role role, int no_redis_required) {
@@ -434,8 +478,7 @@ static int redis_check_conn(struct redis *r) {
 	// try redis connection
 	if (redisCommandNR(r->ctx, "PING") == 0) {
 		// redis is connected
-		// redis_check_conn() executed well
-		return 0;
+		return REDIS_STATE_CONNECTED;
 	}
 
 	// redis is disconnected
@@ -445,11 +488,10 @@ static int redis_check_conn(struct redis *r) {
 		r->state = REDIS_STATE_DISCONNECTED;
 	}
 
-	// try redis reconnect -> will free current r->ctx
+	// try redis reconnect => will free current r->ctx
 	if (redis_connect(r, 1)) {
 		// redis is disconnected
-		// redis_check_conn() executed well
-		return 0;
+		return REDIS_STATE_DISCONNECTED;
 	}
 
 	// redis is connected
@@ -459,8 +501,8 @@ static int redis_check_conn(struct redis *r) {
 		r->state = REDIS_STATE_CONNECTED;
 	}
 
-	// redis_check_conn() executed well
-	return 0;
+	// redis is re-connected
+	return REDIS_STATE_RECONNECTED;
 }
 
 
@@ -1172,6 +1214,10 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 	if (!redis_hash_get_str(&s, &call, "created_from_addr"))
 		sockaddr_parse_any_str(&c->created_from_addr, &s);
 
+	err = "missing 'redis_hosted_db' value";
+	if (redis_hash_get_unsigned((unsigned int *) &c->redis_hosted_db, &call, "redis_hosted_db"))
+		goto err6;
+
 	err = "failed to create sfds";
 	if (redis_sfds(c, &sfds))
 		goto err6;
@@ -1205,8 +1251,6 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 		goto err6;
 
 	err = NULL;
-	c->redis_hosted_db = r->db;
-	c->redis_call_responsible = 1;
 	obj_put(c);
 
 err6:
@@ -1276,8 +1320,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	rlog(LOG_DEBUG, "Restoring calls from Redis...");
 
 	mutex_lock(&r->lock);
-	redis_check_conn(r);
-	if (r->state == REDIS_STATE_DISCONNECTED) {
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		ret = 0;
 		goto err;
@@ -1422,14 +1465,14 @@ void redis_update(struct call *c, struct redis *r) {
 		return;
 
 	mutex_lock(&r->lock);
-	redis_check_conn(r);
-	if (r->state == REDIS_STATE_DISCONNECTED) {
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		return ;
 	}
 
 	rwlock_lock_r(&c->master_lock);
 
+	c->redis_hosted_db = r->db;
 	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db)) {
 		rlog(LOG_ERR, " >>>>>>>>>>>>>>>>> Redis error.");
 		goto err;
@@ -1441,14 +1484,15 @@ void redis_update(struct call *c, struct redis *r) {
 	redis_pipe(r, "HMSET call-"PB" created %llu last_signal %llu tos %i deleted %llu "
 			"num_sfds %u num_streams %u num_medias %u num_tags %u "
 			"num_maps %u "
-			"ml_deleted %llu created_from %s created_from_addr %s",
+			"ml_deleted %llu created_from %s created_from_addr %s redis_hosted_db %u",
 		STR(&c->callid), (long long unsigned) c->created, (long long unsigned) c->last_signal,
 		(int) c->tos, (long long unsigned) c->deleted,
 		g_queue_get_length(&c->stream_fds), g_queue_get_length(&c->streams),
 		g_queue_get_length(&c->medias), g_queue_get_length(&c->monologues),
 		g_queue_get_length(&c->endpoint_maps),
 		(long long unsigned) c->ml_deleted,
-		c->created_from, sockaddr_print_buf(&c->created_from_addr));
+		c->created_from, sockaddr_print_buf(&c->created_from_addr),
+		c->redis_hosted_db);
 	/* XXX DTLS cert?? */
 
 	redis_pipe(r, "DEL sfd-"PB"-0", STR(&c->callid));
@@ -1667,9 +1711,6 @@ void redis_update(struct call *c, struct redis *r) {
 	redis_pipe(r, "EXPIRE call-"PB" 86400", STR(&c->callid));
 	redis_pipe(r, "SADD calls "PB"", STR(&c->callid));
 	redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));
-	if (!c->redis_hosted_db)
-		c->redis_hosted_db = r->db;
-	c->redis_call_responsible = 1;
 
 	redis_consume(r);
 
@@ -1693,8 +1734,7 @@ void redis_delete(struct call *c, struct redis *r) {
 		return;
 
 	mutex_lock(&r->lock);
-	redis_check_conn(r);
-	if (r->state == REDIS_STATE_DISCONNECTED) {
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		return ;
 	}
@@ -1728,8 +1768,7 @@ void redis_wipe(struct redis *r) {
 		return;
 
 	mutex_lock(&r->lock);
-	redis_check_conn(r);
-	if (r->state == REDIS_STATE_DISCONNECTED) {
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		return ;
 	}

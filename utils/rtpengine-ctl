@@ -78,6 +78,15 @@ sub showusage {
     print "         maxsessions  <int>    : set the max nr of allowed sessions\n";
     print "         maxopenfiles <uint>   : set the max nr of allowed open files\n";
     print "\n";
+    print "    ksadd [ keyspace <uint>]\n";
+    print "         keyspace <uint>       : subscribe to 'keyspace' database\n";
+    print "\n";
+    print "    ksrm [ keyspace <uint>]\n";
+    print "         keyspace <uint>       : unsubscribe to 'keyspace' database\n";
+    print "                               : remove all foreign calls for that 'keyspace'\n";
+    print "\n";
+    print "    kslist                     : print all currently subscribed keyspaces\n";
+    print "\n";
     print "\n";
     print "    Return Value:\n";
     print "    0 on success with ouput from server side, other values for failure.\n";

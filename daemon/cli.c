@@ -34,8 +34,6 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total managed sessions                          :"UINT64F"\n", num_sessions);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total foreign sessions                          :"UINT64F"\n", atomic64_get(&m->totalstats.total_foreign_sessions));
-	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total rejected sessions                         :"UINT64F"\n", atomic64_get(&m->totalstats.total_rejected_sess));
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total timed-out sessions via TIMEOUT            :"UINT64F"\n",atomic64_get(&m->totalstats.total_timeout_sess));
@@ -168,7 +166,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    }
 
    printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu | redis_keyspace:%i | foreign:%s\n\n",
-		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db, c->redis_call_responsible?"no":"yes");
+		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db, c->redis_foreign_call?"yes":"no");
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues.head; l; l = l->next) {
@@ -348,9 +346,11 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
 
    if (len>=strlen(LIST_NUMSESSIONS) && strncmp(buffer,LIST_NUMSESSIONS,strlen(LIST_NUMSESSIONS)) == 0) {
        rwlock_lock_r(&m->hashlock);
-       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current sessions (own and foreign) running on rtpengine: %i\n", g_hash_table_size(m->callhash));
+       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current sessions own: "UINT64F"\n", g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
        ADJUSTLEN(printlen,outbufend,replybuffer);
-       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current foreign sessions on rtpengine: "UINT64F"\n", atomic64_get(&m->stats.foreign_sessions));
+       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current sessions foreign: "UINT64F"\n", atomic64_get(&m->stats.foreign_sessions));
+       ADJUSTLEN(printlen,outbufend,replybuffer);
+       printlen = snprintf(replybuffer, outbufend-replybuffer, "Current sessions total: %i\n", g_hash_table_size(m->callhash));
        ADJUSTLEN(printlen,outbufend,replybuffer);
        rwlock_unlock_r(&m->hashlock);
    } else if (len>=strlen(LIST_SESSIONS) && strncmp(buffer,LIST_SESSIONS,strlen(LIST_SESSIONS)) == 0) {
@@ -365,7 +365,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        while (g_hash_table_iter_next (&iter, &key, &value)) {
            ptrkey = (str*)key;
            call = (struct call*)value;
-           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db, call->redis_call_responsible?"no":"yes");
+           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db, call->redis_foreign_call?"yes":"no");
            ADJUSTLEN(printlen,outbufend,replybuffer);
        }
        rwlock_unlock_r(&m->hashlock);
@@ -474,8 +474,8 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 
 static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
-
-	unsigned int keyspace_db;
+	int *pint;
+	int keyspace_db;
 	str str_keyspace_db;
 
 	if (len<=1) {
@@ -489,19 +489,32 @@ static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char
 	str_keyspace_db.len = len;
 	keyspace_db = str_to_i(&str_keyspace_db, -1);
 
-	redis_notify_subscribe_keyspace(m,keyspace_db);
-
-	printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully added keyspace %i to redis notifications.\n", keyspace_db);
+	if (keyspace_db != -1) {
+		redis_notify_subscribe_keyspace(m,keyspace_db);
+		if (!g_queue_find_custom(m->conf.redis_subscribed_keyspaces, &keyspace_db, uint_cmp)) {
+			pint = (int*)malloc(sizeof(int));
+			*pint = keyspace_db;
+			g_queue_push_tail(m->conf.redis_subscribed_keyspaces, pint);
+		}
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully added keyspace %i to redis notifications.\n", keyspace_db);
+	}
+	else {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Could not add keyspace %i to redis notifications.\n", keyspace_db);
+	}
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 }
 
 static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
-	int printlen=0;
-
-	unsigned int keyspace_db;
+	int printlen = 0;
+	struct call* c = NULL;
+	GHashTableIter iter;
+	gpointer key, value;
+	struct call_monologue *ml = NULL;
+	GList *l, *i; 
+	int keyspace_db;
 	str str_keyspace_db;
 
-	if (len<=1) {
+	if (len <= 1) {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
@@ -512,9 +525,49 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 	str_keyspace_db.len = len;
 	keyspace_db = str_to_i(&str_keyspace_db, -1);
 
-	redis_notify_unsubscribe_keyspace(m,keyspace_db);
+	if ((l = g_queue_find_custom(m->conf.redis_subscribed_keyspaces, &keyspace_db, uint_cmp))) {
+		// remove this keyspace
+		redis_notify_unsubscribe_keyspace(m,keyspace_db);
+		g_queue_remove(m->conf.redis_subscribed_keyspaces, l->data);
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully unsubscribed from keyspace %i.\n", keyspace_db);
 
-	printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully removed keyspace %i to redis notifications.\n", keyspace_db);
+		// remove all current foreign calls for this keyspace
+		g_hash_table_iter_init(&iter, m->callhash);
+		while (g_hash_table_iter_next(&iter, &key, &value)) {
+			c = (struct call*)value;
+			if (!c || !c->redis_foreign_call || !(c->redis_hosted_db == keyspace_db)) {
+				continue;
+			}
+			if (!c->ml_deleted) {
+				for (i = c->monologues.head; i; i = i->next) {
+					ml = i->data;
+					gettimeofday(&(ml->terminated), NULL);
+					ml->term_reason = FORCED;
+				}
+			}
+			call_destroy(c);
+			g_hash_table_iter_init(&iter, m->callhash);
+		}
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully removed all foreign calls for keyspace %i.\n", keyspace_db);
+	} else {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Keyspace %i was not among redis notifications.\n", keyspace_db);
+	}
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+}
+
+static void cli_incoming_kslist(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+	GList *l;
+
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nSubscribed-on keyspaces:\n");
+	ADJUSTLEN(printlen,outbufend,replybuffer); 
+    
+	for (l = m->conf.redis_subscribed_keyspaces->head; l; l = l->next) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%d ", *((unsigned int *)(l->data)));
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+
+	printlen = snprintf(replybuffer, outbufend-replybuffer, "\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 }
 
@@ -567,6 +620,7 @@ next:
    static const char* SET = "set";
    static const char* KSADD = "ksadd";
    static const char* KSRM = "ksrm";
+   static const char* KSLIST = "kslist";
 
    if (strncmp(inbuf,LIST,strlen(LIST)) == 0) {
        cli_incoming_list(inbuf+strlen(LIST), inlen-strlen(LIST), cli->callmaster, outbuf, outbufend);
@@ -578,6 +632,8 @@ next:
        cli_incoming_ksadd(inbuf+strlen(KSADD), inlen-strlen(KSADD), cli->callmaster, outbuf, outbufend);
    } else  if (strncmp(inbuf,KSRM,strlen(KSRM)) == 0) {
        cli_incoming_ksrm(inbuf+strlen(KSRM), inlen-strlen(KSRM), cli->callmaster, outbuf, outbufend);
+   } else  if (strncmp(inbuf,KSLIST,strlen(KSLIST)) == 0) {
+       cli_incoming_kslist(inbuf+strlen(KSRM), inlen-strlen(KSRM), cli->callmaster, outbuf, outbufend);
    } else {
        sprintf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", inbuf);
    }

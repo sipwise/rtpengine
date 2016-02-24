@@ -189,7 +189,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 
 	cm = c->callmaster;
 
-	if (!(c->redis_call_responsible)) {
+	if (c->redis_foreign_call) {
 		ilog(LOG_DEBUG, "Redis-Notification: Timeout resets the deletion timers for a call where I am not responsible.");
 		c->deleted = c->ml_deleted = poller_now + cm->conf.delete_delay;
 		goto out;
@@ -247,8 +247,9 @@ next:
 		;
 	}
 
-	if (good)
+	if (good || c->redis_foreign_call) {
 		goto out;
+	}
 
 	if (c->ml_deleted)
 		goto out;
@@ -537,10 +538,10 @@ static void callmaster_timer(void *ptr) {
 						ke->rtp_stats[j].bytes - atomic64_get(&rs->bytes));
 			atomic64_set(&rs->kernel_packets, ke->rtp_stats[j].packets);
 			atomic64_set(&rs->kernel_bytes, ke->rtp_stats[j].bytes);
-			if (ps && !(ps->call->redis_call_responsible) && ke->rtp_stats[j].packets >0) {
+			if (ps && ps->call->redis_foreign_call && ke->rtp_stats[j].packets > 0) {
 				ilog(LOG_DEBUG, "Taking over resposibility now for that call since I saw packets.");
-				ps->call->redis_call_responsible = 1;
-				atomic64_dec(&m->stats.foreign_sessions);
+				ps->call->redis_foreign_call = 0;
+				//atomic64_dec(&m->stats.foreign_sessions); /* this doesn't decrease when call becomes active */
 			}
 		}
 
@@ -1795,7 +1796,7 @@ struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		call = (struct call*) value;
-		if (!call->monologues.head)
+		if (!call->monologues.head || IS_BACKUP_CALL(call))
 			continue;
 		ml = call->monologues.head->data;
 		if (timercmp(interval_start, &ml->started, >)) {
@@ -1842,21 +1843,25 @@ void call_destroy(struct call *c) {
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
+	if(!IS_BACKUP_CALL(c)) 	{
+		mutex_lock(&m->totalstats_interval.managed_sess_lock);
+		m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_min,
+				g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
+		mutex_unlock(&m->totalstats_interval.managed_sess_lock);
+	}
 	rwlock_unlock_w(&m->hashlock);
-
-	mutex_lock(&m->totalstats_interval.managed_sess_lock);
-	m->totalstats.managed_sess_crt--;
-	m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_min,
-			m->totalstats.managed_sess_crt);
-	mutex_unlock(&m->totalstats_interval.managed_sess_lock);
 
 	if (!ret)
 		return;
 
 	obj_put(c);
 
-	if (c->redis_call_responsible) {
+	if (!c->redis_foreign_call) {
 		redis_delete(c, m->conf.redis_write);
+	}
+
+	if (c->redis_foreign_call) {
+		atomic64_dec(&m->stats.foreign_sessions);
 	}
 
 	rwlock_lock_w(&c->master_lock);
@@ -2048,6 +2053,8 @@ void call_destroy(struct call *c) {
 						atomic64_get(&ps->stats.errors),
 						atomic64_get(&ps->last_packet));
 
+
+
 				atomic64_add(&m->totalstats.total_relayed_packets,
 						atomic64_get(&ps->stats.packets));
 				atomic64_add(&m->totalstats_interval.total_relayed_packets,
@@ -2104,9 +2111,11 @@ void call_destroy(struct call *c) {
 		}
 
 		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
-			if (atomic64_get(&ps->stats.packets)!=0) {
-				atomic64_inc(&m->totalstats.total_oneway_stream_sess);
-				atomic64_inc(&m->totalstats_interval.total_oneway_stream_sess);
+			if (atomic64_get(&ps->stats.packets)!=0 && !IS_BACKUP_CALL(c)){
+				if (atomic64_get(&ps->stats.packets)!=0) {
+					atomic64_inc(&m->totalstats.total_oneway_stream_sess);
+					atomic64_inc(&m->totalstats_interval.total_oneway_stream_sess);
+				}
 			}
 			else {
 				total_nopacket_relayed_sess++;
@@ -2114,30 +2123,34 @@ void call_destroy(struct call *c) {
 		}
 	}
 
-
-	atomic64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
-	atomic64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+	if (!IS_BACKUP_CALL(c)) {
+		atomic64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+		atomic64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+	}
 
 	if (c->monologues.head) {
 		ml = c->monologues.head->data;
-		if (ml->term_reason==TIMEOUT) {
-			atomic64_inc(&m->totalstats.total_timeout_sess);
-			atomic64_inc(&m->totalstats_interval.total_timeout_sess);
-		} else if (ml->term_reason==SILENT_TIMEOUT) {
-			atomic64_inc(&m->totalstats.total_silent_timeout_sess);
-			atomic64_inc(&m->totalstats_interval.total_silent_timeout_sess);
-		} else if (ml->term_reason==REGULAR) {
-			atomic64_inc(&m->totalstats.total_regular_term_sess);
-			atomic64_inc(&m->totalstats_interval.total_regular_term_sess);
-		} else if (ml->term_reason==FORCED) {
-			atomic64_inc(&m->totalstats.total_forced_term_sess);
-			atomic64_inc(&m->totalstats_interval.total_forced_term_sess);
-		}
 
-		timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
-		timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
-		timeval_totalstats_interval_call_duration_add(&m->totalstats_interval,
-				&ml->started, &g_now, &m->latest_graphite_interval_start);
+		if (!IS_BACKUP_CALL(c)) {
+			if (ml->term_reason==TIMEOUT) {
+				atomic64_inc(&m->totalstats.total_timeout_sess);
+				atomic64_inc(&m->totalstats_interval.total_timeout_sess);
+			} else if (ml->term_reason==SILENT_TIMEOUT) {
+				atomic64_inc(&m->totalstats.total_silent_timeout_sess);
+				atomic64_inc(&m->totalstats_interval.total_silent_timeout_sess);
+			} else if (ml->term_reason==REGULAR) {
+				atomic64_inc(&m->totalstats.total_regular_term_sess);
+				atomic64_inc(&m->totalstats_interval.total_regular_term_sess);
+			} else if (ml->term_reason==FORCED) {
+				atomic64_inc(&m->totalstats.total_forced_term_sess);
+				atomic64_inc(&m->totalstats_interval.total_forced_term_sess);
+			}
+
+			timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
+			timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
+			timeval_totalstats_interval_call_duration_add(&m->totalstats_interval,
+					&ml->started, &g_now, &m->latest_graphite_interval_start);
+		}
 	}
 
 
@@ -2291,11 +2304,12 @@ restart:
 			goto restart;
 		}
 		g_hash_table_insert(m->callhash, &c->callid, obj_get(c));
-		mutex_lock(&m->totalstats_interval.managed_sess_lock);
-		m->totalstats.managed_sess_crt++;
-		m->totalstats_interval.managed_sess_max = MAX(m->totalstats_interval.managed_sess_max,
-				m->totalstats.managed_sess_crt);
-		mutex_unlock(&m->totalstats_interval.managed_sess_lock);
+		if(! IS_BACKUP_CALL(c)) {
+			mutex_lock(&m->totalstats_interval.managed_sess_lock);
+			m->totalstats_interval.managed_sess_max = MAX(m->totalstats_interval.managed_sess_max,
+					g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
+			mutex_unlock(&m->totalstats_interval.managed_sess_lock);
+		}
 		rwlock_lock_w(&c->master_lock);
 		rwlock_unlock_w(&m->hashlock);
 	}

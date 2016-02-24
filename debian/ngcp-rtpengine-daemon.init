@@ -48,6 +48,13 @@ if [ ! -z "$INTERFACES" ]; then
 		OPTIONS="$OPTIONS --interface=$interface"
 	done
 fi
+
+
+if [ ! -z "$SUBSCRIBE_KEYSPACES" ]; then
+	for ks in $SUBSCRIBE_KEYSPACES; do
+		OPTIONS="$OPTIONS --subscribe-keyspace=$ks"
+	done
+fi
 [ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --interface=$ADDRESS"
 [ -z "$ADV_ADDRESS" ] || OPTIONS="$OPTIONS!$ADV_ADDRESS"
 [ -z "$ADDRESS_IPV6" ] || OPTIONS="$OPTIONS --interface=$ADDRESS_IPV6"

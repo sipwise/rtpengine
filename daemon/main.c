@@ -54,6 +54,7 @@ static mutex_t *openssl_locks;
 static char *pidfile;
 static gboolean foreground;
 static GQueue interfaces = G_QUEUE_INIT;
+static GQueue keyspaces = G_QUEUE_INIT;
 endpoint_t tcp_listen_ep;
 endpoint_t udp_listen_ep;
 endpoint_t ng_listen_ep;
@@ -254,6 +255,9 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 
 static void options(int *argc, char ***argv) {
 	char **if_a = NULL;
+	char **ks_a = NULL;
+	int *pint;
+	str str_keyspace_db;
 	char **iter;
 	struct intf_config *ifa;
 	char *listenps = NULL;
@@ -266,7 +270,7 @@ static void options(int *argc, char ***argv) {
 	char *redisps_write = NULL;
 	char *log_facility_s = NULL;
     char *log_facility_cdr_s = NULL;
-    char *log_facility_rtcp_s = NULL;
+	char *log_facility_rtcp_s = NULL;
 	int version = 0;
 	int sip_source = 0;
 
@@ -275,6 +279,7 @@ static void options(int *argc, char ***argv) {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&no_fallback,	"Only start when kernel module is available", NULL },
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
+		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
@@ -329,6 +334,18 @@ static void options(int *argc, char ***argv) {
 		if (!ifa)
 			die("Invalid interface specification: %s", *iter);
 		g_queue_push_tail(&interfaces, ifa);
+	}
+
+	if (ks_a) {
+		for (iter = ks_a; *iter; iter++) {
+			pint = (int *)malloc(sizeof(int));
+			str_keyspace_db.s = *iter;
+			str_keyspace_db.len = strlen(*iter);	
+			*pint = str_to_i(&str_keyspace_db, -1);
+
+	 		if (*pint != -1)
+				g_queue_push_tail(&keyspaces, pint);
+	   }
 	}
 
 	if (listenps) {
@@ -542,6 +559,8 @@ no_kernel:
 	mc.fmt = xmlrpc_fmt;
 	mc.graphite_ep = graphite_ep;
 	mc.graphite_interval = graphite_interval;
+	mc.redis_subscribed_keyspaces = g_queue_copy(&keyspaces);
+
 	if (redis_num_threads < 1) {
 #ifdef _SC_NPROCESSORS_ONLN
 		redis_num_threads = sysconf( _SC_NPROCESSORS_ONLN );
@@ -591,7 +610,8 @@ no_kernel:
 	}
 
 	if (!is_addr_unspecified(&redis_ep.address)) {
-		mc.redis = mc.redis_read_notify = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
+		mc.redis = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
+		mc.redis_notify = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
 		if (!mc.redis)
 			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED paramter.",
 				endpoint_print_buf(&redis_ep));
@@ -642,7 +662,7 @@ int main(int argc, char **argv) {
 	thread_create_detach(poller_timer_loop, ctx.p);
 
 	if (!is_addr_unspecified(&redis_ep.address))
-		thread_create_detach(redis_notify, ctx.m);
+		thread_create_detach(redis_notify_loop, ctx.m);
 
 	if (!is_addr_unspecified(&graphite_ep.address))
 		thread_create_detach(graphite_loop, ctx.m);

@@ -108,8 +108,7 @@ enum call_stream_state {
 #define __C_DBG(x...) ((void)0)
 #endif
 
-
-
+#define IS_BACKUP_CALL(c) (c->is_backup_call)
 
 /* flags shared by several of the structs below */
 #define SHARED_FLAG_IMPLICIT_RTCP		0x00000001
@@ -250,12 +249,11 @@ struct totalstats {
 	struct timeval		total_average_call_dur;
 
 	mutex_t				managed_sess_lock; /* for these below */
-	u_int64_t			managed_sess_crt;
 	u_int64_t			managed_sess_max; /* per graphite interval statistic */
 	u_int64_t			managed_sess_min; /* per graphite interval statistic */
 
 	mutex_t				total_calls_duration_lock; /* for these two below */
-	struct timeval		        total_calls_duration_interval;
+	struct timeval		total_calls_duration_interval;
 };
 
 struct stream_params {
@@ -416,10 +414,10 @@ struct call {
 	unsigned char		tos;
 	char			*created_from;
 	sockaddr_t		created_from_addr;
-	int             redis_hosted_db;
-	// following flag servers as a mark that this
-	// call is either created by me or where I took over the responsibility (a packet has seen)
-	int             redis_call_responsible;
+
+	unsigned int		redis_hosted_db;
+	unsigned int		redis_foreign_call;
+	unsigned int		is_backup_call; // created_via_redis_notify call
 };
 
 struct callmaster_config {
@@ -431,8 +429,9 @@ struct callmaster_config {
 	unsigned int		delete_delay;
 	struct redis		*redis;
 	struct redis		*redis_write;
-	struct redis		*redis_read_notify;
+	struct redis		*redis_notify;
 	struct event_base   *redis_notify_event_base;
+	GQueue		        *redis_subscribed_keyspaces;
 	struct redisAsyncContext *redis_notify_async_context;
 	char			*b2b_url;
 	unsigned char		default_tos;
@@ -450,11 +449,11 @@ struct callmaster {
 	GHashTable		*callhash;
 
 	/* XXX rework these */
-	struct stats		statsps;	/* per second stats, running timer */
-	struct stats		stats;		/* copied from statsps once a second */
+	struct stats			statsps;	/* per second stats, running timer */
+	struct stats			stats;		/* copied from statsps once a second */
 	struct totalstats       totalstats;
 	struct totalstats       totalstats_interval;
-	mutex_t		        totalstats_lastinterval_lock;
+	mutex_t		        	totalstats_lastinterval_lock;
 	struct totalstats       totalstats_lastinterval;
 
 	/* control_ng_stats stuff */

@@ -113,8 +113,9 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	mutex_lock(&cm->totalstats_interval.managed_sess_lock);
 	ts->managed_sess_max = cm->totalstats_interval.managed_sess_max;
 	ts->managed_sess_min = cm->totalstats_interval.managed_sess_min;
-	cm->totalstats_interval.managed_sess_max = cm->totalstats.managed_sess_crt;
-	cm->totalstats_interval.managed_sess_min = cm->totalstats.managed_sess_crt;
+
+	cm->totalstats_interval.managed_sess_max = g_hash_table_size(cm->callhash) - atomic64_get(&cm->stats.foreign_sessions);
+	cm->totalstats_interval.managed_sess_min = g_hash_table_size(cm->callhash) - atomic64_get(&cm->stats.foreign_sessions);
 	mutex_unlock(&cm->totalstats_interval.managed_sess_lock);
 	rwlock_unlock_r(&cm->hashlock);
 

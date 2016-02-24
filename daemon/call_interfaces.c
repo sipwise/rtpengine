@@ -746,6 +746,8 @@ const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 		if (g_hash_table_size(m->callhash) -
 				atomic64_get(&m->stats.foreign_sessions) >= m->conf.max_sessions) {
 			rwlock_unlock_r(&m->hashlock);
+			/* foreign calls can't get rejected
+			 * total_rejected_sess applies only to "own" sessions */
 			atomic64_inc(&m->totalstats.total_rejected_sess);
 			atomic64_inc(&m->totalstats_interval.total_rejected_sess);
 			ilog(LOG_ERROR, "Parallel session limit reached (%i)",m->conf.max_sessions);

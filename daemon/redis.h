@@ -25,8 +25,9 @@ enum redis_role {
 };
 
 enum redis_state {
-	REDIS_STATE_DISCONNECTED = 0,
-	REDIS_STATE_CONNECTED = 1,
+	REDIS_STATE_DISCONNECTED = 0,	// DISCONNECTED -> DISCONNECTED
+	REDIS_STATE_CONNECTED,		// CONNECTED -> CONNECTED
+	REDIS_STATE_RECONNECTED,	// DISCONNECTED -> CONNECTED
 };
 
 struct callmaster;
@@ -89,7 +90,7 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 #define REDIS_FMT(x) (x)->len, (x)->str
 
 
-void redis_notify(void *d);
+void redis_notify_loop(void *d);
 
 
 struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int no_redis_required);
