@@ -8,12 +8,25 @@ use Crypt::OpenSSL::RSA;
 use IO::Socket::INET;
 use IPC::Open3;
 use IO::Multiplex;
+use Time::HiRes qw(sleep time);
 
 sub new {
-	my ($class) = @_;
+	my ($class, $mux, $local_sockets, $output_func, $tag, $cert) = @_;
 
 	my $self = {};
 	bless $self, $class;
+
+	$self->{_output_func} = $output_func;
+	$self->{_mux} = $mux;
+	$self->{_tag} = $tag;
+	$self->{_local_sockets} = $local_sockets;
+
+	if ($cert) {
+		$self->set_cert($cert);
+	}
+	else {
+		$self->new_cert();
+	}
 
 	return $self;
 }
@@ -53,33 +66,15 @@ sub set_cert {
 	$self->{_cert_key_file} = $file;
 }
 
-sub check_cert {
-	my ($self, $file) = @_;
-	$self->{_cert_key_file} and return;
-	$self->new_cert();
-}
-
+# XXX unify these two
 sub connect {
-	my ($self, $local, $dest) = @_;
-	$self->check_cert();
+	my ($self) = @_;
 
-	$self->{_connected} and return 1;
+	$self->{_connected} and return;
 
 	$self->_kill_openssl_child();
 
 	my $near = $self->{_near};
-	my $far = $self->{_far};
-
-	if (!$far) {
-		if (ref($local)) {
-			$far = $local;
-		}
-		else {
-			$far = IO::Socket::INET->new(Type => SOCK_DGRAM, PeerAddr => $dest,
-					LocalAddr => $local, Proto => 'udp');
-		}
-		$self->{_far} = $far;
-	}
 
 	$near or ($near = $self->{_near} = IO::Socket::INET->new(Type => SOCK_DGRAM, LocalAddr => 'localhost',
 		Proto => 'udp'));
@@ -97,16 +92,52 @@ sub connect {
 	$self->{_openssl_in} = $openssl_in;
 	$self->{_openssl_buf} = '';
 
-	my $mux = IO::Multiplex->new();
-	$mux->add($near);
-	$mux->add($far);
-	$mux->add($openssl_out);
+	$self->{_mux}->add($near);
+	$self->{_mux}->add($openssl_out);
+}
+sub accept {
+	my ($self) = @_;
 
-	$mux->set_callback_object($self);
-	$mux->loop;
+	$self->{_connected} and return;
 
-	$self->{_connected} or return 0;
-	return 1;
+	$self->_kill_openssl_child();
+
+	my ($near_port, $near_peer);
+	my $near = $self->{_near};
+	if ($near) {
+		$near_port = $near->peerport();
+		$near_peer = $near->peeraddr();
+	}
+	else {
+		my $tmp = IO::Socket::INET->new(Type => SOCK_DGRAM, LocalAddr => 'localhost', Proto => 'udp');
+		$near_port = $tmp->sockport();
+		undef($tmp);
+
+		$near = $self->{_near} = IO::Socket::INET->new(Type => SOCK_DGRAM, LocalAddr => 'localhost',
+			Proto => 'udp');
+		$near_peer = pack_sockaddr_in($near_port, inet_aton("localhost"));
+		# $near gets connected below
+	}
+
+	my ($openssl_in, $openssl_out);
+	$self->{_openssl_pid} = open3($openssl_in, $openssl_out, undef,
+		qw(openssl s_server -accept),
+		$near_port,
+		'-cert', $self->{_cert_key_file}->filename(), qw(-dtls1 -use_srtp
+		SRTP_AES128_CM_SHA1_80:SRTP_AES128_CM_SHA1_32 -keymatexport EXTRACTOR-dtls_srtp
+		-keymatexportlen 60));
+	# XXX dtls 1.2 ?
+
+	sleep(0.2); # given openssl a short while to start up
+
+	$self->_near_peer($near_peer);
+
+	$self->{_openssl_out} = $openssl_out;
+	$self->{_openssl_in} = $openssl_in;
+	$self->{_openssl_buf} = '';
+
+	$self->{_mux}->add($near);
+	$self->{_mux}->add($openssl_out);
 }
 
 sub _kill_openssl_child {
@@ -127,37 +158,67 @@ sub DESTROY {
 	$self->_kill_openssl_child();
 }
 
-sub mux_input {
-	my ($self, $mux, $fh, $input) = @_;
+sub _openssl_input {
+	my ($self, $fh, $s_r, $peer) = @_;
 
-	if ($fh == $self->{_openssl_out}) {
-		$self->{_openssl_buf} .= $$input;
-	}
-	elsif ($fh == $self->{_near}) {
-		send($self->{_far}, $$input, 0);
-		if (!$self->{_near_peer}) {
-			$self->{_near_peer} = $mux->udp_peer($fh);
-			CORE::connect($self->{_near}, $self->{_near_peer});
-		}
-	}
-	if ($fh == $self->{_far}) {
-		if (is_dtls($$input) && $self->{_near_peer}) {
-			send($self->{_near}, $$input, 0);
-		}
+	if ($self->{_openssl_done}) {
+		$$s_r = '';
+		return;
 	}
 
-	$$input = '';
+	$self->{_openssl_buf} .= $$s_r;
+	$$s_r = '';
 
 	if ($self->{_openssl_buf} =~ /Server certificate\n(-----BEGIN CERTIFICATE-----\n.*?\n-----END CERTIFICATE-----\n).*SRTP Extension negotiated, profile=(\S+).*Keying material: ([0-9a-fA-F]{120})/s) {
 		$self->{_peer_cert} = $1;
 		$self->{_profile} = $2;
 		$self->{_keys} = pack('H*', $3);
 		$self->{_connected} = 1;
-		$mux->endloop();
+		$self->{_openssl_done} = 1;
 	}
 	if ($self->{_openssl_buf} =~ /\nDONE\n/s) {
-		$mux->endloop();
+		$self->{_openssl_done} = 1;
 	}
+}
+
+sub _near_peer {
+	my ($self, $peer) = @_;
+
+	$self->{_near_peer} and return;
+
+	$self->{_near_peer} = $peer;
+	CORE::connect($self->{_near}, $self->{_near_peer});
+}
+
+sub _near_input {
+	my ($self, $fh, $s_r, $peer) = @_;
+
+	$self->{_output_func}->($self->{_tag}, $$s_r);
+
+	$self->_near_peer($peer);
+
+	$$s_r = '';
+}
+
+sub input {
+	my ($self, $fh, $s_r, $peer) = @_;
+
+	$$s_r eq '' and return;
+
+	if ($fh == $self->{_openssl_out}) { # openssl's stdout
+		return $self->_openssl_input($fh, $s_r, $peer);
+	}
+	elsif ($fh == $self->{_near}) { # UDP input from openssl - forward to peer
+		return $self->_near_input($fh, $s_r, $peer);
+	}
+
+	# UDP input from peer - demux and forward to openssl
+	is_dtls($$s_r) or return;
+	$self->{_near_peer} or return; # nowhere to forward it to
+	grep {$fh == $_} @{$self->{_local_sockets}} or return; # not one of ours
+
+	send($self->{_near}, $$s_r, 0);
+	$$s_r = '';
 }
 
 sub peer_cert {
@@ -182,12 +243,9 @@ sub cert_fingerprint {
 	return $1;
 }
 
-sub mux_eof {
-	my ($self, $mux, $fh) = @_;
-
-	if ($fh == $self->{_openssl_out}) {
-		$mux->endloop();
-	}
+sub fingerprint {
+	my ($self) = @_;
+	return cert_fingerprint($self->{_cert_key_file});
 }
 
 sub get_keys {
@@ -204,6 +262,57 @@ sub is_dtls {
 	$c < 20 and return 0;
 	$c > 63 and return 0;
 	return 1;
+}
+
+sub encode {
+	my ($self) = @_;
+	my @ret;
+	push(@ret, 'a=setup:actpass');
+	push(@ret, 'a=fingerprint:sha-1 ' . $self->fingerprint());
+	return @ret;
+}
+
+package DTLS::Group;
+
+sub new {
+	my ($class, $mux, $output_func, $socket_components, $cert) = @_;
+
+	my $self = [];
+	bless $self, $class;
+
+	my $max_component = $#{$socket_components};
+
+	for my $idx (0 .. $max_component) {
+		my $local_sockets = $socket_components->[$idx];
+		my $cl = DTLS->new($mux, $local_sockets, $output_func, $idx, $cert);
+		push(@$self, $cl);
+		$cert = $cl->get_cert();
+	}
+
+	return $self;
+}
+
+sub encode {
+	my ($self, @rest) = @_;
+	return $self->[0]->encode(@rest);
+}
+sub connect {
+	my ($self, @rest) = @_;
+	for my $cl (@$self) {
+		$cl->accept(@rest);
+	}
+}
+sub accept {
+	my ($self, @rest) = @_;
+	for my $cl (@$self) {
+		$cl->accept(@rest);
+	}
+}
+sub input {
+	my ($self, @rest) = @_;
+	for my $cl (@$self) {
+		$cl->input(@rest);
+	}
 }
 
 1;
