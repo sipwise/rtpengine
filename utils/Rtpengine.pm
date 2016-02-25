@@ -52,4 +52,10 @@ sub answer {
 	return $self->req( { %$packet, command => 'answer' } );
 }
 
+package Rtpengine::Test;
+
+sub new {
+	my ($class) = @_;
+};
+
 1;
