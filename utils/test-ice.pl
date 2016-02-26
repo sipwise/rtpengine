@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Rtpengine;
+use Rtpengine::Test;
 
 my $r = Rtpengine::Test->new();
 my $a = $r->client(ice => 1);
