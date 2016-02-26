@@ -66,7 +66,7 @@ sub answer {
 package Rtpengine::Test;
 
 sub new {
-	my ($class, $callback) = @_;
+	my ($class) = @_;
 
 	my $self = {};
 	bless $self, $class;
@@ -95,11 +95,10 @@ sub new {
 	$self->{mux}->set_callback_object($self);
 
 	$self->{media_port} = 2000;
+	$self->{timers} = [];
 
 	$self->{rtpe} = Rtpengine->new('localhost', 2223);
 	$self->{callid} = rand();
-
-	$self->{callback} = $callback;
 
 	return $self;
 };
@@ -115,6 +114,12 @@ sub run {
 	$self->{mux}->loop();
 }
 
+sub timer_once {
+	my ($self, $delay, $sub) = @_;
+	push(@{$self->{timers}}, { sub => $sub, when => time() + $delay });
+	@{$self->{timers}} = sort {$a->{when} <=> $b->{when}} @{$self->{timers}};
+}
+
 sub mux_input {
 	my ($self, $mux, $fh, $input) = @_;
 
@@ -124,9 +129,13 @@ sub mux_input {
 sub mux_timeout {
 	my ($self, $mux, $fh) = @_;
 
-	$self->{callback}->(time());
-
 	$mux->set_timeout($fh, 0.01);
+
+	my $now = time();
+	while (@{$self->{timers}} && $self->{timers}->[0]->{when} <= $now) {
+		my $t = shift(@{$self->{timers}});
+		$t->{sub}->();
+	}
 }
 
 
