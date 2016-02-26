@@ -96,6 +96,7 @@ sub new {
 
 	$self->{media_port} = 2000;
 	$self->{timers} = [];
+	$self->{clients} = [];
 
 	$self->{rtpe} = Rtpengine->new('localhost', 2223);
 	$self->{callid} = rand();
@@ -105,7 +106,9 @@ sub new {
 
 sub client {
 	my ($self, %args) = @_;
-	return Rtpengine::Test::Client->_new($self, %args);
+	my $cl = Rtpengine::Test::Client->_new($self, %args);
+	push(@{$self->{clients}}, $cl);
+	return $cl;
 }
 
 sub run {
@@ -124,6 +127,11 @@ sub mux_input {
 	my ($self, $mux, $fh, $input) = @_;
 
 	my $peer = $mux->udp_peer($fh);
+
+	for my $cl (@{$self->{clients}}) {
+		$$input eq '' and last;
+		$cl->_input($fh, $input, $peer);
+	}
 }
 
 sub mux_timeout {
@@ -154,6 +162,7 @@ sub _new {
 	my @addresses = @{$parent->{all_addresses}};
 	@addresses = List::Util::shuffle @addresses;
 	my (@sockets, @rtp, @rtcp);
+	# XXX support rtcp-mux and rtcp-less media
 
 	for my $address (@addresses) {
 		my $rtp = IO::Socket::IP->new(Type => &Socket::SOCK_DGRAM, Proto => 'udp',
@@ -174,28 +183,57 @@ sub _new {
 
 	$self->{main_sockets} = $sockets[0]; # for m= and o=
 	$self->{local_sdp} = SDP->new($self->{main_sockets}->[0]); # no global c=
+	$self->{component_peers} = []; # keep track of source addresses
+
+	# default protocol
+	my $proto = 'RTP/AVP';
+	$args{dtls} and $proto = 'UDP/TLS/RTP/SAVP';
+	$args{protocol} and $proto = $args{protocol};
 
 	$self->{local_media} = $self->{local_sdp}->add_media(SDP::Media->new(
-		$self->{main_sockets}->[0], $self->{main_sockets}->[1], 'RTP/AVP')); # main rtp and rtcp
+		$self->{main_sockets}->[0], $self->{main_sockets}->[1], $proto)); # main rtp and rtcp
+	# XXX support multiple medias
+
+	if ($args{dtls}) {
+		$self->{dtls} = DTLS::Group->new($parent->{mux}, $self, [ \@rtp, \@rtcp ]);
+		$self->{local_media}->add_attrs($self->{dtls}->encode());
+		$self->{dtls}->accept(); # XXX support other modes
+	}
 
 	return $self;
 }
 
+sub dtls_send {
+	my ($self, $component, $s) = @_;
+	$self->{main_sockets}->[$component]->send($s, 0, $self->{component_peers}->[$component]);
+}
+
+sub _default_req_args {
+	my ($self, $cmd, %args) = @_;
+
+	my $req = { command => $cmd, 'call-id' => $self->{parent}->{callid} };
+
+	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol)) {
+		$args{$cp} and $req->{$cp} = $args{$cp};
+	}
+
+	return $req;
+}
+
 sub offer {
-	my ($self, $other) = @_;
+	my ($self, $other, %args) = @_;
 
 	my $sdp_body = $self->{local_sdp}->encode();
 	# XXX validate SDP
 
-	my $req = { command => 'offer', ICE => 'remove', 'call-id' => $self->{parent}->{callid},
-		'from-tag' => $self->{tag}, sdp => $sdp_body };
+	my $req = $self->_default_req_args('offer', 'from-tag' => $self->{tag}, sdp => $sdp_body, %args);
 
 	my $out = $self->{parent}->{rtpe}->req($req);
 
-	$other->offered($out);
+	$other->_offered($out);
 }
 
-sub offered {
+sub _offered {
 	my ($self, $req) = @_;
 
 	my $sdp_body = $req->{sdp} or die;
@@ -206,20 +244,20 @@ sub offered {
 }
 
 sub answer {
-	my ($self, $other) = @_;
+	my ($self, $other, %args) = @_;
 
 	my $sdp_body = $self->{local_sdp}->encode();
 	# XXX validate SDP
 
-	my $req = { command => 'answer', ICE => 'remove', 'call-id' => $self->{parent}->{callid},
-		'from-tag' => $other->{tag}, 'to-tag' => $self->{tag}, sdp => $sdp_body };
+	my $req = $self->_default_req_args('answer', 'from-tag' => $other->{tag}, 'to-tag' => $self->{tag},
+		sdp => $sdp_body, %args);
 
 	my $out = $self->{parent}->{rtpe}->req($req);
 
-	$other->answered($out);
+	$other->_answered($out);
 }
 
-sub answered {
+sub _answered {
 	my ($self, $req) = @_;
 
 	my $sdp_body = $req->{sdp} or die;
@@ -229,4 +267,19 @@ sub answered {
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
 }
 
+sub _input {
+	my ($self, $fh, $input, $peer) = @_;
+
+	_peer_addr_check($fh, $peer, $self->{rtp_sockets}, $self->{component_peers}, 0);
+	_peer_addr_check($fh, $peer, $self->{rtcp_sockets}, $self->{component_peers}, 1);
+
+	$self->{dtls} and $self->{dtls}->input($fh, $input, $peer);
+}
+
+sub _peer_addr_check {
+	my ($fh, $peer, $sockets, $dest_list, $idx) = @_;
+	if (List::Util::any {$fh == $_} @$sockets) {
+		$dest_list->[$idx] = $peer;
+	}
+}
 1;
