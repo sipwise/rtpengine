@@ -19,7 +19,7 @@ sub new {
 		$self->{socket} = $addr;
 	}
 	else {
-		$self->{socket} = IO::Socket::IP->new(Type => &Socket::SOCK_DGRAM, Proto => 'udp',
+		$self->{socket} = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
 				PeerHost => $addr, PeerPort => $port);
 	}
 
