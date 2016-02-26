@@ -144,6 +144,10 @@ sub mux_timeout {
 		my $t = shift(@{$self->{timers}});
 		$t->{sub}->();
 	}
+
+	for my $cl (@{$self->{clients}}) {
+		$cl->_timer();
+	}
 }
 
 
@@ -199,6 +203,14 @@ sub _new {
 		$self->{local_media}->add_attrs($self->{dtls}->encode());
 		$self->{dtls}->accept(); # XXX support other modes
 	}
+	if ($args{ice}) {
+		$self->{ice} = ICE->new(2, 1); # 2 components, controlling XXX
+		my $pref = 65535;
+		for my $s (@sockets) {
+			$self->{ice}->add_candidate($pref--, 'host', @$s); # 2 components
+		}
+		$self->{local_media}->add_attrs($self->{ice}->encode());
+	}
 
 	return $self;
 }
@@ -241,6 +253,7 @@ sub _offered {
 	# XXX validate SDP
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
+	$self->{ice} and $self->{ice}->decode($self->{remote_media}->decode_ice());
 }
 
 sub answer {
@@ -265,6 +278,7 @@ sub _answered {
 	# XXX validate SDP
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
+	$self->{ice} and $self->{ice}->decode($self->{remote_media}->decode_ice());
 }
 
 sub _input {
@@ -274,6 +288,12 @@ sub _input {
 	_peer_addr_check($fh, $peer, $self->{rtcp_sockets}, $self->{component_peers}, 1);
 
 	$self->{dtls} and $self->{dtls}->input($fh, $input, $peer);
+	$self->{ice} and $self->{ice}->input($fh, $input, $peer);
+}
+
+sub _timer {
+	my ($self) = @_;
+	$self->{ice} and $self->{ice}->timer();
 }
 
 sub _peer_addr_check {
