@@ -193,7 +193,14 @@ sub _near_peer {
 sub _near_input {
 	my ($self, $fh, $s_r, $peer) = @_;
 
-	$self->{_output_func}->($self->{_tag}, $$s_r);
+	my $func = $self->{_output_func};
+	if (ref($func) eq 'CODE') {
+		$func->($self->{_tag}, $$s_r);
+	}
+	else {
+		# object
+		$func->dtls_send($self->{_tag}, $$s_r);
+	}
 
 	$self->_near_peer($peer);
 
