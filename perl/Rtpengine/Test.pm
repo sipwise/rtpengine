@@ -51,7 +51,7 @@ sub new {
 	$self->{timers} = [];
 	$self->{clients} = [];
 
-	$self->{rtpe} = Rtpengine->new('localhost', 2223);
+	$self->{control} = Rtpengine->new('localhost', 2223);
 	$self->{callid} = rand();
 
 	return $self;
@@ -66,8 +66,12 @@ sub client {
 
 sub run {
 	my ($self) = @_;
-
 	$self->{mux}->loop();
+}
+
+sub stop {
+	my ($self) = @_;
+	$self->{mux}->endloop();
 }
 
 sub timer_once {
@@ -140,7 +144,7 @@ sub _new {
 
 	$self->{main_sockets} = $sockets[0]; # for m= and o=
 	$self->{local_sdp} = SDP->new($self->{main_sockets}->[0]); # no global c=
-	$self->{component_peers} = []; # keep track of source addresses
+	$self->{component_peers} = []; # keep track of peer source addresses
 
 	# default protocol
 	my $proto = 'RTP/AVP';
@@ -193,7 +197,7 @@ sub offer {
 
 	my $req = $self->_default_req_args('offer', 'from-tag' => $self->{tag}, sdp => $sdp_body, %args);
 
-	my $out = $self->{parent}->{rtpe}->req($req);
+	my $out = $self->{parent}->{control}->req($req);
 
 	$other->_offered($out);
 }
@@ -218,7 +222,7 @@ sub answer {
 	my $req = $self->_default_req_args('answer', 'from-tag' => $other->{tag}, 'to-tag' => $self->{tag},
 		sdp => $sdp_body, %args);
 
-	my $out = $self->{parent}->{rtpe}->req($req);
+	my $out = $self->{parent}->{control}->req($req);
 
 	$other->_answered($out);
 }
@@ -234,6 +238,14 @@ sub _answered {
 	$self->{ice} and $self->{ice}->decode($self->{remote_media}->decode_ice());
 }
 
+sub delete {
+	my ($self, %args) = @_;
+
+	my $req = $self->_default_req_args('delete', 'from-tag' => $self->{tag}, %args);
+
+	my $out = $self->{parent}->{control}->req($req);
+}
+
 sub _input {
 	my ($self, $fh, $input, $peer) = @_;
 
@@ -242,11 +254,17 @@ sub _input {
 
 	$self->{dtls} and $self->{dtls}->input($fh, $input, $peer);
 	$self->{ice} and $self->{ice}->input($fh, $input, $peer);
+
+	$$input eq '' and return;
+
+	# must be RTP input
+	$$input = '';
 }
 
 sub _timer {
 	my ($self) = @_;
 	$self->{ice} and $self->{ice}->timer();
+	$self->{rtp} and $self->{rtp}->timer();
 }
 
 sub _peer_addr_check {
@@ -255,4 +273,12 @@ sub _peer_addr_check {
 		$dest_list->[$idx] = $peer;
 	}
 }
+
+sub start_rtp {
+	my ($self) = @_;
+	$self->{rtp} and die;
+	my $dest = $self->{remote_media}->endpoint();
+	$self->{rtp} = RTP->new($self->{rtp_sockets}->[0], $dest) or die;
+}
+
 1;

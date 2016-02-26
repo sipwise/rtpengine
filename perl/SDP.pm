@@ -4,6 +4,8 @@ use strict;
 use warnings;
 use IO::Socket;
 use Time::HiRes qw(gettimeofday);
+use Socket;
+use Socket6;
 
 sub new {
 	my ($class, $origin, $connection) = @_;
@@ -106,16 +108,20 @@ sub encode_address {
 sub decode_address {
 	my ($s) = @_;
 	if ($s =~ /^IN IP4 (\d+\.\d+\.\d+\.\d+)$/s) {
-		return $1;
+		return { address => $1, family => &AF_INET };
 	}
 	if ($s =~ /^IN IP6 ([0-9a-fA-F:]+)$/s) {
-		return $1;
+		return { address => $1, family => &AF_INET6 };
 	}
 	die $s;
 }
 
 
 package SDP::Media;
+
+use Socket;
+use Socket6;
+use IO::Socket;
 
 sub new {
 	my ($class, $rtp, $rtcp, $protocol, $type) = @_;
@@ -216,6 +222,15 @@ sub decode_ice {
 	$ret->{pwd} = $self->{attributes_hash}->{'ice-pwd'}->[0];
 	$ret->{candidates} = $self->{attributes_hash}->{'candidate'};
 	return $ret;
+}
+
+sub endpoint {
+	my ($self) = @_;
+	my $conn = $self->connection();
+	my $port = $self->{port};
+	$conn->{family} == &AF_INET and return pack_sockaddr_in($port, inet_aton($conn->{address}));
+	$conn->{family} == &AF_INET6 and return pack_sockaddr_in6($port, inet_pton(&AF_INET6, $conn->{address}));
+	die;
 }
 
 1;
