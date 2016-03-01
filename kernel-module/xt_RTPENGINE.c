@@ -1939,7 +1939,9 @@ err:
 
 
 
-static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struct re_address *dst, unsigned char tos) {
+static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+		unsigned char tos, const struct xt_action_param *par)
+{
 	struct iphdr *ih;
 	struct udphdr *uh;
 	unsigned int datalen;
@@ -1977,12 +1979,20 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 		uh->check = CSUM_MANGLED_0;
 
 	skb->protocol = htons(ETH_P_IP);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+	if (ip_route_me_harder(par->net, skb, RTN_UNSPEC))
+#else
 	if (ip_route_me_harder(skb, RTN_UNSPEC))
+#endif
 		goto drop;
 
 	skb->ip_summed = CHECKSUM_NONE;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+	ip_local_out(par->net, skb->sk, skb);
+#else
 	ip_local_out(skb);
+#endif
 
 	return 0;
 
@@ -1995,7 +2005,9 @@ drop:
 
 
 
-static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struct re_address *dst, unsigned char tos) {
+static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+		unsigned char tos, const struct xt_action_param *par)
+{
 	struct ipv6hdr *ih;
 	struct udphdr *uh;
 	unsigned int datalen;
@@ -2033,12 +2045,20 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 		uh->check = CSUM_MANGLED_0;
 
 	skb->protocol = htons(ETH_P_IPV6);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+	if (ip6_route_me_harder(par->net, skb))
+#else
 	if (ip6_route_me_harder(skb))
+#endif
 		goto drop;
 
 	skb->ip_summed = CHECKSUM_NONE;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+	ip6_local_out(par->net, skb->sk, skb);
+#else
 	ip6_local_out(skb);
+#endif
 
 	return 0;
 
@@ -2050,18 +2070,19 @@ drop:
 
 
 
-static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst, unsigned char tos) {
+static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+		unsigned char tos, const struct xt_action_param *par) {
 
 	if (src->family != dst->family)
 		goto drop;
 
 	switch (src->family) {
 		case AF_INET:
-			return send_proxy_packet4(skb, src, dst, tos);
+			return send_proxy_packet4(skb, src, dst, tos, par);
 			break;
 
 		case AF_INET6:
-			return send_proxy_packet6(skb, src, dst, tos);
+			return send_proxy_packet6(skb, src, dst, tos, par);
 			break;
 
 		default:
@@ -2429,7 +2450,7 @@ static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rt
 #endif
 
 static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src,
-		struct re_address *dst, u_int8_t in_tos)
+		struct re_address *dst, u_int8_t in_tos, const struct xt_action_param *par)
 {
 	struct udphdr *uh;
 	struct rtpengine_target *g;
@@ -2543,7 +2564,8 @@ not_rtp:
 	if (g->target.mirror_addr.family) {
 		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
-		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
+		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos,
+				par);
 		if (err)
 			atomic64_inc(&g->stats.errors);
 	}
@@ -2555,7 +2577,7 @@ not_rtp:
 		srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
 	}
 
-	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
+	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos, par);
 
 out:
 
@@ -2656,7 +2678,7 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET;
 	dst.u.ipv4 = ih->daddr;
 
-	return rtpengine46(skb, t, &src, &dst, (u_int8_t)ih->tos);
+	return rtpengine46(skb, t, &src, &dst, (u_int8_t)ih->tos, par);
 
 skip2:
 	kfree_skb(skb);
@@ -2701,7 +2723,7 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET6;
 	memcpy(&dst.u.ipv6, &ih->daddr, sizeof(dst.u.ipv6));
 
-	return rtpengine46(skb, t, &src, &dst, ipv6_get_dsfield(ih));
+	return rtpengine46(skb, t, &src, &dst, ipv6_get_dsfield(ih), par);
 
 skip2:
 	kfree_skb(skb);
@@ -2770,7 +2792,7 @@ static int __init init(void) {
 
 	printk(KERN_NOTICE "Registering xt_RTPENGINE module - version %s\n", RTPENGINE_VERSION);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	printk(KERN_DEBUG "using uid %u, gid %d\n", proc_uid, proc_gid);
+	DBG("using uid %u, gid %d\n", proc_uid, proc_gid);
 	proc_kuid = KUIDT_INIT(proc_uid);
 	proc_kgid = KGIDT_INIT(proc_gid);
 #endif
