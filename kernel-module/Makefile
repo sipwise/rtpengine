@@ -6,12 +6,25 @@ ifneq ($(RTPENGINE_VERSION),)
   EXTRA_CFLAGS += -DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
 else
   DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)
+  DEB_CHANGELOG=$(shell test -f $(M)/../debian/changelog && echo $(M)/../debian/changelog || echo $(M)/debian/changelog)
   ifneq ($(DPKG_PRSCHNGLG),)
-    EXTRA_CFLAGS += -DRTPENGINE_VERSION="\"$(shell dpkg-parsechangelog -l$(M)/debian/changelog | awk '/^Version: / {print $$2}')\""
-  else
-    EXTRA_CFLAGS += -DRTPENGINE_VERSION="\"undefined\""
+    DPKG_PRSCHNGLG=$(shell dpkg-parsechangelog -l$(DEB_CHANGELOG) | awk '/^Version: / {print $$2}')
+  endif
+  GIT_BR_COMMIT=$(shell git branch --no-color --no-column -v 2> /dev/null | awk '/^\*/ {OFS="-"; print "git", $$2, $$3}')
+
+  ifneq ($(DPKG_PRSCHNGLG),)
+    RTPENGINE_VERSION+=$(DPKG_PRSCHNGLG)
+  endif
+  ifneq ($(GIT_BR_COMMIT),)
+    RTPENGINE_VERSION+=$(GIT_BR_COMMIT)
+  endif
+
+  ifeq ($(RTPENGINE_VERSION),)
+    RTPENGINE_VERSION+=undefined
   endif
 endif
+EXTRA_CFLAGS+=	-DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
+
 EXTRA_CFLAGS += -D__RE_EXTERNAL
 
 obj-m        += xt_RTPENGINE.o
