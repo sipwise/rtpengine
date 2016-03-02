@@ -116,6 +116,7 @@ int detect_setup_recording(struct call *call, str recordcall) {
 		// We haven't set up the PCAP file, so set it up and write the URL to metadata
 		init_write_pcap_file(call);
 	}
+	return is_recording;
 }
 
 /**
@@ -159,6 +160,7 @@ str *init_write_pcap_file(struct call *call) {
 		// Write the location of the PCAP file to the metadata file
 		fprintf(call->recording->meta_fp, "%s\n\n", pcap_path->s);
 	}
+	return pcap_path;
 }
 
 /**
@@ -186,6 +188,7 @@ str *meta_setup_file(struct recording *recording, str callid) {
 		meta_filepath = str_init(meta_filepath, path_chars);
 		recording->meta_filepath = meta_filepath;
 		FILE *mfp = fopen(meta_filepath->s, "w");
+		chmod(meta_filepath->s, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 		if (mfp == NULL) {
 			ilog(LOG_ERROR, "Could not open metadata file: %s", meta_filepath->s);
 			free(recording->meta_filepath->s);
@@ -208,7 +211,7 @@ ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt) {
 	// descriptor does not. Make sure to flush any unwritten contents
 	// so the file contents appear in order.
 	fflush(meta_fp);
-	writev(meta_fd, sdp_iov, iovcnt);
+	return writev(meta_fd, sdp_iov, iovcnt);
 }
 
 /**
