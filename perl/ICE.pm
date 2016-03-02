@@ -45,6 +45,7 @@ sub new {
 
 	$self->{triggered_checks} = [];
 	$self->{last_timer} = 0;
+	$self->{start_nominating} = 0;
 
 	$self->debug("created, controll" . ($controlling ? "ing" : "ed")
 		. ", tie breaker " . $self->{tie_breaker}->bstr() . "\n");
@@ -144,6 +145,7 @@ sub remote_foundation_change {
 		my $new_foundation = $pair->{local}->{foundation} . $new;
 		delete($self->{candidate_pairs}->{$foundation_pair});
 		$self->{candidate_pairs}->{$new_foundation} = $pair;
+		$pair->{foundation} = $new_foundation;
 
 		for my $comp (@{$pair->{components}}) {
 			$comp->{foundation} = $new_foundation;
@@ -512,7 +514,7 @@ sub stun_handler_binding_request {
 	if ($hash->{use}) {
 		$pair->{nominated} = 1;
 		$self->debug("$pair->{foundation} - got nominated\n");
-		$self->{controlling} or $self->check_nominations();
+		$self->check_nominations();
 	}
 
 	# construct response
@@ -532,12 +534,14 @@ sub stun_handler_binding_request {
 sub check_nominations {
 	my ($self) = @_;
 
+	$self->{controlling} and return;
+
 	my @nominated;
 
 	for my $pair (values(%{$self->{candidate_pairs}})) {
 		my @comps = @{$pair->{components}};
 		my @nominated_comps = grep {$_->{nominated}} @comps;
-		@comps < $self->{components} and next;
+		@nominated_comps < $self->{components} and next;
 		$self->debug("got fully nominated pair $pair->{foundation}\n");
 		push(@nominated, $pair);
 	}
@@ -580,7 +584,54 @@ sub stun_handler_binding_success {
 		$p->{state} = 'waiting';
 	}
 
+	$self->check_to_nominate();
+
 	return;
+}
+
+sub check_to_nominate {
+	my ($self) = @_;
+
+	$self->{controlling} or return;
+	$self->{start_nominating} && time() < $self->{start_nominating} and return;
+	$self->{nominate} and return;
+
+	my @succeeded;
+
+	for my $pair (values(%{$self->{candidate_pairs}})) {
+		my @comps = @{$pair->{components}};
+		my @succeeded_comps = grep {$_->{state} eq 'succeeded'} @comps;
+		@succeeded_comps < $self->{components} and next;
+		$self->debug("got fully succeeded pair $pair->{foundation}\n");
+		push(@succeeded, $pair);
+	}
+
+	if (!@succeeded) {
+		$self->debug("no fully succeeded pairs yet\n");
+		return;
+	}
+
+	@succeeded = sort_pairs(\@succeeded);
+	my $pair = $succeeded[0];
+	$self->debug("highest priority succeeded pair is $pair->{foundation}\n");
+
+	if (!$self->{start_nominating}) {
+		$self->{start_nominating} = time() + 0.1;
+		return;
+	}
+
+	$pair->{nominate} and return;
+
+	$self->{nominate} = 1;
+	$pair->{nominate} = 1;
+	$self->{start_nominating} = 0;
+
+	$pair->debug("nominating\n");
+	for my $comp (@{$pair->{components}}) {
+		$comp->cancel_check();
+		$comp->{nominate} = 1;
+		$comp->trigger_check();
+	}
 }
 
 sub integrity {
@@ -719,6 +770,8 @@ sub timer {
 		$pair->run_check();
 		return;
 	}
+
+	$self->check_to_nominate();
 }
 
 sub sort_pairs {
@@ -794,10 +847,12 @@ sub run_check {
 	$self->{state} = 'in progress';
 	$self->{transaction} = ICE::random_string(12);
 	$self->send_check();
+	# XXX handle retransmits
 }
 
 sub cancel_check {
 	my ($self) = @_;
+	$self->{transaction} or return;
 	$self->debug("canceling existing check $self->{transaction}\n");
 	$self->{previous_transactions}->{$self->{transaction}} = 1;
 	delete $self->{transaction};
@@ -823,6 +878,8 @@ sub send_check {
 	unshift(@$attrs, ICE::attr(0x0024, pack('N', ICE::calc_priority('prflx',
 				$local_cand->{preference}, $local_comp->{component}))));
 	unshift(@$attrs, ICE::attr(0x0006, "$self->{agent}->{other_ufrag}:$self->{agent}->{my_ufrag}"));
+	$self->{nominate} and
+		unshift(@$attrs, ICE::attr(0x0025, ''));
 
 	$self->{agent}->integrity($attrs, 1, $self->{transaction}, $self->{agent}->{other_pwd});
 	$self->{agent}->fingerprint($attrs, 1, $self->{transaction});
