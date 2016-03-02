@@ -554,6 +554,7 @@ sub check_nominations {
 	@nominated = sort_pairs(\@nominated);
 	my $pair = $nominated[0];
 	$self->debug("highest priority nominated pair is $pair->{foundation}\n");
+	$self->{nominated_pair} = $pair;
 }
 
 sub stun_handler_binding_success {
@@ -595,6 +596,7 @@ sub check_to_nominate {
 	$self->{controlling} or return;
 	$self->{start_nominating} && time() < $self->{start_nominating} and return;
 	$self->{nominate} and return;
+	@{$self->{triggered_checks}} and return;
 
 	my @succeeded;
 
@@ -625,6 +627,7 @@ sub check_to_nominate {
 	$self->{nominate} = 1;
 	$pair->{nominate} = 1;
 	$self->{start_nominating} = 0;
+	$self->{nominated_pair} = $pair;
 
 	$pair->debug("nominating\n");
 	for my $comp (@{$pair->{components}}) {
@@ -777,6 +780,21 @@ sub timer {
 sub sort_pairs {
 	my ($pair_list) = @_;
 	return sort {$a->priority() <=> $b->priority()} @$pair_list;
+}
+
+sub get_send_component {
+	my ($self, $component) = @_;
+
+	my $pair = $self->{nominated_pair};
+
+	if (!$pair) {
+		my @pairs = values(%{$self->{candidate_pairs}});
+		@pairs = sort_pairs(\@pairs);
+		$pair = $pairs[0];
+	}
+
+	return ($pair->{components}->[$component]->{local}->{socket},
+				$pair->{components}->[$component]->{remote}->{packed_peer});
 }
 
 package ICE::Candidate;

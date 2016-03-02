@@ -6,13 +6,12 @@ use Time::HiRes qw(time);
 use Math::BigInt;
 
 sub new {
-	my ($class, $local_socket, $dest) = @_;
+	my ($class, $cb_obj) = @_;
 
 	my $self = {};
 	bless $self, $class;
 
-	$self->{local_socket} = $local_socket;
-	$self->{destination} = $dest;
+	$self->{cb_obj} = $cb_obj;
 
 	$self->{ssrc} = int(rand(2**32));
 	$self->{next_send} = time();
@@ -33,7 +32,7 @@ sub timer {
 	my $hdr = pack("CCnNN", 0x80, 0x00, $self->{seq}, $self->{timestamp}->bstr(), $self->{ssrc});
 	my $payload = chr(rand(256)) x $self->{payload}; # XXX adapt to codec
 
-	$self->{local_socket}->send($hdr . $payload, 0, $self->{destination});
+	$self->{cb_obj}->rtp_send($hdr . $payload);
 
 	$self->{seq}++;
 	$self->{seq} > 0xffff and $self->{seq} -= 0x10000;

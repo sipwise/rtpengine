@@ -28,15 +28,17 @@ sub new {
 
 	my @intfs = Net::Interface->interfaces();
 
-	my @v4 = map {$_->address(&IO::Socket::AF_INET)} @intfs;
-	@v4 = map {Socket6::inet_ntop(&IO::Socket::AF_INET, $_)} @v4;
+	my @v4 = map {$_->address(&AF_INET)} @intfs;
+	@v4 = map {Socket6::inet_ntop(&AF_INET, $_)} @v4;
 	@v4 = grep {$_ !~ /^127\./} @v4;
+	@v4 = map { { address => $_, domain => &AF_INET } } @v4;
 	@v4 or die("no IPv4 addresses found");
 
-	my @v6 = map {$_->address(&IO::Socket::AF_INET6)} @intfs;
-	@v6 = map {Socket6::inet_ntop(&IO::Socket::AF_INET6, $_)} @v6;
+	my @v6 = map {$_->address(&AF_INET6)} @intfs;
+	@v6 = map {Socket6::inet_ntop(&AF_INET6, $_)} @v6;
 	@v6 = grep {$_ !~ /^::|^fe80:/} @v6;
-	@v4 or die("no IPv6 addresses found");
+	@v6 = map { { address => $_, domain => &AF_INET6 } } @v6;
+	@v6 or die("no IPv6 addresses found");
 
 	$self->{v4_addresses} = \@v4;
 	$self->{v6_addresses} = \@v6;
@@ -110,6 +112,8 @@ sub mux_timeout {
 
 package Rtpengine::Test::Client;
 
+use Socket;
+
 sub _new {
 	my ($class, $parent, %args) = @_;
 
@@ -126,10 +130,15 @@ sub _new {
 	# XXX support rtcp-mux and rtcp-less media
 
 	for my $address (@addresses) {
-		my $rtp = IO::Socket::IP->new(Type => &Socket::SOCK_DGRAM, Proto => 'udp',
-			LocalHost => $address, LocalPort => $parent->{media_port}++) or die($address);
-		my $rtcp = IO::Socket::IP->new(Type => &Socket::SOCK_DGRAM, Proto => 'udp',
-			LocalHost => $address, LocalPort => $parent->{media_port}++) or die($address);
+		$args{domain} && $args{domain} != $address->{domain} and next;
+
+		my $rtp = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
+			LocalHost => $address->{address}, LocalPort => $parent->{media_port}++)
+			or die($address->{address});
+		my $rtcp = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
+			LocalHost => $address->{address}, LocalPort => $parent->{media_port}++)
+			or die($address->{address});
+
 		push(@sockets, [$rtp, $rtcp]);
 		push(@rtp, $rtp);
 		push(@rtcp, $rtcp);
@@ -137,6 +146,8 @@ sub _new {
 		$parent->{mux}->add($rtcp);
 		$parent->{mux}->set_timeout($rtp, 0.01); # XXX overkill, only need this on one
 	}
+
+	@sockets or die;
 
 	$self->{sockets} = \@sockets;
 	$self->{rtp_sockets} = \@rtp;
@@ -172,9 +183,40 @@ sub _new {
 	return $self;
 }
 
+sub _packet_send {
+	my ($self, $component, $s) = @_;
+
+	my $local_socket = $self->{main_sockets}->[$component];
+
+	my $dest;
+
+	if (!$self->{ice}) {
+		if ($self->{remote_media}) {
+			$dest = $component == 0 ? $self->{remote_media}->endpoint()
+				: $self->{remote_media}->rtcp_endpoint();
+		}
+		else {
+			$dest = $self->{component_peers}->[$component]
+		}
+	}
+	else {
+		($local_socket, $dest) = $self->{ice}->get_send_component($component);
+	}
+
+	$local_socket->send($s, 0, $dest);
+}
+
 sub dtls_send {
 	my ($self, $component, $s) = @_;
-	$self->{main_sockets}->[$component]->send($s, 0, $self->{component_peers}->[$component]);
+	$self->_packet_send($component, $s);
+}
+sub rtp_send {
+	my ($self, $s) = @_;
+	$self->_packet_send(0, $s);
+}
+sub rtcp_send {
+	my ($self, $s) = @_;
+	$self->_packet_send(1, $s);
 }
 
 sub _default_req_args {
@@ -182,7 +224,7 @@ sub _default_req_args {
 
 	my $req = { command => $cmd, 'call-id' => $self->{parent}->{callid} };
 
-	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol)) {
+	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol address-family)) {
 		$args{$cp} and $req->{$cp} = $args{$cp};
 	}
 
@@ -278,7 +320,7 @@ sub start_rtp {
 	my ($self) = @_;
 	$self->{rtp} and die;
 	my $dest = $self->{remote_media}->endpoint();
-	$self->{rtp} = RTP->new($self->{rtp_sockets}->[0], $dest) or die;
+	$self->{rtp} = RTP->new($self) or die;
 }
 
 1;
