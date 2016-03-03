@@ -46,6 +46,8 @@ sub new {
 	$self->{triggered_checks} = [];
 	$self->{last_timer} = 0;
 	$self->{start_nominating} = 0;
+	$self->{completed} = 0;
+	$self->{keepalives} = 0;
 
 	$self->debug("created, controll" . ($controlling ? "ing" : "ed")
 		. ", tie breaker " . $self->{tie_breaker}->bstr() . "\n");
@@ -555,6 +557,7 @@ sub check_nominations {
 	my $pair = $nominated[0];
 	$self->debug("highest priority nominated pair is $pair->{foundation}\n");
 	$self->{nominated_pair} = $pair;
+	$self->{completed} ||= time();
 }
 
 sub stun_handler_binding_success {
@@ -628,13 +631,10 @@ sub check_to_nominate {
 	$pair->{nominate} = 1;
 	$self->{start_nominating} = 0;
 	$self->{nominated_pair} = $pair;
+	$self->{completed} ||= time();
 
 	$pair->debug("nominating\n");
-	for my $comp (@{$pair->{components}}) {
-		$comp->cancel_check();
-		$comp->{nominate} = 1;
-		$comp->trigger_check();
-	}
+	$pair->nominate();
 }
 
 sub integrity {
@@ -775,6 +775,22 @@ sub timer {
 	}
 
 	$self->check_to_nominate();
+
+	if ($self->{completed}) {
+		$self->{keepalives} ||= time() + 2;
+		if (time() >= $self->{keepalives}) {
+			$self->keepalives();
+			$self->{keepalives} += 2;
+		}
+	}
+}
+
+sub keepalives {
+	my ($self) = @_;
+
+	$self->debug("sending keepalives");
+	my $pair = $self->{nominated_pair} or return;
+	$pair->nominate();
 }
 
 sub sort_pairs {
@@ -822,6 +838,15 @@ sub priority {
 sub debug {
 	my ($self, @rest) = @_;
 	$self->{agent}->debug("candidate pair $self->{foundation}", ' - ', @rest);
+}
+
+sub nominate {
+	my ($self) = @_;
+	for my $comp (@{$self->{components}}) {
+		$comp->cancel_check();
+		$comp->{nominate} = 1;
+		$comp->trigger_check();
+	}
 }
 
 package ICE::Component::Pair;
