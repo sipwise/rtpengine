@@ -31,13 +31,13 @@ sub new {
 	my @v4 = map {$_->address(&AF_INET)} @intfs;
 	@v4 = map {Socket6::inet_ntop(&AF_INET, $_)} @v4;
 	@v4 = grep {$_ !~ /^127\./} @v4;
-	@v4 = map { { address => $_, domain => &AF_INET } } @v4;
+	@v4 = map { { address => $_, sockdomain => &AF_INET } } @v4;
 	@v4 or die("no IPv4 addresses found");
 
 	my @v6 = map {$_->address(&AF_INET6)} @intfs;
 	@v6 = map {Socket6::inet_ntop(&AF_INET6, $_)} @v6;
 	@v6 = grep {$_ !~ /^::|^fe80:/} @v6;
-	@v6 = map { { address => $_, domain => &AF_INET6 } } @v6;
+	@v6 = map { { address => $_, sockdomain => &AF_INET6 } } @v6;
 	@v6 or die("no IPv6 addresses found");
 
 	$self->{v4_addresses} = \@v4;
@@ -66,6 +66,15 @@ sub client {
 	return $cl;
 }
 
+sub client_pair {
+	my ($self, $args_A, $args_B) = @_;
+	my $a = $self->client(%$args_A);
+	my $b = $self->client(%$args_B);
+	$a->media_receiver($b);
+	$b->media_receiver($a);
+	return ($a, $b);
+}
+
 sub run {
 	my ($self) = @_;
 	$self->{mux}->loop();
@@ -74,6 +83,9 @@ sub run {
 sub stop {
 	my ($self) = @_;
 	$self->{mux}->endloop();
+	for my $cl (@{$self->{clients}}) {
+		$cl->stop();
+	}
 }
 
 sub timer_once {
@@ -91,6 +103,8 @@ sub mux_input {
 		$$input eq '' and last;
 		$cl->_input($fh, $input, $peer);
 	}
+
+	$$input ne '' and die;
 }
 
 sub mux_timeout {
@@ -130,7 +144,7 @@ sub _new {
 	# XXX support rtcp-mux and rtcp-less media
 
 	for my $address (@addresses) {
-		$args{domain} && $args{domain} != $address->{domain} and next;
+		$args{sockdomain} && $args{sockdomain} != $address->{sockdomain} and next;
 
 		my $rtp = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
 			LocalHost => $address->{address}, LocalPort => $parent->{media_port}++)
@@ -139,7 +153,7 @@ sub _new {
 			LocalHost => $address->{address}, LocalPort => $parent->{media_port}++)
 			or die($address->{address});
 
-		push(@sockets, [$rtp, $rtcp]);
+		push(@sockets, [$rtp, $rtcp]); # component 0 and 1
 		push(@rtp, $rtp);
 		push(@rtcp, $rtcp);
 		$parent->{mux}->add($rtp);
@@ -180,7 +194,21 @@ sub _new {
 		$self->{local_media}->add_attrs($self->{ice}->encode());
 	}
 
+	$self->{media_receive_queues} = [[],[]]; # for each component
+	$self->{media_packets_sent} = [0,0];
+	$self->{media_packets_received} = [0,0];
+
 	return $self;
+}
+
+sub media_receiver {
+	my ($self, $other) = @_;
+	$self->{media_receiver} = $other;
+}
+
+sub media_to_receive {
+	my ($self, $component, $s) = @_;
+	push(@{$self->{media_receive_queues}->[$component]}, $s);
 }
 
 sub _packet_send {
@@ -205,6 +233,12 @@ sub _packet_send {
 
 	$local_socket->send($s, 0, $dest);
 }
+sub _media_send {
+	my ($self, $component, $s) = @_;
+	$self->_packet_send($component, $s);
+	$self->{media_packets_sent}->[$component]++;
+	$self->{media_receiver} and $self->{media_receiver}->media_to_receive($component, $s);
+}
 
 sub dtls_send {
 	my ($self, $component, $s) = @_;
@@ -212,12 +246,13 @@ sub dtls_send {
 }
 sub rtp_send {
 	my ($self, $s) = @_;
-	$self->_packet_send(0, $s);
+	$self->_media_send(0, $s);
 }
 sub rtcp_send {
 	my ($self, $s) = @_;
-	$self->_packet_send(1, $s);
+	$self->_media_send(1, $s);
 }
+
 
 sub _default_req_args {
 	my ($self, $cmd, %args) = @_;
@@ -291,15 +326,19 @@ sub delete {
 sub _input {
 	my ($self, $fh, $input, $peer) = @_;
 
-	_peer_addr_check($fh, $peer, $self->{rtp_sockets}, $self->{component_peers}, 0);
-	_peer_addr_check($fh, $peer, $self->{rtcp_sockets}, $self->{component_peers}, 1);
+	my $component = $self->_peer_addr_check($fh, $peer);
 
 	$self->{dtls} and $self->{dtls}->input($fh, $input, $peer);
 	$self->{ice} and $self->{ice}->input($fh, $input, $peer);
 
 	$$input eq '' and return;
 
-	# must be RTP input
+	defined($component) or return; # not one of ours
+
+	# must be RTP or RTCP input
+	my $exp = shift(@{$self->{media_receive_queues}->[$component]}) or die;
+	$$input eq $exp or die;
+	$self->{media_packets_received}->[$component]++;
 	$$input = '';
 }
 
@@ -310,10 +349,18 @@ sub _timer {
 }
 
 sub _peer_addr_check {
-	my ($fh, $peer, $sockets, $dest_list, $idx) = @_;
-	if (List::Util::any {$fh == $_} @$sockets) {
-		$dest_list->[$idx] = $peer;
+	my ($self, $fh, $peer) = @_;
+
+	for my $sockets (@{$self->{sockets}}) {
+		for my $component (0, 1) {
+			if ($fh == $sockets->[$component]) {
+				$self->{component_peers}->[$component] = $peer;
+				return $component;
+			}
+		}
 	}
+
+	return;
 }
 
 sub start_rtp {
@@ -321,6 +368,14 @@ sub start_rtp {
 	$self->{rtp} and die;
 	my $dest = $self->{remote_media}->endpoint();
 	$self->{rtp} = RTP->new($self) or die;
+}
+
+sub stop {
+	my ($self) = @_;
+	print("media packets sent: @{$self->{media_packets_sent}}\n");
+	print("media packets received: @{$self->{media_packets_received}}\n");
+	my @queues = map {scalar(@$_)} @{$self->{media_receive_queues}};
+	print("media packets outstanding: @queues\n");
 }
 
 1;
