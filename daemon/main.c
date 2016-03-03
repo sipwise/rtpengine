@@ -612,7 +612,7 @@ no_kernel:
 	if (!is_addr_unspecified(&redis_ep.address)) {
 		mc.redis = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
 		mc.redis_notify = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
-		if (!mc.redis)
+		if (!mc.redis || !mc.redis_notify)
 			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED paramter.",
 				endpoint_print_buf(&redis_ep));
 
