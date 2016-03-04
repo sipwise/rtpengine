@@ -316,14 +316,13 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 			goto err;
 		}
 		redis_restore_call(r, cm, rr->element[2]);
-		atomic64_inc(&cm->stats.foreign_sessions);
-		atomic64_inc(&cm->totalstats.total_foreign_sessions);
-
 		// we lookup again to retrieve the call to insert the kayspace db id
 		c = g_hash_table_lookup(cm->callhash, &callid);
 		if (c) {
 			c->redis_foreign_call = 1;
 			c->is_backup_call = 1;
+			atomic64_inc(&cm->stats.foreign_sessions);
+			atomic64_inc(&cm->totalstats.total_foreign_sessions);
 		}
 	}
 
