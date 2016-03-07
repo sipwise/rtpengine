@@ -541,6 +541,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->trust_address = 0;
 			else if (!bencode_strcmp(it, "asymmetric"))
 				out->asymmetric = 1;
+			else if (!bencode_strcmp(it, "unidirectional"))
+				out->unidirectional = 1;
 			else if (!bencode_strcmp(it, "strict-source"))
 				out->strict_source = 1;
 			else if (!bencode_strcmp(it, "media-handover"))

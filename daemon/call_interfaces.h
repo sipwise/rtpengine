@@ -31,6 +31,7 @@ struct sdp_ng_flags {
 	sockfamily_t *address_family;
 	int tos;
 	int asymmetric:1,
+	    unidirectional:1,
 	    trust_address:1,
 	    port_latching:1,
 	    replace_origin:1,

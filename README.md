@@ -711,6 +711,10 @@ Optionally included keys are:
 		Corresponds to the *rtpproxy* `a` flag. Advertises an RTP endpoint which uses asymmetric
 		RTP, which disables learning of endpoint addresses (see below).
 
+	- `unidirectional`
+
+		When this flag is present, kernelize also one-way rtp media.
+
 	- `strict source`
 
 		Normally, *rtpengine* attempts to learn the correct endpoint address for every stream during
