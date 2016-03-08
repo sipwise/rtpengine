@@ -233,7 +233,7 @@ int str_cut(char *str, int begin, int len) {
 	return len;
 }
 
-static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id);
+static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id, enum call_type);
 static int redis_check_conn(struct redis *r);
 
 void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
@@ -315,15 +315,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 			rlog(LOG_INFO, "Redis-Notifier: Call already exists with this callid:%s\n", rr->element[2]->str);
 			goto err;
 		}
-		redis_restore_call(r, cm, rr->element[2]);
-		// we lookup again to retrieve the call to insert the kayspace db id
-		c = g_hash_table_lookup(cm->callhash, &callid);
-		if (c) {
-			c->redis_foreign_call = 1;
-			c->is_backup_call = 1;
-			atomic64_inc(&cm->stats.foreign_sessions);
-			atomic64_inc(&cm->totalstats.total_foreign_sessions);
-		}
+		redis_restore_call(r, cm, rr->element[2], CT_FOREIGN_CALL);
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
@@ -1211,7 +1203,7 @@ static int redis_link_maps(struct redis *r, struct call *c, struct redis_list *m
 }
 
 
-static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id) {
+static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id, enum call_type type) {
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
 	struct call *c = NULL;
@@ -1241,7 +1233,7 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 	str_init_len(&s, id->str, id->len);
 	//s.s = id->str;
 	//s.len = id->len;
-	c = call_get_or_create(&s, m);
+	c = call_get_or_create(&s, m, type);
 	err = "failed to create call struct";
 	if (!c)
 		goto err8;
@@ -1348,7 +1340,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	r = g_queue_pop_head(&ctx->r_q);
 	mutex_unlock(&ctx->r_m);
 
-	redis_restore_call(r, ctx->m, call);
+	redis_restore_call(r, ctx->m, call, CT_OWN_CALL);
 
 	mutex_lock(&ctx->r_m);
 	g_queue_push_tail(&ctx->r_q, r);

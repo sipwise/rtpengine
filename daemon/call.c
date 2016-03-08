@@ -2286,7 +2286,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 }
 
 /* returns call with master_lock held in W */
-struct call *call_get_or_create(const str *callid, struct callmaster *m) {
+struct call *call_get_or_create(const str *callid, struct callmaster *m, enum call_type type) {
 	struct call *c;
 
 restart:
@@ -2304,11 +2304,20 @@ restart:
 			goto restart;
 		}
 		g_hash_table_insert(m->callhash, &c->callid, obj_get(c));
-		if(! IS_BACKUP_CALL(c)) {
+
+		if (type == CT_OWN_CALL) {
 			mutex_lock(&m->totalstats_interval.managed_sess_lock);
-			m->totalstats_interval.managed_sess_max = MAX(m->totalstats_interval.managed_sess_max,
-					g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
+			m->totalstats_interval.managed_sess_max = MAX(
+					m->totalstats_interval.managed_sess_max,
+					g_hash_table_size(m->callhash)
+							- atomic64_get(&m->stats.foreign_sessions));
 			mutex_unlock(&m->totalstats_interval.managed_sess_lock);
+		}
+		else if (type == CT_FOREIGN_CALL) { /* foreign call*/
+			c->redis_foreign_call = 1;
+			c->is_backup_call = 1;
+			atomic64_inc(&m->stats.foreign_sessions);
+			atomic64_inc(&m->totalstats.total_foreign_sessions);
 		}
 		rwlock_lock_w(&c->master_lock);
 		rwlock_unlock_w(&m->hashlock);
@@ -2345,7 +2354,7 @@ struct call *call_get(const str *callid, struct callmaster *m) {
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
 struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
-		return call_get_or_create(callid, m);
+		return call_get_or_create(callid, m, CT_OWN_CALL);
 	return call_get(callid, m);
 }
 
