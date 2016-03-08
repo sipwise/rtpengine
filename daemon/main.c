@@ -66,6 +66,7 @@ static int table = -1;
 static int no_fallback;
 static int timeout;
 static int silent_timeout;
+static int final_timeout;
 static int port_min = 30000;
 static int port_max = 40000;
 static int max_sessions = -1;
@@ -285,6 +286,7 @@ static void options(int *argc, char ***argv) {
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
+		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&final_timeout,	"Call timeout",			"SECS"		},
 		{ "pidfile",	'p', 0, G_OPTION_ARG_FILENAME,	&pidfile,	"Write PID to file",		"FILE"		},
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
@@ -360,8 +362,12 @@ static void options(int *argc, char ***argv) {
 
 	if (timeout <= 0)
 		timeout = 60;
+
 	if (silent_timeout <= 0)
 		silent_timeout = 3600;
+
+	if (final_timeout <= 0)
+		final_timeout = 0;
 
 	if (redisps)
 		if (redis_ep_parse(&redis_ep, &redis_db, &redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
@@ -536,6 +542,7 @@ no_kernel:
 	mc.max_sessions = max_sessions;
 	mc.timeout = timeout;
 	mc.silent_timeout = silent_timeout;
+	mc.final_timeout = final_timeout;
 	mc.delete_delay = delete_delay;
 	mc.default_tos = tos;
 	mc.b2b_url = b2b_url;
