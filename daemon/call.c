@@ -2149,7 +2149,7 @@ void call_destroy(struct call *c) {
 			timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
 			timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
 			timeval_totalstats_interval_call_duration_add(&m->totalstats_interval,
-					&ml->started, &g_now, &m->latest_graphite_interval_start);
+					&ml->started, &ml->terminated, &m->latest_graphite_interval_start);
 		}
 	}
 
