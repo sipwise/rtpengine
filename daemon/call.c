@@ -1715,15 +1715,30 @@ static void timeval_totalstats_average_add(struct totalstats *s, const struct ti
 }
 
 static void timeval_totalstats_interval_call_duration_add(struct totalstats *s,
-		const struct timeval *call_start, const struct timeval *call_stop,
-		const struct timeval *interval_start) {
+		struct timeval *call_start, struct timeval *call_stop,
+		struct timeval *interval_start, int interval_dur_s) {
+
+	/* work with graphite interval start val which might be changed elsewhere in the code*/
+	struct timeval real_iv_start = *interval_start;
 	struct timeval call_duration;
-	struct timeval const *call_start_in_interval = call_start;
+	struct timeval *call_start_in_iv = call_start;
 
-	if (timercmp(interval_start, call_start, >))
-		call_start_in_interval = interval_start;
+	/* in case graphite interval needs to be the previous one */
+	if (timercmp(&real_iv_start, call_stop, >)) {
+		struct timeval graph_dur = { .tv_sec = interval_dur_s, .tv_usec = 0LL };
+		timeval_subtract(&real_iv_start, interval_start, &graph_dur);
+	}
 
-	timeval_subtract(&call_duration, call_stop, call_start_in_interval);
+	if (timercmp(&real_iv_start, call_start, >))
+		call_start_in_iv = &real_iv_start;
+
+	/* this should never happen and is here for sanitization of output */
+	if (timercmp(call_start_in_iv, call_stop, >)) {
+		ilog(LOG_ERR, "Call start seems to exceed call stop");
+		return;
+	}
+
+	timeval_subtract(&call_duration, call_stop, call_start_in_iv);
 
 	mutex_lock(&s->total_calls_duration_lock);
 	timeval_add(&s->total_calls_duration_interval,
@@ -2148,8 +2163,10 @@ void call_destroy(struct call *c) {
 
 			timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
 			timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
-			timeval_totalstats_interval_call_duration_add(&m->totalstats_interval,
-					&ml->started, &ml->terminated, &m->latest_graphite_interval_start);
+			timeval_totalstats_interval_call_duration_add(
+					&m->totalstats_interval, &ml->started, &ml->terminated,
+					&m->latest_graphite_interval_start,
+					m->conf.graphite_interval);
 		}
 	}
 
