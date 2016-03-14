@@ -13,6 +13,30 @@
 #include "call_interfaces.h"
 #include "socket.h"
 
+static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
+	// lock offers
+	mutex_lock(&request->lock);
+
+	// update min value
+	if (timeval_us(&request->time_min) == 0 ||
+	    timeval_cmp(&request->time_min, offer_diff) > 0) {
+		timeval_from_us(&request->time_min, timeval_us(offer_diff));
+	}
+
+	// update max value
+	if (timeval_us(&request->time_max) == 0 ||
+	    timeval_cmp(&request->time_max, offer_diff) < 0) {
+		timeval_from_us(&request->time_max, timeval_us(offer_diff));
+	}
+
+	// update avg value
+	timeval_add(&request->time_avg, &request->time_avg, offer_diff);
+	request->count++;
+
+	// unlock offers
+	mutex_unlock(&request->lock);
+}
+
 
 static void pretty_print(bencode_item_t *el, GString *s) {
 	bencode_item_t *chld;
@@ -86,6 +110,9 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	struct iovec iov[3];
 	unsigned int iovlen;
 	GString *log_str;
+	struct timeval offer_start, offer_stop;
+	struct timeval answer_start, answer_stop;
+	struct timeval delete_start, delete_stop;
 
 	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->address);
 
@@ -143,16 +170,46 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		g_atomic_int_inc(&cur->ping);
 	}
 	else if (!str_cmp(&cmd, "offer")) {
+		// start offer timer
+		gettimeofday(&offer_start, NULL);
+
 		errstr = call_offer_ng(dict, c->callmaster, resp, addr, sin);
 		g_atomic_int_inc(&cur->offer);
+
+		// stop offer timer
+		gettimeofday(&offer_stop, NULL);
+
+		// print offer duration
+		timeval_from_us(&offer_stop, timeval_diff(&offer_stop, &offer_start));
+		ilog(LOG_INFO, "offer time = %llu.%06llu sec", (unsigned long long)offer_stop.tv_sec, (unsigned long long)offer_stop.tv_usec);
 	}
 	else if (!str_cmp(&cmd, "answer")) {
+		// start answer timer
+		gettimeofday(&answer_start, NULL);
+
 		errstr = call_answer_ng(dict, c->callmaster, resp);
 		g_atomic_int_inc(&cur->answer);
+
+		// stop answer timer
+		gettimeofday(&answer_stop, NULL);
+
+		// print answer duration
+		timeval_from_us(&answer_stop, timeval_diff(&answer_stop, &answer_start));
+		ilog(LOG_INFO, "answer time = %llu.%06llu sec", (unsigned long long)answer_stop.tv_sec, (unsigned long long)answer_stop.tv_usec);
 	}
 	else if (!str_cmp(&cmd, "delete")) {
+		// start delete timer
+		gettimeofday(&delete_start, NULL);
+
 		errstr = call_delete_ng(dict, c->callmaster, resp);
 		g_atomic_int_inc(&cur->delete);
+
+		// stop delete timer
+		gettimeofday(&delete_stop, NULL);
+
+		// print delete duration
+		timeval_from_us(&delete_stop, timeval_diff(&delete_stop, &delete_start));
+		ilog(LOG_INFO, "delete time = %llu.%06llu sec", (unsigned long long)delete_stop.tv_sec, (unsigned long long)delete_stop.tv_usec);
 	}
 	else if (!str_cmp(&cmd, "query")) {
 		errstr = call_query_ng(dict, c->callmaster, resp);
@@ -167,6 +224,15 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 
 	if (errstr)
 		goto err_send;
+
+	// update interval statistics
+	if (!str_cmp(&cmd, "offer")) {
+		timeval_update_request_time(&c->callmaster->totalstats_interval.offer, &offer_stop);
+	} else if (!str_cmp(&cmd, "answer")) {
+		timeval_update_request_time(&c->callmaster->totalstats_interval.answer, &answer_stop);
+	} else if (!str_cmp(&cmd, "delete")) {
+		timeval_update_request_time(&c->callmaster->totalstats_interval.delete, &delete_stop);
+	}
 
 	goto send_resp;
 

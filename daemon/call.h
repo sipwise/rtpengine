@@ -231,6 +231,12 @@ struct stats {
 	u_int8_t			in_tos_tclass; /* XXX shouldn't be here - not stats */
 };
 
+struct request_time {
+	mutex_t lock;
+	u_int64_t count;
+	struct timeval time_min, time_max, time_avg;
+};
+
 struct totalstats {
 	time_t 				started;
 	atomic64			total_timeout_sess;
@@ -254,6 +260,8 @@ struct totalstats {
 
 	mutex_t				total_calls_duration_lock; /* for these two below */
 	struct timeval		        total_calls_duration_interval;
+
+	struct request_time		offer, answer, delete;
 };
 
 struct stream_params {

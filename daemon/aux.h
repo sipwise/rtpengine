@@ -567,6 +567,11 @@ INLINE void timeval_multiply(struct timeval *result, const struct timeval *a, co
 	timeval_from_us(result, timeval_us(a) * multiplier);
 }
 INLINE void timeval_divide(struct timeval *result, const struct timeval *a, const long divisor) {
+	if (divisor == 0) {
+		result->tv_sec = 0;
+		result->tv_usec = 0;
+		return ;
+	}
 	timeval_from_us(result, timeval_us(a) / divisor);
 }
 INLINE void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {

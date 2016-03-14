@@ -21,6 +21,7 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	int printlen=0;
 	struct timeval avg, calls_dur_iv;
 	u_int64_t num_sessions, min_sess_iv, max_sess_iv;
+	struct request_time offer, answer, delete;
 
 	mutex_lock(&m->totalstats.total_average_lock);
 	avg = m->totalstats.total_average_call_dur;
@@ -60,6 +61,23 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	max_sess_iv = m->totalstats_lastinterval.managed_sess_max;
 	mutex_unlock(&m->totalstats_lastinterval_lock);
 
+        mutex_lock(&m->totalstats_interval.offer.lock);
+        offer = m->totalstats_interval.offer;
+        mutex_unlock(&m->totalstats_interval.offer.lock);
+
+        mutex_lock(&m->totalstats_interval.answer.lock);
+        answer = m->totalstats_interval.answer;
+        mutex_unlock(&m->totalstats_interval.answer.lock);
+
+        mutex_lock(&m->totalstats_interval.delete.lock);
+        delete = m->totalstats_interval.delete;
+        mutex_unlock(&m->totalstats_interval.delete.lock);
+
+        // compute average offer/answer/delete time
+        timeval_divide(&offer.time_avg, &offer.time_avg, offer.count);
+        timeval_divide(&answer.time_avg, &answer.time_avg, answer.count);
+        timeval_divide(&delete.time_avg, &delete.time_avg, delete.count);
+
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nGraphite interval statistics (last reported values to graphite):\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Total calls duration                            :%ld.%06ld\n\n",calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
@@ -67,6 +85,21 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min managed sessions                            :"UINT64F"\n", min_sess_iv);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Max managed sessions                            :"UINT64F"\n", max_sess_iv);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min/Max/Avg offer processing delay              :%llu.%06llu/%llu.%06llu/%llu.%06llu sec\n",
+		(unsigned long long)offer.time_min.tv_sec,(unsigned long long)offer.time_min.tv_usec,
+		(unsigned long long)offer.time_max.tv_sec,(unsigned long long)offer.time_max.tv_usec,
+		(unsigned long long)offer.time_avg.tv_sec,(unsigned long long)offer.time_avg.tv_usec);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min/Max/Avg answer processing delay             :%llu.%06llu/%llu.%06llu/%llu.%06llu sec\n",
+		(unsigned long long)answer.time_min.tv_sec,(unsigned long long)answer.time_min.tv_usec,
+		(unsigned long long)answer.time_max.tv_sec,(unsigned long long)answer.time_max.tv_usec,
+		(unsigned long long)answer.time_avg.tv_sec,(unsigned long long)answer.time_avg.tv_usec);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min/Max/Avg delete processing delay             :%llu.%06llu/%llu.%06llu/%llu.%06llu sec\n",
+		(unsigned long long)delete.time_min.tv_sec,(unsigned long long)delete.time_min.tv_usec,
+		(unsigned long long)delete.time_max.tv_sec,(unsigned long long)delete.time_max.tv_usec,
+		(unsigned long long)delete.time_avg.tv_sec,(unsigned long long)delete.time_avg.tv_usec);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n\n");
