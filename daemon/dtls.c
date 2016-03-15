@@ -16,6 +16,7 @@
 #include "log.h"
 #include "call.h"
 #include "poller.h"
+#include "ice.h"
 
 
 
@@ -112,6 +113,52 @@ static void cert_free(void *p) {
 		X509_free(cert->x509);
 }
 
+static void buf_dump_free(char *buf, size_t len) {
+	char *p, *f;
+	int llen;
+
+	p = buf;
+	while (len) {
+		f = memchr(p, '\n', len);
+		if (f)
+			llen = f - p;
+		else
+			llen = len;
+
+		ilog(LOG_DEBUG, "--- %.*s", llen, p);
+
+		len -= llen + 1;
+		p = f + 1;
+	}
+
+	free(buf);
+}
+
+static void dump_cert(struct dtls_cert *cert) {
+	FILE *fp;
+	char *buf;
+	size_t len;
+
+	if (get_log_level() < LOG_DEBUG)
+		return;
+
+	/* cert */
+	fp = open_memstream(&buf, &len);
+	PEM_write_X509(fp, cert->x509);
+	fclose(fp);
+
+	ilog(LOG_DEBUG, "Dump of DTLS certificate:");
+	buf_dump_free(buf, len);
+
+	/* key */
+	fp = open_memstream(&buf, &len);
+	PEM_write_PrivateKey(fp, cert->pkey, NULL, NULL, 0, 0, NULL);
+	fclose(fp);
+
+	ilog(LOG_DEBUG, "Dump of DTLS private key:");
+	buf_dump_free(buf, len);
+}
+
 static int cert_init() {
 	X509 *x509 = NULL;
 	EVP_PKEY *pkey = NULL;
@@ -201,6 +248,8 @@ static int cert_init() {
 	new_cert->x509 = x509;
 	new_cert->pkey = pkey;
 	new_cert->expires = time(NULL) + CERT_EXPIRY_TIME;
+
+	dump_cert(new_cert);
 
 	/* swap out certs */
 
@@ -343,7 +392,9 @@ static int verify_callback(int ok, X509_STORE_CTX *store) {
 	if (!media)
 		return 0;
 
-	ps->dtls_cert = X509_STORE_CTX_get_current_cert(store);
+	if (ps->dtls_cert)
+		X509_free(ps->dtls_cert);
+	ps->dtls_cert = X509_dup(X509_STORE_CTX_get_current_cert(store));
 
 	if (!media->fingerprint.hash_func)
 		return 1; /* delay verification */
@@ -421,14 +472,19 @@ static int try_connect(struct dtls_connection *d) {
 }
 
 int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert *cert) {
-	struct dtls_connection *d = &ps->sfd->dtls;
+	struct dtls_connection *d;
 	unsigned long err;
+
+	if (!ps || !ps->sfd)
+		return 0;
 
 	__DBG("dtls_connection_init(%i)", active);
 
+	d = &ps->sfd->dtls;
+
 	if (d->init) {
-		if (d->active == active)
-			goto connect;
+		if ((d->active && active) || (!d->active && !active))
+			goto done;
 		dtls_connection_cleanup(d);
 	}
 
@@ -448,6 +504,8 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 
 	if (SSL_CTX_set_tlsext_use_srtp(d->ssl_ctx, ciphers_str))
 		goto error;
+	if (SSL_CTX_set_read_ahead(d->ssl_ctx, 1))
+		goto error;
 
 	d->ssl = SSL_new(d->ssl_ctx);
 	if (!d->ssl)
@@ -463,11 +521,9 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
 	d->init = 1;
-	d->active = active;
+	d->active = active ? -1 : 0;
 
-connect:
-	dtls(ps, NULL, NULL);
-
+done:
 	return 0;
 
 error:
@@ -558,6 +614,8 @@ found:
 		crypto_init(&ps->sfd->crypto, &client);
 	}
 
+	crypto_dump_keys(&ps->crypto, &ps->sfd->crypto);
+
 	return 0;
 
 error:
@@ -569,13 +627,21 @@ error:
 	return -1;
 }
 
+/* called with call locked in W or R with ps->in_lock held */
 int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
-	struct dtls_connection *d = &ps->sfd->dtls;
+	struct dtls_connection *d;
 	int ret;
 	unsigned char buf[0x10000], ctrl[256];
 	struct msghdr mh;
 	struct iovec iov;
 	struct sockaddr_in6 sin;
+
+	if (!ps || !ps->sfd)
+		return 0;
+	if (!MEDIA_ISSET(ps->media, DTLS))
+		return 0;
+
+	d = &ps->sfd->dtls;
 
 	if (s)
 		__DBG("dtls packet input: len %u %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
@@ -599,8 +665,7 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 
 	ret = try_connect(d);
 	if (ret == -1) {
-		if (ps->sfd)
-			ilog(LOG_ERROR, "DTLS error on local port %hu", ps->sfd->fd.localport);
+		ilog(LOG_ERROR, "DTLS error on local port %hu", ps->sfd->fd.localport);
 		/* fatal error */
 		dtls_connection_cleanup(d);
 		return 0;
@@ -658,11 +723,46 @@ int dtls(struct packet_stream *ps, const str *s, struct sockaddr_in6 *fsin) {
 	iov.iov_base = buf;
 	iov.iov_len = ret;
 
-	callmaster_msg_mh_src(ps->call->callmaster, &mh);
+	stream_msg_mh_src(ps, &mh);
 
 	sendmsg(ps->sfd->fd.fd, &mh, 0);
 
 	return 0;
+}
+
+/* call must be locked */
+void dtls_shutdown(struct packet_stream *ps) {
+	struct dtls_connection *d;
+	struct sockaddr_in6 sin;
+
+	if (!ps || !ps->sfd)
+		return;
+
+	__DBG("dtls_shutdown");
+
+	d = &ps->sfd->dtls;
+	if (!d->init)
+		return;
+
+	if (d->connected && d->ssl) {
+		ZERO(sin);
+		sin.sin6_family = AF_INET6;
+		sin.sin6_addr = ps->endpoint.ip46;
+		sin.sin6_port = htons(ps->endpoint.port);
+
+		SSL_shutdown(d->ssl);
+		dtls(ps, NULL, &sin);
+	}
+
+	dtls_connection_cleanup(d);
+
+	if (ps->dtls_cert) {
+		X509_free(ps->dtls_cert);
+		ps->dtls_cert = NULL;
+	}
+
+	crypto_reset(&ps->crypto);
+	crypto_reset(&ps->sfd->crypto);
 }
 
 void dtls_connection_cleanup(struct dtls_connection *c) {

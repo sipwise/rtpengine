@@ -156,7 +156,7 @@ sub update_lookup {
 	my $tagstr = ($i == 1 ? "$$tags[0];1 " : '') . "$$tags[$i];1";
 	my $o = msg("$prefixes[$i] $callid $$ips[$i] $$ports[$i] $tagstr");
 	$o =~ /^(\d+) ([\d.a-f:]+) ([46])[\r\n]*$/is or die $o;
-	$1 == 0 and die "mediaproxy ran out of ports";
+	$1 == 0 and die "rtpengine ran out of ports";
 	$3 ne $$pr_o{reply} and die "incorrect address family reply code";
 	$$c[4][$i] = [$1,$2];
 }

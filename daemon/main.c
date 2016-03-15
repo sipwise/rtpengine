@@ -24,43 +24,51 @@
 #include "redis.h"
 #include "sdp.h"
 #include "dtls.h"
+#include "call_interfaces.h"
+#include "cli.h"
+#include "graphite.h"
+#include "ice.h"
+
+
+
+#define REDIS_MODULE_VERSION "redis/8"
 
 
 
 
-#define REDIS_MODULE_VERSION "redis/5"
-
-
-
-
-#define die(x...) do { fprintf(stderr, x); exit(-1); } while(0)
+#define die(x...) do {									\
+	fprintf(stderr, x);								\
+	fprintf(stderr, "\n");								\
+	ilog(LOG_CRIT, x);								\
+	exit(-1);									\
+} while(0)
 #define dlresolve(n) do {								\
 	n ## _mod = dlsym(dlh, "mod_" #n);						\
 	if (!n ## _mod)									\
-		die("Failed to resolve symbol from plugin: %s\n", "mod_" #n);		\
+		die("Failed to resolve symbol from plugin: %s", "mod_" #n);		\
 } while(0)
 #define check_struct_size(x) do {							\
 	unsigned long *uip;								\
 	uip = dlsym(dlh, "__size_struct_" #x);						\
 	if (!uip)									\
-		die("Failed to resolve symbol from plugin: %s\n", "__size_struct_" #x);	\
+		die("Failed to resolve symbol from plugin: %s", "__size_struct_" #x);	\
 	if (*uip != sizeof(struct x))							\
-		die("Struct size mismatch in plugin: %s\n", #x);			\
+		die("Struct size mismatch in plugin: %s", #x);				\
 } while(0)
 #define check_struct_offset(x,y) do {							\
 	unsigned long *uip;								\
 	uip = dlsym(dlh, "__offset_struct_" #x "_" #y);					\
 	if (!uip)									\
-		die("Failed to resolve symbol from plugin: %s\n", 			\
+		die("Failed to resolve symbol from plugin: %s", 			\
 		"__offset_struct_" #x "_" #y);						\
 	if (*uip != (unsigned long) &(((struct x *) 0)->y))				\
-		die("Struct offset mismatch in plugin: %s->%s\n", #x, #y);		\
+		die("Struct offset mismatch in plugin: %s->%s", #x, #y);		\
 	uip = dlsym(dlh, "__size_struct_" #x "_" #y);					\
 	if (!uip)									\
-		die("Failed to resolve symbol from plugin: %s\n", 			\
+		die("Failed to resolve symbol from plugin: %s", 			\
 		"__size_struct_" #x "_" #y);						\
 	if (*uip != sizeof(((struct x *) 0)->y))					\
-		die("Struct member size mismatch in plugin: %s->%s\n", #x, #y);		\
+		die("Struct member size mismatch in plugin: %s->%s", #x, #y);		\
 } while(0)
 
 
@@ -73,21 +81,19 @@ struct main_context {
 
 
 
-static int global_shutdown;
 static mutex_t *openssl_locks;
 
 static char *pidfile;
 static gboolean foreground;
-static u_int32_t ipv4;
-static u_int32_t adv_ipv4;
-static struct in6_addr ipv6;
-static struct in6_addr adv_ipv6;
+static GQueue interfaces = G_QUEUE_INIT;
 static u_int32_t listenp;
 static u_int16_t listenport;
 static struct in6_addr udp_listenp;
 static u_int16_t udp_listenport;
 static struct in6_addr ng_listenp;
 static u_int16_t ng_listenport;
+static u_int32_t cli_listenp;
+static u_int16_t cli_listenport;
 static int tos;
 static int table = -1;
 static int no_fallback;
@@ -99,8 +105,12 @@ static u_int32_t redis_ip;
 static u_int16_t redis_port;
 static int redis_db = -1;
 static char *b2b_url;
-
-
+static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
+static int num_threads;
+static int delete_delay = 30;
+static u_int32_t graphite_ip = 0;
+static u_int16_t graphite_port;
+static int graphite_interval = 0;
 
 static void sighandler(gpointer x) {
 	sigset_t ss;
@@ -116,7 +126,7 @@ static void sighandler(gpointer x) {
 	ts.tv_sec = 0;
 	ts.tv_nsec = 100000000; /* 0.1 sec */
 
-	while (!global_shutdown) {
+	while (!g_shutdown) {
 		ret = sigtimedwait(&ss, NULL, &ts);
 		if (ret == -1) {
 			if (errno == EAGAIN || errno == EINTR)
@@ -125,21 +135,21 @@ static void sighandler(gpointer x) {
 		}
 		
 		if (ret == SIGINT || ret == SIGTERM)
-			global_shutdown = 1;
+			g_shutdown = 1;
 		else if (ret == SIGUSR1) {
-		        if (g_atomic_int_get(&log_level) > 0) {
+		        if (get_log_level() > 0) {
 				g_atomic_int_add(&log_level, -1);
-				setlogmask(LOG_UPTO(g_atomic_int_get(&log_level)));
-				ilog(g_atomic_int_get(&log_level), "Set log level to %d\n",
-						g_atomic_int_get(&log_level));
+				setlogmask(LOG_UPTO(get_log_level()));
+				ilog(get_log_level(), "Set log level to %d\n",
+						get_log_level());
 			}
 		}
 		else if (ret == SIGUSR2) {
-		        if (g_atomic_int_get(&log_level) < 7) {
+		        if (get_log_level() < 7) {
 				g_atomic_int_add(&log_level, 1);
-				setlogmask(LOG_UPTO(g_atomic_int_get(&log_level)));
-				ilog(g_atomic_int_get(&log_level), "Set log level to %d\n",
-						g_atomic_int_get(&log_level));
+				setlogmask(LOG_UPTO(get_log_level()));
+				ilog(get_log_level(), "Set log level to %d\n",
+						get_log_level());
 			}
 		}
 		else
@@ -173,101 +183,116 @@ static void resources(void) {
 
 
 
-static int parse_ip_port(u_int32_t *ip, u_int16_t *port, char *s) {
-	char *p = NULL;
-	int ret = -1;
-
-	p = strchr(s, ':');
-	if (p) {
-		*p++ = 0;
-		*ip = inet_addr(s);
-		if (*ip == -1)
-			goto out;
-		*port = atoi(p);
+static int parse_log_facility(char *name, int *dst) {
+	int i;
+	for (i = 0 ; _facilitynames[i].c_name; i++) {
+		if (strcmp(_facilitynames[i].c_name, name) == 0) {
+			*dst = _facilitynames[i].c_val;
+			return 1;
+		}
 	}
-	else {
-		*ip = 0;
-		if (strchr(s, '.'))
-			goto out;
-		*port = atoi(s);
-	}
-	if (!*port)
-		goto out;
-
-	ret = 0;
-
-out:
-	if (p)
-		*--p = ':';
-	return ret;
+	return 0;
 }
 
-static int parse_ip6_port(struct in6_addr *ip6, u_int16_t *port, char *s) {
-	u_int32_t ip;
-	char *p;
+static void print_available_log_facilities () {
+	int i;
 
-	if (!parse_ip_port(&ip, port, s)) {
-		if (ip)
-			in4_to_6(ip6, ip);
-		else
-			*ip6 = in6addr_any;
-		return 0;
+	fprintf(stderr, "available facilities:");
+	for (i = 0 ; _facilitynames[i].c_name; i++) {
+		fprintf(stderr, " %s",  _facilitynames[i].c_name);
 	}
-	if (*s != '[')
-		return -1;
-	p = strstr(s, "]:");
-	if (!p)
-		return -1;
-	*p = '\0';
-	if (inet_pton(AF_INET6, s+1, ip6) != 1)
-		goto fail;
-	*p = ']';
-	*port = atoi(p+2);
-	if (!*port)
-		return -1;
+	fprintf(stderr, "\n");
+}
 
-	return 0;
 
-fail:
-	*p = ']';
-	return -1;
+static struct interface_address *if_addr_parse(char *s) {
+	str name;
+	char *c;
+	struct in6_addr addr, adv;
+	struct interface_address *ifa;
+	int family;
+
+	/* name */
+	c = strchr(s, '/');
+	if (c) {
+		*c++ = 0;
+		str_init(&name, s);
+		s = c;
+	}
+	else
+		str_init(&name, "default");
+
+	/* advertised address */
+	c = strchr(s, '!');
+	if (c)
+		*c++ = 0;
+
+	/* address */
+	if (pton_46(&addr, s, &family))
+		return NULL;
+
+	adv = addr;
+	if (c) {
+		if (pton_46(&adv, c, NULL))
+			return NULL;
+	}
+
+	ifa = g_slice_alloc0(sizeof(*ifa));
+	ifa->interface_name = name;
+	ifa->addr = addr;
+	ifa->advertised = adv;
+	ifa->family = family;
+
+	return ifa;
 }
 
 
 
 static void options(int *argc, char ***argv) {
-	char *ipv4s = NULL;
-	char *adv_ipv4s = NULL;
-	char *ipv6s = NULL;
-	char *adv_ipv6s = NULL;
+	char **if_a = NULL;
+	char **iter;
+	struct interface_address *ifa;
 	char *listenps = NULL;
 	char *listenudps = NULL;
 	char *listenngs = NULL;
+	char *listencli = NULL;
+	char *graphitep = NULL;
 	char *redisps = NULL;
+	char *log_facility_s = NULL;
+        char *log_facility_cdr_s = NULL;
 	int version = 0;
+	int sip_source = 0;
 
 	GOptionEntry e[] = {
 		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&no_fallback,	"Only start when kernel module is available", NULL },
-		{ "ip",		'i', 0, G_OPTION_ARG_STRING,	&ipv4s,		"Local IPv4 address for RTP",	"IP"		},
-		{ "advertised-ip", 'a', 0, G_OPTION_ARG_STRING,	&adv_ipv4s,	"IPv4 address to advertise",	"IP"		},
-		{ "ip6",	'I', 0, G_OPTION_ARG_STRING,	&ipv6s,		"Local IPv6 address for RTP",	"IP6"		},
-		{ "advertised-ip6",'A',0,G_OPTION_ARG_STRING,	&adv_ipv6s,	"IPv6 address to advertise",	"IP6"		},
+		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
+        { "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
+        { "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "[IP46:]PORT"     },
+		{ "graphite-interval",  'w', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
-		{ "pidfile",	'p', 0, G_OPTION_ARG_STRING,	&pidfile,	"Write PID to file",		"FILE"		},
+		{ "pidfile",	'p', 0, G_OPTION_ARG_FILENAME,	&pidfile,	"Write PID to file",		"FILE"		},
 		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"IP:PORT"	},
 		{ "redis-db",	'R', 0, G_OPTION_ARG_INT,	&redis_db,	"Which Redis DB to use",	"INT"	},
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
-		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,	"Mask log priorities above this level",	"INT"	},
+		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
+		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
+		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
+		{ "log-stderr",	'E', 0, G_OPTION_ARG_NONE,	&_log_stderr,	"Log on stderr instead of syslog",	NULL		},
+		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
+		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads to create",	"INT"	},
+		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
+		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
+		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
 		{ NULL, }
 	};
 
@@ -277,50 +302,46 @@ static void options(int *argc, char ***argv) {
 	c = g_option_context_new(" - next-generation media proxy");
 	g_option_context_add_main_entries(c, e, NULL);
 	if (!g_option_context_parse(c, argc, argv, &er))
-		die("Bad command line: %s\n", er->message);
+		die("Bad command line: %s", er->message);
 
 	if (version)
-		die("%s\n", MEDIAPROXY_VERSION);
+		die("%s", RTPENGINE_VERSION);
 
-	if (!ipv4s)
-		die("Missing option --ip\n");
+	if (!if_a)
+		die("Missing option --interface");
 	if (!listenps && !listenudps && !listenngs)
-		die("Missing option --listen-tcp, --listen-udp or --listen-ng\n");
+		die("Missing option --listen-tcp, --listen-udp or --listen-ng");
 
-	ipv4 = inet_addr(ipv4s);
-	if (ipv4 == -1)
-		die("Invalid IPv4 address (--ip)\n");
-
-	if (adv_ipv4s) {
-		adv_ipv4 = inet_addr(adv_ipv4s);
-		if (adv_ipv4 == -1)
-			die("Invalid IPv4 address (--advertised-ip)\n");
-	}
-
-	if (ipv6s) {
-		if (smart_pton(AF_INET6, ipv6s, &ipv6) != 1)
-			die("Invalid IPv6 address (--ip6)\n");
-	}
-	if (adv_ipv6s) {
-		if (smart_pton(AF_INET6, adv_ipv6s, &adv_ipv6) != 1)
-			die("Invalid IPv6 address (--advertised-ip6)\n");
+	for (iter = if_a; *iter; iter++) {
+		ifa = if_addr_parse(*iter);
+		if (!ifa)
+			die("Invalid interface specification: %s", *iter);
+		g_queue_push_tail(&interfaces, ifa);
 	}
 
 	if (listenps) {
 		if (parse_ip_port(&listenp, &listenport, listenps))
-			die("Invalid IP or port (--listen-tcp)\n");
+			die("Invalid IP or port (--listen-tcp)");
 	}
 	if (listenudps) {
 		if (parse_ip6_port(&udp_listenp, &udp_listenport, listenudps))
-			die("Invalid IP or port (--listen-udp)\n");
+			die("Invalid IP or port (--listen-udp)");
 	}
 	if (listenngs) {
 		if (parse_ip6_port(&ng_listenp, &ng_listenport, listenngs))
-			die("Invalid IP or port (--listen-ng)\n");
+			die("Invalid IP or port (--listen-ng)");
+	}
+
+	if (listencli) {if (parse_ip_port(&cli_listenp, &cli_listenport, listencli))
+	    die("Invalid IP or port (--listen-cli)");
+	}
+
+	if (graphitep) {if (parse_ip_port(&graphite_ip, &graphite_port, graphitep))
+	    die("Invalid IP or port (--graphite)");
 	}
 
 	if (tos < 0 || tos > 255)
-		die("Invalid TOS value\n");
+		die("Invalid TOS value");
 
 	if (timeout <= 0)
 		timeout = 60;
@@ -329,14 +350,39 @@ static void options(int *argc, char ***argv) {
 
 	if (redisps) {
 		if (parse_ip_port(&redis_ip, &redis_port, redisps) || !redis_ip)
-			die("Invalid IP or port (--redis)\n");
+			die("Invalid IP or port (--redis)");
 		if (redis_db < 0)
-			die("Must specify Redis DB number (--redis-db) when using Redis\n");
+			die("Must specify Redis DB number (--redis-db) when using Redis");
 	}
 	
+	if (xmlrpc_fmt > 1)
+		die("Invalid XMLRPC format");
+
 	if ((log_level < LOG_EMERG) || (log_level > LOG_DEBUG))
-	        die("Invalid log level (--log_level)\n");
+	        die("Invalid log level (--log_level)");
 	setlogmask(LOG_UPTO(log_level));
+
+	if (log_facility_s) {
+		if (!parse_log_facility(log_facility_s, &_log_facility)) {
+			print_available_log_facilities();
+			die ("Invalid log facility '%s' (--log-facility)\n", log_facility_s);
+		}
+	}
+
+        if (log_facility_cdr_s) {
+                if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
+                        print_available_log_facilities();
+                        die ("Invalid log facility for CDR '%s' (--log-facility-cdr)\n", log_facility_cdr_s);
+                }
+        }
+
+	if (_log_stderr) {
+		write_log = log_to_stderr;
+		max_log_line_length = 0;
+	}
+
+	if (!sip_source)
+		trust_address_def = 1;
 }
 
 
@@ -396,6 +442,7 @@ static void make_OpenSSL_thread_safe(void) {
 static void init_everything() {
 	struct timespec ts;
 
+	log_init();
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
 	SSL_library_init();
@@ -405,11 +452,13 @@ static void init_everything() {
 #if !GLIB_CHECK_VERSION(2,32,0)
 	g_thread_init(NULL);
 #endif
-	openlog("rtpengine", LOG_PID | LOG_NDELAY, LOG_DAEMON);
+	if (!_log_stderr)
+		openlog("rtpengine", LOG_PID | LOG_NDELAY, _log_facility);
 	signals();
 	resources();
 	sdp_init();
 	dtls_init();
+	ice_init();
 }
 
 void redis_mod_verify(void *dlh) {
@@ -469,6 +518,7 @@ void create_everything(struct main_context *ctx) {
 	struct control_tcp *ct;
 	struct control_udp *cu;
 	struct control_ng *cn;
+	struct cli *cl;
 	int kfd = -1;
 	void *dlh;
 	const char **strp;
@@ -494,33 +544,35 @@ void create_everything(struct main_context *ctx) {
 no_kernel:
 	ctx->p = poller_new();
 	if (!ctx->p)
-		die("poller creation failed\n");
+		die("poller creation failed");
 
 	ctx->m = callmaster_new(ctx->p);
 	if (!ctx->m)
-		die("callmaster creation failed\n");
+		die("callmaster creation failed");
 
 	dtls_timer(ctx->p);
 
 	ZERO(mc);
 	mc.kernelfd = kfd;
 	mc.kernelid = table;
-	mc.ipv4 = ipv4;
-	mc.adv_ipv4 = adv_ipv4;
-	mc.ipv6 = ipv6;
-	mc.adv_ipv6 = adv_ipv6;
+	mc.interfaces = &interfaces;
 	mc.port_min = port_min;
 	mc.port_max = port_max;
 	mc.timeout = timeout;
 	mc.silent_timeout = silent_timeout;
+	mc.delete_delay = delete_delay;
 	mc.default_tos = tos;
 	mc.b2b_url = b2b_url;
+	mc.fmt = xmlrpc_fmt;
+	mc.graphite_port = graphite_port;
+	mc.graphite_ip = graphite_ip;
+	mc.graphite_interval = graphite_interval;
 
 	ct = NULL;
 	if (listenport) {
 		ct = control_tcp_new(ctx->p, listenp, listenport, ctx->m);
 		if (!ct)
-			die("Failed to open TCP control connection port\n");
+			die("Failed to open TCP control connection port");
 	}
 
 	cu = NULL;
@@ -528,7 +580,7 @@ no_kernel:
 		callmaster_exclude_port(ctx->m, udp_listenport);
 		cu = control_udp_new(ctx->p, udp_listenp, udp_listenport, ctx->m);
 		if (!cu)
-			die("Failed to open UDP control connection port\n");
+			die("Failed to open UDP control connection port");
 	}
 
 	cn = NULL;
@@ -536,73 +588,80 @@ no_kernel:
 		callmaster_exclude_port(ctx->m, ng_listenport);
 		cn = control_ng_new(ctx->p, ng_listenp, ng_listenport, ctx->m);
 		if (!cn)
-			die("Failed to open UDP control connection port\n");
+			die("Failed to open UDP control connection port");
+	}
+
+	cl = NULL;
+	if (cli_listenport) {
+	    callmaster_exclude_port(ctx->m, cli_listenport);
+	    cl = cli_new(ctx->p, cli_listenp, cli_listenport, ctx->m);
+	    if (!cl)
+	        die("Failed to open UDP CLI connection port");
 	}
 
 	if (redis_ip) {
-		dlh = dlopen(MP_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
-		if (!dlh && !g_file_test(MP_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
+		dlh = dlopen(RE_PLUGIN_DIR "/rtpengine-redis.so", RTLD_NOW | RTLD_GLOBAL);
+		if (!dlh && !g_file_test(RE_PLUGIN_DIR "/rtpengine-redis.so", G_FILE_TEST_IS_REGULAR)
 				&& g_file_test("../../rtpengine-redis/redis.so", G_FILE_TEST_IS_REGULAR))
 			dlh = dlopen("../../rtpengine-redis/redis.so", RTLD_NOW | RTLD_GLOBAL);
 		if (!dlh)
-			die("Failed to open redis plugin, aborting (%s)\n", dlerror());
+			die("Failed to open redis plugin, aborting (%s)", dlerror());
 		strp = dlsym(dlh, "__module_version");
 		if (!strp || !*strp || strcmp(*strp, REDIS_MODULE_VERSION))
-			die("Incorrect redis module version: %s\n", *strp);
+			die("Incorrect redis module version: %s", *strp);
 		redis_mod_verify(dlh);
 		mc.redis = redis_new_mod(redis_ip, redis_port, redis_db);
 		if (!mc.redis)
-			die("Cannot start up without Redis database\n");
+			die("Cannot start up without Redis database");
 	}
 
 	ctx->m->conf = mc;
+	callmaster_config_init(ctx->m);
 
 	if (!foreground)
 		daemonize();
 	wpidfile();
 
 	if (redis_restore(ctx->m, mc.redis))
-		die("Refusing to continue without working Redis database\n");
-}
-
-static void timer_loop(void *d) {
-	struct poller *p = d;
-
-	while (!global_shutdown)
-		poller_timers_wait_run(p, 100);
-}
-
-static void poller_loop(void *d) {
-	struct poller *p = d;
-
-	while (!global_shutdown)
-		poller_poll(p, 100);
+		die("Refusing to continue without working Redis database");
 }
 
 int main(int argc, char **argv) {
 	struct main_context ctx;
+	int idx=0;
 
-	init_everything();
 	options(&argc, &argv);
+	init_everything();
 	create_everything(&ctx);
 
-	ilog(LOG_INFO, "Startup complete, version %s", MEDIAPROXY_VERSION);
+	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
 	thread_create_detach(sighandler, NULL);
-	thread_create_detach(timer_loop, ctx.p);
-	thread_create_detach(poller_loop, ctx.p);
-	thread_create_detach(poller_loop, ctx.p);
-	thread_create_detach(poller_loop, ctx.p);
-	thread_create_detach(poller_loop, ctx.p);
+	thread_create_detach(poller_timer_loop, ctx.p);
+	if (graphite_ip)
+		thread_create_detach(graphite_loop, ctx.m);
+	thread_create_detach(ice_thread_run, NULL);
 
-	while (!global_shutdown) {
+	if (num_threads < 1) {
+#ifdef _SC_NPROCESSORS_ONLN
+		num_threads = sysconf( _SC_NPROCESSORS_ONLN );
+#endif
+		if (num_threads < 1)
+			num_threads = 4;
+	}
+
+	for (;idx<num_threads;++idx) {
+		thread_create_detach(poller_loop, ctx.p);
+	}
+
+	while (!g_shutdown) {
 		usleep(100000);
 		threads_join_all(0);
 	}
 
 	threads_join_all(1);
 
-	ilog(LOG_INFO, "Version %s shutting down", MEDIAPROXY_VERSION);
+	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
 
 	return 0;
 }

@@ -1,46 +1,45 @@
 #!/bin/bash
 #
-# mediaproxy-ng		Startup script for NGCP mediaproxy-ng
+# rtpengine		Startup script for NGCP rtpengine
 #
 # chkconfig: 345 84 16
-# description: NGCP mediaproxy-ng
+# description: NGCP rtpengine
 #
-# processname: mediaproxy-ng
-# config: /etc/sysconfig/mediaproxy-ng
-# pidfile: /var/run/mediaproxy-ng.pid
+# processname: rtpengine
+# config: /etc/sysconfig/rtpengine
+# pidfile: /var/run/rtpengine.pid
 #
 ### BEGIN INIT INFO
-# Provides: mediaproxy-ng
+# Provides: rtpengine
 # Required-Start: $local_fs $network
-# Short-Description: NGCP mediaproxy-ng
-# Description: NGCP mediaproxy-ng 
+# Short-Description: NGCP rtpengine
+# Description: NGCP rtpengine 
 ### END INIT INFO
 
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-if [ -f /etc/sysconfig/mediaproxy-ng ]
+if [ -f /etc/sysconfig/rtpengine ]
 then
-        . /etc/sysconfig/mediaproxy-ng
+        . /etc/sysconfig/rtpengine
 else
 	echo "Error: /etc/sysconfig/mediproxy-ng not present"
 	exit -1
 fi
 
-mediaproxy_ng=/usr/sbin/mediaproxy-ng
-prog=mediaproxy-ng
-pidfile=${PIDFILE-/var/run/mediaproxy-ng.pid}
-lockfile=${LOCKFILE-/var/lock/subsys/mediaproxy-ng}
-cachefile=/var/lib/mediaproxy-ng/mediaproxy-ng.cfg
+rtpengine=/usr/sbin/rtpengine
+prog=rtpengine
+pidfile=${PIDFILE-/var/run/rtpengine.pid}
+lockfile=${LOCKFILE-/var/lock/subsys/rtpengine}
+cachefile=/var/lib/rtpengine/rtpengine.cfg
 RETVAL=0
 
 OPTS="--pidfile $pidfile"
 MODULE=0
-IP6=0
 
 build_opts() {
 	shopt -s nocasematch
-	RPMS=`rpm -qa | grep ngcp-mediaproxy-ng-kernel`
+	RPMS=`rpm -qa | grep ngcp-rtpengine-kernel`
 	if [[ "$KERNEL" == "yes" && -n "$TABLE" && -n "$RPMS" ]]
 	then
 		MODULE=1
@@ -56,26 +55,13 @@ build_opts() {
 	fi
 	shopt -u nocasematch
 
-	if [[ -n "$RTP_IP" ]]
-	then
-		OPTS+=" --ip=$RTP_IP"
-	fi
-
-	if [[ -n "$RTP_ADV_IP" ]]
-	then
-		OPTS+=" --advertised-ip=$RTP_ADV_IP"
-	fi
-
-	if [[ -n "$RTP_IP6" ]]
-	then
-		OPTS+=" --ip6=$RTP_IP6"
-		IP6=1
-	fi
-
-	if [[ -n "$RTP_ADV_IP6" ]]
-	then
-		OPTS+=" --advertised-ip6=$RTP_ADV_IP6"
-	fi
+        if [[ -n "$RTP_IP" ]]
+        then
+                for IP in "${RTP_IP[@]}"
+                do
+                        OPTS+=" --interface=$IP"
+                done
+        fi
 
 	if [[ -n "$LISTEN_TCP" ]]
 	then
@@ -90,6 +76,11 @@ build_opts() {
 	if [[ -n "$LISTEN_NG" ]]
 	then
 		OPTS+=" --listen-ng=$LISTEN_NG"
+	fi
+
+	if [[ -n "$LISTEN_CLI" ]]
+	then
+	    OPTS+=" --listen-cli=$LISTEN_CLI"
 	fi
 
 	if [[ -n "$TOS" ]]
@@ -136,6 +127,36 @@ build_opts() {
 	then
 		OPTS+=" --log-level=$LOG_LEVEL"
 	fi
+
+	if [[ -n "$LOG_FACILITY" ]]
+        then
+                OPTS+=" --log-facility=$LOG_FACILITY"
+        fi
+
+	if [[ -n "$NUM_THREADS" ]]
+        then
+                OPTS+=" --num-threads=$NUM_THREADS"
+        fi
+
+        if [[ -n "$DELETE_DELAY" ]]
+         then
+                 OPTS+=" --delete-delay=$DELETE_DELAY"
+        fi
+
+        if [[ -n "$GRAPHITE" ]]
+         then
+                 OPTS+=" --graphite=$GRAPHITE"
+        fi
+
+        if [[ -n "$GRAPHITE_INTERVAL" ]]
+         then
+                 OPTS+=" --graphite-interval=$GRAPHITE_INTERVAL"
+        fi
+
+	if [[ -n "$LOG_FACILITY_CDR" ]]
+        then
+                OPTS+=" --log-facility-cdr=$LOG_FACILITY_CDR"
+        fi
 }
 
 start() {
@@ -143,22 +164,19 @@ start() {
 	if [[ $MODULE == 1 ]]
 	then
 		echo "Loading module for in-kernel packet forwarding"
-		modprobe xt_MEDIAPROXY
-		iptables -N mediaproxy
-		iptables -t filter -A INPUT -j mediaproxy
-		iptables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
-		if [[ IP6 == 1 ]]
-		then
-    			ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
-  		fi
+		rmmod xt_MEDIAPROXY 2> /dev/null
+		modprobe xt_RTPENGINE
+		iptables -N rtpengine
+		iptables -t filter -A INPUT -j rtpengine
+		iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
+		ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
 
 		cat <<EOF > "$cachefile"
 CUR_TABLE=$TABLE
-CUR_IP6=$IP6
 EOF
 	fi
         echo -n $"Starting $prog: "
-        daemon --pidfile=${pidfile} $mediaproxy_ng $OPTS
+        daemon --pidfile=${pidfile} $rtpengine $OPTS
         RETVAL=$?
         echo
         [ $RETVAL = 0 ] && touch ${lockfile}
@@ -167,22 +185,19 @@ EOF
 
 stop() {
 	echo -n $"Stopping $prog: "
-	killproc -p ${pidfile} $mediaproxy_ng
+	killproc -p ${pidfile} $rtpengine
 	RETVAL=$?
 	echo
 	if [ -f "$cachefile" ]
 	then
 		. "$cachefile"
 		echo "Unloading module for in-kernel packet forwarding"
-		echo "del $TABLE" > /proc/mediaproxy/control
-		iptables -D mediaproxy -p udp -j MEDIAPROXY --id $CUR_TABLE
-		if [[ CUR_IP6 == 1 ]]
-		then
-    			ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $CUR_TABLE
-  		fi
-		iptables -t filter -D INPUT -j mediaproxy
-		iptables -X mediaproxy
-#		rmmod xt_MEDIAPROXY
+		echo "del $TABLE" > /proc/rtpengine/control
+		iptables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
+		iptables -t filter -D INPUT -j rtpengine
+		iptables -X rtpengine
+#		rmmod xt_RTPENGINE
 		rm -f $cachefile	
 	fi
  
@@ -198,7 +213,7 @@ case "$1" in
 	stop
 	;;
   status)
-        status -p ${pidfile} $mediaproxy_ng
+        status -p ${pidfile} $rtpengine
 	RETVAL=$?
 	;;
   restart)
@@ -206,7 +221,7 @@ case "$1" in
 	start
 	;;
   condrestart|try-restart)
-	if status -p ${pidfile} $mediaproxy_ng >&/dev/null; then
+	if status -p ${pidfile} $rtpengine >&/dev/null; then
 		stop
 		start
 	fi

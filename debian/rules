@@ -45,8 +45,8 @@ clean:
 	dh_testroot
 	cd daemon && $(MAKE) clean && cd ..
 	rm -f build-stamp
-	rm -f iptables-extension/libxt_MEDIAPROXY.so
-	rm -f daemon/rtpengine daemon/build_time.h daemon/.depend kernel-module/.xt_MEDIAPROXY.o.d
+	rm -f iptables-extension/libxt_RTPENGINE.so
+	rm -f daemon/rtpengine daemon/build_time.h daemon/.depend kernel-module/.xt_RTPENGINE.o.d
 	rm -rf kernel-module/.tmp_versions
 	rm -f debian/README.html.gz debian/README.md.gz
 	dh_clean

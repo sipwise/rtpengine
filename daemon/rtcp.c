@@ -240,11 +240,11 @@ static struct rtcp_chain_element *rtcp_psfb(str *s) {
 	return rtcp_generic(s, RTCP_PT_PSFB);
 }
 
+static void rtcp_ce_free(void *p) {
+	g_slice_free1(sizeof(struct rtcp_chain_element), p);
+}
 static void rtcp_list_free(GQueue *q) {
-	struct rtcp_chain_element *el;
-
-	while ((el = g_queue_pop_head(q)))
-		g_slice_free1(sizeof(*el), el);
+	g_queue_clear_full(q, rtcp_ce_free);
 }
 
 static int rtcp_parse(GQueue *q, str *_s) {
@@ -358,7 +358,7 @@ INLINE int check_session_keys(struct crypto_context *c) {
 	return 0;
 
 error:
-	ilog(LOG_ERROR, "%s", err);
+	ilog(LOG_ERROR | LOG_FLAG_LIMIT, "%s", err);
 	return -1;
 }
 
@@ -386,7 +386,7 @@ static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 
 	return 0;
 error:
-	ilog(LOG_WARNING, "Error parsing RTCP header: %s", err);
+	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Error parsing RTCP header: %s", err);
 	return -1;
 }
 
@@ -461,7 +461,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c) {
 	return 0;
 
 error:
-	ilog(LOG_WARNING, "Discarded invalid SRTCP packet: %s", err);
+	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded invalid SRTCP packet: %s", err);
 	return -1;
 }
 
