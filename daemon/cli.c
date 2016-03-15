@@ -307,9 +307,9 @@ static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmast
 static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen = 0;
 	int maxsessions_num;
-	int err = 0x80000000;
 	int disabled = -1;
 	str maxsessions;
+	char *endptr;
 
 	if (len <= 1) {
 		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
@@ -320,11 +320,16 @@ static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaste
 	++buffer; --len; // one space
 	maxsessions.s = buffer;
 	maxsessions.len = len;
-	maxsessions_num = str_to_i(&maxsessions, err);
+	maxsessions_num = strtol(maxsessions.s, &endptr, 10);
 
-	if (maxsessions_num == err) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %.*s; not an integer\n", maxsessions.len, maxsessions.s);
+	if ((errno == ERANGE && (maxsessions_num == LONG_MAX || maxsessions_num == LONG_MIN)) || (errno != 0 && maxsessions_num == 0)) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %.*s; errno=%d\n", maxsessions.len, maxsessions.s, errno);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	} else if (endptr == maxsessions.s) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %.*s; no digists found\n", maxsessions.len, maxsessions.s);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
 	} else if (maxsessions_num < disabled) {
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %d; either positive or -1 values allowed\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
