@@ -265,6 +265,7 @@ static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmast
 	unsigned int open_files_num;
 	str open_files;
 	pid_t pid;
+	char *endptr;
 
 	// limit the minimum number of open files to avoid rtpengine freeze for low open_files_num values
 	unsigned int min_open_files_num = (1 << 16);
@@ -278,23 +279,27 @@ static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmast
 	++buffer; --len; // one space
 	open_files.s = buffer;
 	open_files.len = len;
-	open_files_num = str_to_ui(&open_files, -1);
+	open_files_num = strtol(open_files.s, &endptr, 10);
 
-	if (open_files_num == -1) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; not an unsigned integer\n", open_files.len, open_files.s);
+	if ((errno == ERANGE && (open_files_num == LONG_MAX || open_files_num == LONG_MIN)) || (errno != 0 && open_files_num == 0)) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; errno=%d\n", open_files.len, open_files.s, errno);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	} else if (endptr == open_files.s) {
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; no digists found\n", open_files.len, open_files.s);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
 	} else if (open_files_num < min_open_files_num) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; can't set it under %u\n", open_files.len, open_files.s, min_open_files_num);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %u; can't set it under %u\n", open_files_num, min_open_files_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
 	} else if (rlim(RLIMIT_NOFILE, open_files_num) == -1){
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; errno = %d\n", open_files.len, open_files.s, errno);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %u; errno = %d\n", open_files_num, errno);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
 	} else {
 		pid = getpid();
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting open_files to %.*s; cat /proc/%u/limits\n", open_files.len, open_files.s, pid);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting open_files to %u; cat /proc/%u/limits\n", open_files_num, pid);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
 }
