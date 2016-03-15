@@ -16,7 +16,7 @@ struct sdp_ng_flags {
 	const struct transport_protocol *transport_protocol;
 	struct in6_addr parsed_received_from;
 	struct in6_addr parsed_media_address;
-	enum stream_direction directions[2];
+	str direction[2];
 	int address_family;
 	int tos;
 	int asymmetric:1,
@@ -31,7 +31,9 @@ struct sdp_ng_flags {
 	    rtcp_mux_accept:1,
 	    rtcp_mux_reject:1,
 	    strict_source:1,
-	    media_handover:1;
+	    media_handover:1,
+	    reset:1,
+	    dtls_passive:1;
 };
 
 struct sdp_chopper {
@@ -54,5 +56,11 @@ struct sdp_chopper *sdp_chopper_new(str *input);
 void sdp_chopper_destroy(struct sdp_chopper *chop);
 
 int address_family(const str *s);
+
+INLINE int is_trickle_ice_address(const struct endpoint *ep) {
+	if (is_addr_unspecified(&ep->ip46) && ep->port == 9)
+		return 1;
+	return 0;
+}
 
 #endif

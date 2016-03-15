@@ -14,7 +14,6 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-daemon
 DESC="RTP/media proxy"
-RUN_MEDIAPROXY=no
 TABLE=0
 
 case $(dirname $0) in
@@ -32,7 +31,7 @@ if [ -f $DEFAULTS ]; then
 	. $DEFAULTS || true
 fi
 
-if [ "$RUN_MEDIAPROXY" != "yes" ]; then
+if [ "$RUN_RTPENGINE" != "yes" -a "$RUN_MEDIAPROXY" != "yes" ]; then
 	echo "rtpengine not yet configured. Edit $DEFAULTS first."
 	exit 0
 fi
@@ -44,25 +43,37 @@ set -e
 
 OPTIONS=""
 
-[ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --ip=$ADDRESS"
+if [ ! -z "$INTERFACES" ]; then
+	for interface in $INTERFACES; do
+		OPTIONS="$OPTIONS --interface=$interface"
+	done
+fi
+[ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --interface=$ADDRESS"
+[ -z "$ADV_ADDRESS" ] || OPTIONS="$OPTIONS!$ADV_ADDRESS"
+[ -z "$ADDRESS_IPV6" ] || OPTIONS="$OPTIONS --interface=$ADDRESS_IPV6"
+[ -z "$ADV_ADDRESS_IPV6" ] || OPTIONS="$OPTIONS!$ADV_ADDRESS_IPV6"
 [ -z "$LISTEN_TCP" ] || OPTIONS="$OPTIONS --listen-tcp=$LISTEN_TCP"
 [ -z "$LISTEN_UDP" ] || OPTIONS="$OPTIONS --listen-udp=$LISTEN_UDP"
 [ -z "$LISTEN_NG" ] || OPTIONS="$OPTIONS --listen-ng=$LISTEN_NG"
+[ -z "$LISTEN_CLI" ] || OPTIONS="$OPTIONS --listen-cli=$LISTEN_CLI"
 [ -z "$TIMEOUT" ] || OPTIONS="$OPTIONS --timeout=$TIMEOUT"
 [ -z "$SILENT_TIMEOUT" ] || OPTIONS="$OPTIONS --silent-timeout=$SILENT_TIMEOUT"
 [ -z "$PIDFILE" ] || OPTIONS="$OPTIONS --pidfile=$PIDFILE"
 [ -z "$TOS" ] || OPTIONS="$OPTIONS --tos=$TOS"
 [ -z "$PORT_MIN" ] || OPTIONS="$OPTIONS --port-min=$PORT_MIN"
 [ -z "$PORT_MAX" ] || OPTIONS="$OPTIONS --port-max=$PORT_MAX"
-[ -z "$ADV_ADDRESS" ] || OPTIONS="$OPTIONS --advertised-ip=$ADV_ADDRESS"
-[ -z "$ADDRESS_IPV6" ] || OPTIONS="$OPTIONS --ip6=$ADDRESS_IPV6"
-[ -z "$ADV_ADDRESS_IPV6" ] || OPTIONS="$OPTIONS --advertised-ip6=$ADV_ADDRESS_IPV6"
 [ -z "$REDIS" ] || OPTIONS="$OPTIONS --redis=$REDIS"
 [ -z "$REDIS_DB" ] || OPTIONS="$OPTIONS --redis-db=$REDIS_DB"
 [ -z "$B2B_URL" ] || OPTIONS="$OPTIONS --b2b-url=$B2B_URL"
 [ -z "$NO_FALLBACK" -o \( "$NO_FALLBACK" != "1" -a "$NO_FALLBACK" != "yes" \) ] || OPTIONS="$OPTIONS --no-fallback"
 OPTIONS="$OPTIONS --table=$TABLE"
 [ -z "$LOG_LEVEL" ] || OPTIONS="$OPTIONS --log-level=$LOG_LEVEL"
+[ -z "$LOG_FACILITY" ] || OPTIONS="$OPTIONS --log-facility=$LOG_FACILITY"
+[ -z "$LOG_FACILITY_CDR" ] || OPTIONS="$OPTIONS --log-facility-cdr=$LOG_FACILITY_CDR"
+[ -z "$NUM_THREADS" ] || OPTIONS="$OPTIONS --num-threads=$NUM_THREADS"
+[ -z "$DELETE_DELAY" ] || OPTIONS="$OPTIONS --delete-delay=$DELETE_DELAY"
+[ -z "$GRAPHITE" ] || OPTIONS="$OPTIONS --graphite=$GRAPHITE"
+[ -z "$GRAPHITE_INTERVAL" ] || OPTIONS="$OPTIONS --graphite-interval=$GRAPHITE_INTERVAL"
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"
 fi
@@ -90,22 +101,33 @@ case "$1" in
 	  esac
 	fi
 	echo -n "Starting $DESC: $NAME"
-	if [ $TABLE -ge 0 ] && [ "$VIRT" != "yes" ]; then
+	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		set +e
-		modprobe xt_MEDIAPROXY
+		modprobe xt_RTPENGINE
 		if [ -e /proc/mediaproxy/control ]; then
 			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 		fi
-		iptables -N mediaproxy 2> /dev/null
+		if [ -e /proc/rtpengine/control ]; then
+			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
+		fi
 		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -I INPUT -j mediaproxy
-		iptables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
-		iptables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
-		ip6tables -N mediaproxy 2> /dev/null
+		iptables -F mediaproxy 2> /dev/null
+		iptables -X mediaproxy 2> /dev/null
 		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -I INPUT -j mediaproxy
-		ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
-		ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
+		ip6tables -F mediaproxy 2> /dev/null
+		ip6tables -X mediaproxy 2> /dev/null
+		rmmod xt_MEDIAPROXY 2>/dev/null
+
+		iptables -N rtpengine 2> /dev/null
+		iptables -D INPUT -j rtpengine 2> /dev/null
+		iptables -I INPUT -j rtpengine
+		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		ip6tables -N rtpengine 2> /dev/null
+		ip6tables -D INPUT -j rtpengine 2> /dev/null
+		ip6tables -I INPUT -j rtpengine
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
 		set -e
 	fi
 	start-stop-daemon --start --quiet --pidfile $PIDFILE \
@@ -119,16 +141,27 @@ case "$1" in
 	if [ "$?" -ne 0 ]; then
 		return $?
 	fi
-	if [ $TABLE -ge 0 ] && [ "$VIRT" != "yes" ]; then
+	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		set +e
 		if [ -e /proc/mediaproxy/control ]; then
 			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 		fi
+		if [ -e /proc/rtpengine/control ]; then
+			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
+		fi
 		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+		iptables -F mediaproxy 2> /dev/null
+		iptables -X mediaproxy 2> /dev/null
 		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+		ip6tables -F mediaproxy 2> /dev/null
+		ip6tables -X mediaproxy 2> /dev/null
+
+		iptables -D INPUT -j mediaproxy 2> /dev/null
+		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		ip6tables -D INPUT -j mediaproxy 2> /dev/null
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
 		rmmod xt_MEDIAPROXY 2>/dev/null
+		rmmod xt_RTPENGINE 2>/dev/null
 		set -e
 	fi
 	rm -f $PIDFILE
@@ -156,24 +189,36 @@ case "$1" in
 	      ;;
 	  esac
 	fi
-	if [ $TABLE -ge 0 ] && [ "$VIRT" != "yes" ]; then
+	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		sleep 1
 		set +e
 		if [ -e /proc/mediaproxy/control ]; then
 			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
 		fi
+		if [ -e /proc/rtpengine/control ]; then
+			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
+		fi
 		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+		iptables -F mediaproxy 2> /dev/null
+		iptables -X mediaproxy 2> /dev/null
 		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -D mediaproxy -p udp -j MEDIAPROXY --id $TABLE 2>/dev/null
+		ip6tables -F mediaproxy 2> /dev/null
+		ip6tables -X mediaproxy 2> /dev/null
 		rmmod xt_MEDIAPROXY 2>/dev/null
-		modprobe xt_MEDIAPROXY
-		iptables -N mediaproxy 2> /dev/null
-		iptables -I INPUT -j mediaproxy
-		iptables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
-		ip6tables -N mediaproxy 2> /dev/null
-		ip6tables -I INPUT -j mediaproxy
-		ip6tables -I mediaproxy -p udp -j MEDIAPROXY --id $TABLE
+
+		iptables -D INPUT -j rtpengine 2> /dev/null
+		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		ip6tables -D INPUT -j rtpengine 2> /dev/null
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		rmmod xt_RTPENGINE 2>/dev/null
+
+		modprobe xt_RTPENGINE
+		iptables -N rtpengine 2> /dev/null
+		iptables -I INPUT -j rtpengine
+		iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		ip6tables -N rtpengine 2> /dev/null
+		ip6tables -I INPUT -j rtpengine
+		ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
 		set -e
 	fi
 	start-stop-daemon --start --quiet --pidfile \

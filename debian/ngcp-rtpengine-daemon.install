@@ -1,1 +1,2 @@
 daemon/rtpengine /usr/sbin/
+utils/rtpengine-ctl /usr/sbin/

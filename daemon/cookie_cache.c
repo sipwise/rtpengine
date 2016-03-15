@@ -27,14 +27,8 @@ void cookie_cache_init(struct cookie_cache *c) {
 static void __cookie_cache_check_swap(struct cookie_cache *c) {
 	if (poller_now - c->swap_time >= 30) {
 		g_hash_table_remove_all(c->old.cookies);
-#if GLIB_CHECK_VERSION(2,14,0)
 		g_string_chunk_clear(c->old.chunks);
 		swap_ptrs(&c->old.chunks, &c->current.chunks);
-#else
-		g_string_chunk_free(c->old.chunks);
-		c->old.chunks = c->current.chunks;
-		c->current.chunks = g_string_chunk_new(4 * 1024);
-#endif
 		swap_ptrs(&c->old.cookies, &c->current.cookies);
 		c->swap_time = poller_now;
 	}
