@@ -295,8 +295,8 @@ The options are described in more detail below.
 
 * -a, --final-timeout
 
-	The number of seconds after the call is deleted. Useful for limiting the lifetime of a call.
-	By default this timeout is disabled.
+	The number of seconds since call creation, after call is deleted. Useful for limiting the lifetime of a call.
+	This feature can be disabled by setting the parameter to 0. By default this timeout is disabled.
 
 * -p, --pidfile
 
