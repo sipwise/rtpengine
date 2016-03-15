@@ -30,10 +30,8 @@ struct poller_item {
 struct poller;
 
 
-
-extern __thread time_t poller_now;
-
-
+/* XXX replace all occurrences with g_now */
+#define poller_now g_now.tv_sec
 
 
 struct poller *poller_new(void);
@@ -45,7 +43,8 @@ int poller_isblocked(struct poller *, int);
 void poller_error(struct poller *, int);
 
 int poller_poll(struct poller *, int);
-void poller_timers_wait_run(struct poller *, int max);
+void poller_timer_loop(void *);
+void poller_loop(void *);
 
 int poller_add_timer(struct poller *, void (*)(void *), struct obj *);
 int poller_del_timer(struct poller *, void (*)(void *), struct obj *);

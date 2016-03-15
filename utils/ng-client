@@ -19,8 +19,10 @@ GetOptions(
 	'from-tag=s'			=> \$options{'from-tag'},
 	'to-tag=s'			=> \$options{'to-tag'},
 	'call-id=s'			=> \$options{'call-id'},
+	'via-branch=s'			=> \$options{'via-branch'},
 	'protocol=s'			=> \$options{'transport protocol'},
 	'trust-address'			=> \$options{'trust address'},
+	'sip-source-address'		=> \$options{'sip source address'},
 	'symmetric'			=> \$options{'symmetric'},
 	'asymmetric'			=> \$options{'asymmetric'},
 	'replace-origin'		=> \$options{'replace-origin'},
@@ -29,11 +31,13 @@ GetOptions(
 	'sdp=s'				=> \$options{'sdp'},
 	'sdp-file=s'			=> \$options{'sdp-file'},
 	'ICE=s'				=> \$options{'ICE'},
+	'DTLS=s'			=> \$options{'DTLS'},
 	'rtcp-mux-offer'		=> \$options{'rtcp-mux-offer'},
 	'rtcp-mux-demux'		=> \$options{'rtcp-mux-demux'},
 	'rtcp-mux-accept'		=> \$options{'rtcp-mux-accept'},
 	'rtcp-mux-reject'		=> \$options{'rtcp-mux-reject'},
 	'address-family=s'		=> \$options{'address family'},
+	'direction=s'			=> \$options{'direction'},
 	'force'				=> \$options{'force'},
 	'v|verbose'			=> \$options{'verbose'},
 	'strict-source'			=> \$options{'strict source'},
@@ -45,10 +49,10 @@ my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,TOS')) {
+for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,TOS,DTLS,via-branch')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover')) {
+for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(',', 'origin,session connection')) {
@@ -56,6 +60,10 @@ for my $x (split(',', 'origin,session connection')) {
 }
 for my $x (split(',', 'offer,demux,accept,reject')) {
 	defined($options{'rtcp-mux-' . $x}) and push(@{$packet{'rtcp-mux'}}, $x);
+}
+if (defined($options{direction})) {
+	$options{direction} =~ /(.*),(.*)/ or die;
+	$packet{direction} = [$1,$2];
 }
 
 if (defined($options{sdp})) {

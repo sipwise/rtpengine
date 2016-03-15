@@ -1,5 +1,5 @@
-# For more information on configuring mediaproxy-ng see
-# http://github.com/sipwise/mediproxy-ng
+# For more information on configuring rtpengine see
+# http://github.com/sipwise/rtpengine
 #
 # (m) means the item is mandatory, (o) means the item is optional
 #
@@ -8,10 +8,7 @@ TABLE=0			# (o) iptables table for in-kernel forwarding rules
 			#     comment out when "KERNEL=no"
 FALLBACK=yes		# (m) "yes" enables fallback to userspace forwarding
 			#     only, "no" disables
-RTP_IP=127.0.0.1	# (m) Local IPv4 address for packet forwarding
-#RTP_ADV_IP=127.0.0.1	# (o) IPv4 address to "advertise" for packet forwarding
-#RTP_IP6=::1		# (o) Local IPv6 address for packet forwarding
-#RTP_ADV_IP6=::1	# (o) IPv6 address to "advertise" for packet forwarding
+RTP_IP[0]=127.0.0.1	# (m) Local IPv4/6 address for RTP. The format of the value is [NAME/]IP[!IP].
 #
 # At least one of LISTEN_(TCP|UDP|NG) is required
 #LISTEN_TCP=127.0.0.1:2222	# IP address and port combination for TCP
@@ -20,6 +17,7 @@ LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
 				# control
 #LISTEN_NG=127.0.0.1:2223 	# IP address and port combination for NG (UDP)
 				# control
+#LISTEN_CLI=127.0.0.1:9900
 #
 #TOS=184		# (o) TOS value to use in outgoing packets
 #TIMEOUT=60		# (o) Number of seconds after which a media stream is
@@ -33,6 +31,11 @@ LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
 			#     traffic. Default: 40000 
 #
 #LOG_LEVEL=6		# Log level to use
+#LOG_FACILITY=daemon    # Syslog facility to use
+#LOG_FACILITY_CDR=daemon        # Syslog facility to write CDRs
+#NUM_THREADS=5		# How many worker threads to launch
+#DELETE_DELAY=30        # Delay to delete session from memory
+
 # The following items are for use with NGCP
 #REDIS=127.0.0.1:6379
 #REDIS_DB=0

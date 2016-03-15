@@ -13,6 +13,7 @@ Features
 
 * Media traffic running over either IPv4 or IPv6
 * Bridging between IPv4 and IPv6 user agents
+* Bridging between different IP networks or interfaces
 * TOS/QoS field setting
 * Customizable port range
 * Multi-threaded
@@ -31,7 +32,6 @@ the following additional features are available:
   + Bridging between ICE-enabled and ICE-unaware user agents
   + Optionally acting only as additional ICE relay/candidate
   + Optionally forcing relay of media streams by removing other ICE candidates
-  + Supports ice-lite only
 - SRTP (RFC 3711) support:
   + Support for SDES (RFC 4568) and DTLS-SRTP (RFC 5764)
   + AES-CM and AES-F8 ciphers, both in userspace and in kernel
@@ -61,7 +61,7 @@ by executing `dpkg-buildpackage` (which can be found in the `dpkg-dev` package) 
 This script will issue an error and stop if any of the dependency packages are
 not installed.
 
-Before that, run `./debian/flavors/no_ngcp` in order to remove any NGCP dependence.
+Before that, run `./debian/flavors/no_ngcp` in order to remove any NGCP dependencies.
 
 This will produce a number of `.deb` files, which can then be installed using the
 `dpkg -i` command.
@@ -128,7 +128,7 @@ There's 3 parts to rtpengine, which can be found in the respective subdirectorie
 	Required for in-kernel packet forwarding.
 
 	With the `iptables` development headers installed, issuing `make` will compile the plugin for
-	`iptables` and `ip6tables`. The file will be called `libxt_MEDIAPROXY.so` and should be copied
+	`iptables` and `ip6tables`. The file will be called `libxt_RTPENGINE.so` and should be copied
 	into the directory `/lib/xtables/`.
 
 * `kernel-module`
@@ -141,11 +141,11 @@ There's 3 parts to rtpengine, which can be found in the respective subdirectorie
 	must be present in `/lib/modules/3.9-1-amd64/build/`. The last component of this path (`build`)
 	is usually a symlink somewhere into `/usr/src/`, which is fine.
 
-	Successful compilation of the module will produce the file `xt_MEDIAPROXY.ko`. The module can be inserted
-	into the running kernel manually through `insmod xt_MEDIAPROXY.ko` (which will result in an error if
+	Successful compilation of the module will produce the file `xt_RTPENGINE.ko`. The module can be inserted
+	into the running kernel manually through `insmod xt_RTPENGINE.ko` (which will result in an error if
 	depending modules aren't loaded, for example the `x_tables` module), but it's recommended to copy the
 	module into `/lib/modules/$VERSION/updates/`, followed by running `depmod -a`. After this, the module can
-	be loaded by issuing `modprobe xt_MEDIAPROXY`.
+	be loaded by issuing `modprobe xt_RTPENGINE`.
 
 Usage
 =====
@@ -159,11 +159,9 @@ option and which are reproduced below:
 	  -v, --version                    Print build time and exit
 	  -t, --table=INT                  Kernel table to use
 	  -F, --no-fallback                Only start when kernel module is available
-	  -i, --ip=IP                      Local IPv4 address for RTP
-	  -a, --advertised-ip=IP           IPv4 address to advertise
-	  -I, --ip6=IP6                    Local IPv6 address for RTP
-	  -A, --advertised-ip6=IP6         IPv6 address to advertise
+	  -i, --interface=[NAME/]IP[!IP]   Local interface for RTP
 	  -l, --listen-tcp=[IP:]PORT       TCP port to listen on
+	  -c, --listen-cli=[IP46:]PORT     TCP port to listen on, CLI (command line interface)
 	  -u, --listen-udp=[IP46:]PORT     UDP port to listen on
 	  -n, --listen-ng=[IP46:]PORT      UDP port to listen on, NG protocol
 	  -T, --tos=INT                    TOS value to set on streams
@@ -177,9 +175,19 @@ option and which are reproduced below:
 	  -R, --redis-db=INT               Which Redis DB to use
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
+	  --log-facility=daemon|local0|... Syslog facility to use for logging
+	  --log-facility-cdr=local0|...    Syslog facility to use for logging CDRs
+	  -E, --log-stderr                 Log on stderr instead of syslog
+	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
+	  --num-threads=INT                Number of worker threads to create
+	  -d, --delete-delay               Delay for deleting a session from memory.
+	  --sip-source                     Use SIP source address by default
+	  --dtls-passive                   Always prefer DTLS passive role
+	  -g, --graphite=[IP46:]PORT       TCP address of graphite statistics server
+	  -w, --graphite-interval=INT      Graphite data statistics send interval
 
-Most of these options are indeed optional, with two exceptions. It's mandatory to specify a local
-IPv4 address through `--ip`, and at least one of the `--listen-...` options must be given.
+Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
+IP address through `--interface`, and at least one of the `--listen-...` options must be given.
 
 The options are described in more detail below.
 
@@ -199,22 +207,54 @@ The options are described in more detail below.
 	Will prevent fallback to userspace-only operation if the kernel module is unavailable. In this case,
 	startup of the daemon will fail with an error if this option is given.
 
-* -i, --ip, -I, --ip6
+* -i, --interface
 
-	Takes an IPv4 address and an IPv6 address as argument, respectively. Specifies the local interfaces to
-	use for packet forwarding and to allocate UDP ports from. IPv4 address is mandatory, IPv6 is optional and
-	will result in IPv6 not being available if not specified.
+	Specifies a local network interface for RTP. At least one must be given, but multiple can be specified.
+	The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address or an IPv6 address.
 
-* -a, --advertised-ip, -A, --advertised-ip6
+	The second IP address after the exclamation point is optional and can be used if the address to advertise
+	in outgoing SDP bodies should be different from the actual local address. This can be useful in certain
+	cases, such as your SIP proxy being behind NAT. For example, `--interface=10.65.76.2!192.0.2.4` means
+	that 10.65.76.2 is the actual local address on the server, but outgoing SDP bodies should advertise
+	192.0.2.4 as the address that endpoints should talk to. Note that you may have to escape the exlamation
+	point from your shell, e.g. using `\!`.
 
-	Takes an IPv4 address and an IPv6 address as argument, respectively. Optional. If specified,
-	*rtpengine* will advertise addresses different from those given in the `--ip` and `--ip6` options
-	as its local address. This is useful for operation behind NAT.
+	Giving an interface a name (separated from the address by a slash) is optional; if omitted, the name
+	`default` is used. Names are useful to create logical interfaces which consist of one or more local
+	addresses. It is then possible to instruct *rtpengine* to use particular interfaces when processing
+	an SDP message, to use different local addresses when talking to different endpoints. The most common use
+	case for this is to bridge between one or more private IP networks and the public internet.
+
+	For example, if clients coming from a private IP network must communicate their RTP with the local
+	address 10.35.2.75, while clients coming from the public internet must communicate with your other
+	local address 192.0.2.67, you could create one logical interface `pub` and a second one `priv` by
+	using `--interface=pub/192.0.2.67 --interface=priv/10.35.2.75`. You can then use the `direction`
+	option to tell *rtpengine* which local address to use for which endpoints (either `pub` or `priv`).
+
+	If multiple logical interfaces are configured, but the `direction` option isn't given in a
+	particular call, then the first interface given on the command line will be used.
+
+	It is possible to specify multiple addresses for the same logical interface (the same name). Most
+	commonly this would be one IPv4 addrsess and one IPv6 address, for example:
+	`--interface=192.168.63.1 --interface=fe80::800:27ff:fe00:0`. In this example, no interface name
+	is given, therefore both addresses will be added to a logical interface named `default`. You would use
+	the `address family` option to tell *rtpengine* which address to use in a particular case.
+
+	It is also possible to have multiple addresses of the same family in a logical network interface. In
+	this case, the first address (of a particular family) given for an interface will be the primary address
+	used by *rtpengine* for most purposes. Any additional addresses will be advertised as additional ICE
+	candidates with increasingly lower priority. This is useful on multi-homed systems and allows endpoints
+	to choose the best possible path to reach the RTP proxy. If ICE is not being used, then additional
+	addresses will go unused.
+
+	If you're not using the NG protocol but rather the legacy UDP protocol used by the *rtpproxy* module,
+	the interfaces must be named `internal` and `external` corresponding to the `i` and `e` flags if you
+	wish to use network bridging in this mode.
 
 * -l, --listen-tcp, -u, --listen-udp, -n, --listen-ng
 
 	These options each enable one of the 3 available control protocols if given and each take either
-	just a port number as argument, or an *address:port* pair, separated by colon. At least one of these
+	just a port number as argument, or an `address:port` pair, separated by colon. At least one of these
 	3 options must be given.
 
 	The *tcp* protocol is obsolete. It was used by old versions of *OpenSER* and its *mediaproxy* module.
@@ -230,10 +270,14 @@ The options are described in more detail below.
 
 	It is recommended to specify not only a local port number, but also 127.0.0.1 as interface to bind to.
 
+* -c, --listen-cli
+
+   TCP ip and port to listen for the CLI (command line interface).
+
 * -t, --tos
 
 	Takes an integer as argument and if given, specifies the TOS value that should be set in outgoing
-	packets. The default is to leave the TOS field untouched. A typical value is 184 (Expedited Forwarding).
+	packets. The default is to leave the TOS field untouched. A typical value is 184 (*Expedited Forwarding*).
 
 * -o, --timeout
 
@@ -269,13 +313,59 @@ The options are described in more detail below.
 	During runtime, the log level can be decreased by sending the signal SIGURS1 to the daemon and can
 	be increased with the signal SIGUSR2.
 
+* --log-facilty=daemon|local0|...|local7|...
+
+	The syslog facilty to use when sending log messages to the syslog daemon. Defaults to `daemon`.
+
+* --log-facilty-cdr=daemon|local0|...|local7|...
+
+	Same as --log-facility with the difference that only CDRs are written to this log facility.
+
+* -E, --log-stderr
+
+	Log to stderr instead of syslog. Only useful in combination with `--foreground`.
+
+* -x, --xmlrpc-format
+
+	Selects the internal format of the XMLRPC callback message for B2BUA call teardown. 0 is for SEMS,
+	1 is for a generic format containing the call-ID only.
+
+* --num-threads
+
+	How many worker threads to create, must be at least one. The default is to create as many threads
+	as there are CPU cores available. If the number of CPU cores cannot be determined, the default is
+	four.
+
+* --sip-source
+
+	The original *rtpproxy* as well as older version of *rtpengine* by default didn't honour IP
+	addresses given in the SDP body, and instead used the source address of the received SIP
+	message as default endpoint address. Newer versions of *rtpengine* reverse this behaviour and
+	honour the addresses given in the SDP body by default. This option restores the old behaviour.
+
+* --dtls-passive
+
+	Enabled the `DTLS=passive` flag for all calls unconditionally.
+
+* -d, --delete-delay
+
+	Delete the call from memory after the specified delay from memory.
+
 * -r, --redis, -R, --redis-db, -b, --b2b-url
 
 	NGCP-specific options
 
+* -g, --graphite
+
+	Address of the graphite statistics server.
+
+* -w, --graphite-interval
+
+	Interval of the time when information is sent to the graphite server.
+
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
-	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
+	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
 	--listen-udp=127.0.0.1:22222 --listen-ng=127.0.0.1:2223 --tos=184 \
 	--pidfile=/var/run/rtpengine.pid
 
@@ -300,7 +390,7 @@ eliminated, CPU usage greatly reduced and the number of concurrent calls possibl
 
 In-kernel packet forwarding is implemented as an *iptables* module
 (or more precisely, an *x\_tables* module). As such, it comes in two parts, both of
-which are required for proper operation. One part is the actual kernel module called `xt_MEDIAPROXY`. The
+which are required for proper operation. One part is the actual kernel module called `xt_RTPENGINE`. The
 second part is a plugin to the `iptables` and `ip6tables` command-line utilities to make it possible to
 actually add the required rule to the tables.
 
@@ -308,9 +398,9 @@ actually add the required rule to the tables.
 
 In short, the prerequisites for in-kernel packet forwarding are:
 
-1. The `xt_MEDIAPROXY` kernel module must be loaded.
+1. The `xt_RTPENGINE` kernel module must be loaded.
 2. An `iptables` and/or `ip6tables` rule must be present in the `INPUT` chain to send packets
-   to the `MEDIAPROXY` target. This rule should be limited to UDP packets, but otherwise there
+   to the `RTPENGINE` target. This rule should be limited to UDP packets, but otherwise there
    are no restrictions.
 3. The `rtpengine` daemon must be running.
 4. All of the above must be set up with the same forwarding table ID (see below).
@@ -322,7 +412,7 @@ The sequence of events for a newly established media stream is then:
    based on the info received
    from the SIP proxy. Only userspace forwarding is set up, nothing is pushed to the kernel module yet.
 3. An RTP packet is received on the local port.
-4. It traverses the *iptables* chains and gets passed to the *xt\_MEDIAPROXY* module.
+4. It traverses the *iptables* chains and gets passed to the *xt\_RTPENGINE* module.
 5. The module doesn't recognize it as belonging to an established stream and thus ignores it.
 6. The packet continues normal processing and eventually ends up in the daemon's receive queue.
 7. The daemon reads it, processes it and forwards it. It also updates some internal data.
@@ -348,8 +438,8 @@ Each forwarding table can be thought of a separate proxy instance. Each running 
 running instance of the daemon at any given time. In the most common setup, there will be only a single
 instance of the daemon running and there will be only a single forwarding table in use, with ID zero.
 
-The kernel module can be loaded with the command `modprobe xt_MEDIAPROXY`. With the module loaded, a new
-directory will appear in `/proc/`, namely `/proc/mediaproxy/`. After loading, the directory will contain
+The kernel module can be loaded with the command `modprobe xt_RTPENGINE`. With the module loaded, a new
+directory will appear in `/proc/`, namely `/proc/rtpengine/`. After loading, the directory will contain
 only two pseudo-files, `control` and `list`. The `control` file is write-only and is used to create and
 delete forwarding tables, while the `list` file is read-only and will produce a list of currently
 active forwarding tables. With no tables active, it will produce an empty output.
@@ -357,16 +447,16 @@ active forwarding tables. With no tables active, it will produce an empty output
 The `control` pseudo-file supports two commands, `add` and `del`, each followed by the forwarding table
 ID number. To manually create a forwarding table with ID 42, the following command can be used:
 
-	echo 'add 42' > /proc/mediaproxy/control
+	echo 'add 42' > /proc/rtpengine/control
 
 After this, the `list` pseudo-file will produce the single line `42` as output. This will also create a
-directory called `42` in `/proc/mediaproxy/`, which contains additional pseudo-files to control this
+directory called `42` in `/proc/rtpengine/`, which contains additional pseudo-files to control this
 particular forwarding table.
 
 To delete this forwarding table, the command `del 42` can be issued like above. This will only work
 if no *rtpengine* daemon is currently running and controlling this table.
 
-Each subdirectory `/proc/mediaproxy/$ID/` corresponding to each fowarding table contains the pseudo-files
+Each subdirectory `/proc/rtpengine/$ID/` corresponding to each fowarding table contains the pseudo-files
 `blist`, `control`, `list` and `status`. The `control` file is write-only while the others are read-only.
 The `control` file will be kept open by the *rtpengine* daemon while it's running to issue updates
 to the forwarding rules during runtime. The daemon also reads the `blist` file on a regular basis, which
@@ -379,7 +469,7 @@ Manual creation of forwarding tables is normally not required as the daemon will
 deletion of tables may be required after shutdown of the daemon or before a restart to ensure that the
 daemon can create the table it wants to use.
 
-The kernel module can be unloaded through `rmmod xt_MEDIAPROXY`, however this only works if no forwarding
+The kernel module can be unloaded through `rmmod xt_RTPENGINE`, however this only works if no forwarding
 table currently exists and no *iptables* rule currently exists.
 
 ### The *iptables* module ###
@@ -388,7 +478,7 @@ In order for the kernel module to be able to actually forward packets, an *iptab
 to send packets into the module. Each such rule is associated with one forwarding table. In the simplest case,
 for forwarding table 42, this can be done through:
 
-	iptables -I INPUT -p udp -j MEDIAPROXY --id 42
+	iptables -I INPUT -p udp -j RTPENGINE --id 42
 
 If IPv6 traffic is expected, the same should be done using `ip6tables`.
 
@@ -404,13 +494,13 @@ Summary
 A typical start-up sequence including in-kernel forwarding might look like this:
 
 	# this only needs to be one once after system (re-) boot
-	modprobe xt_MEDIAPROXY
-	iptables -I INPUT -p udp -j MEDIAPROXY --id 0
-	ip6tables -I INPUT -p udp -j MEDIAPROXY --id 0
+	modprobe xt_RTPENGINE
+	iptables -I INPUT -p udp -j RTPENGINE --id 0
+	ip6tables -I INPUT -p udp -j RTPENGINE --id 0
 
 	# ensure that the table we want to use doesn't exist - usually needed after a daemon
 	# restart, otherwise will error
-	echo 'del 0' > /proc/mediaproxy/control
+	echo 'del 0' > /proc/rtpengine/control
 
 	# start daemon
 	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
@@ -428,12 +518,12 @@ multiple different kernel forwarding tables.
 For example, if one local network interface has address 10.64.73.31 and another has address 192.168.65.73,
 then the start-up sequence might look like this:
 
-	modprobe xt_MEDIAPROXY
-	iptables -I INPUT -p udp -d 10.64.73.31 -j MEDIAPROXY --id 0
-	iptables -I INPUT -p udp -d 192.168.65.73 -j MEDIAPROXY --id 1
+	modprobe xt_RTPENGINE
+	iptables -I INPUT -p udp -d 10.64.73.31 -j RTPENGINE --id 0
+	iptables -I INPUT -p udp -d 192.168.65.73 -j RTPENGINE --id 1
 
-	echo 'del 0' > /proc/mediaproxy/control
-	echo 'del 1' > /proc/mediaproxy/control
+	echo 'del 0' > /proc/rtpengine/control
+	echo 'del 1' > /proc/rtpengine/control
 
 	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 \
 	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine-10.pid --no-fallback
@@ -526,12 +616,21 @@ Optionally included keys are:
 
 * `flags`
 
-	The value of the `flags` key is a list. The list contains zero or more of the following strings:
+	The value of the `flags` key is a list. The list contains zero or more of the following strings.
+	Spaces in each string my be replaced by hyphens.
+
+	- `SIP source address`
+
+		Ignore any IP addresses given in the SDP body and use the source address of the received
+		SIP message (given in `received from`) as default endpoint address. This was the default
+		behaviour of older versions of *rtpengine* and can still be made the default behaviour
+		through the `--sip-source` CLI switch.
+		Can be overridden through the `media address` key.
 
 	- `trust address`
 
-		If given, the media addresses from the SDP body are trusted as correct endpoints. Otherwise, the
-		address is taken from the `received from` key. Corresponds to the *rtpproxy* `r` flag.
+		The opposite of `SIP source address`. This is the default behaviour unless the CLI switch
+		`--sip-source` is active. Corresponds to the *rtpproxy* `r` flag.
 		Can be overridden through the `media address` key.
 
 	- `symmetric`
@@ -563,6 +662,17 @@ Optionally included keys are:
 		this opens a security hole and potentially allows RTP streams to be hijacked, either partly or
 		in whole.
 
+	- `reset`
+
+		This causes *rtpengine* to un-learn certain aspects of the RTP endpoints involved, such as
+		support for ICE or support for SRTP. For example, if `ICE=force` is given, then *rtpengine*
+		will initially offer ICE to the remote endpoint. However, if a subsequent answer from that
+		same endpoint indicates that it doesn't support ICE, then no more ICE offers will be made
+		towards that endpoint, even if `ICE=force` is still specified. With the `reset` flag given,
+		this aspect will be un-learned and *rtpengine* will again offer ICE to this endpoint.
+		This flag is valid only in an `offer` message and is useful when the call has been
+		transferred to a new endpoint without change of `From` or `To` tags.
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.
@@ -573,33 +683,41 @@ Optionally included keys are:
 		Replace the address found in the *origin* (o=) line of the SDP body. Corresponds
 		to *rtpproxy* `o` flag.
 
-	- `session connection`
+	- `session connection` or `session-connection`
 
 		Replace the address found in the *session-level connection* (c=) line of the SDP body.
 		Corresponds to *rtpproxy* `c` flag.
 
 * `direction`
 
-	Contains a list of zero, one or two elements, and corresponds to the *rtpproxy* `e` and `i` flags. Each
-	element may be either the string `internal` or `external`. For example, if side A is considered to be
-	on the external network and side B on the internal network (which in the *rtpproxy* module would be
-	specified as flags `ei`), then that would be rendered within the dictionary as:
+	Contains a list of two strings and corresponds to the *rtpproxy* `e` and `i` flags. Each element must
+	correspond to one of the named logical interfaces configured on the
+	command line (through `--interface`). For example, if there is one logical interface named `pub` and
+	another one named `priv`, then if side A (originator of the message) is considered to be
+	on the private network and side B (destination of the message) on the public network, then that would
+	be rendered within the dictionary as:
 
-  		{ ..., "direction": [ "external", "internal" ], ... }
+		{ ..., "direction": [ "priv", "pub" ], ... }
 
-	*Rtpengine* uses the direction to implement bridging between IPv4 and IPv6: internal is seen as
-	IPv4 and external as IPv6. However, this mechanism for selecting the address family is now obsolete
+	This only needs to be done for an initial `offer`; for the `answer` and any subsequent offers (between
+	the same endpoints) *rtpengine* will remember the selected network interface.
+
+	As a special case to support legacy usage of this option, if the given interface names are
+	`internal` or `external` and if no such interfaces have been configured, then they're understood as
+	selectors between IPv4 and IPv6 addresses.
+	However, this mechanism for selecting the address family is now obsolete
 	and the `address family` dictionary key should be used instead.
 
 * `received from`
 
 	Contains a list of exactly two elements. The first element denotes the address family and the second
 	element is the SIP message's source address itself. The address family can be one of `IP4` or `IP6`.
-	Used if neither the `trust address` flag nor the `media address` key is present.
+	Used if SDP addresses are neither trusted (through `SIP source address` or `--sip-source`) nor the
+	`media address` key is present.
 
 * `ICE`
 
-	Contains a string, valid values are `remove`, `force` or `force_relay`.
+	Contains a string, valid values are `remove`, `force` or `force-relay`.
 	With `remove`, any ICE attributes are
 	stripped from the SDP body. With `force`, ICE attributes are first stripped, then new attributes are
 	generated and inserted, which leaves the media proxy as the only ICE candidate. The default behavior
@@ -607,7 +725,7 @@ Optionally included keys are:
 	media proxy lists itself as ICE candidate; otherwise, the media proxy inserts itself as a
 	low-priority candidate.
 
-	With `force_relay`, existing ICE candidates are left in place except `relay`
+	With `force-relay`, existing ICE candidates are left in place except `relay`
 	type candidates, and *rtpengine* inserts itself as a `relay` candidate. It will also leave SDP
 	c= and m= lines unchanged.
 
@@ -660,13 +778,29 @@ Optionally included keys are:
 		Reject rtcp-mux if it has been offered. Can be used together with `offer` to achieve the opposite
 		effect of `demux`.
 
+* `TOS`
+
+	Contains an integer. If present, changes the TOS value for the entire call, i.e. the TOS value used
+	in outgoing RTP packets of all RTP streams in all directions. If a negative value is used, the previously
+	used TOS value is left unchanged. If this key is not present or its value is too large (256 or more), then
+	the TOS value is reverted to the default (as per `--tos` command line).
+
+* `DTLS`
+
+	Contains a string and influences the behaviour of DTLS-SRTP. Currently the only recognized option
+	is `passive`, which instructs *rtpengine* to prefer the passive (i.e. server) role for the DTLS
+	handshake. The default is to take the active (client) role if possible. This is useful in cases where
+	the SRTP endpoint isn't able to receive or process the DTLS handshake packets, for example when it's
+	behind NAT or needs to finish ICE processing first.
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",
 	"sdp": "v=0\r\no=...", "via-branch": "5KiTRPZHH1nL6",
 	"flags": [ "trust address" ], "replace": [ "origin", "session connection" ],
 	"address family": "IP6", "received-from": [ "IP4", "10.65.31.43" ],
-	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b" }
+	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b",
+	"DTLS": "passive" }
 
 The response message only contains the key `sdp` in addition to `result`, which contains the re-written
 SDP body that the SIP proxy should insert into the SIP message.
@@ -700,6 +834,17 @@ of zero or more strings. The following flags are defined:
 
 The reply message may contain additional keys with statistics about the deleted call. Those additional keys
 are the same as used in the `query` reply.
+
+`list` Message
+----------------
+
+The `list` command retrieves the list of currently active call-ids. This list is limited to 32 elements by
+default.
+
+* `limit`
+
+	Optional integer value that specifies the maximum number of results (default: 32). Must be > 0. Be
+	careful when setting big values, as the response may not fit in a UDP packet, and therefore be invalid.
 
 `query` Message
 ---------------

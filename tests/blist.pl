@@ -10,7 +10,7 @@ my $t = $ARGV[0] || "0";
 my $format = 'SS ia16SS ia16SS ia16SS CCCC   LLLLLL';
 my $len = length(pack($format, (0) x 100));
 
-open(X, "<", "/proc/mediaproxy/$t/blist") or die;
+open(X, "<", "/proc/rtpengine/$t/blist") or die;
 my $buf;
 while (sysread(X, $buf, $len)) {
 	my @b = unpack($format, $buf);

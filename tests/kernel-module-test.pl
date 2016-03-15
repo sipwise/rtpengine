@@ -10,7 +10,7 @@ my %ciphers = ('null' => 1, 'aes-cm' => 2, 'aes-f8' => 3);
 my %hmacs = ('null' => 1, 'hmac-sha1' => 2);
 $| = 1;
 
-open(F, "> /proc/mediaproxy/0/control") or die;
+open(F, "> /proc/rtpengine/0/control") or die;
 {
 	my $x = select(F);
 	$| = 1;
@@ -39,7 +39,7 @@ sub mp_srtp {
 		@$h{qw(master_key master_salt mki last_index auth_tag_len mki_len)});
 	use warnings;
 }
-sub mediaproxy_message {
+sub rtpengine_message {
 	my ($cmd, $target_port,
 		$src_addr_family, $src_addr_addr, $src_addr_port,
 		$dst_addr_family, $dst_addr_addr, $dst_addr_port,
@@ -69,39 +69,39 @@ my $dec = {cipher => 'null', hmac => 'null'};
 my $enc = {cipher => 'null', hmac => 'null'};
 
 print("add 9876 -> 1234/6543\n");
-syswrite(F, mediaproxy_message('add', 9876, @src, 1234, @dst, 6543, @nul, 184, $dec, $enc));
+syswrite(F, rtpengine_message('add', 9876, @src, 1234, @dst, 6543, @nul, 184, $dec, $enc));
 sleep($sleep);
 
 print("add fail\n");
-syswrite(F, mediaproxy_message('add', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184, $dec, $enc));
+syswrite(F, rtpengine_message('add', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184, $dec, $enc));
 sleep($sleep);
 
 print("update 9876 -> 1234/6543 & 6789\n");
-syswrite(F, mediaproxy_message('update', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184, $dec, $enc));
+syswrite(F, rtpengine_message('update', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184, $dec, $enc));
 sleep($sleep);
 
 print("update 9876 -> 2345/7890 & 4321\n");
-syswrite(F, mediaproxy_message('update', 9876, @src, 2345, @dst, 7890, @dst, 4321, 184, $dec, $enc));
+syswrite(F, rtpengine_message('update', 9876, @src, 2345, @dst, 7890, @dst, 4321, 184, $dec, $enc));
 sleep($sleep);
 
 print("add fail\n");
-syswrite(F, mediaproxy_message('add', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184, $dec, $enc));
+syswrite(F, rtpengine_message('add', 9876, @src, 1234, @dst, 6543, @dst, 6789, 184, $dec, $enc));
 sleep($sleep);
 
 print("update 9876 -> 1234/6543\n");
-syswrite(F, mediaproxy_message('update', 9876, @src, 1234, @dst, 6543, @nul, 184, $dec, $enc));
+syswrite(F, rtpengine_message('update', 9876, @src, 1234, @dst, 6543, @nul, 184, $dec, $enc));
 sleep($sleep);
 
 print("delete\n");
-syswrite(F, mediaproxy_message('delete', 9876, @nul, @nul, @nul, 0, $dec, $enc));
+syswrite(F, rtpengine_message('delete', 9876, @nul, @nul, @nul, 0, $dec, $enc));
 sleep($sleep);
 
 print("delete fail\n");
-syswrite(F, mediaproxy_message('delete', 9876, @nul, @nul, @nul, 0, $dec, $enc));
+syswrite(F, rtpengine_message('delete', 9876, @nul, @nul, @nul, 0, $dec, $enc));
 sleep($sleep);
 
 print("update fail\n");
-syswrite(F, mediaproxy_message('update', 9876, @src, 1234, @dst, 6543, @nul, 184, $dec, $enc));
+syswrite(F, rtpengine_message('update', 9876, @src, 1234, @dst, 6543, @nul, 184, $dec, $enc));
 sleep($sleep);
 
 close(F);

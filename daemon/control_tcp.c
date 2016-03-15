@@ -15,6 +15,7 @@
 #include "streambuf.h"
 #include "log.h"
 #include "call.h"
+#include "call_interfaces.h"
 
 
 
@@ -114,6 +115,12 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	pcre_get_substring_list(line, ovec, ret, (const char ***) &out);
 
 
+	if (out[RE_TCP_RL_CALLID])
+		log_info_c_string(out[RE_TCP_RL_CALLID]);
+	else if (out[RE_TCP_D_CALLID])
+		log_info_c_string(out[RE_TCP_D_CALLID]);
+
+
 	if (!strcmp(out[RE_TCP_RL_CMD], "request"))
 		output = call_request_tcp(out, c->callmaster);
 	else if (!strcmp(out[RE_TCP_RL_CMD], "lookup"))
@@ -123,7 +130,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "status"))
 		calls_status_tcp(c->callmaster, s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "build") | !strcmp(out[RE_TCP_DIV_CMD], "version"))
-		control_stream_printf(s, "Version: %s\n", MEDIAPROXY_VERSION);
+		control_stream_printf(s, "Version: %s\n", RTPENGINE_VERSION);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "controls"))
 		control_list(c, s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "quit") || !strcmp(out[RE_TCP_DIV_CMD], "exit"))
