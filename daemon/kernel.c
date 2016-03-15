@@ -9,7 +9,7 @@
 #include <glib.h>
 #include <errno.h>
 
-#include "xt_MEDIAPROXY.h"
+#include "xt_RTPENGINE.h"
 
 #include "aux.h"
 #include "log.h"
@@ -17,11 +17,7 @@
 
 
 
-#if 1
-#define PREFIX "/proc/mediaproxy"
-#else
-#define PREFIX "/tmp/mediaproxy"
-#endif
+#define PREFIX "/proc/rtpengine"
 
 
 
@@ -52,7 +48,7 @@ fail:
 int kernel_open_table(unsigned int id) {
 	char str[64];
 	int fd;
-	struct mediaproxy_message msg;
+	struct rtpengine_message msg;
 	int i;
 
 	sprintf(str, PREFIX "/%u/control", id);
@@ -74,8 +70,8 @@ fail:
 }
 
 
-int kernel_add_stream(int fd, struct mediaproxy_target_info *mti, int update) {
-	struct mediaproxy_message msg;
+int kernel_add_stream(int fd, struct rtpengine_target_info *mti, int update) {
+	struct rtpengine_message msg;
 	int ret;
 
 	msg.cmd = update ? MMG_UPDATE : MMG_ADD;
@@ -91,7 +87,7 @@ int kernel_add_stream(int fd, struct mediaproxy_target_info *mti, int update) {
 
 
 int kernel_del_stream(int fd, u_int16_t p) {
-	struct mediaproxy_message msg;
+	struct rtpengine_message msg;
 	int ret;
 
 	ZERO(msg);
@@ -110,7 +106,7 @@ int kernel_del_stream(int fd, u_int16_t p) {
 GList *kernel_list(unsigned int id) {
 	char str[64];
 	int fd;
-	struct mediaproxy_list_entry *buf;
+	struct rtpengine_list_entry *buf;
 	GList *li = NULL;
 	int ret;
 

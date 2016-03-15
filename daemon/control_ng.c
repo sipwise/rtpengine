@@ -10,6 +10,7 @@
 #include "cookie_cache.h"
 #include "call.h"
 #include "sdp.h"
+#include "call_interfaces.h"
 
 
 static void pretty_print(bencode_item_t *el, GString *s) {
@@ -55,15 +56,33 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 	}
 }
 
+struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const struct in6_addr *addr) {
+	struct callmaster *m = c->callmaster;
+	struct control_ng_stats* cur;
+
+	mutex_lock(&m->cngs_lock);
+	cur = g_hash_table_lookup(m->cngs_hash, addr);
+	if (!cur) {
+		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
+		cur->proxy = *addr;
+		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s", smart_ntop_p_buf(addr));
+		g_hash_table_insert(m->cngs_hash, &cur->proxy, cur);
+	}
+	mutex_unlock(&m->cngs_lock);
+	return cur;
+}
+
 static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *sin, char *addr) {
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
 	bencode_item_t *dict, *resp;
-	str cmd, cookie, data, reply, *to_send;
+	str cmd, cookie, data, reply, *to_send, callid;
 	const char *errstr;
 	struct msghdr mh;
 	struct iovec iov[3];
 	GString *log_str;
+
+	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->sin6_addr);
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
@@ -100,23 +119,44 @@ static void control_ng_incoming(struct obj *obj, str *buf, struct sockaddr_in6 *
 	if (!cmd.s)
 		goto err_send;
 
-	log_str = g_string_sized_new(256);
-	g_string_append_printf(log_str, "Got valid command from %s: %.*s - ", addr, STR_FMT(&cmd));
-	pretty_print(dict, log_str);
-	ilog(LOG_INFO, "%.*s", (int) log_str->len, log_str->str);
-	g_string_free(log_str, TRUE);
+	bencode_dictionary_get_str(dict, "call-id", &callid);
+	log_info_str(&callid);
+
+	ilog(LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
+
+	if (get_log_level() >= LOG_DEBUG) {
+		log_str = g_string_sized_new(256);
+		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: ", STR_FMT(&cmd), addr);
+		pretty_print(dict, log_str);
+		ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+		g_string_free(log_str, TRUE);
+	}
 
 	errstr = NULL;
-	if (!str_cmp(&cmd, "ping"))
+	if (!str_cmp(&cmd, "ping")) {
 		bencode_dictionary_add_string(resp, "result", "pong");
-	else if (!str_cmp(&cmd, "offer"))
-		errstr = call_offer_ng(dict, c->callmaster, resp);
-	else if (!str_cmp(&cmd, "answer"))
+		g_atomic_int_inc(&cur->ping);
+	}
+	else if (!str_cmp(&cmd, "offer")) {
+		errstr = call_offer_ng(dict, c->callmaster, resp, addr, sin);
+		g_atomic_int_inc(&cur->offer);
+	}
+	else if (!str_cmp(&cmd, "answer")) {
 		errstr = call_answer_ng(dict, c->callmaster, resp);
-	else if (!str_cmp(&cmd, "delete"))
+		g_atomic_int_inc(&cur->answer);
+	}
+	else if (!str_cmp(&cmd, "delete")) {
 		errstr = call_delete_ng(dict, c->callmaster, resp);
-	else if (!str_cmp(&cmd, "query"))
+		g_atomic_int_inc(&cur->delete);
+	}
+	else if (!str_cmp(&cmd, "query")) {
 		errstr = call_query_ng(dict, c->callmaster, resp);
+		g_atomic_int_inc(&cur->query);
+	}
+	else if (!str_cmp(&cmd, "list")) {
+	    errstr = call_list_ng(dict, c->callmaster, resp);
+	    g_atomic_int_inc(&cur->list);
+	}
 	else
 		errstr = "Unrecognized command";
 
@@ -129,15 +169,30 @@ err_send:
 	ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]", addr, errstr, STR_FMT(&data));
 	bencode_dictionary_add_string(resp, "result", "error");
 	bencode_dictionary_add_string(resp, "error-reason", errstr);
-	goto send_resp;
+	g_atomic_int_inc(&cur->errors);
+	cmd = STR_NULL;
 
 send_resp:
 	bencode_collapse_str(resp, &reply);
 	to_send = &reply;
 
-send_only:
-	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT, STR_FMT(to_send));
+	if (cmd.s) {
+		ilog(LOG_INFO, "Replying to '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
 
+		if (get_log_level() >= LOG_DEBUG) {
+			dict = bencode_decode_expect_str(&bencbuf, to_send, BENCODE_DICTIONARY);
+			if (dict) {
+				log_str = g_string_sized_new(256);
+				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: ",
+						STR_FMT(&cmd), addr);
+				pretty_print(dict, log_str);
+				ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+				g_string_free(log_str, TRUE);
+			}
+		}
+	}
+
+send_only:
 	ZERO(mh);
 	mh.msg_name = sin;
 	mh.msg_namelen = sizeof(*sin);

@@ -1,0 +1,204 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Socket;
+use Socket6;
+use Digest::SHA qw(hmac_sha1);
+use Digest::CRC qw(crc32);
+
+my ($controlling, $port, $username, $pwd, @addresses) = @ARGV;
+
+my %attrs = (
+	6 => \&attr_un,
+	8 => \&attr_mi,
+	0x8028 => \&attr_fp,
+	0x25 => \&attr_use,
+	0x8029 => \&attr_controlled,
+	0x802a => \&attr_controlling,
+);
+
+my (@sockets, $packet, $tract, $code);
+
+for my $addr (@addresses) {
+	my ($fam, $pka, $sin, $meth) = addrparse($addr, $port);
+	socket(my $fd, $fam, SOCK_DGRAM, 0) or die $!;
+	bind($fd, $sin) or die $!;
+	push(@sockets, {fd => $fd, fam => $fam, addr => $pka, sin => $sin, xormethod => $meth});
+}
+
+while (1) {
+	my $rin = '';
+	for my $s (@sockets) {
+		vec($rin, fileno($$s{fd}), 1) = 1;
+	}
+
+	select($rin, undef, undef, 1);
+
+	for my $s (@sockets) {
+		vec($rin, fileno($$s{fd}), 1) or next;
+
+		my $src = recv($$s{fd}, my $buf, 200, 0) or die $!;
+		print("\npacket from " . addrdeparse($$s{fam}, $src) . " on ".
+			addrdeparse($$s{fam}, $$s{sin}) . "\n");
+
+		my ($cmd, $len, $cookie, $attrs);
+		($cmd, $len, $cookie, $tract, $attrs) = unpack('nnN a12 a*', $buf);
+
+		if ($cookie != 0x2112A442) {
+			if ($buf =~ /^[\x14-\x3f]/s) {
+				print("DTLS\n");
+			}
+			else {
+				print("not stun: " . unpack("H*", $buf)."\n");
+			}
+			next;
+		}
+		$cmd == 1 or print("not stun request\n"), next;
+		length($attrs) == $len or print("length mismatch\n"), next;
+
+		my ($list, $hash) = unpack_attrs($attrs);
+
+		$$list[$#$list]{name} eq 'fingerprint' or print("last attr not fingerprint\n"), next;
+		$$list[$#$list-1]{name} eq 'message-integrity' or print("last but one attr not MI\n"), next;
+		$$hash{username} or print("no username\n"), next;
+
+		$$hash{controlling} and print("is controlling\n");
+		$$hash{controlled} and print("is controlled\n");
+		$$hash{'use-candidate'} and print("nominated\n");
+
+		print("local username is $$hash{username}{split}[0], remote is $$hash{username}{split}[1]\n");
+
+		if ($$hash{controlling} && $controlling || $$hash{controlled} && !$controlling) {
+			print("role conflict, replying with 487");
+			$code = 0x0111; # binding error
+			$packet = attr(0x9, pack('CCCC a16', 0, 0, 4, 87, 'Role conflict'));
+			$packet .= integrity();
+			$packet .= fingerprint();
+		}
+		else {
+			$code = 0x101; # binding success
+			my $xorattr = $$s{xormethod}($src);
+			$packet = attr(0x20, $xorattr);
+			$packet .= integrity();
+			$packet .= fingerprint();
+		}
+
+		$packet = header() . $packet;
+
+		print("sending reply\n");
+		send($$s{fd}, $packet, 0, $src);
+	}
+}
+
+
+
+exit;
+
+sub xor4 {
+	my ($src) = @_;
+	my @a = unpack_sockaddr_in($src);
+	return pack('nna4', 1, $a[0] ^ 0x2112, $a[1] ^ "\x21\x12\xa4\x42");
+}
+sub xor6 {
+	my ($src) = @_;
+	my @a = unpack_sockaddr_in6($src);
+	return pack('nna16', 2, $a[0] ^ 0x2112,
+		$a[1] ^ ("\x21\x12\xa4\x42" . $tract));
+}
+sub addrparse {
+	my ($addr, $port) = @_;
+	my $r = inet_pton(AF_INET, $addr);
+	$r and return (AF_INET, $r, pack_sockaddr_in($port, $r), \&xor4);
+	$r = inet_pton(AF_INET6, $addr);
+	$r and return (AF_INET6, $r, pack_sockaddr_in6($port, $r), \&xor6);
+	die;
+}
+sub addrdeparse {
+	my ($fam, $sin) = @_;
+	if ($fam == AF_INET) {
+		my @up = unpack_sockaddr_in($sin);
+		return inet_ntop(AF_INET, $up[1]) . ":$up[0]";
+	}
+	if ($fam == AF_INET6) {
+		my @up = unpack_sockaddr_in6($sin);
+		return '['.inet_ntop(AF_INET6, $up[1]) . "]:$up[0]";
+	}
+	die;
+}
+
+sub attr_un {
+	my ($cont) = @_;
+	return {name => 'username', split => [$cont =~ /(.*):(.*)/]};
+}
+sub attr_mi {
+	return {name => 'message-integrity'};
+}
+sub attr_fp {
+	my ($cont) = @_;
+	return {name => 'fingerprint', value => unpack('N', $cont)};
+}
+sub attr_use {
+	return {name => 'use-candidate'};
+}
+sub attr_controlling {
+	my ($cont) = @_;
+	return {name => 'controlling', tiebreaker => unpack('Q', $cont)};
+}
+sub attr_controlled {
+	my ($cont) = @_;
+	return {name => 'controlled', tiebreaker => unpack('Q', $cont)};
+}
+
+
+sub unpack_attrs {
+	my ($s) = @_;
+
+	my (@out, %out);
+	while ($s ne '') {
+		my ($type, $len, $cont);
+		($type, $len, $s) = unpack('nn a*', $s);
+		my $pad = 0;
+		while ((($len + $pad) % 4) != 0) {
+			$pad++;
+		}
+		($cont, $pad, $s) = unpack("a$len a$pad a*", $s);
+		my $ins = {type => $type, len => $len, content => $cont,
+			raw => pack('nna*a*', $type, $len, $cont, $pad)};
+		push(@out, $ins);
+		$out{$type} = $ins;
+
+		my $pars = $attrs{$type};
+		$pars or next;
+
+		my $ai = $pars->($cont);
+		%$ins = (%$ins, %$ai);
+		$out{$$ins{name}} = $ins;
+	}
+	return (\@out, \%out);
+}
+
+
+sub attr {
+	my ($type, $data) = @_;
+	my $len = length($data);
+	while ((length($data) % 4) != 0) {
+		$data .= "\0";
+	}
+	return pack('nn a*', $type, $len, $data);
+}
+sub header {
+	my ($add_length) = @_;
+	$add_length ||= 0;
+	return pack('nnN a12', $code, length($packet) + $add_length, 0x2112A442, $tract);
+}
+sub integrity {
+	my $h = header(24);
+	my $hmac = hmac_sha1($h.$packet, $pwd);
+	return attr(8, $hmac);
+}
+sub fingerprint {
+	my $h = header(8);
+	my $crc = crc32($h.$packet);
+	return attr(0x8028, pack('N', ($crc ^ 0x5354554e)));
+}

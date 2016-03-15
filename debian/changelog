@@ -1,3 +1,4 @@
+<<<<<<< HEAD   (537910 MT#14777 coredump fix when running out of ports)
 ngcp-rtpengine (3.3.0.0+0~mr3.4.3.0) unstable; urgency=low
 
   [ Richard Fuchs ]
@@ -50,6 +51,323 @@ ngcp-rtpengine (3.3.0.0+0~mr3.4.1.0) unstable; urgency=low
   [ Sipwise Jenkins Builder ]
 
  -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 10 Jul 2014 15:36:31 +0200
+=======
+ngcp-rtpengine (3.8.5.0+0~mr3.8.5.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [af0e317] MT#14817 don't reset crypto on non-filled packet stream
+  * [8b831f4] MT#15289 add "reset" flag to un-learn certain parameters
+  * [1563874] fix a memory leak
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 17 Nov 2015 10:40:05 +0100
+
+ngcp-rtpengine (3.8.4.0+0~mr3.8.4.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b27abca] MT#13737 don't add a=rtcp for non-RTP protocols
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 20 Aug 2015 23:27:54 +0200
+
+ngcp-rtpengine (3.8.3.0+0~mr3.8.3.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [a7c7a50] fix refcount bug
+  * [cff417f] fix call timeout when ICE fails
+  * [0270dff] fix ICE when no candidates are present (trickle ICE)
+  * [507f3cb] do not detect trickle ICE RTCP port as rtcp-mux
+  * [4038732] fix number of ICE components for tricke-ICE no-components case
+  * [adde79c] don't reset certain stream flags for disabled (zero port) streams
+  * [b4f5312] increase size of RTP loop protection buffer to 28 for RTCP
+  * [a7d18ae] reset SRTP ROC to zero when SSRC changes
+  * [208fbfa] RTP forwarding fix for trickle ICE
+  * [bd810b2] MT#13067 fix premature call timeout for un-answered calls
+  * [ac8165c] MT#12691 implement via-branch handling
+  * [b9c065d] segfault fix for debug builds
+
+  [ Victor Seva ]
+  * [508e606] MT#12519 debian/control: switch from Pre-Depends to Suggests for ngcp-system-tools package
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 03 Jun 2015 16:46:58 +0200
+
+ngcp-rtpengine (3.8.2.0+0~mr3.8.2.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [640183c] reset ICE/STUN retransmit data on triggered checks
+  * [a85cc83] process nominating ICE request only once per pair
+  * [0048d1c] don't relearn addresses if the endpoint hasn't changed
+  * [fdde644] Fall back to a different address family if the requested one is unavailable
+  * [677ca0d] don't close call on UDP send error
+  * [789402d] various fixes related to ICE negotation and rtcp-mux
+
+ -- Alexander Lutay <alutay@sipwise.com>  Wed, 08 Apr 2015 17:35:11 +0200
+
+ngcp-rtpengine (3.3.0.0+0~mr3.8.1.0) unstable; urgency=low
+
+  [ Sergey Lavrov ]
+  * [bb14eba] Fix %post/%preun directives.
+  * [fe5e129] Added rtpengine-ctl and dependency to spec file.
+
+  [ Richard Fuchs ]
+  * [a0068f4] relax sdes key lifetime validation check
+  * [caba5be] MT#10583 remember the "created from" address in raw format
+  * [6e32379] MT#10583 support ipv6 control connection in simulator
+  * [02d27d5] MT#10583 support b2bua callback to sip proxy address
+  * [43cd3f5] reset other side's crypto params only in passthru mode
+  * [2af682b] use SSL_CTX_set_read_ahead to fix for openssl 1.0.1k
+  * [e24253a] move parse_ip(6)_port into aux.h
+  * [a81588e] provide convenience function get_log_level()
+  * [37d98ad] dump DTLS cert and keys
+  * [57c0a84] add locking to totalstats
+  * [f544471] fix compiler warnings
+  * [36c7141] change control_ng_stats into a hash and use locking and atomic ops
+  * [c0b2f3d] fix graphite code not to leak fds in error cases
+  * [965d989] static'ize graphite global vars
+  * [7175a26] decrease sleep time of graphite loop
+  * [3882285] decrease calls to time() in graphite code
+  * [de37ac0] use TLS buffer array for temporary strings
+  * [ee4f2d2] convert ilog() into macro
+  * [411a888] use atomic ops for stats
+  * [28c6db9] fix references and locking in CLI
+  * [20fd255] use UINT64F instead of %llu where appropriate
+  * [3bc1672] more atomic stats, and fix average length calc
+  * [fedaadd] remove superfluous \n from log messages
+  * [1e3f06a] split some perl SRTP stuff into module and add debug script
+  * [deba231] rename an old MP_ variable to RE_
+  * [fb9ed6e] use trial & error approach to guess ROC in case of SRTP auth failures
+  * [f6dee07] fix initial seqnum in simulator
+  * [787d90f] rename atomic_uint64 to atomic64 for brevity
+  * [49328cd] implement atomic64 for non-64-bit platforms
+  * [da6b6a1] fix compiler warning on 32bit
+  * [ca149e6] "long" can be 32 bits only and may truncate math
+  * [b023d6c] update redis mod version to 7
+  * [adeb0b3] the log rate limiter must take the prefix into account
+  * [fb667a8] turn tag and termination texts into array lookups
+  * [d79c68f] remove some unnecessary memsets
+  * [a5f7315] string handling fixes and improvements
+  * [037c6aa] shorter locking in stats loop
+  * [f7a1594] more descriptive warning for failed kernelizing
+  * [5fa9902] atomic vars should be volatile
+  * [c21193a] fix byte stats in kernel module
+  * [c2ff5c3] MT#9935 understand, learn, remember and report RTP payload types (codecs)
+  * [b586fa7] fix memory leak
+  * [65b3f66] use atomic64_t for kernel stats
+  * [4a97bb1] attempt to work around trickle ice
+  * [b44bb28] segfault fix
+  * [015b2a9] legacy tcp protocol fix
+  * [016f8b3] Rework logging a bit (primarily in NG)
+  * [91a85e6] fix for skewed stats
+  * [6173a7a] implement atomic bitfield ops
+  * [1f7c8a2] remove obsolete HAS_HANDLER flag
+  * [f224bab] segfault fix if no rtpmap attribute is present
+  * [26ca844] drop support for glib versions older than 2.30
+  * [b83e80c] add makefile dependency to itself
+  * [956d07d] fix erroneously reported 0.0.0.0 address when bridging from ipv6
+  * [f99d6d4] implement full ICE support
+  * [98e0b6d] update for redis plugin
+  * [0e4e6f2] revamp and move timeval functions
+  * [26137d2] move thread loop functions out of main.c
+  * [5fca71d] fix segfault when parsing server reflexive ICE candidates
+  * [3520617] remove ice-lite mention from readme
+  * [9593519] Leave unsupported (non-RTP) protocols alone when translation is requested
+
+  [ Eric Tamme ]
+  * [b8b17bf] clear crypto for BOTH legs when in passthrough mode
+  * [506076b] add raddr and rport on all non host type candidates per rfc5245 section-15.1
+
+  [ Carsten Bock ]
+  * [9a2da87] Fix randomness source for key generation.
+
+  [ Frederic-Philippe Metz ]
+  * [2ae0e35] Added functionality to report statistics to graphite
+  * [7446822] Forgot the files ..
+  * [61a72b1] Added some more statistics.
+  * [0ccb11a] Added statistics on control ng interface.
+  * [794709f] Changed retry behaviour for connecting to graphite server.
+
+  [ Michael Prokop ]
+  * [fca4500] MT#9127 Bump Standards-Version to 3.9.6
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 18 Mar 2015 14:14:33 +0100
+
+ngcp-rtpengine (3.3.0.0+0~mr3.8.0.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [2460836] remove -e argument from awk
+  * [19e0281] disable "list" NG command if glib version is too low
+  * [b49f57b] avoid DTLS role change on reinvite
+  * [d0beccb] dont break log lines when logging to stderr
+  * [8c8ff56] fix pointer const declaration and make it static
+  * [955de10] support proper DTLS shutdown and restart DTLS on FP change
+  * [6757c27] add DTLS=passive option
+  * [97b472b] dont break legacy control protocols
+  * [f826d01] make "trust address" the default behaviour
+  * [4c408e5] add --dtls-passive switch
+  * [d272e9e] add more flags to stats output
+  * [e09fbd2] dtls shutdown clears crypto context as well
+  * [91221ef] move DTLS setup logic into separate function for readability
+  * [50d1839] reset DTLS and crypto params when endpoints change
+  * [3478629] dont output error message on stun SOFTWARE attribute
+  * [a1786d6] segfault fix: ps->sfd can be null
+  * [4077225] avoid unnecessary DTLS restarts
+  * [7e72bfc] MT#10059 allow freeform interface definitions in init.d script
+  * [935487b] avoid race condition by making OpenSSL thread safe
+  * [dcfd703] deadlock fix
+  * [0113991] MT#9585 rename kernel module and all related items from MEDIAPROXY to RTPENGINE
+  * [276c7c8] report errno in log on sendmsg() error
+  * [cccb0bf] add Recommends: netcat-openbsd | netcat for CLI patch
+  * [43bcbcc] change created_from to an allocated string buffer
+  * [0e531eb] change created_from to an allocated string buffer
+  * [a8e5582] rtpengine-ctl: use $0 as name in help output
+  * [d79bcfe] remove extraneous linefeed
+  * [3cfeb5d] optionally allow broken SDPs as compile switch
+  * [458a84c] remove obsolete RH $RTP_IP6 sysconfig option
+
+  [ Frederic-Philippe Metz ]
+  * [9886de4] cdrpatch.dpatch:
+  * [947b35e] fixed_callduration_and_added_termination_reason_20141125:
+  * [ee655bd] added_milliseconds_precision_for_CDR.patch:
+  * [131c9e8] cli
+  * [a871cd7] added_address_of_invoking_proxy
+  * [5342158] added_information_of_from_to_tag:
+  * [d623710] adaptions_for_ng_protocol:
+  * [59329dd] VOIPTEST_220_delete delay
+  * [4882d91] RTPENGINE-1_total_statistics_rectl.patch:
+  * [b566581] VOIPTEST-231_session_duration_rectl_milliseconds.patch
+  * [a4168be] RTPENGINE-12_Fixed_Segmentation_fault_if_only_offer_received.patch
+
+  [ Victor Seva ]
+  * [66a5137] Allow to choose CC
+  * [f8e16b9] Add travis-ci configuration
+
+  [ sybasesql ]
+  * [b94bae8] Update rtpengine.init
+  * [08ffc9c] Update rtpengine.sysconfig
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 07 Jan 2015 21:39:28 +0100
+
+ngcp-rtpengine (3.3.0.0+0~mr3.7.0.0) unstable; urgency=low
+
+  [ Frederic-Philippe Metz ]
+  * [e77dd1a] create as many threads as cpus
+
+  [ Richard Fuchs ]
+  * [b66091b] make number of threads configurable
+  * [07b6ea4] document new CLI flags
+  * [a5c55fc] add NUM_THREADS to init scripts
+  * [ba5ed24] kernel module didn't handle DTLS packets properly
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 30 Oct 2014 17:30:10 +0100
+
+ngcp-rtpengine (3.3.0.0+0~mr3.6.0.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [062256b] segfault fix for DTLS protocol errors
+  * [b0c7efb] duplicate x509 in mem for delayed verification
+  * [9ecb7da] allow for protocol renegotiation
+  * [759ea60] adding some debug messages
+  * [e1cfc19] fix incorrect port allocations
+  * [e7aa743] change default a=crypto: tag from zero to one
+  * [e883f57] better support protocol switching within a call
+  * [4bf2ec7] correct data type for key lifetime
+  * [b6ff15c] remove unnecessary a=inactive for zero-port media
+  * [964b644] don't skip setting stream to actpass when not using sdes
+  * [681b2c1] version reporting: use git branch and commit if available
+  * [77829f9] split very long log lines into smaller pieces
+  * [9d001e3] fix segfault if NG protocol is not used
+  * [ec21806] use default TOS if not using NG protocol
+  * [58940b5] change stun log levels
+  * [8f4e345] increase default log level for debug builds
+  * [e0957d1] fix TCP/UDP protocol stream output
+  * [50f2bfb] allow for fqdn in o= line
+  * [73b56db] Update CentOS definitions
+  * [1f4f0d6] implement delayed call/branch deletion
+  * [8a8dee5] support sdes key change in simulations
+  * [5e129dd] brevity
+  * [16b42fb] Switch around internal fromtag/totag/endpoint representation
+  * [fe65671] simple port randomizer
+  * [65812fa] limit the number of times the receive loop can run without breaking
+  * [c0f8196] implement detection of duplicate packets to catch and avoid forwarding loops
+  * [fccad69] segfault fix for tcp status command
+  * [54f903d] bugfixes for legacy control protocols
+  * [4d00147] s/force_relay/force-relay/
+  * [0cbb466] paving the way to multi-interface support
+  * [513ac44] incorporate new local-interface infrastructure into appropriate places
+  * [e365572] receive local address from kernel and use it for outgoing packets
+  * [45dee75] support specifying interfaces to use in control protocols
+  * [1a39b86] readme update
+  * [ddcf0f3] update init.d file
+  * [d1165df] update EL specs/init file
+  * [e830bf5] update for redis module
+  * [af9625d] make multi-homing thread safe
+  * [34ca29b] dont escape exclamation points in sh scripts
+  * [3de07be] s/MEDIAPROXY/RTPENGINE/
+  * [c1d7a52] MT#9065 daemon: don't restart if kernel is needed but not yet installed
+  * [6379883] fix str_hash() for archs enforcing aligned pointers
+  * [4658526] implement a crude log limiter
+  * [6cf604d] fix comparison between int and bitfield
+
+  [ Camille Oudot ]
+  * [47b0252] fix null/empty string check in ng_call_stats
+  * [a51db71] new command: 'list' to retreive the list of active call-ids
+  * [6005d14] XMLRPC notifications: more formats
+  * [81d8616] list command: several fixes + documentation
+  * [faf3e22] logging: choose the log facility from the command line, or log to stderr
+
+  [ Victor Seva ]
+  * [f562844] MT8741 remove init script tricks
+
+  [ Dipak Malla ]
+  * [bfb41d1] Fixed linking error in Makefile
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 09 Oct 2014 16:54:38 +0200
+
+ngcp-rtpengine (3.3.0.0+0~mr3.5.0.0) unstable; urgency=low
+
+  [ Richard Fuchs ]
+  * [cbe1f80] possible segfault fix
+  * [ba1bd04] silence warning for kernelizing rtcp
+  * [c9a101c] docs update
+  * [ca138c3] fix kernel module debug output
+  * [aa4f2fa] document SIGUSR1/2
+  * [0bc4d3c] kernel srtp fix
+  * [be500e1] prefer space to underscore in bencode
+  * [c730895] update "query" output docs
+  * [56ca361] sync bencode from kamailio
+  * [b0c0e39] allow hyphenated versions of NG protocol flags
+  * [a7784f5] try to fix null c= address issue
+  * [2e9ae75] remove needless assertion
+  * [e381e10] configurable per-call TOS value
+  * [69dec02] fix inappropriate locking sequenece
+  * [68d94c6] add --TOS to ng-client
+  * [1564099] fix possible deadlock
+  * [2a38b51] better ICE priority calc for non-RFC clients
+  * [f6290f3] sample CLI usage for ng-client
+  * [d37d385] properly handle unknown transport protocols
+  * [9cbe157] properly support the udptl protocol
+
+  [ Victor Seva ]
+  * [02832db] MT#6485 detect container environment
+  * [eb9dbd8] MT#6485 add proper checks for virt-identify
+  * [c7e3911] MT#6485 add no_ngcp script to remove NGCP dependences
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 10 Jul 2014 15:36:42 +0200
+>>>>>>> BRANCH (493084 Release new version 3.8.5.0+0~mr3.8.5.0)
 
 ngcp-rtpengine (3.3.0.0+0~mr3.4.0.0) unstable; urgency=low
 

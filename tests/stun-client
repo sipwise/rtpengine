@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Socket;
+use Socket6;
+use Digest::SHA qw(hmac_sha1);
+use Digest::CRC qw(crc32);
+
+my ($prio, $ip, $port, $username, $pwd) = @ARGV;
+
+my $fd;
+my @dests = getaddrinfo($ip, $port, AF_UNSPEC, SOCK_DGRAM);
+while (@dests >= 5) {
+	my ($fam, $type, $prot, $addr, $canon, @dests) = @dests;
+	socket($fd, $fam, $type, $prot) or undef($fd), next;
+	connect($fd, $addr) or undef($fd), next;
+	last;
+}
+$fd or die($!);
+
+my @rand = ('A' .. 'Z', 'a' .. 'z');
+my $ufrag = join('', (map {$rand[rand($#rand)]} (1 .. 10)));
+my $tract = join('', (map {$rand[rand($#rand)]} (1 .. 12)));
+my $control = rand() < .5;
+my $tbreak = int(rand(0xffffffff)) * int(rand(0xffffffff));
+
+print("transaction: $tract\n");
+print("my username fragment: $ufrag\n");
+print("controll".($control?"ing":'ed')."\n");
+print("tie breaker: $tbreak\n");
+
+
+my $packet = '';
+$packet .= attr(6, "$username:$ufrag");
+$packet .= attr($control ? 0x802a : 0x8029, pack('Q', $tbreak));
+$packet .= attr(0x24, pack('N', $prio));
+$packet .= integrity();
+$packet .= fingerprint();
+$packet = header() . $packet;
+
+send($fd, $packet, 0) or die $!;
+my $buf;
+recv($fd, $buf, 200, 0) or die;
+
+my ($code, $length, $cookie, $tract2, $attrs) = unpack('nnN a12 a*', $buf);
+
+if ($cookie == 0x2112A442 || $tract2 ne $tract) {
+	printf("code: \%x\n", $code);
+	while ($attrs ne '') {
+		my ($type, $len, $cont);
+		($type, $len, $attrs) = unpack('nn a*', $attrs);
+		my $pad = 0;
+		while ((($len + $pad) % 4) != 0) {
+			$pad++;
+		}
+		($cont, $pad, $attrs) = unpack("a$len a$pad a*", $attrs);
+		printf("  attr type: \%x\n", $type);
+		print("  content: $cont\n");
+	}
+}
+else {
+	print("not stun: ".unpack('H*', $buf)."\n");
+}
+
+exit;
+
+
+sub attr {
+	my ($type, $data) = @_;
+	my $len = length($data);
+	while ((length($data) % 4) != 0) {
+		$data .= "\0";
+	}
+	return pack('nn a*', $type, $len, $data);
+}
+sub header {
+	my ($add_length) = @_;
+	$add_length ||= 0;
+	return pack('nnN a12', 1, length($packet) + $add_length, 0x2112A442, $tract);
+}
+sub integrity {
+	my $h = header(24);
+	my $hmac = hmac_sha1($h.$packet, $pwd);
+	return attr(8, $hmac);
+}
+sub fingerprint {
+	my $h = header(8);
+	my $crc = crc32($h.$packet);
+	return attr(0x8028, pack('N', ($crc ^ 0x5354554e)));
+}

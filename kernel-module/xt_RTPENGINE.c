@@ -17,14 +17,16 @@
 #include <net/dst.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
+#include <linux/bsearch.h>
+#include <linux/atomic.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
 #include <linux/netfilter/x_tables.h>
-#ifndef __MP_EXTERNAL
-#include <linux/netfilter/xt_MEDIAPROXY.h>
+#ifndef __RE_EXTERNAL
+#include <linux/netfilter/xt_RTPENGINE.h>
 #else
-#include "xt_MEDIAPROXY.h"
+#include "xt_RTPENGINE.h"
 #endif
 
 MODULE_LICENSE("GPL");
@@ -33,7 +35,7 @@ MODULE_LICENSE("GPL");
 
 
 #define MAX_ID 64 /* - 1 */
-#define MAX_SKB_TAIL_ROOM (sizeof(((struct mediaproxy_srtp *) 0)->mki) + 20)
+#define MAX_SKB_TAIL_ROOM (sizeof(((struct rtpengine_srtp *) 0)->mki) + 20)
 
 #define MIPF		"%i:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%u"
 #define MIPP(x)		(x).family,		\
@@ -70,10 +72,10 @@ MODULE_LICENSE("GPL");
 
 
 
-struct mp_hmac;
-struct mp_cipher;
+struct re_hmac;
+struct re_cipher;
 struct rtp_parsed;
-struct mp_crypto_context;
+struct re_crypto_context;
 
 
 
@@ -81,7 +83,7 @@ struct mp_crypto_context;
 static struct proc_dir_entry *my_proc_root;
 static struct proc_dir_entry *proc_list;
 static struct proc_dir_entry *proc_control;
-static struct mediaproxy_table *table[MAX_ID];
+static struct rtpengine_table *table[MAX_ID];
 static rwlock_t table_lock;
 
 
@@ -115,13 +117,13 @@ static void proc_main_list_stop(struct seq_file *, void *);
 static void *proc_main_list_next(struct seq_file *, void *, loff_t *);
 static int proc_main_list_show(struct seq_file *, void *);
 
-static void table_push(struct mediaproxy_table *);
-static struct mediaproxy_target *get_target(struct mediaproxy_table *, u_int16_t);
+static void table_push(struct rtpengine_table *);
+static struct rtpengine_target *get_target(struct rtpengine_table *, u_int16_t);
 
-static int aes_f8_session_key_init(struct mp_crypto_context *, struct mediaproxy_srtp *);
-static int srtp_encrypt_aes_cm(struct mp_crypto_context *, struct mediaproxy_srtp *,
+static int aes_f8_session_key_init(struct re_crypto_context *, struct rtpengine_srtp *);
+static int srtp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp *,
 		struct rtp_parsed *, u_int64_t);
-static int srtp_encrypt_aes_f8(struct mp_crypto_context *, struct mediaproxy_srtp *,
+static int srtp_encrypt_aes_f8(struct re_crypto_context *, struct rtpengine_srtp *,
 		struct rtp_parsed *, u_int64_t);
 
 
@@ -129,7 +131,7 @@ static int srtp_encrypt_aes_f8(struct mp_crypto_context *, struct mediaproxy_srt
 
 
 
-struct mp_crypto_context {
+struct re_crypto_context {
 	spinlock_t			lock; /* protects roc and last_index */
 	unsigned char			session_key[16];
 	unsigned char			session_salt[14];
@@ -137,33 +139,42 @@ struct mp_crypto_context {
 	u_int32_t			roc;
 	struct crypto_cipher		*tfm[2];
 	struct crypto_shash		*shash;
-	const struct mp_cipher		*cipher;
-	const struct mp_hmac		*hmac;
+	const struct re_cipher		*cipher;
+	const struct re_hmac		*hmac;
 };
 
-struct mediaproxy_target {
+struct rtpengine_stats_a {
+	atomic64_t			packets;
+	atomic64_t			bytes;
+	atomic64_t			errors;
+};
+struct rtpengine_rtp_stats_a {
+	atomic64_t			packets;
+	atomic64_t			bytes;
+};
+struct rtpengine_target {
 	atomic_t			refcnt;
 	u_int32_t			table;
-	struct mediaproxy_target_info	target;
+	struct rtpengine_target_info	target;
 
-	spinlock_t			stats_lock;
-	struct mediaproxy_stats		stats;
+	struct rtpengine_stats_a	stats;
+	struct rtpengine_rtp_stats_a	rtp_stats[NUM_PAYLOAD_TYPES];
 
-	struct mp_crypto_context	decrypt;
-	struct mp_crypto_context	encrypt;
+	struct re_crypto_context	decrypt;
+	struct re_crypto_context	encrypt;
 };
 
-struct mp_bitfield {
+struct re_bitfield {
 	unsigned long			b[256 / (sizeof(unsigned long) * 8)];
 	unsigned int			used;
 };
 
-struct mp_bucket {
-	struct mp_bitfield		targets;
-	struct mediaproxy_target	*target[256];
+struct re_bucket {
+	struct re_bitfield		targets;
+	struct rtpengine_target		*target[256];
 };
 
-struct mediaproxy_table {
+struct rtpengine_table {
 	atomic_t			refcnt;
 	rwlock_t			target_lock;
 	pid_t				pid;
@@ -175,25 +186,25 @@ struct mediaproxy_table {
 	struct proc_dir_entry		*list;
 	struct proc_dir_entry		*blist;
 
-	struct mp_bitfield		buckets;
-	struct mp_bucket		*bucket[256];
+	struct re_bitfield		buckets;
+	struct re_bucket		*bucket[256];
 
 	unsigned int			targets;
 };
 
-struct mp_cipher {
-	enum mediaproxy_cipher		id;
+struct re_cipher {
+	enum rtpengine_cipher		id;
 	const char			*name;
 	const char			*tfm_name;
-	int				(*decrypt)(struct mp_crypto_context *, struct mediaproxy_srtp *,
+	int				(*decrypt)(struct re_crypto_context *, struct rtpengine_srtp *,
 			struct rtp_parsed *, u_int64_t);
-	int				(*encrypt)(struct mp_crypto_context *, struct mediaproxy_srtp *,
+	int				(*encrypt)(struct re_crypto_context *, struct rtpengine_srtp *,
 			struct rtp_parsed *, u_int64_t);
-	int				(*session_key_init)(struct mp_crypto_context *, struct mediaproxy_srtp *);
+	int				(*session_key_init)(struct re_crypto_context *, struct rtpengine_srtp *);
 };
 
-struct mp_hmac {
-	enum mediaproxy_hmac		id;
+struct re_hmac {
+	enum rtpengine_hmac		id;
 	const char			*name;
 	const char			*tfm_name;
 };
@@ -278,24 +289,24 @@ static const struct seq_operations proc_main_list_seq_ops = {
 	.show			= proc_main_list_show,
 };
 
-static const struct mp_cipher mp_ciphers[] = {
-	[MPC_INVALID] = {
-		.id		= MPC_INVALID,
+static const struct re_cipher re_ciphers[] = {
+	[REC_INVALID] = {
+		.id		= REC_INVALID,
 		.name		= NULL,
 	},
-	[MPC_NULL] = {
-		.id		= MPC_NULL,
+	[REC_NULL] = {
+		.id		= REC_NULL,
 		.name		= "NULL",
 	},
-	[MPC_AES_CM] = {
-		.id		= MPC_AES_CM,
+	[REC_AES_CM] = {
+		.id		= REC_AES_CM,
 		.name		= "AES-CM",
 		.tfm_name	= "aes",
 		.decrypt	= srtp_encrypt_aes_cm,
 		.encrypt	= srtp_encrypt_aes_cm,
 	},
-	[MPC_AES_F8] = {
-		.id		= MPC_AES_F8,
+	[REC_AES_F8] = {
+		.id		= REC_AES_F8,
 		.name		= "AES-F8",
 		.tfm_name	= "aes",
 		.decrypt	= srtp_encrypt_aes_f8,
@@ -304,23 +315,23 @@ static const struct mp_cipher mp_ciphers[] = {
 	},
 };
 
-static const struct mp_hmac mp_hmacs[] = {
-	[MPH_INVALID] = {
-		.id		= MPH_INVALID,
+static const struct re_hmac re_hmacs[] = {
+	[REH_INVALID] = {
+		.id		= REH_INVALID,
 		.name		= NULL,
 	},
-	[MPH_NULL] = {
-		.id		= MPH_NULL,
+	[REH_NULL] = {
+		.id		= REH_NULL,
 		.name		= "NULL",
 	},
-	[MPH_HMAC_SHA1] = {
-		.id		= MPH_HMAC_SHA1,
+	[REH_HMAC_SHA1] = {
+		.id		= REH_HMAC_SHA1,
 		.name		= "HMAC-SHA1",
 		.tfm_name	= "hmac(sha1)",
 	},
 };
 
-static const char *mp_msm_strings[] = {
+static const char *re_msm_strings[] = {
 	[MSM_IGNORE]		= "",
 	[MSM_DROP]		= "drop",
 	[MSM_PROPAGATE]		= "propagate",
@@ -330,8 +341,8 @@ static const char *mp_msm_strings[] = {
 
 
 
-static struct mediaproxy_table *new_table(void) {
-	struct mediaproxy_table *t;
+static struct rtpengine_table *new_table(void) {
+	struct rtpengine_table *t;
 
 	DBG("Creating new table\n");
 
@@ -356,7 +367,7 @@ static struct mediaproxy_table *new_table(void) {
 
 
 
-static void table_hold(struct mediaproxy_table *t) {
+static void table_hold(struct rtpengine_table *t) {
 	atomic_inc(&t->refcnt);
 }
 
@@ -364,7 +375,7 @@ static void table_hold(struct mediaproxy_table *t) {
 
 
 
-static int table_create_proc(struct mediaproxy_table *t, u_int32_t id) {
+static int table_create_proc(struct rtpengine_table *t, u_int32_t id) {
 	char num[10];
 
 	sprintf(num, "%u", id);
@@ -403,8 +414,8 @@ static int table_create_proc(struct mediaproxy_table *t, u_int32_t id) {
 
 
 
-static struct mediaproxy_table *new_table_link(u_int32_t id) {
-	struct mediaproxy_table *t;
+static struct rtpengine_table *new_table_link(u_int32_t id) {
+	struct rtpengine_table *t;
 	unsigned long flags;
 
 	if (id >= MAX_ID)
@@ -412,7 +423,7 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 
 	t = new_table();
 	if (!t) {
-		printk(KERN_WARNING "xt_MEDIAPROXY out of memory\n");
+		printk(KERN_WARNING "xt_RTPENGINE out of memory\n");
 		return NULL;
 	}
 
@@ -420,7 +431,7 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 	if (table[id]) {
 		write_unlock_irqrestore(&table_lock, flags);
 		table_push(t);
-		printk(KERN_WARNING "xt_MEDIAPROXY duplicate ID %u\n", id);
+		printk(KERN_WARNING "xt_RTPENGINE duplicate ID %u\n", id);
 		return NULL;
 	}
 
@@ -430,7 +441,7 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 	write_unlock_irqrestore(&table_lock, flags);
 
 	if (table_create_proc(t, id))
-		printk(KERN_WARNING "xt_MEDIAPROXY failed to create /proc entry for ID %u\n", id);
+		printk(KERN_WARNING "xt_RTPENGINE failed to create /proc entry for ID %u\n", id);
 
 
 	return t;
@@ -440,7 +451,7 @@ static struct mediaproxy_table *new_table_link(u_int32_t id) {
 
 
 
-static void free_crypto_context(struct mp_crypto_context *c) {
+static void free_crypto_context(struct re_crypto_context *c) {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(c->tfm); i++) {
@@ -451,7 +462,7 @@ static void free_crypto_context(struct mp_crypto_context *c) {
 		crypto_free_shash(c->shash);
 }
 
-static void target_push(struct mediaproxy_target *t) {
+static void target_push(struct rtpengine_target *t) {
 	if (!t)
 		return;
 
@@ -471,7 +482,7 @@ static void target_push(struct mediaproxy_target *t) {
 
 
 
-static void target_hold(struct mediaproxy_target *t) {
+static void target_hold(struct rtpengine_target *t) {
 	atomic_inc(&t->refcnt);
 }
 
@@ -496,9 +507,9 @@ static void clear_proc(struct proc_dir_entry **e) {
 
 
 
-static void table_push(struct mediaproxy_table *t) {
+static void table_push(struct rtpengine_table *t) {
 	int i, j;
-	struct mp_bucket *b;
+	struct re_bucket *b;
 
 	if (!t)
 		return;
@@ -539,7 +550,7 @@ static void table_push(struct mediaproxy_table *t) {
 
 
 
-static int unlink_table(struct mediaproxy_table *t) {
+static int unlink_table(struct rtpengine_table *t) {
 	unsigned long flags;
 
 	if (t->id >= MAX_ID)
@@ -574,8 +585,8 @@ static int unlink_table(struct mediaproxy_table *t) {
 
 
 
-static struct mediaproxy_table *get_table(u_int32_t id) {
-	struct mediaproxy_table *t;
+static struct rtpengine_table *get_table(u_int32_t id) {
+	struct rtpengine_table *t;
 	unsigned long flags;
 
 	if (id >= MAX_ID)
@@ -596,7 +607,7 @@ static struct mediaproxy_table *get_table(u_int32_t id) {
 static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) {
 	struct inode *inode;
 	char buf[256];
-	struct mediaproxy_table *t;
+	struct rtpengine_table *t;
 	int len = 0;
 	unsigned long flags;
 	u_int32_t id;
@@ -651,7 +662,7 @@ static void proc_main_list_stop(struct seq_file *f, void *v) {
 }
 
 static void *proc_main_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is invalid */
-	struct mediaproxy_table *t = NULL;
+	struct rtpengine_table *t = NULL;
 	u_int32_t id;
 
 	if (*o < 0)
@@ -671,7 +682,7 @@ static void *proc_main_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v 
 }
 
 static int proc_main_list_show(struct seq_file *f, void *v) {
-	struct mediaproxy_table *g = v;
+	struct rtpengine_table *g = v;
 
 	seq_printf(f, "%u\n", g->id);
 	table_push(g);
@@ -695,7 +706,7 @@ static inline unsigned int bitfield_slot(unsigned char i) {
 static inline unsigned int bitfield_bit(unsigned char i) {
 	return i % (sizeof(unsigned long) * 8);
 }
-static inline void bitfield_set(struct mp_bitfield *bf, unsigned char i) {
+static inline void bitfield_set(struct re_bitfield *bf, unsigned char i) {
 	unsigned int b, m;
 	unsigned long k;
 
@@ -707,7 +718,7 @@ static inline void bitfield_set(struct mp_bitfield *bf, unsigned char i) {
 	bf->b[b] |= k;
 	bf->used++;
 }
-static inline void bitfield_clear(struct mp_bitfield *bf, unsigned char i) {
+static inline void bitfield_clear(struct re_bitfield *bf, unsigned char i) {
 	unsigned int b, m;
 	unsigned long k;
 
@@ -719,12 +730,12 @@ static inline void bitfield_clear(struct mp_bitfield *bf, unsigned char i) {
 	bf->b[b] &= ~k;
 	bf->used--;
 }
-static inline struct mediaproxy_target *find_next_target(struct mediaproxy_table *t, int *port) {
+static inline struct rtpengine_target *find_next_target(struct rtpengine_table *t, int *port) {
 	unsigned long flags;
-	struct mp_bucket *b;
+	struct re_bucket *b;
 	unsigned char hi, lo;
 	unsigned int hi_b, lo_b;
-	struct mediaproxy_target *g;
+	struct rtpengine_target *g;
 
 	if (*port < 0 || *port > 0xffff)
 		return NULL;
@@ -784,7 +795,7 @@ next:
 
 static int proc_blist_open(struct inode *i, struct file *f) {
 	u_int32_t id;
-	struct mediaproxy_table *t;
+	struct rtpengine_table *t;
 
 	id = (u_int32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
@@ -798,7 +809,7 @@ static int proc_blist_open(struct inode *i, struct file *f) {
 
 static int proc_blist_close(struct inode *i, struct file *f) {
 	u_int32_t id;
-	struct mediaproxy_table *t;
+	struct rtpengine_table *t;
 
 	id = (u_int32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
@@ -813,12 +824,11 @@ static int proc_blist_close(struct inode *i, struct file *f) {
 static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t *o) {
 	struct inode *inode;
 	u_int32_t id;
-	struct mediaproxy_table *t;
-	struct mediaproxy_list_entry op;
-	int err;
-	struct mediaproxy_target *g;
+	struct rtpengine_table *t;
+	struct rtpengine_list_entry op;
+	int err, port, i;
+	struct rtpengine_target *g;
 	unsigned long flags;
-	int port;
 
 	if (l != sizeof(op))
 		return -EINVAL;
@@ -841,9 +851,14 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	memset(&op, 0, sizeof(op));
 	memcpy(&op.target, &g->target, sizeof(op.target));
 
-	spin_lock_irqsave(&g->stats_lock, flags);
-	memcpy(&op.stats, &g->stats, sizeof(op.stats));
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+	op.stats.packets = atomic64_read(&g->stats.packets);
+	op.stats.bytes = atomic64_read(&g->stats.bytes);
+	op.stats.errors = atomic64_read(&g->stats.errors);
+
+	for (i = 0; i < g->target.num_payload_types; i++) {
+		op.rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
+		op.rtp_stats[i].bytes = atomic64_read(&g->rtp_stats[i].bytes);
+	}
 
 	spin_lock_irqsave(&g->decrypt.lock, flags);
 	op.target.decrypt.last_index = g->target.decrypt.last_index;
@@ -875,7 +890,7 @@ static int proc_list_open(struct inode *i, struct file *f) {
 	int err;
 	struct seq_file *p;
 	u_int32_t id;
-	struct mediaproxy_table *t;
+	struct rtpengine_table *t;
 
 	id = (u_int32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
@@ -905,8 +920,8 @@ static void proc_list_stop(struct seq_file *f, void *v) {
 
 static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is invalid */
 	u_int32_t id = (u_int32_t) (unsigned long) f->private;
-	struct mediaproxy_table *t;
-	struct mediaproxy_target *g;
+	struct rtpengine_table *t;
+	struct rtpengine_target *g;
 	int port;
 
 	port = (int) *o;
@@ -923,7 +938,7 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 	return g;
 }
 
-static void proc_list_addr_print(struct seq_file *f, const char *s, const struct mp_address *a) {
+static void proc_list_addr_print(struct seq_file *f, const char *s, const struct re_address *a) {
 	if (!a->family)
 		return;
 
@@ -945,12 +960,12 @@ static void proc_list_addr_print(struct seq_file *f, const char *s, const struct
 	}
 }
 
-static void proc_list_crypto_print(struct seq_file *f, struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, const char *label)
+static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context *c,
+		struct rtpengine_srtp *s, const char *label)
 {
 	int hdr = 0;
 
-	if (c->cipher && c->cipher->id != MPC_NULL) {
+	if (c->cipher && c->cipher->id != REC_NULL) {
 		if (!hdr++)
 			seq_printf(f, "    SRTP %s parameters:\n", label);
 		seq_printf(f, "        cipher: %s\n", c->cipher->name ? : "<invalid>");
@@ -960,7 +975,7 @@ static void proc_list_crypto_print(struct seq_file *f, struct mp_crypto_context 
 					s->mki[0], s->mki[1], s->mki[2], s->mki[3],
 					s->mki[4], s->mki[5], s->mki[6], s->mki[7]);
 	}
-	if (c->hmac && c->hmac->id != MPH_NULL) {
+	if (c->hmac && c->hmac->id != REH_NULL) {
 		if (!hdr++)
 			seq_printf(f, "    SRTP %s parameters:\n", label);
 		seq_printf(f, "        HMAC: %s\n", c->hmac->name ? : "<invalid>");
@@ -969,20 +984,25 @@ static void proc_list_crypto_print(struct seq_file *f, struct mp_crypto_context 
 }
 
 static int proc_list_show(struct seq_file *f, void *v) {
-	struct mediaproxy_target *g = v;
-	unsigned long flags;
+	struct rtpengine_target *g = v;
+	int i;
 
 	seq_printf(f, "port %5u:\n", g->target.target_port);
 	proc_list_addr_print(f, "src", &g->target.src_addr);
 	proc_list_addr_print(f, "dst", &g->target.dst_addr);
 	proc_list_addr_print(f, "mirror", &g->target.mirror_addr);
 	proc_list_addr_print(f, "expect", &g->target.expected_src);
-	if (g->target.src_mismatch > 0 && g->target.src_mismatch <= ARRAY_SIZE(mp_msm_strings))
-		seq_printf(f, "    src mismatch action: %s\n", mp_msm_strings[g->target.src_mismatch]);
-	spin_lock_irqsave(&g->stats_lock, flags);
+	if (g->target.src_mismatch > 0 && g->target.src_mismatch <= ARRAY_SIZE(re_msm_strings))
+		seq_printf(f, "    src mismatch action: %s\n", re_msm_strings[g->target.src_mismatch]);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
-		g->stats.bytes, g->stats.packets, g->stats.errors);
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+		(unsigned long long) atomic64_read(&g->stats.bytes),
+		(unsigned long long) atomic64_read(&g->stats.packets),
+		(unsigned long long) atomic64_read(&g->stats.errors));
+	for (i = 0; i < g->target.num_payload_types; i++)
+		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
+			g->target.payload_types[i],
+			(unsigned long long) atomic64_read(&g->rtp_stats[i].bytes),
+			(unsigned long long) atomic64_read(&g->rtp_stats[i].packets));
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption (incoming)");
 	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt, "encryption (outgoing)");
 	if (g->target.rtcp_mux)
@@ -999,10 +1019,10 @@ static int proc_list_show(struct seq_file *f, void *v) {
 
 
 
-static int table_del_target(struct mediaproxy_table *t, u_int16_t port) {
+static int table_del_target(struct rtpengine_table *t, u_int16_t port) {
 	unsigned char hi, lo;
-	struct mp_bucket *b;
-	struct mediaproxy_target *g = NULL;
+	struct re_bucket *b;
+	struct rtpengine_target *g = NULL;
 	unsigned long flags;
 
 	if (!port)
@@ -1045,15 +1065,15 @@ out:
 
 
 
-static int is_valid_address(struct mp_address *mpa) {
-	switch (mpa->family) {
+static int is_valid_address(struct re_address *rea) {
+	switch (rea->family) {
 		case AF_INET:
-			if (!mpa->u.ipv4)
+			if (!rea->u.ipv4)
 				return 0;
 			break;
 
 		case AF_INET6:
-			if (!mpa->u.u32[0] && !mpa->u.u32[1] && !mpa->u.u32[2] && !mpa->u.u32[3])
+			if (!rea->u.u32[0] && !rea->u.u32[1] && !rea->u.u32[2] && !rea->u.u32[3])
 				return 0;
 			break;
 
@@ -1061,7 +1081,7 @@ static int is_valid_address(struct mp_address *mpa) {
 			return 0;
 	}
 
-	if (!mpa->port)
+	if (!rea->port)
 		return 0;
 
 	return 1;
@@ -1070,14 +1090,14 @@ static int is_valid_address(struct mp_address *mpa) {
 
 
 
-static int validate_srtp(struct mediaproxy_srtp *s) {
-	if (s->cipher <= MPC_INVALID)
+static int validate_srtp(struct rtpengine_srtp *s) {
+	if (s->cipher <= REC_INVALID)
 		return -1;
-	if (s->cipher >= __MPC_LAST)
+	if (s->cipher >= __REC_LAST)
 		return -1;
-	if (s->hmac <= MPH_INVALID)
+	if (s->hmac <= REH_INVALID)
 		return -1;
-	if (s->hmac >= __MPH_LAST)
+	if (s->hmac >= __REH_LAST)
 		return -1;
 	if (s->auth_tag_len > 20)
 		return -1;
@@ -1234,7 +1254,7 @@ static int prf_n(unsigned char *out, int len, const unsigned char *key, const un
 	return 0;
 }
 
-static int gen_session_key(unsigned char *out, int len, struct mediaproxy_srtp *s, unsigned char label) {
+static int gen_session_key(unsigned char *out, int len, struct rtpengine_srtp *s, unsigned char label) {
 	unsigned char key_id[7];
 	unsigned char x[14];
 	int i, ret;
@@ -1256,7 +1276,7 @@ static int gen_session_key(unsigned char *out, int len, struct mediaproxy_srtp *
 
 
 
-static int aes_f8_session_key_init(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
+static int aes_f8_session_key_init(struct re_crypto_context *c, struct rtpengine_srtp *s) {
 	unsigned char m[16];
 	int i, ret;
 
@@ -1281,11 +1301,11 @@ error:
 	return ret;
 }
 
-static int gen_session_keys(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
+static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *s) {
 	int ret;
 	const char *err;
 
-	if (s->cipher == MPC_NULL && s->hmac == MPH_NULL)
+	if (s->cipher == REC_NULL && s->hmac == REH_NULL)
 		return 0;
 	err = "failed to generate session key";
 	ret = gen_session_key(c->session_key, 16, s, 0x00);
@@ -1363,17 +1383,17 @@ error:
 
 
 
-static void crypto_context_init(struct mp_crypto_context *c, struct mediaproxy_srtp *s) {
-	c->cipher = &mp_ciphers[s->cipher];
-	c->hmac = &mp_hmacs[s->hmac];
+static void crypto_context_init(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+	c->cipher = &re_ciphers[s->cipher];
+	c->hmac = &re_hmacs[s->hmac];
 }
 
-static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target_info *i, int update) {
+static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_info *i, int update) {
 	unsigned char hi, lo;
-	struct mediaproxy_target *g;
-	struct mp_bucket *b, *ba = NULL;
-	struct mediaproxy_target *og = NULL;
-	int err;
+	struct rtpengine_target *g;
+	struct re_bucket *b, *ba = NULL;
+	struct rtpengine_target *og = NULL;
+	int err, j;
 	unsigned long flags;
 
 	if (!i->target_port)
@@ -1404,7 +1424,6 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 	memset(g, 0, sizeof(*g));
 	g->table = t->id;
 	atomic_set(&g->refcnt, 1);
-	spin_lock_init(&g->stats_lock);
 	spin_lock_init(&g->decrypt.lock);
 	spin_lock_init(&g->encrypt.lock);
 	memcpy(&g->target, i, sizeof(*i));
@@ -1452,9 +1471,14 @@ static int table_new_target(struct mediaproxy_table *t, struct mediaproxy_target
 		if (!og)
 			goto fail4;
 
-		spin_lock(&og->stats_lock);	/* nested lock! irqs are disabled already */
-		memcpy(&g->stats, &og->stats, sizeof(g->stats));
-		spin_unlock(&og->stats_lock);
+		atomic64_set(&g->stats.packets, atomic64_read(&og->stats.packets));
+		atomic64_set(&g->stats.bytes, atomic64_read(&og->stats.bytes));
+		atomic64_set(&g->stats.errors, atomic64_read(&og->stats.errors));
+
+		for (j = 0; j < NUM_PAYLOAD_TYPES; j++) {
+			atomic64_set(&g->rtp_stats[j].packets, atomic64_read(&og->rtp_stats[j].packets));
+			atomic64_set(&g->rtp_stats[j].bytes, atomic64_read(&og->rtp_stats[j].bytes));
+		}
 	}
 	else {
 		err = -EEXIST;
@@ -1489,9 +1513,9 @@ fail1:
 
 
 
-static struct mediaproxy_target *get_target(struct mediaproxy_table *t, u_int16_t port) {
+static struct rtpengine_target *get_target(struct rtpengine_table *t, u_int16_t port) {
 	unsigned char hi, lo;
-	struct mediaproxy_target *r;
+	struct rtpengine_target *r;
 	unsigned long flags;
 
 	if (!t)
@@ -1530,7 +1554,7 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 	char b[30];
 	unsigned long id;
 	char *endp;
-	struct mediaproxy_table *t;
+	struct rtpengine_table *t;
 	int err;
 
 	if (buflen < 6 || buflen > 20)
@@ -1578,7 +1602,7 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 
 static int proc_control_open(struct inode *inode, struct file *file) {
 	u_int32_t id;
-	struct mediaproxy_table *t;
+	struct rtpengine_table *t;
 	unsigned long flags;
 
 	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
@@ -1601,7 +1625,7 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 
 static int proc_control_close(struct inode *inode, struct file *file) {
 	u_int32_t id;
-	struct mediaproxy_table *t;
+	struct rtpengine_table *t;
 	unsigned long flags;
 
 	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
@@ -1621,8 +1645,8 @@ static int proc_control_close(struct inode *inode, struct file *file) {
 static ssize_t proc_control_write(struct file *file, const char __user *buf, size_t buflen, loff_t *off) {
 	struct inode *inode;
 	u_int32_t id;
-	struct mediaproxy_table *t;
-	struct mediaproxy_message msg;
+	struct rtpengine_table *t;
+	struct rtpengine_message msg;
 	int err;
 
 	if (buflen != sizeof(msg))
@@ -1662,7 +1686,7 @@ static ssize_t proc_control_write(struct file *file, const char __user *buf, siz
 			break;
 
 		default:
-			printk(KERN_WARNING "xt_MEDIAPROXY unimplemented op %u\n", msg.cmd);
+			printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", msg.cmd);
 			err = -EINVAL;
 			goto err;
 	}
@@ -1680,7 +1704,7 @@ err:
 
 
 
-static int send_proxy_packet4(struct sk_buff *skb, struct mp_address *src, struct mp_address *dst, unsigned char tos) {
+static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struct re_address *dst, unsigned char tos) {
 	struct iphdr *ih;
 	struct udphdr *uh;
 	unsigned int datalen;
@@ -1736,7 +1760,7 @@ drop:
 
 
 
-static int send_proxy_packet6(struct sk_buff *skb, struct mp_address *src, struct mp_address *dst, unsigned char tos) {
+static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struct re_address *dst, unsigned char tos) {
 	struct ipv6hdr *ih;
 	struct udphdr *uh;
 	unsigned int datalen;
@@ -1791,7 +1815,7 @@ drop:
 
 
 
-static int send_proxy_packet(struct sk_buff *skb, struct mp_address *src, struct mp_address *dst, unsigned char tos) {
+static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst, unsigned char tos) {
 	if (src->family != dst->family)
 		goto drop;
 
@@ -1859,8 +1883,8 @@ error:
 }
 
 /* XXX shared code */
-static u_int64_t packet_index(struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_header *rtp)
+static u_int64_t packet_index(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_header *rtp)
 {
 	u_int16_t seq;
 	u_int64_t index;
@@ -1899,9 +1923,20 @@ static u_int64_t packet_index(struct mp_crypto_context *c,
 	return index;
 }
 
+static void update_packet_index(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, u_int64_t idx)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&c->lock, flags);
+	s->last_index = idx;
+	c->roc = (idx >> 16);
+	spin_unlock_irqrestore(&c->lock, flags);
+}
+
 static int srtp_hash(unsigned char *hmac,
-		struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+		struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		u_int64_t pkt_idx)
 {
 	u_int32_t roc;
@@ -1944,7 +1979,7 @@ error:
 }
 
 /* XXX shared code */
-static void rtp_append_mki(struct rtp_parsed *r, struct mediaproxy_srtp *c) {
+static void rtp_append_mki(struct rtp_parsed *r, struct rtpengine_srtp *c) {
 	unsigned char *p;
 
 	if (!c->mki_len)
@@ -1955,15 +1990,15 @@ static void rtp_append_mki(struct rtp_parsed *r, struct mediaproxy_srtp *c) {
 	r->payload_len += c->mki_len;
 }
 
-static int srtp_authenticate(struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+static int srtp_authenticate(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		u_int64_t pkt_idx)
 {
 	unsigned char hmac[20];
 
 	if (!r->header)
 		return 0;
-	if (s->hmac == MPH_NULL)
+	if (s->hmac == REH_NULL)
 		return 0;
 	if (!c->hmac)
 		return 0;
@@ -1981,14 +2016,15 @@ static int srtp_authenticate(struct mp_crypto_context *c,
 	return 0;
 }
 
-static int srtp_auth_validate(struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+static int srtp_auth_validate(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
+		u_int64_t *pkt_idx_p)
 {
 	unsigned char *auth_tag;
 	unsigned char hmac[20];
+	u_int64_t pkt_idx = *pkt_idx_p;
 
-	if (s->hmac == MPH_NULL)
+	if (s->hmac == REH_NULL)
 		return 0;
 	if (!c->hmac)
 		return 0;
@@ -2015,18 +2051,42 @@ static int srtp_auth_validate(struct mp_crypto_context *c,
 
 	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
 
-	if (memcmp(auth_tag, hmac, s->auth_tag_len))
+	/* possible ROC mismatch, attempt to guess */
+	/* first, let's see if we missed a rollover */
+	pkt_idx += 0x10000;
+	if (srtp_hash(hmac, c, s, r, pkt_idx))
 		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
+	/* or maybe we did a rollover too many */
+	if (pkt_idx >= 0x20000) {
+		pkt_idx -= 0x20000;
+		if (srtp_hash(hmac, c, s, r, pkt_idx))
+			return -1;
+		if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+			goto ok;
+	}
+	/* last guess: reset ROC to zero */
+	pkt_idx &= 0xffff;
+	if (srtp_hash(hmac, c, s, r, pkt_idx))
+		return -1;
+	if (!memcmp(auth_tag, hmac, s->auth_tag_len))
+		goto ok;
 
+	return -1;
+
+ok:
+	*pkt_idx_p = pkt_idx;
 	return 0;
-
 }
 
 
 /* XXX shared code */
-static int srtp_encrypt_aes_cm(struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+static int srtp_encrypt_aes_cm(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		u_int64_t pkt_idx)
 {
 	unsigned char iv[16];
@@ -2049,8 +2109,8 @@ static int srtp_encrypt_aes_cm(struct mp_crypto_context *c,
 	return 0;
 }
 
-static int srtp_encrypt_aes_f8(struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+static int srtp_encrypt_aes_f8(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		u_int64_t pkt_idx)
 {
 	unsigned char iv[16];
@@ -2067,8 +2127,8 @@ static int srtp_encrypt_aes_f8(struct mp_crypto_context *c,
 }
 
 
-static inline int srtp_encrypt(struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+static inline int srtp_encrypt(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		u_int64_t pkt_idx)
 {
 	if (!r->header)
@@ -2078,8 +2138,8 @@ static inline int srtp_encrypt(struct mp_crypto_context *c,
 	return c->cipher->encrypt(c, s, r, pkt_idx);
 }
 
-static inline int srtp_decrypt(struct mp_crypto_context *c,
-		struct mediaproxy_srtp *s, struct rtp_parsed *r,
+static inline int srtp_decrypt(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		u_int64_t pkt_idx)
 {
 	if (!c->cipher->decrypt)
@@ -2095,24 +2155,44 @@ static inline int is_muxed_rtcp(struct rtp_parsed *r) {
 	return 1;
 }
 
-static inline int is_dtls(struct rtp_parsed *r) {
-	if (r->header->m_pt < 20)
+static inline int is_dtls(struct sk_buff *skb) {
+	if (skb->len < 1)
 		return 0;
-	if (r->header->m_pt > 63)
+	if (skb->data[0] < 20)
+		return 0;
+	if (skb->data[0] > 63)
 		return 0;
 	return 1;
 }
 
-static unsigned int mediaproxy46(struct sk_buff *skb, struct mediaproxy_table *t, struct mp_address *src) {
+static int rtp_payload_match(const void *a, const void *b) {
+	const unsigned char *A = a, *B = b;
+
+	if (*A < *B)
+		return -1;
+	if (*A > *B)
+		return 1;
+	return 0;
+}
+static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rtpengine_target_info *tg) {
+	unsigned char pt, *match;
+
+	pt = hdr->m_pt & 0x7f;
+	match = bsearch(&pt, tg->payload_types, tg->num_payload_types, sizeof(pt), rtp_payload_match);
+	if (!match)
+		return -1;
+	return match - tg->payload_types;
+}
+
+static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src) {
 	struct udphdr *uh;
-	struct mediaproxy_target *g;
+	struct rtpengine_target *g;
 	struct sk_buff *skb2;
-	int err;
+	int err, rtp_pt_idx = -2;
 	unsigned int datalen;
-	unsigned long flags;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
-	u_int64_t pkt_idx = 0;
+	u_int64_t pkt_idx = 0, pkt_idx_u;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -2165,19 +2245,30 @@ not_stun:
 	goto out;
 
 src_check_ok:
+	if (g->target.dtls && is_dtls(skb))
+		goto skip1;
+
+	rtp.ok = 0;
+	if (!g->target.rtp)
+		goto not_rtp;
+
 	parse_rtp(&rtp, skb);
 	if (!rtp.ok) {
 		if (g->target.rtp_only)
 			goto skip1;
 		goto not_rtp;
 	}
+
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
 		goto skip1;
-	if (g->target.dtls && is_dtls(&rtp))
-		goto skip1;
-	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
-	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
+
+	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
+
+	pkt_idx_u = pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
 		goto skip_error;
+	if (pkt_idx != pkt_idx_u)
+		update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx);
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
 
@@ -2195,11 +2286,8 @@ not_rtp:
 		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
 		skb2 = skb_copy(skb, GFP_ATOMIC);
 		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos);
-		if (err) {
-			spin_lock_irqsave(&g->stats_lock, flags);
-			g->stats.errors++;
-			spin_unlock_irqrestore(&g->stats_lock, flags);
-		}
+		if (err)
+			atomic64_inc(&g->stats.errors);
 	}
 
 	if (rtp.ok) {
@@ -2211,14 +2299,20 @@ not_rtp:
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
 out:
-	spin_lock_irqsave(&g->stats_lock, flags);
 	if (err)
-		g->stats.errors++;
+		atomic64_inc(&g->stats.errors);
 	else {
-		g->stats.packets++;
-		g->stats.bytes += skb->len;
+		atomic64_inc(&g->stats.packets);
+		atomic64_add(datalen, &g->stats.bytes);
 	}
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+	if (rtp_pt_idx >= 0) {
+		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
+		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
+	}
+	else if (rtp_pt_idx == -2)
+		/* not RTP */ ;
+	else if (rtp_pt_idx == -1)
+		atomic64_inc(&g->stats.errors);
 
 	target_push(g);
 	table_push(t);
@@ -2226,9 +2320,7 @@ out:
 	return NF_DROP;
 
 skip_error:
-	spin_lock_irqsave(&g->stats_lock, flags);
-	g->stats.errors++;
-	spin_unlock_irqrestore(&g->stats_lock, flags);
+	atomic64_inc(&g->stats.errors);
 skip1:
 	target_push(g);
 skip2:
@@ -2243,15 +2335,15 @@ skip2:
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_target_param *par) {
+static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_target_param *par) {
 #else
-static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_param *par) {
+static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_param *par) {
 #endif
-	const struct xt_mediaproxy_info *pinfo = par->targinfo;
+	const struct xt_rtpengine_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
 	struct iphdr *ih;
-	struct mediaproxy_table *t;
-	struct mp_address src;
+	struct rtpengine_table *t;
+	struct re_address src;
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -2271,7 +2363,7 @@ static unsigned int mediaproxy4(struct sk_buff *oskb, const struct xt_action_par
 	src.family = AF_INET;
 	src.u.ipv4 = ih->saddr;
 
-	return mediaproxy46(skb, t, &src);
+	return rtpengine46(skb, t, &src);
 
 skip2:
 	kfree_skb(skb);
@@ -2285,15 +2377,15 @@ skip:
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_target_param *par) {
+static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_target_param *par) {
 #else
-static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_param *par) {
+static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_param *par) {
 #endif
-	const struct xt_mediaproxy_info *pinfo = par->targinfo;
+	const struct xt_rtpengine_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
 	struct ipv6hdr *ih;
-	struct mediaproxy_table *t;
-	struct mp_address src;
+	struct rtpengine_table *t;
+	struct re_address src;
 
 	t = get_table(pinfo->id);
 	if (!t)
@@ -2313,7 +2405,7 @@ static unsigned int mediaproxy6(struct sk_buff *oskb, const struct xt_action_par
 	src.family = AF_INET6;
 	memcpy(&src.u.ipv6, &ih->saddr, sizeof(src.u.ipv6));
 
-	return mediaproxy46(skb, t, &src);
+	return rtpengine46(skb, t, &src);
 
 skip2:
 	kfree_skb(skb);
@@ -2336,14 +2428,14 @@ static bool check(const struct xt_tgchk_param *par) {
 #define CHECK_SCC 0
 static int check(const struct xt_tgchk_param *par) {
 #endif
-	const struct xt_mediaproxy_info *pinfo = par->targinfo;
+	const struct xt_rtpengine_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
-		printk(KERN_WARNING "xt_MEDIAPROXY check() without proc_root\n");
+		printk(KERN_WARNING "xt_RTPENGINE check() without proc_root\n");
 		return CHECK_ERR;
 	}
 	if (pinfo->id >= MAX_ID) {
-		printk(KERN_WARNING "xt_MEDIAPROXY ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
+		printk(KERN_WARNING "xt_RTPENGINE ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
 		return CHECK_ERR;
 	}
 
@@ -2353,22 +2445,22 @@ static int check(const struct xt_tgchk_param *par) {
 
 
 
-static struct xt_target xt_mediaproxy_regs[] = {
+static struct xt_target xt_rtpengine_regs[] = {
 	{
-		.name		= "MEDIAPROXY",
+		.name		= "RTPENGINE",
 		.family		= NFPROTO_IPV4,
-		.target		= mediaproxy4,
-		.targetsize	= sizeof(struct xt_mediaproxy_info),
+		.target		= rtpengine4,
+		.targetsize	= sizeof(struct xt_rtpengine_info),
 		.table		= "filter",
 		.hooks		= (1 << NF_INET_LOCAL_IN),
 		.checkentry	= check,
 		.me		= THIS_MODULE,
 	},
 	{
-		.name		= "MEDIAPROXY",
+		.name		= "RTPENGINE",
 		.family		= NFPROTO_IPV6,
-		.target		= mediaproxy6,
-		.targetsize	= sizeof(struct xt_mediaproxy_info),
+		.target		= rtpengine6,
+		.targetsize	= sizeof(struct xt_rtpengine_info),
 		.table		= "filter",
 		.hooks		= (1 << NF_INET_LOCAL_IN),
 		.checkentry	= check,
@@ -2380,13 +2472,13 @@ static int __init init(void) {
 	int ret;
 	const char *err;
 
-	printk(KERN_NOTICE "Registering xt_MEDIAPROXY module - version %s\n", MEDIAPROXY_VERSION);
+	printk(KERN_NOTICE "Registering xt_RTPENGINE module - version %s\n", RTPENGINE_VERSION);
 
 	rwlock_init(&table_lock);
 
 	ret = -ENOMEM;
 	err = "could not register /proc/ entries";
-	my_proc_root = proc_mkdir("mediaproxy", NULL);
+	my_proc_root = proc_mkdir("rtpengine", NULL);
 	if (!my_proc_root)
 		goto fail;
 	/* my_proc_root->owner = THIS_MODULE; */
@@ -2401,7 +2493,7 @@ static int __init init(void) {
 		goto fail;
 
 	err = "could not register xtables target";
-	ret = xt_register_targets(xt_mediaproxy_regs, ARRAY_SIZE(xt_mediaproxy_regs));
+	ret = xt_register_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
 	if (ret)
 		goto fail;
 
@@ -2412,14 +2504,14 @@ fail:
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
 
-	printk(KERN_ERR "Failed to load xt_MEDIAPROXY module: %s\n", err);
+	printk(KERN_ERR "Failed to load xt_RTPENGINE module: %s\n", err);
 
 	return ret;
 }
 
 static void __exit fini(void) {
-	printk(KERN_NOTICE "Unregistering xt_MEDIAPROXY module\n");
-	xt_unregister_targets(xt_mediaproxy_regs, ARRAY_SIZE(xt_mediaproxy_regs));
+	printk(KERN_NOTICE "Unregistering xt_RTPENGINE module\n");
+	xt_unregister_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
 
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);
