@@ -534,6 +534,7 @@ no_kernel:
 	dtls_timer(ctx->p);
 
 	ZERO(mc);
+        rwlock_init(&mc.config_lock);
 	mc.kernelfd = kfd;
 	mc.kernelid = table;
 	if (max_sessions < -1) {

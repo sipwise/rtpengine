@@ -141,6 +141,8 @@ static void cli_incoming_list_maxopenfiles(char* buffer, int len, struct callmas
 static void cli_incoming_list_timeout(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
 
+	rwlock_lock_r(&m->conf.config_lock);
+
 	/* don't lock anything while reading the value */
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "TIMEOUT=%u\n", m->conf.timeout);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
@@ -148,6 +150,8 @@ static void cli_incoming_list_timeout(char* buffer, int len, struct callmaster* 
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "FINAL_TIMEOUT=%u\n", m->conf.final_timeout);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	rwlock_unlock_r(&m->conf.config_lock);
 
 	return ;
 }
@@ -334,13 +338,15 @@ static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaste
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %d; either positive or -1 values allowed\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	} else if (maxsessions_num == disabled) {
-		/* don't lock anything while writing the value - only this command modifies its value */
+		rwlock_lock_w(&m->conf.config_lock);
 		m->conf.max_sessions = maxsessions_num;
+		rwlock_unlock_w(&m->conf.config_lock);
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %d; disable feature\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	} else {
-		/* don't lock anything while writing the value - only this command modifies its value */
+		rwlock_lock_w(&m->conf.config_lock);
 		m->conf.max_sessions = maxsessions_num;
+		rwlock_unlock_w(&m->conf.config_lock);
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %d\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
@@ -348,7 +354,7 @@ static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaste
 	return;
 }
 
-static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend, unsigned int *conf_timeout) {
 	int printlen = 0;
 	unsigned int timeout_num;
 	str timeout;
@@ -375,74 +381,10 @@ static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m
 		return;
 	} else {
 		/* don't lock anything while writing the value - only this command modifies its value */
-		m->conf.timeout = timeout_num;
+		rwlock_lock_w(&m->conf.config_lock);
+		*conf_timeout = timeout_num;
+		rwlock_unlock_w(&m->conf.config_lock);
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting timeout to %u\n", timeout_num);
-		ADJUSTLEN(printlen,outbufend,replybuffer);
-	}
-}
-
-static void cli_incoming_set_silent_timeout(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
-	int printlen = 0;
-	unsigned int silent_timeout_num;
-	str silent_timeout;
-	char *endptr;
-
-	if (len <= 1) {
-		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
-		ADJUSTLEN(printlen,outbufend,replybuffer);
-		return;
-	}
-
-	++buffer; --len; // one space
-	silent_timeout.s = buffer;
-	silent_timeout.len = len;
-	silent_timeout_num = strtol(silent_timeout.s, &endptr, 10);
-
-	if ((errno == ERANGE && (silent_timeout_num == LONG_MAX || silent_timeout_num == LONG_MIN)) || (errno != 0 && silent_timeout_num == 0)) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting silent_timeout to %.*s; errno=%d\n", silent_timeout.len, silent_timeout.s, errno);
-		ADJUSTLEN(printlen,outbufend,replybuffer);
-		return;
-	} else if (endptr == silent_timeout.s) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting silent_timeout to %.*s; no digists found\n", silent_timeout.len, silent_timeout.s);
-		ADJUSTLEN(printlen,outbufend,replybuffer);
-		return;
-	} else {
-		/* don't lock anything while writing the value - only this command modifies its value */
-		m->conf.silent_timeout = silent_timeout_num;
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting silent_timeout to %u\n", silent_timeout_num);
-		ADJUSTLEN(printlen,outbufend,replybuffer);
-	}
-}
-
-static void cli_incoming_set_final_timeout(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
-	int printlen = 0;
-	unsigned int final_timeout_num;
-	str final_timeout;
-	char *endptr;
-
-	if (len <= 1) {
-		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
-		ADJUSTLEN(printlen,outbufend,replybuffer);
-		return;
-	}
-
-	++buffer; --len; // one space
-	final_timeout.s = buffer;
-	final_timeout.len = len;
-	final_timeout_num = strtol(final_timeout.s, &endptr, 10);
-
-	if ((errno == ERANGE && (final_timeout_num == LONG_MAX || final_timeout_num == LONG_MIN)) || (errno != 0 && final_timeout_num == 0)) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting final_timeout to %.*s; errno=%d\n", final_timeout.len, final_timeout.s, errno);
-		ADJUSTLEN(printlen,outbufend,replybuffer);
-		return;
-	} else if (endptr == final_timeout.s) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting final_timeout to %.*s; no digists found\n", final_timeout.len, final_timeout.s);
-		ADJUSTLEN(printlen,outbufend,replybuffer);
-		return;
-	} else {
-		/* don't lock anything while writing the value - only this command modifies its value */
-		m->conf.final_timeout = final_timeout_num;
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting final_timeout to %u\n", final_timeout_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
 }
@@ -527,11 +469,11 @@ static void cli_incoming_set(char* buffer, int len, struct callmaster* m, char* 
 	} else if (len>=strlen(SET_MAX_SESSIONS) && strncmp(buffer,SET_MAX_SESSIONS,strlen(SET_MAX_SESSIONS)) == 0) {
 		cli_incoming_set_maxsessions(buffer+strlen(SET_MAX_SESSIONS), len-strlen(SET_MAX_SESSIONS), m, replybuffer, outbufend);
 	} else if (len>=strlen(SET_TIMEOUT) && strncmp(buffer,SET_TIMEOUT,strlen(SET_TIMEOUT)) == 0) {
-		cli_incoming_set_timeout(buffer+strlen(SET_TIMEOUT), len-strlen(SET_TIMEOUT), m, replybuffer, outbufend);
+		cli_incoming_set_timeout(buffer+strlen(SET_TIMEOUT), len-strlen(SET_TIMEOUT), m, replybuffer, outbufend, &m->conf.timeout);
 	} else if (len>=strlen(SET_SILENT_TIMEOUT) && strncmp(buffer,SET_SILENT_TIMEOUT,strlen(SET_SILENT_TIMEOUT)) == 0) {
-		cli_incoming_set_silent_timeout(buffer+strlen(SET_SILENT_TIMEOUT), len-strlen(SET_SILENT_TIMEOUT), m, replybuffer, outbufend);
+		cli_incoming_set_timeout(buffer+strlen(SET_SILENT_TIMEOUT), len-strlen(SET_SILENT_TIMEOUT), m, replybuffer, outbufend, &m->conf.silent_timeout);
 	} else if (len>=strlen(SET_FINAL_TIMEOUT) && strncmp(buffer,SET_FINAL_TIMEOUT,strlen(SET_FINAL_TIMEOUT)) == 0) {
-		cli_incoming_set_final_timeout(buffer+strlen(SET_FINAL_TIMEOUT), len-strlen(SET_FINAL_TIMEOUT), m, replybuffer, outbufend);
+		cli_incoming_set_timeout(buffer+strlen(SET_FINAL_TIMEOUT), len-strlen(SET_FINAL_TIMEOUT), m, replybuffer, outbufend, &m->conf.final_timeout);
 	} else {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s:%s\n", "Unknown 'set' command", buffer);
 		ADJUSTLEN(printlen,outbufend,replybuffer);

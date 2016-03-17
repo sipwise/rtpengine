@@ -193,6 +193,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	log_info_call(c);
 
 	cm = c->callmaster;
+	rwlock_lock_r(&cm->conf.config_lock);
 
 	if (cm->conf.final_timeout && poller_now >= (c->created + cm->conf.final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
@@ -281,6 +282,7 @@ delete:
 	goto out;
 
 out:
+	rwlock_unlock_r(&cm->conf.config_lock);
 	rwlock_unlock_r(&c->master_lock);
 	log_info_clear();
 }

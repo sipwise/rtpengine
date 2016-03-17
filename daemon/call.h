@@ -421,10 +421,14 @@ struct call {
 struct callmaster_config {
 	int			kernelfd;
 	int			kernelid;
+
+	/* everything below protected by config_lock */
+	rwlock_t		config_lock;
 	int			max_sessions;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
 	unsigned int		final_timeout;
+
 	unsigned int		delete_delay;
 	struct redis		*redis;
 	struct redis		*redis_write;
