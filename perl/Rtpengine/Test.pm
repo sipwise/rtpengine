@@ -19,7 +19,7 @@ use RTP;
 use Rtpengine;
 
 sub new {
-	my ($class) = @_;
+	my ($class, %args) = @_;
 
 	my $self = {};
 	bless $self, $class;
@@ -53,7 +53,7 @@ sub new {
 	$self->{timers} = [];
 	$self->{clients} = [];
 
-	$self->{control} = Rtpengine->new('localhost', 2223);
+	$self->{control} = Rtpengine->new($args{host} // 'localhost', $args{port} // 2223);
 	$self->{callid} = rand();
 
 	return $self;
@@ -261,6 +261,9 @@ sub _default_req_args {
 
 	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol address-family)) {
 		$args{$cp} and $req->{$cp} = $args{$cp};
+	}
+	for my $cp (@{$args{flags}}) {
+		push(@{$req->{flags}}, $cp);
 	}
 
 	return $req;
