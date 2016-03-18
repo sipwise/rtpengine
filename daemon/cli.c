@@ -18,6 +18,7 @@
 
 #include "rtpengine_config.h"
 
+
 static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
 	struct timeval avg, calls_dur_iv;
@@ -198,7 +199,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
        ADJUSTLEN(printlen,outbufend,replybuffer);
        return;
    }
-   ++buffer; --len; // one space
+//   ++buffer; --len; // one space
    str_init_len(&callid,buffer,len);
 
    c = call_get(&callid, m);
@@ -210,7 +211,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    }
 
    printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu | redis_keyspace:%i | foreign:%s\n\n",
-		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db, c->redis_foreign_call?"yes":"no");
+		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db, c->is_backup_call?"yes":"no");
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues.head; l; l = l->next) {
@@ -287,6 +288,85 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 
    rwlock_unlock_w(&c->master_lock); // because of call_get(..)
    obj_put(c);
+}
+
+static void cli_incoming_list_sessions(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+	GHashTableIter iter;
+	gpointer key, value;
+	str *ptrkey;
+	struct call *call;
+	int found_own = 0, found_foreign = 0;
+
+	static const char* LIST_ALL = "all";
+	static const char* LIST_OWN = "own";
+	static const char* LIST_FOREIGN = "foreign";
+
+	if (len<=1) {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		return;
+	}
+	++buffer; --len; // one space
+
+	rwlock_lock_r(&m->hashlock);
+
+	if (g_hash_table_size(m->callhash)==0) {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "No sessions on this media relay.\n");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		rwlock_unlock_r(&m->hashlock);
+		return;
+	}
+
+	g_hash_table_iter_init (&iter, m->callhash);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		ptrkey = (str*)key;
+		call = (struct call*)value;
+
+		if (len>=strlen(LIST_ALL) && strncmp(buffer,LIST_ALL,strlen(LIST_ALL)) == 0) {
+			if (!call) {
+				continue;
+			}
+		} else if (len>=strlen(LIST_OWN) && strncmp(buffer,LIST_OWN,strlen(LIST_OWN)) == 0) {
+			if (!call || call->is_backup_call) {
+				continue;
+			} else {
+				found_own = 1;
+			}
+		} else if (len>=strlen(LIST_FOREIGN) && strncmp(buffer,LIST_FOREIGN,strlen(LIST_FOREIGN)) == 0) {
+			if (!call || !call->is_backup_call) {
+				continue;
+			} else {
+				found_foreign = 1;
+			}
+		} else {
+			// expect callid parameter
+			break;
+		}
+
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db, call->is_backup_call?"yes":"no");
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+	rwlock_unlock_r(&m->hashlock);
+
+	if (len>=strlen(LIST_ALL) && strncmp(buffer,LIST_ALL,strlen(LIST_ALL)) == 0) {
+		;
+	} else if (len>=strlen(LIST_OWN) && strncmp(buffer,LIST_OWN,strlen(LIST_OWN)) == 0) {
+		if (!found_own) {
+			printlen = snprintf(replybuffer, outbufend-replybuffer, "No own sessions on this media relay.\n");
+			ADJUSTLEN(printlen,outbufend,replybuffer);
+		}
+	} else if (len>=strlen(LIST_FOREIGN) && strncmp(buffer,LIST_FOREIGN,strlen(LIST_FOREIGN)) == 0) {
+		if (!found_foreign) {
+			printlen = snprintf(replybuffer, outbufend-replybuffer, "No foreign sessions on this media relay.\n");
+			ADJUSTLEN(printlen,outbufend,replybuffer);
+		}
+	} else {
+		// list session for callid
+		cli_incoming_list_callid(buffer, len, m, replybuffer, outbufend);
+	}
+
+	return;
 }
 
 static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
@@ -415,15 +495,10 @@ static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m
 }
 
 static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
-   GHashTableIter iter;
-   gpointer key, value;
-   str *ptrkey;
-   struct call *call;
    int printlen=0;
 
    static const char* LIST_NUMSESSIONS = "numsessions";
    static const char* LIST_SESSIONS = "sessions";
-   static const char* LIST_SESSION = "session";
    static const char* LIST_TOTALS = "totals";
    static const char* LIST_MAX_OPEN_FILES = "maxopenfiles";
    static const char* LIST_MAX_SESSIONS = "maxsessions";
@@ -446,23 +521,7 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
        ADJUSTLEN(printlen,outbufend,replybuffer);
        rwlock_unlock_r(&m->hashlock);
    } else if (len>=strlen(LIST_SESSIONS) && strncmp(buffer,LIST_SESSIONS,strlen(LIST_SESSIONS)) == 0) {
-       rwlock_lock_r(&m->hashlock);
-       if (g_hash_table_size(m->callhash)==0) {
-           printlen = snprintf(replybuffer, outbufend-replybuffer, "No sessions on this media relay.\n");
-           ADJUSTLEN(printlen,outbufend,replybuffer);
-           rwlock_unlock_r(&m->hashlock);
-           return;
-       }
-       g_hash_table_iter_init (&iter, m->callhash);
-       while (g_hash_table_iter_next (&iter, &key, &value)) {
-           ptrkey = (str*)key;
-           call = (struct call*)value;
-           printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db, call->redis_foreign_call?"yes":"no");
-           ADJUSTLEN(printlen,outbufend,replybuffer);
-       }
-       rwlock_unlock_r(&m->hashlock);
-   } else if (len>=strlen(LIST_SESSION) && strncmp(buffer,LIST_SESSION,strlen(LIST_SESSION)) == 0) {
-       cli_incoming_list_callid(buffer+strlen(LIST_SESSION), len-strlen(LIST_SESSION), m, replybuffer, outbufend);
+       cli_incoming_list_sessions(buffer+strlen(LIST_SESSIONS), len-strlen(LIST_SESSIONS), m, replybuffer, outbufend);
    } else if (len>=strlen(LIST_TOTALS) && strncmp(buffer,LIST_TOTALS,strlen(LIST_TOTALS)) == 0) {
        cli_incoming_list_totals(buffer+strlen(LIST_TOTALS), len-strlen(LIST_TOTALS), m, replybuffer, outbufend);
    } else if (len>=strlen(LIST_MAX_SESSIONS) && strncmp(buffer,LIST_MAX_SESSIONS,strlen(LIST_MAX_SESSIONS)) == 0) {
@@ -547,6 +606,40 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
        ADJUSTLEN(printlen,outbufend,replybuffer);
        return;
    }
+
+	// --- terminate own/foreign calls
+	else if (!str_memcmp(&termparam,"own") || !str_memcmp(&termparam,"foreign")) {
+		// remove all current own calls for this keyspace
+		g_hash_table_iter_init(&iter, m->callhash);
+		while (g_hash_table_iter_next(&iter, &key, &value)) {
+			c = (struct call*)value;
+			if (!c) continue;
+			if (!str_memcmp(&termparam,"own") && c->is_backup_call) {
+				continue;
+			} else if (!str_memcmp(&termparam,"foreign") && !c->is_backup_call) {
+				continue;
+			}
+			if (!c->ml_deleted) {
+				for (i = c->monologues.head; i; i = i->next) {
+					ml = i->data;
+					gettimeofday(&(ml->terminated), NULL);
+					ml->term_reason = FORCED;
+				}
+			}
+			call_destroy(c);
+			g_hash_table_iter_init(&iter, m->callhash);
+		}
+		if (!str_memcmp(&termparam,"own")) {
+			ilog(LOG_INFO,"All own calls terminated by operator.");
+			printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "All own calls terminated by operator.");
+			ADJUSTLEN(printlen,outbufend,replybuffer);
+		} else if (!str_memcmp(&termparam,"foreign")) {
+			ilog(LOG_INFO,"All foreign calls terminated by operator.");
+			printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "All foreign calls terminated by operator.");
+			ADJUSTLEN(printlen,outbufend,replybuffer);
+		}
+		return;
+	}
 
    // --- terminate a dedicated call id
    c = call_get(&termparam, m);
@@ -638,7 +731,7 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 		g_hash_table_iter_init(&iter, m->callhash);
 		while (g_hash_table_iter_next(&iter, &key, &value)) {
 			c = (struct call*)value;
-			if (!c || !c->redis_foreign_call || !(c->redis_hosted_db == keyspace_db)) {
+			if (!c || !c->is_backup_call || !(c->redis_hosted_db == keyspace_db)) {
 				continue;
 			}
 			if (!c->ml_deleted) {
@@ -687,6 +780,8 @@ static void cli_incoming(int fd, void *p, uintptr_t u) {
    char inbuf[MAXINPUT];
    int inlen = 0, readbytes = 0;
    int rc=0;
+
+   memset(replybuffer, 0, BUFLENGTH);
 
    mutex_lock(&cli->lock);
 next:
