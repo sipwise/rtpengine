@@ -1553,8 +1553,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		if (sp->rtp_endpoint.port) {
 			/* copy parameters advertised by the sender of this message */
 			bf_copy_same(&other_media->media_flags, &sp->sp_flags,
-					SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_ICE
-					| SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE);
+					SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_UNIDIRECTIONAL |
+					SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE);
 
 			crypto_params_copy(&other_media->sdes_in.params, &sp->crypto, 1);
 			other_media->sdes_in.tag = sp->sdes_tag;
