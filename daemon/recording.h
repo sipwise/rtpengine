@@ -20,6 +20,7 @@ struct recording {
 	str           *metadata;
 	pcap_t        *recording_pd;
 	pcap_dumper_t *recording_pdumper;
+	uint64_t      *packet_num;
 	str           *recording_path;
 };
 
@@ -79,7 +80,8 @@ str *meta_setup_file(struct recording *recording, str callid);
 /**
  * Write out a block of SDP to the metadata file.
  */
-ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt);
+ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt,
+		       uint64_t packet_num, enum call_opmode opmode);
 
 /**
  * Writes metadata to metafile, closes file, and moves it to finished location.

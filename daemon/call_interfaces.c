@@ -744,7 +744,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (call->record_call && recording != NULL && recording->meta_fp != NULL) {
 		struct iovec *iov = &g_array_index(chopper->iov, struct iovec, 0);
 		int iovcnt = chopper->iov_num;
-		meta_write_sdp(recording->meta_fp, iov, iovcnt);
+		meta_write_sdp(recording->meta_fp, iov, iovcnt,
+			       call->recording->packet_num, opmode);
 	}
 	bencode_dictionary_get_str(input, "metadata", &metadata);
 	if (metadata.len > 0 && call->recording != NULL) {

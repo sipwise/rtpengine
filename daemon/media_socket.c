@@ -1202,6 +1202,7 @@ loop_ok:
 	// If recording pcap dumper is set, then we record the call.
 	if (recording_pdumper != NULL && call->record_call) {
 		stream_pcap_dump(recording_pdumper, stream, s);
+		call->recording->packet_num += 1;
 	}
 
 	if (handler_ret >= 0) {

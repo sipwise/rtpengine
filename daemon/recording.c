@@ -136,6 +136,7 @@ int set_record_call(struct call *call, str recordcall) {
 			call->recording = g_slice_alloc0(sizeof(struct recording));
 			call->recording->recording_pd = NULL;
 			call->recording->recording_pdumper = NULL;
+			call->recording->packet_num = 0;
 			meta_setup_file(call->recording, call->callid);
 		}
 	} else if (!str_cmp(&recordcall, "no")) {
@@ -204,12 +205,21 @@ str *meta_setup_file(struct recording *recording, str callid) {
 /**
  * Write out a block of SDP to the metadata file.
  */
-ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt) {
-	fprintf(meta_fp, "\n");
+ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt,
+		       uint64_t packet_num, enum call_opmode opmode) {
 	int meta_fd = fileno(meta_fp);
 	// File pointers buffer data, whereas direct writing using the file
 	// descriptor does not. Make sure to flush any unwritten contents
 	// so the file contents appear in order.
+	fprintf(meta_fp, "\nSDP mode: ");
+	if (opmode == OP_ANSWER) {
+		fprintf(meta_fp, "answer");
+	} else if (opmode == OP_OFFER) {
+		fprintf(meta_fp, "offer");
+	} else {
+		fprintf(meta_fp, "other");
+	}
+	fprintf(meta_fp, "\nSDP before RTP packet: %llu\n\n", packet_num);
 	fflush(meta_fp);
 	return writev(meta_fd, sdp_iov, iovcnt);
 }
