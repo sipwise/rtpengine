@@ -225,15 +225,10 @@ int meta_finish_file(struct call *call) {
 	if (recording != NULL && recording->meta_fp != NULL) {
 		// Print start timestamp and end timestamp
 		// YYYY-MM-DDThh:mm:ss
-		time_t start = 0, end = 0;
+		time_t start = call->created;
+		time_t end = g_now.tv_sec;
 		char timebuffer[20];
 		struct tm *timeinfo;
-		if (call->monologues.head) {
-			struct call_monologue *ml;
-			ml = call->monologues.head->data;
-			start = ml->started.tv_sec;
-			end = g_now.tv_sec;
-		}
 		timeinfo = localtime(&start);
 		strftime(timebuffer, 20, "%FT%T", timeinfo);
 		fprintf(recording->meta_fp, "\n\n%s\n", timebuffer);
