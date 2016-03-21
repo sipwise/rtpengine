@@ -164,6 +164,7 @@ option and which are reproduced below:
 	  -T, --tos=INT                    TOS value to set on streams
 	  -o, --timeout=SECS               RTP timeout
 	  -s, --silent-timeout=SECS        RTP timeout for muted
+	  -a, --final-timeout=SECS         Call timeout
 	  -p, --pidfile=FILE               Write PID to file
 	  -f, --foreground                 Don't fork to background
 	  -m, --port-min=INT               Lowest port to use for RTP
@@ -292,6 +293,11 @@ The options are described in more detail below.
 
 	Ditto as the `--timeout` option, but applies to muted or inactive media streams. Defaults to 3600
 	(one hour).
+
+* -a, --final-timeout
+
+	The number of seconds since call creation, after call is deleted. Useful for limiting the lifetime of a call.
+	This feature can be disabled by setting the parameter to 0. By default this timeout is disabled.
 
 * -p, --pidfile
 
@@ -717,6 +723,10 @@ Optionally included keys are:
 
 		Corresponds to the *rtpproxy* `a` flag. Advertises an RTP endpoint which uses asymmetric
 		RTP, which disables learning of endpoint addresses (see below).
+
+	- `unidirectional`
+
+		When this flag is present, kernelize also one-way rtp media.
 
 	- `strict source`
 

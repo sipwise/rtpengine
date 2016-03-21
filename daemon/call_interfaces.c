@@ -388,10 +388,12 @@ str *call_query_udp(char **out, struct callmaster *m) {
 
 	rwlock_unlock_w(&c->master_lock);
 
+	rwlock_lock_r(&m->conf.config_lock);
 	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
 		(long long int) m->conf.silent_timeout - (poller_now - stats.last_packet),
 		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
 		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
+	rwlock_unlock_r(&m->conf.config_lock);
 	goto out;
 
 err:
@@ -541,6 +543,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->trust_address = 0;
 			else if (!bencode_strcmp(it, "asymmetric"))
 				out->asymmetric = 1;
+			else if (!bencode_strcmp(it, "unidirectional"))
+				out->unidirectional = 1;
 			else if (!bencode_strcmp(it, "strict-source"))
 				out->strict_source = 1;
 			else if (!bencode_strcmp(it, "media-handover"))
@@ -741,6 +745,7 @@ out:
 const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr,
 		const endpoint_t *sin)
 {
+	rwlock_lock_r(&m->conf.config_lock);
 	if (m->conf.max_sessions>=0) {
 		rwlock_lock_r(&m->hashlock);
 		if (g_hash_table_size(m->callhash) -
@@ -751,10 +756,14 @@ const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 			atomic64_inc(&m->totalstats.total_rejected_sess);
 			atomic64_inc(&m->totalstats_interval.total_rejected_sess);
 			ilog(LOG_ERROR, "Parallel session limit reached (%i)",m->conf.max_sessions);
+
+			rwlock_unlock_r(&m->conf.config_lock);
 			return "Parallel session limit reached";
 		}
 		rwlock_unlock_r(&m->hashlock);
 	}
+
+	rwlock_unlock_r(&m->conf.config_lock);
 	return call_offer_answer_ng(input, m, output, OP_OFFER, addr, sin);
 }
 

@@ -35,7 +35,8 @@ enum termination_reason {
 	REGULAR=1,
 	FORCED=2,
 	TIMEOUT=3,
-	SILENT_TIMEOUT=4
+	SILENT_TIMEOUT=4,
+	FINAL_TIMEOUT=5
 };
 
 enum tag_type {
@@ -128,6 +129,7 @@ enum call_type {
 #define SHARED_FLAG_MEDIA_HANDOVER		0x00000200
 #define SHARED_FLAG_TRICKLE_ICE			0x00000400
 #define SHARED_FLAG_ICE_LITE			0x00000800
+#define SHARED_FLAG_UNIDIRECTIONAL		0x00001000
 
 /* struct stream_params */
 #define SP_FLAG_NO_RTCP				0x00010000
@@ -136,6 +138,7 @@ enum call_type {
 #define SP_FLAG_SEND				SHARED_FLAG_SEND
 #define SP_FLAG_RECV				SHARED_FLAG_RECV
 #define SP_FLAG_ASYMMETRIC			SHARED_FLAG_ASYMMETRIC
+#define SP_FLAG_UNIDIRECTIONAL			SHARED_FLAG_UNIDIRECTIONAL
 #define SP_FLAG_SETUP_ACTIVE			SHARED_FLAG_SETUP_ACTIVE
 #define SP_FLAG_SETUP_PASSIVE			SHARED_FLAG_SETUP_PASSIVE
 #define SP_FLAG_ICE				SHARED_FLAG_ICE
@@ -163,6 +166,7 @@ enum call_type {
 /* struct call_media */
 #define MEDIA_FLAG_INITIALIZED			0x00010000
 #define MEDIA_FLAG_ASYMMETRIC			SHARED_FLAG_ASYMMETRIC
+#define MEDIA_FLAG_UNIDIRECTIONAL		SHARED_FLAG_UNIDIRECTIONAL
 #define MEDIA_FLAG_SEND				SHARED_FLAG_SEND
 #define MEDIA_FLAG_RECV				SHARED_FLAG_RECV
 #define MEDIA_FLAG_RTCP_MUX			SHARED_FLAG_RTCP_MUX
@@ -236,12 +240,19 @@ struct stats {
 	atomic64			foreign_sessions; // unresponsible via redis notification
 };
 
+struct request_time {
+	mutex_t lock;
+	u_int64_t count;
+	struct timeval time_min, time_max, time_avg;
+};
+
 struct totalstats {
 	time_t 				started;
 	atomic64			total_timeout_sess;
 	atomic64			total_foreign_sessions;
 	atomic64			total_rejected_sess;
 	atomic64			total_silent_timeout_sess;
+	atomic64			total_final_timeout_sess;
 	atomic64			total_regular_term_sess;
 	atomic64			total_forced_term_sess;
 	atomic64			total_relayed_packets;
@@ -259,6 +270,8 @@ struct totalstats {
 
 	mutex_t				total_calls_duration_lock; /* for these two below */
 	struct timeval		total_calls_duration_interval;
+
+	struct request_time		offer, answer, delete;
 };
 
 struct stream_params {
@@ -428,9 +441,14 @@ struct call {
 struct callmaster_config {
 	int			kernelfd;
 	int			kernelid;
+
+	/* everything below protected by config_lock */
+	rwlock_t		config_lock;
 	int			max_sessions;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
+	unsigned int		final_timeout;
+
 	unsigned int		delete_delay;
 	struct redis		*redis;
 	struct redis		*redis_write;
