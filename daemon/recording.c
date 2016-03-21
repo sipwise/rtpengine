@@ -241,10 +241,10 @@ int meta_finish_file(struct call *call) {
 		struct tm *timeinfo;
 		timeinfo = localtime(&start);
 		strftime(timebuffer, 20, "%FT%T", timeinfo);
-		fprintf(recording->meta_fp, "\n\n%s\n", timebuffer);
+		fprintf(recording->meta_fp, "\n\ncall start time: %s\n", timebuffer);
 		timeinfo = localtime(&end);
 		strftime(timebuffer, 20, "%FT%T", timeinfo);
-		fprintf(recording->meta_fp, "%s\n", timebuffer);
+		fprintf(recording->meta_fp, "call end time: %s\n", timebuffer);
 
 		// Print metadata
 		fprintf(recording->meta_fp, "\n\n%s\n", recording->metadata->s);
