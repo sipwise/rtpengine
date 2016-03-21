@@ -1204,6 +1204,11 @@ loop_ok:
 	if (MEDIA_ISSET(media, ASYMMETRIC))
 		PS_SET(stream, CONFIRMED);
 
+	/* confirm sink for unidirectional streams in order to kernelize */
+	if (MEDIA_ISSET(media, UNIDIRECTIONAL)) {
+		PS_SET(sink, CONFIRMED);
+	}
+
 	/* if we have already updated the endpoint in the past ... */
 	if (PS_ISSET(stream, CONFIRMED)) {
 		/* see if we need to compare the source address with the known endpoint */
