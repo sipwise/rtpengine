@@ -108,6 +108,7 @@ static const char * const __term_reason_texts[] = {
 	[REGULAR] = "REGULAR",
 	[FORCED] = "FORCED",
 	[SILENT_TIMEOUT] = "SILENT_TIMEOUT",
+	[FINAL_TIMEOUT] = "FINAL_TIMEOUT",
 };
 static const char * const __tag_type_texts[] = {
 	[FROM_TAG] = "FROM_TAG",
@@ -183,7 +184,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	int good = 0;
 	struct packet_stream *ps;
 	struct stream_fd *sfd;
-	int tmp_t_reason=0;
+	int tmp_t_reason = UNKNOWN;
 	struct call_monologue *ml;
 	enum call_stream_state css;
 	atomic64 *timestamp;
@@ -192,6 +193,19 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	log_info_call(c);
 
 	cm = c->callmaster;
+	rwlock_lock_r(&cm->conf.config_lock);
+
+	if (cm->conf.final_timeout && poller_now >= (c->created + cm->conf.final_timeout)) {
+		ilog(LOG_INFO, "Closing call due to final timeout");
+		tmp_t_reason = FINAL_TIMEOUT;
+		for (it = c->monologues.head; it; it = it->next) {
+			ml = it->data;
+			gettimeofday(&(ml->terminated),NULL);
+			ml->term_reason = tmp_t_reason;
+		}
+
+		goto delete;
+	}
 
 	if (c->deleted && poller_now >= c->deleted
 			&& c->last_signal <= c->deleted)
@@ -232,10 +246,10 @@ no_sfd:
 			goto next;
 
 		check = cm->conf.timeout;
-		tmp_t_reason = 1;
+		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd || !PS_ISSET(ps, FILLED)) {
 			check = cm->conf.silent_timeout;
-			tmp_t_reason = 2;
+			tmp_t_reason = SILENT_TIMEOUT;
 		}
 
 		if (poller_now - atomic64_get(timestamp) < check)
@@ -254,13 +268,7 @@ next:
 	for (it = c->monologues.head; it; it = it->next) {
 		ml = it->data;
 		gettimeofday(&(ml->terminated),NULL);
-		if (tmp_t_reason==1) {
-			ml->term_reason = TIMEOUT;
-		} else if (tmp_t_reason==2) {
-			ml->term_reason = SILENT_TIMEOUT;
-		} else {
-			ml->term_reason = UNKNOWN;
-		}
+		ml->term_reason = tmp_t_reason;
 	}
 
 	ilog(LOG_INFO, "Closing call due to timeout");
@@ -274,6 +282,7 @@ delete:
 	goto out;
 
 out:
+	rwlock_unlock_r(&cm->conf.config_lock);
 	rwlock_unlock_r(&c->master_lock);
 	log_info_clear();
 }
@@ -2123,6 +2132,11 @@ void call_destroy(struct call *c) {
 		timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
 		timeval_totalstats_interval_call_duration_add(&m->totalstats_interval,
 				&ml->started, &g_now, &m->latest_graphite_interval_start);
+
+		if (ml->term_reason==FINAL_TIMEOUT) {
+			atomic64_inc(&m->totalstats.total_final_timeout_sess);
+			atomic64_inc(&m->totalstats_interval.total_final_timeout_sess);
+		}
 	}
 
 

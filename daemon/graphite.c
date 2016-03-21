@@ -104,6 +104,7 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_timeout_sess);
 	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_rejected_sess);
 	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_silent_timeout_sess);
+	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_final_timeout_sess);
 	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_regular_term_sess);
 	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_forced_term_sess);
 	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_relayed_packets);
@@ -188,6 +189,8 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	rc = sprintf(ptr,"relayed_packets "UINT64F" %llu\n", atomic64_get_na(&ts->total_relayed_packets),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"silent_timeout_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_silent_timeout_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"final_timeout_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_final_timeout_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"timeout_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_timeout_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }

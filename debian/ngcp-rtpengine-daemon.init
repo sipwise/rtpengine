@@ -58,6 +58,7 @@ fi
 [ -z "$LISTEN_CLI" ] || OPTIONS="$OPTIONS --listen-cli=$LISTEN_CLI"
 [ -z "$TIMEOUT" ] || OPTIONS="$OPTIONS --timeout=$TIMEOUT"
 [ -z "$SILENT_TIMEOUT" ] || OPTIONS="$OPTIONS --silent-timeout=$SILENT_TIMEOUT"
+[ -z "$FINAL_TIMEOUT" ] || OPTIONS="$OPTIONS --final-timeout=$FINAL_TIMEOUT"
 [ -z "$PIDFILE" ] || OPTIONS="$OPTIONS --pidfile=$PIDFILE"
 [ -z "$TOS" ] || OPTIONS="$OPTIONS --tos=$TOS"
 [ -z "$PORT_MIN" ] || OPTIONS="$OPTIONS --port-min=$PORT_MIN"

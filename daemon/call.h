@@ -35,7 +35,8 @@ enum termination_reason {
 	REGULAR=1,
 	FORCED=2,
 	TIMEOUT=3,
-	SILENT_TIMEOUT=4
+	SILENT_TIMEOUT=4,
+	FINAL_TIMEOUT=5
 };
 
 enum tag_type {
@@ -245,6 +246,7 @@ struct totalstats {
 	atomic64			total_timeout_sess;
 	atomic64  		        total_rejected_sess;
 	atomic64			total_silent_timeout_sess;
+	atomic64			total_final_timeout_sess;
 	atomic64			total_regular_term_sess;
 	atomic64			total_forced_term_sess;
 	atomic64			total_relayed_packets;
@@ -430,9 +432,14 @@ struct call {
 struct callmaster_config {
 	int			kernelfd;
 	int			kernelid;
+
+	/* everything below protected by config_lock */
+	rwlock_t		config_lock;
 	int			max_sessions;
 	unsigned int		timeout;
 	unsigned int		silent_timeout;
+	unsigned int		final_timeout;
+
 	unsigned int		delete_delay;
 	struct redis		*redis;
 	struct redis		*redis_write;
