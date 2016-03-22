@@ -82,6 +82,9 @@ OPTIONS="$OPTIONS --table=$TABLE"
 [ -z "$GRAPHITE_INTERVAL" ] || OPTIONS="$OPTIONS --graphite-interval=$GRAPHITE_INTERVAL"
 [ -z "$GRAPHITE_PREFIX" ] || OPTIONS="$OPTIONS --graphite-prefix=$GRAPHITE_PREFIX"
 [ -z "$MAX_SESSIONS" ] || OPTIONS="$OPTIONS --max-sessions=$MAX_SESSIONS"
+[ -z "$HOMER" ] || OPTIONS="$OPTIONS --homer=$HOMER"
+[ -z "$HOMER_PROTOCOL" ] || OPTIONS="$OPTIONS --homer-protocol=$HOMER_PROTOCOL"
+[ -z "$HOMER_ID" ] || OPTIONS="$OPTIONS --homer-id=$HOMER_ID"
 
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"

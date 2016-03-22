@@ -206,6 +206,7 @@ struct sdp_ng_flags;
 struct local_interface;
 struct call_monologue;
 struct ice_agent;
+struct homer_sender;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -478,6 +479,8 @@ struct callmaster {
 
 	struct callmaster_config conf;
 	struct timeval          latest_graphite_interval_start;
+
+	struct homer_sender	*homer;
 };
 
 struct call_stats {

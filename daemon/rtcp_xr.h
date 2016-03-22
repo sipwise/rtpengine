@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "str.h"
+
 /**
  * @defgroup PJMED_RTCP_XR RTCP Extended Report (XR) - RFC 3611
  * @ingroup PJMEDIA_SESSION
@@ -223,7 +225,7 @@ typedef struct pjmedia_rtcp_xr_pkt
  * @param rtcp_pkt  The received RTCP XR packet.
  * @param size	    Size of the incoming packet.
  */
-void pjmedia_rtcp_xr_rx_rtcp_xr( char* cdrbufcur, const void *rtcp_pkt, size_t size);
+void pjmedia_rtcp_xr_rx_rtcp_xr( char** cdrbufcur, const str *s);
 
 
 #endif /* RTCP_XR_H_ */

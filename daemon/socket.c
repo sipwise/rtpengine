@@ -31,6 +31,7 @@ static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep
 static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpoint_t *ep);
 static int __ip4_tos(socket_t *, unsigned int);
 static int __ip6_tos(socket_t *, unsigned int);
+static int __ip_error(socket_t *s);
 static void __ip4_endpoint2kernel(struct re_address *, const endpoint_t *);
 static void __ip6_endpoint2kernel(struct re_address *, const endpoint_t *);
 static void __ip4_kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
@@ -67,6 +68,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
 		.tos			= __ip4_tos,
+		.error			= __ip_error,
 		.endpoint2kernel	= __ip4_endpoint2kernel,
 		.kernel2endpoint	= __ip4_kernel2endpoint,
 	},
@@ -91,6 +93,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
 		.tos			= __ip6_tos,
+		.error			= __ip_error,
 		.endpoint2kernel	= __ip6_endpoint2kernel,
 		.kernel2endpoint	= __ip6_kernel2endpoint,
 	},
@@ -269,6 +272,13 @@ static int __ip4_tos(socket_t *s, unsigned int tos) {
 static int __ip6_tos(socket_t *s, unsigned int tos) {
 	setsockopt(s->fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
 	return 0;
+}
+static int __ip_error(socket_t *s) {
+	int optval;
+	socklen_t optlen = sizeof(optval);
+	if (getsockopt(s->fd, SOL_SOCKET, SO_ERROR, &optval, &optlen))
+		return -1;
+	return optval;
 }
 static void __ip4_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
 	ZERO(*ra);
@@ -478,28 +488,33 @@ fail:
 	return -1;
 }
 
-int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep) {
-	sockfamily_t *fam;
+int connect_socket_retry(socket_t *r) {
 	int ret = 0;
 
-	fam = ep->address.family;
-
-	if (__socket(r, type, fam))
-		return -1;
-	nonblock(r->fd);
-	if (fam->connect(r, ep)) {
-		if (errno != EINPROGRESS)
+	if (r->family->connect(r, &r->remote)) {
+		if (errno != EINPROGRESS && errno != EALREADY)
 			goto fail;
 		ret = 1;
 	}
-
-	r->remote = *ep;
 
 	return ret;
 
 fail:
 	close_socket(r);
 	return -1;
+}
+
+int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep) {
+	sockfamily_t *fam;
+
+	fam = ep->address.family;
+
+	if (__socket(r, type, fam))
+		return -1;
+	nonblock(r->fd);
+	r->remote = *ep;
+
+	return connect_socket_retry(r);
 }
 
 int close_socket(socket_t *r) {

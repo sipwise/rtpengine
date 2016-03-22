@@ -1173,8 +1173,8 @@ loop_ok:
 	if (rwf_in)
 		handler_ret = rwf_in(s, in_srtp);
 	if (handler_ret >= 0) {
-		if (rtcp && _log_facility_rtcp)
-			parse_and_log_rtcp_report(sfd, s->s, s->len);
+		if (rtcp)
+			parse_and_log_rtcp_report(sfd, s, fsin);
 		if (rwf_out)
 			handler_ret += rwf_out(s, out_srtp);
 	}

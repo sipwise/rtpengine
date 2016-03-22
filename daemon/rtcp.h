@@ -105,6 +105,6 @@ int rtcp_savp2avp(str *, struct crypto_context *);
 
 int rtcp_demux_is_rtcp(const str *);
 
-void parse_and_log_rtcp_report(struct stream_fd *sfd, const void *pkt, long size);
+void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *, const endpoint_t *);
 
 #endif

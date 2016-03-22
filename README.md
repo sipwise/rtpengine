@@ -158,9 +158,12 @@ option and which are reproduced below:
 	  -F, --no-fallback                Only start when kernel module is available
 	  -i, --interface=[NAME/]IP[!IP]   Local interface for RTP
 	  -l, --listen-tcp=[IP:]PORT       TCP port to listen on
-	  -c, --listen-cli=[IP46:]PORT     TCP port to listen on, CLI (command line interface)
 	  -u, --listen-udp=[IP46:]PORT     UDP port to listen on
 	  -n, --listen-ng=[IP46:]PORT      UDP port to listen on, NG protocol
+	  -c, --listen-cli=[IP46:]PORT     TCP port to listen on, CLI (command line interface)
+	  -g, --graphite=IP46:PORT         TCP address of graphite statistics server
+	  -G, --graphite-interval=INT      Graphite data statistics send interval
+	  --graphite-prefix=STRING         Graphite prefix for every line
 	  -T, --tos=INT                    TOS value to set on streams
 	  -o, --timeout=SECS               RTP timeout
 	  -s, --silent-timeout=SECS        RTP timeout for muted
@@ -184,10 +187,10 @@ option and which are reproduced below:
 	  -d, --delete-delay               Delay for deleting a session from memory.
 	  --sip-source                     Use SIP source address by default
 	  --dtls-passive                   Always prefer DTLS passive role
-	  -g, --graphite=[IP46:]PORT       TCP address of graphite statistics server
-	  -G, --graphite-interval=INT      Graphite data statistics send interval
-	  --graphite-prefix=STRING         Graphite prefix for every line
 	  --max-sessions=INT               Limit the number of maximum concurrent sessions
+	  --homer=IP46:PORT                Address of Homer server for RTCP stats
+	  --homer-protocol=udp|tcp         Transport protocol for Homer (default udp)
+	  --homer-id=INT                   'Capture ID' to use within the HEP protocol
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -276,6 +279,18 @@ The options are described in more detail below.
 * -c, --listen-cli
 
    TCP ip and port to listen for the CLI (command line interface).
+
+* -g, --graphite
+
+	Address of the graphite statistics server.
+
+* -w, --graphite-interval
+
+	Interval of the time when information is sent to the graphite server.
+
+* --graphite-prefix
+
+	Add a prefix for every graphite line.
 
 * -t, --tos
 
@@ -415,18 +430,6 @@ The options are described in more detail below.
 	Selects the internal format of the XMLRPC callback message for B2BUA call teardown. 0 is for SEMS,
 	1 is for a generic format containing the call-ID only.
 
-* -g, --graphite
-
-	Address of the graphite statistics server.
-
-* -w, --graphite-interval
-
-	Interval of the time when information is sent to the graphite server.
-
-* --graphite-prefix
-
-	Add a prefix for every graphite line.
-
 * --max-sessions
 
 	Limit the number of maximum concurrent sessions. Set at startup via MAX_SESSIONS in config file. Set at runtime via rtpengine-ctl util.
@@ -435,6 +438,21 @@ The options are described in more detail below.
 	Enable feature: 'rtpengine-ctl set maxsessions' >=0
 	Disable feature: 'rtpengine-ctl set maxsessions -1'
 	By default, the feature is disabled (i.e. maxsessions == -1).
+
+* --homer
+
+	Enables sending the decoded contents of RTCP packets to a Homer SIP capture server. The transport
+	is HEP version 3 and payload format is JSON. This argument takes an IP address and a port number
+	as value.
+
+* --homer-protocol
+
+	Can be either "udp" or "tcp" with "udp" being the default.
+
+* --homer-id
+
+	The HEP protocol used by Homer contains a "capture ID" used to distinguish different sources
+	of capture data. This ID can be specified using this argument.
 
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:

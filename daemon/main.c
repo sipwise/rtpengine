@@ -29,6 +29,7 @@
 #include "ice.h"
 #include "socket.h"
 #include "media_socket.h"
+#include "homer.h"
 
 
 
@@ -54,13 +55,16 @@ static mutex_t *openssl_locks;
 static char *pidfile;
 static gboolean foreground;
 static GQueue interfaces = G_QUEUE_INIT;
-endpoint_t tcp_listen_ep;
-endpoint_t udp_listen_ep;
-endpoint_t ng_listen_ep;
-endpoint_t cli_listen_ep;
-endpoint_t graphite_ep;
-endpoint_t redis_ep;
-endpoint_t redis_write_ep;
+static endpoint_t tcp_listen_ep;
+static endpoint_t udp_listen_ep;
+static endpoint_t ng_listen_ep;
+static endpoint_t cli_listen_ep;
+static endpoint_t graphite_ep;
+static endpoint_t redis_ep;
+static endpoint_t redis_write_ep;
+static endpoint_t homer_ep;
+static int homer_protocol = SOCK_DGRAM;
+static int homer_id = 2001;
 static int tos;
 static int table = -1;
 static int no_fallback;
@@ -246,7 +250,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 	if (l < 0)
 		return -1;
 	*db = l;
-	if (endpoint_parse_any(ep, str))
+	if (endpoint_parse_any_full(ep, str))
 		return -1;
 	return 0;
 }
@@ -270,6 +274,8 @@ static void options(int *argc, char ***argv) {
     char *log_facility_rtcp_s = NULL;
 	int version = 0;
 	int sip_source = 0;
+	char *homerp = NULL;
+	char *homerproto = NULL;
 
 	GOptionEntry e[] = {
 		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
@@ -280,7 +286,7 @@ static void options(int *argc, char ***argv) {
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
 		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
-		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "[IP46:]PORT"     },
+		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "IP46:PORT"     },
 		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
@@ -307,6 +313,9 @@ static void options(int *argc, char ***argv) {
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
 		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&max_sessions,	"Limit of maximum number of sessions",	"INT"	},
+		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46:PORT"},
+		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
+		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
 		{ NULL, }
 	};
 
@@ -350,12 +359,25 @@ static void options(int *argc, char ***argv) {
 	    die("Invalid IP or port (--listen-cli)");
 	}
 
-	if (graphitep) {if (endpoint_parse_any(&graphite_ep, graphitep))
+	if (graphitep) {if (endpoint_parse_any_full(&graphite_ep, graphitep))
 	    die("Invalid IP or port (--graphite)");
 	}
 
 	if (graphite_prefix_s)
 		set_prefix(graphite_prefix_s);
+
+	if (homerp) {
+		if (endpoint_parse_any_full(&homer_ep, homerp))
+			die("Invalid IP or port (--homer)");
+	}
+	if (homerproto) {
+		if (!strcmp(homerproto, "tcp"))
+			homer_protocol = SOCK_STREAM;
+		else if (!strcmp(homerproto, "udp"))
+			homer_protocol = SOCK_DGRAM;
+		else
+			die("Invalid protocol (--homer-protocol)");
+	}
 
 	if (tos < 0 || tos > 255)
 		die("Invalid TOS value");
@@ -613,6 +635,8 @@ no_kernel:
 	if (!foreground)
 		daemonize();
 	wpidfile();
+
+	ctx->m->homer = homer_sender_new(&homer_ep, homer_protocol, homer_id);
 
 	if (mc.redis) {
 		// start redis restore timer

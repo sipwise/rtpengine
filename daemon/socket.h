@@ -63,6 +63,7 @@ struct socket_family {
 	ssize_t				(*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *);
 	ssize_t				(*sendto)(socket_t *, const void *, size_t, const endpoint_t *);
 	int				(*tos)(socket_t *, unsigned int);
+	int				(*error)(socket_t *);
 	void				(*endpoint2kernel)(struct re_address *, const endpoint_t *);
 	void				(*kernel2endpoint)(endpoint_t *, const struct re_address *);
 };
@@ -146,6 +147,7 @@ INLINE int is_addr_unspecified(const sockaddr_t *a) {
 #define socket_recvfrom(s,a...) (s)->family->recvfrom((s), a)
 #define socket_sendmsg(s,a...) (s)->family->sendmsg((s), a)
 #define socket_sendto(s,a...) (s)->family->sendto((s), a)
+#define socket_error(s) (s)->family->error((s))
 INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int len, const endpoint_t *dst) {
 	struct msghdr mh;
 	ZERO(mh);
@@ -174,7 +176,8 @@ void socket_init(void);
 
 int open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *);
 int connect_socket(socket_t *r, int type, const endpoint_t *ep);
-int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep);
+int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep); // 1 == in progress
+int connect_socket_retry(socket_t *r); // retries connect() while in progress
 int close_socket(socket_t *r);
 
 sockfamily_t *get_socket_family_rfc(const str *s);
@@ -182,7 +185,7 @@ sockfamily_t *__get_socket_family_enum(enum socket_families);
 int sockaddr_parse_any(sockaddr_t *dst, const char *src);
 int sockaddr_parse_any_str(sockaddr_t *dst, const str *src);
 int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
-int endpoint_parse_any(endpoint_t *, const char *);
+int endpoint_parse_any(endpoint_t *, const char *); // address optional
 void kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
 
 unsigned int sockaddr_hash(const sockaddr_t *);
@@ -205,6 +208,16 @@ INLINE int endpoint_parse_port_any(endpoint_t *e, const char *p, unsigned int po
 		return -1;
 	e->port = port;
 	return sockaddr_parse_any(&e->address, p);
+}
+// address required
+INLINE int endpoint_parse_any_full(endpoint_t *d, const char *s) {
+	int ret;
+	ret = endpoint_parse_any(d, s);
+	if (ret)
+		return ret;
+	if (is_addr_unspecified(&d->address))
+		return -1;
+	return 0;
 }
 INLINE int ipv46_any_convert(endpoint_t *ep) {
 	if (ep->address.family->af != AF_INET)
