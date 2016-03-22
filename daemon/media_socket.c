@@ -21,8 +21,6 @@
 #include "recording.h"
 
 
-
-
 #ifndef PORT_RANDOM_MIN
 #define PORT_RANDOM_MIN 6
 #define PORT_RANDOM_MAX 20
@@ -1202,7 +1200,7 @@ loop_ok:
 	// If recording pcap dumper is set, then we record the call.
 	if (recording_pdumper != NULL && call->record_call) {
 		stream_pcap_dump(recording_pdumper, stream, s);
-		call->recording->packet_num += 1;
+		call->recording->packet_num++;
 	}
 
 	if (handler_ret >= 0) {

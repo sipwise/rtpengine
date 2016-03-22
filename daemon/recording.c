@@ -6,10 +6,10 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <time.h>
-#include "call.h"
 #include <pcap.h>
 #include <curl/curl.h>
-
+#include <inttypes.h>
+#include "call.h"
 
 
 int maybe_create_spool_dir(char *dirpath);
@@ -136,7 +136,8 @@ int set_record_call(struct call *call, str recordcall) {
 			call->recording = g_slice_alloc0(sizeof(struct recording));
 			call->recording->recording_pd = NULL;
 			call->recording->recording_pdumper = NULL;
-			call->recording->packet_num = 0;
+			// Wireshark starts at packet index 1, so we start there, too
+			call->recording->packet_num = 1;
 			meta_setup_file(call->recording, call->callid);
 		}
 	} else if (!str_cmp(&recordcall, "no")) {
@@ -219,7 +220,7 @@ ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt,
 	} else {
 		fprintf(meta_fp, "other");
 	}
-	fprintf(meta_fp, "\nSDP before RTP packet: %llu\n\n", packet_num);
+	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", packet_num);
 	fflush(meta_fp);
 	return writev(meta_fd, sdp_iov, iovcnt);
 }

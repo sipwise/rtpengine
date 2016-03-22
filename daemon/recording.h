@@ -20,7 +20,7 @@ struct recording {
 	str           *metadata;
 	pcap_t        *recording_pd;
 	pcap_dumper_t *recording_pdumper;
-	uint64_t      *packet_num;
+	uint64_t      packet_num;
 	str           *recording_path;
 };
 
