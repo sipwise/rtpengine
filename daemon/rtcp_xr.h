@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <glib.h>
 
 #include "str.h"
 
@@ -225,7 +226,7 @@ typedef struct pjmedia_rtcp_xr_pkt
  * @param rtcp_pkt  The received RTCP XR packet.
  * @param size	    Size of the incoming packet.
  */
-void pjmedia_rtcp_xr_rx_rtcp_xr( char** cdrbufcur, const str *s);
+void pjmedia_rtcp_xr_rx_rtcp_xr(GString *, const str *s);
 
 
 #endif /* RTCP_XR_H_ */

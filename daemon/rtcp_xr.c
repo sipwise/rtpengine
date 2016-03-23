@@ -4,9 +4,10 @@
  *  Created on: Mar 29, 2015
  *      Author: fmetz
  */
+#include "rtcp_xr.h"
 #include <stdio.h>
 #include <arpa/inet.h>
-#include "rtcp_xr.h"
+#include <glib.h>
 
 /* RTCP XR payload type */
 #define RTCP_XR		    207
@@ -21,8 +22,8 @@
 #define BT_VOIP_METRICS	    7
 
 
-void print_rtcp_xr_common(char** cdrbufcur,const pjmedia_rtcp_xr_pkt *rtcp_xr) {
-	*cdrbufcur += sprintf(*cdrbufcur,"version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ssrc=%u, ",
+void print_rtcp_xr_common(GString *log, const pjmedia_rtcp_xr_pkt *rtcp_xr) {
+	g_string_append_printf(log, "version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ssrc=%u, ",
 			rtcp_xr->common.version,
 			rtcp_xr->common.p,
 			rtcp_xr->common.count,
@@ -31,31 +32,31 @@ void print_rtcp_xr_common(char** cdrbufcur,const pjmedia_rtcp_xr_pkt *rtcp_xr) {
 			ntohl(rtcp_xr->common.ssrc));
 }
 
-void print_rtcp_xr_rb_header(char** cdrbufcur,const pjmedia_rtcp_xr_rb_header *rb_header) {
-	*cdrbufcur += sprintf(*cdrbufcur,"rb_header_blocktype=%u, rb_header_blockspecdata=%u, rb_header_blocklength=%u, ",
+void print_rtcp_xr_rb_header(GString *log, const pjmedia_rtcp_xr_rb_header *rb_header) {
+	g_string_append_printf(log, "rb_header_blocktype=%u, rb_header_blockspecdata=%u, rb_header_blocklength=%u, ",
 			rb_header->bt,
 			rb_header->specific,
 			ntohs(rb_header->length));
 }
 
-void print_rtcp_xr_rb_rr_time(char** cdrbufcur,const pjmedia_rtcp_xr_rb_rr_time *rb_rr_time) {
-	print_rtcp_xr_rb_header(cdrbufcur,&rb_rr_time->header);
-	*cdrbufcur += sprintf(*cdrbufcur,"rb_rr_time_ntp_sec=%u, rb_rr_time_ntp_frac=%u, ",
+void print_rtcp_xr_rb_rr_time(GString *log, const pjmedia_rtcp_xr_rb_rr_time *rb_rr_time) {
+	print_rtcp_xr_rb_header(log, &rb_rr_time->header);
+	g_string_append_printf(log, "rb_rr_time_ntp_sec=%u, rb_rr_time_ntp_frac=%u, ",
 			ntohl(rb_rr_time->ntp_sec),
 			ntohl(rb_rr_time->ntp_frac));
 }
 
-void print_rtcp_xr_rb_dlrr(char** cdrbufcur,const pjmedia_rtcp_xr_rb_dlrr *rb_dlrr) {
-	print_rtcp_xr_rb_header(cdrbufcur,&rb_dlrr->header);
-	*cdrbufcur += sprintf(*cdrbufcur,"rb_dlrr_ssrc=%u, rb_dlrr_lrr=%u, rb_dlrr_dlrr=%u, ",
+void print_rtcp_xr_rb_dlrr(GString *log, const pjmedia_rtcp_xr_rb_dlrr *rb_dlrr) {
+	print_rtcp_xr_rb_header(log, &rb_dlrr->header);
+	g_string_append_printf(log, "rb_dlrr_ssrc=%u, rb_dlrr_lrr=%u, rb_dlrr_dlrr=%u, ",
 			ntohl(rb_dlrr->item.ssrc),
 			ntohl(rb_dlrr->item.lrr),
 			ntohl(rb_dlrr->item.dlrr));
 }
 
-void print_rtcp_xr_rb_stats(char** cdrbufcur,const pjmedia_rtcp_xr_rb_stats *rb_stats) {
-	print_rtcp_xr_rb_header(cdrbufcur,&rb_stats->header);
-	*cdrbufcur += sprintf(*cdrbufcur,"rb_stats_ssrc=%u, rb_stats_begin_seq=%u, rb_stats_end_seq=%u, rb_stats_lost_packets=%u, rb_stats_duplicate_packets=%u,"
+void print_rtcp_xr_rb_stats(GString *log, const pjmedia_rtcp_xr_rb_stats *rb_stats) {
+	print_rtcp_xr_rb_header(log, &rb_stats->header);
+	g_string_append_printf(log, "rb_stats_ssrc=%u, rb_stats_begin_seq=%u, rb_stats_end_seq=%u, rb_stats_lost_packets=%u, rb_stats_duplicate_packets=%u,"
 			"rb_stats_jitter_min=%u, rb_stats_jitter_max=%u, rb_stats_jitter_mean=%u, rb_stats_jitter_deviation=%u,"
 			"rb_stats_toh_min=%u, rb_stats_toh_max=%u, rb_stats_toh_mean=%u, rb_stats_toh_deviation=%u, ",
 			ntohl(rb_stats->ssrc),
@@ -73,9 +74,9 @@ void print_rtcp_xr_rb_stats(char** cdrbufcur,const pjmedia_rtcp_xr_rb_stats *rb_
 			ntohl(rb_stats->toh_dev));
 }
 
-void print_rtcp_xr_rb_voip_mtc(char** cdrbufcur,const pjmedia_rtcp_xr_rb_voip_mtc *rb_voip_mtc) {
-	print_rtcp_xr_rb_header(cdrbufcur,&rb_voip_mtc->header);
-	*cdrbufcur += sprintf(*cdrbufcur,"rb_voip_mtc_ssrc=%u, rb_voip_mtc_loss_rate=%u, rb_voip_mtc_discard_rate=%u, rb_voip_mtc_burst_den=%u, "
+void print_rtcp_xr_rb_voip_mtc(GString *log, const pjmedia_rtcp_xr_rb_voip_mtc *rb_voip_mtc) {
+	print_rtcp_xr_rb_header(log, &rb_voip_mtc->header);
+	g_string_append_printf(log, "rb_voip_mtc_ssrc=%u, rb_voip_mtc_loss_rate=%u, rb_voip_mtc_discard_rate=%u, rb_voip_mtc_burst_den=%u, "
 			"rb_voip_mtc_gap_den=%u, rb_voip_mtc_burst_dur=%u, rb_voip_mtc_gap_dur=%u, rb_voip_mtc_rnd_trip_delay=%u, "
 			"rb_voip_mtc_end_sys_delay=%u, rb_voip_mtc_signal_lvl=%u, rb_voip_mtc_noise_lvl=%u, rb_voip_mtc_rerl=%u, "
 			"rb_voip_mtc_gmin=%u, rb_voip_mtc_r_factor=%u, rb_voip_mtc_ext_r_factor=%u, rb_voip_mtc_mos_lq=%u, "
@@ -104,7 +105,7 @@ void print_rtcp_xr_rb_voip_mtc(char** cdrbufcur,const pjmedia_rtcp_xr_rb_voip_mt
 			ntohs(rb_voip_mtc->jb_abs_max));
 }
 
-void pjmedia_rtcp_xr_rx_rtcp_xr(char** cdrbufcur, const str *s) {
+void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, const str *s) {
 
 	const pjmedia_rtcp_xr_pkt	      *rtcp_xr = (pjmedia_rtcp_xr_pkt*) s->s;
 	const pjmedia_rtcp_xr_rb_rr_time  *rb_rr_time = NULL;
@@ -115,13 +116,16 @@ void pjmedia_rtcp_xr_rx_rtcp_xr(char** cdrbufcur, const str *s) {
 								rtcp_xr->buf;
 	unsigned pkt_len, rb_len;
 
+	if (!log)
+		return;
+
 	if (s->len < sizeof(*rtcp_xr))
 		return;
 
 	if (rtcp_xr->common.pt != RTCP_XR)
 		return;
 
-	print_rtcp_xr_common(cdrbufcur,rtcp_xr);
+	print_rtcp_xr_common(log, rtcp_xr);
 
 	pkt_len = ntohs((u_int16_t)rtcp_xr->common.length);
 
@@ -138,19 +142,19 @@ void pjmedia_rtcp_xr_rx_rtcp_xr(char** cdrbufcur, const str *s) {
 			switch (rb_hdr->bt) {
 			case BT_RR_TIME:
 				rb_rr_time = (pjmedia_rtcp_xr_rb_rr_time*) rb_hdr;
-				print_rtcp_xr_rb_rr_time(cdrbufcur,rb_rr_time);
+				print_rtcp_xr_rb_rr_time(log, rb_rr_time);
 				break;
 			case BT_DLRR:
 				rb_dlrr = (pjmedia_rtcp_xr_rb_dlrr*) rb_hdr;
-				print_rtcp_xr_rb_dlrr(cdrbufcur,rb_dlrr);
+				print_rtcp_xr_rb_dlrr(log, rb_dlrr);
 				break;
 			case BT_STATS:
 				rb_stats = (pjmedia_rtcp_xr_rb_stats*) rb_hdr;
-				print_rtcp_xr_rb_stats(cdrbufcur,rb_stats);
+				print_rtcp_xr_rb_stats(log, rb_stats);
 				break;
 			case BT_VOIP_METRICS:
 				rb_voip_mtc = (pjmedia_rtcp_xr_rb_voip_mtc*) rb_hdr;
-				print_rtcp_xr_rb_voip_mtc(cdrbufcur,rb_voip_mtc);
+				print_rtcp_xr_rb_voip_mtc(log, rb_voip_mtc);
 				break;
 			default:
 				break;
