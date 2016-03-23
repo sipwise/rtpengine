@@ -82,7 +82,7 @@ unsigned int in6_addr_hash(const void *p);
 int in6_addr_eq(const void *a, const void *b);
 unsigned int uint32_hash(const void *p);
 int uint32_eq(const void *a, const void *b);
-int uint_cmp(const void *a, const void *b);
+int guint_cmp(gconstpointer a, gconstpointer b);
 
 /*** GLIB HELPERS ***/
 

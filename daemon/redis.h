@@ -30,6 +30,18 @@ enum redis_state {
 	REDIS_STATE_RECONNECTED,	// DISCONNECTED -> CONNECTED
 };
 
+enum event_base_action {
+	EVENT_BASE_ALLOC = 0,
+	EVENT_BASE_FREE,
+	EVENT_BASE_LOOPBREAK,
+};
+
+enum subscribe_action {
+	SUBSCRIBE_KEYSPACE = 0,
+	UNSUBSCRIBE_KEYSPACE,
+	UNSUBSCRIBE_ALL,
+};
+
 struct callmaster;
 struct call;
 
@@ -98,9 +110,8 @@ int redis_restore(struct callmaster *, struct redis *);
 void redis_update(struct call *, struct redis *);
 void redis_delete(struct call *, struct redis *);
 void redis_wipe(struct redis *);
-void redis_notify_event_base_loopbreak(struct callmaster *cm);
-void redis_notify_subscribe_keyspace(struct callmaster *cm, int keyspace);
-void redis_notify_unsubscribe_keyspace(struct callmaster *cm, int keyspace);
+int redis_notify_event_base_action(struct callmaster *cm, enum event_base_action);
+int redis_notify_subscribe_action(struct callmaster *cm, enum subscribe_action action, int keyspace);
 
 
 

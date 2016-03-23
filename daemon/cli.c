@@ -670,9 +670,9 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 
 static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
-	int *pint;
-	int keyspace_db;
+	unsigned int uint_keyspace_db;
 	str str_keyspace_db;
+	char *endptr;
 
 	if (len<=1) {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
@@ -683,19 +683,20 @@ static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char
 
 	str_keyspace_db.s = buffer;
 	str_keyspace_db.len = len;
-	keyspace_db = str_to_i(&str_keyspace_db, -1);
+	uint_keyspace_db = strtol(str_keyspace_db.s, &endptr, 10);
 
-	if (keyspace_db != -1) {
-		redis_notify_subscribe_keyspace(m,keyspace_db);
-		if (!g_queue_find_custom(m->conf.redis_subscribed_keyspaces, &keyspace_db, uint_cmp)) {
-			pint = (int*)malloc(sizeof(int));
-			*pint = keyspace_db;
-			g_queue_push_tail(m->conf.redis_subscribed_keyspaces, pint);
+	if ((errno == ERANGE && (uint_keyspace_db == LONG_MAX || uint_keyspace_db == LONG_MIN)) || (errno != 0 && uint_keyspace_db == 0)) {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail adding keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
+	} else if (endptr == str_keyspace_db.s) {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail adding keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
+	} else {
+		if (!g_queue_find_custom(m->conf.redis_subscribed_keyspaces, uint_keyspace_db, guint_cmp)) {
+			g_queue_push_tail(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
+			redis_notify_subscribe_action(m, SUBSCRIBE_KEYSPACE, uint_keyspace_db);
+			printlen = snprintf(replybuffer, outbufend-replybuffer, "Success adding keyspace %u to redis notifications.\n", uint_keyspace_db);
+		} else {
+			printlen = snprintf(replybuffer, outbufend-replybuffer, "Keyspace %u is already among redis notifications.\n", uint_keyspace_db);
 		}
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully added keyspace %i to redis notifications.\n", keyspace_db);
-	}
-	else {
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "Could not add keyspace %i to redis notifications.\n", keyspace_db);
 	}
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 }
@@ -707,8 +708,9 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 	gpointer key, value;
 	struct call_monologue *ml = NULL;
 	GList *l, *i; 
-	int keyspace_db;
+	unsigned int uint_keyspace_db;
 	str str_keyspace_db;
+	char *endptr;
 
 	if (len <= 1) {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
@@ -719,19 +721,23 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 
 	str_keyspace_db.s = buffer;
 	str_keyspace_db.len = len;
-	keyspace_db = str_to_i(&str_keyspace_db, -1);
+	uint_keyspace_db = strtol(str_keyspace_db.s, &endptr, 10);
 
-	if ((l = g_queue_find_custom(m->conf.redis_subscribed_keyspaces, &keyspace_db, uint_cmp))) {
+	if ((errno == ERANGE && (uint_keyspace_db == LONG_MAX || uint_keyspace_db == LONG_MIN)) || (errno != 0 && uint_keyspace_db == 0)) {
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail removing keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
+        } else if (endptr == str_keyspace_db.s) {
+                printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail removing keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
+	} else if ((l = g_queue_find_custom(m->conf.redis_subscribed_keyspaces, uint_keyspace_db, guint_cmp))) {
 		// remove this keyspace
-		redis_notify_unsubscribe_keyspace(m,keyspace_db);
+		redis_notify_subscribe_action(m, UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
 		g_queue_remove(m->conf.redis_subscribed_keyspaces, l->data);
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully unsubscribed from keyspace %i.\n", keyspace_db);
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully unsubscribed from keyspace %u.\n", uint_keyspace_db);
 
 		// remove all current foreign calls for this keyspace
 		g_hash_table_iter_init(&iter, m->callhash);
 		while (g_hash_table_iter_next(&iter, &key, &value)) {
 			c = (struct call*)value;
-			if (!c || !c->is_backup_call || !(c->redis_hosted_db == keyspace_db)) {
+			if (!c || !c->is_backup_call|| !(c->redis_hosted_db == uint_keyspace_db)) {
 				continue;
 			}
 			if (!c->ml_deleted) {
@@ -744,9 +750,9 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 			call_destroy(c);
 			g_hash_table_iter_init(&iter, m->callhash);
 		}
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully removed all foreign calls for keyspace %i.\n", keyspace_db);
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully removed all foreign calls for keyspace %u.\n", uint_keyspace_db);
 	} else {
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "Keyspace %i was not among redis notifications.\n", keyspace_db);
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Keyspace %u is not among redis notifications.\n", uint_keyspace_db);
 	}
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 }
@@ -759,7 +765,7 @@ static void cli_incoming_kslist(char* buffer, int len, struct callmaster* m, cha
 	ADJUSTLEN(printlen,outbufend,replybuffer); 
     
 	for (l = m->conf.redis_subscribed_keyspaces->head; l; l = l->next) {
-		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%d ", *((unsigned int *)(l->data)));
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%u ", GPOINTER_TO_UINT(l->data));
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
 
@@ -831,7 +837,7 @@ next:
    } else  if (strncmp(inbuf,KSRM,strlen(KSRM)) == 0) {
        cli_incoming_ksrm(inbuf+strlen(KSRM), inlen-strlen(KSRM), cli->callmaster, outbuf, outbufend);
    } else  if (strncmp(inbuf,KSLIST,strlen(KSLIST)) == 0) {
-       cli_incoming_kslist(inbuf+strlen(KSRM), inlen-strlen(KSRM), cli->callmaster, outbuf, outbufend);
+       cli_incoming_kslist(inbuf+strlen(KSLIST), inlen-strlen(KSLIST), cli->callmaster, outbuf, outbufend);
    } else {
        sprintf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", inbuf);
    }
