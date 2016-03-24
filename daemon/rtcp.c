@@ -513,6 +513,13 @@ static void print_rtcp_rr_list_start(pjmedia_rtcp_common *common, GString *json)
 			common->count);
 }
 
+static void print_rtcp_sdes_list_start(pjmedia_rtcp_common *common, GString *json) {
+	if (json)
+		g_string_append_printf(json, "\"sdes_ssrc\":%u,\"sdes_report_count\":%u,\"sdes_information\": [ ",
+			ntohl(common->ssrc),
+			common->count);
+}
+
 static void print_rtcp_rr(GString *log, const pjmedia_rtcp_rr* rr, GString *json) {
     /* Get packet loss */
     u_int32_t packet_loss=0;
@@ -543,12 +550,55 @@ static void print_rtcp_rr(GString *log, const pjmedia_rtcp_rr* rr, GString *json
 			ntohl(rr->dlsr));
 }
 
+static void print_rtcp_sdes_item(GString *json, const rtcp_sdes_chunk_t *chunk, const rtcp_sdes_item_t *item,
+		const char *data)
+{
+	int i;
+
+	if (json) {
+		g_string_append_printf(json, "{\"sdes_chunk_ssrc\":%u,\"type\":%u,\"text\":\"",
+			htonl(chunk->csrc),
+			item->type);
+
+		for (i = 0; i < item->len; i++) {
+			switch (data[i]) {
+				case '"':
+					g_string_append(json, "\\\"");
+					break;
+				case '\\':
+					g_string_append(json, "\\\\");
+					break;
+				case '\b':
+					g_string_append(json, "\\b");
+					break;
+				case '\f':
+					g_string_append(json, "\\f");
+					break;
+				case '\n':
+					g_string_append(json, "\\n");
+					break;
+				case '\r':
+					g_string_append(json, "\\r");
+					break;
+				case '\t':
+					g_string_append(json, "\\t");
+					break;
+				default:
+					g_string_append_c(json, data[i]);
+					break;
+			}
+		}
+
+		g_string_append(json, "\"},");
+	}
+}
+
 static void str_sanitize(GString *s) {
 	while (s->len > 0 && (s->str[s->len - 1] == ' ' || s->str[s->len - 1] == ','))
 		g_string_truncate(s, s->len - 1);
 }
 
-static void print_rtcp_rr_list_end(pjmedia_rtcp_common *common, GString *json) {
+static void print_rtcp_list_end(GString *json) {
 	if (json) {
 		str_sanitize(json);
 		g_string_append_printf(json, "],");
@@ -560,8 +610,10 @@ void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *ori_s, const en
 	GString *log;
 	str iter_s, comp_s;
 	pjmedia_rtcp_common *common;
-	const pjmedia_rtcp_rr *rr = NULL;
-	const pjmedia_rtcp_sr *sr = NULL;
+	const pjmedia_rtcp_rr *rr;
+	const pjmedia_rtcp_sr *sr;
+	const rtcp_sdes_chunk_t *sdes_chunk;
+	const rtcp_sdes_item_t *sdes_item;
 	GString *json;
 	struct call *c = sfd->call;
 	struct callmaster *cm = c->callmaster;
@@ -615,11 +667,55 @@ void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *ori_s, const en
 					print_rtcp_rr(log, rr, json);
 				}
 
-				print_rtcp_rr_list_end(common, json);
+				print_rtcp_list_end(json);
 				break;
 
 			case RTCP_PT_XR:
 				pjmedia_rtcp_xr_rx_rtcp_xr(log, common, &comp_s);
+				break;
+
+			case RTCP_PT_SDES:
+				print_rtcp_sdes_list_start(common, json);
+
+				// the "common" header actually includes the SDES
+				// SSRC/CSRC chunk header, so we set our chunk header
+				// to its SDES field
+				sdes_chunk = (rtcp_sdes_chunk_t *) &common->ssrc;
+				// comp_s then points into the first SDES item
+
+				i = 0;
+				while (1) {
+					while (comp_s.len) {
+						sdes_item = (rtcp_sdes_item_t *) comp_s.s;
+						// check for zero type first
+						if (str_shift(&comp_s, 1))
+							break;
+						if (!sdes_item->type)
+							break;
+						if (str_shift(&comp_s, sizeof(*sdes_item) - 1))
+							break;
+						if (comp_s.len < sdes_item->len)
+							break;
+						print_rtcp_sdes_item(json, sdes_chunk, sdes_item, comp_s.s);
+						str_shift(&comp_s, sdes_item->len);
+					}
+
+					// remove padding to next chunk
+					while (comp_s.len % 4 != 0)
+						str_shift(&comp_s, 1);
+
+					// more chunks? set chunk header
+					i++;
+					if (i >= common->count)
+						break;
+					sdes_chunk = (rtcp_sdes_chunk_t *) comp_s.s;
+					if (str_shift(&comp_s, sizeof(*sdes_chunk)))
+						break;
+
+				}
+
+				print_rtcp_list_end(json);
+
 				break;
 		}
 	}

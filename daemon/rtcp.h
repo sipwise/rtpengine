@@ -60,6 +60,18 @@ typedef struct pjmedia_rtcp_rr
 } __attribute__ ((packed)) pjmedia_rtcp_rr;
 
 
+typedef struct _rtcp_sdes_chunk
+{
+	uint32_t csrc;
+} __attribute__ ((packed)) rtcp_sdes_chunk_t;
+
+typedef struct _rtcp_sdes_item
+{
+	uint8_t type;
+	uint8_t len;
+} __attribute__ ((packed)) rtcp_sdes_item_t;
+
+
 /**
  * RTCP common header.
  */
