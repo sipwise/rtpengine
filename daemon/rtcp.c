@@ -505,7 +505,15 @@ static void print_rtcp_sr(GString *log, const pjmedia_rtcp_sr* sr, GString *json
 			ntohl(sr->sender_pcount));
 }
 
-void print_rtcp_rr(GString *log, const pjmedia_rtcp_rr* rr, pjmedia_rtcp_common *common, GString *json) {
+static void print_rtcp_rr_list_start(pjmedia_rtcp_common *common, GString *json) {
+	if (json)
+		g_string_append_printf(json, "\"ssrc\":%u,\"type\":%u,\"report_count\":%u,\"report_blocks\":[",
+			ntohl(common->ssrc),
+			common->pt,
+			common->count);
+}
+
+static void print_rtcp_rr(GString *log, const pjmedia_rtcp_rr* rr, GString *json) {
     /* Get packet loss */
     u_int32_t packet_loss=0;
     packet_loss = (rr->total_lost_2 << 16) +
@@ -523,11 +531,9 @@ void print_rtcp_rr(GString *log, const pjmedia_rtcp_rr* rr, pjmedia_rtcp_common 
 			ntohl(rr->dlsr));
 
 	if (json)
-	    g_string_append_printf(json, "\"ssrc\":%u,\"type\":%u, \"report_blocks\":[{\"source_ssrc\":%u,"
+	    g_string_append_printf(json, "{\"source_ssrc\":%u,"
 		    "\"highest_seq_no\":%u,\"fraction_lost\":%u,\"ia_jitter\":%u,"
-		    "\"packets_lost\":%u,\"lsr\":%u,\"dlsr\":%u}],\"report_count\":1,",
-			ntohl(rr->ssrc),
-			common->pt,
+		    "\"packets_lost\":%u,\"lsr\":%u,\"dlsr\":%u},",
 			ntohl(rr->ssrc),
 			ntohl(rr->last_seq),
 			rr->fract_lost,
@@ -537,18 +543,29 @@ void print_rtcp_rr(GString *log, const pjmedia_rtcp_rr* rr, pjmedia_rtcp_common 
 			ntohl(rr->dlsr));
 }
 
-void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *s, const endpoint_t *src) {
+static void str_sanitize(GString *s) {
+	while (s->len > 0 && (s->str[s->len - 1] == ' ' || s->str[s->len - 1] == ','))
+		g_string_truncate(s, s->len - 1);
+}
+
+static void print_rtcp_rr_list_end(pjmedia_rtcp_common *common, GString *json) {
+	if (json) {
+		str_sanitize(json);
+		g_string_append_printf(json, "],");
+	}
+}
+
+void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *ori_s, const endpoint_t *src) {
 
 	GString *log;
-	pjmedia_rtcp_common *common = (pjmedia_rtcp_common*) s->s;
+	str iter_s, comp_s;
+	pjmedia_rtcp_common *common;
 	const pjmedia_rtcp_rr *rr = NULL;
 	const pjmedia_rtcp_sr *sr = NULL;
 	GString *json;
 	struct call *c = sfd->call;
 	struct callmaster *cm = c->callmaster;
-
-	if (s->len < sizeof(*common))
-		return;
+	int i;
 
 	log = _log_facility_rtcp ? g_string_new(NULL) : NULL;
 	json = cm->homer ? g_string_new("{ ") : NULL;
@@ -560,44 +577,65 @@ void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *s, const endpoi
 	if (log)
 		g_string_append_printf(log, "["STR_FORMAT"] ", STR_FMT(&sfd->stream->call->callid));
 
-	print_rtcp_common(log, common);
+	iter_s = *ori_s;
 
-	/* Parse RTCP */
-	if (common->pt == RTCP_PT_SR) {
-		if (s->len < (sizeof(*common) + sizeof(*sr)))
-			goto out;
+	while (iter_s.len) {
+		// procedure throughout here: first assign, then str_shift with check for
+		// return value (does the length sanity check), then access values.
+		// we use iter_s to iterate compound packets and comp_s to access component
+		// data.
 
-		sr = (pjmedia_rtcp_sr*) ((s->s) + sizeof(pjmedia_rtcp_common));
+		common = (pjmedia_rtcp_common*) iter_s.s;
+		comp_s = iter_s;
 
-		print_rtcp_sr(log, sr, json);
+		if (str_shift(&comp_s, sizeof(*common))) // puts comp_s just past the common header
+			break;
+		if (str_shift(&iter_s, (ntohs(common->length) + 1) << 2)) // puts iter_s on the next compound packet
+			break;
 
-		if (common->count > 0 && s->len >= (sizeof(pjmedia_rtcp_sr_pkt))) {
-			rr = (pjmedia_rtcp_rr*)((s->s) + (sizeof(pjmedia_rtcp_common)
-					+ sizeof(pjmedia_rtcp_sr)));
-			print_rtcp_rr(log, rr, common, json);
+		print_rtcp_common(log, common);
+
+		/* Parse RTCP */
+		switch (common->pt) {
+			case RTCP_PT_SR:
+				sr = (pjmedia_rtcp_sr*) ((comp_s.s));
+				if (str_shift(&comp_s, sizeof(*sr)))
+					break;
+
+				print_rtcp_sr(log, sr, json);
+				// fall through to RTCP_PT_RR
+
+			case RTCP_PT_RR:
+				print_rtcp_rr_list_start(common, json);
+
+				for (i = 0; i < common->count; i++) {
+					rr = (pjmedia_rtcp_rr*)((comp_s.s));
+					if (str_shift(&comp_s, sizeof(*rr)))
+						break;
+					print_rtcp_rr(log, rr, json);
+				}
+
+				print_rtcp_rr_list_end(common, json);
+				break;
+
+			case RTCP_PT_XR:
+				pjmedia_rtcp_xr_rx_rtcp_xr(log, common, &comp_s);
+				break;
 		}
-	} else if (common->pt == RTCP_PT_RR && common->count > 0) {
-		if (s->len < (sizeof(*common) + sizeof(*rr)))
-			goto out;
-
-		rr = (pjmedia_rtcp_rr*)((s->s) + sizeof(pjmedia_rtcp_common));
-		print_rtcp_rr(log, rr, common, json);
-
-	} else if (common->pt == RTCP_PT_XR) {
-		pjmedia_rtcp_xr_rx_rtcp_xr(log, s);
 	}
-	// XXX parse/support additional RTCP types
 
-	if (log)
+	if (log) {
+		str_sanitize(log);
 		rtcplog(log->str);
+	}
 
 	if (json) {
+		str_sanitize(json);
 		g_string_append(json, " }");
 		homer_send(cm->homer, json, &c->callid, src, &sfd->socket.local);
 		json = NULL;
 	}
 
-out:
 	if (json)
 		g_string_free(json, TRUE);
 	if (log)

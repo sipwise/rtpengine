@@ -11,6 +11,7 @@
 
 #include "log.h"
 #include "aux.h"
+#include "str.h"
 
 
 
@@ -200,6 +201,8 @@ int homer_send(struct homer_sender *hs, GString *s, const str *id, const endpoin
 		goto out;
 	if (!s->len) // empty write, shouldn't happen
 		goto out;
+
+	ilog(LOG_DEBUG, "JSON to send to Homer: '"STR_FORMAT"'", G_STR_FMT(s));
 
 	if (send_hepv3(s, id, hs->capture_id, src, dst))
 		goto out;

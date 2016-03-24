@@ -226,8 +226,9 @@ sub rtcp_sr {
 	my $secs = $now[0] + 2208988800;
 	my $frac = $now[1] / 1000000 * 2**32;
 	my $sr = pack('CCnN NNN NN', (2 << 6) | 1, 200, 12, rand(2**32), $secs, $frac,
-		12345, 0, 0);
-	$sr .= pack('N CCCC NNNN', 0, 0, 0, 0, 0, 0, 0, 0, 0);
+		12345, rand(12345), rand(4321));
+	$sr .= pack('N CCCC NNNN', rand(2**32), rand(256), rand(256), rand(256), rand(256),
+		rand(2**32), rand(2**32), rand(2**32), rand(2**32));
 	return $sr;
 }
 

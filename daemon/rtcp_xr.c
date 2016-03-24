@@ -22,16 +22,6 @@
 #define BT_VOIP_METRICS	    7
 
 
-void print_rtcp_xr_common(GString *log, const pjmedia_rtcp_xr_pkt *rtcp_xr) {
-	g_string_append_printf(log, "version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ssrc=%u, ",
-			rtcp_xr->common.version,
-			rtcp_xr->common.p,
-			rtcp_xr->common.count,
-			rtcp_xr->common.pt,
-			rtcp_xr->common.length,
-			ntohl(rtcp_xr->common.ssrc));
-}
-
 void print_rtcp_xr_rb_header(GString *log, const pjmedia_rtcp_xr_rb_header *rb_header) {
 	g_string_append_printf(log, "rb_header_blocktype=%u, rb_header_blockspecdata=%u, rb_header_blocklength=%u, ",
 			rb_header->bt,
@@ -105,40 +95,33 @@ void print_rtcp_xr_rb_voip_mtc(GString *log, const pjmedia_rtcp_xr_rb_voip_mtc *
 			ntohs(rb_voip_mtc->jb_abs_max));
 }
 
-void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, const str *s) {
+void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, pjmedia_rtcp_common *common, str *s) {
 
-	const pjmedia_rtcp_xr_pkt	      *rtcp_xr = (pjmedia_rtcp_xr_pkt*) s->s;
-	const pjmedia_rtcp_xr_rb_rr_time  *rb_rr_time = NULL;
-	const pjmedia_rtcp_xr_rb_dlrr     *rb_dlrr = NULL;
-	const pjmedia_rtcp_xr_rb_stats    *rb_stats = NULL;
-	const pjmedia_rtcp_xr_rb_voip_mtc *rb_voip_mtc = NULL;
-	const pjmedia_rtcp_xr_rb_header   *rb_hdr = (pjmedia_rtcp_xr_rb_header*)
-								rtcp_xr->buf;
+	const pjmedia_rtcp_xr_rb_rr_time  *rb_rr_time;
+	const pjmedia_rtcp_xr_rb_dlrr     *rb_dlrr;
+	const pjmedia_rtcp_xr_rb_stats    *rb_stats;
+	const pjmedia_rtcp_xr_rb_voip_mtc *rb_voip_mtc;
+	const pjmedia_rtcp_xr_rb_header   *rb_hdr;
 	unsigned pkt_len, rb_len;
 
 	if (!log)
 		return;
 
-	if (s->len < sizeof(*rtcp_xr))
-		return;
+	// packet length is guaranteed to be valid from upstream
 
-	if (rtcp_xr->common.pt != RTCP_XR)
-		return;
-
-	print_rtcp_xr_common(log, rtcp_xr);
-
-	pkt_len = ntohs((u_int16_t)rtcp_xr->common.length);
-
-	if ((pkt_len + 1) > (s->len / 4))
-		return;
+	pkt_len = (ntohs(common->length) + 1) << 2;
 
 	/* Parse report rpt_types */
-	while ((int32_t*)rb_hdr < (int32_t*)s->s + pkt_len)
+	while (pkt_len >= sizeof(*rb_hdr))
 	{
-		rb_len = ntohs((u_int16_t)rb_hdr->length);
+		rb_hdr = (pjmedia_rtcp_xr_rb_header*) s->s;
+		rb_len = (ntohs((u_int16_t)rb_hdr->length) + 1) << 2;
+		if (str_shift(s, rb_len))
+			break;
+		pkt_len -= rb_len;
 
 		/* Just skip any block with length == 0 (no report content) */
-		if (rb_len) {
+		if (rb_len > 4) {
 			switch (rb_hdr->bt) {
 			case BT_RR_TIME:
 				rb_rr_time = (pjmedia_rtcp_xr_rb_rr_time*) rb_hdr;
@@ -160,8 +143,6 @@ void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, const str *s) {
 				break;
 			}
 		}
-		rb_hdr = (pjmedia_rtcp_xr_rb_header*)
-				 ((int32_t*)rb_hdr + rb_len + 1);
 	}
 }
 
