@@ -39,7 +39,8 @@ struct homer_sender {
 
 
 
-static int send_hepv3 (GString *s, const str *id, int, const endpoint_t *src, const endpoint_t *dst);
+static int send_hepv3 (GString *s, const str *id, int, const endpoint_t *src, const endpoint_t *dst,
+		const struct timeval *);
 
 // state handlers
 static int __established(struct homer_sender *hs);
@@ -198,7 +199,7 @@ struct homer_sender *homer_sender_new(const endpoint_t *ep, int protocol, int ca
 
 // takes over the GString
 int homer_send(struct homer_sender *hs, GString *s, const str *id, const endpoint_t *src,
-		const endpoint_t *dst)
+		const endpoint_t *dst, const struct timeval *tv)
 {
 	if (!hs)
 		goto out;
@@ -209,7 +210,7 @@ int homer_send(struct homer_sender *hs, GString *s, const str *id, const endpoin
 
 	ilog(LOG_DEBUG, "JSON to send to Homer: '"STR_FORMAT"'", G_STR_FMT(s));
 
-	if (send_hepv3(s, id, hs->capture_id, src, dst))
+	if (send_hepv3(s, id, hs->capture_id, src, dst, tv))
 		goto out;
 
 	mutex_lock(&hs->lock);
@@ -316,7 +317,9 @@ typedef struct hep_generic hep_generic_t;
 #define PROTO_RTCP_JSON   0x05
 
 // modifies the GString in place
-static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t *src, const endpoint_t *dst) {
+static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t *src, const endpoint_t *dst,
+		const struct timeval *tv)
+{
 
     struct hep_generic *hg=NULL;
     void* buffer;
@@ -327,7 +330,6 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
     //hep_chunk_t authkey_chunk;
     hep_chunk_t correlation_chunk;
     //static int errors = 0;
-    struct timeval now;
 
     hg = malloc(sizeof(struct hep_generic));
     memset(hg, 0, sizeof(struct hep_generic));
@@ -395,18 +397,17 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
     hg->dst_port.chunk.length = htons(sizeof(hg->dst_port));
 
 
-    gettimeofday(&now, NULL); // XXX replace with timestamp from actual packet
     /* TIMESTAMP SEC */
     hg->time_sec.chunk.vendor_id = htons(0x0000);
     hg->time_sec.chunk.type_id   = htons(0x0009);
-    hg->time_sec.data = htonl(now.tv_sec);
+    hg->time_sec.data = htonl(tv->tv_sec);
     hg->time_sec.chunk.length = htons(sizeof(hg->time_sec));
 
 
     /* TIMESTAMP USEC */
     hg->time_usec.chunk.vendor_id = htons(0x0000);
     hg->time_usec.chunk.type_id   = htons(0x000a);
-    hg->time_usec.data = htonl(now.tv_usec);
+    hg->time_usec.data = htonl(tv->tv_usec);
     hg->time_usec.chunk.length = htons(sizeof(hg->time_usec));
 
     /* Protocol TYPE */

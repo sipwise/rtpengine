@@ -605,7 +605,9 @@ static void print_rtcp_list_end(GString *json) {
 	}
 }
 
-void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *ori_s, const endpoint_t *src) {
+void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *ori_s, const endpoint_t *src,
+		const struct timeval *tv)
+{
 
 	GString *log;
 	str iter_s, comp_s;
@@ -728,7 +730,7 @@ void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *ori_s, const en
 	if (json) {
 		str_sanitize(json);
 		g_string_append(json, " }");
-		homer_send(cm->homer, json, &c->callid, src, &sfd->socket.local);
+		homer_send(cm->homer, json, &c->callid, src, &sfd->socket.local, tv);
 		json = NULL;
 	}
 

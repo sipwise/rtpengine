@@ -59,7 +59,9 @@ struct socket_family {
 	int				(*addrport2sockaddr)(void *, const sockaddr_t *, unsigned int);
 	int				(*bind)(socket_t *, unsigned int, const sockaddr_t *);
 	int				(*connect)(socket_t *, const endpoint_t *);
+	int				(*timestamping)(socket_t *);
 	ssize_t				(*recvfrom)(socket_t *, void *, size_t, endpoint_t *);
+	ssize_t				(*recvfrom_ts)(socket_t *, void *, size_t, endpoint_t *, struct timeval *);
 	ssize_t				(*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *);
 	ssize_t				(*sendto)(socket_t *, const void *, size_t, const endpoint_t *);
 	int				(*tos)(socket_t *, unsigned int);
@@ -145,9 +147,11 @@ INLINE int is_addr_unspecified(const sockaddr_t *a) {
 	return !a->family->is_specified(a);
 }
 #define socket_recvfrom(s,a...) (s)->family->recvfrom((s), a)
+#define socket_recvfrom_ts(s,a...) (s)->family->recvfrom_ts((s), a)
 #define socket_sendmsg(s,a...) (s)->family->sendmsg((s), a)
 #define socket_sendto(s,a...) (s)->family->sendto((s), a)
 #define socket_error(s) (s)->family->error((s))
+#define socket_timestamping(s) (s)->family->timestamping((s))
 INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int len, const endpoint_t *dst) {
 	struct msghdr mh;
 	ZERO(mh);

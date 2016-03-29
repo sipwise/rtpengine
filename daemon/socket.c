@@ -20,6 +20,7 @@ static int __ip4_is_specified(const sockaddr_t *a);
 static int __ip6_is_specified(const sockaddr_t *a);
 static int __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
 static int __ip_connect(socket_t *s, const endpoint_t *);
+static int __ip_timestamping(socket_t *s);
 static int __ip4_sockaddr2endpoint(endpoint_t *, const void *);
 static int __ip6_sockaddr2endpoint(endpoint_t *, const void *);
 static int __ip4_endpoint2sockaddr(void *, const endpoint_t *);
@@ -27,6 +28,7 @@ static int __ip6_endpoint2sockaddr(void *, const endpoint_t *);
 static int __ip4_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
 static int __ip6_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep);
+static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *);
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep);
 static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpoint_t *ep);
 static int __ip4_tos(socket_t *, unsigned int);
@@ -64,7 +66,9 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.addrport2sockaddr	= __ip4_addrport2sockaddr,
 		.bind			= __ip_bind,
 		.connect		= __ip_connect,
+		.timestamping		= __ip_timestamping,
 		.recvfrom		= __ip_recvfrom,
+		.recvfrom_ts		= __ip_recvfrom_ts,
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
 		.tos			= __ip4_tos,
@@ -89,7 +93,9 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.addrport2sockaddr	= __ip6_addrport2sockaddr,
 		.bind			= __ip_bind,
 		.connect		= __ip_connect,
+		.timestamping		= __ip_timestamping,
 		.recvfrom		= __ip_recvfrom,
+		.recvfrom_ts		= __ip_recvfrom_ts,
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
 		.tos			= __ip6_tos,
@@ -236,17 +242,51 @@ static int __ip_connect(socket_t *s, const endpoint_t *ep) {
 	}
 	return 0;
 }
-static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep) {
+static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv) {
 	ssize_t ret;
 	struct sockaddr_storage sin;
-	socklen_t sinlen;
+	struct msghdr msg;
+	struct iovec iov;
+	char ctrl[32];
+	struct cmsghdr *cm;
 
-	sinlen = s->family->sockaddr_size;
-	ret = recvfrom(s->fd, buf, len, 0, (void *) &sin, &sinlen);
+	ZERO(msg);
+	msg.msg_name = &sin;
+	msg.msg_namelen = s->family->sockaddr_size;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = ctrl;
+	msg.msg_controllen = sizeof(ctrl);
+	ZERO(iov);
+	iov.iov_base = buf;
+	iov.iov_len = len;
+
+	ret = recvmsg(s->fd, &msg, 0);
 	if (ret < 0)
 		return ret;
 	s->family->sockaddr2endpoint(ep, &sin);
+
+	if (tv) {
+		for (cm = CMSG_FIRSTHDR(&msg); cm; cm = CMSG_NXTHDR(&msg, cm)) {
+			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP) {
+				*tv = *((struct timeval *) CMSG_DATA(cm));
+				tv = NULL;
+			}
+		}
+		if (G_UNLIKELY(tv)) {
+			ilog(LOG_WARNING, "No receive timestamp received from kernel");
+			ZERO(*tv);
+		}
+	}
+	if (G_UNLIKELY((msg.msg_flags & MSG_TRUNC)))
+		ilog(LOG_WARNING, "Kernel indicates that data was truncated");
+	if (G_UNLIKELY((msg.msg_flags & MSG_CTRUNC)))
+		ilog(LOG_WARNING, "Kernel indicates that ancillary data was truncated");
+
 	return ret;
+}
+static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep) {
+	return __ip_recvfrom_ts(s, buf, len, ep, NULL);
 }
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep) {
 	struct sockaddr_storage sin;
@@ -279,6 +319,12 @@ static int __ip_error(socket_t *s) {
 	if (getsockopt(s->fd, SOL_SOCKET, SO_ERROR, &optval, &optlen))
 		return -1;
 	return optval;
+}
+static int __ip_timestamping(socket_t *s) {
+	int one = 1;
+	if (setsockopt(s->fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)))
+		return -1;
+	return 0;
 }
 static void __ip4_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
 	ZERO(*ra);

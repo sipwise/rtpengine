@@ -537,7 +537,7 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 static int get_port6(socket_t *r, unsigned int port, struct intf_spec *spec) {
 	if (open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr))
 		return -1;
-
+	socket_timestamping(r);
 	return 0;
 }
 
@@ -1013,7 +1013,7 @@ noop:
 
 /* XXX split this function into pieces */
 /* called lock-free */
-static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin) {
+static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, const struct timeval *tv) {
 	struct packet_stream *stream,
 			     *sink = NULL,
 			     *in_srtp, *out_srtp;
@@ -1174,7 +1174,7 @@ loop_ok:
 		handler_ret = rwf_in(s, in_srtp);
 	if (handler_ret >= 0) {
 		if (rtcp)
-			parse_and_log_rtcp_report(sfd, s, fsin);
+			parse_and_log_rtcp_report(sfd, s, fsin, tv);
 		if (rwf_out)
 			handler_ret += rwf_out(s, out_srtp);
 	}
@@ -1358,6 +1358,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	struct call *ca;
 	str s;
 	endpoint_t ep;
+	struct timeval tv;
 
 	if (sfd->socket.fd != fd)
 		goto out;
@@ -1373,7 +1374,8 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		}
 #endif
 
-		ret = socket_recvfrom(&sfd->socket, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE, &ep);
+		ret = socket_recvfrom_ts(&sfd->socket, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE,
+				&ep, &tv);
 
 		if (ret < 0) {
 			if (errno == EINTR)
@@ -1387,7 +1389,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 			ilog(LOG_WARNING, "UDP packet possibly truncated");
 
 		str_init_len(&s, buf + RTP_BUFFER_HEAD_ROOM, ret);
-		ret = stream_packet(sfd, &s, &ep);
+		ret = stream_packet(sfd, &s, &ep, &tv);
 		if (ret < 0) {
 			ilog(LOG_WARNING, "Write error on RTP socket: %s", strerror(-ret));
 			call_destroy(sfd->call);
