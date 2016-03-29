@@ -315,11 +315,6 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 		rwlock_unlock_w(&c->master_lock); // because of call_get(..)
 	}
 
-	if (c && !c->redis_foreign_call) {
-		rlog(LOG_DEBUG,"I am responsible for that call so I ignore redis notifications.");
-		goto err;
-	}
-
 	if (strncmp(rr->element[3]->str,"sadd",4)==0) {
 		if (c) {
 			rlog(LOG_INFO, "Redis-Notifier: Call already exists with this callid:%s\n", rr->element[2]->str);

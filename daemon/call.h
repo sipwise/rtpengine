@@ -114,7 +114,7 @@ enum call_type {
 #define __C_DBG(x...) ((void)0)
 #endif
 
-#define IS_BACKUP_CALL(c) (c->is_backup_call)
+#define IS_FOREIGN_CALL(c) (c->foreign_call)
 
 /* flags shared by several of the structs below */
 #define SHARED_FLAG_IMPLICIT_RTCP		0x00000001
@@ -435,8 +435,7 @@ struct call {
 	sockaddr_t		created_from_addr;
 
 	unsigned int		redis_hosted_db;
-	unsigned int		redis_foreign_call;
-	unsigned int		is_backup_call; // created_via_redis_notify call
+	unsigned int		foreign_call; // created_via_redis_notify call
 };
 
 struct callmaster_config {

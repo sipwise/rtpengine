@@ -191,6 +191,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	cm = c->callmaster;
 	rwlock_lock_r(&cm->conf.config_lock);
 
+	// final timeout applicable to all calls (own and foreign)
 	if (cm->conf.final_timeout && poller_now >= (c->created + cm->conf.final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
@@ -203,8 +204,8 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 		goto delete;
 	}
 
-	if (c->redis_foreign_call) {
-		ilog(LOG_DEBUG, "Redis-Notification: Timeout resets the deletion timers for a call where I am not responsible.");
+	// other timeouts not applicable to foreign calls
+	if (IS_FOREIGN_CALL(c)) {
 		c->deleted = c->ml_deleted = poller_now + cm->conf.delete_delay;
 		goto out;
 	}
@@ -261,7 +262,7 @@ next:
 		;
 	}
 
-	if (good || c->redis_foreign_call) {
+	if (good || IS_FOREIGN_CALL(c)) {
 		goto out;
 	}
 
@@ -547,11 +548,6 @@ static void callmaster_timer(void *ptr) {
 						ke->rtp_stats[j].bytes - atomic64_get(&rs->bytes));
 			atomic64_set(&rs->kernel_packets, ke->rtp_stats[j].packets);
 			atomic64_set(&rs->kernel_bytes, ke->rtp_stats[j].bytes);
-			if (ps && ps->call->redis_foreign_call && ke->rtp_stats[j].packets > 0) {
-				ilog(LOG_DEBUG, "Taking over resposibility now for that call since I saw packets.");
-				ps->call->redis_foreign_call = 0;
-				//atomic64_dec(&m->stats.foreign_sessions); /* this doesn't decrease when call becomes active */
-			}
 		}
 
 		update = 0;
@@ -1821,7 +1817,7 @@ struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		call = (struct call*) value;
-		if (!call->monologues.head || IS_BACKUP_CALL(call))
+		if (!call->monologues.head || IS_FOREIGN_CALL(call))
 			continue;
 		ml = call->monologues.head->data;
 		if (timercmp(interval_start, &ml->started, >)) {
@@ -1868,10 +1864,10 @@ void call_destroy(struct call *c) {
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
-	if (IS_BACKUP_CALL(c)) {
+	if (IS_FOREIGN_CALL(c)) {
 		atomic64_dec(&m->stats.foreign_sessions);
 	}
-	if(!IS_BACKUP_CALL(c)) 	{
+	if(!IS_FOREIGN_CALL(c)) 	{
 		mutex_lock(&m->totalstats_interval.managed_sess_lock);
 		m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_min,
 				g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
@@ -1884,7 +1880,7 @@ void call_destroy(struct call *c) {
 
 	obj_put(c);
 
-	if (!c->redis_foreign_call) {
+	if (!IS_FOREIGN_CALL(c)) {
 		redis_delete(c, m->conf.redis_write);
 	}
 
@@ -2135,7 +2131,7 @@ void call_destroy(struct call *c) {
 		}
 
 		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
-			if (atomic64_get(&ps->stats.packets)!=0 && !IS_BACKUP_CALL(c)){
+			if (atomic64_get(&ps->stats.packets)!=0 && !IS_FOREIGN_CALL(c)){
 				if (atomic64_get(&ps->stats.packets)!=0) {
 					atomic64_inc(&m->totalstats.total_oneway_stream_sess);
 					atomic64_inc(&m->totalstats_interval.total_oneway_stream_sess);
@@ -2147,7 +2143,7 @@ void call_destroy(struct call *c) {
 		}
 	}
 
-	if (!IS_BACKUP_CALL(c)) {
+	if (!IS_FOREIGN_CALL(c)) {
 		atomic64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 		atomic64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 	}
@@ -2155,7 +2151,7 @@ void call_destroy(struct call *c) {
 	if (c->monologues.head) {
 		ml = c->monologues.head->data;
 
-		if (!IS_BACKUP_CALL(c)) {
+		if (!IS_FOREIGN_CALL(c)) {
 			if (ml->term_reason==TIMEOUT) {
 				atomic64_inc(&m->totalstats.total_timeout_sess);
 				atomic64_inc(&m->totalstats_interval.total_timeout_sess);
@@ -2345,8 +2341,7 @@ restart:
 			mutex_unlock(&m->totalstats_interval.managed_sess_lock);
 		}
 		else if (type == CT_FOREIGN_CALL) { /* foreign call*/
-			c->redis_foreign_call = 1;
-			c->is_backup_call = 1;
+			c->foreign_call = 1;
 			atomic64_inc(&m->stats.foreign_sessions);
 			atomic64_inc(&m->totalstats.total_foreign_sessions);
 		}

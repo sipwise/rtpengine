@@ -211,7 +211,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    }
 
    printlen = snprintf (replybuffer,(outbufend-replybuffer), "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu | redis_keyspace:%i | foreign:%s\n\n",
-		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db, c->is_backup_call?"yes":"no");
+		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal, c->redis_hosted_db, IS_FOREIGN_CALL(c)?"yes":"no");
    ADJUSTLEN(printlen,outbufend,replybuffer);
 
    for (l = c->monologues.head; l; l = l->next) {
@@ -328,13 +328,13 @@ static void cli_incoming_list_sessions(char* buffer, int len, struct callmaster*
 				continue;
 			}
 		} else if (len>=strlen(LIST_OWN) && strncmp(buffer,LIST_OWN,strlen(LIST_OWN)) == 0) {
-			if (!call || call->is_backup_call) {
+			if (!call || IS_FOREIGN_CALL(call)) {
 				continue;
 			} else {
 				found_own = 1;
 			}
 		} else if (len>=strlen(LIST_FOREIGN) && strncmp(buffer,LIST_FOREIGN,strlen(LIST_FOREIGN)) == 0) {
-			if (!call || !call->is_backup_call) {
+			if (!call || !IS_FOREIGN_CALL(call)) {
 				continue;
 			} else {
 				found_foreign = 1;
@@ -344,7 +344,7 @@ static void cli_incoming_list_sessions(char* buffer, int len, struct callmaster*
 			break;
 		}
 
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db, call->is_backup_call?"yes":"no");
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created, call->created_from, call->redis_hosted_db, IS_FOREIGN_CALL(call)?"yes":"no");
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
 	rwlock_unlock_r(&m->hashlock);
@@ -614,9 +614,9 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 		while (g_hash_table_iter_next(&iter, &key, &value)) {
 			c = (struct call*)value;
 			if (!c) continue;
-			if (!str_memcmp(&termparam,"own") && c->is_backup_call) {
+			if (!str_memcmp(&termparam,"own") && IS_FOREIGN_CALL(c)) {
 				continue;
-			} else if (!str_memcmp(&termparam,"foreign") && !c->is_backup_call) {
+			} else if (!str_memcmp(&termparam,"foreign") && !IS_FOREIGN_CALL(c)) {
 				continue;
 			}
 			if (!c->ml_deleted) {
@@ -690,7 +690,7 @@ static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char
 	} else if (endptr == str_keyspace_db.s) {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail adding keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
 	} else {
-		if (!g_queue_find_custom(m->conf.redis_subscribed_keyspaces, uint_keyspace_db, guint_cmp)) {
+		if (!g_queue_find_custom(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db), guint_cmp)) {
 			g_queue_push_tail(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			redis_notify_subscribe_action(m, SUBSCRIBE_KEYSPACE, uint_keyspace_db);
 			printlen = snprintf(replybuffer, outbufend-replybuffer, "Success adding keyspace %u to redis notifications.\n", uint_keyspace_db);
@@ -727,7 +727,7 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail removing keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
         } else if (endptr == str_keyspace_db.s) {
                 printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail removing keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
-	} else if ((l = g_queue_find_custom(m->conf.redis_subscribed_keyspaces, uint_keyspace_db, guint_cmp))) {
+	} else if ((l = g_queue_find_custom(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db), guint_cmp))) {
 		// remove this keyspace
 		redis_notify_subscribe_action(m, UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
 		g_queue_remove(m->conf.redis_subscribed_keyspaces, l->data);
@@ -737,7 +737,7 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 		g_hash_table_iter_init(&iter, m->callhash);
 		while (g_hash_table_iter_next(&iter, &key, &value)) {
 			c = (struct call*)value;
-			if (!c || !c->is_backup_call|| !(c->redis_hosted_db == uint_keyspace_db)) {
+			if (!c || !IS_FOREIGN_CALL(c)|| !(c->redis_hosted_db == uint_keyspace_db)) {
 				continue;
 			}
 			if (!c->ml_deleted) {
