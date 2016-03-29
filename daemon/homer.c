@@ -16,6 +16,11 @@
 
 
 
+#define SEND_QUEUE_LIMIT 200
+
+
+
+
 struct homer_sender {
 	mutex_t		lock;
 
@@ -208,17 +213,18 @@ int homer_send(struct homer_sender *hs, GString *s, const str *id, const endpoin
 		goto out;
 
 	mutex_lock(&hs->lock);
-	// XXX limit size of send queue
-	g_queue_push_tail(&hs->send_queue, s);
+	if (hs->send_queue.length < SEND_QUEUE_LIMIT) {
+		g_queue_push_tail(&hs->send_queue, s);
+		s = NULL;
+	}
+	else
+		ilog(LOG_ERR, "Send queue length limit (%i) reached, dropping Homer message", SEND_QUEUE_LIMIT);
 	hs->state(hs);
 	mutex_unlock(&hs->lock);
-
-	goto done;
 
 out:
 	if (s)
 		g_string_free(s, TRUE);
-done:
 	return 0;
 }
 
