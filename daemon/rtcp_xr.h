@@ -10,6 +10,10 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <glib.h>
+
+#include "str.h"
+#include "rtcp.h"
 
 /**
  * @defgroup PJMED_RTCP_XR RTCP Extended Report (XR) - RFC 3611
@@ -181,49 +185,16 @@ typedef struct pjmedia_rtcp_xr_rb_voip_mtc
 
 
 /**
- * Constant of RTCP-XR content size.
- */
-#define PJMEDIA_RTCP_XR_BUF_SIZE \
-    sizeof(pjmedia_rtcp_xr_rb_rr_time) + \
-    sizeof(pjmedia_rtcp_xr_rb_dlrr) + \
-    sizeof(pjmedia_rtcp_xr_rb_stats) + \
-    sizeof(pjmedia_rtcp_xr_rb_voip_mtc)
-
-
-/**
- * This structure declares RTCP XR (Extended Report) packet.
- */
-typedef struct pjmedia_rtcp_xr_pkt
-{
-    struct {
-#if defined(PJ_IS_BIG_ENDIAN) && PJ_IS_BIG_ENDIAN!=0
-	unsigned	 version:2;	/**< packet type            */
-	unsigned	 p:1;		/**< padding flag           */
-	unsigned	 count:5;	/**< varies by payload type */
-	unsigned	 pt:8;		/**< payload type           */
-#else
-	unsigned	 count:5;	/**< varies by payload type */
-	unsigned	 p:1;		/**< padding flag           */
-	unsigned	 version:2;	/**< packet type            */
-	unsigned	 pt:8;		/**< payload type           */
-#endif
-	unsigned	 length:16;	/**< packet length          */
-	u_int32_t	 ssrc;		/**< SSRC identification    */
-    } common;
-
-    int8_t		 buf[PJMEDIA_RTCP_XR_BUF_SIZE];
-					/**< Content buffer   */
-} pjmedia_rtcp_xr_pkt;
-
-
-/**
  * This function is called internally by RTCP session when it receives
  * incoming RTCP XR packets.
  *
  * @param rtcp_pkt  The received RTCP XR packet.
  * @param size	    Size of the incoming packet.
  */
-void pjmedia_rtcp_xr_rx_rtcp_xr( char* cdrbufcur, const void *rtcp_pkt, size_t size);
+void pjmedia_rtcp_xr_rx_rtcp_xr(GString *, pjmedia_rtcp_common *common, str *s);
+
+
+#pragma pack()
 
 
 #endif /* RTCP_XR_H_ */

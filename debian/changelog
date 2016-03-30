@@ -1,3 +1,80 @@
+ngcp-rtpengine (4.4.0.0+0~mr4.4.0.0) unstable; urgency=medium
+
+  [ Lucian Balaceanu ]
+  * [937bb71] Adding images to illustrate redis database layout
+  * [7ae955c] Fixing reversed parameters when calculating redis restore time
+
+  [ Guillem Jover ]
+  * [df2126f] MT#16473 Convert debian/copyright to machine-readable format
+
+  [ Pawel Kuzak ]
+  * [ca04c96] Make creation of iptables chain optional
+  * [3f4cfff] Fixed inconsistency in rtpengine-ctl list totals
+
+  [ Joseph Frazier ]
+  * [8fbb0d3] Add hiredis-devel to daemon deps in README.el.md
+  * [2877f76] Add hiredis-devel to daemon BuildRequires
+
+  [ Richard Fuchs ]
+  * [7635f51] add hiredis dependency to README
+  * [6f2dc00] allow srtp-debug-helper to specify the ROC
+  * [b85a9e3] fix two memory leaks
+  * [5926048] don't just ignore but also strip invalid/unknown a=crypto
+  * [c9d797a] retain outgoing DTLS role whenever possible
+  * [d81c8df] move struct sdp_ng_flags from sdp.h to call_interfaces.h
+  * [b0a3898] fix sfd assignments when remote port changes
+  * [5dbadc4] implement port latching option
+  * [38d031c] fix support for AF switching on the fly
+  * [43bcabf] fix logic for unspecified ipv6 addresses
+  * [ff26e00] add STUN SOFTWARE attribute into ICE checks and responses
+  * [59cfb4f] fix incorrect padding in stun software attr
+  * [5b33498] fix RTCP content output
+  * [77d074c] fix length of software STUN attribute
+  * [b828122] move advertised_address out of intf_spec into local_intf
+  * [1c56865] fix iovec overflows
+  * [27d18e2] fix stun xor port response
+  * [725638b] remove redis-role redundancy
+  * [d8e1e9f] simplify redis CLI options
+  * [3f1ae98] unify -r/-R and -w/-W options into single options
+  * [c1407d6] support Redis server authentication
+  * [f52884e] report errors returned from redis
+  * [c4f630c] fix kernel module build for 4.4+ kernels
+  * [926d9d3] MT#17699 augment module makefile version detection
+
+  [ smititelu ]
+  * [6378a1e] Graphite change global to local parameters
+  * [0395a24] Change the graphite connection state logic
+  * [e48252e] Change abort() behaviour of redis_check_conn()
+  * [7d03f3d] Improve Redis connection logging
+  * [50aef80] Rtpengine starts even if redis is down
+  * [33e72ba] Skip redundant log if r->ctx->err != NULL
+  * [0447177] Add NO_REDIS_REQUIRED new parameter
+  * [74ad505] Update README.md for NO_REDIS_REQUIRED parameter
+  * [65de793] Add config REDIS_NUM_THREADS param
+  * [eee5a65] Update doku for REDIS_NUM_THREADS
+  * [a6b4b86] Fix segfault when ps->component=0
+  * [bac271b] Add callmaster config lock
+
+  [ Frederic-Philippe Metz ]
+  * [e376335] Removed graphite hostname and 'totals' in graphite names
+
+  [ Michael Prokop ]
+  * [47a9564] MT#17699 Bump Standards-Version to 3.9.7
+  * [b4a6653] MT#17699 Fix m-a build error + Bump Standards-Version for ngcp-rtpengine-kernel
+
+  [ Stefan Mititelu ]
+  * [5e7640b] Add/Retrieve ps->component to/from redis
+  * [9be68a0] Add FINAL_TIMEOUT parameter
+  * [ef39aa3] Add rtpengine-ctl list/set timeout
+  * [4343ff0] Update rtpengine-cli set maxopenfiles
+  * [05302c2] Update rtpengine-cli set maxsessions
+  * [57aa566] Add offer/answer/delete processing statistics
+  * [a43996f] Add 'unidirectional' attribute
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 21 Mar 2016 22:31:18 +0100
+
 ngcp-rtpengine (4.3.0.0+0~mr4.3.0.0) unstable; urgency=medium
 
   [ Frederic-Philippe Metz ]

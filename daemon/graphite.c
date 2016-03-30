@@ -241,8 +241,6 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 	fd_set wfds;
 	FD_ZERO(&wfds);
 	struct timeval tv;
-	int optval=0;
-	socklen_t optlen=sizeof(optval);
 
         // sanity checks
         if (!cm) {
@@ -276,10 +274,10 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 				connection_state = STATE_DISCONNECTED;
 				return;
 			}
-			rc = getsockopt(graphite_sock.fd, SOL_SOCKET, SO_ERROR, &optval, &optlen);
-			if (rc) ilog(LOG_ERROR,"getsockopt failure.");
-			if (optval != 0) {
-				ilog(LOG_ERROR,"Socket connect failed. fd: %i, Reason: %s\n",graphite_sock.fd, strerror(optval));
+			rc = socket_error(&graphite_sock);
+			if (rc < 0) ilog(LOG_ERROR,"getsockopt failure.");
+			if (rc != 0) {
+				ilog(LOG_ERROR,"Socket connect failed. fd: %i, Reason: %s\n",graphite_sock.fd, strerror(rc));
 				close_socket(&graphite_sock);
 				connection_state = STATE_DISCONNECTED;
 				return;

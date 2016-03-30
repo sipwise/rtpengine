@@ -3,6 +3,7 @@
 
 #include "str.h"
 #include "call.h"
+#include <glib.h>
 
 
 struct crypto_context;
@@ -30,7 +31,7 @@ typedef struct pjmedia_rtcp_sr
     u_int32_t	    rtp_ts;	    /**< RTP timestamp.			*/
     u_int32_t	    sender_pcount;  /**< Sender packet cound.		*/
     u_int32_t	    sender_bcount;  /**< Sender octet/bytes count.	*/
-} pjmedia_rtcp_sr;
+} __attribute__ ((packed)) pjmedia_rtcp_sr;
 
 
 /**
@@ -39,22 +40,36 @@ typedef struct pjmedia_rtcp_sr
 typedef struct pjmedia_rtcp_rr
 {
 	u_int32_t	    ssrc;	    /**< SSRC identification.		*/
-#if defined(PJ_IS_BIG_ENDIAN) && PJ_IS_BIG_ENDIAN!=0
+#if G_BYTE_ORDER == G_BIG_ENDIAN
 	u_int32_t	    fract_lost:8;   /**< Fraction lost.			*/
 	u_int32_t	    total_lost_2:8; /**< Total lost, bit 16-23.		*/
 	u_int32_t	    total_lost_1:8; /**< Total lost, bit 8-15.		*/
 	u_int32_t	    total_lost_0:8; /**< Total lost, bit 0-7.		*/
-#else
+#elif G_BYTE_ORDER == G_LITTLE_ENDIAN
 	u_int32_t	    fract_lost:8;   /**< Fraction lost.			*/
 	u_int32_t	    total_lost_2:8; /**< Total lost, bit 0-7.		*/
 	u_int32_t	    total_lost_1:8; /**< Total lost, bit 8-15.		*/
 	u_int32_t	    total_lost_0:8; /**< Total lost, bit 16-23.		*/
+#else
+#error "byte order unknown"
 #endif
 	u_int32_t	    last_seq;	    /**< Last sequence number.		*/
 	u_int32_t	    jitter;	    /**< Jitter.			*/
 	u_int32_t	    lsr;	    /**< Last SR.			*/
 	u_int32_t	    dlsr;	    /**< Delay since last SR.		*/
-} pjmedia_rtcp_rr;
+} __attribute__ ((packed)) pjmedia_rtcp_rr;
+
+
+typedef struct _rtcp_sdes_chunk
+{
+	uint32_t csrc;
+} __attribute__ ((packed)) rtcp_sdes_chunk_t;
+
+typedef struct _rtcp_sdes_item
+{
+	uint8_t type;
+	uint8_t len;
+} __attribute__ ((packed)) rtcp_sdes_item_t;
 
 
 /**
@@ -62,7 +77,7 @@ typedef struct pjmedia_rtcp_rr
  */
 typedef struct pjmedia_rtcp_common
 {
-#if defined(PJ_IS_BIG_ENDIAN) && PJ_IS_BIG_ENDIAN!=0
+#if G_BYTE_ORDER == G_BIG_ENDIAN
     unsigned	    version:2;	/**< packet type            */
     unsigned	    p:1;	/**< padding flag           */
     unsigned	    count:5;	/**< varies by payload type */
@@ -77,27 +92,6 @@ typedef struct pjmedia_rtcp_common
     u_int32_t	    ssrc;	/**< SSRC identification    */
 } pjmedia_rtcp_common;
 
-/**
- * This structure declares default RTCP packet (SR) that is sent by pjmedia.
- * Incoming RTCP packet may have different format, and must be parsed
- * manually by application.
- */
-typedef struct pjmedia_rtcp_sr_pkt
-{
-    pjmedia_rtcp_common  common;	/**< Common header.	    */
-    pjmedia_rtcp_sr	 sr;		/**< Sender report.	    */
-    pjmedia_rtcp_rr	 rr;		/**< variable-length list   */
-} pjmedia_rtcp_sr_pkt;
-
-/**
- * This structure declares RTCP RR (Receiver Report) packet.
- */
-typedef struct pjmedia_rtcp_rr_pkt
-{
-    pjmedia_rtcp_common  common;	/**< Common header.	    */
-    pjmedia_rtcp_rr	 rr;		/**< variable-length list   */
-} pjmedia_rtcp_rr_pkt;
-
 
 int rtcp_avpf2avp(str *);
 int rtcp_avp2savp(str *, struct crypto_context *);
@@ -105,6 +99,6 @@ int rtcp_savp2avp(str *, struct crypto_context *);
 
 int rtcp_demux_is_rtcp(const str *);
 
-void parse_and_log_rtcp_report(struct stream_fd *sfd, const void *pkt, long size);
+void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *, const endpoint_t *, const struct timeval *);
 
 #endif

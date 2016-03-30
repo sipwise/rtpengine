@@ -226,8 +226,27 @@ sub rtcp_sr {
 	my $secs = $now[0] + 2208988800;
 	my $frac = $now[1] / 1000000 * 2**32;
 	my $sr = pack('CCnN NNN NN', (2 << 6) | 1, 200, 12, rand(2**32), $secs, $frac,
-		12345, 0, 0);
-	$sr .= pack('N CCCC NNNN', 0, 0, 0, 0, 0, 0, 0, 0, 0);
+		12345, rand(12345), rand(4321));
+	$sr .= pack('N CCCC NNNN', rand(2**32), rand(256), rand(256), rand(256), rand(256),
+		rand(2**32), rand(2**32), rand(2**32), rand(2**32));
+	# sdes
+	$sr .= pack('CCn N CC a* CC a* CC a* C C N CC a* CC a* C CCC N CC a* C',
+		(2 << 6) | 3, 202, 16,
+		rand(2 ** 32), # csrc
+		1, 7, 'blah123', # cname
+		2, 6, 'foobar', # name
+		3, 7, 'foo@bar', # email,
+		0, # eol
+		0, # padding
+		rand(2 ** 32), # csrc
+		4, 5, '54321', # phone
+		5, 3, 'foo', # loc
+		0, # eol
+		0,0,0, # padding
+		rand(2 ** 32), # csrc
+		6, 5, 'fubar', # tool
+		0, # eol
+	);
 	return $sr;
 }
 
