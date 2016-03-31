@@ -369,7 +369,8 @@ void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, str 
 
 	// Wrap RTP in fake IP packet header
 	u_int8_t ip_header[20];
-	u_int16_t *ip_total_length = (u_int16_t*)(ip_header + 2);
+	u_int16_t ip_total_length = udp_len + 20;
+	u_int16_t *ip_total_length_ptr = (u_int16_t*)(ip_header + 2);
 	u_int32_t *ip_src_addr = (u_int32_t*)(ip_header + 12);
 	u_int32_t *ip_dst_addr = (u_int32_t*)(ip_header + 16);
 	unsigned long src_ip = src_endpoint.address.u.ipv4.s_addr;
@@ -379,7 +380,7 @@ void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, str 
 	ip_header[0] = ip_header[0] | 5; // Internet Header Length (IHL) - 4 bits
 	ip_header[1] = 0; // DSCP - 6 bits
 	ip_header[1] = 0; // ECN - 2 bits
-	*ip_total_length = htons(udp_len + 20); // Total Length (entire packet size) - 2 bytes
+  *ip_total_length_ptr = htons(ip_total_length);
 	ip_header[4] = 0; ip_header[5] = 0 ; // Identification - 2 bytes
 	ip_header[6] = 0; // Flags - 3 bits
 	ip_header[7] = 0; // Fragment Offset - 13 bits
@@ -398,7 +399,7 @@ void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, str 
 	header.len = s->len + 28;
 
 	// Copy all the headers and payload into a new string
-	unsigned char pkt_s[*ip_total_length];
+	unsigned char pkt_s[ip_total_length];
 	memcpy(pkt_s, ip_header, 20);
 	memcpy(pkt_s + 20, udp_header, 8);
 	memcpy(pkt_s + 28, s->s, s->len);
