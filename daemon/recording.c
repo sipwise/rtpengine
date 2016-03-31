@@ -380,7 +380,7 @@ void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, str 
 	ip_header[0] = ip_header[0] | 5; // Internet Header Length (IHL) - 4 bits
 	ip_header[1] = 0; // DSCP - 6 bits
 	ip_header[1] = 0; // ECN - 2 bits
-  *ip_total_length_ptr = htons(ip_total_length);
+	*ip_total_length_ptr = htons(ip_total_length);
 	ip_header[4] = 0; ip_header[5] = 0 ; // Identification - 2 bytes
 	ip_header[6] = 0; // Flags - 3 bits
 	ip_header[7] = 0; // Fragment Offset - 13 bits
