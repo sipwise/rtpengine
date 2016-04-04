@@ -1864,21 +1864,24 @@ void call_destroy(struct call *c) {
 
 	rwlock_lock_w(&m->hashlock);
 	ret = g_hash_table_remove(m->callhash, &c->callid);
+	rwlock_unlock_w(&m->hashlock);
+
+	// if call not found in hashlock => previously deleted
+	if (!ret)
+		return;
+
+	obj_put(c);
+
 	if (IS_FOREIGN_CALL(c)) {
 		atomic64_dec(&m->stats.foreign_sessions);
 	}
+
 	if(!IS_FOREIGN_CALL(c)) 	{
 		mutex_lock(&m->totalstats_interval.managed_sess_lock);
 		m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_min,
 				g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
 		mutex_unlock(&m->totalstats_interval.managed_sess_lock);
 	}
-	rwlock_unlock_w(&m->hashlock);
-
-	if (!ret)
-		return;
-
-	obj_put(c);
 
 	if (!IS_FOREIGN_CALL(c)) {
 		redis_delete(c, m->conf.redis_write);

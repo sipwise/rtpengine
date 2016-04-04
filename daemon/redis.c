@@ -515,9 +515,11 @@ static int redis_notify(struct callmaster *cm) {
 	}
 
 	// subscribe to the values in the configured keyspaces
+	rwlock_lock_r(&cm->conf.config_lock);
 	for (l = cm->conf.redis_subscribed_keyspaces->head; l; l = l->next) {
 		redis_notify_subscribe_action(cm, SUBSCRIBE_KEYSPACE, GPOINTER_TO_UINT(l->data));
 	}
+	rwlock_unlock_r(&cm->conf.config_lock);
 
 	// dispatch event base => thread blocks here
 	if (event_base_dispatch(cm->conf.redis_notify_event_base) < 0) {

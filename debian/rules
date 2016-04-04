@@ -84,7 +84,6 @@ install: build
 
 %:
 	@echo "--- Building: $@"
-	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
 	dh_installdirs       -p$@ -P$(b)/$@
 	dh_link              -p$@ -P$(b)/$@
 	dh_installdocs       -p$@ -P$(b)/$@ debian/README.md.gz debian/README.html.gz

@@ -20,6 +20,7 @@
 #include "socket.h"
 #include "media_socket.h"
 
+#define UNDEFINED ((unsigned int) -1)
 #define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
 
 #define truncate_output(x) strcpy(x - strlen(TRUNCATED) - 1, TRUNCATED)

@@ -220,8 +220,3 @@ int uint32_eq(const void *a, const void *b) {
 	const u_int32_t *A = a, *B = b;
 	return (*A == *B) ? TRUE : FALSE;
 }
-
-int guint_cmp(gconstpointer a, gconstpointer b) {
-	const guint A = GPOINTER_TO_UINT(a), B = GPOINTER_TO_UINT(b);
-	return (int) (A - B);
-}
