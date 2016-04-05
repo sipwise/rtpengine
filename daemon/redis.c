@@ -241,7 +241,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 	struct callmaster *cm = privdata;
 	struct redis *r = 0;
-	struct call* c;
+	struct call *c = NULL;
 	str callid;
 	char db_str[16]; memset(&db_str, 0, 8);
 	char *pdbstr = db_str;
@@ -268,7 +268,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 		goto err;
 
 	for (int j = 0; j < rr->elements; j++) {
-		rlog(LOG_INFO, "Redis-Notify: %u) %s\n", j, rr->element[j]->str);
+		rlog(LOG_DEBUG, "Redis-Notify: %u) %s\n", j, rr->element[j]->str);
 	}
 
 	if (rr->elements != 4)
@@ -297,7 +297,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 	// select the right db for restoring the call
 	if (redisCommandNR(r->ctx, "SELECT %i", r->db)) {
 		if (r->ctx->err)
-			rlog(LOG_ERR, "Redis error: %s", r->ctx->errstr);
+			rlog(LOG_ERROR, "Redis error: %s", r->ctx->errstr);
 		redisFree(r->ctx);
 		r->ctx = NULL;
 		goto err;
@@ -306,28 +306,39 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 	pch += strlen("notifier-");
 	str_cut(rr->element[2]->str,0,pch-rr->element[2]->str);
 	rr->element[2]->len = strlen(rr->element[2]->str);
-	rlog(LOG_INFO,"Redis-Notifier: Processing call with callid:%s\n",rr->element[2]->str);
+	rlog(LOG_DEBUG,"Redis-Notifier: Processing call with callid: %s\n",rr->element[2]->str);
 
 	str_init(&callid,rr->element[2]->str);
 
 	c = call_get(&callid, cm);
 	if (c) {
-		rwlock_unlock_w(&c->master_lock); // because of call_get(..)
+		// because of call_get(..)
+		rwlock_unlock_w(&c->master_lock);
 	}
 
 	if (strncmp(rr->element[3]->str,"sadd",4)==0) {
 		if (c) {
-			rlog(LOG_INFO, "Redis-Notifier: Call already exists with this callid:%s\n", rr->element[2]->str);
+			rlog(LOG_NOTICE, "Redis-Notifier: SADD already find call with callid: %s\n", rr->element[2]->str);
 			goto err;
 		}
 		redis_restore_call(r, cm, rr->element[2], CT_FOREIGN_CALL);
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
+		if (!c) {
+			rlog(LOG_NOTICE, "Redis-Notifier: DEL did not find call with callid: %s\n", rr->element[2]->str);
+			goto err;
+		}
+
 		call_destroy(c);
 	}
 
 err:
+	if (c) {
+		// because of call_get(..)
+		obj_put(c);
+	}
+
 	mutex_unlock(&r->lock);
 }
 
