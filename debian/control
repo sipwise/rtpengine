@@ -40,12 +40,20 @@ Description: IPtables extension module for the kernel-space NGCP media proxy.
 
 Package: ngcp-rtpengine
 Architecture: all
-Depends: ngcp-rtpengine-daemon (>= ${source:Version}),
-         ngcp-rtpengine-iptables (>= ${source:Version}),
-         ngcp-rtpengine-kernel-dkms (>= ${source:Version})
+Depends: ngcp-rtpengine-daemon (>= ${source:Version})
+Suggests: ngcp-rtpengine-kernel (>= ${source:Version})
 Conflicts: ngcp-mediaproxy-ng
 Replaces: ngcp-mediaproxy-ng
 Description: NGCP RTP/media proxy - meta package.
+ This is a meta package for easy installation of necessary parts of the NGCP
+ media proxy. It will install the user-space daemon.
+
+Package: ngcp-rtpengine-kernel
+Architecture: all
+Depends: ngcp-rtpengine,
+         ngcp-rtpengine-iptables (>= ${source:Version}),
+         ngcp-rtpengine-kernel-dkms (>= ${source:Version})
+Description: NGCP RTP/media proxy + kernel - meta package.
  This is a meta package for easy installation of all three parts of the NGCP
  media proxy. It will install the user-space daemon, the kernel-space IPtables
  module, and the IPtables extension module.
