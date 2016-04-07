@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dad5f5cf_029c94bf",
+        "filename": "debian/control",
+        "patchSetId": 2
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2016-04-07T12:55:03Z",
+      "side": 1,
+      "message": "Actually, without the kernel module installed, the iptables module also becomes useless.",
+      "revId": "645a456b099354a82f5861ddc0f8b306c99b7973",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
