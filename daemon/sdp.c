@@ -1480,7 +1480,9 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 		__parse_address(&flags->parsed_media_address, NULL, NULL, &flags->media_address);
 
 	if (!is_addr_unspecified(&flags->parsed_media_address))
-		len = sprintf(buf, "%s", sockaddr_print_buf(&flags->parsed_media_address));
+		len = sprintf(buf, "%s %s",
+				flags->parsed_media_address.family->rfc_name,
+				sockaddr_print_buf(&flags->parsed_media_address));
 	else
 		call_stream_address46(buf, ps, SAF_NG, &len, NULL);
 	chopper_append_dup(chop, buf, len);
