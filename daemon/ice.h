@@ -10,7 +10,6 @@
 #include "str.h"
 #include "obj.h"
 #include "aux.h"
-#include "call.h"
 #include "media_socket.h"
 #include "socket.h"
 
@@ -162,6 +161,11 @@ void ice_thread_run(void *);
 int ice_request(struct stream_fd *, const endpoint_t *, struct stun_attrs *);
 int ice_response(struct stream_fd *, const endpoint_t *src,
 		struct stun_attrs *attrs, u_int32_t transaction[3]);
+
+
+
+#include "call.h"
+
 
 /* returns 0 if ICE still has work to do, 1 otherwise */
 INLINE int ice_has_finished(struct call_media *media) {

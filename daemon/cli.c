@@ -14,6 +14,8 @@
 #include "call.h"
 #include "cli.h"
 #include "socket.h"
+#include "control_ng.h"
+#include "media_socket.h"
 
 #include "rtpengine_config.h"
 

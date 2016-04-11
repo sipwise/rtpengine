@@ -12,6 +12,9 @@
 #include "sdp.h"
 #include "call_interfaces.h"
 #include "socket.h"
+#include "log_funcs.h"
+
+
 
 static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
 	// lock offers

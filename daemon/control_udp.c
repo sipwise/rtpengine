@@ -18,6 +18,7 @@
 #include "udp_listener.h"
 #include "call_interfaces.h"
 #include "socket.h"
+#include "log_funcs.h"
 
 
 static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,

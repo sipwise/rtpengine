@@ -14,6 +14,7 @@
 #include "str.h"
 #include "crypto.h"
 #include "dtls.h"
+#include "log_funcs.h"
 
 
 

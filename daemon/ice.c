@@ -8,6 +8,8 @@
 #include "log.h"
 #include "obj.h"
 #include "stun.h"
+#include "poller.h"
+#include "log_funcs.h"
 
 
 

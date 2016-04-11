@@ -59,11 +59,11 @@ INLINE void *__obj_alloc(unsigned int size, void (*free_func)(void *),
 INLINE void *__obj_alloc0(unsigned int size, void (*free_func)(void *),
 		const char *type, const char *file, unsigned int line);
 INLINE struct obj *__obj_hold(struct obj *o,
-		const char *type, const char *file, unsigned int line);
+		const char *file, unsigned int line);
 INLINE void *__obj_get(struct obj *o,
-		const char *type, const char *file, unsigned int line);
-INLINE void __obj_put(struct obj *o,,
-		const char *type, const char *file, unsigned int line);
+		const char *file, unsigned int line);
+INLINE void __obj_put(struct obj *o,
+		const char *file, unsigned int line);
 
 #else
 
@@ -99,7 +99,7 @@ INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void 
 #if OBJ_DEBUG
 	o->magic = OBJ_MAGIC;
 	o->type = strdup(type);
-	mylog(LOG_DEBUG, "obj_allocX(\"%s\") -> %p [%s:%u]", type, o, file, line);
+	write_log(LOG_DEBUG, "obj_allocX(\"%s\") -> %p [%s:%u]", type, o, file, line);
 #endif
 	o->ref = 1;
 	o->free_func = free_func;
@@ -145,12 +145,12 @@ INLINE struct obj *__obj_hold(struct obj *o
 ) {
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
-	mylog(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt before %u [%s:%u]",
+	write_log(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt before %u [%s:%u]",
 		o, o->type, g_atomic_int_get(&o->ref), file, line);
 #endif
 	g_atomic_int_inc(&o->ref);
 #if OBJ_DEBUG
-	mylog(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt after %u [%s:%u]",
+	write_log(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt after %u [%s:%u]",
 		o, o->type, g_atomic_int_get(&o->ref), file, line);
 #endif
 	return o;
@@ -175,13 +175,13 @@ INLINE void __obj_put(struct obj *o
 ) {
 #if OBJ_DEBUG
 	assert(o->magic == OBJ_MAGIC);
-	mylog(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt before %u [%s:%u]",
+	write_log(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt before %u [%s:%u]",
 		o, o->type, g_atomic_int_get(&o->ref), file, line);
 #endif
 	if (!g_atomic_int_dec_and_test(&o->ref))
 		return;
 #if OBJ_DEBUG
-	mylog(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt after %u [%s:%u]",
+	write_log(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt after %u [%s:%u]",
 		o, o->type, g_atomic_int_get(&o->ref), file, line);
 	free(o->type);
 #endif

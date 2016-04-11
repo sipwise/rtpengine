@@ -15,6 +15,8 @@
 #include "rtcp.h"
 #include "sdp.h"
 #include "aux.h"
+#include "log_funcs.h"
+#include "poller.h"
 
 
 
