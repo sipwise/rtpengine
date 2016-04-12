@@ -311,60 +311,60 @@ INLINE int __cond_timedwait_tv(cond_t *c, mutex_t *m, const struct timeval *tv) 
 
 
 INLINE int __debug_mutex_init(mutex_t *m, const char *file, unsigned int line) {
-	mylog(LOG_DEBUG, "mutex_init(%p) at %s:%u", m, file, line);
+	write_log(LOG_DEBUG, "mutex_init(%p) at %s:%u", m, file, line);
 	return pthread_mutex_init(m, NULL);
 }
 INLINE int __debug_mutex_destroy(mutex_t *m, const char *file, unsigned int line) {
-	mylog(LOG_DEBUG, "mutex_destroy(%p) at %s:%u", m, file, line);
+	write_log(LOG_DEBUG, "mutex_destroy(%p) at %s:%u", m, file, line);
 	return pthread_mutex_destroy(m);
 }
 INLINE int __debug_mutex_lock(mutex_t *m, const char *file, unsigned int line) {
 	int ret;
-	mylog(LOG_DEBUG, "mutex_lock(%p) at %s:%u ...", m, file, line);
+	write_log(LOG_DEBUG, "mutex_lock(%p) at %s:%u ...", m, file, line);
 	ret = pthread_mutex_lock(m);
-	mylog(LOG_DEBUG, "mutex_lock(%p) at %s:%u returning %i", m, file, line, ret);
+	write_log(LOG_DEBUG, "mutex_lock(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
 INLINE int __debug_mutex_trylock(mutex_t *m, const char *file, unsigned int line) {
 	int ret;
-	mylog(LOG_DEBUG, "mutex_trylock(%p) at %s:%u ...", m, file, line);
+	write_log(LOG_DEBUG, "mutex_trylock(%p) at %s:%u ...", m, file, line);
 	ret = pthread_mutex_trylock(m);
-	mylog(LOG_DEBUG, "mutex_trylock(%p) at %s:%u returning %i", m, file, line, ret);
+	write_log(LOG_DEBUG, "mutex_trylock(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
 INLINE int __debug_mutex_unlock(mutex_t *m, const char *file, unsigned int line) {
-	mylog(LOG_DEBUG, "mutex_unlock(%p) at %s:%u", m, file, line);
+	write_log(LOG_DEBUG, "mutex_unlock(%p) at %s:%u", m, file, line);
 	return pthread_mutex_unlock(m);
 }
 
 INLINE int __debug_rwlock_init(rwlock_t *m, const char *file, unsigned int line) {
-	mylog(LOG_DEBUG, "rwlock_init(%p) at %s:%u", m, file, line);
+	write_log(LOG_DEBUG, "rwlock_init(%p) at %s:%u", m, file, line);
 	return pthread_rwlock_init(m, NULL);
 }
 INLINE int __debug_rwlock_destroy(rwlock_t *m, const char *file, unsigned int line) {
-	mylog(LOG_DEBUG, "rwlock_destroy(%p) at %s:%u", m, file, line);
+	write_log(LOG_DEBUG, "rwlock_destroy(%p) at %s:%u", m, file, line);
 	return pthread_rwlock_destroy(m);
 }
 INLINE int __debug_rwlock_lock_r(rwlock_t *m, const char *file, unsigned int line) {
 	int ret;
-	mylog(LOG_DEBUG, "rwlock_lock_r(%p) at %s:%u ...", m, file, line);
+	write_log(LOG_DEBUG, "rwlock_lock_r(%p) at %s:%u ...", m, file, line);
 	ret = pthread_rwlock_rdlock(m);
-	mylog(LOG_DEBUG, "rwlock_lock_r(%p) at %s:%u returning %i", m, file, line, ret);
+	write_log(LOG_DEBUG, "rwlock_lock_r(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
 INLINE int __debug_rwlock_lock_w(rwlock_t *m, const char *file, unsigned int line) {
 	int ret;
-	mylog(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u ...", m, file, line);
+	write_log(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u ...", m, file, line);
 	ret = pthread_rwlock_wrlock(m);
-	mylog(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u returning %i", m, file, line, ret);
+	write_log(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
 INLINE int __debug_rwlock_unlock_r(rwlock_t *m, const char *file, unsigned int line) {
-	mylog(LOG_DEBUG, "rwlock_unlock_r(%p) at %s:%u", m, file, line);
+	write_log(LOG_DEBUG, "rwlock_unlock_r(%p) at %s:%u", m, file, line);
 	return pthread_rwlock_unlock(m);
 }
 INLINE int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int line) {
-	mylog(LOG_DEBUG, "rwlock_unlock_w(%p) at %s:%u", m, file, line);
+	write_log(LOG_DEBUG, "rwlock_unlock_w(%p) at %s:%u", m, file, line);
 	return pthread_rwlock_unlock(m);
 }
 

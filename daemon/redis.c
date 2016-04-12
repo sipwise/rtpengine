@@ -20,6 +20,12 @@
 #include "hiredis/async.h"
 #include "hiredis/adapters/libevent.h"
 #include "event2/thread.h"
+#include "log_funcs.h"
+
+
+
+
+
 
 INLINE redisReply *redis_expect(int type, redisReply *r) {
 	if (!r)

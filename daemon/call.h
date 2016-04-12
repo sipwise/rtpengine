@@ -15,10 +15,7 @@
 #include <openssl/x509.h>
 #include <limits.h>
 #include "compat.h"
-#include "control_ng.h"
-#include "aux.h"
 #include "socket.h"
-#include "media_socket.h"
 
 #define UNDEFINED ((unsigned int) -1)
 #define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
@@ -85,15 +82,6 @@ enum call_type {
 	CT_OWN_CALL = 0,
 	CT_FOREIGN_CALL,
 };
-
-#include "obj.h"
-#include "aux.h"
-#include "bencode.h"
-#include "str.h"
-#include "crypto.h"
-#include "dtls.h"
-#include "rtp.h"
-
 
 #define ERROR_NO_FREE_PORTS	-100
 #define ERROR_NO_FREE_LOGS	-101
@@ -198,6 +186,12 @@ enum call_type {
 #define MEDIA_CLEAR(p, f)	bf_clear(&(p)->media_flags, MEDIA_FLAG_ ## f)
 
 
+
+
+#include "obj.h"
+#include "bencode.h"
+#include "crypto.h"
+#include "dtls.h"
 
 
 struct poller;
@@ -538,6 +532,12 @@ void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval 
 
 void __payload_type_free(void *p);
 void __rtp_stats_update(GHashTable *dst, GHashTable *src);
+
+
+
+#include "str.h"
+#include "rtp.h"
+
 
 
 INLINE void *call_malloc(struct call *c, size_t l) {

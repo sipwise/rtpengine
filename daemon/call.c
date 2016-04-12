@@ -35,6 +35,7 @@
 #include "call_interfaces.h"
 #include "ice.h"
 #include "rtpengine_config.h"
+#include "log_funcs.h"
 
 
 
