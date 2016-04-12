@@ -59,6 +59,7 @@ const struct transport_protocol transport_protocols[] = {
 		.rtp		= 1,
 		.srtp		= 0,
 		.avpf		= 0,
+		.tcp		= 0,
 	},
 	[PROTO_RTP_SAVP] = {
 		.index		= PROTO_RTP_SAVP,
@@ -66,6 +67,7 @@ const struct transport_protocol transport_protocols[] = {
 		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 0,
+		.tcp		= 0,
 	},
 	[PROTO_RTP_AVPF] = {
 		.index		= PROTO_RTP_AVPF,
@@ -73,6 +75,7 @@ const struct transport_protocol transport_protocols[] = {
 		.rtp		= 1,
 		.srtp		= 0,
 		.avpf		= 1,
+		.tcp		= 0,
 	},
 	[PROTO_RTP_SAVPF] = {
 		.index		= PROTO_RTP_SAVPF,
@@ -80,6 +83,7 @@ const struct transport_protocol transport_protocols[] = {
 		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 1,
+		.tcp		= 0,
 	},
 	[PROTO_UDP_TLS_RTP_SAVP] = {
 		.index		= PROTO_UDP_TLS_RTP_SAVP,
@@ -87,6 +91,7 @@ const struct transport_protocol transport_protocols[] = {
 		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 0,
+		.tcp		= 0,
 	},
 	[PROTO_UDP_TLS_RTP_SAVPF] = {
 		.index		= PROTO_UDP_TLS_RTP_SAVPF,
@@ -94,6 +99,7 @@ const struct transport_protocol transport_protocols[] = {
 		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 1,
+		.tcp		= 0,
 	},
 	[PROTO_UDPTL] = {
 		.index		= PROTO_UDPTL,
@@ -101,6 +107,7 @@ const struct transport_protocol transport_protocols[] = {
 		.rtp		= 0,
 		.srtp		= 0,
 		.avpf		= 0,
+		.tcp		= 0,
 	},
 };
 const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
@@ -1490,6 +1497,39 @@ static int get_algorithm_num_ports(GQueue *streams, char *algorithm) {
 	return algorithm_ports;
 }
 
+static void __endpoint_loop_protect(struct stream_params *sp, struct call_media *media) {
+	struct intf_address intf_addr;
+	struct packet_stream *ps;
+
+	/* check if the advertised endpoint is one of our own addresses. this can
+	 * happen by mistake, or it's expected when ICE is in use and passthrough
+	 * mode is enabled (in particular when using ICE=force-relay). ignore such
+	 * an endpoint and revert to what we had before. */
+
+	intf_addr.type = socktype_udp;
+//	if (other_media->protocol && other_media->protocol->tcp)
+//		intf_addr.type = socktype_tcp;
+	intf_addr.addr = sp->rtp_endpoint.address;
+	if (!is_local_endpoint(&intf_addr, sp->rtp_endpoint.port))
+		return;
+
+	if (media->streams.head) {
+		ps = media->streams.head->data;
+		sp->rtp_endpoint = ps->advertised_endpoint;
+		ps = ps->rtcp_sibling;
+		if (ps)
+			sp->rtcp_endpoint = ps->advertised_endpoint;
+		else
+			ZERO(sp->rtcp_endpoint);
+	}
+	else
+		ZERO(sp->rtp_endpoint);
+
+	ilog(LOG_DEBUG, "Detected local endpoint advertised by remote client. "
+			"Ignoring and reverting to %s",
+			endpoint_print_buf(&sp->rtp_endpoint));
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		const struct sdp_ng_flags *flags)
@@ -1564,6 +1604,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		if (flags && flags->transport_protocol
 				&& other_media->protocol && other_media->protocol->rtp)
 			media->protocol = flags->transport_protocol;
+
+		__endpoint_loop_protect(sp, other_media);
 
 		if (sp->rtp_endpoint.port) {
 			/* copy parameters advertised by the sender of this message */
@@ -2253,7 +2295,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 			&& !is_trickle_ice_address(&sink->advertised_endpoint))
 		l += sprintf(o + l, "%s", ifa_addr->addr.family->unspec_string);
 	else
-		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->advertised_address));
+		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->advertised_address.addr));
 
 	*len = l;
 	return ifa_addr->addr.family->af;

@@ -225,6 +225,7 @@ static GQueue *__interface_list_for_family(sockfamily_t *fam);
 
 static GHashTable *__logical_intf_name_family_hash;
 static GHashTable *__intf_spec_addr_type_hash;
+static GHashTable *__local_intf_addr_type_hash; // hash of lists
 static GQueue __preferred_lists_for_family[__SF_LAST];
 
 static __thread unsigned int selection_index = 0;
@@ -422,6 +423,32 @@ static int __addr_type_eq(const void *a, const void *b) {
 	return sockaddr_eq(&A->addr, &B->addr) && A->type == B->type;
 }
 
+static void __insert_local_intf_addr_type(const struct intf_address *addr, const struct local_intf *intf) {
+	GList *l;
+
+	l = g_hash_table_lookup(__local_intf_addr_type_hash, addr);
+	l = g_list_prepend(l, (void *) intf);
+	g_hash_table_replace(__local_intf_addr_type_hash, (void *) addr, l);
+}
+int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
+	GList *l;
+	const struct local_intf *intf;
+	const struct intf_spec *spec;
+
+	l = g_hash_table_lookup(__local_intf_addr_type_hash, addr);
+	if (!l)
+		return 0;
+	while (l) {
+		intf = l->data;
+		spec = intf->spec;
+		if (spec->port_pool.min <= port && spec->port_pool.max >= port)
+			return 1;
+		l = l->next;
+	}
+	return 0;
+}
+
+
 static GQueue *__interface_list_for_family(sockfamily_t *fam) {
 	return &__preferred_lists_for_family[fam->idx];
 }
@@ -461,7 +488,10 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 	ifc->spec = spec;
 	ifc->logical = lif;
 
-	g_hash_table_insert(lif->addr_hash, (void *) &ifc->spec->local_address, ifc);
+	g_hash_table_insert(lif->addr_hash, &spec->local_address, ifc);
+
+	__insert_local_intf_addr_type(&spec->local_address, ifc);
+	__insert_local_intf_addr_type(&ifc->advertised_address, ifc);
 }
 
 void interfaces_init(GQueue *interfaces) {
@@ -473,6 +503,7 @@ void interfaces_init(GQueue *interfaces) {
 	/* init everything */
 	__logical_intf_name_family_hash = g_hash_table_new(__name_family_hash, __name_family_eq);
 	__intf_spec_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
+	__local_intf_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 
 	for (i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
 		g_queue_init(&__preferred_lists_for_family[i]);
@@ -1367,7 +1398,9 @@ out:
 	if (ret == 0 && update)
 		ret = 1;
 
+#if RTP_LOOP_PROTECT
 done:
+#endif
 	if (unk)
 		__stream_unconfirm(stream);
 	mutex_unlock(&stream->in_lock);

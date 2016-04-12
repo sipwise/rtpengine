@@ -106,6 +106,12 @@ static struct socket_family __socket_families[__SF_LAST] = {
 };
 
 
+
+socktype_t *socktype_udp;
+
+
+
+
 static int __ip4_addr_parse(sockaddr_t *dst, const char *src) {
 	if (inet_pton(AF_INET, src, &dst->u.ipv4) == 1)
 		return 0;
@@ -599,6 +605,19 @@ socktype_t *get_socket_type(const str *s) {
 	}
 	return NULL;
 }
+socktype_t *get_socket_type_c(const char *s) {
+	int i;
+	socktype_t *tp;
+
+	for (i = 0; i < G_N_ELEMENTS(__socket_types); i++) {
+		tp = &__socket_types[i];
+		if (!strcmp(s, tp->name))
+			return tp;
+		if (!strcmp(s, tp->name_uc))
+			return tp;
+	}
+	return NULL;
+}
 
 
 
@@ -608,4 +627,6 @@ void socket_init(void) {
 
 	for (i = 0; i < __SF_LAST; i++)
 		__socket_families[i].idx = i;
+
+	socktype_udp = get_socket_type_c("udp");
 }
