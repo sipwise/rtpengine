@@ -13,6 +13,7 @@
 #include "aux.h"
 #include "call.h"
 #include "log.h"
+#include "log_funcs.h"
 #include "str.h"
 #include "crypto.h"
 #include "dtls.h"
@@ -20,7 +21,6 @@
 #include "hiredis/async.h"
 #include "hiredis/adapters/libevent.h"
 #include "event2/thread.h"
-#include "log_funcs.h"
 
 
 
@@ -343,6 +343,7 @@ err:
 	if (c) {
 		// because of call_get(..)
 		obj_put(c);
+		log_info_clear();
 	}
 
 	mutex_unlock(&r->lock);

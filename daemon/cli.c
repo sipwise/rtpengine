@@ -11,6 +11,7 @@
 #include "poller.h"
 #include "aux.h"
 #include "log.h"
+#include "log_funcs.h"
 #include "call.h"
 #include "cli.h"
 #include "socket.h"
@@ -49,11 +50,11 @@ static void destroy_own_foreign_calls(struct callmaster *m, unsigned int foreign
 			continue;
 		}
 		
-		// save call reference
-		g_queue_push_tail(&call_list, obj_get(c));
-
 		// increase ref counter
 		obj_get(c);
+
+		// save call reference
+		g_queue_push_tail(&call_list, c);
 	}
 
 	// unlock read
@@ -889,6 +890,7 @@ next:
 cleanup:
    close(nfd);
    mutex_unlock(&cli->lock);
+   log_info_clear();
 }
 
 static void control_closed(int fd, void *p, uintptr_t u) {
