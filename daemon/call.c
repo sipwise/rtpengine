@@ -904,6 +904,9 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 	if (!ps->selected_sfd || !ps->sfds.length)
 		return CSS_SHUTDOWN;
 
+	if (MEDIA_ISSET(media, PASSTHRU))
+		return CSS_RUNNING;
+
 	if (MEDIA_ISSET(media, ICE) && !ice_has_finished(media))
 		return CSS_ICE; /* handled by ICE timer */
 
