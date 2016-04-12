@@ -896,12 +896,18 @@ static int redis_build_list_cb(GQueue *q, struct redis *r, const char *key, cons
 		return -1;
 
 	for (i = 0; i < rr->elements; i++) {
-		if (rr->element[i]->type != REDIS_REPLY_STRING)
+		if (rr->element[i]->type != REDIS_REPLY_STRING) {
+			freeReplyObject(rr);
 			return -1;
+		}
 		str_init_len(&s, rr->element[i]->str, rr->element[i]->len);
-		if (cb(&s, q, list, ptr))
+		if (cb(&s, q, list, ptr)) {
+			freeReplyObject(rr);
 			return -1;
+		}
 	}
+
+	freeReplyObject(rr);
 	return 0;
 }
 static int rbl_cb_simple(str *s, GQueue *q, struct redis_list *list, void *ptr) {
@@ -1500,7 +1506,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 }
 
 int redis_restore(struct callmaster *m, struct redis *r) {
-	redisReply *calls, *call;
+	redisReply *calls = NULL, *call;
 	int i, ret = -1;
 	GThreadPool *gtp;
 	struct thread_ctx ctx;
@@ -1546,6 +1552,9 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	while ((r = g_queue_pop_head(&ctx.r_q)))
 		redis_close(r);
 	ret = 0;
+
+	freeReplyObject(calls);
+
 err:
 	log_level &= ~LOG_FLAG_RESTORE;
 	return ret;
