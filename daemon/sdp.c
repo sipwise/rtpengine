@@ -1029,7 +1029,8 @@ void sdp_free(GQueue *sessions) {
 }
 
 static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, struct sdp_ng_flags *flags,
-		struct network_address *address, long int port) {
+		struct network_address *address, long int port)
+{
 	struct sdp_session *session = media->session;
 
 	if (!flags->trust_address) {

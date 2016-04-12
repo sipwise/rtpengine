@@ -89,6 +89,11 @@ struct socket {
 
 
 
+
+extern socktype_t *socktype_udp;
+
+
+
 #include "aux.h"
 
 
@@ -236,6 +241,7 @@ INLINE int ipv46_any_convert(endpoint_t *ep) {
 
 
 socktype_t *get_socket_type(const str *s);
+socktype_t *get_socket_type_c(const char *s);
 
 
 #endif

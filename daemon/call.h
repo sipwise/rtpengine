@@ -91,6 +91,7 @@ enum call_type {
 #define RTP_BUFFER_TAIL_ROOM	512
 #define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
 
+#define RTP_LOOP_PROTECT	0 // disable
 #ifndef RTP_LOOP_PROTECT
 #define RTP_LOOP_PROTECT	28 /* number of bytes */
 #define RTP_LOOP_PACKETS	2  /* number of packets */
@@ -222,6 +223,7 @@ struct transport_protocol {
 	int				rtp:1; /* also set to 1 for SRTP */
 	int				srtp:1;
 	int				avpf:1;
+	int				tcp:1;
 };
 extern const struct transport_protocol transport_protocols[];
 

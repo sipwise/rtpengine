@@ -37,7 +37,7 @@ struct intf_address {
 struct intf_config {
 	str				name;
 	struct intf_address		local_address;
-	sockaddr_t			advertised_address;
+	struct intf_address		advertised_address;
 	unsigned int			port_min, port_max;
 };
 struct intf_spec {
@@ -46,7 +46,7 @@ struct intf_spec {
 };
 struct local_intf {
 	struct intf_spec		*spec;
-	sockaddr_t			advertised_address;
+	struct intf_address		advertised_address;
 	unsigned int			unique_id; /* starting with 0 - serves as preference */
 	const struct logical_intf	*logical;
 	str				ice_foundation;
@@ -74,6 +74,7 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, i
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 struct local_intf *get_any_interface_address(const struct logical_intf *lif, sockfamily_t *fam);
 void interfaces_exclude_port(unsigned int port);
+int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 
 //int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const struct call *c);
 //void release_port(socket_t *r, const struct local_intf *);

@@ -216,7 +216,9 @@ static struct intf_config *if_addr_parse(char *s) {
 	ifa = g_slice_alloc0(sizeof(*ifa));
 	ifa->name = name;
 	ifa->local_address.addr = addr;
-	ifa->advertised_address = adv;
+	ifa->local_address.type = socktype_udp;
+	ifa->advertised_address.addr = adv;
+	ifa->advertised_address.type = ifa->local_address.type;
 	ifa->port_min = port_min;
 	ifa->port_max = port_max;
 
@@ -513,10 +515,13 @@ static void make_OpenSSL_thread_safe(void) {
 }
 
 
+static void early_init() {
+	socket_init(); // needed for socktype_udp
+}
+
 static void init_everything() {
 	struct timespec ts;
 
-	socket_init();
 	log_init();
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
@@ -690,6 +695,7 @@ int main(int argc, char **argv) {
 	struct main_context ctx;
 	int idx=0;
 
+	early_init();
 	options(&argc, &argv);
 	init_everything();
 	create_everything(&ctx);
