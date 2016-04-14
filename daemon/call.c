@@ -2251,7 +2251,6 @@ static void __call_free(void *p) {
 	struct call_media *md;
 	struct packet_stream *ps;
 	struct endpoint_map *em;
-	GList *it;
 
 	__C_DBG("freeing call struct");
 
@@ -2263,35 +2262,37 @@ static void __call_free(void *p) {
 	while (c->monologues.head) {
 		m = g_queue_pop_head(&c->monologues);
 
-		g_hash_table_destroy(m->other_tags);
-
-		for (it = m->medias.head; it; it = it->next) {
-			md = it->data;
-			g_queue_clear(&md->streams);
-			while (md->endpoint_maps.head) {
-				em = g_queue_pop_head(&md->endpoint_maps);
-				g_queue_clear_full(&em->intf_sfds, (void *) free_intf_list);
-				g_slice_free1(sizeof(*em), em);
-			}
-			g_hash_table_destroy(md->rtp_payload_types);
-			crypto_params_cleanup(&md->sdes_in.params);
-			crypto_params_cleanup(&md->sdes_out.params);
-			g_slice_free1(sizeof(*md), md);
-		}
 		g_queue_clear(&m->medias);
-
+		g_hash_table_destroy(m->other_tags);
 		g_slice_free1(sizeof(*m), m);
+	}
+
+	while (c->medias.head) {
+		md = g_queue_pop_head(&c->medias);
+
+		crypto_params_cleanup(&md->sdes_in.params);
+		crypto_params_cleanup(&md->sdes_out.params);
+		g_queue_clear(&md->streams);
+		g_queue_clear(&md->endpoint_maps);
+		g_hash_table_destroy(md->rtp_payload_types);
+		g_slice_free1(sizeof(*md), md);
+	}
+
+	while (c->endpoint_maps.head) {
+		em = g_queue_pop_head(&c->endpoint_maps);
+
+		g_queue_clear_full(&em->intf_sfds, (void *) free_intf_list);
+		g_slice_free1(sizeof(*em), em);
 	}
 
 	g_hash_table_destroy(c->tags);
 	g_hash_table_destroy(c->viabranches);
-	g_queue_clear(&c->medias);
-	g_queue_clear(&c->endpoint_maps);
 
 	while (c->streams.head) {
 		ps = g_queue_pop_head(&c->streams);
-		g_hash_table_destroy(ps->rtp_stats);
 		crypto_cleanup(&ps->crypto);
+		g_queue_clear(&ps->sfds);
+		g_hash_table_destroy(ps->rtp_stats);
 		g_slice_free1(sizeof(*ps), ps);
 	}
 
