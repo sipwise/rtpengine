@@ -440,13 +440,13 @@ static void cli_incoming_list_sessions(char* buffer, int len, struct callmaster*
 
 static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen = 0;
-	unsigned int open_files_num;
+	unsigned long open_files_num;
 	str open_files;
 	pid_t pid;
 	char *endptr;
 
 	// limit the minimum number of open files to avoid rtpengine freeze for low open_files_num values
-	unsigned int min_open_files_num = (1 << 16);
+	unsigned long min_open_files_num = (1 << 16);
 
 	if (len <= 1) {
 		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
@@ -457,7 +457,7 @@ static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmast
 	++buffer; --len; // one space
 	open_files.s = buffer;
 	open_files.len = len;
-	open_files_num = strtol(open_files.s, &endptr, 10);
+	open_files_num = strtoul(open_files.s, &endptr, 10);
 
 	if ((errno == ERANGE && (open_files_num == LONG_MAX || open_files_num == LONG_MIN)) || (errno != 0 && open_files_num == 0)) {
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; errno=%d\n", open_files.len, open_files.s, errno);
@@ -468,23 +468,23 @@ static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmast
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
 	} else if (open_files_num < min_open_files_num) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %u; can't set it under %u\n", open_files_num, min_open_files_num);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %lu; can't set it under %lu\n", open_files_num, min_open_files_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
 	} else if (rlim(RLIMIT_NOFILE, open_files_num) == -1){
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %u; errno = %d\n", open_files_num, errno);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %lu; errno = %d\n", open_files_num, errno);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
 	} else {
 		pid = getpid();
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting open_files to %u; cat /proc/%u/limits\n", open_files_num, pid);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting open_files to %lu; cat /proc/%u/limits\n", open_files_num, pid);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
 }
 
 static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen = 0;
-	int maxsessions_num;
+	long maxsessions_num;
 	int disabled = -1;
 	str maxsessions;
 	char *endptr;
@@ -509,19 +509,19 @@ static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaste
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
 	} else if (maxsessions_num < disabled) {
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %d; either positive or -1 values allowed\n", maxsessions_num);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting maxsessions to %ld; either positive or -1 values allowed\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	} else if (maxsessions_num == disabled) {
 		rwlock_lock_w(&m->conf.config_lock);
 		m->conf.max_sessions = maxsessions_num;
 		rwlock_unlock_w(&m->conf.config_lock);
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %d; disable feature\n", maxsessions_num);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %ld; disable feature\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	} else {
 		rwlock_lock_w(&m->conf.config_lock);
 		m->conf.max_sessions = maxsessions_num;
 		rwlock_unlock_w(&m->conf.config_lock);
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %d\n", maxsessions_num);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting maxsessions to %ld\n", maxsessions_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
 
@@ -530,7 +530,7 @@ static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaste
 
 static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend, unsigned int *conf_timeout) {
 	int printlen = 0;
-	unsigned int timeout_num;
+	unsigned long timeout_num;
 	str timeout;
 	char *endptr;
 
@@ -543,7 +543,7 @@ static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m
 	++buffer; --len; // one space
 	timeout.s = buffer;
 	timeout.len = len;
-	timeout_num = strtol(timeout.s, &endptr, 10);
+	timeout_num = strtoul(timeout.s, &endptr, 10);
 
 	if ((errno == ERANGE && (timeout_num == LONG_MAX || timeout_num == LONG_MIN)) || (errno != 0 && timeout_num == 0)) {
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting timeout to %.*s; errno=%d\n", timeout.len, timeout.s, errno);
@@ -558,7 +558,7 @@ static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m
 		rwlock_lock_w(&m->conf.config_lock);
 		*conf_timeout = timeout_num;
 		rwlock_unlock_w(&m->conf.config_lock);
-		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting timeout to %u\n", timeout_num);
+		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Success setting timeout to %lu\n", timeout_num);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}
 }
