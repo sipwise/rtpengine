@@ -207,7 +207,6 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 
 	// other timeouts not applicable to foreign calls
 	if (IS_FOREIGN_CALL(c)) {
-		c->deleted = c->ml_deleted = poller_now + cm->conf.delete_delay;
 		goto out;
 	}
 
