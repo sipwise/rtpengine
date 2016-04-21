@@ -23,7 +23,7 @@ if [ -f /etc/sysconfig/rtpengine ]
 then
         . /etc/sysconfig/rtpengine
 else
-	echo "Error: /etc/sysconfig/mediproxy-ng not present"
+	echo "Error: /etc/sysconfig/rtpengine not present"
 	exit -1
 fi
 
@@ -108,7 +108,7 @@ build_opts() {
 		OPTS+=" --port-max=$PORT_MAX"
 	fi
 
-	if [[ -n "$REDIS" -a -n "$REDIS_DB" ]]
+	if [ -n "$REDIS" -a -n "$REDIS_DB" ]
 	then
 		OPTS+=" --redis=$REDIS/$REDIS_DB"
 	fi
