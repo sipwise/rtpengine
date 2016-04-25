@@ -1,3 +1,18 @@
+ngcp-rtpengine (4.2.3.0+0~mr4.2.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d4f25b3] fix two memory leaks
+  * [5ac39f9] don't just ignore but also strip invalid/unknown a=crypto
+  * [b6e8fdd] retain outgoing DTLS role whenever possible
+  * [7734251] fix sfd assignments when remote port changes
+  * [69c885b] fix support for AF switching on the fly
+  * [b5c24ec] fix logic for unspecified ipv6 addresses
+  * [b07251c] fix the 'media address' parameter
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 25 Apr 2016 09:32:15 +0200
+
 ngcp-rtpengine (4.2.2.0+0~mr4.2.2.0) unstable; urgency=medium
 
   * New release.
