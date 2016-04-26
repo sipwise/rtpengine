@@ -1,4 +1,4 @@
-package RTP;
+package NGCP::Rtpclient::RTP;
 
 use strict;
 use warnings;

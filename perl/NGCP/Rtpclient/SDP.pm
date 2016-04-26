@@ -1,4 +1,4 @@
-package SDP;
+package NGCP::Rtpclient::SDP;
 
 use strict;
 use warnings;
@@ -41,7 +41,7 @@ sub decode {
 			next;
 		}
 		if ($line =~ /^m=(\S+) (\d+) (\S+) (\d+(?: \d+)*)$/s) {
-			$media = $self->add_media(SDP::Media->new_remote($1, $2, $3, $4));
+			$media = $self->add_media(NGCP::Rtpclient::SDP::Media->new_remote($1, $2, $3, $4));
 			next;
 		}
 		if ($line =~ /^c=(.*)$/) {
@@ -117,7 +117,7 @@ sub decode_address {
 }
 
 
-package SDP::Media;
+package NGCP::Rtpclient::SDP::Media;
 
 use Socket;
 use Socket6;
@@ -162,21 +162,21 @@ sub add_attrs {
 sub encode {
 	my ($self, $parent_connection) = @_;
 
-	my $pconn = $parent_connection ? SDP::encode_address($parent_connection) : '';
+	my $pconn = $parent_connection ? NGCP::Rtpclient::SDP::encode_address($parent_connection) : '';
 	my @out;
 
 	push(@out, "m=$self->{type} " . $self->{rtp}->sockport() . ' ' . $self->{protocol} . ' '
 		. join(' ', @{$self->{payload_types}}));
 
-	my $rtpconn = SDP::encode_address($self->{rtp});
+	my $rtpconn = NGCP::Rtpclient::SDP::encode_address($self->{rtp});
 	$rtpconn eq $pconn or push(@out, "c=$rtpconn");
 
 	push(@out, 'a=sendrecv');
 
 	if ($self->{rtcp}) {
-		my $rtcpconn = SDP::encode_address($self->{rtcp});
+		my $rtcpconn = NGCP::Rtpclient::SDP::encode_address($self->{rtcp});
 		push(@out, 'a=rtcp:' . $self->{rtcp}->sockport()
-			. ($rtcpconn eq $rtpconn ? '' : (' ' . SDP::encode_address($self->{rtcp}))));
+			. ($rtcpconn eq $rtpconn ? '' : (' ' . NGCP::Rtpclient::SDP::encode_address($self->{rtcp}))));
 	}
 
 	push(@out, @{$self->{additional_attributes}});

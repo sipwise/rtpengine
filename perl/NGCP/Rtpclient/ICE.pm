@@ -1,4 +1,4 @@
-package ICE;
+package NGCP::Rtpclient::ICE;
 
 use strict;
 use warnings;
@@ -88,7 +88,7 @@ sub add_candidate {
 				foundation => $foundation,
 				protocol => 'UDP', af => $c->sockdomain(),
 				address => $c->sockhost(), port => $c->sockport(),
-				agent => $self }, 'ICE::Component';
+				agent => $self }, 'NGCP::Rtpclient::ICE::Component';
 		push(@$comps, $comp);
 		$comp->debug("is $comp->{address}/$comp->{port}\n");
 
@@ -99,7 +99,7 @@ sub add_candidate {
 		base_priority => calc_priority($type, $local_pref, 0),
 		type => $type, components => $comps, protocol => 'UDP',
 		af => $comps->[0]->{af}, address => $comps->[0]->{address},
-		agent => $self }, 'ICE::Candidate';
+		agent => $self }, 'NGCP::Rtpclient::ICE::Candidate';
 
 	$self->pair_candidates();
 }
@@ -290,7 +290,7 @@ sub pair_candidates {
 			my $foundation = $loc->{foundation} . $rem->{foundation};
 			my $pair = $pairs->{$foundation} || ($pairs->{$foundation} =
 					bless { foundation => $foundation, local => $loc, remote => $rem,
-					components => [], agent => $self}, 'ICE::Candidate::Pair'
+					components => [], agent => $self}, 'NGCP::Rtpclient::ICE::Candidate::Pair'
 				);
 			my $comps = $pair->{components};
 
@@ -303,7 +303,7 @@ sub pair_candidates {
 					local => $loc->{components}->[$idx],
 					remote => $rem->{components}->[$idx],
 					agent => $self},
-					'ICE::Component::Pair');
+					'NGCP::Rtpclient::ICE::Component::Pair');
 				$c->{state} = $c->{state} || ($idx == 0 ? 'waiting' : 'frozen');
 			}
 		}
@@ -813,21 +813,21 @@ sub get_send_component {
 				$pair->{components}->[$component]->{remote}->{packed_peer});
 }
 
-package ICE::Candidate;
+package NGCP::Rtpclient::ICE::Candidate;
 
 sub debug {
 	my ($self, @rest) = @_;
 	$self->{agent}->debug("candidate", $self->{foundation}, ' - ', @rest);
 }
 
-package ICE::Component;
+package NGCP::Rtpclient::ICE::Component;
 
 sub debug {
 	my ($self, @rest) = @_;
 	$self->{agent}->debug("component $self->{foundation}/$self->{component}", ' - ', @rest);
 }
 
-package ICE::Candidate::Pair;
+package NGCP::Rtpclient::ICE::Candidate::Pair;
 
 sub priority {
 	my ($self) = @_;
@@ -849,7 +849,7 @@ sub nominate {
 	}
 }
 
-package ICE::Component::Pair;
+package NGCP::Rtpclient::ICE::Component::Pair;
 
 sub debug {
 	my ($self, @rest) = @_;
@@ -888,7 +888,7 @@ sub run_check {
 
 	$self->debug("running check\n");
 	$self->{state} = 'in progress';
-	$self->{transaction} = ICE::random_string(12);
+	$self->{transaction} = NGCP::Rtpclient::ICE::random_string(12);
 	$self->send_check();
 	# XXX handle retransmits
 }
@@ -913,16 +913,16 @@ sub send_check {
 	my $local_cand = $self->{agent}->{candidates}->{$local_comp->{foundation}};
 
 	my $attrs = [];
-	unshift(@$attrs, ICE::attr(0x8022, 'perl:ICE.pm'));
+	unshift(@$attrs, NGCP::Rtpclient::ICE::attr(0x8022, 'perl:ICE.pm'));
 	my $hexbrk = $self->{agent}->{tie_breaker}->as_hex();
 	$hexbrk =~ s/^0x// or die;
 	$hexbrk = ('0' x (16 - length($hexbrk))) . $hexbrk;
-	unshift(@$attrs, ICE::attr($self->{agent}->{controlling} ? 0x802a : 0x8029, pack('H*', $hexbrk)));
-	unshift(@$attrs, ICE::attr(0x0024, pack('N', ICE::calc_priority('prflx',
+	unshift(@$attrs, NGCP::Rtpclient::ICE::attr($self->{agent}->{controlling} ? 0x802a : 0x8029, pack('H*', $hexbrk)));
+	unshift(@$attrs, NGCP::Rtpclient::ICE::attr(0x0024, pack('N', NGCP::Rtpclient::ICE::calc_priority('prflx',
 				$local_cand->{preference}, $local_comp->{component}))));
-	unshift(@$attrs, ICE::attr(0x0006, "$self->{agent}->{other_ufrag}:$self->{agent}->{my_ufrag}"));
+	unshift(@$attrs, NGCP::Rtpclient::ICE::attr(0x0006, "$self->{agent}->{other_ufrag}:$self->{agent}->{my_ufrag}"));
 	$self->{nominate} and
-		unshift(@$attrs, ICE::attr(0x0025, ''));
+		unshift(@$attrs, NGCP::Rtpclient::ICE::attr(0x0025, ''));
 
 	$self->{agent}->integrity($attrs, 1, $self->{transaction}, $self->{agent}->{other_pwd});
 	$self->{agent}->fingerprint($attrs, 1, $self->{transaction});

@@ -1,4 +1,4 @@
-package SRTP;
+package NGCP::Rtpclient::SRTP;
 
 use strict;
 use warnings;

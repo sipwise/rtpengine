@@ -1,4 +1,4 @@
-package Rtpengine::Test;
+package NGCP::Rtpengine::Test;
 
 use strict;
 use warnings;
@@ -12,11 +12,11 @@ use Net::Interface;
 use List::Util;
 use IO::Multiplex;
 use Time::HiRes qw(time);
-use SDP;
-use ICE;
-use DTLS;
-use RTP;
-use Rtpengine;
+use NGCP::Rtpclient::SDP;
+use NGCP::Rtpclient::ICE;
+use NGCP::Rtpclient::DTLS;
+use NGCP::Rtpclient::RTP;
+use NGCP::Rtpengine;
 
 sub new {
 	my ($class, %args) = @_;
@@ -53,7 +53,7 @@ sub new {
 	$self->{timers} = [];
 	$self->{clients} = [];
 
-	$self->{control} = Rtpengine->new($args{host} // 'localhost', $args{port} // 2223);
+	$self->{control} = NGCP::Rtpengine->new($args{host} // 'localhost', $args{port} // 2223);
 	$self->{callid} = rand();
 
 	return $self;
@@ -61,7 +61,7 @@ sub new {
 
 sub client {
 	my ($self, %args) = @_;
-	my $cl = Rtpengine::Test::Client->_new($self, %args);
+	my $cl = NGCP::Rtpengine::Test::Client->_new($self, %args);
 	push(@{$self->{clients}}, $cl);
 	return $cl;
 }
@@ -124,7 +124,7 @@ sub mux_timeout {
 }
 
 
-package Rtpengine::Test::Client;
+package NGCP::Rtpengine::Test::Client;
 
 use Socket;
 
@@ -168,7 +168,7 @@ sub _new {
 	$self->{rtcp_sockets} = \@rtcp;
 
 	$self->{main_sockets} = $sockets[0]; # for m= and o=
-	$self->{local_sdp} = SDP->new($self->{main_sockets}->[0]); # no global c=
+	$self->{local_sdp} = NGCP::Rtpclient::SDP->new($self->{main_sockets}->[0]); # no global c=
 	$self->{component_peers} = []; # keep track of peer source addresses
 
 	# default protocol
@@ -176,17 +176,17 @@ sub _new {
 	$args{dtls} and $proto = 'UDP/TLS/RTP/SAVP';
 	$args{protocol} and $proto = $args{protocol};
 
-	$self->{local_media} = $self->{local_sdp}->add_media(SDP::Media->new(
+	$self->{local_media} = $self->{local_sdp}->add_media(NGCP::Rtpclient::SDP::Media->new(
 		$self->{main_sockets}->[0], $self->{main_sockets}->[1], $proto)); # main rtp and rtcp
 	# XXX support multiple medias
 
 	if ($args{dtls}) {
-		$self->{dtls} = DTLS::Group->new($parent->{mux}, $self, [ \@rtp, \@rtcp ]);
+		$self->{dtls} = NGCP::Rtpclient::DTLS::Group->new($parent->{mux}, $self, [ \@rtp, \@rtcp ]);
 		$self->{local_media}->add_attrs($self->{dtls}->encode());
 		$self->{dtls}->accept(); # XXX support other modes
 	}
 	if ($args{ice}) {
-		$self->{ice} = ICE->new(2, 1); # 2 components, controlling XXX
+		$self->{ice} = NGCP::Rtpclient::ICE->new(2, 1); # 2 components, controlling XXX
 		my $pref = 65535;
 		for my $s (@sockets) {
 			$self->{ice}->add_candidate($pref--, 'host', @$s); # 2 components
@@ -286,7 +286,7 @@ sub _offered {
 	my ($self, $req) = @_;
 
 	my $sdp_body = $req->{sdp} or die;
-	$self->{remote_sdp} = SDP->decode($sdp_body);
+	$self->{remote_sdp} = NGCP::Rtpclient::SDP->decode($sdp_body);
 	# XXX validate SDP
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
@@ -311,7 +311,7 @@ sub _answered {
 	my ($self, $req) = @_;
 
 	my $sdp_body = $req->{sdp} or die;
-	$self->{remote_sdp} = SDP->decode($sdp_body);
+	$self->{remote_sdp} = NGCP::Rtpclient::SDP->decode($sdp_body);
 	# XXX validate SDP
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
@@ -370,7 +370,7 @@ sub start_rtp {
 	my ($self) = @_;
 	$self->{rtp} and die;
 	my $dest = $self->{remote_media}->endpoint();
-	$self->{rtp} = RTP->new($self) or die;
+	$self->{rtp} = NGCP::Rtpclient::RTP->new($self) or die;
 }
 
 sub stop {

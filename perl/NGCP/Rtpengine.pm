@@ -1,4 +1,4 @@
-package Rtpengine;
+package NGCP::Rtpengine;
 
 use strict;
 use warnings;
