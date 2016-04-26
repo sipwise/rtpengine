@@ -1,8 +1,8 @@
-package DTLS;
+package NGCP::Rtpclient::DTLS;
 
 use strict;
 use warnings;
-use SRTP;
+use NGCP::Rtpclient::SRTP;
 use File::Temp;
 use Crypt::OpenSSL::RSA;
 use IO::Socket::INET;
@@ -279,7 +279,7 @@ sub encode {
 	return @ret;
 }
 
-package DTLS::Group;
+package NGCP::Rtpclient::DTLS::Group;
 
 sub new {
 	my ($class, $mux, $output_func, $socket_components, $cert) = @_;
@@ -291,7 +291,7 @@ sub new {
 
 	for my $idx (0 .. $max_component) {
 		my $local_sockets = $socket_components->[$idx];
-		my $cl = DTLS->new($mux, $local_sockets, $output_func, $idx, $cert);
+		my $cl = NGCP::Rtpclient::DTLS->new($mux, $local_sockets, $output_func, $idx, $cert);
 		push(@$self, $cl);
 		$cert = $cl->get_cert();
 	}

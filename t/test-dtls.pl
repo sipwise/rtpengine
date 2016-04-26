@@ -2,9 +2,9 @@
 
 use strict;
 use warnings;
-use Rtpengine::Test;
+use NGCP::Rtpengine::Test;
 
-my $r = Rtpengine::Test->new();
+my $r = NGCP::Rtpengine::Test->new();
 my $a = $r->client(dtls => 1);
 my $b = $r->client();
 

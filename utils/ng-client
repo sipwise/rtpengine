@@ -7,7 +7,7 @@ use warnings;
 use strict;
 use Getopt::Long;
 use Data::Dumper;
-use Rtpengine;
+use NGCP::Rtpengine;
 
 my %options = ('proxy-address' => 'localhost', 'proxy-port' => 2223);
 
@@ -99,7 +99,7 @@ elsif (defined($options{'sdp-file'})) {
 
 $options{verbose} and print Dumper \%packet;
 
-my $engine = Rtpengine->new($options{'proxy-address'}, $options{'proxy-port'});
+my $engine = NGCP::Rtpengine->new($options{'proxy-address'}, $options{'proxy-port'});
 my $resp = $engine->req(\%packet);
 
 #print Dumper $resp;

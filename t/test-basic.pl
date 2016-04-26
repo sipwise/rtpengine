@@ -2,10 +2,10 @@
 
 use strict;
 use warnings;
-use Rtpengine::Test;
+use NGCP::Rtpengine::Test;
 use IO::Socket;
 
-my $r = Rtpengine::Test->new();
+my $r = NGCP::Rtpengine::Test->new();
 my ($a, $b) = $r->client_pair(
 	{sockdomain => &Socket::AF_INET},
 	{sockdomain => &Socket::AF_INET}
