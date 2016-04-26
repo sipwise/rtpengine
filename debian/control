@@ -18,6 +18,7 @@ Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
+Recommends: ngcp-rtpengine-utils
 Suggests: ngcp-system-tools
 Depends: ${misc:Depends},
          ${shlibs:Depends}
@@ -93,3 +94,10 @@ Description: debugging symbols for ngcp-rtpengine
  .
  This package contains the debugging symbols for ngcp-rtpengine-daemon
  and ngcp-rtpengine-iptables
+
+Package: ngcp-rtpengine-utils
+Architecture: all
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Description: Scripts and Perl modules for NGCP rtpengine
+ Scripts and Perl modules for NGCP rtpengine

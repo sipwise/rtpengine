@@ -1,0 +1,3 @@
+utils/rtpengine-ctl /usr/sbin/
+utils/ng-client /usr/sbin/rtpengine-ng-client
+perl/* /usr/share/perl5/

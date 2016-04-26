@@ -111,7 +111,8 @@ binary-arch: install \
 binary-indep: build install \
 	ngcp-rtpengine \
 	ngcp-rtpengine-kernel-dkms \
-	ngcp-rtpengine-kernel-source
+	ngcp-rtpengine-kernel-source \
+	ngcp-rtpengine-utils
 
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
