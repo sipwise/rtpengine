@@ -873,7 +873,7 @@ static int redis_hash_get_stats(struct stats *out, const struct redis_hash *h, c
 	return 0;
 }
 static void *redis_list_get_idx_ptr(struct redis_list *list, unsigned int idx) {
-	if (idx > list->len)
+	if (idx >= list->len)
 		return NULL;
 	return list->ptrs[idx];
 }
