@@ -538,7 +538,7 @@ static void init_everything() {
 }
 
 
-void create_everything(struct main_context *ctx) {
+static void create_everything(struct main_context *ctx) {
 	struct callmaster_config mc;
 	struct control_tcp *ct;
 	struct control_udp *cu;
