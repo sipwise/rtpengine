@@ -1,3 +1,89 @@
+ngcp-rtpengine (4.5.0.0+0~mr4.5.0.0) unstable; urgency=medium
+
+  [ Frederic-Philippe Metz ]
+  * [541e299] Implemented redis-notification base feature.
+  * [1ee88db] Fixed SEGFAULT for RTPENGINE-64
+  * [447148b] Stop event loop on shutdown
+  * [d7ca576] Fixed issues with terminating event_loop
+  * [48543b4] Intermediate State: Notifications enabled by cli
+  * [bf38f15] Fix for restoring notified call from own redis db
+  * [354307e] Removed graphite hostname and 'totals' in graphite names
+  * [fd3e234] Implemented redis notification according to RTPENGINE-64
+  * [8b65c18] Removed also the '.' of the graphite prefix
+  * [9ca0be5] Reset deletion timers for in-responsible calls
+  * [5af1d8f] redis operations on the keyspace are now related to the keyspace they belong to
+  * [637d1f4] Locked redis context on redis notification
+  * [1ca0cc5] Implemented session limitation logic
+
+  [ smititelu ]
+  * [b38f3da] Redis nofitications fixes
+  * [98a86d3] Fix segfault when ps->component=0
+
+  [ Michael Prokop ]
+  * [472fce8] MT#17699 Fix m-a build error + Bump Standards-Version for ngcp-rtpengine-kernel
+
+  [ Stefan Mititelu ]
+  * [7377b90] Add/Retrieve ps->component to/from redis
+  * [763502d] Add sanity checks
+  * [9ec8ac6] Upgrade rtpengine-ctl tool
+  * [1648757] Fixes after first review
+  * [f392d9b] Update notifications flag logic
+  * [ce3ae37] Fixes after second review
+  * [b35a8dd] Fix memory leak on redis notifications
+  * [ee0216e] Update obj_* debugging text
+  * [bd7abe6] Fix memory leak for notifications feature
+  * [27ecb36] Free redis.c reply object memory leak
+  * [1881fc5] Free call's main queues in __call_free()
+  * [2024f9e] Remove unused code remnants
+  * [11e94c4] Add >= idx check for redis_list_get_idx_ptr()
+
+  [ Richard Fuchs ]
+  * [5aa7ef4] fix kernel module build for 4.4+ kernels
+  * [3ab2c63] MT#17699 augment module makefile version detection
+  * [133e630] MT#18599 support sending RTCP stats to Homer via HEP
+  * [8267966] MT#18599 use glib GString for RTCP logging
+  * [b5e36c2] MT#18599 simplify RTCP parsing
+  * [6187f51] MT#18599 support parsing of RTCP SDES fields
+  * [d45f928] MT#18599 limit Homer send queue size
+  * [29545e5] MT#18599 use kernel socket receive timestamping
+  * [05f0317] fix the 'media address' parameter
+  * [0206f09] fix obj-debug stuff
+  * [a813ddf] fix compiler warnings due to conflicting int types
+  * [ee960b7] dont do DTLS when in passthrough mode
+  * [942966b] force bencode strings as strings in perl ng-client
+  * [1f8d8d7] DTLS tests - WIP
+  * [bf8c6d9] split ICE stuff into packages
+  * [bc30f83] incorporate dtls stuff into tests
+  * [83d6600] unify testing framework - wip
+  * [d8d5e1b] include timer handling in test lib
+  * [4f75c36] diversify test scripts
+  * [ec10dbc] support ice test script
+  * [3306edf] remove legacy test scripts
+  * [e608cb0] move .pm to separate directory
+  * [50bc73c] support sending of rtp
+  * [db8284f] support nominating ice WIP
+  * [2b5e8ff] support sending rtp over ice negotiated peer WIP
+  * [f25c254] implement ice keepalives
+  * [65d4752] support checking of received rtp data
+  * [af788f1] additioanl tests and flags
+  * [b6b0b90] move dedicated tests into t/
+  * [f83f674] fix perl namespaces - move into NGCP::
+  * [cd937f1] create ngcp-rtpengine-utils package
+  * [351bc10] staticize function
+
+  [ Lucian Balaceanu ]
+  * [8fb677b] Fix stats foreign_sessions if redis_restore fails
+  * [859a505] Fix (foreign|own)_session, call_duration stats: modify call_get_or_create to set stats and foreign call state
+  * [2a05b85] Take end time of call monologue from terminated field
+  * [e2d78d9] Fix overflow of graphite call_duration statistic
+
+  [ Sergey Lavrov ]
+  * [cf39d07] fix typo and error in rtpengine.init
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 23 May 2016 19:02:50 +0200
+
 ngcp-rtpengine (4.4.0.0+0~mr4.4.0.0) unstable; urgency=medium
 
   [ Lucian Balaceanu ]
