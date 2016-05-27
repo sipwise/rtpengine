@@ -38,7 +38,11 @@ my $socket = new IO::Socket::INET (
     Proto => 'tcp',
 );
 die "Cannot connect to the rtpengine $!\n" unless $socket;
- 
+
+#set send/recv timeout so script doesn't hang when rtpengine doesn't interact
+setsockopt($socket, SOL_SOCKET, SO_SNDTIMEO, pack('L!L!', 3, 0) ) or die $!;
+setsockopt($socket, SOL_SOCKET, SO_RCVTIMEO, pack('L!L!', 3, 0) ) or die $!;
+
 $argumentstring = trim($argumentstring);
 my $size = $socket->send($argumentstring);
  
