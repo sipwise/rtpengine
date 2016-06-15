@@ -474,14 +474,22 @@ The options are described in more detail below.
 
 		/path/to/recording-pcap.pcap
 
+		SDP mode: offer
+		SDP before RTP packet: 1
 
-		first SDP answer
+		first SDP
 
-		second SDP answer
+		SDP mode: answer
+		SDP before RTP packet: 1
+
+		second SDP
 
 		...
 
-		n-th and final SDP answer
+		SDP mode: answer
+		SDP before RTP packet: 100
+
+		n-th and final SDP
 
 
 		start timestamp (YYYY-MM-DDThh:mm:ss)
