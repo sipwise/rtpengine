@@ -17,6 +17,7 @@
 #include <pcap.h>
 #include "compat.h"
 #include "socket.h"
+#include "media_socket.h"
 
 #define UNDEFINED ((unsigned int) -1)
 #define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
