@@ -5,7 +5,6 @@
 #include <glib.h>
 #include <string.h>
 #include <stdio.h>
-#include <pcap.h>
 #include "str.h"
 #include "obj.h"
 #include "aux.h"
@@ -65,8 +64,6 @@ struct stream_fd {
 	struct packet_stream		*stream;	/* LOCK: call->master_lock */
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection		dtls;		/* LOCK: stream->in_lock */
-	pcap_t				*recording_pd;
-	pcap_dumper_t			*recording_pdumper;
 };
 
 
