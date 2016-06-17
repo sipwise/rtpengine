@@ -1462,6 +1462,7 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 	sfd->call = obj_get(call);
 	sfd->local_intf = lif;
 	g_queue_push_tail(&call->stream_fds, sfd); /* hand over ref */
+	g_slice_free1(sizeof(*fd), fd); /* moved into sfd, thus free */
 
 	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
 
