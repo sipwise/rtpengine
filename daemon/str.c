@@ -39,7 +39,7 @@ void str_slice_free(void *p) {
  * Generates a random string sandwiched between affixes.
  * Will create the char string for you. Don't forget to clean up!
  */
-char *rand_affixed_str(int num_bytes, char *prefix, char *suffix) {
+char *rand_affixed_str(char *prefix, int num_bytes, char *suffix) {
 	int rand_len = num_bytes*2 + 1;
 	char rand_affix[rand_len];
 	int prefix_len = strlen(prefix);
