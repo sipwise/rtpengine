@@ -22,6 +22,8 @@ struct recording {
 	pcap_dumper_t *recording_pdumper;
 	uint64_t      packet_num;
 	str           *recording_path;
+
+	mutex_t       recording_lock;
 };
 
 

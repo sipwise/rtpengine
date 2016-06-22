@@ -1199,8 +1199,10 @@ loop_ok:
 
 	// If recording pcap dumper is set, then we record the call.
 	if (recording_pdumper != NULL && call->record_call) {
+		mutex_lock(&call->recording->recording_lock);
 		stream_pcap_dump(recording_pdumper, stream, s);
 		call->recording->packet_num++;
+		mutex_unlock(&call->recording->recording_lock);
 	}
 
 	if (handler_ret >= 0) {

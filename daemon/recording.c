@@ -138,6 +138,7 @@ int set_record_call(struct call *call, str recordcall) {
 			call->recording->recording_pdumper = NULL;
 			// Wireshark starts at packet index 1, so we start there, too
 			call->recording->packet_num = 1;
+			mutex_init(&call->recording->recording_lock);
 			meta_setup_file(call->recording, call->callid);
 		}
 	} else if (!str_cmp(&recordcall, "no")) {
@@ -287,6 +288,7 @@ int meta_finish_file(struct call *call) {
 		free(recording->meta_filepath->s);
 		free(recording->meta_filepath);
 	}
+	mutex_destroy(&recording->recording_lock);
 
 	return return_code;
 }
