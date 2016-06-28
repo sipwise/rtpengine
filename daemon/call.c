@@ -36,6 +36,7 @@
 #include "ice.h"
 #include "rtpengine_config.h"
 #include "log_funcs.h"
+#include "recording.h"
 
 
 
@@ -130,7 +131,6 @@ const char * get_tag_type_text(enum tag_type t) {
 
 static void __monologue_destroy(struct call_monologue *monologue);
 static int monologue_destroy(struct call_monologue *ml);
-
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -1503,7 +1503,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	struct endpoint_map *em;
 	struct call *call;
 
-
 	call = monologue->call;
 
 	call->last_signal = poller_now;
@@ -2211,9 +2210,15 @@ void call_destroy(struct call *c) {
 		obj_put(sfd);
 	}
 
+	if (c->recording != NULL) {
+		recording_finish_file(c->recording);
+		meta_finish_file(c);
+		g_slice_free1(sizeof(*(c->recording)), c->recording);
+	}
+
+
 	rwlock_unlock_w(&c->master_lock);
 }
-
 
 
 /* XXX move these */
@@ -2307,6 +2312,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0("call", sizeof(*c), __call_free);
+	c->recording = NULL;
 	c->callmaster = m;
 	mutex_init(&c->buffer_lock);
 	call_buffer_init(&c->buffer);
@@ -2317,6 +2323,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	c->created = poller_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = m->conf.default_tos;
+
 	return c;
 }
 
@@ -2402,6 +2409,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = poller_now;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
+
 	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);
 

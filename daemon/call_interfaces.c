@@ -18,13 +18,12 @@
 #include "control_udp.h"
 #include "rtp.h"
 #include "ice.h"
+#include "recording.h"
 
 
 
 int trust_address_def;
 int dtls_passive_def;
-
-
 
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
@@ -354,7 +353,7 @@ str *call_lookup_tcp(char **out, struct callmaster *m) {
 str *call_delete_udp(char **out, struct callmaster *m) {
 	str callid, branch, fromtag, totag;
 
-	__C_DBG("got delete for callid '%s' and viabranch '%s'", 
+	__C_DBG("got delete for callid '%s' and viabranch '%s'",
 		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
 
 	str_init(&callid, out[RE_UDP_DQ_CALLID]);
@@ -647,7 +646,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
-	str sdp, fromtag, totag = STR_NULL, callid, viabranch;
+	str sdp, fromtag, totag = STR_NULL, callid, viabranch, recordcall = STR_NULL, metadata = STR_NULL;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -682,6 +681,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 
 	call = call_get_opmode(&callid, m, opmode);
+
 	errstr = "Unknown call-id";
 	if (!call)
 		goto out;
@@ -710,6 +710,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
+
+	bencode_dictionary_get_str(input, "record-call", &recordcall);
+	if (recordcall.s) {
+		detect_setup_recording(call, recordcall);
+	}
+
 	ret = monologue_offer_answer(monologue, &streams, &flags);
 	if (!ret)
 		ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
@@ -733,6 +739,26 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	bencode_dictionary_add_iovec(output, "sdp", &g_array_index(chopper->iov, struct iovec, 0),
 		chopper->iov_num, chopper->str_len);
 	bencode_dictionary_add_string(output, "result", "ok");
+
+	struct recording *recording = call->recording;
+	if (call->record_call && recording != NULL && recording->meta_fp != NULL) {
+		struct iovec *iov = &g_array_index(chopper->iov, struct iovec, 0);
+		int iovcnt = chopper->iov_num;
+		meta_write_sdp(recording->meta_fp, iov, iovcnt,
+			       call->recording->packet_num, opmode);
+	}
+	bencode_dictionary_get_str(input, "metadata", &metadata);
+	if (metadata.len > 0 && call->recording != NULL) {
+		if (call->recording->metadata != NULL) {
+			free(call->recording->metadata);
+		}
+		call->recording->metadata = str_dup(&metadata);
+	}
+	bencode_item_t *recordings = bencode_dictionary_add_list(output, "recordings");
+	if (call->recording != NULL && call->recording->recording_path != NULL) {
+		char *recording_path = call->recording->recording_path->s;
+		bencode_list_add_string(recordings, recording_path);
+	}
 
 	errstr = NULL;
 out:

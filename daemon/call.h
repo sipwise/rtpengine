@@ -14,8 +14,10 @@
 #include <pcre.h>
 #include <openssl/x509.h>
 #include <limits.h>
+#include <pcap.h>
 #include "compat.h"
 #include "socket.h"
+#include "media_socket.h"
 
 #define UNDEFINED ((unsigned int) -1)
 #define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
@@ -397,7 +399,6 @@ struct call_monologue {
 	enum termination_reason term_reason;
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
-
 	GQueue			medias;
 };
 
@@ -413,14 +414,14 @@ struct call {
 	rwlock_t		master_lock;
 	GQueue			monologues;
 	GQueue			medias;
-	GHashTable		*tags;	
+	GHashTable		*tags;
 	GHashTable		*viabranches;
 	GQueue			streams;
 	GQueue			stream_fds;
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 
-	str			callid;	
+	str			callid;
 	time_t			created;
 	time_t			last_signal;
 	time_t			deleted;
@@ -431,6 +432,9 @@ struct call {
 
 	unsigned int		redis_hosted_db;
 	unsigned int		foreign_call; // created_via_redis_notify call
+
+	int			record_call;
+	struct recording 	*recording;
 };
 
 struct callmaster_config {

@@ -30,6 +30,7 @@
 #include "socket.h"
 #include "media_socket.h"
 #include "homer.h"
+#include "recording.h"
 
 
 
@@ -86,6 +87,7 @@ static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
 static int delete_delay = 30;
 static int graphite_interval = 0;
+static char *spooldir;
 
 static void sighandler(gpointer x) {
 	sigset_t ss;
@@ -108,7 +110,7 @@ static void sighandler(gpointer x) {
 				continue;
 			abort();
 		}
-		
+
 		if (ret == SIGINT || ret == SIGTERM)
 			g_shutdown = 1;
 		else if (ret == SIGUSR1) {
@@ -322,6 +324,7 @@ static void options(int *argc, char ***argv) {
 		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46:PORT"},
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
 		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
+		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
 		{ NULL, }
 	};
 
@@ -518,6 +521,7 @@ static void init_everything() {
 
 	socket_init();
 	log_init();
+	recording_fs_init(spooldir);
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
 	SSL_library_init();
@@ -685,6 +689,7 @@ no_kernel:
 	timeval_from_us(&tmp_tv, graphite_interval*1000000);
 	set_graphite_interval_tv(&tmp_tv);
 }
+
 
 int main(int argc, char **argv) {
 	struct main_context ctx;

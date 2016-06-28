@@ -192,6 +192,7 @@ option and which are reproduced below:
 	  --homer=IP46:PORT                Address of Homer server for RTCP stats
 	  --homer-protocol=udp|tcp         Transport protocol for Homer (default udp)
 	  --homer-id=INT                   'Capture ID' to use within the HEP protocol
+	  --recording-dir=FILE             Spool directory where PCAP call recording data goes
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -411,7 +412,7 @@ The options are described in more detail below.
 
 *  -k, --subscribe-keyspace
 
-	List of redis keyspaces to subscribe. If this is not present, no keyspaces are subscribed (default behaviour). 
+	List of redis keyspaces to subscribe. If this is not present, no keyspaces are subscribed (default behaviour).
 	Further subscriptions could be added/removed via 'rtpengine-ctl ksadd/ksrm'.
 	This may lead to enabling/disabling of the redis keyspace notification feature.
 
@@ -461,6 +462,48 @@ The options are described in more detail below.
 	The HEP protocol used by Homer contains a "capture ID" used to distinguish different sources
 	of capture data. This ID can be specified using this argument.
 
+* --recording-dir
+
+	An optional argument to specify a path to a directory where PCAP recording
+	files and recording metadata files should be stored. If not specified, the the
+	rtpengine will default to placing recorded files in `/var/spool/rtpengine/` if
+	it exists. PCAP files will be stored within a "pcap" subdirectory and metadata
+	within a "metadata" subdirectory.
+
+	The format for a metadata file is (with a trailing newline):
+
+		/path/to/recording-pcap.pcap
+
+		SDP mode: offer
+		SDP before RTP packet: 1
+
+		first SDP
+
+		SDP mode: answer
+		SDP before RTP packet: 1
+
+		second SDP
+
+		...
+
+		SDP mode: answer
+		SDP before RTP packet: 100
+
+		n-th and final SDP
+
+
+		start timestamp (YYYY-MM-DDThh:mm:ss)
+		end timestamp   (YYYY-MM-DDThh:mm:ss)
+
+
+		generic metadata
+
+    There are two empty lines between each logic block of metadata.
+    We write out all answer SDP, each separated from one another by one empty
+    line. The generic metadata at the end can be any length with any number of
+    lines. Metadata files will appear in the subdirectory when the call
+    completes. PCAP files will be written to the subdirectory as the call is
+    being recorded.
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
@@ -828,7 +871,7 @@ Optionally included keys are:
 	__run the above algorithm__!
 
 	Round robin for both legs of the stream:
-		{ ..., "direction": [ "round-robin-calls", "round-robin-calls" ], ... } 
+		{ ..., "direction": [ "round-robin-calls", "round-robin-calls" ], ... }
 
 	Round robin for first leg and and select "pub" for the second leg of the stream:
 		{ ..., "direction": [ "round-robin-calls", "pub" ], ... }
@@ -953,6 +996,32 @@ Optionally included keys are:
 
 		Negates the respective option. This is useful if one of the session parameters was offered by
 		an SDES endpoint, but it should not be offered on the far side if this endpoint also speaks SDES.
+
+* `record-call`
+
+	Contains either the string "yes" or the string "no". This tells the rtpengine
+	whether or not to record the call to PCAP files. If the call is recorded, it
+	will generate PCAP files for each stream and a metadata file for each call.
+	Note that rtpengine *will not* force itself into the media path, and other
+	flags like `ICE=force` may be necessary to ensure the call is recorded.
+
+
+	See the `--recording-dir` option above.
+
+	Note that this is not a duplication of the `start_recording` message. If calls
+	are being kernelized, then they cannot be recorded. The `start_recording`
+	message does not have a way to prevent a call from being kernelized, so we need
+	to use this flag when we send an `offer` or `answer` message.
+
+* `metadata`
+
+	This is a generic metadata string. The metadata will be written to the bottom of
+	metadata files within `/path/to/recording_dir/metadata/`. This can be used to
+	record additional information about recorded calls. `metadata` values passed in
+	through subsequent messages will overwrite previous metadata values.
+
+	See the `--recording-dir` option above.
+
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
