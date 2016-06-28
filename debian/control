@@ -105,4 +105,4 @@ Depends: libbencode-perl,
          libsocket6-perl,
          netcat-openbsd | netcat
 Description: Scripts and Perl modules for NGCP rtpengine
- Scripts and Perl modules for NGCP rtpengine
+ This package contains scripts and Perl modules for NGCP rtpengine
