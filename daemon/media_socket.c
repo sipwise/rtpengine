@@ -3,6 +3,7 @@
 #include <string.h>
 #include <glib.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include "str.h"
 #include "ice.h"
 #include "socket.h"
@@ -17,8 +18,7 @@
 #include "aux.h"
 #include "log_funcs.h"
 #include "poller.h"
-
-
+#include "recording.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -237,7 +237,7 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 		ilog(LOG_ERR, "has_free_ports_loc - NULL local interface");
 		return 0;
 	}
-	
+
 	if (num_ports > loc->spec->port_pool.free_ports) {
 		ilog(LOG_ERR, "Didn't found %d ports available for %.*s/%s",
 			num_ports, loc->logical->name.len, loc->logical->name.s,
@@ -297,7 +297,7 @@ static int has_free_ports_log_all(struct logical_intf *log, unsigned int num_por
 	return 1;
 }
 
-/* run round-robin-calls algorithm */ 
+/* run round-robin-calls algorithm */
 static struct logical_intf* run_round_robin_calls(GQueue *q, unsigned int num_ports) {
 	struct logical_intf *log = NULL;
 	volatile unsigned int nr_tries = 0;
@@ -340,7 +340,7 @@ select_log:
 	// 2 streams	=> 4 x get_logical_interface calls at offer
 	selection_count ++;
 	if (selection_count % (num_ports / 2) == 0) {
-		selection_count = 0; 
+		selection_count = 0;
 		selection_index ++;
 		selection_index = selection_index % nr_logs;
 	}
@@ -832,7 +832,7 @@ void kernelize(struct packet_stream *stream) {
 	struct packet_stream *sink = NULL;
 	const char *nk_warn_msg;
 
-	if (PS_ISSET(stream, KERNELIZED))
+	if (PS_ISSET(stream, KERNELIZED) || call->recording != NULL)
 		return;
 	if (cm->conf.kernelid < 0)
 		goto no_kernel;
@@ -1016,6 +1016,26 @@ noop:
 /* XXX split this function into pieces */
 /* called lock-free */
 static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, const struct timeval *tv) {
+/**
+ * Incoming packets:
+ * - sfd->socket.local: the local IP/port on which the packet arrived
+ * - sfd->stream->endpoint: adjusted/learned IP/port from where the packet
+ *   was sent
+ * - sfd->stream->advertised_endpoint: the unadjusted IP/port from where the
+ *   packet was sent. These are the values present in the SDP
+ *
+ * Outgoing packets:
+ * - sfd->stream->rtp_sink->endpoint: the destination IP/port
+ * - sfd->stream->selected_sfd->socket.local: the local source IP/port for the
+ *   outgoing packet
+ *
+ * If the rtpengine runs behind a NAT and local addresses are configured with
+ * different advertised endpoints, the SDP would not contain the address from
+ * `...->socket.local`, but rather from `sfd->local_intf->spec->address.advertised`
+ * (of type `sockaddr_t`). The port will be the same.
+ */
+/* TODO move the above comments to the data structure definitions, if the above
+ * always holds true */
 	struct packet_stream *stream,
 			     *sink = NULL,
 			     *in_srtp, *out_srtp;
@@ -1023,6 +1043,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	int ret = 0, update = 0, stun_ret = 0, handler_ret = 0, muxed_rtcp = 0, rtcp = 0,
 	    unk = 0;
 	int i;
+	pcap_dumper_t *recording_pdumper;
 	struct call *call;
 	struct callmaster *cm;
 	/*unsigned char cc;*/
@@ -1033,6 +1054,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	struct rtp_stats *rtp_s;
 
 	call = sfd->call;
+	recording_pdumper = call->recording != NULL ? call->recording->recording_pdumper : NULL;
 	cm = call->callmaster;
 
 	rwlock_lock_r(&call->master_lock);
@@ -1142,7 +1164,6 @@ loop_ok:
 		}
 	}
 
-
 	/* do we have somewhere to forward it to? */
 
 	if (!sink || !sink->selected_sfd || !out_srtp->selected_sfd || !in_srtp->selected_sfd) {
@@ -1172,8 +1193,18 @@ loop_ok:
 
 	/* return values are: 0 = forward packet, -1 = error/dont forward,
 	 * 1 = forward and push update to redis */
-	if (rwf_in)
+	if (rwf_in) {
 		handler_ret = rwf_in(s, in_srtp);
+	}
+
+	// If recording pcap dumper is set, then we record the call.
+	if (recording_pdumper != NULL && call->record_call) {
+		mutex_lock(&call->recording->recording_lock);
+		stream_pcap_dump(recording_pdumper, stream, s);
+		call->recording->packet_num++;
+		mutex_unlock(&call->recording->recording_lock);
+	}
+
 	if (handler_ret >= 0) {
 		if (rtcp)
 			parse_and_log_rtcp_report(sfd, s, fsin, tv);
@@ -1306,6 +1337,7 @@ forward:
 			|| stun_ret || handler_ret < 0)
 		goto drop;
 
+	// s is my packet?
 	ret = socket_sendto(&sink->selected_sfd->socket, s->s, s->len, &sink->endpoint);
 	__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&sink->endpoint.address), sink->endpoint.port);
 
@@ -1348,8 +1380,6 @@ unlock_out:
 
 	return ret;
 }
-
-
 
 
 static void stream_fd_readable(int fd, void *p, uintptr_t u) {

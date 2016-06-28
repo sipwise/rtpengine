@@ -6,6 +6,7 @@ CFLAGS+=	`pkg-config --cflags gthread-2.0`
 CFLAGS+=	`pkg-config --cflags zlib`
 CFLAGS+=	`pkg-config --cflags openssl`
 CFLAGS+=	`pkg-config --cflags libevent_pthreads`
+CFLAGS+=	"-lpcap"
 CFLAGS+=	`pcre-config --cflags`
 CFLAGS+=	-I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE
@@ -50,6 +51,7 @@ LDFLAGS+=       `pkg-config --libs libpcre`
 LDFLAGS+=       `pkg-config --libs libcrypto`
 LDFLAGS+=	`pkg-config --libs openssl`
 LDFLAGS+=	`pkg-config --libs libevent_pthreads`
+LDFLAGS+=	"-lpcap"
 LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`xmlrpc-c-config client --libs`
 LDFLAGS+=	-lhiredis
@@ -67,7 +69,7 @@ endif
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c streambuf.c call.c control_udp.c redis.c \
 		bencode.c cookie_cache.c udp_listener.c control_ng.c sdp.c str.c stun.c rtcp.c \
 		crypto.c rtp.c call_interfaces.c dtls.c log.c cli.c graphite.c ice.c socket.c \
-		media_socket.c rtcp_xr.c homer.c
+		media_socket.c rtcp_xr.c homer.c recording.c
 OBJS=		$(SRCS:.c=.o)
 
 
