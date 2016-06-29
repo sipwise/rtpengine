@@ -2312,7 +2312,6 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0("call", sizeof(*c), __call_free);
-	c->recording = NULL;
 	c->callmaster = m;
 	mutex_init(&c->buffer_lock);
 	call_buffer_init(&c->buffer);
