@@ -54,6 +54,7 @@ LDFLAGS+=	-lpcap
 LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`xmlrpc-c-config client --libs`
 LDFLAGS+=	-lhiredis
+LDFLAGS+=       `pkg-config --libs libcurl`
 
 ifneq ($(DBG),yes)
   DPKG_BLDFLGS=	$(shell which dpkg-buildflags 2>/dev/null)
