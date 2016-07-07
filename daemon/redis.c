@@ -312,7 +312,7 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 	pch += strlen("notifier-");
 	str_cut(rr->element[2]->str,0,pch-rr->element[2]->str);
 	rr->element[2]->len = strlen(rr->element[2]->str);
-	rlog(LOG_DEBUG,"Redis-Notifier: Processing call with callid: %s\n",rr->element[2]->str);
+	rlog(LOG_DEBUG,"Redis-Notifier:%s:%d: Processing call with callid: %s\n", rr->element[3]->str, r->db, rr->element[2]->str);
 
 	str_init(&callid,rr->element[2]->str);
 
@@ -324,8 +324,27 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 	if (strncmp(rr->element[3]->str,"sadd",4)==0) {
 		if (c) {
-			rlog(LOG_NOTICE, "Redis-Notifier: SADD already find call with callid: %s\n", rr->element[2]->str);
-			goto err;
+			rlog(LOG_ERR, "Redis-Notifier: SADD already find call with callid: %s; deleting the existing one.\n", rr->element[2]->str);
+
+            /* Failover scenario because of timeout on offer response: siprouter tries
+             * to establish session with another rtpengine2 even though rtpengine1
+             * might have persisted part of the session.
+             *
+             * rtpengine1: on add, change call type from OWN to FOREIGN so call_destroy
+             * won't update redis database*/
+            if (!IS_FOREIGN_CALL(c)) {
+                c->foreign_call = 1;
+                atomic64_inc(&cm->stats.foreign_sessions);
+                atomic64_inc(&cm->totalstats.total_foreign_sessions);
+
+                mutex_lock(&cm->totalstats_interval.managed_sess_lock);
+                cm->totalstats_interval.managed_sess_min = MIN(
+                        cm->totalstats_interval.managed_sess_min,
+                        g_hash_table_size(cm->callhash)
+                                - atomic64_get(&cm->stats.foreign_sessions));
+                mutex_unlock(&cm->totalstats_interval.managed_sess_lock);
+            }
+            call_destroy(c);
 		}
 		redis_restore_call(r, cm, rr->element[2], CT_FOREIGN_CALL);
 	}
@@ -1914,6 +1933,7 @@ void redis_update(struct call *c, struct redis *r) {
 	redis_pipe(r, "EXPIRE call-"PB" 86400", STR(&c->callid));
 	redis_pipe(r, "SADD calls "PB"", STR(&c->callid));
 	redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));
+	redis_pipe(r, "EXPIRE notifier-"PB" 86400", STR(&c->callid));
 
 	redis_consume(r);
 
