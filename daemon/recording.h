@@ -24,6 +24,7 @@ struct recording {
 	str           *recording_path;
 
 	mutex_t       recording_lock;
+	mutex_t       metadata_lock;
 };
 
 

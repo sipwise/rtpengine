@@ -139,6 +139,7 @@ int set_record_call(struct call *call, str recordcall) {
 			// Wireshark starts at packet index 1, so we start there, too
 			call->recording->packet_num = 1;
 			mutex_init(&call->recording->recording_lock);
+			mutex_init(&call->recording->metadata_lock);
 			meta_setup_file(call->recording, call->callid);
 		}
 	} else if (!str_cmp(&recordcall, "no")) {
@@ -249,8 +250,11 @@ int meta_finish_file(struct call *call) {
 		fprintf(recording->meta_fp, "call end time: %s\n", timebuffer);
 
 		// Print metadata
+		mutex_lock(&recording->metadata_lock);
 		fprintf(recording->meta_fp, "\n\n%s\n", recording->metadata->s);
 		free(recording->metadata);
+		recording->metadata = NULL;
+		mutex_unlock(&recording->metadata_lock);
 		fclose(recording->meta_fp);
 
 		// Get the filename (in between its directory and the file extension)
