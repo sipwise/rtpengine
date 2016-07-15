@@ -231,6 +231,7 @@ ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt,
  * Returns non-zero for failure.
  */
 int meta_finish_file(struct call *call) {
+  // This should usually be called from a place that has the call->master_lock
 	struct recording *recording = call->recording;
 	int return_code = 0;
 
@@ -251,6 +252,7 @@ int meta_finish_file(struct call *call) {
 		// Print metadata
 		fprintf(recording->meta_fp, "\n\n%s\n", recording->metadata->s);
 		free(recording->metadata);
+		recording->metadata = NULL;
 		fclose(recording->meta_fp);
 
 		// Get the filename (in between its directory and the file extension)
