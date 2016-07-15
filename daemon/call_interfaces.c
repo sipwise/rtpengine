@@ -680,7 +680,28 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (sdp_streams(&parsed, &streams, &flags))
 		goto out;
 
-	call = call_get_opmode(&callid, m, opmode);
+	/* OP_ANSWER; OP_OFFER && !IS_FOREIGN_CALL */
+	call = call_get(&callid, m);
+
+    /* Failover scenario because of timeout on offer response: siprouter tries
+     * to establish session with another rtpengine2 even though rtpengine1
+     * might have persisted part of the session. rtpengine2 deletes previous
+     * call in memory and recreates an OWN call in redis */
+	if (opmode == OP_OFFER) {
+        if (call) {
+            if (IS_FOREIGN_CALL(call)) {
+                /* destroy call and create new one */
+                rwlock_unlock_w(&call->master_lock);
+                call_destroy(call);
+                obj_put(call);
+                call = call_get_or_create(&callid, m, CT_OWN_CALL);
+            }
+        }
+        else {
+            /* call == NULL, should create call */
+            call = call_get_or_create(&callid, m, CT_OWN_CALL);
+        }
+    }
 
 	errstr = "Unknown call-id";
 	if (!call)
