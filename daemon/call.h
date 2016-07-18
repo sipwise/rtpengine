@@ -455,6 +455,7 @@ struct callmaster_config {
 	struct event_base   *redis_notify_event_base;
 	GQueue		        *redis_subscribed_keyspaces;
 	struct redisAsyncContext *redis_notify_async_context;
+	unsigned int        redis_expires_secs;
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;

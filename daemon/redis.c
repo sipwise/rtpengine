@@ -1681,6 +1681,7 @@ void redis_update(struct call *c, struct redis *r) {
 	struct intf_list *il;
 	struct endpoint_map *ep;
 	struct rtp_payload_type *pt;
+	unsigned int redis_expires_s;
 
 	if (!r)
 		return;
@@ -1692,6 +1693,8 @@ void redis_update(struct call *c, struct redis *r) {
 	}
 
 	rwlock_lock_r(&c->master_lock);
+
+	redis_expires_s = c->callmaster->conf.redis_expires_secs;
 
 	c->redis_hosted_db = r->db;
 	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db)) {
@@ -1732,7 +1735,7 @@ void redis_update(struct call *c, struct redis *r) {
 			sfd->stream->unique_id);
 		redis_update_crypto_context(r, "sfd", &c->callid, sfd->unique_id, &sfd->crypto);
 		/* XXX DTLS?? */
-		redis_pipe(r, "EXPIRE sfd-"PB"-%u 86400", STR(&c->callid), sfd->unique_id);
+		redis_pipe(r, "EXPIRE sfd-"PB"-%u %u", STR(&c->callid), sfd->unique_id, redis_expires_s);
 
 		redis_pipe(r, "DEL sfd-"PB"-%u", STR(&c->callid), sfd->unique_id + 1);
 	}
@@ -1774,8 +1777,8 @@ void redis_update(struct call *c, struct redis *r) {
 		mutex_unlock(&ps->in_lock);
 		mutex_unlock(&ps->out_lock);
 
-		redis_pipe(r, "EXPIRE stream-"PB"-%u 86400", STR(&c->callid), ps->unique_id);
-		redis_pipe(r, "EXPIRE stream_sfds-"PB"-%u 86400", STR(&c->callid), ps->unique_id);
+		redis_pipe(r, "EXPIRE stream-"PB"-%u %u", STR(&c->callid), ps->unique_id, redis_expires_s);
+		redis_pipe(r, "EXPIRE stream_sfds-"PB"-%u %u", STR(&c->callid), ps->unique_id, redis_expires_s);
 
 		redis_pipe(r, "DEL stream-"PB"-%u stream_sfds-"PB"-%u",
 				STR(&c->callid), ps->unique_id + 1,
@@ -1818,9 +1821,9 @@ void redis_update(struct call *c, struct redis *r) {
 				media->unique_id);
 		}
 
-		redis_pipe(r, "EXPIRE tag-"PB"-%u 86400", STR(&c->callid), ml->unique_id);
-		redis_pipe(r, "EXPIRE other_tags-"PB"-%u 86400", STR(&c->callid), ml->unique_id);
-		redis_pipe(r, "EXPIRE medias-"PB"-%u 86400", STR(&c->callid), ml->unique_id);
+		redis_pipe(r, "EXPIRE tag-"PB"-%u %u", STR(&c->callid), ml->unique_id, redis_expires_s);
+		redis_pipe(r, "EXPIRE other_tags-"PB"-%u %u", STR(&c->callid), ml->unique_id, redis_expires_s);
+		redis_pipe(r, "EXPIRE medias-"PB"-%u %u", STR(&c->callid), ml->unique_id, redis_expires_s);
 
 		redis_pipe(r, "DEL tag-"PB"-%u other_tags-"PB"-%u medias-"PB"-%u",
 				STR(&c->callid), ml->unique_id + 1,
@@ -1878,10 +1881,10 @@ void redis_update(struct call *c, struct redis *r) {
 		}
 		g_list_free(k);
 
-		redis_pipe(r, "EXPIRE media-"PB"-%u 86400", STR(&c->callid), media->unique_id);
-		redis_pipe(r, "EXPIRE streams-"PB"-%u 86400", STR(&c->callid), media->unique_id);
-		redis_pipe(r, "EXPIRE maps-"PB"-%u 86400", STR(&c->callid), media->unique_id);
-		redis_pipe(r, "EXPIRE payload_types-"PB"-%u 86400", STR(&c->callid), media->unique_id);
+		redis_pipe(r, "EXPIRE media-"PB"-%u %u", STR(&c->callid), media->unique_id, redis_expires_s);
+		redis_pipe(r, "EXPIRE streams-"PB"-%u %u", STR(&c->callid), media->unique_id, redis_expires_s);
+		redis_pipe(r, "EXPIRE maps-"PB"-%u %u", STR(&c->callid), media->unique_id, redis_expires_s);
+		redis_pipe(r, "EXPIRE payload_types-"PB"-%u %u", STR(&c->callid), media->unique_id, redis_expires_s);
 
 		redis_pipe(r, "DEL media-"PB"-%u streams-"PB"-%u maps-"PB"-%u payload_types-"PB"-%u",
 				STR(&c->callid), media->unique_id + 1,
@@ -1922,18 +1925,18 @@ void redis_update(struct call *c, struct redis *r) {
 
 		}
 
-		redis_pipe(r, "EXPIRE map-"PB"-%u 86400", STR(&c->callid), ep->unique_id);
-		redis_pipe(r, "EXPIRE map_sfds-"PB"-%u 86400", STR(&c->callid), ep->unique_id);
+		redis_pipe(r, "EXPIRE map-"PB"-%u %u", STR(&c->callid), ep->unique_id, redis_expires_s);
+		redis_pipe(r, "EXPIRE map_sfds-"PB"-%u %u", STR(&c->callid), ep->unique_id, redis_expires_s);
 
 		redis_pipe(r, "DEL map-"PB"-%u map_sfds-"PB"-%u",
 				STR(&c->callid), ep->unique_id + 1,
 				STR(&c->callid), ep->unique_id + 1);
 	}
 
-	redis_pipe(r, "EXPIRE call-"PB" 86400", STR(&c->callid));
+	redis_pipe(r, "EXPIRE call-"PB" %u", STR(&c->callid), redis_expires_s);
 	redis_pipe(r, "SADD calls "PB"", STR(&c->callid));
 	redis_pipe(r, "SADD notifier-"PB" "PB"", STR(&c->callid), STR(&c->callid));
-	redis_pipe(r, "EXPIRE notifier-"PB" 86400", STR(&c->callid));
+	redis_pipe(r, "EXPIRE notifier-"PB" %u", STR(&c->callid), redis_expires_s);
 
 	redis_consume(r);
 

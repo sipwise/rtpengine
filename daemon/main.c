@@ -73,12 +73,14 @@ static int no_fallback;
 static unsigned int timeout;
 static unsigned int silent_timeout;
 static unsigned int final_timeout;
+static unsigned int redis_expires = 86400;
 static int port_min = 30000;
 static int port_max = 40000;
 static int max_sessions = -1;
 static int redis_db = -1;
 static int redis_write_db = -1;
 static int redis_num_threads;
+
 static int no_redis_required;
 static char *redis_auth;
 static char *redis_write_auth;
@@ -308,6 +310,7 @@ static void options(int *argc, char ***argv) {
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
 		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &redis_num_threads, "Number of Redis restore threads",      "INT"       },
+		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &redis_expires, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &no_redis_required, "Start no matter of redis connection state", NULL },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
@@ -659,6 +662,8 @@ no_kernel:
 		if (!mc.redis_write)
 			mc.redis_write = mc.redis;
 	}
+
+	mc.redis_expires_secs = redis_expires;
 
 	ctx->m->conf = mc;
 
