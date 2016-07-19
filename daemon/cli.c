@@ -262,6 +262,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    int printlen=0;
    struct timeval tim_result_duration;
    struct timeval now;
+   char * local_addr;
 
    if (len<=1) {
        printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", "More parameters required.");
@@ -309,12 +310,13 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
                if (PS_ISSET(ps, FALLBACK_RTCP))
                    continue;
 
+               local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
 #if (RE_HAS_MEASUREDELAY)
                if (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) {
-            	   printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
+		   printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, %15s:%-5hu <> %15s:%-5hu%s, "
             			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
 						   md->index,
-						   (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						   local_addr, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						   sockaddr_print_buf(&ps->endpoint.ip46), ps->endpoint.port,
 						   (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 								   atomic64_get(&ps->stats.packets),
@@ -322,10 +324,10 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 								   atomic64_get(&ps->stats.errors),
 								   atomic64_get(&ps->last_packet));
                } else {
-            	   printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5hu%s, "
+		   printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, %15s:%-5hu <> %15s:%-5hu%s, "
 			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, %.9f delay_min, %.9f delay_avg, %.9f delay_max\n",
 						   md->index,
-						   (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						   local_addr, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						   sockaddr_print_buf(&ps->endpoint.ip46), ps->endpoint.port,
 						   (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 								   atomic64_get(&ps->stats.packets),
@@ -337,10 +339,10 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
 								   (double) ps->stats.delay_max / 1000000);
                }
 #else
-               printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, port %5u <> %15s:%-5u%s, "
+               printlen = snprintf(replybuffer,(outbufend-replybuffer), "------ Media #%u, %15s:%-5u <> %15s:%-5u%s, "
                     ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
                     md->index,
-                    (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+                    local_addr, (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
                     sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port,
                     (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
                          atomic64_get(&ps->stats.packets),

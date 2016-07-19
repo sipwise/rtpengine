@@ -1980,6 +1980,7 @@ void call_destroy(struct call *c) {
 						continue;
 	
 					char *addr = sockaddr_print_buf(&ps->endpoint.address);
+                    char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
 	
 					if (_log_facility_cdr) {
 					    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
@@ -1988,6 +1989,7 @@ void call_destroy(struct call *c) {
 						printlen = snprintf(cdrbufcur, CDRBUFREMAINDER,
 							"ml%i_midx%u_%s_endpoint_ip=%s, "
 							"ml%i_midx%u_%s_endpoint_port=%u, "
+						    "ml%i_midx%u_%s_local_relay_ip=%s, "
 							"ml%i_midx%u_%s_local_relay_port=%u, "
 							"ml%i_midx%u_%s_relayed_packets="UINT64F", "
 							"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
@@ -1996,6 +1998,7 @@ void call_destroy(struct call *c) {
 							"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 							cdrlinecnt, md->index, protocol, addr,
 							cdrlinecnt, md->index, protocol, ps->endpoint.port,
+							cdrlinecnt, md->index, protocol, local_addr,
 							cdrlinecnt, md->index, protocol,
 							(ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
 							cdrlinecnt, md->index, protocol,
@@ -2014,6 +2017,7 @@ void call_destroy(struct call *c) {
 					    	printlen = snprintf(cdrbufcur, CDRBUFREMAINDER,
 							"ml%i_midx%u_%s_endpoint_ip=%s, "
 							"ml%i_midx%u_%s_endpoint_port=%u, "
+					    	"ml%i_midx%u_%s_local_relay_ip=%s, "
 							"ml%i_midx%u_%s_local_relay_port=%u, "
 							"ml%i_midx%u_%s_relayed_packets="UINT64F", "
 							"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
@@ -2025,6 +2029,7 @@ void call_destroy(struct call *c) {
 							"ml%i_midx%u_%s_delay_max=%.9f, ",
 							cdrlinecnt, md->index, protocol, addr,
 							cdrlinecnt, md->index, protocol, ps->endpoint.port,
+							cdrlinecnt, md->index, protocol, local_addr,
 							cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 							cdrlinecnt, md->index, protocol,
 							atomic64_get(&ps->stats.packets),
@@ -2044,6 +2049,7 @@ void call_destroy(struct call *c) {
 						printlen = snprintf(cdrbufcur, CDRBUFREMAINDER,
 							"ml%i_midx%u_%s_endpoint_ip=%s, "
 							"ml%i_midx%u_%s_endpoint_port=%u, "
+						    "ml%i_midx%u_%s_local_relay_ip=%s, "
 							"ml%i_midx%u_%s_local_relay_port=%u, "
 							"ml%i_midx%u_%s_relayed_packets="UINT64F", "
 							"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
@@ -2052,6 +2058,7 @@ void call_destroy(struct call *c) {
 							"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 							cdrlinecnt, md->index, protocol, addr,
 							cdrlinecnt, md->index, protocol, ps->endpoint.port,
+							cdrlinecnt, md->index, protocol, local_addr,
 							cdrlinecnt, md->index, protocol,
 							(ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
 							cdrlinecnt, md->index, protocol,
@@ -2069,8 +2076,8 @@ void call_destroy(struct call *c) {
 					    }
 					}
 	
-					ilog(LOG_INFO, "--------- Port %5u <> %15s:%-5u%s, "
-							""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet",
+					ilog(LOG_INFO, "--------- Port %15s:%-5u <> %15s:%-5u%s, "
+							""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet", local_addr,
 							(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
 							addr, ps->endpoint.port,
 							(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
