@@ -258,6 +258,10 @@ struct totalstats {
 	atomic64			total_nopacket_relayed_sess;
 	atomic64			total_oneway_stream_sess;
 
+	u_int64_t           foreign_sessions;
+	u_int64_t           own_sessions;
+	u_int64_t           total_sessions;
+
 	mutex_t				total_average_lock; /* for these two below */
 	u_int64_t			total_managed_sess;
 	struct timeval		total_average_call_dur;
@@ -268,6 +272,8 @@ struct totalstats {
 
 	mutex_t				total_calls_duration_lock; /* for these two below */
 	struct timeval		total_calls_duration_interval;
+
+
 
 	struct request_time		offer, answer, delete;
 };

@@ -134,9 +134,11 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	mutex_lock(&cm->totalstats_interval.managed_sess_lock);
 	ts->managed_sess_max = cm->totalstats_interval.managed_sess_max;
 	ts->managed_sess_min = cm->totalstats_interval.managed_sess_min;
-
-	cm->totalstats_interval.managed_sess_max = g_hash_table_size(cm->callhash) - atomic64_get(&cm->stats.foreign_sessions);
-	cm->totalstats_interval.managed_sess_min = g_hash_table_size(cm->callhash) - atomic64_get(&cm->stats.foreign_sessions);
+    ts->total_sessions = g_hash_table_size(cm->callhash);
+    ts->foreign_sessions = atomic64_get(&cm->stats.foreign_sessions);
+    ts->own_sessions = ts->total_sessions - ts->foreign_sessions;
+    cm->totalstats_interval.managed_sess_max = ts->own_sessions;;
+    cm->totalstats_interval.managed_sess_min = ts->own_sessions;
 	mutex_unlock(&cm->totalstats_interval.managed_sess_lock);
 	rwlock_unlock_r(&cm->hashlock);
 
@@ -179,6 +181,12 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"managed_sess_max "UINT64F" %llu\n", ts->managed_sess_max,(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+    rc = sprintf(ptr,"current_sessions_total "UINT64F" %llu\n", ts->total_sessions,(unsigned long long)g_now.tv_sec); ptr += rc;
+    if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+    rc = sprintf(ptr,"current_sessions_own "UINT64F" %llu\n", ts->own_sessions,(unsigned long long)g_now.tv_sec); ptr += rc;
+    if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+    rc = sprintf(ptr,"current_sessions_foreign "UINT64F" %llu\n", ts->foreign_sessions,(unsigned long long)g_now.tv_sec); ptr += rc;
+    if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"nopacket_relayed_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_nopacket_relayed_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"oneway_stream_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_oneway_stream_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
