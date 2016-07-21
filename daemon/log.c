@@ -97,7 +97,7 @@ void log_to_stderr(int facility_priority, char *format, ...) {
 }
 
 void __ilog(int prio, const char *fmt, ...) {
-	char prefix[256];
+	char prefix[300];
 	char *msg, *piece;
 	const char *infix = "";
 	va_list ap;
@@ -107,27 +107,31 @@ void __ilog(int prio, const char *fmt, ...) {
 
 	switch (log_info.e) {
 		case LOG_INFO_NONE:
-			prefix[0] = 0;
+			snprintf(prefix, sizeof(prefix),"%s: ", prio_str[prio & LOG_PRIMASK]);
 			break;
 		case LOG_INFO_CALL:
-			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"] ",
+			snprintf(prefix, sizeof(prefix), "%s: ["STR_FORMAT"]: ",
+					prio_str[prio & LOG_PRIMASK],
 					STR_FMT(&log_info.u.call->callid));
 			break;
 		case LOG_INFO_STREAM_FD:
 			if (log_info.u.stream_fd->call)
-				snprintf(prefix, sizeof(prefix), "["STR_FORMAT" port %5u] ",
+				snprintf(prefix, sizeof(prefix), "%s: ["STR_FORMAT" port %5u]: ",
+						prio_str[prio & LOG_PRIMASK],
 						STR_FMT(&log_info.u.stream_fd->call->callid),
 						log_info.u.stream_fd->socket.local.port);
 			break;
 		case LOG_INFO_STR:
-			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"] ",
+			snprintf(prefix, sizeof(prefix), "%s: ["STR_FORMAT"]: ",
+					prio_str[prio & LOG_PRIMASK],
 					STR_FMT(log_info.u.str));
 			break;
 		case LOG_INFO_C_STRING:
-			snprintf(prefix, sizeof(prefix), "[%s] ", log_info.u.cstr);
+			snprintf(prefix, sizeof(prefix), "%s: [%s]: ", prio_str[prio & LOG_PRIMASK],log_info.u.cstr);
 			break;
 		case LOG_INFO_ICE_AGENT:
-			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"/"STR_FORMAT"/%u] ",
+			snprintf(prefix, sizeof(prefix), "%s: ["STR_FORMAT"/"STR_FORMAT"/%u]: ",
+					prio_str[prio & LOG_PRIMASK],
 					STR_FMT(&log_info.u.ice_agent->call->callid),
 					STR_FMT(&log_info.u.ice_agent->media->monologue->tag),
 					log_info.u.ice_agent->media->index);
