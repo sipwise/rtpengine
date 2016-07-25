@@ -80,7 +80,6 @@ static int max_sessions = -1;
 static int redis_db = -1;
 static int redis_write_db = -1;
 static int redis_num_threads;
-
 static int no_redis_required;
 static char *redis_auth;
 static char *redis_write_auth;

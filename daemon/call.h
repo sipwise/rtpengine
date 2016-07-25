@@ -245,37 +245,35 @@ struct request_time {
 };
 
 struct totalstats {
-	time_t 				started;
-	atomic64			total_timeout_sess;
-	atomic64			total_foreign_sessions;
-	atomic64			total_rejected_sess;
-	atomic64			total_silent_timeout_sess;
-	atomic64			total_final_timeout_sess;
-	atomic64			total_regular_term_sess;
-	atomic64			total_forced_term_sess;
-	atomic64			total_relayed_packets;
-	atomic64			total_relayed_errors;
-	atomic64			total_nopacket_relayed_sess;
-	atomic64			total_oneway_stream_sess;
+	time_t 			started;
+	atomic64		total_timeout_sess;
+	atomic64		total_foreign_sessions;
+	atomic64		total_rejected_sess;
+	atomic64		total_silent_timeout_sess;
+	atomic64		total_final_timeout_sess;
+	atomic64		total_regular_term_sess;
+	atomic64		total_forced_term_sess;
+	atomic64		total_relayed_packets;
+	atomic64		total_relayed_errors;
+	atomic64		total_nopacket_relayed_sess;
+	atomic64		total_oneway_stream_sess;
 
-	u_int64_t           foreign_sessions;
-	u_int64_t           own_sessions;
-	u_int64_t           total_sessions;
+	u_int64_t               foreign_sessions;
+	u_int64_t               own_sessions;
+	u_int64_t               total_sessions;
 
-	mutex_t				total_average_lock; /* for these two below */
-	u_int64_t			total_managed_sess;
+	mutex_t			total_average_lock; /* for these two below */
+	u_int64_t		total_managed_sess;
 	struct timeval		total_average_call_dur;
 
-	mutex_t				managed_sess_lock; /* for these below */
-	u_int64_t			managed_sess_max; /* per graphite interval statistic */
-	u_int64_t			managed_sess_min; /* per graphite interval statistic */
+	mutex_t			managed_sess_lock; /* for these below */
+	u_int64_t		managed_sess_max; /* per graphite interval statistic */
+	u_int64_t		managed_sess_min; /* per graphite interval statistic */
 
-	mutex_t				total_calls_duration_lock; /* for these two below */
+	mutex_t			total_calls_duration_lock; /* for these two below */
 	struct timeval		total_calls_duration_interval;
 
-
-
-	struct request_time		offer, answer, delete;
+	struct request_time	offer, answer, delete;
 };
 
 struct stream_params {
@@ -461,7 +459,7 @@ struct callmaster_config {
 	struct event_base   *redis_notify_event_base;
 	GQueue		        *redis_subscribed_keyspaces;
 	struct redisAsyncContext *redis_notify_async_context;
-	unsigned int        redis_expires_secs;
+	unsigned int            redis_expires_secs;
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;
