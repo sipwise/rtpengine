@@ -40,3 +40,4 @@ TABLE=0
 # HOMER_PROTOCOL=udp
 # HOMER_ID=2001
 # RECORDING_DIR=/var/spool/rtpengine/
+# LOG_STDERR="no"

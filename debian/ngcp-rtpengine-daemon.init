@@ -55,6 +55,7 @@ if [ ! -z "$SUBSCRIBE_KEYSPACES" ]; then
 		OPTIONS="$OPTIONS --subscribe-keyspace=$ks"
 	done
 fi
+
 [ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --interface=$ADDRESS"
 [ -z "$ADV_ADDRESS" ] || OPTIONS="$OPTIONS!$ADV_ADDRESS"
 [ -z "$ADDRESS_IPV6" ] || OPTIONS="$OPTIONS --interface=$ADDRESS_IPV6"
@@ -97,6 +98,10 @@ OPTIONS="$OPTIONS --table=$TABLE"
 
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"
+fi
+
+if test "$LOG_STDERR" = "yes" ; then
+	OPTIONS="$OPTIONS --log-stderr"
 fi
 
 if [ -x /usr/sbin/ngcp-virt-identify ]; then
