@@ -1,5 +1,5 @@
 Name:		rtpengine
-Version:	2.3.6
+Version:	4.5.0
 Release:	0%{?dist}
 Summary:	The Sipwise NGCP rtpengine
 
@@ -84,9 +84,17 @@ install -D -p -m644 kernel-module/xt_RTPENGINE.c \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.c
 install -D -p -m644 kernel-module/xt_RTPENGINE.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/xt_RTPENGINE.h
+mkdir -p %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}
+install -D -p -m644 kernel-module/rtpengine_config.h \
+	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/rtpengine_config.h
 sed -i -e "s/__VERSION__/%{version}-%{release}/g;s/ngcp-rtpengine/rtpengine/g" debian/dkms.conf.in
 install -D -p -m644 debian/dkms.conf.in %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
+# For RHEL 7, load the compiled kernel module on boot.
+%if 0%{?rhel} == 7
+  install -D -p -m644 kernel-module/xt_RTPENGINE.modules.load.d \
+           %{buildroot}%{_sysconfdir}/modules-load.d/xt_RTPENGINE.conf
+%endif
 
 %pre
 getent group %{name} >/dev/null || /usr/sbin/groupadd -r %{name}
@@ -142,6 +150,9 @@ true
 
 %files dkms
 %{_usrsrc}/%{name}-%{version}-%{release}/
+%if 0%{?rhel} == 7
+  %{_sysconfdir}/modules-load.d/xt_RTPENGINE.conf
+%endif
 
 
 %changelog
