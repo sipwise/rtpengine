@@ -90,8 +90,7 @@ void log_to_stderr(int facility_priority, char *format, ...) {
 		return;
 	}
 
-	fprintf(stderr, "[%lu.%06lu] %s: %s\n", (unsigned long) g_now.tv_sec, (unsigned long) g_now.tv_usec,
-			prio_str[facility_priority & LOG_PRIMASK], msg);
+	fprintf(stderr, "[%lu.%06lu] %s\n", (unsigned long) g_now.tv_sec, (unsigned long) g_now.tv_usec, msg);
 
 	free(msg);
 }
