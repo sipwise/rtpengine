@@ -1,3 +1,86 @@
+ngcp-rtpengine (4.6.0.0+0~mr5.0.0.0) unstable; urgency=medium
+
+  [ Lucian Balaceanu ]
+  * [25bbf03] Set timeout of 3s for send/receive socket operations
+  * [e043670] redundant media setup: failover due to tout on offer response
+  * [448fa9c] Redundant media setup: failover due to tout on offer response
+  * [bd376ab] Adding redis_expires parameter
+  * [512cc24] Print relay IP information
+  * [278561b] Printing severity level within every log message
+  * [e7f63dc] Report own/foreign/total sessions to Graphite
+  * [5732121] Beautifying previous code
+  * [8d08930] Fix log severity duplicate printing
+  * [e468449] Make --log-stderr available from ngcp-rtpengine-daemon.init
+
+  [ Eric Green ]
+  * [70eb6b9] Record raw RTP to recording files on the filesystem.
+  * [a8576eb] Do not convert to network byte ordering before we are done using a variable
+  * [0e1892f] recording.c fix my tabbing to use actual tabs
+  * [c8bf1a7] call.h now include media_socket.h to reflect the move of the stream_fd struct
+  * [1ee8ef1] Update README.md to reflect new SDP schema
+  * [04b71dd] Add back free that fixes memory leak introduced by rebase
+  * [865ce9a] Remove unused variables (from refactor) in the stream_fd struct
+  * [9637e7b] Fix function header of rand_affixed_str to match header definition
+  * [aea277d] Add a mutex lock for recording to ensure thread safety when writing to pcap
+  * [ba93a08] Add libcurl dependency for recording
+  * [f5c7ff1] Make rtpengine.spec more compatible with el7
+
+  [ Dylan Mikus ]
+  * [a714fbc] Record RTP in PCAP files in the /tmp directory.
+  * [7cc8019] Added metadata string to call struct.
+  * [c8af44a] Made random filename with affixes generic.
+  * [692b129] Create metadata file and move it to spool directory when call finishes.
+  * [7c53e9f] Moved file system management and random string code to appropriate files.
+  * [89690b4] Write out call start and end timestamps to recording metadata file.
+  * [f36faef] Code bug fixes and safety checks around error-possible code.
+  * [2c1685b] Added command line option for the spool directory for recordings.
+  * [8f6d7c0] Logging cleanup and added recording filesystem logging messages.
+  * [fa4cd75] Added documentation on call recording and the spool directory to README.md.
+  * [f516684] All RTP packet data for a call goes to one PCAP file.
+  * [7acc323] Write out unique ip:port pairs for all streams.
+  * [1af73c6] Fixed description of metadata file format to list just one pcap file.
+  * [74999ab] Free the call->recording struct when the call is destroyed.
+  * [844abee] Don't free the metadata before writing it to metadata file
+  * [b3d6073] Prefix recording metadata and pcap files with call id
+  * [1cec331] Only turn on or off recording if explicitly specified
+  * [d604ff6] Set more permissive permissions in spool directory
+  * [c787ab9] Refactored NG protocol handling of "record call" settings
+  * [b35ca7d] Record answer SDP to recording metadata file
+  * [466c52c] Refactored recording setup to streamline it
+  * [0b33b48] Write out rewritten SDP from answer to metadata file
+  * [d09f34a] Updates to description of metadata file format
+  * [adb6193] Minorly adjusted the recording metadata file format
+  * [beab4d9] Write recording files in url-encoded format
+  * [abd9538] Fixes to match PCAP packets with SDP
+  * [d267a3b] Tweaks to log verbosity for some messages
+  * [a109fa2] Change metadata file permissions and fix some warnings
+  * [526e9c2] Get recording metadata call start from call struct
+  * [5fe68b9] Link recording metadata SDP to RTP packet numbers
+  * [209cb7a] Modifications to recording metadata start/end time lines
+  * [fa8146f] Fixes for recording packet counter
+  * [44a153c] Made interactions to recording metadata threadsafe
+
+  [ Joseph Frazier ]
+  * [e69fc25] Document `record-call` and `ICE` flag interaction
+
+  [ Pawel Kuzak ]
+  * [70a1085] Do not print statistics of foreign calls
+  * [3cda22f] Fix Lintian error for ngcp-rtpengine-utils package
+  * [2499c4d] Make utils package part of meta package
+  * [db96f61] Configuration file support for recording-dir
+
+  [ Richard Fuchs ]
+  * [cac076f] clean up makefile for libpcap
+  * [a3c703b] remove superfluous initialization
+  * [90242e3] prefer libpcap0.8-dev over obsolete libpcap-dev
+
+  [ Charlotte Oliver ]
+  * [8e58e6a] Add xt_RTPENGINE modules.load.d file to load xt_RTPENGINE on system boot
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 01 Aug 2016 16:37:16 +0200
+
 ngcp-rtpengine (4.5.0.0+0~mr4.5.0.0) unstable; urgency=medium
 
   [ Frederic-Philippe Metz ]
