@@ -192,6 +192,7 @@ struct sdp_attribute {
 		ATTR_SETUP,
 		ATTR_RTPMAP,
 		ATTR_IGNORE,
+		ATTR_END_OF_CANDIDATES,
 	} attr;
 
 	union {
@@ -829,6 +830,8 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case 17:
 			if (!str_cmp(&a->name, "remote-candidates"))
 				a->attr = ATTR_ICE;
+			else if (!str_cmp(&a->name, "end-of-candidates"))
+				a->attr = ATTR_END_OF_CANDIDATES;
 			break;
 	}
 
@@ -1610,6 +1613,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_RECVONLY:
 			case ATTR_SENDRECV:
 			case ATTR_IGNORE:
+			case ATTR_END_OF_CANDIDATES: // we strip it here and re-insert it later
 				goto strip;
 
 			case ATTR_EXTMAP:
@@ -2004,6 +2008,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				insert_candidates(chop, ps, ps_rtcp, flags, sdp_media);
 
 next:
+			if (attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES))
+				chopper_append_c(chop, "a=end-of-candidates\r\n");
+
 			media_index++;
 			m = m->next;
 		}
