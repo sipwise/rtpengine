@@ -2128,6 +2128,7 @@ static void parse_rtp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 			goto error;
 		rtp->payload += ext_len;
 		rtp->payload_len -= ext_len;
+		rtp->header_len += ext_len;
 	}
 
 	DBG("rtp header parsed, payload length is %u\n", rtp->payload_len);
