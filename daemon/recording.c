@@ -30,16 +30,14 @@ void recording_fs_init(char *spoolpath) {
 	curl = curl_easy_init();
 	// Whether or not to fail if the spool directory does not exist.
 	int dne_fail;
-	if (spoolpath == NULL || spoolpath[0] == '\0') {
-		spoolpath = "/var/spool/rtpengine";
-		dne_fail = FALSE;
-	} else {
-		dne_fail = TRUE;
-		int path_len = strlen(spoolpath);
-		// Get rid of trailing "/" if it exists. Other code adds that in when needed.
-		if (spoolpath[path_len-1] == '/') {
-			spoolpath[path_len-1] = '\0';
-		}
+	if (spoolpath == NULL || spoolpath[0] == '\0')
+		return;
+
+	dne_fail = TRUE;
+	int path_len = strlen(spoolpath);
+	// Get rid of trailing "/" if it exists. Other code adds that in when needed.
+	if (spoolpath[path_len-1] == '/') {
+		spoolpath[path_len-1] = '\0';
 	}
 	if (!maybe_create_spool_dir(spoolpath)) {
 		fprintf(stderr, "Error while setting up spool directory \"%s\".\n", spoolpath);
@@ -129,6 +127,10 @@ int detect_setup_recording(struct call *call, str recordcall) {
 int set_record_call(struct call *call, str recordcall) {
 	if (!str_cmp(&recordcall, "yes")) {
 		if (call->record_call == FALSE) {
+			if (!spooldir) {
+				ilog(LOG_ERR, "Call recording requested, but no spool directory configured");
+				return FALSE;
+			}
 			ilog(LOG_NOTICE, "Turning on call recording.");
 		}
 		call->record_call = TRUE;

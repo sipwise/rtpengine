@@ -470,9 +470,9 @@ The options are described in more detail below.
 * --recording-dir
 
 	An optional argument to specify a path to a directory where PCAP recording
-	files and recording metadata files should be stored. If not specified, the the
-	rtpengine will default to placing recorded files in `/var/spool/rtpengine/` if
-	it exists. PCAP files will be stored within a "pcap" subdirectory and metadata
+	files and recording metadata files should be stored. If not specified, support
+	for call recording will be disabled.
+	PCAP files will be stored within a "pcap" subdirectory and metadata
 	within a "metadata" subdirectory.
 
 	The format for a metadata file is (with a trailing newline):
