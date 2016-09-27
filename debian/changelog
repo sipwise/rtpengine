@@ -1,3 +1,11 @@
+ngcp-rtpengine (5.0.0.0+0~mr5.0.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2e5e2ec] detect and ignore when local endpoints are advertised by remote clients
+  * [c50b042] fix kernel forwarding problem when RTP extensions are present
+
+ -- Alexander Lutay <alutay@sipwise.com>  Tue, 27 Sep 2016 15:40:23 +0200
+
 ngcp-rtpengine (4.6.0.0+0~mr5.0.0.0) unstable; urgency=medium
 
   [ Lucian Balaceanu ]
