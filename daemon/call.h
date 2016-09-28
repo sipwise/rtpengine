@@ -93,7 +93,6 @@ enum call_type {
 #define RTP_BUFFER_TAIL_ROOM	512
 #define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
 
-#define RTP_LOOP_PROTECT	0 // disable
 #ifndef RTP_LOOP_PROTECT
 #define RTP_LOOP_PROTECT	28 /* number of bytes */
 #define RTP_LOOP_PACKETS	2  /* number of packets */
@@ -172,6 +171,7 @@ enum call_type {
 #define MEDIA_FLAG_TRICKLE_ICE			SHARED_FLAG_TRICKLE_ICE
 #define MEDIA_FLAG_ICE_LITE			SHARED_FLAG_ICE_LITE
 #define MEDIA_FLAG_ICE_CONTROLLING		0x00200000
+#define MEDIA_FLAG_LOOP_CHECK			0x00400000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)

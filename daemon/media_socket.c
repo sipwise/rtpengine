@@ -1126,32 +1126,34 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	}
 
 #if RTP_LOOP_PROTECT
-	mutex_lock(&stream->in_lock);
+	if (MEDIA_ISSET(media, LOOP_CHECK)) {
+		mutex_lock(&stream->in_lock);
 
-	for (i = 0; i < RTP_LOOP_PACKETS; i++) {
-		if (stream->lp_buf[i].len != s->len)
-			continue;
-		if (memcmp(stream->lp_buf[i].buf, s->s, MIN(s->len, RTP_LOOP_PROTECT)))
-			continue;
+		for (i = 0; i < RTP_LOOP_PACKETS; i++) {
+			if (stream->lp_buf[i].len != s->len)
+				continue;
+			if (memcmp(stream->lp_buf[i].buf, s->s, MIN(s->len, RTP_LOOP_PROTECT)))
+				continue;
 
-		__C_DBG("packet dupe");
-		if (stream->lp_count >= RTP_LOOP_MAX_COUNT) {
-			ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet "
-					"to avoid potential loop", RTP_LOOP_MAX_COUNT);
-			goto done;
+			__C_DBG("packet dupe");
+			if (stream->lp_count >= RTP_LOOP_MAX_COUNT) {
+				ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet "
+						"to avoid potential loop", RTP_LOOP_MAX_COUNT);
+				goto done;
+			}
+
+			stream->lp_count++;
+			goto loop_ok;
 		}
 
-		stream->lp_count++;
-		goto loop_ok;
-	}
-
-	/* not a dupe */
-	stream->lp_count = 0;
-	stream->lp_buf[stream->lp_idx].len = s->len;
-	memcpy(stream->lp_buf[stream->lp_idx].buf, s->s, MIN(s->len, RTP_LOOP_PROTECT));
-	stream->lp_idx = (stream->lp_idx + 1) % RTP_LOOP_PACKETS;
+		/* not a dupe */
+		stream->lp_count = 0;
+		stream->lp_buf[stream->lp_idx].len = s->len;
+		memcpy(stream->lp_buf[stream->lp_idx].buf, s->s, MIN(s->len, RTP_LOOP_PROTECT));
+		stream->lp_idx = (stream->lp_idx + 1) % RTP_LOOP_PACKETS;
 loop_ok:
-	mutex_unlock(&stream->in_lock);
+		mutex_unlock(&stream->in_lock);
+	}
 #endif
 
 
