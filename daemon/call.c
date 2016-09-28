@@ -1499,12 +1499,13 @@ static int get_algorithm_num_ports(GQueue *streams, char *algorithm) {
 
 static void __endpoint_loop_protect(struct stream_params *sp, struct call_media *media) {
 	struct intf_address intf_addr;
-	struct packet_stream *ps;
 
 	/* check if the advertised endpoint is one of our own addresses. this can
 	 * happen by mistake, or it's expected when ICE is in use and passthrough
-	 * mode is enabled (in particular when using ICE=force-relay). ignore such
-	 * an endpoint and revert to what we had before. */
+	 * mode is enabled (in particular when using ICE=force-relay). we still
+	 * accept such an endpoint, but flag it for potential loop, which we will
+	 * check for later.
+	 * */
 
 	intf_addr.type = socktype_udp;
 //	if (other_media->protocol && other_media->protocol->tcp)
@@ -1513,21 +1514,10 @@ static void __endpoint_loop_protect(struct stream_params *sp, struct call_media 
 	if (!is_local_endpoint(&intf_addr, sp->rtp_endpoint.port))
 		return;
 
-	if (media->streams.head) {
-		ps = media->streams.head->data;
-		sp->rtp_endpoint = ps->advertised_endpoint;
-		ps = ps->rtcp_sibling;
-		if (ps)
-			sp->rtcp_endpoint = ps->advertised_endpoint;
-		else
-			ZERO(sp->rtcp_endpoint);
-	}
-	else
-		ZERO(sp->rtp_endpoint);
+	ilog(LOG_DEBUG, "Detected local endpoint advertised by remote client, "
+			"enabling loop checking");
 
-	ilog(LOG_DEBUG, "Detected local endpoint advertised by remote client. "
-			"Ignoring and reverting to %s",
-			endpoint_print_buf(&sp->rtp_endpoint));
+	MEDIA_SET(media, LOOP_CHECK);
 }
 
 /* called with call->master_lock held in W */
