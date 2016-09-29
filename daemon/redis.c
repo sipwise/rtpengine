@@ -1494,7 +1494,7 @@ err1:
 			obj_put(c);
 		}
 		else
-			redisCommandNR(r->ctx, "SREM calls "PB"", STR_R(id));
+			redisCommandNR(m->conf.redis_write->ctx, "SREM calls "PB"", STR_R(id));
 	}
 }
 
