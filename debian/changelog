@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.6.3.0+0~mr3.6.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b0b255b] avoid race condition by making OpenSSL thread safe
+  * [e2358f9] deadlock fix
+  * [9d2cbfc] fix erroneously reported 0.0.0.0 address when bridging from ipv6
+
+ -- Alexander Lutay <alutay@sipwise.com>  Mon, 10 Oct 2016 13:21:07 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.6.3.0) unstable; urgency=low
 
   [ Richard Fuchs ]
