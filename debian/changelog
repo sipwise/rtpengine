@@ -1,3 +1,11 @@
+ngcp-rtpengine (3.3.3.0+0~mr3.3.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2ba0140] fix incorrect port allocations
+  * [6e99109] remove unnecessary a=inactive for zero-port media
+
+ -- Alexander Lutay <alutay@sipwise.com>  Mon, 10 Oct 2016 13:32:50 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.3.3.0) unstable; urgency=low
 
   [ Richard Fuchs ]
