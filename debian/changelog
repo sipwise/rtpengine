@@ -1,3 +1,13 @@
+ngcp-rtpengine (3.5.2.0+0~mr3.5.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e4aeafa] avoid DTLS role change on reinvite
+  * [7fe4bc6] avoid race condition by making OpenSSL thread safe
+  * [910a677] deadlock fix
+  * [5fc4a3a] fix erroneously reported 0.0.0.0 address when bridging from ipv6
+
+ -- Alexander Lutay <alutay@sipwise.com>  Mon, 10 Oct 2016 13:22:01 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.5.2.0) unstable; urgency=low
 
   * New release.
