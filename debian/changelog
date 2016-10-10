@@ -1,3 +1,13 @@
+ngcp-rtpengine (4.5.3.0+0~mr4.5.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e755683] detect and ignore when local endpoints are advertised by remote clients
+  * [40dc37a] fix kernel forwarding problem when RTP extensions are present
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 10 Oct 2016 16:19:33 +0200
+
 ngcp-rtpengine (4.5.2.0+0~mr4.5.2.0) unstable; urgency=medium
 
   * New release.
