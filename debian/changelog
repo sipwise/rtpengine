@@ -1,3 +1,13 @@
+ngcp-rtpengine (3.7.3.0+0~mr3.7.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c7f7733] it's possible not to have any monologues - segfault fix
+  * [65690e4] use SSL_CTX_set_read_ahead to fix for openssl 1.0.1k
+  * [1a1bd7f] MT#12691 implement via-branch handling
+  * [c520752] segfault fix for debug builds
+
+ -- Alexander Lutay <alutay@sipwise.com>  Mon, 10 Oct 2016 13:19:36 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.7.3.0) unstable; urgency=low
 
   [ Richard Fuchs ]
