@@ -1,3 +1,12 @@
+ngcp-rtpengine (4.5.2.2+0~mr4.5.2.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e0affe4] TT#3881 re-enable selective packet loop check
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 12 Oct 2016 16:02:50 +0200
+
 ngcp-rtpengine (4.5.2.1+0~mr4.5.2.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
