@@ -1,3 +1,10 @@
+ngcp-rtpengine (3.3.1.5+0~mr3.3.1.5) unstable; urgency=medium
+
+  [ Alexander Lutay ]
+  * TT#4203 Bump debian/changelog to fix ngcp-upgrade
+
+ -- Alexander Lutay <alutay@sipwise.com>  Wed, 12 Oct 2016 18:12:00 +0200
+
 ngcp-rtpengine (3.3.0.0+0~mr3.3.1.5) unstable; urgency=low
 
   [ Richard Fuchs ]
