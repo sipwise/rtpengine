@@ -252,7 +252,8 @@ int meta_finish_file(struct call *call) {
 		fprintf(recording->meta_fp, "call end time: %s\n", timebuffer);
 
 		// Print metadata
-		fprintf(recording->meta_fp, "\n\n%s\n", recording->metadata->s);
+		if (recording->metadata)
+			fprintf(recording->meta_fp, "\n\n%s\n", recording->metadata->s);
 		free(recording->metadata);
 		recording->metadata = NULL;
 		fclose(recording->meta_fp);
