@@ -18,7 +18,7 @@ use NGCP::Rtpclient::SRTP;
 my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
 	= (1000, 30, 1, 160, 20, 5, 5);
 my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $PROTOS, $DEST, $SUITES, $NOENC, $RTCPMUX, $BUNDLE, $LAZY,
-	$CHANGE_SSRC, $PORT_LATCHING);
+	$CHANGE_SSRC, $PORT_LATCHING, $RECORD);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -41,6 +41,7 @@ GetOptions(
 		'lazy-params'	=> \$LAZY,
 		'change-ssrc'   => \$CHANGE_SSRC,
 		'port-latching' => \$PORT_LATCHING,
+		'record'	=> \$RECORD,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -660,6 +661,7 @@ a=rtpmap:111 opus/48000/2
 		'rtcp-mux' => ['demux'],
 	};
 	$PORT_LATCHING and push(@{$dict->{flags}}, 'port latching');
+	$RECORD and $dict->{'record-call'} = 'yes';
 	#$viabranch and $dict->{'via-branch'} = $viabranch;
 	if ($op eq 'offer') {
 		$dict->{'from-tag'} = $$A{tag};
