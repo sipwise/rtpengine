@@ -13,7 +13,7 @@ use Crypt::Rijndael;
 use Digest::SHA qw(hmac_sha1);
 use MIME::Base64;
 use Data::Dumper;
-use SRTP;
+use NGCP::Rtpclient::SRTP;
 
 my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
 	= (1000, 30, 1, 160, 20, 5, 5);
@@ -116,7 +116,8 @@ sub rtcp_encrypt {
 
 	if (!$$dctx{rtcp_session_key}) {
 		($$dctx{rtcp_session_key}, $$dctx{rtcp_session_auth_key}, $$dctx{rtcp_session_salt})
-			= SRTP::gen_rtcp_session_keys($$dctx{rtp_master_key}, $$dctx{rtp_master_salt});
+			= NGCP::Rtpclient::SRTP::gen_rtcp_session_keys($$dctx{rtp_master_key},
+				$$dctx{rtp_master_salt});
 	}
 
 	($NOENC && $NOENC{rtcp_packet}) and return $NOENC{rtcp_packet};
@@ -131,7 +132,7 @@ sub rtcp_encrypt {
 
 	my $hmac = hmac_sha1($pkt, $$dctx{rtcp_session_auth_key});
 
-	SRTP::append_mki(\$pkt, @$dctx{qw(rtp_mki_len rtp_mki)});
+	NGCP::Rtpclient::SRTP::append_mki(\$pkt, @$dctx{qw(rtp_mki_len rtp_mki)});
 
 	#$pkt .= pack("N", 1); # mki
 	$pkt .= substr($hmac, 0, 10);
@@ -150,13 +151,14 @@ sub rtp_encrypt {
 
 	if (!$$dctx{rtp_session_key}) {
 		($$dctx{rtp_session_key}, $$dctx{rtp_session_auth_key}, $$dctx{rtp_session_salt})
-			= SRTP::gen_rtp_session_keys($$dctx{rtp_master_key}, $$dctx{rtp_master_salt});
+			= NGCP::Rtpclient::SRTP::gen_rtp_session_keys($$dctx{rtp_master_key},
+				$$dctx{rtp_master_salt});
 	}
 
 	($NOENC && $NOENC{rtp_packet}) and return $NOENC{rtp_packet};
 
-	my ($pkt, $roc) = SRTP::encrypt_rtp(@$dctx{qw(crypto_suite rtp_session_key rtp_session_salt
-		rtp_session_auth_key rtp_roc rtp_mki rtp_mki_len unenc_srtp unauth_srtp)}, $r);
+	my ($pkt, $roc) = NGCP::Rtpclient::SRTP::encrypt_rtp(@$dctx{qw(crypto_suite rtp_session_key
+		rtp_session_salt rtp_session_auth_key rtp_roc rtp_mki rtp_mki_len unenc_srtp unauth_srtp)}, $r);
 	$roc == ($$dctx{rtp_roc} // 0) or print("ROC is now $roc\n");
 	$$dctx{rtp_roc} = $roc;
 
@@ -165,7 +167,8 @@ sub rtp_encrypt {
 	return $pkt;
 }
 
-$SUITES and @SRTP::crypto_suites = grep {my $x = $$_{str}; grep {$x eq $_} @$SUITES} @SRTP::crypto_suites;
+$SUITES and @NGCP::Rtpclient::SRTP::crypto_suites = grep {my $x = $$_{str}; grep {$x eq $_} @$SUITES}
+	@NGCP::Rtpclient::SRTP::crypto_suites;
 
 sub savp_sdp {
 	my ($ctx, $ctx_o) = @_;
@@ -179,7 +182,8 @@ sub savp_sdp {
 			$$ctx{out}{unauth_srtp} = $$ctx{in}{unauth_srtp};
 		}
 		else {
-			$$ctx{out}{crypto_suite} = $SRTP::crypto_suites[rand(@SRTP::crypto_suites)];
+			$$ctx{out}{crypto_suite} =
+				$NGCP::Rtpclient::SRTP::crypto_suites[rand(@NGCP::Rtpclient::SRTP::crypto_suites)];
 			$$ctx{out}{crypto_tag} = int(rand(100));
 			$$ctx{out}{unenc_srtp} = rand() < .5 ? 0 : 1;
 			$$ctx{out}{unenc_srtcp} = rand() < .5 ? 0 : 1;
@@ -327,10 +331,10 @@ sub savp_crypto {
 	@a or die;
 	my $i = 0;
 	while (@a >= 8) {
-		$$ctx[$i]{in}{crypto_suite} = $SRTP::crypto_suites{$a[1]} or die;
+		$$ctx[$i]{in}{crypto_suite} = $NGCP::Rtpclient::SRTP::crypto_suites{$a[1]} or die;
 		$$ctx[$i]{in}{crypto_tag} = $a[0];
 		($$ctx[$i]{in}{rtp_master_key}, $$ctx[$i]{in}{rtp_master_salt})
-			= SRTP::decode_inline_base64($a[2]);
+			= NGCP::Rtpclient::SRTP::decode_inline_base64($a[2]);
 		$$ctx[$i]{in}{rtp_mki} = $a[5];
 		$$ctx[$i]{in}{rtp_mki_len} = $a[6];
 		undef($$ctx[$i]{in}{rtp_session_key});
@@ -517,7 +521,7 @@ sub port_setup {
 	while (1) {
 		socket(my $rtp, $$pr{family}, SOCK_DGRAM, 0) or die $!;
 		socket(my $rtcp, $$pr{family}, SOCK_DGRAM, 0) or die $!;
-		my $port = rand(0x7000) << 1 + 1024;
+		my $port = (rand(0x7000) << 1) + 1024;
 		bind($rtp, $$pr{sockaddr}($port,
 			inet_pton($$pr{family}, $$pr{address}))) or next;
 		bind($rtcp, $$pr{sockaddr}($port + 1,
