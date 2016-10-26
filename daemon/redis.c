@@ -1285,6 +1285,8 @@ static int redis_link_tags(struct redis *r, struct call *c, struct redis_list *t
 			return -1;
 		for (l = q.head; l; l = l->next) {
 			other_ml = l->data;
+			if (!other_ml)
+			    return -1;
 			g_hash_table_insert(ml->other_tags, &other_ml->tag, other_ml);
 		}
 		g_queue_clear(&q);
