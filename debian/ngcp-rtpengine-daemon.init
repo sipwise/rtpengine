@@ -95,6 +95,7 @@ OPTIONS="$OPTIONS --table=$TABLE"
 [ -z "$HOMER_PROTOCOL" ] || OPTIONS="$OPTIONS --homer-protocol=$HOMER_PROTOCOL"
 [ -z "$HOMER_ID" ] || OPTIONS="$OPTIONS --homer-id=$HOMER_ID"
 [ -z "$RECORDING_DIR" ] || OPTIONS="$OPTIONS --recording-dir=$RECORDING_DIR"
+[ -z "$DTLS_PASSIVE" -o \("$DTLS_PASSIVE" != "yes" -a "$DTLS_PASSIVE" != "1" \) ] || OPTIONS="$OPTIONS --dtls-passive" 
 
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"
