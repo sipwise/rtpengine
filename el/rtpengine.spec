@@ -10,7 +10,7 @@ Source0:	https://github.com/sipwise/rtpengine/archive/mr%{version}/%{name}-%{ver
 Conflicts:	%{name}-kernel < %{version}-%{release}
 
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
-BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
+BuildRequires:	glib2-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel hiredis-devel
 Requires:	nc
 # Remain compat with other installations

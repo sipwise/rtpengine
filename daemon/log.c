@@ -25,8 +25,11 @@ volatile gint log_level = LOG_INFO;
 volatile gint log_level = LOG_DEBUG;
 #endif
 
+static write_log_t log_both;
+
 unsigned int max_log_line_length = 500;
-write_log_t write_log = (write_log_t) syslog;
+write_log_t *write_log = (write_log_t *) log_both;
+
 
 const _fac_code_t _facilitynames[] =
 	{
@@ -76,23 +79,46 @@ static GStringChunk *__log_limiter_strings;
 static unsigned int __log_limiter_count;
 
 
-void log_to_stderr(int facility_priority, char *format, ...) {
+static void vlog_to_stderr(int facility_priority, char *format, va_list ap) {
 	char *msg;
 	int ret;
-	va_list ap;
 
-	va_start(ap, format);
 	ret = vasprintf(&msg, format, ap);
-	va_end(ap);
 
 	if (ret < 0) {
 		fprintf(stderr,"ERR: Failed to print log message - message dropped\n");
 		return;
 	}
 
-	fprintf(stderr, "[%lu.%06lu] %s\n", (unsigned long) g_now.tv_sec, (unsigned long) g_now.tv_usec, msg);
+	if (G_LIKELY(g_now.tv_sec))
+		fprintf(stderr, "[%lu.%06lu] %s\n", (unsigned long) g_now.tv_sec,
+				(unsigned long) g_now.tv_usec, msg);
+	else
+		fprintf(stderr, "%s\n", msg);
 
 	free(msg);
+}
+
+void log_to_stderr(int facility_priority, char *format, ...) {
+	va_list ap;
+
+	va_start(ap, format);
+	vlog_to_stderr(facility_priority, format, ap);
+	va_end(ap);
+}
+
+static void log_both(int facility_priority, char *format, ...) {
+	va_list ap;
+
+	va_start(ap, format);
+	vsyslog(facility_priority, format, ap);
+	va_end(ap);
+
+	if (LOG_LEVEL_MASK(facility_priority) <= LOG_WARN) {
+		va_start(ap, format);
+		vlog_to_stderr(facility_priority, format, ap);
+		va_end(ap);
+	}
 }
 
 void __ilog(int prio, const char *fmt, ...) {
