@@ -45,8 +45,8 @@ typedef struct _fac_code {
 
 extern const _fac_code_t _facilitynames[];
 
-typedef void (* write_log_t) (int facility_priority, char *format, ...) __attribute__ ((format (printf, 2, 3)));
-extern write_log_t write_log;
+typedef void write_log_t(int facility_priority, char *format, ...) __attribute__ ((format (printf, 2, 3)));
+extern write_log_t *write_log;
 
 void log_to_stderr(int facility_priority, char *format, ...) __attribute__ ((format (printf, 2, 3)));
 

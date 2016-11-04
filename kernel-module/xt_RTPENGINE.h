@@ -8,7 +8,7 @@
 
 
 struct xt_rtpengine_info {
-	u_int32_t			id;
+	unsigned int			id;
 };
 
 struct rtpengine_stats {
@@ -83,6 +83,7 @@ struct rtpengine_target_info {
 	struct re_address		dst_addr;
 
 	struct re_address		mirror_addr;
+	unsigned int			intercept_stream_idx;
 
 	struct rtpengine_srtp		decrypt;
 	struct rtpengine_srtp		encrypt;
@@ -96,18 +97,58 @@ struct rtpengine_target_info {
 					dtls:1,
 					stun:1,
 					rtp:1,
-					rtp_only:1;
+					rtp_only:1,
+					do_intercept:1;
+};
+
+struct rtpengine_call_info {
+	unsigned int			call_idx;
+	char				call_id[256];
+};
+
+struct rtpengine_stream_info {
+	unsigned int			call_idx;
+	unsigned int			stream_idx;
+	unsigned int			max_packets;
+	char				stream_name[256];
+};
+
+struct rtpengine_packet_info {
+	unsigned int			call_idx;
+	unsigned int			stream_idx;
 };
 
 struct rtpengine_message {
 	enum {
-		MMG_NOOP = 1,
-		MMG_ADD,
-		MMG_DEL,
-		MMG_UPDATE
+		REMG_NOOP = 1,
+
+		/* target_info: */
+		REMG_ADD,
+		REMG_DEL,
+		REMG_UPDATE,
+
+		/* call_info: */
+		REMG_ADD_CALL,
+		REMG_DEL_CALL,
+
+		/* stream_info: */
+		REMG_ADD_STREAM,
+		REMG_DEL_STREAM,
+
+		/* packet_info: */
+		REMG_PACKET,
+
+		__REMG_LAST
 	}				cmd;
 
-	struct rtpengine_target_info	target;
+	union {
+		struct rtpengine_target_info	target;
+		struct rtpengine_call_info	call;
+		struct rtpengine_stream_info	stream;
+		struct rtpengine_packet_info	packet;
+	} u;
+
+	unsigned char			data[];
 };
 
 struct rtpengine_list_entry {

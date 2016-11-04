@@ -123,12 +123,19 @@ static const char * const __tag_type_texts[] = {
 	[FROM_TAG] = "FROM_TAG",
 	[TO_TAG] = "TO_TAG",
 };
+static const char *const __opmode_texts[] = {
+	[OP_OFFER] = "offer",
+	[OP_ANSWER] = "answer",
+};
 
 static const char * get_term_reason_text(enum termination_reason t) {
 	return get_enum_array_text(__term_reason_texts, t, "UNKNOWN");
 }
 const char * get_tag_type_text(enum tag_type t) {
 	return get_enum_array_text(__tag_type_texts, t, "UNKNOWN");
+}
+const char *get_opmode_text(enum call_opmode m) {
+	return get_enum_array_text(__opmode_texts, m, "other");
 }
 
 
@@ -504,7 +511,7 @@ static void callmaster_timer(void *ptr) {
 	atomic64_set(&m->stats.packets, atomic64_get_na(&tmpstats.packets));
 	atomic64_set(&m->stats.errors, atomic64_get_na(&tmpstats.errors));
 
-	i = (m->conf.kernelid >= 0) ? kernel_list(m->conf.kernelid) : NULL;
+	i = kernel_list();
 	while (i) {
 		ke = i->data;
 
@@ -851,6 +858,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	stream->call = call;
 	atomic64_set_na(&stream->last_packet, poller_now);
 	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
+	recording_init_stream(stream);
 
 	return stream;
 }
@@ -1082,6 +1090,9 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 
 		if (__init_stream(a))
 			return -1;
+
+		recording_setup_stream(ax); // RTP
+		recording_setup_stream(a); // RTCP
 
 		la = la->next;
 		lb = lb->next;
@@ -2249,12 +2260,7 @@ void call_destroy(struct call *c) {
 		obj_put(sfd);
 	}
 
-	if (c->recording != NULL) {
-		recording_finish_file(c->recording);
-		meta_finish_file(c);
-		g_slice_free1(sizeof(*(c->recording)), c->recording);
-	}
-
+	recording_finish(c);
 
 	rwlock_unlock_w(&c->master_lock);
 }

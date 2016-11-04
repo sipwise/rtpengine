@@ -7,47 +7,142 @@
 #include <netinet/in.h>
 #include <time.h>
 #include <pcap.h>
-#include <curl/curl.h>
 #include <inttypes.h>
+#include <errno.h>
+#include <unistd.h>
+#include <assert.h>
+#include <stdarg.h>
+
+#include "xt_RTPENGINE.h"
+
 #include "call.h"
+#include "kernel.h"
+#include "bencode.h"
 
 
-int maybe_create_spool_dir(char *dirpath);
-int set_record_call(struct call *call, str recordcall);
-str *init_write_pcap_file(struct call *call);
+
+static int check_main_spool_dir(const char *spoolpath);
+static char *recording_setup_file(struct recording *recording);
+static char *meta_setup_file(struct recording *recording);
+
+// pcap methods
+static int pcap_create_spool_dir(const char *dirpath);
+static void pcap_init(struct call *);
+static void sdp_after_pcap(struct recording *, struct iovec *sdp_iov, int iovcnt,
+		       unsigned int str_len, struct call_monologue *, enum call_opmode opmode);
+static void dump_packet_pcap(struct recording *recording, struct packet_stream *sink, const str *s);
+static void finish_pcap(struct call *);
+static void response_pcap(struct recording *, bencode_item_t *);
+
+// proc methods
+static void proc_init(struct call *);
+static void sdp_before_proc(struct recording *, const str *, struct call_monologue *, enum call_opmode);
+static void sdp_after_proc(struct recording *, struct iovec *sdp_iov, int iovcnt,
+		       unsigned int str_len, struct call_monologue *, enum call_opmode opmode);
+static void meta_chunk_proc(struct recording *, const char *, const str *);
+static void finish_proc(struct call *);
+static void dump_packet_proc(struct recording *recording, struct packet_stream *sink, const str *s);
+static void init_stream_proc(struct packet_stream *);
+static void setup_stream_proc(struct packet_stream *);
+static void kernel_info_proc(struct packet_stream *, struct rtpengine_target_info *);
+
+
+
+static const struct recording_method methods[] = {
+	{
+		.name = "pcap",
+		.kernel_support = 0,
+		.create_spool_dir = pcap_create_spool_dir,
+		.init_struct = pcap_init,
+		.sdp_after = sdp_after_pcap,
+		.dump_packet = dump_packet_pcap,
+		.finish = finish_pcap,
+		.response = response_pcap,
+	},
+	{
+		.name = "proc",
+		.kernel_support = 1,
+		.create_spool_dir = check_main_spool_dir,
+		.init_struct = proc_init,
+		.sdp_before = sdp_before_proc,
+		.sdp_after = sdp_after_proc,
+		.meta_chunk = meta_chunk_proc,
+		.dump_packet = dump_packet_proc,
+		.finish = finish_proc,
+		.init_stream_struct = init_stream_proc,
+		.setup_stream = setup_stream_proc,
+		.stream_kernel_info = kernel_info_proc,
+	},
+};
+
 
 // Global file reference to the spool directory.
 static char *spooldir = NULL;
-// Used for URL encoding functions
-CURL *curl;
+
+const struct recording_method *selected_recording_method;
+
+
 
 
 /**
  * Initialize RTP Engine filesystem settings and structure.
  * Check for or create the RTP Engine spool directory.
  */
-void recording_fs_init(char *spoolpath) {
-	curl = curl_easy_init();
+void recording_fs_init(const char *spoolpath, const char *method_str) {
+	int i;
+
 	// Whether or not to fail if the spool directory does not exist.
-	int dne_fail;
 	if (spoolpath == NULL || spoolpath[0] == '\0')
 		return;
 
-	dne_fail = TRUE;
-	int path_len = strlen(spoolpath);
-	// Get rid of trailing "/" if it exists. Other code adds that in when needed.
-	if (spoolpath[path_len-1] == '/') {
-		spoolpath[path_len-1] = '\0';
-	}
-	if (!maybe_create_spool_dir(spoolpath)) {
-		fprintf(stderr, "Error while setting up spool directory \"%s\".\n", spoolpath);
-		if (dne_fail) {
-			fprintf(stderr, "Please run `mkdir %s` and start rtpengine again.\n", spoolpath);
-			exit(-1);
+	for (i = 0; i < G_N_ELEMENTS(methods); i++) {
+		if (!strcmp(methods[i].name, method_str)) {
+			selected_recording_method = &methods[i];
+			goto found;
 		}
-	} else {
-		spooldir = strdup(spoolpath);
 	}
+
+	ilog(LOG_ERROR, "Recording method '%s' not supported", method_str);
+	return;
+
+found:
+	spooldir = strdup(spoolpath);
+
+	int path_len = strlen(spooldir);
+	// Get rid of trailing "/" if it exists. Other code adds that in when needed.
+	if (spooldir[path_len-1] == '/') {
+		spooldir[path_len-1] = '\0';
+	}
+	if (!_rm_ret(create_spool_dir, spooldir)) {
+		ilog(LOG_ERR, "Error while setting up spool directory \"%s\".", spooldir);
+		ilog(LOG_ERR, "Please run `mkdir %s` and start rtpengine again.", spooldir);
+		exit(-1);
+	}
+}
+
+static int check_create_dir(const char *dir, const char *desc, int creat) {
+	struct stat info;
+
+	if (stat(dir, &info) != 0) {
+		if (!creat) {
+			ilog(LOG_WARN, "%s directory \"%s\" does not exist.", desc, dir);
+			return FALSE;
+		}
+		ilog(LOG_INFO, "Creating %s directory \"%s\".", desc, dir);
+		if (mkdir(dir, 0777) == 0)
+			return TRUE;
+		ilog(LOG_ERR, "Failed to create %s directory \"%s\": %s", desc, dir, strerror(errno));
+		return FALSE;
+	}
+	if(!S_ISDIR(info.st_mode)) {
+		ilog(LOG_ERR, "%s file exists, but \"%s\" is not a directory.", desc, dir);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static int check_main_spool_dir(const char *spoolpath) {
+	return check_create_dir(spoolpath, "spool", 0);
 }
 
 /**
@@ -59,42 +154,70 @@ void recording_fs_init(char *spoolpath) {
  *
  * Create the "metadata" and "pcaps" directories if they are not there.
  */
-int maybe_create_spool_dir(char *spoolpath) {
-	struct stat info;
+static int pcap_create_spool_dir(const char *spoolpath) {
 	int spool_good = TRUE;
 
-	if (stat(spoolpath, &info) != 0) {
-		fprintf(stderr, "Spool directory \"%s\" does not exist.\n", spoolpath);
-		spool_good = FALSE;
-	} else if (!S_ISDIR(info.st_mode)) {
-		fprintf(stderr, "Spool file exists, but \"%s\" is not a directory.\n", spoolpath);
-		spool_good = FALSE;
-	} else {
-		// Spool directory exists. Make sure it has inner directories.
-		int path_len = strlen(spoolpath);
-		char meta_path[path_len + 10];
-		char rec_path[path_len + 7];
-		snprintf(meta_path, path_len + 10, "%s/metadata", spoolpath);
-		snprintf(rec_path, path_len + 7, "%s/pcaps", spoolpath);
+	if (!check_main_spool_dir(spoolpath))
+		return FALSE;
 
-		if (stat(meta_path, &info) != 0) {
-			fprintf(stdout, "Creating metadata directory \"%s\".\n", meta_path);
-			mkdir(meta_path, 0777);
-		} else if(!S_ISDIR(info.st_mode)) {
-			fprintf(stderr, "metadata file exists, but \"%s\" is not a directory.\n", meta_path);
-			spool_good = FALSE;
-		}
+	// Spool directory exists. Make sure it has inner directories.
+	int path_len = strlen(spoolpath);
+	char meta_path[path_len + 10];
+	char rec_path[path_len + 7];
+	char tmp_path[path_len + 5];
+	snprintf(meta_path, sizeof(meta_path), "%s/metadata", spoolpath);
+	snprintf(rec_path, sizeof(rec_path), "%s/pcaps", spoolpath);
+	snprintf(tmp_path, sizeof(tmp_path), "%s/tmp", spoolpath);
 
-		if (stat(rec_path, &info) != 0) {
-			fprintf(stdout, "Creating pcaps directory \"%s\".\n", rec_path);
-			mkdir(rec_path, 0777);
-		} else if(!S_ISDIR(info.st_mode)) {
-			fprintf(stderr, "pcaps file exists, but \"%s\" is not a directory.\n", rec_path);
-			spool_good = FALSE;
-		}
-	}
+	if (!check_create_dir(meta_path, "metadata", 1))
+		spool_good = FALSE;
+	if (!check_create_dir(rec_path, "pcaps", 1))
+		spool_good = FALSE;
+	if (!check_create_dir(tmp_path, "tmp", 1))
+		spool_good = FALSE;
 
 	return spool_good;
+}
+
+// lock must be held
+void recording_start(struct call *call) {
+	if (call->recording) // already active
+		return;
+
+	if (!spooldir) {
+		ilog(LOG_ERR, "Call recording requested, but no spool directory configured");
+		return;
+	}
+	ilog(LOG_NOTICE, "Turning on call recording.");
+
+	call->recording = g_slice_alloc0(sizeof(struct recording));
+	struct recording *recording = call->recording;
+	recording->escaped_callid = g_uri_escape_string(call->callid.s, NULL, 0);
+	const int rand_bytes = 8;
+	char rand_str[rand_bytes * 2 + 1];
+	rand_hex_str(rand_str, rand_bytes);
+	if (asprintf(&recording->meta_prefix, "%s-%s", recording->escaped_callid, rand_str) < 0)
+		abort();
+	_rm(init_struct, call);
+
+	// if recording has been turned on after initial call setup, we must walk
+	// through all related objects and initialize the recording stuff. if this
+	// function is called right at the start of the call, all of the following
+	// is essentially a no-op
+	GList *l;
+	for (l = call->streams.head; l; l = l->next) {
+		struct packet_stream *ps = l->data;
+		recording_setup_stream(ps);
+		__unkernelize(ps);
+		ps->handler = NULL;
+	}
+}
+void recording_stop(struct call *call) {
+	if (!call->recording)
+		return;
+
+	ilog(LOG_NOTICE, "Turning off call recording.");
+	recording_finish(call);
 }
 
 /**
@@ -107,137 +230,99 @@ int maybe_create_spool_dir(char *spoolpath) {
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-int detect_setup_recording(struct call *call, str recordcall) {
-	int is_recording = set_record_call(call, recordcall);
+void detect_setup_recording(struct call *call, const str *recordcall) {
+	if (!recordcall || !recordcall->s)
+		return;
+
+	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on"))
+		recording_start(call);
+	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off"))
+		recording_stop(call);
+	else
+		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
+}
+
+static void pcap_init(struct call *call) {
 	struct recording *recording = call->recording;
-	if (is_recording && recording != NULL && recording->recording_pdumper == NULL) {
-		// We haven't set up the PCAP file, so set it up and write the URL to metadata
-		init_write_pcap_file(call);
-	}
-	return is_recording;
-}
 
-/**
- * Controls the setting of recording variables on a `struct call *`.
- * Sets the `record_call` value on the `struct call`, initializing the
- * recording struct if necessary.
- *
- * Returns a boolean for whether or not the call is being recorded.
- */
-int set_record_call(struct call *call, str recordcall) {
-	if (!str_cmp(&recordcall, "yes")) {
-		if (call->record_call == FALSE) {
-			if (!spooldir) {
-				ilog(LOG_ERR, "Call recording requested, but no spool directory configured");
-				return FALSE;
-			}
-			ilog(LOG_NOTICE, "Turning on call recording.");
-		}
-		call->record_call = TRUE;
-		if (call->recording == NULL) {
-			call->recording = g_slice_alloc0(sizeof(struct recording));
-			call->recording->recording_pd = NULL;
-			call->recording->recording_pdumper = NULL;
-			// Wireshark starts at packet index 1, so we start there, too
-			call->recording->packet_num = 1;
-			mutex_init(&call->recording->recording_lock);
-			meta_setup_file(call->recording, call->callid);
-		}
-	} else if (!str_cmp(&recordcall, "no")) {
-		if (call->record_call == TRUE) {
-			ilog(LOG_NOTICE, "Turning off call recording.");
-		}
-		call->record_call = FALSE;
-	} else {
-		ilog(LOG_INFO, "\"record-call\" flag %s is invalid flag.", recordcall.s);
-	}
-	return call->record_call;
-}
+	// Wireshark starts at packet index 1, so we start there, too
+	recording->pcap.packet_num = 1;
+	mutex_init(&recording->pcap.recording_lock);
+	meta_setup_file(recording);
 
-/**
- * Checks if we have a PCAP file for the call yet.
- * If not, create it and write its location to the metadata file.
- */
-str *init_write_pcap_file(struct call *call) {
-	str *pcap_path = recording_setup_file(call->recording, call->callid);
-	if (pcap_path != NULL && call->recording->recording_pdumper != NULL
-	    && call->recording->meta_fp) {
+	// set up pcap file
+	char *pcap_path = recording_setup_file(recording);
+	if (pcap_path != NULL && recording->pcap.recording_pdumper != NULL
+	    && recording->pcap.meta_fp) {
 		// Write the location of the PCAP file to the metadata file
-		fprintf(call->recording->meta_fp, "%s\n\n", pcap_path->s);
+		fprintf(recording->pcap.meta_fp, "%s\n\n", pcap_path);
 	}
-	return pcap_path;
+}
+
+static char *file_path_str(const char *id, const char *prefix, const char *suffix) {
+	char *ret;
+	if (asprintf(&ret, "%s%s%s%s", spooldir, prefix, id, suffix) < 0)
+		abort();
+	return ret;
 }
 
 /**
  * Create a call metadata file in a temporary location.
  * Attaches the filepath and the file pointer to the call struct.
  */
-str *meta_setup_file(struct recording *recording, str callid) {
+static char *meta_setup_file(struct recording *recording) {
 	if (spooldir == NULL) {
 		// No spool directory was created, so we cannot have metadata files.
 		return NULL;
 	}
-	else {
-		int rand_bytes = 8;
-		str *meta_filepath = malloc(sizeof(str));
-		// We don't want weird characters like ":" or "@" showing up in filenames
-		char *escaped_callid = curl_easy_escape(curl, callid.s, callid.len);
-		int escaped_callid_len = strlen(escaped_callid);
-		// Length for spool directory path + "/tmp/rtpengine-meta-${CALLID}-"
-		int mid_len = 20 + escaped_callid_len + 1 + 1;
-		char suffix_chars[mid_len];
-		snprintf(suffix_chars, mid_len, "/tmp/rtpengine-meta-%s-", escaped_callid);
-		curl_free(escaped_callid);
-		// Initially file extension is ".tmp". When call is over, it changes to ".txt".
-		char *path_chars = rand_affixed_str(suffix_chars, rand_bytes, ".tmp");
-		meta_filepath = str_init(meta_filepath, path_chars);
-		recording->meta_filepath = meta_filepath;
-		FILE *mfp = fopen(meta_filepath->s, "w");
-		chmod(meta_filepath->s, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
-		if (mfp == NULL) {
-			ilog(LOG_ERROR, "Could not open metadata file: %s", meta_filepath->s);
-			free(recording->meta_filepath->s);
-			free(recording->meta_filepath);
-			recording->meta_filepath = NULL;
-		}
-		recording->meta_fp = mfp;
-		ilog(LOG_DEBUG, "Wrote metadata file to temporary path: %s", meta_filepath->s);
-		return meta_filepath;
+
+	char *meta_filepath = file_path_str(recording->meta_prefix, "/tmp/rtpengine-meta-", ".tmp");
+	recording->meta_filepath = meta_filepath;
+	FILE *mfp = fopen(meta_filepath, "w");
+	chmod(meta_filepath, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+	if (mfp == NULL) {
+		ilog(LOG_ERROR, "Could not open metadata file: %s", meta_filepath);
+		free(meta_filepath);
+		recording->meta_filepath = NULL;
+		return NULL;
 	}
+	recording->pcap.meta_fp = mfp;
+	ilog(LOG_DEBUG, "Wrote metadata file to temporary path: %s", meta_filepath);
+	return meta_filepath;
 }
 
 /**
  * Write out a block of SDP to the metadata file.
  */
-ssize_t meta_write_sdp(FILE *meta_fp, struct iovec *sdp_iov, int iovcnt,
-		       uint64_t packet_num, enum call_opmode opmode) {
+static void sdp_after_pcap(struct recording *recording, struct iovec *sdp_iov, int iovcnt,
+		       unsigned int str_len, struct call_monologue *ml, enum call_opmode opmode)
+{
+	FILE *meta_fp = recording->pcap.meta_fp;
+	if (!meta_fp)
+		return;
+
 	int meta_fd = fileno(meta_fp);
 	// File pointers buffer data, whereas direct writing using the file
 	// descriptor does not. Make sure to flush any unwritten contents
 	// so the file contents appear in order.
 	fprintf(meta_fp, "\nSDP mode: ");
-	if (opmode == OP_ANSWER) {
-		fprintf(meta_fp, "answer");
-	} else if (opmode == OP_OFFER) {
-		fprintf(meta_fp, "offer");
-	} else {
-		fprintf(meta_fp, "other");
-	}
-	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", packet_num);
+	fprintf(meta_fp, "%s", get_opmode_text(opmode));
+	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", recording->pcap.packet_num);
 	fflush(meta_fp);
-	return writev(meta_fd, sdp_iov, iovcnt);
+	if (writev(meta_fd, sdp_iov, iovcnt) <= 0)
+		ilog(LOG_WARN, "Error writing SDP body to metadata file: %s", strerror(errno));
 }
 
 /**
  * Writes metadata to metafile, closes file, and renames it to finished location.
  * Returns non-zero for failure.
  */
-int meta_finish_file(struct call *call) {
+static int pcap_meta_finish_file(struct call *call) {
 	// This should usually be called from a place that has the call->master_lock
 	struct recording *recording = call->recording;
 	int return_code = 0;
 
-	if (recording != NULL && recording->meta_fp != NULL) {
+	if (recording != NULL && recording->pcap.meta_fp != NULL) {
 		// Print start timestamp and end timestamp
 		// YYYY-MM-DDThh:mm:ss
 		time_t start = call->created;
@@ -246,26 +331,24 @@ int meta_finish_file(struct call *call) {
 		struct tm *timeinfo;
 		timeinfo = localtime(&start);
 		strftime(timebuffer, 20, "%FT%T", timeinfo);
-		fprintf(recording->meta_fp, "\n\ncall start time: %s\n", timebuffer);
+		fprintf(recording->pcap.meta_fp, "\n\ncall start time: %s\n", timebuffer);
 		timeinfo = localtime(&end);
 		strftime(timebuffer, 20, "%FT%T", timeinfo);
-		fprintf(recording->meta_fp, "call end time: %s\n", timebuffer);
+		fprintf(recording->pcap.meta_fp, "call end time: %s\n", timebuffer);
 
 		// Print metadata
-		if (recording->metadata)
-			fprintf(recording->meta_fp, "\n\n%s\n", recording->metadata->s);
-		free(recording->metadata);
-		recording->metadata = NULL;
-		fclose(recording->meta_fp);
+		if (recording->metadata.len)
+			fprintf(recording->pcap.meta_fp, "\n\n"STR_FORMAT"\n", STR_FMT(&recording->metadata));
+		fclose(recording->pcap.meta_fp);
 
 		// Get the filename (in between its directory and the file extension)
 		// and move it to the finished file location.
 		// Rename extension to ".txt".
 		int fn_len;
-		char *meta_filename = strrchr(recording->meta_filepath->s, '/');
+		char *meta_filename = strrchr(recording->meta_filepath, '/');
 		char *meta_ext = NULL;
 		if (meta_filename == NULL) {
-			meta_filename = recording->meta_filepath->s;
+			meta_filename = recording->meta_filepath;
 		}
 		else {
 			meta_filename = meta_filename + 1;
@@ -278,22 +361,18 @@ int meta_finish_file(struct call *call) {
 		char new_metapath[prefix_len + fn_len + ext_len + 1];
 		snprintf(new_metapath, prefix_len+fn_len+1, "%s/metadata/%s", spooldir, meta_filename);
 		snprintf(new_metapath + prefix_len+fn_len, ext_len+1, ".txt");
-		return_code = return_code || rename(recording->meta_filepath->s, new_metapath);
+		return_code = return_code || rename(recording->meta_filepath, new_metapath);
 		if (return_code != 0) {
 			ilog(LOG_ERROR, "Could not move metadata file \"%s\" to \"%s/metadata/\"",
-					 recording->meta_filepath->s, spooldir);
+					 recording->meta_filepath, spooldir);
 		} else {
 			ilog(LOG_INFO, "Moved metadata file \"%s\" to \"%s/metadata\"",
-					 recording->meta_filepath->s, spooldir);
+					 recording->meta_filepath, spooldir);
 		}
 	} else {
 		ilog(LOG_INFO, "Trying to clean up recording meta file without a file pointer opened.");
 	}
-	if (recording != NULL && recording->meta_filepath != NULL) {
-		free(recording->meta_filepath->s);
-		free(recording->meta_filepath);
-	}
-	mutex_destroy(&recording->recording_lock);
+	mutex_destroy(&recording->pcap.recording_lock);
 
 	return return_code;
 }
@@ -302,39 +381,25 @@ int meta_finish_file(struct call *call) {
  * Generate a random PCAP filepath to write recorded RTP stream.
  * Returns path to created file.
  */
-str *recording_setup_file(struct recording *recording, str callid) {
-	str *recording_path = NULL;
-	if (spooldir != NULL
-      && recording != NULL
-	    && recording->recording_pd == NULL && recording->recording_pdumper == NULL) {
-		int rand_bytes = 8;
-		// We don't want weird characters like ":" or "@" showing up in filenames
-		char *escaped_callid = curl_easy_escape(curl, callid.s, callid.len);
-		int escaped_callid_len = strlen(escaped_callid);
-		// Length for spool directory path + "/pcaps/${CALLID}-"
-		int rec_path_len = strlen(spooldir) + 7 + escaped_callid_len + 1 + 1;
-		char rec_path[rec_path_len];
-		snprintf(rec_path, rec_path_len, "%s/pcaps/%s-", spooldir, escaped_callid);
-		curl_free(escaped_callid);
-		char *path_chars = rand_affixed_str(rec_path, rand_bytes, ".pcap");
+static char *recording_setup_file(struct recording *recording) {
+	char *recording_path = NULL;
 
-		recording_path = malloc(sizeof(str));
-		recording_path = str_init(recording_path, path_chars);
-		recording->recording_path = recording_path;
+	if (!spooldir)
+		return NULL;
+	if (recording->pcap.recording_pd || recording->pcap.recording_pdumper)
+		return NULL;
 
-		recording->recording_pd = pcap_open_dead(DLT_RAW, 65535);
-		recording->recording_pdumper = pcap_dump_open(recording->recording_pd, path_chars);
-		if (recording->recording_pdumper == NULL) {
-			pcap_close(recording->recording_pd);
-			recording->recording_pd = NULL;
-			ilog(LOG_INFO, "Failed to write recording file: %s", recording_path->s);
-		} else {
-			ilog(LOG_INFO, "Writing recording file: %s", recording_path->s);
-		}
-	} else if (recording != NULL) {
-		recording->recording_path = NULL;
-		recording->recording_pd = NULL;
-		recording->recording_pdumper = NULL;
+	recording_path = file_path_str(recording->meta_prefix, "/pcaps/", ".pcap");
+	recording->pcap.recording_path = recording_path;
+
+	recording->pcap.recording_pd = pcap_open_dead(DLT_RAW, 65535);
+	recording->pcap.recording_pdumper = pcap_dump_open(recording->pcap.recording_pd, recording_path);
+	if (recording->pcap.recording_pdumper == NULL) {
+		pcap_close(recording->pcap.recording_pd);
+		recording->pcap.recording_pd = NULL;
+		ilog(LOG_INFO, "Failed to write recording file: %s", recording_path);
+	} else {
+		ilog(LOG_INFO, "Writing recording file: %s", recording_path);
 	}
 
 	return recording_path;
@@ -343,75 +408,296 @@ str *recording_setup_file(struct recording *recording, str callid) {
 /**
  * Flushes PCAP file, closes the dumper and descriptors, and frees object memory.
  */
-void recording_finish_file(struct recording *recording) {
-	if (recording->recording_pdumper != NULL) {
-		pcap_dump_flush(recording->recording_pdumper);
-		pcap_dump_close(recording->recording_pdumper);
-		free(recording->recording_path->s);
-		free(recording->recording_path);
+static void pcap_recording_finish_file(struct recording *recording) {
+	if (recording->pcap.recording_pdumper != NULL) {
+		pcap_dump_flush(recording->pcap.recording_pdumper);
+		pcap_dump_close(recording->pcap.recording_pdumper);
+		free(recording->pcap.recording_path);
 	}
-	if (recording->recording_pd != NULL) {
-		pcap_close(recording->recording_pd);
+	if (recording->pcap.recording_pd != NULL) {
+		pcap_close(recording->pcap.recording_pd);
 	}
+}
+
+// "out" must be at least inp->len + MAX_PACKET_HEADER_LEN bytes
+static unsigned int fake_ip_header(unsigned char *out, struct packet_stream *stream, const str *inp) {
+	endpoint_t *src_endpoint = &stream->advertised_endpoint;
+	endpoint_t *dst_endpoint = &stream->selected_sfd->socket.local;
+
+	unsigned int hdr_len =
+		endpoint_packet_header(out, src_endpoint, dst_endpoint, inp->len);
+
+	assert(hdr_len <= MAX_PACKET_HEADER_LEN);
+
+	// payload
+	memcpy(out + hdr_len, inp->s, inp->len);
+
+	return hdr_len + inp->len;
 }
 
 /**
  * Write out a PCAP packet with payload string.
  * A fair amount extraneous of packet data is spoofed.
  */
-void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, str *s) {
-	endpoint_t src_endpoint = stream->advertised_endpoint;
-	endpoint_t dst_endpoint = stream->selected_sfd->socket.local;
+static void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, const str *s) {
+	if (!pdumper)
+		return;
 
-	// Wrap RTP in fake UDP packet header
-	// Right now, we spoof it all
-	u_int16_t udp_len = ((u_int16_t)s->len) + 8;
-	u_int16_t udp_header[4];
-	u_int16_t src_port = (u_int16_t) src_endpoint.port;
-	u_int16_t dst_port = (u_int16_t) dst_endpoint.port;
-	udp_header[0] = htons(src_port); // source port
-	udp_header[1] = htons(dst_port); // destination port
-	udp_header[2] = htons(udp_len); // packet length
-	udp_header[3] = 0; // checksum
-
-	// Wrap RTP in fake IP packet header
-	u_int8_t ip_header[20];
-	u_int16_t ip_total_length = udp_len + 20;
-	u_int16_t *ip_total_length_ptr = (u_int16_t*)(ip_header + 2);
-	u_int32_t *ip_src_addr = (u_int32_t*)(ip_header + 12);
-	u_int32_t *ip_dst_addr = (u_int32_t*)(ip_header + 16);
-	unsigned long src_ip = src_endpoint.address.u.ipv4.s_addr;
-	unsigned long dst_ip = dst_endpoint.address.u.ipv4.s_addr;
-	memset(ip_header, 0, 20);
-	ip_header[0] = 4 << 4; // IP version - 4 bits
-	ip_header[0] = ip_header[0] | 5; // Internet Header Length (IHL) - 4 bits
-	ip_header[1] = 0; // DSCP - 6 bits
-	ip_header[1] = 0; // ECN - 2 bits
-	*ip_total_length_ptr = htons(ip_total_length);
-	ip_header[4] = 0; ip_header[5] = 0 ; // Identification - 2 bytes
-	ip_header[6] = 0; // Flags - 3 bits
-	ip_header[7] = 0; // Fragment Offset - 13 bits
-	ip_header[8] = 64; // TTL - 1 byte
-	ip_header[9] = 17; // Protocol (defines protocol in data portion) - 1 byte
-	ip_header[10] = 0; ip_header[11] = 0; // Header Checksum - 2 bytes
-	*ip_src_addr = src_ip; // Source IP (set to localhost) - 4 bytes
-	*ip_dst_addr = dst_ip; // Destination IP (set to localhost) - 4 bytes
+	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN];
+	unsigned int pkt_len = fake_ip_header(pkt, stream, s);
 
 	// Set up PCAP packet header
 	struct pcap_pkthdr header;
 	ZERO(header);
 	header.ts = g_now;
-	header.caplen = s->len + 28;
-	// This must be the same value we use in `pcap_open_dead`
-	header.len = s->len + 28;
-
-	// Copy all the headers and payload into a new string
-	unsigned char pkt_s[ip_total_length];
-	memcpy(pkt_s, ip_header, 20);
-	memcpy(pkt_s + 20, udp_header, 8);
-	memcpy(pkt_s + 28, s->s, s->len);
+	header.caplen = pkt_len;
+	header.len = pkt_len;
 
 	// Write the packet to the PCAP file
 	// Casting quiets compiler warning.
-	pcap_dump((unsigned char *)pdumper, &header, (unsigned char *)pkt_s);
+	pcap_dump((unsigned char *)pdumper, &header, pkt);
+}
+
+static void dump_packet_pcap(struct recording *recording, struct packet_stream *stream, const str *s) {
+	mutex_lock(&recording->pcap.recording_lock);
+	stream_pcap_dump(recording->pcap.recording_pdumper, stream, s);
+	recording->pcap.packet_num++;
+	mutex_unlock(&recording->pcap.recording_lock);
+}
+
+static void finish_pcap(struct call *call) {
+	pcap_recording_finish_file(call->recording);
+	pcap_meta_finish_file(call);
+}
+
+static void response_pcap(struct recording *recording, bencode_item_t *output) {
+	if (!recording->pcap.recording_path)
+		return;
+
+	bencode_item_t *recordings = bencode_dictionary_add_list(output, "recordings");
+	bencode_list_add_string(recordings, recording->pcap.recording_path);
+}
+
+
+
+
+
+
+
+void recording_finish(struct call *call) {
+	if (!call || !call->recording)
+		return;
+
+	struct recording *recording = call->recording;
+
+	_rm(finish, call);
+
+	free(recording->meta_prefix);
+	free(recording->escaped_callid);
+	free(recording->meta_filepath);
+
+	g_slice_free1(sizeof(*(recording)), recording);
+	call->recording = NULL;
+}
+
+
+
+
+
+
+
+
+static int open_proc_meta_file(struct recording *recording) {
+	int fd;
+	fd = open(recording->meta_filepath, O_WRONLY | O_APPEND | O_CREAT, 0666);
+	if (fd == -1) {
+		ilog(LOG_ERR, "Failed to open recording metadata file '%s' for writing: %s",
+				recording->meta_filepath, strerror(errno));
+		return -1;
+	}
+	return fd;
+}
+
+static int vappend_meta_chunk_iov(struct recording *recording, struct iovec *in_iov, int iovcnt,
+		unsigned int str_len, const char *label_fmt, va_list ap)
+{
+	int fd = open_proc_meta_file(recording);
+	if (fd == -1)
+		return -1;
+
+	char label[128];
+	int lablen = vsnprintf(label, sizeof(label), label_fmt, ap);
+	char infix[128];
+	int inflen = snprintf(infix, sizeof(infix), "\n%u:\n", str_len);
+
+	// use writev for an atomic write
+	struct iovec iov[iovcnt + 3];
+	iov[0].iov_base = label;
+	iov[0].iov_len = lablen;
+	iov[1].iov_base = infix;
+	iov[1].iov_len = inflen;
+	memcpy(&iov[2], in_iov, iovcnt * sizeof(*iov));
+	iov[iovcnt + 2].iov_base = "\n\n";
+	iov[iovcnt + 2].iov_len = 2;
+
+	if (writev(fd, iov, iovcnt + 3) != (str_len + lablen + inflen + 2))
+		ilog(LOG_WARN, "writev return value incorrect");
+
+	close(fd); // this triggers the inotify
+
+	return 0;
+}
+
+static int append_meta_chunk_iov(struct recording *recording, struct iovec *iov, int iovcnt,
+		unsigned int str_len, const char *label_fmt, ...)
+	__attribute__((format(printf,5,6)));
+
+static int append_meta_chunk_iov(struct recording *recording, struct iovec *iov, int iovcnt,
+		unsigned int str_len, const char *label_fmt, ...)
+{
+	va_list ap;
+	va_start(ap, label_fmt);
+	int ret = vappend_meta_chunk_iov(recording, iov, iovcnt, str_len, label_fmt, ap);
+	va_end(ap);
+
+	return ret;
+}
+
+static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
+		const char *label_fmt, ...)
+	__attribute__((format(printf,4,5)));
+
+static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
+		const char *label_fmt, ...)
+{
+	struct iovec iov;
+	iov.iov_base = (void *) buf;
+	iov.iov_len = buflen;
+
+	va_list ap;
+	va_start(ap, label_fmt);
+	int ret = vappend_meta_chunk_iov(recording, &iov, 1, buflen, label_fmt, ap);
+	va_end(ap);
+
+	return ret;
+}
+#define append_meta_chunk_str(r, str, f...) append_meta_chunk(r, (str)->s, (str)->len, f)
+#define append_meta_chunk_s(r, str, f...) append_meta_chunk(r, (str), strlen(str), f)
+
+static void proc_init(struct call *call) {
+	struct recording *recording = call->recording;
+
+	recording->proc.call_idx = UNINIT_IDX;
+	if (!kernel.is_open) {
+		ilog(LOG_WARN, "Call recording through /proc interface requested, but kernel table not open");
+		return;
+	}
+	recording->proc.call_idx = kernel_add_call(recording->meta_prefix);
+	if (recording->proc.call_idx == UNINIT_IDX) {
+		ilog(LOG_ERR, "Failed to add call to kernel recording interface: %s", strerror(errno));
+		return;
+	}
+	ilog(LOG_DEBUG, "kernel call idx is %u", recording->proc.call_idx);
+
+	recording->meta_filepath = file_path_str(recording->meta_prefix, "/", ".meta");
+	unlink(recording->meta_filepath); // start fresh XXX good idea?
+
+	append_meta_chunk_str(recording, &call->callid, "CALL-ID");
+	append_meta_chunk_s(recording, recording->meta_prefix, "PARENT");
+}
+
+static void sdp_before_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,
+		enum call_opmode opmode)
+{
+	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
+	append_meta_chunk_str(recording, sdp,
+			"SDP from %u before %s", ml->unique_id, get_opmode_text(opmode));
+}
+
+static void sdp_after_proc(struct recording *recording, struct iovec *sdp_iov, int iovcnt,
+		       unsigned int str_len, struct call_monologue *ml, enum call_opmode opmode)
+{
+	append_meta_chunk_iov(recording, sdp_iov, iovcnt, str_len,
+			"SDP from %u after %s", ml->unique_id, get_opmode_text(opmode));
+}
+
+static void finish_proc(struct call *call) {
+	struct recording *recording = call->recording;
+	if (!kernel.is_open)
+		return;
+	if (recording->proc.call_idx != UNINIT_IDX)
+		kernel_del_call(recording->proc.call_idx);
+	unlink(recording->meta_filepath);
+}
+
+static void init_stream_proc(struct packet_stream *stream) {
+	stream->recording.proc.stream_idx = UNINIT_IDX;
+}
+
+static void setup_stream_proc(struct packet_stream *stream) {
+	struct call_media *media = stream->media;
+	struct call_monologue *ml = media->monologue;
+	struct call *call = stream->call;
+	struct recording *recording = call->recording;
+	char buf[128];
+	int len;
+
+	if (!recording)
+		return;
+	if (!kernel.is_open)
+		return;
+	if (stream->recording.proc.stream_idx != UNINIT_IDX)
+		return;
+
+	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u COMPONENT %u FLAGS %u",
+			ml->unique_id, media->index, stream->component,
+			stream->ps_flags);
+	append_meta_chunk(recording, buf, len, "STREAM %u details", stream->unique_id);
+
+	len = snprintf(buf, sizeof(buf), "tag-%u-media-%u-component-%u-%s-id-%u",
+			ml->unique_id, media->index, stream->component,
+			(PS_ISSET(stream, RTCP) && !PS_ISSET(stream, RTP)) ? "RTCP" : "RTP",
+			stream->unique_id);
+	stream->recording.proc.stream_idx = kernel_add_intercept_stream(recording->proc.call_idx, buf);
+	if (stream->recording.proc.stream_idx == UNINIT_IDX) {
+		ilog(LOG_ERR, "Failed to add stream to kernel recording interface: %s", strerror(errno));
+		return;
+	}
+	ilog(LOG_DEBUG, "kernel stream idx is %u", stream->recording.proc.stream_idx);
+	append_meta_chunk(recording, buf, len, "STREAM %u interface", stream->unique_id);
+}
+
+static void dump_packet_proc(struct recording *recording, struct packet_stream *stream, const str *s) {
+	if (stream->recording.proc.stream_idx == UNINIT_IDX)
+		return;
+
+	struct rtpengine_message *remsg;
+	unsigned char pkt[sizeof(*remsg) + s->len + MAX_PACKET_HEADER_LEN];
+	remsg = (void *) pkt;
+
+	ZERO(*remsg);
+	remsg->cmd = REMG_PACKET;
+	//remsg->u.packet.call_idx = stream->call->recording->proc.call_idx; // unused
+	remsg->u.packet.stream_idx = stream->recording.proc.stream_idx;
+
+	unsigned int pkt_len = fake_ip_header(remsg->data, stream, s);
+	pkt_len += sizeof(*remsg);
+
+	int ret = write(kernel.fd, pkt, pkt_len);
+	if (ret < 0)
+		ilog(LOG_ERR, "Failed to submit packet to kernel intercepted stream: %s", strerror(errno));
+}
+
+static void kernel_info_proc(struct packet_stream *stream, struct rtpengine_target_info *reti) {
+	if (!stream->call->recording)
+		return;
+	if (stream->recording.proc.stream_idx == UNINIT_IDX)
+		return;
+	ilog(LOG_DEBUG, "enabling kernel intercept with stream idx %u", stream->recording.proc.stream_idx);
+	reti->do_intercept = 1;
+	reti->intercept_stream_idx = stream->recording.proc.stream_idx;
+}
+
+static void meta_chunk_proc(struct recording *recording, const char *label, const str *data) {
+	append_meta_chunk_str(recording, data, "%s", label);
 }

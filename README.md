@@ -42,13 +42,13 @@ the following additional features are available:
   RTP/SAVP, RTP/SAVPF)
 - RTP/RTCP multiplexing (RFC 5761) and demultiplexing
 - Breaking of BUNDLE'd media streams (draft-ietf-mmusic-sdp-bundle-negotiation)
+- Recording of media streams, decrypted if possible
 
-Rtpengine does not (yet) support:
+*Rtpengine* does not (yet) support:
 
 * Repacketization or transcoding
 * Playback of pre-recorded streams/announcements
-* Recording of media streams
-* ZRTP
+* ZRTP, although ZRTP passes through *rtpengine* just fine
 
 Compiling and Installing
 =========================
@@ -100,7 +100,7 @@ The generated files are (with version 2.3.0 being built on an amd64 system):
 Manual Compilation
 ------------------
 
-There's 3 parts to rtpengine, which can be found in the respective subdirectories.
+There's 3 parts to *rtpengine*, which can be found in the respective subdirectories.
 
 * `daemon`
 
@@ -113,7 +113,6 @@ There's 3 parts to rtpengine, which can be found in the respective subdirectorie
 	- *zlib*
 	- *OpenSSL*
 	- *PCRE* library
-	- *libcurl*
 	- *XMLRPC-C* version 1.16.08 or higher
 	- *hiredis* library
 
@@ -194,6 +193,7 @@ option and which are reproduced below:
 	  --homer-protocol=udp|tcp         Transport protocol for Homer (default udp)
 	  --homer-id=INT                   'Capture ID' to use within the HEP protocol
 	  --recording-dir=FILE             Spool directory where PCAP call recording data goes
+	  --recording-method=pcap|proc     Strategy for call recording
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -472,6 +472,11 @@ The options are described in more detail below.
 	An optional argument to specify a path to a directory where PCAP recording
 	files and recording metadata files should be stored. If not specified, support
 	for call recording will be disabled.
+
+	*Rtpengine* supports multiple mechanisms for recording calls. See `recording-method`
+	below for a list. The default recording method `pcap` is described in
+	this section.
+
 	PCAP files will be stored within a "pcap" subdirectory and metadata
 	within a "metadata" subdirectory.
 
@@ -503,12 +508,36 @@ The options are described in more detail below.
 
 		generic metadata
 
-    There are two empty lines between each logic block of metadata.
-    We write out all answer SDP, each separated from one another by one empty
-    line. The generic metadata at the end can be any length with any number of
-    lines. Metadata files will appear in the subdirectory when the call
-    completes. PCAP files will be written to the subdirectory as the call is
-    being recorded.
+	There are two empty lines between each logic block of metadata.
+	We write out all answer SDP, each separated from one another by one empty
+	line. The generic metadata at the end can be any length with any number of
+	lines. Metadata files will appear in the subdirectory when the call
+	completes. PCAP files will be written to the subdirectory as the call is
+	being recorded.
+
+	Since call recording via this method happens entirely in userspace, in-kernel
+	packet forwarding cannot be used for calls that are currently being recorded and
+	packet forwarding will thus be done in userspace only.
+
+* --recording-method
+
+	Multiple methods of call recording are supported and this option can be used to select one.
+	Currently supported are the method `pcap` and `proc`.
+	The default method is `pcap` and is the one described above.
+
+	The recording method `proc` works by writing metadata files directly into the
+	`recording-dir` (i.e. not into a subdirectory) and instead of recording RTP packet data
+	into pcap files, the packet data is exposed via a special interface in the `/proc` filesystem.
+	Packets must then be retrieved from this interface by a dedicated 3rd party userspace component
+	(usually a daemon).
+
+	Packet data is held in kernel memory until retrieved by the userspace component, but only a limited
+	number of packets (default 10) per media stream. If packets are not retrieved in time, they will
+	be simply discarded. This makes it possible to flag all calls to be recorded and then leave it
+	to the userspace component to decided whether to use the packet data for any purpose or not.
+
+	In-kernel packet forwarding is fully supported with this recording method even for calls being
+	recorded.
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
@@ -829,6 +858,10 @@ Optionally included keys are:
 		Forces *rtpengine* to retain its local ports during a signalling exchange even when the
 		remote endpoint changes its port.
 
+	- `record call`
+
+		Identical to setting `record call` to `on` (see below).
+
 
 * `replace`
 
@@ -1002,21 +1035,20 @@ Optionally included keys are:
 		Negates the respective option. This is useful if one of the session parameters was offered by
 		an SDES endpoint, but it should not be offered on the far side if this endpoint also speaks SDES.
 
-* `record-call`
+* `record call`
 
-	Contains either the string "yes" or the string "no". This tells the rtpengine
+	Contains one of the strings `yes`, `no`, `on` or `off`. This tells the rtpengine
 	whether or not to record the call to PCAP files. If the call is recorded, it
 	will generate PCAP files for each stream and a metadata file for each call.
 	Note that rtpengine *will not* force itself into the media path, and other
 	flags like `ICE=force` may be necessary to ensure the call is recorded.
 
-
 	See the `--recording-dir` option above.
 
-	Note that this is not a duplication of the `start_recording` message. If calls
-	are being kernelized, then they cannot be recorded. The `start_recording`
-	message does not have a way to prevent a call from being kernelized, so we need
-	to use this flag when we send an `offer` or `answer` message.
+	Enabling call recording via this option has the same effect as doing it separately
+	via the `start recording` message, except that this option guarantees that the
+	entirety of the call gets recorded, including all details such as SDP bodies
+	passing through *rtpengine*.
 
 * `metadata`
 
@@ -1364,4 +1396,9 @@ A complete response message might look like this (formatted for readability):
 The `start recording` message must contain at least the key `call-id` and may optionally include `from-tag`,
 `to-tag` and `via-branch`, as defined above. The reply dictionary contains no additional keys.
 
-This is not implemented by *rtpengine*.
+Enables call recording for the call, either for the entire call or for only the specified call leg. Currently
+*rtpengine* always enables recording for the entire call and does not support recording only individual
+call legs, therefore all keys other than `call-id` are currently ignored.
+
+If the chosen recording method doesn't support in-kernel packet forwarding, enabling call recording
+via this messages will force packet forwarding to happen in userspace only.
