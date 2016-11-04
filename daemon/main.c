@@ -35,8 +35,6 @@
 
 
 #define die(x...) do {									\
-	fprintf(stderr, x);								\
-	fprintf(stderr, "\n");								\
 	ilog(LOG_CRIT, x);								\
 	exit(-1);									\
 } while(0)
@@ -89,6 +87,7 @@ static int num_threads;
 static int delete_delay = 30;
 static int graphite_interval = 0;
 static char *spooldir;
+static char *rec_method = "pcap";
 
 static void sighandler(gpointer x) {
 	sigset_t ss;
@@ -329,6 +328,7 @@ static void options(int *argc, char ***argv) {
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
 		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
 		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
+		{ "recording-method",0, 0, G_OPTION_ARG_STRING,	&rec_method,	"Strategy for call recording",		"pcap|proc"	},
 		{ NULL, }
 	};
 
@@ -470,6 +470,7 @@ static void options(int *argc, char ***argv) {
 static void daemonize(void) {
 	if (fork())
 		_exit(0);
+	write_log = (write_log_t *) syslog;
 	stdin = freopen("/dev/null", "r", stdin);
 	stdout = freopen("/dev/null", "w", stdout);
 	stderr = freopen("/dev/null", "w", stderr);
@@ -528,7 +529,7 @@ static void init_everything() {
 	struct timespec ts;
 
 	log_init();
-	recording_fs_init(spooldir);
+	recording_fs_init(spooldir, rec_method);
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
 	SSL_library_init();
@@ -555,26 +556,17 @@ static void create_everything(struct main_context *ctx) {
 	struct control_udp *cu;
 	struct control_ng *cn;
 	struct cli *cl;
-	int kfd = -1;
 	struct timeval tmp_tv;
 	struct timeval redis_start, redis_stop;
 	double redis_diff = 0;
 
 	if (table < 0)
 		goto no_kernel;
-	if (kernel_create_table(table)) {
-		fprintf(stderr, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-		ilog(LOG_CRIT, "FAILED TO CREATE KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-		if (no_fallback)
+	if (kernel_setup_table(table)) {
+		if (no_fallback) {
+			ilog(LOG_CRIT, "Userspace fallback disallowed - exiting");
 			exit(-1);
-		goto no_kernel;
-	}
-	kfd = kernel_open_table(table);
-	if (kfd == -1) {
-		fprintf(stderr, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-		ilog(LOG_CRIT, "FAILED TO OPEN KERNEL TABLE %i, KERNEL FORWARDING DISABLED\n", table);
-		if (no_fallback)
-			exit(-1);
+		}
 		goto no_kernel;
 	}
 
@@ -591,8 +583,6 @@ no_kernel:
 
 	ZERO(mc);
         rwlock_init(&mc.config_lock);
-	mc.kernelfd = kfd;
-	mc.kernelid = table;
 	if (max_sessions < -1) {
 		max_sessions = -1;
 	}

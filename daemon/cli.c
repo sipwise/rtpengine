@@ -171,8 +171,8 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
-			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "Errors");
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
+			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "StartRec", "Errors");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 
 	mutex_lock(&m->cngs_lock);
@@ -184,7 +184,7 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	}
 	for (GList *l = list; l; l = l->next) {
 		struct control_ng_stats* cur = l->data;
-		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %20s | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), " %20s | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
 				sockaddr_print_buf(&cur->proxy),
 				cur->offer,
 				cur->answer,
@@ -192,6 +192,7 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 				cur->ping,
 				cur->list,
 				cur->query,
+				cur->start_recording,
 				cur->errors);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 	}

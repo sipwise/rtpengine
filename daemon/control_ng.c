@@ -109,7 +109,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	bencode_buffer_t bencbuf;
 	bencode_item_t *dict, *resp;
 	str cmd, cookie, data, reply, *to_send, callid;
-	const char *errstr;
+	const char *errstr, *resultstr;
 	struct iovec iov[3];
 	unsigned int iovlen;
 	GString *log_str;
@@ -168,8 +168,9 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	}
 
 	errstr = NULL;
+	resultstr = "ok";
 	if (!str_cmp(&cmd, "ping")) {
-		bencode_dictionary_add_string(resp, "result", "pong");
+		resultstr = "pong";
 		g_atomic_int_inc(&cur->ping);
 	}
 	else if (!str_cmp(&cmd, "offer")) {
@@ -222,11 +223,17 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	    errstr = call_list_ng(dict, c->callmaster, resp);
 	    g_atomic_int_inc(&cur->list);
 	}
+	else if (!str_cmp(&cmd, "start recording")) {
+		errstr = call_start_recording_ng(dict, c->callmaster, resp);
+		g_atomic_int_inc(&cur->start_recording);
+	}
 	else
 		errstr = "Unrecognized command";
 
 	if (errstr)
 		goto err_send;
+
+	bencode_dictionary_add_string(resp, "result", resultstr);
 
 	// update interval statistics
 	if (!str_cmp(&cmd, "offer")) {

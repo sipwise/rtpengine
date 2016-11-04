@@ -14,10 +14,10 @@
 #include <pcre.h>
 #include <openssl/x509.h>
 #include <limits.h>
-#include <pcap.h>
 #include "compat.h"
 #include "socket.h"
 #include "media_socket.h"
+#include "recording.h"
 
 #define UNDEFINED ((unsigned int) -1)
 #define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
@@ -65,6 +65,8 @@ enum transport_protocol_index {
 	PROTO_UDP_TLS_RTP_SAVP,
 	PROTO_UDP_TLS_RTP_SAVPF,
 	PROTO_UDPTL,
+
+	__PROTO_LAST,
 };
 
 enum xmlrpc_format {
@@ -331,6 +333,7 @@ struct packet_stream {
 	struct call		*call;		/* RO */
 	unsigned int		component;	/* RO, starts with 1 */
 	unsigned int		unique_id;	/* RO */
+	struct recording_stream recording;	/* LOCK: call->master_lock */
 
 	GQueue			sfds;		/* LOCK: call->master_lock */
 	struct stream_fd * volatile selected_sfd;
@@ -439,14 +442,10 @@ struct call {
 	unsigned int		redis_hosted_db;
 	unsigned int		foreign_call; // created_via_redis_notify call
 
-	int			record_call;
 	struct recording 	*recording;
 };
 
 struct callmaster_config {
-	int			kernelfd;
-	int			kernelid;
-
 	/* everything below protected by config_lock */
 	rwlock_t		config_lock;
 	int			max_sessions;
@@ -544,6 +543,9 @@ void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval 
 void __payload_type_free(void *p);
 void __rtp_stats_update(GHashTable *dst, GHashTable *src);
 
+const char *get_tag_type_text(enum tag_type t);
+const char *get_opmode_text(enum call_opmode);
+
 
 
 #include "str.h"
@@ -608,6 +610,5 @@ INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	return ret;
 }
 
-const char * get_tag_type_text(enum tag_type t);
 
 #endif

@@ -34,6 +34,10 @@ typedef const struct socket_family sockfamily_t;
 
 
 
+#define MAX_PACKET_HEADER_LEN 48 // 40 bytes IPv6 + 8 bytes UDP
+
+
+
 struct local_intf;
 
 
@@ -68,6 +72,8 @@ struct socket_family {
 	int				(*error)(socket_t *);
 	void				(*endpoint2kernel)(struct re_address *, const endpoint_t *);
 	void				(*kernel2endpoint)(endpoint_t *, const struct re_address *);
+	unsigned int			(*packet_header)(unsigned char *, const endpoint_t *, const endpoint_t *,
+						unsigned int);
 };
 struct socket_address {
 	sockfamily_t			*family;
@@ -237,6 +243,8 @@ INLINE int ipv46_any_convert(endpoint_t *ep) {
 	ZERO(ep->address.u.ipv6);
 	return 1;
 }
+
+#define endpoint_packet_header(o, src, args...) (src)->address.family->packet_header(o, src, args)
 
 
 

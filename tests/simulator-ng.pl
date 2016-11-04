@@ -653,15 +653,16 @@ a=rtpmap:111 opus/48000/2
 	#print(Dumper($op, $A, $B, $sdp) . "\n\n\n\n");
 	#print("sdp $op in:\n$sdp\n\n");
 
+	my @flags = ('trust address');
 	my $dict = {sdp => $sdp, command => $op, 'call-id' => $$c{callid},
-		flags => [ 'trust address' ],
+		flags => \@flags,
 		replace => [ 'origin', 'session connection' ],
 		#direction => [ $$pr{direction}, $$pr_o{direction} ],
 		'received from' => [ qw(IP4 127.0.0.1) ],
 		'rtcp-mux' => ['demux'],
 	};
-	$PORT_LATCHING and push(@{$dict->{flags}}, 'port latching');
-	$RECORD and $dict->{'record-call'} = 'yes';
+	$PORT_LATCHING and push(@flags, 'port latching');
+	$RECORD and push(@flags, 'record call');
 	#$viabranch and $dict->{'via-branch'} = $viabranch;
 	if ($op eq 'offer') {
 		$dict->{'from-tag'} = $$A{tag};

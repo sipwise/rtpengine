@@ -554,6 +554,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				ng_sdes_option(out, it, 5);
 			else if (!bencode_strcmp(it, "port-latching"))
 				out->port_latching = 1;
+			else if (!bencode_strcmp(it, "record-call"))
+				out->record_call = 1;
 			else
 				ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
 						BENCODE_FMT(it));
@@ -640,13 +642,15 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	if (bencode_get_alt(input, "address-family", "address family", &out->address_family_str))
 		out->address_family = get_socket_family_rfc(&out->address_family_str);
 	out->tos = bencode_dictionary_get_integer(input, "TOS", 256);
+	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
+	bencode_dictionary_get_str(input, "metadata", &out->metadata);
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
-	str sdp, fromtag, totag = STR_NULL, callid, viabranch, recordcall = STR_NULL, metadata = STR_NULL;
+	str sdp, fromtag, totag = STR_NULL, callid, viabranch;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -732,34 +736,28 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
-	bencode_dictionary_get_str(input, "record-call", &recordcall);
-	if (recordcall.s) {
-		detect_setup_recording(call, recordcall);
-	}
+	detect_setup_recording(call, &flags.record_call_str);
+	if (flags.record_call)
+		recording_start(call, NULL);
 
 	ret = monologue_offer_answer(monologue, &streams, &flags);
 	if (!ret)
 		ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
 
+	struct iovec *sdp_iov = &g_array_index(chopper->iov, struct iovec, 0);
+
 	struct recording *recording = call->recording;
-	if (call->record_call && recording != NULL && recording->meta_fp != NULL) {
-		struct iovec *iov = &g_array_index(chopper->iov, struct iovec, 0);
-		int iovcnt = chopper->iov_num;
-		meta_write_sdp(recording->meta_fp, iov, iovcnt,
-			       call->recording->packet_num, opmode);
-	}
-	bencode_dictionary_get_str(input, "metadata", &metadata);
-	if (metadata.len > 0 && call->recording != NULL) {
-		if (call->recording->metadata != NULL) {
-			free(call->recording->metadata);
-			call->recording->metadata = NULL;
+	if (recording != NULL) {
+		meta_write_sdp_before(recording, &sdp, monologue, opmode);
+		meta_write_sdp_after(recording, sdp_iov, chopper->iov_num, chopper->str_len,
+			       monologue, opmode);
+
+		if (flags.metadata.len) {
+			call_str_cpy(call, &recording->metadata, &flags.metadata);
+			recording_meta_chunk(recording, "METADATA", &flags.metadata);
 		}
-		call->recording->metadata = str_dup(&metadata);
-	}
-	bencode_item_t *recordings = bencode_dictionary_add_list(output, "recordings");
-	if (call->recording != NULL && call->recording->recording_path != NULL) {
-		char *recording_path = call->recording->recording_path->s;
-		bencode_list_add_string(recordings, recording_path);
+
+		recording_response(recording, output);
 	}
 
 	rwlock_unlock_w(&call->master_lock);
@@ -778,9 +776,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	if (ret)
 		goto out;
 
-	bencode_dictionary_add_iovec(output, "sdp", &g_array_index(chopper->iov, struct iovec, 0),
+	bencode_dictionary_add_iovec(output, "sdp", sdp_iov,
 		chopper->iov_num, chopper->str_len);
-	bencode_dictionary_add_string(output, "result", "ok");
 
 	errstr = NULL;
 out:
@@ -855,7 +852,6 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 		bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
 	}
 
-	bencode_dictionary_add_string(output, "result", "ok");
 	return NULL;
 }
 
@@ -1075,7 +1071,6 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	bencode_dictionary_get_str(input, "from-tag", &fromtag);
 	bencode_dictionary_get_str(input, "to-tag", &totag);
 
-	bencode_dictionary_add_string(output, "result", "ok");
 	ng_call_stats(call, &fromtag, &totag, output, NULL);
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
@@ -1093,10 +1088,28 @@ const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_it
 	if (limit < 0) {
 		return "invalid limit, must be >= 0";
 	}
-	bencode_dictionary_add_string(output, "result", "ok");
 	calls = bencode_dictionary_add_list(output, "calls");
 
 	ng_list_calls(m, calls, limit);
+
+	return NULL;
+}
+
+
+const char *call_start_recording_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+	str callid;
+	struct call *call;
+
+	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+		return "No call-id in message";
+	call = call_get_opmode(&callid, m, OP_OTHER);
+	if (!call)
+		return "Unknown call-id";
+
+	recording_start(call, NULL);
+
+	rwlock_unlock_w(&call->master_lock);
+	obj_put(call);
 
 	return NULL;
 }
