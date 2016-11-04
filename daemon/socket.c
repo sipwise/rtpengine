@@ -2,6 +2,9 @@
 #include <glib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/udp.h>
 #include "str.h"
 #include "media_socket.h"
 #include "xt_RTPENGINE.h"
@@ -38,6 +41,10 @@ static void __ip4_endpoint2kernel(struct re_address *, const endpoint_t *);
 static void __ip6_endpoint2kernel(struct re_address *, const endpoint_t *);
 static void __ip4_kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
 static void __ip6_kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
+static unsigned int __ip4_packet_header(unsigned char *, const endpoint_t *, const endpoint_t *,
+		unsigned int);
+static unsigned int __ip6_packet_header(unsigned char *, const endpoint_t *, const endpoint_t *,
+		unsigned int);
 
 
 
@@ -75,6 +82,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.error			= __ip_error,
 		.endpoint2kernel	= __ip4_endpoint2kernel,
 		.kernel2endpoint	= __ip4_kernel2endpoint,
+		.packet_header		= __ip4_packet_header,
 	},
 	[SF_IP6] = {
 		.af			= AF_INET6,
@@ -102,6 +110,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.error			= __ip_error,
 		.endpoint2kernel	= __ip6_endpoint2kernel,
 		.kernel2endpoint	= __ip6_kernel2endpoint,
+		.packet_header		= __ip6_packet_header,
 	},
 };
 
@@ -360,6 +369,55 @@ static void __ip4_kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
 }
 static void __ip6_kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
 	memcpy(&ep->address.u.ipv6, ra->u.ipv6, sizeof(ep->address.u.ipv6));
+}
+static unsigned int __udp_packet_header(unsigned char *out, unsigned int src, unsigned int dst,
+		unsigned int payload_len)
+{
+	struct udphdr *udp = (void *) out;
+
+	ZERO(*udp);
+	udp->source = htons(src);
+	udp->dest = htons(dst);
+	udp->len = htons(sizeof(*udp) + payload_len);
+	return sizeof(*udp);
+}
+static unsigned int __ip4_packet_header(unsigned char *out, const endpoint_t *src, const endpoint_t *dst,
+		unsigned int payload_len)
+{
+	struct iphdr *iph = (void *) out;
+	unsigned char *nxt = (void *) out + sizeof(*iph);
+
+	unsigned int udp_len = __udp_packet_header(nxt, src->port, dst->port, payload_len);
+
+	ZERO(*iph);
+	iph->ihl = sizeof(*iph) >> 2; // normally 5 ~ 20 bytes
+	iph->version = 4;
+	iph->tot_len = htons(sizeof(*iph) + udp_len + payload_len);
+	iph->ttl = 64;
+	iph->protocol = 17; // UDP
+	iph->saddr = src->address.u.ipv4.s_addr;
+	iph->daddr = dst->address.u.ipv4.s_addr;
+
+	return sizeof(*iph) + udp_len;
+}
+static unsigned int __ip6_packet_header(unsigned char *out, const endpoint_t *src, const endpoint_t *dst,
+		unsigned int payload_len)
+{
+	struct ip6_hdr *iph = (void *) out;
+	unsigned char *nxt = (void *) out + sizeof(*iph);
+
+	unsigned int udp_len = __udp_packet_header(nxt, src->port, dst->port, payload_len);
+
+	ZERO(*iph);
+	iph->ip6_vfc = 0x60; // version 6;
+	//iph->ip6_flow = htonl(0x60000000); // version 6
+	iph->ip6_plen = htons(udp_len + payload_len);
+	iph->ip6_nxt = 17; // UDP
+	iph->ip6_hlim = 64;
+	iph->ip6_src = src->address.u.ipv6;
+	iph->ip6_dst = dst->address.u.ipv6;
+
+	return sizeof(*iph) + udp_len;
 }
 
 

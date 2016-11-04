@@ -17,6 +17,7 @@
 #include "str.h"
 #include "crypto.h"
 #include "dtls.h"
+#include "recording.h"
 #include "hiredis/hiredis.h"
 #include "hiredis/async.h"
 #include "hiredis/adapters/libevent.h"
@@ -1380,6 +1381,20 @@ static int redis_link_maps(struct redis *r, struct call *c, struct redis_list *m
 }
 
 
+static void redis_restore_recording(struct call *c, struct redis_hash *call) {
+	str s;
+
+	// presence of this key determines whether we were recording at all
+	if (redis_hash_get_str(&s, call, "recording_meta_prefix"))
+		return;
+
+	recording_start(c, s.s);
+
+	if (!redis_hash_get_str(&s, call, "recording_metadata"))
+		call_str_cpy(c, &c->recording->metadata, &s);
+}
+
+
 static void redis_restore_call(struct redis *r, struct callmaster *m, const redisReply *id, enum call_type type) {
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
@@ -1467,6 +1482,8 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 	err = "failed to link maps";
 	if (redis_link_maps(r, c, &maps, &sfds))
 		goto err6;
+
+	redis_restore_recording(c, &call);
 
 	err = NULL;
 	obj_put(c);
@@ -1644,6 +1661,17 @@ static void redis_update_dtls_fingerprint(struct redis *r, const char *pref, con
 		S_LEN(f->digest, sizeof(f->digest)));
 }
 
+static void redis_update_recording(struct redis *r, struct call *c) {
+	struct recording *rec;
+
+	if (!(rec = c->recording))
+		return;
+
+	redis_pipe(r, "HMSET call-"PB" recording_metadata "PB" recording_meta_prefix %s ",
+		STR(&c->callid),
+		STR(&rec->metadata), rec->meta_prefix);
+}
+
 
 
 /*
@@ -1718,6 +1746,8 @@ void redis_update(struct call *c, struct redis *r) {
 		c->created_from, sockaddr_print_buf(&c->created_from_addr),
 		c->redis_hosted_db);
 	/* XXX DTLS cert?? */
+
+	redis_update_recording(r, c);
 
 	redis_pipe(r, "DEL sfd-"PB"-0", STR(&c->callid));
 
