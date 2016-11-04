@@ -25,6 +25,7 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
 #include <linux/netfilter/x_tables.h>
+#include <linux/crc32.h>
 #ifndef __RE_EXTERNAL
 #include <linux/netfilter/xt_RTPENGINE.h>
 #else
@@ -62,9 +63,74 @@ MODULE_LICENSE("GPL");
 			(x).port
 
 #if 0
-#define DBG(x...) printk(KERN_DEBUG x)
+#define DBG(fmt, ...) printk(KERN_DEBUG "[PID %i line %i] " fmt, current ? current->pid : -1, \
+		__LINE__, ##__VA_ARGS__)
 #else
 #define DBG(x...) ((void)0)
+#endif
+
+#if 0
+#define _s_lock(l, f) do {								\
+		printk(KERN_DEBUG "[PID %i %s:%i] acquiring lock %s\n",			\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+		spin_lock_irqsave(l, f);						\
+		printk(KERN_DEBUG "[PID %i %s:%i] has acquired lock %s\n",		\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+	} while (0)
+#define _s_unlock(l, f) do {								\
+		printk(KERN_DEBUG "[PID %i %s:%i] is unlocking %s\n",			\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+		spin_unlock_irqrestore(l, f);						\
+		printk(KERN_DEBUG "[PID %i %s:%i] has released lock %s\n",		\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+	} while (0)
+#define _r_lock(l, f) do {								\
+		printk(KERN_DEBUG "[PID %i %s:%i] acquiring read lock %s\n",		\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+		read_lock_irqsave(l, f);						\
+		printk(KERN_DEBUG "[PID %i %s:%i] has acquired read lock %s\n",		\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+	} while (0)
+#define _r_unlock(l, f) do {								\
+		printk(KERN_DEBUG "[PID %i %s:%i] is read unlocking %s\n",		\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+		read_unlock_irqrestore(l, f);						\
+		printk(KERN_DEBUG "[PID %i %s:%i] has released read lock %s\n",		\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+	} while (0)
+#define _w_lock(l, f) do {								\
+		printk(KERN_DEBUG "[PID %i %s:%i] acquiring write lock %s\n",		\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+		write_lock_irqsave(l, f);						\
+		printk(KERN_DEBUG "[PID %i %s:%i] has acquired write lock %s\n",	\
+			current ? current->pid : -1,					\
+				__FUNCTION__, __LINE__, #l);				\
+	} while (0)
+#define _w_unlock(l, f) do {								\
+		printk(KERN_DEBUG "[PID %i %s:%i] is write unlocking %s\n",		\
+			current ? current->pid : -1, 					\
+				__FUNCTION__, __LINE__, #l);				\
+		write_unlock_irqrestore(l, f);						\
+		printk(KERN_DEBUG "[PID %i %s:%i] has released write lock %s\n",	\
+			current ? current->pid : -1, 					\
+				__FUNCTION__, __LINE__, #l);				\
+	} while (0)
+#else
+#define _s_lock(l, f) spin_lock_irqsave(l, f)
+#define _s_unlock(l, f) spin_unlock_irqrestore(l, f)
+#define _r_lock(l, f) read_lock_irqsave(l, f)
+#define _r_unlock(l, f) read_unlock_irqrestore(l, f)
+#define _w_lock(l, f) write_lock_irqsave(l, f)
+#define _w_unlock(l, f) write_unlock_irqrestore(l, f)
 #endif
 
 
@@ -80,29 +146,34 @@ struct re_hmac;
 struct re_cipher;
 struct rtp_parsed;
 struct re_crypto_context;
+struct re_auto_array;
+struct re_call;
+struct re_stream;
+struct rtpengine_table;
+
+
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-kuid_t proc_kuid;
-uint proc_uid = 0;
+static kuid_t proc_kuid;
+static uint proc_uid = 0;
 module_param(proc_uid, uint, 0);
 MODULE_PARM_DESC(proc_uid, "rtpengine procfs tree user id");
 
 
-kgid_t proc_kgid;
-uint proc_gid = 0;
+static kgid_t proc_kgid;
+static uint proc_gid = 0;
 module_param(proc_gid, uint, 0);
 MODULE_PARM_DESC(proc_gid, "rtpengine procfs tree group id");
 #endif
 
-static struct proc_dir_entry *my_proc_root;
-static struct proc_dir_entry *proc_list;
-static struct proc_dir_entry *proc_control;
-static struct rtpengine_table *table[MAX_ID];
-static rwlock_t table_lock;
+static uint stream_packets_list_limit = 10;
+module_param(stream_packets_list_limit, uint, 0);
+MODULE_PARM_DESC(stream_packets_list_limit, "maximum number of packets to retain for intercept streams");
 
 
 
 
+static ssize_t proc_control_read(struct file *, char __user *, size_t, loff_t *);
 static ssize_t proc_control_write(struct file *, const char __user *, size_t, loff_t *);
 static int proc_control_open(struct inode *, struct file *);
 static int proc_control_close(struct inode *, struct file *);
@@ -110,8 +181,10 @@ static int proc_control_close(struct inode *, struct file *);
 static ssize_t proc_status(struct file *, char __user *, size_t, loff_t *);
 
 static ssize_t proc_main_control_write(struct file *, const char __user *, size_t, loff_t *);
-static int proc_main_control_open(struct inode *, struct file *);
-static int proc_main_control_close(struct inode *, struct file *);
+
+static int proc_generic_open_modref(struct inode *, struct file *);
+static int proc_generic_close_modref(struct inode *, struct file *);
+static int proc_generic_seqrelease_modref(struct inode *inode, struct file *file);
 
 static int proc_list_open(struct inode *, struct file *);
 
@@ -131,7 +204,10 @@ static void proc_main_list_stop(struct seq_file *, void *);
 static void *proc_main_list_next(struct seq_file *, void *, loff_t *);
 static int proc_main_list_show(struct seq_file *, void *);
 
-static void table_push(struct rtpengine_table *);
+static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t *o);
+static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p);
+
+static void table_put(struct rtpengine_table *);
 static struct rtpengine_target *get_target(struct rtpengine_table *, const struct re_address *);
 static int is_valid_address(const struct re_address *rea);
 
@@ -140,6 +216,13 @@ static int srtp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp
 		struct rtp_parsed *, u_int64_t);
 static int srtp_encrypt_aes_f8(struct re_crypto_context *, struct rtpengine_srtp *,
 		struct rtp_parsed *, u_int64_t);
+
+static void call_put(struct re_call *call);
+static void del_stream(struct re_stream *stream, struct rtpengine_table *);
+static void del_call(struct re_call *call, struct rtpengine_table *);
+
+static inline int bitfield_set(unsigned long *bf, unsigned int i);
+static inline int bitfield_clear(unsigned long *bf, unsigned int i);
 
 
 
@@ -204,21 +287,81 @@ struct re_dest_addr_hash {
 	struct re_dest_addr		*addrs[256];
 };
 
+struct re_auto_array_free_list {
+	struct list_head		list_entry;
+	unsigned int			index;
+};
+struct re_auto_array {
+	rwlock_t			lock;
+
+	void				**array;
+	unsigned int			array_len;
+	unsigned long			*used_bitfield;
+	struct list_head		free_list;
+};
+
+struct re_call {
+	atomic_t			refcnt;
+	struct rtpengine_call_info	info;
+	unsigned int			table_id;
+	u32				hash_bucket;
+
+	struct proc_dir_entry		*root;
+
+	struct list_head		table_entry; /* protected by calls.lock */
+	struct hlist_node		calls_hash_entry;
+
+	struct list_head		streams; /* protected by streams.lock */
+};
+
+struct re_stream_packet {
+	struct list_head		list_entry;
+	unsigned int			buflen;
+	struct sk_buff			*skbuf;
+	unsigned char			buf[];
+};
+
+struct re_stream {
+	atomic_t			refcnt;
+	struct rtpengine_stream_info	info;
+	u32				hash_bucket;
+
+	struct proc_dir_entry		*file;
+
+	struct list_head		call_entry; /* protected by streams.lock */
+	struct hlist_node		streams_hash_entry;
+
+	spinlock_t			packet_list_lock;
+	struct list_head		packet_list;
+	unsigned int			list_count;
+	wait_queue_head_t		wq;
+	int				eof;
+};
+
+#define HASH_BITS 8 /* make configurable? */
 struct rtpengine_table {
 	atomic_t			refcnt;
 	rwlock_t			target_lock;
 	pid_t				pid;
 
-	u_int32_t			id;
-	struct proc_dir_entry		*proc;
-	struct proc_dir_entry		*status;
-	struct proc_dir_entry		*control;
-	struct proc_dir_entry		*list;
-	struct proc_dir_entry		*blist;
+	unsigned int			id;
+	struct proc_dir_entry		*proc_root;
+	struct proc_dir_entry		*proc_status;
+	struct proc_dir_entry		*proc_control;
+	struct proc_dir_entry		*proc_list;
+	struct proc_dir_entry		*proc_blist;
+	struct proc_dir_entry		*proc_calls;
 
 	struct re_dest_addr_hash	dest_addr_hash;
 
 	unsigned int			num_targets;
+
+	struct list_head		calls; /* protected by calls.lock */
+
+	spinlock_t			calls_hash_lock[1 << HASH_BITS];
+	struct hlist_head		calls_hash[1 << HASH_BITS];
+	spinlock_t			streams_hash_lock[1 << HASH_BITS];
+	struct hlist_head		streams_hash[1 << HASH_BITS];
 };
 
 struct re_cipher {
@@ -265,33 +408,55 @@ struct rtp_parsed {
 
 
 
+static struct proc_dir_entry *my_proc_root;
+static struct proc_dir_entry *proc_list;
+static struct proc_dir_entry *proc_control;
+
+static struct rtpengine_table *table[MAX_ID];
+static rwlock_t table_lock;
+
+static struct re_auto_array calls;
+static struct re_auto_array streams;
+
+
+
+
+
 
 
 
 static const struct file_operations proc_control_ops = {
+	.owner			= THIS_MODULE,
+	.read			= proc_control_read,
 	.write			= proc_control_write,
 	.open			= proc_control_open,
 	.release		= proc_control_close,
 };
 
 static const struct file_operations proc_main_control_ops = {
+	.owner			= THIS_MODULE,
 	.write			= proc_main_control_write,
-	.open			= proc_main_control_open,
-	.release		= proc_main_control_close,
+	.open			= proc_generic_open_modref,
+	.release		= proc_generic_close_modref,
 };
 
 static const struct file_operations proc_status_ops = {
+	.owner			= THIS_MODULE,
 	.read			= proc_status,
+	.open			= proc_generic_open_modref,
+	.release		= proc_generic_close_modref,
 };
 
 static const struct file_operations proc_list_ops = {
+	.owner			= THIS_MODULE,
 	.open			= proc_list_open,
 	.read			= seq_read,
 	.llseek			= seq_lseek,
-	.release		= seq_release,
+	.release		= proc_generic_seqrelease_modref,
 };
 
 static const struct file_operations proc_blist_ops = {
+	.owner			= THIS_MODULE,
 	.open			= proc_blist_open,
 	.read			= proc_blist_read,
 	.release		= proc_blist_close,
@@ -305,10 +470,11 @@ static const struct seq_operations proc_list_seq_ops = {
 };
 
 static const struct file_operations proc_main_list_ops = {
+	.owner			= THIS_MODULE,
 	.open			= proc_main_list_open,
 	.read			= seq_read,
 	.llseek			= seq_lseek,
-	.release		= seq_release,
+	.release		= proc_generic_seqrelease_modref,
 };
 
 static const struct seq_operations proc_main_list_seq_ops = {
@@ -316,6 +482,14 @@ static const struct seq_operations proc_main_list_seq_ops = {
 	.next			= proc_main_list_next,
 	.stop			= proc_main_list_stop,
 	.show			= proc_main_list_show,
+};
+
+static const struct file_operations proc_stream_ops = {
+	.owner			= THIS_MODULE,
+	.read			= proc_stream_read,
+	.poll			= proc_stream_poll,
+	.open			= proc_generic_open_modref,
+	.release		= proc_generic_close_modref,
 };
 
 static const struct re_cipher re_ciphers[] = {
@@ -370,25 +544,83 @@ static const char *re_msm_strings[] = {
 
 
 
+/* must already be initialized to zero */
+static void auto_array_init(struct re_auto_array *a) {
+	rwlock_init(&a->lock);
+	INIT_LIST_HEAD(&a->free_list);
+}
+
+/* lock must be held */
+static void set_auto_array_index(struct re_auto_array *a, unsigned int idx, void *ptr) {
+	a->array[idx] = ptr;
+	bitfield_set(a->used_bitfield, idx);
+}
+/* lock must be held */
+static void auto_array_clear_index(struct re_auto_array *a, unsigned int idx) {
+	struct re_auto_array_free_list *fl;
+
+	bitfield_clear(a->used_bitfield, idx);
+	a->array[idx] = NULL;
+
+	fl = kmalloc(sizeof(*fl), GFP_ATOMIC);
+	if (!fl)
+		return;
+
+	DBG("adding %u to free list\n", idx);
+	fl->index = idx;
+	list_add(&fl->list_entry, &a->free_list);
+}
+/* lock must be held */
+static unsigned int pop_free_list_entry(struct re_auto_array *a) {
+	unsigned int ret;
+	struct re_auto_array_free_list *fl;
+
+	fl = list_first_entry(&a->free_list, struct re_auto_array_free_list, list_entry);
+	ret = fl->index;
+	list_del(&fl->list_entry);
+	kfree(fl);
+
+	DBG("popped %u from free list\n", ret);
+	return ret;
+}
+static void auto_array_free(struct re_auto_array *a) {
+
+	if (a->array)
+		kfree(a->array);
+	if (a->used_bitfield)
+		kfree(a->used_bitfield);
+	while (!list_empty(&a->free_list))
+		pop_free_list_entry(a);
+}
+
 static struct rtpengine_table *new_table(void) {
 	struct rtpengine_table *t;
+	unsigned int i;
 
 	DBG("Creating new table\n");
 
 	if (!try_module_get(THIS_MODULE))
 		return NULL;
 
-	t = kmalloc(sizeof(*t), GFP_KERNEL);
+	t = kzalloc(sizeof(*t), GFP_KERNEL);
 	if (!t) {
 		module_put(THIS_MODULE);
 		return NULL;
 	}
 
-	memset(t, 0, sizeof(*t));
-
 	atomic_set(&t->refcnt, 1);
 	rwlock_init(&t->target_lock);
+	INIT_LIST_HEAD(&t->calls);
 	t->id = -1;
+
+	for (i = 0; i < ARRAY_SIZE(t->calls_hash); i++) {
+		INIT_HLIST_HEAD(&t->calls_hash[i]);
+		spin_lock_init(&t->calls_hash_lock[i]);
+	}
+	for (i = 0; i < ARRAY_SIZE(t->streams_hash); i++) {
+		INIT_HLIST_HEAD(&t->streams_hash[i]);
+		spin_lock_init(&t->streams_hash_lock[i]);
+	}
 
 	return t;
 }
@@ -396,11 +628,45 @@ static struct rtpengine_table *new_table(void) {
 
 
 
-static void table_hold(struct rtpengine_table *t) {
-	atomic_inc(&t->refcnt);
+#define ref_get(o) atomic_inc(&(o)->refcnt)
+
+
+
+
+
+static inline struct proc_dir_entry *proc_mkdir_user(const char *name, umode_t mode,
+		struct proc_dir_entry *parent)
+{
+	struct proc_dir_entry *ret;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
+	ret = create_proc_entry(name, S_IFDIR | mode, parent);
+#else
+	ret = proc_mkdir_mode(name, mode, parent);
+#endif
+	if (!ret)
+		return NULL;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+	proc_set_user(ret, proc_kuid, proc_kgid);
+#endif
+
+	return ret;
 }
+static inline struct proc_dir_entry *proc_create_user(const char *name, umode_t mode,
+		struct proc_dir_entry *parent, const struct file_operations *ops,
+		void *ptr)
+{
+	struct proc_dir_entry *ret;
 
+	ret = proc_create_data(name, mode, parent, ops, ptr);
+	if (!ret)
+		return NULL;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+	proc_set_user(ret, proc_kuid, proc_kgid);
+#endif
 
+	return ret;
+}
 
 
 
@@ -409,44 +675,35 @@ static int table_create_proc(struct rtpengine_table *t, u_int32_t id) {
 
 	sprintf(num, "%u", id);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	t->proc = create_proc_entry(num, S_IFDIR | S_IRUGO | S_IXUGO, my_proc_root);
-#else
-	t->proc = proc_mkdir_mode(num, S_IRUGO | S_IXUGO, my_proc_root);
-#endif
-	if (!t->proc)
+	t->proc_root = proc_mkdir_user(num, S_IRUGO | S_IXUGO, my_proc_root);
+	if (!t->proc_root)
 		return -1;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	proc_set_user(t->proc, proc_kuid, proc_kgid);
-#endif
-	t->status = proc_create_data("status", S_IFREG | S_IRUGO, t->proc, &proc_status_ops,
+
+	t->proc_status = proc_create_user("status", S_IFREG | S_IRUGO, t->proc_root, &proc_status_ops,
 		(void *) (unsigned long) id);
-	if (!t->status)
+	if (!t->proc_status)
 		return -1;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	proc_set_user(t->status, proc_kuid, proc_kgid);
-#endif
-	t->control = proc_create_data("control", S_IFREG | S_IWUSR | S_IWGRP, t->proc,
+
+	t->proc_control = proc_create_user("control", S_IFREG | S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+			t->proc_root,
 			&proc_control_ops, (void *) (unsigned long) id);
-	if (!t->control)
+	if (!t->proc_control)
 		return -1;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	proc_set_user(t->control, proc_kuid, proc_kgid);
-#endif
-	t->list = proc_create_data("list", S_IFREG | S_IRUGO, t->proc,
+
+	t->proc_list = proc_create_user("list", S_IFREG | S_IRUGO, t->proc_root,
 			&proc_list_ops, (void *) (unsigned long) id);
-	if (!t->list)
+	if (!t->proc_list)
 		return -1;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	proc_set_user(t->list, proc_kuid, proc_kgid);
-#endif
-	t->blist = proc_create_data("blist", S_IFREG | S_IRUGO, t->proc,
+
+	t->proc_blist = proc_create_user("blist", S_IFREG | S_IRUGO, t->proc_root,
 			&proc_blist_ops, (void *) (unsigned long) id);
-	if (!t->blist)
+	if (!t->proc_blist)
 		return -1;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	proc_set_user(t->blist, proc_kuid, proc_kgid);
-#endif
+
+	t->proc_calls = proc_mkdir_user("calls", S_IRUGO | S_IXUGO, t->proc_root);
+	if (!t->proc_calls)
+		return -1;
+
 	return 0;
 }
 
@@ -469,12 +726,12 @@ static struct rtpengine_table *new_table_link(u_int32_t id) {
 	write_lock_irqsave(&table_lock, flags);
 	if (table[id]) {
 		write_unlock_irqrestore(&table_lock, flags);
-		table_push(t);
+		table_put(t);
 		printk(KERN_WARNING "xt_RTPENGINE duplicate ID %u\n", id);
 		return NULL;
 	}
 
-	table_hold(t);
+	ref_get(t);
 	table[id] = t;
 	t->id = id;
 	write_unlock_irqrestore(&table_lock, flags);
@@ -501,7 +758,7 @@ static void free_crypto_context(struct re_crypto_context *c) {
 		crypto_free_shash(c->shash);
 }
 
-static void target_push(struct rtpengine_target *t) {
+static void target_put(struct rtpengine_target *t) {
 	if (!t)
 		return;
 
@@ -521,7 +778,7 @@ static void target_push(struct rtpengine_target *t) {
 
 
 
-static void target_hold(struct rtpengine_target *t) {
+static void target_get(struct rtpengine_target *t) {
 	atomic_inc(&t->refcnt);
 }
 
@@ -531,13 +788,15 @@ static void target_hold(struct rtpengine_target *t) {
 
 
 static void clear_proc(struct proc_dir_entry **e) {
-	if (!e || !*e)
+	struct proc_dir_entry *pde;
+
+	if (!e || !(pde = *e))
 		return;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
-	remove_proc_entry((*e)->name, (*e)->parent);
+	remove_proc_entry(pde->name, pde->parent);
 #else
-	proc_remove(*e);
+	proc_remove(pde);
 #endif
 	*e = NULL;
 }
@@ -546,7 +805,16 @@ static void clear_proc(struct proc_dir_entry **e) {
 
 
 
-static void table_push(struct rtpengine_table *t) {
+static void clear_table_proc_files(struct rtpengine_table *t) {
+	clear_proc(&t->proc_status);
+	clear_proc(&t->proc_control);
+	clear_proc(&t->proc_list);
+	clear_proc(&t->proc_blist);
+	clear_proc(&t->proc_calls);
+	clear_proc(&t->proc_root);
+}
+
+static void table_put(struct rtpengine_table *t) {
 	int i, j, k;
 	struct re_dest_addr *rda;
 	struct re_bucket *b;
@@ -573,7 +841,7 @@ static void table_push(struct rtpengine_table *t) {
 				if (!b->ports_lo[j])
 					continue;
 				b->ports_lo[j]->table = -1;
-				target_push(b->ports_lo[j]);
+				target_put(b->ports_lo[j]);
 				b->ports_lo[j] = NULL;
 			}
 
@@ -585,13 +853,7 @@ static void table_push(struct rtpengine_table *t) {
 		t->dest_addr_hash.addrs[k] = NULL;
 	}
 
-
-	clear_proc(&t->status);
-	clear_proc(&t->control);
-	clear_proc(&t->list);
-	clear_proc(&t->blist);
-	clear_proc(&t->proc);
-
+	clear_table_proc_files(t);
 	kfree(t);
 
 	module_put(THIS_MODULE);
@@ -599,9 +861,62 @@ static void table_push(struct rtpengine_table *t) {
 
 
 
+static inline void free_packet(struct re_stream_packet *packet) {
+	if (packet->skbuf)
+		kfree_skb(packet->skbuf);
+	kfree(packet);
+}
+
+/* caller is responsible for locking */
+static void clear_stream_packets(struct re_stream *stream) {
+	struct re_stream_packet *packet;
+
+	while (!list_empty(&stream->packet_list)) {
+		DBG("clearing packet from queue\n");
+		packet = list_first_entry(&stream->packet_list, struct re_stream_packet, list_entry);
+		list_del(&packet->list_entry);
+		free_packet(packet);
+	}
+}
+static void stream_put(struct re_stream *stream) {
+	DBG("stream_put()\n");
+
+	if (!stream)
+		return;
+
+	if (!atomic_dec_and_test(&stream->refcnt))
+		return;
+
+	DBG("Freeing stream object\n");
+
+	clear_stream_packets(stream);
+	clear_proc(&stream->file);
+
+	kfree(stream);
+}
+static void call_put(struct re_call *call) {
+	DBG("call_put()\n");
+
+	if (!call)
+		return;
+
+	if (!atomic_dec_and_test(&call->refcnt))
+		return;
+
+	DBG("Freeing call object\n");
+
+	if (!list_empty(&call->streams))
+		panic("BUG! streams list not empty in call");
+
+	kfree(call);
+}
+
+
+
 
 static int unlink_table(struct rtpengine_table *t) {
 	unsigned long flags;
+	struct re_call *call;
 
 	if (t->id >= MAX_ID)
 		return -EINVAL;
@@ -621,13 +936,17 @@ static int unlink_table(struct rtpengine_table *t) {
 	t->id = -1;
 	write_unlock_irqrestore(&table_lock, flags);
 
-	clear_proc(&t->status);
-	clear_proc(&t->control);
-	clear_proc(&t->list);
-	clear_proc(&t->blist);
-	clear_proc(&t->proc);
+	_w_lock(&calls.lock, flags);
+	while (!list_empty(&t->calls)) {
+		call = list_first_entry(&t->calls, struct re_call, table_entry);
+		_w_unlock(&calls.lock, flags);
+		del_call(call, t); /* removes it from this list */
+		_w_lock(&calls.lock, flags);
+	}
+	_w_unlock(&calls.lock, flags);
 
-	table_push(t);
+	clear_table_proc_files(t);
+	table_put(t);
 
 	return 0;
 }
@@ -635,7 +954,7 @@ static int unlink_table(struct rtpengine_table *t) {
 
 
 
-static struct rtpengine_table *get_table(u_int32_t id) {
+static struct rtpengine_table *get_table(unsigned int id) {
 	struct rtpengine_table *t;
 	unsigned long flags;
 
@@ -645,7 +964,7 @@ static struct rtpengine_table *get_table(u_int32_t id) {
 	read_lock_irqsave(&table_lock, flags);
 	t = table[id];
 	if (t)
-		table_hold(t);
+		ref_get(t);
 	read_unlock_irqrestore(&table_lock, flags);
 
 	return t;
@@ -681,7 +1000,7 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 	len += sprintf(buf + len, "Targets:     %u\n", t->num_targets);
 	read_unlock_irqrestore(&t->target_lock, flags);
 
-	table_push(t);
+	table_put(t);
 
 	if (copy_to_user(b, buf, len))
 		return -EFAULT;
@@ -693,6 +1012,9 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 
 
 static int proc_main_list_open(struct inode *i, struct file *f) {
+	int err;
+	if ((err = proc_generic_open_modref(i, f)))
+		return err;
 	return seq_open(f, &proc_main_list_seq_ops);
 }
 
@@ -734,7 +1056,7 @@ static int proc_main_list_show(struct seq_file *f, void *v) {
 	struct rtpengine_table *g = v;
 
 	seq_printf(f, "%u\n", g->id);
-	table_push(g);
+	table_put(g);
 
 	return 0;
 }
@@ -749,36 +1071,47 @@ static inline unsigned char bitfield_next_slot(unsigned int slot) {
 	c += sizeof(unsigned long) * 8;
 	return c;
 }
-static inline unsigned int bitfield_slot(unsigned char i) {
+static inline unsigned int bitfield_slot(unsigned int i) {
 	return i / (sizeof(unsigned long) * 8);
 }
-static inline unsigned int bitfield_bit(unsigned char i) {
+static inline unsigned int bitfield_bit(unsigned int i) {
 	return i % (sizeof(unsigned long) * 8);
 }
-static inline void bitfield_set(struct re_bitfield *bf, unsigned char i) {
+static inline int bitfield_set(unsigned long *bf, unsigned int i) {
 	unsigned int b, m;
 	unsigned long k;
 
 	b = bitfield_slot(i);
 	m = bitfield_bit(i);
 	k = 1UL << m;
-	if ((bf->b[b] & k))
-		return;
-	bf->b[b] |= k;
-	bf->used++;
+	if ((bf[b] & k))
+		return 0;
+	bf[b] |= k;
+	return 1;
 }
-static inline void bitfield_clear(struct re_bitfield *bf, unsigned char i) {
+static inline int bitfield_clear(unsigned long *bf, unsigned int i) {
 	unsigned int b, m;
 	unsigned long k;
 
 	b = bitfield_slot(i);
 	m = bitfield_bit(i);
 	k = 1UL << m;
-	if (!(bf->b[b] & k))
-		return;
-	bf->b[b] &= ~k;
-	bf->used--;
+	if (!(bf[b] & k))
+		return 0;
+	bf[b] &= ~k;
+	return 1;
 }
+static inline void re_bitfield_set(struct re_bitfield *bf, unsigned char i) {
+	if (bitfield_set(bf->b, i))
+		bf->used++;
+}
+static inline void re_bitfield_clear(struct re_bitfield *bf, unsigned char i) {
+	if (bitfield_clear(bf->b, i))
+		bf->used--;
+}
+
+
+
 static inline struct rtpengine_target *find_next_target(struct rtpengine_table *t, int *addr_bucket,
 		int *port)
 {
@@ -847,7 +1180,7 @@ static inline struct rtpengine_target *find_next_target(struct rtpengine_table *
 			goto next_lo;
 		}
 
-		target_hold(g);
+		target_get(g);
 		break;
 
 next_lo:
@@ -875,13 +1208,17 @@ next_rda:
 static int proc_blist_open(struct inode *i, struct file *f) {
 	u_int32_t id;
 	struct rtpengine_table *t;
+	int err;
+
+	if ((err = proc_generic_open_modref(i, f)))
+		return err;
 
 	id = (u_int32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
 
-	table_push(t);
+	table_put(t);
 
 	return 0;
 }
@@ -895,7 +1232,9 @@ static int proc_blist_close(struct inode *i, struct file *f) {
 	if (!t)
 		return 0;
 
-	table_push(t);
+	table_put(t);
+
+	proc_generic_close_modref(i, f);
 
 	return 0;
 }
@@ -952,17 +1291,17 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	op.target.encrypt.last_index = g->target.encrypt.last_index;
 	spin_unlock_irqrestore(&g->encrypt.lock, flags);
 
-	target_push(g);
+	target_put(g);
 
 	err = -EFAULT;
 	if (copy_to_user(b, &op, sizeof(op)))
 		goto err;
 
-	table_push(t);
+	table_put(t);
 	return l;
 
 err:
-	table_push(t);
+	table_put(t);
 	return err;
 }
 
@@ -972,11 +1311,14 @@ static int proc_list_open(struct inode *i, struct file *f) {
 	u_int32_t id;
 	struct rtpengine_table *t;
 
+	if ((err = proc_generic_open_modref(i, f)))
+		return err;
+
 	id = (u_int32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
-	table_push(t);
+	table_put(t);
 
 	err = seq_open(f, &proc_list_seq_ops);
 	if (err)
@@ -1014,7 +1356,7 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 	g = find_next_target(t, &addr_bucket, &port);
 
 	*o = (addr_bucket << 17) | port;
-	table_push(t);
+	table_put(t);
 
 	return g;
 }
@@ -1101,7 +1443,7 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	if (g->target.dtls)
 		seq_printf(f, "    option: dtls\n");
 
-	target_push(g);
+	target_put(g);
 
 	return 0;
 }
@@ -1211,11 +1553,11 @@ static int table_del_target(struct rtpengine_table *t, const struct re_address *
 		goto out;
 
 	b->ports_lo[lo] = NULL;
-	bitfield_clear(&b->ports_lo_bf, lo);
+	re_bitfield_clear(&b->ports_lo_bf, lo);
 	t->num_targets--;
 	if (!b->ports_lo_bf.used) {
 		rda->ports_hi[hi] = NULL;
-		bitfield_clear(&rda->ports_hi_bf, hi);
+		re_bitfield_clear(&rda->ports_hi_bf, hi);
 	}
 	else
 		b = NULL;
@@ -1230,7 +1572,7 @@ out:
 	if (b)
 		kfree(b);
 
-	target_push(g);
+	target_put(g);
 
 	return 0;
 }
@@ -1597,10 +1939,10 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	/* initializing */
 
 	err = -ENOMEM;
-	g = kmalloc(sizeof(*g), GFP_KERNEL);
+	g = kzalloc(sizeof(*g), GFP_KERNEL);
 	if (!g)
 		goto fail1;
-	memset(g, 0, sizeof(*g));
+
 	g->table = t->id;
 	atomic_set(&g->refcnt, 1);
 	spin_lock_init(&g->decrypt.lock);
@@ -1645,11 +1987,11 @@ retry:
 
 	write_unlock_irqrestore(&t->target_lock, flags);
 
-	rda = kmalloc(sizeof(*rda), GFP_KERNEL);
+	rda = kzalloc(sizeof(*rda), GFP_KERNEL);
 	err = -ENOMEM;
 	if (!rda)
 		goto fail2;
-	memset(rda, 0, sizeof(*rda));
+
 	memcpy(&rda->destination, &i->local, sizeof(rda->destination));
 
 	write_lock_irqsave(&t->target_lock, flags);
@@ -1661,7 +2003,7 @@ retry:
 	}
 	
 	t->dest_addr_hash.addrs[rh_it] = rda;
-	bitfield_set(&t->dest_addr_hash.addrs_bf, rh_it);
+	re_bitfield_set(&t->dest_addr_hash.addrs_bf, rh_it);
 
 got_rda:
 	/* find or allocate re_bucket */
@@ -1675,17 +2017,16 @@ got_rda:
 
 	write_unlock_irqrestore(&t->target_lock, flags);
 
-	b = kmalloc(sizeof(*b), GFP_KERNEL);
+	b = kzalloc(sizeof(*b), GFP_KERNEL);
 	err = -ENOMEM;
 	if (!b)
 		goto fail2;
-	memset(b, 0, sizeof(*b));
 
 	write_lock_irqsave(&t->target_lock, flags);
 
 	if (!rda->ports_hi[hi]) {
 		rda->ports_hi[hi] = b;
-		bitfield_set(&rda->ports_hi_bf, hi);
+		re_bitfield_set(&rda->ports_hi_bf, hi);
 	}
 	else {
 		ba = b;
@@ -1716,7 +2057,7 @@ got_bucket:
 		err = -EEXIST;
 		if (b->ports_lo[lo])
 			goto fail4;
-		bitfield_set(&b->ports_lo_bf, lo);
+		re_bitfield_set(&b->ports_lo_bf, lo);
 		t->num_targets++;
 	}
 
@@ -1727,7 +2068,7 @@ got_bucket:
 	if (ba)
 		kfree(ba);
 	if (og)
-		target_push(og);
+		target_put(og);
 
 	return 0;
 
@@ -1764,7 +2105,7 @@ static struct rtpengine_target *get_target(struct rtpengine_table *t, const stru
 	rda = find_dest_addr(&t->dest_addr_hash, local);
 	r = rda ? (rda->ports_hi[hi] ? rda->ports_hi[hi]->ports_lo[lo] : NULL) : NULL;
 	if (r)
-		target_hold(r);
+		target_get(r);
 	read_unlock_irqrestore(&t->target_lock, flags);
 
 	return r;
@@ -1774,15 +2115,18 @@ static struct rtpengine_target *get_target(struct rtpengine_table *t, const stru
 
 
 
-static int proc_main_control_open(struct inode *inode, struct file *file) {
+static int proc_generic_open_modref(struct inode *inode, struct file *file) {
 	if (!try_module_get(THIS_MODULE))
 		return -ENXIO;
 	return 0;
 }
-
-static int proc_main_control_close(struct inode *inode, struct file *file) {
+static int proc_generic_close_modref(struct inode *inode, struct file *file) {
 	module_put(THIS_MODULE);
 	return 0;
+}
+static int proc_generic_seqrelease_modref(struct inode *inode, struct file *file) {
+	proc_generic_close_modref(inode, file);
+	return seq_release(inode, file);
 }
 
 static ssize_t proc_main_control_write(struct file *file, const char __user *buf, size_t buflen, loff_t *off) {
@@ -1807,7 +2151,7 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 		t = new_table_link((u_int32_t) id);
 		if (!t)
 			return -EEXIST;
-		table_push(t);
+		table_put(t);
 		t = NULL;
 	}
 	else if (!strncmp(b, "del ", 4)) {
@@ -1820,7 +2164,7 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 		if (!t)
 			return -ENOENT;
 		err = unlink_table(t);
-		table_push(t);
+		table_put(t);
 		t = NULL;
 		if (err)
 			return err;
@@ -1839,6 +2183,10 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	u_int32_t id;
 	struct rtpengine_table *t;
 	unsigned long flags;
+	int err;
+
+	if ((err = proc_generic_open_modref(inode, file)))
+		return err;
 
 	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
@@ -1848,13 +2196,13 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	write_lock_irqsave(&table_lock, flags);
 	if (t->pid) {
 		write_unlock_irqrestore(&table_lock, flags);
-		table_push(t);
+		table_put(t);
 		return -EBUSY;
 	}
 	t->pid = current->tgid;
 	write_unlock_irqrestore(&table_lock, flags);
 
-	table_push(t);
+	table_put(t);
 	return 0;
 }
 
@@ -1872,68 +2220,823 @@ static int proc_control_close(struct inode *inode, struct file *file) {
 	t->pid = 0;
 	write_unlock_irqrestore(&table_lock, flags);
 
-	table_push(t);
+	table_put(t);
+
+	proc_generic_close_modref(inode, file);
 
 	return 0;
 }
 
-static ssize_t proc_control_write(struct file *file, const char __user *buf, size_t buflen, loff_t *off) {
+/* array must be locked */
+static int auto_array_find_free_index(struct re_auto_array *a) {
+	void *ptr;
+	unsigned int u, idx;
+
+	DBG("auto_array_find_free_index()\n");
+
+	if (!list_empty(&a->free_list)) {
+		DBG("returning from free list\n");
+		return pop_free_list_entry(a);
+	}
+
+	for (idx = 0; idx < a->array_len / (sizeof(unsigned long) * 8); idx++) {
+		if (~a->used_bitfield[idx])
+			goto found;
+	}
+
+	/* nothing free found - extend array */
+	DBG("no free slot found, extending array\n");
+
+	u = a->array_len * 2;
+	if (unlikely(!u))
+		u = 256; /* XXX make configurable? */
+
+	DBG("extending array from %u to %u\n", a->array_len, u);
+
+	ptr = krealloc(a->array, sizeof(*a->array) * u, GFP_ATOMIC);
+	if (!ptr)
+		return -ENOMEM;
+	a->array = ptr;
+	DBG("zeroing main array starting at idx %u for %lu bytes\n",
+			a->array_len, (u - a->array_len) * sizeof(*a->array));
+	memset(&a->array[a->array_len], 0,
+			(u - a->array_len) * sizeof(*a->array));
+
+	ptr = krealloc(a->used_bitfield, u / 8, GFP_ATOMIC);
+	if (!ptr)
+		return -ENOMEM;
+	a->used_bitfield = ptr;
+	DBG("zeroing bitfield array starting at idx %lu for %u bytes\n",
+			a->array_len / (sizeof(unsigned long) * 8),
+			(u - a->array_len) / 8);
+	memset(&a->used_bitfield[a->array_len / (sizeof(unsigned long) * 8)], 0,
+			(u - a->array_len) / 8);
+
+	idx = a->array_len / (sizeof(unsigned long) * 8);
+	a->array_len = u;
+
+found:
+	/* got our bitfield index, now look for the slot */
+
+	DBG("found unused slot at index %u\n", idx);
+
+	idx = idx * sizeof(unsigned long) * 8;
+	for (u = 0; u < sizeof(unsigned long) * 8; u++) {
+		if (!a->array[idx + u])
+			goto found2;
+	}
+	panic("BUG while looking for unused index");
+
+found2:
+	idx += u;
+	DBG("unused idx is %u\n", idx);
+
+	return idx;
+}
+
+
+
+
+
+/* lock must be held */
+static struct re_call *get_call(struct rtpengine_table *table, unsigned int idx) {
+	struct re_call *ret;
+
+	if (idx >= calls.array_len)
+		return NULL;
+
+	ret = calls.array[idx];
+	if (!ret)
+		return NULL;
+	if (table && ret->table_id != table->id)
+		return NULL;
+	return ret;
+}
+/* handles the locking (read) and reffing */
+static struct re_call *get_call_lock(struct rtpengine_table *table, unsigned int idx) {
+	struct re_call *ret;
+	unsigned long flags;
+
+	DBG("entering get_call_lock()\n");
+
+	_r_lock(&calls.lock, flags);
+
+	DBG("calls.lock acquired\n");
+
+	ret = get_call(table, idx);
+	if (ret)
+		ref_get(ret);
+	else
+		DBG("call not found\n");
+
+	_r_unlock(&calls.lock, flags);
+	DBG("calls.lock unlocked\n");
+	return ret;
+}
+/* lock must be held */
+static struct re_stream *get_stream(struct re_call *call, unsigned int idx) {
+	struct re_stream *ret;
+
+	if (idx >= streams.array_len)
+		return NULL;
+
+	ret = streams.array[idx];
+	if (!ret)
+		return NULL;
+	if (call && ret->info.call_idx != call->info.call_idx)
+		return NULL;
+	return ret;
+}
+/* handles the locking (read) and reffing */
+static struct re_stream *get_stream_lock(struct re_call *call, unsigned int idx) {
+	struct re_stream *ret;
+	unsigned long flags;
+
+	DBG("entering get_stream_lock()\n");
+
+	_r_lock(&streams.lock, flags);
+
+	DBG("streams.lock acquired\n");
+
+	ret = get_stream(call, idx);
+	if (ret)
+		ref_get(ret);
+	else
+		DBG("stream not found\n");
+
+	_r_unlock(&streams.lock, flags);
+	DBG("streams.lock unlocked\n");
+	return ret;
+}
+
+
+
+
+
+static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_info *info) {
+	int err;
+	struct re_call *call, *hash_entry;
+	unsigned int idx;
+	unsigned long flags;
+
+	/* validation */
+
+	if (info->call_id[0] == '\0')
+		return -EINVAL;
+	if (!memchr(info->call_id, '\0', sizeof(info->call_id)))
+		return -EINVAL;
+
+	DBG("Creating new call object\n");
+
+	/* allocate and initialize */
+
+	call = kzalloc(sizeof(*call), GFP_KERNEL);
+	if (!call)
+		return -ENOMEM;
+
+	atomic_set(&call->refcnt, 1);
+	call->table_id = table->id;
+	INIT_LIST_HEAD(&call->streams);
+
+	/* check for name collisions */
+
+	call->hash_bucket = crc32_le(0x52342, info->call_id, strlen(info->call_id));
+	call->hash_bucket = call->hash_bucket & ((1 << HASH_BITS) - 1);
+
+	spin_lock_irqsave(&table->calls_hash_lock[call->hash_bucket], flags);
+
+	hlist_for_each_entry(hash_entry, &table->calls_hash[call->hash_bucket], calls_hash_entry) {
+		if (!strcmp(hash_entry->info.call_id, info->call_id))
+			goto found;
+	}
+	goto not_found;
+found:
+	spin_unlock_irqrestore(&table->calls_hash_lock[call->hash_bucket], flags);
+	printk(KERN_ERR "Call name collision: %s\n", info->call_id);
+	err = -EEXIST;
+	goto fail2;
+
+not_found:
+	hlist_add_head(&call->calls_hash_entry, &table->calls_hash[call->hash_bucket]);
+	ref_get(call);
+	spin_unlock_irqrestore(&table->calls_hash_lock[call->hash_bucket], flags);
+
+	/* create proc */
+
+	call->root = proc_mkdir_user(info->call_id, S_IRUGO | S_IXUGO, table->proc_calls);
+	err = -ENOMEM;
+	if (!call->root)
+		goto fail4;
+
+	_w_lock(&calls.lock, flags);
+
+	idx = err = auto_array_find_free_index(&calls);
+	if (err < 0)
+		goto fail3;
+	set_auto_array_index(&calls, idx, call); /* handing over ref */
+
+	info->call_idx = idx;
+	memcpy(&call->info, info, sizeof(call->info));
+
+	list_add(&call->table_entry, &table->calls); /* new ref here */
+	ref_get(call);
+
+	_w_unlock(&calls.lock, flags);
+
+	return 0;
+
+fail3:
+	_w_unlock(&calls.lock, flags);
+fail4:
+	spin_lock_irqsave(&table->calls_hash_lock[call->hash_bucket], flags);
+	hlist_del(&call->calls_hash_entry);
+	spin_unlock_irqrestore(&table->calls_hash_lock[call->hash_bucket], flags);
+	call_put(call);
+fail2:
+	call_put(call);
+	return err;
+}
+
+static int table_del_call(struct rtpengine_table *table, unsigned int idx) {
+	int err;
+	struct re_call *call = NULL;
+
+	call = get_call_lock(table, idx);
+	err = -ENOENT;
+	if (!call)
+		goto out;
+
+	del_call(call, table);
+
+	err = 0;
+
+out:
+	if (call)
+		call_put(call);
+
+	return err;
+}
+/* must be called lock-free */
+static void del_call(struct re_call *call, struct rtpengine_table *table) {
+	struct re_stream *stream;
+	unsigned long flags;
+
+	DBG("del_call()\n");
+
+	/* the only references left might be the ones in the lists, so get one until we're done */
+	ref_get(call);
+
+	_w_lock(&calls.lock, flags);
+
+	if (!list_empty(&call->table_entry)) {
+		list_del_init(&call->table_entry);
+		call_put(call);
+	}
+
+	if (calls.array[call->info.call_idx] == call) {
+		auto_array_clear_index(&calls, call->info.call_idx);
+		call_put(call);
+	}
+
+	_w_unlock(&calls.lock, flags);
+
+	DBG("locking streams.lock\n");
+	_w_lock(&streams.lock, flags);
+	while (!list_empty(&call->streams)) {
+		stream = list_first_entry(&call->streams, struct re_stream, call_entry);
+		ref_get(stream);
+		_w_unlock(&streams.lock, flags);
+		del_stream(stream, table); /* removes it from this list */
+		DBG("re-locking streams.lock\n");
+		_w_lock(&streams.lock, flags);
+	}
+	_w_unlock(&streams.lock, flags);
+
+	DBG("clearing call proc files\n");
+	clear_proc(&call->root);
+
+	DBG("locking table's call hash\n");
+	spin_lock_irqsave(&table->calls_hash_lock[call->hash_bucket], flags);
+	if (!hlist_unhashed(&call->calls_hash_entry)) {
+		hlist_del_init(&call->calls_hash_entry);
+		call_put(call);
+	}
+	spin_unlock_irqrestore(&table->calls_hash_lock[call->hash_bucket], flags);
+
+	DBG("del_call() done, releasing ref\n");
+	call_put(call); /* might be the last ref */
+}
+
+
+
+
+
+static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stream_info *info) {
+	int err;
+	struct re_call *call;
+	struct re_stream *stream, *hash_entry;
+	unsigned long flags;
+	unsigned int idx;
+	struct proc_dir_entry *pde;
+
+	/* validation */
+
+	if (info->stream_name[0] == '\0')
+		return -EINVAL;
+	if (!memchr(info->stream_name, '\0', sizeof(info->stream_name)))
+		return -EINVAL;
+
+	/* get call object */
+
+	call = get_call_lock(table, info->call_idx);
+	if (!call)
+		return -ENOENT;
+
+	DBG("Creating new stream object\n");
+
+	/* allocate and initialize */
+
+	err = -ENOMEM;
+	stream = kzalloc(sizeof(*stream), GFP_KERNEL);
+	if (!stream)
+		goto fail2;
+
+	atomic_set(&stream->refcnt, 1);
+	INIT_LIST_HEAD(&stream->packet_list);
+	spin_lock_init(&stream->packet_list_lock);
+	init_waitqueue_head(&stream->wq);
+
+	/* check for name collisions */
+
+	stream->hash_bucket = crc32_le(0x52342 ^ info->call_idx, info->stream_name, strlen(info->stream_name));
+	stream->hash_bucket = stream->hash_bucket & ((1 << HASH_BITS) - 1);
+
+	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
+
+	hlist_for_each_entry(hash_entry, &table->streams_hash[stream->hash_bucket], streams_hash_entry) {
+		if (hash_entry->info.call_idx == info->call_idx
+				&& !strcmp(hash_entry->info.stream_name, info->stream_name))
+			goto found;
+	}
+	goto not_found;
+found:
+	spin_unlock_irqrestore(&table->streams_hash_lock[stream->hash_bucket], flags);
+	printk(KERN_ERR "Stream name collision: %s\n", info->stream_name);
+	err = -EEXIST;
+	goto fail3;
+
+not_found:
+	hlist_add_head(&stream->streams_hash_entry, &table->streams_hash[stream->hash_bucket]);
+	ref_get(stream);
+	spin_unlock_irqrestore(&table->streams_hash_lock[stream->hash_bucket], flags);
+
+	/* add into array */
+
+	_w_lock(&streams.lock, flags);
+
+	idx = err = auto_array_find_free_index(&streams);
+	if (err < 0)
+		goto fail4;
+	set_auto_array_index(&streams, idx, stream); /* handing over ref */
+
+	/* copy info */
+
+	info->stream_idx = idx;
+	memcpy(&stream->info, info, sizeof(call->info));
+	if (!stream->info.max_packets)
+		stream->info.max_packets = stream_packets_list_limit;
+
+	list_add(&stream->call_entry, &call->streams); /* new ref here */
+	ref_get(stream);
+
+	_w_unlock(&streams.lock, flags);
+
+	/* proc_ functions may sleep, so this must be done outside of the lock */
+	pde = stream->file = proc_create_user(info->stream_name, S_IFREG | S_IRUSR | S_IRGRP, call->root,
+			&proc_stream_ops, (void *) (unsigned long) info->stream_idx);
+	err = -ENOMEM;
+	if (!pde)
+		goto fail5;
+
+	call_put(call);
+
+	return 0;
+
+fail5:
+	_w_lock(&streams.lock, flags);
+	auto_array_clear_index(&streams, idx);
+fail4:
+	_w_unlock(&streams.lock, flags);
+
+	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
+	hlist_del(&stream->streams_hash_entry);
+	spin_unlock_irqrestore(&table->streams_hash_lock[stream->hash_bucket], flags);
+	stream_put(stream);
+fail3:
+	stream_put(stream);
+fail2:
+	call_put(call);
+	return err;
+}
+
+/* must be called lock-free and with one reference held, which will be released */
+static void del_stream(struct re_stream *stream, struct rtpengine_table *table) {
+	unsigned long flags;
+
+	DBG("del_stream()\n");
+
+	DBG("locking stream's packet list lock\n");
+	spin_lock_irqsave(&stream->packet_list_lock, flags);
+
+	if (stream->eof) {
+		/* already done this */
+		spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+		DBG("stream is EOF\n");
+		stream_put(stream);
+		return;
+	}
+
+	stream->eof = 1;
+	clear_stream_packets(stream);
+
+	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+
+	DBG("stream is finished (EOF), waking up threads\n");
+	wake_up_interruptible(&stream->wq);
+	/* sleeping readers will now close files */
+
+	DBG("clearing stream proc file\n");
+	/* this blocks until the files have been closed */
+	clear_proc(&stream->file);
+
+	DBG("clearing stream from streams_hash\n");
+	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
+	if (!hlist_unhashed(&stream->streams_hash_entry)) {
+		hlist_del_init(&stream->streams_hash_entry);
+		stream_put(stream);
+	}
+	spin_unlock_irqrestore(&table->streams_hash_lock[stream->hash_bucket], flags);
+
+	_w_lock(&streams.lock, flags);
+	if (!list_empty(&stream->call_entry)) {
+		DBG("clearing stream's call_entry\n");
+		list_del_init(&stream->call_entry);
+		stream_put(stream);
+	}
+	if (streams.array[stream->info.stream_idx] == stream) {
+		DBG("clearing stream's stream_idx entry\n");
+		auto_array_clear_index(&streams, stream->info.stream_idx);
+		stream_put(stream);
+	}
+	_w_unlock(&streams.lock, flags);
+
+	DBG("del_stream() done, releasing ref\n");
+	stream_put(stream); /* might be the last ref */
+}
+
+static int table_del_stream(struct rtpengine_table *table, const struct rtpengine_stream_info *info) {
+	int err;
+	struct re_call *call;
+	struct re_stream *stream;
+
+	DBG("table_del_stream()\n");
+
+	call = get_call_lock(table, info->call_idx);
+	err = -ENOENT;
+	if (!call)
+		return -ENOENT;
+
+	stream = get_stream_lock(call, info->stream_idx);
+	err = -ENOENT;
+	if (!stream)
+		goto out;
+
+	del_stream(stream, table);
+
+	err = 0;
+
+out:
+	call_put(call);
+	return err;
+}
+
+
+
+
+static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t *o) {
+	unsigned int stream_idx = (unsigned int) (unsigned long) PDE_DATA(f->f_path.dentry->d_inode);
+	struct re_stream *stream;
+	unsigned long flags;
+	struct re_stream_packet *packet;
+	ssize_t ret;
+	const char *to_copy;
+
+	DBG("entering proc_stream_read()\n");
+
+	stream = get_stream_lock(NULL, stream_idx);
+	if (!stream)
+		return -EINVAL;
+
+	DBG("locking stream's packet list lock\n");
+	spin_lock_irqsave(&stream->packet_list_lock, flags);
+
+	while (list_empty(&stream->packet_list) && !stream->eof) {
+		spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+		DBG("list is empty\n");
+		ret = -EAGAIN;
+		if ((f->f_flags & O_NONBLOCK))
+			goto out;
+		DBG("going to sleep\n");
+		ret = -ERESTARTSYS;
+		if (wait_event_interruptible(stream->wq, !list_empty(&stream->packet_list) || stream->eof))
+			goto out;
+		DBG("awakened\n");
+		spin_lock_irqsave(&stream->packet_list_lock, flags);
+	}
+
+	ret = 0;
+	if (stream->eof) {
+		DBG("eof\n");
+		spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+		goto out;
+	}
+
+	DBG("removing packet from queue, reading %i bytes\n", (int) l);
+	packet = list_first_entry(&stream->packet_list, struct re_stream_packet, list_entry);
+	list_del(&packet->list_entry);
+	stream->list_count--;
+
+	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+
+	if (packet->buflen) {
+		ret = packet->buflen;
+		to_copy = packet->buf;
+		DBG("packet is from userspace, %i bytes\n", (int) ret);
+	}
+	else if (packet->skbuf) {
+		ret = packet->skbuf->len;
+		to_copy = packet->skbuf->data;
+		DBG("packet is from kernel, %i bytes\n", (int) ret);
+	}
+	else {
+		printk(KERN_WARNING "BUG in packet stream list buffer\n");
+		ret = -ENXIO;
+		goto err;
+	}
+
+	if (ret > l)
+		ret = l;
+	if (copy_to_user(b, to_copy, ret))
+		ret = -EFAULT;
+
+err:
+	free_packet(packet);
+
+out:
+	stream_put(stream);
+	return ret;
+}
+static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p) {
+	unsigned int stream_idx = (unsigned int) (unsigned long) PDE_DATA(f->f_path.dentry->d_inode);
+	struct re_stream *stream;
+	unsigned long flags;
+	unsigned int ret = 0;
+
+	DBG("entering proc_stream_poll()\n");
+
+	stream = get_stream_lock(NULL, stream_idx);
+	if (!stream)
+		return POLLERR;
+
+	DBG("locking stream's packet list lock\n");
+	spin_lock_irqsave(&stream->packet_list_lock, flags);
+
+	if (!list_empty(&stream->packet_list) || stream->eof)
+		ret |= POLLIN | POLLRDNORM;
+
+	DBG("returning from proc_stream_poll()\n");
+
+	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+
+	poll_wait(f, &stream->wq, p);
+
+	stream_put(stream);
+
+	return ret;
+}
+
+
+
+
+static void add_stream_packet(struct re_stream *stream, struct re_stream_packet *packet) {
+	int err;
+	unsigned long flags;
+	LIST_HEAD(delete_list);
+
+	/* append */
+
+	DBG("entering add_stream_packet()\n");
+	DBG("locking stream's packet list lock\n");
+	spin_lock_irqsave(&stream->packet_list_lock, flags);
+
+	err = 0;
+	if (stream->eof)
+		goto err; /* we accept, but ignore/discard */
+
+	DBG("adding packet to queue\n");
+	list_add_tail(&packet->list_entry, &stream->packet_list);
+	stream->list_count++;
+
+	DBG("%u packets now in queue\n", stream->list_count);
+
+	/* discard older packets */
+	while (stream->list_count > stream->info.max_packets) {
+		DBG("discarding old packet from queue\n");
+		packet = list_first_entry(&stream->packet_list, struct re_stream_packet, list_entry);
+		list_del(&packet->list_entry);
+		list_add(&packet->list_entry, &delete_list);
+		stream->list_count--;
+	}
+
+	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+
+	DBG("stream's packet list lock is unlocked, now awakening processes\n");
+
+	wake_up_interruptible(&stream->wq);
+
+	while (!list_empty(&delete_list)) {
+		packet = list_first_entry(&delete_list, struct re_stream_packet, list_entry);
+		list_del(&packet->list_entry);
+		free_packet(packet);
+	}
+
+	return;
+
+err:
+	DBG("error adding packet to stream\n");
+	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+	free_packet(packet);
+	return;
+}
+
+static int stream_packet(struct rtpengine_table *t, const struct rtpengine_packet_info *info,
+		const unsigned char *data, unsigned int len)
+{
+	struct re_stream *stream;
+	int err;
+	struct re_stream_packet *packet;
+
+	if (!len) /* can't have empty packets */
+		return -EINVAL;
+
+	DBG("received %u bytes of data from userspace\n", len);
+
+	err = -ENOENT;
+	stream = get_stream_lock(NULL, info->stream_idx);
+	if (!stream)
+		goto out;
+
+	DBG("data for stream %s\n", stream->info.stream_name);
+
+	/* alloc and copy */
+
+	err = -ENOMEM;
+	packet = kmalloc(sizeof(*packet) + len, GFP_KERNEL);
+	if (!packet)
+		goto out2;
+	memset(packet, 0, sizeof(*packet));
+
+	memcpy(packet->buf, data, len);
+	packet->buflen = len;
+
+	/* append */
+	add_stream_packet(stream, packet);
+
+	err = 0;
+	goto out2;
+
+out2:
+	stream_put(stream);
+out:
+	return err;
+}
+
+
+
+
+
+static inline ssize_t proc_control_read_write(struct file *file, char __user *ubuf, size_t buflen, loff_t *off,
+		int writeable)
+{
 	struct inode *inode;
 	u_int32_t id;
 	struct rtpengine_table *t;
-	struct rtpengine_message msg;
+	struct rtpengine_message msgbuf;
+	struct rtpengine_message *msg;
 	int err;
 
-	if (buflen != sizeof(msg))
+	if (buflen < sizeof(*msg))
 		return -EIO;
+	if (buflen == sizeof(*msg))
+		msg = &msgbuf;
+	else { /* > */
+		msg = kmalloc(buflen, GFP_KERNEL);
+		if (!msg)
+			return -ENOMEM;
+	}
 
 	inode = file->f_path.dentry->d_inode;
 	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
+	err = -ENOENT;
 	if (!t)
-		return -ENOENT;
+		goto out;
 
 	err = -EFAULT;
-	if (copy_from_user(&msg, buf, sizeof(msg)))
+	if (copy_from_user(msg, ubuf, buflen))
 		goto err;
 
-	switch (msg.cmd) {
-		case MMG_NOOP:
+	err = 0;
+
+	switch (msg->cmd) {
+		case REMG_NOOP:
 			DBG("noop.\n");
 			break;
 
-		case MMG_ADD:
-			err = table_new_target(t, &msg.target, 0);
-			if (err)
-				goto err;
+		case REMG_ADD:
+			err = table_new_target(t, &msg->u.target, 0);
 			break;
 
-		case MMG_DEL:
-			err = table_del_target(t, &msg.target.local);
-			if (err)
-				goto err;
+		case REMG_DEL:
+			err = table_del_target(t, &msg->u.target.local);
 			break;
 
-		case MMG_UPDATE:
-			err = table_new_target(t, &msg.target, 1);
-			if (err)
+		case REMG_UPDATE:
+			err = table_new_target(t, &msg->u.target, 1);
+			break;
+
+		case REMG_ADD_CALL:
+			err = -EINVAL;
+			if (!writeable)
 				goto err;
+			err = table_new_call(t, &msg->u.call);
+			break;
+
+		case REMG_DEL_CALL:
+			err = table_del_call(t, msg->u.call.call_idx);
+			break;
+
+		case REMG_ADD_STREAM:
+			err = -EINVAL;
+			if (!writeable)
+				goto err;
+			err = table_new_stream(t, &msg->u.stream);
+			break;
+
+		case REMG_DEL_STREAM:
+			err = table_del_stream(t, &msg->u.stream);
+			break;
+
+		case REMG_PACKET:
+			err = stream_packet(t, &msg->u.packet, msg->data, buflen - sizeof(*msg));
 			break;
 
 		default:
-			printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", msg.cmd);
+			printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", msg->cmd);
 			err = -EINVAL;
-			goto err;
+			break;
 	}
 
-	table_push(t);
+	table_put(t);
+
+	if (err)
+		goto out;
+
+	if (writeable) {
+		err = -EFAULT;
+		if (copy_to_user(ubuf, msg, sizeof(*msg)))
+			goto out;
+	}
+
+	if (msg != &msgbuf)
+		kfree(msg);
 
 	return buflen;
 
 err:
-	table_push(t);
+	table_put(t);
+out:
+	if (msg != &msgbuf)
+		kfree(msg);
 	return err;
 }
+static ssize_t proc_control_write(struct file *file, const char __user *ubuf, size_t buflen, loff_t *off) {
+	return proc_control_read_write(file, (char __user *) ubuf, buflen, off, 0);
+}
+static ssize_t proc_control_read(struct file *file, char __user *ubuf, size_t buflen, loff_t *off) {
+	return proc_control_read_write(file, ubuf, buflen, off, 1);
+}
+
 
 
 
@@ -2071,8 +3174,8 @@ drop:
 
 
 static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
-		unsigned char tos, const struct xt_action_param *par) {
-
+		unsigned char tos, const struct xt_action_param *par)
+{
 	if (src->family != dst->family)
 		goto drop;
 
@@ -2450,6 +3553,50 @@ static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rt
 }
 #endif
 
+static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_address *src) {
+	struct sk_buff *ret;
+	struct udphdr *uh;
+	struct iphdr *ih;
+	struct ipv6hdr *ih6;
+
+	ret = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
+	if (!ret)
+		return NULL;
+
+	// restore original header. it's still present in the copied skb, so we just need
+	// to push back our head room. the payload lengths might be wrong and must be fixed.
+	// checksums might also be wrong, but can be ignored.
+
+	// restore transport header
+	skb_push(ret, ret->data - skb_transport_header(ret));
+	uh = (void *) skb_transport_header(ret);
+	uh->len = htons(ret->len);
+
+	// restore network header
+	skb_push(ret, ret->data - skb_network_header(ret));
+
+	// restore network length field
+	switch (src->family) {
+		case AF_INET:
+			ih = (void *) skb_network_header(ret);
+			ih->tot_len = htons(ret->len);
+			break;
+		case AF_INET6:
+			ih6 = (void *) skb_network_header(ret);
+			ih6->payload_len = htons(ret->len - sizeof(*ih6));
+			break;
+		default:
+			kfree_skb(ret);
+			return NULL;
+	}
+
+	return ret;
+}
+
+
+
+
+
 static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, u_int8_t in_tos, const struct xt_action_param *par)
 {
@@ -2464,6 +3611,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
 	u_int64_t pkt_idx;
+	struct re_stream *stream;
+	struct re_stream_packet *packet;
 
 #if (RE_HAS_MEASUREDELAY)
 	u_int64_t starttime, endtime, delay;
@@ -2564,13 +3713,34 @@ src_check_ok:
 not_rtp:
 	if (g->target.mirror_addr.family) {
 		DBG("sending mirror packet to dst "MIPF"\n", MIPP(g->target.mirror_addr));
-		skb2 = skb_copy(skb, GFP_ATOMIC);
+		skb2 = skb_copy_expand(skb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 		err = send_proxy_packet(skb2, &g->target.src_addr, &g->target.mirror_addr, g->target.tos,
 				par);
 		if (err)
 			atomic64_inc(&g->stats.errors);
 	}
 
+	if (g->target.do_intercept) {
+		DBG("do_intercept is set\n");
+		stream = get_stream_lock(NULL, g->target.intercept_stream_idx);
+		if (!stream)
+			goto no_intercept;
+		packet = kzalloc(sizeof(*packet), GFP_ATOMIC);
+		if (!packet)
+			goto intercept_done;
+		packet->skbuf = intercept_skb_copy(skb, src);
+		if (!packet->skbuf)
+			goto no_intercept_free;
+		add_stream_packet(stream, packet);
+		goto intercept_done;
+
+no_intercept_free:
+		free_packet(packet);
+intercept_done:
+		stream_put(stream);
+	}
+
+no_intercept:
 	if (rtp.ok) {
 		pkt_idx = packet_index(&g->encrypt, &g->target.encrypt, rtp.header);
 		srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
@@ -2628,18 +3798,18 @@ out:
 		atomic64_inc(&g->stats.errors);
 #endif
 
-	target_push(g);
-	table_push(t);
+	target_put(g);
+	table_put(t);
 
 	return NF_DROP;
 
 skip_error:
 	atomic64_inc(&g->stats.errors);
 skip1:
-	target_push(g);
+	target_put(g);
 skip2:
 	kfree_skb(skb);
-	table_push(t);
+	table_put(t);
 	return XT_CONTINUE;
 }
 
@@ -2674,6 +3844,7 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 		goto skip2;
 
 	memset(&src, 0, sizeof(src));
+	memset(&dst, 0, sizeof(dst));
 	src.family = AF_INET;
 	src.u.ipv4 = ih->saddr;
 	dst.family = AF_INET;
@@ -2684,7 +3855,7 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 skip2:
 	kfree_skb(skb);
 skip3:
-	table_push(t);
+	table_put(t);
 skip:
 	return XT_CONTINUE;
 }
@@ -2719,6 +3890,7 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 		goto skip2;
 
 	memset(&src, 0, sizeof(src));
+	memset(&dst, 0, sizeof(dst));
 	src.family = AF_INET6;
 	memcpy(&src.u.ipv6, &ih->saddr, sizeof(src.u.ipv6));
 	dst.family = AF_INET6;
@@ -2729,7 +3901,7 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 skip2:
 	kfree_skb(skb);
 skip3:
-	table_push(t);
+	table_put(t);
 skip:
 	return XT_CONTINUE;
 }
@@ -2791,6 +3963,11 @@ static int __init init(void) {
 	int ret;
 	const char *err;
 
+	err = "stream_packets_list_limit parameter must be larger than 0";
+	ret = -EINVAL;
+	if (stream_packets_list_limit <= 0)
+		goto fail;
+
 	printk(KERN_NOTICE "Registering xt_RTPENGINE module - version %s\n", RTPENGINE_VERSION);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	DBG("using uid %u, gid %d\n", proc_uid, proc_gid);
@@ -2798,30 +3975,25 @@ static int __init init(void) {
 	proc_kgid = KGIDT_INIT(proc_gid);
 #endif
 	rwlock_init(&table_lock);
+	auto_array_init(&calls);
+	auto_array_init(&streams);
 
 	ret = -ENOMEM;
 	err = "could not register /proc/ entries";
-	my_proc_root = proc_mkdir("rtpengine", NULL);
+	my_proc_root = proc_mkdir_user("rtpengine", S_IRUGO | S_IXUGO, NULL);
 	if (!my_proc_root)
 		goto fail;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	proc_set_user(my_proc_root, proc_kuid, proc_kgid);
-#endif
 	/* my_proc_root->owner = THIS_MODULE; */
 
-	proc_control = proc_create("control", S_IFREG | S_IWUSR | S_IWGRP, my_proc_root,
-			&proc_main_control_ops);
+	proc_control = proc_create_user("control", S_IFREG | S_IWUSR | S_IWGRP, my_proc_root,
+			&proc_main_control_ops, NULL);
 	if (!proc_control)
 		goto fail;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	proc_set_user(proc_control, proc_kuid, proc_kgid);
-#endif
-	proc_list = proc_create("list", S_IFREG | S_IRUGO, my_proc_root, &proc_main_list_ops);
+
+	proc_list = proc_create_user("list", S_IFREG | S_IRUGO, my_proc_root, &proc_main_list_ops, NULL);
 	if (!proc_list)
 		goto fail;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-	proc_set_user(proc_list, proc_kuid, proc_kgid);
-#endif
+
 	err = "could not register xtables target";
 	ret = xt_register_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
 	if (ret)
@@ -2846,6 +4018,9 @@ static void __exit fini(void) {
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
+
+	auto_array_free(&streams);
+	auto_array_free(&calls);
 }
 
 module_init(init);
