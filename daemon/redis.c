@@ -1345,6 +1345,7 @@ static int rbl_cb_intf_sfds(str *s, GQueue *q, struct redis_list *list, void *pt
 	int i;
 	struct intf_list *il;
 	struct endpoint_map *em;
+	void *sfd;
 
 	if (!strncmp(s->s, "loc-", 4)) {
 		il = g_slice_alloc0(sizeof(*il));
@@ -1360,9 +1361,16 @@ static int rbl_cb_intf_sfds(str *s, GQueue *q, struct redis_list *list, void *pt
 	il = g_queue_peek_tail(q);
 	if (!il)
 		return -1;
-	g_queue_push_tail(&il->list, redis_list_get_idx_ptr(list, atoi(s->s)));
+
+	sfd = redis_list_get_idx_ptr(list, atoi(s->s));
+	if (G_UNLIKELY(!sfd))
+	    return -1;
+
+	g_queue_push_tail(&il->list, sfd);
 	return 0;
 }
+
+
 static int redis_link_maps(struct redis *r, struct call *c, struct redis_list *maps,
 		struct redis_list *sfds)
 {
