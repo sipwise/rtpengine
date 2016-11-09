@@ -1,3 +1,12 @@
+ngcp-rtpengine (4.5.2.3+0~mr4.5.2.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [23e0389] solve a kernel mem leak when strict-source is set and triggered
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 09 Nov 2016 18:03:15 +0100
+
 ngcp-rtpengine (4.5.2.2+0~mr4.5.2.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
