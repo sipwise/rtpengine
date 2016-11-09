@@ -2435,6 +2435,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	struct rtpengine_target *g;
 	struct sk_buff *skb2;
 	int err;
+	int error_nf_action = XT_CONTINUE;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	int rtp_pt_idx = -2;
 #endif
@@ -2495,8 +2496,8 @@ not_stun:
 	if (g->target.src_mismatch == MSM_PROPAGATE)
 		goto skip1;
 	/* MSM_DROP */
-	err = -1;
-	goto out;
+	error_nf_action = NF_DROP;
+	goto skip_error;
 
 src_check_ok:
 	if (g->target.dtls && is_dtls(skb))
@@ -2557,8 +2558,6 @@ not_rtp:
 
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos);
 
-out:
-
 	if (atomic64_read(&g->stats.packets)==0)
 		atomic_set(&g->stats.in_tos,in_tos);
 
@@ -2617,7 +2616,7 @@ skip1:
 skip2:
 	kfree_skb(skb);
 	table_push(t);
-	return XT_CONTINUE;
+	return error_nf_action;
 }
 
 
