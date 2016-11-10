@@ -1,0 +1,5 @@
+.depend
+*.o
+core
+core.*
+.ycm_extra_conf.pyc

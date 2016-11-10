@@ -38,12 +38,14 @@ build-stamp:
 	dh_testdir
 	make -C iptables-extension
 	make -C daemon -j`nproc`
+	make -C recording-daemon -j`nproc`
 	touch $@
 
 clean:
 	dh_testdir
 	dh_testroot
 	cd daemon && $(MAKE) clean && cd ..
+	cd recording-daemon && $(MAKE) clean && cd ..
 	rm -f build-stamp
 	rm -f iptables-extension/libxt_RTPENGINE.so
 	rm -f daemon/rtpengine daemon/build_time.h daemon/.depend kernel-module/.xt_RTPENGINE.o.d
