@@ -1464,6 +1464,7 @@ static void __rtp_payload_types(struct call_media *media, GQueue *types) {
 	/* we steal the entire list to avoid duplicate allocs */
 	while ((pt = g_queue_pop_head(types))) {
 		/* but we must duplicate the contents */
+		call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
 		call_str_cpy(call, &pt->encoding, &pt->encoding);
 		call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
 		g_hash_table_replace(media->rtp_payload_types, &pt->payload_type, pt);
@@ -1726,6 +1727,8 @@ init:
 		/* we are now ready to fire up ICE if so desired and requested */
 		ice_update(other_media->ice_agent, sp);
 		ice_update(media->ice_agent, NULL); /* this is in case rtcp-mux has changed */
+
+		recording_setup_media(other_media);
 	}
 
 	return 0;
@@ -1999,13 +2002,9 @@ void call_destroy(struct call *c) {
 					md->protocol ? md->protocol->name : "(unknown)"
 				if (!rtp_pt)
 					ilog(LOG_INFO, MLL_PREFIX "unknown codec", MLL_COMMON);
-				else if (!rtp_pt->encoding_parameters.s)
-					ilog(LOG_INFO, MLL_PREFIX ""STR_FORMAT"/%u", MLL_COMMON,
-							STR_FMT(&rtp_pt->encoding), rtp_pt->clock_rate);
 				else
-					ilog(LOG_INFO, MLL_PREFIX ""STR_FORMAT"/%u/"STR_FORMAT"", MLL_COMMON,
-							STR_FMT(&rtp_pt->encoding), rtp_pt->clock_rate,
-							STR_FMT(&rtp_pt->encoding_parameters));
+					ilog(LOG_INFO, MLL_PREFIX STR_FORMAT, MLL_COMMON,
+							STR_FMT(&rtp_pt->encoding_with_params));
 	
 				/* add PayloadType(codec) info in CDR logging */
 				if (_log_facility_cdr && rtp_pt) {

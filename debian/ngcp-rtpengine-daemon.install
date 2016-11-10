@@ -1,1 +1,2 @@
 daemon/rtpengine /usr/sbin/
+recording-daemon/rtpengine-recording /usr/sbin/
