@@ -705,6 +705,8 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	a = &output->u.rtpmap;
 	pt = &a->rtp_pt;
 
+	pt->encoding_with_params = a->payload_type_str;
+
 	pt->payload_type = strtoul(a->payload_type_str.s, &ep, 10);
 	if (ep == a->payload_type_str.s)
 		return -1;
