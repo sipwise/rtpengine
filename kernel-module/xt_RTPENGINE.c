@@ -2378,6 +2378,9 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 	struct re_call *call, *hash_entry;
 	unsigned int idx;
 	unsigned long flags;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
+	struct hlist_node *hlist_entry;
+#endif
 
 	/* validation */
 
@@ -2405,7 +2408,12 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 
 	spin_lock_irqsave(&table->calls_hash_lock[call->hash_bucket], flags);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
+	hlist_for_each_entry(hash_entry, hlist_entry, &table->calls_hash[call->hash_bucket],
+			calls_hash_entry) {
+#else
 	hlist_for_each_entry(hash_entry, &table->calls_hash[call->hash_bucket], calls_hash_entry) {
+#endif
 		if (!strcmp(hash_entry->info.call_id, info->call_id))
 			goto found;
 	}
@@ -2538,6 +2546,9 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 	unsigned long flags;
 	unsigned int idx;
 	struct proc_dir_entry *pde;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
+	struct hlist_node *hlist_entry;
+#endif
 
 	/* validation */
 
@@ -2573,7 +2584,12 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 
 	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
+	hlist_for_each_entry(hash_entry, hlist_entry, &table->streams_hash[stream->hash_bucket],
+			streams_hash_entry) {
+#else
 	hlist_for_each_entry(hash_entry, &table->streams_hash[stream->hash_bucket], streams_hash_entry) {
+#endif
 		if (hash_entry->info.call_idx == info->call_idx
 				&& !strcmp(hash_entry->info.stream_name, info->stream_name))
 			goto found;
