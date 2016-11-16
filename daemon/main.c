@@ -88,6 +88,7 @@ static int delete_delay = 30;
 static int graphite_interval = 0;
 static char *spooldir;
 static char *rec_method = "pcap";
+static char *rec_format = "raw";
 
 static void sighandler(gpointer x) {
 	sigset_t ss;
@@ -329,6 +330,7 @@ static void options(int *argc, char ***argv) {
 		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
 		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
 		{ "recording-method",0, 0, G_OPTION_ARG_STRING,	&rec_method,	"Strategy for call recording",		"pcap|proc"	},
+		{ "recording-format",0, 0, G_OPTION_ARG_STRING,	&rec_format,	"File format for stored pcap files",	"raw|eth"	},
 		{ NULL, }
 	};
 
@@ -529,7 +531,7 @@ static void init_everything() {
 	struct timespec ts;
 
 	log_init();
-	recording_fs_init(spooldir, rec_method);
+	recording_fs_init(spooldir, rec_method, rec_format);
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
 	SSL_library_init();
