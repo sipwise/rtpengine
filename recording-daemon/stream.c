@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <libavformat/avformat.h>
 #include "metafile.h"
 #include "epoll.h"
 #include "log.h"
@@ -87,6 +88,9 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 		ilog(LOG_ERR, "Failed to open kernel stream %s: %s", fnbuf, strerror(errno));
 		return;
 	}
+
+	stream->avinf = av_find_input_format("rtp");
+	ilog(LOG_DEBUG, "avinf %p", stream->avinf);
 
 	// add to epoll
 	stream->handler.ptr = stream;
