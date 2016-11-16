@@ -6,6 +6,8 @@
 #include <glib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
 #include "log.h"
 #include "epoll.h"
 #include "inotify.h"
@@ -32,6 +34,8 @@ static void signals(void) {
 
 
 static void setup(void) {
+	av_register_all();
+	avcodec_register_all();
 	signals();
 	metafile_setup();
 	epoll_setup();
