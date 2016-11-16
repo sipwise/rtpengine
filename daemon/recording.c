@@ -80,7 +80,7 @@ static const struct recording_method methods[] = {
 static char *spooldir = NULL;
 
 const struct recording_method *selected_recording_method;
-
+int rec_format;
 
 
 
@@ -88,7 +88,7 @@ const struct recording_method *selected_recording_method;
  * Initialize RTP Engine filesystem settings and structure.
  * Check for or create the RTP Engine spool directory.
  */
-void recording_fs_init(const char *spoolpath, const char *method_str) {
+void recording_fs_init(const char *spoolpath, const char *method_str, const char *format_str) {
 	int i;
 
 	// Whether or not to fail if the spool directory does not exist.
@@ -106,6 +106,15 @@ void recording_fs_init(const char *spoolpath, const char *method_str) {
 	return;
 
 found:
+	if(!strcmp("raw", format_str))
+		rec_format = 0;
+	else if(!strcmp("eth", format_str))
+		rec_format = 1;
+	else {
+		ilog(LOG_ERR, "Invalid value for recording format \"%s\".", format_str);
+		exit(-1);
+	}
+
 	spooldir = strdup(spoolpath);
 
 	int path_len = strlen(spooldir);
@@ -397,7 +406,10 @@ static char *recording_setup_file(struct recording *recording) {
 	recording_path = file_path_str(recording->meta_prefix, "/pcaps/", ".pcap");
 	recording->pcap.recording_path = recording_path;
 
-	recording->pcap.recording_pd = pcap_open_dead(DLT_EN10MB, 65535);
+	if(rec_format == 1)
+		recording->pcap.recording_pd = pcap_open_dead(DLT_EN10MB, 65535);
+	else
+		recording->pcap.recording_pd = pcap_open_dead(DLT_RAW, 65535);
 	recording->pcap.recording_pdumper = pcap_dump_open(recording->pcap.recording_pd, recording_path);
 	if (recording->pcap.recording_pdumper == NULL) {
 		pcap_close(recording->pcap.recording_pd);
@@ -450,11 +462,17 @@ static void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *strea
 	if(!stream->advertised_endpoint.port)
 		return;
 
-	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN + 14];
-	unsigned int pkt_len = fake_ip_header(pkt + 14, stream, s);
-	pkt_len += 14;
-	memset(pkt, 0, 14);
-	pkt[12] = 0x08;
+	int ether_len = 0;
+	if(rec_format == 1)
+		ether_len = 14;
+
+	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN + ether_len];
+	unsigned int pkt_len = fake_ip_header(pkt + ether_len, stream, s);
+	if(rec_format == 1) {
+		pkt_len += 14;
+		memset(pkt, 0, 14);
+		pkt[12] = 0x08;
+	}
 
 	// Set up PCAP packet header
 	struct pcap_pkthdr header;
