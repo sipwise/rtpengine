@@ -7,6 +7,9 @@ CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
 CFLAGS+=	`pkg-config --cflags glib-2.0`
 CFLAGS+=	`pkg-config --cflags gthread-2.0`
 #CFLAGS+=	`pcre-config --cflags`
+CFLAGS+=	`pkg-config --cflags libavcodec`
+CFLAGS+=	`pkg-config --cflags libavformat`
+CFLAGS+=	`pkg-config --cflags libavutil`
 
 ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1
@@ -18,6 +21,9 @@ LDFLAGS=	-lm
 LDFLAGS+=	`pkg-config --libs glib-2.0`
 LDFLAGS+=	`pkg-config --libs gthread-2.0`
 #LDFLAGS+=	`pcre-config --libs`
+LDFLAGS+=	`pkg-config --libs libavcodec`
+LDFLAGS+=	`pkg-config --libs libavformat`
+LDFLAGS+=	`pkg-config --libs libavutil`
 
 ifneq ($(DBG),yes)
   DPKG_BLDFLGS=	$(shell which dpkg-buildflags 2>/dev/null)
