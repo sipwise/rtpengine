@@ -397,7 +397,7 @@ static char *recording_setup_file(struct recording *recording) {
 	recording_path = file_path_str(recording->meta_prefix, "/pcaps/", ".pcap");
 	recording->pcap.recording_path = recording_path;
 
-	recording->pcap.recording_pd = pcap_open_dead(DLT_RAW, 65535);
+	recording->pcap.recording_pd = pcap_open_dead(DLT_EN10MB, 65535);
 	recording->pcap.recording_pdumper = pcap_dump_open(recording->pcap.recording_pd, recording_path);
 	if (recording->pcap.recording_pdumper == NULL) {
 		pcap_close(recording->pcap.recording_pd);
@@ -450,8 +450,11 @@ static void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *strea
 	if(!stream->advertised_endpoint.port)
 		return;
 
-	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN];
-	unsigned int pkt_len = fake_ip_header(pkt, stream, s);
+	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN + 14];
+	unsigned int pkt_len = fake_ip_header(pkt + 14, stream, s);
+	pkt_len += 14;
+	memset(pkt, 0, 14);
+	pkt[12] = 0x08;
 
 	// Set up PCAP packet header
 	struct pcap_pkthdr header;
