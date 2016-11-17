@@ -471,7 +471,14 @@ static void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *strea
 	if(rec_format == 1) {
 		pkt_len += 14;
 		memset(pkt, 0, 14);
-		pkt[12] = 0x08;
+		switch(stream->selected_sfd->socket.local.address.family->af) {
+			case AF_INET:
+				pkt[12] = 0x08;
+				break;
+			case AF_INET6:
+				pkt[12] = 0x86;
+				break;
+		}
 	}
 
 	// Set up PCAP packet header
