@@ -3,6 +3,6 @@
 
 #include "types.h"
 
-void pcre_build(pcre_t *out, const char *pattern);
+//void pcre_build(pcre_t *out, const char *pattern);
 
 #endif

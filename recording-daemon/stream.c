@@ -4,11 +4,12 @@
 #include <unistd.h>
 #include <limits.h>
 #include <fcntl.h>
-#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
 #include "metafile.h"
 #include "epoll.h"
 #include "log.h"
 #include "main.h"
+#include "packet.h"
 
 
 // stream is locked
@@ -35,8 +36,17 @@ static void stream_handler(handler_t *handler) {
 	if (stream->fd == -1)
 		goto out;
 
-	char buf[65535];
-	int ret = read(stream->fd, buf, sizeof(buf));
+	static const int maxbuflen = 65535;
+	static const int alloclen = maxbuflen
+#ifdef AV_INPUT_BUFFER_PADDING_SIZE
+		+ AV_INPUT_BUFFER_PADDING_SIZE
+#endif
+#ifdef FF_INPUT_BUFFER_PADDING_SIZE
+		+ FF_INPUT_BUFFER_PADDING_SIZE
+#endif
+		;
+	unsigned char *buf = malloc(alloclen);
+	int ret = read(stream->fd, buf, maxbuflen);
 	if (ret == 0) {
 		ilog(LOG_INFO, "EOF on stream %s", stream->name);
 		stream_close(stream);
@@ -47,6 +57,11 @@ static void stream_handler(handler_t *handler) {
 		stream_close(stream);
 		goto out;
 	}
+
+	// got a packet
+	pthread_mutex_unlock(&stream->lock);
+	packet_process(stream, buf, ret);
+	return;
 
 out:
 	pthread_mutex_unlock(&stream->lock);
@@ -66,6 +81,7 @@ static stream_t *stream_get(metafile_t *mf, unsigned long id) {
 	pthread_mutex_init(&ret->lock, NULL);
 	ret->fd = -1;
 	ret->id = id;
+	ret->metafile = mf;
 
 out:
 	return ret;
@@ -88,15 +104,6 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 		ilog(LOG_ERR, "Failed to open kernel stream %s: %s", fnbuf, strerror(errno));
 		return;
 	}
-
-	stream->avinf = av_find_input_format("rtp");
-	ilog(LOG_DEBUG, "avinf %p", stream->avinf);
-
-	stream->avfctx = avformat_alloc_context();
-	unsigned char *buf = av_malloc(1024); // ?
-	stream->avfctx->pb = avio_alloc_context(buf, 1024, 1, NULL, NULL, NULL, NULL);
-	int ret = avformat_open_input(&stream->avfctx, "", stream->avinf, NULL);
-	ilog(LOG_DEBUG, "ret %i avfctx %p", ret, stream->avfctx);
 
 	// add to epoll
 	stream->handler.ptr = stream;
