@@ -461,8 +461,6 @@ static unsigned int fake_ip_header(unsigned char *out, struct packet_stream *str
 static void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, const str *s) {
 	if (!pdumper)
 		return;
-	if(!stream->advertised_endpoint.port)
-		return;
 
 	int ether_len = 0;
 	if(rec_format == 1)
