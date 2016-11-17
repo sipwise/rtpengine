@@ -9,15 +9,7 @@
 
 
 struct crypto_context;
-
-struct rtp_header {
-	unsigned char v_p_x_cc;
-	unsigned char m_pt;
-	u_int16_t seq_num;
-	u_int32_t timestamp;
-	u_int32_t ssrc;
-	u_int32_t csrc[];
-} __attribute__ ((packed));
+struct rtp_header;
 
 struct rtp_payload_type {
 	unsigned int payload_type;
@@ -31,7 +23,6 @@ struct rtp_payload_type {
 
 
 
-int rtp_payload(struct rtp_header **out, str *p, const str *s);
 const struct rtp_payload_type *rtp_payload_type(unsigned int, GHashTable *);
 
 int rtp_avp2savp(str *, struct crypto_context *);
