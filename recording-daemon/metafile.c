@@ -10,7 +10,7 @@
 #include "stream.h"
 #include "garbage.h"
 #include "main.h"
-#include "aux.h"
+#include "recaux.h"
 
 
 static pthread_mutex_t metafiles_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -32,6 +32,7 @@ static void meta_free(void *ptr) {
 	}
 	g_ptr_array_free(mf->streams, TRUE);
 	g_slice_free1(sizeof(*mf), mf);
+	g_hash_table_destroy(mf->ssrc_hash);
 }
 
 
@@ -65,6 +66,13 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 		char *payload_type)
 {
 	dbg("payload type in media %lu num %u is %s", mnum, payload_num, payload_type);
+
+	if (payload_num >= 128) {
+		ilog(LOG_ERR, "Payload type number %u is invalid", payload_num);
+		return;
+	}
+
+	mf->payload_types[payload_num] = g_string_chunk_insert(mf->gsc, payload_type);
 }
 
 
@@ -86,22 +94,41 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 }
 
 
-void metafile_change(char *name) {
+static void ssrc_free(void *p) {
+	ssrc_t *s = p;
+	g_slice_free1(sizeof(*s), s);
+}
+
+
+// returns mf locked
+static metafile_t *metafile_get(char *name) {
 	// get or create metafile metadata
 	pthread_mutex_lock(&metafiles_lock);
 	metafile_t *mf = g_hash_table_lookup(metafiles, name);
-	if (!mf) {
-		dbg("allocating metafile info for %s", name);
-		mf = g_slice_alloc0(sizeof(*mf));
-		mf->gsc = g_string_chunk_new(0);
-		mf->name = g_string_chunk_insert(mf->gsc, name);
-		pthread_mutex_init(&mf->lock, NULL);
-		mf->streams = g_ptr_array_new();
-		g_hash_table_insert(metafiles, mf->name, mf);
-	}
+	if (mf)
+		goto out;
+
+	dbg("allocating metafile info for %s", name);
+	mf = g_slice_alloc0(sizeof(*mf));
+	mf->gsc = g_string_chunk_new(0);
+	mf->name = g_string_chunk_insert(mf->gsc, name);
+	pthread_mutex_init(&mf->lock, NULL);
+	mf->streams = g_ptr_array_new();
+	mf->ssrc_hash = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, ssrc_free);
+
+	g_hash_table_insert(metafiles, mf->name, mf);
+
+out:
 	// switch locks
 	pthread_mutex_lock(&mf->lock);
 	pthread_mutex_unlock(&metafiles_lock);
+
+	return mf;
+}
+
+
+void metafile_change(char *name) {
+	metafile_t *mf = metafile_get(name);
 
 	char fnbuf[PATH_MAX];
 	snprintf(fnbuf, sizeof(fnbuf), "%s/%s", SPOOL_DIR, name);
@@ -131,6 +158,7 @@ void metafile_change(char *name) {
 	close(fd);
 
 	// process contents of metadata file
+	// XXX use "str" type?
 	char *head = s->str;
 	char *endp = s->str + s->len;
 	while (head < endp) {
