@@ -22,6 +22,7 @@ struct call;
 enum call_opmode;
 struct rtpengine_target_info;
 struct call_monologue;
+struct call_media;
 
 
 struct recording_pcap {
@@ -77,6 +78,7 @@ struct recording_method {
 
 	void (*init_stream_struct)(struct packet_stream *);
 	void (*setup_stream)(struct packet_stream *);
+	void (*setup_media)(struct call_media *);
 	void (*stream_kernel_info)(struct packet_stream *, struct rtpengine_target_info *);
 };
 
@@ -185,6 +187,7 @@ void recording_finish(struct call *);
 
 
 #define recording_setup_stream(args...) _rm(setup_stream, args)
+#define recording_setup_media(args...) _rm(setup_media, args)
 #define recording_init_stream(args...) _rm(init_stream_struct, args)
 #define recording_stream_kernel_info(args...) _rm(stream_kernel_info, args)
 #define recording_meta_chunk(args...) _rm(meta_chunk, args)

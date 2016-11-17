@@ -44,6 +44,7 @@ static void finish_proc(struct call *);
 static void dump_packet_proc(struct recording *recording, struct packet_stream *sink, const str *s);
 static void init_stream_proc(struct packet_stream *);
 static void setup_stream_proc(struct packet_stream *);
+static void setup_media_proc(struct call_media *);
 static void kernel_info_proc(struct packet_stream *, struct rtpengine_target_info *);
 
 
@@ -71,6 +72,7 @@ static const struct recording_method methods[] = {
 		.finish = finish_proc,
 		.init_stream_struct = init_stream_proc,
 		.setup_stream = setup_stream_proc,
+		.setup_media = setup_media_proc,
 		.stream_kernel_info = kernel_info_proc,
 	},
 };
@@ -701,6 +703,26 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	ilog(LOG_DEBUG, "kernel stream idx is %u", stream->recording.proc.stream_idx);
 	append_meta_chunk(recording, buf, len, "STREAM %u interface", stream->unique_id);
 }
+
+static void setup_media_proc(struct call_media *media) {
+	struct call *call = media->call;
+	struct recording *recording = call->recording;
+
+	if (!recording)
+		return;
+
+	GList *pltypes = g_hash_table_get_values(media->rtp_payload_types);
+
+	for (GList *l = pltypes; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		append_meta_chunk(recording, pt->encoding_with_params.s, pt->encoding_with_params.len,
+				"MEDIA %u PAYLOAD TYPE %u", media->unique_id, pt->payload_type);
+	}
+
+	g_list_free(pltypes);
+}
+
+
 
 static void dump_packet_proc(struct recording *recording, struct packet_stream *stream, const str *s) {
 	if (stream->recording.proc.stream_idx == UNINIT_IDX)
