@@ -244,7 +244,7 @@ INLINE int ipv46_any_convert(endpoint_t *ep) {
 	return 1;
 }
 
-#define endpoint_packet_header(o, src, args...) (src)->address.family->packet_header(o, src, args)
+#define endpoint_packet_header(o, src, dst, len) (dst)->address.family->packet_header(o, src, dst, len)
 
 
 

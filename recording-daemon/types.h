@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <glib.h>
 #include <pcre.h>
+#include <libavformat/avformat.h>
 
 
 typedef struct handler_s handler_t;
@@ -22,6 +23,8 @@ struct stream_s {
 	unsigned long id;
 	int fd;
 	handler_t handler;
+	AVInputFormat *avinf;
+	AVFormatContext *avfctx;
 };
 typedef struct stream_s stream_t;
 
