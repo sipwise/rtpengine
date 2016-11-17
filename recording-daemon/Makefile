@@ -1,12 +1,12 @@
 TARGET=		rtpengine-recording
 
 CC?=gcc
-CFLAGS=		-g -Wall -pthread
+CFLAGS=		-g -Wall -pthread -I. -I../lib/
 CFLAGS+=	-std=c99
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
 CFLAGS+=	`pkg-config --cflags glib-2.0`
 CFLAGS+=	`pkg-config --cflags gthread-2.0`
-#CFLAGS+=	`pcre-config --cflags`
+CFLAGS+=	`pcre-config --cflags`
 CFLAGS+=	`pkg-config --cflags libavcodec`
 CFLAGS+=	`pkg-config --cflags libavformat`
 CFLAGS+=	`pkg-config --cflags libavutil`
@@ -20,7 +20,7 @@ endif
 LDFLAGS=	-lm
 LDFLAGS+=	`pkg-config --libs glib-2.0`
 LDFLAGS+=	`pkg-config --libs gthread-2.0`
-#LDFLAGS+=	`pcre-config --libs`
+LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`pkg-config --libs libavcodec`
 LDFLAGS+=	`pkg-config --libs libavformat`
 LDFLAGS+=	`pkg-config --libs libavutil`
@@ -35,7 +35,7 @@ ifneq ($(DBG),yes)
   endif
 endif
 
-SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c aux.c
+SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c rtplib.c
 OBJS=		$(SRCS:.c=.o)
 
 

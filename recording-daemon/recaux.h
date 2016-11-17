@@ -1,5 +1,5 @@
-#ifndef _AUX_H_
-#define _AUX_H_
+#ifndef _RECAUX_H_
+#define _RECAUX_H_
 
 extern int __thread __sscanf_hack_var;
 

@@ -19,6 +19,7 @@
 #include "log_funcs.h"
 #include "poller.h"
 #include "recording.h"
+#include "rtplib.h"
 
 
 #ifndef PORT_RANDOM_MIN
