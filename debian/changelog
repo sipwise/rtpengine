@@ -1,3 +1,39 @@
+ngcp-rtpengine (5.1.0.0+0~mr5.1.0.0) unstable; urgency=medium
+
+  [ Pawel Kuzak ]
+  * [4a03b9b] Add REDIS_EXPIRES to default configuration file
+
+  [ Dinu ]
+  * [a4ea7c0] Make --dtls-passive available from ngcp-rtpengine-daemon.init
+
+  [ Lucian Balaceanu ]
+  * [252ea8a] Delete from redis_write when redis_restore_call() fails
+  * [877952a] redis restore call fails when a sfd is null
+  * [e08f477] Empty other_ml stops call creation
+
+  [ Richard Fuchs ]
+  * [94e3c8f] TT#3881 re-enable selective packet loop check
+  * [303a40b] TT#3881 re-enable selective packet loop check
+  * [9aa4aec] don't complain if no spool directory is configured
+  * [0a2a3cb] fix candidates being inserted after a=end-of-candidates
+  * [1ebc9d9] update simulator-ng to moved perl modules
+  * [c5c0b70] prevent segfault when no recording metadata is given
+  * [50daef0] support recording flag in simulator-ng
+  * [984585a] TT#5003 implement kernel-side call recording
+  * [0a593cf] solve a kernel mem leak when strict-source is set and triggered
+  * [e3a7248] resolve segfault when recording is disabled
+  * [411c3b3] TT#5566 checkin of external call recording daemon
+  * [6f33c1a] fix kernel module build for kernels < 3.9
+  * [3977e94] TT#5566 decode RTP streams
+  * [5395db3] fix segfault when source endpoint address isn't filled
+
+  [ Alexander Lutay ]
+  * [ce46149] TT#5748 Fix typo in debian/ngcp-rtpengine-daemon.init
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 17 Nov 2016 23:21:05 +0100
+
 ngcp-rtpengine (5.0.0.0+0~mr5.0.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
