@@ -48,6 +48,7 @@ struct socket_type {
 struct socket_family {
 	int				idx;
 	int				af;
+	unsigned int			ethertype;
 	size_t				sockaddr_size;
 	const char			*name; /* "IPv4" */
 	const char			*rfc_name; /* "IP4" */

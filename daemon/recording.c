@@ -21,6 +21,14 @@
 
 
 
+struct pcap_format {
+	int linktype;
+	int headerlen;
+	void (*header)(unsigned char *, struct packet_stream *);
+};
+
+
+
 static int check_main_spool_dir(const char *spoolpath);
 static char *recording_setup_file(struct recording *recording);
 static char *meta_setup_file(struct recording *recording);
@@ -46,6 +54,8 @@ static void init_stream_proc(struct packet_stream *);
 static void setup_stream_proc(struct packet_stream *);
 static void setup_media_proc(struct call_media *);
 static void kernel_info_proc(struct packet_stream *, struct rtpengine_target_info *);
+
+static void pcap_eth_header(unsigned char *, struct packet_stream *);
 
 
 
@@ -77,12 +87,22 @@ static const struct recording_method methods[] = {
 	},
 };
 
+static const struct pcap_format pcap_format_raw = {
+	.linktype = DLT_RAW,
+	.headerlen = 0,
+};
+static const struct pcap_format pcap_format_eth = {
+	.linktype = DLT_EN10MB,
+	.headerlen = 14,
+	.header = pcap_eth_header,
+};
+
 
 // Global file reference to the spool directory.
 static char *spooldir = NULL;
 
 const struct recording_method *selected_recording_method;
-int rec_format;
+static const struct pcap_format *pcap_format;
 
 
 
@@ -109,9 +129,9 @@ void recording_fs_init(const char *spoolpath, const char *method_str, const char
 
 found:
 	if(!strcmp("raw", format_str))
-		rec_format = 0;
+		pcap_format = &pcap_format_raw;
 	else if(!strcmp("eth", format_str))
-		rec_format = 1;
+		pcap_format = &pcap_format_eth;
 	else {
 		ilog(LOG_ERR, "Invalid value for recording format \"%s\".", format_str);
 		exit(-1);
@@ -408,10 +428,7 @@ static char *recording_setup_file(struct recording *recording) {
 	recording_path = file_path_str(recording->meta_prefix, "/pcaps/", ".pcap");
 	recording->pcap.recording_path = recording_path;
 
-	if(rec_format == 1)
-		recording->pcap.recording_pd = pcap_open_dead(DLT_EN10MB, 65535);
-	else
-		recording->pcap.recording_pd = pcap_open_dead(DLT_RAW, 65535);
+	recording->pcap.recording_pd = pcap_open_dead(pcap_format->linktype, 65535);
 	recording->pcap.recording_pdumper = pcap_dump_open(recording->pcap.recording_pd, recording_path);
 	if (recording->pcap.recording_pdumper == NULL) {
 		pcap_close(recording->pcap.recording_pd);
@@ -454,6 +471,12 @@ static unsigned int fake_ip_header(unsigned char *out, struct packet_stream *str
 	return hdr_len + inp->len;
 }
 
+static void pcap_eth_header(unsigned char *pkt, struct packet_stream *stream) {
+	memset(pkt, 0, 14);
+	uint16_t *hdr16 = (void *) pkt;
+	hdr16[6] = htons(stream->selected_sfd->socket.local.address.family->ethertype);
+}
+
 /**
  * Write out a PCAP packet with payload string.
  * A fair amount extraneous of packet data is spoofed.
@@ -462,24 +485,10 @@ static void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *strea
 	if (!pdumper)
 		return;
 
-	int ether_len = 0;
-	if(rec_format == 1)
-		ether_len = 14;
-
-	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN + ether_len];
-	unsigned int pkt_len = fake_ip_header(pkt + ether_len, stream, s);
-	if(rec_format == 1) {
-		pkt_len += 14;
-		memset(pkt, 0, 14);
-		switch(stream->selected_sfd->socket.local.address.family->af) {
-			case AF_INET:
-				pkt[12] = 0x08;
-				break;
-			case AF_INET6:
-				pkt[12] = 0x86;
-				break;
-		}
-	}
+	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN + pcap_format->headerlen];
+	unsigned int pkt_len = fake_ip_header(pkt + pcap_format->headerlen, stream, s) + pcap_format->headerlen;
+	if (pcap_format->header)
+		pcap_format->header(pkt, stream);
 
 	// Set up PCAP packet header
 	struct pcap_pkthdr header;

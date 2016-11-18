@@ -58,6 +58,7 @@ static socktype_t __socket_types[] = {
 static struct socket_family __socket_families[__SF_LAST] = {
 	[SF_IP4] = {
 		.af			= AF_INET,
+		.ethertype		= 0x0800,
 		.sockaddr_size		= sizeof(struct sockaddr_in),
 		.name			= "IPv4",
 		.rfc_name		= "IP4",
@@ -86,6 +87,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 	},
 	[SF_IP6] = {
 		.af			= AF_INET6,
+		.ethertype		= 0x86dd,
 		.sockaddr_size		= sizeof(struct sockaddr_in6),
 		.name			= "IPv6",
 		.rfc_name		= "IP6",
