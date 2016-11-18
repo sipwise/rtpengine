@@ -194,6 +194,7 @@ option and which are reproduced below:
 	  --homer-id=INT                   'Capture ID' to use within the HEP protocol
 	  --recording-dir=FILE             Spool directory where PCAP call recording data goes
 	  --recording-method=pcap|proc     Strategy for call recording
+	  --recording-format=raw|eth       PCAP file format for recorded calls.
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -538,6 +539,11 @@ The options are described in more detail below.
 
 	In-kernel packet forwarding is fully supported with this recording method even for calls being
 	recorded.
+
+* --recording-format
+
+	 When recording to pcap file in raw (default) format, there is no ethernet header.
+	 When set to eth, a fake ethernet header is added, making each package 14 bytes larger.
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
