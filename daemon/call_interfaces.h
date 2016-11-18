@@ -33,6 +33,7 @@ struct sdp_ng_flags {
 	str record_call_str;
 	str metadata;
 	int asymmetric:1,
+	    no_redis_update:1,
 	    unidirectional:1,
 	    trust_address:1,
 	    port_latching:1,

@@ -542,6 +542,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				out->trust_address = 0;
 			else if (!bencode_strcmp(it, "asymmetric"))
 				out->asymmetric = 1;
+			else if (!bencode_strcmp(it, "no-redis-update"))
+				out->no_redis_update = 1;
 			else if (!bencode_strcmp(it, "unidirectional"))
 				out->unidirectional = 1;
 			else if (!bencode_strcmp(it, "strict-source"))
@@ -761,7 +763,10 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	}
 
 	rwlock_unlock_w(&call->master_lock);
-	redis_update(call, m->conf.redis_write);
+	if (!flags.no_redis_update)
+		redis_update(call, m->conf.redis_write);
+	else
+		ilog(LOG_DEBUG, "Not updating Redis due to present no-redis-update flag");
 	obj_put(call);
 
 	gettimeofday(&(monologue->started), NULL);
