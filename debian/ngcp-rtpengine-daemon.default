@@ -42,5 +42,6 @@ TABLE=0
 # HOMER_ID=2001
 # RECORDING_DIR=/var/spool/rtpengine/
 # RECORDING_METHOD=proc
+# RECORDING_FORMAT=eth
 # LOG_STDERR="no"
 # DTLS_PASSIVE="no"

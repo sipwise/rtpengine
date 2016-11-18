@@ -102,6 +102,7 @@ if [ ! -z "$RECORDING_DIR" ]; then
 	fi
 fi
 [ -z "$RECORDING_METHOD" ] || OPTIONS="$OPTIONS --recording-method=$RECORDING_METHOD"
+[ -z "$RECORDING_FORMAT" ] || OPTIONS="$OPTIONS --recording-format=$RECORDING_FORMAT"
 [ -z "$DTLS_PASSIVE" -o \( "$DTLS_PASSIVE" != "yes" -a "$DTLS_PASSIVE" != "1" \) ] || OPTIONS="$OPTIONS --dtls-passive"
 
 if test "$FORK" = "no" ; then
