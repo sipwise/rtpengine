@@ -93,6 +93,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 	else {
 		// shift pts according to rtp ts shift
 		dec->pts += (ts - dec->rtp_ts) * output->avst->time_base.num * 8000 / output->avst->time_base.den;
+		// XXX handle lost packets here if timestamps don't line up?
 	}
 	dec->rtp_ts = ts;
 
