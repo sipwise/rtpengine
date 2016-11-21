@@ -93,6 +93,7 @@ static int ssrc_tree_search(const void *testseq_p, const void *ts_p) {
 
 
 // ssrc is locked and must be unlocked when returning
+// XXX split up function
 static void ssrc_run(ssrc_t *ssrc) {
 	while (1) {
 		// see if we have a packet with the correct seq nr in the queue
@@ -128,24 +129,41 @@ static void ssrc_run(ssrc_t *ssrc) {
 		}
 
 have_packet:;
-		// determine payload type and run decoder
-		unsigned int payload_type = packet->rtp->m_pt & 0x7f;
-		metafile_t *mf = ssrc->metafile;
-		pthread_mutex_lock(&mf->payloads_lock);
-		char *payload_str = mf->payload_types[payload_type];
-		pthread_mutex_unlock(&mf->payloads_lock);
-
-		dbg("processing packet seq %i, payload type is %s", packet->seq, payload_str);
+		dbg("processing packet seq %i", packet->seq);
 		g_tree_steal(ssrc->packets, GINT_TO_POINTER(packet->seq));
 
+		// determine payload type and run decoder
+		unsigned int payload_type = packet->rtp->m_pt & 0x7f;
 		// check if we have a decoder for this payload type yet
-		if (G_UNLIKELY(!ssrc->decoders[payload_type]))
-			ssrc->decoders[payload_type] = decoder_new(payload_type, payload_str);
-		// XXX error handling
+		if (G_UNLIKELY(!ssrc->decoders[payload_type])) {
+			metafile_t *mf = ssrc->metafile;
+			pthread_mutex_lock(&mf->payloads_lock);
+			char *payload_str = mf->payload_types[payload_type];
+			pthread_mutex_unlock(&mf->payloads_lock);
+
+			if (!payload_str) {
+				const struct rtp_payload_type *rpt = rtp_get_rfc_payload_type(payload_type);
+				if (!rpt) {
+					ilog(LOG_WARN, "Unknown RTP payload type %u", payload_type);
+					goto next_packet;
+				}
+				payload_str = rpt->encoding_with_params.s;
+			}
+
+			dbg("payload type for %u is %s", payload_type, payload_str);
+
+			ssrc->decoders[payload_type] = decoder_new(payload_str);
+			if (!ssrc->decoders[payload_type]) {
+				ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",
+						payload_type, payload_str);
+				goto next_packet;
+			}
+		}
 
 		decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
 				ssrc->output);
 
+next_packet:
 		ssrc->seq = (packet->seq + 1) & 0xffff;
 		packet_free(packet);
 		dbg("packets left in queue: %i", g_tree_nnodes(ssrc->packets));

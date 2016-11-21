@@ -13,44 +13,6 @@
 
 
 
-#define RFC_TYPE(type, name, c_rate)					\
-	[type] = {							\
-		.payload_type		= type,				\
-		.encoding		= STR_CONST_INIT(#name),	\
-		.clock_rate		= c_rate,			\
-	}
-
-static const struct rtp_payload_type __rfc_types[] =
-{
-	RFC_TYPE(0, PCMU, 8000),
-	RFC_TYPE(3, GSM, 8000),
-	RFC_TYPE(4, G723, 8000),
-	RFC_TYPE(5, DVI4, 8000),
-	RFC_TYPE(6, DVI4, 16000),
-	RFC_TYPE(7, LPC, 8000),
-	RFC_TYPE(8, PCMA, 8000),
-	RFC_TYPE(9, G722, 8000),
-	RFC_TYPE(10, L16, 44100),
-	RFC_TYPE(11, L16, 44100),
-	RFC_TYPE(12, QCELP, 8000),
-	RFC_TYPE(13, CN, 8000),
-	RFC_TYPE(14, MPA, 90000),
-	RFC_TYPE(15, G728, 8000),
-	RFC_TYPE(16, DVI4, 11025),
-	RFC_TYPE(17, DVI4, 22050),
-	RFC_TYPE(18, G729, 8000),
-	RFC_TYPE(25, CelB, 90000),
-	RFC_TYPE(26, JPEG, 90000),
-	RFC_TYPE(28, nv, 90000),
-	RFC_TYPE(31, H261, 90000),
-	RFC_TYPE(32, MPV, 90000),
-	RFC_TYPE(33, MP2T, 90000),
-	RFC_TYPE(34, H263, 90000),
-};
-
-
-
-
 INLINE int check_session_keys(struct crypto_context *c) {
 	str s;
 	const char *err;
@@ -299,18 +261,11 @@ const struct rtp_payload_type *rtp_payload_type(unsigned int type, GHashTable *l
 	const struct rtp_payload_type *rtp_pt;
 
 	if (!lookup)
-		goto rfc_types;
+		return rtp_get_rfc_payload_type(type);
 
 	rtp_pt = g_hash_table_lookup(lookup, &type);
 	if (rtp_pt)
 		return rtp_pt;
 
-rfc_types:
-	if (type >= G_N_ELEMENTS(__rfc_types))
-		return NULL;
-	rtp_pt = &__rfc_types[type];
-	if (!rtp_pt->encoding.s)
-		return NULL;
-	return rtp_pt;
-
+	return rtp_get_rfc_payload_type(type);
 }

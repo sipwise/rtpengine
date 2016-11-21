@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "types.h"
 #include "log.h"
+#include "str.h"
 
 
 struct decoder_s {
@@ -24,16 +25,66 @@ struct output_s {
 };
 
 
-decoder_t *decoder_new(unsigned int payload_type, const char *payload_str) {
+struct decoder_def_s {
+	const char *name;
+	int avcodec_id;
+};
+
+
+#define DECODER_DEF(ref, id) { \
+	.name = #ref, \
+	.avcodec_id = AV_CODEC_ID_ ## id, \
+}
+static const struct decoder_def_s decoders[] = {
+	DECODER_DEF(PCMA, PCM_ALAW),
+	DECODER_DEF(PCMU, PCM_MULAW),
+	DECODER_DEF(G723, G723_1),
+	DECODER_DEF(G722, ADPCM_G722),
+	DECODER_DEF(QCELP, QCELP),
+	DECODER_DEF(G729, G729),
+	DECODER_DEF(speex, SPEEX),
+	DECODER_DEF(GSM, GSM),
+	DECODER_DEF(iLBC, ILBC),
+	DECODER_DEF(opus, OPUS),
+};
+typedef struct decoder_def_s decoder_def_t;
+
+
+static const decoder_def_t *decoder_find(const str *name) {
+	for (int i = 0; i < G_N_ELEMENTS(decoders); i++) {
+		if (!str_cmp(name, decoders[i].name))
+			return &decoders[i];
+	}
+	return NULL;
+}
+
+
+decoder_t *decoder_new(const char *payload_str) {
+	str name;
+	char *slash = strchr(payload_str, '/');
+	if (!slash) {
+		ilog(LOG_WARN, "Invalid payload format: %s", payload_str);
+		return NULL;
+	}
+
+	str_init_len(&name, (char *) payload_str, slash - payload_str);
+	int clockrate = atoi(slash + 1);
+
+	const decoder_def_t *def = decoder_find(&name);
+	if (!def) {
+		ilog(LOG_WARN, "No decoder for payload %s", payload_str);
+		return NULL;
+	}
+
 	decoder_t *ret = g_slice_alloc0(sizeof(*ret));
 
 	// XXX error reporting
-	AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_PCM_ALAW);
+	AVCodec *codec = avcodec_find_decoder(def->avcodec_id);
 	ret->avcctx = avcodec_alloc_context3(codec);
 	if (!ret->avcctx)
 		goto err;
 	ret->avcctx->channels = 1;
-	ret->avcctx->sample_rate = 8000;
+	ret->avcctx->sample_rate = clockrate;
 	int i = avcodec_open2(ret->avcctx, codec, NULL);
 	if (i)
 		goto err;

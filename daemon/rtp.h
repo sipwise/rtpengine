@@ -11,14 +11,6 @@
 struct crypto_context;
 struct rtp_header;
 
-struct rtp_payload_type {
-	unsigned int payload_type;
-	str encoding_with_params;
-	str encoding;
-	unsigned int clock_rate;
-	str encoding_parameters;
-};
-
 
 
 

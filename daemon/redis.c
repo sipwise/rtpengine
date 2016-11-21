@@ -1,3 +1,5 @@
+#include "redis.h"
+
 #include <stdio.h>
 #include <hiredis/hiredis.h>
 #include <sys/types.h>
@@ -6,9 +8,12 @@
 #include <glib.h>
 #include <stdarg.h>
 #include <ctype.h>
-
 #include <glib.h>
-#include "redis.h"
+#include <hiredis/hiredis.h>
+#include <hiredis/async.h>
+#include <hiredis/adapters/libevent.h>
+#include <event2/thread.h>
+
 #include "compat.h"
 #include "aux.h"
 #include "call.h"
@@ -18,10 +23,7 @@
 #include "crypto.h"
 #include "dtls.h"
 #include "recording.h"
-#include "hiredis/hiredis.h"
-#include "hiredis/async.h"
-#include "hiredis/adapters/libevent.h"
-#include "event2/thread.h"
+#include "rtplib.h"
 
 
 
