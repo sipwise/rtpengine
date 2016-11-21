@@ -14,6 +14,7 @@
 #include "rtcp_xr.h"
 #include "homer.h"
 #include "media_socket.h"
+#include "rtcplib.h"
 
 
 
@@ -459,22 +460,6 @@ error:
 	return -1;
 }
 
-
-/* RFC 5761 section 4 */
-int rtcp_demux_is_rtcp(const str *s) {
-	struct rtcp_packet *rtcp;
-
-	if (s->len < sizeof(*rtcp))
-		return 0;
-
-	rtcp = (void *) s->s;
-
-	if (rtcp->header.pt < 194)
-		return 0;
-	if (rtcp->header.pt > 223)
-		return 0;
-	return 1;
-}
 
 static void print_rtcp_common(GString *log, const pjmedia_rtcp_common *common) {
 	if (log)

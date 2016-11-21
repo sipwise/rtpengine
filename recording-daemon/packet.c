@@ -9,6 +9,7 @@
 #include "rtplib.h"
 #include "str.h"
 #include "decoder.h"
+#include "rtcplib.h"
 
 
 static int ptr_cmp(const void *a, const void *b, void *dummy) {
@@ -178,6 +179,9 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 	packet->udp = (void *) bufstr.s;
 	str_shift(&bufstr, sizeof(*packet->udp));
 
+	if (rtcp_demux_is_rtcp(&bufstr))
+		goto ignore; // for now
+
 	if (rtp_payload(&packet->rtp, &packet->payload, &bufstr))
 		goto err;
 	if (rtp_padding(packet->rtp, &packet->payload))
@@ -218,5 +222,6 @@ dupe:
 
 err:
 	ilog(LOG_WARN, "Failed to parse packet headers");
+ignore:
 	packet_free(packet);
 }
