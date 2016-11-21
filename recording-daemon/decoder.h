@@ -10,6 +10,7 @@ int decoder_input(decoder_t *, const str *, unsigned long ts, output_t *);
 void decoder_close(decoder_t *);
 
 output_t *output_new(const char *filename);
+int output_config(output_t *, unsigned int clock_rate);
 void output_close(output_t *);
 
 

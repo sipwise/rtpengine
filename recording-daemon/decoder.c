@@ -18,6 +18,8 @@ struct decoder_s {
 
 
 struct output_s {
+	char *filename;
+	int clockrate;
 	AVCodecContext *avcctx;
 	AVFormatContext *fmtctx;
 	AVStream *avst;
@@ -27,19 +29,23 @@ struct output_s {
 
 struct decoder_def_s {
 	const char *name;
+	int clockrate_mult;
 	int avcodec_id;
 };
 
 
-#define DECODER_DEF(ref, id) { \
+#define DECODER_DEF_MULT(ref, id, mult) { \
 	.name = #ref, \
 	.avcodec_id = AV_CODEC_ID_ ## id, \
+	.clockrate_mult = mult, \
 }
+#define DECODER_DEF(ref, id) DECODER_DEF_MULT(ref, id, 1)
+
 static const struct decoder_def_s decoders[] = {
 	DECODER_DEF(PCMA, PCM_ALAW),
 	DECODER_DEF(PCMU, PCM_MULAW),
 	DECODER_DEF(G723, G723_1),
-	DECODER_DEF(G722, ADPCM_G722),
+	DECODER_DEF_MULT(G722, ADPCM_G722, 2),
 	DECODER_DEF(QCELP, QCELP),
 	DECODER_DEF(G729, G729),
 	DECODER_DEF(speex, SPEEX),
@@ -48,6 +54,11 @@ static const struct decoder_def_s decoders[] = {
 	DECODER_DEF(opus, OPUS),
 };
 typedef struct decoder_def_s decoder_def_t;
+
+
+
+static void output_shutdown(output_t *output);
+
 
 
 static const decoder_def_t *decoder_find(const str *name) {
@@ -75,6 +86,7 @@ decoder_t *decoder_new(const char *payload_str) {
 		ilog(LOG_WARN, "No decoder for payload %s", payload_str);
 		return NULL;
 	}
+	clockrate *= def->clockrate_mult;
 
 	decoder_t *ret = g_slice_alloc0(sizeof(*ret));
 
@@ -172,6 +184,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 
 	dec->frame->pts = dec->frame->pkt_pts;
 
+	output_config(output, dec->avcctx->sample_rate);
 	output_add(output, dec->frame);
 
 	return 0;
@@ -180,55 +193,69 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 
 output_t *output_new(const char *filename) {
 	output_t *ret = g_slice_alloc0(sizeof(*ret));
+	ret->filename = strdup(filename);
+	ret->clockrate = -1;
+	return ret;
+}
+
+
+int output_config(output_t *output, unsigned int clockrate) {
+	// anything to do?
+	if (output->clockrate == clockrate)
+		return 0;
+
+	// XXX support reset/config change
+
+	output->clockrate = clockrate;
 
 	// XXX error reporting
-	ret->fmtctx = avformat_alloc_context();
-	if (!ret->fmtctx)
+	output->fmtctx = avformat_alloc_context();
+	if (!output->fmtctx)
 		goto err;
-	ret->fmtctx->oformat = av_guess_format("wav", NULL, NULL); // XXX better way?
-	if (!ret->fmtctx->oformat)
+	output->fmtctx->oformat = av_guess_format("wav", NULL, NULL); // XXX better way?
+	if (!output->fmtctx->oformat)
 		goto err;
 
 	AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
 	// XXX error handling
-	ret->avst = avformat_new_stream(ret->fmtctx, codec);
-	if (!ret->avst)
+	output->avst = avformat_new_stream(output->fmtctx, codec);
+	if (!output->avst)
 		goto err;
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-	ret->avcctx = avcodec_alloc_context3(codec);
-	if (!ret->avcctx)
+	output->avcctx = avcodec_alloc_context3(codec);
+	if (!output->avcctx)
 		goto err;
 #else
-	ret->avcctx = ret->avst->codec;
+	output->avcctx = output->avst->codec;
 #endif
 
-	ret->avcctx->channels = 1;
-	ret->avcctx->sample_rate = 8000;
-	ret->avcctx->sample_fmt = AV_SAMPLE_FMT_S16;
-	ret->avcctx->time_base = (AVRational){8000,1};
-	ret->avst->time_base = ret->avcctx->time_base;
+	output->avcctx->channels = 1;
+	output->avcctx->sample_rate = output->clockrate;
+	output->avcctx->sample_fmt = AV_SAMPLE_FMT_S16;
+	output->avcctx->time_base = (AVRational){output->clockrate,1};
+	output->avst->time_base = output->avcctx->time_base;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-	avcodec_parameters_from_context(ret->avst->codecpar, ret->avcctx);
+	avcodec_parameters_from_context(output->avst->codecpar, output->avcctx);
 #endif
 
-	int i = avcodec_open2(ret->avcctx, codec, NULL);
+	int i = avcodec_open2(output->avcctx, codec, NULL);
 	if (i)
 		goto err;
-	i = avio_open(&ret->fmtctx->pb, filename, AVIO_FLAG_WRITE);
+	i = avio_open(&output->fmtctx->pb, output->filename, AVIO_FLAG_WRITE);
 	if (i < 0)
 		goto err;
-	i = avformat_write_header(ret->fmtctx, NULL);
+	i = avformat_write_header(output->fmtctx, NULL);
 	if (i)
 		goto err;
 
-	av_init_packet(&ret->avpkt);
+	av_init_packet(&output->avpkt);
 
-	return ret;
+	return 0;
 
 err:
-	output_close(ret);
-	return NULL;
+	output_shutdown(output);
+	return -1;
 }
 
 
@@ -241,12 +268,24 @@ void decoder_close(decoder_t *dec) {
 }
 
 
-void output_close(output_t *output) {
+static void output_shutdown(output_t *output) {
 	if (!output)
 		return;
 	av_write_trailer(output->fmtctx);
 	avcodec_close(output->avcctx);
 	avio_closep(&output->fmtctx->pb);
 	avformat_free_context(output->fmtctx);
+
+	output->avcctx = NULL;
+	output->fmtctx = NULL;
+	output->avst = NULL;
+}
+
+
+void output_close(output_t *output) {
+	if (!output)
+		return;
+	output_shutdown(output);
+	free(output->filename);
 	g_slice_free1(sizeof(*output), output);
 }
