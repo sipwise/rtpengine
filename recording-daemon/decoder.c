@@ -19,7 +19,11 @@ struct decoder_s {
 
 struct output_s {
 	char *filename;
+
+	// format params
 	int clockrate;
+	int channels;
+
 	AVCodecContext *avcctx;
 	AVFormatContext *fmtctx;
 	AVStream *avst;
@@ -28,17 +32,21 @@ struct output_s {
 
 
 struct decoder_def_s {
-	const char *name;
+	const char *rtpname;
 	int clockrate_mult;
 	int avcodec_id;
+	const char *avcodec_name;
 };
 
 
-#define DECODER_DEF_MULT(ref, id, mult) { \
-	.name = #ref, \
+#define DECODER_DEF_MULT_NAME(ref, id, mult, name) { \
+	.rtpname = #ref, \
 	.avcodec_id = AV_CODEC_ID_ ## id, \
 	.clockrate_mult = mult, \
+	.avcodec_name = #name, \
 }
+#define DECODER_DEF_MULT(ref, id, mult) DECODER_DEF_MULT_NAME(ref, id, mult, NULL)
+#define DECODER_DEF_NAME(ref, id, name) DECODER_DEF_MULT_NAME(ref, id, 1, name)
 #define DECODER_DEF(ref, id) DECODER_DEF_MULT(ref, id, 1)
 
 static const struct decoder_def_s decoders[] = {
@@ -51,19 +59,20 @@ static const struct decoder_def_s decoders[] = {
 	DECODER_DEF(speex, SPEEX),
 	DECODER_DEF(GSM, GSM),
 	DECODER_DEF(iLBC, ILBC),
-	DECODER_DEF(opus, OPUS),
+	DECODER_DEF_NAME(opus, OPUS, libopus),
 };
 typedef struct decoder_def_s decoder_def_t;
 
 
 
 static void output_shutdown(output_t *output);
+static int output_config(output_t *output, unsigned int clockrate, unsigned int channels);
 
 
 
 static const decoder_def_t *decoder_find(const str *name) {
 	for (int i = 0; i < G_N_ELEMENTS(decoders); i++) {
-		if (!str_cmp(name, decoders[i].name))
+		if (!str_cmp(name, decoders[i].rtpname))
 			return &decoders[i];
 	}
 	return NULL;
@@ -81,6 +90,14 @@ decoder_t *decoder_new(const char *payload_str) {
 	str_init_len(&name, (char *) payload_str, slash - payload_str);
 	int clockrate = atoi(slash + 1);
 
+	int channels = 1;
+	slash = strchr(slash + 1, '/');
+	if (slash) {
+		channels = atoi(slash + 1);
+		if (!channels)
+			channels = 1;
+	}
+
 	const decoder_def_t *def = decoder_find(&name);
 	if (!def) {
 		ilog(LOG_WARN, "No decoder for payload %s", payload_str);
@@ -91,11 +108,16 @@ decoder_t *decoder_new(const char *payload_str) {
 	decoder_t *ret = g_slice_alloc0(sizeof(*ret));
 
 	// XXX error reporting
-	AVCodec *codec = avcodec_find_decoder(def->avcodec_id);
+	AVCodec *codec = NULL;
+	if (def->avcodec_name)
+		codec = avcodec_find_decoder_by_name(def->avcodec_name);
+	if (!codec)
+		codec = avcodec_find_decoder(def->avcodec_id);
+
 	ret->avcctx = avcodec_alloc_context3(codec);
 	if (!ret->avcctx)
 		goto err;
-	ret->avcctx->channels = 1;
+	ret->avcctx->channels = channels;
 	ret->avcctx->sample_rate = clockrate;
 	int i = avcodec_open2(ret->avcctx, codec, NULL);
 	if (i)
@@ -155,7 +177,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 	}
 	else {
 		// shift pts according to rtp ts shift
-		dec->pts += (ts - dec->rtp_ts) * output->avst->time_base.num * 8000 / output->avst->time_base.den;
+		dec->pts += (ts - dec->rtp_ts) /* * output->avst->time_base.num * 8000 / output->avst->time_base.den */ ;
 		// XXX handle lost packets here if timestamps don't line up?
 	}
 	dec->rtp_ts = ts;
@@ -184,7 +206,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 
 	dec->frame->pts = dec->frame->pkt_pts;
 
-	output_config(output, dec->avcctx->sample_rate);
+	output_config(output, dec->avcctx->sample_rate, dec->avcctx->channels);
 	output_add(output, dec->frame);
 
 	return 0;
@@ -195,18 +217,27 @@ output_t *output_new(const char *filename) {
 	output_t *ret = g_slice_alloc0(sizeof(*ret));
 	ret->filename = strdup(filename);
 	ret->clockrate = -1;
+	ret->channels = -1;
 	return ret;
 }
 
 
-int output_config(output_t *output, unsigned int clockrate) {
+static int output_config(output_t *output, unsigned int clockrate, unsigned int channels) {
 	// anything to do?
-	if (output->clockrate == clockrate)
-		return 0;
+	if (G_UNLIKELY(output->clockrate != clockrate))
+		goto format_mismatch;
+	if (G_UNLIKELY(output->channels != channels))
+		goto format_mismatch;
 
+	// all good
+	return 0;
+
+format_mismatch:
 	// XXX support reset/config change
 
+	// copy params
 	output->clockrate = clockrate;
+	output->channels = channels;
 
 	// XXX error reporting
 	output->fmtctx = avformat_alloc_context();
@@ -229,7 +260,7 @@ int output_config(output_t *output, unsigned int clockrate) {
 	output->avcctx = output->avst->codec;
 #endif
 
-	output->avcctx->channels = 1;
+	output->avcctx->channels = output->channels;
 	output->avcctx->sample_rate = output->clockrate;
 	output->avcctx->sample_fmt = AV_SAMPLE_FMT_S16;
 	output->avcctx->time_base = (AVRational){output->clockrate,1};

@@ -33,6 +33,11 @@ static void signals(void) {
 }
 
 
+static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
+	vilog(loglevel, fmt, ap);
+}
+
+
 static void setup(void) {
 	av_register_all();
 	avcodec_register_all();
@@ -41,6 +46,7 @@ static void setup(void) {
 	metafile_setup();
 	epoll_setup();
 	inotify_setup();
+	av_log_set_callback(avlog_ilog);
 }
 
 
