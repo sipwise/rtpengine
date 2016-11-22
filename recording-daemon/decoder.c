@@ -201,7 +201,7 @@ output_t *output_new(const char *filename) {
 
 int output_config(output_t *output, unsigned int clockrate) {
 	// anything to do?
-	if (output->clockrate == clockrate)
+	if (G_LIKELY(output->clockrate == clockrate))
 		return 0;
 
 	// XXX support reset/config change
