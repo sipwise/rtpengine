@@ -1,4 +1,4 @@
-Name:		rtpengine
+Name:		ngcp-rtpengine
 Version:	4.5.0
 Release:	0%{?dist}
 Summary:	The Sipwise NGCP rtpengine
@@ -29,7 +29,7 @@ Group:		System Environment/Daemons
 BuildRequires:	gcc make redhat-rpm-config iptables-devel
 Requires:	iptables iptables-ipv6
 Requires:	%{name}%{?_isa} = %{version}-%{release}
-Requires:	%{name}-dkms%{?_isa} = %{version}-%{release}
+Requires: 	%{name}-dkms = %{version}-%{release}
 
 %description kernel
 %{summary}.
@@ -47,6 +47,7 @@ Requires(preun): epel-release dkms
 %description dkms
 %{summary}.
 
+%define binname rtpengine
 
 %prep
 %setup -q
@@ -62,15 +63,15 @@ cd ..
 
 %install
 # Install the userspace daemon
-install -D -p -m755 daemon/%{name} %{buildroot}%{_sbindir}/%{name}
+install -D -p -m755 daemon/%{binname} %{buildroot}%{_sbindir}/%{binname}
 # Install CLI (command line interface)
-install -D -p -m755 utils/%{name}-ctl %{buildroot}%{_sbindir}/%{name}-ctl
+install -D -p -m755 utils/%{binname}-ctl %{buildroot}%{_sbindir}/%{binname}-ctl
 
 ## Install the init.d script and configuration file
-install -D -p -m755 el/%{name}.init \
+install -D -p -m755 el/%{binname}.init \
 	%{buildroot}%{_initrddir}/%{name}
-install -D -p -m644 el/%{name}.sysconfig \
-	%{buildroot}%{_sysconfdir}/sysconfig/%{name}
+install -D -p -m644 el/%{binname}.sysconfig \
+	%{buildroot}%{_sysconfdir}/sysconfig/%{binname}
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 
 # Install the iptables plugin
@@ -131,13 +132,13 @@ true
 
 %files
 # Userspace daemon
-%{_sbindir}/%{name}
+%{_sbindir}/%{binname}
 # CLI (command line interface)
-%{_sbindir}/%{name}-ctl
+%{_sbindir}/%{binname}-ctl
 
 # init.d script and configuration file
 %{_initrddir}/%{name}
-%config(noreplace) %{_sysconfdir}/sysconfig/%{name}
+%config(noreplace) %{_sysconfdir}/sysconfig/%{binname}
 %attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{name}
 
 # Documentation
@@ -156,6 +157,11 @@ true
 
 
 %changelog
+* Thu Nov 24 2016 Marcel Weinberg <marcel@ng-voice.com>
+  - Updated to ngcp-rtpengine version 4.5.0 and CentOS 7.2 
+  - created a new variable "binname" to use rtpengine as name for the binaries
+    (still using ngcp-rtpenginge as name of the package and daemon - aligned to the .deb packages)
+  - fixed dependencies 
 * Mon Nov 11 2013 Peter Dunkley <peter.dunkley@crocodilertc.net>
   - Updated version to 2.3.2
   - Set license to GPLv3
@@ -166,3 +172,4 @@ true
   - Builds and installs userspace daemon (but no init.d scripts etc yet)
   - Builds and installs the iptables plugin
   - DKMS package for the kernel module
+
