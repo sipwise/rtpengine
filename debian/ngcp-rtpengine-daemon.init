@@ -56,6 +56,8 @@ if [ ! -z "$SUBSCRIBE_KEYSPACES" ]; then
 	done
 fi
 
+[ -z "$CONFIG_FILE" ] || OPTIONS="$OPTIONS --config-file=$CONFIG_FILE"
+[ -z "$CONFIG_SECTION" ] || OPTIONS="$OPTIONS --config-section=$CONFIG_SECTION"
 [ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --interface=$ADDRESS"
 [ -z "$ADV_ADDRESS" ] || OPTIONS="$OPTIONS!$ADV_ADDRESS"
 [ -z "$ADDRESS_IPV6" ] || OPTIONS="$OPTIONS --interface=$ADDRESS_IPV6"
