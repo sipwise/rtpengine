@@ -14,6 +14,7 @@
 #include "metafile.h"
 #include "garbage.h"
 #include "loglib.h"
+#include "auxlib.h"
 
 
 
@@ -104,6 +105,8 @@ static void cleanup(void) {
 
 int main() {
 	setup();
+	daemonize();
+	//wpidfile();
 
 	for (int i = 0; i < NUM_THREADS; i++)
 		start_poller_thread();
