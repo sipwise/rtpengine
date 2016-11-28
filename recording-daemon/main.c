@@ -13,6 +13,7 @@
 #include "inotify.h"
 #include "metafile.h"
 #include "garbage.h"
+#include "loglib.h"
 
 
 
@@ -34,11 +35,12 @@ static void signals(void) {
 
 
 static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
-	vilog(loglevel, fmt, ap);
+	__vpilog(loglevel, NULL, fmt, ap);
 }
 
 
 static void setup(void) {
+	log_init();
 	av_register_all();
 	avcodec_register_all();
 	avformat_network_init();
