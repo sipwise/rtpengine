@@ -36,7 +36,7 @@ ifneq ($(DBG),yes)
 endif
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c rtplib.c packet.c \
-		decoder.c
+		decoder.c loglib.c
 OBJS=		$(SRCS:.c=.o)
 
 
