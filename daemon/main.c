@@ -265,6 +265,8 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 
 
 static void options(int *argc, char ***argv) {
+	char *configfile = NULL;
+	char *configsection = "rtpengine";
 	char **if_a = NULL;
 	char **ks_a = NULL;
 	unsigned int uint_keyspace_db;
@@ -289,6 +291,8 @@ static void options(int *argc, char ***argv) {
 	char *endptr;
 
 	GOptionEntry e[] = {
+		{ "config-file",  0, 0, G_OPTION_ARG_STRING,	&configfile,	"Load config from this file",	"FILE"		},
+		{ "config-section",0,0, G_OPTION_ARG_STRING,	&configsection,	"Config file section to use",	"STRING"		},
 		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&no_fallback,	"Only start when kernel module is available", NULL },
@@ -335,13 +339,11 @@ static void options(int *argc, char ***argv) {
 		{ NULL, }
 	};
 
-	GOptionContext *c;
-	GError *er = NULL;
+	const char *errstr = config_load(argc, argv, e, " - next-generation media proxy", &configfile,
+			"/etc/rtpengine/rtpengine.conf", &configsection);
 
-	c = g_option_context_new(" - next-generation media proxy");
-	g_option_context_add_main_entries(c, e, NULL);
-	if (!g_option_context_parse(c, argc, argv, &er))
-		die("Bad command line: %s", er->message);
+	if (errstr)
+		die("Bad command line: %s", errstr);
 
 	if (version)
 		die("%s", RTPENGINE_VERSION);
