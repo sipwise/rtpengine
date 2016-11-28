@@ -31,6 +31,7 @@
 #include "media_socket.h"
 #include "homer.h"
 #include "recording.h"
+#include "auxlib.h"
 
 
 
@@ -469,30 +470,6 @@ static void options(int *argc, char ***argv) {
 }
 
 
-static void daemonize(void) {
-	if (fork())
-		_exit(0);
-	write_log = (write_log_t *) syslog;
-	stdin = freopen("/dev/null", "r", stdin);
-	stdout = freopen("/dev/null", "w", stdout);
-	stderr = freopen("/dev/null", "w", stderr);
-	setpgrp();
-}
-
-static void wpidfile(void) {
-	FILE *fp;
-
-	if (!pidfile)
-		return;
-
-	fp = fopen(pidfile, "w");
-	if (fp) {
-		fprintf(fp, "%u\n", getpid());
-		fclose(fp);
-	}
-}
-
-
 static void cb_openssl_threadid(CRYPTO_THREADID *tid) {
 	pthread_t me;
 
@@ -665,7 +642,7 @@ no_kernel:
 
 	if (!foreground)
 		daemonize();
-	wpidfile();
+	wpidfile(pidfile);
 
 	ctx->m->homer = homer_sender_new(&homer_ep, homer_protocol, homer_id);
 
@@ -731,7 +708,8 @@ int main(int argc, char **argv) {
 		threads_join_all(0);
 	}
 
-	redis_notify_event_base_action(ctx.m, EVENT_BASE_LOOPBREAK);
+	if (!is_addr_unspecified(&redis_ep.address))
+		redis_notify_event_base_action(ctx.m, EVENT_BASE_LOOPBREAK);
 
 	threads_join_all(1);
 

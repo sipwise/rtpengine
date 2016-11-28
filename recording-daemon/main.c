@@ -14,6 +14,7 @@
 #include "metafile.h"
 #include "garbage.h"
 #include "loglib.h"
+#include "auxlib.h"
 
 
 
@@ -49,6 +50,7 @@ static void setup(void) {
 	epoll_setup();
 	inotify_setup();
 	av_log_set_callback(avlog_ilog);
+	openlog("rtpengine-recording", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 }
 
 
@@ -104,6 +106,8 @@ static void cleanup(void) {
 
 int main() {
 	setup();
+	daemonize();
+	//wpidfile();
 
 	for (int i = 0; i < NUM_THREADS; i++)
 		start_poller_thread();
