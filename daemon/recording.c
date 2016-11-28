@@ -152,16 +152,16 @@ found:
 	}
 }
 
-static int check_create_dir(const char *dir, const char *desc, int creat) {
+static int check_create_dir(const char *dir, const char *desc, mode_t creat_mode) {
 	struct stat info;
 
 	if (stat(dir, &info) != 0) {
-		if (!creat) {
+		if (!creat_mode) {
 			ilog(LOG_WARN, "%s directory \"%s\" does not exist.", desc, dir);
 			return FALSE;
 		}
 		ilog(LOG_INFO, "Creating %s directory \"%s\".", desc, dir);
-		if (mkdir(dir, 0777) == 0)
+		if (mkdir(dir, creat_mode) == 0)
 			return TRUE;
 		ilog(LOG_ERR, "Failed to create %s directory \"%s\": %s", desc, dir, strerror(errno));
 		return FALSE;
@@ -174,7 +174,7 @@ static int check_create_dir(const char *dir, const char *desc, int creat) {
 }
 
 static int check_main_spool_dir(const char *spoolpath) {
-	return check_create_dir(spoolpath, "spool", 0);
+	return check_create_dir(spoolpath, "spool", 0700);
 }
 
 /**
@@ -201,11 +201,11 @@ static int pcap_create_spool_dir(const char *spoolpath) {
 	snprintf(rec_path, sizeof(rec_path), "%s/pcaps", spoolpath);
 	snprintf(tmp_path, sizeof(tmp_path), "%s/tmp", spoolpath);
 
-	if (!check_create_dir(meta_path, "metadata", 1))
+	if (!check_create_dir(meta_path, "metadata", 0777))
 		spool_good = FALSE;
-	if (!check_create_dir(rec_path, "pcaps", 1))
+	if (!check_create_dir(rec_path, "pcaps", 0777))
 		spool_good = FALSE;
-	if (!check_create_dir(tmp_path, "tmp", 1))
+	if (!check_create_dir(tmp_path, "tmp", 0777))
 		spool_good = FALSE;
 
 	return spool_good;
