@@ -181,7 +181,7 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 	piece = msg;
 
 	while (max_log_line_length && ret > max_log_line_length) {
-		write_log(xprio, "%s%s%.*s ...", prefix, infix, max_log_line_length, piece);
+		write_log(xprio, "%s: %s%s%.*s ...", prio_prefix, prefix, infix, max_log_line_length, piece);
 		ret -= max_log_line_length;
 		piece += max_log_line_length;
 		infix = "... ";

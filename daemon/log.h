@@ -42,7 +42,6 @@ void cdrlog(const char* cdrbuffer);
 void rtcplog(const char* cdrbuffer);
 
 
-#define ilog(...) __ilog(__VA_ARGS__)
 void __ilog(int prio, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
 

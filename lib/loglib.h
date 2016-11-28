@@ -36,17 +36,17 @@ void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf
 
 
 #ifndef __DEBUG
-#define pilog(prio, fmt...)									\
+#define ilog(prio, fmt, ...)									\
 	do {											\
 		int loglevel = get_log_level();							\
 		if (LOG_LEVEL_MASK((prio)) > LOG_LEVEL_MASK(loglevel))				\
 			break;									\
 		if ((loglevel & LOG_FLAG_RESTORE) && !((prio) & LOG_FLAG_RESTORE))		\
 			break;									\
-		__ilog(prio, fmt);								\
+		__ilog(prio, fmt, ##__VA_ARGS__);						\
 	} while (0)
 #else
-#define pilog(prio, fmt...) __ilog(prio, fmt)
+#define ilog(prio, fmt, ...) __ilog(prio, fmt, ##__VA_ARGS__)
 #endif
 
 

@@ -10,7 +10,7 @@
 
 #define die(fmt, ...) do { ilog(LOG_CRIT, "Fatal error: " fmt, ##__VA_ARGS__); exit(-1); } while (0)
 #define die_errno(msg) die("%s: %s", msg, strerror(errno))
-#define ilog(...) __ilog_np(__VA_ARGS__)
+#define __ilog(...) __ilog_np(__VA_ARGS__)
 #define dbg(fmt, ...) ilog(LOG_DEBUG, fmt, ##__VA_ARGS__)
 
 #endif
