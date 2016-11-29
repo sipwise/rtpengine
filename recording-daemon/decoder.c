@@ -60,6 +60,16 @@ static const struct decoder_def_s decoders[] = {
 	DECODER_DEF(GSM, GSM),
 	DECODER_DEF(iLBC, ILBC),
 	DECODER_DEF_NAME(opus, OPUS, libopus),
+	DECODER_DEF_NAME(vorbis, VORBIS, libvorbis),
+	DECODER_DEF(ac3, AC3),
+	DECODER_DEF(eac3, EAC3),
+	DECODER_DEF(ATRAC3, ATRAC3),
+	DECODER_DEF(ATRAC-X, ATRAC3P),
+	DECODER_DEF(EVRC, EVRC),
+	DECODER_DEF(EVRC0, EVRC),
+	DECODER_DEF(EVRC1, EVRC),
+	DECODER_DEF(AMR, AMR_NB),
+	DECODER_DEF(AMR-WB, AMR_WB),
 };
 typedef struct decoder_def_s decoder_def_t;
 
