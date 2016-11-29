@@ -18,6 +18,14 @@
 
 
 
+int ktable = 0;
+int num_threads = 8;
+const char *spool_dir = "/var/spool/rtpengine";
+const char *output_dir = "/var/lib/rtpengine-recording";
+
+static const char *pidfile;
+
+
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
 volatile int shutdown_flag;
@@ -104,12 +112,36 @@ static void cleanup(void) {
 }
 
 
-int main() {
+static void options(int *argc, char ***argv) {
+	char *configfile = NULL;
+	char *configsection = "rtpengine-recording";
+
+	GOptionEntry e[] = {
+		{ "config-file",	0,   0, G_OPTION_ARG_STRING,	&configfile,	"Load config from this file",		"FILE"		},
+		{ "config-section",	0,   0, G_OPTION_ARG_STRING,	&configsection,	"Config file section to use",		"STRING"	},
+		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
+		{ "spool-dir",		0,   0, G_OPTION_ARG_STRING,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
+		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
+		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
+		{ "log-level",		'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"		},
+		{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&pidfile,	"Write PID to file",			"FILE"		},
+		{ NULL, }
+	};
+
+	const char *errstr = config_load(argc, argv, e, " - rtpengine recording daemon", &configfile,
+			"/etc/rtpengine/rtpengine-recording.conf", &configsection);
+	if (errstr)
+		die("Bad command line: %s", errstr);
+}
+
+
+int main(int argc, char **argv) {
+	options(&argc, &argv);
 	setup();
 	daemonize();
-	//wpidfile();
+	wpidfile(pidfile);
 
-	for (int i = 0; i < NUM_THREADS; i++)
+	for (int i = 0; i < num_threads; i++)
 		start_poller_thread();
 
 	wait_for_signal();
