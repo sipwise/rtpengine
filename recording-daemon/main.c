@@ -18,6 +18,12 @@
 
 
 
+int ktable = 0;
+int num_threads = 8;
+const char *spool_dir = "/var/spool/rtpengine";
+const char *output_dir = "/var/lib/rtpengine-recording";
+
+
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
 volatile int shutdown_flag;
@@ -104,12 +110,27 @@ static void cleanup(void) {
 }
 
 
-int main() {
+static void options(int *argc, char ***argv) {
+	GOptionEntry e[] = {
+		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
+		{ "spool-dir",		0,   0, G_OPTION_ARG_STRING,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
+		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
+		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
+		{ NULL, }
+	};
+
+	config_load(argc, argv, e, " - rtpengine recording daemon",
+			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording");
+}
+
+
+int main(int argc, char **argv) {
+	options(&argc, &argv);
 	setup();
 	daemonize();
-	//wpidfile();
+	wpidfile();
 
-	for (int i = 0; i < NUM_THREADS; i++)
+	for (int i = 0; i < num_threads; i++)
 		start_poller_thread();
 
 	wait_for_signal();
