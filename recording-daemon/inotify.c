@@ -65,7 +65,7 @@ void inotify_setup(void) {
 	if (inotify_fd == -1)
 		die_errno("inotify_init1 failed");
 
-	int ret = inotify_add_watch(inotify_fd, SPOOL_DIR, IN_CLOSE_WRITE | IN_DELETE);
+	int ret = inotify_add_watch(inotify_fd, spool_dir, IN_CLOSE_WRITE | IN_DELETE);
 	if (ret == -1)
 		die_errno("inotify_add_watch failed");
 

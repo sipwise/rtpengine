@@ -35,13 +35,6 @@
 
 
 
-#define die(x...) do {									\
-	ilog(LOG_CRIT, x);								\
-	exit(-1);									\
-} while(0)
-
-
-
 struct main_context {
 	struct poller		*p;
 	struct callmaster	*m;
@@ -52,8 +45,6 @@ struct main_context {
 
 static mutex_t *openssl_locks;
 
-static char *pidfile;
-static gboolean foreground;
 static GQueue interfaces = G_QUEUE_INIT;
 static GQueue keyspaces = G_QUEUE_INIT;
 static endpoint_t tcp_listen_ep;
@@ -265,8 +256,6 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 
 
 static void options(int *argc, char ***argv) {
-	char *configfile = NULL;
-	char *configsection = "rtpengine";
 	char **if_a = NULL;
 	char **ks_a = NULL;
 	unsigned int uint_keyspace_db;
@@ -284,16 +273,12 @@ static void options(int *argc, char ***argv) {
 	char *log_facility_s = NULL;
 	char *log_facility_cdr_s = NULL;
 	char *log_facility_rtcp_s = NULL;
-	int version = 0;
 	int sip_source = 0;
 	char *homerp = NULL;
 	char *homerproto = NULL;
 	char *endptr;
 
 	GOptionEntry e[] = {
-		{ "config-file",  0, 0, G_OPTION_ARG_STRING,	&configfile,	"Load config from this file",	"FILE"		},
-		{ "config-section",0,0, G_OPTION_ARG_STRING,	&configsection,	"Config file section to use",	"STRING"		},
-		{ "version",	'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",	NULL		},
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&no_fallback,	"Only start when kernel module is available", NULL },
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
@@ -309,8 +294,6 @@ static void options(int *argc, char ***argv) {
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&final_timeout,	"Call timeout",			"SECS"		},
-		{ "pidfile",	'p', 0, G_OPTION_ARG_FILENAME,	&pidfile,	"Write PID to file",		"FILE"		},
-		{ "foreground",	'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",	NULL		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
@@ -319,7 +302,6 @@ static void options(int *argc, char ***argv) {
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &redis_expires, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &no_redis_required, "Start no matter of redis connection state", NULL },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
-		{ "log-level",	'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"	},
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
 		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
@@ -339,14 +321,8 @@ static void options(int *argc, char ***argv) {
 		{ NULL, }
 	};
 
-	const char *errstr = config_load(argc, argv, e, " - next-generation media proxy", &configfile,
-			"/etc/rtpengine/rtpengine.conf", &configsection);
-
-	if (errstr)
-		die("Bad command line: %s", errstr);
-
-	if (version)
-		die("%s", RTPENGINE_VERSION);
+	config_load(argc, argv, e, " - next-generation media proxy",
+			"/etc/rtpengine/rtpengine.conf");
 
 	if (!if_a)
 		die("Missing option --interface");
@@ -444,21 +420,21 @@ static void options(int *argc, char ***argv) {
 	if (log_facility_s) {
 		if (!parse_log_facility(log_facility_s, &_log_facility)) {
 			print_available_log_facilities();
-			die ("Invalid log facility '%s' (--log-facility)\n", log_facility_s);
+			die ("Invalid log facility '%s' (--log-facility)", log_facility_s);
 		}
 	}
 
 	if (log_facility_cdr_s) {
 		if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
 			print_available_log_facilities();
-			die ("Invalid log facility for CDR '%s' (--log-facility-cdr)\n", log_facility_cdr_s);
+			die ("Invalid log facility for CDR '%s' (--log-facility-cdr)", log_facility_cdr_s);
 		}
 	}
 
 	if (log_facility_rtcp_s) {
 		if (!parse_log_facility(log_facility_rtcp_s, &_log_facility_rtcp)) {
 			print_available_log_facilities();
-			die ("Invalid log facility for RTCP '%s' (--log-facility-rtcp)\n", log_facility_rtcp_s);
+			die ("Invalid log facility for RTCP '%s' (--log-facility-rtcp)n", log_facility_rtcp_s);
 		}
 	}
 
@@ -642,9 +618,8 @@ no_kernel:
 
 	ctx->m->conf = mc;
 
-	if (!foreground)
-		daemonize();
-	wpidfile(pidfile);
+	daemonize();
+	wpidfile();
 
 	ctx->m->homer = homer_sender_new(&homer_ep, homer_protocol, homer_id);
 
