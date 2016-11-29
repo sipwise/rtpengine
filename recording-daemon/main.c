@@ -8,6 +8,8 @@
 #include <signal.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "log.h"
 #include "epoll.h"
 #include "inotify.h"
@@ -16,6 +18,12 @@
 #include "loglib.h"
 #include "auxlib.h"
 
+
+
+int ktable = 0;
+int num_threads = 8;
+const char *spool_dir = "/var/spool/rtpengine";
+const char *output_dir = "/var/lib/rtpengine-recording";
 
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
@@ -51,6 +59,12 @@ static void setup(void) {
 	inotify_setup();
 	av_log_set_callback(avlog_ilog);
 	openlog("rtpengine-recording", LOG_PID | LOG_NDELAY, LOG_DAEMON);
+
+	if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
+		ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
+		if (mkdir(output_dir, 0700))
+			die_errno("Failed to create output dir '%s'");
+	}
 }
 
 
@@ -104,12 +118,27 @@ static void cleanup(void) {
 }
 
 
-int main() {
+static void options(int *argc, char ***argv) {
+	GOptionEntry e[] = {
+		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
+		{ "spool-dir",		0,   0, G_OPTION_ARG_STRING,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
+		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
+		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
+		{ NULL, }
+	};
+
+	config_load(argc, argv, e, " - rtpengine recording daemon",
+			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording");
+}
+
+
+int main(int argc, char **argv) {
+	options(&argc, &argv);
 	setup();
 	daemonize();
-	//wpidfile();
+	wpidfile();
 
-	for (int i = 0; i < NUM_THREADS; i++)
+	for (int i = 0; i < num_threads; i++)
 		start_poller_thread();
 
 	wait_for_signal();
