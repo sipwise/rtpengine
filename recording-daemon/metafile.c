@@ -129,7 +129,7 @@ void metafile_change(char *name) {
 	metafile_t *mf = metafile_get(name);
 
 	char fnbuf[PATH_MAX];
-	snprintf(fnbuf, sizeof(fnbuf), "%s/%s", SPOOL_DIR, name);
+	snprintf(fnbuf, sizeof(fnbuf), "%s/%s", spool_dir, name);
 
 	// open file and seek to last known position
 	int fd = open(fnbuf, O_RDONLY);

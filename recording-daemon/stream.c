@@ -97,7 +97,7 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 	stream->name = g_string_chunk_insert(mf->gsc, name);
 
 	char fnbuf[PATH_MAX];
-	snprintf(fnbuf, sizeof(fnbuf), "%s/%s/%s", PROC_DIR, mf->parent, name);
+	snprintf(fnbuf, sizeof(fnbuf), "/proc/rtpengine/%u/calls/%s/%s", ktable, mf->parent, name);
 
 	stream->fd = open(fnbuf, O_RDONLY | O_NONBLOCK);
 	if (stream->fd == -1) {
