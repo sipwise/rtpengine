@@ -17,6 +17,7 @@
 #include "garbage.h"
 #include "loglib.h"
 #include "auxlib.h"
+#include "decoder.h"
 
 
 
@@ -24,6 +25,7 @@ int ktable = 0;
 int num_threads = 8;
 const char *spool_dir = "/var/spool/rtpengine";
 const char *output_dir = "/var/lib/rtpengine-recording";
+static const char *output_format = "wav";
 
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
@@ -44,11 +46,19 @@ static void signals(void) {
 
 
 static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
-	__vpilog(loglevel, NULL, fmt, ap);
+	char *msg;
+	if (vasprintf(&msg, fmt, ap) <= 0)
+		ilog(LOG_ERR, "av_log message dropped");
+	else {
+		ilog(MAX(LOG_ERR, loglevel), "av_log: %s", msg);
+		free(msg);
+	}
 }
 
 
 static void setup(void) {
+	openlog("rtpengine-recording", LOG_PID | LOG_NDELAY, LOG_DAEMON);
+
 	log_init();
 	av_register_all();
 	avcodec_register_all();
@@ -58,7 +68,7 @@ static void setup(void) {
 	epoll_setup();
 	inotify_setup();
 	av_log_set_callback(avlog_ilog);
-	openlog("rtpengine-recording", LOG_PID | LOG_NDELAY, LOG_DAEMON);
+	output_init(output_format);
 
 	if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
 		ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
@@ -123,6 +133,7 @@ static void options(int *argc, char ***argv) {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
 		{ "spool-dir",		0,   0, G_OPTION_ARG_STRING,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
 		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
+		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3"	},
 		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
 		{ NULL, }
 	};
