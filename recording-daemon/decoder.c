@@ -1,6 +1,8 @@
 #include "decoder.h"
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/audio_fifo.h>
+#include <libavutil/channel_layout.h>
 #include <glib.h>
 #include <stdint.h>
 #include "types.h"
@@ -28,6 +30,10 @@ struct output_s {
 	AVFormatContext *fmtctx;
 	AVStream *avst;
 	AVPacket avpkt;
+	AVAudioFifo *fifo;
+	int64_t fifo_pts; // pts of first data in fifo
+	int64_t mux_dts; // last dts passed to muxer
+	AVFrame *frame;
 };
 
 
@@ -74,6 +80,11 @@ static const struct decoder_def_s decoders[] = {
 	DECODER_DEF(AMR-WB, AMR_WB),
 };
 typedef struct decoder_def_s decoder_def_t;
+
+
+
+static int output_codec_id;
+static const char *output_file_format;
 
 
 
@@ -151,37 +162,77 @@ err:
 }
 
 
+static int output_flush(output_t *output) {
+	while (av_audio_fifo_size(output->fifo) >= output->frame->nb_samples) {
+
+		if (av_audio_fifo_read(output->fifo, (void **) output->frame->data,
+					output->frame->nb_samples) <= 0)
+			abort();
+
+		dbg("%p output fifo pts %lu", output, (unsigned long) output->fifo_pts);
+		output->frame->pts = output->fifo_pts;
+
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+		int ret = avcodec_send_frame(output->avcctx, output->frame);
+		dbg("%p send frame ret %i", output, ret);
+		if (ret)
+			return -1;
+
+		ret = avcodec_receive_packet(output->avcctx, &output->avpkt);
+		dbg("%p receive packet ret %i", output, ret);
+		if (ret)
+			return -1;
+#else
+		int got_packet = 0;
+		int ret = avcodec_encode_audio2(output->avcctx, &output->avpkt, output->frame, &got_packet);
+		dbg("%p encode frame ret %i, got packet %i", output, ret, got_packet);
+		if (!got_packet)
+			return 0;
+#endif
+
+		dbg("%p output avpkt size is %i", output, (int) output->avpkt.size);
+		dbg("%p output pkt pts/dts is %li/%li", output, (long) output->avpkt.pts,
+				(long) output->avpkt.dts);
+		dbg("%p output dts %li", output, (long) output->mux_dts);
+
+		// the encoder may return frames with the same dts multiple consecutive times.
+		// the muxer may not like this, so ensure monotonically increasing dts.
+		if (output->mux_dts > output->avpkt.dts)
+			output->avpkt.dts = output->mux_dts;
+
+		av_write_frame(output->fmtctx, &output->avpkt);
+
+		output->fifo_pts += output->frame->nb_samples;
+		output->mux_dts = output->avpkt.dts + 1; // min next expected dts
+	}
+
+	return 0;
+}
+
+
 static int output_add(output_t *output, AVFrame *frame) {
 	if (!output)
 		return -1;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-	int ret = avcodec_send_frame(output->avcctx, frame);
-	dbg("send frame ret %i", ret);
-	if (ret)
+	dbg("%p output fifo size %u fifo_pts %lu", output, (unsigned int) av_audio_fifo_size(output->fifo),
+			(unsigned long) output->fifo_pts);
+	// fix up output pts
+	if (av_audio_fifo_size(output->fifo) == 0)
+		output->fifo_pts = frame->pts;
+
+	if (av_audio_fifo_write(output->fifo, (void **) frame->extended_data, frame->nb_samples) < 0)
 		return -1;
 
-	ret = avcodec_receive_packet(output->avcctx, &output->avpkt);
-	dbg("receive packet ret %i", ret);
-	if (ret)
-		return -1;
-#else
-	int got_packet = 0;
-	int ret = avcodec_encode_audio2(output->avcctx, &output->avpkt, frame, &got_packet);
-	dbg("encode frame ret %i, got packet %i", ret, got_packet);
-	if (!got_packet)
-		return 0;
-#endif
-
-	av_write_frame(output->fmtctx, &output->avpkt);
-
-	return 0;
+	return output_flush(output);
 }
 
 
 int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *output) {
 	if (G_UNLIKELY(!dec))
 		return -1;
+
+	dbg("%p dec pts %lu rtp_ts %lu incoming ts %lu", dec, (unsigned long) dec->pts,
+			(unsigned long) dec->rtp_ts, (unsigned long) ts);
 
 	if (G_UNLIKELY(dec->rtp_ts == (unsigned long) -1L)) {
 		// initialize pts
@@ -217,9 +268,12 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 #endif
 
 	dec->frame->pts = dec->frame->pkt_pts;
+	dbg("%p dec frame pts %lu pkt_pts %lu", dec, (unsigned long) dec->frame->pts,
+			(unsigned long) dec->frame->pkt_dts);
 
 	output_config(output, dec->avcctx->sample_rate, dec->avcctx->channels);
-	output_add(output, dec->frame);
+	if (output_add(output, dec->frame))
+		return -1;
 
 	return 0;
 }
@@ -227,9 +281,11 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 
 output_t *output_new(const char *filename) {
 	output_t *ret = g_slice_alloc0(sizeof(*ret));
-	ret->filename = strdup(filename);
+	if (asprintf(&ret->filename, "%s.%s", filename, output_file_format) <= 0)
+		abort();
 	ret->clockrate = -1;
 	ret->channels = -1;
+	ret->frame = av_frame_alloc();
 	return ret;
 }
 
@@ -255,11 +311,11 @@ format_mismatch:
 	output->fmtctx = avformat_alloc_context();
 	if (!output->fmtctx)
 		goto err;
-	output->fmtctx->oformat = av_guess_format("wav", NULL, NULL); // XXX better way?
+	output->fmtctx->oformat = av_guess_format(output_file_format, NULL, NULL);
 	if (!output->fmtctx->oformat)
 		goto err;
 
-	AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
+	AVCodec *codec = avcodec_find_encoder(output_codec_id);
 	// XXX error handling
 	output->avst = avformat_new_stream(output->fmtctx, codec);
 	if (!output->avst)
@@ -273,6 +329,7 @@ format_mismatch:
 #endif
 
 	output->avcctx->channels = output->channels;
+	output->avcctx->channel_layout = av_get_default_channel_layout(output->channels);
 	output->avcctx->sample_rate = output->clockrate;
 	output->avcctx->sample_fmt = AV_SAMPLE_FMT_S16;
 	output->avcctx->time_base = (AVRational){output->clockrate,1};
@@ -293,6 +350,19 @@ format_mismatch:
 		goto err;
 
 	av_init_packet(&output->avpkt);
+
+	// output frame and fifo
+	output->frame->nb_samples = output->avcctx->frame_size ? : 256;
+	output->frame->format = output->avcctx->sample_fmt;
+	output->frame->sample_rate = output->avcctx->sample_rate;
+	output->frame->channel_layout = output->avcctx->channel_layout;
+	if (!output->frame->channel_layout)
+		output->frame->channel_layout = av_get_default_channel_layout(output->avcctx->channels);
+	if (av_frame_get_buffer(output->frame, 0) < 0)
+		abort();
+
+	output->fifo = av_audio_fifo_alloc(output->avcctx->sample_fmt, output->avcctx->channels,
+			output->frame->nb_samples);
 
 	return 0;
 
@@ -318,10 +388,13 @@ static void output_shutdown(output_t *output) {
 	avcodec_close(output->avcctx);
 	avio_closep(&output->fmtctx->pb);
 	avformat_free_context(output->fmtctx);
+	av_audio_fifo_free(output->fifo);
+	av_frame_free(&output->frame);
 
 	output->avcctx = NULL;
 	output->fmtctx = NULL;
 	output->avst = NULL;
+	output->fifo = NULL;
 }
 
 
@@ -331,4 +404,18 @@ void output_close(output_t *output) {
 	output_shutdown(output);
 	free(output->filename);
 	g_slice_free1(sizeof(*output), output);
+}
+
+
+void output_init(const char *format) {
+	if (!strcmp(format, "wav")) {
+		output_codec_id = AV_CODEC_ID_PCM_S16LE;
+		output_file_format = "wav";
+	}
+	else if (!strcmp(format, "mp3")) {
+		output_codec_id = AV_CODEC_ID_MP3;
+		output_file_format = "mp3";
+	}
+	else
+		die("Unknown output format '%s'", format);
 }

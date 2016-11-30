@@ -56,7 +56,7 @@ static ssrc_t *ssrc_get(metafile_t *mf, unsigned long ssrc) {
 	ret->seq = -1;
 
 	char buf[256];
-	snprintf(buf, sizeof(buf), "%s/%s-%08lx.wav", output_dir, mf->parent, ssrc);
+	snprintf(buf, sizeof(buf), "%s/%s-%08lx", output_dir, mf->parent, ssrc);
 	ret->output = output_new(buf);
 
 	g_hash_table_insert(mf->ssrc_hash, GUINT_TO_POINTER(ssrc), ret);
@@ -161,8 +161,9 @@ have_packet:;
 			}
 		}
 
-		decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
-				ssrc->output);
+		if (decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
+				ssrc->output))
+			ilog(LOG_ERR, "Failed to decode media packet");
 
 next_packet:
 		ssrc->seq = (packet->seq + 1) & 0xffff;
