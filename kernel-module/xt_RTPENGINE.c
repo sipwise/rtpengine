@@ -861,19 +861,32 @@ static void table_put(struct rtpengine_table *t) {
 
 
 
+/* must be called lock-free */
 static inline void free_packet(struct re_stream_packet *packet) {
 	if (packet->skbuf)
 		kfree_skb(packet->skbuf);
 	kfree(packet);
 }
 
-/* caller is responsible for locking */
+/* must be called lock-free */
 static void clear_stream_packets(struct re_stream *stream) {
 	struct re_stream_packet *packet;
+	unsigned long flags;
+	LIST_HEAD(delete_list);
+
+	spin_lock_irqsave(&stream->packet_list_lock, flags);
 
 	while (!list_empty(&stream->packet_list)) {
 		DBG("clearing packet from queue\n");
 		packet = list_first_entry(&stream->packet_list, struct re_stream_packet, list_entry);
+		list_del(&packet->list_entry);
+		list_add(&packet->list_entry, &delete_list);
+	}
+
+	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+
+	while (!list_empty(&delete_list)) {
+		packet = list_first_entry(&delete_list, struct re_stream_packet, list_entry);
 		list_del(&packet->list_entry);
 		free_packet(packet);
 	}
@@ -2673,9 +2686,10 @@ static void del_stream(struct re_stream *stream, struct rtpengine_table *table) 
 	}
 
 	stream->eof = 1;
-	clear_stream_packets(stream);
 
 	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
+
+	clear_stream_packets(stream);
 
 	DBG("stream is finished (EOF), waking up threads\n");
 	wake_up_interruptible(&stream->wq);
