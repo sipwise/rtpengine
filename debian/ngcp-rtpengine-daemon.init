@@ -137,7 +137,7 @@ case "$1" in
 	      ;;
 	  esac
 	fi
-	echo -n "Starting $DESC: $NAME"
+	log_daemon_msg "Starting $DESC: $NAME"
 	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		set +e
 		modprobe xt_RTPENGINE
@@ -176,11 +176,11 @@ case "$1" in
 		set -e
 	fi
 	start-stop-daemon --start --quiet --pidfile $PIDFILE \
-		--exec $DAEMON -- $OPTIONS || echo -n " already running"
+		--exec $DAEMON -- $OPTIONS || log_progress_msg " already running"
 	log_end_msg $?
 	;;
   stop)
-	echo -n "Stopping $DESC: $NAME"
+	log_daemon_msg "Stopping $DESC: $NAME"
 	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
 		--exec $DAEMON
 	if [ "$?" -ne 0 ]; then
@@ -214,7 +214,7 @@ case "$1" in
 	;;
   restart|force-reload)
 
-	echo -n "Restarting $DESC: $NAME"
+	log_daemon_msg "Restarting $DESC: $NAME"
 	start-stop-daemon --oknodo --stop --quiet --pidfile \
 		$PIDFILE --exec $DAEMON
 	if [ "$?" -ne 0 ]; then
