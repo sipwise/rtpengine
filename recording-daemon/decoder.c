@@ -91,6 +91,17 @@ static const decoder_def_t *decoder_find(const str *name) {
 }
 
 
+static void print_supported_sample_rates(AVCodec *codec) {
+	if (!codec->supported_samplerates) {
+		dbg("codec %s has no supported sample rates", codec->name);
+		return;
+	}
+
+	for (const int *i = codec->supported_samplerates; *i; i++)
+		dbg("supported sample rate for %s: %i", codec->name, *i);
+}
+
+
 decoder_t *decoder_new(const char *payload_str) {
 	str name;
 	char *slash = strchr(payload_str, '/');
@@ -125,6 +136,7 @@ decoder_t *decoder_new(const char *payload_str) {
 		codec = avcodec_find_decoder_by_name(def->avcodec_name);
 	if (!codec)
 		codec = avcodec_find_decoder(def->avcodec_id);
+	print_supported_sample_rates(codec);
 
 	ret->avcctx = avcodec_alloc_context3(codec);
 	if (!ret->avcctx)
@@ -255,11 +267,12 @@ format_mismatch:
 	output->fmtctx = avformat_alloc_context();
 	if (!output->fmtctx)
 		goto err;
-	output->fmtctx->oformat = av_guess_format("wav", NULL, NULL); // XXX better way?
+	output->fmtctx->oformat = av_guess_format("mp3", NULL, NULL); // XXX better way?
 	if (!output->fmtctx->oformat)
 		goto err;
 
-	AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
+	AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_MP3);
+	print_supported_sample_rates(codec);
 	// XXX error handling
 	output->avst = avformat_new_stream(output->fmtctx, codec);
 	if (!output->avst)

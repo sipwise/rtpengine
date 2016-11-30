@@ -42,8 +42,11 @@ void *poller_thread(void *ptr) {
 		int ret = epoll_wait(epoll_fd, &epev, 1, 10000);
 		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-		if (ret == -1)
+		if (ret == -1) {
+			if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+				continue;
 			die_errno("epoll_wait failed");
+		}
 
 		if (ret > 0) {
 			dbg("thread %u handling event", me_num);
