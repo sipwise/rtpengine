@@ -50,40 +50,76 @@ static int output_flush(output_t *output) {
 		dbg("%p output fifo pts %lu", output, (unsigned long) output->fifo_pts);
 		output->frame->pts = output->fifo_pts;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-		int ret = avcodec_send_frame(output->avcctx, output->frame);
-		dbg("%p send frame ret %i", output, ret);
-		if (ret)
-			return -1;
+		int keep_going;
+		int have_frame = 1;
+		do {
+			keep_going = 0;
+			int got_packet = 0;
 
-		ret = avcodec_receive_packet(output->avcctx, &output->avpkt);
-		dbg("%p receive packet ret %i", output, ret);
-		if (ret)
-			return -1;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+			if (have_frame) {
+				int ret = avcodec_send_frame(output->avcctx, output->frame);
+				dbg("%p send frame ret %i", output, ret);
+				if (ret == 0) {
+					// consumed
+					have_frame = 0;
+					keep_going = 1;
+				}
+				else {
+					if (ret == AVERROR(EAGAIN))
+						; // check output and maybe try again
+					else
+						return -1;
+				}
+			}
+
+			int ret = avcodec_receive_packet(output->avcctx, &output->avpkt);
+			dbg("%p receive packet ret %i", output, ret);
+			if (ret == 0) {
+				// got some data
+				keep_going = 1;
+				got_packet = 1;
+			}
+			else {
+				if (ret == AVERROR(EAGAIN))
+					; // try again if there's still more input
+				else
+					return -1;
+			}
 #else
-		int got_packet = 0;
-		int ret = avcodec_encode_audio2(output->avcctx, &output->avpkt, output->frame, &got_packet);
-		dbg("%p encode frame ret %i, got packet %i", output, ret, got_packet);
-		if (!got_packet)
-			return 0;
+			if (!have_frame)
+				break;
+
+			int ret = avcodec_encode_audio2(output->avcctx, &output->avpkt, output->frame, &got_packet);
+			dbg("%p encode frame ret %i, got packet %i", output, ret, got_packet);
+			if (ret == 0)
+				have_frame = 0; // consumed
+			else
+				return -1; // error
+			if (got_packet)
+				keep_going = 1;
 #endif
 
-		dbg("%p output avpkt size is %i", output, (int) output->avpkt.size);
-		dbg("%p output pkt pts/dts is %li/%li", output, (long) output->avpkt.pts,
-				(long) output->avpkt.dts);
-		dbg("%p output dts %li", output, (long) output->mux_dts);
+			if (!got_packet)
+				continue;
 
-		// the encoder may return frames with the same dts multiple consecutive times.
-		// the muxer may not like this, so ensure monotonically increasing dts.
-		if (output->mux_dts > output->avpkt.dts)
-			output->avpkt.dts = output->mux_dts;
-		if (output->avpkt.pts < output->avpkt.dts)
-			output->avpkt.pts = output->avpkt.dts;
+			dbg("%p output avpkt size is %i", output, (int) output->avpkt.size);
+			dbg("%p output pkt pts/dts is %li/%li", output, (long) output->avpkt.pts,
+					(long) output->avpkt.dts);
+			dbg("%p output dts %li", output, (long) output->mux_dts);
 
-		av_write_frame(output->fmtctx, &output->avpkt);
+			// the encoder may return frames with the same dts multiple consecutive times.
+			// the muxer may not like this, so ensure monotonically increasing dts.
+			if (output->mux_dts > output->avpkt.dts)
+				output->avpkt.dts = output->mux_dts;
+			if (output->avpkt.pts < output->avpkt.dts)
+				output->avpkt.pts = output->avpkt.dts;
 
-		output->fifo_pts += output->frame->nb_samples;
-		output->mux_dts = output->avpkt.dts + 1; // min next expected dts
+			av_write_frame(output->fmtctx, &output->avpkt);
+
+			output->fifo_pts += output->frame->nb_samples;
+			output->mux_dts = output->avpkt.dts + 1; // min next expected dts
+		} while (keep_going);
 	}
 
 	return 0;

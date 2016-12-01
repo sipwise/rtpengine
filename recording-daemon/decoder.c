@@ -166,6 +166,84 @@ err:
 }
 
 
+static AVFrame *decoder_resample_frame(decoder_t *dec) {
+	const char *err;
+
+	if (dec->in_clockrate == dec->out_clockrate)
+		return dec->frame;
+
+	if (!dec->avresample) {
+		dec->avresample = avresample_alloc_context();
+		err = "failed to alloc resample context";
+		if (!dec->avresample)
+			goto err;
+
+		av_opt_set_int(dec->avresample, "in_channel_layout", av_get_default_channel_layout(dec->channels), 0);
+		av_opt_set_int(dec->avresample, "in_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+		av_opt_set_int(dec->avresample, "in_sample_rate", dec->in_clockrate, 0);
+		av_opt_set_int(dec->avresample, "out_channel_layout", av_get_default_channel_layout(dec->channels), 0);
+		av_opt_set_int(dec->avresample, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+		av_opt_set_int(dec->avresample, "out_sample_rate", dec->out_clockrate, 0);
+		// av_opt_set_int(dec->avresample, "internal_sample_fmt", AV_SAMPLE_FMT_FLTP, 0); // ?
+
+		err = "failed to init resample context";
+		if (avresample_open(dec->avresample) < 0)
+			goto err;
+	}
+
+	// get a large enough buffer for resampled audio - this should be enough so we don't
+	// have to loop
+	int dst_samples = avresample_available(dec->avresample) +
+		av_rescale_rnd(avresample_get_delay(dec->avresample) + dec->frame->nb_samples,
+				dec->out_clockrate, dec->in_clockrate, AV_ROUND_UP);
+	if (!dec->swr_frame || dec->swr_buffers < dst_samples) {
+		av_frame_free(&dec->swr_frame);
+		dec->swr_frame = av_frame_alloc();
+		err = "failed to alloc resampling frame";
+		if (!dec->swr_frame)
+			goto err;
+		av_frame_copy_props(dec->swr_frame, dec->frame);
+		dec->swr_frame->format = dec->frame->format;
+		dec->swr_frame->channel_layout = dec->frame->channel_layout;
+		dec->swr_frame->nb_samples = dst_samples;
+		dec->swr_frame->sample_rate = dec->out_clockrate;
+		err = "failed to get resample buffers";
+		if (av_frame_get_buffer(dec->swr_frame, 0) < 0)
+			goto err;
+		dec->swr_buffers = dst_samples;
+	}
+
+	dec->swr_frame->nb_samples = dst_samples;
+	int ret_samples = avresample_convert(dec->avresample, dec->swr_frame->extended_data,
+				dec->swr_frame->linesize[0], dst_samples,
+				dec->frame->extended_data,
+				dec->frame->linesize[0], dec->frame->nb_samples);
+	err = "failed to resample audio";
+	if (ret_samples < 0)
+		goto err;
+
+	dec->swr_frame->nb_samples = ret_samples;
+	dec->swr_frame->pts = av_rescale(dec->frame->pts, dec->out_clockrate, dec->in_clockrate);
+	return dec->swr_frame;
+
+err:
+	ilog(LOG_ERR, "Error resampling: %s", err);
+	return NULL;
+}
+
+
+static int decoder_got_frame(decoder_t *dec, output_t *output) {
+	// do we need to resample?
+	AVFrame *dec_frame = decoder_resample_frame(dec);
+
+	output_config(output, dec->out_clockrate, dec->channels);
+	if (output_add(output, dec_frame))
+		return -1;
+
+	return 0;
+}
+
+
 int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *output) {
 	const char *err;
 
@@ -190,91 +268,72 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 	dec->avpkt.size = data->len;
 	dec->avpkt.pts = dec->pts;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-	int ret = avcodec_send_packet(dec->avcctx, &dec->avpkt);
-	dbg("send packet ret %i", ret);
-	err = "failed to send packet to avcodec";
-	if (ret)
-		goto err;
+	// loop until all input is consumed and all available output has been processed
+	int keep_going;
+	do {
+		keep_going = 0;
+		int got_frame = 0;
 
-	ret = avcodec_receive_frame(dec->avcctx, dec->frame);
-	dbg("receive frame ret %i", ret);
-	err = "failed to receive frame from avcodec";
-	if (ret)
-		goto err;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+		if (dec->avpkt.size) {
+			int ret = avcodec_send_packet(dec->avcctx, &dec->avpkt);
+			dbg("send packet ret %i", ret);
+			err = "failed to send packet to avcodec";
+			if (ret == 0) {
+				// consumed the packet
+				dec->avpkt.size = 0;
+				keep_going = 1;
+			}
+			else {
+				if (ret == AVERROR(EAGAIN))
+					; // try again after reading output
+				else
+					goto err;
+			}
+		}
+
+		int ret = avcodec_receive_frame(dec->avcctx, dec->frame);
+		dbg("receive frame ret %i", ret);
+		err = "failed to receive frame from avcodec";
+		if (ret == 0) {
+			// got a frame
+			keep_going = 1;
+			got_frame = 1;
+		}
+		else {
+			if (ret == AVERROR(EAGAIN))
+				; // maybe needs more input now
+			else
+				goto err;
+		}
 #else
-	int got_frame = 0;
-	int ret = avcodec_decode_audio4(dec->avcctx, dec->frame, &got_frame, &dec->avpkt);
-	dbg("decode frame ret %i, got frame %i", ret, got_frame);
-	err = "failed to decode audio packet";
-	if (ret < 0)
-		goto err;
-	if (!got_frame)
-		return 0;
+		// only do this if we have any input left
+		if (dec->avpkt.size == 0)
+			break;
+
+		int ret = avcodec_decode_audio4(dec->avcctx, dec->frame, &got_frame, &dec->avpkt);
+		dbg("decode frame ret %i, got frame %i", ret, got_frame);
+		err = "failed to decode audio packet";
+		if (ret < 0)
+			goto err;
+		if (ret > 0) {
+			// consumed some input
+			err = "invalid return value";
+			if (ret > dec->avpkt.size)
+				goto err;
+			dec->avpkt.size -= ret;
+			dec->avpkt.data += ret;
+			keep_going = 1;
+		}
+		if (got_frame)
+			keep_going = 1;
 #endif
 
-	dbg("%p dec frame pts %lu pkt_pts %lu", dec, (unsigned long) dec->frame->pts,
-			(unsigned long) dec->frame->pkt_dts);
-
-	// do we need to resample?
-	AVFrame *dec_frame = dec->frame;
-	if (dec->in_clockrate != dec->out_clockrate) {
-		if (!dec->avresample) {
-			dec->avresample = avresample_alloc_context();
-			err = "failed to alloc resample context";
-			if (!dec->avresample)
-				goto err;
-
-			av_opt_set_int(dec->avresample, "in_channel_layout", av_get_default_channel_layout(dec->channels), 0);
-			av_opt_set_int(dec->avresample, "in_sample_fmt", AV_SAMPLE_FMT_S16, 0);
-			av_opt_set_int(dec->avresample, "in_sample_rate", dec->in_clockrate, 0);
-			av_opt_set_int(dec->avresample, "out_channel_layout", av_get_default_channel_layout(dec->channels), 0);
-			av_opt_set_int(dec->avresample, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
-			av_opt_set_int(dec->avresample, "out_sample_rate", dec->out_clockrate, 0);
-			// av_opt_set_int(dec->avresample, "internal_sample_fmt", AV_SAMPLE_FMT_FLTP, 0); // ?
-
-			err = "failed to init resample context";
-			if (avresample_open(dec->avresample) < 0)
-				goto err;
+		if (got_frame) {
+			if (decoder_got_frame(dec, output))
+				return -1;
 		}
-
-		// get a large enough buffer for resampled audio
-		int dst_samples = av_rescale_rnd(dec->frame->nb_samples, dec->out_clockrate,
-				dec->in_clockrate, AV_ROUND_UP);
-		if (!dec->swr_frame || dec->swr_buffers < dst_samples) {
-			av_frame_free(&dec->swr_frame);
-			dec->swr_frame = av_frame_alloc();
-			err = "failed to alloc resampling frame";
-			if (!dec->swr_frame)
-				goto err;
-			av_frame_copy_props(dec->swr_frame, dec->frame);
-			dec->swr_frame->format = dec->frame->format;
-			dec->swr_frame->channel_layout = dec->frame->channel_layout;
-			dec->swr_frame->nb_samples = dst_samples;
-			dec->swr_frame->sample_rate = dec->out_clockrate;
-			err = "failed to get resample buffers";
-			if (av_frame_get_buffer(dec->swr_frame, 0) < 0)
-				goto err;
-			dec->swr_buffers = dst_samples;
-		}
-
-		dec->swr_frame->nb_samples = dst_samples;
-		int ret_samples = avresample_convert(dec->avresample, dec->swr_frame->extended_data,
-					dec->swr_frame->linesize[0], dst_samples,
-					dec->frame->extended_data,
-					dec->frame->linesize[0], dec->frame->nb_samples);
-		err = "failed to resample audio";
-		if (ret_samples < 0)
-			goto err;
-
-		dec_frame = dec->swr_frame;
-		dec_frame->nb_samples = ret_samples;
-		dec_frame->pts = av_rescale(dec->frame->pts, dec->out_clockrate, dec->in_clockrate);
-	}
-
-	output_config(output, dec->out_clockrate, dec->channels);
-	if (output_add(output, dec_frame))
-		return -1;
+	} while (keep_going);
 
 	return 0;
 
