@@ -14,6 +14,7 @@ Build-Depends: debhelper (>= 5),
                libpcap0.8-dev | libpcap-dev,
                libpcre3-dev,
                libssl-dev (>= 1.0.1),
+               libswresample-dev,
                libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
                markdown,
                zlib1g-dev

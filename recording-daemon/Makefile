@@ -9,6 +9,7 @@ CFLAGS+=	`pcre-config --cflags`
 CFLAGS+=	`pkg-config --cflags libavcodec`
 CFLAGS+=	`pkg-config --cflags libavformat`
 CFLAGS+=	`pkg-config --cflags libavutil`
+CFLAGS+=	`pkg-config --cflags libswresample`
 
 LDFLAGS=	-lm
 LDFLAGS+=	`pkg-config --libs glib-2.0`
@@ -17,6 +18,7 @@ LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`pkg-config --libs libavcodec`
 LDFLAGS+=	`pkg-config --libs libavformat`
 LDFLAGS+=	`pkg-config --libs libavutil`
+LDFLAGS+=	`pkg-config --libs libswresample`
 
 include ../lib/lib.Makefile
 
