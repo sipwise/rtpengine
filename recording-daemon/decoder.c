@@ -5,6 +5,8 @@
 #include <libavutil/channel_layout.h>
 #include <glib.h>
 #include <stdint.h>
+#include <libavresample/avresample.h>
+#include <libavutil/opt.h>
 #include "types.h"
 #include "log.h"
 #include "str.h"
@@ -12,6 +14,14 @@
 
 
 struct decoder_s {
+	// format params
+	int channels;
+	int in_clockrate;
+	int out_clockrate;
+
+	AVAudioResampleContext *avresample;
+	AVFrame *swr_frame;
+
 	AVCodecContext *avcctx;
 	AVPacket avpkt;
 	AVFrame *frame;
@@ -67,6 +77,11 @@ typedef struct decoder_def_s decoder_def_t;
 
 
 
+int resample_audio;
+
+
+
+
 static const decoder_def_t *decoder_find(const str *name) {
 	for (int i = 0; i < G_N_ELEMENTS(decoders); i++) {
 		if (!str_cmp(name, decoders[i].rtpname))
@@ -77,6 +92,8 @@ static const decoder_def_t *decoder_find(const str *name) {
 
 
 decoder_t *decoder_new(const char *payload_str) {
+	const char *err = NULL;
+
 	str name;
 	char *slash = strchr(payload_str, '/');
 	if (!slash) {
@@ -104,24 +121,34 @@ decoder_t *decoder_new(const char *payload_str) {
 
 	decoder_t *ret = g_slice_alloc0(sizeof(*ret));
 
-	// XXX error reporting
+	ret->channels = channels;
+	ret->in_clockrate = clockrate;
+	ret->out_clockrate = resample_audio ? : clockrate;
+
 	AVCodec *codec = NULL;
 	if (def->avcodec_name)
 		codec = avcodec_find_decoder_by_name(def->avcodec_name);
 	if (!codec)
 		codec = avcodec_find_decoder(def->avcodec_id);
+	if (!codec) {
+		ilog(LOG_WARN, "Codec '%s' not supported", def->rtpname);
+		goto err;
+	}
 
 	ret->avcctx = avcodec_alloc_context3(codec);
+	err = "failed to alloc codec context";
 	if (!ret->avcctx)
 		goto err;
 	ret->avcctx->channels = channels;
 	ret->avcctx->sample_rate = clockrate;
+	err = "failed to open codec context";
 	int i = avcodec_open2(ret->avcctx, codec, NULL);
 	if (i)
 		goto err;
 
 	av_init_packet(&ret->avpkt);
 	ret->frame = av_frame_alloc();
+	err = "failed to alloc av frame";
 	if (!ret->frame)
 		goto err;
 
@@ -132,11 +159,15 @@ decoder_t *decoder_new(const char *payload_str) {
 
 err:
 	decoder_close(ret);
+	if (err)
+		ilog(LOG_ERR, "Error creating media decoder: %s", err);
 	return NULL;
 }
 
 
 int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *output) {
+	const char *err;
+
 	if (G_UNLIKELY(!dec))
 		return -1;
 
@@ -161,17 +192,22 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
 	int ret = avcodec_send_packet(dec->avcctx, &dec->avpkt);
 	dbg("send packet ret %i", ret);
+	err = "failed to send packet to avcodec";
 	if (ret)
-		return -1;
+		goto err;
 
 	ret = avcodec_receive_frame(dec->avcctx, dec->frame);
 	dbg("receive frame ret %i", ret);
+	err = "failed to receive frame from avcodec";
 	if (ret)
-		return -1;
+		goto err;
 #else
 	int got_frame = 0;
 	int ret = avcodec_decode_audio4(dec->avcctx, dec->frame, &got_frame, &dec->avpkt);
 	dbg("decode frame ret %i, got frame %i", ret, got_frame);
+	err = "failed to decode audio packet";
+	if (ret < 0)
+		goto err;
 	if (!got_frame)
 		return 0;
 #endif
@@ -179,18 +215,78 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 	dbg("%p dec frame pts %lu pkt_pts %lu", dec, (unsigned long) dec->frame->pts,
 			(unsigned long) dec->frame->pkt_dts);
 
-	output_config(output, dec->avcctx->sample_rate, dec->avcctx->channels);
-	if (output_add(output, dec->frame))
+	// do we need to resample?
+	AVFrame *dec_frame = dec->frame;
+	if (dec->in_clockrate != dec->out_clockrate) {
+		if (!dec->avresample) {
+			dec->avresample = avresample_alloc_context();
+			err = "failed to alloc resample context";
+			if (!dec->avresample)
+				goto err;
+
+			av_opt_set_int(dec->avresample, "in_channel_layout", av_get_default_channel_layout(dec->channels), 0);
+			av_opt_set_int(dec->avresample, "in_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+			av_opt_set_int(dec->avresample, "in_sample_rate", dec->in_clockrate, 0);
+			av_opt_set_int(dec->avresample, "out_channel_layout", av_get_default_channel_layout(dec->channels), 0);
+			av_opt_set_int(dec->avresample, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+			av_opt_set_int(dec->avresample, "out_sample_rate", dec->out_clockrate, 0);
+			// av_opt_set_int(dec->avresample, "internal_sample_fmt", AV_SAMPLE_FMT_FLTP, 0); // ?
+
+			err = "failed to init resample context";
+			if (avresample_open(dec->avresample) < 0)
+				goto err;
+		}
+
+		// get a large enough buffer for resampled audio
+		int dst_samples = av_rescale_rnd(dec->frame->nb_samples, dec->out_clockrate,
+				dec->in_clockrate, AV_ROUND_UP);
+		if (!dec->swr_frame || dec->swr_frame->nb_samples < dst_samples) {
+			av_frame_free(&dec->swr_frame);
+			dec->swr_frame = av_frame_alloc();
+			err = "failed to alloc resampling frame";
+			if (!dec->swr_frame)
+				goto err;
+			av_frame_copy_props(dec->swr_frame, dec->frame);
+			dec->swr_frame->format = dec->frame->format;
+			dec->swr_frame->channel_layout = dec->frame->channel_layout;
+			dec->swr_frame->nb_samples = dst_samples;
+			dec->swr_frame->sample_rate = dec->out_clockrate;
+			err = "failed to get resample buffers";
+			if (av_frame_get_buffer(dec->swr_frame, 0) < 0)
+				goto err;
+		}
+
+		dec->swr_frame->nb_samples = dst_samples;
+		err = "failed to resample audio";
+		if (avresample_convert(dec->avresample, dec->swr_frame->extended_data,
+					dec->swr_frame->linesize[0], dst_samples,
+					dec->frame->extended_data,
+					dec->frame->linesize[0], dec->frame->nb_samples))
+			goto err;
+
+		dec_frame = dec->swr_frame;
+		dec_frame->pts = av_rescale(dec->frame->pts, dec->out_clockrate, dec->in_clockrate);
+	}
+
+	output_config(output, dec->out_clockrate, dec->channels);
+	if (output_add(output, dec_frame))
 		return -1;
 
 	return 0;
+
+err:
+	ilog(LOG_ERR, "Error decoding media packet: %s", err);
+	return -1;
 }
 
 
 void decoder_close(decoder_t *dec) {
 	if (!dec)
 		return;
+	/// XXX drain inputs and outputs
 	avcodec_free_context(&dec->avcctx);
 	av_frame_free(&dec->frame);
+	av_frame_free(&dec->swr_frame);
+	avresample_free(&dec->avresample);
 	g_slice_free1(sizeof(*dec), dec);
 }
