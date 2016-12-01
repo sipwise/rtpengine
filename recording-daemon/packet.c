@@ -94,79 +94,94 @@ static int ssrc_tree_search(const void *testseq_p, const void *ts_p) {
 }
 
 
+// ssrc is locked
+static packet_t *ssrc_next_packet(ssrc_t *ssrc) {
+	// see if we have a packet with the correct seq nr in the queue
+	packet_t *packet = g_tree_lookup(ssrc->packets, GINT_TO_POINTER(ssrc->seq));
+	if (G_LIKELY(packet != NULL))
+		return packet;
+
+	// why not? do we have anything? (we should)
+	int nnodes = g_tree_nnodes(ssrc->packets);
+	if (G_UNLIKELY(nnodes == 0))
+		return NULL;
+	if (G_LIKELY(nnodes < 10)) // XXX arbitrary value
+		return NULL; // need to wait for more
+
+	// packet was probably lost. search for the next highest seq
+	struct tree_searcher ts = { .find_seq = ssrc->seq + 1, .found_seq = -1 };
+	packet = g_tree_search(ssrc->packets, ssrc_tree_search, &ts);
+	if (packet) // bullseye
+		return packet;
+	if (G_UNLIKELY(ts.found_seq == -1)) {
+		// didn't find anything. seq must have wrapped around. retry
+		// starting from zero
+		ts.find_seq = 0;
+		packet = g_tree_search(ssrc->packets, ssrc_tree_search, &ts);
+		if (packet)
+			return packet;
+		if (G_UNLIKELY(ts.found_seq == -1))
+			abort();
+	}
+
+	// pull out the packet we found
+	packet = g_tree_lookup(ssrc->packets, GINT_TO_POINTER(ts.found_seq));
+	if (G_UNLIKELY(packet == NULL))
+		abort();
+
+	return packet;
+}
+
+
+// ssrc is locked
+static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
+	// determine payload type and run decoder
+	unsigned int payload_type = packet->rtp->m_pt & 0x7f;
+	// check if we have a decoder for this payload type yet
+	if (G_UNLIKELY(!ssrc->decoders[payload_type])) {
+		metafile_t *mf = ssrc->metafile;
+		pthread_mutex_lock(&mf->payloads_lock);
+		char *payload_str = mf->payload_types[payload_type];
+		pthread_mutex_unlock(&mf->payloads_lock);
+
+		if (!payload_str) {
+			const struct rtp_payload_type *rpt = rtp_get_rfc_payload_type(payload_type);
+			if (!rpt) {
+				ilog(LOG_WARN, "Unknown RTP payload type %u", payload_type);
+				return;
+			}
+			payload_str = rpt->encoding_with_params.s;
+		}
+
+		dbg("payload type for %u is %s", payload_type, payload_str);
+
+		ssrc->decoders[payload_type] = decoder_new(payload_str);
+		if (!ssrc->decoders[payload_type]) {
+			ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",
+					payload_type, payload_str);
+			return;
+		}
+	}
+
+	if (decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
+			ssrc->output))
+		ilog(LOG_ERR, "Failed to decode media packet");
+}
+
+
 // ssrc is locked and must be unlocked when returning
-// XXX split up function
 static void ssrc_run(ssrc_t *ssrc) {
 	while (1) {
 		// see if we have a packet with the correct seq nr in the queue
-		packet_t *packet = g_tree_lookup(ssrc->packets, GINT_TO_POINTER(ssrc->seq));
-		if (G_UNLIKELY(!packet)) {
-			// why not? do we have anything? (we should)
-			int nnodes = g_tree_nnodes(ssrc->packets);
-			if (G_UNLIKELY(nnodes == 0))
-				break;
-			if (G_LIKELY(nnodes < 10)) // XXX arbitrary value
-				break; // need to wait for more
+		packet_t *packet = ssrc_next_packet(ssrc);
+		if (G_UNLIKELY(packet == NULL))
+			break;
 
-			// packet was probably lost. search for the next highest seq
-			struct tree_searcher ts = { .find_seq = ssrc->seq + 1, .found_seq = -1 };
-			packet = g_tree_search(ssrc->packets, ssrc_tree_search, &ts);
-			if (packet) // bullseye
-				goto have_packet;
-			if (G_UNLIKELY(ts.found_seq == -1)) {
-				// didn't find anything. seq must have wrapped around. retry
-				// starting from zero
-				ts.find_seq = 0;
-				packet = g_tree_search(ssrc->packets, ssrc_tree_search, &ts);
-				if (packet)
-					goto have_packet;
-				if (G_UNLIKELY(ts.found_seq == -1))
-					abort();
-			}
-
-			// pull out the packet we found
-			packet = g_tree_lookup(ssrc->packets, GINT_TO_POINTER(ts.found_seq));
-			if (G_UNLIKELY(packet == NULL))
-				abort();
-		}
-
-have_packet:;
 		dbg("processing packet seq %i", packet->seq);
 		g_tree_steal(ssrc->packets, GINT_TO_POINTER(packet->seq));
 
-		// determine payload type and run decoder
-		unsigned int payload_type = packet->rtp->m_pt & 0x7f;
-		// check if we have a decoder for this payload type yet
-		if (G_UNLIKELY(!ssrc->decoders[payload_type])) {
-			metafile_t *mf = ssrc->metafile;
-			pthread_mutex_lock(&mf->payloads_lock);
-			char *payload_str = mf->payload_types[payload_type];
-			pthread_mutex_unlock(&mf->payloads_lock);
+		packet_decode(ssrc, packet);
 
-			if (!payload_str) {
-				const struct rtp_payload_type *rpt = rtp_get_rfc_payload_type(payload_type);
-				if (!rpt) {
-					ilog(LOG_WARN, "Unknown RTP payload type %u", payload_type);
-					goto next_packet;
-				}
-				payload_str = rpt->encoding_with_params.s;
-			}
-
-			dbg("payload type for %u is %s", payload_type, payload_str);
-
-			ssrc->decoders[payload_type] = decoder_new(payload_str);
-			if (!ssrc->decoders[payload_type]) {
-				ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",
-						payload_type, payload_str);
-				goto next_packet;
-			}
-		}
-
-		if (decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
-				ssrc->output))
-			ilog(LOG_ERR, "Failed to decode media packet");
-
-next_packet:
 		ssrc->seq = (packet->seq + 1) & 0xffff;
 		packet_free(packet);
 		dbg("packets left in queue: %i", g_tree_nnodes(ssrc->packets));
