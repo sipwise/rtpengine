@@ -4,3 +4,6 @@ rtpengine
 core
 core.*
 .ycm_extra_conf.pyc
+auxlib.c
+loglib.c
+rtplib.c

@@ -1,3 +1,5 @@
+TARGET=		rtpengine
+
 CFLAGS=		-g -Wall -pthread -fno-strict-aliasing
 CFLAGS+=	-std=c99
 CFLAGS+=	`pkg-config --cflags glib-2.0`
@@ -34,14 +36,15 @@ include ../lib/lib.Makefile
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c streambuf.c call.c control_udp.c redis.c \
 		bencode.c cookie_cache.c udp_listener.c control_ng.c sdp.c str.c stun.c rtcp.c \
 		crypto.c rtp.c call_interfaces.c dtls.c log.c cli.c graphite.c ice.c socket.c \
-		media_socket.c rtcp_xr.c homer.c recording.c rtplib.c loglib.c auxlib.c
-OBJS=		$(SRCS:.c=.o)
+		media_socket.c rtcp_xr.c homer.c recording.c
+LIBSRCS=	loglib.c auxlib.c rtplib.c
+OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
 
 .PHONY:		all dep clean tests debug
 
 all:
-	$(MAKE) rtpengine
+	$(MAKE) $(TARGET)
 
 debug:
 	$(MAKE) DBG=yes all
@@ -49,15 +52,18 @@ debug:
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) rtpengine .depend core core.*
+	rm -f $(OBJS) $(TARGET) $(LIBSRCS) .depend core core.*
 
-.depend:	$(SRCS) Makefile
-	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
+.depend:	$(SRCS) $(LIBSRCS) Makefile
+	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) | sed -e 's/:/ .depend:/' > .depend
 
-rtpengine:	$(OBJS) .depend Makefile
+$(TARGET):	$(OBJS) .depend Makefile
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
 $(OBJS):	Makefile
+
+$(LIBSRCS):
+		ln -fs ../lib/$@
 
 
 include		.depend
