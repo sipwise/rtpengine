@@ -21,7 +21,7 @@ LDFLAGS+=	`pkg-config --libs libavutil`
 include ../lib/lib.Makefile
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c rtplib.c packet.c \
-		decoder.c loglib.c auxlib.c
+		decoder.c loglib.c auxlib.c output.c
 OBJS=		$(SRCS:.c=.o)
 
 

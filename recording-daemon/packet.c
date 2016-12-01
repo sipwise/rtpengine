@@ -11,6 +11,7 @@
 #include "decoder.h"
 #include "rtcplib.h"
 #include "main.h"
+#include "output.h"
 
 
 static int ptr_cmp(const void *a, const void *b, void *dummy) {

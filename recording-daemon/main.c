@@ -18,6 +18,7 @@
 #include "loglib.h"
 #include "auxlib.h"
 #include "decoder.h"
+#include "output.h"
 
 
 
