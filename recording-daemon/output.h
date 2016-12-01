@@ -5,6 +5,9 @@
 #include <libavutil/frame.h>
 
 
+extern int mp3_bitrate;
+
+
 void output_init(const char *format);
 
 output_t *output_new(const char *filename);
