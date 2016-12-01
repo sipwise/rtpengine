@@ -22,9 +22,10 @@ LDFLAGS+=	`pkg-config --libs libavresample`
 
 include ../lib/lib.Makefile
 
-SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c rtplib.c packet.c \
-		decoder.c loglib.c auxlib.c output.c
-OBJS=		$(SRCS:.c=.o)
+SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
+		decoder.c output.c
+LIBSRCS=	loglib.c auxlib.c rtplib.c
+OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
 
 .PHONY:		all dep clean tests debug
@@ -38,15 +39,18 @@ debug:
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) $(TARGET) .depend core core.*
+	rm -f $(OBJS) $(TARGET) $(LIBSRCS) .depend core core.*
 
-.depend:	$(SRCS) Makefile
-	$(CC) $(CFLAGS) -M $(SRCS) | sed -e 's/:/ .depend:/' > .depend
+.depend:	$(SRCS) $(LIBSRCS) Makefile
+	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) | sed -e 's/:/ .depend:/' > .depend
 
 $(TARGET):	$(OBJS) .depend Makefile
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
 $(OBJS):	Makefile
+
+$(LIBSRCS):
+		ln -fs ../lib/$@
 
 
 include		.depend
