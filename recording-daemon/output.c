@@ -3,11 +3,15 @@
 #include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
 #include <libavutil/channel_layout.h>
+#include <limits.h>
+#include <string.h>
+#include <stdint.h>
+#include <glib.h>
 #include "log.h"
 
 
 struct output_s {
-	char *filename;
+	char filename[PATH_MAX];
 
 	// format params
 	int clockrate;
@@ -27,6 +31,8 @@ struct output_s {
 
 static int output_codec_id;
 static const char *output_file_format;
+
+int mp3_bitrate;
 
 
 
@@ -87,6 +93,8 @@ static int output_flush(output_t *output) {
 int output_add(output_t *output, AVFrame *frame) {
 	if (!output)
 		return -1;
+	if (!output->frame) // not ready - not configured
+		return -1;
 
 	dbg("%p output fifo size %u fifo_pts %lu", output, (unsigned int) av_audio_fifo_size(output->fifo),
 			(unsigned long) output->fifo_pts);
@@ -103,16 +111,16 @@ int output_add(output_t *output, AVFrame *frame) {
 
 output_t *output_new(const char *filename) {
 	output_t *ret = g_slice_alloc0(sizeof(*ret));
-	if (asprintf(&ret->filename, "%s.%s", filename, output_file_format) <= 0)
-		abort();
+	g_strlcpy(ret->filename, filename, sizeof(ret->filename));
 	ret->clockrate = -1;
 	ret->channels = -1;
-	ret->frame = av_frame_alloc();
 	return ret;
 }
 
 
 int output_config(output_t *output, unsigned int clockrate, unsigned int channels) {
+	const char *err;
+
 	// anything to do?
 	if (G_UNLIKELY(output->clockrate != clockrate))
 		goto format_mismatch;
@@ -123,26 +131,31 @@ int output_config(output_t *output, unsigned int clockrate, unsigned int channel
 	return 0;
 
 format_mismatch:
-	// XXX support reset/config change
+	output_shutdown(output);
 
 	// copy params
 	output->clockrate = clockrate;
 	output->channels = channels;
 
-	// XXX error reporting
+	err = "failed to alloc format context";
 	output->fmtctx = avformat_alloc_context();
 	if (!output->fmtctx)
 		goto err;
 	output->fmtctx->oformat = av_guess_format(output_file_format, NULL, NULL);
+	err = "failed to determine output format";
 	if (!output->fmtctx->oformat)
 		goto err;
 
+	err = "output codec not found";
 	AVCodec *codec = avcodec_find_encoder(output_codec_id);
-	// XXX error handling
+	if (!codec)
+		goto err;
+	err = "failed to alloc output stream";
 	output->avst = avformat_new_stream(output->fmtctx, codec);
 	if (!output->avst)
 		goto err;
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+	err = "failed to alloc codec context";
 	output->avcctx = avcodec_alloc_context3(codec);
 	if (!output->avcctx)
 		goto err;
@@ -155,18 +168,35 @@ format_mismatch:
 	output->avcctx->sample_rate = output->clockrate;
 	output->avcctx->sample_fmt = AV_SAMPLE_FMT_S16;
 	output->avcctx->time_base = (AVRational){output->clockrate,1};
+	output->avcctx->bit_rate = mp3_bitrate;
 	output->avst->time_base = output->avcctx->time_base;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
 	avcodec_parameters_from_context(output->avst->codecpar, output->avcctx);
 #endif
 
+	char full_fn[PATH_MAX];
+	char suff[16] = "";
+	for (int i = 1; i < 20; i++) {
+		snprintf(full_fn, sizeof(full_fn), "%s%s.%s", output->filename, suff, output_file_format);
+		if (!g_file_test(full_fn, G_FILE_TEST_EXISTS))
+			goto got_fn;
+		snprintf(suff, sizeof(suff), "-%i", i);
+	}
+
+	err = "failed to find unused output file number";
+	goto err;
+
+got_fn:
+	err = "failed to open output context";
 	int i = avcodec_open2(output->avcctx, codec, NULL);
 	if (i)
 		goto err;
-	i = avio_open(&output->fmtctx->pb, output->filename, AVIO_FLAG_WRITE);
+	err = "failed to open avio";
+	i = avio_open(&output->fmtctx->pb, full_fn, AVIO_FLAG_WRITE);
 	if (i < 0)
 		goto err;
+	err = "failed to write header";
 	i = avformat_write_header(output->fmtctx, NULL);
 	if (i)
 		goto err;
@@ -174,6 +204,7 @@ format_mismatch:
 	av_init_packet(&output->avpkt);
 
 	// output frame and fifo
+	output->frame = av_frame_alloc();
 	output->frame->nb_samples = output->avcctx->frame_size ? : 256;
 	output->frame->format = output->avcctx->sample_fmt;
 	output->frame->sample_rate = output->avcctx->sample_rate;
@@ -190,6 +221,7 @@ format_mismatch:
 
 err:
 	output_shutdown(output);
+	ilog(LOG_ERR, "Error configuring media output: %s", err);
 	return -1;
 }
 
@@ -197,6 +229,9 @@ err:
 static void output_shutdown(output_t *output) {
 	if (!output)
 		return;
+	if (!output->fmtctx)
+		return;
+
 	av_write_trailer(output->fmtctx);
 	avcodec_close(output->avcctx);
 	avio_closep(&output->fmtctx->pb);
@@ -208,6 +243,9 @@ static void output_shutdown(output_t *output) {
 	output->fmtctx = NULL;
 	output->avst = NULL;
 	output->fifo = NULL;
+
+	output->fifo_pts = 0;
+	output->mux_dts = 0;
 }
 
 
@@ -215,7 +253,6 @@ void output_close(output_t *output) {
 	if (!output)
 		return;
 	output_shutdown(output);
-	free(output->filename);
 	g_slice_free1(sizeof(*output), output);
 }
 
