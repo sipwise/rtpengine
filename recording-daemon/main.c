@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavfilter/avfilter.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "log.h"
@@ -63,6 +64,7 @@ static void setup(void) {
 	log_init();
 	av_register_all();
 	avcodec_register_all();
+	avfilter_register_all();
 	avformat_network_init();
 	signals();
 	metafile_setup();

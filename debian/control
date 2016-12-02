@@ -4,8 +4,9 @@ Priority: extra
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Build-Depends: debhelper (>= 5),
                iptables-dev (>= 1.4),
-               libavformat-dev,
                libavcodec-dev,
+               libavfilter-dev,
+               libavformat-dev,
                libavresample-dev,
                libavutil-dev,
                libcurl4-openssl-dev | libcurl4-gnutls-dev | libcurl3-openssl-dev | libcurl3-gnutls-dev,
