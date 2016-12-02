@@ -12,6 +12,8 @@
 #include "main.h"
 #include "recaux.h"
 #include "packet.h"
+#include "output.h"
+#include "mix.h"
 
 
 static pthread_mutex_t metafiles_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -25,6 +27,8 @@ static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
 
 	dbg("freeing metafile info for %s", mf->name);
+	output_close(mf->mix_out);
+	mix_destroy(mf->mix);
 	g_string_chunk_free(mf->gsc);
 	for (int i = 0; i < mf->streams->len; i++) {
 		stream_t *stream = g_ptr_array_index(mf->streams, i);
@@ -113,6 +117,11 @@ static metafile_t *metafile_get(char *name) {
 	pthread_mutex_init(&mf->payloads_lock, NULL);
 	mf->streams = g_ptr_array_new();
 	mf->ssrc_hash = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, ssrc_free);
+
+	char buf[256];
+	snprintf(buf, sizeof(buf), "%s/%s-mix", output_dir, mf->parent);
+	mf->mix_out = output_new(buf);
+	mf->mix = mix_new();
 
 	g_hash_table_insert(metafiles, mf->name, mf);
 
