@@ -203,7 +203,7 @@ format_mismatch:
 	output->avcctx->channel_layout = av_get_default_channel_layout(output->channels);
 	output->avcctx->sample_rate = output->clockrate;
 	output->avcctx->sample_fmt = AV_SAMPLE_FMT_S16;
-	output->avcctx->time_base = (AVRational){output->clockrate,1};
+	output->avcctx->time_base = (AVRational){1,output->clockrate};
 	output->avcctx->bit_rate = mp3_bitrate;
 	output->avst->time_base = output->avcctx->time_base;
 

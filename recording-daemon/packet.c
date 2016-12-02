@@ -164,7 +164,7 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 	}
 
 	if (decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
-			ssrc->output))
+			ssrc->output, ssrc->metafile))
 		ilog(LOG_ERR, "Failed to decode media packet");
 }
 
