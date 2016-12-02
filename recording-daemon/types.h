@@ -23,6 +23,9 @@ struct decoder_s;
 typedef struct decoder_s decoder_t;
 struct output_s;
 typedef struct output_s output_t;
+struct mix_s;
+typedef struct mix_s mix_t;
+
 
 typedef void handler_func(handler_t *);
 
@@ -81,6 +84,10 @@ struct metafile_s {
 
 	GPtrArray *streams;
 	GHashTable *ssrc_hash; // contains ssrc_t objects
+
+	pthread_mutex_t mix_lock;
+	mix_t *mix;
+	output_t *mix_out;
 
 	pthread_mutex_t payloads_lock;
 	char *payload_types[128];
