@@ -11,6 +11,7 @@
 #include "log.h"
 #include "str.h"
 #include "output.h"
+#include "mix.h"
 
 
 struct decoder_s {
@@ -28,6 +29,8 @@ struct decoder_s {
 	AVFrame *frame;
 	unsigned long rtp_ts;
 	uint64_t pts;
+
+	unsigned int mixer_idx;
 };
 
 
@@ -155,6 +158,7 @@ decoder_t *decoder_new(const char *payload_str) {
 
 	ret->pts = (uint64_t) -1LL;
 	ret->rtp_ts = (unsigned long) -1L;
+	ret->mixer_idx = (unsigned int) -1;
 
 	return ret;
 
@@ -178,12 +182,18 @@ static AVFrame *decoder_resample_frame(decoder_t *dec) {
 		if (!dec->avresample)
 			goto err;
 
-		av_opt_set_int(dec->avresample, "in_channel_layout", av_get_default_channel_layout(dec->channels), 0);
-		av_opt_set_int(dec->avresample, "in_sample_fmt", AV_SAMPLE_FMT_S16, 0);
-		av_opt_set_int(dec->avresample, "in_sample_rate", dec->in_clockrate, 0);
-		av_opt_set_int(dec->avresample, "out_channel_layout", av_get_default_channel_layout(dec->channels), 0);
-		av_opt_set_int(dec->avresample, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
-		av_opt_set_int(dec->avresample, "out_sample_rate", dec->out_clockrate, 0);
+		av_opt_set_int(dec->avresample, "in_channel_layout",
+				av_get_default_channel_layout(dec->channels), 0);
+		av_opt_set_int(dec->avresample, "in_sample_fmt",
+				AV_SAMPLE_FMT_S16, 0);
+		av_opt_set_int(dec->avresample, "in_sample_rate",
+				dec->in_clockrate, 0);
+		av_opt_set_int(dec->avresample, "out_channel_layout",
+				av_get_default_channel_layout(dec->channels), 0);
+		av_opt_set_int(dec->avresample, "out_sample_fmt",
+				AV_SAMPLE_FMT_S16, 0);
+		av_opt_set_int(dec->avresample, "out_sample_rate",
+				dec->out_clockrate, 0);
 		// av_opt_set_int(dec->avresample, "internal_sample_fmt", AV_SAMPLE_FMT_FLTP, 0); // ?
 
 		err = "failed to init resample context";
@@ -232,19 +242,32 @@ err:
 }
 
 
-static int decoder_got_frame(decoder_t *dec, output_t *output) {
+static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metafile) {
 	// do we need to resample?
 	AVFrame *dec_frame = decoder_resample_frame(dec);
 
+	// handle mix output
+	pthread_mutex_lock(&metafile->lock);
+	if (metafile->mix_out) {
+		if (G_UNLIKELY(dec->mixer_idx == (unsigned int) -1))
+			dec->mixer_idx = mix_get_index(metafile->mix);
+		output_config(metafile->mix_out, dec->out_clockrate, dec->channels);
+		mix_config(metafile->mix, dec->out_clockrate, dec->channels);
+		AVFrame *clone = av_frame_clone(dec_frame);
+		if (mix_add(metafile->mix, clone, dec->mixer_idx, metafile->mix_out))
+			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
+	}
+	pthread_mutex_unlock(&metafile->lock);
+
 	output_config(output, dec->out_clockrate, dec->channels);
 	if (output_add(output, dec_frame))
-		return -1;
+		ilog(LOG_ERR, "Failed to add decoded packet to individual output");
 
 	return 0;
 }
 
 
-int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *output) {
+int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *output, metafile_t *metafile) {
 	const char *err;
 
 	if (G_UNLIKELY(!dec))
@@ -330,7 +353,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 #endif
 
 		if (got_frame) {
-			if (decoder_got_frame(dec, output))
+			if (decoder_got_frame(dec, output, metafile))
 				return -1;
 		}
 	} while (keep_going);
