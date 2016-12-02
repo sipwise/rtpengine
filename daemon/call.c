@@ -1912,10 +1912,12 @@ void call_destroy(struct call *c) {
 	p = m->poller;
 
 	rwlock_lock_w(&m->hashlock);
-	ret = g_hash_table_remove(m->callhash, &c->callid);
+	ret = (g_hash_table_lookup(m->callhash, &c->callid) == c);
+	if (ret)
+		g_hash_table_remove(m->callhash, &c->callid);
 	rwlock_unlock_w(&m->hashlock);
 
-	// if call not found in hashlock => previously deleted
+	// if call not found in callhash => previously deleted
 	if (!ret)
 		return;
 
