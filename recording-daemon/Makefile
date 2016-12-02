@@ -10,6 +10,7 @@ CFLAGS+=	`pkg-config --cflags libavcodec`
 CFLAGS+=	`pkg-config --cflags libavformat`
 CFLAGS+=	`pkg-config --cflags libavutil`
 CFLAGS+=	`pkg-config --cflags libavresample`
+CFLAGS+=	`pkg-config --cflags libavfilter`
 
 LDFLAGS=	-lm
 LDFLAGS+=	`pkg-config --libs glib-2.0`
@@ -19,11 +20,12 @@ LDFLAGS+=	`pkg-config --libs libavcodec`
 LDFLAGS+=	`pkg-config --libs libavformat`
 LDFLAGS+=	`pkg-config --libs libavutil`
 LDFLAGS+=	`pkg-config --libs libavresample`
+LDFLAGS+=	`pkg-config --libs libavfilter`
 
 include ../lib/lib.Makefile
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
-		decoder.c output.c
+		decoder.c output.c mix.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
