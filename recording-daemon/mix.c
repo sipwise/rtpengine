@@ -22,6 +22,7 @@ struct mix_s {
 	AVFilterContext *amix_ctx;
 	AVFilterContext *sink_ctx;
 	unsigned int next_idx;
+	AVFrame *sink_frame;
 
 	AVAudioResampleContext *avresample;
 	AVFrame *swr_frame;
@@ -44,12 +45,15 @@ static void mix_shutdown(mix_t *mix) {
 		mix->src_ctxs[i] = NULL;
 	}
 
+	avresample_free(&mix->avresample);
 	avfilter_graph_free(&mix->graph);
 }
 
 
 void mix_destroy(mix_t *mix) {
 	mix_shutdown(mix);
+	av_frame_free(&mix->sink_frame);
+	av_frame_free(&mix->swr_frame);
 	g_slice_free1(sizeof(*mix), mix);
 }
 
@@ -152,6 +156,7 @@ mix_t *mix_new() {
 	mix_t *mix = g_slice_alloc0(sizeof(*mix));
 	mix->clockrate = -1;
 	mix->channels = -1;
+	mix->sink_frame = av_frame_alloc();
 
 	return mix;
 }
@@ -229,6 +234,7 @@ err:
 }
 
 
+// frees the frame passed to it
 int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	const char *err;
 
@@ -244,8 +250,10 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	if (av_buffersrc_add_frame(mix->src_ctxs[idx], frame))
 		goto err;
 
+	av_frame_free(&frame);
+
 	while (1) {
-		int ret = av_buffersink_get_frame(mix->sink_ctx, frame);
+		int ret = av_buffersink_get_frame(mix->sink_ctx, mix->sink_frame);
 		err = "failed to get frame from mixer";
 		if (ret < 0) {
 			if (ret == AVERROR(EAGAIN))
@@ -253,9 +261,13 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 			else
 				goto err;
 		}
-		frame = mix_resample_frame(mix, frame);
+		frame = mix_resample_frame(mix, mix->sink_frame);
 
-		if (output_add(output, frame))
+		ret = output_add(output, mix->sink_frame);
+
+		av_frame_unref(mix->sink_frame);
+
+		if (ret)
 			return -1;
 	}
 
@@ -263,5 +275,6 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 
 err:
 	ilog(LOG_ERR, "Failed to add frame to mixer: %s", err);
+	av_frame_free(&frame);
 	return -1;
 }

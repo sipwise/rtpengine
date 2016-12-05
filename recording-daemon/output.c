@@ -119,6 +119,8 @@ static int output_flush(output_t *output) {
 
 			output->fifo_pts += output->frame->nb_samples;
 			output->mux_dts = output->avpkt.dts + 1; // min next expected dts
+
+			av_packet_unref(&output->avpkt);
 		} while (keep_going);
 	}
 

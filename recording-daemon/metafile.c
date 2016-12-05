@@ -36,8 +36,8 @@ static void meta_free(void *ptr) {
 		stream_free(stream);
 	}
 	g_ptr_array_free(mf->streams, TRUE);
-	g_slice_free1(sizeof(*mf), mf);
 	g_hash_table_destroy(mf->ssrc_hash);
+	g_slice_free1(sizeof(*mf), mf);
 }
 
 

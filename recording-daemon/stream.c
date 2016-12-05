@@ -28,6 +28,7 @@ void stream_free(stream_t *stream) {
 
 static void stream_handler(handler_t *handler) {
 	stream_t *stream = handler->ptr;
+	unsigned char *buf = NULL;
 
 	//dbg("poll event for %s", stream->name);
 
@@ -45,7 +46,7 @@ static void stream_handler(handler_t *handler) {
 		+ FF_INPUT_BUFFER_PADDING_SIZE
 #endif
 		;
-	unsigned char *buf = malloc(alloclen);
+	buf = malloc(alloclen);
 	int ret = read(stream->fd, buf, maxbuflen);
 	if (ret == 0) {
 		ilog(LOG_INFO, "EOF on stream %s", stream->name);
@@ -65,6 +66,7 @@ static void stream_handler(handler_t *handler) {
 
 out:
 	pthread_mutex_unlock(&stream->lock);
+	free(buf);
 }
 
 
