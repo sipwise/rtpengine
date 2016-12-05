@@ -254,6 +254,7 @@ static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metaf
 		output_config(metafile->mix_out, dec->out_clockrate, dec->channels);
 		mix_config(metafile->mix, dec->out_clockrate, dec->channels);
 		AVFrame *clone = av_frame_clone(dec_frame);
+		clone->pts = dec_frame->pts;
 		if (mix_add(metafile->mix, clone, dec->mixer_idx, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 	}
@@ -273,8 +274,8 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 	if (G_UNLIKELY(!dec))
 		return -1;
 
-	dbg("%p dec pts %lu rtp_ts %lu incoming ts %lu", dec, (unsigned long) dec->pts,
-			(unsigned long) dec->rtp_ts, (unsigned long) ts);
+	dbg("%p dec pts %llu rtp_ts %llu incoming ts %lu", dec, (unsigned long long) dec->pts,
+			(unsigned long long) dec->rtp_ts, (unsigned long) ts);
 
 	if (G_UNLIKELY(dec->rtp_ts == (unsigned long) -1L)) {
 		// initialize pts
@@ -353,6 +354,11 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 #endif
 
 		if (got_frame) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
+			dec->frame->pts = dec->frame->pkt_pts;
+#endif
+			if (G_UNLIKELY(dec->frame->pts == AV_NOPTS_VALUE))
+				dec->frame->pts = dec->avpkt.pts;
 			if (decoder_got_frame(dec, output, metafile))
 				return -1;
 		}

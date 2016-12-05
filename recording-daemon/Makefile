@@ -5,7 +5,6 @@ CFLAGS+=	-std=c99
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
 CFLAGS+=	`pkg-config --cflags glib-2.0`
 CFLAGS+=	`pkg-config --cflags gthread-2.0`
-CFLAGS+=	`pcre-config --cflags`
 CFLAGS+=	`pkg-config --cflags libavcodec`
 CFLAGS+=	`pkg-config --cflags libavformat`
 CFLAGS+=	`pkg-config --cflags libavutil`
@@ -15,7 +14,6 @@ CFLAGS+=	`pkg-config --cflags libavfilter`
 LDFLAGS=	-lm
 LDFLAGS+=	`pkg-config --libs glib-2.0`
 LDFLAGS+=	`pkg-config --libs gthread-2.0`
-LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`pkg-config --libs libavcodec`
 LDFLAGS+=	`pkg-config --libs libavformat`
 LDFLAGS+=	`pkg-config --libs libavutil`

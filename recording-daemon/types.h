@@ -5,7 +5,6 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <glib.h>
-#include <pcre.h>
 #include "str.h"
 
 
@@ -92,13 +91,6 @@ struct metafile_s {
 	pthread_mutex_t payloads_lock;
 	char *payload_types[128];
 };
-
-
-// struct pcre_s {
-// 	pcre *re;
-// 	pcre_extra *extra;
-// };
-// typedef struct pcre_s pcre_t;
 
 
 #endif

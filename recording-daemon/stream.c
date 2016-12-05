@@ -12,6 +12,16 @@
 #include "packet.h"
 
 
+#define MAXBUFLEN 65535
+#ifndef AV_INPUT_BUFFER_PADDING_SIZE
+#define AV_INPUT_BUFFER_PADDING_SIZE 0
+#endif
+#ifndef FF_INPUT_BUFFER_PADDING_SIZE
+#define FF_INPUT_BUFFER_PADDING_SIZE 0
+#endif
+#define ALLOCLEN (MAXBUFLEN + AV_INPUT_BUFFER_PADDING_SIZE + FF_INPUT_BUFFER_PADDING_SIZE)
+
+
 // stream is locked
 void stream_close(stream_t *stream) {
 	if (stream->fd == -1)
@@ -37,17 +47,8 @@ static void stream_handler(handler_t *handler) {
 	if (stream->fd == -1)
 		goto out;
 
-	static const int maxbuflen = 65535;
-	static const int alloclen = maxbuflen
-#ifdef AV_INPUT_BUFFER_PADDING_SIZE
-		+ AV_INPUT_BUFFER_PADDING_SIZE
-#endif
-#ifdef FF_INPUT_BUFFER_PADDING_SIZE
-		+ FF_INPUT_BUFFER_PADDING_SIZE
-#endif
-		;
-	buf = malloc(alloclen);
-	int ret = read(stream->fd, buf, maxbuflen);
+	buf = malloc(ALLOCLEN);
+	int ret = read(stream->fd, buf, MAXBUFLEN);
 	if (ret == 0) {
 		ilog(LOG_INFO, "EOF on stream %s", stream->name);
 		stream_close(stream);

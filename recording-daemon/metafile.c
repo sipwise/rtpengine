@@ -19,9 +19,6 @@
 static pthread_mutex_t metafiles_lock = PTHREAD_MUTEX_INITIALIZER;
 static GHashTable *metafiles;
 
-//static pcre_t stream_interface_re,
-	      //stream_details_re;
-
 
 static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
@@ -263,8 +260,6 @@ void metafile_delete(char *name) {
 
 void metafile_setup(void) {
 	metafiles = g_hash_table_new(g_str_hash, g_str_equal);
-	//pcre_build(&stream_interface_re, "^STREAM (\\d+) interface$");
-	//pcre_build(&stream_interface_re, "^STREAM (\\d+) details$");
 }
 
 
