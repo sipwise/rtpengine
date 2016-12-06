@@ -12,7 +12,7 @@
 #include "output.h"
 
 
-#define NUM_INPUTS 2
+#define NUM_INPUTS 4
 
 
 struct mix_s {
@@ -23,7 +23,7 @@ struct mix_s {
 	AVFilterGraph *graph;
 	AVFilterContext *src_ctxs[NUM_INPUTS];
 	uint64_t pts_offs[NUM_INPUTS]; // initialized at first input seen
-	uint64_t in_pts[NUM_INPUTS]; // running counter of last seen adjusted pts
+	uint64_t in_pts[NUM_INPUTS]; // running counter of next expected adjusted pts
 	AVFilterContext *amix_ctx;
 	AVFilterContext *sink_ctx;
 	unsigned int next_idx;
@@ -246,14 +246,16 @@ err:
 }
 
 
-static void mix_silence_fill_idx_off(mix_t *mix, unsigned int idx, unsigned int offset) {
-	while (mix->in_pts[idx] + offset < mix->out_pts) {
+static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upto) {
+	unsigned int silence_samples = mix->clockrate / 100;
+
+	while (mix->in_pts[idx] < upto) {
 		if (G_UNLIKELY(!mix->silence_frame)) {
 			mix->silence_frame = av_frame_alloc();
 			mix->silence_frame->format = AV_SAMPLE_FMT_S16;
 			mix->silence_frame->channel_layout =
 				av_get_default_channel_layout(mix->channels);
-			mix->silence_frame->nb_samples = mix->clockrate / 100;
+			mix->silence_frame->nb_samples = silence_samples;
 			mix->silence_frame->sample_rate = mix->clockrate;
 			if (av_frame_get_buffer(mix->silence_frame, 0) < 0) {
 				ilog(LOG_ERR, "Failed to get silence frame buffers");
@@ -264,9 +266,10 @@ static void mix_silence_fill_idx_off(mix_t *mix, unsigned int idx, unsigned int 
 
 		dbg("pushing silence frame into stream %i (%lli < %llu)", idx,
 				(long long unsigned) mix->in_pts[idx],
-				(long long unsigned) mix->out_pts);
+				(long long unsigned) upto);
 
 		mix->silence_frame->pts = mix->in_pts[idx];
+		mix->silence_frame->nb_samples = MIN(silence_samples, upto - mix->in_pts[idx]);
 		mix->in_pts[idx] += mix->silence_frame->nb_samples;
 
 		if (av_buffersrc_write_frame(mix->src_ctxs[idx], mix->silence_frame))
@@ -276,11 +279,14 @@ static void mix_silence_fill_idx_off(mix_t *mix, unsigned int idx, unsigned int 
 
 
 static void mix_silence_fill(mix_t *mix) {
+	if (mix->out_pts < mix->clockrate)
+		return;
+
 	for (int i = 0; i < NUM_INPUTS; i++) {
 		// check the pts of each input and give them max 1 second of delay.
 		// if they fall behind too much, fill input with silence. otherwise
 		// output stalls and won't produce media
-		mix_silence_fill_idx_off(mix, i, mix->clockrate);
+		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->clockrate);
 	}
 }
 
@@ -297,25 +303,33 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	if (!mix->src_ctxs[idx])
 		goto err;
 
+	dbg("stream %i pts_off %llu in pts %llu in frame pts %llu samples %u mix out pts %llu", 
+			idx,
+			(unsigned long long) mix->pts_offs[idx],
+			(unsigned long long) mix->in_pts[idx],
+			(unsigned long long) frame->pts,
+			frame->nb_samples,
+			(unsigned long long) mix->out_pts);
+
 	// adjust for media started late
 	if (G_UNLIKELY(mix->pts_offs[idx] == (uint64_t) -1LL))
 		mix->pts_offs[idx] = mix->out_pts - frame->pts;
 	frame->pts += mix->pts_offs[idx];
 
 	// fill missing time
-	mix_silence_fill_idx_off(mix, idx, 0);
+	mix_silence_fill_idx_upto(mix, idx, frame->pts);
 
-	uint64_t frame_pts = frame->pts; // because *_add_frame unrefs the frame and invalidates pts
+	uint64_t next_pts = frame->pts + frame->nb_samples;
 
 	err = "failed to add frame to mixer";
 	if (av_buffersrc_add_frame(mix->src_ctxs[idx], frame))
 		goto err;
 
 	// update running counters
-	if (frame_pts > mix->out_pts)
-		mix->out_pts = frame_pts;
-	if (frame_pts > mix->in_pts[idx])
-		mix->in_pts[idx] = frame_pts;
+	if (next_pts > mix->out_pts)
+		mix->out_pts = next_pts;
+	if (next_pts > mix->in_pts[idx])
+		mix->in_pts[idx] = next_pts;
 
 	av_frame_free(&frame);
 
