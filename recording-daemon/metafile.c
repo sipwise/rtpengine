@@ -53,7 +53,7 @@ static void meta_destroy(metafile_t *mf) {
 // mf is locked
 static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *content) {
 	pthread_mutex_lock(&mf->mix_lock);
-	if (!mf->mix) {
+	if (!mf->mix && output_mixed) {
 		char buf[256];
 		snprintf(buf, sizeof(buf), "%s/%s-mix", output_dir, mf->parent);
 		mf->mix_out = output_new(buf);

@@ -260,9 +260,11 @@ static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metaf
 	}
 	pthread_mutex_unlock(&metafile->mix_lock);
 
-	output_config(output, dec->out_clockrate, dec->channels);
-	if (output_add(output, dec_frame))
-		ilog(LOG_ERR, "Failed to add decoded packet to individual output");
+	if (output) {
+		output_config(output, dec->out_clockrate, dec->channels);
+		if (output_add(output, dec_frame))
+			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
+	}
 
 	return 0;
 }
@@ -283,7 +285,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 	}
 	else {
 		// shift pts according to rtp ts shift
-		dec->pts += (ts - dec->rtp_ts) /* * output->avst->time_base.num * 8000 / output->avst->time_base.den */ ;
+		dec->pts += (ts - dec->rtp_ts);
 		// XXX handle lost packets here if timestamps don't line up?
 	}
 	dec->rtp_ts = ts;

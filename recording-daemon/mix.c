@@ -59,6 +59,8 @@ static void mix_shutdown(mix_t *mix) {
 
 
 void mix_destroy(mix_t *mix) {
+	if (!mix)
+		return;
 	mix_shutdown(mix);
 	av_frame_free(&mix->sink_frame);
 	av_frame_free(&mix->swr_frame);

@@ -28,6 +28,8 @@ int num_threads = 8;
 const char *spool_dir = "/var/spool/rtpengine";
 const char *output_dir = "/var/lib/rtpengine-recording";
 static const char *output_format = "wav";
+int output_mixed;
+int output_single;
 
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
@@ -140,11 +142,16 @@ static void options(int *argc, char ***argv) {
 		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3"	},
 		{ "resample-to",	0,   0, G_OPTION_ARG_INT,	&resample_audio,"Resample all output audio",		"INT"		},
 		{ "mp3-bitrate",	0,   0, G_OPTION_ARG_INT,	&mp3_bitrate,	"Bits per second for MP3 encoding",	"INT"		},
+		{ "output-mixed",	0,   0, G_OPTION_ARG_NONE,	&output_mixed,	"Mix participating sources into a single output",NULL	},
+		{ "output-single",	0,   0, G_OPTION_ARG_NONE,	&output_single,	"Create one output file for each source",NULL		},
 		{ NULL, }
 	};
 
 	config_load(argc, argv, e, " - rtpengine recording daemon",
 			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording");
+
+	if (!output_mixed && !output_single)
+		output_mixed = output_single = 1;
 }
 
 
