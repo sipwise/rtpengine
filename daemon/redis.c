@@ -1471,7 +1471,6 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 	redis_restore_recording(c, &call);
 
 	err = NULL;
-	obj_put(c);
 
 err8:
 	redis_destroy_list(&maps);
@@ -1491,13 +1490,14 @@ err1:
 	log_info_clear();
 	if (err) {
 		rlog(LOG_WARNING, "Failed to restore call ID '%.*s' from Redis: %s", REDIS_FMT(id), err);
-		if (c) {
+		if (c)
 			call_destroy(c);
-			obj_put(c);
-		}
 		else
 			redisCommandNR(m->conf.redis_write->ctx, "SREM calls "PB"", STR_R(id));
 	}
+
+	if (c)
+		obj_put(c);
 }
 
 
