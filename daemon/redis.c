@@ -319,45 +319,16 @@ void onRedisNotification(redisAsyncContext *actx, void *reply, void *privdata) {
 
 	str_init(&callid,rr->element[2]->str);
 
-	c = call_get(&callid, cm);
-	if (c) {
-		// because of call_get(..)
-		rwlock_unlock_w(&c->master_lock);
-	}
-
-	if (strncmp(rr->element[3]->str,"sadd",4)==0) {
-		if (c) {
-			rlog(LOG_ERR, "Redis-Notifier: SADD already find call with callid: %s; deleting the existing one.\n", rr->element[2]->str);
-
-            /* Failover scenario because of timeout on offer response: siprouter tries
-             * to establish session with another rtpengine2 even though rtpengine1
-             * might have persisted part of the session.
-             *
-             * rtpengine1: on add, change call type from OWN to FOREIGN so call_destroy
-             * won't update redis database*/
-            if (!IS_FOREIGN_CALL(c)) {
-                c->foreign_call = 1;
-                atomic64_inc(&cm->stats.foreign_sessions);
-                atomic64_inc(&cm->totalstats.total_foreign_sessions);
-
-                mutex_lock(&cm->totalstats_interval.managed_sess_lock);
-                cm->totalstats_interval.managed_sess_min = MIN(
-                        cm->totalstats_interval.managed_sess_min,
-                        g_hash_table_size(cm->callhash)
-                                - atomic64_get(&cm->stats.foreign_sessions));
-                mutex_unlock(&cm->totalstats_interval.managed_sess_lock);
-            }
-            call_destroy(c);
-		}
+	if (strncmp(rr->element[3]->str,"sadd",4)==0) 
 		redis_restore_call(r, cm, rr->element[2], CT_FOREIGN_CALL);
-	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
+		c = call_get(&callid, cm);
 		if (!c) {
 			rlog(LOG_NOTICE, "Redis-Notifier: DEL did not find call with callid: %s\n", rr->element[2]->str);
 			goto err;
 		}
-
+		rwlock_unlock_w(&c->master_lock);
 		call_destroy(c);
 	}
 
@@ -1415,39 +1386,41 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 	const char *err;
 	int i;
 
-	err = "'call' data incomplete";
-	if (redis_get_hash(&call, r, "call", id, -1))
-		goto err1;
-	err = "'tags' incomplete";
-	if (redis_get_list_hash(&tags, r, "tag", id, &call, "num_tags"))
-		goto err2;
-	err = "'sfds' incomplete";
-	if (redis_get_list_hash(&sfds, r, "sfd", id, &call, "num_sfds"))
-		goto err3;
-	err = "'streams' incomplete";
-	if (redis_get_list_hash(&streams, r, "stream", id, &call, "num_streams"))
-		goto err4;
-	err = "'medias' incomplete";
-	if (redis_get_list_hash(&medias, r, "media", id, &call, "num_medias"))
-		goto err5;
-	err = "'maps' incomplete";
-	if (redis_get_list_hash(&maps, r, "map", id, &call, "num_maps"))
-		goto err7;
-
 	str_init_len(&s, id->str, id->len);
 	//s.s = id->str;
 	//s.len = id->len;
 	c = call_get_or_create(&s, m, type);
 	err = "failed to create call struct";
 	if (!c)
-		goto err8;
+		goto err1;
+	err = "call already exists";
+	if (c->last_signal)
+		goto err2;
+	err = "'call' data incomplete";
+	if (redis_get_hash(&call, r, "call", id, -1))
+		goto err2;
+	err = "'tags' incomplete";
+	if (redis_get_list_hash(&tags, r, "tag", id, &call, "num_tags"))
+		goto err3;
+	err = "'sfds' incomplete";
+	if (redis_get_list_hash(&sfds, r, "sfd", id, &call, "num_sfds"))
+		goto err4;
+	err = "'streams' incomplete";
+	if (redis_get_list_hash(&streams, r, "stream", id, &call, "num_streams"))
+		goto err5;
+	err = "'medias' incomplete";
+	if (redis_get_list_hash(&medias, r, "media", id, &call, "num_medias"))
+		goto err6;
+	err = "'maps' incomplete";
+	if (redis_get_list_hash(&maps, r, "map", id, &call, "num_maps"))
+		goto err7;
 
 	err = "missing 'created' timestamp";
 	if (redis_hash_get_time_t(&c->created, &call, "created"))
-		goto err6;
+		goto err8;
 	err = "missing 'last signal' timestamp";
 	if (redis_hash_get_time_t(&c->last_signal, &call, "last_signal"))
-		goto err6;
+		goto err8;
 	if (redis_hash_get_int(&i, &call, "tos"))
 		c->tos = 184;
 	else
@@ -1461,59 +1434,59 @@ static void redis_restore_call(struct redis *r, struct callmaster *m, const redi
 
 	err = "missing 'redis_hosted_db' value";
 	if (redis_hash_get_unsigned((unsigned int *) &c->redis_hosted_db, &call, "redis_hosted_db"))
-		goto err6;
+		goto err8;
 
 	err = "failed to create sfds";
 	if (redis_sfds(c, &sfds))
-		goto err6;
+		goto err8;
 	err = "failed to create streams";
 	if (redis_streams(c, &streams))
-		goto err6;
+		goto err8;
 	err = "failed to create tags";
 	if (redis_tags(c, &tags))
-		goto err6;
+		goto err8;
 	err = "failed to create medias";
 	if (redis_medias(r, c, &medias))
-		goto err6;
+		goto err8;
 	err = "failed to create maps";
 	if (redis_maps(c, &maps))
-		goto err6;
+		goto err8;
 
 	err = "failed to link sfds";
 	if (redis_link_sfds(&sfds, &streams))
-		goto err6;
+		goto err8;
 	err = "failed to link streams";
 	if (redis_link_streams(r, c, &streams, &sfds, &medias))
-		goto err6;
+		goto err8;
 	err = "failed to link tags";
 	if (redis_link_tags(r, c, &tags, &medias))
-		goto err6;
+		goto err8;
 	err = "failed to link medias";
 	if (redis_link_medias(r, c, &medias, &streams, &maps, &tags))
-		goto err6;
+		goto err8;
 	err = "failed to link maps";
 	if (redis_link_maps(r, c, &maps, &sfds))
-		goto err6;
+		goto err8;
 
 	redis_restore_recording(c, &call);
 
 	err = NULL;
 	obj_put(c);
 
-err6:
-	rwlock_unlock_w(&c->master_lock);
 err8:
 	redis_destroy_list(&maps);
 err7:
 	redis_destroy_list(&medias);
-err5:
+err6:
 	redis_destroy_list(&streams);
-err4:
+err5:
 	redis_destroy_list(&sfds);
-err3:
+err4:
 	redis_destroy_list(&tags);
-err2:
+err3:
 	redis_destroy_hash(&call);
+err2:	
+	rwlock_unlock_w(&c->master_lock);
 err1:
 	log_info_clear();
 	if (err) {
