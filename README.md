@@ -175,7 +175,8 @@ option and which are reproduced below:
 	  -w, --redis-write=[PW@]IP:PORT/INT Connect to Redis write database
 	  -k, --subscribe-keyspace         Subscription keyspace list
 	  --redis-num-threads=INT          Number of Redis restore threads
-	  --redis-expires=INT              Expire time in seconds for redis keys	 
+	  --redis-expires=INT              Expire time in seconds for redis keys
+	  --redis-multikey=INT             Use multiple redis keys for storing the call (old behaviour) DEPRECATED
 	  -q, --no-redis-required          Start even if can't connect to redis databases
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
@@ -425,6 +426,10 @@ The options are described in more detail below.
 *  --redis-expires
 
         Expire time in seconds for redis keys. Default is 86400.
+
+*  --redis-multikey
+
+	Use multiple redis keys for storing the call (old behaviour) DEPRECATED
 
 *  -q, --no-redis-required
 	When this paramter is present or NO_REDIS_REQUIRED='yes' or '1' in config file, rtpengine starts even

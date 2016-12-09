@@ -74,6 +74,7 @@ fi
 [ -z "$REDIS_WRITE_AUTH_PW" ] || export RTPENGINE_REDIS_WRITE_AUTH_PW="$REDIS_WRITE_AUTH_PW"
 [ -z "$REDIS_NUM_THREADS" ] || OPTIONS="$OPTIONS --redis-num-threads=$REDIS_NUM_THREADS"
 [ -z "$REDIS_EXPIRES" ] || OPTIONS="$OPTIONS --redis-expires=$REDIS_EXPIRES"
+[ -z "$REDIS_MULTIKEY" ] || OPTIONS="$OPTIONS --redis-multikey=$REDIS_MULTIKEY"
 [ -z "$NO_REDIS_REQUIRED" -o \( "$NO_REDIS_REQUIRED" != "1" -a "$NO_REDIS_REQUIRED" != "yes" \) ] || OPTIONS="$OPTIONS --no-redis-required"
 [ -z "$B2B_URL" ] || OPTIONS="$OPTIONS --b2b-url=$B2B_URL"
 [ -z "$NO_FALLBACK" -o \( "$NO_FALLBACK" != "1" -a "$NO_FALLBACK" != "yes" \) ] || OPTIONS="$OPTIONS --no-fallback"
