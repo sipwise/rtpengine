@@ -270,9 +270,11 @@ static void output_shutdown(output_t *output) {
 	if (!output->fmtctx)
 		return;
 
-	av_write_trailer(output->fmtctx);
+	if (output->fmtctx->pb) {
+		av_write_trailer(output->fmtctx);
+		avio_closep(&output->fmtctx->pb);
+	}
 	avcodec_close(output->avcctx);
-	avio_closep(&output->fmtctx->pb);
 	avformat_free_context(output->fmtctx);
 	av_audio_fifo_free(output->fifo);
 	av_frame_free(&output->frame);
