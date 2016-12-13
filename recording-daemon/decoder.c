@@ -3,6 +3,7 @@
 #include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/mathematics.h>
 #include <glib.h>
 #include <stdint.h>
 #include <libavresample/avresample.h>
@@ -378,7 +379,12 @@ void decoder_close(decoder_t *dec) {
 	if (!dec)
 		return;
 	/// XXX drain inputs and outputs
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56, 1, 0)
 	avcodec_free_context(&dec->avcctx);
+#else
+	avcodec_close(dec->avcctx);
+	av_free(dec->avcctx);
+#endif
 	av_frame_free(&dec->frame);
 	av_frame_free(&dec->swr_frame);
 	avresample_free(&dec->avresample);

@@ -4,6 +4,7 @@
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/buffersink.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/mathematics.h>
 #include <inttypes.h>
 #include <libavresample/avresample.h>
 #include <libavutil/opt.h>
