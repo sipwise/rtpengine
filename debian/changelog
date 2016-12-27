@@ -1,3 +1,13 @@
+ngcp-rtpengine (4.5.3.1+0~mr4.5.3.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e9af916] TT#3881 re-enable selective packet loop check
+  * [c9673e0] solve a kernel mem leak when strict-source is set and triggered
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 27 Dec 2016 11:23:16 +0100
+
 ngcp-rtpengine (4.5.3.0+0~mr4.5.3.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
