@@ -246,6 +246,8 @@ err:
 static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metafile) {
 	// do we need to resample?
 	AVFrame *dec_frame = decoder_resample_frame(dec);
+	if (!dec_frame)
+		return -1;
 
 	// handle mix output
 	pthread_mutex_lock(&metafile->mix_lock);
