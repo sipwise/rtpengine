@@ -328,17 +328,27 @@ static void fingerprint(struct msghdr *mh, struct fingerprint *fp) {
 
 static void __integrity(struct iovec *iov, int iov_cnt, str *pwd, char *digest) {
 	int i;
-	HMAC_CTX ctx;
+	HMAC_CTX *ctx;
 
-	HMAC_CTX_init(&ctx);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	ctx = HMAC_CTX_new();
+#else
+	HMAC_CTX ctx_s;
+	HMAC_CTX_init(&ctx_s);
+	ctx = &ctx_s;
+#endif
 	/* do we need to SASLprep here? */
-	HMAC_Init(&ctx, pwd->s, pwd->len, EVP_sha1());
+	HMAC_Init_ex(ctx, pwd->s, pwd->len, EVP_sha1(), NULL);
 
 	for (i = 0; i < iov_cnt; i++)
-		HMAC_Update(&ctx, iov[i].iov_base, iov[i].iov_len);
+		HMAC_Update(ctx, iov[i].iov_base, iov[i].iov_len);
 
-	HMAC_Final(&ctx, (void *) digest, NULL);
-	HMAC_CTX_cleanup(&ctx);
+	HMAC_Final(ctx, (void *) digest, NULL);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	HMAC_CTX_free(ctx);
+#else
+	HMAC_CTX_cleanup(ctx);
+#endif
 }
 
 static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
