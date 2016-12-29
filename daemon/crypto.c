@@ -260,15 +260,26 @@ done:
 }
 
 static void aes_ctr_128_no_ctx(unsigned char *out, str *in, const unsigned char *key, const unsigned char *iv) {
-	EVP_CIPHER_CTX ctx;
+	EVP_CIPHER_CTX *ctx;
 	unsigned char block[16];
 	int len;
 
-	EVP_CIPHER_CTX_init(&ctx);
-	EVP_EncryptInit_ex(&ctx, EVP_aes_128_ecb(), NULL, key, NULL);
-	aes_ctr_128(out, in, &ctx, iv);
-	EVP_EncryptFinal_ex(&ctx, block, &len);
-	EVP_CIPHER_CTX_cleanup(&ctx);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	ctx = EVP_CIPHER_CTX_new();
+#else
+	EVP_CIPHER_CTX ctx_s;
+	ctx = &ctx_s;
+	EVP_CIPHER_CTX_init(ctx);
+#endif
+	EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL);
+	aes_ctr_128(out, in, ctx, iv);
+	EVP_EncryptFinal_ex(ctx, block, &len);
+
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	EVP_CIPHER_CTX_free(ctx);
+#else
+	EVP_CIPHER_CTX_cleanup(ctx);
+#endif
 }
 
 /* rfc 3711 section 4.3.1 and 4.3.3
@@ -463,15 +474,27 @@ static int aes_f8_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, 
 /* rfc 3711, sections 4.2 and 4.2.1 */
 static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in, u_int64_t index) {
 	unsigned char hmac[20];
-	HMAC_CTX hc;
 	u_int32_t roc;
+	HMAC_CTX *hc;
 
-	HMAC_Init(&hc, c->session_auth_key, c->params.crypto_suite->srtp_auth_key_len, EVP_sha1());
-	HMAC_Update(&hc, (unsigned char *) in->s, in->len);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	hc = HMAC_CTX_new();
+#else
+	HMAC_CTX hc_s;
+	HMAC_CTX_init(&hc_s);
+	hc = &hc_s;
+#endif
+
+	HMAC_Init_ex(hc, c->session_auth_key, c->params.crypto_suite->srtp_auth_key_len, EVP_sha1(), NULL);
+	HMAC_Update(hc, (unsigned char *) in->s, in->len);
 	roc = htonl((index & 0xffffffff0000ULL) >> 16);
-	HMAC_Update(&hc, (unsigned char *) &roc, sizeof(roc));
-	HMAC_Final(&hc, hmac, NULL);
-	HMAC_CTX_cleanup(&hc);
+	HMAC_Update(hc, (unsigned char *) &roc, sizeof(roc));
+	HMAC_Final(hc, hmac, NULL);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	HMAC_CTX_free(hc);
+#else
+	HMAC_CTX_cleanup(hc);
+#endif
 
 	assert(sizeof(hmac) >= c->params.crypto_suite->srtp_auth_tag);
 	memcpy(out, hmac, c->params.crypto_suite->srtp_auth_tag);
@@ -495,8 +518,12 @@ static int hmac_sha1_rtcp(struct crypto_context *c, char *out, str *in) {
 static int aes_cm_session_key_init(struct crypto_context *c) {
 	evp_session_key_cleanup(c);
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	c->session_key_ctx[0] = EVP_CIPHER_CTX_new();
+#else
 	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
 	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
+#endif
 	EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_128_ecb(), NULL,
 			(unsigned char *) c->session_key, NULL);
 	return 0;
@@ -522,8 +549,12 @@ static int aes_f8_session_key_init(struct crypto_context *c) {
 	for (i = 0; i < k_e_len; i++)
 		m[i] ^= key[i];
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	c->session_key_ctx[1] = EVP_CIPHER_CTX_new();
+#else
 	c->session_key_ctx[1] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
 	EVP_CIPHER_CTX_init(c->session_key_ctx[1]);
+#endif
 	EVP_EncryptInit_ex(c->session_key_ctx[1], EVP_aes_128_ecb(), NULL, m, NULL);
 
 	return 0;
@@ -538,8 +569,12 @@ static int evp_session_key_cleanup(struct crypto_context *c) {
 			continue;
 
 		EVP_EncryptFinal_ex(c->session_key_ctx[i], block, &len);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+		EVP_CIPHER_CTX_free(c->session_key_ctx[i]);
+#else
 		EVP_CIPHER_CTX_cleanup(c->session_key_ctx[i]);
 		g_slice_free1(sizeof(EVP_CIPHER_CTX), c->session_key_ctx[i]);
+#endif
 		c->session_key_ctx[i] = NULL;
 	}
 

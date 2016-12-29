@@ -43,8 +43,6 @@ struct main_context {
 
 
 
-static mutex_t *openssl_locks;
-
 static GQueue interfaces = G_QUEUE_INIT;
 static GQueue keyspaces = G_QUEUE_INIT;
 static endpoint_t tcp_listen_ep;
@@ -448,6 +446,9 @@ static void options(int *argc, char ***argv) {
 }
 
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+static mutex_t *openssl_locks;
+
 static void cb_openssl_threadid(CRYPTO_THREADID *tid) {
 	pthread_t me;
 
@@ -476,6 +477,11 @@ static void make_OpenSSL_thread_safe(void) {
 	CRYPTO_THREADID_set_callback(cb_openssl_threadid);
 	CRYPTO_set_locking_callback(cb_openssl_lock);
 }
+#else
+static void make_OpenSSL_thread_safe(void) {
+	;
+}
+#endif
 
 
 static void early_init() {

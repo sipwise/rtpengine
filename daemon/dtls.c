@@ -488,7 +488,11 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 		dtls_connection_cleanup(d);
 	}
 
+#if OPENSSL_VERSION_NUMBER >= 0x10000000L
+	d->ssl_ctx = SSL_CTX_new(active ? DTLS_client_method() : DTLS_server_method());
+#else
 	d->ssl_ctx = SSL_CTX_new(active ? DTLSv1_client_method() : DTLSv1_server_method());
+#endif
 	if (!d->ssl_ctx)
 		goto error;
 
