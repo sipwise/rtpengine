@@ -4,6 +4,7 @@
 #include <libavutil/audio_fifo.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/mathematics.h>
+#include <libavutil/samplefmt.h>
 #include <glib.h>
 #include <stdint.h>
 #include <libavresample/avresample.h>
@@ -13,17 +14,15 @@
 #include "str.h"
 #include "output.h"
 #include "mix.h"
+#include "resample.h"
 
 
 struct decoder_s {
-	// format params
-	int channels;
-	int in_clockrate;
-	int out_clockrate;
+	format_t in_format,
+		 out_format;
 
-	AVAudioResampleContext *avresample;
-	AVFrame *swr_frame;
-	int swr_buffers;
+	resample_t mix_resample,
+		   output_resample;
 
 	AVCodecContext *avcctx;
 	AVPacket avpkt;
@@ -126,9 +125,14 @@ decoder_t *decoder_new(const char *payload_str) {
 
 	decoder_t *ret = g_slice_alloc0(sizeof(*ret));
 
-	ret->channels = channels;
-	ret->in_clockrate = clockrate;
-	ret->out_clockrate = resample_audio ? : clockrate;
+	format_init(&ret->in_format);
+	ret->in_format.channels = channels;
+	ret->in_format.clockrate = clockrate;
+	// output defaults to same as input
+	ret->out_format = ret->in_format;
+	if (resample_audio)
+		ret->out_format.clockrate = resample_audio;
+	// sample format to be determined later when decoded frames arrive
 
 	AVCodec *codec = NULL;
 	if (def->avcodec_name)
@@ -151,6 +155,9 @@ decoder_t *decoder_new(const char *payload_str) {
 	if (i)
 		goto err;
 
+	for (const enum AVSampleFormat *sfmt = codec->sample_fmts; sfmt && *sfmt != -1; sfmt++)
+		dbg("supported sample format for input codec %s: %s", codec->name, av_get_sample_fmt_name(*sfmt));
+
 	av_init_packet(&ret->avpkt);
 	ret->frame = av_frame_alloc();
 	err = "failed to alloc av frame";
@@ -171,100 +178,37 @@ err:
 }
 
 
-static AVFrame *decoder_resample_frame(decoder_t *dec) {
-	const char *err;
-
-	if (dec->in_clockrate == dec->out_clockrate)
-		return dec->frame;
-
-	if (!dec->avresample) {
-		dec->avresample = avresample_alloc_context();
-		err = "failed to alloc resample context";
-		if (!dec->avresample)
-			goto err;
-
-		av_opt_set_int(dec->avresample, "in_channel_layout",
-				av_get_default_channel_layout(dec->channels), 0);
-		av_opt_set_int(dec->avresample, "in_sample_fmt",
-				AV_SAMPLE_FMT_S16, 0);
-		av_opt_set_int(dec->avresample, "in_sample_rate",
-				dec->in_clockrate, 0);
-		av_opt_set_int(dec->avresample, "out_channel_layout",
-				av_get_default_channel_layout(dec->channels), 0);
-		av_opt_set_int(dec->avresample, "out_sample_fmt",
-				AV_SAMPLE_FMT_S16, 0);
-		av_opt_set_int(dec->avresample, "out_sample_rate",
-				dec->out_clockrate, 0);
-		// av_opt_set_int(dec->avresample, "internal_sample_fmt", AV_SAMPLE_FMT_FLTP, 0); // ?
-
-		err = "failed to init resample context";
-		if (avresample_open(dec->avresample) < 0)
-			goto err;
-	}
-
-	// get a large enough buffer for resampled audio - this should be enough so we don't
-	// have to loop
-	int dst_samples = avresample_available(dec->avresample) +
-		av_rescale_rnd(avresample_get_delay(dec->avresample) + dec->frame->nb_samples,
-				dec->out_clockrate, dec->in_clockrate, AV_ROUND_UP);
-	if (!dec->swr_frame || dec->swr_buffers < dst_samples) {
-		av_frame_free(&dec->swr_frame);
-		dec->swr_frame = av_frame_alloc();
-		err = "failed to alloc resampling frame";
-		if (!dec->swr_frame)
-			goto err;
-		av_frame_copy_props(dec->swr_frame, dec->frame);
-		dec->swr_frame->format = dec->frame->format;
-		dec->swr_frame->channel_layout = dec->frame->channel_layout;
-		dec->swr_frame->nb_samples = dst_samples;
-		dec->swr_frame->sample_rate = dec->out_clockrate;
-		err = "failed to get resample buffers";
-		if (av_frame_get_buffer(dec->swr_frame, 0) < 0)
-			goto err;
-		dec->swr_buffers = dst_samples;
-	}
-
-	dec->swr_frame->nb_samples = dst_samples;
-	int ret_samples = avresample_convert(dec->avresample, dec->swr_frame->extended_data,
-				dec->swr_frame->linesize[0], dst_samples,
-				dec->frame->extended_data,
-				dec->frame->linesize[0], dec->frame->nb_samples);
-	err = "failed to resample audio";
-	if (ret_samples < 0)
-		goto err;
-
-	dec->swr_frame->nb_samples = ret_samples;
-	dec->swr_frame->pts = av_rescale(dec->frame->pts, dec->out_clockrate, dec->in_clockrate);
-	return dec->swr_frame;
-
-err:
-	ilog(LOG_ERR, "Error resampling: %s", err);
-	return NULL;
-}
-
-
 static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metafile) {
-	// do we need to resample?
-	AVFrame *dec_frame = decoder_resample_frame(dec);
-	if (!dec_frame)
-		return -1;
+	// determine and save sample type
+	if (G_UNLIKELY(dec->in_format.format == -1))
+		dec->in_format.format = dec->out_format.format = dec->frame->format;
 
 	// handle mix output
 	pthread_mutex_lock(&metafile->mix_lock);
 	if (metafile->mix_out) {
 		if (G_UNLIKELY(dec->mixer_idx == (unsigned int) -1))
 			dec->mixer_idx = mix_get_index(metafile->mix);
-		output_config(metafile->mix_out, dec->out_clockrate, dec->channels);
-		mix_config(metafile->mix, dec->out_clockrate, dec->channels);
+		format_t actual_format;
+		output_config(metafile->mix_out, &dec->out_format, &actual_format);
+		mix_config(metafile->mix, &actual_format);
+		AVFrame *dec_frame = resample_frame(&dec->mix_resample, dec->frame, &actual_format);
+		if (!dec_frame) {
+			pthread_mutex_unlock(&metafile->mix_lock);
+			return -1;
+		}
 		AVFrame *clone = av_frame_clone(dec_frame);
-		clone->pts = dec_frame->pts;
 		if (mix_add(metafile->mix, clone, dec->mixer_idx, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 	}
 	pthread_mutex_unlock(&metafile->mix_lock);
 
 	if (output) {
-		output_config(output, dec->out_clockrate, dec->channels);
+		// XXX might be a second resampling to same format
+		format_t actual_format;
+		output_config(output, &dec->out_format, &actual_format);
+		AVFrame *dec_frame = resample_frame(&dec->output_resample, dec->frame, &actual_format);
+		if (!dec_frame)
+			return -1;
 		if (output_add(output, dec_frame))
 			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
 	}
@@ -388,7 +332,7 @@ void decoder_close(decoder_t *dec) {
 	av_free(dec->avcctx);
 #endif
 	av_frame_free(&dec->frame);
-	av_frame_free(&dec->swr_frame);
-	avresample_free(&dec->avresample);
+	resample_shutdown(&dec->mix_resample);
+	resample_shutdown(&dec->output_resample);
 	g_slice_free1(sizeof(*dec), dec);
 }

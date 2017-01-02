@@ -8,7 +8,7 @@
 mix_t *mix_new(void);
 void mix_destroy(mix_t *mix);
 
-int mix_config(mix_t *, unsigned int clockrate, unsigned int channels);
+int mix_config(mix_t *, const format_t *format);
 int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output);
 unsigned int mix_get_index(mix_t *);
 

@@ -13,7 +13,7 @@ void output_init(const char *format);
 output_t *output_new(const char *filename);
 void output_close(output_t *);
 
-int output_config(output_t *output, unsigned int clockrate, unsigned int channels);
+int output_config(output_t *output, const format_t *requested_format, format_t *actual_format);
 int output_add(output_t *output, AVFrame *frame);
 
 

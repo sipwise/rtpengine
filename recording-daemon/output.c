@@ -3,6 +3,7 @@
 #include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
 #include <limits.h>
 #include <string.h>
 #include <stdint.h>
@@ -13,9 +14,8 @@
 struct output_s {
 	char filename[PATH_MAX];
 
-	// format params
-	int clockrate;
-	int channels;
+	format_t requested_format,
+		 actual_format;
 
 	AVCodecContext *avcctx;
 	AVFormatContext *fmtctx;
@@ -150,30 +150,22 @@ int output_add(output_t *output, AVFrame *frame) {
 output_t *output_new(const char *filename) {
 	output_t *ret = g_slice_alloc0(sizeof(*ret));
 	g_strlcpy(ret->filename, filename, sizeof(ret->filename));
-	ret->clockrate = -1;
-	ret->channels = -1;
+	format_init(&ret->requested_format);
+	format_init(&ret->actual_format);
 	return ret;
 }
 
 
-int output_config(output_t *output, unsigned int clockrate, unsigned int channels) {
+int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
 	const char *err;
 
 	// anything to do?
-	if (G_UNLIKELY(output->clockrate != clockrate))
-		goto format_mismatch;
-	if (G_UNLIKELY(output->channels != channels))
-		goto format_mismatch;
+	if (G_LIKELY(format_eq(requested_format, &output->requested_format)))
+		goto done;
 
-	// all good
-	return 0;
-
-format_mismatch:
 	output_shutdown(output);
 
-	// copy params
-	output->clockrate = clockrate;
-	output->channels = channels;
+	output->requested_format = *requested_format;
 
 	err = "failed to alloc format context";
 	output->fmtctx = avformat_alloc_context();
@@ -201,11 +193,25 @@ format_mismatch:
 	output->avcctx = output->avst->codec;
 #endif
 
-	output->avcctx->channels = output->channels;
-	output->avcctx->channel_layout = av_get_default_channel_layout(output->channels);
-	output->avcctx->sample_rate = output->clockrate;
-	output->avcctx->sample_fmt = AV_SAMPLE_FMT_S16;
-	output->avcctx->time_base = (AVRational){1,output->clockrate};
+	// copy all format params
+	output->actual_format = output->requested_format;
+
+	// determine sample format to use
+	output->actual_format.format = -1;
+	for (const enum AVSampleFormat *sfmt = codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
+		dbg("supported sample format for output codec %s: %s", codec->name, av_get_sample_fmt_name(*sfmt));
+		if (*sfmt == requested_format->format)
+			output->actual_format.format = *sfmt;
+	}
+	if (output->actual_format.format == -1 && codec->sample_fmts)
+		output->actual_format.format = codec->sample_fmts[0];
+	dbg("using output sample format %s for codec %s", av_get_sample_fmt_name(output->actual_format.format), codec->name);
+
+	output->avcctx->channels = output->actual_format.channels;
+	output->avcctx->channel_layout = av_get_default_channel_layout(output->actual_format.channels);
+	output->avcctx->sample_rate = output->actual_format.clockrate;
+	output->avcctx->sample_fmt = output->actual_format.format;
+	output->avcctx->time_base = (AVRational){1,output->actual_format.clockrate};
 	output->avcctx->bit_rate = mp3_bitrate;
 	output->avst->time_base = output->avcctx->time_base;
 
@@ -255,6 +261,8 @@ got_fn:
 	output->fifo = av_audio_fifo_alloc(output->avcctx->sample_fmt, output->avcctx->channels,
 			output->frame->nb_samples);
 
+done:
+	*actual_format = output->actual_format;
 	return 0;
 
 err:
@@ -286,6 +294,9 @@ static void output_shutdown(output_t *output) {
 
 	output->fifo_pts = 0;
 	output->mux_dts = 0;
+
+	format_init(&output->requested_format);
+	format_init(&output->actual_format);
 }
 
 

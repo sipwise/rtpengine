@@ -11,15 +11,14 @@
 #include "types.h"
 #include "log.h"
 #include "output.h"
+#include "resample.h"
 
 
 #define NUM_INPUTS 4
 
 
 struct mix_s {
-	// format params
-	int clockrate;
-	int channels;
+	format_t format;
 
 	AVFilterGraph *graph;
 	AVFilterContext *src_ctxs[NUM_INPUTS];
@@ -30,9 +29,8 @@ struct mix_s {
 	unsigned int next_idx;
 	AVFrame *sink_frame;
 
-	AVAudioResampleContext *avresample;
-	AVFrame *swr_frame;
-	int swr_buffers;
+	resample_t resample;
+
 	uint64_t out_pts; // starting at zero
 
 	AVFrame *silence_frame;
@@ -54,8 +52,10 @@ static void mix_shutdown(mix_t *mix) {
 		mix->src_ctxs[i] = NULL;
 	}
 
-	avresample_free(&mix->avresample);
+	resample_shutdown(&mix->resample);
 	avfilter_graph_free(&mix->graph);
+
+	format_init(&mix->format);
 }
 
 
@@ -64,7 +64,6 @@ void mix_destroy(mix_t *mix) {
 		return;
 	mix_shutdown(mix);
 	av_frame_free(&mix->sink_frame);
-	av_frame_free(&mix->swr_frame);
 	av_frame_free(&mix->silence_frame);
 	g_slice_free1(sizeof(*mix), mix);
 }
@@ -75,25 +74,16 @@ unsigned int mix_get_index(mix_t *mix) {
 }
 
 
-int mix_config(mix_t *mix, unsigned int clockrate, unsigned int channels) {
+int mix_config(mix_t *mix, const format_t *format) {
 	const char *err;
 	char args[512];
 
-	// anything to do?
-	if (G_UNLIKELY(mix->clockrate != clockrate))
-		goto format_mismatch;
-	if (G_UNLIKELY(mix->channels != channels))
-		goto format_mismatch;
+	if (format_eq(format, &mix->format))
+		return 0;
 
-	// all good
-	return 0;
-
-format_mismatch:
 	mix_shutdown(mix);
 
-	// copy params
-	mix->clockrate = clockrate;
-	mix->channels = channels;
+	mix->format = *format;
 
 	// filter graph
 	err = "failed to alloc filter graph";
@@ -123,9 +113,9 @@ format_mismatch:
 
 		snprintf(args, sizeof(args), "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:"
 				"channel_layout=0x%" PRIx64,
-				1, mix->clockrate, mix->clockrate,
-				av_get_sample_fmt_name(AV_SAMPLE_FMT_S16),
-				av_get_default_channel_layout(mix->channels));
+				1, mix->format.clockrate, mix->format.clockrate,
+				av_get_sample_fmt_name(mix->format.format),
+				av_get_default_channel_layout(mix->format.channels));
 
 		err = "failed to create abuffer filter context";
 		if (avfilter_graph_create_filter(&mix->src_ctxs[i], flt, NULL, args, NULL, mix->graph))
@@ -166,8 +156,7 @@ err:
 
 mix_t *mix_new() {
 	mix_t *mix = g_slice_alloc0(sizeof(*mix));
-	mix->clockrate = -1;
-	mix->channels = -1;
+	format_init(&mix->format);
 	mix->sink_frame = av_frame_alloc();
 
 	for (int i = 0; i < NUM_INPUTS; i++)
@@ -177,94 +166,24 @@ mix_t *mix_new() {
 }
 
 
-static AVFrame *mix_resample_frame(mix_t *mix, AVFrame *frame) {
-	const char *err;
-
-	if (frame->format == AV_SAMPLE_FMT_S16)
-		return frame;
-
-	if (!mix->avresample) {
-		mix->avresample = avresample_alloc_context();
-		err = "failed to alloc resample context";
-		if (!mix->avresample)
-			goto err;
-
-		av_opt_set_int(mix->avresample, "in_channel_layout",
-				av_get_default_channel_layout(mix->channels), 0);
-		av_opt_set_int(mix->avresample, "in_sample_fmt",
-				frame->format, 0);
-		av_opt_set_int(mix->avresample, "in_sample_rate",
-				mix->clockrate, 0);
-		av_opt_set_int(mix->avresample, "out_channel_layout",
-				av_get_default_channel_layout(mix->channels), 0);
-		av_opt_set_int(mix->avresample, "out_sample_fmt",
-				AV_SAMPLE_FMT_S16, 0);
-		av_opt_set_int(mix->avresample, "out_sample_rate",
-				mix->clockrate, 0);
-		// av_opt_set_int(dec->avresample, "internal_sample_fmt", AV_SAMPLE_FMT_FLTP, 0); // ?
-
-		err = "failed to init resample context";
-		if (avresample_open(mix->avresample) < 0)
-			goto err;
-	}
-
-	// get a large enough buffer for resampled audio - this should be enough so we don't
-	// have to loop
-	int dst_samples = avresample_available(mix->avresample) +
-		av_rescale_rnd(avresample_get_delay(mix->avresample) + frame->nb_samples,
-				mix->clockrate, mix->clockrate, AV_ROUND_UP);
-	if (!mix->swr_frame || mix->swr_buffers < dst_samples) {
-		av_frame_free(&mix->swr_frame);
-		mix->swr_frame = av_frame_alloc();
-		err = "failed to alloc resampling frame";
-		if (!mix->swr_frame)
-			goto err;
-		av_frame_copy_props(mix->swr_frame, frame);
-		mix->swr_frame->format = frame->format;
-		mix->swr_frame->channel_layout = frame->channel_layout;
-		mix->swr_frame->nb_samples = dst_samples;
-		mix->swr_frame->sample_rate = mix->clockrate;
-		err = "failed to get resample buffers";
-		if (av_frame_get_buffer(mix->swr_frame, 0) < 0)
-			goto err;
-		mix->swr_buffers = dst_samples;
-	}
-
-	mix->swr_frame->nb_samples = dst_samples;
-	int ret_samples = avresample_convert(mix->avresample, mix->swr_frame->extended_data,
-				mix->swr_frame->linesize[0], dst_samples,
-				frame->extended_data,
-				frame->linesize[0], frame->nb_samples);
-	err = "failed to resample audio";
-	if (ret_samples < 0)
-		goto err;
-
-	mix->swr_frame->nb_samples = ret_samples;
-	mix->swr_frame->pts = av_rescale(frame->pts, mix->clockrate, mix->clockrate);
-	return mix->swr_frame;
-
-err:
-	ilog(LOG_ERR, "Error resampling: %s", err);
-	return NULL;
-}
-
-
 static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upto) {
-	unsigned int silence_samples = mix->clockrate / 100;
+	unsigned int silence_samples = mix->format.clockrate / 100;
 
 	while (mix->in_pts[idx] < upto) {
 		if (G_UNLIKELY(!mix->silence_frame)) {
 			mix->silence_frame = av_frame_alloc();
-			mix->silence_frame->format = AV_SAMPLE_FMT_S16;
+			mix->silence_frame->format = mix->format.format;
 			mix->silence_frame->channel_layout =
-				av_get_default_channel_layout(mix->channels);
+				av_get_default_channel_layout(mix->format.channels);
 			mix->silence_frame->nb_samples = silence_samples;
-			mix->silence_frame->sample_rate = mix->clockrate;
+			mix->silence_frame->sample_rate = mix->format.clockrate;
 			if (av_frame_get_buffer(mix->silence_frame, 0) < 0) {
 				ilog(LOG_ERR, "Failed to get silence frame buffers");
 				return;
 			}
-			memset(mix->silence_frame->extended_data[0], 0, mix->silence_frame->linesize[0]);
+			int planes = av_sample_fmt_is_planar(mix->silence_frame->format) ? mix->format.channels : 1;
+			for (int i = 0; i < planes; i++)
+				memset(mix->silence_frame->extended_data[i], 0, mix->silence_frame->linesize[0]);
 		}
 
 		dbg("pushing silence frame into stream %i (%lli < %llu)", idx,
@@ -282,19 +201,18 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 
 
 static void mix_silence_fill(mix_t *mix) {
-	if (mix->out_pts < mix->clockrate)
+	if (mix->out_pts < mix->format.clockrate)
 		return;
 
 	for (int i = 0; i < NUM_INPUTS; i++) {
 		// check the pts of each input and give them max 1 second of delay.
 		// if they fall behind too much, fill input with silence. otherwise
 		// output stalls and won't produce media
-		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->clockrate);
+		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->format.clockrate);
 	}
 }
 
 
-// frees the frame passed to it
 int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	const char *err;
 
@@ -347,7 +265,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 			else
 				goto err;
 		}
-		frame = mix_resample_frame(mix, mix->sink_frame);
+		frame = resample_frame(&mix->resample, mix->sink_frame, &mix->format);
 
 		ret = output_add(output, frame);
 
