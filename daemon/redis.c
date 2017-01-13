@@ -2210,7 +2210,7 @@ char* redis_encode_json(struct call *c) {
 
 	json_builder_begin_object (builder);
 	{
-		sprintf(tmp,"json-" STR_FORMAT,STR(&c->callid));
+		sprintf(tmp,"json-" STR_FORMAT, STR_FMT(&c->callid));
 		json_builder_set_member_name (builder, tmp);
 		ZERO(tmp);
 
