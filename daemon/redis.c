@@ -24,6 +24,7 @@
 #include "dtls.h"
 #include "recording.h"
 #include "rtplib.h"
+#include "str.h"
 
 #include <stdlib.h>
 #include <glib-object.h>
@@ -321,8 +322,12 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 	rr->element[2]->len = strlen(rr->element[2]->str);
 	rlog(LOG_DEBUG,"Redis-Notifier:%s:%d: Processing call with callid: %s\n", rr->element[3]->str, r->db, rr->element[2]->str);
 
-        // strip off json- prefix from callid
-	str_init_len(&callid,rr->element[2]->str+strlen("json-"),strlen(rr->element[2]->str)-strlen("json-"));
+	// strip off prefix from callid
+	if (cm->conf.redis_multikey) {
+		str_init_len(&callid,rr->element[2]->str+strlen("notifier-"),strlen(rr->element[2]->str)-strlen("notifier-"));
+	} else {
+		str_init_len(&callid,rr->element[2]->str+strlen("json-"),strlen(rr->element[2]->str)-strlen("json-"));
+	}
 
 	if (cm->conf.redis_multikey && strncmp(rr->element[3]->str,"sadd",4)==0)
 		redis_restore_call(r, cm, rr->element[2], CT_FOREIGN_CALL);
@@ -773,9 +778,8 @@ static void redis_delete_call(struct call *c, struct redis *r) {
 }
 
 // stolen from libhiredis
-extern redisReply *createReplyObject(int type);
 /* Create a reply object */
-inline redisReply *createReplyObject(int type) {
+INLINE redisReply *createReplyObject(int type) {
     redisReply *r = calloc(1,sizeof(*r));
 
     if (r == NULL)
@@ -785,25 +789,24 @@ inline redisReply *createReplyObject(int type) {
     return r;
 }
 
-static void free_func(void* p){
-	free(p);
-}
-
 static int json_get_hash(struct redis_hash *out, struct call* c,
 		const char *key, const redisReply *which,
 		unsigned int id)
 {
-	char key_concatted[256];
-	memset(key_concatted,0,256);
+	static unsigned int MAXKEYLENGTH = 512;
+	char key_concatted[MAXKEYLENGTH];
+	int rc=0;
 
 	if (!c)
 		goto err;
 
 	if (id == -1) {
-		sprintf(key_concatted, "%s-%s",key,which->str);
+		rc = snprintf(key_concatted, MAXKEYLENGTH, "%s-%s",key,which->str);
 	} else {
-		sprintf(key_concatted, "%s-%s-%u",key,which->str,id);
+		rc = snprintf(key_concatted, MAXKEYLENGTH, "%s-%s-%u",key,which->str,id);
 	}
+	if (rc>=MAXKEYLENGTH)
+		rlog(LOG_ERROR,"Json key too long.");
 
 
 	if (!json_reader_read_member (c->root_reader, key_concatted)) {
@@ -811,7 +814,7 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 		goto err;
 	}
 
-	out->ht = g_hash_table_new_full(g_str_hash, g_str_equal, free_func, free_func);
+	out->ht = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	if (!out->ht)
 		goto err;
 	out->rr = 0;
@@ -913,9 +916,9 @@ static void redis_destroy_list(struct redis_list *rl) {
 }
 
 static void json_destroy_hash(struct redis_hash *rh) {
-
         g_hash_table_destroy(rh->ht);
 }
+
 static void json_destroy_list(struct redis_list *rl) {
         unsigned int i;
 
@@ -1043,9 +1046,6 @@ static int json_build_list_cb(GQueue *q, struct call *c, const char *key, const 
 	for (int jidx=0; jidx < json_reader_count_elements(c->root_reader); ++jidx) {
 		if (!json_reader_read_element(c->root_reader,jidx))
 			rlog(LOG_ERROR,"Element in array not found.");
-	//	if (json_reader_get_type() != G_TYPE_STRING) {
-	//		return -1;
-	//	}
 		const char* value = json_reader_get_string_value(c->root_reader);
 		if (!value)
 			rlog(LOG_ERROR,"String in json not found.");
@@ -1685,9 +1685,7 @@ static void json_restore_call(struct redis *r, struct callmaster *m, redisReply 
 	str s ;
 	const char *err = 0;
 	int i;
-#if !(GLIB_CHECK_VERSION(2,36,0))
-	g_type_init();
-#endif
+
 	JsonReader *root_reader =0;
 	JsonParser *parser =0;
 	char orig_json_callid[512]; memset(orig_json_callid,0,512);
@@ -2057,63 +2055,44 @@ err:
 	return ret;
 }
 
+#define JSON_SET_NSTRING(a,b,c,d) do { \
+		sprintf(tmp,a,b); \
+		json_builder_set_member_name (builder, tmp); \
+		ZERO(tmp); \
+		snprintf(tmp,sizeof(d), c,d); \
+		json_builder_add_string_value (builder, tmp); \
+		ZERO(tmp); \
+	} while (0)
+
+#define JSON_SET_STRING(a,b,c,d) do { \
+		sprintf(tmp,a,b); \
+		json_builder_set_member_name (builder, tmp); \
+		ZERO(tmp); \
+		sprintf(tmp,c,d); \
+		json_builder_add_string_value (builder, tmp); \
+		ZERO(tmp); \
+	} while (0)
+
 
 static int json_update_crypto_params(JsonBuilder *builder, const char *pref, const str *callid,
 		unsigned int unique_id,
 		const char *key, const struct crypto_params *p)
 {
-	char tmp[2048]; ZERO(tmp);
+	char tmp[2048];
 
 	if (!p->crypto_suite)
 		return -1;
 
-	sprintf(tmp,"%s-crypto_suite",key);
-	json_builder_set_member_name (builder, tmp);
-	ZERO(tmp);
-	json_builder_add_string_value (builder, p->crypto_suite->name);
+	JSON_SET_NSTRING("%s-crypto_suite",key,"%s",p->crypto_suite->name);
+	JSON_SET_NSTRING("%s-master_key",key,"%s",p->master_key);
+	JSON_SET_NSTRING("%s-master_salt",key,"%s",p->master_salt);
 
-	sprintf(tmp,"%s-master_key",key);
-	json_builder_set_member_name (builder, tmp);
-	ZERO(tmp);
-	snprintf(tmp,sizeof(p->master_key), "%s",p->master_key);
-	json_builder_add_string_value (builder, tmp);
-	ZERO(tmp);
-
-	sprintf(tmp,"%s-master_salt",key);
-	json_builder_set_member_name (builder, tmp);
-	ZERO(tmp);
-	snprintf(tmp,sizeof(p->master_salt), "%s",p->master_salt);
-	json_builder_add_string_value (builder, tmp);
-	ZERO(tmp);
-
-	sprintf(tmp,"%s-unenc-srtp",key);
-	json_builder_set_member_name (builder, tmp);
-	ZERO(tmp);
-	sprintf(tmp,"%i",p->session_params.unencrypted_srtp);
-	json_builder_add_string_value (builder, tmp);
-	ZERO(tmp);
-
-	sprintf(tmp,"%s-unenc-srtcp",key);
-	json_builder_set_member_name (builder, tmp);
-	ZERO(tmp);
-	sprintf(tmp,"%i",p->session_params.unencrypted_srtcp);
-	json_builder_add_string_value (builder, tmp);
-	ZERO(tmp);
-
-	sprintf(tmp,"%s-unauth-srtp",key);
-	json_builder_set_member_name (builder, tmp);
-	ZERO(tmp);
-	sprintf(tmp,"%i",p->session_params.unauthenticated_srtp);
-	json_builder_add_string_value (builder, tmp);
-	ZERO(tmp);
+	JSON_SET_STRING("%s-unenc-srtp",key,"%i",p->session_params.unencrypted_srtp);
+	JSON_SET_STRING("%s-unenc-srtcp",key,"%i",p->session_params.unencrypted_srtcp);
+	JSON_SET_STRING("%s-unauth-srtp",key,"%i",p->session_params.unauthenticated_srtp);
 
 	if (p->mki) {
-		sprintf(tmp,"%s-mki",key);
-		json_builder_set_member_name (builder, tmp);
-		ZERO(tmp);
-		snprintf(tmp,p->mki_len, "%s",p->mki);
-		json_builder_add_string_value (builder, tmp);
-		ZERO(tmp);
+		JSON_SET_NSTRING("%s-mki",key,"%s",p->mki);
 	}
 
 	return 0;
@@ -2152,15 +2131,9 @@ static void json_update_crypto_context(JsonBuilder *builder, const char *pref, c
 	if (json_update_crypto_params(builder, pref, callid, unique_id, "", &c->params))
 		return;
 
-	json_builder_set_member_name (builder, "last_index");
-	sprintf(tmp,"%lu",c->last_index);
-	json_builder_add_string_value (builder, tmp);
-	ZERO(tmp);
+	JSON_SET_STRING("%s","last_index","%lu",c->last_index);
+	JSON_SET_STRING("%s","ssrc","%u",(unsigned) c->ssrc);
 
-	json_builder_set_member_name (builder, "ssrc");
-	sprintf(tmp,"%u",(unsigned) c->ssrc);
-	json_builder_add_string_value (builder, tmp);
-	ZERO(tmp);
 }
 
 static void redis_update_crypto_context(struct redis *r, const char *pref, const str *callid,
@@ -2203,10 +2176,7 @@ static void json_update_dtls_fingerprint(JsonBuilder *builder, const char *pref,
 	json_builder_set_member_name (builder, "hash_func");
 	json_builder_add_string_value (builder, f->hash_func->name);
 
-	json_builder_set_member_name (builder, "fingerprint");
-	snprintf(tmp,sizeof(f->digest), "%s",f->digest);
-	json_builder_add_string_value (builder, tmp);
-	ZERO(tmp);
+	JSON_SET_STRING("%s","fingerprint","%s",f->digest);
 }
 
 static void redis_update_dtls_fingerprint(struct redis *r, const char *pref, const str *callid,
@@ -2234,86 +2204,32 @@ char* redis_encode_json(struct call *c) {
 	struct packet_stream *ps;
 	struct intf_list *il;
 	struct call_monologue *ml, *ml2;
-#if !(GLIB_CHECK_VERSION(2,36,0))
-	g_type_init();
-#endif
 	JsonBuilder *builder = json_builder_new ();
 
 	char tmp[2048]; ZERO(tmp);
 
 	json_builder_begin_object (builder);
 	{
-		sprintf(tmp,"json-%s",STRSTR(&c->callid));
+		sprintf(tmp,"json-" STR_FORMAT,STR(&c->callid));
 		json_builder_set_member_name (builder, tmp);
 		ZERO(tmp);
 
 		json_builder_begin_object (builder);
 
 		{
-			json_builder_set_member_name (builder, "created");
-			sprintf(tmp,"%ld",(long int) c->created);
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "last_signal");
-			sprintf(tmp,"%ld",(long int) c->last_signal);
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "tos");
-			sprintf(tmp,"%u",(int) c->tos);
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "deleted");
-			sprintf(tmp,"%ld",(long int) c->deleted);
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "num_sfds");
-			sprintf(tmp,"%u",g_queue_get_length(&c->stream_fds));
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "num_streams");
-			sprintf(tmp,"%u", g_queue_get_length(&c->streams));
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "num_medias");
-			sprintf(tmp,"%u", g_queue_get_length(&c->medias));
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "num_tags");
-			sprintf(tmp,"%u", g_queue_get_length(&c->monologues));
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "num_maps");
-			sprintf(tmp,"%u", g_queue_get_length(&c->endpoint_maps));
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "ml_deleted");
-			sprintf(tmp,"%ld", (long int) c->ml_deleted);
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "created_from");
-			sprintf(tmp,"%s",c->created_from);
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "created_from_addr");
-			sprintf(tmp,"%s",sockaddr_print_buf(&c->created_from_addr));
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
-
-			json_builder_set_member_name (builder, "redis_hosted_db");
-			sprintf(tmp,"%u",c->redis_hosted_db);
-			json_builder_add_string_value (builder, tmp);
-			ZERO(tmp);
+			JSON_SET_STRING("%s","created","%ld",(long int) c->created);
+			JSON_SET_STRING("%s","last_signal","%ld",(long int) c->last_signal);
+			JSON_SET_STRING("%s","tos","%u",(int) c->tos);
+			JSON_SET_STRING("%s","deleted","%ld",(long int) c->deleted);
+			JSON_SET_STRING("%s","num_sfds","%u",g_queue_get_length(&c->stream_fds));
+			JSON_SET_STRING("%s","num_streams","%u",g_queue_get_length(&c->streams));
+			JSON_SET_STRING("%s","num_medias","%u",g_queue_get_length(&c->medias));
+			JSON_SET_STRING("%s","num_tags","%u",g_queue_get_length(&c->monologues));
+			JSON_SET_STRING("%s","num_maps","%u",g_queue_get_length(&c->endpoint_maps));
+			JSON_SET_STRING("%s","ml_deleted","%ld",(long int) c->ml_deleted);
+			JSON_SET_STRING("%s","created_from","%s",c->created_from);
+			JSON_SET_STRING("%s","created_from_addr","%s",sockaddr_print_buf(&c->created_from_addr));
+			JSON_SET_STRING("%s","redis_hosted_db","%u",c->redis_hosted_db);
 
 		}
 
@@ -2329,30 +2245,11 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_object (builder);
 
 			{
-				json_builder_set_member_name (builder, "pref_family");
-				sprintf(tmp,"%s",sfd->local_intf->logical->preferred_family->rfc_name);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "localport");
-				sprintf(tmp,"%u",sfd->socket.local.port);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "logical_intf");
-				sprintf(tmp,"%s",STRSTR(&sfd->local_intf->logical->name));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "local_intf_uid");
-				sprintf(tmp,"%u",sfd->local_intf->unique_id);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "stream");
-				sprintf(tmp,"%u",sfd->stream->unique_id);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
+				JSON_SET_STRING("%s","pref_family","%s",sfd->local_intf->logical->preferred_family->rfc_name);
+				JSON_SET_STRING("%s","localport","%u",sfd->socket.local.port);
+				JSON_SET_STRING("%s","logical_intf","%s",STRSTR(&sfd->local_intf->logical->name));
+				JSON_SET_STRING("%s","local_intf_uid","%u",sfd->local_intf->unique_id);
+				JSON_SET_STRING("%s","stream","%u",sfd->stream->unique_id);
 
 				json_update_crypto_context(builder, "sfd", &c->callid, sfd->unique_id, &sfd->crypto);
 
@@ -2374,81 +2271,19 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_object (builder);
 
 			{
-				json_builder_set_member_name (builder, "media");
-				sprintf(tmp,"%u",ps->media->unique_id);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "sfd");
-				sprintf(tmp,"%u",ps->selected_sfd ? ps->selected_sfd->unique_id : -1);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "rtp_sink");
-				sprintf(tmp,"%u",ps->rtp_sink ? ps->rtp_sink->unique_id : -1);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "rtcp_sink");
-				sprintf(tmp,"%u",ps->rtcp_sink ? ps->rtcp_sink->unique_id : -1);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "rtcp_sibling");
-				sprintf(tmp,"%u",ps->rtcp_sibling ? ps->rtcp_sibling->unique_id : -1);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "last_packet");
-				sprintf(tmp,UINT64F,atomic64_get(&ps->last_packet));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "ps_flags");
-				sprintf(tmp,"%u",ps->ps_flags);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "component");
-				sprintf(tmp,"%u",ps->component);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				// this is redis_update_endpoint(r, "stream", &c->callid, ps->unique_id, "endpoint", &ps->endpoint);
-				json_builder_set_member_name (builder, "endpoint");
-				sprintf(tmp,"%s",endpoint_print_buf(&ps->endpoint));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				// next is:
-				//		redis_update_endpoint(r, "stream", &c->callid, ps->unique_id, "advertised_endpoint",
-				//				&ps->advertised_endpoint);
-				json_builder_set_member_name (builder, "advertised_endpoint");
-				sprintf(tmp,"%s",endpoint_print_buf(&ps->advertised_endpoint));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				// next is:
-				// redis_pipe(r, "HMSET %s-"PB"-%u %s-packets "UINT64F" %s-bytes "UINT64F" %s-errors "UINT64F"",
-				//	pref, STR(callid), unique_id,
-				//	key, atomic64_get(&s->packets), key, atomic64_get(&s->bytes),
-				//	key, atomic64_get(&s->errors));
-				//		redis_update_stats(r, "stream", &c->callid, ps->unique_id, "stats", &ps->stats);
-
-				json_builder_set_member_name (builder, "stats-packets");
-				sprintf(tmp,"%ld",atomic64_get(&ps->stats.packets));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "stats-bytes");
-				sprintf(tmp,"%ld",atomic64_get(&ps->stats.bytes));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "stats-errors");
-				sprintf(tmp,"%ld",atomic64_get(&ps->stats.errors));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
+				JSON_SET_STRING("%s","media","%u",ps->media->unique_id);
+				JSON_SET_STRING("%s","sfd","%u",ps->selected_sfd ? ps->selected_sfd->unique_id : -1);
+				JSON_SET_STRING("%s","rtp_sink","%u",ps->rtp_sink ? ps->rtp_sink->unique_id : -1);
+				JSON_SET_STRING("%s","rtcp_sink","%u",ps->rtcp_sink ? ps->rtcp_sink->unique_id : -1);
+				JSON_SET_STRING("%s","rtcp_sibling","%u",ps->rtcp_sibling ? ps->rtcp_sibling->unique_id : -1);
+				JSON_SET_STRING("%s","last_packet",UINT64F,atomic64_get(&ps->last_packet));
+				JSON_SET_STRING("%s","ps_flags","%u",ps->ps_flags);
+				JSON_SET_STRING("%s","component","%u",ps->component);
+				JSON_SET_STRING("%s","endpoint","%s",endpoint_print_buf(&ps->endpoint));
+				JSON_SET_STRING("%s","advertised_endpoint","%s",endpoint_print_buf(&ps->advertised_endpoint));
+				JSON_SET_STRING("%s","stats-packets","%ld",atomic64_get(&ps->stats.packets));
+				JSON_SET_STRING("%s","stats-bytes","%ld",atomic64_get(&ps->stats.bytes));
+				JSON_SET_STRING("%s","stats-errors","%ld",atomic64_get(&ps->stats.errors));
 
 				json_update_crypto_context(builder, "stream", &c->callid, ps->unique_id, &ps->crypto);
 
@@ -2495,32 +2330,16 @@ char* redis_encode_json(struct call *c) {
 
 			json_builder_begin_object (builder);
 			{
-				json_builder_set_member_name (builder, "created");
-				sprintf(tmp,"%llu",(long long unsigned) ml->created);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
 
-				json_builder_set_member_name (builder, "active");
-				sprintf(tmp,"%u",ml->active_dialogue ? ml->active_dialogue->unique_id : -1);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "deleted");
-				sprintf(tmp,"%llu",(long long unsigned) ml->deleted);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
+				JSON_SET_STRING("%s","created","%llu",(long long unsigned) ml->created);
+				JSON_SET_STRING("%s","active","%u",ml->active_dialogue ? ml->active_dialogue->unique_id : -1);
+				JSON_SET_STRING("%s","deleted","%llu",(long long unsigned) ml->deleted);
 
 				if (ml->tag.s) {
-					json_builder_set_member_name (builder, "tag");
-					sprintf(tmp,"%s",STRSTR(&ml->tag));
-					json_builder_add_string_value (builder, tmp);
-					ZERO(tmp);
+					JSON_SET_STRING("%s","tag","%s",STRSTR(&ml->tag));
 				}
 				if (ml->viabranch.s) {
-					json_builder_set_member_name (builder, "via-branch");
-					sprintf(tmp,"%s",STRSTR(&ml->viabranch));
-					json_builder_add_string_value (builder, tmp);
-					ZERO(tmp);
+					JSON_SET_STRING("%s","via-branch","%s",STRSTR(&ml->viabranch));
 				}
 			}
 			json_builder_end_object (builder);
@@ -2570,50 +2389,15 @@ char* redis_encode_json(struct call *c) {
 
 			json_builder_begin_object (builder);
 			{
-				json_builder_set_member_name (builder, "tag");
-				sprintf(tmp,"%u",media->monologue->unique_id);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "index");
-				sprintf(tmp,"%u",media->index);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "type");
-				sprintf(tmp,"%s",STRSTR(&media->type));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "protocol");
-				sprintf(tmp,"%s",media->protocol ? media->protocol->name : "");
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "desired_family");
-				sprintf(tmp,"%s",media->desired_family ? media->desired_family->rfc_name : "");
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "sdes_in_tag");
-				sprintf(tmp,"%u",media->sdes_in.tag);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "sdes_out_tag");
-				sprintf(tmp,"%u",media->sdes_out.tag);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "logical_intf");
-				sprintf(tmp,"%s",STRSTR(&media->logical_intf->name));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "media_flags");
-				sprintf(tmp,"%u",media->media_flags);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
+				JSON_SET_STRING("%s","tag","%u",media->monologue->unique_id);
+				JSON_SET_STRING("%s","index","%u",media->index);
+				JSON_SET_STRING("%s","type","%s",STRSTR(&media->type));
+				JSON_SET_STRING("%s","protocol","%s",media->protocol ? media->protocol->name : "");
+				JSON_SET_STRING("%s","desired_family","%s",media->desired_family ? media->desired_family->rfc_name : "");
+				JSON_SET_STRING("%s","sdes_in_tag","%u",media->sdes_in.tag);
+				JSON_SET_STRING("%s","sdes_out_tag","%u",media->sdes_out.tag);
+				JSON_SET_STRING("%s","logical_intf","%s",STRSTR(&media->logical_intf->name));
+				JSON_SET_STRING("%s","media_flags","%u",media->media_flags);
 
 				json_update_crypto_params(builder, "media", &c->callid, media->unique_id, "sdes_in",
 						&media->sdes_in.params);
@@ -2683,35 +2467,11 @@ char* redis_encode_json(struct call *c) {
 
 			json_builder_begin_object (builder);
 			{
-
-				json_builder_set_member_name (builder, "wildcard");
-				sprintf(tmp,"%i",ep->wildcard);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "num_ports");
-				sprintf(tmp,"%u",ep->num_ports);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "intf_preferred_family");
-				sprintf(tmp,"%s",ep->logical_intf->preferred_family->rfc_name);
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				json_builder_set_member_name (builder, "logical_intf");
-				sprintf(tmp,"%s",STRSTR(&ep->logical_intf->name));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				// next is:
-				// redis_update_endpoint(r, "map", &c->callid, ep->unique_id, "endpoint", &ep->endpoint);
-				json_builder_set_member_name (builder, "endpoint");
-				sprintf(tmp,"%s",endpoint_print_buf(&ep->endpoint));
-				json_builder_add_string_value (builder, tmp);
-				ZERO(tmp);
-
-				// map_sfds was here before !!!
+				JSON_SET_STRING("%s","wildcard","%i",ep->wildcard);
+				JSON_SET_STRING("%s","num_ports","%u",ep->num_ports);
+				JSON_SET_STRING("%s","intf_preferred_family","%s",ep->logical_intf->preferred_family->rfc_name);
+				JSON_SET_STRING("%s","logical_intf","%s",STRSTR(&ep->logical_intf->name));
+				JSON_SET_STRING("%s","endpoint","%s",endpoint_print_buf(&ep->endpoint));
 
 			}
 			json_builder_end_object (builder);

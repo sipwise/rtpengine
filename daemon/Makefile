@@ -27,12 +27,10 @@ LDFLAGS+=       `pkg-config --libs libpcre`
 LDFLAGS+=       `pkg-config --libs libcrypto`
 LDFLAGS+=	`pkg-config --libs openssl`
 LDFLAGS+=	`pkg-config --libs libevent_pthreads`
-LDFLAGS+=	`pkg-config --libs`
 LDFLAGS+=	-lpcap
 LDFLAGS+=	`pcre-config --libs`
 LDFLAGS+=	`xmlrpc-c-config client --libs`
 LDFLAGS+=	-lhiredis
-LDFLAGS+=       `pkg-config --libs libcurl`
 LDFLAGS+=	`pkg-config --libs json-glib-1.0`
 
 include ../lib/lib.Makefile
