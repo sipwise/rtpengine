@@ -208,7 +208,7 @@ start() {
 		else
 			iptables -N rtpengine
 			# We insert the rtpengine rule at the top of the input chain
-			iptables -t filter -I INPUT_prefilter -j rtpengine
+			iptables -t filter -I INPUT -j rtpengine
 			iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
 			ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
 		fi
