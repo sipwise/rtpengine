@@ -1,0 +1,9 @@
+RUN_RTPENGINE_RECORDING=no
+CONFIG_FILE=/etc/rtpengine/rtpengine-recording.conf
+# CONFIG_SECTION=rtpengine-recording
+PIDFILE=/var/run/ngcp-rtpengine-recording-daemon.pid
+
+MUST_NFS=no
+NFS_HOST=192.168.1.1
+NFS_REMOTE_PATH=/var/recordings
+NFS_LOCAL_MOUNT=/var/lib/rtpengine-recording # must match output-dir if used
