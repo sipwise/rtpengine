@@ -132,6 +132,7 @@ case "$1" in
 	      ;;
 	  esac
 	fi
+	set -e
 	log_daemon_msg "Starting $DESC: $NAME"
 	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		set +e

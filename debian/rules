@@ -107,7 +107,8 @@ install: build
 binary-arch: install \
 	ngcp-rtpengine-daemon \
 	ngcp-rtpengine-dbg \
-	ngcp-rtpengine-iptables
+	ngcp-rtpengine-iptables \
+	ngcp-rtpengine-recording-daemon
 
 # Build architecture independant packages
 binary-indep: build install \
