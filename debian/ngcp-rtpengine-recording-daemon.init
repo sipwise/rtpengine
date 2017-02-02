@@ -1,0 +1,128 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          ngcp-rtpengine-recording-daemon
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Should-Start:      sshd
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Ngcp Rtpengine Recording Daemon
+# Description:       Recording daemon for RTP and other media streams
+### END INIT INFO
+
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+NAME=ngcp-rtpengine-recording-daemon
+DESC="RTP/media recording daemon"
+TABLE=0
+
+DAEMON=$(which rtpengine-recording)
+DEFAULTS=/etc/default/${NAME}
+
+test -f "$DAEMON" || exit 0
+
+# Load startup options if available
+if [ -f "$DEFAULTS" ]; then
+	. "$DEFAULTS" || true
+fi
+
+if [ "$RUN_RTPENGINE_RECORDING" != "yes" ]; then
+	echo "rtpengine-recording not yet configured. Edit $DEFAULTS first."
+	exit 0
+fi
+[ -z "$PIDFILE" ] && PIDFILE="/var/run/rtpengine-recording.pid"
+
+set -e
+
+. /lib/lsb/init-functions
+
+OPTIONS=""
+
+
+[ -z "$CONFIG_FILE" ] || OPTIONS="$OPTIONS --config-file=$CONFIG_FILE"
+[ -z "$PIDFILE" ] || OPTIONS="$OPTIONS --pidfile=$PIDFILE"
+
+if [ -x /usr/sbin/ngcp-virt-identify ]; then
+	if /usr/sbin/ngcp-virt-identify --type container; then
+		VIRT="yes"
+	fi
+fi
+
+case "$1" in
+  start)
+	set +e
+	if [ -x "/usr/sbin/ngcp-check_active" ]; then
+	  /usr/sbin/ngcp-check_active -q
+	  status=$?
+	  case "${status}" in
+	    0|3)
+	      echo "Active node or transition."
+	      ;;
+	    *)
+	      echo "Ignored start action in inactive node ($status)"
+	      exit 0
+	      ;;
+	  esac
+	fi
+	set -e
+
+	log_daemon_msg "Starting $DESC: $NAME"
+
+	if [ "$MUST_NFS" = yes ]; then
+		if ! egrep -q '^[^ :]+:[^ :]+ '"$NFS_LOCAL_MOUNT"' nfs.? ' /proc/mounts; then
+			log_progress_msg "Mounting NFS share"
+			test -d "$NFS_LOCAL_MOUNT" || mkdir -p "$NFS_LOCAL_MOUNT"
+			mount -t nfs -o hard,intr,udp "$NFS_HOST":"$NFS_REMOTE_PATH" "$NFS_LOCAL_MOUNT"
+		fi
+	fi
+
+	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
+		--exec "$DAEMON" -- $OPTIONS || log_progress_msg " already running"
+	log_end_msg $?
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC: $NAME"
+	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+		--exec "$DAEMON"
+	if [ "$?" -ne 0 ]; then
+		return $?
+	fi
+	rm -f $PIDFILE
+	log_end_msg $?
+	;;
+  restart|force-reload)
+
+	log_daemon_msg "Restarting $DESC: $NAME"
+	start-stop-daemon --oknodo --stop --quiet --pidfile \
+		"$PIDFILE" --exec $DAEMON
+	if [ "$?" -ne 0 ]; then
+		return $?
+	fi
+	rm -f $PIDFILE
+	if [ -x "/usr/sbin/ngcp-check_active" ]; then
+	  /usr/sbin/ngcp-check_active -q
+	  status=$?
+	  case "${status}" in
+	    0|3)
+	      log_progress_msg "Active node or transition."
+	      ;;
+	    *)
+	      log_progress_msg "Ignored start action in inactive node ($status)"
+	      exit 0
+	      ;;
+	  esac
+	fi
+	start-stop-daemon --start --quiet --pidfile \
+		"$PIDFILE" --exec "$DAEMON"  -- $OPTIONS
+	log_end_msg $?
+	;;
+  status)
+	status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
