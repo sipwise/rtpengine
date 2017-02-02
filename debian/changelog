@@ -1,3 +1,66 @@
+ngcp-rtpengine (5.2.0.0+0~mr5.2.0.0) unstable; urgency=medium
+
+  [ Pawel Kuzak ]
+  * [65e80f6] Added flag 'no-redis-update'
+  * [d2314ea] Reduced complexity in onRedisNotification()
+
+  [ Richard Fuchs ]
+  * [d7fa068] TT#5566 rudimentary wav file output
+  * [eefb085] abstractize recording format and fix ipv6 header
+  * [67fa3ff] add recording format switch to init/defaults file
+  * [cfbe534] TT#5566 deal with lost RTP packets
+  * [7395f8b] TT#5566 recognize and ignore (for now) RTCP packets
+  * [30dcada] TT#5566 rudimentary support for multiple audio codecs
+  * [3b68c26] TT#5566 support different sample rates and fix g722 clock rate
+  * [147b8b8] TT#5566 force usage of libopus for opus decoding
+  * [f958b2a] split logging mechanism into separate common files
+  * [1de1706] don't engage logging system if log level is too low
+  * [ea72733] support daemonizing in recording daemon
+  * [5c22c3c] add additional audio codecs
+  * [28b8018] TT#5566 add support for config file handling
+  * [fb783f0] TT#5566 configurable recording daemon
+  * [a2391f9] kfree_skb must be called lock-free
+  * [9e38b8f] modernize debian init.d script to eliminate warnings
+  * [a2afd79] TT#5566 support mp3 audio output
+  * [7b21df9] split output/encoding stuff into separate file
+  * [9ce3522] TT#5566 support audio resampling and custom mp3 bitrates
+  * [e0fb30e] TT#5566 split ssrc_run() into smaller functions
+  * [df869ff] automate lib symlink creation in makefiles
+  * [040d1be] TT#5566 loop over encoding and decoding as required by the specs
+  * [97183b1] make sure call_destroy unrefs the correct call object
+  * [5a54cc1] TT#5566 support mixing all audio channels into one output
+  * [3aa302f] TT#5566 memory allocation fixes
+  * [82be334] TT#5566 align mixed audio's timecodes to each other
+  * [b0b2a86] TT#5566 allow for up to 4 mix inputs and fix silence padding
+  * [9036d30] fix call struct being accessed after obj_put
+  * [42216b8] TT#5566 more output config options
+  * [537c60b] fix segfault when avcctx could not be initialized
+  * [2b72fde] fix segfault when resampling fails
+  * [1d5668d] compile fixes for openssl >= 1.1.0
+  * [fb81332] handle multiple different sample types
+
+  [ Kristian Høgh ]
+  * [29488f9] Change pcap format to ethernet
+  * [0edfb2d] Make pcap file format an option Valid options are raw and eth. Default is raw as it was before last commit. fixes #290
+  * [901de55] Document recording-format in README
+  * [57d6e01] Support IPv4/IPv6 for fake ethernet frames
+
+  [ Marcel Weinberg ]
+  * [b215389] some small fixes; updated the specs file to be compatible to rtpengine 4.5 and CentOS 7.2
+
+  [ Lucian Balaceanu ]
+  * [cef493a] Pictures for Internal data structures and Redis correlations wiki
+
+  [ Frederic-Philippe Metz ]
+  * [a0c36c5] Stricter build dependencies
+
+  [ Karsten Horsmann ]
+  * [06922c5] Update rtpengine.init
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 03 Feb 2017 00:43:05 +0100
+
 ngcp-rtpengine (5.1.0.0+0~mr5.1.0.0) unstable; urgency=medium
 
   [ Pawel Kuzak ]
