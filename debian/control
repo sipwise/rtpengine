@@ -24,7 +24,8 @@ Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
-Recommends: ngcp-rtpengine-utils
+Recommends: ngcp-rtpengine-recording-daemon,
+            ngcp-rtpengine-utils
 Suggests: ngcp-system-tools
 Depends: ${misc:Depends},
          ${shlibs:Depends}
@@ -35,6 +36,15 @@ Replaces: ngcp-mediaproxy-ng-daemon,
 Description: Proxy for RTP and media streams used in NGCP, userspace part.
  This daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
+
+Package: ngcp-rtpengine-recording-daemon
+Architecture: any
+Recommends: ngcp-rtpengine-utils
+Suggests: ngcp-system-tools
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Description: Recording daemon for RTP and media streams
+ This daemon handles the call recording (media intercept) component of rtpengine.
 
 Package: ngcp-rtpengine-iptables
 Architecture: any
@@ -50,6 +60,7 @@ Architecture: all
 Depends: ngcp-rtpengine-daemon (>= ${source:Version}),
          ngcp-rtpengine-iptables (>= ${source:Version}),
          ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
+         ngcp-rtpengine-recording-daemon (>= ${source:Version}),
          ngcp-rtpengine-utils (>= ${source:Version})
 Conflicts: ngcp-mediaproxy-ng
 Replaces: ngcp-mediaproxy-ng

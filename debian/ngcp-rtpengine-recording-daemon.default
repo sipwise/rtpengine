@@ -1,0 +1,4 @@
+RUN_RTPENGINE_RECORDING=no
+CONFIG_FILE=/etc/rtpengine/rtpengine-recording.conf
+# CONFIG_SECTION=rtpengine-recording
+PIDFILE=/var/run/ngcp-rtpengine-recording-daemon.pid
