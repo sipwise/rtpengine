@@ -26,7 +26,8 @@ Package: ngcp-rtpengine-daemon
 Architecture: any
 Recommends: ngcp-rtpengine-utils
 Suggests: ngcp-system-tools
-Depends: ${misc:Depends},
+Depends: lsb-base (>= 3.0-6),
+         ${misc:Depends},
          ${shlibs:Depends}
 Conflicts: ngcp-mediaproxy-ng-daemon,
            ngcp-rtpengine-redis1
