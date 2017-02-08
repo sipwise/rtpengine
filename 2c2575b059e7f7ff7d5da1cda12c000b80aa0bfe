@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "da01753e_baf7f58b",
+        "filename": "debian/ngcp-rtpengine-recording-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2017-02-08T14:17:29Z",
+      "side": 1,
+      "message": "AFAIU the idea is to offload the responsibility for the storage performance requirements from Sipwise to the user. But I\u0027m just the implementer.",
+      "parentUuid": "da01753e_3a04a57d",
+      "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "da01753e_dad759ec",
         "filename": "debian/ngcp-rtpengine-recording-daemon.init",
         "patchSetId": 4
@@ -47,6 +65,24 @@
       "writtenOn": "2017-02-08T14:09:22Z",
       "side": 1,
       "message": "Couldn\u0027t all the restart logic here just be a simple stop/start cycle?",
+      "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "da01753e_faf17d96",
+        "filename": "debian/ngcp-rtpengine-recording-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 118,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2017-02-08T14:17:29Z",
+      "side": 1,
+      "message": "I suppose so. This is copied from the other init script already present, and I guess this applies to that one also. Feel free to improve.",
+      "parentUuid": "da01753e_dad759ec",
       "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
