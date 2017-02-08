@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "da01753e_1a09e195",
+        "filename": "debian/ngcp-rtpengine-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 135,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2017-02-08T14:09:22Z",
+      "side": 1,
+      "message": "This seems to be unrelated?",
+      "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "da01753e_3a04a57d",
+        "filename": "debian/ngcp-rtpengine-recording-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2017-02-08T14:09:22Z",
+      "side": 1,
+      "message": "Hm, the NFS mount inside the init script is interesting. Don\u0027t we want to place the files on our existing glusterfs shared storage or so? (I couldn\u0027t find any reasoning neither in the WF ticket, that\u0027s why I\u0027m asking about the rational for the NFS thingy.) Is the NFS share supposed to be provided outside our NGCP systems by the platform operator?",
+      "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "da01753e_dad759ec",
+        "filename": "debian/ngcp-rtpengine-recording-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 118,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2017-02-08T14:09:22Z",
+      "side": 1,
+      "message": "Couldn\u0027t all the restart logic here just be a simple stop/start cycle?",
+      "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
