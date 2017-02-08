@@ -777,6 +777,19 @@ static void redis_delete_call(struct call *c, struct redis *r) {
 	redis_consume(r);
 }
 
+static void json_builder_add_string_value_uri_enc(JsonBuilder *builder, char* tmp) {
+	json_builder_add_string_value(builder,g_uri_escape_string(tmp,NULL,0));
+}
+static void json_builder_set_member_name_uri_enc(JsonBuilder *builder, char* tmp) {
+	json_builder_set_member_name(builder,g_uri_escape_string(tmp,NULL,0));
+}
+static gboolean json_reader_read_member_uri_enc(JsonReader *root_reader, char* tmp) {
+	return json_reader_read_member(root_reader,  g_uri_unescape_string(tmp,NULL));
+}
+static char* json_reader_get_string_value_uri_enc(JsonReader *root_reader) {
+	return (char*)json_reader_get_string_value(root_reader);
+}
+
 // stolen from libhiredis
 /* Create a reply object */
 INLINE redisReply *createReplyObject(int type) {
@@ -809,7 +822,7 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 		rlog(LOG_ERROR,"Json key too long.");
 
 
-	if (!json_reader_read_member (c->root_reader, key_concatted)) {
+	if (!json_reader_read_member_uri_enc(c->root_reader, key_concatted)) {
 		rlog(LOG_ERROR, "Could not read json member: %s",key_concatted);
 		goto err;
 	}
@@ -824,7 +837,7 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 
 	for (int i=0; i < json_reader_count_members (c->root_reader); ++i) {
 
-		if (!json_reader_read_member (c->root_reader, *members)) {
+		if (!json_reader_read_member_uri_enc (c->root_reader, *members)) {
 			rlog(LOG_ERROR, "Could not read json member: %s",*members);
 			goto err3;
 		}
@@ -833,7 +846,7 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 			rlog(LOG_ERROR, "Could not create redis reply object (out of memory?)");
 			goto err3;
 		}
-		out->rr->str = (char*)json_reader_get_string_value(c->root_reader);
+		out->rr->str = json_reader_get_string_value_uri_enc(c->root_reader);
 		out->rr->len = strlen(out->rr->str);
 
 		char* tmp = strdup(*members);
@@ -1040,12 +1053,12 @@ static int json_build_list_cb(GQueue *q, struct call *c, const char *key, const 
 
 	snprintf(key_concatted, 256, "%s-%s-%u",key,callid->s,idx);
 
-	if (!json_reader_read_member (c->root_reader, key_concatted))
+	if (!json_reader_read_member_uri_enc (c->root_reader, key_concatted))
 		rlog(LOG_ERROR,"Key in json not found:%s",key_concatted);
 	for (int jidx=0; jidx < json_reader_count_elements(c->root_reader); ++jidx) {
 		if (!json_reader_read_element(c->root_reader,jidx))
 			rlog(LOG_ERROR,"Element in array not found.");
-		const char* value = json_reader_get_string_value(c->root_reader);
+		const char* value = json_reader_get_string_value_uri_enc(c->root_reader);
 		if (!value)
 			rlog(LOG_ERROR,"String in json not found.");
 		str_init_len(&s, (char*)value , strlen(value));
@@ -2056,10 +2069,10 @@ err:
 
 #define JSON_SET_NSTRING(a,b,c,d) do { \
 		sprintf(tmp,a,b); \
-		json_builder_set_member_name (builder, tmp); \
+		json_builder_set_member_name_uri_enc (builder, tmp); \
 		ZERO(tmp); \
 		snprintf(tmp,sizeof(tmp), c,d); \
-		json_builder_add_string_value (builder, tmp); \
+		json_builder_add_string_value_uri_enc(builder, tmp); \
 		ZERO(tmp); \
 	} while (0)
 
@@ -2162,9 +2175,7 @@ static void json_update_dtls_fingerprint(JsonBuilder *builder, const char *pref,
 	if (!f->hash_func)
 		return;
 
-	json_builder_set_member_name (builder, "hash_func");
-	json_builder_add_string_value (builder, f->hash_func->name);
-
+	JSON_SET_NSTRING("%s","hash_func","%s",f->hash_func->name);
 	JSON_SET_NSTRING("%s","fingerprint","%s",f->digest);
 }
 
@@ -2200,7 +2211,7 @@ char* redis_encode_json(struct call *c) {
 	json_builder_begin_object (builder);
 	{
 		sprintf(tmp,"json-" STR_FORMAT, STR_FMT(&c->callid));
-		json_builder_set_member_name (builder, tmp);
+		json_builder_set_member_name_uri_enc (builder, tmp);
 		ZERO(tmp);
 
 		json_builder_begin_object (builder);
@@ -2228,7 +2239,7 @@ char* redis_encode_json(struct call *c) {
 			sfd = l->data;
 
 			sprintf(tmp,"sfd-%s-%u",STRSTR(&c->callid),sfd->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			ZERO(tmp);
 
 			json_builder_begin_object (builder);
@@ -2254,7 +2265,7 @@ char* redis_encode_json(struct call *c) {
 			mutex_lock(&ps->out_lock);
 
 			sprintf(tmp,"stream-%s-%u",STRSTR(&c->callid),ps->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			ZERO(tmp);
 
 			json_builder_begin_object (builder);
@@ -2294,13 +2305,13 @@ char* redis_encode_json(struct call *c) {
 			mutex_lock(&ps->out_lock);
 
 			sprintf(tmp,"stream_sfds-%s-%u",STRSTR(&c->callid),ps->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			json_builder_begin_array (builder);
 			ZERO(tmp);
 			for (k = ps->sfds.head; k; k = k->next) {
 				sfd = k->data;
 				sprintf(tmp,"%u",sfd->unique_id);
-				json_builder_add_string_value (builder, tmp);
+				json_builder_add_string_value_uri_enc(builder, tmp);
 				ZERO(tmp);
 			}
 			json_builder_end_array (builder);
@@ -2314,7 +2325,7 @@ char* redis_encode_json(struct call *c) {
 			ml = l->data;
 
 			sprintf(tmp,"tag-%s-%u",STRSTR(&c->callid),ml->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			ZERO(tmp);
 
 			json_builder_begin_object (builder);
@@ -2342,13 +2353,13 @@ char* redis_encode_json(struct call *c) {
 			// -- we do it again here since the jsonbuilder is linear straight forward
 			k = g_hash_table_get_values(ml->other_tags);
 			sprintf(tmp,"other_tags-%s-%u",STRSTR(&c->callid),ml->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			json_builder_begin_array (builder);
 			ZERO(tmp);
 			for (m = k; m; m = m->next) {
 				ml2 = m->data;
 				sprintf(tmp,"%u",ml2->unique_id);
-				json_builder_add_string_value(builder, tmp);
+				json_builder_add_string_value_uri_enc(builder, tmp);
 				ZERO(tmp);
 			}
 			json_builder_end_array (builder);
@@ -2356,13 +2367,13 @@ char* redis_encode_json(struct call *c) {
 			g_list_free(k);
 
 			sprintf(tmp,"medias-%s-%u",STRSTR(&c->callid),ml->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			json_builder_begin_array (builder);
 			ZERO(tmp);
 			for (k = ml->medias.head; k; k = k->next) {
 				media = k->data;
 				sprintf(tmp,"%u",media->unique_id);
-				json_builder_add_string_value (builder, tmp);
+				json_builder_add_string_value_uri_enc (builder, tmp);
 				ZERO(tmp);
 			}
 			json_builder_end_array (builder);
@@ -2373,7 +2384,7 @@ char* redis_encode_json(struct call *c) {
 			media = l->data;
 
 			sprintf(tmp,"media-%s-%u",STRSTR(&c->callid),media->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			ZERO(tmp);
 
 			json_builder_begin_object (builder);
@@ -2406,32 +2417,32 @@ char* redis_encode_json(struct call *c) {
 			media = l->data;
 
 			sprintf(tmp,"streams-%s-%u",STRSTR(&c->callid),media->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			json_builder_begin_array (builder);
 			ZERO(tmp);
 			for (m = media->streams.head; m; m = m->next) {
 				ps = m->data;
 				sprintf(tmp,"%u",ps->unique_id);
-				json_builder_add_string_value (builder, tmp);
+				json_builder_add_string_value_uri_enc (builder, tmp);
 				ZERO(tmp);
 			}
 			json_builder_end_array (builder);
 
 			sprintf(tmp,"maps-%s-%u",STRSTR(&c->callid),media->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			json_builder_begin_array (builder);
 			ZERO(tmp);
 			for (m = media->endpoint_maps.head; m; m = m->next) {
 				ep = m->data;
 				sprintf(tmp,"%u",ep->unique_id);
-				json_builder_add_string_value (builder, tmp);
+				json_builder_add_string_value_uri_enc (builder, tmp);
 				ZERO(tmp);
 			}
 			json_builder_end_array (builder);
 
 			k = g_hash_table_get_values(media->rtp_payload_types);
 			sprintf(tmp,"payload_types-%s-%u",STRSTR(&c->callid),media->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			json_builder_begin_array (builder);
 			ZERO(tmp);
 			for (m = k; m; m = m->next) {
@@ -2439,7 +2450,7 @@ char* redis_encode_json(struct call *c) {
 				sprintf(tmp,"%u/%s/%u/%s",
 						pt->payload_type, STRSTR(&pt->encoding),
 						pt->clock_rate, STRSTR(&pt->encoding_parameters));
-				json_builder_add_string_value(builder, tmp);
+				json_builder_add_string_value_uri_enc(builder, tmp);
 			}
 			json_builder_end_array (builder);
 
@@ -2451,7 +2462,7 @@ char* redis_encode_json(struct call *c) {
 			ep = l->data;
 
 			sprintf(tmp,"map-%s-%u",STRSTR(&c->callid),ep->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			ZERO(tmp);
 
 			json_builder_begin_object (builder);
@@ -2472,18 +2483,18 @@ char* redis_encode_json(struct call *c) {
 			ep = l->data;
 
 			sprintf(tmp,"map_sfds-%s-%u",STRSTR(&c->callid),ep->unique_id);
-			json_builder_set_member_name (builder, tmp);
+			json_builder_set_member_name_uri_enc (builder, tmp);
 			json_builder_begin_array (builder);
 			ZERO(tmp);
 			for (m = ep->intf_sfds.head; m; m = m->next) {
 				il = m->data;
 				sprintf(tmp,"loc-%u",il->local_intf->unique_id);
-				json_builder_add_string_value(builder, tmp);
+				json_builder_add_string_value_uri_enc(builder, tmp);
 				ZERO(tmp);
 				for (n = il->list.head; n; n = n->next) {
 					sfd = n->data;
 					sprintf(tmp,"%u",sfd->unique_id);
-					json_builder_add_string_value (builder, tmp);
+					json_builder_add_string_value_uri_enc (builder, tmp);
 					ZERO(tmp);
 				}
 			}
