@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "da01753e_da1c79c4",
+        "filename": "debian/ngcp-rtpengine-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 135,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2017-02-08T15:08:23Z",
+      "side": 1,
+      "message": "Can we remove that from this review and take care in a separate review where we sync both init scripts with each other as far as possible? (I can do this if you want)",
+      "parentUuid": "da01753e_1a09e195",
+      "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "da01753e_3a04a57d",
         "filename": "debian/ngcp-rtpengine-recording-daemon.init",
         "patchSetId": 4
@@ -54,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "da01753e_1a1721a5",
+        "filename": "debian/ngcp-rtpengine-recording-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2017-02-08T15:08:23Z",
+      "side": 1,
+      "message": "Hehe ok. (I\u0027m just thinking about our pending migration to systemd later on, but I\u0027m sure we can handle this somehow then with this existing code.)",
+      "parentUuid": "da01753e_baf7f58b",
+      "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "da01753e_dad759ec",
         "filename": "debian/ngcp-rtpengine-recording-daemon.init",
         "patchSetId": 4
@@ -83,6 +119,24 @@
       "side": 1,
       "message": "I suppose so. This is copied from the other init script already present, and I guess this applies to that one also. Feel free to improve.",
       "parentUuid": "da01753e_dad759ec",
+      "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "da01753e_ba3ed527",
+        "filename": "debian/ngcp-rtpengine-recording-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 118,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2017-02-08T15:08:23Z",
+      "side": 1,
+      "message": "Hehe ok, pushed a new patchset, what about that?",
+      "parentUuid": "da01753e_faf17d96",
       "revId": "2c2575b059e7f7ff7d5da1cda12c000b80aa0bfe",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
