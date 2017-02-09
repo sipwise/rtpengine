@@ -5,7 +5,8 @@
 
 /* XXX split everything into call_signalling.[ch] and call_packets.[ch] or w/e */
 
-
+#include <glib-object.h>
+#include <json-glib/json-glib.h>
 
 #include <sys/types.h>
 #include <glib.h>
@@ -443,6 +444,7 @@ struct call {
 	unsigned int		foreign_call; // created_via_redis_notify call
 
 	struct recording 	*recording;
+	JsonReader *root_reader;
 };
 
 struct callmaster_config {
@@ -460,7 +462,8 @@ struct callmaster_config {
 	struct event_base   *redis_notify_event_base;
 	GQueue		        *redis_subscribed_keyspaces;
 	struct redisAsyncContext *redis_notify_async_context;
-	unsigned int            redis_expires_secs;
+	unsigned int        redis_expires_secs;
+	unsigned int		redis_multikey;
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;
