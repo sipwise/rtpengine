@@ -93,8 +93,6 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 
 #define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
 
-#define REDIS_FMT(x) (x)->len, (x)->str
-
 void redis_notify_loop(void *d);
 
 

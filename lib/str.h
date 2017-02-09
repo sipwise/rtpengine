@@ -56,6 +56,8 @@ INLINE str *str_dup(const str *s);
 INLINE str *str_chunk_insert(GStringChunk *c, const str *s);
 /* shifts pointer by len chars and decrements len. returns -1 if buffer too short, 0 otherwise */
 INLINE int str_shift(str *s, int len);
+/* eats the supplied string from the beginning of s. returns -1 if string head doesn't match */
+INLINE int str_shift_cmp(str *s, const char *);
 /* binary compares str object with memory chunk of equal size */
 INLINE int str_memcmp(const str *s, void *m);
 /* locate a substring within a string, returns character index or -1 */
@@ -85,6 +87,12 @@ gboolean str_equal(gconstpointer a, gconstpointer b);
 /* destroy function, frees a slice-alloc'd str */
 void str_slice_free(void *);
 
+/* saves "in" into "out" pseudo-URI encoded. "out" point to a buffer with sufficient length. returns length */
+int str_uri_encode_len(char *out, const char *in, int in_len);
+INLINE int str_uri_encode(char *out, const str *in);
+/* reverse of the above. stores newly allocated buffer in *out. returns length */
+int str_uri_decode_len(char **out, const char *in, int in_len);
+
 
 
 
@@ -100,6 +108,16 @@ INLINE char *str_end(const str *s) {
 }
 INLINE int str_shift(str *s, int len) {
 	if (s->len < len)
+		return -1;
+	s->s += len;
+	s->len -= len;
+	return 0;
+}
+INLINE int str_shift_cmp(str *s, const char *t) {
+	int len = strlen(t);
+	if (s->len < len)
+		return -1;
+	if (memcmp(s->s, t, len))
 		return -1;
 	s->s += len;
 	s->len -= len;
@@ -290,6 +308,10 @@ INLINE int str_token(str *new_token, str *ori_and_remainder, int sep) {
 	if (str_shift(ori_and_remainder, 1))
 		return -1;
 	return 0;
+}
+
+INLINE int str_uri_encode(char *out, const str *in) {
+	return str_uri_encode_len(out, in->s, in->len);
 }
 
 
