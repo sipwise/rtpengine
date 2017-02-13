@@ -48,3 +48,51 @@ char *rand_hex_str(char *rand_str, int num_bytes) {
 	}
 	return rand_str;
 }
+
+
+static const char *hex_chars = "0123456789abcdef";
+int str_uri_encode_len(char *out, const char *in, int len) {
+	const char *end = in + len;
+	char *ori_out = out;
+
+	while (in < end) {
+		if (*in < ' ' || *in > '~' || *in == '%' || *in == '\\' || *in == '\'' || *in == '"') {
+			*(out++) = '%';
+			*(out++) = hex_chars[(*((unsigned char *) in)) >> 4];
+			*(out++) = hex_chars[(*((unsigned char *) in)) & 0xf];
+			in++;
+			continue;
+		}
+
+		*(out++) = *(in++);
+	}
+
+	*out = 0;
+	return out - ori_out;
+}
+
+int str_uri_decode_len(char **out, const char *in, int in_len) {
+	const char *end = in + in_len;
+	*out = malloc(in_len + 1);
+	char *outp = *out;
+
+	while (in < end) {
+		if (*in != '%') {
+			*(outp++) = (*in++);
+			continue;
+		}
+
+		if (end - in < 3 || !g_ascii_isxdigit(in[1]) || !g_ascii_isxdigit(in[2])) {
+			free(*out);
+			*out = NULL;
+			return -1;
+		}
+
+		unsigned char c = g_ascii_xdigit_value(in[1]) << 4 | g_ascii_xdigit_value(in[2]);
+		*(outp++) = c;
+		in += 3;
+	}
+
+	*outp = 0;
+	return outp - *out;
+}

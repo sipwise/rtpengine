@@ -1471,8 +1471,13 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 out:
 	ca = sfd->call ? : NULL;
 
-	if (ca && update)
-		redis_update(ca, ca->callmaster->conf.redis_write);
+	if (ca && update) {
+		if (ca->callmaster->conf.redis_multikey) {
+			redis_update(ca, ca->callmaster->conf.redis_write);
+		} else {
+			redis_update_onekey(ca, ca->callmaster->conf.redis_write);
+		}
+	}
 done:
 	log_info_clear();
 }
