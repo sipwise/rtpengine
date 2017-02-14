@@ -14,6 +14,7 @@
 #include "packet.h"
 #include "output.h"
 #include "mix.h"
+#include "db.h"
 
 
 static pthread_mutex_t metafiles_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -47,17 +48,21 @@ static void meta_destroy(metafile_t *mf) {
 		stream_close(stream);
 		pthread_mutex_unlock(&stream->lock);
 	}
+	db_close_call(mf);
 }
 
 
 // mf is locked
 static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *content) {
+	db_do_call(mf);
+
 	pthread_mutex_lock(&mf->mix_lock);
 	if (!mf->mix && output_mixed) {
 		char buf[256];
-		snprintf(buf, sizeof(buf), "%s/%s-mix", output_dir, mf->parent);
-		mf->mix_out = output_new(buf);
+		snprintf(buf, sizeof(buf), "%s-mix", mf->parent);
+		mf->mix_out = output_new(output_dir, buf);
 		mf->mix = mix_new();
+		db_do_stream(mf, mf->mix_out, "mixed", 0, 0);
 	}
 	pthread_mutex_unlock(&mf->mix_lock);
 
