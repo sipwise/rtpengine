@@ -3,6 +3,7 @@
 #include <glib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <mysql.h>
 #include "log.h"
 #include "main.h"
 #include "garbage.h"
@@ -36,6 +37,8 @@ void *poller_thread(void *ptr) {
 	unsigned int me_num = GPOINTER_TO_UINT(ptr);
 
 	dbg("poller thread %u running", me_num);
+
+	mysql_thread_init();
 
 	while (!shutdown_flag) {
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
