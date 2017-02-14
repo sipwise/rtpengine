@@ -1,32 +1,10 @@
 #include "output.h"
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavutil/audio_fifo.h>
-#include <libavutil/channel_layout.h>
-#include <libavutil/samplefmt.h>
 #include <limits.h>
 #include <string.h>
 #include <stdint.h>
 #include <glib.h>
 #include "log.h"
-
-
-struct output_s {
-	char filename[PATH_MAX];
-
-	format_t requested_format,
-		 actual_format;
-
-	AVCodecContext *avcctx;
-	AVFormatContext *fmtctx;
-	AVStream *avst;
-	AVPacket avpkt;
-	AVAudioFifo *fifo;
-	int64_t fifo_pts; // pts of first data in fifo
-	int64_t mux_dts; // last dts passed to muxer
-	AVFrame *frame;
-};
-
 
 
 static int output_codec_id;
