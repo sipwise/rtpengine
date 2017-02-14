@@ -10,6 +10,7 @@ CFLAGS+=	`pkg-config --cflags libavformat`
 CFLAGS+=	`pkg-config --cflags libavutil`
 CFLAGS+=	`pkg-config --cflags libavresample`
 CFLAGS+=	`pkg-config --cflags libavfilter`
+CFLAGS+=	`mysql_config --cflags`
 
 LDFLAGS=	-lm
 LDFLAGS+=	`pkg-config --libs glib-2.0`
@@ -19,11 +20,12 @@ LDFLAGS+=	`pkg-config --libs libavformat`
 LDFLAGS+=	`pkg-config --libs libavutil`
 LDFLAGS+=	`pkg-config --libs libavresample`
 LDFLAGS+=	`pkg-config --libs libavfilter`
+LDFLAGS+=	`mysql_config --libs`
 
 include ../lib/lib.Makefile
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
-		decoder.c output.c mix.c resample.c
+		decoder.c output.c mix.c resample.c db.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
