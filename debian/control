@@ -4,6 +4,7 @@ Priority: extra
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Build-Depends:
  debhelper (>= 9~),
+ default-libmysqlclient-dev,
  iptables-dev (>= 1.4),
  libavcodec-dev (>= 6:10),
  libavfilter-dev (>= 6:10),

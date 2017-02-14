@@ -1,32 +1,11 @@
 #include "output.h"
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavutil/audio_fifo.h>
-#include <libavutil/channel_layout.h>
-#include <libavutil/samplefmt.h>
 #include <limits.h>
 #include <string.h>
 #include <stdint.h>
 #include <glib.h>
 #include "log.h"
-
-
-struct output_s {
-	char filename[PATH_MAX];
-
-	format_t requested_format,
-		 actual_format;
-
-	AVCodecContext *avcctx;
-	AVFormatContext *fmtctx;
-	AVStream *avst;
-	AVPacket avpkt;
-	AVAudioFifo *fifo;
-	int64_t fifo_pts; // pts of first data in fifo
-	int64_t mux_dts; // last dts passed to muxer
-	AVFrame *frame;
-};
-
+#include "db.h"
 
 
 static int output_codec_id;
@@ -147,11 +126,14 @@ int output_add(output_t *output, AVFrame *frame) {
 }
 
 
-output_t *output_new(const char *filename) {
+output_t *output_new(const char *path, const char *filename) {
 	output_t *ret = g_slice_alloc0(sizeof(*ret));
-	g_strlcpy(ret->filename, filename, sizeof(ret->filename));
+	g_strlcpy(ret->file_path, path, sizeof(ret->file_path));
+	g_strlcpy(ret->file_name, filename, sizeof(ret->file_name));
+	snprintf(ret->full_filename, sizeof(ret->full_filename), "%s/%s", path, filename);
 	format_init(&ret->requested_format);
 	format_init(&ret->actual_format);
+	ret->file_format = output_file_format;
 	return ret;
 }
 
@@ -171,7 +153,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	output->fmtctx = avformat_alloc_context();
 	if (!output->fmtctx)
 		goto err;
-	output->fmtctx->oformat = av_guess_format(output_file_format, NULL, NULL);
+	output->fmtctx->oformat = av_guess_format(output->file_format, NULL, NULL);
 	err = "failed to determine output format";
 	if (!output->fmtctx->oformat)
 		goto err;
@@ -222,7 +204,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	char full_fn[PATH_MAX];
 	char suff[16] = "";
 	for (int i = 1; i < 20; i++) {
-		snprintf(full_fn, sizeof(full_fn), "%s%s.%s", output->filename, suff, output_file_format);
+		snprintf(full_fn, sizeof(full_fn), "%s%s.%s", output->full_filename, suff, output->file_format);
 		if (!g_file_test(full_fn, G_FILE_TEST_EXISTS))
 			goto got_fn;
 		snprintf(suff, sizeof(suff), "-%i", i);
@@ -304,6 +286,7 @@ void output_close(output_t *output) {
 	if (!output)
 		return;
 	output_shutdown(output);
+	db_close_stream(output);
 	g_slice_free1(sizeof(*output), output);
 }
 
