@@ -11,6 +11,7 @@
 #include <libavfilter/avfilter.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <mysql.h>
 #include "log.h"
 #include "epoll.h"
 #include "inotify.h"
@@ -30,6 +31,11 @@ const char *output_dir = "/var/lib/rtpengine-recording";
 static const char *output_format = "wav";
 int output_mixed;
 int output_single;
+const char *c_mysql_host,
+      *c_mysql_user,
+      *c_mysql_pass,
+      *c_mysql_db;
+int c_mysql_port;
 
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
@@ -68,6 +74,7 @@ static void setup(void) {
 	avcodec_register_all();
 	avfilter_register_all();
 	avformat_network_init();
+	mysql_library_init(0, NULL, NULL);
 	signals();
 	metafile_setup();
 	epoll_setup();
@@ -130,6 +137,7 @@ static void cleanup(void) {
 	metafile_cleanup();
 	inotify_cleanup();
 	epoll_cleanup();
+	mysql_library_end();
 }
 
 
@@ -144,6 +152,11 @@ static void options(int *argc, char ***argv) {
 		{ "mp3-bitrate",	0,   0, G_OPTION_ARG_INT,	&mp3_bitrate,	"Bits per second for MP3 encoding",	"INT"		},
 		{ "output-mixed",	0,   0, G_OPTION_ARG_NONE,	&output_mixed,	"Mix participating sources into a single output",NULL	},
 		{ "output-single",	0,   0, G_OPTION_ARG_NONE,	&output_single,	"Create one output file for each source",NULL		},
+		{ "mysql-host",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_host,	"MySQL host for storage of call metadata","HOST|IP"	},
+		{ "mysql-port",		0,   0,	G_OPTION_ARG_INT,	&c_mysql_port,	"MySQL port"				,"INT"		},
+		{ "mysql-user",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_user,	"MySQL connection credentials",		"USERNAME"	},
+		{ "mysql-pass",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_pass,	"MySQL connection credentials",		"PASSWORD"	},
+		{ "mysql-db",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_db,	"MySQL database name",			"STRING"	},
 		{ NULL, }
 	};
 
