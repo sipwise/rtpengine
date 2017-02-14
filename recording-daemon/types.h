@@ -7,6 +7,10 @@
 #include <glib.h>
 #include <libavutil/frame.h>
 #include <libavresample/avresample.h>
+#include <libavformat/avformat.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
+#include <libavutil/audio_fifo.h>
 #include "str.h"
 
 
@@ -28,6 +32,8 @@ struct mix_s;
 typedef struct mix_s mix_t;
 struct resample_s;
 typedef struct resample_s resample_t;
+struct format_s;
+typedef struct format_s format_t;
 
 
 typedef void handler_func(handler_t *);
@@ -82,6 +88,7 @@ struct metafile_s {
 	char *parent;
 	char *call_id;
 	off_t pos;
+	unsigned long long db_id;
 
 	GStringChunk *gsc; // XXX limit max size
 
@@ -109,7 +116,28 @@ struct format_s {
 	int channels;
 	int format; // enum AVSampleFormat
 };
-typedef struct format_s format_t;
+
+
+struct output_s {
+	char full_filename[PATH_MAX], // path + filename
+		file_path[PATH_MAX],
+		file_name[PATH_MAX];
+	const char *file_format;
+	unsigned long long db_id;
+
+	format_t requested_format,
+		 actual_format;
+
+	AVCodecContext *avcctx;
+	AVFormatContext *fmtctx;
+	AVStream *avst;
+	AVPacket avpkt;
+	AVAudioFifo *fifo;
+	int64_t fifo_pts; // pts of first data in fifo
+	int64_t mux_dts; // last dts passed to muxer
+	AVFrame *frame;
+};
+
 
 INLINE int format_eq(const format_t *a, const format_t *b) {
 	if (G_UNLIKELY(a->clockrate != b->clockrate))
