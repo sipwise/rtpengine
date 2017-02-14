@@ -15,6 +15,7 @@ Build-Depends:
  libglib2.0-dev (>= 2.30),
  libhiredis-dev,
  libjson-glib-dev,
+ libmysqlclient-dev | default-libmysqlclient-dev,
  libpcap0.8-dev | libpcap-dev,
  libpcre3-dev,
  libssl-dev (>= 1.0.1),
