@@ -12,6 +12,7 @@
 #include "rtcplib.h"
 #include "main.h"
 #include "output.h"
+#include "db.h"
 
 
 static int ptr_cmp(const void *a, const void *b, void *dummy) {
@@ -43,7 +44,8 @@ void ssrc_free(void *p) {
 
 
 // mf must be unlocked; returns ssrc locked
-static ssrc_t *ssrc_get(metafile_t *mf, unsigned long ssrc) {
+static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
+	metafile_t *mf = stream->metafile;
 	pthread_mutex_lock(&mf->lock);
 	ssrc_t *ret = g_hash_table_lookup(mf->ssrc_hash, GUINT_TO_POINTER(ssrc));
 	if (ret)
@@ -52,14 +54,17 @@ static ssrc_t *ssrc_get(metafile_t *mf, unsigned long ssrc) {
 	ret = g_slice_alloc0(sizeof(*ret));
 	pthread_mutex_init(&ret->lock, NULL);
 	ret->metafile = mf;
+	ret->stream = stream;
 	ret->ssrc = ssrc;
 	ret->packets = g_tree_new_full(ptr_cmp, NULL, NULL, packet_free);
 	ret->seq = -1;
 
 	char buf[256];
-	snprintf(buf, sizeof(buf), "%s/%s-%08lx", output_dir, mf->parent, ssrc);
-	if (output_single)
-		ret->output = output_new(buf);
+	snprintf(buf, sizeof(buf), "%s-%08lx", mf->parent, ssrc);
+	if (output_single) {
+		ret->output = output_new(output_dir, buf);
+		db_do_stream(mf, ret->output, "single", stream->id);
+	}
 
 	g_hash_table_insert(mf->ssrc_hash, GUINT_TO_POINTER(ssrc), ret);
 
@@ -228,7 +233,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 	dbg("packet parsed successfully, seq %u", packet->seq);
 
 	// insert into ssrc queue
-	ssrc_t *ssrc = ssrc_get(stream->metafile, ntohl(packet->rtp->ssrc));
+	ssrc_t *ssrc = ssrc_get(stream, ntohl(packet->rtp->ssrc));
 
 	// check seq for dupes
 	if (G_UNLIKELY(ssrc->seq == -1)) {
