@@ -1,3 +1,12 @@
+ngcp-rtpengine (5.1.1.1+0~mr5.1.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [05b2472] TT#10252 add lsb-base to package depends as per lintian
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 15 Feb 2017 20:25:13 +0100
+
 ngcp-rtpengine (5.1.1.0+0~mr5.1.1.0) unstable; urgency=medium
 
   [ Pawel Kuzak ]
