@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "da01753e_d6ff1600",
+        "filename": "debian/rules",
+        "patchSetId": 1
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2017-02-18T15:02:43Z",
+      "side": 1,
+      "message": "Hmm this seems like a workaround. :)\n\nIdeally the install targetg would get split and then the build target would become just build-arch, and build-indep would be empty. So that the package can do arch-indep or arch-dep builds w/o doing the other part.",
+      "revId": "eb43956460b2653421927235ecac7dfc96fa04b7",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
