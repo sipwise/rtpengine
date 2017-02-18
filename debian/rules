@@ -32,9 +32,10 @@ kdist_clean: clean
 	$(MAKE) $(MFLAGS) -f debian/rules clean
 ## end of kernel package specific stuff
 
-build: build-stamp
+build: build-arch build-indep
+build-indep:
 
-build-stamp:
+build-arch:
 	dh_testdir
 	make -C iptables-extension
 	make -C daemon -j`nproc`
@@ -44,9 +45,9 @@ build-stamp:
 clean:
 	dh_testdir
 	dh_testroot
-	cd daemon && $(MAKE) clean && cd ..
-	cd recording-daemon && $(MAKE) clean && cd ..
-	rm -f build-stamp
+	(cd daemon && $(MAKE) clean)
+	(cd recording-daemon && $(MAKE) clean)
+	rm -f build-arch
 	rm -f iptables-extension/libxt_RTPENGINE.so
 	rm -f daemon/rtpengine daemon/build_time.h daemon/.depend kernel-module/.xt_RTPENGINE.o.d
 	rm -rf kernel-module/.tmp_versions
@@ -54,7 +55,7 @@ clean:
 	dh_clean
 	-rm -rf debian/build
 
-install: build
+install-indep:
 	dh_testdir
 	dh_testroot
 	dh_clean -k
@@ -82,6 +83,17 @@ install: build
 	markdown README.md | gzip -9 > debian/README.html.gz
 	gzip -9 < README.md > debian/README.md.gz
 
+
+install: build-arch
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+
+	# markdown README
+	markdown README.md | gzip -9 > debian/README.html.gz
+	gzip -9 < README.md > debian/README.md.gz
+
 	dh_install
 
 %:
@@ -104,18 +116,18 @@ install: build
 	dh_builddeb          -p$@ -P$(b)/$@
 
 # Build architecture dependant packages
-binary-arch: install \
+binary-arch: build-arch install \
 	ngcp-rtpengine-daemon \
 	ngcp-rtpengine-dbg \
 	ngcp-rtpengine-iptables \
 	ngcp-rtpengine-recording-daemon
 
 # Build architecture independant packages
-binary-indep: build install \
+binary-indep: build-indep install-indep \
 	ngcp-rtpengine \
 	ngcp-rtpengine-kernel-dkms \
 	ngcp-rtpengine-kernel-source \
 	ngcp-rtpengine-utils
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
+.PHONY: build build-indep clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
