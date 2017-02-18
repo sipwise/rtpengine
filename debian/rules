@@ -32,7 +32,9 @@ kdist_clean: clean
 	$(MAKE) $(MFLAGS) -f debian/rules clean
 ## end of kernel package specific stuff
 
-build: build-stamp
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
 
 build-stamp:
 	dh_testdir
@@ -118,4 +120,4 @@ binary-indep: build install \
 	ngcp-rtpengine-utils
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
+.PHONY: build build-arch build-indep clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
