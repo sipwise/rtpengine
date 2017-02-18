@@ -2,72 +2,87 @@ Source: ngcp-rtpengine
 Section: net
 Priority: extra
 Maintainer: Sipwise Development Team <support@sipwise.com>
-Build-Depends: debhelper (>= 5),
-               iptables-dev (>= 1.4),
-               libavcodec-dev (>= 6:10),
-               libavfilter-dev (>= 6:10),
-               libavformat-dev (>= 6:10),
-               libavresample-dev (>= 6:10),
-               libavutil-dev (>= 6:10),
-               libcurl4-openssl-dev | libcurl4-gnutls-dev | libcurl3-openssl-dev | libcurl3-gnutls-dev,
-               libevent-dev (>= 2.0),
-               libglib2.0-dev (>= 2.30),
-               libhiredis-dev,
-               libjson-glib-dev,
-               libpcap0.8-dev | libpcap-dev,
-               libpcre3-dev,
-               libssl-dev (>= 1.0.1),
-               libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
-               markdown,
-               zlib1g-dev
+Build-Depends:
+ debhelper (>= 9~),
+ iptables-dev (>= 1.4),
+ libavcodec-dev (>= 6:10),
+ libavfilter-dev (>= 6:10),
+ libavformat-dev (>= 6:10),
+ libavresample-dev (>= 6:10),
+ libavutil-dev (>= 6:10),
+ libcurl4-openssl-dev | libcurl4-gnutls-dev | libcurl3-openssl-dev | libcurl3-gnutls-dev,
+ libevent-dev (>= 2.0),
+ libglib2.0-dev (>= 2.30),
+ libhiredis-dev,
+ libjson-glib-dev,
+ libpcap0.8-dev | libpcap-dev,
+ libpcre3-dev,
+ libssl-dev (>= 1.0.1),
+ libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
+ markdown,
+ zlib1g-dev,
 Standards-Version: 3.9.7
 Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
-Recommends: ngcp-rtpengine-recording-daemon,
-            ngcp-rtpengine-utils
-Suggests: ngcp-system-tools
-Depends: lsb-base (>= 3.0-6),
-         ${misc:Depends},
-         ${shlibs:Depends}
-Conflicts: ngcp-mediaproxy-ng-daemon,
-           ngcp-rtpengine-redis1
-Replaces: ngcp-mediaproxy-ng-daemon,
-          ngcp-rtpengine-redis1
+Recommends:
+ ngcp-rtpengine-recording-daemon,
+ ngcp-rtpengine-utils,
+Suggests:
+ ngcp-system-tools,
+Depends:
+ lsb-base (>= 3.0-6),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Conflicts:
+ ngcp-mediaproxy-ng-daemon,
+ ngcp-rtpengine-redis1,
+Replaces:
+ ngcp-mediaproxy-ng-daemon,
+ ngcp-rtpengine-redis1,
 Description: Proxy for RTP and media streams used in NGCP, userspace part.
  This daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
 
 Package: ngcp-rtpengine-recording-daemon
 Architecture: any
-Recommends: ngcp-rtpengine-utils
-Suggests: ngcp-system-tools
-Depends: lsb-base (>= 3.0-6),
-         nfs-common,
-         ${misc:Depends},
-         ${shlibs:Depends}
+Recommends:
+ ngcp-rtpengine-utils,
+Suggests:
+ ngcp-system-tools,
+Depends:
+ lsb-base (>= 3.0-6),
+ nfs-common,
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: Recording daemon for RTP and media streams
  This daemon handles the call recording (media intercept) component of rtpengine.
 
 Package: ngcp-rtpengine-iptables
 Architecture: any
-Depends: ${misc:Depends},
-         ${shlibs:Depends}
-Conflicts: ngcp-mediaproxy-ng-iptables
-Replaces: ngcp-mediaproxy-ng-iptables
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Conflicts:
+ ngcp-mediaproxy-ng-iptables,
+Replaces:
+ ngcp-mediaproxy-ng-iptables,
 Description: IPtables extension module for the kernel-space NGCP media proxy.
  Provides the IPtables extension needed to configure the mediaproxy rule.
 
 Package: ngcp-rtpengine
 Architecture: all
-Depends: ngcp-rtpengine-daemon (>= ${source:Version}),
-         ngcp-rtpengine-iptables (>= ${source:Version}),
-         ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
-         ngcp-rtpengine-recording-daemon (>= ${source:Version}),
-         ngcp-rtpengine-utils (>= ${source:Version})
-Conflicts: ngcp-mediaproxy-ng
-Replaces: ngcp-mediaproxy-ng
+Depends:
+ ngcp-rtpengine-daemon (>= ${source:Version}),
+ ngcp-rtpengine-iptables (>= ${source:Version}),
+ ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
+ ngcp-rtpengine-recording-daemon (>= ${source:Version}),
+ ngcp-rtpengine-utils (>= ${source:Version}),
+Conflicts:
+ ngcp-mediaproxy-ng,
+Replaces:
+ ngcp-mediaproxy-ng,
 Description: NGCP RTP/media proxy - meta package.
  This is a meta package for easy installation of all four parts of the NGCP
  media proxy. It will install the user-space daemon, the kernel-space IPtables
@@ -75,11 +90,14 @@ Description: NGCP RTP/media proxy - meta package.
 
 Package: ngcp-rtpengine-kernel-source
 Architecture: all
-Depends: debhelper (>= 5),
-         module-assistant,
-         ${misc:Depends}
-Conflicts: ngcp-mediaproxy-ng-kernel-source
-Replaces: ngcp-mediaproxy-ng-kernel-source
+Depends:
+ debhelper (>= 5),
+ module-assistant,
+ ${misc:Depends},
+Conflicts:
+ ngcp-mediaproxy-ng-kernel-source,
+Replaces:
+ ngcp-mediaproxy-ng-kernel-source,
 Description: IPtables kernel module for the NGCP media proxy - source.
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
@@ -88,11 +106,15 @@ Description: IPtables kernel module for the NGCP media proxy - source.
 
 Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
-Suggests: ngcp-system-tools
-Depends: dkms (>= 1.95),
-         ${misc:Depends}
-Conflicts: ngcp-mediaproxy-ng-kernel-dkms
-Replaces: ngcp-mediaproxy-ng-kernel-dkms
+Suggests:
+ ngcp-system-tools,
+Depends:
+ dkms (>= 1.95),
+ ${misc:Depends},
+Conflicts:
+ ngcp-mediaproxy-ng-kernel-dkms,
+Replaces:
+ ngcp-mediaproxy-ng-kernel-dkms,
 Description: IPtables kernel module for the NGCP media proxy - DKMS.
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
@@ -101,11 +123,14 @@ Description: IPtables kernel module for the NGCP media proxy - DKMS.
 Package: ngcp-rtpengine-dbg
 Architecture: any
 Section: debug
-Depends: ngcp-rtpengine-daemon (= ${binary:Version}),
-         ngcp-rtpengine-iptables (= ${binary:Version}),
-         ${misc:Depends}
-Conflicts: ngcp-mediaproxy-ng-dbg
-Replaces: ngcp-mediaproxy-ng-dbg
+Depends:
+ ngcp-rtpengine-daemon (= ${binary:Version}),
+ ngcp-rtpengine-iptables (= ${binary:Version}),
+ ${misc:Depends},
+Conflicts:
+ ngcp-mediaproxy-ng-dbg,
+Replaces:
+ ngcp-mediaproxy-ng-dbg,
 Description: debugging symbols for ngcp-rtpengine
  The ngcp-rtpengine daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
@@ -118,12 +143,13 @@ Description: debugging symbols for ngcp-rtpengine
 
 Package: ngcp-rtpengine-utils
 Architecture: all
-Depends: libbencode-perl,
-         libcrypt-rijndael-perl,
-         libdigest-hmac-perl,
-         libio-socket-inet6-perl,
-         libio-socket-ip-perl,
-         libsocket6-perl,
-         netcat-openbsd | netcat
+Depends:
+ libbencode-perl,
+ libcrypt-rijndael-perl,
+ libdigest-hmac-perl,
+ libio-socket-inet6-perl,
+ libio-socket-ip-perl,
+ libsocket6-perl,
+ netcat-openbsd | netcat,
 Description: Scripts and Perl modules for NGCP rtpengine
  This package contains scripts and Perl modules for NGCP rtpengine

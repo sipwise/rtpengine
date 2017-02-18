@@ -1,15 +1,8 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
-# Sample debian/rules that uses debhelper.
-# This file was originally written by Joey Hess and Craig Small.
-# As a special exception, when this file is copied by dh-make into a
-# dh-make output file, you may use that output file without restriction.
-# This special exception was added by Craig Small in version 0.37 of dh-make.
 
 # Uncomment this to turn on verbose mode.
 # export DH_VERBOSE=1
-
-b=$(CURDIR)/debian
 
 ## kernel package specific stuff
 # Name of the source package
@@ -22,44 +15,26 @@ sname:=ngcp-rtpengine
 sversion:=$(shell dpkg-parsechangelog|grep "^Version:"|cut -d" " -f2|rev|cut -d- -f2-|rev|cut -d':' -f2)
 
 PACKAGE=ngcp-rtpengine-kernel
-MA_DIR ?= /usr/share/modass
--include $(MA_DIR)/include/generic.make
--include $(MA_DIR)/include/common-rules.make
-
-kdist_configure: prep-deb-files
-
-kdist_clean: clean
-	$(MAKE) $(MFLAGS) -f debian/rules clean
 ## end of kernel package specific stuff
 
-build: build-stamp
+%:
+	dh $@
 
-build-stamp:
-	dh_testdir
+override_dh_auto_build-arch:
 	make -C iptables-extension
 	make -C daemon -j`nproc`
 	make -C recording-daemon -j`nproc`
-	touch $@
 
-clean:
-	dh_testdir
-	dh_testroot
-	cd daemon && $(MAKE) clean && cd ..
-	cd recording-daemon && $(MAKE) clean && cd ..
-	rm -f build-stamp
-	rm -f iptables-extension/libxt_RTPENGINE.so
-	rm -f daemon/rtpengine daemon/build_time.h daemon/.depend kernel-module/.xt_RTPENGINE.o.d
+override_dh_auto_clean:
+	(cd daemon && $(MAKE) clean)
+	(cd recording-daemon && $(MAKE) clean)
+	(cd iptables-extension && $(MAKE) clean)
+	rm -f daemon/build_time.h kernel-module/.xt_RTPENGINE.o.d
 	rm -rf kernel-module/.tmp_versions
 	rm -f debian/README.html.gz debian/README.md.gz
-	dh_clean
-	-rm -rf debian/build
+	dh_auto_clean
 
-install: build
-	dh_testdir
-	dh_testroot
-	dh_clean -k
-	dh_installdirs
-
+override_dh_auto_install-indep:
 	# Create the directories to install the source into
 	dh_installdirs -p$(psource)  usr/src/modules/$(sname)/debian
 	dh_installdirs -p$(pdkms)    usr/src/$(sname)-$(sversion)
@@ -82,40 +57,8 @@ install: build
 	markdown README.md | gzip -9 > debian/README.html.gz
 	gzip -9 < README.md > debian/README.md.gz
 
-	dh_install
+	dh_auto_install
 
-%:
-	@echo "--- Building: $@"
-	dh_installdirs       -p$@ -P$(b)/$@
-	dh_link              -p$@ -P$(b)/$@
-	dh_installdocs       -p$@ -P$(b)/$@ debian/README.md.gz debian/README.html.gz
-	dh_installchangelogs -p$@ -P$(b)/$@
-	dh_installinit       -p$@ -P$(b)/$@
-	dh_install           -p$@ -P$(b)/$@
-	dh_strip             --dbg-package=ngcp-rtpengine-dbg
-	dh_compress          -p$@ -P$(b)/$@
-	dh_fixperms          -p$@ -P$(b)/$@
-	dh_makeshlibs        -p$@ -P$(b)/$@ -V
-	dh_installdeb        -p$@ -P$(b)/$@
-	dh_shlibdeps         -p$@ -P$(b)/$@
-	dh_installdebconf    -p$@ -P$(b)/$@
-	dh_gencontrol        -p$@ -P$(b)/$@
-	dh_md5sums           -p$@ -P$(b)/$@
-	dh_builddeb          -p$@ -P$(b)/$@
-
-# Build architecture dependant packages
-binary-arch: install \
-	ngcp-rtpengine-daemon \
-	ngcp-rtpengine-dbg \
-	ngcp-rtpengine-iptables \
-	ngcp-rtpengine-recording-daemon
-
-# Build architecture independant packages
-binary-indep: build install \
-	ngcp-rtpengine \
-	ngcp-rtpengine-kernel-dkms \
-	ngcp-rtpengine-kernel-source \
-	ngcp-rtpengine-utils
-
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean
+.PHONY: override_dh_strip
+override_dh_strip:
+	dh_strip --dbg-package=ngcp-rtpengine-dbg
