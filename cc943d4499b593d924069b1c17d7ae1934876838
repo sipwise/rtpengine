@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "da01753e_0188361e",
+        "filename": "debian/rules",
+        "patchSetId": 5
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2017-02-20T11:33:37Z",
+      "side": 1,
+      "message": "Hmm this type of building is not paralell-safe. Given that this rule requires the build-arch and/or build-readme targets to have been called before, but that\u0027s not guaranteed when these are all listed as prerequisites for binary-*.\n\nI think these need to be inlined on each binary target. And then some commands can just be removed as irrelevant. For example dh_strip, dh_makeshlibs and dh_shlibdeps for binary-indep.",
+      "revId": "cc943d4499b593d924069b1c17d7ae1934876838",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "da01753e_2183ba05",
+        "filename": "debian/rules",
+        "patchSetId": 5
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2017-02-20T11:33:37Z",
+      "side": 1,
+      "message": "Just change the prerequisites to be the direct dependencies, so remove build-arch and build-indep. The install targets already depend on those two.",
+      "revId": "cc943d4499b593d924069b1c17d7ae1934876838",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
