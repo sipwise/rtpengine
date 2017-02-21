@@ -1397,6 +1397,7 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 	struct redis_list tags, sfds, streams, medias, maps;
 	struct call *c = NULL;
 	str callid;
+	str s;
 
 	const char *err = 0;
 	int i;
@@ -1507,6 +1508,14 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 	if (json_link_maps(r, c, &maps, &sfds))
 		goto err8;
 
+	// presence of this key determines whether we were recording at all
+	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
+		recording_start(c, s.s);
+
+		if (!redis_hash_get_str(&s, &call, "recording_metadata"))
+			call_str_cpy(c, &c->recording->metadata, &s);
+	}
+
 	err = NULL;
 
 err8:
@@ -1542,20 +1551,6 @@ err1:
 	if (c)
 		obj_put(c);
 }
-
-static void redis_restore_recording(struct call *c, struct redis_hash *call) {
-	str s;
-
-	// presence of this key determines whether we were recording at all
-	if (redis_hash_get_str(&s, call, "recording_meta_prefix"))
-		return;
-
-	recording_start(c, s.s);
-
-	if (!redis_hash_get_str(&s, call, "recording_metadata"))
-		call_str_cpy(c, &c->recording->metadata, &s);
-}
-
 
 struct thread_ctx {
 	struct callmaster *m;
@@ -1728,6 +1723,7 @@ char* redis_encode_json(struct call *c) {
 	struct intf_list *il;
 	struct call_monologue *ml, *ml2;
 	JsonBuilder *builder = json_builder_new ();
+	struct recording *rec = 0;
 
 	char tmp[2048];
 
@@ -1751,6 +1747,11 @@ char* redis_encode_json(struct call *c) {
 			JSON_SET_SIMPLE_CSTR("created_from",c->created_from);
 			JSON_SET_SIMPLE_CSTR("created_from_addr",sockaddr_print_buf(&c->created_from_addr));
 			JSON_SET_SIMPLE("redis_hosted_db","%u",c->redis_hosted_db);
+
+			if ((rec = c->recording)) {
+				JSON_SET_SIMPLE_STR("recording_metadata",&rec->metadata);
+				JSON_SET_SIMPLE_CSTR("recording_meta_prefix",rec->meta_prefix);
+			}
 		}
 
 		json_builder_end_object (builder);
@@ -2040,6 +2041,8 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 	redis_pipe(r, "SET json-"PB" %s", STR(&c->callid), result);
 	redis_pipe(r, "EXPIRE json-"PB" %i", STR(&c->callid), redis_expires_s);
 
+//TODOO	redis_update_recording(r, c);
+
 	redis_consume(r);
 
 	if (result)
@@ -2057,17 +2060,6 @@ err:
 	redisFree(r->ctx);
 	r->ctx = NULL;
 
-}
-
-static void redis_update_recording(struct redis *r, struct call *c) {
-	struct recording *rec;
-
-	if (!(rec = c->recording))
-		return;
-
-	redis_pipe(r, "HMSET call-"PB" recording_metadata "PB" recording_meta_prefix %s ",
-		STR(&c->callid),
-		STR(&rec->metadata), rec->meta_prefix);
 }
 
 /* must be called lock-free */
