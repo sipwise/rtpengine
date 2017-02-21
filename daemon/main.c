@@ -62,7 +62,6 @@ static unsigned int timeout;
 static unsigned int silent_timeout;
 static unsigned int final_timeout;
 static unsigned int redis_expires = 86400;
-static unsigned int redis_multikey = 0;
 static int port_min = 30000;
 static int port_max = 40000;
 static int max_sessions = -1;
@@ -299,7 +298,6 @@ static void options(int *argc, char ***argv) {
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
 		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &redis_num_threads, "Number of Redis restore threads",      "INT"       },
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &redis_expires, "Expire time in seconds for redis keys",      "INT"       },
-		{ "redis-multikey", 0, 0, G_OPTION_ARG_NONE, &redis_multikey, "Use multiple redis keys for storing the call (old behaviour) DEPRECATED", NULL },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &no_redis_required, "Start no matter of redis connection state", NULL },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
@@ -628,7 +626,6 @@ no_kernel:
 	}
 
 	mc.redis_expires_secs = redis_expires;
-	mc.redis_multikey = redis_multikey;
 
 	ctx->m->conf = mc;
 
