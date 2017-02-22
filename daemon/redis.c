@@ -284,13 +284,8 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 		goto err;
 	if (keyspace_id.s[-1] != ':')
 		goto err;
+
 	// now at <key>
-
-	if (str_shift_cmp(&keyspace_id, "json-")) {
-		rlog(LOG_ERROR,"Redis-Notifier: The prefix 'json-' to determine the redis key has not been found in the redis notification !\n");
-		goto err;
-	}
-
 	callid = keyspace_id;
 
 	// select the right db for restoring the call
@@ -458,13 +453,13 @@ int redis_notify_subscribe_action(struct callmaster *cm, enum subscribe_action a
 
 	switch (action) {
 	case SUBSCRIBE_KEYSPACE:
-		if (redisAsyncCommand(cm->conf.redis_notify_async_context, on_redis_notification, (void*)cm, "psubscribe __keyspace@%i__:json-*", keyspace) != REDIS_OK) {
+		if (redisAsyncCommand(cm->conf.redis_notify_async_context, on_redis_notification, (void*)cm, "psubscribe __keyspace@%i__:*", keyspace) != REDIS_OK) {
 			rlog(LOG_ERROR, "Fail redisAsyncCommand on JSON SUBSCRIBE_KEYSPACE");
 			return -1;
 		}
 		break;
 	case UNSUBSCRIBE_KEYSPACE:
-		if (redisAsyncCommand(cm->conf.redis_notify_async_context, on_redis_notification, (void*)cm, "punsubscribe __keyspace@%i__:json-*", keyspace) != REDIS_OK) {
+		if (redisAsyncCommand(cm->conf.redis_notify_async_context, on_redis_notification, (void*)cm, "punsubscribe __keyspace@%i__:*", keyspace) != REDIS_OK) {
 			rlog(LOG_ERROR, "Fail redisAsyncCommand on JSON UNSUBSCRIBE_KEYSPACE");
 			return -1;
 		}
@@ -687,7 +682,7 @@ static int redis_check_conn(struct redis *r) {
 
 /* called with r->lock held and c->master_lock held */
 static void redis_delete_call_json(struct call *c, struct redis *r) {
-	redis_pipe(r, "DEL json-"PB"", STR(&c->callid));
+	redis_pipe(r, "DEL "PB"", STR(&c->callid));
 	redis_consume(r);
 }
 
@@ -1391,26 +1386,21 @@ static int json_link_maps(struct redis *r, struct call *c, struct redis_list *ma
 	return 0;
 }
 
-static void json_restore_call(struct redis *r, struct callmaster *m, const str *id, enum call_type type) {
+static void json_restore_call(struct redis *r, struct callmaster *m, const str *callid, enum call_type type) {
 	redisReply* rr_jsonStr;
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
 	struct call *c = NULL;
-	str callid;
-	str s;
+	str s, id;
 
 	const char *err = 0;
 	int i;
 	JsonReader *root_reader =0;
 	JsonParser *parser =0;
 
-	// TODO: Maybe refactor
-	str_init_len(&callid, id->s, id->len);
-	str_shift(&callid,strlen("json-"));
-
-	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET json-" PB, STR(&callid));
+	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
 	if (!rr_jsonStr) {
-		rlog(LOG_ERR, "Could not retrieve json data from redis for key: %s", id->s);
+		rlog(LOG_ERR, "Could not retrieve json data from redis for key: %s", callid->s);
 		goto err1;
 	}
 
@@ -1425,7 +1415,7 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 		goto err1;
 	}
 
-	c = call_get_or_create(&callid, m, type);
+	c = call_get_or_create(callid, m, type);
 	err = "failed to create call struct";
 	if (!c)
 		goto err1;
@@ -1467,10 +1457,10 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 		c->tos = i;
 	redis_hash_get_time_t(&c->deleted, &call, "deleted");
 	redis_hash_get_time_t(&c->ml_deleted, &call, "ml_deleted");
-	if (!redis_hash_get_str(&callid, &call, "created_from"))
-		c->created_from = call_strdup(c, callid.s);
-	if (!redis_hash_get_str(&callid, &call, "created_from_addr"))
-		sockaddr_parse_any_str(&c->created_from_addr, &callid);
+	if (!redis_hash_get_str(&id, &call, "created_from"))
+		c->created_from = call_strdup(c, id.s);
+	if (!redis_hash_get_str(&id, &call, "created_from_addr"))
+		sockaddr_parse_any_str(&c->created_from_addr, &id);
 
 	err = "missing 'redis_hosted_db' value";
 	if (redis_hash_get_unsigned((unsigned int *) &c->redis_hosted_db, &call, "redis_hosted_db"))
@@ -1541,12 +1531,12 @@ err1:
 		freeReplyObject(rr_jsonStr);	
 	log_info_clear();
 	if (err) {
-		rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT "' from Redis: %s", STR_FMT(&callid),
+		rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT "' from Redis: %s", STR_FMT(callid),
 				err);
 		if (c) 
 			call_destroy(c);
 		else
-			redisCommandNR(m->conf.redis_write->ctx, "DEL json-" PB, STR(&callid));
+			redisCommandNR(m->conf.redis_write->ctx, "DEL " PB, STR(callid));
 	}
 	if (c)
 		obj_put(c);
@@ -1599,7 +1589,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	}
 	mutex_unlock(&r->lock);
 
-	calls = redis_get(r, REDIS_REPLY_ARRAY, "KEYS json-*");
+	calls = redis_get(r, REDIS_REPLY_ARRAY, "KEYS *");
 
 	if (!calls) {
 		rlog(LOG_ERR, "Could not retrieve call list from Redis: %s", r->ctx->errstr);
@@ -2038,8 +2028,8 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 	if (!result)
 		goto err;
 
-	redis_pipe(r, "SET json-"PB" %s", STR(&c->callid), result);
-	redis_pipe(r, "EXPIRE json-"PB" %i", STR(&c->callid), redis_expires_s);
+	redis_pipe(r, "SET "PB" %s", STR(&c->callid), result);
+	redis_pipe(r, "EXPIRE "PB" %i", STR(&c->callid), redis_expires_s);
 
 	redis_consume(r);
 
