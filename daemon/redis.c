@@ -2041,8 +2041,6 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 	redis_pipe(r, "SET json-"PB" %s", STR(&c->callid), result);
 	redis_pipe(r, "EXPIRE json-"PB" %i", STR(&c->callid), redis_expires_s);
 
-//TODOO	redis_update_recording(r, c);
-
 	redis_consume(r);
 
 	if (result)
