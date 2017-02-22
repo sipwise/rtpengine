@@ -741,7 +741,7 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 			rlog(LOG_ERROR, "Could not read json member: %s",*members);
 			goto err3;
 		}
-		str_init_len(&out->s,(char*)json_reader_get_string_value(c->root_reader),strlen((char*)json_reader_get_string_value(c->root_reader)));
+		str_init(&out->s,(char*)json_reader_get_string_value_uri_enc(c->root_reader,&out->s.len));
 		char* tmp = strdup(*members);
 
 		if (g_hash_table_insert_check(out->ht, tmp, str_dup(&out->s)) != TRUE) {
