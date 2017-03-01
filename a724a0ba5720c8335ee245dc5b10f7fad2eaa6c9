@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ba068154_c122c500",
+        "filename": "debian/ngcp-rtpengine-daemon.postinst",
+        "patchSetId": 2
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2017-03-01T17:26:10Z",
+      "side": 1,
+      "message": "this doesn\u0027t work\n\n$ [ -n \"$TABLE\" -a \"$TABLE\" -ge 0 -a -n \"$NO_FALLBACK\" -a \\( \"$NO_FALLBACK\" \u003d \"1\" -o \"$NO_FALLBACK\" \u003d \"yes\" \\) ] \u0026\u0026 echo hola || echo KO\nbash: [: : integer expression expected\nKO\n\nTABLE has to be defined\n\n$ TABLE\u003d0; [ \"$TABLE\" -ge 0 -a -n \"$NO_FALLBACK\" -a \\( \"$NO_FALLBACK\" \u003d \"1\" -o \"$NO_FALLBACK\" \u003d \"yes\" \\) ] \u0026\u0026 echo hola || echo KO\nKO\n$ TABLE\u003d0; NO_FALLBACK\u003dyes; [ \"$TABLE\" -ge 0 -a -n \"$NO_FALLBACK\" -a \\( \"$NO_FALLBACK\" \u003d \"1\" -o \"$NO_FALLBACK\" \u003d \"yes\" \\) ] \u0026\u0026 echo hola || echo KO\nhola",
+      "revId": "a724a0ba5720c8335ee245dc5b10f7fad2eaa6c9",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
