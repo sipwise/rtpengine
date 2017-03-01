@@ -444,6 +444,12 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	str_shift(&c->key_base64_str, 7);
 	ret = g_base64_decode_step(c->key_base64_str.s, enc_salt_key_len,
 			(guchar *) c->key_salt_buf, &b64_state, &b64_save);
+        // flush b64_state needed for AES-192: 36+2; AES-256: 45+1;
+        if (enc_salt_key_len % 4) {
+                ret += g_base64_decode_step("==", 4 - b64_state,
+                        (guchar *) c->key_salt_buf + ret, &b64_state, &b64_save);
+        }
+        assert( !b64_state );
 	err = "invalid base64 encoding";
 	if (ret != salt_key_len)
 		goto error;
@@ -455,6 +461,12 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 
 	c->lifetime_str = c->key_params_str;
 	str_shift(&c->lifetime_str, 7 + enc_salt_key_len);
+        // skip past base64 padding
+        if (enc_salt_key_len % 4 == 2) {
+                str_shift_cmp(&c->lifetime_str, "==");
+        } else if (enc_salt_key_len % 4 == 3) {
+                str_shift_cmp(&c->lifetime_str, "=");
+        }
 	if (c->lifetime_str.len >= 2) {
 		err = "invalid key parameter syntax";
 		if (c->lifetime_str.s[0] != '|')
