@@ -18,7 +18,7 @@ else
 		. $default || true
 	fi
 
-	if [ "$TABLE" -ge 0 -a -n "$NO_FALLBACK" -a \( "$NO_FALLBACK" = "1" -o "$NO_FALLBACK" = "yes" \) ]; then
+	if [ -n "$TABLE" -a "$TABLE" -ge 0 -a -n "$NO_FALLBACK" -a \( "$NO_FALLBACK" = "1" -o "$NO_FALLBACK" = "yes" \) ]; then
 		if lsmod | grep -q $modname || modinfo $modname > /dev/null 2> /dev/null; then
 			true
 		else
