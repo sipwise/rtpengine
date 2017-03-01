@@ -446,10 +446,9 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 			(guchar *) c->key_salt_buf, &b64_state, &b64_save);
         // flush b64_state needed for AES-192: 36+2; AES-256: 45+1;
         if (enc_salt_key_len % 4) {
-                ret += g_base64_decode_step("==", 4 - b64_state,
+                ret += g_base64_decode_step("==", 4 - (enc_salt_key_len % 4),
                         (guchar *) c->key_salt_buf + ret, &b64_state, &b64_save);
         }
-        assert( !b64_state );
 	err = "invalid base64 encoding";
 	if (ret != salt_key_len)
 		goto error;
