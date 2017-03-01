@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ba068154_a19fc102",
+        "filename": "debian/ngcp-rtpengine-daemon.postinst",
+        "patchSetId": 4
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2017-03-01T17:47:14Z",
+      "side": 1,
+      "message": "this fixes bashnism too",
+      "revId": "77f9e4c31003c6c757757b5706754ff8e6d0f813",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
