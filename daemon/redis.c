@@ -706,6 +706,7 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 	static unsigned int MAXKEYLENGTH = 512;
 	char key_concatted[MAXKEYLENGTH];
 	int rc=0;
+	str tmpstr;
 
 	if (!c)
 		goto err;
@@ -723,7 +724,7 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 		goto err;
 	}
 
-	out->ht = g_hash_table_new_full(g_str_hash, g_str_equal, free, freeReplyObject);
+	out->ht = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	if (!out->ht)
 		goto err;
 
@@ -736,10 +737,10 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 			rlog(LOG_ERROR, "Could not read json member: %s",*members);
 			goto err3;
 		}
-		str_init(&out->s,(char*)json_reader_get_string_value_uri_enc(c->root_reader,&out->s.len));
+		str_init(&tmpstr,(char*)json_reader_get_string_value_uri_enc(c->root_reader,&tmpstr.len));
 		char* tmp = strdup(*members);
 
-		if (g_hash_table_insert_check(out->ht, tmp, str_dup(&out->s)) != TRUE) {
+		if (g_hash_table_insert_check(out->ht, tmp, str_dup(&tmpstr)) != TRUE) {
 			ilog(LOG_WARNING,"Key %s already exists", tmp);
 			goto err3;
 		}
@@ -783,8 +784,7 @@ static int redis_hash_get_str(str *out, const struct redis_hash *h, const char *
 		out->len = 0;
 		return -1;
 	}
-	out->s = r->s;
-	out->len = r->len;
+	*out = *r;
 	return 0;
 }
 
@@ -1400,7 +1400,7 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 
 	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
 	if (!rr_jsonStr) {
-		rlog(LOG_ERR, "Could not retrieve json data from redis for key: %s", callid->s);
+		rlog(LOG_ERR, "Could not retrieve json data from redis for key: "STR_FORMAT, STR_FMT(callid));
 		goto err1;
 	}
 
@@ -1553,7 +1553,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	redisReply *call = call_p;
 	struct redis *r;
 	str callid;
-	str_init(&callid,call->str);
+	str_init_len(&callid, call->str, call->len);
 
 	rlog(LOG_DEBUG, "Processing call ID '%.*s' from Redis", REDIS_FMT(call));
 

@@ -62,10 +62,11 @@ struct redis {
 	int		state;
 	int		no_redis_required;
 };
+
 struct redis_hash {
-	str s;
 	GHashTable *ht;
 };
+
 struct redis_list {
 	unsigned int len;
 	struct redis_hash *rh;
