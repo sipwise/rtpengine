@@ -71,10 +71,10 @@ int str_uri_encode_len(char *out, const char *in, int len) {
 	return out - ori_out;
 }
 
-int str_uri_decode_len(char **out, const char *in, int in_len) {
+str *str_uri_decode_len(const char *in, int in_len) {
 	const char *end = in + in_len;
-	*out = malloc(in_len + 1);
-	char *outp = *out;
+	str *ret = str_alloc(in_len);
+	char *outp = ret->s;
 
 	while (in < end) {
 		if (*in != '%') {
@@ -83,9 +83,8 @@ int str_uri_decode_len(char **out, const char *in, int in_len) {
 		}
 
 		if (end - in < 3 || !g_ascii_isxdigit(in[1]) || !g_ascii_isxdigit(in[2])) {
-			free(*out);
-			*out = NULL;
-			return -1;
+			free(ret);
+			return NULL;
 		}
 
 		unsigned char c = g_ascii_xdigit_value(in[1]) << 4 | g_ascii_xdigit_value(in[2]);
@@ -94,5 +93,6 @@ int str_uri_decode_len(char **out, const char *in, int in_len) {
 	}
 
 	*outp = 0;
-	return outp - *out;
+	ret->len = outp - ret->s;
+	return ret;
 }

@@ -50,6 +50,8 @@ INLINE str *str_init(str *out, char *s);
 INLINE str *str_init_len(str *out, char *s, int len);
 INLINE str *str_init_len_assert_len(str *out, char *s, int buflen, int len);
 #define str_init_len_assert(out, s, len) str_init_len_assert_len(out, s, sizeof(s), len)
+/* returns new str object with uninitialized buffer large enough to hold `len` characters (+1 for null byte) */
+INLINE str *str_alloc(int len);
 /* returns new str object allocated with malloc, including buffer */
 INLINE str *str_dup(const str *s);
 /* returns new str object allocated from chunk, including buffer */
@@ -90,8 +92,8 @@ void str_slice_free(void *);
 /* saves "in" into "out" pseudo-URI encoded. "out" point to a buffer with sufficient length. returns length */
 int str_uri_encode_len(char *out, const char *in, int in_len);
 INLINE int str_uri_encode(char *out, const str *in);
-/* reverse of the above. stores newly allocated buffer in *out. returns length */
-int str_uri_decode_len(char **out, const char *in, int in_len);
+/* reverse of the above. returns newly allocated str + buffer as per str_alloc (must be free'd) */
+str *str_uri_decode_len(const char *in, int in_len);
 
 
 
@@ -187,10 +189,16 @@ INLINE str *str_init_len_assert_len(str *out, char *s, int buflen, int len) {
 	assert(buflen >= len);
 	return str_init_len(out, s, len);
 }
+INLINE str *str_alloc(int len) {
+	str *r;
+	r = malloc(sizeof(*r) + len + 1);
+	r->s = ((char *) r) + sizeof(*r);
+	r->len = 0;
+	return r;
+}
 INLINE str *str_dup(const str *s) {
 	str *r;
-	r = malloc(sizeof(*r) + s->len + 1);
-	r->s = ((char *) r) + sizeof(*r);
+	r = str_alloc(s->len);
 	r->len = s->len;
 	memcpy(r->s, s->s, s->len);
 	r->s[s->len] = '\0';

@@ -691,13 +691,12 @@ INLINE void json_builder_add_string_value_uri_enc(JsonBuilder *builder, const ch
 	str_uri_encode_len(enc, tmp, len);
 	json_builder_add_string_value(builder,enc);
 }
-INLINE char* json_reader_get_string_value_uri_enc(JsonReader *root_reader, int *lenp) {
-	const char *str = json_reader_get_string_value(root_reader);
-	char *ret;
-	int len = str_uri_decode_len(&ret, str, strlen(str));
-	if (lenp)
-		*lenp = len;
-	return ret; // must be free'd
+INLINE str *json_reader_get_string_value_uri_enc(JsonReader *root_reader) {
+	const char *s = json_reader_get_string_value(root_reader);
+	if (!s)
+		return NULL;
+	str *out = str_uri_decode_len(s, strlen(s));
+	return out; // must be free'd
 }
 
 static int json_get_hash(struct redis_hash *out, struct call* c,
@@ -706,7 +705,6 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 	static unsigned int MAXKEYLENGTH = 512;
 	char key_concatted[MAXKEYLENGTH];
 	int rc=0;
-	str tmpstr;
 
 	if (!c)
 		goto err;
@@ -737,10 +735,10 @@ static int json_get_hash(struct redis_hash *out, struct call* c,
 			rlog(LOG_ERROR, "Could not read json member: %s",*members);
 			goto err3;
 		}
-		str_init(&tmpstr,(char*)json_reader_get_string_value_uri_enc(c->root_reader,&tmpstr.len));
+		str *val = json_reader_get_string_value_uri_enc(c->root_reader);
 		char* tmp = strdup(*members);
 
-		if (g_hash_table_insert_check(out->ht, tmp, str_dup(&tmpstr)) != TRUE) {
+		if (g_hash_table_insert_check(out->ht, tmp, val) != TRUE) {
 			ilog(LOG_WARNING,"Key %s already exists", tmp);
 			goto err3;
 		}
@@ -880,7 +878,6 @@ static int json_build_list_cb(GQueue *q, struct call *c, const char *key,
 		unsigned int idx, struct redis_list *list,
 		int (*cb)(str *, GQueue *, struct redis_list *, void *), void *ptr)
 {
-	str s;
 	char key_concatted[256];
 
 	snprintf(key_concatted, 256, "%s-%u", key, idx);
@@ -890,14 +887,14 @@ static int json_build_list_cb(GQueue *q, struct call *c, const char *key,
 	for (int jidx=0; jidx < json_reader_count_elements(c->root_reader); ++jidx) {
 		if (!json_reader_read_element(c->root_reader,jidx))
 			rlog(LOG_ERROR,"Element in array not found.");
-		char *strp = s.s = json_reader_get_string_value_uri_enc(c->root_reader, &s.len);
-		if (!strp)
+		str *s = json_reader_get_string_value_uri_enc(c->root_reader);
+		if (!s)
 			rlog(LOG_ERROR,"String in json not found.");
-		if (cb(&s, q, list, ptr)) {
-			free(s.s);
+		if (cb(s, q, list, ptr)) {
+			free(s);
 			return -1;
 		}
-		free(strp);
+		free(s);
 		json_reader_end_element(c->root_reader);
 	}
 	json_reader_end_member (c->root_reader);
