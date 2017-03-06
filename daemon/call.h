@@ -463,7 +463,6 @@ struct callmaster_config {
 	GQueue		        *redis_subscribed_keyspaces;
 	struct redisAsyncContext *redis_notify_async_context;
 	unsigned int        redis_expires_secs;
-	unsigned int		redis_multikey;
 	char			*b2b_url;
 	unsigned char		default_tos;
 	enum xmlrpc_format	fmt;

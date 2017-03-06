@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <hiredis/hiredis.h>
 #include "call.h"
+#include "str.h"
 
 
 #define REDIS_RESTORE_NUM_THREADS 4
@@ -61,21 +62,16 @@ struct redis {
 	int		state;
 	int		no_redis_required;
 };
+
 struct redis_hash {
-	redisReply *rr;
 	GHashTable *ht;
 };
+
 struct redis_list {
 	unsigned int len;
 	struct redis_hash *rh;
 	void **ptrs;
 };
-
-
-
-
-
-
 
 
 #if !GLIB_CHECK_VERSION(2,40,0)
@@ -129,12 +125,12 @@ int redis_notify_subscribe_action(struct callmaster *cm, enum subscribe_action a
 
 #define define_get_int_type(name, type, func)								\
 	static int redis_hash_get_ ## name(type *out, const struct redis_hash *h, const char *k) {	\
-		redisReply *r;										\
+		str* s;										\
 													\
-		r = g_hash_table_lookup(h->ht, k);							\
-		if (!r)											\
+		s = g_hash_table_lookup(h->ht, k);							\
+		if (!s)											\
 			return -1;									\
-		*out = func(r->str, NULL, 10);								\
+		*out = func(s->s, NULL, 10);								\
 		return 0;										\
 	}
 

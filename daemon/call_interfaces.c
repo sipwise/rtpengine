@@ -186,11 +186,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 			sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
 	rwlock_unlock_w(&c->master_lock);
 
-	if (m->conf.redis_multikey) {
-		redis_update(c, m->conf.redis_write);
-	} else {
-		redis_update_onekey(c, m->conf.redis_write);
-	}
+	redis_update_onekey(c, m->conf.redis_write);
 
 	gettimeofday(&(monologue->started), NULL);
 
@@ -338,11 +334,7 @@ out2:
 	rwlock_unlock_w(&c->master_lock);
 	streams_free(&s);
 
-	if (m->conf.redis_multikey) {
-		redis_update(c, m->conf.redis_write);
-	} else {
-		redis_update_onekey(c, m->conf.redis_write);
-	}
+	redis_update_onekey(c, m->conf.redis_write);
 
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT0(ret));
 	obj_put(c);
@@ -774,11 +766,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	rwlock_unlock_w(&call->master_lock);
 
 	if (!flags.no_redis_update) {
-		if (m->conf.redis_multikey) {
-			redis_update(call, m->conf.redis_write);
-		} else {
 			redis_update_onekey(call,m->conf.redis_write);
-		}
 	} else {
 		ilog(LOG_DEBUG, "Not updating Redis due to present no-redis-update flag");
 	}

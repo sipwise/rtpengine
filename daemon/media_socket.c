@@ -1472,11 +1472,7 @@ out:
 	ca = sfd->call ? : NULL;
 
 	if (ca && update) {
-		if (ca->callmaster->conf.redis_multikey) {
-			redis_update(ca, ca->callmaster->conf.redis_write);
-		} else {
-			redis_update_onekey(ca, ca->callmaster->conf.redis_write);
-		}
+		redis_update_onekey(ca, ca->callmaster->conf.redis_write);
 	}
 done:
 	log_info_clear();
