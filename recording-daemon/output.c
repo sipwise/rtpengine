@@ -35,7 +35,7 @@ static int output_flush(output_t *output) {
 			keep_going = 0;
 			int got_packet = 0;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 			if (have_frame) {
 				int ret = avcodec_send_frame(output->avcctx, output->frame);
 				dbg("%p send frame ret %i", output, ret);
@@ -197,7 +197,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	output->avcctx->bit_rate = mp3_bitrate;
 	output->avst->time_base = output->avcctx->time_base;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0) // exact version? present in 57.56
 	avcodec_parameters_from_context(output->avst->codecpar, output->avcctx);
 #endif
 

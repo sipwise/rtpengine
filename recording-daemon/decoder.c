@@ -247,7 +247,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 		keep_going = 0;
 		int got_frame = 0;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 		if (dec->avpkt.size) {
 			int ret = avcodec_send_packet(dec->avcctx, &dec->avpkt);
 			dbg("send packet ret %i", ret);
@@ -303,7 +303,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 #endif
 
 		if (got_frame) {
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 36, 0)
 			dec->frame->pts = dec->frame->pkt_pts;
 #endif
 			if (G_UNLIKELY(dec->frame->pts == AV_NOPTS_VALUE))
