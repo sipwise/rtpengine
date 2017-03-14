@@ -1841,6 +1841,7 @@ void call_destroy(struct call *c) {
 	/* at this point, no more packet streams can be added */
 
 	if (IS_OWN_CALL(c)) {
+		ilog(LOG_INFO, "Final packet stats:");
 
 		for (l = c->monologues.head; l; l = l->next) {
 			ml = l->data;
