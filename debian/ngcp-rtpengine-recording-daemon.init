@@ -37,10 +37,43 @@ set -e
 . /lib/lsb/init-functions
 
 OPTIONS=""
+START_OPTIONS=""
 
 
 [ -z "$CONFIG_FILE" ] || OPTIONS="$OPTIONS --config-file=$CONFIG_FILE"
 [ -z "$PIDFILE" ] || OPTIONS="$OPTIONS --pidfile=$PIDFILE"
+
+
+# check if directory for pid file needs to be created
+
+PIDDIR=$(dirname "$PIDFILE")
+DO_DIR_CHOWN=0
+if ! test -z "$PIDDIR" && ! test -d "$PIDDIR"; then
+	mkdir -p "$PIDDIR"
+	DO_DIR_CHOWN=1
+fi
+
+# handle requested setuid/setgid
+
+if ! test -z "$SET_USER"; then
+	START_OPTIONS="$START_OPTIONS --chuid $SET_USER"
+	UID=$(id -u "$SET_USER" 2> /dev/null)
+	test -z "$UID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$UID"
+	if test -z "$SET_GROUP"; then
+		GID=$(id -g "$SET_USER" 2> /dev/null)
+		test -z "$GID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$GID"
+	fi
+	test "$DO_DIR_CHOWN" = 1 && chown "$SET_USER": "$PIDDIR"
+fi
+
+if ! test -z "$SET_GROUP"; then
+	START_OPTIONS="$START_OPTIONS --group $SET_GROUP"
+	GID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
+	test -z "$GID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$GID"
+	test "$DO_DIR_CHOWN" = 1 && chgrp "$SET_GROUP" "$PIDDIR"
+fi
+
+###
 
 if [ -x /usr/sbin/ngcp-virt-identify ]; then
 	if /usr/sbin/ngcp-virt-identify --type container; then
@@ -77,7 +110,7 @@ case "$1" in
 	fi
 
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
-		--exec "$DAEMON" -- $OPTIONS || log_progress_msg " already running"
+		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
 	log_end_msg $?
 	;;
   stop)

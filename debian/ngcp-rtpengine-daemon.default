@@ -3,3 +3,5 @@ CONFIG_FILE=/etc/rtpengine/rtpengine.conf
 # CONFIG_SECTION=rtpengine
 PIDFILE=/var/run/ngcp-rtpengine-daemon.pid
 TABLE=0
+#SET_USER=root
+#SET_GROUP=root # GROUP only needs to be set if USER is not set or if the user isn't in the group
