@@ -5,6 +5,7 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include "log.h"
 
 
@@ -34,10 +35,13 @@ void wpidfile() {
 		return;
 
 	fp = fopen(pid_file, "w");
-	if (fp) {
-		fprintf(fp, "%u\n", getpid());
-		fclose(fp);
+	if (!fp) {
+		ilog(LOG_CRIT, "Failed to create PID file (%s), aborting startup", strerror(errno));
+		exit(-1);
 	}
+
+	fprintf(fp, "%u\n", getpid());
+	fclose(fp);
 }
 
 
