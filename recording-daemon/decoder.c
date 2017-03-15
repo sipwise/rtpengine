@@ -189,7 +189,8 @@ static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metaf
 		if (G_UNLIKELY(dec->mixer_idx == (unsigned int) -1))
 			dec->mixer_idx = mix_get_index(metafile->mix);
 		format_t actual_format;
-		output_config(metafile->mix_out, &dec->out_format, &actual_format);
+		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
+			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
 		AVFrame *dec_frame = resample_frame(&dec->mix_resample, dec->frame, &actual_format);
 		if (!dec_frame) {
@@ -200,12 +201,14 @@ static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metaf
 		if (mix_add(metafile->mix, clone, dec->mixer_idx, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 	}
+no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);
 
 	if (output) {
 		// XXX might be a second resampling to same format
 		format_t actual_format;
-		output_config(output, &dec->out_format, &actual_format);
+		if (output_config(output, &dec->out_format, &actual_format))
+			return -1;
 		AVFrame *dec_frame = resample_frame(&dec->output_resample, dec->frame, &actual_format);
 		if (!dec_frame)
 			return -1;
