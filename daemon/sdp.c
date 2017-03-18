@@ -1,8 +1,8 @@
 #include "sdp.h"
 
 #include <glib.h>
-#include <netinet/in.h> 
-#include <netinet/ip.h> 
+#include <netinet/in.h>
+#include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <math.h>
 
@@ -274,7 +274,7 @@ INLINE int extract_token(char **sp, char *end, str *out) {
 		*sp = space + 1;
 	}
 	return 0;
-	
+
 }
 #define EXTRACT_TOKEN(field) if (extract_token(&start, end, &output->field)) return -1
 #define EXTRACT_NETWORK_ADDRESS_NP(field)			\
@@ -978,10 +978,10 @@ int sdp_parse(str *body, GQueue *sessions) {
 				if (line_end - value < 4)
 					break;
 				if (!memcmp(value, "RR:", 3))
-					*(media ? &media->rr : &session->rr) = 
+					*(media ? &media->rr : &session->rr) =
 						(line_end - value == 4 && value[3] == '0') ? 0 : 1;
 				else if (!memcmp(value, "RS:", 3))
-					*(media ? &media->rs : &session->rs) = 
+					*(media ? &media->rs : &session->rs) =
 						(line_end - value == 4 && value[3] == '0') ? 0 : 1;
 				break;
 
