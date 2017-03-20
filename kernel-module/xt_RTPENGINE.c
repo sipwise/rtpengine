@@ -2501,7 +2501,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	u32 = (void *) skb->data;
 	if (u32[1] != htonl(0x2112A442UL)) /* magic cookie */
 		goto not_stun;
-	if ((u32[0] & htonl(0xb0000003UL))) /* zero bits required by rfc */
+	if ((u32[0] & htonl(0xc0000003UL))) /* zero bits required by rfc */
 		goto not_stun;
 	u32 = (void *) &skb->data[datalen - 8];
 	if (u32[0] != htonl(0x80280004UL)) /* required fingerprint attribute */
