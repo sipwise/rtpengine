@@ -71,7 +71,7 @@ static int check_conn() {
 	if (prep(&stm_insert_stream, "insert into recording_streams (`call`, local_filename, full_filename, " \
 				"file_format, " \
 				"output_type, " \
-				"stream_id, ssrc) values (?,?,?,?,?,?,?)"))
+				"stream_id, ssrc) values (?,concat(?,'.',?),concat(?,'.',?),?,?,?,?)"))
 		goto err;
 	if (prep(&stm_close_call, "update recording_calls set end_time = now() where id = ?"))
 		goto err;
@@ -171,19 +171,21 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, unsigned int i
 	if (op->db_id > 0)
 		return;
 
-	MYSQL_BIND b[7];
+	MYSQL_BIND b[9];
 	my_ull(&b[0], &mf->db_id);
 	my_str(&b[1], op->file_name);
-	my_str(&b[2], op->full_filename);
-	my_str(&b[3], op->file_format);
-	my_str(&b[4], type);
-	b[5] = (MYSQL_BIND) {
+	my_str(&b[2], op->file_format);
+	my_str(&b[3], op->full_filename);
+	my_str(&b[4], op->file_format);
+	my_str(&b[5], op->file_format);
+	my_str(&b[6], type);
+	b[7] = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_LONG,
 		.buffer = &id,
 		.buffer_length = sizeof(id),
 		.is_unsigned = 1,
 	};
-	b[6] = (MYSQL_BIND) {
+	b[8] = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_LONG,
 		.buffer = &ssrc,
 		.buffer_length = sizeof(ssrc),
