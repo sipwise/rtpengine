@@ -13,7 +13,8 @@ static MYSQL_STMT __thread
 	*stm_close_call,
 	*stm_insert_stream,
 	*stm_close_stream,
-	*stm_config_stream;
+	*stm_config_stream,
+	*stm_insert_metadata;
 
 
 static void my_stmt_close(MYSQL_STMT **st) {
@@ -30,6 +31,7 @@ static void reset_conn() {
 	my_stmt_close(&stm_insert_stream);
 	my_stmt_close(&stm_close_stream);
 	my_stmt_close(&stm_config_stream);
+	my_stmt_close(&stm_insert_metadata);
 	mysql_close(mysql_conn);
 	mysql_conn = NULL;
 }
@@ -79,6 +81,9 @@ static int check_conn() {
 		goto err;
 	if (prep(&stm_config_stream, "update recording_streams set channels = ?, sample_rate = ? where id = ?"))
 		goto err;
+	if (prep(&stm_insert_metadata, "insert into recording_metakeys (`call`, `key`, `value`) values " \
+				"(?,?,?)"))
+		goto err;
 
 	ilog(LOG_INFO, "Connection to MySQL established");
 
@@ -96,13 +101,19 @@ err:
 }
 
 
-INLINE void my_str(MYSQL_BIND *b, const char *s) {
+INLINE void my_str_len(MYSQL_BIND *b, const char *s, unsigned int len) {
 	*b = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_STRING,
 		.buffer = (void *) s,
-		.buffer_length = strlen(s),
+		.buffer_length = len,
 		.length = &b->buffer_length,
 	};
+}
+INLINE void my_str(MYSQL_BIND *b, const str *s) {
+	my_str_len(b, s->s, s->len);
+}
+INLINE void my_cstr(MYSQL_BIND *b, const char *s) {
+	my_str_len(b, s, strlen(s));
 }
 INLINE void my_ull(MYSQL_BIND *b, const unsigned long long *ull) {
 	*b = (MYSQL_BIND) {
@@ -156,10 +167,35 @@ void db_do_call(metafile_t *mf) {
 	if (mf->db_id > 0)
 		return;
 
-	MYSQL_BIND b[1];
-	my_str(&b[0], mf->call_id);
+	MYSQL_BIND b[3];
+	my_cstr(&b[0], mf->call_id);
 
 	execute_wrap(&stm_insert_call, b, &mf->db_id);
+
+	if (mf->metadata) {
+		my_ull(&b[0], &mf->db_id); // stays persistent
+
+		str all_meta;
+		str_init(&all_meta, mf->metadata);
+		while (all_meta.len > 1) {
+			str token;
+			if (str_token(&token, &all_meta, '|')) {
+				// separator not found, use remainder as token
+				token = all_meta;
+				all_meta.len = 0;
+			}
+			str key;
+			if (str_token(&key, &token, ':')) {
+				// key:value separator not found, skip
+				continue;
+			}
+
+			my_str(&b[1], &key);
+			my_str(&b[2], &token);
+
+			execute_wrap(&stm_insert_metadata, b, NULL);
+		}
+	}
 }
 
 
@@ -173,12 +209,12 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, unsigned int i
 
 	MYSQL_BIND b[9];
 	my_ull(&b[0], &mf->db_id);
-	my_str(&b[1], op->file_name);
-	my_str(&b[2], op->file_format);
-	my_str(&b[3], op->full_filename);
-	my_str(&b[4], op->file_format);
-	my_str(&b[5], op->file_format);
-	my_str(&b[6], type);
+	my_cstr(&b[1], op->file_name);
+	my_cstr(&b[2], op->file_format);
+	my_cstr(&b[3], op->full_filename);
+	my_cstr(&b[4], op->file_format);
+	my_cstr(&b[5], op->file_format);
+	my_cstr(&b[6], type);
 	b[7] = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_LONG,
 		.buffer = &id,

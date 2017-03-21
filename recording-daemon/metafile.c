@@ -103,6 +103,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		mf->call_id = g_string_chunk_insert(mf->gsc, content);
 	else if (!strcmp(section, "PARENT"))
 		mf->parent = g_string_chunk_insert(mf->gsc, content);
+	else if (!strcmp(section, "METADATA"))
+		mf->metadata = g_string_chunk_insert(mf->gsc, content);
 	else if (sscanf_match(section, "STREAM %lu interface", &lu) == 1)
 		meta_stream_interface(mf, lu, content);
 	else if (sscanf_match(section, "STREAM %lu details", &lu) == 1)
