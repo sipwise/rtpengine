@@ -95,6 +95,13 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 
 
 // mf is locked
+static void meta_metadata(metafile_t *mf, char *content) {
+	mf->metadata = g_string_chunk_insert(mf->gsc, content);
+	db_do_call(mf);
+}
+
+
+// mf is locked
 static void meta_section(metafile_t *mf, char *section, char *content, unsigned long len) {
 	unsigned long lu;
 	unsigned int u;
@@ -103,6 +110,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		mf->call_id = g_string_chunk_insert(mf->gsc, content);
 	else if (!strcmp(section, "PARENT"))
 		mf->parent = g_string_chunk_insert(mf->gsc, content);
+	else if (!strcmp(section, "METADATA"))
+		meta_metadata(mf, content);
 	else if (sscanf_match(section, "STREAM %lu interface", &lu) == 1)
 		meta_stream_interface(mf, lu, content);
 	else if (sscanf_match(section, "STREAM %lu details", &lu) == 1)

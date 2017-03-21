@@ -88,6 +88,7 @@ struct metafile_s {
 	char *name;
 	char *parent;
 	char *call_id;
+	char *metadata;
 	off_t pos;
 	unsigned long long db_id;
 
