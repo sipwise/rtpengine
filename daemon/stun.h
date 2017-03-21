@@ -37,7 +37,7 @@ INLINE int is_stun(const str *s) {
 
 	if (s->len < 20)
 		return 0;
-	if ((b[0] & 0xb0) != 0x00)
+	if ((b[0] & 0xc0) != 0x00)
 		return 0;
 	if ((b[3] & 0x3) != 0x0)
 		return 0;

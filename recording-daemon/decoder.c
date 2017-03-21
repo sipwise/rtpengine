@@ -189,7 +189,8 @@ static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metaf
 		if (G_UNLIKELY(dec->mixer_idx == (unsigned int) -1))
 			dec->mixer_idx = mix_get_index(metafile->mix);
 		format_t actual_format;
-		output_config(metafile->mix_out, &dec->out_format, &actual_format);
+		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
+			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
 		AVFrame *dec_frame = resample_frame(&dec->mix_resample, dec->frame, &actual_format);
 		if (!dec_frame) {
@@ -200,12 +201,14 @@ static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metaf
 		if (mix_add(metafile->mix, clone, dec->mixer_idx, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 	}
+no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);
 
 	if (output) {
 		// XXX might be a second resampling to same format
 		format_t actual_format;
-		output_config(output, &dec->out_format, &actual_format);
+		if (output_config(output, &dec->out_format, &actual_format))
+			return -1;
 		AVFrame *dec_frame = resample_frame(&dec->output_resample, dec->frame, &actual_format);
 		if (!dec_frame)
 			return -1;
@@ -247,7 +250,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 		keep_going = 0;
 		int got_frame = 0;
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 		if (dec->avpkt.size) {
 			int ret = avcodec_send_packet(dec->avcctx, &dec->avpkt);
 			dbg("send packet ret %i", ret);
@@ -303,7 +306,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 #endif
 
 		if (got_frame) {
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 36, 0)
 			dec->frame->pts = dec->frame->pkt_pts;
 #endif
 			if (G_UNLIKELY(dec->frame->pts == AV_NOPTS_VALUE))
