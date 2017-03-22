@@ -1914,7 +1914,7 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 			s->master_key[16], s->master_key[17], s->master_key[18], s->master_key[19],
 			s->master_key[20], s->master_key[21], s->master_key[22], s->master_key[23],
 			s->master_key[24], s->master_key[25], s->master_key[26], s->master_key[27],
-			s->master_key[28], s->master_key[29], s->master_key[30], s->master_key[21]);
+			s->master_key[28], s->master_key[29], s->master_key[30], s->master_key[31]);
 		break;
 	}
 	DBG("master salt %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
@@ -1948,7 +1948,7 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 			c->session_key[16], c->session_key[17], c->session_key[18], c->session_key[19],
 			c->session_key[20], c->session_key[21], c->session_key[22], c->session_key[23],
 			c->session_key[24], c->session_key[25], c->session_key[26], c->session_key[27],
-			c->session_key[28], c->session_key[29], c->session_key[30], c->session_key[21]);
+			c->session_key[28], c->session_key[29], c->session_key[30], c->session_key[31]);
 		break;
 	}
 	DBG("session salt %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
