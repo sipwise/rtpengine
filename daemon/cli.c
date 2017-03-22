@@ -18,6 +18,7 @@
 #include "redis.h"
 #include "control_ng.h"
 #include "media_socket.h"
+#include "cdr.h"
 
 #include "rtpengine_config.h"
 
