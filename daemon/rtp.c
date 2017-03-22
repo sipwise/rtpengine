@@ -9,6 +9,7 @@
 #include "crypto.h"
 #include "log.h"
 #include "rtplib.h"
+#include "ssrc.h"
 
 
 
@@ -85,11 +86,13 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 	s->len += c->params.mki_len;
 }
 
-static int rtp_ssrc_check(const struct rtp_header *rtp, struct crypto_context *c) {
-	struct rtp_ssrc_entry *cur_ssrc;
+static int rtp_ssrc_check(const struct rtp_header *rtp, struct crypto_context *c, struct ssrc_hash *ht,
+		enum ssrc_dir dir)
+{
+	struct ssrc_ctx *ssrc_ctx;
 
 	/* check last known SSRC */
-	if (G_LIKELY(rtp->ssrc == c->ssrc))
+	if (G_LIKELY(rtp->ssrc == c->ssrc)) // XXX replace by pointer
 		return 0;
 	if (!c->ssrc) {
 		c->ssrc = rtp->ssrc;
@@ -98,32 +101,21 @@ static int rtp_ssrc_check(const struct rtp_header *rtp, struct crypto_context *c
 
 	/* SSRC mismatch. stash away last know info */
 	ilog(LOG_DEBUG, "SSRC changed, updating SRTP crypto contexts");
-	if (G_UNLIKELY(!c->ssrc_hash))
-		c->ssrc_hash = create_ssrc_table();
 
 	// Find the entry for the last SSRC.
-	cur_ssrc = find_ssrc(c->ssrc, c->ssrc_hash);
-	// If it doesn't exist, create a new entry.
-	if (G_UNLIKELY(!cur_ssrc)) {
-		cur_ssrc = create_ssrc_entry(c->ssrc, c->last_index);
-		add_ssrc_entry(cur_ssrc, c->ssrc_hash);
-	}
-	else
-		cur_ssrc->index = c->last_index;
+	ssrc_ctx = get_ssrc_ctx(c->ssrc, ht, dir);
+	ssrc_ctx->srtp_index = c->last_index;
 
 	// New SSRC, set the crypto context.
 	c->ssrc = rtp->ssrc;
-	cur_ssrc = find_ssrc(rtp->ssrc, c->ssrc_hash);
-	if (G_UNLIKELY(!cur_ssrc))
-		c->last_index = 0;
-	else
-		c->last_index = cur_ssrc->index;
+	ssrc_ctx = get_ssrc_ctx(rtp->ssrc, ht, dir);
+	c->last_index = ssrc_ctx->srtp_index; // defaults to 0
 
 	return 1;
 }
 
 /* rfc 3711, section 3.3 */
-int rtp_avp2savp(str *s, struct crypto_context *c) {
+int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_hash *ht, enum ssrc_dir dir) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
 	u_int64_t index;
@@ -134,7 +126,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 	if (check_session_keys(c))
 		return -1;
 
-	ret = rtp_ssrc_check(rtp, c);
+	ret = rtp_ssrc_check(rtp, c, ht, dir);
 	index = packet_index(c, rtp);
 
 	/* rfc 3711 section 3.1 */
@@ -154,7 +146,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c) {
 }
 
 /* rfc 3711, section 3.3 */
-int rtp_savp2avp(str *s, struct crypto_context *c) {
+int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_hash *ht, enum ssrc_dir dir) {
 	struct rtp_header *rtp;
 	u_int64_t index;
 	str payload, to_auth, to_decrypt, auth_tag;
@@ -166,7 +158,7 @@ int rtp_savp2avp(str *s, struct crypto_context *c) {
 	if (check_session_keys(c))
 		return -1;
 
-	ret = rtp_ssrc_check(rtp, c);
+	ret = rtp_ssrc_check(rtp, c, ht, dir);
 	index = packet_index(c, rtp);
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
 			c->params.session_params.unauthenticated_srtp ? 0 : c->params.crypto_suite->srtp_auth_tag,
