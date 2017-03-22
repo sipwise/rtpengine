@@ -93,7 +93,7 @@ static int check_conn() {
 				"(?,?,?)"))
 		goto err;
 
-	ilog(LOG_INFO, "Connection to MySQL established");
+	ilog(LOG_DEBUG, "Connection to MySQL established");
 
 	return 0;
 
@@ -150,7 +150,8 @@ INLINE void my_d(MYSQL_BIND *b, const double *d) {
 
 
 static void execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long long *auto_id) {
-	for (int retr = 0; retr < 5; retr++) {
+	int retr = 0;
+	while (1) {
 		if (mysql_stmt_bind_param(*stmt, binds))
 			goto err;
 		if (mysql_stmt_execute(*stmt))
@@ -166,13 +167,20 @@ static void execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long lon
 		return;
 
 err:
-		ilog(LOG_ERR, "Failed to bind or execute prepared statement: %s",
-				mysql_stmt_error(*stmt));
+		if (retr > 5) {
+			// fatal
+			ilog(LOG_ERR, "Failed to bind or execute prepared statement: %s",
+					mysql_stmt_error(*stmt));
+			reset_conn();
+			return;
+		}
 		if (retr > 2) {
 			reset_conn();
 			if (check_conn())
 				return;
 		}
+
+		retr++;
 	}
 }
 

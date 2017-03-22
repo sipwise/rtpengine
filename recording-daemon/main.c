@@ -60,7 +60,12 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 	if (vasprintf(&msg, fmt, ap) <= 0)
 		ilog(LOG_ERR, "av_log message dropped");
 	else {
-		ilog(MAX(LOG_ERR, loglevel), "av_log: %s", msg);
+		// defuse avlog log levels to be either DEBUG or ERR
+		if (loglevel <= LOG_ERR)
+			loglevel = LOG_ERR;
+		else
+			loglevel = LOG_DEBUG;
+		ilog(loglevel, "av_log: %s", msg);
 		free(msg);
 	}
 }
