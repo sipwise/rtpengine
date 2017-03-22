@@ -204,6 +204,7 @@ struct local_interface;
 struct call_monologue;
 struct ice_agent;
 struct homer_sender;
+struct ssrc_hash;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -367,6 +368,7 @@ struct call {
 	GQueue			stream_fds;
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
+	struct ssrc_hash	*ssrc_hash;
 
 	str			callid;
 	time_t			created;
