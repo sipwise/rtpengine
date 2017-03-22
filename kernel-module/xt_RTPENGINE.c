@@ -338,7 +338,7 @@ struct re_stream {
 	int				eof;
 };
 
-#define HASH_BITS 8 /* make configurable? */
+#define RE_HASH_BITS 8 /* make configurable? */
 struct rtpengine_table {
 	atomic_t			refcnt;
 	rwlock_t			target_lock;
@@ -358,10 +358,10 @@ struct rtpengine_table {
 
 	struct list_head		calls; /* protected by calls.lock */
 
-	spinlock_t			calls_hash_lock[1 << HASH_BITS];
-	struct hlist_head		calls_hash[1 << HASH_BITS];
-	spinlock_t			streams_hash_lock[1 << HASH_BITS];
-	struct hlist_head		streams_hash[1 << HASH_BITS];
+	spinlock_t			calls_hash_lock[1 << RE_HASH_BITS];
+	struct hlist_head		calls_hash[1 << RE_HASH_BITS];
+	spinlock_t			streams_hash_lock[1 << RE_HASH_BITS];
+	struct hlist_head		streams_hash[1 << RE_HASH_BITS];
 };
 
 struct re_cipher {
@@ -2479,7 +2479,7 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 	/* check for name collisions */
 
 	call->hash_bucket = crc32_le(0x52342, info->call_id, strlen(info->call_id));
-	call->hash_bucket = call->hash_bucket & ((1 << HASH_BITS) - 1);
+	call->hash_bucket = call->hash_bucket & ((1 << RE_HASH_BITS) - 1);
 
 	spin_lock_irqsave(&table->calls_hash_lock[call->hash_bucket], flags);
 
@@ -2655,7 +2655,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 	/* check for name collisions */
 
 	stream->hash_bucket = crc32_le(0x52342 ^ info->call_idx, info->stream_name, strlen(info->stream_name));
-	stream->hash_bucket = stream->hash_bucket & ((1 << HASH_BITS) - 1);
+	stream->hash_bucket = stream->hash_bucket & ((1 << RE_HASH_BITS) - 1);
 
 	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
 
