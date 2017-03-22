@@ -40,6 +40,7 @@
 #include "rtplib.h"
 #include "cdr.h"
 #include "statistics.h"
+#include "ssrc.h"
 
 
 /* also serves as array index for callstream->peers[] */
@@ -2001,6 +2002,7 @@ static void __call_free(void *p) {
 
 	g_hash_table_destroy(c->tags);
 	g_hash_table_destroy(c->viabranches);
+	free_ssrc_hash(&c->ssrc_hash);
 
 	while (c->streams.head) {
 		ps = g_queue_pop_head(&c->streams);
@@ -2028,6 +2030,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	c->created = poller_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = m->conf.default_tos;
+	c->ssrc_hash = create_ssrc_hash();
 
 	return c;
 }
