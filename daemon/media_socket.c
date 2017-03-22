@@ -826,6 +826,8 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c) {
 	if (c->params.mki_len)
 		memcpy(s->mki, c->params.mki, c->params.mki_len);
 	memcpy(s->master_key, c->params.master_key, c->params.crypto_suite->master_key_len);
+	s->master_key_len = c->params.crypto_suite->master_key_len;
+	s->session_key_len = c->params.crypto_suite->session_key_len;
 	memcpy(s->master_salt, c->params.master_salt, c->params.crypto_suite->master_salt_len);
 
 	if (c->params.session_params.unencrypted_srtp)
