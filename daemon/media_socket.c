@@ -21,6 +21,7 @@
 #include "recording.h"
 #include "rtplib.h"
 #include "rtcplib.h"
+#include "ssrc.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -790,13 +791,13 @@ static int call_avpf2avp_rtcp(str *s, struct packet_stream *stream) {
 	return rtcp_avpf2avp(s);
 }
 static int call_avp2savp_rtp(str *s, struct packet_stream *stream) {
-	return rtp_avp2savp(s, &stream->crypto);
+	return rtp_avp2savp(s, &stream->crypto, stream->call->ssrc_hash, SSRC_DIR_OUTPUT);
 }
 static int call_avp2savp_rtcp(str *s, struct packet_stream *stream) {
 	return rtcp_avp2savp(s, &stream->crypto);
 }
 static int call_savp2avp_rtp(str *s, struct packet_stream *stream) {
-	return rtp_savp2avp(s, &stream->selected_sfd->crypto);
+	return rtp_savp2avp(s, &stream->selected_sfd->crypto, stream->call->ssrc_hash, SSRC_DIR_INPUT);
 }
 static int call_savp2avp_rtcp(str *s, struct packet_stream *stream) {
 	return rtcp_savp2avp(s, &stream->selected_sfd->crypto);
