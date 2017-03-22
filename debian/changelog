@@ -1,3 +1,52 @@
+ngcp-rtpengine (5.2.1.0+0~mr5.2.1.0) unstable; urgency=medium
+
+  [ Frederic-Philippe Metz ]
+  * [749a7da] Implements redis onekey concept
+  * [9ebd06f] Some fixes for pull request #316
+  * [6a3bcf5] Fixes STR_FMT comment my @rfuchs or pullrequest 316
+  * [88b89ea] Fixes STR_FMT comment my @rfuchs or pull request #316
+  * [ed760fb] Fix more issues from richards comments
+  * [ea9512c] Adds URI encoding for json strings in redis.
+  * [f3364d9] Omits redisreply in redis restore and eliminates 'multikey' feature
+  * [14b37eb] Removes multikey stuff
+  * [6985784] Fixes redis recording flag in onekey concept
+  * [d08dd6a] Fixes SRTP restore in onekey concept
+  * [279e5fa] Removes commented code
+  * [d904fb2] Removes 'json-' prefix from redis key (callid)
+  * [267b57c] Implemented comments from Richard from pull req #323
+
+  [ Richard Fuchs ]
+  * [2992031] TT#10252 add lsb-base to package depends as per lintian
+  * [8b18bc5] TT#10155 split recording daemon into separate debian package
+  * [f77726c] update redis one-key concept
+  * [f5cc21f] TT#10156 write recordings metadata into mysql database
+  * [d8cc8ca] combine two mallocs into one for redis restore
+  * [d513c6d] add missing lock for failed call restores
+  * [9a5cba4] use more precise avcodec/avformat version test macros
+  * [76ba587] TT#13000 add init.d setuid/setgid capability
+  * [db6a37a] TT#13000 handle output avio context failure
+  * [b4694eb] port of a3f27f8751c to kernel space
+  * [846886c] TT#13000 include recording filename suffix in db data
+  * [4566bd3] TT#13005 store recording metadata to database
+
+  [ Michael Prokop ]
+  * [5784cb7] TT#10155 Use stop/start behavior for init script's restart action
+
+  [ Victor Seva ]
+  * [89393e1] TT#11400 debian: fix binary only builds
+  * [77f9e4c] TT#12000 ngcp-rtpengine-daemon.default: add missing TABLE
+
+  [ Anthony Alba ]
+  * [1fc77bc] base64: flush base64 decoding, and skip base64 padding in crypto line
+  * [3e2e024] Determine base64 padding from enc_salt_key_len
+
+  [ Changli Gao ]
+  * [a3f27f8] STUN: The most significant 2 bits is 0xc0 in hex
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 22 Mar 2017 11:02:05 +0100
+
 ngcp-rtpengine (5.2.0.0+0~mr5.2.0.0) unstable; urgency=medium
 
   [ Pawel Kuzak ]
