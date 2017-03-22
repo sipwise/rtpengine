@@ -56,6 +56,7 @@ struct crypto_suite {
 	session_key_init_func session_key_init;
 	session_key_cleanup_func session_key_cleanup;
 	const char *dtls_profile_code;
+	const void *lib_cipher_ptr;
 };
 
 struct crypto_session_params {
@@ -97,10 +98,12 @@ struct rtp_ssrc_entry {
 	u_int64_t index;
 };
 
-extern const struct crypto_suite crypto_suites[];
+extern const struct crypto_suite *crypto_suites;
 extern const int num_crypto_suites;
 
 
+
+void crypto_init_main();
 
 const struct crypto_suite *crypto_find_suite(const str *);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);

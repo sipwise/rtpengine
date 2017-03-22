@@ -514,6 +514,7 @@ static void init_everything() {
 	sdp_init();
 	dtls_init();
 	ice_init();
+	crypto_init_main();
 	interfaces_init(&interfaces);
 }
 

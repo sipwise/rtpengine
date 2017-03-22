@@ -1651,7 +1651,7 @@ static int validate_srtp(struct rtpengine_srtp *s) {
 
 
 /* XXX shared code */
-static void aes_ctr_128(unsigned char *out, const unsigned char *in, int in_len,
+static void aes_ctr(unsigned char *out, const unsigned char *in, int in_len,
 		struct crypto_cipher *tfm, const unsigned char *iv)
 {
 	unsigned char ivx[16];
@@ -1770,7 +1770,7 @@ static int aes_ctr_128_no_ctx(unsigned char *out, const char *in, int in_len,
 		return PTR_ERR(tfm);
 
 	crypto_cipher_setkey(tfm, key, key_len);
-	aes_ctr_128(out, in, in_len, tfm, iv);
+	aes_ctr(out, in, in_len, tfm, iv);
 
 	crypto_free_cipher(tfm);
 	return 0;
@@ -3563,7 +3563,7 @@ static int srtp_encrypt_aes_cm(struct re_crypto_context *c,
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
 
-	aes_ctr_128(r->payload, r->payload, r->payload_len, c->tfm[0], iv);
+	aes_ctr(r->payload, r->payload, r->payload_len, c->tfm[0], iv);
 
 	return 0;
 }
