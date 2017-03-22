@@ -28,7 +28,9 @@ static int hmac_sha1_rtp(struct crypto_context *, char *out, str *in, u_int64_t)
 static int hmac_sha1_rtcp(struct crypto_context *, char *out, str *in);
 static int aes_f8_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx);
 static int aes_f8_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, u_int64_t idx);
-static int aes_cm_session_key_init(struct crypto_context *c);
+static int aes_cm_session_key_init_128(struct crypto_context *c);
+static int aes_cm_session_key_init_192(struct crypto_context *c);
+static int aes_cm_session_key_init_256(struct crypto_context *c);
 static int aes_f8_session_key_init(struct crypto_context *c);
 static int evp_session_key_cleanup(struct crypto_context *c);
 static int null_crypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx);
@@ -57,7 +59,7 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_cm_session_key_init,
+		.session_key_init	= aes_cm_session_key_init_128,
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
@@ -81,7 +83,7 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_cm_session_key_init,
+		.session_key_init	= aes_cm_session_key_init_128,
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
@@ -105,7 +107,7 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_cm_session_key_init,
+		.session_key_init	= aes_cm_session_key_init_192,
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
@@ -129,7 +131,7 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_cm_session_key_init,
+		.session_key_init	= aes_cm_session_key_init_192,
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
@@ -153,7 +155,7 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_cm_session_key_init,
+		.session_key_init	= aes_cm_session_key_init_256,
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
@@ -177,7 +179,7 @@ const struct crypto_suite crypto_suites[] = {
 		.decrypt_rtcp		= aes_cm_encrypt_rtcp,
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
-		.session_key_init	= aes_cm_session_key_init,
+		.session_key_init	= aes_cm_session_key_init_256,
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
@@ -307,7 +309,7 @@ const struct crypto_suite *crypto_find_suite(const str *s) {
 
 /* rfc 3711 section 4.1 and 4.1.1
  * "in" and "out" MAY point to the same buffer */
-static void aes_ctr_128(unsigned char *out, str *in, EVP_CIPHER_CTX *ecc, const unsigned char *iv) {
+static void aes_ctr(unsigned char *out, str *in, EVP_CIPHER_CTX *ecc, const unsigned char *iv) {
 	unsigned char ivx[16];
 	unsigned char key_block[16];
 	unsigned char *p, *q;
@@ -355,11 +357,11 @@ done:
 	;
 }
 
-static void aes_ctr_128_no_ctx(unsigned char *out, str *in, const unsigned char *key, int keylen, const unsigned char *iv) {
+static void aes_ctr_no_ctx(unsigned char *out, str *in, const unsigned char *key, int keylen, const unsigned char *iv) {
 	EVP_CIPHER_CTX *ctx;
 	unsigned char block[16];
 	int len;
-	EVP_CIPHER *ecb_cipher;
+	const EVP_CIPHER *ecb_cipher;
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	ctx = EVP_CIPHER_CTX_new();
@@ -378,9 +380,13 @@ static void aes_ctr_128_no_ctx(unsigned char *out, str *in, const unsigned char 
 	case 32:
 		ecb_cipher = EVP_aes_256_ecb();
 		break;
+	default:
+		// silence -Wmaybe-unintialized; must not end up here
+		assert(FALSE);
+		break;
 	}
 	EVP_EncryptInit_ex(ctx, ecb_cipher, NULL, key, NULL);
-	aes_ctr_128(out, in, ctx, iv);
+	aes_ctr(out, in, ctx, iv);
 	EVP_EncryptFinal_ex(ctx, block, &len);
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -408,7 +414,7 @@ static void prf_n(str *out, const unsigned char *key, int keylen, const unsigned
 	/* iv[14] = iv[15] = 0;   := x << 16 */
 	ZERO(in); /* outputs the key stream */
 	str_init_len(&in_s, (void *) in, out->len > 16 ? 32 : 16);
-	aes_ctr_128_no_ctx(o, &in_s, key, keylen, iv);
+	aes_ctr_no_ctx(o, &in_s, key, keylen, iv);
 
 	memcpy(out->s, o, out->len);
 }
@@ -474,7 +480,7 @@ static int aes_cm_encrypt(struct crypto_context *c, u_int32_t ssrc, str *s, u_in
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
 
-	aes_ctr_128((void *) s->s, s, c->session_key_ctx[0], iv);
+	aes_ctr((void *) s->s, s, c->session_key_ctx[0], iv);
 
 	return 0;
 }
@@ -623,8 +629,7 @@ static int hmac_sha1_rtcp(struct crypto_context *c, char *out, str *in) {
 	return 0;
 }
 
-static int aes_cm_session_key_init(struct crypto_context *c) {
-        EVP_CIPHER * ecb_cipher;
+static int aes_cm_session_key_init_128(struct crypto_context *c) {
 	evp_session_key_cleanup(c);
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -633,15 +638,35 @@ static int aes_cm_session_key_init(struct crypto_context *c) {
 	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
 	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
 #endif
-	switch(c->params.crypto_suite->session_key_len) {
-	case 16:
-	        ecb_cipher = EVP_aes_128_ecb();
-	case 24:
-	        ecb_cipher = EVP_aes_192_ecb();
-	case 32:
-	        ecb_cipher = EVP_aes_256_ecb();
-	}
-	EVP_EncryptInit_ex(c->session_key_ctx[0], ecb_cipher, NULL,
+	EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_128_ecb(), NULL,
+			(unsigned char *) c->session_key, NULL);
+	return 0;
+}
+
+static int aes_cm_session_key_init_192(struct crypto_context *c) {
+	evp_session_key_cleanup(c);
+
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	c->session_key_ctx[0] = EVP_CIPHER_CTX_new();
+#else
+	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
+#endif
+	EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_192_ecb(), NULL,
+			(unsigned char *) c->session_key, NULL);
+	return 0;
+}
+
+static int aes_cm_session_key_init_256(struct crypto_context *c) {
+	evp_session_key_cleanup(c);
+
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	c->session_key_ctx[0] = EVP_CIPHER_CTX_new();
+#else
+	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
+#endif
+	EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_256_ecb(), NULL,
 			(unsigned char *) c->session_key, NULL);
 	return 0;
 }
@@ -652,7 +677,7 @@ static int aes_f8_session_key_init(struct crypto_context *c) {
 	int k_e_len, k_s_len; /* n_e, n_s */
 	unsigned char *key;
 
-	aes_cm_session_key_init(c);
+	aes_cm_session_key_init_128(c);
 
 	k_e_len = c->params.crypto_suite->session_key_len;
 	k_s_len = c->params.crypto_suite->session_salt_len;
