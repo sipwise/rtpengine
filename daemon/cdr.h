@@ -8,8 +8,12 @@
 #ifndef CDR_H_
 #define CDR_H_
 
-struct call;
+#include "aux.h"
 
+struct call;
+enum tag_type;
+
+const char *get_tag_type_text(enum tag_type t);
 void cdr_update_entry(struct call* c);
 
 #endif /* CDR_H_ */

@@ -21,15 +21,6 @@
 #include "statistics.h"
 
 #define UNDEFINED ((unsigned int) -1)
-#define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
-
-#define truncate_output(x) strcpy(x - strlen(TRUNCATED) - 1, TRUNCATED)
-
-#define ADJUSTLEN(printlen,outbufend,replybuffer) do { \
-               replybuffer += (printlen>=outbufend-replybuffer)?outbufend-replybuffer:printlen; \
-               if (replybuffer == outbufend) \
-                       truncate_output(replybuffer); \
-       } while (0);
 
 enum termination_reason {
 	UNKNOWN=0,
@@ -483,7 +474,6 @@ void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval 
 void __payload_type_free(void *p);
 void __rtp_stats_update(GHashTable *dst, GHashTable *src);
 
-const char *get_tag_type_text(enum tag_type t);
 const char *get_opmode_text(enum call_opmode);
 
 const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m);
