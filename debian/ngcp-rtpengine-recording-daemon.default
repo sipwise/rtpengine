@@ -9,3 +9,4 @@ MUST_NFS=no
 NFS_HOST=192.168.1.1
 NFS_REMOTE_PATH=/var/recordings
 NFS_LOCAL_MOUNT=/var/lib/rtpengine-recording # must match output-dir if used
+NFS_OPTIONS=hard,intr,tcp
