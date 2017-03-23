@@ -338,7 +338,7 @@ struct re_stream {
 	int				eof;
 };
 
-#define HASH_BITS 8 /* make configurable? */
+#define RE_HASH_BITS 8 /* make configurable? */
 struct rtpengine_table {
 	atomic_t			refcnt;
 	rwlock_t			target_lock;
@@ -358,10 +358,10 @@ struct rtpengine_table {
 
 	struct list_head		calls; /* protected by calls.lock */
 
-	spinlock_t			calls_hash_lock[1 << HASH_BITS];
-	struct hlist_head		calls_hash[1 << HASH_BITS];
-	spinlock_t			streams_hash_lock[1 << HASH_BITS];
-	struct hlist_head		streams_hash[1 << HASH_BITS];
+	spinlock_t			calls_hash_lock[1 << RE_HASH_BITS];
+	struct hlist_head		calls_hash[1 << RE_HASH_BITS];
+	spinlock_t			streams_hash_lock[1 << RE_HASH_BITS];
+	struct hlist_head		streams_hash[1 << RE_HASH_BITS];
 };
 
 struct re_cipher {
@@ -1651,7 +1651,7 @@ static int validate_srtp(struct rtpengine_srtp *s) {
 
 
 /* XXX shared code */
-static void aes_ctr_128(unsigned char *out, const unsigned char *in, int in_len,
+static void aes_ctr(unsigned char *out, const unsigned char *in, int in_len,
 		struct crypto_cipher *tfm, const unsigned char *iv)
 {
 	unsigned char ivx[16];
@@ -1770,7 +1770,7 @@ static int aes_ctr_128_no_ctx(unsigned char *out, const char *in, int in_len,
 		return PTR_ERR(tfm);
 
 	crypto_cipher_setkey(tfm, key, key_len);
-	aes_ctr_128(out, in, in_len, tfm, iv);
+	aes_ctr(out, in, in_len, tfm, iv);
 
 	crypto_free_cipher(tfm);
 	return 0;
@@ -2479,7 +2479,7 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 	/* check for name collisions */
 
 	call->hash_bucket = crc32_le(0x52342, info->call_id, strlen(info->call_id));
-	call->hash_bucket = call->hash_bucket & ((1 << HASH_BITS) - 1);
+	call->hash_bucket = call->hash_bucket & ((1 << RE_HASH_BITS) - 1);
 
 	spin_lock_irqsave(&table->calls_hash_lock[call->hash_bucket], flags);
 
@@ -2655,7 +2655,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 	/* check for name collisions */
 
 	stream->hash_bucket = crc32_le(0x52342 ^ info->call_idx, info->stream_name, strlen(info->stream_name));
-	stream->hash_bucket = stream->hash_bucket & ((1 << HASH_BITS) - 1);
+	stream->hash_bucket = stream->hash_bucket & ((1 << RE_HASH_BITS) - 1);
 
 	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
 
@@ -3563,7 +3563,7 @@ static int srtp_encrypt_aes_cm(struct re_crypto_context *c,
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
 
-	aes_ctr_128(r->payload, r->payload, r->payload_len, c->tfm[0], iv);
+	aes_ctr(r->payload, r->payload, r->payload_len, c->tfm[0], iv);
 
 	return 0;
 }
@@ -3742,7 +3742,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	u32 = (void *) skb->data;
 	if (u32[1] != htonl(0x2112A442UL)) /* magic cookie */
 		goto not_stun;
-	if ((u32[0] & htonl(0xb0000003UL))) /* zero bits required by rfc */
+	if ((u32[0] & htonl(0xc0000003UL))) /* zero bits required by rfc */
 		goto not_stun;
 	u32 = (void *) &skb->data[datalen - 8];
 	if (u32[0] != htonl(0x80280004UL)) /* required fingerprint attribute */

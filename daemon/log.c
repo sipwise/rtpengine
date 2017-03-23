@@ -58,7 +58,9 @@ void __ilog(int prio, const char *fmt, ...) {
 }
 
 void cdrlog(const char* cdrbuffer) {
-    syslog(LOG_INFO | _log_facility_cdr, "%s", cdrbuffer);
+	if (_log_facility_cdr) {
+		syslog(LOG_INFO | _log_facility_cdr, "%s", cdrbuffer);
+	}
 }
 
 
