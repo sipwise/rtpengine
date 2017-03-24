@@ -185,6 +185,7 @@ sub savp_sdp {
 		else {
 			$$ctx{out}{crypto_suite} =
 				$NGCP::Rtpclient::SRTP::crypto_suites[rand(@NGCP::Rtpclient::SRTP::crypto_suites)];
+			print("using crypto suite $$ctx{out}{crypto_suite}{str}\n");
 			$$ctx{out}{crypto_tag} = int(rand(100));
 			$$ctx{out}{unenc_srtp} = rand() < .5 ? 0 : 1;
 			$$ctx{out}{unenc_srtcp} = rand() < .5 ? 0 : 1;
@@ -203,8 +204,8 @@ sub savp_sdp {
 
 	if (!$$ctx{out}{rtp_master_key} || rand() < .2) {
 		$$ctx{out}{rtp_master_key} and print("new key\n");
-		$$ctx{out}{rtp_master_key} = rand_str(16);
-		$$ctx{out}{rtp_master_salt} = rand_str(14);
+		$$ctx{out}{rtp_master_key} = rand_str($$ctx{out}{crypto_suite}{key_length});
+		$$ctx{out}{rtp_master_salt} = rand_str($$ctx{out}{crypto_suite}{salt_length});
 		undef($$ctx{out}{rtp_session_key});
 		undef($$ctx{out}{rtcp_session_key});
 		if ($NOENC && $NOENC{rtp_master_key}) {
@@ -328,14 +329,14 @@ sub rtp_savp {
 sub savp_crypto {
 	my ($sdp, $ctx, $ctx_o) = @_;
 
-	my @a = $sdp =~ /[\r\n]a=crypto:(\d+) (\w+) inline:([\w\/+]{40})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?(?: (.*?))?[\r\n]/sig;
+	my @a = $sdp =~ /[\r\n]a=crypto:(\d+) (\w+) inline:([\w\/+=]{40,})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?(?: (.*?))?[\r\n]/sig;
 	@a or die;
 	my $i = 0;
 	while (@a >= 8) {
 		$$ctx[$i]{in}{crypto_suite} = $NGCP::Rtpclient::SRTP::crypto_suites{$a[1]} or die;
 		$$ctx[$i]{in}{crypto_tag} = $a[0];
 		($$ctx[$i]{in}{rtp_master_key}, $$ctx[$i]{in}{rtp_master_salt})
-			= NGCP::Rtpclient::SRTP::decode_inline_base64($a[2]);
+			= NGCP::Rtpclient::SRTP::decode_inline_base64($a[2], $$ctx[$i]{in}{crypto_suite});
 		$$ctx[$i]{in}{rtp_mki} = $a[5];
 		$$ctx[$i]{in}{rtp_mki_len} = $a[6];
 		undef($$ctx[$i]{in}{rtp_session_key});

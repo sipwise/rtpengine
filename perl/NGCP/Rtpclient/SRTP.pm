@@ -16,6 +16,8 @@ our @crypto_suites = (
 		enc_func	=> \&aes_cm,
 		iv_rtp		=> \&aes_cm_iv_rtp,
 		iv_rtcp		=> \&aes_cm_iv_rtcp,
+		key_length	=> 16,
+		salt_length	=> 14,
 	},
 	{
 		str		=> 'AES_CM_128_HMAC_SHA1_32',
@@ -24,6 +26,8 @@ our @crypto_suites = (
 		enc_func	=> \&aes_cm,
 		iv_rtp		=> \&aes_cm_iv_rtp,
 		iv_rtcp		=> \&aes_cm_iv_rtcp,
+		key_length	=> 16,
+		salt_length	=> 14,
 	},
 	{
 		str		=> 'F8_128_HMAC_SHA1_80',
@@ -31,6 +35,28 @@ our @crypto_suites = (
 		enc_func	=> \&aes_f8,
 		iv_rtp		=> \&aes_f8_iv_rtp,
 		iv_rtcp		=> \&aes_f8_iv_rtcp,
+		key_length	=> 16,
+		salt_length	=> 14,
+	},
+	{
+		str		=> 'AES_CM_192_HMAC_SHA1_80',
+		#dtls_name	=> 'SRTP_AES128_CM_SHA1_80',
+		auth_tag	=> 10,
+		enc_func	=> \&aes_cm,
+		iv_rtp		=> \&aes_cm_iv_rtp,
+		iv_rtcp		=> \&aes_cm_iv_rtcp,
+		key_length	=> 24,
+		salt_length	=> 14,
+	},
+	{
+		str		=> 'AES_CM_256_HMAC_SHA1_80',
+		#dtls_name	=> 'SRTP_AES128_CM_SHA1_80',
+		auth_tag	=> 10,
+		enc_func	=> \&aes_cm,
+		iv_rtp		=> \&aes_cm_iv_rtp,
+		iv_rtcp		=> \&aes_cm_iv_rtcp,
+		key_length	=> 32,
+		salt_length	=> 14,
 	},
 );
 our %crypto_suites = map {$$_{str} => $_} @crypto_suites;
@@ -142,7 +168,8 @@ sub xor_128 {
 sub gen_rtp_session_keys {
 	my ($master_key, $master_salt) = @_;
 
-	my $session_key = prf_n(128, $master_key, xor_112($master_salt, "\0\0\0\0\0\0\0"));
+	# this assumes session key length identical to master key length
+	my $session_key = prf_n(length($master_key) * 8, $master_key, xor_112($master_salt, "\0\0\0\0\0\0\0"));
 	my $auth_key = prf_n(160, $master_key, xor_112($master_salt, "\1\0\0\0\0\0\0"));
 	my $session_salt = prf_n(112, $master_key, xor_112($master_salt, "\2\0\0\0\0\0\0"));
 	if ($SRTP_DEBUG) {
@@ -159,7 +186,8 @@ sub gen_rtp_session_keys {
 sub gen_rtcp_session_keys {
 	my ($master_key, $master_salt) = @_;
 
-	my $session_key = prf_n(128, $master_key, xor_112($master_salt, "\3\0\0\0\0\0\0"));
+	# this assumes session key length identical to master key length
+	my $session_key = prf_n(length($master_key) * 8, $master_key, xor_112($master_salt, "\3\0\0\0\0\0\0"));
 	my $auth_key = prf_n(160, $master_key, xor_112($master_salt, "\4\0\0\0\0\0\0"));
 	my $session_salt = prf_n(112, $master_key, xor_112($master_salt, "\5\0\0\0\0\0\0"));
 	if ($SRTP_DEBUG) {
@@ -209,10 +237,10 @@ sub aes_f8_iv_rtcp {
 }
 
 sub decode_inline_base64 {
-	my ($b64) = @_;
+	my ($b64, $cs) = @_;
 	my $ks = decode_base64($b64);
-	length($ks) == 30 or die;
-	my @ret = unpack('a16a14', $ks);
+	length($ks) == ($cs->{key_length} + $cs->{salt_length}) or die;
+	my @ret = unpack("a$cs->{key_length}a$cs->{salt_length}", $ks);
 	return @ret;
 }
 
