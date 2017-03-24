@@ -13,6 +13,9 @@
 #include <hiredis/async.h>
 #include <hiredis/adapters/libevent.h>
 #include <event2/thread.h>
+#include <stdlib.h>
+#include <glib-object.h>
+#include <json-glib/json-glib.h>
 
 #include "compat.h"
 #include "aux.h"
@@ -26,9 +29,6 @@
 #include "rtplib.h"
 #include "str.h"
 
-#include <stdlib.h>
-#include <glib-object.h>
-#include <json-glib/json-glib.h>
 
 INLINE redisReply *redis_expect(int type, redisReply *r) {
 	if (!r)
@@ -699,15 +699,13 @@ INLINE str *json_reader_get_string_value_uri_enc(JsonReader *root_reader) {
 	return out; // must be free'd
 }
 
-static int json_get_hash(struct redis_hash *out, struct call* c,
+
+static int json_get_hash(struct redis_hash *out,
 		const char *key, unsigned int id, JsonReader *root_reader)
 {
 	static unsigned int MAXKEYLENGTH = 512;
 	char key_concatted[MAXKEYLENGTH];
 	int rc=0;
-
-	if (!c)
-		goto err;
 
 	if (id == -1) {
 		rc = snprintf(key_concatted, MAXKEYLENGTH, "%s",key);
@@ -915,7 +913,7 @@ static int json_build_list(GQueue *q, struct call *c, const char *key, const str
 	return json_build_list_cb(q, c, key, idx, list, rbl_cb_simple, NULL, root_reader);
 }
 
-static int json_get_list_hash(struct redis_list *out, struct call* c,
+static int json_get_list_hash(struct redis_list *out,
 		const char *key,
 		const struct redis_hash *rh, const char *rh_num_key, JsonReader *root_reader)
 {
@@ -931,7 +929,7 @@ static int json_get_list_hash(struct redis_list *out, struct call* c,
 		goto err1;
 
 	for (i = 0; i < out->len; i++) {
-		if (json_get_hash(&out->rh[i], c, key, i, root_reader))
+		if (json_get_hash(&out->rh[i], key, i, root_reader))
 			goto err2;
 	}
 
@@ -1419,22 +1417,22 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 		goto err2;
 	err = "'call' data incomplete";
 
-	if (json_get_hash(&call, c, "json", -1, root_reader))
+	if (json_get_hash(&call, "json", -1, root_reader))
 		goto err2;
 	err = "'tags' incomplete";
-	if (json_get_list_hash(&tags, c, "tag", &call, "num_tags", root_reader))
+	if (json_get_list_hash(&tags, "tag", &call, "num_tags", root_reader))
 		goto err3;
 	err = "'sfds' incomplete";
-	if (json_get_list_hash(&sfds, c, "sfd", &call, "num_sfds", root_reader))
+	if (json_get_list_hash(&sfds, "sfd", &call, "num_sfds", root_reader))
 		goto err4;
 	err = "'streams' incomplete";
-	if (json_get_list_hash(&streams, c, "stream", &call, "num_streams", root_reader))
+	if (json_get_list_hash(&streams, "stream", &call, "num_streams", root_reader))
 		goto err5;
 	err = "'medias' incomplete";
-	if (json_get_list_hash(&medias, c, "media", &call, "num_medias", root_reader))
+	if (json_get_list_hash(&medias, "media", &call, "num_medias", root_reader))
 		goto err6;
 	err = "'maps' incomplete";
-	if (json_get_list_hash(&maps, c, "map", &call, "num_maps", root_reader))
+	if (json_get_list_hash(&maps, "map", &call, "num_maps", root_reader))
 		goto err7;
 
 	err = "missing 'created' timestamp";

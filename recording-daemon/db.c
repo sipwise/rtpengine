@@ -2,6 +2,7 @@
 #include <mysql.h>
 #include <glib.h>
 #include <string.h>
+#include <sys/time.h>
 #include "types.h"
 #include "main.h"
 #include "log.h"
@@ -13,7 +14,8 @@ static MYSQL_STMT __thread
 	*stm_close_call,
 	*stm_insert_stream,
 	*stm_close_stream,
-	*stm_config_stream;
+	*stm_config_stream,
+	*stm_insert_metadata;
 
 
 static void my_stmt_close(MYSQL_STMT **st) {
@@ -30,6 +32,7 @@ static void reset_conn() {
 	my_stmt_close(&stm_insert_stream);
 	my_stmt_close(&stm_close_stream);
 	my_stmt_close(&stm_config_stream);
+	my_stmt_close(&stm_insert_metadata);
 	mysql_close(mysql_conn);
 	mysql_conn = NULL;
 }
@@ -66,21 +69,31 @@ static int check_conn() {
 	if (mysql_autocommit(mysql_conn, 0))
 		goto err;
 
-	if (prep(&stm_insert_call, "insert into recording_calls (call_id) values (?)"))
+	if (prep(&stm_insert_call, "insert into recording_calls (call_id, start_timestamp, " \
+				"`status`) " \
+				"values " \
+				"(?,?,'recording')"))
 		goto err;
 	if (prep(&stm_insert_stream, "insert into recording_streams (`call`, local_filename, full_filename, " \
 				"file_format, " \
 				"output_type, " \
-				"stream_id, ssrc) values (?,?,?,?,?,?,?)"))
+				"stream_id, ssrc, " \
+				"start_timestamp) values " \
+				"(?,concat(?,'.',?),concat(?,'.',?),?,?,?,?,?)"))
 		goto err;
-	if (prep(&stm_close_call, "update recording_calls set end_time = now() where id = ?"))
+	if (prep(&stm_close_call, "update recording_calls set " \
+				"end_timestamp = ?, status = 'completed' where id = ?"))
 		goto err;
-	if (prep(&stm_close_stream, "update recording_streams set end_time = now() where id = ?"))
+	if (prep(&stm_close_stream, "update recording_streams set " \
+				"end_timestamp = ? where id = ?"))
 		goto err;
 	if (prep(&stm_config_stream, "update recording_streams set channels = ?, sample_rate = ? where id = ?"))
 		goto err;
+	if (prep(&stm_insert_metadata, "insert into recording_metakeys (`call`, `key`, `value`) values " \
+				"(?,?,?)"))
+		goto err;
 
-	ilog(LOG_INFO, "Connection to MySQL established");
+	ilog(LOG_DEBUG, "Connection to MySQL established");
 
 	return 0;
 
@@ -96,13 +109,19 @@ err:
 }
 
 
-INLINE void my_str(MYSQL_BIND *b, const char *s) {
+INLINE void my_str_len(MYSQL_BIND *b, const char *s, unsigned int len) {
 	*b = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_STRING,
 		.buffer = (void *) s,
-		.buffer_length = strlen(s),
+		.buffer_length = len,
 		.length = &b->buffer_length,
 	};
+}
+INLINE void my_str(MYSQL_BIND *b, const str *s) {
+	my_str_len(b, s->s, s->len);
+}
+INLINE void my_cstr(MYSQL_BIND *b, const char *s) {
+	my_str_len(b, s, strlen(s));
 }
 INLINE void my_ull(MYSQL_BIND *b, const unsigned long long *ull) {
 	*b = (MYSQL_BIND) {
@@ -120,10 +139,19 @@ INLINE void my_i(MYSQL_BIND *b, const int *i) {
 		.is_unsigned = 0,
 	};
 }
+INLINE void my_d(MYSQL_BIND *b, const double *d) {
+	*b = (MYSQL_BIND) {
+		.buffer_type = MYSQL_TYPE_DOUBLE,
+		.buffer = (void *) d,
+		.buffer_length = sizeof(*d),
+		.is_unsigned = 0,
+	};
+}
 
 
 static void execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long long *auto_id) {
-	for (int retr = 0; retr < 5; retr++) {
+	int retr = 0;
+	while (1) {
 		if (mysql_stmt_bind_param(*stmt, binds))
 			goto err;
 		if (mysql_stmt_execute(*stmt))
@@ -139,27 +167,84 @@ static void execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long lon
 		return;
 
 err:
-		ilog(LOG_ERR, "Failed to bind or execute prepared statement: %s",
-				mysql_stmt_error(*stmt));
+		if (retr > 5) {
+			// fatal
+			ilog(LOG_ERR, "Failed to bind or execute prepared statement: %s",
+					mysql_stmt_error(*stmt));
+			reset_conn();
+			return;
+		}
 		if (retr > 2) {
 			reset_conn();
 			if (check_conn())
 				return;
 		}
+
+		retr++;
 	}
 }
 
 
+static double now_double() {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec + tv.tv_usec / 1000000.0;
+}
+
+static void db_do_call_id(metafile_t *mf) {
+	if (mf->db_id > 0)
+		return;
+	if (!mf->call_id)
+		return;
+
+	double now = now_double();
+
+	MYSQL_BIND b[2];
+	my_cstr(&b[0], mf->call_id);
+	my_d(&b[1], &now);
+
+	execute_wrap(&stm_insert_call, b, &mf->db_id);
+}
+static void db_do_call_metadata(metafile_t *mf) {
+	if (!mf->metadata)
+		return;
+	if (mf->db_id <= 0)
+		return;
+
+	MYSQL_BIND b[3];
+	my_ull(&b[0], &mf->db_id); // stays persistent
+
+	// XXX offload this parsing to proxy module -> bencode list/dictionary
+	str all_meta;
+	str_init(&all_meta, mf->metadata);
+	while (all_meta.len > 1) {
+		str token;
+		if (str_token(&token, &all_meta, '|')) {
+			// separator not found, use remainder as token
+			token = all_meta;
+			all_meta.len = 0;
+		}
+		str key;
+		if (str_token(&key, &token, ':')) {
+			// key:value separator not found, skip
+			continue;
+		}
+
+		my_str(&b[1], &key);
+		my_str(&b[2], &token);
+
+		execute_wrap(&stm_insert_metadata, b, NULL);
+	}
+
+	mf->metadata = NULL;
+}
+
 void db_do_call(metafile_t *mf) {
 	if (check_conn())
 		return;
-	if (mf->db_id > 0)
-		return;
 
-	MYSQL_BIND b[1];
-	my_str(&b[0], mf->call_id);
-
-	execute_wrap(&stm_insert_call, b, &mf->db_id);
+	db_do_call_id(mf);
+	db_do_call_metadata(mf);
 }
 
 
@@ -171,24 +256,29 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, unsigned int i
 	if (op->db_id > 0)
 		return;
 
-	MYSQL_BIND b[7];
+	double now = now_double();
+
+	MYSQL_BIND b[10];
 	my_ull(&b[0], &mf->db_id);
-	my_str(&b[1], op->file_name);
-	my_str(&b[2], op->full_filename);
-	my_str(&b[3], op->file_format);
-	my_str(&b[4], type);
-	b[5] = (MYSQL_BIND) {
+	my_cstr(&b[1], op->file_name);
+	my_cstr(&b[2], op->file_format);
+	my_cstr(&b[3], op->full_filename);
+	my_cstr(&b[4], op->file_format);
+	my_cstr(&b[5], op->file_format);
+	my_cstr(&b[6], type);
+	b[7] = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_LONG,
 		.buffer = &id,
 		.buffer_length = sizeof(id),
 		.is_unsigned = 1,
 	};
-	b[6] = (MYSQL_BIND) {
+	b[8] = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_LONG,
 		.buffer = &ssrc,
 		.buffer_length = sizeof(ssrc),
 		.is_unsigned = 1,
 	};
+	my_d(&b[9], &now);
 
 	execute_wrap(&stm_insert_stream, b, &op->db_id);
 }
@@ -199,8 +289,11 @@ void db_close_call(metafile_t *mf) {
 	if (mf->db_id <= 0)
 		return;
 
-	MYSQL_BIND b[1];
-	my_ull(&b[0], &mf->db_id);
+	double now = now_double();
+
+	MYSQL_BIND b[2];
+	my_d(&b[0], &now);
+	my_ull(&b[1], &mf->db_id);
 
 	execute_wrap(&stm_close_call, b, NULL);
 }
@@ -210,8 +303,11 @@ void db_close_stream(output_t *op) {
 	if (op->db_id <= 0)
 		return;
 
-	MYSQL_BIND b[1];
-	my_ull(&b[0], &op->db_id);
+	double now = now_double();
+
+	MYSQL_BIND b[2];
+	my_d(&b[0], &now);
+	my_ull(&b[1], &op->db_id);
 
 	execute_wrap(&stm_close_stream, b, NULL);
 }

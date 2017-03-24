@@ -474,8 +474,6 @@ void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval 
 void __payload_type_free(void *p);
 void __rtp_stats_update(GHashTable *dst, GHashTable *src);
 
-const char *get_opmode_text(enum call_opmode);
-
 const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 
 #include "str.h"
