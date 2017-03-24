@@ -231,7 +231,7 @@ static inline int bitfield_clear(unsigned long *bf, unsigned int i);
 
 struct re_crypto_context {
 	spinlock_t			lock; /* protects roc and last_index */
-	unsigned char			session_key[16];
+	unsigned char			session_key[32];
 	unsigned char			session_salt[14];
 	unsigned char			session_auth_key[20];
 	u_int32_t			roc;
@@ -338,7 +338,7 @@ struct re_stream {
 	int				eof;
 };
 
-#define HASH_BITS 8 /* make configurable? */
+#define RE_HASH_BITS 8 /* make configurable? */
 struct rtpengine_table {
 	atomic_t			refcnt;
 	rwlock_t			target_lock;
@@ -358,10 +358,10 @@ struct rtpengine_table {
 
 	struct list_head		calls; /* protected by calls.lock */
 
-	spinlock_t			calls_hash_lock[1 << HASH_BITS];
-	struct hlist_head		calls_hash[1 << HASH_BITS];
-	spinlock_t			streams_hash_lock[1 << HASH_BITS];
-	struct hlist_head		streams_hash[1 << HASH_BITS];
+	spinlock_t			calls_hash_lock[1 << RE_HASH_BITS];
+	struct hlist_head		calls_hash[1 << RE_HASH_BITS];
+	spinlock_t			streams_hash_lock[1 << RE_HASH_BITS];
+	struct hlist_head		streams_hash[1 << RE_HASH_BITS];
 };
 
 struct re_cipher {
@@ -501,9 +501,9 @@ static const struct re_cipher re_ciphers[] = {
 		.id		= REC_NULL,
 		.name		= "NULL",
 	},
-	[REC_AES_CM] = {
-		.id		= REC_AES_CM,
-		.name		= "AES-CM",
+	[REC_AES_CM_128] = {
+		.id		= REC_AES_CM_128,
+		.name		= "AES-CM-128",
 		.tfm_name	= "aes",
 		.decrypt	= srtp_encrypt_aes_cm,
 		.encrypt	= srtp_encrypt_aes_cm,
@@ -515,6 +515,20 @@ static const struct re_cipher re_ciphers[] = {
 		.decrypt	= srtp_encrypt_aes_f8,
 		.encrypt	= srtp_encrypt_aes_f8,
 		.session_key_init = aes_f8_session_key_init,
+	},
+	[REC_AES_CM_192] = {
+		.id		= REC_AES_CM_192,
+		.name		= "AES-CM-192",
+		.tfm_name	= "aes",
+		.decrypt	= srtp_encrypt_aes_cm,
+		.encrypt	= srtp_encrypt_aes_cm,
+	},
+	[REC_AES_CM_256] = {
+		.id		= REC_AES_CM_256,
+		.name		= "AES-CM-256",
+		.tfm_name	= "aes",
+		.decrypt	= srtp_encrypt_aes_cm,
+		.encrypt	= srtp_encrypt_aes_cm,
 	},
 };
 
@@ -1637,7 +1651,7 @@ static int validate_srtp(struct rtpengine_srtp *s) {
 
 
 /* XXX shared code */
-static void aes_ctr_128(unsigned char *out, const unsigned char *in, int in_len,
+static void aes_ctr(unsigned char *out, const unsigned char *in, int in_len,
 		struct crypto_cipher *tfm, const unsigned char *iv)
 {
 	unsigned char ivx[16];
@@ -1700,7 +1714,7 @@ static void aes_f8(unsigned char *in_out, int in_len,
 	u_int32_t *xu;
 
 	crypto_cipher_encrypt_one(iv_tfm, ivx, iv);
-	
+
 	pi = (void *) in_out;
 	ki = (void *) key_block;
 	lki = (void *) last_key_block;
@@ -1747,7 +1761,7 @@ done:
 }
 
 static int aes_ctr_128_no_ctx(unsigned char *out, const char *in, int in_len,
-		const unsigned char *key, const unsigned char *iv)
+			      const unsigned char *key, unsigned int key_len, const unsigned char *iv)
 {
 	struct crypto_cipher *tfm;
 
@@ -1755,14 +1769,14 @@ static int aes_ctr_128_no_ctx(unsigned char *out, const char *in, int in_len,
 	if (IS_ERR(tfm))
 		return PTR_ERR(tfm);
 
-	crypto_cipher_setkey(tfm, key, 16);
-	aes_ctr_128(out, in, in_len, tfm, iv);
+	crypto_cipher_setkey(tfm, key, key_len);
+	aes_ctr(out, in, in_len, tfm, iv);
 
 	crypto_free_cipher(tfm);
 	return 0;
 }
 
-static int prf_n(unsigned char *out, int len, const unsigned char *key, const unsigned char *x) {
+static int prf_n(unsigned char *out, int len, const unsigned char *key, unsigned int key_len, const unsigned char *x) {
 	unsigned char iv[16];
 	unsigned char o[32];
 	unsigned char in[32];
@@ -1773,7 +1787,7 @@ static int prf_n(unsigned char *out, int len, const unsigned char *key, const un
 	in_len = len > 16 ? 32 : 16;
 	memset(in, 0, in_len);
 
-	ret = aes_ctr_128_no_ctx(o, in, in_len, key, iv);
+	ret = aes_ctr_128_no_ctx(o, in, in_len, key, key_len, iv);
 	if (ret)
 		return ret;
 
@@ -1795,7 +1809,7 @@ static int gen_session_key(unsigned char *out, int len, struct rtpengine_srtp *s
 	for (i = 13 - 6; i < 14; i++)
 		x[i] = key_id[i - (13 - 6)] ^ x[i];
 
-	ret = prf_n(out, len, s->master_key, x);
+	ret = prf_n(out, len, s->master_key, s->master_key_len, x);
 	if (ret)
 		return ret;
 	return 0;
@@ -1836,7 +1850,7 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 	if (s->cipher == REC_NULL && s->hmac == REH_NULL)
 		return 0;
 	err = "failed to generate session key";
-	ret = gen_session_key(c->session_key, 16, s, 0x00);
+	ret = gen_session_key(c->session_key, s->session_key_len, s, 0x00);
 	if (ret)
 		goto error;
 	ret = gen_session_key(c->session_auth_key, 20, s, 0x01);
@@ -1854,7 +1868,7 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 			c->tfm[0] = NULL;
 			goto error;
 		}
-		crypto_cipher_setkey(c->tfm[0], c->session_key, 16);
+		crypto_cipher_setkey(c->tfm[0], c->session_key, s->session_key_len);
 	}
 
 	if (c->cipher->session_key_init) {
@@ -1874,21 +1888,69 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 		crypto_shash_setkey(c->shash, c->session_auth_key, 20);
 	}
 
-	DBG("master key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+	switch(s->master_key_len) {
+	case 16:
+		DBG("master key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
 			s->master_key[0], s->master_key[1], s->master_key[2], s->master_key[3],
 			s->master_key[4], s->master_key[5], s->master_key[6], s->master_key[7],
 			s->master_key[8], s->master_key[9], s->master_key[10], s->master_key[11],
 			s->master_key[12], s->master_key[13], s->master_key[14], s->master_key[15]);
+		break;
+	case 24:
+		DBG("master key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			s->master_key[0], s->master_key[1], s->master_key[2], s->master_key[3],
+			s->master_key[4], s->master_key[5], s->master_key[6], s->master_key[7],
+			s->master_key[8], s->master_key[9], s->master_key[10], s->master_key[11],
+		        s->master_key[12], s->master_key[13], s->master_key[14], s->master_key[15],
+			s->master_key[16], s->master_key[17], s->master_key[18], s->master_key[19],
+			s->master_key[20], s->master_key[21], s->master_key[22], s->master_key[23]);
+		break;
+	case 32:
+		DBG("master key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			s->master_key[0], s->master_key[1], s->master_key[2], s->master_key[3],
+			s->master_key[4], s->master_key[5], s->master_key[6], s->master_key[7],
+			s->master_key[8], s->master_key[9], s->master_key[10], s->master_key[11],
+		        s->master_key[12], s->master_key[13], s->master_key[14], s->master_key[15],
+			s->master_key[16], s->master_key[17], s->master_key[18], s->master_key[19],
+			s->master_key[20], s->master_key[21], s->master_key[22], s->master_key[23],
+			s->master_key[24], s->master_key[25], s->master_key[26], s->master_key[27],
+			s->master_key[28], s->master_key[29], s->master_key[30], s->master_key[31]);
+		break;
+	}
 	DBG("master salt %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
 			s->master_salt[0], s->master_salt[1], s->master_salt[2], s->master_salt[3],
 			s->master_salt[4], s->master_salt[5], s->master_salt[6], s->master_salt[7],
 			s->master_salt[8], s->master_salt[9], s->master_salt[10], s->master_salt[11],
 			s->master_salt[12], s->master_salt[13]);
-	DBG("session key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+	switch(s->session_key_len) {
+	case 16:
+		DBG("session key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
 			c->session_key[0], c->session_key[1], c->session_key[2], c->session_key[3],
 			c->session_key[4], c->session_key[5], c->session_key[6], c->session_key[7],
 			c->session_key[8], c->session_key[9], c->session_key[10], c->session_key[11],
 			c->session_key[12], c->session_key[13], c->session_key[14], c->session_key[15]);
+		break;
+	case 24:
+		DBG("session key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			c->session_key[0], c->session_key[1], c->session_key[2], c->session_key[3],
+			c->session_key[4], c->session_key[5], c->session_key[6], c->session_key[7],
+			c->session_key[8], c->session_key[9], c->session_key[10], c->session_key[11],
+		        c->session_key[12], c->session_key[13], c->session_key[14], c->session_key[15],
+			c->session_key[16], c->session_key[17], c->session_key[18], c->session_key[19],
+			c->session_key[20], c->session_key[21], c->session_key[22], c->session_key[23]);
+		break;
+	case 32:
+		DBG("session key %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			c->session_key[0], c->session_key[1], c->session_key[2], c->session_key[3],
+			c->session_key[4], c->session_key[5], c->session_key[6], c->session_key[7],
+			c->session_key[8], c->session_key[9], c->session_key[10], c->session_key[11],
+		        c->session_key[12], c->session_key[13], c->session_key[14], c->session_key[15],
+			c->session_key[16], c->session_key[17], c->session_key[18], c->session_key[19],
+			c->session_key[20], c->session_key[21], c->session_key[22], c->session_key[23],
+			c->session_key[24], c->session_key[25], c->session_key[26], c->session_key[27],
+			c->session_key[28], c->session_key[29], c->session_key[30], c->session_key[31]);
+		break;
+	}
 	DBG("session salt %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
 			c->session_salt[0], c->session_salt[1], c->session_salt[2], c->session_salt[3],
 			c->session_salt[4], c->session_salt[5], c->session_salt[6], c->session_salt[7],
@@ -2014,7 +2076,7 @@ retry:
 		kfree(rda);
 		goto retry;
 	}
-	
+
 	t->dest_addr_hash.addrs[rh_it] = rda;
 	re_bitfield_set(&t->dest_addr_hash.addrs_bf, rh_it);
 
@@ -2417,7 +2479,7 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 	/* check for name collisions */
 
 	call->hash_bucket = crc32_le(0x52342, info->call_id, strlen(info->call_id));
-	call->hash_bucket = call->hash_bucket & ((1 << HASH_BITS) - 1);
+	call->hash_bucket = call->hash_bucket & ((1 << RE_HASH_BITS) - 1);
 
 	spin_lock_irqsave(&table->calls_hash_lock[call->hash_bucket], flags);
 
@@ -2593,7 +2655,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 	/* check for name collisions */
 
 	stream->hash_bucket = crc32_le(0x52342 ^ info->call_idx, info->stream_name, strlen(info->stream_name));
-	stream->hash_bucket = stream->hash_bucket & ((1 << HASH_BITS) - 1);
+	stream->hash_bucket = stream->hash_bucket & ((1 << RE_HASH_BITS) - 1);
 
 	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
 
@@ -3501,7 +3563,7 @@ static int srtp_encrypt_aes_cm(struct re_crypto_context *c,
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
 
-	aes_ctr_128(r->payload, r->payload, r->payload_len, c->tfm[0], iv);
+	aes_ctr(r->payload, r->payload, r->payload_len, c->tfm[0], iv);
 
 	return 0;
 }

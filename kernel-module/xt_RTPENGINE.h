@@ -41,8 +41,10 @@ struct re_address {
 enum rtpengine_cipher {
 	REC_INVALID	= 0,
 	REC_NULL,
-	REC_AES_CM,
+	REC_AES_CM_128,
 	REC_AES_F8,
+	REC_AES_CM_192,
+	REC_AES_CM_256,
 
 	__REC_LAST
 };
@@ -59,8 +61,10 @@ enum rtpengine_hmac {
 struct rtpengine_srtp {
 	enum rtpengine_cipher		cipher;
 	enum rtpengine_hmac		hmac;
-	unsigned char			master_key[16];
+	unsigned char			master_key[32];
+	unsigned int			master_key_len;
 	unsigned char			master_salt[14];
+	unsigned int			session_key_len;
 	unsigned char			mki[256]; /* XXX uses too much memory? */
 	u_int64_t			last_index;
 	unsigned int			auth_tag_len; /* in bytes */
