@@ -17,6 +17,7 @@
 
 AVFrame *resample_frame(resample_t *resample, AVFrame *frame, const format_t *to_format) {
 	const char *err;
+	int errcode = 0;
 
 	uint64_t to_channel_layout = av_get_default_channel_layout(to_format->channels);
 	if (frame->format != to_format->format)
@@ -36,22 +37,29 @@ resample:
 		if (!resample->avresample)
 			goto err;
 
-		av_opt_set_int(resample->avresample, "in_channel_layout",
-				frame->channel_layout, 0);
-		av_opt_set_int(resample->avresample, "in_sample_fmt",
-				frame->format, 0);
-		av_opt_set_int(resample->avresample, "in_sample_rate",
-				frame->sample_rate, 0);
-		av_opt_set_int(resample->avresample, "out_channel_layout",
-				to_channel_layout, 0);
-		av_opt_set_int(resample->avresample, "out_sample_fmt",
-				to_format->format, 0);
-		av_opt_set_int(resample->avresample, "out_sample_rate",
-				to_format->clockrate, 0);
+		err = "failed to set resample option";
+		if ((errcode = av_opt_set_int(resample->avresample, "in_channel_layout",
+				frame->channel_layout, 0)))
+			goto err;
+		if ((errcode = av_opt_set_int(resample->avresample, "in_sample_fmt",
+				frame->format, 0)))
+			goto err;
+		if ((errcode = av_opt_set_int(resample->avresample, "in_sample_rate",
+				frame->sample_rate, 0)))
+			goto err;
+		if ((errcode = av_opt_set_int(resample->avresample, "out_channel_layout",
+				to_channel_layout, 0)))
+			goto err;
+		if ((errcode = av_opt_set_int(resample->avresample, "out_sample_fmt",
+				to_format->format, 0)))
+			goto err;
+		if ((errcode = av_opt_set_int(resample->avresample, "out_sample_rate",
+				to_format->clockrate, 0)))
+			goto err;
 		// av_opt_set_int(dec->avresample, "internal_sample_fmt", AV_SAMPLE_FMT_FLTP, 0); // ?
 
 		err = "failed to init resample context";
-		if (avresample_open(resample->avresample) < 0)
+		if ((errcode = avresample_open(resample->avresample)) < 0)
 			goto err;
 	}
 
@@ -74,7 +82,7 @@ resample:
 		resample->swr_frame->nb_samples = dst_samples;
 		resample->swr_frame->sample_rate = to_format->clockrate;
 		err = "failed to get resample buffers";
-		if (av_frame_get_buffer(resample->swr_frame, 0) < 0)
+		if ((errcode = av_frame_get_buffer(resample->swr_frame, 0)) < 0)
 			goto err;
 		resample->swr_buffers = dst_samples;
 	}
@@ -85,7 +93,7 @@ resample:
 				frame->extended_data,
 				frame->linesize[0], frame->nb_samples);
 	err = "failed to resample audio";
-	if (ret_samples < 0)
+	if ((errcode = ret_samples) < 0)
 		goto err;
 
 	resample->swr_frame->nb_samples = ret_samples;
@@ -93,7 +101,8 @@ resample:
 	return resample->swr_frame;
 
 err:
-	ilog(LOG_ERR, "Error resampling: %s", err);
+	ilog(LOG_ERR, "Error resampling: %s (code %i)", err, errcode);
+	resample_shutdown(resample);
 	return NULL;
 }
 
