@@ -23,6 +23,12 @@
  * See http://www.ietf.org/mail-archive/web/avt/current/msg06124.html
  * The default (define not set) is to be compatible with libsrtp, but
  * incompatible with a strict interpretation of the RFC.
+ *
+ * In Errata ID: 3712 the libsrtp behaviour (labels in the same place)
+ * is now considered canonical.
+ *
+ * https://www.rfc-editor.org/errata_search.php?rfc=3711
+ * https://github.com/cisco/libsrtp/issues/150
  */
 #ifdef SRTCP_KEY_DERIVATION_RFC_COMPLIANCE
 #define SRTCP_R_LENGTH 4
