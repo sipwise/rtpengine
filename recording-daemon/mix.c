@@ -170,6 +170,12 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 	unsigned int silence_samples = mix->format.clockrate / 100;
 
 	while (mix->in_pts[idx] < upto) {
+		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->format.clockrate * 30)) {
+			ilog(LOG_WARN, "More than 30 seconds of silence needed to fill mix buffer, resetting");
+			mix->in_pts[idx] = upto;
+			break;
+		}
+
 		if (G_UNLIKELY(!mix->silence_frame)) {
 			mix->silence_frame = av_frame_alloc();
 			mix->silence_frame->format = mix->format.format;
