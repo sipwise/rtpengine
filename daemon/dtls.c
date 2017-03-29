@@ -127,6 +127,8 @@ static void buf_dump_free(char *buf, size_t len) {
 
 		ilog(LOG_DEBUG, "--- %.*s", llen, p);
 
+		if (!f)
+			break;
 		len -= llen + 1;
 		p = f + 1;
 	}

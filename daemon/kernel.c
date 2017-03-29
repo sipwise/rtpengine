@@ -109,6 +109,7 @@ int kernel_add_stream(struct rtpengine_target_info *mti, int update) {
 	msg.cmd = update ? REMG_UPDATE : REMG_ADD;
 	msg.u.target = *mti;
 
+	// coverity[uninit_use_in_call : FALSE]
 	ret = write(kernel.fd, &msg, sizeof(msg));
 	if (ret > 0)
 		return 0;

@@ -98,8 +98,10 @@ char *streambuf_getline(struct streambuf *b) {
 	char *s = NULL;
 
 	for (;;) {
-		if (s)
+		if (s) {
 			free(s);
+			s = NULL;
+		}
 
 		p = memchr(b->buf->str, '\n', b->buf->len);
 		if (!p)

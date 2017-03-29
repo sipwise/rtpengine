@@ -490,7 +490,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 		if (c->lifetime_str.len >= 3 && !memcmp(c->lifetime_str.s, "2^", 2)) {
 			c->lifetime = strtoull(c->lifetime_str.s + 2, NULL, 10);
 			err = "invalid key lifetime";
-			if (!c->lifetime || c->lifetime > 64)
+			if (!c->lifetime || c->lifetime >= 64)
 				goto error;
 			c->lifetime = 1ULL << c->lifetime;
 		}
@@ -889,6 +889,10 @@ int sdp_parse(str *body, GQueue *sessions) {
 				line_end--;
 		}
 
+		errstr = "SDP doesn't start with a session definition";
+		if (!session && b[0] != 'v')
+			goto error;
+
 		switch (b[0]) {
 			case 'v':
 				errstr = "Error in v= line";
@@ -1001,7 +1005,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 				goto error;
 		}
 
-		errstr = "SDP doesn't start with a session definition";
+		errstr = "SDP doesn't start with a valid session definition";
 		if (!session)
 			goto error;
 
@@ -1304,8 +1308,7 @@ next:
 
 error:
 	ilog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
-	if (sp)
-		g_slice_free1(sizeof(*sp), sp);
+	g_slice_free1(sizeof(*sp), sp);
 	return -1;
 }
 
@@ -1867,7 +1870,7 @@ static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
 	if (cp->mki_len) {
 		ull = 0;
 		for (i = 0; i < cp->mki_len && i < sizeof(ull); i++)
-			ull |= cp->mki[cp->mki_len - i - 1] << (i * 8);
+			ull |= (unsigned long long) cp->mki[cp->mki_len - i - 1] << (i * 8);
 		chopper_append_printf(chop, "|%llu:%u", ull, cp->mki_len);
 	}
 	if (cp->session_params.unencrypted_srtp)

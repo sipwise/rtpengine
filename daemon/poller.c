@@ -96,7 +96,9 @@ static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lo
 	unsigned int u;
 	struct epoll_event e;
 
-	if (!p || !i)
+	if (!p)
+		return -1;
+	if (!i)
 		goto fail_lock;
 	if (i->fd < 0)
 		goto fail_lock;

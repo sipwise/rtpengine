@@ -305,7 +305,7 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 	next_run = g_now.tv_sec + seconds;
 
 	if (graphite_sock.fd < 0 && connection_state == STATE_DISCONNECTED) {
-		rc = connect_to_graphite_server(graphite_ep);
+		connect_to_graphite_server(graphite_ep);
 	}
 
 	if (graphite_sock.fd >= 0 && connection_state == STATE_CONNECTED) {

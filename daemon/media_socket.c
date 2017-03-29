@@ -769,6 +769,8 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 		return;
 
 	j = sizeof(i);
+	i = 0;
+	// coverity[check_return : FALSE]
 	getsockopt(fd, SOL_SOCKET, SO_ERROR, &i, &j);
 	ilog(LOG_WARNING, "Read error on media socket: %i (%s) -- closing call", i, strerror(i));
 
@@ -1328,7 +1330,7 @@ update_addr:
 
 	/* check the destination address of the received packet against what we think our
 	 * local interface to use is */
-	if (sfd && stream->selected_sfd && sfd != stream->selected_sfd) {
+	if (stream->selected_sfd && sfd != stream->selected_sfd) {
 		ilog(LOG_INFO, "Switching local interface to %s", endpoint_print_buf(&sfd->socket.local));
 		stream->selected_sfd = sfd;
 		update = 1;

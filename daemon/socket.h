@@ -176,13 +176,16 @@ INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int l
 
 /* XXX obsolete these? */
 INLINE void nonblock(int fd) {
+	// coverity[check_return : FALSE]
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 }
 INLINE void reuseaddr(int fd) {
 	int one = 1;
+	// coverity[check_return : FALSE]
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 }
 INLINE void ipv6only(int fd, int yn) {
+	// coverity[check_return : FALSE]
 	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
 }
 

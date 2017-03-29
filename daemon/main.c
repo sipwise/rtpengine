@@ -653,7 +653,7 @@ no_kernel:
 
 	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);
 
-	timeval_from_us(&tmp_tv, graphite_interval*1000000);
+	timeval_from_us(&tmp_tv, (long long) graphite_interval*1000000);
 	set_graphite_interval_tv(&tmp_tv);
 }
 

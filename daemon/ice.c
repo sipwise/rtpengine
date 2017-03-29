@@ -1009,7 +1009,7 @@ found:
 
 /* call(W) or call(R)+agent must be locked - no in_lock or out_lock must be held */
 static int __check_valid(struct ice_agent *ag) {
-	struct call_media *media = ag->media;
+	struct call_media *media;
 	struct packet_stream *ps;
 	GList *l, *k, *m;
 	GQueue all_compos;
@@ -1021,6 +1021,8 @@ static int __check_valid(struct ice_agent *ag) {
 		ilog(LOG_ERR, "ice ag is NULL");
 		return 0;
 	}
+
+	media = ag->media;
 
 	__get_complete_valid_pairs(&all_compos, ag);
 

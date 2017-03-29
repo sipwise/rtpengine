@@ -2,6 +2,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <assert.h>
 
 #include "obj.h"
 #include "poller.h"
@@ -125,8 +126,9 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		return;
 	}
 
-	bencode_buffer_init(&bencbuf);
+	assert( bencode_buffer_init(&bencbuf) == 0 );
 	resp = bencode_dictionary(&bencbuf);
+	assert(resp != NULL);
 
 	cookie = *buf;
 	cookie.len -= data.len;

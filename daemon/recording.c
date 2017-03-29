@@ -360,56 +360,59 @@ static int pcap_meta_finish_file(struct call *call) {
 	struct recording *recording = call->recording;
 	int return_code = 0;
 
-	if (recording != NULL && recording->pcap.meta_fp != NULL) {
-		// Print start timestamp and end timestamp
-		// YYYY-MM-DDThh:mm:ss
-		time_t start = call->created;
-		time_t end = g_now.tv_sec;
-		char timebuffer[20];
-		struct tm *timeinfo;
-		timeinfo = localtime(&start);
-		strftime(timebuffer, 20, "%FT%T", timeinfo);
-		fprintf(recording->pcap.meta_fp, "\n\ncall start time: %s\n", timebuffer);
-		timeinfo = localtime(&end);
-		strftime(timebuffer, 20, "%FT%T", timeinfo);
-		fprintf(recording->pcap.meta_fp, "call end time: %s\n", timebuffer);
-
-		// Print metadata
-		if (recording->metadata.len)
-			fprintf(recording->pcap.meta_fp, "\n\n"STR_FORMAT"\n", STR_FMT(&recording->metadata));
-		fclose(recording->pcap.meta_fp);
-
-		// Get the filename (in between its directory and the file extension)
-		// and move it to the finished file location.
-		// Rename extension to ".txt".
-		int fn_len;
-		char *meta_filename = strrchr(recording->meta_filepath, '/');
-		char *meta_ext = NULL;
-		if (meta_filename == NULL) {
-			meta_filename = recording->meta_filepath;
-		}
-		else {
-			meta_filename = meta_filename + 1;
-		}
-		// We can always expect a file extension
-		meta_ext = strrchr(meta_filename, '.');
-		fn_len = meta_ext - meta_filename;
-		int prefix_len = strlen(spooldir) + 10; // constant for "/metadata/" suffix
-		int ext_len = 4;     // for ".txt"
-		char new_metapath[prefix_len + fn_len + ext_len + 1];
-		snprintf(new_metapath, prefix_len+fn_len+1, "%s/metadata/%s", spooldir, meta_filename);
-		snprintf(new_metapath + prefix_len+fn_len, ext_len+1, ".txt");
-		return_code = return_code || rename(recording->meta_filepath, new_metapath);
-		if (return_code != 0) {
-			ilog(LOG_ERROR, "Could not move metadata file \"%s\" to \"%s/metadata/\"",
-					 recording->meta_filepath, spooldir);
-		} else {
-			ilog(LOG_INFO, "Moved metadata file \"%s\" to \"%s/metadata\"",
-					 recording->meta_filepath, spooldir);
-		}
-	} else {
+	if (recording == NULL || recording->pcap.meta_fp == NULL) {
 		ilog(LOG_INFO, "Trying to clean up recording meta file without a file pointer opened.");
+		return 0;
 	}
+
+	// Print start timestamp and end timestamp
+	// YYYY-MM-DDThh:mm:ss
+	time_t start = call->created;
+	time_t end = g_now.tv_sec;
+	char timebuffer[20];
+	struct tm *timeinfo;
+	timeinfo = localtime(&start);
+	strftime(timebuffer, 20, "%FT%T", timeinfo);
+	fprintf(recording->pcap.meta_fp, "\n\ncall start time: %s\n", timebuffer);
+	timeinfo = localtime(&end);
+	strftime(timebuffer, 20, "%FT%T", timeinfo);
+	fprintf(recording->pcap.meta_fp, "call end time: %s\n", timebuffer);
+
+	// Print metadata
+	if (recording->metadata.len)
+		fprintf(recording->pcap.meta_fp, "\n\n"STR_FORMAT"\n", STR_FMT(&recording->metadata));
+	fclose(recording->pcap.meta_fp);
+	recording->pcap.meta_fp = NULL;
+
+	// Get the filename (in between its directory and the file extension)
+	// and move it to the finished file location.
+	// Rename extension to ".txt".
+	int fn_len;
+	char *meta_filename = strrchr(recording->meta_filepath, '/');
+	char *meta_ext = NULL;
+	if (meta_filename == NULL) {
+		meta_filename = recording->meta_filepath;
+	}
+	else {
+		meta_filename = meta_filename + 1;
+	}
+	// We can always expect a file extension
+	meta_ext = strrchr(meta_filename, '.');
+	fn_len = meta_ext - meta_filename;
+	int prefix_len = strlen(spooldir) + 10; // constant for "/metadata/" suffix
+	int ext_len = 4;     // for ".txt"
+	char new_metapath[prefix_len + fn_len + ext_len + 1];
+	snprintf(new_metapath, prefix_len+fn_len+1, "%s/metadata/%s", spooldir, meta_filename);
+	snprintf(new_metapath + prefix_len+fn_len, ext_len+1, ".txt");
+	return_code = return_code || rename(recording->meta_filepath, new_metapath);
+	if (return_code != 0) {
+		ilog(LOG_ERROR, "Could not move metadata file \"%s\" to \"%s/metadata/\"",
+				 recording->meta_filepath, spooldir);
+	} else {
+		ilog(LOG_INFO, "Moved metadata file \"%s\" to \"%s/metadata\"",
+				 recording->meta_filepath, spooldir);
+	}
+
 	mutex_destroy(&recording->pcap.recording_lock);
 
 	return return_code;

@@ -478,7 +478,7 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
       /* IPv6 */
     else if(hg->ip_family.data == AF_INET6) {
         /* SRC IPv6 */
-        memcpy((void*) buffer+buflen, &src_ip4, sizeof(struct hep_chunk_ip6));
+        memcpy((void*) buffer+buflen, &src_ip6, sizeof(struct hep_chunk_ip6));
         buflen += sizeof(struct hep_chunk_ip6);
 
         memcpy((void*) buffer+buflen, &dst_ip6, sizeof(struct hep_chunk_ip6));
@@ -552,8 +552,8 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
     g_string_append_len(s, buffer, buflen);
 
     /* FREE */
-    if(buffer) free(buffer);
-    if(hg) free(hg);
+    free(buffer);
+    free(hg);
 
     return 0;
 }

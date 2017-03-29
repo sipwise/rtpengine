@@ -153,6 +153,7 @@ out:
 	rwlock_unlock_w(&c->master_lock);
 	rwlock_lock_r(&c->master_lock);
 
+	// coverity[missing_unlock : FALSE]
 	return ret;
 }
 
@@ -1515,10 +1516,18 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	struct call_media *media, *other_media;
 	unsigned int num_ports;
 	unsigned int rr_calls_ports;
-	struct call_monologue *monologue = other_ml->active_dialogue;
+	struct call_monologue *monologue;
 	struct endpoint_map *em;
 	struct call *call;
 
+	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
+	 * may not be known yet */
+	if (!other_ml) {
+		ilog(LOG_ERROR, "Incomplete dialogue association");
+		return -1;
+	}
+
+	monologue = other_ml->active_dialogue;
 	call = monologue->call;
 
 	call->last_signal = poller_now;
@@ -1527,12 +1536,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	// get the total number of ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
 	rr_calls_ports = get_algorithm_num_ports(streams, ALGORITHM_ROUND_ROBIN_CALLS);
 
-	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
-	 * may not be known yet */
-	if (!other_ml) {
-		ilog(LOG_ERROR, "Incomplete dialogue association");
-		return -1;
-	}
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
 	__tos_change(call, flags);

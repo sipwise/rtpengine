@@ -828,7 +828,7 @@ static void cli_incoming(int fd, void *p, uintptr_t u) {
    char* outbuf = replybuffer;
    const char* outbufend = replybuffer+BUFLENGTH;
    static const int MAXINPUT = 1024;
-   char inbuf[MAXINPUT];
+   char inbuf[MAXINPUT+1];
    int inlen = 0, readbytes = 0;
    int rc=0;
 
@@ -850,7 +850,7 @@ next:
    ilog(LOG_INFO, "New cli connection from " DF, DP(sin));
 
    do {
-       readbytes = read(nfd, inbuf+inlen, MAXINPUT);
+       readbytes = read(nfd, inbuf+inlen, MAXINPUT-inlen);
        if (readbytes == -1) {
            if (errno == EAGAIN || errno == EWOULDBLOCK) {
                ilog(LOG_INFO, "Could currently not read CLI commands. Reason:%s", strerror(errno));

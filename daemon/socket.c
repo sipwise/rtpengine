@@ -288,6 +288,7 @@ static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *
 			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP) {
 				*tv = *((struct timeval *) CMSG_DATA(cm));
 				tv = NULL;
+				break;
 			}
 		}
 		if (G_UNLIKELY(tv)) {

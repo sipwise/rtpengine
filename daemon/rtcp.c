@@ -726,8 +726,6 @@ void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *ori_s, const en
 		json = NULL;
 	}
 
-	if (json)
-		g_string_free(json, TRUE);
 	if (log)
 		g_string_free(log, TRUE);
 }
