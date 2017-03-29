@@ -622,8 +622,8 @@ struct callmaster *callmaster_new(struct poller *p) {
 	mutex_init(&c->totalstats_interval.total_calls_duration_lock);
 
 	c->totalstats.started = poller_now;
-	c->totalstats_interval.managed_sess_min = 0;
-	c->totalstats_interval.managed_sess_max = 0;
+	//c->totalstats_interval.managed_sess_min = 0; // already zeroed
+	//c->totalstats_interval.managed_sess_max = 0;
 
 	mutex_init(&c->totalstats_lastinterval_lock);
 	mutex_init(&c->cngs_lock);

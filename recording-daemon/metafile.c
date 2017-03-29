@@ -159,10 +159,14 @@ void metafile_change(char *name) {
 	// open file and seek to last known position
 	int fd = open(fnbuf, O_RDONLY);
 	if (fd == -1) {
-		ilog(LOG_ERR, "Failed to open %s: %s\n", fnbuf, strerror(errno));
+		ilog(LOG_ERR, "Failed to open %s: %s", fnbuf, strerror(errno));
 		goto out;
 	}
-	lseek(fd, mf->pos, SEEK_SET);
+	if (lseek(fd, mf->pos, SEEK_SET) == (off_t) -1) {
+		ilog(LOG_ERR, "Failed to seek to end of file %s: %s", fnbuf, strerror(errno));
+		close(fd);
+		goto out;
+	}
 
 	// read the entire file
 	GString *s = g_string_new(NULL);

@@ -324,11 +324,13 @@ static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpo
 static int __ip4_tos(socket_t *s, unsigned int tos) {
 	unsigned char ctos;
 	ctos = tos;
-	setsockopt(s->fd, IPPROTO_IP, IP_TOS, &ctos, sizeof(ctos));
+	if (setsockopt(s->fd, IPPROTO_IP, IP_TOS, &ctos, sizeof(ctos)))
+		ilog(LOG_ERR, "Failed to set TOS on IPv4 socket: %s", strerror(errno));
 	return 0;
 }
 static int __ip6_tos(socket_t *s, unsigned int tos) {
-	setsockopt(s->fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos));
+	if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos)))
+		ilog(LOG_ERR, "Failed to set TOS on IPv6 socket: %s", strerror(errno));
 	return 0;
 }
 static int __ip_error(socket_t *s) {

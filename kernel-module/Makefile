@@ -1,6 +1,7 @@
 PWD    := $(shell pwd)
 KSRC   ?= /lib/modules/$(shell uname -r)/build
 KBUILD := $(KSRC)
+M      ?= $(PWD)
 
 ifeq ($(RTPENGINE_VERSION),)
   DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)

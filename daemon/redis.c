@@ -998,6 +998,7 @@ static int redis_hash_get_crypto_context(struct crypto_context *out, const struc
 
 	if (redis_hash_get_u64(&out->last_index, h, "last_index"))
 		return -1;
+	// coverity[check_return : FALSE]
 	redis_hash_get_unsigned(&out->ssrc, h, "ssrc");
 
 	return 0;
@@ -1574,6 +1575,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	rlog(LOG_DEBUG, "Restoring calls from Redis...");
 
 	mutex_lock(&r->lock);
+	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		ret = 0;
@@ -2001,6 +2003,7 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 		return;
 
 	mutex_lock(&r->lock);
+	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		return ;
@@ -2048,6 +2051,7 @@ void redis_delete(struct call *c, struct redis *r) {
 		return;
 
 	mutex_lock(&r->lock);
+	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		return ;
@@ -2082,6 +2086,7 @@ void redis_wipe(struct redis *r) {
 		return;
 
 	mutex_lock(&r->lock);
+	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		return ;

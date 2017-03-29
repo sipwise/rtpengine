@@ -463,7 +463,7 @@ static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmast
 	open_files.len = len;
 	open_files_num = strtoul(open_files.s, &endptr, 10);
 
-	if ((errno == ERANGE && (open_files_num == LONG_MAX || open_files_num == LONG_MIN)) || (errno != 0 && open_files_num == 0)) {
+	if ((errno == ERANGE && (open_files_num == ULONG_MAX)) || (errno != 0 && open_files_num == 0)) {
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting open_files to %.*s; errno=%d\n", open_files.len, open_files.s, errno);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
@@ -549,7 +549,7 @@ static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m
 	timeout.len = len;
 	timeout_num = strtoul(timeout.s, &endptr, 10);
 
-	if ((errno == ERANGE && (timeout_num == LONG_MAX || timeout_num == LONG_MIN)) || (errno != 0 && timeout_num == 0)) {
+	if ((errno == ERANGE && (timeout_num == ULONG_MAX)) || (errno != 0 && timeout_num == 0)) {
 		printlen = snprintf (replybuffer,(outbufend-replybuffer), "Fail setting timeout to %.*s; errno=%d\n", timeout.len, timeout.s, errno);
 		ADJUSTLEN(printlen,outbufend,replybuffer);
 		return;
@@ -725,7 +725,7 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 
 static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
-	unsigned int uint_keyspace_db;
+	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char *endptr;
 
@@ -738,9 +738,9 @@ static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char
 
 	str_keyspace_db.s = buffer;
 	str_keyspace_db.len = len;
-	uint_keyspace_db = strtol(str_keyspace_db.s, &endptr, 10);
+	uint_keyspace_db = strtoul(str_keyspace_db.s, &endptr, 10);
 
-	if ((errno == ERANGE && (uint_keyspace_db == LONG_MAX || uint_keyspace_db == LONG_MIN)) || (errno != 0 && uint_keyspace_db == 0)) {
+	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail adding keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
 	} else if (endptr == str_keyspace_db.s) {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail adding keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
@@ -749,9 +749,9 @@ static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char
 		if (!g_queue_find(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db))) {
 			g_queue_push_tail(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			redis_notify_subscribe_action(m, SUBSCRIBE_KEYSPACE, uint_keyspace_db);
-			printlen = snprintf(replybuffer, outbufend-replybuffer, "Success adding keyspace %u to redis notifications.\n", uint_keyspace_db);
+			printlen = snprintf(replybuffer, outbufend-replybuffer, "Success adding keyspace %lu to redis notifications.\n", uint_keyspace_db);
 		} else {
-			printlen = snprintf(replybuffer, outbufend-replybuffer, "Keyspace %u is already among redis notifications.\n", uint_keyspace_db);
+			printlen = snprintf(replybuffer, outbufend-replybuffer, "Keyspace %lu is already among redis notifications.\n", uint_keyspace_db);
 		}
 		rwlock_unlock_w(&m->conf.config_lock);
 	}
@@ -761,7 +761,7 @@ static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, char
 static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen = 0;
 	GList *l; 
-	unsigned int uint_keyspace_db;
+	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char *endptr;
 
@@ -774,10 +774,10 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 
 	str_keyspace_db.s = buffer;
 	str_keyspace_db.len = len;
-	uint_keyspace_db = strtol(str_keyspace_db.s, &endptr, 10);
+	uint_keyspace_db = strtoul(str_keyspace_db.s, &endptr, 10);
 
 	rwlock_lock_w(&m->conf.config_lock);
-	if ((errno == ERANGE && (uint_keyspace_db == LONG_MAX || uint_keyspace_db == LONG_MIN)) || (errno != 0 && uint_keyspace_db == 0)) {
+	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
 		printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail removing keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
         } else if (endptr == str_keyspace_db.s) {
                 printlen = snprintf(replybuffer, outbufend-replybuffer, "Fail removing keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
@@ -785,15 +785,15 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, char*
 		// remove this keyspace
 		redis_notify_subscribe_action(m, UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
 		g_queue_remove(m->conf.redis_subscribed_keyspaces, l->data);
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully unsubscribed from keyspace %u.\n", uint_keyspace_db);
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully unsubscribed from keyspace %lu.\n", uint_keyspace_db);
 
 		// destroy foreign calls for this keyspace
 		destroy_keyspace_foreign_calls(m, uint_keyspace_db);
 
 		// update cli
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully removed all foreign calls for keyspace %u.\n", uint_keyspace_db);
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Successfully removed all foreign calls for keyspace %lu.\n", uint_keyspace_db);
 	} else {
-		printlen = snprintf(replybuffer, outbufend-replybuffer, "Keyspace %u is not among redis notifications.\n", uint_keyspace_db);
+		printlen = snprintf(replybuffer, outbufend-replybuffer, "Keyspace %lu is not among redis notifications.\n", uint_keyspace_db);
 	}
 	rwlock_unlock_w(&m->conf.config_lock);
 
@@ -841,7 +841,7 @@ next:
    if (nfd == -1) {
        if (errno == EAGAIN || errno == EWOULDBLOCK) {
            ilog(LOG_INFO, "Could currently not accept CLI commands. Reason:%s", strerror(errno));
-           goto cleanup;
+           goto cleanup2;
        }
        ilog(LOG_INFO, "Accept error:%s", strerror(errno));
        goto next;
@@ -893,6 +893,7 @@ next:
 
 cleanup:
    close(nfd);
+cleanup2:
    mutex_unlock(&cli->lock);
    log_info_clear();
 }

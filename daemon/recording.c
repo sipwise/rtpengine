@@ -162,6 +162,7 @@ static int check_create_dir(const char *dir, const char *desc, mode_t creat_mode
 			return FALSE;
 		}
 		ilog(LOG_INFO, "Creating %s directory \"%s\".", desc, dir);
+		// coverity[toctou : FALSE]
 		if (mkdir(dir, creat_mode) == 0)
 			return TRUE;
 		ilog(LOG_ERR, "Failed to create %s directory \"%s\": %s", desc, dir, strerror(errno));
@@ -317,6 +318,7 @@ static char *meta_setup_file(struct recording *recording) {
 	char *meta_filepath = file_path_str(recording->meta_prefix, "/tmp/rtpengine-meta-", ".tmp");
 	recording->meta_filepath = meta_filepath;
 	FILE *mfp = fopen(meta_filepath, "w");
+	// coverity[check_return : FALSE]
 	chmod(meta_filepath, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 	if (mfp == NULL) {
 		ilog(LOG_ERROR, "Could not open metadata file: %s", meta_filepath);

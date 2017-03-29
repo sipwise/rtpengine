@@ -1516,7 +1516,8 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 	pi.readable = stream_fd_readable;
 	pi.closed = stream_fd_closed;
 
-	poller_add_item(po, &pi);
+	if (poller_add_item(po, &pi))
+		ilog(LOG_ERR, "Failed to add stream_fd to poller");
 
 	return sfd;
 }

@@ -256,7 +256,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 static void options(int *argc, char ***argv) {
 	char **if_a = NULL;
 	char **ks_a = NULL;
-	unsigned int uint_keyspace_db;
+	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char **iter;
 	struct intf_config *ifa;
@@ -338,13 +338,13 @@ static void options(int *argc, char ***argv) {
 		for (iter = ks_a; *iter; iter++) {
 			str_keyspace_db.s = *iter;
 			str_keyspace_db.len = strlen(*iter);
-			uint_keyspace_db = strtol(str_keyspace_db.s, &endptr, 10);
+			uint_keyspace_db = strtoul(str_keyspace_db.s, &endptr, 10);
 
-			if ((errno == ERANGE && (uint_keyspace_db == LONG_MAX || uint_keyspace_db == LONG_MIN)) ||
+			if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) ||
 			    (errno != 0 && uint_keyspace_db == 0)) {
 				ilog(LOG_ERR, "Fail adding keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
 			} else if (endptr == str_keyspace_db.s) {
-				ilog(LOG_ERR, "Fail adding keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
+				ilog(LOG_ERR, "Fail adding keyspace %.*s to redis notifications; no digits found\n", str_keyspace_db.len, str_keyspace_db.s);
 			} else {
 				g_queue_push_tail(&keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			}

@@ -1,10 +1,14 @@
 CC ?= gcc
 
 
+ifeq ($(RTPENGINE_ROOT_DIR),)
+	RTPENGINE_ROOT_DIR=..
+endif
+
 ifeq ($(RTPENGINE_VERSION),)
   DPKG_PRSCHNGLG= $(shell which dpkg-parsechangelog 2>/dev/null)
   ifneq ($(DPKG_PRSCHNGLG),)
-    DPKG_PRSCHNGLG=$(shell dpkg-parsechangelog -l../debian/changelog | awk '/^Version: / {print $$2}')
+    DPKG_PRSCHNGLG=$(shell dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog | awk '/^Version: / {print $$2}')
   endif
   GIT_BR_COMMIT=$(shell git branch --no-color --no-column -v 2> /dev/null | awk '/^\*/ {OFS="-"; print "git", $$2, $$3}')
 

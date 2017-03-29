@@ -1135,6 +1135,7 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 
 		mutex_lock(&ag->lock);
 
+		// coverity[use : FALSE]
 		g_tree_insert(ag->nominated_pairs, pair, pair);
 
 		if (PAIR_ISSET(pair, SUCCEEDED)) {
