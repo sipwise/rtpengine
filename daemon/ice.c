@@ -1372,7 +1372,7 @@ sleep:
 
 static void random_ice_string(char *buf, int len) {
 	while (len--)
-		*buf++ = ice_chars[random() % strlen(ice_chars)];
+		*buf++ = ice_chars[ssl_random() % strlen(ice_chars)];
 }
 
 static void create_random_ice_string(struct call *call, str *s, int len) {

@@ -648,7 +648,7 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 		port = g_atomic_int_get(&pp->last_used);
 		__C_DBG("before randomization port=%d", port);
 #if PORT_RANDOM_MIN && PORT_RANDOM_MAX
-		port += PORT_RANDOM_MIN + (random() % (PORT_RANDOM_MAX - PORT_RANDOM_MIN));
+		port += PORT_RANDOM_MIN + (ssl_random() % (PORT_RANDOM_MAX - PORT_RANDOM_MIN));
 #endif
 		__C_DBG("after  randomization port=%d", port);
 	}
