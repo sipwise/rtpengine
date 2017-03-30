@@ -8,6 +8,9 @@ all:
 	$(MAKE) -C daemon
 	$(MAKE) -C recording-daemon
 	$(MAKE) -C iptables-extension
+
+with-kernel:
+	$(MAKE)
 	$(MAKE) -C kernel-module
 
 clean:
