@@ -34,7 +34,8 @@
 #endif
 
 
-typedef int (*rewrite_func)(str *, struct packet_stream *);
+typedef int (*rewrite_func)(str *, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *);
 
 
 struct streamhandler_io {
@@ -54,13 +55,21 @@ static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *);
 
-static int call_avp2savp_rtp(str *s, struct packet_stream *);
-static int call_savp2avp_rtp(str *s, struct packet_stream *);
-static int call_avp2savp_rtcp(str *s, struct packet_stream *);
-static int call_savp2avp_rtcp(str *s, struct packet_stream *);
-static int call_avpf2avp_rtcp(str *s, struct packet_stream *);
+static int call_noop_rtcp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *);
+static int call_avp2savp_rtp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *);
+static int call_savp2avp_rtp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *);
+static int call_avp2savp_rtcp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *);
+static int call_savp2avp_rtcp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *);
+static int call_avpf2avp_rtcp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *);
 //static int call_avpf2savp_rtcp(str *s, struct packet_stream *);
-static int call_savpf2avp_rtcp(str *s, struct packet_stream *);
+static int call_savpf2avp_rtcp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *);
 //static int call_savpf2savp_rtcp(str *s, struct packet_stream *);
 
 
@@ -69,6 +78,10 @@ static int call_savpf2avp_rtcp(str *s, struct packet_stream *);
 
 static const struct streamhandler_io __shio_noop = {
 	.kernel		= __k_null,
+};
+static const struct streamhandler_io __shio_noop_rtp = {
+	.kernel		= __k_null,
+	.rtcp		= call_noop_rtcp,
 };
 static const struct streamhandler_io __shio_decrypt = {
 	.kernel		= __k_srtp_decrypt,
@@ -96,12 +109,16 @@ static const struct streamhandler __sh_noop = {
 	.in		= &__shio_noop,
 	.out		= &__shio_noop,
 };
+static const struct streamhandler __sh_noop_rtp = {
+	.in		= &__shio_noop_rtp,
+	.out		= &__shio_noop,
+};
 static const struct streamhandler __sh_savp2avp = {
 	.in		= &__shio_decrypt,
 	.out		= &__shio_noop,
 };
 static const struct streamhandler __sh_avp2savp = {
-	.in		= &__shio_noop,
+	.in		= &__shio_noop_rtp,
 	.out		= &__shio_encrypt,
 };
 static const struct streamhandler __sh_avpf2avp = {
@@ -128,8 +145,8 @@ static const struct streamhandler __sh_savpf2savp = {
 /* ********** */
 
 static const struct streamhandler * const __sh_matrix_in_rtp_avp[__PROTO_LAST] = {
-	[PROTO_RTP_AVP]			= &__sh_noop,
-	[PROTO_RTP_AVPF]		= &__sh_noop,
+	[PROTO_RTP_AVP]			= &__sh_noop_rtp,
+	[PROTO_RTP_AVPF]		= &__sh_noop_rtp,
 	[PROTO_RTP_SAVP]		= &__sh_avp2savp,
 	[PROTO_RTP_SAVPF]		= &__sh_avp2savp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avp2savp,
@@ -138,7 +155,7 @@ static const struct streamhandler * const __sh_matrix_in_rtp_avp[__PROTO_LAST] =
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_avpf[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_avpf2avp,
-	[PROTO_RTP_AVPF]		= &__sh_noop,
+	[PROTO_RTP_AVPF]		= &__sh_noop_rtp,
 	[PROTO_RTP_SAVP]		= &__sh_avpf2savp,
 	[PROTO_RTP_SAVPF]		= &__sh_avp2savp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avpf2savp,
@@ -148,17 +165,17 @@ static const struct streamhandler * const __sh_matrix_in_rtp_avpf[__PROTO_LAST] 
 static const struct streamhandler * const __sh_matrix_in_rtp_savp[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_savp2avp,
 	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
-	[PROTO_RTP_SAVP]		= &__sh_noop,
-	[PROTO_RTP_SAVPF]		= &__sh_noop,
-	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_noop,
-	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
+	[PROTO_RTP_SAVP]		= &__sh_noop_rtp,
+	[PROTO_RTP_SAVPF]		= &__sh_noop_rtp,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_noop_rtp,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop_rtp,
 	[PROTO_UDPTL]			= &__sh_noop,
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_savpf[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
 	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
 	[PROTO_RTP_SAVP]		= &__sh_savpf2savp,
-	[PROTO_RTP_SAVPF]		= &__sh_noop,
+	[PROTO_RTP_SAVPF]		= &__sh_noop_rtp,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savpf2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
 	[PROTO_UDPTL]			= &__sh_noop,
@@ -787,27 +804,49 @@ static int rtcp_demux(str *s, struct call_media *media) {
 	return rtcp_demux_is_rtcp(s) ? 2 : 1;
 }
 
-static int call_avpf2avp_rtcp(str *s, struct packet_stream *stream) {
-	return rtcp_avpf2avp(s);
+static int call_noop_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
+		const struct timeval *tv)
+{
+	rtcp_parse(s, sfd, src, tv);
+	return 0;
 }
-static int call_avp2savp_rtp(str *s, struct packet_stream *stream) {
+static int call_avpf2avp_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
+		const struct timeval *tv)
+{
+	return rtcp_avpf2avp(s, sfd, src, tv); // also does rtcp_parse
+}
+static int call_avp2savp_rtp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
+		const struct timeval *tv)
+{
 	return rtp_avp2savp(s, &stream->crypto, stream->call->ssrc_hash, SSRC_DIR_OUTPUT);
 }
-static int call_avp2savp_rtcp(str *s, struct packet_stream *stream) {
+static int call_avp2savp_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
+		const struct timeval *tv)
+{
 	return rtcp_avp2savp(s, &stream->crypto);
 }
-static int call_savp2avp_rtp(str *s, struct packet_stream *stream) {
+static int call_savp2avp_rtp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
+		const struct timeval *tv)
+{
 	return rtp_savp2avp(s, &stream->selected_sfd->crypto, stream->call->ssrc_hash, SSRC_DIR_INPUT);
 }
-static int call_savp2avp_rtcp(str *s, struct packet_stream *stream) {
-	return rtcp_savp2avp(s, &stream->selected_sfd->crypto);
+static int call_savp2avp_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
+		const struct timeval *tv)
+{
+	int ret = rtcp_savp2avp(s, &stream->selected_sfd->crypto);
+	if (ret < 0)
+		return ret;
+	rtcp_parse(s, sfd, src, tv);
+	return ret;
 }
-static int call_savpf2avp_rtcp(str *s, struct packet_stream *stream) {
+static int call_savpf2avp_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
+		const struct timeval *tv)
+{
 	int ret;
 	ret = rtcp_savp2avp(s, &stream->selected_sfd->crypto);
 	if (ret < 0)
 		return ret;
-	return rtcp_avpf2avp(s);
+	return rtcp_avpf2avp(s, sfd, src, tv);
 }
 
 
@@ -1237,7 +1276,7 @@ loop_ok:
 	/* return values are: 0 = forward packet, -1 = error/dont forward,
 	 * 1 = forward and push update to redis */
 	if (rwf_in) {
-		handler_ret = rwf_in(s, in_srtp);
+		handler_ret = rwf_in(s, in_srtp, sfd, fsin, tv);
 	}
 
 	// If recording pcap dumper is set, then we record the call.
@@ -1246,10 +1285,8 @@ loop_ok:
 	}
 
 	if (handler_ret >= 0) {
-		if (rtcp)
-			parse_and_log_rtcp_report(sfd, s, fsin, tv);
 		if (rwf_out)
-			handler_ret += rwf_out(s, out_srtp);
+			handler_ret += rwf_out(s, out_srtp, NULL, NULL, NULL);
 	}
 
 	if (handler_ret > 0) {
