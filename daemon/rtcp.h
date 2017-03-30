@@ -88,4 +88,6 @@ int rtcp_savp2avp(str *, struct crypto_context *);
 
 void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *, const endpoint_t *, const struct timeval *);
 
+void rtcp_init();
+
 #endif
