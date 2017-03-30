@@ -576,7 +576,7 @@ static int aes_f8_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, 
 	memset(iv, 0, 4);
 	i = htonl(0x80000000ULL | idx);
 	memcpy(&iv[4], &i, 4);
-	memcpy(&iv[8], &r->header.v_p_x, 8); /* v, p, rc, pt, length, ssrc */
+	memcpy(&iv[8], r, 8); /* v, p, rc, pt, length, ssrc */
 
 	aes_128_f8_encrypt(c, iv, s);
 
