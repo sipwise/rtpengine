@@ -38,6 +38,10 @@ struct homer_sender {
 
 
 
+static struct homer_sender *main_homer_sender;
+
+
+
 
 static int send_hepv3 (GString *s, const str *id, int, const endpoint_t *src, const endpoint_t *dst,
 		const struct timeval *);
@@ -178,11 +182,13 @@ static int __no_socket(struct homer_sender *hs) {
 	return __check_conn(hs, ret);
 }
 
-struct homer_sender *homer_sender_new(const endpoint_t *ep, int protocol, int capture_id) {
+void homer_sender_init(const endpoint_t *ep, int protocol, int capture_id) {
 	struct homer_sender *ret;
 
 	if (is_addr_unspecified(&ep->address))
-		return NULL;
+		return;
+	if (main_homer_sender)
+		return;
 
 	ret = malloc(sizeof(*ret));
 	ZERO(*ret);
@@ -194,14 +200,16 @@ struct homer_sender *homer_sender_new(const endpoint_t *ep, int protocol, int ca
 
 	ret->state = __no_socket;
 
-	return ret;
+	main_homer_sender = ret;
+
+	return;
 }
 
 // takes over the GString
-int homer_send(struct homer_sender *hs, GString *s, const str *id, const endpoint_t *src,
+int homer_send(GString *s, const str *id, const endpoint_t *src,
 		const endpoint_t *dst, const struct timeval *tv)
 {
-	if (!hs)
+	if (!main_homer_sender)
 		goto out;
 	if (!s)
 		goto out;
@@ -210,18 +218,18 @@ int homer_send(struct homer_sender *hs, GString *s, const str *id, const endpoin
 
 	ilog(LOG_DEBUG, "JSON to send to Homer: '"STR_FORMAT"'", G_STR_FMT(s));
 
-	if (send_hepv3(s, id, hs->capture_id, src, dst, tv))
+	if (send_hepv3(s, id, main_homer_sender->capture_id, src, dst, tv))
 		goto out;
 
-	mutex_lock(&hs->lock);
-	if (hs->send_queue.length < SEND_QUEUE_LIMIT) {
-		g_queue_push_tail(&hs->send_queue, s);
+	mutex_lock(&main_homer_sender->lock);
+	if (main_homer_sender->send_queue.length < SEND_QUEUE_LIMIT) {
+		g_queue_push_tail(&main_homer_sender->send_queue, s);
 		s = NULL;
 	}
 	else
 		ilog(LOG_ERR, "Send queue length limit (%i) reached, dropping Homer message", SEND_QUEUE_LIMIT);
-	hs->state(hs);
-	mutex_unlock(&hs->lock);
+	main_homer_sender->state(main_homer_sender);
+	mutex_unlock(&main_homer_sender->lock);
 
 out:
 	if (s)
@@ -556,4 +564,8 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
     free(hg);
 
     return 0;
+}
+
+int has_homer() {
+	return main_homer_sender ? 1 : 0;
 }
