@@ -1,12 +1,23 @@
 #ifndef _RTCPLIB_H_
 #define _RTCPLIB_H_
 
+#include <glib.h>
 #include "str.h"
 #include "compat.h"
 
 
 struct rtcp_header {
-	unsigned char v_p_x;
+#if G_BYTE_ORDER == G_BIG_ENDIAN
+	unsigned	    version:2;	/**< packet type            */
+	unsigned	    p:1;	/**< padding flag           */
+	unsigned	    count:5;	/**< varies by payload type */
+#elif G_BYTE_ORDER == G_LITTLE_ENDIAN
+	unsigned	    count:5;	/**< varies by payload type */
+	unsigned	    p:1;	/**< padding flag           */
+	unsigned	    version:2;	/**< packet type            */
+#else
+#error "byte order unknown"
+#endif
 	unsigned char pt;
 	u_int16_t length;
 } __attribute__ ((packed));
