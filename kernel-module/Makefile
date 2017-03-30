@@ -34,7 +34,7 @@ modules:
 		make -C $(KBUILD) M=$(PWD) O=$(KBUILD) modules
 
 clean:
-		make -C $(KBUILD) M=$(PWD) clean
+		make -C $(KBUILD) M=$(PWD) clean || true
 
 patch:
 		../utils/patch-kernel magic "$(PWD)" "$(KERNEL)" "$(RTPENGINE_VERSION)"
