@@ -37,9 +37,11 @@ resample:
 		if (!resample->avresample)
 			goto err;
 
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 0, 0)
 		if (!frame->channel_layout)
 			frame->channel_layout = av_get_default_channel_layout(
 				av_frame_get_channels(frame));
+#endif
 
 		err = "failed to set resample option";
 		if ((errcode = av_opt_set_int(resample->avresample, "in_channel_layout",
