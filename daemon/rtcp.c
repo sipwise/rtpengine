@@ -96,7 +96,6 @@ struct sdes_chunk {
 struct source_description_packet {
 	struct rtcp_header header;
 	struct sdes_chunk chunks[0];
-
 } __attribute__ ((packed));
 
 struct bye_packet {
@@ -142,14 +141,14 @@ struct rtcp_process_ctx {
 struct rtcp_handler {
 	void (*init)(struct rtcp_process_ctx *);
 	void (*start)(struct rtcp_process_ctx *, struct call *);
-	void (*common)(struct rtcp_process_ctx *, const pjmedia_rtcp_common *);
-	void (*sr)(struct rtcp_process_ctx *, const pjmedia_rtcp_sr *);
-	void (*rr_list_start)(struct rtcp_process_ctx *, const pjmedia_rtcp_common *);
-	void (*rr)(struct rtcp_process_ctx *, const pjmedia_rtcp_rr *);
+	void (*common)(struct rtcp_process_ctx *, const struct rtcp_packet *);
+	void (*sr)(struct rtcp_process_ctx *, const struct sender_report_packet *);
+	void (*rr_list_start)(struct rtcp_process_ctx *, const struct rtcp_packet *);
+	void (*rr)(struct rtcp_process_ctx *, const struct report_block *);
 	void (*rr_list_end)(struct rtcp_process_ctx *);
-	void (*xr)(struct rtcp_process_ctx *, const pjmedia_rtcp_common *, str *);
-	void (*sdes_list_start)(struct rtcp_process_ctx *, const pjmedia_rtcp_common *);
-	void (*sdes_item)(struct rtcp_process_ctx *, const rtcp_sdes_chunk_t *, const rtcp_sdes_item_t *,
+	void (*xr)(struct rtcp_process_ctx *, const struct rtcp_packet *, str *);
+	void (*sdes_list_start)(struct rtcp_process_ctx *, const struct source_description_packet *);
+	void (*sdes_item)(struct rtcp_process_ctx *, const struct sdes_chunk *, const struct sdes_item *,
 			const char *);
 	void (*sdes_list_end)(struct rtcp_process_ctx *);
 	void (*finish)(struct rtcp_process_ctx *, struct call *, const endpoint_t *, const endpoint_t *,
@@ -168,16 +167,16 @@ struct rtcp_handlers {
 static void dummy_handler();
 
 // scratch area (prepare/parse packet)
-static void scratch_rr(struct rtcp_process_ctx *, const pjmedia_rtcp_rr *);
+static void scratch_rr(struct rtcp_process_ctx *, const struct report_block *);
 
 // homer functions
 static void homer_init(struct rtcp_process_ctx *);
-static void homer_sr(struct rtcp_process_ctx *, const pjmedia_rtcp_sr *);
-static void homer_rr_list_start(struct rtcp_process_ctx *, const pjmedia_rtcp_common *);
-static void homer_rr(struct rtcp_process_ctx *, const pjmedia_rtcp_rr *);
+static void homer_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
+static void homer_rr_list_start(struct rtcp_process_ctx *, const struct rtcp_packet *);
+static void homer_rr(struct rtcp_process_ctx *, const struct report_block *);
 static void homer_rr_list_end(struct rtcp_process_ctx *);
-static void homer_sdes_list_start(struct rtcp_process_ctx *, const pjmedia_rtcp_common *);
-static void homer_sdes_item(struct rtcp_process_ctx *, const rtcp_sdes_chunk_t *, const rtcp_sdes_item_t *,
+static void homer_sdes_list_start(struct rtcp_process_ctx *, const struct source_description_packet *);
+static void homer_sdes_item(struct rtcp_process_ctx *, const struct sdes_chunk *, const struct sdes_item *,
 		const char *);
 static void homer_sdes_list_end(struct rtcp_process_ctx *);
 static void homer_finish(struct rtcp_process_ctx *, struct call *, const endpoint_t *, const endpoint_t *,
@@ -186,10 +185,11 @@ static void homer_finish(struct rtcp_process_ctx *, struct call *, const endpoin
 // syslog functions
 static void logging_init(struct rtcp_process_ctx *);
 static void logging_start(struct rtcp_process_ctx *, struct call *);
-static void logging_common(struct rtcp_process_ctx *, const pjmedia_rtcp_common *);
-static void logging_sr(struct rtcp_process_ctx *, const pjmedia_rtcp_sr *);
-static void logging_rr(struct rtcp_process_ctx *, const pjmedia_rtcp_rr *);
-static void logging_xr(struct rtcp_process_ctx *, const pjmedia_rtcp_common *, str *);
+static void logging_common(struct rtcp_process_ctx *, const struct rtcp_packet *);
+static void logging_sdes_list_start(struct rtcp_process_ctx *, const struct source_description_packet *);
+static void logging_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
+static void logging_rr(struct rtcp_process_ctx *, const struct report_block *);
+static void logging_xr(struct rtcp_process_ctx *, const struct rtcp_packet *, str *);
 static void logging_finish(struct rtcp_process_ctx *, struct call *, const endpoint_t *, const endpoint_t *,
 		const struct timeval *);
 static void logging_destroy(struct rtcp_process_ctx *);
@@ -203,6 +203,7 @@ static struct rtcp_handler log_handlers = {
 	.init = logging_init,
 	.start = logging_start,
 	.common = logging_common,
+	.sdes_list_start = logging_sdes_list_start,
 	.sr = logging_sr,
 	.rr = logging_rr,
 	.xr = logging_xr,
@@ -236,24 +237,22 @@ static struct rtcp_handler *all_handlers[] = {
 
 // macro to call all function handlers in one go
 #define CAH(func, ...) do { \
-		rtcp_handlers.scratch->func(&log_ctx, ##__VA_ARGS__); \
-		rtcp_handlers.logging->func(&log_ctx, ##__VA_ARGS__); \
-		rtcp_handlers.homer->func(&log_ctx, ##__VA_ARGS__); \
+		rtcp_handlers.scratch->func(log_ctx, ##__VA_ARGS__); \
+		rtcp_handlers.logging->func(log_ctx, ##__VA_ARGS__); \
+		rtcp_handlers.homer->func(log_ctx, ##__VA_ARGS__); \
 	} while (0)
 
 
 
 
 
-typedef struct rtcp_chain_element *(*rtcp_handler_func)(str *);
+typedef int (*rtcp_handler_func)(struct rtcp_chain_element *, struct rtcp_process_ctx *);
 
-static struct rtcp_chain_element *rtcp_sr(str *s);
-static struct rtcp_chain_element *rtcp_rr(str *s);
-static struct rtcp_chain_element *rtcp_sdes(str *s);
-static struct rtcp_chain_element *rtcp_bye(str *s);
-static struct rtcp_chain_element *rtcp_app(str *s);
-static struct rtcp_chain_element *rtcp_rtpfb(str *s);
-static struct rtcp_chain_element *rtcp_psfb(str *s);
+static int rtcp_sr(struct rtcp_chain_element *, struct rtcp_process_ctx *);
+static int rtcp_rr(struct rtcp_chain_element *, struct rtcp_process_ctx *);
+static int rtcp_sdes(struct rtcp_chain_element *, struct rtcp_process_ctx *);
+static int rtcp_xr(struct rtcp_chain_element *, struct rtcp_process_ctx *);
+static int rtcp_generic(struct rtcp_chain_element *, struct rtcp_process_ctx *);
 
 
 
@@ -263,10 +262,20 @@ static const rtcp_handler_func handler_funcs[] = {
 	[RTCP_PT_SR]	= rtcp_sr,
 	[RTCP_PT_RR]	= rtcp_rr,
 	[RTCP_PT_SDES]	= rtcp_sdes,
-	[RTCP_PT_BYE]	= rtcp_bye,
-	[RTCP_PT_APP]	= rtcp_app,
-	[RTCP_PT_RTPFB]	= rtcp_rtpfb,
-	[RTCP_PT_PSFB]	= rtcp_psfb,
+	[RTCP_PT_BYE]	= rtcp_generic,
+	[RTCP_PT_APP]	= rtcp_generic,
+	[RTCP_PT_RTPFB]	= rtcp_generic,
+	[RTCP_PT_PSFB]	= rtcp_generic,
+	[RTCP_PT_XR]	= rtcp_xr,
+};
+static const int min_packet_sizes[] = {
+	[RTCP_PT_SR]	= sizeof(struct sender_report_packet),
+	[RTCP_PT_RR]	= sizeof(struct receiver_report_packet),
+	[RTCP_PT_SDES]	= sizeof(struct source_description_packet),
+	[RTCP_PT_BYE]	= sizeof(struct bye_packet),
+	[RTCP_PT_APP]	= sizeof(struct app_packet),
+	[RTCP_PT_RTPFB]	= sizeof(struct fb_packet),
+	[RTCP_PT_PSFB]	= sizeof(struct fb_packet),
 };
 
 
@@ -274,7 +283,7 @@ static const rtcp_handler_func handler_funcs[] = {
 
 
 
-static void *rtcp_length_check(str *s, size_t min_len, unsigned int *len_p) {
+static struct rtcp_header *rtcp_length_check(str *s, size_t min_len, unsigned int *len_p) {
 	struct rtcp_header *h;
 
 	if (s->len < min_len)
@@ -289,75 +298,106 @@ static void *rtcp_length_check(str *s, size_t min_len, unsigned int *len_p) {
 	return h;
 }
 
-static struct rtcp_chain_element *rtcp_new_element(void *p, unsigned int len, int type) {
+static struct rtcp_chain_element *rtcp_new_element(struct rtcp_header *p, unsigned int len) {
 	struct rtcp_chain_element *el;
 
 	el = g_slice_alloc(sizeof(*el));
-	el->type = type;
+	el->type = p->pt;
 	el->len = len;
 	el->u.buf = p;
 
 	return el;
 }
 
-static struct rtcp_chain_element *rtcp_generic(str *s, int type) {
-	struct rtcp_header *p;
-	unsigned int len;
-
-	if (!(p = rtcp_length_check(s, sizeof(*p), &len)))
-		return NULL;
-
-	return rtcp_new_element(p, len, type);
+static int rtcp_generic(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
+	return 0;
 }
 
-static struct rtcp_chain_element *rtcp_Xr(str *s, int type, size_t struct_len) {
-	struct rtcp_packet *p;
-	unsigned int len;
-
-	if (!(p = rtcp_length_check(s, struct_len, &len)))
-		return NULL;
-
-	if (len < (p->header.v_p_x & 0x1f) * sizeof(struct report_block))
-		return NULL;
-
-	return rtcp_new_element(p, len, type);
+static int rtcp_Xr(struct rtcp_chain_element *el) {
+	if (el->len < el->u.rtcp_packet->header.count * sizeof(struct report_block))
+		return -1;
+	return 0;
 }
 
-static struct rtcp_chain_element *rtcp_sr(str *s) {
-	return rtcp_Xr(s, RTCP_PT_SR, sizeof(struct sender_report_packet));
+static void rtcp_rr_list(const struct rtcp_packet *common, struct report_block *blocks,
+		struct rtcp_process_ctx *log_ctx)
+{
+	CAH(rr_list_start, common);
+	for (unsigned int i = 0; i < common->header.count; i++) {
+		struct report_block *block = &blocks[i];
+		CAH(rr, block);
+	}
+	CAH(rr_list_end);
 }
 
-static struct rtcp_chain_element *rtcp_rr(str *s) {
-	return rtcp_Xr(s, RTCP_PT_RR, sizeof(struct receiver_report_packet));
+
+static int rtcp_sr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
+	if (rtcp_Xr(el))
+		return -1;
+	CAH(common, &el->u.sr->rtcp);
+	CAH(sr, el->u.sr);
+	rtcp_rr_list(&el->u.sr->rtcp, el->u.sr->reports, log_ctx);
+	return 0;
 }
 
-static struct rtcp_chain_element *rtcp_sdes(str *s) {
-	struct source_description_packet *p;
-	unsigned int len;
-
-	if (!(p = rtcp_length_check(s, sizeof(*p), &len)))
-		return NULL;
-
-	/* sdes items ... */
-
-	return rtcp_new_element(p, len, RTCP_PT_SDES);
+static int rtcp_rr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
+	if (rtcp_Xr(el))
+		return -1;
+	CAH(common, &el->u.rr->rtcp);
+	rtcp_rr_list(&el->u.rr->rtcp, el->u.rr->reports, log_ctx);
+	return 0;
 }
 
-static struct rtcp_chain_element *rtcp_bye(str *s) {
-	return rtcp_generic(s, RTCP_PT_BYE);
+static int rtcp_sdes(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
+	str comp_s;
+
+	CAH(sdes_list_start, el->u.sdes);
+
+	str_init_len(&comp_s, (void *) el->u.sdes->chunks, el->len - sizeof(el->u.sdes->header));
+	int i = 0;
+	while (1) {
+		struct sdes_chunk *sdes_chunk = (struct sdes_chunk *) comp_s.s;
+		if (str_shift(&comp_s, sizeof(*sdes_chunk)))
+			break;
+		while (comp_s.len) {
+			struct sdes_item *sdes_item = (struct sdes_item *) comp_s.s;
+			// check for zero type first
+			if (str_shift(&comp_s, 1))
+				break;
+			if (!sdes_item->type)
+				break;
+			if (str_shift(&comp_s, sizeof(*sdes_item) - 1))
+				break;
+			if (comp_s.len < sdes_item->length)
+				break;
+			CAH(sdes_item, sdes_chunk, sdes_item, comp_s.s);
+			str_shift(&comp_s, sdes_item->length);
+		}
+
+		// remove padding to next chunk
+		while (comp_s.len % 4 != 0)
+			str_shift(&comp_s, 1);
+
+		// more chunks? set chunk header
+		i++;
+		if (i >= el->u.sdes->header.count)
+			break;
+	}
+
+	CAH(sdes_list_end);
+
+	return 0;
 }
 
-static struct rtcp_chain_element *rtcp_app(str *s) {
-	return rtcp_generic(s, RTCP_PT_APP);
+static int rtcp_xr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
+	CAH(common, el->u.rtcp_packet);
+	str comp_s;
+	str_init_len(&comp_s, el->u.buf + sizeof(*el->u.rtcp_packet), el->len - sizeof(*el->u.rtcp_packet));
+	CAH(xr, el->u.rtcp_packet, &comp_s);
+	return 0;
 }
 
-static struct rtcp_chain_element *rtcp_rtpfb(str *s) {
-	return rtcp_generic(s, RTCP_PT_RTPFB);
-}
 
-static struct rtcp_chain_element *rtcp_psfb(str *s) {
-	return rtcp_generic(s, RTCP_PT_PSFB);
-}
 
 static void rtcp_ce_free(void *p) {
 	g_slice_free1(sizeof(struct rtcp_chain_element), p);
@@ -366,53 +406,99 @@ static void rtcp_list_free(GQueue *q) {
 	g_queue_clear_full(q, rtcp_ce_free);
 }
 
-// XXX do this only once for each RTCP packet and use the resulting list for everything
-static int rtcp_parse(GQueue *q, str *_s) {
-	struct rtcp_packet *hdr;
+
+
+static int __rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const endpoint_t *src,
+		const struct timeval *tv)
+{
+	struct rtcp_header *hdr;
 	struct rtcp_chain_element *el;
 	rtcp_handler_func func;
 	str s = *_s;
+	struct call *c = sfd->call;
+	struct rtcp_process_ctx log_ctx_s,
+				*log_ctx;
+	unsigned int len;
+	int ret;
+	int min_packet_size;
+
+	ZERO(log_ctx_s);
+	log_ctx = &log_ctx_s;
+	CAH(init);
+	CAH(start, c);
 
 	while (1) {
-		if (s.len < sizeof(*hdr))
+		if (!(hdr = rtcp_length_check(&s, sizeof(*hdr), &len)))
 			break;
 
-		hdr = (void *) s.s;
-
-		if ((hdr->header.v_p_x & 0xc0) != 0x80) /* version 2 */
+		if (hdr->version != 2) {
+			ilog(LOG_WARN, "Unknown RTCP version %u", hdr->version);
 			goto error;
+		}
 
-		if (hdr->header.pt >= G_N_ELEMENTS(handler_funcs))
+		min_packet_size = 0;
+		if (hdr->pt < G_N_ELEMENTS(min_packet_sizes))
+			min_packet_size = min_packet_sizes[hdr->pt];
+		if (len < min_packet_size) {
+			ilog(LOG_WARN, "Invalid RTCP packet type %u (short: %u < %i)",
+					hdr->pt, len, min_packet_size);
 			goto error;
-		func = handler_funcs[hdr->header.pt];
-		if (!func)
-			goto error;
+		}
 
-		el = func(&s);
-		if (!el)
-			goto error;
+		el = rtcp_new_element(hdr, len);
 
+		if (hdr->pt >= G_N_ELEMENTS(handler_funcs)) {
+			ilog(LOG_INFO, "Ignoring unknown RTCP packet type %u", hdr->pt);
+			goto next;
+		}
+		func = handler_funcs[hdr->pt];
+		if (!func) {
+			ilog(LOG_INFO, "Ignoring unknown RTCP packet type %u", hdr->pt);
+			goto next;
+		}
+
+		ilog(LOG_DEBUG, "Calling handler for RTCP packet type %u", hdr->pt);
+		ret = func(el, log_ctx);
+		if (ret) {
+			ilog(LOG_WARN, "Failed to handle or parse RTCP packet type %u", hdr->pt);
+			rtcp_ce_free(el);
+			goto error;
+		}
+
+next:
 		g_queue_push_tail(q, el);
 
 		if (str_shift(&s, el->len))
 			abort();
 	}
 
+	CAH(finish, c, src, &sfd->socket.local, tv);
+	CAH(destroy);
+
 	return 0;
 
 error:
+	CAH(finish, c, src, &sfd->socket.local, tv);
+	CAH(destroy);
 	rtcp_list_free(q);
 	return -1;
 }
 
-int rtcp_avpf2avp(str *s) {
+void rtcp_parse(const str *s, struct stream_fd *sfd, const endpoint_t *src, const struct timeval *tv) {
+	GQueue rtcp_list = G_QUEUE_INIT;
+	if (__rtcp_parse(&rtcp_list, s, sfd, src, tv))
+		return;
+	rtcp_list_free(&rtcp_list);
+}
+
+int rtcp_avpf2avp(str *s, struct stream_fd *sfd, const endpoint_t *src, const struct timeval *tv) {
 	GQueue rtcp_list = G_QUEUE_INIT;
 	GList *l;
 	struct rtcp_chain_element *el;
 	void *start;
 	unsigned int removed, left;
 
-	if (rtcp_parse(&rtcp_list, s))
+	if (__rtcp_parse(&rtcp_list, s, sfd, src, tv))
 		return 0;
 
 	left = s->len;
@@ -486,7 +572,7 @@ static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 	rtcp = (void *) s->s;
 
 	err = "invalid header version";
-	if ((rtcp->header.v_p_x & 0xc0) != 0x80) /* version 2 */
+	if (rtcp->header.version != 2) /* version 2 */
 		goto error;
 	err = "invalid packet type";
 	if (rtcp->header.pt != RTCP_PT_SR
@@ -584,152 +670,40 @@ static void str_sanitize(GString *s) {
 		g_string_truncate(s, s->len - 1);
 }
 
-void parse_and_log_rtcp_report(struct stream_fd *sfd, const str *ori_s, const endpoint_t *src,
-		const struct timeval *tv)
-{
-
-	str iter_s, comp_s;
-	pjmedia_rtcp_common *common;
-	const pjmedia_rtcp_rr *rr;
-	const pjmedia_rtcp_sr *sr;
-	const rtcp_sdes_chunk_t *sdes_chunk;
-	const rtcp_sdes_item_t *sdes_item;
-	struct call *c = sfd->call;
-	int i;
-	struct rtcp_process_ctx log_ctx;
-
-	ZERO(log_ctx);
-	CAH(init);
-	CAH(start, c);
-
-	iter_s = *ori_s;
-
-	while (iter_s.len) {
-		// procedure throughout here: first assign, then str_shift with check for
-		// return value (does the length sanity check), then access values.
-		// we use iter_s to iterate compound packets and comp_s to access component
-		// data.
-
-		common = (pjmedia_rtcp_common*) iter_s.s;
-		comp_s = iter_s;
-
-		if (str_shift(&comp_s, sizeof(*common))) // puts comp_s just past the common header
-			break;
-		if (str_shift(&iter_s, (ntohs(common->length) + 1) << 2)) // puts iter_s on the next compound packet
-			break;
-
-		CAH(common, common);
-
-		/* Parse RTCP */
-		switch (common->pt) {
-			case RTCP_PT_SR:
-				sr = (pjmedia_rtcp_sr*) ((comp_s.s));
-				if (str_shift(&comp_s, sizeof(*sr)))
-					break;
-
-				CAH(sr, sr);
-				// fall through to RTCP_PT_RR
-
-			case RTCP_PT_RR:
-				CAH(rr_list_start, common);
-
-				for (i = 0; i < common->count; i++) {
-					rr = (pjmedia_rtcp_rr*)((comp_s.s));
-					if (str_shift(&comp_s, sizeof(*rr)))
-						break;
-					CAH(rr, rr);
-				}
-
-				CAH(rr_list_end);
-				break;
-
-			case RTCP_PT_XR:
-				CAH(xr, common, &comp_s);
-				break;
-
-			case RTCP_PT_SDES:
-				CAH(sdes_list_start, common);
-
-				// the "common" header actually includes the SDES
-				// SSRC/CSRC chunk header, so we set our chunk header
-				// to its SDES field
-				sdes_chunk = (rtcp_sdes_chunk_t *) &common->ssrc;
-				// comp_s then points into the first SDES item
-
-				i = 0;
-				while (1) {
-					while (comp_s.len) {
-						sdes_item = (rtcp_sdes_item_t *) comp_s.s;
-						// check for zero type first
-						if (str_shift(&comp_s, 1))
-							break;
-						if (!sdes_item->type)
-							break;
-						if (str_shift(&comp_s, sizeof(*sdes_item) - 1))
-							break;
-						if (comp_s.len < sdes_item->len)
-							break;
-						CAH(sdes_item, sdes_chunk, sdes_item, comp_s.s);
-						str_shift(&comp_s, sdes_item->len);
-					}
-
-					// remove padding to next chunk
-					while (comp_s.len % 4 != 0)
-						str_shift(&comp_s, 1);
-
-					// more chunks? set chunk header
-					i++;
-					if (i >= common->count)
-						break;
-					sdes_chunk = (rtcp_sdes_chunk_t *) comp_s.s;
-					if (str_shift(&comp_s, sizeof(*sdes_chunk)))
-						break;
-
-				}
-
-				CAH(sdes_list_end);
-
-				break;
-		}
-	}
-
-	CAH(finish, c, src, &sfd->socket.local, tv);
-	CAH(destroy);
-}
 
 static void dummy_handler() {
 	return;
 }
 
-static void scratch_rr(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_rr *rr) {
-	ctx->scratch = (rr->total_lost_2 << 16) + (rr->total_lost_1 << 8) + rr->total_lost_0;
+static void scratch_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
+	ctx->scratch = (rr->number_lost[0] << 16) | (rr->number_lost[1] << 8) | rr->number_lost[2];
 }
 
 static void homer_init(struct rtcp_process_ctx *ctx) {
 	ctx->json = g_string_new("{ ");
 }
-static void homer_sr(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_sr* sr) {
+static void homer_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
 	g_string_append_printf(ctx->json, "\"sender_information\":{\"ntp_timestamp_sec\":%u,"
 	"\"ntp_timestamp_usec\":%u,\"octets\":%u,\"rtp_timestamp\":%u, \"packets\":%u},",
-		ntohl(sr->ntp_sec),
-		ntohl(sr->ntp_frac),
-		ntohl(sr->sender_bcount),
-		ntohl(sr->rtp_ts),
-		ntohl(sr->sender_pcount));
+		ntohl(sr->ntp_msw),
+		ntohl(sr->ntp_lsw),
+		ntohl(sr->octet_count),
+		ntohl(sr->timestamp),
+		ntohl(sr->packet_count));
 }
-static void homer_rr_list_start(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_common *common) {
+static void homer_rr_list_start(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
 	g_string_append_printf(ctx->json, "\"ssrc\":%u,\"type\":%u,\"report_count\":%u,\"report_blocks\":[",
 		ntohl(common->ssrc),
-		common->pt,
-		common->count);
+		common->header.pt,
+		common->header.count);
 }
-static void homer_rr(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_rr *rr) {
+static void homer_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
 	g_string_append_printf(ctx->json, "{\"source_ssrc\":%u,"
 	    "\"highest_seq_no\":%u,\"fraction_lost\":%u,\"ia_jitter\":%u,"
 	    "\"packets_lost\":%u,\"lsr\":%u,\"dlsr\":%u},",
 		ntohl(rr->ssrc),
-		ntohl(rr->last_seq),
-		rr->fract_lost,
+		ntohl(rr->high_seq_received),
+		rr->fraction_lost,
 		ntohl(rr->jitter),
 		ctx->scratch,
 		ntohl(rr->lsr),
@@ -739,21 +713,20 @@ static void homer_rr_list_end(struct rtcp_process_ctx *ctx) {
 	str_sanitize(ctx->json);
 	g_string_append_printf(ctx->json, "],");
 }
-static void homer_sdes_list_start(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_common *common) {
-	g_string_append_printf(ctx->json, "\"sdes_ssrc\":%u,\"sdes_report_count\":%u,\"sdes_information\": [ ",
-		ntohl(common->ssrc),
-		common->count);
+static void homer_sdes_list_start(struct rtcp_process_ctx *ctx, const struct source_description_packet *sdes) {
+	g_string_append_printf(ctx->json, "\"sdes_report_count\":%u,\"sdes_information\": [ ",
+		sdes->header.count);
 }
-static void homer_sdes_item(struct rtcp_process_ctx *ctx, const rtcp_sdes_chunk_t *chunk,
-		const rtcp_sdes_item_t *item, const char *data)
+static void homer_sdes_item(struct rtcp_process_ctx *ctx, const struct sdes_chunk *chunk,
+		const struct sdes_item *item, const char *data)
 {
 	int i;
 
 	g_string_append_printf(ctx->json, "{\"sdes_chunk_ssrc\":%u,\"type\":%u,\"text\":\"",
-		htonl(chunk->csrc),
+		htonl(chunk->ssrc),
 		item->type);
 
-	for (i = 0; i < item->len; i++) {
+	for (i = 0; i < item->length; i++) {
 		switch (data[i]) {
 			case '"':
 				g_string_append(ctx->json, "\\\"");
@@ -803,34 +776,42 @@ static void logging_init(struct rtcp_process_ctx *ctx) {
 static void logging_start(struct rtcp_process_ctx *ctx, struct call *c) {
 	g_string_append_printf(ctx->log, "["STR_FORMAT"] ", STR_FMT(&c->callid));
 }
-static void logging_common(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_common *common) {
+static void logging_common(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
 	g_string_append_printf(ctx->log,"version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ssrc=%u, ",
-		common->version,
-		common->p,
-		common->count,
-		common->pt,
-		ntohl(common->length),
+		common->header.version,
+		common->header.p,
+		common->header.count,
+		common->header.pt,
+		ntohs(common->header.length),
 		ntohl(common->ssrc));
 }
-static void logging_sr(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_sr* sr) {
-	g_string_append_printf(ctx->log,"ntp_sec=%u, ntp_fractions=%u, rtp_ts=%u, sender_packets=%u, sender_bytes=%u, ",
-		ntohl(sr->ntp_sec),
-		ntohl(sr->ntp_frac),
-		ntohl(sr->rtp_ts),
-		ntohl(sr->sender_pcount),
-		ntohl(sr->sender_bcount));
+static void logging_sdes_list_start(struct rtcp_process_ctx *ctx, const struct source_description_packet *sdes) {
+	g_string_append_printf(ctx->log,"version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ",
+		sdes->header.version,
+		sdes->header.p,
+		sdes->header.count,
+		sdes->header.pt,
+		ntohs(sdes->header.length));
 }
-static void logging_rr(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_rr *rr) {
+static void logging_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
+	g_string_append_printf(ctx->log,"ntp_sec=%u, ntp_fractions=%u, rtp_ts=%u, sender_packets=%u, sender_bytes=%u, ",
+		ntohl(sr->ntp_msw),
+		ntohl(sr->ntp_lsw),
+		ntohl(sr->timestamp),
+		ntohl(sr->packet_count),
+		ntohl(sr->octet_count));
+}
+static void logging_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
 	    g_string_append_printf(ctx->log,"ssrc=%u, fraction_lost=%u, packet_loss=%u, last_seq=%u, jitter=%u, last_sr=%u, delay_since_last_sr=%u, ",
 			ntohl(rr->ssrc),
-			rr->fract_lost,
+			rr->fraction_lost,
 			ctx->scratch,
-			ntohl(rr->last_seq),
+			ntohl(rr->high_seq_received),
 			ntohl(rr->jitter),
 			ntohl(rr->lsr),
 			ntohl(rr->dlsr));
 }
-static void logging_xr(struct rtcp_process_ctx *ctx, const pjmedia_rtcp_common *common, str *comp_s) {
+static void logging_xr(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common, str *comp_s) {
 	pjmedia_rtcp_xr_rx_rtcp_xr(ctx->log, common, comp_s);
 }
 static void logging_finish(struct rtcp_process_ctx *ctx, struct call *c, const endpoint_t *src,
