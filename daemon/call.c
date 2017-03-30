@@ -882,6 +882,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 
 	if (PS_ISSET(ps, FILLED)) {
 		/* we reset crypto params whenever the endpoint changes */
+		// XXX fix WRT SSRC handling
 		crypto_reset(&ps->crypto);
 		dtls_shutdown(ps);
 	}

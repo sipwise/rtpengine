@@ -32,6 +32,7 @@
 #include "homer.h"
 #include "recording.h"
 #include "auxlib.h"
+#include "rtcp.h"
 
 
 
@@ -594,7 +595,9 @@ no_kernel:
 	daemonize();
 	wpidfile();
 
-	ctx->m->homer = homer_sender_new(&homer_ep, homer_protocol, homer_id);
+	homer_sender_init(&homer_ep, homer_protocol, homer_id);
+
+	rtcp_init(); // must come after Homer init
 
 	if (mc.redis) {
 		// start redis restore timer
