@@ -191,7 +191,7 @@ typedef struct pjmedia_rtcp_xr_rb_voip_mtc
  * @param rtcp_pkt  The received RTCP XR packet.
  * @param size	    Size of the incoming packet.
  */
-void pjmedia_rtcp_xr_rx_rtcp_xr(GString *, const pjmedia_rtcp_common *common, str *s);
+void pjmedia_rtcp_xr_rx_rtcp_xr(GString *, const struct rtcp_packet *common, str *s);
 
 
 #pragma pack()
