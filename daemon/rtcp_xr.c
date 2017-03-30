@@ -95,7 +95,7 @@ void print_rtcp_xr_rb_voip_mtc(GString *log, const pjmedia_rtcp_xr_rb_voip_mtc *
 			ntohs(rb_voip_mtc->jb_abs_max));
 }
 
-void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, pjmedia_rtcp_common *common, str *s) {
+void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, const pjmedia_rtcp_common *common, str *s) {
 
 	const pjmedia_rtcp_xr_rb_rr_time  *rb_rr_time;
 	const pjmedia_rtcp_xr_rb_dlrr     *rb_dlrr;

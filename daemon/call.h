@@ -203,7 +203,6 @@ struct sdp_ng_flags;
 struct local_interface;
 struct call_monologue;
 struct ice_agent;
-struct homer_sender;
 struct ssrc_hash;
 
 
@@ -436,8 +435,6 @@ struct callmaster {
 
 	struct callmaster_config conf;
 	struct timeval          latest_graphite_interval_start;
-
-	struct homer_sender	*homer;
 };
 
 struct callmaster *callmaster_new(struct poller *);
