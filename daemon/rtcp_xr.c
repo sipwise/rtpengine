@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <glib.h>
+#include "rtcplib.h"
 
 /* RTCP XR payload type */
 #define RTCP_XR		    207
@@ -95,7 +96,7 @@ void print_rtcp_xr_rb_voip_mtc(GString *log, const pjmedia_rtcp_xr_rb_voip_mtc *
 			ntohs(rb_voip_mtc->jb_abs_max));
 }
 
-void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, const pjmedia_rtcp_common *common, str *s) {
+void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, const struct rtcp_packet *common, str *s) {
 
 	const pjmedia_rtcp_xr_rb_rr_time  *rb_rr_time;
 	const pjmedia_rtcp_xr_rb_dlrr     *rb_dlrr;
@@ -109,7 +110,7 @@ void pjmedia_rtcp_xr_rx_rtcp_xr(GString *log, const pjmedia_rtcp_common *common,
 
 	// packet length is guaranteed to be valid from upstream
 
-	pkt_len = (ntohs(common->length) + 1) << 2;
+	pkt_len = (ntohs(common->header.length) + 1) << 2;
 
 	/* Parse report rpt_types */
 	while (pkt_len >= sizeof(*rb_hdr))
