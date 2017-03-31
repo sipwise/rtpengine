@@ -15,6 +15,7 @@
 #include "homer.h"
 #include "media_socket.h"
 #include "rtcplib.h"
+#include "ssrc.h"
 
 
 
@@ -133,7 +134,16 @@ struct rtcp_chain_element {
 // struct defs
 // context to hold state variables
 struct rtcp_process_ctx {
-	u_int32_t scratch;
+	// input
+	struct call *call;
+
+	// handler vars
+	union {
+		struct {
+			u_int32_t packets_lost;
+		} rr;
+		struct ssrc_sender_report sr;
+	} scratch;
 	GString *log;
 	GString *json;
 };
@@ -167,6 +177,7 @@ struct rtcp_handlers {
 static void dummy_handler();
 
 // scratch area (prepare/parse packet)
+static void scratch_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
 static void scratch_rr(struct rtcp_process_ctx *, const struct report_block *);
 
 // homer functions
@@ -198,6 +209,7 @@ static void logging_destroy(struct rtcp_process_ctx *);
 static struct rtcp_handler dummy_handlers;
 static struct rtcp_handler scratch_handlers = {
 	.rr = scratch_rr,
+	.sr = scratch_sr,
 };
 static struct rtcp_handler log_handlers = {
 	.init = logging_init,
@@ -423,7 +435,10 @@ static int __rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const e
 	int min_packet_size;
 
 	ZERO(log_ctx_s);
+	log_ctx_s.call = c;
+
 	log_ctx = &log_ctx_s;
+
 	CAH(init);
 	CAH(start, c);
 
@@ -675,9 +690,24 @@ static void dummy_handler() {
 	return;
 }
 
+
+
 static void scratch_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
-	ctx->scratch = (rr->number_lost[0] << 16) | (rr->number_lost[1] << 8) | rr->number_lost[2];
+	ctx->scratch.rr.packets_lost = (rr->number_lost[0] << 16) | (rr->number_lost[1] << 8) | rr->number_lost[2];
 }
+static void scratch_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
+	ctx->scratch.sr = (struct ssrc_sender_report) {
+		.ntp_msw = ntohl(sr->ntp_msw),
+		.ntp_lsw = ntohl(sr->ntp_lsw),
+		.octet_count = ntohl(sr->octet_count),
+		.timestamp = ntohl(sr->timestamp),
+		.packet_count = ntohl(sr->packet_count),
+	};
+	ctx->scratch.sr.ntp_ts = ntp_ts_to_double(ctx->scratch.sr.ntp_msw, ctx->scratch.sr.ntp_lsw);
+	ilog(LOG_DEBUG, "converted %u/%u to %f", ctx->scratch.sr.ntp_msw, ctx->scratch.sr.ntp_lsw, ctx->scratch.sr.ntp_ts);
+}
+
+
 
 static void homer_init(struct rtcp_process_ctx *ctx) {
 	ctx->json = g_string_new("{ ");
@@ -685,11 +715,11 @@ static void homer_init(struct rtcp_process_ctx *ctx) {
 static void homer_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
 	g_string_append_printf(ctx->json, "\"sender_information\":{\"ntp_timestamp_sec\":%u,"
 	"\"ntp_timestamp_usec\":%u,\"octets\":%u,\"rtp_timestamp\":%u, \"packets\":%u},",
-		ntohl(sr->ntp_msw),
-		ntohl(sr->ntp_lsw),
-		ntohl(sr->octet_count),
-		ntohl(sr->timestamp),
-		ntohl(sr->packet_count));
+		ctx->scratch.sr.ntp_msw,
+		ctx->scratch.sr.ntp_lsw,
+		ctx->scratch.sr.octet_count,
+		ctx->scratch.sr.timestamp,
+		ctx->scratch.sr.packet_count);
 }
 static void homer_rr_list_start(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
 	g_string_append_printf(ctx->json, "\"ssrc\":%u,\"type\":%u,\"report_count\":%u,\"report_blocks\":[",
@@ -705,7 +735,7 @@ static void homer_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr
 		ntohl(rr->high_seq_received),
 		rr->fraction_lost,
 		ntohl(rr->jitter),
-		ctx->scratch,
+		ctx->scratch.rr.packets_lost,
 		ntohl(rr->lsr),
 		ntohl(rr->dlsr));
 }
@@ -794,18 +824,19 @@ static void logging_sdes_list_start(struct rtcp_process_ctx *ctx, const struct s
 		ntohs(sdes->header.length));
 }
 static void logging_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
-	g_string_append_printf(ctx->log,"ntp_sec=%u, ntp_fractions=%u, rtp_ts=%u, sender_packets=%u, sender_bytes=%u, ",
-		ntohl(sr->ntp_msw),
-		ntohl(sr->ntp_lsw),
-		ntohl(sr->timestamp),
-		ntohl(sr->packet_count),
-		ntohl(sr->octet_count));
+	g_string_append_printf(ctx->log,"ntp_sec=%u, ntp_fractions=%u, rtp_ts=%u, sender_packets=%u, " \
+			"sender_bytes=%u, ",
+		ctx->scratch.sr.ntp_msw,
+		ctx->scratch.sr.ntp_lsw,
+		ctx->scratch.sr.timestamp,
+		ctx->scratch.sr.packet_count,
+		ctx->scratch.sr.octet_count);
 }
 static void logging_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
 	    g_string_append_printf(ctx->log,"ssrc=%u, fraction_lost=%u, packet_loss=%u, last_seq=%u, jitter=%u, last_sr=%u, delay_since_last_sr=%u, ",
 			ntohl(rr->ssrc),
 			rr->fraction_lost,
-			ctx->scratch,
+			ctx->scratch.rr.packets_lost,
 			ntohl(rr->high_seq_received),
 			ntohl(rr->jitter),
 			ntohl(rr->lsr),

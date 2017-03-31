@@ -24,10 +24,20 @@ struct ssrc_entry {
 	u_int32_t ssrc;
 	struct ssrc_ctx input_ctx,
 			output_ctx;
+	GQueue sender_reports;
 };
 enum ssrc_dir {
 	SSRC_DIR_INPUT  = G_STRUCT_OFFSET(struct ssrc_entry, input_ctx),
 	SSRC_DIR_OUTPUT = G_STRUCT_OFFSET(struct ssrc_entry, output_ctx),
+};
+
+struct ssrc_sender_report {
+	u_int32_t ntp_msw;
+	u_int32_t ntp_lsw;
+	u_int32_t timestamp;
+	u_int32_t packet_count;
+	u_int32_t octet_count;
+	double ntp_ts;
 };
 
 
