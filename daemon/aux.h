@@ -604,6 +604,9 @@ INLINE void timeval_lowest(struct timeval *l, const struct timeval *n) {
 	if (!l->tv_sec || timeval_cmp(l, n) == 1)
 		*l = *n;
 }
+INLINE double ntp_ts_to_double(u_int32_t whole, u_int32_t frac) {
+	return (double) whole + (double) frac / 4294967296.0;
+}
 
 
 
