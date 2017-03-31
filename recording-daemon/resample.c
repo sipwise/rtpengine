@@ -37,7 +37,7 @@ resample:
 		if (!resample->avresample)
 			goto err;
 
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 0, 0)
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(54, 31, 0)
 		if (!frame->channel_layout)
 			frame->channel_layout = av_get_default_channel_layout(
 				av_frame_get_channels(frame));
