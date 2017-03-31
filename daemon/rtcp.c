@@ -15,6 +15,7 @@
 #include "homer.h"
 #include "media_socket.h"
 #include "rtcplib.h"
+#include "ssrc.h"
 
 
 
@@ -133,7 +134,17 @@ struct rtcp_chain_element {
 // struct defs
 // context to hold state variables
 struct rtcp_process_ctx {
-	u_int32_t scratch;
+	// input
+	struct call *call;
+	const struct timeval *received;
+
+	// handler vars
+	union {
+		struct ssrc_receiver_report rr;
+		struct ssrc_sender_report sr;
+	} scratch;
+	u_int32_t scratch_common_ssrc;
+
 	GString *log;
 	GString *json;
 };
@@ -159,6 +170,7 @@ struct rtcp_handler {
 struct rtcp_handlers {
 	const struct rtcp_handler
 		*scratch,
+		*mos,
 		*logging,
 		*homer;
 };
@@ -167,7 +179,13 @@ struct rtcp_handlers {
 static void dummy_handler();
 
 // scratch area (prepare/parse packet)
+static void scratch_common(struct rtcp_process_ctx *, const struct rtcp_packet *);
+static void scratch_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
 static void scratch_rr(struct rtcp_process_ctx *, const struct report_block *);
+
+// MOS calculation / stats
+static void mos_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
+static void mos_rr(struct rtcp_process_ctx *, const struct report_block *);
 
 // homer functions
 static void homer_init(struct rtcp_process_ctx *);
@@ -197,7 +215,13 @@ static void logging_destroy(struct rtcp_process_ctx *);
 // structs for each handler type
 static struct rtcp_handler dummy_handlers;
 static struct rtcp_handler scratch_handlers = {
+	.common = scratch_common,
 	.rr = scratch_rr,
+	.sr = scratch_sr,
+};
+static struct rtcp_handler mos_handlers = {
+	.rr = mos_rr,
+	.sr = mos_sr,
 };
 static struct rtcp_handler log_handlers = {
 	.init = logging_init,
@@ -225,12 +249,15 @@ static struct rtcp_handler homer_handlers = {
 // main var to hold references
 static struct rtcp_handlers rtcp_handlers = {
 	.scratch = &scratch_handlers,
+	.mos = &mos_handlers,
+	// remainder is variable
 };
 
 // list of all handlers
 static struct rtcp_handler *all_handlers[] = {
 	&dummy_handlers,
 	&scratch_handlers,
+	&mos_handlers,
 	&log_handlers,
 	&homer_handlers,
 };
@@ -238,6 +265,7 @@ static struct rtcp_handler *all_handlers[] = {
 // macro to call all function handlers in one go
 #define CAH(func, ...) do { \
 		rtcp_handlers.scratch->func(log_ctx, ##__VA_ARGS__); \
+		rtcp_handlers.mos->func(log_ctx, ##__VA_ARGS__); \
 		rtcp_handlers.logging->func(log_ctx, ##__VA_ARGS__); \
 		rtcp_handlers.homer->func(log_ctx, ##__VA_ARGS__); \
 	} while (0)
@@ -423,7 +451,11 @@ static int __rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const e
 	int min_packet_size;
 
 	ZERO(log_ctx_s);
+	log_ctx_s.call = c;
+	log_ctx_s.received = tv;
+
 	log_ctx = &log_ctx_s;
+
 	CAH(init);
 	CAH(start, c);
 
@@ -675,9 +707,36 @@ static void dummy_handler() {
 	return;
 }
 
-static void scratch_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
-	ctx->scratch = (rr->number_lost[0] << 16) | (rr->number_lost[1] << 8) | rr->number_lost[2];
+
+
+static void scratch_common(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
+	ctx->scratch_common_ssrc = htonl(common->ssrc);
 }
+static void scratch_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
+	ctx->scratch.rr = (struct ssrc_receiver_report) {
+		.from = ctx->scratch_common_ssrc,
+		.ssrc = htonl(rr->ssrc),
+		.high_seq_received = ntohl(rr->high_seq_received),
+		.fraction_lost = rr->fraction_lost,
+		.jitter = ntohl(rr->jitter),
+		.lsr = ntohl(rr->lsr),
+		.dlsr = ntohl(rr->dlsr),
+	};
+	ctx->scratch.rr.packets_lost = (rr->number_lost[0] << 16) | (rr->number_lost[1] << 8) | rr->number_lost[2];
+}
+static void scratch_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
+	ctx->scratch.sr = (struct ssrc_sender_report) {
+		.ssrc = ctx->scratch_common_ssrc,
+		.ntp_msw = ntohl(sr->ntp_msw),
+		.ntp_lsw = ntohl(sr->ntp_lsw),
+		.octet_count = ntohl(sr->octet_count),
+		.timestamp = ntohl(sr->timestamp),
+		.packet_count = ntohl(sr->packet_count),
+	};
+	ctx->scratch.sr.ntp_ts = ntp_ts_to_double(ctx->scratch.sr.ntp_msw, ctx->scratch.sr.ntp_lsw);
+}
+
+
 
 static void homer_init(struct rtcp_process_ctx *ctx) {
 	ctx->json = g_string_new("{ ");
@@ -685,15 +744,15 @@ static void homer_init(struct rtcp_process_ctx *ctx) {
 static void homer_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
 	g_string_append_printf(ctx->json, "\"sender_information\":{\"ntp_timestamp_sec\":%u,"
 	"\"ntp_timestamp_usec\":%u,\"octets\":%u,\"rtp_timestamp\":%u, \"packets\":%u},",
-		ntohl(sr->ntp_msw),
-		ntohl(sr->ntp_lsw),
-		ntohl(sr->octet_count),
-		ntohl(sr->timestamp),
-		ntohl(sr->packet_count));
+		ctx->scratch.sr.ntp_msw,
+		ctx->scratch.sr.ntp_lsw,
+		ctx->scratch.sr.octet_count,
+		ctx->scratch.sr.timestamp,
+		ctx->scratch.sr.packet_count);
 }
 static void homer_rr_list_start(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
 	g_string_append_printf(ctx->json, "\"ssrc\":%u,\"type\":%u,\"report_count\":%u,\"report_blocks\":[",
-		ntohl(common->ssrc),
+		ctx->scratch_common_ssrc,
 		common->header.pt,
 		common->header.count);
 }
@@ -701,13 +760,13 @@ static void homer_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr
 	g_string_append_printf(ctx->json, "{\"source_ssrc\":%u,"
 	    "\"highest_seq_no\":%u,\"fraction_lost\":%u,\"ia_jitter\":%u,"
 	    "\"packets_lost\":%u,\"lsr\":%u,\"dlsr\":%u},",
-		ntohl(rr->ssrc),
-		ntohl(rr->high_seq_received),
-		rr->fraction_lost,
-		ntohl(rr->jitter),
-		ctx->scratch,
-		ntohl(rr->lsr),
-		ntohl(rr->dlsr));
+		ctx->scratch.rr.ssrc,
+		ctx->scratch.rr.high_seq_received,
+		ctx->scratch.rr.fraction_lost,
+		ctx->scratch.rr.jitter,
+		ctx->scratch.rr.packets_lost,
+		ctx->scratch.rr.lsr,
+		ctx->scratch.rr.dlsr);
 }
 static void homer_rr_list_end(struct rtcp_process_ctx *ctx) {
 	str_sanitize(ctx->json);
@@ -783,7 +842,7 @@ static void logging_common(struct rtcp_process_ctx *ctx, const struct rtcp_packe
 		common->header.count,
 		common->header.pt,
 		ntohs(common->header.length),
-		ntohl(common->ssrc));
+		ctx->scratch_common_ssrc);
 }
 static void logging_sdes_list_start(struct rtcp_process_ctx *ctx, const struct source_description_packet *sdes) {
 	g_string_append_printf(ctx->log,"version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ",
@@ -794,22 +853,23 @@ static void logging_sdes_list_start(struct rtcp_process_ctx *ctx, const struct s
 		ntohs(sdes->header.length));
 }
 static void logging_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
-	g_string_append_printf(ctx->log,"ntp_sec=%u, ntp_fractions=%u, rtp_ts=%u, sender_packets=%u, sender_bytes=%u, ",
-		ntohl(sr->ntp_msw),
-		ntohl(sr->ntp_lsw),
-		ntohl(sr->timestamp),
-		ntohl(sr->packet_count),
-		ntohl(sr->octet_count));
+	g_string_append_printf(ctx->log,"ntp_sec=%u, ntp_fractions=%u, rtp_ts=%u, sender_packets=%u, " \
+			"sender_bytes=%u, ",
+		ctx->scratch.sr.ntp_msw,
+		ctx->scratch.sr.ntp_lsw,
+		ctx->scratch.sr.timestamp,
+		ctx->scratch.sr.packet_count,
+		ctx->scratch.sr.octet_count);
 }
 static void logging_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
 	    g_string_append_printf(ctx->log,"ssrc=%u, fraction_lost=%u, packet_loss=%u, last_seq=%u, jitter=%u, last_sr=%u, delay_since_last_sr=%u, ",
-			ntohl(rr->ssrc),
+			ctx->scratch.rr.ssrc,
 			rr->fraction_lost,
-			ctx->scratch,
-			ntohl(rr->high_seq_received),
-			ntohl(rr->jitter),
-			ntohl(rr->lsr),
-			ntohl(rr->dlsr));
+			ctx->scratch.rr.packets_lost,
+			ctx->scratch.rr.high_seq_received,
+			ctx->scratch.rr.jitter,
+			ctx->scratch.rr.lsr,
+			ctx->scratch.rr.dlsr);
 }
 static void logging_xr(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common, str *comp_s) {
 	pjmedia_rtcp_xr_rx_rtcp_xr(ctx->log, common, comp_s);
@@ -823,6 +883,17 @@ static void logging_finish(struct rtcp_process_ctx *ctx, struct call *c, const e
 static void logging_destroy(struct rtcp_process_ctx *ctx) {
 	g_string_free(ctx->log, TRUE);
 }
+
+
+
+
+static void mos_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
+	ssrc_sender_report(ctx->call, &ctx->scratch.sr, ctx->received);
+}
+static void mos_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
+	ssrc_receiver_report(ctx->call, &ctx->scratch.rr, ctx->received);
+}
+
 
 
 
