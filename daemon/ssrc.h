@@ -66,6 +66,30 @@ struct ssrc_receiver_report_item {
 	struct ssrc_receiver_report report;
 };
 
+struct ssrc_xr_voip_metrics {
+	u_int32_t ssrc;
+	u_int8_t loss_rate;
+	u_int8_t discard_rate;
+	u_int8_t burst_den;
+	u_int8_t gap_den;
+	u_int16_t burst_dur;
+	u_int16_t gap_dur;
+	u_int16_t rnd_trip_delay;
+	u_int16_t end_sys_delay;
+	u_int8_t signal_lvl;
+	u_int8_t noise_lvl;
+	u_int8_t rerl;
+	u_int8_t gmin;
+	u_int8_t r_factor;
+	u_int8_t ext_r_factor;
+	u_int8_t mos_lq;
+	u_int8_t mos_cq;
+	u_int8_t rx_config;
+	u_int16_t jb_nom;
+	u_int16_t jb_max;
+	u_int16_t jb_abs_max;
+};
+
 
 
 
@@ -74,7 +98,6 @@ struct ssrc_hash *create_ssrc_hash(void);
 
 struct ssrc_entry *find_ssrc(u_int32_t, struct ssrc_hash *); // returns NULL if not found
 struct ssrc_entry *get_ssrc(u_int32_t, struct ssrc_hash * /* , int *created */); // creates new entry if not found
-//void add_ssrc_entry(struct ssrc_entry *, struct ssrc_hash *); // XXX static
 //struct ssrc_entry *create_ssrc_entry(u_int32_t);
 struct ssrc_ctx *get_ssrc_ctx(u_int32_t, struct ssrc_hash *, enum ssrc_dir); // creates new entry if not found
 
