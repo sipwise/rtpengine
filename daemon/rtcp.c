@@ -11,7 +11,6 @@
 #include "log.h"
 #include "rtp.h"
 #include "crypto.h"
-#include "rtcp_xr.h"
 #include "homer.h"
 #include "media_socket.h"
 #include "rtcplib.h"
@@ -56,6 +55,14 @@
 #define SDES_TYPE_NOTE	7
 #define SDES_TYPE_PRIV	8
 
+/* RTCP XR block types */
+#define BT_LOSS_RLE	    1
+#define BT_DUP_RLE	    2
+#define BT_RCPT_TIMES	    3
+#define BT_RR_TIME	    4
+#define BT_DLRR		    5
+#define BT_STATS	    6
+#define BT_VOIP_METRICS	    7
 
 
 struct report_block {
@@ -116,6 +123,89 @@ struct fb_packet {
 	unsigned char information[0];
 } __attribute__ ((packed));
 
+struct xr_report_block {
+    u_int8_t		 bt;		/**< Block type.		*/
+    u_int8_t		 specific;	/**< Block specific data.	*/
+    u_int16_t		 length;	/**< Block length.		*/
+} __attribute__ ((packed));
+
+struct xr_packet {
+	struct rtcp_packet rtcp;
+	struct xr_report_block report_blocks[0];
+} __attribute__ ((packed));
+
+struct xr_rb_rr_time {
+    struct xr_report_block header;
+    u_int32_t		 ntp_sec;	/**< NTP time, seconds part.	*/
+    u_int32_t		 ntp_frac;	/**< NTP time, fractions part.	*/
+} __attribute__ ((packed));
+
+struct xr_rb_dlrr_item {
+    u_int32_t		 ssrc;		/**< receiver SSRC		*/
+    u_int32_t		 lrr;		/**< last receiver report	*/
+    u_int32_t		 dlrr;		/**< delay since last receiver
+					     report			*/
+} __attribute__ ((packed));
+
+struct xr_rb_dlrr {
+    struct xr_report_block header;
+    struct xr_rb_dlrr_item item;	/**< Block contents,
+					     variable length list	*/
+} __attribute__ ((packed));
+
+struct xr_rb_stats {
+    struct xr_report_block header;
+    u_int32_t		 ssrc;		/**< Receiver SSRC		     */
+    u_int16_t		 begin_seq;	/**< Begin RTP sequence reported     */
+    u_int16_t		 end_seq;	/**< End RTP sequence reported       */
+    u_int32_t		 lost;		/**< Number of packet lost in this
+					     interval  */
+    u_int32_t		 dup;		/**< Number of duplicated packet in
+					     this interval */
+    u_int32_t		 jitter_min;	/**< Minimum jitter in this interval */
+    u_int32_t		 jitter_max;	/**< Maximum jitter in this interval */
+    u_int32_t		 jitter_mean;	/**< Average jitter in this interval */
+    u_int32_t		 jitter_dev;	/**< Jitter deviation in this
+					     interval */
+    u_int32_t		 toh_min:8;	/**< Minimum ToH in this interval    */
+    u_int32_t		 toh_max:8;	/**< Maximum ToH in this interval    */
+    u_int32_t		 toh_mean:8;	/**< Average ToH in this interval    */
+    u_int32_t		 toh_dev:8;	/**< ToH deviation in this interval  */
+} __attribute__ ((packed));
+
+struct xr_rb_voip_metrics {
+    struct xr_report_block header;
+    u_int32_t		 ssrc;		/**< Receiver SSRC		*/
+    u_int8_t		 loss_rate;	/**< Packet loss rate		*/
+    u_int8_t		 discard_rate;	/**< Packet discarded rate	*/
+    u_int8_t		 burst_den;	/**< Burst density		*/
+    u_int8_t		 gap_den;	/**< Gap density		*/
+    u_int16_t		 burst_dur;	/**< Burst duration		*/
+    u_int16_t		 gap_dur;	/**< Gap duration		*/
+    u_int16_t		 rnd_trip_delay;/**< Round trip delay		*/
+    u_int16_t		 end_sys_delay; /**< End system delay		*/
+    u_int8_t		 signal_lvl;	/**< Signal level		*/
+    u_int8_t		 noise_lvl;	/**< Noise level		*/
+    u_int8_t		 rerl;		/**< Residual Echo Return Loss	*/
+    u_int8_t		 gmin;		/**< The gap threshold		*/
+    u_int8_t		 r_factor;	/**< Voice quality metric carried
+					     over this RTP session	*/
+    u_int8_t		 ext_r_factor;  /**< Voice quality metric carried
+					     outside of this RTP session*/
+    u_int8_t		 mos_lq;	/**< Mean Opinion Score for
+					     Listening Quality          */
+    u_int8_t		 mos_cq;	/**< Mean Opinion Score for
+					     Conversation Quality       */
+    u_int8_t		 rx_config;	/**< Receiver configuration	*/
+    u_int8_t		 reserved2;	/**< Not used			*/
+    u_int16_t		 jb_nom;	/**< Current delay by jitter
+					     buffer			*/
+    u_int16_t		 jb_max;	/**< Maximum delay by jitter
+					     buffer			*/
+    u_int16_t		 jb_abs_max;	/**< Maximum possible delay by
+					     jitter buffer		*/
+}  __attribute__ ((packed));
+
 struct rtcp_chain_element {
 	int type;
 	unsigned int len;
@@ -127,6 +217,7 @@ struct rtcp_chain_element {
 		struct source_description_packet *sdes;
 		struct bye_packet *bye;
 		struct app_packet *app;
+		struct xr_packet *xr;
 	} u;
 };
 
@@ -142,6 +233,7 @@ struct rtcp_process_ctx {
 	union {
 		struct ssrc_receiver_report rr;
 		struct ssrc_sender_report sr;
+		struct ssrc_xr_voip_metrics xr_vm;
 	} scratch;
 	u_int32_t scratch_common_ssrc;
 
@@ -157,11 +249,16 @@ struct rtcp_handler {
 	void (*rr_list_start)(struct rtcp_process_ctx *, const struct rtcp_packet *);
 	void (*rr)(struct rtcp_process_ctx *, const struct report_block *);
 	void (*rr_list_end)(struct rtcp_process_ctx *);
-	void (*xr)(struct rtcp_process_ctx *, const struct rtcp_packet *, str *);
+	//void (*xr)(struct rtcp_process_ctx *, const struct rtcp_packet *, str *);
 	void (*sdes_list_start)(struct rtcp_process_ctx *, const struct source_description_packet *);
 	void (*sdes_item)(struct rtcp_process_ctx *, const struct sdes_chunk *, const struct sdes_item *,
 			const char *);
 	void (*sdes_list_end)(struct rtcp_process_ctx *);
+	void (*xr_rb)(struct rtcp_process_ctx *, const struct xr_report_block *);
+	void (*xr_dlrr)(struct rtcp_process_ctx *, const struct xr_rb_dlrr *);
+	void (*xr_stats)(struct rtcp_process_ctx *, const struct xr_rb_stats *);
+	void (*xr_rr_time)(struct rtcp_process_ctx *, const struct xr_rb_rr_time *);
+	void (*xr_voip_metrics)(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
 	void (*finish)(struct rtcp_process_ctx *, struct call *, const endpoint_t *, const endpoint_t *,
 			const struct timeval *);
 	void (*destroy)(struct rtcp_process_ctx *);
@@ -182,6 +279,7 @@ static void dummy_handler();
 static void scratch_common(struct rtcp_process_ctx *, const struct rtcp_packet *);
 static void scratch_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
 static void scratch_rr(struct rtcp_process_ctx *, const struct report_block *);
+static void scratch_xr_voip_metrics(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
 
 // MOS calculation / stats
 static void mos_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
@@ -207,7 +305,11 @@ static void logging_common(struct rtcp_process_ctx *, const struct rtcp_packet *
 static void logging_sdes_list_start(struct rtcp_process_ctx *, const struct source_description_packet *);
 static void logging_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
 static void logging_rr(struct rtcp_process_ctx *, const struct report_block *);
-static void logging_xr(struct rtcp_process_ctx *, const struct rtcp_packet *, str *);
+static void logging_xr_rb(struct rtcp_process_ctx *, const struct xr_report_block *);
+static void logging_xr_rr_time(struct rtcp_process_ctx *, const struct xr_rb_rr_time *);
+static void logging_xr_dlrr(struct rtcp_process_ctx *, const struct xr_rb_dlrr *);
+static void logging_xr_stats(struct rtcp_process_ctx *, const struct xr_rb_stats *);
+static void logging_xr_voip_metrics(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
 static void logging_finish(struct rtcp_process_ctx *, struct call *, const endpoint_t *, const endpoint_t *,
 		const struct timeval *);
 static void logging_destroy(struct rtcp_process_ctx *);
@@ -218,6 +320,7 @@ static struct rtcp_handler scratch_handlers = {
 	.common = scratch_common,
 	.rr = scratch_rr,
 	.sr = scratch_sr,
+	.xr_voip_metrics = scratch_xr_voip_metrics,
 };
 static struct rtcp_handler mos_handlers = {
 	.rr = mos_rr,
@@ -230,7 +333,11 @@ static struct rtcp_handler log_handlers = {
 	.sdes_list_start = logging_sdes_list_start,
 	.sr = logging_sr,
 	.rr = logging_rr,
-	.xr = logging_xr,
+	.xr_rb = logging_xr_rb,
+	.xr_rr_time = logging_xr_rr_time,
+	.xr_dlrr = logging_xr_dlrr,
+	.xr_stats = logging_xr_stats,
+	.xr_voip_metrics = logging_xr_voip_metrics,
 	.finish = logging_finish,
 	.destroy = logging_destroy,
 };
@@ -275,12 +382,18 @@ static struct rtcp_handler *all_handlers[] = {
 
 
 typedef int (*rtcp_handler_func)(struct rtcp_chain_element *, struct rtcp_process_ctx *);
+typedef void (*xr_handler_func)(void *, struct rtcp_process_ctx *);
 
 static int rtcp_sr(struct rtcp_chain_element *, struct rtcp_process_ctx *);
 static int rtcp_rr(struct rtcp_chain_element *, struct rtcp_process_ctx *);
 static int rtcp_sdes(struct rtcp_chain_element *, struct rtcp_process_ctx *);
 static int rtcp_xr(struct rtcp_chain_element *, struct rtcp_process_ctx *);
 static int rtcp_generic(struct rtcp_chain_element *, struct rtcp_process_ctx *);
+
+static void xr_rr_time(struct xr_rb_rr_time *, struct rtcp_process_ctx *);
+static void xr_dlrr(struct xr_rb_dlrr *, struct rtcp_process_ctx *);
+static void xr_stats(struct xr_rb_stats *, struct rtcp_process_ctx *);
+static void xr_voip_metrics(struct xr_rb_voip_metrics *, struct rtcp_process_ctx *);
 
 
 
@@ -304,6 +417,19 @@ static const int min_packet_sizes[] = {
 	[RTCP_PT_APP]	= sizeof(struct app_packet),
 	[RTCP_PT_RTPFB]	= sizeof(struct fb_packet),
 	[RTCP_PT_PSFB]	= sizeof(struct fb_packet),
+};
+
+static const xr_handler_func xr_handler_funcs[] = {
+	[BT_RR_TIME]		= (void *) xr_rr_time,
+	[BT_DLRR]		= (void *) xr_dlrr,
+	[BT_STATS]		= (void *) xr_stats,
+	[BT_VOIP_METRICS]	= (void *) xr_voip_metrics,
+};
+static const int min_xr_packet_sizes[] = {
+	[BT_RR_TIME]		= sizeof(struct xr_rb_rr_time),
+	[BT_DLRR]		= sizeof(struct xr_rb_dlrr),
+	[BT_STATS]		= sizeof(struct xr_rb_stats),
+	[BT_VOIP_METRICS]	= sizeof(struct xr_rb_voip_metrics),
 };
 
 
@@ -417,11 +543,52 @@ static int rtcp_sdes(struct rtcp_chain_element *el, struct rtcp_process_ctx *log
 	return 0;
 }
 
+
+
+static void xr_rr_time(struct xr_rb_rr_time *rb, struct rtcp_process_ctx *log_ctx) {
+	CAH(xr_rb, &rb->header);
+	CAH(xr_rr_time, rb);
+}
+static void xr_dlrr(struct xr_rb_dlrr *rb, struct rtcp_process_ctx *log_ctx) {
+	CAH(xr_rb, &rb->header);
+	CAH(xr_dlrr, rb);
+}
+static void xr_stats(struct xr_rb_stats *rb, struct rtcp_process_ctx *log_ctx) {
+	CAH(xr_rb, &rb->header);
+	CAH(xr_stats, rb);
+}
+static void xr_voip_metrics(struct xr_rb_voip_metrics *rb, struct rtcp_process_ctx *log_ctx) {
+	CAH(xr_rb, &rb->header);
+	CAH(xr_voip_metrics, rb);
+}
+
 static int rtcp_xr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
 	CAH(common, el->u.rtcp_packet);
 	str comp_s;
-	str_init_len(&comp_s, el->u.buf + sizeof(*el->u.rtcp_packet), el->len - sizeof(*el->u.rtcp_packet));
-	CAH(xr, el->u.rtcp_packet, &comp_s);
+	str_init_len(&comp_s, el->u.buf + sizeof(el->u.xr->rtcp), el->len - sizeof(el->u.xr->rtcp));
+	while (1) {
+		struct xr_report_block *rb = (void *) comp_s.s;
+		if (comp_s.len < sizeof(*rb))
+			break;
+		unsigned int len = (ntohs(rb->length) + 1) << 2;
+		if (str_shift(&comp_s, len))
+			break;
+		if (rb->bt >= G_N_ELEMENTS(xr_handler_funcs))
+			goto next;
+		xr_handler_func hf = xr_handler_funcs[rb->bt];
+		if (!hf)
+			goto next;
+		if (rb->bt < G_N_ELEMENTS(min_xr_packet_sizes) && len < min_xr_packet_sizes[rb->bt]) {
+			ilog(LOG_WARN, "Short RTCP XR block (type %u, %u < %i)", rb->bt, len,
+					min_xr_packet_sizes[rb->bt]);
+			goto next;
+		}
+		hf(rb, log_ctx);
+
+next:
+		;
+
+	}
 	return 0;
 }
 
@@ -604,7 +771,7 @@ static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 	rtcp = (void *) s->s;
 
 	err = "invalid header version";
-	if (rtcp->header.version != 2) /* version 2 */
+	if (rtcp->header.version != 2)
 		goto error;
 	err = "invalid packet type";
 	if (rtcp->header.pt != RTCP_PT_SR
@@ -734,6 +901,32 @@ static void scratch_sr(struct rtcp_process_ctx *ctx, const struct sender_report_
 		.packet_count = ntohl(sr->packet_count),
 	};
 	ctx->scratch.sr.ntp_ts = ntp_ts_to_double(ctx->scratch.sr.ntp_msw, ctx->scratch.sr.ntp_lsw);
+}
+static void scratch_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct xr_rb_voip_metrics *vm) {
+	ctx->scratch.xr_vm = (struct ssrc_xr_voip_metrics) {
+		.ssrc = ntohl(vm->ssrc),
+		.loss_rate = vm->loss_rate,
+		.discard_rate = vm->discard_rate,
+		.burst_den = vm->burst_den,
+		.gap_den = vm->gap_den,
+		.burst_dur = ntohs(vm->burst_dur),
+		.gap_dur = ntohs(vm->gap_dur),
+		.rnd_trip_delay = ntohs(vm->rnd_trip_delay),
+		.end_sys_delay = ntohs(vm->end_sys_delay),
+		.signal_lvl = vm->signal_lvl,
+		.noise_lvl = vm->noise_lvl,
+		.rerl = vm->rerl,
+		.gmin = vm->gmin,
+		.r_factor = vm->r_factor,
+		.ext_r_factor = vm->ext_r_factor,
+		.mos_lq = vm->mos_lq,
+		.mos_cq = vm->mos_cq,
+		.rx_config = vm->rx_config,
+		.jb_nom = ntohs(vm->jb_nom),
+		.jb_max = ntohs(vm->jb_max),
+		.jb_abs_max = ntohs(vm->jb_abs_max),
+
+	};
 }
 
 
@@ -871,8 +1064,78 @@ static void logging_rr(struct rtcp_process_ctx *ctx, const struct report_block *
 			ctx->scratch.rr.lsr,
 			ctx->scratch.rr.dlsr);
 }
-static void logging_xr(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common, str *comp_s) {
-	pjmedia_rtcp_xr_rx_rtcp_xr(ctx->log, common, comp_s);
+//static void logging_xr(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common, str *comp_s) {
+	//pjmedia_rtcp_xr_rx_rtcp_xr(ctx->log, common, comp_s);
+//}
+static void logging_xr_rb(struct rtcp_process_ctx *ctx, const struct xr_report_block *rb_header) {
+	g_string_append_printf(ctx->log, "rb_header_blocktype=%u, rb_header_blockspecdata=%u, " \
+			"rb_header_blocklength=%u, ",
+			rb_header->bt,
+			rb_header->specific,
+			ntohs(rb_header->length));
+}
+static void logging_xr_rr_time(struct rtcp_process_ctx *ctx, const struct xr_rb_rr_time *rb_rr_time) {
+	g_string_append_printf(ctx->log, "rb_rr_time_ntp_sec=%u, rb_rr_time_ntp_frac=%u, ",
+			ntohl(rb_rr_time->ntp_sec),
+			ntohl(rb_rr_time->ntp_frac));
+}
+static void logging_xr_dlrr(struct rtcp_process_ctx *ctx, const struct xr_rb_dlrr *rb_dlrr) {
+	g_string_append_printf(ctx->log, "rb_dlrr_ssrc=%u, rb_dlrr_lrr=%u, rb_dlrr_dlrr=%u, ",
+			ntohl(rb_dlrr->item.ssrc),
+			ntohl(rb_dlrr->item.lrr),
+			ntohl(rb_dlrr->item.dlrr));
+}
+static void logging_xr_stats(struct rtcp_process_ctx *ctx, const struct xr_rb_stats *rb_stats) {
+	g_string_append_printf(ctx->log, "rb_stats_ssrc=%u, rb_stats_begin_seq=%u, rb_stats_end_seq=%u, rb_stats_lost_packets=%u, rb_stats_duplicate_packets=%u,"
+			"rb_stats_jitter_min=%u, rb_stats_jitter_max=%u, rb_stats_jitter_mean=%u, rb_stats_jitter_deviation=%u,"
+			"rb_stats_toh_min=%u, rb_stats_toh_max=%u, rb_stats_toh_mean=%u, rb_stats_toh_deviation=%u, ",
+			ntohl(rb_stats->ssrc),
+			ntohs(rb_stats->begin_seq),
+			ntohl(rb_stats->end_seq),
+			ntohl(rb_stats->lost),
+			ntohl(rb_stats->dup),
+			ntohl(rb_stats->jitter_min),
+			ntohl(rb_stats->jitter_max),
+			ntohl(rb_stats->jitter_mean),
+			ntohl(rb_stats->jitter_dev),
+			ntohl(rb_stats->toh_min),
+			ntohl(rb_stats->toh_max),
+			ntohl(rb_stats->toh_mean),
+			ntohl(rb_stats->toh_dev));
+}
+static void logging_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct xr_rb_voip_metrics *rb_voip_mtc) {
+	g_string_append_printf(ctx->log, "rb_voip_mtc_ssrc=%u, rb_voip_mtc_loss_rate=%u, " \
+			"rb_voip_mtc_discard_rate=%u, rb_voip_mtc_burst_den=%u, "
+			"rb_voip_mtc_gap_den=%u, rb_voip_mtc_burst_dur=%u, rb_voip_mtc_gap_dur=%u, " \
+			"rb_voip_mtc_rnd_trip_delay=%u, "
+			"rb_voip_mtc_end_sys_delay=%u, rb_voip_mtc_signal_lvl=%u, rb_voip_mtc_noise_lvl=%u, " \
+			"rb_voip_mtc_rerl=%u, "
+			"rb_voip_mtc_gmin=%u, rb_voip_mtc_r_factor=%u, rb_voip_mtc_ext_r_factor=%u, " \
+			"rb_voip_mtc_mos_lq=%u, "
+			"rb_voip_mtc_mos_cq=%u, rb_voip_mtc_rx_config=%u, rb_voip_mtc_jb_nom=%u, " \
+			"rb_voip_mtc_jb_max=%u, "
+			"rb_voip_mtc_jb_abs_max=%u, ",
+			ctx->scratch.xr_vm.ssrc,
+			ctx->scratch.xr_vm.loss_rate,
+			ctx->scratch.xr_vm.discard_rate,
+			ctx->scratch.xr_vm.burst_den,
+			ctx->scratch.xr_vm.gap_den,
+			ctx->scratch.xr_vm.burst_dur,
+			ctx->scratch.xr_vm.gap_dur,
+			ctx->scratch.xr_vm.rnd_trip_delay,
+			ctx->scratch.xr_vm.end_sys_delay,
+			ctx->scratch.xr_vm.signal_lvl,
+			ctx->scratch.xr_vm.noise_lvl,
+			ctx->scratch.xr_vm.rerl,
+			ctx->scratch.xr_vm.gmin,
+			ctx->scratch.xr_vm.r_factor,
+			ctx->scratch.xr_vm.ext_r_factor,
+			ctx->scratch.xr_vm.mos_lq,
+			ctx->scratch.xr_vm.mos_cq,
+			ctx->scratch.xr_vm.rx_config,
+			ctx->scratch.xr_vm.jb_nom,
+			ctx->scratch.xr_vm.jb_max,
+			ctx->scratch.xr_vm.jb_abs_max);
 }
 static void logging_finish(struct rtcp_process_ctx *ctx, struct call *c, const endpoint_t *src,
 		const endpoint_t *dst, const struct timeval *tv)
