@@ -9,6 +9,7 @@
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavfilter/avfilter.h>
+#include <libavutil/log.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <mysql.h>
@@ -60,11 +61,27 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 	if (vasprintf(&msg, fmt, ap) <= 0)
 		ilog(LOG_ERR, "av_log message dropped");
 	else {
+#ifdef AV_LOG_PANIC
+		// translate AV_LOG_ constants to LOG_ levels
+		if (loglevel >= AV_LOG_VERBOSE)
+			loglevel = LOG_DEBUG;
+		else if (loglevel >= AV_LOG_INFO)
+			loglevel = LOG_NOTICE;
+		else if (loglevel >= AV_LOG_WARNING)
+			loglevel = LOG_WARNING;
+		else if (loglevel >= AV_LOG_ERROR)
+			loglevel = LOG_ERROR;
+		else if (loglevel >= AV_LOG_FATAL)
+			loglevel = LOG_CRIT;
+		else
+			loglevel = LOG_ALERT;
+#else
 		// defuse avlog log levels to be either DEBUG or ERR
 		if (loglevel <= LOG_ERR)
 			loglevel = LOG_ERR;
 		else
 			loglevel = LOG_DEBUG;
+#endif
 		ilog(loglevel, "av_log: %s", msg);
 		free(msg);
 	}
