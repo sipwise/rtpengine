@@ -840,7 +840,6 @@ next:
    nfd = accept(fd, (struct sockaddr *) &sin, &sinl);
    if (nfd == -1) {
        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-           ilog(LOG_INFO, "Could currently not accept CLI commands. Reason:%s", strerror(errno));
            goto cleanup2;
        }
        ilog(LOG_INFO, "Accept error:%s", strerror(errno));
@@ -893,6 +892,8 @@ next:
 
 cleanup:
    close(nfd);
+   /* in case multiple incoming connections exist, read all of them */
+   goto next;
 cleanup2:
    mutex_unlock(&cli->lock);
    log_info_clear();
