@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <glib-object.h>
 #include <json-glib/json-glib.h>
+#include <inttypes.h>
 
 #include "compat.h"
 #include "aux.h"
@@ -1676,7 +1677,7 @@ static void json_update_crypto_context(JsonBuilder *builder, const char *pref,
 	if (json_update_crypto_params(builder, pref, unique_id, "", &c->params))
 		return;
 
-	JSON_SET_SIMPLE("last_index","%lu",c->last_index);
+	JSON_SET_SIMPLE("last_index","%" PRIu64, c->last_index);
 	JSON_SET_SIMPLE("ssrc","%u",(unsigned) c->ssrc);
 
 }
@@ -1784,9 +1785,9 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("component","%u",ps->component);
 				JSON_SET_SIMPLE_CSTR("endpoint",endpoint_print_buf(&ps->endpoint));
 				JSON_SET_SIMPLE_CSTR("advertised_endpoint",endpoint_print_buf(&ps->advertised_endpoint));
-				JSON_SET_SIMPLE("stats-packets","%ld",atomic64_get(&ps->stats.packets));
-				JSON_SET_SIMPLE("stats-bytes","%ld",atomic64_get(&ps->stats.bytes));
-				JSON_SET_SIMPLE("stats-errors","%ld",atomic64_get(&ps->stats.errors));
+				JSON_SET_SIMPLE("stats-packets","%" PRIu64, atomic64_get(&ps->stats.packets));
+				JSON_SET_SIMPLE("stats-bytes","%" PRIu64, atomic64_get(&ps->stats.bytes));
+				JSON_SET_SIMPLE("stats-errors","%" PRIu64, atomic64_get(&ps->stats.errors));
 
 				json_update_crypto_context(builder, "stream", ps->unique_id, &ps->crypto);
 
