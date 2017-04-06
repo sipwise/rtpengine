@@ -1270,12 +1270,12 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	struct inode *inode;
 	u_int32_t id;
 	struct rtpengine_table *t;
-	struct rtpengine_list_entry op;
+	struct rtpengine_list_entry *opp;
 	int err, port, addr_bucket, i;
 	struct rtpengine_target *g;
 	unsigned long flags;
 
-	if (l != sizeof(op))
+	if (l != sizeof(*opp))
 		return -EINVAL;
 	if (*o < 0)
 		return -EINVAL;
@@ -1294,39 +1294,43 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	if (!g)
 		goto err;
 
-	memset(&op, 0, sizeof(op));
-	memcpy(&op.target, &g->target, sizeof(op.target));
+	opp = kzalloc(sizeof(*opp), GFP_KERNEL);
 
-	op.stats.packets = atomic64_read(&g->stats.packets);
-	op.stats.bytes = atomic64_read(&g->stats.bytes);
-	op.stats.errors = atomic64_read(&g->stats.errors);
-	op.stats.delay_min = g->stats.delay_min;
-	op.stats.delay_max = g->stats.delay_max;
-	op.stats.delay_avg = g->stats.delay_avg;
-	op.stats.in_tos = atomic_read(&g->stats.in_tos);
+	memcpy(&opp->target, &g->target, sizeof(opp->target));
+
+	opp->stats.packets = atomic64_read(&g->stats.packets);
+	opp->stats.bytes = atomic64_read(&g->stats.bytes);
+	opp->stats.errors = atomic64_read(&g->stats.errors);
+	opp->stats.delay_min = g->stats.delay_min;
+	opp->stats.delay_max = g->stats.delay_max;
+	opp->stats.delay_avg = g->stats.delay_avg;
+	opp->stats.in_tos = atomic_read(&g->stats.in_tos);
 
 	for (i = 0; i < g->target.num_payload_types; i++) {
-		op.rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
-		op.rtp_stats[i].bytes = atomic64_read(&g->rtp_stats[i].bytes);
+		opp->rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
+		opp->rtp_stats[i].bytes = atomic64_read(&g->rtp_stats[i].bytes);
 	}
 
 	spin_lock_irqsave(&g->decrypt.lock, flags);
-	op.target.decrypt.last_index = g->target.decrypt.last_index;
+	opp->target.decrypt.last_index = g->target.decrypt.last_index;
 	spin_unlock_irqrestore(&g->decrypt.lock, flags);
 
 	spin_lock_irqsave(&g->encrypt.lock, flags);
-	op.target.encrypt.last_index = g->target.encrypt.last_index;
+	opp->target.encrypt.last_index = g->target.encrypt.last_index;
 	spin_unlock_irqrestore(&g->encrypt.lock, flags);
 
 	target_put(g);
 
 	err = -EFAULT;
-	if (copy_to_user(b, &op, sizeof(op)))
-		goto err;
+	if (copy_to_user(b, opp, sizeof(*opp)))
+		goto err2;
 
 	table_put(t);
+	kfree(opp);
 	return l;
 
+err2:
+	kfree(opp);
 err:
 	table_put(t);
 	return err;
