@@ -19,12 +19,30 @@ static void free_sender_report(void *p) {
 	struct ssrc_sender_report_item *i = p;
 	g_slice_free1(sizeof(*i), i);
 }
+static void free_stats_block(void *p) {
+	struct ssrc_stats_block *ssb = p;
+	g_slice_free1(sizeof(*ssb), ssb);
+}
 static void free_ssrc_entry(void *p) {
 	struct ssrc_entry *e = p;
 	g_queue_clear_full(&e->sender_reports, free_sender_report);
+	g_queue_clear_full(&e->stats_blocks, free_stats_block);
 	g_slice_free1(sizeof(*e), e);
 }
 
+// returned as mos * 10 (i.e. 10 - 50 for 1.0 to 5.0)
+static void mos_calc(struct ssrc_stats_block *ssb) {
+	// as per https://www.pingman.com/kb/article/how-is-mos-calculated-in-pingplotter-pro-50.html
+	int eff_rtt = ssb->rtt / 1000 + ssb->jitter * 2 + 10;
+	double r;
+	if (eff_rtt < 160)
+		r = 93.2 - eff_rtt / 40.0;
+	else
+		r = 93.2 - (eff_rtt - 120) / 40.0;
+	r = r - (ssb->packetloss * 2.5);
+	double mos = 1.0 + (0.035) * r + (.000007) * r * (r-60) * (100-r);
+	ssb->mos = mos * 10;
+}
 
 struct ssrc_entry *find_ssrc(u_int32_t ssrc, struct ssrc_hash *ht) {
 	rwlock_lock_r(&ht->lock);
@@ -102,6 +120,8 @@ void ssrc_sender_report(struct call *c, const struct ssrc_sender_report *sr,
 	mutex_lock(&e->lock);
 
 	g_queue_push_tail(&e->sender_reports, seri);
+	while (e->sender_reports.length > 10)
+		free_sender_report(g_queue_pop_head(&e->sender_reports));
 
 	mutex_unlock(&e->lock);
 }
@@ -116,18 +136,53 @@ void ssrc_receiver_report(struct call *c, const struct ssrc_receiver_report *rr,
 		return; // no delay to be known
 
 	struct ssrc_entry *e = get_ssrc(rr->ssrc, c->ssrc_hash);
+	struct ssrc_sender_report_item *seri;
 	mutex_lock(&e->lock);
-	// go through the list backwards until we find the SR referenced, up to 10 steps
-	int i = 0;
-	for (GList *l = e->sender_reports.tail; 
-			l && i < 10;
-			l = l->prev, i++)
-	{
-		struct ssrc_sender_report_item *seri = l->data;
+	// go through the list backwards until we find the SR referenced
+	for (GList *l = e->sender_reports.tail; l; l = l->prev) {
+		seri = l->data;
 		if (seri->ntp_middle_bits != rr->lsr)
 			continue;
-		ilog(LOG_DEBUG, "RR from %u reports delay %u from %u", rr->from, rr->dlsr, rr->ssrc);
-		break;
+		goto found;
 	}
+
+	// not found
+	goto out;
+
+found:
+	// `e` remains locked for access to `seri`
+	ilog(LOG_DEBUG, "RR from %u reports delay %u from %u", rr->from, rr->dlsr, rr->ssrc);
+	long long rtt = timeval_diff(tv, &seri->received);
+
 	mutex_unlock(&e->lock);
+
+	rtt -= rr->dlsr * 1000000 / 65536;
+	ilog(LOG_DEBUG, "Calculated round-trip time for %u is %lli us", rr->ssrc, rtt);
+
+	if (rtt <= 0 || rtt > 10000000) {
+		ilog(LOG_DEBUG, "Invalid RTT - discarding");
+		goto out_nl;
+	}
+
+	struct ssrc_stats_block *ssb = g_slice_alloc(sizeof(*ssb));
+	*ssb = (struct ssrc_stats_block) {
+		.jitter = rr->jitter,
+		.rtt = rtt,
+		.reported = *tv,
+		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
+	};
+
+	mos_calc(ssb);
+	ilog(LOG_DEBUG, "Calculated MOS from RR for %u is %.1f", rr->from, (double) ssb->mos / 10.0);
+
+	// got a new stats block, add it to reporting ssrc
+	e = get_ssrc(rr->from, c->ssrc_hash);
+	mutex_lock(&e->lock);
+	g_queue_push_tail(&e->stats_blocks, ssb);
+	goto out;
+
+out:
+	mutex_unlock(&e->lock);
+out_nl:
+	;
 }
