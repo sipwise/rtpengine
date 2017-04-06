@@ -1232,6 +1232,8 @@ loop_ok:
 	if (media->protocol && media->protocol->rtp && !rtcp && !rtp_payload(&rtp_h, NULL, s)) {
 		i = (rtp_h->m_pt & 0x7f);
 
+		// XXX two hash table lookups for each packet, not ideal
+		// XXX limit size of hash tables
 		rtp_s = g_hash_table_lookup(stream->rtp_stats, &i);
 		if (!rtp_s) {
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT,
@@ -1243,6 +1245,9 @@ loop_ok:
 		else {
 			atomic64_inc(&rtp_s->packets);
 			atomic64_add(&rtp_s->bytes, s->len);
+
+			struct ssrc_entry *se = get_ssrc(ntohl(rtp_h->ssrc), call->ssrc_hash);
+			se->payload_type = i;
 		}
 	}
 
