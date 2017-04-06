@@ -28,7 +28,7 @@ EXTRA_CFLAGS += -D__RE_EXTERNAL
 
 obj-m        += xt_RTPENGINE.o
 
-.PHONY:		modules clean patch
+.PHONY:		modules clean patch install
 
 modules:
 		make -C $(KBUILD) M=$(PWD) O=$(KBUILD) modules
@@ -38,3 +38,5 @@ clean:
 
 patch:
 		../utils/patch-kernel magic "$(PWD)" "$(KERNEL)" "$(RTPENGINE_VERSION)"
+
+install:

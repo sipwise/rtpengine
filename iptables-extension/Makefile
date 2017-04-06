@@ -17,7 +17,7 @@ IP6TABLES	= $(shell test -e /usr/include/ip6tables.h && echo 1)
 
 WORK=0
 
-.PHONY: all module clean
+.PHONY: all module clean install
 
 all: module
 
@@ -55,3 +55,5 @@ endif
 
 clean:
 	rm -f libxt_RTPENGINE.so libipt_RTPENGINE.so libip6t_RTPENGINE.so
+
+install:

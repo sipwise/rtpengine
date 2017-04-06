@@ -2,7 +2,7 @@ RTPENGINE_ROOT_DIR=.
 
 include lib/lib.Makefile
 
-.PHONY:	all clean coverity
+.PHONY:	all distclean clean coverity
 
 all:
 	$(MAKE) -C daemon
@@ -13,7 +13,7 @@ with-kernel:
 	$(MAKE)
 	$(MAKE) -C kernel-module
 
-clean:
+distclean clean:
 	$(MAKE) -C daemon clean
 	$(MAKE) -C recording-daemon clean
 	$(MAKE) -C iptables-extension clean

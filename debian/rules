@@ -62,3 +62,5 @@ override_dh_auto_install-indep:
 .PHONY: override_dh_strip
 override_dh_strip:
 	dh_strip --dbg-package=ngcp-rtpengine-dbg
+
+override_dh_auto_test:

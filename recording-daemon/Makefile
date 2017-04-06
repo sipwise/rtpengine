@@ -30,7 +30,7 @@ LIBSRCS=	loglib.c auxlib.c rtplib.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
 
-.PHONY:		all dep clean tests debug
+.PHONY:		all dep clean debug install
 
 all:
 	$(MAKE) $(TARGET)
@@ -54,5 +54,6 @@ $(OBJS):	Makefile
 $(LIBSRCS):
 		ln -fs ../lib/$@
 
+install:
 
 include		.depend
