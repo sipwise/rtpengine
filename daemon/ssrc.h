@@ -11,7 +11,9 @@
 
 
 struct call;
+struct call_media;
 struct timeval;
+struct rtp_payload_type;
 
 
 
@@ -29,11 +31,22 @@ struct ssrc_entry {
 	u_int32_t ssrc;
 	struct ssrc_ctx input_ctx,
 			output_ctx;
-	GQueue sender_reports;
+	GQueue sender_reports; // as received via RTCP
+	GQueue stats_blocks; // calculated
+	int payload_type; // to determine the clock rate for jitter calculations
+	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 };
 enum ssrc_dir {
 	SSRC_DIR_INPUT  = G_STRUCT_OFFSET(struct ssrc_entry, input_ctx),
 	SSRC_DIR_OUTPUT = G_STRUCT_OFFSET(struct ssrc_entry, output_ctx),
+};
+
+struct ssrc_stats_block {
+	struct timeval reported;
+	unsigned int jitter; // ms
+	unsigned int rtt; // us - combined from both sides
+	unsigned int packetloss; // percent
+	int mos; // nominal range of 10 - 50 for MOS values 1.0 to 5.0
 };
 
 struct ssrc_sender_report {
@@ -102,8 +115,8 @@ struct ssrc_entry *get_ssrc(u_int32_t, struct ssrc_hash * /* , int *created */);
 struct ssrc_ctx *get_ssrc_ctx(u_int32_t, struct ssrc_hash *, enum ssrc_dir); // creates new entry if not found
 
 
-void ssrc_sender_report(struct call *, const struct ssrc_sender_report *, const struct timeval *);
-void ssrc_receiver_report(struct call *, const struct ssrc_receiver_report *,
+void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, const struct timeval *);
+void ssrc_receiver_report(struct call_media *, const struct ssrc_receiver_report *,
 		const struct timeval *);
 
 
