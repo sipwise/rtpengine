@@ -227,6 +227,7 @@ struct rtcp_chain_element {
 struct rtcp_process_ctx {
 	// input
 	struct call *call;
+	struct call_media *media;
 	const struct timeval *received;
 
 	// handler vars
@@ -616,6 +617,7 @@ static int __rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const e
 	rtcp_handler_func func;
 	str s = *_s;
 	struct call *c = sfd->call;
+	struct call_media *m = sfd->stream->media;
 	struct rtcp_process_ctx log_ctx_s,
 				*log_ctx;
 	unsigned int len;
@@ -624,6 +626,7 @@ static int __rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const e
 
 	ZERO(log_ctx_s);
 	log_ctx_s.call = c;
+	log_ctx_s.media = m;
 	log_ctx_s.received = tv;
 
 	log_ctx = &log_ctx_s;
@@ -1162,10 +1165,10 @@ static void logging_destroy(struct rtcp_process_ctx *ctx) {
 
 
 static void mos_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
-	ssrc_sender_report(ctx->call, &ctx->scratch.sr, ctx->received);
+	ssrc_sender_report(ctx->media, &ctx->scratch.sr, ctx->received);
 }
 static void mos_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
-	ssrc_receiver_report(ctx->call, &ctx->scratch.rr, ctx->received);
+	ssrc_receiver_report(ctx->media, &ctx->scratch.rr, ctx->received);
 }
 
 
