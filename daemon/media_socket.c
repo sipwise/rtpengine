@@ -1244,6 +1244,9 @@ loop_ok:
 		else {
 			atomic64_inc(&rtp_s->packets);
 			atomic64_add(&rtp_s->bytes, s->len);
+
+			struct ssrc_entry *se = get_ssrc(ntohl(rtp_h->ssrc), call->ssrc_hash);
+			se->payload_type = i;
 		}
 	}
 
