@@ -237,8 +237,13 @@ struct rtcp_process_ctx {
 	} scratch;
 	u_int32_t scratch_common_ssrc;
 
+	// RTCP syslog output
 	GString *log;
+	int log_init_len;
+
+	// Homer stats
 	GString *json;
+	int json_init_len;
 };
 // all available methods
 struct rtcp_handler {
@@ -933,6 +938,7 @@ static void scratch_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct x
 
 static void homer_init(struct rtcp_process_ctx *ctx) {
 	ctx->json = g_string_new("{ ");
+	ctx->json_init_len = ctx->json->len;
 }
 static void homer_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
 	g_string_append_printf(ctx->json, "\"sender_information\":{\"ntp_timestamp_sec\":%u,"
@@ -1018,7 +1024,10 @@ static void homer_finish(struct rtcp_process_ctx *ctx, struct call *c, const end
 {
 	str_sanitize(ctx->json);
 	g_string_append(ctx->json, " }");
-	homer_send(ctx->json, &c->callid, src, dst, tv);
+	if (ctx->json->len > ctx->json_init_len + 2)
+		homer_send(ctx->json, &c->callid, src, dst, tv);
+	else
+		g_string_free(ctx->json, TRUE);
 	ctx->json = NULL;
 }
 
@@ -1027,6 +1036,7 @@ static void logging_init(struct rtcp_process_ctx *ctx) {
 }
 static void logging_start(struct rtcp_process_ctx *ctx, struct call *c) {
 	g_string_append_printf(ctx->log, "["STR_FORMAT"] ", STR_FMT(&c->callid));
+	ctx->log_init_len = ctx->log->len;
 }
 static void logging_common(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
 	g_string_append_printf(ctx->log,"version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ssrc=%u, ",
@@ -1141,7 +1151,8 @@ static void logging_finish(struct rtcp_process_ctx *ctx, struct call *c, const e
 		const endpoint_t *dst, const struct timeval *tv)
 {
 	str_sanitize(ctx->log);
-	rtcplog(ctx->log->str);
+	if (ctx->log->len > ctx->log_init_len)
+		rtcplog(ctx->log->str);
 }
 static void logging_destroy(struct rtcp_process_ctx *ctx) {
 	g_string_free(ctx->log, TRUE);
