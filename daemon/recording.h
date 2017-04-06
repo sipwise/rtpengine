@@ -46,7 +46,7 @@ struct recording {
 	union {
 		struct recording_pcap pcap;
 		struct recording_proc proc;
-	};
+	} u;
 
 	str		metadata; // from controlling daemon
 	char		*escaped_callid; // call-id with dangerous characters escaped
@@ -57,7 +57,7 @@ struct recording {
 struct recording_stream {
 	union {
 		struct recording_stream_proc proc;
-	};
+	} u;
 };
 
 struct recording_method {
