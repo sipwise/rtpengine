@@ -16,6 +16,7 @@ use NGCP::Rtpclient::SDP;
 use NGCP::Rtpclient::ICE;
 use NGCP::Rtpclient::DTLS;
 use NGCP::Rtpclient::RTP;
+use NGCP::Rtpclient::RTCP;
 use NGCP::Rtpengine;
 
 sub new {
@@ -197,6 +198,7 @@ sub _new {
 	$self->{media_receive_queues} = [[],[]]; # for each component
 	$self->{media_packets_sent} = [0,0];
 	$self->{media_packets_received} = [0,0];
+	$self->{client_components} = [undef,undef];
 
 	return $self;
 }
@@ -343,12 +345,16 @@ sub _input {
 	$$input eq $exp or die;
 	$self->{media_packets_received}->[$component]++;
 	$$input = '';
+
+	$self->{client_components}->[$component] and
+		$self->{client_components}->[$component]->input($exp);
 }
 
 sub _timer {
 	my ($self) = @_;
 	$self->{ice} and $self->{ice}->timer();
 	$self->{rtp} and $self->{rtp}->timer();
+	$self->{rtcp} and $self->{rtcp}->timer();
 }
 
 sub _peer_addr_check {
@@ -369,8 +375,15 @@ sub _peer_addr_check {
 sub start_rtp {
 	my ($self) = @_;
 	$self->{rtp} and die;
-	my $dest = $self->{remote_media}->endpoint();
 	$self->{rtp} = NGCP::Rtpclient::RTP->new($self) or die;
+	$self->{client_components}->[0] = $self->{rtp};
+}
+
+sub start_rtcp {
+	my ($self) = @_;
+	$self->{rtcp} and die;
+	$self->{rtcp} = NGCP::Rtpclient::RTCP->new($self, $self->{rtp}) or die;
+	$self->{client_components}->[1] = $self->{rtcp};
 }
 
 sub stop {
