@@ -448,6 +448,18 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 	return 0;
 }
 
+/*
+ * All versions of libsrtp w/openssl prior to 1.6 and 2.1 have
+ * a bug in iv generation for AES-256 SRTCP only (SRTP is ok).
+ * https://github.com/cisco/libsrtp/issues/264
+ * Example: FreeSWITCH 1.6.x.
+ * The bug is equivalent to:
+ *
+ * // idx <= 16 - no left shift
+ * // ivi[1] ^= ssrc - don't use ssrc
+ * // ivi[2] ^= idxh - don't use idxh
+ */
+
 /* rfc 3711 section 4.1.1 */
 static int aes_cm_encrypt(struct crypto_context *c, u_int32_t ssrc, str *s, u_int64_t idx) {
 	unsigned char iv[16];
