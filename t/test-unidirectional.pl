@@ -19,4 +19,4 @@ $b->start_rtp();
 
 $r->run();
 
-$a->delete();
+$a->teardown();
