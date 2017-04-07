@@ -233,4 +233,13 @@ sub endpoint {
 	die;
 }
 
+sub rtcp_endpoint {
+	my ($self) = @_;
+	my $conn = $self->rtcp_connection();
+	my $port = $self->rtcp_port();
+	$conn->{family} == &AF_INET and return pack_sockaddr_in($port, inet_aton($conn->{address}));
+	$conn->{family} == &AF_INET6 and return pack_sockaddr_in6($port, inet_pton(&AF_INET6, $conn->{address}));
+	die;
+}
+
 1;
