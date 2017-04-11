@@ -78,8 +78,11 @@ sub _sr {
 		$lost_frac > 255 and $lost_frac = 255;
 		$lost = $lost | ($lost_frac << 24);
 
-		$rrs .= pack('NNNNNN', $ss->{ssrc}, $ss->{packets_lost}, $ss->{seq}, $ss->{jitter}, $lsr, $dlsr);
+		$rrs .= pack('NNNNNN', $ss->{ssrc}, $lost, $ss->{seq}, $ss->{jitter}, $lsr, $dlsr);
 		$num_rrs++;
+
+		$ss->{received_last} = 0;
+		$ss->{lost_last} = 0;
 	}
 
 	# actual sr
