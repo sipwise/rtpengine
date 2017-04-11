@@ -282,6 +282,8 @@ struct packet_stream {
 	struct endpoint		endpoint;	/* LOCK: out_lock */
 	struct endpoint		advertised_endpoint; /* RO */
 	struct crypto_context	crypto;		/* OUT direction, LOCK: out_lock */
+	struct ssrc_ctx		*ssrc_in,	/* LOCK: in_lock */
+				*ssrc_out;	/* LOCK: out_lock */
 
 	struct stats		stats;
 	struct stats		kernel_stats;
