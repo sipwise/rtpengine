@@ -6,12 +6,17 @@
 
 
 
+static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry *parent) {
+	c->parent = parent;
+}
 static struct ssrc_entry *create_ssrc_entry(u_int32_t ssrc) {
 	struct ssrc_entry *ent;
 	ent = g_slice_alloc0(sizeof(struct ssrc_entry));
 	ent->ssrc = ssrc;
 	mutex_init(&ent->lock);
 	ent->payload_type = -1;
+	init_ssrc_ctx(&ent->input_ctx, ent);
+	init_ssrc_ctx(&ent->output_ctx, ent);
 	return ent;
 }
 static void add_ssrc_entry(struct ssrc_entry *ent, struct ssrc_hash *ht) {

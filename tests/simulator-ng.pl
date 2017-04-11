@@ -228,10 +228,11 @@ sub savp_sdp {
 }
 
 sub rtcp_sr {
+	my ($ssrc) = @_;
 	my @now = Time::HiRes::gettimeofday();
 	my $secs = $now[0] + 2208988800;
 	my $frac = $now[1] / 1000000 * 2**32;
-	my $sr = pack('CCnN NNN NN', (2 << 6) | 1, 200, 12, rand(2**32), $secs, $frac,
+	my $sr = pack('CCnN NNN NN', (2 << 6) | 1, 200, 12, $ssrc, $secs, $frac,
 		12345, rand(12345), rand(4321));
 	$sr .= pack('N CCCC NNNN', rand(2**32), rand(256), rand(256), rand(256), rand(256),
 		rand(2**32), rand(2**32), rand(2**32), rand(2**32));
@@ -262,7 +263,8 @@ sub rtcp_rtpfb {
 
 sub rtcp_avp {
 	my ($recv, $ctx, $ctx_o) = @_;
-	my $sr = rtcp_sr();
+	my $ssrc = $$ctx{ssrc} // ($$ctx{ssrc} = rand(2**32));
+	my $sr = rtcp_sr($ssrc);
 	my $exp = $sr;
 	$$recv{srtp} and $exp = rtcp_encrypt($exp, $ctx_o, 'in');
 	return ($sr, $exp);
@@ -270,7 +272,8 @@ sub rtcp_avp {
 
 sub rtcp_savp {
 	my ($recv, $ctx, $ctx_o) = @_;
-	my $sr = rtcp_sr();
+	my $ssrc = $$ctx{ssrc} // ($$ctx{ssrc} = rand(2**32));
+	my $sr = rtcp_sr($ssrc);
 	my $enc = rtcp_encrypt($sr, $ctx, 'out');
 	my $exp = $sr;
 	$$recv{srtp} and $exp = rtcp_encrypt($exp, $ctx_o, 'in');
@@ -279,7 +282,8 @@ sub rtcp_savp {
 
 sub rtcp_avpf {
 	my ($recv, $ctx, $ctx_o) = @_;
-	my $sr = rtcp_sr();
+	my $ssrc = $$ctx{ssrc} // ($$ctx{ssrc} = rand(2**32));
+	my $sr = rtcp_sr($ssrc);
 	my $fb = rtcp_rtpfb();
 	my $exp = $sr;
 	$$recv{avpf} and $exp .= $fb;
@@ -289,7 +293,8 @@ sub rtcp_avpf {
 
 sub rtcp_savpf {
 	my ($recv, $ctx, $ctx_o) = @_;
-	my $sr = rtcp_sr();
+	my $ssrc = $$ctx{ssrc} // ($$ctx{ssrc} = rand(2**32));
+	my $sr = rtcp_sr($ssrc);
 	my $fb = rtcp_rtpfb();
 	my $enc = rtcp_encrypt($sr . $fb, $ctx, 'out');
 	my $exp = $sr;
