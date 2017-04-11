@@ -182,7 +182,7 @@ static void call_timer_iterator(void *key, void *val, void *ptr) {
 	rwlock_lock_r(&cm->conf.config_lock);
 
 	// final timeout applicable to all calls (own and foreign)
-	if (cm->conf.final_timeout && poller_now >= (c->created + cm->conf.final_timeout)) {
+	if (cm->conf.final_timeout && poller_now >= (c->created.tv_sec + cm->conf.final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
 		for (it = c->monologues.head; it; it = it->next) {
@@ -1845,66 +1845,91 @@ void call_destroy(struct call *c) {
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */
 
-	if (IS_OWN_CALL(c)) {
-		ilog(LOG_INFO, "Final packet stats:");
+	if (!IS_OWN_CALL(c))
+		goto no_stats_output;
 
-		for (l = c->monologues.head; l; l = l->next) {
-			ml = l->data;
+	ilog(LOG_INFO, "Final packet stats:");
 
-			ilog(LOG_INFO, "--- Tag '"STR_FORMAT"', created "
-					"%u:%02u ago for branch '"STR_FORMAT"', in dialogue with '"STR_FORMAT"'",
-					STR_FMT(&ml->tag),
-					(unsigned int) (poller_now - ml->created) / 60,
-					(unsigned int) (poller_now - ml->created) % 60,
-					STR_FMT(&ml->viabranch),
-					ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
-					ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+	for (l = c->monologues.head; l; l = l->next) {
+		ml = l->data;
 
-			for (k = ml->medias.head; k; k = k->next) {
-				md = k->data;
+		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"', created "
+				"%u:%02u ago for branch '"STR_FORMAT"', in dialogue with '"STR_FORMAT"'",
+				STR_FMT(&ml->tag),
+				(unsigned int) (poller_now - ml->created) / 60,
+				(unsigned int) (poller_now - ml->created) % 60,
+				STR_FMT(&ml->viabranch),
+				ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
+				ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
 
-				rtp_pt = __rtp_stats_codec(md);
+		for (k = ml->medias.head; k; k = k->next) {
+			md = k->data;
+
+			rtp_pt = __rtp_stats_codec(md);
 #define MLL_PREFIX "------ Media #%u ("STR_FORMAT" over %s) using " /* media log line prefix */
 #define MLL_COMMON /* common args */						\
-					md->index,				\
-					STR_FMT(&md->type),			\
-					md->protocol ? md->protocol->name : "(unknown)"
-				if (!rtp_pt)
-					ilog(LOG_INFO, MLL_PREFIX "unknown codec", MLL_COMMON);
-				else
-					ilog(LOG_INFO, MLL_PREFIX STR_FORMAT, MLL_COMMON,
-							STR_FMT(&rtp_pt->encoding_with_params));
+				md->index,				\
+				STR_FMT(&md->type),			\
+				md->protocol ? md->protocol->name : "(unknown)"
+			if (!rtp_pt)
+				ilog(LOG_INFO, MLL_PREFIX "unknown codec", MLL_COMMON);
+			else
+				ilog(LOG_INFO, MLL_PREFIX STR_FORMAT, MLL_COMMON,
+						STR_FMT(&rtp_pt->encoding_with_params));
 
-				for (o = md->streams.head; o; o = o->next) {
-					ps = o->data;
+			for (o = md->streams.head; o; o = o->next) {
+				ps = o->data;
 
-					if (PS_ISSET(ps, FALLBACK_RTCP))
-						continue;
+				if (PS_ISSET(ps, FALLBACK_RTCP))
+					continue;
 
-					char *addr = sockaddr_print_buf(&ps->endpoint.address);
-                                        char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
+				char *addr = sockaddr_print_buf(&ps->endpoint.address);
+				char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
 
-					ilog(LOG_INFO, "--------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIu32 ", "
-							""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet",
-							local_addr,
-							(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
-							addr, ps->endpoint.port,
-							(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-							ps->ssrc_in ? ps->ssrc_in->parent->ssrc : 0,
-							atomic64_get(&ps->stats.packets),
-							atomic64_get(&ps->stats.bytes),
-							atomic64_get(&ps->stats.errors),
-							atomic64_get(&ps->last_packet));
+				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIu32 ", "
+						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" ts",
+						local_addr,
+						(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						addr, ps->endpoint.port,
+						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
+						ps->ssrc_in ? ps->ssrc_in->parent->ssrc : 0,
+						atomic64_get(&ps->stats.packets),
+						atomic64_get(&ps->stats.bytes),
+						atomic64_get(&ps->stats.errors),
+						g_now.tv_sec - atomic64_get(&ps->last_packet));
 
-					statistics_update_totals(m,ps);
+				statistics_update_totals(m,ps);
 
-				}
-
-				ice_shutdown(&md->ice_agent);
 			}
+
+			ice_shutdown(&md->ice_agent);
 		}
 	}
 
+	k = g_hash_table_get_values(c->ssrc_hash->ht);
+	for (l = k; l; l = l->next) {
+		struct ssrc_entry *se = l->data;
+
+		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
+			continue;
+
+		ilog(LOG_INFO, "--- SSRC %" PRIu32 "", se->ssrc);
+		ilog(LOG_INFO, "------ Average MOS %i.%i, lowest MOS %i.%i (at %u:%02u), "
+				"highest MOS %i.%i (at %u:%02u)",
+			(int) (se->mos_sum / se->stats_blocks.length / 10),
+			abs(se->mos_sum / se->stats_blocks.length % 10),
+			se->lowest_mos->mos / 10,
+			abs(se->lowest_mos->mos % 10),
+			(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) / 60,
+			(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) % 60,
+			se->highest_mos->mos / 10,
+			abs(se->highest_mos->mos % 10),
+			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
+			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60);
+	}
+	g_list_free(k);
+
+no_stats_output:
 	statistics_update_oneway(c);
 
 	cdr_update_entry(c);
@@ -2033,7 +2058,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	c->tags = g_hash_table_new(str_hash, str_equal);
 	c->viabranches = g_hash_table_new(str_hash, str_equal);
 	call_str_cpy(c, &c->callid, callid);
-	c->created = poller_now;
+	c->created = g_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = m->conf.default_tos;
 	c->ssrc_hash = create_ssrc_hash();
