@@ -37,6 +37,9 @@ struct ssrc_entry {
 			output_ctx;
 	GQueue sender_reports; // as received via RTCP
 	GQueue stats_blocks; // calculated
+	struct ssrc_stats_block *lowest_mos,
+				*highest_mos;
+	u_int64_t mos_sum;
 	int payload_type; // to determine the clock rate for jitter calculations
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 };
