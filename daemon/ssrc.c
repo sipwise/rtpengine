@@ -211,8 +211,26 @@ found:
 
 	// got a new stats block, add it to reporting ssrc
 	e = get_ssrc(rr->from, c->ssrc_hash);
+
 	mutex_lock(&e->lock);
+
+	// discard stats block if last has been received less than a second ago
+	if (G_LIKELY(e->stats_blocks.length > 0)) {
+		struct ssrc_stats_block *last_ssb = g_queue_peek_tail(&e->stats_blocks);
+		if (G_UNLIKELY(timeval_diff(tv, &last_ssb->reported) < 1000000)) {
+			free_stats_block(ssb);
+			goto out;
+		}
+	}
+
 	g_queue_push_tail(&e->stats_blocks, ssb);
+
+	if (G_UNLIKELY(!e->lowest_mos) || ssb->mos < e->lowest_mos->mos)
+		e->lowest_mos = ssb;
+	if (G_UNLIKELY(!e->highest_mos) || ssb->mos > e->highest_mos->mos)
+		e->highest_mos = ssb;
+	e->mos_sum += ssb->mos;
+
 	goto out;
 
 out:

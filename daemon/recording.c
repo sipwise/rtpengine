@@ -369,7 +369,7 @@ static int pcap_meta_finish_file(struct call *call) {
 
 	// Print start timestamp and end timestamp
 	// YYYY-MM-DDThh:mm:ss
-	time_t start = call->created;
+	time_t start = call->created.tv_sec;
 	time_t end = g_now.tv_sec;
 	char timebuffer[20];
 	struct tm *timeinfo;
