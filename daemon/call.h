@@ -372,7 +372,7 @@ struct call {
 	struct ssrc_hash	*ssrc_hash;
 
 	str			callid;
-	time_t			created;
+	struct timeval		created;
 	time_t			last_signal;
 	time_t			deleted;
 	time_t			ml_deleted;
