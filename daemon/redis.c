@@ -997,10 +997,10 @@ static int redis_hash_get_crypto_context(struct crypto_context *out, const struc
 	else if (ret)
 		return -1;
 
-	if (redis_hash_get_u64(&out->last_index, h, "last_index"))
-		return -1;
-	// coverity[check_return : FALSE]
-	redis_hash_get_unsigned(&out->ssrc, h, "ssrc");
+// XXX	if (redis_hash_get_u64(&out->last_index, h, "last_index"))
+// XXX		return -1;
+// XXX	// coverity[check_return : FALSE]
+// XXX	redis_hash_get_unsigned(&out->ssrc, h, "ssrc");
 
 	return 0;
 }
@@ -1677,8 +1677,8 @@ static void json_update_crypto_context(JsonBuilder *builder, const char *pref,
 	if (json_update_crypto_params(builder, pref, unique_id, "", &c->params))
 		return;
 
-	JSON_SET_SIMPLE("last_index","%" PRIu64, c->last_index);
-	JSON_SET_SIMPLE("ssrc","%u",(unsigned) c->ssrc);
+// XXX	JSON_SET_SIMPLE("last_index","%" PRIu64, c->last_index);
+// XXX	JSON_SET_SIMPLE("ssrc","%u",(unsigned) c->ssrc);
 
 }
 
