@@ -546,22 +546,22 @@ static void callmaster_timer(void *ptr) {
 		/* XXX this only works if the kernel module actually gets to see the packets. */
 		if (sink) {
 			mutex_lock(&sink->out_lock);
-			if (sink->crypto.params.crypto_suite
-					&& ke->target.ssrc == sink->crypto.ssrc
-					&& ke->target.encrypt.last_index - sink->crypto.last_index > 0x4000)
+			if (sink->crypto.params.crypto_suite && sink->ssrc_out
+					&& ke->target.ssrc == sink->ssrc_out->parent->ssrc
+					&& ke->target.encrypt.last_index - sink->ssrc_out->srtp_index > 0x4000)
 			{
-				sink->crypto.last_index = ke->target.encrypt.last_index;
+				sink->ssrc_out->srtp_index = ke->target.encrypt.last_index;
 				update = 1;
 			}
 			mutex_unlock(&sink->out_lock);
 		}
 
 		mutex_lock(&ps->in_lock);
-		if (sfd->crypto.params.crypto_suite
-				&& ke->target.ssrc == sfd->crypto.ssrc
-				&& ke->target.decrypt.last_index - sfd->crypto.last_index > 0x4000)
+		if (sfd->crypto.params.crypto_suite && ps->ssrc_in
+				&& ke->target.ssrc == ps->ssrc_in->parent->ssrc
+				&& ke->target.decrypt.last_index - ps->ssrc_in->srtp_index > 0x4000)
 		{
-			sfd->crypto.last_index = ke->target.decrypt.last_index;
+			ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
 			update = 1;
 		}
 		mutex_unlock(&ps->in_lock);
@@ -1884,11 +1884,13 @@ void call_destroy(struct call *c) {
 					char *addr = sockaddr_print_buf(&ps->endpoint.address);
                                         char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
 
-					ilog(LOG_INFO, "--------- Port %15s:%-5u <> %15s:%-5u%s, "
-							""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet", local_addr,
+					ilog(LOG_INFO, "--------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIu32 ", "
+							""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet",
+							local_addr,
 							(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
 							addr, ps->endpoint.port,
 							(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
+							ps->ssrc_in ? ps->ssrc_in->parent->ssrc : 0,
 							atomic64_get(&ps->stats.packets),
 							atomic64_get(&ps->stats.bytes),
 							atomic64_get(&ps->stats.errors),

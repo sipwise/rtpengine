@@ -29,6 +29,7 @@
 #include "recording.h"
 #include "rtplib.h"
 #include "str.h"
+#include "ssrc.h"
 
 
 INLINE redisReply *redis_expect(int type, redisReply *r) {
@@ -801,7 +802,7 @@ define_get_int_type(time_t, time_t, strtoull);
 define_get_int_type(int, int, strtol);
 define_get_int_type(unsigned, unsigned int, strtol);
 //define_get_int_type(u16, u_int16_t, strtol);
-define_get_int_type(u64, u_int64_t, strtoull);
+//define_get_int_type(u64, u_int64_t, strtoull);
 define_get_int_type(a64, atomic64, strtoa64);
 
 define_get_type_format(str, str);
@@ -998,22 +999,6 @@ err:
 	rlog(LOG_ERR, "Crypto params error: %s", err);
 	return -1;
 }
-static int redis_hash_get_crypto_context(struct crypto_context *out, const struct redis_hash *h) {
-	int ret;
-
-	ret = redis_hash_get_crypto_params(&out->params, h, "");
-	if (ret == 1)
-		return 0;
-	else if (ret)
-		return -1;
-
-	if (redis_hash_get_u64(&out->last_index, h, "last_index"))
-		return -1;
-	// coverity[check_return : FALSE]
-	redis_hash_get_unsigned(&out->ssrc, h, "ssrc");
-
-	return 0;
-}
 
 static int redis_sfds(struct call *c, struct redis_list *sfds) {
 	unsigned int i;
@@ -1067,9 +1052,6 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 			goto err;
 		sfd = stream_fd_new(sock, c, loc);
 		// XXX tos
-		err = "failed to config crypto context";
-		if (redis_hash_get_crypto_context(&sfd->crypto, rh))
-			goto err;
 
 		sfds->ptrs[i] = sfd;
 	}
@@ -1102,8 +1084,6 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 		if (redis_hash_get_endpoint(&ps->advertised_endpoint, rh, "advertised_endpoint"))
 			return -1;
 		if (redis_hash_get_stats(&ps->stats, rh, "stats"))
-			return -1;
-		if (redis_hash_get_crypto_context(&ps->crypto, rh))
 			return -1;
 
 		streams->ptrs[i] = ps;
@@ -1499,6 +1479,8 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 	if (json_link_maps(c, &maps, &sfds, root_reader))
 		goto err8;
 
+	// XXX restore SSRC table
+
 	// presence of this key determines whether we were recording at all
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
 		recording_start(c, s.s);
@@ -1678,20 +1660,6 @@ static int json_update_crypto_params(JsonBuilder *builder, const char *pref,
 	return 0;
 }
 
-static void json_update_crypto_context(JsonBuilder *builder, const char *pref,
-		unsigned int unique_id,
-		const struct crypto_context *c)
-{
-	char tmp[2048];
-
-	if (json_update_crypto_params(builder, pref, unique_id, "", &c->params))
-		return;
-
-	JSON_SET_SIMPLE("last_index","%" PRIu64, c->last_index);
-	JSON_SET_SIMPLE("ssrc","%u",(unsigned) c->ssrc);
-
-}
-
 static void json_update_dtls_fingerprint(JsonBuilder *builder, const char *pref,
 		unsigned int unique_id,
 		const struct dtls_fingerprint *f)
@@ -1766,8 +1734,6 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("local_intf_uid","%u",sfd->local_intf->unique_id);
 				JSON_SET_SIMPLE("stream","%u",sfd->stream->unique_id);
 
-				json_update_crypto_context(builder, "sfd", sfd->unique_id, &sfd->crypto);
-
 			}
 			json_builder_end_object (builder);
 
@@ -1798,8 +1764,6 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("stats-packets","%" PRIu64, atomic64_get(&ps->stats.packets));
 				JSON_SET_SIMPLE("stats-bytes","%" PRIu64, atomic64_get(&ps->stats.bytes));
 				JSON_SET_SIMPLE("stats-errors","%" PRIu64, atomic64_get(&ps->stats.errors));
-
-				json_update_crypto_context(builder, "stream", ps->unique_id, &ps->crypto);
 
 			}
 
@@ -1951,7 +1915,6 @@ char* redis_encode_json(struct call *c) {
 			json_builder_end_array (builder);
 
 			g_list_free(k);
-
 		}
 
 		for (l = c->endpoint_maps.head; l; l = l->next) {
@@ -1990,6 +1953,29 @@ char* redis_encode_json(struct call *c) {
 			}
 			json_builder_end_array (builder);
 		}
+
+		// SSRC table dump
+		k = g_hash_table_get_values(c->ssrc_hash->ht);
+		json_builder_set_member_name(builder, "ssrc_table");
+		json_builder_begin_array (builder);
+		for (m = k; m; m = m->next) {
+			struct ssrc_entry *se = m->data;
+			json_builder_begin_object (builder);
+
+			JSON_SET_SIMPLE("ssrc","%" PRIu32, se->ssrc);
+			// XXX use function for in/out
+			JSON_SET_SIMPLE("in_srtp_index","%" PRIu64, se->input_ctx.srtp_index);
+			JSON_SET_SIMPLE("in_srtcp_index","%" PRIu64, se->input_ctx.srtcp_index);
+			JSON_SET_SIMPLE("out_srtp_index","%" PRIu64, se->output_ctx.srtp_index);
+			JSON_SET_SIMPLE("out_srtcp_index","%" PRIu64, se->output_ctx.srtcp_index);
+			JSON_SET_SIMPLE("payload_type","%i", se->payload_type);
+			// XXX add rest of info
+
+			json_builder_end_object (builder);
+		}
+		json_builder_end_array (builder);
+
+		g_list_free(k);
 	}
 	json_builder_end_object (builder);
 
