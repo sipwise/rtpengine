@@ -18,7 +18,7 @@ INLINE int check_session_keys(struct crypto_context *c) {
 	str s;
 	const char *err;
 
-	if (c->have_session_key)
+	if (G_LIKELY(c->have_session_key))
 		return 0;
 	err = "SRTP output wanted, but no crypto suite was negotiated";
 	if (!c->params.crypto_suite)
@@ -45,17 +45,17 @@ error:
 	return -1;
 }
 
-static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) {
+static u_int64_t packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp) {
 	u_int16_t seq;
 
 	seq = ntohs(rtp->seq_num);
 	/* rfc 3711 section 3.3.1 */
-	if (G_UNLIKELY(!c->last_index))
-		c->last_index = seq;
+	if (G_UNLIKELY(!ssrc_ctx->srtp_index))
+		ssrc_ctx->srtp_index = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	u_int16_t s_l = (c->last_index & 0x00000000ffffULL);
-	u_int32_t roc = (c->last_index & 0xffffffff0000ULL) >> 16;
+	u_int16_t s_l = (ssrc_ctx->srtp_index & 0x00000000ffffULL);
+	u_int32_t roc = (ssrc_ctx->srtp_index & 0xffffffff0000ULL) >> 16;
 	u_int32_t v = 0;
 
 	if (s_l < 0x8000) {
@@ -70,8 +70,8 @@ static u_int64_t packet_index(struct crypto_context *c, struct rtp_header *rtp) 
 			v = roc;
 	}
 
-	c->last_index = (u_int64_t)(((v << 16) | seq) & 0xffffffffffffULL);
-	return c->last_index;
+	ssrc_ctx->srtp_index = (u_int64_t)(((v << 16) | seq) & 0xffffffffffffULL);
+	return ssrc_ctx->srtp_index;
 }
 
 void rtp_append_mki(str *s, struct crypto_context *c) {
@@ -86,48 +86,21 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 	s->len += c->params.mki_len;
 }
 
-static int rtp_ssrc_check(const struct rtp_header *rtp, struct crypto_context *c, struct ssrc_hash *ht,
-		enum ssrc_dir dir)
-{
-	struct ssrc_ctx *ssrc_ctx;
-
-	/* check last known SSRC */
-	if (G_LIKELY(rtp->ssrc == c->ssrc)) // XXX replace by pointer
-		return 0;
-	if (!c->ssrc) {
-		c->ssrc = rtp->ssrc;
-		return 1;
-	}
-
-	/* SSRC mismatch. stash away last know info */
-	ilog(LOG_DEBUG, "SSRC changed, updating SRTP crypto contexts");
-
-	// Find the entry for the last SSRC.
-	ssrc_ctx = get_ssrc_ctx(c->ssrc, ht, dir);
-	ssrc_ctx->srtp_index = c->last_index;
-
-	// New SSRC, set the crypto context.
-	c->ssrc = rtp->ssrc;
-	ssrc_ctx = get_ssrc_ctx(rtp->ssrc, ht, dir);
-	c->last_index = ssrc_ctx->srtp_index; // defaults to 0
-
-	return 1;
-}
-
 /* rfc 3711, section 3.3 */
-int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_hash *ht, enum ssrc_dir dir) {
+int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
 	u_int64_t index;
 	int ret = 0;
 
+	if (G_UNLIKELY(!ssrc_ctx))
+		return -1;
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
 
-	ret = rtp_ssrc_check(rtp, c, ht, dir);
-	index = packet_index(c, rtp);
+	index = packet_index(ssrc_ctx, rtp);
 
 	/* rfc 3711 section 3.1 */
 	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, index))
@@ -146,20 +119,21 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_hash *ht, enum ss
 }
 
 /* rfc 3711, section 3.3 */
-int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_hash *ht, enum ssrc_dir dir) {
+int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtp_header *rtp;
 	u_int64_t index;
 	str payload, to_auth, to_decrypt, auth_tag;
 	char hmac[20];
 	int ret = 0;
 
+	if (G_UNLIKELY(!ssrc_ctx))
+		return -1;
 	if (rtp_payload(&rtp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
 
-	ret = rtp_ssrc_check(rtp, c, ht, dir);
-	index = packet_index(c, rtp);
+	index = packet_index(ssrc_ctx, rtp);
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
 			c->params.session_params.unauthenticated_srtp ? 0 : c->params.crypto_suite->srtp_auth_tag,
 			c->params.mki_len,
@@ -195,7 +169,7 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_hash *ht, enum ss
 	goto error;
 
 decrypt_idx:
-	c->last_index = index;
+	ssrc_ctx->srtp_index = index;
 decrypt:
 	if (!c->params.session_params.unencrypted_srtp && crypto_decrypt_rtp(c, rtp, &to_decrypt, index))
 		return -1;

@@ -12,6 +12,7 @@ struct crypto_context;
 struct rtp_header;
 struct ssrc_hash;
 enum ssrc_dir;
+struct ssrc_ctx;
 
 
 
@@ -19,8 +20,8 @@ enum ssrc_dir;
 
 const struct rtp_payload_type *rtp_payload_type(unsigned int, GHashTable *);
 
-int rtp_avp2savp(str *, struct crypto_context *, struct ssrc_hash *, enum ssrc_dir);
-int rtp_savp2avp(str *, struct crypto_context *, struct ssrc_hash *, enum ssrc_dir);
+int rtp_avp2savp(str *, struct crypto_context *, struct ssrc_ctx *);
+int rtp_savp2avp(str *, struct crypto_context *, struct ssrc_ctx *);
 
 void rtp_append_mki(str *s, struct crypto_context *c);
 int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,

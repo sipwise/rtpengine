@@ -82,8 +82,6 @@ struct crypto_context {
 	char session_salt[SRTP_MAX_SESSION_SALT_LEN]; /* k_s */
 	char session_auth_key[SRTP_MAX_SESSION_AUTH_LEN];
 
-	u_int32_t ssrc;
-	u_int64_t last_index;
 	/* XXX replay list */
 	/* <from, to>? */
 
@@ -145,9 +143,8 @@ INLINE void crypto_cleanup(struct crypto_context *c) {
 	c->params.crypto_suite = NULL;
 }
 INLINE void crypto_reset(struct crypto_context *c) {
+	// XXX reset details from ssrc_ctx?
 	crypto_cleanup(c);
-	c->last_index = 0;
-	c->ssrc = 0;
 }
 INLINE void crypto_params_copy(struct crypto_params *o, const struct crypto_params *i, int copy_sp) {
 	struct crypto_session_params sp;

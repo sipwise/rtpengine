@@ -768,7 +768,7 @@ error:
 	return -1;
 }
 
-static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
+int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 	struct rtcp_packet *rtcp;
 	const char *err;
 
@@ -786,10 +786,14 @@ static int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 			&& rtcp->header.pt != RTCP_PT_RR)
 		goto error;
 
+	if (!p)
+		goto done;
+
 	*p = *s;
 	str_shift(p, sizeof(*rtcp));
-	*out = rtcp;
 
+done:
+	*out = rtcp;
 	return 0;
 error:
 	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Error parsing RTCP header: %s", err);
@@ -797,21 +801,25 @@ error:
 }
 
 /* rfc 3711 section 3.4 */
-int rtcp_avp2savp(str *s, struct crypto_context *c) {
+int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtcp_packet *rtcp;
 	u_int32_t *idx;
 	str to_auth, payload;
 
+	if (G_UNLIKELY(!ssrc_ctx))
+		return -1;
 	if (rtcp_payload(&rtcp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
 
-	if (!c->params.session_params.unencrypted_srtcp && crypto_encrypt_rtcp(c, rtcp, &payload, c->last_index))
+	if (!c->params.session_params.unencrypted_srtcp && crypto_encrypt_rtcp(c, rtcp, &payload,
+				ssrc_ctx->srtcp_index))
 		return -1;
 
 	idx = (void *) s->s + s->len;
-	*idx = htonl((c->params.session_params.unencrypted_srtcp ? 0ULL : 0x80000000ULL) | c->last_index++);
+	*idx = htonl((c->params.session_params.unencrypted_srtcp ? 0ULL : 0x80000000ULL) |
+			ssrc_ctx->srtcp_index++);
 	s->len += sizeof(*idx);
 
 	to_auth = *s;
@@ -826,13 +834,15 @@ int rtcp_avp2savp(str *s, struct crypto_context *c) {
 
 
 /* rfc 3711 section 3.4 */
-int rtcp_savp2avp(str *s, struct crypto_context *c) {
+int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtcp_packet *rtcp;
 	str payload, to_auth, to_decrypt, auth_tag;
 	u_int32_t idx, *idx_p;
 	char hmac[20];
 	const char *err;
 
+	if (G_UNLIKELY(!ssrc_ctx))
+		return -1;
 	if (rtcp_payload(&rtcp, &payload, s))
 		return -1;
 	if (check_session_keys(c))
