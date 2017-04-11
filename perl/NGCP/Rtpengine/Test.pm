@@ -200,6 +200,15 @@ sub _new {
 	$self->{media_packets_received} = [0,0];
 	$self->{client_components} = [undef,undef];
 
+	$self->{args} = \%args;
+
+	# copy args for the RTP client
+	$self->{rtp_args} = {};
+	for my $k (qw(packetloss)) {
+		exists($args{$k}) or next;
+		$self->{rtp_args}->{$k} = $args{$k};
+	}
+
 	return $self;
 }
 
@@ -375,7 +384,7 @@ sub _peer_addr_check {
 sub start_rtp {
 	my ($self) = @_;
 	$self->{rtp} and die;
-	$self->{rtp} = NGCP::Rtpclient::RTP->new($self) or die;
+	$self->{rtp} = NGCP::Rtpclient::RTP->new($self, %{$self->{rtp_args}}) or die;
 	$self->{client_components}->[0] = $self->{rtp};
 }
 
