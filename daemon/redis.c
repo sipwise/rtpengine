@@ -797,8 +797,15 @@ static atomic64 strtoa64(const char *c, char **endp, int base) {
 	atomic64_set_na(&ret, u);
 	return ret;
 }
+static struct timeval strtotimeval(const char *c, char **endp, int base) {
+	long long ll = strtoll(c, endp, base);
+	struct timeval ret;
+	timeval_from_us(&ret, ll);
+	return ret;
+}
 
 define_get_int_type(time_t, time_t, strtoull);
+define_get_int_type(timeval, struct timeval, strtotimeval);
 define_get_int_type(int, int, strtol);
 define_get_int_type(unsigned, unsigned int, strtol);
 //define_get_int_type(u16, u_int16_t, strtol);
@@ -1427,7 +1434,7 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 		goto err7;
 
 	err = "missing 'created' timestamp";
-	if (redis_hash_get_time_t(&c->created, &call, "created"))
+	if (redis_hash_get_timeval(&c->created, &call, "created"))
 		goto err8;
 	err = "missing 'last signal' timestamp";
 	if (redis_hash_get_time_t(&c->last_signal, &call, "last_signal"))
@@ -1697,7 +1704,7 @@ char* redis_encode_json(struct call *c) {
 		json_builder_begin_object (builder);
 
 		{
-			JSON_SET_SIMPLE("created","%ld",(long int) c->created);
+			JSON_SET_SIMPLE("created","%lli", timeval_us(&c->created));
 			JSON_SET_SIMPLE("last_signal","%ld",(long int) c->last_signal);
 			JSON_SET_SIMPLE("tos","%u",(int) c->tos);
 			JSON_SET_SIMPLE("deleted","%ld",(long int) c->deleted);
