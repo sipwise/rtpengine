@@ -427,9 +427,9 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 //	m = c->callmaster;
 //	mutex_lock(&c->master_lock);
 
-	control_stream_printf(s, "session "STR_FORMAT" - - - - %i\n",
+	control_stream_printf(s, "session "STR_FORMAT" - - - - %lli\n",
 		STR_FMT(&c->callid),
-		(int) (poller_now - c->created));
+		timeval_diff(&g_now, &c->created) / 1000000);
 
 	/* XXX restore function */
 
@@ -1021,7 +1021,8 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 
 	call_bencode_hold_ref(call, output);
 
-	bencode_dictionary_add_integer(output, "created", call->created);
+	bencode_dictionary_add_integer(output, "created", call->created.tv_sec);
+	bencode_dictionary_add_integer(output, "created_us", call->created.tv_usec);
 	bencode_dictionary_add_integer(output, "last signal", call->last_signal);
 
 	tags = bencode_dictionary_add_dictionary(output, "tags");
