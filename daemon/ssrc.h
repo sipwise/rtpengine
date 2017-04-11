@@ -14,6 +14,8 @@ struct call;
 struct call_media;
 struct timeval;
 struct rtp_payload_type;
+struct ssrc_entry;
+enum ssrc_dir;
 
 
 
@@ -22,8 +24,10 @@ struct ssrc_hash {
 	rwlock_t lock;
 };
 struct ssrc_ctx {
+	struct ssrc_entry *parent;
 	// XXX lock this?
-	u_int64_t srtp_index;
+	u_int64_t srtp_index,
+		  srtcp_index;
 	// XXX move entire crypto context in here?
 };
 struct ssrc_entry {
@@ -36,7 +40,7 @@ struct ssrc_entry {
 	int payload_type; // to determine the clock rate for jitter calculations
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 };
-enum ssrc_dir {
+enum ssrc_dir { // these values must not be used externally
 	SSRC_DIR_INPUT  = G_STRUCT_OFFSET(struct ssrc_entry, input_ctx),
 	SSRC_DIR_OUTPUT = G_STRUCT_OFFSET(struct ssrc_entry, output_ctx),
 };
