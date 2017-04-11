@@ -7,7 +7,7 @@ use Math::BigInt;
 use Math::BigFloat;
 
 sub new {
-	my ($class, $cb_obj) = @_;
+	my ($class, $cb_obj, %args) = @_;
 
 	my $self = {};
 	bless $self, $class;
@@ -24,6 +24,7 @@ sub new {
 	$self->{packet_count} = 0;
 	$self->{octet_count} = 0;
 	$self->{other_ssrcs} = {};
+	$self->{args} = \%args;
 
 	return $self;
 }
@@ -36,7 +37,13 @@ sub timer {
 	my $hdr = pack("CCnNN", 0x80, 0x00, $self->{seq}, $self->{timestamp}->bstr(), $self->{ssrc});
 	my $payload = chr(rand(256)) x $self->{payload}; # XXX adapt to codec
 
-	$self->{cb_obj}->rtp_send($hdr . $payload);
+	my $lost = 0;
+	if (($self->{args}->{packetloss} // 0) > 0) {
+		my $r = rand(100);
+		($r < $self->{args}->{packetloss}) and $lost = 1;
+	}
+
+	$lost or $self->{cb_obj}->rtp_send($hdr . $payload);
 
 	$self->{seq}++;
 	$self->{seq} > 0xffff and $self->{seq} -= 0x10000;
@@ -121,7 +128,7 @@ sub input {
 				# seek up to the lowest seq in buffer and count each missing
 				# seq as a lost packet
 				my $min = $seqs[0];
-				$remote->{lost_since} += $min - $remote->{queue_seq};
+				$remote->{lost_last} += $min - $remote->{queue_seq};
 				$remote->{packets_lost} += $min - $remote->{queue_seq};
 				# now unqueue what we have as much as we can
 				$remote->{queue_seq} = $min;
