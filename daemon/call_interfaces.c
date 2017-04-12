@@ -5,6 +5,7 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <pcre.h>
+#include <inttypes.h>
 
 #include "call_interfaces.h"
 #include "call.h"
@@ -20,6 +21,7 @@
 #include "ice.h"
 #include "recording.h"
 #include "rtplib.h"
+#include "ssrc.h"
 
 
 
@@ -917,6 +919,10 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	BF_PS("DTLS fingerprint verified", FINGERPRINT_VERIFIED);
 	BF_PS("strict source address", STRICT_SOURCE);
 	BF_PS("media handover", MEDIA_HANDOVER);
+	BF_PS("ICE", ICE);
+
+	if (ps->ssrc_in)
+		bencode_dictionary_add_integer(dict, "SSRC", ps->ssrc_in->parent->ssrc);
 
 stats:
 	if (totals->last_packet < atomic64_get(&ps->last_packet))
@@ -963,6 +969,10 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	BF_M("SDES", SDES);
 	BF_M("passthrough", PASSTHRU);
 	BF_M("ICE", ICE);
+	BF_M("trickle ICE", TRICKLE_ICE);
+	BF_M("ICE-lite", ICE_LITE);
+	BF_M("unidirectional", UNIDIRECTIONAL);
+	BF_M("loop check", LOOP_CHECK);
 
 stats:
 	for (l = m->streams.head; l; l = l->next) {
@@ -1002,6 +1012,60 @@ stats:
 	}
 }
 
+static void ng_stats_ssrc_mos_entry(bencode_item_t *subent, struct ssrc_stats_block *sb) {
+	bencode_dictionary_add_integer(subent, "MOS", sb->mos);
+	bencode_dictionary_add_integer(subent, "reported at", sb->reported.tv_sec);
+	bencode_dictionary_add_integer(subent, "round-trip time", sb->rtt);
+	bencode_dictionary_add_integer(subent, "jitter", sb->jitter);
+	bencode_dictionary_add_integer(subent, "packet loss", sb->packetloss);
+}
+
+static void ng_stats_ssrc_mos_entry_dict(bencode_item_t *ent, const char *label, struct ssrc_stats_block *sb) {
+	bencode_item_t *subent = bencode_dictionary_add_dictionary(ent, label);
+	ng_stats_ssrc_mos_entry(subent, sb);
+}
+
+static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
+	GList *ll = g_hash_table_get_values(ht->ht);
+
+	for (GList *l = ll; l; l = l->next) {
+		struct ssrc_entry *se = l->data;
+		char *tmp = bencode_buffer_alloc(dict->buffer, 12);
+		snprintf(tmp, 12, "%" PRIu32, se->ssrc);
+		bencode_item_t *ent = bencode_dictionary_add_dictionary(dict, tmp);
+
+		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
+			continue;
+
+		bencode_dictionary_add_integer(ent, "average MOS", se->mos_sum / se->stats_blocks.length);
+		ng_stats_ssrc_mos_entry_dict(ent, "lowest MOS", se->lowest_mos);
+		ng_stats_ssrc_mos_entry_dict(ent, "highest MOS", se->highest_mos);
+
+		bencode_item_t *progdict = bencode_dictionary_add_dictionary(ent, "MOS progression");
+		// aim for about 10 entries to the list
+		GList *listent = se->stats_blocks.head;
+		struct ssrc_stats_block *sb = listent->data;
+		int interval
+			= ((struct ssrc_stats_block *) se->stats_blocks.tail->data)->reported.tv_sec
+			- sb->reported.tv_sec;
+		interval /= 10;
+		bencode_dictionary_add_integer(progdict, "interval", interval);
+		time_t next_step = sb->reported.tv_sec;
+		bencode_item_t *entlist = bencode_dictionary_add_list(progdict, "entries");
+
+		for (; listent; listent = listent->next) {
+			sb = listent->data;
+			if (sb->reported.tv_sec < next_step)
+				continue;
+			next_step += interval;
+			bencode_item_t *ent = bencode_list_add_dictionary(entlist);
+			ng_stats_ssrc_mos_entry(ent, sb);
+		}
+	}
+
+	g_list_free(ll);
+}
+
 /* call must be locked */
 void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output,
 		struct call_stats *totals)
@@ -1024,6 +1088,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 	bencode_dictionary_add_integer(output, "created", call->created.tv_sec);
 	bencode_dictionary_add_integer(output, "created_us", call->created.tv_usec);
 	bencode_dictionary_add_integer(output, "last signal", call->last_signal);
+	ng_stats_ssrc(bencode_dictionary_add_dictionary(output, "SSRC"), call->ssrc_hash);
 
 	tags = bencode_dictionary_add_dictionary(output, "tags");
 

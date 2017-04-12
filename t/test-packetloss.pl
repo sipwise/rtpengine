@@ -30,4 +30,4 @@ $b->start_rtcp();
 
 $r->run();
 
-$a->teardown();
+$a->teardown(dump => 1);
