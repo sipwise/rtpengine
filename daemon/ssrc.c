@@ -22,18 +22,15 @@ static struct ssrc_entry *create_ssrc_entry(u_int32_t ssrc) {
 static void add_ssrc_entry(struct ssrc_entry *ent, struct ssrc_hash *ht) {
 	g_hash_table_replace(ht->ht, &ent->ssrc, ent);
 }
-static void free_sender_report(void *p) {
-	struct ssrc_sender_report_item *i = p;
+static void free_sender_report(struct ssrc_sender_report_item *i) {
 	g_slice_free1(sizeof(*i), i);
 }
-static void free_stats_block(void *p) {
-	struct ssrc_stats_block *ssb = p;
+static void free_stats_block(struct ssrc_stats_block *ssb) {
 	g_slice_free1(sizeof(*ssb), ssb);
 }
-static void free_ssrc_entry(void *p) {
-	struct ssrc_entry *e = p;
-	g_queue_clear_full(&e->sender_reports, free_sender_report);
-	g_queue_clear_full(&e->stats_blocks, free_stats_block);
+static void free_ssrc_entry(struct ssrc_entry *e) {
+	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
+	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
 	g_slice_free1(sizeof(*e), e);
 }
 
@@ -71,6 +68,14 @@ restart:
 	ent = create_ssrc_entry(ssrc);
 
 	rwlock_lock_w(&ht->lock);
+
+	if (G_UNLIKELY(g_hash_table_size(ht->ht) > 20)) { // arbitrary limit
+		rwlock_unlock_w(&ht->lock);
+		free_ssrc_entry(ent);
+		ilog(LOG_INFO, "SSRC hash table exceeded size limit (trying to add %u)", ssrc);
+		return NULL;
+	}
+
 	if (g_hash_table_lookup(ht->ht, &ssrc)) {
 		// preempted
 		rwlock_unlock_w(&ht->lock);
@@ -95,13 +100,15 @@ void free_ssrc_hash(struct ssrc_hash **ht) {
 struct ssrc_hash *create_ssrc_hash(void) {
 	struct ssrc_hash *ret;
 	ret = g_slice_alloc0(sizeof(*ret));
-	ret->ht = g_hash_table_new_full(uint32_hash, uint32_eq, NULL, free_ssrc_entry);
+	ret->ht = g_hash_table_new_full(uint32_hash, uint32_eq, NULL, (GDestroyNotify) free_ssrc_entry);
 	rwlock_init(&ret->lock);
 	return ret;
 }
 
 struct ssrc_ctx *get_ssrc_ctx(u_int32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir dir) {
 	struct ssrc_entry *s = get_ssrc(ssrc, ht /* , NULL */);
+	if (G_UNLIKELY(!s))
+		return NULL;
 	return ((void *) s) + dir;
 }
 
@@ -124,6 +131,10 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 			sr->ntp_msw, sr->ntp_lsw, sr->ntp_ts);
 
 	e = get_ssrc(sr->ssrc, c->ssrc_hash);
+	if (G_UNLIKELY(!e)) {
+		free_sender_report(seri);
+		return;
+	}
 
 	mutex_lock(&e->lock);
 
@@ -146,6 +157,9 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		return; // no delay to be known
 
 	struct ssrc_entry *e = get_ssrc(rr->ssrc, c->ssrc_hash);
+	if (G_UNLIKELY(!e))
+		return;
+
 	struct ssrc_sender_report_item *seri;
 	mutex_lock(&e->lock);
 	// go through the list backwards until we find the SR referenced
@@ -157,7 +171,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 	}
 
 	// not found
-	goto out;
+	goto out_ul_e;
 
 found:
 	// `e` remains locked for access to `seri`
@@ -177,6 +191,8 @@ found:
 	e->last_rtt = rtt;
 
 	struct ssrc_entry *other_e = get_ssrc(rr->from, c->ssrc_hash);
+	if (G_UNLIKELY(!other_e))
+		goto out_nl;
 
 	// determine the clock rate for jitter values
 	int pt = e->payload_type;
@@ -210,31 +226,33 @@ found:
 	ilog(LOG_DEBUG, "Calculated MOS from RR for %u is %.1f", rr->from, (double) ssb->mos / 10.0);
 
 	// got a new stats block, add it to reporting ssrc
-	e = get_ssrc(rr->from, c->ssrc_hash);
-
-	mutex_lock(&e->lock);
+	mutex_lock(&other_e->lock);
 
 	// discard stats block if last has been received less than a second ago
-	if (G_LIKELY(e->stats_blocks.length > 0)) {
-		struct ssrc_stats_block *last_ssb = g_queue_peek_tail(&e->stats_blocks);
+	if (G_LIKELY(other_e->stats_blocks.length > 0)) {
+		struct ssrc_stats_block *last_ssb = g_queue_peek_tail(&other_e->stats_blocks);
 		if (G_UNLIKELY(timeval_diff(tv, &last_ssb->reported) < 1000000)) {
 			free_stats_block(ssb);
-			goto out;
+			goto out_ul_oe;
 		}
 	}
 
-	g_queue_push_tail(&e->stats_blocks, ssb);
+	g_queue_push_tail(&other_e->stats_blocks, ssb);
 
-	if (G_UNLIKELY(!e->lowest_mos) || ssb->mos < e->lowest_mos->mos)
-		e->lowest_mos = ssb;
-	if (G_UNLIKELY(!e->highest_mos) || ssb->mos > e->highest_mos->mos)
-		e->highest_mos = ssb;
-	e->mos_sum += ssb->mos;
+	if (G_UNLIKELY(!other_e->lowest_mos) || ssb->mos < other_e->lowest_mos->mos)
+		other_e->lowest_mos = ssb;
+	if (G_UNLIKELY(!other_e->highest_mos) || ssb->mos > other_e->highest_mos->mos)
+		other_e->highest_mos = ssb;
+	other_e->mos_sum += ssb->mos;
 
-	goto out;
+	goto out_ul_oe;
 
-out:
+out_ul_e:
 	mutex_unlock(&e->lock);
+	goto out_nl;
+out_ul_oe:
+	mutex_unlock(&other_e->lock);
+	goto out_nl;
 out_nl:
 	;
 }
