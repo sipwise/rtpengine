@@ -131,7 +131,7 @@ static int control_stream_parse(struct control_stream *s, char *line) {
 		call_delete_tcp(out, c->callmaster);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "status"))
 		calls_status_tcp(c->callmaster, s);
-	else if (!strcmp(out[RE_TCP_DIV_CMD], "build") | !strcmp(out[RE_TCP_DIV_CMD], "version"))
+	else if (!strcmp(out[RE_TCP_DIV_CMD], "build") || !strcmp(out[RE_TCP_DIV_CMD], "version"))
 		control_stream_printf(s, "Version: %s\n", RTPENGINE_VERSION);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "controls"))
 		control_list(c, s);
