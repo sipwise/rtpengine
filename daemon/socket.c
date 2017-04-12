@@ -633,7 +633,11 @@ int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep) {
 }
 
 int close_socket(socket_t *r) {
-	if (!r || r->fd == -1) {
+	if (!r) {
+		__C_DBG("close() syscall not called, no socket");
+		return -1;
+	}
+	if (r->fd == -1) {
 		__C_DBG("close() syscall not called, fd=%d", r->fd);
 		return -1;
 	}
