@@ -1269,7 +1269,7 @@ loop_ok:
 
 			// check the payload type
 			i = (rtp_h->m_pt & 0x7f);
-			if (G_LIKELY(ssrc_int))
+			if (G_LIKELY(ssrc_in))
 				ssrc_in->parent->payload_type = i;
 
 			// XXX convert to array? or keep last pointer?
