@@ -158,7 +158,7 @@ static void execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long lon
 			goto err;
 		if (auto_id) {
 			*auto_id = mysql_insert_id(mysql_conn);
-			if (*auto_id <= 0)
+			if (*auto_id == 0)
 				goto err;
 		}
 		if (mysql_commit(mysql_conn))
@@ -208,7 +208,7 @@ static void db_do_call_id(metafile_t *mf) {
 static void db_do_call_metadata(metafile_t *mf) {
 	if (!mf->metadata)
 		return;
-	if (mf->db_id <= 0)
+	if (mf->db_id == 0)
 		return;
 
 	MYSQL_BIND b[3];
@@ -251,7 +251,7 @@ void db_do_call(metafile_t *mf) {
 void db_do_stream(metafile_t *mf, output_t *op, const char *type, unsigned int id, unsigned long ssrc) {
 	if (check_conn())
 		return;
-	if (mf->db_id <= 0)
+	if (mf->db_id == 0)
 		return;
 	if (op->db_id > 0)
 		return;
@@ -286,7 +286,7 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, unsigned int i
 void db_close_call(metafile_t *mf) {
 	if (check_conn())
 		return;
-	if (mf->db_id <= 0)
+	if (mf->db_id == 0)
 		return;
 
 	double now = now_double();
@@ -300,7 +300,7 @@ void db_close_call(metafile_t *mf) {
 void db_close_stream(output_t *op) {
 	if (check_conn())
 		return;
-	if (op->db_id <= 0)
+	if (op->db_id == 0)
 		return;
 
 	double now = now_double();
@@ -315,7 +315,7 @@ void db_close_stream(output_t *op) {
 void db_config_stream(output_t *op) {
 	if (check_conn())
 		return;
-	if (op->db_id <= 0)
+	if (op->db_id == 0)
 		return;
 
 	MYSQL_BIND b[3];
