@@ -128,6 +128,7 @@ sub mux_timeout {
 package NGCP::Rtpengine::Test::Client;
 
 use Socket;
+use Data::Dumper;
 
 sub _new {
 	my ($class, $parent, %args) = @_;
@@ -335,6 +336,14 @@ sub teardown {
 	my $req = $self->_default_req_args('delete', 'from-tag' => $self->{tag}, %args);
 
 	my $out = $self->{parent}->{control}->req($req);
+
+	if ($args{dump}) {
+		my $dumper = Data::Dumper->new([$out]);
+		$dumper->Sortkeys(1);
+		print($dumper->Dump);
+	}
+
+	return $out;
 }
 
 sub _input {
