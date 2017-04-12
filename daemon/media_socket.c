@@ -1269,9 +1269,9 @@ loop_ok:
 
 			// check the payload type
 			i = (rtp_h->m_pt & 0x7f);
-			ssrc_in->parent->payload_type = i;
+			if (G_LIKELY(ssrc_in))
+				ssrc_in->parent->payload_type = i;
 
-			// XXX limit size of hash tables
 			// XXX convert to array? or keep last pointer?
 			rtp_s = g_hash_table_lookup(stream->rtp_stats, &i);
 			if (!rtp_s) {
