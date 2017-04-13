@@ -30,6 +30,15 @@ struct ssrc_ctx {
 		  srtcp_index;
 	// XXX move entire crypto context in here?
 };
+
+struct ssrc_stats_block {
+	struct timeval reported;
+	u_int64_t jitter; // ms
+	u_int64_t rtt; // us - combined from both sides
+	u_int64_t packetloss; // percent
+	u_int64_t mos; // nominal range of 10 - 50 for MOS values 1.0 to 5.0
+};
+
 struct ssrc_entry {
 	mutex_t lock;
 	u_int32_t ssrc;
@@ -38,22 +47,14 @@ struct ssrc_entry {
 	GQueue sender_reports; // as received via RTCP
 	GQueue stats_blocks; // calculated
 	struct ssrc_stats_block *lowest_mos,
-				*highest_mos;
-	u_int64_t mos_sum;
+				*highest_mos,
+				average_mos; // contains a running tally of all stats blocks
 	int payload_type; // to determine the clock rate for jitter calculations
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 };
 enum ssrc_dir { // these values must not be used externally
 	SSRC_DIR_INPUT  = G_STRUCT_OFFSET(struct ssrc_entry, input_ctx),
 	SSRC_DIR_OUTPUT = G_STRUCT_OFFSET(struct ssrc_entry, output_ctx),
-};
-
-struct ssrc_stats_block {
-	struct timeval reported;
-	unsigned int jitter; // ms
-	unsigned int rtt; // us - combined from both sides
-	unsigned int packetloss; // percent
-	int mos; // nominal range of 10 - 50 for MOS values 1.0 to 5.0
 };
 
 struct ssrc_sender_report {

@@ -45,7 +45,10 @@ static void mos_calc(struct ssrc_stats_block *ssb) {
 		r = 93.2 - (eff_rtt - 120) / 40.0;
 	r = r - (ssb->packetloss * 2.5);
 	double mos = 1.0 + (0.035) * r + (.000007) * r * (r-60) * (100-r);
-	ssb->mos = mos * 10;
+	int64_t intmos = mos * 10.0;
+	if (intmos < 0)
+		intmos = 0;
+	ssb->mos = intmos;
 }
 
 struct ssrc_entry *find_ssrc(u_int32_t ssrc, struct ssrc_hash *ht) {
@@ -243,7 +246,12 @@ found:
 		other_e->lowest_mos = ssb;
 	if (G_UNLIKELY(!other_e->highest_mos) || ssb->mos > other_e->highest_mos->mos)
 		other_e->highest_mos = ssb;
-	other_e->mos_sum += ssb->mos;
+
+	// running tally
+	other_e->average_mos.jitter += ssb->jitter;
+	other_e->average_mos.rtt += ssb->rtt;
+	other_e->average_mos.packetloss += ssb->packetloss;
+	other_e->average_mos.mos += ssb->mos;
 
 	goto out_ul_oe;
 
