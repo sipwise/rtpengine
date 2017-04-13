@@ -700,6 +700,16 @@ INLINE str *json_reader_get_string_value_uri_enc(JsonReader *root_reader) {
 	str *out = str_uri_decode_len(s, strlen(s));
 	return out; // must be free'd
 }
+// XXX rework restore procedure to use functions like this everywhere and eliminate the GHashTable
+INLINE long long json_reader_get_ll(JsonReader *root_reader, const char *key) {
+	if (!json_reader_read_member(root_reader, key))
+		return -1;
+	str *ret = json_reader_get_string_value_uri_enc(root_reader);
+	long long r = strtoll(ret->s, NULL, 10);
+	free(ret);
+	json_reader_end_member(root_reader);
+	return r;
+}
 
 static int json_get_hash(struct redis_hash *out,
 		const char *key, unsigned int id, JsonReader *root_reader)
@@ -1379,6 +1389,28 @@ static int json_link_maps(struct call *c, struct redis_list *maps,
 	return 0;
 }
 
+static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
+	if (!json_reader_read_member(root_reader, "ssrc_table"))
+		return -1;
+	int nmemb = json_reader_count_elements(root_reader);
+	for (int jidx=0; jidx < nmemb; ++jidx) {
+		if (!json_reader_read_element(root_reader, jidx))
+			return -1;
+
+		u_int32_t ssrc = json_reader_get_ll(root_reader, "ssrc");
+		struct ssrc_entry *se = get_ssrc(ssrc, c->ssrc_hash);
+		se->input_ctx.srtp_index = json_reader_get_ll(root_reader, "in_srtp_index");
+		se->input_ctx.srtcp_index = json_reader_get_ll(root_reader, "in_srtcp_index");
+		se->output_ctx.srtp_index = json_reader_get_ll(root_reader, "out_srtp_index");
+		se->output_ctx.srtcp_index = json_reader_get_ll(root_reader, "out_srtcp_index");
+		se->payload_type = json_reader_get_ll(root_reader, "payload_type");
+
+		json_reader_end_element(root_reader);
+	}
+	json_reader_end_member (root_reader);
+	return 0;
+}
+
 static void json_restore_call(struct redis *r, struct callmaster *m, const str *callid, enum call_type type) {
 	redisReply* rr_jsonStr;
 	struct redis_hash call;
@@ -1485,8 +1517,9 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 	err = "failed to link maps";
 	if (json_link_maps(c, &maps, &sfds, root_reader))
 		goto err8;
-
-	// XXX restore SSRC table
+	err = "failed to restore SSRC table";
+	if (json_build_ssrc(c, root_reader))
+		goto err8;
 
 	// presence of this key determines whether we were recording at all
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
