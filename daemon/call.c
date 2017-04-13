@@ -1914,16 +1914,17 @@ void call_destroy(struct call *c) {
 			continue;
 
 		ilog(LOG_INFO, "--- SSRC %" PRIu32 "", se->ssrc);
-		ilog(LOG_INFO, "------ Average MOS %i.%i, lowest MOS %i.%i (at %u:%02u), "
-				"highest MOS %i.%i (at %u:%02u)",
-			(int) (se->mos_sum / se->stats_blocks.length / 10),
-			abs(se->mos_sum / se->stats_blocks.length % 10),
+		ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
+				"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
+				"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u)",
+			se->average_mos.mos / se->stats_blocks.length / 10,
+			se->average_mos.mos / se->stats_blocks.length % 10,
 			se->lowest_mos->mos / 10,
-			abs(se->lowest_mos->mos % 10),
+			se->lowest_mos->mos % 10,
 			(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) / 60,
 			(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) % 60,
 			se->highest_mos->mos / 10,
-			abs(se->highest_mos->mos % 10),
+			se->highest_mos->mos % 10,
 			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
 			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60);
 	}

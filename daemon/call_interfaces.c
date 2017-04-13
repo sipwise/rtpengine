@@ -1012,17 +1012,28 @@ stats:
 	}
 }
 
-static void ng_stats_ssrc_mos_entry(bencode_item_t *subent, struct ssrc_stats_block *sb) {
-	bencode_dictionary_add_integer(subent, "MOS", sb->mos);
-	bencode_dictionary_add_integer(subent, "reported at", sb->reported.tv_sec);
-	bencode_dictionary_add_integer(subent, "round-trip time", sb->rtt);
-	bencode_dictionary_add_integer(subent, "jitter", sb->jitter);
-	bencode_dictionary_add_integer(subent, "packet loss", sb->packetloss);
+static void ng_stats_ssrc_mos_entry_common(bencode_item_t *subent, struct ssrc_stats_block *sb,
+		unsigned int div)
+{
+	bencode_dictionary_add_integer(subent, "MOS", sb->mos / div);
+	bencode_dictionary_add_integer(subent, "round-trip time", sb->rtt / div);
+	bencode_dictionary_add_integer(subent, "jitter", sb->jitter / div);
+	bencode_dictionary_add_integer(subent, "packet loss", sb->packetloss / div);
 }
-
+static void ng_stats_ssrc_mos_entry(bencode_item_t *subent, struct ssrc_stats_block *sb) {
+	ng_stats_ssrc_mos_entry_common(subent, sb, 1);
+	bencode_dictionary_add_integer(subent, "reported at", sb->reported.tv_sec);
+}
 static void ng_stats_ssrc_mos_entry_dict(bencode_item_t *ent, const char *label, struct ssrc_stats_block *sb) {
 	bencode_item_t *subent = bencode_dictionary_add_dictionary(ent, label);
 	ng_stats_ssrc_mos_entry(subent, sb);
+}
+static void ng_stats_ssrc_mos_entry_dict_avg(bencode_item_t *ent, const char *label, struct ssrc_stats_block *sb,
+		unsigned int div)
+{
+	bencode_item_t *subent = bencode_dictionary_add_dictionary(ent, label);
+	ng_stats_ssrc_mos_entry_common(subent, sb, div);
+	bencode_dictionary_add_integer(subent, "samples", div);
 }
 
 static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
@@ -1037,7 +1048,7 @@ static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
 
-		bencode_dictionary_add_integer(ent, "average MOS", se->mos_sum / se->stats_blocks.length);
+		ng_stats_ssrc_mos_entry_dict_avg(ent, "average MOS", &se->average_mos, se->stats_blocks.length);
 		ng_stats_ssrc_mos_entry_dict(ent, "lowest MOS", se->lowest_mos);
 		ng_stats_ssrc_mos_entry_dict(ent, "highest MOS", se->highest_mos);
 
