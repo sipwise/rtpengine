@@ -712,8 +712,10 @@ static int json_get_hash(struct redis_hash *out,
 	} else {
 		rc = snprintf(key_concatted, MAXKEYLENGTH, "%s-%u",key,id);
 	}
-	if (rc>=MAXKEYLENGTH)
+	if (rc>=MAXKEYLENGTH) {
 		rlog(LOG_ERROR,"Json key too long.");
+		goto err;
+	}
 
 	if (!json_reader_read_member(root_reader, key_concatted)) {
 		rlog(LOG_ERROR, "Could not read json member: %s",key_concatted);
@@ -726,8 +728,9 @@ static int json_get_hash(struct redis_hash *out,
 
 	gchar **members = json_reader_list_members(root_reader);
 	gchar **orig_members = members;
+	int nmemb = json_reader_count_members (root_reader);
 
-	for (int i=0; i < json_reader_count_members (root_reader); ++i) {
+	for (int i=0; i < nmemb; ++i) {
 
 		if (!json_reader_read_member(root_reader, *members)) {
 			rlog(LOG_ERROR, "Could not read json member: %s",*members);
@@ -880,14 +883,21 @@ static int json_build_list_cb(GQueue *q, struct call *c, const char *key,
 
 	snprintf(key_concatted, 256, "%s-%u", key, idx);
 
-	if (!json_reader_read_member(root_reader, key_concatted))
+	if (!json_reader_read_member(root_reader, key_concatted)) {
 		rlog(LOG_ERROR,"Key in json not found:%s",key_concatted);
-	for (int jidx=0; jidx < json_reader_count_elements(root_reader); ++jidx) {
-		if (!json_reader_read_element(root_reader,jidx))
+		return -1;
+	}
+	int nmemb = json_reader_count_elements(root_reader);
+	for (int jidx=0; jidx < nmemb; ++jidx) {
+		if (!json_reader_read_element(root_reader,jidx)) {
 			rlog(LOG_ERROR,"Element in array not found.");
+			return -1;
+		}
 		str *s = json_reader_get_string_value_uri_enc(root_reader);
-		if (!s)
+		if (!s) {
 			rlog(LOG_ERROR,"String in json not found.");
+			return -1;
+		}
 		if (cb(s, q, list, ptr)) {
 			free(s);
 			return -1;
@@ -1154,7 +1164,7 @@ static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	g_hash_table_replace(med->rtp_payload_types, &pt->payload_type, pt);
 	return 0;
 }
-static int json_medias(struct redis *r, struct call *c, struct redis_list *medias, JsonReader *root_reader) {
+static int json_medias(struct call *c, struct redis_list *medias, JsonReader *root_reader) {
 	unsigned int i;
 	struct redis_hash *rh;
 	struct call_media *med;
@@ -1317,7 +1327,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 	return 0;
 }
 
-static int json_link_medias(struct redis *r, struct call *c, struct redis_list *medias,
+static int json_link_medias(struct call *c, struct redis_list *medias,
 		struct redis_list *streams, struct redis_list *maps, struct redis_list *tags, JsonReader *root_reader)
 {
 	unsigned int i;
@@ -1366,7 +1376,7 @@ static int rbl_cb_intf_sfds(str *s, GQueue *q, struct redis_list *list, void *pt
 	return 0;
 }
 
-static int json_link_maps(struct redis *r, struct call *c, struct redis_list *maps,
+static int json_link_maps(struct call *c, struct redis_list *maps,
 		struct redis_list *sfds, JsonReader *root_reader)
 {
 	unsigned int i;
@@ -1467,7 +1477,7 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 	if (redis_tags(c, &tags))
 		goto err8;
 	err = "failed to create medias";
-	if (json_medias(r, c, &medias, root_reader))
+	if (json_medias(c, &medias, root_reader))
 		goto err8;
 	err = "failed to create maps";
 	if (redis_maps(c, &maps))
@@ -1483,10 +1493,10 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 	if (json_link_tags(c, &tags, &medias, root_reader))
 		goto err8;
 	err = "failed to link medias";
-	if (json_link_medias(r, c, &medias, &streams, &maps, &tags, root_reader))
+	if (json_link_medias(c, &medias, &streams, &maps, &tags, root_reader))
 		goto err8;
 	err = "failed to link maps";
-	if (json_link_maps(r, c, &maps, &sfds, root_reader))
+	if (json_link_maps(c, &maps, &sfds, root_reader))
 		goto err8;
 
 	// presence of this key determines whether we were recording at all
