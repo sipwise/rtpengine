@@ -801,6 +801,11 @@ Optionally included keys are:
 	The SIP `Via` branch as string. Used to additionally refine the matching logic between media streams
 	and calls and call branches.
 
+* `label`
+
+	A custom free-form string which *rtpengine* remembers for this participating endpoint and reports
+	back in logs and statistics output.
+
 * `flags`
 
 	The value of the `flags` key is a list. The list contains zero or more of the following strings.
@@ -1164,6 +1169,10 @@ The response dictionary contains the following keys:
 
 		Identical to the corresponding key of the `tags` dictionary. Provided to allow for easy
 		traversing of the dictionary values without paying attention to the keys.
+
+	- `label`
+
+		The label assigned to this endpoint in the `offer` or `answer` message.
 
 	- `in dialogue with`
 

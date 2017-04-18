@@ -656,6 +656,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		const endpoint_t *sin)
 {
 	str sdp, fromtag, totag = STR_NULL, callid, viabranch;
+	str label = STR_NULL;
 	char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -678,6 +679,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		str_swap(&totag, &fromtag);
 	}
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
+	bencode_dictionary_get_str(input, "label", &label);
 
 	if (sdp_parse(&sdp, &parsed))
 		return "Failed to parse SDP";
@@ -737,6 +739,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	} else {
 		monologue->tagtype = TO_TAG;
 	}
+	if (label.s && !monologue->label.s)
+		call_str_cpy(call, &monologue->label, &label);
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
@@ -999,6 +1003,8 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 	bencode_dictionary_add_str(sub, "tag", &ml->tag);
 	if (ml->viabranch.s)
 		bencode_dictionary_add_str(sub, "via-branch", &ml->viabranch);
+	if (ml->label.s)
+		bencode_dictionary_add_str(sub, "label", &ml->label);
 	bencode_dictionary_add_integer(sub, "created", ml->created);
 	if (ml->active_dialogue)
 		bencode_dictionary_add_str(sub, "in dialogue with", &ml->active_dialogue->tag);

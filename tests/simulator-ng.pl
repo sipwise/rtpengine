@@ -666,6 +666,7 @@ a=rtpmap:111 opus/48000/2
 		#direction => [ $$pr{direction}, $$pr_o{direction} ],
 		'received from' => [ qw(IP4 127.0.0.1) ],
 		'rtcp-mux' => ['demux'],
+		label => rand(),
 	};
 	$PORT_LATCHING and push(@flags, 'port latching');
 	$RECORD and push(@flags, 'record call');
