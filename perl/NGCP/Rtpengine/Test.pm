@@ -271,7 +271,7 @@ sub _default_req_args {
 
 	my $req = { command => $cmd, 'call-id' => $self->{parent}->{callid} };
 
-	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol address-family)) {
+	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol address-family label)) {
 		$args{$cp} and $req->{$cp} = $args{$cp};
 	}
 	for my $cp (@{$args{flags}}) {
