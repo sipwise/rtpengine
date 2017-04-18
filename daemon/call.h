@@ -340,7 +340,8 @@ struct call_monologue {
 
 	str			tag;
 	str			viabranch;
-	enum tag_type    tagtype;
+	enum tag_type		tagtype;
+	str			label;
 	time_t			created;	/* RO */
 	time_t			deleted;
 	struct timeval         started; /* for CDR */

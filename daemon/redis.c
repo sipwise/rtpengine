@@ -1129,6 +1129,8 @@ static int redis_tags(struct call *c, struct redis_list *tags) {
 			__monologue_tag(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
+		if (!redis_hash_get_str(&s, rh, "label"))
+			call_str_cpy(c, &ml->label, &s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 
 		tags->ptrs[i] = ml;
@@ -1849,12 +1851,12 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("active","%u",ml->active_dialogue ? ml->active_dialogue->unique_id : -1);
 				JSON_SET_SIMPLE("deleted","%llu",(long long unsigned) ml->deleted);
 
-				if (ml->tag.s) {
+				if (ml->tag.s)
 					JSON_SET_SIMPLE_STR("tag",&ml->tag);
-				}
-				if (ml->viabranch.s) {
+				if (ml->viabranch.s)
 					JSON_SET_SIMPLE_STR("via-branch",&ml->viabranch);
-				}
+				if (ml->label.s)
+					JSON_SET_SIMPLE_STR("label",&ml->label);
 			}
 			json_builder_end_object (builder);
 
