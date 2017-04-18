@@ -1853,9 +1853,12 @@ void call_destroy(struct call *c) {
 	for (l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
 
-		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"', created "
+		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"'%s"STR_FORMAT"%s, created "
 				"%u:%02u ago for branch '"STR_FORMAT"', in dialogue with '"STR_FORMAT"'",
 				STR_FMT(&ml->tag),
+				ml->label.s ? " (label '" : "",
+				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
+				ml->label.s ? "')" : "",
 				(unsigned int) (poller_now - ml->created) / 60,
 				(unsigned int) (poller_now - ml->created) % 60,
 				STR_FMT(&ml->viabranch),
@@ -2238,14 +2241,22 @@ static int monologue_destroy(struct call_monologue *ml) {
 	__monologue_destroy(ml);
 
 	if (!g_hash_table_size(c->tags)) {
-		ilog(LOG_INFO, "Call branch '"STR_FORMAT"' (via-branch '"STR_FORMAT"') "
+		ilog(LOG_INFO, "Call branch '"STR_FORMAT"' (%s"STR_FORMAT"%svia-branch '"STR_FORMAT"') "
 				"deleted, no more branches remaining",
-				STR_FMT(&ml->tag), STR_FMT0(&ml->viabranch));
+				STR_FMT(&ml->tag),
+				ml->label.s ? "label '" : "",
+				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
+				ml->label.s ? "', " : "",
+				STR_FMT0(&ml->viabranch));
 		return 1; /* destroy call */
 	}
 
-	ilog(LOG_INFO, "Call branch '"STR_FORMAT"' (via-branch '"STR_FORMAT"') deleted",
-			STR_FMT(&ml->tag), STR_FMT0(&ml->viabranch));
+	ilog(LOG_INFO, "Call branch '"STR_FORMAT"' (%s"STR_FORMAT"%svia-branch '"STR_FORMAT"') deleted",
+			STR_FMT(&ml->tag),
+			ml->label.s ? "label '" : "",
+			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
+			ml->label.s ? "', " : "",
+			STR_FMT0(&ml->viabranch));
 	return 0;
 }
 
