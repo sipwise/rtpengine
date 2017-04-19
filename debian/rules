@@ -59,6 +59,11 @@ override_dh_auto_install-indep:
 
 	dh_auto_install
 
+override_dh_install:
+	dh_install
+	dh_installdirs -pngcp-rtpengine-iptables `pkg-config xtables --variable=xtlibdir || echo /lib/xtables`
+	install -m 0644 iptables-extension/libxt_RTPENGINE.so debian/ngcp-rtpengine-iptables/`pkg-config xtables --variable=xtlibdir || echo /lib/xtables`
+
 .PHONY: override_dh_strip
 override_dh_strip:
 	dh_strip --dbg-package=ngcp-rtpengine-dbg
