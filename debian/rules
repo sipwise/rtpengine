@@ -17,6 +17,8 @@ sversion:=$(shell dpkg-parsechangelog|grep "^Version:"|cut -d" " -f2|rev|cut -d-
 PACKAGE=ngcp-rtpengine-kernel
 ## end of kernel package specific stuff
 
+XTABLES_DIR:=$(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables)
+
 %:
 	dh $@ --parallel
 
@@ -58,6 +60,11 @@ override_dh_auto_install-indep:
 	gzip -9 < README.md > debian/README.md.gz
 
 	dh_auto_install
+
+override_dh_install:
+	dh_install
+	dh_installdirs -pngcp-rtpengine-iptables $(XTABLES_DIR)
+	install -m 0644 iptables-extension/libxt_RTPENGINE.so debian/ngcp-rtpengine-iptables/$(XTABLES_DIR)
 
 .PHONY: override_dh_strip
 override_dh_strip:
