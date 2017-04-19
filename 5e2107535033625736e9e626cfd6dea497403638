@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7a1969be_c322be00",
+        "filename": "debian/rules",
+        "patchSetId": 2
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2017-04-19T19:55:56Z",
+      "side": 1,
+      "message": "I\u0027d probably refactor the directory fetching into a common var. Otherwise it\u0027s the best we can do as there does not seem to be something like dh_xtables or similar. :)",
+      "revId": "5e2107535033625736e9e626cfd6dea497403638",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
