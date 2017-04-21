@@ -1463,12 +1463,9 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 
 		str_init_len(&s, buf + RTP_BUFFER_HEAD_ROOM, ret);
 		ret = stream_packet(sfd, &s, &ep, &tv);
-		if (ret < 0) {
-			ilog(LOG_WARNING, "Write error on RTP socket: %s", strerror(-ret));
-			call_destroy(sfd->call);
-			goto done;
-		}
-		if (ret == 1)
+		if (G_UNLIKELY(ret < 0))
+			ilog(LOG_WARNING, "Write error on media socket: %s", strerror(-ret));
+		else if (ret == 1)
 			update = 1;
 	}
 
