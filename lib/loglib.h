@@ -8,16 +8,8 @@
 #include "compat.h"
 
 
-typedef struct _fac_code {
-	char	*c_name;
-	int	c_val;
-} _fac_code_t;
-
-extern const _fac_code_t _facilitynames[];
-
-
-extern gboolean _log_stderr;
-extern int _log_facility;
+extern gboolean ilog_stderr;
+extern int ilog_facility;
 
 
 extern volatile gint log_level;
@@ -27,9 +19,12 @@ extern unsigned int max_log_line_length;
 typedef void write_log_t(int facility_priority, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 extern write_log_t *write_log;
 
+int parse_log_facility(const char *name, int *dst);
+void print_available_log_facilities ();
+
 void log_to_stderr(int facility_priority, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 
-void log_init(void);
+void log_init(const char *);
 
 void __vpilog(int prio, const char *prefix, const char *fmt, va_list);
 void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf, 2, 3)));

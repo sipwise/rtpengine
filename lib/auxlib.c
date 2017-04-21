@@ -12,6 +12,7 @@
 static const char *config_file;
 static const char *config_section;
 static const char *pid_file;
+static const char *log_facility;
 static int foreground;
 static int version;
 
@@ -57,7 +58,9 @@ static const GOptionEntry shared_options[] = {
 	{ "version",		'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",		NULL		},
 	{ "config-file",	0,   0, G_OPTION_ARG_STRING,	&config_file,	"Load config from this file",		"FILE"		},
 	{ "config-section",	0,   0, G_OPTION_ARG_STRING,	&config_section,"Config file section to use",		"STRING"	},
+	{ "log-facility",	0,   0,	G_OPTION_ARG_STRING,	&log_facility,	"Syslog facility to use for logging",	"daemon|local0|...|local7"},
 	{ "log-level",		'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"		},
+	{ "log-stderr",		'E', 0, G_OPTION_ARG_NONE,	&ilog_stderr,	"Log on stderr instead of syslog",	NULL		},
 	{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&pid_file,	"Write PID to file",			"FILE"		},
 	{ "foreground",		'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",		NULL		},
 	{ NULL, }
@@ -148,6 +151,20 @@ out:
 		fprintf(stderr, "Version: %s\n", RTPENGINE_VERSION);
 		exit(0);
 	}
+
+
+	if (log_facility) {
+		if (!parse_log_facility(log_facility, &ilog_facility)) {
+			print_available_log_facilities();
+			die ("Invalid log facility '%s' (--log-facility)", log_facility);
+		}
+	}
+
+	if (ilog_stderr) {
+		write_log = log_to_stderr;
+		max_log_line_length = 0;
+	}
+
 
 	return;
 

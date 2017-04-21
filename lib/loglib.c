@@ -7,12 +7,19 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <string.h>
 
 
 struct log_limiter_entry {
 	char *prefix;
 	char *msg;
 };
+
+typedef struct _fac_code {
+	char	*c_name;
+	int	c_val;
+} _fac_code_t;
+
 
 
 #ifndef __DEBUG
@@ -30,7 +37,7 @@ write_log_t *write_log = (write_log_t *) log_both;
 
 
 
-const _fac_code_t _facilitynames[] =
+static const _fac_code_t _facilitynames[] =
 	{
 		{ "auth", LOG_AUTH },
 		{ "authpriv", LOG_AUTHPRIV },
@@ -66,8 +73,8 @@ static const char* const prio_str[] = {
 		"DEBUG"
 	};
 
-gboolean _log_stderr = 0;
-int _log_facility = LOG_DAEMON;
+gboolean ilog_stderr = 0;
+int ilog_facility = LOG_DAEMON;
 
 
 
@@ -218,8 +225,32 @@ static int log_limiter_entry_equal(const void *a, const void *b) {
 	return 1;
 }
 
-void log_init() {
+void log_init(const char *handle) {
 	pthread_mutex_init(&__log_limiter_lock, NULL);
 	__log_limiter = g_hash_table_new(log_limiter_entry_hash, log_limiter_entry_equal);
 	__log_limiter_strings = g_string_chunk_new(1024);
+
+	if (!ilog_stderr)
+		openlog(handle, LOG_PID | LOG_NDELAY, ilog_facility);
+}
+
+int parse_log_facility(const char *name, int *dst) {
+	int i;
+	for (i = 0 ; _facilitynames[i].c_name; i++) {
+		if (strcmp(_facilitynames[i].c_name, name) == 0) {
+			*dst = _facilitynames[i].c_val;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void print_available_log_facilities () {
+	int i;
+
+	fprintf(stderr, "available facilities:");
+	for (i = 0 ; _facilitynames[i].c_name; i++) {
+		fprintf(stderr, " %s",  _facilitynames[i].c_name);
+	}
+	fprintf(stderr, "\n");
 }

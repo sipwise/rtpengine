@@ -327,7 +327,7 @@ retry:
 		for (i = 0; i < 100; i++)
 			close(i);
 
-		if (!_log_stderr) {
+		if (!ilog_stderr) {
 			openlog("rtpengine/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 		}
 		ilog(LOG_INFO, "Initiating XMLRPC call for tag "STR_FORMAT"", STR_FMT(tag));

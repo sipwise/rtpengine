@@ -153,28 +153,6 @@ static void resources(void) {
 
 
 
-static int parse_log_facility(char *name, int *dst) {
-	int i;
-	for (i = 0 ; _facilitynames[i].c_name; i++) {
-		if (strcmp(_facilitynames[i].c_name, name) == 0) {
-			*dst = _facilitynames[i].c_val;
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static void print_available_log_facilities () {
-	int i;
-
-	fprintf(stderr, "available facilities:");
-	for (i = 0 ; _facilitynames[i].c_name; i++) {
-		fprintf(stderr, " %s",  _facilitynames[i].c_name);
-	}
-	fprintf(stderr, "\n");
-}
-
-
 static struct intf_config *if_addr_parse(char *s) {
 	str name;
 	char *c;
@@ -268,7 +246,6 @@ static void options(int *argc, char ***argv) {
 	char *graphite_prefix_s = NULL;
 	char *redisps = NULL;
 	char *redisps_write = NULL;
-	char *log_facility_s = NULL;
 	char *log_facility_cdr_s = NULL;
 	char *log_facility_rtcp_s = NULL;
 	int sip_source = 0;
@@ -300,10 +277,8 @@ static void options(int *argc, char ***argv) {
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &redis_expires, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &no_redis_required, "Start no matter of redis connection state", NULL },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
-		{ "log-facility",0,  0,	G_OPTION_ARG_STRING, &log_facility_s, "Syslog facility to use for logging", "daemon|local0|...|local7"},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
 		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
-		{ "log-stderr",	'E', 0, G_OPTION_ARG_NONE,	&_log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads to create",	"INT"	},
 		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
@@ -415,13 +390,6 @@ static void options(int *argc, char ***argv) {
 	if ((log_level < LOG_EMERG) || (log_level > LOG_DEBUG))
 	        die("Invalid log level (--log_level)");
 
-	if (log_facility_s) {
-		if (!parse_log_facility(log_facility_s, &_log_facility)) {
-			print_available_log_facilities();
-			die ("Invalid log facility '%s' (--log-facility)", log_facility_s);
-		}
-	}
-
 	if (log_facility_cdr_s) {
 		if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
 			print_available_log_facilities();
@@ -434,11 +402,6 @@ static void options(int *argc, char ***argv) {
 			print_available_log_facilities();
 			die ("Invalid log facility for RTCP '%s' (--log-facility-rtcp)n", log_facility_rtcp_s);
 		}
-	}
-
-	if (_log_stderr) {
-		write_log = log_to_stderr;
-		max_log_line_length = 0;
 	}
 
 	if (!sip_source)
@@ -491,7 +454,7 @@ static void early_init() {
 static void init_everything() {
 	struct timespec ts;
 
-	log_init();
+	log_init("rtpengine");
 	recording_fs_init(spooldir, rec_method, rec_format);
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
@@ -507,8 +470,6 @@ static void init_everything() {
 	g_type_init();
 #endif
 
-	if (!_log_stderr)
-		openlog("rtpengine", LOG_PID | LOG_NDELAY, _log_facility);
 	signals();
 	resources();
 	sdp_init();
