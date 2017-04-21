@@ -700,8 +700,8 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	if (stream->recording.u.proc.stream_idx != UNINIT_IDX)
 		return;
 
-	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u COMPONENT %u FLAGS %u",
-			ml->unique_id, media->index, stream->component,
+	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %u",
+			ml->unique_id, media->unique_id, media->index, stream->component,
 			stream->ps_flags);
 	append_meta_chunk(recording, buf, len, "STREAM %u details", stream->unique_id);
 
