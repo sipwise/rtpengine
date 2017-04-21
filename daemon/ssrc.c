@@ -25,11 +25,15 @@ static void add_ssrc_entry(struct ssrc_entry *ent, struct ssrc_hash *ht) {
 static void free_sender_report(struct ssrc_sender_report_item *i) {
 	g_slice_free1(sizeof(*i), i);
 }
+static void free_rr_time(struct ssrc_rr_time_item *i) {
+	g_slice_free1(sizeof(*i), i);
+}
 static void free_stats_block(struct ssrc_stats_block *ssb) {
 	g_slice_free1(sizeof(*ssb), ssb);
 }
 static void free_ssrc_entry(struct ssrc_entry *e) {
 	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
+	g_queue_clear_full(&e->rr_time_reports, (GDestroyNotify) free_rr_time);
 	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
 	g_slice_free1(sizeof(*e), e);
 }
@@ -44,6 +48,8 @@ static void mos_calc(struct ssrc_stats_block *ssb) {
 	else
 		r = 93.2 - (eff_rtt - 120) / 40.0;
 	r = r - (ssb->packetloss * 2.5);
+	if (r < 0)
+		r = 0;
 	double mos = 1.0 + (0.035) * r + (.000007) * r * (r-60) * (100-r);
 	int64_t intmos = mos * 10.0;
 	if (intmos < 0)
@@ -117,33 +123,102 @@ struct ssrc_ctx *get_ssrc_ctx(u_int32_t ssrc, struct ssrc_hash *ht, enum ssrc_di
 
 
 
-void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *sr,
-		const struct timeval *tv)
+static void *__do_time_report_item(struct call_media *m, size_t struct_size, size_t reports_queue_offset,
+		const struct timeval *tv, u_int32_t ssrc, u_int32_t ntp_msw, u_int32_t ntp_lsw,
+		GDestroyNotify free_func, struct ssrc_entry **e_p)
 {
 	struct call *c = m->call;
 	struct ssrc_entry *e;
-	struct ssrc_sender_report_item *seri;
+	struct ssrc_time_item *sti;
 
-	seri = g_slice_alloc(sizeof(*seri));
-	seri->received = *tv;
-	seri->report = *sr;
-	seri->ntp_middle_bits = sr->ntp_msw << 16 | sr->ntp_lsw >> 16;
+	sti = g_slice_alloc0(struct_size);
+	sti->received = *tv;
+	sti->ntp_middle_bits = ntp_msw << 16 | ntp_lsw >> 16;
+	sti->ntp_ts = ntp_ts_to_double(ntp_msw, ntp_lsw);
 
-	ilog(LOG_DEBUG, "SR from %u: RTP TS %u PC %u OC %u NTP TS %u/%u=%f",
-			sr->ssrc, sr->timestamp, sr->packet_count, sr->octet_count,
-			sr->ntp_msw, sr->ntp_lsw, sr->ntp_ts);
-
-	e = get_ssrc(sr->ssrc, c->ssrc_hash);
+	e = get_ssrc(ssrc, c->ssrc_hash);
 	if (G_UNLIKELY(!e)) {
-		free_sender_report(seri);
-		return;
+		free_func(sti);
+		return NULL;
 	}
 
 	mutex_lock(&e->lock);
 
-	g_queue_push_tail(&e->sender_reports, seri);
-	while (e->sender_reports.length > 10)
-		free_sender_report(g_queue_pop_head(&e->sender_reports));
+	GQueue *q = (((void *) e) + reports_queue_offset);
+
+	g_queue_push_tail(q, sti);
+	while (q->length > 10)
+		free_func(g_queue_pop_head(q));
+
+	*e_p = e;
+	return sti;
+}
+
+static long long __calc_rtt(struct call *c, u_int32_t ssrc, u_int32_t ntp_middle_bits,
+		u_int32_t delay, size_t reports_queue_offset, const struct timeval *tv, int *pt_p)
+{
+	if (pt_p)
+		*pt_p = -1;
+
+	if (!ntp_middle_bits || !delay)
+		return 0;
+
+	struct ssrc_entry *e = get_ssrc(ssrc, c->ssrc_hash);
+	if (G_UNLIKELY(!e))
+		return 0;
+
+	if (pt_p)
+		*pt_p = e->payload_type;
+
+	struct ssrc_time_item *sti;
+	GQueue *q = (((void *) e) + reports_queue_offset);
+	mutex_lock(&e->lock);
+	// go through the list backwards until we find the SR referenced
+	for (GList *l = q->tail; l; l = l->prev) {
+		sti = l->data;
+		if (sti->ntp_middle_bits != ntp_middle_bits)
+			continue;
+		goto found;
+	}
+
+	// not found
+	mutex_unlock(&e->lock);
+	return 0;
+
+found:;
+	// `e` remains locked for access to `sti`
+	long long rtt = timeval_diff(tv, &sti->received);
+
+	mutex_unlock(&e->lock);
+
+	rtt -= (long long) delay * 1000000LL / 65536LL;
+	ilog(LOG_DEBUG, "Calculated round-trip time for %u is %lli us", ssrc, rtt);
+
+	if (rtt <= 0 || rtt > 10000000) {
+		ilog(LOG_DEBUG, "Invalid RTT - discarding");
+		return 0;
+	}
+
+	e->last_rtt = rtt;
+
+	return rtt;
+}
+
+void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *sr,
+		const struct timeval *tv)
+{
+	struct ssrc_entry *e;
+	struct ssrc_sender_report_item *seri = __do_time_report_item(m, sizeof(*seri),
+			G_STRUCT_OFFSET(struct ssrc_entry, sender_reports), tv, sr->ssrc,
+			sr->ntp_msw, sr->ntp_lsw, (GDestroyNotify) free_sender_report, &e);
+	if (!seri)
+		return;
+
+	seri->report = *sr;
+
+	ilog(LOG_DEBUG, "SR from %u: RTP TS %u PC %u OC %u NTP TS %u/%u=%f",
+			sr->ssrc, sr->timestamp, sr->packet_count, sr->octet_count,
+			sr->ntp_msw, sr->ntp_lsw, seri->time_item.ntp_ts);
 
 	mutex_unlock(&e->lock);
 }
@@ -156,49 +231,16 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 			rr->from, rr->ssrc, rr->fraction_lost, rr->packets_lost,
 			rr->high_seq_received, rr->jitter, rr->lsr, rr->dlsr);
 
-	if (!rr->lsr || !rr->dlsr)
-		return; // no delay to be known
+	int pt;
 
-	struct ssrc_entry *e = get_ssrc(rr->ssrc, c->ssrc_hash);
-	if (G_UNLIKELY(!e))
-		return;
-
-	struct ssrc_sender_report_item *seri;
-	mutex_lock(&e->lock);
-	// go through the list backwards until we find the SR referenced
-	for (GList *l = e->sender_reports.tail; l; l = l->prev) {
-		seri = l->data;
-		if (seri->ntp_middle_bits != rr->lsr)
-			continue;
-		goto found;
-	}
-
-	// not found
-	goto out_ul_e;
-
-found:
-	// `e` remains locked for access to `seri`
-	ilog(LOG_DEBUG, "RR from %u reports delay %u from %u", rr->from, rr->dlsr, rr->ssrc);
-	long long rtt = timeval_diff(tv, &seri->received);
-
-	mutex_unlock(&e->lock);
-
-	rtt -= (long long) rr->dlsr * 1000000LL / 65536LL;
-	ilog(LOG_DEBUG, "Calculated round-trip time for %u is %lli us", rr->ssrc, rtt);
-
-	if (rtt <= 0 || rtt > 10000000) {
-		ilog(LOG_DEBUG, "Invalid RTT - discarding");
-		goto out_nl;
-	}
-
-	e->last_rtt = rtt;
+	long long rtt = __calc_rtt(c, rr->ssrc, rr->lsr, rr->dlsr,
+			G_STRUCT_OFFSET(struct ssrc_entry, sender_reports), tv, &pt);
 
 	struct ssrc_entry *other_e = get_ssrc(rr->from, c->ssrc_hash);
 	if (G_UNLIKELY(!other_e))
 		goto out_nl;
 
 	// determine the clock rate for jitter values
-	int pt = e->payload_type;
 	if (pt < 0) {
 		pt = other_e->payload_type;
 		if (pt < 0) {
@@ -255,12 +297,57 @@ found:
 
 	goto out_ul_oe;
 
-out_ul_e:
-	mutex_unlock(&e->lock);
-	goto out_nl;
 out_ul_oe:
 	mutex_unlock(&other_e->lock);
 	goto out_nl;
 out_nl:
 	;
+}
+
+void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr,
+		const struct timeval *tv)
+{
+	struct ssrc_entry *e;
+	struct ssrc_rr_time_item *srti = __do_time_report_item(m, sizeof(*srti),
+			G_STRUCT_OFFSET(struct ssrc_entry, rr_time_reports), tv, rr->ssrc,
+			rr->ntp_msw, rr->ntp_lsw, (GDestroyNotify) free_rr_time, &e);
+	if (!srti)
+		return;
+
+	ilog(LOG_DEBUG, "XR RR TIME from %u: NTP TS %u/%u=%f",
+			rr->ssrc,
+			rr->ntp_msw, rr->ntp_lsw, srti->time_item.ntp_ts);
+
+	mutex_unlock(&e->lock);
+}
+
+void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
+		const struct timeval *tv)
+{
+	ilog(LOG_DEBUG, "XR DLRR from %u about %u: LRR %u DLRR %u",
+			dlrr->from, dlrr->ssrc,
+			dlrr->lrr, dlrr->dlrr);
+
+	__calc_rtt(m->call, dlrr->ssrc, dlrr->lrr, dlrr->dlrr,
+			G_STRUCT_OFFSET(struct ssrc_entry, rr_time_reports), tv, NULL);
+}
+
+void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
+		const struct timeval *tv)
+{
+	ilog(LOG_DEBUG, "XR VM from %u about %u: LR %u DR %u BD %u GD %u BDu %u GDu %u RTD %u "
+			"ESD %u SL %u NL %u RERL %u GMin %u R %u eR %u MOSL %u MOSC %u RX %u "
+			"JBn %u JBm %u JBam %u",
+			vm->from, vm->ssrc,
+			vm->loss_rate, vm->discard_rate, vm->burst_den, vm->gap_den,
+			vm->burst_dur, vm->gap_dur, vm->rnd_trip_delay, vm->end_sys_delay,
+			vm->signal_lvl, vm->noise_lvl, vm->rerl, vm->gmin, vm->r_factor,
+			vm->ext_r_factor, vm->mos_lq, vm->mos_cq, vm->rx_config, vm->jb_nom,
+			vm->jb_max, vm->jb_abs_max);
+
+	struct call *c = m->call;
+	struct ssrc_entry *e = get_ssrc(vm->ssrc, c->ssrc_hash);
+	if (!e)
+		return;
+	e->last_rtt = vm->rnd_trip_delay;
 }
