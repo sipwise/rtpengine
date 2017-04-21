@@ -136,8 +136,8 @@ struct xr_packet {
 
 struct xr_rb_rr_time {
     struct xr_report_block header;
-    u_int32_t		 ntp_sec;	/**< NTP time, seconds part.	*/
-    u_int32_t		 ntp_frac;	/**< NTP time, fractions part.	*/
+    u_int32_t		 ntp_msw;	/**< NTP time, seconds part.	*/
+    u_int32_t		 ntp_lsw;	/**< NTP time, fractions part.	*/
 } __attribute__ ((packed));
 
 struct xr_rb_dlrr_item {
@@ -235,6 +235,8 @@ struct rtcp_process_ctx {
 		struct ssrc_receiver_report rr;
 		struct ssrc_sender_report sr;
 		struct ssrc_xr_voip_metrics xr_vm;
+		struct ssrc_xr_rr_time xr_rr;
+		struct ssrc_xr_dlrr xr_dlrr;
 	} scratch;
 	u_int32_t scratch_common_ssrc;
 
@@ -285,6 +287,8 @@ static void dummy_handler();
 static void scratch_common(struct rtcp_process_ctx *, const struct rtcp_packet *);
 static void scratch_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
 static void scratch_rr(struct rtcp_process_ctx *, const struct report_block *);
+static void scratch_xr_rr_time(struct rtcp_process_ctx *, const struct xr_rb_rr_time *);
+static void scratch_xr_dlrr(struct rtcp_process_ctx *, const struct xr_rb_dlrr *);
 static void scratch_xr_voip_metrics(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
 
 // MOS calculation / stats
@@ -326,6 +330,8 @@ static struct rtcp_handler scratch_handlers = {
 	.common = scratch_common,
 	.rr = scratch_rr,
 	.sr = scratch_sr,
+	.xr_rr_time = scratch_xr_rr_time,
+	.xr_dlrr = scratch_xr_dlrr,
 	.xr_voip_metrics = scratch_xr_voip_metrics,
 };
 static struct rtcp_handler mos_handlers = {
@@ -556,6 +562,7 @@ static void xr_rr_time(struct xr_rb_rr_time *rb, struct rtcp_process_ctx *log_ct
 	CAH(xr_rr_time, rb);
 }
 static void xr_dlrr(struct xr_rb_dlrr *rb, struct rtcp_process_ctx *log_ctx) {
+	// XXX support multiple report blocks
 	CAH(xr_rb, &rb->header);
 	CAH(xr_dlrr, rb);
 }
@@ -920,6 +927,20 @@ static void scratch_sr(struct rtcp_process_ctx *ctx, const struct sender_report_
 	};
 	ctx->scratch.sr.ntp_ts = ntp_ts_to_double(ctx->scratch.sr.ntp_msw, ctx->scratch.sr.ntp_lsw);
 }
+static void scratch_xr_rr_time(struct rtcp_process_ctx *ctx, const struct xr_rb_rr_time *rr) {
+	ctx->scratch.xr_rr = (struct ssrc_xr_rr_time) {
+		.ntp_msw = ntohl(rr->ntp_msw),
+		.ntp_lsw = ntohl(rr->ntp_lsw),
+	};
+	ctx->scratch.xr_rr.ntp_ts = ntp_ts_to_double(ctx->scratch.xr_rr.ntp_msw, ctx->scratch.xr_rr.ntp_lsw);
+}
+static void scratch_xr_dlrr(struct rtcp_process_ctx *ctx, const struct xr_rb_dlrr *dlrr) {
+	ctx->scratch.xr_dlrr = (struct ssrc_xr_dlrr) {
+		.ssrc = htonl(dlrr->item.ssrc),
+		.lrr = ntohl(dlrr->item.lrr),
+		.dlrr = ntohl(dlrr->item.dlrr),
+	};
+}
 static void scratch_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct xr_rb_voip_metrics *vm) {
 	ctx->scratch.xr_vm = (struct ssrc_xr_voip_metrics) {
 		.ssrc = ntohl(vm->ssrc),
@@ -1099,14 +1120,14 @@ static void logging_xr_rb(struct rtcp_process_ctx *ctx, const struct xr_report_b
 }
 static void logging_xr_rr_time(struct rtcp_process_ctx *ctx, const struct xr_rb_rr_time *rb_rr_time) {
 	g_string_append_printf(ctx->log, "rb_rr_time_ntp_sec=%u, rb_rr_time_ntp_frac=%u, ",
-			ntohl(rb_rr_time->ntp_sec),
-			ntohl(rb_rr_time->ntp_frac));
+			ntohl(ctx->scratch.xr_rr.ntp_msw),
+			ntohl(ctx->scratch.xr_rr.ntp_lsw));
 }
 static void logging_xr_dlrr(struct rtcp_process_ctx *ctx, const struct xr_rb_dlrr *rb_dlrr) {
 	g_string_append_printf(ctx->log, "rb_dlrr_ssrc=%u, rb_dlrr_lrr=%u, rb_dlrr_dlrr=%u, ",
-			ntohl(rb_dlrr->item.ssrc),
-			ntohl(rb_dlrr->item.lrr),
-			ntohl(rb_dlrr->item.dlrr));
+			ntohl(ctx->scratch.xr_dlrr.ssrc),
+			ntohl(ctx->scratch.xr_dlrr.lrr),
+			ntohl(ctx->scratch.xr_dlrr.dlrr));
 }
 static void logging_xr_stats(struct rtcp_process_ctx *ctx, const struct xr_rb_stats *rb_stats) {
 	g_string_append_printf(ctx->log, "rb_stats_ssrc=%u, rb_stats_begin_seq=%u, rb_stats_end_seq=%u, rb_stats_lost_packets=%u, rb_stats_duplicate_packets=%u,"
