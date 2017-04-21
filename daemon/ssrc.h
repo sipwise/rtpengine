@@ -45,6 +45,7 @@ struct ssrc_entry {
 	struct ssrc_ctx input_ctx,
 			output_ctx;
 	GQueue sender_reports; // as received via RTCP
+	GQueue rr_time_reports; // as received via RTCP
 	GQueue stats_blocks; // calculated
 	struct ssrc_stats_block *lowest_mos,
 				*highest_mos,
@@ -57,6 +58,11 @@ enum ssrc_dir { // these values must not be used externally
 	SSRC_DIR_OUTPUT = G_STRUCT_OFFSET(struct ssrc_entry, output_ctx),
 };
 
+struct ssrc_time_item {
+	struct timeval received;
+	u_int32_t ntp_middle_bits; // to match up with lsr/dlrr
+	double ntp_ts; // XXX convert to int?
+};
 struct ssrc_sender_report {
 	u_int32_t ssrc;
 	u_int32_t ntp_msw;
@@ -64,11 +70,9 @@ struct ssrc_sender_report {
 	u_int32_t timestamp;
 	u_int32_t packet_count;
 	u_int32_t octet_count;
-	double ntp_ts;
 };
 struct ssrc_sender_report_item {
-	struct timeval received;
-	u_int32_t ntp_middle_bits; // to match up with rr->lsr
+	struct ssrc_time_item time_item; // must be first;
 	struct ssrc_sender_report report;
 };
 
@@ -82,12 +86,29 @@ struct ssrc_receiver_report {
 	u_int32_t lsr;
 	u_int32_t dlsr;
 };
-struct ssrc_receiver_report_item {
-	struct timeval received;
-	struct ssrc_receiver_report report;
+//struct ssrc_receiver_report_item {
+//	struct timeval received;
+//	struct ssrc_receiver_report report;
+//};
+
+struct ssrc_xr_rr_time {
+	u_int32_t ssrc;
+	u_int32_t ntp_msw;
+	u_int32_t ntp_lsw;
+};
+struct ssrc_rr_time_item {
+	struct ssrc_time_item time_item; // must be first;
+};
+
+struct ssrc_xr_dlrr {
+	u_int32_t from;
+	u_int32_t ssrc;
+	u_int32_t lrr;
+	u_int32_t dlrr;
 };
 
 struct ssrc_xr_voip_metrics {
+	u_int32_t from;
 	u_int32_t ssrc;
 	u_int8_t loss_rate;
 	u_int8_t discard_rate;
@@ -125,6 +146,12 @@ struct ssrc_ctx *get_ssrc_ctx(u_int32_t, struct ssrc_hash *, enum ssrc_dir); // 
 
 void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, const struct timeval *);
 void ssrc_receiver_report(struct call_media *, const struct ssrc_receiver_report *,
+		const struct timeval *);
+void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr,
+		const struct timeval *);
+void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
+		const struct timeval *);
+void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
 		const struct timeval *);
 
 
