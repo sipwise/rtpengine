@@ -15,6 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-daemon
 DESC="RTP/media proxy"
 TABLE=0
+MANAGE_IPTABLES=yes
 
 DAEMON=$(which rtpengine)
 DEFAULTS=/etc/default/${NAME}
@@ -166,45 +167,27 @@ case "$1" in
 	      ;;
 	  esac
 	fi
-	set -e
 	log_daemon_msg "Starting $DESC: $NAME"
 	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
-		set +e
-		modprobe xt_RTPENGINE $MODPROBE_OPTIONS
-		if [ -e /proc/mediaproxy/control ]; then
-			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
+		if [ "$MANAGE_IPTABLES" = "yes" ]; then
+			modprobe xt_RTPENGINE $MODPROBE_OPTIONS
+
+			iptables -N rtpengine 2> /dev/null
+			iptables -D INPUT -j rtpengine 2> /dev/null
+			iptables -I INPUT -j rtpengine
+			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+			iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+			ip6tables -N rtpengine 2> /dev/null
+			ip6tables -D INPUT -j rtpengine 2> /dev/null
+			ip6tables -I INPUT -j rtpengine
+			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
 		fi
 		if [ -e /proc/rtpengine/control ]; then
 			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
 		fi
-		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -F mediaproxy 2> /dev/null
-		iptables -X mediaproxy 2> /dev/null
-		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -F mediaproxy 2> /dev/null
-		ip6tables -X mediaproxy 2> /dev/null
-		rmmod xt_MEDIAPROXY 2>/dev/null
-
-		if [ "$CREATE_IPTABLES_CHAIN" != "no" ]; then
-			iptables -N rtpengine 2> /dev/null
-			iptables -D INPUT -j rtpengine 2> /dev/null
-			iptables -I INPUT -j rtpengine
-			ip6tables -N rtpengine 2> /dev/null
-			ip6tables -D INPUT -j rtpengine 2> /dev/null
-			ip6tables -I INPUT -j rtpengine
-		fi
-		if iptables -C INPUT -j rtpengine 1> /dev/null 2> /dev/null && iptables -n --list rtpengine 1> /dev/null 2> /dev/null; then
-			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-		else
-			echo ""
-			echo "Missing rtpengine iptables chain - not starting"
-			exit 0
-		fi
-		set -e
 	fi
+	set -e
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
 		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
 	log_end_msg $?
@@ -216,30 +199,19 @@ case "$1" in
 	if [ "$?" -ne 0 ]; then
 		return $?
 	fi
+	set +e
 	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		sleep 1
-		set +e
-		if [ -e /proc/mediaproxy/control ]; then
-			echo "del $TABLE" > /proc/mediaproxy/control 2>/dev/null
-		fi
 		if [ -e /proc/rtpengine/control ]; then
 			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
 		fi
-		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -F mediaproxy 2> /dev/null
-		iptables -X mediaproxy 2> /dev/null
-		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -F mediaproxy 2> /dev/null
-		ip6tables -X mediaproxy 2> /dev/null
-
-		iptables -D INPUT -j mediaproxy 2> /dev/null
-		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-		ip6tables -D INPUT -j mediaproxy 2> /dev/null
-		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-		rmmod xt_MEDIAPROXY 2>/dev/null
-		rmmod xt_RTPENGINE 2>/dev/null
-		set -e
+		if [ "$MANAGE_IPTABLES" = "yes" ]; then
+			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+			rmmod xt_RTPENGINE 2>/dev/null
+		fi
 	fi
+	set -e
 	rm -f $PIDFILE
 	log_end_msg $?
 	;;
