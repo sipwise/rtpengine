@@ -26,7 +26,7 @@ static int output_flush(output_t *output) {
 					output->frame->nb_samples) <= 0)
 			abort();
 
-		dbg("%p output fifo pts %lu", output, (unsigned long) output->fifo_pts);
+		dbg("{%s} output fifo pts %lu", output->file_name, (unsigned long) output->fifo_pts);
 		output->frame->pts = output->fifo_pts;
 
 		int keep_going;
@@ -38,7 +38,7 @@ static int output_flush(output_t *output) {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 			if (have_frame) {
 				int ret = avcodec_send_frame(output->avcctx, output->frame);
-				dbg("%p send frame ret %i", output, ret);
+				dbg("{%s} send frame ret %i", output->file_name, ret);
 				if (ret == 0) {
 					// consumed
 					have_frame = 0;
@@ -53,7 +53,7 @@ static int output_flush(output_t *output) {
 			}
 
 			int ret = avcodec_receive_packet(output->avcctx, &output->avpkt);
-			dbg("%p receive packet ret %i", output, ret);
+			dbg("{%s} receive packet ret %i", output->file_name, ret);
 			if (ret == 0) {
 				// got some data
 				keep_going = 1;
@@ -70,7 +70,7 @@ static int output_flush(output_t *output) {
 				break;
 
 			int ret = avcodec_encode_audio2(output->avcctx, &output->avpkt, output->frame, &got_packet);
-			dbg("%p encode frame ret %i, got packet %i", output, ret, got_packet);
+			dbg("{%s} encode frame ret %i, got packet %i", output->file_name, ret, got_packet);
 			if (ret == 0)
 				have_frame = 0; // consumed
 			else
@@ -82,10 +82,10 @@ static int output_flush(output_t *output) {
 			if (!got_packet)
 				continue;
 
-			dbg("%p output avpkt size is %i", output, (int) output->avpkt.size);
-			dbg("%p output pkt pts/dts is %li/%li", output, (long) output->avpkt.pts,
+			dbg("{%s} output avpkt size is %i", output->file_name, (int) output->avpkt.size);
+			dbg("{%s} output pkt pts/dts is %li/%li", output->file_name, (long) output->avpkt.pts,
 					(long) output->avpkt.dts);
-			dbg("%p output dts %li", output, (long) output->mux_dts);
+			dbg("{%s} output dts %li", output->file_name, (long) output->mux_dts);
 
 			// the encoder may return frames with the same dts multiple consecutive times.
 			// the muxer may not like this, so ensure monotonically increasing dts.
@@ -113,7 +113,7 @@ int output_add(output_t *output, AVFrame *frame) {
 	if (!output->frame) // not ready - not configured
 		return -1;
 
-	dbg("%p output fifo size %u fifo_pts %lu", output, (unsigned int) av_audio_fifo_size(output->fifo),
+	dbg("{%s} output fifo size %u fifo_pts %lu", output->file_name, (unsigned int) av_audio_fifo_size(output->fifo),
 			(unsigned long) output->fifo_pts);
 	// fix up output pts
 	if (av_audio_fifo_size(output->fifo) == 0)
