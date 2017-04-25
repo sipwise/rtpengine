@@ -40,6 +40,9 @@ static void stream_handler(handler_t *handler) {
 	stream_t *stream = handler->ptr;
 	unsigned char *buf = NULL;
 
+	log_info_call = stream->metafile->name;
+	log_info_stream = stream->name;
+
 	//dbg("poll event for %s", stream->name);
 
 	pthread_mutex_lock(&stream->lock);
@@ -63,11 +66,15 @@ static void stream_handler(handler_t *handler) {
 	// got a packet
 	pthread_mutex_unlock(&stream->lock);
 	packet_process(stream, buf, ret);
+	log_info_call = NULL;
+	log_info_stream = NULL;
 	return;
 
 out:
 	pthread_mutex_unlock(&stream->lock);
 	free(buf);
+	log_info_call = NULL;
+	log_info_stream = NULL;
 }
 
 

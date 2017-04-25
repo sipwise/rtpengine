@@ -56,7 +56,7 @@ static int check_conn() {
 	if (!c_mysql_host || !c_mysql_db)
 		return -1;
 
-	ilog(LOG_DEBUG, "connecting to MySQL");
+	dbg("connecting to MySQL");
 
 	mysql_conn = mysql_init(NULL);
 	if (!mysql_conn)
@@ -93,7 +93,7 @@ static int check_conn() {
 				"(?,?,?)"))
 		goto err;
 
-	ilog(LOG_DEBUG, "Connection to MySQL established");
+	dbg("Connection to MySQL established");
 
 	return 0;
 

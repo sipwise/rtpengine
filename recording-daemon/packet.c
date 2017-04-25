@@ -230,10 +230,12 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 		goto err;
 
 	packet->seq = ntohs(packet->rtp->seq_num);
+	unsigned long ssrc_num = ntohl(packet->rtp->ssrc);
+	log_info_ssrc = ssrc_num;
 	dbg("packet parsed successfully, seq %u", packet->seq);
 
 	// insert into ssrc queue
-	ssrc_t *ssrc = ssrc_get(stream, ntohl(packet->rtp->ssrc));
+	ssrc_t *ssrc = ssrc_get(stream, ssrc_num);
 
 	// check seq for dupes
 	if (G_UNLIKELY(ssrc->seq == -1)) {
@@ -255,15 +257,18 @@ seq_ok:
 
 	// got a new packet, run the decoder
 	ssrc_run(ssrc);
+	log_info_ssrc = 0;
 	return;
 
 dupe:
 	dbg("skipping dupe packet (new seq %i prev seq %i)", packet->seq, ssrc->seq);
 	pthread_mutex_unlock(&ssrc->lock);
+	log_info_ssrc = 0;
 	return;
 
 err:
 	ilog(LOG_WARN, "Failed to parse packet headers");
 ignore:
 	packet_free(packet);
+	log_info_ssrc = 0;
 }
