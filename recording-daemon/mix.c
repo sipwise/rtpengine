@@ -276,6 +276,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 		ret = output_add(output, frame);
 
 		av_frame_unref(mix->sink_frame);
+		av_frame_free(&frame);
 
 		if (ret)
 			return -1;

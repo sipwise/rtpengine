@@ -27,7 +27,7 @@ AVFrame *resample_frame(resample_t *resample, AVFrame *frame, const format_t *to
 	if (frame->channel_layout != to_channel_layout)
 		goto resample;
 
-	return frame;
+	return av_frame_clone(frame);
 
 resample:
 
@@ -74,37 +74,33 @@ resample:
 	int dst_samples = avresample_available(resample->avresample) +
 		av_rescale_rnd(avresample_get_delay(resample->avresample) + frame->nb_samples,
 				to_format->clockrate, frame->sample_rate, AV_ROUND_UP);
-	if (G_UNLIKELY(!resample->swr_frame || resample->swr_buffers < dst_samples)) {
-		av_frame_free(&resample->swr_frame);
-		dbg("allocating resampling frame for %i/%i/%i", to_format->format, (int) to_channel_layout,
-				to_format->clockrate);
-		resample->swr_frame = av_frame_alloc();
-		err = "failed to alloc resampling frame";
-		if (!resample->swr_frame)
-			goto err;
-		av_frame_copy_props(resample->swr_frame, frame);
-		resample->swr_frame->format = to_format->format;
-		resample->swr_frame->channel_layout = to_channel_layout;
-		resample->swr_frame->nb_samples = dst_samples;
-		resample->swr_frame->sample_rate = to_format->clockrate;
-		err = "failed to get resample buffers";
-		if ((errcode = av_frame_get_buffer(resample->swr_frame, 0)) < 0)
-			goto err;
-		resample->swr_buffers = dst_samples;
-	}
 
-	resample->swr_frame->nb_samples = dst_samples;
-	int ret_samples = avresample_convert(resample->avresample, resample->swr_frame->extended_data,
-				resample->swr_frame->linesize[0], dst_samples,
+	AVFrame *swr_frame = av_frame_alloc();
+
+	err = "failed to alloc resampling frame";
+	if (!swr_frame)
+		goto err;
+	av_frame_copy_props(swr_frame, frame);
+	swr_frame->format = to_format->format;
+	swr_frame->channel_layout = to_channel_layout;
+	swr_frame->nb_samples = dst_samples;
+	swr_frame->sample_rate = to_format->clockrate;
+	err = "failed to get resample buffers";
+	if ((errcode = av_frame_get_buffer(swr_frame, 0)) < 0)
+		goto err;
+
+	swr_frame->nb_samples = dst_samples;
+	int ret_samples = avresample_convert(resample->avresample, swr_frame->extended_data,
+				swr_frame->linesize[0], dst_samples,
 				frame->extended_data,
 				frame->linesize[0], frame->nb_samples);
 	err = "failed to resample audio";
 	if ((errcode = ret_samples) < 0)
 		goto err;
 
-	resample->swr_frame->nb_samples = ret_samples;
-	resample->swr_frame->pts = av_rescale(frame->pts, to_format->clockrate, frame->sample_rate);
-	return resample->swr_frame;
+	swr_frame->nb_samples = ret_samples;
+	swr_frame->pts = av_rescale(frame->pts, to_format->clockrate, frame->sample_rate);
+	return swr_frame;
 
 err:
 	ilog(LOG_ERR, "Error resampling: %s (code %i)", err, errcode);
@@ -114,6 +110,5 @@ err:
 
 
 void resample_shutdown(resample_t *resample) {
-	av_frame_free(&resample->swr_frame);
 	avresample_free(&resample->avresample);
 }

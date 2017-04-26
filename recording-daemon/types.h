@@ -108,8 +108,6 @@ struct metafile_s {
 
 struct resample_s {
 	AVAudioResampleContext *avresample;
-	AVFrame *swr_frame;
-	int swr_buffers;
 };
 
 

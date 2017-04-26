@@ -26,7 +26,6 @@ struct decoder_s {
 
 	AVCodecContext *avcctx;
 	AVPacket avpkt;
-	AVFrame *frame;
 	unsigned long rtp_ts;
 	uint64_t pts;
 
@@ -159,10 +158,6 @@ decoder_t *decoder_new(const char *payload_str) {
 		dbg("supported sample format for input codec %s: %s", codec->name, av_get_sample_fmt_name(*sfmt));
 
 	av_init_packet(&ret->avpkt);
-	ret->frame = av_frame_alloc();
-	err = "failed to alloc av frame";
-	if (!ret->frame)
-		goto err;
 
 	ret->pts = (uint64_t) -1LL;
 	ret->rtp_ts = (unsigned long) -1L;
@@ -178,10 +173,10 @@ err:
 }
 
 
-static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metafile) {
+static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metafile, AVFrame *frame) {
 	// determine and save sample type
 	if (G_UNLIKELY(dec->in_format.format == -1))
-		dec->in_format.format = dec->out_format.format = dec->frame->format;
+		dec->in_format.format = dec->out_format.format = frame->format;
 
 	// handle mix output
 	pthread_mutex_lock(&metafile->mix_lock);
@@ -192,13 +187,12 @@ static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metaf
 		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
 			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
-		AVFrame *dec_frame = resample_frame(&dec->mix_resample, dec->frame, &actual_format);
+		AVFrame *dec_frame = resample_frame(&dec->mix_resample, frame, &actual_format);
 		if (!dec_frame) {
 			pthread_mutex_unlock(&metafile->mix_lock);
-			return -1;
+			goto err;
 		}
-		AVFrame *clone = av_frame_clone(dec_frame);
-		if (mix_add(metafile->mix, clone, dec->mixer_idx, metafile->mix_out))
+		if (mix_add(metafile->mix, dec_frame, dec->mixer_idx, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 	}
 no_mix_out:
@@ -208,15 +202,21 @@ no_mix_out:
 		// XXX might be a second resampling to same format
 		format_t actual_format;
 		if (output_config(output, &dec->out_format, &actual_format))
-			return -1;
-		AVFrame *dec_frame = resample_frame(&dec->output_resample, dec->frame, &actual_format);
+			goto err;
+		AVFrame *dec_frame = resample_frame(&dec->output_resample, frame, &actual_format);
 		if (!dec_frame)
-			return -1;
+			goto err;
 		if (output_add(output, dec_frame))
 			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
+		av_frame_free(&dec_frame);
 	}
 
+	av_frame_free(&frame);
 	return 0;
+
+err:
+	av_frame_free(&frame);
+	return -1;
 }
 
 
@@ -244,11 +244,17 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 	dec->avpkt.size = data->len;
 	dec->avpkt.pts = dec->pts;
 
+	AVFrame *frame = NULL;
+
 	// loop until all input is consumed and all available output has been processed
 	int keep_going;
 	do {
 		keep_going = 0;
 		int got_frame = 0;
+		err = "failed to alloc av frame";
+		frame = av_frame_alloc();
+		if (!frame)
+			goto err;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 		if (dec->avpkt.size) {
@@ -268,7 +274,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 			}
 		}
 
-		int ret = avcodec_receive_frame(dec->avcctx, dec->frame);
+		int ret = avcodec_receive_frame(dec->avcctx, frame);
 		dbg("receive frame ret %i", ret);
 		err = "failed to receive frame from avcodec";
 		if (ret == 0) {
@@ -287,7 +293,7 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 		if (dec->avpkt.size == 0)
 			break;
 
-		int ret = avcodec_decode_audio4(dec->avcctx, dec->frame, &got_frame, &dec->avpkt);
+		int ret = avcodec_decode_audio4(dec->avcctx, frame, &got_frame, &dec->avpkt);
 		dbg("decode frame ret %i, got frame %i", ret, got_frame);
 		err = "failed to decode audio packet";
 		if (ret < 0)
@@ -307,19 +313,22 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 
 		if (got_frame) {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 36, 0)
-			dec->frame->pts = dec->frame->pkt_pts;
+			frame->pts = frame->pkt_pts;
 #endif
-			if (G_UNLIKELY(dec->frame->pts == AV_NOPTS_VALUE))
-				dec->frame->pts = dec->avpkt.pts;
-			if (decoder_got_frame(dec, output, metafile))
+			if (G_UNLIKELY(frame->pts == AV_NOPTS_VALUE))
+				frame->pts = dec->avpkt.pts;
+			if (decoder_got_frame(dec, output, metafile, frame))
 				return -1;
+			frame = NULL;
 		}
 	} while (keep_going);
 
+	av_frame_free(&frame);
 	return 0;
 
 err:
 	ilog(LOG_ERR, "Error decoding media packet: %s", err);
+	av_frame_free(&frame);
 	return -1;
 }
 
@@ -334,7 +343,6 @@ void decoder_close(decoder_t *dec) {
 	avcodec_close(dec->avcctx);
 	av_free(dec->avcctx);
 #endif
-	av_frame_free(&dec->frame);
 	resample_shutdown(&dec->mix_resample);
 	resample_shutdown(&dec->output_resample);
 	g_slice_free1(sizeof(*dec), dec);
