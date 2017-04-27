@@ -88,8 +88,8 @@ install -D -p -m644 kernel-module/xt_RTPENGINE.h \
 mkdir -p %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}
 install -D -p -m644 kernel-module/rtpengine_config.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/rtpengine_config.h
-sed -i -e "s/__VERSION__/%{version}-%{release}/g;s/ngcp-rtpengine/rtpengine/g" debian/dkms.conf.in
 install -D -p -m644 debian/dkms.conf.in %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+sed -i -e "s/__VERSION__/%{version}-%{release}/g" %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
 # For RHEL 7, load the compiled kernel module on boot.
 %if 0%{?rhel} == 7

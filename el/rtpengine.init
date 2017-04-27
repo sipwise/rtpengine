@@ -31,7 +31,7 @@ rtpengine=/usr/sbin/rtpengine
 prog=rtpengine
 pidfile=${PIDFILE-/var/run/rtpengine.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine}
-cachefile=/var/lib/rtpengine/rtpengine.cfg
+cachefile=/var/lib/ngcp-rtpengine/rtpengine.cfg
 RETVAL=0
 
 OPTS="--pidfile $pidfile"

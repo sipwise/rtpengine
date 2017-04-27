@@ -41,6 +41,6 @@ LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
 #REDIS_DB=0
 #B2B_URL=http://127.0.0.1:8080/xmlrpc
 
-#RE_USER=rtpengine	# Run rtpengine as this specific user
+#RE_USER=ngcp-rtpengine	# Run rtpengine as this specific user
 
-#RE_GROUP=rtpengine	# allow this group to control rtpengine in kernel mode
+#RE_GROUP=ngcp-rtpengine # allow this group to control rtpengine in kernel mode
