@@ -266,6 +266,9 @@ static void output_shutdown(output_t *output) {
 		avio_closep(&output->fmtctx->pb);
 	}
 	avcodec_close(output->avcctx);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
+	avcodec_free_context(&output->avcctx);
+#endif
 	avformat_free_context(output->fmtctx);
 	av_audio_fifo_free(output->fifo);
 	av_frame_free(&output->frame);

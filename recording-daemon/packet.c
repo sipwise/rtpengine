@@ -275,6 +275,7 @@ seq_ok:
 dupe:
 	dbg("skipping dupe packet (new seq %i prev seq %i)", packet->seq, ssrc->seq);
 	pthread_mutex_unlock(&ssrc->lock);
+	packet_free(packet);
 	log_info_ssrc = 0;
 	return;
 
