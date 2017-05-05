@@ -119,6 +119,8 @@ const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
 static void __monologue_destroy(struct call_monologue *monologue);
 static int monologue_destroy(struct call_monologue *ml);
+static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
+		struct timeval *interval_start, struct timeval *interval_duration);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -1775,11 +1777,11 @@ void add_total_calls_duration_in_interval(struct callmaster *cm,
 	mutex_unlock(&cm->totalstats_interval.total_calls_duration_lock);
 }
 
-struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
+static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 		struct timeval *interval_start, struct timeval *interval_duration) {
 	GHashTableIter iter;
 	gpointer key, value;
-	struct timeval call_duration, now, res = {0};
+	struct timeval call_duration, res = {0};
 	struct call *call;
 	struct call_monologue *ml;
 
@@ -1794,8 +1796,7 @@ struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 		if (timercmp(interval_start, &ml->started, >)) {
 			timeval_add(&res, &res, interval_duration);
 		} else {
-			gettimeofday(&now, NULL);
-			timeval_subtract(&call_duration, &now, &ml->started);
+			timeval_subtract(&call_duration, &g_now, &ml->started);
 			timeval_add(&res, &res, &call_duration);
 		}
 	}

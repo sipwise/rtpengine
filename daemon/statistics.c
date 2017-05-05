@@ -176,6 +176,8 @@ void statistics_update_oneway(struct call* c) {
 	if (c->monologues.head) {
 		ml = c->monologues.head->data;
 
+		timeval_subtract(&tim_result_duration, &g_now, &ml->started);
+
 		if (IS_OWN_CALL(c)) {
 			if (ml->term_reason==TIMEOUT) {
 				atomic64_inc(&m->totalstats.total_timeout_sess);

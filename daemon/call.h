@@ -442,8 +442,6 @@ struct callmaster {
 
 struct callmaster *callmaster_new(struct poller *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
-struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
-		struct timeval *iv_start, struct timeval *iv_duration);
 
 //void calls_dump_redis(struct callmaster *);
 //void calls_dump_redis_read(struct callmaster *);
