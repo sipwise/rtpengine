@@ -14,7 +14,6 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-recording-daemon
 DESC="RTP/media recording daemon"
-TABLE=0
 
 DAEMON=$(which rtpengine-recording)
 DEFAULTS=/etc/default/${NAME}
@@ -76,12 +75,6 @@ fi
 
 ###
 
-if [ -x /usr/sbin/ngcp-virt-identify ]; then
-	if /usr/sbin/ngcp-virt-identify --type container; then
-		VIRT="yes"
-	fi
-fi
-
 case "$1" in
   start)
 	set +e
@@ -110,6 +103,7 @@ case "$1" in
 		fi
 	fi
 
+	# shellcheck disable=SC2086
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
 		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
 	log_end_msg $?
