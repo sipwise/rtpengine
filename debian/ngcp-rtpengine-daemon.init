@@ -170,6 +170,7 @@ case "$1" in
 	log_daemon_msg "Starting $DESC: $NAME"
 	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		if [ "$MANAGE_IPTABLES" = "yes" ]; then
+			# shellcheck disable=SC2086
 			modprobe xt_RTPENGINE $MODPROBE_OPTIONS
 
 			iptables -N rtpengine 2> /dev/null
@@ -188,6 +189,7 @@ case "$1" in
 		fi
 	fi
 	set -e
+	# shellcheck disable=SC2086
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
 		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
 	log_end_msg $?
