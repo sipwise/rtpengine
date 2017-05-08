@@ -962,7 +962,7 @@ void kernelize(struct packet_stream *stream) {
 
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);
-	reti.ssrc = sink->ssrc_in ? sink->ssrc_in->parent->ssrc : 0;
+	reti.ssrc = stream->ssrc_in ? htonl(stream->ssrc_in->parent->ssrc) : 0;
 
 	stream->handler->in->kernel(&reti.decrypt, stream);
 	stream->handler->out->kernel(&reti.encrypt, sink);
