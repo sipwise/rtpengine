@@ -170,6 +170,15 @@ static uint stream_packets_list_limit = 10;
 module_param(stream_packets_list_limit, uint, 0);
 MODULE_PARM_DESC(stream_packets_list_limit, "maximum number of packets to retain for intercept streams");
 
+static bool log_errors = 0;
+module_param(log_errors, bool, 0);
+MODULE_PARM_DESC(log_errors, "generate kernel log lines from forwarding errors");
+
+
+
+#define log_err(fmt, ...) do { if (log_errors) printk(KERN_NOTICE "rtpengine[%s:%i]: " fmt, \
+		__FUNCTION__, __LINE__, ##__VA_ARGS__); } while (0)
+
 
 
 
@@ -3200,6 +3209,7 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	return 0;
 
 drop:
+	log_err("IPv4 routing failed");
 	kfree_skb(skb);
 	return -1;
 }
@@ -3270,6 +3280,7 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 	return 0;
 
 drop:
+	log_err("IPv6 routing failed");
 	kfree_skb(skb);
 	return -1;
 }
@@ -3280,8 +3291,10 @@ drop:
 static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
 		unsigned char tos, const struct xt_action_param *par)
 {
-	if (src->family != dst->family)
+	if (src->family != dst->family) {
+		log_err("address family mismatch");
 		goto drop;
+	}
 
 	switch (src->family) {
 		case AF_INET:
@@ -3293,6 +3306,7 @@ static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct
 			break;
 
 		default:
+			log_err("unsupported address family");
 			goto drop;
 	}
 
@@ -3651,8 +3665,10 @@ static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rt
 
 	pt = hdr->m_pt & 0x7f;
 	match = bsearch(&pt, tg->payload_types, tg->num_payload_types, sizeof(pt), rtp_payload_match);
-	if (!match)
+	if (!match) {
+		log_err("RTP payload type %u not found", (unsigned int) pt);
 		return -1;
+	}
 	return match - tg->payload_types;
 }
 #endif
@@ -3718,6 +3734,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	u_int64_t pkt_idx;
 	struct re_stream *stream;
 	struct re_stream_packet *packet;
+	const char *errstr = NULL;
 
 #if (RE_HAS_MEASUREDELAY)
 	u_int64_t starttime, endtime, delay;
@@ -3772,6 +3789,7 @@ not_stun:
 		goto skip1;
 	/* MSM_DROP */
 	error_nf_action = NF_DROP;
+	errstr = "source address mismatch";
 	goto skip_error;
 
 src_check_ok:
@@ -3797,12 +3815,15 @@ src_check_ok:
 #endif
 
 	// Pass to userspace if SSRC has changed.
+	errstr = "SSRC mismatch";
 	if (unlikely((g->target.ssrc) && (g->target.ssrc != rtp.header->ssrc)))
 		goto skip_error;
 
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+	errstr = "SRTP authentication tag mismatch";
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
 		goto skip_error;
+	errstr = "SRTP decryption failed";
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
 
@@ -3907,6 +3928,7 @@ no_intercept:
 	return NF_DROP;
 
 skip_error:
+	log_err("x_tables action failed: %s", errstr);
 	atomic64_inc(&g->stats.errors);
 skip1:
 	target_put(g);
