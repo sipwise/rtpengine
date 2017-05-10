@@ -721,8 +721,8 @@ release_restart:
 	return 0;
 
 fail:
-	ilog(LOG_ERR, "Failed to get %u consecutive ports on interface %s for media relay",
-			num_ports, sockaddr_print_buf(&spec->local_address.addr));
+	ilog(LOG_ERR, "Failed to get %u consecutive ports on interface %s for media relay (last error: %s)",
+			num_ports, sockaddr_print_buf(&spec->local_address.addr), strerror(errno));
 	return -1;
 }
 
