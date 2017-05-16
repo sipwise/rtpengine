@@ -1,3 +1,100 @@
+ngcp-rtpengine (5.4.0.0+0~mr5.4.0.0) unstable; urgency=medium
+
+  [ Anthony Alba ]
+  * [b8a2f01] Initial support for AES-192, AES-256 in userspace
+  * [357bb1d] Refactor to add explicit session key init functions
+  * [d5cecc5] Add AES-192, AES-256 CM to kernel SRTP
+  * [37b2235] Fix typos in DBG array indexing
+  * [74b2559] AES CM static test vectors
+  * [87aaf82] Document RFC 3711 errata id 3712 that SRTCP_R_LENGTH == 6 is canonical
+  * [b1e259c] Document libsrtp AES-256 SRTCP bug for interop
+
+  [ Frederic-Philippe Metz ]
+  * [8f01e78] First attempt to seperate more stats and cdr away from the core running code
+  * [95d9420] Adds missing log output
+  * [27679b1] Moved the json reader locally and removed it from call struct
+  * [d885875] Cleanup according to pull req #335
+
+  [ Richard Fuchs ]
+  * [7088e15] remove obsolete redis restore function arguments
+  * [3739042] rename macro due to collision
+  * [5c0dc62] consolidate AES crypto suites for different key lengths
+  * [6f37bad] TT#13277 additional DB fields for call metadata
+  * [46d1498] TT#13277 logging improvements
+  * [305fbed] TT#12789 add defaults file item for NFS mount options
+  * [a2c4a41] include support for AES-192 and -256 in simulator test script
+  * [af1db75] support _32 crypto versions in simulator
+  * [dab9fdb] additional logging and segfault fix
+  * [2afbfa5] fix resampling if frame doesn't have number of channels set
+  * [a8a4ed4] disallow arbitrarily large silence gaps
+  * [263099c] fix module compilation for kernels >= 4.10
+  * [e85759a] fix some errors caught by coverity
+  * [323da16] adding top level makefile
+  * [6594b2b] fixes for coverity
+  * [7182e75] abandon usage of random()
+  * [5dcd533] ensure positive random numbers
+  * [a850ebf] TT#13954 don't fail kernel "clean" target when build env is not there
+  * [aef463f] handle missing av_frame_get_channels from older versions
+  * [af7b2d0] refine version test for presence of av_frame_get_channels
+  * [27af349] fix recording daemon logging levels
+  * [6b6b8ea] don't use anonymous unions to make old compilers happy
+  * [0f07e46] fix 32-bit compilation errosr
+  * [f7e2419] fix kernel module for systems with small stack frame sizes
+  * [d269f6a] eliminate orphaned redis code fragments
+  * [26ca489] use pkg-config to determine install location for iptables module
+  * [c5a202e] write both types of media indexes to recording metafile
+  * [531febb] migrate log-stderr and log-facility options to lib for recording daemon
+  * [37a9521] don't treat media socket write errors as fatal
+  * [896a324] add test script to replay pcap into recording daemon
+  * [5e3ce30] TT#14008 add missing DTLS locks
+  * [4313cb2] logging improvements
+  * [5acf56d] additional debug log output
+  * [0e60000] use cloned frames to avoid race conditions
+  * [6ec7c9e] fix mem leaks
+  * [b358363] TT#12800 canonicalize ssrc handling
+  * [223c7f1] TT#12800 abstractize rtcp parsing and logging functions
+  * [c1711ea] TT#12800 consolidate and combine RTCP parsing and logging
+  * [70b7112] TT#12800 store and process RTCP SR and RR for statistics
+  * [90693a1] TT#12800 refactor RCTP XR processing
+  * [0f28589] TT#12800 avoid creating empty log messages
+  * [84e76e7] TT#12800 calculate MOS values from RTCP RR
+  * [74be799] TT#12800 add RTCP support to perl test scripts
+  * [0b63050] TT#12800 add test script to simulate RTP packet loss
+  * [868c3b6] TT#12800 add ssrc handling into packet_stream struct
+  * [11dac7b] TT#12800 add MOS statistics to final log output
+  * [5c84a6f] TT#12800 limit size of SSRC hash table
+  * [4ad693a] TT#12800 report MOS stats back to proxy via NG protocol
+  * [9108b14] TT#12800 records stats average not just for MOS but all values
+  * [2cf9390] TT#12800 restore SSRC table from redis
+  * [ab0dba7] TT#12800 support custom monologue labels
+  * [23bc99e] TT#12800 consider RTCP XR reports for MOS calculations and stats
+  * [2a03c00] clean up code artifacts
+  * [8f55dd1] fix pushing wrong SSRC to kernel module
+  * [6f5da56] add extra error logging to kernel module
+  * [3f12517] report last error when port could not be opened
+
+  [ Claudiu Boriga ]
+  * [edac4f2] make cli_incoming accept multiple connections
+
+  [ Victor Seva ]
+  * [3c813ac] support wheezy build reported at #343
+  * [f7aa5fa] TT#14571 PEP8 for YouCompleteMe config
+
+  [ Guillem Jover ]
+  * [bd833c2] TT#14400 Use a boolean instead of a bitwise operator
+  * [0b1bdbb] TT#14400 Do not NULL-dereference pointer
+  * [56b723c] TT#14400 Do not check for negative values on unsigned variables
+
+  [ Konstantin Poliakov ]
+  * [5c5a4ef] Issue354: Fixes for rtpengint to ngcp-rtpengine renaming issues (including issue 356).
+
+  [ Pawel Kuzak ]
+  * [c8b36e0] More control over iptables
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 16 May 2017 21:44:37 +0200
+
 ngcp-rtpengine (5.3.0.0+0~mr5.3.0.0) unstable; urgency=medium
 
   [ Frederic-Philippe Metz ]
