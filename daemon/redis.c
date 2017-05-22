@@ -711,6 +711,7 @@ INLINE long long json_reader_get_ll(JsonReader *root_reader, const char *key) {
 	return r;
 }
 
+
 static int json_get_hash(struct redis_hash *out,
 		const char *key, unsigned int id, JsonReader *root_reader)
 {
