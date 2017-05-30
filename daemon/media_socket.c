@@ -76,7 +76,7 @@ static int call_savpf2avp_rtcp(str *s, struct packet_stream *, struct stream_fd 
 
 
 
-static const struct streamhandler_io __shio_noop = {
+static const struct streamhandler_io __shio_noop = { // non-RTP protocols
 	.kernel		= __k_null,
 };
 static const struct streamhandler_io __shio_noop_rtp = {
@@ -93,6 +93,14 @@ static const struct streamhandler_io __shio_encrypt = {
 	.rtp		= call_avp2savp_rtp,
 	.rtcp		= call_avp2savp_rtcp,
 };
+static const struct streamhandler_io __shio_decrypt_rtcp_only = {
+	.kernel		= __k_null,
+	.rtcp		= call_savp2avp_rtcp,
+};
+static const struct streamhandler_io __shio_encrypt_rtcp_only = {
+	.kernel		= __k_null,
+	.rtcp		= call_avp2savp_rtcp,
+};
 static const struct streamhandler_io __shio_avpf_strip = {
 	.kernel		= __k_null,
 	.rtcp		= call_avpf2avp_rtcp,
@@ -105,7 +113,7 @@ static const struct streamhandler_io __shio_decrypt_avpf_strip = {
 
 /* ********** */
 
-static const struct streamhandler __sh_noop = {
+static const struct streamhandler __sh_noop = { // non-RTP protocols
 	.in		= &__shio_noop,
 	.out		= &__shio_noop,
 };
@@ -137,6 +145,10 @@ static const struct streamhandler __sh_savp2savp = {
 	.in		= &__shio_decrypt,
 	.out		= &__shio_encrypt,
 };
+static const struct streamhandler __sh_savp2savp_rtcp_only = {
+	.in		= &__shio_decrypt_rtcp_only,
+	.out		= &__shio_encrypt_rtcp_only,
+};
 static const struct streamhandler __sh_savpf2savp = {
 	.in		= &__shio_decrypt_avpf_strip,
 	.out		= &__shio_encrypt,
@@ -165,19 +177,19 @@ static const struct streamhandler * const __sh_matrix_in_rtp_avpf[__PROTO_LAST] 
 static const struct streamhandler * const __sh_matrix_in_rtp_savp[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_savp2avp,
 	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
-	[PROTO_RTP_SAVP]		= &__sh_noop_rtp,
-	[PROTO_RTP_SAVPF]		= &__sh_noop_rtp,
-	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_noop_rtp,
-	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop_rtp,
+	[PROTO_RTP_SAVP]		= &__sh_savp2savp_rtcp_only,
+	[PROTO_RTP_SAVPF]		= &__sh_savp2savp_rtcp_only,
+	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savp2savp_rtcp_only,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp_rtcp_only,
 	[PROTO_UDPTL]			= &__sh_noop,
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_savpf[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
 	[PROTO_RTP_AVPF]		= &__sh_savp2avp,
 	[PROTO_RTP_SAVP]		= &__sh_savpf2savp,
-	[PROTO_RTP_SAVPF]		= &__sh_noop_rtp,
+	[PROTO_RTP_SAVPF]		= &__sh_savp2savp_rtcp_only,
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savpf2savp,
-	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
+	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp_rtcp_only,
 	[PROTO_UDPTL]			= &__sh_noop,
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_savp_recrypt[__PROTO_LAST] = {
@@ -198,7 +210,7 @@ static const struct streamhandler * const __sh_matrix_in_rtp_savpf_recrypt[__PRO
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp,
 	[PROTO_UDPTL]			= &__sh_noop,
 };
-static const struct streamhandler * const __sh_matrix_noop[__PROTO_LAST] = {
+static const struct streamhandler * const __sh_matrix_noop[__PROTO_LAST] = { // non-RTP protocols
 	[PROTO_RTP_AVP]			= &__sh_noop,
 	[PROTO_RTP_AVPF]		= &__sh_noop,
 	[PROTO_RTP_SAVP]		= &__sh_noop,
