@@ -16,6 +16,24 @@
       "revId": "3a58ab9f9d45c39bc2721568c38284f1e53856b1",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "dacfb570_3004d67d",
+        "filename": "debian/ngcp-rtpengine-kernel-dkms.postinst",
+        "patchSetId": 1
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2017-06-09T12:31:43Z",
+      "side": 1,
+      "message": "I believe, you are right here. Thank you.",
+      "parentUuid": "dacfb570_90ecc2c9",
+      "revId": "3a58ab9f9d45c39bc2721568c38284f1e53856b1",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
