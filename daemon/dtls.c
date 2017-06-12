@@ -524,6 +524,7 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 
 	SSL_set_app_data(d->ssl, ps->selected_sfd); /* XXX obj reference here? */
 	SSL_set_bio(d->ssl, d->r_bio, d->w_bio);
+	d->init = 1;
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
 	EC_KEY* ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
@@ -533,7 +534,6 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	SSL_set_tmp_ecdh(d->ssl, ecdh);
 	EC_KEY_free(ecdh);
 
-	d->init = 1;
 	d->active = active ? -1 : 0;
 
 done:
@@ -541,10 +541,12 @@ done:
 
 error:
 	err = ERR_peek_last_error();
-	if (d->r_bio)
-		BIO_free(d->r_bio);
-	if (d->w_bio)
-		BIO_free(d->w_bio);
+	if (!d->init) {
+		if (d->r_bio)
+			BIO_free(d->r_bio);
+		if (d->w_bio)
+			BIO_free(d->w_bio);
+	}
 	if (d->ssl)
 		SSL_free(d->ssl);
 	if (d->ssl_ctx)
