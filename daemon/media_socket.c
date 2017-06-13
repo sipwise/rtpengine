@@ -862,7 +862,7 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c, st
 		.cipher		= c->params.crypto_suite->kernel_cipher,
 		.hmac		= c->params.crypto_suite->kernel_hmac,
 		.mki_len	= c->params.mki_len,
-		.last_index	= ssrc_ctx->srtp_index,
+		.last_index	= ssrc_ctx ? ssrc_ctx->srtp_index : 0,
 		.auth_tag_len	= c->params.crypto_suite->srtp_auth_tag,
 	};
 	if (c->params.mki_len)
