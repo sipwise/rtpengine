@@ -1,3 +1,16 @@
+ngcp-rtpengine (4.5.5.1+0~mr4.5.5.1) unstable; urgency=medium
+
+  [ Changli Gao ]
+  * [65f6650] STUN: The most significant 2 bits is 0xc0 in hex
+
+  [ Richard Fuchs ]
+  * [fb91b8f] port of a3f27f8751c to kernel space
+  * [c2cf0e4] TT#14008 add missing DTLS locks
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 19 Jun 2017 19:11:52 +0200
+
 ngcp-rtpengine (4.5.5.0+0~mr4.5.5.0) unstable; urgency=medium
 
   * New release.
