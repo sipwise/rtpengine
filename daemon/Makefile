@@ -29,7 +29,9 @@ LDFLAGS+=	`pkg-config --libs openssl`
 LDFLAGS+=	`pkg-config --libs libevent_pthreads`
 LDFLAGS+=	-lpcap
 LDFLAGS+=	`pcre-config --libs`
-LDFLAGS+=	`xmlrpc-c-config client --libs`
+LDFLAGS+=	`pkg-config xmlrpc_client --libs 2> /dev/null || xmlrpc-c-config client --libs`
+LDFLAGS+=	`pkg-config xmlrpc --libs 2> /dev/null`
+LDFLAGS+=	`pkg-config xmlrpc_util --libs 2> /dev/null`
 LDFLAGS+=	-lhiredis
 LDFLAGS+=	`pkg-config --libs json-glib-1.0`
 
