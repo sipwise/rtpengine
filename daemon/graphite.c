@@ -6,6 +6,7 @@
  */
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/poll.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -246,9 +247,7 @@ static inline void copy_with_lock(struct totalstats *ts_dst, struct totalstats *
 void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int seconds) {
 
 	int rc=0;
-	fd_set wfds;
-	FD_ZERO(&wfds);
-	struct timeval tv;
+	struct pollfd wfds[1];
 
         // sanity checks
         if (!cm) {
@@ -262,12 +261,11 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
         }
 
 	if (connection_state == STATE_IN_PROGRESS && graphite_sock.fd >= 0) {
-		FD_SET(graphite_sock.fd,&wfds);
-		tv.tv_sec = 0;
-		tv.tv_usec = 1000000;
+		wfds[0].fd=graphite_sock.fd;
+		wfds[0].events = POLLOUT | POLLERR | POLLHUP | POLLNVAL;
 
-		rc = select (graphite_sock.fd+1, NULL, &wfds, NULL, &tv);
-		if ((rc == -1) && (errno == EINTR)) {
+		rc = poll(wfds,1,1000);
+		if (rc == -1) {
 			ilog(LOG_ERROR,"Error on the socket.");
 			close_socket(&graphite_sock);
 			connection_state = STATE_DISCONNECTED;
@@ -276,8 +274,8 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 			// timeout
 			return;
 		} else {
-			if (!FD_ISSET(graphite_sock.fd,&wfds)) {
-				ilog(LOG_WARN,"fd active but not the graphite fd.");
+			if (!(wfds[0].revents & POLLOUT)) {
+				ilog(LOG_WARN,"fd is active but not ready for writing, poll events=%x",wfds[0].revents);
 				close_socket(&graphite_sock);
 				connection_state = STATE_DISCONNECTED;
 				return;
