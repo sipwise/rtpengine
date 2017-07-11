@@ -213,6 +213,8 @@ static void proc_main_list_stop(struct seq_file *, void *);
 static void *proc_main_list_next(struct seq_file *, void *, loff_t *);
 static int proc_main_list_show(struct seq_file *, void *);
 
+static int proc_stream_open(struct inode *i, struct file *f);
+static int proc_stream_close(struct inode *i, struct file *f);
 static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t *o);
 static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p);
 
@@ -497,8 +499,8 @@ static const struct file_operations proc_stream_ops = {
 	.owner			= THIS_MODULE,
 	.read			= proc_stream_read,
 	.poll			= proc_stream_poll,
-	.open			= proc_generic_open_modref,
-	.release		= proc_generic_close_modref,
+	.open			= proc_stream_open,
+	.release		= proc_stream_close,
 };
 
 static const struct re_cipher re_ciphers[] = {
@@ -2928,6 +2930,41 @@ static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p
 	stream_put(stream);
 
 	return ret;
+}
+
+static int proc_stream_open(struct inode *i, struct file *f) {
+	int err;
+	unsigned int stream_idx = (unsigned int) (unsigned long) PDE_DATA(f->f_path.dentry->d_inode);
+	struct re_stream *stream;
+
+	DBG("entering proc_stream_open()\n");
+
+	if ((err = proc_generic_open_modref(i, f)))
+		return err;
+
+	stream = get_stream_lock(NULL, stream_idx);
+	if (!stream)
+		return -EIO;
+
+	return 0;
+}
+
+static int proc_stream_close(struct inode *i, struct file *f) {
+	unsigned int stream_idx = (unsigned int) (unsigned long) PDE_DATA(f->f_path.dentry->d_inode);
+	struct re_stream *stream;
+
+	DBG("entering proc_stream_close()\n");
+
+	stream = get_stream_lock(NULL, stream_idx);
+	if (!stream)
+		return -EIO;
+	/* release our own ref and the ref from _open */
+	stream_put(stream);
+	stream_put(stream);
+
+	proc_generic_close_modref(i, f);
+
+	return 0;
 }
 
 
