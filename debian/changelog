@@ -1,3 +1,25 @@
+ngcp-rtpengine (5.5.0.0+0~mr5.5.0.0) unstable; urgency=medium
+
+  [ Alexander Lutay ]
+  * [f825dd0] TT#15855 Fix shellcheck warnings for debian/ngcp-rtpengine-kernel-dkms.prerm
+  * [f638b9b] TT#15855 Fix shellcheck warnings for debian/ngcp-rtpengine-kernel-dkms.postinst
+
+  [ Changli Gao ]
+  * [6824865] DTLS: Fix potential double BIO_free
+
+  [ Richard Fuchs ]
+  * [f979159] fix segfault when no SSRC pointer is present
+  * [a9d55c6] always decrypt RTCP for SRTP<>SRTP session for stats purposes
+  * [4310e06] support pkg-config for xmlrpc-c
+  * [983c4af] fix correct use of CFLAGS over LDFLAGS
+
+  [ Claudiu Boriga ]
+  * [9f2286d] fix bug that makes rtpengine crash when graphite server is down
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 17 Jul 2017 22:47:28 +0200
+
 ngcp-rtpengine (5.4.0.0+0~mr5.4.0.0) unstable; urgency=medium
 
   [ Anthony Alba ]
