@@ -100,7 +100,7 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 			goto fail;
 	}
 	else if (out[RE_UDP_UL_ADDR6] && *out[RE_UDP_UL_ADDR6]) {
-		if (sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR4]))
+		if (sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR6]))
 			goto fail;
 	}
 	else
