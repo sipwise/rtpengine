@@ -204,7 +204,8 @@ sockfamily_t *__get_socket_family_enum(enum socket_families);
 int sockaddr_parse_any(sockaddr_t *dst, const char *src);
 int sockaddr_parse_any_str(sockaddr_t *dst, const str *src);
 int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
-int endpoint_parse_any(endpoint_t *, const char *); // address optional
+int endpoint_parse_any(endpoint_t *, const char *); // address (ip) optional
+int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s); // address (ip or hostname) optional
 void kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
 
 unsigned int sockaddr_hash(const sockaddr_t *);
@@ -228,10 +229,20 @@ INLINE int endpoint_parse_port_any(endpoint_t *e, const char *p, unsigned int po
 	e->port = port;
 	return sockaddr_parse_any(&e->address, p);
 }
-// address required
+// address (ip) required
 INLINE int endpoint_parse_any_full(endpoint_t *d, const char *s) {
 	int ret;
 	ret = endpoint_parse_any(d, s);
+	if (ret)
+		return ret;
+	if (is_addr_unspecified(&d->address))
+		return -1;
+	return 0;
+}
+// address (ip or hostname) required
+INLINE int endpoint_parse_any_getaddrinfo_full(endpoint_t *d, const char *s) {
+	int ret;
+	ret = endpoint_parse_any_getaddrinfo(d, s);
 	if (ret)
 		return ret;
 	if (is_addr_unspecified(&d->address))

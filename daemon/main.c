@@ -225,7 +225,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 	if (l < 0)
 		return -1;
 	*db = l;
-	if (endpoint_parse_any_full(ep, str))
+	if (endpoint_parse_any_getaddrinfo_full(ep, str))
 		return -1;
 	return 0;
 }
@@ -260,10 +260,10 @@ static void options(int *argc, char ***argv) {
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
-		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46:]PORT"	},
-		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46:]PORT"	},
-		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46:]PORT"     },
-		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "IP46:PORT"     },
+		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46|HOSTNAME:]PORT"	},
+		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46|HOSTNAME:]PORT"	},
+		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46|HOSTNAME:]PORT"     },
+		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "IP46|HOSTNAME:PORT"     },
 		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
@@ -286,7 +286,7 @@ static void options(int *argc, char ***argv) {
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
 		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&max_sessions,	"Limit of maximum number of sessions",	"INT"	},
-		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46:PORT"},
+		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46|HOSTNAME:PORT"},
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
 		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
 		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
@@ -328,23 +328,23 @@ static void options(int *argc, char ***argv) {
 	}
 
 	if (listenps) {
-		if (endpoint_parse_any(&tcp_listen_ep, listenps))
+		if (endpoint_parse_any_getaddrinfo(&tcp_listen_ep, listenps))
 			die("Invalid IP or port (--listen-tcp)");
 	}
 	if (listenudps) {
-		if (endpoint_parse_any(&udp_listen_ep, listenudps))
+		if (endpoint_parse_any_getaddrinfo(&udp_listen_ep, listenudps))
 			die("Invalid IP or port (--listen-udp)");
 	}
 	if (listenngs) {
-		if (endpoint_parse_any(&ng_listen_ep, listenngs))
+		if (endpoint_parse_any_getaddrinfo(&ng_listen_ep, listenngs))
 			die("Invalid IP or port (--listen-ng)");
 	}
 
-	if (listencli) {if (endpoint_parse_any(&cli_listen_ep, listencli))
+	if (listencli) {if (endpoint_parse_any_getaddrinfo(&cli_listen_ep, listencli))
 	    die("Invalid IP or port (--listen-cli)");
 	}
 
-	if (graphitep) {if (endpoint_parse_any_full(&graphite_ep, graphitep))
+	if (graphitep) {if (endpoint_parse_any_getaddrinfo_full(&graphite_ep, graphitep))
 	    die("Invalid IP or port (--graphite)");
 	}
 
@@ -352,7 +352,7 @@ static void options(int *argc, char ***argv) {
 		set_prefix(graphite_prefix_s);
 
 	if (homerp) {
-		if (endpoint_parse_any_full(&homer_ep, homerp))
+		if (endpoint_parse_any_getaddrinfo_full(&homer_ep, homerp))
 			die("Invalid IP or port (--homer)");
 	}
 	if (homerproto) {

@@ -2,9 +2,11 @@
 #include <glib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <netdb.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
+#include <sys/socket.h>
 #include "str.h"
 #include "media_socket.h"
 #include "xt_RTPENGINE.h"
@@ -533,6 +535,62 @@ int endpoint_parse_any(endpoint_t *d, const char *s) {
 		}
 	}
 	return -1;
+}
+
+int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
+	unsigned int len;
+	const char *ep;
+	char buf[64];
+	void *addr;
+	struct addrinfo hints, *res;
+	int status;
+
+	ep = strrchr(s, ':');
+	if (!ep) {
+		if (strchr(s, '.'))
+			return -1;
+		/* just a port number */
+		d->port = atoi(s);
+		ZERO(d->address);
+		d->address.family = __get_socket_family_enum(SF_IP4);
+		return 0;
+	}
+	len = ep - s;
+	if (len >= sizeof(buf))
+		return -1;
+	d->port = atoi(ep+1);
+	if (d->port > 0xffff)
+		return -1;
+
+	/* original s was [IPv6]:port */
+	if ((len > 2) && (s[0] == '[') && (s[len - 1] == ']')) {
+		sprintf(buf, "%.*s", len - 2, s + 1);
+	} else {
+		sprintf(buf, "%.*s", len, s);
+	}
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+
+	if ((status = getaddrinfo(buf, NULL, &hints, &res)) != 0) {
+		__C_DBG("getaddrinfo failed for %s, status is \"%s\"\n", s, gai_strerror(status));
+		return -1;
+	}
+
+	if (res->ai_family == AF_INET) { // IPv4
+		struct sockaddr_in *ipv4 = (struct sockaddr_in *) res->ai_addr;
+		addr = &(ipv4->sin_addr);
+		memcpy(&d->address.u, addr, sizeof(struct in_addr));
+		d->address.family = &__socket_families[SF_IP4];
+	} else { // IPv6
+		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) res->ai_addr;
+		addr = &(ipv6->sin6_addr);
+		memcpy(&d->address.u, addr, sizeof(struct in6_addr));
+		d->address.family = &__socket_families[SF_IP6];
+	}
+
+	freeaddrinfo(res);
+	return 0;
 }
 
 static int __socket(socket_t *r, int type, sockfamily_t *fam) {
