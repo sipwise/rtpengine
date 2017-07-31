@@ -1,3 +1,12 @@
+ngcp-rtpengine (5.4.2.0+0~mr5.4.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0fc4d09] fix parsing of IPv6 address in legacy UDP protocol
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 31 Jul 2017 14:37:47 +0200
+
 ngcp-rtpengine (5.4.1.0+0~mr5.4.1.0) unstable; urgency=medium
 
   [ Alexander Lutay ]
