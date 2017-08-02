@@ -22,6 +22,7 @@
 #include "auxlib.h"
 #include "decoder.h"
 #include "output.h"
+#include "forward.h"
 
 
 
@@ -32,12 +33,13 @@ const char *output_dir = "/var/lib/rtpengine-recording";
 static const char *output_format = "wav";
 int output_mixed;
 int output_single;
+int output_enabled = 1;
 const char *c_mysql_host,
       *c_mysql_user,
       *c_mysql_pass,
       *c_mysql_db;
 int c_mysql_port;
-
+const char *forward_to = NULL;
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
@@ -90,23 +92,25 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 
 static void setup(void) {
 	log_init("rtpengine-recording");
-	av_register_all();
-	avcodec_register_all();
-	avfilter_register_all();
-	avformat_network_init();
+	if (output_enabled) {
+		av_register_all();
+		avcodec_register_all();
+		avfilter_register_all();
+		avformat_network_init();
+		av_log_set_callback(avlog_ilog);
+		output_init(output_format);
+		if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
+			ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
+			if (mkdir(output_dir, 0700))
+				die_errno("Failed to create output dir '%s'");
+		}
+	}
 	mysql_library_init(0, NULL, NULL);
 	signals();
 	metafile_setup();
 	epoll_setup();
 	inotify_setup();
-	av_log_set_callback(avlog_ilog);
-	output_init(output_format);
 
-	if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
-		ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
-		if (mkdir(output_dir, 0700))
-			die_errno("Failed to create output dir '%s'");
-	}
 }
 
 
@@ -167,7 +171,7 @@ static void options(int *argc, char ***argv) {
 		{ "spool-dir",		0,   0, G_OPTION_ARG_STRING,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
 		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
 		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
-		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3"	},
+		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3|none"	},
 		{ "resample-to",	0,   0, G_OPTION_ARG_INT,	&resample_audio,"Resample all output audio",		"INT"		},
 		{ "mp3-bitrate",	0,   0, G_OPTION_ARG_INT,	&mp3_bitrate,	"Bits per second for MP3 encoding",	"INT"		},
 		{ "output-mixed",	0,   0, G_OPTION_ARG_NONE,	&output_mixed,	"Mix participating sources into a single output",NULL	},
@@ -177,13 +181,22 @@ static void options(int *argc, char ***argv) {
 		{ "mysql-user",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_user,	"MySQL connection credentials",		"USERNAME"	},
 		{ "mysql-pass",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_pass,	"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-db",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_db,	"MySQL database name",			"STRING"	},
+		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,    &forward_to,	"Where to forward to (unix socket)",	"PATH"		},
 		{ NULL, }
 	};
 
 	config_load(argc, argv, e, " - rtpengine recording daemon",
 			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording");
 
-	if (!output_mixed && !output_single)
+	if (!strcmp(output_format, "none")) {
+		output_enabled = 0;
+		if (output_mixed || output_single)
+			die("Output is disabled, but output-mixed or output-single is set");
+		if (!forward_to) {
+			//the daemon has no function
+			die("Both output and packet forwarding are disabled");
+		}
+	} else if (!output_mixed && !output_single)
 		output_mixed = output_single = 1;
 }
 

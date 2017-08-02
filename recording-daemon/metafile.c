@@ -15,7 +15,7 @@
 #include "output.h"
 #include "mix.h"
 #include "db.h"
-
+#include "forward.h"
 
 static pthread_mutex_t metafiles_lock = PTHREAD_MUTEX_INITIALIZER;
 static GHashTable *metafiles;
@@ -25,8 +25,10 @@ static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
 
 	dbg("freeing metafile info for %s", mf->name);
-	output_close(mf->mix_out);
-	mix_destroy(mf->mix);
+	if (output_enabled) {
+		output_close(mf->mix_out);
+		mix_destroy(mf->mix);
+	}
 	g_string_chunk_free(mf->gsc);
 	for (int i = 0; i < mf->streams->len; i++) {
 		stream_t *stream = g_ptr_array_index(mf->streams, i);
@@ -34,7 +36,8 @@ static void meta_free(void *ptr) {
 		stream_free(stream);
 	}
 	g_ptr_array_free(mf->streams, TRUE);
-	g_hash_table_destroy(mf->ssrc_hash);
+	if (output_enabled)
+		g_hash_table_destroy(mf->ssrc_hash);
 	g_slice_free1(sizeof(*mf), mf);
 }
 
@@ -48,6 +51,14 @@ static void meta_destroy(metafile_t *mf) {
 		stream_close(stream);
 		pthread_mutex_unlock(&stream->lock);
 	}
+	//close forward socket
+	if (mf->forward_fd >= 0) {
+		dbg("call [%s] forwarded %d packets. %d failed sends.", mf->call_id,
+				(int )g_atomic_int_get(&mf->forward_count),
+				(int )g_atomic_int_get(&mf->forward_failed));
+		close(mf->forward_fd);
+		mf->forward_fd = -1;
+	}
 	db_close_call(mf);
 }
 
@@ -55,17 +66,17 @@ static void meta_destroy(metafile_t *mf) {
 // mf is locked
 static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *content) {
 	db_do_call(mf);
-
-	pthread_mutex_lock(&mf->mix_lock);
-	if (!mf->mix && output_mixed) {
-		char buf[256];
-		snprintf(buf, sizeof(buf), "%s-mix", mf->parent);
-		mf->mix_out = output_new(output_dir, buf);
-		mf->mix = mix_new();
-		db_do_stream(mf, mf->mix_out, "mixed", 0, 0);
+	if (output_enabled) {
+		pthread_mutex_lock(&mf->mix_lock);
+		if (!mf->mix && output_mixed) {
+			char buf[256];
+			snprintf(buf, sizeof(buf), "%s-mix", mf->parent);
+			mf->mix_out = output_new(output_dir, buf);
+			mf->mix = mix_new();
+			db_do_stream(mf, mf->mix_out, "mixed", 0, 0);
+		}
+		pthread_mutex_unlock(&mf->mix_lock);
 	}
-	pthread_mutex_unlock(&mf->mix_lock);
-
 	dbg("stream %lu interface %s", snum, content);
 	stream_open(mf, snum, content);
 }
@@ -87,10 +98,12 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 		ilog(LOG_ERR, "Payload type number %u is invalid", payload_num);
 		return;
 	}
-
-	pthread_mutex_lock(&mf->payloads_lock);
-	mf->payload_types[payload_num] = g_string_chunk_insert(mf->gsc, payload_type);
-	pthread_mutex_unlock(&mf->payloads_lock);
+	if (output_enabled) {
+		pthread_mutex_lock(&mf->payloads_lock);
+		mf->payload_types[payload_num] = g_string_chunk_insert(mf->gsc,
+				payload_type);
+		pthread_mutex_unlock(&mf->payloads_lock);
+	}
 }
 
 
@@ -98,6 +111,8 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 static void meta_metadata(metafile_t *mf, char *content) {
 	mf->metadata = g_string_chunk_insert(mf->gsc, content);
 	db_do_call(mf);
+	if (forward_to)
+		start_forwarding_capture(mf, content);
 }
 
 
@@ -134,10 +149,16 @@ static metafile_t *metafile_get(char *name) {
 	mf->gsc = g_string_chunk_new(0);
 	mf->name = g_string_chunk_insert(mf->gsc, name);
 	pthread_mutex_init(&mf->lock, NULL);
-	pthread_mutex_init(&mf->payloads_lock, NULL);
-	pthread_mutex_init(&mf->mix_lock, NULL);
 	mf->streams = g_ptr_array_new();
-	mf->ssrc_hash = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, ssrc_free);
+	mf->forward_fd = -1;
+	mf->forward_count = 0;
+	mf->forward_failed = 0;
+
+	if (output_enabled) {
+		pthread_mutex_init(&mf->payloads_lock, NULL);
+		pthread_mutex_init(&mf->mix_lock, NULL);
+		mf->ssrc_hash = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, ssrc_free);
+	}
 
 	g_hash_table_insert(metafiles, mf->name, mf);
 

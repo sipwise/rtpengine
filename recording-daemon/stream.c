@@ -10,6 +10,7 @@
 #include "log.h"
 #include "main.h"
 #include "packet.h"
+#include "forward.h"
 
 
 #define MAXBUFLEN 65535
@@ -67,7 +68,14 @@ static void stream_handler(handler_t *handler) {
 
 	// got a packet
 	pthread_mutex_unlock(&stream->lock);
-	packet_process(stream, buf, ret);
+	if (output_enabled)
+		packet_process(stream, buf, ret);
+	if (forward_to){
+		if (forward_packet(stream->metafile,buf,ret))
+			g_atomic_int_inc(&stream->metafile->forward_failed);
+		else
+			g_atomic_int_inc(&stream->metafile->forward_count);
+	}
 	log_info_call = NULL;
 	log_info_stream = NULL;
 	return;
