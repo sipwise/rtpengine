@@ -113,9 +113,9 @@ void recording_fs_init(const char *spooldir, const char *method, const char *for
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const str *recordcall);
+void detect_setup_recording(struct call *call, const str *recordcall, str *metadata);
 
-void recording_start(struct call *call, const char *);
+void recording_start(struct call *call, const char *prefix, str *metadata);
 void recording_stop(struct call *call);
 
 

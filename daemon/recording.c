@@ -214,7 +214,7 @@ static int pcap_create_spool_dir(const char *spoolpath) {
 }
 
 // lock must be held
-void recording_start(struct call *call, const char *prefix) {
+void recording_start(struct call *call, const char *prefix, str *metadata) {
 	if (call->recording) // already active
 		return;
 
@@ -236,6 +236,9 @@ void recording_start(struct call *call, const char *prefix) {
 	}
 	else
 		recording->meta_prefix = strdup(prefix);
+	if (metadata->len) {
+		call_str_cpy(call, &recording->metadata, metadata);
+	}
 
 	_rm(init_struct, call);
 
@@ -269,12 +272,12 @@ void recording_stop(struct call *call) {
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const str *recordcall) {
+void detect_setup_recording(struct call *call, const str *recordcall, str *metadata) {
 	if (!recordcall || !recordcall->s)
 		return;
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on"))
-		recording_start(call, NULL);
+		recording_start(call, NULL, metadata);
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off"))
 		recording_stop(call);
 	else
@@ -655,6 +658,8 @@ static void proc_init(struct call *call) {
 
 	append_meta_chunk_str(recording, &call->callid, "CALL-ID");
 	append_meta_chunk_s(recording, recording->meta_prefix, "PARENT");
+	if (recording->metadata.len)
+		recording_meta_chunk(recording, "METADATA", &recording->metadata);
 }
 
 static void sdp_before_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,
