@@ -1,3 +1,17 @@
+ngcp-rtpengine (5.3.2.1+0~mr5.3.2.1) unstable; urgency=medium
+
+  [ Changli Gao ]
+  * [3de8b0a] DTLS: Fix potential double BIO_free
+
+  [ Richard Fuchs ]
+  * [d26e8ac] fix segfault when no SSRC pointer is present
+  * [e9dfad1] always decrypt RTCP for SRTP<>SRTP session for stats purposes
+  * [e5d6796] fix parsing of IPv6 address in legacy UDP protocol
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 21 Aug 2017 12:43:46 +0200
+
 ngcp-rtpengine (5.3.2.0+0~mr5.3.2.0) unstable; urgency=medium
 
   * New release.
