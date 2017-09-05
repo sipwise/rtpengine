@@ -106,7 +106,7 @@ void statistics_update_foreignown_inc(struct callmaster *m, struct call* c) {
 
 void statistics_update_oneway(struct call* c) {
 	struct callmaster *m;
-	struct packet_stream *ps=0, *ps2=0;
+	struct packet_stream *ps = NULL, *ps2 = NULL;
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k, *o;
@@ -128,7 +128,7 @@ void statistics_update_oneway(struct call* c) {
 
 			for (o = md->streams.head; o; o = o->next) {
 				ps = o->data;
-				if ((PS_ISSET(ps, RTP) && !PS_ISSET(ps, RTCP))) {
+				if (PS_ISSET(ps, RTP)) {
 					// --- only RTP is interesting
 					found = 1;
 					break;
@@ -136,6 +136,8 @@ void statistics_update_oneway(struct call* c) {
 			}
 			if (found) { break; }
 		}
+		if (!found)
+			ps = NULL;
 		found = 0;
 
 		if (ml->active_dialogue) {
@@ -145,7 +147,7 @@ void statistics_update_oneway(struct call* c) {
 
 				for (o = md->streams.head; o; o = o->next) {
 					ps2 = o->data;
-					if ((PS_ISSET(ps2, RTP) && !PS_ISSET(ps2, RTCP))) {
+					if (PS_ISSET(ps2, RTP)) {
 						// --- only RTP is interesting
 						found = 1;
 						break;
@@ -154,6 +156,8 @@ void statistics_update_oneway(struct call* c) {
 				if (found) { break; }
 			}
 		}
+		if (!found)
+			ps2 = NULL;
 
 		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
 			if (atomic64_get(&ps->stats.packets)!=0 && IS_OWN_CALL(c)){
