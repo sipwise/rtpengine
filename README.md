@@ -115,9 +115,14 @@ There's 3 parts to *rtpengine*, which can be found in the respective subdirector
 	- *PCRE* library
 	- *XMLRPC-C* version 1.16.08 or higher
 	- *hiredis* library
+	- *libiptc* library for iptables management (optional)
 
 	The `Makefile` contains a few Debian-specific flags, which may have to removed for compilation to
 	be successful. This will not affect operation in any way.
+
+	If you do not wish to (or cannot) compile the optional iptables management feature, the
+	`Makefile` also contains a switch to disable it. See the `--iptables-chain` option for
+	a description.
 
 * `iptables-extension`
 
@@ -196,6 +201,7 @@ option and which are reproduced below:
 	  --recording-dir=FILE             Spool directory where PCAP call recording data goes
 	  --recording-method=pcap|proc     Strategy for call recording
 	  --recording-format=raw|eth       PCAP file format for recorded calls.
+	  --iptables-chain=STRING          Add explicit firewall rules to this iptables chain
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -549,6 +555,29 @@ The options are described in more detail below.
 
 	 When recording to pcap file in raw (default) format, there is no ethernet header.
 	 When set to eth, a fake ethernet header is added, making each package 14 bytes larger.
+
+* --iptables-chain
+
+	This option enables explicit management of an iptables chain. When enabled, *rtpengine*
+	takes control of the given iptables chain, which must exist already prior to starting
+	the daemon. Upon startup, *rtpengine* will flush the chain, and then add one `ACCEPT`
+	rule for each media port (RTP/RTCP) opened. Each rule will exactly match the individual
+	port and destination IP address, and will be created with the call ID as iptables comment.
+	The rule will be deleted when the port is closed.
+
+	This option allows creating a firewall with a default `DROP` policy for the entire port
+	range used by *rtpengine* and then referencing the given iptables chain to only
+	selectively allow the ports actually in use.
+
+	Note that this applies only to media ports, and does not apply to any other ports (such
+	as the control ports) used by *rtpengine*.
+
+	Also note that the iptables API is not the most efficient one around and does not lend
+	itself to fast dynamic creation and deletion of rules. If you have a high call volume,
+	and especially many call attempts per second, you might experience significant
+	performance impact. This is not a shortcoming of *rtpengine* but rather of iptables
+	and its API implementation in the Linux kernel. In such a case, it is recommended to
+	add a static iptables rule for the entire media port range instead, and not use this option.
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 
