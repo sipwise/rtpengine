@@ -22,6 +22,7 @@
 #include "rtplib.h"
 #include "rtcplib.h"
 #include "ssrc.h"
+#include "iptables.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -598,16 +599,7 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 
 
 
-/* XXX family specific? unify? */
-static int get_port6(socket_t *r, unsigned int port, struct intf_spec *spec) {
-	if (open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr))
-		return -1;
-	socket_timestamping(r);
-	return 0;
-}
-
-static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec) {
-	int ret;
+static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec, const str *label) {
 	struct port_pool *pp;
 
 	__C_DBG("attempting to open port %u", port);
@@ -620,13 +612,14 @@ static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec) {
 	}
 	__C_DBG("port %d locked", port);
 
-	ret = get_port6(r, port, spec);
-
-	if (ret) {
+	if (open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr)) {
 		__C_DBG("couldn't open port %d", port);
 		bit_array_clear(pp->ports_used, port);
-		return ret;
+		return -1;
 	}
+
+	iptables_add_rule(r, label);
+	socket_timestamping(r);
 
 	g_atomic_int_dec_and_test(&pp->free_ports);
 	__C_DBG("%d free ports remaining on interface %s", pp->free_ports,
@@ -657,7 +650,7 @@ static void free_port(socket_t *r, struct intf_spec *spec) {
 
 /* puts list of socket_t into "out" */
 int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
-		struct intf_spec *spec)
+		struct intf_spec *spec, const str *label)
 {
 	int i, cycle = 0;
 	socket_t *sk;
@@ -712,7 +705,7 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 				goto release_restart;
 			}
 
-			if (get_port(sk, port++, spec))
+			if (get_port(sk, port++, spec, label))
 				goto release_restart;
 		}
 		break;
@@ -739,7 +732,9 @@ fail:
 }
 
 /* puts a list of "struct intf_list" into "out", containing socket_t list */
-int get_consecutive_ports(GQueue *out, unsigned int num_ports, const struct logical_intf *log) {
+int get_consecutive_ports(GQueue *out, unsigned int num_ports, const struct logical_intf *log,
+		const str *label)
+{
 	GList *l;
 	struct intf_list *il;
 	const struct local_intf *loc;
@@ -750,7 +745,7 @@ int get_consecutive_ports(GQueue *out, unsigned int num_ports, const struct logi
 		il = g_slice_alloc0(sizeof(*il));
 		il->local_intf = loc;
 		g_queue_push_tail(out, il);
-		if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec))) {
+		if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec, label))) {
 			// success - found available ports on local interfaces, so far
 			continue;
 		}
