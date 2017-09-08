@@ -1997,6 +1997,7 @@ char* redis_encode_json(struct call *c) {
 		}
 
 		// SSRC table dump
+		rwlock_lock_r(&c->ssrc_hash->lock);
 		k = g_hash_table_get_values(c->ssrc_hash->ht);
 		json_builder_set_member_name(builder, "ssrc_table");
 		json_builder_begin_array (builder);
@@ -2018,6 +2019,7 @@ char* redis_encode_json(struct call *c) {
 		json_builder_end_array (builder);
 
 		g_list_free(k);
+		rwlock_unlock_r(&c->ssrc_hash->lock);
 	}
 	json_builder_end_object (builder);
 
