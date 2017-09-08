@@ -25,6 +25,7 @@ flags = [
     '-D__YCM=1',
     '-DRTPENGINE_VERSION="dummy"',
     '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
+    '-DWITH_IPTABLES_OPTION',
     '-O2',
     '-fstack-protector',
     '--param=ssp-buffer-size=4',
