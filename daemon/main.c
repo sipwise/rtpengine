@@ -33,6 +33,7 @@
 #include "recording.h"
 #include "auxlib.h"
 #include "rtcp.h"
+#include "iptables.h"
 
 
 
@@ -292,6 +293,7 @@ static void options(int *argc, char ***argv) {
 		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
 		{ "recording-method",0, 0, G_OPTION_ARG_STRING,	&rec_method,	"Strategy for call recording",		"pcap|proc"	},
 		{ "recording-format",0, 0, G_OPTION_ARG_STRING,	&rec_format,	"File format for stored pcap files",	"raw|eth"	},
+		{ "iptables-chain",0,0,	G_OPTION_ARG_STRING,	&g_iptables_chain,"Add explicit firewall rules to this iptables chain","STRING" },
 		{ NULL, }
 	};
 
