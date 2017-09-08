@@ -72,6 +72,8 @@ INLINE int str_to_i(str *s, int def);
 INLINE uint str_to_ui(str *s, int def);
 /* extracts the first/next token into "new_token" and modifies "ori_and_remainer" in place */
 INLINE int str_token(str *new_token, str *ori_and_remainder, int sep);
+/* copy a string to a regular C string buffer, limiting the max size */
+INLINE char *str_ncpy(char *dst, size_t bufsize, const str *src);
 
 /* asprintf() analogs */
 #define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
@@ -320,6 +322,15 @@ INLINE int str_token(str *new_token, str *ori_and_remainder, int sep) {
 
 INLINE int str_uri_encode(char *out, const str *in) {
 	return str_uri_encode_len(out, in->s, in->len);
+}
+
+INLINE char *str_ncpy(char *dst, size_t bufsize, const str *src) {
+	size_t to_copy = src->len;
+	if (to_copy >= bufsize)
+		to_copy = bufsize - 1;
+	memcpy(dst, src->s, to_copy);
+	dst[to_copy] = 0;
+	return dst;
 }
 
 
