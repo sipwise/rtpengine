@@ -58,6 +58,8 @@ static void stream_handler(handler_t *handler) {
 		goto out;
 	}
 	else if (ret < 0) {
+		if (errno == EAGAIN || errno == EINTR || errno == EWOULDBLOCK)
+			goto out;
 		ilog(LOG_INFO, "Read error on stream %s: %s", stream->name, strerror(errno));
 		stream_close(stream);
 		goto out;
