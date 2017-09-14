@@ -214,11 +214,8 @@ void cdr_update_entry(struct call* c) {
 			if (_log_facility_cdr)
 			    ++cdrlinecnt;
 		}
+		/* log it */
+		cdrlog(cdrbuffer);
 	}
-
-	/* log it */
-	cdrlog(cdrbuffer);
-
-
 }
 
