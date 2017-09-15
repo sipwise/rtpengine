@@ -97,7 +97,7 @@ done:
 	return 0;
 
 error:
-	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Error parsing RTP header: %s", err);
+	ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Error parsing RTP header: %s", err);
 	return -1;
 }
 

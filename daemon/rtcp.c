@@ -652,7 +652,7 @@ static int __rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const e
 			break;
 
 		if (hdr->version != 2) {
-			ilog(LOG_WARN, "Unknown RTCP version %u", hdr->version);
+			ilog(LOG_DEBUG, "Unknown RTCP version %u", hdr->version);
 			goto error;
 		}
 
@@ -809,7 +809,7 @@ done:
 	*out = rtcp;
 	return 0;
 error:
-	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Error parsing RTCP header: %s", err);
+	ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Error parsing RTCP header: %s", err);
 	return -1;
 }
 
