@@ -229,6 +229,10 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		errstr = call_start_recording_ng(dict, c->callmaster, resp);
 		g_atomic_int_inc(&cur->start_recording);
 	}
+	else if (!str_cmp(&cmd, "stop recording")) {
+		errstr = call_stop_recording_ng(dict, c->callmaster, resp);
+		g_atomic_int_inc(&cur->stop_recording);
+	}
 	else
 		errstr = "Unrecognized command";
 
