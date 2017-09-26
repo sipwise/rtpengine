@@ -19,6 +19,7 @@ struct control_ng_stats {
 	int query;
 	int list;
 	int start_recording;
+	int stop_recording;
 	int errors;
 };
 

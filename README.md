@@ -777,6 +777,7 @@ a string and determines the type of message. Currently the following commands ar
 * delete
 * query
 * start recording
+* stop recording
 
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
@@ -1451,3 +1452,11 @@ call legs, therefore all keys other than `call-id` are currently ignored.
 
 If the chosen recording method doesn't support in-kernel packet forwarding, enabling call recording
 via this messages will force packet forwarding to happen in userspace only.
+
+`stop recording` Message
+-------------------------
+
+The `stop recording` message must contain the key `call-id` as defined above. The reply dictionary contains
+no additional keys.
+
+Disables call recording for the call. This can be sent during a call to imediatley stop recording it.
