@@ -578,7 +578,7 @@ no_kernel:
 	if (!is_addr_unspecified(&redis_write_ep.address)) {
 		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, redis_write_auth, ANY_REDIS_ROLE, no_redis_required);
 		if (!mc.redis_write)
-			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED paramter.",
+			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&redis_write_ep));
 	}
 
@@ -586,7 +586,7 @@ no_kernel:
 		mc.redis = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
 		mc.redis_notify = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
 		if (!mc.redis || !mc.redis_notify)
-			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED paramter.",
+			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&redis_ep));
 
 		if (!mc.redis_write)

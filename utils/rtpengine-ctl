@@ -75,7 +75,7 @@ sub showusage {
     print "         sessions own          : print one-liner own sessions information\n";
     print "         sessions foreign      : print one-liner foreign sessions information\n";
     print "         totals                : print total statistics\n";
-    print "         timeout               : print timout parameters\n";
+    print "         timeout               : print timeout parameters\n";
     print "\n";
     print "    terminate [ <callid> | all | own | foreign ]\n";
     print "         <callid>              : session is immediately terminated\n";
@@ -101,7 +101,7 @@ sub showusage {
     print "\n";
     print "\n";
     print "    Return Value:\n";
-    print "    0 on success with ouput from server side, other values for failure.\n";
+    print "    0 on success with output from server side, other values for failure.\n";
     print "\n";
 }
 

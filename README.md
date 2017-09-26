@@ -438,7 +438,7 @@ The options are described in more detail below.
 	Use multiple redis keys for storing the call (old behaviour) DEPRECATED
 
 *  -q, --no-redis-required
-	When this paramter is present or NO_REDIS_REQUIRED='yes' or '1' in config file, rtpengine starts even
+	When this parameter is present or NO_REDIS_REQUIRED='yes' or '1' in config file, rtpengine starts even
 	if there is no initial connection to redis databases(either to -r or to -w or to both redis).
 
 	Be aware that if the -r redis can't be initially connected, sessions are not reloaded upon rtpengine startup,
@@ -672,7 +672,7 @@ particular forwarding table.
 To delete this forwarding table, the command `del 42` can be issued like above. This will only work
 if no *rtpengine* daemon is currently running and controlling this table.
 
-Each subdirectory `/proc/rtpengine/$ID/` corresponding to each fowarding table contains the pseudo-files
+Each subdirectory `/proc/rtpengine/$ID/` corresponding to each forwarding table contains the pseudo-files
 `blist`, `control`, `list` and `status`. The `control` file is write-only while the others are read-only.
 The `control` file will be kept open by the *rtpengine* daemon while it's running to issue updates
 to the forwarding rules during runtime. The daemon also reads the `blist` file on a regular basis, which
@@ -785,7 +785,7 @@ For the `ping` command, the additional value `pong` is allowed. If the result is
 be present in the error case. If the result is `ok`, the optional key `warning` may be present, containing a
 human-readable warning message. This can be used for non-fatal errors.
 
-For readabilty, all data objects below are represented in a JSON-like notation and without the message cookie.
+For readability, all data objects below are represented in a JSON-like notation and without the message cookie.
 For example, a `ping` message and its corresponding `pong` reply would be written as:
 
 	{ "command": "ping" }
@@ -1005,7 +1005,7 @@ Optionally included keys are:
 * `address family`
 
 	A string value of either `IP4` or `IP6` to select the primary address family in the substituted SDP
-	body. The default is to auto-detect the address family if possible (if the recieving end is known
+	body. The default is to auto-detect the address family if possible (if the receiving end is known
 	already) or otherwise to leave it unchanged.
 
 * `rtcp-mux`

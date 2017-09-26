@@ -1126,7 +1126,7 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	}
 }
 
-/* generates SDES parametes for outgoing SDP, which is our media "out" direction */
+/* generates SDES parameters for outgoing SDP, which is our media "out" direction */
 static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other)
 {
@@ -1551,7 +1551,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		__C_DBG("processing media stream #%u", sp->index);
 		__C_DBG("free ports needed for round-robin-calls, left for this call %u", rr_calls_ports);
 
-		/* first, check for existance of call_media struct on both sides of
+		/* first, check for existence of call_media struct on both sides of
 		 * the dialogue */
 		media = __get_media(monologue, &ml_media, sp);
 		other_media = __get_media(other_ml, &other_ml_media, sp);

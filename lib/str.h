@@ -32,9 +32,9 @@ typedef struct _str str;
 
 /* returns pointer to end of str (s->s + s->len) */
 INLINE char *str_end(const str *s);
-/* returns pointer to first occurence of "c" in s */
+/* returns pointer to first occurrence of "c" in s */
 INLINE char *str_chr(const str *s, int c);
-/* sets "out" to point to first occurence of c in s. adjusts len also */
+/* sets "out" to point to first occurrence of c in s. adjusts len also */
 INLINE str *str_chr_str(str *out, const str *s, int c);
 /* compares a str to a regular string */
 INLINE int str_cmp(const str *a, const char *b);

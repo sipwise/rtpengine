@@ -98,7 +98,7 @@ void __unkernelize(struct packet_stream *);
 void unkernelize(struct packet_stream *);
 void __stream_unconfirm(struct packet_stream *);
 
-/* XXX shouldnt be necessary */
+/* XXX shouldn't be necessary */
 /*
 INLINE struct local_intf *get_interface_from_address(const struct logical_intf *lif,
 		const sockaddr_t *addr, socktype_t *type)

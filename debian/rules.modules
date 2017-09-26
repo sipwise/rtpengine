@@ -40,7 +40,7 @@ MA_DIR ?= /usr/share/modass
 # The kdist_configure target is called by make-kpkg modules_config and
 # by kdist* rules by dependency. It should configure the module so it is
 # ready for compilation (mostly useful for calling configure).
-# prep-deb-files from module-assistant creates the neccessary debian/ files
+# prep-deb-files from module-assistant creates the necessary debian/ files
 kdist_configure: prep-deb-files
 
 # the kdist_clean target is called by make-kpkg modules_clean and from
