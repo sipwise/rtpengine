@@ -1966,7 +1966,7 @@ no_stats_output:
 
 /* XXX move these */
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, const struct local_intf *ifa)
+		int *len, const struct local_intf *ifa, int keep_unspec)
 {
 	struct packet_stream *sink;
 	int l = 0;
@@ -1986,7 +1986,8 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 		l += sprintf(o + l, "%s ", ifa_addr->addr.family->rfc_name);
 
 	if (is_addr_unspecified(&sink->advertised_endpoint.address)
-			&& !is_trickle_ice_address(&sink->advertised_endpoint))
+			&& !is_trickle_ice_address(&sink->advertised_endpoint)
+			&& keep_unspec)
 		l += sprintf(o + l, "%s", ifa_addr->addr.family->unspec_string);
 	else
 		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->advertised_address.addr));
