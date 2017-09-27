@@ -1464,7 +1464,7 @@ static int insert_ice_address(struct sdp_chopper *chop, struct stream_fd *sfd) {
 	char buf[64];
 	int len;
 
-	call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf);
+	call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, 0);
 	chopper_append_dup(chop, buf, len);
 	chopper_append_printf(chop, " %u", sfd->socket.local.port);
 
@@ -1476,7 +1476,7 @@ static int insert_raddr_rport(struct sdp_chopper *chop, struct packet_stream *ps
         int len;
 
 	chopper_append_c(chop, " raddr ");
-	call_stream_address46(buf, ps, SAF_ICE, &len, ifa);
+	call_stream_address46(buf, ps, SAF_ICE, &len, ifa, 0);
 	chopper_append_dup(chop, buf, len);
 	chopper_append_c(chop, " rport ");
 	chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
@@ -1486,7 +1486,7 @@ static int insert_raddr_rport(struct sdp_chopper *chop, struct packet_stream *ps
 
 
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
-		struct packet_stream *ps, struct sdp_ng_flags *flags)
+		struct packet_stream *ps, struct sdp_ng_flags *flags, int keep_unspec)
 {
 	char buf[64];
 	int len;
@@ -1507,7 +1507,7 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 				flags->parsed_media_address.family->rfc_name,
 				sockaddr_print_buf(&flags->parsed_media_address));
 	else
-		call_stream_address46(buf, ps, SAF_NG, &len, NULL);
+		call_stream_address46(buf, ps, SAF_NG, &len, NULL, keep_unspec);
 	chopper_append_dup(chop, buf, len);
 
 	if (skip_over(chop, &address->address))
@@ -1923,12 +1923,12 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 		if (session->origin.parsed && flags->replace_origin &&
 		    !flags->ice_force_relay) {
-			if (replace_network_address(chop, &session->origin.address, ps, flags))
+			if (replace_network_address(chop, &session->origin.address, ps, flags, 0))
 				goto error;
 		}
 		if (session->connection.parsed && sess_conn &&
 		    !flags->ice_force_relay) {
-			if (replace_network_address(chop, &session->connection.address, ps, flags))
+			if (replace_network_address(chop, &session->connection.address, ps, flags, 1))
 				goto error;
 		}
 
@@ -1960,7 +1960,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				        goto error;
 
 				if (sdp_media->connection.parsed) {
-				        if (replace_network_address(chop, &sdp_media->connection.address, ps, flags))
+				        if (replace_network_address(chop, &sdp_media->connection.address, ps,
+								flags, 1))
 					        goto error;
 				}
 			}

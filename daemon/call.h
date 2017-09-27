@@ -466,7 +466,7 @@ void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media);
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, const struct local_intf *ifa);
+		int *len, const struct local_intf *ifa, int keep_unspec);
 
 const struct transport_protocol *transport_protocol(const str *s);
 void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval *interval_tv);
