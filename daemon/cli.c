@@ -847,6 +847,12 @@ next:
        goto next;
    }
 
+   if (fcntl(nfd, F_SETFL, O_NONBLOCK)) {
+       ilog(LOG_INFO, "Fcntl error:%s", strerror(errno));
+       close(nfd);
+       goto next;
+   }
+
    ilog(LOG_INFO, "New cli connection from " DF, DP(sin));
 
    do {
