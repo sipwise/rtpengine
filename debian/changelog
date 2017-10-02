@@ -1,3 +1,32 @@
+ngcp-rtpengine (6.0.0.0+0~mr6.0.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [bb50729] fix parsing of IPv6 address in legacy UDP protocol
+  * [fade693] additional reference counting for /proc stream files
+  * [1206e26] add missing lock for SSRC hash dump
+  * [dd33897] drop log level for messages about unknown RTP/RTCP packets
+  * [e7d75bd] TT#19350 add option to manage iptables rules directly
+  * [6abe388] fix compile warning
+  * [00cc28d] TT#22660 don't zero out SDP origin on zero connection address
+  * [440a1f8] delay proc stream/call file deletion until all references are cleared
+
+  [ Lucian Balaceanu ]
+  * [63bdd61] on startup, also accept hostname:port params for endpoints
+
+  [ Claudiu Boriga ]
+  * [67de59a] check that redisContext is not NULL before using it
+  * [b3ce08a] Count multipexed packets in statistics. Don't count errounously when no stream is found fixes #387
+  * [b317acd] don't log corrupted cdr for foreign calls
+  * [cf15275] add stop recording comand to ng interface
+  * [bb85236] update readme to add stop recording command
+
+  [ Michael Prokop ]
+  * [6932f22] TT#22411 Fix spelling mistakes/typos
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 02 Oct 2017 23:44:04 +0200
+
 ngcp-rtpengine (5.5.0.0+0~mr5.5.0.0) unstable; urgency=medium
 
   [ Alexander Lutay ]
