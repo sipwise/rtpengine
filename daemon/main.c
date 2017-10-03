@@ -651,9 +651,9 @@ int main(int argc, char **argv) {
 
 	if (num_threads < 1) {
 #ifdef _SC_NPROCESSORS_ONLN
-		num_threads = sysconf( _SC_NPROCESSORS_ONLN );
+		num_threads = sysconf( _SC_NPROCESSORS_ONLN ) + 3;
 #endif
-		if (num_threads < 1)
+		if (num_threads <= 1)
 			num_threads = 4;
 	}
 
