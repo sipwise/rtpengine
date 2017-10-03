@@ -72,6 +72,8 @@ INLINE int str_to_i(str *s, int def);
 INLINE uint str_to_ui(str *s, int def);
 /* extracts the first/next token into "new_token" and modifies "ori_and_remainer" in place */
 INLINE int str_token(str *new_token, str *ori_and_remainder, int sep);
+/* same as str_token but allows for a trailing non-empty token (e.g. "foo,bar" -> "foo", "bar" ) */
+INLINE int str_token_sep(str *new_token, str *ori_and_remainder, int sep);
 /* copy a string to a regular C string buffer, limiting the max size */
 INLINE char *str_ncpy(char *dst, size_t bufsize, const str *src);
 
@@ -317,6 +319,17 @@ INLINE int str_token(str *new_token, str *ori_and_remainder, int sep) {
 	new_token->len = ori_and_remainder->s - new_token->s;
 	if (str_shift(ori_and_remainder, 1))
 		return -1;
+	return 0;
+}
+
+INLINE int str_token_sep(str *new_token, str *ori_and_remainder, int sep) {
+	str ori = *ori_and_remainder;
+	if (!str_token(new_token, ori_and_remainder, sep))
+		return 0;
+	// separator not found, use remainder as final token if not empty
+	if (!ori.len)
+		return -1;
+	*new_token = ori;
 	return 0;
 }
 

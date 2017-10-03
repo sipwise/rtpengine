@@ -219,11 +219,9 @@ static void db_do_call_metadata(metafile_t *mf) {
 	str_init(&all_meta, mf->metadata);
 	while (all_meta.len > 1) {
 		str token;
-		if (str_token(&token, &all_meta, '|')) {
-			// separator not found, use remainder as token
-			token = all_meta;
-			all_meta.len = 0;
-		}
+		if (str_token_sep(&token, &all_meta, '|'))
+			break;
+
 		str key;
 		if (str_token(&key, &token, ':')) {
 			// key:value separator not found, skip
