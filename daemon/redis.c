@@ -1067,8 +1067,8 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 		sock = g_queue_pop_head(&q);
 		if (!sock)
 			goto err;
+		set_tos(sock, c->tos);
 		sfd = stream_fd_new(sock, c, loc);
-		// XXX tos
 
 		sfds->ptrs[i] = sfd;
 	}
