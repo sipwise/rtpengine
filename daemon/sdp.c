@@ -1993,7 +1993,11 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				chopper_append_c(chop, "a=inactive\r\n");
 
 			if (call_media->protocol && call_media->protocol->rtp) {
-				if (MEDIA_ISSET(call_media, RTCP_MUX) && flags->opmode == OP_ANSWER) {
+				if (MEDIA_ISSET(call_media, RTCP_MUX)
+						&& (flags->opmode == OP_ANSWER
+							|| (flags->opmode == OP_OFFER
+								&& flags->rtcp_mux_require)))
+				{
 					chopper_append_c(chop, "a=rtcp:");
 					chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
 					chopper_append_c(chop, "\r\na=rtcp-mux\r\n");

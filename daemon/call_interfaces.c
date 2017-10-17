@@ -622,6 +622,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		for (it = list->child; it; it = it->sibling) {
 			if (!bencode_strcmp(it, "offer"))
 				out->rtcp_mux_offer = 1;
+			else if (!bencode_strcmp(it, "require"))
+				out->rtcp_mux_require = 1;
 			else if (!bencode_strcmp(it, "demux"))
 				out->rtcp_mux_demux = 1;
 			else if (!bencode_strcmp(it, "accept"))

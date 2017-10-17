@@ -1275,7 +1275,7 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 	if (!MEDIA_ISSET(media, RTCP_MUX))
 		bf_copy_same(&media->media_flags, &other_media->media_flags, MEDIA_FLAG_RTCP_MUX);
 	/* in our offer, we can override the client's choice */
-	if (flags->rtcp_mux_offer)
+	if (flags->rtcp_mux_offer || flags->rtcp_mux_require)
 		MEDIA_SET(media, RTCP_MUX);
 	else if (flags->rtcp_mux_demux)
 		MEDIA_CLEAR(media, RTCP_MUX);

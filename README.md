@@ -1018,6 +1018,12 @@ Optionally included keys are:
 
 		Instructs *rtpengine* to always offer rtcp-mux, even if the client itself doesn't offer it.
 
+	- `require`
+
+		Similar to `offer` but pretends that the receiving client has already accepted rtcp-mux.
+		The effect is that no separate RTCP ports will be advertised, even in an initial offer
+		(which is against RFC 5761). This option is provided to talk to WebRTC clients.
+
 	- `demux`
 
 		If the client is offering rtcp-mux, don't offer it to the other side, but accept it back to
