@@ -1527,7 +1527,7 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
 		recording_start(c, s.s);
 
-		if (!redis_hash_get_str(&s, &call, "recording_metadata"))
+		if ((c->recording) && (!redis_hash_get_str(&s, &call, "recording_metadata")))
 			call_str_cpy(c, &c->recording->metadata, &s);
 	}
 
