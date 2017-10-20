@@ -1,3 +1,13 @@
+ngcp-rtpengine (5.5.1.1+0~mr5.5.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [42c06df] fix metadata DB insert without trailing pipe character
+  * [1cb933f] add extra thread allowance for blocking CLI code
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 20 Oct 2017 18:20:56 +0200
+
 ngcp-rtpengine (5.5.1.0+0~mr5.5.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
