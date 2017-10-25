@@ -174,6 +174,12 @@ err:
 
 
 static int decoder_got_frame(decoder_t *dec, output_t *output, metafile_t *metafile, AVFrame *frame) {
+	dbg("got frame pts %llu samples %u contents %02x%02x%02x%02x...", (unsigned long long) frame->pts, frame->nb_samples,
+			(unsigned int) frame->extended_data[0][0],
+			(unsigned int) frame->extended_data[0][1],
+			(unsigned int) frame->extended_data[0][2],
+			(unsigned int) frame->extended_data[0][3]);
+
 	// determine and save sample type
 	if (G_UNLIKELY(dec->in_format.format == -1))
 		dec->in_format.format = dec->out_format.format = frame->format;
@@ -312,11 +318,15 @@ int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *o
 #endif
 
 		if (got_frame) {
+			dbg("raw frame from decoder pts %llu samples %u", (unsigned long long) frame->pts, frame->nb_samples);
+
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 36, 0)
 			frame->pts = frame->pkt_pts;
 #endif
 			if (G_UNLIKELY(frame->pts == AV_NOPTS_VALUE))
 				frame->pts = dec->avpkt.pts;
+			dec->avpkt.pts += frame->nb_samples;
+
 			if (decoder_got_frame(dec, output, metafile, frame))
 				return -1;
 			frame = NULL;

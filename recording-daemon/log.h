@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define dbg(fmt, ...) ilog(LOG_DEBUG, fmt, ##__VA_ARGS__)
+#define dbg(fmt, ...) ilog(LOG_DEBUG, "[%s:%i] " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 
 void __ilog(int prio, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
