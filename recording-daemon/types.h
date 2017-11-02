@@ -101,6 +101,10 @@ struct metafile_s {
 	mix_t *mix;
 	output_t *mix_out;
 
+	int forward_fd;
+	volatile gint forward_count;
+	volatile gint forward_failed;
+
 	pthread_mutex_t payloads_lock;
 	char *payload_types[128];
 };

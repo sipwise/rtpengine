@@ -747,9 +747,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
-	detect_setup_recording(call, &flags.record_call_str);
+	detect_setup_recording(call, &flags.record_call_str, &flags.metadata);
 	if (flags.record_call)
-		recording_start(call, NULL);
+		recording_start(call, NULL, &flags.metadata);
 
 	ret = monologue_offer_answer(monologue, &streams, &flags);
 	if (!ret)
@@ -763,7 +763,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		meta_write_sdp_after(recording, sdp_iov, chopper->iov_num, chopper->str_len,
 			       monologue, opmode);
 
-		if (flags.metadata.len) {
+		//only add METADATA chunk if value is changed
+		if (flags.metadata.len && str_cmp_str(&flags.metadata, &recording->metadata)) {
 			call_str_cpy(call, &recording->metadata, &flags.metadata);
 			recording_meta_chunk(recording, "METADATA", &flags.metadata);
 		}
@@ -1192,14 +1193,16 @@ const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_it
 const char *call_start_recording_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
 	str callid;
 	struct call *call;
+	str metadata;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
+	bencode_dictionary_get_str(input, "metadata", &metadata);
 	call = call_get_opmode(&callid, m, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 
-	recording_start(call, NULL);
+	recording_start(call, NULL, &metadata);
 
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
