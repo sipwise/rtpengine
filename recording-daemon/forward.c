@@ -1,7 +1,8 @@
+#include "forward.h"
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <fcntl.h>
-#include "forward.h"
 #include "main.h"
 #include "log.h"
 
@@ -14,7 +15,11 @@ void start_forwarding_capture(metafile_t *mf, char *meta_info) {
 		return;
 	}
 
+#ifdef SOCK_SEQPACKET
 	if ((sock = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
+#else
+	if ((sock = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) {
+#endif
 		ilog(LOG_ERR, "Error creating socket: %s", strerror(errno));
 		return;
 	}
