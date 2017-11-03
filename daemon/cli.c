@@ -610,6 +610,226 @@ static void cli_incoming_list(char* buffer, int len, struct callmaster* m, char*
    }
 }
 
+static void cli_incoming_params_start(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen = 0, count = 0;
+	GList *s;
+	struct intf_config *ifa;
+	rtpengine_config_params_t* initial_cfg = m->initial_config;
+	struct callmaster_cfg_addition* initial_cfg_add = &(m->initial_config->cfg_addition);
+
+	/* don't lock anything while reading the value */
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "table = %d \nno_fallback = %d \ntos = %d \nport_min = %d \n"
+			"port_max = %d \nredis_num_threads = %d \nno_redis_required = %d \nxmlrpc_fmt = %d \nnum_threads = %d \n"
+			"delete_delay = %d \nsip_source = %d \ndtls_passive = %d \nmax_sessions = %d \nhomer_id = %d \ngraphite_interval = %d \n",
+			initial_cfg_add->table, initial_cfg_add->no_fallback,
+			initial_cfg->tos, initial_cfg_add->port_min, initial_cfg_add->port_max, initial_cfg->redis_num_threads,
+			initial_cfg_add->no_redis_required,	initial_cfg->xmlrpc_fmt, initial_cfg_add->num_threads, initial_cfg->delete_delay,
+			initial_cfg_add->sip_source, initial_cfg_add->dtls_passive,	initial_cfg->max_sessions,	initial_cfg_add->homer_id,
+			initial_cfg->graphite_interval);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "timeout = %u \nsilent_timeout = %u \nfinal_timeout = %u \nredis_expires = %u \n",
+			initial_cfg->timeout, initial_cfg->silent_timeout, initial_cfg->final_timeout, initial_cfg->redis_expires);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	for(s = initial_cfg_add-> interfaces.head; s ; s = s->next) {
+		ifa = s->data;
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "interface[%d] = %s\\%s \n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		++count;
+	}
+	count=0;
+	for (s = initial_cfg->keyspaces_default.head; s ; s = s->next) {
+
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(s->data));
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		++count;
+	}
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "listen_tcp = %s \nlisten_udp = %s \nlisten_ng = %s \n"
+			"listen_cli = %s \ngraphite = %s \ngraphite_prefix = %s \nredis = %s \nredis_write = %s \nb2b_url = %s \n"
+			"log_facility_cdr = %s \nlog_facility_rtcp = %s \nhomer = %s \nhomer_protol = %s \nrec_dir = %s \n"
+			"rec_method = %s \nrec_format = %s \n",
+			initial_cfg_add->listenps, initial_cfg_add->listenudps, initial_cfg_add->listenngs,
+			initial_cfg_add->listencli, initial_cfg_add->graphite, initial_cfg_add->graphite_prefix,
+			initial_cfg_add->redis, initial_cfg_add->redis_write,
+			initial_cfg->b2b_url, initial_cfg_add->log_facility_cdr, initial_cfg_add->log_facility_rtcp,
+			initial_cfg_add->homer, initial_cfg_add->homer_protocol, initial_cfg_add->rec_dir,
+			initial_cfg_add->rec_method, initial_cfg_add->rec_format);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	return ;
+}
+
+static void cli_incoming_params_current(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen=0, count = 0;
+	GList *c;
+	struct intf_config *ifa;
+	struct callmaster_config* current_cfg = &(m->conf);
+	struct callmaster_cfg_addition* current_cfg_add = &(m->conf.cfg_addition);
+
+	rwlock_lock_r(&current_cfg->config_lock);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "table = %d \nno_fallback = %d \ntos = %d \nport_min = %d \n"
+			"port_max = %d \nredis_num_threads = %d \nno_redis_required = %d \nxmlrpc_fmt = %d \nnum_threads = %d \n"
+			"delete_delay = %d \nsip_source = %d \ndtls_passive = %d \nmax_sessions = %d \nhomer_id = %d \ngraphite_interval = %d \n",
+			current_cfg_add->table, current_cfg_add->no_fallback, current_cfg->default_tos, current_cfg_add->port_min,
+			current_cfg_add->port_max, current_cfg->redis_num_threads, current_cfg_add->no_redis_required, current_cfg->fmt,
+			current_cfg_add->num_threads, current_cfg->delete_delay, current_cfg_add->sip_source, current_cfg_add->dtls_passive,
+			current_cfg->max_sessions, current_cfg_add->homer_id, current_cfg->graphite_interval);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "timeout = %u \nsilent_timeout = %u \nfinal_timeout = %u \nredis_expires = %u \n",
+			current_cfg->timeout, current_cfg->silent_timeout, current_cfg->final_timeout, current_cfg->redis_expires_secs);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	for(c = current_cfg_add-> interfaces.head; c ; c = c->next) {
+		ifa = c->data;
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "interface[%d] = %s\\%s \n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		++count;
+	}
+	count=0;
+	for (c = current_cfg->redis_subscribed_keyspaces->head; c ; c = c->next) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(c->data));
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+		++count;
+	}
+
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), "listen_tcp = %s \nlisten_udp = %s \nlisten_ng = %s \n"
+			"listen_cli = %s \ngraphite = %s \ngraphite_prefix = %s \nredis = %s \nredis_write = %s \nb2b_url = %s \n"
+			"log_facility_cdr = %s \nlog_facility_rtcp = %s \nhomer = %s \nhomer_protol = %s \nrec_dir = %s \n"
+			"rec_method = %s \nrec_format = %s \n",
+			current_cfg_add->listenps, current_cfg_add->listenudps, current_cfg_add->listenngs, current_cfg_add->listencli,
+			current_cfg_add->graphite, current_cfg_add->graphite_prefix, current_cfg_add->redis, current_cfg_add->redis_write,
+			current_cfg->b2b_url, current_cfg_add->log_facility_cdr, current_cfg_add->log_facility_rtcp, current_cfg_add->homer,
+			current_cfg_add->homer_protocol,  current_cfg_add->rec_dir, current_cfg_add->rec_method, current_cfg_add->rec_format);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	rwlock_unlock_r(&current_cfg->config_lock);
+	return ;
+}
+
+static void int_diff_print(int start_param, int current_param, char* param, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+	if(start_param != current_param) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", param);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+}
+
+static void str_diff_print(char* start_param, char* current_param, char* param, char* replybuffer, const char* outbufend) {
+	int printlen=0;
+	if(start_param && current_param) {
+		if (strcmp(start_param , current_param) != 0) {
+			printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", param);
+			ADJUSTLEN(printlen,outbufend,replybuffer);
+		}
+	} else if(start_param || current_param) {
+		printlen = snprintf(replybuffer,(outbufend-replybuffer), "%s\n", param);
+		ADJUSTLEN(printlen,outbufend,replybuffer);
+	}
+}
+
+static void cli_incoming_params_diff(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+	int printlen = 0, count = 0;
+	GList *s;
+	GList *c;
+	struct intf_config* ifa;
+	struct intf_config* ifa2;
+	rtpengine_config_params_t* initial_cfg = m->initial_config;
+	struct callmaster_cfg_addition* initial_cfg_add = &(m->initial_config->cfg_addition);
+	struct callmaster_config* current_cfg = &(m->conf);
+	struct callmaster_cfg_addition* current_cfg_add = &(m->conf.cfg_addition);
+	rwlock_lock_r(&m->conf.config_lock);
+
+
+	int_diff_print(initial_cfg_add->table, current_cfg_add->table, "table", replybuffer, outbufend);
+	int_diff_print(initial_cfg_add->no_fallback, current_cfg_add->no_fallback, "no_fallback", replybuffer, outbufend);
+	int_diff_print(initial_cfg->tos, current_cfg->default_tos, "tos", replybuffer, outbufend);
+	int_diff_print(initial_cfg_add->port_min, current_cfg_add->port_min, "port_min", replybuffer, outbufend);
+	int_diff_print(initial_cfg_add->port_max, current_cfg_add->port_max, "port_max", replybuffer, outbufend);
+	int_diff_print(initial_cfg->redis_num_threads, current_cfg->redis_num_threads, "redis_num_threads", replybuffer, outbufend);
+	int_diff_print(initial_cfg_add->no_redis_required, current_cfg_add->no_redis_required, "no_redis_required", replybuffer, outbufend);
+	int_diff_print(initial_cfg->xmlrpc_fmt, current_cfg->fmt, "xmlrpc_fmt", replybuffer, outbufend);
+	int_diff_print(initial_cfg_add->num_threads, current_cfg_add->num_threads, "num_threads", replybuffer, outbufend);
+	int_diff_print(initial_cfg->delete_delay, current_cfg->delete_delay, "delete_delay", replybuffer, outbufend);
+	int_diff_print(initial_cfg_add->sip_source, current_cfg_add->sip_source, "sip_source", replybuffer, outbufend);
+	int_diff_print(initial_cfg_add->dtls_passive, current_cfg_add->dtls_passive, "dtls_passive", replybuffer, outbufend);
+	int_diff_print(initial_cfg->max_sessions, current_cfg->max_sessions, "max_sessions", replybuffer, outbufend);
+	int_diff_print(initial_cfg_add->homer_id, current_cfg_add->homer_id, "homer_id", replybuffer, outbufend);
+	int_diff_print(initial_cfg->graphite_interval, current_cfg->graphite_interval, "graphite_interval", replybuffer, outbufend);
+	int_diff_print(initial_cfg->timeout, current_cfg->timeout, "timeout", replybuffer, outbufend);
+	int_diff_print(initial_cfg->silent_timeout, current_cfg->silent_timeout, "silent_timeout", replybuffer, outbufend);
+	int_diff_print(initial_cfg->final_timeout, current_cfg->final_timeout, "final_timeout", replybuffer, outbufend);
+	int_diff_print(initial_cfg->redis_expires, current_cfg->redis_expires_secs, "redis_expires", replybuffer, outbufend);
+
+	for(s = initial_cfg_add-> interfaces.head, c=current_cfg_add-> interfaces.head, count = 0; s && c ; s = s->next, c = c->next, count++) {
+		ifa = s->data;
+		ifa2 = c->data;
+
+		if(ifa->name.s && ifa2->name.s) {
+			if(strcmp(ifa->name.s, ifa2->name.s) != 0 || strcmp(sockaddr_print_buf(&(ifa->local_address.addr)), sockaddr_print_buf(&(ifa2->local_address.addr))) != 0) {
+				printlen = snprintf(replybuffer,(outbufend-replybuffer), "interface[%d]\n",count);
+				ADJUSTLEN(printlen,outbufend,replybuffer);
+			}
+		} else if (ifa->name.s || ifa2->name.s) {
+			if(ifa->name.len != ifa2->name.len) {
+				printlen = snprintf(replybuffer,(outbufend-replybuffer), "interface[%d]\n",count);
+				ADJUSTLEN(printlen,outbufend,replybuffer);
+			}
+		}
+	}
+
+	for (s = initial_cfg->keyspaces_default.head, c = current_cfg->redis_subscribed_keyspaces->head, count = 0; s && c ; s = s->next, c = c->next, count++) {
+		if(GPOINTER_TO_UINT(s->data) != GPOINTER_TO_UINT(c->data)) {
+			printlen = snprintf(replybuffer,(outbufend-replybuffer), "keyspace[%d]\n", count);
+			ADJUSTLEN(printlen,outbufend,replybuffer);
+		}
+	}
+
+	str_diff_print(initial_cfg_add->listenps, current_cfg_add->listenps, "listentcp", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->listenudps, current_cfg_add->listenudps, "listenudps", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->listenngs, current_cfg_add->listenngs, "listenngs", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->listencli, current_cfg_add->listencli, "listencli", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->graphite, current_cfg_add->graphite, "graphite", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->graphite_prefix, current_cfg_add->graphite_prefix, "graphite_prefix", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->redis, current_cfg_add->redis, "redis", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->redis_write, current_cfg_add->redis_write, "redis_write", replybuffer, outbufend);
+	str_diff_print(initial_cfg->b2b_url, current_cfg->b2b_url, "b2b_url", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->log_facility_cdr, current_cfg_add->log_facility_cdr, "log_facility_cdr", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->log_facility_rtcp, current_cfg_add->log_facility_rtcp, "log_facility_rtcp", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->homer, current_cfg_add->homer, "homer", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->homer_protocol, current_cfg_add->homer_protocol, "homer_protocol", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->rec_dir, current_cfg_add->rec_dir, "rec_dir", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->rec_method, current_cfg_add->rec_method, "rec_method", replybuffer, outbufend);
+	str_diff_print(initial_cfg_add->rec_format, current_cfg_add->rec_format, "rec_format", replybuffer, outbufend);
+
+	rwlock_unlock_r(&m->conf.config_lock);
+	return ;
+}
+
+static void cli_incoming_params(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
+   int printlen=0;
+
+   static const char* PARAMS_START = "start";
+   static const char* PARAMS_CURRENT = "current";
+   static const char* PARAMS_DIFF = "diff";
+
+   if (len<=1) {
+	   printlen = snprintf(replybuffer, outbufend-replybuffer, "%s\n", "More parameters required.");
+	   ADJUSTLEN(printlen,outbufend,replybuffer);
+	   return;
+   }
+   ++buffer; --len; // one space
+
+   if (len>=strlen(PARAMS_START) && strncmp(buffer,PARAMS_START,strlen(PARAMS_START)) == 0) {
+	   cli_incoming_params_start(replybuffer, outbufend);
+   } else if (len>=strlen(PARAMS_CURRENT) && strncmp(buffer,PARAMS_CURRENT,strlen(PARAMS_CURRENT)) == 0) {
+	   cli_incoming_params_current(buffer+strlen(PARAMS_CURRENT), len-strlen(PARAMS_CURRENT), m, replybuffer, outbufend);
+   } else if (len>=strlen(PARAMS_DIFF) && strncmp(buffer,PARAMS_DIFF,strlen(PARAMS_DIFF)) == 0) {
+	   cli_incoming_params_diff(buffer+strlen(PARAMS_DIFF), len-strlen(PARAMS_DIFF), m, replybuffer, outbufend);
+   }
+}
+
+
 static void cli_incoming_set(char* buffer, int len, struct callmaster* m, char* replybuffer, const char* outbufend) {
 	int printlen=0;
 
@@ -870,6 +1090,7 @@ next:
    static const char* KSADD = "ksadd";
    static const char* KSRM = "ksrm";
    static const char* KSLIST = "kslist";
+   static const char* PARAMS = "params";
 
    if (strncmp(inbuf,LIST,strlen(LIST)) == 0) {
        cli_incoming_list(inbuf+strlen(LIST), inlen-strlen(LIST), cli->callmaster, outbuf, outbufend);
@@ -883,6 +1104,8 @@ next:
        cli_incoming_ksrm(inbuf+strlen(KSRM), inlen-strlen(KSRM), cli->callmaster, outbuf, outbufend);
    } else  if (strncmp(inbuf,KSLIST,strlen(KSLIST)) == 0) {
        cli_incoming_kslist(inbuf+strlen(KSLIST), inlen-strlen(KSLIST), cli->callmaster, outbuf, outbufend);
+   } else  if (strncmp(inbuf,PARAMS,strlen(PARAMS)) == 0) {
+       cli_incoming_params(inbuf+strlen(PARAMS), inlen-strlen(PARAMS), cli->callmaster, outbuf, outbufend);
    } else {
        sprintf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", inbuf);
    }

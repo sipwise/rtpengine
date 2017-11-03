@@ -21,6 +21,7 @@
 #include "statistics.h"
 
 #define UNDEFINED ((unsigned int) -1)
+#define MAX_SIZE 255
 
 enum termination_reason {
 	UNKNOWN=0,
@@ -386,6 +387,36 @@ struct call {
 
 	struct recording 	*recording;
 };
+struct callmaster_cfg_addition {
+	int table;
+	int no_fallback;
+	int port_min;
+	int port_max;
+	int no_redis_required;
+	int num_threads;
+	int sip_source;
+	int dtls_passive;
+	int homer_id;
+
+	char listenps[MAX_SIZE];
+	char listenudps[MAX_SIZE];
+	char listenngs[MAX_SIZE];
+	char listencli[MAX_SIZE];
+	char graphite[MAX_SIZE];
+	char graphite_prefix[MAX_SIZE];
+	char redis[MAX_SIZE];
+	char redis_write[MAX_SIZE];
+	char log_facility_rtcp[MAX_SIZE];
+	char log_facility_cdr[MAX_SIZE];
+	char homer[MAX_SIZE];
+	char homer_protocol[MAX_SIZE];
+	char rec_dir[MAX_SIZE];
+	char rec_method[MAX_SIZE];
+	char rec_format[MAX_SIZE];
+
+	GQueue interfaces ;
+};
+
 
 struct callmaster_config {
 	/* everything below protected by config_lock */
@@ -410,6 +441,7 @@ struct callmaster_config {
 	int			graphite_interval;
 
 	int			redis_num_threads;
+	struct callmaster_cfg_addition cfg_addition;
 };
 
 struct callmaster {
@@ -438,7 +470,27 @@ struct callmaster {
 
 	struct callmaster_config conf;
 	struct timeval          latest_graphite_interval_start;
+	struct rtpengine_config_params *initial_config;
 };
+
+typedef struct rtpengine_config_params {
+
+	int tos;
+	int redis_num_threads;
+	enum xmlrpc_format xmlrpc_fmt;
+	int delete_delay;
+	int max_sessions;
+	int graphite_interval;
+	unsigned int timeout;
+	unsigned int silent_timeout;
+	unsigned int final_timeout;
+	unsigned int redis_expires;
+	char * b2b_url;
+        GQueue keyspaces_default;
+
+	struct callmaster_cfg_addition cfg_addition;
+
+} rtpengine_config_params_t;
 
 struct callmaster *callmaster_new(struct poller *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);

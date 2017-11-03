@@ -82,6 +82,23 @@ static char *spooldir;
 static char *rec_method = "pcap";
 static char *rec_format = "raw";
 
+static char **if_a = NULL;
+static char **ks_a = NULL;
+static char *listenps = NULL;
+static char *listenudps = NULL;
+static char *listenngs = NULL;
+static char *listencli = NULL;
+static char *graphitep = NULL;
+static char *graphite_prefix_s = NULL;
+static char *redisps = NULL;
+static char *redisps_write = NULL;
+static char *log_facility_cdr_s = NULL;
+static char *log_facility_rtcp_s = NULL;
+static int sip_source = 0;
+static char *homerp = NULL;
+static char *homerproto = NULL;
+static rtpengine_config_params_t rtp_initial_cfg;
+
 static void sighandler(gpointer x) {
 	sigset_t ss;
 	int ret;
@@ -234,25 +251,10 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 
 
 static void options(int *argc, char ***argv) {
-	char **if_a = NULL;
-	char **ks_a = NULL;
 	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char **iter;
 	struct intf_config *ifa;
-	char *listenps = NULL;
-	char *listenudps = NULL;
-	char *listenngs = NULL;
-	char *listencli = NULL;
-	char *graphitep = NULL;
-	char *graphite_prefix_s = NULL;
-	char *redisps = NULL;
-	char *redisps_write = NULL;
-	char *log_facility_cdr_s = NULL;
-	char *log_facility_rtcp_s = NULL;
-	int sip_source = 0;
-	char *homerp = NULL;
-	char *homerproto = NULL;
 	char *endptr;
 
 	GOptionEntry e[] = {
@@ -534,6 +536,47 @@ no_kernel:
 	mc.graphite_interval = graphite_interval;
 	mc.redis_subscribed_keyspaces = g_queue_copy(&keyspaces);
 
+	mc.cfg_addition.table = table;
+	mc.cfg_addition.no_fallback = no_fallback;
+	mc.cfg_addition.port_min = port_min;
+	mc.cfg_addition.port_max = port_max;
+	mc.cfg_addition.no_redis_required = no_redis_required;
+	mc.cfg_addition.sip_source = sip_source;
+	mc.cfg_addition.dtls_passive = dtls_passive_def;
+	mc.cfg_addition.homer_id = homer_id;
+	mc.cfg_addition.interfaces = interfaces;
+
+	if(listenps && strlen(listenps) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.listenps, listenps);
+	if(listenudps && strlen(listenudps) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.listenudps, listenudps);
+	if(listenngs && strlen(listenngs) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.listenngs, listenngs);
+	if(listencli && strlen(listencli) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.listencli, listencli);
+	if(graphitep && strlen(graphitep) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.graphite, graphitep);
+	if(graphite_prefix_s && strlen(graphite_prefix_s) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.graphite_prefix, graphite_prefix_s);
+	if(redisps && strlen(redisps) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.redis, redisps);
+	if(redisps_write && strlen(redisps_write) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.redis_write, redisps_write);
+	if(log_facility_cdr_s && strlen(log_facility_cdr_s) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.log_facility_cdr, log_facility_cdr_s);
+	if(log_facility_rtcp_s && strlen(log_facility_rtcp_s) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.log_facility_rtcp, log_facility_rtcp_s);
+	if(homerp && strlen(homerp) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.homer, homerp);
+	if(homerproto && strlen(homerproto) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.homer_protocol, homerproto);
+	if(spooldir && strlen(spooldir) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.rec_dir, spooldir);
+	if(rec_method && strlen(rec_method) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.rec_method, rec_method);
+	if(rec_format && strlen(rec_format) <= MAX_SIZE)
+		strcpy(mc.cfg_addition.rec_format, rec_format);
+
 	if (redis_num_threads < 1) {
 #ifdef _SC_NPROCESSORS_ONLN
 		redis_num_threads = sysconf( _SC_NPROCESSORS_ONLN );
@@ -596,6 +639,7 @@ no_kernel:
 	mc.redis_expires_secs = redis_expires;
 
 	ctx->m->conf = mc;
+	ctx->m->initial_config = &rtp_initial_cfg;
 
 	daemonize();
 	wpidfile();
@@ -626,6 +670,77 @@ no_kernel:
 	set_graphite_interval_tv(&tmp_tv);
 }
 
+void fill_rtpengine_cfg(rtpengine_config_params_t* cfg_param) {
+
+	GList* l;
+	struct intf_config* gptr_data;
+
+	for(l=interfaces.head; l ; l=l->next) {
+		gptr_data = (struct intf_config*)malloc(sizeof(struct intf_config));
+		memcpy(gptr_data, (struct intf_config*)(l->data), sizeof(struct intf_config));
+
+		g_queue_push_tail(&cfg_param->cfg_addition.interfaces, gptr_data);
+	}
+
+	for(l = keyspaces.head; l ; l = l->next) {
+		// l->data has been assigned to a variable before being given into the queue structure not to get a shallow copy
+		unsigned int num = GPOINTER_TO_UINT(l->data);
+		g_queue_push_tail(&cfg_param->keyspaces_default, GINT_TO_POINTER(num));
+	}
+
+	cfg_param->cfg_addition.table = table;
+	cfg_param->cfg_addition.no_fallback = no_fallback;
+	cfg_param->graphite_interval = graphite_interval;
+	cfg_param->tos = tos;
+	cfg_param->timeout = timeout;
+	cfg_param->silent_timeout = silent_timeout;
+	cfg_param->final_timeout = final_timeout;
+	cfg_param->cfg_addition.port_min = port_min;
+	cfg_param->cfg_addition.port_max = port_max;
+	cfg_param->redis_num_threads = redis_num_threads;
+	cfg_param->redis_expires = redis_expires;
+	cfg_param->cfg_addition.no_redis_required = no_redis_required;
+	cfg_param->xmlrpc_fmt = xmlrpc_fmt;
+	cfg_param->cfg_addition.num_threads = num_threads;
+	cfg_param->delete_delay = delete_delay;
+	cfg_param->cfg_addition.sip_source = sip_source;
+	cfg_param->cfg_addition.dtls_passive = dtls_passive_def;
+	cfg_param->max_sessions = max_sessions;
+	cfg_param->cfg_addition.homer_id = homer_id;
+
+	if(listenps && sizeof(listenps) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.listenps, listenps);}
+	if(listenudps && sizeof(listenudps) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.listenudps, listenudps);}
+	if(listenngs && sizeof(listenngs) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.listenngs, listenngs);}
+	if(listencli && sizeof(listencli) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.listencli, listencli);}
+	if(graphitep && sizeof(graphitep) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.graphite, graphitep);}
+	if(graphite_prefix_s && sizeof(graphite_prefix_s) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.graphite_prefix, graphite_prefix_s);}
+	if(redisps && sizeof(redisps) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.redis, redisps);}
+	if(redisps_write && sizeof(redisps_write) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.redis_write, redisps_write);}
+	if(b2b_url && sizeof(b2b_url) <= MAX_SIZE){
+		strcpy(cfg_param->b2b_url, b2b_url);}
+	if(log_facility_cdr_s && sizeof(log_facility_cdr_s) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.log_facility_cdr, log_facility_cdr_s);}
+	if(log_facility_rtcp_s && sizeof(log_facility_rtcp_s) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.log_facility_rtcp, log_facility_rtcp_s);}
+	if(homerp && sizeof(homerp) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.homer, homerp);}
+	if(homerproto && sizeof(homerproto) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.homer_protocol, homerproto);}
+	if(spooldir && sizeof(spooldir) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.rec_dir, spooldir);}
+	if(rec_method && sizeof(rec_method) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.rec_method, rec_method);}
+	if(rec_format && sizeof(rec_format) <= MAX_SIZE){
+		strcpy(cfg_param->cfg_addition.rec_format, rec_format);}
+};
 
 int main(int argc, char **argv) {
 	struct main_context ctx;
@@ -635,6 +750,7 @@ int main(int argc, char **argv) {
 	options(&argc, &argv);
 	init_everything();
 	create_everything(&ctx);
+        fill_rtpengine_cfg(&rtp_initial_cfg);
 
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
