@@ -163,9 +163,9 @@ out:
 
 
 /* called with callmaster->hashlock held */
-static void call_timer_iterator(void *key, void *val, void *ptr) {
-	struct call *c = val;
-	struct iterator_helper *hlp = ptr;
+static void call_timer_iterator(gpointer data, gpointer user_data) {
+	struct call *c = data;
+	struct iterator_helper *hlp = user_data;
 	GList *it;
 	struct callmaster *cm;
 	unsigned int check;
@@ -463,7 +463,7 @@ destroy:
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
 	struct iterator_helper hlp;
-	GList *i, *l;
+	GList *i, *l, *calls = NULL;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps, *sink;
 	struct stats tmpstats;
@@ -476,10 +476,20 @@ static void callmaster_timer(void *ptr) {
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
 
+	/* obtain the call list and make a copy from it so not to hold the lock */
 	rwlock_lock_r(&m->hashlock);
-	g_hash_table_foreach(m->callhash, call_timer_iterator, &hlp);
+	l = g_hash_table_get_values(m->callhash);
+	if (l) {
+		calls = g_list_copy(l);
+		g_list_free(l);
+		g_list_foreach(calls, call_obj_get, NULL);
+	}
 	rwlock_unlock_r(&m->hashlock);
 
+	if (calls) {
+		g_list_foreach(calls, call_timer_iterator, &hlp);
+		g_list_free_full(calls, call_obj_put);
+	}
 	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, bytes);
 	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, packets);
 	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, errors);

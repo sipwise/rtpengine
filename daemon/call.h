@@ -536,5 +536,12 @@ INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	return ret;
 }
 
+INLINE void call_obj_get(gpointer data, gpointer user_data) {
+	obj_get((struct call* )data);
+}
+INLINE void call_obj_put(gpointer data) {
+	obj_put((struct call* )data);
+}
+
 
 #endif
