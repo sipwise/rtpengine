@@ -17,7 +17,7 @@ port() {
 
 ids=""
 ports=""
-for i in $(seq 1 1000); do
+for (( i = 0 ; i < 1000 ; i++ )); do
 	callid=`uuid`
 	test -z "$callid" && exit 1
 	src=`ip`:`port`
