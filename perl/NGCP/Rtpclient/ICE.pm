@@ -596,17 +596,17 @@ sub stun_handler_binding_success {
 sub check_to_nominate {
 	my ($self) = @_;
 
-	$self->{controlling} or return;
-	$self->{start_nominating} && time() < $self->{start_nominating} and return;
-	$self->{nominate} and return;
-	@{$self->{triggered_checks}} and return;
+	return unless $self->{controlling};
+	return if $self->{start_nominating} && time() < $self->{start_nominating};
+	return if $self->{nominate};
+	return if @{$self->{triggered_checks}};
 
 	my @succeeded;
 
 	for my $pair (values(%{$self->{candidate_pairs}})) {
 		my @comps = @{$pair->{components}};
 		my @succeeded_comps = grep {$_->{state} eq 'succeeded'} @comps;
-		@succeeded_comps < $self->{components} and next;
+		next if @succeeded_comps < $self->{components};
 		$self->debug("got fully succeeded pair $pair->{foundation}\n");
 		push(@succeeded, $pair);
 	}
@@ -795,7 +795,10 @@ sub keepalives {
 
 sub sort_pairs {
 	my ($pair_list) = @_;
-	return sort {$a->priority() <=> $b->priority()} @$pair_list;
+	my @sorted_list = sort {
+		$a->priority() <=> $b->priority()
+	} @{$pair_list};
+	return @sorted_list;
 }
 
 sub get_send_component {

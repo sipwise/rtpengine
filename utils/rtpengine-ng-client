@@ -49,19 +49,19 @@ my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(',', 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
-for my $x (split(',', 'TOS,delete-delay')) {
+for my $x (split(/,/, 'TOS,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(',', 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
-for my $x (split(',', 'origin,session connection')) {
+for my $x (split(/,/, 'origin,session connection')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
-for my $x (split(',', 'rtcp-mux,SDES')) {
+for my $x (split(/,/, 'rtcp-mux,SDES')) {
 	defined($options{$x}) && ref($options{$x}) eq 'ARRAY'
 		and $packet{$x} = $options{$x};
 }
@@ -74,9 +74,9 @@ if (defined($options{sdp})) {
 	$packet{sdp} = $options{sdp};
 }
 elsif (defined($options{'sdp-file'})) {
-	open(F, '<', $options{'sdp-file'}) or die $!;
-	my @sdp = <F> or die $!;
-	close(F);
+	open(my $fh, '<', $options{'sdp-file'}) or die $!;
+	my @sdp = <$fh> or die $!;
+	close($fh);
 	$packet{sdp} = join('', @sdp);
 }
 #elsif (@ARGV && $ARGV[0] eq 'sdp') {

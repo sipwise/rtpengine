@@ -127,19 +127,19 @@ fi
 
 if ! test -z "$SET_USER"; then
 	START_OPTIONS="$START_OPTIONS --chuid $SET_USER"
-	UID=$(id -u "$SET_USER" 2> /dev/null)
-	test -z "$UID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$UID"
+	PUID=$(id -u "$SET_USER" 2> /dev/null)
+	test -z "$PUID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$PUID"
 	if test -z "$SET_GROUP"; then
-		GID=$(id -g "$SET_USER" 2> /dev/null)
-		test -z "$GID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$GID"
+		PGID=$(id -g "$SET_USER" 2> /dev/null)
+		test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
 	fi
 	test "$DO_DIR_CHOWN" = 1 && chown "$SET_USER": "$PIDDIR"
 fi
 
 if ! test -z "$SET_GROUP"; then
 	START_OPTIONS="$START_OPTIONS --group $SET_GROUP"
-	GID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
-	test -z "$GID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$GID"
+	PGID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
+	test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
 	test "$DO_DIR_CHOWN" = 1 && chgrp "$SET_GROUP" "$PIDDIR"
 fi
 
@@ -170,6 +170,7 @@ case "$1" in
 	log_daemon_msg "Starting $DESC: $NAME"
 	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		if [ "$MANAGE_IPTABLES" = "yes" ]; then
+			# shellcheck disable=SC2086
 			modprobe xt_RTPENGINE $MODPROBE_OPTIONS
 
 			iptables -N rtpengine 2> /dev/null
@@ -188,6 +189,7 @@ case "$1" in
 		fi
 	fi
 	set -e
+	# shellcheck disable=SC2086
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
 		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
 	log_end_msg $?

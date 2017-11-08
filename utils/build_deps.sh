@@ -13,7 +13,7 @@ fi
 
 BUILD_DEPS=$(/usr/bin/gdebi --quiet --non-interactive \
 	--option=APT::Install-Recommends=false \
-	--apt-line ${CONTROL_FILE})
+	--apt-line "${CONTROL_FILE}")
 if [ -z "${BUILD_DEPS}" ]; then
 	echo "Error: no build deps packages resolved"
 	exit 2

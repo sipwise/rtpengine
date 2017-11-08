@@ -39,7 +39,7 @@ MODULE=0
 
 build_opts() {
 	shopt -s nocasematch
-	RPMS=`rpm -qa | grep rtpengine-kernel`
+	RPMS=$(rpm -qa | grep rtpengine-kernel)
 	if [[ "$KERNEL" == "yes" && -n "$TABLE" && -n "$RPMS" ]]
 	then
 		MODULE=1
@@ -179,15 +179,15 @@ start() {
 		then
 			if [[ -n "$RE_GROUP" ]]
 			then
-				proc_gid=$(grep ^$RE_GROUP: /etc/group | cut -f3 -d:)
+				proc_gid=$(grep "^$RE_GROUP:" /etc/group | cut -f3 -d:)
 			else
-				proc_gid=$(id $RE_USER -g)
+				proc_gid=$(id "$RE_USER" -g)
 			fi
-			modprobe xt_RTPENGINE proc_uid=$(id $RE_USER -u) proc_gid=$proc_gid
+			modprobe xt_RTPENGINE proc_uid=$(id "$RE_USER" -u) proc_gid=$proc_gid
 		else
 			modprobe xt_RTPENGINE
 		fi
-		temp=`firewall-cmd --state 2>/dev/null`
+		firewall-cmd --state 2>/dev/null
 		if [[ $? == 0 ]]
 		then
 			# Using firewalld
@@ -202,15 +202,15 @@ start() {
 				
 			firewall-cmd --direct --add-chain ipv4 filter rtpengine
 			firewall-cmd --direct --add-rule ipv4 filter INPUT_prefilter 0 -j rtpengine
-			firewall-cmd --direct --add-rule ipv4 filter rtpengine 0 -p udp -j RTPENGINE --id $TABLE
-			firewall-cmd --direct --add-rule ipv6 filter rtpengine 0 -p udp -j RTPENGINE --id $TABLE
+			firewall-cmd --direct --add-rule ipv4 filter rtpengine 0 -p udp -j RTPENGINE --id "$TABLE"
+			firewall-cmd --direct --add-rule ipv6 filter rtpengine 0 -p udp -j RTPENGINE --id "$TABLE"
   			firewall-cmd --reload
 		else
 			iptables -N rtpengine
 			# We insert the rtpengine rule at the top of the input chain
 			iptables -t filter -I INPUT -j rtpengine
-			iptables -I rtpengine -p udp -j RTPENGINE --id $TABLE
-			ip6tables -I rtpengine -p udp -j RTPENGINE --id $TABLE
+			iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
 		fi
 
 		cat <<EOF > "$cachefile"
@@ -220,19 +220,19 @@ EOF
         echo -n $"Starting $prog: "
 	if [[ -n "$RE_USER" ]]
 	then
-		daemon --user $RE_USER --pidfile=${pidfile} $rtpengine $OPTS
+		daemon --user "$RE_USER" --pidfile="${pidfile}" "$rtpengine" $OPTS
 	else
-		daemon --pidfile=${pidfile} $rtpengine $OPTS
+		daemon --pidfile="${pidfile}" "$rtpengine" $OPTS
 	fi
         RETVAL=$?
         echo
-        [ $RETVAL = 0 ] && touch ${lockfile}
+        [ $RETVAL = 0 ] && touch "${lockfile}"
         return $RETVAL
 }
 
 stop() {
 	echo -n $"Stopping $prog: "
-	killproc -p ${pidfile} $rtpengine
+	killproc -p "${pidfile}" "$rtpengine"
 	RETVAL=$?
 	echo
 	if [ -f "$cachefile" ]
@@ -240,7 +240,7 @@ stop() {
 		. "$cachefile"
 		echo "Unloading module for in-kernel packet forwarding"
 		echo "del $TABLE" > /proc/rtpengine/control
-		temp=`firewall-cmd --state 2>/dev/null`
+		firewall-cmd --state 2>/dev/null
 		if [[ $? == 0 ]]
 		then
 			firewall-cmd --direct --remove-rules ipv4 filter rtpengine
@@ -249,16 +249,16 @@ stop() {
 			firewall-cmd --direct --remove-chain ipv4 filter rtpengine
 			firewall-cmd --reload
 		else
-			iptables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
-			ip6tables -D rtpengine -p udp -j RTPENGINE --id $CUR_TABLE
+			iptables -D rtpengine -p udp -j RTPENGINE --id "$CUR_TABLE"
+			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$CUR_TABLE"
 			iptables -t filter -D INPUT -j rtpengine
 			iptables -X rtpengine
 		fi
 		rmmod xt_RTPENGINE
-		rm -f $cachefile	
+		rm -f "$cachefile"
 	fi
  
-	[ $RETVAL = 0 ] && rm -f ${lockfile} ${pidfile}
+	[ $RETVAL = 0 ] && rm -f "${lockfile}" "${pidfile}"
 }
 
 # See how we were called.
@@ -270,7 +270,7 @@ case "$1" in
 	stop
 	;;
   status)
-        status -p ${pidfile} $rtpengine
+        status -p "${pidfile}" "$rtpengine"
 	RETVAL=$?
 	;;
   restart)
@@ -278,7 +278,7 @@ case "$1" in
 	start
 	;;
   condrestart|try-restart)
-	if status -p ${pidfile} $rtpengine >&/dev/null; then
+	if status -p "${pidfile}" "$rtpengine" >&/dev/null; then
 		stop
 		start
 	fi
