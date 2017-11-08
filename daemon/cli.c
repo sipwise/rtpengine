@@ -172,8 +172,8 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "Control statistics:\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
-	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
-			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "StartRec", "Errors");
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
+			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "StartRec", "StopRec", "Errors");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
 
 	mutex_lock(&m->cngs_lock);
