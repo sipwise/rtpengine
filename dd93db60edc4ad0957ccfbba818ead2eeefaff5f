@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dab895d6_f25a4582",
+        "filename": "tests/kernel-module-test.pl",
+        "patchSetId": 2
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2017-11-08T19:24:23Z",
+      "side": 0,
+      "message": "Some of the hash values following are expected and allowed to be undef, so this would produce warnings",
+      "revId": "dd93db60edc4ad0957ccfbba818ead2eeefaff5f",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
