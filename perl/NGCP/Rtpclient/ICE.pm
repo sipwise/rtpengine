@@ -795,7 +795,10 @@ sub keepalives {
 
 sub sort_pairs {
 	my ($pair_list) = @_;
-	return sort {$a->priority() <=> $b->priority()} @$pair_list;
+	my @sorted_list = sort {
+		$a->priority() <=> $b->priority()
+	} @{$pair_list};
+	return @sorted_list;
 }
 
 sub get_send_component {
