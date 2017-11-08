@@ -2,7 +2,7 @@
 
 use IO::Socket::INET;
 
-$num_args = $#ARGV + 1;
+my $num_args = $#ARGV + 1;
 if ( ($num_args == 0) or
      (($num_args == 1) && (($ARGV[0] eq "--help") or ($ARGV[0] eq "-h"))) )
 {
