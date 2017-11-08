@@ -334,24 +334,24 @@ sub rtp_savp {
 sub savp_crypto {
 	my ($sdp, $ctx, $ctx_o) = @_;
 
-	my @a = $sdp =~ /[\r\n]a=crypto:(\d+) (\w+) inline:([\w\/+=]{40,})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?(?: (.*?))?[\r\n]/sig;
-	@a or die;
+	my @aa = $sdp =~ /[\r\n]a=crypto:(\d+) (\w+) inline:([\w\/+=]{40,})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?(?: (.*?))?[\r\n]/sig;
+	@aa or die;
 	my $i = 0;
-	while (@a >= 8) {
-		$$ctx[$i]{in}{crypto_suite} = $NGCP::Rtpclient::SRTP::crypto_suites{$a[1]} or die;
-		$$ctx[$i]{in}{crypto_tag} = $a[0];
+	while (@aa >= 8) {
+		$$ctx[$i]{in}{crypto_suite} = $NGCP::Rtpclient::SRTP::crypto_suites{$aa[1]} or die;
+		$$ctx[$i]{in}{crypto_tag} = $aa[0];
 		($$ctx[$i]{in}{rtp_master_key}, $$ctx[$i]{in}{rtp_master_salt})
-			= NGCP::Rtpclient::SRTP::decode_inline_base64($a[2], $$ctx[$i]{in}{crypto_suite});
-		$$ctx[$i]{in}{rtp_mki} = $a[5];
-		$$ctx[$i]{in}{rtp_mki_len} = $a[6];
+			= NGCP::Rtpclient::SRTP::decode_inline_base64($aa[2], $$ctx[$i]{in}{crypto_suite});
+		$$ctx[$i]{in}{rtp_mki} = $aa[5];
+		$$ctx[$i]{in}{rtp_mki_len} = $aa[6];
 		undef($$ctx[$i]{in}{rtp_session_key});
 		undef($$ctx[$i]{in}{rtcp_session_key});
-		($a[7] || '') =~ /UNENCRYPTED_SRTP/ and $$ctx[$i]{in}{unenc_srtp} = 1;
-		($a[7] || '') =~ /UNENCRYPTED_SRTCP/ and $$ctx[$i]{in}{unenc_srtcp} = 1;
-		($a[7] || '') =~ /UNAUTHENTICATED_SRTP/ and $$ctx[$i]{in}{unauth_srtp} = 1;
+		($aa[7] || '') =~ /UNENCRYPTED_SRTP/ and $$ctx[$i]{in}{unenc_srtp} = 1;
+		($aa[7] || '') =~ /UNENCRYPTED_SRTCP/ and $$ctx[$i]{in}{unenc_srtcp} = 1;
+		($aa[7] || '') =~ /UNAUTHENTICATED_SRTP/ and $$ctx[$i]{in}{unauth_srtp} = 1;
 
 		$i++;
-		@a = @a[8 .. $#a];
+		@aa = @aa[8 .. $#aa];
 	}
 }
 
