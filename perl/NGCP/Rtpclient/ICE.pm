@@ -596,17 +596,17 @@ sub stun_handler_binding_success {
 sub check_to_nominate {
 	my ($self) = @_;
 
-	$self->{controlling} or return;
-	$self->{start_nominating} && time() < $self->{start_nominating} and return;
-	$self->{nominate} and return;
-	@{$self->{triggered_checks}} and return;
+	return unless $self->{controlling};
+	return if $self->{start_nominating} && time() < $self->{start_nominating};
+	return if $self->{nominate};
+	return if @{$self->{triggered_checks}};
 
 	my @succeeded;
 
 	for my $pair (values(%{$self->{candidate_pairs}})) {
 		my @comps = @{$pair->{components}};
 		my @succeeded_comps = grep {$_->{state} eq 'succeeded'} @comps;
-		@succeeded_comps < $self->{components} and next;
+		next if @succeeded_comps < $self->{components};
 		$self->debug("got fully succeeded pair $pair->{foundation}\n");
 		push(@succeeded, $pair);
 	}
@@ -753,7 +753,8 @@ sub timer {
 
 	# run checks
 
-	defined($self->{other_ufrag}) && defined($self->{other_pwd}) or return; # not enough info
+	# not enough info
+	return if !defined($self->{other_ufrag}) && !defined($self->{other_pwd});
 
 	if (my $pair = shift(@{$self->{triggered_checks}})) {
 		$pair->debug("running triggered check\n");

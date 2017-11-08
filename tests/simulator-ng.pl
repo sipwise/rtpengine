@@ -50,7 +50,7 @@ local $SIG{ALRM} = sub { print "alarm!\n"; };
 setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
 $PROTOS and $PROTOS = [split(/\s*[,;:]+\s*/, $PROTOS)];
-$PROTOS && @$PROTOS == 1 and $$PROTOS[1] = $$PROTOS[0];
+$$PROTOS[1] = $$PROTOS[0] if $PROTOS && @$PROTOS == 1;
 $DEST and $DEST = [$DEST =~ /^(?:([a-z.-]+)(?::(\d+))?|([\d.]+)(?::(\d+))?|([\da-f:]+)|\[([\da-f:]+)\]:(\d+))$/si];
 my $dest_host = $$DEST[0] || $$DEST[2] || $$DEST[4] || $$DEST[5] || 'localhost';
 my $dest_port = $$DEST[1] || $$DEST[3] || $$DEST[6] || 2223;
@@ -86,8 +86,14 @@ sub msg {
 my @dests = getaddrinfo($dest_host, $dest_port, AF_UNSPEC, SOCK_DGRAM);
 while (@dests >= 5) {
 	my ($fam, $type, $prot, $addr, $canon, @dests) = @dests;
-	socket($fd, $fam, $type, $prot) or undef($fd), next;
-	connect($fd, $addr) or undef($fd), next;
+	if (!socket($fd, $fam, $type, $prot)) {
+		undef($fd);
+		next;
+	}
+	if (!connect($fd, $addr)) {
+		undef($fd);
+		next;
+	}
 	last;
 }
 $fd or die($!);
@@ -106,7 +112,7 @@ sub send_receive {
 	alarm(1);
 	recv($receive_fd, $x, 0xffff, 0) or $err = "$!";
 	alarm(0);
-	$err && $err !~ /interrupt/i and die $err;
+	die $err if $err && $err !~ /interrupt/i;
 	return $x;
 }
 
@@ -403,7 +409,7 @@ sub do_rtp {
 					$KEEPGOING or undef($c);
 				}
 				$NOENC and $repl = $expect;
-				!$repl && $KEEPGOING and next;
+				next if !$repl && $KEEPGOING;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans{name} > $$trans_o{name}, $$c{callid}, RTP port $$outputs[$j][0]";
 
 				$rtcp or next;
@@ -421,7 +427,7 @@ sub do_rtp {
 				$dst = $$pr{sockaddr}($dstport, $addr);
 				$repl = send_receive($sendfd, $expfd, $payload, $dst);
 				$NOENC and $repl = $expect;
-				!$repl && $KEEPGOING and next;
+				next if !$repl && $KEEPGOING;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans{name} > $$trans_o{name}, $$c{callid}, RTCP";
 			}
 		}
@@ -614,12 +620,12 @@ c=IN $$pr{family_str} $$ips_t[0]
 t=0 0
 SDP
 	my $ul = $$A{num_streams};
-	$op eq 'answer' && $$A{streams_seen} < $$A{num_streams}
-		and $ul = $$A{streams_seen};
+	$ul = $$A{streams_seen} if $op eq 'answer' && $$A{streams_seen} < $$A{num_streams};
 
-	$$A{want_bundle} && $op eq 'offer' and
-		$$A{bundle} = 1,
+	if ($$A{want_bundle} && $op eq 'offer') {
+		$$A{bundle} = 1;
 		$sdp .= "a=group:BUNDLE " . join(' ', (0 .. $ul)) . "\n";
+	}
 
 	for my $i (0 .. $ul) {
 		my $bi = $i;
@@ -628,8 +634,7 @@ SDP
 
 		my $p = $$ports_t[$bi];
 		my $cp = $p + 1;
-		$$A{bundle} && $$A{want_rtcpmux} && $op eq 'offer'
-			and $cp = $p;
+		$cp = $p if $$A{bundle} && $$A{want_rtcpmux} && $op eq 'offer';
 
 		$sdp .= <<"SDP";
 m=audio $p $$tr{name} 0 8 111
@@ -749,7 +754,10 @@ sub answer {
 }
 
 for my $iter (1 .. $NUM) {
-	($iter % 10 == 0) and print("$iter calls established\n"), do_rtp();
+	if ($iter % 10 == 0) {
+		print("$iter calls established\n");
+		do_rtp();
+	}
 
 	my $c = {};
 	offer($c, 0, 1);

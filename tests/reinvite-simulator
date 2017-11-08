@@ -65,7 +65,10 @@ sub send_rcv {
 		$addr = recv($recvfd, $inc, length($pkt), 0);
 		alarm(0);
 	}
-	$inc eq $pkt or print("did NOT receive packet\n"), return;
+	if ($inc ne $pkt) {
+		print("did NOT receive packet\n");
+		return;
+	}
 	my ($port, $ip) = sockaddr_in($addr);
 	$laddr = getsockname($recvfd);
 	($lport, $lip) = sockaddr_in($laddr);
