@@ -187,12 +187,12 @@ sub setup {
 	if ($COMBINE == 0) {
 		$callbacks{stream_setup} = \&stream_pcap;
 		$callbacks{stream_close} = \&stream_pcap_close;
-		$callbacks{packet} = \&stream_packet,
+		$callbacks{packet} = \&stream_packet;
 	}
 	elsif ($COMBINE == 1) {
 		$callbacks{call_setup} = \&call_pcap;
 		$callbacks{call_close} = \&call_pcap_close;
-		$callbacks{packet} = \&call_packet,
+		$callbacks{packet} = \&call_packet;
 	}
 }
 sub cb {
