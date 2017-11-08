@@ -127,19 +127,19 @@ fi
 
 if ! test -z "$SET_USER"; then
 	START_OPTIONS="$START_OPTIONS --chuid $SET_USER"
-	UID=$(id -u "$SET_USER" 2> /dev/null)
-	test -z "$UID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$UID"
+	PUID=$(id -u "$SET_USER" 2> /dev/null)
+	test -z "$PUID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$PUID"
 	if test -z "$SET_GROUP"; then
-		GID=$(id -g "$SET_USER" 2> /dev/null)
-		test -z "$GID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$GID"
+		PGID=$(id -g "$SET_USER" 2> /dev/null)
+		test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
 	fi
 	test "$DO_DIR_CHOWN" = 1 && chown "$SET_USER": "$PIDDIR"
 fi
 
 if ! test -z "$SET_GROUP"; then
 	START_OPTIONS="$START_OPTIONS --group $SET_GROUP"
-	GID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
-	test -z "$GID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$GID"
+	PGID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
+	test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
 	test "$DO_DIR_CHOWN" = 1 && chgrp "$SET_GROUP" "$PIDDIR"
 fi
 
