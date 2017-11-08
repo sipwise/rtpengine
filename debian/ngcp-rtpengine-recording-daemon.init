@@ -14,7 +14,6 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-recording-daemon
 DESC="RTP/media recording daemon"
-TABLE=0
 
 DAEMON=$(which rtpengine-recording)
 DEFAULTS=/etc/default/${NAME}
@@ -75,12 +74,6 @@ if ! test -z "$SET_GROUP"; then
 fi
 
 ###
-
-if [ -x /usr/sbin/ngcp-virt-identify ]; then
-	if /usr/sbin/ngcp-virt-identify --type container; then
-		VIRT="yes"
-	fi
-fi
 
 case "$1" in
   start)
