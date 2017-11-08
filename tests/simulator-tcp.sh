@@ -18,16 +18,16 @@ port() {
 ids=""
 ports=""
 for (( i = 0 ; i < 1000 ; i++ )); do
-	callid=`uuid`
+	callid=$(uuid)
 	test -z "$callid" && exit 1
-	src=`ip`:`port`
-	dst=`ip`:`port`
-	gw=`ip`
-	fromtag=`uuid`
-	totag=`uuid`
+	src=$(ip):$(port)
+	dst=$(ip):$(port)
+	gw=$(ip)
+	fromtag=$(uuid)
+	totag=$(uuid)
 
-	src_rel=`echo "request $callid $src:audio $gw voip.inode.at local unknown unknown unknown-agent info=domain:voip.sipwise.local,from:number@voip.inode.at,totag:,to:othernumber@voip.inode.at,fromtag:$fromtag" | pipe_o`
-	dst_rel=`echo "lookup $callid $dst:audio $gw voip.inode.at local unknown unknown unknown-agent info=domain:voip.sipwise.local,from:number@voip.inode.at,totag:$totag,to:othernumber@voip.inode.at,fromtag:$fromtag" | pipe_o`
+	src_rel=$(echo "request $callid $src:audio $gw voip.inode.at local unknown unknown unknown-agent info=domain:voip.sipwise.local,from:number@voip.inode.at,totag:,to:othernumber@voip.inode.at,fromtag:$fromtag" | pipe_o)
+	dst_rel=$(echo "lookup $callid $dst:audio $gw voip.inode.at local unknown unknown unknown-agent info=domain:voip.sipwise.local,from:number@voip.inode.at,totag:$totag,to:othernumber@voip.inode.at,fromtag:$fromtag" | pipe_o)
 	echo "lookup $callid $dst:audio $gw voip.inode.at local unknown unknown unknown-agent info=domain:voip.sipwise.local,from:number@voip.inode.at,totag:$totag,to:othernumber@voip.inode.at,fromtag:$fromtag" | pipe
 	echo version | pipe
 	(echo status | pipe) &
