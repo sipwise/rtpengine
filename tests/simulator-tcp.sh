@@ -9,10 +9,10 @@ pipe() {
 	pipe_o > /dev/null
 }
 ip() {
-	echo $(($RANDOM % 254 + 1)).$(($RANDOM % 254 + 1)).$(($RANDOM % 254 + 1)).$(($RANDOM % 254 + 1))
+	echo $((RANDOM % 254 + 1)).$((RANDOM % 254 + 1)).$((RANDOM % 254 + 1)).$((RANDOM % 254 + 1))
 }
 port() {
-	echo $(($RANDOM % 64000 + 1024))
+	echo $((RANDOM % 64000 + 1024))
 }
 
 ids=""
