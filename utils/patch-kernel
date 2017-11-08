@@ -34,7 +34,7 @@ if ! grep -q CONFIG_NETFILTER_XT_TARGET_RTPENGINE "$KERN"/net/netfilter/Makefile
 	(
 		echo
 		echo "EXTRA_CFLAGS += -DRTPENGINE_VERSION=\"\\\"$4\\\"\""
-		echo 'obj-$(CONFIG_NETFILTER_XT_TARGET_RTPENGINE) += xt_RTPENGINE.o'
+		echo "obj-\$(CONFIG_NETFILTER_XT_TARGET_RTPENGINE) += xt_RTPENGINE.o"
 	) >> "$KERN"/net/netfilter/Makefile
 fi
 
