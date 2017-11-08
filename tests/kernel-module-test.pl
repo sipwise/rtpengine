@@ -8,14 +8,10 @@ use Socket6;
 my %cmds = (noop => 1, add => 2, delete => 3, update => 4, add_call => 5, del_call => 6, add_stream => 7, del_stream => 8, packet => 9);
 my %ciphers = ('null' => 1, 'aes-cm' => 2, 'aes-f8' => 3);
 my %hmacs = ('null' => 1, 'hmac-sha1' => 2);
-$| = 1;
+STDOUT->autoflush(1);
 
-open(F, "+> /proc/rtpengine/0/control") or die;
-{
-	my $x = select(F);
-	$| = 1;
-	select($x);
-}
+open(my $fh, '+>', '/proc/rtpengine/0/control') or die;
+$fh->autoflush(1);
 
 sub re_address {
 	my ($fam, $addr, $port) = @_;
@@ -38,10 +34,8 @@ sub re_address {
 }
 sub re_srtp {
 	my ($h) = @_;
-	no warnings;
 	return pack('VV a16 a16 a256 Q VV', $ciphers{$$h{cipher}}, $hmacs{$$h{hmac}},
 		@$h{qw(master_key master_salt mki last_index auth_tag_len mki_len)});
-	use warnings;
 }
 sub rtpengine_message {
 	my ($cmd, %args) = @_;
@@ -140,47 +134,47 @@ my $ret;
 my $msg;
 
 # print("add 9876 -> 1234/6543\n");
-# $ret = syswrite(F, rtpengine_message('add', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('add', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
 # print("add fail\n");
-# $ret = syswrite(F, rtpengine_message('add', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, mirror_addr => \@dst, mirror_port => 6789, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('add', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, mirror_addr => \@dst, mirror_port => 6789, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
 # print("update 9876 -> 1234/6543 & 6789\n");
-# $ret = syswrite(F, rtpengine_message('update', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, mirror_addr => \@dst, mirror_port => 6789, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('update', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, mirror_addr => \@dst, mirror_port => 6789, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
 # print("update 9876 -> 2345/7890 & 4321\n");
-# $ret = syswrite(F, rtpengine_message('update', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 2345, dst_addr => \@dst, dst_port => 7890, mirror_addr => \@dst, mirror_port => 4321, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('update', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 2345, dst_addr => \@dst, dst_port => 7890, mirror_addr => \@dst, mirror_port => 4321, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
 # print("add fail\n");
-# $ret = syswrite(F, rtpengine_message('add', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, mirror_addr => \@dst, mirror_port => 6789, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('add', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, mirror_addr => \@dst, mirror_port => 6789, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
 # print("update 9876 -> 1234/6543\n");
-# $ret = syswrite(F, rtpengine_message('update', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('update', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
 # print("delete\n");
-# $ret = syswrite(F, rtpengine_message('delete', local_addr => \@local, local_port => 9876, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('delete', local_addr => \@local, local_port => 9876, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
 # print("delete fail\n");
-# $ret = syswrite(F, rtpengine_message('delete', local_addr => \@local, local_port => 9876, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('delete', local_addr => \@local, local_port => 9876, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
 # print("update fail\n");
-# $ret = syswrite(F, rtpengine_message('update', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
+# $ret = syswrite($fh, rtpengine_message('update', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, tos => 184, decrypt => $dec, encrypt => $enc)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
@@ -215,7 +209,7 @@ if (0) {
 			print("creating call $name\n");
 
 			$msg = rtpengine_message_call('add_call', 0, $name);
-			$ret = sysread(F, $msg, length($msg)) // '-';
+			$ret = sysread($fh, $msg, length($msg)) // '-';
 			#print("reply: " . unpack("H*", $msg) . "\n");
 			print("ret = $ret, code = $!\n");
 
@@ -232,7 +226,7 @@ if (0) {
 			print("creating stream $name under call idx $call\n");
 
 			$msg = rtpengine_message_stream('add_stream', $call, 0, $name);
-			$ret = sysread(F, $msg, length($msg)) // '-';
+			$ret = sysread($fh, $msg, length($msg)) // '-';
 			#print("reply: " . unpack("H*", $msg) . "\n");
 			print("ret = $ret, code = $!\n");
 
@@ -249,7 +243,7 @@ if (0) {
 			print("deleting call idx $call\n");
 
 			$msg = rtpengine_message_call('del_call', $call);
-			$ret = syswrite(F, $msg) // '-';
+			$ret = syswrite($fh, $msg) // '-';
 			#print("ret = $ret, code = $!, reply: " . unpack("H*", $msg) . "\n");
 			print("ret = $ret, code = $!\n");
 
@@ -278,7 +272,7 @@ if (0) {
 			print("deleting stream idx $stream->[1] (call $stream->[0])\n");
 
 			$msg = rtpengine_message_stream('del_stream', $stream->[0], $stream->[1]);
-			$ret = syswrite(F, $msg) // '-';
+			$ret = syswrite($fh, $msg) // '-';
 			#print("ret = $ret, code = $!, reply: " . unpack("H*", $msg) . "\n");
 			print("ret = $ret, code = $!\n");
 
@@ -295,7 +289,7 @@ if (0) {
 			print("delivering a packet to $idx\n");
 
 			$msg = rtpengine_message_packet('packet', 0, $idx, 'packet data bla bla ' . rand() . "\n");
-			$ret = syswrite(F, $msg) // '-';
+			$ret = syswrite($fh, $msg) // '-';
 			print("ret = $ret, code = $!\n");
 
 			sleep($sleep);
@@ -316,7 +310,7 @@ if (0) {
 print("creating call\n");
 
 $msg = rtpengine_message_call('add_call', 0, 'test call');
-$ret = sysread(F, $msg, length($msg)) // '-';
+$ret = sysread($fh, $msg, length($msg)) // '-';
 #print("reply: " . unpack("H*", $msg) . "\n");
 print("ret = $ret, code = $!\n");
 
@@ -330,7 +324,7 @@ sleep($sleep);
 # print("creating identical call\n");
 # 
 # $msg = rtpengine_message_call('add_call', 0, 'test call');
-# $ret = sysread(F, $msg, length($msg)) // '-';
+# $ret = sysread($fh, $msg, length($msg)) // '-';
 # #print("reply: " . unpack("H*", $msg) . "\n");
 # print("ret = $ret, code = $!\n");
 # 
@@ -344,7 +338,7 @@ sleep($sleep);
 # print("creating other call\n");
 # 
 # $msg = rtpengine_message_call('add_call', 0, 'another test call');
-# $ret = sysread(F, $msg, length($msg)) // '-';
+# $ret = sysread($fh, $msg, length($msg)) // '-';
 # #print("reply: " . unpack("H*", $msg) . "\n");
 # print("ret = $ret, code = $!\n");
 # 
@@ -359,7 +353,7 @@ for my $exp (0 .. 1000) {
 	print("creating a stream\n");
 
 	$msg = rtpengine_message_stream('add_stream', $idx1, 0, 'test stream ' . rand());
-	$ret = sysread(F, $msg, length($msg)) // '-';
+	$ret = sysread($fh, $msg, length($msg)) // '-';
 	#print("reply: " . unpack("H*", $msg) . "\n");
 	print("ret = $ret, code = $!\n");
 
@@ -373,7 +367,7 @@ for my $exp (0 .. 1000) {
 # print("creating a stream\n");
 # 
 # $msg = rtpengine_message_stream('add_stream', $idx1, 0, 'test stream');
-# $ret = sysread(F, $msg, length($msg)) // '-';
+# $ret = sysread($fh, $msg, length($msg)) // '-';
 # #print("reply: " . unpack("H*", $msg) . "\n");
 # print("ret = $ret, code = $!\n");
 # 
@@ -387,7 +381,7 @@ for my $exp (0 .. 1000) {
 # print("creating identical stream\n");
 # 
 # $msg = rtpengine_message_stream('add_stream', $idx1, 0, 'test stream');
-# $ret = sysread(F, $msg, length($msg)) // '-';
+# $ret = sysread($fh, $msg, length($msg)) // '-';
 # #print("reply: " . unpack("H*", $msg) . "\n");
 # print("ret = $ret, code = $!\n");
 # 
@@ -401,7 +395,7 @@ for my $exp (0 .. 1000) {
 # print("creating different stream\n");
 # 
 # $msg = rtpengine_message_stream('add_stream', $idx3, 0, 'test stream');
-# $ret = sysread(F, $msg, length($msg)) // '-';
+# $ret = sysread($fh, $msg, length($msg)) // '-';
 # #print("reply: " . unpack("H*", $msg) . "\n");
 # print("ret = $ret, code = $!\n");
 # 
@@ -413,7 +407,7 @@ for my $exp (0 .. 1000) {
 
 
 # print("add 9876 -> 1234/6543\n");
-# $ret = syswrite(F, rtpengine_message('add', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, tos => 184, decrypt => $dec, encrypt => $enc, stream_idx => $sidx1, flags => 0x20)) // '-';
+# $ret = syswrite($fh, rtpengine_message('add', local_addr => \@local, local_port => 9876, src_addr => \@src, src_port => 1234, dst_addr => \@dst, dst_port => 6543, tos => 184, decrypt => $dec, encrypt => $enc, stream_idx => $sidx1, flags => 0x20)) // '-';
 # print("ret = $ret, code = $!\n");
 # sleep($sleep);
 
@@ -423,7 +417,7 @@ for my $exp (0 .. 1000) {
 # 	print("delivering a packet\n");
 # 
 # 	$msg = rtpengine_message_packet('packet', $idx1, $sidx1, 'packet data bla bla ' . rand() . "\n");
-# 	$ret = syswrite(F, $msg) // '-';
+# 	$ret = syswrite($fh, $msg) // '-';
 # 	#print("reply: " . unpack("H*", $msg) . "\n");
 # 	print("ret = $ret, code = $!\n");
 # 
@@ -436,7 +430,7 @@ for my $exp (0 .. 1000) {
 # print("deleting stream\n");
 # 
 # $msg = rtpengine_message_stream('del_stream', $idx1, $sidx1, '');
-# $ret = syswrite(F, $msg) // '-';
+# $ret = syswrite($fh, $msg) // '-';
 # #print("ret = $ret, code = $!, reply: " . unpack("H*", $msg) . "\n");
 # print("ret = $ret, code = $!\n");
 # 
@@ -447,7 +441,7 @@ for my $exp (0 .. 1000) {
 # print("deleting call\n");
 # 
 # $msg = rtpengine_message_call('del_call', $idx1, '');
-# $ret = syswrite(F, $msg) // '-';
+# $ret = syswrite($fh, $msg) // '-';
 # #print("ret = $ret, code = $!, reply: " . unpack("H*", $msg) . "\n");
 # print("ret = $ret, code = $!\n");
 # 
@@ -456,4 +450,4 @@ for my $exp (0 .. 1000) {
 
 
 
-close(F);
+close($fh);

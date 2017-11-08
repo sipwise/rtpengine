@@ -67,7 +67,7 @@ sub set_cert {
 }
 
 # XXX unify these two
-sub connect {
+sub connect { ## no critic: Subroutines::ProhibitBuiltinHomonyms
 	my ($self) = @_;
 
 	$self->{_connected} and return;
@@ -95,7 +95,7 @@ sub connect {
 	$self->{_mux}->add($near);
 	$self->{_mux}->add($openssl_out);
 }
-sub accept {
+sub accept { ## no critic: Subroutines::ProhibitBuiltinHomonyms
 	my ($self) = @_;
 
 	$self->{_connected} and return;
@@ -303,13 +303,13 @@ sub encode {
 	my ($self, @rest) = @_;
 	return $self->[0]->encode(@rest);
 }
-sub connect {
+sub connect { ## no critic: Subroutines::ProhibitBuiltinHomonyms
 	my ($self, @rest) = @_;
 	for my $cl (@$self) {
 		$cl->accept(@rest);
 	}
 }
-sub accept {
+sub accept { ## no critic: Subroutines::ProhibitBuiltinHomonyms
 	my ($self, @rest) = @_;
 	for my $cl (@$self) {
 		$cl->accept(@rest);

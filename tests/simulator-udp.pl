@@ -23,7 +23,7 @@ GetOptions(
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
 
-$SIG{ALRM} = sub { print "alarm!\n"; };
+local $SIG{ALRM} = sub { print "alarm!\n"; };
 setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
 my @chrs = ('a' .. 'z', 'A' .. 'Z', '0' .. '9');
@@ -75,7 +75,7 @@ sub do_rtp {
 			alarm(1);
 			recv($$fds[$b], $x, 0xffff, 0) or $err = "$!";
 			alarm(0);
-			$err && $err !~ /interrupt/i and die $err;
+			die $err if $err && $err !~ /interrupt/i;
 			if (($x || '') ne $payload) {
 				warn("no rtp reply received, ports $$outputs[$b][0] and $$outputs[$a][0]");
 				$KEEPGOING or undef($c);
@@ -162,7 +162,10 @@ sub update_lookup {
 }
 
 for my $iter (1 .. $NUM) {
-	($iter % 10 == 0) and print("$iter\n"), do_rtp();
+	if ($iter % 10 == 0) {
+		print("$iter\n");
+		do_rtp();
+	}
 
 	my $c = [];
 	update_lookup($c, 0);
@@ -175,7 +178,7 @@ while (time() < $end) {
 	sleep(1);
 	do_rtp();
 
-	@calls = sort {rand() < .5} grep(defined, @calls);
+	@calls = sort { rand() < .5 } grep { defined } @calls;
 
 	if ($REINVITES) {
 		my $c = $calls[rand(@calls)];
@@ -200,7 +203,7 @@ if (!$NODEL) {
 	for my $c (@calls) {
 		$c or next;
 		my ($tags, $callid) = @$c[3,5];
-		$BRANCHES && rand() < .3 and $callid =~ s/;.*//;
+		$callid =~ s/;.*// if $BRANCHES && rand() < .3;
 		msg("D $callid $$tags[0] $$tags[1]");
 	}
 }
