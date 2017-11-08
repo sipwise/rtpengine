@@ -48,11 +48,11 @@ sub req {
 
 sub offer {
 	my ($self, $packet) = @_;
-	return $self->req( { %$packet, command => 'offer' } );
+	return $self->req( { command => 'offer', %$packet } );
 }
 sub answer {
 	my ($self, $packet) = @_;
-	return $self->req( { %$packet, command => 'answer' } );
+	return $self->req( { command => 'answer', %$packet } );
 }
 
 1;
