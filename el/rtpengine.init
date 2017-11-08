@@ -187,7 +187,7 @@ start() {
 		else
 			modprobe xt_RTPENGINE
 		fi
-		temp=`firewall-cmd --state 2>/dev/null`
+		firewall-cmd --state 2>/dev/null
 		if [[ $? == 0 ]]
 		then
 			# Using firewalld
@@ -240,7 +240,7 @@ stop() {
 		. "$cachefile"
 		echo "Unloading module for in-kernel packet forwarding"
 		echo "del $TABLE" > /proc/rtpengine/control
-		temp=`firewall-cmd --state 2>/dev/null`
+		firewall-cmd --state 2>/dev/null
 		if [[ $? == 0 ]]
 		then
 			firewall-cmd --direct --remove-rules ipv4 filter rtpengine
