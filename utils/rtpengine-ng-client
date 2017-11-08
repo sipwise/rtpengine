@@ -74,9 +74,9 @@ if (defined($options{sdp})) {
 	$packet{sdp} = $options{sdp};
 }
 elsif (defined($options{'sdp-file'})) {
-	open(F, '<', $options{'sdp-file'}) or die $!;
-	my @sdp = <F> or die $!;
-	close(F);
+	open(my $fh, '<', $options{'sdp-file'}) or die $!;
+	my @sdp = <$fh> or die $!;
+	close($fh);
 	$packet{sdp} = join('', @sdp);
 }
 #elsif (@ARGV && $ARGV[0] eq 'sdp') {
