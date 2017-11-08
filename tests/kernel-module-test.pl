@@ -34,10 +34,8 @@ sub re_address {
 }
 sub re_srtp {
 	my ($h) = @_;
-	no warnings;
 	return pack('VV a16 a16 a256 Q VV', $ciphers{$$h{cipher}}, $hmacs{$$h{hmac}},
 		@$h{qw(master_key master_salt mki last_index auth_tag_len mki_len)});
-	use warnings;
 }
 sub rtpengine_message {
 	my ($cmd, %args) = @_;
