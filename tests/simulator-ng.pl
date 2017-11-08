@@ -792,7 +792,7 @@ while (time() < $end) {
 
 	do_rtp($rtcp);
 
-	@calls = sort {rand() < .5} grep(defined, @calls);
+	@calls = sort { rand() < .5 } grep { defined } @calls;
 
 	if ($REINVITES && $now >= $last_reinv + 15) {
 		$last_reinv = $now;

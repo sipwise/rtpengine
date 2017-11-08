@@ -53,7 +53,7 @@ sub send_rcv {
 	my $laddr = getsockname($sendfd);
 	my ($lport, $lip) = sockaddr_in($laddr);
 	print("local port $lport sending to $sendtoip:$sendtoport... ");
-	my $pkt = join('',map(rand,1..10));
+	my $pkt = join('', map { rand } 1..10);
 	send($sendfd, $pkt, 0, sockaddr_in($sendtoport, inet_aton($sendtoip))) or die;
 	my ($inc, $addr);
 	{
@@ -108,9 +108,9 @@ sub sim_lk {
 
 
 
-my $callid = join('',map(rand,1..2));
-my $fromtag = join('',map(rand,1..4));
-my $totag = join('',map(rand,1..4));
+my $callid = join('', map { rand } 1..2);
+my $fromtag = join('', map { rand } 1..4);
+my $totag = join('', map { rand } 1..4);
 
 my ($client1, $lp1) = udp_sock();
 my ($client2, $lp2) = udp_sock();

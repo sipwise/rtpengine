@@ -51,7 +51,7 @@ sub udp_sock {
 sub send_rcv {
 	my ($sendfd, $sendtoip, $sendtoport, $recvfd) = @_;
 	print("sending to $sendtoip:$sendtoport... ");
-	my $pkt = join('',map(rand,1..10));
+	my $pkt = join('', map { rand } 1..10);
 	send($sendfd, $pkt, 0, sockaddr_in($sendtoport, inet_aton($sendtoip))) or die;
 	my $inc;
 	{
@@ -97,12 +97,12 @@ sub sim_lk {
 
 
 
-my $callid1 = join('',map(rand,1..2));
-my $fromtag1 = join('',map(rand,1..4));
-my $totag1 = join('',map(rand,1..4));
-my $callid2 = join('',map(rand,1..2));
-my $fromtag2 = join('',map(rand,1..4));
-my $totag2 = join('',map(rand,1..4));
+my $callid1 = join('', map { rand } 1..2);
+my $fromtag1 = join('', map { rand } 1..4);
+my $totag1 = join('', map { rand } 1..4);
+my $callid2 = join('', map { rand } 1..2);
+my $fromtag2 = join('', map { rand } 1..4);
+my $totag2 = join('', map { rand } 1..4);
 
 my ($client1, $lp1) = udp_sock();
 my ($client2, $lp2) = udp_sock();

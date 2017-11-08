@@ -175,7 +175,7 @@ while (time() < $end) {
 	sleep(1);
 	do_rtp();
 
-	@calls = sort {rand() < .5} grep(defined, @calls);
+	@calls = sort { rand() < .5 } grep { defined } @calls;
 
 	if ($REINVITES) {
 		my $c = $calls[rand(@calls)];
