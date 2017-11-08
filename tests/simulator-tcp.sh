@@ -36,7 +36,7 @@ for (( i = 0 ; i < 1000 ; i++ )); do
 	dst_path=${dst_rel/ //}
 	ports="$ports $src_path $dst_path"
 	for port in $ports; do
-		echo foobar > /dev/udp/$port
+		echo foobar > "/dev/udp/$port"
 	done
 
 	ids="$ids $callid"
