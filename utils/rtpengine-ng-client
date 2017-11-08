@@ -62,8 +62,8 @@ for my $x (split(/,/, 'origin,session connection')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
 for my $x (split(/,/, 'rtcp-mux,SDES')) {
-	defined($options{$x}) && ref($options{$x}) eq 'ARRAY'
-		and $packet{$x} = $options{$x};
+	$packet{$x} = $options{$x}
+		if defined($options{$x}) && ref($options{$x}) eq 'ARRAY';
 }
 if (defined($options{direction})) {
 	$options{direction} =~ /(.*),(.*)/ or die;

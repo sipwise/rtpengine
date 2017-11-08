@@ -62,7 +62,10 @@ sub send_rcv {
 		recv($recvfd, $inc, length($pkt), 0);
 		alarm(0);
 	}
-	$inc eq $pkt or print("NOT received packed ok\n"), return;
+	if ($inc ne $pkt) {
+		print("NOT received packed ok\n");
+		return;
+	}
 	print("received packet ok\n");
 }
 
