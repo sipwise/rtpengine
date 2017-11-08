@@ -23,7 +23,7 @@ GetOptions(
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
 
-$SIG{ALRM} = sub { print "alarm!\n"; };
+local $SIG{ALRM} = sub { print "alarm!\n"; };
 setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
 my @chrs = ('a' .. 'z', 'A' .. 'Z', '0' .. '9');
