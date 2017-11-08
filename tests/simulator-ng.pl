@@ -606,13 +606,13 @@ sub offer_answer {
 	my $tcx = $$A{trans_contexts};
 	my $tcx_o = $$B{trans_contexts};
 
-	my $sdp = <<"!";
+	my $sdp = <<"SDP";
 v=0
 o=blah 123 123 IN $$pr{family_str} $$ips_t[0]
 s=session
 c=IN $$pr{family_str} $$ips_t[0]
 t=0 0
-!
+SDP
 	my $ul = $$A{num_streams};
 	$op eq 'answer' && $$A{streams_seen} < $$A{num_streams}
 		and $ul = $$A{streams_seen};
@@ -631,11 +631,11 @@ t=0 0
 		$$A{bundle} && $$A{want_rtcpmux} && $op eq 'offer'
 			and $cp = $p;
 
-		$sdp .= <<"!";
+		$sdp .= <<"SDP";
 m=audio $p $$tr{name} 0 8 111
 a=rtpmap:8 PCMA/8000
 a=rtpmap:111 opus/48000/2
-!
+SDP
 		if ($$A{want_rtcpmux} && $op eq 'offer') {
 			$sdp .= "a=rtcp-mux\n";
 			$sdp .= "a=rtcp:$cp\n";
