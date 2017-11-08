@@ -10,9 +10,9 @@ my $t = $ARGV[0] || "0";
 my $format = 'SS ia16SS ia16SS ia16SS CCCC   LLLLLL';
 my $len = length(pack($format, (0) x 100));
 
-open(X, "<", "/proc/rtpengine/$t/blist") or die;
+open(my $fh, "<", "/proc/rtpengine/$t/blist") or die;
 my $buf;
-while (sysread(X, $buf, $len)) {
+while (sysread($fh, $buf, $len)) {
 	my @b = unpack($format, $buf);
 	for (2,6,10) {
 		if ($b[$_] == AF_INET) {
@@ -30,3 +30,4 @@ while (sysread(X, $buf, $len)) {
 	}
 	printf("%5u %15s:%-5u -> %15s:%-5u (-> %15s:%-5u) [%u] [%llu %llu %llu]\n", @b[0,3,4,7,8,11,12,14,18,20,22]);
 }
+close($fh);

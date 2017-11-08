@@ -4,7 +4,7 @@ use warnings;
 use strict;
 use Socket;
 
-$| = 1;
+STDOUT->autoflush(1);
 
 
 
@@ -28,11 +28,9 @@ sub mp_msg {
 	my $fd;
 	socket($fd, AF_INET, SOCK_STREAM, 0) or die;
 	connect($fd, sockaddr_in(25060, inet_aton('127.0.0.1'))) or die;
-	my $old = select($fd);
-	$| = 1;
-	print("$cmd\n");
+	$fd->autoflush(1);
+	print { $fd } ("$cmd\n");
 	my $ret = <$fd>;
-	select($old);
 	close($fd);
 	chomp($ret);
 	return $ret;
