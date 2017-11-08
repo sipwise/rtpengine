@@ -13,8 +13,14 @@ my $fd;
 my @dests = getaddrinfo($ip, $port, AF_UNSPEC, SOCK_DGRAM);
 while (@dests >= 5) {
 	my ($fam, $type, $prot, $addr, $canon, @dests) = @dests;
-	socket($fd, $fam, $type, $prot) or undef($fd), next;
-	connect($fd, $addr) or undef($fd), next;
+	if (!socket($fd, $fam, $type, $prot)) {
+		undef($fd);
+		next;
+	}
+	if (!connect($fd, $addr)) {
+		undef($fd);
+		next;
+	}
 	last;
 }
 $fd or die($!);

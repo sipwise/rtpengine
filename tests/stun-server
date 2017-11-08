@@ -54,14 +54,29 @@ while (1) {
 			}
 			next;
 		}
-		$cmd == 1 or print("not stun request\n"), next;
-		length($attrs) == $len or print("length mismatch\n"), next;
+		if ($cmd != 1) {
+			print("not stun request\n")
+			next;
+		}
+		if (length($attrs) != $len) {
+			print("length mismatch\n")
+			next;
+		}
 
 		my ($list, $hash) = unpack_attrs($attrs);
 
-		$$list[$#$list]{name} eq 'fingerprint' or print("last attr not fingerprint\n"), next;
-		$$list[$#$list-1]{name} eq 'message-integrity' or print("last but one attr not MI\n"), next;
-		$$hash{username} or print("no username\n"), next;
+		if ($$list[$#$list]{name} ne 'fingerprint') {
+			print("last attr not fingerprint\n");
+			next;
+		}
+		if ($$list[$#$list-1]{name} ne 'message-integrity') {
+			print("last but one attr not MI\n")
+			next;
+		}
+		unless ($$hash{username}) {
+			print("no username\n")
+			next;
+		}
 
 		$$hash{controlling} and print("is controlling\n");
 		$$hash{controlled} and print("is controlled\n");
