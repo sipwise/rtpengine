@@ -34,10 +34,14 @@ sub re_address {
 }
 sub re_srtp {
 	my ($h) = @_;
-	no warnings;
-	return pack('VV a16 a16 a256 Q VV', $ciphers{$$h{cipher}}, $hmacs{$$h{hmac}},
-		@$h{qw(master_key master_salt mki last_index auth_tag_len mki_len)});
-	use warnings;
+	my %opts = %{$h};
+
+	# Explicitly initialize the hash entries.
+	$opts{$_} //= q{} foreach (qw(master_key master_salt mki));
+	$opts{$_} //= 0 foreach (qw(last_index auth_tag_len mki_len));
+
+	return pack('VV a16 a16 a256 Q VV', $ciphers{$opts{cipher}}, $hmacs{$opts{hmac}},
+		@opts{qw(master_key master_salt mki last_index auth_tag_len mki_len)});
 }
 sub rtpengine_message {
 	my ($cmd, %args) = @_;
