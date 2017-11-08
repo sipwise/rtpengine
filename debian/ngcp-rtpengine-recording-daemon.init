@@ -14,7 +14,6 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-recording-daemon
 DESC="RTP/media recording daemon"
-TABLE=0
 
 DAEMON=$(which rtpengine-recording)
 DEFAULTS=/etc/default/${NAME}
@@ -58,29 +57,23 @@ fi
 
 if ! test -z "$SET_USER"; then
 	START_OPTIONS="$START_OPTIONS --chuid $SET_USER"
-	UID=$(id -u "$SET_USER" 2> /dev/null)
-	test -z "$UID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$UID"
+	PUID=$(id -ru "$SET_USER" 2> /dev/null)
+	test -z "$PUID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$PUID"
 	if test -z "$SET_GROUP"; then
-		GID=$(id -g "$SET_USER" 2> /dev/null)
-		test -z "$GID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$GID"
+		PGID=$(id -g "$SET_USER" 2> /dev/null)
+		test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
 	fi
 	test "$DO_DIR_CHOWN" = 1 && chown "$SET_USER": "$PIDDIR"
 fi
 
 if ! test -z "$SET_GROUP"; then
 	START_OPTIONS="$START_OPTIONS --group $SET_GROUP"
-	GID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
-	test -z "$GID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$GID"
+	PGID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
+	test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
 	test "$DO_DIR_CHOWN" = 1 && chgrp "$SET_GROUP" "$PIDDIR"
 fi
 
 ###
-
-if [ -x /usr/sbin/ngcp-virt-identify ]; then
-	if /usr/sbin/ngcp-virt-identify --type container; then
-		VIRT="yes"
-	fi
-fi
 
 case "$1" in
   start)
@@ -103,13 +96,14 @@ case "$1" in
 	log_daemon_msg "Starting $DESC: $NAME"
 
 	if [ "$MUST_NFS" = yes ]; then
-		if ! egrep -q '^[^ :]+:[^ :]+ '"$NFS_LOCAL_MOUNT"' nfs.? ' /proc/mounts; then
+		if ! grep -E -q "^[^ :]+:[^ :]+ $NFS_LOCAL_MOUNT nfs.? " /proc/mounts; then
 			log_progress_msg "Mounting NFS share"
 			test -d "$NFS_LOCAL_MOUNT" || mkdir -p "$NFS_LOCAL_MOUNT"
-			mount -t nfs -o "$NFS_OPTIONS" "$NFS_HOST":"$NFS_REMOTE_PATH" "$NFS_LOCAL_MOUNT"
+			mount -t nfs -o "$NFS_OPTIONS" "$NFS_HOST:$NFS_REMOTE_PATH" "$NFS_LOCAL_MOUNT"
 		fi
 	fi
 
+	# shellcheck disable=SC2086
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
 		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
 	log_end_msg $?
