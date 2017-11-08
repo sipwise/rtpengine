@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dab895d6_5223f104",
+        "filename": "perl/NGCP/Rtpclient/ICE.pm",
+        "patchSetId": 2
+      },
+      "lineNbr": 757,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2017-11-08T19:18:39Z",
+      "side": 1,
+      "message": "Shouldn\u0027t that be || ?\nOr use \u0027unless\u0027",
+      "range": {
+        "startLine": 757,
+        "startChar": 42,
+        "endLine": 757,
+        "endChar": 44
+      },
+      "revId": "dd93db60edc4ad0957ccfbba818ead2eeefaff5f",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
