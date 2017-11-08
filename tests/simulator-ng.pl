@@ -676,7 +676,7 @@ SDP
 		rand() > .5 and $$dict{'to-tag'} = $$B{tag};
 	}
 	elsif ($op eq 'answer') {
-		$dict->{'from-tag'} = $$B{tag},
+		$dict->{'from-tag'} = $$B{tag};
 		$dict->{'to-tag'} = $$A{tag};
 	}
 	if (!$LAZY
