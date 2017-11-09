@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dab895d6_0d0f9831",
+        "filename": "el/rtpengine.init",
+        "patchSetId": 3
+      },
+      "lineNbr": 182,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2017-11-09T08:17:28Z",
+      "side": 1,
+      "message": "I believe this one is not necessary here, JFYI only.\nAnyway id does no harm. So LGTM",
+      "range": {
+        "startLine": 182,
+        "startChar": 13,
+        "endLine": 182,
+        "endChar": 14
+      },
+      "revId": "8eda541e5ad9166b34833a8e591f4dc63e3db7f0",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
