@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dab895d6_320cbd42",
+        "filename": "debian/ngcp-rtpengine-daemon.init",
+        "patchSetId": 3
+      },
+      "lineNbr": 130,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2017-11-09T08:11:44Z",
+      "side": 1,
+      "message": "just curious, why here \"id -u\" is fine, while in next file you need \"id -ru\" changes?",
+      "range": {
+        "startLine": 130,
+        "startChar": 7,
+        "endLine": 130,
+        "endChar": 13
+      },
+      "revId": "23dc944b8b309b202ae34a6144417a623b6a8bd9",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
