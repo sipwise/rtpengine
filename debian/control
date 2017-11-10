@@ -1,9 +1,11 @@
 Source: ngcp-rtpengine
 Section: net
-Priority: extra
+Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
+Homepage: https://www.sipwise.com/
+Standards-Version: 3.9.8
 Build-Depends:
- debhelper (>= 9~),
+ debhelper (>= 10~),
  default-libmysqlclient-dev | libmysqlclient-dev,
  iptables-dev (>= 1.4),
  libavcodec-dev (>= 6:10),
@@ -23,8 +25,6 @@ Build-Depends:
  libxmlrpc-c3-dev (>= 1.16.07) | libxmlrpc-core-c3-dev (>= 1.16.07),
  markdown,
  zlib1g-dev,
-Standards-Version: 3.9.7
-Homepage: http://sipwise.com/
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
@@ -121,27 +121,6 @@ Description: IPtables kernel module for the NGCP media proxy - DKMS.
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
  This package contains the source to be built with dkms.
-
-Package: ngcp-rtpengine-dbg
-Architecture: any
-Section: debug
-Depends:
- ngcp-rtpengine-daemon (= ${binary:Version}),
- ngcp-rtpengine-iptables (= ${binary:Version}),
- ${misc:Depends},
-Conflicts:
- ngcp-mediaproxy-ng-dbg,
-Replaces:
- ngcp-mediaproxy-ng-dbg,
-Description: debugging symbols for ngcp-rtpengine
- The ngcp-rtpengine daemon handles the first stages of proxying media streams and talks to
- the kernel part of the proxy for eventual high-performance packet forwarding.
- .
- ngcp-rtpengine-iptables provides the IPtables extension needed
- to configure the mediaproxy rule.
- .
- This package contains the debugging symbols for ngcp-rtpengine-daemon
- and ngcp-rtpengine-iptables
 
 Package: ngcp-rtpengine-utils
 Architecture: all

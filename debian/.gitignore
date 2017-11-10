@@ -1,0 +1,12 @@
+*.log
+*.substvars
+*.debhelper
+/.debhelper/
+/files
+/debhelper-build-stamp
+/ngcp-rtpengine-daemon
+/ngcp-rtpengine-recording-daemon
+/ngcp-rtpengine-iptables
+/ngcp-rtpengine-kernel-source
+/ngcp-rtpengine-kernel-dkms
+/ngcp-rtpengine-utils
