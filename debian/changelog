@@ -1,3 +1,20 @@
+ngcp-rtpengine (5.4.3.0+0~mr5.4.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a683260] add missing lock for SSRC hash dump
+  * [ba6cb96] additional reference counting for /proc stream files
+  * [95c323d] TT#22660 don't zero out SDP origin on zero connection address
+  * [77a9d09] delay proc stream/call file deletion until all references are cleared
+  * [502a5b4] Fix frame PTS when decoder returns multiple frames in a row
+
+  [ Claudiu Boriga ]
+  * [87ad3b2] set TOS for redis streams
+  * [98218e7] check call.recording structure before using it
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 13 Nov 2017 15:10:37 +0100
+
 ngcp-rtpengine (5.4.2.0+0~mr5.4.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
