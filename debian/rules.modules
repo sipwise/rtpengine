@@ -4,6 +4,7 @@
 #export DH_VERBOSE=1
 
 CFLAGS ?= -Wall -g
+CFLAGS += -DTERMINATE_SDP_AT_BLANK_LINE
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -O0
