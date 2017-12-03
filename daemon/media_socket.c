@@ -1274,7 +1274,8 @@ loop_ok:
 
 	if (G_LIKELY(media->protocol && media->protocol->rtp)) {
 		if (G_LIKELY(!rtcp && !rtp_payload(&rtp_h, NULL, s))) {
-			__stream_ssrc(in_srtp, out_srtp, rtp_h->ssrc, &ssrc_in, &ssrc_out, call->ssrc_hash);
+			if (G_LIKELY(out_srtp != NULL))
+				__stream_ssrc(in_srtp, out_srtp, rtp_h->ssrc, &ssrc_in, &ssrc_out, call->ssrc_hash);
 
 			// check the payload type
 			i = (rtp_h->m_pt & 0x7f);
@@ -1296,13 +1297,14 @@ loop_ok:
 			}
 		}
 		else if (rtcp && !rtcp_payload(&rtcp_h, NULL, s)) {
-			__stream_ssrc(in_srtp, out_srtp, rtcp_h->ssrc, &ssrc_in, &ssrc_out, call->ssrc_hash);
+			if (G_LIKELY(out_srtp != NULL))
+				__stream_ssrc(in_srtp, out_srtp, rtcp_h->ssrc, &ssrc_in, &ssrc_out, call->ssrc_hash);
 		}
 	}
 
 	/* do we have somewhere to forward it to? */
 
-	if (G_UNLIKELY(!sink || !sink->selected_sfd || !out_srtp->selected_sfd || !in_srtp->selected_sfd)) {
+	if (G_UNLIKELY(!sink || !sink->selected_sfd || !out_srtp || !out_srtp->selected_sfd || !in_srtp->selected_sfd)) {
 		ilog(LOG_WARNING, "RTP packet from %s discarded", endpoint_print_buf(fsin));
 		atomic64_inc(&stream->stats.errors);
 		atomic64_inc(&cm->statsps.errors);
