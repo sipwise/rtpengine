@@ -25,6 +25,7 @@ static int __ip4_is_specified(const sockaddr_t *a);
 static int __ip6_is_specified(const sockaddr_t *a);
 static int __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
 static int __ip_connect(socket_t *s, const endpoint_t *);
+static int __ip_accept(socket_t *s, socket_t *new_sock);
 static int __ip_timestamping(socket_t *s);
 static int __ip4_sockaddr2endpoint(endpoint_t *, const void *);
 static int __ip6_sockaddr2endpoint(endpoint_t *, const void *);
@@ -76,6 +77,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.addrport2sockaddr	= __ip4_addrport2sockaddr,
 		.bind			= __ip_bind,
 		.connect		= __ip_connect,
+		.accept			= __ip_accept,
 		.timestamping		= __ip_timestamping,
 		.recvfrom		= __ip_recvfrom,
 		.recvfrom_ts		= __ip_recvfrom_ts,
@@ -105,6 +107,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.addrport2sockaddr	= __ip6_addrport2sockaddr,
 		.bind			= __ip_bind,
 		.connect		= __ip_connect,
+		.accept			= __ip_accept,
 		.timestamping		= __ip_timestamping,
 		.recvfrom		= __ip_recvfrom,
 		.recvfrom_ts		= __ip_recvfrom_ts,
@@ -259,6 +262,27 @@ static int __ip_connect(socket_t *s, const endpoint_t *ep) {
 	} else {
 		__C_DBG("connect succes, fd=%d, port=%d", s->fd, s->local.port);
 	}
+	return 0;
+}
+static int __ip_accept(socket_t *s, socket_t *newsock) {
+	int nfd;
+	struct sockaddr_storage sin;
+	socklen_t sinlen;
+
+	ZERO(*newsock);
+
+	sinlen = sizeof(sin);
+	nfd = accept(s->fd, (struct sockaddr *) &sin, &sinlen);
+	if (nfd == -1) {
+		__C_DBG("accept fail, fd=%d, port=%d", s->fd, s->local.port);
+		return -1;
+	}
+
+	newsock->fd = nfd;
+	newsock->family = s->family;
+	newsock->local = s->local;
+	s->family->sockaddr2endpoint(&newsock->remote, &sin);
+
 	return 0;
 }
 static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv) {
