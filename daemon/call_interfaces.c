@@ -22,6 +22,7 @@
 #include "recording.h"
 #include "rtplib.h"
 #include "ssrc.h"
+#include "tcp_listener.h"
 
 
 
@@ -417,7 +418,7 @@ void call_delete_tcp(char **out, struct callmaster *m) {
 	call_delete_branch(m, &callid, NULL, NULL, NULL, NULL, -1);
 }
 
-static void call_status_iterator(struct call *c, struct control_stream *s) {
+static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
 //	GList *l;
 //	struct callstream *cs;
 //	struct peer *p;
@@ -438,7 +439,7 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 //	mutex_unlock(&c->master_lock);
 }
 
-void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
+void calls_status_tcp(struct callmaster *m, struct streambuf_stream *s) {
 	GQueue q = G_QUEUE_INIT;
 	struct call *c;
 

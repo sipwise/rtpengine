@@ -13,6 +13,12 @@
 
 
 
+
+
+// XXX locking!!!!
+//
+//
+//
 struct streambuf *streambuf_new(struct poller *p, int fd) {
 	struct streambuf *b;
 
