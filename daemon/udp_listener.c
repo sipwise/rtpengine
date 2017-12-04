@@ -17,7 +17,7 @@
 struct udp_listener_callback {
 	struct obj obj;
 	udp_listener_callback_t func;
-	struct udp_listener *ul;
+	socket_t *ul;
 	struct obj *p;
 };
 
@@ -31,13 +31,11 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 	char buf[0x10000];
 	char addr[64];
 	str str;
-	struct udp_listener *ul;
 	socket_t *listener;
 	endpoint_t sin;
 
 	str.s = buf;
-	ul = cb->ul;
-	listener = &ul->sock;
+	listener = cb->ul;
 
 	for (;;) {
 		len = socket_recvfrom(listener, buf, sizeof(buf)-1, &sin);
@@ -53,11 +51,11 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 		endpoint_print(&sin, addr, sizeof(addr));
 
 		str.len = len;
-		cb->func(cb->p, &str, &sin, addr, ul);
+		cb->func(cb->p, &str, &sin, addr, listener);
 	}
 }
 
-int udp_listener_init(struct udp_listener *u, struct poller *p, const endpoint_t *ep,
+int udp_listener_init(socket_t *sock, struct poller *p, const endpoint_t *ep,
 		udp_listener_callback_t func, struct obj *obj)
 {
 	struct poller_item i;
@@ -66,15 +64,13 @@ int udp_listener_init(struct udp_listener *u, struct poller *p, const endpoint_t
 	cb = obj_alloc("udp_listener_callback", sizeof(*cb), NULL);
 	cb->func = func;
 	cb->p = obj_get_o(obj);
-	cb->ul = u;
+	cb->ul = sock;
 
-	if (open_socket(&u->sock, SOCK_DGRAM, ep->port, &ep->address))
+	if (open_socket(sock, SOCK_DGRAM, ep->port, &ep->address))
 		goto fail;
 
-	ipv6only(u->sock.fd, 1);
-
 	ZERO(i);
-	i.fd = u->sock.fd;
+	i.fd = sock->fd;
 	i.closed = udp_listener_closed;
 	i.readable = udp_listener_incoming;
 	i.obj = &cb->obj;
@@ -84,7 +80,7 @@ int udp_listener_init(struct udp_listener *u, struct poller *p, const endpoint_t
 	return 0;
 
 fail:
-	close_socket(&u->sock);
+	close_socket(sock);
 	obj_put_o(obj);
 	obj_put(cb);
 	return -1;
