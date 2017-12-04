@@ -10,7 +10,6 @@ struct cli {
    struct callmaster   *callmaster;
    socket_t sock;
    struct poller       *poller;
-   mutex_t         lock;
 
 };
 

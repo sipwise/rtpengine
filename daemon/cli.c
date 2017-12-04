@@ -23,6 +23,10 @@
 #include "rtpengine_config.h"
 
 
+struct cli_stream {
+};
+
+
 static void destroy_own_foreign_calls(struct callmaster *m, unsigned int foreign_call, unsigned int uint_keyspace_db) {
 	struct call *c = NULL;
 	struct call_monologue *ml = NULL;
@@ -835,7 +839,6 @@ static void cli_incoming(int fd, void *p, uintptr_t u) {
 
    memset(replybuffer, 0, BUFLENGTH);
 
-   mutex_lock(&cli->lock);
 next:
    sinl = sizeof(sin);
    nfd = accept(fd, (struct sockaddr *) &sin, &sinl);
@@ -846,6 +849,7 @@ next:
        ilog(LOG_INFO, "Accept error:%s", strerror(errno));
        goto next;
    }
+   nonblock(fd);
 
    ilog(LOG_INFO, "New cli connection from " DF, DP(sin));
 
@@ -896,7 +900,6 @@ cleanup:
    /* in case multiple incoming connections exist, read all of them */
    goto next;
 cleanup2:
-   mutex_unlock(&cli->lock);
    log_info_clear();
 }
 
@@ -922,7 +925,6 @@ struct cli *cli_new(struct poller *p, const endpoint_t *ep, struct callmaster *m
    c->sock = sock;
    c->poller = p;
    c->callmaster = m;
-   mutex_init(&c->lock);
 
    ZERO(i);
    i.fd = sock.fd;

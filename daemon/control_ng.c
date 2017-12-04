@@ -104,7 +104,7 @@ struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const sockad
 }
 
 static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
-		struct udp_listener *ul)
+		socket_t *ul)
 {
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
@@ -289,7 +289,7 @@ send_only:
 	iov[2].iov_base = to_send->s;
 	iov[2].iov_len = to_send->len;
 
-	socket_sendiov(&ul->sock, iov, iovlen, sin);
+	socket_sendiov(ul, iov, iovlen, sin);
 
 	if (resp)
 		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);
