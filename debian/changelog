@@ -1,3 +1,19 @@
+ngcp-rtpengine (5.5.3.0+0~mr5.5.3.0) unstable; urgency=medium
+
+  [ Claudiu Boriga ]
+  * [5017845] set TOS for redis streams
+  * [eee9fa2] check call.recording structure before using it
+
+  [ Richard Fuchs ]
+  * [a716232] Fix frame PTS when decoder returns multiple frames in a row
+
+  [ Dmitry Poroh ]
+  * [657247b] Crash stream_packet in case of out_srtp is NULL is fixed
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 04 Dec 2017 11:42:19 +0100
+
 ngcp-rtpengine (5.5.2.0+0~mr5.5.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
