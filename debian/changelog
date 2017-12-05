@@ -1,3 +1,55 @@
+ngcp-rtpengine (6.0.1.0+0~mr6.0.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5bcbf27] fix metadata DB insert without trailing pipe character
+  * [13d51f0] add extra thread allowance for blocking CLI code
+  * [cc056c1] add rtcp-mux-require option to force rtcp-mux usage for WebRTC
+  * [23eebfc] Fix frame PTS when decoder returns multiple frames in a row
+  * [ba46768] small fixes and improvements for packet forwarding feature #411
+  * [031921c] purge old entries from SSRC hash table if it gets too full
+
+  [ Claudiu Boriga ]
+  * [ca622b4] set TOS for redis streams
+  * [d5fea12] check call.recording structure before using it
+  * [3dcddf3] recording-daemon: add option to forward calls
+  * [2250ab1] make METADATA section appear in the metafile at intialization when recording using the proc method
+  * [ab0cb0c] don't use g_hash_table_foreach for call_timer_iterator
+
+  [ Pawel Kuzak ]
+  * [f81fdf4] Deleted outdated graphics
+
+  [ Guillem Jover ]
+  * [d5f7624] TT#24097 Fix perl filehandle usage
+  * [4f006a5] TT#24097 Use block form for map and grep
+  * [aa2eaee] TT#24097 Use a regex for split
+  * [bf514fb] TT#24097 Do not directly return result from sort
+  * [d5ad4a9] TT#24097 Do not use magic variable names
+  * [301af4a] TT#24097 Declare variable as my
+  * [0c728b2] TT#24097 Localize %ENV variable assignments
+  * [b4d0ff7] TT#24097 Use upper-case HERE-doc markers
+  * [0012037] TT#24097 Allow perl builtin homonyms for method names
+  * [acf84a7] TT#24097 Use semicolon instead of colons for end of statement
+  * [cff9d29] TT#24097 Reorder hash assignment to make perlcritic life easier
+  * [0bdc116] TT#24097 Rework perl code flow
+  * [b2636dc] TT#24097 Enable strict and warnings everywhere
+  * [19b4df7] TT#24097 Do not use unportable test operators
+  * [3351821] TT#24097 Remove unused shell variables
+  * [747661f] TT#24097 Do not use bash builtin names in sh scripts
+  * [04f5790] TT#24097 Switch for loop to use the i variable
+  * [33bafcf] TT#24097 Use $() instead of deprecated ``
+  * [376df64] TT#24097 Use «grep -E» instead of deprecated egrep
+  * [53b3c36] TT#24097 Fix shell quoting
+  * [465f3fe] TT#24097 Remove $ from variables inside arithmetic evaluation
+  * [677c9a5] TT#22072 Update packaging
+  * [6721f3c] TT#22072 Update debian/.gitignore
+
+  [ Dmitry Poroh ]
+  * [cc09f4d] Crash stream_packet in case of out_srtp is NULL is fixed
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 06 Dec 2017 00:14:25 +0100
+
 ngcp-rtpengine (6.0.0.0+0~mr6.0.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
