@@ -26,6 +26,9 @@ else
 	if [ "$1" = 'configure' ] ; then
 		( dkms build -m "$name" -v "$version" && dkms install -m "$name" -v "$version" ) || true
 
+		# reload the kernel module
+		invoke-rc.d ngcp-rtpengine-kernel-dkms restart || true
+
 		# try to start the daemon
 		if [ -x /etc/init.d/ngcp-rtpengine-daemon ] ; then
 			invoke-rc.d ngcp-rtpengine-daemon restart || true
