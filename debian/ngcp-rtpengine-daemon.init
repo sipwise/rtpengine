@@ -1,8 +1,8 @@
 #! /bin/sh
 ### BEGIN INIT INFO
 # Provides:          ngcp-rtpengine-daemon
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
+# Required-Start:    $remote_fs $syslog ngcp-rtpengine-kernel-dkms
+# Required-Stop:     $remote_fs $syslog ngcp-rtpengine-kernel-dkms
 # Should-Start:      sshd
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
@@ -16,7 +16,6 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-daemon
 DESC="RTP/media proxy"
 TABLE=0
-MANAGE_IPTABLES=yes
 
 DAEMON=$(which rtpengine)
 DEFAULTS=/etc/default/${NAME}
@@ -38,7 +37,6 @@ fi
 
 OPTIONS=""
 START_OPTIONS=""
-MODPROBE_OPTIONS=""
 
 if [ ! -z "$INTERFACES" ]; then
 	for interface in $INTERFACES; do
@@ -126,29 +124,15 @@ fi
 
 if ! test -z "$SET_USER"; then
 	START_OPTIONS="$START_OPTIONS --chuid $SET_USER"
-	PUID=$(id -u "$SET_USER" 2> /dev/null)
-	test -z "$PUID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$PUID"
-	if test -z "$SET_GROUP"; then
-		PGID=$(id -g "$SET_USER" 2> /dev/null)
-		test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
-	fi
 	test "$DO_DIR_CHOWN" = 1 && chown "$SET_USER": "$PIDDIR"
 fi
 
 if ! test -z "$SET_GROUP"; then
 	START_OPTIONS="$START_OPTIONS --group $SET_GROUP"
-	PGID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
-	test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
 	test "$DO_DIR_CHOWN" = 1 && chgrp "$SET_GROUP" "$PIDDIR"
 fi
 
 ###
-
-if [ -x /usr/sbin/ngcp-virt-identify ]; then
-	if /usr/sbin/ngcp-virt-identify --type container; then
-		VIRT="yes"
-	fi
-fi
 
 case "$1" in
   start)
@@ -166,26 +150,6 @@ case "$1" in
 	      ;;
 	  esac
 	fi
-	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
-		if [ "$MANAGE_IPTABLES" = "yes" ]; then
-			# shellcheck disable=SC2086
-			modprobe xt_RTPENGINE $MODPROBE_OPTIONS
-
-			iptables -N rtpengine 2> /dev/null
-			iptables -D INPUT -j rtpengine 2> /dev/null
-			iptables -I INPUT -j rtpengine
-			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-			ip6tables -N rtpengine 2> /dev/null
-			ip6tables -D INPUT -j rtpengine 2> /dev/null
-			ip6tables -I INPUT -j rtpengine
-			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-		fi
-		if [ -e /proc/rtpengine/control ]; then
-			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
-		fi
-	fi
 	set -e
 	log_daemon_msg "Starting $DESC" "$NAME"
 	# shellcheck disable=SC2086
@@ -200,19 +164,6 @@ case "$1" in
 	if [ "$?" -ne 0 ]; then
 		return $?
 	fi
-	set +e
-	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
-		sleep 1
-		if [ -e /proc/rtpengine/control ]; then
-			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
-		fi
-		if [ "$MANAGE_IPTABLES" = "yes" ]; then
-			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			rmmod xt_RTPENGINE 2>/dev/null
-		fi
-	fi
-	set -e
 	rm -f $PIDFILE
 	log_end_msg $?
 	;;
