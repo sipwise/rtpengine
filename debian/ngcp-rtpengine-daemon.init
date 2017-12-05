@@ -144,6 +144,56 @@ fi
 
 ###
 
+firewall_setup()
+{
+	if [ "$TABLE" -lt 0 ] || [ "$VIRT" = "yes" ]; then
+		return
+	fi
+
+	log_action_begin_msg "Setting up $DESC firewall"
+
+	if [ "$MANAGE_IPTABLES" = "yes" ]; then
+		# shellcheck disable=SC2086
+		modprobe xt_RTPENGINE $MODPROBE_OPTIONS
+
+		iptables -N rtpengine 2> /dev/null
+		iptables -D INPUT -j rtpengine 2> /dev/null
+		iptables -I INPUT -j rtpengine
+		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+		ip6tables -N rtpengine 2> /dev/null
+		ip6tables -D INPUT -j rtpengine 2> /dev/null
+		ip6tables -I INPUT -j rtpengine
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+	fi
+	if [ -e /proc/rtpengine/control ]; then
+		echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
+	fi
+
+	log_action_end_msg 0
+}
+
+firewall_teardown()
+{
+	if [ "$TABLE" -lt 0 ] || [ "$VIRT" = "yes" ]; then
+		return
+	fi
+
+	log_action_begin_msg "Tearing down $DESC firewall"
+
+	if [ -e /proc/rtpengine/control ]; then
+		echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
+	fi
+	if [ "$MANAGE_IPTABLES" = "yes" ]; then
+		iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+		rmmod xt_RTPENGINE 2>/dev/null
+	fi
+
+	log_action_end_msg 0
+}
+
 if [ -x /usr/sbin/ngcp-virt-identify ]; then
 	if /usr/sbin/ngcp-virt-identify --type container; then
 		VIRT="yes"
@@ -153,6 +203,7 @@ fi
 case "$1" in
   start)
 	set +e
+	firewall_setup
 	if [ -x "/usr/sbin/ngcp-check_active" ]; then
 	  /usr/sbin/ngcp-check_active -q
 	  status=$?
@@ -165,26 +216,6 @@ case "$1" in
 	      exit 0
 	      ;;
 	  esac
-	fi
-	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
-		if [ "$MANAGE_IPTABLES" = "yes" ]; then
-			# shellcheck disable=SC2086
-			modprobe xt_RTPENGINE $MODPROBE_OPTIONS
-
-			iptables -N rtpengine 2> /dev/null
-			iptables -D INPUT -j rtpengine 2> /dev/null
-			iptables -I INPUT -j rtpengine
-			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-			ip6tables -N rtpengine 2> /dev/null
-			ip6tables -D INPUT -j rtpengine 2> /dev/null
-			ip6tables -I INPUT -j rtpengine
-			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-		fi
-		if [ -e /proc/rtpengine/control ]; then
-			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
-		fi
 	fi
 	set -e
 	log_daemon_msg "Starting $DESC" "$NAME"
@@ -200,21 +231,11 @@ case "$1" in
 	if [ "$?" -ne 0 ]; then
 		return $?
 	fi
-	set +e
-	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
-		sleep 1
-		if [ -e /proc/rtpengine/control ]; then
-			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
-		fi
-		if [ "$MANAGE_IPTABLES" = "yes" ]; then
-			iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-			rmmod xt_RTPENGINE 2>/dev/null
-		fi
-	fi
-	set -e
 	rm -f $PIDFILE
 	log_end_msg $?
+	set +e
+	firewall_teardown
+	set -e
 	;;
   restart|force-reload)
 	$0 stop
