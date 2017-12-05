@@ -1,0 +1,135 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          ngcp-rtpengine-kernel-dkms
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
+# Should-Start:      sshd
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Ngcp Rtpengine kernel module
+# Description:       RTP Engine kernel module and firewall setup.
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+NAME=ngcp-rtpengine-daemon
+MODNAME=xt_RTPENGINE
+DESC="RTP/media proxy"
+TABLE=0
+MANAGE_IPTABLES=yes
+
+DEFAULTS=/etc/default/${NAME}
+
+. /lib/lsb/init-functions
+
+# Load startup options if available
+if [ -f "$DEFAULTS" ]; then
+  . "$DEFAULTS" || true
+fi
+
+MODPROBE_OPTIONS=""
+
+# handle requested setuid/setgid
+
+if [ -n "$SET_USER" ]; then
+  PUID=$(id -u "$SET_USER" 2> /dev/null)
+  test -z "$PUID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$PUID"
+  if [ -z "$SET_GROUP" ]; then
+    PGID=$(id -g "$SET_USER" 2> /dev/null)
+    test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
+  fi
+fi
+
+if [ -n "$SET_GROUP" ]; then
+  PGID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
+  test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
+fi
+
+###
+
+firewall_setup()
+{
+  if [ "$TABLE" -lt 0 ]; then
+    return
+  fi
+
+  log_action_begin_msg "Setting up $DESC firewall"
+
+  if [ "$MANAGE_IPTABLES" = "yes" ]; then
+    # shellcheck disable=SC2086
+    modprobe xt_RTPENGINE $MODPROBE_OPTIONS
+
+    iptables -N rtpengine 2> /dev/null
+    iptables -D INPUT -j rtpengine 2> /dev/null
+    iptables -I INPUT -j rtpengine
+    iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+    iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+    ip6tables -N rtpengine 2> /dev/null
+    ip6tables -D INPUT -j rtpengine 2> /dev/null
+    ip6tables -I INPUT -j rtpengine
+    ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+    ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+  fi
+  if [ -e /proc/rtpengine/control ]; then
+    echo "del $TABLE" >/proc/rtpengine/control 2>/dev/null
+  fi
+
+  log_action_end_msg 0
+}
+
+firewall_teardown()
+{
+  if [ "$TABLE" -lt 0 ]; then
+    return
+  fi
+
+  log_action_begin_msg "Tearing down $DESC firewall"
+
+  if [ -e /proc/rtpengine/control ]; then
+    echo "del $TABLE" >/proc/rtpengine/control 2>/dev/null
+  fi
+  if [ "$MANAGE_IPTABLES" = "yes" ]; then
+    iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+    ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+    rmmod xt_RTPENGINE 2>/dev/null
+  fi
+
+  log_action_end_msg 0
+}
+
+if [ -x /usr/sbin/ngcp-virt-identify ]; then
+  if /usr/sbin/ngcp-virt-identify --type container; then
+    exit 0
+  fi
+fi
+
+case "$1" in
+  start)
+    firewall_setup
+    ;;
+  stop)
+    firewall_teardown
+    ;;
+  restart|force-reload)
+    $0 stop
+    $0 start
+    ;;
+  status)
+    if [ -n "$TABLE" ] && [ "$TABLE" -ge 0 ] && \
+       [ -n "$NO_FALLBACK" ] && \
+       ([ "$NO_FALLBACK" = "1" ] || [ "$NO_FALLBACK" = "yes" ])
+    then
+      if lsmod | grep -q $MODNAME || modinfo $MODNAME >/dev/null 2>/dev/null; then
+        exit 0
+      else
+        exit 1
+      fi
+    fi
+    exit 0
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
