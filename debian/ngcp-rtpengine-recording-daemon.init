@@ -10,6 +10,7 @@
 # Description:       Recording daemon for RTP and other media streams
 ### END INIT INFO
 
+set -e
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-recording-daemon
@@ -20,21 +21,19 @@ DEFAULTS=/etc/default/${NAME}
 
 test -f "$DAEMON" || exit 0
 
+. /lib/lsb/init-functions
+
 # Load startup options if available
 if [ -f "$DEFAULTS" ]; then
 	. "$DEFAULTS" || true
 fi
 
 if [ "$RUN_RTPENGINE_RECORDING" != "yes" ]; then
-	echo "rtpengine-recording not yet configured. Edit $DEFAULTS first."
+	log_action_msg "rtpengine-recording not yet configured. Edit $DEFAULTS first."
 	exit 0
 fi
 [ -z "$PIDFILE" ] && PIDFILE="/var/run/rtpengine-recording.pid"
 [ -z "$NFS_OPTIONS" ] && NFS_OPTIONS="hard,tcp,intr"
-
-set -e
-
-. /lib/lsb/init-functions
 
 OPTIONS=""
 START_OPTIONS=""
@@ -75,17 +74,17 @@ case "$1" in
 	  status=$?
 	  case "${status}" in
 	    0|3)
-	      echo "Active node or transition."
+	      log_action_msg "Active node or transition."
 	      ;;
 	    *)
-	      echo "Ignored start action in inactive node ($status)"
+	      log_action_msg "Ignored start action in inactive node ($status)"
 	      exit 0
 	      ;;
 	  esac
 	fi
 	set -e
 
-	log_daemon_msg "Starting $DESC: $NAME"
+	log_daemon_msg "Starting $DESC" "$NAME"
 
 	if [ "$MUST_NFS" = yes ]; then
 		if ! grep -E -q "^[^ :]+:[^ :]+ $NFS_LOCAL_MOUNT nfs.? " /proc/mounts; then
@@ -101,7 +100,7 @@ case "$1" in
 	log_end_msg $?
 	;;
   stop)
-	log_daemon_msg "Stopping $DESC: $NAME"
+	log_daemon_msg "Stopping $DESC" "$NAME"
 	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
 		--exec "$DAEMON"
 	if [ "$?" -ne 0 ]; then

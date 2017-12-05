@@ -10,6 +10,7 @@
 # Description:       Proxy for RTP and other media streams
 ### END INIT INFO
 
+set -e
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-daemon
@@ -22,20 +23,18 @@ DEFAULTS=/etc/default/${NAME}
 
 test -f "$DAEMON" || exit 0
 
+. /lib/lsb/init-functions
+
 # Load startup options if available
 if [ -f "$DEFAULTS" ]; then
 	. "$DEFAULTS" || true
 fi
 
 if [ "$RUN_RTPENGINE" != "yes" ]; then
-	echo "rtpengine not yet configured. Edit $DEFAULTS first."
+	log_action_msg "rtpengine not yet configured. Edit $DEFAULTS first."
 	exit 0
 fi
 [ -z "$PIDFILE" ] && PIDFILE="/var/run/rtpengine.pid"
-
-set -e
-
-. /lib/lsb/init-functions
 
 OPTIONS=""
 START_OPTIONS=""
@@ -159,15 +158,14 @@ case "$1" in
 	  status=$?
 	  case "${status}" in
 	    0|3)
-	      echo "Active node or transition."
+	      log_action_msg "Active node or transition."
 	      ;;
 	    *)
-	      echo "Ignored start action in inactive node ($status)"
+	      log_action_msg "Ignored start action in inactive node ($status)"
 	      exit 0
 	      ;;
 	  esac
 	fi
-	log_daemon_msg "Starting $DESC: $NAME"
 	if [ "$TABLE" -ge 0 ] && [ "$VIRT" != "yes" ]; then
 		if [ "$MANAGE_IPTABLES" = "yes" ]; then
 			# shellcheck disable=SC2086
@@ -189,13 +187,14 @@ case "$1" in
 		fi
 	fi
 	set -e
+	log_daemon_msg "Starting $DESC" "$NAME"
 	# shellcheck disable=SC2086
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
 		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
 	log_end_msg $?
 	;;
   stop)
-	log_daemon_msg "Stopping $DESC: $NAME"
+	log_daemon_msg "Stopping $DESC" "$NAME"
 	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
 		--exec "$DAEMON"
 	if [ "$?" -ne 0 ]; then
