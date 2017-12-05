@@ -196,7 +196,7 @@ case "$1" in
   stop)
 	log_daemon_msg "Stopping $DESC" "$NAME"
 	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
-		--exec "$DAEMON"
+		--retry 5 --exec "$DAEMON"
 	if [ "$?" -ne 0 ]; then
 		return $?
 	fi
@@ -218,7 +218,6 @@ case "$1" in
 	;;
   restart|force-reload)
 	$0 stop
-	sleep 1
 	$0 start
 	;;
   status)
