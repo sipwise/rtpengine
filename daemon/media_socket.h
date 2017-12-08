@@ -78,9 +78,7 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 
 //int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const struct call *c);
 //void release_port(socket_t *r, const struct local_intf *);
-INLINE void set_tos(socket_t *s, unsigned int tos) {
-	s->family->tos(s, tos);
-}
+
 int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
 int get_consecutive_ports(GQueue *out, unsigned int num_ports, const struct logical_intf *log, const str *);
