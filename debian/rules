@@ -12,7 +12,7 @@ pdkms:=ngcp-rtpengine-kernel-dkms
 # short upstream name, used for module source directory
 sname:=ngcp-rtpengine
 # Source version
-sversion:=$(shell dpkg-parsechangelog|grep "^Version:"|cut -d" " -f2|rev|cut -d- -f2-|rev|cut -d':' -f2)
+sversion:=$(shell dpkg-parsechangelog -SVersion | sed -e 's/^[^:]\+://;s/-[^-]\+$$//')
 
 PACKAGE=ngcp-rtpengine-kernel
 ## end of kernel package specific stuff
