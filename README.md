@@ -169,6 +169,7 @@ option and which are reproduced below:
 	  -G, --graphite-interval=INT      Graphite data statistics send interval
 	  --graphite-prefix=STRING         Graphite prefix for every line
 	  -T, --tos=INT                    TOS value to set on streams
+	  --control-tos=INT                TOS value to set on control-ng interface
 	  -o, --timeout=SECS               RTP timeout
 	  -s, --silent-timeout=SECS        RTP timeout for muted
 	  -a, --final-timeout=SECS         Call timeout
@@ -307,6 +308,11 @@ The options are described in more detail below.
 
 	Takes an integer as argument and if given, specifies the TOS value that should be set in outgoing
 	packets. The default is to leave the TOS field untouched. A typical value is 184 (*Expedited Forwarding*).
+
+* --control-tos
+
+    Takes an integer as argument and if given, specifies the TOS value that should be set in the control-ng
+    interface packets. The default is to leave the TOS field untouched.
 
 * -o, --timeout
 
