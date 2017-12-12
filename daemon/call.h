@@ -405,6 +405,7 @@ struct callmaster_config {
 	unsigned int        redis_expires_secs;
 	char			*b2b_url;
 	unsigned char		default_tos;
+	unsigned char		control_tos;
 	enum xmlrpc_format	fmt;
 	endpoint_t		graphite_ep;
 	int			graphite_interval;

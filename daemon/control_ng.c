@@ -305,7 +305,7 @@ out:
 
 
 
-struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, struct callmaster *m) {
+struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, struct callmaster *m, unsigned char tos) {
 	struct control_ng *c;
 
 	if (!p || !m)
@@ -318,9 +318,14 @@ struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, struct callm
 
 	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_ng_incoming, &c->obj))
 		goto fail2;
-	if (ipv46_any_convert(ep) && udp_listener_init(&c->udp_listeners[1], p, ep, control_ng_incoming, &c->obj))
-		goto fail2;
-
+	if (tos)
+		set_tos(&c->udp_listeners[0].sock,tos);
+	if (ipv46_any_convert(ep)) {
+		if (udp_listener_init(&c->udp_listeners[1], p, ep, control_ng_incoming, &c->obj))
+			goto fail2;
+		if (tos)
+			set_tos(&c->udp_listeners[1].sock,tos);
+	}
 	return c;
 
 fail2:

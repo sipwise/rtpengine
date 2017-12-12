@@ -261,7 +261,9 @@ INLINE int ipv46_any_convert(endpoint_t *ep) {
 
 #define endpoint_packet_header(o, src, dst, len) (dst)->address.family->packet_header(o, src, dst, len)
 
-
+INLINE void set_tos(socket_t *s, unsigned int tos) {
+	s->family->tos(s, tos);
+}
 
 socktype_t *get_socket_type(const str *s);
 socktype_t *get_socket_type_c(const char *s);

@@ -58,6 +58,7 @@ static endpoint_t homer_ep;
 static int homer_protocol = SOCK_DGRAM;
 static int homer_id = 2001;
 static int tos;
+static int control_tos;
 static int table = -1;
 static int no_fallback;
 static unsigned int timeout;
@@ -268,6 +269,7 @@ static void options(int *argc, char ***argv) {
 		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
+		{ "control-tos",0 , 0, G_OPTION_ARG_INT,	&control_tos,		"Default TOS value to set on control-ng",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&final_timeout,	"Call timeout",			"SECS"		},
@@ -370,6 +372,9 @@ static void options(int *argc, char ***argv) {
 
 	if (tos < 0 || tos > 255)
 		die("Invalid TOS value");
+
+	if (control_tos < 0 || control_tos > 255)
+		die("Invalid control-ng TOS value");
 
 	if (timeout <= 0)
 		timeout = 60;
@@ -528,6 +533,7 @@ no_kernel:
 	mc.final_timeout = final_timeout;
 	mc.delete_delay = delete_delay;
 	mc.default_tos = tos;
+	mc.control_tos = control_tos;
 	mc.b2b_url = b2b_url;
 	mc.fmt = xmlrpc_fmt;
 	mc.graphite_ep = graphite_ep;
@@ -562,7 +568,7 @@ no_kernel:
 	cn = NULL;
 	if (ng_listen_ep.port) {
 		interfaces_exclude_port(ng_listen_ep.port);
-		cn = control_ng_new(ctx->p, &ng_listen_ep, ctx->m);
+		cn = control_ng_new(ctx->p, &ng_listen_ep, ctx->m, control_tos);
 		if (!cn)
 			die("Failed to open UDP control connection port");
 	}

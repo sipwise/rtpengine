@@ -30,6 +30,6 @@ struct control_ng {
 	struct udp_listener udp_listeners[2];
 };
 
-struct control_ng *control_ng_new(struct poller *, endpoint_t *, struct callmaster *);
+struct control_ng *control_ng_new(struct poller *, endpoint_t *, struct callmaster *, unsigned char);
 
 #endif
