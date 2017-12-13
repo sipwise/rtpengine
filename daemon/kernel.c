@@ -38,7 +38,7 @@ static int kernel_create_table(unsigned int id) {
 		return -1;
 	sprintf(str, "add %u\n", id);
 	i = write(fd, str, strlen(str));
-	if (i == -1)
+	if (i == -1 && errno != EEXIST)
 		goto fail;
 	close(fd);
 
