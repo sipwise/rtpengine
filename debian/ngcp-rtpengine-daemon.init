@@ -182,9 +182,6 @@ case "$1" in
 			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
 			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
 		fi
-		if [ -e /proc/rtpengine/control ]; then
-			echo "del $TABLE" > /proc/rtpengine/control 2>/dev/null
-		fi
 	fi
 	set -e
 	log_daemon_msg "Starting $DESC" "$NAME"

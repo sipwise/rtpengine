@@ -28,7 +28,7 @@ struct kernel_interface kernel;
 
 
 
-static int kernel_create_table(unsigned int id) {
+static int kernel_action_table(const char *action, unsigned int id) {
 	char str[64];
 	int saved_errno;
 	int fd;
@@ -37,7 +37,9 @@ static int kernel_create_table(unsigned int id) {
 	fd = open(PREFIX "/control", O_WRONLY | O_TRUNC);
 	if (fd == -1)
 		return -1;
-	sprintf(str, "add %u\n", id);
+	i = snprintf(str, sizeof(str), "%s %u\n", action, id);
+	if (i >= sizeof(str))
+		goto fail;
 	i = write(fd, str, strlen(str));
 	if (i == -1)
 		goto fail;
@@ -50,6 +52,14 @@ fail:
 	close(fd);
 	errno = saved_errno;
 	return -1;
+}
+
+static int kernel_create_table(unsigned int id) {
+	return kernel_action_table("add", id);
+}
+
+static int kernel_delete_table(unsigned int id) {
+	return kernel_action_table("del", id);
 }
 
 static int kernel_open_table(unsigned int id) {
@@ -85,6 +95,11 @@ int kernel_setup_table(unsigned int id) {
 
 	kernel.is_wanted = 1;
 
+	if (kernel_delete_table(id) && errno != ENOENT) {
+		ilog(LOG_ERR, "FAILED TO DELETE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
+				id, strerror(errno));
+		return -1;
+	}
 	if (kernel_create_table(id)) {
 		ilog(LOG_ERR, "FAILED TO CREATE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
 				id, strerror(errno));
