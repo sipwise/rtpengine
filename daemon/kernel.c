@@ -30,6 +30,7 @@ struct kernel_interface kernel;
 
 static int kernel_create_table(unsigned int id) {
 	char str[64];
+	int saved_errno;
 	int fd;
 	int i;
 
@@ -45,12 +46,15 @@ static int kernel_create_table(unsigned int id) {
 	return 0;
 
 fail:
+	saved_errno = errno;
 	close(fd);
+	errno = saved_errno;
 	return -1;
 }
 
 static int kernel_open_table(unsigned int id) {
 	char str[64];
+	int saved_errno;
 	int fd;
 	struct rtpengine_message msg;
 	int i;
@@ -69,7 +73,9 @@ static int kernel_open_table(unsigned int id) {
 	return fd;
 
 fail:
+	saved_errno = errno;
 	close(fd);
+	errno = saved_errno;
 	return -1;
 }
 
