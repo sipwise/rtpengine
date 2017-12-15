@@ -22,7 +22,7 @@
 
 
 static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
-		struct udp_listener *ul) {
+		socket_t *ul) {
 	struct control_udp *u = (void *) obj;
 	int ret;
 	int ovec[100];
@@ -60,7 +60,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iovlen = 2;
 		}
 
-		socket_sendiov(&ul->sock, iov, iovlen, sin);
+		socket_sendiov(ul, iov, iovlen, sin);
 
 		pcre_free(out);
 
@@ -75,7 +75,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
 	if (reply) {
 		ilog(LOG_INFO, "Detected command from udp:%s as a duplicate", addr);
-		socket_sendto(&ul->sock, reply->s, reply->len, sin);
+		socket_sendto(ul, reply->s, reply->len, sin);
 		free(reply);
 		goto out;
 	}
@@ -118,11 +118,11 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iov[2].iov_len = 9;
 			iovlen++;
 		}
-		socket_sendiov(&ul->sock, iov, iovlen, sin);
+		socket_sendiov(ul, iov, iovlen, sin);
 	}
 
 	if (reply) {
-		socket_sendto(&ul->sock, reply->s, reply->len, sin);
+		socket_sendto(ul, reply->s, reply->len, sin);
 		cookie_cache_insert(&u->cookie_cache, &cookie, reply);
 		free(reply);
 	}

@@ -13,12 +13,15 @@
 
 
 
+
+
 struct streambuf *streambuf_new(struct poller *p, int fd) {
 	struct streambuf *b;
 
 	b = malloc(sizeof(*b));
 	ZERO(*b);
 
+	mutex_init(&b->lock);
 	b->buf = g_string_new("");
 	b->fd = fd;
 	b->poller = p;
@@ -38,6 +41,8 @@ int streambuf_writeable(struct streambuf *b) {
 	int ret;
 	unsigned int out;
 
+	mutex_lock(&b->lock);
+
 	for (;;) {
 		if (!b->buf->len)
 			break;
@@ -48,8 +53,10 @@ int streambuf_writeable(struct streambuf *b) {
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
-			if (errno != EAGAIN && errno != EWOULDBLOCK)
+			if (errno != EAGAIN && errno != EWOULDBLOCK) {
+				mutex_unlock(&b->lock);
 				return -1;
+			}
 			ret = 0;
 		}
 
@@ -64,6 +71,7 @@ int streambuf_writeable(struct streambuf *b) {
 		}
 	}
 
+	mutex_unlock(&b->lock);
 	return 0;
 }
 
@@ -71,16 +79,21 @@ int streambuf_readable(struct streambuf *b) {
 	int ret;
 	char buf[1024];
 
+	mutex_lock(&b->lock);
+
 	for (;;) {
 		ret = read(b->fd, buf, 1024);
 
-		if (ret == 0)
+		if (ret == 0) {
+			mutex_unlock(&b->lock);
 			return -1;
+		}
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
+			mutex_unlock(&b->lock);
 			return -1;
 		}
 
@@ -88,6 +101,7 @@ int streambuf_readable(struct streambuf *b) {
 		b->active = poller_now;
 	}
 
+	mutex_unlock(&b->lock);
 	return 0;
 }
 
@@ -97,6 +111,8 @@ char *streambuf_getline(struct streambuf *b) {
 	int len;
 	char *s = NULL;
 
+	mutex_lock(&b->lock);
+
 	for (;;) {
 		if (s) {
 			free(s);
@@ -104,8 +120,10 @@ char *streambuf_getline(struct streambuf *b) {
 		}
 
 		p = memchr(b->buf->str, '\n', b->buf->len);
-		if (!p)
+		if (!p) {
+			mutex_unlock(&b->lock);
 			return NULL;
+		}
 
 		len = p - b->buf->str;
 		if (len == 0) {
@@ -127,6 +145,7 @@ char *streambuf_getline(struct streambuf *b) {
 		break;
 	}
 
+	mutex_unlock(&b->lock);
 	return s;
 }
 
@@ -157,6 +176,8 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 	unsigned int out;
 	int ret;
 
+	mutex_lock(&b->lock);
+
 	while (len && !poller_isblocked(b->poller, b->fd)) {
 		out = (len > 1024) ? 1024 : len;
 		ret = write(b->fd, s, out);
@@ -183,4 +204,6 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 		poller_error(b->poller, b->fd);
 	else if (len)
 		g_string_append_len(b->buf, s, len);
+
+	mutex_unlock(&b->lock);
 }
