@@ -50,7 +50,7 @@ struct control_udp {
 
 	struct callmaster	*callmaster;
 	struct cookie_cache	cookie_cache;
-	struct udp_listener	udp_listeners[2];
+	socket_t		udp_listeners[2];
 
 	pcre			*parse_re;
 	pcre_extra		*parse_ree;
