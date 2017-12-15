@@ -10,6 +10,7 @@
 
 #include "compat.h"
 #include "str.h"
+#include "aux.h"
 
 
 
@@ -18,10 +19,12 @@ struct poller;
 
 
 struct streambuf {
+	mutex_t		lock;
 	GString		*buf;
 	int		fd;
 	struct poller	*poller;
 	time_t		active;
+	int		eof;
 };
 
 

@@ -104,7 +104,7 @@ struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const sockad
 }
 
 static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
-		struct udp_listener *ul)
+		socket_t *ul)
 {
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
@@ -289,7 +289,7 @@ send_only:
 	iov[2].iov_base = to_send->s;
 	iov[2].iov_len = to_send->len;
 
-	socket_sendiov(&ul->sock, iov, iovlen, sin);
+	socket_sendiov(ul, iov, iovlen, sin);
 
 	if (resp)
 		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);
@@ -319,12 +319,12 @@ struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, struct callm
 	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_ng_incoming, &c->obj))
 		goto fail2;
 	if (tos)
-		set_tos(&c->udp_listeners[0].sock,tos);
+		set_tos(&c->udp_listeners[0],tos);
 	if (ipv46_any_convert(ep)) {
 		if (udp_listener_init(&c->udp_listeners[1], p, ep, control_ng_incoming, &c->obj))
 			goto fail2;
 		if (tos)
-			set_tos(&c->udp_listeners[1].sock,tos);
+			set_tos(&c->udp_listeners[1],tos);
 	}
 	return c;
 

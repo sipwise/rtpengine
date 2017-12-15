@@ -22,6 +22,8 @@
 #include "recording.h"
 #include "rtplib.h"
 #include "ssrc.h"
+#include "tcp_listener.h"
+#include "streambuf.h"
 
 
 
@@ -417,7 +419,7 @@ void call_delete_tcp(char **out, struct callmaster *m) {
 	call_delete_branch(m, &callid, NULL, NULL, NULL, NULL, -1);
 }
 
-static void call_status_iterator(struct call *c, struct control_stream *s) {
+static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
 //	GList *l;
 //	struct callstream *cs;
 //	struct peer *p;
@@ -429,7 +431,7 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 //	m = c->callmaster;
 //	mutex_lock(&c->master_lock);
 
-	control_stream_printf(s, "session "STR_FORMAT" - - - - %lli\n",
+	streambuf_printf(s->outbuf, "session "STR_FORMAT" - - - - %lli\n",
 		STR_FMT(&c->callid),
 		timeval_diff(&g_now, &c->created) / 1000000);
 
@@ -438,13 +440,13 @@ static void call_status_iterator(struct call *c, struct control_stream *s) {
 //	mutex_unlock(&c->master_lock);
 }
 
-void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
+void calls_status_tcp(struct callmaster *m, struct streambuf_stream *s) {
 	GQueue q = G_QUEUE_INIT;
 	struct call *c;
 
 	callmaster_get_all_calls(m, &q);
 
-	control_stream_printf(s, "proxy %u "UINT64F"/%i/%i\n",
+	streambuf_printf(s->outbuf, "proxy %u "UINT64F"/%i/%i\n",
 		g_queue_get_length(&q),
 		atomic64_get(&m->stats.bytes), 0, 0);
 
