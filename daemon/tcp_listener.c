@@ -100,7 +100,9 @@ static void streambuf_stream_free(void *p) {
 
 static void streambuf_stream_closed(int fd, void *p, uintptr_t u) {
 	struct streambuf_stream *s = p;
-	s->cb->closed_func(s);
+
+	if (s->cb->closed_func)
+		s->cb->closed_func(s);
 
 	struct streambuf_listener *l = s->listener;
 	mutex_lock(&l->lock);
@@ -113,7 +115,8 @@ static void streambuf_stream_closed(int fd, void *p, uintptr_t u) {
 
 static void streambuf_stream_timer(int fd, void *p, uintptr_t u) {
 	struct streambuf_stream *s = p;
-	s->cb->timer_func(s);
+	if (s->cb->timer_func)
+		s->cb->timer_func(s);
 }
 
 
