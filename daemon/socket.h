@@ -64,6 +64,8 @@ struct socket_family {
 	int				(*addrport2sockaddr)(void *, const sockaddr_t *, unsigned int);
 	int				(*bind)(socket_t *, unsigned int, const sockaddr_t *);
 	int				(*connect)(socket_t *, const endpoint_t *);
+	int				(*listen)(socket_t *, int);
+	int				(*accept)(socket_t *, socket_t *);
 	int				(*timestamping)(socket_t *);
 	ssize_t				(*recvfrom)(socket_t *, void *, size_t, endpoint_t *);
 	ssize_t				(*recvfrom_ts)(socket_t *, void *, size_t, endpoint_t *, struct timeval *);
