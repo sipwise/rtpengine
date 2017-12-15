@@ -3,17 +3,17 @@
 
 #include "socket.h"
 #include "obj.h"
+#include "tcp_listener.h"
 
 struct cli {
    struct obj      obj;
 
    struct callmaster   *callmaster;
-   socket_t sock;
    struct poller       *poller;
-   mutex_t         lock;
 
+   struct streambuf_listener listeners[2];
 };
 
-struct cli *cli_new(struct poller *p, const endpoint_t *, struct callmaster *m);
+struct cli *cli_new(struct poller *p, endpoint_t *, struct callmaster *m);
 
 #endif /* CLI_UDP_H_ */
