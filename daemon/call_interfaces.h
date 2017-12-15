@@ -14,7 +14,7 @@
 struct call;
 struct call_stats;
 struct callmaster;
-struct control_stream;
+struct streambuf_stream;
 struct sockaddr_in6;
 
 struct sdp_ng_flags {
@@ -69,7 +69,7 @@ extern int dtls_passive_def;
 str *call_request_tcp(char **, struct callmaster *);
 str *call_lookup_tcp(char **, struct callmaster *);
 void call_delete_tcp(char **, struct callmaster *);
-void calls_status_tcp(struct callmaster *, struct control_stream *);
+void calls_status_tcp(struct callmaster *, struct streambuf_stream *);
 
 str *call_update_udp(char **, struct callmaster *, const char*, const endpoint_t *);
 str *call_lookup_udp(char **, struct callmaster *);

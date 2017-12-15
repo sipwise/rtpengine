@@ -32,12 +32,11 @@
 struct poller;
 struct callmaster;
 struct control_tcp;
-struct control_stream;
+struct streambuf_stream;
 
 
 
-struct control_tcp *control_tcp_new(struct poller *, const endpoint_t *, struct callmaster *);
-void control_stream_printf(struct control_stream *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
+struct control_tcp *control_tcp_new(struct poller *, endpoint_t *, struct callmaster *);
 
 
 
