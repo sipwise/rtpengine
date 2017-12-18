@@ -21,9 +21,78 @@
 #include "cdr.h"
 #include "streambuf.h"
 #include "tcp_listener.h"
+#include "str.h"
 
 #include "rtpengine_config.h"
 
+
+typedef void (*cli_handler_func)(str *, struct callmaster *, struct streambuf *);
+typedef struct {
+	const char *cmd;
+	cli_handler_func handler;
+} cli_handler_t;
+
+static void cli_incoming_list(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_set(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_terminate(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_ksadd(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_ksrm(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_kslist(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+
+static void cli_incoming_set_maxopenfiles(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_set_maxsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_set_timeout(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_set_silenttimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_set_finaltimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+
+static void cli_incoming_list_numsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_list_maxsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_list_maxopenfiles(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_list_totals(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_list_sessions(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_list_timeout(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+
+static const cli_handler_t cli_top_handlers[] = {
+	{ "list",		cli_incoming_list		},
+	{ "terminate",		cli_incoming_terminate		},
+	{ "set",		cli_incoming_set		},
+	{ "ksadd",		cli_incoming_ksadd		},
+	{ "ksrm",		cli_incoming_ksrm		},
+	{ "kslist",		cli_incoming_kslist		},
+	{ NULL, },
+};
+static const cli_handler_t cli_set_handlers[] = {
+	{ "maxopenfiles",	cli_incoming_set_maxopenfiles	},
+	{ "maxsessions",	cli_incoming_set_maxsessions	},
+	{ "timeout",		cli_incoming_set_timeout	},
+	{ "silenttimeout",	cli_incoming_set_silenttimeout	},
+	{ "finaltimeout",	cli_incoming_set_finaltimeout	},
+	{ NULL, },
+};
+static const cli_handler_t cli_list_handlers[] = {
+	{ "numsessions",	cli_incoming_list_numsessions	},
+	{ "sessions",		cli_incoming_list_sessions	},
+	{ "totals",		cli_incoming_list_totals	},
+	{ "maxopenfiles",	cli_incoming_list_maxopenfiles	},
+	{ "maxsessions",	cli_incoming_list_maxsessions	},
+	{ "timeout",		cli_incoming_list_timeout	},
+};
+
+
+static void cli_handler_do(const cli_handler_t *handlers, str *instr, struct callmaster *m,
+		struct streambuf *replybuffer)
+{
+	const cli_handler_t *h;
+
+	for (h = handlers; h->cmd; h++) {
+		if (str_shift_cmp(instr, h->cmd))
+			continue;
+		h->handler(instr, m, replybuffer);
+		return;
+	}
+
+	streambuf_printf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", instr->s);
+}
 
 static void destroy_own_foreign_calls(struct callmaster *m, unsigned int foreign_call, unsigned int uint_keyspace_db) {
 	struct call *c = NULL;
@@ -91,7 +160,7 @@ static void destroy_keyspace_foreign_calls(struct callmaster *m, unsigned int ui
 	destroy_own_foreign_calls(m, CT_FOREIGN_CALL, uint_keyspace_db);
 }
 
-static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_list_totals(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	struct timeval avg, calls_dur_iv;
 	u_int64_t num_sessions, min_sess_iv, max_sess_iv;
 	struct request_time offer_iv, answer_iv, delete_iv;
@@ -178,14 +247,22 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	g_list_free(list);
 }
 
-static void cli_incoming_list_maxsessions(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_list_numsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
+       rwlock_lock_r(&m->hashlock);
+       streambuf_printf(replybuffer, "Current sessions own: "UINT64F"\n", g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
+       streambuf_printf(replybuffer, "Current sessions foreign: "UINT64F"\n", atomic64_get(&m->stats.foreign_sessions));
+       streambuf_printf(replybuffer, "Current sessions total: %i\n", g_hash_table_size(m->callhash));
+       rwlock_unlock_r(&m->hashlock);
+}
+
+static void cli_incoming_list_maxsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	/* don't lock anything while reading the value */
 	streambuf_printf(replybuffer, "Maximum sessions configured on rtpengine: %d\n", m->conf.max_sessions);
 
 	return ;
 }
 
-static void cli_incoming_list_maxopenfiles(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_list_maxopenfiles(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	struct rlimit rlim;
 	pid_t pid = getpid();
 
@@ -203,7 +280,7 @@ static void cli_incoming_list_maxopenfiles(char* buffer, int len, struct callmas
 	return ;
 }
 
-static void cli_incoming_list_timeout(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_list_timeout(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	rwlock_lock_r(&m->conf.config_lock);
 
 	/* don't lock anything while reading the value */
@@ -216,8 +293,7 @@ static void cli_incoming_list_timeout(char* buffer, int len, struct callmaster* 
 	return ;
 }
 
-static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
-   str callid;
+static void cli_incoming_list_callid(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
    struct call* c=0;
    struct call_monologue *ml;
    struct call_media *md;
@@ -228,17 +304,15 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    struct timeval now;
    char * local_addr;
 
-   if (len<=1) {
+   if (str_shift(instr, 1)) {
        streambuf_printf(replybuffer, "%s\n", "More parameters required.");
        return;
    }
-//   ++buffer; --len; // one space
-   str_init_len(&callid,buffer,len);
 
-   c = call_get(&callid, m);
+   c = call_get(instr, m);
 
    if (!c) {
-       streambuf_printf(replybuffer, "\nCall Id not found (%s).\n\n",callid.s);
+       streambuf_printf(replybuffer, "\nCall Id not found (%s).\n\n",instr->s);
        return;
    }
 
@@ -319,7 +393,7 @@ static void cli_incoming_list_callid(char* buffer, int len, struct callmaster* m
    obj_put(c);
 }
 
-static void cli_incoming_list_sessions(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_list_sessions(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	GHashTableIter iter;
 	gpointer key, value;
 	str *ptrkey;
@@ -330,11 +404,10 @@ static void cli_incoming_list_sessions(char* buffer, int len, struct callmaster*
 	static const char* LIST_OWN = "own";
 	static const char* LIST_FOREIGN = "foreign";
 
-	if (len<=1) {
+	if (str_shift(instr, 1)) {
 		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
 		return;
 	}
-	++buffer; --len; // one space
 
 	rwlock_lock_r(&m->hashlock);
 
@@ -349,17 +422,17 @@ static void cli_incoming_list_sessions(char* buffer, int len, struct callmaster*
 		ptrkey = (str*)key;
 		call = (struct call*)value;
 
-		if (len>=strlen(LIST_ALL) && strncmp(buffer,LIST_ALL,strlen(LIST_ALL)) == 0) {
+		if (str_cmp(instr, LIST_ALL) == 0) {
 			if (!call) {
 				continue;
 			}
-		} else if (len>=strlen(LIST_OWN) && strncmp(buffer,LIST_OWN,strlen(LIST_OWN)) == 0) {
+		} else if (str_cmp(instr, LIST_OWN) == 0) {
 			if (!call || IS_FOREIGN_CALL(call)) {
 				continue;
 			} else {
 				found_own = 1;
 			}
-		} else if (len>=strlen(LIST_FOREIGN) && strncmp(buffer,LIST_FOREIGN,strlen(LIST_FOREIGN)) == 0) {
+		} else if (str_cmp(instr, LIST_FOREIGN) == 0) {
 			if (!call || !IS_FOREIGN_CALL(call)) {
 				continue;
 			} else {
@@ -374,48 +447,44 @@ static void cli_incoming_list_sessions(char* buffer, int len, struct callmaster*
 	}
 	rwlock_unlock_r(&m->hashlock);
 
-	if (len>=strlen(LIST_ALL) && strncmp(buffer,LIST_ALL,strlen(LIST_ALL)) == 0) {
+	if (str_cmp(instr, LIST_ALL) == 0) {
 		;
-	} else if (len>=strlen(LIST_OWN) && strncmp(buffer,LIST_OWN,strlen(LIST_OWN)) == 0) {
+	} else if (str_cmp(instr, LIST_OWN) == 0) {
 		if (!found_own) {
 			streambuf_printf(replybuffer, "No own sessions on this media relay.\n");
 		}
-	} else if (len>=strlen(LIST_FOREIGN) && strncmp(buffer,LIST_FOREIGN,strlen(LIST_FOREIGN)) == 0) {
+	} else if (str_cmp(instr, LIST_FOREIGN) == 0) {
 		if (!found_foreign) {
 			streambuf_printf(replybuffer, "No foreign sessions on this media relay.\n");
 		}
 	} else {
 		// list session for callid
-		cli_incoming_list_callid(buffer, len, m, replybuffer);
+		cli_incoming_list_callid(instr, m, replybuffer);
 	}
 
 	return;
 }
 
-static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_set_maxopenfiles(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	unsigned long open_files_num;
-	str open_files;
 	pid_t pid;
 	char *endptr;
 
 	// limit the minimum number of open files to avoid rtpengine freeze for low open_files_num values
 	unsigned long min_open_files_num = (1 << 16);
 
-	if (len <= 1) {
+	if (str_shift(instr, 1)) {
 		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
 		return;
 	}
 
-	++buffer; --len; // one space
-	open_files.s = buffer;
-	open_files.len = len;
-	open_files_num = strtoul(open_files.s, &endptr, 10);
+	open_files_num = strtoul(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (open_files_num == ULONG_MAX)) || (errno != 0 && open_files_num == 0)) {
-		streambuf_printf(replybuffer,  "Fail setting open_files to %.*s; errno=%d\n", open_files.len, open_files.s, errno);
+		streambuf_printf(replybuffer,  "Fail setting open_files to %s; errno=%d\n", instr->s, errno);
 		return;
-	} else if (endptr == open_files.s) {
-		streambuf_printf(replybuffer,  "Fail setting open_files to %.*s; no digists found\n", open_files.len, open_files.s);
+	} else if (endptr == instr->s) {
+		streambuf_printf(replybuffer,  "Fail setting open_files to %s; no digists found\n", instr->s);
 		return;
 	} else if (open_files_num < min_open_files_num) {
 		streambuf_printf(replybuffer,  "Fail setting open_files to %lu; can't set it under %lu\n", open_files_num, min_open_files_num);
@@ -429,27 +498,23 @@ static void cli_incoming_set_maxopenfiles(char* buffer, int len, struct callmast
 	}
 }
 
-static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_set_maxsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	long maxsessions_num;
 	int disabled = -1;
-	str maxsessions;
 	char *endptr;
 
-	if (len <= 1) {
+	if (str_shift(instr, 1)) {
 		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
 		return;
 	}
 
-	++buffer; --len; // one space
-	maxsessions.s = buffer;
-	maxsessions.len = len;
-	maxsessions_num = strtol(maxsessions.s, &endptr, 10);
+	maxsessions_num = strtol(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (maxsessions_num == LONG_MAX || maxsessions_num == LONG_MIN)) || (errno != 0 && maxsessions_num == 0)) {
-		streambuf_printf(replybuffer,  "Fail setting maxsessions to %.*s; errno=%d\n", maxsessions.len, maxsessions.s, errno);
+		streambuf_printf(replybuffer,  "Fail setting maxsessions to %s; errno=%d\n", instr->s, errno);
 		return;
-	} else if (endptr == maxsessions.s) {
-		streambuf_printf(replybuffer,  "Fail setting maxsessions to %.*s; no digists found\n", maxsessions.len, maxsessions.s);
+	} else if (endptr == instr->s) {
+		streambuf_printf(replybuffer,  "Fail setting maxsessions to %s; no digists found\n", instr->s);
 		return;
 	} else if (maxsessions_num < disabled) {
 		streambuf_printf(replybuffer,  "Fail setting maxsessions to %ld; either positive or -1 values allowed\n", maxsessions_num);
@@ -468,26 +533,22 @@ static void cli_incoming_set_maxsessions(char* buffer, int len, struct callmaste
 	return;
 }
 
-static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer, unsigned int *conf_timeout) {
+static void cli_incoming_set_gentimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer, unsigned int *conf_timeout) {
 	unsigned long timeout_num;
-	str timeout;
 	char *endptr;
 
-	if (len <= 1) {
+	if (str_shift(instr, 1)) {
 		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
 		return;
 	}
 
-	++buffer; --len; // one space
-	timeout.s = buffer;
-	timeout.len = len;
-	timeout_num = strtoul(timeout.s, &endptr, 10);
+	timeout_num = strtoul(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (timeout_num == ULONG_MAX)) || (errno != 0 && timeout_num == 0)) {
-		streambuf_printf(replybuffer,  "Fail setting timeout to %.*s; errno=%d\n", timeout.len, timeout.s, errno);
+		streambuf_printf(replybuffer,  "Fail setting timeout to %s; errno=%d\n", instr->s, errno);
 		return;
-	} else if (endptr == timeout.s) {
-		streambuf_printf(replybuffer,  "Fail setting timeout to %.*s; no digists found\n", timeout.len, timeout.s);
+	} else if (endptr == instr->s) {
+		streambuf_printf(replybuffer,  "Fail setting timeout to %s; no digists found\n", instr->s);
 		return;
 	} else {
 		/* don't lock anything while writing the value - only this command modifies its value */
@@ -498,84 +559,46 @@ static void cli_incoming_set_timeout(char* buffer, int len, struct callmaster* m
 	}
 }
 
-static void cli_incoming_list(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
-   static const char* LIST_NUMSESSIONS = "numsessions";
-   static const char* LIST_SESSIONS = "sessions";
-   static const char* LIST_TOTALS = "totals";
-   static const char* LIST_MAX_OPEN_FILES = "maxopenfiles";
-   static const char* LIST_MAX_SESSIONS = "maxsessions";
-   static const char* LIST_TIMEOUT = "timeout";
+static void cli_incoming_set_timeout(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
+	cli_incoming_set_gentimeout(instr, m, replybuffer, &m->conf.timeout);
+}
+static void cli_incoming_set_silenttimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
+	cli_incoming_set_gentimeout(instr, m, replybuffer, &m->conf.silent_timeout);
+}
+static void cli_incoming_set_finaltimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
+	cli_incoming_set_gentimeout(instr, m, replybuffer, &m->conf.final_timeout);
+}
 
-   if (len<=1) {
+static void cli_incoming_list(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
+   if (str_shift(instr, 1)) {
        streambuf_printf(replybuffer, "%s\n", "More parameters required.");
        return;
    }
-   ++buffer; --len; // one space
 
-   if (len>=strlen(LIST_NUMSESSIONS) && strncmp(buffer,LIST_NUMSESSIONS,strlen(LIST_NUMSESSIONS)) == 0) {
-       rwlock_lock_r(&m->hashlock);
-       streambuf_printf(replybuffer, "Current sessions own: "UINT64F"\n", g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
-       streambuf_printf(replybuffer, "Current sessions foreign: "UINT64F"\n", atomic64_get(&m->stats.foreign_sessions));
-       streambuf_printf(replybuffer, "Current sessions total: %i\n", g_hash_table_size(m->callhash));
-       rwlock_unlock_r(&m->hashlock);
-   } else if (len>=strlen(LIST_SESSIONS) && strncmp(buffer,LIST_SESSIONS,strlen(LIST_SESSIONS)) == 0) {
-       cli_incoming_list_sessions(buffer+strlen(LIST_SESSIONS), len-strlen(LIST_SESSIONS), m, replybuffer);
-   } else if (len>=strlen(LIST_TOTALS) && strncmp(buffer,LIST_TOTALS,strlen(LIST_TOTALS)) == 0) {
-       cli_incoming_list_totals(buffer+strlen(LIST_TOTALS), len-strlen(LIST_TOTALS), m, replybuffer);
-   } else if (len>=strlen(LIST_MAX_SESSIONS) && strncmp(buffer,LIST_MAX_SESSIONS,strlen(LIST_MAX_SESSIONS)) == 0) {
-       cli_incoming_list_maxsessions(buffer+strlen(LIST_MAX_SESSIONS), len-strlen(LIST_MAX_SESSIONS), m, replybuffer);
-   } else if (len>=strlen(LIST_MAX_OPEN_FILES) && strncmp(buffer,LIST_MAX_OPEN_FILES,strlen(LIST_MAX_OPEN_FILES)) == 0) {
-       cli_incoming_list_maxopenfiles(buffer+strlen(LIST_MAX_OPEN_FILES), len-strlen(LIST_MAX_OPEN_FILES), m, replybuffer);
-   } else if (len>=strlen(LIST_TIMEOUT) && strncmp(buffer,LIST_TIMEOUT,strlen(LIST_TIMEOUT)) == 0) {
-       cli_incoming_list_timeout(buffer+strlen(LIST_TIMEOUT), len-strlen(LIST_TIMEOUT), m, replybuffer);
-   } else {
-       streambuf_printf(replybuffer, "%s:%s\n", "Unknown 'list' command", buffer);
-   }
+   cli_handler_do(cli_list_handlers, instr, m, replybuffer);
 }
 
-static void cli_incoming_set(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
-	static const char* SET_MAX_OPEN_FILES = "maxopenfiles";
-	static const char* SET_MAX_SESSIONS = "maxsessions";
-	static const char* SET_TIMEOUT = "timeout";
-	static const char* SET_SILENT_TIMEOUT = "silenttimeout";
-	static const char* SET_FINAL_TIMEOUT = "finaltimeout";
-
-	if (len<=1) {
+static void cli_incoming_set(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
+	if (str_shift(instr, 1)) {
 		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
 		return;
 	}
-	++buffer; --len; // one space
 
-	if (len>=strlen(SET_MAX_OPEN_FILES) && strncmp(buffer,SET_MAX_OPEN_FILES,strlen(SET_MAX_OPEN_FILES)) == 0) {
-		cli_incoming_set_maxopenfiles(buffer+strlen(SET_MAX_OPEN_FILES), len-strlen(SET_MAX_OPEN_FILES), m, replybuffer);
-	} else if (len>=strlen(SET_MAX_SESSIONS) && strncmp(buffer,SET_MAX_SESSIONS,strlen(SET_MAX_SESSIONS)) == 0) {
-		cli_incoming_set_maxsessions(buffer+strlen(SET_MAX_SESSIONS), len-strlen(SET_MAX_SESSIONS), m, replybuffer);
-	} else if (len>=strlen(SET_TIMEOUT) && strncmp(buffer,SET_TIMEOUT,strlen(SET_TIMEOUT)) == 0) {
-		cli_incoming_set_timeout(buffer+strlen(SET_TIMEOUT), len-strlen(SET_TIMEOUT), m, replybuffer, &m->conf.timeout);
-	} else if (len>=strlen(SET_SILENT_TIMEOUT) && strncmp(buffer,SET_SILENT_TIMEOUT,strlen(SET_SILENT_TIMEOUT)) == 0) {
-		cli_incoming_set_timeout(buffer+strlen(SET_SILENT_TIMEOUT), len-strlen(SET_SILENT_TIMEOUT), m, replybuffer, &m->conf.silent_timeout);
-	} else if (len>=strlen(SET_FINAL_TIMEOUT) && strncmp(buffer,SET_FINAL_TIMEOUT,strlen(SET_FINAL_TIMEOUT)) == 0) {
-		cli_incoming_set_timeout(buffer+strlen(SET_FINAL_TIMEOUT), len-strlen(SET_FINAL_TIMEOUT), m, replybuffer, &m->conf.final_timeout);
-	} else {
-		streambuf_printf(replybuffer, "%s:%s\n", "Unknown 'set' command", buffer);
-	}
+	cli_handler_do(cli_set_handlers, instr, m, replybuffer);
 }
 
-static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
-   str termparam;
+static void cli_incoming_terminate(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
    struct call* c=0;
    struct call_monologue *ml;
    GList *i;
 
-   if (len<=1) {
+   if (str_shift(instr, 1)) {
        streambuf_printf(replybuffer, "%s\n", "More parameters required.");
        return;
    }
-   ++buffer; --len; // one space
-   str_init_len(&termparam,buffer,len);
 
 	// --- terminate all calls
-	if (!str_memcmp(&termparam,"all")) {
+	if (!str_memcmp(instr,"all")) {
 		// destroy own calls
 		destroy_all_own_calls(m);
 
@@ -589,7 +612,7 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 		return;
 
 	// --- terminate own calls
-	} else if (!str_memcmp(&termparam,"own")) {
+	} else if (!str_memcmp(instr,"own")) {
 		// destroy own calls
 		destroy_all_own_calls(m);
 
@@ -600,7 +623,7 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 		return;
 
 	// --- terminate foreign calls
-	} else if (!str_memcmp(&termparam,"foreign")) {
+	} else if (!str_memcmp(instr,"foreign")) {
 		// destroy foreign calls
 		destroy_all_foreign_calls(m);
 
@@ -612,10 +635,10 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 	}
 
    // --- terminate a dedicated call id
-   c = call_get(&termparam, m);
+   c = call_get(instr, m);
 
    if (!c) {
-       streambuf_printf(replybuffer, "\nCall Id not found (%s).\n\n",termparam.s);
+       streambuf_printf(replybuffer, "\nCall Id not found (%s).\n\n",instr->s);
        return;
    }
 
@@ -627,8 +650,8 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
 	   }
    }
 
-   streambuf_printf(replybuffer, "\nCall Id (%s) successfully terminated by operator.\n\n",termparam.s);
-   ilog(LOG_WARN, "Call Id (%s) successfully terminated by operator.",termparam.s);
+   streambuf_printf(replybuffer, "\nCall Id (%s) successfully terminated by operator.\n\n",instr->s);
+   ilog(LOG_WARN, "Call Id (%s) successfully terminated by operator.",instr->s);
 
    rwlock_unlock_w(&c->master_lock);
 
@@ -636,25 +659,21 @@ static void cli_incoming_terminate(char* buffer, int len, struct callmaster* m, 
    obj_put(c);
 }
 
-static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_ksadd(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	unsigned long uint_keyspace_db;
-	str str_keyspace_db;
 	char *endptr;
 
-	if (len<=1) {
+	if (str_shift(instr, 1)) {
 		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
 		return;
 	}
-	++buffer; --len; // one space
 
-	str_keyspace_db.s = buffer;
-	str_keyspace_db.len = len;
-	uint_keyspace_db = strtoul(str_keyspace_db.s, &endptr, 10);
+	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
-		streambuf_printf(replybuffer, "Fail adding keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
-	} else if (endptr == str_keyspace_db.s) {
-		streambuf_printf(replybuffer, "Fail adding keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
+		streambuf_printf(replybuffer, "Fail adding keyspace %s to redis notifications; errono=%d\n", instr->s, errno);
+	} else if (endptr == instr->s) {
+		streambuf_printf(replybuffer, "Fail adding keyspace %s to redis notifications; no digists found\n", instr->s);
 	} else {
 		rwlock_lock_w(&m->conf.config_lock);
 		if (!g_queue_find(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db))) {
@@ -668,27 +687,23 @@ static void cli_incoming_ksadd(char* buffer, int len, struct callmaster* m, stru
 	}
 }
 
-static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_ksrm(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	GList *l; 
 	unsigned long uint_keyspace_db;
-	str str_keyspace_db;
 	char *endptr;
 
-	if (len <= 1) {
+	if (str_shift(instr, 1)) {
 		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
 		return;
 	}
-	++buffer; --len; // one space
 
-	str_keyspace_db.s = buffer;
-	str_keyspace_db.len = len;
-	uint_keyspace_db = strtoul(str_keyspace_db.s, &endptr, 10);
+	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
 
 	rwlock_lock_w(&m->conf.config_lock);
 	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
-		streambuf_printf(replybuffer, "Fail removing keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
-        } else if (endptr == str_keyspace_db.s) {
-                streambuf_printf(replybuffer, "Fail removing keyspace %.*s to redis notifications; no digists found\n", str_keyspace_db.len, str_keyspace_db.s);
+		streambuf_printf(replybuffer, "Fail removing keyspace %s to redis notifications; errono=%d\n", instr->s, errno);
+        } else if (endptr == instr->s) {
+                streambuf_printf(replybuffer, "Fail removing keyspace %s to redis notifications; no digists found\n", instr->s);
 	} else if ((l = g_queue_find(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db)))) {
 		// remove this keyspace
 		redis_notify_subscribe_action(m, UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
@@ -707,7 +722,7 @@ static void cli_incoming_ksrm(char* buffer, int len, struct callmaster* m, struc
 
 }
 
-static void cli_incoming_kslist(char* buffer, int len, struct callmaster* m, struct streambuf *replybuffer) {
+static void cli_incoming_kslist(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	GList *l;
 
 	streambuf_printf(replybuffer,  "\nSubscribed-on keyspaces:\n");
@@ -728,8 +743,8 @@ static void cli_incoming(struct streambuf_stream *s) {
 static void cli_stream_readable(struct streambuf_stream *s) {
    struct cli *cli = (void *) s->parent;
    static const int MAXINPUT = 1024;
-   int inlen = 0;
    char *inbuf;
+   str instr;
 
    inbuf = streambuf_getline(s->inbuf);
    if (!inbuf) {
@@ -741,30 +756,9 @@ static void cli_stream_readable(struct streambuf_stream *s) {
    }
 
    ilog(LOG_INFO, "Got CLI command:%s",inbuf);
-   inlen = strlen(inbuf);
+   str_init(&instr, inbuf);
 
-   static const char* LIST = "list";
-   static const char* TERMINATE = "terminate";
-   static const char* SET = "set";
-   static const char* KSADD = "ksadd";
-   static const char* KSRM = "ksrm";
-   static const char* KSLIST = "kslist";
-
-   if (strncmp(inbuf,LIST,strlen(LIST)) == 0) {
-       cli_incoming_list(inbuf+strlen(LIST), inlen-strlen(LIST), cli->callmaster, s->outbuf);
-   } else  if (strncmp(inbuf,TERMINATE,strlen(TERMINATE)) == 0) {
-       cli_incoming_terminate(inbuf+strlen(TERMINATE), inlen-strlen(TERMINATE), cli->callmaster, s->outbuf);
-   } else  if (strncmp(inbuf,SET,strlen(SET)) == 0) {
-       cli_incoming_set(inbuf+strlen(SET), inlen-strlen(SET), cli->callmaster, s->outbuf);
-   } else  if (strncmp(inbuf,KSADD,strlen(KSADD)) == 0) {
-       cli_incoming_ksadd(inbuf+strlen(KSADD), inlen-strlen(KSADD), cli->callmaster, s->outbuf);
-   } else  if (strncmp(inbuf,KSRM,strlen(KSRM)) == 0) {
-       cli_incoming_ksrm(inbuf+strlen(KSRM), inlen-strlen(KSRM), cli->callmaster, s->outbuf);
-   } else  if (strncmp(inbuf,KSLIST,strlen(KSLIST)) == 0) {
-       cli_incoming_kslist(inbuf+strlen(KSLIST), inlen-strlen(KSLIST), cli->callmaster, s->outbuf);
-   } else {
-       streambuf_printf(s->outbuf, "%s:%s\n", "Unknown or incomplete command:", inbuf);
-   }
+   cli_handler_do(cli_top_handlers, &instr, cli->callmaster, s->outbuf);
 
    free(inbuf);
    streambuf_stream_shutdown(s);
