@@ -44,6 +44,7 @@ static void cli_incoming_set_maxsessions(str *instr, struct callmaster* m, struc
 static void cli_incoming_set_timeout(str *instr, struct callmaster* m, struct streambuf *replybuffer);
 static void cli_incoming_set_silenttimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer);
 static void cli_incoming_set_finaltimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_set_loglevel(str *instr, struct callmaster* m, struct streambuf *replybuffer);
 
 static void cli_incoming_list_numsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer);
 static void cli_incoming_list_maxsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer);
@@ -51,6 +52,7 @@ static void cli_incoming_list_maxopenfiles(str *instr, struct callmaster* m, str
 static void cli_incoming_list_totals(str *instr, struct callmaster* m, struct streambuf *replybuffer);
 static void cli_incoming_list_sessions(str *instr, struct callmaster* m, struct streambuf *replybuffer);
 static void cli_incoming_list_timeout(str *instr, struct callmaster* m, struct streambuf *replybuffer);
+static void cli_incoming_list_loglevel(str *instr, struct callmaster* m, struct streambuf *replybuffer);
 
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
@@ -67,6 +69,7 @@ static const cli_handler_t cli_set_handlers[] = {
 	{ "timeout",		cli_incoming_set_timeout	},
 	{ "silenttimeout",	cli_incoming_set_silenttimeout	},
 	{ "finaltimeout",	cli_incoming_set_finaltimeout	},
+	{ "loglevel",		cli_incoming_set_loglevel	},
 	{ NULL, },
 };
 static const cli_handler_t cli_list_handlers[] = {
@@ -76,6 +79,8 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "maxopenfiles",	cli_incoming_list_maxopenfiles	},
 	{ "maxsessions",	cli_incoming_list_maxsessions	},
 	{ "timeout",		cli_incoming_list_timeout	},
+	{ "loglevel",		cli_incoming_list_loglevel	},
+	{ NULL, },
 };
 
 
@@ -804,4 +809,26 @@ fail:
    // XXX streambuf_listener_close ...
    obj_put(c);
    return NULL;
+}
+
+static void cli_incoming_list_loglevel(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
+	streambuf_printf(replybuffer, "%i\n", g_atomic_int_get(&log_level));
+}
+static void cli_incoming_set_loglevel(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
+	int nl;
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
+
+	nl = atoi(instr->s);
+	if (nl < 1 || nl > 7) {
+		streambuf_printf(replybuffer, "Invalid log level '%s', must be number between 1 and 7\n",
+				instr->s);
+		return;
+	}
+
+	g_atomic_int_set(&log_level, nl);
+	streambuf_printf(replybuffer,  "Success setting loglevel to %i\n", nl);
 }
