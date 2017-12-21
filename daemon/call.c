@@ -1381,7 +1381,9 @@ static void __init_interface(struct call_media *media, const str *ifname, int nu
 		goto get;
 	if (!ifname || !ifname->s)
 		return;
-	if (!str_cmp_str(&media->logical_intf->name, ifname) || !str_cmp(ifname, ALGORITHM_ROUND_ROBIN_CALLS))
+	if (!str_cmp_str(&media->logical_intf->name, ifname))
+		return;
+	if (g_hash_table_lookup(media->logical_intf->rr_specs, ifname))
 		return;
 get:
 	media->logical_intf = get_logical_interface(ifname, media->desired_family, num_ports);
@@ -1471,33 +1473,6 @@ static void __ice_start(struct call_media *media) {
 	ice_agent_init(&media->ice_agent, media);
 }
 
-static int get_algorithm_num_ports(GQueue *streams, char *algorithm) {
-	unsigned int algorithm_ports = 0;
-	struct stream_params *sp;
-	GList *media_iter;
-
-	if (algorithm == NULL) {
-		return 0;
-	}
-
-	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
-		sp = media_iter->data;
-
-		if (!str_cmp(&sp->direction[0], algorithm)) {
-			algorithm_ports += sp->consecutive_ports;
-		}
-
-		if (!str_cmp(&sp->direction[1], algorithm)) {
-			algorithm_ports += sp->consecutive_ports;
-		}
-	}
-
-	// XXX only do *=2 for RTP streams?
-	algorithm_ports *= 2;
-
-	return algorithm_ports;
-}
-
 static void __endpoint_loop_protect(struct stream_params *sp, struct call_media *media) {
 	struct intf_address intf_addr;
 
@@ -1529,7 +1504,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	GList *media_iter, *ml_media, *other_ml_media;
 	struct call_media *media, *other_media;
 	unsigned int num_ports;
-	unsigned int rr_calls_ports;
 	struct call_monologue *monologue;
 	struct endpoint_map *em;
 	struct call *call;
@@ -1546,9 +1520,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 	call->last_signal = poller_now;
 	call->deleted = 0;
-
-	// get the total number of ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
-	rr_calls_ports = get_algorithm_num_ports(streams, ALGORITHM_ROUND_ROBIN_CALLS);
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
@@ -1639,9 +1610,15 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				media->desired_family = sp->desired_family;
 		}
 
+		/* determine number of consecutive ports needed locally.
+		 * XXX only do *=2 for RTP streams? */
+		num_ports = sp->consecutive_ports;
+		num_ports *= 2;
+
+
 		/* local interface selection */
-		__init_interface(media, &sp->direction[1], rr_calls_ports);
-		__init_interface(other_media, &sp->direction[0], rr_calls_ports);
+		__init_interface(media, &sp->direction[1], num_ports);
+		__init_interface(other_media, &sp->direction[0], num_ports);
 
 		if (media->logical_intf == NULL || other_media->logical_intf == NULL) {
 			goto error_intf;
@@ -1656,12 +1633,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* we now know what's being advertised by the other side */
 		MEDIA_SET(other_media, INITIALIZED);
-
-
-		/* determine number of consecutive ports needed locally.
-		 * XXX only do *=2 for RTP streams? */
-		num_ports = sp->consecutive_ports;
-		num_ports *= 2;
 
 
 		if (!sp->rtp_endpoint.port) {
@@ -1686,11 +1657,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint, flags);
 		if (!em) {
 			goto error_ports;
-		} else {
-			// update the ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
-			if (str_cmp(&sp->direction[1], ALGORITHM_ROUND_ROBIN_CALLS) == 0) {
-				rr_calls_ports -= num_ports;
-			}
 		}
 
 		__num_media_streams(media, num_ports);
@@ -1702,11 +1668,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			 * when the answer comes. */
 			if (__wildcard_endpoint_map(other_media, num_ports))
 				goto error_ports;
-
-			// update the ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
-			if (str_cmp(&sp->direction[0], ALGORITHM_ROUND_ROBIN_CALLS) == 0) {
-				rr_calls_ports -= num_ports;
-			}
 		}
 
 init:
