@@ -50,7 +50,7 @@ sub new {
 	$self->{mux} = IO::Multiplex->new();
 	$self->{mux}->set_callback_object($self);
 
-	$self->{media_port} = 2000;
+	$self->{media_port} = $args{media_port} // 2000;
 	$self->{timers} = [];
 	$self->{clients} = [];
 
@@ -149,11 +149,13 @@ sub _new {
 		($args{sockdomain} && $args{sockdomain} != $address->{sockdomain}) and next;
 
 		my $rtp = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
-			LocalHost => $address->{address}, LocalPort => $parent->{media_port}++)
-			or die($address->{address});
+			LocalHost => $address->{address}, LocalPort => $parent->{media_port})
+			or die("$address->{address}:$parent->{media_port}");
+		$parent->{media_port}++;
 		my $rtcp = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
-			LocalHost => $address->{address}, LocalPort => $parent->{media_port}++)
-			or die($address->{address});
+			LocalHost => $address->{address}, LocalPort => $parent->{media_port})
+			or die("$address->{address}:$parent->{media_port}");
+		$parent->{media_port}++;
 
 		push(@sockets, [$rtp, $rtcp]); # component 0 and 1
 		push(@rtp, $rtp);
@@ -271,7 +273,7 @@ sub _default_req_args {
 
 	my $req = { command => $cmd, 'call-id' => $self->{parent}->{callid} };
 
-	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol address-family label)) {
+	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol address-family label direction)) {
 		$args{$cp} and $req->{$cp} = $args{$cp};
 	}
 	for my $cp (@{$args{flags}}) {
@@ -298,6 +300,7 @@ sub _offered {
 	my ($self, $req) = @_;
 
 	my $sdp_body = $req->{sdp} or die;
+	$self->{remote_sdp_raw} = $sdp_body;
 	$self->{remote_sdp} = NGCP::Rtpclient::SDP->decode($sdp_body);
 	# XXX validate SDP
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
@@ -323,6 +326,7 @@ sub _answered {
 	my ($self, $req) = @_;
 
 	my $sdp_body = $req->{sdp} or die;
+	$self->{remote_sdp_raw} = $sdp_body;
 	$self->{remote_sdp} = NGCP::Rtpclient::SDP->decode($sdp_body);
 	# XXX validate SDP
 	@{$self->{remote_sdp}->{medias}} == 1 or die;

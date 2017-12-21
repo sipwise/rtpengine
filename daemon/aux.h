@@ -60,9 +60,6 @@ G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
 #define NUM_THREAD_BUFS		8
 
 
-#define ALGORITHM_DEFAULT		""
-#define ALGORITHM_ROUND_ROBIN_CALLS	"round-robin-calls"
-
 /*** GLOBALS ***/
 
 extern __thread struct timeval g_now;

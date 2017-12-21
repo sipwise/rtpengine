@@ -48,6 +48,12 @@ struct streamhandler {
 	const struct streamhandler_io	*in;
 	const struct streamhandler_io	*out;
 };
+struct intf_rr {
+	struct logical_intf hash_key;
+	mutex_t lock;
+	GQueue logical_intfs;
+	struct logical_intf *singular; // set iff only one is present in the list - no lock needed
+};
 
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
@@ -72,6 +78,9 @@ static int call_avpf2avp_rtcp(str *s, struct packet_stream *, struct stream_fd *
 static int call_savpf2avp_rtcp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
 		const struct timeval *, struct ssrc_ctx *);
 //static int call_savpf2savp_rtcp(str *s, struct packet_stream *);
+
+
+static struct logical_intf *__get_logical_interface(const str *name, sockfamily_t *fam);
 
 
 
@@ -256,13 +265,12 @@ static const struct rtpengine_srtp __res_null = {
 static GQueue *__interface_list_for_family(sockfamily_t *fam);
 
 
-static GHashTable *__logical_intf_name_family_hash;
-static GHashTable *__intf_spec_addr_type_hash;
-static GHashTable *__local_intf_addr_type_hash; // hash of lists
+static GHashTable *__logical_intf_name_family_hash; // name + family -> struct logical_intf
+static GHashTable *__logical_intf_name_family_rr_hash; // name + family -> struct intf_rr
+static GHashTable *__intf_spec_addr_type_hash; // addr + type -> struct intf_spec
+static GHashTable *__local_intf_addr_type_hash; // addr + type -> GList of struct local_intf
 static GQueue __preferred_lists_for_family[__SF_LAST];
 
-static __thread unsigned int selection_index = 0;
-static __thread unsigned int selection_count = 0;
 
 
 /* checks for free no_ports on a local interface */
@@ -272,7 +280,7 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 		return 0;
 	}
 
-	if (num_ports > loc->spec->port_pool.free_ports) {
+	if (num_ports > g_atomic_int_get(&loc->spec->port_pool.free_ports)) {
 		ilog(LOG_ERR, "Didn't found %d ports available for %.*s/%s",
 			num_ports, loc->logical->name.len, loc->logical->name.s,
 			sockaddr_print_buf(&loc->spec->local_address.addr));
@@ -332,64 +340,49 @@ static int has_free_ports_log_all(struct logical_intf *log, unsigned int num_por
 }
 
 /* run round-robin-calls algorithm */
-static struct logical_intf* run_round_robin_calls(GQueue *q, unsigned int num_ports) {
+static struct logical_intf* run_round_robin_calls(struct intf_rr *rr, unsigned int num_ports) {
 	struct logical_intf *log = NULL;
-	volatile unsigned int nr_tries = 0;
-	unsigned int nr_logs = 0;
 
-	nr_logs = g_queue_get_length(q);
+	mutex_lock(&rr->lock);
 
-select_log:
-	// choose the next logical interface
-	log = g_queue_peek_nth(q, selection_index);
+	unsigned int max_tries = rr->logical_intfs.length;
+	unsigned int num_tries = 0;
+
+	while (num_tries++ < max_tries) {
+		log = g_queue_pop_head(&rr->logical_intfs);
+		g_queue_push_tail(&rr->logical_intfs, log);
+
+		mutex_unlock(&rr->lock);
+
+		__C_DBG("Trying %d ports on logical interface " STR_FORMAT, num_ports, STR_FMT(&log->name));
+
+		if (has_free_ports_log_all(log, num_ports))
+			goto done;
+		log = NULL;
+
+		mutex_lock(&rr->lock);
+	}
+
+	mutex_unlock(&rr->lock);
+
+done:
 	if (!log) {
-		if (selection_index == 0)
-			return NULL;
-		selection_index = 0;
-		goto select_log;
+		ilog(LOG_ERR, "No logical interface with free ports found; fallback to default behaviour");
+		return NULL;
 	}
-	__C_DBG("Trying %d ports on logical interface %.*s", num_ports, log->name.len, log->name.s);
-
-	// test for free ports for the logical interface
-	if(!has_free_ports_log_all(log, num_ports)) {
-		// count the logical interfaces tried
-		nr_tries++;
-
-		// the logical interface selected has no ports available, try another one
-		selection_index ++;
-		selection_index = selection_index % nr_logs;
-
-		// all the logical interfaces have no ports available
-		if (nr_tries == nr_logs) {
-			ilog(LOG_ERR, "No logical interface with free ports found; fallback to default behaviour");
-			return NULL;
-		}
-
-		goto select_log;
-	}
-
-	__C_DBG("Round Robin Calls algorithm found logical %.*s; count=%u index=%u", log->name.len, log->name.s, selection_count, selection_index);
-
-	// 1 stream	=> 2 x get_logical_interface calls at offer
-	// 2 streams	=> 4 x get_logical_interface calls at offer
-	selection_count ++;
-	if (selection_count % (num_ports / 2) == 0) {
-		selection_count = 0;
-		selection_index ++;
-		selection_index = selection_index % nr_logs;
-	}
-
+	__C_DBG("Round Robin Calls algorithm found logical " STR_FORMAT, STR_FMT(&log->name));
 	return log;
 }
 
+// 'fam' may only be NULL if 'name' is also NULL
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, int num_ports) {
-	struct logical_intf d, *log = NULL;
+	struct logical_intf *log = NULL;
 
 	__C_DBG("Get logical interface for %d ports", num_ports);
 
-	if (G_UNLIKELY(!name || !name->s ||
-	   str_cmp(name, ALGORITHM_ROUND_ROBIN_CALLS) == 0)) {
-
+	if (G_UNLIKELY(!name || !name->s)) {
+		// trivial case: no interface given. just pick one suitable for the address family.
+		// always used for legacy TCP and UDP protocols.
 		GQueue *q;
 		if (fam)
 			q = __interface_list_for_family(fam);
@@ -404,35 +397,46 @@ got_some:
 			;
 		}
 
-		// round-robin-calls behaviour - return next interface with free ports
-		if (name && name->s && str_cmp(name, ALGORITHM_ROUND_ROBIN_CALLS) == 0 && num_ports > 0) {
-			log = run_round_robin_calls(q, num_ports);
-			if (log) {
-				__C_DBG("Choose logical interface %.*s because of direction %.*s",
-					log->name.len, log->name.s,
-					name->len, name->s);
-			} else {
-				__C_DBG("Choose logical interface NULL because of direction %.*s",
-					name->len, name->s);
-			}
-			return log;
-		}
-
-		// default behaviour - return first logical interface
 		return q->head ? q->head->data : NULL;
 	}
+
+	// check if round-robin is desired
+	struct logical_intf key;
+	key.name = *name;
+	key.preferred_family = fam;
+	struct intf_rr *rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
+	if (!rr)
+		return __get_logical_interface(name, fam);
+	if (rr->singular) {
+		__C_DBG("Returning non-RR logical interface '" STR_FORMAT "' based on direction '" \
+					STR_FORMAT "'",
+				STR_FMT(&rr->singular->name),
+				STR_FMT(name));
+		return rr->singular;
+	}
+
+	__C_DBG("Running RR interface selection for direction '" STR_FORMAT "'",
+			STR_FMT(name));
+
+	log = run_round_robin_calls(rr, num_ports);
+	if (log)
+		return log;
+	return __get_logical_interface(name, fam);
+}
+static struct logical_intf *__get_logical_interface(const str *name, sockfamily_t *fam) {
+	struct logical_intf d, *log = NULL;
 
 	d.name = *name;
 	d.preferred_family = fam;
 
 	log = g_hash_table_lookup(__logical_intf_name_family_hash, &d);
 	if (log) {
-		__C_DBG("Choose logical interface %.*s because of direction %.*s",
-			log->name.len, log->name.s,
-			name->len, name->s);
+		__C_DBG("Choose logical interface " STR_FORMAT " because of direction " STR_FORMAT,
+			STR_FMT(&log->name),
+			STR_FMT(name));
 	} else {
-		__C_DBG("Choose logical interface NULL because of direction %.*s",
-			name->len, name->s);
+		__C_DBG("Choose logical interface NULL because of direction " STR_FORMAT,
+			STR_FMT(name));
 	}
 
 	return log;
@@ -482,27 +486,52 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 }
 
 
+// called during single-threaded startup only
+static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily_t *fam) {
+	struct logical_intf key;
+	key.name = *name_base;
+	key.preferred_family = fam;
+	struct intf_rr *rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
+	if (!rr) {
+		rr = g_slice_alloc0(sizeof(*rr));
+		rr->hash_key = key;
+		mutex_init(&rr->lock);
+		g_hash_table_insert(__logical_intf_name_family_rr_hash, &rr->hash_key, rr);
+	}
+	g_queue_push_tail(&rr->logical_intfs, lif);
+	rr->singular = (rr->logical_intfs.length == 1) ? lif : NULL;
+	g_hash_table_insert(lif->rr_specs, &rr->hash_key.name, lif);
+}
+static void __add_intf_rr(struct logical_intf *lif, str *name_base, sockfamily_t *fam) {
+	__add_intf_rr_1(lif, name_base, fam);
+	static str legacy_rr_str = STR_CONST_INIT("round-robin-calls");
+	__add_intf_rr_1(lif, &legacy_rr_str, fam);
+}
 static GQueue *__interface_list_for_family(sockfamily_t *fam) {
 	return &__preferred_lists_for_family[fam->idx];
 }
+// called during single-threaded startup only
 static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 	struct logical_intf *lif;
 	GQueue *q;
 	struct local_intf *ifc;
 	struct intf_spec *spec;
 
-	lif = get_logical_interface(&ifa->name, fam, 0);
+	lif = __get_logical_interface(&ifa->name, fam);
 
 	if (!lif) {
 		lif = g_slice_alloc0(sizeof(*lif));
 		lif->name = ifa->name;
 		lif->preferred_family = fam;
 		lif->addr_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
+		lif->rr_specs = g_hash_table_new(str_hash, str_equal);
 		g_hash_table_insert(__logical_intf_name_family_hash, lif, lif);
 		if (ifa->local_address.addr.family == fam) {
 			q = __interface_list_for_family(fam);
 			g_queue_push_tail(q, lif);
 		}
+
+		__add_intf_rr(lif, &ifa->name_base, fam);
 	}
 
 	spec = g_hash_table_lookup(__intf_spec_addr_type_hash, &ifa->local_address);
@@ -527,6 +556,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 	__insert_local_intf_addr_type(&ifc->advertised_address, ifc);
 }
 
+// called during single-threaded startup only
 void interfaces_init(GQueue *interfaces) {
 	int i;
 	GList *l;
@@ -535,6 +565,7 @@ void interfaces_init(GQueue *interfaces) {
 
 	/* init everything */
 	__logical_intf_name_family_hash = g_hash_table_new(__name_family_hash, __name_family_eq);
+	__logical_intf_name_family_rr_hash = g_hash_table_new(__name_family_hash, __name_family_eq);
 	__intf_spec_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 	__local_intf_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 
