@@ -196,6 +196,10 @@ static struct intf_config *if_addr_parse(char *s) {
 	ifa->port_min = port_min;
 	ifa->port_max = port_max;
 
+	// handle "base:suffix" separation for round-robin selection
+	ifa->name_rr_spec = ifa->name;
+	str_token(&ifa->name_base, &ifa->name_rr_spec, ':'); // sets name_rr_spec to null string if no ':' found
+
 	return ifa;
 }
 

@@ -228,46 +228,7 @@ The options are described in more detail below.
 * -i, --interface
 
 	Specifies a local network interface for RTP. At least one must be given, but multiple can be specified.
-	The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address or an IPv6 address.
-
-	The second IP address after the exclamation point is optional and can be used if the address to advertise
-	in outgoing SDP bodies should be different from the actual local address. This can be useful in certain
-	cases, such as your SIP proxy being behind NAT. For example, `--interface=10.65.76.2!192.0.2.4` means
-	that 10.65.76.2 is the actual local address on the server, but outgoing SDP bodies should advertise
-	192.0.2.4 as the address that endpoints should talk to. Note that you may have to escape the exlamation
-	point from your shell, e.g. using `\!`.
-
-	Giving an interface a name (separated from the address by a slash) is optional; if omitted, the name
-	`default` is used. Names are useful to create logical interfaces which consist of one or more local
-	addresses. It is then possible to instruct *rtpengine* to use particular interfaces when processing
-	an SDP message, to use different local addresses when talking to different endpoints. The most common use
-	case for this is to bridge between one or more private IP networks and the public internet.
-
-	For example, if clients coming from a private IP network must communicate their RTP with the local
-	address 10.35.2.75, while clients coming from the public internet must communicate with your other
-	local address 192.0.2.67, you could create one logical interface `pub` and a second one `priv` by
-	using `--interface=pub/192.0.2.67 --interface=priv/10.35.2.75`. You can then use the `direction`
-	option to tell *rtpengine* which local address to use for which endpoints (either `pub` or `priv`).
-
-	If multiple logical interfaces are configured, but the `direction` option isn't given in a
-	particular call, then the first interface given on the command line will be used.
-
-	It is possible to specify multiple addresses for the same logical interface (the same name). Most
-	commonly this would be one IPv4 addrsess and one IPv6 address, for example:
-	`--interface=192.168.63.1 --interface=fe80::800:27ff:fe00:0`. In this example, no interface name
-	is given, therefore both addresses will be added to a logical interface named `default`. You would use
-	the `address family` option to tell *rtpengine* which address to use in a particular case.
-
-	It is also possible to have multiple addresses of the same family in a logical network interface. In
-	this case, the first address (of a particular family) given for an interface will be the primary address
-	used by *rtpengine* for most purposes. Any additional addresses will be advertised as additional ICE
-	candidates with increasingly lower priority. This is useful on multi-homed systems and allows endpoints
-	to choose the best possible path to reach the RTP proxy. If ICE is not being used, then additional
-	addresses will go unused.
-
-	If you're not using the NG protocol but rather the legacy UDP protocol used by the *rtpproxy* module,
-	the interfaces must be named `internal` and `external` corresponding to the `i` and `e` flags if you
-	wish to use network bridging in this mode.
+	See the section *Interfaces configuration* just below for details.
 
 * -l, --listen-tcp, -u, --listen-udp, -n, --listen-ng
 
@@ -590,6 +551,82 @@ A typical command line (enabling both UDP and NG protocols) thus may look like:
 	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
 	--listen-udp=127.0.0.1:22222 --listen-ng=127.0.0.1:2223 --tos=184 \
 	--pidfile=/var/run/rtpengine.pid
+
+
+Interfaces configuration
+------------------------
+
+The command-line options `-i` or `--interface=`, or equivalently the `interface=` config file option,
+specifie a local network interfaces for RTP. At least one must be given, but multiple can be specified.
+The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address or an IPv6 address.
+
+To configure multiple interfaces using the command-line options, simply present multiple `-i` or
+`--interface=` options. When using the config file, only use a single `interface=` line, but specify
+multiple values separated by semicolons (e.g. `interface = internal/12.23.34.45;external/23.34.45.54`).
+
+The second IP address after the exclamation point is optional and can be used if the address to advertise
+in outgoing SDP bodies should be different from the actual local address. This can be useful in certain
+cases, such as your SIP proxy being behind NAT. For example, `--interface=10.65.76.2!192.0.2.4` means
+that 10.65.76.2 is the actual local address on the server, but outgoing SDP bodies should advertise
+192.0.2.4 as the address that endpoints should talk to. Note that you may have to escape the exlamation
+point from your shell when using command-line options, e.g. using `\!`.
+
+Giving an interface a name (separated from the address by a slash) is optional; if omitted, the name
+`default` is used. Names are useful to create logical interfaces which consist of one or more local
+addresses. It is then possible to instruct *rtpengine* to use particular interfaces when processing
+an SDP message, to use different local addresses when talking to different endpoints. The most common use
+case for this is to bridge between one or more private IP networks and the public internet.
+
+For example, if clients coming from a private IP network must communicate their RTP with the local
+address 10.35.2.75, while clients coming from the public internet must communicate with your other
+local address 192.0.2.67, you could create one logical interface `pub` and a second one `priv` by
+using `--interface=pub/192.0.2.67 --interface=priv/10.35.2.75`. You can then use the `direction`
+option to tell *rtpengine* which local address to use for which endpoints (either `pub` or `priv`).
+
+If multiple logical interfaces are configured, but the `direction` option isn't given in a
+particular call, then the first interface given on the command line will be used.
+
+It is possible to specify multiple addresses for the same logical interface (the same name). Most
+commonly this would be one IPv4 addrsess and one IPv6 address, for example:
+`--interface=192.168.63.1 --interface=fe80::800:27ff:fe00:0`. In this example, no interface name
+is given, therefore both addresses will be added to a logical interface named `default`. You would use
+the `address family` option to tell *rtpengine* which address to use in a particular case.
+
+It is also possible to have multiple addresses of the same family in a logical network interface. In
+this case, the first address (of a particular family) given for an interface will be the primary address
+used by *rtpengine* for most purposes. Any additional addresses will be advertised as additional ICE
+candidates with increasingly lower priority. This is useful on multi-homed systems and allows endpoints
+to choose the best possible path to reach the RTP proxy. If ICE is not being used, then additional
+addresses will go unused, even though ports would still get allocated on those interfaces.
+
+Another option is to give interface names in the format `BASE:SUFFIX`. This allows interfaces to be
+used in a round-robin fashion, useful for load-balancing the port ranges of multiple interfaces.
+For example, consider the following configuration:
+`--interface=pub:1/192.0.2.67 --interface=pub:2/10.35.2.75`. These two interfaces can still be
+referenced directly by name (e.g. `direction=pub:1`), but it is now also possible to reference only
+the base name (i.e. `direction=pub`). If the base name is used, one of the two interfaces is selected
+in a round-robin fashion, and only if the interface actually has enough open ports available. This
+makes it possible to effectively increase the number of available media ports across multiple IP
+addresses. There is no limit on how many interfaces can share the same base name.
+
+It is possible to combine the `BASE:SUFFIX` notation with specifying multiple addresses for the same
+interface name. An advanced example could be (using config file notation, and omitting actual
+network addresses):
+
+```
+interface = pub:1/IPv4 pub:1/IPv4 pub:1/IPv6 pub:2/IPv4 pub:2/IPv6 pub:3/IPv6 pub:4/IPv4
+```
+
+In this example, when `direction=pub` is IPv4 is needed as a primary address, either `pub:1`, `pub:2`,
+or `pub:4` might be selected. When `pub:1` is selected, one IPv4 and one IPv6 address will be used
+as additional ICE alternatives. For `pub:2`, only one IPv6 is used as ICE alternative, and for `pub:4`
+no alternatives would be used. When IPv6 is needed as a primary address, either `pub:1`, `pub:2`, or
+`pub:3` might be selected. If at any given time not enough ports are available on any interface,
+it will not be selected by the round-robin algorithm.
+
+If you're not using the NG protocol but rather the legacy UDP protocol used by the *rtpproxy* module,
+the interfaces must be named `internal` and `external` corresponding to the `i` and `e` flags if you
+wish to use network bridging in this mode.
 
 In-kernel Packet Forwarding
 ---------------------------

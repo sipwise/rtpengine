@@ -21,7 +21,8 @@ struct logical_intf {
 	str				name;
 	sockfamily_t			*preferred_family;
 	GQueue				list; /* struct local_intf */
-	GHashTable			*addr_hash;
+	GHashTable			*addr_hash; // addr + type -> struct local_intf XXX obsolete?
+	GHashTable			*rr_specs;
 };
 struct port_pool {
 	BIT_ARRAY_DECLARE(ports_used, 0x10000);
@@ -35,7 +36,9 @@ struct intf_address {
 	sockaddr_t			addr;
 };
 struct intf_config {
-	str				name;
+	str				name; // full name (before the '/' separator in config)
+	str				name_base; // if name is "foo:bar", this is "foo"
+	str				name_rr_spec; // if name is "foo:bar", this is "bar"
 	struct intf_address		local_address;
 	struct intf_address		advertised_address;
 	unsigned int			port_min, port_max;
