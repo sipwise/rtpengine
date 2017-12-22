@@ -214,6 +214,24 @@ The options are described in more detail below.
 	If called with this option, the *rtpengine* daemon will simply print its version number
 	and exit.
 
+* --config-file
+
+	Specifies the location of a config file to be used. The config file is an *.ini* style config file,
+	with all command-line options listed here also being valid options in the config file. For all
+	command-line options, the long name version instead of the single-character version
+	(e.g. `table` instead of just `t`) must be used in the config file. For boolean options that are
+	either present or not (e.g. `no-fallback`), a boolean value (either `true` or `false`) must be
+	used in the config file. If an option is given in both the config file and at the command line,
+	the command-line value overrides the value from the config file. Options that can be specified
+	multiple times on the command line must be given only once in the config file, with the multiple
+	values separated by semicolons (see section *Interfaces configuration* below for an example).
+
+* --config-section
+
+	Specifies the *.ini* style section to be used in the config file. Multiple sections can be
+	present in the config file, but only one can be used at a time. The default value is `rtpengine`.
+	A config file section is started in the config file using square brackets (e.g. `[rtpengine]`).
+
 * -t, --table
 
 	Takes an integer argument and specifies which kernel table to use for in-kernel packet forwarding. See
