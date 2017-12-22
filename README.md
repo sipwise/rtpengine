@@ -575,7 +575,7 @@ Interfaces configuration
 ------------------------
 
 The command-line options `-i` or `--interface=`, or equivalently the `interface=` config file option,
-specifie a local network interfaces for RTP. At least one must be given, but multiple can be specified.
+specify local network interfaces for RTP. At least one must be given, but multiple can be specified.
 The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address or an IPv6 address.
 
 To configure multiple interfaces using the command-line options, simply present multiple `-i` or
@@ -631,9 +631,7 @@ It is possible to combine the `BASE:SUFFIX` notation with specifying multiple ad
 interface name. An advanced example could be (using config file notation, and omitting actual
 network addresses):
 
-```
-interface = pub:1/IPv4 pub:1/IPv4 pub:1/IPv6 pub:2/IPv4 pub:2/IPv6 pub:3/IPv6 pub:4/IPv4
-```
+	interface = pub:1/IPv4 pub:1/IPv4 pub:1/IPv6 pub:2/IPv4 pub:2/IPv6 pub:3/IPv6 pub:4/IPv4
 
 In this example, when `direction=pub` is IPv4 is needed as a primary address, either `pub:1`, `pub:2`,
 or `pub:4` might be selected. When `pub:1` is selected, one IPv4 and one IPv6 address will be used
@@ -676,7 +674,8 @@ actually add the required rule to the tables.
 In short, the prerequisites for in-kernel packet forwarding are:
 
 1. The `xt_RTPENGINE` kernel module must be loaded.
-2. An `iptables` and/or `ip6tables` rule must be present in the `INPUT` chain to send packets
+2. An `iptables` and/or `ip6tables` rule must be present in the `INPUT` chain (or in a custom user-defined
+   chain which is then called by the `INPUT` chain) to send packets
    to the `RTPENGINE` target. This rule should be limited to UDP packets, but otherwise there
    are no restrictions.
 3. The `rtpengine` daemon must be running.
@@ -765,6 +764,15 @@ like `--dport 30000:40000`. If the kernel module receives a packet that it doesn
 to an active media stream, it will simply ignore it and hand it back to the network stack for normal
 processing.
 
+The `RTPENGINE` rule need not necessarily be present directly in the `INPUT` chain. It can also be in a
+user-defined chain which is then referenced by the `INPUT` chain, like so:
+
+	iptables -N rtpengine
+	iptables -I INPUT -p udp -j rtpengine
+	iptables -I rtpengine -j RTPENGINE --id 42
+
+This can be a useful setup if certain firewall scripts are being used.
+
 Summary
 -------
 
@@ -780,7 +788,7 @@ A typical start-up sequence including in-kernel forwarding might look like this:
 	echo 'del 0' > /proc/rtpengine/control
 
 	# start daemon
-	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
+	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
 	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine.pid --no-fallback
 
 Running Multiple Instances
@@ -802,9 +810,9 @@ then the start-up sequence might look like this:
 	echo 'del 0' > /proc/rtpengine/control
 	echo 'del 1' > /proc/rtpengine/control
 
-	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 \
+	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 \
 	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine-10.pid --no-fallback
-	/usr/sbin/rtpengine --table=1 --ip=192.168.65.73 \
+	/usr/sbin/rtpengine --table=1 --interface=192.168.65.73 \
 	--listen-ng=127.0.0.1:2224 --tos=184 --pidfile=/var/run/rtpengine-192.pid --no-fallback
 
 With this setup, the SIP proxy can choose which instance of *rtpengine* to talk to and thus which local
@@ -1005,24 +1013,12 @@ Optionally included keys are:
 	However, this mechanism for selecting the address family is now obsolete
 	and the `address family` dictionary key should be used instead.
 
-	A direction keyword is *round-robin-calls*. If this is received, a round robin algorithm runs for
-	choosing the logical interface for the current stream(e.g. audio, video).
-	The algorithm checks that all local interfaces of the tried logical interface have free ports for
-	call streams. If a logical interface fails the check, the next one is tried. If there is no logical
-	interface found with this property, it fallbacks to the default behaviour (e.g. return first logical
-	interface in --interface list even if no free ports are available). The attribute is ignored for
-	answers() because the logical interface was already selected at offers().
-	Naming an interface "round-robin-calls" and trying to select it using direction will
-	__run the above algorithm__!
-
-	Round robin for both legs of the stream:
-		{ ..., "direction": [ "round-robin-calls", "round-robin-calls" ], ... }
-
-	Round robin for first leg and and select "pub" for the second leg of the stream:
-		{ ..., "direction": [ "round-robin-calls", "pub" ], ... }
-
-	Round robin for first leg and and default behaviour for the second leg of the stream:
-		{ ..., "direction": [ "round-robin-calls" ], ... }
+	For legacy support, the special direction keyword `round-robin-calls` can be used to invoke the
+	round-robin interface selection algorithm described in the section *Interfaces configuration*.
+	If this special keyword is used, the round-robin selection will run over all configured
+	interfaces, whether or not they are configured using the `BASE:SUFFIX` interface name notation.
+	This special keyword is provided only for legacy support and should be considered obsolete.
+	It will be removed in future versions.
 
 * `received from`
 
