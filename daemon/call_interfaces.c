@@ -483,8 +483,7 @@ INLINE void str_hyphenate(bencode_item_t *it) {
 	if (!bencode_get_str(it, &s))
 		return;
 	while (s.len) {
-		str_chr_str(&s, &s, ' ');
-		if (!s.s || !s.len)
+		if (!str_chr_str(&s, &s, ' '))
 			break;
 		*s.s = '-';
 		str_shift(&s, 1);

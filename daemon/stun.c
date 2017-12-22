@@ -437,8 +437,7 @@ static int check_auth(str *msg, struct stun_attrs *attrs, struct call_media *med
 	if (attrs->username.s) {
 		/* request */
 		ufrag[dst] = attrs->username;
-		str_chr_str(&ufrag[src], &ufrag[dst], ':');
-		if (!ufrag[src].s)
+		if (!str_chr_str(&ufrag[src], &ufrag[dst], ':'))
 			return -1;
 		ufrag[dst].len -= ufrag[src].len;
 		str_shift(&ufrag[src], 1);

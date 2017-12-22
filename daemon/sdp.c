@@ -391,8 +391,7 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 		return -1;
 
 	s->attr = s->attr_str;
-	str_chr_str(&s->value, &s->attr, ':');
-	if (s->value.s) {
+	if (str_chr_str(&s->value, &s->attr, ':')) {
 		s->attr.len = s->value.s - s->attr.s;
 		str_shift(&s->value, 1);
 	}
@@ -471,8 +470,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 		if (c->lifetime_str.s[0] != '|')
 			goto error;
 		str_shift(&c->lifetime_str, 1);
-		str_chr_str(&c->mki_str, &c->lifetime_str, '|');
-		if (!c->mki_str.s) {
+		if (!str_chr_str(&c->mki_str, &c->lifetime_str, '|')) {
 			if (str_chr(&c->lifetime_str, ':')) {
 				c->mki_str = c->lifetime_str;
 				c->lifetime_str = STR_NULL;
@@ -507,9 +505,8 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	}
 
 	if (c->mki_str.s) {
-		str_chr_str(&s, &c->mki_str, ':');
 		err = "invalid MKI specification";
-		if (!s.s)
+		if (!str_chr_str(&s, &c->mki_str, ':'))
 			goto error;
 		u32 = htonl(strtoul(c->mki_str.s, NULL, 10));
 		c->mki_len = strtoul(s.s + 1, NULL, 10);
@@ -723,16 +720,14 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	if (ep == a->payload_type_str.s)
 		return -1;
 
-	str_chr_str(&a->clock_rate_str, &a->encoding_str, '/');
-	if (!a->clock_rate_str.s)
+	if (!str_chr_str(&a->clock_rate_str, &a->encoding_str, '/'))
 		return -1;
 
 	pt->encoding = a->encoding_str;
 	pt->encoding.len -= a->clock_rate_str.len;
 	str_shift(&a->clock_rate_str, 1);
 
-	str_chr_str(&pt->encoding_parameters, &a->clock_rate_str, '/');
-	if (pt->encoding_parameters.s) {
+	if (str_chr_str(&pt->encoding_parameters, &a->clock_rate_str, '/')) {
 		a->clock_rate_str.len -= pt->encoding_parameters.len;
 		str_shift(&pt->encoding_parameters, 1);
 	}
@@ -751,15 +746,13 @@ static int parse_attribute(struct sdp_attribute *a) {
 	int ret;
 
 	a->name = a->line_value;
-	str_chr_str(&a->value, &a->name, ':');
-	if (a->value.s) {
+	if (str_chr_str(&a->value, &a->name, ':')) {
 		a->name.len -= a->value.len;
 		a->value.s++;
 		a->value.len--;
 
 		a->key = a->name;
-		str_chr_str(&a->param, &a->value, ' ');
-		if (a->param.s) {
+		if (str_chr_str(&a->param, &a->value, ' ')) {
 			a->key.len += 1 +
 				(a->value.len - a->param.len);
 

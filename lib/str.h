@@ -35,7 +35,7 @@ INLINE char *str_end(const str *s);
 /* returns pointer to first occurrence of "c" in s */
 INLINE char *str_chr(const str *s, int c);
 /* sets "out" to point to first occurrence of c in s. adjusts len also */
-INLINE str *str_chr_str(str *out, const str *s, int c);
+INLINE char *str_chr_str(str *out, const str *s, int c);
 /* compares a str to a regular string */
 INLINE int str_cmp(const str *a, const char *b);
 /* compares a str to a non-null-terminated string */
@@ -132,16 +132,16 @@ INLINE int str_shift_cmp(str *s, const char *t) {
 INLINE char *str_chr(const str *s, int c) {
 	return memchr(s->s, c, s->len);
 }
-INLINE str *str_chr_str(str *out, const str *s, int c) {
+INLINE char *str_chr_str(str *out, const str *s, int c) {
 	char *p;
 	p = str_chr(s, c);
 	if (!p) {
 		*out = STR_NULL;
-		return out;
+		return NULL;
 	}
 	*out = *s;
 	str_shift(out, p - out->s);
-	return out;
+	return out->s;
 }
 INLINE int str_cmp_len(const str *a, const char *b, int l) {
 	if (a->len < l)
