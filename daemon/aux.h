@@ -183,7 +183,8 @@ INLINE int strmemcmp(const void *mem, int len, const char *str) {
 }
 
 INLINE void random_string(unsigned char *buf, int len) {
-	assert(RAND_bytes(buf, len) == 1);
+	int ret = RAND_bytes(buf, len);
+	assert(ret == 1);
 }
 INLINE long unsigned int ssl_random() {
 	long unsigned int ret;

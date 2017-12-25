@@ -126,7 +126,8 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		return;
 	}
 
-	assert( bencode_buffer_init(&bencbuf) == 0 );
+	int ret = bencode_buffer_init(&bencbuf);
+	assert(ret == 0);
 	resp = bencode_dictionary(&bencbuf);
 	assert(resp != NULL);
 
