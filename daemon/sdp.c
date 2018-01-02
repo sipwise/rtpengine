@@ -1991,18 +1991,28 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 							|| (flags->opmode == OP_OFFER
 								&& flags->rtcp_mux_require)))
 				{
-					chopper_append_c(chop, "a=rtcp:");
-					chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
-					chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					if (!flags->no_rtcp_attr) {
+						chopper_append_c(chop, "a=rtcp:");
+						chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
+						chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					}
+					else
+						chopper_append_c(chop, "a=rtcp-mux\r\n");
 					ps_rtcp = NULL;
 				}
 				else if (ps_rtcp && !flags->ice_force_relay) {
-					chopper_append_c(chop, "a=rtcp:");
-					chopper_append_printf(chop, "%u", ps_rtcp->selected_sfd->socket.local.port);
-					if (!MEDIA_ISSET(call_media, RTCP_MUX))
-						chopper_append_c(chop, "\r\n");
-					else
-						chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					if (!flags->no_rtcp_attr) {
+						chopper_append_c(chop, "a=rtcp:");
+						chopper_append_printf(chop, "%u", ps_rtcp->selected_sfd->socket.local.port);
+						if (!MEDIA_ISSET(call_media, RTCP_MUX))
+							chopper_append_c(chop, "\r\n");
+						else
+							chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					}
+					else {
+						if (MEDIA_ISSET(call_media, RTCP_MUX))
+							chopper_append_c(chop, "a=rtcp-mux\r\n");
+					}
 				}
 			}
 			else

@@ -977,6 +977,10 @@ Optionally included keys are:
 
 		Identical to setting `record call` to `on` (see below).
 
+	- `no rtcp attribute`
+
+		Omit the `a=rtcp` line from the outgoing SDP.
+
 
 * `replace`
 
