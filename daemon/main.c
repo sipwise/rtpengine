@@ -36,6 +36,7 @@
 #include "auxlib.h"
 #include "rtcp.h"
 #include "iptables.h"
+#include "statistics.h"
 
 
 
@@ -498,6 +499,7 @@ static void init_everything() {
 	control_ng_init();
 	if (call_interfaces_init())
 		abort();
+	statistics_init();
 }
 
 

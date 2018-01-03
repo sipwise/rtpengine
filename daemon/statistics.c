@@ -1,6 +1,12 @@
 #include "call.h"
 #include "statistics.h"
 
+struct totalstats       rtpe_totalstats;
+struct totalstats       rtpe_totalstats_interval;
+mutex_t		       	rtpe_totalstats_lastinterval_lock;
+struct totalstats       rtpe_totalstats_lastinterval;
+
+
 static void timeval_totalstats_average_add(struct totalstats *s, const struct timeval *add) {
 	struct timeval dp, oa;
 
@@ -59,47 +65,43 @@ static void timeval_totalstats_interval_call_duration_add(struct totalstats *s,
 }
 
 
-void statistics_update_totals(struct callmaster* m, struct packet_stream *ps) {
-	atomic64_add(&m->totalstats.total_relayed_packets,
+void statistics_update_totals(struct packet_stream *ps) {
+	atomic64_add(&rtpe_totalstats.total_relayed_packets,
 			atomic64_get(&ps->stats.packets));
-	atomic64_add(&m->totalstats_interval.total_relayed_packets,
+	atomic64_add(&rtpe_totalstats_interval.total_relayed_packets,
 		atomic64_get(&ps->stats.packets));
-	atomic64_add(&m->totalstats.total_relayed_errors,
+	atomic64_add(&rtpe_totalstats.total_relayed_errors,
 		atomic64_get(&ps->stats.errors));
-	atomic64_add(&m->totalstats_interval.total_relayed_errors,
+	atomic64_add(&rtpe_totalstats_interval.total_relayed_errors,
 		atomic64_get(&ps->stats.errors));
 }
 
 void statistics_update_foreignown_dec(struct call* c) {
-	struct callmaster *m;
-
-	m = c->callmaster;
-
 	if (IS_FOREIGN_CALL(c)) {
 		atomic64_dec(&rtpe_stats.foreign_sessions);
 	}
 
 	if(IS_OWN_CALL(c)) 	{
-		mutex_lock(&m->totalstats_interval.managed_sess_lock);
-		m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_min,
+		mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
+		rtpe_totalstats_interval.managed_sess_min = MIN(rtpe_totalstats_interval.managed_sess_min,
 				g_hash_table_size(rtpe_callhash) - atomic64_get(&rtpe_stats.foreign_sessions));
-		mutex_unlock(&m->totalstats_interval.managed_sess_lock);
+		mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
 	}
 
 }
 
-void statistics_update_foreignown_inc(struct callmaster *m, struct call* c) {
+void statistics_update_foreignown_inc(struct call* c) {
 	if (IS_OWN_CALL(c)) {
-		mutex_lock(&m->totalstats_interval.managed_sess_lock);
-		m->totalstats_interval.managed_sess_max = MAX(
-				m->totalstats_interval.managed_sess_max,
+		mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
+		rtpe_totalstats_interval.managed_sess_max = MAX(
+				rtpe_totalstats_interval.managed_sess_max,
 				g_hash_table_size(rtpe_callhash)
 						- atomic64_get(&rtpe_stats.foreign_sessions));
-		mutex_unlock(&m->totalstats_interval.managed_sess_lock);
+		mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
 	}
 	else if (IS_FOREIGN_CALL(c)) { /* foreign call*/
 		atomic64_inc(&rtpe_stats.foreign_sessions);
-		atomic64_inc(&m->totalstats.total_foreign_sessions);
+		atomic64_inc(&rtpe_totalstats.total_foreign_sessions);
 	}
 
 }
@@ -162,8 +164,8 @@ void statistics_update_oneway(struct call* c) {
 		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
 			if (atomic64_get(&ps->stats.packets)!=0 && IS_OWN_CALL(c)){
 				if (atomic64_get(&ps->stats.packets)!=0) {
-					atomic64_inc(&m->totalstats.total_oneway_stream_sess);
-					atomic64_inc(&m->totalstats_interval.total_oneway_stream_sess);
+					atomic64_inc(&rtpe_totalstats.total_oneway_stream_sess);
+					atomic64_inc(&rtpe_totalstats_interval.total_oneway_stream_sess);
 				}
 			}
 			else {
@@ -173,8 +175,8 @@ void statistics_update_oneway(struct call* c) {
 	}
 
 	if (IS_OWN_CALL(c)) {
-		atomic64_add(&m->totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
-		atomic64_add(&m->totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+		atomic64_add(&rtpe_totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+		atomic64_add(&rtpe_totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 	}
 
 	if (c->monologues.head) {
@@ -184,31 +186,44 @@ void statistics_update_oneway(struct call* c) {
 
 		if (IS_OWN_CALL(c)) {
 			if (ml->term_reason==TIMEOUT) {
-				atomic64_inc(&m->totalstats.total_timeout_sess);
-				atomic64_inc(&m->totalstats_interval.total_timeout_sess);
+				atomic64_inc(&rtpe_totalstats.total_timeout_sess);
+				atomic64_inc(&rtpe_totalstats_interval.total_timeout_sess);
 			} else if (ml->term_reason==SILENT_TIMEOUT) {
-				atomic64_inc(&m->totalstats.total_silent_timeout_sess);
-				atomic64_inc(&m->totalstats_interval.total_silent_timeout_sess);
+				atomic64_inc(&rtpe_totalstats.total_silent_timeout_sess);
+				atomic64_inc(&rtpe_totalstats_interval.total_silent_timeout_sess);
 			} else if (ml->term_reason==REGULAR) {
-				atomic64_inc(&m->totalstats.total_regular_term_sess);
-				atomic64_inc(&m->totalstats_interval.total_regular_term_sess);
+				atomic64_inc(&rtpe_totalstats.total_regular_term_sess);
+				atomic64_inc(&rtpe_totalstats_interval.total_regular_term_sess);
 			} else if (ml->term_reason==FORCED) {
-				atomic64_inc(&m->totalstats.total_forced_term_sess);
-				atomic64_inc(&m->totalstats_interval.total_forced_term_sess);
+				atomic64_inc(&rtpe_totalstats.total_forced_term_sess);
+				atomic64_inc(&rtpe_totalstats_interval.total_forced_term_sess);
 			}
 
-			timeval_totalstats_average_add(&m->totalstats, &tim_result_duration);
-			timeval_totalstats_average_add(&m->totalstats_interval, &tim_result_duration);
+			timeval_totalstats_average_add(&rtpe_totalstats, &tim_result_duration);
+			timeval_totalstats_average_add(&rtpe_totalstats_interval, &tim_result_duration);
 			timeval_totalstats_interval_call_duration_add(
-					&m->totalstats_interval, &ml->started, &ml->terminated,
+					&rtpe_totalstats_interval, &ml->started, &ml->terminated,
 					&m->latest_graphite_interval_start,
 					m->conf.graphite_interval);
 		}
 
 		if (ml->term_reason==FINAL_TIMEOUT) {
-			atomic64_inc(&m->totalstats.total_final_timeout_sess);
-			atomic64_inc(&m->totalstats_interval.total_final_timeout_sess);
+			atomic64_inc(&rtpe_totalstats.total_final_timeout_sess);
+			atomic64_inc(&rtpe_totalstats_interval.total_final_timeout_sess);
 		}
 	}
 
+}
+
+void statistics_init() {
+	mutex_init(&rtpe_totalstats.total_average_lock);
+	mutex_init(&rtpe_totalstats_interval.total_average_lock);
+	mutex_init(&rtpe_totalstats_interval.managed_sess_lock);
+	mutex_init(&rtpe_totalstats_interval.total_calls_duration_lock);
+
+	rtpe_totalstats.started = rtpe_now.tv_sec;
+	//rtpe_totalstats_interval.managed_sess_min = 0; // already zeroed
+	//rtpe_totalstats_interval.managed_sess_max = 0;
+
+	mutex_init(&rtpe_totalstats_lastinterval_lock);
 }

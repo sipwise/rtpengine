@@ -20,6 +20,7 @@
 #include "call.h"
 #include "graphite.h"
 #include "socket.h"
+#include "statistics.h"
 
 static socket_t graphite_sock;
 static int connection_state = STATE_DISCONNECTED;
@@ -102,45 +103,45 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	struct totalstats *ts = sent_data;
 
 	/* atomically copy values to stack and reset to zero */
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_timeout_sess);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_rejected_sess);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_silent_timeout_sess);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_final_timeout_sess);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_regular_term_sess);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_forced_term_sess);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_relayed_packets);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_relayed_errors);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_nopacket_relayed_sess);
-	atomic64_local_copy_zero_struct(ts, &cm->totalstats_interval, total_oneway_stream_sess);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_timeout_sess);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_rejected_sess);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_silent_timeout_sess);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_final_timeout_sess);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_regular_term_sess);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_forced_term_sess);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_relayed_packets);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_relayed_errors);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_nopacket_relayed_sess);
+	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_oneway_stream_sess);
 
-	mutex_lock(&cm->totalstats_interval.total_average_lock);
-	ts->total_average_call_dur = cm->totalstats_interval.total_average_call_dur;
-	ts->total_managed_sess = cm->totalstats_interval.total_managed_sess;
-	ZERO(cm->totalstats_interval.total_average_call_dur);
-	ZERO(cm->totalstats_interval.total_managed_sess);
-	mutex_unlock(&cm->totalstats_interval.total_average_lock);
+	mutex_lock(&rtpe_totalstats_interval.total_average_lock);
+	ts->total_average_call_dur = rtpe_totalstats_interval.total_average_call_dur;
+	ts->total_managed_sess = rtpe_totalstats_interval.total_managed_sess;
+	ZERO(rtpe_totalstats_interval.total_average_call_dur);
+	ZERO(rtpe_totalstats_interval.total_managed_sess);
+	mutex_unlock(&rtpe_totalstats_interval.total_average_lock);
 
-	mutex_lock(&cm->totalstats_interval.total_calls_duration_lock);
-	ts->total_calls_duration_interval = cm->totalstats_interval.total_calls_duration_interval;
-	cm->totalstats_interval.total_calls_duration_interval.tv_sec = 0;
-	cm->totalstats_interval.total_calls_duration_interval.tv_usec = 0;
-	//ZERO(cm->totalstats_interval.total_calls_duration_interval);
-	mutex_unlock(&cm->totalstats_interval.total_calls_duration_lock);
+	mutex_lock(&rtpe_totalstats_interval.total_calls_duration_lock);
+	ts->total_calls_duration_interval = rtpe_totalstats_interval.total_calls_duration_interval;
+	rtpe_totalstats_interval.total_calls_duration_interval.tv_sec = 0;
+	rtpe_totalstats_interval.total_calls_duration_interval.tv_usec = 0;
+	//ZERO(rtpe_totalstats_interval.total_calls_duration_interval);
+	mutex_unlock(&rtpe_totalstats_interval.total_calls_duration_lock);
 
-	ts->offer = timeval_clear_request_time(&cm->totalstats_interval.offer);
-	ts->answer = timeval_clear_request_time(&cm->totalstats_interval.answer);
-	ts->delete = timeval_clear_request_time(&cm->totalstats_interval.delete);
+	ts->offer = timeval_clear_request_time(&rtpe_totalstats_interval.offer);
+	ts->answer = timeval_clear_request_time(&rtpe_totalstats_interval.answer);
+	ts->delete = timeval_clear_request_time(&rtpe_totalstats_interval.delete);
 
 	rwlock_lock_r(&rtpe_callhash_lock);
-	mutex_lock(&cm->totalstats_interval.managed_sess_lock);
-	ts->managed_sess_max = cm->totalstats_interval.managed_sess_max;
-	ts->managed_sess_min = cm->totalstats_interval.managed_sess_min;
+	mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
+	ts->managed_sess_max = rtpe_totalstats_interval.managed_sess_max;
+	ts->managed_sess_min = rtpe_totalstats_interval.managed_sess_min;
         ts->total_sessions = g_hash_table_size(rtpe_callhash);
         ts->foreign_sessions = atomic64_get(&rtpe_stats.foreign_sessions);
 	ts->own_sessions = ts->total_sessions - ts->foreign_sessions;
-	cm->totalstats_interval.managed_sess_max = ts->own_sessions;;
-	cm->totalstats_interval.managed_sess_min = ts->own_sessions;
-	mutex_unlock(&cm->totalstats_interval.managed_sess_lock);
+	rtpe_totalstats_interval.managed_sess_max = ts->own_sessions;;
+	rtpe_totalstats_interval.managed_sess_min = ts->own_sessions;
+	mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	// compute average offer/answer/delete time
@@ -317,7 +318,7 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 			connection_state = STATE_DISCONNECTED;
 		}
 
-		copy_with_lock(&cm->totalstats_lastinterval, &graphite_stats, &cm->totalstats_lastinterval.total_average_lock);
+		copy_with_lock(&rtpe_totalstats_lastinterval, &graphite_stats, &rtpe_totalstats_lastinterval.total_average_lock);
 	}
 
 }

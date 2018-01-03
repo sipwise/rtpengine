@@ -22,6 +22,7 @@
 #include "streambuf.h"
 #include "tcp_listener.h"
 #include "str.h"
+#include "statistics.h"
 
 #include "rtpengine_config.h"
 
@@ -170,34 +171,34 @@ static void cli_incoming_list_totals(str *instr, struct callmaster* m, struct st
 	u_int64_t num_sessions, min_sess_iv, max_sess_iv;
 	struct request_time offer_iv, answer_iv, delete_iv;
 
-	mutex_lock(&m->totalstats.total_average_lock);
-	avg = m->totalstats.total_average_call_dur;
-	num_sessions = m->totalstats.total_managed_sess;
-	mutex_unlock(&m->totalstats.total_average_lock);
+	mutex_lock(&rtpe_totalstats.total_average_lock);
+	avg = rtpe_totalstats.total_average_call_dur;
+	num_sessions = rtpe_totalstats.total_managed_sess;
+	mutex_unlock(&rtpe_totalstats.total_average_lock);
 
 	streambuf_printf(replybuffer, "\nTotal statistics (does not include current running sessions):\n\n");
-	streambuf_printf(replybuffer, " Uptime of rtpengine                             :%llu seconds\n", (unsigned long long)time(NULL)-m->totalstats.started);
+	streambuf_printf(replybuffer, " Uptime of rtpengine                             :%llu seconds\n", (unsigned long long)time(NULL)-rtpe_totalstats.started);
 	streambuf_printf(replybuffer, " Total managed sessions                          :"UINT64F"\n", num_sessions);
-	streambuf_printf(replybuffer, " Total rejected sessions                         :"UINT64F"\n", atomic64_get(&m->totalstats.total_rejected_sess));
-	streambuf_printf(replybuffer, " Total timed-out sessions via TIMEOUT            :"UINT64F"\n",atomic64_get(&m->totalstats.total_timeout_sess));
-	streambuf_printf(replybuffer, " Total timed-out sessions via SILENT_TIMEOUT     :"UINT64F"\n",atomic64_get(&m->totalstats.total_silent_timeout_sess));
-	streambuf_printf(replybuffer, " Total timed-out sessions via FINAL_TIMEOUT      :"UINT64F"\n",atomic64_get(&m->totalstats.total_final_timeout_sess));
-	streambuf_printf(replybuffer, " Total regular terminated sessions               :"UINT64F"\n",atomic64_get(&m->totalstats.total_regular_term_sess));
-	streambuf_printf(replybuffer, " Total forced terminated sessions                :"UINT64F"\n",atomic64_get(&m->totalstats.total_forced_term_sess));
-	streambuf_printf(replybuffer, " Total relayed packets                           :"UINT64F"\n",atomic64_get(&m->totalstats.total_relayed_packets));
-	streambuf_printf(replybuffer, " Total relayed packet errors                     :"UINT64F"\n",atomic64_get(&m->totalstats.total_relayed_errors));
-	streambuf_printf(replybuffer, " Total number of streams with no relayed packets :"UINT64F"\n", atomic64_get(&m->totalstats.total_nopacket_relayed_sess));
-	streambuf_printf(replybuffer, " Total number of 1-way streams                   :"UINT64F"\n",atomic64_get(&m->totalstats.total_oneway_stream_sess));
+	streambuf_printf(replybuffer, " Total rejected sessions                         :"UINT64F"\n", atomic64_get(&rtpe_totalstats.total_rejected_sess));
+	streambuf_printf(replybuffer, " Total timed-out sessions via TIMEOUT            :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_timeout_sess));
+	streambuf_printf(replybuffer, " Total timed-out sessions via SILENT_TIMEOUT     :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_silent_timeout_sess));
+	streambuf_printf(replybuffer, " Total timed-out sessions via FINAL_TIMEOUT      :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_final_timeout_sess));
+	streambuf_printf(replybuffer, " Total regular terminated sessions               :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_regular_term_sess));
+	streambuf_printf(replybuffer, " Total forced terminated sessions                :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_forced_term_sess));
+	streambuf_printf(replybuffer, " Total relayed packets                           :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_relayed_packets));
+	streambuf_printf(replybuffer, " Total relayed packet errors                     :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_relayed_errors));
+	streambuf_printf(replybuffer, " Total number of streams with no relayed packets :"UINT64F"\n", atomic64_get(&rtpe_totalstats.total_nopacket_relayed_sess));
+	streambuf_printf(replybuffer, " Total number of 1-way streams                   :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_oneway_stream_sess));
 	streambuf_printf(replybuffer, " Average call duration                           :%ld.%06ld\n\n",avg.tv_sec,avg.tv_usec);
 
-	mutex_lock(&m->totalstats_lastinterval_lock);
-	calls_dur_iv = m->totalstats_lastinterval.total_calls_duration_interval;
-	min_sess_iv = m->totalstats_lastinterval.managed_sess_min;
-	max_sess_iv = m->totalstats_lastinterval.managed_sess_max;
-	offer_iv = m->totalstats_lastinterval.offer;
-	answer_iv = m->totalstats_lastinterval.answer;
-	delete_iv = m->totalstats_lastinterval.delete;
-	mutex_unlock(&m->totalstats_lastinterval_lock);
+	mutex_lock(&rtpe_totalstats_lastinterval_lock);
+	calls_dur_iv = rtpe_totalstats_lastinterval.total_calls_duration_interval;
+	min_sess_iv = rtpe_totalstats_lastinterval.managed_sess_min;
+	max_sess_iv = rtpe_totalstats_lastinterval.managed_sess_max;
+	offer_iv = rtpe_totalstats_lastinterval.offer;
+	answer_iv = rtpe_totalstats_lastinterval.answer;
+	delete_iv = rtpe_totalstats_lastinterval.delete;
+	mutex_unlock(&rtpe_totalstats_lastinterval_lock);
 
 	// compute average offer/answer/delete time
 	timeval_divide(&offer_iv.time_avg, &offer_iv.time_avg, offer_iv.count);

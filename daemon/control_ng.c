@@ -247,11 +247,11 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 
 	// update interval statistics
 	if (!str_cmp(&cmd, "offer")) {
-		timeval_update_request_time(&c->callmaster->totalstats_interval.offer, &offer_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.offer, &offer_stop);
 	} else if (!str_cmp(&cmd, "answer")) {
-		timeval_update_request_time(&c->callmaster->totalstats_interval.answer, &answer_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.answer, &answer_stop);
 	} else if (!str_cmp(&cmd, "delete")) {
-		timeval_update_request_time(&c->callmaster->totalstats_interval.delete, &delete_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.delete, &delete_stop);
 	}
 
 	goto send_resp;

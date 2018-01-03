@@ -416,11 +416,6 @@ struct callmaster_config {
 struct callmaster {
 	struct obj		obj;
 
-	struct totalstats       totalstats;
-	struct totalstats       totalstats_interval;
-	mutex_t		        	totalstats_lastinterval_lock;
-	struct totalstats       totalstats_lastinterval;
-
 	struct callmaster_config conf;
 	struct timeval          latest_graphite_interval_start;
 };

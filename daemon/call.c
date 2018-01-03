@@ -624,17 +624,6 @@ struct callmaster *callmaster_new() {
 
 	poller_add_timer(rtpe_poller, callmaster_timer, &c->obj);
 
-	mutex_init(&c->totalstats.total_average_lock);
-	mutex_init(&c->totalstats_interval.total_average_lock);
-	mutex_init(&c->totalstats_interval.managed_sess_lock);
-	mutex_init(&c->totalstats_interval.total_calls_duration_lock);
-
-	c->totalstats.started = rtpe_now.tv_sec;
-	//c->totalstats_interval.managed_sess_min = 0; // already zeroed
-	//c->totalstats_interval.managed_sess_max = 0;
-
-	mutex_init(&c->totalstats_lastinterval_lock);
-
 	return c;
 
 fail:
@@ -1733,11 +1722,11 @@ void add_total_calls_duration_in_interval(struct callmaster *cm,
 	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(cm,
 			&cm->latest_graphite_interval_start, interval_tv);
 
-	mutex_lock(&cm->totalstats_interval.total_calls_duration_lock);
-	timeval_add(&cm->totalstats_interval.total_calls_duration_interval,
-			&cm->totalstats_interval.total_calls_duration_interval,
+	mutex_lock(&rtpe_totalstats_interval.total_calls_duration_lock);
+	timeval_add(&rtpe_totalstats_interval.total_calls_duration_interval,
+			&rtpe_totalstats_interval.total_calls_duration_interval,
 			&ongoing_calls_dur);
-	mutex_unlock(&cm->totalstats_interval.total_calls_duration_lock);
+	mutex_unlock(&rtpe_totalstats_interval.total_calls_duration_lock);
 }
 
 static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
@@ -1863,7 +1852,7 @@ void call_destroy(struct call *c) {
 						atomic64_get(&ps->stats.errors),
 						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
 
-				statistics_update_totals(m,ps);
+				statistics_update_totals(ps);
 
 			}
 
@@ -2056,7 +2045,7 @@ restart:
 		if (type == CT_FOREIGN_CALL)  /* foreign call*/
 					c->foreign_call = 1;
 
-		statistics_update_foreignown_inc(m,c);
+		statistics_update_foreignown_inc(c);
 
 		rwlock_lock_w(&c->master_lock);
 		rwlock_unlock_w(&rtpe_callhash_lock);
