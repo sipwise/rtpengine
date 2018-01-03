@@ -416,9 +416,6 @@ struct callmaster_config {
 struct callmaster {
 	struct obj		obj;
 
-	rwlock_t		hashlock;
-	GHashTable		*callhash;
-
 	/* XXX rework these */
 	struct stats			statsps;	/* per second stats, running timer */
 	struct stats			stats;		/* copied from statsps once a second */
@@ -440,6 +437,11 @@ struct callmaster {
 	struct callmaster_config conf;
 	struct timeval          latest_graphite_interval_start;
 };
+
+
+extern rwlock_t rtpe_callhash_lock;
+extern GHashTable *rtpe_callhash;
+
 
 struct callmaster *callmaster_new(struct poller *);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);

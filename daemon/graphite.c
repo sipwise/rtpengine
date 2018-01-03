@@ -131,17 +131,17 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	ts->answer = timeval_clear_request_time(&cm->totalstats_interval.answer);
 	ts->delete = timeval_clear_request_time(&cm->totalstats_interval.delete);
 
-	rwlock_lock_r(&cm->hashlock);
+	rwlock_lock_r(&rtpe_callhash_lock);
 	mutex_lock(&cm->totalstats_interval.managed_sess_lock);
 	ts->managed_sess_max = cm->totalstats_interval.managed_sess_max;
 	ts->managed_sess_min = cm->totalstats_interval.managed_sess_min;
-        ts->total_sessions = g_hash_table_size(cm->callhash);
+        ts->total_sessions = g_hash_table_size(rtpe_callhash);
         ts->foreign_sessions = atomic64_get(&cm->stats.foreign_sessions);
 	ts->own_sessions = ts->total_sessions - ts->foreign_sessions;
 	cm->totalstats_interval.managed_sess_max = ts->own_sessions;;
 	cm->totalstats_interval.managed_sess_min = ts->own_sessions;
 	mutex_unlock(&cm->totalstats_interval.managed_sess_lock);
-	rwlock_unlock_r(&cm->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	// compute average offer/answer/delete time
 	timeval_divide(&ts->offer.time_avg, &ts->offer.time_avg, ts->offer.count);

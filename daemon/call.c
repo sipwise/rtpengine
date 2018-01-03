@@ -115,6 +115,10 @@ const struct transport_protocol transport_protocols[] = {
 };
 const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
+
+rwlock_t rtpe_callhash_lock;
+GHashTable *rtpe_callhash;
+
 /* ********** */
 
 static void __monologue_destroy(struct call_monologue *monologue);
@@ -477,14 +481,14 @@ static void callmaster_timer(void *ptr) {
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
 
 	/* obtain the call list and make a copy from it so not to hold the lock */
-	rwlock_lock_r(&m->hashlock);
-	l = g_hash_table_get_values(m->callhash);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	l = g_hash_table_get_values(rtpe_callhash);
 	if (l) {
 		calls = g_list_copy(l);
 		g_list_free(l);
 		g_list_foreach(calls, call_obj_get, NULL);
 	}
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	if (calls) {
 		g_list_foreach(calls, call_timer_iterator, &hlp);
@@ -611,11 +615,11 @@ struct callmaster *callmaster_new(struct poller *p) {
 
 	c = obj_alloc0("callmaster", sizeof(*c), NULL);
 
-	c->callhash = g_hash_table_new(str_hash, str_equal);
-	if (!c->callhash)
+	rtpe_callhash = g_hash_table_new(str_hash, str_equal);
+	if (!rtpe_callhash)
 		goto fail;
 	c->poller = p;
-	rwlock_init(&c->hashlock);
+	rwlock_init(&rtpe_callhash_lock);
 
 	c->info_re = pcre_compile("^([^:,]+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
 	if (!c->info_re)
@@ -1755,8 +1759,8 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 	struct call *call;
 	struct call_monologue *ml;
 
-	rwlock_lock_r(&m->hashlock);
-	g_hash_table_iter_init(&iter, m->callhash);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	g_hash_table_iter_init(&iter, rtpe_callhash);
 
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		call = (struct call*) value;
@@ -1770,7 +1774,7 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 			timeval_add(&res, &res, &call_duration);
 		}
 	}
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 	return res;
 }
 
@@ -1794,11 +1798,11 @@ void call_destroy(struct call *c) {
 	m = c->callmaster;
 	p = m->poller;
 
-	rwlock_lock_w(&m->hashlock);
-	ret = (g_hash_table_lookup(m->callhash, &c->callid) == c);
+	rwlock_lock_w(&rtpe_callhash_lock);
+	ret = (g_hash_table_lookup(rtpe_callhash, &c->callid) == c);
 	if (ret)
-		g_hash_table_remove(m->callhash, &c->callid);
-	rwlock_unlock_w(&m->hashlock);
+		g_hash_table_remove(rtpe_callhash, &c->callid);
+	rwlock_unlock_w(&rtpe_callhash_lock);
 
 	// if call not found in callhash => previously deleted
 	if (!ret)
@@ -2047,20 +2051,20 @@ struct call *call_get_or_create(const str *callid, struct callmaster *m, enum ca
 	struct call *c;
 
 restart:
-	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, callid);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	c = g_hash_table_lookup(rtpe_callhash, callid);
 	if (!c) {
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 		/* completely new call-id, create call */
 		c = call_create(callid, m);
-		rwlock_lock_w(&m->hashlock);
-		if (g_hash_table_lookup(m->callhash, callid)) {
+		rwlock_lock_w(&rtpe_callhash_lock);
+		if (g_hash_table_lookup(rtpe_callhash, callid)) {
 			/* preempted */
-			rwlock_unlock_w(&m->hashlock);
+			rwlock_unlock_w(&rtpe_callhash_lock);
 			obj_put(c);
 			goto restart;
 		}
-		g_hash_table_insert(m->callhash, &c->callid, obj_get(c));
+		g_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
 
 		if (type == CT_FOREIGN_CALL)  /* foreign call*/
 					c->foreign_call = 1;
@@ -2068,12 +2072,12 @@ restart:
 		statistics_update_foreignown_inc(m,c);
 
 		rwlock_lock_w(&c->master_lock);
-		rwlock_unlock_w(&m->hashlock);
+		rwlock_unlock_w(&rtpe_callhash_lock);
 	}
 	else {
 		obj_hold(c);
 		rwlock_lock_w(&c->master_lock);
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 	}
 
 	log_info_call(c);
@@ -2084,16 +2088,16 @@ restart:
 struct call *call_get(const str *callid, struct callmaster *m) {
 	struct call *ret;
 
-	rwlock_lock_r(&m->hashlock);
-	ret = g_hash_table_lookup(m->callhash, callid);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	ret = g_hash_table_lookup(rtpe_callhash, callid);
 	if (!ret) {
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 		return NULL;
 	}
 
 	rwlock_lock_w(&ret->master_lock);
 	obj_hold(ret);
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	log_info_call(ret);
 	return ret;
@@ -2488,57 +2492,12 @@ static void callmaster_get_all_calls_interator(void *key, void *val, void *ptr) 
 }
 
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q) {
-	rwlock_lock_r(&m->hashlock);
-	g_hash_table_foreach(m->callhash, callmaster_get_all_calls_interator, q);
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	g_hash_table_foreach(rtpe_callhash, callmaster_get_all_calls_interator, q);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 }
 
-
-#if 0
-// unused
-// simplifty redis_write <> redis if put back into use
-static void calls_dump_iterator(void *key, void *val, void *ptr) {
-	struct call *c = val;
-	struct callmaster *m = c->callmaster;
-
-	if (m->conf.redis_write) {
-		redis_update(c, m->conf.redis_write);
-	} else if (m->conf.redis) {
-		redis_update(c, m->conf.redis);
-	}
-}
-
-void calls_dump_redis(struct callmaster *m) {
-	if (!m->conf.redis)
-		return;
-
-	ilog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe(m->conf.redis);
-	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
-	ilog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
-}
-
-void calls_dump_redis_read(struct callmaster *m) {
-	if (!m->conf.redis_read)
-		return;
-
-	ilog(LOG_DEBUG, "Start dumping all call data to read Redis...\n");
-	redis_wipe(m->conf.redis_read);
-	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
-	ilog(LOG_DEBUG, "Finished dumping all call data to read Redis\n");
-}
-
-void calls_dump_redis_write(struct callmaster *m) {
-	if (!m->conf.redis_write)
-		return;
-
-	ilog(LOG_DEBUG, "Start dumping all call data to write Redis...\n");
-	redis_wipe(m->conf.redis_write);
-	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
-	ilog(LOG_DEBUG, "Finished dumping all call data to write Redis\n");
-}
-#endif
 
 const struct transport_protocol *transport_protocol(const str *s) {
 	int i;

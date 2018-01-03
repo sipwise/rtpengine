@@ -82,7 +82,7 @@ void statistics_update_foreignown_dec(struct call* c) {
 	if(IS_OWN_CALL(c)) 	{
 		mutex_lock(&m->totalstats_interval.managed_sess_lock);
 		m->totalstats_interval.managed_sess_min = MIN(m->totalstats_interval.managed_sess_min,
-				g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
+				g_hash_table_size(rtpe_callhash) - atomic64_get(&m->stats.foreign_sessions));
 		mutex_unlock(&m->totalstats_interval.managed_sess_lock);
 	}
 
@@ -93,7 +93,7 @@ void statistics_update_foreignown_inc(struct callmaster *m, struct call* c) {
 		mutex_lock(&m->totalstats_interval.managed_sess_lock);
 		m->totalstats_interval.managed_sess_max = MAX(
 				m->totalstats_interval.managed_sess_max,
-				g_hash_table_size(m->callhash)
+				g_hash_table_size(rtpe_callhash)
 						- atomic64_get(&m->stats.foreign_sessions));
 		mutex_unlock(&m->totalstats_interval.managed_sess_lock);
 	}

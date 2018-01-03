@@ -108,9 +108,9 @@ static void destroy_own_foreign_calls(struct callmaster *m, unsigned int foreign
 	GList *i;
 
 	// lock read
-	rwlock_lock_r(&m->hashlock);
+	rwlock_lock_r(&rtpe_callhash_lock);
 
-	g_hash_table_iter_init(&iter, m->callhash);
+	g_hash_table_iter_init(&iter, rtpe_callhash);
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		c = (struct call*)value;
 		if (!c) {
@@ -135,7 +135,7 @@ static void destroy_own_foreign_calls(struct callmaster *m, unsigned int foreign
 	}
 
 	// unlock read
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	// destroy calls
 	while ((c = g_queue_pop_head(&call_list))) {
@@ -253,11 +253,11 @@ static void cli_incoming_list_totals(str *instr, struct callmaster* m, struct st
 }
 
 static void cli_incoming_list_numsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
-       rwlock_lock_r(&m->hashlock);
-       streambuf_printf(replybuffer, "Current sessions own: "UINT64F"\n", g_hash_table_size(m->callhash) - atomic64_get(&m->stats.foreign_sessions));
+       rwlock_lock_r(&rtpe_callhash_lock);
+       streambuf_printf(replybuffer, "Current sessions own: "UINT64F"\n", g_hash_table_size(rtpe_callhash) - atomic64_get(&m->stats.foreign_sessions));
        streambuf_printf(replybuffer, "Current sessions foreign: "UINT64F"\n", atomic64_get(&m->stats.foreign_sessions));
-       streambuf_printf(replybuffer, "Current sessions total: %i\n", g_hash_table_size(m->callhash));
-       rwlock_unlock_r(&m->hashlock);
+       streambuf_printf(replybuffer, "Current sessions total: %i\n", g_hash_table_size(rtpe_callhash));
+       rwlock_unlock_r(&rtpe_callhash_lock);
 }
 
 static void cli_incoming_list_maxsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
@@ -414,15 +414,15 @@ static void cli_incoming_list_sessions(str *instr, struct callmaster* m, struct 
 		return;
 	}
 
-	rwlock_lock_r(&m->hashlock);
+	rwlock_lock_r(&rtpe_callhash_lock);
 
-	if (g_hash_table_size(m->callhash)==0) {
+	if (g_hash_table_size(rtpe_callhash)==0) {
 		streambuf_printf(replybuffer, "No sessions on this media relay.\n");
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 		return;
 	}
 
-	g_hash_table_iter_init (&iter, m->callhash);
+	g_hash_table_iter_init (&iter, rtpe_callhash);
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		ptrkey = (str*)key;
 		call = (struct call*)value;
@@ -450,7 +450,7 @@ static void cli_incoming_list_sessions(str *instr, struct callmaster* m, struct 
 
 		streambuf_printf(replybuffer, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created.tv_sec, call->created_from, call->redis_hosted_db, IS_FOREIGN_CALL(call)?"yes":"no");
 	}
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	if (str_cmp(instr, LIST_ALL) == 0) {
 		;

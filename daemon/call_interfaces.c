@@ -812,10 +812,10 @@ const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 {
 	rwlock_lock_r(&m->conf.config_lock);
 	if (m->conf.max_sessions>=0) {
-		rwlock_lock_r(&m->hashlock);
-		if (g_hash_table_size(m->callhash) -
+		rwlock_lock_r(&rtpe_callhash_lock);
+		if (g_hash_table_size(rtpe_callhash) -
 				atomic64_get(&m->stats.foreign_sessions) >= m->conf.max_sessions) {
-			rwlock_unlock_r(&m->hashlock);
+			rwlock_unlock_r(&rtpe_callhash_lock);
 			/* foreign calls can't get rejected
 			 * total_rejected_sess applies only to "own" sessions */
 			atomic64_inc(&m->totalstats.total_rejected_sess);
@@ -825,7 +825,7 @@ const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 			rwlock_unlock_r(&m->conf.config_lock);
 			return "Parallel session limit reached";
 		}
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 	}
 
 	rwlock_unlock_r(&m->conf.config_lock);
@@ -1144,14 +1144,14 @@ static void ng_list_calls( struct callmaster *m, bencode_item_t *output, long lo
 	GHashTableIter iter;
 	gpointer key, value;
 
-	rwlock_lock_r(&m->hashlock);
+	rwlock_lock_r(&rtpe_callhash_lock);
 
-	g_hash_table_iter_init (&iter, m->callhash);
+	g_hash_table_iter_init (&iter, rtpe_callhash);
 	while (limit-- && g_hash_table_iter_next (&iter, &key, &value)) {
 		bencode_list_add_str_dup(output, key);
 	}
 
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 }
 
 
