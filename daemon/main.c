@@ -492,6 +492,7 @@ static void init_everything() {
 	crypto_init_main();
 	interfaces_init(&interfaces);
 	iptables_init();
+	control_ng_init();
 }
 
 

@@ -227,8 +227,8 @@ static void cli_incoming_list_totals(str *instr, struct callmaster* m, struct st
 	streambuf_printf(replybuffer, " %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
 			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "StartRec", "StopRec", "Errors");
 
-	mutex_lock(&m->cngs_lock);
-	GList *list = g_hash_table_get_values(m->cngs_hash);
+	mutex_lock(&rtpe_cngs_lock);
+	GList *list = g_hash_table_get_values(rtpe_cngs_hash);
 
 	if (!list) {
 		streambuf_printf(replybuffer, "\n                  No proxies have yet tried to send data.");
@@ -248,7 +248,7 @@ static void cli_incoming_list_totals(str *instr, struct callmaster* m, struct st
 				cur->errors);
 	}
 	streambuf_printf(replybuffer, "\n\n");
-	mutex_unlock(&m->cngs_lock);
+	mutex_unlock(&rtpe_cngs_lock);
 	g_list_free(list);
 }
 

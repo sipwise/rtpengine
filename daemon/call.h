@@ -424,10 +424,6 @@ struct callmaster {
 	mutex_t		        	totalstats_lastinterval_lock;
 	struct totalstats       totalstats_lastinterval;
 
-	/* control_ng_stats stuff */
-	mutex_t			cngs_lock;
-	GHashTable		*cngs_hash;
-
 	struct poller	        *poller;
 	pcre			*info_re;
 	pcre_extra		*info_ree;

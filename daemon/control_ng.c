@@ -16,6 +16,10 @@
 #include "log_funcs.h"
 
 
+mutex_t rtpe_cngs_lock;
+GHashTable *rtpe_cngs_hash;
+
+
 
 static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
 	// lock offers
@@ -88,18 +92,17 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 }
 
 struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const sockaddr_t *addr) {
-	struct callmaster *m = c->callmaster;
 	struct control_ng_stats* cur;
 
-	mutex_lock(&m->cngs_lock);
-	cur = g_hash_table_lookup(m->cngs_hash, addr);
+	mutex_lock(&rtpe_cngs_lock);
+	cur = g_hash_table_lookup(rtpe_cngs_hash, addr);
 	if (!cur) {
 		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
 		cur->proxy = *addr;
 		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
-		g_hash_table_insert(m->cngs_hash, &cur->proxy, cur);
+		g_hash_table_insert(rtpe_cngs_hash, &cur->proxy, cur);
 	}
-	mutex_unlock(&m->cngs_lock);
+	mutex_unlock(&rtpe_cngs_lock);
 	return cur;
 }
 
@@ -333,4 +336,10 @@ fail2:
 	obj_put(c);
 	return NULL;
 
+}
+
+
+void control_ng_init() {
+	mutex_init(&rtpe_cngs_lock);
+	rtpe_cngs_hash = g_hash_table_new(g_sockaddr_hash, g_sockaddr_eq);
 }
