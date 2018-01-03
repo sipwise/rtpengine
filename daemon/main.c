@@ -41,11 +41,6 @@
 
 
 
-struct main_context {
-	struct callmaster	*m;
-};
-
-
 struct poller *rtpe_poller;
 
 
@@ -497,10 +492,12 @@ static void init_everything() {
 	if (call_interfaces_init())
 		abort();
 	statistics_init();
+	if (call_init())
+		abort();
 }
 
 
-static void create_everything(struct main_context *ctx) {
+static void create_everything(void) {
 	struct control_tcp *ct;
 	struct control_udp *cu;
 	struct control_ng *cn;
@@ -524,10 +521,6 @@ no_kernel:
 	if (!rtpe_poller)
 		die("poller creation failed");
 
-	ctx->m = callmaster_new();
-	if (!ctx->m)
-		die("callmaster creation failed");
-
 	dtls_timer(rtpe_poller);
 
         rwlock_init(&rtpe_config.config_lock);
@@ -546,7 +539,7 @@ no_kernel:
 
 	ct = NULL;
 	if (tcp_listen_ep.port) {
-		ct = control_tcp_new(rtpe_poller, &tcp_listen_ep, ctx->m);
+		ct = control_tcp_new(rtpe_poller, &tcp_listen_ep);
 		if (!ct)
 			die("Failed to open TCP control connection port");
 	}
@@ -554,7 +547,7 @@ no_kernel:
 	cu = NULL;
 	if (udp_listen_ep.port) {
 		interfaces_exclude_port(udp_listen_ep.port);
-		cu = control_udp_new(rtpe_poller, &udp_listen_ep, ctx->m);
+		cu = control_udp_new(rtpe_poller, &udp_listen_ep);
 		if (!cu)
 			die("Failed to open UDP control connection port");
 	}
@@ -562,7 +555,7 @@ no_kernel:
 	cn = NULL;
 	if (ng_listen_ep.port) {
 		interfaces_exclude_port(ng_listen_ep.port);
-		cn = control_ng_new(rtpe_poller, &ng_listen_ep, ctx->m, rtpe_config.control_tos);
+		cn = control_ng_new(rtpe_poller, &ng_listen_ep, rtpe_config.control_tos);
 		if (!cn)
 			die("Failed to open UDP control connection port");
 	}
@@ -570,27 +563,27 @@ no_kernel:
 	cl = NULL;
 	if (cli_listen_ep.port) {
 		interfaces_exclude_port(cli_listen_ep.port);
-	    cl = cli_new(rtpe_poller, &cli_listen_ep, ctx->m);
+	    cl = cli_new(rtpe_poller, &cli_listen_ep);
 	    if (!cl)
 	        die("Failed to open UDP CLI connection port");
 	}
 
 	if (!is_addr_unspecified(&redis_write_ep.address)) {
-		ctx->m->conf.redis_write = redis_new(&redis_write_ep, redis_write_db, redis_write_auth, ANY_REDIS_ROLE, no_redis_required);
-		if (!ctx->m->conf.redis_write)
+		rtpe_redis_write = redis_new(&redis_write_ep, redis_write_db, redis_write_auth, ANY_REDIS_ROLE, no_redis_required);
+		if (!rtpe_redis_write)
 			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&redis_write_ep));
 	}
 
 	if (!is_addr_unspecified(&redis_ep.address)) {
-		ctx->m->conf.redis = redis_new(&redis_ep, redis_db, redis_auth, ctx->m->conf.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
-		ctx->m->conf.redis_notify = redis_new(&redis_ep, redis_db, redis_auth, ctx->m->conf.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
-		if (!ctx->m->conf.redis || !ctx->m->conf.redis_notify)
+		rtpe_redis = redis_new(&redis_ep, redis_db, redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
+		rtpe_redis_notify = redis_new(&redis_ep, redis_db, redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
+		if (!rtpe_redis || !rtpe_redis_notify)
 			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&redis_ep));
 
-		if (!ctx->m->conf.redis_write)
-			ctx->m->conf.redis_write = ctx->m->conf.redis;
+		if (!rtpe_redis_write)
+			rtpe_redis_write = rtpe_redis;
 	}
 
 	daemonize();
@@ -600,12 +593,12 @@ no_kernel:
 
 	rtcp_init(); // must come after Homer init
 
-	if (ctx->m->conf.redis) {
+	if (rtpe_redis) {
 		// start redis restore timer
 		gettimeofday(&redis_start, NULL);
 
 		// restore
-		if (redis_restore(ctx->m, ctx->m->conf.redis))
+		if (redis_restore(rtpe_redis))
 			die("Refusing to continue without working Redis database");
 
 		// stop redis restore timer
@@ -624,13 +617,12 @@ no_kernel:
 
 
 int main(int argc, char **argv) {
-	struct main_context ctx;
 	int idx=0;
 
 	early_init();
 	options(&argc, &argv);
 	init_everything();
-	create_everything(&ctx);
+	create_everything();
 
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
@@ -638,10 +630,10 @@ int main(int argc, char **argv) {
 	thread_create_detach(poller_timer_loop, rtpe_poller);
 
 	if (!is_addr_unspecified(&redis_ep.address))
-		thread_create_detach(redis_notify_loop, ctx.m);
+		thread_create_detach(redis_notify_loop, NULL);
 
 	if (!is_addr_unspecified(&rtpe_config.graphite_ep.address))
-		thread_create_detach(graphite_loop, ctx.m);
+		thread_create_detach(graphite_loop, NULL);
 
 	thread_create_detach(ice_thread_run, NULL);
 
@@ -663,7 +655,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (!is_addr_unspecified(&redis_ep.address))
-		redis_notify_event_base_action(ctx.m, EVENT_BASE_LOOPBREAK);
+		redis_notify_event_base_action(EVENT_BASE_LOOPBREAK);
 
 	threads_join_all(1);
 

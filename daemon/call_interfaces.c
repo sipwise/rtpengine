@@ -142,7 +142,7 @@ fail:
 	return -1;
 }
 
-static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, const char* addr,
+static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	struct call *c;
@@ -159,7 +159,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	if (opmode == OP_ANSWER)
 		str_swap(&fromtag, &totag);
 
-	c = call_get_opmode(&callid, m, opmode);
+	c = call_get_opmode(&callid, opmode);
 	if (!c) {
 		ilog(LOG_WARNING, "["STR_FORMAT"] Got UDP LOOKUP for unknown call-id",
 			STR_FMT(&callid));
@@ -195,7 +195,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 			sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
 	rwlock_unlock_w(&c->master_lock);
 
-	redis_update_onekey(c, m->conf.redis_write);
+	redis_update_onekey(c, rtpe_redis_write);
 
 	gettimeofday(&(monologue->started), NULL);
 
@@ -219,11 +219,11 @@ out:
 	return ret;
 }
 
-str *call_update_udp(char **out, struct callmaster *m, const char* addr, const endpoint_t *sin) {
-	return call_update_lookup_udp(out, m, OP_OFFER, addr, sin);
+str *call_update_udp(char **out, const char* addr, const endpoint_t *sin) {
+	return call_update_lookup_udp(out, OP_OFFER, addr, sin);
 }
-str *call_lookup_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_ANSWER, NULL, NULL);
+str *call_lookup_udp(char **out) {
+	return call_update_lookup_udp(out, OP_ANSWER, NULL, NULL);
 }
 
 
@@ -235,7 +235,7 @@ static int info_parse_func(char **a, void **ret, void *p) {
 	return -1;
 }
 
-static void info_parse(const char *s, GHashTable *ih, struct callmaster *m) {
+static void info_parse(const char *s, GHashTable *ih) {
 	pcre_multi_match(info_re, info_ree, s, 2, info_parse_func, ih, NULL);
 }
 
@@ -273,7 +273,7 @@ fail:
 }
 
 
-static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
+static void streams_parse(const char *s, GQueue *q) {
 	int i;
 	i = 0;
 	pcre_multi_match(streams_re, streams_ree, s, 3, streams_parse_func, &i, q);
@@ -298,7 +298,7 @@ static void streams_free(GQueue *q) {
 
 
 
-static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_opmode opmode) {
+static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	struct call *c;
 	struct call_monologue *monologue;
 	GQueue s = G_QUEUE_INIT;
@@ -307,14 +307,14 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 
 	str_init(&callid, out[RE_TCP_RL_CALLID]);
 	infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
-	c = call_get_opmode(&callid, m, opmode);
+	c = call_get_opmode(&callid, opmode);
 	if (!c) {
 		ilog(LOG_WARNING, "["STR_FORMAT"] Got LOOKUP for unknown call-id", STR_FMT(&callid));
 		goto out;
 	}
 
-	info_parse(out[RE_TCP_RL_INFO], infohash, m);
-	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
+	info_parse(out[RE_TCP_RL_INFO], infohash);
+	streams_parse(out[RE_TCP_RL_STREAMS], &s);
 	str_init(&fromtag, g_hash_table_lookup(infohash, "fromtag"));
 	if (!fromtag.s) {
 		ilog(LOG_WARNING, "No from-tag in message");
@@ -343,7 +343,7 @@ out2:
 	rwlock_unlock_w(&c->master_lock);
 	streams_free(&s);
 
-	redis_update_onekey(c, m->conf.redis_write);
+	redis_update_onekey(c, rtpe_redis_write);
 
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT0(ret));
 	obj_put(c);
@@ -353,14 +353,14 @@ out:
 	return ret;
 }
 
-str *call_request_tcp(char **out, struct callmaster *m) {
-	return call_request_lookup_tcp(out, m, OP_OFFER);
+str *call_request_tcp(char **out) {
+	return call_request_lookup_tcp(out, OP_OFFER);
 }
-str *call_lookup_tcp(char **out, struct callmaster *m) {
-	return call_request_lookup_tcp(out, m, OP_ANSWER);
+str *call_lookup_tcp(char **out) {
+	return call_request_lookup_tcp(out, OP_ANSWER);
 }
 
-str *call_delete_udp(char **out, struct callmaster *m) {
+str *call_delete_udp(char **out) {
 	str callid, branch, fromtag, totag;
 
 	__C_DBG("got delete for callid '%s' and viabranch '%s'",
@@ -371,12 +371,12 @@ str *call_delete_udp(char **out, struct callmaster *m) {
 	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
 	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
 
-	if (call_delete_branch(m, &callid, &branch, &fromtag, &totag, NULL, -1))
+	if (call_delete_branch(&callid, &branch, &fromtag, &totag, NULL, -1))
 		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
 }
-str *call_query_udp(char **out, struct callmaster *m) {
+str *call_query_udp(char **out) {
 	struct call *c;
 	str *ret, callid, fromtag, totag;
 	struct call_stats stats;
@@ -387,7 +387,7 @@ str *call_query_udp(char **out, struct callmaster *m) {
 	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
 	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
 
-	c = call_get_opmode(&callid, m, OP_OTHER);
+	c = call_get_opmode(&callid, OP_OTHER);
 	if (!c) {
 		ilog(LOG_INFO, "["STR_FORMAT"] Call-ID to query not found", STR_FMT(&callid));
 		goto err;
@@ -417,11 +417,11 @@ out:
 	return ret;
 }
 
-void call_delete_tcp(char **out, struct callmaster *m) {
+void call_delete_tcp(char **out) {
 	str callid;
 
 	str_init(&callid, out[RE_TCP_D_CALLID]);
-	call_delete_branch(m, &callid, NULL, NULL, NULL, NULL, -1);
+	call_delete_branch(&callid, NULL, NULL, NULL, NULL, -1);
 }
 
 static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
@@ -430,10 +430,8 @@ static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
 //	struct peer *p;
 //	struct streamrelay *r1, *r2;
 //	struct streamrelay *rx1, *rx2;
-//	struct callmaster *m;
 //	char addr1[64], addr2[64], addr3[64];
 
-//	m = c->callmaster;
 //	mutex_lock(&c->master_lock);
 
 	streambuf_printf(s->outbuf, "session "STR_FORMAT" - - - - %lli\n",
@@ -445,11 +443,11 @@ static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
 //	mutex_unlock(&c->master_lock);
 }
 
-void calls_status_tcp(struct callmaster *m, struct streambuf_stream *s) {
+void calls_status_tcp(struct streambuf_stream *s) {
 	GQueue q = G_QUEUE_INIT;
 	struct call *c;
 
-	callmaster_get_all_calls(m, &q);
+	call_get_all_calls(&q);
 
 	streambuf_printf(s->outbuf, "proxy %u "UINT64F"/%i/%i\n",
 		g_queue_get_length(&q),
@@ -661,7 +659,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
 }
 
-static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m,
+static const char *call_offer_answer_ng(bencode_item_t *input,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
@@ -702,7 +700,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 
 	/* OP_ANSWER; OP_OFFER && !IS_FOREIGN_CALL */
-	call = call_get(&callid, m);
+	call = call_get(&callid);
 
     /* Failover scenario because of timeout on offer response: siprouter tries
      * to establish session with another rtpengine2 even though rtpengine1
@@ -715,12 +713,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
                 rwlock_unlock_w(&call->master_lock);
                 call_destroy(call);
                 obj_put(call);
-                call = call_get_or_create(&callid, m, CT_OWN_CALL);
+                call = call_get_or_create(&callid, CT_OWN_CALL);
             }
         }
         else {
             /* call == NULL, should create call */
-            call = call_get_or_create(&callid, m, CT_OWN_CALL);
+            call = call_get_or_create(&callid, CT_OWN_CALL);
         }
     }
 
@@ -783,7 +781,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	rwlock_unlock_w(&call->master_lock);
 
 	if (!flags.no_redis_update) {
-			redis_update_onekey(call,m->conf.redis_write);
+			redis_update_onekey(call, rtpe_redis_write);
 	} else {
 		ilog(LOG_DEBUG, "Not updating Redis due to present no-redis-update flag");
 	}
@@ -812,7 +810,7 @@ out:
 	return errstr;
 }
 
-const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr,
+const char *call_offer_ng(bencode_item_t *input, bencode_item_t *output, const char* addr,
 		const endpoint_t *sin)
 {
 	rwlock_lock_r(&rtpe_config.config_lock);
@@ -834,14 +832,14 @@ const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	}
 
 	rwlock_unlock_r(&rtpe_config.config_lock);
-	return call_offer_answer_ng(input, m, output, OP_OFFER, addr, sin);
+	return call_offer_answer_ng(input, output, OP_OFFER, addr, sin);
 }
 
-const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_ANSWER, NULL, NULL);
+const char *call_answer_ng(bencode_item_t *input, bencode_item_t *output) {
+	return call_offer_answer_ng(input, output, OP_ANSWER, NULL, NULL);
 }
 
-const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 	str fromtag, totag, viabranch, callid;
 	bencode_item_t *flags, *it;
 	int fatal = 0, delete_delay;
@@ -871,7 +869,7 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 		}
 	}
 
-	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag, output, delete_delay)) {
+	if (call_delete_branch(&callid, &viabranch, &fromtag, &totag, output, delete_delay)) {
 		if (fatal)
 			return "Call-ID not found or tags didn't match";
 		bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
@@ -1145,7 +1143,7 @@ stats:
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
 }
 
-static void ng_list_calls( struct callmaster *m, bencode_item_t *output, long long int limit) {
+static void ng_list_calls(bencode_item_t *output, long long int limit) {
 	GHashTableIter iter;
 	gpointer key, value;
 
@@ -1161,13 +1159,13 @@ static void ng_list_calls( struct callmaster *m, bencode_item_t *output, long lo
 
 
 
-const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_query_ng(bencode_item_t *input, bencode_item_t *output) {
 	str callid, fromtag, totag;
 	struct call *call;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	call = call_get_opmode(&callid, m, OP_OTHER);
+	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 	bencode_dictionary_get_str(input, "from-tag", &fromtag);
@@ -1181,7 +1179,7 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 }
 
 
-const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_list_ng(bencode_item_t *input, bencode_item_t *output) {
 	bencode_item_t *calls = NULL;
 	long long int limit;
 
@@ -1192,13 +1190,13 @@ const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_it
 	}
 	calls = bencode_dictionary_add_list(output, "calls");
 
-	ng_list_calls(m, calls, limit);
+	ng_list_calls(calls, limit);
 
 	return NULL;
 }
 
 
-const char *call_start_recording_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *output) {
 	str callid;
 	struct call *call;
 	str metadata;
@@ -1206,7 +1204,7 @@ const char *call_start_recording_ng(bencode_item_t *input, struct callmaster *m,
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
 	bencode_dictionary_get_str(input, "metadata", &metadata);
-	call = call_get_opmode(&callid, m, OP_OTHER);
+	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 
@@ -1218,13 +1216,13 @@ const char *call_start_recording_ng(bencode_item_t *input, struct callmaster *m,
 	return NULL;
 }
 
-const char *call_stop_recording_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output) {
 	str callid;
 	struct call *call;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	call = call_get_opmode(&callid, m, OP_OTHER);
+	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 

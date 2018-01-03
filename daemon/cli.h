@@ -8,12 +8,11 @@
 struct cli {
    struct obj      obj;
 
-   struct callmaster   *callmaster;
    struct poller       *poller;
 
    struct streambuf_listener listeners[2];
 };
 
-struct cli *cli_new(struct poller *p, endpoint_t *, struct callmaster *m);
+struct cli *cli_new(struct poller *p, endpoint_t *);
 
 #endif /* CLI_UDP_H_ */

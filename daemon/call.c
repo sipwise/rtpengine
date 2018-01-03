@@ -128,8 +128,8 @@ GHashTable *rtpe_callhash;
 
 static void __monologue_destroy(struct call_monologue *monologue);
 static int monologue_destroy(struct call_monologue *ml);
-static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
-		struct timeval *interval_start, struct timeval *interval_duration);
+static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
+		struct timeval *interval_duration);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -171,7 +171,7 @@ out:
 
 
 
-/* called with callmaster->hashlock held */
+/* called with hashlock held */
 static void call_timer_iterator(gpointer data, gpointer user_data) {
 	struct call *c = data;
 	struct iterator_helper *hlp = user_data;
@@ -383,19 +383,18 @@ fault:
 	g_slice_free1(sizeof(*xh), xh);
 }
 
-void kill_calls_timer(GSList *list, struct callmaster *m) {
+void kill_calls_timer(GSList *list, const char *url) {
 	struct call *ca;
 	GList *csl;
 	struct call_monologue *cm;
-	const char *url, *url_prefix, *url_suffix;
+	const char *url_prefix, *url_suffix;
 	struct xmlrpc_helper *xh = NULL;
 	char url_buf[128];
 
 	if (!list)
 		return;
 
-	/* if m is NULL, it's the scheduled deletions, otherwise it's the timeouts */
-	url = m ? rtpe_config.b2b_url : NULL;
+	/* if url is NULL, it's the scheduled deletions, otherwise it's the timeouts */
 	if (url) {
 		xh = g_slice_alloc(sizeof(*xh));
 		xh->c = g_string_chunk_new(64);
@@ -467,8 +466,7 @@ destroy:
 		atomic64_add(&ps->stats.x, d);			\
 		atomic64_add(&rtpe_statsps.x, d);			\
 	} while (0)
-static void callmaster_timer(void *ptr) {
-	struct callmaster *m = ptr;
+static void call_timer(void *ptr) {
 	struct iterator_helper hlp;
 	GList *i, *l, *calls = NULL;
 	struct rtpengine_list_entry *ke;
@@ -588,7 +586,7 @@ static void callmaster_timer(void *ptr) {
 		rwlock_unlock_r(&sfd->call->master_lock);
 
 		if (update) {
-				redis_update_onekey(ps->call, m->conf.redis_write);
+				redis_update_onekey(ps->call, rtpe_redis_write);
 		}
 
 next:
@@ -606,28 +604,20 @@ next:
 	g_hash_table_destroy(hlp.addr_sfd);
 
 	kill_calls_timer(hlp.del_scheduled, NULL);
-	kill_calls_timer(hlp.del_timeout, m);
+	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);
 }
 #undef DS
 
 
-struct callmaster *callmaster_new() {
-	struct callmaster *c;
-
-	c = obj_alloc0("callmaster", sizeof(*c), NULL);
-
+int call_init() {
 	rtpe_callhash = g_hash_table_new(str_hash, str_equal);
 	if (!rtpe_callhash)
-		goto fail;
+		return -1;
 	rwlock_init(&rtpe_callhash_lock);
 
-	poller_add_timer(rtpe_poller, callmaster_timer, &c->obj);
+	poller_add_timer(rtpe_poller, call_timer, NULL);
 
-	return c;
-
-fail:
-	obj_put(c);
-	return NULL;
+	return 0;
 }
 
 
@@ -1716,9 +1706,8 @@ out:
 	return rtp_pt; /* may be NULL */
 }
 
-void add_total_calls_duration_in_interval(struct callmaster *cm,
-		struct timeval *interval_tv) {
-	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(cm,
+void add_total_calls_duration_in_interval(struct timeval *interval_tv) {
+	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(
 			&rtpe_latest_graphite_interval_start, interval_tv);
 
 	mutex_lock(&rtpe_totalstats_interval.total_calls_duration_lock);
@@ -1728,8 +1717,9 @@ void add_total_calls_duration_in_interval(struct callmaster *cm,
 	mutex_unlock(&rtpe_totalstats_interval.total_calls_duration_lock);
 }
 
-static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
-		struct timeval *interval_start, struct timeval *interval_duration) {
+static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
+		struct timeval *interval_duration)
+{
 	GHashTableIter iter;
 	gpointer key, value;
 	struct timeval call_duration, res = {0};
@@ -1757,7 +1747,6 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
-	struct callmaster *m;
 	struct packet_stream *ps=0;
 	struct stream_fd *sfd;
 	GList *l;
@@ -1770,8 +1759,6 @@ void call_destroy(struct call *c) {
 	if (!c) {
 		return;
 	}
-
-	m = c->callmaster;
 
 	rwlock_lock_w(&rtpe_callhash_lock);
 	ret = (g_hash_table_lookup(rtpe_callhash, &c->callid) == c);
@@ -1789,7 +1776,7 @@ void call_destroy(struct call *c) {
 	statistics_update_foreignown_dec(c);
 
 	if (IS_OWN_CALL(c)) {
-		redis_delete(c, m->conf.redis_write);
+		redis_delete(c, rtpe_redis_write);
 	}
 
 	rwlock_lock_w(&c->master_lock);
@@ -2001,12 +1988,11 @@ static void __call_free(void *p) {
 	assert(c->stream_fds.head == NULL);
 }
 
-static struct call *call_create(const str *callid, struct callmaster *m) {
+static struct call *call_create(const str *callid) {
 	struct call *c;
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0("call", sizeof(*c), __call_free);
-	c->callmaster = m;
 	mutex_init(&c->buffer_lock);
 	call_buffer_init(&c->buffer);
 	rwlock_init(&c->master_lock);
@@ -2022,7 +2008,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 }
 
 /* returns call with master_lock held in W */
-struct call *call_get_or_create(const str *callid, struct callmaster *m, enum call_type type) {
+struct call *call_get_or_create(const str *callid, enum call_type type) {
 	struct call *c;
 
 restart:
@@ -2031,7 +2017,7 @@ restart:
 	if (!c) {
 		rwlock_unlock_r(&rtpe_callhash_lock);
 		/* completely new call-id, create call */
-		c = call_create(callid, m);
+		c = call_create(callid);
 		rwlock_lock_w(&rtpe_callhash_lock);
 		if (g_hash_table_lookup(rtpe_callhash, callid)) {
 			/* preempted */
@@ -2060,7 +2046,7 @@ restart:
 }
 
 /* returns call with master_lock held in W, or NULL if not found */
-struct call *call_get(const str *callid, struct callmaster *m) {
+struct call *call_get(const str *callid) {
 	struct call *ret;
 
 	rwlock_lock_r(&rtpe_callhash_lock);
@@ -2079,10 +2065,10 @@ struct call *call_get(const str *callid, struct callmaster *m) {
 }
 
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
-struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode) {
+struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
-		return call_get_or_create(callid, m, CT_OWN_CALL);
-	return call_get(callid, m);
+		return call_get_or_create(callid, CT_OWN_CALL);
+	return call_get(callid);
 }
 
 /* must be called with call->master_lock held in W */
@@ -2351,7 +2337,7 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 }
 
 
-int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
+int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
 {
 	struct call *c;
@@ -2363,7 +2349,7 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	if (delete_delay < 0)
 		delete_delay = rtpe_config.delete_delay;
 
-	c = call_get(callid, m);
+	c = call_get(callid);
 	if (!c) {
 		ilog(LOG_INFO, "Call-ID to delete not found");
 		goto err;
@@ -2461,14 +2447,14 @@ out:
 }
 
 
-static void callmaster_get_all_calls_interator(void *key, void *val, void *ptr) {
+static void call_get_all_calls_interator(void *key, void *val, void *ptr) {
 	GQueue *q = ptr;
 	g_queue_push_tail(q, obj_get_o(val));
 }
 
-void callmaster_get_all_calls(struct callmaster *m, GQueue *q) {
+void call_get_all_calls(GQueue *q) {
 	rwlock_lock_r(&rtpe_callhash_lock);
-	g_hash_table_foreach(rtpe_callhash, callmaster_get_all_calls_interator, q);
+	g_hash_table_foreach(rtpe_callhash, call_get_all_calls_interator, q);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
 }

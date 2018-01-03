@@ -1596,7 +1596,7 @@ out:
 	ca = sfd->call ? : NULL;
 
 	if (ca && update) {
-		redis_update_onekey(ca, ca->callmaster->conf.redis_write);
+		redis_update_onekey(ca, rtpe_redis_write);
 	}
 done:
 	log_info_clear();

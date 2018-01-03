@@ -183,7 +183,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// start offer timer
 		gettimeofday(&offer_start, NULL);
 
-		errstr = call_offer_ng(dict, c->callmaster, resp, addr, sin);
+		errstr = call_offer_ng(dict, resp, addr, sin);
 		g_atomic_int_inc(&cur->offer);
 
 		// stop offer timer
@@ -197,7 +197,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// start answer timer
 		gettimeofday(&answer_start, NULL);
 
-		errstr = call_answer_ng(dict, c->callmaster, resp);
+		errstr = call_answer_ng(dict, resp);
 		g_atomic_int_inc(&cur->answer);
 
 		// stop answer timer
@@ -211,7 +211,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// start delete timer
 		gettimeofday(&delete_start, NULL);
 
-		errstr = call_delete_ng(dict, c->callmaster, resp);
+		errstr = call_delete_ng(dict, resp);
 		g_atomic_int_inc(&cur->delete);
 
 		// stop delete timer
@@ -222,19 +222,19 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		ilog(LOG_INFO, "delete time = %llu.%06llu sec", (unsigned long long)delete_stop.tv_sec, (unsigned long long)delete_stop.tv_usec);
 	}
 	else if (!str_cmp(&cmd, "query")) {
-		errstr = call_query_ng(dict, c->callmaster, resp);
+		errstr = call_query_ng(dict, resp);
 		g_atomic_int_inc(&cur->query);
 	}
 	else if (!str_cmp(&cmd, "list")) {
-	    errstr = call_list_ng(dict, c->callmaster, resp);
+	    errstr = call_list_ng(dict, resp);
 	    g_atomic_int_inc(&cur->list);
 	}
 	else if (!str_cmp(&cmd, "start recording")) {
-		errstr = call_start_recording_ng(dict, c->callmaster, resp);
+		errstr = call_start_recording_ng(dict, resp);
 		g_atomic_int_inc(&cur->start_recording);
 	}
 	else if (!str_cmp(&cmd, "stop recording")) {
-		errstr = call_stop_recording_ng(dict, c->callmaster, resp);
+		errstr = call_stop_recording_ng(dict, resp);
 		g_atomic_int_inc(&cur->stop_recording);
 	}
 	else
@@ -309,15 +309,14 @@ out:
 
 
 
-struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, struct callmaster *m, unsigned char tos) {
+struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned char tos) {
 	struct control_ng *c;
 
-	if (!p || !m)
+	if (!p)
 		return NULL;
 
 	c = obj_alloc0("control_ng", sizeof(*c), NULL);
 
-	c->callmaster = m;
 	cookie_cache_init(&c->cookie_cache);
 
 	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_ng_incoming, &c->obj))

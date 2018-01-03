@@ -350,8 +350,6 @@ struct call_monologue {
 struct call {
 	struct obj		obj;
 
-	struct callmaster	*callmaster;	/* RO */
-
 	mutex_t			buffer_lock;
 	call_buffer_t		buffer;
 
@@ -382,20 +380,6 @@ struct call {
 	struct recording 	*recording;
 };
 
-struct callmaster_config {
-	struct redis		*redis;
-	struct redis		*redis_write;
-	struct redis		*redis_notify;
-
-	struct event_base	*redis_notify_event_base;
-	struct redisAsyncContext *redis_notify_async_context;
-};
-
-struct callmaster {
-	struct obj		obj;
-
-	struct callmaster_config conf;
-};
 
 
 extern rwlock_t rtpe_callhash_lock;
@@ -405,25 +389,22 @@ extern struct stats rtpe_statsps;	/* per second stats, running timer */
 extern struct stats rtpe_stats;		/* copied from statsps once a second */
 
 
-struct callmaster *callmaster_new(void);
-void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
+int call_init(void);
+void call_get_all_calls(GQueue *q);
 
-//void calls_dump_redis(struct callmaster *);
-//void calls_dump_redis_read(struct callmaster *);
-//void calls_dump_redis_write(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
-struct call *call_get_or_create(const str *callid, struct callmaster *m, enum call_type);
-struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode);
+struct call *call_get_or_create(const str *callid, enum call_type);
+struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
 struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag,
 		const str *viabranch);
-struct call *call_get(const str *callid, struct callmaster *m);
+struct call *call_get(const str *callid);
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
-int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
+int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
@@ -434,7 +415,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 		int *len, const struct local_intf *ifa, int keep_unspec);
 
 const struct transport_protocol *transport_protocol(const str *s);
-void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval *interval_tv);
+void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 
 void __payload_type_free(void *p);
 void __rtp_stats_update(GHashTable *dst, GHashTable *src);

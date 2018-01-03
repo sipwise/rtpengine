@@ -32,7 +32,6 @@ struct control_tcp {
 	pcre_extra		*parse_ree;
 
 	struct poller		*poller;
-	struct callmaster	*callmaster;
 };
 
 
@@ -91,13 +90,13 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 
 
 	if (!strcmp(out[RE_TCP_RL_CMD], "request"))
-		output = call_request_tcp(out, c->callmaster);
+		output = call_request_tcp(out);
 	else if (!strcmp(out[RE_TCP_RL_CMD], "lookup"))
-		output = call_lookup_tcp(out, c->callmaster);
+		output = call_lookup_tcp(out);
 	else if (!strcmp(out[RE_TCP_D_CMD], "delete"))
-		call_delete_tcp(out, c->callmaster);
+		call_delete_tcp(out);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "status"))
-		calls_status_tcp(c->callmaster, s);
+		calls_status_tcp(s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "build") || !strcmp(out[RE_TCP_DIV_CMD], "version"))
 		streambuf_printf(s->outbuf, "Version: %s\n", RTPENGINE_VERSION);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "controls"))
@@ -155,14 +154,12 @@ static void control_incoming(struct streambuf_stream *s) {
 }
 
 
-struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep, struct callmaster *m) {
+struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 	struct control_tcp *c;
 	const char *errptr;
 	int erroff;
 
 	if (!p)
-		return NULL;
-	if (!m)
 		return NULL;
 
 	c = obj_alloc0("control", sizeof(*c), NULL);
@@ -195,7 +192,6 @@ struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep, struct cal
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
 
 	c->poller = p;
-	c->callmaster = m;
 
 	obj_put(c);
 	return c;

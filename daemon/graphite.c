@@ -85,15 +85,9 @@ int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	return 0;
 }
 
-int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
+int send_graphite_data(struct totalstats *sent_data) {
 
 	int rc=0;
-
-        // sanity checks
-        if (!cm) {
-                ilog(LOG_ERROR, "NULL callmaster when trying to send data");
-                return -1;
-        }
 
 	if (graphite_sock.fd < 0) {
 		ilog(LOG_ERROR,"Graphite socket is not connected.");
@@ -248,16 +242,10 @@ static inline void copy_with_lock(struct totalstats *ts_dst, struct totalstats *
 	mutex_unlock(ts_lock);
 }
 
-void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int seconds) {
+void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 
 	int rc=0;
 	struct pollfd wfds[1];
-
-        // sanity checks
-        if (!cm) {
-                ilog(LOG_ERROR, "NULL callmaster");
-                return ;
-        }
 
         if (!graphite_ep) {
                 ilog(LOG_ERROR, "NULL graphite_ep");
@@ -311,9 +299,9 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 	}
 
 	if (graphite_sock.fd >= 0 && connection_state == STATE_CONNECTED) {
-		add_total_calls_duration_in_interval(cm, &graphite_interval_tv);
+		add_total_calls_duration_in_interval(&graphite_interval_tv);
 
-		rc = send_graphite_data(cm, &graphite_stats);
+		rc = send_graphite_data(&graphite_stats);
 		gettimeofday(&rtpe_latest_graphite_interval_start, NULL);
 		if (rc < 0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
@@ -327,14 +315,6 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 }
 
 void graphite_loop(void *d) {
-	struct callmaster *cm = d;
-
-        // sanity checks
-        if (!cm) {
-                ilog(LOG_ERROR, "NULL callmaster");
-                return ;
-        }
-
 	if (rtpe_config.graphite_interval <= 0) {
 		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
 		rtpe_config.graphite_interval=1;
@@ -343,5 +323,5 @@ void graphite_loop(void *d) {
 	connect_to_graphite_server(&rtpe_config.graphite_ep);
 
 	while (!rtpe_shutdown)
-		graphite_loop_run(cm, &rtpe_config.graphite_ep, rtpe_config.graphite_interval); // time in seconds
+		graphite_loop_run(&rtpe_config.graphite_ep, rtpe_config.graphite_interval); // time in seconds
 }

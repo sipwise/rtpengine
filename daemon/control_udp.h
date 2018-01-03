@@ -39,7 +39,6 @@
 #define RE_UDP_V_PARMS 		20
 
 struct poller;
-struct callmaster;
 
 
 
@@ -48,7 +47,6 @@ struct callmaster;
 struct control_udp {
 	struct obj		obj;
 
-	struct callmaster	*callmaster;
 	struct cookie_cache	cookie_cache;
 	socket_t		udp_listeners[2];
 
@@ -61,7 +59,7 @@ struct control_udp {
 
 
 
-struct control_udp *control_udp_new(struct poller *, endpoint_t *, struct callmaster *);
+struct control_udp *control_udp_new(struct poller *, endpoint_t *);
 
 
 
