@@ -424,8 +424,6 @@ struct callmaster {
 	mutex_t		        	totalstats_lastinterval_lock;
 	struct totalstats       totalstats_lastinterval;
 
-	struct poller	        *poller;
-
 	struct callmaster_config conf;
 	struct timeval          latest_graphite_interval_start;
 };
@@ -435,7 +433,7 @@ extern rwlock_t rtpe_callhash_lock;
 extern GHashTable *rtpe_callhash;
 
 
-struct callmaster *callmaster_new(struct poller *);
+struct callmaster *callmaster_new(void);
 void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
 
 //void calls_dump_redis(struct callmaster *);

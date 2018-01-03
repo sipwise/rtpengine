@@ -23,6 +23,7 @@
 #include "rtcplib.h"
 #include "ssrc.h"
 #include "iptables.h"
+#include "main.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -1619,7 +1620,6 @@ static void stream_fd_free(void *p) {
 struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct local_intf *lif) {
 	struct stream_fd *sfd;
 	struct poller_item pi;
-	struct poller *po = call->callmaster->poller;
 
 	sfd = obj_alloc0("stream_fd", sizeof(*sfd), stream_fd_free);
 	sfd->unique_id = g_queue_get_length(&call->stream_fds);
@@ -1637,7 +1637,7 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 	pi.readable = stream_fd_readable;
 	pi.closed = stream_fd_closed;
 
-	if (poller_add_item(po, &pi))
+	if (poller_add_item(rtpe_poller, &pi))
 		ilog(LOG_ERR, "Failed to add stream_fd to poller");
 
 	return sfd;

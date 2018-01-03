@@ -41,6 +41,7 @@
 #include "cdr.h"
 #include "statistics.h"
 #include "ssrc.h"
+#include "main.h"
 
 
 /* also serves as array index for callstream->peers[] */
@@ -608,7 +609,7 @@ next:
 #undef DS
 
 
-struct callmaster *callmaster_new(struct poller *p) {
+struct callmaster *callmaster_new() {
 	struct callmaster *c;
 
 	c = obj_alloc0("callmaster", sizeof(*c), NULL);
@@ -616,10 +617,9 @@ struct callmaster *callmaster_new(struct poller *p) {
 	rtpe_callhash = g_hash_table_new(str_hash, str_equal);
 	if (!rtpe_callhash)
 		goto fail;
-	c->poller = p;
 	rwlock_init(&rtpe_callhash_lock);
 
-	poller_add_timer(p, callmaster_timer, &c->obj);
+	poller_add_timer(rtpe_poller, callmaster_timer, &c->obj);
 
 	mutex_init(&c->totalstats.total_average_lock);
 	mutex_init(&c->totalstats_interval.total_average_lock);
@@ -1769,7 +1769,6 @@ void call_destroy(struct call *c) {
 	struct callmaster *m;
 	struct packet_stream *ps=0;
 	struct stream_fd *sfd;
-	struct poller *p;
 	GList *l;
 	int ret;
 	struct call_monologue *ml;
@@ -1782,7 +1781,6 @@ void call_destroy(struct call *c) {
 	}
 
 	m = c->callmaster;
-	p = m->poller;
 
 	rwlock_lock_w(&rtpe_callhash_lock);
 	ret = (g_hash_table_lookup(rtpe_callhash, &c->callid) == c);
@@ -1914,7 +1912,7 @@ no_stats_output:
 
 	while (c->stream_fds.head) {
 		sfd = g_queue_pop_head(&c->stream_fds);
-		poller_del_item(p, sfd->socket.fd);
+		poller_del_item(rtpe_poller, sfd->socket.fd);
 		obj_put(sfd);
 	}
 

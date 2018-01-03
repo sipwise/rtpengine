@@ -1,3 +1,5 @@
+#include "main.h"
+
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
@@ -38,10 +40,11 @@
 
 
 struct main_context {
-	struct poller		*p;
 	struct callmaster	*m;
 };
 
+
+struct poller *rtpe_poller;
 
 
 
@@ -519,15 +522,15 @@ static void create_everything(struct main_context *ctx) {
 	}
 
 no_kernel:
-	ctx->p = poller_new();
-	if (!ctx->p)
+	rtpe_poller = poller_new();
+	if (!rtpe_poller)
 		die("poller creation failed");
 
-	ctx->m = callmaster_new(ctx->p);
+	ctx->m = callmaster_new();
 	if (!ctx->m)
 		die("callmaster creation failed");
 
-	dtls_timer(ctx->p);
+	dtls_timer(rtpe_poller);
 
 	ZERO(mc);
         rwlock_init(&mc.config_lock);
@@ -559,7 +562,7 @@ no_kernel:
 
 	ct = NULL;
 	if (tcp_listen_ep.port) {
-		ct = control_tcp_new(ctx->p, &tcp_listen_ep, ctx->m);
+		ct = control_tcp_new(rtpe_poller, &tcp_listen_ep, ctx->m);
 		if (!ct)
 			die("Failed to open TCP control connection port");
 	}
@@ -567,7 +570,7 @@ no_kernel:
 	cu = NULL;
 	if (udp_listen_ep.port) {
 		interfaces_exclude_port(udp_listen_ep.port);
-		cu = control_udp_new(ctx->p, &udp_listen_ep, ctx->m);
+		cu = control_udp_new(rtpe_poller, &udp_listen_ep, ctx->m);
 		if (!cu)
 			die("Failed to open UDP control connection port");
 	}
@@ -575,7 +578,7 @@ no_kernel:
 	cn = NULL;
 	if (ng_listen_ep.port) {
 		interfaces_exclude_port(ng_listen_ep.port);
-		cn = control_ng_new(ctx->p, &ng_listen_ep, ctx->m, control_tos);
+		cn = control_ng_new(rtpe_poller, &ng_listen_ep, ctx->m, control_tos);
 		if (!cn)
 			die("Failed to open UDP control connection port");
 	}
@@ -583,7 +586,7 @@ no_kernel:
 	cl = NULL;
 	if (cli_listen_ep.port) {
 		interfaces_exclude_port(cli_listen_ep.port);
-	    cl = cli_new(ctx->p, &cli_listen_ep, ctx->m);
+	    cl = cli_new(rtpe_poller, &cli_listen_ep, ctx->m);
 	    if (!cl)
 	        die("Failed to open UDP CLI connection port");
 	}
@@ -652,7 +655,7 @@ int main(int argc, char **argv) {
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
 	thread_create_detach(sighandler, NULL);
-	thread_create_detach(poller_timer_loop, ctx.p);
+	thread_create_detach(poller_timer_loop, rtpe_poller);
 
 	if (!is_addr_unspecified(&redis_ep.address))
 		thread_create_detach(redis_notify_loop, ctx.m);
@@ -671,7 +674,7 @@ int main(int argc, char **argv) {
 	}
 
 	for (;idx<num_threads;++idx) {
-		thread_create_detach(poller_loop, ctx.p);
+		thread_create_detach(poller_loop, rtpe_poller);
 	}
 
 	while (!rtpe_shutdown) {
