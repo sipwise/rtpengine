@@ -23,6 +23,7 @@
 #include "tcp_listener.h"
 #include "str.h"
 #include "statistics.h"
+#include "main.h"
 
 #include "rtpengine_config.h"
 
@@ -263,7 +264,7 @@ static void cli_incoming_list_numsessions(str *instr, struct callmaster* m, stru
 
 static void cli_incoming_list_maxsessions(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
 	/* don't lock anything while reading the value */
-	streambuf_printf(replybuffer, "Maximum sessions configured on rtpengine: %d\n", m->conf.max_sessions);
+	streambuf_printf(replybuffer, "Maximum sessions configured on rtpengine: %d\n", rtpe_config.max_sessions);
 
 	return ;
 }
@@ -287,14 +288,14 @@ static void cli_incoming_list_maxopenfiles(str *instr, struct callmaster* m, str
 }
 
 static void cli_incoming_list_timeout(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
-	rwlock_lock_r(&m->conf.config_lock);
+	rwlock_lock_r(&rtpe_config.config_lock);
 
 	/* don't lock anything while reading the value */
-	streambuf_printf(replybuffer, "TIMEOUT=%u\n", m->conf.timeout);
-	streambuf_printf(replybuffer, "SILENT_TIMEOUT=%u\n", m->conf.silent_timeout);
-	streambuf_printf(replybuffer, "FINAL_TIMEOUT=%u\n", m->conf.final_timeout);
+	streambuf_printf(replybuffer, "TIMEOUT=%u\n", rtpe_config.timeout);
+	streambuf_printf(replybuffer, "SILENT_TIMEOUT=%u\n", rtpe_config.silent_timeout);
+	streambuf_printf(replybuffer, "FINAL_TIMEOUT=%u\n", rtpe_config.final_timeout);
 
-	rwlock_unlock_r(&m->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 
 	return ;
 }
@@ -525,22 +526,22 @@ static void cli_incoming_set_maxsessions(str *instr, struct callmaster* m, struc
 	} else if (maxsessions_num < disabled) {
 		streambuf_printf(replybuffer,  "Fail setting maxsessions to %ld; either positive or -1 values allowed\n", maxsessions_num);
 	} else if (maxsessions_num == disabled) {
-		rwlock_lock_w(&m->conf.config_lock);
-		m->conf.max_sessions = maxsessions_num;
-		rwlock_unlock_w(&m->conf.config_lock);
+		rwlock_lock_w(&rtpe_config.config_lock);
+		rtpe_config.max_sessions = maxsessions_num;
+		rwlock_unlock_w(&rtpe_config.config_lock);
 		streambuf_printf(replybuffer,  "Success setting maxsessions to %ld; disable feature\n", maxsessions_num);
 	} else {
-		rwlock_lock_w(&m->conf.config_lock);
-		m->conf.max_sessions = maxsessions_num;
-		rwlock_unlock_w(&m->conf.config_lock);
+		rwlock_lock_w(&rtpe_config.config_lock);
+		rtpe_config.max_sessions = maxsessions_num;
+		rwlock_unlock_w(&rtpe_config.config_lock);
 		streambuf_printf(replybuffer,  "Success setting maxsessions to %ld\n", maxsessions_num);
 	}
 
 	return;
 }
 
-static void cli_incoming_set_gentimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer, unsigned int *conf_timeout) {
-	unsigned long timeout_num;
+static void cli_incoming_set_gentimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer, int *conf_timeout) {
+	long timeout_num;
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
@@ -548,31 +549,30 @@ static void cli_incoming_set_gentimeout(str *instr, struct callmaster* m, struct
 		return;
 	}
 
-	timeout_num = strtoul(instr->s, &endptr, 10);
+	timeout_num = strtol(instr->s, &endptr, 10);
 
-	if ((errno == ERANGE && (timeout_num == ULONG_MAX)) || (errno != 0 && timeout_num == 0)) {
+	if ((errno == ERANGE && (timeout_num == ULONG_MAX)) || (errno != 0 && timeout_num == 0) || timeout_num < 0 || timeout_num >= INT_MAX) {
 		streambuf_printf(replybuffer,  "Fail setting timeout to %s; errno=%d\n", instr->s, errno);
 		return;
 	} else if (endptr == instr->s) {
 		streambuf_printf(replybuffer,  "Fail setting timeout to %s; no digists found\n", instr->s);
 		return;
 	} else {
-		/* don't lock anything while writing the value - only this command modifies its value */
-		rwlock_lock_w(&m->conf.config_lock);
-		*conf_timeout = timeout_num;
-		rwlock_unlock_w(&m->conf.config_lock);
+		rwlock_lock_w(&rtpe_config.config_lock);
+		*conf_timeout = (int) timeout_num;
+		rwlock_unlock_w(&rtpe_config.config_lock);
 		streambuf_printf(replybuffer,  "Success setting timeout to %lu\n", timeout_num);
 	}
 }
 
 static void cli_incoming_set_timeout(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
-	cli_incoming_set_gentimeout(instr, m, replybuffer, &m->conf.timeout);
+	cli_incoming_set_gentimeout(instr, m, replybuffer, &rtpe_config.timeout);
 }
 static void cli_incoming_set_silenttimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
-	cli_incoming_set_gentimeout(instr, m, replybuffer, &m->conf.silent_timeout);
+	cli_incoming_set_gentimeout(instr, m, replybuffer, &rtpe_config.silent_timeout);
 }
 static void cli_incoming_set_finaltimeout(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
-	cli_incoming_set_gentimeout(instr, m, replybuffer, &m->conf.final_timeout);
+	cli_incoming_set_gentimeout(instr, m, replybuffer, &rtpe_config.final_timeout);
 }
 
 static void cli_incoming_list(str *instr, struct callmaster* m, struct streambuf *replybuffer) {
@@ -681,15 +681,15 @@ static void cli_incoming_ksadd(str *instr, struct callmaster* m, struct streambu
 	} else if (endptr == instr->s) {
 		streambuf_printf(replybuffer, "Fail adding keyspace %s to redis notifications; no digists found\n", instr->s);
 	} else {
-		rwlock_lock_w(&m->conf.config_lock);
-		if (!g_queue_find(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db))) {
-			g_queue_push_tail(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
+		rwlock_lock_w(&rtpe_config.config_lock);
+		if (!g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db))) {
+			g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			redis_notify_subscribe_action(m, SUBSCRIBE_KEYSPACE, uint_keyspace_db);
 			streambuf_printf(replybuffer, "Success adding keyspace %lu to redis notifications.\n", uint_keyspace_db);
 		} else {
 			streambuf_printf(replybuffer, "Keyspace %lu is already among redis notifications.\n", uint_keyspace_db);
 		}
-		rwlock_unlock_w(&m->conf.config_lock);
+		rwlock_unlock_w(&rtpe_config.config_lock);
 	}
 }
 
@@ -705,15 +705,15 @@ static void cli_incoming_ksrm(str *instr, struct callmaster* m, struct streambuf
 
 	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
 
-	rwlock_lock_w(&m->conf.config_lock);
+	rwlock_lock_w(&rtpe_config.config_lock);
 	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
 		streambuf_printf(replybuffer, "Fail removing keyspace %s to redis notifications; errono=%d\n", instr->s, errno);
         } else if (endptr == instr->s) {
                 streambuf_printf(replybuffer, "Fail removing keyspace %s to redis notifications; no digists found\n", instr->s);
-	} else if ((l = g_queue_find(m->conf.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db)))) {
+	} else if ((l = g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db)))) {
 		// remove this keyspace
 		redis_notify_subscribe_action(m, UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
-		g_queue_remove(m->conf.redis_subscribed_keyspaces, l->data);
+		g_queue_remove(&rtpe_config.redis_subscribed_keyspaces, l->data);
 		streambuf_printf(replybuffer, "Successfully unsubscribed from keyspace %lu.\n", uint_keyspace_db);
 
 		// destroy foreign calls for this keyspace
@@ -724,7 +724,7 @@ static void cli_incoming_ksrm(str *instr, struct callmaster* m, struct streambuf
 	} else {
 		streambuf_printf(replybuffer, "Keyspace %lu is not among redis notifications.\n", uint_keyspace_db);
 	}
-	rwlock_unlock_w(&m->conf.config_lock);
+	rwlock_unlock_w(&rtpe_config.config_lock);
 
 }
 
@@ -733,11 +733,11 @@ static void cli_incoming_kslist(str *instr, struct callmaster* m, struct streamb
 
 	streambuf_printf(replybuffer,  "\nSubscribed-on keyspaces:\n");
     
-	rwlock_lock_r(&m->conf.config_lock);
-	for (l = m->conf.redis_subscribed_keyspaces->head; l; l = l->next) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
 		streambuf_printf(replybuffer,  "%u ", GPOINTER_TO_UINT(l->data));
 	}
-	rwlock_unlock_r(&m->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 
 	streambuf_printf(replybuffer, "\n");
 }

@@ -24,6 +24,7 @@
 #include "ssrc.h"
 #include "tcp_listener.h"
 #include "streambuf.h"
+#include "main.h"
 
 
 static pcre *info_re;
@@ -396,12 +397,12 @@ str *call_query_udp(char **out, struct callmaster *m) {
 
 	rwlock_unlock_w(&c->master_lock);
 
-	rwlock_lock_r(&m->conf.config_lock);
+	rwlock_lock_r(&rtpe_config.config_lock);
 	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
-		(long long int) m->conf.silent_timeout - (rtpe_now.tv_sec - stats.last_packet),
+		(long long int) rtpe_config.silent_timeout - (rtpe_now.tv_sec - stats.last_packet),
 		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
 		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
-	rwlock_unlock_r(&m->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 	goto out;
 
 err:
@@ -814,25 +815,25 @@ out:
 const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr,
 		const endpoint_t *sin)
 {
-	rwlock_lock_r(&m->conf.config_lock);
-	if (m->conf.max_sessions>=0) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	if (rtpe_config.max_sessions>=0) {
 		rwlock_lock_r(&rtpe_callhash_lock);
 		if (g_hash_table_size(rtpe_callhash) -
-				atomic64_get(&rtpe_stats.foreign_sessions) >= m->conf.max_sessions) {
+				atomic64_get(&rtpe_stats.foreign_sessions) >= rtpe_config.max_sessions) {
 			rwlock_unlock_r(&rtpe_callhash_lock);
 			/* foreign calls can't get rejected
 			 * total_rejected_sess applies only to "own" sessions */
 			atomic64_inc(&rtpe_totalstats.total_rejected_sess);
 			atomic64_inc(&rtpe_totalstats_interval.total_rejected_sess);
-			ilog(LOG_ERROR, "Parallel session limit reached (%i)",m->conf.max_sessions);
+			ilog(LOG_ERROR, "Parallel session limit reached (%i)",rtpe_config.max_sessions);
 
-			rwlock_unlock_r(&m->conf.config_lock);
+			rwlock_unlock_r(&rtpe_config.config_lock);
 			return "Parallel session limit reached";
 		}
 		rwlock_unlock_r(&rtpe_callhash_lock);
 	}
 
-	rwlock_unlock_r(&m->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 	return call_offer_answer_ng(input, m, output, OP_OFFER, addr, sin);
 }
 

@@ -30,6 +30,7 @@
 #include "rtplib.h"
 #include "str.h"
 #include "ssrc.h"
+#include "main.h"
 
 
 INLINE redisReply *redis_expect(int type, redisReply *r) {
@@ -543,11 +544,11 @@ static int redis_notify(struct callmaster *cm) {
 	}
 
 	// subscribe to the values in the configured keyspaces
-	rwlock_lock_r(&cm->conf.config_lock);
-	for (l = cm->conf.redis_subscribed_keyspaces->head; l; l = l->next) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
 		redis_notify_subscribe_action(cm, SUBSCRIBE_KEYSPACE, GPOINTER_TO_UINT(l->data));
 	}
-	rwlock_unlock_r(&cm->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 
 	// dispatch event base => thread blocks here
 	if (event_base_dispatch(cm->conf.redis_notify_event_base) < 0) {
@@ -1649,9 +1650,9 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	ctx.m = m;
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
-	for (i = 0; i < m->conf.redis_num_threads; i++)
+	for (i = 0; i < rtpe_config.redis_num_threads; i++)
 		g_queue_push_tail(&ctx.r_q, redis_new(&r->endpoint, r->db, r->auth, r->role, r->no_redis_required));
-	gtp = g_thread_pool_new(restore_thread, &ctx, m->conf.redis_num_threads, TRUE, NULL);
+	gtp = g_thread_pool_new(restore_thread, &ctx, rtpe_config.redis_num_threads, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {
 		call = calls->element[i];
@@ -2073,7 +2074,7 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 
 	rwlock_lock_r(&c->master_lock);
 
-	redis_expires_s = c->callmaster->conf.redis_expires_secs;
+	redis_expires_s = rtpe_config.redis_expires_secs;
 
 	c->redis_hosted_db = r->db;
 	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db)) {

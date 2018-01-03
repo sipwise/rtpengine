@@ -61,11 +61,6 @@ enum transport_protocol_index {
 	__PROTO_LAST,
 };
 
-enum xmlrpc_format {
-	XF_SEMS = 0,
-	XF_CALLID,
-};
-
 enum call_stream_state {
 	CSS_UNKNOWN = 0,
 	CSS_SHUTDOWN,
@@ -388,29 +383,12 @@ struct call {
 };
 
 struct callmaster_config {
-	/* everything below protected by config_lock */
-	rwlock_t		config_lock;
-	int			max_sessions;
-	unsigned int		timeout;
-	unsigned int		silent_timeout;
-	unsigned int		final_timeout;
-
-	unsigned int		delete_delay;
 	struct redis		*redis;
 	struct redis		*redis_write;
 	struct redis		*redis_notify;
-	struct event_base   *redis_notify_event_base;
-	GQueue		        *redis_subscribed_keyspaces;
-	struct redisAsyncContext *redis_notify_async_context;
-	unsigned int        redis_expires_secs;
-	char			*b2b_url;
-	unsigned char		default_tos;
-	unsigned char		control_tos;
-	enum xmlrpc_format	fmt;
-	endpoint_t		graphite_ep;
-	int			graphite_interval;
 
-	int			redis_num_threads;
+	struct event_base	*redis_notify_event_base;
+	struct redisAsyncContext *redis_notify_async_context;
 };
 
 struct callmaster {

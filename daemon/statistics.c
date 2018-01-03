@@ -1,6 +1,8 @@
 #include "call.h"
 #include "statistics.h"
 #include "graphite.h"
+#include "main.h"
+
 
 struct totalstats       rtpe_totalstats;
 struct totalstats       rtpe_totalstats_interval;
@@ -108,7 +110,6 @@ void statistics_update_foreignown_inc(struct call* c) {
 }
 
 void statistics_update_oneway(struct call* c) {
-	struct callmaster *m;
 	struct packet_stream *ps = NULL, *ps2 = NULL;
 	struct call_monologue *ml;
 	struct call_media *md;
@@ -116,8 +117,6 @@ void statistics_update_oneway(struct call* c) {
 	int found = 0;
 	GList *l;
 	struct timeval tim_result_duration;
-
-	m = c->callmaster;
 
 	// --- for statistics getting one way stream or no relay at all
 	int total_nopacket_relayed_sess = 0;
@@ -205,7 +204,7 @@ void statistics_update_oneway(struct call* c) {
 			timeval_totalstats_interval_call_duration_add(
 					&rtpe_totalstats_interval, &ml->started, &ml->terminated,
 					&rtpe_latest_graphite_interval_start,
-					m->conf.graphite_interval);
+					rtpe_config.graphite_interval);
 		}
 
 		if (ml->term_reason==FINAL_TIMEOUT) {

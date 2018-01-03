@@ -21,6 +21,7 @@
 #include "graphite.h"
 #include "socket.h"
 #include "statistics.h"
+#include "main.h"
 
 struct timeval rtpe_latest_graphite_interval_start;
 
@@ -334,13 +335,13 @@ void graphite_loop(void *d) {
                 return ;
         }
 
-	if (cm->conf.graphite_interval <= 0) {
+	if (rtpe_config.graphite_interval <= 0) {
 		ilog(LOG_WARNING,"Graphite send interval was not set. Setting it to 1 second.");
-		cm->conf.graphite_interval=1;
+		rtpe_config.graphite_interval=1;
 	}
 
-	connect_to_graphite_server(&cm->conf.graphite_ep);
+	connect_to_graphite_server(&rtpe_config.graphite_ep);
 
 	while (!rtpe_shutdown)
-		graphite_loop_run(cm, &cm->conf.graphite_ep, cm->conf.graphite_interval); // time in seconds
+		graphite_loop_run(cm, &rtpe_config.graphite_ep, rtpe_config.graphite_interval); // time in seconds
 }

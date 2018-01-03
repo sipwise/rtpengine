@@ -50,40 +50,36 @@ struct poller *rtpe_poller;
 
 
 
+struct rtpengine_config rtpe_config = {
+	// non-zero defaults
+	.kernel_table = -1,
+	.max_sessions = -1,
+	.delete_delay = 30,
+	.redis_subscribed_keyspaces = G_QUEUE_INIT,
+	.redis_expires_secs = 86400,
+};
+
+
+
 static GQueue interfaces = G_QUEUE_INIT;
-static GQueue keyspaces = G_QUEUE_INIT;
 static endpoint_t tcp_listen_ep;
 static endpoint_t udp_listen_ep;
 static endpoint_t ng_listen_ep;
 static endpoint_t cli_listen_ep;
-static endpoint_t graphite_ep;
 static endpoint_t redis_ep;
 static endpoint_t redis_write_ep;
 static endpoint_t homer_ep;
 static int homer_protocol = SOCK_DGRAM;
 static int homer_id = 2001;
-static int tos;
-static int control_tos;
-static int table = -1;
 static int no_fallback;
-static unsigned int timeout;
-static unsigned int silent_timeout;
-static unsigned int final_timeout;
-static unsigned int redis_expires = 86400;
 static int port_min = 30000;
 static int port_max = 40000;
-static int max_sessions = -1;
 static int redis_db = -1;
 static int redis_write_db = -1;
-static int redis_num_threads;
 static int no_redis_required;
 static char *redis_auth;
 static char *redis_write_auth;
-static char *b2b_url;
-static enum xmlrpc_format xmlrpc_fmt = XF_SEMS;
 static int num_threads;
-static int delete_delay = 30;
-static int graphite_interval = 0;
 static char *spooldir;
 static char *rec_method = "pcap";
 static char *rec_format = "raw";
@@ -266,7 +262,7 @@ static void options(int *argc, char ***argv) {
 	char *endptr;
 
 	GOptionEntry e[] = {
-		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
+		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&no_fallback,	"Only start when kernel module is available", NULL },
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
@@ -275,29 +271,29 @@ static void options(int *argc, char ***argv) {
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46|HOSTNAME:]PORT"	},
 		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46|HOSTNAME:]PORT"     },
 		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "IP46|HOSTNAME:PORT"     },
-		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &graphite_interval,  "Graphite send interval in seconds",    "INT"   },
+		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &rtpe_config.graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
-		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&tos,		"Default TOS value to set on streams",	"INT"		},
-		{ "control-tos",0 , 0, G_OPTION_ARG_INT,	&control_tos,		"Default TOS value to set on control-ng",	"INT"		},
-		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&timeout,	"RTP timeout",			"SECS"		},
-		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&silent_timeout,"RTP timeout for muted",	"SECS"		},
-		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&final_timeout,	"Call timeout",			"SECS"		},
+		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&rtpe_config.default_tos,		"Default TOS value to set on streams",	"INT"		},
+		{ "control-tos",0 , 0, G_OPTION_ARG_INT,	&rtpe_config.control_tos,		"Default TOS value to set on control-ng",	"INT"		},
+		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&rtpe_config.timeout,	"RTP timeout",			"SECS"		},
+		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&rtpe_config.silent_timeout,"RTP timeout for muted",	"SECS"		},
+		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&rtpe_config.final_timeout,	"Call timeout",			"SECS"		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
-		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &redis_num_threads, "Number of Redis restore threads",      "INT"       },
-		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &redis_expires, "Expire time in seconds for redis keys",      "INT"       },
+		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_num_threads, "Number of Redis restore threads",      "INT"       },
+		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_expires_secs, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &no_redis_required, "Start no matter of redis connection state", NULL },
-		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
+		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&rtpe_config.b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
 		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
-		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&xmlrpc_fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
+		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&rtpe_config.fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads to create",	"INT"	},
-		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
+		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &rtpe_config.delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
-		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&max_sessions,	"Limit of maximum number of sessions",	"INT"	},
+		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&rtpe_config.max_sessions,	"Limit of maximum number of sessions",	"INT"	},
 		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46|HOSTNAME:PORT"},
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
 		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
@@ -337,7 +333,7 @@ static void options(int *argc, char ***argv) {
 			} else if (endptr == str_keyspace_db.s) {
 				ilog(LOG_ERR, "Fail adding keyspace %.*s to redis notifications; no digits found\n", str_keyspace_db.len, str_keyspace_db.s);
 			} else {
-				g_queue_push_tail(&keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
+				g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			}
 		}
 	}
@@ -359,7 +355,7 @@ static void options(int *argc, char ***argv) {
 	    die("Invalid IP or port (--listen-cli)");
 	}
 
-	if (graphitep) {if (endpoint_parse_any_getaddrinfo_full(&graphite_ep, graphitep))
+	if (graphitep) {if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.graphite_ep, graphitep))
 	    die("Invalid IP or port (--graphite)");
 	}
 
@@ -379,20 +375,20 @@ static void options(int *argc, char ***argv) {
 			die("Invalid protocol (--homer-protocol)");
 	}
 
-	if (tos < 0 || tos > 255)
+	if (rtpe_config.default_tos < 0 || rtpe_config.default_tos > 255)
 		die("Invalid TOS value");
 
-	if (control_tos < 0 || control_tos > 255)
+	if (rtpe_config.control_tos < 0 || rtpe_config.control_tos > 255)
 		die("Invalid control-ng TOS value");
 
-	if (timeout <= 0)
-		timeout = 60;
+	if (rtpe_config.timeout <= 0)
+		rtpe_config.timeout = 60;
 
-	if (silent_timeout <= 0)
-		silent_timeout = 3600;
+	if (rtpe_config.silent_timeout <= 0)
+		rtpe_config.silent_timeout = 3600;
 
-	if (final_timeout <= 0)
-		final_timeout = 0;
+	if (rtpe_config.final_timeout <= 0)
+		rtpe_config.final_timeout = 0;
 
 	if (redisps)
 		if (redis_ep_parse(&redis_ep, &redis_db, &redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
@@ -403,7 +399,7 @@ static void options(int *argc, char ***argv) {
 					"RTPENGINE_REDIS_WRITE_AUTH_PW", redisps_write))
 			die("Invalid Redis endpoint [IP:PORT/INT] (--redis-write)");
 
-	if (xmlrpc_fmt > 1)
+	if (rtpe_config.fmt > 1)
 		die("Invalid XMLRPC format");
 
 	if ((log_level < LOG_EMERG) || (log_level > LOG_DEBUG))
@@ -505,7 +501,6 @@ static void init_everything() {
 
 
 static void create_everything(struct main_context *ctx) {
-	struct callmaster_config mc;
 	struct control_tcp *ct;
 	struct control_udp *cu;
 	struct control_ng *cn;
@@ -514,9 +509,9 @@ static void create_everything(struct main_context *ctx) {
 	struct timeval redis_start, redis_stop;
 	double redis_diff = 0;
 
-	if (table < 0)
+	if (rtpe_config.kernel_table < 0)
 		goto no_kernel;
-	if (kernel_setup_table(table)) {
+	if (kernel_setup_table(rtpe_config.kernel_table)) {
 		if (no_fallback) {
 			ilog(LOG_CRIT, "Userspace fallback disallowed - exiting");
 			exit(-1);
@@ -535,33 +530,19 @@ no_kernel:
 
 	dtls_timer(rtpe_poller);
 
-	ZERO(mc);
-        rwlock_init(&mc.config_lock);
-	if (max_sessions < -1) {
-		max_sessions = -1;
+        rwlock_init(&rtpe_config.config_lock);
+	if (rtpe_config.max_sessions < -1) {
+		rtpe_config.max_sessions = -1;
 	}
-	mc.max_sessions = max_sessions;
-	mc.timeout = timeout;
-	mc.silent_timeout = silent_timeout;
-	mc.final_timeout = final_timeout;
-	mc.delete_delay = delete_delay;
-	mc.default_tos = tos;
-	mc.control_tos = control_tos;
-	mc.b2b_url = b2b_url;
-	mc.fmt = xmlrpc_fmt;
-	mc.graphite_ep = graphite_ep;
-	mc.graphite_interval = graphite_interval;
-	mc.redis_subscribed_keyspaces = g_queue_copy(&keyspaces);
 
-	if (redis_num_threads < 1) {
+	if (rtpe_config.redis_num_threads < 1) {
 #ifdef _SC_NPROCESSORS_ONLN
-		redis_num_threads = sysconf( _SC_NPROCESSORS_ONLN );
+		rtpe_config.redis_num_threads = sysconf( _SC_NPROCESSORS_ONLN );
 #endif
-		if (redis_num_threads < 1) {
-			redis_num_threads = REDIS_RESTORE_NUM_THREADS;
+		if (rtpe_config.redis_num_threads < 1) {
+			rtpe_config.redis_num_threads = REDIS_RESTORE_NUM_THREADS;
 		}
 	}
-	mc.redis_num_threads = redis_num_threads;
 
 	ct = NULL;
 	if (tcp_listen_ep.port) {
@@ -581,7 +562,7 @@ no_kernel:
 	cn = NULL;
 	if (ng_listen_ep.port) {
 		interfaces_exclude_port(ng_listen_ep.port);
-		cn = control_ng_new(rtpe_poller, &ng_listen_ep, ctx->m, control_tos);
+		cn = control_ng_new(rtpe_poller, &ng_listen_ep, ctx->m, rtpe_config.control_tos);
 		if (!cn)
 			die("Failed to open UDP control connection port");
 	}
@@ -595,26 +576,22 @@ no_kernel:
 	}
 
 	if (!is_addr_unspecified(&redis_write_ep.address)) {
-		mc.redis_write = redis_new(&redis_write_ep, redis_write_db, redis_write_auth, ANY_REDIS_ROLE, no_redis_required);
-		if (!mc.redis_write)
+		ctx->m->conf.redis_write = redis_new(&redis_write_ep, redis_write_db, redis_write_auth, ANY_REDIS_ROLE, no_redis_required);
+		if (!ctx->m->conf.redis_write)
 			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&redis_write_ep));
 	}
 
 	if (!is_addr_unspecified(&redis_ep.address)) {
-		mc.redis = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
-		mc.redis_notify = redis_new(&redis_ep, redis_db, redis_auth, mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
-		if (!mc.redis || !mc.redis_notify)
+		ctx->m->conf.redis = redis_new(&redis_ep, redis_db, redis_auth, ctx->m->conf.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
+		ctx->m->conf.redis_notify = redis_new(&redis_ep, redis_db, redis_auth, ctx->m->conf.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, no_redis_required);
+		if (!ctx->m->conf.redis || !ctx->m->conf.redis_notify)
 			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&redis_ep));
 
-		if (!mc.redis_write)
-			mc.redis_write = mc.redis;
+		if (!ctx->m->conf.redis_write)
+			ctx->m->conf.redis_write = ctx->m->conf.redis;
 	}
-
-	mc.redis_expires_secs = redis_expires;
-
-	ctx->m->conf = mc;
 
 	daemonize();
 	wpidfile();
@@ -623,12 +600,12 @@ no_kernel:
 
 	rtcp_init(); // must come after Homer init
 
-	if (mc.redis) {
+	if (ctx->m->conf.redis) {
 		// start redis restore timer
 		gettimeofday(&redis_start, NULL);
 
 		// restore
-		if (redis_restore(ctx->m, mc.redis))
+		if (redis_restore(ctx->m, ctx->m->conf.redis))
 			die("Refusing to continue without working Redis database");
 
 		// stop redis restore timer
@@ -641,7 +618,7 @@ no_kernel:
 
 	gettimeofday(&rtpe_latest_graphite_interval_start, NULL);
 
-	timeval_from_us(&tmp_tv, (long long) graphite_interval*1000000);
+	timeval_from_us(&tmp_tv, (long long) rtpe_config.graphite_interval*1000000);
 	set_graphite_interval_tv(&tmp_tv);
 }
 
@@ -663,7 +640,7 @@ int main(int argc, char **argv) {
 	if (!is_addr_unspecified(&redis_ep.address))
 		thread_create_detach(redis_notify_loop, ctx.m);
 
-	if (!is_addr_unspecified(&graphite_ep.address))
+	if (!is_addr_unspecified(&rtpe_config.graphite_ep.address))
 		thread_create_detach(graphite_loop, ctx.m);
 
 	thread_create_detach(ice_thread_run, NULL);

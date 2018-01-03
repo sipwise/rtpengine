@@ -176,7 +176,6 @@ static void call_timer_iterator(gpointer data, gpointer user_data) {
 	struct call *c = data;
 	struct iterator_helper *hlp = user_data;
 	GList *it;
-	struct callmaster *cm;
 	unsigned int check;
 	int good = 0;
 	struct packet_stream *ps;
@@ -189,11 +188,10 @@ static void call_timer_iterator(gpointer data, gpointer user_data) {
 	rwlock_lock_r(&c->master_lock);
 	log_info_call(c);
 
-	cm = c->callmaster;
-	rwlock_lock_r(&cm->conf.config_lock);
+	rwlock_lock_r(&rtpe_config.config_lock);
 
 	// final timeout applicable to all calls (own and foreign)
-	if (cm->conf.final_timeout && rtpe_now.tv_sec >= (c->created.tv_sec + cm->conf.final_timeout)) {
+	if (rtpe_config.final_timeout && rtpe_now.tv_sec >= (c->created.tv_sec + rtpe_config.final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
 		for (it = c->monologues.head; it; it = it->next) {
@@ -248,10 +246,10 @@ no_sfd:
 		if (good)
 			goto next;
 
-		check = cm->conf.timeout;
+		check = rtpe_config.timeout;
 		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd || !PS_ISSET(ps, FILLED)) {
-			check = cm->conf.silent_timeout;
+			check = rtpe_config.silent_timeout;
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
 
@@ -286,7 +284,7 @@ delete:
 	goto out;
 
 out:
-	rwlock_unlock_r(&cm->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 	rwlock_unlock_r(&c->master_lock);
 	log_info_clear();
 }
@@ -397,7 +395,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 		return;
 
 	/* if m is NULL, it's the scheduled deletions, otherwise it's the timeouts */
-	url = m ? m->conf.b2b_url : NULL;
+	url = m ? rtpe_config.b2b_url : NULL;
 	if (url) {
 		xh = g_slice_alloc(sizeof(*xh));
 		xh->c = g_string_chunk_new(64);
@@ -410,7 +408,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 		else
 			url_suffix = g_string_chunk_insert(xh->c, url);
 		xh->tags_urls = NULL;
-		xh->fmt = m->conf.fmt;
+		xh->fmt = rtpe_config.fmt;
 	}
 
 	while (list) {
@@ -429,7 +427,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 		else
 			snprintf(url_buf, sizeof(url_buf), "%s", url_suffix);
 
-		switch (m->conf.fmt) {
+		switch (rtpe_config.fmt) {
 		case XF_SEMS:
 			for (csl = ca->monologues.head; csl; csl = csl->next) {
 				cm = csl->data;
@@ -1343,7 +1341,7 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 		return;
 
 	if (!flags || flags->tos > 255)
-		new_tos = call->callmaster->conf.default_tos;
+		new_tos = rtpe_config.default_tos;
 	else
 		new_tos = flags->tos;
 
@@ -2017,7 +2015,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	call_str_cpy(c, &c->callid, callid);
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
-	c->tos = m->conf.default_tos;
+	c->tos = rtpe_config.default_tos;
 	c->ssrc_hash = create_ssrc_hash();
 
 	return c;
@@ -2363,7 +2361,7 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	GList *i;
 
 	if (delete_delay < 0)
-		delete_delay = m->conf.delete_delay;
+		delete_delay = rtpe_config.delete_delay;
 
 	c = call_get(callid, m);
 	if (!c) {
