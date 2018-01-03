@@ -417,7 +417,6 @@ struct callmaster {
 	struct obj		obj;
 
 	struct callmaster_config conf;
-	struct timeval          latest_graphite_interval_start;
 };
 
 

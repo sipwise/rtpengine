@@ -37,6 +37,7 @@
 #include "rtcp.h"
 #include "iptables.h"
 #include "statistics.h"
+#include "graphite.h"
 
 
 
@@ -638,7 +639,7 @@ no_kernel:
 		ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
 	}
 
-	gettimeofday(&ctx->m->latest_graphite_interval_start, NULL);
+	gettimeofday(&rtpe_latest_graphite_interval_start, NULL);
 
 	timeval_from_us(&tmp_tv, (long long) graphite_interval*1000000);
 	set_graphite_interval_tv(&tmp_tv);

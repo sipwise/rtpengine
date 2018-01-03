@@ -22,6 +22,8 @@
 #include "socket.h"
 #include "statistics.h"
 
+struct timeval rtpe_latest_graphite_interval_start;
+
 static socket_t graphite_sock;
 static int connection_state = STATE_DISCONNECTED;
 //struct totalstats totalstats_prev;
@@ -311,7 +313,7 @@ void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int secon
 		add_total_calls_duration_in_interval(cm, &graphite_interval_tv);
 
 		rc = send_graphite_data(cm, &graphite_stats);
-		gettimeofday(&cm->latest_graphite_interval_start, NULL);
+		gettimeofday(&rtpe_latest_graphite_interval_start, NULL);
 		if (rc < 0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
 			close_socket(&graphite_sock);

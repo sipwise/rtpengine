@@ -16,6 +16,8 @@ enum connection_state {
 	STATE_CONNECTED,
 };
 
+extern struct timeval rtpe_latest_graphite_interval_start;
+
 int connect_to_graphite_server(const endpoint_t *ep);
 int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data);
 void graphite_loop_run(struct callmaster *cm, endpoint_t *graphite_ep, int seconds);

@@ -1,5 +1,6 @@
 #include "call.h"
 #include "statistics.h"
+#include "graphite.h"
 
 struct totalstats       rtpe_totalstats;
 struct totalstats       rtpe_totalstats_interval;
@@ -203,7 +204,7 @@ void statistics_update_oneway(struct call* c) {
 			timeval_totalstats_average_add(&rtpe_totalstats_interval, &tim_result_duration);
 			timeval_totalstats_interval_call_duration_add(
 					&rtpe_totalstats_interval, &ml->started, &ml->terminated,
-					&m->latest_graphite_interval_start,
+					&rtpe_latest_graphite_interval_start,
 					m->conf.graphite_interval);
 		}
 
