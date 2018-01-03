@@ -180,7 +180,7 @@ void statistics_update_oneway(struct call* c) {
 	if (c->monologues.head) {
 		ml = c->monologues.head->data;
 
-		timeval_subtract(&tim_result_duration, &g_now, &ml->started);
+		timeval_subtract(&tim_result_duration, &rtpe_now, &ml->started);
 
 		if (IS_OWN_CALL(c)) {
 			if (ml->term_reason==TIMEOUT) {

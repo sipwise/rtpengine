@@ -34,8 +34,8 @@ static cond_t threads_cond = COND_STATIC_INIT;
 static struct thread_buf __thread t_bufs[NUM_THREAD_BUFS];
 static int __thread t_buf_idx;
 
-__thread struct timeval g_now;
-volatile int g_shutdown;
+__thread struct timeval rtpe_now;
+volatile int rtpe_shutdown;
 
 #ifdef NEED_ATOMIC64_MUTEX
 mutex_t __atomic64_mutex = MUTEX_STATIC_INIT;

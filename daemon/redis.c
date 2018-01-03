@@ -560,7 +560,7 @@ static int redis_notify(struct callmaster *cm) {
 
 void redis_notify_loop(void *d) {
 	int seconds = 1, redis_notify_return = 0;
-	time_t next_run = g_now.tv_sec;
+	time_t next_run = rtpe_now.tv_sec;
 	struct callmaster *cm = (struct callmaster *)d;
 	struct redis *r;
 
@@ -598,14 +598,14 @@ void redis_notify_loop(void *d) {
 	}
 
 	// loop redis_notify => in case of lost connection
-	while (!g_shutdown) {
-		gettimeofday(&g_now, NULL);
-		if (g_now.tv_sec < next_run) {
+	while (!rtpe_shutdown) {
+		gettimeofday(&rtpe_now, NULL);
+		if (rtpe_now.tv_sec < next_run) {
 			usleep(100000);
 			continue;
 		}
 
-		next_run = g_now.tv_sec + seconds;
+		next_run = rtpe_now.tv_sec + seconds;
 
 		if (redis_check_conn(r) == REDIS_STATE_RECONNECTED || redis_notify_return < 0) {
 			// alloc new redis async context upon redis breakdown

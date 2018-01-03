@@ -1,6 +1,6 @@
 #include "iptables.h"
 
-char *g_iptables_chain;
+char *rtpe_iptables_chain;
 int (*iptables_add_rule)(const socket_t *local_sock, const str *comment);
 int (*iptables_del_rule)(const socket_t *local_sock);
 
@@ -139,7 +139,7 @@ static const char *ip4tables_add_rule(const socket_t *local_sock, const str *com
 	ip4_fill_entry(&entry, local_sock, comment);
 
 	err = "failed to append iptables entry";
-	if (!iptc_append_entry(g_iptables_chain, &entry.entry, h))
+	if (!iptc_append_entry(rtpe_iptables_chain, &entry.entry, h))
 		goto err;
 	err = "failed to commit iptables changes";
 	if (!iptc_commit(h))
@@ -169,7 +169,7 @@ static const char *ip6tables_add_rule(const socket_t *local_sock, const str *com
 	ip6_fill_entry(&entry, local_sock, comment);
 
 	err = "failed to append ip6tables entry";
-	if (!ip6tc_append_entry(g_iptables_chain, &entry.entry, h))
+	if (!ip6tc_append_entry(rtpe_iptables_chain, &entry.entry, h))
 		goto err;
 	err = "failed to commit ip6tables changes";
 	if (!ip6tc_commit(h))
@@ -207,7 +207,7 @@ static const char *ip4tables_del_rule(const socket_t *local_sock) {
 	memset(&mask.matches.target, 0xff, sizeof(mask.matches.target));
 
 	err = "failed to delete iptables entry";
-	if (!iptc_delete_entry(g_iptables_chain, &entry.entry, (unsigned char *) &mask, h))
+	if (!iptc_delete_entry(rtpe_iptables_chain, &entry.entry, (unsigned char *) &mask, h))
 		goto err;
 	err = "failed to commit iptables changes";
 	if (!iptc_commit(h))
@@ -245,7 +245,7 @@ static const char *ip6tables_del_rule(const socket_t *local_sock) {
 	memset(&mask.matches.target, 0xff, sizeof(mask.matches.target));
 
 	err = "failed to delete ip6tables entry";
-	if (!ip6tc_delete_entry(g_iptables_chain, &entry.entry, (unsigned char *) &mask, h))
+	if (!ip6tc_delete_entry(rtpe_iptables_chain, &entry.entry, (unsigned char *) &mask, h))
 		goto err;
 	err = "failed to commit ip6tables changes";
 	if (!ip6tc_commit(h))
@@ -313,10 +313,10 @@ static int __iptables_stub(void) {
 
 
 void iptables_init(void) {
-	if (g_iptables_chain && !g_iptables_chain[0])
-		g_iptables_chain = NULL;
+	if (rtpe_iptables_chain && !rtpe_iptables_chain[0])
+		rtpe_iptables_chain = NULL;
 
-	if (!g_iptables_chain) {
+	if (!rtpe_iptables_chain) {
 		iptables_add_rule = (void *) __iptables_stub;
 		iptables_del_rule = (void *) __iptables_stub;
 		return;
@@ -340,7 +340,7 @@ void iptables_init(void) {
 	if (!h)
 		goto out;
 	err = "could not flush iptables chain";
-	if (!iptc_flush_entries(g_iptables_chain, h))
+	if (!iptc_flush_entries(rtpe_iptables_chain, h))
 		goto err2;
 	err = "could not commit iptables changes";
 	if (!iptc_commit(h))
@@ -352,7 +352,7 @@ void iptables_init(void) {
 	if (!h)
 		goto out;
 	err = "could not flush ip6tables chain";
-	if (!ip6tc_flush_entries(g_iptables_chain, h))
+	if (!ip6tc_flush_entries(rtpe_iptables_chain, h))
 		goto err1;
 	err = "could not commit iptables changes";
 	if (!ip6tc_commit(h))

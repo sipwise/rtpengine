@@ -1435,7 +1435,7 @@ loop_ok:
 
 	/* wait at least 3 seconds after last signal before committing to a particular
 	 * endpoint address */
-	if (!call->last_signal || poller_now <= call->last_signal + 3)
+	if (!call->last_signal || rtpe_now.tv_sec <= call->last_signal + 3)
 		goto update_peerinfo;
 
 	ilog(LOG_INFO, "Confirmed peer address as %s", endpoint_print_buf(fsin));
@@ -1522,7 +1522,7 @@ drop:
 	ret = 0;
 	atomic64_inc(&stream->stats.packets);
 	atomic64_add(&stream->stats.bytes, s->len);
-	atomic64_set(&stream->last_packet, poller_now);
+	atomic64_set(&stream->last_packet, rtpe_now.tv_sec);
 	atomic64_inc(&cm->statsps.packets);
 	atomic64_add(&cm->statsps.bytes, s->len);
 

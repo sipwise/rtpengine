@@ -142,7 +142,7 @@ static int call_timer_delete_monologues(struct call *c) {
 
 		if (!ml->deleted)
 			continue;
-		if (ml->deleted > poller_now) {
+		if (ml->deleted > rtpe_now.tv_sec) {
 			if (!min_deleted || ml->deleted < min_deleted)
 				min_deleted = ml->deleted;
 			continue;
@@ -188,7 +188,7 @@ static void call_timer_iterator(gpointer data, gpointer user_data) {
 	rwlock_lock_r(&cm->conf.config_lock);
 
 	// final timeout applicable to all calls (own and foreign)
-	if (cm->conf.final_timeout && poller_now >= (c->created.tv_sec + cm->conf.final_timeout)) {
+	if (cm->conf.final_timeout && rtpe_now.tv_sec >= (c->created.tv_sec + cm->conf.final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
 		for (it = c->monologues.head; it; it = it->next) {
@@ -205,11 +205,11 @@ static void call_timer_iterator(gpointer data, gpointer user_data) {
 		goto out;
 	}
 
-	if (c->deleted && poller_now >= c->deleted
+	if (c->deleted && rtpe_now.tv_sec >= c->deleted
 			&& c->last_signal <= c->deleted)
 		goto delete;
 
-	if (c->ml_deleted && poller_now >= c->ml_deleted) {
+	if (c->ml_deleted && rtpe_now.tv_sec >= c->ml_deleted) {
 		if (call_timer_delete_monologues(c))
 			goto delete;
 	}
@@ -250,7 +250,7 @@ no_sfd:
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
 
-		if (poller_now - atomic64_get(timestamp) < check)
+		if (rtpe_now.tv_sec - atomic64_get(timestamp) < check)
 			good = 1;
 
 next:
@@ -525,7 +525,7 @@ static void callmaster_timer(void *ptr) {
 
 
 		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
-			atomic64_set(&ps->last_packet, poller_now);
+			atomic64_set(&ps->last_packet, rtpe_now.tv_sec);
 
 		ps->stats.in_tos_tclass = ke->stats.in_tos;
 
@@ -626,7 +626,7 @@ struct callmaster *callmaster_new(struct poller *p) {
 	mutex_init(&c->totalstats_interval.managed_sess_lock);
 	mutex_init(&c->totalstats_interval.total_calls_duration_lock);
 
-	c->totalstats.started = poller_now;
+	c->totalstats.started = rtpe_now.tv_sec;
 	//c->totalstats_interval.managed_sess_min = 0; // already zeroed
 	//c->totalstats_interval.managed_sess_max = 0;
 
@@ -834,7 +834,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
-	atomic64_set_na(&stream->last_packet, poller_now);
+	atomic64_set_na(&stream->last_packet, rtpe_now.tv_sec);
 	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
 	recording_init_stream(stream);
 
@@ -1508,7 +1508,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	monologue = other_ml->active_dialogue;
 	call = monologue->call;
 
-	call->last_signal = poller_now;
+	call->last_signal = rtpe_now.tv_sec;
 	call->deleted = 0;
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
@@ -1756,7 +1756,7 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 		if (timercmp(interval_start, &ml->started, >)) {
 			timeval_add(&res, &res, interval_duration);
 		} else {
-			timeval_subtract(&call_duration, &g_now, &ml->started);
+			timeval_subtract(&call_duration, &rtpe_now, &ml->started);
 			timeval_add(&res, &res, &call_duration);
 		}
 	}
@@ -1820,8 +1820,8 @@ void call_destroy(struct call *c) {
 				ml->label.s ? " (label '" : "",
 				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 				ml->label.s ? "')" : "",
-				(unsigned int) (poller_now - ml->created) / 60,
-				(unsigned int) (poller_now - ml->created) % 60,
+				(unsigned int) (rtpe_now.tv_sec - ml->created) / 60,
+				(unsigned int) (rtpe_now.tv_sec - ml->created) % 60,
 				STR_FMT(&ml->viabranch),
 				ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
 				ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
@@ -1860,7 +1860,7 @@ void call_destroy(struct call *c) {
 						atomic64_get(&ps->stats.packets),
 						atomic64_get(&ps->stats.bytes),
 						atomic64_get(&ps->stats.errors),
-						g_now.tv_sec - atomic64_get(&ps->last_packet));
+						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
 
 				statistics_update_totals(m,ps);
 
@@ -2024,7 +2024,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	c->tags = g_hash_table_new(str_hash, str_equal);
 	c->viabranches = g_hash_table_new(str_hash, str_equal);
 	call_str_cpy(c, &c->callid, callid);
-	c->created = g_now;
+	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = m->conf.default_tos;
 	c->ssrc_hash = create_ssrc_hash();
@@ -2104,7 +2104,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret = uid_slice_alloc0(ret, &call->monologues);
 
 	ret->call = call;
-	ret->created = poller_now;
+	ret->created = rtpe_now.tv_sec;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
 
 	g_queue_init(&ret->medias);
@@ -2428,7 +2428,7 @@ do_delete:
 		ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' "
 				"(via-branch '"STR_FORMAT"') in %d seconds",
 				STR_FMT(&ml->tag), STR_FMT0(branch), delete_delay);
-		ml->deleted = poller_now + delete_delay;
+		ml->deleted = rtpe_now.tv_sec + delete_delay;
 		if (!c->ml_deleted || c->ml_deleted > ml->deleted)
 			c->ml_deleted = ml->deleted;
 	}
@@ -2443,7 +2443,7 @@ do_delete:
 del_all:
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);
-		c->deleted = poller_now + delete_delay;
+		c->deleted = rtpe_now.tv_sec + delete_delay;
 		rwlock_unlock_w(&c->master_lock);
 	}
 	else {

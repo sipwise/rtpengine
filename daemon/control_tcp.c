@@ -117,7 +117,7 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 
 
 static void control_stream_timer(struct streambuf_stream *s) {
-	if ((poller_now - s->inbuf->active) >= 60 || (poller_now - s->outbuf->active) >= 60)
+	if ((rtpe_now.tv_sec - s->inbuf->active) >= 60 || (rtpe_now.tv_sec - s->outbuf->active) >= 60)
 		control_stream_closed(s);
 }
 

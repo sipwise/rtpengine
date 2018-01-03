@@ -97,7 +97,7 @@ static void sighandler(gpointer x) {
 	ts.tv_sec = 0;
 	ts.tv_nsec = 100000000; /* 0.1 sec */
 
-	while (!g_shutdown) {
+	while (!rtpe_shutdown) {
 		ret = sigtimedwait(&ss, NULL, &ts);
 		if (ret == -1) {
 			if (errno == EAGAIN || errno == EINTR)
@@ -106,7 +106,7 @@ static void sighandler(gpointer x) {
 		}
 
 		if (ret == SIGINT || ret == SIGTERM)
-			g_shutdown = 1;
+			rtpe_shutdown = 1;
 		else if (ret == SIGUSR1) {
 		        if (get_log_level() > 0) {
 				g_atomic_int_add(&log_level, -1);
@@ -300,7 +300,7 @@ static void options(int *argc, char ***argv) {
 		{ "recording-method",0, 0, G_OPTION_ARG_STRING,	&rec_method,	"Strategy for call recording",		"pcap|proc"	},
 		{ "recording-format",0, 0, G_OPTION_ARG_STRING,	&rec_format,	"File format for stored pcap files",	"raw|eth"	},
 #ifdef WITH_IPTABLES_OPTION
-		{ "iptables-chain",0,0,	G_OPTION_ARG_STRING,	&g_iptables_chain,"Add explicit firewall rules to this iptables chain","STRING" },
+		{ "iptables-chain",0,0,	G_OPTION_ARG_STRING,	&rtpe_iptables_chain,"Add explicit firewall rules to this iptables chain","STRING" },
 #endif
 		{ NULL, }
 	};
@@ -674,7 +674,7 @@ int main(int argc, char **argv) {
 		thread_create_detach(poller_loop, ctx.p);
 	}
 
-	while (!g_shutdown) {
+	while (!rtpe_shutdown) {
 		usleep(100000);
 		threads_join_all(0);
 	}

@@ -62,8 +62,8 @@ G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
 
 /*** GLOBALS ***/
 
-extern __thread struct timeval g_now;
-extern volatile int g_shutdown;
+extern __thread struct timeval rtpe_now;
+extern volatile int rtpe_shutdown;
 
 
 

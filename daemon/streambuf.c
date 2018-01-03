@@ -25,7 +25,7 @@ struct streambuf *streambuf_new(struct poller *p, int fd) {
 	b->buf = g_string_new("");
 	b->fd = fd;
 	b->poller = p;
-	b->active = poller_now;
+	b->active = rtpe_now.tv_sec;
 
 	return b;
 }
@@ -62,7 +62,7 @@ int streambuf_writeable(struct streambuf *b) {
 
 		if (ret > 0) {
 			g_string_erase(b->buf, 0, ret);
-			b->active = poller_now;
+			b->active = rtpe_now.tv_sec;
 		}
 
 		if (ret != out) {
@@ -101,7 +101,7 @@ int streambuf_readable(struct streambuf *b) {
 		}
 
 		g_string_append_len(b->buf, buf, ret);
-		b->active = poller_now;
+		b->active = rtpe_now.tv_sec;
 	}
 
 	mutex_unlock(&b->lock);
@@ -208,7 +208,7 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 
 		s += ret;
 		len -= ret;
-		b->active = poller_now;
+		b->active = rtpe_now.tv_sec;
 	}
 
 	if (b->buf->len > 5242880)
