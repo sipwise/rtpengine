@@ -222,9 +222,12 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, 
 				break;
 
 			default:
-				ilog(LOG_NOTICE, "Unknown STUN attribute: 0x%04x", type);
-				if ((type & 0x8000))
+				if ((type & 0x8000)) {
+					// comprehension optional
+					ilog(LOG_DEBUG, "Unknown STUN attribute: 0x%04x", type);
 					break;
+				}
+				ilog(LOG_NOTICE, "Unknown STUN attribute: 0x%04x", type);
 				unknowns[uc] = tlv->type;
 				unknowns[++uc] = 0xffff;
 				if (uc >= UNKNOWNS_COUNT - 1)
