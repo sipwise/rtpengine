@@ -29,6 +29,29 @@ struct rtpengine_config {
 	endpoint_t		graphite_ep;
 	int			graphite_interval;
 	int			redis_num_threads;
+	GQueue			interfaces;
+	endpoint_t		tcp_listen_ep;
+	endpoint_t		udp_listen_ep;
+	endpoint_t		ng_listen_ep;
+	endpoint_t		cli_listen_ep;
+	endpoint_t		redis_ep;
+	endpoint_t		redis_write_ep;
+	endpoint_t		homer_ep;
+	int			homer_protocol;
+	int			homer_id;
+	int			no_fallback;
+	int			port_min;
+	int			port_max;
+	int			redis_db;
+	int			redis_write_db;
+	int			no_redis_required;
+	char			*redis_auth;
+	char			*redis_write_auth;
+	int			num_threads;
+	char			*spooldir;
+	char			*rec_method;
+	char			*rec_format;
+	char			*iptables_chain;
 };
 
 
