@@ -452,7 +452,7 @@ void calls_status_tcp(struct callmaster *m, struct streambuf_stream *s) {
 
 	streambuf_printf(s->outbuf, "proxy %u "UINT64F"/%i/%i\n",
 		g_queue_get_length(&q),
-		atomic64_get(&m->stats.bytes), 0, 0);
+		atomic64_get(&rtpe_stats.bytes), 0, 0);
 
 	while (q.head) {
 		c = g_queue_pop_head(&q);
@@ -818,7 +818,7 @@ const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 	if (m->conf.max_sessions>=0) {
 		rwlock_lock_r(&rtpe_callhash_lock);
 		if (g_hash_table_size(rtpe_callhash) -
-				atomic64_get(&m->stats.foreign_sessions) >= m->conf.max_sessions) {
+				atomic64_get(&rtpe_stats.foreign_sessions) >= m->conf.max_sessions) {
 			rwlock_unlock_r(&rtpe_callhash_lock);
 			/* foreign calls can't get rejected
 			 * total_rejected_sess applies only to "own" sessions */

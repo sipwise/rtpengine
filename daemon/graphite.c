@@ -136,7 +136,7 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	ts->managed_sess_max = cm->totalstats_interval.managed_sess_max;
 	ts->managed_sess_min = cm->totalstats_interval.managed_sess_min;
         ts->total_sessions = g_hash_table_size(rtpe_callhash);
-        ts->foreign_sessions = atomic64_get(&cm->stats.foreign_sessions);
+        ts->foreign_sessions = atomic64_get(&rtpe_stats.foreign_sessions);
 	ts->own_sessions = ts->total_sessions - ts->foreign_sessions;
 	cm->totalstats_interval.managed_sess_max = ts->own_sessions;;
 	cm->totalstats_interval.managed_sess_min = ts->own_sessions;

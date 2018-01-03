@@ -416,9 +416,6 @@ struct callmaster_config {
 struct callmaster {
 	struct obj		obj;
 
-	/* XXX rework these */
-	struct stats			statsps;	/* per second stats, running timer */
-	struct stats			stats;		/* copied from statsps once a second */
 	struct totalstats       totalstats;
 	struct totalstats       totalstats_interval;
 	mutex_t		        	totalstats_lastinterval_lock;
@@ -431,6 +428,9 @@ struct callmaster {
 
 extern rwlock_t rtpe_callhash_lock;
 extern GHashTable *rtpe_callhash;
+
+extern struct stats rtpe_statsps;	/* per second stats, running timer */
+extern struct stats rtpe_stats;		/* copied from statsps once a second */
 
 
 struct callmaster *callmaster_new(void);

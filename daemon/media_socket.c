@@ -1198,7 +1198,6 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	    unk = 0;
 	int i;
 	struct call *call;
-	struct callmaster *cm;
 	/*unsigned char cc;*/
 	struct endpoint endpoint;
 	rewrite_func rwf_in, rwf_out;
@@ -1209,7 +1208,6 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 	struct ssrc_ctx *ssrc_in = NULL, *ssrc_out = NULL;
 
 	call = sfd->call;
-	cm = call->callmaster;
 
 	rwlock_lock_r(&call->master_lock);
 
@@ -1319,7 +1317,7 @@ loop_ok:
 				ilog(LOG_WARNING | LOG_FLAG_LIMIT,
 						"RTP packet with unknown payload type %u received", i);
 				atomic64_inc(&stream->stats.errors);
-				atomic64_inc(&cm->statsps.errors);
+				atomic64_inc(&rtpe_statsps.errors);
 			}
 
 			else {
@@ -1338,7 +1336,7 @@ loop_ok:
 	if (G_UNLIKELY(!sink || !sink->selected_sfd || !out_srtp || !out_srtp->selected_sfd || !in_srtp->selected_sfd)) {
 		ilog(LOG_WARNING, "RTP packet from %s discarded", endpoint_print_buf(fsin));
 		atomic64_inc(&stream->stats.errors);
-		atomic64_inc(&cm->statsps.errors);
+		atomic64_inc(&rtpe_statsps.errors);
 		goto unlock_out;
 	}
 
@@ -1511,7 +1509,7 @@ forward:
 		ret = -errno;
                 ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
 		atomic64_inc(&stream->stats.errors);
-		atomic64_inc(&cm->statsps.errors);
+		atomic64_inc(&rtpe_statsps.errors);
 		goto out;
 	}
 
@@ -1524,8 +1522,8 @@ drop:
 	atomic64_inc(&stream->stats.packets);
 	atomic64_add(&stream->stats.bytes, s->len);
 	atomic64_set(&stream->last_packet, rtpe_now.tv_sec);
-	atomic64_inc(&cm->statsps.packets);
-	atomic64_add(&cm->statsps.bytes, s->len);
+	atomic64_inc(&rtpe_statsps.packets);
+	atomic64_add(&rtpe_statsps.bytes, s->len);
 
 out:
 	if (ret == 0 && update)

@@ -116,6 +116,9 @@ const struct transport_protocol transport_protocols[] = {
 };
 const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
+/* XXX rework these */
+struct stats rtpe_statsps;
+struct stats rtpe_stats;
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
@@ -463,7 +466,7 @@ destroy:
 		else							\
 			d = ke->stats.x - ks_val;			\
 		atomic64_add(&ps->stats.x, d);			\
-		atomic64_add(&m->statsps.x, d);			\
+		atomic64_add(&rtpe_statsps.x, d);			\
 	} while (0)
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
@@ -495,13 +498,13 @@ static void callmaster_timer(void *ptr) {
 		g_list_foreach(calls, call_timer_iterator, &hlp);
 		g_list_free_full(calls, call_obj_put);
 	}
-	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, bytes);
-	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, packets);
-	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, errors);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, bytes);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, packets);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, errors);
 
-	atomic64_set(&m->stats.bytes, atomic64_get_na(&tmpstats.bytes));
-	atomic64_set(&m->stats.packets, atomic64_get_na(&tmpstats.packets));
-	atomic64_set(&m->stats.errors, atomic64_get_na(&tmpstats.errors));
+	atomic64_set(&rtpe_stats.bytes, atomic64_get_na(&tmpstats.bytes));
+	atomic64_set(&rtpe_stats.packets, atomic64_get_na(&tmpstats.packets));
+	atomic64_set(&rtpe_stats.errors, atomic64_get_na(&tmpstats.errors));
 
 	i = kernel_list();
 	while (i) {
