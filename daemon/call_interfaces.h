@@ -88,5 +88,7 @@ const char *call_stop_recording_ng(bencode_item_t *, struct callmaster *, bencod
 void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output,
 		struct call_stats *totals);
 
+int call_interfaces_init(void);
+
 
 #endif

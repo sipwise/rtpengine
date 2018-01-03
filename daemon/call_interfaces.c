@@ -26,6 +26,10 @@
 #include "streambuf.h"
 
 
+static pcre *info_re;
+static pcre_extra *info_ree;
+static pcre *streams_re;
+static pcre_extra *streams_ree;
 
 int trust_address_def;
 int dtls_passive_def;
@@ -231,7 +235,7 @@ static int info_parse_func(char **a, void **ret, void *p) {
 }
 
 static void info_parse(const char *s, GHashTable *ih, struct callmaster *m) {
-	pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, ih, NULL);
+	pcre_multi_match(info_re, info_ree, s, 2, info_parse_func, ih, NULL);
 }
 
 
@@ -271,7 +275,7 @@ fail:
 static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
 	int i;
 	i = 0;
-	pcre_multi_match(m->streams_re, m->streams_ree, s, 3, streams_parse_func, &i, q);
+	pcre_multi_match(streams_re, streams_ree, s, 3, streams_parse_func, &i, q);
 }
 
 /* XXX move these somewhere else */
@@ -1229,4 +1233,21 @@ const char *call_stop_recording_ng(bencode_item_t *input, struct callmaster *m, 
 	obj_put(call);
 
 	return NULL;
+}
+
+int call_interfaces_init() {
+	const char *errptr;
+	int erroff;
+
+	info_re = pcre_compile("^([^:,]+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	if (!info_re)
+		return -1;
+	info_ree = pcre_study(info_re, 0, &errptr);
+
+	streams_re = pcre_compile("^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	if (!streams_re)
+		return -1;
+	streams_ree = pcre_study(streams_re, 0, &errptr);
+
+	return 0;
 }

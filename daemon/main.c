@@ -493,6 +493,8 @@ static void init_everything() {
 	interfaces_init(&interfaces);
 	iptables_init();
 	control_ng_init();
+	if (call_interfaces_init())
+		abort();
 }
 
 

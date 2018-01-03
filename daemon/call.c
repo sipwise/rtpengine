@@ -610,8 +610,6 @@ next:
 
 struct callmaster *callmaster_new(struct poller *p) {
 	struct callmaster *c;
-	const char *errptr;
-	int erroff;
 
 	c = obj_alloc0("callmaster", sizeof(*c), NULL);
 
@@ -620,16 +618,6 @@ struct callmaster *callmaster_new(struct poller *p) {
 		goto fail;
 	c->poller = p;
 	rwlock_init(&rtpe_callhash_lock);
-
-	c->info_re = pcre_compile("^([^:,]+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
-	if (!c->info_re)
-		goto fail;
-	c->info_ree = pcre_study(c->info_re, 0, &errptr);
-
-	c->streams_re = pcre_compile("^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
-	if (!c->streams_re)
-		goto fail;
-	c->streams_ree = pcre_study(c->streams_re, 0, &errptr);
 
 	poller_add_timer(p, callmaster_timer, &c->obj);
 

@@ -425,10 +425,6 @@ struct callmaster {
 	struct totalstats       totalstats_lastinterval;
 
 	struct poller	        *poller;
-	pcre			*info_re;
-	pcre_extra		*info_ree;
-	pcre			*streams_re;
-	pcre_extra		*streams_ree;
 
 	struct callmaster_config conf;
 	struct timeval          latest_graphite_interval_start;
