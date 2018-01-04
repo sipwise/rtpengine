@@ -322,7 +322,9 @@ struct call_media {
 
 	GQueue			streams; /* normally RTP + RTCP */
 	GQueue			endpoint_maps;
+
 	GHashTable		*rtp_payload_types;
+	GQueue			rtp_payload_types_prefs;
 
 	volatile unsigned int	media_flags;
 };

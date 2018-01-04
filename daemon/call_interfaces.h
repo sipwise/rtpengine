@@ -31,6 +31,8 @@ struct sdp_ng_flags {
 	int tos;
 	str record_call_str;
 	str metadata;
+	GHashTable *codec_strip;
+	GQueue codec_offer;
 	int asymmetric:1,
 	    no_redis_update:1,
 	    unidirectional:1,

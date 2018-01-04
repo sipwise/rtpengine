@@ -162,6 +162,13 @@ struct attribute_rtpmap {
 	struct rtp_payload_type rtp_pt;
 };
 
+struct attribute_fmtp {
+	str payload_type_str;
+	str format_parms_str;
+
+	unsigned int payload_type;
+};
+
 struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
@@ -192,6 +199,7 @@ struct sdp_attribute {
 		ATTR_FINGERPRINT,
 		ATTR_SETUP,
 		ATTR_RTPMAP,
+		ATTR_FMTP,
 		ATTR_IGNORE,
 		ATTR_END_OF_CANDIDATES,
 	} attr;
@@ -205,6 +213,7 @@ struct sdp_attribute {
 		struct attribute_fingerprint fingerprint;
 		struct attribute_setup setup;
 		struct attribute_rtpmap rtpmap;
+		struct attribute_fmtp fmtp;
 	} u;
 };
 
@@ -742,6 +751,26 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	return 0;
 }
 
+static int parse_attribute_fmtp(struct sdp_attribute *output) {
+	PARSE_DECL;
+	char *ep;
+	struct attribute_fmtp *a;
+
+	output->attr = ATTR_FMTP;
+
+	PARSE_INIT;
+	EXTRACT_TOKEN(u.fmtp.payload_type_str);
+	EXTRACT_TOKEN(u.fmtp.format_parms_str);
+
+	a = &output->u.fmtp;
+
+	a->payload_type = strtoul(a->payload_type_str.s, &ep, 10);
+	if (ep == a->payload_type_str.s)
+		return -1;
+
+	return 0;
+}
+
 static int parse_attribute(struct sdp_attribute *a) {
 	int ret;
 
@@ -777,6 +806,8 @@ static int parse_attribute(struct sdp_attribute *a) {
 				ret = parse_attribute_rtcp(a);
 			else if (!str_cmp(&a->name, "ssrc"))
 				ret = parse_attribute_ssrc(a);
+			else if (!str_cmp(&a->name, "fmtp"))
+				ret = parse_attribute_fmtp(a);
 			break;
 		case 5:
 			if (!str_cmp(&a->name, "group"))
@@ -1408,6 +1439,21 @@ static int replace_transport_protocol(struct sdp_chopper *chop,
 	return 0;
 }
 
+static int replace_codec_list(struct sdp_chopper *chop,
+		struct sdp_media *media, struct call_media *cm)
+{
+	if (cm->rtp_payload_types_prefs.length == 0)
+		return 0; // legacy protocol or usage error
+
+	for (GList *l = cm->rtp_payload_types_prefs.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		chopper_append_printf(chop, " %u", pt->payload_type);
+	}
+	if (skip_over(chop, &media->formats))
+		return -1;
+	return 0;
+}
+
 static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct packet_stream *ps) {
 	str *port = &media->port;
 	unsigned int p;
@@ -1641,6 +1687,22 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 //				if (a && a->u.group.semantics == GROUP_BUNDLE)
 //					goto strip;
 				goto strip; // hack/workaround: always remove a=mid
+				break;
+
+			case ATTR_RTPMAP:
+				if (media->rtp_payload_types_prefs.length == 0)
+					break; // legacy protocol or usage error
+				if (!g_hash_table_lookup(media->rtp_payload_types,
+							&attr->u.rtpmap.rtp_pt.payload_type))
+					goto strip;
+				break;
+
+			case ATTR_FMTP:
+				if (media->rtp_payload_types_prefs.length == 0)
+					break; // legacy protocol or usage error
+				if (!g_hash_table_lookup(media->rtp_payload_types,
+							&attr->u.fmtp.payload_type))
+					goto strip;
 				break;
 
 			default:
@@ -1951,6 +2013,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				        goto error;
 				if (replace_transport_protocol(chop, sdp_media, call_media))
 				        goto error;
+				if (replace_codec_list(chop, sdp_media, call_media))
+					goto error;
 
 				if (sdp_media->connection.parsed) {
 				        if (replace_network_address(chop, &sdp_media->connection.address, ps,

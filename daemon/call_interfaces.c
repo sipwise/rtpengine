@@ -528,18 +528,18 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, bencode_item_t *it, unsigne
 
 
 static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *input, const char *key,
-		void (*callback)(struct sdp_ng_flags *out, bencode_item_t *input))
+		void (*callback)(struct sdp_ng_flags *, bencode_item_t *, void *), void *parm)
 {
 	bencode_item_t *list, *it;
 	if ((list = bencode_dictionary_get_expect(input, key, BENCODE_LIST))) {
 		for (it = list->child; it; it = it->sibling)
-			callback(out, it);
+			callback(out, it, parm);
 	}
 }
-static void call_ng_flags_sdes(struct sdp_ng_flags *out, bencode_item_t *it) {
+static void call_ng_flags_sdes(struct sdp_ng_flags *out, bencode_item_t *it, void *dummy) {
 	ng_sdes_option(out, it, 0);
 }
-static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, bencode_item_t *it) {
+static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, bencode_item_t *it, void *dummy) {
 	if (!bencode_strcmp(it, "offer"))
 		out->rtcp_mux_offer = 1;
 	else if (!bencode_strcmp(it, "require"))
@@ -554,7 +554,7 @@ static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, bencode_item_t *it)
 		ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '"BENCODE_FORMAT"'",
 				BENCODE_FMT(it));
 }
-static void call_ng_flags_replace(struct sdp_ng_flags *out, bencode_item_t *it) {
+static void call_ng_flags_replace(struct sdp_ng_flags *out, bencode_item_t *it, void *dummy) {
 	str_hyphenate(it);
 	if (!bencode_strcmp(it, "origin"))
 		out->replace_origin = 1;
@@ -564,7 +564,29 @@ static void call_ng_flags_replace(struct sdp_ng_flags *out, bencode_item_t *it) 
 		ilog(LOG_WARN, "Unknown 'replace' flag encountered: '"BENCODE_FORMAT"'",
 				BENCODE_FMT(it));
 }
-static void call_ng_flags_flags(struct sdp_ng_flags *out, bencode_item_t *it) {
+static void call_ng_flags_codec_list(struct sdp_ng_flags *out, bencode_item_t *it, void *qp) {
+	str *s;
+	s = g_slice_alloc(sizeof(*s));
+	if (!bencode_get_str(it, s)) {
+		g_slice_free1(sizeof(*s), s);
+		return;
+	}
+	g_queue_push_tail((GQueue *) qp, s);
+}
+static void call_ng_flags_codec_ht_strip(bencode_item_t *it, GHashTable *ht, unsigned int strip) {
+	str *s;
+	s = g_slice_alloc(sizeof(*s));
+	if (!bencode_get_str(it, s)) {
+		g_slice_free1(sizeof(*s), s);
+		return;
+	}
+	str_shift(s, strip);
+	g_hash_table_replace(ht, s, s);
+}
+static void call_ng_flags_codec_ht(struct sdp_ng_flags *out, bencode_item_t *it, void *htp) {
+	call_ng_flags_codec_ht_strip(it, htp, 0);
+}
+static void call_ng_flags_flags(struct sdp_ng_flags *out, bencode_item_t *it, void *dummy) {
 	if (it->type !=  BENCODE_STRING)
 		return;
 
@@ -586,8 +608,11 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, bencode_item_t *it) {
 		out->media_handover = 1;
 	else if (!bencode_strcmp(it, "reset"))
 		out->reset = 1;
+	// XXX unify these
 	else if (it->iov[1].iov_len >= 5 && !memcmp(it->iov[1].iov_base, "SDES-", 5))
 		ng_sdes_option(out, it, 5);
+	else if (it->iov[1].iov_len >= 12 && !memcmp(it->iov[1].iov_base, "codec-strip-", 12))
+		call_ng_flags_codec_ht_strip(it, out->codec_strip, 12);
 	else if (!bencode_strcmp(it, "port-latching"))
 		out->port_latching = 1;
 	else if (!bencode_strcmp(it, "record-call"))
@@ -599,17 +624,18 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, bencode_item_t *it) {
 				BENCODE_FMT(it));
 }
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
-	bencode_item_t *list, *it;
+	bencode_item_t *list, *it, *dict;
 	int diridx;
 	str s;
 
 	ZERO(*out);
+	out->codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
 
-	call_ng_flags_list(out, input, "flags", call_ng_flags_flags);
-	call_ng_flags_list(out, input, "replace", call_ng_flags_replace);
+	call_ng_flags_list(out, input, "flags", call_ng_flags_flags, NULL);
+	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
 
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
@@ -649,10 +675,10 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 					STR_FMT(&s));
 	}
 
-	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux);
+	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
 
 	/* XXX module still needs to support this list */
-	call_ng_flags_list(out, input, "SDES", call_ng_flags_sdes);
+	call_ng_flags_list(out, input, "SDES", call_ng_flags_sdes, NULL);
 
 	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
@@ -662,6 +688,15 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	out->tos = bencode_dictionary_get_integer(input, "TOS", 256);
 	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
+
+	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
+		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_ht, out->codec_strip);
+		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
+	}
+}
+static void call_ng_free_flags(struct sdp_ng_flags *flags) {
+	g_hash_table_destroy(flags->codec_strip);
+	g_queue_clear_full(&flags->codec_offer, str_slice_free);
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input,
@@ -798,6 +833,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 
 	if (ret == ERROR_NO_FREE_PORTS || ret == ERROR_NO_FREE_LOGS) {
 		ilog(LOG_ERR, "Destroying call");
+		errstr = "Ran out of ports";
 		call_destroy(call);
 	}
 
@@ -811,6 +847,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 out:
 	sdp_free(&parsed);
 	streams_free(&streams);
+	call_ng_free_flags(&flags);
 
 	return errstr;
 }

@@ -1419,17 +1419,30 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 		MEDIA_SET(other_media, DTLS);
 }
 
-static void __rtp_payload_types(struct call_media *media, GQueue *types) {
+static void __rtp_payload_types(struct call_media *media, GQueue *types, GHashTable *strip) {
 	struct rtp_payload_type *pt;
 	struct call *call = media->call;
+	static const str __all = STR_CONST_INIT("all");
+
+	// start fresh
+	g_queue_clear(&media->rtp_payload_types_prefs);
 
 	/* we steal the entire list to avoid duplicate allocs */
 	while ((pt = g_queue_pop_head(types))) {
-		/* but we must duplicate the contents */
+		// codec stripping
+		if (strip) {
+			if (g_hash_table_lookup(strip, &pt->encoding)
+					|| g_hash_table_lookup(strip, &__all)) {
+				__payload_type_free(pt);
+				continue;
+			}
+		}
+		/* we must duplicate the contents */
 		call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
 		call_str_cpy(call, &pt->encoding, &pt->encoding);
 		call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
 		g_hash_table_replace(media->rtp_payload_types, &pt->payload_type, pt);
+		g_queue_push_tail(&media->rtp_payload_types_prefs, pt);
 	}
 }
 
@@ -1553,7 +1566,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				MEDIA_SET(other_media, SDES);
 		}
 
-		__rtp_payload_types(media, &sp->rtp_payload_types);
+		__rtp_payload_types(media, &sp->rtp_payload_types, flags->codec_strip);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
@@ -1963,6 +1976,7 @@ static void __call_free(void *p) {
 		g_queue_clear(&md->streams);
 		g_queue_clear(&md->endpoint_maps);
 		g_hash_table_destroy(md->rtp_payload_types);
+		g_queue_clear(&md->rtp_payload_types_prefs);
 		g_slice_free1(sizeof(*md), md);
 	}
 

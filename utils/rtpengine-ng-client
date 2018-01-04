@@ -44,6 +44,8 @@ GetOptions(
 	'reset'				=> \$options{'reset'},
 	'port-latching'			=> \$options{'port latching'},
 	'media-address=s'		=> \$options{'media address'},
+	'codec-strip=s@'		=> \$options{'codec-strip'},
+	'flags=s@'			=> \$options{'flags'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -69,6 +71,12 @@ for my $x (split(/,/, 'rtcp-mux,SDES')) {
 if (defined($options{direction})) {
 	$options{direction} =~ /(.*),(.*)/ or die;
 	$packet{direction} = [$1,$2];
+}
+if ($options{'codec-strip'} && @{$options{'codec-strip'}}) {
+	$packet{codec}{strip} = $options{'codec-strip'};
+}
+if ($options{'flags'} && @{$options{'flags'}}) {
+	push(@{$packet{flags}}, @{$options{'flags'}});
 }
 
 if (defined($options{sdp})) {

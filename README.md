@@ -1180,6 +1180,19 @@ Optionally included keys are:
 
 	See the `--recording-dir` option above.
 
+* `codec`
+
+	Contains a dictionary controlling various aspects of codecs (or RTP payload types).
+	The following keys are understood:
+
+	* `strip`
+
+		Contains a list of strings. Each string is the name of a codec or RTP payload
+		type that should be removed from the SDP. Codec names are case sensitive, and
+		can be either from the list of codecs explicitly defined by the SDP through
+		an `a=rtpmap` attribute, or can be from the list of RFC-defined codecs. Examples
+		are `PCMU`, `opus`, or `telephone-event`.
+
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
