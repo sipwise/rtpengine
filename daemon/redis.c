@@ -1594,7 +1594,7 @@ int redis_restore(struct redis *r) {
 	if (!r)
 		return 0;
 
-	log_level |= LOG_FLAG_RESTORE;
+	rtpe_config.common.log_level |= LOG_FLAG_RESTORE;
 
 	rlog(LOG_DEBUG, "Restoring calls from Redis...");
 
@@ -1637,7 +1637,7 @@ int redis_restore(struct redis *r) {
 	freeReplyObject(calls);
 
 err:
-	log_level &= ~LOG_FLAG_RESTORE;
+	rtpe_config.common.log_level &= ~LOG_FLAG_RESTORE;
 	return ret;
 }
 

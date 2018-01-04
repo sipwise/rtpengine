@@ -811,7 +811,7 @@ fail:
 }
 
 static void cli_incoming_list_loglevel(str *instr, struct streambuf *replybuffer) {
-	streambuf_printf(replybuffer, "%i\n", g_atomic_int_get(&log_level));
+	streambuf_printf(replybuffer, "%i\n", get_log_level());
 }
 static void cli_incoming_set_loglevel(str *instr, struct streambuf *replybuffer) {
 	int nl;
@@ -828,6 +828,6 @@ static void cli_incoming_set_loglevel(str *instr, struct streambuf *replybuffer)
 		return;
 	}
 
-	g_atomic_int_set(&log_level, nl);
+	g_atomic_int_set(&rtpe_config.common.log_level, nl);
 	streambuf_printf(replybuffer,  "Success setting loglevel to %i\n", nl);
 }

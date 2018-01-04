@@ -92,14 +92,14 @@ static void sighandler(gpointer x) {
 			rtpe_shutdown = 1;
 		else if (ret == SIGUSR1) {
 		        if (get_log_level() > 0) {
-				g_atomic_int_add(&log_level, -1);
+				g_atomic_int_add(&rtpe_config.common.log_level, -1);
 				ilog(get_log_level(), "Set log level to %d\n",
 						get_log_level());
 			}
 		}
 		else if (ret == SIGUSR2) {
 		        if (get_log_level() < 7) {
-				g_atomic_int_add(&log_level, 1);
+				g_atomic_int_add(&rtpe_config.common.log_level, 1);
 				ilog(get_log_level(), "Set log level to %d\n",
 						get_log_level());
 			}
@@ -289,7 +289,7 @@ static void options(int *argc, char ***argv) {
 	};
 
 	config_load(argc, argv, e, " - next-generation media proxy",
-			"/etc/rtpengine/rtpengine.conf", "rtpengine");
+			"/etc/rtpengine/rtpengine.conf", "rtpengine", &rtpe_config.common);
 
 	if (!if_a)
 		die("Missing option --interface");
@@ -384,9 +384,6 @@ static void options(int *argc, char ***argv) {
 	if (rtpe_config.fmt > 1)
 		die("Invalid XMLRPC format");
 
-	if ((log_level < LOG_EMERG) || (log_level > LOG_DEBUG))
-	        die("Invalid log level (--log_level)");
-
 	if (log_facility_cdr_s) {
 		if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
 			print_available_log_facilities();
@@ -479,8 +476,6 @@ static void init_everything() {
 	if (call_interfaces_init())
 		abort();
 	statistics_init();
-	if (call_init())
-		abort();
 }
 
 
@@ -509,6 +504,9 @@ no_kernel:
 		die("poller creation failed");
 
 	dtls_timer(rtpe_poller);
+
+	if (call_init())
+		abort();
 
         rwlock_init(&rtpe_config.config_lock);
 	if (rtpe_config.max_sessions < -1) {

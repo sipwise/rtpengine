@@ -5,6 +5,7 @@
 #include "aux.h"
 #include <glib.h>
 #include "socket.h"
+#include "auxlib.h"
 
 enum xmlrpc_format {
 	XF_SEMS = 0,
@@ -14,6 +15,9 @@ enum xmlrpc_format {
 struct rtpengine_config {
 	/* everything below protected by config_lock */
 	rwlock_t		config_lock;
+
+	struct rtpengine_common_config common;
+
 	int			kernel_table;
 	int			max_sessions;
 	int			timeout;

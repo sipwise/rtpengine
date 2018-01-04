@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <string.h>
+#include "auxlib.h"
 
 
 struct log_limiter_entry {
@@ -19,14 +20,6 @@ typedef struct _fac_code {
 	char	*c_name;
 	int	c_val;
 } _fac_code_t;
-
-
-
-#ifndef __DEBUG
-volatile gint log_level = LOG_INFO;
-#else
-volatile gint log_level = LOG_DEBUG;
-#endif
 
 
 
@@ -73,7 +66,6 @@ static const char* const prio_str[] = {
 		"DEBUG"
 	};
 
-gboolean ilog_stderr = 0;
 int ilog_facility = LOG_DAEMON;
 
 
@@ -230,7 +222,7 @@ void log_init(const char *handle) {
 	__log_limiter = g_hash_table_new(log_limiter_entry_hash, log_limiter_entry_equal);
 	__log_limiter_strings = g_string_chunk_new(1024);
 
-	if (!ilog_stderr)
+	if (!rtpe_common_config_ptr->log_stderr)
 		openlog(handle, LOG_PID | LOG_NDELAY, ilog_facility);
 }
 
