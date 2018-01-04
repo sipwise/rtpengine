@@ -173,6 +173,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		g_string_free(log_str, TRUE);
 	}
 
+	// XXX do the strcmp's only once
 	errstr = NULL;
 	resultstr = "ok";
 	if (!str_cmp(&cmd, "ping")) {

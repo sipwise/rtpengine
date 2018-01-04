@@ -526,6 +526,78 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, bencode_item_t *it, unsigne
 				STR_FMT(&s));
 }
 
+
+static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *input, const char *key,
+		void (*callback)(struct sdp_ng_flags *out, bencode_item_t *input))
+{
+	bencode_item_t *list, *it;
+	if ((list = bencode_dictionary_get_expect(input, key, BENCODE_LIST))) {
+		for (it = list->child; it; it = it->sibling)
+			callback(out, it);
+	}
+}
+static void call_ng_flags_sdes(struct sdp_ng_flags *out, bencode_item_t *it) {
+	ng_sdes_option(out, it, 0);
+}
+static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, bencode_item_t *it) {
+	if (!bencode_strcmp(it, "offer"))
+		out->rtcp_mux_offer = 1;
+	else if (!bencode_strcmp(it, "require"))
+		out->rtcp_mux_require = 1;
+	else if (!bencode_strcmp(it, "demux"))
+		out->rtcp_mux_demux = 1;
+	else if (!bencode_strcmp(it, "accept"))
+		out->rtcp_mux_accept = 1;
+	else if (!bencode_strcmp(it, "reject"))
+		out->rtcp_mux_reject = 1;
+	else
+		ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '"BENCODE_FORMAT"'",
+				BENCODE_FMT(it));
+}
+static void call_ng_flags_replace(struct sdp_ng_flags *out, bencode_item_t *it) {
+	str_hyphenate(it);
+	if (!bencode_strcmp(it, "origin"))
+		out->replace_origin = 1;
+	else if (!bencode_strcmp(it, "session-connection"))
+		out->replace_sess_conn = 1;
+	else
+		ilog(LOG_WARN, "Unknown 'replace' flag encountered: '"BENCODE_FORMAT"'",
+				BENCODE_FMT(it));
+}
+static void call_ng_flags_flags(struct sdp_ng_flags *out, bencode_item_t *it) {
+	if (it->type !=  BENCODE_STRING)
+		return;
+
+	str_hyphenate(it);
+
+	if (!bencode_strcmp(it, "trust-address"))
+		out->trust_address = 1;
+	else if (!bencode_strcmp(it, "SIP-source-address"))
+		out->trust_address = 0;
+	else if (!bencode_strcmp(it, "asymmetric"))
+		out->asymmetric = 1;
+	else if (!bencode_strcmp(it, "no-redis-update"))
+		out->no_redis_update = 1;
+	else if (!bencode_strcmp(it, "unidirectional"))
+		out->unidirectional = 1;
+	else if (!bencode_strcmp(it, "strict-source"))
+		out->strict_source = 1;
+	else if (!bencode_strcmp(it, "media-handover"))
+		out->media_handover = 1;
+	else if (!bencode_strcmp(it, "reset"))
+		out->reset = 1;
+	else if (it->iov[1].iov_len >= 5 && !memcmp(it->iov[1].iov_base, "SDES-", 5))
+		ng_sdes_option(out, it, 5);
+	else if (!bencode_strcmp(it, "port-latching"))
+		out->port_latching = 1;
+	else if (!bencode_strcmp(it, "record-call"))
+		out->record_call = 1;
+	else if (!bencode_strcmp(it, "no-rtcp-attribute"))
+		out->no_rtcp_attr = 1;
+	else
+		ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
+				BENCODE_FMT(it));
+}
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
 	bencode_item_t *list, *it;
 	int diridx;
@@ -536,55 +608,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
 
-	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			if (it->type !=  BENCODE_STRING)
-				continue;
-
-			str_hyphenate(it);
-
-			if (!bencode_strcmp(it, "trust-address"))
-				out->trust_address = 1;
-			else if (!bencode_strcmp(it, "SIP-source-address"))
-				out->trust_address = 0;
-			else if (!bencode_strcmp(it, "asymmetric"))
-				out->asymmetric = 1;
-			else if (!bencode_strcmp(it, "no-redis-update"))
-				out->no_redis_update = 1;
-			else if (!bencode_strcmp(it, "unidirectional"))
-				out->unidirectional = 1;
-			else if (!bencode_strcmp(it, "strict-source"))
-				out->strict_source = 1;
-			else if (!bencode_strcmp(it, "media-handover"))
-				out->media_handover = 1;
-			else if (!bencode_strcmp(it, "reset"))
-				out->reset = 1;
-			else if (it->iov[1].iov_len >= 5 && !memcmp(it->iov[1].iov_base, "SDES-", 5))
-				ng_sdes_option(out, it, 5);
-			else if (!bencode_strcmp(it, "port-latching"))
-				out->port_latching = 1;
-			else if (!bencode_strcmp(it, "record-call"))
-				out->record_call = 1;
-			else if (!bencode_strcmp(it, "no-rtcp-attribute"))
-				out->no_rtcp_attr = 1;
-			else
-				ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
-						BENCODE_FMT(it));
-		}
-	}
-
-	if ((list = bencode_dictionary_get_expect(input, "replace", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			str_hyphenate(it);
-			if (!bencode_strcmp(it, "origin"))
-				out->replace_origin = 1;
-			else if (!bencode_strcmp(it, "session-connection"))
-				out->replace_sess_conn = 1;
-			else
-				ilog(LOG_WARN, "Unknown 'replace' flag encountered: '"BENCODE_FORMAT"'",
-						BENCODE_FMT(it));
-		}
-	}
+	call_ng_flags_list(out, input, "flags", call_ng_flags_flags);
+	call_ng_flags_list(out, input, "replace", call_ng_flags_replace);
 
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
@@ -624,30 +649,10 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 					STR_FMT(&s));
 	}
 
-	if ((list = bencode_dictionary_get_expect(input, "rtcp-mux", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "offer"))
-				out->rtcp_mux_offer = 1;
-			else if (!bencode_strcmp(it, "require"))
-				out->rtcp_mux_require = 1;
-			else if (!bencode_strcmp(it, "demux"))
-				out->rtcp_mux_demux = 1;
-			else if (!bencode_strcmp(it, "accept"))
-				out->rtcp_mux_accept = 1;
-			else if (!bencode_strcmp(it, "reject"))
-				out->rtcp_mux_reject = 1;
-			else
-				ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '"BENCODE_FORMAT"'",
-						BENCODE_FMT(it));
-		}
-	}
+	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux);
 
-	/* XXX abstractize the other list walking functions using callbacks */
 	/* XXX module still needs to support this list */
-	if ((list = bencode_dictionary_get_expect(input, "SDES", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling)
-			ng_sdes_option(out, it, 0);
-	}
+	call_ng_flags_list(out, input, "SDES", call_ng_flags_sdes);
 
 	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
