@@ -1133,7 +1133,7 @@ static int redis_tags(struct call *c, struct redis_list *tags) {
 
 static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	struct rtp_payload_type *pt;
-	str ptype, enc, clock, parms;
+	str ptype, enc, clock, enc_parms, fmt_parms;
 	struct call_media *med = ptr;
 	struct call *call = med->call;
 
@@ -1143,7 +1143,12 @@ static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 		return -1;
 	if (str_token(&clock, s, '/'))
 		return -1;
-	parms = *s;
+	if (str_token(&enc_parms, s, '/')) {
+		enc_parms = *s;
+		fmt_parms = STR_EMPTY;
+	}
+	else
+		fmt_parms = *s;
 
 	// from call.c
 	// XXX remove all the duplicate code
@@ -1151,7 +1156,8 @@ static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	pt->payload_type = str_to_ui(&ptype, 0);
 	call_str_cpy(call, &pt->encoding, &enc);
 	pt->clock_rate = str_to_ui(&clock, 0);
-	call_str_cpy(call, &pt->encoding_parameters, &parms);
+	call_str_cpy(call, &pt->encoding_parameters, &enc_parms);
+	call_str_cpy(call, &pt->format_parameters, &fmt_parms);
 	g_hash_table_replace(med->rtp_payload_types, &pt->payload_type, pt);
 	return 0;
 }
@@ -1939,9 +1945,10 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_array (builder);
 			for (m = k; m; m = m->next) {
 				pt = m->data;
-				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT, 
+				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT,
 						pt->payload_type, STR_FMT(&pt->encoding),
-						pt->clock_rate, STR_FMT(&pt->encoding_parameters));
+						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
+						STR_FMT(&pt->format_parameters));
 			}
 			json_builder_end_array (builder);
 

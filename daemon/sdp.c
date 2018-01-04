@@ -1104,7 +1104,7 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, str
 
 static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media)
 {
-	GHashTable *ht;
+	GHashTable *ht_rtpmap, *ht_fmtp;
 	GQueue *q;
 	GList *ql;
 	struct sdp_attribute *attr;
@@ -1114,15 +1114,21 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		return 0;
 
 	/* first go through a=rtpmap and build a hash table of attrs */
-	ht = g_hash_table_new(g_int_hash, g_int_equal);
+	ht_rtpmap = g_hash_table_new(g_int_hash, g_int_equal);
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
 	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
 		struct rtp_payload_type *pt;
 		attr = ql->data;
 		pt = &attr->u.rtpmap.rtp_pt;
-		g_hash_table_insert(ht, &pt->payload_type, pt);
+		g_hash_table_insert(ht_rtpmap, &pt->payload_type, pt);
 	}
-	/* a=fmtp processing would go here */
+	// do the same for a=fmtp
+	ht_fmtp = g_hash_table_new(g_int_hash, g_int_equal);
+	q = attr_list_get_by_id(&media->attributes, ATTR_FMTP);
+	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
+		attr = ql->data;
+		g_hash_table_insert(ht_fmtp, &attr->u.fmtp.payload_type, &attr->u.fmtp.format_parms_str);
+	}
 
 	/* then go through the format list and associate */
 	for (ql = media->format_list.head; ql; ql = ql->next) {
@@ -1139,13 +1145,18 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 
 		/* first look in rtpmap for a match, then check RFC types,
 		 * else fall back to an "unknown" type */
-		ptl = rtp_payload_type(i, ht);
+		ptl = rtp_payload_type(i, ht_rtpmap);
 
 		pt = g_slice_alloc0(sizeof(*pt));
 		if (ptl)
 			*pt = *ptl;
 		else
 			pt->payload_type = i;
+
+		s = g_hash_table_lookup(ht_fmtp, &i);
+		if (s)
+			pt->format_parameters = *s;
+
 		g_queue_push_tail(&sp->rtp_payload_types, pt);
 	}
 
@@ -1155,7 +1166,8 @@ error:
 	ret = -1;
 	goto out;
 out:
-	g_hash_table_destroy(ht);
+	g_hash_table_destroy(ht_rtpmap);
+	g_hash_table_destroy(ht_fmtp);
 	return ret;
 }
 

@@ -1441,6 +1441,7 @@ static void __rtp_payload_types(struct call_media *media, GQueue *types, GHashTa
 		call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
 		call_str_cpy(call, &pt->encoding, &pt->encoding);
 		call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
+		call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
 		g_hash_table_replace(media->rtp_payload_types, &pt->payload_type, pt);
 		g_queue_push_tail(&media->rtp_payload_types_prefs, pt);
 	}
