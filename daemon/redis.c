@@ -1158,7 +1158,7 @@ static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	pt->clock_rate = str_to_ui(&clock, 0);
 	call_str_cpy(call, &pt->encoding_parameters, &enc_parms);
 	call_str_cpy(call, &pt->format_parameters, &fmt_parms);
-	g_hash_table_replace(med->rtp_payload_types, &pt->payload_type, pt);
+	g_hash_table_replace(med->codecs, &pt->payload_type, pt);
 	return 0;
 }
 static int json_medias(struct call *c, struct redis_list *medias, JsonReader *root_reader) {
@@ -1173,7 +1173,7 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 		/* from call.c:__get_media() */
 		med = uid_slice_alloc0(med, &c->medias);
 		med->call = c;
-		med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
+		med->codecs = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
 				__payload_type_free);
 
 		if (redis_hash_get_unsigned(&med->index, rh, "index"))
@@ -1318,7 +1318,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			return -1;
 
 		if (ps->media)
-			__rtp_stats_update(ps->rtp_stats, ps->media->rtp_payload_types);
+			__rtp_stats_update(ps->rtp_stats, ps->media->codecs);
 	}
 
 	return 0;
@@ -1939,7 +1939,7 @@ char* redis_encode_json(struct call *c) {
 			}
 			json_builder_end_array (builder);
 
-			k = g_hash_table_get_values(media->rtp_payload_types);
+			k = g_hash_table_get_values(media->codecs);
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array (builder);

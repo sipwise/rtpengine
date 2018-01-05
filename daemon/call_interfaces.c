@@ -585,6 +585,7 @@ INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char
 static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 	str_hyphenate(s);
 
+	// XXX use internal hash tables for these
 	if (!str_cmp(s, "trust-address"))
 		out->trust_address = 1;
 	else if (!str_cmp(s, "SIP-source-address"))

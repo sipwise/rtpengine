@@ -730,7 +730,7 @@ static void setup_media_proc(struct call_media *media) {
 	if (!recording)
 		return;
 
-	GList *pltypes = g_hash_table_get_values(media->rtp_payload_types);
+	GList *pltypes = g_hash_table_get_values(media->codecs);
 
 	for (GList *l = pltypes; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;

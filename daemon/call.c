@@ -653,7 +653,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->call = ml->call;
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
-	med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
+	med->codecs = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
 
 	g_queue_push_tail(&ml->medias, med);
 
@@ -950,7 +950,7 @@ void __rtp_stats_update(GHashTable *dst, GHashTable *src) {
 	struct rtp_payload_type *pt;
 	GList *values, *l;
 
-	/* "src" is a call_media->rtp_payload_types table, while "dst" is a
+	/* "src" is a call_media->codecs table, while "dst" is a
 	 * packet_stream->rtp_stats table */
 
 	values = g_hash_table_get_values(src);
@@ -988,7 +988,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		a->rtp_sink = b;
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
-		__rtp_stats_update(a->rtp_stats, A->rtp_payload_types);
+		__rtp_stats_update(a->rtp_stats, A->codecs);
 
 		if (sp) {
 			__fill_stream(a, &sp->rtp_endpoint, port_off, sp);
@@ -1426,8 +1426,8 @@ static void __rtp_payload_type_add(struct call_media *media, struct rtp_payload_
 	call_str_cpy(call, &pt->encoding, &pt->encoding);
 	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
 	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
-	g_hash_table_replace(media->rtp_payload_types, &pt->payload_type, pt);
-	g_queue_push_tail(&media->rtp_payload_types_prefs, pt);
+	g_hash_table_replace(media->codecs, &pt->payload_type, pt);
+	g_queue_push_tail(&media->codecs_prefs, pt);
 }
 
 static void __rtp_payload_types(struct call_media *media, GQueue *types, GHashTable *strip,
@@ -1439,7 +1439,7 @@ static void __rtp_payload_types(struct call_media *media, GQueue *types, GHashTa
 	int remove_all = 0;
 
 	// start fresh
-	g_queue_clear(&media->rtp_payload_types_prefs);
+	g_queue_clear(&media->codecs_prefs);
 
 	if (strip && g_hash_table_lookup(strip, &str_all))
 		remove_all = 1;
@@ -1737,7 +1737,7 @@ const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 	if (atomic64_get(&rtp_s->packets) == 0)
 		goto out;
 
-	rtp_pt = rtp_payload_type(rtp_s->payload_type, m->rtp_payload_types);
+	rtp_pt = rtp_payload_type(rtp_s->payload_type, m->codecs);
 
 out:
 	g_list_free(values);
@@ -2000,8 +2000,8 @@ static void __call_free(void *p) {
 		crypto_params_cleanup(&md->sdes_out.params);
 		g_queue_clear(&md->streams);
 		g_queue_clear(&md->endpoint_maps);
-		g_hash_table_destroy(md->rtp_payload_types);
-		g_queue_clear(&md->rtp_payload_types_prefs);
+		g_hash_table_destroy(md->codecs);
+		g_queue_clear(&md->codecs_prefs);
 		g_slice_free1(sizeof(*md), md);
 	}
 

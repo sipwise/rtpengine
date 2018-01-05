@@ -1348,6 +1348,7 @@ error:
 	return -1;
 }
 
+// XXX iovec can probably be eliminated now and this moved to a regular string builder
 struct sdp_chopper *sdp_chopper_new(str *input) {
 	struct sdp_chopper *c = g_slice_alloc0(sizeof(*c));
 	c->input = input;
@@ -1454,10 +1455,10 @@ static int replace_transport_protocol(struct sdp_chopper *chop,
 static int replace_codec_list(struct sdp_chopper *chop,
 		struct sdp_media *media, struct call_media *cm)
 {
-	if (cm->rtp_payload_types_prefs.length == 0)
+	if (cm->codecs_prefs.length == 0)
 		return 0; // legacy protocol or usage error
 
-	for (GList *l = cm->rtp_payload_types_prefs.head; l; l = l->next) {
+	for (GList *l = cm->codecs_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		chopper_append_printf(chop, " %u", pt->payload_type);
 	}
@@ -1702,17 +1703,17 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				break;
 
 			case ATTR_RTPMAP:
-				if (media->rtp_payload_types_prefs.length == 0)
+				if (media->codecs_prefs.length == 0)
 					break; // legacy protocol or usage error
-				if (!g_hash_table_lookup(media->rtp_payload_types,
+				if (!g_hash_table_lookup(media->codecs,
 							&attr->u.rtpmap.rtp_pt.payload_type))
 					goto strip;
 				break;
 
 			case ATTR_FMTP:
-				if (media->rtp_payload_types_prefs.length == 0)
+				if (media->codecs_prefs.length == 0)
 					break; // legacy protocol or usage error
-				if (!g_hash_table_lookup(media->rtp_payload_types,
+				if (!g_hash_table_lookup(media->codecs,
 							&attr->u.fmtp.payload_type))
 					goto strip;
 				break;
