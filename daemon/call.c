@@ -1419,32 +1419,56 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 		MEDIA_SET(other_media, DTLS);
 }
 
-static void __rtp_payload_types(struct call_media *media, GQueue *types, GHashTable *strip) {
-	struct rtp_payload_type *pt;
+static void __rtp_payload_type_add(struct call_media *media, struct rtp_payload_type *pt) {
 	struct call *call = media->call;
-	static const str __all = STR_CONST_INIT("all");
+	/* we must duplicate the contents */
+	call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
+	call_str_cpy(call, &pt->encoding, &pt->encoding);
+	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
+	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
+	g_hash_table_replace(media->rtp_payload_types, &pt->payload_type, pt);
+	g_queue_push_tail(&media->rtp_payload_types_prefs, pt);
+}
+
+static void __rtp_payload_types(struct call_media *media, GQueue *types, GHashTable *strip,
+		const GQueue *offer)
+{
+	struct rtp_payload_type *pt;
+	static const str str_all = STR_CONST_INIT("all");
+	GHashTable *removed = g_hash_table_new_full(str_hash, str_equal, NULL, __payload_type_free);
+	int remove_all = 0;
 
 	// start fresh
 	g_queue_clear(&media->rtp_payload_types_prefs);
+
+	if (strip && g_hash_table_lookup(strip, &str_all))
+		remove_all = 1;
 
 	/* we steal the entire list to avoid duplicate allocs */
 	while ((pt = g_queue_pop_head(types))) {
 		// codec stripping
 		if (strip) {
-			if (g_hash_table_lookup(strip, &pt->encoding)
-					|| g_hash_table_lookup(strip, &__all)) {
-				__payload_type_free(pt);
+			if (remove_all || g_hash_table_lookup(strip, &pt->encoding)) {
+				g_hash_table_replace(removed, &pt->encoding, pt);
 				continue;
 			}
 		}
-		/* we must duplicate the contents */
-		call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
-		call_str_cpy(call, &pt->encoding, &pt->encoding);
-		call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
-		call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
-		g_hash_table_replace(media->rtp_payload_types, &pt->payload_type, pt);
-		g_queue_push_tail(&media->rtp_payload_types_prefs, pt);
+		__rtp_payload_type_add(media, pt);
 	}
+
+	if (offer) {
+		// now restore codecs that have been removed, but should be offered
+		for (GList *l = offer->head; l; l = l->next) {
+			str *codec = l->data;
+			pt = g_hash_table_lookup(removed, codec);
+			if (!pt)
+				continue;
+			g_hash_table_steal(removed, codec);
+			__rtp_payload_type_add(media, pt);
+		}
+	}
+
+	g_hash_table_destroy(removed);
 }
 
 static void __ice_start(struct call_media *media) {
@@ -1567,7 +1591,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				MEDIA_SET(other_media, SDES);
 		}
 
-		__rtp_payload_types(media, &sp->rtp_payload_types, flags->codec_strip);
+		__rtp_payload_types(media, &sp->rtp_payload_types, flags->codec_strip, &flags->codec_offer);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,

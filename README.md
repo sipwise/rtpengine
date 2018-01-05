@@ -1193,6 +1193,19 @@ Optionally included keys are:
 		an `a=rtpmap` attribute, or can be from the list of RFC-defined codecs. Examples
 		are `PCMU`, `opus`, or `telephone-event`.
 
+		As a special keyword, `all` can be used to remove all codecs, except the ones
+		that should explicitly offered (see below). Note that it is an error to strip
+		all codecs and leave none that could be offered. In this case, the original
+		list of codecs will be left unchanged.
+
+	* `offer`
+
+		Contains a list of strings. Each string is the name of a codec that should be
+		included in the list of codecs offered. This is primarily useful to block all
+		codecs (`strip -> all`) except the ones given in the `offer` whitelist.
+		Currently codecs that were not present in the original list of codecs
+		offered by the client will be ignored.
+
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
