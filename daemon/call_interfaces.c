@@ -481,10 +481,9 @@ INLINE void call_bencode_hold_ref(struct call *c, bencode_item_t *bi) {
 	bencode_buffer_destroy_add(bi->buffer, call_release_ref, obj_get(c));
 }
 
-INLINE void str_hyphenate(bencode_item_t *it) {
+INLINE void str_hyphenate(str *s_ori) {
 	str s;
-	if (!bencode_get_str(it, &s))
-		return;
+	s = *s_ori;
 	while (s.len) {
 		if (!str_chr_str(&s, &s, ' '))
 			break;
@@ -499,129 +498,127 @@ INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two
 	return bencode_dictionary_get_str(i, two, out);
 }
 
-INLINE void ng_sdes_option(struct sdp_ng_flags *out, bencode_item_t *it, unsigned int strip) {
-	str s;
-
-	if (!bencode_get_str(it, &s))
-		return;
-	str_shift(&s, strip);
-
-	if (!str_cmp(&s, "no") || !str_cmp(&s, "off") || !str_cmp(&s, "disabled")
-			|| !str_cmp(&s, "disable"))
+INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+	if (!str_cmp(s, "no") || !str_cmp(s, "off") || !str_cmp(s, "disabled")
+			|| !str_cmp(s, "disable"))
 		out->sdes_off = 1;
-	else if (!str_cmp(&s, "unencrypted_srtp") || !str_cmp(&s, "UNENCRYPTED_SRTP"))
+	else if (!str_cmp(s, "unencrypted_srtp") || !str_cmp(s, "UNENCRYPTED_SRTP"))
 		out->sdes_unencrypted_srtp = 1;
-	else if (!str_cmp(&s, "unencrypted_srtcp") || !str_cmp(&s, "UNENCRYPTED_SRTCP"))
+	else if (!str_cmp(s, "unencrypted_srtcp") || !str_cmp(s, "UNENCRYPTED_SRTCP"))
 		out->sdes_unencrypted_srtcp = 1;
-	else if (!str_cmp(&s, "unauthenticated_srtp") || !str_cmp(&s, "UNAUTHENTICATED_SRTP"))
+	else if (!str_cmp(s, "unauthenticated_srtp") || !str_cmp(s, "UNAUTHENTICATED_SRTP"))
 		out->sdes_unauthenticated_srtp = 1;
-	else if (!str_cmp(&s, "encrypted_srtp") || !str_cmp(&s, "ENCRYPTED_SRTP"))
+	else if (!str_cmp(s, "encrypted_srtp") || !str_cmp(s, "ENCRYPTED_SRTP"))
 		out->sdes_encrypted_srtp = 1;
-	else if (!str_cmp(&s, "encrypted_srtcp") || !str_cmp(&s, "ENCRYPTED_SRTCP"))
+	else if (!str_cmp(s, "encrypted_srtcp") || !str_cmp(s, "ENCRYPTED_SRTCP"))
 		out->sdes_encrypted_srtcp = 1;
-	else if (!str_cmp(&s, "authenticated_srtp") || !str_cmp(&s, "AUTHENTICATED_SRTP"))
+	else if (!str_cmp(s, "authenticated_srtp") || !str_cmp(s, "AUTHENTICATED_SRTP"))
 		out->sdes_authenticated_srtp = 1;
 	else
 		ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
-				STR_FMT(&s));
+				STR_FMT(s));
 }
 
 
 static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *input, const char *key,
-		void (*callback)(struct sdp_ng_flags *, bencode_item_t *, void *), void *parm)
+		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm)
 {
 	bencode_item_t *list, *it;
+	str s;
 	if ((list = bencode_dictionary_get_expect(input, key, BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling)
-			callback(out, it, parm);
+		for (it = list->child; it; it = it->sibling) {
+			if (!bencode_get_str(it, &s))
+				continue;
+			callback(out, &s, parm);
+		}
 	}
 }
-static void call_ng_flags_sdes(struct sdp_ng_flags *out, bencode_item_t *it, void *dummy) {
-	ng_sdes_option(out, it, 0);
-}
-static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, bencode_item_t *it, void *dummy) {
-	if (!bencode_strcmp(it, "offer"))
+static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy) {
+	if (!str_cmp(s, "offer"))
 		out->rtcp_mux_offer = 1;
-	else if (!bencode_strcmp(it, "require"))
+	else if (!str_cmp(s, "require"))
 		out->rtcp_mux_require = 1;
-	else if (!bencode_strcmp(it, "demux"))
+	else if (!str_cmp(s, "demux"))
 		out->rtcp_mux_demux = 1;
-	else if (!bencode_strcmp(it, "accept"))
+	else if (!str_cmp(s, "accept"))
 		out->rtcp_mux_accept = 1;
-	else if (!bencode_strcmp(it, "reject"))
+	else if (!str_cmp(s, "reject"))
 		out->rtcp_mux_reject = 1;
 	else
-		ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '"BENCODE_FORMAT"'",
-				BENCODE_FMT(it));
+		ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '" STR_FORMAT "'",
+				STR_FMT(s));
 }
-static void call_ng_flags_replace(struct sdp_ng_flags *out, bencode_item_t *it, void *dummy) {
-	str_hyphenate(it);
-	if (!bencode_strcmp(it, "origin"))
+static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy) {
+	str_hyphenate(s);
+	if (!str_cmp(s, "origin"))
 		out->replace_origin = 1;
-	else if (!bencode_strcmp(it, "session-connection"))
+	else if (!str_cmp(s, "session-connection"))
 		out->replace_sess_conn = 1;
 	else
-		ilog(LOG_WARN, "Unknown 'replace' flag encountered: '"BENCODE_FORMAT"'",
-				BENCODE_FMT(it));
+		ilog(LOG_WARN, "Unknown 'replace' flag encountered: '" STR_FORMAT "'",
+				STR_FMT(s));
 }
-static void call_ng_flags_codec_list(struct sdp_ng_flags *out, bencode_item_t *it, void *qp) {
-	str *s;
-	s = g_slice_alloc(sizeof(*s));
-	if (!bencode_get_str(it, s)) {
-		g_slice_free1(sizeof(*s), s);
-		return;
-	}
-	g_queue_push_tail((GQueue *) qp, s);
+static void call_ng_flags_codec_list(struct sdp_ng_flags *out, str *s, void *qp) {
+	str *s_copy;
+	s_copy = g_slice_alloc(sizeof(*s_copy));
+	*s_copy = *s;
+	g_queue_push_tail((GQueue *) qp, s_copy);
 }
-static void call_ng_flags_codec_ht_strip(bencode_item_t *it, GHashTable *ht, unsigned int strip) {
-	str *s;
-	s = g_slice_alloc(sizeof(*s));
-	if (!bencode_get_str(it, s)) {
-		g_slice_free1(sizeof(*s), s);
-		return;
-	}
-	str_shift(s, strip);
-	g_hash_table_replace(ht, s, s);
+static void call_ng_flags_codec_ht(struct sdp_ng_flags *out, str *s, void *htp) {
+	str *s_copy;
+	s_copy = g_slice_alloc(sizeof(*s_copy));
+	*s_copy = *s;
+	g_hash_table_replace((GHashTable *) htp, s_copy, s_copy);
 }
-static void call_ng_flags_codec_ht(struct sdp_ng_flags *out, bencode_item_t *it, void *htp) {
-	call_ng_flags_codec_ht_strip(it, htp, 0);
+// helper to alias values from other dictionaries into the "flags" dictionary
+INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
+		void (*cb)(struct sdp_ng_flags *, str *, void *), void *ptr)
+{
+	size_t len = strlen(prefix);
+	str s = *s_ori;
+	if (len > 0)
+		if (str_shift_cmp(&s, prefix))
+			return 0;
+	cb(out, &s, ptr);
+	return 1;
 }
-static void call_ng_flags_flags(struct sdp_ng_flags *out, bencode_item_t *it, void *dummy) {
-	if (it->type !=  BENCODE_STRING)
-		return;
+static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
+	str_hyphenate(s);
 
-	str_hyphenate(it);
-
-	if (!bencode_strcmp(it, "trust-address"))
+	if (!str_cmp(s, "trust-address"))
 		out->trust_address = 1;
-	else if (!bencode_strcmp(it, "SIP-source-address"))
+	else if (!str_cmp(s, "SIP-source-address"))
 		out->trust_address = 0;
-	else if (!bencode_strcmp(it, "asymmetric"))
+	else if (!str_cmp(s, "asymmetric"))
 		out->asymmetric = 1;
-	else if (!bencode_strcmp(it, "no-redis-update"))
+	else if (!str_cmp(s, "no-redis-update"))
 		out->no_redis_update = 1;
-	else if (!bencode_strcmp(it, "unidirectional"))
+	else if (!str_cmp(s, "unidirectional"))
 		out->unidirectional = 1;
-	else if (!bencode_strcmp(it, "strict-source"))
+	else if (!str_cmp(s, "strict-source"))
 		out->strict_source = 1;
-	else if (!bencode_strcmp(it, "media-handover"))
+	else if (!str_cmp(s, "media-handover"))
 		out->media_handover = 1;
-	else if (!bencode_strcmp(it, "reset"))
+	else if (!str_cmp(s, "reset"))
 		out->reset = 1;
-	// XXX unify these
-	else if (it->iov[1].iov_len >= 5 && !memcmp(it->iov[1].iov_base, "SDES-", 5))
-		ng_sdes_option(out, it, 5);
-	else if (it->iov[1].iov_len >= 12 && !memcmp(it->iov[1].iov_base, "codec-strip-", 12))
-		call_ng_flags_codec_ht_strip(it, out->codec_strip, 12);
-	else if (!bencode_strcmp(it, "port-latching"))
+	else if (!str_cmp(s, "port-latching"))
 		out->port_latching = 1;
-	else if (!bencode_strcmp(it, "record-call"))
+	else if (!str_cmp(s, "record-call"))
 		out->record_call = 1;
-	else if (!bencode_strcmp(it, "no-rtcp-attribute"))
+	else if (!str_cmp(s, "no-rtcp-attribute"))
 		out->no_rtcp_attr = 1;
-	else
-		ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
-				BENCODE_FMT(it));
+	else {
+		// handle values aliases from other dictionaries
+		if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
+			return;
+		if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_codec_ht, out->codec_strip))
+			return;
+		if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list, &out->codec_offer))
+			return;
+
+		ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
+				STR_FMT(s));
+	}
 }
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
 	bencode_item_t *list, *it, *dict;
@@ -678,7 +675,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
 
 	/* XXX module still needs to support this list */
-	call_ng_flags_list(out, input, "SDES", call_ng_flags_sdes, NULL);
+	call_ng_flags_list(out, input, "SDES", ng_sdes_option, NULL);
 
 	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
@@ -690,6 +687,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
 
 	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
+		/* XXX module still needs to support these */
 		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_ht, out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
 	}
