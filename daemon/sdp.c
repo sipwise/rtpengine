@@ -1945,12 +1945,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			ps = j->data;
 
 			if (!flags->ice_force_relay) {
-			        if (replace_media_port(chop, sdp_media, ps))
-				        goto error;
-			        if (replace_consecutive_port_count(chop, sdp_media, ps, j))
-				        goto error;
-				if (replace_transport_protocol(chop, sdp_media, call_media))
-				        goto error;
+				if (replace_media_port(chop, sdp_media, ps))
+					goto error;
+				if (replace_consecutive_port_count(chop, sdp_media, ps, j))
+					goto error;
+				if (flags->transport_protocol) {
+					if (replace_transport_protocol(chop, sdp_media, call_media))
+						goto error;
+				}
 
 				if (sdp_media->connection.parsed) {
 				        if (replace_network_address(chop, &sdp_media->connection.address, ps,
