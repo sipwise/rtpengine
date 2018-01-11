@@ -628,9 +628,10 @@ void redis_notify_loop(void *d) {
 	redis_notify_event_base_action(cm, EVENT_BASE_FREE);
 }
 
-struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum redis_role role, int no_redis_required) {
+struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
+		enum redis_role role, int no_redis_required, int redis_allowed_errors,
+		int redis_disable_time) {
 	struct redis *r;
-
 	r = g_slice_alloc0(sizeof(*r));
 
 	r->endpoint = *ep;
@@ -640,6 +641,10 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *auth, enum red
 	r->role = role;
 	r->state = REDIS_STATE_DISCONNECTED;
 	r->no_redis_required = no_redis_required;
+	r->allowed_errors = redis_allowed_errors;
+	r->disable_time = redis_disable_time;
+	r->restore_tick = 0;
+	r->consecutive_errors = 0;
 	mutex_init(&r->lock);
 
 	if (redis_connect(r, 10)) {
@@ -671,9 +676,34 @@ static void redis_close(struct redis *r) {
 	g_slice_free1(sizeof(*r), r);
 }
 
+static void redis_count_err_and_disable(struct redis *r)
+{
+
+	if (r->allowed_errors < 0) {
+		return;
+	}
+
+	r->consecutive_errors++;
+	if (r->consecutive_errors > r->allowed_errors) {
+		r->restore_tick = g_now.tv_sec + r->disable_time;
+		ilog(LOG_WARNING, "Redis server %s disabled for %d seconds",
+				endpoint_print_buf(&r->endpoint),
+				r->disable_time);
+	}
+}
 
 /* must be called with r->lock held */
 static int redis_check_conn(struct redis *r) {
+
+	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > g_now.tv_sec)) {
+		ilog(LOG_WARNING, "Redis server %s is disabled. Don't try RE-Establishing for %d seconds",
+				endpoint_print_buf(&r->endpoint),r->disable_time);
+		return REDIS_STATE_DISCONNECTED;
+	}
+
+	if (r->state == REDIS_STATE_DISCONNECTED)
+		ilog(LOG_INFO, "RE-Establishing connection for Redis server %s",endpoint_print_buf(&r->endpoint));
+
 	// try redis connection
 	if (redisCommandNR(r->ctx, "PING") == 0) {
 		// redis is connected
@@ -690,8 +720,11 @@ static int redis_check_conn(struct redis *r) {
 	// try redis reconnect => will free current r->ctx
 	if (redis_connect(r, 1)) {
 		// redis is disconnected
+		redis_count_err_and_disable(r);
 		return REDIS_STATE_DISCONNECTED;
 	}
+
+	r->consecutive_errors = 0;
 
 	// redis is connected
 	if (r->state == REDIS_STATE_DISCONNECTED) {
@@ -1650,7 +1683,10 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
 	for (i = 0; i < m->conf.redis_num_threads; i++)
-		g_queue_push_tail(&ctx.r_q, redis_new(&r->endpoint, r->db, r->auth, r->role, r->no_redis_required));
+		g_queue_push_tail(&ctx.r_q,
+				redis_new(&r->endpoint, r->db, r->auth, r->role,
+						r->no_redis_required, r->allowed_errors,
+						r->disable_time));
 	gtp = g_thread_pool_new(restore_thread, &ctx, m->conf.redis_num_threads, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {

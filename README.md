@@ -183,6 +183,8 @@ option and which are reproduced below:
 	  --redis-expires=INT              Expire time in seconds for redis keys
 	  --redis-multikey                 Use multiple redis keys for storing the call (old behaviour) DEPRECATED
 	  -q, --no-redis-required          Start even if can't connect to redis databases
+	  --redis-allowed-errors           Number of allowed errors before redis is temporarily disabled
+	  --redis-disable-time             Number of seconds redis communication is disabled because of errors
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
@@ -443,6 +445,16 @@ The options are described in more detail below.
 
 	Be aware that if the -r redis can't be initially connected, sessions are not reloaded upon rtpengine startup,
 	even though rtpengine still starts.
+
+*  --redis-allowed-errors
+	If this parameter is present and has a positive value, it will configure how many consecutive errors
+	are allowed when communicating with a redis server before the redis communication will be temporarily disabled
+	for that server. While the communcation is disabled there will be no attempts to reconnect to redis or send
+	commands to that server. Default value is -1, meaning that this feature is disabled.
+
+*  --redis-disable-time
+	This parameter configures the number of seconds redis communication is disabled because of errors.
+	This works together with redis-allowed-errors parameter. The default value is 10.
 
 *  -b, --b2b-url
 

@@ -61,6 +61,10 @@ struct redis {
 
 	int		state;
 	int		no_redis_required;
+	int		allowed_errors;
+	int		consecutive_errors;
+	int		disable_time;
+	time_t	restore_tick;
 };
 
 struct redis_hash {
@@ -92,7 +96,7 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 void redis_notify_loop(void *d);
 
 
-struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int no_redis_required);
+struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int, int, int);
 int redis_restore(struct callmaster *, struct redis *);
 void redis_update(struct call *, struct redis *);
 void redis_update_onekey(struct call *c, struct redis *r);
