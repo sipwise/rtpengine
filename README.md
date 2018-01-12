@@ -456,6 +456,11 @@ The options are described in more detail below.
 	This parameter configures the number of seconds redis communication is disabled because of errors.
 	This works together with redis-allowed-errors parameter. The default value is 10.
 
+*  --redis-cmd-timeout
+	If this parameter is set to a non-zero value it will set the timeout, in milliseconds, for each command to the redis server.
+	If redis does not reply	within the specified timeout the command will fail. The default value is 0, meaning that the commands
+	will have no timeout
+
 *  -b, --b2b-url
 
 	Enables and sets the URI for an XMLRPC callback to be made when a call is torn down due to packet

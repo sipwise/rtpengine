@@ -73,6 +73,7 @@ static int redis_num_threads;
 static int no_redis_required;
 static int redis_allowed_errors = -1;
 static int redis_disable_time = 10;
+static int redis_cmd_timeout = 0;
 static char *redis_auth;
 static char *redis_write_auth;
 static char *b2b_url;
@@ -282,6 +283,7 @@ static void options(int *argc, char ***argv) {
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &no_redis_required, "Start no matter of redis connection state", NULL },
 		{ "redis-allowed-errors", 0, 0, G_OPTION_ARG_INT, &redis_allowed_errors, "Number of allowed errors before redis is temporarily disabled", "INT" },
 		{ "redis-disable-time", 0, 0, G_OPTION_ARG_INT, &redis_disable_time, "Number of seconds redis communication is disabled because of errors", "INT" },
+		{ "redis-cmd-timeout", 0, 0, G_OPTION_ARG_INT, &redis_cmd_timeout, "Sets a timeout in milliseconds for redis commands", "INT" },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
 		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
@@ -582,7 +584,7 @@ no_kernel:
 	if (!is_addr_unspecified(&redis_write_ep.address)) {
 		mc.redis_write = redis_new(&redis_write_ep, redis_write_db,
 				redis_write_auth, ANY_REDIS_ROLE, no_redis_required,
-				redis_allowed_errors, redis_disable_time);
+				redis_allowed_errors, redis_disable_time, redis_cmd_timeout);
 		if (!mc.redis_write)
 			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&redis_write_ep));
@@ -591,10 +593,12 @@ no_kernel:
 	if (!is_addr_unspecified(&redis_ep.address)) {
 		mc.redis = redis_new(&redis_ep, redis_db, redis_auth,
 				mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE,
-				no_redis_required, redis_allowed_errors, redis_disable_time);
+				no_redis_required, redis_allowed_errors, redis_disable_time,
+				redis_cmd_timeout);
 		mc.redis_notify = redis_new(&redis_ep, redis_db, redis_auth,
 				mc.redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE,
-				no_redis_required, redis_allowed_errors, redis_disable_time);
+				no_redis_required, redis_allowed_errors, redis_disable_time,
+				redis_cmd_timeout);
 		if (!mc.redis || !mc.redis_notify)
 			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&redis_ep));
