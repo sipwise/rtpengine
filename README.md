@@ -185,6 +185,7 @@ option and which are reproduced below:
 	  -q, --no-redis-required          Start even if can't connect to redis databases
 	  --redis-allowed-errors           Number of allowed errors before redis is temporarily disabled
 	  --redis-disable-time             Number of seconds redis communication is disabled because of errors
+	  --redis-cmd-timeout              Sets a timeout in milliseconds for redis commands
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
@@ -447,10 +448,10 @@ The options are described in more detail below.
 	even though rtpengine still starts.
 
 *  --redis-allowed-errors
-	If this parameter is present and has a positive value, it will configure how many consecutive errors
-	are allowed when communicating with a redis server before the redis communication will be temporarily disabled
-	for that server. While the communcation is disabled there will be no attempts to reconnect to redis or send
-	commands to that server. Default value is -1, meaning that this feature is disabled.
+	If this parameter is present and has a value >= 0, it will configure how many consecutive errors are allowed
+	when communicating with a redis server before the redis communication will be temporarily disabled for that
+	server. While the communcation is disabled there will be no attempts to reconnect to redis or send commands
+	to that server. Default value is -1, meaning that this feature is disabled.
 
 *  --redis-disable-time
 	This parameter configures the number of seconds redis communication is disabled because of errors.
