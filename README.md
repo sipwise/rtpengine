@@ -186,6 +186,7 @@ option and which are reproduced below:
 	  --redis-allowed-errors           Number of allowed errors before redis is temporarily disabled
 	  --redis-disable-time             Number of seconds redis communication is disabled because of errors
 	  --redis-cmd-timeout              Sets a timeout in milliseconds for redis commands
+	  --redis-connect-timeout          Sets a timeout in milliseconds for redis connections
 	  -b, --b2b-url=STRING             XMLRPC URL of B2B UA
 	  -L, --log-level=INT              Mask log priorities above this level
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
@@ -461,6 +462,13 @@ The options are described in more detail below.
 	If this parameter is set to a non-zero value it will set the timeout, in milliseconds, for each command to the redis server.
 	If redis does not reply	within the specified timeout the command will fail. The default value is 0, meaning that the commands
 	will have no timeout
+
+*  --redis-connect-timeout
+	This parameter sets the timeout value, in milliseconds, when connecting to a redis server. If the connection cannot be made
+	within the specified timeout the connection will fail. Note that in case of failure, when reconnecting to redis, a PING command
+	is issued before attempting to connect so the `--redis-cmd-timeout` value will also be added to the total waiting time.
+	This is useful if using `--redis-allowed-errors', when attempting to estimate the total lost time in case of redis failures.
+	The default value for the connection timeout is 1000ms.
 
 *  -b, --b2b-url
 

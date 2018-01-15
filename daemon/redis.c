@@ -174,8 +174,8 @@ static int redis_connect(struct redis *r, int wait) {
 		redisFree(r->ctx);
 	r->ctx = NULL;
 
-	tv.tv_sec = 1;
-	tv.tv_usec = 0;
+	tv.tv_sec = (int) r->connect_timeout / 1000;
+	tv.tv_usec = (int) (r->connect_timeout % 1000) * 1000;
 	r->ctx = redisConnectWithTimeout(r->host, r->endpoint.port, tv);
 
 	if (!r->ctx)
@@ -639,7 +639,7 @@ void redis_notify_loop(void *d) {
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
 		enum redis_role role, int no_redis_required, int redis_allowed_errors,
-		int redis_disable_time, int redis_cmd_timeout) {
+		int redis_disable_time, int redis_cmd_timeout,int redis_connect_timeout) {
 	struct redis *r;
 	r = g_slice_alloc0(sizeof(*r));
 
@@ -655,6 +655,7 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
 	r->restore_tick = 0;
 	r->consecutive_errors = 0;
 	r->cmd_timeout = redis_cmd_timeout;
+	r->connect_timeout = redis_connect_timeout;
 	mutex_init(&r->lock);
 
 	if (redis_connect(r, 10)) {
@@ -1696,7 +1697,8 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 		g_queue_push_tail(&ctx.r_q,
 				redis_new(&r->endpoint, r->db, r->auth, r->role,
 						r->no_redis_required, r->allowed_errors,
-						r->disable_time,r->cmd_timeout));
+						r->disable_time,r->cmd_timeout,
+						r->connect_timeout));
 	gtp = g_thread_pool_new(restore_thread, &ctx, m->conf.redis_num_threads, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {
