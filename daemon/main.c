@@ -238,6 +238,7 @@ static void options(int *argc, char ***argv) {
 	char *redisps_write = NULL;
 	char *log_facility_cdr_s = NULL;
 	char *log_facility_rtcp_s = NULL;
+	char *log_format = NULL;
 	int sip_source = 0;
 	char *homerp = NULL;
 	char *homerproto = NULL;
@@ -270,6 +271,7 @@ static void options(int *argc, char ***argv) {
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&rtpe_config.b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
 		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
+		{ "log-format",	0, 0,	G_OPTION_ARG_STRING,	&log_format,	"Log prefix format",		"default|parsable"},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&rtpe_config.fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.num_threads,	"Number of worker threads to create",	"INT"	},
 		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &rtpe_config.delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
@@ -398,6 +400,15 @@ static void options(int *argc, char ***argv) {
 		}
 	}
 
+	if (log_format) {
+		if (!strcmp(log_format, "default"))
+			rtpe_config.log_format = LF_DEFAULT;
+		else if (!strcmp(log_format, "parsable"))
+			rtpe_config.log_format = LF_PARSABLE;
+		else
+			die("Invalid --log-format option");
+	}
+
 	if (!sip_source)
 		trust_address_def = 1;
 }
@@ -449,6 +460,7 @@ static void init_everything() {
 	struct timespec ts;
 
 	log_init("rtpengine");
+	log_format(rtpe_config.log_format);
 	recording_fs_init(rtpe_config.spooldir, rtpe_config.rec_method, rtpe_config.rec_format);
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);

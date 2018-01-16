@@ -8,6 +8,7 @@
 #include "poller.h"
 #include "ice.h"
 #include "loglib.h"
+#include "main.h"
 
 
 
@@ -17,44 +18,99 @@ struct log_info __thread log_info;
 int _log_facility_cdr = 0;
 int _log_facility_rtcp = 0;
 
+typedef void (ilog_prefix_func)(char *prefix, size_t prefix_len);
+
+static ilog_prefix_func ilog_prefix_default;
+static ilog_prefix_func ilog_prefix_parsable;
+
+static ilog_prefix_func *ilog_prefix = ilog_prefix_default;
+
+static ilog_prefix_func * const ilog_prefix_funcs[__LF_LAST] = {
+	[LF_DEFAULT] = ilog_prefix_default,
+	[LF_PARSABLE] = ilog_prefix_parsable,
+};
 
 
-void __ilog(int prio, const char *fmt, ...) {
-	char prefix[300];
-	va_list ap;
 
+static void ilog_prefix_default(char *prefix, size_t prefix_len) {
 	switch (log_info.e) {
 		case LOG_INFO_NONE:
 			prefix[0] = 0;
 			break;
 		case LOG_INFO_CALL:
-			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"]: ",
+			snprintf(prefix, prefix_len, "["STR_FORMAT"]: ",
 					STR_FMT(&log_info.u.call->callid));
 			break;
 		case LOG_INFO_STREAM_FD:
 			if (log_info.u.stream_fd->call)
-				snprintf(prefix, sizeof(prefix), "["STR_FORMAT" port %5u]: ",
+				snprintf(prefix, prefix_len, "["STR_FORMAT" port %5u]: ",
 						STR_FMT(&log_info.u.stream_fd->call->callid),
 						log_info.u.stream_fd->socket.local.port);
 			break;
 		case LOG_INFO_STR:
-			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"]: ",
+			snprintf(prefix, prefix_len, "["STR_FORMAT"]: ",
 					STR_FMT(log_info.u.str));
 			break;
 		case LOG_INFO_C_STRING:
-			snprintf(prefix, sizeof(prefix), "[%s]: ", log_info.u.cstr);
+			snprintf(prefix, prefix_len, "[%s]: ", log_info.u.cstr);
 			break;
 		case LOG_INFO_ICE_AGENT:
-			snprintf(prefix, sizeof(prefix), "["STR_FORMAT"/"STR_FORMAT"/%u]: ",
+			snprintf(prefix, prefix_len, "["STR_FORMAT"/"STR_FORMAT"/%u]: ",
 					STR_FMT(&log_info.u.ice_agent->call->callid),
 					STR_FMT(&log_info.u.ice_agent->media->monologue->tag),
 					log_info.u.ice_agent->media->index);
 			break;
 	}
+}
+
+static void ilog_prefix_parsable(char *prefix, size_t prefix_len) {
+	switch (log_info.e) {
+		case LOG_INFO_NONE:
+			prefix[0] = 0;
+			break;
+		case LOG_INFO_CALL:
+			snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\"]: ",
+					STR_FMT(&log_info.u.call->callid));
+			break;
+		case LOG_INFO_STREAM_FD:
+			if (log_info.u.stream_fd->call)
+				snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\" port=\"%5u\"]: ",
+						STR_FMT(&log_info.u.stream_fd->call->callid),
+						log_info.u.stream_fd->socket.local.port);
+			break;
+		case LOG_INFO_STR:
+			snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\"]: ",
+					STR_FMT(log_info.u.str));
+			break;
+		case LOG_INFO_C_STRING:
+			snprintf(prefix, prefix_len, "[ID=\"%s\"]: ", log_info.u.cstr);
+			break;
+		case LOG_INFO_ICE_AGENT:
+			snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\" tag=\""STR_FORMAT"\" index=\"%u\"]: ",
+					STR_FMT(&log_info.u.ice_agent->call->callid),
+					STR_FMT(&log_info.u.ice_agent->media->monologue->tag),
+					log_info.u.ice_agent->media->index);
+			break;
+	}
+}
+
+void __ilog(int prio, const char *fmt, ...) {
+	char prefix[300];
+	va_list ap;
+
+	ilog_prefix(prefix, sizeof(prefix));
 
 	va_start(ap, fmt);
 	__vpilog(prio, prefix, fmt, ap);
 	va_end(ap);
+}
+
+void log_format(enum log_format f) {
+	if (f < 0 || f >= __LF_LAST)
+		die("Invalid log format enum");
+	ilog_prefix = ilog_prefix_funcs[f];
+	if (!ilog_prefix)
+		die("Invalid log format enum");
 }
 
 void cdrlog(const char* cdrbuffer) {

@@ -11,6 +11,12 @@ enum xmlrpc_format {
 	XF_SEMS = 0,
 	XF_CALLID,
 };
+enum log_format {
+	LF_DEFAULT = 0,
+	LF_PARSABLE,
+
+	__LF_LAST
+};
 
 struct rtpengine_config {
 	/* everything below protected by config_lock */
@@ -30,6 +36,7 @@ struct rtpengine_config {
 	int			default_tos;
 	int			control_tos;
 	enum xmlrpc_format	fmt;
+	enum log_format		log_format;
 	endpoint_t		graphite_ep;
 	int			graphite_interval;
 	int			redis_num_threads;

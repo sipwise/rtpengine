@@ -189,6 +189,7 @@ option and which are reproduced below:
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
 	  --log-facility-cdr=local0|...    Syslog facility to use for logging CDRs
 	  --log-facility-rtcp=local0|...   Syslog facility to use for logging RTCP data (take care of traffic amount)
+	  --log-format=default|parsable    Log prefix format
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 	  --num-threads=INT                Number of worker threads to create
@@ -344,6 +345,13 @@ The options are described in more detail below.
 
 	Same as --log-facility with the difference that only RTCP data is written to this log facility.
 	Be careful with this parameter since there may be a lot of information written to it.
+
+* --log-format=default|parsable
+
+	Selects between multiple log output styles. The default is to prefix log lines with a description
+	of the relevant entity, such as `[CALLID]` or `[CALLID port 12345]`. The `parsable` output style
+	is similar, but makes the ID easier to parse by enclosing it in quotes, such as `[ID="CALLID"]`
+	or `[ID="CALLID" port="12345"]`.
 
 * -E, --log-stderr
 
