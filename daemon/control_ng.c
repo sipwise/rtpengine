@@ -16,6 +16,10 @@
 #include "log_funcs.h"
 
 
+mutex_t rtpe_cngs_lock;
+GHashTable *rtpe_cngs_hash;
+
+
 
 static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
 	// lock offers
@@ -88,23 +92,22 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 }
 
 struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const sockaddr_t *addr) {
-	struct callmaster *m = c->callmaster;
 	struct control_ng_stats* cur;
 
-	mutex_lock(&m->cngs_lock);
-	cur = g_hash_table_lookup(m->cngs_hash, addr);
+	mutex_lock(&rtpe_cngs_lock);
+	cur = g_hash_table_lookup(rtpe_cngs_hash, addr);
 	if (!cur) {
 		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
 		cur->proxy = *addr;
 		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
-		g_hash_table_insert(m->cngs_hash, &cur->proxy, cur);
+		g_hash_table_insert(rtpe_cngs_hash, &cur->proxy, cur);
 	}
-	mutex_unlock(&m->cngs_lock);
+	mutex_unlock(&rtpe_cngs_lock);
 	return cur;
 }
 
 static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
-		struct udp_listener *ul)
+		socket_t *ul)
 {
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
@@ -126,7 +129,8 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		return;
 	}
 
-	assert( bencode_buffer_init(&bencbuf) == 0 );
+	int ret = bencode_buffer_init(&bencbuf);
+	assert(ret == 0);
 	resp = bencode_dictionary(&bencbuf);
 	assert(resp != NULL);
 
@@ -169,6 +173,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		g_string_free(log_str, TRUE);
 	}
 
+	// XXX do the strcmp's only once
 	errstr = NULL;
 	resultstr = "ok";
 	if (!str_cmp(&cmd, "ping")) {
@@ -179,7 +184,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// start offer timer
 		gettimeofday(&offer_start, NULL);
 
-		errstr = call_offer_ng(dict, c->callmaster, resp, addr, sin);
+		errstr = call_offer_ng(dict, resp, addr, sin);
 		g_atomic_int_inc(&cur->offer);
 
 		// stop offer timer
@@ -193,7 +198,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// start answer timer
 		gettimeofday(&answer_start, NULL);
 
-		errstr = call_answer_ng(dict, c->callmaster, resp);
+		errstr = call_answer_ng(dict, resp);
 		g_atomic_int_inc(&cur->answer);
 
 		// stop answer timer
@@ -207,7 +212,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// start delete timer
 		gettimeofday(&delete_start, NULL);
 
-		errstr = call_delete_ng(dict, c->callmaster, resp);
+		errstr = call_delete_ng(dict, resp);
 		g_atomic_int_inc(&cur->delete);
 
 		// stop delete timer
@@ -218,19 +223,19 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		ilog(LOG_INFO, "delete time = %llu.%06llu sec", (unsigned long long)delete_stop.tv_sec, (unsigned long long)delete_stop.tv_usec);
 	}
 	else if (!str_cmp(&cmd, "query")) {
-		errstr = call_query_ng(dict, c->callmaster, resp);
+		errstr = call_query_ng(dict, resp);
 		g_atomic_int_inc(&cur->query);
 	}
 	else if (!str_cmp(&cmd, "list")) {
-	    errstr = call_list_ng(dict, c->callmaster, resp);
+	    errstr = call_list_ng(dict, resp);
 	    g_atomic_int_inc(&cur->list);
 	}
 	else if (!str_cmp(&cmd, "start recording")) {
-		errstr = call_start_recording_ng(dict, c->callmaster, resp);
+		errstr = call_start_recording_ng(dict, resp);
 		g_atomic_int_inc(&cur->start_recording);
 	}
 	else if (!str_cmp(&cmd, "stop recording")) {
-		errstr = call_stop_recording_ng(dict, c->callmaster, resp);
+		errstr = call_stop_recording_ng(dict, resp);
 		g_atomic_int_inc(&cur->stop_recording);
 	}
 	else
@@ -243,11 +248,11 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 
 	// update interval statistics
 	if (!str_cmp(&cmd, "offer")) {
-		timeval_update_request_time(&c->callmaster->totalstats_interval.offer, &offer_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.offer, &offer_stop);
 	} else if (!str_cmp(&cmd, "answer")) {
-		timeval_update_request_time(&c->callmaster->totalstats_interval.answer, &answer_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.answer, &answer_stop);
 	} else if (!str_cmp(&cmd, "delete")) {
-		timeval_update_request_time(&c->callmaster->totalstats_interval.delete, &delete_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.delete, &delete_stop);
 	}
 
 	goto send_resp;
@@ -289,7 +294,7 @@ send_only:
 	iov[2].iov_base = to_send->s;
 	iov[2].iov_len = to_send->len;
 
-	socket_sendiov(&ul->sock, iov, iovlen, sin);
+	socket_sendiov(ul, iov, iovlen, sin);
 
 	if (resp)
 		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);
@@ -305,26 +310,36 @@ out:
 
 
 
-struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, struct callmaster *m) {
+struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned char tos) {
 	struct control_ng *c;
 
-	if (!p || !m)
+	if (!p)
 		return NULL;
 
 	c = obj_alloc0("control_ng", sizeof(*c), NULL);
 
-	c->callmaster = m;
 	cookie_cache_init(&c->cookie_cache);
 
 	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_ng_incoming, &c->obj))
 		goto fail2;
-	if (ipv46_any_convert(ep) && udp_listener_init(&c->udp_listeners[1], p, ep, control_ng_incoming, &c->obj))
-		goto fail2;
-
+	if (tos)
+		set_tos(&c->udp_listeners[0],tos);
+	if (ipv46_any_convert(ep)) {
+		if (udp_listener_init(&c->udp_listeners[1], p, ep, control_ng_incoming, &c->obj))
+			goto fail2;
+		if (tos)
+			set_tos(&c->udp_listeners[1],tos);
+	}
 	return c;
 
 fail2:
 	obj_put(c);
 	return NULL;
 
+}
+
+
+void control_ng_init() {
+	mutex_init(&rtpe_cngs_lock);
+	rtpe_cngs_hash = g_hash_table_new(g_sockaddr_hash, g_sockaddr_eq);
 }

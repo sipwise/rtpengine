@@ -6,13 +6,11 @@
 #include <syslog.h>
 #include <stdarg.h>
 #include "compat.h"
+#include "auxlib.h"
 
 
-extern gboolean ilog_stderr;
 extern int ilog_facility;
 
-
-extern volatile gint log_level;
 extern unsigned int max_log_line_length;
 
 
@@ -46,7 +44,7 @@ void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf
 
 
 INLINE int get_log_level(void) {
-	return g_atomic_int_get(&log_level);
+	return g_atomic_int_get(&rtpe_common_config_ptr->log_level);
 }
 
 

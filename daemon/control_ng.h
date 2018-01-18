@@ -8,7 +8,6 @@
 
 
 struct poller;
-struct callmaster;
 
 struct control_ng_stats {
 	sockaddr_t proxy;
@@ -25,11 +24,14 @@ struct control_ng_stats {
 
 struct control_ng {
 	struct obj obj;
-	struct callmaster *callmaster;
 	struct cookie_cache cookie_cache;
-	struct udp_listener udp_listeners[2];
+	socket_t udp_listeners[2];
 };
 
-struct control_ng *control_ng_new(struct poller *, endpoint_t *, struct callmaster *);
+struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
+void control_ng_init(void);
+
+extern mutex_t rtpe_cngs_lock;
+extern GHashTable *rtpe_cngs_hash;
 
 #endif

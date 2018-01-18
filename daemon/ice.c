@@ -240,7 +240,7 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 	create_random_ice_string(call, &ag->ufrag[1], 8);
 	create_random_ice_string(call, &ag->pwd[1], 26);
 
-	atomic64_set(&ag->last_activity, poller_now);
+	atomic64_set(&ag->last_activity, rtpe_now.tv_sec);
 }
 
 static struct ice_agent *__ice_agent_new(struct call_media *media) {
@@ -315,7 +315,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 	if (!ag)
 		return;
 
-	atomic64_set(&ag->last_activity, poller_now);
+	atomic64_set(&ag->last_activity, rtpe_now.tv_sec);
 	media = ag->media;
 	call = media->call;
 
@@ -519,7 +519,7 @@ static void __ice_agent_free(void *p) {
 static void __agent_schedule(struct ice_agent *ag, unsigned long usec) {
 	struct timeval nxt;
 
-	nxt = g_now;
+	nxt = rtpe_now;
 	timeval_add_usec(&nxt, usec);
 	__agent_schedule_abs(ag, &nxt);
 }
@@ -622,7 +622,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	mutex_lock(&ag->lock);
 
-	pair->retransmit = g_now;
+	pair->retransmit = rtpe_now;
 	if (!PAIR_SET(pair, IN_PROGRESS)) {
 		PAIR_CLEAR2(pair, FROZEN, FAILED);
 		pair->retransmit_ms = STUN_RETRANSMIT_INTERVAL;
@@ -721,7 +721,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	if (!ag->pwd[0].s)
 		return;
 
-	atomic64_set(&ag->last_activity, poller_now);
+	atomic64_set(&ag->last_activity, rtpe_now.tv_sec);
 
 	__DBG("running checks, call "STR_FORMAT" tag "STR_FORMAT"", STR_FMT(&ag->call->callid),
 			STR_FMT(&ag->media->monologue->tag));
@@ -730,7 +730,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 
 	/* check if we're done and should start nominating pairs */
 	if (AGENT_ISSET(ag, CONTROLLING) && !AGENT_ISSET(ag, NOMINATING) && ag->start_nominating.tv_sec) {
-		if (timeval_cmp(&g_now, &ag->start_nominating) >= 0)
+		if (timeval_cmp(&rtpe_now, &ag->start_nominating) >= 0)
 			__nominate_pairs(ag);
 		timeval_lowest(&next_run, &ag->start_nominating);
 	}
@@ -739,7 +739,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	pair = g_queue_pop_head(&ag->triggered);
 	if (pair) {
 		PAIR_CLEAR(pair, TRIGGERED);
-		next_run = g_now;
+		next_run = rtpe_now;
 		goto check;
 	}
 
@@ -764,7 +764,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 			if (valid && valid->pair_priority > pair->pair_priority)
 				continue;
 
-			if (timeval_cmp(&pair->retransmit, &g_now) <= 0)
+			if (timeval_cmp(&pair->retransmit, &rtpe_now) <= 0)
 				g_queue_push_tail(&retransmits, pair); /* can't run check directly
 									  due to locks */
 			else
@@ -1090,7 +1090,7 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 	if (!ag)
 		return -1;
 
-	atomic64_set(&ag->last_activity, poller_now);
+	atomic64_set(&ag->last_activity, rtpe_now.tv_sec);
 
 	/* determine candidate pair */
 	mutex_lock(&ag->lock);
@@ -1198,7 +1198,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 	if (!ag)
 		return -1;
 
-	atomic64_set(&ag->last_activity, poller_now);
+	atomic64_set(&ag->last_activity, rtpe_now.tv_sec);
 
 	mutex_lock(&ag->lock);
 
@@ -1261,7 +1261,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 
 	if (!ag->start_nominating.tv_sec) {
 		if (__check_succeeded_complete(ag)) {
-			ag->start_nominating = g_now;
+			ag->start_nominating = rtpe_now;
 			timeval_add_usec(&ag->start_nominating, 100000);
 			__agent_schedule_abs(ag, &ag->start_nominating);
 		}
@@ -1323,8 +1323,8 @@ void ice_thread_run(void *p) {
 
 	mutex_lock(&ice_agents_timers_lock);
 
-	while (!g_shutdown) {
-		gettimeofday(&g_now, NULL);
+	while (!rtpe_shutdown) {
+		gettimeofday(&rtpe_now, NULL);
 
 		/* lock our list and get the first element */
 		ag = g_tree_find_first(ice_agents_timers, NULL, NULL);
@@ -1332,12 +1332,12 @@ void ice_thread_run(void *p) {
 		 * steal the reference and run it */
 		if (!ag)
 			goto sleep;
-		if (timeval_cmp(&g_now, &ag->next_check) < 0)
+		if (timeval_cmp(&rtpe_now, &ag->next_check) < 0)
 			goto sleep;
 
 		g_tree_remove(ice_agents_timers, ag);
 		ZERO(ag->next_check);
-		ag->last_run = g_now;
+		ag->last_run = rtpe_now;
 		mutex_unlock(&ice_agents_timers_lock);
 
 		/* this agent is scheduled to run right now */
@@ -1359,9 +1359,9 @@ void ice_thread_run(void *p) {
 
 sleep:
 		/* figure out how long we should sleep */
-		sleeptime = ag ? timeval_diff(&ag->next_check, &g_now) : 100000;
+		sleeptime = ag ? timeval_diff(&ag->next_check, &rtpe_now) : 100000;
 		sleeptime = MIN(100000, sleeptime); /* 100 ms at the most */
-		tv = g_now;
+		tv = rtpe_now;
 		timeval_add_usec(&tv, sleeptime);
 		cond_timedwait(&ice_agents_timers_cond, &ice_agents_timers_lock, &tv);
 		continue;

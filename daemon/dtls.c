@@ -317,7 +317,7 @@ static void __dtls_timer(void *p) {
 	long int left;
 
 	c = dtls_cert();
-	left = c->expires - poller_now;
+	left = c->expires - rtpe_now.tv_sec;
 	if (left > CERT_EXPIRY_TIME/2)
 		goto out;
 

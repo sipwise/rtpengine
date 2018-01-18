@@ -22,8 +22,15 @@
 #include "recording.h"
 #include "rtplib.h"
 #include "ssrc.h"
+#include "tcp_listener.h"
+#include "streambuf.h"
+#include "main.h"
 
 
+static pcre *info_re;
+static pcre_extra *info_ree;
+static pcre *streams_re;
+static pcre_extra *streams_ree;
 
 int trust_address_def;
 int dtls_passive_def;
@@ -135,7 +142,7 @@ fail:
 	return -1;
 }
 
-static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_opmode opmode, const char* addr,
+static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	struct call *c;
@@ -152,7 +159,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 	if (opmode == OP_ANSWER)
 		str_swap(&fromtag, &totag);
 
-	c = call_get_opmode(&callid, m, opmode);
+	c = call_get_opmode(&callid, opmode);
 	if (!c) {
 		ilog(LOG_WARNING, "["STR_FORMAT"] Got UDP LOOKUP for unknown call-id",
 			STR_FMT(&callid));
@@ -188,7 +195,7 @@ static str *call_update_lookup_udp(char **out, struct callmaster *m, enum call_o
 			sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
 	rwlock_unlock_w(&c->master_lock);
 
-	redis_update_onekey(c, m->conf.redis_write);
+	redis_update_onekey(c, rtpe_redis_write);
 
 	gettimeofday(&(monologue->started), NULL);
 
@@ -212,11 +219,11 @@ out:
 	return ret;
 }
 
-str *call_update_udp(char **out, struct callmaster *m, const char* addr, const endpoint_t *sin) {
-	return call_update_lookup_udp(out, m, OP_OFFER, addr, sin);
+str *call_update_udp(char **out, const char* addr, const endpoint_t *sin) {
+	return call_update_lookup_udp(out, OP_OFFER, addr, sin);
 }
-str *call_lookup_udp(char **out, struct callmaster *m) {
-	return call_update_lookup_udp(out, m, OP_ANSWER, NULL, NULL);
+str *call_lookup_udp(char **out) {
+	return call_update_lookup_udp(out, OP_ANSWER, NULL, NULL);
 }
 
 
@@ -228,8 +235,8 @@ static int info_parse_func(char **a, void **ret, void *p) {
 	return -1;
 }
 
-static void info_parse(const char *s, GHashTable *ih, struct callmaster *m) {
-	pcre_multi_match(m->info_re, m->info_ree, s, 2, info_parse_func, ih, NULL);
+static void info_parse(const char *s, GHashTable *ih) {
+	pcre_multi_match(info_re, info_ree, s, 2, info_parse_func, ih, NULL);
 }
 
 
@@ -266,10 +273,10 @@ fail:
 }
 
 
-static void streams_parse(const char *s, struct callmaster *m, GQueue *q) {
+static void streams_parse(const char *s, GQueue *q) {
 	int i;
 	i = 0;
-	pcre_multi_match(m->streams_re, m->streams_ree, s, 3, streams_parse_func, &i, q);
+	pcre_multi_match(streams_re, streams_ree, s, 3, streams_parse_func, &i, q);
 }
 
 /* XXX move these somewhere else */
@@ -291,7 +298,7 @@ static void streams_free(GQueue *q) {
 
 
 
-static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_opmode opmode) {
+static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	struct call *c;
 	struct call_monologue *monologue;
 	GQueue s = G_QUEUE_INIT;
@@ -300,14 +307,14 @@ static str *call_request_lookup_tcp(char **out, struct callmaster *m, enum call_
 
 	str_init(&callid, out[RE_TCP_RL_CALLID]);
 	infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
-	c = call_get_opmode(&callid, m, opmode);
+	c = call_get_opmode(&callid, opmode);
 	if (!c) {
 		ilog(LOG_WARNING, "["STR_FORMAT"] Got LOOKUP for unknown call-id", STR_FMT(&callid));
 		goto out;
 	}
 
-	info_parse(out[RE_TCP_RL_INFO], infohash, m);
-	streams_parse(out[RE_TCP_RL_STREAMS], m, &s);
+	info_parse(out[RE_TCP_RL_INFO], infohash);
+	streams_parse(out[RE_TCP_RL_STREAMS], &s);
 	str_init(&fromtag, g_hash_table_lookup(infohash, "fromtag"));
 	if (!fromtag.s) {
 		ilog(LOG_WARNING, "No from-tag in message");
@@ -336,7 +343,7 @@ out2:
 	rwlock_unlock_w(&c->master_lock);
 	streams_free(&s);
 
-	redis_update_onekey(c, m->conf.redis_write);
+	redis_update_onekey(c, rtpe_redis_write);
 
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT0(ret));
 	obj_put(c);
@@ -346,14 +353,14 @@ out:
 	return ret;
 }
 
-str *call_request_tcp(char **out, struct callmaster *m) {
-	return call_request_lookup_tcp(out, m, OP_OFFER);
+str *call_request_tcp(char **out) {
+	return call_request_lookup_tcp(out, OP_OFFER);
 }
-str *call_lookup_tcp(char **out, struct callmaster *m) {
-	return call_request_lookup_tcp(out, m, OP_ANSWER);
+str *call_lookup_tcp(char **out) {
+	return call_request_lookup_tcp(out, OP_ANSWER);
 }
 
-str *call_delete_udp(char **out, struct callmaster *m) {
+str *call_delete_udp(char **out) {
 	str callid, branch, fromtag, totag;
 
 	__C_DBG("got delete for callid '%s' and viabranch '%s'",
@@ -364,12 +371,12 @@ str *call_delete_udp(char **out, struct callmaster *m) {
 	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
 	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
 
-	if (call_delete_branch(m, &callid, &branch, &fromtag, &totag, NULL, -1))
+	if (call_delete_branch(&callid, &branch, &fromtag, &totag, NULL, -1))
 		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
 }
-str *call_query_udp(char **out, struct callmaster *m) {
+str *call_query_udp(char **out) {
 	struct call *c;
 	str *ret, callid, fromtag, totag;
 	struct call_stats stats;
@@ -380,7 +387,7 @@ str *call_query_udp(char **out, struct callmaster *m) {
 	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
 	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
 
-	c = call_get_opmode(&callid, m, OP_OTHER);
+	c = call_get_opmode(&callid, OP_OTHER);
 	if (!c) {
 		ilog(LOG_INFO, "["STR_FORMAT"] Call-ID to query not found", STR_FMT(&callid));
 		goto err;
@@ -390,12 +397,12 @@ str *call_query_udp(char **out, struct callmaster *m) {
 
 	rwlock_unlock_w(&c->master_lock);
 
-	rwlock_lock_r(&m->conf.config_lock);
+	rwlock_lock_r(&rtpe_config.config_lock);
 	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
-		(long long int) m->conf.silent_timeout - (poller_now - stats.last_packet),
+		(long long int) rtpe_config.silent_timeout - (rtpe_now.tv_sec - stats.last_packet),
 		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
 		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
-	rwlock_unlock_r(&m->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 	goto out;
 
 err:
@@ -410,43 +417,41 @@ out:
 	return ret;
 }
 
-void call_delete_tcp(char **out, struct callmaster *m) {
+void call_delete_tcp(char **out) {
 	str callid;
 
 	str_init(&callid, out[RE_TCP_D_CALLID]);
-	call_delete_branch(m, &callid, NULL, NULL, NULL, NULL, -1);
+	call_delete_branch(&callid, NULL, NULL, NULL, NULL, -1);
 }
 
-static void call_status_iterator(struct call *c, struct control_stream *s) {
+static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
 //	GList *l;
 //	struct callstream *cs;
 //	struct peer *p;
 //	struct streamrelay *r1, *r2;
 //	struct streamrelay *rx1, *rx2;
-//	struct callmaster *m;
 //	char addr1[64], addr2[64], addr3[64];
 
-//	m = c->callmaster;
 //	mutex_lock(&c->master_lock);
 
-	control_stream_printf(s, "session "STR_FORMAT" - - - - %lli\n",
+	streambuf_printf(s->outbuf, "session "STR_FORMAT" - - - - %lli\n",
 		STR_FMT(&c->callid),
-		timeval_diff(&g_now, &c->created) / 1000000);
+		timeval_diff(&rtpe_now, &c->created) / 1000000);
 
 	/* XXX restore function */
 
 //	mutex_unlock(&c->master_lock);
 }
 
-void calls_status_tcp(struct callmaster *m, struct control_stream *s) {
+void calls_status_tcp(struct streambuf_stream *s) {
 	GQueue q = G_QUEUE_INIT;
 	struct call *c;
 
-	callmaster_get_all_calls(m, &q);
+	call_get_all_calls(&q);
 
-	control_stream_printf(s, "proxy %u "UINT64F"/%i/%i\n",
+	streambuf_printf(s->outbuf, "proxy %u "UINT64F"/%i/%i\n",
 		g_queue_get_length(&q),
-		atomic64_get(&m->stats.bytes), 0, 0);
+		atomic64_get(&rtpe_stats.bytes), 0, 0);
 
 	while (q.head) {
 		c = g_queue_pop_head(&q);
@@ -476,13 +481,11 @@ INLINE void call_bencode_hold_ref(struct call *c, bencode_item_t *bi) {
 	bencode_buffer_destroy_add(bi->buffer, call_release_ref, obj_get(c));
 }
 
-INLINE void str_hyphenate(bencode_item_t *it) {
+INLINE void str_hyphenate(str *s_ori) {
 	str s;
-	if (!bencode_get_str(it, &s))
-		return;
+	s = *s_ori;
 	while (s.len) {
-		str_chr_str(&s, &s, ' ');
-		if (!s.s || !s.len)
+		if (!str_chr_str(&s, &s, ' '))
 			break;
 		*s.s = '-';
 		str_shift(&s, 1);
@@ -495,90 +498,142 @@ INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two
 	return bencode_dictionary_get_str(i, two, out);
 }
 
-INLINE void ng_sdes_option(struct sdp_ng_flags *out, bencode_item_t *it, unsigned int strip) {
-	str s;
-
-	if (!bencode_get_str(it, &s))
-		return;
-	str_shift(&s, strip);
-
-	if (!str_cmp(&s, "no") || !str_cmp(&s, "off") || !str_cmp(&s, "disabled")
-			|| !str_cmp(&s, "disable"))
+INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+	if (!str_cmp(s, "no") || !str_cmp(s, "off") || !str_cmp(s, "disabled")
+			|| !str_cmp(s, "disable"))
 		out->sdes_off = 1;
-	else if (!str_cmp(&s, "unencrypted_srtp") || !str_cmp(&s, "UNENCRYPTED_SRTP"))
+	else if (!str_cmp(s, "unencrypted_srtp") || !str_cmp(s, "UNENCRYPTED_SRTP"))
 		out->sdes_unencrypted_srtp = 1;
-	else if (!str_cmp(&s, "unencrypted_srtcp") || !str_cmp(&s, "UNENCRYPTED_SRTCP"))
+	else if (!str_cmp(s, "unencrypted_srtcp") || !str_cmp(s, "UNENCRYPTED_SRTCP"))
 		out->sdes_unencrypted_srtcp = 1;
-	else if (!str_cmp(&s, "unauthenticated_srtp") || !str_cmp(&s, "UNAUTHENTICATED_SRTP"))
+	else if (!str_cmp(s, "unauthenticated_srtp") || !str_cmp(s, "UNAUTHENTICATED_SRTP"))
 		out->sdes_unauthenticated_srtp = 1;
-	else if (!str_cmp(&s, "encrypted_srtp") || !str_cmp(&s, "ENCRYPTED_SRTP"))
+	else if (!str_cmp(s, "encrypted_srtp") || !str_cmp(s, "ENCRYPTED_SRTP"))
 		out->sdes_encrypted_srtp = 1;
-	else if (!str_cmp(&s, "encrypted_srtcp") || !str_cmp(&s, "ENCRYPTED_SRTCP"))
+	else if (!str_cmp(s, "encrypted_srtcp") || !str_cmp(s, "ENCRYPTED_SRTCP"))
 		out->sdes_encrypted_srtcp = 1;
-	else if (!str_cmp(&s, "authenticated_srtp") || !str_cmp(&s, "AUTHENTICATED_SRTP"))
+	else if (!str_cmp(s, "authenticated_srtp") || !str_cmp(s, "AUTHENTICATED_SRTP"))
 		out->sdes_authenticated_srtp = 1;
 	else
 		ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
-				STR_FMT(&s));
+				STR_FMT(s));
 }
 
-static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
+
+static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *input, const char *key,
+		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm)
+{
 	bencode_item_t *list, *it;
+	str s;
+	if ((list = bencode_dictionary_get_expect(input, key, BENCODE_LIST))) {
+		for (it = list->child; it; it = it->sibling) {
+			if (!bencode_get_str(it, &s))
+				continue;
+			callback(out, &s, parm);
+		}
+	}
+}
+static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy) {
+	if (!str_cmp(s, "offer"))
+		out->rtcp_mux_offer = 1;
+	else if (!str_cmp(s, "require"))
+		out->rtcp_mux_require = 1;
+	else if (!str_cmp(s, "demux"))
+		out->rtcp_mux_demux = 1;
+	else if (!str_cmp(s, "accept"))
+		out->rtcp_mux_accept = 1;
+	else if (!str_cmp(s, "reject"))
+		out->rtcp_mux_reject = 1;
+	else
+		ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '" STR_FORMAT "'",
+				STR_FMT(s));
+}
+static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy) {
+	str_hyphenate(s);
+	if (!str_cmp(s, "origin"))
+		out->replace_origin = 1;
+	else if (!str_cmp(s, "session-connection"))
+		out->replace_sess_conn = 1;
+	else
+		ilog(LOG_WARN, "Unknown 'replace' flag encountered: '" STR_FORMAT "'",
+				STR_FMT(s));
+}
+static void call_ng_flags_codec_list(struct sdp_ng_flags *out, str *s, void *qp) {
+	str *s_copy;
+	s_copy = g_slice_alloc(sizeof(*s_copy));
+	*s_copy = *s;
+	g_queue_push_tail((GQueue *) qp, s_copy);
+}
+static void call_ng_flags_codec_ht(struct sdp_ng_flags *out, str *s, void *htp) {
+	str *s_copy;
+	s_copy = g_slice_alloc(sizeof(*s_copy));
+	*s_copy = *s;
+	g_hash_table_replace((GHashTable *) htp, s_copy, s_copy);
+}
+// helper to alias values from other dictionaries into the "flags" dictionary
+INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
+		void (*cb)(struct sdp_ng_flags *, str *, void *), void *ptr)
+{
+	size_t len = strlen(prefix);
+	str s = *s_ori;
+	if (len > 0)
+		if (str_shift_cmp(&s, prefix))
+			return 0;
+	cb(out, &s, ptr);
+	return 1;
+}
+static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
+	str_hyphenate(s);
+
+	// XXX use internal hash tables for these
+	if (!str_cmp(s, "trust-address"))
+		out->trust_address = 1;
+	else if (!str_cmp(s, "SIP-source-address"))
+		out->trust_address = 0;
+	else if (!str_cmp(s, "asymmetric"))
+		out->asymmetric = 1;
+	else if (!str_cmp(s, "no-redis-update"))
+		out->no_redis_update = 1;
+	else if (!str_cmp(s, "unidirectional"))
+		out->unidirectional = 1;
+	else if (!str_cmp(s, "strict-source"))
+		out->strict_source = 1;
+	else if (!str_cmp(s, "media-handover"))
+		out->media_handover = 1;
+	else if (!str_cmp(s, "reset"))
+		out->reset = 1;
+	else if (!str_cmp(s, "port-latching"))
+		out->port_latching = 1;
+	else if (!str_cmp(s, "record-call"))
+		out->record_call = 1;
+	else if (!str_cmp(s, "no-rtcp-attribute"))
+		out->no_rtcp_attr = 1;
+	else {
+		// handle values aliases from other dictionaries
+		if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
+			return;
+		if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_codec_ht, out->codec_strip))
+			return;
+		if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list, &out->codec_offer))
+			return;
+
+		ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
+				STR_FMT(s));
+	}
+}
+static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
+	bencode_item_t *list, *it, *dict;
 	int diridx;
 	str s;
 
 	ZERO(*out);
+	out->codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
 
-	if ((list = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			if (it->type !=  BENCODE_STRING)
-				continue;
-
-			str_hyphenate(it);
-
-			if (!bencode_strcmp(it, "trust-address"))
-				out->trust_address = 1;
-			else if (!bencode_strcmp(it, "SIP-source-address"))
-				out->trust_address = 0;
-			else if (!bencode_strcmp(it, "asymmetric"))
-				out->asymmetric = 1;
-			else if (!bencode_strcmp(it, "no-redis-update"))
-				out->no_redis_update = 1;
-			else if (!bencode_strcmp(it, "unidirectional"))
-				out->unidirectional = 1;
-			else if (!bencode_strcmp(it, "strict-source"))
-				out->strict_source = 1;
-			else if (!bencode_strcmp(it, "media-handover"))
-				out->media_handover = 1;
-			else if (!bencode_strcmp(it, "reset"))
-				out->reset = 1;
-			else if (it->iov[1].iov_len >= 5 && !memcmp(it->iov[1].iov_base, "SDES-", 5))
-				ng_sdes_option(out, it, 5);
-			else if (!bencode_strcmp(it, "port-latching"))
-				out->port_latching = 1;
-			else if (!bencode_strcmp(it, "record-call"))
-				out->record_call = 1;
-			else
-				ilog(LOG_WARN, "Unknown flag encountered: '"BENCODE_FORMAT"'",
-						BENCODE_FMT(it));
-		}
-	}
-
-	if ((list = bencode_dictionary_get_expect(input, "replace", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			str_hyphenate(it);
-			if (!bencode_strcmp(it, "origin"))
-				out->replace_origin = 1;
-			else if (!bencode_strcmp(it, "session-connection"))
-				out->replace_sess_conn = 1;
-			else
-				ilog(LOG_WARN, "Unknown 'replace' flag encountered: '"BENCODE_FORMAT"'",
-						BENCODE_FMT(it));
-		}
-	}
+	call_ng_flags_list(out, input, "flags", call_ng_flags_flags, NULL);
+	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
 
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
@@ -618,30 +673,10 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 					STR_FMT(&s));
 	}
 
-	if ((list = bencode_dictionary_get_expect(input, "rtcp-mux", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "offer"))
-				out->rtcp_mux_offer = 1;
-			else if (!bencode_strcmp(it, "require"))
-				out->rtcp_mux_require = 1;
-			else if (!bencode_strcmp(it, "demux"))
-				out->rtcp_mux_demux = 1;
-			else if (!bencode_strcmp(it, "accept"))
-				out->rtcp_mux_accept = 1;
-			else if (!bencode_strcmp(it, "reject"))
-				out->rtcp_mux_reject = 1;
-			else
-				ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '"BENCODE_FORMAT"'",
-						BENCODE_FMT(it));
-		}
-	}
+	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
 
-	/* XXX abstractize the other list walking functions using callbacks */
 	/* XXX module still needs to support this list */
-	if ((list = bencode_dictionary_get_expect(input, "SDES", BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling)
-			ng_sdes_option(out, it, 0);
-	}
+	call_ng_flags_list(out, input, "SDES", ng_sdes_option, NULL);
 
 	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
@@ -651,9 +686,19 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	out->tos = bencode_dictionary_get_integer(input, "TOS", 256);
 	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
+
+	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
+		/* XXX module still needs to support these */
+		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_ht, out->codec_strip);
+		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
+	}
+}
+static void call_ng_free_flags(struct sdp_ng_flags *flags) {
+	g_hash_table_destroy(flags->codec_strip);
+	g_queue_clear_full(&flags->codec_offer, str_slice_free);
 }
 
-static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster *m,
+static const char *call_offer_answer_ng(bencode_item_t *input,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
@@ -694,7 +739,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 		goto out;
 
 	/* OP_ANSWER; OP_OFFER && !IS_FOREIGN_CALL */
-	call = call_get(&callid, m);
+	call = call_get(&callid);
 
     /* Failover scenario because of timeout on offer response: siprouter tries
      * to establish session with another rtpengine2 even though rtpengine1
@@ -707,12 +752,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
                 rwlock_unlock_w(&call->master_lock);
                 call_destroy(call);
                 obj_put(call);
-                call = call_get_or_create(&callid, m, CT_OWN_CALL);
+                call = call_get_or_create(&callid, CT_OWN_CALL);
             }
         }
         else {
             /* call == NULL, should create call */
-            call = call_get_or_create(&callid, m, CT_OWN_CALL);
+            call = call_get_or_create(&callid, CT_OWN_CALL);
         }
     }
 
@@ -775,7 +820,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 	rwlock_unlock_w(&call->master_lock);
 
 	if (!flags.no_redis_update) {
-			redis_update_onekey(call,m->conf.redis_write);
+			redis_update_onekey(call, rtpe_redis_write);
 	} else {
 		ilog(LOG_DEBUG, "Not updating Redis due to present no-redis-update flag");
 	}
@@ -787,6 +832,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 
 	if (ret == ERROR_NO_FREE_PORTS || ret == ERROR_NO_FREE_LOGS) {
 		ilog(LOG_ERR, "Destroying call");
+		errstr = "Ran out of ports";
 		call_destroy(call);
 	}
 
@@ -800,40 +846,41 @@ static const char *call_offer_answer_ng(bencode_item_t *input, struct callmaster
 out:
 	sdp_free(&parsed);
 	streams_free(&streams);
+	call_ng_free_flags(&flags);
 
 	return errstr;
 }
 
-const char *call_offer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output, const char* addr,
+const char *call_offer_ng(bencode_item_t *input, bencode_item_t *output, const char* addr,
 		const endpoint_t *sin)
 {
-	rwlock_lock_r(&m->conf.config_lock);
-	if (m->conf.max_sessions>=0) {
-		rwlock_lock_r(&m->hashlock);
-		if (g_hash_table_size(m->callhash) -
-				atomic64_get(&m->stats.foreign_sessions) >= m->conf.max_sessions) {
-			rwlock_unlock_r(&m->hashlock);
+	rwlock_lock_r(&rtpe_config.config_lock);
+	if (rtpe_config.max_sessions>=0) {
+		rwlock_lock_r(&rtpe_callhash_lock);
+		if (g_hash_table_size(rtpe_callhash) -
+				atomic64_get(&rtpe_stats.foreign_sessions) >= rtpe_config.max_sessions) {
+			rwlock_unlock_r(&rtpe_callhash_lock);
 			/* foreign calls can't get rejected
 			 * total_rejected_sess applies only to "own" sessions */
-			atomic64_inc(&m->totalstats.total_rejected_sess);
-			atomic64_inc(&m->totalstats_interval.total_rejected_sess);
-			ilog(LOG_ERROR, "Parallel session limit reached (%i)",m->conf.max_sessions);
+			atomic64_inc(&rtpe_totalstats.total_rejected_sess);
+			atomic64_inc(&rtpe_totalstats_interval.total_rejected_sess);
+			ilog(LOG_ERROR, "Parallel session limit reached (%i)",rtpe_config.max_sessions);
 
-			rwlock_unlock_r(&m->conf.config_lock);
+			rwlock_unlock_r(&rtpe_config.config_lock);
 			return "Parallel session limit reached";
 		}
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 	}
 
-	rwlock_unlock_r(&m->conf.config_lock);
-	return call_offer_answer_ng(input, m, output, OP_OFFER, addr, sin);
+	rwlock_unlock_r(&rtpe_config.config_lock);
+	return call_offer_answer_ng(input, output, OP_OFFER, addr, sin);
 }
 
-const char *call_answer_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
-	return call_offer_answer_ng(input, m, output, OP_ANSWER, NULL, NULL);
+const char *call_answer_ng(bencode_item_t *input, bencode_item_t *output) {
+	return call_offer_answer_ng(input, output, OP_ANSWER, NULL, NULL);
 }
 
-const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 	str fromtag, totag, viabranch, callid;
 	bencode_item_t *flags, *it;
 	int fatal = 0, delete_delay;
@@ -863,7 +910,7 @@ const char *call_delete_ng(bencode_item_t *input, struct callmaster *m, bencode_
 		}
 	}
 
-	if (call_delete_branch(m, &callid, &viabranch, &fromtag, &totag, output, delete_delay)) {
+	if (call_delete_branch(&callid, &viabranch, &fromtag, &totag, output, delete_delay)) {
 		if (fatal)
 			return "Call-ID not found or tags didn't match";
 		bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
@@ -1137,29 +1184,29 @@ stats:
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
 }
 
-static void ng_list_calls( struct callmaster *m, bencode_item_t *output, long long int limit) {
+static void ng_list_calls(bencode_item_t *output, long long int limit) {
 	GHashTableIter iter;
 	gpointer key, value;
 
-	rwlock_lock_r(&m->hashlock);
+	rwlock_lock_r(&rtpe_callhash_lock);
 
-	g_hash_table_iter_init (&iter, m->callhash);
+	g_hash_table_iter_init (&iter, rtpe_callhash);
 	while (limit-- && g_hash_table_iter_next (&iter, &key, &value)) {
 		bencode_list_add_str_dup(output, key);
 	}
 
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 }
 
 
 
-const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_query_ng(bencode_item_t *input, bencode_item_t *output) {
 	str callid, fromtag, totag;
 	struct call *call;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	call = call_get_opmode(&callid, m, OP_OTHER);
+	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 	bencode_dictionary_get_str(input, "from-tag", &fromtag);
@@ -1173,7 +1220,7 @@ const char *call_query_ng(bencode_item_t *input, struct callmaster *m, bencode_i
 }
 
 
-const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_list_ng(bencode_item_t *input, bencode_item_t *output) {
 	bencode_item_t *calls = NULL;
 	long long int limit;
 
@@ -1184,13 +1231,13 @@ const char *call_list_ng(bencode_item_t *input, struct callmaster *m, bencode_it
 	}
 	calls = bencode_dictionary_add_list(output, "calls");
 
-	ng_list_calls(m, calls, limit);
+	ng_list_calls(calls, limit);
 
 	return NULL;
 }
 
 
-const char *call_start_recording_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *output) {
 	str callid;
 	struct call *call;
 	str metadata;
@@ -1198,7 +1245,7 @@ const char *call_start_recording_ng(bencode_item_t *input, struct callmaster *m,
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
 	bencode_dictionary_get_str(input, "metadata", &metadata);
-	call = call_get_opmode(&callid, m, OP_OTHER);
+	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 
@@ -1210,13 +1257,13 @@ const char *call_start_recording_ng(bencode_item_t *input, struct callmaster *m,
 	return NULL;
 }
 
-const char *call_stop_recording_ng(bencode_item_t *input, struct callmaster *m, bencode_item_t *output) {
+const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output) {
 	str callid;
 	struct call *call;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	call = call_get_opmode(&callid, m, OP_OTHER);
+	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 
@@ -1226,4 +1273,21 @@ const char *call_stop_recording_ng(bencode_item_t *input, struct callmaster *m, 
 	obj_put(call);
 
 	return NULL;
+}
+
+int call_interfaces_init() {
+	const char *errptr;
+	int erroff;
+
+	info_re = pcre_compile("^([^:,]+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	if (!info_re)
+		return -1;
+	info_ree = pcre_study(info_re, 0, &errptr);
+
+	streams_re = pcre_compile("^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	if (!streams_re)
+		return -1;
+	streams_ree = pcre_study(streams_re, 0, &errptr);
+
+	return 0;
 }

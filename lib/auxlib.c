@@ -7,18 +7,15 @@
 #include <string.h>
 #include <errno.h>
 #include "log.h"
+#include "loglib.h"
 
 
-static const char *config_file;
-static const char *config_section;
-static const char *pid_file;
-static const char *log_facility;
-static int foreground;
 static int version;
+struct rtpengine_common_config *rtpe_common_config_ptr;
 
 
 void daemonize(void) {
-	if (foreground)
+	if (rtpe_common_config_ptr->foreground)
 		return;
 	if (fork())
 		_exit(0);
@@ -32,10 +29,10 @@ void daemonize(void) {
 void wpidfile() {
 	FILE *fp;
 
-	if (!pid_file)
+	if (!rtpe_common_config_ptr->pidfile)
 		return;
 
-	fp = fopen(pid_file, "w");
+	fp = fopen(rtpe_common_config_ptr->pidfile, "w");
 	if (!fp) {
 		ilog(LOG_CRIT, "Failed to create PID file (%s), aborting startup", strerror(errno));
 		exit(-1);
@@ -54,22 +51,10 @@ static unsigned int options_length(const GOptionEntry *arr) {
 }
 
 
-static const GOptionEntry shared_options[] = {
-	{ "version",		'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",		NULL		},
-	{ "config-file",	0,   0, G_OPTION_ARG_STRING,	&config_file,	"Load config from this file",		"FILE"		},
-	{ "config-section",	0,   0, G_OPTION_ARG_STRING,	&config_section,"Config file section to use",		"STRING"	},
-	{ "log-facility",	0,   0,	G_OPTION_ARG_STRING,	&log_facility,	"Syslog facility to use for logging",	"daemon|local0|...|local7"},
-	{ "log-level",		'L', 0, G_OPTION_ARG_INT,	(void *)&log_level,"Mask log priorities above this level","INT"		},
-	{ "log-stderr",		'E', 0, G_OPTION_ARG_NONE,	&ilog_stderr,	"Log on stderr instead of syslog",	NULL		},
-	{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&pid_file,	"Write PID to file",			"FILE"		},
-	{ "foreground",		'f', 0, G_OPTION_ARG_NONE,	&foreground,	"Don't fork to background",		NULL		},
-	{ NULL, }
-};
-
 #define CONF_OPTION_GLUE(get_func, data_type, ...) 							\
 	{												\
 		data_type *varptr = e->arg_data;							\
-		data_type var = g_key_file_get_ ## get_func(kf, config_section, e->long_name,		\
+		data_type var = g_key_file_get_ ## get_func(kf, rtpe_common_config_ptr->config_section, e->long_name,		\
 			##__VA_ARGS__, &er);								\
 		if (er && g_error_matches(er, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_KEY_NOT_FOUND)) {	\
 			g_error_free(er);								\
@@ -83,7 +68,8 @@ static const GOptionEntry shared_options[] = {
 	}
 
 void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
-		const char *default_config, const char *default_section)
+		char *default_config, char *default_section,
+		struct rtpengine_common_config *cconfig)
 {
 	GOptionContext *c;
 	GError *er = NULL;
@@ -92,6 +78,28 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	int saved_argc = *argc;
 	char **saved_argv = g_strdupv(*argv);
 
+	rtpe_common_config_ptr = cconfig;
+
+	// defaults
+#ifndef __DEBUG
+	rtpe_common_config_ptr->log_level = LOG_INFO;
+#else
+	rtpe_common_config_ptr->log_level = LOG_DEBUG;
+#endif
+
+	GOptionEntry shared_options[] = {
+		{ "version",		'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",		NULL		},
+		{ "config-file",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->config_file,	"Load config from this file",		"FILE"		},
+		{ "config-section",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->config_section,"Config file section to use",		"STRING"	},
+		{ "log-facility",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_facility,	"Syslog facility to use for logging",	"daemon|local0|...|local7"},
+		{ "log-level",		'L', 0, G_OPTION_ARG_INT,	(void *)&rtpe_common_config_ptr->log_level,"Mask log priorities above this level","INT"		},
+		{ "log-stderr",		'E', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->log_stderr,	"Log on stderr instead of syslog",	NULL		},
+		{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->pidfile,	"Write PID to file",			"FILE"		},
+		{ "foreground",		'f', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->foreground,	"Don't fork to background",		NULL		},
+		{ NULL, }
+	};
+
+
 	// prepend shared CLI options
 	unsigned int shared_len = options_length(shared_options);
 	unsigned int app_len = options_length(app_entries);
@@ -99,8 +107,8 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	memcpy(entries, shared_options, sizeof(*entries) * shared_len);
 	memcpy(&entries[shared_len], app_entries, sizeof(*entries) * (app_len + 1));
 
-	if (!config_section)
-		config_section = default_section;
+	if (!rtpe_common_config_ptr->config_section)
+		rtpe_common_config_ptr->config_section = default_section;
 
 	c = g_option_context_new(description);
 	g_option_context_add_main_entries(c, entries, NULL);
@@ -109,8 +117,8 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 
 	// is there a config file to load?
 	use_config = default_config;
-	if (config_file) {
-		use_config = config_file;
+	if (rtpe_common_config_ptr->config_file) {
+		use_config = rtpe_common_config_ptr->config_file;
 		fatal = 1;
 	}
 
@@ -153,14 +161,17 @@ out:
 	}
 
 
-	if (log_facility) {
-		if (!parse_log_facility(log_facility, &ilog_facility)) {
+	if (rtpe_common_config_ptr->log_facility) {
+		if (!parse_log_facility(rtpe_common_config_ptr->log_facility, &ilog_facility)) {
 			print_available_log_facilities();
-			die ("Invalid log facility '%s' (--log-facility)", log_facility);
+			die ("Invalid log facility '%s' (--log-facility)", rtpe_common_config_ptr->log_facility);
 		}
 	}
 
-	if (ilog_stderr) {
+	if ((rtpe_common_config_ptr->log_level < LOG_EMERG) || (rtpe_common_config_ptr->log_level > LOG_DEBUG))
+	        die("Invalid log level (--log_level)");
+
+	if (rtpe_common_config_ptr->log_stderr) {
 		write_log = log_to_stderr;
 		max_log_line_length = 0;
 	}

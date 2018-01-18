@@ -46,11 +46,11 @@ GetOptions(
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
 
-$SIG{ALRM} = sub { print "alarm!\n"; };
+local $SIG{ALRM} = sub { print "alarm!\n"; };
 setrlimit(RLIMIT_NOFILE, 8000, 8000);
 
 $PROTOS and $PROTOS = [split(/\s*[,;:]+\s*/, $PROTOS)];
-$PROTOS && @$PROTOS == 1 and $$PROTOS[1] = $$PROTOS[0];
+$$PROTOS[1] = $$PROTOS[0] if $PROTOS && @$PROTOS == 1;
 $DEST and $DEST = [$DEST =~ /^(?:([a-z.-]+)(?::(\d+))?|([\d.]+)(?::(\d+))?|([\da-f:]+)|\[([\da-f:]+)\]:(\d+))$/si];
 my $dest_host = $$DEST[0] || $$DEST[2] || $$DEST[4] || $$DEST[5] || 'localhost';
 my $dest_port = $$DEST[1] || $$DEST[3] || $$DEST[6] || 2223;
@@ -86,8 +86,14 @@ sub msg {
 my @dests = getaddrinfo($dest_host, $dest_port, AF_UNSPEC, SOCK_DGRAM);
 while (@dests >= 5) {
 	my ($fam, $type, $prot, $addr, $canon, @dests) = @dests;
-	socket($fd, $fam, $type, $prot) or undef($fd), next;
-	connect($fd, $addr) or undef($fd), next;
+	if (!socket($fd, $fam, $type, $prot)) {
+		undef($fd);
+		next;
+	}
+	if (!connect($fd, $addr)) {
+		undef($fd);
+		next;
+	}
 	last;
 }
 $fd or die($!);
@@ -106,7 +112,7 @@ sub send_receive {
 	alarm(1);
 	recv($receive_fd, $x, 0xffff, 0) or $err = "$!";
 	alarm(0);
-	$err && $err !~ /interrupt/i and die $err;
+	die $err if $err && $err !~ /interrupt/i;
 	return $x;
 }
 
@@ -334,24 +340,24 @@ sub rtp_savp {
 sub savp_crypto {
 	my ($sdp, $ctx, $ctx_o) = @_;
 
-	my @a = $sdp =~ /[\r\n]a=crypto:(\d+) (\w+) inline:([\w\/+=]{40,})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?(?: (.*?))?[\r\n]/sig;
-	@a or die;
+	my @aa = $sdp =~ /[\r\n]a=crypto:(\d+) (\w+) inline:([\w\/+=]{40,})(?:\|(?:2\^(\d+)|(\d+)))?(?:\|(\d+):(\d+))?(?: (.*?))?[\r\n]/sig;
+	@aa or die;
 	my $i = 0;
-	while (@a >= 8) {
-		$$ctx[$i]{in}{crypto_suite} = $NGCP::Rtpclient::SRTP::crypto_suites{$a[1]} or die;
-		$$ctx[$i]{in}{crypto_tag} = $a[0];
+	while (@aa >= 8) {
+		$$ctx[$i]{in}{crypto_suite} = $NGCP::Rtpclient::SRTP::crypto_suites{$aa[1]} or die;
+		$$ctx[$i]{in}{crypto_tag} = $aa[0];
 		($$ctx[$i]{in}{rtp_master_key}, $$ctx[$i]{in}{rtp_master_salt})
-			= NGCP::Rtpclient::SRTP::decode_inline_base64($a[2], $$ctx[$i]{in}{crypto_suite});
-		$$ctx[$i]{in}{rtp_mki} = $a[5];
-		$$ctx[$i]{in}{rtp_mki_len} = $a[6];
+			= NGCP::Rtpclient::SRTP::decode_inline_base64($aa[2], $$ctx[$i]{in}{crypto_suite});
+		$$ctx[$i]{in}{rtp_mki} = $aa[5];
+		$$ctx[$i]{in}{rtp_mki_len} = $aa[6];
 		undef($$ctx[$i]{in}{rtp_session_key});
 		undef($$ctx[$i]{in}{rtcp_session_key});
-		($a[7] || '') =~ /UNENCRYPTED_SRTP/ and $$ctx[$i]{in}{unenc_srtp} = 1;
-		($a[7] || '') =~ /UNENCRYPTED_SRTCP/ and $$ctx[$i]{in}{unenc_srtcp} = 1;
-		($a[7] || '') =~ /UNAUTHENTICATED_SRTP/ and $$ctx[$i]{in}{unauth_srtp} = 1;
+		($aa[7] || '') =~ /UNENCRYPTED_SRTP/ and $$ctx[$i]{in}{unenc_srtp} = 1;
+		($aa[7] || '') =~ /UNENCRYPTED_SRTCP/ and $$ctx[$i]{in}{unenc_srtcp} = 1;
+		($aa[7] || '') =~ /UNAUTHENTICATED_SRTP/ and $$ctx[$i]{in}{unauth_srtp} = 1;
 
 		$i++;
-		@a = @a[8 .. $#a];
+		@aa = @aa[8 .. $#aa];
 	}
 }
 
@@ -403,7 +409,7 @@ sub do_rtp {
 					$KEEPGOING or undef($c);
 				}
 				$NOENC and $repl = $expect;
-				!$repl && $KEEPGOING and next;
+				next if !$repl && $KEEPGOING;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans{name} > $$trans_o{name}, $$c{callid}, RTP port $$outputs[$j][0]";
 
 				$rtcp or next;
@@ -421,7 +427,7 @@ sub do_rtp {
 				$dst = $$pr{sockaddr}($dstport, $addr);
 				$repl = send_receive($sendfd, $expfd, $payload, $dst);
 				$NOENC and $repl = $expect;
-				!$repl && $KEEPGOING and next;
+				next if !$repl && $KEEPGOING;
 				$repl eq $expect or die hexdump($repl, $expect) . " $$trans{name} > $$trans_o{name}, $$c{callid}, RTCP";
 			}
 		}
@@ -606,20 +612,20 @@ sub offer_answer {
 	my $tcx = $$A{trans_contexts};
 	my $tcx_o = $$B{trans_contexts};
 
-	my $sdp = <<"!";
+	my $sdp = <<"SDP";
 v=0
 o=blah 123 123 IN $$pr{family_str} $$ips_t[0]
 s=session
 c=IN $$pr{family_str} $$ips_t[0]
 t=0 0
-!
+SDP
 	my $ul = $$A{num_streams};
-	$op eq 'answer' && $$A{streams_seen} < $$A{num_streams}
-		and $ul = $$A{streams_seen};
+	$ul = $$A{streams_seen} if $op eq 'answer' && $$A{streams_seen} < $$A{num_streams};
 
-	$$A{want_bundle} && $op eq 'offer' and
-		$$A{bundle} = 1,
+	if ($$A{want_bundle} && $op eq 'offer') {
+		$$A{bundle} = 1;
 		$sdp .= "a=group:BUNDLE " . join(' ', (0 .. $ul)) . "\n";
+	}
 
 	for my $i (0 .. $ul) {
 		my $bi = $i;
@@ -628,14 +634,13 @@ t=0 0
 
 		my $p = $$ports_t[$bi];
 		my $cp = $p + 1;
-		$$A{bundle} && $$A{want_rtcpmux} && $op eq 'offer'
-			and $cp = $p;
+		$cp = $p if $$A{bundle} && $$A{want_rtcpmux} && $op eq 'offer';
 
-		$sdp .= <<"!";
+		$sdp .= <<"SDP";
 m=audio $p $$tr{name} 0 8 111
 a=rtpmap:8 PCMA/8000
 a=rtpmap:111 opus/48000/2
-!
+SDP
 		if ($$A{want_rtcpmux} && $op eq 'offer') {
 			$sdp .= "a=rtcp-mux\n";
 			$sdp .= "a=rtcp:$cp\n";
@@ -676,7 +681,7 @@ a=rtpmap:111 opus/48000/2
 		rand() > .5 and $$dict{'to-tag'} = $$B{tag};
 	}
 	elsif ($op eq 'answer') {
-		$dict->{'from-tag'} = $$B{tag},
+		$dict->{'from-tag'} = $$B{tag};
 		$dict->{'to-tag'} = $$A{tag};
 	}
 	if (!$LAZY
@@ -749,7 +754,10 @@ sub answer {
 }
 
 for my $iter (1 .. $NUM) {
-	($iter % 10 == 0) and print("$iter calls established\n"), do_rtp();
+	if ($iter % 10 == 0) {
+		print("$iter calls established\n");
+		do_rtp();
+	}
 
 	my $c = {};
 	offer($c, 0, 1);
@@ -792,7 +800,7 @@ while (time() < $end) {
 
 	do_rtp($rtcp);
 
-	@calls = sort {rand() < .5} grep(defined, @calls);
+	@calls = sort { rand() < .5 } grep { defined } @calls;
 
 	if ($REINVITES && $now >= $last_reinv + 15) {
 		$last_reinv = $now;

@@ -43,7 +43,6 @@ enum subscribe_action {
 	UNSUBSCRIBE_ALL,
 };
 
-struct callmaster;
 struct call;
 
 
@@ -80,6 +79,15 @@ struct redis_list {
 };
 
 
+extern struct redis		*rtpe_redis;
+extern struct redis		*rtpe_redis_write;
+extern struct redis		*rtpe_redis_notify;
+
+extern struct event_base	*rtpe_redis_notify_event_base;
+extern struct redisAsyncContext *rtpe_redis_notify_async_context;
+
+
+
 #if !GLIB_CHECK_VERSION(2,40,0)
 INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v) {
 	gboolean ret = TRUE;
@@ -99,13 +107,13 @@ void redis_notify_loop(void *d);
 
 
 struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int, int, int, int, int);
-int redis_restore(struct callmaster *, struct redis *);
+int redis_restore(struct redis *);
 void redis_update(struct call *, struct redis *);
 void redis_update_onekey(struct call *c, struct redis *r);
 void redis_delete(struct call *, struct redis *);
 void redis_wipe(struct redis *);
-int redis_notify_event_base_action(struct callmaster *cm, enum event_base_action);
-int redis_notify_subscribe_action(struct callmaster *cm, enum subscribe_action action, int keyspace);
+int redis_notify_event_base_action(enum event_base_action);
+int redis_notify_subscribe_action(enum subscribe_action action, int keyspace);
 
 
 

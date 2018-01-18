@@ -21,6 +21,7 @@ struct rtp_payload_type {
 	str encoding;
 	unsigned int clock_rate;
 	str encoding_parameters;
+	str format_parameters;
 };
 
 

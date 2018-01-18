@@ -13,16 +13,19 @@
 
 
 
+
+
 struct streambuf *streambuf_new(struct poller *p, int fd) {
 	struct streambuf *b;
 
 	b = malloc(sizeof(*b));
 	ZERO(*b);
 
+	mutex_init(&b->lock);
 	b->buf = g_string_new("");
 	b->fd = fd;
 	b->poller = p;
-	b->active = poller_now;
+	b->active = rtpe_now.tv_sec;
 
 	return b;
 }
@@ -38,6 +41,8 @@ int streambuf_writeable(struct streambuf *b) {
 	int ret;
 	unsigned int out;
 
+	mutex_lock(&b->lock);
+
 	for (;;) {
 		if (!b->buf->len)
 			break;
@@ -48,14 +53,16 @@ int streambuf_writeable(struct streambuf *b) {
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
-			if (errno != EAGAIN && errno != EWOULDBLOCK)
+			if (errno != EAGAIN && errno != EWOULDBLOCK) {
+				mutex_unlock(&b->lock);
 				return -1;
+			}
 			ret = 0;
 		}
 
 		if (ret > 0) {
 			g_string_erase(b->buf, 0, ret);
-			b->active = poller_now;
+			b->active = rtpe_now.tv_sec;
 		}
 
 		if (ret != out) {
@@ -64,6 +71,7 @@ int streambuf_writeable(struct streambuf *b) {
 		}
 	}
 
+	mutex_unlock(&b->lock);
 	return 0;
 }
 
@@ -71,31 +79,42 @@ int streambuf_readable(struct streambuf *b) {
 	int ret;
 	char buf[1024];
 
+	mutex_lock(&b->lock);
+
 	for (;;) {
 		ret = read(b->fd, buf, 1024);
 
-		if (ret == 0)
-			return -1;
+		if (ret == 0) {
+			// don't discard already read data in the buffer
+			b->eof = 1;
+			ret = b->buf->len ? -2 : -1;
+			mutex_unlock(&b->lock);
+			return ret;
+		}
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
+			mutex_unlock(&b->lock);
 			return -1;
 		}
 
 		g_string_append_len(b->buf, buf, ret);
-		b->active = poller_now;
+		b->active = rtpe_now.tv_sec;
 	}
 
+	mutex_unlock(&b->lock);
 	return 0;
 }
 
 
 char *streambuf_getline(struct streambuf *b) {
 	char *p;
-	int len;
+	int len, to_del;
 	char *s = NULL;
+
+	mutex_lock(&b->lock);
 
 	for (;;) {
 		if (s) {
@@ -104,19 +123,29 @@ char *streambuf_getline(struct streambuf *b) {
 		}
 
 		p = memchr(b->buf->str, '\n', b->buf->len);
-		if (!p)
-			return NULL;
-
-		len = p - b->buf->str;
-		if (len == 0) {
-			g_string_erase(b->buf, 0, 1);
-			continue;
+		if (!p) {
+			if (b->eof) {
+				// use entire string
+				len = b->buf->len;
+				to_del = len;
+			}
+			else
+				break;
+		}
+		else {
+			len = p - b->buf->str;
+			to_del = len + 1;
+			if (len == 0) {
+				// blank line, skip it
+				g_string_erase(b->buf, 0, 1);
+				continue;
+			}
 		}
 
 		s = malloc(len + 1);
 		memcpy(s, b->buf->str, len);
 		s[len] = '\0';
-		g_string_erase(b->buf, 0, len + 1);
+		g_string_erase(b->buf, 0, to_del);
 
 		if (s[--len] == '\r') {
 			if (len == 0)
@@ -127,6 +156,7 @@ char *streambuf_getline(struct streambuf *b) {
 		break;
 	}
 
+	mutex_unlock(&b->lock);
 	return s;
 }
 
@@ -157,6 +187,8 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 	unsigned int out;
 	int ret;
 
+	mutex_lock(&b->lock);
+
 	while (len && !poller_isblocked(b->poller, b->fd)) {
 		out = (len > 1024) ? 1024 : len;
 		ret = write(b->fd, s, out);
@@ -176,11 +208,13 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 
 		s += ret;
 		len -= ret;
-		b->active = poller_now;
+		b->active = rtpe_now.tv_sec;
 	}
 
 	if (b->buf->len > 5242880)
 		poller_error(b->poller, b->fd);
 	else if (len)
 		g_string_append_len(b->buf, s, len);
+
+	mutex_unlock(&b->lock);
 }

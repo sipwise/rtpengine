@@ -21,6 +21,7 @@ enum ssrc_dir;
 
 struct ssrc_hash {
 	GHashTable *ht;
+	GQueue q;
 	rwlock_t lock;
 };
 struct ssrc_ctx {

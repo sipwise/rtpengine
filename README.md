@@ -169,6 +169,7 @@ option and which are reproduced below:
 	  -G, --graphite-interval=INT      Graphite data statistics send interval
 	  --graphite-prefix=STRING         Graphite prefix for every line
 	  -T, --tos=INT                    TOS value to set on streams
+	  --control-tos=INT                TOS value to set on control-ng interface
 	  -o, --timeout=SECS               RTP timeout
 	  -s, --silent-timeout=SECS        RTP timeout for muted
 	  -a, --final-timeout=SECS         Call timeout
@@ -192,6 +193,7 @@ option and which are reproduced below:
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
 	  --log-facility-cdr=local0|...    Syslog facility to use for logging CDRs
 	  --log-facility-rtcp=local0|...   Syslog facility to use for logging RTCP data (take care of traffic amount)
+	  --log-format=default|parsable    Log prefix format
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
 	  --num-threads=INT                Number of worker threads to create
@@ -217,6 +219,24 @@ The options are described in more detail below.
 	If called with this option, the *rtpengine* daemon will simply print its version number
 	and exit.
 
+* --config-file
+
+	Specifies the location of a config file to be used. The config file is an *.ini* style config file,
+	with all command-line options listed here also being valid options in the config file. For all
+	command-line options, the long name version instead of the single-character version
+	(e.g. `table` instead of just `t`) must be used in the config file. For boolean options that are
+	either present or not (e.g. `no-fallback`), a boolean value (either `true` or `false`) must be
+	used in the config file. If an option is given in both the config file and at the command line,
+	the command-line value overrides the value from the config file. Options that can be specified
+	multiple times on the command line must be given only once in the config file, with the multiple
+	values separated by semicolons (see section *Interfaces configuration* below for an example).
+
+* --config-section
+
+	Specifies the *.ini* style section to be used in the config file. Multiple sections can be
+	present in the config file, but only one can be used at a time. The default value is `rtpengine`.
+	A config file section is started in the config file using square brackets (e.g. `[rtpengine]`).
+
 * -t, --table
 
 	Takes an integer argument and specifies which kernel table to use for in-kernel packet forwarding. See
@@ -231,46 +251,7 @@ The options are described in more detail below.
 * -i, --interface
 
 	Specifies a local network interface for RTP. At least one must be given, but multiple can be specified.
-	The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address or an IPv6 address.
-
-	The second IP address after the exclamation point is optional and can be used if the address to advertise
-	in outgoing SDP bodies should be different from the actual local address. This can be useful in certain
-	cases, such as your SIP proxy being behind NAT. For example, `--interface=10.65.76.2!192.0.2.4` means
-	that 10.65.76.2 is the actual local address on the server, but outgoing SDP bodies should advertise
-	192.0.2.4 as the address that endpoints should talk to. Note that you may have to escape the exlamation
-	point from your shell, e.g. using `\!`.
-
-	Giving an interface a name (separated from the address by a slash) is optional; if omitted, the name
-	`default` is used. Names are useful to create logical interfaces which consist of one or more local
-	addresses. It is then possible to instruct *rtpengine* to use particular interfaces when processing
-	an SDP message, to use different local addresses when talking to different endpoints. The most common use
-	case for this is to bridge between one or more private IP networks and the public internet.
-
-	For example, if clients coming from a private IP network must communicate their RTP with the local
-	address 10.35.2.75, while clients coming from the public internet must communicate with your other
-	local address 192.0.2.67, you could create one logical interface `pub` and a second one `priv` by
-	using `--interface=pub/192.0.2.67 --interface=priv/10.35.2.75`. You can then use the `direction`
-	option to tell *rtpengine* which local address to use for which endpoints (either `pub` or `priv`).
-
-	If multiple logical interfaces are configured, but the `direction` option isn't given in a
-	particular call, then the first interface given on the command line will be used.
-
-	It is possible to specify multiple addresses for the same logical interface (the same name). Most
-	commonly this would be one IPv4 addrsess and one IPv6 address, for example:
-	`--interface=192.168.63.1 --interface=fe80::800:27ff:fe00:0`. In this example, no interface name
-	is given, therefore both addresses will be added to a logical interface named `default`. You would use
-	the `address family` option to tell *rtpengine* which address to use in a particular case.
-
-	It is also possible to have multiple addresses of the same family in a logical network interface. In
-	this case, the first address (of a particular family) given for an interface will be the primary address
-	used by *rtpengine* for most purposes. Any additional addresses will be advertised as additional ICE
-	candidates with increasingly lower priority. This is useful on multi-homed systems and allows endpoints
-	to choose the best possible path to reach the RTP proxy. If ICE is not being used, then additional
-	addresses will go unused.
-
-	If you're not using the NG protocol but rather the legacy UDP protocol used by the *rtpproxy* module,
-	the interfaces must be named `internal` and `external` corresponding to the `i` and `e` flags if you
-	wish to use network bridging in this mode.
+	See the section *Interfaces configuration* just below for details.
 
 * -l, --listen-tcp, -u, --listen-udp, -n, --listen-ng
 
@@ -311,6 +292,11 @@ The options are described in more detail below.
 
 	Takes an integer as argument and if given, specifies the TOS value that should be set in outgoing
 	packets. The default is to leave the TOS field untouched. A typical value is 184 (*Expedited Forwarding*).
+
+* --control-tos
+
+    Takes an integer as argument and if given, specifies the TOS value that should be set in the control-ng
+    interface packets. The default is to leave the TOS field untouched.
 
 * -o, --timeout
 
@@ -363,6 +349,13 @@ The options are described in more detail below.
 
 	Same as --log-facility with the difference that only RTCP data is written to this log facility.
 	Be careful with this parameter since there may be a lot of information written to it.
+
+* --log-format=default|parsable
+
+	Selects between multiple log output styles. The default is to prefix log lines with a description
+	of the relevant entity, such as `[CALLID]` or `[CALLID port 12345]`. The `parsable` output style
+	is similar, but makes the ID easier to parse by enclosing it in quotes, such as `[ID="CALLID"]`
+	or `[ID="CALLID" port="12345"]`.
 
 * -E, --log-stderr
 
@@ -611,6 +604,80 @@ A typical command line (enabling both UDP and NG protocols) thus may look like:
 	--listen-udp=127.0.0.1:22222 --listen-ng=127.0.0.1:2223 --tos=184 \
 	--pidfile=/var/run/rtpengine.pid
 
+
+Interfaces configuration
+------------------------
+
+The command-line options `-i` or `--interface=`, or equivalently the `interface=` config file option,
+specify local network interfaces for RTP. At least one must be given, but multiple can be specified.
+The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address or an IPv6 address.
+
+To configure multiple interfaces using the command-line options, simply present multiple `-i` or
+`--interface=` options. When using the config file, only use a single `interface=` line, but specify
+multiple values separated by semicolons (e.g. `interface = internal/12.23.34.45;external/23.34.45.54`).
+
+The second IP address after the exclamation point is optional and can be used if the address to advertise
+in outgoing SDP bodies should be different from the actual local address. This can be useful in certain
+cases, such as your SIP proxy being behind NAT. For example, `--interface=10.65.76.2!192.0.2.4` means
+that 10.65.76.2 is the actual local address on the server, but outgoing SDP bodies should advertise
+192.0.2.4 as the address that endpoints should talk to. Note that you may have to escape the exlamation
+point from your shell when using command-line options, e.g. using `\!`.
+
+Giving an interface a name (separated from the address by a slash) is optional; if omitted, the name
+`default` is used. Names are useful to create logical interfaces which consist of one or more local
+addresses. It is then possible to instruct *rtpengine* to use particular interfaces when processing
+an SDP message, to use different local addresses when talking to different endpoints. The most common use
+case for this is to bridge between one or more private IP networks and the public internet.
+
+For example, if clients coming from a private IP network must communicate their RTP with the local
+address 10.35.2.75, while clients coming from the public internet must communicate with your other
+local address 192.0.2.67, you could create one logical interface `pub` and a second one `priv` by
+using `--interface=pub/192.0.2.67 --interface=priv/10.35.2.75`. You can then use the `direction`
+option to tell *rtpengine* which local address to use for which endpoints (either `pub` or `priv`).
+
+If multiple logical interfaces are configured, but the `direction` option isn't given in a
+particular call, then the first interface given on the command line will be used.
+
+It is possible to specify multiple addresses for the same logical interface (the same name). Most
+commonly this would be one IPv4 addrsess and one IPv6 address, for example:
+`--interface=192.168.63.1 --interface=fe80::800:27ff:fe00:0`. In this example, no interface name
+is given, therefore both addresses will be added to a logical interface named `default`. You would use
+the `address family` option to tell *rtpengine* which address to use in a particular case.
+
+It is also possible to have multiple addresses of the same family in a logical network interface. In
+this case, the first address (of a particular family) given for an interface will be the primary address
+used by *rtpengine* for most purposes. Any additional addresses will be advertised as additional ICE
+candidates with increasingly lower priority. This is useful on multi-homed systems and allows endpoints
+to choose the best possible path to reach the RTP proxy. If ICE is not being used, then additional
+addresses will go unused, even though ports would still get allocated on those interfaces.
+
+Another option is to give interface names in the format `BASE:SUFFIX`. This allows interfaces to be
+used in a round-robin fashion, useful for load-balancing the port ranges of multiple interfaces.
+For example, consider the following configuration:
+`--interface=pub:1/192.0.2.67 --interface=pub:2/10.35.2.75`. These two interfaces can still be
+referenced directly by name (e.g. `direction=pub:1`), but it is now also possible to reference only
+the base name (i.e. `direction=pub`). If the base name is used, one of the two interfaces is selected
+in a round-robin fashion, and only if the interface actually has enough open ports available. This
+makes it possible to effectively increase the number of available media ports across multiple IP
+addresses. There is no limit on how many interfaces can share the same base name.
+
+It is possible to combine the `BASE:SUFFIX` notation with specifying multiple addresses for the same
+interface name. An advanced example could be (using config file notation, and omitting actual
+network addresses):
+
+	interface = pub:1/IPv4 pub:1/IPv4 pub:1/IPv6 pub:2/IPv4 pub:2/IPv6 pub:3/IPv6 pub:4/IPv4
+
+In this example, when `direction=pub` is IPv4 is needed as a primary address, either `pub:1`, `pub:2`,
+or `pub:4` might be selected. When `pub:1` is selected, one IPv4 and one IPv6 address will be used
+as additional ICE alternatives. For `pub:2`, only one IPv6 is used as ICE alternative, and for `pub:4`
+no alternatives would be used. When IPv6 is needed as a primary address, either `pub:1`, `pub:2`, or
+`pub:3` might be selected. If at any given time not enough ports are available on any interface,
+it will not be selected by the round-robin algorithm.
+
+If you're not using the NG protocol but rather the legacy UDP protocol used by the *rtpproxy* module,
+the interfaces must be named `internal` and `external` corresponding to the `i` and `e` flags if you
+wish to use network bridging in this mode.
+
 In-kernel Packet Forwarding
 ---------------------------
 
@@ -641,7 +708,8 @@ actually add the required rule to the tables.
 In short, the prerequisites for in-kernel packet forwarding are:
 
 1. The `xt_RTPENGINE` kernel module must be loaded.
-2. An `iptables` and/or `ip6tables` rule must be present in the `INPUT` chain to send packets
+2. An `iptables` and/or `ip6tables` rule must be present in the `INPUT` chain (or in a custom user-defined
+   chain which is then called by the `INPUT` chain) to send packets
    to the `RTPENGINE` target. This rule should be limited to UDP packets, but otherwise there
    are no restrictions.
 3. The `rtpengine` daemon must be running.
@@ -730,6 +798,15 @@ like `--dport 30000:40000`. If the kernel module receives a packet that it doesn
 to an active media stream, it will simply ignore it and hand it back to the network stack for normal
 processing.
 
+The `RTPENGINE` rule need not necessarily be present directly in the `INPUT` chain. It can also be in a
+user-defined chain which is then referenced by the `INPUT` chain, like so:
+
+	iptables -N rtpengine
+	iptables -I INPUT -p udp -j rtpengine
+	iptables -I rtpengine -j RTPENGINE --id 42
+
+This can be a useful setup if certain firewall scripts are being used.
+
 Summary
 -------
 
@@ -745,7 +822,7 @@ A typical start-up sequence including in-kernel forwarding might look like this:
 	echo 'del 0' > /proc/rtpengine/control
 
 	# start daemon
-	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 --ip6=2001:db8::4f3:3d \
+	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
 	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine.pid --no-fallback
 
 Running Multiple Instances
@@ -767,9 +844,9 @@ then the start-up sequence might look like this:
 	echo 'del 0' > /proc/rtpengine/control
 	echo 'del 1' > /proc/rtpengine/control
 
-	/usr/sbin/rtpengine --table=0 --ip=10.64.73.31 \
+	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 \
 	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine-10.pid --no-fallback
-	/usr/sbin/rtpengine --table=1 --ip=192.168.65.73 \
+	/usr/sbin/rtpengine --table=1 --interface=192.168.65.73 \
 	--listen-ng=127.0.0.1:2224 --tos=184 --pidfile=/var/run/rtpengine-192.pid --no-fallback
 
 With this setup, the SIP proxy can choose which instance of *rtpengine* to talk to and thus which local
@@ -934,6 +1011,10 @@ Optionally included keys are:
 
 		Identical to setting `record call` to `on` (see below).
 
+	- `no rtcp attribute`
+
+		Omit the `a=rtcp` line from the outgoing SDP.
+
 
 * `replace`
 
@@ -970,24 +1051,12 @@ Optionally included keys are:
 	However, this mechanism for selecting the address family is now obsolete
 	and the `address family` dictionary key should be used instead.
 
-	A direction keyword is *round-robin-calls*. If this is received, a round robin algorithm runs for
-	choosing the logical interface for the current stream(e.g. audio, video).
-	The algorithm checks that all local interfaces of the tried logical interface have free ports for
-	call streams. If a logical interface fails the check, the next one is tried. If there is no logical
-	interface found with this property, it fallbacks to the default behaviour (e.g. return first logical
-	interface in --interface list even if no free ports are available). The attribute is ignored for
-	answers() because the logical interface was already selected at offers().
-	Naming an interface "round-robin-calls" and trying to select it using direction will
-	__run the above algorithm__!
-
-	Round robin for both legs of the stream:
-		{ ..., "direction": [ "round-robin-calls", "round-robin-calls" ], ... }
-
-	Round robin for first leg and and select "pub" for the second leg of the stream:
-		{ ..., "direction": [ "round-robin-calls", "pub" ], ... }
-
-	Round robin for first leg and and default behaviour for the second leg of the stream:
-		{ ..., "direction": [ "round-robin-calls" ], ... }
+	For legacy support, the special direction keyword `round-robin-calls` can be used to invoke the
+	round-robin interface selection algorithm described in the section *Interfaces configuration*.
+	If this special keyword is used, the round-robin selection will run over all configured
+	interfaces, whether or not they are configured using the `BASE:SUFFIX` interface name notation.
+	This special keyword is provided only for legacy support and should be considered obsolete.
+	It will be removed in future versions.
 
 * `received from`
 
@@ -1136,6 +1205,32 @@ Optionally included keys are:
 	through subsequent messages will overwrite previous metadata values.
 
 	See the `--recording-dir` option above.
+
+* `codec`
+
+	Contains a dictionary controlling various aspects of codecs (or RTP payload types).
+	The following keys are understood:
+
+	* `strip`
+
+		Contains a list of strings. Each string is the name of a codec or RTP payload
+		type that should be removed from the SDP. Codec names are case sensitive, and
+		can be either from the list of codecs explicitly defined by the SDP through
+		an `a=rtpmap` attribute, or can be from the list of RFC-defined codecs. Examples
+		are `PCMU`, `opus`, or `telephone-event`.
+
+		As a special keyword, `all` can be used to remove all codecs, except the ones
+		that should explicitly offered (see below). Note that it is an error to strip
+		all codecs and leave none that could be offered. In this case, the original
+		list of codecs will be left unchanged.
+
+	* `offer`
+
+		Contains a list of strings. Each string is the name of a codec that should be
+		included in the list of codecs offered. This is primarily useful to block all
+		codecs (`strip -> all`) except the ones given in the `offer` whitelist.
+		Currently codecs that were not present in the original list of codecs
+		offered by the client will be ignored.
 
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):

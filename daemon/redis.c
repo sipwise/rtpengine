@@ -30,6 +30,15 @@
 #include "rtplib.h"
 #include "str.h"
 #include "ssrc.h"
+#include "main.h"
+
+struct redis		*rtpe_redis;
+struct redis		*rtpe_redis_write;
+struct redis		*rtpe_redis_notify;
+
+struct event_base	*rtpe_redis_notify_event_base;
+struct redisAsyncContext *rtpe_redis_notify_async_context;
+
 
 
 INLINE redisReply *redis_expect(int type, redisReply *r) {
@@ -70,7 +79,7 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 #define REDIS_FMT(x) (x)->len, (x)->str
 
 static int redis_check_conn(struct redis *r);
-static void json_restore_call(struct redis *r, struct callmaster *m, const str *id, enum call_type type);
+static void json_restore_call(struct redis *r, const str *id, enum call_type type);
 
 static void redis_pipe(struct redis *r, const char *fmt, ...) {
 	va_list ap;
@@ -268,25 +277,17 @@ err:
 
 
 void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata) {
-
-	struct callmaster *cm = privdata;
 	struct redis *r = 0;
 	struct call *c = NULL;
 	str callid;
 	str keyspace_id;
 
-	// sanity checks
-	if (!cm) {
-		rlog(LOG_ERROR, "Struct callmaster is NULL on on_redis_notification");
-		return;
-	}
-
-	if (!cm->conf.redis_notify) {
+	if (!rtpe_redis_notify) {
 		rlog(LOG_ERROR, "A redis notification has been received but no redis_notify database found");
 		return;
 	}
 
-	r = cm->conf.redis_notify;
+	r = rtpe_redis_notify;
 
 	mutex_lock(&r->lock);
 
@@ -331,7 +332,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 	}
 
 	if (strncmp(rr->element[3]->str,"set",3)==0) {
-		c = call_get(&callid, cm);
+		c = call_get(&callid);
 		if (c) {
 			rwlock_unlock_w(&c->master_lock);
 			if (IS_FOREIGN_CALL(c))
@@ -341,11 +342,11 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 				goto err;
 			}
 		}
-		json_restore_call(r, cm, &callid, CT_FOREIGN_CALL);
+		json_restore_call(r, &callid, CT_FOREIGN_CALL);
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
-		c = call_get(&callid, cm);
+		c = call_get(&callid);
 		if (!c) {
 			rlog(LOG_NOTICE, "Redis-Notifier: DEL did not find call with callid: %s\n", rr->element[2]->str);
 			goto err;
@@ -384,36 +385,30 @@ void redis_async_context_disconnect(const redisAsyncContext *redis_notify_async_
 	}
 }
 
-int redis_async_context_alloc(struct callmaster *cm) {
+int redis_async_context_alloc() {
 	struct redis *r = 0;
 
-	// sanity checks
-	if (!cm) {
-		rlog(LOG_ERROR, "Struct callmaster is NULL on context free");
-		return -1;
-	}
-
-	if (!cm->conf.redis_notify) {
+	if (!rtpe_redis_notify) {
 		rlog(LOG_INFO, "redis_notify database is NULL.");
 		return -1;
 	}
 
 	// get redis_notify database
-	r = cm->conf.redis_notify;
+	r = rtpe_redis_notify;
 	rlog(LOG_INFO, "Use Redis %s for notifications", endpoint_print_buf(&r->endpoint));
 
 	// alloc async context
-	cm->conf.redis_notify_async_context = redisAsyncConnect(r->host, r->endpoint.port);
-	if (!cm->conf.redis_notify_async_context) {
+	rtpe_redis_notify_async_context = redisAsyncConnect(r->host, r->endpoint.port);
+	if (!rtpe_redis_notify_async_context) {
 		rlog(LOG_ERROR, "redis_notify_async_context can't create new");
 		return -1;
 	}
-	if (cm->conf.redis_notify_async_context->err) {
-		rlog(LOG_ERROR, "redis_notify_async_context can't create new error: %s", cm->conf.redis_notify_async_context->errstr);
+	if (rtpe_redis_notify_async_context->err) {
+		rlog(LOG_ERROR, "redis_notify_async_context can't create new error: %s", rtpe_redis_notify_async_context->errstr);
 		return -1;
 	}
 
-	if (redisAsyncSetDisconnectCallback(cm->conf.redis_notify_async_context, redis_async_context_disconnect) != REDIS_OK) {
+	if (redisAsyncSetDisconnectCallback(rtpe_redis_notify_async_context, redis_async_context_disconnect) != REDIS_OK) {
 		rlog(LOG_ERROR, "redis_notify_async_context can't set disconnect callback");
 		return -1;
 	}
@@ -421,14 +416,8 @@ int redis_async_context_alloc(struct callmaster *cm) {
 	return 0;
 }
 
-int redis_notify_event_base_action(struct callmaster *cm, enum event_base_action action) {
-	// sanity checks
-	if (!cm) {
-		rlog(LOG_ERROR, "Struct callmaster is NULL on event base action %d", action);
-		return -1;
-	}
-
-	if (!cm->conf.redis_notify_event_base && action!=EVENT_BASE_ALLOC) {
+int redis_notify_event_base_action(enum event_base_action action) {
+	if (!rtpe_redis_notify_event_base && action!=EVENT_BASE_ALLOC) {
 		rlog(LOG_ERROR, "redis_notify_event_base is NULL on event base action %d", action);
 		return -1;
 	}
@@ -436,8 +425,8 @@ int redis_notify_event_base_action(struct callmaster *cm, enum event_base_action
 	// exec event base action
 	switch (action) {
 		case EVENT_BASE_ALLOC:
-			cm->conf.redis_notify_event_base = event_base_new();
-			if (!cm->conf.redis_notify_event_base) {
+			rtpe_redis_notify_event_base = event_base_new();
+			if (!rtpe_redis_notify_event_base) {
 				rlog(LOG_ERROR, "Fail alloc redis_notify_event_base");
 				return -1;
 			} else {
@@ -446,12 +435,12 @@ int redis_notify_event_base_action(struct callmaster *cm, enum event_base_action
 			break;
 
 		case EVENT_BASE_FREE:
-			event_base_free(cm->conf.redis_notify_event_base);
+			event_base_free(rtpe_redis_notify_event_base);
 			rlog(LOG_DEBUG, "Success free redis_notify_event_base");
 			break;
 
 		case EVENT_BASE_LOOPBREAK:
-			if (event_base_loopbreak(cm->conf.redis_notify_event_base)) {
+			if (event_base_loopbreak(rtpe_redis_notify_event_base)) {
 				rlog(LOG_ERROR, "Fail loopbreak redis_notify_event_base");
 				return -1;
 			} else {
@@ -467,38 +456,32 @@ int redis_notify_event_base_action(struct callmaster *cm, enum event_base_action
 	return 0;
 }
 
-int redis_notify_subscribe_action(struct callmaster *cm, enum subscribe_action action, int keyspace) {
-	// sanity checks
-	if (!cm) {
-		rlog(LOG_ERROR, "Struct callmaster is NULL on subscribe action");
-		return -1;
-	}
-
-	if (!cm->conf.redis_notify_async_context) {
+int redis_notify_subscribe_action(enum subscribe_action action, int keyspace) {
+	if (!rtpe_redis_notify_async_context) {
 		rlog(LOG_ERROR, "redis_notify_async_context is NULL on subscribe action");
 		return -1;
 	}
 
-	if (cm->conf.redis_notify_async_context->err) {
-		rlog(LOG_ERROR, "redis_notify_async_context error on subscribe action: %s", cm->conf.redis_notify_async_context->errstr);
+	if (rtpe_redis_notify_async_context->err) {
+		rlog(LOG_ERROR, "redis_notify_async_context error on subscribe action: %s", rtpe_redis_notify_async_context->errstr);
 		return -1;
 	}
 
 	switch (action) {
 	case SUBSCRIBE_KEYSPACE:
-		if (redisAsyncCommand(cm->conf.redis_notify_async_context, on_redis_notification, (void*)cm, "psubscribe __keyspace@%i__:*", keyspace) != REDIS_OK) {
+		if (redisAsyncCommand(rtpe_redis_notify_async_context, on_redis_notification, NULL, "psubscribe __keyspace@%i__:*", keyspace) != REDIS_OK) {
 			rlog(LOG_ERROR, "Fail redisAsyncCommand on JSON SUBSCRIBE_KEYSPACE");
 			return -1;
 		}
 		break;
 	case UNSUBSCRIBE_KEYSPACE:
-		if (redisAsyncCommand(cm->conf.redis_notify_async_context, on_redis_notification, (void*)cm, "punsubscribe __keyspace@%i__:*", keyspace) != REDIS_OK) {
+		if (redisAsyncCommand(rtpe_redis_notify_async_context, on_redis_notification, NULL, "punsubscribe __keyspace@%i__:*", keyspace) != REDIS_OK) {
 			rlog(LOG_ERROR, "Fail redisAsyncCommand on JSON UNSUBSCRIBE_KEYSPACE");
 			return -1;
 		}
 		break;
 	case UNSUBSCRIBE_ALL:
-		if (redisAsyncCommand(cm->conf.redis_notify_async_context, on_redis_notification, (void *) cm, "punsubscribe") != REDIS_OK) {
+		if (redisAsyncCommand(rtpe_redis_notify_async_context, on_redis_notification, NULL, "punsubscribe") != REDIS_OK) {
 			rlog(LOG_ERROR, "Fail redisAsyncCommand on JSON UNSUBSCRIBE_ALL");
 			return -1;
 		}
@@ -511,39 +494,33 @@ int redis_notify_subscribe_action(struct callmaster *cm, enum subscribe_action a
 	return 0;
 }
 
-static int redis_notify(struct callmaster *cm) {
+static int redis_notify() {
 	struct redis *r = 0;
 	GList *l;
 
-	// sanity checks
-	if (!cm) {
-		rlog(LOG_ERROR, "Struct callmaster is NULL on redis_notify()");
-		return -1;
-	}
-
-	if (!cm->conf.redis_notify) {
+	if (!rtpe_redis_notify) {
 		rlog(LOG_ERROR, "redis_notify database is NULL on redis_notify()");
 		return -1;
 	}
 
-	if (!cm->conf.redis_notify_async_context) {
+	if (!rtpe_redis_notify_async_context) {
 		rlog(LOG_ERROR, "redis_notify_async_context is NULL on redis_notify()");
 		return -1;
 	}
 
-	if (!cm->conf.redis_notify_event_base) {
+	if (!rtpe_redis_notify_event_base) {
 		rlog(LOG_ERROR, "redis_notify_event_base is NULL on redis_notify()");
 		return -1;
 	}
 
 	// get redis_notify database
-	r = cm->conf.redis_notify;
+	r = rtpe_redis_notify;
 	rlog(LOG_INFO, "Use Redis %s to subscribe to notifications", endpoint_print_buf(&r->endpoint));
 
 	// attach event base
-	if (redisLibeventAttach(cm->conf.redis_notify_async_context, cm->conf.redis_notify_event_base) == REDIS_ERR) {
-		if (cm->conf.redis_notify_async_context->err) {
-			rlog(LOG_ERROR, "redis_notify_async_context can't attach event base error: %s", cm->conf.redis_notify_async_context->errstr);
+	if (redisLibeventAttach(rtpe_redis_notify_async_context, rtpe_redis_notify_event_base) == REDIS_ERR) {
+		if (rtpe_redis_notify_async_context->err) {
+			rlog(LOG_ERROR, "redis_notify_async_context can't attach event base error: %s", rtpe_redis_notify_async_context->errstr);
 		} else {
 			rlog(LOG_ERROR, "redis_notify_async_context can't attach event base");
 
@@ -552,14 +529,14 @@ static int redis_notify(struct callmaster *cm) {
 	}
 
 	// subscribe to the values in the configured keyspaces
-	rwlock_lock_r(&cm->conf.config_lock);
-	for (l = cm->conf.redis_subscribed_keyspaces->head; l; l = l->next) {
-		redis_notify_subscribe_action(cm, SUBSCRIBE_KEYSPACE, GPOINTER_TO_UINT(l->data));
+	rwlock_lock_r(&rtpe_config.config_lock);
+	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
+		redis_notify_subscribe_action(SUBSCRIBE_KEYSPACE, GPOINTER_TO_UINT(l->data));
 	}
-	rwlock_unlock_r(&cm->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 
 	// dispatch event base => thread blocks here
-	if (event_base_dispatch(cm->conf.redis_notify_event_base) < 0) {
+	if (event_base_dispatch(rtpe_redis_notify_event_base) < 0) {
 		rlog(LOG_ERROR, "Fail event_base_dispatch()");
 		return -1;
 	}
@@ -569,17 +546,10 @@ static int redis_notify(struct callmaster *cm) {
 
 void redis_notify_loop(void *d) {
 	int seconds = 1, redis_notify_return = 0;
-	time_t next_run = g_now.tv_sec;
-	struct callmaster *cm = (struct callmaster *)d;
+	time_t next_run = rtpe_now.tv_sec;
 	struct redis *r;
 
-	// sanity checks
-	if (!cm) {
-		ilog(LOG_ERROR, "NULL callmaster");
-		return ;
-	}
-
-	r = cm->conf.redis_notify;
+	r = rtpe_redis_notify;
 	if (!r) {
 		rlog(LOG_ERROR, "Don't use Redis notifications. See --redis-notifications parameter.");
 		return ;
@@ -592,49 +562,49 @@ void redis_notify_loop(void *d) {
 	}
 
 	// alloc redis async context 
-	if (redis_async_context_alloc(cm) < 0) {
+	if (redis_async_context_alloc() < 0) {
 		return ;
 	}
 
 	// alloc event base
-	if (redis_notify_event_base_action(cm, EVENT_BASE_ALLOC) < 0) {
+	if (redis_notify_event_base_action(EVENT_BASE_ALLOC) < 0) {
 		return ;
 	}
 
 	// initial redis_notify
 	if (redis_check_conn(r) == REDIS_STATE_CONNECTED) {
-		redis_notify_return = redis_notify(cm);
+		redis_notify_return = redis_notify();
 	}
 
 	// loop redis_notify => in case of lost connection
-	while (!g_shutdown) {
-		gettimeofday(&g_now, NULL);
-		if (g_now.tv_sec < next_run) {
+	while (!rtpe_shutdown) {
+		gettimeofday(&rtpe_now, NULL);
+		if (rtpe_now.tv_sec < next_run) {
 			usleep(100000);
 			continue;
 		}
 
-		next_run = g_now.tv_sec + seconds;
+		next_run = rtpe_now.tv_sec + seconds;
 
 		if (redis_check_conn(r) == REDIS_STATE_RECONNECTED || redis_notify_return < 0) {
 			// alloc new redis async context upon redis breakdown
-			if (redis_async_context_alloc(cm) < 0) {
+			if (redis_async_context_alloc() < 0) {
 				continue;
 			}
 
 			// prepare notifications
-			redis_notify_return = redis_notify(cm);
+			redis_notify_return = redis_notify();
 		}
 	}
 
 	// unsubscribe notifications
-	redis_notify_subscribe_action(cm, UNSUBSCRIBE_ALL, 0);
+	redis_notify_subscribe_action(UNSUBSCRIBE_ALL, 0);
 
 	// free async context
-	redisAsyncDisconnect(cm->conf.redis_notify_async_context);
+	redisAsyncDisconnect(rtpe_redis_notify_async_context);
 
 	// free event base
-	redis_notify_event_base_action(cm, EVENT_BASE_FREE);
+	redis_notify_event_base_action(EVENT_BASE_FREE);
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
@@ -696,7 +666,7 @@ static void redis_count_err_and_disable(struct redis *r)
 
 	r->consecutive_errors++;
 	if (r->consecutive_errors > r->allowed_errors) {
-		r->restore_tick = g_now.tv_sec + r->disable_time;
+		r->restore_tick = rtpe_now.tv_sec + r->disable_time;
 		ilog(LOG_WARNING, "Redis server %s disabled for %d seconds",
 				endpoint_print_buf(&r->endpoint),
 				r->disable_time);
@@ -706,7 +676,7 @@ static void redis_count_err_and_disable(struct redis *r)
 /* must be called with r->lock held */
 static int redis_check_conn(struct redis *r) {
 
-	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > g_now.tv_sec)) {
+	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > rtpe_now.tv_sec)) {
 		ilog(LOG_WARNING, "Redis server %s is disabled. Don't try RE-Establishing for %d seconds",
 				endpoint_print_buf(&r->endpoint),r->disable_time);
 		return REDIS_STATE_DISCONNECTED;
@@ -1207,7 +1177,7 @@ static int redis_tags(struct call *c, struct redis_list *tags) {
 
 static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	struct rtp_payload_type *pt;
-	str ptype, enc, clock, parms;
+	str ptype, enc, clock, enc_parms, fmt_parms;
 	struct call_media *med = ptr;
 	struct call *call = med->call;
 
@@ -1217,7 +1187,12 @@ static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 		return -1;
 	if (str_token(&clock, s, '/'))
 		return -1;
-	parms = *s;
+	if (str_token(&enc_parms, s, '/')) {
+		enc_parms = *s;
+		fmt_parms = STR_EMPTY;
+	}
+	else
+		fmt_parms = *s;
 
 	// from call.c
 	// XXX remove all the duplicate code
@@ -1225,8 +1200,9 @@ static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	pt->payload_type = str_to_ui(&ptype, 0);
 	call_str_cpy(call, &pt->encoding, &enc);
 	pt->clock_rate = str_to_ui(&clock, 0);
-	call_str_cpy(call, &pt->encoding_parameters, &parms);
-	g_hash_table_replace(med->rtp_payload_types, &pt->payload_type, pt);
+	call_str_cpy(call, &pt->encoding_parameters, &enc_parms);
+	call_str_cpy(call, &pt->format_parameters, &fmt_parms);
+	g_hash_table_replace(med->codecs, &pt->payload_type, pt);
 	return 0;
 }
 static int json_medias(struct call *c, struct redis_list *medias, JsonReader *root_reader) {
@@ -1241,7 +1217,7 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 		/* from call.c:__get_media() */
 		med = uid_slice_alloc0(med, &c->medias);
 		med->call = c;
-		med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
+		med->codecs = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
 				__payload_type_free);
 
 		if (redis_hash_get_unsigned(&med->index, rh, "index"))
@@ -1386,7 +1362,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			return -1;
 
 		if (ps->media)
-			__rtp_stats_update(ps->rtp_stats, ps->media->rtp_payload_types);
+			__rtp_stats_update(ps->rtp_stats, ps->media->codecs);
 	}
 
 	return 0;
@@ -1479,7 +1455,7 @@ static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
 	return 0;
 }
 
-static void json_restore_call(struct redis *r, struct callmaster *m, const str *callid, enum call_type type) {
+static void json_restore_call(struct redis *r, const str *callid, enum call_type type) {
 	redisReply* rr_jsonStr;
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
@@ -1505,7 +1481,7 @@ static void json_restore_call(struct redis *r, struct callmaster *m, const str *
 	if (!root_reader)
 		goto err1;
 
-	c = call_get_or_create(callid, m, type);
+	c = call_get_or_create(callid, type);
 	err = "failed to create call struct";
 	if (!c)
 		goto err1;
@@ -1625,9 +1601,9 @@ err1:
 		if (c) 
 			call_destroy(c);
 		else {
-			mutex_lock(&m->conf.redis_write->lock);
-			redisCommandNR(m->conf.redis_write->ctx, "DEL " PB, STR(callid));
-			mutex_unlock(&m->conf.redis_write->lock);
+			mutex_lock(&rtpe_redis_write->lock);
+			redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, STR(callid));
+			mutex_unlock(&rtpe_redis_write->lock);
 		}
 	}
 	if (c)
@@ -1635,7 +1611,6 @@ err1:
 }
 
 struct thread_ctx {
-	struct callmaster *m;
 	GQueue r_q;
 	mutex_t r_m;
 };
@@ -1653,14 +1628,14 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	r = g_queue_pop_head(&ctx->r_q);
 	mutex_unlock(&ctx->r_m);
 
-	json_restore_call(r, ctx->m, &callid, CT_OWN_CALL);
+	json_restore_call(r, &callid, CT_OWN_CALL);
 
 	mutex_lock(&ctx->r_m);
 	g_queue_push_tail(&ctx->r_q, r);
 	mutex_unlock(&ctx->r_m);
 }
 
-int redis_restore(struct callmaster *m, struct redis *r) {
+int redis_restore(struct redis *r) {
 	redisReply *calls = NULL, *call;
 	int i, ret = -1;
 	GThreadPool *gtp;
@@ -1669,7 +1644,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	if (!r)
 		return 0;
 
-	log_level |= LOG_FLAG_RESTORE;
+	rtpe_config.common.log_level |= LOG_FLAG_RESTORE;
 
 	rlog(LOG_DEBUG, "Restoring calls from Redis...");
 
@@ -1690,16 +1665,14 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 		goto err;
 	}
 
-	ctx.m = m;
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
-	for (i = 0; i < m->conf.redis_num_threads; i++)
+	for (i = 0; i < rtpe_config.redis_num_threads; i++)
 		g_queue_push_tail(&ctx.r_q,
 				redis_new(&r->endpoint, r->db, r->auth, r->role,
 						r->no_redis_required, r->allowed_errors,
-						r->disable_time,r->cmd_timeout,
-						r->connect_timeout));
-	gtp = g_thread_pool_new(restore_thread, &ctx, m->conf.redis_num_threads, TRUE, NULL);
+						r->disable_time, r->cmd_timeout, r->connect_timeout));
+	gtp = g_thread_pool_new(restore_thread, &ctx, rtpe_config.redis_num_threads, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {
 		call = calls->element[i];
@@ -1717,7 +1690,7 @@ int redis_restore(struct callmaster *m, struct redis *r) {
 	freeReplyObject(calls);
 
 err:
-	log_level &= ~LOG_FLAG_RESTORE;
+	rtpe_config.common.log_level &= ~LOG_FLAG_RESTORE;
 	return ret;
 }
 
@@ -2013,15 +1986,16 @@ char* redis_encode_json(struct call *c) {
 			}
 			json_builder_end_array (builder);
 
-			k = g_hash_table_get_values(media->rtp_payload_types);
+			k = g_hash_table_get_values(media->codecs);
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array (builder);
 			for (m = k; m; m = m->next) {
 				pt = m->data;
-				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT, 
+				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT,
 						pt->payload_type, STR_FMT(&pt->encoding),
-						pt->clock_rate, STR_FMT(&pt->encoding_parameters));
+						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
+						STR_FMT(&pt->format_parameters));
 			}
 			json_builder_end_array (builder);
 
@@ -2121,7 +2095,7 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 
 	rwlock_lock_r(&c->master_lock);
 
-	redis_expires_s = c->callmaster->conf.redis_expires_secs;
+	redis_expires_s = rtpe_config.redis_expires_secs;
 
 	c->redis_hosted_db = r->db;
 	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db)) {

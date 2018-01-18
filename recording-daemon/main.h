@@ -2,6 +2,9 @@
 #define _MAIN_H_
 
 
+#include "auxlib.h"
+
+
 extern int ktable;
 extern int num_threads;
 extern const char *spool_dir;
@@ -17,6 +20,9 @@ extern int c_mysql_port;
 extern const char *forward_to;
 
 extern volatile int shutdown_flag;
+
+
+extern struct rtpengine_common_config rtpe_common_config;
 
 
 #endif
