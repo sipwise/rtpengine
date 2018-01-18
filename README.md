@@ -460,7 +460,7 @@ The options are described in more detail below.
 	This parameter sets the timeout value, in milliseconds, when connecting to a redis server. If the connection cannot be made
 	within the specified timeout the connection will fail. Note that in case of failure, when reconnecting to redis, a PING command
 	is issued before attempting to connect so the `--redis-cmd-timeout` value will also be added to the total waiting time.
-	This is useful if using `--redis-allowed-errors', when attempting to estimate the total lost time in case of redis failures.
+	This is useful if using `--redis-allowed-errors`, when attempting to estimate the total lost time in case of redis failures.
 	The default value for the connection timeout is 1000ms.
 
 *  -b, --b2b-url
