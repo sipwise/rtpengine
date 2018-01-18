@@ -94,6 +94,7 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	struct timeval avg, calls_dur_iv;
 	u_int64_t num_sessions, min_sess_iv, max_sess_iv;
 	struct request_time offer_iv, answer_iv, delete_iv;
+	struct requests_ps offers_ps, answers_ps, deletes_ps;
 
 	mutex_lock(&m->totalstats.total_average_lock);
 	avg = m->totalstats.total_average_call_dur;
@@ -136,12 +137,19 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 	offer_iv = m->totalstats_lastinterval.offer;
 	answer_iv = m->totalstats_lastinterval.answer;
 	delete_iv = m->totalstats_lastinterval.delete;
+	offers_ps = m->totalstats_lastinterval.offers_ps;
+	answers_ps = m->totalstats_lastinterval.answers_ps;
+	deletes_ps = m->totalstats_lastinterval.deletes_ps;
 	mutex_unlock(&m->totalstats_lastinterval_lock);
 
 	// compute average offer/answer/delete time
 	timeval_divide(&offer_iv.time_avg, &offer_iv.time_avg, offer_iv.count);
 	timeval_divide(&answer_iv.time_avg, &answer_iv.time_avg, answer_iv.count);
 	timeval_divide(&delete_iv.time_avg, &delete_iv.time_avg, delete_iv.count);
+	//compute average offers/answers/deletes per second
+	offers_ps.ps_avg = (offers_ps.count?(offers_ps.ps_avg/offers_ps.count):0);
+	answers_ps.ps_avg = (answers_ps.count?(answers_ps.ps_avg/answers_ps.count):0);
+	deletes_ps.ps_avg = (deletes_ps.count?(deletes_ps.ps_avg/deletes_ps.count):0);
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\nGraphite interval statistics (last reported values to graphite):\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);
@@ -166,6 +174,23 @@ static void cli_incoming_list_totals(char* buffer, int len, struct callmaster* m
 		(unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec,
 		(unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
 	ADJUSTLEN(printlen,outbufend,replybuffer);
+
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min/Max/Avg offer requests per second           :%llu/%llu/%llu per sec\n",
+		(unsigned long long)offers_ps.ps_min,
+		(unsigned long long)offers_ps.ps_max,
+		(unsigned long long)offers_ps.ps_avg);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min/Max/Avg answer requests per second          :%llu/%llu/%llu per sec\n",
+		(unsigned long long)answers_ps.ps_min,
+		(unsigned long long)answers_ps.ps_max,
+		(unsigned long long)answers_ps.ps_avg);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+	printlen = snprintf(replybuffer,(outbufend-replybuffer), " Min/Max/Avg delete requests per second          :%llu/%llu/%llu per sec\n",
+		(unsigned long long)deletes_ps.ps_min,
+		(unsigned long long)deletes_ps.ps_max,
+		(unsigned long long)deletes_ps.ps_avg);
+	ADJUSTLEN(printlen,outbufend,replybuffer);
+
 
 	printlen = snprintf(replybuffer,(outbufend-replybuffer), "\n\n");
 	ADJUSTLEN(printlen,outbufend,replybuffer);

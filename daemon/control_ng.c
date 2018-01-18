@@ -176,6 +176,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		g_atomic_int_inc(&cur->ping);
 	}
 	else if (!str_cmp(&cmd, "offer")) {
+		//TODO inc offers per second
 		// start offer timer
 		gettimeofday(&offer_start, NULL);
 
@@ -188,8 +189,10 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// print offer duration
 		timeval_from_us(&offer_stop, timeval_diff(&offer_stop, &offer_start));
 		ilog(LOG_INFO, "offer time = %llu.%06llu sec", (unsigned long long)offer_stop.tv_sec, (unsigned long long)offer_stop.tv_usec);
+		atomic64_inc(&c->callmaster->statsps.offers);
 	}
 	else if (!str_cmp(&cmd, "answer")) {
+		//TODO inc answers per second
 		// start answer timer
 		gettimeofday(&answer_start, NULL);
 
@@ -202,8 +205,10 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// print answer duration
 		timeval_from_us(&answer_stop, timeval_diff(&answer_stop, &answer_start));
 		ilog(LOG_INFO, "answer time = %llu.%06llu sec", (unsigned long long)answer_stop.tv_sec, (unsigned long long)answer_stop.tv_usec);
+		atomic64_inc(&c->callmaster->statsps.answers);
 	}
 	else if (!str_cmp(&cmd, "delete")) {
+		//TODO inc deletes per second
 		// start delete timer
 		gettimeofday(&delete_start, NULL);
 
@@ -216,6 +221,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// print delete duration
 		timeval_from_us(&delete_stop, timeval_diff(&delete_stop, &delete_start));
 		ilog(LOG_INFO, "delete time = %llu.%06llu sec", (unsigned long long)delete_stop.tv_sec, (unsigned long long)delete_stop.tv_usec);
+		atomic64_inc(&c->callmaster->statsps.deletes);
 	}
 	else if (!str_cmp(&cmd, "query")) {
 		errstr = call_query_ng(dict, c->callmaster, resp);

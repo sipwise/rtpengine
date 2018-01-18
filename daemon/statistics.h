@@ -12,6 +12,9 @@ struct stats {
 	u_int64_t			delay_max;
 	u_int8_t			in_tos_tclass; /* XXX shouldn't be here - not stats */
 	atomic64			foreign_sessions; // unresponsible via redis notification
+	atomic64			offers;
+	atomic64			answers;
+	atomic64			deletes;
 };
 
 
@@ -19,6 +22,14 @@ struct request_time {
 	mutex_t lock;
 	u_int64_t count;
 	struct timeval time_min, time_max, time_avg;
+};
+
+struct requests_ps {
+	mutex_t lock;
+	u_int64_t count;
+	u_int64_t ps_min;
+	u_int64_t ps_max;
+	u_int64_t ps_avg;
 };
 
 
@@ -52,6 +63,7 @@ struct totalstats {
 	struct timeval		total_calls_duration_interval;
 
 	struct request_time	offer, answer, delete;
+	struct requests_ps	offers_ps, answers_ps, deletes_ps;
 };
 
 struct rtp_stats {

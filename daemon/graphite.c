@@ -38,6 +38,18 @@ void set_prefix(char* prefix) {
 	graphite_prefix = prefix;
 }
 
+static struct requests_ps clear_requests_per_second(struct requests_ps *requests) {
+	struct requests_ps ret;
+	mutex_lock(&requests->lock);
+	ret = *requests;
+	requests->count=0;
+	requests->ps_max = 0;
+	requests->ps_min = 0;
+	requests->ps_avg = 0;
+	mutex_unlock(&requests->lock);
+	return ret;
+}
+
 static struct request_time timeval_clear_request_time(struct request_time *request) {
 	struct request_time ret;
 
@@ -131,6 +143,10 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	ts->answer = timeval_clear_request_time(&cm->totalstats_interval.answer);
 	ts->delete = timeval_clear_request_time(&cm->totalstats_interval.delete);
 
+	ts->offers_ps = clear_requests_per_second(&cm->totalstats_interval.offers_ps);
+	ts->answers_ps = clear_requests_per_second(&cm->totalstats_interval.answers_ps);
+	ts->deletes_ps = clear_requests_per_second(&cm->totalstats_interval.deletes_ps);
+
 	rwlock_lock_r(&cm->hashlock);
 	mutex_lock(&cm->totalstats_interval.managed_sess_lock);
 	ts->managed_sess_max = cm->totalstats_interval.managed_sess_max;
@@ -147,6 +163,10 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	timeval_divide(&ts->offer.time_avg, &ts->offer.time_avg, ts->offer.count);
 	timeval_divide(&ts->answer.time_avg, &ts->answer.time_avg, ts->answer.count);
 	timeval_divide(&ts->delete.time_avg, &ts->delete.time_avg, ts->delete.count);
+	//compute average offers/answers/deletes per second
+	ts->offers_ps.ps_avg = (ts->offers_ps.count?(ts->offers_ps.ps_avg/ts->offers_ps.count):0);
+	ts->answers_ps.ps_avg = (ts->answers_ps.count?(ts->answers_ps.ps_avg/ts->answers_ps.count):0);
+	ts->deletes_ps.ps_avg = (ts->deletes_ps.count?(ts->deletes_ps.ps_avg/ts->deletes_ps.count):0);
 
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"offer_time_min %llu.%06llu %llu\n",(unsigned long long)ts->offer.time_min.tv_sec,(unsigned long long)ts->offer.time_min.tv_usec,(unsigned long long)g_now.tv_sec); ptr += rc;
@@ -205,6 +225,27 @@ int send_graphite_data(struct callmaster *cm, struct totalstats *sent_data) {
 	rc = sprintf(ptr,"timeout_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_timeout_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
 	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
 	rc = sprintf(ptr,"reject_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_rejected_sess),(unsigned long long)g_now.tv_sec); ptr += rc;
+
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"offers_ps_min %llu %llu\n",(unsigned long long)ts->offers_ps.ps_min,(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"offers_ps_max %llu %llu\n",(unsigned long long)ts->offers_ps.ps_max,(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"offers_ps_avg %llu %llu\n",(unsigned long long)ts->offers_ps.ps_avg,(unsigned long long)g_now.tv_sec); ptr += rc;
+
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"answers_ps_min %llu %llu\n",(unsigned long long)ts->answers_ps.ps_min,(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"answers_ps_max %llu %llu\n",(unsigned long long)ts->answers_ps.ps_max,(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"answers_ps_avg %llu %llu\n",(unsigned long long)ts->answers_ps.ps_avg,(unsigned long long)g_now.tv_sec); ptr += rc;
+
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"deletes_ps_min %llu %llu\n",(unsigned long long)ts->deletes_ps.ps_min,(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"deletes_ps_max %llu %llu\n",(unsigned long long)ts->deletes_ps.ps_max,(unsigned long long)g_now.tv_sec); ptr += rc;
+	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
+	rc = sprintf(ptr,"deletes_ps_avg %llu %llu\n",(unsigned long long)ts->deletes_ps.ps_avg,(unsigned long long)g_now.tv_sec); ptr += rc;
 
 	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%llu.%06llu at time %llu\n",
 			(unsigned long long) ts->managed_sess_min,

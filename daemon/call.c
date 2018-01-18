@@ -460,6 +460,24 @@ destroy:
 		atomic64_add(&ps->stats.x, d);			\
 		atomic64_add(&m->statsps.x, d);			\
 	} while (0)
+
+static void update_requests_per_second_stats(struct requests_ps *request, u_int64_t new_val) {
+	mutex_lock(&request->lock);
+
+	request->count++;
+	request->ps_avg += new_val;
+
+	if ((request->ps_min == 0) || (request->ps_min > new_val)) {
+		request->ps_min = new_val;
+	}
+
+	if ((request->ps_max == 0) || (request->ps_max < new_val)) {
+		request->ps_max = new_val;
+	}
+
+	mutex_unlock(&request->lock);
+}
+
 static void callmaster_timer(void *ptr) {
 	struct callmaster *m = ptr;
 	struct iterator_helper hlp;
@@ -472,6 +490,7 @@ static void callmaster_timer(void *ptr) {
 	struct rtp_stats *rs;
 	unsigned int pt;
 	endpoint_t ep;
+	int offers, answers, deletes;
 
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
@@ -497,6 +516,19 @@ static void callmaster_timer(void *ptr) {
 	atomic64_set(&m->stats.bytes, atomic64_get_na(&tmpstats.bytes));
 	atomic64_set(&m->stats.packets, atomic64_get_na(&tmpstats.packets));
 	atomic64_set(&m->stats.errors, atomic64_get_na(&tmpstats.errors));
+
+	/* update statistics regarding requests per second */
+	offers = atomic64_get(&m->statsps.offers);
+	atomic64_set(&m->statsps.offers, 0);
+	update_requests_per_second_stats(&m->totalstats_interval.offers_ps, offers);
+
+	answers = atomic64_get(&m->statsps.answers);
+	atomic64_set(&m->statsps.answers, 0);
+	update_requests_per_second_stats(&m->totalstats_interval.answers_ps,	answers);
+
+	deletes = atomic64_get(&m->statsps.deletes);
+	atomic64_set(&m->statsps.deletes, 0);
+	update_requests_per_second_stats(&m->totalstats_interval.deletes_ps,	deletes);
 
 	i = kernel_list();
 	while (i) {
@@ -642,6 +674,9 @@ struct callmaster *callmaster_new(struct poller *p) {
 	mutex_init(&c->cngs_lock);
 	c->cngs_hash = g_hash_table_new(g_sockaddr_hash, g_sockaddr_eq);
 
+	mutex_init(&c->totalstats_interval.offers_ps.lock);
+	mutex_init(&c->totalstats_interval.answers_ps.lock);
+	mutex_init(&c->totalstats_interval.deletes_ps.lock);
 	return c;
 
 fail:
