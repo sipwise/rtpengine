@@ -409,7 +409,7 @@ static void stun_error_len(struct stream_fd *sfd, const endpoint_t *sin,
 
 
 
-static int check_fingerprint(str *msg, struct stun_attrs *attrs) {
+static int check_fingerprint(const str *msg, struct stun_attrs *attrs) {
 	int len;
 	u_int32_t crc;
 
@@ -422,7 +422,7 @@ static int check_fingerprint(str *msg, struct stun_attrs *attrs) {
 	return 0;
 }
 
-static int check_auth(str *msg, struct stun_attrs *attrs, struct call_media *media, int dst, int src) {
+static int check_auth(const str *msg, struct stun_attrs *attrs, struct call_media *media, int dst, int src) {
 	u_int16_t lenX;
 	char digest[20];
 	str ufrag[2];
@@ -553,7 +553,7 @@ static int __stun_error(struct stream_fd *sfd, const endpoint_t *sin,
  *
  * call is locked in R
  */
-int stun(str *b, struct stream_fd *sfd, const endpoint_t *sin) {
+int stun(const str *b, struct stream_fd *sfd, const endpoint_t *sin) {
 	struct header *req = (void *) b->s;
 	int msglen, method, class;
 	str attr_str;
