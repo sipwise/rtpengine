@@ -20,6 +20,7 @@ flags = [
     '-I/usr/lib/x86_64-linux-gnu/glib-2.0/include',
     '-pthread',
     '-I../kernel-module/',
+    '-I../lib/',
     '-D_GNU_SOURCE',
     '-D__DEBUG=1',
     '-D__YCM=1',
