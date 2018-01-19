@@ -199,6 +199,7 @@ struct local_interface;
 struct call_monologue;
 struct ice_agent;
 struct ssrc_hash;
+struct codec_handler;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -323,8 +324,13 @@ struct call_media {
 	GQueue			streams; /* normally RTP + RTCP */
 	GQueue			endpoint_maps;
 
-	GHashTable		*codecs;
-	GQueue			codecs_prefs;
+	GHashTable		*codecs; // int payload type -> struct rtp_payload_type; storage container
+	GHashTable		*codec_names; // codec name -> GQueue of int payload types; storage container
+	GQueue			codecs_prefs_recv, // preference by order in SDP; values shared with 'codecs'
+				codecs_prefs_send; // ditto for outgoing media; storage container
+	GHashTable		*codec_handlers; // int payload type -> struct codec_handler
+						// XXX combine this with 'codecs' hash table?
+	volatile struct codec_handler *codec_handler_cache;
 
 	volatile unsigned int	media_flags;
 };
