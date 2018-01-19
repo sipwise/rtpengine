@@ -41,6 +41,8 @@
 #include "cdr.h"
 #include "statistics.h"
 #include "ssrc.h"
+#include "main.h"
+#include "graphite.h"
 
 
 /* also serves as array index for callstream->peers[] */
@@ -115,12 +117,19 @@ const struct transport_protocol transport_protocols[] = {
 };
 const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
+/* XXX rework these */
+struct stats rtpe_statsps;
+struct stats rtpe_stats;
+
+rwlock_t rtpe_callhash_lock;
+GHashTable *rtpe_callhash;
+
 /* ********** */
 
 static void __monologue_destroy(struct call_monologue *monologue);
 static int monologue_destroy(struct call_monologue *ml);
-static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
-		struct timeval *interval_start, struct timeval *interval_duration);
+static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
+		struct timeval *interval_duration);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -138,7 +147,7 @@ static int call_timer_delete_monologues(struct call *c) {
 
 		if (!ml->deleted)
 			continue;
-		if (ml->deleted > poller_now) {
+		if (ml->deleted > rtpe_now.tv_sec) {
 			if (!min_deleted || ml->deleted < min_deleted)
 				min_deleted = ml->deleted;
 			continue;
@@ -162,12 +171,11 @@ out:
 
 
 
-/* called with callmaster->hashlock held */
+/* called with hashlock held */
 static void call_timer_iterator(gpointer data, gpointer user_data) {
 	struct call *c = data;
 	struct iterator_helper *hlp = user_data;
 	GList *it;
-	struct callmaster *cm;
 	unsigned int check;
 	int good = 0;
 	struct packet_stream *ps;
@@ -180,11 +188,10 @@ static void call_timer_iterator(gpointer data, gpointer user_data) {
 	rwlock_lock_r(&c->master_lock);
 	log_info_call(c);
 
-	cm = c->callmaster;
-	rwlock_lock_r(&cm->conf.config_lock);
+	rwlock_lock_r(&rtpe_config.config_lock);
 
 	// final timeout applicable to all calls (own and foreign)
-	if (cm->conf.final_timeout && poller_now >= (c->created.tv_sec + cm->conf.final_timeout)) {
+	if (rtpe_config.final_timeout && rtpe_now.tv_sec >= (c->created.tv_sec + rtpe_config.final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
 		for (it = c->monologues.head; it; it = it->next) {
@@ -201,11 +208,11 @@ static void call_timer_iterator(gpointer data, gpointer user_data) {
 		goto out;
 	}
 
-	if (c->deleted && poller_now >= c->deleted
+	if (c->deleted && rtpe_now.tv_sec >= c->deleted
 			&& c->last_signal <= c->deleted)
 		goto delete;
 
-	if (c->ml_deleted && poller_now >= c->ml_deleted) {
+	if (c->ml_deleted && rtpe_now.tv_sec >= c->ml_deleted) {
 		if (call_timer_delete_monologues(c))
 			goto delete;
 	}
@@ -239,14 +246,14 @@ no_sfd:
 		if (good)
 			goto next;
 
-		check = cm->conf.timeout;
+		check = rtpe_config.timeout;
 		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd || !PS_ISSET(ps, FILLED)) {
-			check = cm->conf.silent_timeout;
+			check = rtpe_config.silent_timeout;
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
 
-		if (poller_now - atomic64_get(timestamp) < check)
+		if (rtpe_now.tv_sec - atomic64_get(timestamp) < check)
 			good = 1;
 
 next:
@@ -277,7 +284,7 @@ delete:
 	goto out;
 
 out:
-	rwlock_unlock_r(&cm->conf.config_lock);
+	rwlock_unlock_r(&rtpe_config.config_lock);
 	rwlock_unlock_r(&c->master_lock);
 	log_info_clear();
 }
@@ -330,7 +337,7 @@ retry:
 		for (i = 0; i < 100; i++)
 			close(i);
 
-		if (!ilog_stderr) {
+		if (!rtpe_config.common.log_stderr) {
 			openlog("rtpengine/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 		}
 		ilog(LOG_INFO, "Initiating XMLRPC call for tag "STR_FORMAT"", STR_FMT(tag));
@@ -376,19 +383,18 @@ fault:
 	g_slice_free1(sizeof(*xh), xh);
 }
 
-void kill_calls_timer(GSList *list, struct callmaster *m) {
+void kill_calls_timer(GSList *list, const char *url) {
 	struct call *ca;
 	GList *csl;
 	struct call_monologue *cm;
-	const char *url, *url_prefix, *url_suffix;
+	const char *url_prefix, *url_suffix;
 	struct xmlrpc_helper *xh = NULL;
 	char url_buf[128];
 
 	if (!list)
 		return;
 
-	/* if m is NULL, it's the scheduled deletions, otherwise it's the timeouts */
-	url = m ? m->conf.b2b_url : NULL;
+	/* if url is NULL, it's the scheduled deletions, otherwise it's the timeouts */
 	if (url) {
 		xh = g_slice_alloc(sizeof(*xh));
 		xh->c = g_string_chunk_new(64);
@@ -401,7 +407,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 		else
 			url_suffix = g_string_chunk_insert(xh->c, url);
 		xh->tags_urls = NULL;
-		xh->fmt = m->conf.fmt;
+		xh->fmt = rtpe_config.fmt;
 	}
 
 	while (list) {
@@ -420,7 +426,7 @@ void kill_calls_timer(GSList *list, struct callmaster *m) {
 		else
 			snprintf(url_buf, sizeof(url_buf), "%s", url_suffix);
 
-		switch (m->conf.fmt) {
+		switch (rtpe_config.fmt) {
 		case XF_SEMS:
 			for (csl = ca->monologues.head; csl; csl = csl->next) {
 				cm = csl->data;
@@ -458,7 +464,7 @@ destroy:
 		else							\
 			d = ke->stats.x - ks_val;			\
 		atomic64_add(&ps->stats.x, d);			\
-		atomic64_add(&m->statsps.x, d);			\
+		atomic64_add(&rtpe_statsps.x, d);			\
 	} while (0)
 
 static void update_requests_per_second_stats(struct requests_ps *request, u_int64_t new_val) {
@@ -478,8 +484,7 @@ static void update_requests_per_second_stats(struct requests_ps *request, u_int6
 	mutex_unlock(&request->lock);
 }
 
-static void callmaster_timer(void *ptr) {
-	struct callmaster *m = ptr;
+static void call_timer(void *ptr) {
 	struct iterator_helper hlp;
 	GList *i, *l, *calls = NULL;
 	struct rtpengine_list_entry *ke;
@@ -496,39 +501,39 @@ static void callmaster_timer(void *ptr) {
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
 
 	/* obtain the call list and make a copy from it so not to hold the lock */
-	rwlock_lock_r(&m->hashlock);
-	l = g_hash_table_get_values(m->callhash);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	l = g_hash_table_get_values(rtpe_callhash);
 	if (l) {
 		calls = g_list_copy(l);
 		g_list_free(l);
 		g_list_foreach(calls, call_obj_get, NULL);
 	}
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	if (calls) {
 		g_list_foreach(calls, call_timer_iterator, &hlp);
 		g_list_free_full(calls, call_obj_put);
 	}
-	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, bytes);
-	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, packets);
-	atomic64_local_copy_zero_struct(&tmpstats, &m->statsps, errors);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, bytes);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, packets);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, errors);
 
-	atomic64_set(&m->stats.bytes, atomic64_get_na(&tmpstats.bytes));
-	atomic64_set(&m->stats.packets, atomic64_get_na(&tmpstats.packets));
-	atomic64_set(&m->stats.errors, atomic64_get_na(&tmpstats.errors));
+	atomic64_set(&rtpe_stats.bytes, atomic64_get_na(&tmpstats.bytes));
+	atomic64_set(&rtpe_stats.packets, atomic64_get_na(&tmpstats.packets));
+	atomic64_set(&rtpe_stats.errors, atomic64_get_na(&tmpstats.errors));
 
 	/* update statistics regarding requests per second */
-	offers = atomic64_get(&m->statsps.offers);
-	atomic64_set(&m->statsps.offers, 0);
-	update_requests_per_second_stats(&m->totalstats_interval.offers_ps, offers);
+	offers = atomic64_get(&rtpe_statsps.offers);
+	atomic64_set(&rtpe_statsps.offers, 0);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, offers);
 
-	answers = atomic64_get(&m->statsps.answers);
-	atomic64_set(&m->statsps.answers, 0);
-	update_requests_per_second_stats(&m->totalstats_interval.answers_ps,	answers);
+	answers = atomic64_get(&rtpe_statsps.answers);
+	atomic64_set(&rtpe_statsps.answers, 0);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps,	answers);
 
-	deletes = atomic64_get(&m->statsps.deletes);
-	atomic64_set(&m->statsps.deletes, 0);
-	update_requests_per_second_stats(&m->totalstats_interval.deletes_ps,	deletes);
+	deletes = atomic64_get(&rtpe_statsps.deletes);
+	atomic64_set(&rtpe_statsps.deletes, 0);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes);
 
 	i = kernel_list();
 	while (i) {
@@ -553,7 +558,7 @@ static void callmaster_timer(void *ptr) {
 
 
 		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
-			atomic64_set(&ps->last_packet, poller_now);
+			atomic64_set(&ps->last_packet, rtpe_now.tv_sec);
 
 		ps->stats.in_tos_tclass = ke->stats.in_tos;
 
@@ -613,7 +618,7 @@ static void callmaster_timer(void *ptr) {
 		rwlock_unlock_r(&sfd->call->master_lock);
 
 		if (update) {
-				redis_update_onekey(ps->call, m->conf.redis_write);
+				redis_update_onekey(ps->call, rtpe_redis_write);
 		}
 
 next:
@@ -631,57 +636,20 @@ next:
 	g_hash_table_destroy(hlp.addr_sfd);
 
 	kill_calls_timer(hlp.del_scheduled, NULL);
-	kill_calls_timer(hlp.del_timeout, m);
+	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);
 }
 #undef DS
 
 
-struct callmaster *callmaster_new(struct poller *p) {
-	struct callmaster *c;
-	const char *errptr;
-	int erroff;
+int call_init() {
+	rtpe_callhash = g_hash_table_new(str_hash, str_equal);
+	if (!rtpe_callhash)
+		return -1;
+	rwlock_init(&rtpe_callhash_lock);
 
-	c = obj_alloc0("callmaster", sizeof(*c), NULL);
+	poller_add_timer(rtpe_poller, call_timer, NULL);
 
-	c->callhash = g_hash_table_new(str_hash, str_equal);
-	if (!c->callhash)
-		goto fail;
-	c->poller = p;
-	rwlock_init(&c->hashlock);
-
-	c->info_re = pcre_compile("^([^:,]+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
-	if (!c->info_re)
-		goto fail;
-	c->info_ree = pcre_study(c->info_re, 0, &errptr);
-
-	c->streams_re = pcre_compile("^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
-	if (!c->streams_re)
-		goto fail;
-	c->streams_ree = pcre_study(c->streams_re, 0, &errptr);
-
-	poller_add_timer(p, callmaster_timer, &c->obj);
-
-	mutex_init(&c->totalstats.total_average_lock);
-	mutex_init(&c->totalstats_interval.total_average_lock);
-	mutex_init(&c->totalstats_interval.managed_sess_lock);
-	mutex_init(&c->totalstats_interval.total_calls_duration_lock);
-
-	c->totalstats.started = poller_now;
-	//c->totalstats_interval.managed_sess_min = 0; // already zeroed
-	//c->totalstats_interval.managed_sess_max = 0;
-
-	mutex_init(&c->totalstats_lastinterval_lock);
-	mutex_init(&c->cngs_lock);
-	c->cngs_hash = g_hash_table_new(g_sockaddr_hash, g_sockaddr_eq);
-
-	mutex_init(&c->totalstats_interval.offers_ps.lock);
-	mutex_init(&c->totalstats_interval.answers_ps.lock);
-	mutex_init(&c->totalstats_interval.deletes_ps.lock);
-	return c;
-
-fail:
-	obj_put(c);
-	return NULL;
+	return 0;
 }
 
 
@@ -717,7 +685,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->call = ml->call;
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
-	med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
+	med->codecs = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
 
 	g_queue_push_tail(&ml->medias, med);
 
@@ -879,7 +847,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
-	atomic64_set_na(&stream->last_packet, poller_now);
+	atomic64_set_na(&stream->last_packet, rtpe_now.tv_sec);
 	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
 	recording_init_stream(stream);
 
@@ -1014,7 +982,7 @@ void __rtp_stats_update(GHashTable *dst, GHashTable *src) {
 	struct rtp_payload_type *pt;
 	GList *values, *l;
 
-	/* "src" is a call_media->rtp_payload_types table, while "dst" is a
+	/* "src" is a call_media->codecs table, while "dst" is a
 	 * packet_stream->rtp_stats table */
 
 	values = g_hash_table_get_values(src);
@@ -1052,7 +1020,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		a->rtp_sink = b;
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
-		__rtp_stats_update(a->rtp_stats, A->rtp_payload_types);
+		__rtp_stats_update(a->rtp_stats, A->codecs);
 
 		if (sp) {
 			__fill_stream(a, &sp->rtp_endpoint, port_off, sp);
@@ -1395,7 +1363,7 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 		return;
 
 	if (!flags || flags->tos > 255)
-		new_tos = call->callmaster->conf.default_tos;
+		new_tos = rtpe_config.default_tos;
 	else
 		new_tos = flags->tos;
 
@@ -1416,7 +1384,9 @@ static void __init_interface(struct call_media *media, const str *ifname, int nu
 		goto get;
 	if (!ifname || !ifname->s)
 		return;
-	if (!str_cmp_str(&media->logical_intf->name, ifname) || !str_cmp(ifname, ALGORITHM_ROUND_ROBIN_CALLS))
+	if (!str_cmp_str(&media->logical_intf->name, ifname))
+		return;
+	if (g_hash_table_lookup(media->logical_intf->rr_specs, ifname))
 		return;
 get:
 	media->logical_intf = get_logical_interface(ifname, media->desired_family, num_ports);
@@ -1481,18 +1451,56 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 		MEDIA_SET(other_media, DTLS);
 }
 
-static void __rtp_payload_types(struct call_media *media, GQueue *types) {
-	struct rtp_payload_type *pt;
+static void __rtp_payload_type_add(struct call_media *media, struct rtp_payload_type *pt) {
 	struct call *call = media->call;
+	/* we must duplicate the contents */
+	call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
+	call_str_cpy(call, &pt->encoding, &pt->encoding);
+	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
+	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
+	g_hash_table_replace(media->codecs, &pt->payload_type, pt);
+	g_queue_push_tail(&media->codecs_prefs, pt);
+}
+
+static void __rtp_payload_types(struct call_media *media, GQueue *types, GHashTable *strip,
+		const GQueue *offer)
+{
+	struct rtp_payload_type *pt;
+	static const str str_all = STR_CONST_INIT("all");
+	GHashTable *removed = g_hash_table_new_full(str_hash, str_equal, NULL, __payload_type_free);
+	int remove_all = 0;
+
+	// start fresh
+	g_queue_clear(&media->codecs_prefs);
+
+	if (strip && g_hash_table_lookup(strip, &str_all))
+		remove_all = 1;
 
 	/* we steal the entire list to avoid duplicate allocs */
 	while ((pt = g_queue_pop_head(types))) {
-		/* but we must duplicate the contents */
-		call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
-		call_str_cpy(call, &pt->encoding, &pt->encoding);
-		call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
-		g_hash_table_replace(media->rtp_payload_types, &pt->payload_type, pt);
+		// codec stripping
+		if (strip) {
+			if (remove_all || g_hash_table_lookup(strip, &pt->encoding)) {
+				g_hash_table_replace(removed, &pt->encoding, pt);
+				continue;
+			}
+		}
+		__rtp_payload_type_add(media, pt);
 	}
+
+	if (offer) {
+		// now restore codecs that have been removed, but should be offered
+		for (GList *l = offer->head; l; l = l->next) {
+			str *codec = l->data;
+			pt = g_hash_table_lookup(removed, codec);
+			if (!pt)
+				continue;
+			g_hash_table_steal(removed, codec);
+			__rtp_payload_type_add(media, pt);
+		}
+	}
+
+	g_hash_table_destroy(removed);
 }
 
 static void __ice_start(struct call_media *media) {
@@ -1504,33 +1512,6 @@ static void __ice_start(struct call_media *media) {
 		return;
 
 	ice_agent_init(&media->ice_agent, media);
-}
-
-static int get_algorithm_num_ports(GQueue *streams, char *algorithm) {
-	unsigned int algorithm_ports = 0;
-	struct stream_params *sp;
-	GList *media_iter;
-
-	if (algorithm == NULL) {
-		return 0;
-	}
-
-	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
-		sp = media_iter->data;
-
-		if (!str_cmp(&sp->direction[0], algorithm)) {
-			algorithm_ports += sp->consecutive_ports;
-		}
-
-		if (!str_cmp(&sp->direction[1], algorithm)) {
-			algorithm_ports += sp->consecutive_ports;
-		}
-	}
-
-	// XXX only do *=2 for RTP streams?
-	algorithm_ports *= 2;
-
-	return algorithm_ports;
 }
 
 static void __endpoint_loop_protect(struct stream_params *sp, struct call_media *media) {
@@ -1564,7 +1545,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	GList *media_iter, *ml_media, *other_ml_media;
 	struct call_media *media, *other_media;
 	unsigned int num_ports;
-	unsigned int rr_calls_ports;
 	struct call_monologue *monologue;
 	struct endpoint_map *em;
 	struct call *call;
@@ -1579,11 +1559,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	monologue = other_ml->active_dialogue;
 	call = monologue->call;
 
-	call->last_signal = poller_now;
+	call->last_signal = rtpe_now.tv_sec;
 	call->deleted = 0;
-
-	// get the total number of ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
-	rr_calls_ports = get_algorithm_num_ports(streams, ALGORITHM_ROUND_ROBIN_CALLS);
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
@@ -1594,7 +1571,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
 		sp = media_iter->data;
 		__C_DBG("processing media stream #%u", sp->index);
-		__C_DBG("free ports needed for round-robin-calls, left for this call %u", rr_calls_ports);
 
 		/* first, check for existence of call_media struct on both sides of
 		 * the dialogue */
@@ -1647,7 +1623,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				MEDIA_SET(other_media, SDES);
 		}
 
-		__rtp_payload_types(media, &sp->rtp_payload_types);
+		__rtp_payload_types(media, &sp->rtp_payload_types, flags->codec_strip, &flags->codec_offer);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
@@ -1674,9 +1650,15 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				media->desired_family = sp->desired_family;
 		}
 
+		/* determine number of consecutive ports needed locally.
+		 * XXX only do *=2 for RTP streams? */
+		num_ports = sp->consecutive_ports;
+		num_ports *= 2;
+
+
 		/* local interface selection */
-		__init_interface(media, &sp->direction[1], rr_calls_ports);
-		__init_interface(other_media, &sp->direction[0], rr_calls_ports);
+		__init_interface(media, &sp->direction[1], num_ports);
+		__init_interface(other_media, &sp->direction[0], num_ports);
 
 		if (media->logical_intf == NULL || other_media->logical_intf == NULL) {
 			goto error_intf;
@@ -1691,12 +1673,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* we now know what's being advertised by the other side */
 		MEDIA_SET(other_media, INITIALIZED);
-
-
-		/* determine number of consecutive ports needed locally.
-		 * XXX only do *=2 for RTP streams? */
-		num_ports = sp->consecutive_ports;
-		num_ports *= 2;
 
 
 		if (!sp->rtp_endpoint.port) {
@@ -1721,11 +1697,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		em = __get_endpoint_map(media, num_ports, &sp->rtp_endpoint, flags);
 		if (!em) {
 			goto error_ports;
-		} else {
-			// update the ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
-			if (str_cmp(&sp->direction[1], ALGORITHM_ROUND_ROBIN_CALLS) == 0) {
-				rr_calls_ports -= num_ports;
-			}
 		}
 
 		__num_media_streams(media, num_ports);
@@ -1737,11 +1708,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			 * when the answer comes. */
 			if (__wildcard_endpoint_map(other_media, num_ports))
 				goto error_ports;
-
-			// update the ports needed for ALGORITHM_ROUND_ROBIN_CALLS algorithm
-			if (str_cmp(&sp->direction[0], ALGORITHM_ROUND_ROBIN_CALLS) == 0) {
-				rr_calls_ports -= num_ports;
-			}
 		}
 
 init:
@@ -1803,35 +1769,35 @@ const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 	if (atomic64_get(&rtp_s->packets) == 0)
 		goto out;
 
-	rtp_pt = rtp_payload_type(rtp_s->payload_type, m->rtp_payload_types);
+	rtp_pt = rtp_payload_type(rtp_s->payload_type, m->codecs);
 
 out:
 	g_list_free(values);
 	return rtp_pt; /* may be NULL */
 }
 
-void add_total_calls_duration_in_interval(struct callmaster *cm,
-		struct timeval *interval_tv) {
-	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(cm,
-			&cm->latest_graphite_interval_start, interval_tv);
+void add_total_calls_duration_in_interval(struct timeval *interval_tv) {
+	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(
+			&rtpe_latest_graphite_interval_start, interval_tv);
 
-	mutex_lock(&cm->totalstats_interval.total_calls_duration_lock);
-	timeval_add(&cm->totalstats_interval.total_calls_duration_interval,
-			&cm->totalstats_interval.total_calls_duration_interval,
+	mutex_lock(&rtpe_totalstats_interval.total_calls_duration_lock);
+	timeval_add(&rtpe_totalstats_interval.total_calls_duration_interval,
+			&rtpe_totalstats_interval.total_calls_duration_interval,
 			&ongoing_calls_dur);
-	mutex_unlock(&cm->totalstats_interval.total_calls_duration_lock);
+	mutex_unlock(&rtpe_totalstats_interval.total_calls_duration_lock);
 }
 
-static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
-		struct timeval *interval_start, struct timeval *interval_duration) {
+static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
+		struct timeval *interval_duration)
+{
 	GHashTableIter iter;
 	gpointer key, value;
 	struct timeval call_duration, res = {0};
 	struct call *call;
 	struct call_monologue *ml;
 
-	rwlock_lock_r(&m->hashlock);
-	g_hash_table_iter_init(&iter, m->callhash);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	g_hash_table_iter_init(&iter, rtpe_callhash);
 
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		call = (struct call*) value;
@@ -1841,20 +1807,18 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct callmaster *m,
 		if (timercmp(interval_start, &ml->started, >)) {
 			timeval_add(&res, &res, interval_duration);
 		} else {
-			timeval_subtract(&call_duration, &g_now, &ml->started);
+			timeval_subtract(&call_duration, &rtpe_now, &ml->started);
 			timeval_add(&res, &res, &call_duration);
 		}
 	}
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 	return res;
 }
 
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
-	struct callmaster *m;
 	struct packet_stream *ps=0;
 	struct stream_fd *sfd;
-	struct poller *p;
 	GList *l;
 	int ret;
 	struct call_monologue *ml;
@@ -1866,14 +1830,11 @@ void call_destroy(struct call *c) {
 		return;
 	}
 
-	m = c->callmaster;
-	p = m->poller;
-
-	rwlock_lock_w(&m->hashlock);
-	ret = (g_hash_table_lookup(m->callhash, &c->callid) == c);
+	rwlock_lock_w(&rtpe_callhash_lock);
+	ret = (g_hash_table_lookup(rtpe_callhash, &c->callid) == c);
 	if (ret)
-		g_hash_table_remove(m->callhash, &c->callid);
-	rwlock_unlock_w(&m->hashlock);
+		g_hash_table_remove(rtpe_callhash, &c->callid);
+	rwlock_unlock_w(&rtpe_callhash_lock);
 
 	// if call not found in callhash => previously deleted
 	if (!ret)
@@ -1885,7 +1846,7 @@ void call_destroy(struct call *c) {
 	statistics_update_foreignown_dec(c);
 
 	if (IS_OWN_CALL(c)) {
-		redis_delete(c, m->conf.redis_write);
+		redis_delete(c, rtpe_redis_write);
 	}
 
 	rwlock_lock_w(&c->master_lock);
@@ -1905,8 +1866,8 @@ void call_destroy(struct call *c) {
 				ml->label.s ? " (label '" : "",
 				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 				ml->label.s ? "')" : "",
-				(unsigned int) (poller_now - ml->created) / 60,
-				(unsigned int) (poller_now - ml->created) % 60,
+				(unsigned int) (rtpe_now.tv_sec - ml->created) / 60,
+				(unsigned int) (rtpe_now.tv_sec - ml->created) % 60,
 				STR_FMT(&ml->viabranch),
 				ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
 				ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
@@ -1945,9 +1906,9 @@ void call_destroy(struct call *c) {
 						atomic64_get(&ps->stats.packets),
 						atomic64_get(&ps->stats.bytes),
 						atomic64_get(&ps->stats.errors),
-						g_now.tv_sec - atomic64_get(&ps->last_packet));
+						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
 
-				statistics_update_totals(m,ps);
+				statistics_update_totals(ps);
 
 			}
 
@@ -1999,7 +1960,7 @@ no_stats_output:
 
 	while (c->stream_fds.head) {
 		sfd = g_queue_pop_head(&c->stream_fds);
-		poller_del_item(p, sfd->socket.fd);
+		poller_del_item(rtpe_poller, sfd->socket.fd);
 		obj_put(sfd);
 	}
 
@@ -2071,7 +2032,8 @@ static void __call_free(void *p) {
 		crypto_params_cleanup(&md->sdes_out.params);
 		g_queue_clear(&md->streams);
 		g_queue_clear(&md->endpoint_maps);
-		g_hash_table_destroy(md->rtp_payload_types);
+		g_hash_table_destroy(md->codecs);
+		g_queue_clear(&md->codecs_prefs);
 		g_slice_free1(sizeof(*md), md);
 	}
 
@@ -2097,58 +2059,57 @@ static void __call_free(void *p) {
 	assert(c->stream_fds.head == NULL);
 }
 
-static struct call *call_create(const str *callid, struct callmaster *m) {
+static struct call *call_create(const str *callid) {
 	struct call *c;
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0("call", sizeof(*c), __call_free);
-	c->callmaster = m;
 	mutex_init(&c->buffer_lock);
 	call_buffer_init(&c->buffer);
 	rwlock_init(&c->master_lock);
 	c->tags = g_hash_table_new(str_hash, str_equal);
 	c->viabranches = g_hash_table_new(str_hash, str_equal);
 	call_str_cpy(c, &c->callid, callid);
-	c->created = g_now;
+	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
-	c->tos = m->conf.default_tos;
+	c->tos = rtpe_config.default_tos;
 	c->ssrc_hash = create_ssrc_hash();
 
 	return c;
 }
 
 /* returns call with master_lock held in W */
-struct call *call_get_or_create(const str *callid, struct callmaster *m, enum call_type type) {
+struct call *call_get_or_create(const str *callid, enum call_type type) {
 	struct call *c;
 
 restart:
-	rwlock_lock_r(&m->hashlock);
-	c = g_hash_table_lookup(m->callhash, callid);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	c = g_hash_table_lookup(rtpe_callhash, callid);
 	if (!c) {
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 		/* completely new call-id, create call */
-		c = call_create(callid, m);
-		rwlock_lock_w(&m->hashlock);
-		if (g_hash_table_lookup(m->callhash, callid)) {
+		c = call_create(callid);
+		rwlock_lock_w(&rtpe_callhash_lock);
+		if (g_hash_table_lookup(rtpe_callhash, callid)) {
 			/* preempted */
-			rwlock_unlock_w(&m->hashlock);
+			rwlock_unlock_w(&rtpe_callhash_lock);
 			obj_put(c);
 			goto restart;
 		}
-		g_hash_table_insert(m->callhash, &c->callid, obj_get(c));
+		g_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
 
 		if (type == CT_FOREIGN_CALL)  /* foreign call*/
 					c->foreign_call = 1;
 
-		statistics_update_foreignown_inc(m,c);
+		statistics_update_foreignown_inc(c);
 
 		rwlock_lock_w(&c->master_lock);
-		rwlock_unlock_w(&m->hashlock);
+		rwlock_unlock_w(&rtpe_callhash_lock);
 	}
 	else {
 		obj_hold(c);
 		rwlock_lock_w(&c->master_lock);
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 	}
 
 	log_info_call(c);
@@ -2156,29 +2117,29 @@ restart:
 }
 
 /* returns call with master_lock held in W, or NULL if not found */
-struct call *call_get(const str *callid, struct callmaster *m) {
+struct call *call_get(const str *callid) {
 	struct call *ret;
 
-	rwlock_lock_r(&m->hashlock);
-	ret = g_hash_table_lookup(m->callhash, callid);
+	rwlock_lock_r(&rtpe_callhash_lock);
+	ret = g_hash_table_lookup(rtpe_callhash, callid);
 	if (!ret) {
-		rwlock_unlock_r(&m->hashlock);
+		rwlock_unlock_r(&rtpe_callhash_lock);
 		return NULL;
 	}
 
 	rwlock_lock_w(&ret->master_lock);
 	obj_hold(ret);
-	rwlock_unlock_r(&m->hashlock);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	log_info_call(ret);
 	return ret;
 }
 
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
-struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode) {
+struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
-		return call_get_or_create(callid, m, CT_OWN_CALL);
-	return call_get(callid, m);
+		return call_get_or_create(callid, CT_OWN_CALL);
+	return call_get(callid);
 }
 
 /* must be called with call->master_lock held in W */
@@ -2189,7 +2150,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret = uid_slice_alloc0(ret, &call->monologues);
 
 	ret->call = call;
-	ret->created = poller_now;
+	ret->created = rtpe_now.tv_sec;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
 
 	g_queue_init(&ret->medias);
@@ -2447,7 +2408,7 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 }
 
 
-int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
+int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
 {
 	struct call *c;
@@ -2457,9 +2418,9 @@ int call_delete_branch(struct callmaster *m, const str *callid, const str *branc
 	GList *i;
 
 	if (delete_delay < 0)
-		delete_delay = m->conf.delete_delay;
+		delete_delay = rtpe_config.delete_delay;
 
-	c = call_get(callid, m);
+	c = call_get(callid);
 	if (!c) {
 		ilog(LOG_INFO, "Call-ID to delete not found");
 		goto err;
@@ -2513,7 +2474,7 @@ do_delete:
 		ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' "
 				"(via-branch '"STR_FORMAT"') in %d seconds",
 				STR_FMT(&ml->tag), STR_FMT0(branch), delete_delay);
-		ml->deleted = poller_now + delete_delay;
+		ml->deleted = rtpe_now.tv_sec + delete_delay;
 		if (!c->ml_deleted || c->ml_deleted > ml->deleted)
 			c->ml_deleted = ml->deleted;
 	}
@@ -2528,7 +2489,7 @@ do_delete:
 del_all:
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);
-		c->deleted = poller_now + delete_delay;
+		c->deleted = rtpe_now.tv_sec + delete_delay;
 		rwlock_unlock_w(&c->master_lock);
 	}
 	else {
@@ -2557,63 +2518,18 @@ out:
 }
 
 
-static void callmaster_get_all_calls_interator(void *key, void *val, void *ptr) {
+static void call_get_all_calls_interator(void *key, void *val, void *ptr) {
 	GQueue *q = ptr;
 	g_queue_push_tail(q, obj_get_o(val));
 }
 
-void callmaster_get_all_calls(struct callmaster *m, GQueue *q) {
-	rwlock_lock_r(&m->hashlock);
-	g_hash_table_foreach(m->callhash, callmaster_get_all_calls_interator, q);
-	rwlock_unlock_r(&m->hashlock);
+void call_get_all_calls(GQueue *q) {
+	rwlock_lock_r(&rtpe_callhash_lock);
+	g_hash_table_foreach(rtpe_callhash, call_get_all_calls_interator, q);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
 }
 
-
-#if 0
-// unused
-// simplifty redis_write <> redis if put back into use
-static void calls_dump_iterator(void *key, void *val, void *ptr) {
-	struct call *c = val;
-	struct callmaster *m = c->callmaster;
-
-	if (m->conf.redis_write) {
-		redis_update(c, m->conf.redis_write);
-	} else if (m->conf.redis) {
-		redis_update(c, m->conf.redis);
-	}
-}
-
-void calls_dump_redis(struct callmaster *m) {
-	if (!m->conf.redis)
-		return;
-
-	ilog(LOG_DEBUG, "Start dumping all call data to Redis...\n");
-	redis_wipe(m->conf.redis);
-	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
-	ilog(LOG_DEBUG, "Finished dumping all call data to Redis\n");
-}
-
-void calls_dump_redis_read(struct callmaster *m) {
-	if (!m->conf.redis_read)
-		return;
-
-	ilog(LOG_DEBUG, "Start dumping all call data to read Redis...\n");
-	redis_wipe(m->conf.redis_read);
-	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
-	ilog(LOG_DEBUG, "Finished dumping all call data to read Redis\n");
-}
-
-void calls_dump_redis_write(struct callmaster *m) {
-	if (!m->conf.redis_write)
-		return;
-
-	ilog(LOG_DEBUG, "Start dumping all call data to write Redis...\n");
-	redis_wipe(m->conf.redis_write);
-	g_hash_table_foreach(m->callhash, calls_dump_iterator, NULL);
-	ilog(LOG_DEBUG, "Finished dumping all call data to write Redis\n");
-}
-#endif
 
 const struct transport_protocol *transport_protocol(const str *s) {
 	int i;

@@ -22,7 +22,7 @@
 
 
 static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
-		struct udp_listener *ul) {
+		socket_t *ul) {
 	struct control_udp *u = (void *) obj;
 	int ret;
 	int ovec[100];
@@ -60,7 +60,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iovlen = 2;
 		}
 
-		socket_sendiov(&ul->sock, iov, iovlen, sin);
+		socket_sendiov(ul, iov, iovlen, sin);
 
 		pcre_free(out);
 
@@ -75,7 +75,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
 	if (reply) {
 		ilog(LOG_INFO, "Detected command from udp:%s as a duplicate", addr);
-		socket_sendto(&ul->sock, reply->s, reply->len, sin);
+		socket_sendto(ul, reply->s, reply->len, sin);
 		free(reply);
 		goto out;
 	}
@@ -86,13 +86,13 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 		log_info_c_string(out[RE_UDP_DQ_CALLID]);
 
 	if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U')
-		reply = call_update_udp(out, u->callmaster, addr, sin);
+		reply = call_update_udp(out, addr, sin);
 	else if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')
-		reply = call_lookup_udp(out, u->callmaster);
+		reply = call_lookup_udp(out);
 	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'D')
-		reply = call_delete_udp(out, u->callmaster);
+		reply = call_delete_udp(out);
 	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'Q')
-		reply = call_query_udp(out, u->callmaster);
+		reply = call_query_udp(out);
 	else if (chrtoupper(out[RE_UDP_V_CMD][0]) == 'V') {
 		iovlen = 2;
 
@@ -118,11 +118,11 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iov[2].iov_len = 9;
 			iovlen++;
 		}
-		socket_sendiov(&ul->sock, iov, iovlen, sin);
+		socket_sendiov(ul, iov, iovlen, sin);
 	}
 
 	if (reply) {
-		socket_sendto(&ul->sock, reply->s, reply->len, sin);
+		socket_sendto(ul, reply->s, reply->len, sin);
 		cookie_cache_insert(&u->cookie_cache, &cookie, reply);
 		free(reply);
 	}
@@ -134,17 +134,16 @@ out:
 	log_info_clear();
 }
 
-struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep, struct callmaster *m) {
+struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep) {
 	struct control_udp *c;
 	const char *errptr;
 	int erroff;
 
-	if (!p || !m)
+	if (!p)
 		return NULL;
 
 	c = obj_alloc0("control_udp", sizeof(*c), NULL);
 
-	c->callmaster = m;
 	c->parse_re = pcre_compile(
 			/* cookie cmd flags callid viabranch:5 */
 			"^(\\S+)\\s+(?:([ul])(\\S*)\\s+([^;]+)(?:;(\\S+))?\\s+" \

@@ -61,11 +61,6 @@ enum transport_protocol_index {
 	__PROTO_LAST,
 };
 
-enum xmlrpc_format {
-	XF_SEMS = 0,
-	XF_CALLID,
-};
-
 enum call_stream_state {
 	CSS_UNKNOWN = 0,
 	CSS_SHUTDOWN,
@@ -327,7 +322,9 @@ struct call_media {
 
 	GQueue			streams; /* normally RTP + RTCP */
 	GQueue			endpoint_maps;
-	GHashTable		*rtp_payload_types;
+
+	GHashTable		*codecs;
+	GQueue			codecs_prefs;
 
 	volatile unsigned int	media_flags;
 };
@@ -354,8 +351,6 @@ struct call_monologue {
 
 struct call {
 	struct obj		obj;
-
-	struct callmaster	*callmaster;	/* RO */
 
 	mutex_t			buffer_lock;
 	call_buffer_t		buffer;
@@ -387,78 +382,31 @@ struct call {
 	struct recording 	*recording;
 };
 
-struct callmaster_config {
-	/* everything below protected by config_lock */
-	rwlock_t		config_lock;
-	int			max_sessions;
-	unsigned int		timeout;
-	unsigned int		silent_timeout;
-	unsigned int		final_timeout;
 
-	unsigned int		delete_delay;
-	struct redis		*redis;
-	struct redis		*redis_write;
-	struct redis		*redis_notify;
-	struct event_base   *redis_notify_event_base;
-	GQueue		        *redis_subscribed_keyspaces;
-	struct redisAsyncContext *redis_notify_async_context;
-	unsigned int        redis_expires_secs;
-	char			*b2b_url;
-	unsigned char		default_tos;
-	enum xmlrpc_format	fmt;
-	endpoint_t		graphite_ep;
-	int			graphite_interval;
 
-	int			redis_num_threads;
-};
+extern rwlock_t rtpe_callhash_lock;
+extern GHashTable *rtpe_callhash;
 
-struct callmaster {
-	struct obj		obj;
+extern struct stats rtpe_statsps;	/* per second stats, running timer */
+extern struct stats rtpe_stats;		/* copied from statsps once a second */
 
-	rwlock_t		hashlock;
-	GHashTable		*callhash;
 
-	/* XXX rework these */
-	struct stats			statsps;	/* per second stats, running timer */
-	struct stats			stats;		/* copied from statsps once a second */
-	struct totalstats       totalstats;
-	struct totalstats       totalstats_interval;
-	mutex_t		        	totalstats_lastinterval_lock;
-	struct totalstats       totalstats_lastinterval;
+int call_init(void);
+void call_get_all_calls(GQueue *q);
 
-	/* control_ng_stats stuff */
-	mutex_t			cngs_lock;
-	GHashTable		*cngs_hash;
-
-	struct poller	        *poller;
-	pcre			*info_re;
-	pcre_extra		*info_ree;
-	pcre			*streams_re;
-	pcre_extra		*streams_ree;
-
-	struct callmaster_config conf;
-	struct timeval          latest_graphite_interval_start;
-};
-
-struct callmaster *callmaster_new(struct poller *);
-void callmaster_get_all_calls(struct callmaster *m, GQueue *q);
-
-//void calls_dump_redis(struct callmaster *);
-//void calls_dump_redis_read(struct callmaster *);
-//void calls_dump_redis_write(struct callmaster *);
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
-struct call *call_get_or_create(const str *callid, struct callmaster *m, enum call_type);
-struct call *call_get_opmode(const str *callid, struct callmaster *m, enum call_opmode opmode);
+struct call *call_get_or_create(const str *callid, enum call_type);
+struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
 struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag,
 		const str *viabranch);
-struct call *call_get(const str *callid, struct callmaster *m);
+struct call *call_get(const str *callid);
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, const struct sdp_ng_flags *flags);
-int call_delete_branch(struct callmaster *m, const str *callid, const str *branch,
+int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
@@ -469,7 +417,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 		int *len, const struct local_intf *ifa, int keep_unspec);
 
 const struct transport_protocol *transport_protocol(const str *s);
-void add_total_calls_duration_in_interval(struct callmaster *cm, struct timeval *interval_tv);
+void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 
 void __payload_type_free(void *p);
 void __rtp_stats_update(GHashTable *dst, GHashTable *src);

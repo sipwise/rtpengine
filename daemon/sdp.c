@@ -162,6 +162,13 @@ struct attribute_rtpmap {
 	struct rtp_payload_type rtp_pt;
 };
 
+struct attribute_fmtp {
+	str payload_type_str;
+	str format_parms_str;
+
+	unsigned int payload_type;
+};
+
 struct sdp_attribute {
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
@@ -192,6 +199,7 @@ struct sdp_attribute {
 		ATTR_FINGERPRINT,
 		ATTR_SETUP,
 		ATTR_RTPMAP,
+		ATTR_FMTP,
 		ATTR_IGNORE,
 		ATTR_END_OF_CANDIDATES,
 	} attr;
@@ -205,6 +213,7 @@ struct sdp_attribute {
 		struct attribute_fingerprint fingerprint;
 		struct attribute_setup setup;
 		struct attribute_rtpmap rtpmap;
+		struct attribute_fmtp fmtp;
 	} u;
 };
 
@@ -391,8 +400,7 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 		return -1;
 
 	s->attr = s->attr_str;
-	str_chr_str(&s->value, &s->attr, ':');
-	if (s->value.s) {
+	if (str_chr_str(&s->value, &s->attr, ':')) {
 		s->attr.len = s->value.s - s->attr.s;
 		str_shift(&s->value, 1);
 	}
@@ -471,8 +479,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 		if (c->lifetime_str.s[0] != '|')
 			goto error;
 		str_shift(&c->lifetime_str, 1);
-		str_chr_str(&c->mki_str, &c->lifetime_str, '|');
-		if (!c->mki_str.s) {
+		if (!str_chr_str(&c->mki_str, &c->lifetime_str, '|')) {
 			if (str_chr(&c->lifetime_str, ':')) {
 				c->mki_str = c->lifetime_str;
 				c->lifetime_str = STR_NULL;
@@ -507,9 +514,8 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	}
 
 	if (c->mki_str.s) {
-		str_chr_str(&s, &c->mki_str, ':');
 		err = "invalid MKI specification";
-		if (!s.s)
+		if (!str_chr_str(&s, &c->mki_str, ':'))
 			goto error;
 		u32 = htonl(strtoul(c->mki_str.s, NULL, 10));
 		c->mki_len = strtoul(s.s + 1, NULL, 10);
@@ -723,16 +729,14 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	if (ep == a->payload_type_str.s)
 		return -1;
 
-	str_chr_str(&a->clock_rate_str, &a->encoding_str, '/');
-	if (!a->clock_rate_str.s)
+	if (!str_chr_str(&a->clock_rate_str, &a->encoding_str, '/'))
 		return -1;
 
 	pt->encoding = a->encoding_str;
 	pt->encoding.len -= a->clock_rate_str.len;
 	str_shift(&a->clock_rate_str, 1);
 
-	str_chr_str(&pt->encoding_parameters, &a->clock_rate_str, '/');
-	if (pt->encoding_parameters.s) {
+	if (str_chr_str(&pt->encoding_parameters, &a->clock_rate_str, '/')) {
 		a->clock_rate_str.len -= pt->encoding_parameters.len;
 		str_shift(&pt->encoding_parameters, 1);
 	}
@@ -747,19 +751,37 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	return 0;
 }
 
+static int parse_attribute_fmtp(struct sdp_attribute *output) {
+	PARSE_DECL;
+	char *ep;
+	struct attribute_fmtp *a;
+
+	output->attr = ATTR_FMTP;
+
+	PARSE_INIT;
+	EXTRACT_TOKEN(u.fmtp.payload_type_str);
+	EXTRACT_TOKEN(u.fmtp.format_parms_str);
+
+	a = &output->u.fmtp;
+
+	a->payload_type = strtoul(a->payload_type_str.s, &ep, 10);
+	if (ep == a->payload_type_str.s)
+		return -1;
+
+	return 0;
+}
+
 static int parse_attribute(struct sdp_attribute *a) {
 	int ret;
 
 	a->name = a->line_value;
-	str_chr_str(&a->value, &a->name, ':');
-	if (a->value.s) {
+	if (str_chr_str(&a->value, &a->name, ':')) {
 		a->name.len -= a->value.len;
 		a->value.s++;
 		a->value.len--;
 
 		a->key = a->name;
-		str_chr_str(&a->param, &a->value, ' ');
-		if (a->param.s) {
+		if (str_chr_str(&a->param, &a->value, ' ')) {
 			a->key.len += 1 +
 				(a->value.len - a->param.len);
 
@@ -784,6 +806,8 @@ static int parse_attribute(struct sdp_attribute *a) {
 				ret = parse_attribute_rtcp(a);
 			else if (!str_cmp(&a->name, "ssrc"))
 				ret = parse_attribute_ssrc(a);
+			else if (!str_cmp(&a->name, "fmtp"))
+				ret = parse_attribute_fmtp(a);
 			break;
 		case 5:
 			if (!str_cmp(&a->name, "group"))
@@ -1080,7 +1104,7 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, str
 
 static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media)
 {
-	GHashTable *ht;
+	GHashTable *ht_rtpmap, *ht_fmtp;
 	GQueue *q;
 	GList *ql;
 	struct sdp_attribute *attr;
@@ -1090,15 +1114,21 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		return 0;
 
 	/* first go through a=rtpmap and build a hash table of attrs */
-	ht = g_hash_table_new(g_int_hash, g_int_equal);
+	ht_rtpmap = g_hash_table_new(g_int_hash, g_int_equal);
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
 	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
 		struct rtp_payload_type *pt;
 		attr = ql->data;
 		pt = &attr->u.rtpmap.rtp_pt;
-		g_hash_table_insert(ht, &pt->payload_type, pt);
+		g_hash_table_insert(ht_rtpmap, &pt->payload_type, pt);
 	}
-	/* a=fmtp processing would go here */
+	// do the same for a=fmtp
+	ht_fmtp = g_hash_table_new(g_int_hash, g_int_equal);
+	q = attr_list_get_by_id(&media->attributes, ATTR_FMTP);
+	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
+		attr = ql->data;
+		g_hash_table_insert(ht_fmtp, &attr->u.fmtp.payload_type, &attr->u.fmtp.format_parms_str);
+	}
 
 	/* then go through the format list and associate */
 	for (ql = media->format_list.head; ql; ql = ql->next) {
@@ -1115,13 +1145,18 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 
 		/* first look in rtpmap for a match, then check RFC types,
 		 * else fall back to an "unknown" type */
-		ptl = rtp_payload_type(i, ht);
+		ptl = rtp_payload_type(i, ht_rtpmap);
 
 		pt = g_slice_alloc0(sizeof(*pt));
 		if (ptl)
 			*pt = *ptl;
 		else
 			pt->payload_type = i;
+
+		s = g_hash_table_lookup(ht_fmtp, &i);
+		if (s)
+			pt->format_parameters = *s;
+
 		g_queue_push_tail(&sp->rtp_payload_types, pt);
 	}
 
@@ -1131,7 +1166,8 @@ error:
 	ret = -1;
 	goto out;
 out:
-	g_hash_table_destroy(ht);
+	g_hash_table_destroy(ht_rtpmap);
+	g_hash_table_destroy(ht_fmtp);
 	return ret;
 }
 
@@ -1312,6 +1348,7 @@ error:
 	return -1;
 }
 
+// XXX iovec can probably be eliminated now and this moved to a regular string builder
 struct sdp_chopper *sdp_chopper_new(str *input) {
 	struct sdp_chopper *c = g_slice_alloc0(sizeof(*c));
 	c->input = input;
@@ -1412,6 +1449,21 @@ static int replace_transport_protocol(struct sdp_chopper *chop,
 	if (skip_over(chop, tp))
 		return -1;
 
+	return 0;
+}
+
+static int replace_codec_list(struct sdp_chopper *chop,
+		struct sdp_media *media, struct call_media *cm)
+{
+	if (cm->codecs_prefs.length == 0)
+		return 0; // legacy protocol or usage error
+
+	for (GList *l = cm->codecs_prefs.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		chopper_append_printf(chop, " %u", pt->payload_type);
+	}
+	if (skip_over(chop, &media->formats))
+		return -1;
 	return 0;
 }
 
@@ -1648,6 +1700,22 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 //				if (a && a->u.group.semantics == GROUP_BUNDLE)
 //					goto strip;
 				goto strip; // hack/workaround: always remove a=mid
+				break;
+
+			case ATTR_RTPMAP:
+				if (media->codecs_prefs.length == 0)
+					break; // legacy protocol or usage error
+				if (!g_hash_table_lookup(media->codecs,
+							&attr->u.rtpmap.rtp_pt.payload_type))
+					goto strip;
+				break;
+
+			case ATTR_FMTP:
+				if (media->codecs_prefs.length == 0)
+					break; // legacy protocol or usage error
+				if (!g_hash_table_lookup(media->codecs,
+							&attr->u.fmtp.payload_type))
+					goto strip;
 				break;
 
 			default:
@@ -1958,6 +2026,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				        goto error;
 				if (replace_transport_protocol(chop, sdp_media, call_media))
 				        goto error;
+				if (replace_codec_list(chop, sdp_media, call_media))
+					goto error;
 
 				if (sdp_media->connection.parsed) {
 				        if (replace_network_address(chop, &sdp_media->connection.address, ps,
@@ -1998,18 +2068,28 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 							|| (flags->opmode == OP_OFFER
 								&& flags->rtcp_mux_require)))
 				{
-					chopper_append_c(chop, "a=rtcp:");
-					chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
-					chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					if (!flags->no_rtcp_attr) {
+						chopper_append_c(chop, "a=rtcp:");
+						chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
+						chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					}
+					else
+						chopper_append_c(chop, "a=rtcp-mux\r\n");
 					ps_rtcp = NULL;
 				}
 				else if (ps_rtcp && !flags->ice_force_relay) {
-					chopper_append_c(chop, "a=rtcp:");
-					chopper_append_printf(chop, "%u", ps_rtcp->selected_sfd->socket.local.port);
-					if (!MEDIA_ISSET(call_media, RTCP_MUX))
-						chopper_append_c(chop, "\r\n");
-					else
-						chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					if (!flags->no_rtcp_attr) {
+						chopper_append_c(chop, "a=rtcp:");
+						chopper_append_printf(chop, "%u", ps_rtcp->selected_sfd->socket.local.port);
+						if (!MEDIA_ISSET(call_media, RTCP_MUX))
+							chopper_append_c(chop, "\r\n");
+						else
+							chopper_append_c(chop, "\r\na=rtcp-mux\r\n");
+					}
+					else {
+						if (MEDIA_ISSET(call_media, RTCP_MUX))
+							chopper_append_c(chop, "a=rtcp-mux\r\n");
+					}
 				}
 			}
 			else

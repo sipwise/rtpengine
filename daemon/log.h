@@ -10,6 +10,7 @@
 struct call;
 struct stream_fd;
 struct ice_agent;
+enum log_format;
 
 struct log_info {
 	union {
@@ -42,6 +43,7 @@ void cdrlog(const char* cdrbuffer);
 void rtcplog(const char* cdrbuffer);
 
 
+void log_format(enum log_format);
 void __ilog(int prio, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
 

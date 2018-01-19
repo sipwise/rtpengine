@@ -45,6 +45,9 @@ static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
 volatile int shutdown_flag;
 
+struct rtpengine_common_config rtpe_common_config;
+
+
 
 static void signals(void) {
 	sigset_t ss;
@@ -186,7 +189,7 @@ static void options(int *argc, char ***argv) {
 	};
 
 	config_load(argc, argv, e, " - rtpengine recording daemon",
-			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording");
+			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording", &rtpe_common_config);
 
 	if (!strcmp(output_format, "none")) {
 		output_enabled = 0;

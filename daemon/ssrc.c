@@ -21,6 +21,7 @@ static struct ssrc_entry *create_ssrc_entry(u_int32_t ssrc) {
 }
 static void add_ssrc_entry(struct ssrc_entry *ent, struct ssrc_hash *ht) {
 	g_hash_table_replace(ht->ht, &ent->ssrc, ent);
+	g_queue_push_tail(&ht->q, ent);
 }
 static void free_sender_report(struct ssrc_sender_report_item *i) {
 	g_slice_free1(sizeof(*i), i);
@@ -78,11 +79,11 @@ restart:
 
 	rwlock_lock_w(&ht->lock);
 
-	if (G_UNLIKELY(g_hash_table_size(ht->ht) > 20)) { // arbitrary limit
-		rwlock_unlock_w(&ht->lock);
-		free_ssrc_entry(ent);
-		ilog(LOG_INFO, "SSRC hash table exceeded size limit (trying to add %u)", ssrc);
-		return NULL;
+	while (G_UNLIKELY(ht->q.length > 20)) { // arbitrary limit
+		struct ssrc_entry *old_ent = g_queue_pop_head(&ht->q);
+		ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %u) - deleting SSRC %u",
+				ssrc, old_ent->ssrc);
+		g_hash_table_remove(ht->ht, &old_ent->ssrc);
 	}
 
 	if (g_hash_table_lookup(ht->ht, &ssrc)) {
@@ -101,6 +102,7 @@ void free_ssrc_hash(struct ssrc_hash **ht) {
 	if (!*ht)
 		return;
 	g_hash_table_destroy((*ht)->ht);
+	g_queue_clear(&(*ht)->q);
 	g_slice_free1(sizeof(**ht), *ht);
 	*ht = NULL;
 }
@@ -249,7 +251,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		}
 	}
 
-	const struct rtp_payload_type *rpt = rtp_payload_type(pt, m->rtp_payload_types);
+	const struct rtp_payload_type *rpt = rtp_payload_type(pt, m->codecs);
 	if (!rpt) {
 		ilog(LOG_INFO, "Invalid RTP payload type %i, discarding RTCP RR", pt);
 		goto out_nl;

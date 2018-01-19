@@ -30,10 +30,6 @@ struct poller_item {
 struct poller;
 
 
-/* XXX replace all occurrences with g_now */
-#define poller_now g_now.tv_sec
-
-
 struct poller *poller_new(void);
 int poller_add_item(struct poller *, struct poller_item *);
 int poller_update_item(struct poller *, struct poller_item *);

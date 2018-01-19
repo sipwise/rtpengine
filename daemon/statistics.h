@@ -81,12 +81,16 @@ struct call_stats {
 	struct stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
 };
 
-
-struct callmaster;
+extern struct totalstats       rtpe_totalstats;
+extern struct totalstats       rtpe_totalstats_interval;
+extern mutex_t		       rtpe_totalstats_lastinterval_lock;
+extern struct totalstats       rtpe_totalstats_lastinterval;
 
 void statistics_update_oneway(struct call *);
 void statistics_update_foreignown_dec(struct call *);
-void statistics_update_foreignown_inc(struct callmaster *m, struct call* c);
-void statistics_update_totals(struct callmaster *, struct packet_stream *) ;
+void statistics_update_foreignown_inc(struct call* c);
+void statistics_update_totals(struct packet_stream *) ;
+
+void statistics_init(void);
 
 #endif /* STATISTICS_H_ */
