@@ -91,7 +91,6 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
 	u_int64_t index;
-	int ret = 0;
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
@@ -115,7 +114,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 		s->len += c->params.crypto_suite->srtp_auth_tag;
 	}
 
-	return ret;
+	return 0;
 }
 
 /* rfc 3711, section 3.3 */
@@ -124,7 +123,6 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	u_int64_t index;
 	str payload, to_auth, to_decrypt, auth_tag;
 	char hmac[20];
-	int ret = 0;
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
@@ -176,7 +174,7 @@ decrypt:
 
 	*s = to_auth;
 
-	return ret;
+	return 0;
 
 error:
 	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded invalid SRTP packet: authentication failed");
