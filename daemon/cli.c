@@ -209,10 +209,6 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 	timeval_divide(&offer_iv.time_avg, &offer_iv.time_avg, offer_iv.count);
 	timeval_divide(&answer_iv.time_avg, &answer_iv.time_avg, answer_iv.count);
 	timeval_divide(&delete_iv.time_avg, &delete_iv.time_avg, delete_iv.count);
-	//compute average offers/answers/deletes per second
-	offers_ps.ps_avg = (offers_ps.count?(offers_ps.ps_avg/offers_ps.count):0);
-	answers_ps.ps_avg = (answers_ps.count?(answers_ps.ps_avg/answers_ps.count):0);
-	deletes_ps.ps_avg = (deletes_ps.count?(deletes_ps.ps_avg/deletes_ps.count):0);
 
 	streambuf_printf(replybuffer, "\nGraphite interval statistics (last reported values to graphite):\n");
 	streambuf_printf(replybuffer, " Total calls duration                            :%ld.%06ld\n\n",calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
