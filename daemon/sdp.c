@@ -1003,15 +1003,9 @@ int sdp_parse(str *body, GQueue *sessions) {
 				/* if (attr->key.s)
 					g_hash_table_insert(attrs->name_hash, &attr->key, attr); */
 
-				/* attr_queue = g_hash_table_lookup(attrs->name_lists_hash, &attr->name);
-				if (!attr_queue)
-					g_hash_table_insert(attrs->name_lists_hash, &attr->name,
-							(attr_queue = g_queue_new()));
+				/* attr_queue = g_hash_table_lookup_queue_new(attrs->name_lists_hash, &attr->name);
 				g_queue_push_tail(attr_queue, attr); */
-				attr_queue = g_hash_table_lookup(attrs->id_lists_hash, &attr->attr);
-				if (!attr_queue)
-					g_hash_table_insert(attrs->id_lists_hash, &attr->attr,
-							(attr_queue = g_queue_new()));
+				attr_queue = g_hash_table_lookup_queue_new(attrs->id_lists_hash, &attr->attr);
 				g_queue_push_tail(attr_queue, attr);
 
 				break;
@@ -1470,10 +1464,10 @@ static int replace_transport_protocol(struct sdp_chopper *chop,
 static int replace_codec_list(struct sdp_chopper *chop,
 		struct sdp_media *media, struct call_media *cm)
 {
-	if (cm->codecs_prefs.length == 0)
+	if (cm->codecs_prefs_recv.length == 0)
 		return 0; // legacy protocol or usage error
 
-	for (GList *l = cm->codecs_prefs.head; l; l = l->next) {
+	for (GList *l = cm->codecs_prefs_recv.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		chopper_append_printf(chop, " %u", pt->payload_type);
 	}
@@ -1718,7 +1712,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				break;
 
 			case ATTR_RTPMAP:
-				if (media->codecs_prefs.length == 0)
+				if (media->codecs_prefs_recv.length == 0)
 					break; // legacy protocol or usage error
 				if (!g_hash_table_lookup(media->codecs,
 							&attr->u.rtpmap.rtp_pt.payload_type))
@@ -1726,7 +1720,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				break;
 
 			case ATTR_FMTP:
-				if (media->codecs_prefs.length == 0)
+				if (media->codecs_prefs_recv.length == 0)
 					break; // legacy protocol or usage error
 				if (!g_hash_table_lookup(media->codecs,
 							&attr->u.fmtp.payload_type))
