@@ -158,6 +158,19 @@ INLINE void g_tree_add_all(GTree *t, GQueue *q) {
 
 
 
+/* GHASHTABLE */
+
+INLINE GQueue *g_hash_table_lookup_queue_new(GHashTable *ht, void *key) {
+	GQueue *ret = g_hash_table_lookup(ht, key);
+	if (ret)
+		return ret;
+	ret = g_queue_new();
+	g_hash_table_insert(ht, key, ret);
+	return ret;
+}
+
+
+
 /*** STRING HELPERS ***/
 
 INLINE void strmove(char **d, char **s) {
