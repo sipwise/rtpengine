@@ -24,6 +24,7 @@
 #include "ssrc.h"
 #include "iptables.h"
 #include "main.h"
+#include "codec.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -68,6 +69,7 @@ struct packet_handler_ctx {
 	struct packet_stream *sink; // where to send output packets to (forward destination)
 	rewrite_func decrypt_func, encrypt_func; // handlers for decrypt/encrypt
 	struct packet_stream *in_srtp, *out_srtp; // SRTP contexts for decrypt/encrypt (relevant for muxed RTCP)
+	int payload_type; // -1 if unknown or not RTP
 	struct ssrc_ctx *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
 	int rtcp; // true if this is an RTCP packet
 
@@ -75,6 +77,9 @@ struct packet_handler_ctx {
 	int update; // true if Redis info needs to be updated
 	int unkernelize; // true if stream ought to be removed from kernel
 	int kernelize; // true if stream can be kernelized
+
+	// output:
+	GQueue packets_out;
 };
 
 
@@ -1281,6 +1286,8 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 	struct rtp_header *rtp_h;
 	struct rtcp_packet *rtcp_h;
 
+	phc->payload_type = -1;
+
 	if (G_UNLIKELY(!phc->media->protocol))
 		return;
 	if (G_UNLIKELY(!phc->media->protocol->rtp))
@@ -1292,15 +1299,16 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 					&phc->ssrc_out, phc->call->ssrc_hash);
 
 		// check the payload type
-		int i = (rtp_h->m_pt & 0x7f);
+		// XXX redundant between SSRC handling and codec_handler stuff -> combine
+		phc->payload_type = (rtp_h->m_pt & 0x7f);
 		if (G_LIKELY(phc->ssrc_in))
-			phc->ssrc_in->parent->payload_type = i;
+			phc->ssrc_in->parent->payload_type = phc->payload_type;
 
 		// XXX convert to array? or keep last pointer?
-		struct rtp_stats *rtp_s = g_hash_table_lookup(phc->stream->rtp_stats, &i);
+		struct rtp_stats *rtp_s = g_hash_table_lookup(phc->stream->rtp_stats, &phc->payload_type);
 		if (!rtp_s) {
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT,
-					"RTP packet with unknown payload type %u received", i);
+					"RTP packet with unknown payload type %u received", phc->payload_type);
 			atomic64_inc(&phc->stream->stats.errors);
 			atomic64_inc(&rtpe_statsps.errors);
 		}
@@ -1348,21 +1356,25 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 	return ret;
 }
 
-static int media_packet_encrypt(struct packet_handler_ctx *phc)
-{
+static int media_packet_encrypt(struct packet_handler_ctx *phc) {
+	int ret = 0;
+
 	if (!phc->encrypt_func)
 		return 0;
 
 	mutex_lock(&phc->out_srtp->out_lock);
 
-	int ret = phc->encrypt_func(&phc->s, phc->out_srtp, NULL, NULL, NULL, phc->ssrc_out);
+	for (GList *l = phc->packets_out.head; l; l = l->next) {
+		struct codec_packet *p = l->data;
+		int encret = phc->encrypt_func(&p->s, phc->out_srtp, NULL, NULL, NULL, phc->ssrc_out);
+		if (encret == 1)
+			phc->update = 1;
+		else if (encret != 0)
+			ret = -1;
+	}
 
 	mutex_unlock(&phc->out_srtp->out_lock);
 
-	if (ret == 1) {
-		phc->update = 1;
-		ret = 0;
-	}
 	return ret;
 }
 
@@ -1558,7 +1570,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// this sets rtcp, in_srtp, out_srtp, and sink
 	media_packet_rtcp_demux(phc);
 
-	// this set ssrc_in and ssrc_out
+	// this set payload_type, ssrc_in and ssrc_out
 	media_packet_rtp(phc);
 
 
@@ -1579,6 +1591,11 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// If recording pcap dumper is set, then we record the call.
 	if (phc->call->recording)
 		dump_packet(phc->call->recording, phc->stream, &phc->s);
+
+	// XXX use a handler for RTCP
+	struct codec_handler *transcoder = codec_handler_get(phc->media, phc->payload_type);
+	// this transfers the packet from 's' to 'packets_out'
+	transcoder->func(transcoder, phc->media, &phc->s, &phc->packets_out);
 
 	if (G_LIKELY(handler_ret >= 0))
 		handler_ret = media_packet_encrypt(phc);
@@ -1606,9 +1623,19 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		goto drop;
 	}
 
-	ret = socket_sendto(&phc->sink->selected_sfd->socket, phc->s.s, phc->s.len, &phc->sink->endpoint);
-	__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&phc->sink->endpoint.address),
-			phc->sink->endpoint.port);
+	struct codec_packet *p;
+	ret = 0;
+	while ((p = g_queue_pop_head(&phc->packets_out))) {
+		__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&phc->sink->endpoint.address),
+				phc->sink->endpoint.port);
+
+		ret = socket_sendto(&phc->sink->selected_sfd->socket, p->s.s, p->s.len, &phc->sink->endpoint);
+
+		codec_packet_free(p);
+
+		if (ret == -1)
+			break;
+	}
 
 	mutex_unlock(&phc->sink->out_lock);
 
@@ -1622,6 +1649,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 drop:
 	ret = 0;
+	// XXX separate stats for received/sent
 	atomic64_inc(&phc->stream->stats.packets);
 	atomic64_add(&phc->stream->stats.bytes, phc->s.len);
 	atomic64_set(&phc->stream->last_packet, rtpe_now.tv_sec);
@@ -1636,6 +1664,8 @@ out:
 	}
 
 	rwlock_unlock_r(&phc->call->master_lock);
+
+	g_queue_clear_full(&phc->packets_out, codec_packet_free);
 
 	return ret;
 }
@@ -1662,7 +1692,8 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		}
 #endif
 
-		struct packet_handler_ctx phc = { 0, };
+		struct packet_handler_ctx phc;
+		ZERO(phc);
 		phc.sfd = sfd;
 
 		ret = socket_recvfrom_ts(&sfd->socket, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE,
