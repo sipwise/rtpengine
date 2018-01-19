@@ -43,6 +43,7 @@
 #include "ssrc.h"
 #include "main.h"
 #include "graphite.h"
+#include "codec.h"
 
 
 /* also serves as array index for callstream->peers[] */
@@ -653,7 +654,8 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->call = ml->call;
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
-	med->codecs = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
+	med->codecs = g_hash_table_new(g_int_hash, g_int_equal);
+	med->codec_names = g_hash_table_new(str_hash, str_equal);
 
 	g_queue_push_tail(&ml->medias, med);
 
@@ -1421,12 +1423,14 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 
 static void __rtp_payload_type_add(struct call_media *media, struct rtp_payload_type *pt) {
 	struct call *call = media->call;
+
 	/* we must duplicate the contents */
 	call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
 	call_str_cpy(call, &pt->encoding, &pt->encoding);
 	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
 	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
 	g_hash_table_replace(media->codecs, &pt->payload_type, pt);
+	g_hash_table_replace(media->codec_names, &pt->encoding, pt);
 	g_queue_push_tail(&media->codecs_prefs, pt);
 }
 
@@ -1439,7 +1443,9 @@ static void __rtp_payload_types(struct call_media *media, GQueue *types, GHashTa
 	int remove_all = 0;
 
 	// start fresh
-	g_queue_clear(&media->codecs_prefs);
+	g_queue_clear_full(&media->codecs_prefs, __payload_type_free);
+	g_hash_table_remove_all(media->codecs);
+	g_hash_table_remove_all(media->codec_names);
 
 	if (strip && g_hash_table_lookup(strip, &str_all))
 		remove_all = 1;
@@ -1592,6 +1598,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		}
 
 		__rtp_payload_types(media, &sp->rtp_payload_types, flags->codec_strip, &flags->codec_offer);
+		codec_handlers_update(media, other_media);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
@@ -2001,7 +2008,9 @@ static void __call_free(void *p) {
 		g_queue_clear(&md->streams);
 		g_queue_clear(&md->endpoint_maps);
 		g_hash_table_destroy(md->codecs);
+		g_hash_table_destroy(md->codec_names);
 		g_queue_clear(&md->codecs_prefs);
+		codec_handlers_free(md);
 		g_slice_free1(sizeof(*md), md);
 	}
 
