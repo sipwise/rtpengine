@@ -10,10 +10,11 @@
 struct sdp_chopper {
 	str *input;
 	int position;
-	GStringChunk *chunk;
-	GArray *iov;
-	int iov_num;
-	int str_len;
+	GString *output;
+//	GStringChunk *chunk;
+//	GArray *iov;
+//	int iov_num;
+//	int str_len;
 };
 
 void sdp_init(void);
