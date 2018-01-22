@@ -311,7 +311,7 @@ static void cli_incoming_list_callid(str *instr, struct streambuf *replybuffer) 
    struct timeval now;
    char * local_addr;
 
-   if (str_shift(instr, 1)) {
+   if (instr->len == 0) {
        streambuf_printf(replybuffer, "%s\n", "More parameters required.");
        return;
    }
