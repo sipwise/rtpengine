@@ -1350,23 +1350,15 @@ error:
 	return -1;
 }
 
-// XXX iovec can probably be eliminated now and this moved to a regular string builder
 struct sdp_chopper *sdp_chopper_new(str *input) {
 	struct sdp_chopper *c = g_slice_alloc0(sizeof(*c));
 	c->input = input;
-	c->chunk = g_string_chunk_new(512);
-	c->iov = g_array_new(0, 0, sizeof(struct iovec));
+	c->output = g_string_new("");
 	return c;
 }
 
 INLINE void chopper_append(struct sdp_chopper *c, const char *s, int len) {
-	struct iovec *iov;
-
-	g_array_set_size(c->iov, ++c->iov_num);
-	iov = &g_array_index(c->iov, struct iovec, c->iov_num - 1);
-	iov->iov_base = (void *) s;
-	iov->iov_len = len;
-	c->str_len += len;
+	g_string_append_len(c->output, s, len);
 }
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s) {
 	chopper_append(c, s, strlen(s));
@@ -1375,22 +1367,7 @@ INLINE void chopper_append_str(struct sdp_chopper *c, const str *s) {
 	chopper_append(c, s->s, s->len);
 }
 
-static void chopper_append_dup(struct sdp_chopper *c, const char *s, int len) {
-	return chopper_append(c, g_string_chunk_insert_len(c->chunk, s, len), len);
-}
-
-static void chopper_append_printf(struct sdp_chopper *c, const char *fmt, ...) __attribute__((format(printf,2,3)));
-
-static void chopper_append_printf(struct sdp_chopper *c, const char *fmt, ...) {
-	char buf[512];
-	int l;
-	va_list va;
-
-	va_start(va, fmt);
-	l = vsnprintf(buf, sizeof(buf) - 1, fmt, va);
-	va_end(va);
-	chopper_append(c, g_string_chunk_insert_len(c->chunk, buf, l), l);
-}
+#define chopper_append_printf(c, f...) g_string_append_printf((c)->output, f)
 
 static int copy_up_to_ptr(struct sdp_chopper *chop, const char *b) {
 	int offset, len;
@@ -1536,7 +1513,7 @@ static int insert_ice_address(struct sdp_chopper *chop, struct stream_fd *sfd) {
 	int len;
 
 	call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, 0);
-	chopper_append_dup(chop, buf, len);
+	chopper_append(chop, buf, len);
 	chopper_append_printf(chop, " %u", sfd->socket.local.port);
 
 	return 0;
@@ -1548,7 +1525,7 @@ static int insert_raddr_rport(struct sdp_chopper *chop, struct packet_stream *ps
 
 	chopper_append_c(chop, " raddr ");
 	call_stream_address46(buf, ps, SAF_ICE, &len, ifa, 0);
-	chopper_append_dup(chop, buf, len);
+	chopper_append(chop, buf, len);
 	chopper_append_c(chop, " rport ");
 	chopper_append_printf(chop, "%u", ps->selected_sfd->socket.local.port);
 
@@ -1579,7 +1556,7 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 				sockaddr_print_buf(&flags->parsed_media_address));
 	else
 		call_stream_address46(buf, ps, SAF_NG, &len, NULL, keep_unspec);
-	chopper_append_dup(chop, buf, len);
+	chopper_append(chop, buf, len);
 
 	if (skip_over(chop, &address->address))
 		return -1;
@@ -1588,8 +1565,7 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 }
 
 void sdp_chopper_destroy(struct sdp_chopper *chop) {
-	g_string_chunk_free(chop->chunk);
-	g_array_free(chop->iov, 1);
+	g_string_free(chop->output, TRUE);
 	g_slice_free1(sizeof(*chop), chop);
 }
 
@@ -1912,7 +1888,7 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	chopper_append_c(chop, "\r\na=fingerprint:");
 	chopper_append_c(chop, hf->name);
 	chopper_append_c(chop, " ");
-	chopper_append_dup(chop, hexbuf, o - hexbuf);
+	chopper_append(chop, hexbuf, o - hexbuf);
 	chopper_append_c(chop, "\r\n");
 }
 
@@ -1939,7 +1915,7 @@ static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
 	chopper_append_printf(chop, "%u ", media->sdes_out.tag);
 	chopper_append_c(chop, cp->crypto_suite->name);
 	chopper_append_c(chop, " inline:");
-	chopper_append_dup(chop, b64_buf, p - b64_buf);
+	chopper_append(chop, b64_buf, p - b64_buf);
 	if (cp->mki_len) {
 		ull = 0;
 		for (i = 0; i < cp->mki_len && i < sizeof(ull); i++)

@@ -68,7 +68,7 @@ struct recording_method {
 	void (*init_struct)(struct call *);
 
 	void (*sdp_before)(struct recording *, const str *, struct call_monologue *, enum call_opmode);
-	void (*sdp_after)(struct recording *, struct iovec *, int, unsigned int, struct call_monologue *,
+	void (*sdp_after)(struct recording *, GString *, struct call_monologue *,
 			enum call_opmode);
 	void (*meta_chunk)(struct recording *, const char *, const str *);
 
