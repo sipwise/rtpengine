@@ -49,10 +49,7 @@ setsockopt($socket, SOL_SOCKET, SO_SNDTIMEO, pack('L!L!', 3, 0) ) or die $!;
 setsockopt($socket, SOL_SOCKET, SO_RCVTIMEO, pack('L!L!', 3, 0) ) or die $!;
 
 $argumentstring = trim($argumentstring);
-my $size = $socket->send($argumentstring);
- 
-# notify server that request has been sent
-shutdown($socket, 1);
+my $size = $socket->send("$argumentstring\n");
  
 # receive a response of up to 10MB
 my $response = "";
