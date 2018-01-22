@@ -809,12 +809,10 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	if (!ret)
 		ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
 
-	struct iovec *sdp_iov = &g_array_index(chopper->iov, struct iovec, 0);
-
 	struct recording *recording = call->recording;
 	if (recording != NULL) {
 		meta_write_sdp_before(recording, &sdp, monologue, opmode);
-		meta_write_sdp_after(recording, sdp_iov, chopper->iov_num, chopper->str_len,
+		meta_write_sdp_after(recording, chopper->output,
 			       monologue, opmode);
 
 		//only add METADATA chunk if value is changed
@@ -848,8 +846,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	if (ret)
 		goto out;
 
-	bencode_dictionary_add_iovec(output, "sdp", sdp_iov,
-		chopper->iov_num, chopper->str_len);
+	bencode_dictionary_add_string(output, "sdp", chopper->output->str);
 
 	errstr = NULL;
 out:
