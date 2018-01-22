@@ -38,8 +38,7 @@ static char *meta_setup_file(struct recording *recording);
 // pcap methods
 static int pcap_create_spool_dir(const char *dirpath);
 static void pcap_init(struct call *);
-static void sdp_after_pcap(struct recording *, struct iovec *sdp_iov, int iovcnt,
-		       unsigned int str_len, struct call_monologue *, enum call_opmode opmode);
+static void sdp_after_pcap(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void dump_packet_pcap(struct recording *recording, struct packet_stream *sink, const str *s);
 static void finish_pcap(struct call *);
 static void response_pcap(struct recording *, bencode_item_t *);
@@ -47,8 +46,7 @@ static void response_pcap(struct recording *, bencode_item_t *);
 // proc methods
 static void proc_init(struct call *);
 static void sdp_before_proc(struct recording *, const str *, struct call_monologue *, enum call_opmode);
-static void sdp_after_proc(struct recording *, struct iovec *sdp_iov, int iovcnt,
-		       unsigned int str_len, struct call_monologue *, enum call_opmode opmode);
+static void sdp_after_proc(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void meta_chunk_proc(struct recording *, const char *, const str *);
 static void finish_proc(struct call *);
 static void dump_packet_proc(struct recording *recording, struct packet_stream *sink, const str *s);
@@ -337,8 +335,8 @@ static char *meta_setup_file(struct recording *recording) {
 /**
  * Write out a block of SDP to the metadata file.
  */
-static void sdp_after_pcap(struct recording *recording, struct iovec *sdp_iov, int iovcnt,
-		       unsigned int str_len, struct call_monologue *ml, enum call_opmode opmode)
+static void sdp_after_pcap(struct recording *recording, GString *str, struct call_monologue *ml,
+		enum call_opmode opmode)
 {
 	FILE *meta_fp = recording->u.pcap.meta_fp;
 	if (!meta_fp)
@@ -352,7 +350,7 @@ static void sdp_after_pcap(struct recording *recording, struct iovec *sdp_iov, i
 	fprintf(meta_fp, "%s", get_opmode_text(opmode));
 	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", recording->u.pcap.packet_num);
 	fflush(meta_fp);
-	if (writev(meta_fd, sdp_iov, iovcnt) <= 0)
+	if (write(meta_fd, str->str, str->len) <= 0)
 		ilog(LOG_WARN, "Error writing SDP body to metadata file: %s", strerror(errno));
 }
 
@@ -602,21 +600,6 @@ static int vappend_meta_chunk_iov(struct recording *recording, struct iovec *in_
 	return 0;
 }
 
-static int append_meta_chunk_iov(struct recording *recording, struct iovec *iov, int iovcnt,
-		unsigned int str_len, const char *label_fmt, ...)
-	__attribute__((format(printf,5,6)));
-
-static int append_meta_chunk_iov(struct recording *recording, struct iovec *iov, int iovcnt,
-		unsigned int str_len, const char *label_fmt, ...)
-{
-	va_list ap;
-	va_start(ap, label_fmt);
-	int ret = vappend_meta_chunk_iov(recording, iov, iovcnt, str_len, label_fmt, ap);
-	va_end(ap);
-
-	return ret;
-}
-
 static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
 		const char *label_fmt, ...)
 	__attribute__((format(printf,4,5)));
@@ -670,10 +653,10 @@ static void sdp_before_proc(struct recording *recording, const str *sdp, struct 
 			"SDP from %u before %s", ml->unique_id, get_opmode_text(opmode));
 }
 
-static void sdp_after_proc(struct recording *recording, struct iovec *sdp_iov, int iovcnt,
-		       unsigned int str_len, struct call_monologue *ml, enum call_opmode opmode)
+static void sdp_after_proc(struct recording *recording, GString *str, struct call_monologue *ml,
+		enum call_opmode opmode)
 {
-	append_meta_chunk_iov(recording, sdp_iov, iovcnt, str_len,
+	append_meta_chunk(recording, str->str, str->len,
 			"SDP from %u after %s", ml->unique_id, get_opmode_text(opmode));
 }
 
