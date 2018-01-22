@@ -1469,6 +1469,23 @@ static int replace_codec_list(struct sdp_chopper *chop,
 	return 0;
 }
 
+static void insert_codec_parameters(struct sdp_chopper *chop, struct call_media *cm) {
+	for (GList *l = cm->codecs_prefs_recv.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		chopper_append_printf(chop, "a=rtpmap:%u " STR_FORMAT "\r\n",
+				pt->payload_type,
+				STR_FMT(&pt->encoding_with_params));
+	}
+	for (GList *l = cm->codecs_prefs_recv.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		if (!pt->format_parameters.len)
+			continue;
+		chopper_append_printf(chop, "a=fmtp:%u " STR_FORMAT "\r\n",
+				pt->payload_type,
+				STR_FMT(&pt->format_parameters));
+	}
+}
+
 static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct packet_stream *ps) {
 	str *port = &media->port;
 	unsigned int p;
@@ -1685,6 +1702,8 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_SENDRECV:
 			case ATTR_IGNORE:
 			case ATTR_END_OF_CANDIDATES: // we strip it here and re-insert it later
+			case ATTR_RTPMAP:
+			case ATTR_FMTP:
 				goto strip;
 
 			case ATTR_EXTMAP:
@@ -1702,22 +1721,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 //				if (a && a->u.group.semantics == GROUP_BUNDLE)
 //					goto strip;
 				goto strip; // hack/workaround: always remove a=mid
-				break;
-
-			case ATTR_RTPMAP:
-				if (media->codecs_prefs_recv.length == 0)
-					break; // legacy protocol or usage error
-				if (!g_hash_table_lookup(media->codecs,
-							&attr->u.rtpmap.rtp_pt.payload_type))
-					goto strip;
-				break;
-
-			case ATTR_FMTP:
-				if (media->codecs_prefs_recv.length == 0)
-					break; // legacy protocol or usage error
-				if (!g_hash_table_lookup(media->codecs,
-							&attr->u.fmtp.payload_type))
-					goto strip;
 				break;
 
 			default:
@@ -2050,6 +2053,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto error;
 
 			copy_up_to_end_of(chop, &sdp_media->s);
+
+			insert_codec_parameters(chop, call_media);
 
 			ps_rtcp = NULL;
 			if (ps->rtcp_sibling) {
