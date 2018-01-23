@@ -26,7 +26,7 @@ include ../lib/lib.Makefile
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
 		decoder.c output.c mix.c resample.c db.c log.c forward.c
-LIBSRCS=	loglib.c auxlib.c rtplib.c
+LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
 
