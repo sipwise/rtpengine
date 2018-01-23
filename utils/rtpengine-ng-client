@@ -46,6 +46,7 @@ GetOptions(
 	'media-address=s'		=> \$options{'media address'},
 	'codec-strip=s@'		=> \$options{'codec-strip'},
 	'codec-offer=s@'		=> \$options{'codec-offer'},
+	'codec-transcode=s@'		=> \$options{'codec-transcode'},
 	'flags=s@'			=> \$options{'flags'},
 ) or die;
 
@@ -73,11 +74,10 @@ if (defined($options{direction})) {
 	$options{direction} =~ /(.*),(.*)/ or die;
 	$packet{direction} = [$1,$2];
 }
-if ($options{'codec-strip'} && @{$options{'codec-strip'}}) {
-	$packet{codec}{strip} = $options{'codec-strip'};
-}
-if ($options{'codec-offer'} && @{$options{'codec-offer'}}) {
-	$packet{codec}{offer} = $options{'codec-offer'};
+for my $x (qw(strip offer transcode)) {
+	if ($options{'codec-'.$x} && @{$options{'codec-'.$x}}) {
+		$packet{codec}{$x} = $options{'codec-'.$x};
+	}
 }
 if ($options{'flags'} && @{$options{'flags'}}) {
 	push(@{$packet{flags}}, @{$options{'flags'}});

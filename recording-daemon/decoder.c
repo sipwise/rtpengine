@@ -15,6 +15,7 @@
 #include "output.h"
 #include "mix.h"
 #include "resample.h"
+#include "codeclib.h"
 
 
 struct decoder_s {
@@ -33,65 +34,10 @@ struct decoder_s {
 };
 
 
-struct decoder_def_s {
-	const char *rtpname;
-	int clockrate_mult;
-	int avcodec_id;
-	const char *avcodec_name;
-};
-
-
-#define DECODER_DEF_MULT_NAME(ref, id, mult, name) { \
-	.rtpname = #ref, \
-	.avcodec_id = AV_CODEC_ID_ ## id, \
-	.clockrate_mult = mult, \
-	.avcodec_name = #name, \
-}
-#define DECODER_DEF_MULT(ref, id, mult) DECODER_DEF_MULT_NAME(ref, id, mult, NULL)
-#define DECODER_DEF_NAME(ref, id, name) DECODER_DEF_MULT_NAME(ref, id, 1, name)
-#define DECODER_DEF(ref, id) DECODER_DEF_MULT(ref, id, 1)
-
-static const struct decoder_def_s decoders[] = {
-	DECODER_DEF(PCMA, PCM_ALAW),
-	DECODER_DEF(PCMU, PCM_MULAW),
-	DECODER_DEF(G723, G723_1),
-	DECODER_DEF_MULT(G722, ADPCM_G722, 2),
-	DECODER_DEF(QCELP, QCELP),
-	DECODER_DEF(G729, G729),
-	DECODER_DEF(speex, SPEEX),
-	DECODER_DEF(GSM, GSM),
-	DECODER_DEF(iLBC, ILBC),
-	DECODER_DEF_NAME(opus, OPUS, libopus),
-	DECODER_DEF_NAME(vorbis, VORBIS, libvorbis),
-	DECODER_DEF(ac3, AC3),
-	DECODER_DEF(eac3, EAC3),
-	DECODER_DEF(ATRAC3, ATRAC3),
-	DECODER_DEF(ATRAC-X, ATRAC3P),
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-	DECODER_DEF(EVRC, EVRC),
-	DECODER_DEF(EVRC0, EVRC),
-	DECODER_DEF(EVRC1, EVRC),
-#endif
-	DECODER_DEF(AMR, AMR_NB),
-	DECODER_DEF(AMR-WB, AMR_WB),
-};
-typedef struct decoder_def_s decoder_def_t;
-
-
 
 
 int resample_audio;
 
-
-
-
-static const decoder_def_t *decoder_find(const str *name) {
-	for (int i = 0; i < G_N_ELEMENTS(decoders); i++) {
-		if (!str_cmp(name, decoders[i].rtpname))
-			return &decoders[i];
-	}
-	return NULL;
-}
 
 
 decoder_t *decoder_new(const char *payload_str) {
@@ -115,7 +61,7 @@ decoder_t *decoder_new(const char *payload_str) {
 			channels = 1;
 	}
 
-	const decoder_def_t *def = decoder_find(&name);
+	const codec_def_t *def = codec_find(&name);
 	if (!def) {
 		ilog(LOG_WARN, "No decoder for payload %s", payload_str);
 		return NULL;

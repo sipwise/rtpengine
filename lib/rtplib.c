@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include "str.h"
 #include "log.h"
+#include "codeclib.h"
 
 
 
@@ -124,4 +125,16 @@ const struct rtp_payload_type *rtp_get_rfc_payload_type(unsigned int type) {
 	if (!rtp_pt->encoding.s)
 		return NULL;
 	return rtp_pt;
+}
+
+// XXX use hash table
+const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec) {
+	for (int i = 0; i < num_rfc_rtp_payload_types; i++) {
+		if (!rfc_rtp_payload_types[i].encoding.s)
+			continue;
+		if (str_cmp_str(codec, &rfc_rtp_payload_types[i].encoding))
+			continue;
+		return &rfc_rtp_payload_types[i];
+	}
+	return NULL;
 }
