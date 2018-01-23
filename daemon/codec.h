@@ -32,6 +32,10 @@ void codec_handlers_free(struct call_media *);
 
 void codec_packet_free(void *);
 
+void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
+		GQueue *types, GHashTable *strip,
+		const GQueue *offer, const GQueue *transcode);
+
 
 
 
