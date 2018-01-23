@@ -23,6 +23,7 @@
 #include "decoder.h"
 #include "output.h"
 #include "forward.h"
+#include "codeclib.h"
 
 
 
@@ -96,10 +97,7 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 static void setup(void) {
 	log_init("rtpengine-recording");
 	if (output_enabled) {
-		av_register_all();
-		avcodec_register_all();
-		avfilter_register_all();
-		avformat_network_init();
+		codeclib_init();
 		av_log_set_callback(avlog_ilog);
 		output_init(output_format);
 		if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
