@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "str.h"
+#include "codeclib.h"
 
 
 struct rtp_header {
@@ -22,6 +23,8 @@ struct rtp_payload_type {
 	unsigned int clock_rate;
 	str encoding_parameters;
 	str format_parameters;
+
+	const codec_def_t *codec_def;
 };
 
 
@@ -32,6 +35,7 @@ extern const int num_rfc_rtp_payload_types;
 int rtp_payload(struct rtp_header **out, str *p, const str *s);
 int rtp_padding(struct rtp_header *header, str *payload);
 const struct rtp_payload_type *rtp_get_rfc_payload_type(unsigned int type);
+const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec);
 
 
 #endif

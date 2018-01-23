@@ -616,6 +616,11 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			return;
 		if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list, &out->codec_offer))
 			return;
+		if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list, &out->codec_transcode))
+			return;
+		if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_codec_list,
+					&out->codec_transcode))
+			return;
 
 		ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
 				STR_FMT(s));
@@ -691,11 +696,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		/* XXX module still needs to support these */
 		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_ht, out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
+		call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
 	}
 }
 static void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	g_hash_table_destroy(flags->codec_strip);
 	g_queue_clear_full(&flags->codec_offer, str_slice_free);
+	g_queue_clear_full(&flags->codec_transcode, str_slice_free);
 }
 
 static const char *call_offer_answer_ng(bencode_item_t *input,
