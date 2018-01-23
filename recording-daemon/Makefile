@@ -25,8 +25,8 @@ LDFLAGS+=	`mysql_config --libs`
 include ../lib/lib.Makefile
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
-		decoder.c output.c mix.c resample.c db.c log.c forward.c
-LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c
+		decoder.c output.c mix.c db.c log.c forward.c
+LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
 

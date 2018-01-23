@@ -2,7 +2,7 @@
 #define _RESAMPLE_H_
 
 
-#include "types.h"
+#include "codeclib.h"
 #include <libavutil/frame.h>
 
 
