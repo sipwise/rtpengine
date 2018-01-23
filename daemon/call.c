@@ -1450,92 +1450,6 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 		MEDIA_SET(other_media, DTLS);
 }
 
-static void __rtp_payload_type_add(struct call_media *media, struct call_media *other_media,
-		struct rtp_payload_type *pt)
-{
-	struct call *call = media->call;
-
-	if (g_hash_table_lookup(media->codecs, &pt->payload_type)) {
-		// collision/duplicate - ignore
-		__payload_type_free(pt);
-		return;
-	}
-	/* we must duplicate the contents */
-	call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
-	call_str_cpy(call, &pt->encoding, &pt->encoding);
-	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
-	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
-	g_hash_table_replace(media->codecs, &pt->payload_type, pt);
-
-	GQueue *q = g_hash_table_lookup_queue_new(media->codec_names, &pt->encoding);
-	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
-
-	g_queue_push_tail(&media->codecs_prefs_recv, pt);
-
-	// for the other side, we need a new 'pt' struct
-	struct rtp_payload_type *pt_copy = g_slice_alloc(sizeof(*pt));
-	*pt_copy = *pt; // contents are allocated from the 'call'
-	g_queue_push_tail(&other_media->codecs_prefs_send, pt_copy);
-
-	// make sure we have at least an empty queue here to indicate support for this code.
-	// don't add anything to the queue as we don't know the reverse RTP payload type.
-	g_hash_table_lookup_queue_new(other_media->codec_names, &pt->encoding);
-}
-
-static void __payload_queue_free(void *qq) {
-	GQueue *q = qq;
-	g_queue_free_full(q, __payload_type_free);
-}
-static void __rtp_payload_types(struct call_media *media, struct call_media *other_media,
-		GQueue *types, GHashTable *strip,
-		const GQueue *offer)
-{
-	// 'media' = receiver of this offer/answer; 'other_media' = sender of this offer/answer
-	struct rtp_payload_type *pt;
-	static const str str_all = STR_CONST_INIT("all");
-	GHashTable *removed = g_hash_table_new_full(str_hash, str_equal, NULL, __payload_queue_free);
-	int remove_all = 0;
-
-	// start fresh
-	g_queue_clear(&media->codecs_prefs_recv);
-	g_queue_clear_full(&other_media->codecs_prefs_send, __payload_type_free);
-	g_hash_table_remove_all(media->codecs);
-	g_hash_table_remove_all(media->codec_names);
-
-	if (strip && g_hash_table_lookup(strip, &str_all))
-		remove_all = 1;
-
-	/* we steal the entire list to avoid duplicate allocs */
-	while ((pt = g_queue_pop_head(types))) {
-		// codec stripping
-		if (strip) {
-			if (remove_all || g_hash_table_lookup(strip, &pt->encoding)) {
-				GQueue *q = g_hash_table_lookup_queue_new(removed, &pt->encoding);
-				g_queue_push_tail(q, pt);
-				continue;
-			}
-		}
-		__rtp_payload_type_add(media, other_media, pt);
-	}
-
-	if (offer) {
-		// now restore codecs that have been removed, but should be offered
-		for (GList *l = offer->head; l; l = l->next) {
-			str *codec = l->data;
-			GQueue *q = g_hash_table_lookup(removed, codec);
-			if (!q)
-				continue;
-			g_hash_table_steal(removed, codec);
-			for (GList *l = q->head; l; l = l->next) {
-				pt = l->data;
-				__rtp_payload_type_add(media, other_media, pt);
-			}
-			g_queue_free(q);
-		}
-	}
-
-	g_hash_table_destroy(removed);
-}
 
 static void __ice_start(struct call_media *media) {
 	if (MEDIA_ISSET(media, PASSTHRU)) {
@@ -1658,8 +1572,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		}
 
 		// codec and RTP payload types handling
-		__rtp_payload_types(media, other_media, &sp->rtp_payload_types,
-				flags->codec_strip, &flags->codec_offer);
+		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types,
+				flags->codec_strip, &flags->codec_offer, &flags->codec_transcode);
 		codec_handlers_update(media, other_media);
 
 		/* send and recv are from our POV */

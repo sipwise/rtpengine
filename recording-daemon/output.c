@@ -201,7 +201,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	avcodec_parameters_from_context(output->avst->codecpar, output->avcctx);
 #endif
 
-	char full_fn[PATH_MAX];
+	char full_fn[PATH_MAX*2];
 	char suff[16] = "";
 	for (int i = 1; i < 20; i++) {
 		snprintf(full_fn, sizeof(full_fn), "%s%s.%s", output->full_filename, suff, output->file_format);
