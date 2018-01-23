@@ -6,12 +6,12 @@
 #include <sys/types.h>
 #include <glib.h>
 #include <libavutil/frame.h>
-#include <libavresample/avresample.h>
 #include <libavformat/avformat.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/audio_fifo.h>
 #include "str.h"
+#include "codeclib.h"
 
 
 struct iphdr;
@@ -24,16 +24,10 @@ struct handler_s;
 typedef struct handler_s handler_t;
 struct metafile_s;
 typedef struct metafile_s metafile_t;
-struct decoder_s;
-typedef struct decoder_s decoder_t;
 struct output_s;
 typedef struct output_s output_t;
 struct mix_s;
 typedef struct mix_s mix_t;
-struct resample_s;
-typedef struct resample_s resample_t;
-struct format_s;
-typedef struct format_s format_t;
 
 
 typedef void handler_func(handler_t *);
@@ -110,18 +104,6 @@ struct metafile_s {
 };
 
 
-struct resample_s {
-	AVAudioResampleContext *avresample;
-};
-
-
-struct format_s {
-	int clockrate;
-	int channels;
-	int format; // enum AVSampleFormat
-};
-
-
 struct output_s {
 	char full_filename[PATH_MAX], // path + filename
 		file_path[PATH_MAX],
@@ -142,21 +124,6 @@ struct output_s {
 	AVFrame *frame;
 };
 
-
-INLINE int format_eq(const format_t *a, const format_t *b) {
-	if (G_UNLIKELY(a->clockrate != b->clockrate))
-		return 0;
-	if (G_UNLIKELY(a->channels != b->channels))
-		return 0;
-	if (G_UNLIKELY(a->format != b->format))
-		return 0;
-	return 1;
-}
-INLINE void format_init(format_t *f) {
-	f->clockrate = -1;
-	f->channels = -1;
-	f->format = -1;
-}
 
 
 #endif
