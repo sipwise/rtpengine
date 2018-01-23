@@ -1,4 +1,6 @@
 #include "iptables.h"
+#include "main.h"
+#include "str.h"
 
 int (*iptables_add_rule)(const socket_t *local_sock, const str *comment);
 int (*iptables_del_rule)(const socket_t *local_sock);
@@ -21,8 +23,6 @@ int (*iptables_del_rule)(const socket_t *local_sock);
 #include "aux.h"
 #include "log.h"
 #include "socket.h"
-#include "str.h"
-#include "main.h"
 
 #undef __ALIGN_KERNEL
 #define __ALIGN_KERNEL(x, a)		__ALIGN_KERNEL_MASK(x, (__typeof(x))(a) - 1)
