@@ -4,6 +4,7 @@
 
 #include <glib.h>
 #include "str.h"
+#include "codeclib.h"
 
 
 struct call_media;
@@ -16,6 +17,7 @@ typedef int codec_handler_func(struct codec_handler *, struct call_media *, cons
 struct codec_handler {
 	int rtp_payload_type;
 	codec_handler_func *func;
+	decoder_t *decoder;
 };
 
 struct codec_packet {
