@@ -3,6 +3,7 @@
 #include "call.h"
 #include "log.h"
 #include "rtplib.h"
+#include "codeclib.h"
 
 
 
@@ -127,4 +128,194 @@ void codec_packet_free(void *pp) {
 	if (p->free_func)
 		p->free_func(p->s.s);
 	g_slice_free1(sizeof(*p), p);
+}
+
+
+
+static struct rtp_payload_type *codec_make_payload_type(const str *codec) {
+	const codec_def_t *dec = codec_find(codec);
+	if (!dec)
+		return NULL;
+	const struct rtp_payload_type *rfc_pt = rtp_get_rfc_codec(codec);
+	if (!rfc_pt)
+		return NULL; // XXX amend for other codecs
+
+	struct rtp_payload_type *ret = g_slice_alloc(sizeof(*ret));
+	*ret = *rfc_pt;
+	ret->codec_def = dec;
+
+	return ret;
+}
+
+
+static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media) {
+	struct rtp_payload_type *pt = codec_make_payload_type(codec);
+	if (!pt) {
+		ilog(LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
+				STR_FMT(codec));
+		return NULL;
+	}
+	// find an unused payload type number
+	if (pt->payload_type < 0)
+		pt->payload_type = 96; // default first dynamic payload type number
+	while (1) {
+		if (!g_hash_table_lookup(media->codecs, &pt->payload_type))
+			break; // OK
+		pt->payload_type++;
+		if (pt->payload_type < 96) // if an RFC type was taken already
+			pt->payload_type = 96;
+		else if (pt->payload_type >= 128) {
+			ilog(LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
+					STR_FORMAT "' for transcoding",
+				STR_FMT(codec));
+			__payload_type_free(pt);
+			return NULL;
+		}
+	}
+	return pt;
+}
+
+
+
+
+
+
+
+
+
+static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *pt) {
+	/* we must duplicate the contents */
+	call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
+	call_str_cpy(call, &pt->encoding, &pt->encoding);
+	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
+	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
+}
+// consumes 'pt'
+static struct rtp_payload_type *__rtp_payload_type_add_recv(struct call_media *media,
+		struct rtp_payload_type *pt)
+{
+	struct rtp_payload_type *existing_pt;
+	if ((existing_pt = g_hash_table_lookup(media->codecs, &pt->payload_type))) {
+		// collision/duplicate - ignore
+		__payload_type_free(pt);
+		return existing_pt;
+	}
+	g_hash_table_replace(media->codecs, &pt->payload_type, pt);
+
+	GQueue *q = g_hash_table_lookup_queue_new(media->codec_names, &pt->encoding);
+	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
+
+	g_queue_push_tail(&media->codecs_prefs_recv, pt);
+
+	return pt;
+}
+// duplicates 'pt'
+static void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payload_type *pt) {
+	// for the other side, we need a new 'pt' struct
+	struct rtp_payload_type *pt_copy = g_slice_alloc(sizeof(*pt));
+	*pt_copy = *pt;
+	g_queue_push_tail(&other_media->codecs_prefs_send, pt_copy);
+
+	// make sure we have at least an empty queue here to indicate support for this code.
+	// don't add anything to the queue as we don't know the reverse RTP payload type.
+	g_hash_table_lookup_queue_new(other_media->codec_names, &pt->encoding);
+}
+// consumes 'pt'
+static void __rtp_payload_type_add(struct call_media *media, struct call_media *other_media,
+		struct rtp_payload_type *pt)
+{
+	// if this payload type is already present in the 'codec' table, the _recv
+	// function frees its argument and returns the existing entry instead.
+	// otherwise it returns its argument.
+	pt = __rtp_payload_type_add_recv(media, pt);
+	__rtp_payload_type_add_send(other_media, pt);
+}
+
+static void __payload_queue_free(void *qq) {
+	GQueue *q = qq;
+	g_queue_free_full(q, __payload_type_free);
+}
+static int __revert_codec_strip(GHashTable *removed, const str *codec,
+		struct call_media *media, struct call_media *other_media) {
+	GQueue *q = g_hash_table_lookup(removed, codec);
+	if (!q)
+		return 0;
+	ilog(LOG_DEBUG, "Restoring codec '" STR_FORMAT "' from stripped codecs (%u payload types)",
+			STR_FMT(codec), q->length);
+	g_hash_table_steal(removed, codec);
+	for (GList *l = q->head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		__rtp_payload_type_add(media, other_media, pt);
+	}
+	g_queue_free(q);
+	return 1;
+}
+void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
+		GQueue *types, GHashTable *strip,
+		const GQueue *offer, const GQueue *transcode)
+{
+	// 'media' = receiver of this offer/answer; 'other_media' = sender of this offer/answer
+	struct call *call = media->call;
+	struct rtp_payload_type *pt;
+	static const str str_all = STR_CONST_INIT("all");
+	GHashTable *removed = g_hash_table_new_full(str_hash, str_equal, NULL, __payload_queue_free);
+	int remove_all = 0;
+
+	// start fresh
+	g_queue_clear(&media->codecs_prefs_recv);
+	g_queue_clear_full(&other_media->codecs_prefs_send, __payload_type_free);
+	g_hash_table_remove_all(media->codecs);
+	g_hash_table_remove_all(media->codec_names);
+
+	if (strip && g_hash_table_lookup(strip, &str_all))
+		remove_all = 1;
+
+	/* we steal the entire list to avoid duplicate allocs */
+	while ((pt = g_queue_pop_head(types))) {
+		__rtp_payload_type_dup(call, pt); // this takes care of string allocation
+
+		// codec stripping
+		if (strip) {
+			if (remove_all || g_hash_table_lookup(strip, &pt->encoding)) {
+				ilog(LOG_DEBUG, "Stripping codec '" STR_FORMAT "'", STR_FMT(&pt->encoding));
+				GQueue *q = g_hash_table_lookup_queue_new(removed, &pt->encoding);
+				g_queue_push_tail(q, pt);
+				continue;
+			}
+		}
+		__rtp_payload_type_add(media, other_media, pt);
+	}
+
+	// now restore codecs that have been removed, but should be offered
+	for (GList *l = offer ? offer->head : NULL; l; l = l->next) {
+		str *codec = l->data;
+		__revert_codec_strip(removed, codec, media, other_media);
+	}
+
+	// add transcode codecs
+	for (GList *l = transcode ? transcode->head : NULL; l; l = l->next) {
+		str *codec = l->data;
+		// if we wish to 'transcode' to a codec that was offered originally,
+		// simply restore it from the original list and handle it the same way
+		// as 'offer'
+		if (__revert_codec_strip(removed, codec, media, other_media))
+			continue;
+		// also check if maybe the codec was never stripped
+		if (g_hash_table_lookup(media->codec_names, codec)) {
+			ilog(LOG_DEBUG, "Codec '" STR_FORMAT "' requested for transcoding is already present",
+					STR_FMT(codec));
+			continue;
+		}
+
+		// create new payload type
+		pt = codec_add_payload_type(codec, media);
+		if (!pt)
+			continue;
+
+		ilog(LOG_DEBUG, "Codec '" STR_FORMAT "' added for transcoding with payload type %u",
+				STR_FMT(codec), pt->payload_type);
+		__rtp_payload_type_add_recv(media, pt);
+	}
+
+	g_hash_table_destroy(removed);
 }
