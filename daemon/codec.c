@@ -1,5 +1,6 @@
 #include "codec.h"
 #include <glib.h>
+#include <assert.h>
 #include "call.h"
 #include "log.h"
 #include "rtplib.h"
@@ -9,6 +10,7 @@
 
 
 static codec_handler_func handler_func_stub;
+static codec_handler_func handler_func_transcode;
 
 
 static struct codec_handler codec_handler_stub = {
@@ -18,13 +20,43 @@ static struct codec_handler codec_handler_stub = {
 
 
 
+static void __handler_shutdown(struct codec_handler *handler) {
+	if (handler->decoder)
+		decoder_close(handler->decoder);
+	handler->decoder = NULL;
+}
+
 static void __make_stub(struct codec_handler *handler) {
+	__handler_shutdown(handler);
 	handler->func = handler_func_stub;
 }
 
 static void __codec_handler_free(void *pp) {
 	struct codec_handler *h = pp;
+	__handler_shutdown(h);
 	g_slice_free1(sizeof(*h), h);
+}
+
+static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *source,
+		struct rtp_payload_type *dest)
+{
+	assert(source->codec_def != NULL);
+	assert(dest->codec_def != NULL);
+
+	__handler_shutdown(handler);
+
+	handler->func = handler_func_transcode;
+	handler->decoder = decoder_new_fmt(source->codec_def, source->clock_rate, 1, 0);
+	if (!handler->decoder)
+		goto err;
+
+	ilog(LOG_DEBUG, "Created transcode context for '" STR_FORMAT "' -> '" STR_FORMAT "'",
+			STR_FMT(&source->encoding), STR_FMT(&dest->encoding));
+
+	return;
+
+err:
+	__make_stub(handler);
 }
 
 // call must be locked in W
@@ -32,6 +64,8 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 	if (!receiver->codec_handlers)
 		receiver->codec_handlers = g_hash_table_new_full(g_int_hash, g_int_equal,
 				NULL, __codec_handler_free);
+
+	MEDIA_CLEAR(receiver, TRANSCODE);
 
 	// we go through the list of codecs that the receiver supports and compare it
 	// with the list of codecs supported by the sink. if the receiver supports
@@ -42,7 +76,10 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 	struct rtp_payload_type *pref_dest_codec = NULL;
 	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		// XXX if supported ...
+		if (!pt->codec_def)
+			pt->codec_def = codec_find(&pt->encoding);
+		if (!pt->codec_def) // not supported, next
+			continue;
 		ilog(LOG_DEBUG, "Default sink codec is " STR_FORMAT, STR_FMT(&pt->encoding));
 		pref_dest_codec = pt;
 		break;
@@ -74,14 +111,16 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 
 		if (g_hash_table_lookup(sink->codec_names, &pt->encoding)) {
 			// the sink supports this codec. forward without transcoding.
+			// XXX check format parameters as well
 			ilog(LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding));
 			__make_stub(handler);
 			continue;
 		}
 
-		// the sink does not support this codec XXX do something
+		// the sink does not support this codec -> transcode
 		ilog(LOG_DEBUG, "Sink does not support codec " STR_FORMAT, STR_FMT(&pt->encoding));
-		__make_stub(handler);
+		MEDIA_SET(receiver, TRANSCODE);
+		__make_transcoder(handler, pt, pref_dest_codec);
 	}
 }
 
@@ -120,6 +159,9 @@ static int handler_func_stub(struct codec_handler *h, struct call_media *media, 
 	p->s = *s;
 	p->free_func = NULL;
 	g_queue_push_tail(out, p);
+	return 0;
+}
+static int handler_func_transcode(struct codec_handler *h, struct call_media *media, const str *s, GQueue *out) {
 	return 0;
 }
 

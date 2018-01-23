@@ -10,7 +10,7 @@
 #include <libavutil/opt.h>
 #include <libavutil/frame.h>
 #include "log.h"
-#include "types.h"
+#include "codeclib.h"
 
 
 
