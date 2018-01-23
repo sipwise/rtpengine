@@ -38,6 +38,7 @@
 #include "iptables.h"
 #include "statistics.h"
 #include "graphite.h"
+#include "codeclib.h"
 
 
 
@@ -555,6 +556,7 @@ static void init_everything() {
 	if (call_interfaces_init())
 		abort();
 	statistics_init();
+	codeclib_init();
 }
 
 
