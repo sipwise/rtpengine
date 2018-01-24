@@ -5,6 +5,7 @@
 #include <glib.h>
 #include "str.h"
 #include "log.h"
+#include "loglib.h"
 #include "resample.h"
 
 
@@ -265,4 +266,123 @@ void codeclib_init() {
 	avcodec_register_all();
 	avfilter_register_all();
 	avformat_network_init();
+}
+
+
+
+
+
+
+static int ptr_cmp(const void *a, const void *b, void *dummy) {
+	if (a < b)
+		return -1;
+	if (a > b)
+		return 1;
+	return 0;
+}
+
+void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify ffunc) {
+	ps->packets = g_tree_new_full(ptr_cmp, NULL, NULL, ffunc);
+	ps->seq = -1;
+}
+void packet_sequencer_destroy(packet_sequencer_t *ps) {
+	g_tree_destroy(ps->packets);
+}
+struct tree_searcher {
+	int find_seq,
+	    found_seq;
+};
+static int packet_tree_search(const void *testseq_p, const void *ts_p) {
+	struct tree_searcher *ts = (void *) ts_p;
+	int testseq = GPOINTER_TO_INT(testseq_p);
+	// called as a binary search test function. we're looking for the lowest
+	// seq number that is higher than find_seq. if our test number is too low,
+	// we proceed with higher numbers. if it's too high, we proceed to the lower
+	// numbers, but remember the lowest we've seen along that path.
+	if (G_UNLIKELY(testseq == ts->find_seq)) {
+		// we've struck gold
+		ts->found_seq = testseq;
+		return 0;
+	}
+	if (testseq < ts->find_seq)
+		return 1;
+	// testseq > ts->find_seq
+	if (ts->found_seq == -1 || testseq < ts->found_seq)
+		ts->found_seq = testseq;
+	return -1;
+}
+// caller must take care of locking
+void *packet_sequencer_next_packet(packet_sequencer_t *ps) {
+	// see if we have a packet with the correct seq nr in the queue
+	seq_packet_t *packet = g_tree_lookup(ps->packets, GINT_TO_POINTER(ps->seq));
+	if (G_LIKELY(packet != NULL)) {
+		dbg("returning in-sequence packet (seq %i)", ps->seq);
+		goto out;
+	}
+
+	// why not? do we have anything? (we should)
+	int nnodes = g_tree_nnodes(ps->packets);
+	if (G_UNLIKELY(nnodes == 0)) {
+		dbg("packet queue empty");
+		return NULL;
+	}
+	if (G_LIKELY(nnodes < 10)) { // XXX arbitrary value
+		dbg("only %i packets in queue - waiting for more", nnodes);
+		return NULL; // need to wait for more
+	}
+
+	// packet was probably lost. search for the next highest seq
+	struct tree_searcher ts = { .find_seq = ps->seq + 1, .found_seq = -1 };
+	packet = g_tree_search(ps->packets, packet_tree_search, &ts);
+	if (packet) {
+		// bullseye
+		dbg("lost packet - returning packet with next seq %i", packet->seq);
+		goto out;
+	}
+	if (G_UNLIKELY(ts.found_seq == -1)) {
+		// didn't find anything. seq must have wrapped around. retry
+		// starting from zero
+		ts.find_seq = 0;
+		packet = g_tree_search(ps->packets, packet_tree_search, &ts);
+		if (packet) {
+			dbg("lost packet - returning packet with next seq %i (after wrap)", packet->seq);
+			goto out;
+		}
+		if (G_UNLIKELY(ts.found_seq == -1))
+			abort();
+	}
+
+	// pull out the packet we found
+	packet = g_tree_lookup(ps->packets, GINT_TO_POINTER(ts.found_seq));
+	if (G_UNLIKELY(packet == NULL))
+		abort();
+
+	dbg("lost multiple packets - returning packet with next highest seq %i", packet->seq);
+
+out:
+	g_tree_steal(ps->packets, GINT_TO_POINTER(packet->seq));
+	ps->seq = (packet->seq + 1) & 0xffff;
+	return packet;
+}
+int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
+	// check seq for dupes
+	if (G_UNLIKELY(ps->seq == -1)) {
+		// first packet we see
+		ps->seq = p->seq;
+		goto seq_ok;
+	}
+
+	int diff = p->seq - ps->seq;
+	if (diff >= 0x8000)
+		return -1;
+	if (diff < 0 && diff > -0x8000)
+		return -1;
+
+	// seq ok - fall thru
+seq_ok:
+	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(p->seq)))
+		return -1;
+	g_tree_insert(ps->packets, GINT_TO_POINTER(p->seq), p);
+
+	return 0;
 }
