@@ -18,6 +18,7 @@ flags = [
     '-fno-strict-aliasing',
     '-I/usr/include/glib-2.0',
     '-I/usr/lib/x86_64-linux-gnu/glib-2.0/include',
+    '-I/usr/include/json-glib-1.0',
     '-pthread',
     '-I../kernel-module/',
     '-D_GNU_SOURCE',

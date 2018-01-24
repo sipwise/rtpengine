@@ -549,7 +549,7 @@ static void callmaster_timer(void *ptr) {
 		if (sink) {
 			mutex_lock(&sink->out_lock);
 			if (sink->crypto.params.crypto_suite && sink->ssrc_out
-					&& ke->target.ssrc == sink->ssrc_out->parent->ssrc
+					&& ke->target.ssrc == sink->ssrc_out->parent->h.ssrc
 					&& ke->target.encrypt.last_index - sink->ssrc_out->srtp_index > 0x4000)
 			{
 				sink->ssrc_out->srtp_index = ke->target.encrypt.last_index;
@@ -560,7 +560,7 @@ static void callmaster_timer(void *ptr) {
 
 		mutex_lock(&ps->in_lock);
 		if (sfd->crypto.params.crypto_suite && ps->ssrc_in
-				&& ke->target.ssrc == ps->ssrc_in->parent->ssrc
+				&& ke->target.ssrc == ps->ssrc_in->parent->h.ssrc
 				&& ke->target.decrypt.last_index - ps->ssrc_in->srtp_index > 0x4000)
 		{
 			ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
@@ -641,8 +641,8 @@ fail:
 
 
 
-void __payload_type_free(void *p) {
-	g_slice_free1(sizeof(struct rtp_payload_type), p);
+void payload_type_free(struct rtp_payload_type *p) {
+	g_slice_free1(sizeof(*p), p);
 }
 
 static struct call_media *__get_media(struct call_monologue *ml, GList **it, const struct stream_params *sp) {
@@ -672,7 +672,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->call = ml->call;
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
-	med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __payload_type_free);
+	med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, (GDestroyNotify) payload_type_free);
 
 	g_queue_push_tail(&ml->medias, med);
 
@@ -1902,7 +1902,7 @@ void call_destroy(struct call *c) {
 						(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
 						addr, ps->endpoint.port,
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						ps->ssrc_in ? ps->ssrc_in->parent->ssrc : 0,
+						ps->ssrc_in ? ps->ssrc_in->parent->h.ssrc : 0,
 						atomic64_get(&ps->stats.packets),
 						atomic64_get(&ps->stats.bytes),
 						atomic64_get(&ps->stats.errors),
@@ -1918,12 +1918,12 @@ void call_destroy(struct call *c) {
 
 	k = g_hash_table_get_values(c->ssrc_hash->ht);
 	for (l = k; l; l = l->next) {
-		struct ssrc_entry *se = l->data;
+		struct ssrc_entry_call *se = l->data;
 
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
 
-		ilog(LOG_INFO, "--- SSRC %" PRIu32 "", se->ssrc);
+		ilog(LOG_INFO, "--- SSRC %" PRIu32 "", se->h.ssrc);
 		ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
 				"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
 				"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u)",
@@ -2073,7 +2073,7 @@ static struct call *call_create(const str *callid, struct callmaster *m) {
 	c->created = g_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = m->conf.default_tos;
-	c->ssrc_hash = create_ssrc_hash();
+	c->ssrc_hash = create_ssrc_hash_call();
 
 	return c;
 }

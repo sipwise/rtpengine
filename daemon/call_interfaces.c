@@ -926,7 +926,7 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	BF_PS("ICE", ICE);
 
 	if (ps->ssrc_in)
-		bencode_dictionary_add_integer(dict, "SSRC", ps->ssrc_in->parent->ssrc);
+		bencode_dictionary_add_integer(dict, "SSRC", ps->ssrc_in->parent->h.ssrc);
 
 stats:
 	if (totals->last_packet < atomic64_get(&ps->last_packet))
@@ -1046,9 +1046,9 @@ static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
 	GList *ll = g_hash_table_get_values(ht->ht);
 
 	for (GList *l = ll; l; l = l->next) {
-		struct ssrc_entry *se = l->data;
+		struct ssrc_entry_call *se = l->data;
 		char *tmp = bencode_buffer_alloc(dict->buffer, 12);
-		snprintf(tmp, 12, "%" PRIu32, se->ssrc);
+		snprintf(tmp, 12, "%" PRIu32, se->h.ssrc);
 		bencode_item_t *ent = bencode_dictionary_add_dictionary(dict, tmp);
 
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)

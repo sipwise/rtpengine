@@ -971,7 +971,7 @@ void kernelize(struct packet_stream *stream) {
 
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);
-	reti.ssrc = stream->ssrc_in ? htonl(stream->ssrc_in->parent->ssrc) : 0;
+	reti.ssrc = stream->ssrc_in ? htonl(stream->ssrc_in->parent->h.ssrc) : 0;
 
 	stream->handler->in->kernel(&reti.decrypt, stream);
 	stream->handler->out->kernel(&reti.encrypt, sink);
@@ -1114,7 +1114,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 	mutex_lock(&in_srtp->in_lock);
 
 	(*ssrc_in_p) = in_srtp->ssrc_in;
-	if (G_UNLIKELY(!(*ssrc_in_p) || (*ssrc_in_p)->parent->ssrc != ssrc)) {
+	if (G_UNLIKELY(!(*ssrc_in_p) || (*ssrc_in_p)->parent->h.ssrc != ssrc)) {
 		// SSRC mismatch - get the new entry
 		(*ssrc_in_p) = in_srtp->ssrc_in =
 			get_ssrc_ctx(ssrc, ssrc_hash, SSRC_DIR_INPUT);
@@ -1126,7 +1126,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 	mutex_lock(&out_srtp->out_lock);
 
 	(*ssrc_out_p) = out_srtp->ssrc_out;
-	if (G_UNLIKELY(!(*ssrc_out_p) || (*ssrc_out_p)->parent->ssrc != ssrc)) {
+	if (G_UNLIKELY(!(*ssrc_out_p) || (*ssrc_out_p)->parent->h.ssrc != ssrc)) {
 		// SSRC mismatch - get the new entry
 		(*ssrc_out_p) = out_srtp->ssrc_out =
 			get_ssrc_ctx(ssrc, ssrc_hash, SSRC_DIR_OUTPUT);

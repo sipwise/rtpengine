@@ -1198,7 +1198,7 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 		med = uid_slice_alloc0(med, &c->medias);
 		med->call = c;
 		med->rtp_payload_types = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
-				__payload_type_free);
+				(GDestroyNotify) payload_type_free);
 
 		if (redis_hash_get_unsigned(&med->index, rh, "index"))
 			return -1;
@@ -1422,7 +1422,7 @@ static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
 			return -1;
 
 		u_int32_t ssrc = json_reader_get_ll(root_reader, "ssrc");
-		struct ssrc_entry *se = get_ssrc(ssrc, c->ssrc_hash);
+		struct ssrc_entry_call *se = get_ssrc(ssrc, c->ssrc_hash);
 		se->input_ctx.srtp_index = json_reader_get_ll(root_reader, "in_srtp_index");
 		se->input_ctx.srtcp_index = json_reader_get_ll(root_reader, "in_srtcp_index");
 		se->output_ctx.srtp_index = json_reader_get_ll(root_reader, "out_srtp_index");
@@ -2025,10 +2025,10 @@ char* redis_encode_json(struct call *c) {
 		json_builder_set_member_name(builder, "ssrc_table");
 		json_builder_begin_array (builder);
 		for (m = k; m; m = m->next) {
-			struct ssrc_entry *se = m->data;
+			struct ssrc_entry_call *se = m->data;
 			json_builder_begin_object (builder);
 
-			JSON_SET_SIMPLE("ssrc","%" PRIu32, se->ssrc);
+			JSON_SET_SIMPLE("ssrc","%" PRIu32, se->h.ssrc);
 			// XXX use function for in/out
 			JSON_SET_SIMPLE("in_srtp_index","%" PRIu64, se->input_ctx.srtp_index);
 			JSON_SET_SIMPLE("in_srtcp_index","%" PRIu64, se->input_ctx.srtcp_index);
