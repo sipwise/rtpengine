@@ -51,12 +51,12 @@ typedef struct stream_s stream_t;
 
 
 struct packet_s {
+	seq_packet_t p; // must be first
 	void *buffer;
 	// pointers into buffer
 	struct iphdr *ip;
 	struct ip6_hdr *ip6;
 	struct udphdr *udp;
-	int seq;
 	struct rtp_header *rtp;
 	str payload;
 
@@ -69,8 +69,7 @@ struct ssrc_s {
 	stream_t *stream;
 	metafile_t *metafile;
 	unsigned long ssrc;
-	GTree *packets; // contains packet_t objects
-	int seq; // next expected seq
+	packet_sequencer_t sequencer;
 	decoder_t *decoders[128];
 	output_t *output;
 };
