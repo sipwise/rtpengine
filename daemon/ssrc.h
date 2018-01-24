@@ -15,17 +15,27 @@ struct call_media;
 struct timeval;
 struct rtp_payload_type;
 struct ssrc_entry;
+struct ssrc_entry_call;
 enum ssrc_dir;
 
+
+
+typedef struct ssrc_entry *(*ssrc_create_func_t)(void *uptr);
+typedef void (*ssrc_free_func_t)(struct ssrc_entry *);
 
 
 struct ssrc_hash {
 	GHashTable *ht;
 	GQueue q;
 	rwlock_t lock;
+	ssrc_create_func_t create_func;
+	void *uptr;
+	ssrc_free_func_t destroy_func;
+	volatile struct ssrc_entry *cache; // last used entry
+	volatile struct ssrc_entry *precreat; // next used entry
 };
 struct ssrc_ctx {
-	struct ssrc_entry *parent;
+	struct ssrc_entry_call *parent;
 	// XXX lock this?
 	u_int64_t srtp_index,
 		  srtcp_index;
@@ -43,6 +53,10 @@ struct ssrc_stats_block {
 struct ssrc_entry {
 	mutex_t lock;
 	u_int32_t ssrc;
+};
+
+struct ssrc_entry_call {
+	struct ssrc_entry h; // must be first
 	struct ssrc_ctx input_ctx,
 			output_ctx;
 	GQueue sender_reports; // as received via RTCP
@@ -55,8 +69,8 @@ struct ssrc_entry {
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 };
 enum ssrc_dir { // these values must not be used externally
-	SSRC_DIR_INPUT  = G_STRUCT_OFFSET(struct ssrc_entry, input_ctx),
-	SSRC_DIR_OUTPUT = G_STRUCT_OFFSET(struct ssrc_entry, output_ctx),
+	SSRC_DIR_INPUT  = G_STRUCT_OFFSET(struct ssrc_entry_call, input_ctx),
+	SSRC_DIR_OUTPUT = G_STRUCT_OFFSET(struct ssrc_entry_call, output_ctx),
 };
 
 struct ssrc_time_item {
@@ -137,11 +151,12 @@ struct ssrc_xr_voip_metrics {
 
 
 void free_ssrc_hash(struct ssrc_hash **);
-struct ssrc_hash *create_ssrc_hash(void);
+struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t, ssrc_free_func_t, void *uptr);
 
-struct ssrc_entry *find_ssrc(u_int32_t, struct ssrc_hash *); // returns NULL if not found
-struct ssrc_entry *get_ssrc(u_int32_t, struct ssrc_hash * /* , int *created */); // creates new entry if not found
-//struct ssrc_entry *create_ssrc_entry(u_int32_t);
+struct ssrc_hash *create_ssrc_hash_call(void);
+
+void *get_ssrc(u_int32_t, struct ssrc_hash * /* , int *created */); // creates new entry if not found
+
 struct ssrc_ctx *get_ssrc_ctx(u_int32_t, struct ssrc_hash *, enum ssrc_dir); // creates new entry if not found
 
 

@@ -210,7 +210,7 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 			ilog(LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
 					STR_FORMAT "' for transcoding",
 				STR_FMT(codec));
-			__payload_type_free(pt);
+			payload_type_free(pt);
 			return NULL;
 		}
 	}
@@ -239,7 +239,7 @@ static struct rtp_payload_type *__rtp_payload_type_add_recv(struct call_media *m
 	struct rtp_payload_type *existing_pt;
 	if ((existing_pt = g_hash_table_lookup(media->codecs, &pt->payload_type))) {
 		// collision/duplicate - ignore
-		__payload_type_free(pt);
+		payload_type_free(pt);
 		return existing_pt;
 	}
 	g_hash_table_replace(media->codecs, &pt->payload_type, pt);
@@ -275,7 +275,7 @@ static void __rtp_payload_type_add(struct call_media *media, struct call_media *
 
 static void __payload_queue_free(void *qq) {
 	GQueue *q = qq;
-	g_queue_free_full(q, __payload_type_free);
+	g_queue_free_full(q, (GDestroyNotify) payload_type_free);
 }
 static int __revert_codec_strip(GHashTable *removed, const str *codec,
 		struct call_media *media, struct call_media *other_media) {
@@ -305,7 +305,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 
 	// start fresh
 	g_queue_clear(&media->codecs_prefs_recv);
-	g_queue_clear_full(&other_media->codecs_prefs_send, __payload_type_free);
+	g_queue_clear_full(&other_media->codecs_prefs_send, (GDestroyNotify) payload_type_free);
 	g_hash_table_remove_all(media->codecs);
 	g_hash_table_remove_all(media->codec_names);
 
