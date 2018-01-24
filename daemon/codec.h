@@ -5,19 +5,26 @@
 #include <glib.h>
 #include "str.h"
 #include "codeclib.h"
+#include "aux.h"
+#include "rtplib.h"
 
 
 struct call_media;
 struct codec_handler;
+struct media_packet;
+struct ssrc_hash;
 
 
-typedef int codec_handler_func(struct codec_handler *, struct call_media *, const str *, GQueue *);
+typedef int codec_handler_func(struct codec_handler *, struct call_media *, const struct media_packet *,
+		GQueue *);
 
 
 struct codec_handler {
-	int rtp_payload_type;
+	struct rtp_payload_type source_pt; // source_pt.payload_type = hashtable index
+	struct rtp_payload_type dest_pt;
 	codec_handler_func *func;
-	decoder_t *decoder;
+
+	struct ssrc_hash *ssrc_hash;
 };
 
 struct codec_packet {
