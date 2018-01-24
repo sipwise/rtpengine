@@ -25,6 +25,7 @@ sub new {
 	$self->{octet_count} = 0;
 	$self->{other_ssrcs} = {};
 	$self->{args} = \%args;
+	$self->{payload_type} = $args{payload_type} // 0;
 
 	return $self;
 }
@@ -34,7 +35,8 @@ sub timer {
 
 	time() < $self->{next_send} and return;
 
-	my $hdr = pack("CCnNN", 0x80, 0x00, $self->{seq}, $self->{timestamp}->bstr(), $self->{ssrc});
+	my $hdr = pack("CCnNN", 0x80, $self->{payload_type}, $self->{seq}, $self->{timestamp}->bstr(),
+		$self->{ssrc});
 	my $payload = chr(rand(256)) x $self->{payload}; # XXX adapt to codec
 
 	my $lost = 0;
