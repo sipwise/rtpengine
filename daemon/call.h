@@ -201,6 +201,7 @@ struct call_monologue;
 struct ice_agent;
 struct ssrc_hash;
 struct codec_handler;
+struct rtp_payload_type;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -426,7 +427,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 const struct transport_protocol *transport_protocol(const str *s);
 void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 
-void __payload_type_free(void *p);
+void payload_type_free(struct rtp_payload_type *p);
 void __rtp_stats_update(GHashTable *dst, GHashTable *src);
 
 const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m);
