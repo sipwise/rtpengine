@@ -79,6 +79,7 @@ struct packet_handler_ctx {
 	int kernelize; // true if stream can be kernelized
 
 	// output:
+	struct media_packet mp; // passed to handlers
 	GQueue packets_out;
 };
 
@@ -1283,9 +1284,6 @@ static void media_packet_rtcp_demux(struct packet_handler_ctx *phc)
 
 static void media_packet_rtp(struct packet_handler_ctx *phc)
 {
-	struct rtp_header *rtp_h;
-	struct rtcp_packet *rtcp_h;
-
 	phc->payload_type = -1;
 
 	if (G_UNLIKELY(!phc->media->protocol))
@@ -1293,18 +1291,21 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 	if (G_UNLIKELY(!phc->media->protocol->rtp))
 		return;
 
-	if (G_LIKELY(!phc->rtcp && !rtp_payload(&rtp_h, NULL, &phc->s))) {
+	if (G_LIKELY(!phc->rtcp && !rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s))) {
+		rtp_padding(phc->mp.rtp, &phc->mp.payload);
+
 		if (G_LIKELY(phc->out_srtp != NULL))
-			__stream_ssrc(phc->in_srtp, phc->out_srtp, rtp_h->ssrc, &phc->ssrc_in,
+			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtp->ssrc, &phc->ssrc_in,
 					&phc->ssrc_out, phc->call->ssrc_hash);
 
 		// check the payload type
 		// XXX redundant between SSRC handling and codec_handler stuff -> combine
-		phc->payload_type = (rtp_h->m_pt & 0x7f);
+		phc->payload_type = (phc->mp.rtp->m_pt & 0x7f);
 		if (G_LIKELY(phc->ssrc_in))
 			phc->ssrc_in->parent->payload_type = phc->payload_type;
 
 		// XXX convert to array? or keep last pointer?
+		// XXX yet another hash table per payload type -> combine
 		struct rtp_stats *rtp_s = g_hash_table_lookup(phc->stream->rtp_stats, &phc->payload_type);
 		if (!rtp_s) {
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT,
@@ -1318,9 +1319,9 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 			atomic64_add(&rtp_s->bytes, phc->s.len);
 		}
 	}
-	else if (phc->rtcp && !rtcp_payload(&rtcp_h, NULL, &phc->s)) {
+	else if (phc->rtcp && !rtcp_payload(&phc->mp.rtcp, NULL, &phc->s)) {
 		if (G_LIKELY(phc->out_srtp != NULL))
-			__stream_ssrc(phc->in_srtp, phc->out_srtp, rtcp_h->ssrc, &phc->ssrc_in,
+			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtcp->ssrc, &phc->ssrc_in,
 					&phc->ssrc_out, phc->call->ssrc_hash);
 	}
 }
@@ -1570,7 +1571,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// this sets rtcp, in_srtp, out_srtp, and sink
 	media_packet_rtcp_demux(phc);
 
-	// this set payload_type, ssrc_in and ssrc_out
+	// this set payload_type, ssrc_in, ssrc_out and mp
 	media_packet_rtp(phc);
 
 
@@ -1595,7 +1596,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// XXX use a handler for RTCP
 	struct codec_handler *transcoder = codec_handler_get(phc->media, phc->payload_type);
 	// this transfers the packet from 's' to 'packets_out'
-	transcoder->func(transcoder, phc->media, &phc->s, &phc->packets_out);
+	phc->mp.raw = phc->s;
+	if (transcoder->func(transcoder, phc->media, &phc->mp, &phc->packets_out))
+		goto drop;
 
 	if (G_LIKELY(handler_ret >= 0))
 		handler_ret = media_packet_encrypt(phc);
