@@ -5,30 +5,42 @@
 #include "log.h"
 #include "rtplib.h"
 #include "codeclib.h"
+#include "ssrc.h"
 
 
 
 
-static codec_handler_func handler_func_stub;
+struct codec_ssrc_handler {
+	struct ssrc_entry h; // must be first
+	mutex_t lock;
+	packet_sequencer_t sequencer;
+	decoder_t *decoder;
+};
+struct transcode_packet {
+	seq_packet_t p; // must be first
+	unsigned long ts;
+	str *payload;
+};
+
+
+static codec_handler_func handler_func_passthrough;
 static codec_handler_func handler_func_transcode;
+
+static struct ssrc_entry *__ssrc_handler_new(u_int32_t ssrc, void *p);
+static void __ssrc_handler_free(struct codec_ssrc_handler *p);
+
+static void __transcode_packet_free(struct transcode_packet *);
 
 
 static struct codec_handler codec_handler_stub = {
-	.rtp_payload_type = -1,
-	.func = handler_func_stub,
+	.source_pt.payload_type = -1,
+	.func = handler_func_passthrough,
 };
 
 
 
 static void __handler_shutdown(struct codec_handler *handler) {
-	if (handler->decoder)
-		decoder_close(handler->decoder);
-	handler->decoder = NULL;
-}
-
-static void __make_stub(struct codec_handler *handler) {
-	__handler_shutdown(handler);
-	handler->func = handler_func_stub;
+	free_ssrc_hash(&handler->ssrc_hash);
 }
 
 static void __codec_handler_free(void *pp) {
@@ -37,26 +49,38 @@ static void __codec_handler_free(void *pp) {
 	g_slice_free1(sizeof(*h), h);
 }
 
+static struct codec_handler *__handler_new(int pt) {
+	struct codec_handler *handler = g_slice_alloc0(sizeof(*handler));
+	handler->source_pt.payload_type = pt;
+	return handler;
+}
+
+static void __make_passthrough(struct codec_handler *handler) {
+	__handler_shutdown(handler);
+	handler->func = handler_func_passthrough;
+}
+
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *source,
 		struct rtp_payload_type *dest)
 {
 	assert(source->codec_def != NULL);
 	assert(dest->codec_def != NULL);
+	assert(source->payload_type == handler->source_pt.payload_type);
 
 	__handler_shutdown(handler);
 
+	handler->source_pt = *source;
+	handler->dest_pt = *dest;
 	handler->func = handler_func_transcode;
-	handler->decoder = decoder_new_fmt(source->codec_def, source->clock_rate, 1, 0);
-	if (!handler->decoder)
-		goto err;
+
+	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, (ssrc_free_func_t) __ssrc_handler_free,
+			handler);
 
 	ilog(LOG_DEBUG, "Created transcode context for '" STR_FORMAT "' -> '" STR_FORMAT "'",
 			STR_FMT(&source->encoding), STR_FMT(&dest->encoding));
 
 	return;
 
-err:
-	__make_stub(handler);
 }
 
 // call must be locked in W
@@ -93,9 +117,8 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 		handler = g_hash_table_lookup(receiver->codec_handlers, &pt->payload_type);
 		if (!handler) {
 			ilog(LOG_DEBUG, "Creating codec handler for " STR_FORMAT, STR_FMT(&pt->encoding));
-			handler = g_slice_alloc0(sizeof(*handler));
-			handler->rtp_payload_type = pt->payload_type;
-			g_hash_table_insert(receiver->codec_handlers, &handler->rtp_payload_type,
+			handler = __handler_new(pt->payload_type);
+			g_hash_table_insert(receiver->codec_handlers, &handler->source_pt.payload_type,
 					handler);
 		}
 
@@ -105,7 +128,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 		// we default to forwarding without transcoding.
 		if (!pref_dest_codec) {
 			ilog(LOG_DEBUG, "No known/supported sink codec for " STR_FORMAT, STR_FMT(&pt->encoding));
-			__make_stub(handler);
+			__make_passthrough(handler);
 			continue;
 		}
 
@@ -113,7 +136,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 			// the sink supports this codec. forward without transcoding.
 			// XXX check format parameters as well
 			ilog(LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding));
-			__make_stub(handler);
+			__make_passthrough(handler);
 			continue;
 		}
 
@@ -132,7 +155,7 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type) 
 		goto out;
 
 	h = g_atomic_pointer_get(&m->codec_handler_cache);
-	if (G_LIKELY(G_LIKELY(h) && G_LIKELY(h->rtp_payload_type == payload_type)))
+	if (G_LIKELY(G_LIKELY(h) && G_LIKELY(h->source_pt.payload_type == payload_type)))
 		return h;
 
 	h = g_hash_table_lookup(m->codec_handlers, &payload_type);
@@ -154,14 +177,103 @@ void codec_handlers_free(struct call_media *m) {
 }
 
 
-static int handler_func_stub(struct codec_handler *h, struct call_media *media, const str *s, GQueue *out) {
+static int handler_func_passthrough(struct codec_handler *h, struct call_media *media,
+		const struct media_packet *mp, GQueue *out)
+{
 	struct codec_packet *p = g_slice_alloc(sizeof(*p));
-	p->s = *s;
+	p->s = mp->raw;
 	p->free_func = NULL;
 	g_queue_push_tail(out, p);
 	return 0;
 }
-static int handler_func_transcode(struct codec_handler *h, struct call_media *media, const str *s, GQueue *out) {
+
+
+static void __transcode_packet_free(struct transcode_packet *p) {
+	free(p->payload);
+	g_slice_free1(sizeof(*p), p);
+}
+
+static struct ssrc_entry *__ssrc_handler_new(u_int32_t ssrc, void *p) {
+	struct codec_handler *h = p;
+	struct codec_ssrc_handler *ch = g_slice_alloc0(sizeof(*ch));
+	init_ssrc_entry(&ch->h, ssrc);
+	mutex_init(&ch->lock);
+	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
+	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, 1, 0);
+	if (!ch->decoder)
+		goto err;
+	return &ch->h;
+
+err:
+	__ssrc_handler_free(ch);
+	return NULL;
+}
+static void __ssrc_handler_free(struct codec_ssrc_handler *ch) {
+	packet_sequencer_destroy(&ch->sequencer);
+	if (ch->decoder)
+		decoder_close(ch->decoder);
+	g_slice_free1(sizeof(*ch), ch);
+}
+
+int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
+	//struct codec_ssrc_handler *ch = u1;
+
+	ilog(LOG_DEBUG, "RTP media successfully decoded");
+
+	av_frame_free(&frame);
+	return 0;
+}
+
+static int handler_func_transcode(struct codec_handler *h, struct call_media *media,
+		const struct media_packet *mp, GQueue *out)
+{
+	if (G_UNLIKELY(!mp->rtp || mp->rtcp))
+		return handler_func_passthrough(h, media, mp, out);
+
+	assert((mp->rtp->m_pt & 0x7f) == h->source_pt.payload_type);
+
+	// create new packet and insert it into sequencer queue
+
+	ilog(LOG_DEBUG, "Received RTP packet: SSRC %u, PT %u, seq %u, TS %u",
+			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
+			ntohl(mp->rtp->timestamp));
+
+	struct codec_ssrc_handler *ch = get_ssrc(mp->rtp->ssrc, h->ssrc_hash);
+	if (G_UNLIKELY(!ch))
+		return 0;
+
+	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
+	packet->p.seq = ntohs(mp->rtp->seq_num);
+	packet->payload = str_dup(&mp->payload);
+	packet->ts = ntohl(mp->rtp->timestamp);
+
+	mutex_lock(&ch->lock);
+
+	if (packet_sequencer_insert(&ch->sequencer, &packet->p)) {
+		// dupe
+		mutex_unlock(&ch->lock);
+		__transcode_packet_free(packet);
+		ilog(LOG_DEBUG, "Ignoring duplicate RTP packet");
+		return 0;
+	}
+
+	// got a new packet, run decoder
+
+	while (1) {
+		packet = packet_sequencer_next_packet(&ch->sequencer);
+		if (G_UNLIKELY(!packet))
+			break;
+
+		ilog(LOG_DEBUG, "Decoding RTP packet: seq %u, TS %lu",
+				packet->p.seq, packet->ts);
+
+		if (decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, NULL))
+			ilog(LOG_WARN, "Decoder error while processing RTP packet");
+		__transcode_packet_free(packet);
+	}
+
+	mutex_unlock(&ch->lock);
+
 	return 0;
 }
 
