@@ -12,11 +12,15 @@ struct codec_def_s;
 struct decoder_s;
 struct format_s;
 struct resample_s;
+struct seq_packet_s;
+struct packet_sequencer_s;
 
 typedef struct codec_def_s codec_def_t;
 typedef struct decoder_s decoder_t;
 typedef struct format_s format_t;
 typedef struct resample_s resample_t;
+typedef struct seq_packet_s seq_packet_t;
+typedef struct packet_sequencer_s packet_sequencer_t;
 
 
 
@@ -52,6 +56,14 @@ struct decoder_s {
 	unsigned int mixer_idx;
 };
 
+struct seq_packet_s {
+	int seq;
+};
+struct packet_sequencer_s {
+	GTree *packets;
+	int seq;
+};
+
 
 
 void codeclib_init(void);
@@ -64,6 +76,13 @@ decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, 
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
+
+
+
+void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
+void packet_sequencer_destroy(packet_sequencer_t *ps);
+void *packet_sequencer_next_packet(packet_sequencer_t *ps);
+int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
 
 
