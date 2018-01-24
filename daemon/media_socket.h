@@ -68,6 +68,12 @@ struct stream_fd {
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection		dtls;		/* LOCK: stream->in_lock */
 };
+struct media_packet {
+	str raw;
+	struct rtp_header *rtp;
+	struct rtcp_packet *rtcp;
+	str payload;
+};
 
 
 
