@@ -138,6 +138,7 @@ sub _new {
 
 	$self->{parent} = $parent;
 	$self->{tag} = rand();
+	$self->{codecs} = $args{codecs} // [qw(PCMU)];
 
 	# create media sockets
 	my @addresses = @{$parent->{all_addresses}};
@@ -181,7 +182,10 @@ sub _new {
 	$args{protocol} and $proto = $args{protocol};
 
 	$self->{local_media} = $self->{local_sdp}->add_media(NGCP::Rtpclient::SDP::Media->new(
-		$self->{main_sockets}->[0], $self->{main_sockets}->[1], $proto)); # main rtp and rtcp
+		$self->{main_sockets}->[0], $self->{main_sockets}->[1], # main rtp and rtcp
+		protocol => $proto,
+		codecs => $self->{codecs},
+	));
 	# XXX support multiple medias
 
 	if ($args{dtls}) {
@@ -273,7 +277,7 @@ sub _default_req_args {
 
 	my $req = { command => $cmd, 'call-id' => $self->{parent}->{callid} };
 
-	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol address-family label direction)) {
+	for my $cp (qw(sdp from-tag to-tag ICE transport-protocol address-family label direction codec)) {
 		$args{$cp} and $req->{$cp} = $args{$cp};
 	}
 	for my $cp (@{$args{flags}}) {

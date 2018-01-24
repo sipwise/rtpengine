@@ -123,17 +123,29 @@ use Socket;
 use Socket6;
 use IO::Socket;
 
+my %codec_map = (
+	PCMA => { payload_type => 8 },
+	PCMU => { payload_type => 0 },
+);
+my %payload_type_map = map {$codec_map{$_}{payload_type} => $_} keys(%codec_map);
+
+sub _codec_list_to_hash {
+	my ($list) = @_;
+	return { map { $_ => { %{$codec_map{$_}} } } @{$list} };
+}
+
 sub new {
-	my ($class, $rtp, $rtcp, $protocol, $type) = @_;
+	my ($class, $rtp, $rtcp, %args) = @_;
 
 	my $self = {};
 	bless $self, $class;
 
 	$self->{rtp} = $rtp; # main transport
 	$self->{rtcp} = $rtcp; # optional
-	$self->{protocol} = $protocol // 'RTP/AVP';
-	$self->{type} = $type // 'audio';
-	$self->{payload_types} = [0];
+	$self->{protocol} = $args{protocol} // 'RTP/AVP';
+	$self->{type} = $args{type} // 'audio';
+	$self->{codec_list} = $args{codecs};
+	$self->{codecs} = _codec_list_to_hash(@{$self->{codecs}});
 
 	$self->{additional_attributes} = [];
 
@@ -149,7 +161,9 @@ sub new_remote {
 	$self->{protocol} = $protocol;
 	$self->{port} = $port;
 	$self->{type} = $type;
-	$self->{payload_types} = [split(/ /, $payload_types)];
+	my @payload_types = [split(/ /, $payload_types)];
+	$self->{codec_list} = [ map {$payload_type_map{$_}} @payload_types ];
+	$self->{codecs} = _codec_list_to_hash(@{$self->{codecs}});
 
 	return $self;
 };
@@ -165,8 +179,10 @@ sub encode {
 	my $pconn = $parent_connection ? NGCP::Rtpclient::SDP::encode_address($parent_connection) : '';
 	my @out;
 
+	my @payload_types = map {$codec_map{$_}{payload_type}} @{$self->{codec_list}};
+
 	push(@out, "m=$self->{type} " . $self->{rtp}->sockport() . ' ' . $self->{protocol} . ' '
-		. join(' ', @{$self->{payload_types}}));
+		. join(' ', @payload_types));
 
 	my $rtpconn = NGCP::Rtpclient::SDP::encode_address($self->{rtp});
 	$rtpconn eq $pconn or push(@out, "c=$rtpconn");
