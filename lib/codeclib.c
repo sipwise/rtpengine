@@ -261,11 +261,42 @@ err:
 }
 
 
+static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
+	char *msg;
+	if (vasprintf(&msg, fmt, ap) <= 0)
+		ilog(LOG_ERR, "av_log message dropped");
+	else {
+#ifdef AV_LOG_PANIC
+		// translate AV_LOG_ constants to LOG_ levels
+		if (loglevel >= AV_LOG_VERBOSE)
+			loglevel = LOG_DEBUG;
+		else if (loglevel >= AV_LOG_INFO)
+			loglevel = LOG_NOTICE;
+		else if (loglevel >= AV_LOG_WARNING)
+			loglevel = LOG_WARNING;
+		else if (loglevel >= AV_LOG_ERROR)
+			loglevel = LOG_ERROR;
+		else if (loglevel >= AV_LOG_FATAL)
+			loglevel = LOG_CRIT;
+		else
+			loglevel = LOG_ALERT;
+#else
+		// defuse avlog log levels to be either DEBUG or ERR
+		if (loglevel <= LOG_ERR)
+			loglevel = LOG_ERR;
+		else
+			loglevel = LOG_DEBUG;
+#endif
+		ilog(loglevel, "av_log: %s", msg);
+		free(msg);
+	}
+}
 void codeclib_init() {
 	av_register_all();
 	avcodec_register_all();
 	avfilter_register_all();
 	avformat_network_init();
+	av_log_set_callback(avlog_ilog);
 }
 
 
@@ -383,6 +414,172 @@ seq_ok:
 	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(p->seq)))
 		return -1;
 	g_tree_insert(ps->packets, GINT_TO_POINTER(p->seq), p);
+
+	return 0;
+}
+
+
+
+
+encoder_t *encoder_new() {
+	encoder_t *ret = g_slice_alloc0(sizeof(*ret));
+	format_init(&ret->requested_format);
+	format_init(&ret->actual_format);
+	return ret;
+}
+
+int encoder_config(encoder_t *enc, int codec_id, int bitrate, const format_t *requested_format,
+		format_t *actual_format)
+{
+	const char *err;
+
+	// anything to do?
+	if (G_LIKELY(format_eq(requested_format, &enc->requested_format)))
+		goto done;
+
+	encoder_close(enc);
+
+	enc->requested_format = *requested_format;
+
+	err = "output codec not found";
+	enc->codec = avcodec_find_encoder(codec_id);
+	if (!enc->codec)
+		goto err;
+
+	err = "failed to alloc codec context";
+	enc->avcctx = avcodec_alloc_context3(enc->codec);
+	if (!enc->avcctx)
+		goto err;
+
+	enc->actual_format = enc->requested_format;
+
+	enc->actual_format.format = -1;
+	for (const enum AVSampleFormat *sfmt = enc->codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
+		dbg("supported sample format for output codec %s: %s", enc->codec->name, av_get_sample_fmt_name(*sfmt));
+		if (*sfmt == requested_format->format)
+			enc->actual_format.format = *sfmt;
+	}
+	if (enc->actual_format.format == -1 && enc->codec->sample_fmts)
+		enc->actual_format.format = enc->codec->sample_fmts[0];
+	dbg("using output sample format %s for codec %s", av_get_sample_fmt_name(enc->actual_format.format), enc->codec->name);
+
+	enc->avcctx->channels = enc->actual_format.channels;
+	enc->avcctx->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
+	enc->avcctx->sample_rate = enc->actual_format.clockrate;
+	enc->avcctx->sample_fmt = enc->actual_format.format;
+	enc->avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
+	enc->avcctx->bit_rate = bitrate;
+
+	err = "failed to open output context";
+	int i = avcodec_open2(enc->avcctx, enc->codec, NULL);
+	if (i)
+		goto err;
+
+	av_init_packet(&enc->avpkt);
+
+done:
+	*actual_format = enc->actual_format;
+	return 0;
+
+err:
+	encoder_close(enc);
+	ilog(LOG_ERR, "Error configuring media output: %s", err);
+	return -1;
+}
+
+void encoder_close(encoder_t *enc) {
+	if (!enc)
+		return;
+	if (enc->avcctx) {
+		avcodec_close(enc->avcctx);
+		avcodec_free_context(&enc->avcctx);
+	}
+	enc->avcctx = NULL;
+	format_init(&enc->requested_format);
+	format_init(&enc->actual_format);
+	enc->mux_dts = 0;
+}
+void encoder_free(encoder_t *enc) {
+	encoder_close(enc);
+	g_slice_free1(sizeof(*enc), enc);
+}
+
+int encoder_input_data(encoder_t *enc, AVFrame *frame,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
+{
+	int keep_going;
+	int have_frame = 1;
+	do {
+		keep_going = 0;
+		int got_packet = 0;
+
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
+		if (have_frame) {
+			int ret = avcodec_send_frame(enc->avcctx, frame);
+			dbg("send frame ret %i", ret);
+			if (ret == 0) {
+				// consumed
+				have_frame = 0;
+				keep_going = 1;
+			}
+			else {
+				if (ret == AVERROR(EAGAIN))
+					; // check output and maybe try again
+				else
+					return -1;
+			}
+		}
+
+		int ret = avcodec_receive_packet(enc->avcctx, &enc->avpkt);
+		dbg("receive packet ret %i", ret);
+		if (ret == 0) {
+			// got some data
+			keep_going = 1;
+			got_packet = 1;
+		}
+		else {
+			if (ret == AVERROR(EAGAIN))
+				; // try again if there's still more input
+			else
+				return -1;
+		}
+#else
+		if (!have_frame)
+			break;
+
+		int ret = avcodec_encode_audio2(enc->avcctx, &enc->avpkt, frame, &got_packet);
+		dbg("encode frame ret %i, got packet %i", ret, got_packet);
+		if (ret == 0)
+			have_frame = 0; // consumed
+		else
+			return -1; // error
+		if (got_packet)
+			keep_going = 1;
+#endif
+
+		if (!got_packet)
+			continue;
+
+//		dbg("{%s} output avpkt size is %i", output->file_name, (int) enc->avpkt.size);
+//		dbg("{%s} output pkt pts/dts is %li/%li", output->file_name, (long) enc->avpkt.pts,
+//				(long) enc->avpkt.dts);
+//		dbg("{%s} output dts %li", output->file_name, (long) output->mux_dts);
+
+		// the encoder may return frames with the same dts multiple consecutive times.
+		// the muxer may not like this, so ensure monotonically increasing dts.
+		if (enc->mux_dts > enc->avpkt.dts)
+			enc->avpkt.dts = enc->mux_dts;
+		if (enc->avpkt.pts < enc->avpkt.dts)
+			enc->avpkt.pts = enc->avpkt.dts;
+
+		//av_write_frame(output->fmtctx, &output->avpkt);
+		callback(enc, u1, u2);
+
+		//output->fifo_pts += output->frame->nb_samples;
+		enc->mux_dts = enc->avpkt.dts + 1; // min next expected dts
+
+		av_packet_unref(&enc->avpkt);
+	} while (keep_going);
 
 	return 0;
 }
