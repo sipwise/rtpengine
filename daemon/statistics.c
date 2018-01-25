@@ -227,6 +227,10 @@ void statistics_init() {
 
 	mutex_init(&rtpe_totalstats_lastinterval_lock);
 
+	mutex_init(&rtpe_totalstats_interval.offer.lock);
+	mutex_init(&rtpe_totalstats_interval.answer.lock);
+	mutex_init(&rtpe_totalstats_interval.delete.lock);
+
 	mutex_init(&rtpe_totalstats_interval.offers_ps.lock);
 	mutex_init(&rtpe_totalstats_interval.answers_ps.lock);
 	mutex_init(&rtpe_totalstats_interval.deletes_ps.lock);

@@ -350,7 +350,7 @@ void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 			connection_state = STATE_DISCONNECTED;
 		}
 
-		copy_with_lock(&rtpe_totalstats_lastinterval, &graphite_stats, &rtpe_totalstats_lastinterval.total_average_lock);
+		copy_with_lock(&rtpe_totalstats_lastinterval, &graphite_stats, &rtpe_totalstats_lastinterval_lock);
 	}
 
 }
