@@ -326,10 +326,15 @@ struct call_media {
 	GQueue			streams; /* normally RTP + RTCP */
 	GQueue			endpoint_maps;
 
-	GHashTable		*codecs; // int payload type -> struct rtp_payload_type; storage container
-	GHashTable		*codec_names; // codec name -> GQueue of int payload types; storage container
-	GQueue			codecs_prefs_recv, // preference by order in SDP; values shared with 'codecs'
-				codecs_prefs_send; // ditto for outgoing media; storage container
+	// what we say we can receive (outgoing SDP):
+	GHashTable		*codecs_recv; // int payload type -> struct rtp_payload_type
+	GHashTable		*codec_names_recv; // codec name -> GQueue of int payload types; storage container
+	GQueue			codecs_prefs_recv; // preference by order in SDP; storage container
+
+	// what we can send, taken from received SDP:
+	GHashTable		*codec_names_send; // codec name -> GQueue of int payload types; storage container
+	GQueue			codecs_prefs_send; // storage container
+
 	GHashTable		*codec_handlers; // int payload type -> struct codec_handler
 						// XXX combine this with 'codecs' hash table?
 	volatile struct codec_handler *codec_handler_cache;

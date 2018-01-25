@@ -683,8 +683,9 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->call = ml->call;
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
-	med->codecs = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, (GDestroyNotify) payload_type_free);
-	med->codec_names = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
+	med->codecs_recv = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
+	med->codec_names_recv = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
+	med->codec_names_send = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
 
 	g_queue_push_tail(&ml->medias, med);
 
@@ -1019,7 +1020,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		a->rtp_sink = b;
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
-		__rtp_stats_update(a->rtp_stats, A->codecs);
+		__rtp_stats_update(a->rtp_stats, A->codecs_recv);
 
 		if (sp) {
 			__fill_stream(a, &sp->rtp_endpoint, port_off, sp);
@@ -1720,7 +1721,7 @@ const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 	if (atomic64_get(&rtp_s->packets) == 0)
 		goto out;
 
-	rtp_pt = rtp_payload_type(rtp_s->payload_type, m->codecs);
+	rtp_pt = rtp_payload_type(rtp_s->payload_type, m->codecs_recv);
 
 out:
 	g_list_free(values);
@@ -1983,9 +1984,10 @@ static void __call_free(void *p) {
 		crypto_params_cleanup(&md->sdes_out.params);
 		g_queue_clear(&md->streams);
 		g_queue_clear(&md->endpoint_maps);
-		g_hash_table_destroy(md->codecs);
-		g_hash_table_destroy(md->codec_names);
-		g_queue_clear(&md->codecs_prefs_recv);
+		g_hash_table_destroy(md->codecs_recv);
+		g_hash_table_destroy(md->codec_names_recv);
+		g_hash_table_destroy(md->codec_names_send);
+		g_queue_clear_full(&md->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
 		g_queue_clear_full(&md->codecs_prefs_send, (GDestroyNotify) payload_type_free);
 		codec_handlers_free(md);
 		g_slice_free1(sizeof(*md), md);
