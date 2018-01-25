@@ -110,17 +110,18 @@ struct output_s {
 	const char *file_format;
 	unsigned long long db_id;
 
-	format_t requested_format,
-		 actual_format;
+//	format_t requested_format,
+//		 actual_format;
 
-	AVCodecContext *avcctx;
+//	AVCodecContext *avcctx;
 	AVFormatContext *fmtctx;
 	AVStream *avst;
-	AVPacket avpkt;
+//	AVPacket avpkt;
 	AVAudioFifo *fifo;
 	int64_t fifo_pts; // pts of first data in fifo
-	int64_t mux_dts; // last dts passed to muxer
+//	int64_t mux_dts; // last dts passed to muxer
 	AVFrame *frame;
+	encoder_t *encoder;
 };
 
 

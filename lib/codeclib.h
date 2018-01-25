@@ -10,6 +10,7 @@
 
 struct codec_def_s;
 struct decoder_s;
+struct encoder_s;
 struct format_s;
 struct resample_s;
 struct seq_packet_s;
@@ -17,6 +18,7 @@ struct packet_sequencer_s;
 
 typedef struct codec_def_s codec_def_t;
 typedef struct decoder_s decoder_t;
+typedef struct encoder_s encoder_t;
 typedef struct format_s format_t;
 typedef struct resample_s resample_t;
 typedef struct seq_packet_s seq_packet_t;
@@ -56,6 +58,16 @@ struct decoder_s {
 	unsigned int mixer_idx;
 };
 
+struct encoder_s {
+	format_t requested_format,
+		 actual_format;
+
+	AVCodec *codec;
+	AVCodecContext *avcctx;
+	AVPacket avpkt;
+	int64_t mux_dts; // last dts passed to muxer
+};
+
 struct seq_packet_s {
 	int seq;
 };
@@ -77,6 +89,14 @@ void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
 
+
+encoder_t *encoder_new();
+int encoder_config(encoder_t *enc, int codec_id, int bitrate,
+		const format_t *requested_format, format_t *actual_format);
+void encoder_close(encoder_t *);
+void encoder_free(encoder_t *);
+int encoder_input_data(encoder_t *enc, AVFrame *frame,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
 
 
 void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
