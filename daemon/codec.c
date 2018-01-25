@@ -15,6 +15,7 @@ struct codec_ssrc_handler {
 	mutex_t lock;
 	packet_sequencer_t sequencer;
 	decoder_t *decoder;
+	encoder_t *encoder;
 };
 struct transcode_packet {
 	seq_packet_t p; // must be first
@@ -306,6 +307,12 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, 1, 0);
 	if (!ch->decoder)
 		goto err;
+	ch->encoder = encoder_new();
+	if (!ch->encoder)
+		goto err;
+	format_t format = { .clockrate = h->dest_pt.clock_rate, .channels = 1, .format = 0 };
+	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id, 0, &format, &format))
+		goto err;
 	return &ch->h;
 
 err:
@@ -316,13 +323,26 @@ static void __ssrc_handler_free(struct codec_ssrc_handler *ch) {
 	packet_sequencer_destroy(&ch->sequencer);
 	if (ch->decoder)
 		decoder_close(ch->decoder);
+	if (ch->encoder)
+		encoder_free(ch->encoder);
 	g_slice_free1(sizeof(*ch), ch);
 }
 
-int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
-	//struct codec_ssrc_handler *ch = u1;
+static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
+	ilog(LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
+			(unsigned long long) enc->avpkt.pts, enc->avpkt.size);
+	return 0;
+}
 
-	ilog(LOG_DEBUG, "RTP media successfully decoded");
+static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
+	struct codec_ssrc_handler *ch = u1;
+
+	ilog(LOG_DEBUG, "RTP media successfully decoded: TS %llu, samples %u",
+			(unsigned long long) frame->pts, frame->nb_samples);
+
+	// XXX resample...
+
+	encoder_input_data(ch->encoder, frame, __packet_encoded, ch, NULL);
 
 	av_frame_free(&frame);
 	return 0;
@@ -338,9 +358,9 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 
 	// create new packet and insert it into sequencer queue
 
-	ilog(LOG_DEBUG, "Received RTP packet: SSRC %u, PT %u, seq %u, TS %u",
+	ilog(LOG_DEBUG, "Received RTP packet: SSRC %u, PT %u, seq %u, TS %u, len %i",
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
-			ntohl(mp->rtp->timestamp));
+			ntohl(mp->rtp->timestamp), mp->payload.len);
 
 	struct codec_ssrc_handler *ch = get_ssrc(mp->rtp->ssrc, h->ssrc_hash);
 	if (G_UNLIKELY(!ch))
