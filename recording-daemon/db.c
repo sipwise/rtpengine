@@ -317,8 +317,8 @@ void db_config_stream(output_t *op) {
 		return;
 
 	MYSQL_BIND b[3];
-	my_i(&b[0], &op->actual_format.channels);
-	my_i(&b[1], &op->actual_format.clockrate);
+	my_i(&b[0], &op->encoder->actual_format.channels);
+	my_i(&b[1], &op->encoder->actual_format.clockrate);
 	my_ull(&b[2], &op->db_id);
 
 	execute_wrap(&stm_config_stream, b, NULL);
