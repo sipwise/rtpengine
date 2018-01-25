@@ -7,8 +7,8 @@ use IO::Socket;
 
 my $r = NGCP::Rtpengine::Test->new();
 my ($a, $b) = $r->client_pair(
-	{sockdomain => &Socket::AF_INET, codecs => [qw(PCMA)]},
-	{sockdomain => &Socket::AF_INET, codecs => [qw(PCMU)]}
+	{sockdomain => &Socket::AF_INET, codecs => [qw(PCMA)], no_data_check => 1},
+	{sockdomain => &Socket::AF_INET, codecs => [qw(PCMU)], no_data_check => 1}
 );
 
 $r->timer_once(3, sub {
