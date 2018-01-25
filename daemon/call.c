@@ -523,16 +523,13 @@ static void call_timer(void *ptr) {
 	atomic64_set(&rtpe_stats.errors, atomic64_get_na(&tmpstats.errors));
 
 	/* update statistics regarding requests per second */
-	offers = atomic64_get(&rtpe_statsps.offers);
-	atomic64_set(&rtpe_statsps.offers, 0);
+	offers = atomic64_get_set(&rtpe_statsps.offers, 0);
 	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, offers);
 
-	answers = atomic64_get(&rtpe_statsps.answers);
-	atomic64_set(&rtpe_statsps.answers, 0);
+	answers = atomic64_get_set(&rtpe_statsps.answers, 0);
 	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps,	answers);
 
-	deletes = atomic64_get(&rtpe_statsps.deletes);
-	atomic64_set(&rtpe_statsps.deletes, 0);
+	deletes = atomic64_get_set(&rtpe_statsps.deletes, 0);
 	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes);
 
 	i = kernel_list();
