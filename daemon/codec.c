@@ -12,10 +12,13 @@
 
 struct codec_ssrc_handler {
 	struct ssrc_entry h; // must be first
+	struct codec_handler *handler;
 	mutex_t lock;
 	packet_sequencer_t sequencer;
 	decoder_t *decoder;
 	encoder_t *encoder;
+	unsigned long ts_offset;
+	u_int16_t seq_out;
 };
 struct transcode_packet {
 	seq_packet_t p; // must be first
@@ -302,8 +305,11 @@ static void __transcode_packet_free(struct transcode_packet *p) {
 static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	struct codec_handler *h = p;
 	struct codec_ssrc_handler *ch = g_slice_alloc0(sizeof(*ch));
+	ch->handler = h;
 	mutex_init(&ch->lock);
 	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
+	ch->seq_out = random();
+	ch->ts_offset = random();
 	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, 1, 0);
 	if (!ch->decoder)
 		goto err;
@@ -329,8 +335,33 @@ static void __ssrc_handler_free(struct codec_ssrc_handler *ch) {
 }
 
 static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
+	struct codec_ssrc_handler *ch = u1;
+	GQueue *out_q = u2;
+
 	ilog(LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
 			(unsigned long long) enc->avpkt.pts, enc->avpkt.size);
+
+	// reconstruct RTP header
+	unsigned int pkt_len = enc->avpkt.size + sizeof(struct rtp_header);
+	char *buf = malloc(pkt_len);
+	struct rtp_header *rh = (void *) buf;
+
+	ZERO(*rh);
+	rh->v_p_x_cc = 0x80;
+	rh->m_pt = ch->handler->dest_pt.payload_type;
+	rh->seq_num = htons(ch->seq_out++);
+	rh->timestamp = htonl(enc->avpkt.pts + ch->ts_offset);
+	rh->ssrc = ch->h.ssrc;
+
+	// XXX use writev() for output? would make sense if enc->avpkt.data can be stolen
+	memcpy(buf + sizeof(struct rtp_header), enc->avpkt.data, enc->avpkt.size);
+
+	struct codec_packet *p = g_slice_alloc(sizeof(*p));
+	p->s.s = buf;
+	p->s.len = pkt_len;
+	p->free_func = free;
+	g_queue_push_tail(out_q, p);
+
 	return 0;
 }
 
@@ -342,7 +373,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 
 	// XXX resample...
 
-	encoder_input_data(ch->encoder, frame, __packet_encoded, ch, NULL);
+	encoder_input_data(ch->encoder, frame, __packet_encoded, ch, u2);
 
 	av_frame_free(&frame);
 	return 0;
@@ -391,7 +422,7 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 		ilog(LOG_DEBUG, "Decoding RTP packet: seq %u, TS %lu",
 				packet->p.seq, packet->ts);
 
-		if (decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, NULL))
+		if (decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, out))
 			ilog(LOG_WARN, "Decoder error while processing RTP packet");
 		__transcode_packet_free(packet);
 	}
