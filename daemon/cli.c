@@ -205,11 +205,6 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 	deletes_ps = rtpe_totalstats_lastinterval.deletes_ps;
 	mutex_unlock(&rtpe_totalstats_lastinterval_lock);
 
-	// compute average offer/answer/delete time
-	timeval_divide(&offer_iv.time_avg, &offer_iv.time_avg, offer_iv.count);
-	timeval_divide(&answer_iv.time_avg, &answer_iv.time_avg, answer_iv.count);
-	timeval_divide(&delete_iv.time_avg, &delete_iv.time_avg, delete_iv.count);
-
 	streambuf_printf(replybuffer, "\nGraphite interval statistics (last reported values to graphite):\n");
 	streambuf_printf(replybuffer, " Total calls duration                            :%ld.%06ld\n\n",calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
 	streambuf_printf(replybuffer, " Min managed sessions                            :"UINT64F"\n", min_sess_iv);
