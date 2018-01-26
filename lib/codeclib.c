@@ -22,15 +22,25 @@
 
 
 
-#define CODEC_DEF_MULT_NAME(ref, id, mult, name) { \
+#define CODEC_DEF_FULL(ref, id, mult, name, clockrate, channels) { \
 	.rtpname = #ref, \
 	.avcodec_id = AV_CODEC_ID_ ## id, \
 	.clockrate_mult = mult, \
 	.avcodec_name = #name, \
+	.default_clockrate = clockrate, \
+	.default_channels = channels, \
 }
+#define CODEC_DEF_MULT_NAME(ref, id, mult, name) CODEC_DEF_FULL(ref, id, mult, name, -1, -1)
+#define CODEC_DEF_MULT_NAME_ENC(ref, id, mult, name, clockrate, channels) \
+	CODEC_DEF_FULL(ref, id, mult, name, clockrate, channels)
 #define CODEC_DEF_MULT(ref, id, mult) CODEC_DEF_MULT_NAME(ref, id, mult, NULL)
+#define CODEC_DEF_MULT_ENC(ref, id, mult, clockrate, channels) \
+	CODEC_DEF_MULT_NAME_ENC(ref, id, mult, NULL, clockrate, channels)
 #define CODEC_DEF_NAME(ref, id, name) CODEC_DEF_MULT_NAME(ref, id, 1, name)
+#define CODEC_DEF_NAME_ENC(ref, id, name, clockrate, channels) \
+	CODEC_DEF_MULT_NAME_ENC(ref, id, 1, name, clockrate, channels)
 #define CODEC_DEF(ref, id) CODEC_DEF_MULT(ref, id, 1)
+#define CODEC_DEF_ENC(ref, id, clockrate, channels) CODEC_DEF_MULT_ENC(ref, id, 1, clockrate, channels)
 
 static const struct codec_def_s codecs[] = {
 	CODEC_DEF(PCMA, PCM_ALAW),
@@ -39,10 +49,10 @@ static const struct codec_def_s codecs[] = {
 	CODEC_DEF_MULT(G722, ADPCM_G722, 2),
 	CODEC_DEF(QCELP, QCELP),
 	CODEC_DEF(G729, G729),
-	CODEC_DEF(speex, SPEEX),
+	CODEC_DEF_ENC(speex, SPEEX, 16000, 1),
 	CODEC_DEF(GSM, GSM),
 	CODEC_DEF(iLBC, ILBC),
-	CODEC_DEF_NAME(opus, OPUS, libopus),
+	CODEC_DEF_NAME_ENC(opus, OPUS, libopus, 48000, 2),
 	CODEC_DEF_NAME(vorbis, VORBIS, libvorbis),
 	CODEC_DEF(ac3, AC3),
 	CODEC_DEF(eac3, EAC3),
