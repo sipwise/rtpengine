@@ -978,7 +978,9 @@ void kernelize(struct packet_stream *stream) {
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
 	if (call->recording != NULL && !selected_recording_method->kernel_support)
-		return;
+		goto no_kernel;
+	if (MEDIA_ISSET(stream->media, TRANSCODE)) // XXX make this granular per payload type?
+		goto no_kernel;
 	if (!kernel.is_wanted)
 		goto no_kernel;
 	nk_warn_msg = "interface to kernel module not open";
