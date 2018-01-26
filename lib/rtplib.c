@@ -20,6 +20,7 @@ struct rtp_extension {
 		.encoding		= STR_CONST_INIT(#name),	\
 		.encoding_with_params	= STR_CONST_INIT(#name "/" #c_rate),	\
 		.clock_rate		= c_rate,			\
+		.channels		= 1,				\
 	}
 
 const struct rtp_payload_type rfc_rtp_payload_types[] =
