@@ -22,6 +22,7 @@ struct rtp_payload_type {
 	str encoding;
 	unsigned int clock_rate;
 	str encoding_parameters;
+	int channels;
 	str format_parameters;
 
 	const codec_def_t *codec_def;
