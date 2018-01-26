@@ -36,6 +36,7 @@ static void __ssrc_handler_free(struct codec_ssrc_handler *p);
 static void __transcode_packet_free(struct transcode_packet *);
 
 static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt);
+static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
 
 
@@ -442,13 +443,45 @@ void codec_packet_free(void *pp) {
 
 
 
-static struct rtp_payload_type *codec_make_payload_type(const str *codec) {
+static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_t *dec, struct call *call) {
+	if (dec->default_channels <= 0 || dec->default_clockrate < 0)
+		return NULL;
+
+	struct rtp_payload_type *ret = g_slice_alloc0(sizeof(*ret));
+	ret->payload_type = -1;
+	str_init(&ret->encoding, (char *) dec->rtpname);
+	ret->clock_rate = dec->default_clockrate;
+	ret->channels = dec->default_channels;
+
+	char full_encoding[64];
+	char params[32] = "";
+
+	if (ret->channels > 1) {
+		snprintf(full_encoding, sizeof(full_encoding), "%s/%u/%i", dec->rtpname, ret->clock_rate,
+				ret->channels);
+		snprintf(params, sizeof(params), "%i", ret->channels);
+	}
+	else
+		snprintf(full_encoding, sizeof(full_encoding), "%s/%u", dec->rtpname, ret->clock_rate);
+
+	str_init(&ret->encoding_with_params, full_encoding);
+	str_init(&ret->encoding_parameters, params);
+	ret->format_parameters = STR_EMPTY;
+	ret->codec_def = dec;
+
+	__rtp_payload_type_dup(call, ret);
+	return ret;
+}
+
+
+// XXX allow specifying codec params (e.g. "transcode=opus/16000/1")
+static struct rtp_payload_type *codec_make_payload_type(const str *codec, struct call *call) {
 	const codec_def_t *dec = codec_find(codec);
 	if (!dec)
 		return NULL;
 	const struct rtp_payload_type *rfc_pt = rtp_get_rfc_codec(codec);
 	if (!rfc_pt)
-		return NULL; // XXX amend for other codecs
+		return codec_make_dynamic_payload_type(dec, call);
 
 	struct rtp_payload_type *ret = __rtp_payload_type_copy(rfc_pt);
 	ret->codec_def = dec;
@@ -458,7 +491,7 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec) {
 
 
 static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media) {
-	struct rtp_payload_type *pt = codec_make_payload_type(codec);
+	struct rtp_payload_type *pt = codec_make_payload_type(codec, media->call);
 	if (!pt) {
 		ilog(LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
 				STR_FMT(codec));
