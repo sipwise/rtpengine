@@ -1015,6 +1015,14 @@ Optionally included keys are:
 
 		Omit the `a=rtcp` line from the outgoing SDP.
 
+	- `loop protect`
+
+		Inserts a custom attribute (`a=rtpengine:...`) into the outgoing SDP to prevent *rtpengine*
+		processing and rewriting the same SDP multiple times. This is useful if your setup
+		involves signalling loops and need to make sure that *rtpengine* doesn't start looping
+		media packets back to itself. When this flag is present and *rtpengine* sees a matching
+		attribute already present in the SDP, it will leave the SDP untouched and not process
+		the message.
 
 * `replace`
 

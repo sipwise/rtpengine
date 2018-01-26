@@ -608,6 +608,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		out->record_call = 1;
 	else if (!str_cmp(s, "no-rtcp-attribute"))
 		out->no_rtcp_attr = 1;
+	else if (!str_cmp(s, "loop-protect"))
+		out->loop_protect = 1;
 	else {
 		// handle values aliases from other dictionaries
 		if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
@@ -733,6 +735,13 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 
 	call_ng_process_flags(&flags, input);
 	flags.opmode = opmode;
+
+	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
+		ilog(LOG_INFO, "Ignoring message as SDP has already been processed by us");
+		bencode_dictionary_add_str(output, "sdp", &sdp);
+		errstr = NULL;
+		goto out;
+	}
 
 	errstr = "Incomplete SDP specification";
 	if (sdp_streams(&parsed, &streams, &flags))

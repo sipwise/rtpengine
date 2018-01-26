@@ -201,6 +201,7 @@ struct sdp_attribute {
 		ATTR_RTPMAP,
 		ATTR_FMTP,
 		ATTR_IGNORE,
+		ATTR_RTPENGINE,
 		ATTR_END_OF_CANDIDATES,
 	} attr;
 
@@ -216,6 +217,11 @@ struct sdp_attribute {
 		struct attribute_fmtp fmtp;
 	} u;
 };
+
+
+
+static char __id_buf[6*2 + 1]; // 6 hex encoded characters
+static const str instance_id = STR_CONST_INIT(__id_buf);
 
 
 
@@ -854,6 +860,8 @@ static int parse_attribute(struct sdp_attribute *a) {
 				ret = parse_attribute_candidate(a);
 			else if (!str_cmp(&a->name, "ice-ufrag"))
 				a->attr = ATTR_ICE_UFRAG;
+			else if (!str_cmp(&a->name, "rtpengine"))
+				a->attr = ATTR_RTPENGINE;
 			break;
 		case 11:
 			if (!str_cmp(&a->name, "ice-options"))
@@ -2005,6 +2013,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto error;
 		}
 
+		copy_up_to_end_of(chop, &session->s);
+
+		if (flags->loop_protect) {
+			chopper_append_c(chop, "a=rtpengine:");
+			chopper_append_str(chop, &instance_id);
+			chopper_append_c(chop, "\r\n");
+		}
+
 		media_index = 1;
 
 		for (k = session->media_streams.head; k; k = k->next) {
@@ -2126,5 +2142,24 @@ error:
 	return -1;
 }
 
+int sdp_is_duplicate(GQueue *sessions) {
+	for (GList *l = sessions->head; l; l = l->next) {
+		struct sdp_session *s = l->data;
+		GQueue *attr_list = attr_list_get_by_id(&s->attributes, ATTR_RTPENGINE);
+		if (!attr_list)
+			return 0;
+		for (GList *ql = attr_list->head; ql; ql = ql->next) {
+			struct sdp_attribute *attr = ql->data;
+			if (!str_cmp_str(&attr->value, &instance_id))
+				goto next;
+		}
+		return 0;
+next:
+		;
+	}
+	return 1;
+}
+
 void sdp_init() {
+	rand_hex_str(instance_id.s, instance_id.len / 2);
 }
