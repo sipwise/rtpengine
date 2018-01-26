@@ -35,7 +35,7 @@ static void __ssrc_handler_free(struct codec_ssrc_handler *p);
 
 static void __transcode_packet_free(struct transcode_packet *);
 
-static struct rtp_payload_type *__rtp_payload_type_copy(struct rtp_payload_type *pt);
+static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
 
 
@@ -311,13 +311,13 @@ static struct ssrc_entry *__ssrc_handler_new(u_int32_t ssrc, void *p) {
 	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
 	ch->seq_out = random();
 	ch->ts_offset = random();
-	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, 1, 0);
+	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels, 0);
 	if (!ch->decoder)
 		goto err;
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
-	format_t format = { .clockrate = h->dest_pt.clock_rate, .channels = 1, .format = 0 };
+	format_t format = { .clockrate = h->dest_pt.clock_rate, .channels = h->dest_pt.channels, .format = 0 };
 	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id, 0, &format, &format))
 		goto err;
 	return &ch->h;
@@ -450,8 +450,7 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec) {
 	if (!rfc_pt)
 		return NULL; // XXX amend for other codecs
 
-	struct rtp_payload_type *ret = g_slice_alloc(sizeof(*ret));
-	*ret = *rfc_pt;
+	struct rtp_payload_type *ret = __rtp_payload_type_copy(rfc_pt);
 	ret->codec_def = dec;
 
 	return ret;
@@ -500,7 +499,7 @@ static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *p
 	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
 	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
 }
-static struct rtp_payload_type *__rtp_payload_type_copy(struct rtp_payload_type *pt) {
+static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt) {
 	struct rtp_payload_type *pt_copy = g_slice_alloc(sizeof(*pt));
 	*pt_copy = *pt;
 	return pt_copy;

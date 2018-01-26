@@ -742,9 +742,16 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	pt->encoding.len -= a->clock_rate_str.len;
 	str_shift(&a->clock_rate_str, 1);
 
+	pt->channels = 1;
 	if (str_chr_str(&pt->encoding_parameters, &a->clock_rate_str, '/')) {
 		a->clock_rate_str.len -= pt->encoding_parameters.len;
 		str_shift(&pt->encoding_parameters, 1);
+
+		if (pt->encoding_parameters.len) {
+			int channels = strtol(pt->encoding_parameters.s, &ep, 10);
+			if (channels && (!ep || ep == pt->encoding_parameters.s + pt->encoding_parameters.len))
+				pt->channels = channels;
+		}
 	}
 
 	if (!a->clock_rate_str.len)
