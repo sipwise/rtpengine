@@ -28,9 +28,11 @@ typedef struct packet_sequencer_s packet_sequencer_t;
 
 struct codec_def_s {
 	const char *rtpname;
-	int clockrate_mult;
-	int avcodec_id;
+	const int clockrate_mult;
+	const int avcodec_id;
 	const char *avcodec_name;
+	const int default_clockrate;
+	const int default_channels;
 };
 
 struct format_s {
