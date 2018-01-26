@@ -18,12 +18,12 @@ struct rtp_header {
 
 struct rtp_payload_type {
 	int payload_type;
-	str encoding_with_params;
-	str encoding;
-	unsigned int clock_rate;
-	str encoding_parameters;
-	int channels;
-	str format_parameters;
+	str encoding_with_params; // "opus/48000/2"
+	str encoding; // "opus"
+	unsigned int clock_rate; // 48000
+	str encoding_parameters; // "2"
+	int channels; // 2
+	str format_parameters; // value of a=fmtp
 
 	const codec_def_t *codec_def;
 };
