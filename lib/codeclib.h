@@ -49,8 +49,8 @@ struct decoder_s {
 	format_t in_format,
 		 out_format;
 
-	resample_t mix_resample,
-		   output_resample;
+	resample_t resampler,
+		   mix_resampler; // XXX move this out of here - specific to recording-daemon
 
 	AVCodecContext *avcctx;
 	AVPacket avpkt;
@@ -86,7 +86,7 @@ void codeclib_init(void);
 const codec_def_t *codec_find(const str *name);
 
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int resample);
+decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt);
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
