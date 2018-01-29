@@ -17,6 +17,7 @@ struct codec_ssrc_handler {
 	packet_sequencer_t sequencer;
 	decoder_t *decoder;
 	encoder_t *encoder;
+	format_t encoder_format;
 	unsigned long ts_offset;
 	u_int32_t ssrc_out;
 	u_int16_t seq_out;
@@ -321,7 +322,8 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	struct codec_handler *h = p;
 	u_int32_t ssrc_out = random();
 
-	ilog(LOG_DEBUG, "Creating SSRC handler to transcode from %s/%u/%i to SSRC %x %s/%u/%i",
+	ilog(LOG_DEBUG, "Creating SSRC transcoder from %s/%u/%i to "
+			"SSRC %" PRIx32 " %s/%u/%i",
 			h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
 			h->source_pt.channels,
 			ntohl(ssrc_out),
@@ -335,18 +337,24 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	ch->seq_out = random();
 	ch->ssrc_out = ssrc_out;
 	ch->ts_offset = random();
-	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels, 0);
-	if (!ch->decoder)
-		goto err;
+
+	format_t enc_format = {
+		.clockrate = h->dest_pt.clock_rate * h->dest_pt.codec_def->clockrate_mult,
+		.channels = h->dest_pt.channels,
+		.format = -1,
+	};
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
-	format_t format = {
-		.clockrate = h->dest_pt.clock_rate * h->dest_pt.codec_def->clockrate_mult,
-		.channels = h->dest_pt.channels,
-		.format = 0
-	};
-	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id, 0, &format, &format))
+	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id, 0, &enc_format, &ch->encoder_format))
+		goto err;
+
+	ilog(LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i",
+			ch->encoder_format.clockrate, ch->encoder_format.channels, ch->encoder_format.format);
+
+	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
+			&ch->encoder_format);
+	if (!ch->decoder)
 		goto err;
 	return &ch->h;
 
@@ -418,7 +426,7 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 
 	// create new packet and insert it into sequencer queue
 
-	ilog(LOG_DEBUG, "Received RTP packet: SSRC %x, PT %u, seq %u, TS %u, len %i",
+	ilog(LOG_DEBUG, "Received RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
