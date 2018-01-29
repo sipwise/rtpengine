@@ -140,7 +140,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		__ensure_codec_def(pt);
-		if (!pt->codec_def) // not supported, next
+		if (!pt->codec_def || pt->codec_def->avcodec_id == -1) // not supported, next
 			continue;
 		ilog(LOG_DEBUG, "Default sink codec is " STR_FORMAT, STR_FMT(&pt->encoding));
 		pref_dest_codec = pt;
@@ -175,9 +175,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 				continue;
 			}
 
-			ilog(LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
-					STR_FMT(&pt->encoding));
-			MEDIA_SET(receiver, TRANSCODE);
+			if (pt->codec_def->avcodec_id != -1) {
+				ilog(LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
+						STR_FMT(&pt->encoding));
+				MEDIA_SET(receiver, TRANSCODE);
+			}
 
 			// we need a new pt entry
 			pt = __rtp_payload_type_copy(pt);
@@ -224,6 +226,12 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 
 		// check our own support for this codec
 		__ensure_codec_def(pt);
+
+		if (pt->codec_def->avcodec_id == -1) {
+			// not a real audio codec
+			__make_passthrough(handler);
+			goto next;
+		}
 
 		// if the sink's codec preferences are unknown (empty), or there are
 		// no supported codecs to transcode to, then we have nothing
