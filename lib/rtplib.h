@@ -38,5 +38,7 @@ int rtp_padding(struct rtp_header *header, str *payload);
 const struct rtp_payload_type *rtp_get_rfc_payload_type(unsigned int type);
 const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec);
 
+int rtp_payload_type_cmp(const struct rtp_payload_type *, const struct rtp_payload_type *);
+
 
 #endif

@@ -18,6 +18,7 @@ struct codec_ssrc_handler {
 	decoder_t *decoder;
 	encoder_t *encoder;
 	unsigned long ts_offset;
+	u_int32_t ssrc_out;
 	u_int16_t seq_out;
 };
 struct transcode_packet {
@@ -75,6 +76,21 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	assert(dest->codec_def != NULL);
 	assert(source->payload_type == handler->source_pt.payload_type);
 
+	// don't reset handler if it already matches what we want
+	if (rtp_payload_type_cmp(source, &handler->source_pt))
+		goto reset;
+	if (rtp_payload_type_cmp(dest, &handler->dest_pt))
+		goto reset;
+	if (handler->func != handler_func_transcode)
+		goto reset;
+
+	ilog(LOG_DEBUG, "Leaving transcode context for " STR_FORMAT "/%u/%i -> " STR_FORMAT "/%u/%i intact",
+			STR_FMT(&source->encoding), source->clock_rate, source->channels,
+			STR_FMT(&dest->encoding), dest->clock_rate, dest->channels);
+
+	return;
+
+reset:
 	__handler_shutdown(handler);
 
 	handler->source_pt = *source;
@@ -87,9 +103,6 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT "/%u/%i -> " STR_FORMAT "/%u/%i",
 			STR_FMT(&source->encoding), source->clock_rate, source->channels,
 			STR_FMT(&dest->encoding), dest->clock_rate, dest->channels);
-
-	return;
-
 }
 
 static void __ensure_codec_def(struct rtp_payload_type *pt) {
@@ -306,10 +319,13 @@ static void __transcode_packet_free(struct transcode_packet *p) {
 
 static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	struct codec_handler *h = p;
+	u_int32_t ssrc_out = random();
 
-	ilog(LOG_DEBUG, "Creating SSRC handler to transcode from %s/%u/%i to %s/%u/%i",
+	ilog(LOG_DEBUG, "Creating SSRC handler to transcode from %s/%u/%i to SSRC %x %s/%u/%i",
 			h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
-			h->source_pt.channels, h->dest_pt.codec_def->rtpname, h->dest_pt.clock_rate,
+			h->source_pt.channels,
+			ntohl(ssrc_out),
+			h->dest_pt.codec_def->rtpname, h->dest_pt.clock_rate,
 			h->dest_pt.channels);
 
 	struct codec_ssrc_handler *ch = g_slice_alloc0(sizeof(*ch));
@@ -317,6 +333,7 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	mutex_init(&ch->lock);
 	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
 	ch->seq_out = random();
+	ch->ssrc_out = ssrc_out;
 	ch->ts_offset = random();
 	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels, 0);
 	if (!ch->decoder)
@@ -359,7 +376,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	rh->m_pt = ch->handler->dest_pt.payload_type;
 	rh->seq_num = htons(ch->seq_out++);
 	rh->timestamp = htonl(enc->avpkt.pts + ch->ts_offset);
-	rh->ssrc = ch->h.ssrc;
+	rh->ssrc = ch->ssrc_out;
 
 	// XXX use writev() for output? would make sense if enc->avpkt.data can be stolen
 	memcpy(buf + sizeof(struct rtp_header), enc->avpkt.data, enc->avpkt.size);
@@ -397,7 +414,7 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 
 	// create new packet and insert it into sequencer queue
 
-	ilog(LOG_DEBUG, "Received RTP packet: SSRC %u, PT %u, seq %u, TS %u, len %i",
+	ilog(LOG_DEBUG, "Received RTP packet: SSRC %x, PT %u, seq %u, TS %u, len %i",
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
