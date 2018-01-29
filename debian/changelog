@@ -1,3 +1,66 @@
+ngcp-rtpengine (6.2.0.0+0~mr6.2.0.0) unstable; urgency=medium
+
+  [ Pawel Kuzak ]
+  * [8941c82] Fix control statistics headlines
+
+  [ Claudiu Boriga ]
+  * [3472821] Add option to set TOS for control-ng interface
+  * [43f527f] Add documentation for the control-tos option
+  * [c31ffa4] Add paramaters to disable redis communication in case of multiple errors
+  * [562c5b4] Add parameter that sets a timeout for redis commands
+  * [9e96732] complete missing info for new commands
+  * [4850923] Make redis connection timeout configurable
+  * [142d91b] fix typo in README.md
+
+  [ Guillem Jover ]
+  * [172bd1f] TT#26513 debian: Simplify upstream version fetching
+  * [a456e20] TT#26513 Remove unused modprobe variables
+  * [0d3e693] TT#26513 Improve sysvinit output messages
+  * [7082318] TT#26513 Pass --retry=5 to start-stop-daemon and avoid sleeping
+  * [1b8f5e4] TT#26513 Preserve errno on error returns
+  * [fd3c1d2] TT#26513 Delete the kernel forwarding table on startup
+
+  [ Richard Fuchs ]
+  * [d10952a] TT#26757 add tcp_listener framework
+  * [2eb0169] TT#26756 clean up CLI code using streambuf
+  * [e1ce749] TT#28354 consolidate CLI string handling
+  * [b7aeff9] TT#24550 implement CLI get/set log level
+  * [7b757ff] allow -ip host:port syntax in rtpengine-ctl, and document loglevel cmds
+  * [61d828a] change str_chr_str() semantics
+  * [1aa9944] TT#27550 implement interface round-robin selection
+  * [2e5b80f] add config file options to README
+  * [8733875] README updates
+  * [c17f4fe] avoid side effects in assert()
+  * [018e35c] TT#27200 add option to omit a=rtcp attribute
+  * [acba275] suppress log message on "comprehension option" STUN attributes
+  * [399e15b] make the callhash global
+  * [790e596] move cngs out of callmaster into global scope
+  * [e87b271] move matching regexps out of callmaster into global
+  * [dffbddb] don't use g_ prefix for global variables
+  * [cf3a8f9] move 'poller' member of callmaster into global scope
+  * [c969ea1] move stats and statsps into global scope
+  * [7411403] move "totalstats" out of callmaster into global scope
+  * [d65a6bb] move latest_graphite_interval_start to global scope
+  * [f2b93f9] move config options into global struct rtpengine_config
+  * [75056a8] eliminate the callmaster struct
+  * [0e3f5eb] move all remaining config options into global config struct
+  * [46d8539] move lib/ config options into struct
+  * [74bae6a] TT#30150 add option for different logging styles
+  * [b8dbd99] TT#30403 consolidate NG flags processing functions
+  * [d7dd742] TT#30403 implement codec stripping
+  * [d31fb36] TT#30403 parse and retain a=fmtp infos
+  * [f625d48] TT#30403 consolidate dictionary and alias "flags" values handling
+  * [2540c5d] TT#30403 support codec-offer
+  * [ca78747] TT#30405 rename media->rtp_payload_types to ->codecs for brevity
+  * [321fb5e] fix double str_shift for 'list sessions CALLID'
+  * [edb21fe] use EOL instead of shutdown to terminate command in rtpengine-ctl
+  * [8f563c8] fix compilation when `with_iptables_option` is set to no
+  * [1477f97] TT#29151 add 'loop protect' feature
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 29 Jan 2018 21:57:26 +0100
+
 ngcp-rtpengine (6.1.0.0+0~mr6.1.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
