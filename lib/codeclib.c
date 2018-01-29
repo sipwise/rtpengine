@@ -80,7 +80,7 @@ const codec_def_t *codec_find(const str *name) {
 
 
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int resample) {
+decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt) {
 	const char *err = NULL;
 
 	clockrate *= def->clockrate_mult;
@@ -92,8 +92,8 @@ decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, 
 	ret->in_format.clockrate = clockrate;
 	// output defaults to same as input
 	ret->out_format = ret->in_format;
-	if (resample)
-		ret->out_format.clockrate = resample;
+	if (resample_fmt)
+		ret->out_format = *resample_fmt;
 	// sample format to be determined later when decoded frames arrive
 
 	AVCodec *codec = NULL;
@@ -147,8 +147,8 @@ void decoder_close(decoder_t *dec) {
 	avcodec_close(dec->avcctx);
 	av_free(dec->avcctx);
 #endif
-	resample_shutdown(&dec->mix_resample);
-	resample_shutdown(&dec->output_resample);
+	resample_shutdown(&dec->resampler);
+	resample_shutdown(&dec->mix_resampler);
 	g_slice_free1(sizeof(*dec), dec);
 }
 
@@ -254,6 +254,11 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 			if (G_UNLIKELY(frame->pts == AV_NOPTS_VALUE))
 				frame->pts = dec->avpkt.pts;
 			dec->avpkt.pts += frame->nb_samples;
+
+			err = "resampling failed";
+			frame = resample_frame(&dec->resampler, frame, &dec->out_format);
+			if (!frame)
+				goto err;
 
 			if (callback(dec, frame, u1, u2))
 				return -1;
