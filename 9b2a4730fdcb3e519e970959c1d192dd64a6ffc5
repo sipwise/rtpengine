@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1a930d6b_4efe336d",
+        "filename": "debian/control",
+        "patchSetId": 4
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2018-01-29T22:15:43Z",
+      "side": 1,
+      "message": "Is this the right approach to choosing an alternative package?",
+      "revId": "9b2a4730fdcb3e519e970959c1d192dd64a6ffc5",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
