@@ -1819,7 +1819,7 @@ void call_destroy(struct call *c) {
 				char *addr = sockaddr_print_buf(&ps->endpoint.address);
 				char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
 
-				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIu32 ", "
+				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
 						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" ts",
 						local_addr,
 						(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
@@ -1846,7 +1846,7 @@ void call_destroy(struct call *c) {
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
 
-		ilog(LOG_INFO, "--- SSRC %" PRIu32 "", se->h.ssrc);
+		ilog(LOG_INFO, "--- SSRC %" PRIx32 "", se->h.ssrc);
 		ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
 				"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
 				"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u)",
