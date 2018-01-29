@@ -342,7 +342,11 @@ static struct ssrc_entry *__ssrc_handler_new(u_int32_t ssrc, void *p) {
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
-	format_t format = { .clockrate = h->dest_pt.clock_rate, .channels = h->dest_pt.channels, .format = 0 };
+	format_t format = {
+		.clockrate = h->dest_pt.clock_rate * h->dest_pt.codec_def->clockrate_mult,
+		.channels = h->dest_pt.channels,
+		.format = 0
+	};
 	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id, 0, &format, &format))
 		goto err;
 	return &ch->h;
