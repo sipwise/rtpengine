@@ -22,7 +22,15 @@
 
 
 
-#define CODEC_DEF_FULL(ref, id, mult, name, clockrate, channels) { \
+#define CODEC_DEF_FULL(ref, codec_id, mult, name, clockrate, channels) { \
+	.rtpname = #ref, \
+	.avcodec_id = codec_id, \
+	.clockrate_mult = mult, \
+	.avcodec_name = #name, \
+	.default_clockrate = clockrate, \
+	.default_channels = channels, \
+}
+#define CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels) { \
 	.rtpname = #ref, \
 	.avcodec_id = AV_CODEC_ID_ ## id, \
 	.clockrate_mult = mult, \
@@ -30,9 +38,9 @@
 	.default_clockrate = clockrate, \
 	.default_channels = channels, \
 }
-#define CODEC_DEF_MULT_NAME(ref, id, mult, name) CODEC_DEF_FULL(ref, id, mult, name, -1, -1)
+#define CODEC_DEF_MULT_NAME(ref, id, mult, name) CODEC_DEF_AVC(ref, id, mult, name, -1, -1)
 #define CODEC_DEF_MULT_NAME_ENC(ref, id, mult, name, clockrate, channels) \
-	CODEC_DEF_FULL(ref, id, mult, name, clockrate, channels)
+	CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels)
 #define CODEC_DEF_MULT(ref, id, mult) CODEC_DEF_MULT_NAME(ref, id, mult, NULL)
 #define CODEC_DEF_MULT_ENC(ref, id, mult, clockrate, channels) \
 	CODEC_DEF_MULT_NAME_ENC(ref, id, mult, NULL, clockrate, channels)
@@ -41,6 +49,7 @@
 	CODEC_DEF_MULT_NAME_ENC(ref, id, 1, name, clockrate, channels)
 #define CODEC_DEF(ref, id) CODEC_DEF_MULT(ref, id, 1)
 #define CODEC_DEF_ENC(ref, id, clockrate, channels) CODEC_DEF_MULT_ENC(ref, id, 1, clockrate, channels)
+#define CODEC_DEF_STUB(ref) CODEC_DEF_FULL(ref, -1, 1, ref, -1, -1)
 
 static const struct codec_def_s codecs[] = {
 	CODEC_DEF(PCMA, PCM_ALAW),
@@ -65,6 +74,7 @@ static const struct codec_def_s codecs[] = {
 #endif
 	CODEC_DEF(AMR, AMR_NB),
 	CODEC_DEF(AMR-WB, AMR_WB),
+	CODEC_DEF_STUB(telephone-event),
 };
 
 
@@ -82,6 +92,9 @@ const codec_def_t *codec_find(const str *name) {
 
 decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt) {
 	const char *err = NULL;
+
+	if (def->avcodec_id == -1)
+		return NULL;
 
 	clockrate *= def->clockrate_mult;
 

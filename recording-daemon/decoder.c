@@ -46,6 +46,9 @@ decoder_t *decoder_new(const char *payload_str) {
 		ilog(LOG_WARN, "No decoder for payload %s", payload_str);
 		return NULL;
 	}
+	if (def->avcodec_id == -1) // not a real audio codec
+		return NULL;
+
 	clockrate *= def->clockrate_mult;
 
 	if (!resample_audio)
