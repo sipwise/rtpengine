@@ -17,6 +17,7 @@ struct codec_ssrc_handler {
 	packet_sequencer_t sequencer;
 	decoder_t *decoder;
 	encoder_t *encoder;
+	format_t encoder_format;
 	unsigned long ts_offset;
 	u_int32_t ssrc_out;
 	u_int16_t seq_out;
@@ -336,18 +337,21 @@ static struct ssrc_entry *__ssrc_handler_new(u_int32_t ssrc, void *p) {
 	ch->seq_out = random();
 	ch->ssrc_out = ssrc_out;
 	ch->ts_offset = random();
-	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels, 0);
-	if (!ch->decoder)
-		goto err;
+
+	format_t out_format = {
+		.clockrate = h->dest_pt.clock_rate * h->dest_pt.codec_def->clockrate_mult,
+		.channels = h->dest_pt.channels,
+		.format = -1,
+	};
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
-	format_t format = {
-		.clockrate = h->dest_pt.clock_rate * h->dest_pt.codec_def->clockrate_mult,
-		.channels = h->dest_pt.channels,
-		.format = 0
-	};
-	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id, 0, &format, &format))
+	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id, 0, &out_format, &ch->encoder_format))
+		goto err;
+
+	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
+			&ch->encoder_format);
+	if (!ch->decoder)
 		goto err;
 	return &ch->h;
 

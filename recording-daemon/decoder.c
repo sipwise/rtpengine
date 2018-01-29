@@ -48,7 +48,16 @@ decoder_t *decoder_new(const char *payload_str) {
 	}
 	clockrate *= def->clockrate_mult;
 
-	return decoder_new_fmt(def, clockrate, channels, resample_audio);
+	if (!resample_audio)
+		return decoder_new_fmt(def, clockrate, channels, NULL);
+
+	format_t out_format = {
+		.clockrate = resample_audio,
+		.channels = channels,
+		.format = 0
+	};
+
+	return decoder_new_fmt(def, clockrate, channels, &out_format);
 }
 
 
@@ -75,7 +84,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *op, void *mp)
 		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
 			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
-		AVFrame *dec_frame = resample_frame(&dec->mix_resample, frame, &actual_format);
+		AVFrame *dec_frame = resample_frame(&dec->mix_resampler, frame, &actual_format);
 		if (!dec_frame) {
 			pthread_mutex_unlock(&metafile->mix_lock);
 			goto err;
@@ -91,12 +100,12 @@ no_mix_out:
 		format_t actual_format;
 		if (output_config(output, &dec->out_format, &actual_format))
 			goto err;
-		AVFrame *dec_frame = resample_frame(&dec->output_resample, frame, &actual_format);
-		if (!dec_frame)
-			goto err;
-		if (output_add(output, dec_frame))
+//		AVFrame *dec_frame = resample_frame(&dec->output_resample, frame, &actual_format);
+//		if (!dec_frame)
+//			goto err;
+		if (output_add(output, frame))
 			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
-		av_frame_free(&dec_frame);
+//		av_frame_free(&dec_frame);
 	}
 
 	av_frame_free(&frame);
