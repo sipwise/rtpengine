@@ -72,8 +72,8 @@ static const struct codec_def_s codecs[] = {
 	CODEC_DEF(EVRC0, EVRC),
 	CODEC_DEF(EVRC1, EVRC),
 #endif
-	CODEC_DEF(AMR, AMR_NB),
-	CODEC_DEF(AMR-WB, AMR_WB),
+	CODEC_DEF_ENC(AMR, AMR_NB, 8000, 1),
+	CODEC_DEF_ENC(AMR-WB, AMR_WB, 16000, 1),
 	CODEC_DEF_STUB(telephone-event),
 };
 
