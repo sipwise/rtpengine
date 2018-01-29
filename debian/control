@@ -54,6 +54,8 @@ Recommends:
 Suggests:
  ngcp-system-tools,
 Depends:
+ libavcodec-extra | libavcodec,
+ libavfilter-extra | libavfilter,
  lsb-base (>= 3.0-6),
  nfs-common,
  ${misc:Depends},
