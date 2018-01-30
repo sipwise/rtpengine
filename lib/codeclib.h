@@ -33,6 +33,7 @@ struct codec_def_s {
 	const char *avcodec_name;
 	const int default_clockrate;
 	const int default_channels;
+	const int default_bitrate;
 };
 
 struct format_s {

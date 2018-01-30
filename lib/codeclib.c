@@ -26,34 +26,29 @@
 
 
 
-#define CODEC_DEF_FULL(ref, codec_id, mult, name, clockrate, channels) { \
+#define CODEC_DEF_FULL(ref, codec_id, mult, name, clockrate, channels, bitrate) { \
 	.rtpname = #ref, \
 	.avcodec_id = codec_id, \
 	.clockrate_mult = mult, \
 	.avcodec_name = #name, \
 	.default_clockrate = clockrate, \
 	.default_channels = channels, \
+	.default_bitrate = bitrate, \
 }
-#define CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels) { \
-	.rtpname = #ref, \
-	.avcodec_id = AV_CODEC_ID_ ## id, \
-	.clockrate_mult = mult, \
-	.avcodec_name = #name, \
-	.default_clockrate = clockrate, \
-	.default_channels = channels, \
-}
-#define CODEC_DEF_MULT_NAME(ref, id, mult, name) CODEC_DEF_AVC(ref, id, mult, name, -1, -1)
-#define CODEC_DEF_MULT_NAME_ENC(ref, id, mult, name, clockrate, channels) \
-	CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels)
+#define CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels, bitrate) \
+	CODEC_DEF_FULL(ref, AV_CODEC_ID_ ## id, mult, name, clockrate, channels, bitrate)
+#define CODEC_DEF_MULT_NAME(ref, id, mult, name) CODEC_DEF_AVC(ref, id, mult, name, -1, -1, 0)
+#define CODEC_DEF_MULT_NAME_ENC(ref, id, mult, name, clockrate, channels, bitrate) \
+	CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels, bitrate)
 #define CODEC_DEF_MULT(ref, id, mult) CODEC_DEF_MULT_NAME(ref, id, mult, NULL)
 #define CODEC_DEF_MULT_ENC(ref, id, mult, clockrate, channels) \
-	CODEC_DEF_MULT_NAME_ENC(ref, id, mult, NULL, clockrate, channels)
+	CODEC_DEF_MULT_NAME_ENC(ref, id, mult, NULL, clockrate, channels, 0)
 #define CODEC_DEF_NAME(ref, id, name) CODEC_DEF_MULT_NAME(ref, id, 1, name)
-#define CODEC_DEF_NAME_ENC(ref, id, name, clockrate, channels) \
-	CODEC_DEF_MULT_NAME_ENC(ref, id, 1, name, clockrate, channels)
+#define CODEC_DEF_NAME_ENC(ref, id, name, clockrate, channels, bitrate) \
+	CODEC_DEF_MULT_NAME_ENC(ref, id, 1, name, clockrate, channels, bitrate)
 #define CODEC_DEF(ref, id) CODEC_DEF_MULT(ref, id, 1)
 #define CODEC_DEF_ENC(ref, id, clockrate, channels) CODEC_DEF_MULT_ENC(ref, id, 1, clockrate, channels)
-#define CODEC_DEF_STUB(ref) CODEC_DEF_FULL(ref, -1, 1, ref, -1, -1)
+#define CODEC_DEF_STUB(ref) CODEC_DEF_FULL(ref, -1, 1, ref, -1, -1, 0)
 
 static const struct codec_def_s codecs[] = {
 	CODEC_DEF(PCMA, PCM_ALAW),
@@ -65,7 +60,7 @@ static const struct codec_def_s codecs[] = {
 	CODEC_DEF_ENC(speex, SPEEX, 16000, 1),
 	CODEC_DEF(GSM, GSM),
 	CODEC_DEF(iLBC, ILBC),
-	CODEC_DEF_NAME_ENC(opus, OPUS, libopus, 48000, 2),
+	CODEC_DEF_NAME_ENC(opus, OPUS, libopus, 48000, 2, 24000),
 	CODEC_DEF_NAME(vorbis, VORBIS, libvorbis),
 	CODEC_DEF(ac3, AC3),
 	CODEC_DEF(eac3, EAC3),
