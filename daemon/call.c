@@ -495,7 +495,7 @@ static void call_timer(void *ptr) {
 	struct rtp_stats *rs;
 	unsigned int pt;
 	endpoint_t ep;
-	int offers, answers, deletes;
+	u_int64_t offers, answers, deletes;
 
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
