@@ -16,6 +16,24 @@
       "revId": "9b2a4730fdcb3e519e970959c1d192dd64a6ffc5",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1a930d6b_8e249bc7",
+        "filename": "debian/control",
+        "patchSetId": 4
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-01-30T11:48:00Z",
+      "side": 1,
+      "message": "Depends on the intention here. If what you want is to make sure the AMR codecs are going to be available, at least from the package description, you\u0027d just depend on libavcodec-extra, so that this forces the alternative coming from the shlibs file (f.ex. «dpkg-query --control-show libavcodec57 shlibs» on Debian unstable). If you don\u0027t mind either package then the default should be good enough.",
+      "parentUuid": "1a930d6b_4efe336d",
+      "revId": "9b2a4730fdcb3e519e970959c1d192dd64a6ffc5",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
