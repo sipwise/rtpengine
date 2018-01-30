@@ -53,6 +53,7 @@ struct rtpengine_config rtpe_config = {
 	.redis_subscribed_keyspaces = G_QUEUE_INIT,
 	.redis_expires_secs = 86400,
 	.interfaces = G_QUEUE_INIT,
+	.primary_group_intf = G_QUEUE_INIT,
 	.homer_protocol = SOCK_DGRAM,
 	.homer_id = 2001,
 	.port_min = 30000,
@@ -226,6 +227,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 
 static void options(int *argc, char ***argv) {
 	char **if_a = NULL;
+	char **if_grp = NULL;
 	char **ks_a = NULL;
 	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
@@ -251,6 +253,7 @@ static void options(int *argc, char ***argv) {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&rtpe_config.no_fallback,	"Only start when kernel module is available", NULL },
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
+		{ "primary-interface-group", 0, 0, G_OPTION_ARG_STRING_ARRAY,&if_grp,	"Interface group used as default",	"NAME; NAME ..."},
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46|HOSTNAME:]PORT"	},
@@ -310,6 +313,12 @@ static void options(int *argc, char ***argv) {
 		if (!ifa)
 			die("Invalid interface specification: %s", *iter);
 		g_queue_push_tail(&rtpe_config.interfaces, ifa);
+	}
+
+	if (if_grp) {
+		rtpe_config.has_primary_group = 1;
+		for (iter = if_grp; *iter; iter++)
+			g_queue_push_tail(&rtpe_config.primary_group_intf, *iter);
 	}
 
 	if (ks_a) {

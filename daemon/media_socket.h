@@ -94,6 +94,11 @@ INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_i
 	return open_socket(r, SOCK_DGRAM, port, &lif->spec->local_address.addr);
 }
 
+//first argument is char *, second arg is str *
+INLINE int intf_grp_name_compare(const void *q_elem, const void *elem) {
+	return str_cmp(elem,q_elem);
+}
+
 void kernelize(struct packet_stream *);
 void __unkernelize(struct packet_stream *);
 void unkernelize(struct packet_stream *);
