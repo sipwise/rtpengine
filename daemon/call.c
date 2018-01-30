@@ -466,6 +466,24 @@ destroy:
 		atomic64_add(&ps->stats.x, d);			\
 		atomic64_add(&rtpe_statsps.x, d);			\
 	} while (0)
+
+static void update_requests_per_second_stats(struct requests_ps *request, u_int64_t new_val) {
+	mutex_lock(&request->lock);
+
+	request->count++;
+	request->ps_avg += new_val;
+
+	if ((request->ps_min == 0) || (request->ps_min > new_val)) {
+		request->ps_min = new_val;
+	}
+
+	if ((request->ps_max == 0) || (request->ps_max < new_val)) {
+		request->ps_max = new_val;
+	}
+
+	mutex_unlock(&request->lock);
+}
+
 static void call_timer(void *ptr) {
 	struct iterator_helper hlp;
 	GList *i, *l, *calls = NULL;
@@ -477,6 +495,7 @@ static void call_timer(void *ptr) {
 	struct rtp_stats *rs;
 	unsigned int pt;
 	endpoint_t ep;
+	u_int64_t offers, answers, deletes;
 
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
@@ -502,6 +521,16 @@ static void call_timer(void *ptr) {
 	atomic64_set(&rtpe_stats.bytes, atomic64_get_na(&tmpstats.bytes));
 	atomic64_set(&rtpe_stats.packets, atomic64_get_na(&tmpstats.packets));
 	atomic64_set(&rtpe_stats.errors, atomic64_get_na(&tmpstats.errors));
+
+	/* update statistics regarding requests per second */
+	offers = atomic64_get_set(&rtpe_statsps.offers, 0);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, offers);
+
+	answers = atomic64_get_set(&rtpe_statsps.answers, 0);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps,	answers);
+
+	deletes = atomic64_get_set(&rtpe_statsps.deletes, 0);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes);
 
 	i = kernel_list();
 	while (i) {

@@ -193,6 +193,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		// print offer duration
 		timeval_from_us(&offer_stop, timeval_diff(&offer_stop, &offer_start));
 		ilog(LOG_INFO, "offer time = %llu.%06llu sec", (unsigned long long)offer_stop.tv_sec, (unsigned long long)offer_stop.tv_usec);
+
 	}
 	else if (!str_cmp(&cmd, "answer")) {
 		// start answer timer
@@ -248,10 +249,13 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 
 	// update interval statistics
 	if (!str_cmp(&cmd, "offer")) {
+		atomic64_inc(&rtpe_statsps.offers);
 		timeval_update_request_time(&rtpe_totalstats_interval.offer, &offer_stop);
 	} else if (!str_cmp(&cmd, "answer")) {
+		atomic64_inc(&rtpe_statsps.answers);
 		timeval_update_request_time(&rtpe_totalstats_interval.answer, &answer_stop);
 	} else if (!str_cmp(&cmd, "delete")) {
+		atomic64_inc(&rtpe_statsps.deletes);
 		timeval_update_request_time(&rtpe_totalstats_interval.delete, &delete_stop);
 	}
 

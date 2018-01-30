@@ -171,6 +171,7 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 	struct timeval avg, calls_dur_iv;
 	u_int64_t num_sessions, min_sess_iv, max_sess_iv;
 	struct request_time offer_iv, answer_iv, delete_iv;
+	struct requests_ps offers_ps, answers_ps, deletes_ps;
 
 	mutex_lock(&rtpe_totalstats.total_average_lock);
 	avg = rtpe_totalstats.total_average_call_dur;
@@ -199,12 +200,10 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 	offer_iv = rtpe_totalstats_lastinterval.offer;
 	answer_iv = rtpe_totalstats_lastinterval.answer;
 	delete_iv = rtpe_totalstats_lastinterval.delete;
+	offers_ps = rtpe_totalstats_lastinterval.offers_ps;
+	answers_ps = rtpe_totalstats_lastinterval.answers_ps;
+	deletes_ps = rtpe_totalstats_lastinterval.deletes_ps;
 	mutex_unlock(&rtpe_totalstats_lastinterval_lock);
-
-	// compute average offer/answer/delete time
-	timeval_divide(&offer_iv.time_avg, &offer_iv.time_avg, offer_iv.count);
-	timeval_divide(&answer_iv.time_avg, &answer_iv.time_avg, answer_iv.count);
-	timeval_divide(&delete_iv.time_avg, &delete_iv.time_avg, delete_iv.count);
 
 	streambuf_printf(replybuffer, "\nGraphite interval statistics (last reported values to graphite):\n");
 	streambuf_printf(replybuffer, " Total calls duration                            :%ld.%06ld\n\n",calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
@@ -222,6 +221,18 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 		(unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec,
 		(unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec,
 		(unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
+
+	streambuf_printf(replybuffer, " Min/Max/Avg offer requests per second           :%llu/%llu/%llu per sec\n",
+		(unsigned long long)offers_ps.ps_min,
+		(unsigned long long)offers_ps.ps_max,
+		(unsigned long long)offers_ps.ps_avg);
+	streambuf_printf(replybuffer, " Min/Max/Avg answer requests per second          :%llu/%llu/%llu per sec\n",	(unsigned long long)answers_ps.ps_min,
+		(unsigned long long)answers_ps.ps_max,
+		(unsigned long long)answers_ps.ps_avg);
+	streambuf_printf(replybuffer, " Min/Max/Avg delete requests per second          :%llu/%llu/%llu per sec\n",
+		(unsigned long long)deletes_ps.ps_min,
+		(unsigned long long)deletes_ps.ps_max,
+		(unsigned long long)deletes_ps.ps_avg);
 
 	streambuf_printf(replybuffer, "\n\n");
 
