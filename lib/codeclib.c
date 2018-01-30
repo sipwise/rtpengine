@@ -10,6 +10,10 @@
 
 
 
+#define PACKET_SEQ_DUPE_THRES 100
+#define PACKET_TS_RESET_THRES 5000 // milliseconds
+
+
 
 #ifndef dbg
 #ifdef __DEBUG
@@ -182,8 +186,18 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 	}
 	else {
 		// shift pts according to rtp ts shift
-		dec->pts += (ts - dec->rtp_ts);
-		// XXX handle lost packets here if timestamps don't line up?
+		u_int64_t shift_ts = ts - dec->rtp_ts;
+		if ((shift_ts * dec->avcctx->time_base.num * 1000) / dec->avcctx->time_base.den
+				> PACKET_TS_RESET_THRES)
+		{
+			ilog(LOG_DEBUG, "Timestamp disconinuity detected, resetting timestamp from "
+					"%lu to %lu",
+					dec->rtp_ts, ts);
+			// XXX handle lost packets here if timestamps don't line up?
+			dec->pts += dec->avcctx->time_base.den;
+		}
+		else
+			dec->pts += shift_ts;
 	}
 	dec->rtp_ts = ts;
 
@@ -423,6 +437,7 @@ out:
 	ps->seq = (packet->seq + 1) & 0xffff;
 	return packet;
 }
+
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	// check seq for dupes
 	if (G_UNLIKELY(ps->seq == -1)) {
@@ -432,11 +447,22 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	}
 
 	int diff = p->seq - ps->seq;
-	if (diff >= 0x8000)
+	// early packet: p->seq = 200, ps->seq = 150, diff = 50
+	if (G_LIKELY(diff >= 0 && diff < PACKET_SEQ_DUPE_THRES))
+		goto seq_ok;
+	// early packet with wrap-around: p->seq = 20, ps->seq = 65530, diff = -65510
+	if (diff < (-0xffff + PACKET_SEQ_DUPE_THRES))
+		goto seq_ok;
+	// recent duplicate: p->seq = 1000, ps->seq = 1080, diff = -80
+	if (diff < 0 && diff > -PACKET_SEQ_DUPE_THRES)
 		return -1;
-	if (diff < 0 && diff > -0x8000)
+	// recent duplicate after wrap-around: p->seq = 65530, ps->seq = 30, diff = 65500
+	if (diff > (0xffff - PACKET_SEQ_DUPE_THRES))
 		return -1;
 
+	// everything else we consider a seq reset
+	ilog(LOG_DEBUG, "Seq reset detected: expected seq %i, received seq %i", ps->seq, p->seq);
+	ps->seq = p->seq;
 	// seq ok - fall thru
 seq_ok:
 	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(p->seq)))
