@@ -370,12 +370,24 @@ err:
 	__ssrc_handler_free(ch);
 	return NULL;
 }
+static int __encoder_flush(encoder_t *enc, void *u1, void *u2) {
+	int *going = u1;
+	*going = 1;
+	return 0;
+}
 static void __ssrc_handler_free(struct codec_ssrc_handler *ch) {
 	packet_sequencer_destroy(&ch->sequencer);
 	if (ch->decoder)
 		decoder_close(ch->decoder);
-	if (ch->encoder)
+	if (ch->encoder) {
+		// flush out queue to avoid ffmpeg warnings
+		int going;
+		do {
+			going = 0;
+			encoder_input_data(ch->encoder, NULL, __encoder_flush, &going, NULL);
+		} while (going);
 		encoder_free(ch->encoder);
+	}
 	g_slice_free1(sizeof(*ch), ch);
 }
 
@@ -415,8 +427,6 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 
 	ilog(LOG_DEBUG, "RTP media successfully decoded: TS %llu, samples %u",
 			(unsigned long long) frame->pts, frame->nb_samples);
-
-	// XXX resample...
 
 	encoder_input_data(ch->encoder, frame, __packet_encoded, ch, u2);
 
