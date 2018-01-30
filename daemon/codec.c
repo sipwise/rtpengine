@@ -354,7 +354,9 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
-	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id, 0, &enc_format, &ch->encoder_format))
+	// XXX make bitrate configurable
+	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id,
+				h->dest_pt.codec_def->default_bitrate, &enc_format, &ch->encoder_format))
 		goto err;
 
 	ilog(LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i",
