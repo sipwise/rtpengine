@@ -202,6 +202,7 @@ struct sdp_attribute {
 		ATTR_FMTP,
 		ATTR_IGNORE,
 		ATTR_RTPENGINE,
+		ATTR_PTIME,
 		ATTR_END_OF_CANDIDATES,
 	} attr;
 
@@ -834,6 +835,8 @@ static int parse_attribute(struct sdp_attribute *a) {
 				ret = parse_attribute_group(a);
 			else if (!str_cmp(&a->name, "setup"))
 				ret = parse_attribute_setup(a);
+			else if (!str_cmp(&a->name, "ptime"))
+				a->attr = ATTR_PTIME;
 			break;
 		case 6:
 			if (!str_cmp(&a->name, "crypto"))
@@ -1125,6 +1128,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	GList *ql;
 	struct sdp_attribute *attr;
 	int ret = 0;
+	int ptime = 0;
 
 	if (!sp->protocol || !sp->protocol->rtp)
 		return 0;
@@ -1146,13 +1150,18 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		g_hash_table_insert(ht_fmtp, &attr->u.fmtp.payload_type, &attr->u.fmtp.format_parms_str);
 	}
 
+	// check for a=ptime
+	attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
+	if (attr)
+		ptime = atoi(attr->value.s);
+
 	/* then go through the format list and associate */
 	for (ql = media->format_list.head; ql; ql = ql->next) {
 		char *ep;
 		str *s;
 		unsigned int i;
 		struct rtp_payload_type *pt;
-		const struct rtp_payload_type *ptl;
+		const struct rtp_payload_type *ptl, *ptrfc;
 
 		s = ql->data;
 		i = (unsigned int) strtoul(s->s, &ep, 10);
@@ -1161,17 +1170,26 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 
 		/* first look in rtpmap for a match, then check RFC types,
 		 * else fall back to an "unknown" type */
-		ptl = rtp_payload_type(i, ht_rtpmap);
+		ptrfc = rtp_get_rfc_payload_type(i);
+		ptl = g_hash_table_lookup(ht_rtpmap, &i);
 
 		pt = g_slice_alloc0(sizeof(*pt));
 		if (ptl)
 			*pt = *ptl;
+		else if (ptrfc)
+			*pt = *ptrfc;
 		else
 			pt->payload_type = i;
 
 		s = g_hash_table_lookup(ht_fmtp, &i);
 		if (s)
 			pt->format_parameters = *s;
+
+		// fill in ptime
+		if (ptime)
+			pt->ptime = ptime;
+		else if (!pt->ptime && ptrfc)
+			pt->ptime = ptrfc->ptime;
 
 		g_queue_push_tail(&sp->rtp_payload_types, pt);
 	}
@@ -1324,6 +1342,11 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			}
 
 			__sdp_ice(sp, media);
+
+			// a=ptime
+			attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
+			if (attr)
+				sp->ptime = atoi(attr->value.s);
 
 			/* determine RTCP endpoint */
 
@@ -1694,6 +1717,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_END_OF_CANDIDATES: // we strip it here and re-insert it later
 			case ATTR_RTPMAP:
 			case ATTR_FMTP:
+			case ATTR_PTIME:
 				goto strip;
 
 			case ATTR_EXTMAP:
@@ -2102,6 +2126,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 			insert_crypto(call_media, chop);
 			insert_dtls(call_media, chop);
+
+			if (call_media->ptime)
+				chopper_append_printf(chop, "a=ptime:%i\r\n", call_media->ptime);
 
 			if (MEDIA_ISSET(call_media, ICE) && call_media->ice_agent) {
 				chopper_append_c(chop, "a=ice-ufrag:");

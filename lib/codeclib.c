@@ -26,7 +26,13 @@
 
 
 
-#define CODEC_DEF_FULL(ref, codec_id, mult, name, clockrate, channels, bitrate) { \
+packetizer_f packetizer_passthrough; // pass frames as they arrive in AVPackets
+packetizer_f packetizer_samplestream; // flat stream of samples
+
+
+
+
+#define CODEC_DEF_FULL(ref, codec_id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps) { \
 	.rtpname = #ref, \
 	.avcodec_id = codec_id, \
 	.clockrate_mult = mult, \
@@ -34,45 +40,53 @@
 	.default_clockrate = clockrate, \
 	.default_channels = channels, \
 	.default_bitrate = bitrate, \
+	.default_ptime = ptime, \
+	.packetizer = packetizer_ ## pizer, \
+	.bits_per_sample = bps, \
 }
-#define CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels, bitrate) \
-	CODEC_DEF_FULL(ref, AV_CODEC_ID_ ## id, mult, name, clockrate, channels, bitrate)
-#define CODEC_DEF_MULT_NAME(ref, id, mult, name) CODEC_DEF_AVC(ref, id, mult, name, -1, -1, 0)
-#define CODEC_DEF_MULT_NAME_ENC(ref, id, mult, name, clockrate, channels, bitrate) \
-	CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels, bitrate)
-#define CODEC_DEF_MULT(ref, id, mult) CODEC_DEF_MULT_NAME(ref, id, mult, NULL)
-#define CODEC_DEF_MULT_ENC(ref, id, mult, clockrate, channels) \
-	CODEC_DEF_MULT_NAME_ENC(ref, id, mult, NULL, clockrate, channels, 0)
-#define CODEC_DEF_NAME(ref, id, name) CODEC_DEF_MULT_NAME(ref, id, 1, name)
-#define CODEC_DEF_NAME_ENC(ref, id, name, clockrate, channels, bitrate) \
-	CODEC_DEF_MULT_NAME_ENC(ref, id, 1, name, clockrate, channels, bitrate)
-#define CODEC_DEF(ref, id) CODEC_DEF_MULT(ref, id, 1)
-#define CODEC_DEF_ENC(ref, id, clockrate, channels) CODEC_DEF_MULT_ENC(ref, id, 1, clockrate, channels)
-#define CODEC_DEF_STUB(ref) CODEC_DEF_FULL(ref, -1, 1, ref, -1, -1, 0)
+#define CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps) \
+	CODEC_DEF_FULL(ref, AV_CODEC_ID_ ## id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps)
+#define CODEC_DEF_MULT_NAME(ref, id, mult, name, pizer, bps) CODEC_DEF_AVC(ref, id, mult, name, -1, -1, 0, 0, pizer, bps)
+#define CODEC_DEF_MULT(ref, id, mult, pizer, bps) CODEC_DEF_MULT_NAME(ref, id, mult, NULL, pizer, bps)
+#define CODEC_DEF_NAME(ref, id, name, pizer, bps) CODEC_DEF_MULT_NAME(ref, id, 1, name, pizer, bps)
+#define CODEC_DEF(ref, id, pizer, bps) CODEC_DEF_MULT(ref, id, 1, pizer, bps)
+
+// _ENC macros provided for codecs not having defaults in the RTP RFC
+#define CODEC_DEF_NAME_ENC(ref, id, name, clockrate, channels, bitrate, ptime, pizer, bps) \
+	CODEC_DEF_MULT_NAME_ENC(ref, id, 1, name, clockrate, channels, bitrate, ptime, pizer, bps)
+#define CODEC_DEF_MULT_ENC(ref, id, mult, clockrate, channels, bitrate, ptime, pizer, bps) \
+	CODEC_DEF_MULT_NAME_ENC(ref, id, mult, NULL, clockrate, channels, bitrate, ptime, pizer, bps)
+#define CODEC_DEF_ENC(ref, id, clockrate, channels, bitrate, ptime, pizer, bps) \
+	CODEC_DEF_MULT_ENC(ref, id, 1, clockrate, channels, bitrate, ptime, pizer, bps)
+#define CODEC_DEF_MULT_NAME_ENC(ref, id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps) \
+	CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps)
+
+// not real audio codecs
+#define CODEC_DEF_STUB(ref) CODEC_DEF_FULL(ref, -1, 1, ref, -1, -1, 0, 0, passthrough, 0)
 
 static const struct codec_def_s codecs[] = {
-	CODEC_DEF(PCMA, PCM_ALAW),
-	CODEC_DEF(PCMU, PCM_MULAW),
-	CODEC_DEF(G723, G723_1),
-	CODEC_DEF_MULT(G722, ADPCM_G722, 2),
-	CODEC_DEF(QCELP, QCELP),
-	CODEC_DEF(G729, G729),
-	CODEC_DEF_ENC(speex, SPEEX, 16000, 1),
-	CODEC_DEF(GSM, GSM),
-	CODEC_DEF(iLBC, ILBC),
-	CODEC_DEF_NAME_ENC(opus, OPUS, libopus, 48000, 2, 24000),
-	CODEC_DEF_NAME(vorbis, VORBIS, libvorbis),
-	CODEC_DEF(ac3, AC3),
-	CODEC_DEF(eac3, EAC3),
-	CODEC_DEF(ATRAC3, ATRAC3),
-	CODEC_DEF(ATRAC-X, ATRAC3P),
+	CODEC_DEF(PCMA, PCM_ALAW, samplestream, 8),
+	CODEC_DEF(PCMU, PCM_MULAW, samplestream, 8),
+	CODEC_DEF(G723, G723_1, passthrough, 0),
+	CODEC_DEF_MULT(G722, ADPCM_G722, 2, samplestream, 8),
+	CODEC_DEF(QCELP, QCELP, passthrough, 0),
+	CODEC_DEF(G729, G729, passthrough, 0),
+	CODEC_DEF_ENC(speex, SPEEX, 16000, 1, 11000, 20, passthrough, 0),
+	CODEC_DEF(GSM, GSM, passthrough, 0),
+	CODEC_DEF(iLBC, ILBC, passthrough, 0),
+	CODEC_DEF_NAME_ENC(opus, OPUS, libopus, 48000, 2, 32000, 20, passthrough, 0),
+	CODEC_DEF_NAME(vorbis, VORBIS, libvorbis, passthrough, 0),
+	CODEC_DEF(ac3, AC3, passthrough, 0),
+	CODEC_DEF(eac3, EAC3, passthrough, 0),
+	CODEC_DEF(ATRAC3, ATRAC3, passthrough, 0),
+	CODEC_DEF(ATRAC-X, ATRAC3P, passthrough, 0),
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-	CODEC_DEF(EVRC, EVRC),
-	CODEC_DEF(EVRC0, EVRC),
-	CODEC_DEF(EVRC1, EVRC),
+	CODEC_DEF(EVRC, EVRC, passthrough, 0),
+	CODEC_DEF(EVRC0, EVRC, passthrough, 0),
+	CODEC_DEF(EVRC1, EVRC, passthrough, 0),
 #endif
-	CODEC_DEF_ENC(AMR, AMR_NB, 8000, 1),
-	CODEC_DEF_ENC(AMR-WB, AMR_WB, 16000, 1),
+	CODEC_DEF_ENC(AMR, AMR_NB, 8000, 1, 6600, 20, passthrough, 0),
+	CODEC_DEF_ENC(AMR-WB, AMR_WB, 16000, 1, 14250, 20, passthrough, 0),
 	CODEC_DEF_STUB(telephone-event),
 };
 
@@ -477,8 +491,8 @@ encoder_t *encoder_new() {
 	return ret;
 }
 
-int encoder_config(encoder_t *enc, int codec_id, int bitrate, const format_t *requested_format,
-		format_t *actual_format)
+int encoder_config(encoder_t *enc, int codec_id, int bitrate, int ptime,
+		const format_t *requested_format, format_t *actual_format)
 {
 	const char *err;
 
@@ -526,6 +540,25 @@ int encoder_config(encoder_t *enc, int codec_id, int bitrate, const format_t *re
 
 	av_init_packet(&enc->avpkt);
 
+	enc->samples_per_frame = enc->actual_format.clockrate * ptime / 1000;
+
+// output frame and fifo
+	enc->frame = av_frame_alloc();
+	enc->frame->nb_samples = enc->avcctx->frame_size ? : (enc->samples_per_frame ? : 256);
+	enc->frame->format = enc->avcctx->sample_fmt;
+	enc->frame->sample_rate = enc->avcctx->sample_rate;
+	enc->frame->channel_layout = enc->avcctx->channel_layout;
+	if (!enc->frame->channel_layout)
+		enc->frame->channel_layout = av_get_default_channel_layout(enc->avcctx->channels);
+	if (av_frame_get_buffer(enc->frame, 0) < 0)
+		abort();
+
+	enc->fifo = av_audio_fifo_alloc(enc->avcctx->sample_fmt, enc->avcctx->channels,
+			enc->frame->nb_samples);
+
+	ilog(LOG_DEBUG, "Initialized encoder with frame size %u samples", enc->frame->nb_samples);
+
+
 done:
 	*actual_format = enc->actual_format;
 	return 0;
@@ -546,7 +579,11 @@ void encoder_close(encoder_t *enc) {
 	enc->avcctx = NULL;
 	format_init(&enc->requested_format);
 	format_init(&enc->actual_format);
+	av_audio_fifo_free(enc->fifo);
+	av_frame_free(&enc->frame);
 	enc->mux_dts = 0;
+	enc->fifo = NULL;
+	enc->fifo_pts = 0;
 }
 void encoder_free(encoder_t *enc) {
 	encoder_close(enc);
@@ -556,6 +593,11 @@ void encoder_free(encoder_t *enc) {
 int encoder_input_data(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
 {
+	if (G_UNLIKELY(!enc->avcctx))
+		return -1;
+	if (G_UNLIKELY(!enc->codec))
+		return -1;
+
 	int keep_going;
 	int have_frame = 1;
 	do {
@@ -631,4 +673,74 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 	} while (keep_going);
 
 	return 0;
+}
+
+static int encoder_fifo_flush(encoder_t *enc,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
+{
+	while (av_audio_fifo_size(enc->fifo) >= enc->frame->nb_samples) {
+
+		if (av_audio_fifo_read(enc->fifo, (void **) enc->frame->data,
+					enc->frame->nb_samples) <= 0)
+			abort();
+
+		ilog(LOG_DEBUG, "output fifo pts %lu",(unsigned long) enc->fifo_pts);
+		enc->frame->pts = enc->fifo_pts;
+
+		encoder_input_data(enc, enc->frame, callback, u1, u2);
+
+		enc->fifo_pts += enc->frame->nb_samples;
+	}
+
+	return 0;
+}
+
+int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
+{
+	// fix up output pts
+	if (av_audio_fifo_size(enc->fifo) == 0)
+		enc->fifo_pts = frame->pts;
+
+	if (av_audio_fifo_write(enc->fifo, (void **) frame->extended_data, frame->nb_samples) < 0)
+		return -1;
+
+	return encoder_fifo_flush(enc, callback, u1, u2);
+}
+
+
+int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output) {
+	if (!pkt)
+		return -1;
+	ilog(LOG_DEBUG, "passthrough duration: %lu", pkt->duration);
+	assert(output->len >= pkt->size);
+	output->len = pkt->size;
+	memcpy(output->s, pkt->data, pkt->size);
+	return 0;
+}
+
+// returns: -1 = not enough data, nothing returned; 0 = returned a packet;
+// 1 = returned a packet and there's more
+int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_output) {
+	if (pkt)
+		ilog(LOG_DEBUG, "samplestream duration: %lu", pkt->duration);
+	// avoid moving buffers around if possible:
+	// most common case: new input packet has just enough (or more) data as what we need
+	if (G_LIKELY(pkt && buf->len == 0 && pkt->size >= input_output->len)) {
+		memcpy(input_output->s, pkt->data, input_output->len);
+		if (pkt->size > input_output->len) // any leftovers?
+			g_string_append_len(buf, (char *) pkt->data + input_output->len,
+					pkt->size - input_output->len);
+		return buf->len >= input_output->len ? 1 : 0;
+	}
+	// we have to move data around. append input packet to buffer if we have one
+	if (pkt)
+		g_string_append_len(buf, (char *) pkt->data, pkt->size);
+	// do we have enough?
+	if (buf->len < input_output->len)
+		return -1;
+	// copy requested data into provided output buffer and remove from interim buffer
+	memcpy(input_output->s, buf->str, input_output->len);
+	g_string_erase(buf, 0, input_output->len);
+	return buf->len >= input_output->len ? 1 : 0;
 }
