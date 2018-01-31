@@ -1237,8 +1237,24 @@ Optionally included keys are:
 		Contains a list of strings. Each string is the name of a codec that should be
 		included in the list of codecs offered. This is primarily useful to block all
 		codecs (`strip -> all`) except the ones given in the `offer` whitelist.
-		Currently codecs that were not present in the original list of codecs
+		Codecs that were not present in the original list of codecs
 		offered by the client will be ignored.
+
+	* `transcode`
+
+		Similar to `offer` but allows codecs to be added to the list of offered codecs
+		even if they were not present in the original list of codecs. In this case,
+		the transcoding engine will be engaged. Only codecs that are supported for both
+		decoding and encoding can be added in this manner. This also has the side effect
+		of automatically stripping all unsupported codecs from the list of offered codecs,
+		as *rtpengine* must expect to receive or even send in any codec that is present
+		in the list.
+
+		Note that using this option does not necessarily always engage the transcoding
+		engine. If all codecs given in the `transcode` list were present in the original
+		list of offered codecs, then no transcoding will be done. Also note that if
+		transcoding takes place, in-kernel forwarding is disabled for this media stream
+		and all processing happens in userspace.
 
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
