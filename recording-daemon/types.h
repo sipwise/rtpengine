@@ -117,10 +117,10 @@ struct output_s {
 	AVFormatContext *fmtctx;
 	AVStream *avst;
 //	AVPacket avpkt;
-	AVAudioFifo *fifo;
-	int64_t fifo_pts; // pts of first data in fifo
+//	AVAudioFifo *fifo;
+//	int64_t fifo_pts; // pts of first data in fifo
 //	int64_t mux_dts; // last dts passed to muxer
-	AVFrame *frame;
+//	AVFrame *frame;
 	encoder_t *encoder;
 };
 
