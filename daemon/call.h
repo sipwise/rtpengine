@@ -240,6 +240,7 @@ struct stream_params {
 	GQueue			ice_candidates; /* slice-alloc'd */
 	str			ice_ufrag;
 	str			ice_pwd;
+	int			ptime;
 };
 
 struct endpoint_map {
@@ -332,12 +333,16 @@ struct call_media {
 	GQueue			codecs_prefs_recv; // preference by order in SDP; storage container
 
 	// what we can send, taken from received SDP:
+	GHashTable		*codecs_send; // int payload type -> struct rtp_payload_type
 	GHashTable		*codec_names_send; // codec name -> GQueue of int payload types; storage container
 	GQueue			codecs_prefs_send; // storage container
 
 	GHashTable		*codec_handlers; // int payload type -> struct codec_handler
 						// XXX combine this with 'codecs' hash table?
 	volatile struct codec_handler *codec_handler_cache;
+
+	int			ptime; // SDP
+	int			ptime_override;
 
 	volatile unsigned int	media_flags;
 };

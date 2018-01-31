@@ -18,9 +18,12 @@ struct codec_ssrc_handler {
 	decoder_t *decoder;
 	encoder_t *encoder;
 	format_t encoder_format;
-	unsigned long ts_offset;
+	int ptime;
+	int bytes_per_packet;
+	unsigned long ts_out;
 	u_int32_t ssrc_out;
 	u_int16_t seq_out;
+	GString *sample_buffer;
 };
 struct transcode_packet {
 	seq_packet_t p; // must be first
@@ -59,9 +62,9 @@ static void __codec_handler_free(void *pp) {
 	g_slice_free1(sizeof(*h), h);
 }
 
-static struct codec_handler *__handler_new(int pt) {
+static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 	struct codec_handler *handler = g_slice_alloc0(sizeof(*handler));
-	handler->source_pt.payload_type = pt;
+	handler->source_pt = *pt;
 	return handler;
 }
 
@@ -142,9 +145,19 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 		__ensure_codec_def(pt);
 		if (!pt->codec_def || pt->codec_def->avcodec_id == -1) // not supported, next
 			continue;
-		ilog(LOG_DEBUG, "Default sink codec is " STR_FORMAT, STR_FMT(&pt->encoding));
-		pref_dest_codec = pt;
-		break;
+
+		// fix up ptime
+		if (!pt->ptime)
+			pt->ptime = pt->codec_def->default_ptime;
+		if (sink->ptime)
+			pt->ptime = sink->ptime;
+		if (sink->ptime_override)
+			pt->ptime = sink->ptime_override;
+
+		if (!pref_dest_codec) {
+			ilog(LOG_DEBUG, "Default sink codec is " STR_FORMAT, STR_FMT(&pt->encoding));
+			pref_dest_codec = pt;
+		}
 	}
 
 	if (MEDIA_ISSET(sink, TRANSCODE)) {
@@ -219,7 +232,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 		handler = g_hash_table_lookup(receiver->codec_handlers, &pt->payload_type);
 		if (!handler) {
 			ilog(LOG_DEBUG, "Creating codec handler for " STR_FORMAT, STR_FMT(&pt->encoding));
-			handler = __handler_new(pt->payload_type);
+			handler = __handler_new(pt);
 			g_hash_table_insert(receiver->codec_handlers, &handler->source_pt.payload_type,
 					handler);
 		}
@@ -233,6 +246,14 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 			goto next;
 		}
 
+		// figure out our ptime
+		if (!pt->ptime)
+			pt->ptime = pt->codec_def->default_ptime;
+		if (receiver->ptime)
+			pt->ptime = receiver->ptime;
+		if (receiver->ptime_override)
+			pt->ptime = receiver->ptime_override;
+
 		// if the sink's codec preferences are unknown (empty), or there are
 		// no supported codecs to transcode to, then we have nothing
 		// to do. most likely this is an initial offer without a received answer.
@@ -243,18 +264,49 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 			goto next;
 		}
 
-		if (g_hash_table_lookup(sink->codec_names_send, &pt->encoding)) {
-			// the sink supports this codec. forward without transcoding.
+		struct rtp_payload_type *dest_pt; // transcode to this
+
+		// in case of ptime mismatch, we transcode
+		//struct rtp_payload_type *dest_pt = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+		GQueue *dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+		if (dest_codecs) {
+			// the sink supports this codec - check offered formats
+			dest_pt = NULL;
+			for (GList *k = dest_codecs->head; k; k = k->next) {
+				unsigned int dest_ptype = GPOINTER_TO_UINT(k->data);
+				dest_pt = g_hash_table_lookup(sink->codecs_send, &dest_ptype);
+				if (!dest_pt)
+					continue;
+				// XXX match up format parameters
+				break;
+			}
+
+			if (!dest_pt)
+				goto unsupported;
+
+			// in case of ptime mismatch, we transcode, but between the same codecs
+			if (dest_pt->ptime && pt->ptime
+					&& dest_pt->ptime != pt->ptime)
+			{
+				ilog(LOG_DEBUG, "Mismatched ptime between source and sink (%i <> %i), "
+						"enabling transcoding",
+					dest_pt->ptime, pt->ptime);
+				goto transcode;
+			}
+
 			// XXX check format parameters as well
 			ilog(LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding));
 			__make_passthrough(handler);
 			goto next;
 		}
 
+unsupported:
 		// the sink does not support this codec -> transcode
 		ilog(LOG_DEBUG, "Sink does not support codec " STR_FORMAT, STR_FMT(&pt->encoding));
+		dest_pt = pref_dest_codec;
+transcode:
 		MEDIA_SET(receiver, TRANSCODE);
-		__make_transcoder(handler, pt, pref_dest_codec);
+		__make_transcoder(handler, pt, dest_pt);
 
 next:
 		l = l->next;
@@ -344,7 +396,9 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
 	ch->seq_out = random();
 	ch->ssrc_out = ssrc_out;
-	ch->ts_offset = random();
+	ch->ts_out = random();
+	ch->ptime = h->dest_pt.ptime;
+	ch->sample_buffer = g_string_new("");
 
 	format_t enc_format = {
 		.clockrate = h->dest_pt.clock_rate * h->dest_pt.codec_def->clockrate_mult,
@@ -356,16 +410,23 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 		goto err;
 	// XXX make bitrate configurable
 	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id,
-				h->dest_pt.codec_def->default_bitrate, &enc_format, &ch->encoder_format))
+				h->dest_pt.codec_def->default_bitrate,
+				ch->ptime / h->dest_pt.codec_def->clockrate_mult,
+				&enc_format, &ch->encoder_format))
 		goto err;
-
-	ilog(LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i",
-			ch->encoder_format.clockrate, ch->encoder_format.channels, ch->encoder_format.format);
 
 	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
 			&ch->encoder_format);
 	if (!ch->decoder)
 		goto err;
+
+	ch->bytes_per_packet = ch->encoder->samples_per_frame * h->dest_pt.codec_def->bits_per_sample / 8;
+
+	ilog(LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i "
+			"(ptime %i for %i samples or %i bytes per packet)",
+			ch->encoder_format.clockrate, ch->encoder_format.channels, ch->encoder_format.format,
+			ch->ptime, ch->encoder->samples_per_frame, ch->bytes_per_packet);
+
 	return &ch->h;
 
 err:
@@ -390,6 +451,7 @@ static void __ssrc_handler_free(struct codec_ssrc_handler *ch) {
 		} while (going);
 		encoder_free(ch->encoder);
 	}
+	g_string_free(ch->sample_buffer, TRUE);
 	g_slice_free1(sizeof(*ch), ch);
 }
 
@@ -400,26 +462,56 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	ilog(LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
 			(unsigned long long) enc->avpkt.pts, enc->avpkt.size);
 
-	// reconstruct RTP header
-	unsigned int pkt_len = enc->avpkt.size + sizeof(struct rtp_header);
-	char *buf = malloc(pkt_len);
-	struct rtp_header *rh = (void *) buf;
+	// run this through our packetizer
+	AVPacket *in_pkt = &enc->avpkt;
 
-	ZERO(*rh);
-	rh->v_p_x_cc = 0x80;
-	rh->m_pt = ch->handler->dest_pt.payload_type;
-	rh->seq_num = htons(ch->seq_out++);
-	rh->timestamp = htonl(enc->avpkt.pts + ch->ts_offset);
-	rh->ssrc = ch->ssrc_out;
+	while (1) {
+		// figure out how big of a buffer we need
+		unsigned int payload_len = MAX(enc->avpkt.size, ch->bytes_per_packet);
+		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len;
+		// prepare our buffers
+		char *buf = malloc(pkt_len);
+		struct rtp_header *rh = (void *) buf;
+		char *payload = buf + sizeof(struct rtp_header);
+		// tell our packetizer how much we want
+		str inout;
+		str_init_len(&inout, payload, payload_len);
+		// and request a packet
+		if (in_pkt)
+			ilog(LOG_DEBUG, "Adding %i bytes to packetizer", in_pkt->size);
+		int ret = ch->handler->dest_pt.codec_def->packetizer(in_pkt,
+				ch->sample_buffer, &inout);
 
-	// XXX use writev() for output? would make sense if enc->avpkt.data can be stolen
-	memcpy(buf + sizeof(struct rtp_header), enc->avpkt.data, enc->avpkt.size);
+		if (G_UNLIKELY(ret == -1)) {
+			// nothing
+			free(buf);
+			break;
+		}
 
-	struct codec_packet *p = g_slice_alloc(sizeof(*p));
-	p->s.s = buf;
-	p->s.len = pkt_len;
-	p->free_func = free;
-	g_queue_push_tail(out_q, p);
+		ilog(LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
+		// reconstruct RTP header
+		ZERO(*rh);
+		rh->v_p_x_cc = 0x80;
+		rh->m_pt = ch->handler->dest_pt.payload_type;
+		rh->seq_num = htons(ch->seq_out++);
+		rh->timestamp = htonl(enc->avpkt.pts + ch->ts_out);
+		rh->ssrc = ch->ssrc_out;
+
+		// add to output queue
+		struct codec_packet *p = g_slice_alloc(sizeof(*p));
+		p->s.s = buf;
+		p->s.len = inout.len + sizeof(struct rtp_header);
+		p->free_func = free;
+		g_queue_push_tail(out_q, p);
+
+		if (ret == 0) {
+			// no more to go
+			break;
+		}
+
+		// loop around and get more
+		in_pkt = NULL;
+	}
 
 	return 0;
 }
@@ -430,7 +522,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 	ilog(LOG_DEBUG, "RTP media successfully decoded: TS %llu, samples %u",
 			(unsigned long long) frame->pts, frame->nb_samples);
 
-	encoder_input_data(ch->encoder, frame, __packet_encoded, ch, u2);
+	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, u2);
 
 	av_frame_free(&frame);
 	return 0;
@@ -608,6 +700,7 @@ static void __rtp_payload_type_add_recv(struct call_media *media,
 // duplicates 'pt'
 static void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payload_type *pt) {
 	pt = __rtp_payload_type_copy(pt);
+	g_hash_table_insert(other_media->codecs_send, &pt->payload_type, pt);
 	__rtp_payload_type_add_name(other_media->codec_names_send, pt);
 	g_queue_push_tail(&other_media->codecs_prefs_send, pt);
 }
@@ -656,6 +749,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	g_hash_table_remove_all(media->codec_names_recv);
 	// and sending part for 'other_media'
 	g_queue_clear_full(&other_media->codecs_prefs_send, (GDestroyNotify) payload_type_free);
+	g_hash_table_remove_all(other_media->codecs_send);
 	g_hash_table_remove_all(other_media->codec_names_send);
 
 	if (strip && g_hash_table_lookup(strip, &str_all))
