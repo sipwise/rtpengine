@@ -355,6 +355,9 @@ INLINE char *bencode_dictionary_get_str_dup(bencode_item_t *dict, const char *ke
  * specified which value should be returned if the key is not found or if the value is not an integer. */
 INLINE long long int bencode_dictionary_get_integer(bencode_item_t *dict, const char *key, long long int defval);
 
+/* Identical to bencode_dictionary_get_integer() but allows for the item to be a string. */
+INLINE long long int bencode_dictionary_get_int_str(bencode_item_t *dict, const char *key, long long int defval);
+
 /* Identical to bencode_dictionary_get(), but returns the object only if its type matches "expect". */
 INLINE bencode_item_t *bencode_dictionary_get_expect(bencode_item_t *dict, const char *key, bencode_type_t expect);
 
@@ -514,6 +517,30 @@ INLINE long long int bencode_dictionary_get_integer(bencode_item_t *dict, const 
 	if (!val || val->type != BENCODE_INTEGER)
 		return defval;
 	return val->value;
+}
+
+INLINE long long int bencode_dictionary_get_int_str(bencode_item_t *dict, const char *key, long long int defval) {
+	bencode_item_t *val;
+	val = bencode_dictionary_get(dict, key);
+	if (!val)
+		return defval;
+	if (val->type == BENCODE_INTEGER)
+		return val->value;
+	if (val->type != BENCODE_STRING)
+		return defval;
+	if (val->iov[1].iov_len == 0)
+		return defval;
+
+	// uh oh...
+	char *s = val->iov[1].iov_base;
+	char old = s[val->iov[1].iov_len];
+	s[val->iov[1].iov_len] = 0;
+	char *errp;
+	long long int ret = strtoll(val->iov[1].iov_base, &errp, 10);
+	s[val->iov[1].iov_len] = old;
+	if (errp != val->iov[1].iov_base + val->iov[1].iov_len)
+		return defval;
+	return ret;
 }
 
 INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, int len, bencode_type_t expect) {
