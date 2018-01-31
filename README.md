@@ -46,7 +46,6 @@ the following additional features are available:
 
 *Rtpengine* does not (yet) support:
 
-* Repacketization or transcoding
 * Playback of pre-recorded streams/announcements
 * ZRTP, although ZRTP passes through *rtpengine* just fine
 
@@ -1255,6 +1254,12 @@ Optionally included keys are:
 		list of offered codecs, then no transcoding will be done. Also note that if
 		transcoding takes place, in-kernel forwarding is disabled for this media stream
 		and all processing happens in userspace.
+* `ptime`
+
+	Contains an integer. If set, changes the `a=ptime` attribute's value in the outgoing
+	SDP to the provided value. It also engages the transcoding engine for supported codecs
+	to provide repacketization functionality, even if no additional codec has actually
+	been requested for transcoding.
 
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):

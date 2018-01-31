@@ -48,6 +48,7 @@ GetOptions(
 	'codec-strip=s@'		=> \$options{'codec-strip'},
 	'codec-offer=s@'		=> \$options{'codec-offer'},
 	'codec-transcode=s@'		=> \$options{'codec-transcode'},
+	'ptime=i'			=> \$options{'ptime'},
 	'flags=s@'			=> \$options{'flags'},
 ) or die;
 
@@ -58,7 +59,7 @@ my %packet = (command => $cmd);
 for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
-for my $x (split(/,/, 'TOS,delete-delay')) {
+for my $x (split(/,/, 'TOS,delete-delay,ptime')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
 for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,loop protect')) {
