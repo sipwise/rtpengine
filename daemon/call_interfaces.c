@@ -690,9 +690,10 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	bencode_get_alt(input, "media-address", "media address", &out->media_address);
 	if (bencode_get_alt(input, "address-family", "address family", &out->address_family_str))
 		out->address_family = get_socket_family_rfc(&out->address_family_str);
-	out->tos = bencode_dictionary_get_integer(input, "TOS", 256);
+	out->tos = bencode_dictionary_get_int_str(input, "TOS", 256);
 	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
+	out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);
 
 	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
 		/* XXX module still needs to support these */
@@ -911,9 +912,9 @@ const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 				fatal = 1;
 		}
 	}
-	delete_delay = bencode_dictionary_get_integer(input, "delete-delay", -1);
+	delete_delay = bencode_dictionary_get_int_str(input, "delete-delay", -1);
 	if (delete_delay == -1) {
-		delete_delay = bencode_dictionary_get_integer(input, "delete delay", -1);
+		delete_delay = bencode_dictionary_get_int_str(input, "delete delay", -1);
 		if (delete_delay == -1) {
 			/* legacy support */
 			str s;
@@ -1237,7 +1238,7 @@ const char *call_list_ng(bencode_item_t *input, bencode_item_t *output) {
 	bencode_item_t *calls = NULL;
 	long long int limit;
 
-	limit = bencode_dictionary_get_integer(input, "limit", 32);
+	limit = bencode_dictionary_get_int_str(input, "limit", 32);
 
 	if (limit < 0) {
 		return "invalid limit, must be >= 0";
