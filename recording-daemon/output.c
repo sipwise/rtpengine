@@ -29,25 +29,6 @@ static int output_got_packet(encoder_t *enc, void *u1, void *u2) {
 
 	av_write_frame(output->fmtctx, &enc->avpkt);
 
-	output->fifo_pts += output->frame->nb_samples;
-
-	return 0;
-}
-
-
-static int output_flush(output_t *output) {
-	while (av_audio_fifo_size(output->fifo) >= output->frame->nb_samples) {
-
-		if (av_audio_fifo_read(output->fifo, (void **) output->frame->data,
-					output->frame->nb_samples) <= 0)
-			abort();
-
-		dbg("{%s} output fifo pts %lu", output->file_name, (unsigned long) output->fifo_pts);
-		output->frame->pts = output->fifo_pts;
-
-		encoder_input_data(output->encoder, output->frame, output_got_packet, output, NULL);
-	}
-
 	return 0;
 }
 
@@ -55,19 +36,9 @@ static int output_flush(output_t *output) {
 int output_add(output_t *output, AVFrame *frame) {
 	if (!output)
 		return -1;
-	if (!output->frame) // not ready - not configured
+	if (!output->encoder) // not ready - not configured
 		return -1;
-
-	dbg("{%s} output fifo size %u fifo_pts %lu", output->file_name, (unsigned int) av_audio_fifo_size(output->fifo),
-			(unsigned long) output->fifo_pts);
-	// fix up output pts
-	if (av_audio_fifo_size(output->fifo) == 0)
-		output->fifo_pts = frame->pts;
-
-	if (av_audio_fifo_write(output->fifo, (void **) frame->extended_data, frame->nb_samples) < 0)
-		return -1;
-
-	return output_flush(output);
+	return encoder_input_fifo(output->encoder, frame, output_got_packet, output, NULL);
 }
 
 
@@ -102,7 +73,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	if (!output->fmtctx->oformat)
 		goto err;
 
-	if (encoder_config(output->encoder, output_codec_id, mp3_bitrate, requested_format, actual_format))
+	if (encoder_config(output->encoder, output_codec_id, mp3_bitrate, 0, requested_format, actual_format))
 		goto err;
 
 //	err = "output codec not found";
@@ -178,18 +149,18 @@ got_fn:
 //	av_init_packet(&output->avpkt);
 
 	// output frame and fifo
-	output->frame = av_frame_alloc();
-	output->frame->nb_samples = output->encoder->avcctx->frame_size ? : 256;
-	output->frame->format = output->encoder->avcctx->sample_fmt;
-	output->frame->sample_rate = output->encoder->avcctx->sample_rate;
-	output->frame->channel_layout = output->encoder->avcctx->channel_layout;
-	if (!output->frame->channel_layout)
-		output->frame->channel_layout = av_get_default_channel_layout(output->encoder->avcctx->channels);
-	if (av_frame_get_buffer(output->frame, 0) < 0)
-		abort();
+//	output->frame = av_frame_alloc();
+//	output->frame->nb_samples = output->encoder->avcctx->frame_size ? : 256;
+//	output->frame->format = output->encoder->avcctx->sample_fmt;
+//	output->frame->sample_rate = output->encoder->avcctx->sample_rate;
+//	output->frame->channel_layout = output->encoder->avcctx->channel_layout;
+//	if (!output->frame->channel_layout)
+//		output->frame->channel_layout = av_get_default_channel_layout(output->encoder->avcctx->channels);
+//	if (av_frame_get_buffer(output->frame, 0) < 0)
+//		abort();
 
-	output->fifo = av_audio_fifo_alloc(output->encoder->avcctx->sample_fmt, output->encoder->avcctx->channels,
-			output->frame->nb_samples);
+//	output->fifo = av_audio_fifo_alloc(output->encoder->avcctx->sample_fmt, output->encoder->avcctx->channels,
+//			output->frame->nb_samples);
 
 	db_config_stream(output);
 	return 0;
@@ -216,17 +187,17 @@ static void output_shutdown(output_t *output) {
 //	avcodec_free_context(&output->avcctx);
 //#endif
 	avformat_free_context(output->fmtctx);
-	av_audio_fifo_free(output->fifo);
-	av_frame_free(&output->frame);
+//	av_audio_fifo_free(output->fifo);
+//	av_frame_free(&output->frame);
 
 	encoder_close(output->encoder);
 
 //	output->avcctx = NULL;
 	output->fmtctx = NULL;
 	output->avst = NULL;
-	output->fifo = NULL;
+//	output->fifo = NULL;
 
-	output->fifo_pts = 0;
+//	output->fifo_pts = 0;
 
 //	format_init(&output->requested_format);
 //	format_init(&output->actual_format);
