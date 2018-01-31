@@ -684,6 +684,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
 	med->codecs_recv = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
+	med->codecs_send = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
 	med->codec_names_recv = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
 	med->codec_names_send = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
 
@@ -1573,6 +1574,12 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		}
 
 		// codec and RTP payload types handling
+		if (sp->ptime > 0) {
+			media->ptime = sp->ptime;
+			other_media->ptime = sp->ptime;
+		}
+		if (flags->ptime > 0)
+			media->ptime = flags->ptime;
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types,
 				flags->codec_strip, &flags->codec_offer, &flags->codec_transcode);
 		codec_handlers_update(media, other_media);
@@ -1985,6 +1992,7 @@ static void __call_free(void *p) {
 		g_queue_clear(&md->streams);
 		g_queue_clear(&md->endpoint_maps);
 		g_hash_table_destroy(md->codecs_recv);
+		g_hash_table_destroy(md->codecs_send);
 		g_hash_table_destroy(md->codec_names_recv);
 		g_hash_table_destroy(md->codec_names_send);
 		g_queue_clear_full(&md->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
