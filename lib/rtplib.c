@@ -14,20 +14,22 @@ struct rtp_extension {
 
 
 
-#define RFC_TYPE(type, name, c_rate)					\
+#define RFC_TYPE_FULL(type, name, c_rate, pt)				\
 	[type] = {							\
 		.payload_type		= type,				\
 		.encoding		= STR_CONST_INIT(#name),	\
 		.encoding_with_params	= STR_CONST_INIT(#name "/" #c_rate),	\
 		.clock_rate		= c_rate,			\
 		.channels		= 1,				\
+		.ptime			= pt,				\
 	}
+#define RFC_TYPE(type, name, c_rate) RFC_TYPE_FULL(type, name, c_rate, 20)
 
 const struct rtp_payload_type rfc_rtp_payload_types[] =
 {
 	RFC_TYPE(0, PCMU, 8000),
 	RFC_TYPE(3, GSM, 8000),
-	RFC_TYPE(4, G723, 8000),
+	RFC_TYPE_FULL(4, G723, 8000, 30),
 	RFC_TYPE(5, DVI4, 8000),
 	RFC_TYPE(6, DVI4, 16000),
 	RFC_TYPE(7, LPC, 8000),
