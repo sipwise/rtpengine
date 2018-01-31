@@ -4,6 +4,7 @@
 
 #include <libavresample/avresample.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/audio_fifo.h>
 #include "str.h"
 
 
@@ -24,16 +25,21 @@ typedef struct resample_s resample_t;
 typedef struct seq_packet_s seq_packet_t;
 typedef struct packet_sequencer_s packet_sequencer_t;
 
+typedef int packetizer_f(AVPacket *, GString *, str *);
+
 
 
 struct codec_def_s {
-	const char *rtpname;
+	const char * const rtpname;
 	const int clockrate_mult;
 	const int avcodec_id;
 	const char *avcodec_name;
 	const int default_clockrate;
 	const int default_channels;
 	const int default_bitrate;
+	const int default_ptime;
+	packetizer_f * const packetizer;
+	const int bits_per_sample;
 };
 
 struct format_s {
@@ -68,6 +74,9 @@ struct encoder_s {
 	AVCodec *codec;
 	AVCodecContext *avcctx;
 	AVPacket avpkt;
+	AVAudioFifo *fifo;
+	int64_t fifo_pts; // pts of first data in fifo
+	AVFrame *frame; // to pull samples from the fifo
 	int64_t mux_dts; // last dts passed to muxer
 };
 
@@ -99,6 +108,8 @@ int encoder_config(encoder_t *enc, int codec_id, int bitrate,
 void encoder_close(encoder_t *);
 void encoder_free(encoder_t *);
 int encoder_input_data(encoder_t *enc, AVFrame *frame,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
+int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
 
 
