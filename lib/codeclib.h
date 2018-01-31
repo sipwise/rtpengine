@@ -24,16 +24,21 @@ typedef struct resample_s resample_t;
 typedef struct seq_packet_s seq_packet_t;
 typedef struct packet_sequencer_s packet_sequencer_t;
 
+typedef int packetizer_f(AVPacket *, GString *, str *);
+
 
 
 struct codec_def_s {
-	const char *rtpname;
+	const char * const rtpname;
 	const int clockrate_mult;
 	const int avcodec_id;
 	const char *avcodec_name;
 	const int default_clockrate;
 	const int default_channels;
 	const int default_bitrate;
+	const int default_ptime;
+	packetizer_f * const packetizer;
+	const int bits_per_sample;
 };
 
 struct format_s {
