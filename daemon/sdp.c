@@ -186,6 +186,7 @@ struct sdp_attribute {
 		ATTR_FINGERPRINT,
 		ATTR_SETUP,
 		ATTR_RTPMAP,
+		ATTR_IGNORE,
 	} attr;
 
 	union {
@@ -552,14 +553,16 @@ error:
 static int parse_attribute_rtcp(struct sdp_attribute *output) {
 	char *ep, *start, *end;
 
-	end = output->value.s + output->value.len;
+	if (!output->value.s)
+		goto err;
 	output->attr = ATTR_RTCP;
+	end = output->value.s + output->value.len;
 	output->u.rtcp.port_num = strtol(output->value.s, &ep, 10);
 	if (ep == output->value.s)
-		return -1;
+		goto err;
 	if (output->u.rtcp.port_num <= 0 || output->u.rtcp.port_num > 0xffff) {
 		output->u.rtcp.port_num = 0;
-		return -1;
+		goto err;
 	}
 	if (*ep != ' ')
 		return 0;
@@ -570,6 +573,11 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 	start = ep;
 	EXTRACT_NETWORK_ADDRESS(u.rtcp.address);
 
+	return 0;
+
+err:
+	ilog(LOG_WARN, "Failed to parse a=rtcp attribute, ignoring");
+	output->attr = ATTR_IGNORE;
 	return 0;
 }
 
@@ -1562,6 +1570,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 			case ATTR_SENDRECV:
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:
+			case ATTR_IGNORE:
 				goto strip;
 
 			case ATTR_GROUP:
