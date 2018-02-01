@@ -31,63 +31,261 @@ packetizer_f packetizer_samplestream; // flat stream of samples
 
 
 
-
-#define CODEC_DEF_FULL(ref, codec_id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps) { \
-	.rtpname = #ref, \
-	.avcodec_id = codec_id, \
-	.clockrate_mult = mult, \
-	.avcodec_name = #name, \
-	.default_clockrate = clockrate, \
-	.default_channels = channels, \
-	.default_bitrate = bitrate, \
-	.default_ptime = ptime, \
-	.packetizer = packetizer_ ## pizer, \
-	.bits_per_sample = bps, \
-}
-#define CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps) \
-	CODEC_DEF_FULL(ref, AV_CODEC_ID_ ## id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps)
-#define CODEC_DEF_MULT_NAME(ref, id, mult, name, pizer, bps) CODEC_DEF_AVC(ref, id, mult, name, -1, -1, 0, 0, pizer, bps)
-#define CODEC_DEF_MULT(ref, id, mult, pizer, bps) CODEC_DEF_MULT_NAME(ref, id, mult, NULL, pizer, bps)
-#define CODEC_DEF_NAME(ref, id, name, pizer, bps) CODEC_DEF_MULT_NAME(ref, id, 1, name, pizer, bps)
-#define CODEC_DEF(ref, id, pizer, bps) CODEC_DEF_MULT(ref, id, 1, pizer, bps)
-
-// _ENC macros provided for codecs not having defaults in the RTP RFC
-#define CODEC_DEF_NAME_ENC(ref, id, name, clockrate, channels, bitrate, ptime, pizer, bps) \
-	CODEC_DEF_MULT_NAME_ENC(ref, id, 1, name, clockrate, channels, bitrate, ptime, pizer, bps)
-#define CODEC_DEF_MULT_ENC(ref, id, mult, clockrate, channels, bitrate, ptime, pizer, bps) \
-	CODEC_DEF_MULT_NAME_ENC(ref, id, mult, NULL, clockrate, channels, bitrate, ptime, pizer, bps)
-#define CODEC_DEF_ENC(ref, id, clockrate, channels, bitrate, ptime, pizer, bps) \
-	CODEC_DEF_MULT_ENC(ref, id, 1, clockrate, channels, bitrate, ptime, pizer, bps)
-#define CODEC_DEF_MULT_NAME_ENC(ref, id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps) \
-	CODEC_DEF_AVC(ref, id, mult, name, clockrate, channels, bitrate, ptime, pizer, bps)
-
-// not real audio codecs
-#define CODEC_DEF_STUB(ref) CODEC_DEF_FULL(ref, -1, 1, ref, -1, -1, 0, 0, passthrough, 0)
-
 static const struct codec_def_s codecs[] = {
-	CODEC_DEF(PCMA, PCM_ALAW, samplestream, 8),
-	CODEC_DEF(PCMU, PCM_MULAW, samplestream, 8),
-	CODEC_DEF(G723, G723_1, passthrough, 0),
-	CODEC_DEF_MULT(G722, ADPCM_G722, 2, samplestream, 8),
-	CODEC_DEF(QCELP, QCELP, passthrough, 0),
-	CODEC_DEF(G729, G729, passthrough, 0),
-	CODEC_DEF_ENC(speex, SPEEX, 16000, 1, 11000, 20, passthrough, 0),
-	CODEC_DEF(GSM, GSM, passthrough, 0),
-	CODEC_DEF(iLBC, ILBC, passthrough, 0),
-	CODEC_DEF_NAME_ENC(opus, OPUS, libopus, 48000, 2, 32000, 20, passthrough, 0),
-	CODEC_DEF_NAME(vorbis, VORBIS, libvorbis, passthrough, 0),
-	CODEC_DEF(ac3, AC3, passthrough, 0),
-	CODEC_DEF(eac3, EAC3, passthrough, 0),
-	CODEC_DEF(ATRAC3, ATRAC3, passthrough, 0),
-	CODEC_DEF(ATRAC-X, ATRAC3P, passthrough, 0),
+	{
+		.rtpname = "PCMA",
+		.avcodec_id = AV_CODEC_ID_PCM_ALAW,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_samplestream,
+		.bits_per_sample = 8,
+	},
+	{
+		.rtpname = "PCMU",
+		.avcodec_id = AV_CODEC_ID_PCM_MULAW,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_samplestream,
+		.bits_per_sample = 8,
+	},
+	{
+		.rtpname = "G723",
+		.avcodec_id = AV_CODEC_ID_G723_1,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_bitrate = 0,
+		.default_ptime = 30,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "G722",
+		.avcodec_id = AV_CODEC_ID_ADPCM_G722,
+		.clockrate_mult = 2,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_samplestream,
+		.bits_per_sample = 8,
+	},
+	{
+		.rtpname = "QCELP",
+		.avcodec_id = AV_CODEC_ID_QCELP,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "G729",
+		.avcodec_id = AV_CODEC_ID_G729,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "speex",
+		.avcodec_id = AV_CODEC_ID_SPEEX,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 16000,
+		.default_channels = 1,
+		.default_bitrate = 11000,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "GSM",
+		.avcodec_id = AV_CODEC_ID_GSM,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "iLBC",
+		.avcodec_id = AV_CODEC_ID_ILBC,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "opus",
+		.avcodec_id = AV_CODEC_ID_OPUS,
+		.clockrate_mult = 1,
+		.avcodec_name = "libopus",
+		.default_clockrate = 48000,
+		.default_channels = 2,
+		.default_bitrate = 32000,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "vorbis",
+		.avcodec_id = AV_CODEC_ID_VORBIS,
+		.clockrate_mult = 1,
+		.avcodec_name = "libvorbis",
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "ac3",
+		.avcodec_id = AV_CODEC_ID_AC3,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "eac3",
+		.avcodec_id = AV_CODEC_ID_EAC3,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "ATRAC3",
+		.avcodec_id = AV_CODEC_ID_ATRAC3,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "ATRAC-X",
+		.avcodec_id = AV_CODEC_ID_ATRAC3P,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-	CODEC_DEF(EVRC, EVRC, passthrough, 0),
-	CODEC_DEF(EVRC0, EVRC, passthrough, 0),
-	CODEC_DEF(EVRC1, EVRC, passthrough, 0),
+	{
+		.rtpname = "EVRC",
+		.avcodec_id = AV_CODEC_ID_EVRC,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = 0,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "EVRC0",
+		.avcodec_id = AV_CODEC_ID_EVRC,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = -1,
+		.default_bitrate = -1,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "EVRC1",
+		.avcodec_id = AV_CODEC_ID_EVRC,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = -1,
+		.default_bitrate = -1,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
 #endif
-	CODEC_DEF_ENC(AMR, AMR_NB, 8000, 1, 6600, 20, passthrough, 0),
-	CODEC_DEF_ENC(AMR-WB, AMR_WB, 16000, 1, 14250, 20, passthrough, 0),
-	CODEC_DEF_STUB(telephone-event),
+	{
+		.rtpname = "AMR",
+		.avcodec_id = AV_CODEC_ID_AMR_NB,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_bitrate = 6600,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "AMR-WB",
+		.avcodec_id = AV_CODEC_ID_AMR_NB,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = 16000,
+		.default_channels = 1,
+		.default_bitrate = 14250,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
+	{
+		.rtpname = "telephone-event",
+		.avcodec_id = -1,
+		.clockrate_mult = 1,
+		.avcodec_name = NULL,
+		.default_clockrate = -1,
+		.default_channels = -1,
+		.default_bitrate = -1,
+		.default_ptime = -1,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 0,
+	},
 };
 
 
