@@ -31,7 +31,7 @@ packetizer_f packetizer_samplestream; // flat stream of samples
 
 
 
-static const struct codec_def_s codecs[] = {
+static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "PCMA",
 		.avcodec_id = AV_CODEC_ID_PCM_ALAW,
@@ -290,13 +290,13 @@ static const struct codec_def_s codecs[] = {
 
 
 
-// XXX use hashtable for quicker lookup
+static GHashTable *codecs_ht;
+
+
+
 const codec_def_t *codec_find(const str *name) {
-	for (int i = 0; i < G_N_ELEMENTS(codecs); i++) {
-		if (!str_cmp(name, codecs[i].rtpname))
-			return &codecs[i];
-	}
-	return NULL;
+	codec_def_t *ret = g_hash_table_lookup(codecs_ht, name);
+	return ret;
 }
 
 
@@ -548,6 +548,15 @@ void codeclib_init() {
 	avfilter_register_all();
 	avformat_network_init();
 	av_log_set_callback(avlog_ilog);
+
+	codecs_ht = g_hash_table_new(str_hash, str_equal);
+
+	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
+		codec_def_t *def = &__codec_defs[i];
+		str_init(&def->rtpname_str, (char *) def->rtpname);
+		assert(g_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
+		g_hash_table_insert(codecs_ht, &def->rtpname_str, def);
+	}
 }
 
 
