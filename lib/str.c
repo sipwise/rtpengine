@@ -1,5 +1,5 @@
 #include "str.h"
-#include "aux.h"
+#include "auxlib.h"
 #include <assert.h>
 #include <stdarg.h>
 
