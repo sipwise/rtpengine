@@ -1,3 +1,12 @@
+ngcp-rtpengine (3.8.12.2+0~mr3.8.12.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [995fd69] TT#31752 fix segfault on empty a=rtcp
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 01 Feb 2018 19:01:20 +0100
+
 ngcp-rtpengine (3.8.12.1+0~mr3.8.12.1) unstable; urgency=medium
 
   * New release.
