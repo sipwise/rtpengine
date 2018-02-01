@@ -9,3 +9,4 @@ loglib.c
 rtplib.c
 codeclib.c
 resample.c
+str.c

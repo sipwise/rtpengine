@@ -18,8 +18,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "compat.h"
-#include <openssl/rand.h>
-#include <assert.h>
+#include "auxlib.h"
 
 #if !(GLIB_CHECK_VERSION(2,30,0))
 #define g_atomic_int_and(atomic, val) \
@@ -195,10 +194,6 @@ INLINE int strmemcmp(const void *mem, int len, const char *str) {
 	return memcmp(mem, str, len);
 }
 
-INLINE void random_string(unsigned char *buf, int len) {
-	int ret = RAND_bytes(buf, len);
-	assert(ret == 1);
-}
 INLINE long unsigned int ssl_random() {
 	long unsigned int ret;
 	random_string((void *) &ret, sizeof(ret));

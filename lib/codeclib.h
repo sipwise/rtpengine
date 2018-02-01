@@ -40,6 +40,7 @@ struct codec_def_s {
 	const int default_ptime;
 	packetizer_f * const packetizer;
 	const int bits_per_sample;
+	str rtpname_str;
 };
 
 struct format_s {
