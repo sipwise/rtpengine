@@ -7,6 +7,7 @@
 #include "log.h"
 #include "loglib.h"
 #include "resample.h"
+#include "rtplib.h"
 
 
 
@@ -556,6 +557,12 @@ void codeclib_init() {
 		str_init(&def->rtpname_str, (char *) def->rtpname);
 		assert(g_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
 		g_hash_table_insert(codecs_ht, &def->rtpname_str, def);
+
+		const struct rtp_payload_type *pt = rtp_get_rfc_codec(&def->rtpname_str);
+		if (pt)
+			def->rfc_payload_type = pt->payload_type;
+		else
+			def->rfc_payload_type = -1;
 	}
 }
 
