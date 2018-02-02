@@ -110,8 +110,12 @@ reset:
 }
 
 static void __ensure_codec_def(struct rtp_payload_type *pt) {
-	if (!pt->codec_def)
-		pt->codec_def = codec_find(&pt->encoding);
+	if (pt->codec_def)
+		return;
+
+	pt->codec_def = codec_find(&pt->encoding);
+	if (!pt->codec_def->encoder || !pt->codec_def->decoder)
+		pt->codec_def = NULL;
 }
 static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) {
 	struct rtp_payload_type *pt = link->data;
@@ -405,9 +409,9 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	if (!ch->encoder)
 		goto err;
 	// XXX make bitrate configurable
-	if (encoder_config(ch->encoder, h->dest_pt.codec_def->avcodec_id,
+	if (encoder_config(ch->encoder, h->dest_pt.codec_def,
 				h->dest_pt.codec_def->default_bitrate,
-				ch->ptime / h->dest_pt.codec_def->clockrate_mult,
+				ch->ptime,
 				&enc_format, &ch->encoder_format))
 		goto err;
 
@@ -622,6 +626,12 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec, struct
 	const codec_def_t *dec = codec_find(codec);
 	if (!dec)
 		return NULL;
+	// we must support both encoding and decoding
+	if (!dec->encoder)
+		return NULL;
+	if (!dec->decoder)
+		return NULL;
+
 	if (dec->rfc_payload_type >= 0) {
 		const struct rtp_payload_type *rfc_pt = rtp_get_rfc_payload_type(dec->rfc_payload_type);
 		if (rfc_pt) {
