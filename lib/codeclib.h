@@ -31,18 +31,22 @@ typedef int packetizer_f(AVPacket *, GString *, str *);
 
 struct codec_def_s {
 	const char * const rtpname;
-	const int clockrate_mult;
+	int clockrate_mult;
 	const int avcodec_id;
-	const char *avcodec_name;
-	const int default_clockrate;
-	const int default_channels;
+	const char * const avcodec_name;
+	int default_clockrate;
+	int default_channels;
 	const int default_bitrate;
-	const int default_ptime;
+	int default_ptime;
 	packetizer_f * const packetizer;
 	const int bits_per_sample;
+	const int decode_only_ok;
 
+	// filled in by codeclib_init()
 	str rtpname_str;
 	int rfc_payload_type;
+	AVCodec *encoder;
+	AVCodec *decoder;
 };
 
 struct format_s {
@@ -107,7 +111,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 
 
 encoder_t *encoder_new();
-int encoder_config(encoder_t *enc, int codec_id, int bitrate, int ptime,
+int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format);
 void encoder_close(encoder_t *);
 void encoder_free(encoder_t *);
