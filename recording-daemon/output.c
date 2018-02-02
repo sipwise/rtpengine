@@ -229,6 +229,6 @@ void output_init(const char *format) {
 	else
 		die("Unknown output format '%s'", format);
 
-	output_codec = codec_find(&codec);
+	output_codec = codec_find(&codec, MT_AUDIO);
 	assert(output_codec != NULL);
 }
