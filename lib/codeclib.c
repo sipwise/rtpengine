@@ -37,10 +37,8 @@ static codec_def_t __codec_defs[] = {
 		.rtpname = "PCMA",
 		.avcodec_id = AV_CODEC_ID_PCM_ALAW,
 		.clockrate_mult = 1,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
@@ -49,10 +47,8 @@ static codec_def_t __codec_defs[] = {
 		.rtpname = "PCMU",
 		.avcodec_id = AV_CODEC_ID_PCM_MULAW,
 		.clockrate_mult = 1,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
@@ -61,22 +57,17 @@ static codec_def_t __codec_defs[] = {
 		.rtpname = "G723",
 		.avcodec_id = AV_CODEC_ID_G723_1,
 		.clockrate_mult = 1,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_bitrate = 0,
 		.default_ptime = 30,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "G722",
 		.avcodec_id = AV_CODEC_ID_ADPCM_G722,
 		.clockrate_mult = 2,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
@@ -85,207 +76,152 @@ static codec_def_t __codec_defs[] = {
 		.rtpname = "QCELP",
 		.avcodec_id = AV_CODEC_ID_QCELP,
 		.clockrate_mult = 1,
-		.avcodec_name = NULL,
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
+		.decode_only_ok = 1,
 	},
 	{
 		.rtpname = "G729",
 		.avcodec_id = AV_CODEC_ID_G729,
 		.clockrate_mult = 1,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "speex",
 		.avcodec_id = AV_CODEC_ID_SPEEX,
-		.clockrate_mult = 1,
-		.avcodec_name = NULL,
 		.default_clockrate = 16000,
 		.default_channels = 1,
 		.default_bitrate = 11000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "GSM",
 		.avcodec_id = AV_CODEC_ID_GSM,
-		.clockrate_mult = 1,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "iLBC",
 		.avcodec_id = AV_CODEC_ID_ILBC,
-		.clockrate_mult = 1,
-		.avcodec_name = NULL,
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "opus",
 		.avcodec_id = AV_CODEC_ID_OPUS,
-		.clockrate_mult = 1,
 		.avcodec_name = "libopus",
 		.default_clockrate = 48000,
 		.default_channels = 2,
 		.default_bitrate = 32000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "vorbis",
 		.avcodec_id = AV_CODEC_ID_VORBIS,
-		.clockrate_mult = 1,
 		.avcodec_name = "libvorbis",
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "ac3",
 		.avcodec_id = AV_CODEC_ID_AC3,
-		.clockrate_mult = 1,
-		.avcodec_name = NULL,
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "eac3",
 		.avcodec_id = AV_CODEC_ID_EAC3,
-		.clockrate_mult = 1,
-		.avcodec_name = NULL,
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "ATRAC3",
 		.avcodec_id = AV_CODEC_ID_ATRAC3,
-		.clockrate_mult = 1,
-		.avcodec_name = NULL,
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
+		.decode_only_ok = 1,
 	},
 	{
 		.rtpname = "ATRAC-X",
 		.avcodec_id = AV_CODEC_ID_ATRAC3P,
-		.clockrate_mult = 1,
-		.avcodec_name = NULL,
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
+		.decode_only_ok = 1,
 	},
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
 	{
 		.rtpname = "EVRC",
 		.avcodec_id = AV_CODEC_ID_EVRC,
-		.clockrate_mult = 1,
 		.avcodec_name = NULL,
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = 0,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
+		.decode_only_ok = 1,
 	},
 	{
 		.rtpname = "EVRC0",
 		.avcodec_id = AV_CODEC_ID_EVRC,
-		.clockrate_mult = 1,
 		.avcodec_name = NULL,
 		.default_clockrate = 8000,
-		.default_channels = -1,
-		.default_bitrate = -1,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
+		.decode_only_ok = 1,
 	},
 	{
 		.rtpname = "EVRC1",
 		.avcodec_id = AV_CODEC_ID_EVRC,
-		.clockrate_mult = 1,
 		.avcodec_name = NULL,
 		.default_clockrate = 8000,
-		.default_channels = -1,
-		.default_bitrate = -1,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
+		.decode_only_ok = 1,
 	},
 #endif
 	{
 		.rtpname = "AMR",
 		.avcodec_id = AV_CODEC_ID_AMR_NB,
-		.clockrate_mult = 1,
 		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_bitrate = 6600,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
 	{
 		.rtpname = "AMR-WB",
 		.avcodec_id = AV_CODEC_ID_AMR_NB,
-		.clockrate_mult = 1,
 		.avcodec_name = NULL,
 		.default_clockrate = 16000,
 		.default_channels = 1,
 		.default_bitrate = 14250,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
 	},
+	// pseudo-codecs
 	{
 		.rtpname = "telephone-event",
 		.avcodec_id = -1,
-		.clockrate_mult = 1,
 		.avcodec_name = NULL,
-		.default_clockrate = -1,
-		.default_channels = -1,
-		.default_bitrate = -1,
-		.default_ptime = -1,
 		.packetizer = packetizer_passthrough,
-		.bits_per_sample = 0,
+	},
+	// for file writing
+	{
+		.rtpname = "PCM-S16LE",
+		.avcodec_id = AV_CODEC_ID_PCM_S16LE,
+		.avcodec_name = NULL,
+		.packetizer = packetizer_passthrough,
+	},
+	{
+		.rtpname = "MP3",
+		.avcodec_id = AV_CODEC_ID_MP3,
+		.avcodec_name = NULL,
+		.packetizer = packetizer_passthrough,
 	},
 };
 
@@ -321,11 +257,14 @@ decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, 
 		ret->out_format = *resample_fmt;
 	// sample format to be determined later when decoded frames arrive
 
-	AVCodec *codec = NULL;
-	if (def->avcodec_name)
-		codec = avcodec_find_decoder_by_name(def->avcodec_name);
-	if (!codec)
-		codec = avcodec_find_decoder(def->avcodec_id);
+	AVCodec *codec = def->decoder;
+//	AVCodec *codec = NULL;
+//	if (def->decoder)
+//		codec = def->decoder;
+//	if (!codec && def->avcodec_name)
+//		codec = avcodec_find_decoder_by_name(def->avcodec_name);
+//	if (!codec && def->avcodec_id >= 0)
+//		codec = avcodec_find_decoder(def->avcodec_id);
 	if (!codec) {
 		ilog(LOG_WARN, "Codec '%s' not supported", def->rtpname);
 		goto err;
@@ -553,16 +492,53 @@ void codeclib_init() {
 	codecs_ht = g_hash_table_new(str_hash, str_equal);
 
 	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
+		// add to hash table
 		codec_def_t *def = &__codec_defs[i];
 		str_init(&def->rtpname_str, (char *) def->rtpname);
 		assert(g_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
 		g_hash_table_insert(codecs_ht, &def->rtpname_str, def);
 
+		// init undefined member vars
+		if (!def->clockrate_mult)
+			def->clockrate_mult = 1;
+		if (!def->default_ptime)
+			def->default_ptime = -1;
+		if (!def->default_clockrate)
+			def->default_clockrate = -1;
+		if (!def->default_channels)
+			def->default_channels = -1;
+
+		// init RFC-related info
 		const struct rtp_payload_type *pt = rtp_get_rfc_codec(&def->rtpname_str);
 		if (pt)
 			def->rfc_payload_type = pt->payload_type;
 		else
 			def->rfc_payload_type = -1;
+
+		// look up AVCodec structs
+		if (def->avcodec_name) {
+			def->encoder = avcodec_find_encoder_by_name(def->avcodec_name);
+			def->decoder = avcodec_find_decoder_by_name(def->avcodec_name);
+		}
+		if (def->avcodec_id >= 0) {
+			if (!def->encoder)
+				def->encoder = avcodec_find_encoder(def->avcodec_id);
+			if (!def->decoder)
+				def->decoder = avcodec_find_decoder(def->avcodec_id);
+		}
+		// check if we have support if we are supposed to
+		if (def->avcodec_name || def->avcodec_id >= 0) {
+			if (!def->encoder && !def->decoder)
+				ilog(LOG_INFO, "Codec %s is not supported by codec library", def->rtpname);
+			else if (!def->encoder) {
+				if (!def->decode_only_ok)
+					ilog(LOG_INFO, "Codec %s is only supported for decoding by codec library",
+							def->rtpname);
+			}
+			else if (!def->decoder)
+				ilog(LOG_INFO, "Codec %s is only supported for encoding by codec library",
+						def->rtpname);
+		}
 	}
 }
 
@@ -707,7 +683,7 @@ encoder_t *encoder_new() {
 	return ret;
 }
 
-int encoder_config(encoder_t *enc, int codec_id, int bitrate, int ptime,
+int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format)
 {
 	const char *err;
@@ -721,9 +697,15 @@ int encoder_config(encoder_t *enc, int codec_id, int bitrate, int ptime,
 	enc->requested_format = *requested_format;
 
 	err = "output codec not found";
-	enc->codec = avcodec_find_encoder(codec_id);
+	enc->codec = def->encoder;
+//	if (codec_name)
+//		enc->codec = avcodec_find_encoder_by_name(codec_name);
+//	if (!enc->codec)
+//		enc->codec = avcodec_find_encoder(codec_id);
 	if (!enc->codec)
 		goto err;
+
+	ptime /= def->clockrate_mult;
 
 	err = "failed to alloc codec context";
 	enc->avcctx = avcodec_alloc_context3(enc->codec);
@@ -793,6 +775,7 @@ void encoder_close(encoder_t *enc) {
 		avcodec_free_context(&enc->avcctx);
 	}
 	enc->avcctx = NULL;
+	enc->codec = NULL;
 	format_init(&enc->requested_format);
 	format_init(&enc->actual_format);
 	av_audio_fifo_free(enc->fifo);
