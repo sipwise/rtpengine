@@ -42,6 +42,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "PCMU",
@@ -52,6 +53,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "G723",
@@ -61,6 +63,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 30,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "G722",
@@ -71,6 +74,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "QCELP",
@@ -79,6 +83,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.decode_only_ok = 1,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "G729",
@@ -88,6 +93,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "speex",
@@ -97,6 +103,7 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 11000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "GSM",
@@ -105,12 +112,14 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "iLBC",
 		.avcodec_id = AV_CODEC_ID_ILBC,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "opus",
@@ -121,6 +130,7 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 32000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "vorbis",
@@ -128,18 +138,21 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_name = "libvorbis",
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "ac3",
 		.avcodec_id = AV_CODEC_ID_AC3,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "eac3",
 		.avcodec_id = AV_CODEC_ID_EAC3,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "ATRAC3",
@@ -147,6 +160,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.decode_only_ok = 1,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "ATRAC-X",
@@ -154,6 +168,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.decode_only_ok = 1,
+		.type = MT_AUDIO,
 	},
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
 	{
@@ -163,6 +178,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.decode_only_ok = 1,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "EVRC0",
@@ -172,6 +188,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.decode_only_ok = 1,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "EVRC1",
@@ -181,6 +198,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.decode_only_ok = 1,
+		.type = MT_AUDIO,
 	},
 #endif
 	{
@@ -192,6 +210,7 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 6600,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "AMR-WB",
@@ -202,6 +221,7 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 14250,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	// pseudo-codecs
 	{
@@ -209,6 +229,7 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = -1,
 		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	// for file writing
 	{
@@ -216,12 +237,14 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = AV_CODEC_ID_PCM_S16LE,
 		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 	{
 		.rtpname = "MP3",
 		.avcodec_id = AV_CODEC_ID_MP3,
 		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
+		.type = MT_AUDIO,
 	},
 };
 
@@ -231,9 +254,25 @@ static GHashTable *codecs_ht;
 
 
 
-const codec_def_t *codec_find(const str *name) {
+const codec_def_t *codec_find(const str *name, enum media_type type) {
 	codec_def_t *ret = g_hash_table_lookup(codecs_ht, name);
+	if (!ret)
+		return NULL;
+	if (type && type != ret->type)
+		return NULL;
 	return ret;
+}
+
+enum media_type codec_get_type(const str *type) {
+	if (!type || !type->len)
+		return MT_UNKNOWN;
+	if (!str_cmp(type, "audio"))
+		return MT_AUDIO;
+	if (!str_cmp(type, "video"))
+		return MT_VIDEO;
+	if (!str_cmp(type, "image"))
+		return MT_IMAGE;
+	return MT_OTHER;
 }
 
 
