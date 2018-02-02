@@ -8,7 +8,8 @@
 #include "db.h"
 
 
-static int output_codec_id;
+//static int output_codec_id;
+static const codec_def_t *output_codec;
 static const char *output_file_format;
 
 int mp3_bitrate;
@@ -73,7 +74,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	if (!output->fmtctx->oformat)
 		goto err;
 
-	if (encoder_config(output->encoder, output_codec_id, mp3_bitrate, 0, requested_format, actual_format))
+	if (encoder_config(output->encoder, output_codec, mp3_bitrate, 0, requested_format, actual_format))
 		goto err;
 
 //	err = "output codec not found";
@@ -215,14 +216,19 @@ void output_close(output_t *output) {
 
 
 void output_init(const char *format) {
+	str codec;
+
 	if (!strcmp(format, "wav")) {
-		output_codec_id = AV_CODEC_ID_PCM_S16LE;
+		str_init(&codec, "PCM-S16LE");
 		output_file_format = "wav";
 	}
 	else if (!strcmp(format, "mp3")) {
-		output_codec_id = AV_CODEC_ID_MP3;
+		str_init(&codec, "MP3");
 		output_file_format = "mp3";
 	}
 	else
 		die("Unknown output format '%s'", format);
+
+	output_codec = codec_find(&codec);
+	assert(output_codec != NULL);
 }
