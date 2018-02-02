@@ -130,7 +130,7 @@ const struct rtp_payload_type *rtp_get_rfc_payload_type(unsigned int type) {
 	return rtp_pt;
 }
 
-// XXX use hash table
+// for one-time init only - better use rtp_get_rfc_payload_type(codec_def->rfc_payload_type)
 const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec) {
 	for (int i = 0; i < num_rfc_rtp_payload_types; i++) {
 		if (!rfc_rtp_payload_types[i].encoding.s)

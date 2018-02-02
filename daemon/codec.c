@@ -622,14 +622,16 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec, struct
 	const codec_def_t *dec = codec_find(codec);
 	if (!dec)
 		return NULL;
-	const struct rtp_payload_type *rfc_pt = rtp_get_rfc_codec(codec);
-	if (!rfc_pt)
-		return codec_make_dynamic_payload_type(dec, call);
+	if (dec->rfc_payload_type >= 0) {
+		const struct rtp_payload_type *rfc_pt = rtp_get_rfc_payload_type(dec->rfc_payload_type);
+		if (rfc_pt) {
+			struct rtp_payload_type *ret = __rtp_payload_type_copy(rfc_pt);
+			ret->codec_def = dec;
+			return ret;
+		}
+	}
+	return codec_make_dynamic_payload_type(dec, call);
 
-	struct rtp_payload_type *ret = __rtp_payload_type_copy(rfc_pt);
-	ret->codec_def = dec;
-
-	return ret;
 }
 
 
