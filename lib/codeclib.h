@@ -29,6 +29,14 @@ typedef int packetizer_f(AVPacket *, GString *, str *);
 
 
 
+enum media_type {
+	MT_UNKNOWN = 0,
+	MT_AUDIO,
+	MT_VIDEO,
+	MT_IMAGE,
+	MT_OTHER,
+};
+
 struct codec_def_s {
 	const char * const rtpname;
 	int clockrate_mult;
@@ -41,6 +49,7 @@ struct codec_def_s {
 	packetizer_f * const packetizer;
 	const int bits_per_sample;
 	const int decode_only_ok;
+	const enum media_type type;
 
 	// filled in by codeclib_init()
 	str rtpname_str;
@@ -101,7 +110,8 @@ struct packet_sequencer_s {
 void codeclib_init(void);
 
 
-const codec_def_t *codec_find(const str *name);
+const codec_def_t *codec_find(const str *name, enum media_type);
+enum media_type codec_get_type(const str *type);
 
 
 decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt);
