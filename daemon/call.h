@@ -19,6 +19,7 @@
 #include "media_socket.h"
 #include "recording.h"
 #include "statistics.h"
+#include "codeclib.h"
 
 #define UNDEFINED ((unsigned int) -1)
 
@@ -310,6 +311,7 @@ struct call_media {
 	unsigned int		index;		/* RO */
 	unsigned int		unique_id;	/* RO */
 	str			type;		/* RO */
+	enum media_type		type_id;	// RO
 	const struct transport_protocol *protocol;
 	sockfamily_t		*desired_family;
 	const struct logical_intf *logical_intf;

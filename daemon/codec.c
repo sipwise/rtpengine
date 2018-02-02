@@ -109,11 +109,11 @@ reset:
 			STR_FMT(&dest->encoding), dest->clock_rate, dest->channels);
 }
 
-static void __ensure_codec_def(struct rtp_payload_type *pt) {
+static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) {
 	if (pt->codec_def)
 		return;
 
-	pt->codec_def = codec_find(&pt->encoding);
+	pt->codec_def = codec_find(&pt->encoding, media->type_id);
 	if (!pt->codec_def->encoder || !pt->codec_def->decoder)
 		pt->codec_def = NULL;
 }
@@ -146,7 +146,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 	struct rtp_payload_type *pref_dest_codec = NULL;
 	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		__ensure_codec_def(pt);
+		__ensure_codec_def(pt, sink);
 		if (!pt->codec_def || pt->codec_def->avcodec_id == -1) // not supported, next
 			continue;
 
@@ -169,7 +169,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 		GList *insert_pos = NULL;
 		for (GList *l = receiver->codecs_prefs_send.head; l; l = l->next) {
 			struct rtp_payload_type *pt = l->data;
-			__ensure_codec_def(pt);
+			__ensure_codec_def(pt, receiver);
 			if (!pt->codec_def)
 				continue;
 			if (g_hash_table_lookup(receiver->codecs_recv, &pt->payload_type)) {
@@ -240,7 +240,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 		}
 
 		// check our own support for this codec
-		__ensure_codec_def(pt);
+		__ensure_codec_def(pt, receiver);
 
 		if (!pt->codec_def || pt->codec_def->avcodec_id == -1) {
 			// not supported, or not a real audio codec
@@ -622,8 +622,9 @@ static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_
 
 
 // XXX allow specifying codec params (e.g. "transcode=opus/16000/1")
-static struct rtp_payload_type *codec_make_payload_type(const str *codec, struct call *call) {
-	const codec_def_t *dec = codec_find(codec);
+static struct rtp_payload_type *codec_make_payload_type(const str *codec, struct call_media *media) {
+	struct call *call = media->call;
+	const codec_def_t *dec = codec_find(codec, media->type_id);
 	if (!dec)
 		return NULL;
 	// we must support both encoding and decoding
@@ -646,7 +647,7 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec, struct
 
 
 static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media) {
-	struct rtp_payload_type *pt = codec_make_payload_type(codec, media->call);
+	struct rtp_payload_type *pt = codec_make_payload_type(codec, media);
 	if (!pt) {
 		ilog(LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
 				STR_FMT(codec));
