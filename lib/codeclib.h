@@ -16,6 +16,7 @@ struct format_s;
 struct resample_s;
 struct seq_packet_s;
 struct packet_sequencer_s;
+struct rtp_payload_type;
 
 typedef struct codec_def_s codec_def_t;
 typedef struct decoder_s decoder_t;
@@ -26,6 +27,8 @@ typedef struct seq_packet_s seq_packet_t;
 typedef struct packet_sequencer_s packet_sequencer_t;
 
 typedef int packetizer_f(AVPacket *, GString *, str *);
+typedef void format_init_f(struct rtp_payload_type *);
+typedef void set_options_f(encoder_t *);
 
 
 
@@ -50,6 +53,10 @@ struct codec_def_s {
 	const int bits_per_sample;
 	const int decode_only_ok;
 	const enum media_type type;
+
+	// codec-specific callbacks
+	format_init_f *init;
+	set_options_f *set_options;
 
 	// filled in by codeclib_init()
 	str rtpname_str;
@@ -87,11 +94,13 @@ struct encoder_s {
 	format_t requested_format,
 		 actual_format;
 
+	const codec_def_t *def;
 	AVCodec *codec;
 	AVCodecContext *avcctx;
 	AVPacket avpkt;
 	AVAudioFifo *fifo;
 	int64_t fifo_pts; // pts of first data in fifo
+	int ptime;
 	int samples_per_frame;
 	AVFrame *frame; // to pull samples from the fifo
 	int64_t mux_dts; // last dts passed to muxer
