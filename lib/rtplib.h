@@ -26,6 +26,7 @@ struct rtp_payload_type {
 	str format_parameters; // value of a=fmtp
 
 	int ptime; // default from RFC
+	int bitrate;
 
 	const codec_def_t *codec_def;
 };

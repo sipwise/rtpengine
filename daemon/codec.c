@@ -122,6 +122,7 @@ static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) 
 
 	g_hash_table_remove(receiver->codecs_recv, &pt->payload_type);
 	g_hash_table_remove(receiver->codec_names_recv, &pt->encoding);
+	g_hash_table_remove(receiver->codec_names_recv, &pt->encoding_with_params);
 
 	GList *next = link->next;
 	g_queue_delete_link(&receiver->codecs_prefs_recv, link);
@@ -408,9 +409,8 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
-	// XXX make bitrate configurable
 	if (encoder_config(ch->encoder, h->dest_pt.codec_def,
-				h->dest_pt.codec_def->default_bitrate,
+				h->dest_pt.bitrate ? : h->dest_pt.codec_def->default_bitrate,
 				ch->ptime,
 				&enc_format, &ch->encoder_format))
 		goto err;
@@ -590,15 +590,18 @@ void codec_packet_free(void *pp) {
 
 
 
-static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_t *dec, struct call *call) {
+static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_t *dec, struct call *call,
+		int clockrate, int channels, int bitrate)
+{
 	if (dec->default_channels <= 0 || dec->default_clockrate < 0)
 		return NULL;
 
 	struct rtp_payload_type *ret = g_slice_alloc0(sizeof(*ret));
 	ret->payload_type = -1;
 	str_init(&ret->encoding, (char *) dec->rtpname);
-	ret->clock_rate = dec->default_clockrate;
-	ret->channels = dec->default_channels;
+	ret->clock_rate = clockrate ? : dec->default_clockrate;
+	ret->channels = channels ? : dec->default_channels;
+	ret->bitrate = bitrate;
 
 	char full_encoding[64];
 	char params[32] = "";
@@ -621,10 +624,21 @@ static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_
 }
 
 
-// XXX allow specifying codec params (e.g. "transcode=opus/16000/1")
-static struct rtp_payload_type *codec_make_payload_type(const str *codec, struct call_media *media) {
+static struct rtp_payload_type *codec_make_payload_type(str *codec_fmt, struct call_media *media) {
 	struct call *call = media->call;
-	const codec_def_t *dec = codec_find(codec, media->type_id);
+
+	str codec, parms, chans, opts;
+	if (str_token_sep(&codec, codec_fmt, '/'))
+		return NULL;
+	str_token_sep(&parms, codec_fmt, '/');
+	str_token_sep(&chans, codec_fmt, '/');
+	str_token_sep(&opts, codec_fmt, '/');
+
+	int clockrate = str_to_i(&parms, 0);
+	int channels = str_to_i(&chans, 1);
+	int bitrate = str_to_i(&opts, 0);
+
+	const codec_def_t *dec = codec_find(&codec, media->type_id);
 	if (!dec)
 		return NULL;
 	// we must support both encoding and decoding
@@ -635,18 +649,22 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec, struct
 
 	if (dec->rfc_payload_type >= 0) {
 		const struct rtp_payload_type *rfc_pt = rtp_get_rfc_payload_type(dec->rfc_payload_type);
-		if (rfc_pt) {
+		// only use the RFC payload type if all parameters match
+		if (rfc_pt
+				&& (clockrate == 0 || clockrate == rfc_pt->clock_rate)
+				&& (channels == rfc_pt->channels))
+		{
 			struct rtp_payload_type *ret = __rtp_payload_type_copy(rfc_pt);
 			ret->codec_def = dec;
 			return ret;
 		}
 	}
-	return codec_make_dynamic_payload_type(dec, call);
+	return codec_make_dynamic_payload_type(dec, call, clockrate, channels, bitrate);
 
 }
 
 
-static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media) {
+static struct rtp_payload_type *codec_add_payload_type(str *codec, struct call_media *media) {
 	struct rtp_payload_type *pt = codec_make_payload_type(codec, media);
 	if (!pt) {
 		ilog(LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
@@ -697,6 +715,8 @@ static void __rtp_payload_type_add_name(GHashTable *ht, struct rtp_payload_type 
 {
 	GQueue *q = g_hash_table_lookup_queue_new(ht, &pt->encoding);
 	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
+	q = g_hash_table_lookup_queue_new(ht, &pt->encoding_with_params);
+	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
 }
 // consumes 'pt'
 static void __rtp_payload_type_add_recv(struct call_media *media,
@@ -707,7 +727,9 @@ static void __rtp_payload_type_add_recv(struct call_media *media,
 	g_queue_push_tail(&media->codecs_prefs_recv, pt);
 }
 // duplicates 'pt'
-static void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payload_type *pt) {
+static void __rtp_payload_type_add_send(struct call_media *other_media,
+		struct rtp_payload_type *pt)
+{
 	pt = __rtp_payload_type_copy(pt);
 	g_hash_table_insert(other_media->codecs_send, &pt->payload_type, pt);
 	__rtp_payload_type_add_name(other_media->codec_names_send, pt);
@@ -726,7 +748,8 @@ static void __payload_queue_free(void *qq) {
 	g_queue_free_full(q, (GDestroyNotify) payload_type_free);
 }
 static int __revert_codec_strip(GHashTable *removed, const str *codec,
-		struct call_media *media, struct call_media *other_media) {
+		struct call_media *media, struct call_media *other_media)
+{
 	GQueue *q = g_hash_table_lookup(removed, codec);
 	if (!q)
 		return 0;
@@ -770,9 +793,14 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 
 		// codec stripping
 		if (strip) {
-			if (remove_all || g_hash_table_lookup(strip, &pt->encoding)) {
-				ilog(LOG_DEBUG, "Stripping codec '" STR_FORMAT "'", STR_FMT(&pt->encoding));
+			if (remove_all || g_hash_table_lookup(strip, &pt->encoding)
+					|| g_hash_table_lookup(strip, &pt->encoding_with_params))
+			{
+				ilog(LOG_DEBUG, "Stripping codec '" STR_FORMAT "'",
+						STR_FMT(&pt->encoding_with_params));
 				GQueue *q = g_hash_table_lookup_queue_new(removed, &pt->encoding);
+				g_queue_push_tail(q, __rtp_payload_type_copy(pt));
+				q = g_hash_table_lookup_queue_new(removed, &pt->encoding_with_params);
 				g_queue_push_tail(q, pt);
 				continue;
 			}
