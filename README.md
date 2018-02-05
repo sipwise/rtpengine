@@ -1226,6 +1226,15 @@ Optionally included keys are:
 		an `a=rtpmap` attribute, or can be from the list of RFC-defined codecs. Examples
 		are `PCMU`, `opus`, or `telephone-event`.
 
+		It is possible to specify codec format parameters alongside with the codec name
+		in the same format as they're written in SDP for codecs that support them,
+		for example `opus/48000` to
+		specify Opus with 48 kHz sampling rate and one channel (mono), or
+		`opus/48000/2` for stereo Opus. If any format parameters are specified,
+		the codec will only be stripped if all of the format parameters match, and other
+		instances of the same codec with different format parameters will be left
+		untouched.
+
 		As a special keyword, `all` can be used to remove all codecs, except the ones
 		that should explicitly offered (see below). Note that it is an error to strip
 		all codecs and leave none that could be offered. In this case, the original
@@ -1238,6 +1247,8 @@ Optionally included keys are:
 		codecs (`strip -> all`) except the ones given in the `offer` whitelist.
 		Codecs that were not present in the original list of codecs
 		offered by the client will be ignored.
+
+		This list also supports codec format parameters as per above.
 
 	* `transcode`
 
@@ -1254,6 +1265,14 @@ Optionally included keys are:
 		list of offered codecs, then no transcoding will be done. Also note that if
 		transcoding takes place, in-kernel forwarding is disabled for this media stream
 		and all processing happens in userspace.
+
+		If no codec format parameters are specified in this list (e.g. just `opus`
+		instead of `opus/48000/2`), default values will be chosen for them.
+
+		For codecs that support different bitrates, it can be specified by appending
+		another slash followed by the bitrate in bits per second,
+		e.g. `opus/48000/2/32000`. In this case, all format parameters (clock rate,
+		channels) must also be specified.
 * `ptime`
 
 	Contains an integer. If set, changes the `a=ptime` attribute's value in the outgoing
