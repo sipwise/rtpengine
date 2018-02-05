@@ -1128,7 +1128,6 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	GList *ql;
 	struct sdp_attribute *attr;
 	int ret = 0;
-	int ptime = 0;
 
 	if (!sp->protocol || !sp->protocol->rtp)
 		return 0;
@@ -1149,11 +1148,6 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		attr = ql->data;
 		g_hash_table_insert(ht_fmtp, &attr->u.fmtp.payload_type, &attr->u.fmtp.format_parms_str);
 	}
-
-	// check for a=ptime
-	attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
-	if (attr && attr->value.s)
-		ptime = atoi(attr->value.s);
 
 	/* then go through the format list and associate */
 	for (ql = media->format_list.head; ql; ql = ql->next) {
@@ -1186,8 +1180,8 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 			pt->format_parameters = *s;
 
 		// fill in ptime
-		if (ptime)
-			pt->ptime = ptime;
+		if (sp->ptime)
+			pt->ptime = sp->ptime;
 		else if (!pt->ptime && ptrfc)
 			pt->ptime = ptrfc->ptime;
 
@@ -1284,6 +1278,11 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			bf_set_clear(&sp->sp_flags, SP_FLAG_STRICT_SOURCE, flags->strict_source);
 			bf_set_clear(&sp->sp_flags, SP_FLAG_MEDIA_HANDOVER, flags->media_handover);
 
+			// a=ptime
+			attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
+			if (attr && attr->value.s)
+				sp->ptime = str_to_i(&attr->value, 0);
+
 			errstr = "Invalid RTP payload types";
 			if (__rtp_payload_types(sp, media))
 				goto error;
@@ -1342,11 +1341,6 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			}
 
 			__sdp_ice(sp, media);
-
-			// a=ptime
-			attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
-			if (attr && attr->value.s)
-				sp->ptime = atoi(attr->value.s);
 
 			/* determine RTCP endpoint */
 
@@ -1715,10 +1709,14 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_SENDRECV:
 			case ATTR_IGNORE:
 			case ATTR_END_OF_CANDIDATES: // we strip it here and re-insert it later
+				goto strip;
+
 			case ATTR_RTPMAP:
 			case ATTR_FMTP:
 			case ATTR_PTIME:
-				goto strip;
+				if (media->codecs_prefs_recv.length > 0)
+					goto strip;
+				break;
 
 			case ATTR_EXTMAP:
 			case ATTR_CRYPTO:
