@@ -2,6 +2,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
+#include <libavutil/opt.h>
 #include <glib.h>
 #include "str.h"
 #include "log.h"
@@ -27,8 +28,11 @@
 
 
 
-packetizer_f packetizer_passthrough; // pass frames as they arrive in AVPackets
-packetizer_f packetizer_samplestream; // flat stream of samples
+static packetizer_f packetizer_passthrough; // pass frames as they arrive in AVPackets
+static packetizer_f packetizer_samplestream; // flat stream of samples
+
+static format_init_f opus_init;
+static set_options_f opus_set_options;
 
 
 
@@ -131,6 +135,8 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.type = MT_AUDIO,
+		.init = opus_init,
+		.set_options = opus_set_options,
 	},
 	{
 		.rtpname = "vorbis",
@@ -736,6 +742,7 @@ int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptim
 	enc->requested_format = *requested_format;
 
 	err = "output codec not found";
+	enc->def = def;
 	enc->codec = def->encoder;
 //	if (codec_name)
 //		enc->codec = avcodec_find_encoder_by_name(codec_name);
@@ -745,6 +752,7 @@ int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptim
 		goto err;
 
 	ptime /= def->clockrate_mult;
+	enc->ptime = ptime;
 
 	err = "failed to alloc codec context";
 	enc->avcctx = avcodec_alloc_context3(enc->codec);
@@ -769,6 +777,10 @@ int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptim
 	enc->avcctx->sample_fmt = enc->actual_format.format;
 	enc->avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
 	enc->avcctx->bit_rate = bitrate;
+	enc->samples_per_frame = enc->actual_format.clockrate * ptime / 1000;
+
+	if (def->set_options)
+		def->set_options(enc);
 
 	err = "failed to open output context";
 	int i = avcodec_open2(enc->avcctx, enc->codec, NULL);
@@ -777,7 +789,6 @@ int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptim
 
 	av_init_packet(&enc->avpkt);
 
-	enc->samples_per_frame = enc->actual_format.clockrate * ptime / 1000;
 
 // output frame and fifo
 	enc->frame = av_frame_alloc();
@@ -978,4 +989,61 @@ int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_output) {
 	memcpy(input_output->s, buf->str, input_output->len);
 	g_string_erase(buf, 0, input_output->len);
 	return buf->len >= input_output->len ? 1 : 0;
+}
+
+
+static void opus_init(struct rtp_payload_type *pt) {
+	if (pt->clock_rate != 48000) {
+		ilog(LOG_WARN, "Opus is only supported with a clock rate of 48 kHz");
+		pt->clock_rate = 48000;
+	}
+
+	switch (pt->ptime) {
+		case 5:
+		case 10:
+		case 20:
+		case 40:
+		case 60:
+			break;
+		default:
+			;
+			int np;
+			if (pt->ptime < 10)
+				np = 5;
+			else if (pt->ptime < 20)
+				np = 10;
+			else if (pt->ptime < 40)
+				np = 20;
+			else if (pt->ptime < 60)
+				np = 40;
+			else
+				np = 60;
+			ilog(LOG_INFO, "Opus doesn't support a ptime of %i ms; using %i ms instead",
+					pt->ptime, np);
+			pt->ptime = np;
+			break;
+	}
+
+	if (pt->bitrate) {
+		if (pt->bitrate < 6000) {
+			ilog(LOG_DEBUG, "Opus bitrate %i bps too small, assuming %i kbit/s",
+					pt->bitrate, pt->bitrate);
+			pt->bitrate *= 1000;
+		}
+		return;
+	}
+	if (pt->channels == 1)
+		pt->bitrate = 24000;
+	else if (pt->channels == 2)
+		pt->bitrate = 32000;
+	else
+		pt->bitrate = 64000;
+	ilog(LOG_DEBUG, "Using default bitrate of %i bps for %i-channel Opus", pt->bitrate, pt->channels);
+}
+
+static void opus_set_options(encoder_t *enc) {
+	int ret;
+	if ((ret = av_opt_set_int(enc->avcctx, "frame_duration", enc->ptime, 0)))
+		ilog(LOG_WARN, "Failed to set Opus frame_duration option (error code %i)", ret);
+	// XXX additional opus options
 }
