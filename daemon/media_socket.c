@@ -70,7 +70,6 @@ struct packet_handler_ctx {
 	rewrite_func decrypt_func, encrypt_func; // handlers for decrypt/encrypt
 	struct packet_stream *in_srtp, *out_srtp; // SRTP contexts for decrypt/encrypt (relevant for muxed RTCP)
 	int payload_type; // -1 if unknown or not RTP
-	struct ssrc_ctx *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
 	int rtcp; // true if this is an RTCP packet
 
 	// verdicts:
@@ -80,7 +79,6 @@ struct packet_handler_ctx {
 
 	// output:
 	struct media_packet mp; // passed to handlers
-	GQueue packets_out;
 };
 
 
@@ -1182,6 +1180,9 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 
 	mutex_unlock(&in_srtp->in_lock);
 
+	if (MEDIA_ISSET(in_srtp->media, TRANSCODE))
+		ssrc = (*ssrc_in_p)->ssrc_map_out;
+
 	// out direction
 	mutex_lock(&out_srtp->out_lock);
 
@@ -1297,14 +1298,14 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 		rtp_padding(phc->mp.rtp, &phc->mp.payload);
 
 		if (G_LIKELY(phc->out_srtp != NULL))
-			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtp->ssrc, &phc->ssrc_in,
-					&phc->ssrc_out, phc->call->ssrc_hash);
+			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
+					&phc->mp.ssrc_out, phc->call->ssrc_hash);
 
 		// check the payload type
 		// XXX redundant between SSRC handling and codec_handler stuff -> combine
 		phc->payload_type = (phc->mp.rtp->m_pt & 0x7f);
-		if (G_LIKELY(phc->ssrc_in))
-			phc->ssrc_in->parent->payload_type = phc->payload_type;
+		if (G_LIKELY(phc->mp.ssrc_in))
+			phc->mp.ssrc_in->parent->payload_type = phc->payload_type;
 
 		// XXX convert to array? or keep last pointer?
 		// XXX yet another hash table per payload type -> combine
@@ -1323,8 +1324,8 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 	}
 	else if (phc->rtcp && !rtcp_payload(&phc->mp.rtcp, NULL, &phc->s)) {
 		if (G_LIKELY(phc->out_srtp != NULL))
-			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtcp->ssrc, &phc->ssrc_in,
-					&phc->ssrc_out, phc->call->ssrc_hash);
+			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
+					&phc->mp.ssrc_out, phc->call->ssrc_hash);
 	}
 }
 
@@ -1348,7 +1349,7 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 	 * 1 = forward and push update to redis */
 	int ret = 0;
 	if (phc->decrypt_func)
-		ret = phc->decrypt_func(&phc->s, phc->in_srtp, phc->sfd, &phc->fsin, &phc->tv, phc->ssrc_in);
+		ret = phc->decrypt_func(&phc->s, phc->in_srtp, phc->sfd, &phc->fsin, &phc->tv, phc->mp.ssrc_in);
 
 	mutex_unlock(&phc->in_srtp->in_lock);
 
@@ -1367,9 +1368,9 @@ static int media_packet_encrypt(struct packet_handler_ctx *phc) {
 
 	mutex_lock(&phc->out_srtp->out_lock);
 
-	for (GList *l = phc->packets_out.head; l; l = l->next) {
+	for (GList *l = phc->mp.packets_out.head; l; l = l->next) {
 		struct codec_packet *p = l->data;
-		int encret = phc->encrypt_func(&p->s, phc->out_srtp, NULL, NULL, NULL, phc->ssrc_out);
+		int encret = phc->encrypt_func(&p->s, phc->out_srtp, NULL, NULL, NULL, phc->mp.ssrc_out);
 		if (encret == 1)
 			phc->update = 1;
 		else if (encret != 0)
@@ -1599,7 +1600,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	struct codec_handler *transcoder = codec_handler_get(phc->media, phc->payload_type);
 	// this transfers the packet from 's' to 'packets_out'
 	phc->mp.raw = phc->s;
-	if (transcoder->func(transcoder, phc->media, &phc->mp, &phc->packets_out))
+	if (transcoder->func(transcoder, phc->media, &phc->mp))
 		goto drop;
 
 	if (G_LIKELY(handler_ret >= 0))
@@ -1630,7 +1631,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	struct codec_packet *p;
 	ret = 0;
-	while ((p = g_queue_pop_head(&phc->packets_out))) {
+	while ((p = g_queue_pop_head(&phc->mp.packets_out))) {
 		__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&phc->sink->endpoint.address),
 				phc->sink->endpoint.port);
 
@@ -1670,7 +1671,7 @@ out:
 
 	rwlock_unlock_r(&phc->call->master_lock);
 
-	g_queue_clear_full(&phc->packets_out, codec_packet_free);
+	g_queue_clear_full(&phc->mp.packets_out, codec_packet_free);
 
 	return ret;
 }
