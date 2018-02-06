@@ -72,7 +72,10 @@ struct media_packet {
 	str raw;
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
+	struct ssrc_ctx *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
 	str payload;
+
+	GQueue packets_out;
 };
 
 
