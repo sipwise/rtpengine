@@ -282,7 +282,7 @@ struct packet_stream {
 	struct endpoint		endpoint;	/* LOCK: out_lock */
 	struct endpoint		advertised_endpoint; /* RO */
 	struct crypto_context	crypto;		/* OUT direction, LOCK: out_lock */
-	struct ssrc_ctx		*ssrc_in,	/* LOCK: in_lock */
+	struct ssrc_ctx		*ssrc_in,	/* LOCK: in_lock */ // XXX eliminate these
 				*ssrc_out;	/* LOCK: out_lock */
 
 	struct stats		stats;
@@ -340,7 +340,7 @@ struct call_media {
 	GQueue			codecs_prefs_send; // storage container
 
 	GHashTable		*codec_handlers; // int payload type -> struct codec_handler
-						// XXX combine this with 'codecs' hash table?
+						// XXX combine this with 'codecs_recv' hash table?
 	volatile struct codec_handler *codec_handler_cache;
 
 	int			ptime; // either from SDP or overridden

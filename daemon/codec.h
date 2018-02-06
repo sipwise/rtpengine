@@ -15,8 +15,7 @@ struct media_packet;
 struct ssrc_hash;
 
 
-typedef int codec_handler_func(struct codec_handler *, struct call_media *, const struct media_packet *,
-		GQueue *);
+typedef int codec_handler_func(struct codec_handler *, struct call_media *, struct media_packet *);
 
 
 struct codec_handler {
