@@ -40,6 +40,7 @@ struct ssrc_ctx {
 	u_int64_t srtp_index,
 		  srtcp_index;
 	// XXX move entire crypto context in here?
+	u_int32_t ssrc_map_out;
 };
 
 struct ssrc_stats_block {

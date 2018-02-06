@@ -21,7 +21,6 @@ struct codec_ssrc_handler {
 	int ptime;
 	int bytes_per_packet;
 	unsigned long ts_out;
-	u_int32_t ssrc_out;
 	u_int16_t seq_out;
 	GString *sample_buffer;
 };
@@ -368,12 +367,12 @@ void codec_handlers_free(struct call_media *m) {
 
 
 static int handler_func_passthrough(struct codec_handler *h, struct call_media *media,
-		const struct media_packet *mp, GQueue *out)
+		struct media_packet *mp)
 {
 	struct codec_packet *p = g_slice_alloc(sizeof(*p));
 	p->s = mp->raw;
 	p->free_func = NULL;
-	g_queue_push_tail(out, p);
+	g_queue_push_tail(&mp->packets_out, p);
 	return 0;
 }
 
@@ -385,13 +384,11 @@ static void __transcode_packet_free(struct transcode_packet *p) {
 
 static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	struct codec_handler *h = p;
-	u_int32_t ssrc_out = random();
 
 	ilog(LOG_DEBUG, "Creating SSRC transcoder from %s/%u/%i to "
-			"SSRC %" PRIx32 " %s/%u/%i",
+			"%s/%u/%i",
 			h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
 			h->source_pt.channels,
-			ntohl(ssrc_out),
 			h->dest_pt.codec_def->rtpname, h->dest_pt.clock_rate,
 			h->dest_pt.channels);
 
@@ -400,7 +397,6 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	mutex_init(&ch->lock);
 	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
 	ch->seq_out = random();
-	ch->ssrc_out = ssrc_out;
 	ch->ts_out = random();
 	ch->ptime = h->dest_pt.ptime;
 	ch->sample_buffer = g_string_new("");
@@ -461,7 +457,7 @@ static void __ssrc_handler_free(struct codec_ssrc_handler *ch) {
 
 static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
-	GQueue *out_q = u2;
+	struct media_packet *mp = u2;
 
 	ilog(LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
 			(unsigned long long) enc->avpkt.pts, enc->avpkt.size);
@@ -499,14 +495,14 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		rh->m_pt = ch->handler->dest_pt.payload_type;
 		rh->seq_num = htons(ch->seq_out++);
 		rh->timestamp = htonl(enc->avpkt.pts + ch->ts_out);
-		rh->ssrc = ch->ssrc_out;
+		rh->ssrc = mp->ssrc_out->ssrc_map_out;
 
 		// add to output queue
 		struct codec_packet *p = g_slice_alloc(sizeof(*p));
 		p->s.s = buf;
 		p->s.len = inout.len + sizeof(struct rtp_header);
 		p->free_func = free;
-		g_queue_push_tail(out_q, p);
+		g_queue_push_tail(&mp->packets_out, p);
 
 		if (ret == 0) {
 			// no more to go
@@ -533,10 +529,10 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 }
 
 static int handler_func_transcode(struct codec_handler *h, struct call_media *media,
-		const struct media_packet *mp, GQueue *out)
+		struct media_packet *mp)
 {
 	if (G_UNLIKELY(!mp->rtp || mp->rtcp))
-		return handler_func_passthrough(h, media, mp, out);
+		return handler_func_passthrough(h, media, mp);
 
 	assert((mp->rtp->m_pt & 0x7f) == h->source_pt.payload_type);
 
@@ -575,7 +571,7 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 		ilog(LOG_DEBUG, "Decoding RTP packet: seq %u, TS %lu",
 				packet->p.seq, packet->ts);
 
-		if (decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, out))
+		if (decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp))
 			ilog(LOG_WARN, "Decoder error while processing RTP packet");
 		__transcode_packet_free(packet);
 	}
