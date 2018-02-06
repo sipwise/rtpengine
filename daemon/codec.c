@@ -504,6 +504,9 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		p->free_func = free;
 		g_queue_push_tail(&mp->packets_out, p);
 
+		atomic64_inc(&mp->ssrc_out->packets);
+		atomic64_add(&mp->ssrc_out->octets, inout.len);
+
 		if (ret == 0) {
 			// no more to go
 			break;
@@ -546,6 +549,9 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 	if (G_UNLIKELY(!ch))
 		return 0;
 
+	atomic64_inc(&mp->ssrc_in->packets);
+	atomic64_add(&mp->ssrc_in->octets, mp->payload.len);
+
 	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
 	packet->p.seq = ntohs(mp->rtp->seq_num);
 	packet->payload = str_dup(&mp->payload);
@@ -564,9 +570,12 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 	// got a new packet, run decoder
 
 	while (1) {
-		packet = packet_sequencer_next_packet(&ch->sequencer);
+		unsigned int lost;
+		packet = packet_sequencer_next_packet(&ch->sequencer, &lost);
 		if (G_UNLIKELY(!packet))
 			break;
+
+		atomic64_add(&mp->ssrc_in->packets_lost, lost);
 
 		ilog(LOG_DEBUG, "Decoding RTP packet: seq %u, TS %lu",
 				packet->p.seq, packet->ts);

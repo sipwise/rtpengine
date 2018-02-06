@@ -142,7 +142,7 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 
 void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
 void packet_sequencer_destroy(packet_sequencer_t *ps);
-void *packet_sequencer_next_packet(packet_sequencer_t *ps);
+void *packet_sequencer_next_packet(packet_sequencer_t *ps, unsigned int *);
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
 
