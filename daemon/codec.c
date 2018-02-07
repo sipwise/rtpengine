@@ -318,6 +318,8 @@ next:
 	// the list, as we must expect to potentially receive media in that codec, which we
 	// then could not transcode.
 	if (MEDIA_ISSET(receiver, TRANSCODE)) {
+		// XXX we also must switch all "passthrough" handlers to a special passthrough
+		// that substitutes out the SSRC
 		for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 			struct rtp_payload_type *pt = l->data;
 
@@ -364,13 +366,16 @@ void codec_handlers_free(struct call_media *m) {
 }
 
 
+void codec_add_raw_packet(struct media_packet *mp, const str *raw) {
+	struct codec_packet *p = g_slice_alloc(sizeof(*p));
+	p->s = *raw;
+	p->free_func = NULL;
+	g_queue_push_tail(&mp->packets_out, p);
+}
 static int handler_func_passthrough(struct codec_handler *h, struct call_media *media,
 		struct media_packet *mp)
 {
-	struct codec_packet *p = g_slice_alloc(sizeof(*p));
-	p->s = mp->raw;
-	p->free_func = NULL;
-	g_queue_push_tail(&mp->packets_out, p);
+	codec_add_raw_packet(mp, &mp->raw);
 	return 0;
 }
 
