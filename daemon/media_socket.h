@@ -15,7 +15,9 @@
 
 
 
-typedef int rtcp_filter_func(str *, GQueue *);
+struct media_packet;
+
+typedef int rtcp_filter_func(struct media_packet *, GQueue *);
 
 
 
@@ -73,6 +75,14 @@ struct stream_fd {
 };
 struct media_packet {
 	str raw;
+
+	endpoint_t fsin; // source address of received packet
+	struct timeval tv; // timestamp when packet was received
+	struct stream_fd *sfd; // fd which received the packet
+	struct call *call; // sfd->call
+	struct packet_stream *stream; // sfd->stream
+	struct call_media *media; // stream->media
+
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
 	struct ssrc_ctx *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
