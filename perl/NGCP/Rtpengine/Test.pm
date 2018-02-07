@@ -372,10 +372,11 @@ sub _input {
 		$$input eq $exp or die;
 	}
 	$self->{media_packets_received}->[$component]++;
-	$$input = '';
 
 	$self->{client_components}->[$component] and
-		$self->{client_components}->[$component]->input($exp);
+		$self->{client_components}->[$component]->input($$input);
+
+	$$input = '';
 }
 
 sub _timer {
