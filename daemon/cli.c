@@ -62,6 +62,7 @@ static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
 	{ "terminate",		cli_incoming_terminate		},
 	{ "set",		cli_incoming_set		},
+	{ "get",		cli_incoming_list		},
 	{ "ksadd",		cli_incoming_ksadd		},
 	{ "ksrm",		cli_incoming_ksrm		},
 	{ "kslist",		cli_incoming_kslist		},
