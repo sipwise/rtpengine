@@ -66,7 +66,7 @@ sub input {
 
 	my ($vpxcc, $pt, $seq, $ts, $ssrc, $payload) = unpack("CCnNN a*", $packet);
 	$vpxcc == 0x80 or die;
-	$pt == 0 or die;
+	#$pt == 0 or die;
 
 	my $remote = ($self->{other_ssrcs}->{$ssrc} //= {
 			ssrc => $ssrc,

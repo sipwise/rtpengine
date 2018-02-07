@@ -6,6 +6,7 @@
 #include "rtplib.h"
 #include "codeclib.h"
 #include "ssrc.h"
+#include "rtcp.h"
 
 
 
@@ -138,6 +139,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 				NULL, __codec_handler_free);
 
 	MEDIA_CLEAR(receiver, TRANSCODE);
+	receiver->rtcp_handler = NULL;
 
 	// we go through the list of codecs that the receiver supports and compare it
 	// with the list of codecs supported by the sink. if the receiver supports
@@ -335,6 +337,8 @@ next:
 					STR_FMT(&pt->encoding));
 			l = __delete_receiver_codec(receiver, l);
 		}
+
+		receiver->rtcp_handler = rtcp_transcode_handler;
 	}
 }
 
@@ -368,16 +372,16 @@ void codec_handlers_free(struct call_media *m) {
 }
 
 
-void codec_add_raw_packet(struct media_packet *mp, const str *raw) {
+void codec_add_raw_packet(struct media_packet *mp) {
 	struct codec_packet *p = g_slice_alloc(sizeof(*p));
-	p->s = *raw;
+	p->s = mp->raw;
 	p->free_func = NULL;
 	g_queue_push_tail(&mp->packets_out, p);
 }
 static int handler_func_passthrough(struct codec_handler *h, struct call_media *media,
 		struct media_packet *mp)
 {
-	codec_add_raw_packet(mp, &mp->raw);
+	codec_add_raw_packet(mp);
 	return 0;
 }
 
@@ -500,7 +504,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		rh->m_pt = ch->handler->dest_pt.payload_type;
 		rh->seq_num = htons(ch->seq_out++);
 		rh->timestamp = htonl(enc->avpkt.pts + ch->ts_out);
-		rh->ssrc = mp->ssrc_out->ssrc_map_out;
+		rh->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
 
 		// add to output queue
 		struct codec_packet *p = g_slice_alloc(sizeof(*p));
