@@ -226,9 +226,7 @@ struct rtcp_chain_element {
 // context to hold state variables
 struct rtcp_process_ctx {
 	// input
-	struct call *call;
-	struct call_media *media;
-	const struct timeval *received;
+	struct media_packet *mp;
 
 	// handler vars
 	union {
@@ -252,10 +250,10 @@ struct rtcp_process_ctx {
 struct rtcp_handler {
 	void (*init)(struct rtcp_process_ctx *);
 	void (*start)(struct rtcp_process_ctx *, struct call *);
-	void (*common)(struct rtcp_process_ctx *, const struct rtcp_packet *);
-	void (*sr)(struct rtcp_process_ctx *, const struct sender_report_packet *);
+	void (*common)(struct rtcp_process_ctx *, struct rtcp_packet *);
+	void (*sr)(struct rtcp_process_ctx *, struct sender_report_packet *);
 	void (*rr_list_start)(struct rtcp_process_ctx *, const struct rtcp_packet *);
-	void (*rr)(struct rtcp_process_ctx *, const struct report_block *);
+	void (*rr)(struct rtcp_process_ctx *, struct report_block *);
 	void (*rr_list_end)(struct rtcp_process_ctx *);
 	//void (*xr)(struct rtcp_process_ctx *, const struct rtcp_packet *, str *);
 	void (*sdes_list_start)(struct rtcp_process_ctx *, const struct source_description_packet *);
@@ -276,6 +274,7 @@ struct rtcp_handlers {
 	const struct rtcp_handler
 		*scratch,
 		*mos,
+		*transcode,
 		*logging,
 		*homer;
 };
@@ -283,25 +282,35 @@ struct rtcp_handlers {
 // log handler function prototypes
 
 // scratch area (prepare/parse packet)
-static void scratch_common(struct rtcp_process_ctx *, const struct rtcp_packet *);
-static void scratch_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
-static void scratch_rr(struct rtcp_process_ctx *, const struct report_block *);
+static void scratch_common(struct rtcp_process_ctx *, struct rtcp_packet *);
+static void scratch_sr(struct rtcp_process_ctx *, struct sender_report_packet *);
+static void scratch_rr(struct rtcp_process_ctx *, struct report_block *);
 static void scratch_xr_rr_time(struct rtcp_process_ctx *, const struct xr_rb_rr_time *);
 static void scratch_xr_dlrr(struct rtcp_process_ctx *, const struct xr_rb_dlrr *);
 static void scratch_xr_voip_metrics(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
 
 // MOS calculation / stats
-static void mos_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
-static void mos_rr(struct rtcp_process_ctx *, const struct report_block *);
+static void mos_sr(struct rtcp_process_ctx *, struct sender_report_packet *);
+static void mos_rr(struct rtcp_process_ctx *, struct report_block *);
 static void mos_xr_rr_time(struct rtcp_process_ctx *, const struct xr_rb_rr_time *);
 static void mos_xr_dlrr(struct rtcp_process_ctx *, const struct xr_rb_dlrr *);
 static void mos_xr_voip_metrics(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
 
+// RTCP translation for transcoding
+static void transcode_common(struct rtcp_process_ctx *, struct rtcp_packet *);
+static void transcode_rr(struct rtcp_process_ctx *, struct report_block *);
+static void transcode_sr(struct rtcp_process_ctx *, struct sender_report_packet *);
+
+// wrappers to enable dynamic transcoding
+static void transcode_common_wrap(struct rtcp_process_ctx *, struct rtcp_packet *);
+static void transcode_rr_wrap(struct rtcp_process_ctx *, struct report_block *);
+static void transcode_sr_wrap(struct rtcp_process_ctx *, struct sender_report_packet *);
+
 // homer functions
 static void homer_init(struct rtcp_process_ctx *);
-static void homer_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
+static void homer_sr(struct rtcp_process_ctx *, struct sender_report_packet *);
 static void homer_rr_list_start(struct rtcp_process_ctx *, const struct rtcp_packet *);
-static void homer_rr(struct rtcp_process_ctx *, const struct report_block *);
+static void homer_rr(struct rtcp_process_ctx *, struct report_block *);
 static void homer_rr_list_end(struct rtcp_process_ctx *);
 static void homer_sdes_list_start(struct rtcp_process_ctx *, const struct source_description_packet *);
 static void homer_sdes_item(struct rtcp_process_ctx *, const struct sdes_chunk *, const struct sdes_item *,
@@ -313,10 +322,10 @@ static void homer_finish(struct rtcp_process_ctx *, struct call *, const endpoin
 // syslog functions
 static void logging_init(struct rtcp_process_ctx *);
 static void logging_start(struct rtcp_process_ctx *, struct call *);
-static void logging_common(struct rtcp_process_ctx *, const struct rtcp_packet *);
+static void logging_common(struct rtcp_process_ctx *, struct rtcp_packet *);
 static void logging_sdes_list_start(struct rtcp_process_ctx *, const struct source_description_packet *);
-static void logging_sr(struct rtcp_process_ctx *, const struct sender_report_packet *);
-static void logging_rr(struct rtcp_process_ctx *, const struct report_block *);
+static void logging_sr(struct rtcp_process_ctx *, struct sender_report_packet *);
+static void logging_rr(struct rtcp_process_ctx *, struct report_block *);
 static void logging_xr_rb(struct rtcp_process_ctx *, const struct xr_report_block *);
 static void logging_xr_rr_time(struct rtcp_process_ctx *, const struct xr_rb_rr_time *);
 static void logging_xr_dlrr(struct rtcp_process_ctx *, const struct xr_rb_dlrr *);
@@ -342,6 +351,16 @@ static struct rtcp_handler mos_handlers = {
 	.xr_rr_time = mos_xr_rr_time,
 	.xr_dlrr = mos_xr_dlrr,
 	.xr_voip_metrics = mos_xr_voip_metrics,
+};
+static struct rtcp_handler transcode_handlers = {
+	.common = transcode_common,
+	.rr = transcode_rr,
+	.sr = transcode_sr,
+};
+static struct rtcp_handler transcode_handlers_wrap = {
+	.common = transcode_common_wrap,
+	.rr = transcode_rr_wrap,
+	.sr = transcode_sr_wrap,
 };
 static struct rtcp_handler log_handlers = {
 	.init = logging_init,
@@ -374,6 +393,7 @@ static struct rtcp_handler homer_handlers = {
 static struct rtcp_handlers rtcp_handlers = {
 	.scratch = &scratch_handlers,
 	.mos = &mos_handlers,
+	.transcode = &transcode_handlers_wrap,
 	// remainder is variable
 };
 
@@ -383,11 +403,13 @@ static struct rtcp_handlers rtcp_handlers = {
 			rtcp_handlers.type->func(log_ctx, ##__VA_ARGS__); \
 	} while (0)
 // macro to call all function handlers in one go
+// order is important
 #define CAH(func, ...) do { \
-		CH(func, scratch, ##__VA_ARGS__); \
-		CH(func, mos, ##__VA_ARGS__); \
-		CH(func, logging, ##__VA_ARGS__); \
-		CH(func, homer, ##__VA_ARGS__); \
+		CH(func, scratch, ##__VA_ARGS__); /* first parse out the values into scratch area */ \
+		CH(func, mos, ##__VA_ARGS__); /* process for MOS calculation */ \
+		CH(func, logging, ##__VA_ARGS__); /* log packets to syslog */ \
+		CH(func, homer, ##__VA_ARGS__); /* send contents to homer */ \
+		CH(func, transcode, ##__VA_ARGS__); /* translate for transcoding */ \
 	} while (0)
 
 
@@ -444,6 +466,11 @@ static const int min_xr_packet_sizes[] = {
 	[BT_STATS]		= sizeof(struct xr_rb_stats),
 	[BT_VOIP_METRICS]	= sizeof(struct xr_rb_voip_metrics),
 };
+
+
+
+
+struct rtcp_handler *rtcp_transcode_handler = &transcode_handlers;
 
 
 
@@ -617,15 +644,12 @@ void rtcp_list_free(GQueue *q) {
 
 
 
-int rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const endpoint_t *src,
-		const struct timeval *tv)
-{
+int rtcp_parse(GQueue *q, struct media_packet *mp) {
 	struct rtcp_header *hdr;
 	struct rtcp_chain_element *el;
 	rtcp_handler_func func;
-	str s = *_s;
-	struct call *c = sfd->call;
-	struct call_media *m = sfd->stream->media;
+	str s = mp->raw;
+	struct call *c = mp->call;
 	struct rtcp_process_ctx log_ctx_s,
 				*log_ctx;
 	unsigned int len;
@@ -633,9 +657,7 @@ int rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const endpoint_t
 	int min_packet_size;
 
 	ZERO(log_ctx_s);
-	log_ctx_s.call = c;
-	log_ctx_s.media = m;
-	log_ctx_s.received = tv;
+	log_ctx_s.mp = mp;
 
 	log_ctx = &log_ctx_s;
 
@@ -687,25 +709,25 @@ next:
 			abort();
 	}
 
-	CAH(finish, c, src, &sfd->socket.local, tv);
+	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, &mp->tv);
 	CAH(destroy);
 
 	return 0;
 
 error:
-	CAH(finish, c, src, &sfd->socket.local, tv);
+	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, &mp->tv);
 	CAH(destroy);
 	rtcp_list_free(q);
 	return -1;
 }
 
-int rtcp_avpf2avp_filter(str *s, GQueue *rtcp_list) {
+int rtcp_avpf2avp_filter(struct media_packet *mp, GQueue *rtcp_list) {
 	GList *l;
 	struct rtcp_chain_element *el;
 	void *start;
 	unsigned int removed, left;
 
-	left = s->len;
+	left = mp->raw.len;
 	removed = 0;
 	for (l = rtcp_list->head; l; l = l->next) {
 		el = l->data;
@@ -724,8 +746,8 @@ int rtcp_avpf2avp_filter(str *s, GQueue *rtcp_list) {
 		}
 	}
 
-	s->len -= removed;
-	if (!s->len)
+	mp->raw.len -= removed;
+	if (!mp->raw.len)
 		return -1;
 
 	return 0;
@@ -884,10 +906,10 @@ static void str_sanitize(GString *s) {
 
 
 
-static void scratch_common(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
+static void scratch_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
 	ctx->scratch_common_ssrc = htonl(common->ssrc);
 }
-static void scratch_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
+static void scratch_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
 	ctx->scratch.rr = (struct ssrc_receiver_report) {
 		.from = ctx->scratch_common_ssrc,
 		.ssrc = htonl(rr->ssrc),
@@ -899,7 +921,7 @@ static void scratch_rr(struct rtcp_process_ctx *ctx, const struct report_block *
 	};
 	ctx->scratch.rr.packets_lost = (rr->number_lost[0] << 16) | (rr->number_lost[1] << 8) | rr->number_lost[2];
 }
-static void scratch_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
+static void scratch_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	ctx->scratch.sr = (struct ssrc_sender_report) {
 		.ssrc = ctx->scratch_common_ssrc,
 		.ntp_msw = ntohl(sr->ntp_msw),
@@ -958,7 +980,7 @@ static void homer_init(struct rtcp_process_ctx *ctx) {
 	ctx->json = g_string_new("{ ");
 	ctx->json_init_len = ctx->json->len;
 }
-static void homer_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
+static void homer_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	g_string_append_printf(ctx->json, "\"sender_information\":{\"ntp_timestamp_sec\":%u,"
 	"\"ntp_timestamp_usec\":%u,\"octets\":%u,\"rtp_timestamp\":%u, \"packets\":%u},",
 		ctx->scratch.sr.ntp_msw,
@@ -973,7 +995,7 @@ static void homer_rr_list_start(struct rtcp_process_ctx *ctx, const struct rtcp_
 		common->header.pt,
 		common->header.count);
 }
-static void homer_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
+static void homer_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
 	g_string_append_printf(ctx->json, "{\"source_ssrc\":%u,"
 	    "\"highest_seq_no\":%u,\"fraction_lost\":%u,\"ia_jitter\":%u,"
 	    "\"packets_lost\":%u,\"lsr\":%u,\"dlsr\":%u},",
@@ -1056,7 +1078,7 @@ static void logging_start(struct rtcp_process_ctx *ctx, struct call *c) {
 	g_string_append_printf(ctx->log, "["STR_FORMAT"] ", STR_FMT(&c->callid));
 	ctx->log_init_len = ctx->log->len;
 }
-static void logging_common(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
+static void logging_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
 	g_string_append_printf(ctx->log,"version=%u, padding=%u, count=%u, payloadtype=%u, length=%u, ssrc=%u, ",
 		common->header.version,
 		common->header.p,
@@ -1073,7 +1095,7 @@ static void logging_sdes_list_start(struct rtcp_process_ctx *ctx, const struct s
 		sdes->header.pt,
 		ntohs(sdes->header.length));
 }
-static void logging_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
+static void logging_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	g_string_append_printf(ctx->log,"ntp_sec=%u, ntp_fractions=%u, rtp_ts=%u, sender_packets=%u, " \
 			"sender_bytes=%u, ",
 		ctx->scratch.sr.ntp_msw,
@@ -1082,7 +1104,7 @@ static void logging_sr(struct rtcp_process_ctx *ctx, const struct sender_report_
 		ctx->scratch.sr.packet_count,
 		ctx->scratch.sr.octet_count);
 }
-static void logging_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
+static void logging_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
 	    g_string_append_printf(ctx->log,"ssrc=%u, fraction_lost=%u, packet_loss=%u, last_seq=%u, jitter=%u, last_sr=%u, delay_since_last_sr=%u, ",
 			ctx->scratch.rr.ssrc,
 			rr->fraction_lost,
@@ -1179,20 +1201,79 @@ static void logging_destroy(struct rtcp_process_ctx *ctx) {
 
 
 
-static void mos_sr(struct rtcp_process_ctx *ctx, const struct sender_report_packet *sr) {
-	ssrc_sender_report(ctx->media, &ctx->scratch.sr, ctx->received);
+static void mos_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
+	ssrc_sender_report(ctx->mp->media, &ctx->scratch.sr, &ctx->mp->tv);
 }
-static void mos_rr(struct rtcp_process_ctx *ctx, const struct report_block *rr) {
-	ssrc_receiver_report(ctx->media, &ctx->scratch.rr, ctx->received);
+static void mos_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
+	ssrc_receiver_report(ctx->mp->media, &ctx->scratch.rr, &ctx->mp->tv);
 }
 static void mos_xr_rr_time(struct rtcp_process_ctx *ctx, const struct xr_rb_rr_time *rr) {
-	ssrc_receiver_rr_time(ctx->media, &ctx->scratch.xr_rr, ctx->received);
+	ssrc_receiver_rr_time(ctx->mp->media, &ctx->scratch.xr_rr, &ctx->mp->tv);
 }
 static void mos_xr_dlrr(struct rtcp_process_ctx *ctx, const struct xr_rb_dlrr *dlrr) {
-	ssrc_receiver_dlrr(ctx->media, &ctx->scratch.xr_dlrr, ctx->received);
+	ssrc_receiver_dlrr(ctx->mp->media, &ctx->scratch.xr_dlrr, &ctx->mp->tv);
 }
 static void mos_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct xr_rb_voip_metrics *rb_voip_mtc) {
-	ssrc_voip_metrics(ctx->media, &ctx->scratch.xr_vm, ctx->received);
+	ssrc_voip_metrics(ctx->mp->media, &ctx->scratch.xr_vm, &ctx->mp->tv);
+}
+
+
+
+
+static void transcode_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
+	assert(ctx->scratch_common_ssrc == ctx->mp->ssrc_in->parent->h.ssrc);
+	common->ssrc = htonl(ctx->mp->ssrc_in->ssrc_map_out);
+}
+static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
+	assert(ctx->scratch.rr.from == ctx->mp->ssrc_in->parent->h.ssrc);
+
+	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->call->ssrc_hash,
+			SSRC_DIR_INPUT);
+	rr->ssrc = htonl(map_ctx->ssrc_map_out);
+
+//	ilog(LOG_DEBUG, "transcode_rr: from ssrc %x about %x "
+//			"ssrc_in %x ssrc_in-map %x ssrc_out %x ssrc_out-map %x "
+//			"map_ctx %x map_ctx-map %x",
+//			ctx->scratch.rr.from,
+//			ctx->scratch.rr.ssrc,
+//			ctx->mp->ssrc_in->parent->h.ssrc,
+//			ctx->mp->ssrc_in->ssrc_map_out,
+//			ctx->mp->ssrc_out->parent->h.ssrc,
+//			ctx->mp->ssrc_out->ssrc_map_out,
+//			map_ctx->parent->h.ssrc,
+//			map_ctx->ssrc_map_out);
+
+	// translate ctx->scratch.rr.from to ctx->mp->ssrc_in->ssrc_map_out - done by transcode_common
+}
+static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
+	assert(ctx->scratch.sr.ssrc == ctx->mp->ssrc_in->parent->h.ssrc);
+
+//	ilog(LOG_DEBUG, "transcode_sr: ssrc %x ssrc_in %x ssrc_in-map %x ssrc_out %x ssrc_out-map %x",
+//			ctx->scratch.sr.ssrc,
+//			ctx->mp->ssrc_in->parent->h.ssrc,
+//			ctx->mp->ssrc_in->ssrc_map_out,
+//			ctx->mp->ssrc_out->parent->h.ssrc,
+//			ctx->mp->ssrc_out->ssrc_map_out);
+//
+	// translate ctx->scratch.sr.ssrc to ctx->mp->ssrc_in->ssrc_map_out - done by transcode_common
+}
+
+
+
+static void transcode_common_wrap(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
+	if (!ctx->mp->media->rtcp_handler)
+		return;
+	ctx->mp->media->rtcp_handler->common(ctx, common);
+}
+static void transcode_rr_wrap(struct rtcp_process_ctx *ctx, struct report_block *rr) {
+	if (!ctx->mp->media->rtcp_handler)
+		return;
+	ctx->mp->media->rtcp_handler->rr(ctx, rr);
+}
+static void transcode_sr_wrap(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
+	if (!ctx->mp->media->rtcp_handler)
+		return;
+	ctx->mp->media->rtcp_handler->sr(ctx, sr);
 }
 
 

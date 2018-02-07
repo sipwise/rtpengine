@@ -102,7 +102,7 @@ restart:
 
 	while (G_UNLIKELY(ht->q.length > 20)) { // arbitrary limit
 		struct ssrc_entry *old_ent = g_queue_pop_head(&ht->q);
-		ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %u) - deleting SSRC %u",
+		ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %x) - deleting SSRC %x",
 				ssrc, old_ent->ssrc);
 		g_hash_table_remove(ht->ht, &old_ent->ssrc);
 		g_atomic_pointer_set(&ht->cache, NULL);
@@ -236,7 +236,7 @@ found:;
 	mutex_unlock(&e->h.lock);
 
 	rtt -= (long long) delay * 1000000LL / 65536LL;
-	ilog(LOG_DEBUG, "Calculated round-trip time for %u is %lli us", ssrc, rtt);
+	ilog(LOG_DEBUG, "Calculated round-trip time for %x is %lli us", ssrc, rtt);
 
 	if (rtt <= 0 || rtt > 10000000) {
 		ilog(LOG_DEBUG, "Invalid RTT - discarding");
@@ -260,7 +260,7 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 
 	seri->report = *sr;
 
-	ilog(LOG_DEBUG, "SR from %u: RTP TS %u PC %u OC %u NTP TS %u/%u=%f",
+	ilog(LOG_DEBUG, "SR from %x: RTP TS %u PC %u OC %u NTP TS %u/%u=%f",
 			sr->ssrc, sr->timestamp, sr->packet_count, sr->octet_count,
 			sr->ntp_msw, sr->ntp_lsw, seri->time_item.ntp_ts);
 
@@ -271,7 +271,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 {
 	struct call *c = m->call;
 
-	ilog(LOG_DEBUG, "RR from %u about %u: FL %u TL %u HSR %u J %u LSR %u DLSR %u",
+	ilog(LOG_DEBUG, "RR from %x about %x: FL %u TL %u HSR %u J %u LSR %u DLSR %u",
 			rr->from, rr->ssrc, rr->fraction_lost, rr->packets_lost,
 			rr->high_seq_received, rr->jitter, rr->lsr, rr->dlsr);
 
@@ -299,7 +299,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		goto out_nl;
 	}
 	unsigned int jitter = rpt->clock_rate ? (rr->jitter * 1000 / rpt->clock_rate) : rr->jitter;
-	ilog(LOG_DEBUG, "Calculated jitter for %u is %u ms", rr->ssrc, jitter);
+	ilog(LOG_DEBUG, "Calculated jitter for %x is %u ms", rr->ssrc, jitter);
 
 	ilog(LOG_DEBUG, "Adding opposide side RTT of %u us", other_e->last_rtt);
 
@@ -312,7 +312,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 	};
 
 	mos_calc(ssb);
-	ilog(LOG_DEBUG, "Calculated MOS from RR for %u is %.1f", rr->from, (double) ssb->mos / 10.0);
+	ilog(LOG_DEBUG, "Calculated MOS from RR for %x is %.1f", rr->from, (double) ssb->mos / 10.0);
 
 	// got a new stats block, add it to reporting ssrc
 	mutex_lock(&other_e->h.lock);
@@ -358,7 +358,7 @@ void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *r
 	if (!srti)
 		return;
 
-	ilog(LOG_DEBUG, "XR RR TIME from %u: NTP TS %u/%u=%f",
+	ilog(LOG_DEBUG, "XR RR TIME from %x: NTP TS %u/%u=%f",
 			rr->ssrc,
 			rr->ntp_msw, rr->ntp_lsw, srti->time_item.ntp_ts);
 
@@ -368,7 +368,7 @@ void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *r
 void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 		const struct timeval *tv)
 {
-	ilog(LOG_DEBUG, "XR DLRR from %u about %u: LRR %u DLRR %u",
+	ilog(LOG_DEBUG, "XR DLRR from %x about %x: LRR %u DLRR %u",
 			dlrr->from, dlrr->ssrc,
 			dlrr->lrr, dlrr->dlrr);
 
@@ -379,7 +379,7 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
 		const struct timeval *tv)
 {
-	ilog(LOG_DEBUG, "XR VM from %u about %u: LR %u DR %u BD %u GD %u BDu %u GDu %u RTD %u "
+	ilog(LOG_DEBUG, "XR VM from %x about %x: LR %u DR %u BD %u GD %u BDu %u GDu %u RTD %u "
 			"ESD %u SL %u NL %u RERL %u GMin %u R %u eR %u MOSL %u MOSC %u RX %u "
 			"JBn %u JBm %u JBam %u",
 			vm->from, vm->ssrc,
