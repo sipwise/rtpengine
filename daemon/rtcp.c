@@ -616,13 +616,13 @@ next:
 static void rtcp_ce_free(void *p) {
 	g_slice_free1(sizeof(struct rtcp_chain_element), p);
 }
-static void rtcp_list_free(GQueue *q) {
+void rtcp_list_free(GQueue *q) {
 	g_queue_clear_full(q, rtcp_ce_free);
 }
 
 
 
-static int __rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const endpoint_t *src,
+int rtcp_parse(GQueue *q, const str *_s, struct stream_fd *sfd, const endpoint_t *src,
 		const struct timeval *tv)
 {
 	struct rtcp_header *hdr;
@@ -704,26 +704,15 @@ error:
 	return -1;
 }
 
-void rtcp_parse(const str *s, struct stream_fd *sfd, const endpoint_t *src, const struct timeval *tv) {
-	GQueue rtcp_list = G_QUEUE_INIT;
-	if (__rtcp_parse(&rtcp_list, s, sfd, src, tv))
-		return;
-	rtcp_list_free(&rtcp_list);
-}
-
-int rtcp_avpf2avp(str *s, struct stream_fd *sfd, const endpoint_t *src, const struct timeval *tv) {
-	GQueue rtcp_list = G_QUEUE_INIT;
+int rtcp_avpf2avp_filter(str *s, GQueue *rtcp_list) {
 	GList *l;
 	struct rtcp_chain_element *el;
 	void *start;
 	unsigned int removed, left;
 
-	if (__rtcp_parse(&rtcp_list, s, sfd, src, tv))
-		return 0;
-
 	left = s->len;
 	removed = 0;
-	for (l = rtcp_list.head; l; l = l->next) {
+	for (l = rtcp_list->head; l; l = l->next) {
 		el = l->data;
 		left -= el->len;
 
@@ -739,8 +728,6 @@ int rtcp_avpf2avp(str *s, struct stream_fd *sfd, const endpoint_t *src, const st
 				break;
 		}
 	}
-
-	rtcp_list_free(&rtcp_list);
 
 	s->len -= removed;
 	if (!s->len)

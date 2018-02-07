@@ -15,6 +15,9 @@
 
 
 
+typedef int rtcp_filter_func(str *, GQueue *);
+
+
 
 
 struct logical_intf {
