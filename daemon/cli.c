@@ -54,6 +54,8 @@ static void cli_incoming_list_maxopenfiles(str *instr, struct streambuf *replybu
 static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_sessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_timeout(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_silenttimeout(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_finaltimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_loglevel(str *instr, struct streambuf *replybuffer);
 
 static const cli_handler_t cli_top_handlers[] = {
@@ -81,6 +83,8 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "maxopenfiles",	cli_incoming_list_maxopenfiles	},
 	{ "maxsessions",	cli_incoming_list_maxsessions	},
 	{ "timeout",		cli_incoming_list_timeout	},
+	{ "silenttimeout",	cli_incoming_list_silenttimeout	},
+	{ "finaltimeout",	cli_incoming_list_finaltimeout	},
 	{ "loglevel",		cli_incoming_list_loglevel	},
 	{ NULL, },
 };
@@ -303,7 +307,25 @@ static void cli_incoming_list_timeout(str *instr, struct streambuf *replybuffer)
 
 	/* don't lock anything while reading the value */
 	streambuf_printf(replybuffer, "TIMEOUT=%u\n", rtpe_config.timeout);
+
+	rwlock_unlock_r(&rtpe_config.config_lock);
+
+	return ;
+}
+static void cli_incoming_list_silenttimeout(str *instr, struct streambuf *replybuffer) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+
+	/* don't lock anything while reading the value */
 	streambuf_printf(replybuffer, "SILENT_TIMEOUT=%u\n", rtpe_config.silent_timeout);
+
+	rwlock_unlock_r(&rtpe_config.config_lock);
+
+	return ;
+}
+static void cli_incoming_list_finaltimeout(str *instr, struct streambuf *replybuffer) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+
+	/* don't lock anything while reading the value */
 	streambuf_printf(replybuffer, "FINAL_TIMEOUT=%u\n", rtpe_config.final_timeout);
 
 	rwlock_unlock_r(&rtpe_config.config_lock);
