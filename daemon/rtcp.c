@@ -281,7 +281,6 @@ struct rtcp_handlers {
 };
 
 // log handler function prototypes
-static void dummy_handler();
 
 // scratch area (prepare/parse packet)
 static void scratch_common(struct rtcp_process_ctx *, const struct rtcp_packet *);
@@ -378,21 +377,17 @@ static struct rtcp_handlers rtcp_handlers = {
 	// remainder is variable
 };
 
-// list of all handlers
-static struct rtcp_handler *all_handlers[] = {
-	&dummy_handlers,
-	&scratch_handlers,
-	&mos_handlers,
-	&log_handlers,
-	&homer_handlers,
-};
-
+// macro to call one handler
+#define CH(func, type, ...) do { \
+		if (rtcp_handlers.type->func) \
+			rtcp_handlers.type->func(log_ctx, ##__VA_ARGS__); \
+	} while (0)
 // macro to call all function handlers in one go
 #define CAH(func, ...) do { \
-		rtcp_handlers.scratch->func(log_ctx, ##__VA_ARGS__); \
-		rtcp_handlers.mos->func(log_ctx, ##__VA_ARGS__); \
-		rtcp_handlers.logging->func(log_ctx, ##__VA_ARGS__); \
-		rtcp_handlers.homer->func(log_ctx, ##__VA_ARGS__); \
+		CH(func, scratch, ##__VA_ARGS__); \
+		CH(func, mos, ##__VA_ARGS__); \
+		CH(func, logging, ##__VA_ARGS__); \
+		CH(func, homer, ##__VA_ARGS__); \
 	} while (0)
 
 
@@ -888,11 +883,6 @@ static void str_sanitize(GString *s) {
 }
 
 
-static void dummy_handler() {
-	return;
-}
-
-
 
 static void scratch_common(struct rtcp_process_ctx *ctx, const struct rtcp_packet *common) {
 	ctx->scratch_common_ssrc = htonl(common->ssrc);
@@ -1211,16 +1201,4 @@ static void mos_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct xr_rb
 void rtcp_init() {
 	rtcp_handlers.logging = _log_facility_rtcp ? &log_handlers : &dummy_handlers;
 	rtcp_handlers.homer = has_homer() ? &homer_handlers : &dummy_handlers;
-
-	// walk through list of handlers and fill missing entries to dummy handler
-	void *dummy = dummy_handler;
-	for (int i = 0; i < G_N_ELEMENTS(all_handlers); i++) {
-		struct rtcp_handler *lh = all_handlers[i];
-		for (int j = 0; j < (sizeof(*lh) / sizeof(void *)); j++) {
-			void **ptr = (void *) lh;
-			ptr += j;
-			if (*ptr == NULL)
-				*ptr = dummy;
-		}
-	}
 }
