@@ -44,9 +44,13 @@ struct ssrc_ctx {
 	// for transcoding
 	u_int32_t ssrc_map_out;
 
+	// RTCP stats
 	atomic64 packets,
 		 octets,
-		 packets_lost;
+		 packets_lost,
+		 duplicates,
+		 last_seq, // XXX dup with srtp_index?
+		 last_ts;
 };
 
 struct ssrc_stats_block {

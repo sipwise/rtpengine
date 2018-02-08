@@ -631,7 +631,7 @@ static int packet_tree_search(const void *testseq_p, const void *ts_p) {
 	return -1;
 }
 // caller must take care of locking
-void *packet_sequencer_next_packet(packet_sequencer_t *ps, unsigned int *lost) {
+void *packet_sequencer_next_packet(packet_sequencer_t *ps) {
 	// see if we have a packet with the correct seq nr in the queue
 	seq_packet_t *packet = g_tree_lookup(ps->packets, GINT_TO_POINTER(ps->seq));
 	if (G_LIKELY(packet != NULL)) {
@@ -679,12 +679,17 @@ void *packet_sequencer_next_packet(packet_sequencer_t *ps, unsigned int *lost) {
 	dbg("lost multiple packets - returning packet with next highest seq %i", packet->seq);
 
 out:
-	if (lost) {
-		u_int16_t l = packet->seq - ps->seq;
-		*lost = l;
-	}
+	;
+	u_int16_t l = packet->seq - ps->seq;
+	ps->lost_count += l;
+
 	g_tree_steal(ps->packets, GINT_TO_POINTER(packet->seq));
 	ps->seq = (packet->seq + 1) & 0xffff;
+
+	if (packet->seq < ps->ext_seq)
+		ps->roc++;
+	ps->ext_seq = ps->roc << 16 | packet->seq;
+
 	return packet;
 }
 
