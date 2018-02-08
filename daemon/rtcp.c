@@ -1222,7 +1222,10 @@ static void mos_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct xr_rb
 
 static void transcode_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
 	assert(ctx->scratch_common_ssrc == ctx->mp->ssrc_in->parent->h.ssrc);
+	// forward SSRC mapping
 	common->ssrc = htonl(ctx->mp->ssrc_in->ssrc_map_out);
+	ilog(LOG_DEBUG, "Substituting RTCP header SSRC from %x to %x",
+		ctx->scratch_common_ssrc, ctx->mp->ssrc_in->ssrc_map_out);
 }
 static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
 	assert(ctx->scratch.rr.from == ctx->mp->ssrc_in->parent->h.ssrc);
@@ -1231,32 +1234,47 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->call->ssrc_hash,
 			SSRC_DIR_OUTPUT);
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
+	// for reception stats
+	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out, ctx->mp->call->ssrc_hash,
+			SSRC_DIR_INPUT);
 
-//	ilog(LOG_DEBUG, "transcode_rr: from ssrc %x about %x "
-//			"ssrc_in %x ssrc_in-map %x ssrc_out %x ssrc_out-map %x "
-//			"map_ctx %x map_ctx-map %x",
-//			ctx->scratch.rr.from,
-//			ctx->scratch.rr.ssrc,
-//			ctx->mp->ssrc_in->parent->h.ssrc,
-//			ctx->mp->ssrc_in->ssrc_map_out,
-//			ctx->mp->ssrc_out->parent->h.ssrc,
-//			ctx->mp->ssrc_out->ssrc_map_out,
-//			map_ctx->parent->h.ssrc,
-//			map_ctx->ssrc_map_out);
+	// substitute our own values
+	
+	unsigned int packets = atomic64_get(&input_ctx->packets);
+	unsigned int lost = atomic64_get(&input_ctx->packets_lost);
+	unsigned int dupes = atomic64_get(&input_ctx->duplicates);
+	unsigned int tot_lost = lost - dupes; // can be negative/rollover
 
-	// translate ctx->scratch.rr.from to ctx->mp->ssrc_in->ssrc_map_out - done by transcode_common
+	ilog(LOG_DEBUG, "Substituting RTCP RR SSRC from %x to %x: %u packets, %u lost, %u duplicates",
+		ctx->scratch.rr.ssrc, map_ctx->ssrc_map_out,
+		packets, lost, dupes);
+
+	if (G_UNLIKELY(tot_lost > 0xffffff))
+		memset(rr->number_lost, 0xff, sizeof(rr->number_lost));
+	else {
+		rr->number_lost[0] = (tot_lost & 0xff0000) >> 16;
+		rr->number_lost[1] = (tot_lost & 0x00ff00) >>  8;
+		rr->number_lost[2] = (tot_lost & 0x0000ff) >>  0;
+	}
+
+	unsigned int exp_packets = packets + lost;
+
+	if (dupes > lost || exp_packets == 0) // negative
+		rr->fraction_lost = 0;
+	else
+		rr->fraction_lost = tot_lost * 256 / (packets + lost);
+
+	rr->high_seq_received = htonl(atomic64_get(&input_ctx->last_seq));
+	// XXX jitter, last SR
 }
 static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	assert(ctx->scratch.sr.ssrc == ctx->mp->ssrc_in->parent->h.ssrc);
 
-//	ilog(LOG_DEBUG, "transcode_sr: ssrc %x ssrc_in %x ssrc_in-map %x ssrc_out %x ssrc_out-map %x",
-//			ctx->scratch.sr.ssrc,
-//			ctx->mp->ssrc_in->parent->h.ssrc,
-//			ctx->mp->ssrc_in->ssrc_map_out,
-//			ctx->mp->ssrc_out->parent->h.ssrc,
-//			ctx->mp->ssrc_out->ssrc_map_out);
-//
-	// translate ctx->scratch.sr.ssrc to ctx->mp->ssrc_in->ssrc_map_out - done by transcode_common
+	// substitute our own values
+	sr->octet_count = htonl(atomic64_get(&ctx->mp->ssrc_out->octets));
+	sr->packet_count = htonl(atomic64_get(&ctx->mp->ssrc_out->packets));
+	sr->timestamp = htonl(atomic64_get(&ctx->mp->ssrc_out->last_ts));
+	// XXX NTP timestamp
 }
 
 
