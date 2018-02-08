@@ -28,6 +28,7 @@ flags = [
     '-DRTPENGINE_VERSION="dummy"',
     '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
     '-DWITH_IPTABLES_OPTION',
+    '-DWITH_TRANSCODING',
     '-O2',
     '-fstack-protector',
     '--param=ssp-buffer-size=4',
