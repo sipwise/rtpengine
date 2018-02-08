@@ -105,7 +105,7 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 static void ssrc_run(ssrc_t *ssrc) {
 	while (1) {
 		// see if we have a packet with the correct seq nr in the queue
-		packet_t *packet = packet_sequencer_next_packet(&ssrc->sequencer, NULL);
+		packet_t *packet = packet_sequencer_next_packet(&ssrc->sequencer);
 		if (G_UNLIKELY(packet == NULL))
 			break;
 
