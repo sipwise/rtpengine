@@ -499,11 +499,12 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 
 		ilog(LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
 		// reconstruct RTP header
+		unsigned int ts = enc->avpkt.pts + ch->ts_out;
 		ZERO(*rh);
 		rh->v_p_x_cc = 0x80;
 		rh->m_pt = ch->handler->dest_pt.payload_type;
 		rh->seq_num = htons(ch->seq_out++);
-		rh->timestamp = htonl(enc->avpkt.pts + ch->ts_out);
+		rh->timestamp = htonl(ts);
 		rh->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
 
 		// add to output queue
@@ -515,6 +516,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 
 		atomic64_inc(&mp->ssrc_out->packets);
 		atomic64_add(&mp->ssrc_out->octets, inout.len);
+		atomic64_set(&mp->ssrc_out->last_ts, ts);
 
 		if (ret == 0) {
 			// no more to go
@@ -573,18 +575,19 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 		mutex_unlock(&ch->lock);
 		__transcode_packet_free(packet);
 		ilog(LOG_DEBUG, "Ignoring duplicate RTP packet");
+		atomic64_inc(&mp->ssrc_in->duplicates);
 		return 0;
 	}
 
 	// got a new packet, run decoder
 
 	while (1) {
-		unsigned int lost;
-		packet = packet_sequencer_next_packet(&ch->sequencer, &lost);
+		packet = packet_sequencer_next_packet(&ch->sequencer);
 		if (G_UNLIKELY(!packet))
 			break;
 
-		atomic64_add(&mp->ssrc_in->packets_lost, lost);
+		atomic64_set(&mp->ssrc_in->packets_lost, ch->sequencer.lost_count);
+		atomic64_set(&mp->ssrc_in->last_seq, ch->sequencer.ext_seq);
 
 		ilog(LOG_DEBUG, "Decoding RTP packet: seq %u, TS %lu",
 				packet->p.seq, packet->ts);
