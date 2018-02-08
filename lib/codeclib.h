@@ -2,6 +2,14 @@
 #define __CODECLIB_H__
 
 
+struct codec_def_s;
+typedef struct codec_def_s codec_def_t;
+
+
+#ifndef WITHOUT_CODECLIB
+
+
+
 #include <libavresample/avresample.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/audio_fifo.h>
@@ -9,7 +17,6 @@
 
 
 
-struct codec_def_s;
 struct decoder_s;
 struct encoder_s;
 struct format_s;
@@ -18,7 +25,6 @@ struct seq_packet_s;
 struct packet_sequencer_s;
 struct rtp_payload_type;
 
-typedef struct codec_def_s codec_def_t;
 typedef struct decoder_s decoder_t;
 typedef struct encoder_s encoder_t;
 typedef struct format_s format_t;
@@ -166,4 +172,24 @@ INLINE void format_init(format_t *f) {
 }
 
 
+#else
+
+// stubs
+enum media_type {
+	MT_INVALID = -1,
+};
+struct codec_def_s {
+};
+
+INLINE void codeclib_init(void) { }
+
+INLINE enum media_type codec_get_type(const str *type) {
+	return -1;
+}
+INLINE const codec_def_t *codec_find(const str *name, enum media_type type) {
+	return NULL;
+}
+
+
+#endif
 #endif

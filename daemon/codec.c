@@ -11,6 +11,24 @@
 
 
 
+static codec_handler_func handler_func_passthrough;
+
+static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt);
+static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *pt);
+static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
+
+
+static struct codec_handler codec_handler_stub = {
+	.source_pt.payload_type = -1,
+	.func = handler_func_passthrough,
+};
+
+
+
+#ifdef WITH_TRANSCODING
+
+
+
 struct codec_ssrc_handler {
 	struct ssrc_entry h; // must be first
 	struct codec_handler *handler;
@@ -32,7 +50,6 @@ struct transcode_packet {
 };
 
 
-static codec_handler_func handler_func_passthrough;
 static codec_handler_func handler_func_passthrough_ssrc;
 static codec_handler_func handler_func_transcode;
 
@@ -41,15 +58,7 @@ static void __ssrc_handler_free(struct codec_ssrc_handler *p);
 
 static void __transcode_packet_free(struct transcode_packet *);
 
-static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt);
-static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *pt);
-static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
 
-
-static struct codec_handler codec_handler_stub = {
-	.source_pt.payload_type = -1,
-	.func = handler_func_passthrough,
-};
 static struct codec_handler codec_handler_stub_ssrc = {
 	.source_pt.payload_type = -1,
 	.func = handler_func_passthrough_ssrc,
@@ -365,6 +374,11 @@ next:
 	}
 }
 
+
+
+#endif
+
+
 // call must be locked in R
 struct codec_handler *codec_handler_get(struct call_media *m, int payload_type) {
 	struct codec_handler *h;
@@ -385,8 +399,10 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type) 
 	return h;
 
 out:
+#ifdef WITH_TRANSCODING
 	if (MEDIA_ISSET(m, TRANSCODE))
 		return &codec_handler_stub_ssrc;
+#endif
 	return &codec_handler_stub;
 }
 
@@ -409,6 +425,23 @@ static int handler_func_passthrough(struct codec_handler *h, struct call_media *
 	codec_add_raw_packet(mp);
 	return 0;
 }
+
+
+
+void codec_packet_free(void *pp) {
+	struct codec_packet *p = pp;
+	if (p->free_func)
+		p->free_func(p->s.s);
+	g_slice_free1(sizeof(*p), p);
+}
+
+
+
+
+
+#ifdef WITH_TRANSCODING
+
+
 static int handler_func_passthrough_ssrc(struct codec_handler *h, struct call_media *media,
 		struct media_packet *mp)
 {
@@ -641,12 +674,8 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 	return 0;
 }
 
-void codec_packet_free(void *pp) {
-	struct codec_packet *p = pp;
-	if (p->free_func)
-		p->free_func(p->s.s);
-	g_slice_free1(sizeof(*p), p);
-}
+
+
 
 
 
@@ -761,6 +790,7 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 
 
 
+#endif
 
 
 
@@ -881,6 +911,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		__revert_codec_strip(removed, codec, media, other_media);
 	}
 
+#ifdef WITH_TRANSCODING
 	// add transcode codecs
 	for (GList *l = transcode ? transcode->head : NULL; l; l = l->next) {
 		str *codec = l->data;
@@ -905,6 +936,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				STR_FMT(&pt->encoding_with_params), pt->payload_type);
 		__rtp_payload_type_add_recv(media, pt);
 	}
+#endif
 
 	g_hash_table_destroy(removed);
 }
