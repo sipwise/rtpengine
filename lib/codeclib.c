@@ -114,6 +114,7 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = AV_CODEC_ID_GSM,
 		.default_clockrate = 8000,
 		.default_channels = 1,
+		//.default_bitrate = 13200,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.type = MT_AUDIO,
@@ -121,7 +122,10 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "iLBC",
 		.avcodec_id = AV_CODEC_ID_ILBC,
+		.default_clockrate = 8000,
+		.default_channels = 1,
 		.default_ptime = 20,
+		//.default_bitrate = 15200,
 		.packetizer = packetizer_passthrough,
 		.type = MT_AUDIO,
 	},
