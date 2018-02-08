@@ -33,6 +33,7 @@ struct transcode_packet {
 
 
 static codec_handler_func handler_func_passthrough;
+static codec_handler_func handler_func_passthrough_ssrc;
 static codec_handler_func handler_func_transcode;
 
 static struct ssrc_entry *__ssrc_handler_new(void *p);
@@ -48,6 +49,10 @@ static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *p
 static struct codec_handler codec_handler_stub = {
 	.source_pt.payload_type = -1,
 	.func = handler_func_passthrough,
+};
+static struct codec_handler codec_handler_stub_ssrc = {
+	.source_pt.payload_type = -1,
+	.func = handler_func_passthrough_ssrc,
 };
 
 
@@ -71,6 +76,11 @@ static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 static void __make_passthrough(struct codec_handler *handler) {
 	__handler_shutdown(handler);
 	handler->func = handler_func_passthrough;
+}
+
+static void __make_passthrough_ssrc(struct codec_handler *handler) {
+	__handler_shutdown(handler);
+	handler->func = handler_func_passthrough_ssrc;
 }
 
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *source,
@@ -140,6 +150,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 
 	MEDIA_CLEAR(receiver, TRANSCODE);
 	receiver->rtcp_handler = NULL;
+	GSList *passthrough_handlers = NULL;
 
 	// we go through the list of codecs that the receiver supports and compare it
 	// with the list of codecs supported by the sink. if the receiver supports
@@ -250,6 +261,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 		if (!pt->codec_def || pt->codec_def->avcodec_id == -1) {
 			// not supported, or not a real audio codec
 			__make_passthrough(handler);
+			passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
 			goto next;
 		}
 
@@ -267,6 +279,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 			ilog(LOG_DEBUG, "No known/supported sink codec for " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params));
 			__make_passthrough(handler);
+			passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
 			goto next;
 		}
 
@@ -303,6 +316,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 			// XXX check format parameters as well
 			ilog(LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 			__make_passthrough(handler);
+			passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
 			goto next;
 		}
 
@@ -322,8 +336,6 @@ next:
 	// the list, as we must expect to potentially receive media in that codec, which we
 	// then could not transcode.
 	if (MEDIA_ISSET(receiver, TRANSCODE)) {
-		// XXX we also must switch all "passthrough" handlers to a special passthrough
-		// that substitutes out the SSRC
 		for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 			struct rtp_payload_type *pt = l->data;
 
@@ -338,7 +350,18 @@ next:
 			l = __delete_receiver_codec(receiver, l);
 		}
 
+		// we have to translate RTCP packets
 		receiver->rtcp_handler = rtcp_transcode_handler;
+
+		// at least some payload types will be transcoded, which will result in SSRC
+		// change. for payload types which we don't actually transcode, we still
+		// must substitute the SSRC
+		while (passthrough_handlers) {
+			struct codec_handler *handler = passthrough_handlers->data;
+			__make_passthrough_ssrc(handler);
+			passthrough_handlers = g_slist_delete_link(passthrough_handlers, passthrough_handlers);
+
+		}
 	}
 }
 
@@ -362,6 +385,8 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type) 
 	return h;
 
 out:
+	if (MEDIA_ISSET(m, TRANSCODE))
+		return &codec_handler_stub_ssrc;
 	return &codec_handler_stub;
 }
 
@@ -381,6 +406,20 @@ void codec_add_raw_packet(struct media_packet *mp) {
 static int handler_func_passthrough(struct codec_handler *h, struct call_media *media,
 		struct media_packet *mp)
 {
+	codec_add_raw_packet(mp);
+	return 0;
+}
+static int handler_func_passthrough_ssrc(struct codec_handler *h, struct call_media *media,
+		struct media_packet *mp)
+{
+	if (G_UNLIKELY(!mp->rtp))
+		return handler_func_passthrough(h, media, mp);
+
+	// substitute out SSRC
+	mp->rtp->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
+
+	// keep track of other stats here?
+
 	codec_add_raw_packet(mp);
 	return 0;
 }
@@ -545,7 +584,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 static int handler_func_transcode(struct codec_handler *h, struct call_media *media,
 		struct media_packet *mp)
 {
-	if (G_UNLIKELY(!mp->rtp || mp->rtcp))
+	if (G_UNLIKELY(!mp->rtp))
 		return handler_func_passthrough(h, media, mp);
 
 	assert((mp->rtp->m_pt & 0x7f) == h->source_pt.payload_type);

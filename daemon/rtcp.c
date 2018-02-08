@@ -1234,6 +1234,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->call->ssrc_hash,
 			SSRC_DIR_OUTPUT);
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
+
 	// for reception stats
 	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out, ctx->mp->call->ssrc_hash,
 			SSRC_DIR_INPUT);
@@ -1241,6 +1242,12 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	// substitute our own values
 	
 	unsigned int packets = atomic64_get(&input_ctx->packets);
+
+	// we might not be keeping track of stats for this SSRC (handler_func_passthrough_ssrc).
+	// just leave the values in place.
+	if (!packets)
+		return;
+
 	unsigned int lost = atomic64_get(&input_ctx->packets_lost);
 	unsigned int dupes = atomic64_get(&input_ctx->duplicates);
 	unsigned int tot_lost = lost - dupes; // can be negative/rollover
@@ -1270,9 +1277,16 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	assert(ctx->scratch.sr.ssrc == ctx->mp->ssrc_in->parent->h.ssrc);
 
+	unsigned int packets = atomic64_get(&ctx->mp->ssrc_out->packets);
+
+	// we might not be keeping track of stats for this SSRC (handler_func_passthrough_ssrc).
+	// just leave the values in place.
+	if (!packets)
+		return;
+
 	// substitute our own values
 	sr->octet_count = htonl(atomic64_get(&ctx->mp->ssrc_out->octets));
-	sr->packet_count = htonl(atomic64_get(&ctx->mp->ssrc_out->packets));
+	sr->packet_count = htonl(packets);
 	sr->timestamp = htonl(atomic64_get(&ctx->mp->ssrc_out->last_ts));
 	// XXX NTP timestamp
 }
