@@ -32,7 +32,6 @@ struct codec_packet {
 };
 
 
-void codec_handlers_update(struct call_media *receiver, struct call_media *sink);
 struct codec_handler *codec_handler_get(struct call_media *, int payload_type);
 void codec_handlers_free(struct call_media *);
 
@@ -43,6 +42,17 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		GQueue *types, GHashTable *strip,
 		const GQueue *offer, const GQueue *transcode);
 
+
+
+#ifdef WITH_TRANSCODING
+
+void codec_handlers_update(struct call_media *receiver, struct call_media *sink);
+
+#else
+
+INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink) { }
+
+#endif
 
 
 
