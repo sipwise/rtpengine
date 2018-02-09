@@ -135,7 +135,7 @@ static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *m
 	pt->codec_def = codec_find(&pt->encoding, media->type_id);
 	if (!pt->codec_def)
 		return;
-	if (!pt->codec_def->encoder || !pt->codec_def->decoder)
+	if (pt->codec_def->avcodec_id != -1 && (!pt->codec_def->encoder || !pt->codec_def->decoder))
 		pt->codec_def = NULL;
 }
 static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) {
@@ -345,6 +345,8 @@ next:
 	// the list, as we must expect to potentially receive media in that codec, which we
 	// then could not transcode.
 	if (MEDIA_ISSET(receiver, TRANSCODE)) {
+		ilog(LOG_INFO, "Enabling transcoding engine");
+
 		for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 			struct rtp_payload_type *pt = l->data;
 
@@ -720,6 +722,7 @@ static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_
 }
 
 
+// special return value `(void *) 0x1` to signal type mismatch
 static struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media) {
 	str codec_fmt = *codec_str;
 	str codec, parms, chans, opts;
@@ -736,9 +739,11 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec_str, st
 	if (clockrate && !channels)
 		channels = 1;
 
-	const codec_def_t *dec = codec_find(&codec, media->type_id);
+	const codec_def_t *dec = codec_find(&codec, 0);
 	if (!dec)
 		return NULL;
+	if (media->type_id && dec->type != media->type_id)
+		return (void *) 0x1;
 	// we must support both encoding and decoding
 	if (!dec->encoder)
 		return NULL;
@@ -769,6 +774,9 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 				STR_FMT(codec));
 		return NULL;
 	}
+	if (pt == (void *) 0x1)
+		return NULL;
+
 	// find an unused payload type number
 	if (pt->payload_type < 0)
 		pt->payload_type = 96; // default first dynamic payload type number
