@@ -941,8 +941,6 @@ void kernelize(struct packet_stream *stream) {
 		return;
 	if (call->recording != NULL && !selected_recording_method->kernel_support)
 		goto no_kernel;
-	if (MEDIA_ISSET(stream->media, TRANSCODE)) // XXX make this granular per payload type?
-		goto no_kernel;
 	if (!kernel.is_wanted)
 		goto no_kernel;
 	nk_warn_msg = "interface to kernel module not open";
@@ -993,7 +991,13 @@ void kernelize(struct packet_stream *stream) {
 
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);
-	reti.ssrc = stream->ssrc_in ? htonl(stream->ssrc_in->parent->h.ssrc) : 0;
+	if (stream->ssrc_in) {
+		reti.ssrc = htonl(stream->ssrc_in->parent->h.ssrc);
+		if (MEDIA_ISSET(stream->media, TRANSCODE)) {
+			reti.ssrc_out = htonl(stream->ssrc_in->ssrc_map_out);
+			reti.transcoding = 1;
+		}
+	}
 
 	stream->handler->in->kernel(&reti.decrypt, stream);
 	stream->handler->out->kernel(&reti.encrypt, sink);
@@ -1022,6 +1026,12 @@ void kernelize(struct packet_stream *stream) {
 				break;
 			}
 			rs = l->data;
+			if (MEDIA_ISSET(stream->media, TRANSCODE)) {
+				// only add payload types that are passthrough
+				struct codec_handler *ch = codec_handler_get(stream->media, rs->payload_type);
+				if (!ch->passthrough)
+					continue;
+			}
 			reti.payload_types[reti.num_payload_types++] = rs->payload_type;
 		}
 		g_list_free(values);

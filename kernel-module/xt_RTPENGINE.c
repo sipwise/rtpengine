@@ -1505,6 +1505,10 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "    option: rtcp-mux\n");
 	if (g->target.dtls)
 		seq_printf(f, "    option: dtls\n");
+	if (g->target.stun)
+		seq_printf(f, "    option: stun\n");
+	if (g->target.transcoding)
+		seq_printf(f, "    option: transcoding\n");
 
 	target_put(g);
 
@@ -3913,6 +3917,10 @@ src_check_ok:
 	if (unlikely((g->target.ssrc) && (g->target.ssrc != rtp.header->ssrc)))
 		goto skip_error;
 
+	// if transcoding, only forward packets of passthrough payload types
+	if (g->target.transcoding && rtp_pt_idx < 0)
+		goto skip1;
+
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
 	errstr = "SRTP authentication tag mismatch";
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
@@ -3966,6 +3974,10 @@ no_intercept:
 		srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
 		skb_put(skb, g->target.encrypt.mki_len + g->target.encrypt.auth_tag_len);
 		srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
+
+		// SSRC substitution
+		if (g->target.transcoding && g->target.ssrc_out)
+			rtp.header->ssrc = g->target.ssrc_out;
 	}
 
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos, par);
