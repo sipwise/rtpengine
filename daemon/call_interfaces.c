@@ -686,8 +686,6 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	}
 
 	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
-
-	/* XXX module still needs to support this list */
 	call_ng_flags_list(out, input, "SDES", ng_sdes_option, NULL);
 
 	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);
@@ -701,7 +699,6 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);
 
 	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
-		/* XXX module still needs to support these */
 		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_ht, out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
 #ifdef WITH_TRANSCODING

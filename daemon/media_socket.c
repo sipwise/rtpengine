@@ -1183,7 +1183,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 static int media_demux_protocols(struct packet_handler_ctx *phc) {
 	if (MEDIA_ISSET(phc->mp.media, DTLS) && is_dtls(&phc->s)) {
 		mutex_lock(&phc->mp.stream->in_lock);
-		int ret = dtls(phc->mp.stream, &phc->s, &phc->mp.fsin);
+		int ret = dtls(phc->mp.sfd, &phc->s, &phc->mp.fsin);
 		mutex_unlock(&phc->mp.stream->in_lock);
 		if (!ret)
 			return 0;

@@ -1055,6 +1055,7 @@ static int __check_valid(struct ice_agent *ag) {
 			if (ps->component == 1)
 				ilog(LOG_INFO, "ICE negotiated: local interface %s",
 						sockaddr_print_buf(&pair->local_intf->spec->local_address.addr));
+			break;
 		}
 	}
 
