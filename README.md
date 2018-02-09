@@ -882,6 +882,10 @@ be engaged for that call.
 
 With transcoding active for a call, all unsupported codecs will be removed from the SDP. Transcoding
 happens in userspace only, so in-kernel packet forwarding will not be available for transcoded codecs.
+However, even if the transcoding feature has been engaged for a call, not all codecs will necessarily
+end up being transcoded. Codecs that are supported by both sides will simply be passed through
+transparently (unless repacketization is active). In-kernel packet forwarding will still be available
+for these codecs.
 
 The following codecs are supported by *rtpengine*:
 
