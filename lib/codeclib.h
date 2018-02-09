@@ -57,7 +57,6 @@ struct codec_def_s {
 	int default_ptime;
 	packetizer_f * const packetizer;
 	const int bits_per_sample;
-	const int decode_only_ok;
 	const enum media_type type;
 
 	// codec-specific callbacks
@@ -125,7 +124,7 @@ struct packet_sequencer_s {
 
 
 
-void codeclib_init(void);
+void codeclib_init(int);
 
 
 const codec_def_t *codec_find(const str *name, enum media_type);
@@ -181,7 +180,10 @@ enum media_type {
 struct codec_def_s {
 };
 
-INLINE void codeclib_init(void) { }
+INLINE void codeclib_init(int print) {
+	if (print)
+		printf("No codecs supported.\n");
+}
 
 INLINE enum media_type codec_get_type(const str *type) {
 	return -1;

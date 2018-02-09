@@ -65,7 +65,7 @@ static void signals(void) {
 static void setup(void) {
 	log_init("rtpengine-recording");
 	if (output_enabled) {
-		codeclib_init();
+		codeclib_init(0);
 		output_init(output_format);
 		if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
 			ilog(LOG_INFO, "Creating output dir '%s'", output_dir);

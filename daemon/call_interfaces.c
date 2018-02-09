@@ -1042,9 +1042,11 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	BF_M("passthrough", PASSTHRU);
 	BF_M("ICE", ICE);
 	BF_M("trickle ICE", TRICKLE_ICE);
+	BF_M("ICE controlling", ICE_CONTROLLING);
 	BF_M("ICE-lite", ICE_LITE);
 	BF_M("unidirectional", UNIDIRECTIONAL);
 	BF_M("loop check", LOOP_CHECK);
+	BF_M("transcoding", TRANSCODE);
 
 stats:
 	for (l = m->streams.head; l; l = l->next) {
