@@ -919,8 +919,9 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 
 	if (MEDIA_ISSET(media, DTLS)) {
 		mutex_lock(&ps->in_lock);
-		if (ps->selected_sfd->dtls.init && !ps->selected_sfd->dtls.connected) {
-			dtls(ps, NULL, NULL);
+		struct stream_fd *sfd = dtls_sfd(ps);
+		if (sfd->dtls.init && !sfd->dtls.connected) {
+			dtls(sfd, NULL, NULL);
 			mutex_unlock(&ps->in_lock);
 			return CSS_DTLS;
 		}
@@ -942,34 +943,34 @@ static int __init_stream(struct packet_stream *ps) {
 	struct call *call = ps->call;
 	int active;
 
-	if (ps->selected_sfd) {
-		// XXX apply SDES parms to all sfds?
-		if (MEDIA_ISSET(media, SDES))
-			crypto_init(&ps->selected_sfd->crypto, &media->sdes_in.params);
-
-		if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
-			active = dtls_is_active(&ps->selected_sfd->dtls);
-			// we try to retain our role if possible, but must handle a role switch
-			if ((active && !MEDIA_ISSET(media, SETUP_ACTIVE))
-					|| (!active && !MEDIA_ISSET(media, SETUP_PASSIVE)))
-				active = -1;
-			if (active == -1)
-				active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
-			dtls_connection_init(ps, active, call->dtls_cert);
-
-			if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
-					&& ps->dtls_cert)
-			{
-				if (dtls_verify_cert(ps))
-					return -1;
-			}
-
-			call_stream_state_machine(ps);
+	if (MEDIA_ISSET(media, SDES)) {
+		for (GList *l = ps->sfds.head; l; l = l->next) {
+			struct stream_fd *sfd = l->data;
+			crypto_init(&sfd->crypto, &media->sdes_in.params);
 		}
+		crypto_init(&ps->crypto, &media->sdes_out.params);
 	}
 
-	if (MEDIA_ISSET(media, SDES))
-		crypto_init(&ps->crypto, &media->sdes_out.params);
+	if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
+		struct stream_fd *sfd = dtls_sfd(ps);
+		active = dtls_is_active(&sfd->dtls);
+		// we try to retain our role if possible, but must handle a role switch
+		if ((active && !MEDIA_ISSET(media, SETUP_ACTIVE))
+				|| (!active && !MEDIA_ISSET(media, SETUP_PASSIVE)))
+			active = -1;
+		if (active == -1)
+			active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
+		dtls_connection_init(ps, active, call->dtls_cert);
+
+		if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
+				&& ps->dtls_cert)
+		{
+			if (dtls_verify_cert(ps))
+				return -1;
+		}
+
+		call_stream_state_machine(ps);
+	}
 
 	return 0;
 }
