@@ -247,6 +247,7 @@ static void options(int *argc, char ***argv) {
 	char *homerp = NULL;
 	char *homerproto = NULL;
 	char *endptr;
+	int codecs = 0;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -295,11 +296,17 @@ static void options(int *argc, char ***argv) {
 #ifdef WITH_IPTABLES_OPTION
 		{ "iptables-chain",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.iptables_chain,"Add explicit firewall rules to this iptables chain","STRING" },
 #endif
+		{ "codecs",	0, 0,	G_OPTION_ARG_NONE,	&codecs,		"Print a list of supported codecs and exit",	NULL },
 		{ NULL, }
 	};
 
 	config_load(argc, argv, e, " - next-generation media proxy",
 			"/etc/rtpengine/rtpengine.conf", "rtpengine", &rtpe_config.common);
+
+	if (codecs) {
+		codeclib_init(1);
+		exit(0);
+	}
 
 	if (!if_a)
 		die("Missing option --interface");
@@ -496,7 +503,7 @@ static void init_everything() {
 	if (call_interfaces_init())
 		abort();
 	statistics_init();
-	codeclib_init();
+	codeclib_init(0);
 }
 
 

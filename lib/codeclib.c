@@ -86,7 +86,6 @@ static codec_def_t __codec_defs[] = {
 		.clockrate_mult = 1,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.decode_only_ok = 1,
 		.type = MT_AUDIO,
 	},
 	{
@@ -169,7 +168,6 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = AV_CODEC_ID_ATRAC3,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.decode_only_ok = 1,
 		.type = MT_AUDIO,
 	},
 	{
@@ -177,7 +175,6 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = AV_CODEC_ID_ATRAC3P,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.decode_only_ok = 1,
 		.type = MT_AUDIO,
 	},
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
@@ -187,7 +184,6 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_name = NULL,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.decode_only_ok = 1,
 		.type = MT_AUDIO,
 	},
 	{
@@ -197,7 +193,6 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.decode_only_ok = 1,
 		.type = MT_AUDIO,
 	},
 	{
@@ -207,7 +202,6 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.decode_only_ok = 1,
 		.type = MT_AUDIO,
 	},
 #endif
@@ -531,7 +525,7 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 		free(msg);
 	}
 }
-void codeclib_init() {
+void codeclib_init(int print) {
 	av_register_all();
 	avcodec_register_all();
 	avfilter_register_all();
@@ -577,16 +571,28 @@ void codeclib_init() {
 		}
 		// check if we have support if we are supposed to
 		if (def->avcodec_name || def->avcodec_id >= 0) {
-			if (!def->encoder && !def->decoder)
-				ilog(LOG_INFO, "Codec %s is not supported by codec library", def->rtpname);
-			else if (!def->encoder) {
-				if (!def->decode_only_ok)
-					ilog(LOG_INFO, "Codec %s is only supported for decoding by codec library",
-							def->rtpname);
+			if (print) {
+				if (def->encoder && def->decoder)
+					printf("%20s: fully supported\n", def->rtpname);
+				else if (def->decoder)
+					printf("%20s: supported for decoding only\n", def->rtpname);
+				else if (def->encoder)
+					printf("%20s: supported for encoding only\n", def->rtpname);
+				else
+					printf("%20s: not supported\n", def->rtpname);
 			}
-			else if (!def->decoder)
-				ilog(LOG_INFO, "Codec %s is only supported for encoding by codec library",
-						def->rtpname);
+			else {
+				if (!def->encoder && !def->decoder)
+					ilog(LOG_DEBUG, "Codec %s is not supported by codec library",
+							def->rtpname);
+				else if (!def->encoder) {
+					ilog(LOG_DEBUG, "Codec %s is only supported for decoding "
+							"by codec library", def->rtpname);
+				}
+				else if (!def->decoder)
+					ilog(LOG_DEBUG, "Codec %s is only supported for encoding "
+							"by codec library", def->rtpname);
+			}
 		}
 	}
 }
