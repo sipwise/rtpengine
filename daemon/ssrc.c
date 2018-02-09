@@ -8,7 +8,8 @@
 
 static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 	c->parent = parent;
-	c->ssrc_map_out = random();
+	while (!c->ssrc_map_out)
+		c->ssrc_map_out = random();
 }
 static void init_ssrc_entry(struct ssrc_entry *ent, u_int32_t ssrc) {
 	ent->ssrc = ssrc;
