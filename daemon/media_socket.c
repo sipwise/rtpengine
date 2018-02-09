@@ -1227,7 +1227,7 @@ static int stream_packet(struct stream_fd *sfd, str *s, const endpoint_t *fsin, 
 
 	if (MEDIA_ISSET(media, DTLS) && is_dtls(s)) {
 		mutex_lock(&stream->in_lock);
-		ret = dtls(stream, s, fsin);
+		ret = dtls(sfd, s, fsin);
 		mutex_unlock(&stream->in_lock);
 		if (!ret)
 			goto unlock_out;
