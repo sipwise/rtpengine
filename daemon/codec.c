@@ -21,6 +21,7 @@ static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *p
 static struct codec_handler codec_handler_stub = {
 	.source_pt.payload_type = -1,
 	.func = handler_func_passthrough,
+	.passthrough = 1,
 };
 
 
@@ -62,12 +63,14 @@ static void __transcode_packet_free(struct transcode_packet *);
 static struct codec_handler codec_handler_stub_ssrc = {
 	.source_pt.payload_type = -1,
 	.func = handler_func_passthrough_ssrc,
+	.passthrough = 1,
 };
 
 
 
 static void __handler_shutdown(struct codec_handler *handler) {
 	free_ssrc_hash(&handler->ssrc_hash);
+	handler->passthrough = 0;
 }
 
 static void __codec_handler_free(void *pp) {
@@ -85,11 +88,13 @@ static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 static void __make_passthrough(struct codec_handler *handler) {
 	__handler_shutdown(handler);
 	handler->func = handler_func_passthrough;
+	handler->passthrough = 1;
 }
 
 static void __make_passthrough_ssrc(struct codec_handler *handler) {
 	__handler_shutdown(handler);
 	handler->func = handler_func_passthrough_ssrc;
+	handler->passthrough = 1;
 }
 
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *source,
