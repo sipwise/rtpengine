@@ -80,6 +80,7 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 
 static int redis_check_conn(struct redis *r);
 static void json_restore_call(struct redis *r, const str *id, enum call_type type);
+static int redis_connect(struct redis *r, int wait);
 
 static void redis_pipe(struct redis *r, const char *fmt, ...) {
 	va_list ap;
@@ -172,19 +173,47 @@ static void redis_consume(struct redis *r) {
 	}
 }
 
+int redis_set_timeout(struct redis* r, int timeout) {
+	struct timeval tv_cmd;
+
+	if (!timeout)
+		return 0;
+	tv_cmd.tv_sec = (int) timeout / 1000;
+	tv_cmd.tv_usec = (int) (timeout % 1000) * 1000;
+	if (redisSetTimeout(r->ctx, tv_cmd))
+		return -1;
+	ilog(LOG_INFO, "Setting timeout for Redis commands to %d milliseconds",timeout);
+	return 0;
+}
+
+int redis_reconnect(struct redis* r) {
+	int rval;
+	mutex_lock(&r->lock);
+	rval = redis_connect(r,1);
+	if (rval)
+		r->state = REDIS_STATE_DISCONNECTED;
+	mutex_unlock(&r->lock);
+	return rval;
+}
 
 /* called with r->lock held if necessary */
 static int redis_connect(struct redis *r, int wait) {
 	struct timeval tv;
 	redisReply *rp;
 	char *s;
+	int cmd_timeout, connect_timeout;
 
 	if (r->ctx)
 		redisFree(r->ctx);
 	r->ctx = NULL;
 
-	tv.tv_sec = (int) r->connect_timeout / 1000;
-	tv.tv_usec = (int) (r->connect_timeout % 1000) * 1000;
+	rwlock_lock_r(&rtpe_config.config_lock);
+	connect_timeout = rtpe_config.redis_connect_timeout;
+	cmd_timeout = rtpe_config.redis_cmd_timeout;
+	rwlock_unlock_r(&rtpe_config.config_lock);
+
+	tv.tv_sec = (int) connect_timeout / 1000;
+	tv.tv_usec = (int) (connect_timeout % 1000) * 1000;
 	r->ctx = redisConnectWithTimeout(r->host, r->endpoint.port, tv);
 
 	if (!r->ctx)
@@ -192,14 +221,8 @@ static int redis_connect(struct redis *r, int wait) {
 	if (r->ctx->err)
 		goto err2;
 
-	if (r->cmd_timeout) {
-		struct timeval tv_cmd;
-		tv_cmd.tv_sec = (int) r->cmd_timeout / 1000;
-		tv_cmd.tv_usec = (int) (r->cmd_timeout % 1000) * 1000;
-		if (redisSetTimeout(r->ctx, tv_cmd))
-			goto err2;
-		ilog(LOG_INFO, "Setting timeout for Redis commands to %d milliseconds",r->cmd_timeout);
-	}
+	if (redis_set_timeout(r,cmd_timeout))
+		goto err2;
 
 	if (r->auth) {
 		if (redisCommandNR(r->ctx, "AUTH %s", r->auth))
@@ -608,8 +631,7 @@ void redis_notify_loop(void *d) {
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
-		enum redis_role role, int no_redis_required, int redis_allowed_errors,
-		int redis_disable_time, int redis_cmd_timeout,int redis_connect_timeout) {
+		enum redis_role role, int no_redis_required) {
 	struct redis *r;
 	r = g_slice_alloc0(sizeof(*r));
 
@@ -620,12 +642,8 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
 	r->role = role;
 	r->state = REDIS_STATE_DISCONNECTED;
 	r->no_redis_required = no_redis_required;
-	r->allowed_errors = redis_allowed_errors;
-	r->disable_time = redis_disable_time;
 	r->restore_tick = 0;
 	r->consecutive_errors = 0;
-	r->cmd_timeout = redis_cmd_timeout;
-	r->connect_timeout = redis_connect_timeout;
 	mutex_init(&r->lock);
 
 	if (redis_connect(r, 10)) {
@@ -659,17 +677,24 @@ static void redis_close(struct redis *r) {
 
 static void redis_count_err_and_disable(struct redis *r)
 {
+	int allowed_errors;
+	int disable_time;
 
-	if (r->allowed_errors < 0) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	allowed_errors = rtpe_config.redis_allowed_errors;
+	disable_time = rtpe_config.redis_disable_time;
+	rwlock_unlock_r(&rtpe_config.config_lock);
+
+	if (allowed_errors < 0) {
 		return;
 	}
 
 	r->consecutive_errors++;
-	if (r->consecutive_errors > r->allowed_errors) {
-		r->restore_tick = rtpe_now.tv_sec + r->disable_time;
+	if (r->consecutive_errors > allowed_errors) {
+		r->restore_tick = rtpe_now.tv_sec + disable_time;
 		ilog(LOG_WARNING, "Redis server %s disabled for %d seconds",
 				endpoint_print_buf(&r->endpoint),
-				r->disable_time);
+				disable_time);
 	}
 }
 
@@ -677,8 +702,8 @@ static void redis_count_err_and_disable(struct redis *r)
 static int redis_check_conn(struct redis *r) {
 
 	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > rtpe_now.tv_sec)) {
-		ilog(LOG_WARNING, "Redis server %s is disabled. Don't try RE-Establishing for %d seconds",
-				endpoint_print_buf(&r->endpoint),r->disable_time);
+		ilog(LOG_WARNING, "Redis server %s is disabled. Don't try RE-Establishing for %ld more seconds",
+				endpoint_print_buf(&r->endpoint),r->restore_tick - rtpe_now.tv_sec);
 		return REDIS_STATE_DISCONNECTED;
 	}
 
@@ -1669,9 +1694,7 @@ int redis_restore(struct redis *r) {
 	g_queue_init(&ctx.r_q);
 	for (i = 0; i < rtpe_config.redis_num_threads; i++)
 		g_queue_push_tail(&ctx.r_q,
-				redis_new(&r->endpoint, r->db, r->auth, r->role,
-						r->no_redis_required, r->allowed_errors,
-						r->disable_time, r->cmd_timeout, r->connect_timeout));
+				redis_new(&r->endpoint, r->db, r->auth, r->role, r->no_redis_required));
 	gtp = g_thread_pool_new(restore_thread, &ctx, rtpe_config.redis_num_threads, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {

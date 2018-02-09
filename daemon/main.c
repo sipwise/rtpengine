@@ -575,24 +575,15 @@ no_kernel:
 	if (!is_addr_unspecified(&rtpe_config.redis_write_ep.address)) {
 		rtpe_redis_write = redis_new(&rtpe_config.redis_write_ep,
 				rtpe_config.redis_write_db, rtpe_config.redis_write_auth,
-				ANY_REDIS_ROLE, rtpe_config.no_redis_required,
-				rtpe_config.redis_allowed_errors,
-				rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout,
-				rtpe_config.redis_connect_timeout);
+				ANY_REDIS_ROLE, rtpe_config.no_redis_required);
 		if (!rtpe_redis_write)
 			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_write_ep));
 	}
 
 		if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
-			rtpe_redis = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required,
-					rtpe_config.redis_allowed_errors,
-					rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout,
-					rtpe_config.redis_connect_timeout);
-			rtpe_redis_notify = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required,
-					rtpe_config.redis_allowed_errors,
-					rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout,
-					rtpe_config.redis_connect_timeout);
+			rtpe_redis = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
+			rtpe_redis_notify = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
 			if (!rtpe_redis || !rtpe_redis_notify)
 			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_ep));

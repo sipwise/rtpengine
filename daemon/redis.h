@@ -60,12 +60,8 @@ struct redis {
 
 	int		state;
 	int		no_redis_required;
-	int		allowed_errors;
 	int		consecutive_errors;
-	int		disable_time;
 	time_t	restore_tick;
-	int		cmd_timeout;
-	int		connect_timeout;
 };
 
 struct redis_hash {
@@ -106,7 +102,7 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 void redis_notify_loop(void *d);
 
 
-struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int, int, int, int, int);
+struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int);
 int redis_restore(struct redis *);
 void redis_update(struct call *, struct redis *);
 void redis_update_onekey(struct call *c, struct redis *r);
@@ -114,7 +110,8 @@ void redis_delete(struct call *, struct redis *);
 void redis_wipe(struct redis *);
 int redis_notify_event_base_action(enum event_base_action);
 int redis_notify_subscribe_action(enum subscribe_action action, int keyspace);
-
+int redis_set_timeout(struct redis* r, int timeout);
+int redis_reconnect(struct redis* r);
 
 
 

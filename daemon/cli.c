@@ -47,6 +47,10 @@ static void cli_incoming_set_timeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_silenttimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_finaltimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_loglevel(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_redisallowederrors(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_redisdisabletime(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_redisconnecttimeout(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_rediscmdtimeout(str *instr, struct streambuf *replybuffer);
 
 static void cli_incoming_list_numsessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_maxsessions(str *instr, struct streambuf *replybuffer);
@@ -57,6 +61,11 @@ static void cli_incoming_list_timeout(str *instr, struct streambuf *replybuffer)
 static void cli_incoming_list_silenttimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_finaltimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_loglevel(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_loglevel(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_redisallowederrors(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_redisdisabletime(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_redisconnecttimeout(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_rediscmdtimeout(str *instr, struct streambuf *replybuffer);
 
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
@@ -69,24 +78,32 @@ static const cli_handler_t cli_top_handlers[] = {
 	{ NULL, },
 };
 static const cli_handler_t cli_set_handlers[] = {
-	{ "maxopenfiles",	cli_incoming_set_maxopenfiles	},
-	{ "maxsessions",	cli_incoming_set_maxsessions	},
-	{ "timeout",		cli_incoming_set_timeout	},
-	{ "silenttimeout",	cli_incoming_set_silenttimeout	},
-	{ "finaltimeout",	cli_incoming_set_finaltimeout	},
-	{ "loglevel",		cli_incoming_set_loglevel	},
+	{ "maxopenfiles",		cli_incoming_set_maxopenfiles		},
+	{ "maxsessions",		cli_incoming_set_maxsessions		},
+	{ "timeout",			cli_incoming_set_timeout		},
+	{ "silenttimeout",		cli_incoming_set_silenttimeout		},
+	{ "finaltimeout",		cli_incoming_set_finaltimeout		},
+	{ "loglevel",			cli_incoming_set_loglevel		},
+	{ "redisallowederrors",		cli_incoming_set_redisallowederrors	},
+	{ "redisdisabletime",		cli_incoming_set_redisdisabletime	},
+	{ "redisconnecttimeout",	cli_incoming_set_redisconnecttimeout	},
+	{ "rediscmdtimeout",		cli_incoming_set_rediscmdtimeout	},
 	{ NULL, },
 };
 static const cli_handler_t cli_list_handlers[] = {
-	{ "numsessions",	cli_incoming_list_numsessions	},
-	{ "sessions",		cli_incoming_list_sessions	},
-	{ "totals",		cli_incoming_list_totals	},
-	{ "maxopenfiles",	cli_incoming_list_maxopenfiles	},
-	{ "maxsessions",	cli_incoming_list_maxsessions	},
-	{ "timeout",		cli_incoming_list_timeout	},
-	{ "silenttimeout",	cli_incoming_list_silenttimeout	},
-	{ "finaltimeout",	cli_incoming_list_finaltimeout	},
-	{ "loglevel",		cli_incoming_list_loglevel	},
+	{ "numsessions",		cli_incoming_list_numsessions		},
+	{ "sessions",			cli_incoming_list_sessions		},
+	{ "totals",			cli_incoming_list_totals		},
+	{ "maxopenfiles",		cli_incoming_list_maxopenfiles		},
+	{ "maxsessions",		cli_incoming_list_maxsessions		},
+	{ "timeout",			cli_incoming_list_timeout		},
+	{ "silenttimeout",		cli_incoming_list_silenttimeout		},
+	{ "finaltimeout",		cli_incoming_list_finaltimeout		},
+	{ "loglevel",			cli_incoming_list_loglevel		},
+	{ "redisallowederrors",		cli_incoming_list_redisallowederrors	},
+	{ "redisdisabletime",		cli_incoming_list_redisdisabletime	},
+	{ "redisconnecttimeout",	cli_incoming_list_redisconnecttimeout	},
+	{ "rediscmdtimeout",		cli_incoming_list_rediscmdtimeout	},
 	{ NULL, },
 };
 
@@ -864,4 +881,148 @@ static void cli_incoming_set_loglevel(str *instr, struct streambuf *replybuffer)
 
 	g_atomic_int_set(&rtpe_config.common.log_level, nl);
 	streambuf_printf(replybuffer,  "Success setting loglevel to %i\n", nl);
+}
+
+static void cli_incoming_list_redisallowederrors(str *instr, struct streambuf *replybuffer) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	streambuf_printf(replybuffer, "%d\n", rtpe_config.redis_allowed_errors);
+	rwlock_unlock_r(&rtpe_config.config_lock);
+}
+
+static void cli_incoming_set_redisallowederrors(str *instr, struct streambuf *replybuffer) {
+	long allowed_errors;
+	char *endptr;
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
+
+	allowed_errors = strtol(instr->s, &endptr, 10);
+
+	rwlock_lock_w(&rtpe_config.config_lock);
+	rtpe_config.redis_allowed_errors = allowed_errors;
+	rwlock_unlock_w(&rtpe_config.config_lock);
+
+	streambuf_printf(replybuffer,  "Success setting redis-allowed-errors to %ld\n", allowed_errors);
+}
+
+static void cli_incoming_list_redisdisabletime(str *instr, struct streambuf *replybuffer) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	streambuf_printf(replybuffer, "%d\n", rtpe_config.redis_disable_time);
+	rwlock_unlock_r(&rtpe_config.config_lock);
+}
+
+static void cli_incoming_set_redisdisabletime(str *instr, struct streambuf *replybuffer) {
+	long seconds;
+	char *endptr;
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
+
+	seconds = strtol(instr->s, &endptr, 10);
+	if (seconds < 0) {
+		streambuf_printf(replybuffer,  "Invalid redis-disable-time value %ld, must be >= 0\n", seconds);
+		return;
+	}
+
+	rwlock_lock_w(&rtpe_config.config_lock);
+	rtpe_config.redis_disable_time = seconds;
+	rwlock_unlock_w(&rtpe_config.config_lock);
+
+	streambuf_printf(replybuffer,  "Success setting redis-disable-time to %ld\n", seconds);
+}
+
+static void cli_incoming_list_redisconnecttimeout(str *instr, struct streambuf *replybuffer) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	streambuf_printf(replybuffer, "%d\n", rtpe_config.redis_connect_timeout);
+	rwlock_unlock_r(&rtpe_config.config_lock);
+}
+
+static void cli_incoming_set_redisconnecttimeout(str *instr, struct streambuf *replybuffer) {
+	long timeout;
+	char *endptr;
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return ;
+	}
+
+	timeout = strtol(instr->s, &endptr, 10);
+	if (timeout <= 0) {
+		streambuf_printf(replybuffer,  "Invalid redis-connect-timeout value %ld, must be > 0\n", timeout);
+		return;
+	}
+	rwlock_lock_w(&rtpe_config.config_lock);
+	rtpe_config.redis_connect_timeout = timeout;
+	rwlock_unlock_w(&rtpe_config.config_lock);
+	streambuf_printf(replybuffer,  "Success setting redis-connect-timeout to %ld\n", timeout);
+}
+
+static void cli_incoming_list_rediscmdtimeout(str *instr, struct streambuf *replybuffer) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	streambuf_printf(replybuffer, "%d\n", rtpe_config.redis_cmd_timeout);
+	rwlock_unlock_r(&rtpe_config.config_lock);
+}
+
+static void cli_incoming_set_rediscmdtimeout(str *instr, struct streambuf *replybuffer) {
+	long timeout;
+	char *endptr;
+	int fail = 0;
+
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
+
+	timeout = strtol(instr->s, &endptr, 10);
+	if (timeout < 0) {
+		streambuf_printf(replybuffer, "Invalid redis-cmd-timeout value %ld, must be >= 0\n", timeout);
+		return;
+	}
+
+	rwlock_lock_w(&rtpe_config.config_lock);
+	if (rtpe_config.redis_cmd_timeout == timeout) {
+		rwlock_unlock_w(&rtpe_config.config_lock);
+		streambuf_printf(replybuffer,  "Success setting redis-cmd-timeout to %ld\n", timeout);
+		return;
+	}
+	rtpe_config.redis_cmd_timeout = timeout;
+	rwlock_unlock_w(&rtpe_config.config_lock);
+
+
+	if (timeout == 0) {
+		streambuf_printf(replybuffer, "Warning: Setting redis-cmd-timeout to 0 (no timeout) will require a redis reconnect\n");
+		if (rtpe_redis && redis_reconnect(rtpe_redis)) {
+			streambuf_printf(replybuffer, "Failed reconnecting to redis\n");
+			fail = 1;
+		}
+		if (rtpe_redis && redis_reconnect(rtpe_redis_write)) {
+			streambuf_printf(replybuffer, "Failed reconnecting to redis-write\n");
+			fail = 1;
+		}
+		if (rtpe_redis && redis_reconnect(rtpe_redis_notify)) {
+			streambuf_printf(replybuffer, "Failed reconnecting to redis-notify\n");
+			fail = 1;
+		}
+	} else {
+		if (rtpe_redis && redis_set_timeout(rtpe_redis, timeout)) {
+			streambuf_printf(replybuffer, "Failed setting redis-cmd-timeout for redis %ld\n", timeout);
+			fail = 1;
+		}
+		if (rtpe_redis_write && redis_set_timeout(rtpe_redis_write, timeout)) {
+			streambuf_printf(replybuffer, "Failed setting redis-cmd-timeout for redis-write %ld\n", timeout);
+			fail = 1;
+		}
+		if (rtpe_redis_notify && redis_set_timeout(rtpe_redis_notify, timeout)) {
+			streambuf_printf(replybuffer, "Failed setting redis-cmd-timeout for redis-notify %ld\n", timeout);
+			fail = 1;
+		}
+	}
+
+	if (!fail)
+		streambuf_printf(replybuffer,  "Success setting redis-cmd-timeout to %ld\n", timeout);
 }

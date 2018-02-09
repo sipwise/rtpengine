@@ -56,10 +56,10 @@ struct rtpengine_config {
 	int			redis_db;
 	int			redis_write_db;
 	int			no_redis_required;
-	int 		redis_allowed_errors;
-	int 		redis_disable_time;
-	int 		redis_cmd_timeout;
-	int 		redis_connect_timeout;
+	int			redis_allowed_errors;
+	int			redis_disable_time;
+	int			redis_cmd_timeout;
+	int			redis_connect_timeout;
 	char			*redis_auth;
 	char			*redis_write_auth;
 	int			num_threads;

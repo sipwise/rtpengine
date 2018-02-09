@@ -445,23 +445,26 @@ The options are described in more detail below.
 	If this parameter is present and has a value >= 0, it will configure how many consecutive errors are allowed
 	when communicating with a redis server before the redis communication will be temporarily disabled for that
 	server. While the communcation is disabled there will be no attempts to reconnect to redis or send commands
-	to that server. Default value is -1, meaning that this feature is disabled.
+	to that server. Default value is -1, meaning that this feature is disabled. This parameter can also be set or
+	listed via rtpengine-ctl.
 
 *  --redis-disable-time
 	This parameter configures the number of seconds redis communication is disabled because of errors.
-	This works together with redis-allowed-errors parameter. The default value is 10.
+	This works together with redis-allowed-errors parameter. The default value is 10. This parameter can also be
+	set or listed via rtpengine-ctl.
 
 *  --redis-cmd-timeout
 	If this parameter is set to a non-zero value it will set the timeout, in milliseconds, for each command to the redis server.
 	If redis does not reply	within the specified timeout the command will fail. The default value is 0, meaning that the commands
-	will have no timeout
+	will be blocking without timeout. This parameter can also be set or listed via rtpengine-ctl; note that setting the parameter
+	to 0 will require a reconnect on all configured redis servers.
 
 *  --redis-connect-timeout
 	This parameter sets the timeout value, in milliseconds, when connecting to a redis server. If the connection cannot be made
 	within the specified timeout the connection will fail. Note that in case of failure, when reconnecting to redis, a PING command
 	is issued before attempting to connect so the `--redis-cmd-timeout` value will also be added to the total waiting time.
 	This is useful if using `--redis-allowed-errors`, when attempting to estimate the total lost time in case of redis failures.
-	The default value for the connection timeout is 1000ms.
+	The default value for the connection timeout is 1000ms. This parameter can also be set or listed via rtpengine-ctl.
 
 *  -b, --b2b-url
 
