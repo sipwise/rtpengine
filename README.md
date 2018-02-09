@@ -161,6 +161,7 @@ option and which are reproduced below:
 	  -t, --table=INT                  Kernel table to use
 	  -F, --no-fallback                Only start when kernel module is available
 	  -i, --interface=[NAME/]IP[!IP]   Local interface for RTP
+	  --primary-interface-group=NAME; NAME Interface group used as default
 	  -l, --listen-tcp=[IP:]PORT       TCP port to listen on
 	  -u, --listen-udp=[IP46:]PORT     UDP port to listen on
 	  -n, --listen-ng=[IP46:]PORT      UDP port to listen on, NG protocol
@@ -252,6 +253,15 @@ The options are described in more detail below.
 
 	Specifies a local network interface for RTP. At least one must be given, but multiple can be specified.
 	See the section *Interfaces configuration* just below for details.
+
+* --primary-interface-group
+
+	Specifies a list of interfaces that would be used if the `direction` option isn't given.
+	The interfaces are selected in round-robin fashion in the order they are declared by the
+	`--interfaces` option.
+
+	If this is parameter is not given then the legacy behavior applies and the first interace will
+	be used. See the section *Interface configuration* for more details.
 
 * -l, --listen-tcp, -u, --listen-udp, -n, --listen-ng
 
@@ -673,6 +683,20 @@ as additional ICE alternatives. For `pub:2`, only one IPv6 is used as ICE altern
 no alternatives would be used. When IPv6 is needed as a primary address, either `pub:1`, `pub:2`, or
 `pub:3` might be selected. If at any given time not enough ports are available on any interface,
 it will not be selected by the round-robin algorithm.
+
+The `--primary-interface-group` or equivalently the `primary-interface-group=` config file option can be
+used to define a group of logical interfaces to be used if the `direction` option isn't given in a
+particular call (instead of using just the first interface). This is useful to extend the total number
+of calls one rtpengine instance is possible to handle, as with more interfaces, more sockets are available.
+
+For this option only the name of the interfaces must be given. They must correspond with the names defined
+in the `--interface` option otherwise they will be ignored:
+
+	interface = pub1/IPV4; pub1/IPV6; pub2/IPV4; pub2/IPV6; pub3/IPV4; pub3/IPV6;
+	primary-interface-group = pub1; pub3
+
+The interfaces from this group will be selected in round-robin fashion in according to the desired address
+family for the call.
 
 If you're not using the NG protocol but rather the legacy UDP protocol used by the *rtpproxy* module,
 the interfaces must be named `internal` and `external` corresponding to the `i` and `e` flags if you

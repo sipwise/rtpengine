@@ -41,6 +41,8 @@ struct rtpengine_config {
 	int			graphite_interval;
 	int			redis_num_threads;
 	GQueue			interfaces;
+	GQueue			primary_group_intf;
+	int			has_primary_group;
 	endpoint_t		tcp_listen_ep;
 	endpoint_t		udp_listen_ep;
 	endpoint_t		ng_listen_ep;

@@ -56,6 +56,11 @@ struct intf_rr {
 	struct logical_intf *singular; // set iff only one is present in the list - no lock needed
 };
 
+struct intf_group {
+	mutex_t lock;
+	GQueue intf_name; //str*
+};
+
 
 static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
 
@@ -271,6 +276,7 @@ static GHashTable *__logical_intf_name_family_rr_hash; // name + family -> struc
 static GHashTable *__intf_spec_addr_type_hash; // addr + type -> struct intf_spec
 static GHashTable *__local_intf_addr_type_hash; // addr + type -> GList of struct local_intf
 static GQueue __preferred_lists_for_family[__SF_LAST];
+static struct intf_group __primary_group_lists_for_family[__SF_LAST];
 
 
 
@@ -374,6 +380,22 @@ done:
 	__C_DBG("Round Robin Calls algorithm found logical " STR_FORMAT, STR_FMT(&log->name));
 	return log;
 }
+/* select interface from user-defined group */
+static struct logical_intf *select_interface_from_group(sockfamily_t * fam, int num_ports) {
+	str * name;
+
+	mutex_lock(&__primary_group_lists_for_family[fam->idx].lock);
+
+	name = g_queue_pop_head(&__primary_group_lists_for_family[fam->idx].intf_name);
+	g_queue_push_tail(&__primary_group_lists_for_family[fam->idx].intf_name, name);
+
+	mutex_unlock(&__primary_group_lists_for_family[fam->idx].lock);
+
+	ilog(LOG_DEBUG, "Selecting interface %.*s (family %s) from primary group",
+			name->len, name->s, fam->name);
+
+	return __get_logical_interface(name, fam);
+}
 
 // 'fam' may only be NULL if 'name' is also NULL
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, int num_ports) {
@@ -382,6 +404,11 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, i
 	__C_DBG("Get logical interface for %d ports", num_ports);
 
 	if (G_UNLIKELY(!name || !name->s)) {
+
+		if (rtpe_config.has_primary_group) {
+			return select_interface_from_group(fam,num_ports);
+		}
+
 		// trivial case: no interface given. just pick one suitable for the address family.
 		// always used for legacy TCP and UDP protocols.
 		GQueue *q;
@@ -508,6 +535,14 @@ static void __add_intf_rr(struct logical_intf *lif, str *name_base, sockfamily_t
 	static str legacy_rr_str = STR_CONST_INIT("round-robin-calls");
 	__add_intf_rr_1(lif, &legacy_rr_str, fam);
 }
+
+static void __add_intf_to_primary_group(str *name, sockfamily_t *fam) {
+	if (g_queue_find_custom(&rtpe_config.primary_group_intf, name, intf_grp_name_compare)) {
+		g_queue_push_tail(&__primary_group_lists_for_family[fam->idx].intf_name,name);
+		ilog(LOG_DEBUG,"Adding interface %.*s (family %s) to primary group",
+				name->len,name->s,fam->name);
+	}
+}
 static GQueue *__interface_list_for_family(sockfamily_t *fam) {
 	return &__preferred_lists_for_family[fam->idx];
 }
@@ -522,6 +557,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 
 	if (!lif) {
 		lif = g_slice_alloc0(sizeof(*lif));
+		g_queue_init(&lif->list);
 		lif->name = ifa->name;
 		lif->preferred_family = fam;
 		lif->addr_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
@@ -531,6 +567,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 			q = __interface_list_for_family(fam);
 			g_queue_push_tail(q, lif);
 			__add_intf_rr(lif, &ifa->name_base, fam);
+			__add_intf_to_primary_group(&ifa->name,fam);
 		}
 	}
 
@@ -569,9 +606,13 @@ void interfaces_init(GQueue *interfaces) {
 	__intf_spec_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 	__local_intf_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 
-	for (i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
+	for (i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++) {
 		g_queue_init(&__preferred_lists_for_family[i]);
-
+	}
+	for (i = 0; i < G_N_ELEMENTS(__primary_group_lists_for_family); i++) {
+		g_queue_init(&__primary_group_lists_for_family[i].intf_name);
+		mutex_init(&__primary_group_lists_for_family[i].lock);
+	}
 	/* build primary lists first */
 	for (l = interfaces->head; l; l = l->next) {
 		ifa = l->data;
