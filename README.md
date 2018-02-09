@@ -43,6 +43,7 @@ the following additional features are available:
 - RTP/RTCP multiplexing (RFC 5761) and demultiplexing
 - Breaking of BUNDLE'd media streams (draft-ietf-mmusic-sdp-bundle-negotiation)
 - Recording of media streams, decrypted if possible
+- Transcoding and repacketization
 
 *Rtpengine* does not (yet) support:
 
@@ -58,7 +59,7 @@ On a Debian System
 On a Debian system, everything can be built and packaged into Debian packages
 by executing `dpkg-buildpackage` (which can be found in the `dpkg-dev` package) in the main directory.
 This script will issue an error and stop if any of the dependency packages are
-not installed.
+not installed. The script `dpkg-checkbuilddeps` can be used to check missing dependencies.
 
 Before that, run `./debian/flavors/no_ngcp` in order to remove any NGCP dependencies.
 
@@ -96,6 +97,10 @@ The generated files are (with version 2.3.0 being built on an amd64 system):
 	module for manual compilation. Required for in-kernel operation, but only if the DKMS package
 	can't be used.
 
+For transcoding purposes, Debian provides an additional package `libavcodec-extra` to replace
+the regular `libavcodec` package. It is recommended to install this extra package to offer support
+for additional codecs.
+
 Manual Compilation
 ------------------
 
@@ -115,6 +120,7 @@ There's 3 parts to *rtpengine*, which can be found in the respective subdirector
 	- *XMLRPC-C* version 1.16.08 or higher
 	- *hiredis* library
 	- *libiptc* library for iptables management (optional)
+	- *ffmpeg* codec libraries for transcoding (options) such as *libavcodec*, *libavfilter*, *libavresample*
 
 	The `Makefile` contains a few Debian-specific flags, which may have to removed for compilation to
 	be successful. This will not affect operation in any way.
@@ -122,6 +128,9 @@ There's 3 parts to *rtpengine*, which can be found in the respective subdirector
 	If you do not wish to (or cannot) compile the optional iptables management feature, the
 	`Makefile` also contains a switch to disable it. See the `--iptables-chain` option for
 	a description.
+
+	Similarly, the transcoding feature can be excluded via a switch in the `Makefile`, making it
+	unnecessary to have the *ffmpeg* libraries installed.
 
 * `iptables-extension`
 
@@ -207,6 +216,7 @@ option and which are reproduced below:
 	  --recording-method=pcap|proc     Strategy for call recording
 	  --recording-format=raw|eth       PCAP file format for recorded calls.
 	  --iptables-chain=STRING          Add explicit firewall rules to this iptables chain
+	  --codecs                         Print a list of supported codecs and exit
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -854,6 +864,52 @@ then the start-up sequence might look like this:
 
 With this setup, the SIP proxy can choose which instance of *rtpengine* to talk to and thus which local
 interface to use by sending its control messages to either port 2223 or port 2224.
+
+Transcoding
+===========
+
+Currently transcoding is supported for audio streams. The feature can be disabled on a compile-time
+basis, and is enabled by default.
+
+Even though the transcoding feature is available by default, it is not automatically engaged for
+normal calls. Normally *rtpengine* leaves codec negotation up to the clients involved in the call
+and does not interfere. In this case, if the clients fail to agree on a codec, the call will fail.
+
+The transcoding feature can be engaged for a call by instructing *rtpengine* to do so by using
+one of the transcoding options in the *ng* control protocol, such as `transcode` or `ptime` (see below).
+If a codec is requested via the `transcode` option that was not originally offered, transcoding will
+be engaged for that call.
+
+With transcoding active for a call, all unsupported codecs will be removed from the SDP. Transcoding
+happens in userspace only, so in-kernel packet forwarding will not be available for transcoded codecs.
+
+The following codecs are supported by *rtpengine*:
+
+* G.711 (a-Law and µ-Law)
+* G.722
+* G.723.1
+* Speex
+* GSM
+* iLBC
+* Opus
+* AMR (narrowband and wideband)
+
+Codec support is dependent on support provided by the `ffmpeg` codec libraries, which may vary from
+version to version. Use the `--codecs` command line option to have *rtpengine* print a list of codecs
+and their supported status. The list includes some codecs that are not listed above. Some of these
+are not actual VoIP codecs (such as MP3), while others lack support for encoding by *ffmpeg* at the
+time of writing (such as G.729, QCELP, or ATRAC). If encoding support for these codecs becomes available
+in *ffmpeg*, *rtpengine* will be able to support them.
+
+Audio format conversion including resampling and mono/stereo up/down-mixing happens automatically
+as required by the codecs involved. For example, one side could be using stereo Opus at 48 kHz
+sampling rate, and the other side could be using mono G.711 at 8 kHz, and *rtpengine* will perform
+the necessary conversions.
+
+If repacketization (using the `ptime` option) is requested, the transcoding feature will also be
+engaged for the call, even if no additional codecs were requested.
+
+Non-audio pseudo-codecs (such as T.38 or RFC 4733 `telephone-event`) are not currently supported.
 
 The *ng* Control Protocol
 =========================
