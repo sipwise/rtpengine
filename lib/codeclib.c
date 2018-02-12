@@ -34,6 +34,27 @@ static packetizer_f packetizer_samplestream; // flat stream of samples
 static format_init_f opus_init;
 static set_options_f opus_set_options;
 
+static void avc_def_init(codec_def_t *, int);
+static const char *avc_decoder_init(decoder_t *);
+static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static void avc_decoder_close(decoder_t *);
+static const char *avc_encoder_init(encoder_t *enc);
+static int avc_encoder_input(encoder_t *enc, AVFrame *frame);
+static void avc_encoder_close(encoder_t *enc);
+
+
+
+
+static const codec_type_t codec_type_avcodec = {
+	.def_init = avc_def_init,
+	.decoder_init = avc_decoder_init,
+	.decoder_input = avc_decoder_input,
+	.decoder_close = avc_decoder_close,
+	.encoder_init = avc_encoder_init,
+	.encoder_input = avc_encoder_input,
+	.encoder_close = avc_encoder_close,
+};
+
 
 
 static codec_def_t __codec_defs[] = {
@@ -46,7 +67,8 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "PCMU",
@@ -57,7 +79,8 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "G723",
@@ -68,7 +91,8 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 30,
 		.default_bitrate = 6300,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "G722",
@@ -79,7 +103,8 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 8,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "QCELP",
@@ -87,7 +112,8 @@ static codec_def_t __codec_defs[] = {
 		.clockrate_mult = 1,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "G729",
@@ -97,7 +123,8 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "speex",
@@ -107,7 +134,8 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 11000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "GSM",
@@ -117,7 +145,8 @@ static codec_def_t __codec_defs[] = {
 		//.default_bitrate = 13200,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "iLBC",
@@ -127,7 +156,8 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		//.default_bitrate = 15200,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "opus",
@@ -138,7 +168,8 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 32000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 		.init = opus_init,
 		.set_options = opus_set_options,
 	},
@@ -148,35 +179,40 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_name = "libvorbis",
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "ac3",
 		.avcodec_id = AV_CODEC_ID_AC3,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "eac3",
 		.avcodec_id = AV_CODEC_ID_EAC3,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "ATRAC3",
 		.avcodec_id = AV_CODEC_ID_ATRAC3,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "ATRAC-X",
 		.avcodec_id = AV_CODEC_ID_ATRAC3P,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
 	{
@@ -185,7 +221,8 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_name = NULL,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "EVRC0",
@@ -194,7 +231,8 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "EVRC1",
@@ -203,7 +241,8 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 #endif
 	{
@@ -215,7 +254,8 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 6600,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "AMR-WB",
@@ -226,7 +266,8 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 14250,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	// pseudo-codecs
 	{
@@ -234,7 +275,7 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = -1,
 		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
 	},
 	// for file writing
 	{
@@ -242,14 +283,16 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = AV_CODEC_ID_PCM_S16LE,
 		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 	{
 		.rtpname = "MP3",
 		.avcodec_id = AV_CODEC_ID_MP3,
 		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
-		.type = MT_AUDIO,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
 	},
 };
 
@@ -263,7 +306,7 @@ const codec_def_t *codec_find(const str *name, enum media_type type) {
 	codec_def_t *ret = g_hash_table_lookup(codecs_ht, name);
 	if (!ret)
 		return NULL;
-	if (type && type != ret->type)
+	if (type && type != ret->media_type)
 		return NULL;
 	return ret;
 }
@@ -282,16 +325,41 @@ enum media_type codec_get_type(const str *type) {
 
 
 
+
+static const char *avc_decoder_init(decoder_t *ret) {
+	AVCodec *codec = ret->def->decoder;
+	if (!codec)
+		return "codec not supported";
+
+	ret->u.avc.avcctx = avcodec_alloc_context3(codec);
+	if (!ret->u.avc.avcctx)
+		return "failed to alloc codec context";
+	ret->u.avc.avcctx->channels = ret->in_format.channels;
+	ret->u.avc.avcctx->sample_rate = ret->in_format.clockrate;
+	int i = avcodec_open2(ret->u.avc.avcctx, codec, NULL);
+	if (i)
+		return "failed to open codec context";
+
+	for (const enum AVSampleFormat *sfmt = codec->sample_fmts; sfmt && *sfmt != -1; sfmt++)
+		dbg("supported sample format for input codec %s: %s",
+				codec->name, av_get_sample_fmt_name(*sfmt));
+
+	return NULL;
+}
+
+
+
 decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt) {
 	const char *err = NULL;
 
-	if (def->avcodec_id == -1)
+	if (!def->codec_type)
 		return NULL;
 
 	clockrate *= def->clockrate_mult;
 
 	decoder_t *ret = g_slice_alloc0(sizeof(*ret));
 
+	ret->def = def;
 	format_init(&ret->in_format);
 	ret->in_format.channels = channels;
 	ret->in_format.clockrate = clockrate;
@@ -301,35 +369,11 @@ decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, 
 		ret->out_format = *resample_fmt;
 	// sample format to be determined later when decoded frames arrive
 
-	AVCodec *codec = def->decoder;
-//	AVCodec *codec = NULL;
-//	if (def->decoder)
-//		codec = def->decoder;
-//	if (!codec && def->avcodec_name)
-//		codec = avcodec_find_decoder_by_name(def->avcodec_name);
-//	if (!codec && def->avcodec_id >= 0)
-//		codec = avcodec_find_decoder(def->avcodec_id);
-	if (!codec) {
-		ilog(LOG_WARN, "Codec '%s' not supported", def->rtpname);
-		goto err;
-	}
-
-	ret->avcctx = avcodec_alloc_context3(codec);
-	err = "failed to alloc codec context";
-	if (!ret->avcctx)
-		goto err;
-	ret->avcctx->channels = channels;
-	ret->avcctx->sample_rate = clockrate;
-	err = "failed to open codec context";
-	int i = avcodec_open2(ret->avcctx, codec, NULL);
-	if (i)
+	err = def->codec_type->decoder_init(ret);
+	if (err)
 		goto err;
 
-	for (const enum AVSampleFormat *sfmt = codec->sample_fmts; sfmt && *sfmt != -1; sfmt++)
-		dbg("supported sample format for input codec %s: %s",
-				codec->name, av_get_sample_fmt_name(*sfmt));
-
-	av_init_packet(&ret->avpkt);
+	av_init_packet(&ret->u.avc.avpkt);
 
 	ret->pts = (uint64_t) -1LL;
 	ret->rtp_ts = (unsigned long) -1L;
@@ -340,8 +384,18 @@ decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, 
 err:
 	decoder_close(ret);
 	if (err)
-		ilog(LOG_ERR, "Error creating media decoder: %s", err);
+		ilog(LOG_ERR, "Error creating media decoder for codec %s: %s", def->rtpname, err);
 	return NULL;
+}
+
+
+static void avc_decoder_close(decoder_t *dec) {
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56, 1, 0)
+	avcodec_free_context(&dec->u.avc.avcctx);
+#else
+	avcodec_close(dec->u.avc.avcctx);
+	av_free(dec->u.avc.avcctx);
+#endif
 }
 
 
@@ -349,21 +403,118 @@ void decoder_close(decoder_t *dec) {
 	if (!dec)
 		return;
 	/// XXX drain inputs and outputs
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56, 1, 0)
-	avcodec_free_context(&dec->avcctx);
-#else
-	avcodec_close(dec->avcctx);
-	av_free(dec->avcctx);
-#endif
+
+	dec->def->codec_type->decoder_close(dec);
+
 	resample_shutdown(&dec->resampler);
 	resample_shutdown(&dec->mix_resampler);
 	g_slice_free1(sizeof(*dec), dec);
 }
 
+
+static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	const char *err;
+
+	dec->u.avc.avpkt.data = (unsigned char *) data->s;
+	dec->u.avc.avpkt.size = data->len;
+	dec->u.avc.avpkt.pts = dec->pts;
+
+	AVFrame *frame = NULL;
+
+	// loop until all input is consumed and all available output has been processed
+	int keep_going;
+	do {
+		keep_going = 0;
+		int got_frame = 0;
+		err = "failed to alloc av frame";
+		frame = av_frame_alloc();
+		if (!frame)
+			goto err;
+
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
+		if (dec->u.avc.avpkt.size) {
+			int ret = avcodec_send_packet(dec->u.avc.avcctx, &dec->u.avc.avpkt);
+			dbg("send packet ret %i", ret);
+			err = "failed to send packet to avcodec";
+			if (ret == 0) {
+				// consumed the packet
+				dec->u.avc.avpkt.size = 0;
+				keep_going = 1;
+			}
+			else {
+				if (ret == AVERROR(EAGAIN))
+					; // try again after reading output
+				else
+					goto err;
+			}
+		}
+
+		int ret = avcodec_receive_frame(dec->u.avc.avcctx, frame);
+		dbg("receive frame ret %i", ret);
+		err = "failed to receive frame from avcodec";
+		if (ret == 0) {
+			// got a frame
+			keep_going = 1;
+			got_frame = 1;
+		}
+		else {
+			if (ret == AVERROR(EAGAIN))
+				; // maybe needs more input now
+			else
+				goto err;
+		}
+#else
+		// only do this if we have any input left
+		if (dec->u.avc.avpkt.size == 0)
+			break;
+
+		int ret = avcodec_decode_audio4(dec->u.avc.avcctx, frame, &got_frame, &dec->u.avc.avpkt);
+		dbg("decode frame ret %i, got frame %i", ret, got_frame);
+		err = "failed to decode audio packet";
+		if (ret < 0)
+			goto err;
+		if (ret > 0) {
+			// consumed some input
+			err = "invalid return value";
+			if (ret > dec->u.avc.avpkt.size)
+				goto err;
+			dec->u.avc.avpkt.size -= ret;
+			dec->u.avc.avpkt.data += ret;
+			keep_going = 1;
+		}
+		if (got_frame)
+			keep_going = 1;
+#endif
+
+		if (got_frame) {
+			dbg("raw frame from decoder pts %llu samples %u",
+					(unsigned long long) frame->pts, frame->nb_samples);
+
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 36, 0)
+			frame->pts = frame->pkt_pts;
+#endif
+			if (G_UNLIKELY(frame->pts == AV_NOPTS_VALUE))
+				frame->pts = dec->u.avc.avpkt.pts;
+			dec->u.avc.avpkt.pts += frame->nb_samples;
+
+			g_queue_push_tail(out, frame);
+			frame = NULL;
+		}
+	} while (keep_going);
+
+	av_frame_free(&frame);
+	return 0;
+
+err:
+	ilog(LOG_ERR, "Error decoding media packet: %s", err);
+	av_frame_free(&frame);
+	return -1;
+}
+
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
 {
-	const char *err;
+	GQueue frames = G_QUEUE_INIT;
 
 	if (G_UNLIKELY(!dec))
 		return -1;
@@ -380,119 +531,36 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 	else {
 		// shift pts according to rtp ts shift
 		u_int64_t shift_ts = ts - dec->rtp_ts;
-		if ((shift_ts * dec->avcctx->time_base.num * 1000) / dec->avcctx->time_base.den
-				> PACKET_TS_RESET_THRES)
-		{
+		if ((shift_ts * 1000) / dec->in_format.clockrate > PACKET_TS_RESET_THRES) {
 			ilog(LOG_DEBUG, "Timestamp disconinuity detected, resetting timestamp from "
 					"%lu to %lu",
 					dec->rtp_ts, ts);
 			// XXX handle lost packets here if timestamps don't line up?
-			dec->pts += dec->avcctx->time_base.den;
+			dec->pts += dec->in_format.clockrate;
 		}
 		else
 			dec->pts += shift_ts;
 	}
 	dec->rtp_ts = ts;
 
-	dec->avpkt.data = (unsigned char *) data->s;
-	dec->avpkt.size = data->len;
-	dec->avpkt.pts = dec->pts;
+	dec->def->codec_type->decoder_input(dec, data, &frames);
 
-	AVFrame *frame = NULL;
-
-	// loop until all input is consumed and all available output has been processed
-	int keep_going;
-	do {
-		keep_going = 0;
-		int got_frame = 0;
-		err = "failed to alloc av frame";
-		frame = av_frame_alloc();
-		if (!frame)
-			goto err;
-
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
-		if (dec->avpkt.size) {
-			int ret = avcodec_send_packet(dec->avcctx, &dec->avpkt);
-			dbg("send packet ret %i", ret);
-			err = "failed to send packet to avcodec";
-			if (ret == 0) {
-				// consumed the packet
-				dec->avpkt.size = 0;
-				keep_going = 1;
-			}
-			else {
-				if (ret == AVERROR(EAGAIN))
-					; // try again after reading output
-				else
-					goto err;
-			}
-		}
-
-		int ret = avcodec_receive_frame(dec->avcctx, frame);
-		dbg("receive frame ret %i", ret);
-		err = "failed to receive frame from avcodec";
-		if (ret == 0) {
-			// got a frame
-			keep_going = 1;
-			got_frame = 1;
+	AVFrame *frame;
+	int ret = 0;
+	while ((frame = g_queue_pop_head(&frames))) {
+		AVFrame *rsmp_frame = resample_frame(&dec->resampler, frame, &dec->out_format);
+		if (!rsmp_frame) {
+			ilog(LOG_ERR, "Resampling failed");
+			ret = -1;
 		}
 		else {
-			if (ret == AVERROR(EAGAIN))
-				; // maybe needs more input now
-			else
-				goto err;
-		}
-#else
-		// only do this if we have any input left
-		if (dec->avpkt.size == 0)
-			break;
-
-		int ret = avcodec_decode_audio4(dec->avcctx, frame, &got_frame, &dec->avpkt);
-		dbg("decode frame ret %i, got frame %i", ret, got_frame);
-		err = "failed to decode audio packet";
-		if (ret < 0)
-			goto err;
-		if (ret > 0) {
-			// consumed some input
-			err = "invalid return value";
-			if (ret > dec->avpkt.size)
-				goto err;
-			dec->avpkt.size -= ret;
-			dec->avpkt.data += ret;
-			keep_going = 1;
-		}
-		if (got_frame)
-			keep_going = 1;
-#endif
-
-		if (got_frame) {
-			dbg("raw frame from decoder pts %llu samples %u", (unsigned long long) frame->pts, frame->nb_samples);
-
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 36, 0)
-			frame->pts = frame->pkt_pts;
-#endif
-			if (G_UNLIKELY(frame->pts == AV_NOPTS_VALUE))
-				frame->pts = dec->avpkt.pts;
-			dec->avpkt.pts += frame->nb_samples;
-
-			err = "resampling failed";
-			AVFrame *rsmp_frame = resample_frame(&dec->resampler, frame, &dec->out_format);
-			if (!rsmp_frame)
-				goto err;
-
 			if (callback(dec, rsmp_frame, u1, u2))
-				return -1;
-			av_frame_free(&frame);
+				ret = -1;
 		}
-	} while (keep_going);
+		av_frame_free(&frame);
+	}
 
-	av_frame_free(&frame);
-	return 0;
-
-err:
-	ilog(LOG_ERR, "Error decoding media packet: %s", err);
-	av_frame_free(&frame);
-	return -1;
+	return ret;
 }
 
 
@@ -526,6 +594,47 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 		free(msg);
 	}
 }
+
+
+static void avc_def_init(codec_def_t *def, int print) {
+	// look up AVCodec structs
+	if (def->avcodec_name) {
+		def->encoder = avcodec_find_encoder_by_name(def->avcodec_name);
+		def->decoder = avcodec_find_decoder_by_name(def->avcodec_name);
+	}
+	if (def->avcodec_id >= 0) {
+		if (!def->encoder)
+			def->encoder = avcodec_find_encoder(def->avcodec_id);
+		if (!def->decoder)
+			def->decoder = avcodec_find_decoder(def->avcodec_id);
+	}
+	// check if we have support if we are supposed to
+	if (def->avcodec_name || def->avcodec_id >= 0) {
+		if (print) {
+			if (def->encoder && def->decoder)
+				printf("%20s: fully supported\n", def->rtpname);
+			else if (def->decoder)
+				printf("%20s: supported for decoding only\n", def->rtpname);
+			else if (def->encoder)
+				printf("%20s: supported for encoding only\n", def->rtpname);
+			else
+				printf("%20s: not supported\n", def->rtpname);
+		}
+		else {
+			if (!def->encoder && !def->decoder)
+				ilog(LOG_DEBUG, "Codec %s is not supported by codec library",
+						def->rtpname);
+			else if (!def->encoder) {
+				ilog(LOG_DEBUG, "Codec %s is only supported for decoding "
+						"by codec library", def->rtpname);
+			}
+			else if (!def->decoder)
+				ilog(LOG_DEBUG, "Codec %s is only supported for encoding "
+						"by codec library", def->rtpname);
+		}
+	}
+}
+
 void codeclib_init(int print) {
 	av_register_all();
 	avcodec_register_all();
@@ -559,42 +668,8 @@ void codeclib_init(int print) {
 		else
 			def->rfc_payload_type = -1;
 
-		// look up AVCodec structs
-		if (def->avcodec_name) {
-			def->encoder = avcodec_find_encoder_by_name(def->avcodec_name);
-			def->decoder = avcodec_find_decoder_by_name(def->avcodec_name);
-		}
-		if (def->avcodec_id >= 0) {
-			if (!def->encoder)
-				def->encoder = avcodec_find_encoder(def->avcodec_id);
-			if (!def->decoder)
-				def->decoder = avcodec_find_decoder(def->avcodec_id);
-		}
-		// check if we have support if we are supposed to
-		if (def->avcodec_name || def->avcodec_id >= 0) {
-			if (print) {
-				if (def->encoder && def->decoder)
-					printf("%20s: fully supported\n", def->rtpname);
-				else if (def->decoder)
-					printf("%20s: supported for decoding only\n", def->rtpname);
-				else if (def->encoder)
-					printf("%20s: supported for encoding only\n", def->rtpname);
-				else
-					printf("%20s: not supported\n", def->rtpname);
-			}
-			else {
-				if (!def->encoder && !def->decoder)
-					ilog(LOG_DEBUG, "Codec %s is not supported by codec library",
-							def->rtpname);
-				else if (!def->encoder) {
-					ilog(LOG_DEBUG, "Codec %s is only supported for decoding "
-							"by codec library", def->rtpname);
-				}
-				else if (!def->decoder)
-					ilog(LOG_DEBUG, "Codec %s is only supported for encoding "
-							"by codec library", def->rtpname);
-			}
-		}
+		if (def->codec_type->def_init)
+			def->codec_type->def_init(def, print);
 	}
 }
 
@@ -748,6 +823,47 @@ encoder_t *encoder_new() {
 	return ret;
 }
 
+static const char *avc_encoder_init(encoder_t *enc) {
+	enc->u.avc.codec = enc->def->encoder;
+	if (!enc->u.avc.codec)
+		return "output codec not found";
+
+	enc->u.avc.avcctx = avcodec_alloc_context3(enc->u.avc.codec);
+	if (!enc->u.avc.avcctx)
+		return "failed to alloc codec context";
+
+	enc->actual_format = enc->requested_format;
+
+	enc->actual_format.format = -1;
+	for (const enum AVSampleFormat *sfmt = enc->u.avc.codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
+		dbg("supported sample format for output codec %s: %s", enc->u.avc.codec->name, av_get_sample_fmt_name(*sfmt));
+		if (*sfmt == enc->requested_format.format)
+			enc->actual_format.format = *sfmt;
+	}
+	if (enc->actual_format.format == -1 && enc->u.avc.codec->sample_fmts)
+		enc->actual_format.format = enc->u.avc.codec->sample_fmts[0];
+	dbg("using output sample format %s for codec %s", av_get_sample_fmt_name(enc->actual_format.format), enc->u.avc.codec->name);
+
+	enc->u.avc.avcctx->channels = enc->actual_format.channels;
+	enc->u.avc.avcctx->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
+	enc->u.avc.avcctx->sample_rate = enc->actual_format.clockrate;
+	enc->u.avc.avcctx->sample_fmt = enc->actual_format.format;
+	enc->u.avc.avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
+	enc->u.avc.avcctx->bit_rate = enc->bitrate;
+	enc->samples_per_frame = enc->actual_format.clockrate * enc->ptime / 1000;
+	if (enc->u.avc.avcctx->frame_size)
+		enc->samples_per_frame = enc->u.avc.avcctx->frame_size;
+
+	if (enc->def->set_options)
+		enc->def->set_options(enc);
+
+	int i = avcodec_open2(enc->u.avc.avcctx, enc->u.avc.codec, NULL);
+	if (i)
+		return "failed to open output context";
+
+	return NULL;
+}
+
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format)
 {
@@ -760,68 +876,28 @@ int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptim
 	encoder_close(enc);
 
 	enc->requested_format = *requested_format;
-
-	err = "output codec not found";
 	enc->def = def;
-	enc->codec = def->encoder;
-//	if (codec_name)
-//		enc->codec = avcodec_find_encoder_by_name(codec_name);
-//	if (!enc->codec)
-//		enc->codec = avcodec_find_encoder(codec_id);
-	if (!enc->codec)
-		goto err;
+	enc->ptime = ptime / def->clockrate_mult;
+	enc->bitrate = bitrate;
 
-	ptime /= def->clockrate_mult;
-	enc->ptime = ptime;
-
-	err = "failed to alloc codec context";
-	enc->avcctx = avcodec_alloc_context3(enc->codec);
-	if (!enc->avcctx)
-		goto err;
-
-	enc->actual_format = enc->requested_format;
-
-	enc->actual_format.format = -1;
-	for (const enum AVSampleFormat *sfmt = enc->codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
-		dbg("supported sample format for output codec %s: %s", enc->codec->name, av_get_sample_fmt_name(*sfmt));
-		if (*sfmt == requested_format->format)
-			enc->actual_format.format = *sfmt;
-	}
-	if (enc->actual_format.format == -1 && enc->codec->sample_fmts)
-		enc->actual_format.format = enc->codec->sample_fmts[0];
-	dbg("using output sample format %s for codec %s", av_get_sample_fmt_name(enc->actual_format.format), enc->codec->name);
-
-	enc->avcctx->channels = enc->actual_format.channels;
-	enc->avcctx->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
-	enc->avcctx->sample_rate = enc->actual_format.clockrate;
-	enc->avcctx->sample_fmt = enc->actual_format.format;
-	enc->avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
-	enc->avcctx->bit_rate = bitrate;
-	enc->samples_per_frame = enc->actual_format.clockrate * ptime / 1000;
-
-	if (def->set_options)
-		def->set_options(enc);
-
-	err = "failed to open output context";
-	int i = avcodec_open2(enc->avcctx, enc->codec, NULL);
-	if (i)
+	err = def->codec_type->encoder_init(enc);
+	if (err)
 		goto err;
 
 	av_init_packet(&enc->avpkt);
 
-
 // output frame and fifo
 	enc->frame = av_frame_alloc();
-	enc->frame->nb_samples = enc->avcctx->frame_size ? : (enc->samples_per_frame ? : 256);
-	enc->frame->format = enc->avcctx->sample_fmt;
-	enc->frame->sample_rate = enc->avcctx->sample_rate;
-	enc->frame->channel_layout = enc->avcctx->channel_layout;
-	if (!enc->frame->channel_layout)
-		enc->frame->channel_layout = av_get_default_channel_layout(enc->avcctx->channels);
+	enc->frame->nb_samples = enc->samples_per_frame ? : 256;
+	enc->frame->format = enc->actual_format.format;
+	enc->frame->sample_rate = enc->actual_format.clockrate;
+	enc->frame->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
+	//if (!enc->frame->channel_layout)
+		//enc->frame->channel_layout = av_get_default_channel_layout(enc->u.avc.avcctx->channels);
 	if (av_frame_get_buffer(enc->frame, 0) < 0)
 		abort();
 
-	enc->fifo = av_audio_fifo_alloc(enc->avcctx->sample_fmt, enc->avcctx->channels,
+	enc->fifo = av_audio_fifo_alloc(enc->frame->format, enc->actual_format.channels,
 			enc->frame->nb_samples);
 
 	ilog(LOG_DEBUG, "Initialized encoder with frame size %u samples", enc->frame->nb_samples);
@@ -837,15 +913,19 @@ err:
 	return -1;
 }
 
+static void avc_encoder_close(encoder_t *enc) {
+	if (enc->u.avc.avcctx) {
+		avcodec_close(enc->u.avc.avcctx);
+		avcodec_free_context(&enc->u.avc.avcctx);
+	}
+	enc->u.avc.avcctx = NULL;
+	enc->u.avc.codec = NULL;
+}
+
 void encoder_close(encoder_t *enc) {
 	if (!enc)
 		return;
-	if (enc->avcctx) {
-		avcodec_close(enc->avcctx);
-		avcodec_free_context(&enc->avcctx);
-	}
-	enc->avcctx = NULL;
-	enc->codec = NULL;
+	enc->def->codec_type->encoder_close(enc);
 	format_init(&enc->requested_format);
 	format_init(&enc->actual_format);
 	av_audio_fifo_free(enc->fifo);
@@ -859,78 +939,81 @@ void encoder_free(encoder_t *enc) {
 	g_slice_free1(sizeof(*enc), enc);
 }
 
-int encoder_input_data(encoder_t *enc, AVFrame *frame,
-		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
-{
-	if (G_UNLIKELY(!enc->avcctx))
-		return -1;
-	if (G_UNLIKELY(!enc->codec))
-		return -1;
+static int avc_encoder_input(encoder_t *enc, AVFrame *frame) {
+	int keep_going = 0;
 
-	int keep_going;
-	int have_frame = 1;
-	do {
-		keep_going = 0;
-		int got_packet = 0;
+	keep_going = 0;
+	int got_packet = 0;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
-		if (have_frame) {
-			int ret = avcodec_send_frame(enc->avcctx, frame);
-			dbg("send frame ret %i", ret);
-			if (ret == 0) {
-				// consumed
-				have_frame = 0;
-				keep_going = 1;
-			}
-			else {
-				if (ret == AVERROR(EAGAIN))
-					; // check output and maybe try again
-				else
-					return -1;
-			}
-		}
-
-		int ret = avcodec_receive_packet(enc->avcctx, &enc->avpkt);
-		dbg("receive packet ret %i", ret);
+	if (frame) {
+		int ret = avcodec_send_frame(enc->u.avc.avcctx, frame);
+		dbg("send frame ret %i", ret);
 		if (ret == 0) {
-			// got some data
+			// consumed
+			frame = NULL;
 			keep_going = 1;
-			got_packet = 1;
 		}
 		else {
 			if (ret == AVERROR(EAGAIN))
-				; // try again if there's still more input
+				; // check output and maybe try again
 			else
 				return -1;
 		}
-#else
-		if (!have_frame)
-			break;
+	}
 
-		int ret = avcodec_encode_audio2(enc->avcctx, &enc->avpkt, frame, &got_packet);
-		dbg("encode frame ret %i, got packet %i", ret, got_packet);
-		if (ret == 0)
-			have_frame = 0; // consumed
+	int ret = avcodec_receive_packet(enc->u.avc.avcctx, &enc->avpkt);
+	dbg("receive packet ret %i", ret);
+	if (ret == 0) {
+		// got some data
+		keep_going = 1;
+		got_packet = 1;
+	}
+	else {
+		if (ret == AVERROR(EAGAIN))
+			; // try again if there's still more input
 		else
-			return -1; // error
-		if (got_packet)
-			keep_going = 1;
+			return -1;
+	}
+#else
+	if (!frame)
+		return 0;
+
+	int ret = avcodec_encode_audio2(enc->u.avc.avcctx, &enc->avpkt, frame, &got_packet);
+	dbg("encode frame ret %i, got packet %i", ret, got_packet);
+	if (ret == 0)
+		frame = NULL; // consumed
+	else
+		return -1; // error
+	if (got_packet)
+		keep_going = 1;
 #endif
 
-		if (!got_packet)
-			continue;
+	if (!got_packet)
+		return keep_going;
 
-//		dbg("{%s} output avpkt size is %i", output->file_name, (int) enc->avpkt.size);
-//		dbg("{%s} output pkt pts/dts is %li/%li", output->file_name, (long) enc->avpkt.pts,
-//				(long) enc->avpkt.dts);
-//		dbg("{%s} output dts %li", output->file_name, (long) output->mux_dts);
+//	dbg("{%s} output avpkt size is %i", output->file_name, (int) enc->avpkt.size);
+//	dbg("{%s} output pkt pts/dts is %li/%li", output->file_name, (long) enc->avpkt.pts,
+//			(long) enc->avpkt.dts);
+//	dbg("{%s} output dts %li", output->file_name, (long) output->mux_dts);
 
-		// the encoder may return frames with the same dts multiple consecutive times.
-		// the muxer may not like this, so ensure monotonically increasing dts.
-		if (enc->mux_dts > enc->avpkt.dts)
-			enc->avpkt.dts = enc->mux_dts;
-		if (enc->avpkt.pts < enc->avpkt.dts)
-			enc->avpkt.pts = enc->avpkt.dts;
+	// the encoder may return frames with the same dts multiple consecutive times.
+	// the muxer may not like this, so ensure monotonically increasing dts.
+	if (enc->mux_dts > enc->avpkt.dts)
+		enc->avpkt.dts = enc->mux_dts;
+	if (enc->avpkt.pts < enc->avpkt.dts)
+		enc->avpkt.pts = enc->avpkt.dts;
+
+	return keep_going;
+}
+
+int encoder_input_data(encoder_t *enc, AVFrame *frame,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
+{
+	while (1) {
+		int ret = enc->def->codec_type->encoder_input(enc, frame);
+		if (ret < 0)
+			return -1;
 
 		//av_write_frame(output->fmtctx, &output->avpkt);
 		callback(enc, u1, u2);
@@ -939,7 +1022,10 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 		enc->mux_dts = enc->avpkt.dts + 1; // min next expected dts
 
 		av_packet_unref(&enc->avpkt);
-	} while (keep_going);
+
+		if (ret == 0)
+			break;
+	}
 
 	return 0;
 }
@@ -1063,7 +1149,7 @@ static void opus_init(struct rtp_payload_type *pt) {
 
 static void opus_set_options(encoder_t *enc) {
 	int ret;
-	if ((ret = av_opt_set_int(enc->avcctx, "frame_duration", enc->ptime, 0)))
+	if ((ret = av_opt_set_int(enc->u.avc.avcctx, "frame_duration", enc->ptime, 0)))
 		ilog(LOG_WARN, "Failed to set Opus frame_duration option (error code %i)", ret);
 	// XXX additional opus options
 }
