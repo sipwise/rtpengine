@@ -29,6 +29,7 @@ flags = [
     '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
     '-DWITH_IPTABLES_OPTION',
     '-DWITH_TRANSCODING',
+    '-DHAVE_BCG729',
     '-O2',
     '-fstack-protector',
     '--param=ssp-buffer-size=4',

@@ -13,6 +13,10 @@ typedef struct codec_def_s codec_def_t;
 #include <libavresample/avresample.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/audio_fifo.h>
+#ifdef HAVE_BCG729
+#include <bcg729/encoder.h>
+#include <bcg729/decoder.h>
+#endif
 #include "str.h"
 
 
@@ -112,6 +116,9 @@ struct decoder_s {
 			AVCodecContext *avcctx;
 			AVPacket avpkt;
 		} avc;
+#ifdef HAVE_BCG729
+		bcg729DecoderChannelContextStruct *bcg729;
+#endif
 	} u;
 
 	unsigned long rtp_ts;
@@ -131,6 +138,9 @@ struct encoder_s {
 			AVCodec *codec;
 			AVCodecContext *avcctx;
 		} avc;
+#ifdef HAVE_BCG729
+		bcg729EncoderChannelContextStruct *bcg729;
+#endif
 	} u;
 	AVPacket avpkt;
 	AVAudioFifo *fifo;

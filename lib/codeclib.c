@@ -4,6 +4,10 @@
 #include <libavfilter/avfilter.h>
 #include <libavutil/opt.h>
 #include <glib.h>
+#ifdef HAVE_BCG729
+#include <bcg729/encoder.h>
+#include <bcg729/decoder.h>
+#endif
 #include "str.h"
 #include "log.h"
 #include "loglib.h"
@@ -54,6 +58,26 @@ static const codec_type_t codec_type_avcodec = {
 	.encoder_input = avc_encoder_input,
 	.encoder_close = avc_encoder_close,
 };
+
+#ifdef HAVE_BCG729
+static void bcg729_def_init(codec_def_t *, int);
+static const char *bcg729_decoder_init(decoder_t *);
+static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static void bcg729_decoder_close(decoder_t *);
+static const char *bcg729_encoder_init(encoder_t *enc);
+static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame);
+static void bcg729_encoder_close(encoder_t *enc);
+
+static const codec_type_t codec_type_bcg729 = {
+	.def_init = bcg729_def_init,
+	.decoder_init = bcg729_decoder_init,
+	.decoder_input = bcg729_decoder_input,
+	.decoder_close = bcg729_decoder_close,
+	.encoder_init = bcg729_encoder_init,
+	.encoder_input = bcg729_encoder_input,
+	.encoder_close = bcg729_encoder_close,
+};
+#endif
 
 
 
@@ -115,6 +139,7 @@ static codec_def_t __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
 	},
+#ifndef HAVE_BCG729
 	{
 		.rtpname = "G729",
 		.avcodec_id = AV_CODEC_ID_G729,
@@ -126,6 +151,19 @@ static codec_def_t __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
 	},
+#else
+	{
+		.rtpname = "G729",
+		.avcodec_id = -1,
+		.clockrate_mult = 1,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_bcg729,
+	},
+#endif
 	{
 		.rtpname = "speex",
 		.avcodec_id = AV_CODEC_ID_SPEEX,
@@ -1168,3 +1206,95 @@ static void opus_set_options(encoder_t *enc) {
 			ilog(LOG_WARN, "Failed to set Opus frame_duration option (error code %i)", ret);
 	// XXX additional opus options
 }
+
+
+
+#ifdef HAVE_BCG729
+static void bcg729_def_init(codec_def_t *def, int print) {
+	if (!print)
+		return;
+
+	// test init
+	bcg729EncoderChannelContextStruct *e = initBcg729EncoderChannel(0);
+	bcg729DecoderChannelContextStruct *d = initBcg729DecoderChannel();
+	if (e && d)
+		printf("%20s: fully supported\n", def->rtpname);
+	else if (d)
+		printf("%20s: supported for decoding only\n", def->rtpname);
+	else if (e)
+		printf("%20s: supported for encoding only\n", def->rtpname);
+	else
+		printf("%20s: not supported\n", def->rtpname);
+
+	if (e)
+		closeBcg729EncoderChannel(e);
+	if (d)
+		closeBcg729DecoderChannel(d);
+}
+
+static const char *bcg729_decoder_init(decoder_t *dec) {
+	dec->u.bcg729 = initBcg729DecoderChannel();
+	if (!dec->u.bcg729)
+		return "failed to initialize bcg729";
+	return NULL;
+}
+
+static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	AVFrame *frame = av_frame_alloc();
+	frame->nb_samples = 80;
+	frame->format = AV_SAMPLE_FMT_S16;
+	frame->sample_rate = dec->in_format.clockrate; // 8000
+	frame->channel_layout = av_get_default_channel_layout(dec->in_format.channels); // 1 channel
+	if (av_frame_get_buffer(frame, 0) < 0)
+		abort();
+
+	// XXX handle lost packets and comfort noise
+	bcg729Decoder(dec->u.bcg729, (void *) data->s, data->len, 0, 0, 0, (void *) frame->extended_data[0]);
+
+	g_queue_push_tail(out, frame);
+
+	return 0;
+}
+
+static void bcg729_decoder_close(decoder_t *dec) {
+	if (dec->u.bcg729)
+		closeBcg729DecoderChannel(dec->u.bcg729);
+	dec->u.bcg729 = NULL;
+}
+
+static const char *bcg729_encoder_init(encoder_t *enc) {
+	enc->u.bcg729 = initBcg729EncoderChannel(0); // no VAD
+	if (!enc->u.bcg729)
+		return "failed to initialize bcg729";
+
+	enc->actual_format.format = AV_SAMPLE_FMT_S16;
+	enc->actual_format.channels = 1;
+	enc->actual_format.clockrate = 8000;
+
+	return NULL;
+}
+
+static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame) {
+	if (!*frame)
+		return 0;
+
+	void *data = av_malloc(10);
+	unsigned char len = 0;
+
+	bcg729Encoder(enc->u.bcg729, (void *) (*frame)->extended_data[0], data, &len);
+	if (!len) {
+		av_free(data);
+		return 0;
+	}
+
+	av_packet_from_data(&enc->avpkt, data, len);
+
+	return 0;
+}
+
+static void bcg729_encoder_close(encoder_t *enc) {
+	if (enc->u.bcg729)
+		closeBcg729EncoderChannel(enc->u.bcg729);
+	enc->u.bcg729 = NULL;
+}
+#endif
