@@ -3,6 +3,20 @@ TARGET=		rtpengine
 with_iptables_option ?= yes
 with_transcoding ?= yes
 
+# rfuchs dev
+ifneq (,$(wildcard $(HOME)/src/bcg729/include/bcg729/decoder.h))
+have_bcg729 := yes
+bcg729_inc := $(HOME)/src/bcg729/include/
+bcg729_lib := $(HOME)/src/bcg729/src/
+endif
+
+# included toplevel
+ifneq (,$(wildcard ../bcg729/include/bcg729/decoder.h))
+have_bcg729 := yes
+bcg729_inc := ../bcg729/include/
+bcg729_lib := ../bcg729/src/
+endif
+
 CFLAGS=		-g -Wall -pthread -fno-strict-aliasing
 CFLAGS+=	-std=c99
 CFLAGS+=	`pkg-config --cflags glib-2.0`
@@ -30,6 +44,9 @@ CFLAGS+=	`pkg-config --cflags libavfilter`
 CFLAGS+=	-DWITH_TRANSCODING
 else
 CFLAGS+=	-DWITHOUT_CODECLIB
+endif
+ifeq ($(have_bcg729),yes)
+CFLAGS+=	-DHAVE_BCG729 -I$(bcg729_inc)
 endif
 
 CFLAGS+=	-DRE_PLUGIN_DIR="\"/usr/lib/rtpengine\""
@@ -63,6 +80,9 @@ LDFLAGS+=	`pkg-config --libs libavformat`
 LDFLAGS+=	`pkg-config --libs libavutil`
 LDFLAGS+=	`pkg-config --libs libavresample`
 LDFLAGS+=	`pkg-config --libs libavfilter`
+endif
+ifeq ($(have_bcg729),yes)
+LDFLAGS+=	-L$(bcg729_lib) -lbcg729
 endif
 
 include ../lib/lib.Makefile
