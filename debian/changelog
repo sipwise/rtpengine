@@ -1,3 +1,13 @@
+ngcp-rtpengine (5.5.3.1+0~mr5.5.3.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f546088] purge old entries from SSRC hash table if it gets too full
+  * [cd4082b] TT#31752 fix segfault on empty a=rtcp
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 12 Feb 2018 12:44:00 +0100
+
 ngcp-rtpengine (5.5.3.0+0~mr5.5.3.0) unstable; urgency=medium
 
   [ Claudiu Boriga ]
