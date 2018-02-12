@@ -17,6 +17,7 @@ typedef struct codec_def_s codec_def_t;
 
 
 
+struct codec_type_s;
 struct decoder_s;
 struct encoder_s;
 struct format_s;
@@ -25,6 +26,7 @@ struct seq_packet_s;
 struct packet_sequencer_s;
 struct rtp_payload_type;
 
+typedef struct codec_type_s codec_type_t;
 typedef struct decoder_s decoder_t;
 typedef struct encoder_s encoder_t;
 typedef struct format_s format_t;
@@ -46,6 +48,18 @@ enum media_type {
 	MT_OTHER,
 };
 
+struct codec_type_s {
+	void (*def_init)(codec_def_t *, int print);
+
+	const char *(*decoder_init)(decoder_t *);
+	int (*decoder_input)(decoder_t *, const str *data, GQueue *);
+	void (*decoder_close)(decoder_t *);
+
+	const char *(*encoder_init)(encoder_t *);
+	int (*encoder_input)(encoder_t *, AVFrame **);
+	void (*encoder_close)(encoder_t *);
+};
+
 struct codec_def_s {
 	const char * const rtpname;
 	int clockrate_mult;
@@ -57,7 +71,7 @@ struct codec_def_s {
 	int default_ptime;
 	packetizer_f * const packetizer;
 	const int bits_per_sample;
-	const enum media_type type;
+	const enum media_type media_type;
 
 	// codec-specific callbacks
 	format_init_f *init;
@@ -66,6 +80,10 @@ struct codec_def_s {
 	// filled in by codeclib_init()
 	str rtpname_str;
 	int rfc_payload_type;
+
+	const codec_type_t *codec_type;
+
+	// libavcodec
 	AVCodec *encoder;
 	AVCodec *decoder;
 };
@@ -81,14 +99,21 @@ struct resample_s {
 };
 
 struct decoder_s {
+	const codec_def_t *def;
+
 	format_t in_format,
 		 out_format;
 
 	resample_t resampler,
 		   mix_resampler; // XXX move this out of here - specific to recording-daemon
 
-	AVCodecContext *avcctx;
-	AVPacket avpkt;
+	union {
+		struct {
+			AVCodecContext *avcctx;
+			AVPacket avpkt;
+		} avc;
+	} u;
+
 	unsigned long rtp_ts;
 	uint64_t pts;
 
@@ -100,12 +125,18 @@ struct encoder_s {
 		 actual_format;
 
 	const codec_def_t *def;
-	AVCodec *codec;
-	AVCodecContext *avcctx;
+
+	union {
+		struct {
+			AVCodec *codec;
+			AVCodecContext *avcctx;
+		} avc;
+	} u;
 	AVPacket avpkt;
 	AVAudioFifo *fifo;
 	int64_t fifo_pts; // pts of first data in fifo
 	int ptime;
+	int bitrate;
 	int samples_per_frame;
 	AVFrame *frame; // to pull samples from the fifo
 	int64_t mux_dts; // last dts passed to muxer
