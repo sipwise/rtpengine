@@ -112,9 +112,9 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	if (handler->func != handler_func_transcode)
 		goto reset;
 
-	ilog(LOG_DEBUG, "Leaving transcode context for " STR_FORMAT "/%u/%i -> " STR_FORMAT "/%u/%i intact",
-			STR_FMT(&source->encoding_with_params), source->clock_rate, source->channels,
-			STR_FMT(&dest->encoding_with_params), dest->clock_rate, dest->channels);
+	ilog(LOG_DEBUG, "Leaving transcode context for " STR_FORMAT "/%i -> " STR_FORMAT "/%i intact",
+			STR_FMT(&source->encoding_with_params), source->channels,
+			STR_FMT(&dest->encoding_with_params), dest->channels);
 
 	return;
 
@@ -128,9 +128,9 @@ reset:
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, (ssrc_free_func_t) __ssrc_handler_free,
 			handler);
 
-	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT "/%u/%i -> " STR_FORMAT "/%u/%i",
-			STR_FMT(&source->encoding_with_params), source->clock_rate, source->channels,
-			STR_FMT(&dest->encoding_with_params), dest->clock_rate, dest->channels);
+	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT "/%i -> " STR_FORMAT "/%i",
+			STR_FMT(&source->encoding_with_params), source->channels,
+			STR_FMT(&dest->encoding_with_params), dest->channels);
 }
 
 static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) {
