@@ -4,6 +4,10 @@
 #include <libavfilter/avfilter.h>
 #include <libavutil/opt.h>
 #include <glib.h>
+#ifdef HAVE_BCG729
+#include <bcg729/encoder.h>
+#include <bcg729/decoder.h>
+#endif
 #include "str.h"
 #include "log.h"
 #include "loglib.h"
@@ -34,7 +38,7 @@ static packetizer_f packetizer_samplestream; // flat stream of samples
 static format_init_f opus_init;
 static set_options_f opus_set_options;
 
-static void avc_def_init(codec_def_t *, int);
+static void avc_def_init(codec_def_t *);
 static const char *avc_decoder_init(decoder_t *);
 static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void avc_decoder_close(decoder_t *);
@@ -54,6 +58,26 @@ static const codec_type_t codec_type_avcodec = {
 	.encoder_input = avc_encoder_input,
 	.encoder_close = avc_encoder_close,
 };
+
+#ifdef HAVE_BCG729
+static void bcg729_def_init(codec_def_t *);
+static const char *bcg729_decoder_init(decoder_t *);
+static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static void bcg729_decoder_close(decoder_t *);
+static const char *bcg729_encoder_init(encoder_t *enc);
+static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame);
+static void bcg729_encoder_close(encoder_t *enc);
+
+static const codec_type_t codec_type_bcg729 = {
+	.def_init = bcg729_def_init,
+	.decoder_init = bcg729_decoder_init,
+	.decoder_input = bcg729_decoder_input,
+	.decoder_close = bcg729_decoder_close,
+	.encoder_init = bcg729_encoder_init,
+	.encoder_input = bcg729_encoder_input,
+	.encoder_close = bcg729_encoder_close,
+};
+#endif
 
 
 
@@ -115,17 +139,31 @@ static codec_def_t __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
 	},
+#ifndef HAVE_BCG729
 	{
 		.rtpname = "G729",
 		.avcodec_id = AV_CODEC_ID_G729,
 		.clockrate_mult = 1,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_ptime = 20,
+		.default_ptime = 10,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
 	},
+#else
+	{
+		.rtpname = "G729",
+		.avcodec_id = -1,
+		.clockrate_mult = 1,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_ptime = 10,
+		.packetizer = packetizer_passthrough,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_bcg729,
+	},
+#endif
 	{
 		.rtpname = "speex",
 		.avcodec_id = AV_CODEC_ID_SPEEX,
@@ -276,6 +314,7 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
+		.pseudocodec = 1,
 	},
 	// for file writing
 	{
@@ -600,7 +639,7 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 }
 
 
-static void avc_def_init(codec_def_t *def, int print) {
+static void avc_def_init(codec_def_t *def) {
 	// look up AVCodec structs
 	if (def->avcodec_name) {
 		def->encoder = avcodec_find_encoder_by_name(def->avcodec_name);
@@ -614,28 +653,10 @@ static void avc_def_init(codec_def_t *def, int print) {
 	}
 	// check if we have support if we are supposed to
 	if (def->avcodec_name || def->avcodec_id >= 0) {
-		if (print) {
-			if (def->encoder && def->decoder)
-				printf("%20s: fully supported\n", def->rtpname);
-			else if (def->decoder)
-				printf("%20s: supported for decoding only\n", def->rtpname);
-			else if (def->encoder)
-				printf("%20s: supported for encoding only\n", def->rtpname);
-			else
-				printf("%20s: not supported\n", def->rtpname);
-		}
-		else {
-			if (!def->encoder && !def->decoder)
-				ilog(LOG_DEBUG, "Codec %s is not supported by codec library",
-						def->rtpname);
-			else if (!def->encoder) {
-				ilog(LOG_DEBUG, "Codec %s is only supported for decoding "
-						"by codec library", def->rtpname);
-			}
-			else if (!def->decoder)
-				ilog(LOG_DEBUG, "Codec %s is only supported for encoding "
-						"by codec library", def->rtpname);
-		}
+		if (def->encoder)
+			def->support_encoding = 1;
+		if (def->decoder)
+			def->support_decoding = 1;
 	}
 }
 
@@ -673,7 +694,33 @@ void codeclib_init(int print) {
 			def->rfc_payload_type = -1;
 
 		if (def->codec_type && def->codec_type->def_init)
-			def->codec_type->def_init(def, print);
+			def->codec_type->def_init(def);
+
+		if (def->pseudocodec)
+			continue;
+
+		if (print) {
+			if (def->support_encoding && def->support_decoding)
+				printf("%20s: fully supported\n", def->rtpname);
+			else if (def->support_decoding)
+				printf("%20s: supported for decoding only\n", def->rtpname);
+			else if (def->support_encoding)
+				printf("%20s: supported for encoding only\n", def->rtpname);
+			else
+				printf("%20s: not supported\n", def->rtpname);
+		}
+		else {
+			if (!def->support_encoding && !def->support_decoding)
+				ilog(LOG_DEBUG, "Codec %s is not supported by codec library",
+						def->rtpname);
+			else if (!def->support_encoding) {
+				ilog(LOG_DEBUG, "Codec %s is only supported for decoding "
+						"by codec library", def->rtpname);
+			}
+			else if (!def->support_decoding)
+				ilog(LOG_DEBUG, "Codec %s is only supported for encoding "
+						"by codec library", def->rtpname);
+		}
 	}
 }
 
@@ -856,6 +903,7 @@ static const char *avc_encoder_init(encoder_t *enc) {
 	enc->u.avc.avcctx->sample_fmt = enc->actual_format.format;
 	enc->u.avc.avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
 	enc->u.avc.avcctx->bit_rate = enc->bitrate;
+
 	enc->samples_per_frame = enc->actual_format.clockrate * enc->ptime / 1000;
 	if (enc->u.avc.avcctx->frame_size)
 		enc->samples_per_frame = enc->u.avc.avcctx->frame_size;
@@ -1026,10 +1074,10 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 		if (ret < 0)
 			return -1;
 
-		//av_write_frame(output->fmtctx, &output->avpkt);
-		callback(enc, u1, u2);
-
 		if (enc->avpkt.size) {
+			//av_write_frame(output->fmtctx, &output->avpkt);
+			callback(enc, u1, u2);
+
 			//output->fifo_pts += output->frame->nb_samples;
 			enc->mux_dts = enc->avpkt.dts + 1; // min next expected dts
 
@@ -1168,3 +1216,94 @@ static void opus_set_options(encoder_t *enc) {
 			ilog(LOG_WARN, "Failed to set Opus frame_duration option (error code %i)", ret);
 	// XXX additional opus options
 }
+
+
+
+#ifdef HAVE_BCG729
+static void bcg729_def_init(codec_def_t *def) {
+	// test init
+	bcg729EncoderChannelContextStruct *e = initBcg729EncoderChannel(0);
+	bcg729DecoderChannelContextStruct *d = initBcg729DecoderChannel();
+	if (e) {
+		def->support_encoding = 1;
+		closeBcg729EncoderChannel(e);
+	}
+	if (d) {
+		def->support_decoding = 1;
+		closeBcg729DecoderChannel(d);
+	}
+}
+
+static const char *bcg729_decoder_init(decoder_t *dec) {
+	dec->u.bcg729 = initBcg729DecoderChannel();
+	if (!dec->u.bcg729)
+		return "failed to initialize bcg729";
+	return NULL;
+}
+
+static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	AVFrame *frame = av_frame_alloc();
+	frame->nb_samples = 80;
+	frame->format = AV_SAMPLE_FMT_S16;
+	frame->sample_rate = dec->in_format.clockrate; // 8000
+	frame->channel_layout = av_get_default_channel_layout(dec->in_format.channels); // 1 channel
+	if (av_frame_get_buffer(frame, 0) < 0)
+		abort();
+
+	// XXX handle lost packets and comfort noise
+	bcg729Decoder(dec->u.bcg729, (void *) data->s, data->len, 0, 0, 0, (void *) frame->extended_data[0]);
+
+	g_queue_push_tail(out, frame);
+
+	return 0;
+}
+
+static void bcg729_decoder_close(decoder_t *dec) {
+	if (dec->u.bcg729)
+		closeBcg729DecoderChannel(dec->u.bcg729);
+	dec->u.bcg729 = NULL;
+}
+
+static const char *bcg729_encoder_init(encoder_t *enc) {
+	enc->u.bcg729 = initBcg729EncoderChannel(0); // no VAD
+	if (!enc->u.bcg729)
+		return "failed to initialize bcg729";
+
+	enc->actual_format.format = AV_SAMPLE_FMT_S16;
+	enc->actual_format.channels = 1;
+	enc->actual_format.clockrate = 8000;
+	enc->samples_per_frame = 80;
+
+	return NULL;
+}
+
+static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame) {
+	if (!*frame)
+		return 0;
+
+	if ((*frame)->nb_samples != 80) {
+		ilog(LOG_ERR, "bcg729: input %u samples instead of 80", (*frame)->nb_samples);
+		return -1;
+	}
+
+	av_new_packet(&enc->avpkt, 10);
+	unsigned char len = 0;
+
+	bcg729Encoder(enc->u.bcg729, (void *) (*frame)->extended_data[0], enc->avpkt.data, &len);
+	if (!len) {
+		av_packet_unref(&enc->avpkt);
+		return 0;
+	}
+
+	enc->avpkt.size = len;
+	enc->avpkt.pts = (*frame)->pts;
+
+	return 0;
+}
+
+static void bcg729_encoder_close(encoder_t *enc) {
+	if (enc->u.bcg729)
+		closeBcg729EncoderChannel(enc->u.bcg729);
+	enc->u.bcg729 = NULL;
+}
+#endif

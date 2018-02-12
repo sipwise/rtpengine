@@ -140,7 +140,7 @@ static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *m
 	pt->codec_def = codec_find(&pt->encoding, media->type_id);
 	if (!pt->codec_def)
 		return;
-	if (pt->codec_def->avcodec_id != -1 && (!pt->codec_def->encoder || !pt->codec_def->decoder))
+	if (!pt->codec_def->pseudocodec && (!pt->codec_def->support_encoding || !pt->codec_def->support_decoding))
 		pt->codec_def = NULL;
 }
 static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) {
@@ -176,7 +176,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		__ensure_codec_def(pt, sink);
-		if (!pt->codec_def || pt->codec_def->avcodec_id == -1) // not supported, next
+		if (!pt->codec_def || pt->codec_def->pseudocodec) // not supported, next
 			continue;
 
 		// fix up ptime
@@ -219,7 +219,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 				continue;
 			}
 
-			if (pt->codec_def->avcodec_id != -1) {
+			if (!pt->codec_def->pseudocodec) {
 				ilog(LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
 						STR_FMT(&pt->encoding_with_params));
 				MEDIA_SET(receiver, TRANSCODE);
@@ -272,7 +272,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 		// check our own support for this codec
 		__ensure_codec_def(pt, receiver);
 
-		if (!pt->codec_def || pt->codec_def->avcodec_id == -1) {
+		if (!pt->codec_def || pt->codec_def->pseudocodec) {
 			// not supported, or not a real audio codec
 			__make_passthrough(handler);
 			passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
@@ -750,9 +750,9 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec_str, st
 	if (media->type_id && dec->media_type != media->type_id)
 		return (void *) 0x1;
 	// we must support both encoding and decoding
-	if (!dec->encoder)
+	if (!dec->support_decoding)
 		return NULL;
-	if (!dec->decoder)
+	if (!dec->support_encoding)
 		return NULL;
 
 	if (dec->rfc_payload_type >= 0) {
