@@ -5,6 +5,8 @@ include lib/lib.Makefile
 .PHONY:	all distclean clean coverity
 
 all:
+	cd bcg729 && cmake .
+	$(MAKE) -C bcg729
 	$(MAKE) -C daemon
 	$(MAKE) -C recording-daemon
 	$(MAKE) -C iptables-extension
@@ -14,6 +16,7 @@ with-kernel:
 	$(MAKE) -C kernel-module
 
 distclean clean:
+	$(MAKE) -C bcg729 clean
 	$(MAKE) -C daemon clean
 	$(MAKE) -C recording-daemon clean
 	$(MAKE) -C iptables-extension clean

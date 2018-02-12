@@ -747,7 +747,7 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec_str, st
 	const codec_def_t *dec = codec_find(&codec, 0);
 	if (!dec)
 		return NULL;
-	if (media->type_id && dec->type != media->type_id)
+	if (media->type_id && dec->media_type != media->type_id)
 		return (void *) 0x1;
 	// we must support both encoding and decoding
 	if (!dec->encoder)

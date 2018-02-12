@@ -82,7 +82,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 //	if (!codec)
 //		goto err;
 	err = "failed to alloc output stream";
-	output->avst = avformat_new_stream(output->fmtctx, output->encoder->codec);
+	output->avst = avformat_new_stream(output->fmtctx, output->encoder->u.avc.codec);
 	if (!output->avst)
 		goto err;
 //#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
@@ -114,10 +114,10 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 //	output->avcctx->sample_fmt = output->actual_format.format;
 //	output->avcctx->time_base = (AVRational){1,output->actual_format.clockrate};
 //	output->avcctx->bit_rate = mp3_bitrate;
-	output->avst->time_base = output->encoder->avcctx->time_base;
+	output->avst->time_base = output->encoder->u.avc.avcctx->time_base;
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0) // exact version? present in 57.56
-	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->avcctx);
+	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->u.avc.avcctx);
 #endif
 
 	char full_fn[PATH_MAX*2];
