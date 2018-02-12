@@ -501,7 +501,6 @@ static void init_everything() {
 static void create_everything(void) {
 	struct control_tcp *ct;
 	struct control_udp *cu;
-	struct control_ng *cn;
 	struct cli *cl;
 	struct timeval tmp_tv;
 	struct timeval redis_start, redis_stop;
@@ -556,11 +555,11 @@ no_kernel:
 			die("Failed to open UDP control connection port");
 	}
 
-	cn = NULL;
+	rtpe_control_ng = NULL;
 	if (rtpe_config.ng_listen_ep.port) {
 		interfaces_exclude_port(rtpe_config.ng_listen_ep.port);
-		cn = control_ng_new(rtpe_poller, &rtpe_config.ng_listen_ep, rtpe_config.control_tos);
-		if (!cn)
+		rtpe_control_ng = control_ng_new(rtpe_poller, &rtpe_config.ng_listen_ep, rtpe_config.control_tos);
+		if (!rtpe_control_ng)
 			die("Failed to open UDP control connection port");
 	}
 

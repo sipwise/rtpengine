@@ -51,6 +51,7 @@ static void cli_incoming_set_redisallowederrors(str *instr, struct streambuf *re
 static void cli_incoming_set_redisdisabletime(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_redisconnecttimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_rediscmdtimeout(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_controltos(str *instr, struct streambuf *replybuffer);
 
 static void cli_incoming_list_numsessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_maxsessions(str *instr, struct streambuf *replybuffer);
@@ -66,6 +67,7 @@ static void cli_incoming_list_redisallowederrors(str *instr, struct streambuf *r
 static void cli_incoming_list_redisdisabletime(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_redisconnecttimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_rediscmdtimeout(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer);
 
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
@@ -88,6 +90,7 @@ static const cli_handler_t cli_set_handlers[] = {
 	{ "redisdisabletime",		cli_incoming_set_redisdisabletime	},
 	{ "redisconnecttimeout",	cli_incoming_set_redisconnecttimeout	},
 	{ "rediscmdtimeout",		cli_incoming_set_rediscmdtimeout	},
+	{ "controltos",			cli_incoming_set_controltos		},
 	{ NULL, },
 };
 static const cli_handler_t cli_list_handlers[] = {
@@ -104,6 +107,7 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "redisdisabletime",		cli_incoming_list_redisdisabletime	},
 	{ "redisconnecttimeout",	cli_incoming_list_redisconnecttimeout	},
 	{ "rediscmdtimeout",		cli_incoming_list_rediscmdtimeout	},
+	{ "controltos",			cli_incoming_list_controltos		},
 	{ NULL, },
 };
 
@@ -1025,4 +1029,39 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct streambuf *reply
 
 	if (!fail)
 		streambuf_printf(replybuffer,  "Success setting redis-cmd-timeout to %ld\n", timeout);
+}
+
+static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	streambuf_printf(replybuffer, "%d\n", rtpe_config.control_tos);
+	rwlock_unlock_r(&rtpe_config.config_lock);
+}
+
+static void cli_incoming_set_controltos(str *instr, struct streambuf *replybuffer) {
+	long tos;
+	char *endptr;
+	int i;
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return ;
+	}
+
+	tos = strtol(instr->s, &endptr, 10);
+	if (tos < 0 || tos > 255) {
+		streambuf_printf(replybuffer,  "Invalid control-tos value %ld, must be between 0 and 255\n", tos);
+		return;
+	}
+
+	rwlock_lock_w(&rtpe_config.config_lock);
+	rtpe_config.control_tos = tos;
+	rwlock_unlock_w(&rtpe_config.config_lock);
+
+	for (i=0; i < G_N_ELEMENTS(rtpe_control_ng->udp_listeners); i++) {
+		if (rtpe_control_ng->udp_listeners[i].fd != -1) {
+			set_tos(&rtpe_control_ng->udp_listeners[i],tos);
+		}
+	}
+
+	streambuf_printf(replybuffer,  "Success setting redis-connect-timeout to %ld\n", tos);
 }

@@ -296,7 +296,8 @@ The options are described in more detail below.
 * --control-tos
 
     Takes an integer as argument and if given, specifies the TOS value that should be set in the control-ng
-    interface packets. The default is to leave the TOS field untouched.
+    interface packets. The default is to leave the TOS field untouched. This parameter can also be set or listed
+    via rtpengine-ctl.
 
 * -o, --timeout
 

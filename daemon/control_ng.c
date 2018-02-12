@@ -18,7 +18,7 @@
 
 mutex_t rtpe_cngs_lock;
 GHashTable *rtpe_cngs_hash;
-
+struct control_ng *rtpe_control_ng;
 
 
 static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
@@ -323,6 +323,8 @@ struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned cha
 	c = obj_alloc0("control_ng", sizeof(*c), NULL);
 
 	cookie_cache_init(&c->cookie_cache);
+	c->udp_listeners[0].fd = -1;
+	c->udp_listeners[1].fd = -1;
 
 	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_ng_incoming, &c->obj))
 		goto fail2;
