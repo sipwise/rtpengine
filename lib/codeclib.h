@@ -13,6 +13,10 @@ typedef struct codec_def_s codec_def_t;
 #include <libavresample/avresample.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/audio_fifo.h>
+#ifdef HAVE_BCG729
+#include <bcg729/encoder.h>
+#include <bcg729/decoder.h>
+#endif
 #include "str.h"
 
 
@@ -49,7 +53,7 @@ enum media_type {
 };
 
 struct codec_type_s {
-	void (*def_init)(codec_def_t *, int print);
+	void (*def_init)(codec_def_t *);
 
 	const char *(*decoder_init)(decoder_t *);
 	int (*decoder_input)(decoder_t *, const str *data, GQueue *);
@@ -80,6 +84,9 @@ struct codec_def_s {
 	// filled in by codeclib_init()
 	str rtpname_str;
 	int rfc_payload_type;
+	int support_encoding,
+	    support_decoding,
+	    pseudocodec;
 
 	const codec_type_t *codec_type;
 
@@ -112,6 +119,9 @@ struct decoder_s {
 			AVCodecContext *avcctx;
 			AVPacket avpkt;
 		} avc;
+#ifdef HAVE_BCG729
+		bcg729DecoderChannelContextStruct *bcg729;
+#endif
 	} u;
 
 	unsigned long rtp_ts;
@@ -131,6 +141,9 @@ struct encoder_s {
 			AVCodec *codec;
 			AVCodecContext *avcctx;
 		} avc;
+#ifdef HAVE_BCG729
+		bcg729EncoderChannelContextStruct *bcg729;
+#endif
 	} u;
 	AVPacket avpkt;
 	AVAudioFifo *fifo;

@@ -126,6 +126,7 @@ use IO::Socket;
 my %codec_map = (
 	PCMA => { payload_type => 8 },
 	PCMU => { payload_type => 0 },
+	G729 => { payload_type => 18 },
 );
 my %payload_type_map = map {$codec_map{$_}{payload_type} => $_} keys(%codec_map);
 

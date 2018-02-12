@@ -367,9 +367,12 @@ sub _input {
 	defined($component) or return; # not one of ours
 
 	# must be RTP or RTCP input
-	my $exp = shift(@{$self->{media_receive_queues}->[$component]}) or die;
 	if (!$self->{args}->{no_data_check}) {
+		my $exp = shift(@{$self->{media_receive_queues}->[$component]}) or die;
 		$$input eq $exp or die;
+	}
+	else {
+		@{$self->{media_receive_queues}->[$component]} = ();
 	}
 	$self->{media_packets_received}->[$component]++;
 
