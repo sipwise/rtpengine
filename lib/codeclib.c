@@ -66,6 +66,7 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_ptime = 30,
+		.default_bitrate = 6300,
 		.packetizer = packetizer_passthrough,
 		.type = MT_AUDIO,
 	},
