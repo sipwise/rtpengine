@@ -4,6 +4,10 @@ with_iptables_option ?= yes
 with_transcoding ?= yes
 
 # look for bcg729
+# system
+ifneq (,$(wildcard /usr/include/bcg729/decoder.h))
+have_bcg729 := yes
+else
 # /usr/src
 ifneq (,$(wildcard /usr/src/bcg729/include/bcg729/decoder.h))
 have_bcg729 := yes
@@ -27,6 +31,7 @@ ifneq (,$(wildcard ../bcg729/include/bcg729/decoder.h))
 have_bcg729 := yes
 bcg729_inc := ../bcg729/include/
 bcg729_lib := ../bcg729/src/
+endif
 endif
 endif
 endif
@@ -61,7 +66,10 @@ else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
 ifeq ($(have_bcg729),yes)
-CFLAGS+=	-DHAVE_BCG729 -I$(bcg729_inc)
+CFLAGS+=	-DHAVE_BCG729
+ifneq ($(bcg729_inc),)
+CFLAGS+=	-I$(bcg729_inc)
+endif
 endif
 
 CFLAGS+=	-DRE_PLUGIN_DIR="\"/usr/lib/rtpengine\""
@@ -97,7 +105,10 @@ LDFLAGS+=	`pkg-config --libs libavresample`
 LDFLAGS+=	`pkg-config --libs libavfilter`
 endif
 ifeq ($(have_bcg729),yes)
-LDFLAGS+=	-L$(bcg729_lib) -lbcg729
+ifneq ($(bcg729_lib),)
+LDFLAGS+=	-L$(bcg729_lib)
+endif
+LDFLAGS+=	-lbcg729
 endif
 
 include ../lib/lib.Makefile

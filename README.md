@@ -892,6 +892,7 @@ The following codecs are supported by *rtpengine*:
 * G.711 (a-Law and µ-Law)
 * G.722
 * G.723.1
+* G.729
 * Speex
 * GSM
 * iLBC
@@ -902,7 +903,7 @@ Codec support is dependent on support provided by the `ffmpeg` codec libraries, 
 version to version. Use the `--codecs` command line option to have *rtpengine* print a list of codecs
 and their supported status. The list includes some codecs that are not listed above. Some of these
 are not actual VoIP codecs (such as MP3), while others lack support for encoding by *ffmpeg* at the
-time of writing (such as G.729, QCELP, or ATRAC). If encoding support for these codecs becomes available
+time of writing (such as QCELP or ATRAC). If encoding support for these codecs becomes available
 in *ffmpeg*, *rtpengine* will be able to support them.
 
 Audio format conversion including resampling and mono/stereo up/down-mixing happens automatically
@@ -914,6 +915,15 @@ If repacketization (using the `ptime` option) is requested, the transcoding feat
 engaged for the call, even if no additional codecs were requested.
 
 Non-audio pseudo-codecs (such as T.38 or RFC 4733 `telephone-event`) are not currently supported.
+
+G.729 support
+-------------
+
+As *ffmpeg* does not currently provide an encoder for G.729, transcoding support for it is available
+via the [bcg729](https://www.linphone.org/technical-corner/bcg729/overview) library
+(mirror on [GitHub](https://github.com/BelledonneCommunications/bcg729)). The build system looks for
+the *bcg729* headers in a few locations and uses the library if found. If the library is located
+elsewhere, see `daemon/Makefile` to control where the build system is looking for it.
 
 The *ng* Control Protocol
 =========================
@@ -1342,7 +1352,8 @@ Optionally included keys are:
 	Contains an integer. If set, changes the `a=ptime` attribute's value in the outgoing
 	SDP to the provided value. It also engages the transcoding engine for supported codecs
 	to provide repacketization functionality, even if no additional codec has actually
-	been requested for transcoding.
+	been requested for transcoding. Note that not all codecs support all packetization
+	intervals.
 
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
