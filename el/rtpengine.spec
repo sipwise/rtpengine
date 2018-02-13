@@ -12,6 +12,7 @@ Conflicts:	%{name}-kernel < %{version}-%{release}
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel hiredis-devel
+Requires(pre):	shadow-utils
 Requires:	nc
 # Remain compat with other installations
 Provides:	ngcp-rtpengine = %{version}-%{release}
