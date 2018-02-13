@@ -60,6 +60,8 @@ static const codec_type_t codec_type_avcodec = {
 };
 
 #ifdef HAVE_BCG729
+static packetizer_f packetizer_g729; // aggregate some frames into packets
+
 static void bcg729_def_init(codec_def_t *);
 static const char *bcg729_decoder_init(decoder_t *);
 static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out);
@@ -146,7 +148,7 @@ static codec_def_t __codec_defs[] = {
 		.clockrate_mult = 1,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_ptime = 10,
+		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -158,8 +160,9 @@ static codec_def_t __codec_defs[] = {
 		.clockrate_mult = 1,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_ptime = 10,
-		.packetizer = packetizer_passthrough,
+		.default_ptime = 20,
+		.packetizer = packetizer_g729,
+		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_bcg729,
 	},
@@ -907,6 +910,7 @@ static const char *avc_encoder_init(encoder_t *enc) {
 	enc->samples_per_frame = enc->actual_format.clockrate * enc->ptime / 1000;
 	if (enc->u.avc.avcctx->frame_size)
 		enc->samples_per_frame = enc->u.avc.avcctx->frame_size;
+	enc->samples_per_packet = enc->samples_per_frame;
 
 	if (enc->def->set_options)
 		enc->def->set_options(enc);
@@ -1126,7 +1130,7 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 }
 
 
-int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output) {
+static int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output) {
 	if (!pkt)
 		return -1;
 	assert(output->len >= pkt->size);
@@ -1137,7 +1141,7 @@ int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output) {
 
 // returns: -1 = not enough data, nothing returned; 0 = returned a packet;
 // 1 = returned a packet and there's more
-int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_output) {
+static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_output) {
 	// avoid moving buffers around if possible:
 	// most common case: new input packet has just enough (or more) data as what we need
 	if (G_LIKELY(pkt && buf->len == 0 && pkt->size >= input_output->len)) {
@@ -1242,18 +1246,28 @@ static const char *bcg729_decoder_init(decoder_t *dec) {
 }
 
 static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
-	AVFrame *frame = av_frame_alloc();
-	frame->nb_samples = 80;
-	frame->format = AV_SAMPLE_FMT_S16;
-	frame->sample_rate = dec->in_format.clockrate; // 8000
-	frame->channel_layout = av_get_default_channel_layout(dec->in_format.channels); // 1 channel
-	if (av_frame_get_buffer(frame, 0) < 0)
-		abort();
+	str input = *data;
 
-	// XXX handle lost packets and comfort noise
-	bcg729Decoder(dec->u.bcg729, (void *) data->s, data->len, 0, 0, 0, (void *) frame->extended_data[0]);
+	while (input.len >= 2) {
+		int frame_len = input.len >= 10 ? 10 : 2;
+		str inp_frame = input;
+		inp_frame.len = frame_len;
+		str_shift(&input, frame_len);
 
-	g_queue_push_tail(out, frame);
+		AVFrame *frame = av_frame_alloc();
+		frame->nb_samples = 80;
+		frame->format = AV_SAMPLE_FMT_S16;
+		frame->sample_rate = dec->in_format.clockrate; // 8000
+		frame->channel_layout = av_get_default_channel_layout(dec->in_format.channels); // 1 channel
+		if (av_frame_get_buffer(frame, 0) < 0)
+			abort();
+
+		// XXX handle lost packets and comfort noise
+		bcg729Decoder(dec->u.bcg729, (void *) inp_frame.s, inp_frame.len, 0, 0, 0,
+				(void *) frame->extended_data[0]);
+
+		g_queue_push_tail(out, frame);
+	}
 
 	return 0;
 }
@@ -1273,6 +1287,7 @@ static const char *bcg729_encoder_init(encoder_t *enc) {
 	enc->actual_format.channels = 1;
 	enc->actual_format.clockrate = 8000;
 	enc->samples_per_frame = 80;
+	enc->samples_per_packet = enc->actual_format.clockrate * enc->ptime / 1000;
 
 	return NULL;
 }
@@ -1305,5 +1320,50 @@ static void bcg729_encoder_close(encoder_t *enc) {
 	if (enc->u.bcg729)
 		closeBcg729EncoderChannel(enc->u.bcg729);
 	enc->u.bcg729 = NULL;
+}
+
+static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output) {
+	// how many frames do we want?
+	int want_frames = input_output->len / 10;
+
+	// easiest case: we only want one frame. return what we got
+	if (want_frames == 1 && pkt)
+		return packetizer_passthrough(pkt, buf, input_output);
+
+	// any other case, we go through our buffer
+	str output = *input_output; // remaining output buffer
+	if (pkt)
+		g_string_append_len(buf, (char *) pkt->data, pkt->size);
+
+	// how many frames do we have?
+	int have_audio_frames = buf->len / 10;
+	int have_noise_frames = (buf->len % 10) / 2;
+	// we have enough?
+	// special case: 4 noise frames (8 bytes) must be returned now, as otherwise
+	// (5 noise frames) they might become indistinguishable from an audio frame
+	if (have_audio_frames + have_noise_frames < want_frames
+			&& have_noise_frames != 4)
+		return -1;
+
+	// return non-silence/noise frames while we can
+	while (buf->len >= 10 && want_frames && output.len >= 10) {
+		memcpy(output.s, buf->str, 10);
+		g_string_erase(buf, 0, 10);
+		want_frames--;
+		str_shift(&output, 10);
+	}
+
+	// append silence/noise frames if we can
+	while (buf->len >= 2 && want_frames && output.len >= 2) {
+		memcpy(output.s, buf->str, 2);
+		g_string_erase(buf, 0, 2);
+		want_frames--;
+		str_shift(&output, 2);
+	}
+
+	if (output.len == input_output->len)
+		return -1; // got nothing
+	input_output->len = output.s - input_output->s;
+	return buf->len >= 2 ? 1 : 0;
 }
 #endif

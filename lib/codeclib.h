@@ -150,7 +150,8 @@ struct encoder_s {
 	int64_t fifo_pts; // pts of first data in fifo
 	int ptime;
 	int bitrate;
-	int samples_per_frame;
+	int samples_per_frame; // for encoding
+	int samples_per_packet; // for frame packetizer
 	AVFrame *frame; // to pull samples from the fifo
 	int64_t mux_dts; // last dts passed to muxer
 };

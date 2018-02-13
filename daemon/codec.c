@@ -510,12 +510,14 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	if (!ch->decoder)
 		goto err;
 
-	ch->bytes_per_packet = ch->encoder->samples_per_frame * h->dest_pt.codec_def->bits_per_sample / 8;
+	ch->bytes_per_packet = (ch->encoder->samples_per_packet ? : ch->encoder->samples_per_frame)
+		* h->dest_pt.codec_def->bits_per_sample / 8;
 
 	ilog(LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i "
-			"(ptime %i for %i samples or %i bytes per packet)",
+			"(ptime %i for %i samples per frame and %i samples (%i bytes) per packet)",
 			ch->encoder_format.clockrate, ch->encoder_format.channels, ch->encoder_format.format,
-			ch->ptime, ch->encoder->samples_per_frame, ch->bytes_per_packet);
+			ch->ptime, ch->encoder->samples_per_frame, ch->encoder->samples_per_packet,
+			ch->bytes_per_packet);
 
 	return &ch->h;
 
