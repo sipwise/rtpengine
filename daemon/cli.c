@@ -36,6 +36,7 @@ typedef struct {
 
 static void cli_incoming_list(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_params(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_terminate(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_ksadd(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_ksrm(str *instr, struct streambuf *replybuffer);
@@ -52,6 +53,10 @@ static void cli_incoming_set_redisdisabletime(str *instr, struct streambuf *repl
 static void cli_incoming_set_redisconnecttimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_rediscmdtimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_controltos(str *instr, struct streambuf *replybuffer);
+
+static void cli_incoming_params_start(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_params_current(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_params_diff(str *instr, struct streambuf *replybuffer);
 
 static void cli_incoming_list_numsessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_maxsessions(str *instr, struct streambuf *replybuffer);
@@ -74,6 +79,7 @@ static const cli_handler_t cli_top_handlers[] = {
 	{ "terminate",		cli_incoming_terminate		},
 	{ "set",		cli_incoming_set		},
 	{ "get",		cli_incoming_list		},
+	{ "params",		cli_incoming_params		},
 	{ "ksadd",		cli_incoming_ksadd		},
 	{ "ksrm",		cli_incoming_ksrm		},
 	{ "kslist",		cli_incoming_kslist		},
@@ -111,6 +117,12 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ NULL, },
 };
 
+static const cli_handler_t cli_params_handlers[] = {
+	{ "start",	cli_incoming_params_start	},
+	{ "current",	cli_incoming_params_current	},
+	{ "diff",	cli_incoming_params_diff	},
+	{ NULL, },
+};
 
 static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 		struct streambuf *replybuffer)
@@ -193,6 +205,183 @@ static void destroy_keyspace_foreign_calls(unsigned int uint_keyspace_db) {
 	destroy_own_foreign_calls(CT_FOREIGN_CALL, uint_keyspace_db);
 }
 
+static void cli_incoming_params_start(str *instr, struct streambuf *replybuffer) {
+	int count = 0;
+	GList *s;
+	struct intf_config *ifa;
+
+	streambuf_printf(replybuffer, "table = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\nfinal-timeout = %d\n"
+			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
+			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis = %s:%d/%d\n"
+			"redis-write = %s:%d/%d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
+			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n",
+			initial_rtpe_config.kernel_table, initial_rtpe_config.max_sessions, initial_rtpe_config.timeout,
+			initial_rtpe_config.silent_timeout, initial_rtpe_config.final_timeout, initial_rtpe_config.delete_delay,
+			initial_rtpe_config.redis_expires_secs, initial_rtpe_config.default_tos, initial_rtpe_config.control_tos,
+			initial_rtpe_config.graphite_interval, initial_rtpe_config.redis_num_threads, initial_rtpe_config.homer_protocol,
+			initial_rtpe_config.homer_id, initial_rtpe_config.no_fallback, initial_rtpe_config.port_min, initial_rtpe_config.port_max,
+			sockaddr_print_buf(&initial_rtpe_config.redis_ep.address), initial_rtpe_config.redis_ep.port, initial_rtpe_config.redis_db,
+			sockaddr_print_buf(&initial_rtpe_config.redis_write_ep.address), initial_rtpe_config.redis_write_ep.port,
+			initial_rtpe_config.redis_write_db, initial_rtpe_config.no_redis_required, initial_rtpe_config.num_threads,
+			initial_rtpe_config.fmt, initial_rtpe_config.log_format, initial_rtpe_config.redis_allowed_errors,
+			initial_rtpe_config.redis_disable_time, initial_rtpe_config.redis_cmd_timeout, initial_rtpe_config.redis_connect_timeout);
+
+	for(s = initial_rtpe_config.interfaces.head; s ; s = s->next) {
+		ifa = s->data;
+		streambuf_printf(replybuffer,"interface[%d] = %s\\%s \n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
+		++count;
+	}
+	count=0;
+	for (s = initial_rtpe_config.redis_subscribed_keyspaces.head; s ; s = s->next) {
+		streambuf_printf(replybuffer,"keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(s->data));
+		++count;
+	}
+	streambuf_printf(replybuffer, "b2b_url = %s\nredis-auth = %s\nredis-write-auth = %s\nrecording-dir = %s\nrecording-method = %s\n"
+			"recording-format = %s\niptables-chain = %s\n", initial_rtpe_config.b2b_url, initial_rtpe_config.redis_auth,
+			initial_rtpe_config.redis_write_auth, initial_rtpe_config.spooldir, initial_rtpe_config.rec_method,
+			initial_rtpe_config.rec_format, initial_rtpe_config.iptables_chain);
+	streambuf_printf(replybuffer,"listen-tcp = %s:%d\nlisten-udp = %s:%d\nlisten-ng = %s:%d\nlisten-cli = %s:%d\n",
+			sockaddr_print_buf(&initial_rtpe_config.tcp_listen_ep.address), initial_rtpe_config.tcp_listen_ep.port,
+			sockaddr_print_buf(&initial_rtpe_config.udp_listen_ep.address), initial_rtpe_config.udp_listen_ep.port,
+			sockaddr_print_buf(&initial_rtpe_config.ng_listen_ep.address), initial_rtpe_config.ng_listen_ep.port,
+			sockaddr_print_buf(&initial_rtpe_config.cli_listen_ep.address), initial_rtpe_config.cli_listen_ep.port);
+}
+
+static void cli_incoming_params_current(str *instr, struct streambuf *replybuffer) {
+	int count = 0;
+	GList *c;
+	struct intf_config *ifa;
+
+	streambuf_printf(replybuffer, "table = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\nfinal-timeout = %d\n"
+			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
+			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis-db = %d\n"
+			"redis-write-db = %d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
+			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n",
+			rtpe_config.kernel_table, rtpe_config.max_sessions, rtpe_config.timeout, rtpe_config.silent_timeout,
+			rtpe_config.final_timeout, rtpe_config.delete_delay, rtpe_config.redis_expires_secs, rtpe_config.default_tos,
+			rtpe_config.control_tos, rtpe_config.graphite_interval, rtpe_config.redis_num_threads, rtpe_config.homer_protocol,
+			rtpe_config.homer_id, rtpe_config.no_fallback, rtpe_config.port_min, rtpe_config.port_max,
+			rtpe_config.redis_db, rtpe_config.redis_write_db, rtpe_config.no_redis_required,
+			rtpe_config.num_threads, rtpe_config.fmt, rtpe_config.log_format, rtpe_config.redis_allowed_errors,
+			rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout, rtpe_config.redis_connect_timeout);
+
+	for(c = rtpe_config.interfaces.head; c ; c = c->next) {
+		ifa = c->data;
+		streambuf_printf(replybuffer,"interface[%d] = %s\\%s \n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
+		++count;
+	}
+	count=0;
+	for (c = rtpe_config.redis_subscribed_keyspaces.head; c ; c = c->next) {
+		streambuf_printf(replybuffer,"keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(c->data));
+		++count;
+	}
+	streambuf_printf(replybuffer, "b2b_url = %s\nredis-auth = %s\nredis-write-auth = %s\nrecording-dir = %s\nrecording-method = %s\n"
+			"recording-format = %s\niptables-chain = %s\n", rtpe_config.b2b_url, rtpe_config.redis_auth,
+			rtpe_config.redis_write_auth, rtpe_config.spooldir, rtpe_config.rec_method,
+			rtpe_config.rec_format, rtpe_config.iptables_chain);
+	streambuf_printf(replybuffer,"listen-tcp = %s:%d\nlisten-udp = %s:%d\nlisten-ng = %s:%d\nlisten-cli = %s:%d\n",
+			sockaddr_print_buf(&rtpe_config.tcp_listen_ep.address), rtpe_config.tcp_listen_ep.port,
+			sockaddr_print_buf(&rtpe_config.udp_listen_ep.address), rtpe_config.udp_listen_ep.port,
+			sockaddr_print_buf(&rtpe_config.ng_listen_ep.address), rtpe_config.ng_listen_ep.port,
+			sockaddr_print_buf(&rtpe_config.cli_listen_ep.address), rtpe_config.cli_listen_ep.port);
+}
+
+static void int_diff_print(int start_param, int current_param, char* param, struct streambuf *replybuffer) {
+	if(start_param != current_param) {
+		streambuf_printf(replybuffer, "%s\n", param);
+	}
+}
+
+static void str_diff_print(char* start_param, char* current_param, char* param, struct streambuf *replybuffer) {
+	if(start_param && current_param) {
+		if (strcmp(start_param , current_param) != 0) {
+			streambuf_printf(replybuffer, "%s\n", param);
+		}
+	} else if(start_param || current_param) {
+		streambuf_printf(replybuffer, "%s\n", param);
+	}
+}
+static void cli_incoming_params_diff(str *instr, struct streambuf *replybuffer) {
+
+	int count = 0;
+	GList *s;
+	GList *c;
+	struct intf_config* ifa;
+	struct intf_config* ifa2;
+
+	int_diff_print(initial_rtpe_config.kernel_table, rtpe_config.kernel_table, "table", replybuffer);
+	int_diff_print(initial_rtpe_config.max_sessions, rtpe_config.max_sessions, "max-sessions", replybuffer);
+	int_diff_print(initial_rtpe_config.timeout, rtpe_config.timeout, "timeout", replybuffer);
+	int_diff_print(initial_rtpe_config.silent_timeout, rtpe_config.silent_timeout, "silent-timeout", replybuffer);
+	int_diff_print(initial_rtpe_config.final_timeout, rtpe_config.final_timeout, "final-timeout", replybuffer);
+	int_diff_print(initial_rtpe_config.delete_delay, rtpe_config.delete_delay, "delete-delay", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_expires_secs, rtpe_config.redis_expires_secs, "redis-expires", replybuffer);
+	int_diff_print(initial_rtpe_config.default_tos, rtpe_config.default_tos, "default-tos", replybuffer);
+	int_diff_print(initial_rtpe_config.control_tos, rtpe_config.control_tos, "control-tos", replybuffer);
+	int_diff_print(initial_rtpe_config.fmt, rtpe_config.fmt, "xmlrpc-fmt", replybuffer);
+	int_diff_print(initial_rtpe_config.log_format, rtpe_config.log_format, "log_format", replybuffer);
+	int_diff_print(initial_rtpe_config.graphite_interval, rtpe_config.graphite_interval, "graphite-interval", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_num_threads, rtpe_config.redis_num_threads, "redis-num-threads", replybuffer);
+	int_diff_print(initial_rtpe_config.homer_protocol, rtpe_config.homer_protocol, "homer-protocol", replybuffer);
+	int_diff_print(initial_rtpe_config.homer_id, rtpe_config.homer_id, "homer-id", replybuffer);
+	int_diff_print(initial_rtpe_config.no_fallback, rtpe_config.no_fallback, "no_fallback", replybuffer);
+	int_diff_print(initial_rtpe_config.port_min, rtpe_config.port_min, "port-min", replybuffer);
+	int_diff_print(initial_rtpe_config.port_max, rtpe_config.port_max, "port-max", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_db, rtpe_config.redis_db, "redis-db", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_write_db, rtpe_config.redis_write_db, "redis-write-db", replybuffer);
+	int_diff_print(initial_rtpe_config.no_redis_required, rtpe_config.no_redis_required, "no-redis-required", replybuffer);
+	int_diff_print(initial_rtpe_config.num_threads, rtpe_config.num_threads, "num-threads", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_allowed_errors, rtpe_config.redis_allowed_errors, "redis_allowed_errors", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_disable_time, rtpe_config.redis_disable_time, "redis_disable_time", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_cmd_timeout, rtpe_config.redis_cmd_timeout, "redis_cmd_timeout", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_connect_timeout, rtpe_config.redis_connect_timeout, "redis_connect_timeout-db", replybuffer);
+
+	int_diff_print(initial_rtpe_config.tcp_listen_ep.port, rtpe_config.tcp_listen_ep.port, "listen-tcp port", replybuffer);
+	int_diff_print(initial_rtpe_config.udp_listen_ep.port, rtpe_config.udp_listen_ep.port, "listen-udp port", replybuffer);
+	int_diff_print(initial_rtpe_config.ng_listen_ep.port, rtpe_config.ng_listen_ep.port, "listen-ng port", replybuffer);
+	int_diff_print(initial_rtpe_config.cli_listen_ep.port, rtpe_config.cli_listen_ep.port, "listen-cli port", replybuffer);
+	int_diff_print(initial_rtpe_config.graphite_ep.port, rtpe_config.graphite_ep.port, "graphite port", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_ep.port, rtpe_config.redis_ep.port, "redis port", replybuffer);
+	int_diff_print(initial_rtpe_config.redis_write_ep.port, rtpe_config.redis_write_ep.port, "redis-write port", replybuffer);
+	int_diff_print(initial_rtpe_config.homer_ep.port, rtpe_config.homer_ep.port, "homer port", replybuffer);
+
+	for(s = initial_rtpe_config.interfaces.head, c=rtpe_config.interfaces.head, count = 0; s && c ; s = s->next, c = c->next, count++) {
+		ifa = s->data;
+		ifa2 = c->data;
+
+		if(ifa->name.s && ifa2->name.s) {
+			if(strcmp(ifa->name.s, ifa2->name.s) != 0 || strcmp(sockaddr_print_buf(&(ifa->local_address.addr)), sockaddr_print_buf(&(ifa2->local_address.addr))) != 0) {
+				streambuf_printf(replybuffer,"interface[%d]\n",count);
+			}
+		} else if (ifa->name.s || ifa2->name.s) {
+			if(ifa->name.len != ifa2->name.len) {
+				streambuf_printf(replybuffer,"interface[%d]\n",count);
+			}
+		}
+	}
+
+	for (s = initial_rtpe_config.redis_subscribed_keyspaces.head, c = rtpe_config.redis_subscribed_keyspaces.head, count = 0; s && c ; s = s->next, c = c->next, count++) {
+		if(GPOINTER_TO_UINT(s->data) != GPOINTER_TO_UINT(c->data)) {
+			streambuf_printf(replybuffer,"keyspace[%d]\n",count);
+		}
+	}
+
+	str_diff_print(sockaddr_print_buf(&initial_rtpe_config.tcp_listen_ep.address), sockaddr_print_buf(&rtpe_config.tcp_listen_ep.address), "listen-tcp ip", replybuffer);
+	str_diff_print(sockaddr_print_buf(&initial_rtpe_config.udp_listen_ep.address), sockaddr_print_buf(&rtpe_config.udp_listen_ep.address), "listen-udp ip", replybuffer);
+	str_diff_print(sockaddr_print_buf(&initial_rtpe_config.ng_listen_ep.address), sockaddr_print_buf(&rtpe_config.ng_listen_ep.address), "listen-ng ip", replybuffer);
+	str_diff_print(sockaddr_print_buf(&initial_rtpe_config.cli_listen_ep.address), sockaddr_print_buf(&rtpe_config.cli_listen_ep.address), "listen-cli ip", replybuffer);
+	str_diff_print(sockaddr_print_buf(&initial_rtpe_config.graphite_ep.address), sockaddr_print_buf(&rtpe_config.graphite_ep.address), "graphite ip", replybuffer);
+	str_diff_print(sockaddr_print_buf(&initial_rtpe_config.redis_ep.address), sockaddr_print_buf(&rtpe_config.redis_ep.address), "redis ip", replybuffer);
+	str_diff_print(sockaddr_print_buf(&initial_rtpe_config.redis_write_ep.address), sockaddr_print_buf(&rtpe_config.redis_write_ep.address), "redis-write ip", replybuffer);
+	str_diff_print(sockaddr_print_buf(&initial_rtpe_config.homer_ep.address), sockaddr_print_buf(&rtpe_config.homer_ep.address), "homer ip", replybuffer);
+
+	str_diff_print(initial_rtpe_config.b2b_url, rtpe_config.b2b_url, "b2b-url", replybuffer);
+	str_diff_print(initial_rtpe_config.spooldir, rtpe_config.spooldir, "rec-dir", replybuffer);
+	str_diff_print(initial_rtpe_config.rec_method, rtpe_config.rec_method, "rec-method", replybuffer);
+	str_diff_print(initial_rtpe_config.rec_format, rtpe_config.rec_format, "rec-format", replybuffer);
+}
+
+
 static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) {
 	struct timeval avg, calls_dur_iv;
 	u_int64_t num_sessions, min_sess_iv, max_sess_iv;
@@ -236,29 +425,29 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 	streambuf_printf(replybuffer, " Min managed sessions                            :"UINT64F"\n", min_sess_iv);
 	streambuf_printf(replybuffer, " Max managed sessions                            :"UINT64F"\n", max_sess_iv);
 	streambuf_printf(replybuffer, " Min/Max/Avg offer processing delay              :%llu.%06llu/%llu.%06llu/%llu.%06llu sec\n",
-		(unsigned long long)offer_iv.time_min.tv_sec,(unsigned long long)offer_iv.time_min.tv_usec,
-		(unsigned long long)offer_iv.time_max.tv_sec,(unsigned long long)offer_iv.time_max.tv_usec,
-		(unsigned long long)offer_iv.time_avg.tv_sec,(unsigned long long)offer_iv.time_avg.tv_usec);
+			(unsigned long long)offer_iv.time_min.tv_sec,(unsigned long long)offer_iv.time_min.tv_usec,
+			(unsigned long long)offer_iv.time_max.tv_sec,(unsigned long long)offer_iv.time_max.tv_usec,
+			(unsigned long long)offer_iv.time_avg.tv_sec,(unsigned long long)offer_iv.time_avg.tv_usec);
 	streambuf_printf(replybuffer, " Min/Max/Avg answer processing delay             :%llu.%06llu/%llu.%06llu/%llu.%06llu sec\n",
-		(unsigned long long)answer_iv.time_min.tv_sec,(unsigned long long)answer_iv.time_min.tv_usec,
-		(unsigned long long)answer_iv.time_max.tv_sec,(unsigned long long)answer_iv.time_max.tv_usec,
-		(unsigned long long)answer_iv.time_avg.tv_sec,(unsigned long long)answer_iv.time_avg.tv_usec);
+			(unsigned long long)answer_iv.time_min.tv_sec,(unsigned long long)answer_iv.time_min.tv_usec,
+			(unsigned long long)answer_iv.time_max.tv_sec,(unsigned long long)answer_iv.time_max.tv_usec,
+			(unsigned long long)answer_iv.time_avg.tv_sec,(unsigned long long)answer_iv.time_avg.tv_usec);
 	streambuf_printf(replybuffer, " Min/Max/Avg delete processing delay             :%llu.%06llu/%llu.%06llu/%llu.%06llu sec\n",
-		(unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec,
-		(unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec,
-		(unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
+			(unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec,
+			(unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec,
+			(unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
 
 	streambuf_printf(replybuffer, " Min/Max/Avg offer requests per second           :%llu/%llu/%llu per sec\n",
-		(unsigned long long)offers_ps.ps_min,
-		(unsigned long long)offers_ps.ps_max,
-		(unsigned long long)offers_ps.ps_avg);
+			(unsigned long long)offers_ps.ps_min,
+			(unsigned long long)offers_ps.ps_max,
+			(unsigned long long)offers_ps.ps_avg);
 	streambuf_printf(replybuffer, " Min/Max/Avg answer requests per second          :%llu/%llu/%llu per sec\n",	(unsigned long long)answers_ps.ps_min,
-		(unsigned long long)answers_ps.ps_max,
-		(unsigned long long)answers_ps.ps_avg);
+			(unsigned long long)answers_ps.ps_max,
+			(unsigned long long)answers_ps.ps_avg);
 	streambuf_printf(replybuffer, " Min/Max/Avg delete requests per second          :%llu/%llu/%llu per sec\n",
-		(unsigned long long)deletes_ps.ps_min,
-		(unsigned long long)deletes_ps.ps_max,
-		(unsigned long long)deletes_ps.ps_avg);
+			(unsigned long long)deletes_ps.ps_min,
+			(unsigned long long)deletes_ps.ps_max,
+			(unsigned long long)deletes_ps.ps_avg);
 
 	streambuf_printf(replybuffer, "\n\n");
 
@@ -646,6 +835,14 @@ static void cli_incoming_set(str *instr, struct streambuf *replybuffer) {
 	}
 
 	cli_handler_do(cli_set_handlers, instr, replybuffer);
+}
+
+static void cli_incoming_params(str *instr, struct streambuf *replybuffer) {
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
+	cli_handler_do(cli_params_handlers, instr, replybuffer);
 }
 
 static void cli_incoming_terminate(str *instr, struct streambuf *replybuffer) {

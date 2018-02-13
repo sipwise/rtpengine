@@ -75,6 +75,7 @@ extern struct poller *rtpe_poller; // main global poller instance XXX convert to
 
 
 extern struct rtpengine_config rtpe_config;
+extern struct rtpengine_config initial_rtpe_config;
 
 
 

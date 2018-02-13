@@ -42,8 +42,7 @@
 
 
 struct poller *rtpe_poller;
-
-
+struct rtpengine_config initial_rtpe_config;
 
 struct rtpengine_config rtpe_config = {
 	// non-zero defaults
@@ -65,8 +64,6 @@ struct rtpengine_config rtpe_config = {
 	.rec_method = "pcap",
 	.rec_format = "raw",
 };
-
-
 
 
 static void sighandler(gpointer x) {
@@ -420,6 +417,69 @@ static void options(int *argc, char ***argv) {
 		trust_address_def = 1;
 }
 
+void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
+
+	GList* l;
+	struct intf_config* gptr_data;
+
+	for(l = rtpe_config.interfaces.head; l ; l=l->next) {
+		gptr_data = (struct intf_config*)malloc(sizeof(struct intf_config));
+		memcpy(gptr_data, (struct intf_config*)(l->data), sizeof(struct intf_config));
+
+		g_queue_push_tail(&ini_rtpe_cfg->interfaces, gptr_data);
+	}
+
+	for(l = rtpe_config.redis_subscribed_keyspaces.head; l ; l = l->next) {
+		// l->data has been assigned to a variable before being given into the queue structure not to get a shallow copy
+		unsigned int num = GPOINTER_TO_UINT(l->data);
+		g_queue_push_tail(&ini_rtpe_cfg->redis_subscribed_keyspaces, GINT_TO_POINTER(num));
+	}
+
+	ini_rtpe_cfg->kernel_table = rtpe_config.kernel_table;
+	ini_rtpe_cfg->max_sessions = rtpe_config.max_sessions;
+	ini_rtpe_cfg->timeout = rtpe_config.timeout;
+	ini_rtpe_cfg->silent_timeout = rtpe_config.silent_timeout;
+	ini_rtpe_cfg->final_timeout = rtpe_config.final_timeout;
+	ini_rtpe_cfg->delete_delay = rtpe_config.delete_delay;
+	ini_rtpe_cfg->redis_expires_secs = rtpe_config.redis_expires_secs;
+	ini_rtpe_cfg->default_tos = rtpe_config.default_tos;
+	ini_rtpe_cfg->control_tos = rtpe_config.control_tos;
+	ini_rtpe_cfg->graphite_interval = rtpe_config.graphite_interval;
+	ini_rtpe_cfg->redis_num_threads = rtpe_config.redis_num_threads;
+	ini_rtpe_cfg->homer_protocol = rtpe_config.homer_protocol;
+	ini_rtpe_cfg->homer_id = rtpe_config.homer_id;
+	ini_rtpe_cfg->no_fallback = rtpe_config.no_fallback;
+	ini_rtpe_cfg->port_min = rtpe_config.port_min;
+	ini_rtpe_cfg->port_max = rtpe_config.port_max;
+	ini_rtpe_cfg->redis_db = rtpe_config.redis_db;
+	ini_rtpe_cfg->redis_write_db = rtpe_config.redis_write_db;
+	ini_rtpe_cfg->no_redis_required = rtpe_config.no_redis_required;
+	ini_rtpe_cfg->num_threads = rtpe_config.num_threads;
+	ini_rtpe_cfg->fmt = rtpe_config.fmt;
+	ini_rtpe_cfg->log_format = rtpe_config.log_format;
+	ini_rtpe_cfg->redis_allowed_errors = rtpe_config.redis_allowed_errors;
+	ini_rtpe_cfg->redis_disable_time = rtpe_config.redis_disable_time;
+	ini_rtpe_cfg->redis_cmd_timeout = rtpe_config.redis_cmd_timeout;
+	ini_rtpe_cfg->redis_connect_timeout = rtpe_config.redis_connect_timeout;
+
+	ini_rtpe_cfg->graphite_ep = rtpe_config.graphite_ep;
+	ini_rtpe_cfg->tcp_listen_ep = rtpe_config.tcp_listen_ep;
+	ini_rtpe_cfg->udp_listen_ep = rtpe_config.udp_listen_ep;
+	ini_rtpe_cfg->ng_listen_ep = rtpe_config.ng_listen_ep;
+	ini_rtpe_cfg->cli_listen_ep = rtpe_config.cli_listen_ep;
+	ini_rtpe_cfg->redis_ep = rtpe_config.redis_ep;
+	ini_rtpe_cfg->redis_write_ep = rtpe_config.redis_write_ep;
+	ini_rtpe_cfg->homer_ep = rtpe_config.homer_ep;
+
+	ini_rtpe_cfg->b2b_url = g_strdup(rtpe_config.b2b_url);
+	ini_rtpe_cfg->redis_auth = g_strdup(rtpe_config.redis_auth);
+	ini_rtpe_cfg->redis_write_auth = g_strdup(rtpe_config.redis_write_auth);
+	ini_rtpe_cfg->spooldir = g_strdup(rtpe_config.spooldir);
+	ini_rtpe_cfg->iptables_chain = g_strdup(rtpe_config.iptables_chain);
+	ini_rtpe_cfg->rec_method = g_strdup(rtpe_config.rec_method);
+	ini_rtpe_cfg->rec_format = g_strdup(rtpe_config.rec_format);
+
+}
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 static mutex_t *openssl_locks;
@@ -628,6 +688,7 @@ int main(int argc, char **argv) {
 	options(&argc, &argv);
 	init_everything();
 	create_everything();
+	fill_initial_rtpe_cfg(&initial_rtpe_config);
 
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
