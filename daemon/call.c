@@ -656,6 +656,17 @@ void payload_type_free(struct rtp_payload_type *p) {
 	g_slice_free1(sizeof(*p), p);
 }
 
+struct call_media *call_media_new(struct call *call) {
+	struct call_media *med;
+	med = uid_slice_alloc0(med, &call->medias);
+	med->call = call;
+	med->codecs_recv = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
+	med->codecs_send = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
+	med->codec_names_recv = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
+	med->codec_names_send = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
+	return med;
+}
+
 static struct call_media *__get_media(struct call_monologue *ml, GList **it, const struct stream_params *sp) {
 	struct call_media *med;
 	struct call *call;
@@ -678,16 +689,11 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 
 	__C_DBG("allocating new call_media for stream #%u", sp->index);
 	call = ml->call;
-	med = uid_slice_alloc0(med, &call->medias);
+	med = call_media_new(call);
 	med->monologue = ml;
-	med->call = ml->call;
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
 	med->type_id = codec_get_type(&med->type);
-	med->codecs_recv = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
-	med->codecs_send = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
-	med->codec_names_recv = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
-	med->codec_names_send = g_hash_table_new_full(str_hash, str_equal, NULL, (void (*)(void*)) g_queue_free);
 
 	g_queue_push_tail(&ml->medias, med);
 

@@ -31,6 +31,7 @@
 #include "str.h"
 #include "ssrc.h"
 #include "main.h"
+#include "codec.h"
 
 struct redis		*rtpe_redis;
 struct redis		*rtpe_redis_write;
@@ -1200,34 +1201,29 @@ static int redis_tags(struct call *c, struct redis_list *tags) {
 	return 0;
 }
 
-static int rbl_cb_plts(str *s, GQueue *q, struct redis_list *list, void *ptr) {
-	struct rtp_payload_type *pt;
-	str ptype, enc, clock, enc_parms, fmt_parms;
+static struct rtp_payload_type *rbl_cb_plts_g(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+	str ptype;
 	struct call_media *med = ptr;
-	struct call *call = med->call;
 
 	if (str_token(&ptype, s, '/'))
-		return -1;
-	if (str_token(&enc, s, '/'))
-		return -1;
-	if (str_token(&clock, s, '/'))
-		return -1;
-	if (str_token(&enc_parms, s, '/')) {
-		enc_parms = *s;
-		fmt_parms = STR_EMPTY;
-	}
-	else
-		fmt_parms = *s;
+		return NULL;
 
-	// from call.c
-	// XXX remove all the duplicate code
-	pt = g_slice_alloc0(sizeof(*pt));
-	pt->payload_type = str_to_ui(&ptype, 0);
-	call_str_cpy(call, &pt->encoding, &enc);
-	pt->clock_rate = str_to_ui(&clock, 0);
-	call_str_cpy(call, &pt->encoding_parameters, &enc_parms);
-	call_str_cpy(call, &pt->format_parameters, &fmt_parms);
-	g_hash_table_replace(med->codecs_recv, &pt->payload_type, pt);
+	struct rtp_payload_type *pt = codec_make_payload_type(s, med);
+	if (!pt || pt == (void *) 0x1)
+		return NULL;
+
+	pt->payload_type = str_to_i(&ptype, 0);
+
+	return pt;
+}
+static int rbl_cb_plts_r(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+	struct call_media *med = ptr;
+	__rtp_payload_type_add_recv(med, rbl_cb_plts_g(s, q, list, ptr));
+	return 0;
+}
+static int rbl_cb_plts_s(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+	struct call_media *med = ptr;
+	__rtp_payload_type_add_send(med, rbl_cb_plts_g(s, q, list, ptr));
 	return 0;
 }
 static int json_medias(struct call *c, struct redis_list *medias, JsonReader *root_reader) {
@@ -1240,10 +1236,7 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 		rh = &medias->rh[i];
 
 		/* from call.c:__get_media() */
-		med = uid_slice_alloc0(med, &c->medias);
-		med->call = c;
-		med->codecs_recv = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
-				(GDestroyNotify) payload_type_free);
+		med = call_media_new(c);
 
 		if (redis_hash_get_unsigned(&med->index, rh, "index"))
 			return -1;
@@ -1278,7 +1271,8 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 		if (redis_hash_get_crypto_params(&med->sdes_out.params, rh, "sdes_out") < 0)
 			return -1;
 
-		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts, med, root_reader);
+		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
+		json_build_list_cb(NULL, c, "payload_types_send", i, NULL, rbl_cb_plts_s, med, root_reader);
 		/* XXX dtls */
 
 		medias->ptrs[i] = med;
@@ -1409,6 +1403,17 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 			return -1;
 		if (json_build_list(&med->endpoint_maps, c, "maps", &c->callid, i, maps, root_reader))
 			return -1;
+
+		// find the pair media
+		struct call_monologue *ml = med->monologue;
+		struct call_monologue *other_ml = ml->active_dialogue;
+		for (GList *l = other_ml->medias.head; l; l = l->next) {
+			struct call_media *other_m = l->data;
+			if (other_m->index == med->index) {
+				codec_handlers_update(med, other_m);
+				break;
+			}
+		}
 	}
 	return 0;
 }
@@ -1971,6 +1976,7 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("sdes_in_tag","%u",media->sdes_in.tag);
 				JSON_SET_SIMPLE("sdes_out_tag","%u",media->sdes_out.tag);
 				JSON_SET_SIMPLE_STR("logical_intf",&media->logical_intf->name);
+				JSON_SET_SIMPLE("ptime","%i",media->ptime);
 				JSON_SET_SIMPLE("media_flags","%u",media->media_flags);
 
 				json_update_crypto_params(builder, "media", media->unique_id, "sdes_in",
@@ -1978,9 +1984,6 @@ char* redis_encode_json(struct call *c) {
 				json_update_crypto_params(builder, "media", media->unique_id, "sdes_out",
 						&media->sdes_out.params);
 				json_update_dtls_fingerprint(builder, "media", media->unique_id, &media->fingerprint);
-
-				// streams and maps- and payload_types- was here before
-
 			}
 			json_builder_end_object (builder);
 
@@ -2009,20 +2012,29 @@ char* redis_encode_json(struct call *c) {
 			}
 			json_builder_end_array (builder);
 
-			k = g_hash_table_get_values(media->codecs_recv);
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array (builder);
-			for (m = k; m; m = m->next) {
+			for (m = media->codecs_prefs_recv.head; m; m = m->next) {
 				pt = m->data;
-				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT,
+				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
 						pt->payload_type, STR_FMT(&pt->encoding),
 						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
-						STR_FMT(&pt->format_parameters));
+						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
 			}
 			json_builder_end_array (builder);
 
-			g_list_free(k);
+			snprintf(tmp, sizeof(tmp), "payload_types_send-%u", media->unique_id);
+			json_builder_set_member_name(builder, tmp);
+			json_builder_begin_array (builder);
+			for (m = media->codecs_prefs_send.head; m; m = m->next) {
+				pt = m->data;
+				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
+						pt->payload_type, STR_FMT(&pt->encoding),
+						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
+						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
+			}
+			json_builder_end_array (builder);
 		}
 
 		for (l = c->endpoint_maps.head; l; l = l->next) {

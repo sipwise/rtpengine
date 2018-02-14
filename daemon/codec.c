@@ -693,7 +693,7 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 
 
 static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_t *dec, struct call_media *media,
-		int clockrate, int channels, int bitrate)
+		int clockrate, int channels, int bitrate, int ptime)
 {
 	if (dec->default_channels <= 0 || dec->default_clockrate < 0)
 		return NULL;
@@ -704,7 +704,7 @@ static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_
 	ret->clock_rate = clockrate ? : dec->default_clockrate;
 	ret->channels = channels ? : dec->default_channels;
 	ret->bitrate = bitrate;
-	ret->ptime = media->ptime ? : dec->default_ptime;
+	ret->ptime = ptime ? : (media->ptime ? : dec->default_ptime);
 
 	if (dec->init)
 		dec->init(ret);
@@ -732,18 +732,20 @@ static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_
 
 
 // special return value `(void *) 0x1` to signal type mismatch
-static struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media) {
+struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media) {
 	str codec_fmt = *codec_str;
-	str codec, parms, chans, opts;
+	str codec, parms, chans, opts, extra_opts;
 	if (str_token_sep(&codec, &codec_fmt, '/'))
 		return NULL;
 	str_token_sep(&parms, &codec_fmt, '/');
 	str_token_sep(&chans, &codec_fmt, '/');
 	str_token_sep(&opts, &codec_fmt, '/');
+	str_token_sep(&extra_opts, &codec_fmt, '/');
 
 	int clockrate = str_to_i(&parms, 0);
 	int channels = str_to_i(&chans, 0);
 	int bitrate = str_to_i(&opts, 0);
+	int ptime = str_to_i(&extra_opts, 0);
 
 	if (clockrate && !channels)
 		channels = 1;
@@ -768,10 +770,11 @@ static struct rtp_payload_type *codec_make_payload_type(const str *codec_str, st
 		{
 			struct rtp_payload_type *ret = __rtp_payload_type_copy(rfc_pt);
 			ret->codec_def = dec;
+			ret->ptime = ptime;
 			return ret;
 		}
 	}
-	return codec_make_dynamic_payload_type(dec, media, clockrate, channels, bitrate);
+	return codec_make_dynamic_payload_type(dec, media, clockrate, channels, bitrate, ptime);
 
 }
 
@@ -835,28 +838,38 @@ static void __rtp_payload_type_add_name(GHashTable *ht, struct rtp_payload_type 
 	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
 }
 // consumes 'pt'
-static void __rtp_payload_type_add_recv(struct call_media *media,
+void __rtp_payload_type_add_recv(struct call_media *media,
 		struct rtp_payload_type *pt)
 {
+	if (!pt)
+		return;
 	g_hash_table_insert(media->codecs_recv, &pt->payload_type, pt);
 	__rtp_payload_type_add_name(media->codec_names_recv, pt);
 	g_queue_push_tail(&media->codecs_prefs_recv, pt);
 }
-// duplicates 'pt'
-static void __rtp_payload_type_add_send(struct call_media *other_media,
+// consumes 'pt'
+void __rtp_payload_type_add_send(struct call_media *other_media,
 		struct rtp_payload_type *pt)
 {
-	pt = __rtp_payload_type_copy(pt);
+	if (!pt)
+		return;
 	g_hash_table_insert(other_media->codecs_send, &pt->payload_type, pt);
 	__rtp_payload_type_add_name(other_media->codec_names_send, pt);
 	g_queue_push_tail(&other_media->codecs_prefs_send, pt);
+}
+// duplicates 'pt'
+void __rtp_payload_type_add_send_dup(struct call_media *other_media,
+		struct rtp_payload_type *pt)
+{
+	pt = __rtp_payload_type_copy(pt);
+	__rtp_payload_type_add_send(other_media, pt);
 }
 // consumes 'pt'
 static void __rtp_payload_type_add(struct call_media *media, struct call_media *other_media,
 		struct rtp_payload_type *pt)
 {
 	__rtp_payload_type_add_recv(media, pt);
-	__rtp_payload_type_add_send(other_media, pt);
+	__rtp_payload_type_add_send_dup(other_media, pt);
 }
 
 static void __payload_queue_free(void *qq) {

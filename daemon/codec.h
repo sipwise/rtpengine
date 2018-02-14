@@ -43,6 +43,14 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		GQueue *types, GHashTable *strip,
 		const GQueue *offer, const GQueue *transcode);
 
+// special return value `(void *) 0x1` to signal type mismatch
+struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media);
+
+
+// used by redis
+void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_type *pt);
+void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payload_type *pt);
+
 
 
 #ifdef WITH_TRANSCODING
