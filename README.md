@@ -66,40 +66,48 @@ Before that, run `./debian/flavors/no_ngcp` in order to remove any NGCP dependen
 This will produce a number of `.deb` files, which can then be installed using the
 `dpkg -i` command.
 
-The generated files are (with version 2.3.0 being built on an amd64 system):
+The generated files are (with version 6.2.0.0 being built on an amd64 system):
 
-* `ngcp-rtpengine_2.3.0_all.deb`
+* `ngcp-rtpengine_6.2.0.0+0~mr6.2.0.0_all.deb`
 
 	This is a meta-package, which doesn't contain or install anything on its own, but rather
 	only depends on the other packages to be installed. Not strictly necessary to be installed.
 
-* `ngcp-rtpengine-daemon_2.3.0_amd64.deb`
+* `ngcp-rtpengine-daemon_6.2.0.0+0~mr6.2.0.0_amd64.deb`
 
 	This installed the userspace daemon, which is the main workhorse of rtpengine. This is
 	the minimum requirement for anything to work.
 
-* `ngcp-rtpengine-dbg_2.3.0_amd64.deb`
-
-	Debugging symbols for the daemon. Optional.
-
-* `ngcp-rtpengine-iptables_2.3.0_amd64.deb`
+* `ngcp-rtpengine-iptables_6.2.0.0+0~mr6.2.0.0_amd64.deb`
 
 	Installs the plugin for `iptables` and `ip6tables`. Necessary for in-kernel operation.
 
-* `ngcp-rtpengine-kernel-dkms_2.3.0_all.deb`
+* `ngcp-rtpengine-kernel-dkms_6.2.0.0+0~mr6.2.0.0_all.deb`
 
 	Kernel module, DKMS version of the package. Recommended for in-kernel operation. The kernel
 	module will be compiled against the currently running kernel using DKMS.
 
-* `ngcp-rtpengine-kernel-source_2.3.0_all.deb`
+* `ngcp-rtpengine-kernel-source_6.2.0.0+0~mr6.2.0.0_all.deb`
 
 	If DKMS is unavailable or not desired, then this package will install the sources for the kernel
 	module for manual compilation. Required for in-kernel operation, but only if the DKMS package
 	can't be used.
 
+* `ngcp-rtpengine-recording-daemon_6.2.0.0+0~mr6.2.0.0_amd64.deb`
+
+	Optional separate userspace daemon used for call recording features.
+
+* `-dbg...` or `-dbgsym...` packages
+
+	Debugging symbols for the various components. Optional.
+
 For transcoding purposes, Debian provides an additional package `libavcodec-extra` to replace
 the regular `libavcodec` package. It is recommended to install this extra package to offer support
 for additional codecs.
+
+To support the G.729 codec for transcoding purposes, the external library *bcg729* is required. To
+include this in a Debian build environment, a Debian-packaged version is required, which is available
+from [GitHub](https://github.com/ossobv/bcg729-deb).
 
 Manual Compilation
 ------------------
@@ -120,7 +128,8 @@ There's 3 parts to *rtpengine*, which can be found in the respective subdirector
 	- *XMLRPC-C* version 1.16.08 or higher
 	- *hiredis* library
 	- *libiptc* library for iptables management (optional)
-	- *ffmpeg* codec libraries for transcoding (options) such as *libavcodec*, *libavfilter*, *libavresample*
+	- *ffmpeg* codec libraries for transcoding (optional) such as *libavcodec*, *libavfilter*, *libavresample*
+	- *bcg729* for full G.729 transcoding support (optional)
 
 	The `Makefile` contains a few Debian-specific flags, which may have to removed for compilation to
 	be successful. This will not affect operation in any way.

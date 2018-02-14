@@ -37,8 +37,8 @@ ifneq ($(DBG),yes)
   DPKG_BLDFLGS=	$(shell which dpkg-buildflags 2>/dev/null)
   ifneq ($(DPKG_BLDFLGS),)
     # support http://wiki.debian.org/Hardening for >=wheezy
-    CFLAGS+=	`dpkg-buildflags --get CFLAGS`
-    CPPFLAGS+=	`dpkg-buildflags --get CPPFLAGS`
-    LDFLAGS+=	`dpkg-buildflags --get LDFLAGS`
+    CFLAGS+=	$(shell dpkg-buildflags --get CFLAGS)
+    CPPFLAGS+=	$(shell dpkg-buildflags --get CPPFLAGS)
+    LDFLAGS+=	$(shell dpkg-buildflags --get LDFLAGS)
   endif
 endif
