@@ -1,6 +1,8 @@
 #include "codec.h"
 #include <glib.h>
 #include <assert.h>
+#include <inttypes.h>
+#include <sys/types.h>
 #include "call.h"
 #include "log.h"
 #include "rtplib.h"
