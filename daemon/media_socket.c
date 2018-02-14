@@ -1288,19 +1288,20 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 		if (G_LIKELY(phc->mp.ssrc_in))
 			phc->mp.ssrc_in->parent->payload_type = phc->payload_type;
 
-		// XXX convert to array? or keep last pointer?
 		// XXX yet another hash table per payload type -> combine
-		struct rtp_stats *rtp_s = g_hash_table_lookup(phc->mp.stream->rtp_stats, &phc->payload_type);
+		struct rtp_stats *rtp_s = g_atomic_pointer_get(&phc->mp.stream->rtp_stats_cache);
+		if (G_UNLIKELY(!rtp_s) || G_UNLIKELY(rtp_s->payload_type != phc->payload_type))
+			rtp_s = g_hash_table_lookup(phc->mp.stream->rtp_stats, &phc->payload_type);
 		if (!rtp_s) {
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT,
 					"RTP packet with unknown payload type %u received", phc->payload_type);
 			atomic64_inc(&phc->mp.stream->stats.errors);
 			atomic64_inc(&rtpe_statsps.errors);
 		}
-
 		else {
 			atomic64_inc(&rtp_s->packets);
 			atomic64_add(&rtp_s->bytes, phc->s.len);
+			g_atomic_pointer_set(&phc->mp.stream->rtp_stats_cache, rtp_s);
 		}
 	}
 	else if (phc->rtcp && !rtcp_payload(&phc->mp.rtcp, NULL, &phc->s)) {
@@ -1497,8 +1498,6 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 
 static int do_rtcp(struct packet_handler_ctx *phc) {
 	int ret = -1;
-	// XXX use a handler for RTCP
-	// XXX rewrite/consume for transcoding
 
 	GQueue rtcp_list = G_QUEUE_INIT;
 	if (rtcp_parse(&rtcp_list, &phc->mp))

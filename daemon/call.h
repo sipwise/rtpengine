@@ -289,6 +289,7 @@ struct packet_stream {
 	struct stats		kernel_stats;
 	atomic64		last_packet;
 	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
+	volatile struct rtp_stats *rtp_stats_cache;
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: in_lock: */
