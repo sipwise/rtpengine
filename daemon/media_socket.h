@@ -23,6 +23,7 @@ struct logical_intf {
 	GQueue				list; /* struct local_intf */
 	GHashTable			*addr_hash; // addr + type -> struct local_intf XXX obsolete?
 	GHashTable			*rr_specs;
+	str				name_base; // if name is "foo:bar", this is "foo"
 };
 struct port_pool {
 	BIT_ARRAY_DECLARE(ports_used, 0x10000);

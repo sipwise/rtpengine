@@ -378,6 +378,7 @@ done:
 // 'fam' may only be NULL if 'name' is also NULL
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, int num_ports) {
 	struct logical_intf *log = NULL;
+	int rr_use_default_intf = 0;
 
 	__C_DBG("Get logical interface for %d ports", num_ports);
 
@@ -397,14 +398,26 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, i
 got_some:
 			;
 		}
+		if (!q->head)
+			return NULL;
 
-		return q->head ? q->head->data : NULL;
+		log = q->head->data;
+		// if interface is in the form foo:bar then use round-robin
+		if (!fam || log->name.len == log->name_base.len)
+			return log;
+		else
+			rr_use_default_intf = 1;
 	}
 
 	// check if round-robin is desired
 	struct logical_intf key;
-	key.name = *name;
+
+	if (rr_use_default_intf)
+		key.name = log->name_base;
+	else
+		key.name = *name;
 	key.preferred_family = fam;
+
 	struct intf_rr *rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
 	if (!rr)
 		return __get_logical_interface(name, fam);
@@ -522,7 +535,9 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 
 	if (!lif) {
 		lif = g_slice_alloc0(sizeof(*lif));
+		g_queue_init(&lif->list);
 		lif->name = ifa->name;
+		lif->name_base = ifa->name_base;
 		lif->preferred_family = fam;
 		lif->addr_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 		lif->rr_specs = g_hash_table_new(str_hash, str_equal);
