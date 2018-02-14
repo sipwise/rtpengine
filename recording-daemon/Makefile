@@ -3,26 +3,26 @@ TARGET=		rtpengine-recording
 CFLAGS=		-g -Wall -pthread -I. -I../lib/
 CFLAGS+=	-std=c99
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
-CFLAGS+=	`pkg-config --cflags glib-2.0`
-CFLAGS+=	`pkg-config --cflags gthread-2.0`
-CFLAGS+=	`pkg-config --cflags libavcodec`
-CFLAGS+=	`pkg-config --cflags libavformat`
-CFLAGS+=	`pkg-config --cflags libavutil`
-CFLAGS+=	`pkg-config --cflags libavresample`
-CFLAGS+=	`pkg-config --cflags libavfilter`
-CFLAGS+=	`mysql_config --cflags`
-CFLAGS+=	`pkg-config --cflags openssl`
+CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
+CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
+CFLAGS+=	$(shell pkg-config --cflags libavcodec)
+CFLAGS+=	$(shell pkg-config --cflags libavformat)
+CFLAGS+=	$(shell pkg-config --cflags libavutil)
+CFLAGS+=	$(shell pkg-config --cflags libavresample)
+CFLAGS+=	$(shell pkg-config --cflags libavfilter)
+CFLAGS+=	$(shell mysql_config --cflags)
+CFLAGS+=	$(shell pkg-config --cflags openssl)
 
 LDFLAGS=	-lm
-LDFLAGS+=	`pkg-config --libs glib-2.0`
-LDFLAGS+=	`pkg-config --libs gthread-2.0`
-LDFLAGS+=	`pkg-config --libs libavcodec`
-LDFLAGS+=	`pkg-config --libs libavformat`
-LDFLAGS+=	`pkg-config --libs libavutil`
-LDFLAGS+=	`pkg-config --libs libavresample`
-LDFLAGS+=	`pkg-config --libs libavfilter`
-LDFLAGS+=	`mysql_config --libs`
-LDFLAGS+=	`pkg-config --libs openssl`
+LDFLAGS+=	$(shell pkg-config --libs glib-2.0)
+LDFLAGS+=	$(shell pkg-config --libs gthread-2.0)
+LDFLAGS+=	$(shell pkg-config --libs libavcodec)
+LDFLAGS+=	$(shell pkg-config --libs libavformat)
+LDFLAGS+=	$(shell pkg-config --libs libavutil)
+LDFLAGS+=	$(shell pkg-config --libs libavresample)
+LDFLAGS+=	$(shell pkg-config --libs libavfilter)
+LDFLAGS+=	$(shell mysql_config --libs)
+LDFLAGS+=	$(shell pkg-config --libs openssl)
 
 include ../lib/lib.Makefile
 
