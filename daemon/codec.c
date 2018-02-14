@@ -894,7 +894,8 @@ static int __revert_codec_strip(GHashTable *removed, const str *codec,
 }
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
 		GQueue *types, GHashTable *strip,
-		const GQueue *offer, const GQueue *transcode)
+		const GQueue *offer, const GQueue *transcode,
+		GHashTable *mask)
 {
 	// 'media' = receiver of this offer/answer; 'other_media' = sender of this offer/answer
 	struct call *call = media->call;
@@ -934,7 +935,11 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				continue;
 			}
 		}
-		__rtp_payload_type_add(media, other_media, pt);
+		if (!g_hash_table_lookup(mask, &pt->encoding)
+				&& !g_hash_table_lookup(mask, &pt->encoding_with_params))
+			__rtp_payload_type_add(media, other_media, pt);
+		else
+			__rtp_payload_type_add_send(other_media, pt);
 	}
 
 	// now restore codecs that have been removed, but should be offered

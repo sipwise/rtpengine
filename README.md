@@ -1307,7 +1307,8 @@ Optionally included keys are:
 		type that should be removed from the SDP. Codec names are case sensitive, and
 		can be either from the list of codecs explicitly defined by the SDP through
 		an `a=rtpmap` attribute, or can be from the list of RFC-defined codecs. Examples
-		are `PCMU`, `opus`, or `telephone-event`.
+		are `PCMU`, `opus`, or `telephone-event`. Codecs stripped using this option
+		are treated as if they had never been in the SDP.
 
 		It is possible to specify codec format parameters alongside with the codec name
 		in the same format as they're written in SDP for codecs that support them,
@@ -1356,6 +1357,19 @@ Optionally included keys are:
 		another slash followed by the bitrate in bits per second,
 		e.g. `opus/48000/2/32000`. In this case, all format parameters (clock rate,
 		channels) must also be specified.
+
+	* `mask`
+
+		Similar to `strip` except that codecs listed here will still be accepted and
+		used for transcoding on the offering side. Useful only in combination with
+		`transcode`. For example, if an offer advertises Opus and the options
+		`mask=opus, transcode=G723` are given, then the rewritten outgoing offer
+		will contain only G.723 as offered codec, and transcoding will happen
+		between Opus and G.723. In contrast, if only `transcode=G723` were given, then
+		the rewritten outgoing offer would contain both Opus and G.723. On the other
+		hand, if `strip=opus, transcode=G723` were given, then Opus would be unavailable
+		for transcoding.
+
 * `ptime`
 
 	Contains an integer. If set, changes the `a=ptime` attribute's value in the outgoing

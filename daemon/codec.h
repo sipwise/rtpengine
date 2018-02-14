@@ -41,7 +41,8 @@ void codec_packet_free(void *);
 
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
 		GQueue *types, GHashTable *strip,
-		const GQueue *offer, const GQueue *transcode);
+		const GQueue *offer, const GQueue *transcode,
+		GHashTable *mask);
 
 // special return value `(void *) 0x1` to signal type mismatch
 struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media);

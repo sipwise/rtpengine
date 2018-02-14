@@ -1588,7 +1588,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		if (flags->ptime > 0)
 			media->ptime = flags->ptime;
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types,
-				flags->codec_strip, &flags->codec_offer, &flags->codec_transcode);
+				flags->codec_strip, &flags->codec_offer, &flags->codec_transcode,
+				flags->codec_mask);
 		codec_handlers_update(media, other_media);
 
 		/* send and recv are from our POV */
