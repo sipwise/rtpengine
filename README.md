@@ -696,6 +696,10 @@ no alternatives would be used. When IPv6 is needed as a primary address, either 
 `pub:3` might be selected. If at any given time not enough ports are available on any interface,
 it will not be selected by the round-robin algorithm.
 
+It is possible to use the round-robin algorithm even if the `direction` is not given. If the first
+given interface has the `BASE:SUFFIX` format then the round-robin algorithm is used and will select
+interfaces with the same `BASE` name.
+
 If you're not using the NG protocol but rather the legacy UDP protocol used by the *rtpproxy* module,
 the interfaces must be named `internal` and `external` corresponding to the `i` and `e` flags if you
 wish to use network bridging in this mode.
