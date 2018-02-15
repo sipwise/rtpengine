@@ -57,13 +57,14 @@ output_t *output_new(const char *path, const char *filename) {
 int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
 	const char *err;
 
-//	// anything to do?
-//	if (G_LIKELY(format_eq(requested_format, &output->requested_format)))
-//		goto done;
+	// anything to do?
+	if (G_LIKELY(format_eq(requested_format, &output->encoder->requested_format))) {
+		if (actual_format)
+			*actual_format = output->encoder->actual_format;
+		goto done;
+	}
 
 	output_shutdown(output);
-
-//	output->requested_format = *requested_format;
 
 	err = "failed to alloc format context";
 	output->fmtctx = avformat_alloc_context();
@@ -77,43 +78,10 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	if (encoder_config(output->encoder, output_codec, mp3_bitrate, 0, requested_format, actual_format))
 		goto err;
 
-//	err = "output codec not found";
-//	AVCodec *codec = avcodec_find_encoder(output_codec_id);
-//	if (!codec)
-//		goto err;
 	err = "failed to alloc output stream";
 	output->avst = avformat_new_stream(output->fmtctx, output->encoder->u.avc.codec);
 	if (!output->avst)
 		goto err;
-//#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-//	err = "failed to alloc codec context";
-//	output->avcctx = avcodec_alloc_context3(codec);
-//	if (!output->avcctx)
-//		goto err;
-//#else
-//	output->avcctx = output->avst->codec;
-//#endif
-
-	// copy all format params
-//	output->actual_format = output->requested_format;
-
-	// determine sample format to use
-//	output->actual_format.format = -1;
-//	for (const enum AVSampleFormat *sfmt = codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
-//		dbg("supported sample format for output codec %s: %s", codec->name, av_get_sample_fmt_name(*sfmt));
-//		if (*sfmt == requested_format->format)
-//			output->actual_format.format = *sfmt;
-//	}
-//	if (output->actual_format.format == -1 && codec->sample_fmts)
-//		output->actual_format.format = codec->sample_fmts[0];
-//	dbg("using output sample format %s for codec %s", av_get_sample_fmt_name(output->actual_format.format), codec->name);
-//
-//	output->avcctx->channels = output->actual_format.channels;
-//	output->avcctx->channel_layout = av_get_default_channel_layout(output->actual_format.channels);
-//	output->avcctx->sample_rate = output->actual_format.clockrate;
-//	output->avcctx->sample_fmt = output->actual_format.format;
-//	output->avcctx->time_base = (AVRational){1,output->actual_format.clockrate};
-//	output->avcctx->bit_rate = mp3_bitrate;
 	output->avst->time_base = output->encoder->u.avc.avcctx->time_base;
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0) // exact version? present in 57.56
@@ -133,10 +101,6 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	goto err;
 
 got_fn:
-//	err = "failed to open output context";
-//	int i = avcodec_open2(output->avcctx, codec, NULL);
-//	if (i)
-//		goto err;
 	err = "failed to open avio";
 	int i;
 	i = avio_open(&output->fmtctx->pb, full_fn, AVIO_FLAG_WRITE);
@@ -147,22 +111,7 @@ got_fn:
 	if (i)
 		goto err;
 
-//	av_init_packet(&output->avpkt);
-
-	// output frame and fifo
-//	output->frame = av_frame_alloc();
-//	output->frame->nb_samples = output->encoder->avcctx->frame_size ? : 256;
-//	output->frame->format = output->encoder->avcctx->sample_fmt;
-//	output->frame->sample_rate = output->encoder->avcctx->sample_rate;
-//	output->frame->channel_layout = output->encoder->avcctx->channel_layout;
-//	if (!output->frame->channel_layout)
-//		output->frame->channel_layout = av_get_default_channel_layout(output->encoder->avcctx->channels);
-//	if (av_frame_get_buffer(output->frame, 0) < 0)
-//		abort();
-
-//	output->fifo = av_audio_fifo_alloc(output->encoder->avcctx->sample_fmt, output->encoder->avcctx->channels,
-//			output->frame->nb_samples);
-
+done:
 	db_config_stream(output);
 	return 0;
 
@@ -183,25 +132,12 @@ static void output_shutdown(output_t *output) {
 		av_write_trailer(output->fmtctx);
 		avio_closep(&output->fmtctx->pb);
 	}
-//	avcodec_close(output->avcctx);
-//#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
-//	avcodec_free_context(&output->avcctx);
-//#endif
 	avformat_free_context(output->fmtctx);
-//	av_audio_fifo_free(output->fifo);
-//	av_frame_free(&output->frame);
 
 	encoder_close(output->encoder);
 
-//	output->avcctx = NULL;
 	output->fmtctx = NULL;
 	output->avst = NULL;
-//	output->fifo = NULL;
-
-//	output->fifo_pts = 0;
-
-//	format_init(&output->requested_format);
-//	format_init(&output->actual_format);
 }
 
 

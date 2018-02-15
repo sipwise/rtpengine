@@ -22,7 +22,7 @@ int resample_audio;
 
 
 
-decoder_t *decoder_new(const char *payload_str) {
+decoder_t *decoder_new(const char *payload_str, output_t *outp) {
 	str name;
 	char *slash = strchr(payload_str, '/');
 	if (!slash) {
@@ -51,14 +51,21 @@ decoder_t *decoder_new(const char *payload_str) {
 
 	clockrate *= def->clockrate_mult;
 
-	if (!resample_audio)
-		return decoder_new_fmt(def, clockrate, channels, NULL);
-
+	// we can now config our output, which determines the sample format we convert to
 	format_t out_format = {
-		.clockrate = resample_audio,
+		.clockrate = clockrate,
 		.channels = channels,
-		.format = 0
+		.format = -1,
 	};
+
+	if (resample_audio)
+		out_format.clockrate = resample_audio;
+	// mono/stereo mixing goes here: out_format.channels = ...
+	if (outp) {
+		output_config(outp, &out_format, &out_format);
+		// save the returned sample format so we don't output_config() twice
+		outp->encoder->requested_format.format = out_format.format;
+	}
 
 	return decoder_new_fmt(def, clockrate, channels, &out_format);
 }
@@ -74,10 +81,6 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *op, void *mp)
 			(unsigned int) frame->extended_data[0][2],
 			(unsigned int) frame->extended_data[0][3]);
 
-	// determine and save sample type
-	if (G_UNLIKELY(dec->in_format.format == -1))
-		dec->in_format.format = dec->out_format.format = frame->format;
-
 	// handle mix output
 	pthread_mutex_lock(&metafile->mix_lock);
 	if (metafile->mix_out) {
@@ -87,6 +90,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *op, void *mp)
 		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
 			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
+		// XXX might be a second resampling to same format
 		AVFrame *dec_frame = resample_frame(&dec->mix_resampler, frame, &actual_format);
 		if (!dec_frame) {
 			pthread_mutex_unlock(&metafile->mix_lock);
@@ -99,16 +103,10 @@ no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);
 
 	if (output) {
-		// XXX might be a second resampling to same format
-		format_t actual_format;
-		if (output_config(output, &dec->out_format, &actual_format))
+		if (output_config(output, &dec->out_format, NULL))
 			goto err;
-//		AVFrame *dec_frame = resample_frame(&dec->output_resample, frame, &actual_format);
-//		if (!dec_frame)
-//			goto err;
 		if (output_add(output, frame))
 			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
-//		av_frame_free(&dec_frame);
 	}
 
 	av_frame_free(&frame);

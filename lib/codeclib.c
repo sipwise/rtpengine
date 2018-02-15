@@ -411,7 +411,6 @@ decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, 
 	ret->out_format = ret->in_format;
 	if (resample_fmt)
 		ret->out_format = *resample_fmt;
-	// sample format to be determined later when decoded frames arrive
 
 	err = def->codec_type->decoder_init(ret);
 	if (err)
@@ -966,7 +965,8 @@ int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptim
 
 
 done:
-	*actual_format = enc->actual_format;
+	if (actual_format)
+		*actual_format = enc->actual_format;
 	return 0;
 
 err:
