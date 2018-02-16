@@ -114,9 +114,9 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	if (handler->func != handler_func_transcode)
 		goto reset;
 
-	ilog(LOG_DEBUG, "Leaving transcode context for " STR_FORMAT "/%i -> " STR_FORMAT "/%i intact",
-			STR_FMT(&source->encoding_with_params), source->channels,
-			STR_FMT(&dest->encoding_with_params), dest->channels);
+	ilog(LOG_DEBUG, "Leaving transcode context for " STR_FORMAT " -> " STR_FORMAT " intact",
+			STR_FMT(&source->encoding_with_params),
+			STR_FMT(&dest->encoding_with_params));
 
 	return;
 
@@ -130,9 +130,9 @@ reset:
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, (ssrc_free_func_t) __ssrc_handler_free,
 			handler);
 
-	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT "/%i -> " STR_FORMAT "/%i",
-			STR_FMT(&source->encoding_with_params), source->channels,
-			STR_FMT(&dest->encoding_with_params), dest->channels);
+	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT " -> " STR_FORMAT "",
+			STR_FMT(&source->encoding_with_params),
+			STR_FMT(&dest->encoding_with_params));
 }
 
 static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) {
