@@ -24,7 +24,14 @@ else
 	fi
 
 	if [ "$1" = 'configure' ] ; then
-		( dkms build -m "$name" -v "$version" && dkms install -m "$name" -v "$version" ) || true
+                KERNELS=$(ls /lib/modules/ 2>/dev/null || true)
+                for kernel in $KERNELS; do
+                        if [ ! -r "/lib/modules/$kernel/build" ]; then
+                                # cannot build modules for this kernel
+                                continue
+                        fi
+		        ( dkms build -m "$name" -v "$version" -k "$kernel" && dkms install -m "$name" -v "$version" -k "$kernel" ) || true
+                done
 
 		# try to start the daemon
 		if [ -x /etc/init.d/ngcp-rtpengine-daemon ] ; then
