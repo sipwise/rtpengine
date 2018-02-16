@@ -84,6 +84,15 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 		goto err;
 	output->avst->time_base = output->encoder->u.avc.avcctx->time_base;
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
+	// move the avcctx to avst as we already have an initialized avcctx
+	if (output->avst->codec) {
+		avcodec_close(output->avst->codec);
+		avcodec_free_context(&output->avst->codec);
+	}
+	output->avst->codec = output->encoder->u.avc.avcctx;
+#endif
+
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0) // exact version? present in 57.56
 	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->u.avc.avcctx);
 #endif
@@ -133,6 +142,11 @@ static void output_shutdown(output_t *output) {
 		avio_closep(&output->fmtctx->pb);
 	}
 	avformat_free_context(output->fmtctx);
+
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
+	// avoid double free - avcctx already freed
+	output->encoder->u.avc.avcctx = NULL;
+#endif
 
 	encoder_close(output->encoder);
 
