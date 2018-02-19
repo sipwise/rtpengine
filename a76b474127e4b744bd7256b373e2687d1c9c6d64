@@ -34,6 +34,24 @@
       "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ba7be1f8_4858dffa",
+        "filename": "debian/ngcp-rtpengine-kernel-dkms.postinst",
+        "patchSetId": 4
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2018-02-19T09:33:33Z",
+      "side": 1,
+      "message": "I tried first with dh_dkms and didn\u0027t work for some reason, for example it didn\u0027t generate the postinst/prerm files, when it does for other packages that I took as example (r8168-dkms and another that cannot remember now) -- they don\u0027t have postinst/prerm files in the source but they are in the binary.\n\n(Besides, this is easier to understand for reviewers, with dh_dkms is either a leap of faith or deep learning/testing :) ).\n\nSo I am fine with the dh_dkms, just didn\u0027t get it to work on Friday and it was very late, and just wanted to have something to fix the problem in the case that it\u0027s necessary for mr5.5.3 or other releases.",
+      "parentUuid": "ba7be1f8_4841bf0a",
+      "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
