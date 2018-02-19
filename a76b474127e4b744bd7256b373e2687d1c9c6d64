@@ -16,6 +16,24 @@
       "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ba7be1f8_4841bf0a",
+        "filename": "debian/ngcp-rtpengine-kernel-dkms.postinst",
+        "patchSetId": 4
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2018-02-19T09:03:38Z",
+      "side": 1,
+      "message": "I believe it is PoC to test the idea here. Will test as PPA.\ndh_dkms was discussed here as well https://paste.mgm.sipwise.com/show/3685/\nup to Manuel and you here, it is a black magic or me",
+      "parentUuid": "ba7be1f8_a8c07b7d",
+      "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
