@@ -52,6 +52,24 @@
       "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ba7be1f8_8871f779",
+        "filename": "debian/ngcp-rtpengine-kernel-dkms.postinst",
+        "patchSetId": 4
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2018-02-19T09:36:16Z",
+      "side": 1,
+      "message": "For the history: CE-trunk new installation pass the test.\nrelative part: https://paste.mgm.sipwise.com/show/3686/\nrtpengine module has been installed properly for installed NGCP 4.9.0-5-amd64 (and not running GRML 3.16) kernel.\n\nI am going to test upgrade part here. So I like it, nice work Manuel!",
+      "parentUuid": "ba7be1f8_4858dffa",
+      "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
