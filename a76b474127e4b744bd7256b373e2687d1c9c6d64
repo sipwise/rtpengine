@@ -70,6 +70,24 @@
       "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ba7be1f8_886c9738",
+        "filename": "debian/ngcp-rtpengine-kernel-dkms.postinst",
+        "patchSetId": 4
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2018-02-19T13:53:25Z",
+      "side": 1,
+      "message": "For the history, PRO trunk pass the tests with PPA.",
+      "parentUuid": "ba7be1f8_8871f779",
+      "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
