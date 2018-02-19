@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ba7be1f8_a8c07b7d",
+        "filename": "debian/ngcp-rtpengine-kernel-dkms.postinst",
+        "patchSetId": 4
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-02-19T08:59:22Z",
+      "side": 1,
+      "message": "Actually it might be better to replace most of this stuff and use dh_dkms, which I think handles this case already.",
+      "revId": "a76b474127e4b744bd7256b373e2687d1c9c6d64",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
