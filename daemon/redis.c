@@ -1209,7 +1209,7 @@ static struct rtp_payload_type *rbl_cb_plts_g(str *s, GQueue *q, struct redis_li
 		return NULL;
 
 	struct rtp_payload_type *pt = codec_make_payload_type(s, med);
-	if (!pt || pt == (void *) 0x1)
+	if (!pt)
 		return NULL;
 
 	pt->payload_type = str_to_i(&ptype, 0);

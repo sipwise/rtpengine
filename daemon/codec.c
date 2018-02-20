@@ -448,6 +448,85 @@ void codec_packet_free(void *pp) {
 
 
 
+struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media) {
+	str codec_fmt = *codec_str;
+	str codec, parms, chans, opts, extra_opts;
+	if (str_token_sep(&codec, &codec_fmt, '/'))
+		return NULL;
+	str_token_sep(&parms, &codec_fmt, '/');
+	str_token_sep(&chans, &codec_fmt, '/');
+	str_token_sep(&opts, &codec_fmt, '/');
+	str_token_sep(&extra_opts, &codec_fmt, '/');
+
+	int clockrate = str_to_i(&parms, 0);
+	int channels = str_to_i(&chans, 0);
+	int bitrate = str_to_i(&opts, 0);
+	int ptime = str_to_i(&extra_opts, 0);
+
+	if (clockrate && !channels)
+		channels = 1;
+
+	struct rtp_payload_type *ret = g_slice_alloc0(sizeof(*ret));
+	ret->payload_type = -1;
+	ret->encoding = codec;
+	ret->clock_rate = clockrate;
+	ret->channels = channels;
+	ret->bitrate = bitrate;
+	ret->ptime = ptime;
+
+	const codec_def_t *def = codec_find(&ret->encoding, 0);
+	ret->codec_def = def;
+
+#ifdef WITH_TRANSCODING
+	if (!ret->clock_rate)
+		ret->clock_rate = def->default_clockrate;
+	if (!ret->channels)
+		ret->channels = def->default_channels;
+	if (!ret->ptime)
+		ret->ptime = def->default_ptime;
+
+	if (def->init)
+		def->init(ret);
+
+	if (def->rfc_payload_type >= 0) {
+		const struct rtp_payload_type *rfc_pt = rtp_get_rfc_payload_type(def->rfc_payload_type);
+		// only use the RFC payload type if all parameters match
+		if (rfc_pt
+				&& (ret->clock_rate == 0 || ret->clock_rate == rfc_pt->clock_rate)
+				&& (ret->channels == 0 || ret->channels == rfc_pt->channels))
+		{
+			ret->payload_type = rfc_pt->payload_type;
+			if (!ret->clock_rate)
+				ret->clock_rate = rfc_pt->clock_rate;
+			if (!ret->channels)
+				ret->channels = rfc_pt->channels;
+		}
+	}
+#endif
+
+	// init params strings
+	char full_encoding[64];
+	char params[32] = "";
+
+	if (ret->channels > 1) {
+		snprintf(full_encoding, sizeof(full_encoding), STR_FORMAT "/%u/%i", STR_FMT(&codec),
+				ret->clock_rate,
+				ret->channels);
+		snprintf(params, sizeof(params), "%i", ret->channels);
+	}
+	else
+		snprintf(full_encoding, sizeof(full_encoding), STR_FORMAT "/%u", STR_FMT(&codec),
+				ret->clock_rate);
+
+	str_init(&ret->encoding_with_params, full_encoding);
+	str_init(&ret->encoding_parameters, params);
+	ret->format_parameters = STR_EMPTY;
+
+	__rtp_payload_type_dup(media->call, ret);
+
+	return ret;
+}
+
 
 
 #ifdef WITH_TRANSCODING
@@ -692,95 +771,36 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 
 
 
-static struct rtp_payload_type *codec_make_dynamic_payload_type(const codec_def_t *dec, struct call_media *media,
-		int clockrate, int channels, int bitrate, int ptime)
-{
-	if (dec->default_channels <= 0 || dec->default_clockrate < 0)
+// special return value `(void *) 0x1` to signal type mismatch
+static struct rtp_payload_type *codec_make_payload_type_sup(const str *codec_str, struct call_media *media) {
+	struct rtp_payload_type *ret = codec_make_payload_type(codec_str, media);
+	if (!ret)
 		return NULL;
 
-	struct rtp_payload_type *ret = g_slice_alloc0(sizeof(*ret));
-	ret->payload_type = -1;
-	str_init(&ret->encoding, (char *) dec->rtpname);
-	ret->clock_rate = clockrate ? : dec->default_clockrate;
-	ret->channels = channels ? : dec->default_channels;
-	ret->bitrate = bitrate;
-	ret->ptime = ptime ? : (media->ptime ? : dec->default_ptime);
-
-	if (dec->init)
-		dec->init(ret);
-
-	char full_encoding[64];
-	char params[32] = "";
-
-	if (ret->channels > 1) {
-		snprintf(full_encoding, sizeof(full_encoding), "%s/%u/%i", dec->rtpname, ret->clock_rate,
-				ret->channels);
-		snprintf(params, sizeof(params), "%i", ret->channels);
+	if (media->type_id && ret->codec_def->media_type != media->type_id) {
+		payload_type_free(ret);
+		return (void *) 0x1;
 	}
-	else
-		snprintf(full_encoding, sizeof(full_encoding), "%s/%u", dec->rtpname, ret->clock_rate);
-
-	str_init(&ret->encoding_with_params, full_encoding);
-	str_init(&ret->encoding_parameters, params);
-	ret->format_parameters = STR_EMPTY;
-	ret->codec_def = dec;
-
-	__rtp_payload_type_dup(media->call, ret);
+	// we must support both encoding and decoding
+	if (!ret->codec_def->support_decoding)
+		goto err;
+	if (!ret->codec_def->support_encoding)
+		goto err;
+	if (ret->codec_def->default_channels <= 0 || ret->codec_def->default_clockrate < 0)
+		goto err;
 
 	return ret;
-}
 
 
-// special return value `(void *) 0x1` to signal type mismatch
-struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media) {
-	str codec_fmt = *codec_str;
-	str codec, parms, chans, opts, extra_opts;
-	if (str_token_sep(&codec, &codec_fmt, '/'))
-		return NULL;
-	str_token_sep(&parms, &codec_fmt, '/');
-	str_token_sep(&chans, &codec_fmt, '/');
-	str_token_sep(&opts, &codec_fmt, '/');
-	str_token_sep(&extra_opts, &codec_fmt, '/');
-
-	int clockrate = str_to_i(&parms, 0);
-	int channels = str_to_i(&chans, 0);
-	int bitrate = str_to_i(&opts, 0);
-	int ptime = str_to_i(&extra_opts, 0);
-
-	if (clockrate && !channels)
-		channels = 1;
-
-	const codec_def_t *dec = codec_find(&codec, 0);
-	if (!dec)
-		return NULL;
-	if (media->type_id && dec->media_type != media->type_id)
-		return (void *) 0x1;
-	// we must support both encoding and decoding
-	if (!dec->support_decoding)
-		return NULL;
-	if (!dec->support_encoding)
-		return NULL;
-
-	if (dec->rfc_payload_type >= 0) {
-		const struct rtp_payload_type *rfc_pt = rtp_get_rfc_payload_type(dec->rfc_payload_type);
-		// only use the RFC payload type if all parameters match
-		if (rfc_pt
-				&& (clockrate == 0 || clockrate == rfc_pt->clock_rate)
-				&& (channels == 0 || channels == rfc_pt->channels))
-		{
-			struct rtp_payload_type *ret = __rtp_payload_type_copy(rfc_pt);
-			ret->codec_def = dec;
-			ret->ptime = ptime;
-			return ret;
-		}
-	}
-	return codec_make_dynamic_payload_type(dec, media, clockrate, channels, bitrate, ptime);
+err:
+	payload_type_free(ret);
+	return NULL;
 
 }
 
 
 static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media) {
-	struct rtp_payload_type *pt = codec_make_payload_type(codec, media);
+	struct rtp_payload_type *pt = codec_make_payload_type_sup(codec, media);
 	if (!pt) {
 		ilog(LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
 				STR_FMT(codec));
