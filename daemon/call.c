@@ -891,7 +891,7 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 	if (MEDIA_ISSET(media, DTLS)) {
 		mutex_lock(&ps->in_lock);
 		struct stream_fd *sfd = dtls_sfd(ps);
-		if (sfd->dtls.init && !sfd->dtls.connected) {
+		if (sfd && sfd->dtls.init && !sfd->dtls.connected) {
 			dtls(sfd, NULL, NULL);
 			mutex_unlock(&ps->in_lock);
 			return CSS_DTLS;
@@ -912,7 +912,7 @@ void call_media_state_machine(struct call_media *m) {
 static int __init_stream(struct packet_stream *ps) {
 	struct call_media *media = ps->media;
 	struct call *call = ps->call;
-	int active;
+	int active = -1;
 
 	if (MEDIA_ISSET(media, SDES)) {
 		for (GList *l = ps->sfds.head; l; l = l->next) {
@@ -924,7 +924,8 @@ static int __init_stream(struct packet_stream *ps) {
 
 	if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
 		struct stream_fd *sfd = dtls_sfd(ps);
-		active = dtls_is_active(&sfd->dtls);
+		if (sfd)
+			active = dtls_is_active(&sfd->dtls);
 		// we try to retain our role if possible, but must handle a role switch
 		if ((active && !MEDIA_ISSET(media, SETUP_ACTIVE))
 				|| (!active && !MEDIA_ISSET(media, SETUP_PASSIVE)))
