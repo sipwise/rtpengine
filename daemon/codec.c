@@ -922,7 +922,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	struct rtp_payload_type *pt;
 	static const str str_all = STR_CONST_INIT("all");
 	GHashTable *removed = g_hash_table_new_full(str_hash, str_equal, NULL, __payload_queue_free);
-	int remove_all = 0;
+	int strip_all = 0, mask_all = 0;
 
 	// start fresh
 	// receiving part for 'media'
@@ -935,7 +935,9 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	g_hash_table_remove_all(other_media->codec_names_send);
 
 	if (strip && g_hash_table_lookup(strip, &str_all))
-		remove_all = 1;
+		strip_all = 1;
+	if (mask && g_hash_table_lookup(mask, &str_all))
+		mask_all = 1;
 
 	/* we steal the entire list to avoid duplicate allocs */
 	while ((pt = g_queue_pop_head(types))) {
@@ -943,7 +945,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 
 		// codec stripping
 		if (strip) {
-			if (remove_all || g_hash_table_lookup(strip, &pt->encoding)
+			if (strip_all || g_hash_table_lookup(strip, &pt->encoding)
 					|| g_hash_table_lookup(strip, &pt->encoding_with_params))
 			{
 				ilog(LOG_DEBUG, "Stripping codec '" STR_FORMAT "'",
@@ -955,7 +957,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				continue;
 			}
 		}
-		if (!g_hash_table_lookup(mask, &pt->encoding)
+		if (!mask_all && !g_hash_table_lookup(mask, &pt->encoding)
 				&& !g_hash_table_lookup(mask, &pt->encoding_with_params))
 			__rtp_payload_type_add(media, other_media, pt);
 		else
@@ -972,10 +974,11 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	// add transcode codecs
 	for (GList *l = transcode ? transcode->head : NULL; l; l = l->next) {
 		str *codec = l->data;
-		// if we wish to 'transcode' to a codec that was offered originally,
+		// if we wish to 'transcode' to a codec that was offered originally
+		// and removed by a strip=all option,
 		// simply restore it from the original list and handle it the same way
 		// as 'offer'
-		if (__revert_codec_strip(removed, codec, media, other_media))
+		if (strip_all && __revert_codec_strip(removed, codec, media, other_media))
 			continue;
 		// also check if maybe the codec was never stripped
 		if (g_hash_table_lookup(media->codec_names_recv, codec)) {

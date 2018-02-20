@@ -1303,6 +1303,7 @@ Optionally included keys are:
 * `codec`
 
 	Contains a dictionary controlling various aspects of codecs (or RTP payload types).
+	Most of these options should only be used in an `offer` message.
 	The following keys are understood:
 
 	* `strip`
@@ -1362,6 +1363,16 @@ Optionally included keys are:
 		e.g. `opus/48000/2/32000`. In this case, all format parameters (clock rate,
 		channels) must also be specified.
 
+		As a special case, if the `strip=all` option has been used and the `transcode`
+		option is used on a codec that was originally present in the offer, then
+		*rtpengine* will treat this codec the same as if it had been used with the `offer`
+		option, i.e. it will simply restore it from the list of stripped codecs and won't
+		actually engage transcoding for this codec. On the other hand, if a codec has
+		been stripped explicitly by name using the `strip` option and then used again
+		with the `transcode` option, then the codec will not simply be restored from the
+		list of stripped codecs, but instead a new transcoded instance of the codec will
+		be inserted into the offer.
+
 	* `mask`
 
 		Similar to `strip` except that codecs listed here will still be accepted and
@@ -1373,6 +1384,9 @@ Optionally included keys are:
 		the rewritten outgoing offer would contain both Opus and G.723. On the other
 		hand, if `strip=opus, transcode=G723` were given, then Opus would be unavailable
 		for transcoding.
+
+		As with the `strip` option, the special keyword `all` can be used to mask all
+		codecs that have been offered.
 
 * `ptime`
 
