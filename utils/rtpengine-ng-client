@@ -44,6 +44,7 @@ GetOptions(
 	'reset'				=> \$options{'reset'},
 	'port-latching'			=> \$options{'port latching'},
 	'loop-protect'			=> \$options{'loop protect'},
+	'record-call'			=> \$options{'record call'},
 	'media-address=s'		=> \$options{'media address'},
 	'codec-strip=s@'		=> \$options{'codec-strip'},
 	'codec-offer=s@'		=> \$options{'codec-offer'},
@@ -63,7 +64,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 for my $x (split(/,/, 'TOS,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,loop protect')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,loop protect,record call')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection')) {

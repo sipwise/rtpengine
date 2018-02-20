@@ -1689,7 +1689,7 @@ init:
 		ice_update(other_media->ice_agent, sp);
 		ice_update(media->ice_agent, NULL); /* this is in case rtcp-mux has changed */
 
-		recording_setup_media(other_media);
+		recording_setup_media(media);
 	}
 
 	return 0;
