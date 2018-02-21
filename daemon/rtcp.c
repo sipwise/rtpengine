@@ -799,7 +799,7 @@ int rtcp_payload(struct rtcp_packet **out, str *p, const str *s, int no_rtcp_fil
 	if (rtcp->header.version != 2)
 		goto error;
 	err = "invalid packet type";
-	if (rtcp->header.pt != RTCP_PT_SR && rtcp->header.pt != RTCP_PT_RR
+	if (rtcp->header.pt != RTCP_PT_SR && rtcp->header.pt != RTCP_PT_RR && rtcp->header.pt != RTCP_PT_SDES
 		&& (!no_rtcp_filtering || (no_rtcp_filtering && rtcp->header.pt != RTCP_PT_RTPFB && rtcp->header.pt != RTCP_PT_PSFB)))
 		goto error;
 
