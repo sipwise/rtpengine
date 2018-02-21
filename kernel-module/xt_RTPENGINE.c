@@ -3297,10 +3297,16 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	skb->ip_summed = CHECKSUM_NONE;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
+	ip_select_ident(par->state->net, skb, NULL);
+	ip_send_check(ih);
 	ip_local_out(par->state->net, skb->sk, skb);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+	ip_select_ident(par->net, skb, NULL);
+	ip_send_check(ih);
 	ip_local_out(par->net, skb->sk, skb);
 #else
+	ip_select_ident(skb, NULL);
+	ip_send_check(ih);
 	ip_local_out(skb);
 #endif
 
