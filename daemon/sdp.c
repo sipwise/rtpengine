@@ -273,6 +273,18 @@ static int parse_address(struct network_address *address) {
 			&address->address_type, &address->address);
 }
 
+INLINE int extract_rest(char **sp, char *end, str *out) {
+	out->s = *sp;
+
+	if (end == *sp)
+		return -1;
+
+	out->len = end - *sp;
+	*sp = end;
+	return 0;
+
+}
+
 INLINE int extract_token(char **sp, char *end, str *out) {
 	char *space;
 
@@ -293,6 +305,7 @@ INLINE int extract_token(char **sp, char *end, str *out) {
 
 }
 #define EXTRACT_TOKEN(field) if (extract_token(&start, end, &output->field)) return -1
+#define EXTRACT_REST(field) if (extract_rest(&start, end, &output->field)) return -1
 #define EXTRACT_NETWORK_ADDRESS_NP(field)			\
 		EXTRACT_TOKEN(field.network_type);		\
 		EXTRACT_TOKEN(field.address_type);		\
@@ -781,7 +794,7 @@ static int parse_attribute_fmtp(struct sdp_attribute *output) {
 
 	PARSE_INIT;
 	EXTRACT_TOKEN(u.fmtp.payload_type_str);
-	EXTRACT_TOKEN(u.fmtp.format_parms_str);
+	EXTRACT_REST(u.fmtp.format_parms_str);
 
 	a = &output->u.fmtp;
 
