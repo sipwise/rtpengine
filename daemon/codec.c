@@ -478,28 +478,30 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 	ret->codec_def = def;
 
 #ifdef WITH_TRANSCODING
-	if (!ret->clock_rate)
-		ret->clock_rate = def->default_clockrate;
-	if (!ret->channels)
-		ret->channels = def->default_channels;
-	if (!ret->ptime)
-		ret->ptime = def->default_ptime;
+	if (def) {
+		if (!ret->clock_rate)
+			ret->clock_rate = def->default_clockrate;
+		if (!ret->channels)
+			ret->channels = def->default_channels;
+		if (!ret->ptime)
+			ret->ptime = def->default_ptime;
 
-	if (def->init)
-		def->init(ret);
+		if (def->init)
+			def->init(ret);
 
-	if (def->rfc_payload_type >= 0) {
-		const struct rtp_payload_type *rfc_pt = rtp_get_rfc_payload_type(def->rfc_payload_type);
-		// only use the RFC payload type if all parameters match
-		if (rfc_pt
-				&& (ret->clock_rate == 0 || ret->clock_rate == rfc_pt->clock_rate)
-				&& (ret->channels == 0 || ret->channels == rfc_pt->channels))
-		{
-			ret->payload_type = rfc_pt->payload_type;
-			if (!ret->clock_rate)
-				ret->clock_rate = rfc_pt->clock_rate;
-			if (!ret->channels)
-				ret->channels = rfc_pt->channels;
+		if (def->rfc_payload_type >= 0) {
+			const struct rtp_payload_type *rfc_pt = rtp_get_rfc_payload_type(def->rfc_payload_type);
+			// only use the RFC payload type if all parameters match
+			if (rfc_pt
+					&& (ret->clock_rate == 0 || ret->clock_rate == rfc_pt->clock_rate)
+					&& (ret->channels == 0 || ret->channels == rfc_pt->channels))
+			{
+				ret->payload_type = rfc_pt->payload_type;
+				if (!ret->clock_rate)
+					ret->clock_rate = rfc_pt->clock_rate;
+				if (!ret->channels)
+					ret->channels = rfc_pt->channels;
+			}
 		}
 	}
 #endif
@@ -777,7 +779,7 @@ static struct rtp_payload_type *codec_make_payload_type_sup(const str *codec_str
 	if (!ret)
 		return NULL;
 
-	if (media->type_id && ret->codec_def->media_type != media->type_id) {
+	if (!ret->codec_def || (media->type_id && ret->codec_def->media_type != media->type_id)) {
 		payload_type_free(ret);
 		return (void *) 0x1;
 	}
