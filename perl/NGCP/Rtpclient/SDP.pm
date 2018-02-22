@@ -55,6 +55,12 @@ sub decode {
 
 			push(@{$attr_store->{attributes_list}}, $full);
 			push(@{$attr_store->{attributes_hash}->{$name}}, $cont);
+
+			if ($cont && $cont =~ /^(\w+) (.*)$/) {
+				my $sub = $1;
+				$cont = $2;
+				push(@{$attr_store->{attributes_hash}->{"$name:$sub"}}, $cont);
+			}
 		}
 	}
 
@@ -116,6 +122,25 @@ sub decode_address {
 	die $s;
 }
 
+sub codec_negotiate {
+	my ($self, $remote) = @_;
+	my $idx = 0;
+	while (1) {
+		my $local = $self->{medias}->[$idx];
+		my $remote = $remote->{medias}->[$idx];
+		($local && $remote) or last;
+		my @codecs_send;
+		for my $c (@{$remote->{codec_list}}) {
+			if (!$local->{codec_hash}{$c->{name}}) {
+				next;
+			}
+			push(@codecs_send, $c);
+		}
+		$local->{codecs_send} = \@codecs_send;
+		$idx++;
+	}
+}
+
 
 package NGCP::Rtpclient::SDP::Media;
 
@@ -123,17 +148,15 @@ use Socket;
 use Socket6;
 use IO::Socket;
 
+# XXX move these to a separate module?
 my %codec_map = (
-	PCMA => { payload_type => 8 },
-	PCMU => { payload_type => 0 },
+	PCMA => { payload_type => 8, frame_len => 160 },
+	PCMU => { payload_type => 0, frame_len => 160 },
 	G729 => { payload_type => 18 },
+	G723 => { payload_type => 4 },
+	G722 => { payload_type => 9 },
 );
 my %payload_type_map = map {$codec_map{$_}{payload_type} => $_} keys(%codec_map);
-
-sub _codec_list_to_hash {
-	my ($list) = @_;
-	return { map { $_ => { %{$codec_map{$_}} } } @{$list} };
-}
 
 sub new {
 	my ($class, $rtp, $rtcp, %args) = @_;
@@ -145,8 +168,30 @@ sub new {
 	$self->{rtcp} = $rtcp; # optional
 	$self->{protocol} = $args{protocol} // 'RTP/AVP';
 	$self->{type} = $args{type} // 'audio';
-	$self->{codec_list} = $args{codecs};
-	$self->{codecs} = _codec_list_to_hash(@{$self->{codecs}});
+
+	my $codecs = $args{codecs} // [qw(PCMU)];
+	my (@codec_list, %dyn_pt);
+	for my $c (@$codecs) {
+		my ($codec, $clockrate, $channels) = $c =~ /^(\w+)(?:\/(\d+)(?:\/(\d+))?)?$/;
+		$clockrate //= 8000; # make codec-dependent
+		$channels //= 1;
+		my $pt = { name => $codec, clockrate => $clockrate, channels => $channels };
+		my $ptdef = $codec_map{$c};
+		my $ptnum;
+		if ($ptdef) {
+			$ptnum = $ptdef->{payload_type};
+		} else {
+			$ptnum = 96;
+			while ($dyn_pt{$ptnum}) {
+				$ptnum++;
+			}
+			$dyn_pt{$ptnum} = 1;
+		}
+		$pt->{payload_type} = $ptnum;
+		push(@codec_list, $pt);
+	}
+	$self->{codec_list} = \@codec_list;
+	$self->codecs_parse();
 
 	$self->{additional_attributes} = [];
 
@@ -162,9 +207,7 @@ sub new_remote {
 	$self->{protocol} = $protocol;
 	$self->{port} = $port;
 	$self->{type} = $type;
-	my @payload_types = [split(/ /, $payload_types)];
-	$self->{codec_list} = [ map {$payload_type_map{$_}} @payload_types ];
-	$self->{codecs} = _codec_list_to_hash(@{$self->{codecs}});
+	$self->{payload_types} = [split(/ /, $payload_types)]; # to be converted in decode()
 
 	return $self;
 };
@@ -180,7 +223,7 @@ sub encode {
 	my $pconn = $parent_connection ? NGCP::Rtpclient::SDP::encode_address($parent_connection) : '';
 	my @out;
 
-	my @payload_types = map {$codec_map{$_}{payload_type}} @{$self->{codec_list}};
+	my @payload_types = map {$_->{payload_type}} @{$self->{codec_list}};
 
 	push(@out, "m=$self->{type} " . $self->{rtp}->sockport() . ' ' . $self->{protocol} . ' '
 		. join(' ', @payload_types));
@@ -189,6 +232,8 @@ sub encode {
 	$rtpconn eq $pconn or push(@out, "c=$rtpconn");
 
 	push(@out, 'a=sendrecv');
+
+	# add rtpmap attributes
 
 	if ($self->{rtcp}) {
 		my $rtcpconn = NGCP::Rtpclient::SDP::encode_address($self->{rtcp});
@@ -212,6 +257,29 @@ sub decode {
 		$self->{rtcp_port} = $1;
 		$2 and $self->{rtcp_connection} = decode_address($2);
 	}
+	my @codec_list;
+	for my $pt (@{$self->{payload_types}}) {
+		my $def_fmt = $payload_type_map{$pt};
+		my $rtpmap = $attrs->{"rtpmap:$pt"}->[0];
+		$rtpmap //= "$def_fmt/8000";
+		my ($codec, $clockrate, $channels) = $rtpmap =~ /^(\w+)\/(\d+)(?:\/(\d+))?$/;
+		$channels //= 1;
+		my $ent = { name => $codec, clockrate => $clockrate, channels => $channels, payload_type => $pt };
+		push(@codec_list, $ent);
+	}
+	$self->{codec_list} = \@codec_list;
+	$self->codecs_parse();
+}
+
+sub codecs_parse {
+	my ($self) = @_;
+	$self->{payload_types} = { map {$_->{payload_type} => $_} @{$self->{codec_list}} };
+	$self->{codec_hash} = { map {$_->{name} => $_} @{$self->{codec_list}} };
+}
+
+sub send_codec {
+	my ($self) = @_;
+	return $self->{codecs_send}->[0];
 }
 
 sub connection {

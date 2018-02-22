@@ -20,12 +20,12 @@ sub new {
 	$self->{clockrate} = 8000;
 	$self->{timestamp} = Math::BigInt->new(int(rand(2**32)));
 	$self->{seq} = rand(2**16);
-	$self->{payload} = 100;
+	$self->{payload} = $args{send_codec}{frame_len} // 100;
 	$self->{packet_count} = 0;
 	$self->{octet_count} = 0;
 	$self->{other_ssrcs} = {};
 	$self->{args} = \%args;
-	$self->{payload_type} = $args{payload_type} // 0;
+	$self->{send_codec} = $args{send_codec} // { payload_type => 0 };
 
 	return $self;
 }
@@ -35,7 +35,7 @@ sub timer {
 
 	time() < $self->{next_send} and return;
 
-	my $hdr = pack("CCnNN", 0x80, $self->{payload_type}, $self->{seq}, $self->{timestamp}->bstr(),
+	my $hdr = pack("CCnNN", 0x80, $self->{send_codec}{payload_type}, $self->{seq}, $self->{timestamp}->bstr(),
 		$self->{ssrc});
 	my $payload = chr(rand(256)) x $self->{payload}; # XXX adapt to codec
 

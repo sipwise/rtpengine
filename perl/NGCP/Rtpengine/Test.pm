@@ -309,6 +309,7 @@ sub _offered {
 	# XXX validate SDP
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
+	$self->{local_sdp}->codec_negotiate($self->{remote_sdp});
 	$self->{ice} and $self->{ice}->decode($self->{remote_media}->decode_ice());
 }
 
@@ -335,6 +336,7 @@ sub _answered {
 	# XXX validate SDP
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
+	$self->{local_sdp}->codec_negotiate($self->{remote_sdp});
 	$self->{ice} and $self->{ice}->decode($self->{remote_media}->decode_ice());
 }
 
@@ -407,7 +409,10 @@ sub _peer_addr_check {
 sub start_rtp {
 	my ($self) = @_;
 	$self->{rtp} and die;
-	$self->{rtp} = NGCP::Rtpclient::RTP->new($self, %{$self->{rtp_args}}) or die;
+	my %args = %{$self->{rtp_args}};
+	my $send_codec = $self->{local_media}->send_codec();
+	$args{send_codec} = $send_codec;
+	$self->{rtp} = NGCP::Rtpclient::RTP->new($self, %args) or die;
 	$self->{client_components}->[0] = $self->{rtp};
 }
 
@@ -424,6 +429,18 @@ sub stop {
 	print("media packets received: @{$self->{media_packets_received}}\n");
 	my @queues = map {scalar(@$_)} @{$self->{media_receive_queues}};
 	print("media packets outstanding: @queues\n");
+}
+
+sub remote_codecs {
+	my ($self) = @_;
+	my $list = $self->{remote_media}->{codec_list};
+	return join(',', map {"$_->{name}/$_->{clockrate}/$_->{channels}"} @$list);
+}
+
+sub send_codecs {
+	my ($self) = @_;
+	my $list = $self->{local_media}->{codecs_send};
+	return join(',', map {"$_->{name}/$_->{clockrate}/$_->{channels}"} @$list);
 }
 
 1;
