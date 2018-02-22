@@ -560,6 +560,12 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 	SSL_set_tmp_ecdh(d->ssl, ecdh);
 	EC_KEY_free(ecdh);
 
+#if defined(SSL_OP_NO_QUERY_MTU)
+	SSL_CTX_set_options(d->ssl_ctx, SSL_OP_NO_QUERY_MTU);
+	SSL_set_mtu(d->ssl, 1500);
+	DTLS_set_link_mtu(d->ssl, 1500);
+#endif
+
 	d->active = active ? -1 : 0;
 
 done:
