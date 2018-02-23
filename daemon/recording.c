@@ -245,6 +245,10 @@ void recording_start(struct call *call, const char *prefix, str *metadata) {
 	// function is called right at the start of the call, all of the following
 	// is essentially a no-op
 	GList *l;
+	for (l = call->medias.head; l; l = l->next) {
+		struct call_media *m = l->data;
+		recording_setup_media(m);
+	}
 	for (l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		recording_setup_stream(ps);
