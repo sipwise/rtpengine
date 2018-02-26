@@ -309,7 +309,6 @@ INLINE unsigned int str_to_ui(str *s, int def) {
 	return ret;
 }
 
-// XXX use this for sdp.c token extraction
 INLINE int str_token(str *new_token, str *ori_and_remainder, int sep) {
 	*new_token = *ori_and_remainder;
 	if (!str_chr_str(ori_and_remainder, ori_and_remainder, sep))
