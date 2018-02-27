@@ -1006,6 +1006,9 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	int keep_going = 0;
 	int got_packet = 0;
 
+	if (!enc->u.avc.avcctx)
+		return -1;
+
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 	if (*frame) {
 		int ret = avcodec_send_frame(enc->u.avc.avcctx, *frame);
