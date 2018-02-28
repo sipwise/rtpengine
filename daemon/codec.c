@@ -428,6 +428,8 @@ void codec_add_raw_packet(struct media_packet *mp) {
 	struct codec_packet *p = g_slice_alloc(sizeof(*p));
 	p->s = mp->raw;
 	p->free_func = NULL;
+	if (mp->rtp)
+		mp->ssrc_out->payload_type = mp->rtp->m_pt & 0x7f;
 	g_queue_push_tail(&mp->packets_out, p);
 }
 static int handler_func_passthrough(struct codec_handler *h, struct call_media *media,
@@ -677,6 +679,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		struct codec_packet *p = g_slice_alloc(sizeof(*p));
 		p->s.s = buf;
 		p->s.len = inout.len + sizeof(struct rtp_header);
+		mp->ssrc_out->payload_type = ch->handler->dest_pt.payload_type;
 		p->free_func = free;
 		g_queue_push_tail(&mp->packets_out, p);
 

@@ -8,6 +8,7 @@
 
 static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 	c->parent = parent;
+	c->payload_type = -1;
 	while (!c->ssrc_map_out)
 		c->ssrc_map_out = random();
 }
@@ -18,7 +19,6 @@ static void init_ssrc_entry(struct ssrc_entry *ent, u_int32_t ssrc) {
 static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	struct ssrc_entry_call *ent;
 	ent = g_slice_alloc0(sizeof(*ent));
-	ent->payload_type = -1;
 	init_ssrc_ctx(&ent->input_ctx, ent);
 	init_ssrc_ctx(&ent->output_ctx, ent);
 	return &ent->h;
@@ -213,7 +213,7 @@ static long long __calc_rtt(struct call *c, u_int32_t ssrc, u_int32_t ntp_middle
 		return 0;
 
 	if (pt_p)
-		*pt_p = e->payload_type;
+		*pt_p = e->output_ctx.payload_type;
 
 	struct ssrc_time_item *sti;
 	GQueue *q = (((void *) e) + reports_queue_offset);
@@ -287,14 +287,11 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 
 	// determine the clock rate for jitter values
 	if (pt < 0) {
-		pt = other_e->payload_type;
-		if (pt < 0) {
-			ilog(LOG_DEBUG, "No payload type known for RTCP RR, discarding");
-			goto out_nl;
-		}
+		ilog(LOG_DEBUG, "No payload type known for RTCP RR, discarding");
+		goto out_nl;
 	}
 
-	const struct rtp_payload_type *rpt = rtp_payload_type(pt, m->codecs_recv);
+	const struct rtp_payload_type *rpt = rtp_payload_type(pt, m->codecs_send);
 	if (!rpt) {
 		ilog(LOG_INFO, "Invalid RTP payload type %i, discarding RTCP RR", pt);
 		goto out_nl;

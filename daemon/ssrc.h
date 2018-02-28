@@ -36,6 +36,7 @@ struct ssrc_hash {
 };
 struct ssrc_ctx {
 	struct ssrc_entry_call *parent;
+	int payload_type; // to determine the clock rate for jitter calculations
 	// XXX lock this?
 	u_int64_t srtp_index,
 		  srtcp_index;
@@ -76,7 +77,6 @@ struct ssrc_entry_call {
 	struct ssrc_stats_block *lowest_mos,
 				*highest_mos,
 				average_mos; // contains a running tally of all stats blocks
-	int payload_type; // to determine the clock rate for jitter calculations
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 };
 enum ssrc_dir { // these values must not be used externally

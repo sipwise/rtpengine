@@ -1475,9 +1475,10 @@ static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
 		struct ssrc_entry_call *se = get_ssrc(ssrc, c->ssrc_hash);
 		se->input_ctx.srtp_index = json_reader_get_ll(root_reader, "in_srtp_index");
 		se->input_ctx.srtcp_index = json_reader_get_ll(root_reader, "in_srtcp_index");
+		se->input_ctx.payload_type = json_reader_get_ll(root_reader, "in_payload_type");
 		se->output_ctx.srtp_index = json_reader_get_ll(root_reader, "out_srtp_index");
 		se->output_ctx.srtcp_index = json_reader_get_ll(root_reader, "out_srtcp_index");
-		se->payload_type = json_reader_get_ll(root_reader, "payload_type");
+		se->output_ctx.payload_type = json_reader_get_ll(root_reader, "out_payload_type");
 
 		json_reader_end_element(root_reader);
 	}
@@ -2087,9 +2088,10 @@ char* redis_encode_json(struct call *c) {
 			// XXX use function for in/out
 			JSON_SET_SIMPLE("in_srtp_index","%" PRIu64, se->input_ctx.srtp_index);
 			JSON_SET_SIMPLE("in_srtcp_index","%" PRIu64, se->input_ctx.srtcp_index);
+			JSON_SET_SIMPLE("in_payload_type","%i", se->input_ctx.payload_type);
 			JSON_SET_SIMPLE("out_srtp_index","%" PRIu64, se->output_ctx.srtp_index);
 			JSON_SET_SIMPLE("out_srtcp_index","%" PRIu64, se->output_ctx.srtcp_index);
-			JSON_SET_SIMPLE("payload_type","%i", se->payload_type);
+			JSON_SET_SIMPLE("out_payload_type","%i", se->output_ctx.payload_type);
 			// XXX add rest of info
 
 			json_builder_end_object (builder);

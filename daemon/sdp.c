@@ -273,20 +273,20 @@ static int parse_address(struct network_address *address) {
 			&address->address_type, &address->address);
 }
 
-#define EXTRACT_TOKEN(field) if (str_token_sep(&output->field, value_str, ' ')) return -1
+#define EXTRACT_TOKEN(field) do { if (str_token_sep(&output->field, value_str, ' ')) return -1; } while (0)
 #define EXTRACT_NETWORK_ADDRESS_NP(field)			\
-		EXTRACT_TOKEN(field.network_type);		\
+		do { EXTRACT_TOKEN(field.network_type);		\
 		EXTRACT_TOKEN(field.address_type);		\
-		EXTRACT_TOKEN(field.address)
+		EXTRACT_TOKEN(field.address); } while (0)
 #define EXTRACT_NETWORK_ADDRESS(field)				\
-		EXTRACT_NETWORK_ADDRESS_NP(field);		\
-		if (parse_address(&output->field)) return -1
+		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
+		if (parse_address(&output->field)) return -1; } while (0)
 #define EXTRACT_NETWORK_ADDRESS_NF(field)			\
-		EXTRACT_NETWORK_ADDRESS_NP(field);		\
-		if (parse_address(&output->field)) do {		\
+		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
+		if (parse_address(&output->field)) {		\
 			output->field.parsed.family = get_socket_family_enum(SF_IP4); \
 			output->field.parsed.u.ipv4.s_addr = 1;	\
-		} while (0)
+		} } while (0)
 
 #define PARSE_DECL str v_str, *value_str
 #define PARSE_INIT v_str = output->value; value_str = &v_str

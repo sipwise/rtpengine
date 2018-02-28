@@ -1301,7 +1301,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 		// XXX redundant between SSRC handling and codec_handler stuff -> combine
 		phc->payload_type = (phc->mp.rtp->m_pt & 0x7f);
 		if (G_LIKELY(phc->mp.ssrc_in))
-			phc->mp.ssrc_in->parent->payload_type = phc->payload_type;
+			phc->mp.ssrc_in->payload_type = phc->payload_type;
 
 		// XXX yet another hash table per payload type -> combine
 		struct rtp_stats *rtp_s = g_atomic_pointer_get(&phc->mp.stream->rtp_stats_cache);
