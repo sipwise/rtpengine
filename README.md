@@ -60,8 +60,7 @@ On a Debian system, everything can be built and packaged into Debian packages
 by executing `dpkg-buildpackage` (which can be found in the `dpkg-dev` package) in the main directory.
 This script will issue an error and stop if any of the dependency packages are
 not installed. The script `dpkg-checkbuilddeps` can be used to check missing dependencies.
-
-Before that, run `./debian/flavors/no_ngcp` in order to remove any NGCP dependencies.
+(See the note about G.729 at the end of this section.)
 
 This will produce a number of `.deb` files, which can then be installed using the
 `dpkg -i` command.
@@ -107,7 +106,10 @@ for additional codecs.
 
 To support the G.729 codec for transcoding purposes, the external library *bcg729* is required. To
 include this in a Debian build environment, a Debian-packaged version is required, which is available
-from [GitHub](https://github.com/ossobv/bcg729-deb).
+from [GitHub](https://github.com/ossobv/bcg729-deb). If G.729 support is not needed, the build
+dependency can be removed by using a different Debian build profile. Set the environment variable
+`export DEB_BUILD_PROFILES="pkg.ngcp-rtpengine.nobcg729"` (or use the `-P` flag to the *dpkg* tools)
+and then build the *rtpengine* packages.
 
 Manual Compilation
 ------------------
@@ -937,6 +939,14 @@ via the [bcg729](https://www.linphone.org/technical-corner/bcg729/overview) libr
 (mirror on [GitHub](https://github.com/BelledonneCommunications/bcg729)). The build system looks for
 the *bcg729* headers in a few locations and uses the library if found. If the library is located
 elsewhere, see `daemon/Makefile` to control where the build system is looking for it.
+
+In a Debian build environment, `debian/control` lists a build-time dependency on *bcg729*. Since
+Debian proper does not currently include a *bcg729* package, one can be built locally using these
+instructions on [GitHub](https://github.com/ossobv/bcg729-deb). Alternatively the build dependency
+can be removed from `debian/control` switching to a different Debian build profile.
+Set the environment variable
+`export DEB_BUILD_PROFILES="pkg.ngcp-rtpengine.nobcg729"` (or use the `-P` flag to the *dpkg* tools)
+and then build the *rtpengine* packages.
 
 The *ng* Control Protocol
 =========================
