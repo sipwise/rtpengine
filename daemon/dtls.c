@@ -563,7 +563,9 @@ int dtls_connection_init(struct packet_stream *ps, int active, struct dtls_cert 
 #if defined(SSL_OP_NO_QUERY_MTU)
 	SSL_CTX_set_options(d->ssl_ctx, SSL_OP_NO_QUERY_MTU);
 	SSL_set_mtu(d->ssl, 1500);
+#if defined(DTLS_set_link_mtu) || defined(DTLS_CTRL_SET_LINK_MTU) || OPENSSL_VERSION_NUMBER >= 0x10100000L
 	DTLS_set_link_mtu(d->ssl, 1500);
+#endif
 #endif
 
 	d->active = active ? -1 : 0;
