@@ -401,6 +401,8 @@ struct call {
 	unsigned int		foreign_call; // created_via_redis_notify call
 
 	struct recording 	*recording;
+
+	unsigned int	no_rtcp_filtering;
 };
 
 

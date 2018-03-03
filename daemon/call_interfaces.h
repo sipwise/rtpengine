@@ -65,7 +65,8 @@ struct sdp_ng_flags {
 	    sdes_unauthenticated_srtp:1,
 	    sdes_encrypted_srtp:1,
 	    sdes_encrypted_srtcp:1,
-	    sdes_authenticated_srtp:1;
+	    sdes_authenticated_srtp:1,
+	    no_rtcp_filtering:1;
 };
 
 extern int trust_address_def;

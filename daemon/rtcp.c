@@ -785,7 +785,7 @@ error:
 	return -1;
 }
 
-int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
+int rtcp_payload(struct rtcp_packet **out, str *p, const str *s, int no_rtcp_filtering) {
 	struct rtcp_packet *rtcp;
 	const char *err;
 
@@ -799,8 +799,8 @@ int rtcp_payload(struct rtcp_packet **out, str *p, const str *s) {
 	if (rtcp->header.version != 2)
 		goto error;
 	err = "invalid packet type";
-	if (rtcp->header.pt != RTCP_PT_SR
-			&& rtcp->header.pt != RTCP_PT_RR)
+	if (rtcp->header.pt != RTCP_PT_SR && rtcp->header.pt != RTCP_PT_RR && rtcp->header.pt != RTCP_PT_SDES
+		&& (!no_rtcp_filtering || (no_rtcp_filtering && rtcp->header.pt != RTCP_PT_RTPFB && rtcp->header.pt != RTCP_PT_PSFB)))
 		goto error;
 
 	if (!p)
@@ -818,14 +818,14 @@ error:
 }
 
 /* rfc 3711 section 3.4 */
-int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
+int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx, int no_rtcp_filtering) {
 	struct rtcp_packet *rtcp;
 	u_int32_t *idx;
 	str to_auth, payload;
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (rtcp_payload(&rtcp, &payload, s))
+	if (rtcp_payload(&rtcp, &payload, s, no_rtcp_filtering))
 		return -1;
 	if (check_session_keys(c))
 		return -1;
@@ -851,7 +851,7 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 
 
 /* rfc 3711 section 3.4 */
-int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
+int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx, int no_rtcp_filtering) {
 	struct rtcp_packet *rtcp;
 	str payload, to_auth, to_decrypt, auth_tag;
 	u_int32_t idx, *idx_p;
@@ -860,7 +860,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
-	if (rtcp_payload(&rtcp, &payload, s))
+	if (rtcp_payload(&rtcp, &payload, s, no_rtcp_filtering))
 		return -1;
 	if (check_session_keys(c))
 		return -1;

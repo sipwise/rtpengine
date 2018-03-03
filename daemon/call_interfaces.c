@@ -610,6 +610,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		out->no_rtcp_attr = 1;
 	else if (!str_cmp(s, "loop-protect"))
 		out->loop_protect = 1;
+	else if (!str_cmp(s, "no-rtcp-filtering"))
+		out->no_rtcp_filtering = 1;
 	else {
 		// handle values aliases from other dictionaries
 		if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
@@ -792,6 +794,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 		call->created_from = call_strdup(call, addr);
 		call->created_from_addr = sin->address;
 	}
+
+	call->no_rtcp_filtering = flags.no_rtcp_filtering?1:0;
+
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
 	call_bencode_hold_ref(call, output);
