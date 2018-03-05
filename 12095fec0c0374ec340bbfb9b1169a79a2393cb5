@@ -50,6 +50,24 @@
       "revId": "12095fec0c0374ec340bbfb9b1169a79a2393cb5",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a75e904_609f6e04",
+        "filename": "debian/control",
+        "patchSetId": 2
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-03-05T11:38:41Z",
+      "side": 1,
+      "message": "Right, depends on whether we want to make this conditional or not. Up to Richard here.",
+      "parentUuid": "7a75e904_e0e43eae",
+      "revId": "12095fec0c0374ec340bbfb9b1169a79a2393cb5",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
