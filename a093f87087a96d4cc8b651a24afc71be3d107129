@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7a75e904_bbcd1b60",
+        "filename": "README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 110,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-03-05T17:47:40Z",
+      "side": 1,
+      "message": "BTW the build profiles can be also passed to dpkg-buildpackage via the -P option. :)",
+      "revId": "a093f87087a96d4cc8b651a24afc71be3d107129",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
