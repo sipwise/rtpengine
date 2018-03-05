@@ -86,6 +86,24 @@
       "revId": "12095fec0c0374ec340bbfb9b1169a79a2393cb5",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a75e904_fb5153d9",
+        "filename": "debian/control",
+        "patchSetId": 2
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2018-03-05T14:18:41Z",
+      "side": 1,
+      "message": "\u003e Ah very nice, I never knew such an option existed. Will check it\n \u003e out, thanks.\n\nThe implementation would be basically what I told you, unless it\u0027s necessary to modify config flags or change installation instructions.\n\nBut yes, if it\u0027s a good solution, it\u0027s a bit more elegant to tell users to build with some flag than to edit files :)",
+      "parentUuid": "7a75e904_5bf3470a",
+      "revId": "12095fec0c0374ec340bbfb9b1169a79a2393cb5",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
