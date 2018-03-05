@@ -3305,7 +3305,26 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	ip_send_check(ih);
 	ip_local_out(par->net, skb->sk, skb);
 #else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+	ip_select_ident(par->net, skb, NULL);
+#elif (LINUX_VERSION_CODE == KERNEL_VERSION(3,10,0) && RHEL_MAJOR == 7) /* CentOS 7 */
+	ip_select_ident(dev_net(skb_dst(skb)->dev), skb, NULL);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,10) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,17)) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,27)) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,53)) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,103)) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,63))
 	ip_select_ident(skb, NULL);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,5) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,16)) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,66)) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,52)) \
+		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,100))
+	ip_select_ident(skb, skb_dst(skb), NULL);
+#else // 3.9.x, 3.8.x, 3.7.x, 3.6.x, 3.5.x, 3.3.x, 3.1.x, 2.6.x
+	ip_select_ident(ih, skb_dst(skb), NULL);
+#endif
 	ip_send_check(ih);
 	ip_local_out(skb);
 #endif
