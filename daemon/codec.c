@@ -645,7 +645,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	while (1) {
 		// figure out how big of a buffer we need
 		unsigned int payload_len = MAX(enc->avpkt.size, ch->bytes_per_packet);
-		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len;
+		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
 		char *buf = malloc(pkt_len);
 		struct rtp_header *rh = (void *) buf;
