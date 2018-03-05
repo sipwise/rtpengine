@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7a75e904_20ee568c",
+        "filename": "README.md",
+        "patchSetId": 2
+      },
+      "lineNbr": 110,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2018-03-05T11:27:06Z",
+      "side": 1,
+      "message": "Will need to change if uses profiles",
+      "revId": "12095fec0c0374ec340bbfb9b1169a79a2393cb5",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a75e904_40f35273",
+        "filename": "README.md",
+        "patchSetId": 2
+      },
+      "lineNbr": 942,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2018-03-05T11:27:06Z",
+      "side": 1,
+      "message": "Same as above, changes if using profiles.",
+      "revId": "12095fec0c0374ec340bbfb9b1169a79a2393cb5",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a75e904_e0e43eae",
+        "filename": "debian/control",
+        "patchSetId": 2
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2018-03-05T11:27:06Z",
+      "side": 1,
+      "message": "In principle it\u0027s fine, but maybe you can also use a \"profile\" to avoid having to modify debian/control.\n\nIt would be something like:\nlibbcg729-dev \u003c!pkg.ngcp-rtpengine.nobcg729\u003e\n\nThen people can compile it with:\nexport DEB_BUILD_PROFILES\u003d\"pkg.ngcp-rtpengine.nobcg729\"\n\n...without having to touch debian/control, which is nicer :)\n\nIn some packages one would also need to enable/disable options in debian/rules (for \"./configure\"), or to add files to an .install file or something.  In this case, since you don\u0027t touch the rest of the files when adding the build-dependency, it looks like in this case you auto-detect it and the package doesn\u0027t need any more modification?",
+      "revId": "12095fec0c0374ec340bbfb9b1169a79a2393cb5",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
