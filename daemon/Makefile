@@ -113,8 +113,6 @@ ifeq ($(have_bcg729),yes)
 LDFLAGS+=	$(bcg729_lib)
 endif
 
-include ../lib/lib.Makefile
-
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c streambuf.c call.c control_udp.c redis.c \
 		bencode.c cookie_cache.c udp_listener.c control_ng.c sdp.c stun.c rtcp.c \
 		crypto.c rtp.c call_interfaces.c dtls.c log.c cli.c graphite.c ice.c socket.c \
@@ -126,31 +124,6 @@ LIBSRCS+=	codeclib.c resample.c
 endif
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
-
-.PHONY:		all dep clean debug install
-
-all:
-	$(MAKE) $(TARGET)
-
-debug:
-	$(MAKE) DBG=yes all
-
-dep:		.depend
-
-clean:
-	rm -f $(OBJS) $(TARGET) $(LIBSRCS) .depend core core.*
-
-.depend:	$(SRCS) $(LIBSRCS) Makefile
-	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) | sed -e 's/:/ .depend:/' > .depend
-
-$(TARGET):	$(OBJS) .depend Makefile
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
-
-$(OBJS):	Makefile
-
-$(LIBSRCS):
-		ln -fs ../lib/$@
-
-install:
+include ../lib/common.Makefile
 
 include		.depend
