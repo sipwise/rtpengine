@@ -10,3 +10,4 @@ rtplib.c
 codeclib.c
 resample.c
 str.c
+fix_frame_channel_layout.h

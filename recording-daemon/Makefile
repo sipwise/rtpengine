@@ -24,38 +24,11 @@ LDFLAGS+=	$(shell pkg-config --libs libavfilter)
 LDFLAGS+=	$(shell mysql_config --libs)
 LDFLAGS+=	$(shell pkg-config --libs openssl)
 
-include ../lib/lib.Makefile
-
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
 		decoder.c output.c mix.c db.c log.c forward.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
-
-.PHONY:		all dep clean debug install
-
-all:
-	$(MAKE) $(TARGET)
-
-debug:
-	$(MAKE) DBG=yes all
-
-dep:		.depend
-
-clean:
-	rm -f $(OBJS) $(TARGET) $(LIBSRCS) .depend core core.*
-
-.depend:	$(SRCS) $(LIBSRCS) Makefile
-	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) | sed -e 's/:/ .depend:/' > .depend
-
-$(TARGET):	$(OBJS) .depend Makefile
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
-
-$(OBJS):	Makefile
-
-$(LIBSRCS):
-		ln -fs ../lib/$@
-
-install:
+include ../lib/common.Makefile
 
 include		.depend
