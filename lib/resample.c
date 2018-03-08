@@ -11,6 +11,7 @@
 #include <libavutil/frame.h>
 #include "log.h"
 #include "codeclib.h"
+#include "fix_frame_channel_layout.h"
 
 
 
@@ -20,11 +21,7 @@ AVFrame *resample_frame(resample_t *resample, AVFrame *frame, const format_t *to
 	int errcode = 0;
 
 	uint64_t to_channel_layout = av_get_default_channel_layout(to_format->channels);
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(54, 31, 0)
-	if (!frame->channel_layout)
-		frame->channel_layout = av_get_default_channel_layout(
-			av_frame_get_channels(frame));
-#endif
+	fix_frame_channel_layout(frame);
 
 	if (frame->format != to_format->format)
 		goto resample;
