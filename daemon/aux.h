@@ -90,6 +90,12 @@ GList *g_list_link(GList *, GList *);
 INLINE int g_hash_table_contains(GHashTable *h, const void *k) {
 	return g_hash_table_lookup(h, k) ? 1 : 0;
 }
+INLINE void g_queue_free_full(GQueue *q, GDestroyNotify free_func) {
+       void *d;
+       while ((d = g_queue_pop_head(q)))
+               free_func(d);
+       g_queue_free(q);
+}
 #endif
 
 
