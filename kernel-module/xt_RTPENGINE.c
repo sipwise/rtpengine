@@ -69,6 +69,10 @@ MODULE_LICENSE("GPL");
 #define DBG(x...) ((void)0)
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
+#define xt_action_param xt_target_param
+#endif
+
 #if 0
 #define _s_lock(l, f) do {								\
 		printk(KERN_DEBUG "[PID %i %s:%i] acquiring lock %s\n",			\
@@ -3848,9 +3852,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	struct sk_buff *skb2;
 	int err;
 	int error_nf_action = XT_CONTINUE;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	int rtp_pt_idx = -2;
-#endif
 	unsigned int datalen;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
@@ -4074,11 +4076,7 @@ skip2:
 
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_target_param *par) {
-#else
 static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_param *par) {
-#endif
 	const struct xt_rtpengine_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
 	struct iphdr *ih;
@@ -4119,11 +4117,7 @@ skip:
 
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_target_param *par) {
-#else
 static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_param *par) {
-#endif
 	const struct xt_rtpengine_info *pinfo = par->targinfo;
 	struct sk_buff *skb;
 	struct ipv6hdr *ih;
