@@ -300,7 +300,7 @@ static codec_def_t __codec_defs[] = {
 	},
 	{
 		.rtpname = "AMR-WB",
-		.avcodec_id = AV_CODEC_ID_AMR_NB,
+		.avcodec_id = AV_CODEC_ID_AMR_WB,
 		.avcodec_name = NULL,
 		.default_clockrate = 16000,
 		.default_channels = 1,
