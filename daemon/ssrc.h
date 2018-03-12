@@ -6,6 +6,7 @@
 #include <glib.h>
 #include "compat.h"
 #include "aux.h"
+#include "obj.h"
 
 
 
@@ -21,7 +22,6 @@ enum ssrc_dir;
 
 
 typedef struct ssrc_entry *(*ssrc_create_func_t)(void *uptr);
-typedef void (*ssrc_free_func_t)(struct ssrc_entry *);
 
 
 struct ssrc_hash {
@@ -30,7 +30,6 @@ struct ssrc_hash {
 	rwlock_t lock;
 	ssrc_create_func_t create_func;
 	void *uptr;
-	ssrc_free_func_t destroy_func;
 	volatile struct ssrc_entry *cache; // last used entry
 	volatile struct ssrc_entry *precreat; // next used entry
 };
@@ -63,8 +62,10 @@ struct ssrc_stats_block {
 };
 
 struct ssrc_entry {
+	struct obj obj;
 	mutex_t lock;
 	u_int32_t ssrc;
+	time_t last_used;
 };
 
 struct ssrc_entry_call {
@@ -162,7 +163,7 @@ struct ssrc_xr_voip_metrics {
 
 
 void free_ssrc_hash(struct ssrc_hash **);
-struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t, ssrc_free_func_t, void *uptr);
+struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t, void *uptr);
 
 struct ssrc_hash *create_ssrc_hash_call(void);
 

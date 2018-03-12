@@ -1162,10 +1162,17 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 	mutex_lock(&in_srtp->in_lock);
 
 	(*ssrc_in_p) = in_srtp->ssrc_in;
+	if (*ssrc_in_p)
+		obj_hold(&(*ssrc_in_p)->parent->h);
 	if (G_UNLIKELY(!(*ssrc_in_p) || (*ssrc_in_p)->parent->h.ssrc != in_ssrc)) {
 		// SSRC mismatch - get the new entry
+		if (*ssrc_in_p)
+			obj_put(&(*ssrc_in_p)->parent->h);
+		if (in_srtp->ssrc_in)
+			obj_put(&in_srtp->ssrc_in->parent->h);
 		(*ssrc_in_p) = in_srtp->ssrc_in =
 			get_ssrc_ctx(in_ssrc, ssrc_hash, SSRC_DIR_INPUT);
+		obj_hold(&in_srtp->ssrc_in->parent->h);
 
 		// might have created a new entry, which would have a new random
 		// ssrc_map_out. we don't need this if we're not transcoding
@@ -1180,10 +1187,17 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 	mutex_lock(&out_srtp->out_lock);
 
 	(*ssrc_out_p) = out_srtp->ssrc_out;
+	if (*ssrc_out_p)
+		obj_hold(&(*ssrc_out_p)->parent->h);
 	if (G_UNLIKELY(!(*ssrc_out_p) || (*ssrc_out_p)->parent->h.ssrc != out_ssrc)) {
 		// SSRC mismatch - get the new entry
+		if (*ssrc_out_p)
+			obj_put(&(*ssrc_out_p)->parent->h);
+		if (out_srtp->ssrc_out)
+			obj_put(&out_srtp->ssrc_out->parent->h);
 		(*ssrc_out_p) = out_srtp->ssrc_out =
 			get_ssrc_ctx(out_ssrc, ssrc_hash, SSRC_DIR_OUTPUT);
+		obj_hold(&out_srtp->ssrc_out->parent->h);
 
 		// reverse SSRC mapping
 		(*ssrc_out_p)->ssrc_map_out = in_ssrc;
@@ -1698,6 +1712,15 @@ out:
 	rwlock_unlock_r(&phc->mp.call->master_lock);
 
 	g_queue_clear_full(&phc->mp.packets_out, codec_packet_free);
+
+	if (phc->mp.ssrc_in) {
+		obj_put(&phc->mp.ssrc_in->parent->h);
+		phc->mp.ssrc_in = NULL;
+	}
+	if (phc->mp.ssrc_out) {
+		obj_put(&phc->mp.ssrc_out->parent->h);
+		phc->mp.ssrc_out = NULL;
+	}
 
 	return ret;
 }

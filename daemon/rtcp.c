@@ -1259,7 +1259,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	// we might not be keeping track of stats for this SSRC (handler_func_passthrough_ssrc).
 	// just leave the values in place.
 	if (!packets)
-		return;
+		goto out;
 
 	unsigned int lost = atomic64_get(&input_ctx->packets_lost);
 	unsigned int dupes = atomic64_get(&input_ctx->duplicates);
@@ -1286,6 +1286,12 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 
 	rr->high_seq_received = htonl(atomic64_get(&input_ctx->last_seq));
 	// XXX jitter, last SR
+
+out:
+	if (input_ctx)
+		obj_put(&input_ctx->parent->h);
+	if (map_ctx)
+		obj_put(&map_ctx->parent->h);
 }
 static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	assert(ctx->scratch.sr.ssrc == ctx->mp->ssrc_in->parent->h.ssrc);

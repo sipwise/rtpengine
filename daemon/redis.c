@@ -1481,6 +1481,7 @@ static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
 		se->output_ctx.payload_type = json_reader_get_ll(root_reader, "out_payload_type");
 
 		json_reader_end_element(root_reader);
+		obj_put(&se->h);
 	}
 	json_reader_end_member (root_reader);
 	return 0;
