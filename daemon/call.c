@@ -2012,9 +2012,6 @@ static void __call_free(void *p) {
 
 	__C_DBG("freeing call struct");
 
-	call_buffer_free(&c->buffer);
-	mutex_destroy(&c->buffer_lock);
-	rwlock_destroy(&c->master_lock);
 	obj_put(c->dtls_cert);
 
 	while (c->monologues.head) {
@@ -2052,8 +2049,16 @@ static void __call_free(void *p) {
 		crypto_cleanup(&ps->crypto);
 		g_queue_clear(&ps->sfds);
 		g_hash_table_destroy(ps->rtp_stats);
+		if (ps->ssrc_in)
+			obj_put(&ps->ssrc_in->parent->h);
+		if (ps->ssrc_out)
+			obj_put(&ps->ssrc_out->parent->h);
 		g_slice_free1(sizeof(*ps), ps);
 	}
+
+	call_buffer_free(&c->buffer);
+	mutex_destroy(&c->buffer_lock);
+	rwlock_destroy(&c->master_lock);
 
 	assert(c->stream_fds.head == NULL);
 }

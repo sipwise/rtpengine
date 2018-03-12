@@ -1114,10 +1114,17 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 	mutex_lock(&in_srtp->in_lock);
 
 	(*ssrc_in_p) = in_srtp->ssrc_in;
+	if (*ssrc_in_p)
+		obj_hold(&(*ssrc_in_p)->parent->h);
 	if (G_UNLIKELY(!(*ssrc_in_p) || (*ssrc_in_p)->parent->h.ssrc != ssrc)) {
 		// SSRC mismatch - get the new entry
+		if (*ssrc_in_p)
+			obj_put(&(*ssrc_in_p)->parent->h);
+		if (in_srtp->ssrc_in)
+			obj_put(&in_srtp->ssrc_in->parent->h);
 		(*ssrc_in_p) = in_srtp->ssrc_in =
 			get_ssrc_ctx(ssrc, ssrc_hash, SSRC_DIR_INPUT);
+		obj_hold(&in_srtp->ssrc_in->parent->h);
 	}
 
 	mutex_unlock(&in_srtp->in_lock);
@@ -1126,10 +1133,17 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 	mutex_lock(&out_srtp->out_lock);
 
 	(*ssrc_out_p) = out_srtp->ssrc_out;
+	if (*ssrc_out_p)
+		obj_hold(&(*ssrc_out_p)->parent->h);
 	if (G_UNLIKELY(!(*ssrc_out_p) || (*ssrc_out_p)->parent->h.ssrc != ssrc)) {
 		// SSRC mismatch - get the new entry
+		if (*ssrc_out_p)
+			obj_put(&(*ssrc_out_p)->parent->h);
+		if (out_srtp->ssrc_out)
+			obj_put(&out_srtp->ssrc_out->parent->h);
 		(*ssrc_out_p) = out_srtp->ssrc_out =
 			get_ssrc_ctx(ssrc, ssrc_hash, SSRC_DIR_OUTPUT);
+		obj_hold(&out_srtp->ssrc_out->parent->h);
 	}
 
 	mutex_unlock(&out_srtp->out_lock);
@@ -1512,6 +1526,15 @@ done:
 	}
 unlock_out:
 	rwlock_unlock_r(&call->master_lock);
+
+	if (ssrc_in) {
+		obj_put(&ssrc_in->parent->h);
+		ssrc_in = NULL;
+	}
+	if (ssrc_out) {
+		obj_put(&ssrc_out->parent->h);
+		ssrc_out = NULL;
+	}
 
 	return ret;
 }
