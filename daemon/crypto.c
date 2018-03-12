@@ -702,6 +702,9 @@ static int null_crypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str 
 static void dump_key(struct crypto_context *c) {
 	char *k, *s;
 
+	if (!c->params.crypto_suite)
+		return;
+
 	k = g_base64_encode(c->params.master_key, c->params.crypto_suite->master_key_len);
 	s = g_base64_encode(c->params.master_salt, c->params.crypto_suite->master_salt_len);
 

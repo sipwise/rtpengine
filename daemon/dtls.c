@@ -652,21 +652,29 @@ found:
 
 	ilog(LOG_INFO, "DTLS-SRTP successfully negotiated");
 
+	if (d->active) {
+		/* we're the client */
+		crypto_init(&ps->crypto, &client);
+		if (ps->selected_sfd)
+			crypto_init(&ps->selected_sfd->crypto, &server);
+	}
+	else {
+		/* we're the server */
+		crypto_init(&ps->crypto, &server);
+		if (ps->selected_sfd)
+			crypto_init(&ps->selected_sfd->crypto, &client);
+	}
+	// it's possible that ps->selected_sfd is not from ps->sfds list (?)
 	for (GList *l = ps->sfds.head; l; l = l->next) {
 		struct stream_fd *sfd = l->data;
-		if (d->active) {
-			/* we're the client */
-			crypto_init(&ps->crypto, &client);
+		if (d->active) /* we're the client */
 			crypto_init(&sfd->crypto, &server);
-		}
-		else {
-			/* we're the server */
-			crypto_init(&ps->crypto, &server);
+		else /* we're the server */
 			crypto_init(&sfd->crypto, &client);
-		}
 	}
 
-	crypto_dump_keys(&ps->crypto, &ps->selected_sfd->crypto);
+	if (ps->selected_sfd)
+		crypto_dump_keys(&ps->crypto, &ps->selected_sfd->crypto);
 
 	return 0;
 
