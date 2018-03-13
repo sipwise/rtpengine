@@ -350,6 +350,9 @@ static void sdp_after_pcap(struct recording *recording, GString *str, struct cal
 	// File pointers buffer data, whereas direct writing using the file
 	// descriptor does not. Make sure to flush any unwritten contents
 	// so the file contents appear in order.
+	if (ml->label.len) {
+		fprintf(meta_fp, "\nLabel: %*s", ml->label.len, ml->label.s);
+	}
 	fprintf(meta_fp, "\nSDP mode: ");
 	fprintf(meta_fp, "%s", get_opmode_text(opmode));
 	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", recording->u.pcap.packet_num);
