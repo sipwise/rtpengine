@@ -1,3 +1,14 @@
+ngcp-rtpengine (6.0.3.0+0~mr6.0.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [99034f3] TT#31752 fix segfault on empty a=rtcp
+  * [64c4209] fix incorrect DTLS context being used with ICE
+  * [63e4dc2] fix segfault regression from e84fd86
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 13 Mar 2018 14:07:04 +0100
+
 ngcp-rtpengine (6.0.2.0+0~mr6.0.2.0) unstable; urgency=medium
 
   * New release.
