@@ -221,7 +221,7 @@ void statistics_init() {
 	mutex_init(&rtpe_totalstats_interval.managed_sess_lock);
 	mutex_init(&rtpe_totalstats_interval.total_calls_duration_lock);
 
-	rtpe_totalstats.started = rtpe_now.tv_sec;
+	time(&rtpe_totalstats.started);
 	//rtpe_totalstats_interval.managed_sess_min = 0; // already zeroed
 	//rtpe_totalstats_interval.managed_sess_max = 0;
 
