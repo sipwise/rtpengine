@@ -38,7 +38,7 @@ fix_frame_channel_layout.h:	../lib/fix_frame_channel_layout-*
 		rm -f "$@"; \
 		echo '/******** GENERATED FILE ********/' > "$@"; \
 		cat "$$x" >> "$@"; \
-		$(MAKE) fix_frame_channel_layout-test.o 2> /dev/null && break; \
+		$(MAKE) fix_frame_channel_layout-test.o && break; \
 		echo "Failed build with $$x"; \
 		rm -f "$@"; \
 	done; \
