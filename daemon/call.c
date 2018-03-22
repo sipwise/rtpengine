@@ -930,9 +930,9 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 
 	if (MEDIA_ISSET(media, DTLS)) {
 		mutex_lock(&ps->in_lock);
-		struct stream_fd *sfd = dtls_sfd(ps);
-		if (sfd && sfd->dtls.init && !sfd->dtls.connected) {
-			dtls(sfd, NULL, NULL);
+		struct dtls_connection *d = dtls_ptr(ps->selected_sfd);
+		if (d && d->init && !d->connected) {
+			dtls(ps->selected_sfd, NULL, NULL);
 			mutex_unlock(&ps->in_lock);
 			return CSS_DTLS;
 		}
@@ -963,16 +963,20 @@ static int __init_stream(struct packet_stream *ps) {
 	}
 
 	if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
-		struct stream_fd *sfd = dtls_sfd(ps);
-		if (sfd)
-			active = dtls_is_active(&sfd->dtls);
+		struct dtls_connection *d = dtls_ptr(ps->selected_sfd);
+		if (d)
+			active = dtls_is_active(d);
 		// we try to retain our role if possible, but must handle a role switch
 		if ((active && !MEDIA_ISSET(media, SETUP_ACTIVE))
 				|| (!active && !MEDIA_ISSET(media, SETUP_PASSIVE)))
 			active = -1;
 		if (active == -1)
 			active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
-		dtls_connection_init(ps, active, call->dtls_cert);
+		dtls_connection_init(&ps->ice_dtls, ps, active, call->dtls_cert);
+		for (GList *l = ps->sfds.head; l; l = l->next) {
+			struct stream_fd *sfd = l->data;
+			dtls_connection_init(&sfd->dtls, ps, active, call->dtls_cert);
+		}
 
 		if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
 				&& ps->dtls_cert)

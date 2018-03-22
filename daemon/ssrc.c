@@ -45,7 +45,6 @@ static void free_stats_block(struct ssrc_stats_block *ssb) {
 }
 static void __free_ssrc_entry_call(void *ep) {
 	struct ssrc_entry_call *e = ep;
-	ilog(LOG_DEBUG, "__free_ssrc_entry_call");
 	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
 	g_queue_clear_full(&e->rr_time_reports, (GDestroyNotify) free_rr_time);
 	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
