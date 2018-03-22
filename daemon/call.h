@@ -275,6 +275,7 @@ struct packet_stream {
 
 	GQueue			sfds;		/* LOCK: call->master_lock */
 	struct stream_fd * volatile selected_sfd;
+	struct dtls_connection	ice_dtls;	/* LOCK: in_lock */
 	struct packet_stream	*rtp_sink;	/* LOCK: call->master_lock */
 	struct packet_stream	*rtcp_sink;	/* LOCK: call->master_lock */
 	struct packet_stream	*rtcp_sibling;	/* LOCK: call->master_lock */
