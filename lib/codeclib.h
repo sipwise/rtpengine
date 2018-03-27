@@ -10,7 +10,7 @@ typedef struct codec_def_s codec_def_t;
 
 
 
-#include <libavresample/avresample.h>
+#include <libswresample/swresample.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/audio_fifo.h>
 #ifdef HAVE_BCG729
@@ -102,7 +102,7 @@ struct format_s {
 };
 
 struct resample_s {
-	AVAudioResampleContext *avresample;
+	SwrContext *swresample;
 };
 
 struct decoder_s {

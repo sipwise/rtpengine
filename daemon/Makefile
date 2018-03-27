@@ -66,7 +66,7 @@ ifeq ($(with_transcoding),yes)
 CFLAGS+=	$(shell pkg-config --cflags libavcodec)
 CFLAGS+=	$(shell pkg-config --cflags libavformat)
 CFLAGS+=	$(shell pkg-config --cflags libavutil)
-CFLAGS+=	$(shell pkg-config --cflags libavresample)
+CFLAGS+=	$(shell pkg-config --cflags libswresample)
 CFLAGS+=	$(shell pkg-config --cflags libavfilter)
 CFLAGS+=	-DWITH_TRANSCODING
 else
@@ -106,7 +106,7 @@ ifeq ($(with_transcoding),yes)
 LDFLAGS+=	$(shell pkg-config --libs libavcodec)
 LDFLAGS+=	$(shell pkg-config --libs libavformat)
 LDFLAGS+=	$(shell pkg-config --libs libavutil)
-LDFLAGS+=	$(shell pkg-config --libs libavresample)
+LDFLAGS+=	$(shell pkg-config --libs libswresample)
 LDFLAGS+=	$(shell pkg-config --libs libavfilter)
 endif
 ifeq ($(have_bcg729),yes)

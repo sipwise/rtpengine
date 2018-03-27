@@ -130,7 +130,7 @@ There's 3 parts to *rtpengine*, which can be found in the respective subdirector
 	- *XMLRPC-C* version 1.16.08 or higher
 	- *hiredis* library
 	- *libiptc* library for iptables management (optional)
-	- *ffmpeg* codec libraries for transcoding (optional) such as *libavcodec*, *libavfilter*, *libavresample*
+	- *ffmpeg* codec libraries for transcoding (optional) such as *libavcodec*, *libavfilter*, *libswresample*
 	- *bcg729* for full G.729 transcoding support (optional)
 
 	The `Makefile` contains a few Debian-specific flags, which may have to removed for compilation to
