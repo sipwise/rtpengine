@@ -6,7 +6,7 @@
 #include <libavutil/channel_layout.h>
 #include <libavutil/mathematics.h>
 #include <inttypes.h>
-#include <libavresample/avresample.h>
+#include <libswresample/swresample.h>
 #include <libavutil/opt.h>
 #include <libavutil/frame.h>
 #include "log.h"
@@ -34,42 +34,28 @@ AVFrame *resample_frame(resample_t *resample, AVFrame *frame, const format_t *to
 
 resample:
 
-	if (G_UNLIKELY(!resample->avresample)) {
-		resample->avresample = avresample_alloc_context();
+	if (G_UNLIKELY(!resample->swresample)) {
+		resample->swresample = swr_alloc_set_opts(NULL,
+				to_channel_layout,
+				to_format->format,
+				to_format->clockrate,
+				frame->channel_layout,
+				frame->format,
+				frame->sample_rate,
+				0, NULL);
 		err = "failed to alloc resample context";
-		if (!resample->avresample)
+		if (!resample->swresample)
 			goto err;
-
-		err = "failed to set resample option";
-		if ((errcode = av_opt_set_int(resample->avresample, "in_channel_layout",
-				frame->channel_layout, 0)))
-			goto err;
-		if ((errcode = av_opt_set_int(resample->avresample, "in_sample_fmt",
-				frame->format, 0)))
-			goto err;
-		if ((errcode = av_opt_set_int(resample->avresample, "in_sample_rate",
-				frame->sample_rate, 0)))
-			goto err;
-		if ((errcode = av_opt_set_int(resample->avresample, "out_channel_layout",
-				to_channel_layout, 0)))
-			goto err;
-		if ((errcode = av_opt_set_int(resample->avresample, "out_sample_fmt",
-				to_format->format, 0)))
-			goto err;
-		if ((errcode = av_opt_set_int(resample->avresample, "out_sample_rate",
-				to_format->clockrate, 0)))
-			goto err;
-		// av_opt_set_int(dec->avresample, "internal_sample_fmt", AV_SAMPLE_FMT_FLTP, 0); // ?
 
 		err = "failed to init resample context";
-		if ((errcode = avresample_open(resample->avresample)) < 0)
+		if ((errcode = swr_init(resample->swresample)) < 0)
 			goto err;
 	}
 
 	// get a large enough buffer for resampled audio - this should be enough so we don't
 	// have to loop
-	int dst_samples = avresample_available(resample->avresample) +
-		av_rescale_rnd(avresample_get_delay(resample->avresample) + frame->nb_samples,
+	int dst_samples = av_rescale_rnd(swr_get_delay(resample->swresample, to_format->clockrate)
+			+ frame->nb_samples,
 				to_format->clockrate, frame->sample_rate, AV_ROUND_UP);
 
 	AVFrame *swr_frame = av_frame_alloc();
@@ -86,11 +72,10 @@ resample:
 	if ((errcode = av_frame_get_buffer(swr_frame, 0)) < 0)
 		goto err;
 
-	swr_frame->nb_samples = dst_samples;
-	int ret_samples = avresample_convert(resample->avresample, swr_frame->extended_data,
-				swr_frame->linesize[0], dst_samples,
-				frame->extended_data,
-				frame->linesize[0], frame->nb_samples);
+	int ret_samples = swr_convert(resample->swresample, swr_frame->extended_data,
+				dst_samples,
+				(const uint8_t **) frame->extended_data,
+				frame->nb_samples);
 	err = "failed to resample audio";
 	if ((errcode = ret_samples) < 0)
 		goto err;
@@ -107,5 +92,5 @@ err:
 
 
 void resample_shutdown(resample_t *resample) {
-	avresample_free(&resample->avresample);
+	swr_free(&resample->swresample);
 }

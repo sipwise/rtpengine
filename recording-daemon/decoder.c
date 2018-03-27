@@ -7,7 +7,6 @@
 #include <libavutil/samplefmt.h>
 #include <glib.h>
 #include <stdint.h>
-#include <libavresample/avresample.h>
 #include <libavutil/opt.h>
 #include "types.h"
 #include "log.h"
