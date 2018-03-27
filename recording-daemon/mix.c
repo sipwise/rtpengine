@@ -6,7 +6,6 @@
 #include <libavutil/channel_layout.h>
 #include <libavutil/mathematics.h>
 #include <inttypes.h>
-#include <libavresample/avresample.h>
 #include <libavutil/opt.h>
 #include "types.h"
 #include "log.h"
