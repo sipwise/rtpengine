@@ -1250,6 +1250,7 @@ static const char *bcg729_decoder_init(decoder_t *dec) {
 
 static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	str input = *data;
+	u_int64_t pts = dec->pts;
 
 	while (input.len >= 2) {
 		int frame_len = input.len >= 10 ? 10 : 2;
@@ -1262,8 +1263,11 @@ static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		frame->format = AV_SAMPLE_FMT_S16;
 		frame->sample_rate = dec->in_format.clockrate; // 8000
 		frame->channel_layout = av_get_default_channel_layout(dec->in_format.channels); // 1 channel
+		frame->pts = pts;
 		if (av_frame_get_buffer(frame, 0) < 0)
 			abort();
+
+		pts += frame->nb_samples;
 
 		// XXX handle lost packets and comfort noise
 		bcg729Decoder(dec->u.bcg729, (void *) inp_frame.s, inp_frame.len, 0, 0, 0,

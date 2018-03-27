@@ -1360,8 +1360,13 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 	/* return values are: 0 = forward packet, -1 = error/dont forward,
 	 * 1 = forward and push update to redis */
 	int ret = 0;
-	if (phc->decrypt_func)
+	if (phc->decrypt_func) {
+		str ori_s = phc->s;
 		ret = phc->decrypt_func(&phc->s, phc->in_srtp, phc->mp.sfd, &phc->mp.fsin, &phc->mp.tv, phc->mp.ssrc_in);
+		// XXX for stripped auth tag and duplicate invokations of rtp_payload
+		// XXX transcoder uses phc->mp.payload
+		phc->mp.payload.len -= ori_s.len - phc->s.len;
+	}
 
 	mutex_unlock(&phc->in_srtp->in_lock);
 
