@@ -1,3 +1,133 @@
+ngcp-rtpengine (6.2.1.0+0~mr6.2.1.0) unstable; urgency=medium
+
+  [ Claudiu Boriga ]
+  * [8cc4b78] Add statistics for requests per second
+  * [00bdcef] Fix statistics for average requests/sec sent to rtpengine-ctl
+  * [3850e99] Use atomic64_get_set for requests statistics
+  * [74cecc0] Use statistics locks properly
+  * [0ffb9e6] Display correct average for requests statistics
+  * [b7b40cc] Use proper data type for requests statistics
+  * [be5211e] Introduce 'list silenttimeout' and 'list finaltimeout' to rtpengine-ctl
+  * [f2ce4d3] Add rtpengine-ctl 'get' commands as alias for 'list'
+  * [0f9151e] Make 'redis-allowed-errors', 'redis-disable-time', 'redis-cmd-timeout' and 'redis-connect-timeout' configurable via rtpengine-ctl
+  * [ff2a278] Make 'rtpengine-ctl' configurable via rtpengine-ctl
+  * [4039efd] Update rtpengine-ctl help
+  * [e8b4019] Enable round robin for default interface
+  * [6ee4cc3] Fix uptime statistics
+  * [229b78d] Fix race condition where redis context is used outside mutex protection
+
+  [ Richard Fuchs ]
+  * [7b44240] TT#31752 fix segfault on empty a=rtcp
+  * [c88494f] add Requires(pre):	shadow-utils to spec file
+  * [bc420cb] TT#30405 split stream_packet() into smaller pieces
+  * [fb729e3] TT#30405 create a packet handling context struct for convenience
+  * [8715d40] TT#30405 codec matchup and handler functions
+  * [c3585b0] TT#30405 reprint a=rtpmap and a=fmtp for SDP output
+  * [f801240] TT#30570 replace "chopper" iovec with GString
+  * [d510f5e] TT#30404 initial support for adding codecs for transcoding
+  * [f8aad04] TT#30404 move portions required for decoding from recording-daemon to lib
+  * [a967f9d] TT#28163 abstractize packet sequencer and move to lib
+  * [b9206a4] TT#28163 abstractize SSRC hash
+  * [cee94a5] TT#28163 pass RTP packets to media decoder
+  * [a4e73c9] TT#30404 accept and reject codecs according to transcoding preference
+  * [dc80c27] TT#28163 split encoder from recording daemon into shared lib
+  * [df537b9] TT#28163 pass encoded packets back to processing for sending out
+  * [b0bc679] TT#28163 take number of channels from SDP into account
+  * [55007a6] TT#28163 prevent kernelization of transcoded stream
+  * [14c3cd8] TT#28163 support transcoding to non-RFC codecs
+  * [7c6db89] TT#28163 don't reset transcoding context when not necessary
+  * [2d2f2e3] TT#31198 support output codec clockrate multiplier (for G722)
+  * [ad4a5d1] TT#31198 add resampling support
+  * [1746f1d] TT#31405 handle non-media pseudo-codecs (telephone-event)
+  * [fcf593d] TT#31400 add encoding support for AMR and AMR-WB
+  * [c6c79f4] TT#31198 flush encoder queue on shutdown to avoid warnings
+  * [5c05c88] TT#31198 handle RTP seq and TS resets
+  * [c380052] TT#31401 configure encoder bitrate
+  * [e3e3cb9] TT#28163 document transcoding control protocol options
+  * [266a1fb] TT#31404 support custom ptime and repacketization for sampled codecs
+  * [82e0c55] TT#31409 TT#31408 TT#30901 eliminate silly codec def macros
+  * [ff0a46a] TT#30901 convert codec list to hash table
+  * [71b3762] TT#30901 use hash table to look up RFC specified codecs
+  * [2e43b47] TT#31409 check codec support only once during startup
+  * [a4a0e34] TT#31408 distinguish between codec types
+  * [7986ca0] TT#30900 support specifying codec parameters for transcoding
+  * [159729a] TT#31403 move SSRC mapping out of codec handler
+  * [368312a] TT#31403 keep local packet stats for RTCP output/rewriting
+  * [5d67605] TT#31403 decouple RTCP AVPF filtering from crypto stuff
+  * [26a356c] TT#31403 eliminate stub RTCP handler functions
+  * [613f7af] TT#31403 map and replace RTCP SSRCs when transcoding
+  * [6988b23] TT#31403 keep track of stats required for RTCP translation/output
+  * [2a4acf5] TT#31403 handle passthrough payloads in a transcoding context
+  * [caf7350] TT#26752 enable GSM and iLBC codecs
+  * [10c852b] TT#31950 add compile-time switch to disable transcoding features
+  * [126a69f] TT#28163 logging and documentation improvements
+  * [0636b08] TT#31700 implement payload-type specific passthrough kernel forwarding
+  * [61d5505] TT#31199 set bitrate for G.723.1
+  * [83784d4] TT#31197 separate out libavcodec specifics
+  * [9eb9a2f] TT#31197 include bcg729 build support
+  * [25037a9] TT#31197 G.729 packetizer
+  * [3fa94d7] TT#31197 document bcg729 requirements
+  * [65d4106] add missing header files to fix compilation
+  * [4d859bf] TT#28163 add support for properly packaged libbcg729
+  * [9147d5e] TT#32983 support transcoding options in redis (re)store
+  * [60ce212] TT#28163 use a pointer cache to avoid hash table lookup
+  * [bc30929] TT#32210 add codec masking option
+  * [e84fd86] fix incorrect DTLS context being used with ICE
+  * [7c36492] TT#28163 fix recording-daemon sample format selection
+  * [4d586f2] TT#28163 fix recording-daemon sample format selection for mixed output
+  * [92e4c28] fix recording-daemon segfault for libavcodec versions < 57
+  * [7b65ded] restructure codec_make_payload_type to fix compilation w/o transcoding
+  * [14262f5] fix segfault regression from e84fd86
+  * [7ee73fe] special handling for strip=all together with transcode, and mask=all
+  * [1184c92] select IPv4 ID in kernel module
+  * [65c75c5] fix segfault regression from 7b65dedb
+  * [3885da9] workaround for buggy OpenSSL that produces incorrectly fragmented DTLS
+  * [5b0bb90] fix recording setup_media reversed direction
+  * [b2a775f] transcoding test suite improvements
+  * [22431f5] fix recording mix sample rate mismatch
+  * [3aa53a1] fix missing setup_media when using start_recording call
+  * [092f8da] use str_token_sep for SDP token extraction
+  * [6b88fc9] avoid segfault when an encoder could not be opened
+  * [0db5e22] fix payload type tracking for transcoding situations
+  * [620cf61] version test macro for DTLS_set_link_mtu
+  * [4538af3] Extended version test macros for ip_select_ident()
+  * [f1808e2] TT#31197 include libbcg729 build dependency
+  * [32e0e2c] leave room for SRTP auth tag on transcoded packets
+  * [6e8d57e] honour RFC 5506 by allowing more RTCP packet types leading the group
+  * [e4e7923] compilation fix for glib < 2.32 (CentOS 6)
+  * [7b6af45] CentOS 6 compile fixes
+  * [2fc2b3b] fix possible null pointer segfault when using log level 7
+  * [14100b0] use reference counting on SSRC objects
+  * [5a73f12] TT#34050 replace ffmpeg version test macro
+  * [4ac6473] don't silence libav test build output
+  * [16024d2] create explicit per-stream DTLS context for ICE
+  * [ce44eaf] fix RTP timestamps in G.729 decoder
+  * [7604887] omit ip_select_ident for CentOS kernels
+  * [33b262a] TT#33700 migrate from avresample to swresample
+
+  [ Huseyin Dikme ]
+  * [968446c] cli params command has been created for initial, current parameters and their difference
+
+  [ Manuel Montecelo ]
+  * [a76b474] TT#33102 Install ngcp-rtpengine kernel module on all kernel versions
+
+  [ Alexander Lutay ]
+  * [86dcf34] TT#33276 Remove sysv init script dependency on sshd
+  * [458564c] TT#33911 Perform 'wrap-and-sort -sat'
+
+  [ Guillem Jover ]
+  * [2ebe76d] TT#33306 Add dependencies on $network and $local_fs to init scripts
+
+  [ Hugh Waite ]
+  * [565ed98] Fix AMR-WB codec initialisation
+
+  [ Anthony Alba ]
+  * [bbcea40] recording.c: save the label in pcap metadata file
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 03 Apr 2018 22:32:44 +0200
+
 ngcp-rtpengine (6.2.0.0+0~mr6.2.0.0) unstable; urgency=medium
 
   [ Pawel Kuzak ]
