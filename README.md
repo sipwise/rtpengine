@@ -583,8 +583,8 @@ The options are described in more detail below.
 	The recording method `proc` works by writing metadata files directly into the
 	`recording-dir` (i.e. not into a subdirectory) and instead of recording RTP packet data
 	into pcap files, the packet data is exposed via a special interface in the `/proc` filesystem.
-	Packets must then be retrieved from this interface by a dedicated 3rd party userspace component
-	(usually a daemon).
+	Packets must then be retrieved from this interface by a dedicated userspace component
+	(usually a daemon such as recording-daemon included in this repository).
 
 	Packet data is held in kernel memory until retrieved by the userspace component, but only a limited
 	number of packets (default 10) per media stream. If packets are not retrieved in time, they will
