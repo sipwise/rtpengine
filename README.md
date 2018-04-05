@@ -1305,8 +1305,8 @@ Optionally included keys are:
 
 	This is a generic metadata string. The metadata will be written to the bottom of
 	metadata files within `/path/to/recording_dir/metadata/` or to
-	`recording_metakeys` table.  In the latter case, metadata needs to
-	be a list of `key:val` pairs separated by `|` character.  `metadata` can be used to
+	`recording_metakeys` table.  In the latter case, `metadata` string must
+	contain a list of `key:val` pairs separated by `|` character.  `metadata` can be used to
 	record additional information about recorded calls. `metadata` values passed in
 	through subsequent messages will overwrite previous metadata values.
 
