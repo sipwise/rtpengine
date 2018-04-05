@@ -380,6 +380,9 @@ next:
 
 		}
 	}
+	while (passthrough_handlers) {
+		passthrough_handlers = g_slist_delete_link(passthrough_handlers, passthrough_handlers);
+	}
 }
 
 
@@ -742,6 +745,7 @@ static int handler_func_transcode(struct codec_handler *h, struct call_media *me
 	if (packet_sequencer_insert(&ch->sequencer, &packet->p)) {
 		// dupe
 		mutex_unlock(&ch->lock);
+		obj_put(&ch->h);
 		__transcode_packet_free(packet);
 		ilog(LOG_DEBUG, "Ignoring duplicate RTP packet");
 		atomic64_inc(&mp->ssrc_in->duplicates);
