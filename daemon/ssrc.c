@@ -255,6 +255,7 @@ found:;
 
 	if (rtt <= 0 || rtt > 10000000) {
 		ilog(LOG_DEBUG, "Invalid RTT - discarding");
+		obj_put(&e->h);
 		return 0;
 	}
 
@@ -303,17 +304,14 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 
 	// determine the clock rate for jitter values
 	if (pt < 0) {
-		pt = other_e->payload_type;
-		if (pt < 0) {
-			ilog(LOG_DEBUG, "No payload type known for RTCP RR, discarding");
-			goto out_nl;
-		}
+		ilog(LOG_DEBUG, "No payload type known for RTCP RR, discarding");
+		goto out_nl_put;
 	}
 
 	const struct rtp_payload_type *rpt = rtp_payload_type(pt, m->rtp_payload_types);
 	if (!rpt) {
 		ilog(LOG_INFO, "Invalid RTP payload type %i, discarding RTCP RR", pt);
-		goto out_nl;
+		goto out_nl_put;
 	}
 	unsigned int jitter = rpt->clock_rate ? (rr->jitter * 1000 / rpt->clock_rate) : rr->jitter;
 	ilog(LOG_DEBUG, "Calculated jitter for %u is %u ms", rr->ssrc, jitter);
@@ -360,6 +358,8 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 
 out_ul_oe:
 	mutex_unlock(&other_e->h.lock);
+	goto out_nl_put;
+out_nl_put:
 	obj_put(&other_e->h);
 	goto out_nl;
 out_nl:
