@@ -353,6 +353,8 @@ static void sdp_after_pcap(struct recording *recording, GString *str, struct cal
 	if (ml->label.len) {
 		fprintf(meta_fp, "\nLabel: %*s", ml->label.len, ml->label.s);
 	}
+	fprintf(meta_fp, "\nTimestamp started ms: ");
+	fprintf(meta_fp, "%.3lf", ml->started.tv_sec*1000.0+ml->started.tv_usec/1000.0);
 	fprintf(meta_fp, "\nSDP mode: ");
 	fprintf(meta_fp, "%s", get_opmode_text(opmode));
 	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", recording->u.pcap.packet_num);
@@ -381,6 +383,9 @@ static int pcap_meta_finish_file(struct call *call) {
 	time_t end = rtpe_now.tv_sec;
 	char timebuffer[20];
 	struct tm *timeinfo;
+	struct timeval *terminate;
+	terminate = &(((struct call_monologue *)call->monologues.head->data)->terminated);
+	fprintf(recording->u.pcap.meta_fp, "\nTimestamp terminated ms(first monologue): %.3lf", terminate->tv_sec*1000.0 + terminate->tv_usec/1000.0);
 	timeinfo = localtime(&start);
 	strftime(timebuffer, 20, "%FT%T", timeinfo);
 	fprintf(recording->u.pcap.meta_fp, "\n\ncall start time: %s\n", timebuffer);
