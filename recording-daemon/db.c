@@ -85,7 +85,7 @@ static int check_conn() {
 				"end_timestamp = ?, status = 'completed' where id = ?"))
 		goto err;
 	if (prep(&stm_close_stream, "update recording_streams set " \
-				"end_timestamp = ? where id = ?"))
+				"end_timestamp = ?, stream = ? where id = ?"))
 		goto err;
 	if (prep(&stm_config_stream, "update recording_streams set channels = ?, sample_rate = ? where id = ?"))
 		goto err;
@@ -295,6 +295,7 @@ void db_close_call(metafile_t *mf) {
 
 	execute_wrap(&stm_close_call, b, NULL);
 }
+
 void db_close_stream(output_t *op) {
 	if (check_conn())
 		return;
@@ -303,11 +304,61 @@ void db_close_stream(output_t *op) {
 
 	double now = now_double();
 
-	MYSQL_BIND b[2];
+	str stream;
+        char *filename = 0;
+        MYSQL_BIND b[3];
+        stream.s = 0;
+        stream.len = 0;
+
+	if (!strcmp(output_storage, "db") || !strcmp(output_storage, "both")) {
+		filename = malloc(strlen(op->full_filename) +
+				  strlen(op->file_format) + 2);
+		if (!filename) {
+			ilog(LOG_ERR, "Failed to allocate memory for filename");
+			if (!strcmp(output_storage, "both"))
+				goto file;
+			return;
+		}
+		strcpy(filename, op->full_filename);
+		strcat(filename, ".");
+		strcat(filename, op->file_format);
+		FILE *f = fopen(filename, "rb");
+		if (!f) {
+			ilog(LOG_ERR, "Failed to open file: %s", filename);
+			if (!strcmp(output_storage, "both"))
+				goto file;
+			free(filename);
+			return;
+		}
+		fseek(f, 0, SEEK_END);
+		stream.len = ftell(f);
+		fseek(f, 0, SEEK_SET);
+		stream.s = malloc(stream.len);
+		if (stream.s) {
+			size_t count = fread(stream.s, 1, stream.len, f);
+			if (count != stream.len) {
+				ilog(LOG_ERR, "Failed to read from stream");
+				if (!strcmp(output_storage, "both"))
+					goto file;
+				free(filename);
+				return;
+			}
+		}
+		fclose(f);
+        }
+
+file:
 	my_d(&b[0], &now);
-	my_ull(&b[1], &op->db_id);
+	my_str(&b[1], &stream);
+	my_ull(&b[2], &op->db_id);
 
 	execute_wrap(&stm_close_stream, b, NULL);
+
+        if (stream.s)
+		free(stream.s);
+	if (!strcmp(output_storage, "db"))
+		remove(filename);
+        free(filename);
 }
 
 void db_config_stream(output_t *op) {

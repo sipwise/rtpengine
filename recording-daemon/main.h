@@ -7,6 +7,7 @@
 
 extern int ktable;
 extern int num_threads;
+extern const char *output_storage;
 extern const char *spool_dir;
 extern const char *output_dir;
 extern int output_mixed;

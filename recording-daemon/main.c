@@ -29,6 +29,7 @@
 
 int ktable = 0;
 int num_threads = 8;
+const char *output_storage = "file";
 const char *spool_dir = "/var/spool/rtpengine";
 const char *output_dir = "/var/lib/rtpengine-recording";
 static const char *output_format = "wav";
@@ -138,6 +139,7 @@ static void options(int *argc, char ***argv) {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
 		{ "spool-dir",		0,   0, G_OPTION_ARG_STRING,	&spool_dir,	"Directory containing rtpengine metadata files", "PATH" },
 		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
+		{ "output-storage",	0,   0, G_OPTION_ARG_STRING,	&output_storage,"Where to store audio streams",	        "file|db|both"	},
 		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
 		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3|none"	},
 		{ "resample-to",	0,   0, G_OPTION_ARG_INT,	&resample_audio,"Resample all output audio",		"INT"		},
