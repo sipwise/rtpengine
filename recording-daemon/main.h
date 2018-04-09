@@ -5,9 +5,15 @@
 #include "auxlib.h"
 
 
+enum output_storage_enum {
+	OUTPUT_STORAGE_FILE = 0x1,
+	OUTPUT_STORAGE_DB = 0x2,
+	OUTPUT_STORAGE_BOTH = 0x3,
+};
+
 extern int ktable;
 extern int num_threads;
-extern const char *output_storage;
+extern enum output_storage_enum output_storage;
 extern const char *spool_dir;
 extern const char *output_dir;
 extern int output_mixed;

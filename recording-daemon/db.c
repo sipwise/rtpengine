@@ -84,9 +84,16 @@ static int check_conn() {
 	if (prep(&stm_close_call, "update recording_calls set " \
 				"end_timestamp = ?, status = 'completed' where id = ?"))
 		goto err;
-	if (prep(&stm_close_stream, "update recording_streams set " \
-				"end_timestamp = ?, stream = ? where id = ?"))
-		goto err;
+	if ((output_storage & OUTPUT_STORAGE_DB)) {
+		if (prep(&stm_close_stream, "update recording_streams set " \
+					"end_timestamp = ?, stream = ? where id = ?"))
+			goto err;
+	}
+	else {
+		if (prep(&stm_close_stream, "update recording_streams set " \
+					"end_timestamp = ? where id = ?"))
+			goto err;
+	}
 	if (prep(&stm_config_stream, "update recording_streams set channels = ?, sample_rate = ? where id = ?"))
 		goto err;
 	if (prep(&stm_insert_metadata, "insert into recording_metakeys (`call`, `key`, `value`) values " \
@@ -310,12 +317,12 @@ void db_close_stream(output_t *op) {
         stream.s = 0;
         stream.len = 0;
 
-	if (!strcmp(output_storage, "db") || !strcmp(output_storage, "both")) {
+	if ((output_storage & OUTPUT_STORAGE_DB)) {
 		filename = malloc(strlen(op->full_filename) +
 				  strlen(op->file_format) + 2);
 		if (!filename) {
 			ilog(LOG_ERR, "Failed to allocate memory for filename");
-			if (!strcmp(output_storage, "both"))
+			if ((output_storage & OUTPUT_STORAGE_FILE))
 				goto file;
 			return;
 		}
@@ -325,7 +332,7 @@ void db_close_stream(output_t *op) {
 		FILE *f = fopen(filename, "rb");
 		if (!f) {
 			ilog(LOG_ERR, "Failed to open file: %s", filename);
-			if (!strcmp(output_storage, "both"))
+			if ((output_storage & OUTPUT_STORAGE_FILE))
 				goto file;
 			free(filename);
 			return;
@@ -338,7 +345,7 @@ void db_close_stream(output_t *op) {
 			size_t count = fread(stream.s, 1, stream.len, f);
 			if (count != stream.len) {
 				ilog(LOG_ERR, "Failed to read from stream");
-				if (!strcmp(output_storage, "both"))
+				if ((output_storage & OUTPUT_STORAGE_FILE))
 					goto file;
 				free(filename);
 				return;
@@ -347,16 +354,18 @@ void db_close_stream(output_t *op) {
 		fclose(f);
         }
 
-file:
-	my_d(&b[0], &now);
-	my_str(&b[1], &stream);
-	my_ull(&b[2], &op->db_id);
+file:;
+	int par_idx = 0;
+	my_d(&b[par_idx++], &now);
+	if ((output_storage & OUTPUT_STORAGE_DB))
+		my_str(&b[par_idx++], &stream);
+	my_ull(&b[par_idx++], &op->db_id);
 
 	execute_wrap(&stm_close_stream, b, NULL);
 
         if (stream.s)
 		free(stream.s);
-	if (!strcmp(output_storage, "db"))
+	if (!(output_storage & OUTPUT_STORAGE_FILE))
 		remove(filename);
         free(filename);
 }
