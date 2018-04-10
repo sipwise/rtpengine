@@ -52,6 +52,7 @@ GetOptions(
 	'codec-mask=s@'			=> \$options{'codec-mask'},
 	'ptime=i'			=> \$options{'ptime'},
 	'flags=s@'			=> \$options{'flags'},
+	'codec-options-flat'		=> \$options{'codec options flag'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -80,7 +81,12 @@ if (defined($options{direction})) {
 }
 for my $x (qw(strip offer transcode mask)) {
 	if ($options{'codec-'.$x} && @{$options{'codec-'.$x}}) {
-		$packet{codec}{$x} = $options{'codec-'.$x};
+		if (!$options{'codec options flag'}) {
+			$packet{codec}{$x} = $options{'codec-'.$x};
+		}
+		else {
+			push(@{$packet{flags}}, map {'codec-'.$x.'-'.$_} @{$options{'codec-'.$x}});
+		}
 	}
 }
 if ($options{'flags'} && @{$options{'flags'}}) {
