@@ -420,7 +420,8 @@ out:
 }
 
 void codec_handlers_free(struct call_media *m) {
-	g_hash_table_destroy(m->codec_handlers);
+	if (m->codec_handlers)
+		g_hash_table_destroy(m->codec_handlers);
 	m->codec_handlers = NULL;
 	m->codec_handler_cache = NULL;
 }
