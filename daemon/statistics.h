@@ -39,6 +39,7 @@ struct totalstats {
 	atomic64		total_foreign_sessions;
 	atomic64		total_rejected_sess;
 	atomic64		total_silent_timeout_sess;
+	atomic64		total_offer_timeout_sess;
 	atomic64		total_final_timeout_sess;
 	atomic64		total_regular_term_sess;
 	atomic64		total_forced_term_sess;

@@ -191,6 +191,9 @@ void statistics_update_oneway(struct call* c) {
 			} else if (ml->term_reason==SILENT_TIMEOUT) {
 				atomic64_inc(&rtpe_totalstats.total_silent_timeout_sess);
 				atomic64_inc(&rtpe_totalstats_interval.total_silent_timeout_sess);
+			} else if (ml->term_reason==OFFER_TIMEOUT) {
+				atomic64_inc(&rtpe_totalstats.total_offer_timeout_sess);
+				atomic64_inc(&rtpe_totalstats_interval.total_offer_timeout_sess);
 			} else if (ml->term_reason==REGULAR) {
 				atomic64_inc(&rtpe_totalstats.total_regular_term_sess);
 				atomic64_inc(&rtpe_totalstats_interval.total_regular_term_sess);

@@ -263,6 +263,7 @@ static void options(int *argc, char ***argv) {
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&rtpe_config.timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&rtpe_config.silent_timeout,"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&rtpe_config.final_timeout,	"Call timeout",			"SECS"		},
+		{ "offer-timeout",0,0,	G_OPTION_ARG_INT,	&rtpe_config.offer_timeout,	"Timeout for incomplete one-sided calls",	"SECS"		},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&rtpe_config.port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&rtpe_config.port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
@@ -383,6 +384,9 @@ static void options(int *argc, char ***argv) {
 	if (rtpe_config.silent_timeout <= 0)
 		rtpe_config.silent_timeout = 3600;
 
+	if (rtpe_config.offer_timeout <= 0)
+		rtpe_config.offer_timeout = 3600;
+
 	if (rtpe_config.final_timeout <= 0)
 		rtpe_config.final_timeout = 0;
 
@@ -447,6 +451,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->max_sessions = rtpe_config.max_sessions;
 	ini_rtpe_cfg->timeout = rtpe_config.timeout;
 	ini_rtpe_cfg->silent_timeout = rtpe_config.silent_timeout;
+	ini_rtpe_cfg->offer_timeout = rtpe_config.offer_timeout;
 	ini_rtpe_cfg->final_timeout = rtpe_config.final_timeout;
 	ini_rtpe_cfg->delete_delay = rtpe_config.delete_delay;
 	ini_rtpe_cfg->redis_expires_secs = rtpe_config.redis_expires_secs;

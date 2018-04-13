@@ -249,9 +249,13 @@ no_sfd:
 
 		check = rtpe_config.timeout;
 		tmp_t_reason = TIMEOUT;
-		if (!MEDIA_ISSET(ps->media, RECV) || !sfd || !PS_ISSET(ps, FILLED)) {
+		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
 			check = rtpe_config.silent_timeout;
 			tmp_t_reason = SILENT_TIMEOUT;
+		}
+		else if (!PS_ISSET(ps, FILLED)) {
+			check = rtpe_config.offer_timeout;
+			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
 		if (rtpe_now.tv_sec - atomic64_get(timestamp) < check)

@@ -46,6 +46,7 @@ static void cli_incoming_set_maxopenfiles(str *instr, struct streambuf *replybuf
 static void cli_incoming_set_maxsessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_timeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_silenttimeout(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_offertimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_finaltimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_loglevel(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_redisallowederrors(str *instr, struct streambuf *replybuffer);
@@ -65,6 +66,7 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_sessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_timeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_silenttimeout(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_offertimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_finaltimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_loglevel(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_loglevel(str *instr, struct streambuf *replybuffer);
@@ -90,6 +92,7 @@ static const cli_handler_t cli_set_handlers[] = {
 	{ "maxsessions",		cli_incoming_set_maxsessions		},
 	{ "timeout",			cli_incoming_set_timeout		},
 	{ "silenttimeout",		cli_incoming_set_silenttimeout		},
+	{ "offertimeout",		cli_incoming_set_offertimeout		},
 	{ "finaltimeout",		cli_incoming_set_finaltimeout		},
 	{ "loglevel",			cli_incoming_set_loglevel		},
 	{ "redisallowederrors",		cli_incoming_set_redisallowederrors	},
@@ -107,6 +110,7 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "maxsessions",		cli_incoming_list_maxsessions		},
 	{ "timeout",			cli_incoming_list_timeout		},
 	{ "silenttimeout",		cli_incoming_list_silenttimeout		},
+	{ "offertimeout",		cli_incoming_list_offertimeout		},
 	{ "finaltimeout",		cli_incoming_list_finaltimeout		},
 	{ "loglevel",			cli_incoming_list_loglevel		},
 	{ "redisallowederrors",		cli_incoming_list_redisallowederrors	},
@@ -211,12 +215,14 @@ static void cli_incoming_params_start(str *instr, struct streambuf *replybuffer)
 	struct intf_config *ifa;
 
 	streambuf_printf(replybuffer, "table = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\nfinal-timeout = %d\n"
+			"offer-timeout = %d\n"
 			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
 			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis = %s:%d/%d\n"
 			"redis-write = %s:%d/%d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
 			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n",
 			initial_rtpe_config.kernel_table, initial_rtpe_config.max_sessions, initial_rtpe_config.timeout,
-			initial_rtpe_config.silent_timeout, initial_rtpe_config.final_timeout, initial_rtpe_config.delete_delay,
+			initial_rtpe_config.silent_timeout, initial_rtpe_config.final_timeout, initial_rtpe_config.offer_timeout,
+			initial_rtpe_config.delete_delay,
 			initial_rtpe_config.redis_expires_secs, initial_rtpe_config.default_tos, initial_rtpe_config.control_tos,
 			initial_rtpe_config.graphite_interval, initial_rtpe_config.redis_num_threads, initial_rtpe_config.homer_protocol,
 			initial_rtpe_config.homer_id, initial_rtpe_config.no_fallback, initial_rtpe_config.port_min, initial_rtpe_config.port_max,
@@ -253,12 +259,15 @@ static void cli_incoming_params_current(str *instr, struct streambuf *replybuffe
 	struct intf_config *ifa;
 
 	streambuf_printf(replybuffer, "table = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\nfinal-timeout = %d\n"
+			"offer-timeout = %d\n"
 			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
 			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis-db = %d\n"
 			"redis-write-db = %d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
 			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n",
 			rtpe_config.kernel_table, rtpe_config.max_sessions, rtpe_config.timeout, rtpe_config.silent_timeout,
-			rtpe_config.final_timeout, rtpe_config.delete_delay, rtpe_config.redis_expires_secs, rtpe_config.default_tos,
+			rtpe_config.final_timeout,
+			rtpe_config.offer_timeout,
+			rtpe_config.delete_delay, rtpe_config.redis_expires_secs, rtpe_config.default_tos,
 			rtpe_config.control_tos, rtpe_config.graphite_interval, rtpe_config.redis_num_threads, rtpe_config.homer_protocol,
 			rtpe_config.homer_id, rtpe_config.no_fallback, rtpe_config.port_min, rtpe_config.port_max,
 			rtpe_config.redis_db, rtpe_config.redis_write_db, rtpe_config.no_redis_required,
@@ -314,6 +323,7 @@ static void cli_incoming_params_diff(str *instr, struct streambuf *replybuffer) 
 	int_diff_print(initial_rtpe_config.timeout, rtpe_config.timeout, "timeout", replybuffer);
 	int_diff_print(initial_rtpe_config.silent_timeout, rtpe_config.silent_timeout, "silent-timeout", replybuffer);
 	int_diff_print(initial_rtpe_config.final_timeout, rtpe_config.final_timeout, "final-timeout", replybuffer);
+	int_diff_print(initial_rtpe_config.offer_timeout, rtpe_config.offer_timeout, "offer-timeout", replybuffer);
 	int_diff_print(initial_rtpe_config.delete_delay, rtpe_config.delete_delay, "delete-delay", replybuffer);
 	int_diff_print(initial_rtpe_config.redis_expires_secs, rtpe_config.redis_expires_secs, "redis-expires", replybuffer);
 	int_diff_print(initial_rtpe_config.default_tos, rtpe_config.default_tos, "default-tos", replybuffer);
@@ -400,6 +410,7 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 	streambuf_printf(replybuffer, " Total timed-out sessions via TIMEOUT            :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_timeout_sess));
 	streambuf_printf(replybuffer, " Total timed-out sessions via SILENT_TIMEOUT     :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_silent_timeout_sess));
 	streambuf_printf(replybuffer, " Total timed-out sessions via FINAL_TIMEOUT      :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_final_timeout_sess));
+	streambuf_printf(replybuffer, " Total timed-out sessions via OFFER_TIMEOUT      :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_offer_timeout_sess));
 	streambuf_printf(replybuffer, " Total regular terminated sessions               :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_regular_term_sess));
 	streambuf_printf(replybuffer, " Total forced terminated sessions                :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_forced_term_sess));
 	streambuf_printf(replybuffer, " Total relayed packets                           :"UINT64F"\n",atomic64_get(&rtpe_totalstats.total_relayed_packets));
@@ -538,6 +549,16 @@ static void cli_incoming_list_finaltimeout(str *instr, struct streambuf *replybu
 
 	/* don't lock anything while reading the value */
 	streambuf_printf(replybuffer, "FINAL_TIMEOUT=%u\n", rtpe_config.final_timeout);
+
+	rwlock_unlock_r(&rtpe_config.config_lock);
+
+	return ;
+}
+static void cli_incoming_list_offertimeout(str *instr, struct streambuf *replybuffer) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+
+	/* don't lock anything while reading the value */
+	streambuf_printf(replybuffer, "OFFER_TIMEOUT=%u\n", rtpe_config.offer_timeout);
 
 	rwlock_unlock_r(&rtpe_config.config_lock);
 
@@ -817,6 +838,9 @@ static void cli_incoming_set_silenttimeout(str *instr, struct streambuf *replybu
 }
 static void cli_incoming_set_finaltimeout(str *instr, struct streambuf *replybuffer) {
 	cli_incoming_set_gentimeout(instr, replybuffer, &rtpe_config.final_timeout);
+}
+static void cli_incoming_set_offertimeout(str *instr, struct streambuf *replybuffer) {
+	cli_incoming_set_gentimeout(instr, replybuffer, &rtpe_config.offer_timeout);
 }
 
 static void cli_incoming_list(str *instr, struct streambuf *replybuffer) {

@@ -192,6 +192,7 @@ option and which are reproduced below:
 	  -o, --timeout=SECS               RTP timeout
 	  -s, --silent-timeout=SECS        RTP timeout for muted
 	  -a, --final-timeout=SECS         Call timeout
+	  --offer-timeout=SECS             Timeout for incomplete one-sided calls
 	  -p, --pidfile=FILE               Write PID to file
 	  -f, --foreground                 Don't fork to background
 	  -m, --port-min=INT               Lowest port to use for RTP
@@ -334,6 +335,11 @@ The options are described in more detail below.
 
 	The number of seconds since call creation, after call is deleted. Useful for limiting the lifetime of a call.
 	This feature can be disabled by setting the parameter to 0. By default this timeout is disabled.
+
+* --offer-timeout
+
+	This timeout (in seconds) is applied to calls which only had an `offer` but no `answer`.
+	Defaults to 3600 (one hour).
 
 * -p, --pidfile
 

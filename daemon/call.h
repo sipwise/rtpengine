@@ -29,7 +29,8 @@ enum termination_reason {
 	FORCED=2,
 	TIMEOUT=3,
 	SILENT_TIMEOUT=4,
-	FINAL_TIMEOUT=5
+	FINAL_TIMEOUT=5,
+	OFFER_TIMEOUT=6,
 };
 
 enum tag_type {
