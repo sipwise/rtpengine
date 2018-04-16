@@ -1,2 +1,2 @@
-recording-daemon/rtpengine-recording /usr/sbin/
 etc/rtpengine-recording.sample.conf /etc/rtpengine/
+recording-daemon/rtpengine-recording /usr/sbin/
