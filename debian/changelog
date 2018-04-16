@@ -1,3 +1,14 @@
+ngcp-rtpengine (5.5.4.1+0~mr5.5.4.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f4a7c27] fix incorrect DTLS context being used with ICE
+  * [eaefb3c] fix segfault regression from e84fd86
+  * [2459245] create explicit per-stream DTLS context for ICE
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 16 Apr 2018 16:08:37 +0200
+
 ngcp-rtpengine (5.5.4.0+0~mr5.5.4.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
