@@ -613,11 +613,6 @@ err:
 	obj_put(&ch->h);
 	return NULL;
 }
-static int __encoder_flush(encoder_t *enc, void *u1, void *u2) {
-	int *going = u1;
-	*going = 1;
-	return 0;
-}
 static void __free_ssrc_handler(void *chp) {
 	struct codec_ssrc_handler *ch = chp;
 	ilog(LOG_DEBUG, "__free_ssrc_handler");
@@ -625,12 +620,7 @@ static void __free_ssrc_handler(void *chp) {
 	if (ch->decoder)
 		decoder_close(ch->decoder);
 	if (ch->encoder) {
-		// flush out queue to avoid ffmpeg warnings
-		int going;
-		do {
-			going = 0;
-			encoder_input_data(ch->encoder, NULL, __encoder_flush, &going, NULL);
-		} while (going);
+		encoder_flush(ch->encoder, NULL, NULL, NULL);
 		encoder_free(ch->encoder);
 	}
 	g_string_free(ch->sample_buffer, TRUE);

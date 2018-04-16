@@ -189,9 +189,12 @@ void encoder_close(encoder_t *);
 void encoder_free(encoder_t *);
 int encoder_input_data(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
+int encoder_flush(encoder_t *enc,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
 int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
-
+int encoder_fifo_finalize(encoder_t *enc,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
 
 void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
 void packet_sequencer_destroy(packet_sequencer_t *ps);

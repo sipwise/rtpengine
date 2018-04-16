@@ -1074,6 +1074,8 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 int encoder_input_data(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
 {
+	int count = 0;
+
 	enc->avpkt.size = 0;
 
 	while (1) {
@@ -1082,10 +1084,11 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 			return -1;
 
 		if (enc->avpkt.size) {
-			//av_write_frame(output->fmtctx, &output->avpkt);
-			callback(enc, u1, u2);
+			count++;
 
-			//output->fifo_pts += output->frame->nb_samples;
+			if (callback)
+				callback(enc, u1, u2);
+
 			enc->mux_dts = enc->avpkt.dts + 1; // min next expected dts
 
 			av_packet_unref(&enc->avpkt);
@@ -1096,6 +1099,16 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 			break;
 	}
 
+	return count;
+}
+
+int encoder_flush(encoder_t *enc,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
+{
+	int going;
+	do {
+		going = encoder_input_data(enc, NULL, callback, u1, u2);
+	} while (going);
 	return 0;
 }
 
@@ -1117,6 +1130,20 @@ static int encoder_fifo_flush(encoder_t *enc,
 	}
 
 	return 0;
+}
+
+int encoder_fifo_finalize(encoder_t *enc,
+		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
+{
+	if (encoder_fifo_flush(enc, callback, u1, u2))
+		return -1;
+	// anything left < enc->frame->nb_samples ?
+	if (av_audio_fifo_size(enc->fifo)) {
+		enc->frame->nb_samples = av_audio_fifo_size(enc->fifo);
+		if (encoder_fifo_flush(enc, callback, u1, u2))
+			return -1;
+	}
+	return encoder_flush(enc, callback, u1, u2);
 }
 
 int encoder_input_fifo(encoder_t *enc, AVFrame *frame,

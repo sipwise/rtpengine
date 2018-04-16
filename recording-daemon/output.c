@@ -137,6 +137,8 @@ static void output_shutdown(output_t *output) {
 	if (!output->fmtctx)
 		return;
 
+	encoder_fifo_finalize(output->encoder, output_got_packet, output, NULL);
+
 	if (output->fmtctx->pb) {
 		av_write_trailer(output->fmtctx);
 		avio_closep(&output->fmtctx->pb);
