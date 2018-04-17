@@ -1,0 +1,14 @@
+[Unit]
+Description=NGCP RTP/media Recording Daemon
+After=network-online.target
+After=remote-fs.target
+Requires=network-online.target
+
+[Service]
+Type=simple
+PIDFile=/run/ngcp-rtpengine-recording-daemon.pid
+ExecStartPre=/usr/sbin/ngcp-rtpengine-recording-nfs-setup start
+ExecStart=/usr/sbin/rtpengine-recording -f -E --pidfile /run/ngcp-rtpengine-recording-daemon.pid --config-file /etc/rtpengine/rtpengine-recording.conf
+
+[Install]
+WantedBy=multi-user.target
