@@ -5,16 +5,12 @@ After=remote-fs.target
 Requires=network-online.target
 
 [Service]
-Type=forking
-Restart=no
-TimeoutSec=5min
-IgnoreSIGPIPE=no
-KillMode=process
-RemainAfterExit=yes
-SuccessExitStatus=5 6
-PIDFile=/run/ngcp-rtpengine-daemon.pid
-ExecStart=/etc/init.d/ngcp-rtpengine-daemon start
-ExecStop=/etc/init.d/ngcp-rtpengine-daemon stop
+Type=simple
+EnvironmentFile=/etc/default/ngcp-rtpengine-daemon
+PIDFile=/var/run/ngcp-rtpengine-daemon.pid
+ExecStartPre=/usr/sbin/debian/ngcp-rtpengine-iptables-setup start
+ExecStart=/usr/sbin/rtpengine -f -E --pidfile=/var/run/ngcp-rtpengine-daemon.pid --config-file=/etc/rtpengine/rtpengine.conf --table=$TABLE
+ExecStopPost=/usr/sbin/debian/ngcp-rtpengine-iptables-setup stop
 
 [Install]
 WantedBy=multi-user.target

@@ -5,16 +5,10 @@ After=remote-fs.target
 Requires=network-online.target
 
 [Service]
-Type=forking
-Restart=no
-TimeoutSec=5min
-IgnoreSIGPIPE=no
-KillMode=process
-RemainAfterExit=yes
-SuccessExitStatus=5 6
+Type=simple
 PIDFile=/run/ngcp-rtpengine-recording-daemon.pid
-ExecStart=/etc/init.d/ngcp-rtpengine-recording-daemon start
-ExecStop=/etc/init.d/ngcp-rtpengine-recording-daemon stop
+ExecStartPre=/usr/sbin/ngcp-rtpengine-recording-nfs-setup start
+ExecStart=/usr/sbin/rtpengine-recording -f -E --pidfile=/run/ngcp-rtpengine-recording-daemon.pid --config-file=/etc/rtpengine/rtpengine-recording.conf
 
 [Install]
 WantedBy=multi-user.target
