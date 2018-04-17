@@ -44,3 +44,7 @@ LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
 #RE_USER=ngcp-rtpengine	# Run rtpengine as this specific user
 
 #RE_GROUP=ngcp-rtpengine # allow this group to control rtpengine in kernel mode
+
+#HOMER_SERVER=127.0.0.1:9060	# Address of Homer server for RTCP stats
+#HOMER_PROTO=udp		# Transport protocol for Homer (default udp)
+#HOMER_CAPTURE_ID=1234		# 'Capture ID' to use within the HEP protocol

@@ -167,6 +167,21 @@ build_opts() {
         then
                 OPTS+=" --max-sessions=$MAX_SESSIONS"
         fi
+
+	if [[ -n "$HOMER_SERVER" ]]
+        then
+                OPTS+=" --homer=$HOMER_SERVER"
+        fi
+
+	if [[ -n "$HOMER_PROTO" ]]
+        then
+                OPTS+=" --homer-protocol=$HOMER_PROTO"
+        fi
+
+	if [[ -n "$HOMER_CAPTURE_ID" ]]
+        then
+                OPTS+=" --homer-id=$HOMER_CAPTURE_ID"
+        fi
 }
 
 start() {
