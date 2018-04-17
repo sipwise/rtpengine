@@ -1,0 +1,20 @@
+[Unit]
+Description=NGCP RTP/media Proxy Daemon
+After=network-online.target
+After=remote-fs.target
+Requires=network-online.target
+
+[Service]
+Type=forking
+Restart=no
+TimeoutSec=5min
+IgnoreSIGPIPE=no
+KillMode=process
+RemainAfterExit=yes
+SuccessExitStatus=5 6
+PIDFile=/run/rtpengine.pid
+ExecStart=/etc/init.d/ngcp-rtpengine-daemon start
+ExecStop=/etc/init.d/ngcp-rtpengine-daemon stop
+
+[Install]
+WantedBy=multi-user.target
