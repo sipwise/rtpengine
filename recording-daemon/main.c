@@ -135,7 +135,7 @@ static void cleanup(void) {
 
 
 static void options(int *argc, char ***argv) {
-	const char *os_str;
+	const char *os_str = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
@@ -171,7 +171,7 @@ static void options(int *argc, char ***argv) {
 	} else if (!output_mixed && !output_single)
 		output_mixed = output_single = 1;
 
-	if (!strcmp(os_str, "file"))
+	if (!os_str || !strcmp(os_str, "file"))
 		output_storage = OUTPUT_STORAGE_FILE;
 	else if (!strcmp(os_str, "db"))
 		output_storage = OUTPUT_STORAGE_DB;
