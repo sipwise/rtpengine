@@ -32,7 +32,6 @@ if [ "$RUN_RTPENGINE_RECORDING" != "yes" ]; then
 	exit 0
 fi
 [ -z "$PIDFILE" ] && PIDFILE="/var/run/rtpengine-recording.pid"
-[ -z "$NFS_OPTIONS" ] && NFS_OPTIONS="hard,tcp,intr"
 
 OPTIONS=""
 START_OPTIONS=""
@@ -83,15 +82,9 @@ case "$1" in
 	fi
 	set -e
 
-	log_daemon_msg "Starting $DESC" "$NAME"
+	ngcp-rtpengine-recording-nfs-setup start
 
-	if [ "$MUST_NFS" = yes ]; then
-		if ! grep -E -q "^[^ :]+:[^ :]+ $NFS_LOCAL_MOUNT nfs.? " /proc/mounts; then
-			log_progress_msg "Mounting NFS share"
-			test -d "$NFS_LOCAL_MOUNT" || mkdir -p "$NFS_LOCAL_MOUNT"
-			mount -t nfs -o "$NFS_OPTIONS" "$NFS_HOST:$NFS_REMOTE_PATH" "$NFS_LOCAL_MOUNT"
-		fi
-	fi
+	log_daemon_msg "Starting $DESC" "$NAME"
 
 	# shellcheck disable=SC2086
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
