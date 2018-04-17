@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9aa53dc9_a580ca47",
+        "filename": "debian/ngcp-rtpengine-iptables-setup",
+        "patchSetId": 4
+      },
+      "lineNbr": 72,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2018-04-17T16:53:02Z",
+      "side": 1,
+      "message": "It doesn\u0027t work into glustrefs right now, recall Richard\u0027s slow laptop.",
+      "revId": "dba797d7114d3006ad0f2f123958653c01ae7622",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
