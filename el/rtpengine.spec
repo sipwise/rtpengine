@@ -50,6 +50,10 @@ Requires(preun): epel-release dkms
 
 %define binname rtpengine
 
+%{!?kversion: %define kversion %(uname -r)}
+# hint: this can be overridden with "--define kversion foo" on rpmbuild,
+# e.g. --define "kversion 2.6.32-696.23.1.el6.x86_64"
+
 %prep
 %setup -q
 
@@ -113,8 +117,8 @@ fi
 %post dkms
 # Add to DKMS registry, build, and install module
 dkms add -m %{name} -v %{version}-%{release} --rpm_safe_upgrade &&
-dkms build -m %{name} -v %{version}-%{release} --rpm_safe_upgrade &&
-dkms install -m %{name} -v %{version}-%{release} --rpm_safe_upgrade --force
+dkms build -m %{name} -v %{version}-%{release} -k %{kversion} --rpm_safe_upgrade &&
+dkms install -m %{name} -v %{version}-%{release} -k %{kversion} --rpm_safe_upgrade --force
 true
 
 
