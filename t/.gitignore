@@ -1,0 +1,13 @@
+*.o
+bitstr-test
+amr-encode-test
+amr-decode-test
+core
+.depend
+auxlib.c
+codeclib.c
+fix_frame_channel_layout.h
+loglib.c
+resample.c
+rtplib.c
+str.c
