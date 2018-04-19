@@ -12,7 +12,7 @@ debug:
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(LIBSRCS) .depend core core.*
+	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(ADD_CLEAN) .depend core core.*
 	rm -f fix_frame_channel_layout.h fix_frame_channel_layout-test.[co]
 
 .depend:	$(SRCS) $(LIBSRCS) Makefile
@@ -22,7 +22,7 @@ install:
 
 $(OBJS):	Makefile
 
-$(LIBSRCS):
+$(LIBSRCS):	$(patsubst %,../lib/%,$(LIBSRCS))
 		rm -f "$@"
 		echo '/******** GENERATED FILE ********/' > "$@"
 		cat ../lib/"$@" >> "$@"
