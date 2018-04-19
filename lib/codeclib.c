@@ -13,6 +13,7 @@
 #include "loglib.h"
 #include "resample.h"
 #include "rtplib.h"
+#include "bitstr.h"
 
 
 
@@ -36,15 +37,20 @@ static packetizer_f packetizer_passthrough; // pass frames as they arrive in AVP
 static packetizer_f packetizer_samplestream; // flat stream of samples
 
 static format_init_f opus_init;
-static set_options_f opus_set_options;
+static set_enc_options_f opus_set_enc_options;
+
+static set_enc_options_f amr_set_enc_options;
+static set_dec_options_f amr_set_dec_options;
 
 static void avc_def_init(codec_def_t *);
-static const char *avc_decoder_init(decoder_t *);
+static const char *avc_decoder_init(decoder_t *, const str *);
 static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void avc_decoder_close(decoder_t *);
-static const char *avc_encoder_init(encoder_t *enc);
+static const char *avc_encoder_init(encoder_t *enc, const str *);
 static int avc_encoder_input(encoder_t *enc, AVFrame **frame);
 static void avc_encoder_close(encoder_t *enc);
+
+static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 
 
@@ -58,15 +64,24 @@ static const codec_type_t codec_type_avcodec = {
 	.encoder_input = avc_encoder_input,
 	.encoder_close = avc_encoder_close,
 };
+static const codec_type_t codec_type_amr = {
+	.def_init = avc_def_init,
+	.decoder_init = avc_decoder_init,
+	.decoder_input = amr_decoder_input,
+	.decoder_close = avc_decoder_close,
+	.encoder_init = avc_encoder_init,
+	.encoder_input = avc_encoder_input,
+	.encoder_close = avc_encoder_close,
+};
 
 #ifdef HAVE_BCG729
 static packetizer_f packetizer_g729; // aggregate some frames into packets
 
 static void bcg729_def_init(codec_def_t *);
-static const char *bcg729_decoder_init(decoder_t *);
+static const char *bcg729_decoder_init(decoder_t *, const str *);
 static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void bcg729_decoder_close(decoder_t *);
-static const char *bcg729_encoder_init(encoder_t *enc);
+static const char *bcg729_encoder_init(encoder_t *enc, const str *);
 static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame);
 static void bcg729_encoder_close(encoder_t *enc);
 
@@ -212,7 +227,7 @@ static codec_def_t __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
 		.init = opus_init,
-		.set_options = opus_set_options,
+		.set_enc_options = opus_set_enc_options,
 	},
 	{
 		.rtpname = "vorbis",
@@ -296,7 +311,9 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
-		.codec_type = &codec_type_avcodec,
+		.codec_type = &codec_type_amr,
+		.set_enc_options = amr_set_enc_options,
+		.set_dec_options = amr_set_dec_options,
 	},
 	{
 		.rtpname = "AMR-WB",
@@ -308,7 +325,8 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
-		.codec_type = &codec_type_avcodec,
+		.codec_type = &codec_type_amr,
+		.set_enc_options = amr_set_enc_options,
 	},
 	// pseudo-codecs
 	{
@@ -368,17 +386,21 @@ enum media_type codec_get_type(const str *type) {
 
 
 
-static const char *avc_decoder_init(decoder_t *ret) {
-	AVCodec *codec = ret->def->decoder;
+static const char *avc_decoder_init(decoder_t *dec, const str *fmtp) {
+	AVCodec *codec = dec->def->decoder;
 	if (!codec)
 		return "codec not supported";
 
-	ret->u.avc.avcctx = avcodec_alloc_context3(codec);
-	if (!ret->u.avc.avcctx)
+	dec->u.avc.avcctx = avcodec_alloc_context3(codec);
+	if (!dec->u.avc.avcctx)
 		return "failed to alloc codec context";
-	ret->u.avc.avcctx->channels = ret->in_format.channels;
-	ret->u.avc.avcctx->sample_rate = ret->in_format.clockrate;
-	int i = avcodec_open2(ret->u.avc.avcctx, codec, NULL);
+	dec->u.avc.avcctx->channels = dec->in_format.channels;
+	dec->u.avc.avcctx->sample_rate = dec->in_format.clockrate;
+
+	if (dec->def->set_dec_options)
+		dec->def->set_dec_options(dec, fmtp);
+
+	int i = avcodec_open2(dec->u.avc.avcctx, codec, NULL);
 	if (i)
 		return "failed to open codec context";
 
@@ -392,6 +414,12 @@ static const char *avc_decoder_init(decoder_t *ret) {
 
 
 decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt) {
+	return decoder_new_fmtp(def, clockrate, channels, resample_fmt, NULL);
+}
+
+decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt,
+		const str *fmtp)
+{
 	const char *err;
 	decoder_t *ret = NULL;
 
@@ -412,7 +440,7 @@ decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, 
 	if (resample_fmt)
 		ret->out_format = *resample_fmt;
 
-	err = def->codec_type->decoder_init(ret);
+	err = def->codec_type->decoder_init(ret, fmtp);
 	if (err)
 		goto err;
 
@@ -876,7 +904,7 @@ encoder_t *encoder_new() {
 	return ret;
 }
 
-static const char *avc_encoder_init(encoder_t *enc) {
+static const char *avc_encoder_init(encoder_t *enc, const str *fmtp) {
 	enc->u.avc.codec = enc->def->encoder;
 	if (!enc->u.avc.codec)
 		return "output codec not found";
@@ -911,8 +939,8 @@ static const char *avc_encoder_init(encoder_t *enc) {
 		enc->samples_per_frame = enc->u.avc.avcctx->frame_size;
 	enc->samples_per_packet = enc->samples_per_frame;
 
-	if (enc->def->set_options)
-		enc->def->set_options(enc);
+	if (enc->def->set_enc_options)
+		enc->def->set_enc_options(enc, fmtp);
 
 	int i = avcodec_open2(enc->u.avc.avcctx, enc->u.avc.codec, NULL);
 	if (i)
@@ -923,6 +951,12 @@ static const char *avc_encoder_init(encoder_t *enc) {
 
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format)
+{
+	return encoder_config_fmtp(enc, def, bitrate, ptime, requested_format, actual_format, NULL);
+}
+
+int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
+		const format_t *requested_format, format_t *actual_format, const str *fmtp)
 {
 	const char *err;
 
@@ -941,7 +975,7 @@ int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptim
 	enc->ptime = ptime / def->clockrate_mult;
 	enc->bitrate = bitrate;
 
-	err = def->codec_type->encoder_init(enc);
+	err = def->codec_type->encoder_init(enc, fmtp);
 	if (err)
 		goto err;
 
@@ -1167,6 +1201,9 @@ static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_outpu
 }
 
 
+
+
+
 static void opus_init(struct rtp_payload_type *pt) {
 	if (pt->clock_rate != 48000) {
 		ilog(LOG_WARN, "Opus is only supported with a clock rate of 48 kHz");
@@ -1216,13 +1253,178 @@ static void opus_init(struct rtp_payload_type *pt) {
 	ilog(LOG_DEBUG, "Using default bitrate of %i bps for %i-channel Opus", pt->bitrate, pt->channels);
 }
 
-static void opus_set_options(encoder_t *enc) {
+static void opus_set_enc_options(encoder_t *enc, const str *fmtp) {
 	int ret;
 	if (enc->ptime)
 		if ((ret = av_opt_set_int(enc->u.avc.avcctx, "frame_duration", enc->ptime, 0)))
 			ilog(LOG_WARN, "Failed to set Opus frame_duration option (error code %i)", ret);
 	// XXX additional opus options
 }
+
+
+
+
+
+#define AMR_FT_TYPES 12
+const static unsigned int amr_bits_per_frame[AMR_FT_TYPES] = {
+	95, // 4.75 kbit/s // 0
+	103, // 5.15 kbit/s // 1
+	118, // 5.90 kbit/s // 2
+	134, // 6.70 kbit/s // 3
+	148, // 7.40 kbit/s // 4
+	159, // 7.95 kbit/s // 5
+	204, // 10.2 kbit/s // 6
+	244, // 12.2 kbit/s // 7
+	40, // comfort noise // 8
+	40, // comfort noise // 9
+	40, // comfort noise // 10
+	40, // comfort noise // 11
+};
+const static unsigned int amr_wb_bits_per_frame[AMR_FT_TYPES] = {
+	132, // 6.60 kbit/s // 0
+	177, // 8.85 kbit/s // 1
+	253, // 12.65 kbit/s // 2
+	285, // 14.25 kbit/s // 3
+	317, // 15.85 kbit/s // 4
+	365, // 18.25 kbit/s // 5
+	397, // 19.85 kbit/s // 6
+	461, // 23.05 kbit/s // 7
+	477, // 23.85 kbit/s // 8
+	40, // comfort noise // 9
+	0, // invalid // 10
+	0, // invalid // 11
+};
+static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const codec_def_t *def) {
+	if (!fmtp || !fmtp->s)
+		return;
+
+	if (!strcmp(def->rtpname, "AMR"))
+		opts->amr.bits_per_frame = amr_bits_per_frame;
+	else
+		opts->amr.bits_per_frame = amr_wb_bits_per_frame;
+
+	// semicolon-separated key=value
+	str s = *fmtp;
+	str token, key;
+	while (str_token_sep(&token, &s, ';') == 0) {
+		if (str_token(&key, &token, '='))
+			continue;
+		if (!str_cmp(&key, "octet-align")) {
+			if (token.len == 1 && token.s[0] == '1')
+				opts->amr.octet_aligned = 1;
+		}
+		else if (!str_cmp(&key, "crc")) {
+			if (token.len == 1 && token.s[0] == '1') {
+				opts->amr.octet_aligned = 1;
+				opts->amr.crc = 1;
+			}
+		}
+		else if (!str_cmp(&key, "robust-sorting")) {
+			if (token.len == 1 && token.s[0] == '1') {
+				opts->amr.octet_aligned = 1;
+				opts->amr.robust_sorting = 1;
+			}
+		}
+		else if (!str_cmp(&key, "interleaving")) {
+			opts->amr.octet_aligned = 1;
+			opts->amr.interleaving = str_to_i(&token, 0);
+		}
+		// XXX other options
+	}
+}
+static void amr_set_enc_options(encoder_t *enc, const str *fmtp) {
+	amr_set_encdec_options(&enc->codec_options, fmtp, enc->def);
+}
+static void amr_set_dec_options(decoder_t *dec, const str *fmtp) {
+	amr_set_encdec_options(&dec->codec_options, fmtp, dec->def);
+}
+
+// XXX add error logging
+static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	if (!data || !data->s)
+		return -1;
+
+	bitstr d;
+	bitstr_init(&d, data);
+
+	GQueue toc = G_QUEUE_INIT;
+	unsigned int ill = 0, ilp = 0;
+
+	unsigned char cmr_chr;
+	str cmr = STR_CONST_INIT_LEN((char *) &cmr_chr, 0);
+	if (bitstr_shift_ret(&d, 4, &cmr))
+		return -1;
+	// XXX handle CMR?
+
+	if (dec->codec_options.amr.octet_aligned) {
+		if (bitstr_shift(&d, 4))
+			return -1;
+
+		if (dec->codec_options.amr.interleaving) {
+			unsigned char ill_ilp_chr;
+			str ill_ilp = STR_CONST_INIT_LEN((char *) &ill_ilp_chr, 0);
+			if (bitstr_shift_ret(&d, 8, &ill_ilp))
+				return -1;
+			ill = ill_ilp_chr >> 4;
+			ilp = ill_ilp_chr & 0xf;
+		}
+	}
+
+	// TOC
+	int num_crcs = 0;
+	while (1) {
+		unsigned char toc_byte;
+		str toc_entry = STR_CONST_INIT_LEN((char *) &toc_byte, 0);
+		if (bitstr_shift_ret(&d, 6, &toc_entry) == 0)
+			return -1;
+
+		if (dec->codec_options.amr.octet_aligned)
+			if (bitstr_shift(&d, 2) == 0)
+				return -1;
+
+		unsigned char ft = (toc_byte >> 3) & 0xf;
+		if (ft != 14 && ft != 15)
+			num_crcs++;
+
+		g_queue_push_tail(&toc, GUINT_TO_POINTER(toc_byte));
+
+		// no F bit = last TOC entry
+		if (!(toc_byte & 0x80))
+			break;
+	}
+
+	if (dec->codec_options.amr.crc) {
+		// CRCs is one byte per frame
+		if (bitstr_shift(&d, num_crcs * 8))
+			return -1;
+		// XXX use/check CRCs
+	}
+
+	while (toc.length) {
+		unsigned char toc_byte = GPOINTER_TO_UINT(g_queue_pop_head(&toc));
+		unsigned char ft = (toc_byte >> 3) & 0xf;
+		if (ft >= AMR_FT_TYPES) // invalid
+			continue;
+
+		unsigned int bits = dec->codec_options.amr.bits_per_frame[ft];
+		char frame_buf[(bits + 7) / 8];
+		str frame = STR_CONST_INIT_LEN(frame_buf, 0);
+		if (bitstr_shift_ret(&d, bits, &frame))
+			return -1;
+
+		if (dec->codec_options.amr.octet_aligned && (bits % 8) != 0) {
+			unsigned int padding_bits = 8 - (bits % 8);
+			if (bitstr_shift(&d, padding_bits))
+				return -1;
+		}
+
+		if (avc_decoder_input(dec, &frame, out))
+			return -1;
+	}
+
+	return 0;
+}
+
 
 
 
@@ -1241,7 +1443,7 @@ static void bcg729_def_init(codec_def_t *def) {
 	}
 }
 
-static const char *bcg729_decoder_init(decoder_t *dec) {
+static const char *bcg729_decoder_init(decoder_t *dec, const str *fmtp) {
 	dec->u.bcg729 = initBcg729DecoderChannel();
 	if (!dec->u.bcg729)
 		return "failed to initialize bcg729";
@@ -1285,7 +1487,7 @@ static void bcg729_decoder_close(decoder_t *dec) {
 	dec->u.bcg729 = NULL;
 }
 
-static const char *bcg729_encoder_init(encoder_t *enc) {
+static const char *bcg729_encoder_init(encoder_t *enc, const str *fmtp) {
 	enc->u.bcg729 = initBcg729EncoderChannel(0); // no VAD
 	if (!enc->u.bcg729)
 		return "failed to initialize bcg729";
