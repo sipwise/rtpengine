@@ -478,6 +478,7 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 	ret->channels = channels;
 	ret->bitrate = bitrate;
 	ret->ptime = ptime;
+	ret->format_parameters = STR_EMPTY;
 
 	const codec_def_t *def = codec_find(&ret->encoding, 0);
 	ret->codec_def = def;
@@ -490,6 +491,8 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 			ret->channels = def->default_channels;
 		if (!ret->ptime)
 			ret->ptime = def->default_ptime;
+		if ((!ret->format_parameters.s || !ret->format_parameters.s[0]) && def->default_fmtp)
+			str_init(&ret->format_parameters, (char *) def->default_fmtp);
 
 		if (def->init)
 			def->init(ret);
@@ -527,7 +530,6 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 
 	str_init(&ret->encoding_with_params, full_encoding);
 	str_init(&ret->encoding_parameters, params);
-	ret->format_parameters = STR_EMPTY;
 
 	__rtp_payload_type_dup(media->call, ret);
 
@@ -587,14 +589,14 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
-	if (encoder_config(ch->encoder, h->dest_pt.codec_def,
+	if (encoder_config_fmtp(ch->encoder, h->dest_pt.codec_def,
 				h->dest_pt.bitrate ? : h->dest_pt.codec_def->default_bitrate,
 				ch->ptime,
-				&enc_format, &ch->encoder_format))
+				&enc_format, &ch->encoder_format, &h->dest_pt.format_parameters))
 		goto err;
 
-	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
-			&ch->encoder_format);
+	ch->decoder = decoder_new_fmtp(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
+			&ch->encoder_format, &h->source_pt.format_parameters);
 	if (!ch->decoder)
 		goto err;
 
@@ -649,6 +651,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	while (1) {
 		// figure out how big of a buffer we need
 		unsigned int payload_len = MAX(enc->avpkt.size, ch->bytes_per_packet);
+		payload_len += 16; // extra room for certain protocols, e.g. AMR framing
 		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
 		char *buf = malloc(pkt_len);
@@ -661,7 +664,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		if (in_pkt)
 			ilog(LOG_DEBUG, "Adding %i bytes to packetizer", in_pkt->size);
 		int ret = ch->handler->dest_pt.codec_def->packetizer(in_pkt,
-				ch->sample_buffer, &inout);
+				ch->sample_buffer, &inout, enc);
 
 		if (G_UNLIKELY(ret == -1)) {
 			// nothing
