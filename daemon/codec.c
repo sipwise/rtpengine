@@ -587,14 +587,14 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
-	if (encoder_config(ch->encoder, h->dest_pt.codec_def,
+	if (encoder_config_fmtp(ch->encoder, h->dest_pt.codec_def,
 				h->dest_pt.bitrate ? : h->dest_pt.codec_def->default_bitrate,
 				ch->ptime,
-				&enc_format, &ch->encoder_format))
+				&enc_format, &ch->encoder_format, &h->dest_pt.format_parameters))
 		goto err;
 
-	ch->decoder = decoder_new_fmt(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
-			&ch->encoder_format);
+	ch->decoder = decoder_new_fmtp(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
+			&ch->encoder_format, &h->source_pt.format_parameters);
 	if (!ch->decoder)
 		goto err;
 
@@ -661,7 +661,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		if (in_pkt)
 			ilog(LOG_DEBUG, "Adding %i bytes to packetizer", in_pkt->size);
 		int ret = ch->handler->dest_pt.codec_def->packetizer(in_pkt,
-				ch->sample_buffer, &inout);
+				ch->sample_buffer, &inout, enc);
 
 		if (G_UNLIKELY(ret == -1)) {
 			// nothing

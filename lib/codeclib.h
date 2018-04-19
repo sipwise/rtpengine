@@ -29,6 +29,7 @@ struct resample_s;
 struct seq_packet_s;
 struct packet_sequencer_s;
 struct rtp_payload_type;
+union codec_options_u;
 
 typedef struct codec_type_s codec_type_t;
 typedef struct decoder_s decoder_t;
@@ -37,10 +38,12 @@ typedef struct format_s format_t;
 typedef struct resample_s resample_t;
 typedef struct seq_packet_s seq_packet_t;
 typedef struct packet_sequencer_s packet_sequencer_t;
+typedef union codec_options_u codec_options_t;
 
-typedef int packetizer_f(AVPacket *, GString *, str *);
+typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
-typedef void set_options_f(encoder_t *);
+typedef void set_enc_options_f(encoder_t *, const str *);
+typedef void set_dec_options_f(decoder_t *, const str *);
 
 
 
@@ -55,13 +58,24 @@ enum media_type {
 struct codec_type_s {
 	void (*def_init)(codec_def_t *);
 
-	const char *(*decoder_init)(decoder_t *);
+	const char *(*decoder_init)(decoder_t *, const str *);
 	int (*decoder_input)(decoder_t *, const str *data, GQueue *);
 	void (*decoder_close)(decoder_t *);
 
-	const char *(*encoder_init)(encoder_t *);
+	const char *(*encoder_init)(encoder_t *, const str *);
 	int (*encoder_input)(encoder_t *, AVFrame **);
 	void (*encoder_close)(encoder_t *);
+};
+
+union codec_options_u {
+	struct {
+		int interleaving;
+		int octet_aligned:1;
+		int crc:1;
+		int robust_sorting:1;
+
+		const unsigned int *bits_per_frame;
+	} amr;
 };
 
 struct codec_def_s {
@@ -79,7 +93,8 @@ struct codec_def_s {
 
 	// codec-specific callbacks
 	format_init_f *init;
-	set_options_f *set_options;
+	set_enc_options_f *set_enc_options;
+	set_dec_options_f *set_dec_options;
 
 	// filled in by codeclib_init()
 	str rtpname_str;
@@ -107,6 +122,7 @@ struct resample_s {
 
 struct decoder_s {
 	const codec_def_t *def;
+	codec_options_t codec_options;
 
 	format_t in_format,
 		 out_format;
@@ -135,6 +151,7 @@ struct encoder_s {
 		 actual_format;
 
 	const codec_def_t *def;
+	codec_options_t codec_options;
 
 	union {
 		struct {
@@ -177,6 +194,8 @@ enum media_type codec_get_type(const str *type);
 
 
 decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt);
+decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt,
+		const str *fmtp);
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
@@ -185,6 +204,8 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 encoder_t *encoder_new();
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format);
+int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
+		const format_t *requested_format, format_t *actual_format, const str *fmtp);
 void encoder_close(encoder_t *);
 void encoder_free(encoder_t *);
 int encoder_input_data(encoder_t *enc, AVFrame *frame,
