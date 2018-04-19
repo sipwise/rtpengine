@@ -27,6 +27,8 @@ typedef struct _str str;
 #define STR_NULL ((str) { NULL, 0 })
 #define STR_EMPTY ((str) { "", 0 })
 #define STR_CONST_INIT(str) { str, sizeof(str)-1 }
+#define STR_CONST_INIT_LEN(str, len) { str, len }
+#define STR_CONST_INIT_BUF(buf) { (char *) &buf, sizeof(buf) }
 
 
 
@@ -60,6 +62,8 @@ INLINE str *str_chunk_insert(GStringChunk *c, const str *s);
 INLINE int str_shift(str *s, int len);
 /* eats the supplied string from the beginning of s. returns -1 if string head doesn't match */
 INLINE int str_shift_cmp(str *s, const char *);
+/* shifts the string by given length and returns the shifted part. returns -1 if string is too short */
+INLINE int str_shift_ret(str *s, int len, str *ret);
 /* binary compares str object with memory chunk of equal size */
 INLINE int str_memcmp(const str *s, void *m);
 /* locate a substring within a string, returns character index or -1 */
@@ -113,8 +117,13 @@ INLINE char *str_end(const str *s) {
 	return s->s + s->len;
 }
 INLINE int str_shift(str *s, int len) {
+	return str_shift_ret(s, len, NULL);
+}
+INLINE int str_shift_ret(str *s, int len, str *ret) {
 	if (s->len < len)
 		return -1;
+	if (ret)
+		str_init_len(ret, s->s, len);
 	s->s += len;
 	s->len -= len;
 	return 0;
