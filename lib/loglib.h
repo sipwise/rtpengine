@@ -44,6 +44,8 @@ void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf
 
 
 INLINE int get_log_level(void) {
+	if (!rtpe_common_config_ptr)
+		return 8;
 	return g_atomic_int_get(&rtpe_common_config_ptr->log_level);
 }
 
