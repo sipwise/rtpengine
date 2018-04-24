@@ -113,6 +113,7 @@ Suggests:
  ngcp-system-tools,
 Depends:
  dkms (>= 1.95),
+ lsb-release,
  ${misc:Depends},
 Conflicts:
  ngcp-mediaproxy-ng-kernel-dkms,
