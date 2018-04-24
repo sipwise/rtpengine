@@ -750,6 +750,7 @@ static void cli_incoming_set_maxopenfiles(str *instr, struct streambuf *replybuf
 		return;
 	}
 
+	errno = 0;
 	open_files_num = strtoul(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (open_files_num == ULONG_MAX)) || (errno != 0 && open_files_num == 0)) {
@@ -780,6 +781,7 @@ static void cli_incoming_set_maxsessions(str *instr, struct streambuf *replybuff
 		return;
 	}
 
+	errno = 0;
 	maxsessions_num = strtol(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (maxsessions_num == LONG_MAX || maxsessions_num == LONG_MIN)) || (errno != 0 && maxsessions_num == 0)) {
@@ -814,6 +816,7 @@ static void cli_incoming_set_gentimeout(str *instr, struct streambuf *replybuffe
 		return;
 	}
 
+	errno = 0;
 	timeout_num = strtol(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (timeout_num == ULONG_MAX)) || (errno != 0 && timeout_num == 0) || timeout_num < 0 || timeout_num >= INT_MAX) {
@@ -950,6 +953,7 @@ static void cli_incoming_ksadd(str *instr, struct streambuf *replybuffer) {
 		return;
 	}
 
+	errno = 0;
 	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
@@ -979,6 +983,7 @@ static void cli_incoming_ksrm(str *instr, struct streambuf *replybuffer) {
 		return;
 	}
 
+	errno = 0;
 	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
 
 	rwlock_lock_w(&rtpe_config.config_lock);
@@ -1123,6 +1128,7 @@ static void cli_incoming_set_redisallowederrors(str *instr, struct streambuf *re
 		return;
 	}
 
+	errno = 0;
 	allowed_errors = strtol(instr->s, &endptr, 10);
 
 	rwlock_lock_w(&rtpe_config.config_lock);
@@ -1147,6 +1153,7 @@ static void cli_incoming_set_redisdisabletime(str *instr, struct streambuf *repl
 		return;
 	}
 
+	errno = 0;
 	seconds = strtol(instr->s, &endptr, 10);
 	if (seconds < 0) {
 		streambuf_printf(replybuffer,  "Invalid redis-disable-time value %ld, must be >= 0\n", seconds);
@@ -1175,6 +1182,7 @@ static void cli_incoming_set_redisconnecttimeout(str *instr, struct streambuf *r
 		return ;
 	}
 
+	errno = 0;
 	timeout = strtol(instr->s, &endptr, 10);
 	if (timeout <= 0) {
 		streambuf_printf(replybuffer,  "Invalid redis-connect-timeout value %ld, must be > 0\n", timeout);
@@ -1203,6 +1211,7 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct streambuf *reply
 		return;
 	}
 
+	errno = 0;
 	timeout = strtol(instr->s, &endptr, 10);
 	if (timeout < 0) {
 		streambuf_printf(replybuffer, "Invalid redis-cmd-timeout value %ld, must be >= 0\n", timeout);
@@ -1268,6 +1277,7 @@ static void cli_incoming_set_controltos(str *instr, struct streambuf *replybuffe
 		return ;
 	}
 
+	errno = 0;
 	tos = strtol(instr->s, &endptr, 10);
 	if (tos < 0 || tos > 255) {
 		streambuf_printf(replybuffer,  "Invalid control-tos value %ld, must be between 0 and 255\n", tos);
