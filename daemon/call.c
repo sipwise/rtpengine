@@ -594,7 +594,7 @@ static void call_timer(void *ptr) {
 		if (sink) {
 			mutex_lock(&sink->out_lock);
 			if (sink->crypto.params.crypto_suite && sink->ssrc_out
-					&& ke->target.ssrc == sink->ssrc_out->parent->h.ssrc
+					&& ntohl(ke->target.ssrc) == sink->ssrc_out->parent->h.ssrc
 					&& ke->target.encrypt.last_index - sink->ssrc_out->srtp_index > 0x4000)
 			{
 				sink->ssrc_out->srtp_index = ke->target.encrypt.last_index;
@@ -605,7 +605,7 @@ static void call_timer(void *ptr) {
 
 		mutex_lock(&ps->in_lock);
 		if (sfd->crypto.params.crypto_suite && ps->ssrc_in
-				&& ke->target.ssrc == ps->ssrc_in->parent->h.ssrc
+				&& ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc
 				&& ke->target.decrypt.last_index - ps->ssrc_in->srtp_index > 0x4000)
 		{
 			ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;

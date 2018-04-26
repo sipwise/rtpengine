@@ -1475,8 +1475,10 @@ update_peerinfo:
 	mutex_lock(&phc->mp.stream->out_lock);
 	endpoint = phc->mp.stream->endpoint;
 	phc->mp.stream->endpoint = phc->mp.fsin;
-	if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint)))
+	if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint))) {
+		phc->unkernelize = 1;
 		phc->update = 1;
+	}
 update_addr:
 	mutex_unlock(&phc->mp.stream->out_lock);
 
@@ -1485,6 +1487,7 @@ update_addr:
 	if (phc->mp.stream->selected_sfd && phc->mp.sfd != phc->mp.stream->selected_sfd) {
 		ilog(LOG_INFO, "Switching local interface to %s", endpoint_print_buf(&phc->mp.sfd->socket.local));
 		phc->mp.stream->selected_sfd = phc->mp.sfd;
+		phc->unkernelize = 1;
 		phc->update = 1;
 	}
 
@@ -1651,7 +1654,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (G_LIKELY(handler_ret >= 0))
 		handler_ret = media_packet_encrypt(phc);
 
-	if (phc->update) // for RTCP packet index updates
+	if (phc->unkernelize) // for RTCP packet index updates
 		unkernelize(phc->mp.stream);
 
 
