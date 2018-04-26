@@ -3,12 +3,12 @@
 use strict;
 use warnings;
 use MIME::Base64;
-use SRTP;
+use NGCP::Rtpclient::SRTP;
 
-my $cs = $SRTP::crypto_suites{$ARGV[0]} or die;
+my $cs = $NGCP::Rtpclient::SRTP::crypto_suites{$ARGV[0]} or die;
 my $inline_key = $ARGV[1] or die;
-my ($key, $salt) = SRTP::decode_inline_base64($inline_key);
-my ($skey, $sauth, $ssalt) = SRTP::gen_rtp_session_keys($key, $salt);
+my ($key, $salt) = NGCP::Rtpclient::SRTP::decode_inline_base64($inline_key, $cs);
+my ($skey, $sauth, $ssalt) = NGCP::Rtpclient::SRTP::gen_rtp_session_keys($key, $salt);
 print("Master key:           " . unpack("H*", $key) . "\n");
 print("Master salt:          " . unpack("H*", $salt) . "\n");
 print("RTP session key:      " . unpack("H*", $skey) . "\n");
@@ -25,14 +25,15 @@ else {
 	$pack = pack("H*", $pack);
 }
 
-my $roc = $ARGV[3] // 0;
+my $in_roc = $ARGV[3] // 0;
 
 print("Packet length:        " . length($pack) . " bytes\n");
 
-my ($dec, $roc, $tag, $hmac) = SRTP::decrypt_rtp($cs, $skey, $ssalt, $sauth, $roc, $pack);
+my ($dec, $out_roc, $tag, $hmac) = NGCP::Rtpclient::SRTP::decrypt_rtp($cs, $skey, $ssalt, $sauth, $in_roc, $pack);
 
 print("Auth tag from packet: " . unpack("H*", $tag) . "\n");
 print("Computed auth tag:    " . unpack("H*", $hmac) . "\n");
 print("Decoded packet:       " . unpack("H*", $dec) . "\n");
+print("ROC:                  $out_roc\n");
 
 
