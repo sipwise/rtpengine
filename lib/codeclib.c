@@ -663,8 +663,10 @@ static void avc_def_init(codec_def_t *def) {
 }
 
 void codeclib_init(int print) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 	av_register_all();
 	avcodec_register_all();
+#endif
 	avfilter_register_all();
 	avformat_network_init();
 	av_log_set_callback(avlog_ilog);
