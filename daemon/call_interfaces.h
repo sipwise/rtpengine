@@ -58,6 +58,7 @@ struct sdp_ng_flags {
 	    reset:1,
 	    record_call:1,
 	    loop_protect:1,
+	    supports_load_limit:1,
 	    dtls_off:1,
 	    sdes_off:1,
 	    sdes_unencrypted_srtp:1,

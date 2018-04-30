@@ -34,5 +34,6 @@ void control_ng_init(void);
 extern mutex_t rtpe_cngs_lock;
 extern GHashTable *rtpe_cngs_hash;
 extern struct control_ng *rtpe_control_ng;
+extern const char *control_ng_magic_load_limit_errstr;
 
 #endif
