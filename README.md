@@ -1414,6 +1414,21 @@ Optionally included keys are:
 	been requested for transcoding. Note that not all codecs support all packetization
 	intervals.
 
+* `supports`
+
+	Contains a list of strings. Each string indicates support for an additional feature
+	that the controlling SIP proxy supports. Currently defined values are:
+
+	* `load limit`
+
+		Indicates support for an extension to the *ng* protocol to facilitate certain load
+		balancing mechanisms. If *rtpengine* is configured with certain session or load
+		limit options enabled (such as the `max-sessions` option), then normally *rtpengine*
+		would reply with an error to an `offer` if one of the limits is exceeded. If support
+		for the `load limit` extension is indicated, then instead of replying with an error,
+		*rtpengine* responds with the string `load limit` in the `result` key of the response
+		dictionary (and without any other keys present in the response).
+
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
