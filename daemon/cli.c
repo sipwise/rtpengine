@@ -44,6 +44,8 @@ static void cli_incoming_kslist(str *instr, struct streambuf *replybuffer);
 
 static void cli_incoming_set_maxopenfiles(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_maxsessions(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_maxcpu(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_maxload(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_timeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_silenttimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_offertimeout(str *instr, struct streambuf *replybuffer);
@@ -61,6 +63,8 @@ static void cli_incoming_params_diff(str *instr, struct streambuf *replybuffer);
 
 static void cli_incoming_list_numsessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_maxsessions(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_maxcpu(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_maxload(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_maxopenfiles(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_sessions(str *instr, struct streambuf *replybuffer);
@@ -90,6 +94,8 @@ static const cli_handler_t cli_top_handlers[] = {
 static const cli_handler_t cli_set_handlers[] = {
 	{ "maxopenfiles",		cli_incoming_set_maxopenfiles		},
 	{ "maxsessions",		cli_incoming_set_maxsessions		},
+	{ "maxcpu",			cli_incoming_set_maxcpu			},
+	{ "maxload",			cli_incoming_set_maxload		},
 	{ "timeout",			cli_incoming_set_timeout		},
 	{ "silenttimeout",		cli_incoming_set_silenttimeout		},
 	{ "offertimeout",		cli_incoming_set_offertimeout		},
@@ -108,6 +114,8 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "totals",			cli_incoming_list_totals		},
 	{ "maxopenfiles",		cli_incoming_list_maxopenfiles		},
 	{ "maxsessions",		cli_incoming_list_maxsessions		},
+	{ "maxcpu",			cli_incoming_list_maxcpu		},
+	{ "maxload",			cli_incoming_list_maxload		},
 	{ "timeout",			cli_incoming_list_timeout		},
 	{ "silenttimeout",		cli_incoming_list_silenttimeout		},
 	{ "offertimeout",		cli_incoming_list_offertimeout		},
@@ -219,7 +227,9 @@ static void cli_incoming_params_start(str *instr, struct streambuf *replybuffer)
 			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
 			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis = %s:%d/%d\n"
 			"redis-write = %s:%d/%d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
-			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n",
+			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n"
+			"max-cpu = %.1f\n"
+			"max-load = %.2f\n",
 			initial_rtpe_config.kernel_table, initial_rtpe_config.max_sessions, initial_rtpe_config.timeout,
 			initial_rtpe_config.silent_timeout, initial_rtpe_config.final_timeout, initial_rtpe_config.offer_timeout,
 			initial_rtpe_config.delete_delay,
@@ -230,7 +240,9 @@ static void cli_incoming_params_start(str *instr, struct streambuf *replybuffer)
 			sockaddr_print_buf(&initial_rtpe_config.redis_write_ep.address), initial_rtpe_config.redis_write_ep.port,
 			initial_rtpe_config.redis_write_db, initial_rtpe_config.no_redis_required, initial_rtpe_config.num_threads,
 			initial_rtpe_config.fmt, initial_rtpe_config.log_format, initial_rtpe_config.redis_allowed_errors,
-			initial_rtpe_config.redis_disable_time, initial_rtpe_config.redis_cmd_timeout, initial_rtpe_config.redis_connect_timeout);
+			initial_rtpe_config.redis_disable_time, initial_rtpe_config.redis_cmd_timeout, initial_rtpe_config.redis_connect_timeout,
+			(double) initial_rtpe_config.cpu_limit / 100,
+			(double) initial_rtpe_config.load_limit / 100);
 
 	for(s = initial_rtpe_config.interfaces.head; s ; s = s->next) {
 		ifa = s->data;
@@ -263,7 +275,9 @@ static void cli_incoming_params_current(str *instr, struct streambuf *replybuffe
 			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
 			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis-db = %d\n"
 			"redis-write-db = %d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
-			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n",
+			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n"
+			"max-cpu = %.1f\n"
+			"max-load = %.2f\n",
 			rtpe_config.kernel_table, rtpe_config.max_sessions, rtpe_config.timeout, rtpe_config.silent_timeout,
 			rtpe_config.final_timeout,
 			rtpe_config.offer_timeout,
@@ -272,7 +286,9 @@ static void cli_incoming_params_current(str *instr, struct streambuf *replybuffe
 			rtpe_config.homer_id, rtpe_config.no_fallback, rtpe_config.port_min, rtpe_config.port_max,
 			rtpe_config.redis_db, rtpe_config.redis_write_db, rtpe_config.no_redis_required,
 			rtpe_config.num_threads, rtpe_config.fmt, rtpe_config.log_format, rtpe_config.redis_allowed_errors,
-			rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout, rtpe_config.redis_connect_timeout);
+			rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout, rtpe_config.redis_connect_timeout,
+			(double) rtpe_config.cpu_limit / 100,
+			(double) rtpe_config.load_limit / 100);
 
 	for(c = rtpe_config.interfaces.head; c ; c = c->next) {
 		ifa = c->data;
@@ -320,6 +336,8 @@ static void cli_incoming_params_diff(str *instr, struct streambuf *replybuffer) 
 
 	int_diff_print(initial_rtpe_config.kernel_table, rtpe_config.kernel_table, "table", replybuffer);
 	int_diff_print(initial_rtpe_config.max_sessions, rtpe_config.max_sessions, "max-sessions", replybuffer);
+	int_diff_print(initial_rtpe_config.cpu_limit, rtpe_config.cpu_limit, "max-cpu", replybuffer);
+	int_diff_print(initial_rtpe_config.load_limit, rtpe_config.load_limit, "max-load", replybuffer);
 	int_diff_print(initial_rtpe_config.timeout, rtpe_config.timeout, "timeout", replybuffer);
 	int_diff_print(initial_rtpe_config.silent_timeout, rtpe_config.silent_timeout, "silent-timeout", replybuffer);
 	int_diff_print(initial_rtpe_config.final_timeout, rtpe_config.final_timeout, "final-timeout", replybuffer);
@@ -502,6 +520,18 @@ static void cli_incoming_list_numsessions(str *instr, struct streambuf *replybuf
 static void cli_incoming_list_maxsessions(str *instr, struct streambuf *replybuffer) {
 	/* don't lock anything while reading the value */
 	streambuf_printf(replybuffer, "Maximum sessions configured on rtpengine: %d\n", rtpe_config.max_sessions);
+
+	return ;
+}
+static void cli_incoming_list_maxcpu(str *instr, struct streambuf *replybuffer) {
+	/* don't lock anything while reading the value */
+	streambuf_printf(replybuffer, "Maximum CPU usage configured on rtpengine: %.1f\n", (double) rtpe_config.cpu_limit / 100.0);
+
+	return ;
+}
+static void cli_incoming_list_maxload(str *instr, struct streambuf *replybuffer) {
+	/* don't lock anything while reading the value */
+	streambuf_printf(replybuffer, "Maximum load average configured on rtpengine: %.2f\n", (double) rtpe_config.load_limit / 100.0);
 
 	return ;
 }
@@ -802,6 +832,61 @@ static void cli_incoming_set_maxsessions(str *instr, struct streambuf *replybuff
 		rtpe_config.max_sessions = maxsessions_num;
 		rwlock_unlock_w(&rtpe_config.config_lock);
 		streambuf_printf(replybuffer,  "Success setting maxsessions to %ld\n", maxsessions_num);
+	}
+
+	return;
+}
+
+// XXX lots of code duplication, unify those set functions
+static void cli_incoming_set_maxcpu(str *instr, struct streambuf *replybuffer) {
+	char *endptr;
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
+
+	errno = 0;
+	double num = strtod(instr->s, &endptr);
+
+	if ((errno == ERANGE && (num == HUGE_VAL || num == -HUGE_VAL)) || (errno != 0 && num == 0) || isnan(num) || !isfinite(num)) {
+		streambuf_printf(replybuffer,  "Fail setting maxcpu to %s; errno=%d\n", instr->s, errno);
+		return;
+	} else if (endptr == instr->s) {
+		streambuf_printf(replybuffer,  "Fail setting maxcpu to %s; no digists found\n", instr->s);
+		return;
+	} else {
+		rwlock_lock_w(&rtpe_config.config_lock);
+		rtpe_config.cpu_limit = num * 100;
+		rwlock_unlock_w(&rtpe_config.config_lock);
+		streambuf_printf(replybuffer,  "Success setting maxcpu to %.1f\n", num);
+	}
+
+	return;
+}
+
+static void cli_incoming_set_maxload(str *instr, struct streambuf *replybuffer) {
+	char *endptr;
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
+
+	errno = 0;
+	double num = strtod(instr->s, &endptr);
+
+	if ((errno == ERANGE && (num == HUGE_VAL || num == -HUGE_VAL)) || (errno != 0 && num == 0) || isnan(num) || !isfinite(num)) {
+		streambuf_printf(replybuffer,  "Fail setting maxload to %s; errno=%d\n", instr->s, errno);
+		return;
+	} else if (endptr == instr->s) {
+		streambuf_printf(replybuffer,  "Fail setting maxload to %s; no digists found\n", instr->s);
+		return;
+	} else {
+		rwlock_lock_w(&rtpe_config.config_lock);
+		rtpe_config.load_limit = num * 100;
+		rwlock_unlock_w(&rtpe_config.config_lock);
+		streambuf_printf(replybuffer,  "Success setting maxload to %.2f\n", num);
 	}
 
 	return;
