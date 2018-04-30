@@ -22,6 +22,8 @@ struct control_ng *rtpe_control_ng;
 
 const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_MAX_SESSIONS] = "Parallel session limit reached",
+	[LOAD_LIMIT_CPU] = "CPU usage limit exceeded",
+	[LOAD_LIMIT_LOAD] = "Load limit exceeded",
 };
 
 

@@ -38,6 +38,8 @@ extern struct control_ng *rtpe_control_ng;
 enum load_limit_reasons {
 	LOAD_LIMIT_NONE = -1,
 	LOAD_LIMIT_MAX_SESSIONS = 0,
+	LOAD_LIMIT_CPU,
+	LOAD_LIMIT_LOAD,
 
 	__LOAD_LIMIT_MAX
 };
