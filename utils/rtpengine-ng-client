@@ -53,6 +53,8 @@ GetOptions(
 	'ptime=i'			=> \$options{'ptime'},
 	'flags=s@'			=> \$options{'flags'},
 	'codec-options-flat'		=> \$options{'codec options flag'},
+	'flags=s@'			=> \$options{'flags'},
+	'supports=s@'			=> \$options{'supports'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -71,7 +73,7 @@ for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,me
 for my $x (split(/,/, 'origin,session connection')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
-for my $x (split(/,/, 'rtcp-mux,SDES')) {
+for my $x (split(/,/, 'rtcp-mux,SDES,supports')) {
 	$packet{$x} = $options{$x}
 		if defined($options{$x}) && ref($options{$x}) eq 'ARRAY';
 }
