@@ -39,6 +39,7 @@
 #include "statistics.h"
 #include "graphite.h"
 #include "codeclib.h"
+#include "load.h"
 
 
 
@@ -245,6 +246,8 @@ static void options(int *argc, char ***argv) {
 	char *homerproto = NULL;
 	char *endptr;
 	int codecs = 0;
+	double max_load = 0;
+	double max_cpu = 0;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -285,6 +288,8 @@ static void options(int *argc, char ***argv) {
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
 		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&rtpe_config.max_sessions,	"Limit of maximum number of sessions",	"INT"	},
+		{ "max-load",	0, 0,	G_OPTION_ARG_DOUBLE,	&max_load,	"Reject new sessions if load averages exceeds this value",	"FLOAT"	},
+		{ "max-cpu",	0, 0,	G_OPTION_ARG_DOUBLE,	&max_cpu,	"Reject new sessions if CPU usage (in percent) exceeds this value",	"FLOAT"	},
 		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46|HOSTNAME:PORT"},
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
 		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&rtpe_config.homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
@@ -427,6 +432,9 @@ static void options(int *argc, char ***argv) {
 
 	if (!sip_source)
 		trust_address_def = 1;
+
+	rtpe_config.cpu_limit = max_cpu * 100;
+	rtpe_config.load_limit = max_load * 100;
 }
 
 void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
@@ -449,6 +457,8 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	ini_rtpe_cfg->kernel_table = rtpe_config.kernel_table;
 	ini_rtpe_cfg->max_sessions = rtpe_config.max_sessions;
+	ini_rtpe_cfg->cpu_limit = rtpe_config.cpu_limit;
+	ini_rtpe_cfg->load_limit = rtpe_config.load_limit;
 	ini_rtpe_cfg->timeout = rtpe_config.timeout;
 	ini_rtpe_cfg->silent_timeout = rtpe_config.silent_timeout;
 	ini_rtpe_cfg->offer_timeout = rtpe_config.offer_timeout;
@@ -708,6 +718,7 @@ int main(int argc, char **argv) {
 
 	thread_create_detach(sighandler, NULL);
 	thread_create_detach(poller_timer_loop, rtpe_poller);
+	thread_create_detach(load_thread, NULL);
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address))
 		thread_create_detach(redis_notify_loop, NULL);

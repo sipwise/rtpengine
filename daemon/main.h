@@ -68,6 +68,8 @@ struct rtpengine_config {
 	char			*rec_method;
 	char			*rec_format;
 	char			*iptables_chain;
+	int			load_limit;
+	int			cpu_limit;
 };
 
 

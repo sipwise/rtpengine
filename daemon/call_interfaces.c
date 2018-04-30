@@ -26,6 +26,7 @@
 #include "tcp_listener.h"
 #include "streambuf.h"
 #include "main.h"
+#include "load.h"
 
 
 static pcre *info_re;
@@ -739,6 +740,24 @@ static int call_offer_session_limit(void) {
 			ret = 1;
 		}
 		rwlock_unlock_r(&rtpe_callhash_lock);
+	}
+
+	if (!ret && rtpe_config.load_limit) {
+		int loadavg = g_atomic_int_get(&load_average);
+		if (loadavg >= rtpe_config.load_limit) {
+			ilog(LOG_WARN, "Load limit exceeded (%.2f > %.2f)",
+					(double) loadavg / 100.0, (double) rtpe_config.load_limit / 100.0);
+			ret = 1;
+		}
+	}
+
+	if (!ret && rtpe_config.cpu_limit) {
+		int cpu = g_atomic_int_get(&cpu_usage);
+		if (cpu >= rtpe_config.cpu_limit) {
+			ilog(LOG_WARN, "CPU usage limit exceeded (%.1f%% > %.1f%%)",
+					(double) cpu / 100.0, (double) rtpe_config.cpu_limit / 100.0);
+			ret = 1;
+		}
 	}
 
 	rwlock_unlock_r(&rtpe_config.config_lock);
