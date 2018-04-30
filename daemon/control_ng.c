@@ -20,6 +20,10 @@ mutex_t rtpe_cngs_lock;
 GHashTable *rtpe_cngs_hash;
 struct control_ng *rtpe_control_ng;
 
+const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
+	[LOAD_LIMIT_MAX_SESSIONS] = "Parallel session limit reached",
+};
+
 
 static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
 	// lock offers
@@ -112,7 +116,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
 	bencode_item_t *dict, *resp;
-	str cmd, cookie, data, reply, *to_send, callid;
+	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
 	const char *errstr, *resultstr;
 	struct iovec iov[3];
 	unsigned int iovlen;
@@ -262,11 +266,18 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	goto send_resp;
 
 err_send:
-	ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]", addr, errstr, STR_FMT(&data));
-	bencode_dictionary_add_string(resp, "result", "error");
-	bencode_dictionary_add_string(resp, "error-reason", errstr);
-	g_atomic_int_inc(&cur->errors);
-	cmd = STR_NULL;
+	if (errstr < magic_load_limit_strings[0] || errstr > magic_load_limit_strings[__LOAD_LIMIT_MAX-1]) {
+		ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]",
+				addr, errstr, STR_FMT(&data));
+		bencode_dictionary_add_string(resp, "result", "error");
+		bencode_dictionary_add_string(resp, "error-reason", errstr);
+		g_atomic_int_inc(&cur->errors);
+		cmd = STR_NULL;
+	}
+	else {
+		bencode_dictionary_add_string(resp, "result", "load limit");
+		bencode_dictionary_add_string(resp, "message", errstr);
+	}
 
 send_resp:
 	bencode_collapse_str(resp, &reply);

@@ -35,4 +35,12 @@ extern mutex_t rtpe_cngs_lock;
 extern GHashTable *rtpe_cngs_hash;
 extern struct control_ng *rtpe_control_ng;
 
+enum load_limit_reasons {
+	LOAD_LIMIT_NONE = -1,
+	LOAD_LIMIT_MAX_SESSIONS = 0,
+
+	__LOAD_LIMIT_MAX
+};
+extern const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64];
+
 #endif

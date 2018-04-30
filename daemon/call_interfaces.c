@@ -17,6 +17,7 @@
 #include "str.h"
 #include "control_tcp.h"
 #include "control_udp.h"
+#include "control_ng.h"
 #include "rtp.h"
 #include "ice.h"
 #include "recording.h"
@@ -558,6 +559,10 @@ static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy)
 		ilog(LOG_WARN, "Unknown 'replace' flag encountered: '" STR_FORMAT "'",
 				STR_FMT(s));
 }
+static void call_ng_flags_supports(struct sdp_ng_flags *out, str *s, void *dummy) {
+	if (!str_cmp(s, "load limit"))
+		out->supports_load_limit = 1;
+}
 static void call_ng_flags_codec_list(struct sdp_ng_flags *out, str *s, void *qp) {
 	str *s_copy;
 	s_copy = g_slice_alloc(sizeof(*s_copy));
@@ -646,6 +651,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	call_ng_flags_list(out, input, "flags", call_ng_flags_flags, NULL);
 	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
+	call_ng_flags_list(out, input, "supports", call_ng_flags_supports, NULL);
 
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
@@ -714,13 +720,38 @@ static void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	g_queue_clear_full(&flags->codec_transcode, str_slice_free);
 }
 
+static enum load_limit_reasons call_offer_session_limit(void) {
+	enum load_limit_reasons ret = LOAD_LIMIT_NONE;
+
+	rwlock_lock_r(&rtpe_config.config_lock);
+	if (rtpe_config.max_sessions>=0) {
+		rwlock_lock_r(&rtpe_callhash_lock);
+		if (g_hash_table_size(rtpe_callhash) -
+				atomic64_get(&rtpe_stats.foreign_sessions) >= rtpe_config.max_sessions)
+		{
+			/* foreign calls can't get rejected
+			 * total_rejected_sess applies only to "own" sessions */
+			atomic64_inc(&rtpe_totalstats.total_rejected_sess);
+			atomic64_inc(&rtpe_totalstats_interval.total_rejected_sess);
+			ilog(LOG_ERROR, "Parallel session limit reached (%i)",rtpe_config.max_sessions);
+
+			ret = LOAD_LIMIT_MAX_SESSIONS;
+		}
+		rwlock_unlock_r(&rtpe_callhash_lock);
+	}
+
+	rwlock_unlock_r(&rtpe_config.config_lock);
+
+	return ret;
+}
+
 static const char *call_offer_answer_ng(bencode_item_t *input,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	str sdp, fromtag, totag = STR_NULL, callid, viabranch;
 	str label = STR_NULL;
-	char *errstr;
+	const char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
 	struct call *call;
@@ -744,11 +775,23 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 	bencode_dictionary_get_str(input, "label", &label);
 
-	if (sdp_parse(&sdp, &parsed))
-		return "Failed to parse SDP";
-
 	call_ng_process_flags(&flags, input);
 	flags.opmode = opmode;
+
+	if (opmode == OP_OFFER) {
+		enum load_limit_reasons limit = call_offer_session_limit();
+		if (limit != LOAD_LIMIT_NONE) {
+			if (!flags.supports_load_limit)
+				errstr = "Parallel session limit reached"; // legacy protocol
+			else
+				errstr = magic_load_limit_strings[limit];
+			goto out;
+		}
+	}
+
+	errstr = "Failed to parse SDP";
+	if (sdp_parse(&sdp, &parsed))
+		goto out;
 
 	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
 		ilog(LOG_INFO, "Ignoring message as SDP has already been processed by us");
@@ -874,25 +917,6 @@ out:
 const char *call_offer_ng(bencode_item_t *input, bencode_item_t *output, const char* addr,
 		const endpoint_t *sin)
 {
-	rwlock_lock_r(&rtpe_config.config_lock);
-	if (rtpe_config.max_sessions>=0) {
-		rwlock_lock_r(&rtpe_callhash_lock);
-		if (g_hash_table_size(rtpe_callhash) -
-				atomic64_get(&rtpe_stats.foreign_sessions) >= rtpe_config.max_sessions) {
-			rwlock_unlock_r(&rtpe_callhash_lock);
-			/* foreign calls can't get rejected
-			 * total_rejected_sess applies only to "own" sessions */
-			atomic64_inc(&rtpe_totalstats.total_rejected_sess);
-			atomic64_inc(&rtpe_totalstats_interval.total_rejected_sess);
-			ilog(LOG_ERROR, "Parallel session limit reached (%i)",rtpe_config.max_sessions);
-
-			rwlock_unlock_r(&rtpe_config.config_lock);
-			return "Parallel session limit reached";
-		}
-		rwlock_unlock_r(&rtpe_callhash_lock);
-	}
-
-	rwlock_unlock_r(&rtpe_config.config_lock);
 	return call_offer_answer_ng(input, output, OP_OFFER, addr, sin);
 }
 
