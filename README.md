@@ -221,6 +221,8 @@ option and which are reproduced below:
 	  --sip-source                     Use SIP source address by default
 	  --dtls-passive                   Always prefer DTLS passive role
 	  --max-sessions=INT               Limit the number of maximum concurrent sessions
+	  --max-load=FLOAT                 Reject new sessions if load averages exceeds this value
+	  --max-cpu=FLOAT                  Reject new sessions if CPU usage (in percent) exceeds this value
 	  --homer=IP46:PORT                Address of Homer server for RTCP stats
 	  --homer-protocol=udp|tcp         Transport protocol for Homer (default udp)
 	  --homer-id=INT                   'Capture ID' to use within the HEP protocol
@@ -512,6 +514,17 @@ The options are described in more detail below.
 	Enable feature: 'rtpengine-ctl set maxsessions' >=0
 	Disable feature: 'rtpengine-ctl set maxsessions -1'
 	By default, the feature is disabled (i.e. maxsessions == -1).
+
+* --max-load
+
+	If the current 1-minute load average exceeds the value given here, reject new sessions until
+	the load average drops below the threshold.
+
+* --max-cpu
+
+	If the current CPU usage (in percent) exceeds the value given here, reject new sessions until
+	the load average drops below the threshold. CPU usage is sampled in 0.5 second intervals. Only
+	supported on systems providing a Linux-style `/proc/stat`.
 
 * --homer
 
