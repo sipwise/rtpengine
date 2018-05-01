@@ -31,6 +31,7 @@ struct sdp_ng_flags {
 	int tos;
 	str record_call_str;
 	str metadata;
+	sockaddr_t xmlrpc_callback;
 	GHashTable *codec_strip;
 	GQueue codec_offer;
 	GQueue codec_transcode;

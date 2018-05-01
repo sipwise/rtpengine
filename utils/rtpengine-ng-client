@@ -55,13 +55,14 @@ GetOptions(
 	'codec-options-flat'		=> \$options{'codec options flag'},
 	'flags=s@'			=> \$options{'flags'},
 	'supports=s@'			=> \$options{'supports'},
+	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
 for my $x (split(/,/, 'TOS,delete-delay')) {

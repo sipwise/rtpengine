@@ -705,6 +705,12 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
 	out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);
 
+	if (bencode_dictionary_get_str(input, "xmlrpc-callback", &s)) {
+		if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
+			ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
+					STR_FMT(&s));
+	}
+
 	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
 		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_ht, out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
@@ -854,6 +860,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 		call->created_from = call_strdup(call, addr);
 		call->created_from_addr = sin->address;
 	}
+	if (flags.xmlrpc_callback.family)
+		call->xmlrpc_callback = flags.xmlrpc_callback;
+
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
 	call_bencode_hold_ref(call, output);
