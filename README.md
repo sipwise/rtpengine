@@ -497,7 +497,8 @@ The options are described in more detail below.
 
 	Enables and sets the URI for an XMLRPC callback to be made when a call is torn down due to packet
 	timeout. The special code `%%` can be used in place of an IP address, in which case the source address
-	of the originating request will be used.
+	of the originating request (or alternatively the address specified using the
+	`xmlrpc-callback` *ng* protocol option) will be used.
 
 * -x, --xmlrpc-format
 
@@ -1413,6 +1414,12 @@ Optionally included keys are:
 	to provide repacketization functionality, even if no additional codec has actually
 	been requested for transcoding. Note that not all codecs support all packetization
 	intervals.
+
+* `xmlrpc-callback`
+
+	Contains a string that encodes an IP address (either IPv4 or IPv6) in printable format.
+	If specified, then this address will be used as destination address for the XMLRPC timeout
+	callback (see `b2b-url` option).
 
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
