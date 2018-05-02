@@ -164,10 +164,14 @@ static struct intf_config *if_addr_parse(char *s) {
 	/* address */
 	if (sockaddr_parse_any(&addr, s))
 		return NULL;
+	if (is_addr_unspecified(&addr))
+		return NULL;
 
 	adv = addr;
 	if (c) {
 		if (sockaddr_parse_any(&adv, c))
+			return NULL;
+		if (is_addr_unspecified(&adv))
 			return NULL;
 	}
 
@@ -317,6 +321,8 @@ static void options(int *argc, char ***argv) {
 			die("Invalid interface specification: %s", *iter);
 		g_queue_push_tail(&rtpe_config.interfaces, ifa);
 	}
+	if (!&rtpe_config.interfaces)
+		die("Cannot start without any configured interfaces");
 
 	if (ks_a) {
 		for (iter = ks_a; *iter; iter++) {
