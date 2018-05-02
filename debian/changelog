@@ -1,3 +1,21 @@
+ngcp-rtpengine (6.2.2.0+0~mr6.2.2.0) unstable; urgency=medium
+
+  [ Jerzy Ptak ]
+  * [b339964] fixing memory leaks
+
+  [ Richard Fuchs ]
+  * [6108f29] eliminate stray glib warning
+  * [70955c2] errno must be set to 0 before calling strto*()
+  * [4e69c83] TT#35456 implement RFC 4867
+  * [24e586c] fix SRTP ROC syncing between kernel and userspace
+
+  [ Guillem Jover ]
+  * [9f97033] TT#26264 Use better systemd native units
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 02 May 2018 12:59:05 +0200
+
 ngcp-rtpengine (6.2.1.0+0~mr6.2.1.0) unstable; urgency=medium
 
   [ Claudiu Boriga ]
