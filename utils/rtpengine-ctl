@@ -114,6 +114,7 @@ sub showusage {
     print "         start                 : lists the initial values of all the configuration file parameters\n";
     print "         current               : lists the present values of all the configuration file parameters\n";
     print "         diff                  : compares initial and present values of all the configuration file parameters and lists the updated parameters\n";
+    print "         revert                : reverts the values of all the configuration file parameters to their initial values\n";
     print "\n";
     print "    ksadd [ keyspace <uint>]\n";
     print "         keyspace <uint>       : subscribe to 'keyspace' database\n";
