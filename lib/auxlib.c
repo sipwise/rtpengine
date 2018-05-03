@@ -139,6 +139,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 			case G_OPTION_ARG_INT:
 				CONF_OPTION_GLUE(integer, int);
 
+			case G_OPTION_ARG_DOUBLE:
+				CONF_OPTION_GLUE(double, double);
+
 			case G_OPTION_ARG_STRING:
 			case G_OPTION_ARG_FILENAME:
 				CONF_OPTION_GLUE(string, char *);
