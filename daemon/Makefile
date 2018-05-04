@@ -84,33 +84,33 @@ CFLAGS+=	-DRE_PLUGIN_DIR="\"/usr/lib/rtpengine\""
 #CFLAGS+=	-DTERMINATE_SDP_AT_BLANK_LINE
 #CFLAGS+=	-DSTRICT_SDES_KEY_LIFETIME
 
-LDFLAGS=	-lm
-LDFLAGS+=	$(shell pkg-config --libs glib-2.0)
-LDFLAGS+=	$(shell pkg-config --libs gthread-2.0)
-LDFLAGS+=	$(shell pkg-config --libs zlib)
-LDFLAGS+=       $(shell pkg-config --libs libpcre)
-LDFLAGS+=       $(shell pkg-config --libs libcrypto)
-LDFLAGS+=	$(shell pkg-config --libs openssl)
-LDFLAGS+=	$(shell pkg-config --libs libevent_pthreads)
-LDFLAGS+=	-lpcap
-LDFLAGS+=	$(shell pcre-config --libs)
-LDFLAGS+=	$(shell pkg-config xmlrpc_client --libs 2> /dev/null || xmlrpc-c-config client --libs)
-LDFLAGS+=	$(shell pkg-config xmlrpc --libs 2> /dev/null)
-LDFLAGS+=	$(shell pkg-config xmlrpc_util --libs 2> /dev/null)
-LDFLAGS+=	-lhiredis
-LDFLAGS+=	$(shell pkg-config --libs json-glib-1.0)
+LDLIBS=		-lm
+LDLIBS+=	$(shell pkg-config --libs glib-2.0)
+LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
+LDLIBS+=	$(shell pkg-config --libs zlib)
+LDLIBS+=       $(shell pkg-config --libs libpcre)
+LDLIBS+=       $(shell pkg-config --libs libcrypto)
+LDLIBS+=	$(shell pkg-config --libs openssl)
+LDLIBS+=	$(shell pkg-config --libs libevent_pthreads)
+LDLIBS+=	-lpcap
+LDLIBS+=	$(shell pcre-config --libs)
+LDLIBS+=	$(shell pkg-config xmlrpc_client --libs 2> /dev/null || xmlrpc-c-config client --libs)
+LDLIBS+=	$(shell pkg-config xmlrpc --libs 2> /dev/null)
+LDLIBS+=	$(shell pkg-config xmlrpc_util --libs 2> /dev/null)
+LDLIBS+=	-lhiredis
+LDLIBS+=	$(shell pkg-config --libs json-glib-1.0)
 ifeq ($(with_iptables_option),yes)
-LDFLAGS+=	$(shell pkg-config --libs libiptc)
+LDLIBS+=	$(shell pkg-config --libs libiptc)
 endif
 ifeq ($(with_transcoding),yes)
-LDFLAGS+=	$(shell pkg-config --libs libavcodec)
-LDFLAGS+=	$(shell pkg-config --libs libavformat)
-LDFLAGS+=	$(shell pkg-config --libs libavutil)
-LDFLAGS+=	$(shell pkg-config --libs libswresample)
-LDFLAGS+=	$(shell pkg-config --libs libavfilter)
+LDLIBS+=	$(shell pkg-config --libs libavcodec)
+LDLIBS+=	$(shell pkg-config --libs libavformat)
+LDLIBS+=	$(shell pkg-config --libs libavutil)
+LDLIBS+=	$(shell pkg-config --libs libswresample)
+LDLIBS+=	$(shell pkg-config --libs libavfilter)
 endif
 ifeq ($(have_bcg729),yes)
-LDFLAGS+=	$(bcg729_lib)
+LDLIBS+=	$(bcg729_lib)
 endif
 
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c streambuf.c call.c control_udp.c redis.c \
