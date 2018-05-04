@@ -24,6 +24,7 @@
 struct packet_stream;
 struct sockaddr_in6;
 struct poller;
+struct stream_fd;
 
 
 

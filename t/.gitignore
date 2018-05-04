@@ -11,3 +11,5 @@ loglib.c
 resample.c
 rtplib.c
 str.c
+crypto.c
+aes-crypt

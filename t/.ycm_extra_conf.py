@@ -22,6 +22,7 @@ flags = [
     '-pthread',
     '-I../kernel-module/',
     '-I../lib/',
+    '-I../daemon/',
     '-D_GNU_SOURCE',
     '-D__DEBUG=1',
     '-D__YCM=1',

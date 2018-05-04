@@ -12,11 +12,11 @@ debug:
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(ADD_CLEAN) .depend core core.*
+	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(ADD_CLEAN) .depend core core.*
 	rm -f fix_frame_channel_layout.h fix_frame_channel_layout-test.[co]
 
-.depend:	$(SRCS) $(LIBSRCS) Makefile
-	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) | sed -e 's/:/ .depend:/' > .depend
+.depend:	$(SRCS) $(LIBSRCS) $(DAEMONSRCS) Makefile
+	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) $(DAEMONSRCS) | sed -e 's/:/ .depend:/' > .depend
 
 install:
 
@@ -26,6 +26,11 @@ $(LIBSRCS):	$(patsubst %,../lib/%,$(LIBSRCS))
 		rm -f "$@"
 		echo '/******** GENERATED FILE ********/' > "$@"
 		cat ../lib/"$@" >> "$@"
+
+$(DAEMONSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS))
+		rm -f "$@"
+		echo '/******** GENERATED FILE ********/' > "$@"
+		cat ../daemon/"$@" >> "$@"
 
 resample.c:	fix_frame_channel_layout.h
 
