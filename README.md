@@ -104,12 +104,8 @@ For transcoding purposes, Debian provides an additional package `libavcodec-extr
 the regular `libavcodec` package. It is recommended to install this extra package to offer support
 for additional codecs.
 
-To support the G.729 codec for transcoding purposes, the external library *bcg729* is required. To
-include this in a Debian build environment, a Debian-packaged version is required, which is available
-from [GitHub](https://github.com/ossobv/bcg729-deb). If G.729 support is not needed, the build
-dependency can be removed by using a different Debian build profile. Set the environment variable
-`export DEB_BUILD_PROFILES="pkg.ngcp-rtpengine.nobcg729"` (or use the `-P` flag to the *dpkg* tools)
-and then build the *rtpengine* packages.
+To support the G.729 codec for transcoding purposes, the external library *bcg729* is required. Please
+see the section on *G.729 support* below for details.
 
 Manual Compilation
 ------------------
@@ -962,8 +958,13 @@ elsewhere, see `daemon/Makefile` to control where the build system is looking fo
 
 In a Debian build environment, `debian/control` lists a build-time dependency on *bcg729*. Since
 Debian proper does not currently include a *bcg729* package, one can be built locally using these
-instructions on [GitHub](https://github.com/ossobv/bcg729-deb). Alternatively the build dependency
-can be removed from `debian/control` switching to a different Debian build profile.
+instructions on [GitHub](https://github.com/ossobv/bcg729-deb). *Sipwise* provides a pre-packaged
+version of this as part of our
+[C5 CE](https://www.sipwise.com/products/class-5-softswitch-carrier-grade-for-voice-over-ip/)
+product which is [available here](https://deb.sipwise.com/spce/mr6.2.1/pool/main/b/bcg729/).
+
+Alternatively the build dependency
+can be removed from `debian/control` or by switching to a different Debian build profile.
 Set the environment variable
 `export DEB_BUILD_PROFILES="pkg.ngcp-rtpengine.nobcg729"` (or use the `-P` flag to the *dpkg* tools)
 and then build the *rtpengine* packages.
