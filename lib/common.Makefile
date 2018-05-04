@@ -4,7 +4,7 @@ all:
 	$(MAKE) $(TARGET)
 
 $(TARGET):	$(OBJS) .depend Makefile
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 debug:
 	$(MAKE) DBG=yes all

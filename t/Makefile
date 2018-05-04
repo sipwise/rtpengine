@@ -20,16 +20,16 @@ else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
 
-LDFLAGS+=	$(shell pkg-config --libs glib-2.0)
-LDFLAGS+=	$(shell pkg-config --libs gthread-2.0)
-LDFLAGS+=       $(shell pkg-config --libs libcrypto)
-LDFLAGS+=	$(shell pkg-config --libs openssl)
+LDLIBS+=	$(shell pkg-config --libs glib-2.0)
+LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
+LDLIBS+=	$(shell pkg-config --libs libcrypto)
+LDLIBS+=	$(shell pkg-config --libs openssl)
 ifeq ($(with_transcoding),yes)
-LDFLAGS+=	$(shell pkg-config --libs libavcodec)
-LDFLAGS+=	$(shell pkg-config --libs libavformat)
-LDFLAGS+=	$(shell pkg-config --libs libavutil)
-LDFLAGS+=	$(shell pkg-config --libs libswresample)
-LDFLAGS+=	$(shell pkg-config --libs libavfilter)
+LDLIBS+=	$(shell pkg-config --libs libavcodec)
+LDLIBS+=	$(shell pkg-config --libs libavformat)
+LDLIBS+=	$(shell pkg-config --libs libavutil)
+LDLIBS+=	$(shell pkg-config --libs libswresample)
+LDLIBS+=	$(shell pkg-config --libs libavfilter)
 endif
 
 SRCS=		bitstr-test.c
