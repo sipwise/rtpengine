@@ -32,7 +32,10 @@ LDFLAGS+=	$(shell pkg-config --libs libswresample)
 LDFLAGS+=	$(shell pkg-config --libs libavfilter)
 endif
 
-SRCS=		bitstr-test.c amr-decode-test.c amr-encode-test.c
+SRCS=		bitstr-test.c
+ifeq ($(with_transcoding),yes)
+SRCS+=		amr-decode-test.c amr-encode-test.c
+endif
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.c resample.c
