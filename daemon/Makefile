@@ -60,7 +60,7 @@ ifeq ($(with_iptables_option),yes)
 CFLAGS+=	$(shell pkg-config --cflags libiptc)
 CFLAGS+=	-DWITH_IPTABLES_OPTION
 endif
-CFLAGS+=	-I. -I../kernel-module/ -I../lib/
+CFLAGS+=	-I. -I../kernel-module/ -I../lib/ -I../include/
 CFLAGS+=	-D_GNU_SOURCE
 ifeq ($(with_transcoding),yes)
 CFLAGS+=	$(shell pkg-config --cflags libavcodec)

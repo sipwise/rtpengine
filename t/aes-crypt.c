@@ -3,6 +3,7 @@
 
 #include "crypto.h"
 #include "rtplib.h"
+#include "log.h"
 
 uint8_t test_key[46] = {
 	0xe1, 0xf9, 0x7a, 0x0d, 0x3e, 0x01, 0x8b, 0xe0,
@@ -115,13 +116,13 @@ void srtp_validate (struct crypto_context *c, struct crypto_context *c2, char* m
 		    uint8_t *rtcp_plaintext, uint8_t *rtcp_ciphertext)
 {
 	str payload, hash;
-	uint8_t o_hash[10];
+	char o_hash[10];
 	
-	uint8_t srtp_plaintext[38];
-	uint8_t srtp_ciphertext[38];
+	char srtp_plaintext[38];
+	char srtp_ciphertext[38];
 	
-	uint8_t srtcp_plaintext[38];
-	uint8_t srtcp_ciphertext[38];
+	char srtcp_plaintext[38];
+	char srtcp_ciphertext[38];
 
 	memcpy(srtp_plaintext, plaintext, 28);
 	memcpy(srtp_ciphertext, ciphertext, 38);
@@ -198,7 +199,6 @@ error:
 int main(int argc, char** argv) {
 
 	str suite;
-	str s;
 	const struct crypto_suite *c;
 	struct crypto_context ctx, ctx2;
 

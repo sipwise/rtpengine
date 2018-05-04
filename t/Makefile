@@ -7,7 +7,7 @@ CFLAGS+=	-std=c99
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
 CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
 CFLAGS+=	$(shell pkg-config --cflags openssl)
-CFLAGS+=	-I. -I../lib/
+CFLAGS+=	-I. -I../lib/ -I../kernel-module/ -I../include/
 CFLAGS+=	-D_GNU_SOURCE
 ifeq ($(with_transcoding),yes)
 CFLAGS+=	$(shell pkg-config --cflags libavcodec)
@@ -32,7 +32,7 @@ LDLIBS+=	$(shell pkg-config --libs libswresample)
 LDLIBS+=	$(shell pkg-config --libs libavfilter)
 endif
 
-SRCS=		bitstr-test.c
+SRCS=		bitstr-test.c aes-crypt.c
 ifeq ($(with_transcoding),yes)
 SRCS+=		amr-decode-test.c amr-encode-test.c
 endif
@@ -40,7 +40,10 @@ LIBSRCS=	loglib.c auxlib.c str.c rtplib.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.c resample.c
 endif
-OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
+DAEMONSRCS=	crypto.c
+OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(DAEMONSRCS:.c=.o)
+
+COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o
 
 include ../lib/common.Makefile
 
@@ -48,7 +51,7 @@ include		.depend
 
 .PHONY:		unit-tests
 
-TESTS=		bitstr-test
+TESTS=		bitstr-test aes-crypt
 ifeq ($(with_transcoding),yes)
 TESTS+=		amr-decode-test amr-encode-test
 endif
@@ -60,6 +63,8 @@ unit-tests:	$(TESTS)
 
 bitstr-test:	bitstr-test.o
 
-amr-decode-test: amr-decode-test.o codeclib.o str.o auxlib.o resample.o rtplib.o loglib.o
+amr-decode-test: amr-decode-test.o $(COMMONOBJS) codeclib.o resample.o
 
-amr-encode-test: amr-encode-test.o codeclib.o str.o auxlib.o resample.o rtplib.o loglib.o
+amr-encode-test: amr-encode-test.o $(COMMONOBJS) codeclib.o resample.o
+
+aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
