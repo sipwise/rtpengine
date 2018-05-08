@@ -346,6 +346,9 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 	// now at <key>
 	callid = keyspace_id;
 
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+		goto err;
+
 	// select the right db for restoring the call
 	if (redisCommandNR(r->ctx, "SELECT %i", r->db)) {
 		if (r->ctx && r->ctx->err)
