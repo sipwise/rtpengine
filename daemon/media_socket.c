@@ -1529,7 +1529,9 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 		return;
 	}
 
+	mutex_lock(&phc->mp.stream->in_lock);
 	kernelize(phc->mp.stream);
+	mutex_unlock(&phc->mp.stream->in_lock);
 }
 
 
