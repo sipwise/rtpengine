@@ -1,3 +1,12 @@
+ngcp-rtpengine (6.2.1.2+0~mr6.2.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [73789c5] TT#36308 fix possible segfault due to missing lock
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 09 May 2018 12:53:53 +0200
+
 ngcp-rtpengine (6.2.1.1+0~mr6.2.1.1) unstable; urgency=medium
 
   [ Jerzy Ptak ]
