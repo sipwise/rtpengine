@@ -306,6 +306,8 @@ void xmlrpc_kill_calls(void *p) {
 	const char *url;
 
 	while (xh->tags_urls && xh->tags_urls->next) {
+		usleep(10000);
+
 		tag = xh->tags_urls->data;
 		url = xh->tags_urls->next->data;
 
@@ -517,6 +519,19 @@ static void call_timer(void *ptr) {
 	unsigned int pt;
 	endpoint_t ep;
 	u_int64_t offers, answers, deletes;
+	struct timeval tv_start;
+
+	// timers are run in a single thread, so no locking required here
+	static struct timeval last_run;
+	static long long interval = 1000000; // usec
+
+	gettimeofday(&tv_start, NULL);
+
+	// ready to start?
+	if (timeval_diff(&tv_start, &last_run) < interval)
+		return;
+
+	last_run = tv_start;
 
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
@@ -652,6 +667,22 @@ next:
 
 	kill_calls_timer(hlp.del_scheduled, NULL);
 	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);
+
+	struct timeval tv_stop;
+	gettimeofday(&tv_stop, NULL);
+	long long duration = timeval_diff(&tv_stop, &tv_start);
+	ilog(LOG_DEBUG, "timer run time = %llu.%06llu sec", duration / 1000000, duration % 1000000);
+
+	// increase timer run duration if runtime was within 10% of the interval
+	if (duration > interval / 10) {
+		interval *= 2;
+		ilog(LOG_INFO, "Increasing timer run interval to %llu seconds", interval / 1000000);
+	}
+	// or if the runtime was less than 2% of the interval, decrease the interval
+	else if (interval > 1000000 && duration < interval / 50) {
+		interval /= 2;
+		ilog(LOG_INFO, "Decreasing timer run interval to %llu seconds", interval / 1000000);
+	}
 }
 #undef DS
 
