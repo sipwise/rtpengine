@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
@@ -28,6 +29,8 @@ static int __ip_connect(socket_t *s, const endpoint_t *);
 static int __ip_listen(socket_t *s, int backlog);
 static int __ip_accept(socket_t *s, socket_t *new_sock);
 static int __ip_timestamping(socket_t *s);
+static int __ip4_pktinfo(socket_t *s, int option);
+static int __ip6_pktinfo(socket_t *s, int option);
 static int __ip4_sockaddr2endpoint(endpoint_t *, const void *);
 static int __ip6_sockaddr2endpoint(endpoint_t *, const void *);
 static int __ip4_endpoint2sockaddr(void *, const endpoint_t *);
@@ -81,6 +84,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.listen			= __ip_listen,
 		.accept			= __ip_accept,
 		.timestamping		= __ip_timestamping,
+		.pktinfo		= __ip4_pktinfo,
 		.recvfrom		= __ip_recvfrom,
 		.recvfrom_ts		= __ip_recvfrom_ts,
 		.sendmsg		= __ip_sendmsg,
@@ -112,6 +116,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.listen			= __ip_listen,
 		.accept			= __ip_accept,
 		.timestamping		= __ip_timestamping,
+		.pktinfo		= __ip6_pktinfo,
 		.recvfrom		= __ip_recvfrom,
 		.recvfrom_ts		= __ip_recvfrom_ts,
 		.sendmsg		= __ip_sendmsg,
@@ -296,7 +301,7 @@ static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *
 	struct sockaddr_storage sin;
 	struct msghdr msg;
 	struct iovec iov;
-	char ctrl[32];
+	char ctrl[64];
 	struct cmsghdr *cm;
 
 	ZERO(msg);
@@ -320,7 +325,28 @@ static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *
 			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP) {
 				*tv = *((struct timeval *) CMSG_DATA(cm));
 				tv = NULL;
-				break;
+			} else if (cm->cmsg_level == IPPROTO_IP && cm->cmsg_type == IP_PKTINFO) {
+				struct in_pktinfo *pktinfo = (struct in_pktinfo *)CMSG_DATA(cm);
+
+				if (is_addr_unspecified(&s->local.address))
+					ilog(LOG_WARNING, "Socket local address is already specified");
+
+				s->local.address.u.ipv4 = pktinfo->ipi_spec_dst;
+				s->family->pktinfo(s, 0);
+
+				ilog(LOG_NOTICE, "Socket local address is specified: %s",
+					 sockaddr_print_buf(&s->local.address));
+			} else if (cm->cmsg_level == IPPROTO_IPV6 && cm->cmsg_type == IPV6_RECVPKTINFO) {
+				struct in6_pktinfo *pktinfo = (struct in6_pktinfo *)CMSG_DATA(cm);
+
+				if (is_addr_unspecified(&s->local.address))
+					ilog(LOG_WARNING, "Socket local address is already specified");
+
+				s->local.address.u.ipv6 = pktinfo->ipi6_addr;
+				s->family->pktinfo(s, 0);
+
+				ilog(LOG_NOTICE, "Socket local address is specified: %s",
+					 sockaddr_print_buf(&s->local.address));
 			}
 		}
 		if (G_UNLIKELY(tv)) {
@@ -377,6 +403,12 @@ static int __ip_timestamping(socket_t *s) {
 	if (setsockopt(s->fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)))
 		return -1;
 	return 0;
+}
+static int __ip4_pktinfo(socket_t *s, int option) {
+	return setsockopt(s->fd, IPPROTO_IP, IP_PKTINFO, &option, sizeof(int));
+}
+static int __ip6_pktinfo(socket_t *s, int option) {
+	return setsockopt(s->fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &option, sizeof(int));
 }
 static void __ip4_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
 	ZERO(*ra);

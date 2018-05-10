@@ -680,6 +680,9 @@ static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec, cons
 	iptables_add_rule(r, label);
 	socket_timestamping(r);
 
+	if (is_addr_unspecified(&spec->local_address.addr))
+		socket_pktinfo(r, 1);
+
 	g_atomic_int_dec_and_test(&pp->free_ports);
 	__C_DBG("%d free ports remaining on interface %s", pp->free_ports,
 			sockaddr_print_buf(&spec->local_address.addr));
