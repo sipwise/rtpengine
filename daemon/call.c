@@ -173,9 +173,7 @@ out:
 
 
 /* called with hashlock held */
-static void call_timer_iterator(gpointer data, gpointer user_data) {
-	struct call *c = data;
-	struct iterator_helper *hlp = user_data;
+static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	GList *it;
 	unsigned int check;
 	int good = 0;
@@ -292,6 +290,7 @@ out:
 	rwlock_unlock_r(&rtpe_config.config_lock);
 	rwlock_unlock_r(&c->master_lock);
 	log_info_clear();
+	obj_put(c);
 }
 
 void xmlrpc_kill_calls(void *p) {
@@ -499,9 +498,16 @@ static void update_requests_per_second_stats(struct requests_ps *request, u_int6
 	mutex_unlock(&request->lock);
 }
 
+static void calls_build_list(void *k, void *v, void *d) {
+	GSList **list = d;
+	struct call *c = v;
+	*list = g_slist_prepend(*list, obj_get(c));
+}
+
 static void call_timer(void *ptr) {
 	struct iterator_helper hlp;
-	GList *i, *l, *calls = NULL;
+	GList *i, *l;
+	GSList *calls = NULL;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps, *sink;
 	struct stats tmpstats;
@@ -517,18 +523,15 @@ static void call_timer(void *ptr) {
 
 	/* obtain the call list and make a copy from it so not to hold the lock */
 	rwlock_lock_r(&rtpe_callhash_lock);
-	l = g_hash_table_get_values(rtpe_callhash);
-	if (l) {
-		calls = g_list_copy(l);
-		g_list_free(l);
-		g_list_foreach(calls, call_obj_get, NULL);
-	}
+	g_hash_table_foreach(rtpe_callhash, calls_build_list, &calls);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
-	if (calls) {
-		g_list_foreach(calls, call_timer_iterator, &hlp);
-		g_list_free_full(calls, call_obj_put);
+	while (calls) {
+		struct call *c = calls->data;
+		call_timer_iterator(c, &hlp);
+		calls = g_slist_delete_link(calls, calls);
 	}
+
 	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, bytes);
 	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, packets);
 	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, errors);
