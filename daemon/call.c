@@ -369,8 +369,12 @@ retry:
 
 		if (r)
 			xmlrpc_DECREF(r);
-		if (e.fault_occurred)
-			goto fault;
+		if (e.fault_occurred) {
+			if (strcasestr(e.fault_string, "dialog not found"))
+				;
+			else
+				goto fault;
+		}
 
 		xmlrpc_client_destroy(c);
 		xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
