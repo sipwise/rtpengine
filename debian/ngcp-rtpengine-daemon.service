@@ -9,7 +9,7 @@ Type=simple
 EnvironmentFile=/etc/default/ngcp-rtpengine-daemon
 PIDFile=/var/run/ngcp-rtpengine-daemon.pid
 ExecStartPre=/usr/sbin/ngcp-rtpengine-iptables-setup start
-ExecStart=/usr/sbin/rtpengine -f -E --pidfile /var/run/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf --table $TABLE
+ExecStart=/usr/sbin/rtpengine -f --pidfile /var/run/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf --table $TABLE
 ExecStopPost=/usr/sbin/ngcp-rtpengine-iptables-setup stop
 
 [Install]
