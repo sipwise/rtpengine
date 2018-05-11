@@ -144,8 +144,9 @@ static void resources(void) {
 static struct intf_config *if_addr_parse(char *s) {
 	str name;
 	char *c;
-	sockaddr_t addr, adv;
+	sockaddr_t addr = {0}, adv;
 	struct intf_config *ifa;
+	int unspec_allowed = 0;
 
 	/* name */
 	c = strchr(s, '/');
@@ -159,13 +160,15 @@ static struct intf_config *if_addr_parse(char *s) {
 
 	/* advertised address */
 	c = strchr(s, '!');
-	if (c)
+	if (c) {
 		*c++ = 0;
+		unspec_allowed = 1;
+	}
 
 	/* address */
-	if (sockaddr_parse_any(&addr, s))
+	if (sockaddr_parse_any(&addr, s) && !unspec_allowed)
 		return NULL;
-	if (is_addr_unspecified(&addr))
+	if (is_addr_unspecified(&addr) && !unspec_allowed)
 		return NULL;
 
 	adv = addr;
@@ -175,6 +178,11 @@ static struct intf_config *if_addr_parse(char *s) {
 		if (is_addr_unspecified(&adv))
 			return NULL;
 	}
+
+	// If local address is unspecified, set family to the family of advertised
+	// address
+	if (is_addr_unspecified(&addr))
+		addr.family = adv.family;
 
 	ifa = g_slice_alloc0(sizeof(*ifa));
 	ifa->name = name;

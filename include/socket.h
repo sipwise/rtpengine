@@ -67,6 +67,7 @@ struct socket_family {
 	int				(*listen)(socket_t *, int);
 	int				(*accept)(socket_t *, socket_t *);
 	int				(*timestamping)(socket_t *);
+	int				(*pktinfo)(socket_t *, int);
 	ssize_t				(*recvfrom)(socket_t *, void *, size_t, endpoint_t *);
 	ssize_t				(*recvfrom_ts)(socket_t *, void *, size_t, endpoint_t *, struct timeval *);
 	ssize_t				(*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *);
@@ -166,6 +167,7 @@ INLINE int is_addr_unspecified(const sockaddr_t *a) {
 #define socket_sendto(s,a...) (s)->family->sendto((s), a)
 #define socket_error(s) (s)->family->error((s))
 #define socket_timestamping(s) (s)->family->timestamping((s))
+#define socket_pktinfo(s, op) (s)->family->pktinfo((s), (op))
 INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int len, const endpoint_t *dst) {
 	struct msghdr mh;
 	ZERO(mh);
