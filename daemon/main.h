@@ -71,6 +71,10 @@ struct rtpengine_config {
 	int			load_limit;
 	int			cpu_limit;
 	uint64_t		bw_limit;
+	char			*scheduling;
+	int			priority;
+	char			*idle_scheduling;
+	int			idle_priority;
 };
 
 

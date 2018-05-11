@@ -305,6 +305,10 @@ static void options(int *argc, char ***argv) {
 		{ "iptables-chain",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.iptables_chain,"Add explicit firewall rules to this iptables chain","STRING" },
 #endif
 		{ "codecs",	0, 0,	G_OPTION_ARG_NONE,	&codecs,		"Print a list of supported codecs and exit",	NULL },
+		{ "scheduling",	0, 0,	G_OPTION_ARG_STRING,	&rtpe_config.scheduling,"Thread scheduling policy",	"default|none|fifo|rr|other|batch|idle" },
+		{ "priority",	0, 0,	G_OPTION_ARG_INT,	&rtpe_config.priority,	"Thread scheduling priority",	"INT" },
+		{ "idle-scheduling",0, 0,G_OPTION_ARG_STRING,	&rtpe_config.idle_scheduling,"Idle thread scheduling policy",	"default|none|fifo|rr|other|batch|idle" },
+		{ "idle-priority",0, 0,	G_OPTION_ARG_INT,	&rtpe_config.idle_priority,"Idle thread scheduling priority",	"INT" },
 		{ NULL, }
 	};
 
@@ -327,7 +331,7 @@ static void options(int *argc, char ***argv) {
 			die("Invalid interface specification: %s", *iter);
 		g_queue_push_tail(&rtpe_config.interfaces, ifa);
 	}
-	if (!&rtpe_config.interfaces)
+	if (!rtpe_config.interfaces.length)
 		die("Cannot start without any configured interfaces");
 
 	if (ks_a) {
@@ -725,8 +729,8 @@ int main(int argc, char **argv) {
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
 	thread_create_detach(sighandler, NULL);
-	thread_create_detach(poller_timer_loop, rtpe_poller);
-	thread_create_detach(load_thread, NULL);
+	thread_create_detach_prio(poller_timer_loop, rtpe_poller, rtpe_config.idle_scheduling, rtpe_config.idle_priority);
+	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling, rtpe_config.idle_priority);
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address))
 		thread_create_detach(redis_notify_loop, NULL);
@@ -745,7 +749,7 @@ int main(int argc, char **argv) {
 	}
 
 	for (;idx<rtpe_config.num_threads;++idx) {
-		thread_create_detach(poller_loop, rtpe_poller);
+		thread_create_detach_prio(poller_loop, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority);
 	}
 
 	while (!rtpe_shutdown) {
