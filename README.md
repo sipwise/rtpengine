@@ -227,6 +227,10 @@ option and which are reproduced below:
 	  --recording-format=raw|eth       PCAP file format for recorded calls.
 	  --iptables-chain=STRING          Add explicit firewall rules to this iptables chain
 	  --codecs                         Print a list of supported codecs and exit
+	  --scheduling=default|...         Thread scheduling policy
+	  --priority=INT                   Thread scheduling priority
+	  --idle-scheduling=default|...    Idle thread scheduling policy
+	  --idle-priority=INT              Idle thread scheduling priority
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
@@ -637,6 +641,29 @@ The options are described in more detail below.
 	performance impact. This is not a shortcoming of *rtpengine* but rather of iptables
 	and its API implementation in the Linux kernel. In such a case, it is recommended to
 	add a static iptables rule for the entire media port range instead, and not use this option.
+
+* --scheduling, --priority, --idle-scheduling, --idle-priority
+
+	These options control various thread scheduling parameters. The `scheduling` and `priority`
+	settings are applied to the main worker threads, while the `idle-` versions of these
+	settings are applied to various lower priority threads, such as timer runs.
+
+	The `scheduling` settings take the name of one of the supported scheduler policies. Setting
+	it to `default` or `none` is equivalent to not setting the option at all and leaves the
+	system default in place. The strings `fifo` and `rr` refer to realtime scheduling policies.
+	`other` is the Linux default scheduling policy. `batch` is similar to `other` except for
+	a small wake-up scheduling penalty. `idle` is an extremely low priority scheduling policy.
+	The Linux-specific `deadline` policy is not supported by *rtpengine*. Not all systems
+	necessarily supports all scheduling policies; refer to your system's `sched(7)` man page
+	for details.
+
+	The `priority` settings correspond to the scheduling priority for realtime (`fifo` or `rr`)
+	scheduling policies and must be in the range of 1 (low) through 99 (high). For all other
+	scheduling policies (including no policy specified), the `priority` settings correspond
+	to the `nice` value and should be in the range of -20 (high) through 19 (low). Not all systems
+	support thread-specific `nice` values; on such a system, using these settings might have
+	unexpected results. (Linux does support thread-specific `nice values.)
+	Refer to your system's `sched(7)` man page.
 
 A typical command line (enabling both UDP and NG protocols) thus may look like:
 

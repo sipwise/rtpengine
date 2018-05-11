@@ -5,6 +5,10 @@
 #include <pcre.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <sys/resource.h>
+#include <errno.h>
+#include <unistd.h>
+#include "log.h"
 
 
 
@@ -20,9 +24,16 @@
 struct detach_thread {
 	void		(*func)(void *);
 	void		*data;
+	const char	*scheduler;
+	int		priority;
 };
 struct thread_buf {
 	char buf[THREAD_BUF_SIZE];
+};
+struct scheduler {
+	const char *name;
+	int num;
+	int nice;
 };
 
 
@@ -40,6 +51,29 @@ volatile int rtpe_shutdown;
 #ifdef NEED_ATOMIC64_MUTEX
 mutex_t __atomic64_mutex = MUTEX_STATIC_INIT;
 #endif
+
+static const struct scheduler schedulers[] = {
+	{ "default",	-1,		1 },
+	{ "none",	-1,		1 },
+#ifdef SCHED_FIFO
+	{ "fifo",	SCHED_FIFO,	0 },
+#endif
+#ifdef SCHED_RR
+	{ "rr",		SCHED_RR,	0 },
+#endif
+//#ifdef SCHED_DEADLINE
+//	{ "deadline",	SCHED_DEADLINE,	0 },
+//#endif
+#ifdef SCHED_OTHER
+	{ "other",	SCHED_OTHER,	1 },
+#endif
+#ifdef SCHED_BATCH
+	{ "batch",	SCHED_BATCH,	1 },
+#endif
+#ifdef SCHED_IDLE
+	{ "idle",	SCHED_IDLE,	0 },
+#endif
+};
 
 
 
@@ -140,6 +174,38 @@ static void *thread_detach_func(void *d) {
 	threads_running = g_list_prepend(threads_running, t);
 	mutex_unlock(&threads_lists_lock);
 
+	const struct scheduler *scheduler = NULL;
+
+	if (dt->scheduler) {
+		for (int i = 0; i < G_N_ELEMENTS(schedulers); i++) {
+			if (!strcmp(dt->scheduler, schedulers[i].name)) {
+				scheduler = &schedulers[i];
+				break;
+			}
+		}
+
+		if (!scheduler)
+			ilog(LOG_ERR, "Specified scheduler policy '%s' not found", dt->scheduler);
+		else {
+			struct sched_param param = { 0 };
+
+			if (!scheduler->nice)
+				param.sched_priority = dt->priority;
+
+			if (pthread_setschedparam(*t, scheduler->num, &param))
+				ilog(LOG_ERR, "Failed to set thread scheduling paramaters to '%s' (%i) / %i: %s",
+						dt->scheduler, scheduler->num, param.sched_priority,
+						strerror(errno));
+
+		}
+	}
+
+	if ((!scheduler && dt->priority) || (scheduler && scheduler->nice)) {
+		if (setpriority(PRIO_PROCESS, 0, dt->priority))
+			ilog(LOG_ERR, "Failed to set thread nice value: %s",
+					strerror(errno));
+	}
+
 	dt->func(dt->data);
 	g_slice_free1(sizeof(*dt), dt);
 	thread_join_me();
@@ -165,12 +231,14 @@ static int thread_create(void *(*func)(void *), void *arg, int joinable, pthread
 	return 0;
 }
 
-void thread_create_detach(void (*f)(void *), void *d) {
+void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler, int priority) {
 	struct detach_thread *dt;
 
 	dt = g_slice_alloc(sizeof(*dt));
 	dt->func = f;
 	dt->data = d;
+	dt->scheduler = scheduler;
+	dt->priority = priority;
 
 	if (thread_create(thread_detach_func, dt, 1, NULL))
 		abort();

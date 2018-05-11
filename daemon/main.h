@@ -70,6 +70,10 @@ struct rtpengine_config {
 	char			*iptables_chain;
 	int			load_limit;
 	int			cpu_limit;
+	char			*scheduling;
+	int			priority;
+	char			*idle_scheduling;
+	int			idle_priority;
 };
 
 

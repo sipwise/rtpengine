@@ -401,7 +401,10 @@ INLINE int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int l
 /*** THREAD HELPERS ***/
 
 void threads_join_all(int);
-void thread_create_detach(void (*)(void *), void *);
+void thread_create_detach_prio(void (*)(void *), void *, const char *, int);
+INLINE void thread_create_detach(void (*f)(void *), void *a) {
+	thread_create_detach_prio(f, a, NULL, 0);
+}
 
 
 
