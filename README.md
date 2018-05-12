@@ -219,6 +219,7 @@ option and which are reproduced below:
 	  --max-sessions=INT               Limit the number of maximum concurrent sessions
 	  --max-load=FLOAT                 Reject new sessions if load averages exceeds this value
 	  --max-cpu=FLOAT                  Reject new sessions if CPU usage (in percent) exceeds this value
+	  --max-bandwidth=INT              Reject new sessions if bandwidth usage (in bytes per second) exceeds this value
 	  --homer=IP46:PORT                Address of Homer server for RTCP stats
 	  --homer-protocol=udp|tcp         Transport protocol for Homer (default udp)
 	  --homer-id=INT                   'Capture ID' to use within the HEP protocol
@@ -520,8 +521,15 @@ The options are described in more detail below.
 * --max-cpu
 
 	If the current CPU usage (in percent) exceeds the value given here, reject new sessions until
-	the load average drops below the threshold. CPU usage is sampled in 0.5 second intervals. Only
+	the CPU usage drops below the threshold. CPU usage is sampled in 0.5-second intervals. Only
 	supported on systems providing a Linux-style `/proc/stat`.
+
+* --max-bandwidth
+
+	If the current bandwidth usage (in bytes per second) exceeds the value given here,
+	reject new sessions until
+	the bandwidth usage drops below the threshold. Bandwidth usage is sampled in 1-second intervals
+	and is based on received packets, not sent packets.
 
 * --homer
 
