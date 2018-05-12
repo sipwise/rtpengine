@@ -46,6 +46,7 @@ static void cli_incoming_set_maxopenfiles(str *instr, struct streambuf *replybuf
 static void cli_incoming_set_maxsessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_maxcpu(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_maxload(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_set_maxbw(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_timeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_silenttimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_offertimeout(str *instr, struct streambuf *replybuffer);
@@ -65,8 +66,10 @@ static void cli_incoming_list_numsessions(str *instr, struct streambuf *replybuf
 static void cli_incoming_list_maxsessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_maxcpu(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_maxload(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_maxbw(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_maxopenfiles(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_counters(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_sessions(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_timeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_silenttimeout(str *instr, struct streambuf *replybuffer);
@@ -96,6 +99,7 @@ static const cli_handler_t cli_set_handlers[] = {
 	{ "maxsessions",		cli_incoming_set_maxsessions		},
 	{ "maxcpu",			cli_incoming_set_maxcpu			},
 	{ "maxload",			cli_incoming_set_maxload		},
+	{ "maxbw",			cli_incoming_set_maxbw			},
 	{ "timeout",			cli_incoming_set_timeout		},
 	{ "silenttimeout",		cli_incoming_set_silenttimeout		},
 	{ "offertimeout",		cli_incoming_set_offertimeout		},
@@ -112,10 +116,12 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "numsessions",		cli_incoming_list_numsessions		},
 	{ "sessions",			cli_incoming_list_sessions		},
 	{ "totals",			cli_incoming_list_totals		},
+	{ "counters",			cli_incoming_list_counters		},
 	{ "maxopenfiles",		cli_incoming_list_maxopenfiles		},
 	{ "maxsessions",		cli_incoming_list_maxsessions		},
 	{ "maxcpu",			cli_incoming_list_maxcpu		},
 	{ "maxload",			cli_incoming_list_maxload		},
+	{ "maxbw",			cli_incoming_list_maxbw			},
 	{ "timeout",			cli_incoming_list_timeout		},
 	{ "silenttimeout",		cli_incoming_list_silenttimeout		},
 	{ "offertimeout",		cli_incoming_list_offertimeout		},
@@ -229,7 +235,8 @@ static void cli_incoming_params_start(str *instr, struct streambuf *replybuffer)
 			"redis-write = %s:%d/%d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
 			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n"
 			"max-cpu = %.1f\n"
-			"max-load = %.2f\n",
+			"max-load = %.2f\n"
+			"max-bandwidth = %" PRIu64 "\n",
 			initial_rtpe_config.kernel_table, initial_rtpe_config.max_sessions, initial_rtpe_config.timeout,
 			initial_rtpe_config.silent_timeout, initial_rtpe_config.final_timeout, initial_rtpe_config.offer_timeout,
 			initial_rtpe_config.delete_delay,
@@ -242,7 +249,8 @@ static void cli_incoming_params_start(str *instr, struct streambuf *replybuffer)
 			initial_rtpe_config.fmt, initial_rtpe_config.log_format, initial_rtpe_config.redis_allowed_errors,
 			initial_rtpe_config.redis_disable_time, initial_rtpe_config.redis_cmd_timeout, initial_rtpe_config.redis_connect_timeout,
 			(double) initial_rtpe_config.cpu_limit / 100,
-			(double) initial_rtpe_config.load_limit / 100);
+			(double) initial_rtpe_config.load_limit / 100,
+			initial_rtpe_config.bw_limit);
 
 	for(s = initial_rtpe_config.interfaces.head; s ; s = s->next) {
 		ifa = s->data;
@@ -277,7 +285,8 @@ static void cli_incoming_params_current(str *instr, struct streambuf *replybuffe
 			"redis-write-db = %d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
 			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n"
 			"max-cpu = %.1f\n"
-			"max-load = %.2f\n",
+			"max-load = %.2f\n"
+			"max-bw = %" PRIu64 "\n",
 			rtpe_config.kernel_table, rtpe_config.max_sessions, rtpe_config.timeout, rtpe_config.silent_timeout,
 			rtpe_config.final_timeout,
 			rtpe_config.offer_timeout,
@@ -288,7 +297,8 @@ static void cli_incoming_params_current(str *instr, struct streambuf *replybuffe
 			rtpe_config.num_threads, rtpe_config.fmt, rtpe_config.log_format, rtpe_config.redis_allowed_errors,
 			rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout, rtpe_config.redis_connect_timeout,
 			(double) rtpe_config.cpu_limit / 100,
-			(double) rtpe_config.load_limit / 100);
+			(double) rtpe_config.load_limit / 100,
+			rtpe_config.bw_limit);
 
 	for(c = rtpe_config.interfaces.head; c ; c = c->next) {
 		ifa = c->data;
@@ -338,6 +348,7 @@ static void cli_incoming_params_diff(str *instr, struct streambuf *replybuffer) 
 	int_diff_print(initial_rtpe_config.max_sessions, rtpe_config.max_sessions, "max-sessions", replybuffer);
 	int_diff_print(initial_rtpe_config.cpu_limit, rtpe_config.cpu_limit, "max-cpu", replybuffer);
 	int_diff_print(initial_rtpe_config.load_limit, rtpe_config.load_limit, "max-load", replybuffer);
+	int_diff_print(initial_rtpe_config.bw_limit, rtpe_config.bw_limit, "max-bw", replybuffer);
 	int_diff_print(initial_rtpe_config.timeout, rtpe_config.timeout, "timeout", replybuffer);
 	int_diff_print(initial_rtpe_config.silent_timeout, rtpe_config.silent_timeout, "silent-timeout", replybuffer);
 	int_diff_print(initial_rtpe_config.final_timeout, rtpe_config.final_timeout, "final-timeout", replybuffer);
@@ -409,6 +420,16 @@ static void cli_incoming_params_diff(str *instr, struct streambuf *replybuffer) 
 	str_diff_print(initial_rtpe_config.rec_format, rtpe_config.rec_format, "rec-format", replybuffer);
 }
 
+
+static void cli_incoming_list_counters(str *instr, struct streambuf *replybuffer) {
+	streambuf_printf(replybuffer, "\nCurrent per-second counters:\n\n");
+	streambuf_printf(replybuffer, " Packets per second                              :%" PRIu64 "\n",
+			atomic64_get(&rtpe_stats.packets));
+	streambuf_printf(replybuffer, " Bytes per second                                :%" PRIu64 "\n",
+			atomic64_get(&rtpe_stats.bytes));
+	streambuf_printf(replybuffer, " Errors per second                               :%" PRIu64 "\n",
+			atomic64_get(&rtpe_stats.errors));
+}
 
 static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) {
 	struct timeval avg, calls_dur_iv;
@@ -532,6 +553,14 @@ static void cli_incoming_list_maxcpu(str *instr, struct streambuf *replybuffer) 
 static void cli_incoming_list_maxload(str *instr, struct streambuf *replybuffer) {
 	/* don't lock anything while reading the value */
 	streambuf_printf(replybuffer, "Maximum load average configured on rtpengine: %.2f\n", (double) rtpe_config.load_limit / 100.0);
+
+	return ;
+}
+
+static void cli_incoming_list_maxbw(str *instr, struct streambuf *replybuffer) {
+	/* don't lock anything while reading the value */
+	streambuf_printf(replybuffer, "Maximum bandwidth configured on rtpengine: %" PRIu64 "\n",
+			rtpe_config.bw_limit);
 
 	return ;
 }
@@ -887,6 +916,33 @@ static void cli_incoming_set_maxload(str *instr, struct streambuf *replybuffer) 
 		rtpe_config.load_limit = num * 100;
 		rwlock_unlock_w(&rtpe_config.config_lock);
 		streambuf_printf(replybuffer,  "Success setting maxload to %.2f\n", num);
+	}
+
+	return;
+}
+
+static void cli_incoming_set_maxbw(str *instr, struct streambuf *replybuffer) {
+	char *endptr;
+
+	if (str_shift(instr, 1)) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
+
+	errno = 0;
+	uint64_t num = strtoull(instr->s, &endptr, 10);
+
+	if ((errno == ERANGE && (num == ULLONG_MAX)) || (errno != 0 && num == 0) ) {
+		streambuf_printf(replybuffer,  "Fail setting maxbw to %s; errno=%d\n", instr->s, errno);
+		return;
+	} else if (endptr == instr->s) {
+		streambuf_printf(replybuffer,  "Fail setting maxbw to %s; no digists found\n", instr->s);
+		return;
+	} else {
+		rwlock_lock_w(&rtpe_config.config_lock);
+		rtpe_config.bw_limit = num * 100;
+		rwlock_unlock_w(&rtpe_config.config_lock);
+		streambuf_printf(replybuffer,  "Success setting maxbw to %" PRIu64 "\n", num);
 	}
 
 	return;

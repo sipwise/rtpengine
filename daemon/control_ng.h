@@ -40,6 +40,7 @@ enum load_limit_reasons {
 	LOAD_LIMIT_MAX_SESSIONS = 0,
 	LOAD_LIMIT_CPU,
 	LOAD_LIMIT_LOAD,
+	LOAD_LIMIT_BW,
 
 	__LOAD_LIMIT_MAX
 };

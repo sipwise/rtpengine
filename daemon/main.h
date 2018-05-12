@@ -70,6 +70,7 @@ struct rtpengine_config {
 	char			*iptables_chain;
 	int			load_limit;
 	int			cpu_limit;
+	uint64_t		bw_limit;
 };
 
 
