@@ -294,6 +294,7 @@ static void options(int *argc, char ***argv) {
 		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&rtpe_config.max_sessions,	"Limit of maximum number of sessions",	"INT"	},
 		{ "max-load",	0, 0,	G_OPTION_ARG_DOUBLE,	&max_load,	"Reject new sessions if load averages exceeds this value",	"FLOAT"	},
 		{ "max-cpu",	0, 0,	G_OPTION_ARG_DOUBLE,	&max_cpu,	"Reject new sessions if CPU usage (in percent) exceeds this value",	"FLOAT"	},
+		{ "max-bandwidth",0, 0,	G_OPTION_ARG_INT64,	&rtpe_config.bw_limit,	"Reject new sessions if bandwidth usage (in bytes per second) exceeds this value",	"INT"	},
 		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46|HOSTNAME:PORT"},
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
 		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&rtpe_config.homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
@@ -465,6 +466,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->max_sessions = rtpe_config.max_sessions;
 	ini_rtpe_cfg->cpu_limit = rtpe_config.cpu_limit;
 	ini_rtpe_cfg->load_limit = rtpe_config.load_limit;
+	ini_rtpe_cfg->bw_limit = rtpe_config.bw_limit;
 	ini_rtpe_cfg->timeout = rtpe_config.timeout;
 	ini_rtpe_cfg->silent_timeout = rtpe_config.silent_timeout;
 	ini_rtpe_cfg->offer_timeout = rtpe_config.offer_timeout;
