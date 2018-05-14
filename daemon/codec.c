@@ -656,7 +656,6 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	while (1) {
 		// figure out how big of a buffer we need
 		unsigned int payload_len = MAX(enc->avpkt.size, ch->bytes_per_packet);
-		payload_len += 16; // extra room for certain protocols, e.g. AMR framing
 		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
 		char *buf = malloc(pkt_len);
@@ -976,8 +975,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				continue;
 			}
 		}
-		if (!mask_all && !g_hash_table_lookup(mask, &pt->encoding)
-				&& !g_hash_table_lookup(mask, &pt->encoding_with_params))
+		if (!mask_all && (!mask || !g_hash_table_lookup(mask, &pt->encoding))
+				&& (!mask || !g_hash_table_lookup(mask, &pt->encoding_with_params)))
 			__rtp_payload_type_add(media, other_media, pt);
 		else
 			__rtp_payload_type_add_send(other_media, pt);
