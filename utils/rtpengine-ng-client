@@ -56,6 +56,7 @@ GetOptions(
 	'flags=s@'			=> \$options{'flags'},
 	'supports=s@'			=> \$options{'supports'},
 	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
+	'always-transcode'		=> \$options{'always transcode'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -68,7 +69,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 for my $x (split(/,/, 'TOS,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,loop protect,record call')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,loop protect,record call,always transcode')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection')) {
