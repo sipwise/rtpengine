@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fabf19d9_baafd17c",
+        "filename": "README.md",
+        "patchSetId": 4
+      },
+      "lineNbr": 530,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-05-14T13:13:02Z",
+      "side": 1,
+      "message": "why this line-break? :)",
+      "revId": "600b01af47e133ea07147f3d2a368244b67b221a",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
