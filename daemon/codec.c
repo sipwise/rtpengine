@@ -9,6 +9,7 @@
 #include "codeclib.h"
 #include "ssrc.h"
 #include "rtcp.h"
+#include "call_interfaces.h"
 
 
 
@@ -158,7 +159,9 @@ static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) 
 }
 
 // call must be locked in W
-void codec_handlers_update(struct call_media *receiver, struct call_media *sink) {
+void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags)
+{
 	if (!receiver->codec_handlers)
 		receiver->codec_handlers = g_hash_table_new_full(g_int_hash, g_int_equal,
 				NULL, __codec_handler_free);
@@ -302,7 +305,9 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink)
 
 		// in case of ptime mismatch, we transcode
 		//struct rtp_payload_type *dest_pt = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
-		GQueue *dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+		GQueue *dest_codecs = NULL;
+		if (!flags || !flags->always_transcode)
+			dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		if (dest_codecs) {
 			// the sink supports this codec - check offered formats
 			dest_pt = NULL;

@@ -1149,6 +1149,16 @@ Optionally included keys are:
 		attribute already present in the SDP, it will leave the SDP untouched and not process
 		the message.
 
+	- `always transcode`
+
+		When transcoding is in use, *rtpengine* will normally match up the codecs offered with
+		one side with the codecs offered by the other side, and engage the transcoding engine
+		only for codec pairs that are not supported by both sides. With this flag present,
+		*rtpengine* will skip the codec match-up routine and always trancode any received media
+		to the first (highest priority) codec offered by the other side that is supported for
+		transcoding. Using this flag engages the transcoding engine even if no other
+		`transcoding` flags are present.
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.

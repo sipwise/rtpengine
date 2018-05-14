@@ -13,6 +13,7 @@ struct call_media;
 struct codec_handler;
 struct media_packet;
 struct ssrc_hash;
+struct sdp_ng_flags;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct call_media *, struct media_packet *);
@@ -56,7 +57,7 @@ void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payl
 
 #ifdef WITH_TRANSCODING
 
-void codec_handlers_update(struct call_media *receiver, struct call_media *sink);
+void codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *);
 
 #else
 
