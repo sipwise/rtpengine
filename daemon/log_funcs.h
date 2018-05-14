@@ -6,6 +6,7 @@
 #include "call.h"
 #include "media_socket.h"
 #include "ice.h"
+#include "log.h"
 
 INLINE void log_info_clear() {
 	switch (log_info.e) {
