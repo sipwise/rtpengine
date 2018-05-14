@@ -23,6 +23,7 @@ flags = [
     '-I../kernel-module/',
     '-I../lib/',
     '-I../daemon/',
+    '-I../include/',
     '-D_GNU_SOURCE',
     '-D__DEBUG=1',
     '-D__YCM=1',
