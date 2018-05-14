@@ -4,6 +4,7 @@
 
 #include "str.h"
 #include "loglib.h"
+#include "log_funcs.h"
 
 
 
