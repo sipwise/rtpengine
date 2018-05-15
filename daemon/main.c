@@ -496,6 +496,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->redis_disable_time = rtpe_config.redis_disable_time;
 	ini_rtpe_cfg->redis_cmd_timeout = rtpe_config.redis_cmd_timeout;
 	ini_rtpe_cfg->redis_connect_timeout = rtpe_config.redis_connect_timeout;
+	ini_rtpe_cfg->common.log_level = rtpe_config.common.log_level;
 
 	ini_rtpe_cfg->graphite_ep = rtpe_config.graphite_ep;
 	ini_rtpe_cfg->tcp_listen_ep = rtpe_config.tcp_listen_ep;
