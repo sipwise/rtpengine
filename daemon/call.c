@@ -498,6 +498,7 @@ static void call_timer(void *ptr) {
 	endpoint_t ep;
 	u_int64_t offers, answers, deletes;
 	struct timeval tv_start;
+	long long run_diff;
 
 	// timers are run in a single thread, so no locking required here
 	static struct timeval last_run;
@@ -506,10 +507,17 @@ static void call_timer(void *ptr) {
 	gettimeofday(&tv_start, NULL);
 
 	// ready to start?
-	if (timeval_diff(&tv_start, &last_run) < interval)
+	run_diff = timeval_diff(&tv_start, &last_run);
+	if (run_diff < interval)
 		return;
 
 	last_run = tv_start;
+
+	// round up and make integer seconds
+	run_diff += 499999;
+	run_diff /= 1000000;
+	if (run_diff < 1)
+		run_diff = 1;
 
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
@@ -532,19 +540,19 @@ static void call_timer(void *ptr) {
 	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, packets);
 	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, errors);
 
-	atomic64_set(&rtpe_stats.bytes, atomic64_get_na(&tmpstats.bytes));
-	atomic64_set(&rtpe_stats.packets, atomic64_get_na(&tmpstats.packets));
-	atomic64_set(&rtpe_stats.errors, atomic64_get_na(&tmpstats.errors));
+	atomic64_set(&rtpe_stats.bytes, atomic64_get_na(&tmpstats.bytes) / run_diff);
+	atomic64_set(&rtpe_stats.packets, atomic64_get_na(&tmpstats.packets) / run_diff);
+	atomic64_set(&rtpe_stats.errors, atomic64_get_na(&tmpstats.errors) / run_diff);
 
 	/* update statistics regarding requests per second */
 	offers = atomic64_get_set(&rtpe_statsps.offers, 0);
-	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, offers);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, offers / run_diff);
 
 	answers = atomic64_get_set(&rtpe_statsps.answers, 0);
-	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps,	answers);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps,	answers / run_diff);
 
 	deletes = atomic64_get_set(&rtpe_statsps.deletes, 0);
-	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes / run_diff);
 
 	i = kernel_list();
 	while (i) {
