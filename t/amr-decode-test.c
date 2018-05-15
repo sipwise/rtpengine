@@ -67,14 +67,12 @@ static void do_test_amr_wb(const char *file, int line,
 	do_test_amr_xx(file, line, fmtp_s, data_s, data_len, expect_s, expect_len,
 			"AMR-WB", 16000);
 }
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,64,0)
-static void do_test_amr_nb(const char *file, int line,
-		char *fmtp_s, char *data_s, int data_len, char *expect_s, int expect_len)
-{
-	do_test_amr_xx(file, line, fmtp_s, data_s, data_len, expect_s, expect_len,
-			"AMR", 8000);
-}
-#endif
+//static void do_test_amr_nb(const char *file, int line,
+//		char *fmtp_s, char *data_s, int data_len, char *expect_s, int expect_len)
+//{
+//	do_test_amr_xx(file, line, fmtp_s, data_s, data_len, expect_s, expect_len,
+//			"AMR", 8000);
+//}
 
 #define do_test_wb(in, out, fmt) \
 	do_test_amr_wb(__FILE__, __LINE__, fmt, in, sizeof(in)-1, out, sizeof(out)-1)
