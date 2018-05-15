@@ -46,7 +46,12 @@ static void timeval_totalstats_interval_call_duration_add(struct totalstats *s,
 
 	/* in case graphite interval needs to be the previous one */
 	if (timercmp(&real_iv_start, call_stop, >)) {
-		struct timeval graph_dur = { .tv_sec = interval_dur_s, .tv_usec = 0LL };
+		// round up to nearest while interval_dur_s
+		long long d = timeval_diff(&real_iv_start, call_stop);
+		d += (interval_dur_s * 1000000) - 1;
+		d /= 1000000 * interval_dur_s;
+		d *= interval_dur_s;
+		struct timeval graph_dur = { .tv_sec = d, .tv_usec = 0LL };
 		timeval_subtract(&real_iv_start, interval_start, &graph_dur);
 	}
 
