@@ -971,8 +971,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				continue;
 			}
 		}
-		if (!mask_all && !g_hash_table_lookup(mask, &pt->encoding)
-				&& !g_hash_table_lookup(mask, &pt->encoding_with_params))
+		if (!mask_all && (!mask || !g_hash_table_lookup(mask, &pt->encoding))
+				&& (!mask || !g_hash_table_lookup(mask, &pt->encoding_with_params)))
 			__rtp_payload_type_add(media, other_media, pt);
 		else
 			__rtp_payload_type_add_send(other_media, pt);
