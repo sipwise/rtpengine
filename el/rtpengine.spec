@@ -42,8 +42,8 @@ Group:		System Environment/Daemons
 BuildArch:	noarch
 BuildRequires:	redhat-rpm-config
 Requires:	gcc make
-Requires(post):	epel-release dkms
-Requires(preun): epel-release dkms
+Requires(post):	dkms
+Requires(preun): dkms
 
 %description dkms
 %{summary}.
