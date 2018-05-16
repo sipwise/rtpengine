@@ -312,6 +312,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.default_fmtp = "octet-align=1",
 		.packetizer = packetizer_amr,
+		.bits_per_sample = 2, // max is 12200 / 8000 = 1.525 bits per sample, rounded up
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
@@ -327,6 +328,7 @@ static codec_def_t __codec_defs[] = {
 		.default_ptime = 20,
 		.default_fmtp = "octet-align=1",
 		.packetizer = packetizer_amr,
+		.bits_per_sample = 2, // max is 23850 / 16000 = 1.490625 bits per sample, rounded up
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
