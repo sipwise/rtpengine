@@ -92,7 +92,7 @@ int mix_config(mix_t *mix, const format_t *format) {
 
 	// amix
 	err = "no amix filter available";
-	AVFilter *flt = avfilter_get_by_name("amix");
+	const AVFilter *flt = avfilter_get_by_name("amix");
 	if (!flt)
 		goto err;
 
