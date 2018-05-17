@@ -14,6 +14,7 @@ open($kfd, '+>', "/proc/rtpengine/$table/control") or die $!;
 
 my $err;
 my $p = pcap_open_offline($ARGV[0], \$err) or die $err;
+my $linktype = pcap_datalink($p);
 
 my @packets;
 my %src_ips;
@@ -77,7 +78,15 @@ exit;
 sub loop_cb {
 	my ($user_data, $header, $packet) = @_;
 	my %eth;
-	@eth{qw(src dst type rest)} = unpack('a6 a6 n a*', $packet);
+	if ($linktype == DLT_EN10MB) {
+		@eth{qw(src dst type rest)} = unpack('a6 a6 n a*', $packet);
+	}
+	elsif ($linktype == DLT_LINUX_SLL) {
+		@eth{qw(direction arphdr addrlen addr type rest)} = unpack('nnn a8 n a*', $packet);
+	}
+	else {
+		die($linktype);
+	}
 	if ($eth{type} == 0x0800) {
 		my $ip = ip($eth{rest});
 		my $rtp = rtp($ip->{udp}->{payload});
