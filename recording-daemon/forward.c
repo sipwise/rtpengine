@@ -66,11 +66,9 @@ int forward_packet(metafile_t *mf, unsigned char *buf, unsigned len) {
 		goto err;
 	}
 
-	free(buf);
 	return 0;
 
 err:
-	free(buf);
 	return -1;
 }
 
