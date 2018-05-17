@@ -68,14 +68,18 @@ static void stream_handler(handler_t *handler) {
 
 	// got a packet
 	pthread_mutex_unlock(&stream->lock);
-	if (output_enabled)
-		packet_process(stream, buf, ret);
+
 	if (forward_to){
-		if (forward_packet(stream->metafile,buf,ret))
+		if (forward_packet(stream->metafile,buf,ret)) // leaves buf intact
 			g_atomic_int_inc(&stream->metafile->forward_failed);
 		else
 			g_atomic_int_inc(&stream->metafile->forward_count);
 	}
+	if (output_enabled)
+		packet_process(stream, buf, ret); // consumes buf
+	else
+		free(buf);
+
 	log_info_call = NULL;
 	log_info_stream = NULL;
 	return;
