@@ -1649,7 +1649,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	else {
 		struct codec_handler *transcoder = codec_handler_get(phc->mp.media, phc->payload_type);
 		// this transfers the packet from 's' to 'packets_out'
-		if (transcoder->func(transcoder, phc->mp.media, &phc->mp))
+		if (transcoder->func(transcoder, &phc->mp))
 			goto drop;
 	}
 

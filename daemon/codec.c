@@ -440,9 +440,7 @@ void codec_add_raw_packet(struct media_packet *mp) {
 		mp->ssrc_out->payload_type = mp->rtp->m_pt & 0x7f;
 	g_queue_push_tail(&mp->packets_out, p);
 }
-static int handler_func_passthrough(struct codec_handler *h, struct call_media *media,
-		struct media_packet *mp)
-{
+static int handler_func_passthrough(struct codec_handler *h, struct media_packet *mp) {
 	codec_add_raw_packet(mp);
 	return 0;
 }
@@ -546,11 +544,9 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 #ifdef WITH_TRANSCODING
 
 
-static int handler_func_passthrough_ssrc(struct codec_handler *h, struct call_media *media,
-		struct media_packet *mp)
-{
+static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
-		return handler_func_passthrough(h, media, mp);
+		return handler_func_passthrough(h, mp);
 
 	// substitute out SSRC
 	mp->rtp->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
@@ -722,11 +718,9 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 	return 0;
 }
 
-static int handler_func_transcode(struct codec_handler *h, struct call_media *media,
-		struct media_packet *mp)
-{
+static int handler_func_transcode(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
-		return handler_func_passthrough(h, media, mp);
+		return handler_func_passthrough(h, mp);
 
 	assert((mp->rtp->m_pt & 0x7f) == h->source_pt.payload_type);
 

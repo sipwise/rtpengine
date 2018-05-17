@@ -102,7 +102,7 @@ static void queue_dump(GString *s, GQueue *q) {
 	memcpy(mp.payload.s, pl.s, pl.len); \
 	mp.raw.s = packet; \
 	mp.raw.len = packet_len; \
-	h->func(h, media_A, &mp); \
+	h->func(h, &mp); \
 	if (pt_out == -1) { \
 		if (mp.packets_out.length != 0) { \
 			printf("test failed: %s:%i\n", __FILE__, __LINE__); \

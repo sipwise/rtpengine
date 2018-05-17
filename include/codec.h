@@ -16,7 +16,7 @@ struct ssrc_hash;
 struct sdp_ng_flags;
 
 
-typedef int codec_handler_func(struct codec_handler *, struct call_media *, struct media_packet *);
+typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
 
 
 struct codec_handler {
