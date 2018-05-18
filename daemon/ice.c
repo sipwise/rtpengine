@@ -1154,7 +1154,7 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 
 err_unlock:
 	mutex_unlock(&ag->lock);
-	ilog(LOG_NOTICE, "%s (from %s on interface %s)", err, endpoint_print_buf(src),
+	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s on interface %s)", err, endpoint_print_buf(src),
 			endpoint_print_buf(&sfd->socket.local));
 	return 0;
 }
@@ -1305,7 +1305,7 @@ err_unlock:
 	mutex_unlock(&ag->lock);
 err:
 	if (err)
-		ilog(LOG_NOTICE, "%s (from %s on interface %s)",
+		ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s on interface %s)",
 				err, endpoint_print_buf(src), endpoint_print_buf(&sfd->socket.local));
 
 	if (pair && attrs->error_code)
