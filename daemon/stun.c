@@ -222,9 +222,12 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, 
 				break;
 
 			default:
-				ilog(LOG_NOTICE, "Unknown STUN attribute: 0x%04x", type);
-				if ((type & 0x8000))
+				if ((type & 0x8000)) {
+					// comprehension optional
+					ilog(LOG_DEBUG, "Unknown STUN attribute: 0x%04x", type);
 					break;
+				}
+				ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Unknown STUN attribute: 0x%04x", type);
 				unknowns[uc] = tlv->type;
 				unknowns[++uc] = 0xffff;
 				if (uc >= UNKNOWNS_COUNT - 1)
@@ -581,7 +584,7 @@ int stun(str *b, struct stream_fd *sfd, const endpoint_t *sin) {
 		err = "failed to parse attributes";
 		if (unknowns[0] == 0xffff)
 			goto ignore;
-		ilog(LOG_WARNING, "STUN packet contained unknown "
+		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "STUN packet contained unknown "
 				"\"comprehension required\" attribute(s)" SLF, SLP);
 		stun_error_attrs(sfd, sin, req, 420, "Unknown attribute",
 				STUN_UNKNOWN_ATTRIBUTES, unknowns,
@@ -627,15 +630,15 @@ int stun(str *b, struct stream_fd *sfd, const endpoint_t *sin) {
 	/* notreached */
 
 bad_req:
-	ilog(LOG_NOTICE, "Received invalid STUN packet" SLF ": %s", SLP, err);
+	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Received invalid STUN packet" SLF ": %s", SLP, err);
 	stun_error(sfd, sin, req, 400, "Bad request");
 	return 0;
 unauth:
-	ilog(LOG_NOTICE, "STUN authentication mismatch" SLF, SLP);
+	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "STUN authentication mismatch" SLF, SLP);
 	stun_error(sfd, sin, req, 401, "Unauthorized");
 	return 0;
 ignore:
-	ilog(LOG_NOTICE, "Not handling potential STUN packet" SLF ": %s", SLP, err);
+	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Not handling potential STUN packet" SLF ": %s", SLP, err);
 	return -1;
 }
 
