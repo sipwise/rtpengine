@@ -124,10 +124,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	struct iovec iov[3];
 	unsigned int iovlen;
 	GString *log_str;
-	struct timeval offer_start, offer_stop;
-	struct timeval answer_start, answer_stop;
-	struct timeval delete_start, delete_stop;
-
+	struct timeval cmd_start, cmd_stop, cmd_process_time;
 	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->address);
 
 	str_chr_str(&data, buf, ' ');
@@ -183,52 +180,25 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	// XXX do the strcmp's only once
 	errstr = NULL;
 	resultstr = "ok";
+
+	// start command timer
+	gettimeofday(&cmd_start, NULL);
+
 	if (!str_cmp(&cmd, "ping")) {
 		resultstr = "pong";
 		g_atomic_int_inc(&cur->ping);
 	}
 	else if (!str_cmp(&cmd, "offer")) {
-		// start offer timer
-		gettimeofday(&offer_start, NULL);
-
 		errstr = call_offer_ng(dict, resp, addr, sin);
 		g_atomic_int_inc(&cur->offer);
-
-		// stop offer timer
-		gettimeofday(&offer_stop, NULL);
-
-		// print offer duration
-		timeval_from_us(&offer_stop, timeval_diff(&offer_stop, &offer_start));
-		ilog(LOG_INFO, "offer time = %llu.%06llu sec", (unsigned long long)offer_stop.tv_sec, (unsigned long long)offer_stop.tv_usec);
-
 	}
 	else if (!str_cmp(&cmd, "answer")) {
-		// start answer timer
-		gettimeofday(&answer_start, NULL);
-
 		errstr = call_answer_ng(dict, resp);
 		g_atomic_int_inc(&cur->answer);
-
-		// stop answer timer
-		gettimeofday(&answer_stop, NULL);
-
-		// print answer duration
-		timeval_from_us(&answer_stop, timeval_diff(&answer_stop, &answer_start));
-		ilog(LOG_INFO, "answer time = %llu.%06llu sec", (unsigned long long)answer_stop.tv_sec, (unsigned long long)answer_stop.tv_usec);
 	}
 	else if (!str_cmp(&cmd, "delete")) {
-		// start delete timer
-		gettimeofday(&delete_start, NULL);
-
 		errstr = call_delete_ng(dict, resp);
 		g_atomic_int_inc(&cur->delete);
-
-		// stop delete timer
-		gettimeofday(&delete_stop, NULL);
-
-		// print delete duration
-		timeval_from_us(&delete_stop, timeval_diff(&delete_stop, &delete_start));
-		ilog(LOG_INFO, "delete time = %llu.%06llu sec", (unsigned long long)delete_stop.tv_sec, (unsigned long long)delete_stop.tv_usec);
 	}
 	else if (!str_cmp(&cmd, "query")) {
 		errstr = call_query_ng(dict, resp);
@@ -247,7 +217,14 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		g_atomic_int_inc(&cur->stop_recording);
 	}
 	else
+	{
 		errstr = "Unrecognized command";
+	}
+
+	// stop command timer
+	gettimeofday(&cmd_stop, NULL);
+	//print command duration
+	timeval_from_us(&cmd_process_time, timeval_diff(&cmd_stop, &cmd_start));
 
 	if (errstr)
 		goto err_send;
@@ -257,21 +234,21 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	// update interval statistics
 	if (!str_cmp(&cmd, "offer")) {
 		atomic64_inc(&rtpe_statsps.offers);
-		timeval_update_request_time(&rtpe_totalstats_interval.offer, &offer_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.offer, &cmd_process_time);
 	} else if (!str_cmp(&cmd, "answer")) {
 		atomic64_inc(&rtpe_statsps.answers);
-		timeval_update_request_time(&rtpe_totalstats_interval.answer, &answer_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.answer, &cmd_process_time);
 	} else if (!str_cmp(&cmd, "delete")) {
 		atomic64_inc(&rtpe_statsps.deletes);
-		timeval_update_request_time(&rtpe_totalstats_interval.delete, &delete_stop);
+		timeval_update_request_time(&rtpe_totalstats_interval.delete, &cmd_process_time);
 	}
 
 	goto send_resp;
 
 err_send:
+
 	if (errstr < magic_load_limit_strings[0] || errstr > magic_load_limit_strings[__LOAD_LIMIT_MAX-1]) {
-		ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]",
-				addr, errstr, STR_FMT(&data));
+		ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]", addr, errstr, STR_FMT(&data));
 		bencode_dictionary_add_string(resp, "result", "error");
 		bencode_dictionary_add_string(resp, "error-reason", errstr);
 		g_atomic_int_inc(&cur->errors);
@@ -287,7 +264,7 @@ send_resp:
 	to_send = &reply;
 
 	if (cmd.s) {
-		ilog(LOG_INFO, "Replying to '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
+		ilog(LOG_INFO, "Replying to '"STR_FORMAT"' from %s (elapsed time %llu.%06llu sec)", STR_FMT(&cmd), addr, (unsigned long long)cmd_process_time.tv_sec, (unsigned long long)cmd_process_time.tv_usec);
 
 		if (get_log_level() >= LOG_DEBUG) {
 			dict = bencode_decode_expect_str(&bencbuf, to_send, BENCODE_DICTIONARY);
