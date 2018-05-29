@@ -1,3 +1,91 @@
+ngcp-rtpengine (6.4.0.0+0~mr6.4.0.0) unstable; urgency=medium
+
+  [ Juha Heinanen ]
+  * [217446c] added note to readme about recording-daemon
+  * [97ee903] described required format of metadata for recording_metakeys table
+  * [f806188] improved metadata description
+  * [7f603b2]  recording-daemon: added possibility to store audio streams to database - added new column 'stream mediumblob' to 'recording_streams' table for   audio streams - added new option 'output-storage' with values 'file' (= default),   'db' or 'both'
+  * [6f45ed3] introduced rtpengine-recording.sample.conf
+  * [6ac2539] debian: install rtpengine-recording.sample.conf
+
+  [ Jerzy Ptak ]
+  * [a44a9bf] fixing memory leaks
+
+  [ Anthony Alba ]
+  * [b9d84aa] recording.c: add a few ms timestamps to pcap metadata
+
+  [ Richard Fuchs ]
+  * [af963a2] make the new `stream` db field optional based on settings
+  * [b1dc994] explicitly support aliased flat codec options in ng-client for testing
+  * [bf66d7c] eliminate stray glib warning
+  * [feafaf3] Perform 'wrap-and-sort -sat' of 6ac25391a5
+  * [53a2165] fix default value if output-storage isn't specified
+  * [6fa712d] implement offer-timeout option
+  * [761ac6c] errno must be set to 0 before calling strto*()
+  * [895fa96] TT#35456 implement RFC 4867
+  * [e0cdf74] fix SRTP ROC syncing between kernel and userspace
+  * [10d9acd] ffmpeg: handle some API changes for release/4.0 master
+  * [93555d7] eliminate another deprecation warning for newer ffmpeg
+  * [43f2971] disallow zero interface addresses in config
+  * [efcad1c] TT#35413 add support for the 'load limit' ng protocol extension
+  * [345836e] TT#35413 implement a CPU limit and a load limit
+  * [b4f65bd] TT#35634 add `xmlrpc-address` option for callback address
+  * [0072380] support double type values in config file
+  * [06f76e6] don't run AMR tests when transcoding is disabled
+  * [8c770b9] appropriate use of LDFLAGS and LDLIBS
+  * [db2882c] integrate AES unit test into main build framework
+  * [6e2fc01] update README with link to bcg729 Debian package
+  * [9e43369] disable AMR narrowband decode test for older ffmpeg
+  * [2c5a358] TT#36308 fix possible segfault due to missing lock
+  * [68e8092] add ../include to YCM config
+  * [539e063] don't retry XMLRPC callback if endpoint says the ID was not found
+  * [3b3e964] short lock duration for faster calls iteration in the timer
+  * [677fe29] remove the AMR decode test
+  * [9943a3d] TT#36180 scale timer interval according to runtimes
+  * [6da7494] TT#36180 calculate per-second stats based on timer runtime
+  * [14ffd8f] TT#36303 support bandwidth usage resource limit
+  * [fa5c265] TT#36302 support scheduling settings
+  * [1e96c9e] fix compiler warning introduced in 677fe29d
+  * [db58aa8] fix graphite interval calculation for call durations
+  * [0361bbd] add missing include
+  * [fb75ef7] TT#14008 fix libpcre references in makefile
+  * [4d2d788] TT#14008 fix compiler warning from libavformat
+  * [7de16e1] TT#14008 fix codec mask logic if no masking info is present
+  * [5c3d397] TT#35456 fix regression from 895fa9605
+  * [2f5d792] TT#36301 add `always-transcode` flag
+  * [d64c888] TT#36301 transcoding unit tests
+  * [95a7cc6] eliminate redundant function argument
+  * [78accdb] fix segfault when both forwarding and output are enabled
+  * [9c3edee] support cooked format in replay tool
+
+  [ Guillem Jover ]
+  * [aee2a27] TT#26264 Add systemd service wrappers for the init scripts
+  * [1b489bd] TT#26264 Fix rtpengine pid file in systemd service
+  * [79807a9] TT#26264 Use better systemd native units
+  * [d4763ab] TT#36351 Use modern ngcp-check-active
+
+  [ netaskd ]
+  * [5ce19a8] add homer options to el configuration
+  * [62ec9cc] add posibility to use different kernel version
+
+  [ Michael Prokop ]
+  * [4d4abfa] TT#34358 Depend on lsb-release in ngcp-rtpengine-kernel-dkms package.
+    Thanks to Richard Fuchs for debugging the issue
+
+  [ Lucian Balaceanu ]
+  * [8391167] Fix for recovering from losing synchronous redis context while the async one is up
+
+  [ Huseyin Dikme ]
+  * [ab58245] -cli params diff command has been updated to serve only for the possible modifiable configuration file parameters. -Additionally, cli params revert command has been implemented.
+  * [30ba1cd] control command logs have been updated
+
+  [ Eric Tamme ]
+  * [627294b] do not require epel-release in spec file
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 29 May 2018 10:09:45 +0200
+
 ngcp-rtpengine (6.3.0.0+0~mr6.3.0.0) unstable; urgency=medium
 
   [ Claudiu Boriga ]
