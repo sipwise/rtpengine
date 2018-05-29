@@ -28,6 +28,10 @@ static void queue_dump(GString *s, GQueue *q) {
 
 #define start() { \
 	printf("running test %s:%i\n", __FILE__, __LINE__); \
+	GHashTable *rtp_ts_ht = g_hash_table_new(g_direct_hash, g_direct_equal); \
+	GHashTable *rtp_seq_ht = g_hash_table_new(g_direct_hash, g_direct_equal); \
+	uint32_t ssrc_A = 1234; \
+	uint32_t ssrc_B = 2345; \
 	struct call call = {{0,},}; \
 	call.ssrc_hash = create_ssrc_hash_call(); \
 	struct sdp_ng_flags flags = {0,}; \
@@ -77,22 +81,22 @@ static void queue_dump(GString *s, GQueue *q) {
 	g_string_free(s, TRUE); \
 	}
 
-#define packet_seq(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp) { \
+#define packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_exp) { \
 	printf("running test %s:%i\n", __FILE__, __LINE__); \
 	struct codec_handler *h = codec_handler_get(media_ ## side, pt_in); \
 	str pl = STR_CONST_INIT(pload); \
 	str pl_exp = STR_CONST_INIT(pload_exp); \
 	struct media_packet mp = { \
 		.media = media_ ## side, \
-		.ssrc_in = get_ssrc_ctx(1234, call.ssrc_hash, SSRC_DIR_INPUT), \
-		.ssrc_out = get_ssrc_ctx(1234, call.ssrc_hash, SSRC_DIR_OUTPUT), \
+		.ssrc_in = get_ssrc_ctx(ssrc_ ## side, call.ssrc_hash, SSRC_DIR_INPUT), \
 	}; \
+	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, call.ssrc_hash, SSRC_DIR_OUTPUT); \
 	int packet_len = sizeof(struct rtp_header) + pl.len; \
 	char *packet = malloc(packet_len); \
 	struct rtp_header *rtp = (void *) packet; \
 	*rtp = (struct rtp_header) { \
 		.m_pt = pt_in, \
-		.ssrc = 1234, \
+		.ssrc = ssrc_ ## side, \
 		.seq_num = htons(rtp_seq), \
 		.timestamp = htonl(rtp_ts), \
 	}; \
@@ -130,6 +134,30 @@ static void queue_dump(GString *s, GQueue *q) {
 			printf("\\x%02x", cc); \
 		} \
 		printf("\n"); \
+		uint32_t ts = ntohl(rtp->timestamp); \
+		uint16_t seq = ntohs(rtp->seq_num); \
+		uint32_t ssrc = ntohl(rtp->ssrc); \
+		uint32_t ssrc_pt = ssrc ^ pt_out; \
+		ssrc_pt ^= pt_in << 8; /* XXX this is actually wrong and should be removed. it's a workaround for a bug */ \
+		printf("RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc, \
+				(unsigned int) seq, (unsigned int) ts, (unsigned int) rtp->m_pt); \
+		if (g_hash_table_contains(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt))) { \
+			uint32_t old_ts = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_ts_ht, \
+						GUINT_TO_POINTER(ssrc_pt))); \
+			uint32_t diff = ts - old_ts; \
+			printf("RTP TS diff: %u\n", (unsigned int) diff); \
+			if (ts_exp != -1) \
+				assert(ts_exp == diff); \
+		} \
+		g_hash_table_insert(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(ts)); \
+		if (g_hash_table_contains(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt))) { \
+			uint32_t old_seq = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_seq_ht, \
+						GUINT_TO_POINTER(ssrc_pt))); \
+			uint16_t diff = seq - old_seq; \
+			printf("RTP seq diff: %u\n", (unsigned int) diff); \
+			assert(diff == 1); \
+		} \
+		g_hash_table_insert(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(seq)); \
 		if (str_shift(&cp->s, sizeof(struct rtp_header))) \
 			abort(); \
 		if (pl_exp.len != cp->s.len) \
@@ -143,6 +171,9 @@ static void queue_dump(GString *s, GQueue *q) {
 
 #define packet(side, pt_in, pload, pt_out, pload_exp) \
 	packet_seq(side, pt_in, pload, 0, 0, pt_out, pload_exp)
+
+#define packet_seq(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp) \
+	packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, -1)
 
 #define end() } /* free/cleanup should go here */
 
