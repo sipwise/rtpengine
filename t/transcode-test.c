@@ -118,7 +118,7 @@ static void queue_dump(GString *s, GQueue *q) {
 		} \
 		struct codec_packet *cp = g_queue_pop_head(&mp.packets_out); \
 		rtp = (void *) cp->s.s; \
-		if (rtp->m_pt != pt_out) { \
+		if (rtp->m_pt != (unsigned char) pt_out) { \
 			printf("test failed: %s:%i\n", __FILE__, __LINE__); \
 			printf("expected: %i\n", pt_out); \
 			printf("received: %i\n", rtp->m_pt); \
