@@ -77,7 +77,7 @@ static void queue_dump(GString *s, GQueue *q) {
 	g_string_free(s, TRUE); \
 	}
 
-#define packet_seq(side, pt_in, pload, pt_out, pload_exp, rtp_ts, rtp_seq) { \
+#define packet_seq(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp) { \
 	printf("running test %s:%i\n", __FILE__, __LINE__); \
 	struct codec_handler *h = codec_handler_get(media_ ## side, pt_in); \
 	str pl = STR_CONST_INIT(pload); \
@@ -142,7 +142,7 @@ static void queue_dump(GString *s, GQueue *q) {
 }
 
 #define packet(side, pt_in, pload, pt_out, pload_exp) \
-	packet_seq(side, pt_in, pload, pt_out, pload_exp, 0, 0)
+	packet_seq(side, pt_in, pload, 0, 0, pt_out, pload_exp)
 
 #define end() } /* free/cleanup should go here */
 
@@ -302,10 +302,10 @@ int main() {
 			expect(A, send, "0/PCMU/8000");
 			expect(B, recv, "0/PCMU/8000 96/AMR-WB/16000/octet-align=1");
 			expect(B, send, "96/AMR-WB/16000/octet-align=1");
-			packet_seq(A, 0, PCMU_payload, -1, "", 0, 0); // nothing due to resampling buffer
-			packet_seq(A, 0, PCMU_payload, 96, AMR_WB_payload, 160, 1);
-			packet_seq(B, 96, AMR_WB_payload, -1, "", 0, 0); // nothing due to resampling/decoding buffer
-			packet_seq(B, 96, AMR_WB_payload, 0, PCMU_payload_AMR, 320, 1);
+			packet_seq(A, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
+			packet_seq(A, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload);
+			packet_seq(B, 96, AMR_WB_payload, 0, 0, -1, ""); // nothing due to resampling/decoding buffer
+			packet_seq(B, 96, AMR_WB_payload, 320, 1, 0, PCMU_payload_AMR);
 			end();
 
 			// reverse AMR-WB (octet aligned)
@@ -323,10 +323,10 @@ int main() {
 			expect(A, send, "96/AMR-WB/16000/octet-align=1");
 			expect(B, recv, "96/AMR-WB/16000/octet-align=1 0/PCMU/8000");
 			expect(B, send, "0/PCMU/8000");
-			packet_seq(B, 0, PCMU_payload, -1, "", 0, 0); // nothing due to resampling buffer
-			packet_seq(B, 0, PCMU_payload, 96, AMR_WB_payload, 160, 1);
-			packet_seq(A, 96, AMR_WB_payload, -1, "", 0, 0); // nothing due to resampling/decoding buffer
-			packet_seq(A, 96, AMR_WB_payload, 0, PCMU_payload_AMR, 320, 1);
+			packet_seq(B, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
+			packet_seq(B, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload);
+			packet_seq(A, 96, AMR_WB_payload, 0, 0, -1, ""); // nothing due to resampling/decoding buffer
+			packet_seq(A, 96, AMR_WB_payload, 320, 1, 0, PCMU_payload_AMR);
 			end();
 
 			// reverse AMR-WB (bandwidth efficient)
@@ -344,10 +344,10 @@ int main() {
 			expect(A, send, "96/AMR-WB/16000");
 			expect(B, recv, "96/AMR-WB/16000 0/PCMU/8000");
 			expect(B, send, "0/PCMU/8000");
-			packet_seq(B, 0, PCMU_payload, -1, "", 0, 0); // nothing due to resampling buffer
-			packet_seq(B, 0, PCMU_payload, 96, AMR_WB_payload_noe, 160, 1);
-			packet_seq(A, 96, AMR_WB_payload_noe, -1, "", 0, 0); // nothing due to resampling/decoding buffer
-			packet_seq(A, 96, AMR_WB_payload_noe, 0, PCMU_payload_AMR, 320, 1);
+			packet_seq(B, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
+			packet_seq(B, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload_noe);
+			packet_seq(A, 96, AMR_WB_payload_noe, 0, 0, -1, ""); // nothing due to resampling/decoding buffer
+			packet_seq(A, 96, AMR_WB_payload_noe, 320, 1, 0, PCMU_payload_AMR);
 			end();
 		}
 	}
