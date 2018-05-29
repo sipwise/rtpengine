@@ -673,7 +673,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 
 		ilog(LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
 		// reconstruct RTP header
-		unsigned int ts = enc->avpkt.pts + ch->ts_out;
+		unsigned int ts = enc->avpkt.pts / enc->def->clockrate_mult + ch->ts_out;
 		ZERO(*rh);
 		rh->v_p_x_cc = 0x80;
 		rh->m_pt = ch->handler->dest_pt.payload_type;
