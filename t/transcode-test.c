@@ -26,147 +26,178 @@ static void queue_dump(GString *s, GQueue *q) {
 	}
 }
 
-#define start() { \
-	printf("running test %s:%i\n", __FILE__, __LINE__); \
-	GHashTable *rtp_ts_ht = g_hash_table_new(g_direct_hash, g_direct_equal); \
-	GHashTable *rtp_seq_ht = g_hash_table_new(g_direct_hash, g_direct_equal); \
-	uint32_t ssrc_A = 1234; \
-	uint32_t ssrc_B = 2345; \
-	struct call call = {{0,},}; \
-	call.ssrc_hash = create_ssrc_hash_call(); \
-	struct sdp_ng_flags flags = {0,}; \
-	bencode_buffer_init(&call.buffer); \
-	struct call_media *media_A = call_media_new(&call); /* originator */ \
-	struct call_media *media_B = call_media_new(&call); /* output destination */ \
-	GQueue rtp_types = G_QUEUE_INIT; /* parsed from received SDP */ \
-	flags.codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL); \
-	flags.codec_mask = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL)
+// global variables used by tests
+static GHashTable *rtp_ts_ht;
+static GHashTable *rtp_seq_ht;
+static uint32_t ssrc_A;
+static uint32_t ssrc_B;
+static struct call call;
+static struct sdp_ng_flags flags;
+static struct call_media *media_A;
+static struct call_media *media_B;
+static GQueue rtp_types;
+
+#define start() __start(__FILE__, __LINE__)
+
+static void __start(const char *file, int line) {
+	printf("running test %s:%i\n", file, line);
+	rtp_ts_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
+	rtp_seq_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
+	ssrc_A = 1234;
+	ssrc_B = 2345;
+	call = (struct call) {{0,},};
+	call.ssrc_hash = create_ssrc_hash_call();
+	flags = (struct sdp_ng_flags) {0,};
+	bencode_buffer_init(&call.buffer);
+	media_A = call_media_new(&call); // originator
+	media_B = call_media_new(&call); // output destination
+	g_queue_init(&rtp_types); // parsed from received SDP
+	flags.codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
+	flags.codec_mask = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
+}
 
 #define transcode(codec) g_queue_push_tail(&flags.codec_transcode, sdup(#codec))
 
-#define sdp_pt_fmt(num, codec, clockrate, fmt) { \
-	struct rtp_payload_type *pt = g_slice_alloc(sizeof(*pt)); \
-	*pt = (struct rtp_payload_type) { num, STR_CONST_INIT(#codec "/" #clockrate), STR_CONST_INIT(#codec), \
-		clockrate, STR_CONST_INIT(""), 1, STR_CONST_INIT(fmt), 0, 0, NULL }; \
-	g_queue_push_tail(&rtp_types, pt); \
-	}
+#define sdp_pt_fmt(num, codec, clockrate, fmt) \
+	__sdp_pt_fmt(num, (str) STR_CONST_INIT(#codec), clockrate, (str) STR_CONST_INIT(#codec "/" #clockrate), \
+			(str) STR_CONST_INIT(fmt))
+
+static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str fmt) {
+	struct rtp_payload_type *pt = g_slice_alloc(sizeof(*pt));
+	*pt = (struct rtp_payload_type) { num, full_codec, codec,
+		clockrate, STR_CONST_INIT(""), 1, fmt, 0, 0, NULL };
+	g_queue_push_tail(&rtp_types, pt);
+}
 
 #define sdp_pt(num, codec, clockrate) sdp_pt_fmt(num, codec, clockrate, "")
 
-#define offer() \
-	codec_rtp_payload_types(media_B, media_A, &rtp_types, \
-			flags.codec_strip, &flags.codec_offer, &flags.codec_transcode, \
-			flags.codec_mask); \
-	codec_handlers_update(media_B, media_A, &flags); \
-	g_queue_clear(&rtp_types); \
-	memset(&flags, 0, sizeof(flags))
+static void offer() {
+	codec_rtp_payload_types(media_B, media_A, &rtp_types,
+			flags.codec_strip, &flags.codec_offer, &flags.codec_transcode,
+			flags.codec_mask);
+	codec_handlers_update(media_B, media_A, &flags);
+	g_queue_clear(&rtp_types);
+	memset(&flags, 0, sizeof(flags));
+}
 
-#define answer() \
-	codec_rtp_payload_types(media_A, media_B, &rtp_types, \
-			flags.codec_strip, &flags.codec_offer, &flags.codec_transcode, \
-			flags.codec_mask); \
-	codec_handlers_update(media_A, media_B, &flags); \
+static void answer() {
+	codec_rtp_payload_types(media_A, media_B, &rtp_types,
+			flags.codec_strip, &flags.codec_offer, &flags.codec_transcode,
+			flags.codec_mask);
+	codec_handlers_update(media_A, media_B, &flags);
+}
 
-#define expect(side, dir, codecs) { \
-	printf("running test %s:%i\n", __FILE__, __LINE__); \
-	GString *s = g_string_new(""); \
-	queue_dump(s, &media_ ## side->codecs_prefs_ ## dir); \
-	if (strcmp(s->str, codecs) != 0) { \
-		printf("test failed: %s:%i\n", __FILE__, __LINE__); \
-		printf("expected: %s\n", codecs); \
-		printf("received: %s\n", s->str); \
-		abort(); \
-	} \
-	printf("test ok: %s:%i\n", __FILE__, __LINE__); \
-	g_string_free(s, TRUE); \
+#define expect(side, dir, codecs) \
+	__expect(__FILE__, __LINE__, &media_ ## side->codecs_prefs_ ## dir, codecs)
+
+static void __expect(const char *file, int line, GQueue *dumper, const char *codecs) {
+	printf("running test %s:%i\n", file, line);
+	GString *s = g_string_new("");
+	queue_dump(s, dumper);
+	if (strcmp(s->str, codecs) != 0) {
+		printf("test failed: %s:%i\n", file, line);
+		printf("expected: %s\n", codecs);
+		printf("received: %s\n", s->str);
+		abort();
 	}
+	printf("test ok: %s:%i\n", file, line);
+	g_string_free(s, TRUE);
+}
 
-#define packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_exp, fatal) { \
-	printf("running test %s:%i\n", __FILE__, __LINE__); \
-	struct codec_handler *h = codec_handler_get(media_ ## side, pt_in); \
-	str pl = STR_CONST_INIT(pload); \
-	str pl_exp = STR_CONST_INIT(pload_exp); \
-	struct media_packet mp = { \
-		.media = media_ ## side, \
-		.ssrc_in = get_ssrc_ctx(ssrc_ ## side, call.ssrc_hash, SSRC_DIR_INPUT), \
-	}; \
-	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, call.ssrc_hash, SSRC_DIR_OUTPUT); \
-	int packet_len = sizeof(struct rtp_header) + pl.len; \
-	char *packet = malloc(packet_len); \
-	struct rtp_header *rtp = (void *) packet; \
-	*rtp = (struct rtp_header) { \
-		.m_pt = pt_in, \
-		.ssrc = ssrc_ ## side, \
-		.seq_num = htons(rtp_seq), \
-		.timestamp = htonl(rtp_ts), \
-	}; \
-	mp.rtp = rtp; \
-	mp.payload = pl; \
-	mp.payload.s = (packet + sizeof(struct rtp_header)); \
-	memcpy(mp.payload.s, pl.s, pl.len); \
-	mp.raw.s = packet; \
-	mp.raw.len = packet_len; \
-	h->func(h, &mp); \
-	if (pt_out == -1) { \
-		if (mp.packets_out.length != 0) { \
-			printf("test failed: %s:%i\n", __FILE__, __LINE__); \
-			printf("unexpected packet\n"); \
-			abort(); \
-		} \
-	} \
-	else { \
-		if (mp.packets_out.length != 1) { \
-			printf("test failed: %s:%i\n", __FILE__, __LINE__); \
-			printf("no packet\n"); \
-			abort(); \
-		} \
-		struct codec_packet *cp = g_queue_pop_head(&mp.packets_out); \
-		rtp = (void *) cp->s.s; \
-		if (rtp->m_pt != (unsigned char) pt_out) { \
-			printf("test failed: %s:%i\n", __FILE__, __LINE__); \
-			printf("expected: %i\n", pt_out); \
-			printf("received: %i\n", rtp->m_pt); \
-			abort(); \
-		} \
-		printf("packet contents: "); \
-		for (int i = sizeof(struct rtp_header); i < cp->s.len; i++) { \
-			unsigned char cc = cp->s.s[i]; \
-			printf("\\x%02x", cc); \
-		} \
-		printf("\n"); \
-		uint32_t ts = ntohl(rtp->timestamp); \
-		uint16_t seq = ntohs(rtp->seq_num); \
-		uint32_t ssrc = ntohl(rtp->ssrc); \
-		uint32_t ssrc_pt = ssrc ^ pt_out; \
-		ssrc_pt ^= pt_in << 8; /* XXX this is actually wrong and should be removed. it's a workaround for a bug */ \
-		printf("RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc, \
-				(unsigned int) seq, (unsigned int) ts, (unsigned int) rtp->m_pt); \
-		if (g_hash_table_contains(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt))) { \
-			uint32_t old_ts = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_ts_ht, \
-						GUINT_TO_POINTER(ssrc_pt))); \
-			uint32_t diff = ts - old_ts; \
-			printf("RTP TS diff: %u\n", (unsigned int) diff); \
-			if (ts_exp != -1) \
-				assert(ts_exp == diff); \
-		} \
-		g_hash_table_insert(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(ts)); \
-		if (g_hash_table_contains(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt))) { \
-			uint32_t old_seq = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_seq_ht, \
-						GUINT_TO_POINTER(ssrc_pt))); \
-			uint16_t diff = seq - old_seq; \
-			printf("RTP seq diff: %u\n", (unsigned int) diff); \
-			assert(diff == 1); \
-		} \
-		g_hash_table_insert(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(seq)); \
-		if (str_shift(&cp->s, sizeof(struct rtp_header))) \
-			abort(); \
-		if (pl_exp.len != cp->s.len) \
-			abort(); \
-		if (fatal && memcmp(pl_exp.s, cp->s.s, pl_exp.len)) \
-			abort(); \
-	} \
-	printf("test ok: %s:%i\n", __FILE__, __LINE__); \
-	free(packet); \
+#define packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_exp, fatal) \
+	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST_INIT(pload), \
+			(str) STR_CONST_INIT(pload_exp), ssrc_ ## side, rtp_ts, rtp_seq, pt_out, \
+			ts_exp, fatal)
+
+static void __packet_seq_ts(const char *file, int line, struct call_media *media, long long pt_in, str pload,
+		str pload_exp, uint32_t ssrc, long long rtp_ts, long long rtp_seq, long long pt_out,
+		long long ts_exp, int fatal)
+{
+	printf("running test %s:%i\n", file, line);
+	struct codec_handler *h = codec_handler_get(media, pt_in);
+	str pl = pload;
+	str pl_exp = pload_exp;
+	struct media_packet mp = {
+		.media = media,
+		.ssrc_in = get_ssrc_ctx(ssrc, call.ssrc_hash, SSRC_DIR_INPUT),
+	};
+	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, call.ssrc_hash, SSRC_DIR_OUTPUT);
+	int packet_len = sizeof(struct rtp_header) + pl.len;
+	char *packet = malloc(packet_len);
+	struct rtp_header *rtp = (void *) packet;
+	*rtp = (struct rtp_header) {
+		.m_pt = pt_in,
+		.ssrc = ssrc,
+		.seq_num = htons(rtp_seq),
+		.timestamp = htonl(rtp_ts),
+	};
+	mp.rtp = rtp;
+	mp.payload = pl;
+	mp.payload.s = (packet + sizeof(struct rtp_header));
+	memcpy(mp.payload.s, pl.s, pl.len);
+	mp.raw.s = packet;
+	mp.raw.len = packet_len;
+	h->func(h, &mp);
+	if (pt_out == -1) {
+		if (mp.packets_out.length != 0) {
+			printf("test failed: %s:%i\n", file, line);
+			printf("unexpected packet\n");
+			abort();
+		}
+	}
+	else {
+		if (mp.packets_out.length != 1) {
+			printf("test failed: %s:%i\n", file, line);
+			printf("no packet\n");
+			abort();
+		}
+		struct codec_packet *cp = g_queue_pop_head(&mp.packets_out);
+		rtp = (void *) cp->s.s;
+		if (rtp->m_pt != (unsigned char) pt_out) {
+			printf("test failed: %s:%i\n", file, line);
+			printf("expected: %lli\n", pt_out);
+			printf("received: %i\n", rtp->m_pt);
+			abort();
+		}
+		printf("packet contents: ");
+		for (int i = sizeof(struct rtp_header); i < cp->s.len; i++) {
+			unsigned char cc = cp->s.s[i];
+			printf("\\x%02x", cc);
+		}
+		printf("\n");
+		uint32_t ts = ntohl(rtp->timestamp);
+		uint16_t seq = ntohs(rtp->seq_num);
+		uint32_t ssrc = ntohl(rtp->ssrc);
+		uint32_t ssrc_pt = ssrc ^ pt_out;
+		ssrc_pt ^= pt_in << 8; /* XXX this is actually wrong and should be removed. it's a workaround for a bug */
+		printf("RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc,
+				(unsigned int) seq, (unsigned int) ts, (unsigned int) rtp->m_pt);
+		if (g_hash_table_contains(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt))) {
+			uint32_t old_ts = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_ts_ht,
+						GUINT_TO_POINTER(ssrc_pt)));
+			uint32_t diff = ts - old_ts;
+			printf("RTP TS diff: %u\n", (unsigned int) diff);
+			if (ts_exp != -1)
+				assert(ts_exp == diff);
+		}
+		g_hash_table_insert(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(ts));
+		if (g_hash_table_contains(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt))) {
+			uint32_t old_seq = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_seq_ht,
+						GUINT_TO_POINTER(ssrc_pt)));
+			uint16_t diff = seq - old_seq;
+			printf("RTP seq diff: %u\n", (unsigned int) diff);
+			assert(diff == 1);
+		}
+		g_hash_table_insert(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(seq));
+		if (str_shift(&cp->s, sizeof(struct rtp_header)))
+			abort();
+		if (pl_exp.len != cp->s.len)
+			abort();
+		if (fatal && memcmp(pl_exp.s, cp->s.s, pl_exp.len))
+			abort();
+	}
+	printf("test ok: %s:%i\n", file, line);
+	free(packet);
 }
 
 #define packet(side, pt_in, pload, pt_out, pload_exp) \
@@ -178,7 +209,10 @@ static void queue_dump(GString *s, GQueue *q) {
 #define packet_seq_nf(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp) \
 	packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, -1, 0)
 
-#define end() } /* free/cleanup should go here */
+static void end() {
+	g_hash_table_destroy(rtp_ts_ht);
+	g_hash_table_destroy(rtp_seq_ht);
+}
 
 #define PCMU_payload "\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00"
 #define PCMA_payload "\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a"
