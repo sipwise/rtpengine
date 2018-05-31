@@ -72,18 +72,14 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str 
 #define sdp_pt(num, codec, clockrate) sdp_pt_fmt(num, codec, clockrate, "")
 
 static void offer() {
-	codec_rtp_payload_types(media_B, media_A, &rtp_types,
-			flags.codec_strip, &flags.codec_offer, &flags.codec_transcode,
-			flags.codec_mask);
+	codec_rtp_payload_types(media_B, media_A, &rtp_types, &flags);
 	codec_handlers_update(media_B, media_A, &flags);
 	g_queue_clear(&rtp_types);
 	memset(&flags, 0, sizeof(flags));
 }
 
 static void answer() {
-	codec_rtp_payload_types(media_A, media_B, &rtp_types,
-			flags.codec_strip, &flags.codec_offer, &flags.codec_transcode,
-			flags.codec_mask);
+	codec_rtp_payload_types(media_A, media_B, &rtp_types, &flags);
 	codec_handlers_update(media_A, media_B, &flags);
 }
 
