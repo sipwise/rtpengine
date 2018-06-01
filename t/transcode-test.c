@@ -72,6 +72,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str 
 #define sdp_pt(num, codec, clockrate) sdp_pt_fmt(num, codec, clockrate, "")
 
 static void offer() {
+	printf("offer\n");
 	codec_rtp_payload_types(media_B, media_A, &rtp_types, &flags);
 	codec_handlers_update(media_B, media_A, &flags);
 	g_queue_clear(&rtp_types);
@@ -79,6 +80,7 @@ static void offer() {
 }
 
 static void answer() {
+	printf("answer\n");
 	codec_rtp_payload_types(media_A, media_B, &rtp_types, &flags);
 	codec_handlers_update(media_A, media_B, &flags);
 }
@@ -259,6 +261,46 @@ int main() {
 	packet(B, 8, PCMA_payload, 8, PCMA_payload);
 	end();
 
+	// plain with two offered and one answered
+	start();
+	sdp_pt(0, PCMU, 8000);
+	sdp_pt(8, PCMA, 8000);
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
+	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
+	expect(B, send, "");
+	sdp_pt(8, PCMA, 8000);
+	answer();
+	expect(A, recv, "8/PCMA/8000");
+	expect(A, send, "8/PCMA/8000");
+	expect(B, recv, "8/PCMA/8000");
+	expect(B, send, "8/PCMA/8000");
+	packet(A, 8, PCMA_payload, 8, PCMA_payload);
+	packet(B, 8, PCMA_payload, 8, PCMA_payload);
+	end();
+
+	// plain with two offered and one answered + asymmetric codecs
+	start();
+	sdp_pt(0, PCMU, 8000);
+	sdp_pt(8, PCMA, 8000);
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
+	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
+	expect(B, send, "");
+	sdp_pt(8, PCMA, 8000);
+	flags.asymmetric_codecs = 1;
+	answer();
+	expect(A, recv, "8/PCMA/8000");
+	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
+	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
+	expect(B, send, "8/PCMA/8000");
+	packet(A, 0, PCMU_payload, 0, PCMU_payload);
+	packet(A, 8, PCMA_payload, 8, PCMA_payload);
+	packet(B, 8, PCMA_payload, 8, PCMA_payload);
+	end();
+
 	// plain with two offered and two answered + always-transcode one way
 	start();
 	flags.always_transcode = 1;
@@ -340,10 +382,31 @@ int main() {
 	answer();
 	expect(A, recv, "0/PCMU/8000");
 	expect(A, send, "0/PCMU/8000");
+	expect(B, recv, "8/PCMA/8000");
+	expect(B, send, "8/PCMA/8000");
+	packet(A, 0, PCMU_payload, 8, PCMA_payload);
+	packet(B, 8, PCMA_payload, 0, PCMU_payload);
+	end();
+
+	// same as above, but allow asymmetric codecs
+	start();
+	sdp_pt(0, PCMU, 8000);
+	transcode(PCMA);
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "0/PCMU/8000");
+	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
+	expect(B, send, "");
+	sdp_pt(8, PCMA, 8000);
+	flags.asymmetric_codecs = 1;
+	answer();
+	expect(A, recv, "0/PCMU/8000");
+	expect(A, send, "0/PCMU/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "8/PCMA/8000");
 	packet(A, 0, PCMU_payload, 8, PCMA_payload);
 	packet(B, 8, PCMA_payload, 0, PCMU_payload);
+	packet(B, 0, PCMU_payload, 0, PCMU_payload);
 	end();
 
 	{
@@ -364,7 +427,7 @@ int main() {
 			answer();
 			expect(A, recv, "0/PCMU/8000");
 			expect(A, send, "0/PCMU/8000");
-			expect(B, recv, "0/PCMU/8000 96/AMR-WB/16000/octet-align=1");
+			expect(B, recv, "96/AMR-WB/16000/octet-align=1");
 			expect(B, send, "96/AMR-WB/16000/octet-align=1");
 			packet_seq(A, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
 			packet_seq_nf(A, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload);
@@ -385,7 +448,7 @@ int main() {
 			answer();
 			expect(A, recv, "96/AMR-WB/16000/octet-align=1");
 			expect(A, send, "96/AMR-WB/16000/octet-align=1");
-			expect(B, recv, "96/AMR-WB/16000/octet-align=1 0/PCMU/8000");
+			expect(B, recv, "0/PCMU/8000");
 			expect(B, send, "0/PCMU/8000");
 			packet_seq(B, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
 			packet_seq_nf(B, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload);
@@ -406,7 +469,7 @@ int main() {
 			answer();
 			expect(A, recv, "96/AMR-WB/16000");
 			expect(A, send, "96/AMR-WB/16000");
-			expect(B, recv, "96/AMR-WB/16000 0/PCMU/8000");
+			expect(B, recv, "0/PCMU/8000");
 			expect(B, send, "0/PCMU/8000");
 			packet_seq(B, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
 			packet_seq_nf(B, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload_noe);
@@ -429,7 +492,7 @@ int main() {
 	answer();
 	expect(A, recv, "8/PCMA/8000");
 	expect(A, send, "8/PCMA/8000");
-	expect(B, recv, "8/PCMA/8000 9/G722/8000");
+	expect(B, recv, "9/G722/8000");
 	expect(B, send, "9/G722/8000");
 	packet_seq(A, 8, PCMA_payload, 0, 0, -1, ""); // nothing due to resampling
 	packet_seq_nf(A, 8, PCMA_payload, 160, 1, 9, G722_payload);

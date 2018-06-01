@@ -145,17 +145,26 @@ static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *m
 	if (!pt->codec_def->pseudocodec && (!pt->codec_def->support_encoding || !pt->codec_def->support_decoding))
 		pt->codec_def = NULL;
 }
-static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) {
+
+static GList *__delete_x_codec(GList *link, GHashTable *codecs, GHashTable *codec_names, GQueue *codecs_prefs) {
 	struct rtp_payload_type *pt = link->data;
 
-	g_hash_table_remove(receiver->codecs_recv, &pt->payload_type);
-	g_hash_table_remove(receiver->codec_names_recv, &pt->encoding);
-	g_hash_table_remove(receiver->codec_names_recv, &pt->encoding_with_params);
+	g_hash_table_remove(codecs, &pt->payload_type);
+	g_hash_table_remove(codec_names, &pt->encoding);
+	g_hash_table_remove(codec_names, &pt->encoding_with_params);
 
 	GList *next = link->next;
-	g_queue_delete_link(&receiver->codecs_prefs_recv, link);
+	g_queue_delete_link(codecs_prefs, link);
 	payload_type_free(pt);
 	return next;
+}
+static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) {
+	return __delete_x_codec(link, receiver->codecs_recv, receiver->codec_names_recv,
+			&receiver->codecs_prefs_recv);
+}
+static GList *__delete_send_codec(struct call_media *sender, GList *link) {
+	return __delete_x_codec(link, sender->codecs_send, sender->codec_names_send,
+			&sender->codecs_prefs_send);
 }
 
 // call must be locked in W
@@ -241,6 +250,22 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			else {
 				g_queue_insert_after(&receiver->codecs_prefs_recv, insert_pos, pt);
 				insert_pos = insert_pos->next;
+			}
+		}
+	}
+	else {
+		if (!flags || !flags->asymmetric_codecs) {
+			// in the other case (not transcoding), we can eliminate rejected codecs from our
+			// `send` list if the receiver cannot receive it.
+			for (GList *l = receiver->codecs_prefs_send.head; l;) {
+				struct rtp_payload_type *pt = l->data;
+				if (g_hash_table_lookup(receiver->codec_names_recv, &pt->encoding)) {
+					l = l->next;
+					continue;
+				}
+				ilog(LOG_DEBUG, "Eliminating asymmetric outbound codec " STR_FORMAT,
+						STR_FMT(&pt->encoding_with_params));
+				l = __delete_send_codec(receiver, l);
 			}
 		}
 	}
@@ -978,6 +1003,21 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	for (GList *l = flags->codec_offer.head; l; l = l->next) {
 		str *codec = l->data;
 		__revert_codec_strip(removed, codec, media, other_media);
+	}
+
+	if (!flags->asymmetric_codecs) {
+		// eliminate rejected codecs from the reverse direction. a rejected codec is missing
+		// from the `send` list. also remove it from the `receive` list.
+		for (GList *l = other_media->codecs_prefs_recv.head; l;) {
+			pt = l->data;
+			if (g_hash_table_lookup(other_media->codec_names_send, &pt->encoding)) {
+				l = l->next;
+				continue;
+			}
+			ilog(LOG_DEBUG, "Eliminating asymmetric inbound codec " STR_FORMAT,
+					STR_FMT(&pt->encoding_with_params));
+			l = __delete_receiver_codec(other_media, l);
+		}
 	}
 
 #ifdef WITH_TRANSCODING

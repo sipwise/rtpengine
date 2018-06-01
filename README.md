@@ -1188,6 +1188,24 @@ Optionally included keys are:
 		which means that it's applied only to the one side doing the signalling that is being
 		handled (i.e. the side doing the `offer` or the `answer`).
 
+	- asymmetric codecs
+
+		This flag is relevant to transcoding scenarios. By default, if an RTP client rejects a
+		codec that was offered to it (by not including it in the answer SDP), *rtpengine* will
+		assume that this client will also not send this codec (in addition to not wishing to
+		receive it). With this flag given, *rtpengine* will not make this assumption, meaning
+		that *rtpengine* will expect to potentially receive a codec from an RTP client even if
+		that RTP client rejected this codec in its answer SDP.
+
+		The effective difference is that when *rtpengine* is instructed to offer a new codec for
+		transcoding to an RTP client, and then this RTP client rejects this codec, by default
+		*rtpengine* is then able to shut down its transcoding engine and revert to non-transcoding
+		operation for this call. With this flag given however, *rtpengine* would not be able
+		to shut down its transcoding engine in this case, resulting in potentially different media
+		flow, and potentially transcoding media when it otherwise would not have to.
+
+		This flag should be given as part of the `answer` message.
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.
