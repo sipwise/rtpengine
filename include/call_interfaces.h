@@ -60,6 +60,7 @@ struct sdp_ng_flags {
 	    record_call:1,
 	    loop_protect:1,
 	    always_transcode:1,
+	    asymmetric_codecs:1,
 	    supports_load_limit:1,
 	    dtls_off:1,
 	    sdes_off:1,
