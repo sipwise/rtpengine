@@ -186,6 +186,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// if we transcode, we transcode to the highest-preference supported codec
 	// that the sink specified. determine this first.
 	struct rtp_payload_type *pref_dest_codec = NULL;
+	int sink_transcoding = 0;
 	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		__ensure_codec_def(pt, sink);
@@ -202,6 +203,31 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			ilog(LOG_DEBUG, "Default sink codec is " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 			pref_dest_codec = pt;
 		}
+
+		// also check if this is a transcoding codec: if we can send a codec to the sink,
+		// but can't receive it on the receiver side, then it's transcoding. this is to check
+		// whether transcoding on the sink side is actually needed. if transcoding has been
+		// previously enabled on the sink, but no transcoding codecs are actually present,
+		// we can disable the transcoding engine.
+		if (MEDIA_ISSET(sink, TRANSCODE)) {
+			if (!g_hash_table_lookup(receiver->codec_names_send, &pt->encoding))
+				sink_transcoding = 1;
+		}
+	}
+
+	// similarly, if the sink receive a codec that the receiver can't send, it's also transcoding
+	if (MEDIA_ISSET(sink, TRANSCODE)) {
+		for (GList *l = sink->codecs_prefs_recv.head; l; l = l->next) {
+			struct rtp_payload_type *pt = l->data;
+			if (!g_hash_table_lookup(receiver->codec_names_recv, &pt->encoding))
+				sink_transcoding = 1;
+		}
+	}
+
+	// stop transcoding if we've determined that we don't need it
+	if (MEDIA_ISSET(sink, TRANSCODE) && !sink_transcoding) {
+		ilog(LOG_DEBUG, "Disabling transcoding engine (not needed)");
+		MEDIA_CLEAR(sink, TRANSCODE);
 	}
 
 	if (MEDIA_ISSET(sink, TRANSCODE)) {
