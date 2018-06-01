@@ -502,5 +502,106 @@ int main() {
 	packet_seq_ts(B, 9, G722_payload, 320, 2, 8, PCMA_payload, 160, 0);
 	end();
 
+	// A includes unsupported codec by B - no transcoding (GH#562 control case)
+	start();
+	sdp_pt(97, opus, 48000);
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, send, "");
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	answer();
+	expect(A, recv, "9/G722/8000 8/PCMA/8000");
+	expect(A, send, "9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "9/G722/8000 8/PCMA/8000");
+	expect(B, send, "9/G722/8000 8/PCMA/8000");
+	end();
+
+	// A includes unsupported codec by B - no transcoding (GH#562 control case) + asymmetric codecs
+	start();
+	sdp_pt(97, opus, 48000);
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, send, "");
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	flags.asymmetric_codecs = 1;
+	answer();
+	expect(A, recv, "9/G722/8000 8/PCMA/8000");
+	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, send, "9/G722/8000 8/PCMA/8000");
+	end();
+
+	// A includes unsupported codec by B - transcoded codec accepted (GH#562 control case)
+	start();
+	sdp_pt(97, opus, 48000);
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	transcode(PCMU); // standin for G729
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000 0/PCMU/8000");
+	expect(B, send, "");
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	sdp_pt(0, PCMU, 8000);
+	answer();
+	expect(A, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "9/G722/8000 8/PCMA/8000 0/PCMU/8000");
+	expect(B, send, "9/G722/8000 8/PCMA/8000 0/PCMU/8000");
+	end();
+
+	// A includes unsupported codec by B - transcoded codec rejected (GH#562)
+	start();
+	sdp_pt(97, opus, 48000);
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	transcode(PCMU); // standin for G729
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000 0/PCMU/8000");
+	expect(B, send, "");
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	answer();
+	expect(A, recv, "9/G722/8000 8/PCMA/8000");
+	expect(A, send, "9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "9/G722/8000 8/PCMA/8000");
+	expect(B, send, "9/G722/8000 8/PCMA/8000");
+	end();
+
+	// A includes unsupported codec by B - transcoded codec rejected (GH#562) + asymmetric codecs
+	start();
+	sdp_pt(97, opus, 48000);
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	transcode(PCMU); // standin for G729
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000 0/PCMU/8000");
+	expect(B, send, "");
+	sdp_pt(9, G722, 8000);
+	sdp_pt(8, PCMA, 8000);
+	flags.asymmetric_codecs = 1;
+	answer();
+	expect(A, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
+	expect(B, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000 0/PCMU/8000");
+	expect(B, send, "9/G722/8000 8/PCMA/8000");
+	end();
+
 	return 0;
 }
