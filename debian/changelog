@@ -1,3 +1,19 @@
+ngcp-rtpengine (5.5.6.0+0~mr5.5.6.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2f74733] fix graphite interval calculation for call durations
+  * [4d4daba] TT#28163 abstractize SSRC hash
+  * [92a0705] use reference counting on SSRC objects
+  * [1a92fa8] TT#37156 fix divide by zero error (regression from db58aa80)
+  * [e5caf86] TT#36759 rate limiting for ICE/STUN log messages
+
+  [ Jerzy Ptak ]
+  * [3c29ea9] fixing memory leaks
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 04 Jun 2018 16:19:34 +0200
+
 ngcp-rtpengine (5.5.5.0+0~mr5.5.5.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
