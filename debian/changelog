@@ -1,3 +1,23 @@
+ngcp-rtpengine (6.3.1.1+0~mr6.3.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [9517ce6] TT#37156 fix divide by zero error (regression from db58aa80)
+  * [9592bb3] TT#37157 swap parameter order for packet_seq() test macro
+  * [42d28de] TT#37157 eliminate stray compiler warning in test code
+  * [6415bcc] TT#37157 add RTP TS and seq checking to transcoding tests
+  * [262f555] TT#37157 fix missing G722 RTP TS output scaling
+  * [2f9e4eb] TT#37157 add G722 transcoding test incl RTP TS testing
+  * [ff27642] TT#37157 make payload mismatches in lossy codecs non-fatal
+  * [4f714f3] TT#36759 rate limiting for ICE/STUN log messages
+  * [507806f] convert transcoding unit test macros to functions
+  * [5582fa8] simplify parameters passed to codec_rtp_payload_types()
+  * [d12c32d] support new `asymmetric codecs` flag
+  * [df814cf] shut down transcoding engine when it's not needed
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 05 Jun 2018 12:10:21 +0200
+
 ngcp-rtpengine (6.3.1.0+0~mr6.3.1.0) unstable; urgency=medium
 
   [ Juha Heinanen ]
