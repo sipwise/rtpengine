@@ -36,6 +36,9 @@ struct port_pool {
 	volatile unsigned int		free_ports;
 
 	unsigned int			min, max;
+
+	mutex_t				free_list_lock;
+	GQueue				free_list;
 };
 struct intf_address {
 	socktype_t			*type;

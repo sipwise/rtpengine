@@ -569,6 +569,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 		spec->port_pool.min = ifa->port_min;
 		spec->port_pool.max = ifa->port_max;
 		spec->port_pool.free_ports = spec->port_pool.max - spec->port_pool.min + 1;
+		mutex_init(&spec->port_pool.free_list_lock);
 		g_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
 	}
 
@@ -689,6 +690,7 @@ static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec, cons
 
 static void release_port(socket_t *r, struct intf_spec *spec) {
 	unsigned int port = r->local.port;
+	struct port_pool *pp = &spec->port_pool;
 
 	__C_DBG("trying to release port %u", port);
 
@@ -696,8 +698,13 @@ static void release_port(socket_t *r, struct intf_spec *spec) {
 
 	if (close_socket(r) == 0) {
 		__C_DBG("port %u is released", port);
-		bit_array_clear(spec->port_pool.ports_used, port);
-		g_atomic_int_inc(&spec->port_pool.free_ports);
+		bit_array_clear(pp->ports_used, port);
+		g_atomic_int_inc(&pp->free_ports);
+		if ((port & 1) == 0) {
+			mutex_lock(&pp->free_list_lock);
+			g_queue_push_tail(&pp->free_list, GUINT_TO_POINTER(port));
+			mutex_unlock(&pp->free_list_lock);
+		}
 	} else {
 		__C_DBG("port %u is NOT released", port);
 	}
@@ -740,8 +747,15 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 	// debug msg if port is in the given interval
 	if (bit_array_isset(pp->ports_used, port)) {
 		__C_DBG("port %d is USED in port pool", port);
+		mutex_lock(&pp->free_list_lock);
+		unsigned int fport = GPOINTER_TO_UINT(g_queue_pop_head(&pp->free_list));
+		mutex_unlock(&pp->free_list_lock);
+		if (fport) {
+			port = fport;
+			__C_DBG("Picked port %u from free list", port);
+		}
 	} else {
-		__C_DBG("port %d is NOOT USED in port pool", port);
+		__C_DBG("port %d is NOT USED in port pool", port);
 	}
 
 	while (1) {
