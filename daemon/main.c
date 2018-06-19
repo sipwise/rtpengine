@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <openssl/ssl.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 
 #include "poller.h"
 #include "control_tcp.h"
@@ -141,10 +143,11 @@ static void resources(void) {
 
 
 
-static struct intf_config *if_addr_parse(char *s) {
+static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 	str name;
 	char *c;
-	sockaddr_t addr, adv;
+	sockaddr_t *addr, adv;
+	GQueue addrs = G_QUEUE_INIT;
 	struct intf_config *ifa;
 
 	/* name */
@@ -163,33 +166,82 @@ static struct intf_config *if_addr_parse(char *s) {
 		*c++ = 0;
 
 	/* address */
-	if (sockaddr_parse_any(&addr, s))
-		return NULL;
-	if (is_addr_unspecified(&addr))
-		return NULL;
+	addr = g_slice_alloc(sizeof(*addr));
+	if (!sockaddr_parse_any(addr, s)) {
+		if (is_addr_unspecified(addr))
+			return -1;
+		g_queue_push_tail(&addrs, addr);
+	}
+	else {
+		// could be an interface name?
+		ilog(LOG_DEBUG, "Could not parse '%s' as network address, checking to see if "
+				"it's an interface", s);
+		for (struct ifaddrs *ifa = ifas; ifa; ifa = ifa->ifa_next) {
+			if (strcmp(ifa->ifa_name, s))
+				continue;
+			if (!(ifa->ifa_flags & IFF_UP))
+				continue;
+			if (!ifa->ifa_addr)
+				continue;
+			if (ifa->ifa_addr->sa_family == AF_INET) {
+				struct sockaddr_in *sin = (void *) ifa->ifa_addr;
+				addr->family = __get_socket_family_enum(SF_IP4);
+				addr->u.ipv4 = sin->sin_addr;
+			}
+			else if (ifa->ifa_addr->sa_family == AF_INET6) {
+				struct sockaddr_in6 *sin = (void *) ifa->ifa_addr;
+				if (sin->sin6_scope_id)
+					continue; // link-local
+				addr->family = __get_socket_family_enum(SF_IP6);
+				addr->u.ipv6 = sin->sin6_addr;
+			}
+			else
+				continue;
 
-	adv = addr;
-	if (c) {
-		if (sockaddr_parse_any(&adv, c))
-			return NULL;
-		if (is_addr_unspecified(&adv))
-			return NULL;
+			// got one
+			ilog(LOG_DEBUG, "Determined address %s for interface '%s'",
+					sockaddr_print_buf(addr), s);
+			g_queue_push_tail(&addrs, addr);
+			addr = g_slice_alloc(sizeof(*addr));
+		}
+
+		// free last unused entry
+		g_slice_free1(sizeof(*addr), addr);
 	}
 
-	ifa = g_slice_alloc0(sizeof(*ifa));
-	ifa->name = name;
-	ifa->local_address.addr = addr;
-	ifa->local_address.type = socktype_udp;
-	ifa->advertised_address.addr = adv;
-	ifa->advertised_address.type = ifa->local_address.type;
-	ifa->port_min = rtpe_config.port_min;
-	ifa->port_max = rtpe_config.port_max;
+	if (!addrs.length) // nothing found
+		return -1;
 
-	// handle "base:suffix" separation for round-robin selection
-	ifa->name_rr_spec = ifa->name;
-	str_token(&ifa->name_base, &ifa->name_rr_spec, ':'); // sets name_rr_spec to null string if no ':' found
+	ZERO(adv);
+	if (c) {
+		if (sockaddr_parse_any(&adv, c))
+			return -1;
+		if (is_addr_unspecified(&adv))
+			return -1;
+	}
 
-	return ifa;
+	while ((addr = g_queue_pop_head(&addrs))) {
+		ifa = g_slice_alloc0(sizeof(*ifa));
+		ifa->name = name;
+		ifa->local_address.addr = *addr;
+		ifa->local_address.type = socktype_udp;
+		ifa->advertised_address.addr = adv;
+		if (is_addr_unspecified(&ifa->advertised_address.addr))
+			ifa->advertised_address.addr = *addr;
+		ifa->advertised_address.type = ifa->local_address.type;
+		ifa->port_min = rtpe_config.port_min;
+		ifa->port_max = rtpe_config.port_max;
+
+		// handle "base:suffix" separation for round-robin selection
+		ifa->name_rr_spec = ifa->name;
+		str_token(&ifa->name_base, &ifa->name_rr_spec, ':'); // sets name_rr_spec to null string if no ':' found
+
+		g_queue_push_tail(q, ifa);
+
+		g_slice_free1(sizeof(*addr), addr);
+	}
+
+	return 0;
 }
 
 
@@ -233,7 +285,6 @@ static void options(int *argc, char ***argv) {
 	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char **iter;
-	struct intf_config *ifa;
 	char *listenps = NULL;
 	char *listenudps = NULL;
 	char *listenngs = NULL;
@@ -325,12 +376,19 @@ static void options(int *argc, char ***argv) {
 	if (!listenps && !listenudps && !listenngs)
 		die("Missing option --listen-tcp, --listen-udp or --listen-ng");
 
-	for (iter = if_a; *iter; iter++) {
-		ifa = if_addr_parse(*iter);
-		if (!ifa)
-			die("Invalid interface specification: %s", *iter);
-		g_queue_push_tail(&rtpe_config.interfaces, ifa);
+	struct ifaddrs *ifas;
+	if (getifaddrs(&ifas)) {
+		ifas = NULL;
+		ilog(LOG_WARN, "Failed to retrieve list of network interfaces: %s", strerror(errno));
 	}
+	for (iter = if_a; *iter; iter++) {
+		int ret = if_addr_parse(&rtpe_config.interfaces, *iter, ifas);
+		if (ret)
+			die("Invalid interface specification: %s", *iter);
+	}
+	if (ifas)
+		freeifaddrs(ifas);
+
 	if (!rtpe_config.interfaces.length)
 		die("Cannot start without any configured interfaces");
 

@@ -685,11 +685,27 @@ Interfaces configuration
 
 The command-line options `-i` or `--interface=`, or equivalently the `interface=` config file option,
 specify local network interfaces for RTP. At least one must be given, but multiple can be specified.
-The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address or an IPv6 address.
+The format of the value is `[NAME/]IP[!IP]` with `IP` being either an IPv4 address, an IPv6 address,
+or the name of a system network interface (such as `eth0`).
+
+The possibility of configuring a network interface by name rather than by address should not be confused
+with the logical interface name used internally by *rtpengine* (as described below). The `NAME` token
+in the syntax above refers to the internal logical interface name, while the name of a system network
+interface is used in place of the first `IP` token in the syntax above. For example, to configure a
+logical network interface called `int` using all the addresses from the existing system network
+interface `eth0`, you would use the syntax `int/eth0`. (Unless omitted, the second `IP` token used
+for the advertised address must be an actual network address and cannot be an interface name.)
 
 To configure multiple interfaces using the command-line options, simply present multiple `-i` or
 `--interface=` options. When using the config file, only use a single `interface=` line, but specify
 multiple values separated by semicolons (e.g. `interface = internal/12.23.34.45;external/23.34.45.54`).
+
+If an interface option is given using a system interface name in place of a network address, and if
+multiple network address are found configured on that network interface, then *rtpengine* behaves as
+if multiple `--interface` options had been specified. For example, if interface `eth0` exists with
+both addresses `192.168.1.120` and `2001:db8:85a3::7334` configured on it, and if the option
+`--interface=ext/eth0` is given, then *rtpengine* would behave as if both options
+`--interface=ext/192.168.1.120` and `--interface=ext/2001:db8:85a3::7334` had been specified.
 
 The second IP address after the exclamation point is optional and can be used if the address to advertise
 in outgoing SDP bodies should be different from the actual local address. This can be useful in certain
