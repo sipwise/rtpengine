@@ -3792,10 +3792,8 @@ static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rt
 
 	pt = hdr->m_pt & 0x7f;
 	match = bsearch(&pt, tg->payload_types, tg->num_payload_types, sizeof(pt), rtp_payload_match);
-	if (!match) {
-		log_err("RTP payload type %u not found", (unsigned int) pt);
+	if (!match)
 		return -1;
-	}
 	return match - tg->payload_types;
 }
 #endif
@@ -3944,8 +3942,8 @@ src_check_ok:
 	if (unlikely((g->target.ssrc) && (g->target.ssrc != rtp.header->ssrc)))
 		goto skip_error;
 
-	// if transcoding, only forward packets of passthrough payload types
-	if (g->target.transcoding && rtp_pt_idx < 0)
+	// if RTP, only forward packets of known/passthrough payload types
+	if (g->target.rtp && rtp_pt_idx < 0)
 		goto skip1;
 
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);

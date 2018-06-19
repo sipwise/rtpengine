@@ -17,6 +17,7 @@ struct log_info __thread log_info;
 
 int _log_facility_cdr = 0;
 int _log_facility_rtcp = 0;
+int _log_facility_dtmf = 0;
 
 typedef void (ilog_prefix_func)(char *prefix, size_t prefix_len);
 
@@ -106,7 +107,7 @@ void __ilog(int prio, const char *fmt, ...) {
 }
 
 void log_format(enum log_format f) {
-	if (f < 0 || f >= __LF_LAST)
+	if (f >= __LF_LAST)
 		die("Invalid log format enum");
 	ilog_prefix = ilog_prefix_funcs[f];
 	if (!ilog_prefix)
@@ -117,6 +118,13 @@ void cdrlog(const char* cdrbuffer) {
 	if (_log_facility_cdr) {
 		syslog(LOG_INFO | _log_facility_cdr, "%s", cdrbuffer);
 	}
+}
+
+void dtmflog(GString *s) {
+	if (_log_facility_dtmf) {
+		syslog(LOG_INFO | _log_facility_dtmf, "%s", s->str);
+	}
+	g_string_free(s, TRUE);
 }
 
 

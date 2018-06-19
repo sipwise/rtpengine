@@ -10,6 +10,7 @@
 #include "ssrc.h"
 #include "rtcp.h"
 #include "call_interfaces.h"
+#include "dtmf.h"
 
 
 
@@ -24,7 +25,7 @@ static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *p
 static struct codec_handler codec_handler_stub = {
 	.source_pt.payload_type = -1,
 	.func = handler_func_passthrough,
-	.passthrough = 1,
+	.kernelize = 1,
 };
 
 
@@ -60,6 +61,7 @@ struct codec_ssrc_handler {
 	format_t encoder_format;
 	int ptime;
 	int bytes_per_packet;
+	unsigned long ts_in; // for DTMF dupe detection
 	unsigned long ts_out;
 	u_int16_t seq_out;
 	GString *sample_buffer;
@@ -68,12 +70,19 @@ struct transcode_packet {
 	seq_packet_t p; // must be first
 	unsigned long ts;
 	str *payload;
+	struct codec_handler *handler; // optional different handler (for DTMF)
+	int marker:1,
+	    ignore_seq:1;
+	int (*func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
+	void (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
 };
 
 
 static codec_handler_func handler_func_passthrough_ssrc;
 static codec_handler_func handler_func_transcode;
+static codec_handler_func handler_func_dtmf;
 
+static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_new(void *p);
 static void __free_ssrc_handler(void *);
 
@@ -83,14 +92,14 @@ static void __transcode_packet_free(struct transcode_packet *);
 static struct codec_handler codec_handler_stub_ssrc = {
 	.source_pt.payload_type = -1,
 	.func = handler_func_passthrough_ssrc,
-	.passthrough = 1,
+	.kernelize = 1,
 };
 
 
 
 static void __handler_shutdown(struct codec_handler *handler) {
 	free_ssrc_hash(&handler->ssrc_hash);
-	handler->passthrough = 0;
+	handler->kernelize = 0;
 }
 
 static void __codec_handler_free(void *pp) {
@@ -108,13 +117,23 @@ static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 static void __make_passthrough(struct codec_handler *handler) {
 	__handler_shutdown(handler);
 	handler->func = handler_func_passthrough;
-	handler->passthrough = 1;
+	handler->kernelize = 1;
+	handler->dest_pt = handler->source_pt;
+	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
 }
-
 static void __make_passthrough_ssrc(struct codec_handler *handler) {
 	__handler_shutdown(handler);
 	handler->func = handler_func_passthrough_ssrc;
-	handler->passthrough = 1;
+	handler->kernelize = 1;
+	handler->dest_pt = handler->source_pt;
+	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
+}
+
+static void __make_dtmf(struct codec_handler *handler) {
+	__handler_shutdown(handler);
+	handler->func = handler_func_dtmf;
+	handler->dest_pt = handler->source_pt;
+	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
 }
 
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *source,
@@ -145,7 +164,7 @@ reset:
 	handler->dest_pt = *dest;
 	handler->func = handler_func_transcode;
 
-	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
+	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
 
 	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT " -> " STR_FORMAT "",
 			STR_FMT(&source->encoding_with_params),
@@ -330,8 +349,12 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 		if (!pt->codec_def || pt->codec_def->pseudocodec) {
 			// not supported, or not a real audio codec
-			__make_passthrough(handler);
-			passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
+			if (pt->codec_def && pt->codec_def->dtmf)
+				__make_dtmf(handler);
+			else {
+				__make_passthrough(handler);
+				passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
+			}
 			goto next;
 		}
 
@@ -497,6 +520,174 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 	return 0;
 }
 
+static int __handler_func_sequencer(struct codec_handler *h, struct media_packet *mp,
+		struct transcode_packet *packet)
+{
+	struct codec_ssrc_handler *ch = get_ssrc(mp->rtp->ssrc, h->ssrc_hash);
+	if (G_UNLIKELY(!ch))
+		return 0;
+
+	atomic64_inc(&mp->ssrc_in->packets);
+	atomic64_add(&mp->ssrc_in->octets, mp->payload.len);
+
+	packet->p.seq = ntohs(mp->rtp->seq_num);
+	packet->payload = str_dup(&mp->payload);
+	packet->ts = ntohl(mp->rtp->timestamp);
+	packet->marker = (mp->rtp->m_pt & 0x80) ? 1 : 0;
+
+	// how should we retrieve packets from the sequencer?
+	void *(*seq_next_packet)(packet_sequencer_t *) = packet_sequencer_next_packet;
+	if (packet->ignore_seq)
+		seq_next_packet = packet_sequencer_force_next_packet;
+
+	mutex_lock(&ch->lock);
+
+	if (packet_sequencer_insert(&ch->sequencer, &packet->p)) {
+		// dupe
+		if (packet->dup_func)
+			packet->dup_func(ch, packet, mp);
+		else
+			ilog(LOG_DEBUG, "Ignoring duplicate RTP packet");
+		mutex_unlock(&ch->lock);
+		obj_put(&ch->h);
+		__transcode_packet_free(packet);
+		atomic64_inc(&mp->ssrc_in->duplicates);
+		return 0;
+	}
+
+	// got a new packet, run decoder
+
+	while (1) {
+		packet = seq_next_packet(&ch->sequencer);
+		if (G_UNLIKELY(!packet))
+			break;
+
+		atomic64_set(&mp->ssrc_in->packets_lost, ch->sequencer.lost_count);
+		atomic64_set(&mp->ssrc_in->last_seq, ch->sequencer.ext_seq);
+
+		ilog(LOG_DEBUG, "Decoding RTP packet: seq %u, TS %lu",
+				packet->p.seq, packet->ts);
+
+		if (packet->func(ch, packet, mp))
+			ilog(LOG_WARN, "Decoder error while processing RTP packet");
+		__transcode_packet_free(packet);
+	}
+
+	mutex_unlock(&ch->lock);
+	obj_put(&ch->h);
+
+	return 0;
+}
+
+static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
+		struct codec_handler *handler, // normally == ch->handler except for DTMF
+		char *buf, // malloc'd, room for rtp_header + filled-in payload
+		unsigned int payload_len,
+		unsigned int payload_ts,
+		int marker, int seq, int seq_inc)
+{
+	struct rtp_header *rh = (void *) buf;
+	// reconstruct RTP header
+	unsigned int ts = payload_ts + ch->ts_out;
+	ZERO(*rh);
+	rh->v_p_x_cc = 0x80;
+	rh->m_pt = handler->dest_pt.payload_type | (marker ? 0x80 : 0);
+	if (seq != -1)
+		rh->seq_num = htons(seq);
+	else
+		rh->seq_num = htons(ch->seq_out += seq_inc);
+	rh->timestamp = htonl(ts);
+	rh->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
+
+	// add to output queue
+	struct codec_packet *p = g_slice_alloc(sizeof(*p));
+	p->s.s = buf;
+	p->s.len = payload_len + sizeof(struct rtp_header);
+	payload_tracker_add(&mp->ssrc_out->tracker, handler->dest_pt.payload_type);
+	p->free_func = free;
+	g_queue_push_tail(&mp->packets_out, p);
+
+	atomic64_inc(&mp->ssrc_out->packets);
+	atomic64_add(&mp->ssrc_out->octets, payload_len);
+	atomic64_set(&mp->ssrc_out->last_ts, ts);
+}
+
+static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
+		struct media_packet *mp, int seq_inc)
+{
+	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header));
+	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
+	if (packet->ignore_seq) // inject original seq
+		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
+				packet->marker, packet->p.seq, -1);
+	else // use our own sequencing
+		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
+				packet->marker, -1, seq_inc);
+}
+static int packet_dtmf(struct codec_ssrc_handler *ch, struct transcode_packet *packet, struct media_packet *mp)
+{
+	if (ch->ts_in == packet->ts)
+		; // ignore duplicate DTMF event
+	else {
+		ch->ts_in = packet->ts;
+		if (dtmf_event(mp, packet->payload, ch->encoder_format.clockrate))
+			return 0;
+	}
+
+	packet_dtmf_fwd(ch, packet, mp, 1);
+	return 0;
+}
+static void packet_dtmf_dup(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
+		struct media_packet *mp)
+{
+	packet_dtmf_fwd(ch, packet, mp, 0);
+}
+
+static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
+	if (G_UNLIKELY(!mp->rtp))
+		return handler_func_passthrough(h, mp);
+
+	assert((mp->rtp->m_pt & 0x7f) == h->source_pt.payload_type);
+
+	// create new packet and insert it into sequencer queue
+
+	ilog(LOG_DEBUG, "Received DTMF RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
+			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
+			ntohl(mp->rtp->timestamp), mp->payload.len);
+
+	// determine the primary audio codec used by this SSRC, as the sequence numbers
+	// and timing info is shared with it. we'll need to use the same sequencer
+
+	struct codec_handler *sequencer_h = h; // handler that contains the appropriate sequencer
+	if (mp->ssrc_in) {
+		for (int i = 0; i < mp->ssrc_in->tracker.most_len; i++) {
+			int prim_pt = mp->ssrc_in->tracker.most[i];
+			if (prim_pt == 255)
+				continue;
+
+			sequencer_h = codec_handler_get(mp->media, prim_pt);
+			if (sequencer_h == h)
+				continue;
+			ilog(LOG_DEBUG, "Primary RTP payload type for handling DTMF event is %i", prim_pt);
+			break;
+		}
+	}
+
+	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
+	packet->func = packet_dtmf;
+	packet->dup_func = packet_dtmf_dup;
+	packet->handler = h; // original handler for output RTP options (payload type)
+
+	if (sequencer_h->kernelize) {
+		// this sequencer doesn't actually keep track of RTP seq properly. instruct
+		// the sequencer not to wait for the next in-seq packet but always return
+		// them immediately
+		packet->ignore_seq = 1;
+	}
+
+	return __handler_func_sequencer(sequencer_h, mp, packet);
+}
+
 
 
 void codec_packet_free(void *pp) {
@@ -616,6 +807,17 @@ static void __transcode_packet_free(struct transcode_packet *p) {
 }
 
 static struct ssrc_entry *__ssrc_handler_new(void *p) {
+	// XXX combine with __ssrc_handler_transcode_new
+	struct codec_handler *h = p;
+	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
+	ch->handler = h;
+	mutex_init(&ch->lock);
+	// needed for DTMF processing
+	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
+	return &ch->h;
+}
+
+static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	struct codec_handler *h = p;
 
 	ilog(LOG_DEBUG, "Creating SSRC transcoder from %s/%u/%i to "
@@ -688,7 +890,8 @@ static void __free_ssrc_handler(void *chp) {
 		} while (going);
 		encoder_free(ch->encoder);
 	}
-	g_string_free(ch->sample_buffer, TRUE);
+	if (ch->sample_buffer)
+		g_string_free(ch->sample_buffer, TRUE);
 }
 
 static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
@@ -707,7 +910,6 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
 		char *buf = malloc(pkt_len);
-		struct rtp_header *rh = (void *) buf;
 		char *payload = buf + sizeof(struct rtp_header);
 		// tell our packetizer how much we want
 		str inout;
@@ -725,26 +927,8 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		}
 
 		ilog(LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
-		// reconstruct RTP header
-		unsigned int ts = enc->avpkt.pts / enc->def->clockrate_mult + ch->ts_out;
-		ZERO(*rh);
-		rh->v_p_x_cc = 0x80;
-		rh->m_pt = ch->handler->dest_pt.payload_type;
-		rh->seq_num = htons(ch->seq_out++);
-		rh->timestamp = htonl(ts);
-		rh->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
-
-		// add to output queue
-		struct codec_packet *p = g_slice_alloc(sizeof(*p));
-		p->s.s = buf;
-		p->s.len = inout.len + sizeof(struct rtp_header);
-		payload_tracker_add(&mp->ssrc_out->tracker, ch->handler->dest_pt.payload_type);
-		p->free_func = free;
-		g_queue_push_tail(&mp->packets_out, p);
-
-		atomic64_inc(&mp->ssrc_out->packets);
-		atomic64_add(&mp->ssrc_out->octets, inout.len);
-		atomic64_set(&mp->ssrc_out->last_ts, ts);
+		__output_rtp(mp, ch, ch->handler, buf, inout.len, enc->avpkt.pts / enc->def->clockrate_mult,
+				0, -1, 1);
 
 		if (ret == 0) {
 			// no more to go
@@ -770,6 +954,11 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 	return 0;
 }
 
+static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet *packet, struct media_packet *mp)
+{
+	return decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp);
+}
+
 static int handler_func_transcode(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
 		return handler_func_passthrough(h, mp);
@@ -782,52 +971,10 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
-	struct codec_ssrc_handler *ch = get_ssrc(mp->rtp->ssrc, h->ssrc_hash);
-	if (G_UNLIKELY(!ch))
-		return 0;
-
-	atomic64_inc(&mp->ssrc_in->packets);
-	atomic64_add(&mp->ssrc_in->octets, mp->payload.len);
-
 	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
-	packet->p.seq = ntohs(mp->rtp->seq_num);
-	packet->payload = str_dup(&mp->payload);
-	packet->ts = ntohl(mp->rtp->timestamp);
+	packet->func = packet_decode;
 
-	mutex_lock(&ch->lock);
-
-	if (packet_sequencer_insert(&ch->sequencer, &packet->p)) {
-		// dupe
-		mutex_unlock(&ch->lock);
-		obj_put(&ch->h);
-		__transcode_packet_free(packet);
-		ilog(LOG_DEBUG, "Ignoring duplicate RTP packet");
-		atomic64_inc(&mp->ssrc_in->duplicates);
-		return 0;
-	}
-
-	// got a new packet, run decoder
-
-	while (1) {
-		packet = packet_sequencer_next_packet(&ch->sequencer);
-		if (G_UNLIKELY(!packet))
-			break;
-
-		atomic64_set(&mp->ssrc_in->packets_lost, ch->sequencer.lost_count);
-		atomic64_set(&mp->ssrc_in->last_seq, ch->sequencer.ext_seq);
-
-		ilog(LOG_DEBUG, "Decoding RTP packet: seq %u, TS %lu",
-				packet->p.seq, packet->ts);
-
-		if (decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp))
-			ilog(LOG_WARN, "Decoder error while processing RTP packet");
-		__transcode_packet_free(packet);
-	}
-
-	mutex_unlock(&ch->lock);
-	obj_put(&ch->h);
-
-	return 0;
+	return __handler_func_sequencer(h, mp, packet);
 }
 
 

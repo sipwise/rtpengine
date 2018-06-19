@@ -7,8 +7,10 @@
 
 int _log_facility_rtcp;
 int _log_facility_cdr;
+int _log_facility_dtmf;
 struct rtpengine_config rtpe_config;
 struct poller *rtpe_poller;
+GString *dtmf_logs;
 
 static str *sdup(char *s) {
 	str *r = g_slice_alloc(sizeof(*r));
@@ -35,6 +37,8 @@ static struct call call;
 static struct sdp_ng_flags flags;
 static struct call_media *media_A;
 static struct call_media *media_B;
+struct call_monologue ml_A;
+struct call_monologue ml_B;
 static GQueue rtp_types;
 
 #define start() __start(__FILE__, __LINE__)
@@ -47,10 +51,18 @@ static void __start(const char *file, int line) {
 	ssrc_B = 2345;
 	call = (struct call) {{0,},};
 	call.ssrc_hash = create_ssrc_hash_call();
+	call.tags = g_hash_table_new(g_str_hash, g_str_equal);
+	str_init(&call.callid, "test-call");
 	flags = (struct sdp_ng_flags) {0,};
 	bencode_buffer_init(&call.buffer);
 	media_A = call_media_new(&call); // originator
 	media_B = call_media_new(&call); // output destination
+	ml_A = (struct call_monologue) {0,};
+	str_init(&ml_A.tag, "tag_A");
+	media_A->monologue = &ml_A;
+	ml_B = (struct call_monologue) {0,};
+	str_init(&ml_B.tag, "tag_B");
+	media_B->monologue = &ml_B;
 	g_queue_init(&rtp_types); // parsed from received SDP
 	flags.codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 	flags.codec_mask = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
@@ -105,21 +117,34 @@ static void __expect(const char *file, int line, GQueue *dumper, const char *cod
 #define packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_exp, fatal) \
 	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST_INIT(pload), \
 			(str) STR_CONST_INIT(pload_exp), ssrc_ ## side, rtp_ts, rtp_seq, pt_out, \
-			ts_exp, fatal)
+			ts_exp, 1, fatal)
+
+#define packet_seq_exp(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_diff_exp) \
+	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST_INIT(pload), \
+			(str) STR_CONST_INIT(pload_exp), ssrc_ ## side, rtp_ts, rtp_seq, pt_out, \
+			-1, ts_diff_exp, 1)
 
 static void __packet_seq_ts(const char *file, int line, struct call_media *media, long long pt_in, str pload,
 		str pload_exp, uint32_t ssrc, long long rtp_ts, long long rtp_seq, long long pt_out,
-		long long ts_exp, int fatal)
+		long long ts_exp, int seq_diff_exp, int fatal)
 {
 	printf("running test %s:%i\n", file, line);
-	struct codec_handler *h = codec_handler_get(media, pt_in);
+	struct codec_handler *h = codec_handler_get(media, pt_in & 0x7f);
 	str pl = pload;
 	str pl_exp = pload_exp;
+
+	// from media_packet_rtp()
 	struct media_packet mp = {
+		.call = &call,
 		.media = media,
 		.ssrc_in = get_ssrc_ctx(ssrc, call.ssrc_hash, SSRC_DIR_INPUT),
 	};
+	// from __stream_ssrc()
+	if (!MEDIA_ISSET(media, TRANSCODE))
+		mp.ssrc_in->ssrc_map_out = ntohl(ssrc);
 	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, call.ssrc_hash, SSRC_DIR_OUTPUT);
+	payload_tracker_add(&mp.ssrc_in->tracker, pt_in & 0x7f);
+
 	int packet_len = sizeof(struct rtp_header) + pl.len;
 	char *packet = malloc(packet_len);
 	struct rtp_header *rtp = (void *) packet;
@@ -166,8 +191,8 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		uint32_t ts = ntohl(rtp->timestamp);
 		uint16_t seq = ntohs(rtp->seq_num);
 		uint32_t ssrc = ntohl(rtp->ssrc);
-		uint32_t ssrc_pt = ssrc ^ pt_out;
-		ssrc_pt ^= pt_in << 8; /* XXX this is actually wrong and should be removed. it's a workaround for a bug */
+		uint32_t ssrc_pt = ssrc ^ (pt_out & 0x7f);
+		ssrc_pt ^= (pt_in & 0x7f) << 8; /* XXX this is actually wrong and should be removed. it's a workaround for a bug */
 		printf("RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc,
 				(unsigned int) seq, (unsigned int) ts, (unsigned int) rtp->m_pt);
 		if (g_hash_table_contains(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt))) {
@@ -184,7 +209,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 						GUINT_TO_POINTER(ssrc_pt)));
 			uint16_t diff = seq - old_seq;
 			printf("RTP seq diff: %u\n", (unsigned int) diff);
-			assert(diff == 1);
+			assert(diff == seq_diff_exp);
 		}
 		g_hash_table_insert(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(seq));
 		if (str_shift(&cp->s, sizeof(struct rtp_header)))
@@ -212,6 +237,24 @@ static void end() {
 	g_hash_table_destroy(rtp_seq_ht);
 }
 
+static void dtmf(const char *s) {
+	if (!dtmf_logs) {
+		if (strlen(s) != 0)
+			abort();
+		return;
+	}
+	if (strlen(s) != dtmf_logs->len) {
+		printf("DTMF mismatch: \"%s\" != \"%s\"\n", s, dtmf_logs->str);
+		abort();
+	}
+	if (memcmp(s, dtmf_logs->str, dtmf_logs->len) != 0) {
+		printf("DTMF mismatch: \"%s\" != \"%s\"\n", s, dtmf_logs->str);
+		abort();
+	}
+	printf("DTMF log ok; contents: \"%s\"\n", dtmf_logs->str);
+	g_string_assign(dtmf_logs, "");
+}
+
 #define PCMU_payload "\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00"
 #define PCMA_payload "\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a\x2b\x2a"
 #define G722_payload "\x23\x84\x20\x84\x20\x84\x04\x84\x04\x04\x84\x04\x84\x04\x84\x05\x85\x46\x87\x48\xc8\x48\x88\x48\xc8\x49\x8a\x4b\xcc\x4c\x8c\x4c\xcc\x4c\x8c\x4d\xce\x50\xcf\x51\x90\x50\xcf\x12\xd1\x52\xd2\x54\x91\x52\xd2\x54\x92\x54\xd3\x56\x93\xd6\x94\xd4\x93\xd7\xd5\x55\x94\x55\xd5\x55\xd4\x56\xd5\x17\xd7\x5a\x95\xd7\x97\xd9\xd4\x16\x58\x57\x98\xd5\xd7\x5b\x96\xda\xd6\x1b\x57\x5a\xd6\x1a\x57\x5b\x98\xd6\xd8\x56\x98\xd7\xd9\x5a\x95\xdb\xd6\x1c\x52\x5e\xd7\x5c\x93\xdf\x99\xd5\xd7\x5f\xd9\x14\x56\x7f\x92\xda\xd9\x5c\x92\xdd\xd7\x5d\x92\xff\xd6\x5a\x96\xdc\xd5\x18\x56\x7e\xd2\x5e\x96\xde\x94\xd8\xd8\x58\xd3\x79\x93\xfb\x90\xdc\xd6\x5b\xdd\x58\x96\xff"
@@ -220,6 +263,7 @@ static void end() {
 
 int main() {
 	codeclib_init(0);
+	srandom(time(NULL));
 
 	// plain
 	start();
@@ -601,6 +645,113 @@ int main() {
 	expect(A, send, "97/opus/48000 9/G722/8000 8/PCMA/8000");
 	expect(B, recv, "97/opus/48000 9/G722/8000 8/PCMA/8000 0/PCMU/8000");
 	expect(B, send, "9/G722/8000 8/PCMA/8000");
+	end();
+
+	_log_facility_dtmf = 1; // dummy enabler
+
+	// plain DTMF passthrough w/o transcoding
+	start();
+	sdp_pt(8, PCMA, 8000);
+	sdp_pt(101, telephone-event, 8000);
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, recv, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, send, "");
+	sdp_pt(8, PCMA, 8000);
+	sdp_pt(101, telephone-event, 8000);
+	answer();
+	expect(A, recv, "8/PCMA/8000 101/telephone-event/8000");
+	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, recv, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, send, "8/PCMA/8000 101/telephone-event/8000");
+	packet_seq(A, 8, PCMA_payload, 1000000, 200, 8, PCMA_payload);
+	// start with marker
+	packet_seq(A, 101 | 0x80, "\x08\x0a\x00\xa0", 1000160, 201, 101 | 0x80, "\x08\x0a\x00\xa0");
+	dtmf("");
+	// continuous event with increasing length
+	// XXX check output ts, seq, ssrc
+	packet_seq(A, 101, "\x08\x0a\x01\x40", 1000160, 202, 101, "\x08\x0a\x01\x40");
+	packet_seq(A, 101, "\x08\x0a\x01\xe0", 1000160, 203, 101, "\x08\x0a\x01\xe0");
+	packet_seq(A, 101, "\x08\x0a\x02\x80", 1000160, 204, 101, "\x08\x0a\x02\x80");
+	dtmf("");
+	// end
+	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"(null)\",\"event\":8,\"duration\":100,\"volume\":10}");
+	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
+	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
+	dtmf("");
+	// send some more audio
+	packet_seq_exp(A, 8, PCMA_payload, 1000960, 206, 8, PCMA_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1001120, 207, 8, PCMA_payload);
+	// start with marker
+	packet_seq_exp(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, 101 | 0x80, "\x05\x0a\x00\xa0", 3); // expected seq is 205+3 for PT 101
+	dtmf("");
+	// continuous event with increasing length
+	packet_seq(A, 101, "\x05\x0a\x01\x40", 1001280, 209, 101, "\x05\x0a\x01\x40");
+	packet_seq(A, 101, "\x05\x0a\x01\xe0", 1001280, 210, 101, "\x05\x0a\x01\xe0");
+	dtmf("");
+	// end
+	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"(null)\",\"event\":5,\"duration\":80,\"volume\":10}");
+	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
+	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
+	dtmf("");
+	// final audio RTP test
+	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 8, PCMA_payload, 5); // expected seq is 207+5 for PT 8
+	end();
+
+	// DTMF passthrough w/ transcoding
+	start();
+	sdp_pt(8, PCMA, 8000);
+	sdp_pt(101, telephone-event, 8000);
+	transcode(PCMU);
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, recv, "8/PCMA/8000 101/telephone-event/8000 0/PCMU/8000");
+	expect(B, send, "");
+	sdp_pt(0, PCMU, 8000);
+	sdp_pt(101, telephone-event, 8000);
+	answer();
+	expect(A, recv, "8/PCMA/8000 101/telephone-event/8000");
+	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, recv, "101/telephone-event/8000 0/PCMU/8000");
+	expect(B, send, "0/PCMU/8000 101/telephone-event/8000");
+	packet_seq(A, 8, PCMA_payload, 1000000, 200, 0, PCMU_payload);
+	// start with marker
+	packet_seq(A, 101 | 0x80, "\x08\x0a\x00\xa0", 1000160, 201, 101 | 0x80, "\x08\x0a\x00\xa0");
+	dtmf("");
+	// continuous event with increasing length
+	// XXX check output ts, seq, ssrc
+	packet_seq(A, 101, "\x08\x0a\x01\x40", 1000160, 202, 101, "\x08\x0a\x01\x40");
+	packet_seq(A, 101, "\x08\x0a\x01\xe0", 1000160, 203, 101, "\x08\x0a\x01\xe0");
+	packet_seq(A, 101, "\x08\x0a\x02\x80", 1000160, 204, 101, "\x08\x0a\x02\x80");
+	dtmf("");
+	// end
+	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"(null)\",\"event\":8,\"duration\":100,\"volume\":10}");
+	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
+	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
+	dtmf("");
+	// send some more audio
+	packet_seq_exp(A, 8, PCMA_payload, 1000960, 206, 0, PCMU_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1001120, 207, 0, PCMU_payload);
+	// start with marker
+	packet_seq_exp(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, 101 | 0x80, "\x05\x0a\x00\xa0", 3); // expected seq is 205+3 for PT 101
+	dtmf("");
+	// continuous event with increasing length
+	packet_seq(A, 101, "\x05\x0a\x01\x40", 1001280, 209, 101, "\x05\x0a\x01\x40");
+	packet_seq(A, 101, "\x05\x0a\x01\xe0", 1001280, 210, 101, "\x05\x0a\x01\xe0");
+	dtmf("");
+	// end
+	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"(null)\",\"event\":5,\"duration\":80,\"volume\":10}");
+	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
+	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
+	dtmf("");
+	// final audio RTP test
+	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 0, PCMU_payload, 5); // expected seq is 207+5 for PT 8
 	end();
 
 	return 0;
