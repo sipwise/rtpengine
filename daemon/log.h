@@ -33,6 +33,7 @@ struct log_info {
 
 extern int _log_facility_cdr;
 extern int _log_facility_rtcp;
+extern int _log_facility_dtmf;
 
 
 extern struct log_info __thread log_info;
@@ -41,6 +42,7 @@ extern struct log_info __thread log_info;
 
 void cdrlog(const char* cdrbuffer);
 void rtcplog(const char* cdrbuffer);
+void dtmflog(GString *s);
 
 
 void log_format(enum log_format);

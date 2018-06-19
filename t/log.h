@@ -10,5 +10,16 @@ INLINE void cdrlog(const char *x) {
 }
 extern int _log_facility_rtcp;
 extern int _log_facility_cdr;
+extern int _log_facility_dtmf;
+extern GString *dtmf_logs;
+
+INLINE void dtmflog(GString *s) {
+	if (!dtmf_logs)
+		dtmf_logs = g_string_new("");
+	if (dtmf_logs->len > 0)
+		g_string_append(dtmf_logs, "\n");
+	g_string_append_len(dtmf_logs, s->str, s->len);
+	g_string_free(s, TRUE);
+}
 
 #endif

@@ -1055,12 +1055,10 @@ void kernelize(struct packet_stream *stream) {
 				break;
 			}
 			rs = l->data;
-			if (MEDIA_ISSET(stream->media, TRANSCODE)) {
-				// only add payload types that are passthrough
-				struct codec_handler *ch = codec_handler_get(stream->media, rs->payload_type);
-				if (!ch->passthrough)
-					continue;
-			}
+			// only add payload types that are passthrough
+			struct codec_handler *ch = codec_handler_get(stream->media, rs->payload_type);
+			if (!ch->kernelize)
+				continue;
 			reti.payload_types[reti.num_payload_types++] = rs->payload_type;
 		}
 		g_list_free(values);

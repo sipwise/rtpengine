@@ -61,7 +61,7 @@ DAEMONSRCS=	crypto.c
 ifeq ($(with_transcoding),yes)
 DAEMONSRCS+=	codec.c ssrc.c call.c ice.c aux.c kernel.c media_socket.c stun.c bencode.c socket.c poller.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c call_interfaces.c sdp.c \
-		rtp.c control_ng.c streambuf.c cookie_cache.c udp_listener.c homer.c load.c cdr.c
+		rtp.c control_ng.c streambuf.c cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c
 endif
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(DAEMONSRCS:.c=.o)
 
@@ -94,6 +94,6 @@ aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
 transcode-test:	transcode-test.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call.o ice.o aux.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.o sdp.o rtp.o crypto.o control_ng.o \
-	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o
+	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o
 
 payload-tracker-test: payload-tracker-test.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o
