@@ -209,6 +209,7 @@ option and which are reproduced below:
 	  --log-facility=daemon|local0|... Syslog facility to use for logging
 	  --log-facility-cdr=local0|...    Syslog facility to use for logging CDRs
 	  --log-facility-rtcp=local0|...   Syslog facility to use for logging RTCP data (take care of traffic amount)
+	  --log-facility-dtmf=local0|...   Syslog facility to use for logging DTMF
 	  --log-format=default|parsable    Log prefix format
 	  -E, --log-stderr                 Log on stderr instead of syslog
 	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
@@ -379,6 +380,12 @@ The options are described in more detail below.
 
 	Same as --log-facility with the difference that only RTCP data is written to this log facility.
 	Be careful with this parameter since there may be a lot of information written to it.
+
+* --log-facilty-dtmf=daemon|local0|...|local7|...
+
+	Same as --log-facility with the difference that only DTMF events are written to this log facility.
+	DTMF events are extracted from RTP packets conforming to RFC 4733, are encoded in JSON format,
+	and written as soon as the end of an event is detected.
 
 * --log-format=default|parsable
 

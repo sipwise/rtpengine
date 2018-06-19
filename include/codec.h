@@ -23,7 +23,7 @@ struct codec_handler {
 	struct rtp_payload_type source_pt; // source_pt.payload_type = hashtable index
 	struct rtp_payload_type dest_pt;
 	codec_handler_func *func;
-	int passthrough;
+	int kernelize:1;
 
 	struct ssrc_hash *ssrc_hash;
 };
