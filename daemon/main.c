@@ -295,6 +295,7 @@ static void options(int *argc, char ***argv) {
 	char *redisps_write = NULL;
 	char *log_facility_cdr_s = NULL;
 	char *log_facility_rtcp_s = NULL;
+	char *log_facility_dtmf_s = NULL;
 	char *log_format = NULL;
 	int sip_source = 0;
 	char *homerp = NULL;
@@ -336,6 +337,7 @@ static void options(int *argc, char ***argv) {
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&rtpe_config.b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
 		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
+		{ "log-facility-dtmf",0,  0, G_OPTION_ARG_STRING, &log_facility_dtmf_s, "Syslog facility to use for logging DTMF", "daemon|local0|...|local7"},
 		{ "log-format",	0, 0,	G_OPTION_ARG_STRING,	&log_format,	"Log prefix format",		"default|parsable"},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&rtpe_config.fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.num_threads,	"Number of worker threads to create",	"INT"	},
@@ -476,6 +478,7 @@ static void options(int *argc, char ***argv) {
 	if (rtpe_config.fmt > 1)
 		die("Invalid XMLRPC format");
 
+	// XXX unify the log facility options
 	if (log_facility_cdr_s) {
 		if (!parse_log_facility(log_facility_cdr_s, &_log_facility_cdr)) {
 			print_available_log_facilities();
@@ -487,6 +490,13 @@ static void options(int *argc, char ***argv) {
 		if (!parse_log_facility(log_facility_rtcp_s, &_log_facility_rtcp)) {
 			print_available_log_facilities();
 			die ("Invalid log facility for RTCP '%s' (--log-facility-rtcp)n", log_facility_rtcp_s);
+		}
+	}
+
+	if (log_facility_dtmf_s) {
+		if (!parse_log_facility(log_facility_dtmf_s, &_log_facility_dtmf)) {
+			print_available_log_facilities();
+			die ("Invalid log facility for DTMF '%s' (--log-facility-dtmf)n", log_facility_dtmf_s);
 		}
 	}
 
