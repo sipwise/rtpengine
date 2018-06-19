@@ -100,9 +100,12 @@ struct codec_def_s {
 	// filled in by codeclib_init()
 	str rtpname_str;
 	int rfc_payload_type;
-	int support_encoding,
-	    support_decoding,
-	    pseudocodec;
+	int support_encoding:1,
+	    support_decoding:1;
+
+	// flags
+	int pseudocodec:1,
+	    dtmf:1; // special case
 
 	const codec_type_t *codec_type;
 
@@ -218,6 +221,7 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
 void packet_sequencer_destroy(packet_sequencer_t *ps);
 void *packet_sequencer_next_packet(packet_sequencer_t *ps);
+void *packet_sequencer_force_next_packet(packet_sequencer_t *ps);
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
 
