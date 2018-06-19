@@ -338,10 +338,12 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "telephone-event",
 		.avcodec_id = -1,
-		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.pseudocodec = 1,
+		.dtmf = 1,
+		.default_clockrate = 8000,
+		.default_channels = 1,
 	},
 	// for file writing
 	{
@@ -806,7 +808,7 @@ static int packet_tree_search(const void *testseq_p, const void *ts_p) {
 	return -1;
 }
 // caller must take care of locking
-void *packet_sequencer_next_packet(packet_sequencer_t *ps) {
+static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, int num_wait) {
 	// see if we have a packet with the correct seq nr in the queue
 	seq_packet_t *packet = g_tree_lookup(ps->packets, GINT_TO_POINTER(ps->seq));
 	if (G_LIKELY(packet != NULL)) {
@@ -820,7 +822,7 @@ void *packet_sequencer_next_packet(packet_sequencer_t *ps) {
 		dbg("packet queue empty");
 		return NULL;
 	}
-	if (G_LIKELY(nnodes < 10)) { // XXX arbitrary value
+	if (G_LIKELY(nnodes < num_wait)) {
 		dbg("only %i packets in queue - waiting for more", nnodes);
 		return NULL; // need to wait for more
 	}
@@ -866,6 +868,12 @@ out:
 	ps->ext_seq = ps->roc << 16 | packet->seq;
 
 	return packet;
+}
+void *packet_sequencer_next_packet(packet_sequencer_t *ps) {
+	return __packet_sequencer_next_packet(ps, 10); // arbitrary value
+}
+void *packet_sequencer_force_next_packet(packet_sequencer_t *ps) {
+	return __packet_sequencer_next_packet(ps, 0);
 }
 
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
