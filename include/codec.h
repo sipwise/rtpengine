@@ -59,7 +59,8 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 #else
 
-INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink) { }
+INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags) { }
 
 #endif
 

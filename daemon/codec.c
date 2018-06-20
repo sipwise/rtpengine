@@ -29,6 +29,23 @@ static struct codec_handler codec_handler_stub = {
 
 
 
+static GList *__delete_x_codec(GList *link, GHashTable *codecs, GHashTable *codec_names, GQueue *codecs_prefs) {
+	struct rtp_payload_type *pt = link->data;
+
+	g_hash_table_remove(codecs, &pt->payload_type);
+	g_hash_table_remove(codec_names, &pt->encoding);
+	g_hash_table_remove(codec_names, &pt->encoding_with_params);
+
+	GList *next = link->next;
+	g_queue_delete_link(codecs_prefs, link);
+	payload_type_free(pt);
+	return next;
+}
+static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) {
+	return __delete_x_codec(link, receiver->codecs_recv, receiver->codec_names_recv,
+			&receiver->codecs_prefs_recv);
+}
+
 #ifdef WITH_TRANSCODING
 
 
@@ -146,22 +163,6 @@ static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *m
 		pt->codec_def = NULL;
 }
 
-static GList *__delete_x_codec(GList *link, GHashTable *codecs, GHashTable *codec_names, GQueue *codecs_prefs) {
-	struct rtp_payload_type *pt = link->data;
-
-	g_hash_table_remove(codecs, &pt->payload_type);
-	g_hash_table_remove(codec_names, &pt->encoding);
-	g_hash_table_remove(codec_names, &pt->encoding_with_params);
-
-	GList *next = link->next;
-	g_queue_delete_link(codecs_prefs, link);
-	payload_type_free(pt);
-	return next;
-}
-static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) {
-	return __delete_x_codec(link, receiver->codecs_recv, receiver->codec_names_recv,
-			&receiver->codecs_prefs_recv);
-}
 static GList *__delete_send_codec(struct call_media *sender, GList *link) {
 	return __delete_x_codec(link, sender->codecs_send, sender->codec_names_send,
 			&sender->codecs_prefs_send);
