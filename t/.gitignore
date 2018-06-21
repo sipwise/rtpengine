@@ -42,3 +42,4 @@ streambuf.c
 stun.c
 transcode-test
 udp_listener.c
+payload-tracker-test

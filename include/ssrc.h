@@ -33,9 +33,19 @@ struct ssrc_hash {
 	volatile struct ssrc_entry *cache; // last used entry
 	volatile struct ssrc_entry *precreat; // next used entry
 };
+struct payload_tracker {
+	mutex_t lock;
+	unsigned char last[32]; // must be <= 255
+	unsigned int last_idx; // rolling index into pt_last
+	unsigned char count[128]; // how many of each pt
+	unsigned char idx[128]; // each pt's index into most[]
+	unsigned char most[128]; // sorted list of pts
+	unsigned int most_len; // idx for new entries
+};
 struct ssrc_ctx {
 	struct ssrc_entry_call *parent;
-	int payload_type; // to determine the clock rate for jitter calculations
+	struct payload_tracker tracker;
+
 	// XXX lock this?
 	u_int64_t srtp_index,
 		  srtcp_index;
@@ -181,6 +191,10 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 		const struct timeval *);
 void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
 		const struct timeval *);
+
+
+void payload_tracker_init(struct payload_tracker *t);
+void payload_tracker_add(struct payload_tracker *, int);
 
 
 

@@ -49,7 +49,7 @@ LDLIBS+=	$(shell pkg-config xmlrpc_util --libs 2> /dev/null)
 LDLIBS+=	-lhiredis
 endif
 
-SRCS=		bitstr-test.c aes-crypt.c
+SRCS=		bitstr-test.c aes-crypt.c payload-tracker-test.c
 ifeq ($(with_transcoding),yes)
 SRCS+=		amr-decode-test.c amr-encode-test.c transcode-test.c
 endif
@@ -73,7 +73,7 @@ include		.depend
 
 .PHONY:		unit-tests
 
-TESTS=		bitstr-test aes-crypt
+TESTS=		bitstr-test aes-crypt payload-tracker-test
 ifeq ($(with_transcoding),yes)
 TESTS+=		amr-decode-test amr-encode-test transcode-test
 endif
@@ -95,3 +95,5 @@ transcode-test:	transcode-test.o $(COMMONOBJS) codeclib.o resample.o codec.o ssr
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.o sdp.o rtp.o crypto.o control_ng.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o
+
+payload-tracker-test: payload-tracker-test.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o
