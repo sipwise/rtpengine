@@ -11,7 +11,7 @@ static void __free_ssrc_entry_call(void *e);
 
 static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 	c->parent = parent;
-	c->payload_type = -1;
+	payload_tracker_init(&c->tracker);
 	while (!c->ssrc_map_out)
 		c->ssrc_map_out = random();
 }
@@ -243,7 +243,7 @@ static long long __calc_rtt(struct call *c, u_int32_t ssrc, u_int32_t ntp_middle
 		return 0;
 
 	if (pt_p)
-		*pt_p = e->output_ctx.payload_type;
+		*pt_p = e->output_ctx.tracker.most[0] == 255 ? -1 : e->output_ctx.tracker.most[0];
 
 	struct ssrc_time_item *sti;
 	GQueue *q = (((void *) e) + reports_queue_offset);
@@ -431,4 +431,104 @@ void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *
 		return;
 	e->last_rtt = vm->rnd_trip_delay;
 	obj_put(&e->h);
+}
+
+static void __pt_sort(struct payload_tracker *t, int pt) {
+	// bubble up?
+	while (t->idx[pt] > 0) {
+		int this_idx = t->idx[pt];
+		int prev_idx = this_idx - 1;
+		int prev_pt = t->most[prev_idx];
+		if (G_LIKELY(t->count[prev_pt] >= t->count[pt]))
+			break;
+		// bubble up!
+		ilog(LOG_DEBUG, "bubble up pt %i from idx %u to %u", pt, this_idx, prev_idx);
+		// swap entries in "most" list
+		int prev = t->most[prev_idx];
+		t->most[prev_idx] = t->most[this_idx];
+		t->most[this_idx] = prev;
+		// adjust indexes
+		t->idx[pt]--;
+		t->idx[prev_pt]++;
+	}
+
+	// bubble down?
+	while (t->idx[pt] < t->most_len - 1) {
+		int this_idx = t->idx[pt];
+		int next_idx = this_idx + 1;
+		int next_pt = t->most[next_idx];
+		if (G_LIKELY(t->count[next_pt] <= t->count[pt]))
+			break;
+		// bubble down!
+		ilog(LOG_DEBUG, "bubble down pt %i from idx %u to %u", pt, this_idx, next_idx);
+		// swap entries in "most" list
+		int next = t->most[next_idx];
+		t->most[next_idx] = t->most[this_idx];
+		t->most[this_idx] = next;
+		// adjust indexes
+		t->idx[pt]++;
+		t->idx[next_pt]--;
+	}
+
+}
+
+void payload_tracker_init(struct payload_tracker *t) {
+	mutex_init(&t->lock);
+	memset(&t->last, -1, sizeof(t->last));
+	memset(&t->count, 0, sizeof(t->count));
+	memset(&t->idx, -1, sizeof(t->idx));
+	memset(&t->most, -1, sizeof(t->most));
+	t->last_idx = 0;
+	t->most_len = 0;
+}
+//#define PT_DBG(x...) ilog(LOG_DEBUG, x)
+#define PT_DBG(x...) ((void)0)
+void payload_tracker_add(struct payload_tracker *t, int pt) {
+	if (G_UNLIKELY(pt < 0) || G_UNLIKELY(pt >= 128))
+		return;
+
+	mutex_lock(&t->lock);
+
+	PT_DBG("new pt: %i", pt);
+	PT_DBG("last idx: %u", t->last_idx);
+	int old_pt = t->last[t->last_idx];
+	PT_DBG("old pt: %u", old_pt);
+
+	if (G_LIKELY(old_pt != 255)) {
+		// overwriting old entry. is it the same as the new one?
+		if (G_LIKELY(old_pt == pt)) {
+			PT_DBG("old pt == new pt");
+			// no change
+			goto out;
+		}
+		PT_DBG("decreasing old pt count from %u", t->count[old_pt]);
+		// different: decrease old counter
+		t->count[old_pt]--;
+	}
+
+	// fill in new entry
+	t->last[t->last_idx++] = pt;
+	if (t->last_idx >= G_N_ELEMENTS(t->last))
+		t->last_idx = 0;
+
+	// increase new counter
+	PT_DBG("increasing new pt count from %u", t->count[pt]);
+	t->count[pt]++;
+
+	// is this a new entry?
+	if (G_UNLIKELY(t->idx[pt] == 255)) {
+		// put to the end of the "most" list
+		PT_DBG("inserting new entry at pos %u", t->most_len);
+		t->idx[pt] = t->most_len;
+		t->most[t->most_len] = pt;
+		t->most_len++;
+	}
+
+	// now bubble sort both new and old entries
+	__pt_sort(t, pt);
+	if (G_LIKELY(old_pt != 255))
+		__pt_sort(t, old_pt);
+
+out:
+	mutex_unlock(&t->lock);
 }
