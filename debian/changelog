@@ -1,3 +1,29 @@
+ngcp-rtpengine (6.2.2.1+0~mr6.2.2.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2f8b82c] don't run AMR tests when transcoding is disabled
+  * [85afd74] appropriate use of LDFLAGS and LDLIBS
+  * [a52a4c0] update README with link to bcg729 Debian package
+  * [8c2d2a2] disable AMR narrowband decode test for older ffmpeg
+  * [3f61bbb] TT#36308 fix possible segfault due to missing lock
+  * [808dd49] TT#36180 scale timer interval according to runtimes
+  * [5a8b349] TT#36180 calculate per-second stats based on timer runtime
+  * [08bf2e1] fix compiler warning introduced in 677fe29d
+  * [90152ba] fix graphite interval calculation for call durations
+  * [390bca8] remove the AMR decode test
+  * [eb5ab29] TT#14008 fix libpcre references in makefile
+  * [44c883f] TT#14008 fix compiler warning from libavformat
+  * [348f0ff] TT#14008 fix codec mask logic if no masking info is present
+  * [aea563f] TT#35456 fix regression from 895fa9605
+  * [474b579] fix segfault when both forwarding and output are enabled
+  * [5d0b0d4] TT#37156 fix divide by zero error (regression from db58aa80)
+  * [6f387cf] TT#37157 fix missing G722 RTP TS output scaling
+  * [a0e3422] TT#36759 rate limiting for ICE/STUN log messages
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 02 Jul 2018 12:26:11 +0200
+
 ngcp-rtpengine (6.2.2.0+0~mr6.2.2.0) unstable; urgency=medium
 
   [ Jerzy Ptak ]
