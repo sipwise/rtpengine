@@ -523,6 +523,16 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 static int __handler_func_sequencer(struct codec_handler *h, struct media_packet *mp,
 		struct transcode_packet *packet)
 {
+	if (G_UNLIKELY(!h->ssrc_hash)) {
+		if (!packet->func || !packet->handler || !packet->handler->ssrc_hash) {
+			h->func(h, mp);
+			return 0;
+		}
+		// DTMF handler with implicit (not negotiated) primary payload type
+		h = packet->handler;
+		/// fall through
+	}
+
 	struct codec_ssrc_handler *ch = get_ssrc(mp->rtp->ssrc, h->ssrc_hash);
 	if (G_UNLIKELY(!ch))
 		return 0;
