@@ -1,34 +1,26 @@
 # For more information on configuring rtpengine see
 # http://github.com/sipwise/rtpengine
-#
-# (m) means the item is mandatory, (o) means the item is optional
-#
-KERNEL=yes		# (m) "yes" enable in-kernel forwarding, "no" disables
-TABLE=0			# (o) iptables table for in-kernel forwarding rules
-			#     comment out when "KERNEL=no"
-FALLBACK=yes		# (m) "yes" enables fallback to userspace forwarding
-			#     only, "no" disables
-RTP_IP[0]=127.0.0.1	# (m) Local IPv4/6 address for RTP. The format of the value is [NAME/]IP[!IP].
-#
+
+CONFIG_FILE=/etc/rtpengine/rtpengine.conf # main config file
+PIDFILE=/var/run/ngcp-rtpengine-daemon.pid # pid
+KERNEL=yes		# "yes" enable in-kernel forwarding, "no" disables
+TABLE=0			# iptables table for in-kernel forwarding rules. Ignored if "KERNEL=no"
+FALLBACK=yes		# "yes" enables fallback to userspace forwarding only.
+RTP_IP[0]=127.0.0.1	# Local IPv4/6 address for RTP. The format of the value is [NAME/]IP[!IP].
+
 # At least one of LISTEN_(TCP|UDP|NG) is required
-#LISTEN_TCP=127.0.0.1:2222	# IP address and port combination for TCP
-				# control
-LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
-				# control
-#LISTEN_NG=127.0.0.1:2223 	# IP address and port combination for NG (UDP)
-				# control
+#LISTEN_TCP=127.0.0.1:2222	# IP address and port combination for TCP control
+LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP control
+#LISTEN_NG=127.0.0.1:2223 	# IP address and port combination for NG (UDP) control
 #LISTEN_CLI=127.0.0.1:9900
+
 #
-#TOS=184		# (o) TOS value to use in outgoing packets
-#TIMEOUT=60		# (o) Number of seconds after which a media stream is
-			#     considered dead if there is no traffic.
-			#     Default: 60
-#SILENT_TIMEOUT=3600	# (o) Number of seconds after which a muted or inactive
-			#     stream is considered dead. Default: 3600
-#PORT_MIN=30000		# (o) Lowest port in the local port range for media
-			#     traffic. Default: 30000
-#PORT_MAX=40000		# (o) Highest port in the local port range for media
-			#     traffic. Default: 40000 
+#TOS=184		# TOS value to use in outgoing packets
+#TIMEOUT=60		# Number of seconds after which a media stream is considered dead if there is no traffic. Default: 60
+#SILENT_TIMEOUT=3600	# Number of seconds after which a muted or inactive stream is considered dead. Default: 3600
+#PORT_MIN=30000		# Lowest port in the local port range for media traffic. Default: 30000
+#PORT_MAX=40000		# Highest port in the local port range for media traffic. Default: 40000 
+
 #
 #LOG_LEVEL=6		# Log level to use
 #LOG_FACILITY=daemon    # Syslog facility to use
@@ -41,10 +33,11 @@ LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP
 #REDIS_DB=0
 #B2B_URL=http://127.0.0.1:8080/xmlrpc
 
-#RE_USER=ngcp-rtpengine	# Run rtpengine as this specific user
-
-#RE_GROUP=ngcp-rtpengine # allow this group to control rtpengine in kernel mode
+# User
+#SET_USER=ngcp-rtpengine	# Run rtpengine as this specific user
+#SET_GROUP=ngcp-rtpengine	# allow this group to control rtpengine in kernel mode
 
 #HOMER_SERVER=127.0.0.1:9060	# Address of Homer server for RTCP stats
 #HOMER_PROTO=udp		# Transport protocol for Homer (default udp)
 #HOMER_CAPTURE_ID=1234		# 'Capture ID' to use within the HEP protocol
+

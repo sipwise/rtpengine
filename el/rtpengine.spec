@@ -1,6 +1,6 @@
 Name:		ngcp-rtpengine
-Version:	4.5.0
-Release:	0%{?dist}
+Version:	6.4.0.0
+Release:	1%{?dist}
 Summary:	The Sipwise NGCP rtpengine
 
 Group:		System Environment/Daemons
@@ -48,6 +48,16 @@ Requires(preun): dkms
 %description dkms
 %{summary}.
 
+
+%package recording
+Summary:        NGCP rtpengine recording daemon packet
+Group:          System Environment/Daemons
+BuildRequires:  gcc make redhat-rpm-config mariadb-devel
+
+%description recording
+%{summary}.
+
+
 %define binname rtpengine
 
 %{!?kversion: %define kversion %(uname -r)}
@@ -63,6 +73,8 @@ cd daemon
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ../iptables-extension
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
+cd ../recording-daemon
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ..
 
 
@@ -71,13 +83,26 @@ cd ..
 install -D -p -m755 daemon/%{binname} %{buildroot}%{_sbindir}/%{binname}
 # Install CLI (command line interface)
 install -D -p -m755 utils/%{binname}-ctl %{buildroot}%{_sbindir}/%{binname}-ctl
+# Install recording daemon
+install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_sbindir}/%{binname}-recording
 
 ## Install the init.d script and configuration file
 install -D -p -m755 el/%{binname}.init \
 	%{buildroot}%{_initrddir}/%{name}
+install -D -p -m755 el/%{binname}-recording.init \
+        %{buildroot}%{_initrddir}/%{name}-recording
 install -D -p -m644 el/%{binname}.sysconfig \
 	%{buildroot}%{_sysconfdir}/sysconfig/%{binname}
+install -D -p -m644 el/%{binname}-recording.sysconfig \
+	%{buildroot}%{_sysconfdir}/sysconfig/%{binname}-recording
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
+mkdir -p %{buildroot}%{_var}/spool/%{binname}
+
+# Install config files
+install -D -p -m644 etc/%{binname}.sample.conf \
+	%{buildroot}%{_sysconfdir}/%{binname}/%{binname}.conf
+install -D -p -m644 etc/%{binname}-recording.sample.conf \
+	%{buildroot}%{_sysconfdir}/%{binname}/%{binname}-recording.conf
 
 # Install the iptables plugin
 install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
@@ -140,12 +165,12 @@ true
 %{_sbindir}/%{binname}
 # CLI (command line interface)
 %{_sbindir}/%{binname}-ctl
-
 # init.d script and configuration file
 %{_initrddir}/%{name}
 %config(noreplace) %{_sysconfdir}/sysconfig/%{binname}
 %attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{name}
-
+# default config
+%{_sysconfdir}/%{binname}/%{binname}.conf
 # Documentation
 %doc LICENSE README.md el/README.el.md debian/changelog debian/copyright
 
@@ -161,7 +186,22 @@ true
 %endif
 
 
+%files recording
+# Recording daemon
+%{_sbindir}/%{binname}-recording
+# Init script
+%{_initrddir}/%{name}-recording
+# Sysconfig
+%config(noreplace) %{_sysconfdir}/sysconfig/%{binname}-recording
+# Default config
+%{_sysconfdir}/%{binname}/%{binname}-recording.conf
+# spool directory
+%attr(0750,%{name},%{name}) %dir %{_var}/spool/%{binname}
+
 %changelog
+* Tue Jul 10 2018 netaskd <netaskd@gmail.com> - 6.4.0.0-1
+  - update to ngcp-rtpengine version 6.4.0.0
+  - add packet recording
 * Thu Nov 24 2016 Marcel Weinberg <marcel@ng-voice.com>
   - Updated to ngcp-rtpengine version 4.5.0 and CentOS 7.2 
   - created a new variable "binname" to use rtpengine as name for the binaries

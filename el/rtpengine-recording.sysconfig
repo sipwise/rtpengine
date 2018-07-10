@@ -1,0 +1,8 @@
+# For more information on configuring rtpengine see
+# http://github.com/sipwise/rtpengine
+#
+CONFIG_FILE=/etc/rtpengine/rtpengine-recording.conf
+PIDFILE=/var/run/ngcp-rtpengine-recording-daemon.pid
+#SET_USER=root
+#SET_GROUP=root	# GROUP only needs to be set if USER is not set or if the user isn't in the group
+
