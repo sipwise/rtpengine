@@ -520,6 +520,7 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 	return 0;
 }
 
+#ifdef WITH_TRANSCODING
 static int __handler_func_sequencer(struct codec_handler *h, struct media_packet *mp,
 		struct transcode_packet *packet)
 {
@@ -699,6 +700,7 @@ static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 
 	return __handler_func_sequencer(sequencer_h, mp, packet);
 }
+#endif
 
 
 
