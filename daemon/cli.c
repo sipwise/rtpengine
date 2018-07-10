@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <glib.h>
+#include <inttypes.h>
 
 #include "poller.h"
 #include "aux.h"
