@@ -32,184 +32,109 @@ prog=rtpengine
 pidfile=${PIDFILE-/var/run/rtpengine.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine}
 cachefile=/var/lib/ngcp-rtpengine/rtpengine.cfg
+PIDFILE=${pidfile}
 RETVAL=0
 
-OPTS="--pidfile $pidfile"
-MODULE=0
-
 build_opts() {
+        # kernel table
 	shopt -s nocasematch
 	RPMS=$(rpm -qa | grep rtpengine-kernel)
-	if [[ "$KERNEL" == "yes" && -n "$TABLE" && -n "$RPMS" ]]
-	then
+	if [[ "$KERNEL" == "yes" && -n "$TABLE" && -n "$RPMS" ]];then
 		MODULE=1
-		OPTS+=" --table=$TABLE"
+		OPTS=" --table=$TABLE"
 	else
 		MODULE=0
-		OPTS+=" --table=-1"
+		OPTS=" --table=-1"
 	fi
 
-	if [[ "$FALLBACK" != "yes" ]]
-	then
-		OPTS+=" --no-fallback"
-	fi
-	shopt -u nocasematch
+	[[ "$FALLBACK" != "yes" ]] && OPTS+=" --no-fallback"
+        shopt -u nocasematch
 
-        if [[ -n "$RTP_IP" ]]
-        then
-                for IP in "${RTP_IP[@]}"
-                do
-                        OPTS+=" --interface=$IP"
-                done
-        fi
-
-	if [[ -n "$LISTEN_TCP" ]]
-	then
-		OPTS+=" --listen-tcp=$LISTEN_TCP"
+	# interfaces
+	if [[ -n "$RTP_IP" ]];then
+		for IP in "${RTP_IP[@]}";do
+			OPTS+=" --interface=$IP"
+		done
 	fi
 
-	if [[ -n "$LISTEN_UDP" ]]
-	then
-		OPTS+=" --listen-udp=$LISTEN_UDP"
+	# options
+        [[ "$FORK" == "no" ]] && OPTS+=" --foreground"
+        [[ "$LOG_STDERR" == "yes" ]] && OPTS+=" --log-stderr"
+	[ -z "$CONFIG_FILE" ] || OPTS+=" --config-file=$CONFIG_FILE"
+	[ -z "$CONFIG_SECTION" ] || OPTS+=" --config-section=$CONFIG_SECTION"
+	[ -z "$ADDRESS" ] || OPTS+=" --interface=$ADDRESS"
+	[ -z "$ADV_ADDRESS" ] || OPTS+="!$ADV_ADDRESS"
+	[ -z "$ADDRESS_IPV6" ] || OPTS+=" --interface=$ADDRESS_IPV6"
+	[ -z "$ADV_ADDRESS_IPV6" ] || OPTS+="!$ADV_ADDRESS_IPV6"
+	[ -z "$LISTEN_TCP" ] || OPTS+=" --listen-tcp=$LISTEN_TCP"
+	[ -z "$LISTEN_UDP" ] || OPTS+=" --listen-udp=$LISTEN_UDP"
+	[ -z "$LISTEN_NG" ] || OPTS+=" --listen-ng=$LISTEN_NG"
+	[ -z "$LISTEN_CLI" ] || OPTS+=" --listen-cli=$LISTEN_CLI"
+	[ -z "$TIMEOUT" ] || OPTS+=" --timeout=$TIMEOUT"
+	[ -z "$SILENT_TIMEOUT" ] || OPTS+=" --silent-timeout=$SILENT_TIMEOUT"
+	[ -z "$FINAL_TIMEOUT" ] || OPTS+=" --final-timeout=$FINAL_TIMEOUT"
+	[ -z "$PIDFILE" ] || OPTS+=" --pidfile=$PIDFILE"
+	[ -z "$TOS" ] || OPTS+=" --tos=$TOS"
+	[ -z "$PORT_MIN" ] || OPTS+=" --port-min=$PORT_MIN"
+	[ -z "$PORT_MAX" ] || OPTS+=" --port-max=$PORT_MAX"
+	[ -z "$REDIS" ] || [ -z "$REDIS_DB" ] || OPTS+=" --redis=$REDIS/$REDIS_DB"
+	[ -z "$REDIS_AUTH_PW" ] || export RTPENGINE_REDIS_AUTH_PW="$REDIS_AUTH_PW"
+	[ -z "$REDIS_WRITE" ] || [ -z "$REDIS_WRITE_DB" ] || OPTS+=" --redis-write=$REDIS_WRITE/$REDIS_WRITE_DB"
+	[ -z "$REDIS_WRITE_AUTH_PW" ] || export RTPENGINE_REDIS_WRITE_AUTH_PW="$REDIS_WRITE_AUTH_PW"
+	[ -z "$REDIS_NUM_THREADS" ] || OPTS+=" --redis-num-threads=$REDIS_NUM_THREADS"
+	[ -z "$REDIS_EXPIRES" ] || OPTS+=" --redis-expires=$REDIS_EXPIRES"
+	[ -z "$REDIS_MULTIKEY" ] || OPTS+=" --redis-multikey=$REDIS_MULTIKEY"
+	[ -z "$NO_REDIS_REQUIRED" ] || ( [ "$NO_REDIS_REQUIRED" != "1" ] && [ "$NO_REDIS_REQUIRED" != "yes" ] ) || OPTS+=" --no-redis-required"
+	[ -z "$B2B_URL" ] || OPTS+=" --b2b-url=$B2B_URL"
+	[ -z "$LOG_LEVEL" ] || OPTS+=" --log-level=$LOG_LEVEL"
+	[ -z "$LOG_FACILITY" ] || OPTS+=" --log-facility=$LOG_FACILITY"
+	[ -z "$LOG_FACILITY_CDR" ] || OPTS+=" --log-facility-cdr=$LOG_FACILITY_CDR"
+	[ -z "$LOG_FACILITY_RTCP" ] || OPTS+=" --log-facility-rtcp=$LOG_FACILITY_RTCP"
+	[ -z "$NUM_THREADS" ] || OPTS+=" --num-threads=$NUM_THREADS"
+	[ -z "$DELETE_DELAY" ] || OPTS+=" --delete-delay=$DELETE_DELAY"
+	[ -z "$GRAPHITE" ] || OPTS+=" --graphite=$GRAPHITE"
+	[ -z "$GRAPHITE_INTERVAL" ] || OPTS+=" --graphite-interval=$GRAPHITE_INTERVAL"
+	[ -z "$GRAPHITE_PREFIX" ] || OPTS+=" --graphite-prefix=$GRAPHITE_PREFIX"
+	[ -z "$MAX_SESSIONS" ] || OPTS+=" --max-sessions=$MAX_SESSIONS"
+	[ -z "$HOMER" ] || OPTS+=" --homer=$HOMER"
+	[ -z "$HOMER_PROTOCOL" ] || OPTS+=" --homer-protocol=$HOMER_PROTOCOL"
+	[ -z "$HOMER_ID" ] || OPTS+=" --homer-id=$HOMER_ID"
+	[ -z "$RECORDING_METHOD" ] || OPTS+=" --recording-method=$RECORDING_METHOD"
+	[ -z "$RECORDING_FORMAT" ] || OPTS+=" --recording-format=$RECORDING_FORMAT"
+	[ -z "$DTLS_PASSIVE" ] || ( [ "$DTLS_PASSIVE" != "yes" ] && [ "$DTLS_PASSIVE" != "1" ] ) || OPTS+=" --dtls-passive"
+
+	# recording dir
+	if [ ! -z "$RECORDING_DIR" ];then
+		OPTS+=" --recording-dir=$RECORDING_DIR"
+		if [ ! -d "$RECORDING_DIR" ]; then
+			mkdir "$RECORDING_DIR" 2>/dev/null
+			chmod 700 "$RECORDING_DIR" 2>/dev/null
+		fi
 	fi
 
-	if [[ -n "$LISTEN_NG" ]]
-	then
-		OPTS+=" --listen-ng=$LISTEN_NG"
-	fi
-
-	if [[ -n "$LISTEN_CLI" ]]
-	then
-	    OPTS+=" --listen-cli=$LISTEN_CLI"
-	fi
-
-	if [[ -n "$TOS" ]]
-	then
-		OPTS+=" --tos=$TOS"
-	fi
-
-	if [[ -n "$TIMEOUT" ]]
-	then
-		OPTS+=" --timeout=$TIMEOUT"
-	fi
-
-	if [[ -n "$SILENT_TIMEOUT" ]]
-	then
-		OPTS+=" --silent-timeout=$SILENT_TIMEOUT"
-	fi
-
-	if [[ -n "$PORT_MIN" ]]
-	then
-		OPTS+=" --port-min=$PORT_MIN"
-	fi
-
-	if [[ -n "$PORT_MAX" ]]
-	then
-		OPTS+=" --port-max=$PORT_MAX"
-	fi
-
-	if [ -n "$REDIS" -a -n "$REDIS_DB" ]
-	then
-		OPTS+=" --redis=$REDIS/$REDIS_DB"
-	fi
-
-	if [[ -n "$B2B_URL" ]]
-	then
-		OPTS+=" --b2b-url=$B2B_URL"
-	fi
-
-	if [[ -n "$LOG_LEVEL" ]]
-	then
-		OPTS+=" --log-level=$LOG_LEVEL"
-	fi
-
-	if [[ -n "$LOG_FACILITY" ]]
-        then
-                OPTS+=" --log-facility=$LOG_FACILITY"
-        fi
-
-	if [[ -n "$NUM_THREADS" ]]
-        then
-                OPTS+=" --num-threads=$NUM_THREADS"
-        fi
-
-        if [[ -n "$DELETE_DELAY" ]]
-         then
-                 OPTS+=" --delete-delay=$DELETE_DELAY"
-        fi
-
-        if [[ -n "$GRAPHITE" ]]
-         then
-                 OPTS+=" --graphite=$GRAPHITE"
-        fi
-
-        if [[ -n "$GRAPHITE_INTERVAL" ]]
-         then
-                 OPTS+=" --graphite-interval=$GRAPHITE_INTERVAL"
-        fi
-
-	if [[ -n "$GRAPHITE_PREFIX" ]]
-	then
-		OPTS+=" --graphite-prefix=$GRAPHITE_PREFIX"
-	fi
-
-	if [[ -n "$LOG_FACILITY_CDR" ]]
-        then
-                OPTS+=" --log-facility-cdr=$LOG_FACILITY_CDR"
-        fi
-
-	if [[ -n "$LOG_FACILITY_RTCP" ]]
-        then
-                OPTS+=" --log-facility-rtcp=$LOG_FACILITY_RTCP"
-        fi
-
-	if [[ -n "$MAX_SESSIONS" ]]
-        then
-                OPTS+=" --max-sessions=$MAX_SESSIONS"
-        fi
-
-	if [[ -n "$HOMER_SERVER" ]]
-        then
-                OPTS+=" --homer=$HOMER_SERVER"
-        fi
-
-	if [[ -n "$HOMER_PROTO" ]]
-        then
-                OPTS+=" --homer-protocol=$HOMER_PROTO"
-        fi
-
-	if [[ -n "$HOMER_CAPTURE_ID" ]]
-        then
-                OPTS+=" --homer-id=$HOMER_CAPTURE_ID"
-        fi
 }
 
 start() {
 	build_opts
-	if [[ $MODULE == 1 ]]
-	then
+	if [[ $MODULE == 1 ]];then
 		echo "Loading module for in-kernel packet forwarding"
 		rmmod xt_RTPENGINE 2> /dev/null
-		if [[ -n "$RE_USER" ]]
-		then
-			if [[ -n "$RE_GROUP" ]]
-			then
-				proc_gid="$(grep "^$RE_GROUP:" /etc/group | cut -f3 -d:)"
+		if [[ -n "$SET_USER" ]];then
+			if [[ -n "$SET_GROUP" ]];then
+				proc_gid="$(grep "^$SET_GROUP:" /etc/group | cut -f3 -d:)"
 			else
-				proc_gid="$(id "$RE_USER" -g)"
+				proc_gid="$(id "$SET_USER" -g)"
 			fi
-			modprobe xt_RTPENGINE proc_uid="$(id "$RE_USER" -u)" proc_gid="$proc_gid"
+			modprobe xt_RTPENGINE proc_uid="$(id "$SET_USER" -u)" proc_gid="$proc_gid"
 		else
 			modprobe xt_RTPENGINE
 		fi
 		firewall-cmd --state 2>/dev/null
-		if [[ $? == 0 ]]
-		then
+		if [[ $? == 0 ]];then
 			# Using firewalld
 			# Need to check if the INPUT_prefilter chain is present (permanently)
 			firewall-cmd --permanent --direct --query-chain ipv4 filter INPUT_prefilter > /dev/null
-			if [[ $? != 0 ]]
-			then
+			if [[ $? != 0 ]];then
 				firewall-cmd --permanent --direct --add-chain ipv4 filter INPUT_prefilter
 				firewall-cmd --permanent --direct --passthrough ipv4 -t filter -I INPUT -j INPUT_prefilter
 				firewall-cmd --reload
@@ -221,11 +146,12 @@ start() {
 			firewall-cmd --direct --add-rule ipv6 filter rtpengine 0 -p udp -j RTPENGINE --id "$TABLE"
   			firewall-cmd --reload
 		else
-			iptables -N rtpengine
-			# We insert the rtpengine rule at the top of the input chain
-			iptables -t filter -I INPUT -j rtpengine
-			iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
-			ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+			for fw in iptables ip6tables;do
+				$fw -N rtpengine
+				# We insert the rtpengine rule at the top of the input chain
+				$fw -t filter -I INPUT -j rtpengine
+				$fw -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+			done
 		fi
 
 		cat <<EOF > "$cachefile"
@@ -233,10 +159,9 @@ CUR_TABLE=$TABLE
 EOF
 	fi
         echo -n $"Starting $prog: "
-	if [[ -n "$RE_USER" ]]
-	then
+	if [[ -n "$SET_USER" ]];then
 		# shellcheck disable=SC2086
-		daemon --user "$RE_USER" --pidfile="${pidfile}" "$rtpengine" $OPTS
+		daemon --user "$SET_USER" --pidfile="${pidfile}" "$rtpengine" $OPTS
 	else
 		# shellcheck disable=SC2086
 		daemon --pidfile="${pidfile}" "$rtpengine" $OPTS
@@ -252,24 +177,23 @@ stop() {
 	killproc -p "${pidfile}" "$rtpengine"
 	RETVAL=$?
 	echo
-	if [ -f "$cachefile" ]
-	then
+	if [ -f "$cachefile" ];then
 		. "$cachefile"
 		echo "Unloading module for in-kernel packet forwarding"
 		echo "del $TABLE" > /proc/rtpengine/control
 		firewall-cmd --state 2>/dev/null
-		if [[ $? == 0 ]]
-		then
+		if [[ $? == 0 ]];then
 			firewall-cmd --direct --remove-rules ipv4 filter rtpengine
 			firewall-cmd --direct --remove-rules ipv6 filter rtpengine
 			firewall-cmd --direct --remove-rule ipv4 filter INPUT_prefilter 0 -j rtpengine
 			firewall-cmd --direct --remove-chain ipv4 filter rtpengine
 			firewall-cmd --reload
 		else
-			iptables -D rtpengine -p udp -j RTPENGINE --id "$CUR_TABLE"
-			ip6tables -D rtpengine -p udp -j RTPENGINE --id "$CUR_TABLE"
-			iptables -t filter -D INPUT -j rtpengine
-			iptables -X rtpengine
+			for fw in iptables ip6tables;do
+				$fw -D rtpengine -p udp -j RTPENGINE --id "$CUR_TABLE"
+				$fw -t filter -D INPUT -j rtpengine
+				$fw -X rtpengine
+			done
 		fi
 		rmmod xt_RTPENGINE
 		rm -f "$cachefile"

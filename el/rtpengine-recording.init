@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# rtpengine-recording		Startup script for NGCP rtpengine-recording
+#
+# chkconfig: 345 84 16
+# description: NGCP rtpengine-recording
+#
+# processname: rtpengine-recording
+# config: /etc/sysconfig/rtpengine-recording
+# pidfile: /var/run/rtpengine-recording.pid
+#
+### BEGIN INIT INFO
+# Provides: rtpengine
+# Required-Start: $local_fs $network
+# Short-Description: NGCP rtpengine-recording
+# Description: NGCP rtpengine-recording 
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+if [ -f /etc/sysconfig/rtpengine-recording ]
+then
+        . /etc/sysconfig/rtpengine-recording
+else
+	echo "Error: /etc/sysconfig/rtpengine-recording not present"
+	exit -1
+fi
+
+prog=rtpengine-recording
+runfile=/usr/sbin/${prog}
+pidfile=${PIDFILE-/var/run/rtpengine-recording.pid}
+lockfile=${LOCKFILE-/var/lock/subsys/rtpengine-recording}
+cachefile=/var/lib/ngcp-rtpengine/$prog.cfg
+RETVAL=0
+OPTS=""
+
+[ -z "$CONFIG_FILE" ] || OPTS+=" --config-file=$CONFIG_FILE"
+[ -z "$PIDFILE" ] || OPTS+=" --pidfile=$PIDFILE"
+
+start() {
+        echo -n $"Starting $prog: "
+	if [[ -n "$RE_USER" ]]
+	then
+		# shellcheck disable=SC2086
+		daemon --user "$RE_USER" --pidfile="${pidfile}" "$runfile" $OPTS
+	else
+		# shellcheck disable=SC2086
+		daemon --pidfile="${pidfile}" "$runfile" $OPTS
+	fi
+        RETVAL=$?
+        echo
+        [ $RETVAL = 0 ] && touch "${lockfile}"
+        return $RETVAL
+}
+
+stop() {
+	echo -n $"Stopping $prog: "
+	killproc -p "${pidfile}" "$runfile"
+	RETVAL=$?
+	[ $RETVAL = 0 ] && rm -f "${lockfile}" "${pidfile}"
+}
+
+# See how we were called.
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  status)
+        status -p "${pidfile}" "$runfile"
+	RETVAL=$?
+	;;
+  restart)
+	stop
+	start
+	;;
+  condrestart|try-restart)
+	if status -p "${pidfile}" "$runfile" >&/dev/null; then
+		stop
+		start
+	fi
+	;;
+  *)
+	echo $"Usage: $prog {start|stop|restart|condrestart|try-restart|status}"
+	RETVAL=2
+esac
+
+exit $RETVAL
