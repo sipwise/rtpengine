@@ -52,7 +52,7 @@ Requires(preun): dkms
 %package recording
 Summary:        NGCP rtpengine recording daemon packet
 Group:          System Environment/Daemons
-BuildRequires:  gcc make redhat-rpm-config mariadb-devel
+BuildRequires:  gcc make redhat-rpm-config mysql-devel
 
 %description recording
 %{summary}.
