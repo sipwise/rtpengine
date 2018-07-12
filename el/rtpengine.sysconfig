@@ -2,15 +2,14 @@
 # http://github.com/sipwise/rtpengine
 
 CONFIG_FILE=/etc/rtpengine/rtpengine.conf # main config file
-PIDFILE=/var/run/ngcp-rtpengine-daemon.pid # pid
-KERNEL=yes		# "yes" enable in-kernel forwarding, "no" disables
-TABLE=0			# iptables table for in-kernel forwarding rules. Ignored if "KERNEL=no"
-FALLBACK=yes		# "yes" enables fallback to userspace forwarding only.
-RTP_IP[0]=127.0.0.1	# Local IPv4/6 address for RTP. The format of the value is [NAME/]IP[!IP].
+#PIDFILE=/var/run/ngcp-rtpengine-daemon.pid # pid
+#TABLE=0			# iptables table for in-kernel forwarding rules. Ignored if "KERNEL=no"
+#FALLBACK=yes		# "yes" enables fallback to userspace forwarding only.
+#RTP_IP[0]=127.0.0.1	# Local IPv4/6 address for RTP. The format of the value is [NAME/]IP[!IP].
 
 # At least one of LISTEN_(TCP|UDP|NG) is required
 #LISTEN_TCP=127.0.0.1:2222	# IP address and port combination for TCP control
-LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP control
+#LISTEN_UDP=127.0.0.1:2222	# IP address and port combination for UDP control
 #LISTEN_NG=127.0.0.1:2223 	# IP address and port combination for NG (UDP) control
 #LISTEN_CLI=127.0.0.1:9900
 
