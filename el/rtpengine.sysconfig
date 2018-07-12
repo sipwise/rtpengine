@@ -3,7 +3,6 @@
 
 CONFIG_FILE=/etc/rtpengine/rtpengine.conf # main config file
 PIDFILE=/var/run/ngcp-rtpengine-daemon.pid # pid
-KERNEL=yes		# "yes" enable in-kernel forwarding, "no" disables
 TABLE=0			# iptables table for in-kernel forwarding rules. Ignored if "KERNEL=no"
 FALLBACK=yes		# "yes" enables fallback to userspace forwarding only.
 RTP_IP[0]=127.0.0.1	# Local IPv4/6 address for RTP. The format of the value is [NAME/]IP[!IP].
