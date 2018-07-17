@@ -146,6 +146,7 @@ There's 3 parts to *rtpengine*, which can be found in the respective subdirector
 	With the `iptables` development headers installed, issuing `make` will compile the plugin for
 	`iptables` and `ip6tables`. The file will be called `libxt_RTPENGINE.so` and should be copied
 	into the directory `/lib/xtables/`.
+	On Ubuntu Bionic use directory `/usr/lib/x86_64-linux-gnu/xtables/`.
 
 * `kernel-module`
 
@@ -160,7 +161,7 @@ There's 3 parts to *rtpengine*, which can be found in the respective subdirector
 	Successful compilation of the module will produce the file `xt_RTPENGINE.ko`. The module can be inserted
 	into the running kernel manually through `insmod xt_RTPENGINE.ko` (which will result in an error if
 	depending modules aren't loaded, for example the `x_tables` module), but it's recommended to copy the
-	module into `/lib/modules/$VERSION/updates/`, followed by running `depmod -a`. After this, the module can
+	module into `/lib/modules/$VERSION/updates/`, followed by running `depmod -a`. After this reboot system. The module can
 	be loaded by issuing `modprobe xt_RTPENGINE`.
 
 Usage
