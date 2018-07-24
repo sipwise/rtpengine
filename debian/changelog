@@ -1,3 +1,37 @@
+ngcp-rtpengine (6.4.1.0+0~mr6.4.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [50394e8] TT#37156 fix divide by zero error (regression from db58aa80)
+  * [6f6bad1] TT#37157 swap parameter order for packet_seq() test macro
+  * [88778d9] TT#37157 eliminate stray compiler warning in test code
+  * [6e97768] TT#37157 add RTP TS and seq checking to transcoding tests
+  * [e404f18] TT#37157 fix missing G722 RTP TS output scaling
+  * [9b447cf] TT#37157 add G722 transcoding test incl RTP TS testing
+  * [f0b4f1d] TT#37157 make payload mismatches in lossy codecs non-fatal
+  * [9f3f24f] TT#36759 rate limiting for ICE/STUN log messages
+  * [a2ed8e6] convert transcoding unit test macros to functions
+  * [f1b81b6] simplify parameters passed to codec_rtp_payload_types()
+  * [8562bde] support new `asymmetric codecs` flag
+  * [bfac341] shut down transcoding engine when it's not needed
+  * [cbe7e5a] TT#36700 implement ports free list
+  * [d66a2e5] TT#38351 support specifying interfaces by name
+  * [4eb80da] compile fix for with_transcoding=no option
+  * [dd34574] TT#38350 keep track of the most used RTP payload type
+  * [a9ec666] TT#38350 implement sending DTMF events to syslog
+  * [08fc009] fix segfault with DTMF logging and implicit payload types
+  * [be9c314] fix missing header include
+  * [d26b11f] fix compilation for with_transcoding=no
+
+  [ netaskd ]
+  * [a1ac45a] - add package recording - update to ngcp-rtpengine version 6.4.0.0
+  * [e64a814] renamed mariadb-devel to mysql-devel for centos6 compatibility
+  * [f52e349] refactoring handling kernel table for config and sysconfig. variable KERNEL deleted as unused
+  * [1ab8cb1] commented out all pre-start arguments because all of them can be configured in main config file of application
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 24 Jul 2018 13:41:07 +0200
+
 ngcp-rtpengine (6.4.0.0+0~mr6.4.0.0) unstable; urgency=medium
 
   [ Juha Heinanen ]
