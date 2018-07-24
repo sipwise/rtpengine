@@ -31,7 +31,7 @@ prog=rtpengine-recording
 runfile=/usr/sbin/${prog}
 pidfile=${PIDFILE-/var/run/rtpengine-recording.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine-recording}
-cachefile=/var/lib/ngcp-rtpengine/$prog.cfg
+
 RETVAL=0
 OPTS=""
 
