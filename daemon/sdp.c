@@ -1363,6 +1363,9 @@ static void chopper_append_printf(struct sdp_chopper *c, const char *fmt, ...) {
 static int copy_up_to_ptr(struct sdp_chopper *chop, const char *b) {
 	int offset, len;
 
+	if (!b)
+		return 0;
+
 	offset = b - chop->input->s;
 	assert(offset >= 0);
 	assert(offset <= chop->input->len);
@@ -1391,6 +1394,9 @@ static void copy_remainder(struct sdp_chopper *chop) {
 
 static int skip_over(struct sdp_chopper *chop, str *where) {
 	int offset, len;
+
+	if (!where || !where->s)
+		return 0;
 
 	offset = (where->s - chop->input->s) + where->len;
 	assert(offset >= 0);
