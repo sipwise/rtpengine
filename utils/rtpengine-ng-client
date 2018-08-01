@@ -57,13 +57,14 @@ GetOptions(
 	'supports=s@'			=> \$options{'supports'},
 	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
 	'always-transcode'		=> \$options{'always transcode'},
+	'metadata=s'			=> \$options{'metadata'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
 for my $x (split(/,/, 'TOS,delete-delay')) {

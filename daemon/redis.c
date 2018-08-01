@@ -1827,9 +1827,9 @@ char* redis_encode_json(struct call *c) {
 			JSON_SET_SIMPLE_CSTR("created_from",c->created_from);
 			JSON_SET_SIMPLE_CSTR("created_from_addr",sockaddr_print_buf(&c->created_from_addr));
 			JSON_SET_SIMPLE("redis_hosted_db","%u",c->redis_hosted_db);
+			JSON_SET_SIMPLE_STR("recording_metadata",&c->metadata);
 
 			if ((rec = c->recording)) {
-				JSON_SET_SIMPLE_STR("recording_metadata",&rec->metadata);
 				JSON_SET_SIMPLE_CSTR("recording_meta_prefix",rec->meta_prefix);
 			}
 		}

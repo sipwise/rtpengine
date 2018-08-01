@@ -48,7 +48,6 @@ struct recording {
 		struct recording_proc proc;
 	} u;
 
-	str		metadata; // from controlling daemon
 	char		*escaped_callid; // call-id with dangerous characters escaped
 	char		*meta_prefix; // escaped call-id plus random suffix
 	char		*meta_filepath; // full file path

@@ -20,6 +20,7 @@
 #include "bencode.h"
 #include "rtplib.h"
 #include "cdr.h"
+#include "log.h"
 
 
 
@@ -212,7 +213,21 @@ static int pcap_create_spool_dir(const char *spoolpath) {
 }
 
 // lock must be held
+static void update_metadata(struct call *call, str *metadata) {
+	if (!metadata || !metadata->s)
+		return;
+
+	if (str_cmp_str(metadata, &call->metadata)) {
+		call_str_cpy(call, &call->metadata, metadata);
+		if (call->recording)
+			recording_meta_chunk(call->recording, "METADATA", metadata);
+	}
+}
+
+// lock must be held
 void recording_start(struct call *call, const char *prefix, str *metadata) {
+	update_metadata(call, metadata);
+
 	if (call->recording) // already active
 		return;
 
@@ -234,9 +249,6 @@ void recording_start(struct call *call, const char *prefix, str *metadata) {
 	}
 	else
 		recording->meta_prefix = strdup(prefix);
-	if (metadata->len) {
-		call_str_cpy(call, &recording->metadata, metadata);
-	}
 
 	_rm(init_struct, call);
 
@@ -275,11 +287,13 @@ void recording_stop(struct call *call) {
  * Returns a boolean for whether or not the call is being recorded.
  */
 void detect_setup_recording(struct call *call, const str *recordcall, str *metadata) {
+	update_metadata(call, metadata);
+
 	if (!recordcall || !recordcall->s)
 		return;
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on"))
-		recording_start(call, NULL, metadata);
+		recording_start(call, NULL, NULL);
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off"))
 		recording_stop(call);
 	else
@@ -394,8 +408,8 @@ static int pcap_meta_finish_file(struct call *call) {
 	fprintf(recording->u.pcap.meta_fp, "call end time: %s\n", timebuffer);
 
 	// Print metadata
-	if (recording->metadata.len)
-		fprintf(recording->u.pcap.meta_fp, "\n\n"STR_FORMAT"\n", STR_FMT(&recording->metadata));
+	if (call->metadata.len)
+		fprintf(recording->u.pcap.meta_fp, "\n\n"STR_FORMAT"\n", STR_FMT(&call->metadata));
 	fclose(recording->u.pcap.meta_fp);
 	recording->u.pcap.meta_fp = NULL;
 
@@ -653,8 +667,8 @@ static void proc_init(struct call *call) {
 
 	append_meta_chunk_str(recording, &call->callid, "CALL-ID");
 	append_meta_chunk_s(recording, recording->meta_prefix, "PARENT");
-	if (recording->metadata.len)
-		recording_meta_chunk(recording, "METADATA", &recording->metadata);
+	if (call->metadata.len)
+		recording_meta_chunk(recording, "METADATA", &call->metadata);
 }
 
 static void sdp_before_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,

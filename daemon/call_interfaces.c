@@ -913,12 +913,6 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 		meta_write_sdp_after(recording, chopper->output,
 			       monologue, opmode);
 
-		//only add METADATA chunk if value is changed
-		if (flags.metadata.len && str_cmp_str(&flags.metadata, &recording->metadata)) {
-			call_str_cpy(call, &recording->metadata, &flags.metadata);
-			recording_meta_chunk(recording, "METADATA", &flags.metadata);
-		}
-
 		recording_response(recording, output);
 	}
 
