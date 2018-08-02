@@ -40,7 +40,7 @@ static char *meta_setup_file(struct recording *recording);
 static int pcap_create_spool_dir(const char *dirpath);
 static void pcap_init(struct call *);
 static void sdp_after_pcap(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
-static void dump_packet_pcap(struct recording *recording, struct packet_stream *sink, const str *s);
+static void dump_packet_pcap(struct media_packet *mp, const str *s);
 static void finish_pcap(struct call *);
 static void response_pcap(struct recording *, bencode_item_t *);
 
@@ -50,7 +50,7 @@ static void sdp_before_proc(struct recording *, const str *, struct call_monolog
 static void sdp_after_proc(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void meta_chunk_proc(struct recording *, const char *, const str *);
 static void finish_proc(struct call *);
-static void dump_packet_proc(struct recording *recording, struct packet_stream *sink, const str *s);
+static void dump_packet_proc(struct media_packet *mp, const str *s);
 static void init_stream_proc(struct packet_stream *);
 static void setup_stream_proc(struct packet_stream *);
 static void setup_media_proc(struct call_media *);
@@ -490,9 +490,9 @@ static void pcap_recording_finish_file(struct recording *recording) {
 }
 
 // "out" must be at least inp->len + MAX_PACKET_HEADER_LEN bytes
-static unsigned int fake_ip_header(unsigned char *out, struct packet_stream *stream, const str *inp) {
-	endpoint_t *src_endpoint = &stream->advertised_endpoint;
-	endpoint_t *dst_endpoint = &stream->selected_sfd->socket.local;
+static unsigned int fake_ip_header(unsigned char *out, struct media_packet *mp, const str *inp) {
+	endpoint_t *src_endpoint = &mp->fsin;
+	endpoint_t *dst_endpoint = &mp->sfd->socket.local;
 
 	unsigned int hdr_len =
 		endpoint_packet_header(out, src_endpoint, dst_endpoint, inp->len);
@@ -515,14 +515,15 @@ static void pcap_eth_header(unsigned char *pkt, struct packet_stream *stream) {
  * Write out a PCAP packet with payload string.
  * A fair amount extraneous of packet data is spoofed.
  */
-static void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *stream, const str *s) {
+static void stream_pcap_dump(struct media_packet *mp, const str *s) {
+	pcap_dumper_t *pdumper = mp->call->recording->u.pcap.recording_pdumper;
 	if (!pdumper)
 		return;
 
 	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN + pcap_format->headerlen];
-	unsigned int pkt_len = fake_ip_header(pkt + pcap_format->headerlen, stream, s) + pcap_format->headerlen;
+	unsigned int pkt_len = fake_ip_header(pkt + pcap_format->headerlen, mp, s) + pcap_format->headerlen;
 	if (pcap_format->header)
-		pcap_format->header(pkt, stream);
+		pcap_format->header(pkt, mp->stream);
 
 	// Set up PCAP packet header
 	struct pcap_pkthdr header;
@@ -536,9 +537,10 @@ static void stream_pcap_dump(pcap_dumper_t *pdumper, struct packet_stream *strea
 	pcap_dump((unsigned char *)pdumper, &header, pkt);
 }
 
-static void dump_packet_pcap(struct recording *recording, struct packet_stream *stream, const str *s) {
+static void dump_packet_pcap(struct media_packet *mp, const str *s) {
+	struct recording *recording = mp->call->recording;
 	mutex_lock(&recording->u.pcap.recording_lock);
-	stream_pcap_dump(recording->u.pcap.recording_pdumper, stream, s);
+	stream_pcap_dump(mp, s);
 	recording->u.pcap.packet_num++;
 	mutex_unlock(&recording->u.pcap.recording_lock);
 }
@@ -752,7 +754,8 @@ static void setup_media_proc(struct call_media *media) {
 
 
 
-static void dump_packet_proc(struct recording *recording, struct packet_stream *stream, const str *s) {
+static void dump_packet_proc(struct media_packet *mp, const str *s) {
+	struct packet_stream *stream = mp->stream;
 	if (stream->recording.u.proc.stream_idx == UNINIT_IDX)
 		return;
 
@@ -765,7 +768,7 @@ static void dump_packet_proc(struct recording *recording, struct packet_stream *
 	//remsg->u.packet.call_idx = stream->call->recording->u.proc.call_idx; // unused
 	remsg->u.packet.stream_idx = stream->recording.u.proc.stream_idx;
 
-	unsigned int pkt_len = fake_ip_header(remsg->data, stream, s);
+	unsigned int pkt_len = fake_ip_header(remsg->data, mp, s);
 	pkt_len += sizeof(*remsg);
 
 	int ret = write(kernel.fd, pkt, pkt_len);

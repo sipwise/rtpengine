@@ -18,6 +18,7 @@
 
 
 struct packet_stream;
+struct media_packet;
 struct call;
 enum call_opmode;
 struct rtpengine_target_info;
@@ -71,7 +72,7 @@ struct recording_method {
 			enum call_opmode);
 	void (*meta_chunk)(struct recording *, const char *, const str *);
 
-	void (*dump_packet)(struct recording *, struct packet_stream *sink, const str *s);
+	void (*dump_packet)(struct media_packet *, const str *s);
 	void (*finish)(struct call *);
 	void (*response)(struct recording *, bencode_item_t *);
 

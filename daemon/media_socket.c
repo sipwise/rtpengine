@@ -1648,7 +1648,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	// If recording pcap dumper is set, then we record the call.
 	if (phc->mp.call->recording)
-		dump_packet(phc->mp.call->recording, phc->mp.stream, &phc->s);
+		dump_packet(&phc->mp, &phc->s);
 
 	// ready to process
 
