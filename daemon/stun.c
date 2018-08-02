@@ -258,7 +258,7 @@ static void output_init(struct msghdr *mh, struct iovec *iov,
 }
 
 INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u_int16_t code,
-		void *append, unsigned int append_len)
+		void *append, unsigned int append_len, int writable)
 {
 	struct iovec *iov;
 	struct header *hdr;
@@ -278,21 +278,21 @@ INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u
 		iov->iov_base = append; /* must have space for padding */
 		iov->iov_len = (append_len + 3) & 0xfffc;
 
-		if ((append_len & 0x3)) {
-			if (memcmp(append + append_len, "\0\0\0", 4 - (append_len & 0x3)))
-				memset(append + append_len, 0, 4 - (append_len & 0x3));
-		}
+		if (writable && (append_len & 0x3)) // if not writable, buffer must have trailing \0\0\0
+			memset(append + append_len, 0, 4 - (append_len & 0x3));
 	}
 }
 
 #define output_add(mh, attr, code) \
-	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, NULL, 0)
+	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, NULL, 0, 0)
 #define output_add_len(mh, attr, code, len) \
-	__output_add(mh, &(attr)->tlv, len + sizeof(struct tlv), code, NULL, 0)
-#define output_add_data(mh, attr, code, data, len) \
-	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, data, len)
+	__output_add(mh, &(attr)->tlv, len + sizeof(struct tlv), code, NULL, 0, 0)
+#define output_add_data_wr(mh, attr, code, data, len) \
+	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, data, len, 1)
+#define output_add_data_ro(mh, attr, code, data, len) \
+	__output_add(mh, &(attr)->tlv, sizeof(*(attr)), code, data, len, 0)
 #define output_add_data_len_pad(mh, attr, code, data, len) \
-	__output_add(mh, &(attr)->tlv, sizeof((attr)->tlv), code, data, len)
+	__output_add(mh, &(attr)->tlv, sizeof((attr)->tlv), code, data, len, 1)
 
 
 static void __output_finish(struct msghdr *mh) {
@@ -307,7 +307,7 @@ static void output_finish_src(struct msghdr *mh) {
 
 static void software(struct msghdr *mh, struct software *sw) {
 	int i;
-	i = snprintf(sw->str, sizeof(sw->str) - 1, "rtpengine-%s", RTPENGINE_VERSION);
+	i = snprintf(sw->str, sizeof(sw->str), "rtpengine-%s", RTPENGINE_VERSION);
 	output_add_data_len_pad(mh, sw, STUN_SOFTWARE, sw->str, i);
 }
 
@@ -389,9 +389,9 @@ static void stun_error_len(struct stream_fd *sfd, const endpoint_t *sin,
 	software(&mh, &sw);
 
 	ec.codes = htonl(((code / 100) << 8) | (code % 100));
-	output_add_data(&mh, &ec, STUN_ERROR_CODE, reason, len);
+	output_add_data_ro(&mh, &ec, STUN_ERROR_CODE, reason, len);
 	if (attr_cont)
-		output_add_data(&mh, &aa, add_attr, attr_cont, attr_len);
+		output_add_data_wr(&mh, &aa, add_attr, attr_cont, attr_len);
 
 	integrity(&mh, &mi, &sfd->stream->media->ice_agent->pwd[0]);
 	fingerprint(&mh, &fp);
@@ -665,7 +665,7 @@ int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *p
 			STR_FMT(&ufrags[0]), STR_FMT(&ufrags[1]));
 	if (i <= 0 || i >= sizeof(username_buf))
 		return -1;
-	output_add_data(&mh, &un_attr, STUN_USERNAME, username_buf, i);
+	output_add_data_wr(&mh, &un_attr, STUN_USERNAME, username_buf, i);
 
 	cc.tiebreaker = htobe64(tiebreaker);
 	output_add(&mh, &cc, controlling ? STUN_ICE_CONTROLLING : STUN_ICE_CONTROLLED);
