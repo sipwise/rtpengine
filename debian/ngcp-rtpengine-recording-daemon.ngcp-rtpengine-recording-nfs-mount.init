@@ -1,0 +1,38 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          ngcp-rtpengine-recording-nfs-mount
+# Required-Start:    $remote_fs $local_fs $remote_fs $syslog
+# Required-Stop:     $remote_fs $local_fs $remote_fs $syslog
+# Should-Start:      sshd
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: NGCP RTP/media Recording NFS mount point
+### END INIT INFO
+
+set -e
+
+. /lib/lsb/init-functions
+
+###
+
+case "$1" in
+  start)
+	ngcp-rtpengine-recording-nfs-setup start
+	;;
+  stop)
+	ngcp-rtpengine-recording-nfs-setup stop
+	;;
+  force-reload|restart)
+	$0 stop
+	$0 start
+	;;
+  status)
+	grep -E -q "^[^ :]+:[^ :]+ $NFS_LOCAL_MOUNT nfs.? " /proc/mounts
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
