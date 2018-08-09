@@ -1,3 +1,15 @@
+ngcp-rtpengine (6.4.2.0+0~mr6.4.2.0) unstable; urgency=medium
+
+  [ Alexander Lutay ]
+  * [4c672ac] TT#41051 Fix shellcheck warning for Red Hat init scripts
+
+  [ Richard Fuchs ]
+  * [13b3649] fix possible core dump when processing certain malformed SDP
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 09 Aug 2018 12:25:34 +0200
+
 ngcp-rtpengine (6.4.1.0+0~mr6.4.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
