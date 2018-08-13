@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fae47921_f8c66915",
+        "filename": "debian/ngcp-rtpengine-recording-daemon.ngcp-rtpengine-recording-nfs-mount.service",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2018-08-13T08:27:51Z",
+      "side": 1,
+      "message": "I am not sure here, while you knows better.",
+      "range": {
+        "startLine": 14,
+        "startChar": 5,
+        "endLine": 14,
+        "endChar": 12
+      },
+      "revId": "0224a491621fa0efc71b3cafff2028805cada47d",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
