@@ -566,7 +566,7 @@ sub stun_handler_binding_success {
 	$self->debug("binding success from $address/$port\n");
 
 	# check xor address
-	$comp->{address} eq $hash->{address}->{address} or die;
+	$comp->{address} eq $hash->{address}->{address} or die("$comp->{address} $hash->{address}->{address}");
 	$comp->{port} == $hash->{address}->{port} or die;
 
 	# we must have remote candidate and a pair

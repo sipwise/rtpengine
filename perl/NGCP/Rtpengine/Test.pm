@@ -54,7 +54,8 @@ sub new {
 	$self->{timers} = [];
 	$self->{clients} = [];
 
-	$self->{control} = NGCP::Rtpengine->new($args{host} // 'localhost', $args{port} // 2223);
+	$self->{control} = NGCP::Rtpengine->new($args{host} // $ENV{RTPENGINE_HOST} // 'localhost',
+		$args{port} // $ENV{RTPENGINE_POR} // 2223);
 	$self->{callid} = rand();
 
 	return $self;
