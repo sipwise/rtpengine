@@ -629,9 +629,6 @@ void redis_notify_loop(void *d) {
 
 	// free async context
 	redisAsyncDisconnect(rtpe_redis_notify_async_context);
-
-	// free event base
-	redis_notify_event_base_action(EVENT_BASE_FREE);
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
