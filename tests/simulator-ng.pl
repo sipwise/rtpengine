@@ -18,7 +18,7 @@ use NGCP::Rtpclient::SRTP;
 my ($NUM, $RUNTIME, $STREAMS, $PAYLOAD, $INTERVAL, $RTCP_INTERVAL, $STATS_INTERVAL)
 	= (1000, 30, 1, 160, 20, 5, 5);
 my ($NODEL, $IP, $IPV6, $KEEPGOING, $REINVITES, $PROTOS, $DEST, $SUITES, $NOENC, $RTCPMUX, $BUNDLE, $LAZY,
-	$CHANGE_SSRC, $PORT_LATCHING, $RECORD);
+	$CHANGE_SSRC, $PORT_LATCHING, $RECORD, $DTMF);
 GetOptions(
 		'no-delete'	=> \$NODEL,
 		'num-calls=i'	=> \$NUM,
@@ -42,6 +42,7 @@ GetOptions(
 		'change-ssrc'   => \$CHANGE_SSRC,
 		'port-latching' => \$PORT_LATCHING,
 		'record'	=> \$RECORD,
+		'dtmf'		=> \$DTMF,
 ) or die;
 
 ($IP || $IPV6) or die("at least one of --local-ip or --local-ipv6 must be given");
@@ -314,9 +315,34 @@ sub rtp {
 	my $ssrc = $$ctx{ssrc} // ($$ctx{ssrc} = rand(2**32));
 	my $seq = $$ctx{rtp_seqnum};
 	defined($seq) or $seq = int(rand(0xfffe)) + 1;
-	my $hdr = pack("CCnNN", 0x80, 0x00, $seq, rand(2**32), $ssrc);
-	my $pack = $hdr . rand_str($PAYLOAD);
+	my ($hdr, $payload);
+	# don't do DTMF as first packet XXX should work
+	if ($$ctx{out_count} && ($$ctx{is_dtmf} || ($DTMF && rand() < 0.1))) {
+		# DTMF in progress or start it
+		if (!$$ctx{is_dtmf}) {
+			# start DTMF
+			$$ctx{is_dtmf} = 1;
+		}
+		# else: DTMF in progress
+		$hdr = pack("CCnNN", 0x80, 96, $seq, rand(2**32), $ssrc);
+		if (rand() < 0.2) {
+			# end DTMF
+			$$ctx{is_dtmf} = 0;
+			$payload = pack("CCN", rand(10), 0x80 | rand(50)+10, rand(2**16));
+			# XXX triple-send end packet
+		}
+		else {
+			$payload = pack("CCN", rand(10), rand(50)+10, rand(2**16));
+		}
+	}
+	else {
+		# random PCM
+		$hdr = pack("CCnNN", 0x80, 0, $seq, rand(2**32), $ssrc);
+		$payload = rand_str($PAYLOAD);
+	}
+	my $pack = $hdr . $payload;
 	$$ctx{rtp_seqnum} = (++$seq & 0xffff);
+	$$ctx{out_count}++;
 	return $pack;
 }
 
@@ -636,11 +662,15 @@ SDP
 		my $cp = $p + 1;
 		$cp = $p if $$A{bundle} && $$A{want_rtcpmux} && $op eq 'offer';
 
+		$sdp .= "m=audio $p $$tr{name} 0 8 111";
+		$DTMF and $sdp .= ' 96';
+		$sdp .= "\n";
 		$sdp .= <<"SDP";
-m=audio $p $$tr{name} 0 8 111
 a=rtpmap:8 PCMA/8000
 a=rtpmap:111 opus/48000/2
 SDP
+		$DTMF and $sdp .= "a=rtpmap:96 telephone-event/8000\n";
+
 		if ($$A{want_rtcpmux} && $op eq 'offer') {
 			$sdp .= "a=rtcp-mux\n";
 			$sdp .= "a=rtcp:$cp\n";
