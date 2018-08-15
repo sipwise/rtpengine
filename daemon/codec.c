@@ -626,7 +626,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
 		struct media_packet *mp, int seq_inc)
 {
-	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header));
+	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->ignore_seq) // inject original seq
 		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
