@@ -386,7 +386,7 @@ static void options(int *argc, char ***argv) {
 	for (iter = if_a; *iter; iter++) {
 		int ret = if_addr_parse(&rtpe_config.interfaces, *iter, ifas);
 		if (ret)
-			die("Invalid interface specification: %s", *iter);
+			die("Invalid interface specification: '%s'", *iter);
 	}
 	if (ifas)
 		freeifaddrs(ifas);
@@ -402,9 +402,9 @@ static void options(int *argc, char ***argv) {
 
 			if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) ||
 			    (errno != 0 && uint_keyspace_db == 0)) {
-				ilog(LOG_ERR, "Fail adding keyspace %.*s to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
+				ilog(LOG_ERR, "Fail adding keyspace '%.*s' to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
 			} else if (endptr == str_keyspace_db.s) {
-				ilog(LOG_ERR, "Fail adding keyspace %.*s to redis notifications; no digits found\n", str_keyspace_db.len, str_keyspace_db.s);
+				ilog(LOG_ERR, "Fail adding keyspace '%.*s' to redis notifications; no digits found\n", str_keyspace_db.len, str_keyspace_db.s);
 			} else {
 				g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			}
@@ -413,23 +413,23 @@ static void options(int *argc, char ***argv) {
 
 	if (listenps) {
 		if (endpoint_parse_any_getaddrinfo(&rtpe_config.tcp_listen_ep, listenps))
-			die("Invalid IP or port (--listen-tcp)");
+			die("Invalid IP or port '%s' (--listen-tcp)", listenps);
 	}
 	if (listenudps) {
 		if (endpoint_parse_any_getaddrinfo(&rtpe_config.udp_listen_ep, listenudps))
-			die("Invalid IP or port (--listen-udp)");
+			die("Invalid IP or port '%s' (--listen-udp)", listenudps);
 	}
 	if (listenngs) {
 		if (endpoint_parse_any_getaddrinfo(&rtpe_config.ng_listen_ep, listenngs))
-			die("Invalid IP or port (--listen-ng)");
+			die("Invalid IP or port '%s' (--listen-ng)", listenngs);
 	}
 
 	if (listencli) {if (endpoint_parse_any_getaddrinfo(&rtpe_config.cli_listen_ep, listencli))
-	    die("Invalid IP or port (--listen-cli)");
+	    die("Invalid IP or port '%s' (--listen-cli)", listencli);
 	}
 
 	if (graphitep) {if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.graphite_ep, graphitep))
-	    die("Invalid IP or port (--graphite)");
+	    die("Invalid IP or port '%s' (--graphite)", graphitep);
 	}
 
 	if (graphite_prefix_s)
@@ -437,7 +437,7 @@ static void options(int *argc, char ***argv) {
 
 	if (homerp) {
 		if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.homer_ep, homerp))
-			die("Invalid IP or port (--homer)");
+			die("Invalid IP or port '%s' (--homer)", homerp);
 	}
 	if (homerproto) {
 		if (!strcmp(homerproto, "tcp"))
@@ -445,7 +445,7 @@ static void options(int *argc, char ***argv) {
 		else if (!strcmp(homerproto, "udp"))
 			rtpe_config.homer_protocol = SOCK_DGRAM;
 		else
-			die("Invalid protocol (--homer-protocol)");
+			die("Invalid protocol '%s' (--homer-protocol)", homerproto);
 	}
 
 	if (rtpe_config.default_tos < 0 || rtpe_config.default_tos > 255)
@@ -468,12 +468,12 @@ static void options(int *argc, char ***argv) {
 
 	if (redisps)
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
-			die("Invalid Redis endpoint [IP:PORT/INT] (--redis)");
+			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis)", redisps);
 
 	if (redisps_write)
 		if (redis_ep_parse(&rtpe_config.redis_write_ep, &rtpe_config.redis_write_db, &rtpe_config.redis_write_auth,
 					"RTPENGINE_REDIS_WRITE_AUTH_PW", redisps_write))
-			die("Invalid Redis endpoint [IP:PORT/INT] (--redis-write)");
+			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-write)", redisps_write);
 
 	if (rtpe_config.fmt > 1)
 		die("Invalid XMLRPC format");
