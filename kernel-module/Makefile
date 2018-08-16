@@ -9,7 +9,7 @@ ifeq ($(RTPENGINE_VERSION),)
   ifneq ($(DPKG_PRSCHNGLG),)
     DPKG_PRSCHNGLG=$(shell dpkg-parsechangelog -l$(DEB_CHANGELOG) | awk '/^Version: / {print $$2}')
   endif
-  GIT_BR_COMMIT=$(shell git branch --no-color --no-column -v 2> /dev/null | awk '/^\*/ {OFS="-"; print "git", $$2, $$3}')
+  GIT_BR_COMMIT=git-$(shell cd $(M) && git rev-parse --abbrev-ref --symbolic-full-name HEAD)-$(shell cd $(M) && git rev-parse --short HEAD)
 
   ifneq ($(DPKG_PRSCHNGLG),)
     RTPENGINE_VERSION+=$(DPKG_PRSCHNGLG)
