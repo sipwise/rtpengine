@@ -1427,12 +1427,18 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 
 static void __rtp_payload_type_add(struct call_media *media, struct rtp_payload_type *pt) {
 	struct call *call = media->call;
+
+	if (g_hash_table_contains(media->codecs, &pt->payload_type)) {
+		payload_type_free(pt);
+		return;
+	}
+
 	/* we must duplicate the contents */
 	call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
 	call_str_cpy(call, &pt->encoding, &pt->encoding);
 	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
 	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
-	g_hash_table_replace(media->codecs, &pt->payload_type, pt);
+	g_hash_table_insert(media->codecs, &pt->payload_type, pt);
 	g_queue_push_tail(&media->codecs_prefs, pt);
 }
 
