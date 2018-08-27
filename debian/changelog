@@ -1,3 +1,12 @@
+ngcp-rtpengine (6.3.3.0+0~mr6.3.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0acb30a] fix possible core dump when processing certain malformed SDP
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 27 Aug 2018 16:13:53 +0200
+
 ngcp-rtpengine (6.3.2.0+0~mr6.3.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
