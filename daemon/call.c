@@ -1214,6 +1214,25 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	}
 }
 
+
+static void __sdes_flags(struct crypto_params_sdes *cps, const struct sdp_ng_flags *flags) {
+	if (!cps)
+		return;
+
+	if (flags->sdes_unencrypted_srtp && flags->opmode == OP_OFFER)
+		cps->params.session_params.unencrypted_srtp = 1;
+	else if (flags->sdes_encrypted_srtp)
+		cps->params.session_params.unencrypted_srtp = 0;
+	if (flags->sdes_unencrypted_srtcp && flags->opmode == OP_OFFER)
+		cps->params.session_params.unencrypted_srtcp = 1;
+	else if (flags->sdes_encrypted_srtcp)
+		cps->params.session_params.unencrypted_srtcp = 0;
+	if (flags->sdes_unauthenticated_srtp && flags->opmode == OP_OFFER)
+		cps->params.session_params.unauthenticated_srtp = 1;
+	else if (flags->sdes_authenticated_srtp)
+		cps->params.session_params.unauthenticated_srtp = 0;
+}
+
 /* generates SDES parameters for outgoing SDP, which is our media "out" direction */
 static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other)
@@ -1317,6 +1336,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 
 				// we use a bit field to keep track of which types we've seen here
 				types_offered |= 1 << cps->params.crypto_suite->idx;
+
+				__sdes_flags(cps, flags);
 			}
 
 			// generate crypto suite offers for any types that we haven't seen above
@@ -1334,12 +1355,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				random_string((unsigned char *) cps->params.master_salt,
 						cps->params.crypto_suite->master_salt_len);
 				/* mki = mki_len = 0 */
-// XXX				cps->params.session_params.unencrypted_srtp
-// XXX					= cp_in->session_params.unencrypted_srtp;
-// XXX				cps->params.session_params.unencrypted_srtcp
-// XXX					= cp_in->session_params.unencrypted_srtcp;
-// XXX				cps->params.session_params.unauthenticated_srtp
-// XXX					= cp_in->session_params.unauthenticated_srtp;
+
+				__sdes_flags(cps, flags);
 			}
 		}
 	}
@@ -1378,44 +1395,11 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 						cps->params.crypto_suite->master_salt_len);
 				/* mki = mki_len = 0 */
 				cps->params.session_params = cps_in->params.session_params;
-// XXX				cps->params.session_params.unencrypted_srtp
-// XXX					= cp_in->session_params.unencrypted_srtp;
-// XXX				cps->params.session_params.unencrypted_srtcp
-// XXX					= cp_in->session_params.unencrypted_srtcp;
-// XXX				cps->params.session_params.unauthenticated_srtp
-// XXX					= cp_in->session_params.unauthenticated_srtp;
 			}
+			__sdes_flags(cps, flags);
+			__sdes_flags(cps_in, flags);
 		}
 	}
-
-// XXX	if (cp->crypto_suite)
-// XXX		goto apply_sdes_flags; // XXX ?
-
-//	cp->crypto_suite = cp_in->crypto_suite;
-//	if (!cp->crypto_suite)
-//		cp->crypto_suite = &crypto_suites[0];
-//	random_string((unsigned char *) cp->master_key,
-//			cp->crypto_suite->master_key_len);
-//	random_string((unsigned char *) cp->master_salt,
-//			cp->crypto_suite->master_salt_len);
-//	/* mki = mki_len = 0 */
-//	cp->session_params.unencrypted_srtp = cp_in->session_params.unencrypted_srtp;
-//	cp->session_params.unencrypted_srtcp = cp_in->session_params.unencrypted_srtcp;
-//	cp->session_params.unauthenticated_srtp = cp_in->session_params.unauthenticated_srtp;
-
-// XXXapply_sdes_flags:
-// XXX	if (flags->sdes_unencrypted_srtp && flags->opmode == OP_OFFER)
-// XXX		cp_in->session_params.unencrypted_srtp = cp->session_params.unencrypted_srtp = 1;
-// XXX	else if (flags->sdes_encrypted_srtp)
-// XXX		cp_in->session_params.unencrypted_srtp = cp->session_params.unencrypted_srtp = 0;
-// XXX	if (flags->sdes_unencrypted_srtcp && flags->opmode == OP_OFFER)
-// XXX		cp_in->session_params.unencrypted_srtcp = cp->session_params.unencrypted_srtcp = 1;
-// XXX	else if (flags->sdes_encrypted_srtcp)
-// XXX		cp_in->session_params.unencrypted_srtcp = cp->session_params.unencrypted_srtcp = 0;
-// XXX	if (flags->sdes_unauthenticated_srtp && flags->opmode == OP_OFFER)
-// XXX		cp_in->session_params.unauthenticated_srtp = cp->session_params.unauthenticated_srtp = 1;
-// XXX	else if (flags->sdes_authenticated_srtp)
-// XXX		cp_in->session_params.unauthenticated_srtp = cp->session_params.unauthenticated_srtp = 0;
 
 skip_sdes:
 	;
