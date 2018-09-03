@@ -1328,11 +1328,8 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				goto next;
 			}
 
-			if (media->port_count != 1)
-				goto next;
-
 			attr = attr_get_by_id(&media->attributes, ATTR_RTCP);
-			if (!attr) {
+			if (!attr || media->port_count != 1) {
 				SP_SET(sp, IMPLICIT_RTCP);
 				goto next;
 			}
@@ -1512,7 +1509,7 @@ static int replace_consecutive_port_count(struct sdp_chopper *chop, struct sdp_m
 		if (!j)
 			goto warn;
 		ps_n = j->data;
-		if (ps_n->selected_sfd->socket.local.port != ps->selected_sfd->socket.local.port + cons * 2) {
+		if (ps_n->selected_sfd->socket.local.port != ps->selected_sfd->socket.local.port + cons) {
 warn:
 			ilog(LOG_WARN, "Failed to handle consecutive ports");
 			break;
