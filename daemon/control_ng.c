@@ -216,6 +216,14 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		errstr = call_stop_recording_ng(dict, resp);
 		g_atomic_int_inc(&cur->stop_recording);
 	}
+	else if (!str_cmp(&cmd, "block DTMF")) {
+		errstr = call_block_dtmf_ng(dict, resp);
+		g_atomic_int_inc(&cur->block_dtmf);
+	}
+	else if (!str_cmp(&cmd, "unblock DTMF")) {
+		errstr = call_unblock_dtmf_ng(dict, resp);
+		g_atomic_int_inc(&cur->unblock_dtmf);
+	}
 	else
 	{
 		errstr = "Unrecognized command";
