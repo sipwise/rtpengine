@@ -277,7 +277,7 @@ struct crypto_suite __crypto_suites[] = {
 };
 
 const struct crypto_suite *crypto_suites = __crypto_suites;
-const int num_crypto_suites = G_N_ELEMENTS(__crypto_suites);
+const unsigned int num_crypto_suites = G_N_ELEMENTS(__crypto_suites);
 
 
 
@@ -726,8 +726,9 @@ void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out) {
 
 void crypto_init_main() {
 	struct crypto_suite *cs;
-	for (int i = 0; i < num_crypto_suites; i++) {
+	for (unsigned int i = 0; i < num_crypto_suites; i++) {
 		cs = &__crypto_suites[i];
+		cs->idx = i;
 		switch(cs->master_key_len) {
 		case 16:
 			cs->lib_cipher_ptr = EVP_aes_128_ecb();

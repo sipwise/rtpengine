@@ -1037,7 +1037,7 @@ err1:
 }
 
 /* can return 1, 0 or -1 */
-static int redis_hash_get_crypto_params(struct crypto_params *out, const struct redis_hash *h, const char *k) {
+static int redis_hash_get_sdes_params1(struct crypto_params *out, const struct redis_hash *h, const char *k) {
 	str s;
 	int i;
 	const char *err;
@@ -1077,6 +1077,31 @@ static int redis_hash_get_crypto_params(struct crypto_params *out, const struct 
 err:
 	rlog(LOG_ERR, "Crypto params error: %s", err);
 	return -1;
+}
+static int redis_hash_get_sdes_params(GQueue *out, const struct redis_hash *h, const char *k) {
+	char key[32], tagkey[32];
+	const char *kk = k;
+	unsigned int tag;
+	unsigned int iter = 0;
+
+	while (1) {
+		snprintf(tagkey, sizeof(tagkey), "%s_tag", kk);
+		if (redis_hash_get_unsigned(&tag, h, tagkey))
+			break;
+		struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(cps));
+		cps->tag = tag;
+		int ret = redis_hash_get_sdes_params1(&cps->params, h, kk);
+		if (ret) {
+			g_slice_free1(sizeof(*cps), cps);
+			if (ret == 1)
+				return 0;
+			return -1;
+		}
+
+		snprintf(key, sizeof(key), "%s-%u", k, iter++);
+		kk = key;
+	}
+	return 0;
 }
 
 static int redis_sfds(struct call *c, struct redis_list *sfds) {
@@ -1259,16 +1284,13 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 			med->logical_intf = get_logical_interface(NULL, med->desired_family, 0);
 		}
 
-		if (redis_hash_get_unsigned(&med->sdes_in.tag, rh, "sdes_in_tag"))
-			return -1;
-		if (redis_hash_get_unsigned(&med->sdes_out.tag, rh, "sdes_out_tag"))
-			return -1;
 		if (redis_hash_get_unsigned((unsigned int *) &med->media_flags, rh,
 					"media_flags"))
 			return -1;
-		if (redis_hash_get_crypto_params(&med->sdes_in.params, rh, "sdes_in") < 0)
+
+		if (redis_hash_get_sdes_params(&med->sdes_in, rh, "sdes_in") < 0)
 			return -1;
-		if (redis_hash_get_crypto_params(&med->sdes_out.params, rh, "sdes_out") < 0)
+		if (redis_hash_get_sdes_params(&med->sdes_out, rh, "sdes_out") < 0)
 			return -1;
 
 		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
@@ -1750,25 +1772,37 @@ err:
 #define JSON_SET_SIMPLE_CSTR(a,d) JSON_SET_SIMPLE_LEN(a, strlen(d), d)
 #define JSON_SET_SIMPLE_STR(a,d) JSON_SET_SIMPLE_LEN(a, (d)->len, (d)->s)
 
-static int json_update_crypto_params(JsonBuilder *builder, const char *pref,
+static int json_update_sdes_params(JsonBuilder *builder, const char *pref,
 		unsigned int unique_id,
-		const char *key, const struct crypto_params *p)
+		const char *k, GQueue *q)
 {
 	char tmp[2048];
+	unsigned int iter = 0;
+	char keybuf[32];
+	const char *key = k;
 
-	if (!p->crypto_suite)
-		return -1;
+	for (GList *l = q->head; l; l = l->next) {
+		struct crypto_params_sdes *cps = l->data;
+		struct crypto_params *p = &cps->params;
 
-	JSON_SET_NSTRING_CSTR("%s-crypto_suite",key,p->crypto_suite->name);
-	JSON_SET_NSTRING_LEN("%s-master_key",key, sizeof(p->master_key), (char *) p->master_key);
-	JSON_SET_NSTRING_LEN("%s-master_salt",key, sizeof(p->master_salt), (char *) p->master_salt);
+		if (!p->crypto_suite)
+			return -1;
 
-	JSON_SET_NSTRING("%s-unenc-srtp",key,"%i",p->session_params.unencrypted_srtp);
-	JSON_SET_NSTRING("%s-unenc-srtcp",key,"%i",p->session_params.unencrypted_srtcp);
-	JSON_SET_NSTRING("%s-unauth-srtp",key,"%i",p->session_params.unauthenticated_srtp);
+		JSON_SET_NSTRING("%s_tag", key, "%u", cps->tag);
+		JSON_SET_NSTRING_CSTR("%s-crypto_suite",key,p->crypto_suite->name);
+		JSON_SET_NSTRING_LEN("%s-master_key",key, sizeof(p->master_key), (char *) p->master_key);
+		JSON_SET_NSTRING_LEN("%s-master_salt",key, sizeof(p->master_salt), (char *) p->master_salt);
 
-	if (p->mki) {
-		JSON_SET_NSTRING_LEN("%s-mki",key, p->mki_len, (char *) p->mki);
+		JSON_SET_NSTRING("%s-unenc-srtp",key,"%i",p->session_params.unencrypted_srtp);
+		JSON_SET_NSTRING("%s-unenc-srtcp",key,"%i",p->session_params.unencrypted_srtcp);
+		JSON_SET_NSTRING("%s-unauth-srtp",key,"%i",p->session_params.unauthenticated_srtp);
+
+		if (p->mki) {
+			JSON_SET_NSTRING_LEN("%s-mki",key, p->mki_len, (char *) p->mki);
+		}
+
+		snprintf(keybuf, sizeof(keybuf), "%s-%u", k, iter++);
+		key = keybuf;
 	}
 
 	return 0;
@@ -1975,16 +2009,14 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE_STR("type",&media->type);
 				JSON_SET_SIMPLE_CSTR("protocol",media->protocol ? media->protocol->name : "");
 				JSON_SET_SIMPLE_CSTR("desired_family",media->desired_family ? media->desired_family->rfc_name : "");
-				JSON_SET_SIMPLE("sdes_in_tag","%u",media->sdes_in.tag);
-				JSON_SET_SIMPLE("sdes_out_tag","%u",media->sdes_out.tag);
 				JSON_SET_SIMPLE_STR("logical_intf",&media->logical_intf->name);
 				JSON_SET_SIMPLE("ptime","%i",media->ptime);
 				JSON_SET_SIMPLE("media_flags","%u",media->media_flags);
 
-				json_update_crypto_params(builder, "media", media->unique_id, "sdes_in",
-						&media->sdes_in.params);
-				json_update_crypto_params(builder, "media", media->unique_id, "sdes_out",
-						&media->sdes_out.params);
+				json_update_sdes_params(builder, "media", media->unique_id, "sdes_in",
+						&media->sdes_in);
+				json_update_sdes_params(builder, "media", media->unique_id, "sdes_out",
+						&media->sdes_out);
 				json_update_dtls_fingerprint(builder, "media", media->unique_id, &media->fingerprint);
 			}
 			json_builder_end_object (builder);

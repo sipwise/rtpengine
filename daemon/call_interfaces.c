@@ -288,10 +288,9 @@ static void rtp_pt_free(void *p) {
 static void sp_free(void *p) {
 	struct stream_params *s = p;
 
-	if (s->crypto.mki)
-		free(s->crypto.mki);
 	g_queue_clear_full(&s->rtp_payload_types, rtp_pt_free);
 	ice_candidates_free(&s->ice_candidates);
+	crypto_params_sdes_queue_clear(&s->sdes_params);
 	g_slice_free1(sizeof(*s), s);
 }
 static void streams_free(GQueue *q) {
