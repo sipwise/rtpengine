@@ -1267,24 +1267,28 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				goto error;
 
 			/* a=crypto */
-			attr = attr_get_by_id(&media->attributes, ATTR_CRYPTO);
-			if (attr) {
-				sp->crypto.crypto_suite = attr->u.crypto.crypto_suite;
-				sp->crypto.mki_len = attr->u.crypto.mki_len;
-				if (sp->crypto.mki_len) {
-					sp->crypto.mki = malloc(sp->crypto.mki_len);
-					memcpy(sp->crypto.mki, attr->u.crypto.mki, sp->crypto.mki_len);
+			GQueue *attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
+			for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+				attr = ll->data;
+				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
+				g_queue_push_tail(&sp->sdes_params, cps);
+
+				cps->params.crypto_suite = attr->u.crypto.crypto_suite;
+				cps->params.mki_len = attr->u.crypto.mki_len;
+				if (cps->params.mki_len) {
+					cps->params.mki = malloc(cps->params.mki_len);
+					memcpy(cps->params.mki, attr->u.crypto.mki, cps->params.mki_len);
 				}
-				sp->sdes_tag = attr->u.crypto.tag;
-				assert(sizeof(sp->crypto.master_key) >= attr->u.crypto.master_key.len);
-				assert(sizeof(sp->crypto.master_salt) >= attr->u.crypto.salt.len);
-				memcpy(sp->crypto.master_key, attr->u.crypto.master_key.s,
+				cps->tag = attr->u.crypto.tag;
+				assert(sizeof(cps->params.master_key) >= attr->u.crypto.master_key.len);
+				assert(sizeof(cps->params.master_salt) >= attr->u.crypto.salt.len);
+				memcpy(cps->params.master_key, attr->u.crypto.master_key.s,
 						attr->u.crypto.master_key.len);
-				memcpy(sp->crypto.master_salt, attr->u.crypto.salt.s,
+				memcpy(cps->params.master_salt, attr->u.crypto.salt.s,
 						attr->u.crypto.salt.len);
-				sp->crypto.session_params.unencrypted_srtp = attr->u.crypto.unencrypted_srtp;
-				sp->crypto.session_params.unencrypted_srtcp = attr->u.crypto.unencrypted_srtcp;
-				sp->crypto.session_params.unauthenticated_srtp = attr->u.crypto.unauthenticated_srtp;
+				cps->params.session_params.unencrypted_srtp = attr->u.crypto.unencrypted_srtp;
+				cps->params.session_params.unencrypted_srtcp = attr->u.crypto.unencrypted_srtcp;
+				cps->params.session_params.unauthenticated_srtp = attr->u.crypto.unauthenticated_srtp;
 			}
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
@@ -1910,43 +1914,49 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	chopper_append_c(chop, "\r\n");
 }
 
-static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
+static void insert_crypto1(struct call_media *media, struct sdp_chopper *chop, struct crypto_params_sdes *cps) {
 	char b64_buf[((SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN) / 3 + 1) * 4 + 4];
 	char *p;
 	int state = 0, save = 0, i;
-	struct crypto_params *cp = &media->sdes_out.params;
 	unsigned long long ull;
 
-	if (!cp->crypto_suite || !MEDIA_ISSET(media, SDES) || MEDIA_ISSET(media, PASSTHRU))
+	if (!cps->params.crypto_suite || !MEDIA_ISSET(media, SDES) || MEDIA_ISSET(media, PASSTHRU))
 		return;
 
 	p = b64_buf;
-	p += g_base64_encode_step((unsigned char *) cp->master_key,
-			cp->crypto_suite->master_key_len, 0,
+	p += g_base64_encode_step((unsigned char *) cps->params.master_key,
+			cps->params.crypto_suite->master_key_len, 0,
 			p, &state, &save);
-	p += g_base64_encode_step((unsigned char *) cp->master_salt,
-			cp->crypto_suite->master_salt_len, 0,
+	p += g_base64_encode_step((unsigned char *) cps->params.master_salt,
+			cps->params.crypto_suite->master_salt_len, 0,
 			p, &state, &save);
 	p += g_base64_encode_close(0, p, &state, &save);
+	// truncate trailing ==
+	while (p > b64_buf && p[-1] == '=')
+		p--;
 
 	chopper_append_c(chop, "a=crypto:");
-	chopper_append_printf(chop, "%u ", media->sdes_out.tag);
-	chopper_append_c(chop, cp->crypto_suite->name);
+	chopper_append_printf(chop, "%u ", cps->tag);
+	chopper_append_c(chop, cps->params.crypto_suite->name);
 	chopper_append_c(chop, " inline:");
 	chopper_append(chop, b64_buf, p - b64_buf);
-	if (cp->mki_len) {
+	if (cps->params.mki_len) {
 		ull = 0;
-		for (i = 0; i < cp->mki_len && i < sizeof(ull); i++)
-			ull |= (unsigned long long) cp->mki[cp->mki_len - i - 1] << (i * 8);
-		chopper_append_printf(chop, "|%llu:%u", ull, cp->mki_len);
+		for (i = 0; i < cps->params.mki_len && i < sizeof(ull); i++)
+			ull |= (unsigned long long) cps->params.mki[cps->params.mki_len - i - 1] << (i * 8);
+		chopper_append_printf(chop, "|%llu:%u", ull, cps->params.mki_len);
 	}
-	if (cp->session_params.unencrypted_srtp)
+	if (cps->params.session_params.unencrypted_srtp)
 		chopper_append_c(chop, " UNENCRYPTED_SRTP");
-	if (cp->session_params.unencrypted_srtcp)
+	if (cps->params.session_params.unencrypted_srtcp)
 		chopper_append_c(chop, " UNENCRYPTED_SRTCP");
-	if (cp->session_params.unauthenticated_srtp)
+	if (cps->params.session_params.unauthenticated_srtp)
 		chopper_append_c(chop, " UNAUTHENTICATED_SRTP");
 	chopper_append_c(chop, "\r\n");
+}
+static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
+	for (GList *l = media->sdes_out.head; l; l = l->next)
+		insert_crypto1(media, chop, l->data);
 }
 
 
