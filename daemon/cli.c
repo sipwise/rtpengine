@@ -461,8 +461,8 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 	streambuf_printf(replybuffer, "\n\n");
 
 	streambuf_printf(replybuffer, "Control statistics:\n\n");
-	streambuf_printf(replybuffer, " %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
-			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "StartRec", "StopRec", "Errors");
+	streambuf_printf(replybuffer, " %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s \n",
+			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "StartRec", "StopRec", "Errors", "BlkDTMF", "UnblkDTMF");
 
 	mutex_lock(&rtpe_cngs_lock);
 	GList *list = g_hash_table_get_values(rtpe_cngs_hash);
@@ -472,7 +472,7 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 	}
 	for (GList *l = list; l; l = l->next) {
 		struct control_ng_stats* cur = l->data;
-		streambuf_printf(replybuffer, " %20s | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
+		streambuf_printf(replybuffer, " %20s | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u \n",
 				sockaddr_print_buf(&cur->proxy),
 				cur->offer,
 				cur->answer,
@@ -482,7 +482,9 @@ static void cli_incoming_list_totals(str *instr, struct streambuf *replybuffer) 
 				cur->query,
 				cur->start_recording,
 				cur->stop_recording,
-				cur->errors);
+				cur->errors,
+				cur->block_dtmf,
+				cur->unblock_dtmf);
 	}
 	streambuf_printf(replybuffer, "\n\n");
 	mutex_unlock(&rtpe_cngs_lock);

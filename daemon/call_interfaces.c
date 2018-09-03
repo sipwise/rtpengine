@@ -1355,6 +1355,45 @@ const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output
 	return NULL;
 }
 
+const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
+	str callid;
+	struct call *call;
+
+	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+		return "No call-id in message";
+	call = call_get_opmode(&callid, OP_OTHER);
+	if (!call)
+		return "Unknown call-id";
+
+	ilog(LOG_INFO, "Blocking DTMF");
+	call->block_dtmf = 1;
+
+	rwlock_unlock_w(&call->master_lock);
+	obj_put(call);
+
+	return NULL;
+}
+
+const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
+	str callid;
+	struct call *call;
+
+	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+		return "No call-id in message";
+	call = call_get_opmode(&callid, OP_OTHER);
+	if (!call)
+		return "Unknown call-id";
+
+	ilog(LOG_INFO, "Unblocking DTMF");
+	call->block_dtmf = 0;
+
+	rwlock_unlock_w(&call->master_lock);
+	obj_put(call);
+
+	return NULL;
+}
+
+
 int call_interfaces_init() {
 	const char *errptr;
 	int erroff;
