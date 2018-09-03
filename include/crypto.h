@@ -55,8 +55,9 @@ struct crypto_suite {
 	hash_func_rtcp hash_rtcp;
 	session_key_init_func session_key_init;
 	session_key_cleanup_func session_key_cleanup;
-	const char *dtls_profile_code;
+	//const char *dtls_profile_code; // unused
 	const void *lib_cipher_ptr;
+	unsigned int idx; // filled in during crypto_init_main()
 };
 
 struct crypto_session_params {
@@ -73,6 +74,11 @@ struct crypto_params {
 	unsigned char *mki;
 	unsigned int mki_len;
 	struct crypto_session_params session_params;
+};
+
+struct crypto_params_sdes {
+	struct crypto_params params;
+	unsigned int tag;
 };
 
 struct crypto_context {
@@ -92,7 +98,7 @@ struct crypto_context {
 
 
 extern const struct crypto_suite *crypto_suites;
-extern const int num_crypto_suites;
+extern const unsigned int num_crypto_suites;
 
 
 
@@ -166,7 +172,8 @@ INLINE void crypto_params_copy(struct crypto_params *o, const struct crypto_para
 }
 INLINE void crypto_init(struct crypto_context *c, const struct crypto_params *p) {
 	crypto_cleanup(c);
-	crypto_params_copy(&c->params, p, 1);
+	if (p)
+		crypto_params_copy(&c->params, p, 1);
 }
 INLINE int crypto_params_cmp(const struct crypto_params *a, const struct crypto_params *b) {
        if (a->crypto_suite != b->crypto_suite)
@@ -184,6 +191,13 @@ INLINE int crypto_params_cmp(const struct crypto_params *a, const struct crypto_
        if (memcmp(&a->session_params, &b->session_params, sizeof(a->session_params)))
 	       return 1;
        return 0;
+}
+INLINE void crypto_params_sdes_free(struct crypto_params_sdes *cps) {
+	crypto_params_cleanup(&cps->params);
+	g_slice_free1(sizeof(*cps), cps);
+}
+INLINE void crypto_params_sdes_queue_clear(GQueue *q) {
+	g_queue_clear_full(q, (GDestroyNotify) crypto_params_sdes_free);
 }
 
 

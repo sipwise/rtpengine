@@ -232,8 +232,7 @@ struct stream_params {
 	struct endpoint		rtcp_endpoint;
 	unsigned int		consecutive_ports;
 	const struct transport_protocol *protocol;
-	struct crypto_params	crypto;
-	unsigned int		sdes_tag;
+	GQueue			sdes_params; // slice-alloc'd
 	str			direction[2];
 	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
@@ -321,12 +320,7 @@ struct call_media {
 
 	struct ice_agent	*ice_agent;
 
-	struct {
-		struct crypto_params	params;
-		unsigned int		tag;
-	}			sdes_in,
-				sdes_out;
-
+	GQueue			sdes_in, sdes_out;
 	struct dtls_fingerprint fingerprint; /* as received */
 
 	GQueue			streams; /* normally RTP + RTCP */
