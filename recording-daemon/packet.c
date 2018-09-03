@@ -87,12 +87,14 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 
 		dbg("payload type for %u is %s", payload_type, payload_str);
 
+		pthread_mutex_lock(&mf->mix_lock);
 		output_t *outp = NULL;
 		if (mf->mix_out)
 			outp = mf->mix_out;
 		else if (ssrc->output)
 			outp = ssrc->output;
 		ssrc->decoders[payload_type] = decoder_new(payload_str, outp);
+		pthread_mutex_unlock(&mf->mix_lock);
 		if (!ssrc->decoders[payload_type]) {
 			ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",
 					payload_type, payload_str);
