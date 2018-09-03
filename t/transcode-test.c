@@ -806,5 +806,59 @@ int main() {
 	packet_seq_exp(A, 0, PCMU_payload, 1000960, 212, 0, PCMU_payload, 5); // expected seq is 207+5 for PT 8
 	end();
 
+	// plain DTMF passthrough w/o transcoding
+	start();
+	sdp_pt(8, PCMA, 8000);
+	sdp_pt(101, telephone-event, 8000);
+	offer();
+	expect(A, recv, "");
+	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, recv, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, send, "");
+	sdp_pt(8, PCMA, 8000);
+	sdp_pt(101, telephone-event, 8000);
+	answer();
+	expect(A, recv, "8/PCMA/8000 101/telephone-event/8000");
+	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, recv, "8/PCMA/8000 101/telephone-event/8000");
+	expect(B, send, "8/PCMA/8000 101/telephone-event/8000");
+	packet_seq(A, 8, PCMA_payload, 1000000, 200, 8, PCMA_payload);
+	// start with marker
+	packet_seq(A, 101 | 0x80, "\x08\x0a\x00\xa0", 1000160, 201, 101 | 0x80, "\x08\x0a\x00\xa0");
+	dtmf("");
+	// continuous event with increasing length
+	// XXX check output ts, seq, ssrc
+	packet_seq(A, 101, "\x08\x0a\x01\x40", 1000160, 202, 101, "\x08\x0a\x01\x40");
+	packet_seq(A, 101, "\x08\x0a\x01\xe0", 1000160, 203, 101, "\x08\x0a\x01\xe0");
+	packet_seq(A, 101, "\x08\x0a\x02\x80", 1000160, 204, 101, "\x08\x0a\x02\x80");
+	dtmf("");
+	// end
+	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"(null)\",\"event\":8,\"duration\":100,\"volume\":10}");
+	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
+	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
+	dtmf("");
+	// send some more audio
+	packet_seq_exp(A, 8, PCMA_payload, 1000960, 206, 8, PCMA_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1001120, 207, 8, PCMA_payload);
+	// enable blocking
+	call.block_dtmf = 1;
+	// start with marker
+	packet_seq_exp(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, -1, "", 0);
+	dtmf("");
+	// continuous event with increasing length
+	packet_seq(A, 101, "\x05\x0a\x01\x40", 1001280, 209, -1, "");
+	packet_seq(A, 101, "\x05\x0a\x01\xe0", 1001280, 210, -1, "");
+	dtmf("");
+	// end
+	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"(null)\",\"event\":5,\"duration\":80,\"volume\":10}");
+	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
+	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
+	dtmf("");
+	// final audio RTP test
+	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 8, PCMA_payload, 5); // expected seq is 207+5 for PT 8
+	end();
+
 	return 0;
 }
