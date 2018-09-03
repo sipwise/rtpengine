@@ -1056,6 +1056,8 @@ a string and determines the type of message. Currently the following commands ar
 * query
 * start recording
 * stop recording
+* block DTMF
+* unblock DTMF
 
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
@@ -1893,3 +1895,12 @@ The `stop recording` message must contain the key `call-id` as defined above. Th
 no additional keys.
 
 Disables call recording for the call. This can be sent during a call to imediatley stop recording it.
+
+`block DTMF` and `unblock DTMF` Messages
+----------------------------------------
+These message types must include the key `call-id` in the message. They enable and disable blocking of DTMF
+events (RFC 4733 type packets) for a call, respectively.
+
+When DTMF blocking is enabled for a call, DTMF event packets will not be forwarded to the receiving peer.
+If DTMF logging is enabled, DTMF events will still be logged to syslog while blocking is enabled. Blocking
+of DTMF events happens for an entire call and can be enabled and disabled at any time during call runtime.

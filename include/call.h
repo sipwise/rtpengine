@@ -399,6 +399,8 @@ struct call {
 
 	struct recording 	*recording;
 	str			metadata;
+
+	int			block_dtmf:1;
 };
 
 

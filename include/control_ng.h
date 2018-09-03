@@ -19,6 +19,8 @@ struct control_ng_stats {
 	int list;
 	int start_recording;
 	int stop_recording;
+	int block_dtmf;
+	int unblock_dtmf;
 	int errors;
 };
 

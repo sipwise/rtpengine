@@ -647,13 +647,15 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct transcode_packet *p
 		}
 	}
 
-	packet_dtmf_fwd(ch, packet, mp, 1);
+	if (!mp->call->block_dtmf)
+		packet_dtmf_fwd(ch, packet, mp, 1);
 	return 0;
 }
 static void packet_dtmf_dup(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
 		struct media_packet *mp)
 {
-	packet_dtmf_fwd(ch, packet, mp, 0);
+	if (!mp->call->block_dtmf)
+		packet_dtmf_fwd(ch, packet, mp, 0);
 }
 
 static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
