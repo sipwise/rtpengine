@@ -1,5 +1,5 @@
 Name:		ngcp-rtpengine
-Version:	6.4.0.0
+Version:	6.4.1.1
 Release:	1%{?dist}
 Summary:	The Sipwise NGCP rtpengine
 
@@ -9,14 +9,22 @@ URL:		https://github.com/sipwise/rtpengine
 Source0:	https://github.com/sipwise/rtpengine/archive/mr%{version}/%{name}-%{version}.tar.gz
 Conflicts:	%{name}-kernel < %{version}-%{release}
 
+%global with_transcoding 1
+
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel hiredis-devel
+BuildRequires:	libpcap-devel libevent-devel json-glib-devel 
 Requires(pre):	shadow-utils
+
+%if 0%{?with_transcoding} > 0
+BuildRequires:  ffmpeg-devel
+Requires(pre):	ffmpeg-libs
+%endif
+
 Requires:	nc
 # Remain compat with other installations
 Provides:	ngcp-rtpengine = %{version}-%{release}
-
 
 %description
 The Sipwise NGCP rtpengine is a proxy for RTP traffic and other UDP based
@@ -49,26 +57,30 @@ Requires(preun): dkms
 %{summary}.
 
 
+%if 0%{?with_transcoding} > 0
 %package recording
 Summary:        NGCP rtpengine recording daemon packet
 Group:          System Environment/Daemons
-BuildRequires:  gcc make redhat-rpm-config mysql-devel
+BuildRequires:  gcc make redhat-rpm-config mysql-devel ffmpeg-devel
 
 %description recording
 %{summary}.
 
+%endif
 
 %define binname rtpengine
+%define archname rtpengine-mr
 
 %{!?kversion: %define kversion %(uname -r)}
 # hint: this can be overridden with "--define kversion foo" on rpmbuild,
 # e.g. --define "kversion 2.6.32-696.23.1.el6.x86_64"
 
 %prep
-%setup -q
+%setup -q -n %{archname}%{version}
 
 
 %build
+%if 0%{?with_transcoding} > 0
 cd daemon
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ../iptables-extension
@@ -76,7 +88,13 @@ RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ../recording-daemon
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ..
-
+%else
+cd daemon
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no
+cd ../iptables-extension
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no
+cd ..
+%endif
 
 %install
 # Install the userspace daemon
@@ -84,25 +102,33 @@ install -D -p -m755 daemon/%{binname} %{buildroot}%{_sbindir}/%{binname}
 # Install CLI (command line interface)
 install -D -p -m755 utils/%{binname}-ctl %{buildroot}%{_sbindir}/%{binname}-ctl
 # Install recording daemon
+%if 0%{?with_transcoding} > 0
 install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_sbindir}/%{binname}-recording
+%endif
 
 ## Install the init.d script and configuration file
 install -D -p -m755 el/%{binname}.init \
 	%{buildroot}%{_initrddir}/%{name}
+%if 0%{?with_transcoding} > 0
 install -D -p -m755 el/%{binname}-recording.init \
         %{buildroot}%{_initrddir}/%{name}-recording
+%endif
 install -D -p -m644 el/%{binname}.sysconfig \
 	%{buildroot}%{_sysconfdir}/sysconfig/%{binname}
+%if 0%{?with_transcoding} > 0
 install -D -p -m644 el/%{binname}-recording.sysconfig \
 	%{buildroot}%{_sysconfdir}/sysconfig/%{binname}-recording
+%endif
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 mkdir -p %{buildroot}%{_var}/spool/%{binname}
 
 # Install config files
 install -D -p -m644 etc/%{binname}.sample.conf \
 	%{buildroot}%{_sysconfdir}/%{binname}/%{binname}.conf
+%if 0%{?with_transcoding} > 0
 install -D -p -m644 etc/%{binname}-recording.sample.conf \
 	%{buildroot}%{_sysconfdir}/%{binname}/%{binname}-recording.conf
+%endif
 
 # Install the iptables plugin
 install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
@@ -186,6 +212,7 @@ true
 %endif
 
 
+%if 0%{?with_transcoding} > 0
 %files recording
 # Recording daemon
 %{_sbindir}/%{binname}-recording
@@ -197,6 +224,7 @@ true
 %{_sysconfdir}/%{binname}/%{binname}-recording.conf
 # spool directory
 %attr(0750,%{name},%{name}) %dir %{_var}/spool/%{binname}
+%endif
 
 %changelog
 * Tue Jul 10 2018 netaskd <netaskd@gmail.com> - 6.4.0.0-1
