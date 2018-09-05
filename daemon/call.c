@@ -55,7 +55,7 @@ struct iterator_helper {
 struct xmlrpc_helper {
 	enum xmlrpc_format fmt;
 	GStringChunk		*c;
-	GSList			*tags_urls;
+	GQueue			strings;
 };
 
 const struct transport_protocol transport_protocols[] = {
@@ -302,14 +302,22 @@ void xmlrpc_kill_calls(void *p) {
 	sigset_t ss;
 	int i = 0;
 	int status;
-	str *tag;
+	str *tag, *tag2 = NULL, *tag3 = NULL;
 	const char *url;
 
-	while (xh->tags_urls && xh->tags_urls->next) {
+	int els_per_ent = 2;
+	if (xh->fmt == XF_KAMAILIO)
+		els_per_ent = 4;
+
+	while (xh->strings.length >= els_per_ent) {
 		usleep(10000);
 
-		tag = xh->tags_urls->data;
-		url = xh->tags_urls->next->data;
+		url = xh->strings.head->data;
+		tag = xh->strings.head->next->data;
+		if (xh->fmt == XF_KAMAILIO) {
+			tag2 = xh->strings.head->next->next->data;
+			tag3 = xh->strings.head->next->next->next->data;
+		}
 
 		ilog(LOG_INFO, "Forking child to close call with tag "STR_FORMAT" via XMLRPC call to %s",
 				STR_FMT(tag), url);
@@ -319,8 +327,8 @@ void xmlrpc_kill_calls(void *p) {
 retry:
 			pid = waitpid(pid, &status, 0);
 			if ((pid > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) || i >= 3) {
-				xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
-				xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
+				for (int i = 0; i < els_per_ent; i++)
+					g_queue_pop_head(&xh->strings);
 				i = 0;
 			}
 			else {
@@ -366,6 +374,10 @@ retry:
 		case XF_CALLID:
 			xmlrpc_client_call2f(&e, c, url, "teardown", &r, "(s)", tag->s);
 			break;
+		case XF_KAMAILIO:
+			xmlrpc_client_call2f(&e, c, url, "dlg.terminate_dlg", &r, "(sss)",
+					tag->s, tag2->s, tag3->s);
+			break;
 		}
 
 		if (r)
@@ -378,8 +390,8 @@ retry:
 		}
 
 		xmlrpc_client_destroy(c);
-		xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
-		xh->tags_urls = g_slist_delete_link(xh->tags_urls, xh->tags_urls);
+		for (int i = 0; i < els_per_ent; i++)
+			g_queue_pop_head(&xh->strings);
 		xmlrpc_env_clean(&e);
 
 		_exit(0);
@@ -396,7 +408,7 @@ fault:
 void kill_calls_timer(GSList *list, const char *url) {
 	struct call *ca;
 	GList *csl;
-	struct call_monologue *cm;
+	struct call_monologue *cm, *cd;
 	const char *url_prefix, *url_suffix;
 	struct xmlrpc_helper *xh = NULL;
 	char url_buf[128];
@@ -416,7 +428,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 		}
 		else
 			url_suffix = g_string_chunk_insert(xh->c, url);
-		xh->tags_urls = NULL;
+		g_queue_init(&xh->strings);
 		xh->fmt = rtpe_config.fmt;
 	}
 
@@ -447,14 +459,30 @@ void kill_calls_timer(GSList *list, const char *url) {
 			for (csl = ca->monologues.head; csl; csl = csl->next) {
 				cm = csl->data;
 				if (cm->tag.s && cm->tag.len) {
-					xh->tags_urls = g_slist_prepend(xh->tags_urls, g_string_chunk_insert(xh->c, url_buf));
-					xh->tags_urls = g_slist_prepend(xh->tags_urls, str_chunk_insert(xh->c, &cm->tag));
+					g_queue_push_tail(&xh->strings, g_string_chunk_insert(xh->c, url_buf));
+					g_queue_push_tail(&xh->strings, str_chunk_insert(xh->c, &cm->tag));
 				}
 			}
 			break;
 		case XF_CALLID:
-			xh->tags_urls = g_slist_prepend(xh->tags_urls, g_string_chunk_insert(xh->c, url_buf));
-			xh->tags_urls = g_slist_prepend(xh->tags_urls, str_chunk_insert(xh->c, &ca->callid));
+			g_queue_push_tail(&xh->strings, g_string_chunk_insert(xh->c, url_buf));
+			g_queue_push_tail(&xh->strings, str_chunk_insert(xh->c, &ca->callid));
+			break;
+		case XF_KAMAILIO:
+			for (csl = ca->monologues.head; csl; csl = csl->next) {
+				cm = csl->data;
+				cd = cm->active_dialogue;
+				if (cm->tag.s && cm->tag.len && cd && cd->tag.s && cd->tag.len) {
+					g_queue_push_tail(&xh->strings,
+							g_string_chunk_insert(xh->c, url_buf));
+					g_queue_push_tail(&xh->strings,
+							str_chunk_insert(xh->c, &ca->callid));
+					g_queue_push_tail(&xh->strings,
+							str_chunk_insert(xh->c, &cm->tag));
+					g_queue_push_tail(&xh->strings,
+							str_chunk_insert(xh->c, &cd->tag));
+				}
+			}
 			break;
 		}
 

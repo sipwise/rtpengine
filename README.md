@@ -212,7 +212,7 @@ option and which are reproduced below:
 	  --log-facility-dtmf=local0|...   Syslog facility to use for logging DTMF
 	  --log-format=default|parsable    Log prefix format
 	  -E, --log-stderr                 Log on stderr instead of syslog
-	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only
+	  -x, --xmlrpc-format=INT          XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only, 2: Kamailio
 	  --num-threads=INT                Number of worker threads to create
 	  -d, --delete-delay               Delay for deleting a session from memory.
 	  --sip-source                     Use SIP source address by default
@@ -513,7 +513,7 @@ The options are described in more detail below.
 * -x, --xmlrpc-format
 
 	Selects the internal format of the XMLRPC callback message for B2BUA call teardown. 0 is for SEMS,
-	1 is for a generic format containing the call-ID only.
+	1 is for a generic format containing the call-ID only, 2 is for Kamailio.
 
 * --max-sessions
 

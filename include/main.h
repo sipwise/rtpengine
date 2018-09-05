@@ -10,6 +10,7 @@
 enum xmlrpc_format {
 	XF_SEMS = 0,
 	XF_CALLID,
+	XF_KAMAILIO,
 };
 enum log_format {
 	LF_DEFAULT = 0,
