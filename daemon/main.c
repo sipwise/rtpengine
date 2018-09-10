@@ -22,6 +22,7 @@
 #include "control_ng.h"
 #include "aux.h"
 #include "log.h"
+#include "service.h"
 #include "call.h"
 #include "kernel.h"
 #include "redis.h"
@@ -817,6 +818,8 @@ int main(int argc, char **argv) {
 			rtpe_config.num_threads = 4;
 	}
 
+	service_notify("READY=1\n");
+
 	for (;idx<rtpe_config.num_threads;++idx) {
 		thread_create_detach_prio(poller_loop, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority);
 	}
@@ -825,6 +828,8 @@ int main(int argc, char **argv) {
 		usleep(100000);
 		threads_join_all(0);
 	}
+
+	service_notify("STOPPING=1\n");
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
 		redis_notify_event_base_action(EVENT_BASE_LOOPBREAK);

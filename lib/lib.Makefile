@@ -25,6 +25,15 @@ ifeq ($(RTPENGINE_VERSION),)
 endif
 CFLAGS+=	-DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
 
+# look for libsystemd
+ifeq ($(shell pkg-config --exists libsystemd && echo yes),yes)
+have_libsystemd := yes
+endif
+ifeq ($(have_libsystemd),yes)
+CFLAGS+=	$(shell pkg-config --cflags libsystemd)
+CFLAGS+=	-DHAVE_LIBSYSTEMD
+LDLIBS+=	$(shell pkg-config --libs libsystemd)
+endif
 
 ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1

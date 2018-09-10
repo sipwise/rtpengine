@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <mysql.h>
 #include "log.h"
+#include "service.h"
 #include "epoll.h"
 #include "inotify.h"
 #include "metafile.h"
@@ -188,11 +189,14 @@ int main(int argc, char **argv) {
 	daemonize();
 	wpidfile();
 
+	service_notify("READY=1\n");
+
 	for (int i = 0; i < num_threads; i++)
 		start_poller_thread();
 
 	wait_for_signal();
 
+	service_notify("STOPPING=1\n");
 	dbg("shutting down");
 
 	wait_threads_finish();

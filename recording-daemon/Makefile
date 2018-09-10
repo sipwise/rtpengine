@@ -26,7 +26,7 @@ LDLIBS+=	$(shell pkg-config --libs openssl)
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
 		decoder.c output.c mix.c db.c log.c forward.c
-LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c
+LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c service.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
 include ../lib/common.Makefile
