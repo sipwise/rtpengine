@@ -20,6 +20,7 @@ extern struct rtpengine_common_config *rtpe_common_config_ptr;
 
 void daemonize(void);
 void wpidfile(void);
+void service_notify(const char *message);
 void config_load(int *argc, char ***argv, GOptionEntry *entries, const char *description,
 		char *default_config, char *default_section,
 		struct rtpengine_common_config *);

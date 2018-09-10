@@ -7,7 +7,7 @@ Requires=network-online.target
 Requires=ngcp-rtpengine-recording-nfs-mount.service
 
 [Service]
-Type=simple
+Type=notify
 PIDFile=/run/ngcp-rtpengine-recording-daemon.pid
 ExecStart=/usr/sbin/rtpengine-recording -f -E --pidfile /run/ngcp-rtpengine-recording-daemon.pid --config-file /etc/rtpengine/rtpengine-recording.conf
 

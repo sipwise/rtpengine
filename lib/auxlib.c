@@ -7,6 +7,9 @@
 #include <string.h>
 #include <errno.h>
 #include <inttypes.h>
+#ifdef HAVE_LIBSYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
 #include "log.h"
 #include "loglib.h"
 
@@ -41,6 +44,12 @@ void wpidfile() {
 
 	fprintf(fp, "%u\n", getpid());
 	fclose(fp);
+}
+
+void service_notify(const char *message) {
+#ifdef HAVE_LIBSYSTEMD
+	sd_notify(0, message);
+#endif
 }
 
 
