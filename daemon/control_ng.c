@@ -224,6 +224,14 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		errstr = call_unblock_dtmf_ng(dict, resp);
 		g_atomic_int_inc(&cur->unblock_dtmf);
 	}
+	else if (!str_cmp(&cmd, "block media")) {
+		errstr = call_block_media_ng(dict, resp);
+		g_atomic_int_inc(&cur->block_media);
+	}
+	else if (!str_cmp(&cmd, "unblock media")) {
+		errstr = call_unblock_media_ng(dict, resp);
+		g_atomic_int_inc(&cur->unblock_media);
+	}
 	else
 	{
 		errstr = "Unrecognized command";

@@ -516,6 +516,9 @@ void codec_add_raw_packet(struct media_packet *mp) {
 	g_queue_push_tail(&mp->packets_out, p);
 }
 static int handler_func_passthrough(struct codec_handler *h, struct media_packet *mp) {
+	if (mp->stream->call->block_media || mp->stream->media->monologue->block_media)
+		return 0;
+
 	codec_add_raw_packet(mp);
 	return 0;
 }
@@ -806,6 +809,8 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
 		return handler_func_passthrough(h, mp);
+	if (mp->stream->call->block_media || mp->stream->media->monologue->block_media)
+		return 0;
 
 	// substitute out SSRC
 	mp->rtp->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
