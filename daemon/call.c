@@ -2334,7 +2334,7 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 }
 
 /* must be called with call->master_lock held in W */
-static void __monologue_unkernelize(struct call_monologue *monologue) {
+void __monologue_unkernelize(struct call_monologue *monologue) {
 	GList *l, *m;
 	struct call_media *media;
 	struct packet_stream *stream;
