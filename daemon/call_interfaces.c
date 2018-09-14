@@ -607,6 +607,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		out->media_handover = 1;
 	else if (!str_cmp(s, "reset"))
 		out->reset = 1;
+	else if (!str_cmp(s, "all"))
+		out->all = 1;
 	else if (!str_cmp(s, "port-latching"))
 		out->port_latching = 1;
 	else if (!str_cmp(s, "record-call"))
@@ -1355,6 +1357,54 @@ const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output
 	return NULL;
 }
 
+static const char *media_block_match(struct call **call, struct call_monologue **monologue,
+		bencode_item_t *input)
+{
+	str callid;
+	str s;
+
+	*call = NULL;
+	*monologue = NULL;
+
+	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+		return "No call-id in message";
+	*call = call_get_opmode(&callid, OP_OTHER);
+	if (!*call)
+		return "Unknown call-id";
+
+	// directional block?
+	if (bencode_dictionary_get_str(input, "from-tag", &s)) {
+		*monologue = call_get_mono_dialogue(*call, &s, NULL, NULL);
+		if (!*monologue)
+			return "From-tag given, but no such tag exists";
+	}
+	else if (bencode_dictionary_get_str(input, "address", &s)) {
+		sockaddr_t addr;
+		if (sockaddr_parse_any_str(&addr, &s))
+			return "Failed to parse network address";
+		// walk our structures to find a matching stream
+		for (GList *l = (*call)->monologues.head; l; l = l->next) {
+			*monologue = l->data;
+			for (GList *k = (*monologue)->medias.head; k; k = k->next) {
+				struct call_media *media = k->data;
+				if (!media->streams.head)
+					continue;
+				struct packet_stream *ps = media->streams.head->data;
+				if (!sockaddr_eq(&addr, &ps->advertised_endpoint.address))
+					continue;
+				ilog(LOG_DEBUG, "Matched address %s to tag '" STR_FORMAT "'",
+						sockaddr_print_buf(&addr), STR_FMT(&(*monologue)->tag));
+				goto found;
+			}
+		}
+		return "Failed to match address to any tag";
+found:
+		;
+	}
+
+	return NULL;
+}
+
 const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	str callid;
 	struct call *call;
@@ -1389,6 +1439,79 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
+
+	return NULL;
+}
+
+const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
+	struct call *call;
+	struct call_monologue *monologue;
+	const char *errstr = NULL;
+
+	errstr = media_block_match(&call, &monologue, input);
+	if (errstr)
+		goto out;
+
+	if (monologue) {
+		ilog(LOG_INFO, "Blocking directional media (tag '" STR_FORMAT ")",
+				STR_FMT(&monologue->tag));
+		monologue->block_media = 1;
+		__monologue_unkernelize(monologue);
+	}
+	else {
+		ilog(LOG_INFO, "Blocking media (entire call)");
+		call->block_media = 1;
+		__call_unkernelize(call);
+	}
+
+	errstr = NULL;
+out:
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+	}
+
+	return errstr;
+}
+
+const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output) {
+	struct call *call;
+	struct call_monologue *monologue;
+	const char *errstr = NULL;
+	struct sdp_ng_flags flags;
+
+	errstr = media_block_match(&call, &monologue, input);
+	if (errstr)
+		goto out;
+
+	call_ng_process_flags(&flags, input);
+
+	if (monologue) {
+		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT ")",
+				STR_FMT(&monologue->tag));
+		monologue->block_media = 0;
+		__monologue_unkernelize(monologue);
+	}
+	else {
+		ilog(LOG_INFO, "Unblocking media (entire call)");
+		call->block_media = 0;
+		if (flags.all) {
+			for (GList *l = call->monologues.head; l; l = l->next) {
+				monologue = l->data;
+				monologue->block_media = 0;
+			}
+		}
+		__call_unkernelize(call);
+	}
+
+	errstr = NULL;
+out:
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+	}
+
+
 
 	return NULL;
 }
