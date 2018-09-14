@@ -979,6 +979,8 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (!stream->selected_sfd)
 		goto no_kernel;
+	if (stream->media->monologue->block_media || call->block_media)
+		goto no_kernel;
 
         ilog(LOG_INFO, "Kernelizing media stream: %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
 
