@@ -58,19 +58,21 @@ GetOptions(
 	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
 	'always-transcode'		=> \$options{'always transcode'},
 	'metadata=s'			=> \$options{'metadata'},
+	'all'				=> \$options{'all'},
+	'address=s'			=> \$options{'address'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
 for my $x (split(/,/, 'TOS,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,loop protect,record call,always transcode')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,loop protect,record call,always transcode,all')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection')) {

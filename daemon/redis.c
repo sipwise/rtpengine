@@ -1199,6 +1199,7 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 
 static int redis_tags(struct call *c, struct redis_list *tags) {
 	unsigned int i;
+	int ii;
 	struct redis_hash *rh;
 	struct call_monologue *ml;
 	str s;
@@ -1219,6 +1220,8 @@ static int redis_tags(struct call *c, struct redis_list *tags) {
 		if (!redis_hash_get_str(&s, rh, "label"))
 			call_str_cpy(c, &ml->label, &s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
+		if (!redis_hash_get_int(&ii, rh, "block_media"))
+			ml->block_media = ii ? 1 : 0;
 
 		tags->ptrs[i] = ml;
 	}
@@ -1581,6 +1584,8 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 		sockaddr_parse_any_str(&c->created_from_addr, &id);
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))
 		c->block_dtmf = i ? 1 : 0;
+	if (!redis_hash_get_int(&i, &call, "block_media"))
+		c->block_media = i ? 1 : 0;
 
 	err = "missing 'redis_hosted_db' value";
 	if (redis_hash_get_unsigned((unsigned int *) &c->redis_hosted_db, &call, "redis_hosted_db"))
@@ -1862,6 +1867,7 @@ char* redis_encode_json(struct call *c) {
 			JSON_SET_SIMPLE("redis_hosted_db","%u",c->redis_hosted_db);
 			JSON_SET_SIMPLE_STR("recording_metadata",&c->metadata);
 			JSON_SET_SIMPLE("block_dtmf","%i",c->block_dtmf ? 1 : 0);
+			JSON_SET_SIMPLE("block_media","%i",c->block_media ? 1 : 0);
 
 			if ((rec = c->recording)) {
 				JSON_SET_SIMPLE_CSTR("recording_meta_prefix",rec->meta_prefix);
@@ -1959,6 +1965,7 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("created","%llu",(long long unsigned) ml->created);
 				JSON_SET_SIMPLE("active","%u",ml->active_dialogue ? ml->active_dialogue->unique_id : -1);
 				JSON_SET_SIMPLE("deleted","%llu",(long long unsigned) ml->deleted);
+				JSON_SET_SIMPLE("block_media","%i",ml->block_media ? 1 : 0);
 
 				if (ml->tag.s)
 					JSON_SET_SIMPLE_STR("tag",&ml->tag);

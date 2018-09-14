@@ -858,6 +858,20 @@ int main() {
 	dtmf("");
 	// final audio RTP test
 	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 8, PCMA_payload, 5); // expected seq is 207+5 for PT 8
+	packet_seq_exp(A, 8, PCMA_payload, 1001120, 213, 8, PCMA_payload, 1);
+	// media blocking
+	ml_A.block_media = 1;
+	packet_seq_exp(A, 8, PCMA_payload, 1001280, 214, -1, "", 0);
+	packet_seq_exp(A, 8, PCMA_payload, 1001440, 215, -1, "", 0);
+	ml_A.block_media = 0;
+	packet_seq_exp(A, 8, PCMA_payload, 1001600, 216, 8, PCMA_payload, 3);
+	call.block_media = 1;
+	packet_seq_exp(A, 8, PCMA_payload, 1001760, 217, -1, "", 0);
+	packet_seq_exp(A, 8, PCMA_payload, 1001920, 218, -1, "", 0);
+	call.block_media = 0;
+	packet_seq_exp(A, 8, PCMA_payload, 1002080, 219, 8, PCMA_payload, 3);
+	ml_B.block_media = 1;
+	packet_seq_exp(A, 8, PCMA_payload, 1002240, 220, 8, PCMA_payload, 1);
 	end();
 
 	// DTMF passthrough w/ transcoding - blocking
@@ -913,6 +927,20 @@ int main() {
 	dtmf("");
 	// final audio RTP test
 	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 0, PCMU_payload, 1); // expected seq is 207+1 for PT 8
+	packet_seq_exp(A, 8, PCMA_payload, 1001120, 213, 0, PCMU_payload, 1);
+	// media blocking
+	ml_A.block_media = 1;
+	packet_seq_exp(A, 8, PCMA_payload, 1001280, 214, -1, "", 0);
+	packet_seq_exp(A, 8, PCMA_payload, 1001440, 215, -1, "", 0);
+	ml_A.block_media = 0;
+	packet_seq_exp(A, 8, PCMA_payload, 1001600, 214, 0, PCMU_payload, 1); // cheat with the seq here - 216 would get held by the jitter buffer
+	call.block_media = 1;
+	packet_seq_exp(A, 8, PCMA_payload, 1001760, 215, -1, "", 0);
+	packet_seq_exp(A, 8, PCMA_payload, 1001920, 216, -1, "", 0);
+	call.block_media = 0;
+	packet_seq_exp(A, 8, PCMA_payload, 1002080, 215, 0, PCMU_payload, 1);
+	ml_B.block_media = 1;
+	packet_seq_exp(A, 8, PCMA_payload, 1002240, 216, 0, PCMU_payload, 1);
 	end();
 
 	// plain DTMF passthrough w/o transcoding w/ implicit primary payload type - blocking
@@ -967,6 +995,20 @@ int main() {
 	dtmf("");
 	// final audio RTP test
 	packet_seq_exp(A, 0, PCMU_payload, 1000960, 212, 0, PCMU_payload, 5); // expected seq is 207+5 for PT 8
+	packet_seq_exp(A, 0, PCMU_payload, 1001120, 213, 0, PCMU_payload, 1);
+	// media blocking
+	ml_A.block_media = 1;
+	packet_seq_exp(A, 0, PCMU_payload, 1001280, 214, -1, "", 0);
+	packet_seq_exp(A, 0, PCMU_payload, 1001440, 215, -1, "", 0);
+	ml_A.block_media = 0;
+	packet_seq_exp(A, 0, PCMU_payload, 1001600, 216, 0, PCMU_payload, 3);
+	call.block_media = 1;
+	packet_seq_exp(A, 0, PCMU_payload, 1001760, 217, -1, "", 0);
+	packet_seq_exp(A, 0, PCMU_payload, 1001920, 218, -1, "", 0);
+	call.block_media = 0;
+	packet_seq_exp(A, 0, PCMU_payload, 1002080, 219, 0, PCMU_payload, 3);
+	ml_B.block_media = 1;
+	packet_seq_exp(A, 0, PCMU_payload, 1002240, 220, 0, PCMU_payload, 1);
 	end();
 
 	return 0;

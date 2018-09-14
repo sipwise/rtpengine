@@ -1058,6 +1058,8 @@ a string and determines the type of message. Currently the following commands ar
 * stop recording
 * block DTMF
 * unblock DTMF
+* block media
+* unblock media
 
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
@@ -1230,6 +1232,12 @@ Optionally included keys are:
 		flow, and potentially transcoding media when it otherwise would not have to.
 
 		This flag should be given as part of the `answer` message.
+
+	- `all`
+
+		Only relevant to the `unblock media` message. Instructs *rtpengine* to remove not only a
+		full-call media block, but also remove directional media blocks that were imposed on
+		individual participants.
 
 * `replace`
 
@@ -1904,3 +1912,19 @@ events (RFC 4733 type packets) for a call, respectively.
 When DTMF blocking is enabled for a call, DTMF event packets will not be forwarded to the receiving peer.
 If DTMF logging is enabled, DTMF events will still be logged to syslog while blocking is enabled. Blocking
 of DTMF events happens for an entire call and can be enabled and disabled at any time during call runtime.
+
+`block media` and `unblock media` Messages
+------------------------------------------
+Analogous to `block DTMF` and `unblock DTMF` but blocks media packets instead of DTMF packets. DTMF packets
+can still pass through when media blocking is enabled.
+
+Media can be blocked for an entire call if only the `call-id` key is present in the message, or can be blocked
+directionally for individual participants. Participants can be selected by their SIP tag if the `from-tag` key
+is included in the message, or they can be selected by their SDP media address if the `address` key is included
+in the message. In the latter case, the address can be an IPv4 or IPv6 address, and any participant that is
+found to have a matching address advertised as their SDP media address will have their originating media
+packets blocked (or unblocked).
+
+Unblocking media for the entire call (i.e. only `call-id` is given) does not automatically unblock media for
+participants which had their media blocked directionally, unless the string `all` is included in the `flags`
+section of the message.
