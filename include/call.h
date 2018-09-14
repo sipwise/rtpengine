@@ -364,6 +364,8 @@ struct call_monologue {
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
 	GQueue			medias;
+
+	int			block_media:1;
 };
 
 struct call {
@@ -401,6 +403,7 @@ struct call {
 	str			metadata;
 
 	int			block_dtmf:1;
+	int			block_media:1;
 };
 
 
@@ -434,6 +437,7 @@ struct call_media *call_media_new(struct call *call);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
 void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media);
+void __monologue_unkernelize(struct call_monologue *monologue);
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
 		int *len, const struct local_intf *ifa, int keep_unspec);
@@ -504,6 +508,12 @@ INLINE struct packet_stream *packet_stream_sink(struct packet_stream *ps) {
 	if (!ret)
 		ret = ps->rtcp_sink;
 	return ret;
+}
+INLINE void __call_unkernelize(struct call *call) {
+	for (GList *l = call->monologues.head; l; l = l->next) {
+		struct call_monologue *ml = l->data;
+		__monologue_unkernelize(ml);
+	}
 }
 
 #endif

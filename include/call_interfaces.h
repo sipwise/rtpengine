@@ -96,6 +96,8 @@ const char *call_start_recording_ng(bencode_item_t *, bencode_item_t *);
 const char *call_stop_recording_ng(bencode_item_t *, bencode_item_t *);
 const char *call_block_dtmf_ng(bencode_item_t *, bencode_item_t *);
 const char *call_unblock_dtmf_ng(bencode_item_t *, bencode_item_t *);
+const char *call_block_media_ng(bencode_item_t *, bencode_item_t *);
+const char *call_unblock_media_ng(bencode_item_t *, bencode_item_t *);
 void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output,
 		struct call_stats *totals);
 
