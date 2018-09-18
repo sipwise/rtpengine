@@ -9,12 +9,12 @@ ifeq ($(RTPENGINE_VERSION),)
   ifneq ($(DPKG_PRSCHNGLG),)
     DPKG_PRSCHNGLG=$(shell dpkg-parsechangelog -l$(DEB_CHANGELOG) | awk '/^Version: / {print $$2}')
   endif
-  GIT_BR_COMMIT=git-$(shell cd $(M) && git rev-parse --abbrev-ref --symbolic-full-name HEAD)-$(shell cd $(M) && git rev-parse --short HEAD)
+  GIT_BR_COMMIT=git-$(shell cd $(M) && git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(shell cd $(M) && git rev-parse --short HEAD 2> /dev/null)
 
   ifneq ($(DPKG_PRSCHNGLG),)
     RTPENGINE_VERSION+=$(DPKG_PRSCHNGLG)
   endif
-  ifneq ($(GIT_BR_COMMIT),)
+  ifneq ($(GIT_BR_COMMIT),git--)
     RTPENGINE_VERSION+=$(GIT_BR_COMMIT)
   endif
 
