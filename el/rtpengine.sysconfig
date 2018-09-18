@@ -40,3 +40,6 @@ CONFIG_FILE=/etc/rtpengine/rtpengine.conf # main config file
 #HOMER_PROTO=udp		# Transport protocol for Homer (default udp)
 #HOMER_ID=1234		# 'Capture ID' to use within the HEP protocol
 
+#GRAPHITE=127.0.0.1:2003    # TCP address of graphite statistics server
+#GRAPHITE_INTERVAL=60       # Graphite data statistics send interval
+#GRAPHITE_PREFIX=STRING     # Graphite prefix for every line
