@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+# Usage: $0 <file> [payload type num] [payload type str]
+# Ex:    $0 foo.pcap
+# Ex:    $0 foo.pcap 97 opus/48000
 use strict;
 use warnings;
 use Net::Pcap;
@@ -52,6 +55,9 @@ for my $key (@tag_keys) {
 		put_meta("STREAM $stream->{stream_id} details",
 			"TAG $tag_id MEDIA $stream->{media_id} COMPONENT $stream->{component} ".
 			"FLAGS 0");
+		if ($ARGV[2]) {
+			put_meta("MEDIA $stream->{media_id} PAYLOAD TYPE $ARGV[1]", $ARGV[2]);
+		}
 		my @ret = msg_ret(7, '', 'I I I I',
 			'I I I a256', $cid, 0, 0, $sname);
 		my $sid = $ret[3];
