@@ -36,7 +36,7 @@ CONFIG_FILE=/etc/rtpengine/rtpengine.conf # main config file
 #SET_USER=ngcp-rtpengine	# Run rtpengine as this specific user
 #SET_GROUP=ngcp-rtpengine	# allow this group to control rtpengine in kernel mode
 
-#HOMER_SERVER=127.0.0.1:9060	# Address of Homer server for RTCP stats
+#HOMER=127.0.0.1:9060	# Address of Homer server for RTCP stats
 #HOMER_PROTO=udp		# Transport protocol for Homer (default udp)
-#HOMER_CAPTURE_ID=1234		# 'Capture ID' to use within the HEP protocol
+#HOMER_ID=1234		# 'Capture ID' to use within the HEP protocol
 
