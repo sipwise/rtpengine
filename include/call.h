@@ -365,6 +365,7 @@ struct call_monologue {
 	struct call_monologue	*active_dialogue;
 	GQueue			medias;
 
+	int			block_dtmf:1;
 	int			block_media:1;
 };
 

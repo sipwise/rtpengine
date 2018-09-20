@@ -1220,6 +1220,8 @@ static int redis_tags(struct call *c, struct redis_list *tags) {
 		if (!redis_hash_get_str(&s, rh, "label"))
 			call_str_cpy(c, &ml->label, &s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
+		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
+			ml->block_dtmf = ii ? 1 : 0;
 		if (!redis_hash_get_int(&ii, rh, "block_media"))
 			ml->block_media = ii ? 1 : 0;
 
@@ -1965,6 +1967,7 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("created","%llu",(long long unsigned) ml->created);
 				JSON_SET_SIMPLE("active","%u",ml->active_dialogue ? ml->active_dialogue->unique_id : -1);
 				JSON_SET_SIMPLE("deleted","%llu",(long long unsigned) ml->deleted);
+				JSON_SET_SIMPLE("block_dtmf","%i",ml->block_dtmf ? 1 : 0);
 				JSON_SET_SIMPLE("block_media","%i",ml->block_media ? 1 : 0);
 
 				if (ml->tag.s)
