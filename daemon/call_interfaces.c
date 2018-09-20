@@ -1406,39 +1406,68 @@ found:
 }
 
 const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
-	str callid;
 	struct call *call;
+	struct call_monologue *monologue;
+	const char *errstr = NULL;
 
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
-		return "No call-id in message";
-	call = call_get_opmode(&callid, OP_OTHER);
-	if (!call)
-		return "Unknown call-id";
+	errstr = media_block_match(&call, &monologue, input);
+	if (errstr)
+		goto out;
 
-	ilog(LOG_INFO, "Blocking DTMF");
-	call->block_dtmf = 1;
+	if (monologue) {
+		ilog(LOG_INFO, "Blocking directional DTMF (tag '" STR_FORMAT ")",
+				STR_FMT(&monologue->tag));
+		monologue->block_dtmf = 1;
+	}
+	else {
+		ilog(LOG_INFO, "Blocking DTMF (entire call)");
+		call->block_dtmf = 1;
+	}
 
-	rwlock_unlock_w(&call->master_lock);
-	obj_put(call);
+	errstr = NULL;
+out:
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+	}
 
-	return NULL;
+	return errstr;
 }
 
 const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
-	str callid;
 	struct call *call;
+	struct call_monologue *monologue;
+	const char *errstr = NULL;
+	struct sdp_ng_flags flags;
 
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
-		return "No call-id in message";
-	call = call_get_opmode(&callid, OP_OTHER);
-	if (!call)
-		return "Unknown call-id";
+	errstr = media_block_match(&call, &monologue, input);
+	if (errstr)
+		goto out;
 
-	ilog(LOG_INFO, "Unblocking DTMF");
-	call->block_dtmf = 0;
+	call_ng_process_flags(&flags, input);
 
-	rwlock_unlock_w(&call->master_lock);
-	obj_put(call);
+	if (monologue) {
+		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT ")",
+				STR_FMT(&monologue->tag));
+		monologue->block_dtmf = 0;
+	}
+	else {
+		ilog(LOG_INFO, "Unblocking DTMF (entire call)");
+		call->block_dtmf = 0;
+		if (flags.all) {
+			for (GList *l = call->monologues.head; l; l = l->next) {
+				monologue = l->data;
+				monologue->block_dtmf = 0;
+			}
+		}
+	}
+
+	errstr = NULL;
+out:
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+	}
 
 	return NULL;
 }
@@ -1510,8 +1539,6 @@ out:
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);
 	}
-
-
 
 	return NULL;
 }
