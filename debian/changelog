@@ -1,3 +1,50 @@
+ngcp-rtpengine (7.0.0.0+0~mr7.0.0.0) unstable; urgency=medium
+
+  [ Alexander Lutay ]
+  * [bc9f09c] TT#41051 Fix shellcheck warning for Red Hat init scripts
+
+  [ Richard Fuchs ]
+  * [178391e] fix possible core dump when processing certain malformed SDP
+  * [0aeb06f] TT#40900 store metadata in call struct instead of recording struct
+  * [694e9d8] do not memcmp against uninitialized bytes
+  * [89c0aa1] additional options for test scripts
+  * [a44b34a] don't free event base before calling loopbreak()
+  * [59d3399] add DTMF capability to simulator test script
+  * [d4afb14] fix DTMF packet allocation size
+  * [b4cac09] use git plumbing to determine branch and commit IDs
+  * [7dd8ed0] quote options value strings in error output
+  * [828e2ee] add missing lock for configuring mixed output decoder
+  * [135dfb7] fix handling of >1 consecutive media ports
+  * [cab9d89] TT#42500 fix only one crypto suite being offered.
+  * [b82cf56] clean up code artefacts from cab9d895
+  * [e67b9c4] TT#43556 support blocking of DTMF event packets
+  * [89084da] TT#43855 support XMLRPC callback to Kamailio
+  * [34759b7] add ability to specify payload type in pcap replay script
+  * [4e6f2dc] silence build warnings when no git is present
+  * [04a8302] TT#43557 implement media blocking
+  * [326c6a5] TT#43557 augment DTMF blocking to support directional blocking
+
+  [ Eric Green ]
+  * [f91b64f] Make recording more accurately report source address. Fixes #584
+
+  [ Guillem Jover ]
+  * [0224a49] TT#40459 Move the rtpengine NFS mount point into its own systemd unit
+  * [5ba5295] TT#42906 Add systemd notify support
+
+  [ netaskd ]
+  * [8f4c547] update rtpengine-recording pid filename
+
+  [ Alexey Vasilyev ]
+  * [422e18d] Separate build with/without transcoding
+
+  [ Øyvind Kolbu ]
+  * [cceadfd] Match latest variable names in rtpengine.init.
+  * [a69bf05] Add Graphite options to el sysconfig.
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 24 Sep 2018 18:58:56 +0200
+
 ngcp-rtpengine (6.5.0.0+0~mr6.5.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
