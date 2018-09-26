@@ -16,6 +16,7 @@
 #include "mix.h"
 #include "db.h"
 #include "forward.h"
+#include "tag.h"
 
 static pthread_mutex_t metafiles_lock = PTHREAD_MUTEX_INITIALIZER;
 static GHashTable *metafiles;
@@ -34,6 +35,11 @@ static void meta_free(void *ptr) {
 		stream_free(stream);
 	}
 	g_ptr_array_free(mf->streams, TRUE);
+	for (int i = 0; i < mf->tags->len; i++) {
+		tag_t *tag = g_ptr_array_index(mf->tags, i);
+		tag_free(tag);
+	}
+	g_ptr_array_free(mf->tags, TRUE);
 	if (mf->ssrc_hash)
 		g_hash_table_destroy(mf->ssrc_hash);
 	g_slice_free1(sizeof(*mf), mf);
@@ -71,7 +77,7 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 			snprintf(buf, sizeof(buf), "%s-mix", mf->parent);
 			mf->mix_out = output_new(output_dir, buf);
 			mf->mix = mix_new();
-			db_do_stream(mf, mf->mix_out, "mixed", 0, 0);
+			db_do_stream(mf, mf->mix_out, "mixed", NULL, 0);
 		}
 		pthread_mutex_unlock(&mf->mix_lock);
 	}
@@ -83,6 +89,11 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 // mf is locked
 static void meta_stream_details(metafile_t *mf, unsigned long snum, char *content) {
 	dbg("stream %lu details %s", snum, content);
+	unsigned int tag, media, tm, cmp, flags;
+	if (sscanf_match(content, "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %u",
+				&tag, &media, &tm, &cmp, &flags) != 5)
+		return;
+	stream_details(mf, snum, tag);
 }
 
 
@@ -131,6 +142,10 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		meta_stream_details(mf, lu, content);
 	else if (sscanf_match(section, "MEDIA %lu PAYLOAD TYPE %u", &lu, &u) == 2)
 		meta_rtp_payload_type(mf, lu, u, content);
+	else if (sscanf_match(section, "TAG %lu", &lu) == 1)
+		tag_name(mf, lu, content);
+	else if (sscanf_match(section, "LABEL %lu", &lu) == 1)
+		tag_label(mf, lu, content);
 }
 
 
@@ -148,6 +163,7 @@ static metafile_t *metafile_get(char *name) {
 	mf->name = g_string_chunk_insert(mf->gsc, name);
 	pthread_mutex_init(&mf->lock, NULL);
 	mf->streams = g_ptr_array_new();
+	mf->tags = g_ptr_array_new();
 	mf->forward_fd = -1;
 	mf->forward_count = 0;
 	mf->forward_failed = 0;

@@ -78,8 +78,9 @@ static int check_conn() {
 				"file_format, " \
 				"output_type, " \
 				"stream_id, ssrc, " \
+				"tag_label, " \
 				"start_timestamp) values " \
-				"(?,concat(?,'.',?),concat(?,'.',?),?,?,?,?,?)"))
+				"(?,concat(?,'.',?),concat(?,'.',?),?,?,?,?,?,?)"))
 		goto err;
 	if (prep(&stm_close_call, "update recording_calls set " \
 				"end_timestamp = ?, status = 'completed' where id = ?"))
@@ -253,7 +254,8 @@ void db_do_call(metafile_t *mf) {
 }
 
 
-void db_do_stream(metafile_t *mf, output_t *op, const char *type, unsigned int id, unsigned long ssrc) {
+// mf is locked
+void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stream, unsigned long ssrc) {
 	if (check_conn())
 		return;
 	if (mf->db_id == 0)
@@ -261,9 +263,10 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, unsigned int i
 	if (op->db_id > 0)
 		return;
 
+	unsigned long id = stream ? stream->id : 0;
 	double now = now_double();
 
-	MYSQL_BIND b[10];
+	MYSQL_BIND b[11];
 	my_ull(&b[0], &mf->db_id);
 	my_cstr(&b[1], op->file_name);
 	my_cstr(&b[2], op->file_format);
@@ -283,7 +286,13 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, unsigned int i
 		.buffer_length = sizeof(ssrc),
 		.is_unsigned = 1,
 	};
-	my_d(&b[9], &now);
+	if (stream && mf->tags->len < stream->tag) {
+		tag_t *tag = g_ptr_array_index(mf->tags, stream->tag);
+		my_cstr(&b[9], tag->label ? : "");
+	}
+	else
+		my_cstr(&b[9], "");
+	my_d(&b[10], &now);
 
 	execute_wrap(&stm_insert_stream, b, &op->db_id);
 }

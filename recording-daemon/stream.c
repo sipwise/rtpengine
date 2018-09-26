@@ -106,6 +106,7 @@ static stream_t *stream_get(metafile_t *mf, unsigned long id) {
 	ret->fd = -1;
 	ret->id = id;
 	ret->metafile = mf;
+	ret->tag = (unsigned long) -1;
 
 out:
 	return ret;
@@ -133,4 +134,9 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 	stream->handler.ptr = stream;
 	stream->handler.func = stream_handler;
 	epoll_add(stream->fd, EPOLLIN, &stream->handler);
+}
+
+void stream_details(metafile_t *mf, unsigned long id, unsigned int tag) {
+	stream_t *stream = stream_get(mf, id);
+	stream->tag = tag;
 }
