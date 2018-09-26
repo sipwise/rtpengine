@@ -677,6 +677,8 @@ static void sdp_before_proc(struct recording *recording, const str *sdp, struct 
 		enum call_opmode opmode)
 {
 	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
+	if (ml->label.len)
+		append_meta_chunk_str(recording, &ml->label, "LABEL %u", ml->unique_id);
 	append_meta_chunk_str(recording, sdp,
 			"SDP from %u before %s", ml->unique_id, get_opmode_text(opmode));
 }
