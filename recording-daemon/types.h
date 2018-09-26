@@ -44,6 +44,7 @@ struct stream_s {
 	char *name;
 	metafile_t *metafile;
 	unsigned long id;
+	unsigned long tag;
 	int fd;
 	handler_t handler;
 };
@@ -76,6 +77,14 @@ struct ssrc_s {
 typedef struct ssrc_s ssrc_t;
 
 
+struct tag_s {
+	unsigned long id;
+	char *name;
+	char *label;
+};
+typedef struct tag_s tag_t;
+
+
 struct metafile_s {
 	pthread_mutex_t lock;
 	char *name;
@@ -88,6 +97,7 @@ struct metafile_s {
 	GStringChunk *gsc; // XXX limit max size
 
 	GPtrArray *streams;
+	GPtrArray *tags;
 	GHashTable *ssrc_hash; // contains ssrc_t objects
 
 	pthread_mutex_t mix_lock;

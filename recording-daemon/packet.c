@@ -53,7 +53,7 @@ static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
 	snprintf(buf, sizeof(buf), "%s-%08lx", mf->parent, ssrc);
 	if (output_single) {
 		ret->output = output_new(output_dir, buf);
-		db_do_stream(mf, ret->output, "single", stream->id, ssrc);
+		db_do_stream(mf, ret->output, "single", stream, ssrc);
 	}
 
 	g_hash_table_insert(mf->ssrc_hash, GUINT_TO_POINTER(ssrc), ret);
