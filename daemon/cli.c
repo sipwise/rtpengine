@@ -25,6 +25,7 @@
 #include "str.h"
 #include "statistics.h"
 #include "main.h"
+#include "media_socket.h"
 
 #include "rtpengine_config.h"
 
@@ -84,6 +85,7 @@ static void cli_incoming_list_redisdisabletime(str *instr, struct streambuf *rep
 static void cli_incoming_list_redisconnecttimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_rediscmdtimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_interfaces(str *instr, struct streambuf *replybuffer);
 
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
@@ -134,6 +136,7 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "redisconnecttimeout",	cli_incoming_list_redisconnecttimeout	},
 	{ "rediscmdtimeout",		cli_incoming_list_rediscmdtimeout	},
 	{ "controltos",			cli_incoming_list_controltos		},
+	{ "interfaces",			cli_incoming_list_interfaces		},
 	{ NULL, },
 };
 
@@ -1361,6 +1364,28 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct streambuf *reply
 
 	if (!fail)
 		streambuf_printf(replybuffer,  "Success setting redis-cmd-timeout to %ld\n", timeout);
+}
+
+static void cli_incoming_list_interfaces(str *instr, struct streambuf *replybuffer) {
+	for (GList *l = all_local_interfaces.head; l; l = l->next) {
+		struct local_intf *lif = l->data;
+		// only show first-order interface entries: socket families must match
+		if (lif->logical->preferred_family != lif->spec->local_address.addr.family)
+			continue;
+		streambuf_printf(replybuffer, "Interface '%s' address '%s' (%s)\n", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr),
+				lif->spec->local_address.addr.family->name);
+		streambuf_printf(replybuffer, " Port range: %5u - %5u\n",
+				lif->spec->port_pool.min,
+				lif->spec->port_pool.max);
+		unsigned int f = g_atomic_int_get(&lif->spec->port_pool.free_ports);
+		unsigned int l = g_atomic_int_get(&lif->spec->port_pool.last_used);
+		unsigned int r = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
+		streambuf_printf(replybuffer, " Ports used: %5u / %5u (%5.1f%%)\n",
+				r - f, r, (double) (r - f) * 100.0 / r);
+		streambuf_printf(replybuffer, " Last port used: %5u\n",
+				l);
+	}
 }
 
 static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer) {

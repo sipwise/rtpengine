@@ -285,6 +285,8 @@ static GHashTable *__intf_spec_addr_type_hash; // addr + type -> struct intf_spe
 static GHashTable *__local_intf_addr_type_hash; // addr + type -> GList of struct local_intf
 static GQueue __preferred_lists_for_family[__SF_LAST];
 
+GQueue all_local_interfaces = G_QUEUE_INIT;
+
 
 
 /* checks for free no_ports on a local interface */
@@ -580,6 +582,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 	ifc->logical = lif;
 
 	g_hash_table_insert(lif->addr_hash, &spec->local_address, ifc);
+	g_queue_push_tail(&all_local_interfaces, ifc);
 
 	__insert_local_intf_addr_type(&spec->local_address, ifc);
 	__insert_local_intf_addr_type(&ifc->advertised_address, ifc);

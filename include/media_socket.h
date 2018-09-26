@@ -97,6 +97,10 @@ struct media_packet {
 
 
 
+extern GQueue all_local_interfaces; // read-only during runtime
+
+
+
 void interfaces_init(GQueue *interfaces);
 
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, int num_ports);
