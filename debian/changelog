@@ -1,3 +1,13 @@
+ngcp-rtpengine (6.4.3.0+0~mr6.4.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [db26197] fix DTMF packet allocation size
+  * [908401e] add missing lock for configuring mixed output decoder
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 23 Oct 2018 14:19:07 +0200
+
 ngcp-rtpengine (6.4.2.0+0~mr6.4.2.0) unstable; urgency=medium
 
   [ Alexander Lutay ]
