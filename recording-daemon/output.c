@@ -120,8 +120,8 @@ got_fn:
 	if (i)
 		goto err;
 
-done:
 	db_config_stream(output);
+done:
 	return 0;
 
 err:
