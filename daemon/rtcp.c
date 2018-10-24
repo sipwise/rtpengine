@@ -1234,14 +1234,20 @@ static void mos_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct xr_rb
 
 
 static void transcode_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
-	assert(ctx->scratch_common_ssrc == ctx->mp->ssrc_in->parent->h.ssrc);
+	if (!ctx->mp->ssrc_in)
+		return;
+	if (ctx->scratch_common_ssrc != ctx->mp->ssrc_in->parent->h.ssrc)
+		return;
 	// forward SSRC mapping
 	common->ssrc = htonl(ctx->mp->ssrc_in->ssrc_map_out);
 	ilog(LOG_DEBUG, "Substituting RTCP header SSRC from %x to %x",
 		ctx->scratch_common_ssrc, ctx->mp->ssrc_in->ssrc_map_out);
 }
 static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
-	assert(ctx->scratch.rr.from == ctx->mp->ssrc_in->parent->h.ssrc);
+	if (!ctx->mp->ssrc_in)
+		return;
+	if (ctx->scratch.rr.from != ctx->mp->ssrc_in->parent->h.ssrc)
+		return;
 
 	// reverse SSRC mapping
 	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->call->ssrc_hash,
@@ -1294,8 +1300,12 @@ out:
 		obj_put(&map_ctx->parent->h);
 }
 static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
-	assert(ctx->scratch.sr.ssrc == ctx->mp->ssrc_in->parent->h.ssrc);
-
+	if (!ctx->mp->ssrc_in)
+		return;
+	if (ctx->scratch.sr.ssrc != ctx->mp->ssrc_in->parent->h.ssrc)
+		return;
+	if (!ctx->mp->ssrc_out)
+		return;
 	unsigned int packets = atomic64_get(&ctx->mp->ssrc_out->packets);
 
 	// we might not be keeping track of stats for this SSRC (handler_func_passthrough_ssrc).
