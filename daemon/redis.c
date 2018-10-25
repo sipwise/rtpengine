@@ -77,7 +77,7 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 
 #endif
 
-#define REDIS_FMT(x) (x)->len, (x)->str
+#define REDIS_FMT(x) (int) (x)->len, (x)->str
 
 static int redis_check_conn(struct redis *r);
 static void json_restore_call(struct redis *r, const str *id, enum call_type type);
