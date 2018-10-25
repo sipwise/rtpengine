@@ -1466,6 +1466,8 @@ static int replace_codec_list(struct sdp_chopper *chop,
 static void insert_codec_parameters(struct sdp_chopper *chop, struct call_media *cm) {
 	for (GList *l = cm->codecs_prefs_recv.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
+		if (!pt->encoding_with_params.len)
+			continue;
 		chopper_append_printf(chop, "a=rtpmap:%u " STR_FORMAT "\r\n",
 				pt->payload_type,
 				STR_FMT(&pt->encoding_with_params));
