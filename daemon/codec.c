@@ -1149,6 +1149,9 @@ static int __revert_codec_strip(GHashTable *removed, const str *codec,
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
 		GQueue *types, const struct sdp_ng_flags *flags)
 {
+	if (!flags)
+		return;
+
 	// 'media' = receiver of this offer/answer; 'other_media' = sender of this offer/answer
 	struct call *call = media->call;
 	struct rtp_payload_type *pt;
