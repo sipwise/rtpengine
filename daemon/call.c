@@ -1763,7 +1763,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			media->ptime = sp->ptime;
 			other_media->ptime = sp->ptime;
 		}
-		if (flags->ptime > 0)
+		if (flags && flags->ptime > 0)
 			media->ptime = flags->ptime;
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
 		codec_handlers_update(media, other_media, flags);
