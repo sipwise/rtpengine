@@ -14,6 +14,7 @@
 #include "log.h"
 #include "rtplib.h"
 #include "rtcplib.h"
+#include "main.h"
 
 
 
@@ -699,7 +700,7 @@ static int null_crypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str 
 	return 0;
 }
 
-static void dump_key(struct crypto_context *c) {
+static void dump_key(struct crypto_context *c, int log_level) {
 	char *k, *s;
 
 	if (!c->params.crypto_suite)
@@ -708,20 +709,25 @@ static void dump_key(struct crypto_context *c) {
 	k = g_base64_encode(c->params.master_key, c->params.crypto_suite->master_key_len);
 	s = g_base64_encode(c->params.master_salt, c->params.crypto_suite->master_salt_len);
 
-	ilog(LOG_DEBUG, "--- %s key %s salt %s", c->params.crypto_suite->name, k, s);
+	ilog(log_level, "--- %s key %s salt %s", c->params.crypto_suite->name, k, s);
 
 	g_free(k);
 	g_free(s);
 }
 
 void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out) {
-	if (get_log_level() < LOG_DEBUG)
+	int log_level = LOG_DEBUG;
+	
+	if (rtpe_config.log_keys)
+	    log_level = LOG_ERROR;
+	    
+	if (get_log_level() < log_level)
 		return;
 
-	ilog(LOG_DEBUG, "SRTP keys, incoming:");
-	dump_key(in);
-	ilog(LOG_DEBUG, "SRTP keys, outgoing:");
-	dump_key(out);
+	ilog(log_level, "SRTP keys, incoming:");
+	dump_key(in, log_level);
+	ilog(log_level, "SRTP keys, outgoing:");
+	dump_key(out, log_level);
 }
 
 void crypto_init_main() {

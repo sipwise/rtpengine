@@ -76,6 +76,7 @@ struct rtpengine_config {
 	int			priority;
 	char			*idle_scheduling;
 	int			idle_priority;
+	int			log_keys;
 };
 
 
