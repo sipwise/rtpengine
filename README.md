@@ -233,7 +233,7 @@ option and which are reproduced below:
 	  --priority=INT                   Thread scheduling priority
 	  --idle-scheduling=default|...    Idle thread scheduling policy
 	  --idle-priority=INT              Idle thread scheduling priority
-          --log-rtp-keys                   Write SRTP keys to log
+        --log-srtp-keys                   Write SRTP keys to log
 
 Most of these options are indeed optional, with two exceptions. It's mandatory to specify at least one local
 IP address through `--interface`, and at least one of the `--listen-...` options must be given.
