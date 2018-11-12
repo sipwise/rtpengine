@@ -1,3 +1,29 @@
+ngcp-rtpengine (7.1.0.0+0~mr7.1.0.0) unstable; urgency=medium
+
+  [ Øyvind Kolbu ]
+  * [d3b267d] Match default in daemon/main.c.
+
+  [ Richard Fuchs ]
+  * [35764c5] TT#44702 add CLI command for interface/port stats
+  * [3102357] TT#41900 save monologue label into recording DB
+  * [fc026cd] fix possible null pointer dereference
+  * [39ef7c9] fix multiple spurious updates of stream config DB entry
+  * [347f1c6] suppress empty a=rtpmap lines
+  * [e9f9ae7] fix compiler warning
+  * [13c21b1] fix segfault when using legacy control protocol
+  * [0bf3eab] convert codec ops to no-op for legacy control protocols
+  * [0496c59] Change name of option from log-rtp-keys to log-srtp-keys
+  * [8f195e7] Update README.md for name change of option from log-rtp-keys to log-srtp-keys
+
+  [ Tor Petterson ]
+  * [590b752] Added option to write SRTP keys to log
+  * [04e20f0] Added option to README.md
+  * [f71f66f] Expanded Documentation of option log-srtp-keys
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 12 Nov 2018 22:40:11 +0100
+
 ngcp-rtpengine (7.0.0.0+0~mr7.0.0.0) unstable; urgency=medium
 
   [ Alexander Lutay ]
