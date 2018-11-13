@@ -4,6 +4,9 @@
 #include "crypto.h"
 #include "rtplib.h"
 #include "log.h"
+#include "main.h"
+
+struct rtpengine_config rtpe_config;
 
 uint8_t test_key[46] = {
 	0xe1, 0xf9, 0x7a, 0x0d, 0x3e, 0x01, 0x8b, 0xe0,

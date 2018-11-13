@@ -2,6 +2,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include "ssrc.h"
+#include "main.h"
+
+struct rtpengine_config rtpe_config;
+
 
 
 static void most_cmp(struct payload_tracker *t, const char *cmp, const char *file, int line) {
