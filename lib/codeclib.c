@@ -587,7 +587,7 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	return 0;
 
 err:
-	ilog(LOG_ERR, "Error decoding media packet: %s", err);
+	ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error decoding media packet: %s", err);
 	av_frame_free(&frame);
 	return -1;
 }
@@ -631,7 +631,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 	while ((frame = g_queue_pop_head(&frames))) {
 		AVFrame *rsmp_frame = resample_frame(&dec->resampler, frame, &dec->out_format);
 		if (!rsmp_frame) {
-			ilog(LOG_ERR, "Resampling failed");
+			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Resampling failed");
 			ret = -1;
 		}
 		else {
@@ -648,7 +648,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 	char *msg;
 	if (vasprintf(&msg, fmt, ap) <= 0)
-		ilog(LOG_ERR, "av_log message dropped");
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "av_log message dropped");
 	else {
 #ifdef AV_LOG_PANIC
 		// translate AV_LOG_ constants to LOG_ levels
@@ -671,7 +671,7 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 		else
 			loglevel = LOG_DEBUG;
 #endif
-		ilog(loglevel, "av_log: %s", msg);
+		ilog(loglevel | LOG_FLAG_LIMIT, "av_log: %s", msg);
 		free(msg);
 	}
 }
@@ -1473,7 +1473,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 err:
 	if (err)
-		ilog(LOG_WARN, "Error unpacking AMR packet: %s", err);
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Error unpacking AMR packet: %s", err);
 
 	return -1;
 }
