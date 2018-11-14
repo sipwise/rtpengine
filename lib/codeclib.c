@@ -740,8 +740,12 @@ void codeclib_init(int print) {
 			continue;
 
 		if (print) {
-			if (def->support_encoding && def->support_decoding)
-				printf("%20s: fully supported\n", def->rtpname);
+			if (def->support_encoding && def->support_decoding) {
+				if (def->default_channels > 0 && def->default_clockrate >= 0)
+					printf("%20s: fully supported\n", def->rtpname);
+				else
+					printf("%20s: codec supported but lacks RTP definition\n", def->rtpname);
+			}
 			else if (def->support_decoding)
 				printf("%20s: supported for decoding only\n", def->rtpname);
 			else if (def->support_encoding)
