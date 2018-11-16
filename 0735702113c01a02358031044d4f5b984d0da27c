@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1adf8d57_6b3aa1cf",
+        "filename": "debian/rules",
+        "patchSetId": 2
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-11-16T22:39:21Z",
+      "side": 1,
+      "message": "I don\u0027t think these are needed?",
+      "range": {
+        "startLine": 74,
+        "startChar": 16,
+        "endLine": 74,
+        "endChar": 73
+      },
+      "revId": "0735702113c01a02358031044d4f5b984d0da27c",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
