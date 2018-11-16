@@ -1933,9 +1933,6 @@ static void insert_crypto1(struct call_media *media, struct sdp_chopper *chop, s
 			cps->params.crypto_suite->master_salt_len, 0,
 			p, &state, &save);
 	p += g_base64_encode_close(0, p, &state, &save);
-	// truncate trailing ==
-	while (p > b64_buf && p[-1] == '=')
-		p--;
 
 	chopper_append_c(chop, "a=crypto:");
 	chopper_append_printf(chop, "%u ", cps->tag);
