@@ -70,8 +70,15 @@ override_dh_install:
 override_dh_strip:
 	dh_strip --dbgsym-migration='ngcp-rtpengine-dbg (<= 6.0.0.0+0~mr6.0.0.0)'
 
+override_dh_installinit:
+	dh_installinit -pngcp-rtpengine-daemon -pngcp-rtpengine-recording-daemon --no-start
+
 override_dh_systemd_enable:
-	dh_systemd_enable
-	dh_systemd_enable -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount
+	dh_systemd_enable --no-enable
+	dh_systemd_enable -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount --no-enable
+
+override_dh_systemd_start:
+	dh_systemd_start --no-start
+	dh_systemd_start -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount --no-start
 
 override_dh_auto_test:
