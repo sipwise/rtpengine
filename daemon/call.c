@@ -1388,7 +1388,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			}
 		}
 	}
-	else {
+	else { // OP_ANSWER
 		// we pick the first supported crypto suite
 		struct crypto_params_sdes *cps = cpq->head ? cpq->head->data : NULL;
 		struct crypto_params_sdes *cps_in = cpq_in->head ? cpq_in->head->data : NULL;
@@ -1431,6 +1431,32 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 
 skip_sdes:
 	;
+}
+// for an answer, uses the incoming received list of SDES crypto suites to prune
+// the list of (generated) outgoing crypto suites to contain only the one that was
+// accepted
+static void __sdes_accept(struct call_media *media) {
+	if (!media->sdes_in.length)
+		return;
+	struct crypto_params_sdes *cps_in = media->sdes_in.head->data;
+	GList *l = media->sdes_out.head;
+	while (l) {
+		struct crypto_params_sdes *cps_out = l->data;
+		if (cps_out->params.crypto_suite != cps_in->params.crypto_suite)
+			goto del_next;
+		if (cps_out->tag != cps_in->tag)
+			goto del_next;
+
+		// this one's good
+		l = l->next;
+		continue;
+del_next:
+		// mismatch, prune this one out
+		crypto_params_sdes_free(cps_out);
+		GList *next = l->next;
+		g_queue_delete_link(&media->sdes_out, l);
+		l = next;
+	}
 }
 
 
@@ -1754,8 +1780,10 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			other_media->sdes_in = sp->sdes_params;
 			g_queue_init(&sp->sdes_params);
 
-			if (other_media->sdes_in.length)
+			if (other_media->sdes_in.length) {
 				MEDIA_SET(other_media, SDES);
+				__sdes_accept(other_media);
+			}
 		}
 
 		// codec and RTP payload types handling
