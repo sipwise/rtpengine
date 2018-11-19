@@ -70,12 +70,13 @@ struct sdp_ng_flags {
 	    sdes_unauthenticated_srtp:1,
 	    sdes_encrypted_srtp:1,
 	    sdes_encrypted_srtcp:1,
-	    sdes_authenticated_srtp:1;
+	    sdes_authenticated_srtp:1,
+	    pad_crypto:1;
 };
 
 extern int trust_address_def;
 extern int dtls_passive_def;
-
+extern int pad_crypto_def;
 
 str *call_request_tcp(char **);
 str *call_lookup_tcp(char **);

@@ -60,6 +60,7 @@ GetOptions(
 	'metadata=s'			=> \$options{'metadata'},
 	'all'				=> \$options{'all'},
 	'address=s'			=> \$options{'address'},
+	'pad-crypto'			=> \$options{'pad crypto'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;

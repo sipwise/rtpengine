@@ -36,7 +36,7 @@ static pcre_extra *streams_ree;
 
 int trust_address_def;
 int dtls_passive_def;
-
+int pad_crypto_def;
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
 	int len, ret;
@@ -621,6 +621,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		out->always_transcode = 1;
 	else if (!str_cmp(s, "asymmetric-codecs"))
 		out->asymmetric_codecs = 1;
+	else if (!str_cmp(s, "pad-crypto"))
+		out->pad_crypto = 1;
 	else {
 		// handle values aliases from other dictionaries
 		if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
@@ -654,6 +656,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
+	out->pad_crypto = pad_crypto_def;
 
 	call_ng_flags_list(out, input, "flags", call_ng_flags_flags, NULL);
 	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
@@ -709,6 +712,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
 	out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);
+	if (bencode_dictionary_get_str(input, "pad-crypto", &s))
+		out->pad_crypto = 1;
 
 	if (bencode_dictionary_get_str(input, "xmlrpc-callback", &s)) {
 		if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
