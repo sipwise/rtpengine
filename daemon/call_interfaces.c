@@ -36,7 +36,6 @@ static pcre_extra *streams_ree;
 
 int trust_address_def;
 int dtls_passive_def;
-int pad_crypto_def;
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
 	int len, ret;
@@ -656,7 +655,6 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
-	out->pad_crypto = pad_crypto_def;
 
 	call_ng_flags_list(out, input, "flags", call_ng_flags_flags, NULL);
 	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);

@@ -76,7 +76,6 @@ struct sdp_ng_flags {
 
 extern int trust_address_def;
 extern int dtls_passive_def;
-extern int pad_crypto_def;
 
 str *call_request_tcp(char **);
 str *call_lookup_tcp(char **);

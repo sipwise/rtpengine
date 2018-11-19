@@ -513,7 +513,6 @@ static void options(int *argc, char ***argv) {
 	if (!sip_source)
 		trust_address_def = 1;
 
-	pad_crypto_def = 0;
 	rtpe_config.cpu_limit = max_cpu * 100;
 	rtpe_config.load_limit = max_load * 100;
 }
