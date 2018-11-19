@@ -621,6 +621,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		out->always_transcode = 1;
 	else if (!str_cmp(s, "asymmetric-codecs"))
 		out->asymmetric_codecs = 1;
+	else if (!str_cmp(s, "pad-crypto"))
+		out->pad_crypto = 1;
 	else {
 		// handle values aliases from other dictionaries
 		if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))

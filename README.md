@@ -1239,6 +1239,13 @@ Optionally included keys are:
 		full-call media block, but also remove directional media blocks that were imposed on
 		individual participants.
 
+	- `pad crypto`
+
+		RFC 4568 (section 6.1) is somewhat ambiguous regarding the base64 encoding format of
+		`a=crypto` parameters added to an SDP body. The default interpretation is that trailing
+		`=` characters used for padding should be omitted. With this flag set, these padding
+		characters will be left in place.
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.

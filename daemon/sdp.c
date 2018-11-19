@@ -1916,7 +1916,7 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	chopper_append_c(chop, "\r\n");
 }
 
-static void insert_crypto1(struct call_media *media, struct sdp_chopper *chop, struct crypto_params_sdes *cps) {
+static void insert_crypto1(struct call_media *media, struct sdp_chopper *chop, struct crypto_params_sdes *cps, struct sdp_ng_flags *flags) {
 	char b64_buf[((SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN) / 3 + 1) * 4 + 4];
 	char *p;
 	int state = 0, save = 0, i;
@@ -1933,9 +1933,12 @@ static void insert_crypto1(struct call_media *media, struct sdp_chopper *chop, s
 			cps->params.crypto_suite->master_salt_len, 0,
 			p, &state, &save);
 	p += g_base64_encode_close(0, p, &state, &save);
-	// truncate trailing ==
-	while (p > b64_buf && p[-1] == '=')
-		p--;
+
+	if (!flags->pad_crypto) {
+		// truncate trailing ==
+		while (p > b64_buf && p[-1] == '=')
+			p--;
+	}
 
 	chopper_append_c(chop, "a=crypto:");
 	chopper_append_printf(chop, "%u ", cps->tag);
@@ -1956,9 +1959,9 @@ static void insert_crypto1(struct call_media *media, struct sdp_chopper *chop, s
 		chopper_append_c(chop, " UNAUTHENTICATED_SRTP");
 	chopper_append_c(chop, "\r\n");
 }
-static void insert_crypto(struct call_media *media, struct sdp_chopper *chop) {
+static void insert_crypto(struct call_media *media, struct sdp_chopper *chop, struct sdp_ng_flags *flags) {
 	for (GList *l = media->sdes_out.head; l; l = l->next)
-		insert_crypto1(media, chop, l->data);
+		insert_crypto1(media, chop, l->data, flags);
 }
 
 
@@ -2116,7 +2119,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			else
 				ps_rtcp = NULL;
 
-			insert_crypto(call_media, chop);
+			insert_crypto(call_media, chop, flags);
 			insert_dtls(call_media, chop);
 
 			if (call_media->ptime)
