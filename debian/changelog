@@ -1,3 +1,16 @@
+ngcp-rtpengine (6.5.3.0+0~mr6.5.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e8fb6c0] fix possible null pointer dereference
+  * [a457a23] fix multiple spurious updates of stream config DB entry
+  * [01cf5c8] suppress empty a=rtpmap lines
+  * [e900fed] fix compiler warning
+  * [3d84f49] Add option to leave base64 padding for a=crypto in place
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 20 Nov 2018 13:28:56 +0100
+
 ngcp-rtpengine (6.5.2.0+0~mr6.5.2.0) unstable; urgency=medium
 
   * New release.
