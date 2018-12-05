@@ -169,7 +169,7 @@ struct attribute_fmtp {
 	unsigned int payload_type;
 };
 
-struct sdp_attribute {
+struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
 	    name,	/* just "rtpmap" */
@@ -1323,6 +1323,11 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 						sp->fingerprint.hash_func->num_bytes);
 			}
 
+			// a=mid
+			attr = attr_get_by_id(&media->attributes, ATTR_MID);
+			if (attr)
+				sp->media_id = attr->value;
+
 			__sdp_ice(sp, media);
 
 			/* determine RTCP endpoint */
@@ -1697,6 +1702,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_SENDRECV:
 			case ATTR_IGNORE:
 			case ATTR_END_OF_CANDIDATES: // we strip it here and re-insert it later
+			case ATTR_MID:
 				goto strip;
 
 			case ATTR_RTPMAP:
@@ -1713,15 +1719,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
 				goto strip;
-
-			case ATTR_MID:
-				if (MEDIA_ISSET(media, PASSTHRU))
-					break;
-//				a = attr_get_by_id(&sdp->session->attributes, ATTR_GROUP);
-//				if (a && a->u.group.semantics == GROUP_BUNDLE)
-//					goto strip;
-				goto strip; // hack/workaround: always remove a=mid
-				break;
 
 			default:
 				break;
@@ -2062,6 +2059,12 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto error;
 
 			copy_up_to_end_of(chop, &sdp_media->s);
+
+			if (call_media->media_id.s) {
+				chopper_append_c(chop, "a=mid:");
+				chopper_append_str(chop, &call_media->media_id);
+				chopper_append_c(chop, "\r\n");
+			}
 
 			insert_codec_parameters(chop, call_media);
 
