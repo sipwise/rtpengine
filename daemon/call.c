@@ -1669,6 +1669,23 @@ static void __endpoint_loop_protect(struct stream_params *sp, struct call_media 
 	MEDIA_SET(media, LOOP_CHECK);
 }
 
+static void __update_media_id(struct call_media *media, struct call_media *other_media,
+		struct stream_params *sp, const struct sdp_ng_flags *flags)
+{
+	struct call *call = media->call;
+
+	if (!other_media->media_id.s) {
+		// incoming side: we copy what we received
+		if (sp->media_id.s)
+			call_str_cpy(call, &other_media->media_id, &sp->media_id);
+	}
+	if (!media->media_id.s) {
+		// outgoing side: we copy from the other side
+		if (other_media->media_id.s)
+			call_str_cpy(call, &media->media_id, &other_media->media_id);
+	}
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		const struct sdp_ng_flags *flags)
@@ -1741,6 +1758,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				&& other_media->protocol && other_media->protocol->rtp)
 			media->protocol = flags->transport_protocol;
 
+		__update_media_id(media, other_media, sp, flags);
 		__endpoint_loop_protect(sp, other_media);
 
 		if (sp->rtp_endpoint.port) {
