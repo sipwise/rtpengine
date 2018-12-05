@@ -1741,6 +1741,15 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				&& other_media->protocol && other_media->protocol->rtp)
 			media->protocol = flags->transport_protocol;
 
+		if (!media->media_id.s) {
+			if (sp->media_id.s)
+				call_str_cpy(call, &media->media_id, &sp->media_id);
+		}
+		if (!other_media->media_id.s) {
+			if (sp->media_id.s)
+				call_str_cpy(call, &other_media->media_id, &sp->media_id);
+		}
+
 		__endpoint_loop_protect(sp, other_media);
 
 		if (sp->rtp_endpoint.port) {
