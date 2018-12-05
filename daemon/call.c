@@ -1674,15 +1674,23 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 {
 	struct call *call = media->call;
 
-	if (!other_media->media_id.s) {
-		// incoming side: we copy what we received
-		if (sp->media_id.s)
-			call_str_cpy(call, &other_media->media_id, &sp->media_id);
-	}
-	if (!media->media_id.s) {
-		// outgoing side: we copy from the other side
-		if (other_media->media_id.s)
-			call_str_cpy(call, &media->media_id, &other_media->media_id);
+	if (flags && flags->opmode == OP_OFFER) {
+		if (!other_media->media_id.s) {
+			// incoming side: we copy what we received
+			if (sp->media_id.s)
+				call_str_cpy(call, &other_media->media_id, &sp->media_id);
+		}
+		if (!media->media_id.s) {
+			// outgoing side: we copy from the other side
+			if (other_media->media_id.s)
+				call_str_cpy(call, &media->media_id, &other_media->media_id);
+			else if (flags->generate_mid) {
+				// or generate one
+				char buf[64];
+				snprintf(buf, sizeof(buf), "%u", other_media->index);
+				call_str_cpy_c(call, &media->media_id, buf);
+			}
+		}
 	}
 }
 
