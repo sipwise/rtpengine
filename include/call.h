@@ -242,6 +242,7 @@ struct stream_params {
 	str			ice_ufrag;
 	str			ice_pwd;
 	int			ptime;
+	str			media_id;
 };
 
 struct endpoint_map {
@@ -320,6 +321,7 @@ struct call_media {
 
 	struct ice_agent	*ice_agent;
 
+	str			media_id;
 	GQueue			sdes_in, sdes_out;
 	struct dtls_fingerprint fingerprint; /* as received */
 
