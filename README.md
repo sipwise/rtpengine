@@ -1247,6 +1247,10 @@ Optionally included keys are:
 		`=` characters used for padding should be omitted. With this flag set, these padding
 		characters will be left in place.
 
+	- `generate mid`
+
+		Add `a=mid` attributes to the outgoing SDP if they were not already present.
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.

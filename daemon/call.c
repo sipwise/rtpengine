@@ -1741,15 +1741,23 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				&& other_media->protocol && other_media->protocol->rtp)
 			media->protocol = flags->transport_protocol;
 
-		if (!other_media->media_id.s) {
-			// incoming side: we copy what we received
-			if (sp->media_id.s)
-				call_str_cpy(call, &other_media->media_id, &sp->media_id);
-		}
-		if (!media->media_id.s) {
-			// outgoing side: we copy from the other side
-			if (other_media->media_id.s)
-				call_str_cpy(call, &media->media_id, &other_media->media_id);
+		if (flags && flags->opmode == OP_OFFER) {
+			if (!other_media->media_id.s) {
+				// incoming side: we copy what we received
+				if (sp->media_id.s)
+					call_str_cpy(call, &other_media->media_id, &sp->media_id);
+			}
+			if (!media->media_id.s) {
+				// outgoing side: we copy from the other side
+				if (other_media->media_id.s)
+					call_str_cpy(call, &media->media_id, &other_media->media_id);
+				else if (flags->generate_mid) {
+					// or generate one
+					char buf[64];
+					snprintf(buf, sizeof(buf), "%u", other_media->index);
+					call_str_cpy_c(call, &media->media_id, buf);
+				}
+			}
 		}
 
 		__endpoint_loop_protect(sp, other_media);

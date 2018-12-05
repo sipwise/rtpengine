@@ -611,6 +611,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		out->all = 1;
 	else if (!str_cmp(s, "port-latching"))
 		out->port_latching = 1;
+	else if (!str_cmp(s, "generate-mid"))
+		out->generate_mid = 1;
 	else if (!str_cmp(s, "record-call"))
 		out->record_call = 1;
 	else if (!str_cmp(s, "no-rtcp-attribute"))
