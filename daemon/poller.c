@@ -344,7 +344,9 @@ int poller_poll(struct poller *p, int timeout) {
 				abort();
 
 			mutex_unlock(&p->lock);
-			it->item.writeable(it->item.fd, it->item.obj, it->item.uintp);
+
+			if (it->item.writeable)
+				it->item.writeable(it->item.fd, it->item.obj, it->item.uintp);
 		}
 		else if ((ev->events & POLLIN))
 			it->item.readable(it->item.fd, it->item.obj, it->item.uintp);
