@@ -2141,11 +2141,15 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				chopper_append_c(chop, "\r\n");
 			}
 
+			if (MEDIA_ISSET(call_media, TRICKLE_ICE) && call_media->ice_agent)
+				chopper_append_c(chop, "a=ice-options:trickle\r\n");
 			if (!flags->ice_remove)
 				insert_candidates(chop, ps, ps_rtcp, flags, sdp_media);
 
 next:
-			if (attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES))
+			if (MEDIA_ISSET(call_media, TRICKLE_ICE) && call_media->ice_agent)
+				chopper_append_c(chop, "a=end-of-candidates\r\n");
+			else if (attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES))
 				chopper_append_c(chop, "a=end-of-candidates\r\n");
 
 			media_index++;
