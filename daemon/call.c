@@ -1703,6 +1703,24 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 				g_hash_table_insert(other_ml->media_ids, &other_media->media_id,
 						other_media);
 		}
+		else {
+			// RFC 5888 allows changing the media ID in a re-invite
+			// (section 9.1), so handle this here.
+			if (sp->media_id.s) {
+				if (str_cmp_str(&other_media->media_id, &sp->media_id)) {
+					// mismatch - update
+					g_hash_table_remove(other_ml->media_ids, &other_media->media_id);
+					call_str_cpy(call, &other_media->media_id, &sp->media_id);
+					g_hash_table_insert(other_ml->media_ids, &other_media->media_id,
+							other_media);
+				}
+			}
+			else {
+				// we already have a media ID, but re-invite offer did not specify
+				// one. we keep what we already have.
+				;
+			}
+		}
 		if (!media->media_id.s) {
 			// outgoing side: we copy from the other side
 			if (other_media->media_id.s)
@@ -1715,6 +1733,11 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 			}
 			if (media->media_id.s)
 				g_hash_table_insert(ml->media_ids, &media->media_id, media);
+		}
+		else {
+			// we already have a media ID. keep what we have and ignore what's
+			// happening on the other side.
+			;
 		}
 	}
 	else if (flags->opmode == OP_ANSWER) {
