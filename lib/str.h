@@ -267,7 +267,7 @@ INLINE int str_str(const str *s, const char *sub) {
 	void *p, *e;
 
 	p = s->s;
-	e = p + (s->len - len);
+	e = p + (s->len - len) + 1;
 	while (p < e) {
 		p = memchr(p, sub[0], e - p);
 		if (!p)
