@@ -366,6 +366,7 @@ struct call_monologue {
 	GHashTable		*other_tags;
 	struct call_monologue	*active_dialogue;
 	GQueue			medias;
+	GHashTable		*media_ids;
 
 	int			block_dtmf:1;
 	int			block_media:1;

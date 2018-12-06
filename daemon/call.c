@@ -1672,13 +1672,21 @@ static void __endpoint_loop_protect(struct stream_params *sp, struct call_media 
 static void __update_media_id(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, const struct sdp_ng_flags *flags)
 {
-	struct call *call = media->call;
+	if (!flags)
+		return;
 
-	if (flags && flags->opmode == OP_OFFER) {
+	struct call *call = media->call;
+	struct call_monologue *ml = media->monologue;
+	struct call_monologue *other_ml = other_media->monologue;
+
+	if (flags->opmode == OP_OFFER) {
 		if (!other_media->media_id.s) {
 			// incoming side: we copy what we received
 			if (sp->media_id.s)
 				call_str_cpy(call, &other_media->media_id, &sp->media_id);
+			if (other_media->media_id.s)
+				g_hash_table_insert(other_ml->media_ids, &other_media->media_id,
+						other_media);
 		}
 		if (!media->media_id.s) {
 			// outgoing side: we copy from the other side
@@ -1690,6 +1698,8 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 				snprintf(buf, sizeof(buf), "%u", other_media->index);
 				call_str_cpy_c(call, &media->media_id, buf);
 			}
+			if (media->media_id.s)
+				g_hash_table_insert(ml->media_ids, &media->media_id, media);
 		}
 	}
 }
@@ -2188,6 +2198,7 @@ static void __call_free(void *p) {
 
 		g_queue_clear(&m->medias);
 		g_hash_table_destroy(m->other_tags);
+		g_hash_table_destroy(m->media_ids);
 		g_slice_free1(sizeof(*m), m);
 	}
 
@@ -2331,6 +2342,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
+	ret->media_ids = g_hash_table_new(str_hash, str_equal);
 
 	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);
