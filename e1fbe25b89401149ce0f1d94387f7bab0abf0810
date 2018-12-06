@@ -16,6 +16,24 @@
       "revId": "e1fbe25b89401149ce0f1d94387f7bab0abf0810",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1adf8d57_57ee52ed",
+        "filename": "daemon/call.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 1689,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2018-12-06T16:26:17Z",
+      "side": 1,
+      "message": "Nothing. No media ID string is copied since none was supplied, and then we don\u0027t have one to insert into the hash table.",
+      "parentUuid": "1adf8d57_d7e12200",
+      "revId": "e1fbe25b89401149ce0f1d94387f7bab0abf0810",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
