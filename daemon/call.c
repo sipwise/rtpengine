@@ -752,7 +752,9 @@ struct call_media *call_media_new(struct call *call) {
 	return med;
 }
 
-static struct call_media *__get_media(struct call_monologue *ml, GList **it, const struct stream_params *sp) {
+static struct call_media *__get_media(struct call_monologue *ml, GList **it, const struct stream_params *sp,
+		const struct sdp_ng_flags *flags)
+{
 	struct call_media *med;
 	struct call *call;
 
@@ -761,6 +763,19 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 		*it = ml->medias.head;
 	else
 		*it = (*it)->next;
+
+	// check for trickle ICE SDP fragment
+	if (flags && flags->fragment && sp->media_id.s) {
+		// in this case, the media sections are out of order and the media ID
+		// string is used to determine which media section to operate on. this
+		// info must be present and valid.
+		med = g_hash_table_lookup(ml->media_ids, &sp->media_id);
+		if (med)
+			return med;
+		ilog(LOG_ERR, "Received trickle ICE SDP fragment with unknown media ID '"
+				STR_FORMAT "'",
+				STR_FMT(&sp->media_id));
+	}
 
 	/* possible incremental update, hunt for correct media struct */
 	while (*it) {
@@ -1757,14 +1772,21 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		/* first, check for existence of call_media struct on both sides of
 		 * the dialogue */
-		media = __get_media(monologue, &ml_media, sp);
-		other_media = __get_media(other_ml, &other_ml_media, sp);
+		media = __get_media(monologue, &ml_media, sp, flags);
+		other_media = __get_media(other_ml, &other_ml_media, sp, flags);
 		/* OTHER is the side which has sent the message. SDP parameters in
 		 * "sp" are as advertised by OTHER side. The message will be sent to
 		 * THIS side. Parameters sent to THIS side may be overridden by
 		 * what's in "flags". If this is an answer, or if we have talked to
 		 * THIS side (recipient) before, then the structs will be populated with
 		 * details already. */
+
+		if (flags && flags->fragment) {
+			// trickle ICE SDP fragment. don't do anything other than update
+			// the ICE stuff.
+			ice_update(other_media->ice_agent, sp);
+			continue;
+		}
 
 		if (flags && flags->opmode == OP_OFFER && flags->reset) {
 			MEDIA_CLEAR(media, INITIALIZED);
