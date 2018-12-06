@@ -1702,6 +1702,22 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 				g_hash_table_insert(ml->media_ids, &media->media_id, media);
 		}
 	}
+	else if (flags->opmode == OP_ANSWER) {
+		// in normal cases, if the answer contains a media ID, it must match
+		// the media ID previously sent in the offer, as the order of the media
+		// sections must remain intact (RFC 5888 section 9.1). check this.
+		if (sp->media_id.s) {
+			if (!other_media->media_id.s)
+				ilog(LOG_INFO, "Received answer SDP with media ID ('"
+						STR_FORMAT "') when no media ID was offered",
+					STR_FMT(&sp->media_id));
+			else if (str_cmp_str(&other_media->media_id, &sp->media_id))
+				ilog(LOG_WARN, "Received answer SDP with mismatched media ID ('"
+						STR_FORMAT "') when the offered media ID was '"
+						STR_FORMAT "'",
+					STR_FMT(&sp->media_id), STR_FMT(&other_media->media_id));
+		}
+	}
 }
 
 /* called with call->master_lock held in W */
