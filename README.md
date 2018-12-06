@@ -1216,7 +1216,7 @@ Optionally included keys are:
 		which means that it's applied only to the one side doing the signalling that is being
 		handled (i.e. the side doing the `offer` or the `answer`).
 
-	- asymmetric codecs
+	- `asymmetric codecs`
 
 		This flag is relevant to transcoding scenarios. By default, if an RTP client rejects a
 		codec that was offered to it (by not including it in the answer SDP), *rtpengine* will
