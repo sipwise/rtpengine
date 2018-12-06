@@ -263,21 +263,10 @@ INLINE int str_memcmp(const str *s, void *m) {
 	return memcmp(s->s, m, s->len);
 }
 INLINE int str_str(const str *s, const char *sub) {
-	int len = strlen(sub);
-	void *p, *e;
-
-	p = s->s;
-	e = p + (s->len - len);
-	while (p < e) {
-		p = memchr(p, sub[0], e - p);
-		if (!p)
-			return -1;
-		if (!memcmp(p, sub, len))
-			return p - (void *) s->s;
-		p++;
-	}
-
-	return -1;
+	void *p = memmem(s->s, s->len, sub, strlen(sub));
+	if (!p)
+		return -1;
+	return p - (void *) s->s;
 }
 INLINE void str_swap(str *a, str *b) {
 	str t;
