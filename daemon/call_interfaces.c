@@ -609,6 +609,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		out->reset = 1;
 	else if (!str_cmp(s, "all"))
 		out->all = 1;
+	else if (!str_cmp(s, "fragment"))
+		out->fragment = 1;
 	else if (!str_cmp(s, "port-latching"))
 		out->port_latching = 1;
 	else if (!str_cmp(s, "generate-mid"))
@@ -833,7 +835,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	}
 
 	errstr = "Failed to parse SDP";
-	if (sdp_parse(&sdp, &parsed))
+	if (sdp_parse(&sdp, &parsed, &flags))
 		goto out;
 
 	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
@@ -854,7 +856,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	* to establish session with another rtpengine2 even though rtpengine1
 	* might have persisted part of the session. rtpengine2 deletes previous
 	* call in memory and recreates an OWN call in redis */
-	if (opmode == OP_OFFER) {
+	// SDP fragments for trickle ICE must always operate on an existing call
+	if (opmode == OP_OFFER && !flags.fragment) {
 		if (call) {
 			if (IS_FOREIGN_CALL(call)) {
 				/* destroy call and create new one */
@@ -909,8 +912,11 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 		recording_start(call, NULL, &flags.metadata);
 
 	ret = monologue_offer_answer(monologue, &streams, &flags);
-	if (!ret)
-		ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
+	if (!ret) {
+		// SDP fragments for trickle ICE are consumed with no replacement returned
+		if (!flags.fragment)
+			ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
+	}
 
 	struct recording *recording = call->recording;
 	if (recording != NULL) {
@@ -943,7 +949,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	if (ret)
 		goto out;
 
-	bencode_dictionary_add_string(output, "sdp", chopper->output->str);
+	if (chopper->output->len)
+		bencode_dictionary_add_string(output, "sdp", chopper->output->str);
 
 	errstr = NULL;
 out:

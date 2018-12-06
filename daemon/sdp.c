@@ -877,7 +877,7 @@ static int parse_attribute(struct sdp_attribute *a) {
 	return ret;
 }
 
-int sdp_parse(str *body, GQueue *sessions) {
+int sdp_parse(str *body, GQueue *sessions, const struct sdp_ng_flags *flags) {
 	char *b, *end, *value, *line_end, *next_line;
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
@@ -915,8 +915,12 @@ int sdp_parse(str *body, GQueue *sessions) {
 		}
 
 		errstr = "SDP doesn't start with a session definition";
-		if (!session && b[0] != 'v')
-			goto error;
+		if (!session && b[0] != 'v') {
+			if (!flags->fragment)
+				goto error;
+			else
+				goto new_session; // allowed for trickle ICE SDP fragments
+		}
 
 		str value_str;
 		str_init_len(&value_str, value, line_end - value);
@@ -929,6 +933,7 @@ int sdp_parse(str *body, GQueue *sessions) {
 				if (value[0] != '0')
 					goto error;
 
+new_session:
 				session = g_slice_alloc0(sizeof(*session));
 				g_queue_init(&session->media_streams);
 				attrs_init(&session->attributes);
