@@ -950,7 +950,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 		goto out;
 
 	if (chopper->output->len)
-		bencode_dictionary_add_string(output, "sdp", chopper->output->str);
+		bencode_dictionary_add_string_len(output, "sdp", chopper->output->str, chopper->output->len);
 
 	errstr = NULL;
 out:
