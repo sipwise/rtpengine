@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1adf8d57_97e4ba0d",
+        "filename": "lib/str.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 266,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-12-06T16:26:13Z",
+      "side": 1,
+      "message": "Are you not using strstr(3) because it\u0027s a GNUism? (or due to its return value?)",
+      "revId": "01c5e5075d1f7574c8cce079141ceb6d97082509",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
