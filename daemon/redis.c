@@ -1273,6 +1273,8 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 		if (redis_hash_get_str(&s, rh, "type"))
 			return -1;
 		call_str_cpy(c, &med->type, &s);
+		if (!redis_hash_get_str(&s, rh, "media_id"))
+			call_str_cpy(c, &med->media_id, &s);
 
 		if (redis_hash_get_str(&s, rh, "protocol"))
 			return -1;
@@ -1430,6 +1432,9 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 			return -1;
 		if (json_build_list(&med->endpoint_maps, c, "maps", &c->callid, i, maps, root_reader))
 			return -1;
+
+		if (med->media_id.s)
+			g_hash_table_insert(med->monologue->media_ids, &med->media_id, med);
 
 		// find the pair media
 		struct call_monologue *ml = med->monologue;
@@ -2020,6 +2025,8 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("tag","%u",media->monologue->unique_id);
 				JSON_SET_SIMPLE("index","%u",media->index);
 				JSON_SET_SIMPLE_STR("type",&media->type);
+				if (media->media_id.s)
+					JSON_SET_SIMPLE_STR("media_id",&media->media_id);
 				JSON_SET_SIMPLE_CSTR("protocol",media->protocol ? media->protocol->name : "");
 				JSON_SET_SIMPLE_CSTR("desired_family",media->desired_family ? media->desired_family->rfc_name : "");
 				JSON_SET_SIMPLE_STR("logical_intf",&media->logical_intf->name);
