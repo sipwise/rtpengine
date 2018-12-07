@@ -1195,6 +1195,11 @@ Optionally included keys are:
 
 		Omit the `a=rtcp` line from the outgoing SDP.
 
+	- `full rtcp attribute`
+
+		Include the full version of the `a=rtcp` line (complete with network address) instead of
+		the short version with just the port number.
+
 	- `loop protect`
 
 		Inserts a custom attribute (`a=rtpengine:...`) into the outgoing SDP to prevent *rtpengine*

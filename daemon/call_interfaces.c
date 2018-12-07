@@ -619,6 +619,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		out->record_call = 1;
 	else if (!str_cmp(s, "no-rtcp-attribute"))
 		out->no_rtcp_attr = 1;
+	else if (!str_cmp(s, "full-rtcp-attribute"))
+		out->full_rtcp_attr = 1;
 	else if (!str_cmp(s, "loop-protect"))
 		out->loop_protect = 1;
 	else if (!str_cmp(s, "always-transcode"))

@@ -22,6 +22,7 @@ GetOptions(
 	'trust-address'			=> \$options{'trust address'},
 	'sip-source-address'		=> \$options{'sip source address'},
 	'no-rtcp-attribute'		=> \$options{'no rtcp attribute'},
+	'full-rtcp-attribute'		=> \$options{'full rtcp attribute'},
 	'symmetric'			=> \$options{'symmetric'},
 	'asymmetric'			=> \$options{'asymmetric'},
 	'replace-origin'		=> \$options{'replace-origin'},
@@ -75,7 +76,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 for my $x (split(/,/, 'TOS,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,loop protect,record call,always transcode,all,pad crypto,generate mid,fragment')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,pad crypto,generate mid,fragment')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection')) {
