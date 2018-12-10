@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1adf8d57_e9e7a210",
+        "filename": "utils/const_str_hash",
+        "patchSetId": 3
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-12-10T15:41:16Z",
+      "side": 1,
+      "message": "Hmm what about collisions, current or future ones? Wouldn\u0027t it be better to use a perfect hash implementation that already exists? Say gperf or triehash (https://github.com/julian-klode/triehash, which is used in apt and I\u0027m in the process of using in dpkg :)?",
+      "revId": "5a6b1072d93b568286c82fa485b928dfc82bc750",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
