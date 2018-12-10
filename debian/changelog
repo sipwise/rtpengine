@@ -1,3 +1,13 @@
+ngcp-rtpengine (7.0.2.0+0~mr7.0.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8d85d04] fix test suite compilation after 590b752b
+  * [1f6aec2] fix poller race condition
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 10 Dec 2018 22:11:29 +0100
+
 ngcp-rtpengine (7.0.1.0+0~mr7.0.1.0) unstable; urgency=medium
 
   [ Øyvind Kolbu ]
