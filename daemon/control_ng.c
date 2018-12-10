@@ -184,57 +184,59 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	// start command timer
 	gettimeofday(&cmd_start, NULL);
 
-	if (!str_cmp(&cmd, "ping")) {
-		resultstr = "pong";
-		g_atomic_int_inc(&cur->ping);
-	}
-	else if (!str_cmp(&cmd, "offer")) {
-		errstr = call_offer_ng(dict, resp, addr, sin);
-		g_atomic_int_inc(&cur->offer);
-	}
-	else if (!str_cmp(&cmd, "answer")) {
-		errstr = call_answer_ng(dict, resp);
-		g_atomic_int_inc(&cur->answer);
-	}
-	else if (!str_cmp(&cmd, "delete")) {
-		errstr = call_delete_ng(dict, resp);
-		g_atomic_int_inc(&cur->delete);
-	}
-	else if (!str_cmp(&cmd, "query")) {
-		errstr = call_query_ng(dict, resp);
-		g_atomic_int_inc(&cur->query);
-	}
-	else if (!str_cmp(&cmd, "list")) {
-	    errstr = call_list_ng(dict, resp);
-	    g_atomic_int_inc(&cur->list);
-	}
-	else if (!str_cmp(&cmd, "start recording")) {
-		errstr = call_start_recording_ng(dict, resp);
-		g_atomic_int_inc(&cur->start_recording);
-	}
-	else if (!str_cmp(&cmd, "stop recording")) {
-		errstr = call_stop_recording_ng(dict, resp);
-		g_atomic_int_inc(&cur->stop_recording);
-	}
-	else if (!str_cmp(&cmd, "block DTMF")) {
-		errstr = call_block_dtmf_ng(dict, resp);
-		g_atomic_int_inc(&cur->block_dtmf);
-	}
-	else if (!str_cmp(&cmd, "unblock DTMF")) {
-		errstr = call_unblock_dtmf_ng(dict, resp);
-		g_atomic_int_inc(&cur->unblock_dtmf);
-	}
-	else if (!str_cmp(&cmd, "block media")) {
-		errstr = call_block_media_ng(dict, resp);
-		g_atomic_int_inc(&cur->block_media);
-	}
-	else if (!str_cmp(&cmd, "unblock media")) {
-		errstr = call_unblock_media_ng(dict, resp);
-		g_atomic_int_inc(&cur->unblock_media);
-	}
-	else
-	{
-		errstr = "Unrecognized command";
+	int cmdcode = __lookup(&cmd);
+
+	switch (cmdcode) {
+		case STR_LOOKUP("ping"):
+			resultstr = "pong";
+			g_atomic_int_inc(&cur->ping);
+			break;
+		case STR_LOOKUP("offer"):
+			errstr = call_offer_ng(dict, resp, addr, sin);
+			g_atomic_int_inc(&cur->offer);
+			break;
+		case STR_LOOKUP("answer"):
+			errstr = call_answer_ng(dict, resp);
+			g_atomic_int_inc(&cur->answer);
+			break;
+		case STR_LOOKUP("delete"):
+			errstr = call_delete_ng(dict, resp);
+			g_atomic_int_inc(&cur->delete);
+			break;
+		case STR_LOOKUP("query"):
+			errstr = call_query_ng(dict, resp);
+			g_atomic_int_inc(&cur->query);
+			break;
+		case STR_LOOKUP("list"):
+			errstr = call_list_ng(dict, resp);
+			g_atomic_int_inc(&cur->list);
+			break;
+		case STR_LOOKUP("start recording"):
+			errstr = call_start_recording_ng(dict, resp);
+			g_atomic_int_inc(&cur->start_recording);
+			break;
+		case STR_LOOKUP("stop recording"):
+			errstr = call_stop_recording_ng(dict, resp);
+			g_atomic_int_inc(&cur->stop_recording);
+			break;
+		case STR_LOOKUP("block DTMF"):
+			errstr = call_block_dtmf_ng(dict, resp);
+			g_atomic_int_inc(&cur->block_dtmf);
+			break;
+		case STR_LOOKUP("unblock DTMF"):
+			errstr = call_unblock_dtmf_ng(dict, resp);
+			g_atomic_int_inc(&cur->unblock_dtmf);
+			break;
+		case STR_LOOKUP("block media"):
+			errstr = call_block_media_ng(dict, resp);
+			g_atomic_int_inc(&cur->block_media);
+			break;
+		case STR_LOOKUP("unblock media"):
+			errstr = call_unblock_media_ng(dict, resp);
+			g_atomic_int_inc(&cur->unblock_media);
+			break;
+		default:
+			errstr = "Unrecognized command";
 	}
 
 	// stop command timer
@@ -248,15 +250,19 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	bencode_dictionary_add_string(resp, "result", resultstr);
 
 	// update interval statistics
-	if (!str_cmp(&cmd, "offer")) {
-		atomic64_inc(&rtpe_statsps.offers);
-		timeval_update_request_time(&rtpe_totalstats_interval.offer, &cmd_process_time);
-	} else if (!str_cmp(&cmd, "answer")) {
-		atomic64_inc(&rtpe_statsps.answers);
-		timeval_update_request_time(&rtpe_totalstats_interval.answer, &cmd_process_time);
-	} else if (!str_cmp(&cmd, "delete")) {
-		atomic64_inc(&rtpe_statsps.deletes);
-		timeval_update_request_time(&rtpe_totalstats_interval.delete, &cmd_process_time);
+	switch (cmdcode) {
+		case STR_LOOKUP("offer"):
+			atomic64_inc(&rtpe_statsps.offers);
+			timeval_update_request_time(&rtpe_totalstats_interval.offer, &cmd_process_time);
+			break;
+		case STR_LOOKUP("answer"):
+			atomic64_inc(&rtpe_statsps.answers);
+			timeval_update_request_time(&rtpe_totalstats_interval.answer, &cmd_process_time);
+			break;
+		case STR_LOOKUP("delete"):
+			atomic64_inc(&rtpe_statsps.deletes);
+			timeval_update_request_time(&rtpe_totalstats_interval.delete, &cmd_process_time);
+			break;
 	}
 
 	goto send_resp;

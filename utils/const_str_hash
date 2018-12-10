@@ -1,0 +1,85 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use IPC::Open2;
+
+sub str_hash {
+	my ($s) = @_;
+	my $ret = 5381;
+	my $i = 0;
+	while ($i < length($s)) {
+		my $c = ord(substr($s, $i, 1));
+		$ret = (($ret << 5) + $ret + $c) & 0xffffffff;
+		$i++;
+	}
+	return sprintf('0x%xu', $ret);
+}
+
+print("/******** GENERATED FILE ********/\n");
+
+my $rewritten_input = '';
+my $iter = 0;
+my $keys = '';
+my %key_vals;
+
+# collect keywords and rewrite input file with in lookup keys
+
+while (my $line = <>) {
+	if (!($line =~ s/STR_LOOKUP\("(.*?)"\)/{}/)) {
+		$rewritten_input .= $line;
+		next;
+	}
+	my $key = $1;
+	if (exists($key_vals{$key})) {
+		$line =~ s/{}/$key_vals{$key}/;
+	}
+	else {
+		$line =~ s/{}/$iter/;
+		$keys .= "$key,$iter\n";
+		$key_vals{$key} = $iter;
+		$iter++;
+	}
+	$rewritten_input .= $line;
+}
+
+# pass collected output to gperf
+
+my ($rd, $wr);
+my $pid = open2($rd, $wr, qw(gperf -t -E -l -c -t -I -H __hash -N __lookup_raw));
+
+# gperf header and keys
+
+print { $wr } "struct __hash_lookup { char *name; int num; };\n%%\n";
+print { $wr } $keys;
+
+# read gperf output
+
+close($wr);
+my $hash_func_code;
+{
+	local $/ = undef;
+	$hash_func_code = <$rd>;
+}
+close($rd);
+waitpid($pid, 0);
+exit(1) if $?;
+
+# convert lookup function to static
+
+$hash_func_code =~ s/(^|\s)struct\s+__hash_lookup\s*\*/\nstatic$&/s;
+
+# print combined output
+
+print $hash_func_code;
+# add convenience function
+print <<END;
+#include "str.h"
+static int __lookup(const str *s) {
+	struct __hash_lookup *h = __lookup_raw(s->s, s->len);
+	if (!h)
+		return -1;
+	return h->num;
+}
+END
+print $rewritten_input;
