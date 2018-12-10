@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+sub str_hash {
+	my ($s) = @_;
+	my $ret = 5381;
+	my $i = 0;
+	while ($i < length($s)) {
+		my $c = ord(substr($s, $i, 1));
+		$ret = (($ret << 5) + $ret + $c) & 0xffffffff;
+		$i++;
+	}
+	return sprintf('0x%xu', $ret);
+}
+
+print("/******** GENERATED FILE ********/\n");
+
+while (my $line = <>) {
+	$line =~ s/CONST_STR_HASH\("(.*?)"\)/str_hash($1)/gse;
+	print($line);
+}

@@ -114,7 +114,7 @@ endif
 
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c streambuf.c call.c control_udp.c redis.c \
 		bencode.c cookie_cache.c udp_listener.c control_ng.c sdp.c stun.c rtcp.c \
-		crypto.c rtp.c call_interfaces.c dtls.c log.c cli.c graphite.c ice.c socket.c \
+		crypto.c rtp.c call_interfaces.strhash.c dtls.c log.c cli.c graphite.c ice.c socket.c \
 		media_socket.c homer.c recording.c statistics.c cdr.c ssrc.c iptables.c tcp_listener.c \
 		codec.c load.c dtmf.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c str.c
@@ -122,6 +122,7 @@ ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.c resample.c
 endif
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
+
 
 include ../lib/common.Makefile
 
