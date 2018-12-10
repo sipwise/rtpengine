@@ -13,7 +13,7 @@ dep:		.depend
 
 clean:
 	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(ADD_CLEAN) .depend core core.*
-	rm -f fix_frame_channel_layout.h fix_frame_channel_layout-test.[co]
+	rm -f fix_frame_channel_layout.h fix_frame_channel_layout-test.[co] *.strhash.c $(HASHSRCS)
 
 .depend:	$(SRCS) $(LIBSRCS) $(DAEMONSRCS) Makefile
 	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) $(DAEMONSRCS) | sed -e 's/:/ .depend:/' > .depend
@@ -27,12 +27,15 @@ $(LIBSRCS):	$(patsubst %,../lib/%,$(LIBSRCS))
 		echo '/******** GENERATED FILE ********/' > "$@"
 		cat ../lib/"$@" >> "$@"
 
-$(DAEMONSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS))
+$(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,../daemon/%,$(HASHSRCS))
 		rm -f "$@"
 		echo '/******** GENERATED FILE ********/' > "$@"
 		cat ../daemon/"$@" >> "$@"
 
 resample.c:	fix_frame_channel_layout.h
+
+%.strhash.c:	%.c ../utils/const_str_hash
+	../utils/const_str_hash < $< > $@
 
 fix_frame_channel_layout.h:	../lib/fix_frame_channel_layout-*
 	echo "Looking for usable alternative for $@"; \
