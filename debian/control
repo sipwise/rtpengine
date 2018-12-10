@@ -7,6 +7,7 @@ Standards-Version: 3.9.8
 Build-Depends:
  debhelper (>= 10~),
  default-libmysqlclient-dev | libmysqlclient-dev,
+ gperf,
  iptables-dev (>= 1.4),
  libavcodec-dev (>= 6:10),
  libavfilter-dev (>= 6:10),

@@ -793,84 +793,81 @@ static int parse_attribute(struct sdp_attribute *a) {
 	}
 
 	ret = 0;
-	switch (a->name.len) {
-		case 3:
-			if (!str_cmp(&a->name, "mid"))
-				a->attr = ATTR_MID;
+	switch (__csh_lookup(&a->name)) {
+		case CSH_LOOKUP("mid"):
+			a->attr = ATTR_MID;
 			break;
-		case 4:
-			if (!str_cmp(&a->name, "rtcp"))
-				ret = parse_attribute_rtcp(a);
-			else if (!str_cmp(&a->name, "ssrc"))
-				ret = parse_attribute_ssrc(a);
-			else if (!str_cmp(&a->name, "fmtp"))
-				ret = parse_attribute_fmtp(a);
+		case CSH_LOOKUP("rtcp"):
+			ret = parse_attribute_rtcp(a);
 			break;
-		case 5:
-			if (!str_cmp(&a->name, "group"))
-				ret = parse_attribute_group(a);
-			else if (!str_cmp(&a->name, "setup"))
-				ret = parse_attribute_setup(a);
-			else if (!str_cmp(&a->name, "ptime"))
-				a->attr = ATTR_PTIME;
+		case CSH_LOOKUP("ssrc"):
+			ret = parse_attribute_ssrc(a);
 			break;
-		case 6:
-			if (!str_cmp(&a->name, "crypto"))
-				ret = parse_attribute_crypto(a);
-			else if (!str_cmp(&a->name, "extmap"))
-				a->attr = ATTR_EXTMAP;
-			else if (!str_cmp(&a->name, "rtpmap"))
-				ret = parse_attribute_rtpmap(a);
+		case CSH_LOOKUP("fmtp"):
+			ret = parse_attribute_fmtp(a);
 			break;
-		case 7:
-			if (!str_cmp(&a->name, "ice-pwd"))
-				a->attr = ATTR_ICE_PWD;
+		case CSH_LOOKUP("group"):
+			ret = parse_attribute_group(a);
 			break;
-		case 8:
-			switch (a->name.s[0]) {
-				case 'i':
-					if (!str_cmp(&a->name, "ice-lite"))
-						a->attr = ATTR_ICE_LITE;
-					else if (!str_cmp(&a->name, "inactive"))
-						a->attr = ATTR_INACTIVE;
-					break;
-				case 's':
-					if (!str_cmp(&a->name, "sendrecv"))
-						a->attr = ATTR_SENDRECV;
-					else if (!str_cmp(&a->name, "sendonly"))
-						a->attr = ATTR_SENDONLY;
-					break;
-				case 'r':
-					if (!str_cmp(&a->name, "recvonly"))
-						a->attr = ATTR_RECVONLY;
-					if (!str_cmp(&a->name, "rtcp-mux"))
-						a->attr = ATTR_RTCP_MUX;
-					break;
-			}
+		case CSH_LOOKUP("setup"):
+			ret = parse_attribute_setup(a);
 			break;
-		case 9:
-			if (!str_cmp(&a->name, "candidate"))
-				ret = parse_attribute_candidate(a);
-			else if (!str_cmp(&a->name, "ice-ufrag"))
-				a->attr = ATTR_ICE_UFRAG;
-			else if (!str_cmp(&a->name, "rtpengine"))
-				a->attr = ATTR_RTPENGINE;
+		case CSH_LOOKUP("ptime"):
+			a->attr = ATTR_PTIME;
 			break;
-		case 11:
-			if (!str_cmp(&a->name, "ice-options"))
-				a->attr = ATTR_ICE_OPTIONS;
-			else if (!str_cmp(&a->name, "fingerprint"))
-				ret = parse_attribute_fingerprint(a);
+		case CSH_LOOKUP("crypto"):
+			ret = parse_attribute_crypto(a);
 			break;
-		case 12:
-			if (!str_cmp(&a->name, "ice-mismatch"))
-				a->attr = ATTR_ICE;
+		case CSH_LOOKUP("extmap"):
+			a->attr = ATTR_EXTMAP;
 			break;
-		case 17:
-			if (!str_cmp(&a->name, "remote-candidates"))
-				a->attr = ATTR_ICE;
-			else if (!str_cmp(&a->name, "end-of-candidates"))
-				a->attr = ATTR_END_OF_CANDIDATES;
+		case CSH_LOOKUP("rtpmap"):
+			ret = parse_attribute_rtpmap(a);
+			break;
+		case CSH_LOOKUP("ice-pwd"):
+			a->attr = ATTR_ICE_PWD;
+			break;
+		case CSH_LOOKUP("ice-lite"):
+			a->attr = ATTR_ICE_LITE;
+			break;
+		case CSH_LOOKUP("inactive"):
+			a->attr = ATTR_INACTIVE;
+			break;
+		case CSH_LOOKUP("sendrecv"):
+			a->attr = ATTR_SENDRECV;
+			break;
+		case CSH_LOOKUP("sendonly"):
+			a->attr = ATTR_SENDONLY;
+			break;
+		case CSH_LOOKUP("recvonly"):
+			a->attr = ATTR_RECVONLY;
+			break;
+		case CSH_LOOKUP("rtcp-mux"):
+			a->attr = ATTR_RTCP_MUX;
+			break;
+		case CSH_LOOKUP("candidate"):
+			ret = parse_attribute_candidate(a);
+			break;
+		case CSH_LOOKUP("ice-ufrag"):
+			a->attr = ATTR_ICE_UFRAG;
+			break;
+		case CSH_LOOKUP("rtpengine"):
+			a->attr = ATTR_RTPENGINE;
+			break;
+		case CSH_LOOKUP("ice-options"):
+			a->attr = ATTR_ICE_OPTIONS;
+			break;
+		case CSH_LOOKUP("fingerprint"):
+			ret = parse_attribute_fingerprint(a);
+			break;
+		case CSH_LOOKUP("ice-mismatch"):
+			a->attr = ATTR_ICE;
+			break;
+		case CSH_LOOKUP("remote-candidates"):
+			a->attr = ATTR_ICE;
+			break;
+		case CSH_LOOKUP("end-of-candidates"):
+			a->attr = ATTR_END_OF_CANDIDATES;
 			break;
 	}
 
