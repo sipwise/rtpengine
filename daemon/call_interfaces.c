@@ -500,24 +500,41 @@ INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two
 }
 
 INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
-	if (!str_cmp(s, "no") || !str_cmp(s, "off") || !str_cmp(s, "disabled")
-			|| !str_cmp(s, "disable"))
-		out->sdes_off = 1;
-	else if (!str_cmp(s, "unencrypted_srtp") || !str_cmp(s, "UNENCRYPTED_SRTP"))
-		out->sdes_unencrypted_srtp = 1;
-	else if (!str_cmp(s, "unencrypted_srtcp") || !str_cmp(s, "UNENCRYPTED_SRTCP"))
-		out->sdes_unencrypted_srtcp = 1;
-	else if (!str_cmp(s, "unauthenticated_srtp") || !str_cmp(s, "UNAUTHENTICATED_SRTP"))
-		out->sdes_unauthenticated_srtp = 1;
-	else if (!str_cmp(s, "encrypted_srtp") || !str_cmp(s, "ENCRYPTED_SRTP"))
-		out->sdes_encrypted_srtp = 1;
-	else if (!str_cmp(s, "encrypted_srtcp") || !str_cmp(s, "ENCRYPTED_SRTCP"))
-		out->sdes_encrypted_srtcp = 1;
-	else if (!str_cmp(s, "authenticated_srtp") || !str_cmp(s, "AUTHENTICATED_SRTP"))
-		out->sdes_authenticated_srtp = 1;
-	else
-		ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
-				STR_FMT(s));
+	switch (str_hash(s)) {
+		case CONST_STR_HASH("no"):
+		case CONST_STR_HASH("off"):
+		case CONST_STR_HASH("disabled"):
+		case CONST_STR_HASH("disable"):
+			out->sdes_off = 1;
+			break;
+		case CONST_STR_HASH("unencrypted_srtp"):
+		case CONST_STR_HASH("UNENCRYPTED_SRTP"):
+			out->sdes_unencrypted_srtp = 1;
+			break;
+		case CONST_STR_HASH("unencrypted_srtcp"):
+		case CONST_STR_HASH("UNENCRYPTED_SRTCP"):
+			out->sdes_unencrypted_srtcp = 1;
+			break;
+		case CONST_STR_HASH("unauthenticated_srtp"):
+		case CONST_STR_HASH("UNAUTHENTICATED_SRTP"):
+			out->sdes_unauthenticated_srtp = 1;
+			break;
+		case CONST_STR_HASH("encrypted_srtp"):
+		case CONST_STR_HASH("ENCRYPTED_SRTP"):
+			out->sdes_encrypted_srtp = 1;
+			break;
+		case CONST_STR_HASH("encrypted_srtcp"):
+		case CONST_STR_HASH("ENCRYPTED_SRTCP"):
+			out->sdes_encrypted_srtcp = 1;
+			break;
+		case CONST_STR_HASH("authenticated_srtp"):
+		case CONST_STR_HASH("AUTHENTICATED_SRTP"):
+			out->sdes_authenticated_srtp = 1;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
+					STR_FMT(s));
+	}
 }
 
 
@@ -535,19 +552,26 @@ static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *input, 
 	}
 }
 static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy) {
-	if (!str_cmp(s, "offer"))
-		out->rtcp_mux_offer = 1;
-	else if (!str_cmp(s, "require"))
-		out->rtcp_mux_require = 1;
-	else if (!str_cmp(s, "demux"))
-		out->rtcp_mux_demux = 1;
-	else if (!str_cmp(s, "accept"))
-		out->rtcp_mux_accept = 1;
-	else if (!str_cmp(s, "reject"))
-		out->rtcp_mux_reject = 1;
-	else
-		ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '" STR_FORMAT "'",
-				STR_FMT(s));
+	switch (str_hash(s)) {
+		case CONST_STR_HASH("offer"):
+			out->rtcp_mux_offer = 1;
+			break;
+		case CONST_STR_HASH("require"):
+			out->rtcp_mux_require = 1;
+			break;
+		case CONST_STR_HASH("demux"):
+			out->rtcp_mux_demux = 1;
+			break;
+		case CONST_STR_HASH("accept"):
+			out->rtcp_mux_accept = 1;
+			break;
+		case CONST_STR_HASH("reject"):
+			out->rtcp_mux_reject = 1;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
 }
 static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy) {
 	str_hyphenate(s);
@@ -590,65 +614,84 @@ INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char
 static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 	str_hyphenate(s);
 
-	// XXX use internal hash tables for these
-	if (!str_cmp(s, "trust-address"))
-		out->trust_address = 1;
-	else if (!str_cmp(s, "SIP-source-address"))
-		out->trust_address = 0;
-	else if (!str_cmp(s, "asymmetric"))
-		out->asymmetric = 1;
-	else if (!str_cmp(s, "no-redis-update"))
-		out->no_redis_update = 1;
-	else if (!str_cmp(s, "unidirectional"))
-		out->unidirectional = 1;
-	else if (!str_cmp(s, "strict-source"))
-		out->strict_source = 1;
-	else if (!str_cmp(s, "media-handover"))
-		out->media_handover = 1;
-	else if (!str_cmp(s, "reset"))
-		out->reset = 1;
-	else if (!str_cmp(s, "all"))
-		out->all = 1;
-	else if (!str_cmp(s, "fragment"))
-		out->fragment = 1;
-	else if (!str_cmp(s, "port-latching"))
-		out->port_latching = 1;
-	else if (!str_cmp(s, "generate-mid"))
-		out->generate_mid = 1;
-	else if (!str_cmp(s, "record-call"))
-		out->record_call = 1;
-	else if (!str_cmp(s, "no-rtcp-attribute"))
-		out->no_rtcp_attr = 1;
-	else if (!str_cmp(s, "full-rtcp-attribute"))
-		out->full_rtcp_attr = 1;
-	else if (!str_cmp(s, "loop-protect"))
-		out->loop_protect = 1;
-	else if (!str_cmp(s, "always-transcode"))
-		out->always_transcode = 1;
-	else if (!str_cmp(s, "asymmetric-codecs"))
-		out->asymmetric_codecs = 1;
-	else if (!str_cmp(s, "pad-crypto"))
-		out->pad_crypto = 1;
-	else {
-		// handle values aliases from other dictionaries
-		if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
-			return;
-		if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_codec_ht, out->codec_strip))
-			return;
-		if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list, &out->codec_offer))
-			return;
+	switch (str_hash(s)) {
+		case CONST_STR_HASH("trust-address"):
+			out->trust_address = 1;
+			break;
+		case CONST_STR_HASH("SIP-source-address"):
+			out->trust_address = 0;
+			break;
+		case CONST_STR_HASH("asymmetric"):
+			out->asymmetric = 1;
+			break;
+		case CONST_STR_HASH("no-redis-update"):
+			out->no_redis_update = 1;
+			break;
+		case CONST_STR_HASH("unidirectional"):
+			out->unidirectional = 1;
+			break;
+		case CONST_STR_HASH("strict-source"):
+			out->strict_source = 1;
+			break;
+		case CONST_STR_HASH("media-handover"):
+			out->media_handover = 1;
+			break;
+		case CONST_STR_HASH("reset"):
+			out->reset = 1;
+			break;
+		case CONST_STR_HASH("all"):
+			out->all = 1;
+			break;
+		case CONST_STR_HASH("fragment"):
+			out->fragment = 1;
+			break;
+		case CONST_STR_HASH("port-latching"):
+			out->port_latching = 1;
+			break;
+		case CONST_STR_HASH("generate-mid"):
+			out->generate_mid = 1;
+			break;
+		case CONST_STR_HASH("record-call"):
+			out->record_call = 1;
+			break;
+		case CONST_STR_HASH("no-rtcp-attribute"):
+			out->no_rtcp_attr = 1;
+			break;
+		case CONST_STR_HASH("full-rtcp-attribute"):
+			out->full_rtcp_attr = 1;
+			break;
+		case CONST_STR_HASH("loop-protect"):
+			out->loop_protect = 1;
+			break;
+		case CONST_STR_HASH("always-transcode"):
+			out->always_transcode = 1;
+			break;
+		case CONST_STR_HASH("asymmetric-codecs"):
+			out->asymmetric_codecs = 1;
+			break;
+		case CONST_STR_HASH("pad-crypto"):
+			out->pad_crypto = 1;
+			break;
+		default:
+			// handle values aliases from other dictionaries
+			if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_codec_ht, out->codec_strip))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list, &out->codec_offer))
+				return;
 #ifdef WITH_TRANSCODING
-		if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list, &out->codec_transcode))
-			return;
-		if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_codec_list,
-					&out->codec_transcode))
-			return;
-		if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_codec_ht, out->codec_mask))
-			return;
+			if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list, &out->codec_transcode))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_codec_list,
+						&out->codec_transcode))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_codec_ht, out->codec_mask))
+				return;
 #endif
 
-		ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
-				STR_FMT(s));
+			ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
 	}
 }
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
@@ -682,27 +725,39 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	}
 
 	if (bencode_dictionary_get_str(input, "ICE", &s)) {
-		if (!str_cmp(&s, "remove"))
-			out->ice_remove = 1;
-		else if (!str_cmp(&s, "force"))
-			out->ice_force = 1;
-		else if (!str_cmp(&s, "force_relay") || !str_cmp(&s, "force-relay")
-				|| !str_cmp(&s, "force relay"))
-			out->ice_force_relay = 1;
-		else
-			ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '"STR_FORMAT"'",
-					STR_FMT(&s));
+		switch (str_hash(&s)) {
+			case CONST_STR_HASH("remove"):
+				out->ice_remove = 1;
+				break;
+			case CONST_STR_HASH("force"):
+				out->ice_force = 1;
+				break;
+			case CONST_STR_HASH("force_relay"):
+			case CONST_STR_HASH("force-relay"):
+			case CONST_STR_HASH("force relay"):
+				out->ice_force_relay = 1;
+				break;
+			default:
+				ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '"STR_FORMAT"'",
+						STR_FMT(&s));
+		}
 	}
 
 	if (bencode_dictionary_get_str(input, "DTLS", &s)) {
-		if (!str_cmp(&s, "passive"))
-			out->dtls_passive = 1;
-		else if (!str_cmp(&s, "no") || !str_cmp(&s, "off") || !str_cmp(&s, "disabled")
-				|| !str_cmp(&s, "disable"))
-			out->dtls_off = 1;
-		else
-			ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '"STR_FORMAT"'",
-					STR_FMT(&s));
+		switch (str_hash(&s)) {
+			case CONST_STR_HASH("passive"):
+				out->dtls_passive = 1;
+				break;
+			case CONST_STR_HASH("no"):
+			case CONST_STR_HASH("off"):
+			case CONST_STR_HASH("disabled"):
+			case CONST_STR_HASH("disable"):
+				out->dtls_off = 1;
+				break;
+			default:
+				ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '"STR_FORMAT"'",
+						STR_FMT(&s));
+		}
 	}
 
 	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
