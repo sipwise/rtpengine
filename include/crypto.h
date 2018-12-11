@@ -58,6 +58,7 @@ struct crypto_suite {
 	//const char *dtls_profile_code; // unused
 	const void *lib_cipher_ptr;
 	unsigned int idx; // filled in during crypto_init_main()
+	str name_str; // same as `name`
 };
 
 struct crypto_session_params {
