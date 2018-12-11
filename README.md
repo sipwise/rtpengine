@@ -1403,7 +1403,8 @@ Optionally included keys are:
 	A list of strings controlling the behaviour regarding SDES. The default is to offer SDES without any
 	session parameters when encryption is desired, and to accept it when DTLS-SRTP is unavailable. If two
 	SDES endpoints are connected to each other, then the default is to offer SDES with the same options
-	as were received from the other endpoint.
+	as were received from the other endpoint. Additionally, all other supported SDES crypto suites are
+	added to the outgoing offer by default.
 
 	These options can also be put into the `flags` list using a prefix of `SDES-`. All options controlling
 	SDES session parameters can be used either in all lower case or in all upper case.
@@ -1421,6 +1422,14 @@ Optionally included keys are:
 
 		Negates the respective option. This is useful if one of the session parameters was offered by
 		an SDES endpoint, but it should not be offered on the far side if this endpoint also speaks SDES.
+
+	- `no-SUITE`
+
+		Exclude individual crypto suites from being included in the offer. For example,
+		`no-NULL_HMAC_SHA1_32` would exclude the crypto suite `NULL_HMAC_SHA1_32` from
+		the offer. This has two effects: if a given crypto suite was present in a received
+		offer, it will be removed and will be missing in the outgoing offer; and if a given crypto
+		suite was not present in the received offer, it will not be added to it.
 
 * `record call`
 

@@ -1368,6 +1368,15 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			for (GList *l = offered_cpq->head; l; l = l->next) {
 				struct crypto_params_sdes *offered_cps = l->data;
 
+				if (flags->sdes_no && g_hash_table_lookup(flags->sdes_no,
+							&offered_cps->params.crypto_suite->name_str))
+				{
+					ilog(LOG_DEBUG, "Dropping offered crypto suite '%s' from offer "
+							"due to 'SDES-no' option",
+							offered_cps->params.crypto_suite->name);
+					continue;
+				}
+
 				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
 				g_queue_push_tail(cpq, cps);
 
@@ -1387,6 +1396,15 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			for (unsigned int i = 0; i < num_crypto_suites; i++) {
 				if ((types_offered & (1 << i)))
 					continue;
+
+				if (flags->sdes_no && g_hash_table_lookup(flags->sdes_no,
+							&crypto_suites[i].name_str))
+				{
+					ilog(LOG_DEBUG, "Not offering crypto suite '%s' "
+							"due to 'SDES-no' option",
+							crypto_suites[i].name);
+					continue;
+				}
 
 				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
 				g_queue_push_tail(cpq, cps);
