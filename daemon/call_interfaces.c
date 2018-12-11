@@ -597,7 +597,10 @@ static void call_ng_flags_codec_ht(struct sdp_ng_flags *out, str *s, void *htp) 
 	str *s_copy;
 	s_copy = g_slice_alloc(sizeof(*s_copy));
 	*s_copy = *s;
-	g_hash_table_replace((GHashTable *) htp, s_copy, s_copy);
+	GHashTable **ht = htp;
+	if (!*ht)
+		*ht = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
+	g_hash_table_replace(*ht, s_copy, s_copy);
 }
 // helper to alias values from other dictionaries into the "flags" dictionary
 INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
@@ -676,7 +679,7 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			// handle values aliases from other dictionaries
 			if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_codec_ht, out->codec_strip))
+			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_codec_ht, &out->codec_strip))
 				return;
 			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list, &out->codec_offer))
 				return;
@@ -686,7 +689,7 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_codec_list,
 						&out->codec_transcode))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_codec_ht, out->codec_mask))
+			if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_codec_ht, &out->codec_mask))
 				return;
 #endif
 
@@ -700,8 +703,6 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	str s;
 
 	ZERO(*out);
-	out->codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
-	out->codec_mask = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
@@ -780,17 +781,19 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	}
 
 	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
-		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_ht, out->codec_strip);
+		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_ht, &out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
 #ifdef WITH_TRANSCODING
 		call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
-		call_ng_flags_list(out, dict, "mask", call_ng_flags_codec_ht, out->codec_mask);
+		call_ng_flags_list(out, dict, "mask", call_ng_flags_codec_ht, &out->codec_mask);
 #endif
 	}
 }
 static void call_ng_free_flags(struct sdp_ng_flags *flags) {
-	g_hash_table_destroy(flags->codec_strip);
-	g_hash_table_destroy(flags->codec_mask);
+	if (flags->codec_strip)
+		g_hash_table_destroy(flags->codec_strip);
+	if (flags->codec_mask)
+		g_hash_table_destroy(flags->codec_mask);
 	g_queue_clear_full(&flags->codec_offer, str_slice_free);
 	g_queue_clear_full(&flags->codec_transcode, str_slice_free);
 }
