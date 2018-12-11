@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1adf8d57_3c6846f5",
+        "filename": "utils/const_str_hash",
+        "patchSetId": 6
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-12-11T14:16:32Z",
+      "side": 1,
+      "message": "I guess this is not used anymore?",
+      "range": {
+        "startLine": 7,
+        "startChar": 0,
+        "endLine": 17,
+        "endChar": 1
+      },
+      "revId": "d8c62e96e923cdb1d735871c3a9d2309f060fce8",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1adf8d57_dc7702d3",
+        "filename": "utils/const_str_hash",
+        "patchSetId": 6
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-12-11T14:16:32Z",
+      "side": 1,
+      "message": "Isn\u0027t this a tad too generic?",
+      "range": {
+        "startLine": 78,
+        "startChar": 11,
+        "endLine": 78,
+        "endChar": 19
+      },
+      "revId": "d8c62e96e923cdb1d735871c3a9d2309f060fce8",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
