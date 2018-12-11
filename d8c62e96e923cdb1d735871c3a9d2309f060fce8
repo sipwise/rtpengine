@@ -45,6 +45,30 @@
       "revId": "d8c62e96e923cdb1d735871c3a9d2309f060fce8",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1adf8d57_bc5b1654",
+        "filename": "utils/const_str_hash",
+        "patchSetId": 6
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2018-12-11T14:22:35Z",
+      "side": 1,
+      "message": "Well, considering that the default function name from gperf is hash() ... :)",
+      "parentUuid": "1adf8d57_dc7702d3",
+      "range": {
+        "startLine": 78,
+        "startChar": 11,
+        "endLine": 78,
+        "endChar": 19
+      },
+      "revId": "d8c62e96e923cdb1d735871c3a9d2309f060fce8",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
