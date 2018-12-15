@@ -37,6 +37,13 @@ ifneq (,$(wildcard ../bcg729/include/bcg729/decoder.h))
 have_bcg729 := yes
 bcg729_inc := -I../bcg729/include/
 bcg729_lib := -L../bcg729/src/ -lbcg729
+else
+# /usr/local/include when installing from git
+ifneq (,$(wildcard /usr/local/include/bcg729/decoder.h))
+have_bcg729 := yes
+bcg729_inc := -I/usr/local/include/
+bcg729_lib := -L/usr/local/lib64/ -lbcg729
+endif
 endif
 endif
 endif
