@@ -53,6 +53,8 @@ struct ssrc_ctx {
 
 	// for transcoding
 	u_int32_t ssrc_map_out;
+	volatile int seq_out;
+	unsigned long ts_out;
 
 	// RTCP stats
 	atomic64 packets,

@@ -62,8 +62,6 @@ struct codec_ssrc_handler {
 	int ptime;
 	int bytes_per_packet;
 	unsigned long ts_in; // for DTMF dupe detection
-	unsigned long ts_out;
-	u_int16_t seq_out;
 	GString *sample_buffer;
 };
 struct transcode_packet {
@@ -602,16 +600,16 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 {
 	struct rtp_header *rh = (void *) buf;
 	// reconstruct RTP header
-	unsigned int ts = payload_ts + ch->ts_out;
+	unsigned int ts = payload_ts + mp->ssrc_out->ts_out;
 	ZERO(*rh);
 	rh->v_p_x_cc = 0x80;
 	rh->m_pt = handler->dest_pt.payload_type | (marker ? 0x80 : 0);
 	if (seq != -1)
 		rh->seq_num = htons(seq);
 	else
-		rh->seq_num = htons(ch->seq_out += seq_inc);
+		rh->seq_num = htons(g_atomic_int_add(&mp->ssrc_out->seq_out, seq_inc) + seq_inc);
 	rh->timestamp = htonl(ts);
-	rh->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
+	rh->ssrc = htonl(mp->ssrc_out->parent->h.ssrc);
 
 	// add to output queue
 	struct codec_packet *p = g_slice_alloc(sizeof(*p));
@@ -852,8 +850,6 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	ch->handler = h;
 	mutex_init(&ch->lock);
 	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
-	ch->seq_out = random();
-	ch->ts_out = random();
 	ch->ptime = h->dest_pt.ptime;
 	ch->sample_buffer = g_string_new("");
 
