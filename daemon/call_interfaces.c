@@ -674,6 +674,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("loop-protect"):
 			out->loop_protect = 1;
 			break;
+		case CSH_LOOKUP("original-sendrecv"):
+			out->original_sendrecv = 1;
+			break;
 		case CSH_LOOKUP("always-transcode"):
 			out->always_transcode = 1;
 			break;

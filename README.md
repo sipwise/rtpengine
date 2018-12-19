@@ -1256,6 +1256,14 @@ Optionally included keys are:
 
 		Add `a=mid` attributes to the outgoing SDP if they were not already present.
 
+	- `original sendrecv`
+
+		With this flag present, *rtpengine* will leave the media direction attributes
+		(`sendrecv`, `recvonly`, `sendonly`, and `inactive`) from the received SDP body
+		unchanged. Normally *rtpengine* would consume these attributes and insert its
+		own version of them based on other media parameters (e.g. a media section with
+		a zero IP address would come out as `sendonly` or `inactive`).
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.

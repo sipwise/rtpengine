@@ -1627,14 +1627,18 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 				goto strip;
 
 			case ATTR_EXTMAP:
-			case ATTR_INACTIVE:
-			case ATTR_SENDONLY:
-			case ATTR_RECVONLY:
-			case ATTR_SENDRECV:
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:
 			case ATTR_IGNORE:
 				goto strip;
+
+			case ATTR_INACTIVE:
+			case ATTR_SENDONLY:
+			case ATTR_RECVONLY:
+			case ATTR_SENDRECV:
+				if (!flags->original_sendrecv)
+					goto strip;
+				break;
 
 			case ATTR_GROUP:
 				if (attr->u.group.semantics == GROUP_BUNDLE)
@@ -1697,15 +1701,20 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_RTCP_MUX:
 				if (flags->ice_force_relay)
 					break;
-				// fall thru
-			case ATTR_INACTIVE:
-			case ATTR_SENDONLY:
-			case ATTR_RECVONLY:
-			case ATTR_SENDRECV:
+				goto strip;
+
 			case ATTR_IGNORE:
 			case ATTR_END_OF_CANDIDATES: // we strip it here and re-insert it later
 			case ATTR_MID:
 				goto strip;
+
+			case ATTR_INACTIVE:
+			case ATTR_SENDONLY:
+			case ATTR_RECVONLY:
+			case ATTR_SENDRECV:
+				if (!flags->original_sendrecv)
+					goto strip;
+				break;
 
 			case ATTR_RTPMAP:
 			case ATTR_FMTP:
@@ -2096,14 +2105,16 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			if (!sdp_media->port_num || !ps->selected_sfd)
 				goto next;
 
-			if (MEDIA_ARESET2(call_media, SEND, RECV))
-				chopper_append_c(chop, "a=sendrecv\r\n");
-			else if (MEDIA_ISSET(call_media, SEND))
-				chopper_append_c(chop, "a=sendonly\r\n");
-			else if (MEDIA_ISSET(call_media, RECV))
-				chopper_append_c(chop, "a=recvonly\r\n");
-			else
-				chopper_append_c(chop, "a=inactive\r\n");
+			if (!flags->original_sendrecv) {
+				if (MEDIA_ARESET2(call_media, SEND, RECV))
+					chopper_append_c(chop, "a=sendrecv\r\n");
+				else if (MEDIA_ISSET(call_media, SEND))
+					chopper_append_c(chop, "a=sendonly\r\n");
+				else if (MEDIA_ISSET(call_media, RECV))
+					chopper_append_c(chop, "a=recvonly\r\n");
+				else
+					chopper_append_c(chop, "a=inactive\r\n");
+			}
 
 			if (call_media->protocol && call_media->protocol->rtp) {
 				if (MEDIA_ISSET(call_media, RTCP_MUX)
