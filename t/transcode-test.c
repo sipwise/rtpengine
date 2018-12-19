@@ -191,8 +191,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		uint32_t ts = ntohl(rtp->timestamp);
 		uint16_t seq = ntohs(rtp->seq_num);
 		uint32_t ssrc = ntohl(rtp->ssrc);
-		uint32_t ssrc_pt = ssrc ^ (pt_out & 0x7f);
-		ssrc_pt ^= (pt_in & 0x7f) << 8; /* XXX this is actually wrong and should be removed. it's a workaround for a bug */
+		uint32_t ssrc_pt = ssrc;
 		printf("RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc,
 				(unsigned int) seq, (unsigned int) ts, (unsigned int) rtp->m_pt);
 		if (g_hash_table_contains(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt))) {
@@ -299,10 +298,10 @@ int main() {
 	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "0/PCMU/8000 8/PCMA/8000");
-	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 0, PCMU_payload, 0, PCMU_payload);
-	packet(A, 8, PCMA_payload, 8, PCMA_payload);
-	packet(B, 8, PCMA_payload, 8, PCMA_payload);
+	packet_seq(A, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(A, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
+	packet_seq(B, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
 	end();
 
 	// plain with two offered and one answered
@@ -340,9 +339,9 @@ int main() {
 	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "8/PCMA/8000");
-	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(A, 8, PCMA_payload, 8, PCMA_payload);
-	packet(B, 8, PCMA_payload, 8, PCMA_payload);
+	packet_seq(A, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(A, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
+	packet_seq(B, 8, PCMA_payload, 0, 0, 8, PCMA_payload);
 	end();
 
 	// plain with two offered and two answered + always-transcode one way
@@ -362,10 +361,10 @@ int main() {
 	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "0/PCMU/8000 8/PCMA/8000");
-	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 0, PCMU_payload, 0, PCMU_payload);
-	packet(A, 8, PCMA_payload, 8, PCMA_payload);
-	packet(B, 8, PCMA_payload, 0, PCMU_payload);
+	packet_seq(A, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(A, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
+	packet_seq(B, 8, PCMA_payload, 160, 1, 0, PCMU_payload);
 	end();
 
 	// plain with two offered and two answered + always-transcode both ways
@@ -408,9 +407,9 @@ int main() {
 	expect(A, send, "0/PCMU/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "0/PCMU/8000 8/PCMA/8000");
-	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 8, PCMA_payload, 0, PCMU_payload);
+	packet_seq(A, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 8, PCMA_payload, 160, 1, 0, PCMU_payload);
 	end();
 
 	// add one codec to transcode, don't accept original offered codec
