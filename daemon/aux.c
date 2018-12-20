@@ -186,11 +186,14 @@ static void *thread_detach_func(void *d) {
 
 		if (!scheduler)
 			ilog(LOG_ERR, "Specified scheduler policy '%s' not found", dt->scheduler);
-		else {
+		else if (scheduler->num != -1) {
 			struct sched_param param = { 0 };
 
 			if (!scheduler->nice)
 				param.sched_priority = dt->priority;
+
+			ilog(LOG_DEBUG, "Setting thread scheduling parameters to '%s' (%i) / %i",
+					dt->scheduler, scheduler->num, param.sched_priority);
 
 			if (pthread_setschedparam(*t, scheduler->num, &param))
 				ilog(LOG_ERR, "Failed to set thread scheduling parameters to '%s' (%i) / %i: %s",
@@ -201,9 +204,11 @@ static void *thread_detach_func(void *d) {
 	}
 
 	if ((!scheduler && dt->priority) || (scheduler && scheduler->nice)) {
+		ilog(LOG_DEBUG, "Setting thread nice value to %i", dt->priority);
+
 		if (setpriority(PRIO_PROCESS, 0, dt->priority))
-			ilog(LOG_ERR, "Failed to set thread nice value: %s",
-					strerror(errno));
+			ilog(LOG_ERR, "Failed to set thread nice value to %i: %s",
+					dt->priority, strerror(errno));
 	}
 
 	dt->func(dt->data);
