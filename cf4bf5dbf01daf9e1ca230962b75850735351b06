@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1adf8d57_db1dba10",
+        "filename": "Makefile",
+        "patchSetId": 1
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2018-12-20T17:57:36Z",
+      "side": 1,
+      "message": "Any reason not to combine this with the .PHONE up above?",
+      "revId": "cf4bf5dbf01daf9e1ca230962b75850735351b06",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
