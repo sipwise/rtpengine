@@ -24,20 +24,6 @@ XTABLES_DIR:=$(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables
 %:
 	dh $@
 
-override_dh_auto_build-arch:
-	$(MAKE) -C iptables-extension
-	$(MAKE) -C daemon
-	$(MAKE) -C recording-daemon
-
-override_dh_auto_clean:
-	(cd daemon && $(MAKE) clean)
-	(cd recording-daemon && $(MAKE) clean)
-	(cd iptables-extension && $(MAKE) clean)
-	rm -f daemon/build_time.h kernel-module/.xt_RTPENGINE.o.d
-	rm -rf kernel-module/.tmp_versions
-	rm -f debian/README.html.gz debian/README.md.gz
-	dh_auto_clean
-
 override_dh_auto_install-indep:
 	# Create the directories to install the source into
 	dh_installdirs -p$(psource)  usr/src/modules/$(sname)/debian
@@ -82,5 +68,3 @@ override_dh_systemd_enable:
 override_dh_systemd_start:
 	dh_systemd_start --no-start
 	dh_systemd_start -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount --no-start
-
-override_dh_auto_test:
