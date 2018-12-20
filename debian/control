@@ -46,7 +46,7 @@ Conflicts:
 Replaces:
  ngcp-mediaproxy-ng-daemon,
  ngcp-rtpengine-redis1,
-Description: Proxy for RTP and media streams used in NGCP, userspace part.
+Description: proxy for RTP and media streams used in NGCP, userspace part
  This daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
 
@@ -61,7 +61,7 @@ Depends:
  nfs-common,
  ${misc:Depends},
  ${shlibs:Depends},
-Description: Recording daemon for RTP and media streams
+Description: recording daemon for RTP and media streams
  This daemon handles the call recording (media intercept) component of rtpengine.
 
 Package: ngcp-rtpengine-iptables
@@ -73,7 +73,7 @@ Conflicts:
  ngcp-mediaproxy-ng-iptables,
 Replaces:
  ngcp-mediaproxy-ng-iptables,
-Description: IPtables extension module for the kernel-space NGCP media proxy.
+Description: IPtables extension module for the kernel-space NGCP media proxy
  Provides the IPtables extension needed to configure the mediaproxy rule.
 
 Package: ngcp-rtpengine
@@ -88,7 +88,7 @@ Conflicts:
  ngcp-mediaproxy-ng,
 Replaces:
  ngcp-mediaproxy-ng,
-Description: NGCP RTP/media proxy - meta package.
+Description: NGCP RTP/media proxy - meta package
  This is a meta package for easy installation of all four parts of the NGCP
  media proxy. It will install the user-space daemon, the kernel-space IPtables
  module, the IPtables extension module and utility scripts.
@@ -103,7 +103,7 @@ Conflicts:
  ngcp-mediaproxy-ng-kernel-source,
 Replaces:
  ngcp-mediaproxy-ng-kernel-source,
-Description: IPtables kernel module for the NGCP media proxy - source.
+Description: IPtables kernel module for the NGCP media proxy - source
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
  This package contains the source to be built with module-assistant or
@@ -121,7 +121,7 @@ Conflicts:
  ngcp-mediaproxy-ng-kernel-dkms,
 Replaces:
  ngcp-mediaproxy-ng-kernel-dkms,
-Description: IPtables kernel module for the NGCP media proxy - DKMS.
+Description: IPtables kernel module for the NGCP media proxy - DKMS
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
  This package contains the source to be built with dkms.
@@ -136,5 +136,5 @@ Depends:
  libio-socket-ip-perl,
  libsocket6-perl,
  netcat-openbsd | netcat,
-Description: Scripts and Perl modules for NGCP rtpengine
+Description: scripts and Perl modules for NGCP rtpengine
  This package contains scripts and Perl modules for NGCP rtpengine
