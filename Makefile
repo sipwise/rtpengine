@@ -10,6 +10,8 @@ all:
 	$(MAKE) -C iptables-extension
 	$(MAKE) -C t
 
+.PHONY: with-kernel
+
 with-kernel: all
 	$(MAKE) -C kernel-module
 

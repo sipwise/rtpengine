@@ -53,4 +53,4 @@ fix_frame_channel_layout.h:	../lib/fix_frame_channel_layout-*
 	rm -f fix_frame_channel_layout-test.[co]; \
 	test -f "$@"
 
-.PHONY: all debug dep clean install install
+.PHONY: all debug dep clean install
