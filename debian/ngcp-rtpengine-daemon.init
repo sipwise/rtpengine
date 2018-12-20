@@ -32,7 +32,7 @@ if [ "$RUN_RTPENGINE" != "yes" ]; then
 	log_action_msg "rtpengine not yet configured. Edit $DEFAULTS first."
 	exit 0
 fi
-[ -z "$PIDFILE" ] && PIDFILE="/var/run/rtpengine.pid"
+[ -z "$PIDFILE" ] && PIDFILE="/run/rtpengine.pid"
 
 OPTIONS=""
 START_OPTIONS=""
