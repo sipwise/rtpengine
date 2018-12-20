@@ -84,6 +84,7 @@ Depends:
  ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
  ngcp-rtpengine-recording-daemon (>= ${source:Version}),
  ngcp-rtpengine-utils (>= ${source:Version}),
+ ${misc:Depends},
 Conflicts:
  ngcp-mediaproxy-ng,
 Replaces:
@@ -138,5 +139,7 @@ Depends:
  libio-socket-ip-perl,
  libsocket6-perl,
  netcat-openbsd | netcat,
+ ${misc:Depends},
+ ${perl:Depends},
 Description: scripts and Perl modules for NGCP rtpengine
  This package contains scripts and Perl modules for NGCP rtpengine
