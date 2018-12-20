@@ -95,6 +95,7 @@ Description: NGCP RTP/media proxy - meta package
 
 Package: ngcp-rtpengine-kernel-source
 Architecture: all
+Section: kernel
 Depends:
  debhelper (>= 5),
  module-assistant,
@@ -111,6 +112,7 @@ Description: IPtables kernel module for the NGCP media proxy - source
 
 Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
+Section: kernel
 Suggests:
  ngcp-system-tools,
 Depends:
