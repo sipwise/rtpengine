@@ -4,6 +4,8 @@
 # Uncomment this to turn on verbose mode.
 # export DH_VERBOSE=1
 
+include /usr/share/dpkg/pkg-info.mk
+
 ## kernel package specific stuff
 # Name of the source package
 psource:=ngcp-rtpengine-kernel-source
@@ -12,7 +14,7 @@ pdkms:=ngcp-rtpengine-kernel-dkms
 # short upstream name, used for module source directory
 sname:=ngcp-rtpengine
 # Source version
-sversion:=$(shell dpkg-parsechangelog -SVersion | sed -e 's/^[^:]\+://;s/-[^-]\+$$//')
+sversion:=$(DEB_VERSION_UPSTREAM)
 
 PACKAGE=ngcp-rtpengine-kernel
 ## end of kernel package specific stuff
