@@ -16,6 +16,24 @@
       "revId": "cf4bf5dbf01daf9e1ca230962b75850735351b06",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1adf8d57_5bbf8ad0",
+        "filename": "Makefile",
+        "patchSetId": 1
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-12-20T18:10:57Z",
+      "side": 1,
+      "message": "Ah, I\u0027m used to having these standlone and near the related targets so that it\u0027s easier to see when they are missing or when to remove them, but just a matter of style. Can indeed merge them if you prefer.",
+      "parentUuid": "1adf8d57_db1dba10",
+      "revId": "cf4bf5dbf01daf9e1ca230962b75850735351b06",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
