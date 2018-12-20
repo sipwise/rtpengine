@@ -331,7 +331,7 @@ ngcp-rtpengine (6.2.0.0+0~mr6.2.0.0) unstable; urgency=medium
   [ Claudiu Boriga ]
   * [3472821] Add option to set TOS for control-ng interface
   * [43f527f] Add documentation for the control-tos option
-  * [c31ffa4] Add paramaters to disable redis communication in case of multiple errors
+  * [c31ffa4] Add parameters to disable redis communication in case of multiple errors
   * [562c5b4] Add parameter that sets a timeout for redis commands
   * [9e96732] complete missing info for new commands
   * [4850923] Make redis connection timeout configurable
