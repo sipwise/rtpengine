@@ -16,6 +16,24 @@
       "revId": "3c08ef4490daf8ee4b68fcf8ed6256d7de48b5b6",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1adf8d57_fb41963a",
+        "filename": "debian/rules",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2018-12-20T16:52:39Z",
+      "side": 1,
+      "message": "This is available since dpkg 1.16.2, since Debian wheezy. :)",
+      "parentUuid": "1adf8d57_f8c4fc92",
+      "revId": "3c08ef4490daf8ee4b68fcf8ed6256d7de48b5b6",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
