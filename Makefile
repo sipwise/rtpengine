@@ -10,8 +10,7 @@ all:
 	$(MAKE) -C iptables-extension
 	$(MAKE) -C t
 
-with-kernel:
-	$(MAKE) all
+with-kernel: all
 	$(MAKE) -C kernel-module
 
 distclean clean:
