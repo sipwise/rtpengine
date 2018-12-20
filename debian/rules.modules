@@ -56,7 +56,7 @@ kdist_clean: clean
 # during a normal build
 binary-modules: prep-deb-files
 	dh_testroot
-	dh_clean -k
+	dh_prep
 
 	# Build the module
 	$(MAKE) modules KSRC=$(KSRC) KVER=$(KVERS)
@@ -73,7 +73,6 @@ binary-modules: prep-deb-files
 	dh_gencontrol -- -v$(VERSION)
 	dh_md5sums
 	dh_builddeb --destdir=$(DEB_DESTDIR)
-	dh_clean -k
 
 clean:
 	dh_testdir
