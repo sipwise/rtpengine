@@ -67,7 +67,7 @@ fi
 case "$1" in
   start)
 	set +e
-	if [ -x "/usr/sbin/ngcp-check-active" ]; then
+	if [ -x "$(which ngcp-check-active)" ]; then
 	  case "$(ngcp-check-active -v)" in
 	    active|transition)
 	      log_action_msg "Active node or transition."
