@@ -193,7 +193,7 @@ static void *thread_detach_func(void *d) {
 				param.sched_priority = dt->priority;
 
 			if (pthread_setschedparam(*t, scheduler->num, &param))
-				ilog(LOG_ERR, "Failed to set thread scheduling paramaters to '%s' (%i) / %i: %s",
+				ilog(LOG_ERR, "Failed to set thread scheduling parameters to '%s' (%i) / %i: %s",
 						dt->scheduler, scheduler->num, param.sched_priority,
 						strerror(errno));
 
