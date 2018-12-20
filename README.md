@@ -685,7 +685,7 @@ A typical command line (enabling both UDP and NG protocols) thus may look like:
 
 	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
 	--listen-udp=127.0.0.1:22222 --listen-ng=127.0.0.1:2223 --tos=184 \
-	--pidfile=/var/run/rtpengine.pid
+	--pidfile=/run/rtpengine.pid
 
 
 Interfaces configuration
@@ -926,7 +926,7 @@ A typical start-up sequence including in-kernel forwarding might look like this:
 
 	# start daemon
 	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
-	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine.pid --no-fallback
+	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/run/rtpengine.pid --no-fallback
 
 Running Multiple Instances
 --------------------------
@@ -948,9 +948,9 @@ then the start-up sequence might look like this:
 	echo 'del 1' > /proc/rtpengine/control
 
 	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 \
-	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/var/run/rtpengine-10.pid --no-fallback
+	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/run/rtpengine-10.pid --no-fallback
 	/usr/sbin/rtpengine --table=1 --interface=192.168.65.73 \
-	--listen-ng=127.0.0.1:2224 --tos=184 --pidfile=/var/run/rtpengine-192.pid --no-fallback
+	--listen-ng=127.0.0.1:2224 --tos=184 --pidfile=/run/rtpengine-192.pid --no-fallback
 
 With this setup, the SIP proxy can choose which instance of *rtpengine* to talk to and thus which local
 interface to use by sending its control messages to either port 2223 or port 2224.

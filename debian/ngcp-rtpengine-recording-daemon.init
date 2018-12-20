@@ -31,7 +31,7 @@ if [ "$RUN_RTPENGINE_RECORDING" != "yes" ]; then
 	log_action_msg "rtpengine-recording not yet configured. Edit $DEFAULTS first."
 	exit 0
 fi
-[ -z "$PIDFILE" ] && PIDFILE="/var/run/rtpengine-recording.pid"
+[ -z "$PIDFILE" ] && PIDFILE="/run/rtpengine-recording.pid"
 
 OPTIONS=""
 START_OPTIONS=""
