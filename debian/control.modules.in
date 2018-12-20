@@ -3,9 +3,9 @@ Section: kernel
 Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Build-Depends:
- debhelper (>= 5),
-Standards-Version: 3.9.7
-Homepage: http://sipwise.com/
+ debhelper (>= 10),
+Standards-Version: 3.9.8
+Homepage: https://www.sipwise.com/
 
 Package: ngcp-rtpengine-kernel-modules-_KVERS_
 Architecture: any
