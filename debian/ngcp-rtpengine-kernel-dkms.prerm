@@ -8,8 +8,8 @@ name=ngcp-rtpengine
 version=$(dpkg-query -W -f="\${Version}" "$package" \
         |rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n")
 
-if [ -x /usr/sbin/ngcp-virt-identify ]; then
-	if /usr/sbin/ngcp-virt-identify --type container; then
+if [ -x "$(which ngcp-virt-identify)" ]; then
+	if ngcp-virt-identify --type container; then
 		VIRT="yes"
 	fi
 fi
