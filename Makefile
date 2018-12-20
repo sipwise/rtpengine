@@ -8,7 +8,6 @@ all:
 	$(MAKE) -C daemon
 	$(MAKE) -C recording-daemon
 	$(MAKE) -C iptables-extension
-	$(MAKE) -C t
 
 .PHONY: with-kernel
 
@@ -28,10 +27,14 @@ distclean clean:
 	$(MAKE) -C recording-daemon $@
 	$(MAKE) -C iptables-extension $@
 	$(MAKE) -C kernel-module $@
+
+.PHONY: check
+
+check: all
 	$(MAKE) -C t
 
 coverity:
-	cov-build --dir cov-int $(MAKE)
+	cov-build --dir cov-int $(MAKE) check
 	tar -czf project.tgz cov-int
 	curl --form token=$(COVERITY_RTPENGINE_TOKEN) \
 	  --form email=$(DEBEMAIL) \

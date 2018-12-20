@@ -110,7 +110,9 @@ see the section on *G.729 support* below for details.
 Manual Compilation
 ------------------
 
-There's 3 parts to *rtpengine*, which can be found in the respective subdirectories.
+There's 3 parts to *rtpengine*, which can be found in the respective
+subdirectories. Running `make check` on the top source directory will
+build all parts and run the test suite.
 
 * `daemon`
 
