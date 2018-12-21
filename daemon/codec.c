@@ -54,16 +54,12 @@ static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) 
 struct codec_ssrc_handler {
 	struct ssrc_entry h; // must be first
 	struct codec_handler *handler;
-	mutex_t lock;
-	packet_sequencer_t sequencer;
 	decoder_t *decoder;
 	encoder_t *encoder;
 	format_t encoder_format;
 	int ptime;
 	int bytes_per_packet;
 	unsigned long ts_in; // for DTMF dupe detection
-	unsigned long ts_out;
-	u_int16_t seq_out;
 	GString *sample_buffer;
 };
 struct transcode_packet {
@@ -537,12 +533,17 @@ static int __handler_func_sequencer(struct codec_handler *h, struct media_packet
 		/// fall through
 	}
 
-	struct codec_ssrc_handler *ch = get_ssrc(mp->rtp->ssrc, h->ssrc_hash);
+	struct ssrc_ctx *ssrc_in = mp->ssrc_in;
+	struct ssrc_entry_call *ssrc_in_p = ssrc_in->parent;
+	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
+	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
+
+	struct codec_ssrc_handler *ch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
 	if (G_UNLIKELY(!ch))
 		return 0;
 
-	atomic64_inc(&mp->ssrc_in->packets);
-	atomic64_add(&mp->ssrc_in->octets, mp->payload.len);
+	atomic64_inc(&ssrc_in->packets);
+	atomic64_add(&ssrc_in->octets, mp->payload.len);
 
 	packet->p.seq = ntohs(mp->rtp->seq_num);
 	packet->payload = str_dup(&mp->payload);
@@ -554,30 +555,44 @@ static int __handler_func_sequencer(struct codec_handler *h, struct media_packet
 	if (packet->ignore_seq)
 		seq_next_packet = packet_sequencer_force_next_packet;
 
-	mutex_lock(&ch->lock);
+	// we need a nested lock here - both input and output SSRC needs to be locked.
+	// we don't know the lock order, so try both, and keep trying until we succeed.
+	while (1) {
+		mutex_lock(&ssrc_in_p->h.lock);
+		if (ssrc_in_p == ssrc_out_p)
+			break;
+		if (!mutex_trylock(&ssrc_out_p->h.lock))
+			break;
+		mutex_unlock(&ssrc_in_p->h.lock);
 
-	if (packet_sequencer_insert(&ch->sequencer, &packet->p)) {
+		mutex_lock(&ssrc_out_p->h.lock);
+		if (!mutex_trylock(&ssrc_in_p->h.lock))
+			break;
+		mutex_unlock(&ssrc_out_p->h.lock);
+	}
+
+	packet_sequencer_init(&ssrc_in_p->sequencer, (GDestroyNotify) __transcode_packet_free);
+
+	if (packet_sequencer_insert(&ssrc_in_p->sequencer, &packet->p)) {
 		// dupe
 		if (packet->dup_func)
 			packet->dup_func(ch, packet, mp);
 		else
 			ilog(LOG_DEBUG, "Ignoring duplicate RTP packet");
-		mutex_unlock(&ch->lock);
-		obj_put(&ch->h);
 		__transcode_packet_free(packet);
-		atomic64_inc(&mp->ssrc_in->duplicates);
-		return 0;
+		atomic64_inc(&ssrc_in->duplicates);
+		goto out;
 	}
 
 	// got a new packet, run decoder
 
 	while (1) {
-		packet = seq_next_packet(&ch->sequencer);
+		packet = seq_next_packet(&ssrc_in_p->sequencer);
 		if (G_UNLIKELY(!packet))
 			break;
 
-		atomic64_set(&mp->ssrc_in->packets_lost, ch->sequencer.lost_count);
-		atomic64_set(&mp->ssrc_in->last_seq, ch->sequencer.ext_seq);
+		atomic64_set(&ssrc_in->packets_lost, ssrc_in_p->sequencer.lost_count);
+		atomic64_set(&ssrc_in->last_seq, ssrc_in_p->sequencer.ext_seq);
 
 		ilog(LOG_DEBUG, "Decoding RTP packet: seq %u, TS %lu",
 				packet->p.seq, packet->ts);
@@ -587,7 +602,10 @@ static int __handler_func_sequencer(struct codec_handler *h, struct media_packet
 		__transcode_packet_free(packet);
 	}
 
-	mutex_unlock(&ch->lock);
+out:
+	mutex_unlock(&ssrc_in_p->h.lock);
+	if (ssrc_in_p != ssrc_out_p)
+		mutex_unlock(&ssrc_out_p->h.lock);
 	obj_put(&ch->h);
 
 	return 0;
@@ -601,29 +619,31 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		int marker, int seq, int seq_inc)
 {
 	struct rtp_header *rh = (void *) buf;
+	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
+	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
 	// reconstruct RTP header
-	unsigned int ts = payload_ts + ch->ts_out;
+	unsigned int ts = payload_ts + ssrc_out_p->ts_out;
 	ZERO(*rh);
 	rh->v_p_x_cc = 0x80;
 	rh->m_pt = handler->dest_pt.payload_type | (marker ? 0x80 : 0);
 	if (seq != -1)
 		rh->seq_num = htons(seq);
 	else
-		rh->seq_num = htons(ch->seq_out += seq_inc);
+		rh->seq_num = htons(htons(mp->rtp->seq_num) + (ssrc_out_p->seq_out += seq_inc));
 	rh->timestamp = htonl(ts);
-	rh->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
+	rh->ssrc = htonl(ssrc_out_p->h.ssrc);
 
 	// add to output queue
 	struct codec_packet *p = g_slice_alloc(sizeof(*p));
 	p->s.s = buf;
 	p->s.len = payload_len + sizeof(struct rtp_header);
-	payload_tracker_add(&mp->ssrc_out->tracker, handler->dest_pt.payload_type);
+	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
 	p->free_func = free;
 	g_queue_push_tail(&mp->packets_out, p);
 
-	atomic64_inc(&mp->ssrc_out->packets);
-	atomic64_add(&mp->ssrc_out->octets, payload_len);
-	atomic64_set(&mp->ssrc_out->last_ts, ts);
+	atomic64_inc(&ssrc_out->packets);
+	atomic64_add(&ssrc_out->octets, payload_len);
+	atomic64_set(&ssrc_out->last_ts, ts);
 }
 
 static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
@@ -651,7 +671,7 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct transcode_packet *p
 	}
 
 	if (!mp->call->block_dtmf && !mp->media->monologue->block_dtmf)
-		packet_dtmf_fwd(ch, packet, mp, 1);
+		packet_dtmf_fwd(ch, packet, mp, 0);
 	return 0;
 }
 static void packet_dtmf_dup(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
@@ -812,8 +832,10 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	if (mp->call->block_media || mp->media->monologue->block_media)
 		return 0;
 
-	// substitute out SSRC
+	// substitute out SSRC etc
 	mp->rtp->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
+	mp->rtp->timestamp = htonl(ntohl(mp->rtp->timestamp) + mp->ssrc_out->parent->ts_out);
+	mp->rtp->seq_num = htons(htons(mp->rtp->seq_num) + mp->ssrc_out->parent->seq_out);
 
 	// keep track of other stats here?
 
@@ -832,9 +854,6 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	struct codec_handler *h = p;
 	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
 	ch->handler = h;
-	mutex_init(&ch->lock);
-	// needed for DTMF processing
-	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
 	return &ch->h;
 }
 
@@ -850,10 +869,6 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 
 	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
 	ch->handler = h;
-	mutex_init(&ch->lock);
-	packet_sequencer_init(&ch->sequencer, (GDestroyNotify) __transcode_packet_free);
-	ch->seq_out = random();
-	ch->ts_out = random();
 	ch->ptime = h->dest_pt.ptime;
 	ch->sample_buffer = g_string_new("");
 
@@ -899,7 +914,6 @@ static int __encoder_flush(encoder_t *enc, void *u1, void *u2) {
 static void __free_ssrc_handler(void *chp) {
 	struct codec_ssrc_handler *ch = chp;
 	ilog(LOG_DEBUG, "__free_ssrc_handler");
-	packet_sequencer_destroy(&ch->sequencer);
 	if (ch->decoder)
 		decoder_close(ch->decoder);
 	if (ch->encoder) {
@@ -918,6 +932,7 @@ static void __free_ssrc_handler(void *chp) {
 static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
+	unsigned int seq_off = 0;
 
 	ilog(LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
 			(unsigned long long) enc->avpkt.pts, enc->avpkt.size);
@@ -949,7 +964,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 
 		ilog(LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
 		__output_rtp(mp, ch, ch->handler, buf, inout.len, enc->avpkt.pts / enc->def->clockrate_mult,
-				0, -1, 1);
+				0, -1, seq_off);
 
 		if (ret == 0) {
 			// no more to go
@@ -958,6 +973,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 
 		// loop around and get more
 		in_pkt = NULL;
+		seq_off = 1; // next packet needs last seq + 1 XXX set unkernelize if used
 	}
 
 	return 0;
