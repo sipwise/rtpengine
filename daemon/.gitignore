@@ -1,4 +1,5 @@
 .depend
+*.1
 *.o
 rtpengine
 core

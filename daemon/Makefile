@@ -130,6 +130,9 @@ LIBSRCS+=	codeclib.c resample.c
 endif
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
+PODS=		rtpengine.pod
+MANS=		$(PODS:.pod=.1)
+
 include ../lib/common.Makefile
 
 include		.depend
