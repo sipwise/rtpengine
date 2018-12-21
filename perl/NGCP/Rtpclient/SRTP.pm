@@ -258,6 +258,8 @@ sub aes_f8_iv_rtcp {
 
 sub decode_inline_base64 {
 	my ($b64, $cs) = @_;
+	# append possibly missing trailing ==
+	$b64 .= '=' x (4 - (length($b64) % 4)) if ((length($b64) % 4) != 0);
 	my $ks = decode_base64($b64);
 	length($ks) == ($cs->{key_length} + $cs->{salt_length}) or die;
 	my @ret = unpack("a$cs->{key_length}a$cs->{salt_length}", $ks);
@@ -326,6 +328,56 @@ sub append_mki {
 		$mki = substr($mki, -$mki_len);
 	}
 	$$pack_r .= $mki;
+}
+
+package NGCP::Rtpclient::SRTP::Context;
+
+sub new {
+	my ($class, $suite) = @_;
+
+	my $self = {};
+	bless $self, $class;
+
+	$self->{suite} = $suite; # includes all parameters
+	my $remote = $self->{remote} = $suite->{remote}; # shortcut
+
+	$self->{roc} = 0;
+	$self->{remote_roc} = 0;
+
+	@$self{qw(session_key auth_key session_salt)}
+		= NGCP::Rtpclient::SRTP::gen_rtp_session_keys($suite->{master_key}, $suite->{master_salt});
+	@$self{qw(remote_session_key remote_auth_key remote_session_salt)}
+		= NGCP::Rtpclient::SRTP::gen_rtp_session_keys($remote->{master_key}, $remote->{master_salt});
+
+	return $self;
+};
+
+sub encrypt {
+	my ($self, $component, $pack) = @_;
+
+	if ($component == 0) {
+		# XXX MKI, SRTP/SDES session options
+		my ($p, $roc) = NGCP::Rtpclient::SRTP::encrypt_rtp(@$self{qw(suite session_key session_salt
+			auth_key roc)}, '', 0,
+			0, 0, $pack);
+		$self->{roc} = $roc;
+		return $p;
+	}
+	# XXX RTCP
+}
+
+sub decrypt {
+	my ($self, $component, $pack) = @_;
+
+	if ($component == 0) {
+		# XXX MKI, SRTP/SDES session options
+		my ($p, $roc) = NGCP::Rtpclient::SRTP::decrypt_rtp(@$self{qw(remote remote_session_key
+			remote_session_salt
+			remote_auth_key remote_roc)}, $pack);
+		$self->{remote_roc} = $roc;
+		return $p;
+	}
+	# XXX RTCP
 }
 
 1;
