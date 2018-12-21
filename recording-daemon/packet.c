@@ -338,7 +338,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 
 	// insert into ssrc queue
 	ssrc_t *ssrc = ssrc_get(stream, ssrc_num);
-	if (packet_sequencer_insert(&ssrc->sequencer, &packet->p))
+	if (packet_sequencer_insert(&ssrc->sequencer, &packet->p) < 0)
 		goto dupe;
 
 	// got a new packet, run the decoder

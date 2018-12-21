@@ -779,12 +779,14 @@ static int ptr_cmp(const void *a, const void *b, void *dummy) {
 	return 0;
 }
 
-void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify ffunc) {
+void __packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify ffunc) {
 	ps->packets = g_tree_new_full(ptr_cmp, NULL, NULL, ffunc);
 	ps->seq = -1;
 }
 void packet_sequencer_destroy(packet_sequencer_t *ps) {
-	g_tree_destroy(ps->packets);
+	if (ps->packets)
+		g_tree_destroy(ps->packets);
+	ps->packets = NULL;
 }
 struct tree_searcher {
 	int find_seq,
@@ -879,6 +881,8 @@ void *packet_sequencer_force_next_packet(packet_sequencer_t *ps) {
 }
 
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
+	int ret = 0;
+
 	// check seq for dupes
 	if (G_UNLIKELY(ps->seq == -1)) {
 		// first packet we see
@@ -903,13 +907,14 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	// everything else we consider a seq reset
 	ilog(LOG_DEBUG, "Seq reset detected: expected seq %i, received seq %i", ps->seq, p->seq);
 	ps->seq = p->seq;
+	ret = 1;
 	// seq ok - fall thru
 seq_ok:
 	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(p->seq)))
 		return -1;
 	g_tree_insert(ps->packets, GINT_TO_POINTER(p->seq), p);
 
-	return 0;
+	return ret;
 }
 
 

@@ -3,6 +3,7 @@
 #include "aux.h"
 #include "call.h"
 #include "rtplib.h"
+#include "codeclib.h"
 
 
 
@@ -25,6 +26,8 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	ent = obj_alloc0("ssrc_entry_call", sizeof(*ent), __free_ssrc_entry_call);
 	init_ssrc_ctx(&ent->input_ctx, ent);
 	init_ssrc_ctx(&ent->output_ctx, ent);
+	//ent->seq_out = random();
+	//ent->ts_out = random();
 	return &ent->h;
 }
 static void add_ssrc_entry(u_int32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht) {
@@ -48,6 +51,7 @@ static void __free_ssrc_entry_call(void *ep) {
 	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
 	g_queue_clear_full(&e->rr_time_reports, (GDestroyNotify) free_rr_time);
 	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
+	packet_sequencer_destroy(&e->sequencer);
 }
 static void ssrc_entry_put(void *ep) {
 	struct ssrc_entry_call *e = ep;

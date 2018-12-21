@@ -7,6 +7,7 @@
 #include "compat.h"
 #include "aux.h"
 #include "obj.h"
+#include "codeclib.h"
 
 
 
@@ -89,6 +90,12 @@ struct ssrc_entry_call {
 				*highest_mos,
 				average_mos; // contains a running tally of all stats blocks
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
+
+	// for transcoding
+	// input only
+	packet_sequencer_t sequencer;
+	// output only
+	uint16_t seq_diff;
 };
 enum ssrc_dir { // these values must not be used externally
 	SSRC_DIR_INPUT  = G_STRUCT_OFFSET(struct ssrc_entry_call, input_ctx),

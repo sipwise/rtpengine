@@ -130,7 +130,7 @@ static void __expect(const char *file, int line, GQueue *dumper, const char *cod
 		printf("received: %s\n", s->str);
 		abort();
 	}
-	printf("test ok: %s:%i\n", file, line);
+	printf("test ok: %s:%i\n\n", file, line);
 	g_string_free(s, TRUE);
 }
 
@@ -200,7 +200,17 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	memcpy(mp.payload.s, pl.s, pl.len);
 	mp.raw.s = packet;
 	mp.raw.len = packet_len;
+	printf("send RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc,
+			(unsigned int) rtp_seq, (unsigned int) rtp_ts, (unsigned int) pt_in);
+	printf("send packet contents: ");
+	for (int i = sizeof(struct rtp_header); i < mp.raw.len; i++) {
+		unsigned char cc = mp.raw.s[i];
+		printf("\\x%02x", cc);
+	}
+	printf("\n");
+
 	h->func(h, &mp);
+
 	if (pt_out == -1) {
 		if (mp.packets_out.length != 0) {
 			printf("test failed: %s:%i\n", file, line);
@@ -222,7 +232,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 			printf("received: %i\n", rtp->m_pt);
 			abort();
 		}
-		printf("packet contents: ");
+		printf("recv packet contents: ");
 		for (int i = sizeof(struct rtp_header); i < cp->s.len; i++) {
 			unsigned char cc = cp->s.s[i];
 			printf("\\x%02x", cc);
@@ -231,15 +241,14 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		uint32_t ts = ntohl(rtp->timestamp);
 		uint16_t seq = ntohs(rtp->seq_num);
 		uint32_t ssrc = ntohl(rtp->ssrc);
-		uint32_t ssrc_pt = ssrc ^ (pt_out & 0x7f);
-		ssrc_pt ^= (pt_in & 0x7f) << 8; /* XXX this is actually wrong and should be removed. it's a workaround for a bug */
-		printf("RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc,
+		uint32_t ssrc_pt = ssrc;
+		printf("recv RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc,
 				(unsigned int) seq, (unsigned int) ts, (unsigned int) rtp->m_pt);
 		if (g_hash_table_contains(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt))) {
 			uint32_t old_ts = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_ts_ht,
 						GUINT_TO_POINTER(ssrc_pt)));
 			uint32_t diff = ts - old_ts;
-			printf("RTP TS diff: %u\n", (unsigned int) diff);
+			printf("recv RTP TS diff: %u\n", (unsigned int) diff);
 			if (ts_exp != -1)
 				assert(ts_exp == diff);
 		}
@@ -248,7 +257,8 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 			uint32_t old_seq = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_seq_ht,
 						GUINT_TO_POINTER(ssrc_pt)));
 			uint16_t diff = seq - old_seq;
-			printf("RTP seq diff: %u\n", (unsigned int) diff);
+			printf("recv RTP seq diff: %u (exp %u)\n", (unsigned int) diff,
+					(unsigned int) seq_diff_exp);
 			assert(diff == seq_diff_exp);
 		}
 		g_hash_table_insert(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(seq));
@@ -259,7 +269,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		if (fatal && memcmp(pl_exp.s, cp->s.s, pl_exp.len))
 			abort();
 	}
-	printf("test ok: %s:%i\n", file, line);
+	printf("test ok: %s:%i\n\n", file, line);
 	free(packet);
 }
 
@@ -340,10 +350,10 @@ int main() {
 	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "0/PCMU/8000 8/PCMA/8000");
-	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 0, PCMU_payload, 0, PCMU_payload);
-	packet(A, 8, PCMA_payload, 8, PCMA_payload);
-	packet(B, 8, PCMA_payload, 8, PCMA_payload);
+	packet_seq(A, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(A, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
+	packet_seq(B, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
 	end();
 
 	// plain with two offered and one answered
@@ -381,8 +391,8 @@ int main() {
 	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "8/PCMA/8000");
-	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(A, 8, PCMA_payload, 8, PCMA_payload);
+	packet_seq(A, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(A, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
 	packet(B, 8, PCMA_payload, 8, PCMA_payload);
 	end();
 
@@ -403,10 +413,10 @@ int main() {
 	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "0/PCMU/8000 8/PCMA/8000");
-	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 0, PCMU_payload, 0, PCMU_payload);
-	packet(A, 8, PCMA_payload, 8, PCMA_payload);
-	packet(B, 8, PCMA_payload, 0, PCMU_payload);
+	packet_seq(A, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(A, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
+	packet_seq(B, 8, PCMA_payload, 160, 1, 0, PCMU_payload);
 	end();
 
 	// plain with two offered and two answered + always-transcode both ways
@@ -427,10 +437,10 @@ int main() {
 	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "0/PCMU/8000 8/PCMA/8000");
-	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 0, PCMU_payload, 0, PCMU_payload);
-	packet(A, 8, PCMA_payload, 0, PCMU_payload);
-	packet(B, 8, PCMA_payload, 0, PCMU_payload);
+	packet_seq(A, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(A, 8, PCMA_payload, 160, 1, 0, PCMU_payload);
+	packet_seq(B, 8, PCMA_payload, 160, 1, 0, PCMU_payload);
 	end();
 
 	// add one codec to transcode
@@ -450,8 +460,8 @@ int main() {
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "0/PCMU/8000 8/PCMA/8000");
 	packet(A, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 0, PCMU_payload, 0, PCMU_payload);
-	packet(B, 8, PCMA_payload, 0, PCMU_payload);
+	packet_seq(B, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 8, PCMA_payload, 160, 1, 0, PCMU_payload);
 	end();
 
 	// add one codec to transcode, don't accept original offered codec
@@ -490,8 +500,8 @@ int main() {
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "8/PCMA/8000");
 	packet(A, 0, PCMU_payload, 8, PCMA_payload);
-	packet(B, 8, PCMA_payload, 0, PCMU_payload);
-	packet(B, 0, PCMU_payload, 0, PCMU_payload);
+	packet_seq(B, 8, PCMA_payload, 0, 0, 0, PCMU_payload);
+	packet_seq(B, 0, PCMU_payload, 160, 1, 0, PCMU_payload);
 	end();
 
 #ifdef WITH_AMR_TESTS
@@ -848,10 +858,10 @@ int main() {
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
 	// send some more audio
-	packet_seq_exp(A, 8, PCMA_payload, 1000960, 206, 8, PCMA_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1000960, 206, 8, PCMA_payload);
 	packet_seq(A, 8, PCMA_payload, 1001120, 207, 8, PCMA_payload);
 	// start with marker
-	packet_seq_exp(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, 101 | 0x80, "\x05\x0a\x00\xa0", 3); // expected seq is 205+3 for PT 101
+	packet_seq(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, 101 | 0x80, "\x05\x0a\x00\xa0");
 	dtmf("");
 	// continuous event with increasing length
 	packet_seq(A, 101, "\x05\x0a\x01\x40", 1001280, 209, 101, "\x05\x0a\x01\x40");
@@ -864,7 +874,7 @@ int main() {
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	dtmf("");
 	// final audio RTP test
-	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 8, PCMA_payload, 5); // expected seq is 207+5 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1000960, 212, 8, PCMA_payload);
 	end();
 
 	// DTMF passthrough w/ transcoding
@@ -901,10 +911,10 @@ int main() {
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
 	// send some more audio
-	packet_seq_exp(A, 8, PCMA_payload, 1000960, 206, 0, PCMU_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1000960, 206, 0, PCMU_payload);
 	packet_seq(A, 8, PCMA_payload, 1001120, 207, 0, PCMU_payload);
 	// start with marker
-	packet_seq_exp(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, 101 | 0x80, "\x05\x0a\x00\xa0", 3); // expected seq is 205+3 for PT 101
+	packet_seq(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, 101 | 0x80, "\x05\x0a\x00\xa0");
 	dtmf("");
 	// continuous event with increasing length
 	packet_seq(A, 101, "\x05\x0a\x01\x40", 1001280, 209, 101, "\x05\x0a\x01\x40");
@@ -917,7 +927,7 @@ int main() {
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	dtmf("");
 	// final audio RTP test
-	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 0, PCMU_payload, 5); // expected seq is 207+5 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1000960, 212, 0, PCMU_payload);
 	end();
 
 	// plain DTMF passthrough w/o transcoding w/ implicit primary payload type
@@ -953,10 +963,10 @@ int main() {
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
 	// send some more audio
-	packet_seq_exp(A, 0, PCMU_payload, 1000960, 206, 0, PCMU_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 0, PCMU_payload, 1000960, 206, 0, PCMU_payload);
 	packet_seq(A, 0, PCMU_payload, 1001120, 207, 0, PCMU_payload);
 	// start with marker
-	packet_seq_exp(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, 101 | 0x80, "\x05\x0a\x00\xa0", 3); // expected seq is 205+3 for PT 101
+	packet_seq(A, 101 | 0x80, "\x05\x0a\x00\xa0", 1001280, 208, 101 | 0x80, "\x05\x0a\x00\xa0");
 	dtmf("");
 	// continuous event with increasing length
 	packet_seq(A, 101, "\x05\x0a\x01\x40", 1001280, 209, 101, "\x05\x0a\x01\x40");
@@ -969,7 +979,7 @@ int main() {
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	dtmf("");
 	// final audio RTP test
-	packet_seq_exp(A, 0, PCMU_payload, 1000960, 212, 0, PCMU_payload, 5); // expected seq is 207+5 for PT 8
+	packet_seq(A, 0, PCMU_payload, 1000960, 212, 0, PCMU_payload);
 	end();
 
 	// plain DTMF passthrough w/o transcoding - blocking
@@ -1005,7 +1015,7 @@ int main() {
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
 	// send some more audio
-	packet_seq_exp(A, 8, PCMA_payload, 1000960, 206, 8, PCMA_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1000960, 206, 8, PCMA_payload);
 	packet_seq(A, 8, PCMA_payload, 1001120, 207, 8, PCMA_payload);
 	// enable blocking
 	call.block_dtmf = 1;
@@ -1023,21 +1033,21 @@ int main() {
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	dtmf("");
 	// final audio RTP test
-	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 8, PCMA_payload, 5); // expected seq is 207+5 for PT 8
-	packet_seq_exp(A, 8, PCMA_payload, 1001120, 213, 8, PCMA_payload, 1);
+	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 8, PCMA_payload, 5); // DTMF packets appear lost
+	packet_seq(A, 8, PCMA_payload, 1001120, 213, 8, PCMA_payload);
 	// media blocking
 	ml_A.block_media = 1;
 	packet_seq_exp(A, 8, PCMA_payload, 1001280, 214, -1, "", 0);
 	packet_seq_exp(A, 8, PCMA_payload, 1001440, 215, -1, "", 0);
 	ml_A.block_media = 0;
-	packet_seq_exp(A, 8, PCMA_payload, 1001600, 216, 8, PCMA_payload, 3);
+	packet_seq_exp(A, 8, PCMA_payload, 1001600, 216, 8, PCMA_payload, 3); // media packets appear lost
 	call.block_media = 1;
 	packet_seq_exp(A, 8, PCMA_payload, 1001760, 217, -1, "", 0);
 	packet_seq_exp(A, 8, PCMA_payload, 1001920, 218, -1, "", 0);
 	call.block_media = 0;
-	packet_seq_exp(A, 8, PCMA_payload, 1002080, 219, 8, PCMA_payload, 3);
+	packet_seq_exp(A, 8, PCMA_payload, 1002080, 219, 8, PCMA_payload, 3); // media packets appear lost
 	ml_B.block_media = 1;
-	packet_seq_exp(A, 8, PCMA_payload, 1002240, 220, 8, PCMA_payload, 1);
+	packet_seq(A, 8, PCMA_payload, 1002240, 220, 8, PCMA_payload);
 	end();
 
 	// DTMF passthrough w/ transcoding - blocking
@@ -1074,7 +1084,7 @@ int main() {
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
 	// send some more audio
-	packet_seq_exp(A, 8, PCMA_payload, 1000960, 206, 0, PCMU_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 8, PCMA_payload, 1000960, 206, 0, PCMU_payload);
 	packet_seq(A, 8, PCMA_payload, 1001120, 207, 0, PCMU_payload);
 	// enable blocking
 	call.block_dtmf = 1;
@@ -1092,8 +1102,8 @@ int main() {
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	dtmf("");
 	// final audio RTP test
-	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 0, PCMU_payload, 1); // expected seq is 207+1 for PT 8
-	packet_seq_exp(A, 8, PCMA_payload, 1001120, 213, 0, PCMU_payload, 1);
+	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 0, PCMU_payload, 5); // DTMF packets appear lost
+	packet_seq(A, 8, PCMA_payload, 1001120, 213, 0, PCMU_payload);
 	// media blocking
 	ml_A.block_media = 1;
 	packet_seq_exp(A, 8, PCMA_payload, 1001280, 214, -1, "", 0);
@@ -1142,7 +1152,7 @@ int main() {
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
 	// send some more audio
-	packet_seq_exp(A, 0, PCMU_payload, 1000960, 206, 0, PCMU_payload, 6); // expected seq is 200+6 for PT 8
+	packet_seq(A, 0, PCMU_payload, 1000960, 206, 0, PCMU_payload);
 	packet_seq(A, 0, PCMU_payload, 1001120, 207, 0, PCMU_payload);
 	// enable blocking
 	call.block_dtmf = 1;
@@ -1160,21 +1170,21 @@ int main() {
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	dtmf("");
 	// final audio RTP test
-	packet_seq_exp(A, 0, PCMU_payload, 1000960, 212, 0, PCMU_payload, 5); // expected seq is 207+5 for PT 8
-	packet_seq_exp(A, 0, PCMU_payload, 1001120, 213, 0, PCMU_payload, 1);
+	packet_seq_exp(A, 0, PCMU_payload, 1000960, 212, 0, PCMU_payload, 5); // DTMF packets appear lost
+	packet_seq(A, 0, PCMU_payload, 1001120, 213, 0, PCMU_payload);
 	// media blocking
 	ml_A.block_media = 1;
 	packet_seq_exp(A, 0, PCMU_payload, 1001280, 214, -1, "", 0);
 	packet_seq_exp(A, 0, PCMU_payload, 1001440, 215, -1, "", 0);
 	ml_A.block_media = 0;
-	packet_seq_exp(A, 0, PCMU_payload, 1001600, 216, 0, PCMU_payload, 3);
+	packet_seq_exp(A, 0, PCMU_payload, 1001600, 216, 0, PCMU_payload, 3); // media packets appear lost
 	call.block_media = 1;
 	packet_seq_exp(A, 0, PCMU_payload, 1001760, 217, -1, "", 0);
 	packet_seq_exp(A, 0, PCMU_payload, 1001920, 218, -1, "", 0);
 	call.block_media = 0;
-	packet_seq_exp(A, 0, PCMU_payload, 1002080, 219, 0, PCMU_payload, 3);
+	packet_seq_exp(A, 0, PCMU_payload, 1002080, 219, 0, PCMU_payload, 3); // media packets appear lost
 	ml_B.block_media = 1;
-	packet_seq_exp(A, 0, PCMU_payload, 1002240, 220, 0, PCMU_payload, 1);
+	packet_seq(A, 0, PCMU_payload, 1002240, 220, 0, PCMU_payload);
 	end();
 
 	return 0;

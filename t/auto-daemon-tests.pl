@@ -8,17 +8,25 @@ use File::Temp;
 use IPC::Open3;
 use Time::HiRes;
 use POSIX ":sys_wait_h";
+use IO::Socket;
 
 like $ENV{LD_PRELOAD}, qr/tests-preload/, 'LD_PRELOAD present';
 is $ENV{RTPE_PRELOAD_TEST_ACTIVE}, '1', 'preload library is active';
-ok -x $ENV{RTPE_BIN}, 'RTPE_BIN points to executable';
+SKIP: {
+	skip 'daemon is running externally', 1 if $ENV{RTPE_TEST_NO_LAUNCH};
+	ok -x $ENV{RTPE_BIN}, 'RTPE_BIN points to executable';
+}
 
 my $rtpe_stdout = File::Temp::tempfile() or die;
 my $rtpe_stderr = File::Temp::tempfile() or die;
-my $rtpe_pid = open3(undef, '>&'.fileno($rtpe_stdout), '>&'.fileno($rtpe_stderr),
-	$ENV{RTPE_BIN}, qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-		-n 2223 -c 12345 -f -L 7 -E -u 2222));
-ok $rtpe_pid, 'daemon launched in background';
+my $rtpe_pid;
+SKIP: {
+	skip 'daemon is running externally', 1 if $ENV{RTPE_TEST_NO_LAUNCH};
+	$rtpe_pid = open3(undef, '>&'.fileno($rtpe_stdout), '>&'.fileno($rtpe_stderr),
+		$ENV{RTPE_BIN}, qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
+			-n 2223 -c 12345 -f -L 7 -E -u 2222));
+	ok $rtpe_pid, 'daemon launched in background';
+}
 
 # keep trying to connect to the control socket while daemon is starting up
 my $c;
@@ -31,14 +39,26 @@ for (1 .. 300) {
 1;
 $c->{socket} or die;
 
-my ($cid, $ft, $tt, $r);
+my ($cid, $ft, $tt, @sockets);
+my ($tag_iter) = (0);
 
 sub new_call {
-	undef($r);
-	$cid = rand();
-	$ft = rand();
-	$tt = rand();
-	return;
+	my @ports = @_;
+	for my $s (@sockets) {
+		$s->close();
+	}
+	@sockets = ();
+	$cid = $tag_iter++ . "-test-callID";
+	$ft = $tag_iter++ . "-test-fromtag";
+	$tt = $tag_iter++ . "-test-totag";
+	for my $p (@ports) {
+		my ($addr, $port) = @{$p};
+		my $s = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
+				LocalHost => $addr, LocalPort => $port)
+				or die;
+		push(@sockets, $s);
+	}
+	return @sockets;
 }
 sub crlf {
 	my ($s) = @_;
@@ -67,8 +87,10 @@ sub offer_answer {
 	$regexp =~ s/CRYPTO128/([0-9a-zA-Z\/+]{40})/gs;
 	$regexp =~ s/CRYPTO192/([0-9a-zA-Z\/+]{51})/gs;
 	$regexp =~ s/CRYPTO256/([0-9a-zA-Z\/+]{62})/gs;
-	like crlf($resp->{sdp}), qr/$regexp/s, "$name - output $cmd SDP";
-	return;
+	my $crlf = crlf($resp->{sdp});
+	like $crlf, qr/$regexp/s, "$name - output $cmd SDP";
+	my @matches = $crlf =~ qr/$regexp/s;
+	return @matches;
 }
 sub offer {
 	return offer_answer('offer', @_);
@@ -78,9 +100,55 @@ sub answer {
 	$req->{'to-tag'} = $tt;
 	return offer_answer('answer', $name, $req, $sdps);
 }
+sub snd {
+	my ($sock, $dest, $packet) = @_;
+	$sock->send($packet, 0, pack_sockaddr_in($dest, inet_aton('203.0.113.1'))) or die;
+}
+sub rtp {
+	my ($pt, $seq, $ts, $ssrc, $payload) = @_;
+	print("rtp in $pt $seq $ts $ssrc\n");
+	return pack('CCnNN a*', 0x80, $pt, $seq, $ts, $ssrc, $payload);
+}
+sub rcv {
+	my ($sock, $port, $match) = @_;
+	my $p = '';
+	alarm(1);
+	my $addr = $sock->recv($p, 65535, 0) or die;
+	alarm(0);
+	my ($hdr_mark, $pt, $seq, $ts, $ssrc, $payload) = unpack('CCnNN a*', $p);
+	print("rtp recv $pt $seq $ts $ssrc\n");
+	like $p, $match, 'received packet matches';
+	my @matches = $p =~ $match;
+	for my $m (@matches) {
+		if (length($m) == 2) {
+			($m) = unpack('n', $m);
+		}
+		elsif (length($m) == 4) {
+			($m) = unpack('N', $m);
+		}
+	}
+	return @matches;
+}
+sub escape {
+	return "\Q$_[0]\E";
+}
+sub rtpm {
+	my ($pt, $seq, $ts, $ssrc, $payload) = @_;
+	print("rtp matcher $pt $seq $ts $ssrc\n");
+	my $re = '';
+	$re .= escape(pack('C', 0x80));
+	$re .= escape(pack('C', $pt));
+	$re .= $seq >= 0 ? escape(pack('n', $seq)) : '(..)';
+	$re .= $ts >= 0 ? escape(pack('N', $ts)) : '(....)';
+	$re .= $ssrc >= 0 ? escape(pack('N', $ssrc)) : '(....)';
+	$re .= escape($payload);
+	return qr/^$re$/s;
+}
 
-$r = $c->req({command => 'ping'});
-ok $r->{result} eq 'pong', 'ping works, daemon operational';
+{
+	my $r = $c->req({command => 'ping'});
+	ok $r->{result} eq 'pong', 'ping works, daemon operational';
+}
 
 # SDP in/out tests, various ICE options
 
@@ -1030,6 +1098,145 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+
+
+
+
+# RTP sequencing tests
+
+my ($sock_a, $sock_b) = new_call([qw(198.51.100.1 2010)], [qw(198.51.100.3 2012)]);
+
+my ($port_a) = offer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2010 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+my ($port_b) = answer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2012 RTP/AVP 0 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1001, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1010, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(8, 1001, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1001, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(8, 1010, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1010, 3000, 0x1234, "\00" x 160));
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 2010)], [qw(198.51.100.3 2012)]);
+
+($port_a) = offer('one codec with one for transcoding', { ICE => 'remove', replace => ['origin'],
+	codec => { transcode => ['PCMA'] }}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2010 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('one codec with one for transcoding', { replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2012 RTP/AVP 0 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1001, 3160, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1010, 4600, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\00" x 160));
+
+snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\00" x 160));
+my ($seq, $ssrc) = rcv($sock_a, $port_b, rtpm(0, -1, 4000, -1, "\00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq, 4000, $ssrc, "\00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+1, 4000+160, $ssrc, "\00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2010, 4000+1600, 0x5678, "\00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+10, 4000+1600, $ssrc, "\00" x 160));
+
+snd($sock_b, $port_a,  rtp(8, 2011, 4000+160*11, 0x5678, "\00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+11, 4000+160*11, $ssrc, ")" x 160));
+# #664 seq reset
+snd($sock_b, $port_a,  rtp(8, 62011, 4000+160*12, 0x5678, "\00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+12, 4000+160*12, $ssrc, ")" x 160));
+snd($sock_b, $port_a,  rtp(8, 62012, 4000+160*13, 0x5678, "\00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+13, 4000+160*13, $ssrc, ")" x 160));
+snd($sock_b, $port_a,  rtp(0, 62013, 4000+160*14, 0x5678, "\00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+14, 4000+160*14, $ssrc, "\00" x 160));
 
 
 
