@@ -218,7 +218,8 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
 
 
-void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
+void __packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
+INLINE void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
 void packet_sequencer_destroy(packet_sequencer_t *ps);
 void *packet_sequencer_next_packet(packet_sequencer_t *ps);
 void *packet_sequencer_force_next_packet(packet_sequencer_t *ps);
@@ -226,6 +227,12 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
 
 
+// `ps` must be zero allocated
+INLINE void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify n) {
+	if (ps->packets)
+		return;
+	__packet_sequencer_init(ps, n);
+}
 INLINE int format_eq(const format_t *a, const format_t *b) {
 	if (G_UNLIKELY(a->clockrate != b->clockrate))
 		return 0;
