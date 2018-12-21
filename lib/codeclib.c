@@ -781,12 +781,14 @@ static int ptr_cmp(const void *a, const void *b, void *dummy) {
 	return 0;
 }
 
-void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify ffunc) {
+void __packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify ffunc) {
 	ps->packets = g_tree_new_full(ptr_cmp, NULL, NULL, ffunc);
 	ps->seq = -1;
 }
 void packet_sequencer_destroy(packet_sequencer_t *ps) {
-	g_tree_destroy(ps->packets);
+	if (ps->packets)
+		g_tree_destroy(ps->packets);
+	ps->packets = NULL;
 }
 struct tree_searcher {
 	int find_seq,

@@ -109,7 +109,8 @@ transcode-test:	transcode-test.o $(COMMONOBJS) codeclib.o resample.o codec.o ssr
 	control_ng.strhash.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o
 
-payload-tracker-test: payload-tracker-test.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o
+payload-tracker-test: payload-tracker-test.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.o \
+	resample.o
 
 const_str_hash-test.strhash: const_str_hash-test.strhash.o $(COMMONOBJS)
 
