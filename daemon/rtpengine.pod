@@ -1,0 +1,782 @@
+=head1 NAME
+
+rtpengine - NGCP proxy for RTP and other UDP based media traffic
+
+=head1 SYNOPSIS
+
+B<rtpengine> B<--interface>=I<addr>... B<--listen-tcp>|B<--listen-udp>|B<--listen-ng>=I<addr>... [I<option>...]
+
+=head1 DESCRIPTION
+
+The Sipwise NGCP rtpengine is a proxy for RTP traffic and other UDP based
+media traffic.
+It is meant to be used with the Kamailio SIP proxy and forms a drop-in
+replacement for any of the other available RTP and media proxies.
+
+=head1 OPTIONS
+
+Most of these options are indeed optional, with two exceptions. It's
+mandatory to specify at least one local IP address through B<--interface>,
+and at least one of the B<--listen->I<...> options must be given.
+
+=over 4
+
+=item B<--help>
+
+Print the usage information.
+
+=item B<-v>, B<--version>
+
+If called with this option, the B<rtpengine> daemon will simply print its
+version number and exit.
+
+=item B<--codecs>
+
+Print a list of supported codecs and exit.
+
+=item B<--config-file>
+
+Specifies the location of a config file to be used. The config file is an
+I<.ini> style config file, with all command-line options listed here also
+being valid options in the config file.
+For all command-line options, the long name version instead of the
+single-character version (e.g. B<table> instead of just B<t>) must be
+used in the config file.
+For boolean options that are either present or not (e.g. B<no-fallback>), a
+boolean value (either B<true> or B<false>) must be used in the config file.
+If an option is given in both the config file and at the command line,
+the command-line value overrides the value from the config file.
+Options that can be specified multiple times on the command line must be
+given only once in the config file, with the multiple values separated by
+semicolons (see section L<INTERFACES> below for an example).
+
+As a special value, B<none> can be passed here to suppress loading of the
+default config file.
+
+=item B<--config-section>
+
+Specifies the I<.ini> style section to be used in the config file.
+Multiple sections can be present in the config file, but only one can be
+used at a time.
+The default value is B<rtpengine>.
+A config file section is started in the config file using square brackets
+(e.g. B<[rtpengine]>).
+
+=item B<-t>, B<--table=>I<INT>
+
+Takes an integer argument and specifies which kernel table to use for
+in-kernel packet forwarding.
+See the section on in-kernel operation in the F<README.md> for more detail.
+Optional and defaults to zero.
+If in-kernel operation is not desired, a negative number can be specified.
+
+=item B<-F>, B<--no-fallback>
+
+Will prevent fallback to userspace-only operation if the kernel module is
+unavailable.
+In this case, startup of the daemon will fail with an error if this option
+is given.
+
+=item B<-i>, B<--interface=>[I<NAME>B</>]I<IP>[B<!>I<IP>]
+
+Specifies a local network interface for RTP.
+At least one must be given, but multiple can be specified.
+See the section L<INTERFACES> just below for details.
+
+=item B<-l>, B<--listen-tcp=>[I<IP>B<:>]I<PORT>
+
+=item B<-u>, B<--listen-udp=>[I<IP46>B<:>]I<PORT>
+
+=item B<-n>, B<--listen-ng=>[I<IP46>B<:>]I<PORT>
+
+These options each enable one of the 3 available control protocols if given
+and each take either just a port number as argument, or an I<address:port>
+pair, separated by colon.
+At least one of these 3 options must be given.
+
+The B<tcp> protocol is obsolete.
+It was used by old versions of B<OpenSER> and its B<mediaproxy> module.
+It is provided for backwards compatibility.
+
+The B<udp> protocol is used by B<Kamailio>'s B<rtpproxy> module.
+In this mode, B<rtpengine> can be used as a drop-in replacement for any
+other compatible RTP proxy.
+
+The B<ng> protocol is an advanced control protocol and can be used with
+B<Kamailio>'s B<rtpengine> module.
+With this protocol, the complete SDP body is passed to B<rtpengine>,
+rewritten and passed back to B<Kamailio>.
+Several additional features are available with this protocol, such as
+ICE handling, SRTP bridging, etc.
+
+It is recommended to specify not only a local port number, but also
+B<127.0.0.1> as interface to bind to.
+
+=item B<-c>, B<--listen-cli=>[I<IP46>:]I<PORT>
+
+TCP ip and port to listen for the CLI (command line interface).
+
+=item B<-g>, B<--graphite=>I<IP46>:I<PORT>
+
+Address of the graphite statistics server.
+
+=item B<-w>, B<--graphite-interval=>I<INT>
+
+Interval of the time when information is sent to the graphite server.
+
+=item B<--graphite-prefix=>I<STRING>
+
+Add a prefix for every graphite line.
+
+=item B<-t>, B<--tos=>I<INT>
+
+Takes an integer as argument and if given, specifies the TOS value that
+should be set in outgoing packets.
+The default is to leave the TOS field untouched.
+A typical value is 184 (B<Expedited Forwarding>).
+
+=item B<--control-tos=>I<INT>
+
+Takes an integer as argument and if given, specifies the TOS value that
+should be set in the control-ng interface packets.
+The default is to leave the TOS field untouched.
+This parameter can also be set or listed via B<rtpengine-ctl>.
+
+=item B<-o>, B<--timeout=>I<SECS>
+
+Takes the number of seconds as argument after which a media stream should
+be considered dead if no media traffic has been received.
+If all media streams belonging to a particular call go dead, then the call
+is removed from B<rtpengine>'s internal state table.
+Defaults to 60 seconds.
+
+=item B<-s>, B<--silent-timeout=>I<SECS>
+
+Ditto as the B<--timeout> option, but applies to muted or inactive media
+streams.
+Defaults to 3600 (one hour).
+
+=item B<-a>, B<--final-timeout=>I<SECS>
+
+The number of seconds since call creation, after call is deleted.
+Useful for limiting the lifetime of a call.
+This feature can be disabled by setting the parameter to 0.
+By default this timeout is disabled.
+
+=item B<--offer-timeout=>I<SECS>
+
+This timeout (in seconds) is applied to calls which only had an B<offer>
+but no B<answer>.
+Defaults to 3600 (one hour).
+
+=item B<-p>, B<--pidfile=>I<FILE>
+
+Specifies a path and file name to write the daemon's PID number to.
+
+=item B<-f>, B<--foreground>
+
+If given, prevents the daemon from daemonizing, meaning it will stay in
+the foreground.
+Useful for debugging.
+
+=item B<-m>, B<--port-min=>I<INT>
+
+=item B<-M>, B<--port-max=>I<INT>
+
+Both take an integer as argument and together define the local port range
+from which B<rtpengine> will allocate UDP ports for media traffic relay.
+Default to 30000 and 40000 respectively.
+
+=item B<-L>, B<--log-level=>I<INT>
+
+Takes an integer as argument and controls the highest log level which
+will be sent to syslog.
+The log levels correspond to the ones found in the syslog(3) man page.
+The default value is 6, equivalent to LOG_INFO.
+The highest possible value is 7 (LOG_DEBUG) which will log everything.
+
+During runtime, the log level can be decreased by sending the signal
+SIGURS1 to the daemon and can be increased with the signal SIGUSR2.
+
+=item B<--log-facilty=>B<daemon>|B<local0>|...|B<local7>|...
+
+The syslog facilty to use when sending log messages to the syslog daemon.
+Defaults to B<daemon>.
+
+=item B<--log-facilty-cdr=>B<daemon>|B<local0>|...|B<local7>|...
+
+Same as B<--log-facility> with the difference that only CDRs are written
+to this log facility.
+
+=item B<--log-facilty-rtcp=>B<daemon>|B<local0>|...|B<local7>|...
+
+Same as B<--log-facility> with the difference that only RTCP data is
+written to this log facility.
+Be careful with this parameter since there may be a lot of information
+written to it.
+
+=item B<--log-facilty-dtmf=>B<daemon>|B<local0>|...|B<local7>|...
+
+Same as B<--log-facility> with the difference that only DTMF events are
+written to this log facility.
+DTMF events are extracted from RTP packets conforming to RFC 4733, are
+encoded in JSON format, and written as soon as the end of an event is
+detected.
+
+=item B<--log-format=>B<default>|B<parsable>
+
+Selects between multiple log output styles.
+The default is to prefix log lines with a description of the relevant
+entity, such as B<[CALLID]> or B<[CALLID port 12345]>.
+The B<parsable> output style is similar, but makes the ID easier to
+parse by enclosing it in quotes, such as B<[ID="CALLID"]>
+or B<[ID="CALLID" port="12345"]>.
+
+=item B<--log-srtp-keys>
+
+Write SRTP keys to error log instead of debug log.
+
+=item B<-E>, B<--log-stderr>
+
+Log to stderr instead of syslog.
+Only useful in combination with B<--foreground>.
+
+=item B<--num-threads=>I<INT>
+
+How many worker threads to create, must be at least one.
+The default is to create as many threads as there are CPU cores available.
+If the number of CPU cores cannot be determined, the default is four.
+
+=item B<--sip-source>
+
+The original B<rtpproxy> as well as older version of B<rtpengine> by default
+did not honour IP addresses given in the SDP body, and instead used the
+source address of the received SIP message as default endpoint address.
+Newer versions of B<rtpengine> reverse this behaviour and honour the
+addresses given in the SDP body by default. This option restores the
+old behaviour.
+
+=item B<--dtls-passive>
+
+Enables the B<DTLS=passive> flag for all calls unconditionally.
+
+=item B<-d>, B<--delete-delay>
+
+Delete the call from memory after the specified delay from memory.
+Can be set to zero for immediate call deletion.
+
+=item B<-r>, B<--redis=>[I<PW>B<@>]I<IP>B<:>I<PORT>B</>I<INT>
+
+Connect to specified Redis database (with the given database number) and
+use it for persistence storage.
+The format of this option is I<ADDRESS>:I<PORT>/I<DBNUM>, for example
+I<127.0.0.1:6379/12> to connect to the Redis DB number 12 running on
+localhost on the default Redis port.
+
+If the Redis database is protected with an authentication password, the
+password can be supplied by prefixing the argument value with the password,
+separated by an B<@> symbol, for example I<foobar@127.0.0.1:6379/12>.
+Note that this leaves the password visible in the process list, posing a
+security risk if untrusted users access the same system.
+As an alternative, the password can also be supplied in the shell
+environment through the environment variable B<RTPENGINE_REDIS_AUTH_PW>.
+
+On startup, B<rtpengine> will read the contents of this database and
+restore all calls stored therein.
+During runtime operation, B<rtpengine> will continually update the
+database's contents to keep it current, so that in case of a service
+disruption, the last state can be restored upon a restart.
+
+When this option is given, B<rtpengine> will delay startup until the
+Redis database adopts the master role (but see below).
+
+=item B<-w>, B<--redis-write=>[I<PW>B<@>]I<IP>B<:>I<PORT>B</>I<INT>
+
+Configures a second Redis database for write operations.
+If this option is given in addition to the first one, then the first
+database will be used for read operations (i.e. to restore calls from)
+while the second one will be used for write operations (to update states
+in the database).
+
+For password protected Redis servers, the environment variable for the
+password is B<RTPENGINE_REDIS_WRITE_AUTH_PW>.
+
+When both options are given, B<rtpengine> will start and use the Redis
+database regardless of the database's role (master or slave).
+
+=item B<-k>, B<--subscribe-keyspace>
+
+List of redis keyspaces to subscribe.
+If this is not present, no keyspaces are subscribed (default behaviour).
+Further subscriptions could be added/removed via B<rtpengine-ctl ksadd/ksrm>.
+This may lead to enabling/disabling of the redis keyspace notification feature.
+
+=item B<--redis-num-threads=>I<INT>
+
+How many redis restore threads to create.
+The default is 4.
+
+=item B<--redis-expires=>I<INT>
+
+Expire time in seconds for redis keys.
+Default is 86400.
+
+=item B<--redis-multikey>
+
+Use multiple redis keys for storing the call (old behaviour). B<DEPRECATED>.
+
+=item B<-q>, B<--no-redis-required>
+
+When this parameter is present or B<NO_REDIS_REQUIRED='yes'> or B<'1'> in
+the config file, B<rtpengine> starts even if there is no initial connection
+to redis databases (either to B<-r> or to B<-w> or to both redis).
+
+Be aware that if the B<-r> redis cannot be initially connected, sessions
+are not reloaded upon rtpengine startup, even though rtpengine still starts.
+
+=item B<--redis-allowed-errors>
+
+If this parameter is present and has a value >= 0, it will configure how
+many consecutive errors are allowed when communicating with a redis server
+before the redis communication will be temporarily disabled for that server.
+While the communcation is disabled there will be no attempts to reconnect
+to redis or send commands to that server.
+Default value is -1, meaning that this feature is disabled.
+This parameter can also be set or listed via B<rtpengine-ctl>.
+
+=item B<--redis-disable-time>
+
+This parameter configures the number of seconds redis communication is
+disabled because of errors.
+This works together with redis-allowed-errors parameter.
+The default value is 10.
+This parameter can also be set or listed via B<rtpengine-ctl>.
+
+=item B<--redis-cmd-timeout=>I<INT>
+
+If this parameter is set to a non-zero value it will set the timeout,
+in milliseconds, for each command to the redis server.
+If redis does not reply within the specified timeout the command will fail.
+The default value is 0, meaning that the commands will be blocking without
+timeout.
+This parameter can also be set or listed via B<rtpengine-ctl>; note that
+setting the parameter to 0 will require a reconnect on all configured
+redis servers.
+
+=item B<--redis-connect-timeout=>I<INT>
+
+This parameter sets the timeout value, in milliseconds, when connecting
+to a redis server.
+If the connection cannot be made within the specified timeout the
+connection will fail.
+Note that in case of failure, when reconnecting to redis, a B<PING> command
+is issued before attempting to connect so the B<--redis-cmd-timeout> value
+will also be added to the total waiting time.
+This is useful if using B<--redis-allowed-errors>, when attempting to
+estimate the total lost time in case of redis failures.
+The default value for the connection timeout is 1000ms.
+This parameter can also be set or listed via B<rtpengine-ctl>.
+
+=item B<-b>, B<--b2b-url=>I<STRING>
+
+Enables and sets the URI for an XMLRPC callback to be made when a call is
+torn down due to packet timeout.
+The special code B<%%> can be used in place of an IP address, in which case
+the source address of the originating request (or alternatively the address
+specified using the B<xmlrpc-callback> B<ng> protocol option) will be used.
+
+=item B<-x>, B<--xmlrpc-format=>I<INT>
+
+Selects the internal format of the XMLRPC callback message for B2BUA call
+teardown.
+0 is for SEMS,
+1 is for a generic format containing the call-ID only,
+2 is for Kamailio.
+
+=item B<--max-sessions=>I<INT>
+
+Limit the number of maximum concurrent sessions.
+Set at startup via B<MAX_SESSIONS> in config file.
+Set at runtime via B<rtpengine-ctl> util.
+Setting the B<rtpengine-ctl set maxsessions 0> can be used in draining
+rtpengine sessions.
+Enable feature: B<MAX_SESSIONS=1000>
+Enable feature: B<rtpengine-ctl set maxsessions> >= 0
+Disable feature: B<rtpengine-ctl set maxsessions -1>
+By default, the feature is disabled (i.e. maxsessions == -1).
+
+=item B<--max-load=>I<FLOAT>
+
+If the current 1-minute load average exceeds the value given here,
+reject new sessions until the load average drops below the threshold.
+
+=item B<--max-cpu=>I<FLOAT>
+
+If the current CPU usage (in percent) exceeds the value given here,
+reject new sessions until the CPU usage drops below the threshold.
+CPU usage is sampled in 0.5-second intervals.
+Only supported on systems providing a Linux-style F</proc/stat>.
+
+=item B<--max-bandwidth=>I<INT>
+
+If the current bandwidth usage (in bytes per second) exceeds the value
+given here, reject new sessions until the bandwidth usage drops below
+the threshold.
+Bandwidth usage is sampled in 1-second intervals and is based on
+received packets, not sent packets.
+
+=item B<--homer=>I<IP46>B<:>I<PORT>
+
+Enables sending the decoded contents of RTCP packets to a Homer SIP
+capture server.
+The transport is HEP version 3 and payload format is JSON.
+This argument takes an IP address and a port number as value.
+
+=item B<--homer-protocol=>B<udp>|B<tcp>
+
+Can be either B<udp> or B<tcp> with B<udp> being the default.
+
+=item B<--homer-id=>I<INT>
+
+The HEP protocol used by Homer contains a "capture ID" used to distinguish
+different sources of capture data.
+This ID can be specified using this argument.
+
+=item B<--recording-dir=>I<FILE>
+
+An optional argument to specify a path to a directory where PCAP recording
+files and recording metadata files should be stored. If not specified,
+support for call recording will be disabled.
+
+B<rtpengine> supports multiple mechanisms for recording calls.
+See B<recording-method> below for a list.
+The default recording method B<pcap> is described in this section.
+
+PCAP files will be stored within a F<pcap> subdirectory and metadata
+within a F<metadata> subdirectory.
+
+The format for a metadata file is (with a trailing newline):
+
+	/path/to/recording-pcap.pcap
+
+	SDP mode: offer
+	SDP before RTP packet: 1
+
+	first SDP
+
+	SDP mode: answer
+	SDP before RTP packet: 1
+
+	second SDP
+
+	...
+
+	SDP mode: answer
+	SDP before RTP packet: 100
+
+	n-th and final SDP
+
+
+	start timestamp (YYYY-MM-DDThh:mm:ss)
+	end timestamp   (YYYY-MM-DDThh:mm:ss)
+
+
+	generic metadata
+
+There are two empty lines between each logic block of metadata.
+We write out all answer SDP, each separated from one another by one empty
+line.
+The generic metadata at the end can be any length with any number of
+lines.
+Metadata files will appear in the subdirectory when the call completes.
+PCAP files will be written to the subdirectory as the call is being
+recorded.
+
+Since call recording via this method happens entirely in userspace,
+in-kernel packet forwarding cannot be used for calls that are currently
+being recorded and packet forwarding will thus be done in userspace only.
+
+=item B<--recording-method=>B<pcap>|B<proc>
+
+Multiple methods of call recording are supported and this option can be
+used to select one.
+Currently supported are the method B<pcap> and B<proc>.
+The default method is B<pcap> and is the one described above.
+
+The recording method B<proc> works by writing metadata files directly into
+the B<recording-dir> (i.e. not into a subdirectory) and instead of recording
+RTP packet data into pcap files, the packet data is exposed via a special
+interface in the F</proc> filesystem.
+Packets must then be retrieved from this interface by a dedicated userspace
+component (usually a daemon such as recording-daemon included in this
+repository).
+
+Packet data is held in kernel memory until retrieved by the userspace
+component, but only a limited number of packets (default 10) per media
+stream.
+If packets are not retrieved in time, they will be simply discarded.
+This makes it possible to flag all calls to be recorded and then leave it
+to the userspace component to decided whether to use the packet data for
+any purpose or not.
+
+In-kernel packet forwarding is fully supported with this recording method
+even for calls being recorded.
+
+=item B<--recording-format=>B<raw>|B<eth>
+
+When recording to pcap file in B<raw> (default) format, there is no
+ethernet header.
+When set to B<eth>, a fake ethernet header is added, making each package
+14 bytes larger.
+
+=item B<--iptables-chain=>I<STRING>
+
+This option enables explicit management of an iptables chain.
+When enabled, B<rtpengine> takes control of the given iptables chain,
+which must exist already prior to starting the daemon.
+Upon startup, B<rtpengine> will flush the chain, and then add one B<ACCEPT>
+rule for each media port (RTP/RTCP) opened.
+Each rule will exactly match the individual port and destination IP address,
+and will be created with the call ID as iptables comment.
+The rule will be deleted when the port is closed.
+
+This option allows creating a firewall with a default B<DROP> policy for
+the entire port range used by B<rtpengine> and then referencing the given
+iptables chain to only selectively allow the ports actually in use.
+
+Note that this applies only to media ports, and does not apply to any other
+ports (such as the control ports) used by B<rtpengine>.
+
+Also note that the iptables API is not the most efficient one around and
+does not lend itself to fast dynamic creation and deletion of rules.
+If you have a high call volume, and especially many call attempts per
+second, you might experience significant performance impact.
+This is not a shortcoming of B<rtpengine> but rather of iptables and its
+API implementation in the Linux kernel.
+In such a case, it is recommended to add a static iptables rule for the
+entire media port range instead, and not use this option.
+
+=item B<--scheduling=>B<default>|...
+
+=item B<--priority=>I<INT>
+
+=item B<--idle-scheduling=>B<default>|...
+
+=item B<--idle-priority=>I<INT>
+
+These options control various thread scheduling parameters.
+The B<scheduling> and B<priority> settings are applied to the main
+worker threads, while the B<idle-> versions of these settings are
+applied to various lower priority threads, such as timer runs.
+
+The B<scheduling> settings take the name of one of the supported
+scheduler policies.
+Setting it to B<default> or B<none> is equivalent to not setting the
+option at all and leaves the system default in place.
+The strings B<fifo> and B<rr> refer to realtime scheduling policies.
+B<other> is the Linux default scheduling policy.
+B<batch> is similar to B<other> except for a small wake-up scheduling
+penalty.
+B<idle> is an extremely low priority scheduling policy.
+The Linux-specific B<deadline> policy is not supported by B<rtpengine>.
+Not all systems necessarily supports all scheduling policies; refer to
+your system's sched(7) man page for details.
+
+The B<priority> settings correspond to the scheduling priority for
+realtime (B<fifo> or B<rr>) scheduling policies and must be in the range
+of 1 (low) through 99 (high).
+For all other scheduling policies (including no policy specified), the
+B<priority> settings correspond to the B<nice> value and should be in
+the range of -20 (high) through 19 (low).
+Not all systems support thread-specific B<nice> values; on such a system,
+using these settings might have unexpected results.
+(Linux does support thread-specific B<nice> values.)
+Refer to your system's sched(7) man page.
+
+=back
+
+=head1 INTERFACES
+
+The command-line options B<-i> or B<--interface>, or equivalently the
+B<interface> config file option, specify local network interfaces for RTP.
+At least one must be given, but multiple can be specified.
+The format of the value is [I<NAME>B</>]I<IP>[!I<IP>] with I<IP> being
+either an IPv4 address, an IPv6 address, or the name of a system network
+interface (such as I<eth0>).
+
+The possibility of configuring a network interface by name rather than
+by address should not be confused with the logical interface name used
+internally by B<rtpengine> (as described below).
+The I<NAME> token in the syntax above refers to the internal logical
+interface name, while the name of a system network interface is used
+in place of the first I<IP> token in the syntax above.
+For example, to configure a logical network interface called I<int>
+using all the addresses from the existing system network interface
+I<eth0>, you would use the syntax I<int/eth0>.
+(Unless omitted, the second I<IP> token used for the advertised address
+must be an actual network address and cannot be an interface name.)
+
+To configure multiple interfaces using the command-line options,
+simply present multiple B<-i> or B<--interface> options.
+When using the config file, only use a single B<interface> line,
+but specify multiple values separated by semicolons (e.g.
+I<interface = internal/12.23.34.45;external/23.34.45.54>).
+
+If an interface option is given using a system interface name in place
+of a network address, and if multiple network address are found
+configured on that network interface, then B<rtpengine> behaves as
+if multiple B<--interface> options had been specified.
+For example, if interface I<eth0> exists with both addresses
+I<192.168.1.120> and I<2001:db8:85a3::7334> configured on it, and if
+the option I<--interface=ext/eth0> is given, then B<rtpengine> would
+behave as if both options I<--interface=ext/192.168.1.120> and
+I<--interface=ext/2001:db8:85a3::7334> had been specified.
+
+The second IP address after the exclamation point is optional and can
+be used if the address to advertise in outgoing SDP bodies should be
+different from the actual local address.
+This can be useful in certain cases, such as your SIP proxy being behind NAT.
+For example, I<--interface=10.65.76.2!192.0.2.4> means that I<10.65.76.2>
+is the actual local address on the server, but outgoing SDP bodies should
+advertise I<192.0.2.4> as the address that endpoints should talk to.
+Note that you may have to escape the exlamation point from your shell
+when using command-line options, e.g. using I<\!>.
+
+Giving an interface a name (separated from the address by a slash) is
+optional; if omitted, the name B<default> is used.
+Names are useful to create logical interfaces which consist of one or
+more local addresses.
+It is then possible to instruct B<rtpengine> to use particular interfaces
+when processing an SDP message, to use different local addresses when
+talking to different endpoints.
+The most common use case for this is to bridge between one or more
+private IP networks and the public internet.
+
+For example, if clients coming from a private IP network must communicate
+their RTP with the local address I<10.35.2.75>, while clients coming from
+the public internet must communicate with your other local address
+I<192.0.2.67>, you could create one logical interface I<pub> and a second
+one I<priv> by using I<--interface=pub/192.0.2.67 --interface=priv/10.35.2.75>.
+You can then use the B<direction> option to tell B<rtpengine> which local
+address to use for which endpoints (either I<pub> or I<priv>).
+
+If multiple logical interfaces are configured, but the B<direction>
+option is not given in a particular call, then the first interface
+given on the command line will be used.
+
+It is possible to specify multiple addresses for the same logical
+interface (the same name).
+Most commonly this would be one IPv4 addrsess and one IPv6 address,
+for example: I<--interface=192.168.63.1 --interface=fe80::800:27ff:fe00:0>.
+In this example, no interface name is given, therefore both addresses
+will be added to a logical interface named B<default>.
+You would use the B<address family> option to tell B<rtpengine> which
+address to use in a particular case.
+
+It is also possible to have multiple addresses of the same family in a
+logical network interface.
+In this case, the first address (of a particular family) given for an
+interface will be the primary address used by B<rtpengine> for most
+purposes.
+Any additional addresses will be advertised as additional ICE candidates
+with increasingly lower priority.
+This is useful on multi-homed systems and allows endpoints to choose the
+best possible path to reach the RTP proxy.
+If ICE is not being used, then additional addresses will go unused,
+even though ports would still get allocated on those interfaces.
+
+Another option is to give interface names in the format I<BASE:SUFFIX>.
+This allows interfaces to be used in a round-robin fashion, useful
+for load-balancing the port ranges of multiple interfaces.
+For example, consider the following configuration:
+I<--interface=pub:1/192.0.2.67 --interface=pub:2/10.35.2.75>.
+These two interfaces can still be referenced directly by name (e.g.
+I<direction=pub:1>), but it is now also possible to reference only
+the base name (i.e. I<direction=pub>).
+If the base name is used, one of the two interfaces is selected in a
+round-robin fashion, and only if the interface actually has enough
+open ports available.
+This makes it possible to effectively increase the number of available
+media ports across multiple IP addresses.
+There is no limit on how many interfaces can share the same base name.
+
+It is possible to combine the I<BASE:SUFFIX> notation with specifying
+multiple addresses for the same interface name.
+An advanced example could be (using config file notation, and omitting
+actual network addresses):
+
+  interface = pub:1/IPv4 pub:1/IPv4 pub:1/IPv6 pub:2/IPv4 pub:2/IPv6 pub:3/IPv6 pub:4/IPv4
+
+In this example, when I<direction=pub> is IPv4 is needed as a primary
+address, either I<pub:1>, I<pub:2>, or I<pub:4> might be selected.
+When I<pub:1> is selected, one IPv4 and one IPv6 address will be used
+as additional ICE alternatives.
+For I<pub:2>, only one IPv6 is used as ICE alternative, and for I<pub:4>
+no alternatives would be used.
+When IPv6 is needed as a primary address, either I<pub:1>, I<pub:2>, or
+I<pub:3> might be selected.
+If at any given time not enough ports are available on any interface,
+it will not be selected by the round-robin algorithm.
+
+It is possible to use the round-robin algorithm even if the B<direction>
+is not given.
+If the first given interface has the I<BASE:SUFFIX> format then the
+round-robin algorithm is used and will select interfaces with the
+same I<BASE> name.
+
+If you are not using the NG protocol but rather the legacy UDP protocol
+used by the B<rtpproxy> module, the interfaces must be named B<internal>
+and B<external> corresponding to the B<i> and B<e> flags if you wish to
+use network bridging in this mode.
+
+=head1 EXIT STATUS
+
+=over
+
+=item B<0>
+
+Successful termination.
+
+=item B<1>
+
+An error ocurred.
+
+=back
+
+=head1 ENVIRONMENT
+
+=over
+
+=item B<RTPENGINE_REDIS_AUTH_PW>
+
+Redis server password for persistent state storage.
+
+=item B<RTPENGINE_REDIS_WRITE_AUTH_PW>
+
+Redis server password for write operations, if B<--redis> has been
+specified, in which case the one specified in B<--redis> will be used for
+read operations only.
+
+=back
+
+=head1 FILES
+
+=over
+
+=item F</etc/rtpengine/rtpengine.conf>
+
+Configuration file.
+
+=back
+
+=head1 EXAMPLES
+
+A typical command line (enabling both UDP and NG protocols) may look like:
+
+  rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
+    --listen-udp=127.0.0.1:22222 --listen-ng=127.0.0.1:2223 --tos=184 \
+    --pidfile=/run/rtpengine.pid
+
+=head1 SEE ALSO
+
+L<kamailio(8)>.
