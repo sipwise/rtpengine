@@ -231,11 +231,11 @@ sub aes_cm_iv_rtp {
 }
 
 sub aes_cm_iv_rtcp {
-	my ($ctx, $r) = @_;
+	my ($r, $ssalt, $idx) = @_;
 
-	my $idx = $$ctx{rtcp_index} || 0;
+	$idx ||= 0;
 	my ($hdr, $ssrc) = unpack('a4a4', $r);
-	my $iv = xor_128($$ctx{rtcp_session_salt} . "\0\0",
+	my $iv = xor_128($ssalt . "\0\0",
 		$ssrc . "\0\0\0\0\0\0\0\0", pack("Nn", $idx, 0));
 	return $iv;
 }
@@ -249,15 +249,17 @@ sub aes_f8_iv_rtp {
 }
 
 sub aes_f8_iv_rtcp {
-	my ($ctx, $r) = @_;
+	my ($r, $ssalt, $idx) = @_;
 
 	my ($fields) = unpack('a8', $r);
-	my $iv = pack('a*Na*', "\0\0\0\0", (($$ctx{rtcp_index} || 0) | 0x80000000), $fields);
+	my $iv = pack('a*Na*', "\0\0\0\0", (($idx || 0) | 0x80000000), $fields);
 	return $iv;
 }
 
 sub decode_inline_base64 {
 	my ($b64, $cs) = @_;
+	# append possibly missing trailing ==
+	$b64 .= '=' x (4 - (length($b64) % 4)) if ((length($b64) % 4) != 0);
 	my $ks = decode_base64($b64);
 	length($ks) == ($cs->{key_length} + $cs->{salt_length}) or die;
 	my @ret = unpack("a$cs->{key_length}a$cs->{salt_length}", $ks);
@@ -290,7 +292,7 @@ sub encrypt_rtp {
 sub decrypt_rtp {
 	my ($suite, $skey, $ssalt, $sauth, $roc, $packet) = @_;
 
-	# XXX MKI
+	# XXX MKI, session parameters
 
 	my $plen = length($packet);
 	my $auth_tag = substr($packet, $plen - $$suite{auth_tag}, $$suite{auth_tag});
@@ -313,6 +315,51 @@ sub decrypt_rtp {
 	return ($pkt, $roc, $auth_tag, $hmac);
 }
 
+sub encrypt_rtcp {
+	my ($suite, $skey, $ssalt, $sauth, $idx, $mki, $mki_len, $unenc_srtcp, $packet) = @_;
+
+	my $iv = $suite->{iv_rtcp}->($packet, $ssalt, $idx);
+	my ($hdr, $to_enc) = unpack('a8a*', $packet);
+	my $enc = $unenc_srtcp ? $to_enc :
+		$suite->{enc_func}->($to_enc, $skey,
+		$iv, $ssalt);
+	my $pkt = $hdr . $enc;
+	$pkt .= pack("N", (($idx || 0) | ($unenc_srtcp ? 0 : 0x80000000)));
+
+	my $hmac = hmac_sha1($pkt, $sauth);
+
+	append_mki(\$pkt, $mki_len, $mki);
+
+	#$pkt .= pack("N", 1); # mki
+	$pkt .= substr($hmac, 0, 10);
+
+	$idx++;
+
+	return ($pkt, $idx);
+}
+
+sub decrypt_rtcp {
+	my ($suite, $skey, $ssalt, $sauth, $packet) = @_;
+
+	# XXX MKI, session parameters
+
+	my $plen = length($packet);
+	my $idx_raw = substr($packet, $plen - 4, 4);
+	my ($idx) = unpack('N', $idx_raw);
+	my $auth_tag = substr($packet, $plen - $$suite{auth_tag} - 4, $$suite{auth_tag});
+	$packet = substr($packet, 0, $plen - $$suite{auth_tag} - 4);
+
+	my $iv = $suite->{iv_rtcp}->($packet, $ssalt, $idx);
+	my ($hdr, $to_enc) = unpack('a8a*', $packet);
+	my $enc = $suite->{enc_func}->($to_enc, $skey,
+		$iv, $ssalt);
+	my $pkt = $hdr . $enc;
+
+	my $hmac = hmac_sha1($packet, $sauth);
+
+	return ($pkt, $idx, $auth_tag, $hmac);
+}
+
 sub append_mki {
 	my ($pack_r, $mki_len, $mki) = @_;
 
@@ -326,6 +373,76 @@ sub append_mki {
 		$mki = substr($mki, -$mki_len);
 	}
 	$$pack_r .= $mki;
+}
+
+package NGCP::Rtpclient::SRTP::Context;
+
+sub new {
+	my ($class, $suite) = @_;
+
+	my $self = {};
+	bless $self, $class;
+
+	$self->{suite} = $suite; # includes all parameters
+	my $remote = $self->{remote} = $suite->{remote}; # shortcut
+
+	$self->{roc} = 0;
+	$self->{remote_roc} = 0;
+
+	@$self{qw(session_key auth_key session_salt)}
+		= NGCP::Rtpclient::SRTP::gen_rtp_session_keys($suite->{master_key}, $suite->{master_salt});
+	@$self{qw(rtcp_session_key rtcp_auth_key rtcp_session_salt)}
+		= NGCP::Rtpclient::SRTP::gen_rctp_session_keys($suite->{master_key}, $suite->{master_salt});
+	@$self{qw(remote_session_key remote_auth_key remote_session_salt)}
+		= NGCP::Rtpclient::SRTP::gen_rtp_session_keys($remote->{master_key}, $remote->{master_salt});
+	@$self{qw(remote_rtcp_session_key remote_rtcp_auth_key remote_rtcp_session_salt)}
+		= NGCP::Rtpclient::SRTP::gen_rtp_session_keys($remote->{master_key}, $remote->{master_salt});
+
+	return $self;
+};
+
+sub encrypt {
+	my ($self, $component, $pack) = @_;
+
+	if ($component == 0) {
+		# XXX MKI, SRTP/SDES session options
+		my ($p, $roc) = NGCP::Rtpclient::SRTP::encrypt_rtp(@$self{qw(suite session_key session_salt
+			auth_key roc)}, '', 0,
+			0, $pack);
+		$self->{roc} = $roc;
+		return $p;
+	}
+	else {
+		# RTCP
+		my ($p, $idx) = NGCP::Rtpclient::SRTP::encrypt_rtcp(@$self{qw(suite session_key session_salt
+			auth_key rtcp_index)}, '', 0,
+			0, 0, $pack);
+		$self->{rtcp_index} = $idx;
+		return $p;
+	}
+}
+
+sub decrypt {
+	my ($self, $component, $pack) = @_;
+
+	if ($component == 0) {
+		# XXX MKI, SRTP/SDES session options
+		my ($p, $roc) = NGCP::Rtpclient::SRTP::decrypt_rtp(@$self{qw(remote remote_session_key
+			remote_session_salt
+			remote_auth_key remote_roc)}, $pack);
+		$self->{remote_roc} = $roc;
+		# XXX verify hmac/auth
+		return $p;
+	}
+	else {
+		# RTCP
+		my ($p, $idx) = NGCP::Rtpclient::SRTP::decrypt_rtcp(@$self{qw(remote remote_session_key
+			remote_session_salt
+			remote_auth_key remote_rtcp_index)}, $pack);
+		$self->{remote_rtcp_index} = $idx;
+		# XXX verify hmac/auth
+		return $p;
+	}
 }
 
 1;
