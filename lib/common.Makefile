@@ -1,7 +1,7 @@
 include ../lib/lib.Makefile
 
 all:
-	$(MAKE) $(TARGET)
+	$(MAKE) $(TARGET) $(MANS)
 
 $(TARGET):	$(OBJS) .depend Makefile
 	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
@@ -31,6 +31,13 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 		rm -f "$@"
 		echo '/******** GENERATED FILE ********/' > "$@"
 		cat ../daemon/"$@" >> "$@"
+
+%.8: %.pod
+	pod2man \
+		--center="NGCP rtpengine" \
+		--date="$(RELEASE_DATE)" \
+		--release="$(RTPENGINE_VERSION)" \
+		$< $@
 
 resample.c:	fix_frame_channel_layout.h
 
