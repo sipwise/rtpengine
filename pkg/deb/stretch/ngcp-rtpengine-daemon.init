@@ -1,0 +1,184 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          ngcp-rtpengine-daemon
+# Required-Start:    $network $local_fs $remote_fs $syslog
+# Required-Stop:     $network $local_fs $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Ngcp Rtpengine
+# Description:       Proxy for RTP and other media streams
+### END INIT INFO
+
+set -e
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+NAME=ngcp-rtpengine-daemon
+DESC="RTP/media proxy"
+TABLE=0
+
+DAEMON=$(which rtpengine)
+DEFAULTS=/etc/default/${NAME}
+
+test -f "$DAEMON" || exit 0
+
+. /lib/lsb/init-functions
+
+# Load startup options if available
+if [ -f "$DEFAULTS" ]; then
+	. "$DEFAULTS" || true
+fi
+
+if [ "$RUN_RTPENGINE" != "yes" ]; then
+	log_action_msg "rtpengine not yet configured. Edit $DEFAULTS first."
+	exit 0
+fi
+[ -z "$PIDFILE" ] && PIDFILE="/run/rtpengine.pid"
+
+OPTIONS=""
+START_OPTIONS=""
+
+if [ ! -z "$INTERFACES" ]; then
+	for interface in $INTERFACES; do
+		OPTIONS="$OPTIONS --interface=$interface"
+	done
+fi
+
+
+if [ ! -z "$SUBSCRIBE_KEYSPACES" ]; then
+	for ks in $SUBSCRIBE_KEYSPACES; do
+		OPTIONS="$OPTIONS --subscribe-keyspace=$ks"
+	done
+fi
+
+[ -z "$CONFIG_FILE" ] || OPTIONS="$OPTIONS --config-file=$CONFIG_FILE"
+[ -z "$CONFIG_SECTION" ] || OPTIONS="$OPTIONS --config-section=$CONFIG_SECTION"
+[ -z "$ADDRESS" ] || OPTIONS="$OPTIONS --interface=$ADDRESS"
+[ -z "$ADV_ADDRESS" ] || OPTIONS="$OPTIONS!$ADV_ADDRESS"
+[ -z "$ADDRESS_IPV6" ] || OPTIONS="$OPTIONS --interface=$ADDRESS_IPV6"
+[ -z "$ADV_ADDRESS_IPV6" ] || OPTIONS="$OPTIONS!$ADV_ADDRESS_IPV6"
+[ -z "$LISTEN_TCP" ] || OPTIONS="$OPTIONS --listen-tcp=$LISTEN_TCP"
+[ -z "$LISTEN_UDP" ] || OPTIONS="$OPTIONS --listen-udp=$LISTEN_UDP"
+[ -z "$LISTEN_NG" ] || OPTIONS="$OPTIONS --listen-ng=$LISTEN_NG"
+[ -z "$LISTEN_CLI" ] || OPTIONS="$OPTIONS --listen-cli=$LISTEN_CLI"
+[ -z "$TIMEOUT" ] || OPTIONS="$OPTIONS --timeout=$TIMEOUT"
+[ -z "$SILENT_TIMEOUT" ] || OPTIONS="$OPTIONS --silent-timeout=$SILENT_TIMEOUT"
+[ -z "$FINAL_TIMEOUT" ] || OPTIONS="$OPTIONS --final-timeout=$FINAL_TIMEOUT"
+[ -z "$PIDFILE" ] || OPTIONS="$OPTIONS --pidfile=$PIDFILE"
+[ -z "$TOS" ] || OPTIONS="$OPTIONS --tos=$TOS"
+[ -z "$PORT_MIN" ] || OPTIONS="$OPTIONS --port-min=$PORT_MIN"
+[ -z "$PORT_MAX" ] || OPTIONS="$OPTIONS --port-max=$PORT_MAX"
+[ -z "$REDIS" ] || [ -z "$REDIS_DB" ] || OPTIONS="$OPTIONS --redis=$REDIS/$REDIS_DB"
+[ -z "$REDIS_AUTH_PW" ] || export RTPENGINE_REDIS_AUTH_PW="$REDIS_AUTH_PW"
+[ -z "$REDIS_WRITE" ] || [ -z "$REDIS_WRITE_DB" ] || OPTIONS="$OPTIONS --redis-write=$REDIS_WRITE/$REDIS_WRITE_DB"
+[ -z "$REDIS_WRITE_AUTH_PW" ] || export RTPENGINE_REDIS_WRITE_AUTH_PW="$REDIS_WRITE_AUTH_PW"
+[ -z "$REDIS_NUM_THREADS" ] || OPTIONS="$OPTIONS --redis-num-threads=$REDIS_NUM_THREADS"
+[ -z "$REDIS_EXPIRES" ] || OPTIONS="$OPTIONS --redis-expires=$REDIS_EXPIRES"
+[ -z "$REDIS_MULTIKEY" ] || OPTIONS="$OPTIONS --redis-multikey=$REDIS_MULTIKEY"
+[ -z "$NO_REDIS_REQUIRED" ] || ( [ "$NO_REDIS_REQUIRED" != "1" ] && [ "$NO_REDIS_REQUIRED" != "yes" ] ) || OPTIONS="$OPTIONS --no-redis-required"
+[ -z "$B2B_URL" ] || OPTIONS="$OPTIONS --b2b-url=$B2B_URL"
+[ -z "$NO_FALLBACK" ] || ( [ "$NO_FALLBACK" != "1" ] && [ "$NO_FALLBACK" != "yes" ] ) || OPTIONS="$OPTIONS --no-fallback"
+OPTIONS="$OPTIONS --table=$TABLE"
+[ -z "$LOG_LEVEL" ] || OPTIONS="$OPTIONS --log-level=$LOG_LEVEL"
+[ -z "$LOG_FACILITY" ] || OPTIONS="$OPTIONS --log-facility=$LOG_FACILITY"
+[ -z "$LOG_FACILITY_CDR" ] || OPTIONS="$OPTIONS --log-facility-cdr=$LOG_FACILITY_CDR"
+[ -z "$LOG_FACILITY_RTCP" ] || OPTIONS="$OPTIONS --log-facility-rtcp=$LOG_FACILITY_RTCP"
+[ -z "$NUM_THREADS" ] || OPTIONS="$OPTIONS --num-threads=$NUM_THREADS"
+[ -z "$DELETE_DELAY" ] || OPTIONS="$OPTIONS --delete-delay=$DELETE_DELAY"
+[ -z "$GRAPHITE" ] || OPTIONS="$OPTIONS --graphite=$GRAPHITE"
+[ -z "$GRAPHITE_INTERVAL" ] || OPTIONS="$OPTIONS --graphite-interval=$GRAPHITE_INTERVAL"
+[ -z "$GRAPHITE_PREFIX" ] || OPTIONS="$OPTIONS --graphite-prefix=$GRAPHITE_PREFIX"
+[ -z "$MAX_SESSIONS" ] || OPTIONS="$OPTIONS --max-sessions=$MAX_SESSIONS"
+[ -z "$HOMER" ] || OPTIONS="$OPTIONS --homer=$HOMER"
+[ -z "$HOMER_PROTOCOL" ] || OPTIONS="$OPTIONS --homer-protocol=$HOMER_PROTOCOL"
+[ -z "$HOMER_ID" ] || OPTIONS="$OPTIONS --homer-id=$HOMER_ID"
+if [ ! -z "$RECORDING_DIR" ]; then
+	OPTIONS="$OPTIONS --recording-dir=$RECORDING_DIR"
+	if [ ! -d "$RECORDING_DIR" ]; then
+		mkdir "$RECORDING_DIR" 2> /dev/null
+		chmod 700 "$RECORDING_DIR" 2> /dev/null
+	fi
+fi
+[ -z "$RECORDING_METHOD" ] || OPTIONS="$OPTIONS --recording-method=$RECORDING_METHOD"
+[ -z "$RECORDING_FORMAT" ] || OPTIONS="$OPTIONS --recording-format=$RECORDING_FORMAT"
+[ -z "$DTLS_PASSIVE" ] || ( [ "$DTLS_PASSIVE" != "yes" ] && [ "$DTLS_PASSIVE" != "1" ] ) || OPTIONS="$OPTIONS --dtls-passive"
+
+if test "$FORK" = "no" ; then
+	OPTIONS="$OPTIONS --foreground"
+fi
+
+if test "$LOG_STDERR" = "yes" ; then
+	OPTIONS="$OPTIONS --log-stderr"
+fi
+
+# check if directory for pid file needs to be created
+
+PIDDIR=$(dirname "$PIDFILE")
+DO_DIR_CHOWN=0
+if ! test -z "$PIDDIR" && ! test -d "$PIDDIR"; then
+	mkdir -p "$PIDDIR"
+	DO_DIR_CHOWN=1
+fi
+
+# handle requested setuid/setgid
+
+if ! test -z "$SET_USER"; then
+	START_OPTIONS="$START_OPTIONS --chuid $SET_USER"
+	test "$DO_DIR_CHOWN" = 1 && chown "$SET_USER": "$PIDDIR"
+fi
+
+if ! test -z "$SET_GROUP"; then
+	START_OPTIONS="$START_OPTIONS --group $SET_GROUP"
+	test "$DO_DIR_CHOWN" = 1 && chgrp "$SET_GROUP" "$PIDDIR"
+fi
+
+###
+
+case "$1" in
+  start)
+	set +e
+	if [ -x "$(which ngcp-check-active)" ]; then
+	  case "$(ngcp-check-active -v)" in
+	    active|transition)
+	      log_action_msg "Active node or transition."
+	      ;;
+	    *)
+	      log_action_msg "Ignored start action in inactive node ($status)"
+	      exit 0
+	      ;;
+	  esac
+	fi
+	ngcp-rtpengine-iptables-setup start
+	set -e
+	log_daemon_msg "Starting $DESC" "$NAME"
+	# shellcheck disable=SC2086
+	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
+		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
+	log_end_msg $?
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+		--retry 5 --exec "$DAEMON"
+	if [ "$?" -ne 0 ]; then
+		return $?
+	fi
+	set +e
+	ngcp-rtpengine-iptables-setup stop
+	set -e
+	rm -f $PIDFILE
+	log_end_msg $?
+	;;
+  restart|force-reload)
+	$0 stop
+	$0 start
+	;;
+  status)
+	status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

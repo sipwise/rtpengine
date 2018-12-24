@@ -1,0 +1,17 @@
+[Unit]
+Description=NGCP RTP/media Proxy Daemon
+After=network-online.target
+After=remote-fs.target
+Requires=network-online.target
+
+[Service]
+Type=notify
+EnvironmentFile=/etc/default/ngcp-rtpengine-daemon
+PIDFile=/run/ngcp-rtpengine-daemon.pid
+ExecStartPre=/usr/sbin/ngcp-rtpengine-iptables-setup start
+ExecStart=/usr/sbin/rtpengine -f -E --pidfile /run/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf --table $TABLE
+ExecStopPost=/usr/sbin/ngcp-rtpengine-iptables-setup stop
+
+[Install]
+WantedBy=multi-user.target
+Alias=rtpengine.service
