@@ -14,6 +14,7 @@ use IO::Multiplex;
 use Time::HiRes qw(time);
 use NGCP::Rtpclient::SDP;
 use NGCP::Rtpclient::ICE;
+use NGCP::Rtpclient::SDES;
 use NGCP::Rtpclient::DTLS;
 use NGCP::Rtpclient::RTP;
 use NGCP::Rtpclient::RTCP;
@@ -179,6 +180,7 @@ sub _new {
 
 	# default protocol
 	my $proto = 'RTP/AVP';
+	$args{sdes} and $proto = 'RTP/SAVP';
 	$args{dtls} and $proto = 'UDP/TLS/RTP/SAVP';
 	$args{protocol} and $proto = $args{protocol};
 
@@ -189,6 +191,9 @@ sub _new {
 	));
 	# XXX support multiple medias
 
+	if ($args{sdes}) {
+		$self->{sdes} = NGCP::Rtpclient::SDES->new(%{$args{sdes_args}});
+	}
 	if ($args{dtls}) {
 		$self->{dtls} = NGCP::Rtpclient::DTLS::Group->new($parent->{mux}, $self, [ \@rtp, \@rtcp ]);
 		$self->{local_media}->add_attrs($self->{dtls}->encode());
@@ -250,6 +255,10 @@ sub _packet_send {
 		($local_socket, $dest) = $self->{ice}->get_send_component($component);
 	}
 
+	if ($self->{srtp}) {
+		$s = $self->{srtp}->encrypt($component, $s);
+	}
+
 	$local_socket->send($s, 0, $dest);
 }
 sub _media_send {
@@ -291,6 +300,7 @@ sub _default_req_args {
 sub offer {
 	my ($self, $other, %args) = @_;
 
+	$self->{sdes} and $self->{local_media}->add_attrs($self->{sdes}->encode());
 	my $sdp_body = $self->{local_sdp}->encode();
 	# XXX validate SDP
 
@@ -311,12 +321,18 @@ sub _offered {
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
 	$self->{local_sdp}->codec_negotiate($self->{remote_sdp});
+	if ($self->{sdes}) {
+		$self->{sdes}->decode($self->{remote_media});
+		$self->{sdes}->offered();
+		$self->{srtp} = NGCP::Rtpclient::SRTP::Context->new($self->{sdes}->{suite});
+	}
 	$self->{ice} and $self->{ice}->decode($self->{remote_media}->decode_ice());
 }
 
 sub answer {
 	my ($self, $other, %args) = @_;
 
+	$self->{sdes} and $self->{local_media}->add_attrs($self->{sdes}->encode());
 	my $sdp_body = $self->{local_sdp}->encode();
 	# XXX validate SDP
 
@@ -338,6 +354,11 @@ sub _answered {
 	@{$self->{remote_sdp}->{medias}} == 1 or die;
 	$self->{remote_media} = $self->{remote_sdp}->{medias}->[0];
 	$self->{local_sdp}->codec_negotiate($self->{remote_sdp});
+	if ($self->{sdes}) {
+		$self->{sdes}->decode($self->{remote_media});
+		$self->{sdes}->answered();
+		$self->{srtp} = NGCP::Rtpclient::SRTP::Context->new($self->{sdes}->{suite});
+	}
 	$self->{ice} and $self->{ice}->decode($self->{remote_media}->decode_ice());
 }
 
@@ -371,8 +392,12 @@ sub _input {
 
 	# must be RTP or RTCP input
 	if (!$self->{args}->{no_data_check}) {
+		if ($self->{srtp}) {
+			$$input = $self->{srtp}->decrypt($component, $$input);
+		}
+
 		my $exp = shift(@{$self->{media_receive_queues}->[$component]}) or die;
-		$$input eq $exp or die;
+		$$input eq $exp or die unpack('H*', $$input) . ' ne ' . unpack('H*', $exp);
 	}
 	else {
 		@{$self->{media_receive_queues}->[$component]} = ();
