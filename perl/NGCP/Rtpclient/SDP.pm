@@ -327,4 +327,9 @@ sub rtcp_endpoint {
 	die;
 }
 
+sub get_attrs {
+	my ($self, $name) = @_;
+	return $self->{attributes_hash}->{$name} // [];
+}
+
 1;
