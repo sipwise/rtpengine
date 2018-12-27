@@ -1053,6 +1053,7 @@ static int __init_stream(struct packet_stream *ps) {
 	struct call_media *media = ps->media;
 	struct call *call = ps->call;
 	int active = -1;
+	AUTO_CLEANUP_BUF(paramsbuf);
 
 	if (MEDIA_ISSET(media, SDES)) {
 		for (GList *l = ps->sfds.head; l; l = l->next) {
@@ -1060,10 +1061,16 @@ static int __init_stream(struct packet_stream *ps) {
 			struct crypto_params_sdes *cps = media->sdes_in.head
 				? media->sdes_in.head->data : NULL;
 			crypto_init(&sfd->crypto, cps ? &cps->params : NULL);
+			ilog(LOG_DEBUG, "[%s] Initialized incoming SRTP with SDES crypto params: %s",
+					endpoint_print_buf(&sfd->socket.local),
+					crypto_params_sdes_dump(cps, &paramsbuf));
 		}
 		struct crypto_params_sdes *cps = media->sdes_out.head
 			? media->sdes_out.head->data : NULL;
 		crypto_init(&ps->crypto, cps ? &cps->params : NULL);
+		ilog(LOG_DEBUG, "[%i] Initialized outgoing SRTP with SDES crypto params: %s",
+				ps->component,
+				crypto_params_sdes_dump(cps, &paramsbuf));
 	}
 
 	if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {

@@ -293,3 +293,8 @@ int uint32_eq(const void *a, const void *b) {
 	const u_int32_t *A = a, *B = b;
 	return (*A == *B) ? TRUE : FALSE;
 }
+
+void free_buf(char **p) {
+	if (*p)
+		free(*p);
+}

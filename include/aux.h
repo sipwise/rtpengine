@@ -58,6 +58,11 @@ G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
 #define THREAD_BUF_SIZE		64
 #define NUM_THREAD_BUFS		8
 
+#define AUTO_CLEANUP(decl, func)		decl __attribute__ ((__cleanup__(func)))
+#define AUTO_CLEANUP_INIT(decl, func, val)	AUTO_CLEANUP(decl, func) = val
+#define AUTO_CLEANUP_NULL(decl, func)		AUTO_CLEANUP_INIT(decl, func, 0)
+#define AUTO_CLEANUP_BUF(var)			AUTO_CLEANUP_NULL(char *var, free_buf)
+
 
 /*** GLOBALS ***/
 
@@ -244,6 +249,8 @@ INLINE int rlim(int res, rlim_t val) {
 	rlim.rlim_cur = rlim.rlim_max = val;
 	return setrlimit(res, &rlim);
 }
+
+void free_buf(char **);
 
 
 
