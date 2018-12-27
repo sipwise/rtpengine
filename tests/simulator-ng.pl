@@ -130,22 +130,9 @@ sub rtcp_encrypt {
 
 	($NOENC && $NOENC{rtcp_packet}) and return $NOENC{rtcp_packet};
 
-	my $iv = $$dctx{crypto_suite}{iv_rtcp}->($dctx, $r);
-	my ($hdr, $to_enc) = unpack('a8a*', $r);
-	my $enc = $$dctx{unenc_srtcp} ? $to_enc :
-		$$dctx{crypto_suite}{enc_func}->($to_enc, $$dctx{rtcp_session_key},
-		$iv, $$dctx{rtcp_session_salt});
-	my $pkt = $hdr . $enc;
-	$pkt .= pack("N", (($$dctx{rtcp_index} || 0) | ($$dctx{unenc_srtcp} ? 0 : 0x80000000)));
-
-	my $hmac = hmac_sha1($pkt, $$dctx{rtcp_session_auth_key});
-
-	NGCP::Rtpclient::SRTP::append_mki(\$pkt, @$dctx{qw(rtp_mki_len rtp_mki)});
-
-	#$pkt .= pack("N", 1); # mki
-	$pkt .= substr($hmac, 0, 10);
-
-	$$dctx{rtcp_index}++;
+	my ($pkt, $idx) = NGCP::Rtpclient::SRTP::encrypt_rtcp(@$dctx{qw(crypto_suite rtcp_session_key
+		rtcp_session_salt rtcp_session_auth_key rtcp_index rtp_mki rtp_mki_len unenc_srtcp)}, $r);
+	$$dctx{rtcp_index} = $idx;
 
 	$NOENC{rtcp_packet} = $pkt;
 

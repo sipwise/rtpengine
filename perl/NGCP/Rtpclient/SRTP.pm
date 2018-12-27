@@ -231,11 +231,11 @@ sub aes_cm_iv_rtp {
 }
 
 sub aes_cm_iv_rtcp {
-	my ($ctx, $r) = @_;
+	my ($r, $ssalt, $idx) = @_;
 
-	my $idx = $$ctx{rtcp_index} || 0;
+	$idx ||= 0;
 	my ($hdr, $ssrc) = unpack('a4a4', $r);
-	my $iv = xor_128($$ctx{rtcp_session_salt} . "\0\0",
+	my $iv = xor_128($ssalt . "\0\0",
 		$ssrc . "\0\0\0\0\0\0\0\0", pack("Nn", $idx, 0));
 	return $iv;
 }
@@ -249,10 +249,10 @@ sub aes_f8_iv_rtp {
 }
 
 sub aes_f8_iv_rtcp {
-	my ($ctx, $r) = @_;
+	my ($r, $ssalt, $idx) = @_;
 
 	my ($fields) = unpack('a8', $r);
-	my $iv = pack('a*Na*', "\0\0\0\0", (($$ctx{rtcp_index} || 0) | 0x80000000), $fields);
+	my $iv = pack('a*Na*', "\0\0\0\0", (($idx || 0) | 0x80000000), $fields);
 	return $iv;
 }
 
@@ -311,6 +311,52 @@ sub decrypt_rtp {
 	#$pkt .= pack("N", 1); # mki
 
 	return ($pkt, $roc, $auth_tag, $hmac);
+}
+
+sub encrypt_rtcp {
+	my ($suite, $skey, $ssalt, $sauth, $idx, $mki, $mki_len, $unenc_srtcp, $packet) = @_;
+
+	my $iv = $suite->{iv_rtcp}->($packet, $ssalt, $idx);
+	my ($hdr, $to_enc) = unpack('a8a*', $packet);
+	my $enc = $unenc_srtcp ? $to_enc :
+		$suite->{enc_func}->($to_enc, $skey,
+		$iv, $ssalt);
+	my $pkt = $hdr . $enc;
+	$pkt .= pack("N", (($idx || 0) | ($unenc_srtcp ? 0 : 0x80000000)));
+
+	my $hmac = hmac_sha1($pkt, $sauth);
+
+	append_mki(\$pkt, $mki_len, $mki);
+
+	#$pkt .= pack("N", 1); # mki
+	$pkt .= substr($hmac, 0, 10);
+
+	$idx++;
+
+	return ($pkt, $idx);
+}
+
+sub decrypt_rtcp {
+	my ($suite, $skey, $ssalt, $sauth, $packet) = @_;
+
+	# XXX MKI, session parameters
+
+	my $plen = length($packet);
+	my $auth_tag = substr($packet, $plen - 10, 10);
+	my $idx_raw = substr($packet, $plen - 4 - 10, 4);
+	my ($idx) = unpack('N', $idx_raw);
+	$idx &= 0x7fffffff;
+	$packet = substr($packet, 0, $plen - 10 - 4);
+
+	my $iv = $suite->{iv_rtcp}->($packet, $ssalt, $idx);
+	my ($hdr, $to_enc) = unpack('a8a*', $packet);
+	my $enc = $suite->{enc_func}->($to_enc, $skey,
+		$iv, $ssalt);
+	my $pkt = $hdr . $enc;
+
+	my $hmac = hmac_sha1($packet, $sauth);
+
+	return ($pkt, $idx, $auth_tag, $hmac);
 }
 
 sub append_mki {
