@@ -1372,7 +1372,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			// make sure our bit field is large enough
 			assert(num_crypto_suites <= sizeof(types_offered) * 8);
 
-			for (GList *l = offered_cpq->head; l; l = l->next) {
+			GList *l = offered_cpq->head;
+			while (l) {
 				struct crypto_params_sdes *offered_cps = l->data;
 
 				if (flags->sdes_no && g_hash_table_lookup(flags->sdes_no,
@@ -1381,6 +1382,12 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 					ilog(LOG_DEBUG, "Dropping offered crypto suite '%s' from offer "
 							"due to 'SDES-no' option",
 							offered_cps->params.crypto_suite->name);
+
+					GList *next = l->next;
+					g_queue_delete_link(offered_cpq, l);
+					crypto_params_sdes_free(offered_cps);
+					l = next;
+
 					continue;
 				}
 
@@ -1397,6 +1404,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				types_offered |= 1 << cps->params.crypto_suite->idx;
 
 				__sdes_flags(cps, flags);
+
+				l = l->next;
 			}
 
 			// generate crypto suite offers for any types that we haven't seen above
