@@ -80,7 +80,7 @@ endif
 
 ADD_CLEAN=	$(TESTS)
 
-unit-tests:	$(TESTS)
+unit-tests:	tests-preload.so $(TESTS)
 	for x in $(TESTS); do echo testing: $$x; G_DEBUG=fatal-warnings ./$$x || exit 1; done
 
 bitstr-test:	bitstr-test.o
@@ -100,3 +100,6 @@ transcode-test:	transcode-test.o $(COMMONOBJS) codeclib.o resample.o codec.o ssr
 payload-tracker-test: payload-tracker-test.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o
 
 const_str_hash-test.strhash: const_str_hash-test.strhash.o $(COMMONOBJS)
+
+tests-preload.so:	tests-preload.c
+	$(CC) -g -D_GNU_SOURCE -std=c99 -o $@ -Wall -shared -fPIC $<
