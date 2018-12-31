@@ -45,3 +45,4 @@ udp_listener.c
 payload-tracker-test
 dtmf.c
 const_str_hash-test.strhash
+tests-preload.so
