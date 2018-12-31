@@ -26,19 +26,32 @@ sub new {
 	my $self = {};
 	bless $self, $class;
 
+	srand(1234) if $ENV{RTPE_TEST_PSEUDO_RAND};
+
 	# detect local interfaces
 
+	my (@v4, @v6);
 	my @intfs = Net::Interface->interfaces();
 
-	my @v4 = map {$_->address(&AF_INET)} @intfs;
-	@v4 = map {Socket6::inet_ntop(&AF_INET, $_)} @v4;
-	@v4 = grep {$_ !~ /^127\./} @v4;
+	if ($ENV{RTPE_TEST_V4_ADDRS}) {
+		@v4 = split(/ /, $ENV{RTPE_TEST_V4_ADDRS});
+	}
+	else {
+		@v4 = map {$_->address(&AF_INET)} @intfs;
+		@v4 = map {Socket6::inet_ntop(&AF_INET, $_)} @v4;
+		@v4 = grep {$_ !~ /^127\./} @v4;
+	}
 	@v4 = map { { address => $_, sockdomain => &AF_INET } } @v4;
 	@v4 or die("no IPv4 addresses found");
 
-	my @v6 = map {$_->address(&AF_INET6)} @intfs;
-	@v6 = map {Socket6::inet_ntop(&AF_INET6, $_)} @v6;
-	@v6 = grep {$_ !~ /^::|^fe80:/} @v6;
+	if ($ENV{RTPE_TEST_V6_ADDRS}) {
+		@v6 = split(/ /, $ENV{RTPE_TEST_V6_ADDRS});
+	}
+	else {
+		@v6 = map {$_->address(&AF_INET6)} @intfs;
+		@v6 = map {Socket6::inet_ntop(&AF_INET6, $_)} @v6;
+		@v6 = grep {$_ !~ /^::|^fe80:/} @v6;
+	}
 	@v6 = map { { address => $_, sockdomain => &AF_INET6 } } @v6;
 	@v6 or die("no IPv6 addresses found");
 
@@ -51,12 +64,12 @@ sub new {
 	$self->{mux} = IO::Multiplex->new();
 	$self->{mux}->set_callback_object($self);
 
-	$self->{media_port} = $args{media_port} // 2000;
+	$self->{media_port} = $args{media_port} // $ENV{RTPE_TEST_MEDIA_PORT} // 2000;
 	$self->{timers} = [];
 	$self->{clients} = [];
 
 	$self->{control} = NGCP::Rtpengine->new($args{host} // $ENV{RTPENGINE_HOST} // 'localhost',
-		$args{port} // $ENV{RTPENGINE_POR} // 2223);
+		$args{port} // $ENV{RTPENGINE_PORT} // 2223);
 	$self->{callid} = rand();
 
 	return $self;
