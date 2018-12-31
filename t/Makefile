@@ -1,4 +1,4 @@
-TARGET=		unit-tests
+TARGET=		all-tests
 
 with_transcoding ?= yes
 
@@ -71,17 +71,29 @@ include ../lib/common.Makefile
 
 include		.depend
 
-.PHONY:		unit-tests
+.PHONY:		all-tests unit-tests daemon-tests
 
 TESTS=		bitstr-test aes-crypt payload-tracker-test const_str_hash-test.strhash
 ifeq ($(with_transcoding),yes)
 TESTS+=		amr-decode-test amr-encode-test transcode-test
 endif
 
-ADD_CLEAN=	$(TESTS)
+ADD_CLEAN=	tests-preload.so $(TESTS)
+
+all-tests:	unit-tests daemon-tests
+	true # override linking recipe from common.Makefile
 
 unit-tests:	$(TESTS)
 	for x in $(TESTS); do echo testing: $$x; G_DEBUG=fatal-warnings ./$$x || exit 1; done
+
+daemon-tests:	tests-preload.so
+	$(MAKE) -C ../daemon
+	rm -rf fake-sockets
+	mkdir fake-sockets
+	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-sockets \
+		   perl -I../perl auto-daemon-tests.pl
+	test "$$(ls fake-sockets)" = ""
+	rmdir fake-sockets
 
 bitstr-test:	bitstr-test.o
 
@@ -100,3 +112,6 @@ transcode-test:	transcode-test.o $(COMMONOBJS) codeclib.o resample.o codec.o ssr
 payload-tracker-test: payload-tracker-test.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o
 
 const_str_hash-test.strhash: const_str_hash-test.strhash.o $(COMMONOBJS)
+
+tests-preload.so:	tests-preload.c
+	$(CC) -g -D_GNU_SOURCE -std=c99 -o $@ -Wall -shared -fPIC $<
