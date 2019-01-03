@@ -67,9 +67,26 @@ static void __start(const char *file, int line) {
 	g_queue_init(&rtp_types); // parsed from received SDP
 	flags.codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 	flags.codec_mask = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
+	flags.codec_set = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 }
 
 #define transcode(codec) g_queue_push_tail(&flags.codec_transcode, sdup(#codec))
+
+static void codec_set(char *c) {
+	// from call_ng_flags_str_ht_split
+	c = strdup(c);
+	str s;
+	str_init(&s, c);
+	str splitter = s;
+
+	while (1) {
+		g_hash_table_replace(flags.codec_set, str_slice_dup(&splitter), str_slice_dup(&s));
+		char *c = memrchr(splitter.s, '/', splitter.len);
+		if (!c)
+			break;
+		splitter.len = c - splitter.s;
+	}
+}
 
 #define sdp_pt_fmt(num, codec, clockrate, fmt) \
 	__sdp_pt_fmt(num, (str) STR_CONST_INIT(#codec), clockrate, (str) STR_CONST_INIT(#codec "/" #clockrate), \
@@ -254,6 +271,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 static void end() {
 	g_hash_table_destroy(rtp_ts_ht);
 	g_hash_table_destroy(rtp_seq_ht);
+	printf("\n");
 }
 
 static void dtmf(const char *s) {
@@ -621,6 +639,46 @@ int main() {
 			expect(B, send, "96/AMR/8000/octet-align=1");
 			check_encoder(A, 0, 96, 7400);
 			check_encoder(B, 96, 0, 0);
+			end();
+
+			// specify reverse bitrate
+			start();
+			sdp_pt(96, AMR, 8000);
+			transcode(PCMU);
+			codec_set("AMR/8000/1/6700");
+			offer();
+			expect(A, recv, "");
+			expect(A, send, "96/AMR/8000");
+			expect(B, recv, "96/AMR/8000 0/PCMU/8000");
+			expect(B, send, "");
+			sdp_pt(0, PCMU, 8000);
+			answer();
+			expect(A, recv, "96/AMR/8000");
+			expect(A, send, "96/AMR/8000");
+			expect(B, recv, "0/PCMU/8000");
+			expect(B, send, "0/PCMU/8000");
+			check_encoder(A, 96, 0, 0);
+			check_encoder(B, 0, 96, 6700);
+			end();
+
+			// specify non-default reverse bitrate
+			start();
+			sdp_pt(96, AMR, 8000);
+			transcode(PCMU);
+			codec_set("AMR/8000/1/7400");
+			offer();
+			expect(A, recv, "");
+			expect(A, send, "96/AMR/8000");
+			expect(B, recv, "96/AMR/8000 0/PCMU/8000");
+			expect(B, send, "");
+			sdp_pt(0, PCMU, 8000);
+			answer();
+			expect(A, recv, "96/AMR/8000");
+			expect(A, send, "96/AMR/8000");
+			expect(B, recv, "0/PCMU/8000");
+			expect(B, send, "0/PCMU/8000");
+			check_encoder(A, 96, 0, 0);
+			check_encoder(B, 0, 96, 7400);
 			end();
 		}
 	}

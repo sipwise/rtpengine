@@ -51,6 +51,7 @@ GetOptions(
 	'codec-offer=s@'		=> \$options{'codec-offer'},
 	'codec-transcode=s@'		=> \$options{'codec-transcode'},
 	'codec-mask=s@'			=> \$options{'codec-mask'},
+	'codec-set=s@'			=> \$options{'codec-set'},
 	'ptime=i'			=> \$options{'ptime'},
 	'flags=s@'			=> \$options{'flags'},
 	'codec-options-flat'		=> \$options{'codec options flag'},
@@ -91,7 +92,7 @@ if (defined($options{direction})) {
 	$options{direction} =~ /(.*),(.*)/ or die;
 	$packet{direction} = [$1,$2];
 }
-for my $x (qw(strip offer transcode mask)) {
+for my $x (qw(strip offer transcode mask set)) {
 	if ($options{'codec-'.$x} && @{$options{'codec-'.$x}}) {
 		if (!$options{'codec options flag'}) {
 			$packet{codec}{$x} = $options{'codec-'.$x};

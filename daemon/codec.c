@@ -806,7 +806,8 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 	str_init(&ret->encoding_with_params, full_encoding);
 	str_init(&ret->encoding_parameters, params);
 
-	__rtp_payload_type_dup(media->call, ret);
+	if (media)
+		__rtp_payload_type_dup(media->call, ret);
 
 	return ret;
 }
@@ -1157,6 +1158,32 @@ static int __revert_codec_strip(GHashTable *removed, const str *codec,
 	g_queue_free(q);
 	return 1;
 }
+static int __codec_options_set1(struct rtp_payload_type *pt, const str *enc, GHashTable *codec_set) {
+	str *pt_str = g_hash_table_lookup(codec_set, enc);
+	if (!pt_str)
+		return 0;
+	struct rtp_payload_type *pt_parsed = codec_make_payload_type(pt_str, NULL);
+	if (!pt_parsed)
+		return 0;
+	// match parameters
+	if (pt->clock_rate != pt_parsed->clock_rate || pt->channels != pt_parsed->channels) {
+		payload_type_free(pt_parsed);
+		return 0;
+	}
+	// match - apply options
+	if (!pt->bitrate)
+		pt->bitrate = pt_parsed->bitrate;
+	payload_type_free(pt_parsed);
+	return 1;
+}
+static void __codec_options_set(struct rtp_payload_type *pt, GHashTable *codec_set) {
+	if (!codec_set)
+		return;
+	if (__codec_options_set1(pt, &pt->encoding_with_params, codec_set))
+		return;
+	if (__codec_options_set1(pt, &pt->encoding, codec_set))
+		return;
+}
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
 		GQueue *types, const struct sdp_ng_flags *flags)
 {
@@ -1203,6 +1230,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				continue;
 			}
 		}
+		__codec_options_set(pt, flags->codec_set);
 		if (!mask_all && (!flags->codec_mask || !g_hash_table_lookup(flags->codec_mask, &pt->encoding))
 				&& (!flags->codec_mask || !g_hash_table_lookup(flags->codec_mask, &pt->encoding_with_params)))
 			__rtp_payload_type_add(media, other_media, pt);

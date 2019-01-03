@@ -94,6 +94,8 @@ INLINE str *g_string_free_str(GString *gs);
 guint str_hash(gconstpointer s);
 gboolean str_equal(gconstpointer a, gconstpointer b);
 
+/* returns a new str object, duplicates the pointers but doesn't duplicate the contents */
+INLINE str *str_slice_dup(const str *);
 /* destroy function, frees a slice-alloc'd str */
 void str_slice_free(void *);
 
@@ -215,6 +217,12 @@ INLINE str *str_dup(const str *s) {
 	r->len = s->len;
 	memcpy(r->s, s->s, s->len);
 	r->s[s->len] = '\0';
+	return r;
+}
+INLINE str *str_slice_dup(const str *s) {
+	str *r;
+	r = g_slice_alloc(sizeof(*r));
+	*r = *s;
 	return r;
 }
 

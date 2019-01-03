@@ -596,19 +596,28 @@ static void call_ng_flags_supports(struct sdp_ng_flags *out, str *s, void *dummy
 		out->supports_load_limit = 1;
 }
 static void call_ng_flags_codec_list(struct sdp_ng_flags *out, str *s, void *qp) {
-	str *s_copy;
-	s_copy = g_slice_alloc(sizeof(*s_copy));
-	*s_copy = *s;
+	str *s_copy = str_slice_dup(s);
 	g_queue_push_tail((GQueue *) qp, s_copy);
 }
 static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp) {
-	str *s_copy;
-	s_copy = g_slice_alloc(sizeof(*s_copy));
-	*s_copy = *s;
+	str *s_copy = str_slice_dup(s);
 	GHashTable **ht = htp;
 	if (!*ht)
 		*ht = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 	g_hash_table_replace(*ht, s_copy, s_copy);
+}
+static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *htp) {
+	GHashTable **ht = htp;
+	if (!*ht)
+		*ht = g_hash_table_new_full(str_hash, str_equal, str_slice_free, str_slice_free);
+	str splitter = *s;
+	while (1) {
+		g_hash_table_replace(*ht, str_slice_dup(&splitter), str_slice_dup(s));
+		char *c = memrchr(splitter.s, '/', splitter.len);
+		if (!c)
+			break;
+		splitter.len = c - splitter.s;
+	}
 }
 // helper to alias values from other dictionaries into the "flags" dictionary
 INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
@@ -703,6 +712,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 						&out->codec_transcode))
 				return;
 			if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_str_ht, &out->codec_mask))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
+						&out->codec_set))
 				return;
 #endif
 
@@ -799,6 +811,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 #ifdef WITH_TRANSCODING
 		call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
 		call_ng_flags_list(out, dict, "mask", call_ng_flags_str_ht, &out->codec_mask);
+		call_ng_flags_list(out, dict, "set", call_ng_flags_str_ht_split, &out->codec_set);
 #endif
 	}
 }
@@ -807,6 +820,8 @@ static void call_ng_free_flags(struct sdp_ng_flags *flags) {
 		g_hash_table_destroy(flags->codec_strip);
 	if (flags->codec_mask)
 		g_hash_table_destroy(flags->codec_mask);
+	if (flags->codec_set)
+		g_hash_table_destroy(flags->codec_set);
 	if (flags->sdes_no)
 		g_hash_table_destroy(flags->sdes_no);
 	g_queue_clear_full(&flags->codec_offer, str_slice_free);

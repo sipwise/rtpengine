@@ -1471,6 +1471,12 @@ Optionally included keys are:
 
 	Contains a dictionary controlling various aspects of codecs (or RTP payload types).
 	Most of these options should only be used in an `offer` message.
+
+	These options can also be put into the `flags` list using a prefix of `codec-`. For example,
+	to set the codec options for two variants of Opus when they're implicitly accepted, (see
+	the example under `set`), one would put the following into the `flags` list:
+	`codec-set-opus/48000/1/16000` `codec-set-opus/48000/2/32000`
+
 	The following keys are understood:
 
 	* `strip`
@@ -1554,6 +1560,23 @@ Optionally included keys are:
 
 		As with the `strip` option, the special keyword `all` can be used to mask all
 		codecs that have been offered.
+
+	* `set`
+
+		Contains a list of strings. This list makes it possible to set codec options
+		(bitrate in particular) for codecs that are implicitly accepted for transcoding.
+		For example, if `AMR` was offered, `transcode=PCMU` was given, and the remote
+		ended up accepting `PCMU`, then this option can be used to set the bitrate used
+		for the AMR transcoding process.
+
+		Each string must be a full codec specification as per above, including clock rate
+		and number of channels. Using the example above, `set=AMR/8000/1/7400` can be used
+		to transcode to AMR with 7.4 kbit/s.
+
+		Codec options (bitrate) are only applied to codecs that match the given parameters
+		(clock rate, channels), and multiple options can be given for the same coded with
+		different parameters. For example, to specify different bitrates for Opus for both
+		mono and stereo output, one could use `set=[opus/48000/1/16000,opus/48000/2/32000]`.
 
 * `ptime`
 
