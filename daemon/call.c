@@ -1232,13 +1232,23 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	if (flags->ice_remove)
 		MEDIA_CLEAR(this, ICE);
 
-	/* special case: if doing ICE on both sides and ice_force is not set, we cannot
-	 * be sure that media will pass through us, so we have to disable certain features */
-	if (MEDIA_ISSET(this, ICE) && MEDIA_ISSET(other, ICE) && !flags->ice_force) {
-		ilog(LOG_DEBUG, "enabling passthrough mode");
-		MEDIA_SET(this, PASSTHRU);
-		MEDIA_SET(other, PASSTHRU);
-		return;
+	if (!flags->ice_force) {
+		/* special case: if doing ICE on both sides and ice_force is not set, we cannot
+		 * be sure that media will pass through us, so we have to disable certain features */
+		if (MEDIA_ISSET(this, ICE) && MEDIA_ISSET(other, ICE)) {
+			ilog(LOG_DEBUG, "enabling passthrough mode");
+			MEDIA_SET(this, PASSTHRU);
+			MEDIA_SET(other, PASSTHRU);
+			return;
+		}
+		// if this is an answer, may see our ICE offer being rejected. if the original offer
+		// wasn't forcing ICE, then we're only acting as a passthrough and so we must disable
+		// ICE on the remote side as well. we can use the presence of an ICE agent as a test
+		// to see whether ICE was originally forced or not.
+		if (flags->opmode == OP_ANSWER && !MEDIA_ISSET(other, ICE) && !this->ice_agent) {
+			MEDIA_CLEAR(this, ICE);
+			return;
+		}
 	}
 
 	/* determine roles (even if we don't actually do ICE) */
