@@ -308,7 +308,7 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_bitrate = 6600,
+		.default_bitrate = 6700,
 		.default_ptime = 20,
 		.default_fmtp = "octet-align=1",
 		.packetizer = packetizer_amr,
