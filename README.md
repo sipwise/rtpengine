@@ -1470,7 +1470,7 @@ Optionally included keys are:
 * `codec`
 
 	Contains a dictionary controlling various aspects of codecs (or RTP payload types).
-	Most of these options should only be used in an `offer` message.
+	These options are only processed in `offer` messages and ignored otherwise.
 
 	These options can also be put into the `flags` list using a prefix of `codec-`. For example,
 	to set the codec options for two variants of Opus when they're implicitly accepted, (see

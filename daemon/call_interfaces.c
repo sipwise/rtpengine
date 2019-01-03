@@ -701,33 +701,40 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				return;
 			if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_str_ht, &out->codec_strip))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list, &out->codec_offer))
-				return;
+			if (out->opmode == OP_OFFER) {
+				if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_str_ht,
+							&out->codec_strip))
+					return;
+				if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list,
+							&out->codec_offer))
+					return;
 #ifdef WITH_TRANSCODING
-			if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list, &out->codec_transcode))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_codec_list,
-						&out->codec_transcode))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_str_ht, &out->codec_mask))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
-						&out->codec_set))
-				return;
+				if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list,
+							&out->codec_transcode))
+					return;
+				if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_codec_list,
+							&out->codec_transcode))
+					return;
+				if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_str_ht,
+							&out->codec_mask))
+					return;
+				if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
+							&out->codec_set))
+					return;
 #endif
+			}
 
 			ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
 	}
 }
-static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
+static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input, enum call_opmode opmode) {
 	bencode_item_t *list, *it, *dict;
 	int diridx;
 	str s;
 
 	ZERO(*out);
+	out->opmode = opmode;
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
@@ -805,7 +812,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 					STR_FMT(&s));
 	}
 
-	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
+	if (opmode == OP_OFFER && (dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
 		call_ng_flags_list(out, dict, "strip", call_ng_flags_str_ht, &out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
 #ifdef WITH_TRANSCODING
@@ -910,8 +917,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 	bencode_dictionary_get_str(input, "label", &label);
 
-	call_ng_process_flags(&flags, input);
-	flags.opmode = opmode;
+	call_ng_process_flags(&flags, input, opmode);
 
 	if (opmode == OP_OFFER) {
 		enum load_limit_reasons limit = call_offer_session_limit();
@@ -1545,7 +1551,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 	if (errstr)
 		goto out;
 
-	call_ng_process_flags(&flags, input);
+	call_ng_process_flags(&flags, input, OP_OTHER);
 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT ")",
@@ -1614,7 +1620,7 @@ const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output)
 	if (errstr)
 		goto out;
 
-	call_ng_process_flags(&flags, input);
+	call_ng_process_flags(&flags, input, OP_OTHER);
 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT ")",
