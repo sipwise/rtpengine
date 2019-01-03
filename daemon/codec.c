@@ -59,6 +59,7 @@ struct codec_ssrc_handler {
 	decoder_t *decoder;
 	encoder_t *encoder;
 	format_t encoder_format;
+	int bitrate;
 	int ptime;
 	int bytes_per_packet;
 	unsigned long ts_in; // for DTMF dupe detection
@@ -419,7 +420,16 @@ unsupported:
 		// the sink does not support this codec -> transcode
 		ilog(LOG_DEBUG, "Sink does not support codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 		dest_pt = pref_dest_codec;
-transcode:
+transcode:;
+		// look up the reverse side of this payload type, which is the decoder to our
+		// encoder. if any codec options such as bitrate were set during an offer,
+		// they're in the decoder // PT. copy them to the encoder PT.
+		struct rtp_payload_type *reverse_pt = g_hash_table_lookup(sink->codecs_recv,
+				&dest_pt->payload_type);
+		if (reverse_pt) {
+			if (!dest_pt->bitrate)
+				dest_pt->bitrate = reverse_pt->bitrate;
+		}
 		MEDIA_SET(receiver, TRANSCODE);
 		__make_transcoder(handler, pt, dest_pt);
 
@@ -856,6 +866,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	ch->ts_out = random();
 	ch->ptime = h->dest_pt.ptime;
 	ch->sample_buffer = g_string_new("");
+	ch->bitrate = h->dest_pt.bitrate ? : h->dest_pt.codec_def->default_bitrate;
 
 	format_t enc_format = {
 		.clockrate = h->dest_pt.clock_rate * h->dest_pt.codec_def->clockrate_mult,
@@ -866,7 +877,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	if (!ch->encoder)
 		goto err;
 	if (encoder_config_fmtp(ch->encoder, h->dest_pt.codec_def,
-				h->dest_pt.bitrate ? : h->dest_pt.codec_def->default_bitrate,
+				ch->bitrate,
 				ch->ptime,
 				&enc_format, &ch->encoder_format, &h->dest_pt.format_parameters))
 		goto err;
@@ -880,10 +891,10 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 		* h->dest_pt.codec_def->bits_per_sample / 8;
 
 	ilog(LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i "
-			"(ptime %i for %i samples per frame and %i samples (%i bytes) per packet)",
+			"(ptime %i for %i samples per frame and %i samples (%i bytes) per packet, bitrate %i)",
 			ch->encoder_format.clockrate, ch->encoder_format.channels, ch->encoder_format.format,
 			ch->ptime, ch->encoder->samples_per_frame, ch->encoder->samples_per_packet,
-			ch->bytes_per_packet);
+			ch->bytes_per_packet, ch->bitrate);
 
 	return &ch->h;
 
