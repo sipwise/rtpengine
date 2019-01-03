@@ -2151,7 +2151,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 			if (MEDIA_ISSET(call_media, TRICKLE_ICE) && call_media->ice_agent)
 				chopper_append_c(chop, "a=ice-options:trickle\r\n");
-			if (!flags->ice_remove)
+			if (!flags->ice_remove && MEDIA_ISSET(call_media, ICE))
 				insert_candidates(chop, ps, ps_rtcp, flags, sdp_media);
 
 next:
