@@ -146,8 +146,10 @@ build all parts and run the test suite.
 	Required for in-kernel packet forwarding.
 
 	With the `iptables` development headers installed, issuing `make` will compile the plugin for
-	`iptables` and `ip6tables`. The file will be called `libxt_RTPENGINE.so` and should be copied
-	into the directory `/lib/xtables/`.
+	`iptables` and `ip6tables`. The file will be called `libxt_RTPENGINE.so` and needs to be copied
+	into the `xtables` module directory. The location of this directory can be determined through
+	`pkg-config xtables --variable=xtlibdir` on newer systems, and/or is usually either
+	`/lib/xtables/` or `/usr/lib/x86_64-linux-gnu/xtables/`.
 
 * `kernel-module`
 
