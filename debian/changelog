@@ -1,3 +1,34 @@
+ngcp-rtpengine (7.1.1.0+0~mr7.1.1.0) unstable; urgency=medium
+
+  [ Guillem Jover ]
+  * [d96daa6] TT#49106 Update DKMS-specific debian/control to match the main one
+  * [eba6278] TT#49106 Fix dh_clean usage in DKMS-specific debian/rules
+  * [96d62c7] TT#49106 Switch from /var/run to the modern /run
+  * [7bf0f52] TT#49106 Move target all as a prerequisite for the kernel-module
+  * [cf4bf5d] TT#49106 Clean up PHONY targets
+  * [5b16bc5] TT#49106 Move the test suite into its own target
+  * [e4a1a55] TT#49106 Rely on upstream Makefile for building and cleaning
+  * [0fc0c47] TT#49106 Remove obsolete Build-Depends
+
+  [ Richard Fuchs ]
+  * [aaf8cbd] TT#49350 eliminate stray scheduling warning
+  * [5de8229] TT#49600 separate RTCP en/decryption into perl module
+  * [84f152b] TT#49600 add test suites for SDES crypto negotiations
+  * [c80f55b] TT#49600 add debug log output for SDES negotiations
+  * [0e129ed] TT#49600 fix offered crypto suite not being dropped via SDES-no
+  * [343da33] fix default AMR bitrate
+  * [ee01f15] fix non-default encoder bitrate not being applied
+  * [744d6a4] add codec-set option
+  * [e1d6c83] ignore transcoding options in non-offer messages
+  * [b593d57] TT#37400 do not answer with ICE attributes if no ICE was offered
+  * [44c38c6] TT#49351 create preloaded library for system tests
+  * [c1e186e] update readme with new xtables mod location info
+  * [2b767e0] update readme with new build dependencies
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 09 Jan 2019 22:03:47 +0100
+
 ngcp-rtpengine (7.1.0.0+0~mr7.1.0.0) unstable; urgency=medium
 
   [ Øyvind Kolbu ]
