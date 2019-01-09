@@ -121,12 +121,18 @@ build all parts and run the test suite.
 	including their development headers are required to compile the daemon:
 
 	- *pkg-config*
-	- *GLib* including *GThread* version 2.x
+	- *GLib* including *GThread* and *GLib-JSON* version 2.x
 	- *zlib*
 	- *OpenSSL*
 	- *PCRE* library
 	- *XMLRPC-C* version 1.16.08 or higher
 	- *hiredis* library
+	- *gperf*
+	- *libcurl* version 3.x or 4.x
+	- *libevent* version 2.x
+	- *libpcap*
+	- *libsystemd*
+	- *MySQL* or *MariaDB* client library (optional for call recording daemon)
 	- *libiptc* library for iptables management (optional)
 	- *ffmpeg* codec libraries for transcoding (optional) such as *libavcodec*, *libavfilter*, *libswresample*
 	- *bcg729* for full G.729 transcoding support (optional)
