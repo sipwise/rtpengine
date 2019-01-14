@@ -24,7 +24,7 @@ CFLAGS+=	-DRE_PLUGIN_DIR="\"/usr/lib/rtpengine\""
 
 ### compile time options:
 #CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
-#CFLAGS+=	-DTERMINATE_SDP_AT_BLANK_LINE
+CFLAGS+=	-DTERMINATE_SDP_AT_BLANK_LINE
 #CFLAGS+=	-DSTRICT_SDES_KEY_LIFETIME
 
 ifeq ($(with_iptables_option),yes)
