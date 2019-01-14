@@ -1,3 +1,13 @@
+ngcp-rtpengine (6.5.3.1+0~mr6.5.3.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e9f6a40] TT#49350 eliminate stray scheduling warning
+  * [b46a921] don't abort on failed EPOLL_CTL_MOD
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 14 Jan 2019 14:21:25 +0100
+
 ngcp-rtpengine (6.5.3.0+0~mr6.5.3.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
