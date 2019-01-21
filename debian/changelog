@@ -1,3 +1,13 @@
+ngcp-rtpengine (7.1.1.1+0~mr7.1.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [295aab8] don't abort on failed EPOLL_CTL_MOD
+  * [ee315ab] Add missing SDES accept routine
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 21 Jan 2019 22:48:04 +0100
+
 ngcp-rtpengine (7.1.1.0+0~mr7.1.1.0) unstable; urgency=medium
 
   [ Guillem Jover ]
