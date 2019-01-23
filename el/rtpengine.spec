@@ -15,6 +15,7 @@ BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel hiredis-devel
 BuildRequires:	libpcap-devel libevent-devel json-glib-devel 
+BuildRequires:	gperf
 Requires(pre):	shadow-utils
 
 %if 0%{?with_transcoding} > 0
