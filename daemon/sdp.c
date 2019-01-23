@@ -2060,6 +2060,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 			copy_up_to_end_of(chop, &sdp_media->s);
 
+			if (!sdp_media->port_num || !ps->selected_sfd)
+				goto next;
+
 			insert_codec_parameters(chop, call_media);
 
 			ps_rtcp = NULL;
@@ -2070,9 +2073,6 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 					goto error;
 				assert(j->data == ps_rtcp);
 			}
-
-			if (!sdp_media->port_num || !ps->selected_sfd)
-				goto next;
 
 			if (MEDIA_ARESET2(call_media, SEND, RECV))
 				chopper_append_c(chop, "a=sendrecv\r\n");
