@@ -465,6 +465,36 @@ a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
 a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
 SDP
 
+# github issue #686
+
+new_call;
+
+offer('gh 686', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+c=IN IP4 198.51.100.1
+m=audio 0 RTP/AVP 8 101
+m=image 2000 udptl t38
+c=IN IP4 198.51.100.1
+a=T38FaxVersion:0
+a=T38FaxRateManagement:transferredTCF
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio 0 RTP/AVP 8 101
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38FaxRateManagement:transferredTCF
+a=sendrecv
+SDP
+
+
 
 END {
 	if ($rtpe_pid) {
