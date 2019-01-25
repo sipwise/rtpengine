@@ -96,6 +96,8 @@ struct ssrc_entry_call {
 	packet_sequencer_t sequencer;
 	// output only
 	uint16_t seq_out;
+	uint16_t last_seq;
+	uint16_t seq_diff;
 	unsigned long ts_out;
 };
 enum ssrc_dir { // these values must not be used externally

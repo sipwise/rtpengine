@@ -628,8 +628,17 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	rh->m_pt = handler->dest_pt.payload_type | (marker ? 0x80 : 0);
 	if (seq != -1)
 		rh->seq_num = htons(seq);
-	else
-		rh->seq_num = htons(htons(mp->rtp->seq_num) + (ssrc_out_p->seq_out += seq_inc));
+	else {
+		if (ntohs(mp->rtp->seq_num) < ssrc_out_p->last_seq || ssrc_out_p->seq_diff) {
+			if (ssrc_out_p->seq_diff == 0 || (ntohs(mp->rtp->seq_num) != (ssrc_out_p->last_seq+1) && ssrc_out_p->seq_diff != (ssrc_out_p->last_seq - ntohs(mp->rtp->seq_num))) ) {
+				ssrc_out_p->seq_diff += (ssrc_out_p->last_seq - ntohs(mp->rtp->seq_num));
+			}
+			rh->seq_num = htons(htons(mp->rtp->seq_num) + (ssrc_out_p->seq_out += seq_inc) + (ssrc_out_p->seq_diff + 1) );
+		} else {
+			rh->seq_num = htons(htons(mp->rtp->seq_num) + (ssrc_out_p->seq_out += seq_inc));
+		}
+		ssrc_out_p->last_seq = ntohs(mp->rtp->seq_num);
+	}
 	rh->timestamp = htonl(ts);
 	rh->ssrc = htonl(ssrc_out_p->h.ssrc);
 
