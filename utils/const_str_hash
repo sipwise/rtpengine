@@ -13,7 +13,21 @@ my %key_vals;
 
 # collect keywords and rewrite input file with in lookup keys
 
-while (my $line = <<>>) {
+if (!$^V or $^V lt v5.22.0) {
+	eval qq{
+		sub getline {
+			<>
+		}
+	}
+} else {
+	eval qq{
+		sub getline {
+			<<>>
+		}
+	}
+}
+
+while (my $line = getline()) {
 	if (!($line =~ s/CSH_LOOKUP\("(.*?)"\)/{}/)) {
 		$rewritten_input .= $line;
 		next;
