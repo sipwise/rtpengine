@@ -3787,16 +3787,27 @@ static int rtp_payload_match(const void *a, const void *b) {
 		return 1;
 	return 0;
 }
+#endif
+
 static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rtpengine_target_info *tg) {
-	unsigned char pt, *match;
+	unsigned char pt;
+	const unsigned char *match;
 
 	pt = hdr->m_pt & 0x7f;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	match = bsearch(&pt, tg->payload_types, tg->num_payload_types, sizeof(pt), rtp_payload_match);
+#else
+	for (match = tg->payload_types; match < tg->payload_types + tg->num_payload_types; match++) {
+		if (*match == pt)
+			goto found;
+	}
+	match = NULL;
+found:
+#endif
 	if (!match)
 		return -1;
 	return match - tg->payload_types;
 }
-#endif
 
 static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_address *src) {
 	struct sk_buff *ret;
@@ -3933,9 +3944,7 @@ src_check_ok:
 	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
 		goto skip1;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
-#endif
 
 	// Pass to userspace if SSRC has changed.
 	errstr = "SSRC mismatch";
@@ -4017,7 +4026,6 @@ no_intercept:
 		atomic64_add(datalen, &g->stats.bytes);
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	if (rtp_pt_idx >= 0) {
 		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
 		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
@@ -4051,7 +4059,6 @@ no_intercept:
 		/* not RTP */ ;
 	else if (rtp_pt_idx == -1)
 		atomic64_inc(&g->stats.errors);
-#endif
 
 	target_put(g);
 	table_put(t);
