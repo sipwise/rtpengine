@@ -169,10 +169,14 @@ start() {
   			firewall-cmd --reload
 		else
 			for fw in iptables ip6tables;do
-				$fw -N rtpengine
 				# We insert the rtpengine rule at the top of the input chain
-				$fw -t filter -I INPUT -j rtpengine
-				$fw -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+				if ! $fw -t filter -C INPUT -j rtpengine 2> /dev/null; then
+					$fw -N rtpengine
+					$fw -t filter -I INPUT -j rtpengine
+				fi
+				if ! $fw -I rtpengine -p udp -j RTPENGINE --id "$TABLE" 2> /dev/null; then
+					$fw -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+				fi
 			done
 		fi
 
