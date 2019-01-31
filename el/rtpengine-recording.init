@@ -23,8 +23,8 @@ if [ -f /etc/sysconfig/rtpengine-recording ]
 then
         . /etc/sysconfig/rtpengine-recording
 else
-	echo "Error: /etc/sysconfig/rtpengine-recording not present"
-	exit -1
+	echo "Error: /etc/sysconfig/rtpengine-recording not present" >&2
+	exit 6
 fi
 
 prog=rtpengine-recording

@@ -26,8 +26,8 @@ if [ -f /etc/sysconfig/rtpengine ]
 then
         . /etc/sysconfig/rtpengine
 else
-	echo "Error: /etc/sysconfig/rtpengine not present"
-	exit -1
+	echo "Error: /etc/sysconfig/rtpengine not present" >&2
+	exit 6
 fi
 
 rtpengine=/usr/sbin/rtpengine
@@ -52,8 +52,8 @@ build_opts() {
 	else
 		# configfile exists?
 		if [ ! -f "$configfile" ];then
-			echo "Error: $configfile not present"
-			exit -1
+			echo "Error: $configfile not present" >&2
+			exit 6
 		fi
 
 		# get table variable from config
@@ -64,8 +64,8 @@ build_opts() {
 
 		# error if directive is not presented in config
 		if [ -z "$table" ];then
-			echo "Error: directive table= is not present in $configfile"
-			exit -1
+			echo "Error: directive table= is not present in $configfile" >&2
+			exit 6
 		fi
 
 		# enable iptables module if derective set and positive
