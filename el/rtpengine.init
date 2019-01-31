@@ -19,6 +19,9 @@
 # Source function library.
 . /etc/rc.d/init.d/functions
 
+# defaults
+TABLE=0
+
 if [ -f /etc/sysconfig/rtpengine ]
 then
         . /etc/sysconfig/rtpengine
