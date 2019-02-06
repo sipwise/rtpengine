@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use MIME::Base64;
+use NGCP::Rtpclient::SRTP;
+
+my $cs = $NGCP::Rtpclient::SRTP::crypto_suites{$ARGV[0]} or die;
+my $inline_key = $ARGV[1] or die;
+my ($key, $salt) = NGCP::Rtpclient::SRTP::decode_inline_base64($inline_key, $cs);
+my ($skey, $sauth, $ssalt) = NGCP::Rtpclient::SRTP::gen_rtcp_session_keys($key, $salt);
+print("Master key:            " . unpack("H*", $key) . "\n");
+print("Master salt:           " . unpack("H*", $salt) . "\n");
+print("RTCP session key:      " . unpack("H*", $skey) . "\n");
+print("RTCP session auth key: " . unpack("H*", $sauth) . "\n");
+print("RTCP session salt:     " . unpack("H*", $ssalt) . "\n");
+
+my $pack = $ARGV[2];
+my @pack;
+if ($pack =~ /:/) {
+	my @pack = split(/:/, $pack);
+	$pack = join('', (map {chr(hex($_))} @pack));
+}
+else {
+	$pack = pack("H*", $pack);
+}
+
+print("Packet length:         " . length($pack) . " bytes\n");
+
+my ($dec, $idx, $tag, $hmac) = NGCP::Rtpclient::SRTP::decrypt_rtcp($cs, $skey, $ssalt, $sauth, $pack);
+
+print("Auth tag from packet:  " . unpack("H*", $tag) . "\n");
+print("Computed auth tag:     " . unpack("H*", $hmac) . "\n");
+print("Decoded packet:        " . unpack("H*", $dec) . "\n");
+print("Index:                 $idx\n");
+
+

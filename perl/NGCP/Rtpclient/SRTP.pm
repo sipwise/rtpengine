@@ -348,6 +348,7 @@ sub decrypt_rtcp {
 	my $idx_raw = substr($packet, $plen - 4 - 10, 4);
 	my ($idx) = unpack('N', $idx_raw);
 	$idx &= 0x7fffffff;
+	my $auth_packet = substr($packet, 0, $plen - 10);
 	$packet = substr($packet, 0, $plen - 10 - 4);
 
 	my $iv = $suite->{iv_rtcp}->($packet, $ssalt, $idx);
@@ -356,7 +357,7 @@ sub decrypt_rtcp {
 		$iv, $ssalt);
 	my $pkt = $hdr . $enc;
 
-	my $hmac = hmac_sha1($packet, $sauth);
+	my $hmac = hmac_sha1($auth_packet, $sauth);
 
 	return ($pkt, $idx, $auth_tag, $hmac);
 }
