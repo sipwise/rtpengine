@@ -15,7 +15,7 @@ ok -x $ENV{RTPE_BIN}, 'RTPE_BIN points to executable';
 
 my $rtpe_stdout = File::Temp::tempfile() or die;
 my $rtpe_stderr = File::Temp::tempfile() or die;
-my $rtpe_pid = open3(undef, $rtpe_stdout, $rtpe_stderr,
+my $rtpe_pid = open3(undef, '>&'.fileno($rtpe_stdout), '>&'.fileno($rtpe_stderr),
 	$ENV{RTPE_BIN}, qw(-t -1 -i 203.0.113.1 -i 2001:db8:4321::1 -n 2223 -c 12345 -f -L 7 -E -u 2222));
 ok $rtpe_pid, 'daemon launched in background';
 
