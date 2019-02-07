@@ -1297,8 +1297,6 @@ static void __sdes_flags(struct crypto_params_sdes *cps, const struct sdp_ng_fla
 static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other)
 {
-	//struct crypto_params *cp = &this->sdes_out.params,
-			     //*cp_in = &this->sdes_in.params;
 	GQueue *cpq = &this->sdes_out;
 	GQueue *cpq_in = &this->sdes_in;
 	GQueue *offered_cpq = &other->sdes_in;
@@ -1365,13 +1363,6 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 
 	/* SDES parameters below */
 
-	// XXX tests:
-	// generate all offers
-	// copy offered suites
-	// amend offered suites
-	// ignore suites not supported
-	// params copy on answer
-
 	if (flags->opmode == OP_OFFER) {
 		if (!cpq->head) {
 			// generate a new set of params
@@ -1382,24 +1373,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			// make sure our bit field is large enough
 			assert(num_crypto_suites <= sizeof(types_offered) * 8);
 
-			GList *l = offered_cpq->head;
-			while (l) {
+			for (GList *l = offered_cpq->head; l; l = l->next) {
 				struct crypto_params_sdes *offered_cps = l->data;
-
-				if (flags->sdes_no && g_hash_table_lookup(flags->sdes_no,
-							&offered_cps->params.crypto_suite->name_str))
-				{
-					ilog(LOG_DEBUG, "Dropping offered crypto suite '%s' from offer "
-							"due to 'SDES-no' option",
-							offered_cps->params.crypto_suite->name);
-
-					GList *next = l->next;
-					g_queue_delete_link(offered_cpq, l);
-					crypto_params_sdes_free(offered_cps);
-					l = next;
-
-					continue;
-				}
 
 				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
 				g_queue_push_tail(cpq, cps);
@@ -1414,8 +1389,6 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				types_offered |= 1 << cps->params.crypto_suite->idx;
 
 				__sdes_flags(cps, flags);
-
-				l = l->next;
 			}
 
 			// generate crypto suite offers for any types that we haven't seen above
@@ -1494,9 +1467,34 @@ skip_sdes:
 // for an answer, uses the incoming received list of SDES crypto suites to prune
 // the list of (generated) outgoing crypto suites to contain only the one that was
 // accepted
-static void __sdes_accept(struct call_media *media) {
+static void __sdes_accept(struct call_media *media, const struct sdp_ng_flags *flags) {
 	if (!media->sdes_in.length)
 		return;
+
+	if (flags && flags->sdes_no) {
+		// first remove SDES-no suites from offered ones
+		GList *l = media->sdes_in.head;
+		while (l) {
+			struct crypto_params_sdes *offered_cps = l->data;
+
+			if (!g_hash_table_lookup(flags->sdes_no,
+						&offered_cps->params.crypto_suite->name_str))
+			{
+				l = l->next;
+				continue;
+			}
+
+			ilog(LOG_DEBUG, "Dropping offered crypto suite '%s' from offer "
+					"due to 'SDES-no' option",
+					offered_cps->params.crypto_suite->name);
+
+			GList *next = l->next;
+			g_queue_delete_link(&media->sdes_in, l);
+			crypto_params_sdes_free(offered_cps);
+			l = next;
+		}
+}
+
 	struct crypto_params_sdes *cps_in = media->sdes_in.head->data;
 	GList *l = media->sdes_out.head;
 	while (l) {
@@ -1923,7 +1921,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 			if (other_media->sdes_in.length) {
 				MEDIA_SET(other_media, SDES);
-				__sdes_accept(other_media);
+				__sdes_accept(other_media, flags);
 			}
 		}
 
