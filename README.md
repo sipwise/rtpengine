@@ -267,6 +267,8 @@ The options are described in more detail below.
 	multiple times on the command line must be given only once in the config file, with the multiple
 	values separated by semicolons (see section *Interfaces configuration* below for an example).
 
+	As a special value, `none` can be passed here to suppress loading of the default config file.
+
 * --config-section
 
 	Specifies the *.ini* style section to be used in the config file. Multiple sections can be
