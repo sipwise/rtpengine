@@ -129,6 +129,8 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	use_config = default_config;
 	if (rtpe_common_config_ptr->config_file) {
 		use_config = rtpe_common_config_ptr->config_file;
+		if (!strcmp(use_config, "none"))
+			goto out;
 		fatal = 1;
 	}
 
