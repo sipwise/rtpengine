@@ -1,3 +1,17 @@
+ngcp-rtpengine (7.0.3.0+0~mr7.0.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [858786e] TT#49350 eliminate stray scheduling warning
+  * [3171265] don't abort on failed EPOLL_CTL_MOD
+  * [5aba537] Add missing SDES accept routine
+  * [6989151] don't add rtpmap or mid attributes for deleted/silenced streams
+  * [1c9a17d] provide linear alternative to bsearch for kernels < 3.0
+  * [bf4b361] fix el init script inserting duplicate iptables rules
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 11 Feb 2019 12:33:02 +0100
+
 ngcp-rtpengine (7.0.2.0+0~mr7.0.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
