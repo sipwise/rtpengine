@@ -10,12 +10,20 @@
 #ifdef HAVE_LIBSYSTEMD
 #include <systemd/sd-daemon.h>
 #endif
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include "log.h"
 #include "loglib.h"
 
+struct thread_buf {
+	char buf[THREAD_BUF_SIZE];
+};
 
 static int version;
 struct rtpengine_common_config *rtpe_common_config_ptr;
+
+static struct thread_buf __thread t_bufs[NUM_THREAD_BUFS];
+static int __thread t_buf_idx;
 
 
 void daemonize(void) {
@@ -199,4 +207,32 @@ out:
 
 err:
 	die("Bad command line: %s", er->message);
+}
+
+char *get_thread_buf(void) {
+	char *ret;
+	ret = t_bufs[t_buf_idx].buf;
+	t_buf_idx++;
+	if (t_buf_idx >= G_N_ELEMENTS(t_bufs))
+		t_buf_idx = 0;
+	return ret;
+}
+
+unsigned int in6_addr_hash(const void *p) {
+	const struct in6_addr *a = p;
+	return a->s6_addr32[0] ^ a->s6_addr32[3];
+}
+
+int in6_addr_eq(const void *a, const void *b) {
+	const struct in6_addr *A = a, *B = b;
+	return !memcmp(A, B, sizeof(*A));
+}
+
+unsigned int uint32_hash(const void *p) {
+	const u_int32_t *a = p;
+	return *a;
+}
+int uint32_eq(const void *a, const void *b) {
+	const u_int32_t *A = a, *B = b;
+	return (*A == *B) ? TRUE : FALSE;
 }

@@ -3,6 +3,7 @@
 
 #include "socket.h"
 #include "obj.h"
+#include "aux.h"
 
 
 struct poller;
