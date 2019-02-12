@@ -1,6 +1,6 @@
 TARGET=		rtpengine-recording
 
-CFLAGS=		-g -Wall -pthread -I. -I../lib/
+CFLAGS=		-g -Wall -pthread -I. -I../lib/ -I../kernel-module/
 CFLAGS+=	-std=c99
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
@@ -26,7 +26,7 @@ LDLIBS+=	$(shell pkg-config --libs openssl)
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
 		decoder.c output.c mix.c db.c log.c forward.c tag.c
-LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c
+LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
 include ../lib/common.Makefile
