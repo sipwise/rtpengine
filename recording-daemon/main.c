@@ -24,6 +24,7 @@
 #include "output.h"
 #include "forward.h"
 #include "codeclib.h"
+#include "socket.h"
 
 
 
@@ -42,6 +43,9 @@ const char *c_mysql_host,
       *c_mysql_db;
 int c_mysql_port;
 const char *forward_to = NULL;
+static const char *tcp_send_to = NULL;
+endpoint_t tcp_send_to_ep;
+int tcp_resample = 8000;
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
@@ -153,20 +157,27 @@ static void options(int *argc, char ***argv) {
 		{ "mysql-user",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_user,	"MySQL connection credentials",		"USERNAME"	},
 		{ "mysql-pass",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_pass,	"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-db",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_db,	"MySQL database name",			"STRING"	},
-		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,    &forward_to,	"Where to forward to (unix socket)",	"PATH"		},
+		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,	&forward_to,	"Where to forward to (unix socket)",	"PATH"		},
+		{ "tcp-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tcp_send_to,	"Where to send to (TCP destination)",	"IP:PORT"	},
+		{ "tcp-resample", 	0,   0, G_OPTION_ARG_INT,	&tcp_resample,	"Sampling rate for TCP PCM output",	"INT"		},
 		{ NULL, }
 	};
 
 	config_load(argc, argv, e, " - rtpengine recording daemon",
 			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording", &rtpe_common_config);
 
+	if (tcp_send_to) {
+		if (endpoint_parse_any_getaddrinfo_full(&tcp_send_to_ep, tcp_send_to))
+			die("Failed to parse 'tcp-send-to' option");
+	}
+
 	if (!strcmp(output_format, "none")) {
 		output_enabled = 0;
 		if (output_mixed || output_single)
 			die("Output is disabled, but output-mixed or output-single is set");
-		if (!forward_to) {
+		if (!forward_to && !tcp_send_to_ep.address.family) {
 			//the daemon has no function
-			die("Both output and packet forwarding are disabled");
+			die("Both output and forwarding are disabled");
 		}
 	} else if (!output_mixed && !output_single)
 		output_mixed = output_single = 1;
