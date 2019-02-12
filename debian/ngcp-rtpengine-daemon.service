@@ -14,3 +14,4 @@ ExecStopPost=/usr/sbin/ngcp-rtpengine-iptables-setup stop
 
 [Install]
 WantedBy=multi-user.target
+Alias=rtpengine.service

@@ -13,3 +13,4 @@ ExecStart=/usr/sbin/rtpengine-recording -f -E --pidfile /run/ngcp-rtpengine-reco
 
 [Install]
 WantedBy=multi-user.target
+Alias=rtpengine-recording.service
