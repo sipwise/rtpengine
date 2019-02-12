@@ -8,9 +8,8 @@
 #include <netinet/udp.h>
 #include <sys/socket.h>
 #include "str.h"
-#include "media_socket.h"
 #include "xt_RTPENGINE.h"
-#include "call.h"
+#include "log.h"
 
 static int __ip4_addr_parse(sockaddr_t *dst, const char *src);
 static int __ip6_addr_parse(sockaddr_t *dst, const char *src);
