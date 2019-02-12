@@ -3,6 +3,7 @@
 
 
 #include "auxlib.h"
+#include "socket.h"
 
 
 enum output_storage_enum {
@@ -25,6 +26,8 @@ extern const char *c_mysql_host,
       *c_mysql_db;
 extern int c_mysql_port;
 extern const char *forward_to;
+extern endpoint_t tcp_send_to_ep;
+extern int tcp_resample;
 
 extern volatile int shutdown_flag;
 
