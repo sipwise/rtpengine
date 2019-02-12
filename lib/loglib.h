@@ -52,7 +52,7 @@ INLINE int get_log_level(void) {
 
 
 #define die(fmt, ...) do { ilog(LOG_CRIT, "Fatal error: " fmt, ##__VA_ARGS__); exit(-1); } while (0)
-#define die_errno(msg) die("%s: %s", msg, strerror(errno))
+#define die_errno(msg, ...) die(msg ": %s", ##__VA_ARGS__, strerror(errno))
 
 
 

@@ -71,7 +71,7 @@ static void setup(void) {
 		if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
 			ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
 			if (mkdir(output_dir, 0700))
-				die_errno("Failed to create output dir '%s'");
+				die_errno("Failed to create output dir '%s'", output_dir);
 		}
 	}
 	mysql_library_init(0, NULL, NULL);
