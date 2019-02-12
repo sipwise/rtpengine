@@ -49,21 +49,6 @@ G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
 
 
 
-/*** HELPER MACROS ***/
-
-#define ZERO(x)			memset(&(x), 0, sizeof(x))
-
-#define UINT64F			"%" G_GUINT64_FORMAT
-
-#define THREAD_BUF_SIZE		64
-#define NUM_THREAD_BUFS		8
-
-#define AUTO_CLEANUP(decl, func)		decl __attribute__ ((__cleanup__(func)))
-#define AUTO_CLEANUP_INIT(decl, func, val)	AUTO_CLEANUP(decl, func) = val
-#define AUTO_CLEANUP_NULL(decl, func)		AUTO_CLEANUP_INIT(decl, func, 0)
-#define AUTO_CLEANUP_BUF(var)			AUTO_CLEANUP_NULL(char *var, free_buf)
-
-
 /*** GLOBALS ***/
 
 extern __thread struct timeval rtpe_now;
@@ -79,11 +64,6 @@ typedef int (*parse_func)(char **, void **, void *);
 int pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *, GQueue *);
 INLINE void strmove(char **, char **);
 INLINE void strdupfree(char **, const char *);
-char *get_thread_buf(void);
-unsigned int in6_addr_hash(const void *p);
-int in6_addr_eq(const void *a, const void *b);
-unsigned int uint32_hash(const void *p);
-int uint32_eq(const void *a, const void *b);
 
 
 

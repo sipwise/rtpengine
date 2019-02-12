@@ -3,6 +3,7 @@
 
 #include "loglib.h"
 #define __ilog(prio, fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
+#define __C_DBG(x...) ilog(LOG_DEBUG, x)
 
 INLINE void rtcplog(const char *x) {
 }
