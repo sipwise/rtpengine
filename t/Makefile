@@ -56,10 +56,10 @@ HASHSRCS=
 
 ifeq ($(with_transcoding),yes)
 SRCS+=		amr-decode-test.c amr-encode-test.c transcode-test.c
-LIBSRCS+=	codeclib.c resample.c socket.c
+LIBSRCS+=	codeclib.c resample.c socket.c streambuf.c
 DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c poller.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
-		streambuf.c cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c
+		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c
 HASHSRCS+=	call_interfaces.c control_ng.c sdp.c
 endif
 

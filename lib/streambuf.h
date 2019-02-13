@@ -10,7 +10,7 @@
 
 #include "compat.h"
 #include "str.h"
-#include "aux.h"
+#include "auxlib.h"
 
 
 
