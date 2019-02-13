@@ -29,7 +29,7 @@ void ssrc_free(void *p) {
 	packet_sequencer_destroy(&s->sequencer);
 	output_close(s->output);
 	for (int i = 0; i < G_N_ELEMENTS(s->decoders); i++)
-		decoder_close(s->decoders[i]);
+		decoder_free(s->decoders[i]);
 	g_slice_free1(sizeof(*s), s);
 }
 

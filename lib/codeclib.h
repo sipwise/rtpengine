@@ -131,8 +131,7 @@ struct decoder_s {
 	format_t in_format,
 		 out_format;
 
-	resample_t resampler,
-		   mix_resampler; // XXX move this out of here - specific to recording-daemon
+	resample_t resampler;
 
 	union {
 		struct {
@@ -146,8 +145,6 @@ struct decoder_s {
 
 	unsigned long rtp_ts;
 	uint64_t pts;
-
-	unsigned int mixer_idx;
 };
 
 struct encoder_s {
@@ -202,7 +199,8 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 		const str *fmtp);
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
-		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
+		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2, void *u3),
+		void *u1, void *u2, void *u3);
 
 
 encoder_t *encoder_new();
