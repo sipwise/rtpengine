@@ -25,8 +25,8 @@ LDLIBS+=	$(shell mysql_config --libs)
 LDLIBS+=	$(shell pkg-config --libs openssl)
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
-		decoder.c output.c mix.c db.c log.c forward.c tag.c
-LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c
+		decoder.c output.c mix.c db.c log.c forward.c tag.c poller.c
+LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c streambuf.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
 include ../lib/common.Makefile
