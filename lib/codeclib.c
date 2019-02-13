@@ -456,7 +456,6 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 
 	ret->pts = (uint64_t) -1LL;
 	ret->rtp_ts = (unsigned long) -1L;
-	ret->mixer_idx = (unsigned int) -1;
 
 	return ret;
 
@@ -488,7 +487,6 @@ void decoder_close(decoder_t *dec) {
 		dec->def->codec_type->decoder_close(dec);
 
 	resample_shutdown(&dec->resampler);
-	resample_shutdown(&dec->mix_resampler);
 	g_slice_free1(sizeof(*dec), dec);
 }
 
@@ -593,7 +591,8 @@ err:
 }
 
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
-		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
+		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2, void *u3),
+		void *u1, void *u2, void *u3)
 {
 	GQueue frames = G_QUEUE_INIT;
 
@@ -635,7 +634,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 			ret = -1;
 		}
 		else {
-			if (callback(dec, rsmp_frame, u1, u2))
+			if (callback(dec, rsmp_frame, u1, u2, u3))
 				ret = -1;
 		}
 		av_frame_free(&frame);
