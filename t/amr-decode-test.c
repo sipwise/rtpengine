@@ -8,7 +8,7 @@ static void hexdump(const unsigned char *buf, int len) {
 	printf("\n");
 }
 
-static int frame_cb(decoder_t *dec, AVFrame *frame, void *u1, void *u2) {
+static int frame_cb(decoder_t *dec, AVFrame *frame, void *u1, void *u2, void *u3) {
 	char **expect = u1;
 	int *expect_len = u2;
 	assert(expect);
@@ -54,7 +54,7 @@ static void do_test_amr_xx(const char *file, int line,
 	decoder_t *d = decoder_new_fmtp(def, clockrate, 1, &fmt, fmtp);
 	assert(d);
 	const str data = { data_s, data_len };
-	int ret = decoder_input_data(d, &data, 1, frame_cb, &expect_s, &expect_len);
+	int ret = decoder_input_data(d, &data, 1, frame_cb, &expect_s, &expect_len, NULL);
 	assert(!ret);
 	assert(expect_s == NULL);
 	decoder_close(d);
