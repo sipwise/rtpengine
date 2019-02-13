@@ -9,7 +9,7 @@
 #include <time.h>
 
 #include "poller.h"
-#include "aux.h"
+#include "auxlib.h"
 
 
 
@@ -18,8 +18,7 @@
 struct streambuf *streambuf_new(struct poller *p, int fd) {
 	struct streambuf *b;
 
-	b = malloc(sizeof(*b));
-	ZERO(*b);
+	b = g_slice_alloc0(sizeof(*b));
 
 	mutex_init(&b->lock);
 	b->buf = g_string_new("");
@@ -33,7 +32,7 @@ struct streambuf *streambuf_new(struct poller *p, int fd) {
 
 void streambuf_destroy(struct streambuf *b) {
 	g_string_free(b->buf, TRUE);
-	free(b);
+	g_slice_free1(sizeof(*b), b);
 }
 
 

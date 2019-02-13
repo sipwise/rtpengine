@@ -39,7 +39,6 @@ static GList *threads_to_join;
 static GList *threads_running;
 static cond_t threads_cond = COND_STATIC_INIT;
 
-__thread struct timeval rtpe_now;
 volatile int rtpe_shutdown;
 
 #ifdef NEED_ATOMIC64_MUTEX
