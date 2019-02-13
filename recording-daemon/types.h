@@ -28,6 +28,8 @@ struct output_s;
 typedef struct output_s output_t;
 struct mix_s;
 typedef struct mix_s mix_t;
+struct decode_s;
+typedef struct decode_s decode_t;
 
 
 typedef void handler_func(handler_t *);
@@ -71,7 +73,7 @@ struct ssrc_s {
 	metafile_t *metafile;
 	unsigned long ssrc;
 	packet_sequencer_t sequencer;
-	decoder_t *decoders[128];
+	decode_t *decoders[128];
 	output_t *output;
 };
 typedef struct ssrc_s ssrc_t;
@@ -132,6 +134,13 @@ struct output_s {
 //	int64_t mux_dts; // last dts passed to muxer
 //	AVFrame *frame;
 	encoder_t *encoder;
+};
+
+
+struct decode_s {
+	decoder_t *dec;
+	resample_t mix_resampler;
+	unsigned int mixer_idx;
 };
 
 
