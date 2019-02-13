@@ -12,3 +12,4 @@ resample.c
 str.c
 fix_frame_channel_layout.h
 socket.c
+streambuf.c
