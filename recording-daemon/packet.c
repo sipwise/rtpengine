@@ -13,6 +13,8 @@
 #include "main.h"
 #include "output.h"
 #include "db.h"
+#include "streambuf.h"
+#include "resample.h"
 
 
 static void packet_free(void *p) {
@@ -30,6 +32,12 @@ void ssrc_free(void *p) {
 	output_close(s->output);
 	for (int i = 0; i < G_N_ELEMENTS(s->decoders); i++)
 		decoder_free(s->decoders[i]);
+	if (s->tcp_fwd_stream) {
+		close_socket(&s->tcp_fwd_sock);
+		streambuf_destroy(s->tcp_fwd_stream);
+		s->tcp_fwd_stream = NULL;
+		resample_shutdown(&s->tcp_fwd_resampler);
+	}
 	g_slice_free1(sizeof(*s), s);
 }
 
@@ -49,18 +57,44 @@ static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
 	ret->ssrc = ssrc;
 	packet_sequencer_init(&ret->sequencer, packet_free);
 
-	char buf[256];
-	snprintf(buf, sizeof(buf), "%s-%08lx", mf->parent, ssrc);
-	if (output_single) {
-		ret->output = output_new(output_dir, buf);
-		db_do_stream(mf, ret->output, "single", stream, ssrc);
-	}
-
 	g_hash_table_insert(mf->ssrc_hash, GUINT_TO_POINTER(ssrc), ret);
 
 out:
 	pthread_mutex_lock(&ret->lock);
 	pthread_mutex_unlock(&mf->lock);
+
+	if (mf->recording_on && !ret->output && output_single) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "%s-%08lx", mf->parent, ssrc);
+		ret->output = output_new(output_dir, buf);
+		db_do_stream(mf, ret->output, "single", stream, ssrc);
+	}
+	if (mf->forwarding_on && !ret->tcp_fwd_stream) {
+		ZERO(ret->tcp_fwd_poller);
+		int status = connect_socket_nb(&ret->tcp_fwd_sock, SOCK_STREAM, &tcp_send_to_ep);
+		if (status >= 0) {
+			ret->tcp_fwd_stream = streambuf_new(&ret->tcp_fwd_poller, ret->tcp_fwd_sock.fd);
+			if (status == 1)
+				ret->tcp_fwd_poller.blocked = 1;
+			else
+				ret->tcp_fwd_poller.connected = 1;
+		}
+		else
+			ilog(LOG_ERR, "Failed to open/connect TCP socket: %s", strerror(errno));
+		ret->tcp_fwd_format = (format_t) {
+			.clockrate = tcp_resample,
+			.channels = 1,
+			.format = AV_SAMPLE_FMT_S16,
+		};
+	}
+	else if (!mf->forwarding_on && ret->tcp_fwd_stream) {
+		// XXX same as above - unify
+		close_socket(&ret->tcp_fwd_sock);
+		streambuf_destroy(ret->tcp_fwd_stream);
+		ret->tcp_fwd_stream = NULL;
+		resample_shutdown(&ret->tcp_fwd_resampler);
+	}
+
 	return ret;
 }
 
@@ -103,7 +137,7 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 	}
 
 	if (decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
-			ssrc->output, ssrc->metafile))
+			ssrc))
 		ilog(LOG_ERR, "Failed to decode media packet");
 }
 
