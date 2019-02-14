@@ -112,6 +112,8 @@ struct metafile_s {
 
 	pthread_mutex_t payloads_lock;
 	char *payload_types[128];
+
+	int recording_on:1;
 };
 
 
