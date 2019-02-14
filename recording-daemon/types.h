@@ -12,12 +12,15 @@
 #include <libavutil/audio_fifo.h>
 #include "str.h"
 #include "codeclib.h"
+#include "poller.h"
+#include "socket.h"
 
 
 struct iphdr;
 struct ip6_hdr;
 struct udphdr;
 struct rtp_header;
+struct streambuf;
 
 
 struct handler_s;
@@ -75,6 +78,12 @@ struct ssrc_s {
 	packet_sequencer_t sequencer;
 	decode_t *decoders[128];
 	output_t *output;
+
+	format_t tcp_fwd_format;
+	resample_t tcp_fwd_resampler;
+	socket_t tcp_fwd_sock;
+	struct streambuf *tcp_fwd_stream;
+	struct poller tcp_fwd_poller;
 };
 typedef struct ssrc_s ssrc_t;
 
@@ -114,6 +123,7 @@ struct metafile_s {
 	char *payload_types[128];
 
 	int recording_on:1;
+	int forwarding_on:1;
 };
 
 

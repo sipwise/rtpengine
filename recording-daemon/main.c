@@ -70,11 +70,11 @@ static void signals(void) {
 
 static void setup(void) {
 	log_init("rtpengine-recording");
-	if (decoding_enabled) {
+	socket_init();
+	if (decoding_enabled)
 		codeclib_init(0);
-		output_init(output_format);
-	}
 	if (output_enabled) {
+		output_init(output_format);
 		if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
 			ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
 			if (mkdir(output_dir, 0700))
@@ -178,7 +178,7 @@ static void options(int *argc, char ***argv) {
 		output_enabled = 0;
 		if (output_mixed || output_single)
 			die("Output is disabled, but output-mixed or output-single is set");
-		if (!forward_to && !tcp_send_to_ep.address.family) {
+		if (!forward_to && !tcp_send_to_ep.port) {
 			//the daemon has no function
 			die("Both output and forwarding are disabled");
 		}
@@ -186,7 +186,7 @@ static void options(int *argc, char ***argv) {
 	} else if (!output_mixed && !output_single)
 		output_mixed = output_single = 1;
 
-	if (output_enabled || tcp_send_to_ep.address.family)
+	if (output_enabled || tcp_send_to_ep.port)
 		decoding_enabled = 1;
 
 	if (!os_str || !strcmp(os_str, "file"))
