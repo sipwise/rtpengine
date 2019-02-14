@@ -148,6 +148,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		tag_label(mf, lu, content);
 	else if (sscanf_match(section, "RECORDING %u", &u) == 1)
 		mf->recording_on = u;
+	else if (sscanf_match(section, "FORWARDING %u", &u) == 1)
+		mf->forwarding_on = u;
 }
 
 
