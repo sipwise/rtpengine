@@ -37,6 +37,7 @@ static const char *output_format = "wav";
 int output_mixed;
 int output_single;
 int output_enabled = 1;
+int decoding_enabled;
 const char *c_mysql_host,
       *c_mysql_user,
       *c_mysql_pass,
@@ -69,9 +70,11 @@ static void signals(void) {
 
 static void setup(void) {
 	log_init("rtpengine-recording");
-	if (output_enabled) {
+	if (decoding_enabled) {
 		codeclib_init(0);
 		output_init(output_format);
+	}
+	if (output_enabled) {
 		if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
 			ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
 			if (mkdir(output_dir, 0700))
@@ -179,8 +182,12 @@ static void options(int *argc, char ***argv) {
 			//the daemon has no function
 			die("Both output and forwarding are disabled");
 		}
+		output_format = NULL;
 	} else if (!output_mixed && !output_single)
 		output_mixed = output_single = 1;
+
+	if (output_enabled || tcp_send_to_ep.address.family)
+		decoding_enabled = 1;
 
 	if (!os_str || !strcmp(os_str, "file"))
 		output_storage = OUTPUT_STORAGE_FILE;

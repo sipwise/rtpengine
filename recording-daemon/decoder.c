@@ -90,6 +90,9 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *op, void *mp,
 			(unsigned int) frame->extended_data[0][2],
 			(unsigned int) frame->extended_data[0][3]);
 
+	if (!metafile->recording_on)
+		goto no_recording;
+
 	// handle mix output
 	pthread_mutex_lock(&metafile->mix_lock);
 	if (metafile->mix_out) {
@@ -118,6 +121,7 @@ no_mix_out:
 			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
 	}
 
+no_recording:
 	av_frame_free(&frame);
 	return 0;
 
