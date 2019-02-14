@@ -989,7 +989,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 
 static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet *packet, struct media_packet *mp)
 {
-	return decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp, NULL);
+	return decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp);
 }
 
 static int handler_func_transcode(struct codec_handler *h, struct media_packet *mp) {

@@ -12,8 +12,6 @@
 static const codec_def_t *output_codec;
 static const char *output_file_format;
 
-static const codec_def_t *tcp_send_codec;
-
 int mp3_bitrate;
 
 
@@ -169,13 +167,6 @@ void output_close(output_t *output) {
 
 void output_init(const char *format) {
 	str codec;
-
-	str_init(&codec, "PCM-S16LE");
-	tcp_send_codec = codec_find(&codec, MT_AUDIO);
-	assert(tcp_send_codec != NULL);
-
-	if (!format)
-		return;
 
 	if (!strcmp(format, "wav")) {
 		str_init(&codec, "PCM-S16LE");

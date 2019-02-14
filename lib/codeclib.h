@@ -199,8 +199,7 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 		const str *fmtp);
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
-		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2, void *u3),
-		void *u1, void *u2, void *u3);
+		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
 
 
 encoder_t *encoder_new();

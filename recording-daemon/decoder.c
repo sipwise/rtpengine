@@ -15,6 +15,7 @@
 #include "mix.h"
 #include "resample.h"
 #include "codeclib.h"
+#include "streambuf.h"
 
 
 int resample_audio;
@@ -79,9 +80,10 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 }
 
 
-static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *op, void *mp, void *dp) {
-	metafile_t *metafile = mp;
-	output_t *output = op;
+static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp) {
+	ssrc_t *ssrc = sp;
+	metafile_t *metafile = ssrc->metafile;
+	output_t *output = ssrc->output;
 	decode_t *deco = dp;
 
 	dbg("got frame pts %llu samples %u contents %02x%02x%02x%02x...", (unsigned long long) frame->pts, frame->nb_samples,
@@ -122,6 +124,39 @@ no_mix_out:
 	}
 
 no_recording:
+	if (ssrc->tcp_fwd_stream) {
+		// XXX might be a second resampling to same format
+		AVFrame *dec_frame = resample_frame(&ssrc->tcp_fwd_resampler, frame, &ssrc->tcp_fwd_format);
+
+		if (!ssrc->tcp_fwd_poller.connected) {
+			int status = connect_socket_retry(&ssrc->tcp_fwd_sock);
+			if (status == 0) {
+				ssrc->tcp_fwd_poller.connected = 1;
+				ssrc->tcp_fwd_poller.blocked = 0;
+			}
+			else if (status < 0) {
+				ilog(LOG_ERR, "Failed to connect TCP socket: %s", strerror(errno));
+				streambuf_destroy(ssrc->tcp_fwd_stream);
+				ssrc->tcp_fwd_stream = NULL;
+			}
+		}
+
+		if (!ssrc->tcp_fwd_poller.connected && ssrc->tcp_fwd_poller.blocked) {
+			ssrc->tcp_fwd_poller.blocked = 0;
+			streambuf_writeable(ssrc->tcp_fwd_stream);
+		}
+
+		if (!ssrc->tcp_fwd_poller.intro) {
+			streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			ssrc->tcp_fwd_poller.intro = 1;
+		}
+
+		streambuf_write(ssrc->tcp_fwd_stream, (char *) dec_frame->extended_data[0],
+				dec_frame->linesize[0]);
+		av_frame_free(&dec_frame);
+
+	}
+
 	av_frame_free(&frame);
 	return 0;
 
@@ -131,8 +166,8 @@ err:
 }
 
 
-int decoder_input(decode_t *deco, const str *data, unsigned long ts, output_t *output, metafile_t *metafile) {
-	return decoder_input_data(deco->dec, data, ts, decoder_got_frame, output, metafile, deco);
+int decoder_input(decode_t *deco, const str *data, unsigned long ts, ssrc_t *ssrc) {
+	return decoder_input_data(deco->dec, data, ts, decoder_got_frame, ssrc, deco);
 }
 
 void decoder_free(decode_t *deco) {
