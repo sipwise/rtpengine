@@ -75,7 +75,7 @@ static void stream_handler(handler_t *handler) {
 		else
 			g_atomic_int_inc(&stream->metafile->forward_count);
 	}
-	if (output_enabled)
+	if (decoding_enabled)
 		packet_process(stream, buf, ret); // consumes buf
 	else
 		free(buf);
