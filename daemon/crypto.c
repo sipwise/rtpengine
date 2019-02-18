@@ -85,7 +85,7 @@ struct crypto_suite __crypto_suites[] = {
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
-		.name			= "AES_CM_192_HMAC_SHA1_80",
+		.name			= "AES_192_CM_HMAC_SHA1_80",
 		//.dtls_name		= "SRTP_AES128_CM_SHA1_80",
 		.master_key_len		= 24,
 		.master_salt_len	= 14,
@@ -109,7 +109,7 @@ struct crypto_suite __crypto_suites[] = {
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
-		.name			= "AES_CM_192_HMAC_SHA1_32",
+		.name			= "AES_192_CM_HMAC_SHA1_32",
 		//.dtls_name		= "SRTP_AES128_CM_SHA1_32",
 		.master_key_len		= 24,
 		.master_salt_len	= 14,
@@ -133,7 +133,7 @@ struct crypto_suite __crypto_suites[] = {
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
-		.name			= "AES_CM_256_HMAC_SHA1_80",
+		.name			= "AES_256_CM_HMAC_SHA1_80",
 		//.dtls_name		= "SRTP_AES128_CM_SHA1_80",
 		.master_key_len		= 32,
 		.master_salt_len	= 14,
@@ -157,7 +157,7 @@ struct crypto_suite __crypto_suites[] = {
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
-		.name			= "AES_CM_256_HMAC_SHA1_32",
+		.name			= "AES_256_CM_HMAC_SHA1_32",
 		//.dtls_name		= "SRTP_AES128_CM_SHA1_32",
 		.master_key_len		= 32,
 		.master_salt_len	= 14,
