@@ -39,7 +39,7 @@ our @crypto_suites = (
 		salt_length	=> 14,
 	},
 	{
-		str		=> 'AES_CM_192_HMAC_SHA1_80',
+		str		=> 'AES_192_CM_HMAC_SHA1_80',
 		#dtls_name	=> 'SRTP_AES128_CM_SHA1_80',
 		auth_tag	=> 10,
 		enc_func	=> \&aes_cm,
@@ -49,7 +49,7 @@ our @crypto_suites = (
 		salt_length	=> 14,
 	},
 	{
-		str		=> 'AES_CM_256_HMAC_SHA1_80',
+		str		=> 'AES_256_CM_HMAC_SHA1_80',
 		#dtls_name	=> 'SRTP_AES128_CM_SHA1_80',
 		auth_tag	=> 10,
 		enc_func	=> \&aes_cm,
@@ -59,7 +59,7 @@ our @crypto_suites = (
 		salt_length	=> 14,
 	},
 	{
-		str		=> 'AES_CM_192_HMAC_SHA1_32',
+		str		=> 'AES_192_CM_HMAC_SHA1_32',
 		#dtls_name	=> 'SRTP_AES128_CM_SHA1_80',
 		auth_tag	=> 4,
 		enc_func	=> \&aes_cm,
@@ -69,7 +69,7 @@ our @crypto_suites = (
 		salt_length	=> 14,
 	},
 	{
-		str		=> 'AES_CM_256_HMAC_SHA1_32',
+		str		=> 'AES_256_CM_HMAC_SHA1_32',
 		#dtls_name	=> 'SRTP_AES128_CM_SHA1_80',
 		auth_tag	=> 4,
 		enc_func	=> \&aes_cm,
