@@ -147,9 +147,11 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 	else if (sscanf_match(section, "LABEL %lu", &lu) == 1)
 		tag_label(mf, lu, content);
 	else if (sscanf_match(section, "RECORDING %u", &u) == 1)
-		mf->recording_on = u;
+		mf->recording_on = u ? 1 : 0;
 	else if (sscanf_match(section, "FORWARDING %u", &u) == 1)
-		mf->forwarding_on = u;
+		mf->forwarding_on = u ? 1 : 0;
+	else if (sscanf_match(section, "STREAM %lu FORWARDING %u", &lu, &u) == 1)
+		stream_forwarding_on(mf, lu, u);
 }
 
 

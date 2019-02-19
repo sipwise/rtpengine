@@ -364,6 +364,7 @@ struct call_monologue {
 
 	int			block_dtmf:1;
 	int			block_media:1;
+	int			rec_forwarding:1;
 };
 
 struct call {
@@ -402,6 +403,8 @@ struct call {
 
 	int			block_dtmf:1;
 	int			block_media:1;
+	int			recording_on:1;
+	int			rec_forwarding:1;
 };
 
 
