@@ -8,7 +8,7 @@ use IO::Socket;
 my $r = NGCP::Rtpengine::Test->new();
 my ($a, $b) = $r->client_pair(
 	{sdes => 1, sdes_args => {suites => [qw(
-		AES_CM_256_HMAC_SHA1_80 AES_CM_256_HMAC_SHA1_32
+		AES_256_CM_HMAC_SHA1_80 AES_256_CM_HMAC_SHA1_32
 		AES_CM_128_HMAC_SHA1_80 AES_CM_128_HMAC_SHA1_32
 	)]}},
 	{sdes => 1}
