@@ -16,6 +16,7 @@
 #include "resample.h"
 #include "codeclib.h"
 #include "streambuf.h"
+#include "main.h"
 
 
 int resample_audio;
@@ -84,6 +85,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 	ssrc_t *ssrc = sp;
 	metafile_t *metafile = ssrc->metafile;
 	output_t *output = ssrc->output;
+	stream_t *stream = ssrc->stream;
 	decode_t *deco = dp;
 
 	dbg("got frame pts %llu samples %u contents %02x%02x%02x%02x...", (unsigned long long) frame->pts, frame->nb_samples,
@@ -98,6 +100,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 	// handle mix output
 	pthread_mutex_lock(&metafile->mix_lock);
 	if (metafile->mix_out) {
+		dbg("adding packet from stream #%lu to mix output", stream->id);
 		if (G_UNLIKELY(deco->mixer_idx == (unsigned int) -1))
 			deco->mixer_idx = mix_get_index(metafile->mix);
 		format_t actual_format;
@@ -117,6 +120,7 @@ no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);
 
 	if (output) {
+		dbg("SSRC %lx of stream #%lu has single output", ssrc->ssrc, stream->id);
 		if (output_config(output, &dec->out_format, NULL))
 			goto err;
 		if (output_add(output, frame))
@@ -126,6 +130,7 @@ no_mix_out:
 no_recording:
 	if (ssrc->tcp_fwd_stream) {
 		// XXX might be a second resampling to same format
+		dbg("SSRC %lx of stream #%lu has TCP forwarding stream", ssrc->ssrc, stream->id);
 		AVFrame *dec_frame = resample_frame(&ssrc->tcp_fwd_resampler, frame, &ssrc->tcp_fwd_format);
 
 		if (!ssrc->tcp_fwd_poller.connected) {
@@ -133,7 +138,9 @@ no_recording:
 			if (status == 0) {
 				ssrc->tcp_fwd_poller.connected = 1;
 				ssrc->tcp_fwd_poller.blocked = 0;
-			}
+				dbg("TCP connection to %s established",
+					endpoint_print_buf(&tcp_send_to_ep));
+		}
 			else if (status < 0) {
 				ilog(LOG_ERR, "Failed to connect TCP socket: %s", strerror(errno));
 				streambuf_destroy(ssrc->tcp_fwd_stream);
@@ -147,10 +154,18 @@ no_recording:
 		}
 
 		if (!ssrc->tcp_fwd_poller.intro) {
-			streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			if (metafile->metadata) {
+				dbg("Writing metadata header to TCP");
+				streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			}
+			else {
+				ilog(LOG_WARN, "No metadata present for forwarding connection");
+				streambuf_write(ssrc->tcp_fwd_stream, "\0", 1);
+			}
 			ssrc->tcp_fwd_poller.intro = 1;
 		}
 
+		dbg("Writing %u bytes PCM to TCP", dec_frame->linesize[0]);
 		streambuf_write(ssrc->tcp_fwd_stream, (char *) dec_frame->extended_data[0],
 				dec_frame->linesize[0]);
 		av_frame_free(&dec_frame);
@@ -171,6 +186,8 @@ int decoder_input(decode_t *deco, const str *data, unsigned long ts, ssrc_t *ssr
 }
 
 void decoder_free(decode_t *deco) {
+	if (!deco)
+		return;
 	decoder_close(deco->dec);
 	resample_shutdown(&deco->mix_resampler);
 	g_slice_free1(sizeof(*deco), deco);
