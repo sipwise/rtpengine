@@ -52,6 +52,7 @@ struct stream_s {
 	unsigned long tag;
 	int fd;
 	handler_t handler;
+	int forwarding_on:1;
 };
 typedef struct stream_s stream_t;
 
