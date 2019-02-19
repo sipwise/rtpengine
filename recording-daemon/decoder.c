@@ -147,7 +147,12 @@ no_recording:
 		}
 
 		if (!ssrc->tcp_fwd_poller.intro) {
-			streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			if (metafile->metadata)
+				streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			else {
+				ilog(LOG_WARN, "No metadata present for forwarding connection");
+				streambuf_write(ssrc->tcp_fwd_stream, "\0", 1);
+			}
 			ssrc->tcp_fwd_poller.intro = 1;
 		}
 
