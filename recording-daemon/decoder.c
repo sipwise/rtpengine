@@ -147,7 +147,12 @@ no_recording:
 		}
 
 		if (!ssrc->tcp_fwd_poller.intro) {
-			streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			if (metafile->metadata)
+				streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			else {
+				ilog(LOG_WARN, "No metadata present for forwarding connection");
+				streambuf_write(ssrc->tcp_fwd_stream, "\0", 1);
+			}
 			ssrc->tcp_fwd_poller.intro = 1;
 		}
 
@@ -171,6 +176,8 @@ int decoder_input(decode_t *deco, const str *data, unsigned long ts, ssrc_t *ssr
 }
 
 void decoder_free(decode_t *deco) {
+	if (!deco)
+		return;
 	decoder_close(deco->dec);
 	resample_shutdown(&deco->mix_resampler);
 	g_slice_free1(sizeof(*deco), deco);

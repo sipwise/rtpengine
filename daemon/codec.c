@@ -975,7 +975,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	return 0;
 }
 
-static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2, void *u3) {
+static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 
 	ilog(LOG_DEBUG, "RTP media successfully decoded: TS %llu, samples %u",
