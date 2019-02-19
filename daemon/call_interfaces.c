@@ -1004,8 +1004,10 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
 	detect_setup_recording(call, &flags.record_call_str, &flags.metadata);
-	if (flags.record_call)
+	if (flags.record_call) {
+		call->recording_on = 1;
 		recording_start(call, NULL, &flags.metadata);
+	}
 
 	ret = monologue_offer_answer(monologue, &streams, &flags);
 	if (!ret) {
@@ -1438,6 +1440,7 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 	if (!call)
 		return "Unknown call-id";
 
+	call->recording_on = 1;
 	recording_start(call, NULL, &metadata);
 
 	rwlock_unlock_w(&call->master_lock);
@@ -1456,6 +1459,7 @@ const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output
 	if (!call)
 		return "Unknown call-id";
 
+	call->recording_on = 0;
 	recording_stop(call);
 
 	rwlock_unlock_w(&call->master_lock);
@@ -1507,6 +1511,80 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 		return "Failed to match address to any tag";
 found:
 		;
+	}
+
+	return NULL;
+}
+
+// XXX these are all identical - unify and use a flags int and/or callback
+const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *output) {
+	struct call *call;
+	struct call_monologue *monologue;
+	const char *errstr = NULL;
+	str metadata;
+
+	errstr = media_block_match(&call, &monologue, input);
+	if (errstr)
+		goto out;
+
+	bencode_dictionary_get_str(input, "metadata", &metadata);
+
+	if (monologue) {
+		ilog(LOG_INFO, "Start forwarding for single party (tag '" STR_FORMAT ")",
+				STR_FMT(&monologue->tag));
+		monologue->rec_forwarding = 1;
+	}
+	else {
+		ilog(LOG_INFO, "Start forwarding (entire call)");
+		call->rec_forwarding = 1;
+	}
+
+	recording_start(call, NULL, &metadata);
+	errstr = NULL;
+out:
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+	}
+
+	return errstr;
+}
+
+const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *output) {
+	struct call *call;
+	struct call_monologue *monologue;
+	const char *errstr = NULL;
+	struct sdp_ng_flags flags;
+
+	errstr = media_block_match(&call, &monologue, input);
+	if (errstr)
+		goto out;
+
+	call_ng_process_flags(&flags, input, OP_OTHER);
+
+	if (monologue) {
+		ilog(LOG_INFO, "Stop forwarding for single party (tag '" STR_FORMAT ")",
+				STR_FMT(&monologue->tag));
+		monologue->rec_forwarding = 0;
+	}
+	else {
+		ilog(LOG_INFO, "Stop forwarding (entire call)");
+		call->rec_forwarding = 0;
+		if (flags.all) {
+			for (GList *l = call->monologues.head; l; l = l->next) {
+				monologue = l->data;
+				monologue->rec_forwarding = 0;
+			}
+		}
+	}
+
+	recording_stop(call);
+
+	errstr = NULL;
+out:
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
 	}
 
 	return NULL;

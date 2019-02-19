@@ -140,3 +140,8 @@ void stream_details(metafile_t *mf, unsigned long id, unsigned int tag) {
 	stream_t *stream = stream_get(mf, id);
 	stream->tag = tag;
 }
+
+void stream_forwarding_on(metafile_t *mf, unsigned long id, unsigned int on) {
+	stream_t *stream = stream_get(mf, id);
+	stream->forwarding_on = on ? 1 : 0;
+}

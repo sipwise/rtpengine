@@ -16,6 +16,7 @@
 #include "resample.h"
 #include "codeclib.h"
 #include "streambuf.h"
+#include "main.h"
 
 
 int resample_audio;
@@ -133,7 +134,9 @@ no_recording:
 			if (status == 0) {
 				ssrc->tcp_fwd_poller.connected = 1;
 				ssrc->tcp_fwd_poller.blocked = 0;
-			}
+				ilog(LOG_DEBUG, "TCP connection to %s established",
+					endpoint_print_buf(&tcp_send_to_ep));
+		}
 			else if (status < 0) {
 				ilog(LOG_ERR, "Failed to connect TCP socket: %s", strerror(errno));
 				streambuf_destroy(ssrc->tcp_fwd_stream);
@@ -147,10 +150,18 @@ no_recording:
 		}
 
 		if (!ssrc->tcp_fwd_poller.intro) {
-			streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			if (metafile->metadata) {
+				ilog(LOG_DEBUG, "Writing metadata header to TCP");
+				streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			}
+			else {
+				ilog(LOG_WARN, "No metadata present for forwarding connection");
+				streambuf_write(ssrc->tcp_fwd_stream, "\0", 1);
+			}
 			ssrc->tcp_fwd_poller.intro = 1;
 		}
 
+		ilog(LOG_DEBUG, "Writing %u bytes PCM to TCP", dec_frame->linesize[0]);
 		streambuf_write(ssrc->tcp_fwd_stream, (char *) dec_frame->extended_data[0],
 				dec_frame->linesize[0]);
 		av_frame_free(&dec_frame);
@@ -171,6 +182,8 @@ int decoder_input(decode_t *deco, const str *data, unsigned long ts, ssrc_t *ssr
 }
 
 void decoder_free(decode_t *deco) {
+	if (!deco)
+		return;
 	decoder_close(deco->dec);
 	resample_shutdown(&deco->mix_resampler);
 	g_slice_free1(sizeof(*deco), deco);

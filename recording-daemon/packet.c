@@ -69,25 +69,31 @@ out:
 		ret->output = output_new(output_dir, buf);
 		db_do_stream(mf, ret->output, "single", stream, ssrc);
 	}
-	if (mf->forwarding_on && !ret->tcp_fwd_stream) {
+	if ((stream->forwarding_on || mf->forwarding_on) && !ret->tcp_fwd_stream) {
 		ZERO(ret->tcp_fwd_poller);
+		ilog(LOG_DEBUG, "Starting TCP connection to %s", endpoint_print_buf(&tcp_send_to_ep));
 		int status = connect_socket_nb(&ret->tcp_fwd_sock, SOCK_STREAM, &tcp_send_to_ep);
 		if (status >= 0) {
 			ret->tcp_fwd_stream = streambuf_new(&ret->tcp_fwd_poller, ret->tcp_fwd_sock.fd);
 			if (status == 1)
 				ret->tcp_fwd_poller.blocked = 1;
-			else
+			else {
+				ilog(LOG_DEBUG, "TCP connection to %s established",
+						endpoint_print_buf(&tcp_send_to_ep));
 				ret->tcp_fwd_poller.connected = 1;
+			}
 		}
 		else
-			ilog(LOG_ERR, "Failed to open/connect TCP socket: %s", strerror(errno));
+			ilog(LOG_ERR, "Failed to open/connect TCP socket to %s: %s",
+				endpoint_print_buf(&tcp_send_to_ep),
+				strerror(errno));
 		ret->tcp_fwd_format = (format_t) {
 			.clockrate = tcp_resample,
 			.channels = 1,
 			.format = AV_SAMPLE_FMT_S16,
 		};
 	}
-	else if (!mf->forwarding_on && ret->tcp_fwd_stream) {
+	else if (!(stream->forwarding_on || mf->forwarding_on) && ret->tcp_fwd_stream) {
 		// XXX same as above - unify
 		close_socket(&ret->tcp_fwd_sock);
 		streambuf_destroy(ret->tcp_fwd_stream);
