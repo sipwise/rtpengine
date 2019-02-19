@@ -35,6 +35,9 @@ struct pcap_format {
 static int check_main_spool_dir(const char *spoolpath);
 static char *recording_setup_file(struct recording *recording);
 static char *meta_setup_file(struct recording *recording);
+static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
+		const char *label_fmt, ...)
+	__attribute__((format(printf,4,5)));
 
 // pcap methods
 static int pcap_create_spool_dir(const char *dirpath);
@@ -58,6 +61,9 @@ static void kernel_info_proc(struct packet_stream *, struct rtpengine_target_inf
 
 static void pcap_eth_header(unsigned char *, struct packet_stream *);
 
+#define append_meta_chunk_str(r, str, f...) append_meta_chunk(r, (str)->s, (str)->len, f)
+#define append_meta_chunk_s(r, str, f...) append_meta_chunk(r, (str), strlen(str), f)
+#define append_meta_chunk_null(r,f...) append_meta_chunk(r, "", 0, f)
 
 
 static const struct recording_method methods[] = {
@@ -225,11 +231,25 @@ static void update_metadata(struct call *call, str *metadata) {
 }
 
 // lock must be held
+static void recording_update_flags(struct call *call) {
+	append_meta_chunk_null(call->recording, "RECORDING %u", call->recording_on ? 1 : 0);
+	append_meta_chunk_null(call->recording, "FORWARDING %u", call->rec_forwarding ? 1 : 0);
+	for (GList *l = call->streams.head; l; l = l->next) {
+		struct packet_stream *ps = l->data;
+		append_meta_chunk_null(call->recording, "STREAM %u FORWARDING %u",
+				ps->unique_id, ps->media->monologue->rec_forwarding);
+	}
+}
+
+// lock must be held
 void recording_start(struct call *call, const char *prefix, str *metadata) {
 	update_metadata(call, metadata);
 
-	if (call->recording) // already active
+	if (call->recording) {
+		// already active
+		recording_update_flags(call);
 		return;
+	}
 
 	if (!spooldir) {
 		ilog(LOG_ERR, "Call recording requested, but no spool directory configured");
@@ -267,10 +287,22 @@ void recording_start(struct call *call, const char *prefix, str *metadata) {
 		__unkernelize(ps);
 		ps->handler = NULL;
 	}
+
+	recording_update_flags(call);
 }
 void recording_stop(struct call *call) {
 	if (!call->recording)
 		return;
+
+	// check if all recording options are disabled
+	if (call->recording_on || call->rec_forwarding)
+		return;
+
+	for (GList *l = call->monologues.head; l; l = l->next) {
+		struct call_monologue *ml = l->data;
+		if (ml->rec_forwarding)
+			return;
+	}
 
 	ilog(LOG_NOTICE, "Turning off call recording.");
 	recording_finish(call);
@@ -630,10 +662,6 @@ static int vappend_meta_chunk_iov(struct recording *recording, struct iovec *in_
 
 static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
 		const char *label_fmt, ...)
-	__attribute__((format(printf,4,5)));
-
-static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
-		const char *label_fmt, ...)
 {
 	struct iovec iov;
 	iov.iov_base = (void *) buf;
@@ -646,8 +674,6 @@ static int append_meta_chunk(struct recording *recording, const char *buf, unsig
 
 	return ret;
 }
-#define append_meta_chunk_str(r, str, f...) append_meta_chunk(r, (str)->s, (str)->len, f)
-#define append_meta_chunk_s(r, str, f...) append_meta_chunk(r, (str), strlen(str), f)
 
 static void proc_init(struct call *call) {
 	struct recording *recording = call->recording;

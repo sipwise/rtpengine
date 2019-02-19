@@ -219,6 +219,14 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 			errstr = call_stop_recording_ng(dict, resp);
 			g_atomic_int_inc(&cur->stop_recording);
 			break;
+		case CSH_LOOKUP("start forwarding"):
+			errstr = call_start_forwarding_ng(dict, resp);
+			g_atomic_int_inc(&cur->start_forwarding);
+			break;
+		case CSH_LOOKUP("stop forwarding"):
+			errstr = call_stop_forwarding_ng(dict, resp);
+			g_atomic_int_inc(&cur->stop_forwarding);
+			break;
 		case CSH_LOOKUP("block DTMF"):
 			errstr = call_block_dtmf_ng(dict, resp);
 			g_atomic_int_inc(&cur->block_dtmf);
