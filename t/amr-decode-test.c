@@ -8,7 +8,7 @@ static void hexdump(const unsigned char *buf, int len) {
 	printf("\n");
 }
 
-static int frame_cb(decoder_t *dec, AVFrame *frame, void *u1, void *u2, void *u3) {
+static int frame_cb(decoder_t *dec, AVFrame *frame, void *u1, void *u2) {
 	char **expect = u1;
 	int *expect_len = u2;
 	assert(expect);

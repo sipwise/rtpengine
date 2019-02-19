@@ -102,6 +102,8 @@ const char *call_query_ng(bencode_item_t *, bencode_item_t *);
 const char *call_list_ng(bencode_item_t *, bencode_item_t *);
 const char *call_start_recording_ng(bencode_item_t *, bencode_item_t *);
 const char *call_stop_recording_ng(bencode_item_t *, bencode_item_t *);
+const char *call_start_forwarding_ng(bencode_item_t *, bencode_item_t *);
+const char *call_stop_forwarding_ng(bencode_item_t *, bencode_item_t *);
 const char *call_block_dtmf_ng(bencode_item_t *, bencode_item_t *);
 const char *call_unblock_dtmf_ng(bencode_item_t *, bencode_item_t *);
 const char *call_block_media_ng(bencode_item_t *, bencode_item_t *);
