@@ -150,6 +150,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		mf->recording_on = u;
 	else if (sscanf_match(section, "FORWARDING %u", &u) == 1)
 		mf->forwarding_on = u;
+	else if (sscanf_match(section, "STREAM %lu FORWARDING %u", &lu, &u) == 1)
+		stream_forwarding_on(mf, lu, u);
 }
 
 
