@@ -1022,7 +1022,7 @@ G.729 support
 -------------
 
 As *ffmpeg* does not currently provide an encoder for G.729, transcoding support for it is available
-via the [bcg729](https://www.linphone.org/technical-corner/bcg729/overview) library
+via the [bcg729](https://www.linphone.org/technical-corner/bcg729/) library
 (mirror on [GitHub](https://github.com/BelledonneCommunications/bcg729)). The build system looks for
 the *bcg729* headers in a few locations and uses the library if found. If the library is located
 elsewhere, see `daemon/Makefile` to control where the build system is looking for it.
