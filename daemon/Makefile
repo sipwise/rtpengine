@@ -124,7 +124,7 @@ SRCS=		main.c kernel.c poller.c aux.c control_tcp.c call.c control_udp.c redis.c
 		crypto.c rtp.c call_interfaces.strhash.c dtls.c log.c cli.c graphite.c ice.c \
 		media_socket.c homer.c recording.c statistics.c cdr.c ssrc.c iptables.c tcp_listener.c \
 		codec.c load.c dtmf.c
-LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c
+LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.c resample.c
 endif

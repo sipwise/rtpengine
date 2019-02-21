@@ -696,9 +696,10 @@ int connect_socket_retry(socket_t *r) {
 	int ret = 0;
 
 	if (r->family->connect(r, &r->remote)) {
-		if (errno != EINPROGRESS && errno != EALREADY)
+		if (errno != EINPROGRESS && errno != EALREADY && errno != EISCONN)
 			goto fail;
-		ret = 1;
+		if (errno != EISCONN)
+			ret = 1;
 	}
 
 	return ret;
