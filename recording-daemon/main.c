@@ -25,6 +25,7 @@
 #include "forward.h"
 #include "codeclib.h"
 #include "socket.h"
+#include "ssllib.h"
 
 
 
@@ -70,6 +71,7 @@ static void signals(void) {
 
 static void setup(void) {
 	log_init("rtpengine-recording");
+	rtpe_ssl_init();
 	socket_init();
 	if (decoding_enabled)
 		codeclib_init(0);
