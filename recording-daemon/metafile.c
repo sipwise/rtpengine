@@ -72,7 +72,7 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 	db_do_call(mf);
 	if (output_enabled && output_mixed) {
 		pthread_mutex_lock(&mf->mix_lock);
-		if (!mf->mix && output_mixed) {
+		if (!mf->mix) {
 			char buf[256];
 			snprintf(buf, sizeof(buf), "%s-mix", mf->parent);
 			mf->mix_out = output_new(output_dir, buf);
@@ -119,6 +119,7 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 // mf is locked
 static void meta_metadata(metafile_t *mf, char *content) {
 	mf->metadata = g_string_chunk_insert(mf->gsc, content);
+	mf->metadata_db = mf->metadata;
 	db_do_call(mf);
 	if (forward_to)
 		start_forwarding_capture(mf, content);
