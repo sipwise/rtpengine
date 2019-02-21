@@ -4,10 +4,14 @@
 
 // dummy poller
 struct poller {
-	int blocked:1;
-	int connected:1;
-	int error:1;
-	int intro:1;
+	enum {
+		PS_CLOSED = 0,
+		PS_CONNECTING,
+		PS_HANDSHAKE,
+		PS_OPEN,
+		PS_WRITE_BLOCKED,
+		PS_ERROR,
+	} state;
 };
 
 void poller_blocked(struct poller *, int);

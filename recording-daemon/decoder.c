@@ -128,45 +128,55 @@ no_mix_out:
 	}
 
 no_recording:
-	if (ssrc->tcp_fwd_stream) {
+	if (ssrc->tls_fwd_stream) {
 		// XXX might be a second resampling to same format
-		dbg("SSRC %lx of stream #%lu has TCP forwarding stream", ssrc->ssrc, stream->id);
-		AVFrame *dec_frame = resample_frame(&ssrc->tcp_fwd_resampler, frame, &ssrc->tcp_fwd_format);
+		dbg("SSRC %lx of stream #%lu has TLS forwarding stream", ssrc->ssrc, stream->id);
+		AVFrame *dec_frame = resample_frame(&ssrc->tls_fwd_resampler, frame, &ssrc->tls_fwd_format);
 
-		if (!ssrc->tcp_fwd_poller.connected) {
-			int status = connect_socket_retry(&ssrc->tcp_fwd_sock);
+		if (ssrc->tls_fwd_poller.state == PS_CONNECTING) {
+			int status = connect_socket_retry(&ssrc->tls_fwd_sock);
 			if (status == 0) {
-				ssrc->tcp_fwd_poller.connected = 1;
-				ssrc->tcp_fwd_poller.blocked = 0;
-				dbg("TCP connection to %s established",
-					endpoint_print_buf(&tcp_send_to_ep));
+				dbg("TLS connection to %s doing handshake",
+					endpoint_print_buf(&tls_send_to_ep));
+				ssrc->tls_fwd_poller.state = PS_HANDSHAKE;
+				if (SSL_connect(ssrc->ssl) == 1) {
+					dbg("TLS connection to %s established",
+							endpoint_print_buf(&tls_send_to_ep));
+					ssrc->tls_fwd_poller.state = PS_OPEN;
+				}
 			}
 			else if (status < 0) {
-				ilog(LOG_ERR, "Failed to connect TCP socket: %s", strerror(errno));
-				streambuf_destroy(ssrc->tcp_fwd_stream);
-				ssrc->tcp_fwd_stream = NULL;
+				ilog(LOG_ERR, "Failed to connect TLS socket: %s", strerror(errno));
+				streambuf_destroy(ssrc->tls_fwd_stream);
+				ssrc->tls_fwd_stream = NULL;
 			}
 		}
-
-		if (ssrc->tcp_fwd_poller.connected && ssrc->tcp_fwd_poller.blocked) {
-			ssrc->tcp_fwd_poller.blocked = 0;
-			streambuf_writeable(ssrc->tcp_fwd_stream);
+		else if (ssrc->tls_fwd_poller.state == PS_HANDSHAKE) {
+			if (SSL_connect(ssrc->ssl) == 1) {
+				dbg("TLS connection to %s established",
+						endpoint_print_buf(&tls_send_to_ep));
+				ssrc->tls_fwd_poller.state = PS_OPEN;
+			}
+		}
+		else if (ssrc->tls_fwd_poller.state == PS_WRITE_BLOCKED) {
+			ssrc->tls_fwd_poller.state = PS_OPEN;
+			streambuf_writeable(ssrc->tls_fwd_stream);
 		}
 
-		if (!ssrc->tcp_fwd_poller.intro) {
+		if (!ssrc->sent_intro) {
 			if (metafile->metadata) {
-				dbg("Writing metadata header to TCP");
-				streambuf_write(ssrc->tcp_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+				dbg("Writing metadata header to TLS");
+				streambuf_write(ssrc->tls_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
 			}
 			else {
 				ilog(LOG_WARN, "No metadata present for forwarding connection");
-				streambuf_write(ssrc->tcp_fwd_stream, "\0", 1);
+				streambuf_write(ssrc->tls_fwd_stream, "\0", 1);
 			}
-			ssrc->tcp_fwd_poller.intro = 1;
+			ssrc->sent_intro = 1;
 		}
 
-		dbg("Writing %u bytes PCM to TCP", dec_frame->linesize[0]);
-		streambuf_write(ssrc->tcp_fwd_stream, (char *) dec_frame->extended_data[0],
+		dbg("Writing %u bytes PCM to TLS", dec_frame->linesize[0]);
+		streambuf_write(ssrc->tls_fwd_stream, (char *) dec_frame->extended_data[0],
 				dec_frame->linesize[0]);
 		av_frame_free(&dec_frame);
 

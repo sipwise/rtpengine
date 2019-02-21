@@ -27,8 +27,8 @@ extern const char *c_mysql_host,
       *c_mysql_db;
 extern int c_mysql_port;
 extern const char *forward_to;
-extern endpoint_t tcp_send_to_ep;
-extern int tcp_resample;
+extern endpoint_t tls_send_to_ep;
+extern int tls_resample;
 
 extern volatile int shutdown_flag;
 
