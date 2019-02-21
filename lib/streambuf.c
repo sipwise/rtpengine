@@ -204,6 +204,9 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 	unsigned int out;
 	int ret;
 
+	if (!b)
+		return;
+
 	mutex_lock(&b->lock);
 
 	while (len && !poller_isblocked(b->poller, b->fd_ptr)) {

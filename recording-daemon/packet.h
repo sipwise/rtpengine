@@ -7,4 +7,6 @@ void ssrc_free(void *p);
 
 void packet_process(stream_t *, unsigned char *, unsigned len);
 
+void ssrc_tls_state(ssrc_t *ssrc);
+
 #endif

@@ -10,6 +10,8 @@
 #include <libavutil/channel_layout.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/audio_fifo.h>
+#include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include "str.h"
 #include "codeclib.h"
 #include "poller.h"
@@ -80,11 +82,16 @@ struct ssrc_s {
 	decode_t *decoders[128];
 	output_t *output;
 
-	format_t tcp_fwd_format;
-	resample_t tcp_fwd_resampler;
-	socket_t tcp_fwd_sock;
-	struct streambuf *tcp_fwd_stream;
-	struct poller tcp_fwd_poller;
+	// TLS output
+	format_t tls_fwd_format;
+	resample_t tls_fwd_resampler;
+	socket_t tls_fwd_sock;
+	//BIO *bio;
+	SSL_CTX *ssl_ctx;
+	SSL *ssl;
+	struct streambuf *tls_fwd_stream;
+	struct poller tls_fwd_poller;
+	int sent_intro:1;
 };
 typedef struct ssrc_s ssrc_t;
 
@@ -103,6 +110,7 @@ struct metafile_s {
 	char *parent;
 	char *call_id;
 	char *metadata;
+	char *metadata_db;
 	off_t pos;
 	unsigned long long db_id;
 
