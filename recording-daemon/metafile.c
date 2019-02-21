@@ -119,6 +119,7 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 // mf is locked
 static void meta_metadata(metafile_t *mf, char *content) {
 	mf->metadata = g_string_chunk_insert(mf->gsc, content);
+	mf->metadata_db = mf->metadata;
 	db_do_call(mf);
 	if (forward_to)
 		start_forwarding_capture(mf, content);
