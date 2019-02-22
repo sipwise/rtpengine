@@ -34,9 +34,10 @@ struct poller *poller_new(void);
 int poller_add_item(struct poller *, struct poller_item *);
 int poller_update_item(struct poller *, struct poller_item *);
 int poller_del_item(struct poller *, int);
-void poller_blocked(struct poller *, int);
-int poller_isblocked(struct poller *, int);
-void poller_error(struct poller *, int);
+
+void poller_blocked(struct poller *, void *);
+int poller_isblocked(struct poller *, void *);
+void poller_error(struct poller *, void *);
 
 int poller_poll(struct poller *, int);
 void poller_timer_loop(void *);
