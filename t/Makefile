@@ -23,6 +23,9 @@ CFLAGS+=	$(shell pkg-config --cflags libevent_pthreads)
 CFLAGS+=	$(shell pkg-config xmlrpc_client --cflags 2> /dev/null || xmlrpc-c-config client --cflags)
 CFLAGS+=	$(shell pkg-config xmlrpc --cflags 2> /dev/null)
 CFLAGS+=	$(shell pkg-config xmlrpc_util --cflags 2> /dev/null)
+ifeq ($(with_amr_tests),yes)
+CFLAGS+=	-DWITH_AMR_TESTS
+endif
 else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
@@ -55,7 +58,10 @@ DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
 
 ifeq ($(with_transcoding),yes)
-SRCS+=		amr-decode-test.c amr-encode-test.c transcode-test.c
+SRCS+=		transcode-test.c
+ifeq ($(with_amr_tests),yes)
+SRCS+=		amr-decode-test.c amr-encode-test.c
+endif
 LIBSRCS+=	codeclib.c resample.c
 DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c socket.c poller.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
@@ -75,7 +81,10 @@ include		.depend
 
 TESTS=		bitstr-test aes-crypt payload-tracker-test const_str_hash-test.strhash
 ifeq ($(with_transcoding),yes)
-TESTS+=		amr-decode-test amr-encode-test transcode-test
+TESTS+=		transcode-test
+ifeq ($(with_amr_tests),yes)
+TESTS+=		amr-decode-test amr-encode-test
+endif
 endif
 
 ADD_CLEAN=	tests-preload.so $(TESTS)
