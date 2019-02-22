@@ -18,18 +18,25 @@ struct poller;
 
 
 
+struct streambuf_funcs {
+	ssize_t (*write)(void *, const void *, size_t);
+	ssize_t (*read)(void *, void *, size_t);
+};
 struct streambuf {
 	mutex_t		lock;
 	GString		*buf;
-	int		fd;
+	void		*fd_ptr;
 	struct poller	*poller;
 	time_t		active;
 	int		eof;
+	const struct streambuf_funcs
+			*funcs;
 };
 
 
 
 struct streambuf *streambuf_new(struct poller *, int);
+struct streambuf *streambuf_new_ptr(struct poller *, void *, const struct streambuf_funcs *);
 void streambuf_destroy(struct streambuf *);
 int streambuf_writeable(struct streambuf *);
 int streambuf_readable(struct streambuf *);

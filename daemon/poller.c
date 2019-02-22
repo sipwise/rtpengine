@@ -366,7 +366,8 @@ out:
 }
 
 
-void poller_blocked(struct poller *p, int fd) {
+void poller_blocked(struct poller *p, void *fdp) {
+	int fd = GPOINTER_TO_INT(fdp);
 	struct epoll_event e;
 
 	if (!p || fd < 0)
@@ -392,7 +393,8 @@ fail:
 	mutex_unlock(&p->lock);
 }
 
-void poller_error(struct poller *p, int fd) {
+void poller_error(struct poller *p, void *fdp) {
+	int fd = GPOINTER_TO_INT(fdp);
 	if (!p || fd < 0)
 		return;
 
@@ -412,7 +414,8 @@ fail:
 	mutex_unlock(&p->lock);
 }
 
-int poller_isblocked(struct poller *p, int fd) {
+int poller_isblocked(struct poller *p, void *fdp) {
+	int fd = GPOINTER_TO_INT(fdp);
 	int ret;
 
 	if (!p || fd < 0)

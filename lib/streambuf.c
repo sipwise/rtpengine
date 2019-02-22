@@ -14,19 +14,37 @@
 
 
 
+static ssize_t __fd_write(void *, const void *, size_t);
+static ssize_t __fd_read(void *, void *, size_t);
 
-struct streambuf *streambuf_new(struct poller *p, int fd) {
+static const struct streambuf_funcs __fd_funcs = {
+	.write = __fd_write,
+	.read = __fd_read,
+};
+
+static ssize_t __fd_write(void *fd, const void *b, size_t s) {
+	return write(GPOINTER_TO_INT(fd), b, s);
+}
+static ssize_t __fd_read(void *fd, void *b, size_t s) {
+	return read(GPOINTER_TO_INT(fd), b, s);
+}
+
+struct streambuf *streambuf_new_ptr(struct poller *p, void *fd_ptr, const struct streambuf_funcs *funcs) {
 	struct streambuf *b;
 
 	b = g_slice_alloc0(sizeof(*b));
 
 	mutex_init(&b->lock);
 	b->buf = g_string_new("");
-	b->fd = fd;
+	b->fd_ptr = fd_ptr;
 	b->poller = p;
 	b->active = rtpe_now.tv_sec;
+	b->funcs = funcs;
 
 	return b;
+}
+struct streambuf *streambuf_new(struct poller *p, int fd) {
+	return streambuf_new_ptr(p, GINT_TO_POINTER(fd), &__fd_funcs);
 }
 
 
@@ -47,7 +65,7 @@ int streambuf_writeable(struct streambuf *b) {
 			break;
 
 		out = (b->buf->len > 1024) ? 1024 : b->buf->len;
-		ret = write(b->fd, b->buf->str, out);
+		ret = b->funcs->write(b->fd_ptr, b->buf->str, out);
 
 		if (ret < 0) {
 			if (errno == EINTR)
@@ -65,7 +83,7 @@ int streambuf_writeable(struct streambuf *b) {
 		}
 
 		if (ret != out) {
-			poller_blocked(b->poller, b->fd);
+			poller_blocked(b->poller, b->fd_ptr);
 			break;
 		}
 	}
@@ -81,7 +99,7 @@ int streambuf_readable(struct streambuf *b) {
 	mutex_lock(&b->lock);
 
 	for (;;) {
-		ret = read(b->fd, buf, 1024);
+		ret = b->funcs->read(b->fd_ptr, buf, 1024);
 
 		if (ret == 0) {
 			// don't discard already read data in the buffer
@@ -188,18 +206,18 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 
 	mutex_lock(&b->lock);
 
-	while (len && !poller_isblocked(b->poller, b->fd)) {
+	while (len && !poller_isblocked(b->poller, b->fd_ptr)) {
 		out = (len > 1024) ? 1024 : len;
-		ret = write(b->fd, s, out);
+		ret = b->funcs->write(b->fd_ptr, s, out);
 
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
 			if (errno != EAGAIN && errno != EWOULDBLOCK) {
-				poller_error(b->poller, b->fd);
+				poller_error(b->poller, b->fd_ptr);
 				break;
 			}
-			poller_blocked(b->poller, b->fd);
+			poller_blocked(b->poller, b->fd_ptr);
 			break;
 		}
 		if (ret == 0)
@@ -211,7 +229,7 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 	}
 
 	if (b->buf->len > 5242880)
-		poller_error(b->poller, b->fd);
+		poller_error(b->poller, b->fd_ptr);
 	else if (len)
 		g_string_append_len(b->buf, s, len);
 
