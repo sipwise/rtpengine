@@ -15,13 +15,16 @@
 #include "mix.h"
 #include "resample.h"
 #include "codeclib.h"
+#include "streambuf.h"
+#include "main.h"
+#include "packet.h"
 
 
 int resample_audio;
 
 
 
-decoder_t *decoder_new(const char *payload_str, output_t *outp) {
+decode_t *decoder_new(const char *payload_str, output_t *outp) {
 	str name;
 	char *slash = strchr(payload_str, '/');
 	if (!slash) {
@@ -69,13 +72,22 @@ decoder_t *decoder_new(const char *payload_str, output_t *outp) {
 		outp->encoder->requested_format.format = out_format.format;
 	}
 
-	return decoder_new_fmt(def, clockrate, channels, &out_format);
+	decoder_t *dec = decoder_new_fmt(def, clockrate, channels, &out_format);
+	if (!dec)
+		return NULL;
+	decode_t *deco = g_slice_alloc0(sizeof(decode_t));
+	deco->dec = dec;
+	deco->mixer_idx = (unsigned int) -1;
+	return deco;
 }
 
 
-static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *op, void *mp) {
-	metafile_t *metafile = mp;
-	output_t *output = op;
+static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp) {
+	ssrc_t *ssrc = sp;
+	metafile_t *metafile = ssrc->metafile;
+	output_t *output = ssrc->output;
+	stream_t *stream = ssrc->stream;
+	decode_t *deco = dp;
 
 	dbg("got frame pts %llu samples %u contents %02x%02x%02x%02x...", (unsigned long long) frame->pts, frame->nb_samples,
 			(unsigned int) frame->extended_data[0][0],
@@ -83,32 +95,64 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *op, void *mp)
 			(unsigned int) frame->extended_data[0][2],
 			(unsigned int) frame->extended_data[0][3]);
 
+	if (!metafile->recording_on)
+		goto no_recording;
+
 	// handle mix output
 	pthread_mutex_lock(&metafile->mix_lock);
 	if (metafile->mix_out) {
-		if (G_UNLIKELY(dec->mixer_idx == (unsigned int) -1))
-			dec->mixer_idx = mix_get_index(metafile->mix);
+		dbg("adding packet from stream #%lu to mix output", stream->id);
+		if (G_UNLIKELY(deco->mixer_idx == (unsigned int) -1))
+			deco->mixer_idx = mix_get_index(metafile->mix);
 		format_t actual_format;
 		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
 			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
 		// XXX might be a second resampling to same format
-		AVFrame *dec_frame = resample_frame(&dec->mix_resampler, frame, &actual_format);
+		AVFrame *dec_frame = resample_frame(&deco->mix_resampler, frame, &actual_format);
 		if (!dec_frame) {
 			pthread_mutex_unlock(&metafile->mix_lock);
 			goto err;
 		}
-		if (mix_add(metafile->mix, dec_frame, dec->mixer_idx, metafile->mix_out))
+		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 	}
 no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);
 
 	if (output) {
+		dbg("SSRC %lx of stream #%lu has single output", ssrc->ssrc, stream->id);
 		if (output_config(output, &dec->out_format, NULL))
 			goto err;
 		if (output_add(output, frame))
 			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
+	}
+
+no_recording:
+	if (ssrc->tls_fwd_stream) {
+		// XXX might be a second resampling to same format
+		dbg("SSRC %lx of stream #%lu has TLS forwarding stream", ssrc->ssrc, stream->id);
+		AVFrame *dec_frame = resample_frame(&ssrc->tls_fwd_resampler, frame, &ssrc->tls_fwd_format);
+
+		ssrc_tls_state(ssrc);
+
+		if (!ssrc->sent_intro) {
+			if (metafile->metadata) {
+				dbg("Writing metadata header to TLS");
+				streambuf_write(ssrc->tls_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
+			}
+			else {
+				ilog(LOG_WARN, "No metadata present for forwarding connection");
+				streambuf_write(ssrc->tls_fwd_stream, "\0", 1);
+			}
+			ssrc->sent_intro = 1;
+		}
+
+		dbg("Writing %u bytes PCM to TLS", dec_frame->linesize[0]);
+		streambuf_write(ssrc->tls_fwd_stream, (char *) dec_frame->extended_data[0],
+				dec_frame->linesize[0]);
+		av_frame_free(&dec_frame);
+
 	}
 
 	av_frame_free(&frame);
@@ -120,6 +164,14 @@ err:
 }
 
 
-int decoder_input(decoder_t *dec, const str *data, unsigned long ts, output_t *output, metafile_t *metafile) {
-	return decoder_input_data(dec, data, ts, decoder_got_frame, output, metafile);
+int decoder_input(decode_t *deco, const str *data, unsigned long ts, ssrc_t *ssrc) {
+	return decoder_input_data(deco->dec, data, ts, decoder_got_frame, ssrc, deco);
+}
+
+void decoder_free(decode_t *deco) {
+	if (!deco)
+		return;
+	decoder_close(deco->dec);
+	resample_shutdown(&deco->mix_resampler);
+	g_slice_free1(sizeof(*deco), deco);
 }

@@ -27,9 +27,6 @@ struct detach_thread {
 	const char	*scheduler;
 	int		priority;
 };
-struct thread_buf {
-	char buf[THREAD_BUF_SIZE];
-};
 struct scheduler {
 	const char *name;
 	int num;
@@ -42,10 +39,6 @@ static GList *threads_to_join;
 static GList *threads_running;
 static cond_t threads_cond = COND_STATIC_INIT;
 
-static struct thread_buf __thread t_bufs[NUM_THREAD_BUFS];
-static int __thread t_buf_idx;
-
-__thread struct timeval rtpe_now;
 volatile int rtpe_shutdown;
 
 #ifdef NEED_ATOMIC64_MUTEX
@@ -249,25 +242,6 @@ void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler
 		abort();
 }
 
-unsigned int in6_addr_hash(const void *p) {
-	const struct in6_addr *a = p;
-	return a->s6_addr32[0] ^ a->s6_addr32[3];
-}
-
-int in6_addr_eq(const void *a, const void *b) {
-	const struct in6_addr *A = a, *B = b;
-	return !memcmp(A, B, sizeof(*A));
-}
-
-char *get_thread_buf(void) {
-	char *ret;
-	ret = t_bufs[t_buf_idx].buf;
-	t_buf_idx++;
-	if (t_buf_idx >= G_N_ELEMENTS(t_bufs))
-		t_buf_idx = 0;
-	return ret;
-}
-
 int g_tree_find_first_cmp(void *k, void *v, void *d) {
 	void **p = d;
 	GEqualFunc f = p[1];
@@ -284,14 +258,6 @@ int g_tree_find_all_cmp(void *k, void *v, void *d) {
 	if (!f || f(v, p[0]))
 		g_queue_push_tail(q, v);
 	return FALSE;
-}
-unsigned int uint32_hash(const void *p) {
-	const u_int32_t *a = p;
-	return *a;
-}
-int uint32_eq(const void *a, const void *b) {
-	const u_int32_t *A = a, *B = b;
-	return (*A == *B) ? TRUE : FALSE;
 }
 
 void free_buf(char **p) {

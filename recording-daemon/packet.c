@@ -4,6 +4,7 @@
 #include <netinet/udp.h>
 #include <glib.h>
 #include <unistd.h>
+#include <openssl/err.h>
 #include "types.h"
 #include "log.h"
 #include "rtplib.h"
@@ -13,7 +14,64 @@
 #include "main.h"
 #include "output.h"
 #include "db.h"
+#include "streambuf.h"
+#include "resample.h"
 
+
+static ssize_t ssrc_tls_write(void *, const void *, size_t);
+static ssize_t ssrc_tls_read(void *, void *, size_t);
+
+static struct streambuf_funcs ssrc_tls_funcs = {
+	.write = ssrc_tls_write,
+	.read = ssrc_tls_read,
+};
+
+static void ssrc_tls_log_errors(void) {
+	int i;
+	char err[160];
+	while ((i = ERR_get_error())) {
+		ERR_error_string(i, err);
+		dbg("TLS error: %s", err);
+	}
+}
+
+static int ssrc_tls_check_blocked(SSL *ssl, int ret) {
+	if (!ssl)
+		return 0;
+	int err = SSL_get_error(ssl, ret);
+	dbg("TLS error code: %i -> %i", ret, err);
+	switch (err) {
+		case SSL_ERROR_ZERO_RETURN:
+			return 0; // eof
+		case SSL_ERROR_WANT_READ:
+		case SSL_ERROR_WANT_WRITE:
+		case SSL_ERROR_WANT_CONNECT:
+		case SSL_ERROR_WANT_ACCEPT:
+			errno = EAGAIN;
+			return -1;
+		case SSL_ERROR_SYSCALL:
+			return -1;
+	}
+	errno = EFAULT;
+	return -1;
+}
+
+static ssize_t ssrc_tls_write(void *fd, const void *b, size_t s) {
+	SSL *ssl = fd;
+	ssrc_tls_log_errors();
+	int ret = SSL_write(ssl, b, s);
+	if (ret > 0)
+		return ret;
+	return ssrc_tls_check_blocked(ssl, ret);
+}
+static ssize_t ssrc_tls_read(void *fd, void *b, size_t s) {
+	SSL *ssl = fd;
+	ssrc_tls_log_errors();
+	int ret = SSL_read(ssl, b, s);
+	if (ret > 0)
+		return ret;
+	return ssrc_tls_check_blocked(ssl, ret);
+}
 
 static void packet_free(void *p) {
 	packet_t *packet = p;
@@ -24,12 +82,73 @@ static void packet_free(void *p) {
 }
 
 
+static void ssrc_tls_shutdown(ssrc_t *ssrc) {
+	streambuf_destroy(ssrc->tls_fwd_stream);
+	ssrc->tls_fwd_stream = NULL;
+	resample_shutdown(&ssrc->tls_fwd_resampler);
+	if (ssrc->ssl)
+		SSL_free(ssrc->ssl);
+	ssrc->ssl = NULL;
+	if (ssrc->ssl_ctx)
+		SSL_CTX_free(ssrc->ssl_ctx);
+	ssrc->ssl_ctx = NULL;
+	close_socket(&ssrc->tls_fwd_sock);
+	ssrc->sent_intro = 0;
+}
+
+
+void ssrc_tls_state(ssrc_t *ssrc) {
+	int ret;
+
+	ssrc_tls_log_errors();
+	if (ssrc->tls_fwd_poller.state == PS_CONNECTING) {
+		int status = connect_socket_retry(&ssrc->tls_fwd_sock);
+		if (status == 0) {
+			dbg("TLS connection to %s doing handshake",
+				endpoint_print_buf(&tls_send_to_ep));
+			ssrc->tls_fwd_poller.state = PS_HANDSHAKE;
+			if ((ret = SSL_connect(ssrc->ssl)) == 1) {
+				dbg("TLS connection to %s established",
+						endpoint_print_buf(&tls_send_to_ep));
+				ssrc->tls_fwd_poller.state = PS_OPEN;
+				streambuf_writeable(ssrc->tls_fwd_stream);
+			}
+			else
+				ssrc_tls_check_blocked(ssrc->ssl, ret);
+		}
+		else if (status < 0) {
+			ilog(LOG_ERR, "Failed to connect TLS socket: %s", strerror(errno));
+			ssrc_tls_shutdown(ssrc);
+		}
+	}
+	else if (ssrc->tls_fwd_poller.state == PS_HANDSHAKE) {
+		if ((ret = SSL_connect(ssrc->ssl)) == 1) {
+			dbg("TLS connection to %s established",
+					endpoint_print_buf(&tls_send_to_ep));
+			ssrc->tls_fwd_poller.state = PS_OPEN;
+			streambuf_writeable(ssrc->tls_fwd_stream);
+		}
+		else
+			ssrc_tls_check_blocked(ssrc->ssl, ret);
+	}
+	else if (ssrc->tls_fwd_poller.state == PS_WRITE_BLOCKED) {
+		ssrc->tls_fwd_poller.state = PS_OPEN;
+		streambuf_writeable(ssrc->tls_fwd_stream);
+	}
+	else if (ssrc->tls_fwd_poller.state == PS_ERROR)
+		ssrc_tls_shutdown(ssrc);
+	ssrc_tls_log_errors();
+}
+
+
 void ssrc_free(void *p) {
 	ssrc_t *s = p;
 	packet_sequencer_destroy(&s->sequencer);
 	output_close(s->output);
 	for (int i = 0; i < G_N_ELEMENTS(s->decoders); i++)
-		decoder_close(s->decoders[i]);
+		decoder_free(s->decoders[i]);
+	if (s->tls_fwd_stream)
+		ssrc_tls_shutdown(s);
 	g_slice_free1(sizeof(*s), s);
 }
 
@@ -49,18 +168,66 @@ static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
 	ret->ssrc = ssrc;
 	packet_sequencer_init(&ret->sequencer, packet_free);
 
-	char buf[256];
-	snprintf(buf, sizeof(buf), "%s-%08lx", mf->parent, ssrc);
-	if (output_single) {
-		ret->output = output_new(output_dir, buf);
-		db_do_stream(mf, ret->output, "single", stream, ssrc);
-	}
-
 	g_hash_table_insert(mf->ssrc_hash, GUINT_TO_POINTER(ssrc), ret);
 
 out:
 	pthread_mutex_lock(&ret->lock);
 	pthread_mutex_unlock(&mf->lock);
+
+	dbg("Init for SSRC %lx of stream #%lu", ret->ssrc, stream->id);
+
+	if (mf->recording_on && !ret->output && output_single) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "%s-%08lx", mf->parent, ssrc);
+		ret->output = output_new(output_dir, buf);
+		db_do_stream(mf, ret->output, "single", stream, ssrc);
+	}
+	if ((stream->forwarding_on || mf->forwarding_on) && !ret->tls_fwd_stream) {
+		// initialise the connection
+		ZERO(ret->tls_fwd_poller);
+		dbg("Starting TLS connection to %s", endpoint_print_buf(&tls_send_to_ep));
+		ret->ssl_ctx = SSL_CTX_new(TLS_client_method());
+		if (!ret->ssl_ctx) {
+			ilog(LOG_ERR, "Failed to create TLS context");
+			ssrc_tls_shutdown(ret);
+			goto tls_out;
+		}
+		ret->ssl = SSL_new(ret->ssl_ctx);
+		if (!ret->ssl) {
+			ilog(LOG_ERR, "Failed to create TLS connection");
+			ssrc_tls_shutdown(ret);
+			goto tls_out;
+		}
+		int status = connect_socket_nb(&ret->tls_fwd_sock, SOCK_STREAM, &tls_send_to_ep);
+		if (status < 0) {
+			ilog(LOG_ERR, "Failed to open/connect TLS socket to %s: %s",
+				endpoint_print_buf(&tls_send_to_ep),
+				strerror(errno));
+			ssrc_tls_shutdown(ret);
+			goto tls_out;
+		}
+
+		ret->tls_fwd_poller.state = PS_CONNECTING;
+		if (SSL_set_fd(ret->ssl, ret->tls_fwd_sock.fd) != 1) {
+			ilog(LOG_ERR, "Failed to set TLS fd");
+			ssrc_tls_shutdown(ret);
+			goto tls_out;
+		}
+		ret->tls_fwd_stream = streambuf_new_ptr(&ret->tls_fwd_poller, ret->ssl, &ssrc_tls_funcs);
+
+		ssrc_tls_state(ret);
+
+		ret->tls_fwd_format = (format_t) {
+			.clockrate = tls_resample,
+			.channels = 1,
+			.format = AV_SAMPLE_FMT_S16,
+		};
+tls_out:
+		;
+	}
+	else if (!(stream->forwarding_on || mf->forwarding_on) && ret->tls_fwd_stream)
+		ssrc_tls_shutdown(ret);
+
 	return ret;
 }
 
@@ -103,7 +270,7 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 	}
 
 	if (decoder_input(ssrc->decoders[payload_type], &packet->payload, ntohl(packet->rtp->timestamp),
-			ssrc->output, ssrc->metafile))
+			ssrc))
 		ilog(LOG_ERR, "Failed to decode media packet");
 }
 

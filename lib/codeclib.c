@@ -456,7 +456,6 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 
 	ret->pts = (uint64_t) -1LL;
 	ret->rtp_ts = (unsigned long) -1L;
-	ret->mixer_idx = (unsigned int) -1;
 
 	return ret;
 
@@ -488,7 +487,6 @@ void decoder_close(decoder_t *dec) {
 		dec->def->codec_type->decoder_close(dec);
 
 	resample_shutdown(&dec->resampler);
-	resample_shutdown(&dec->mix_resampler);
 	g_slice_free1(sizeof(*dec), dec);
 }
 
