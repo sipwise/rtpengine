@@ -70,9 +70,9 @@ static void meta_destroy(metafile_t *mf) {
 // mf is locked
 static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *content) {
 	db_do_call(mf);
-	if (output_enabled) {
+	if (output_enabled && output_mixed) {
 		pthread_mutex_lock(&mf->mix_lock);
-		if (!mf->mix && output_mixed) {
+		if (!mf->mix) {
 			char buf[256];
 			snprintf(buf, sizeof(buf), "%s-mix", mf->parent);
 			mf->mix_out = output_new(output_dir, buf);
@@ -107,7 +107,7 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 		ilog(LOG_ERR, "Payload type number %u is invalid", payload_num);
 		return;
 	}
-	if (output_enabled) {
+	if (decoding_enabled) {
 		pthread_mutex_lock(&mf->payloads_lock);
 		mf->payload_types[payload_num] = g_string_chunk_insert(mf->gsc,
 				payload_type);
@@ -119,6 +119,7 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 // mf is locked
 static void meta_metadata(metafile_t *mf, char *content) {
 	mf->metadata = g_string_chunk_insert(mf->gsc, content);
+	mf->metadata_db = mf->metadata;
 	db_do_call(mf);
 	if (forward_to)
 		start_forwarding_capture(mf, content);
@@ -146,6 +147,12 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		tag_name(mf, lu, content);
 	else if (sscanf_match(section, "LABEL %lu", &lu) == 1)
 		tag_label(mf, lu, content);
+	else if (sscanf_match(section, "RECORDING %u", &u) == 1)
+		mf->recording_on = u ? 1 : 0;
+	else if (sscanf_match(section, "FORWARDING %u", &u) == 1)
+		mf->forwarding_on = u ? 1 : 0;
+	else if (sscanf_match(section, "STREAM %lu FORWARDING %u", &lu, &u) == 2)
+		stream_forwarding_on(mf, lu, u);
 }
 
 
@@ -167,8 +174,9 @@ static metafile_t *metafile_get(char *name) {
 	mf->forward_fd = -1;
 	mf->forward_count = 0;
 	mf->forward_failed = 0;
+	mf->recording_on = 1;
 
-	if (output_enabled) {
+	if (decoding_enabled) {
 		pthread_mutex_init(&mf->payloads_lock, NULL);
 		pthread_mutex_init(&mf->mix_lock, NULL);
 		mf->ssrc_hash = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, ssrc_free);

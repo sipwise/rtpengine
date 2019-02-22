@@ -90,12 +90,6 @@ enum call_type {
 #define RTP_LOOP_MAX_COUNT	30 /* number of consecutively detected dupes to trigger protection */
 #endif
 
-#ifdef __DEBUG
-#define __C_DBG(x...) ilog(LOG_DEBUG, x)
-#else
-#define __C_DBG(x...) ((void)0)
-#endif
-
 #define IS_FOREIGN_CALL(c) (c->foreign_call)
 #define IS_OWN_CALL(c) !IS_FOREIGN_CALL(c)
 
@@ -370,6 +364,7 @@ struct call_monologue {
 
 	int			block_dtmf:1;
 	int			block_media:1;
+	int			rec_forwarding:1;
 };
 
 struct call {
@@ -408,6 +403,8 @@ struct call {
 
 	int			block_dtmf:1;
 	int			block_media:1;
+	int			recording_on:1;
+	int			rec_forwarding:1;
 };
 
 

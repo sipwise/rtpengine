@@ -4,6 +4,8 @@
 
 #include <arpa/inet.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 
 
@@ -103,7 +105,7 @@ extern socktype_t *socktype_udp;
 
 
 
-#include "aux.h"
+#include "auxlib.h"
 
 
 INLINE int sockaddr_print(const sockaddr_t *a, char *buf, size_t len) {

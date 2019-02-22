@@ -24,6 +24,8 @@
 #include "output.h"
 #include "forward.h"
 #include "codeclib.h"
+#include "socket.h"
+#include "ssllib.h"
 
 
 
@@ -36,12 +38,16 @@ static const char *output_format = "wav";
 int output_mixed;
 int output_single;
 int output_enabled = 1;
+int decoding_enabled;
 const char *c_mysql_host,
       *c_mysql_user,
       *c_mysql_pass,
       *c_mysql_db;
 int c_mysql_port;
 const char *forward_to = NULL;
+static const char *tls_send_to = NULL;
+endpoint_t tls_send_to_ep;
+int tls_resample = 8000;
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
@@ -65,8 +71,11 @@ static void signals(void) {
 
 static void setup(void) {
 	log_init("rtpengine-recording");
-	if (output_enabled) {
+	rtpe_ssl_init();
+	socket_init();
+	if (decoding_enabled)
 		codeclib_init(0);
+	if (output_enabled) {
 		output_init(output_format);
 		if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
 			ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
@@ -153,23 +162,34 @@ static void options(int *argc, char ***argv) {
 		{ "mysql-user",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_user,	"MySQL connection credentials",		"USERNAME"	},
 		{ "mysql-pass",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_pass,	"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-db",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_db,	"MySQL database name",			"STRING"	},
-		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,    &forward_to,	"Where to forward to (unix socket)",	"PATH"		},
+		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,	&forward_to,	"Where to forward to (unix socket)",	"PATH"		},
+		{ "tls-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tls_send_to,	"Where to send to (TLS destination)",	"IP:PORT"	},
+		{ "tls-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TLS PCM output",	"INT"		},
 		{ NULL, }
 	};
 
 	config_load(argc, argv, e, " - rtpengine recording daemon",
 			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording", &rtpe_common_config);
 
+	if (tls_send_to) {
+		if (endpoint_parse_any_getaddrinfo_full(&tls_send_to_ep, tls_send_to))
+			die("Failed to parse 'tls-send-to' option");
+	}
+
 	if (!strcmp(output_format, "none")) {
 		output_enabled = 0;
 		if (output_mixed || output_single)
 			die("Output is disabled, but output-mixed or output-single is set");
-		if (!forward_to) {
+		if (!forward_to && !tls_send_to_ep.port) {
 			//the daemon has no function
-			die("Both output and packet forwarding are disabled");
+			die("Both output and forwarding are disabled");
 		}
+		output_format = NULL;
 	} else if (!output_mixed && !output_single)
 		output_mixed = output_single = 1;
+
+	if (output_enabled || tls_send_to_ep.port)
+		decoding_enabled = 1;
 
 	if (!os_str || !strcmp(os_str, "file"))
 		output_storage = OUTPUT_STORAGE_FILE;

@@ -8,9 +8,8 @@
 #include <netinet/udp.h>
 #include <sys/socket.h>
 #include "str.h"
-#include "media_socket.h"
 #include "xt_RTPENGINE.h"
-#include "call.h"
+#include "log.h"
 
 static int __ip4_addr_parse(sockaddr_t *dst, const char *src);
 static int __ip6_addr_parse(sockaddr_t *dst, const char *src);
@@ -697,9 +696,10 @@ int connect_socket_retry(socket_t *r) {
 	int ret = 0;
 
 	if (r->family->connect(r, &r->remote)) {
-		if (errno != EINPROGRESS && errno != EALREADY)
+		if (errno != EINPROGRESS && errno != EALREADY && errno != EISCONN)
 			goto fail;
-		ret = 1;
+		if (errno != EISCONN)
+			ret = 1;
 	}
 
 	return ret;

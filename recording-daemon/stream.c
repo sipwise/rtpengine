@@ -75,7 +75,7 @@ static void stream_handler(handler_t *handler) {
 		else
 			g_atomic_int_inc(&stream->metafile->forward_count);
 	}
-	if (output_enabled)
+	if (decoding_enabled)
 		packet_process(stream, buf, ret); // consumes buf
 	else
 		free(buf);
@@ -139,4 +139,10 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 void stream_details(metafile_t *mf, unsigned long id, unsigned int tag) {
 	stream_t *stream = stream_get(mf, id);
 	stream->tag = tag;
+}
+
+void stream_forwarding_on(metafile_t *mf, unsigned long id, unsigned int on) {
+	stream_t *stream = stream_get(mf, id);
+	dbg("Setting forwarding flag to %u for stream #%lu", on, stream->id);
+	stream->forwarding_on = on ? 1 : 0;
 }

@@ -8,8 +8,9 @@
 extern int resample_audio;
 
 
-decoder_t *decoder_new(const char *payload_str, output_t *);
-int decoder_input(decoder_t *, const str *, unsigned long ts, output_t *, metafile_t *);
+decode_t *decoder_new(const char *payload_str, output_t *);
+int decoder_input(decode_t *, const str *, unsigned long ts, ssrc_t *);
+void decoder_free(decode_t *);
 
 
 #endif
