@@ -11,7 +11,7 @@ Requires=rpcbind.service
 Requires=nfs-client.target
 
 [Service]
-Type=oneshot
+Type=simple
 RemainAfterExit=yes
 ExecStart=/usr/sbin/ngcp-rtpengine-recording-nfs-setup start
 ExecStop=/usr/sbin/ngcp-rtpengine-recording-nfs-setup stop
