@@ -72,6 +72,7 @@ static void __start(const char *file, int line) {
 
 #define transcode(codec) g_queue_push_tail(&flags.codec_transcode, sdup(#codec))
 
+#ifdef WITH_AMR_TESTS
 static void codec_set(char *c) {
 	// from call_ng_flags_str_ht_split
 	c = strdup(c);
@@ -87,6 +88,7 @@ static void codec_set(char *c) {
 		splitter.len = c - splitter.s;
 	}
 }
+#endif
 
 #define sdp_pt_fmt(num, codec, clockrate, fmt) \
 	__sdp_pt_fmt(num, (str) STR_CONST_INIT(#codec), clockrate, (str) STR_CONST_INIT(#codec "/" #clockrate), \
@@ -132,6 +134,7 @@ static void __expect(const char *file, int line, GQueue *dumper, const char *cod
 	g_string_free(s, TRUE);
 }
 
+#ifdef WITH_AMR_TESTS
 #define check_encoder(side, in_pt, out_pt, out_bitrate) \
 	__check_encoder(__FILE__, __LINE__, media_ ## side, in_pt, out_pt, out_bitrate)
 
@@ -149,6 +152,7 @@ static void __check_encoder(const char *file, int line, struct call_media *m, in
 	}
 	printf("test ok: %s:%i\n", file, line);
 }
+#endif
 
 #define packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_exp, fatal) \
 	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST_INIT(pload), \
@@ -490,6 +494,7 @@ int main() {
 	packet(B, 0, PCMU_payload, 0, PCMU_payload);
 	end();
 
+#ifdef WITH_AMR_TESTS
 	{
 		str codec_name = STR_CONST_INIT("AMR-WB");
 		const codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
@@ -682,6 +687,7 @@ int main() {
 			end();
 		}
 	}
+#endif
 
 	// G.722 <> PCMA
 	start();
