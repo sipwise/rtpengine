@@ -453,6 +453,7 @@ int main() {
 	packet(B, 0, PCMU_payload, 0, PCMU_payload);
 	end();
 
+#ifdef WITH_AMR_TESTS
 	{
 		str codec_name = STR_CONST_INIT("AMR-WB");
 		const codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
@@ -522,6 +523,7 @@ int main() {
 			end();
 		}
 	}
+#endif
 
 	// G.722 <> PCMA
 	start();
