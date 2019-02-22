@@ -131,8 +131,7 @@ struct decoder_s {
 	format_t in_format,
 		 out_format;
 
-	resample_t resampler,
-		   mix_resampler; // XXX move this out of here - specific to recording-daemon
+	resample_t resampler;
 
 	union {
 		struct {
@@ -146,8 +145,6 @@ struct decoder_s {
 
 	unsigned long rtp_ts;
 	uint64_t pts;
-
-	unsigned int mixer_idx;
 };
 
 struct encoder_s {

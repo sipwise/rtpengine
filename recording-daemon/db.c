@@ -214,7 +214,7 @@ static void db_do_call_id(metafile_t *mf) {
 	execute_wrap(&stm_insert_call, b, &mf->db_id);
 }
 static void db_do_call_metadata(metafile_t *mf) {
-	if (!mf->metadata)
+	if (!mf->metadata_db)
 		return;
 	if (mf->db_id == 0)
 		return;
@@ -224,7 +224,7 @@ static void db_do_call_metadata(metafile_t *mf) {
 
 	// XXX offload this parsing to proxy module -> bencode list/dictionary
 	str all_meta;
-	str_init(&all_meta, mf->metadata);
+	str_init(&all_meta, mf->metadata_db);
 	while (all_meta.len > 1) {
 		str token;
 		if (str_token_sep(&token, &all_meta, '|'))
@@ -242,7 +242,7 @@ static void db_do_call_metadata(metafile_t *mf) {
 		execute_wrap(&stm_insert_metadata, b, NULL);
 	}
 
-	mf->metadata = NULL;
+	mf->metadata_db = NULL;
 }
 
 void db_do_call(metafile_t *mf) {

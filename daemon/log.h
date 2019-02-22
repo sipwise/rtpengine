@@ -48,5 +48,12 @@ void dtmflog(GString *s);
 void log_format(enum log_format);
 void __ilog(int prio, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 
+// call debug
+#ifdef __DEBUG
+#define __C_DBG(x...) ilog(LOG_DEBUG, x)
+#else
+#define __C_DBG(x...) ((void)0)
+#endif
+
 
 #endif

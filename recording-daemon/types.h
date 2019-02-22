@@ -10,14 +10,19 @@
 #include <libavutil/channel_layout.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/audio_fifo.h>
+#include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include "str.h"
 #include "codeclib.h"
+#include "poller.h"
+#include "socket.h"
 
 
 struct iphdr;
 struct ip6_hdr;
 struct udphdr;
 struct rtp_header;
+struct streambuf;
 
 
 struct handler_s;
@@ -28,6 +33,8 @@ struct output_s;
 typedef struct output_s output_t;
 struct mix_s;
 typedef struct mix_s mix_t;
+struct decode_s;
+typedef struct decode_s decode_t;
 
 
 typedef void handler_func(handler_t *);
@@ -47,6 +54,7 @@ struct stream_s {
 	unsigned long tag;
 	int fd;
 	handler_t handler;
+	int forwarding_on:1;
 };
 typedef struct stream_s stream_t;
 
@@ -71,8 +79,19 @@ struct ssrc_s {
 	metafile_t *metafile;
 	unsigned long ssrc;
 	packet_sequencer_t sequencer;
-	decoder_t *decoders[128];
+	decode_t *decoders[128];
 	output_t *output;
+
+	// TLS output
+	format_t tls_fwd_format;
+	resample_t tls_fwd_resampler;
+	socket_t tls_fwd_sock;
+	//BIO *bio;
+	SSL_CTX *ssl_ctx;
+	SSL *ssl;
+	struct streambuf *tls_fwd_stream;
+	struct poller tls_fwd_poller;
+	int sent_intro:1;
 };
 typedef struct ssrc_s ssrc_t;
 
@@ -91,6 +110,7 @@ struct metafile_s {
 	char *parent;
 	char *call_id;
 	char *metadata;
+	char *metadata_db;
 	off_t pos;
 	unsigned long long db_id;
 
@@ -110,6 +130,9 @@ struct metafile_s {
 
 	pthread_mutex_t payloads_lock;
 	char *payload_types[128];
+
+	int recording_on:1;
+	int forwarding_on:1;
 };
 
 
@@ -132,6 +155,13 @@ struct output_s {
 //	int64_t mux_dts; // last dts passed to muxer
 //	AVFrame *frame;
 	encoder_t *encoder;
+};
+
+
+struct decode_s {
+	decoder_t *dec;
+	resample_t mix_resampler;
+	unsigned int mixer_idx;
 };
 
 
