@@ -1073,6 +1073,8 @@ a string and determines the type of message. Currently the following commands ar
 * unblock DTMF
 * block media
 * unblock media
+* start forwarding
+* stop forwarding
 
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
@@ -1998,3 +2000,11 @@ of DTMF events can be enabled and disabled at any time during call runtime.
 Analogous to `block DTMF` and `unblock DTMF` but blocks media packets instead of DTMF packets. DTMF packets
 can still pass through when media blocking is enabled. Media packets can be blocked for an entire call, or
 directionally for individual participants. See `block DTMF` above for details.
+
+`start forwarding` and `stop forwarding` Messages
+-------------------------------------------------
+These messages control the recording daemon's mechanism to forward PCM via TCP/TLS. Unlike the call recording
+mechanism, forwarding can be enabled for individual participants (directionally) only, therefore these
+messages can be used with the same options as the `block` and `unblock` messages above. The PCM forwarding
+mechanism is independent of the call recording mechanism, and so forwarding and recording can be started
+and stopped independently of each other.
