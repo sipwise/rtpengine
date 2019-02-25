@@ -186,7 +186,11 @@ out:
 		// initialise the connection
 		ZERO(ret->tls_fwd_poller);
 		dbg("Starting TLS connection to %s", endpoint_print_buf(&tls_send_to_ep));
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 		ret->ssl_ctx = SSL_CTX_new(TLS_client_method());
+#else
+		ret->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
+#endif
 		if (!ret->ssl_ctx) {
 			ilog(LOG_ERR, "Failed to create TLS context");
 			ssrc_tls_shutdown(ret);

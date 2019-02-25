@@ -5,6 +5,7 @@
 #include <assert.h>
 #include "compat.h"
 #include <openssl/rand.h>
+#include <pthread.h>
 
 
 #define THREAD_BUF_SIZE		64

@@ -1,6 +1,7 @@
 #include "ssllib.h"
 #include <openssl/ssl.h>
 #include <time.h>
+#include "auxlib.h"
 
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
