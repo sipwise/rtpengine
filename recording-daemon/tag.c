@@ -2,7 +2,7 @@
 
 
 // XXX copied from stream.c - unify?
-static tag_t *tag_get(metafile_t *mf, unsigned long id) {
+tag_t *tag_get(metafile_t *mf, unsigned long id) {
 	if (mf->tags->len <= id)
 		g_ptr_array_set_size(mf->tags, id + 1);
 	tag_t *ret = g_ptr_array_index(mf->tags, id);

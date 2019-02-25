@@ -6,6 +6,7 @@
 #include "types.h"
 #include "main.h"
 #include "log.h"
+#include "tag.h"
 
 
 static MYSQL __thread *mysql_conn;
@@ -286,8 +287,8 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stre
 		.buffer_length = sizeof(ssrc),
 		.is_unsigned = 1,
 	};
-	if (stream && mf->tags->len > stream->tag) {
-		tag_t *tag = g_ptr_array_index(mf->tags, stream->tag);
+	if (stream) {
+		tag_t *tag = tag_get(mf, stream->tag);
 		my_cstr(&b[9], tag->label ? : "");
 	}
 	else
