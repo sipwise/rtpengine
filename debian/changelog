@@ -1,3 +1,51 @@
+ngcp-rtpengine (7.2.1.0+0~mr7.2.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5c556ef] don't abort on failed EPOLL_CTL_MOD
+  * [0c559f5] Add missing SDES accept routine
+  * [415af36] don't add rtpmap or mid attributes for deleted/silenced streams
+  * [c0d1a05] provide linear alternative to bsearch for kernels < 3.0
+  * [aaccc10] fix el init script inserting duplicate iptables rules
+  * [5722f8b] TT#50954 use <STDIN> instead of <<>> for older Perl versions
+  * [aa0001d] add SRTCP debug helper script
+  * [0811c59] fix bug with incorrect open3 redirection for test suite
+  * [4266f8e] move SDES-no handling into __sdes_accept
+  * [8d625cc] add auto test suites for #661
+  * [3cdfe5a] suppress loading of default config file for auto tests
+  * [88c81be] fix incorrect VA format in die_errno()
+  * [fa90e4d] fix test suites for 0c9bb7c
+  * [c33399a] fix test suites for different implementations of base64 encoding
+  * [daa0bf9] fix tests compilation for with_transcoding=no
+  * [490d7eb] disable all AMR tests by default due to inconsistent codec libs
+  * [3b28460] TT#52651 Squashed commit of the following:
+  * [717021a] add ssllib to gitignore
+  * [6c3a6b5] add documentation for PCM forwarding feature (3b284605)
+  * [4bb1381] compile fixes for older openssl versions
+  * [072bfb8] fix possible null pointer reference
+  * [497c2d6] TT#49104 move RTP sequencing into SSRC context
+
+  [ Denis Maksimov ]
+  * [e28ca4b] add BuildRequires: gperf in spec file
+
+  [ Guillem Jover ]
+  * [ff3b821] TT#50954 Use <<>> instead of <> as that has unsafe semantics
+  * [048b6ed] TT#50752 Add ngcp-service aliases in systemd service files
+  * [b290bb8] TT#53700 Switch nfs-mount systemd service from Type oneshot to simple
+
+  [ Michael Prokop ]
+  * [e5956f7] el init script: ensure TABLE is set by default
+  * [b5c350b] el init scripts: send errors to stderr and exit with proper return code
+
+  [ Alexey Vasilyev ]
+  * [0c9bb7c] Rename crypto suits according to RFC6188
+
+  [ Sean Bright ]
+  * [3f2a824] README.md: Update main bcg279 link
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 25 Feb 2019 22:59:10 +0100
+
 ngcp-rtpengine (7.2.0.0+0~mr7.2.0.0) unstable; urgency=medium
 
   [ Guillem Jover ]
