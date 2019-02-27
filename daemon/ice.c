@@ -10,6 +10,7 @@
 #include "stun.h"
 #include "poller.h"
 #include "log_funcs.h"
+#include "timerthread.h"
 
 
 
@@ -50,14 +51,13 @@ static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv)
 static void __agent_deschedule(struct ice_agent *ag);
 static void __ice_agent_free_components(struct ice_agent *ag);
 static void __agent_shutdown(struct ice_agent *ag);
+static void ice_agents_timer_run(void *);
 
 
 
 static u_int64_t tie_breaker;
 
-static mutex_t ice_agents_timers_lock = MUTEX_STATIC_INIT;
-static cond_t ice_agents_timers_cond = COND_STATIC_INIT;
-static GTree *ice_agents_timers;
+static struct timerthread ice_agents_timer_thread;
 
 static const char ice_chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -248,6 +248,7 @@ static struct ice_agent *__ice_agent_new(struct call_media *media) {
 	struct call *call = media->call;
 
 	ag = obj_alloc0("ice_agent", sizeof(*ag), __ice_agent_free);
+	ag->tt_obj.tt = &ice_agents_timer_thread;
 	ag->call = obj_get(call);
 	ag->media = media;
 	mutex_init(&ag->lock);
@@ -280,7 +281,7 @@ static void __ice_reset(struct ice_agent *ag) {
 	__ice_agent_free_components(ag);
 	ZERO(ag->active_components);
 	ZERO(ag->start_nominating);
-	ZERO(ag->last_run);
+	ZERO(ag->tt_obj.last_run);
 	__ice_agent_initialize(ag);
 }
 
@@ -478,7 +479,7 @@ void ice_shutdown(struct ice_agent **agp) {
 	__agent_deschedule(ag);
 
 	*agp = NULL;
-	obj_put(ag);
+	obj_put(&ag->tt_obj);
 }
 static void __ice_agent_free_components(struct ice_agent *ag) {
 	if (!ag) {
@@ -527,56 +528,29 @@ static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv)
 	struct timeval nxt;
 	long long diff;
 
-	if (!ag) {
-		ilog(LOG_ERR, "ice ag is NULL");
+	if (!ag)
 		return;
-	}
 
 	nxt = *tv;
 
-	mutex_lock(&ice_agents_timers_lock);
-	if (ag->last_run.tv_sec) {
+	mutex_lock(&ice_agents_timer_thread.lock);
+	if (ag->tt_obj.last_run.tv_sec) {
 		/* make sure we don't run more often than we should */
-		diff = timeval_diff(&nxt, &ag->last_run);
+		diff = timeval_diff(&nxt, &ag->tt_obj.last_run);
 		if (diff < TIMER_RUN_INTERVAL * 1000)
 			timeval_add_usec(&nxt, TIMER_RUN_INTERVAL * 1000 - diff);
 	}
-	if (ag->next_check.tv_sec && timeval_cmp(&ag->next_check, &nxt) <= 0)
-		goto nope; /* already scheduled sooner */
-	if (!g_tree_remove(ice_agents_timers, ag))
-		obj_hold(ag); /* if it wasn't removed, we make a new reference */
-	ag->next_check = nxt;
-	g_tree_insert(ice_agents_timers, ag, ag);
-	cond_broadcast(&ice_agents_timers_cond);
-nope:
-	mutex_unlock(&ice_agents_timers_lock);
+	timerthread_obj_schedule_abs_nl(&ag->tt_obj, &nxt);
+	mutex_unlock(&ice_agents_timer_thread.lock);
 }
 static void __agent_deschedule(struct ice_agent *ag) {
-	int ret;
-
-	if (!ag) {
-		ilog(LOG_ERR, "ice ag is NULL");
-		return;
-	}
-
-	mutex_lock(&ice_agents_timers_lock);
-	if (!ag->next_check.tv_sec)
-		goto nope; /* already descheduled */
-	ret = g_tree_remove(ice_agents_timers, ag);
-	ZERO(ag->next_check);
-	if (ret)
-		obj_put(ag);
-nope:
-	mutex_unlock(&ice_agents_timers_lock);
+	if (ag)
+		timerthread_obj_deschedule(&ag->tt_obj);
 }
 
-static int __ice_agent_timer_cmp(const void *a, const void *b) {
-	const struct ice_agent *A = a, *B = b;
-	return timeval_cmp_ptr(&A->next_check, &B->next_check);
-}
 void ice_init(void) {
 	random_string((void *) &tie_breaker, sizeof(tie_breaker));
-	ice_agents_timers = g_tree_new(__ice_agent_timer_cmp);
+	timerthread_init(&ice_agents_timer_thread, ice_agents_timer_run);
 }
 
 
@@ -1299,58 +1273,22 @@ err:
 
 
 void ice_thread_run(void *p) {
-	struct ice_agent *ag;
+	timerthread_run(&ice_agents_timer_thread);
+}
+static void ice_agents_timer_run(void *ptr) {
+	struct ice_agent *ag = ptr;
 	struct call *call;
-	long long sleeptime;
-	struct timeval tv;
 
-	mutex_lock(&ice_agents_timers_lock);
+	call = ag->call;
+	log_info_ice_agent(ag);
+	rwlock_lock_r(&call->master_lock);
 
-	while (!rtpe_shutdown) {
-		gettimeofday(&rtpe_now, NULL);
+	/* and run our checks */
+	__do_ice_checks(ag);
 
-		/* lock our list and get the first element */
-		ag = g_tree_find_first(ice_agents_timers, NULL, NULL);
-		/* scheduled to run? if not, we just go to sleep, otherwise we remove it from the tree,
-		 * steal the reference and run it */
-		if (!ag)
-			goto sleep;
-		if (timeval_cmp(&rtpe_now, &ag->next_check) < 0)
-			goto sleep;
-
-		g_tree_remove(ice_agents_timers, ag);
-		ZERO(ag->next_check);
-		ag->last_run = rtpe_now;
-		mutex_unlock(&ice_agents_timers_lock);
-
-		/* this agent is scheduled to run right now */
-
-		/* lock the call */
-		call = ag->call;
-		log_info_ice_agent(ag);
-		rwlock_lock_r(&call->master_lock);
-
-		/* and run our checks */
-		__do_ice_checks(ag);
-
-		/* finally, release our reference and start over */
-		log_info_clear();
-		rwlock_unlock_r(&call->master_lock);
-		obj_put(ag);
-		mutex_lock(&ice_agents_timers_lock);
-		continue;
-
-sleep:
-		/* figure out how long we should sleep */
-		sleeptime = ag ? timeval_diff(&ag->next_check, &rtpe_now) : 100000;
-		sleeptime = MIN(100000, sleeptime); /* 100 ms at the most */
-		tv = rtpe_now;
-		timeval_add_usec(&tv, sleeptime);
-		cond_timedwait(&ice_agents_timers_cond, &ice_agents_timers_lock, &tv);
-		continue;
-	}
-
-	mutex_unlock(&ice_agents_timers_lock);
+	/* finally, release our reference and start over */
+	log_info_clear();
+	rwlock_unlock_r(&call->master_lock);
 }
 
 static void random_ice_string(char *buf, int len) {

@@ -12,6 +12,7 @@
 #include "aux.h"
 #include "media_socket.h"
 #include "socket.h"
+#include "timerthread.h"
 
 
 
@@ -101,7 +102,7 @@ struct ice_candidate_pair {
 
 /* these are protected by the call's master_lock */
 struct ice_agent {
-	struct obj		obj;
+	struct timerthread_obj	tt_obj;
 	struct call		*call; /* main reference */
 	struct call_media	*media;
 	const struct logical_intf	*logical_intf;
@@ -128,9 +129,6 @@ struct ice_agent {
 	str			ufrag[2]; /* 0 = remote, 1 = local */
 	str			pwd[2]; /* ditto */
 	volatile unsigned int	agent_flags;
-
-	struct timeval		next_check; /* protected by ice_agents_timers_lock */
-	struct timeval		last_run; /* ditto */
 };
 
 
