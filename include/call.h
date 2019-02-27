@@ -198,6 +198,7 @@ struct ice_agent;
 struct ssrc_hash;
 struct codec_handler;
 struct rtp_payload_type;
+struct media_player;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -361,6 +362,7 @@ struct call_monologue {
 	struct call_monologue	*active_dialogue;
 	GQueue			medias;
 	GHashTable		*media_ids;
+	struct media_player	*player;
 
 	int			block_dtmf:1;
 	int			block_media:1;
