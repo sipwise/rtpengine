@@ -42,6 +42,7 @@
 #include "codeclib.h"
 #include "load.h"
 #include "ssllib.h"
+#include "media_player.h"
 
 
 
@@ -67,6 +68,7 @@ struct rtpengine_config rtpe_config = {
 	.redis_connect_timeout = 1000,
 	.rec_method = "pcap",
 	.rec_format = "raw",
+	.media_num_threads = -1,
 };
 
 
@@ -341,6 +343,7 @@ static void options(int *argc, char ***argv) {
 		{ "log-format",	0, 0,	G_OPTION_ARG_STRING,	&log_format,	"Log prefix format",		"default|parsable"},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&rtpe_config.fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only, 2: Kamailio",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.num_threads,	"Number of worker threads to create",	"INT"	},
+		{ "media-num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.media_num_threads,	"Number of worker threads for media playback",	"INT"	},
 		{ "delete-delay",  'd', 0, G_OPTION_ARG_INT,    &rtpe_config.delete_delay,  "Delay for deleting a session from memory.",    "INT"   },
 		{ "sip-source",  0,  0, G_OPTION_ARG_NONE,	&sip_source,	"Use SIP source address by default",	NULL	},
 		{ "dtls-passive", 0, 0, G_OPTION_ARG_NONE,	&dtls_passive_def,"Always prefer DTLS passive role",	NULL	},
@@ -559,6 +562,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->redis_write_db = rtpe_config.redis_write_db;
 	ini_rtpe_cfg->no_redis_required = rtpe_config.no_redis_required;
 	ini_rtpe_cfg->num_threads = rtpe_config.num_threads;
+	ini_rtpe_cfg->media_num_threads = rtpe_config.media_num_threads;
 	ini_rtpe_cfg->fmt = rtpe_config.fmt;
 	ini_rtpe_cfg->log_format = rtpe_config.log_format;
 	ini_rtpe_cfg->redis_allowed_errors = rtpe_config.redis_allowed_errors;
@@ -617,6 +621,7 @@ static void init_everything() {
 		abort();
 	statistics_init();
 	codeclib_init(0);
+	media_player_init();
 }
 
 
@@ -779,6 +784,13 @@ int main(int argc, char **argv) {
 	for (;idx<rtpe_config.num_threads;++idx) {
 		thread_create_detach_prio(poller_loop, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority);
 	}
+
+	if (rtpe_config.media_num_threads < 0)
+		rtpe_config.media_num_threads = rtpe_config.num_threads;
+	for (;idx<rtpe_config.media_num_threads;++idx) {
+		thread_create_detach_prio(media_player_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
+	}
+
 
 	while (!rtpe_shutdown) {
 		usleep(100000);

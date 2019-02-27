@@ -44,6 +44,7 @@
 #include "main.h"
 #include "graphite.h"
 #include "codec.h"
+#include "media_player.h"
 
 
 /* also serves as array index for callstream->peers[] */
@@ -2224,6 +2225,8 @@ void call_destroy(struct call *c) {
 
 			ice_shutdown(&md->ice_agent);
 		}
+
+		media_player_put(&ml->player);
 	}
 
 	k = g_hash_table_get_values(c->ssrc_hash->ht);
