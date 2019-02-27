@@ -429,59 +429,6 @@ INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 
 
 
-/*** TIMEVAL FUNCTIONS ***/
-
-INLINE long long timeval_us(const struct timeval *t) {
-	return (long long) ((long long) t->tv_sec * 1000000LL) + t->tv_usec;
-}
-INLINE void timeval_from_us(struct timeval *t, long long ms) {
-	t->tv_sec = ms/1000000LL;
-	t->tv_usec = ms%1000000LL;
-}
-INLINE long long timeval_diff(const struct timeval *a, const struct timeval *b) {
-	return timeval_us(a) - timeval_us(b);
-}
-INLINE void timeval_subtract(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	timeval_from_us(result, timeval_diff(a, b));
-}
-INLINE void timeval_multiply(struct timeval *result, const struct timeval *a, const long multiplier) {
-	timeval_from_us(result, timeval_us(a) * multiplier);
-}
-INLINE void timeval_divide(struct timeval *result, const struct timeval *a, const long divisor) {
-	if (divisor == 0) {
-		result->tv_sec = 0;
-		result->tv_usec = 0;
-		return ;
-	}
-	timeval_from_us(result, timeval_us(a) / divisor);
-}
-INLINE void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	timeval_from_us(result, timeval_us(a) + timeval_us(b));
-}
-INLINE void timeval_add_usec(struct timeval *tv, long usec) {
-	timeval_from_us(tv, timeval_us(tv) + usec);
-}
-INLINE int timeval_cmp(const struct timeval *a, const struct timeval *b) {
-	long long diff;
-	diff = timeval_diff(a, b);
-	if (diff < 0)
-		return -1;
-	if (diff > 0)
-		return 1;
-	return 0;
-}
-INLINE void timeval_lowest(struct timeval *l, const struct timeval *n) {
-	if (!n->tv_sec)
-		return;
-	if (!l->tv_sec || timeval_cmp(l, n) == 1)
-		*l = *n;
-}
-INLINE double ntp_ts_to_double(u_int32_t whole, u_int32_t frac) {
-	return (double) whole + (double) frac / 4294967296.0;
-}
-
-
-
 
 /*** ALLOC WITH UNIQUE ID HELPERS ***/
 
