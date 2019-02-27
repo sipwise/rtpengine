@@ -27,6 +27,7 @@
 #include "streambuf.h"
 #include "main.h"
 #include "load.h"
+#include "media_player.h"
 
 
 static pcre *info_re;
@@ -1726,6 +1727,49 @@ out:
 	}
 
 	return NULL;
+}
+
+
+const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
+	str callid, fromtag, file;
+	struct call *call;
+	struct call_monologue *monologue;
+	const char *err = NULL;
+
+	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+		return "No call-id in message";
+	call = call_get_opmode(&callid, OP_OTHER);
+	if (!call)
+		return "Unknown call-id";
+
+	err = "No participant party specified";
+	if (bencode_dictionary_get_str(input, "from-tag", &fromtag)) {
+		monologue = call_get_mono_dialogue(call, &fromtag, NULL, NULL);
+		err = "Unknown monologue from-tag";
+		if (!monologue)
+			goto out;
+	}
+	else
+		goto out;
+
+	if (!monologue->player)
+		monologue->player = media_player_new(monologue);
+
+	err = "No media file specified";
+	if (bencode_dictionary_get_str(input, "file", &file)) {
+		err = "Failed to start media playback from file";
+		if (media_player_play_file(monologue->player, &file))
+			goto out;
+	}
+	else
+		goto out;
+
+	err = NULL;
+
+out:
+	rwlock_unlock_w(&call->master_lock);
+	obj_put(call);
+	return err;
 }
 
 
