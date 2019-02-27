@@ -244,6 +244,9 @@ INLINE int timeval_cmp(const struct timeval *a, const struct timeval *b) {
 		return 1;
 	return 0;
 }
+// as a GCompareFunc
+int timeval_cmp_ptr(const void *a, const void *b);
+
 INLINE void timeval_lowest(struct timeval *l, const struct timeval *n) {
 	if (!n->tv_sec)
 		return;
