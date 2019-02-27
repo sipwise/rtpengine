@@ -237,3 +237,27 @@ int uint32_eq(const void *a, const void *b) {
 	const u_int32_t *A = a, *B = b;
 	return (*A == *B) ? TRUE : FALSE;
 }
+
+int timeval_cmp_ptr(const void *a, const void *b) {
+	const struct timeval *A = a, *B = b;
+	int ret;
+
+	/* zero timevals go last */
+	if (A->tv_sec == 0 && B->tv_sec != 0)
+		return 1;
+	if (B->tv_sec == 0 && A->tv_sec == 0)
+		return -1;
+	if (A->tv_sec == 0 && B->tv_sec == 0)
+		goto ptr;
+	/* earlier timevals go first */
+	ret = timeval_cmp(A, B);
+	if (ret)
+		return ret;
+	/* equal timeval, so use pointer as tie breaker */
+ptr:
+	if (A < B)
+		return -1;
+	if (A > B)
+		return 1;
+	return 0;
+}

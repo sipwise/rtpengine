@@ -572,25 +572,7 @@ nope:
 
 static int __ice_agent_timer_cmp(const void *a, const void *b) {
 	const struct ice_agent *A = a, *B = b;
-	int ret;
-	/* zero timevals go last */
-	if (A->next_check.tv_sec == 0 && B->next_check.tv_sec != 0)
-		return 1;
-	if (B->next_check.tv_sec == 0 && A->next_check.tv_sec == 0)
-		return -1;
-	if (A->next_check.tv_sec == 0 && B->next_check.tv_sec == 0)
-		goto ptr;
-	/* earlier timevals go first */
-	ret = timeval_cmp(&A->next_check, &B->next_check);
-	if (ret)
-		return ret;
-	/* equal timeval, so use pointer as tie breaker */
-ptr:
-	if (A < B)
-		return -1;
-	if (A > B)
-		return 1;
-	return 0;
+	return timeval_cmp_ptr(&A->next_check, &B->next_check);
 }
 void ice_init(void) {
 	random_string((void *) &tie_breaker, sizeof(tie_breaker));
