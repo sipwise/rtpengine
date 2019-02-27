@@ -19,7 +19,7 @@ INLINE void log_info_clear(void) {
 			obj_put(log_info.u.stream_fd);
 			break;
 		case LOG_INFO_ICE_AGENT:
-			obj_put(log_info.u.ice_agent);
+			obj_put(&log_info.u.ice_agent->tt_obj);
 			break;
 		case LOG_INFO_STR:
 		case LOG_INFO_C_STRING:
@@ -61,7 +61,7 @@ INLINE void log_info_ice_agent(struct ice_agent *ag) {
 	if (!ag)
 		return;
 	log_info.e = LOG_INFO_ICE_AGENT;
-	log_info.u.ice_agent = obj_get(ag);
+	log_info.u.ice_agent = obj_get(&ag->tt_obj);
 }
 
 
