@@ -65,6 +65,7 @@ struct rtpengine_config {
 	char			*redis_auth;
 	char			*redis_write_auth;
 	int			num_threads;
+	int			media_num_threads;
 	char			*spooldir;
 	char			*rec_method;
 	char			*rec_format;
