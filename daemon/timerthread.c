@@ -60,6 +60,9 @@ void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struc
 	if (!tt_obj)
 		return;
 
+	ilog(LOG_DEBUG, "scheduling timer object at %llu.%06lu", (unsigned long long) tv->tv_sec,
+			(unsigned long) tv->tv_usec);
+
 	struct timerthread *tt = tt_obj->tt;
 	if (tt_obj->next_check.tv_sec && timeval_cmp(&tt_obj->next_check, tv) <= 0)
 		return; /* already scheduled sooner */

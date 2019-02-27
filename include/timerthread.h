@@ -30,4 +30,13 @@ void timerthread_obj_schedule_abs_nl(struct timerthread_obj *, const struct time
 void timerthread_obj_deschedule(struct timerthread_obj *);
 
 
+INLINE void timerthread_obj_schedule_abs(struct timerthread_obj *tt_obj, const struct timeval *tv) {
+	if (!tt_obj)
+		return;
+	mutex_lock(&tt_obj->tt->lock);
+	timerthread_obj_schedule_abs_nl(tt_obj, tv);
+	mutex_unlock(&tt_obj->tt->lock);
+}
+
+
 #endif

@@ -25,6 +25,7 @@ struct control_ng_stats {
 	int unblock_dtmf;
 	int block_media;
 	int unblock_media;
+	int play_media;
 	int errors;
 };
 
