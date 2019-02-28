@@ -78,6 +78,7 @@ struct transcode_packet {
 
 static codec_handler_func handler_func_passthrough_ssrc;
 static codec_handler_func handler_func_transcode;
+static codec_handler_func handler_func_playback;
 static codec_handler_func handler_func_dtmf;
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
@@ -97,6 +98,9 @@ static struct codec_handler codec_handler_stub_ssrc = {
 
 static void __handler_shutdown(struct codec_handler *handler) {
 	free_ssrc_hash(&handler->ssrc_hash);
+	if (handler->ssrc_handler)
+		obj_put(&handler->ssrc_handler->h);
+	handler->ssrc_handler = NULL;
 	handler->kernelize = 0;
 }
 
@@ -104,6 +108,9 @@ static void __codec_handler_free(void *pp) {
 	struct codec_handler *h = pp;
 	__handler_shutdown(h);
 	g_slice_free1(sizeof(*h), h);
+}
+void codec_handler_free(struct codec_handler *handler) {
+	__codec_handler_free(handler);
 }
 
 static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
@@ -167,6 +174,21 @@ reset:
 	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT " -> " STR_FORMAT "",
 			STR_FMT(&source->encoding_with_params),
 			STR_FMT(&dest->encoding_with_params));
+}
+
+struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_pt,
+		struct rtp_payload_type *dst_pt)
+{
+	struct codec_handler *handler = __handler_new(src_pt);
+	handler->dest_pt = *dst_pt;
+	handler->func = handler_func_playback;
+	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
+
+	ilog(LOG_DEBUG, "Created media playback context for " STR_FORMAT " -> " STR_FORMAT "",
+			STR_FMT(&src_pt->encoding_with_params),
+			STR_FMT(&dst_pt->encoding_with_params));
+
+	return handler;
 }
 
 static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) {
@@ -1048,6 +1070,12 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 	packet->func = packet_decode;
 
 	return __handler_func_sequencer(h, mp, packet);
+}
+
+static int handler_func_playback(struct codec_handler *h, struct media_packet *mp) {
+	decoder_input_data(h->ssrc_handler->decoder, &mp->payload, mp->rtp->timestamp,
+			__packet_decoded, h->ssrc_handler, mp);
+	return 0;
 }
 
 
