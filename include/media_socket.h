@@ -129,6 +129,8 @@ void __unkernelize(struct packet_stream *);
 void unkernelize(struct packet_stream *);
 void __stream_unconfirm(struct packet_stream *);
 
+int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink);
+
 /* XXX shouldn't be necessary */
 /*
 INLINE struct local_intf *get_interface_from_address(const struct logical_intf *lif,
