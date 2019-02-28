@@ -191,6 +191,7 @@ void codeclib_init(int);
 
 
 const codec_def_t *codec_find(const str *name, enum media_type);
+const codec_def_t *codec_find_by_av(enum AVCodecID);
 enum media_type codec_get_type(const str *type);
 
 
