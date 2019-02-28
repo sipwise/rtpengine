@@ -34,6 +34,10 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 
 resample.c:	fix_frame_channel_layout.h
 
+ifeq (, $(shell which gperf))
+$(error "No gperf binary found, make sure to have gperf installed")
+endif
+
 %.strhash.c:	%.c ../utils/const_str_hash
 	../utils/const_str_hash < $< > $@
 
