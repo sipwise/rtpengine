@@ -1,7 +1,10 @@
 #ifndef STATISTICS_H_
 #define STATISTICS_H_
 
-#include "call.h"
+#include "aux.h"
+
+struct call;
+struct packet_stream;
 
 struct stats {
 	atomic64			packets;
