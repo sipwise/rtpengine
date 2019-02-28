@@ -12,7 +12,7 @@ debug:
 dep:		.depend
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(ADD_CLEAN) .depend core core.*
+	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) .depend core core.*
 	rm -f fix_frame_channel_layout.h fix_frame_channel_layout-test.[co] *.strhash.c $(HASHSRCS)
 
 .depend:	$(SRCS) $(LIBSRCS) $(DAEMONSRCS) Makefile
