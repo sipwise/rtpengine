@@ -3,6 +3,9 @@
 use strict;
 use warnings;
 use IPC::Open2;
+use IPC::Cmd qw[can_run];
+
+can_run('gperf') or die 'No gperf binary found, make sure to have gperf installed!';
 
 print("/******** GENERATED FILE ********/\n");
 
