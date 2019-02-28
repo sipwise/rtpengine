@@ -379,6 +379,16 @@ const codec_def_t *codec_find(const str *name, enum media_type type) {
 	return ret;
 }
 
+const codec_def_t *codec_find_by_av(enum AVCodecID id) {
+	// XXX hash this
+	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
+		codec_def_t *def = &__codec_defs[i];
+		if (def->avcodec_id == id)
+			return def;
+	}
+	return NULL;
+}
+
 enum media_type codec_get_type(const str *type) {
 	if (!type || !type->len)
 		return MT_UNKNOWN;
