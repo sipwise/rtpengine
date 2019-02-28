@@ -953,7 +953,7 @@ static void __free_ssrc_handler(void *chp) {
 static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
-	unsigned int seq_off = 0;
+	unsigned int seq_off = mp->iter ? 1 : 0;
 
 	ilog(LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
 			(unsigned long long) enc->avpkt.pts, enc->avpkt.size);
@@ -987,6 +987,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		__output_rtp(mp, ch, ch->handler, buf, inout.len, ch->first_ts
 				+ enc->avpkt.pts / enc->def->clockrate_mult,
 				0, -1, seq_off);
+		mp->iter++;
 
 		if (ret == 0) {
 			// no more to go
@@ -1003,13 +1004,16 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 
 static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
+	struct media_packet *mp = u2;
 
 	ilog(LOG_DEBUG, "RTP media successfully decoded: TS %llu, samples %u",
 			(unsigned long long) frame->pts, frame->nb_samples);
 
-	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, u2);
+	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, mp);
 
 	av_frame_free(&frame);
+	mp->iter++;
+
 	return 0;
 }
 
