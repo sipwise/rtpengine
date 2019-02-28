@@ -1572,6 +1572,25 @@ out:
 }
 
 
+// appropriate locks must be held
+int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
+	struct codec_packet *p;
+	while ((p = g_queue_pop_head(&mp->packets_out))) {
+		__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&sink->endpoint.address),
+				sink->endpoint.port);
+
+		int ret = socket_sendto(&sink->selected_sfd->socket,
+				p->s.s, p->s.len, &sink->endpoint);
+
+		codec_packet_free(p);
+
+		if (ret == -1)
+			return -1;
+	}
+	return 0;
+}
+
+
 /* called lock-free */
 static int stream_packet(struct packet_handler_ctx *phc) {
 /**
@@ -1696,19 +1715,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		goto drop;
 	}
 
-	struct codec_packet *p;
-	ret = 0;
-	while ((p = g_queue_pop_head(&phc->mp.packets_out))) {
-		__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&phc->sink->endpoint.address),
-				phc->sink->endpoint.port);
-
-		ret = socket_sendto(&phc->sink->selected_sfd->socket, p->s.s, p->s.len, &phc->sink->endpoint);
-
-		codec_packet_free(p);
-
-		if (ret == -1)
-			break;
-	}
+	ret = media_socket_dequeue(&phc->mp, phc->sink);
 
 	mutex_unlock(&phc->sink->out_lock);
 
