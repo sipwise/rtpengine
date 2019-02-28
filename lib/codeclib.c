@@ -611,7 +611,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		// shift pts according to rtp ts shift
 		u_int64_t shift_ts = ts - dec->rtp_ts;
 		if ((shift_ts * 1000) / dec->in_format.clockrate > PACKET_TS_RESET_THRES) {
-			ilog(LOG_DEBUG, "Timestamp disconinuity detected, resetting timestamp from "
+			ilog(LOG_DEBUG, "Timestamp discontinuity detected, resetting timestamp from "
 					"%lu to %lu",
 					dec->rtp_ts, ts);
 			// XXX handle lost packets here if timestamps don't line up?
