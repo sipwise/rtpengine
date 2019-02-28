@@ -12,6 +12,9 @@
 
 struct call;
 struct call_monologue;
+struct codec_handler;
+struct ssrc_ctx;
+struct packet_stream;
 
 
 struct media_player {
@@ -19,11 +22,16 @@ struct media_player {
 	mutex_t lock;
 	struct call *call;
 	struct call_monologue *ml;
+	struct call_media *media;
+	struct packet_stream *sink;
 
 	struct timeval next_run;
 
 	AVFormatContext *fmtctx;
 	AVPacket pkt;
+	struct codec_handler *handler;
+	struct ssrc_ctx *ssrc_out;
+	unsigned long seq;
 };
 
 
