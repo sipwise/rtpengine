@@ -787,6 +787,14 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 	const codec_def_t *def = codec_find(&ret->encoding, 0);
 	ret->codec_def = def;
 
+	codec_init_payload_type(ret, media);
+
+	return ret;
+}
+
+void codec_init_payload_type(struct rtp_payload_type *ret, struct call_media *media) {
+	const codec_def_t *def = ret->codec_def;
+
 #ifdef WITH_TRANSCODING
 	if (def) {
 		if (!ret->clock_rate)
@@ -823,13 +831,13 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 	char params[32] = "";
 
 	if (ret->channels > 1) {
-		snprintf(full_encoding, sizeof(full_encoding), STR_FORMAT "/%u/%i", STR_FMT(&codec),
+		snprintf(full_encoding, sizeof(full_encoding), STR_FORMAT "/%u/%i", STR_FMT(&ret->encoding),
 				ret->clock_rate,
 				ret->channels);
 		snprintf(params, sizeof(params), "%i", ret->channels);
 	}
 	else
-		snprintf(full_encoding, sizeof(full_encoding), STR_FORMAT "/%u", STR_FMT(&codec),
+		snprintf(full_encoding, sizeof(full_encoding), STR_FORMAT "/%u", STR_FMT(&ret->encoding),
 				ret->clock_rate);
 
 	str_init(&ret->encoding_with_params, full_encoding);
@@ -837,8 +845,6 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 
 	if (media)
 		__rtp_payload_type_dup(media->call, ret);
-
-	return ret;
 }
 
 

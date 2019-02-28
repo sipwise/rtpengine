@@ -45,6 +45,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 
 // special return value `(void *) 0x1` to signal type mismatch
 struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media);
+void codec_init_payload_type(struct rtp_payload_type *, struct call_media *);
 
 
 // used by redis
