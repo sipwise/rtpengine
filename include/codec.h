@@ -3,6 +3,7 @@
 
 
 #include <glib.h>
+#include <sys/time.h>
 #include "str.h"
 #include "codeclib.h"
 #include "aux.h"
@@ -36,6 +37,7 @@ struct codec_handler {
 struct codec_packet {
 	str s;
 	void (*free_func)(void *);
+	struct timeval to_send;
 };
 
 
