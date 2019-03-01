@@ -14,6 +14,10 @@
 
 
 
+#define DEFAULT_AVIO_BUFSIZE 4096
+
+
+
 static struct timerthread media_player_thread;
 
 
@@ -22,8 +26,7 @@ static struct timerthread media_player_thread;
 static void media_player_shutdown(struct media_player *mp) {
 	ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
-	avformat_free_context(mp->fmtctx);
-	mp->fmtctx = NULL;
+	avformat_close_input(&mp->fmtctx);
 	mp->media = NULL;
 	if (mp->handler)
 		codec_handler_free(mp->handler);
@@ -31,6 +34,15 @@ static void media_player_shutdown(struct media_player *mp) {
 	if (mp->ssrc_out)
 		obj_put(&mp->ssrc_out->parent->h);
 	mp->ssrc_out = NULL;
+	if (mp->avioctx) {
+		if (mp->avioctx->buffer)
+			av_freep(&mp->avioctx->buffer);
+		av_freep(&mp->avioctx);
+	}
+	if (mp->blob)
+		free(mp->blob);
+	mp->blob = NULL;
+	mp->read_pos = STR_NULL;
 }
 
 
@@ -238,8 +250,96 @@ int media_player_play_file(struct media_player *mp, const str *file) {
 
 	media_player_play_start(mp);
 
+	return 0;
+}
+
+
+static int __mp_avio_read_wrap(void *opaque, uint8_t *buf, int buf_size) {
+	struct media_player *mp = opaque;
+	if (buf_size < 0)
+		return AVERROR(EINVAL);
+	if (buf_size == 0)
+		return 0;
+	if (!mp->read_pos.len)
+		return AVERROR_EOF;
+
+	int len = buf_size;
+	if (len > mp->read_pos.len)
+		len = mp->read_pos.len;
+	memcpy(buf, mp->read_pos.s, len);
+	str_shift(&mp->read_pos, len);
+	return len;
+}
+static int __mp_avio_read(void *opaque, uint8_t *buf, int buf_size) {
+	ilog(LOG_DEBUG, "__mp_avio_read(%i)", buf_size);
+	int ret = __mp_avio_read_wrap(opaque, buf, buf_size);
+	ilog(LOG_DEBUG, "__mp_avio_read(%i) = %i", buf_size, ret);
+	return ret;
+}
+static int64_t __mp_avio_seek_set(struct media_player *mp, int64_t offset) {
+	ilog(LOG_DEBUG, "__mp_avio_seek_set(%" PRIi64 ")", offset);
+	if (offset < 0)
+		return AVERROR(EINVAL);
+	mp->read_pos = *mp->blob;
+	if (str_shift(&mp->read_pos, offset))
+		return AVERROR_EOF;
+	return offset;
+}
+static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
+	ilog(LOG_DEBUG, "__mp_avio_seek(%" PRIi64 ", %i)", offset, whence);
+	struct media_player *mp = opaque;
+	if (whence == SEEK_SET)
+		return __mp_avio_seek_set(mp, offset);
+	if (whence == SEEK_CUR)
+		return __mp_avio_seek_set(mp, ((int64_t) (mp->read_pos.s - mp->blob->s)) + offset);
+	if (whence == SEEK_END)
+		return __mp_avio_seek_set(mp, ((int64_t) mp->blob->len) + offset);
+	return AVERROR(EINVAL);
+}
+
+// call->master_lock held in W
+int media_player_play_blob(struct media_player *mp, const str *blob) {
+	const char *err;
+
+	if (media_player_play_init(mp))
+		return -1;
+
+	mp->blob = str_dup(blob);
+	err = "out of memory";
+	if (!mp->blob)
+		goto err;
+	mp->read_pos = *mp->blob;
+
+	err = "could not allocate AVFormatContext";
+	mp->fmtctx = avformat_alloc_context();
+	if (!mp->fmtctx)
+		goto err;
+
+	void *avio_buf = av_malloc(DEFAULT_AVIO_BUFSIZE);
+	err = "failed to allocate AVIO buffer";
+	if (!avio_buf)
+		goto err;
+
+	mp->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 0, mp, __mp_avio_read,
+			NULL, __mp_avio_seek);
+	err = "failed to allocate AVIOContext";
+	if (!mp->avioctx)
+		goto err;
+
+	mp->fmtctx->pb = mp->avioctx;
+
+	// consumes allocated mp->fmtctx
+	int ret = avformat_open_input(&mp->fmtctx, "dummy", NULL, NULL);
+	if (ret < 0)
+		return -1;
+
+	media_player_play_start(mp);
 
 	return 0;
+
+err:
+	ilog(LOG_ERR, "Failed to start media playback from memory: %s", err);
+	return -1;
 }
 
 
