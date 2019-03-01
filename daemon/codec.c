@@ -98,6 +98,7 @@ static struct codec_handler codec_handler_stub_ssrc = {
 static void __handler_shutdown(struct codec_handler *handler) {
 	free_ssrc_hash(&handler->ssrc_hash);
 	handler->kernelize = 0;
+	handler->transcoder = 0;
 }
 
 static void __codec_handler_free(void *pp) {
@@ -142,6 +143,8 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	assert(source->payload_type == handler->source_pt.payload_type);
 
 	// don't reset handler if it already matches what we want
+	if (!handler->transcoder)
+		goto reset;
 	if (rtp_payload_type_cmp(source, &handler->source_pt))
 		goto reset;
 	if (rtp_payload_type_cmp(dest, &handler->dest_pt))
@@ -161,6 +164,7 @@ reset:
 	handler->source_pt = *source;
 	handler->dest_pt = *dest;
 	handler->func = handler_func_transcode;
+	handler->transcoder = 1;
 
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
 
@@ -233,13 +237,34 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		}
 	}
 
-	// similarly, if the sink receive a codec that the receiver can't send, it's also transcoding
-	if (MEDIA_ISSET(sink, TRANSCODE)) {
+	// similarly, if the sink can receive a codec that the receiver can't send, it's also transcoding
+	// XXX these blocks should go into their own functions
+	if (MEDIA_ISSET(sink, TRANSCODE) && !sink_transcoding) {
 		for (GList *l = sink->codecs_prefs_recv.head; l; l = l->next) {
 			struct rtp_payload_type *pt = l->data;
-			if (!g_hash_table_lookup(receiver->codec_names_recv, &pt->encoding))
+			GQueue *recv_pts = g_hash_table_lookup(receiver->codec_names_recv, &pt->encoding);
+			if (!recv_pts) {
 				sink_transcoding = 1;
+				goto done;
+			}
+
+			// even if the receiver can receive the same codec that the sink can
+			// send, we might still have it configured as a transcoder due to
+			// always-transcode in the offer
+			for (GList *k = recv_pts->head; k; k = k->next) {
+				// XXX codec_handlers can be converted to g_direct_hash table
+				int pt = GPOINTER_TO_INT(k->data);
+				struct codec_handler *ch_recv =
+					g_hash_table_lookup(sink->codec_handlers, &pt);
+				if (!ch_recv)
+					continue;
+				if (ch_recv->transcoder) {
+					sink_transcoding = 1;
+					goto done;
+				}
+			}
 		}
+done:;
 	}
 
 	// stop transcoding if we've determined that we don't need it
