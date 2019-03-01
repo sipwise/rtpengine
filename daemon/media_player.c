@@ -11,6 +11,7 @@
 #include "codec.h"
 #include "media_socket.h"
 #include "ssrc.h"
+#include "log_funcs.h"
 
 
 
@@ -348,6 +349,8 @@ static void media_player_run(void *ptr) {
 	struct media_player *mp = ptr;
 	struct call *call = mp->call;
 
+	log_info_call(call);
+
 	ilog(LOG_DEBUG, "running scheduled media_player");
 
 	rwlock_lock_r(&call->master_lock);
@@ -357,6 +360,8 @@ static void media_player_run(void *ptr) {
 
 	mutex_unlock(&mp->lock);
 	rwlock_unlock_r(&call->master_lock);
+
+	log_info_clear();
 }
 
 
