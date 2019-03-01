@@ -375,6 +375,7 @@ static codec_def_t __codec_defs[] = {
 
 
 static GHashTable *codecs_ht;
+static GHashTable *codecs_ht_by_av;
 
 
 
@@ -388,13 +389,7 @@ const codec_def_t *codec_find(const str *name, enum media_type type) {
 }
 
 const codec_def_t *codec_find_by_av(enum AVCodecID id) {
-	// XXX hash this
-	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
-		codec_def_t *def = &__codec_defs[i];
-		if (def->avcodec_id == id)
-			return def;
-	}
-	return NULL;
+	return g_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(id));
 }
 
 enum media_type codec_get_type(const str *type) {
@@ -726,6 +721,7 @@ void codeclib_init(int print) {
 	av_log_set_callback(avlog_ilog);
 
 	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
+	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
 		// add to hash table
@@ -733,6 +729,11 @@ void codeclib_init(int print) {
 		str_init(&def->rtpname_str, (char *) def->rtpname);
 		assert(g_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
 		g_hash_table_insert(codecs_ht, &def->rtpname_str, def);
+
+		if (def->avcodec_id >= 0) {
+			if (g_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(def->avcodec_id)) == NULL)
+				g_hash_table_insert(codecs_ht_by_av, GINT_TO_POINTER(def->avcodec_id), def);
+		}
 
 		// init undefined member vars
 		if (!def->clockrate_mult)
