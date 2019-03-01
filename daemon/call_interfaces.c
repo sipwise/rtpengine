@@ -1761,6 +1761,11 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		if (media_player_play_file(monologue->player, &file))
 			goto out;
 	}
+	else if (bencode_dictionary_get_str(input, "blob", &file)) {
+		err = "Failed to start media playback from blob";
+		if (media_player_play_blob(monologue->player, &file))
+			goto out;
+	}
 	else
 		goto out;
 
