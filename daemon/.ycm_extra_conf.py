@@ -23,6 +23,7 @@ csh_lookup_str = csh_lookup_str.replace('!', '0')
 flags = [
     '-g',
     '-Wall',
+    '-Wstrict-prototypes',
     '-pthread',
     '-fno-strict-aliasing',
     '-I/usr/include/glib-2.0',

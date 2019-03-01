@@ -114,7 +114,7 @@ int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num,
 
 
 
-static void thread_join_me() {
+static void thread_join_me(void) {
 	pthread_t *me;
 
 	me = g_slice_alloc(sizeof(*me));

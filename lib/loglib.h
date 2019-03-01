@@ -18,7 +18,7 @@ typedef void write_log_t(int facility_priority, const char *format, ...) __attri
 extern write_log_t *write_log;
 
 int parse_log_facility(const char *name, int *dst);
-void print_available_log_facilities ();
+void print_available_log_facilities (void);
 
 void log_to_stderr(int facility_priority, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 

@@ -87,7 +87,7 @@ int do_test(const char *input, unsigned int input_len,
 	return argc;
 }
 
-int main() {
+int main(void) {
 	test1("\x81", 8, "\x81", 0);
 	test2("\x81", 8, "\x81", 0, 1, "", -1);
 	test2("\x81", 8, "\x81", 0, 1, NULL, -1);

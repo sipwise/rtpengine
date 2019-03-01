@@ -412,7 +412,7 @@ void redis_async_context_disconnect(const redisAsyncContext *redis_notify_async_
 	}
 }
 
-int redis_async_context_alloc() {
+int redis_async_context_alloc(void) {
 	struct redis *r = 0;
 
 	if (!rtpe_redis_notify) {
@@ -521,7 +521,7 @@ int redis_notify_subscribe_action(enum subscribe_action action, int keyspace) {
 	return 0;
 }
 
-static int redis_notify() {
+static int redis_notify(void) {
 	struct redis *r = 0;
 	GList *l;
 

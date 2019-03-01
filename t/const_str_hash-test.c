@@ -26,7 +26,7 @@ static void test(char *p, int exp) {
 	}
 }
 
-int main() {
+int main(void) {
 	test("one", 1);
 	test("two", 2);
 	test("dashed-string", 3);

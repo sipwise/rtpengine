@@ -79,7 +79,7 @@ static void do_test_amr_wb(const char *file, int line,
 #define do_test_nb(in, out, fmt) \
 	do_test_amr_nb(__FILE__, __LINE__, fmt, in, sizeof(in)-1, out, sizeof(out)-1)
 
-int main() {
+int main(void) {
 	codeclib_init(0);
 
 	do_test_wb(

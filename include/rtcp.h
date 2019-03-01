@@ -33,6 +33,6 @@ void rtcp_list_free(GQueue *q);
 
 rtcp_filter_func rtcp_avpf2avp_filter;
 
-void rtcp_init();
+void rtcp_init(void);
 
 #endif

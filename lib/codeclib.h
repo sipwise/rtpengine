@@ -202,7 +202,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
 
 
-encoder_t *encoder_new();
+encoder_t *encoder_new(void);
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format);
 int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,

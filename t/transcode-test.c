@@ -103,7 +103,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str 
 
 #define sdp_pt(num, codec, clockrate) sdp_pt_fmt(num, codec, clockrate, "")
 
-static void offer() {
+static void offer(void) {
 	printf("offer\n");
 	codec_rtp_payload_types(media_B, media_A, &rtp_types, &flags);
 	codec_handlers_update(media_B, media_A, &flags);
@@ -111,7 +111,7 @@ static void offer() {
 	memset(&flags, 0, sizeof(flags));
 }
 
-static void answer() {
+static void answer(void) {
 	printf("answer\n");
 	codec_rtp_payload_types(media_A, media_B, &rtp_types, &flags);
 	codec_handlers_update(media_A, media_B, &flags);
@@ -282,7 +282,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 #define packet_seq_nf(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp) \
 	packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, -1, 0)
 
-static void end() {
+static void end(void) {
 	g_hash_table_destroy(rtp_ts_ht);
 	g_hash_table_destroy(rtp_seq_ht);
 	printf("\n");
@@ -312,7 +312,7 @@ static void dtmf(const char *s) {
 #define AMR_WB_payload "\xf0\x1c\xf3\x06\x08\x10\x77\x32\x23\x20\xd3\x50\x62\x12\xc7\x7c\xe2\xea\x84\x0e\x6e\xf4\x4d\xe4\x7f\xc9\x4c\xcc\x58\x5d\xed\xcc\x5d\x7c\x6c\x14\x7d\xc0" // octet aligned
 #define AMR_WB_payload_noe "\xf1\xfc\xc1\x82\x04\x1d\xcc\x88\xc8\x34\xd4\x18\x84\xb1\xdf\x38\xba\xa1\x03\x9b\xbd\x13\x79\x1f\xf2\x53\x33\x16\x17\x7b\x73\x17\x5f\x1b\x05\x1f\x70" // bandwidth efficient
 
-int main() {
+int main(void) {
 	codeclib_init(0);
 	srandom(time(NULL));
 
