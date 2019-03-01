@@ -25,6 +25,7 @@
 #include "iptables.h"
 #include "main.h"
 #include "codec.h"
+#include "media_player.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -1575,18 +1576,8 @@ out:
 // appropriate locks must be held
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 	struct codec_packet *p;
-	while ((p = g_queue_pop_head(&mp->packets_out))) {
-		__C_DBG("Forward to sink endpoint: %s:%d", sockaddr_print_buf(&sink->endpoint.address),
-				sink->endpoint.port);
-
-		int ret = socket_sendto(&sink->selected_sfd->socket,
-				p->s.s, p->s.len, &sink->endpoint);
-
-		codec_packet_free(p);
-
-		if (ret == -1)
-			return -1;
-	}
+	while ((p = g_queue_pop_head(&mp->packets_out)))
+		send_timer_push(sink->send_timer, p);
 	return 0;
 }
 
