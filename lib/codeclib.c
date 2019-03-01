@@ -345,10 +345,18 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 	},
-	// for file writing
+	// for file reading and writing
 	{
 		.rtpname = "PCM-S16LE",
 		.avcodec_id = AV_CODEC_ID_PCM_S16LE,
+		.avcodec_name = NULL,
+		.packetizer = packetizer_passthrough,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
+	},
+	{
+		.rtpname = "PCM-U8",
+		.avcodec_id = AV_CODEC_ID_PCM_U8,
 		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
