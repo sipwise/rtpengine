@@ -188,6 +188,7 @@ struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_p
 	handler->dest_pt = *dst_pt;
 	handler->func = handler_func_playback;
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
+	handler->ssrc_handler->first_ts = random();
 
 	ilog(LOG_DEBUG, "Created media playback context for " STR_FORMAT " -> " STR_FORMAT "",
 			STR_FMT(&src_pt->encoding_with_params),
