@@ -20,6 +20,7 @@
 
 
 static struct timerthread media_player_thread;
+static struct timerthread send_timer_thread;
 
 
 
@@ -80,6 +81,85 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	mp->pkt.size = 0;
 
 	return mp;
+}
+
+
+static void __send_timer_free(void *p) {
+	struct send_timer *st = p;
+
+	ilog(LOG_DEBUG, "freeing send_timer");
+
+	g_queue_clear_full(&st->packets, codec_packet_free);
+	mutex_destroy(&st->lock);
+	obj_put(st->call);
+}
+
+
+// call->master_lock held in W
+struct send_timer *send_timer_new(struct packet_stream *ps) {
+	ilog(LOG_DEBUG, "creating send_timer");
+
+	struct send_timer *st = obj_alloc0("send_timer", sizeof(*st), __send_timer_free);
+	st->tt_obj.tt = &send_timer_thread;
+	mutex_init(&st->lock);
+	st->call = obj_get(ps->call);
+	st->sink = ps;
+	g_queue_init(&st->packets);
+
+	return st;
+}
+
+
+// st->stream->out_lock (or call->master_lock/W) must be held already
+static int send_timer_send(struct send_timer *st, struct codec_packet *cp) {
+	if (cp->to_send.tv_sec && timeval_cmp(&cp->to_send, &rtpe_now) > 0)
+		return -1; // not yet
+
+	if (!st->sink->selected_sfd)
+		goto out;
+
+	struct rtp_header *rh = (void *) cp->s.s;
+	ilog(LOG_DEBUG, "Forward to sink endpoint: %s:%d (RTP seq %u TS %u)",
+			sockaddr_print_buf(&st->sink->endpoint.address),
+			st->sink->endpoint.port,
+			ntohs(rh->seq_num),
+			ntohl(rh->timestamp));
+
+	socket_sendto(&st->sink->selected_sfd->socket,
+			cp->s.s, cp->s.len, &st->sink->endpoint);
+
+out:
+	codec_packet_free(cp);
+
+	return 0;
+}
+
+
+// st->stream->out_lock (or call->master_lock/W) must be held already
+void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
+	// can we send immediately?
+	if (!send_timer_send(st, cp))
+		return;
+
+	// queue for sending
+
+	struct rtp_header *rh = (void *) cp->s.s;
+	ilog(LOG_DEBUG, "queuing up packet for delivery at %lu.%06u (RTP seq %u TS %u)",
+			(unsigned long) cp->to_send.tv_sec,
+			(unsigned int) cp->to_send.tv_usec,
+			ntohs(rh->seq_num),
+			ntohl(rh->timestamp));
+
+	mutex_lock(&st->lock);
+	unsigned int qlen = st->packets.length;
+	// this hands over ownership of cp, so we must copy the timeval out
+	struct timeval tv_send = cp->to_send;
+	g_queue_push_tail(&st->packets, cp);
+	mutex_unlock(&st->lock);
+
+	// first packet in? we're probably not scheduled yet
+	if (!qlen)
+		timerthread_obj_schedule_abs(&st->tt_obj, &tv_send);
 }
 
 
@@ -189,6 +269,10 @@ static void media_player_read_packet(struct media_player *mp) {
 
 	mp->handler->func(mp->handler, &packet);
 
+	// as this is timing sensitive and we may have spent some time decoding,
+	// update our global "now" timestamp
+	gettimeofday(&rtpe_now, NULL);
+
 	mutex_lock(&mp->sink->out_lock);
 	if (media_socket_dequeue(&packet, mp->sink))
 		ilog(LOG_ERR, "Error sending playback media to RTP sink");
@@ -234,6 +318,8 @@ found:
 // call->master_lock held in W
 static void media_player_play_start(struct media_player *mp) {
 	mp->next_run = rtpe_now;
+	// give ourselves a bit of a head start with decoding
+	timeval_add_usec(&mp->next_run, -50000);
 	media_player_read_packet(mp);
 }
 
@@ -365,12 +451,52 @@ static void media_player_run(void *ptr) {
 }
 
 
+static void send_timer_run(void *ptr) {
+	struct send_timer *st = ptr;
+	struct call *call = st->call;
+
+	log_info_call(call);
+
+	ilog(LOG_DEBUG, "running scheduled send_timer");
+
+	struct timeval next_send = {0,};
+
+	rwlock_lock_r(&call->master_lock);
+	mutex_lock(&st->lock);
+
+	while (st->packets.length) {
+		struct codec_packet *cp = st->packets.head->data;
+		// XXX this could be made lock-free
+		if (!send_timer_send(st, cp)) {
+			g_queue_pop_head(&st->packets);
+			continue;
+		}
+		// couldn't send the last one. remember time to schedule
+		next_send = cp->to_send;
+		break;
+	}
+
+	mutex_unlock(&st->lock);
+	rwlock_unlock_r(&call->master_lock);
+
+	if (next_send.tv_sec)
+		timerthread_obj_schedule_abs(&st->tt_obj, &next_send);
+
+	log_info_clear();
+}
+
+
 void media_player_init(void) {
 	timerthread_init(&media_player_thread, media_player_run);
+	timerthread_init(&send_timer_thread, send_timer_run);
 }
 
 
 void media_player_loop(void *p) {
 	ilog(LOG_DEBUG, "media_player_loop");
 	timerthread_run(&media_player_thread);
+}
+void send_timer_loop(void *p) {
+	ilog(LOG_DEBUG, "send_timer_loop");
+	timerthread_run(&send_timer_thread);
 }

@@ -959,6 +959,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	atomic64_set_na(&stream->last_packet, rtpe_now.tv_sec);
 	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
 	recording_init_stream(stream);
+	stream->send_timer = send_timer_new(stream);
 
 	return stream;
 }
@@ -2220,6 +2221,7 @@ void call_destroy(struct call *c) {
 						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
 
 				statistics_update_totals(ps);
+				send_timer_put(&ps->send_timer);
 
 			}
 
