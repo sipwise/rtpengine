@@ -32,11 +32,16 @@ struct media_player {
 	struct codec_handler *handler;
 	struct ssrc_ctx *ssrc_out;
 	unsigned long seq;
+
+	AVIOContext *avioctx;
+	str *blob;
+	str read_pos;
 };
 
 
 struct media_player *media_player_new(struct call_monologue *);
 int media_player_play_file(struct media_player *, const str *);
+int media_player_play_blob(struct media_player *, const str *);
 void media_player_stop(struct media_player *);
 
 void media_player_init(void);
