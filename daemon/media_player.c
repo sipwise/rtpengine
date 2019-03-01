@@ -190,7 +190,7 @@ out:
 
 
 // call->master_lock held in W
-int media_player_play_file(struct media_player *mp, const str *file) {
+static int media_player_play_init(struct media_player *mp) {
 	media_player_shutdown(mp);
 
 	// find call media suitable for playback
@@ -214,6 +214,22 @@ found:
 	mp->media = media;
 	mp->sink = media->streams.head->data;
 
+	return 0;
+}
+
+
+// call->master_lock held in W
+static void media_player_play_start(struct media_player *mp) {
+	mp->next_run = rtpe_now;
+	media_player_read_packet(mp);
+}
+
+
+// call->master_lock held in W
+int media_player_play_file(struct media_player *mp, const str *file) {
+	if (media_player_play_init(mp))
+		return -1;
+
 	char file_s[PATH_MAX];
 	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(file));
 
@@ -221,10 +237,8 @@ found:
 	if (ret < 0)
 		return -1;
 
-	// start playback now
+	media_player_play_start(mp);
 
-	mp->next_run = rtpe_now;
-	media_player_read_packet(mp);
 
 	return 0;
 }
