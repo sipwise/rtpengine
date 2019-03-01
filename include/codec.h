@@ -24,6 +24,7 @@ struct codec_handler {
 	struct rtp_payload_type dest_pt;
 	codec_handler_func *func;
 	int kernelize:1;
+	int transcoder:1;
 
 	struct ssrc_hash *ssrc_hash;
 };
