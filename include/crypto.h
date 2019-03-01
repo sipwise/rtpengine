@@ -103,7 +103,7 @@ extern const unsigned int num_crypto_suites;
 
 
 
-void crypto_init_main();
+void crypto_init_main(void);
 
 const struct crypto_suite *crypto_find_suite(const str *);
 int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);

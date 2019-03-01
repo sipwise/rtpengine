@@ -14,6 +14,7 @@ compilation_database_folder = ''
 flags = [
     '-g',
     '-Wall',
+    '-Wstrict-prototypes',
     '-pthread',
     '-fno-strict-aliasing',
     '-I/usr/include/glib-2.0',

@@ -586,11 +586,11 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 }
 
-static void early_init() {
+static void early_init(void) {
 	socket_init(); // needed for socktype_udp
 }
 
-static void init_everything() {
+static void init_everything(void) {
 	log_init("rtpengine");
 	log_format(rtpe_config.log_format);
 	recording_fs_init(rtpe_config.spooldir, rtpe_config.rec_method, rtpe_config.rec_format);

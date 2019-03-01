@@ -8,7 +8,7 @@
 #include "ice.h"
 #include "log.h"
 
-INLINE void log_info_clear() {
+INLINE void log_info_clear(void) {
 	switch (log_info.e) {
 		case LOG_INFO_NONE:
 			return;

@@ -170,7 +170,7 @@ static void dump_cert(struct dtls_cert *cert) {
 	buf_dump_free(buf, len);
 }
 
-static int cert_init() {
+static int cert_init(void) {
 	X509 *x509 = NULL;
 	EVP_PKEY *pkey = NULL;
 	BIGNUM *exponent = NULL, *serial_number = NULL;

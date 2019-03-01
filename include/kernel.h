@@ -34,7 +34,7 @@ int kernel_setup_table(unsigned int);
 
 int kernel_add_stream(struct rtpengine_target_info *, int);
 int kernel_del_stream(const struct re_address *);
-GList *kernel_list();
+GList *kernel_list(void);
 
 unsigned int kernel_add_call(const char *id);
 int kernel_del_call(unsigned int);

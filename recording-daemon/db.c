@@ -69,7 +69,7 @@ static void my_stmt_close(MYSQL_STMT **st) {
 }
 
 
-static void reset_conn() {
+static void reset_conn(void) {
 	my_stmt_close(&stm_insert_call);
 	my_stmt_close(&stm_close_call);
 	my_stmt_close(&stm_insert_stream);
@@ -93,7 +93,7 @@ INLINE int prep(MYSQL_STMT **st, const char *str) {
 }
 
 
-static int check_conn() {
+static int check_conn(void) {
 	if (mysql_conn)
 		return 0;
 	if (!c_mysql_host || !c_mysql_db)
@@ -236,7 +236,7 @@ err:
 }
 
 
-static double now_double() {
+static double now_double(void) {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	return tv.tv_sec + tv.tv_usec / 1000000.0;

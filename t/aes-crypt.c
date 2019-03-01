@@ -178,7 +178,7 @@ void srtp_validate (struct crypto_context *c, struct crypto_context *c2, char* m
 	printf("%s RTCP decrypt: PASS\n", message);
 }
 
-extern void crypto_init_main();
+extern void crypto_init_main(void);
 
 void check_session_keys(struct crypto_context *c, int i) {
 	str s;

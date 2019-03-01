@@ -31,7 +31,7 @@ static void most_cmp(struct payload_tracker *t, const char *cmp, const char *fil
 #define cmp(s) most_cmp(&t, s, __FILE__, __LINE__)
 #define add(p) payload_tracker_add(&t, p)
 
-int main() {
+int main(void) {
 	struct payload_tracker t;
 
 	payload_tracker_init(&t);

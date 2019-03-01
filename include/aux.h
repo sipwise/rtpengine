@@ -184,7 +184,7 @@ INLINE int strmemcmp(const void *mem, int len, const char *str) {
 	return memcmp(mem, str, len);
 }
 
-INLINE long unsigned int ssl_random() {
+INLINE long unsigned int ssl_random(void) {
 	long unsigned int ret;
 	random_string((void *) &ret, sizeof(ret));
 	return ret;

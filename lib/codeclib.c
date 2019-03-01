@@ -920,7 +920,7 @@ seq_ok:
 
 
 
-encoder_t *encoder_new() {
+encoder_t *encoder_new(void) {
 	encoder_t *ret = g_slice_alloc0(sizeof(*ret));
 	format_init(&ret->requested_format);
 	format_init(&ret->actual_format);
