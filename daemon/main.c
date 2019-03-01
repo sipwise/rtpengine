@@ -786,8 +786,10 @@ int main(int argc, char **argv) {
 
 	if (rtpe_config.media_num_threads < 0)
 		rtpe_config.media_num_threads = rtpe_config.num_threads;
-	for (idx = 0; idx < rtpe_config.media_num_threads; ++idx)
+	for (idx = 0; idx < rtpe_config.media_num_threads; ++idx) {
 		thread_create_detach_prio(media_player_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
+		thread_create_detach_prio(send_timer_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
+	}
 
 
 	while (!rtpe_shutdown) {
