@@ -250,14 +250,18 @@ INLINE void timeval_add(struct timeval *result, const struct timeval *a, const s
 INLINE void timeval_add_usec(struct timeval *tv, long usec) {
 	timeval_from_us(tv, timeval_us(tv) + usec);
 }
-INLINE int timeval_cmp(const struct timeval *a, const struct timeval *b) {
-	long long diff;
-	diff = timeval_diff(a, b);
-	if (diff < 0)
+INLINE int long_cmp(long long a, long long b) {
+	if (a == b)
+		return 0;
+	if (a < b)
 		return -1;
-	if (diff > 0)
-		return 1;
-	return 0;
+	return 1;
+}
+INLINE int timeval_cmp(const struct timeval *a, const struct timeval *b) {
+	int r = long_cmp(a->tv_sec, b->tv_sec);
+	if (r != 0)
+		return r;
+	return long_cmp(a->tv_usec, b->tv_usec);
 }
 // as a GCompareFunc
 int timeval_cmp_ptr(const void *a, const void *b);
