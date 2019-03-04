@@ -82,6 +82,7 @@ endif
 ifeq ($(have_bcg729),yes)
 CFLAGS+=	-DHAVE_BCG729
 CFLAGS+=	$(bcg729_inc)
+CFLAGS+=        $(shell mysql_config --cflags)
 endif
 
 CFLAGS+=	-DRE_PLUGIN_DIR="\"/usr/lib/rtpengine\""
@@ -117,6 +118,7 @@ LDLIBS+=	$(shell pkg-config --libs libavfilter)
 endif
 ifeq ($(have_bcg729),yes)
 LDLIBS+=	$(bcg729_lib)
+LDLIBS+=        $(shell mysql_config --libs)
 endif
 
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c call.c control_udp.c redis.c \
