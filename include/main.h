@@ -78,6 +78,11 @@ struct rtpengine_config {
 	char			*idle_scheduling;
 	int			idle_priority;
 	int			log_keys;
+	char			*mysql_host;
+	int			mysql_port;
+	char			*mysql_user;
+	char			*mysql_pass;
+	char			*mysql_query;
 };
 
 
