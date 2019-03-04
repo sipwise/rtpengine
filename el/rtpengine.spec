@@ -1,5 +1,5 @@
 Name:		rtpengine
-Version:	4.5.0
+Version:	4.5.13.0+0~mr4.5.13.0
 Release:	0%{?dist}
 Summary:	The Sipwise NGCP rtpengine
 
