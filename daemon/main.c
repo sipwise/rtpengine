@@ -366,6 +366,11 @@ static void options(int *argc, char ***argv) {
 		{ "idle-scheduling",0, 0,G_OPTION_ARG_STRING,	&rtpe_config.idle_scheduling,"Idle thread scheduling policy",	"default|none|fifo|rr|other|batch|idle" },
 		{ "idle-priority",0, 0,	G_OPTION_ARG_INT,	&rtpe_config.idle_priority,"Idle thread scheduling priority",	"INT" },
 		{ "log-srtp-keys",'F', 0, G_OPTION_ARG_NONE,	&rtpe_config.log_keys,	"Log SRTP keys to error log", NULL },
+		{ "mysql-host",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_host,"MySQL host for stored media files","HOST|IP"	},
+		{ "mysql-port",	0,   0,	G_OPTION_ARG_INT,	&rtpe_config.mysql_port,"MySQL port"				,"INT"		},
+		{ "mysql-user",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_user,"MySQL connection credentials",		"USERNAME"	},
+		{ "mysql-pass",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_pass,"MySQL connection credentials",		"PASSWORD"	},
+		{ "mysql-query",0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_query,"MySQL select query",			"STRING"	},
 		{ NULL, }
 	};
 
@@ -518,6 +523,22 @@ static void options(int *argc, char ***argv) {
 
 	rtpe_config.cpu_limit = max_cpu * 100;
 	rtpe_config.load_limit = max_load * 100;
+
+	if (rtpe_config.mysql_query) {
+		// require exactly one %llu placeholder and allow no other % placeholders
+		if (!strstr(rtpe_config.mysql_query, "%llu"))
+			die("No '%%llu' present in --mysql-query='%s'", rtpe_config.mysql_query);
+		const char *front = rtpe_config.mysql_query;
+		unsigned int count = 0;
+		const char *match;
+		while ((match = strchr(front, '%'))) {
+			front = match + 1;
+			count++;
+		}
+		if (count != 1)
+			die("Too many '%%' placeholders (%u) present in --mysql-query='%s'",
+					count, rtpe_config.mysql_query);
+	}
 }
 
 void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {

@@ -26,6 +26,7 @@ CFLAGS+=	$(shell pkg-config xmlrpc_util --cflags 2> /dev/null)
 ifeq ($(with_amr_tests),yes)
 CFLAGS+=	-DWITH_AMR_TESTS
 endif
+CFLAGS+=	$(shell mysql_config --cflags)
 else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
@@ -50,6 +51,7 @@ LDLIBS+=	$(shell pkg-config xmlrpc_client --libs 2> /dev/null || xmlrpc-c-config
 LDLIBS+=	$(shell pkg-config xmlrpc --libs 2> /dev/null)
 LDLIBS+=	$(shell pkg-config xmlrpc_util --libs 2> /dev/null)
 LDLIBS+=	-lhiredis
+LDLIBS+=	$(shell mysql_config --libs)
 endif
 
 SRCS=		bitstr-test.c aes-crypt.c payload-tracker-test.c const_str_hash-test.strhash.c
