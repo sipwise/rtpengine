@@ -76,12 +76,13 @@ CFLAGS+=	$(shell pkg-config --cflags libavutil)
 CFLAGS+=	$(shell pkg-config --cflags libswresample)
 CFLAGS+=	$(shell pkg-config --cflags libavfilter)
 CFLAGS+=	-DWITH_TRANSCODING
-else
-CFLAGS+=	-DWITHOUT_CODECLIB
-endif
 ifeq ($(have_bcg729),yes)
 CFLAGS+=	-DHAVE_BCG729
 CFLAGS+=	$(bcg729_inc)
+endif
+CFLAGS+=        $(shell mysql_config --cflags)
+else
+CFLAGS+=	-DWITHOUT_CODECLIB
 endif
 
 CFLAGS+=	-DRE_PLUGIN_DIR="\"/usr/lib/rtpengine\""
@@ -114,9 +115,10 @@ LDLIBS+=	$(shell pkg-config --libs libavformat)
 LDLIBS+=	$(shell pkg-config --libs libavutil)
 LDLIBS+=	$(shell pkg-config --libs libswresample)
 LDLIBS+=	$(shell pkg-config --libs libavfilter)
-endif
 ifeq ($(have_bcg729),yes)
 LDLIBS+=	$(bcg729_lib)
+endif
+LDLIBS+=        $(shell mysql_config --libs)
 endif
 
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c call.c control_udp.c redis.c \
