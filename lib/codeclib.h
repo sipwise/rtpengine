@@ -3,7 +3,9 @@
 
 
 struct codec_def_s;
+struct packet_sequencer_s;
 typedef struct codec_def_s codec_def_t;
+typedef struct packet_sequencer_s packet_sequencer_t;
 
 
 #ifndef WITHOUT_CODECLIB
@@ -27,7 +29,6 @@ struct encoder_s;
 struct format_s;
 struct resample_s;
 struct seq_packet_s;
-struct packet_sequencer_s;
 struct rtp_payload_type;
 union codec_options_u;
 
@@ -37,7 +38,6 @@ typedef struct encoder_s encoder_t;
 typedef struct format_s format_t;
 typedef struct resample_s resample_t;
 typedef struct seq_packet_s seq_packet_t;
-typedef struct packet_sequencer_s packet_sequencer_t;
 typedef union codec_options_u codec_options_t;
 
 typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
@@ -254,6 +254,8 @@ enum media_type {
 };
 struct codec_def_s {
 };
+struct packet_sequencer_s {
+};
 
 INLINE void codeclib_init(int print) {
 	if (print)
@@ -265,6 +267,9 @@ INLINE enum media_type codec_get_type(const str *type) {
 }
 INLINE const codec_def_t *codec_find(const str *name, enum media_type type) {
 	return NULL;
+}
+INLINE void packet_sequencer_destroy(packet_sequencer_t *p) {
+	return;
 }
 
 

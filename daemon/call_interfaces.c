@@ -606,6 +606,7 @@ static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp) {
 		*ht = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 	g_hash_table_replace(*ht, s_copy, s_copy);
 }
+#ifdef WITH_TRANSCODING
 static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *htp) {
 	GHashTable **ht = htp;
 	if (!*ht)
@@ -619,6 +620,7 @@ static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *h
 		splitter.len = c - splitter.s;
 	}
 }
+#endif
 // helper to alias values from other dictionaries into the "flags" dictionary
 INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
 		void (*cb)(struct sdp_ng_flags *, str *, void *), void *ptr)
