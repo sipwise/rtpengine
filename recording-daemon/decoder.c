@@ -34,6 +34,11 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 
 	str_init_len(&name, (char *) payload_str, slash - payload_str);
 	int clockrate = atoi(slash + 1);
+	if (clockrate <= 0) {
+		ilog(LOG_ERR, "Invalid clock rate %i (parsed from '%.20s'/'%.20s'",
+				clockrate, slash + 1, payload_str);
+		return NULL;
+	}
 
 	int channels = 1;
 	slash = strchr(slash + 1, '/');
