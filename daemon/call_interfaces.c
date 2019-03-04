@@ -1734,10 +1734,11 @@ out:
 
 const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
-	str callid, fromtag, file;
+	str callid, fromtag, str;
 	struct call *call;
 	struct call_monologue *monologue;
 	const char *err = NULL;
+	long long db_id;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -1759,14 +1760,19 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		monologue->player = media_player_new(monologue);
 
 	err = "No media file specified";
-	if (bencode_dictionary_get_str(input, "file", &file)) {
+	if (bencode_dictionary_get_str(input, "file", &str)) {
 		err = "Failed to start media playback from file";
-		if (media_player_play_file(monologue->player, &file))
+		if (media_player_play_file(monologue->player, &str))
 			goto out;
 	}
-	else if (bencode_dictionary_get_str(input, "blob", &file)) {
+	else if (bencode_dictionary_get_str(input, "blob", &str)) {
 		err = "Failed to start media playback from blob";
-		if (media_player_play_blob(monologue->player, &file))
+		if (media_player_play_blob(monologue->player, &str))
+			goto out;
+	}
+	else if ((db_id = bencode_dictionary_get_int_str(input, "db-id", 0)) > 0) {
+		err = "Failed to start media playback from database";
+		if (media_player_play_db(monologue->player, db_id))
 			goto out;
 	}
 	else

@@ -1,5 +1,9 @@
 #include "media_player.h"
 #include <glib.h>
+#ifdef WITH_TRANSCODING
+#include <mysql.h>
+#include <mysql/errmsg.h>
+#endif
 #include "obj.h"
 #include "log.h"
 #include "timerthread.h"
@@ -10,6 +14,7 @@
 #include "media_socket.h"
 #include "ssrc.h"
 #include "log_funcs.h"
+#include "main.h"
 
 
 
@@ -19,6 +24,7 @@
 
 #ifdef WITH_TRANSCODING
 static struct timerthread media_player_thread;
+static MYSQL __thread *mysql_conn;
 #endif
 static struct timerthread send_timer_thread;
 
@@ -402,6 +408,7 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 #endif
 
 
+
 // call->master_lock held in W
 int media_player_play_blob(struct media_player *mp, const str *blob) {
 #ifdef WITH_TRANSCODING
@@ -451,6 +458,93 @@ err:
 
 
 #ifdef WITH_TRANSCODING
+static int __connect_db(void) {
+	if (mysql_conn) {
+		mysql_close(mysql_conn);
+		mysql_conn = NULL;
+	}
+	mysql_conn = mysql_init(NULL);
+	if (!mysql_conn)
+		return -1;
+	if (!mysql_real_connect(mysql_conn, rtpe_config.mysql_host, rtpe_config.mysql_user, rtpe_config.mysql_pass, NULL, rtpe_config.mysql_port,
+			NULL, CLIENT_IGNORE_SIGPIPE))
+		goto err;
+
+	return 0;
+
+err:
+	ilog(LOG_ERR, "Couldn't connect to database: %s", mysql_error(mysql_conn));
+	mysql_close(mysql_conn);
+	mysql_conn = NULL;
+	return -1;
+}
+
+
+// call->master_lock held in W
+int media_player_play_db(struct media_player *mp, long long id) {
+	const char *err;
+	AUTO_CLEANUP_BUF(query);
+
+	err = "missing configuration";
+	if (!rtpe_config.mysql_host || !rtpe_config.mysql_query)
+		goto err;
+
+	int len = asprintf(&query, rtpe_config.mysql_query, (unsigned long long) id);
+	err = "query print error";
+	if (len <= 0)
+		goto err;
+
+	for (int retries = 0; retries < 5; retries++) {
+		if (!mysql_conn || retries != 0) {
+			err = "failed to connect to database";
+			if (__connect_db())
+				goto err;
+		}
+
+		int ret = mysql_real_query(mysql_conn, query, len);
+		if (ret == 0)
+			goto success;
+
+		ret = mysql_errno(mysql_conn);
+		if (ret == CR_SERVER_GONE_ERROR || ret == CR_SERVER_LOST)
+			continue;
+
+		ilog(LOG_ERR, "Failed to query from database: %s", mysql_error(mysql_conn));
+	}
+	err = "exceeded max number of database retries";
+	goto err;
+
+success:;
+
+	MYSQL_RES *res = mysql_store_result(mysql_conn);
+	err = "failed to get result from database";
+	if (!res)
+		goto err;
+	MYSQL_ROW row = mysql_fetch_row(res);
+	unsigned long *lengths = mysql_fetch_lengths(res);
+	err = "empty result from database";
+	if (!row || !lengths || !row[0] || !lengths[0]) {
+		mysql_free_result(res);
+		goto err;
+	}
+
+	str blob;
+	str_init_len(&blob, row[0], lengths[0]);
+	int ret = media_player_play_blob(mp, &blob);
+
+	mysql_free_result(res);
+
+	return ret;
+
+err:
+	if (query)
+		ilog(LOG_ERR, "Failed to start media playback from database (used query '%s'): %s", query, err);
+	else
+		ilog(LOG_ERR, "Failed to start media playback from database: %s", err);
+	return -1;
+}
+
+
 static void media_player_run(void *ptr) {
 	struct media_player *mp = ptr;
 	struct call *call = mp->call;
