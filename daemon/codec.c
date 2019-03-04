@@ -871,9 +871,9 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 }
 
 void codec_init_payload_type(struct rtp_payload_type *ret, struct call_media *media) {
+#ifdef WITH_TRANSCODING
 	const codec_def_t *def = ret->codec_def;
 
-#ifdef WITH_TRANSCODING
 	if (def) {
 		if (!ret->clock_rate)
 			ret->clock_rate = def->default_clockrate;

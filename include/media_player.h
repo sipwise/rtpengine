@@ -2,8 +2,6 @@
 #define _MEDIA_PLAYER_H_
 
 
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
 #include "auxlib.h"
 #include "timerthread.h"
 #include "str.h"
@@ -16,7 +14,13 @@ struct codec_handler;
 struct ssrc_ctx;
 struct packet_stream;
 struct codec_packet;
+struct media_player;
 
+
+#ifdef WITH_TRANSCODING
+
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
 
 struct media_player {
 	struct timerthread_obj tt_obj;
@@ -38,6 +42,20 @@ struct media_player {
 	str *blob;
 	str read_pos;
 };
+
+INLINE void media_player_put(struct media_player **mp) {
+	if (!*mp)
+		return;
+	obj_put(&(*mp)->tt_obj);
+	*mp = NULL;
+}
+
+#else
+
+INLINE void media_player_put(struct media_player **mp) {
+}
+
+#endif
 
 struct send_timer {
 	struct timerthread_obj tt_obj;
@@ -63,12 +81,6 @@ void send_timer_loop(void *p);
 
 
 
-INLINE void media_player_put(struct media_player **mp) {
-	if (!*mp)
-		return;
-	obj_put(&(*mp)->tt_obj);
-	*mp = NULL;
-}
 INLINE void send_timer_put(struct send_timer **st) {
 	if (!*st)
 		return;
