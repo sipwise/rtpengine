@@ -1,7 +1,5 @@
 #include "media_player.h"
 #include <glib.h>
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
 #include "obj.h"
 #include "log.h"
 #include "timerthread.h"
@@ -19,11 +17,14 @@
 
 
 
+#ifdef WITH_TRANSCODING
 static struct timerthread media_player_thread;
+#endif
 static struct timerthread send_timer_thread;
 
 
 
+#ifdef WITH_TRANSCODING
 // appropriate lock must be held
 static void media_player_shutdown(struct media_player *mp) {
 	ilog(LOG_DEBUG, "shutting down media_player");
@@ -46,13 +47,17 @@ static void media_player_shutdown(struct media_player *mp) {
 	mp->blob = NULL;
 	mp->read_pos = STR_NULL;
 }
+#endif
 
 
 void media_player_stop(struct media_player *mp) {
+#ifdef WITH_TRANSCODING
 	media_player_shutdown(mp);
+#endif
 }
 
 
+#ifdef WITH_TRANSCODING
 static void __media_player_free(void *p) {
 	struct media_player *mp = p;
 
@@ -62,10 +67,12 @@ static void __media_player_free(void *p) {
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
 }
+#endif
 
 
 // call->master_lock held in W
 struct media_player *media_player_new(struct call_monologue *ml) {
+#ifdef WITH_TRANSCODING
 	ilog(LOG_DEBUG, "creating media_player");
 
 	struct media_player *mp = obj_alloc0("media_player", sizeof(*mp), __media_player_free);
@@ -81,6 +88,9 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	mp->pkt.size = 0;
 
 	return mp;
+#else
+	return NULL;
+#endif
 }
 
 
@@ -163,6 +173,7 @@ void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
 }
 
 
+#ifdef WITH_TRANSCODING
 static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
 	if (mp->handler)
 		return 0;
@@ -322,10 +333,12 @@ static void media_player_play_start(struct media_player *mp) {
 	timeval_add_usec(&mp->next_run, -50000);
 	media_player_read_packet(mp);
 }
+#endif
 
 
 // call->master_lock held in W
 int media_player_play_file(struct media_player *mp, const str *file) {
+#ifdef WITH_TRANSCODING
 	if (media_player_play_init(mp))
 		return -1;
 
@@ -339,9 +352,13 @@ int media_player_play_file(struct media_player *mp, const str *file) {
 	media_player_play_start(mp);
 
 	return 0;
+#else
+	return -1;
+#endif
 }
 
 
+#ifdef WITH_TRANSCODING
 static int __mp_avio_read_wrap(void *opaque, uint8_t *buf, int buf_size) {
 	struct media_player *mp = opaque;
 	if (buf_size < 0)
@@ -384,9 +401,12 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 		return __mp_avio_seek_set(mp, ((int64_t) mp->blob->len) + offset);
 	return AVERROR(EINVAL);
 }
+#endif
+
 
 // call->master_lock held in W
 int media_player_play_blob(struct media_player *mp, const str *blob) {
+#ifdef WITH_TRANSCODING
 	const char *err;
 
 	if (media_player_play_init(mp))
@@ -427,10 +447,12 @@ int media_player_play_blob(struct media_player *mp, const str *blob) {
 
 err:
 	ilog(LOG_ERR, "Failed to start media playback from memory: %s", err);
+#endif
 	return -1;
 }
 
 
+#ifdef WITH_TRANSCODING
 static void media_player_run(void *ptr) {
 	struct media_player *mp = ptr;
 	struct call *call = mp->call;
@@ -449,6 +471,7 @@ static void media_player_run(void *ptr) {
 
 	log_info_clear();
 }
+#endif
 
 
 static void send_timer_run(void *ptr) {
@@ -487,15 +510,19 @@ static void send_timer_run(void *ptr) {
 
 
 void media_player_init(void) {
+#ifdef WITH_TRANSCODING
 	timerthread_init(&media_player_thread, media_player_run);
+#endif
 	timerthread_init(&send_timer_thread, send_timer_run);
 }
 
 
+#ifdef WITH_TRANSCODING
 void media_player_loop(void *p) {
 	ilog(LOG_DEBUG, "media_player_loop");
 	timerthread_run(&media_player_thread);
 }
+#endif
 void send_timer_loop(void *p) {
 	ilog(LOG_DEBUG, "send_timer_loop");
 	timerthread_run(&send_timer_thread);

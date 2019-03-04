@@ -1733,6 +1733,7 @@ out:
 
 
 const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
+#ifdef WITH_TRANSCODING
 	str callid, fromtag, file;
 	struct call *call;
 	struct call_monologue *monologue;
@@ -1777,6 +1778,9 @@ out:
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
 	return err;
+#else
+	return "unsupported";
+#endif
 }
 
 
