@@ -1738,28 +1738,30 @@ out:
 }
 
 
+#ifdef WITH_TRANSCODING
+static const char *play_media_select_party(struct call **call, struct call_monologue **monologue,
+		bencode_item_t *input)
+{
+	const char *err = media_block_match(call, monologue, input);
+	if (err)
+		return err;
+	if (!*monologue)
+		return "No participant party specified";
+	return NULL;
+}
+#endif
+
+
 const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
-	str callid, fromtag, str;
+	str str;
 	struct call *call;
 	struct call_monologue *monologue;
 	const char *err = NULL;
 	long long db_id;
 
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
-		return "No call-id in message";
-	call = call_get_opmode(&callid, OP_OTHER);
-	if (!call)
-		return "Unknown call-id";
-
-	err = "No participant party specified";
-	if (bencode_dictionary_get_str(input, "from-tag", &fromtag)) {
-		monologue = call_get_mono_dialogue(call, &fromtag, NULL, NULL);
-		err = "Unknown monologue from-tag";
-		if (!monologue)
-			goto out;
-	}
-	else
+	err = play_media_select_party(&call, &monologue, input);
+	if (err)
 		goto out;
 
 	if (!monologue->player)
@@ -1790,8 +1792,39 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	err = NULL;
 
 out:
-	rwlock_unlock_w(&call->master_lock);
-	obj_put(call);
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+	}
+	return err;
+#else
+	return "unsupported";
+#endif
+}
+
+
+const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
+#ifdef WITH_TRANSCODING
+	struct call *call;
+	struct call_monologue *monologue;
+	const char *err = NULL;
+
+	err = play_media_select_party(&call, &monologue, input);
+	if (err)
+		goto out;
+
+	if (!monologue->player)
+		return "Not currently playing media";
+
+	media_player_stop(monologue->player);
+
+	err = NULL;
+
+out:
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+	}
 	return err;
 #else
 	return "unsupported";
