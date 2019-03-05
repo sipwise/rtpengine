@@ -247,6 +247,10 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 			errstr = call_play_media_ng(dict, resp);
 			g_atomic_int_inc(&cur->play_media);
 			break;
+		case CSH_LOOKUP("stop media"):
+			errstr = call_stop_media_ng(dict, resp);
+			g_atomic_int_inc(&cur->stop_media);
+			break;
 		default:
 			errstr = "Unrecognized command";
 	}
