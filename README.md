@@ -44,10 +44,10 @@ the following additional features are available:
 - Breaking of BUNDLE'd media streams (draft-ietf-mmusic-sdp-bundle-negotiation)
 - Recording of media streams, decrypted if possible
 - Transcoding and repacketization
+- Playback of pre-recorded streams/announcements
 
 *Rtpengine* does not (yet) support:
 
-* Playback of pre-recorded streams/announcements
 * ZRTP, although ZRTP passes through *rtpengine* just fine
 
 Compiling and Installing
@@ -132,7 +132,7 @@ build all parts and run the test suite.
 	- *libevent* version 2.x
 	- *libpcap*
 	- *libsystemd*
-	- *MySQL* or *MariaDB* client library (optional for call recording daemon)
+	- *MySQL* or *MariaDB* client library (optional for media playback)
 	- *libiptc* library for iptables management (optional)
 	- *ffmpeg* codec libraries for transcoding (optional) such as *libavcodec*, *libavfilter*, *libswresample*
 	- *bcg729* for full G.729 transcoding support (optional)
@@ -142,10 +142,14 @@ build all parts and run the test suite.
 
 	If you do not wish to (or cannot) compile the optional iptables management feature, the
 	`Makefile` also contains a switch to disable it. See the `--iptables-chain` option for
-	a description.
+	a description. The name of the `make` switch and its default value is `with_iptables_option=yes`.
 
 	Similarly, the transcoding feature can be excluded via a switch in the `Makefile`, making it
-	unnecessary to have the *ffmpeg* libraries installed.
+	unnecessary to have the *ffmpeg* libraries installed. The name of the `make` switch and
+	its default value is `with_transcoding=yes`.
+
+	Both `Makefile` switches can be provided to the `make` system via environment variables, for
+	example by building with the shell command `with_transcoding=no make`.
 
 * `iptables-extension`
 
@@ -463,6 +467,8 @@ a string and determines the type of message. Currently the following commands ar
 * unblock media
 * start forwarding
 * stop forwarding
+* play media
+* stop media
 
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
@@ -1393,8 +1399,50 @@ directionally for individual participants. See `block DTMF` above for details.
 
 `start forwarding` and `stop forwarding` Messages
 -------------------------------------------------
+
 These messages control the recording daemon's mechanism to forward PCM via TCP/TLS. Unlike the call recording
 mechanism, forwarding can be enabled for individual participants (directionally) only, therefore these
 messages can be used with the same options as the `block` and `unblock` messages above. The PCM forwarding
 mechanism is independent of the call recording mechanism, and so forwarding and recording can be started
 and stopped independently of each other.
+
+`play media` Message
+--------------------
+
+Only available if compiled with transcoding support. The message must contain the key `call-id` and one
+of the participant selection keys described under the `block DTMF` message (such as `from-tag` or
+`address`).
+
+Starts playback of a provided media file to the selected call participant. The format of the media file
+can be anything that is supported by *ffmpeg*, for example a `.wav` or `.mp3` file. It will automatically
+be resampled and transcoded to the appropriate sampling rate and codec. The selected participant's first
+listed (preferred) codec that is supported will be chosed for this purpose.
+
+Media files can be provided through one of these keys:
+
+* `file`
+
+	Contains a string that points to a file on the local file system. File names can be relative
+	to the daemon's working direction.
+
+* `blob`
+
+	Contains a binary blob (string) of the contents of a media file. Due to the limitations of the
+	*ng* transport protocol, only very short files can be provided this way, and so this is primarily
+	useful for testing and debugging.
+
+* `db-id`
+
+	Contains an integer. This requires the daemon to be configured for accessing a *MySQL* (or *MariaDB*)
+	database via (at the minimum) the `mysql-host` and `mysql-query` config keys. The daemon will then
+	retrieve the media file as a binary blob (not a file name!) from the database via the provided query.
+
+In addition to the `result` key, the response dictionary may contain the key `duration` if the length of
+the media file could be determined. The duration is given as in integer representing milliseconds.
+
+`stop media` Message
+--------------------
+
+Stops the playback previously started by a `play media` message. Media playback stops automatically when
+the end of the media file is reached, so this message is only useful for prematurely stopping playback.
+The same participant selection keys as for the `play media` message can and must be used.

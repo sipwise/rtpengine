@@ -19,6 +19,9 @@ Most of these options are indeed optional, with two exceptions. It's
 mandatory to specify at least one local IP address through B<--interface>,
 and at least one of the B<--listen->I<...> options must be given.
 
+All options can (and should) be provided in a config file instead of
+at the command line. See the B<--config-file> option below for details.
+
 =over 4
 
 =item B<--help>
@@ -246,6 +249,17 @@ Only useful in combination with B<--foreground>.
 How many worker threads to create, must be at least one.
 The default is to create as many threads as there are CPU cores available.
 If the number of CPU cores cannot be determined, the default is four.
+
+=item B<--num-media-threads=>I<INT>
+
+Number of threads to launch for media playback. Defaults to the same
+number as B<num-threads>. This can be set to zero if no media playback
+functionality is desired.
+
+Media playback is actually handled by two threads: One for reading and
+decoding the media file, and another to schedule and send out RTP packets.
+So for example, if this option is set to 4, in total 8 threads will be
+launched.
 
 =item B<--sip-source>
 
@@ -592,6 +606,32 @@ Not all systems support thread-specific B<nice> values; on such a system,
 using these settings might have unexpected results.
 (Linux does support thread-specific B<nice> values.)
 Refer to your system's sched(7) man page.
+
+=item B<--mysql-host=>I<HOST>|I<IP>
+
+=item B<--mysql-port=>I<INT>
+
+=item B<--mysql-user=>I<USERNAME>
+
+=item B<--mysql-pass=>I<PASSWORD>
+
+Configuration for playing back media files that are stored in a
+B<MySQL> (or B<MariaDB>) database. At least B<mysql-host> must be configured
+for this to work. The others are optional and default to their respective
+values from the B<MySQL>/B<MariaDB> client library.
+
+=item B<--mysql-query=>I<STRING>
+
+Query to be used for retrieving media files from the database. No default
+exist, therefore this is a mandatory configuration for media playback from
+database. The provided query string must contain the single format placeholder
+B<%llu> and must not contain any other format placeholders. The ID value
+passed to B<rtpengine> in the B<db-id> key of the B<play media> message will
+be used in place of the placeholder when querying the database.
+
+An example configuration might look like this:
+
+  mysql-query = select data from voip.files where id = %llu
 
 =back
 
