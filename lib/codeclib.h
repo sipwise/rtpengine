@@ -224,6 +224,8 @@ void *packet_sequencer_force_next_packet(packet_sequencer_t *ps);
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
 
+#include "auxlib.h"
+
 
 // `ps` must be zero allocated
 INLINE void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify n) {
@@ -244,6 +246,11 @@ INLINE void format_init(format_t *f) {
 	f->clockrate = -1;
 	f->channels = -1;
 	f->format = -1;
+}
+INLINE char *av_error(int no) {
+	char *buf = get_thread_buf();
+	av_strerror(no, buf, THREAD_BUF_SIZE);
+	return buf;
 }
 
 

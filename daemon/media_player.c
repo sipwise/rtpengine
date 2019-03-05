@@ -350,8 +350,10 @@ int media_player_play_file(struct media_player *mp, const str *file) {
 	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(file));
 
 	int ret = avformat_open_input(&mp->fmtctx, file_s, NULL, NULL);
-	if (ret < 0)
+	if (ret < 0) {
+		ilog(LOG_ERR, "Failed to open media file for playback: %s", av_error(ret));
 		return -1;
+	}
 
 	media_player_play_start(mp);
 
@@ -413,6 +415,7 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 int media_player_play_blob(struct media_player *mp, const str *blob) {
 #ifdef WITH_TRANSCODING
 	const char *err;
+	int av_ret = 0;
 
 	if (media_player_play_init(mp))
 		return -1;
@@ -442,9 +445,10 @@ int media_player_play_blob(struct media_player *mp, const str *blob) {
 	mp->fmtctx->pb = mp->avioctx;
 
 	// consumes allocated mp->fmtctx
-	int ret = avformat_open_input(&mp->fmtctx, "dummy", NULL, NULL);
-	if (ret < 0)
-		return -1;
+	err = "failed to open AVFormatContext input";
+	av_ret = avformat_open_input(&mp->fmtctx, "dummy", NULL, NULL);
+	if (av_ret < 0)
+		goto err;
 
 	media_player_play_start(mp);
 
@@ -452,6 +456,8 @@ int media_player_play_blob(struct media_player *mp, const str *blob) {
 
 err:
 	ilog(LOG_ERR, "Failed to start media playback from memory: %s", err);
+	if (av_ret)
+		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
 #endif
 	return -1;
 }
