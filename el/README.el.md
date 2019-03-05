@@ -25,13 +25,13 @@ install the *dkms* package before attempting to install
 Note: installing *ngcp-rtpengine-dkms* builds a kernel module which requires
 the sources for the running kernel. The *kernel-devel* and *kernel-headers*
 packages are meta-packages that install the headers and source for the latest
-kernel version. This will be what what you want unless you are running a custom
+kernel version. This will be what you want unless you are running a custom
 or older kernel. *ngcp-rtpengine-dkms* does not have *kernel-devel* and
 *kernel-headers* as dependencies as this could cause problems if you are using
 a custom or older kernel, so you need to install these manually.
 
 
-RPM Compliation
+RPM Compilation
 ---------------
 
 To build the RPMs you need all of the packages listed in the Manual Compilation

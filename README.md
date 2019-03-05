@@ -193,7 +193,7 @@ which means it must be copied from kernel space to user space, involving an expe
 packet has been processed by the daemon, it must be sent out again, reversing the whole process.
 
 All this wouldn't be a big deal if it wasn't for the fact that RTP traffic generally consists of many small
-packets being tranferred at high rates. Since the forwarding overhead is incurred on a per-packet basis, the
+packets being transferred at high rates. Since the forwarding overhead is incurred on a per-packet basis, the
 ratio of useful data processed to overhead drops dramatically.
 
 For these reasons, *rtpengine* provides a kernel module to offload the bulk of the packet forwarding
@@ -362,7 +362,7 @@ Currently transcoding is supported for audio streams. The feature can be disable
 basis, and is enabled by default.
 
 Even though the transcoding feature is available by default, it is not automatically engaged for
-normal calls. Normally *rtpengine* leaves codec negotation up to the clients involved in the call
+normal calls. Normally *rtpengine* leaves codec negotiation up to the clients involved in the call
 and does not interfere. In this case, if the clients fail to agree on a codec, the call will fail.
 
 The transcoding feature can be engaged for a call by instructing *rtpengine* to do so by using
@@ -1373,7 +1373,7 @@ via this messages will force packet forwarding to happen in userspace only.
 The `stop recording` message must contain the key `call-id` as defined above. The reply dictionary contains
 no additional keys.
 
-Disables call recording for the call. This can be sent during a call to imediatley stop recording it.
+Disables call recording for the call. This can be sent during a call to immediately stop recording it.
 
 `block DTMF` and `unblock DTMF` Messages
 ----------------------------------------
