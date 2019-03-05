@@ -85,7 +85,10 @@ resample:
 	return swr_frame;
 
 err:
-	ilog(LOG_ERR, "Error resampling: %s (code %i)", err, errcode);
+	if (errcode)
+		ilog(LOG_ERR, "Error resampling: %s (%s)", err, av_error(errcode));
+	else
+		ilog(LOG_ERR, "Error resampling: %s", err);
 	resample_shutdown(resample);
 	return NULL;
 }

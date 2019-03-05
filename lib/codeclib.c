@@ -422,8 +422,10 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp) {
 		dec->def->set_dec_options(dec, fmtp);
 
 	int i = avcodec_open2(dec->u.avc.avcctx, codec, NULL);
-	if (i)
+	if (i) {
+		ilog(LOG_ERR, "Error returned from libav: %s", av_error(i));
 		return "failed to open codec context";
+	}
 
 	for (const enum AVSampleFormat *sfmt = codec->sample_fmts; sfmt && *sfmt != -1; sfmt++)
 		dbg("supported sample format for input codec %s: %s",
@@ -506,6 +508,7 @@ void decoder_close(decoder_t *dec) {
 
 static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	const char *err;
+	int av_ret = 0;
 
 	dec->u.avc.avpkt.data = (unsigned char *) data->s;
 	dec->u.avc.avpkt.size = data->len;
@@ -525,32 +528,32 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 		if (dec->u.avc.avpkt.size) {
-			int ret = avcodec_send_packet(dec->u.avc.avcctx, &dec->u.avc.avpkt);
-			dbg("send packet ret %i", ret);
+			av_ret = avcodec_send_packet(dec->u.avc.avcctx, &dec->u.avc.avpkt);
+			dbg("send packet ret %i", av_ret);
 			err = "failed to send packet to avcodec";
-			if (ret == 0) {
+			if (av_ret == 0) {
 				// consumed the packet
 				dec->u.avc.avpkt.size = 0;
 				keep_going = 1;
 			}
 			else {
-				if (ret == AVERROR(EAGAIN))
+				if (av_ret == AVERROR(EAGAIN))
 					; // try again after reading output
 				else
 					goto err;
 			}
 		}
 
-		int ret = avcodec_receive_frame(dec->u.avc.avcctx, frame);
-		dbg("receive frame ret %i", ret);
+		av_ret = avcodec_receive_frame(dec->u.avc.avcctx, frame);
+		dbg("receive frame ret %i", av_ret);
 		err = "failed to receive frame from avcodec";
-		if (ret == 0) {
+		if (av_ret == 0) {
 			// got a frame
 			keep_going = 1;
 			got_frame = 1;
 		}
 		else {
-			if (ret == AVERROR(EAGAIN))
+			if (av_ret == AVERROR(EAGAIN))
 				; // maybe needs more input now
 			else
 				goto err;
@@ -560,18 +563,18 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		if (dec->u.avc.avpkt.size == 0)
 			break;
 
-		int ret = avcodec_decode_audio4(dec->u.avc.avcctx, frame, &got_frame, &dec->u.avc.avpkt);
-		dbg("decode frame ret %i, got frame %i", ret, got_frame);
+		av_ret = avcodec_decode_audio4(dec->u.avc.avcctx, frame, &got_frame, &dec->u.avc.avpkt);
+		dbg("decode frame ret %i, got frame %i", av_ret, got_frame);
 		err = "failed to decode audio packet";
-		if (ret < 0)
+		if (av_ret < 0)
 			goto err;
-		if (ret > 0) {
+		if (av_ret > 0) {
 			// consumed some input
 			err = "invalid return value";
-			if (ret > dec->u.avc.avpkt.size)
+			if (av_ret > dec->u.avc.avpkt.size)
 				goto err;
-			dec->u.avc.avpkt.size -= ret;
-			dec->u.avc.avpkt.data += ret;
+			dec->u.avc.avpkt.size -= av_ret;
+			dec->u.avc.avpkt.data += av_ret;
 			keep_going = 1;
 		}
 		if (got_frame)
@@ -599,6 +602,8 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 err:
 	ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error decoding media packet: %s", err);
+	if (av_ret)
+		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
 	av_frame_free(&frame);
 	return -1;
 }
@@ -988,8 +993,10 @@ static const char *avc_encoder_init(encoder_t *enc, const str *fmtp) {
 		enc->def->set_enc_options(enc, fmtp);
 
 	int i = avcodec_open2(enc->u.avc.avcctx, enc->u.avc.codec, NULL);
-	if (i)
+	if (i) {
+		ilog(LOG_ERR, "Error returned from libav: %s", av_error(i));
 		return "failed to open output context";
+	}
 
 	return NULL;
 }
@@ -1084,50 +1091,51 @@ void encoder_free(encoder_t *enc) {
 static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	int keep_going = 0;
 	int got_packet = 0;
+	int av_ret = 0;
 
 	if (!enc->u.avc.avcctx)
 		return -1;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 	if (*frame) {
-		int ret = avcodec_send_frame(enc->u.avc.avcctx, *frame);
-		dbg("send frame ret %i", ret);
-		if (ret == 0) {
+		av_ret = avcodec_send_frame(enc->u.avc.avcctx, *frame);
+		dbg("send frame ret %i", av_ret);
+		if (av_ret == 0) {
 			// consumed
 			*frame = NULL;
 			keep_going = 1;
 		}
 		else {
-			if (ret == AVERROR(EAGAIN))
+			if (av_ret == AVERROR(EAGAIN))
 				; // check output and maybe try again
 			else
-				return -1;
+				goto err;
 		}
 	}
 
-	int ret = avcodec_receive_packet(enc->u.avc.avcctx, &enc->avpkt);
-	dbg("receive packet ret %i", ret);
-	if (ret == 0) {
+	av_ret = avcodec_receive_packet(enc->u.avc.avcctx, &enc->avpkt);
+	dbg("receive packet ret %i", av_ret);
+	if (av_ret == 0) {
 		// got some data
 		keep_going = 1;
 		got_packet = 1;
 	}
 	else {
-		if (ret == AVERROR(EAGAIN))
+		if (av_ret == AVERROR(EAGAIN))
 			; // try again if there's still more input
 		else
-			return -1;
+			goto err;
 	}
 #else
 	if (!*frame)
 		return 0;
 
-	int ret = avcodec_encode_audio2(enc->u.avc.avcctx, &enc->avpkt, *frame, &got_packet);
-	dbg("encode frame ret %i, got packet %i", ret, got_packet);
-	if (ret == 0)
+	av_ret = avcodec_encode_audio2(enc->u.avc.avcctx, &enc->avpkt, *frame, &got_packet);
+	dbg("encode frame ret %i, got packet %i", av_ret, got_packet);
+	if (av_ret == 0)
 		*frame = NULL; // consumed
 	else
-		return -1; // error
+		goto err;
 	if (got_packet)
 		keep_going = 1;
 #endif
@@ -1148,6 +1156,11 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 		enc->avpkt.pts = enc->avpkt.dts;
 
 	return keep_going;
+
+err:
+	if (av_ret)
+		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
+	return -1;
 }
 
 int encoder_input_data(encoder_t *enc, AVFrame *frame,
@@ -1303,7 +1316,8 @@ static void opus_set_enc_options(encoder_t *enc, const str *fmtp) {
 	if (enc->ptime)
 		if ((ret = av_opt_set_int(enc->u.avc.avcctx, "frame_duration", enc->ptime,
 						AV_OPT_SEARCH_CHILDREN)))
-			ilog(LOG_WARN, "Failed to set Opus frame_duration option (error code %i)", ret);
+			ilog(LOG_WARN, "Failed to set Opus frame_duration option to %i: %s",
+					enc->ptime, av_error(ret));
 	// XXX additional opus options
 }
 
