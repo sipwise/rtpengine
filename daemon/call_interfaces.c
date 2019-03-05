@@ -1778,6 +1778,9 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	else
 		goto out;
 
+	if (monologue->player->duration)
+		bencode_dictionary_add_integer(output, "duration", monologue->player->duration);
+
 	err = NULL;
 
 out:
