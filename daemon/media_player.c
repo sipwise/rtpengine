@@ -218,6 +218,8 @@ found:
 	if (!mp->ssrc_out)
 		return -1;
 
+	mp->duration = avs->duration * 1000 * avs->time_base.num / avs->time_base.den;
+
 	return 0;
 }
 
