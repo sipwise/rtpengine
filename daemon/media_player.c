@@ -40,9 +40,6 @@ static void media_player_shutdown(struct media_player *mp) {
 	if (mp->handler)
 		codec_handler_free(mp->handler);
 	mp->handler = NULL;
-	if (mp->ssrc_out)
-		obj_put(&mp->ssrc_out->parent->h);
-	mp->ssrc_out = NULL;
 	if (mp->avioctx) {
 		if (mp->avioctx->buffer)
 			av_freep(&mp->avioctx->buffer);
@@ -70,6 +67,9 @@ static void __media_player_free(void *p) {
 	ilog(LOG_DEBUG, "freeing media_player");
 
 	media_player_shutdown(mp);
+	if (mp->ssrc_out)
+		obj_put(&mp->ssrc_out->parent->h);
+	mp->ssrc_out = NULL;
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
 }
@@ -81,6 +81,11 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 #ifdef WITH_TRANSCODING
 	ilog(LOG_DEBUG, "creating media_player");
 
+	uint32_t ssrc = 0;
+	while (ssrc == 0)
+		ssrc = random();
+	struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->call->ssrc_hash, SSRC_DIR_OUTPUT);
+
 	struct media_player *mp = obj_alloc0("media_player", sizeof(*mp), __media_player_free);
 
 	mp->tt_obj.tt = &media_player_thread;
@@ -88,6 +93,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	mp->call = obj_get(ml->call);
 	mp->ml = ml;
 	mp->seq = random();
+	mp->ssrc_out = ssrc_ctx;
 
 	av_init_packet(&mp->pkt);
 	mp->pkt.data = NULL;
@@ -215,9 +221,6 @@ found:
 
 	mp->handler = codec_handler_make_playback(&src_pt, dst_pt);
 	if (!mp->handler)
-		return -1;
-	mp->ssrc_out = get_ssrc_ctx(random(), mp->call->ssrc_hash, SSRC_DIR_OUTPUT);
-	if (!mp->ssrc_out)
 		return -1;
 
 	mp->duration = avs->duration * 1000 * avs->time_base.num / avs->time_base.den;

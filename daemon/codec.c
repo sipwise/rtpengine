@@ -65,6 +65,7 @@ struct codec_ssrc_handler {
 	struct timeval first_send;
 	unsigned long first_send_ts;
 	GString *sample_buffer;
+	int rtp_mark:1;
 };
 struct transcode_packet {
 	seq_packet_t p; // must be first
@@ -189,7 +190,9 @@ struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_p
 	handler->dest_pt = *dst_pt;
 	handler->func = handler_func_playback;
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
-	handler->ssrc_handler->first_ts = random();
+	while (handler->ssrc_handler->first_ts == 0)
+		handler->ssrc_handler->first_ts = random();
+	handler->ssrc_handler->rtp_mark = 1;
 
 	ilog(LOG_DEBUG, "Created media playback context for " STR_FORMAT " -> " STR_FORMAT "",
 			STR_FMT(&src_pt->encoding_with_params),
@@ -1070,8 +1073,9 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		ilog(LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
 		__output_rtp(mp, ch, ch->handler, buf, inout.len, ch->first_ts
 				+ enc->avpkt.pts / enc->def->clockrate_mult,
-				0, -1, seq_off);
+				ch->rtp_mark ? 1 : 0, -1, seq_off);
 		mp->iter++;
+		ch->rtp_mark = 0;
 
 		if (ret == 0) {
 			// no more to go
