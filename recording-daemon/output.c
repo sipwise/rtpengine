@@ -56,6 +56,7 @@ output_t *output_new(const char *path, const char *filename) {
 
 int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
 	const char *err;
+	int av_ret = 0;
 
 	// anything to do?
 	if (G_LIKELY(format_eq(requested_format, &output->encoder->requested_format))) {
@@ -111,13 +112,12 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 
 got_fn:
 	err = "failed to open avio";
-	int i;
-	i = avio_open(&output->fmtctx->pb, full_fn, AVIO_FLAG_WRITE);
-	if (i < 0)
+	av_ret = avio_open(&output->fmtctx->pb, full_fn, AVIO_FLAG_WRITE);
+	if (av_ret < 0)
 		goto err;
 	err = "failed to write header";
-	i = avformat_write_header(output->fmtctx, NULL);
-	if (i)
+	av_ret = avformat_write_header(output->fmtctx, NULL);
+	if (av_ret)
 		goto err;
 
 	db_config_stream(output);
@@ -127,6 +127,8 @@ done:
 err:
 	output_shutdown(output);
 	ilog(LOG_ERR, "Error configuring media output: %s", err);
+	if (av_ret)
+		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
 	return -1;
 }
 
