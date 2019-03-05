@@ -220,6 +220,8 @@ found:
 	if (!mp->ssrc_out)
 		return -1;
 
+	mp->duration = avs->duration * 1000 * avs->time_base.num / avs->time_base.den;
+
 	return 0;
 }
 
@@ -334,6 +336,9 @@ found:
 
 // call->master_lock held in W
 static void media_player_play_start(struct media_player *mp) {
+	// needed to have usable duration for some formats. ignore errors.
+	avformat_find_stream_info(mp->fmtctx, NULL);
+
 	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
 	timeval_add_usec(&mp->next_run, -50000);
