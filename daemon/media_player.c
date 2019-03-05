@@ -37,12 +37,6 @@ static void media_player_shutdown(struct media_player *mp) {
 	timerthread_obj_deschedule(&mp->tt_obj);
 	avformat_close_input(&mp->fmtctx);
 	mp->media = NULL;
-	if (mp->handler)
-		codec_handler_free(mp->handler);
-	mp->handler = NULL;
-	if (mp->ssrc_out)
-		obj_put(&mp->ssrc_out->parent->h);
-	mp->ssrc_out = NULL;
 	if (mp->avioctx) {
 		if (mp->avioctx->buffer)
 			av_freep(&mp->avioctx->buffer);
@@ -68,6 +62,12 @@ static void __media_player_free(void *p) {
 	ilog(LOG_DEBUG, "freeing media_player");
 
 	media_player_shutdown(mp);
+	if (mp->ssrc_out)
+		obj_put(&mp->ssrc_out->parent->h);
+	mp->ssrc_out = NULL;
+	if (mp->handler)
+		codec_handler_free(mp->handler);
+	mp->handler = NULL;
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
 }
@@ -211,10 +211,15 @@ found:
 	ilog(LOG_DEBUG, "Output codec for media playback is " STR_FORMAT,
 			STR_FMT(&dst_pt->encoding_with_params));
 
-	mp->handler = codec_handler_make_playback(&src_pt, dst_pt);
+	mp->handler = codec_handler_make_playback(mp->handler, &src_pt, dst_pt);
 	if (!mp->handler)
 		return -1;
-	mp->ssrc_out = get_ssrc_ctx(random(), mp->call->ssrc_hash, SSRC_DIR_OUTPUT);
+	if (!mp->ssrc_out) {
+		uint32_t ssrc = 0;
+		while (ssrc == 0)
+			ssrc = random();
+		mp->ssrc_out = get_ssrc_ctx(ssrc, mp->call->ssrc_hash, SSRC_DIR_OUTPUT);
+	}
 	if (!mp->ssrc_out)
 		return -1;
 

@@ -182,9 +182,21 @@ reset:
 			STR_FMT(&dest->encoding_with_params));
 }
 
-struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_pt,
+struct codec_handler *codec_handler_make_playback(struct codec_handler *old,
+		struct rtp_payload_type *src_pt,
 		struct rtp_payload_type *dst_pt)
 {
+	if (!old)
+		goto make;
+	if (rtp_payload_type_cmp(src_pt, &old->source_pt))
+		goto make;
+	if (rtp_payload_type_cmp(dst_pt, &old->dest_pt))
+		goto make;
+
+make:
+	if (old)
+		codec_handler_free(old);
+
 	struct codec_handler *handler = __handler_new(src_pt);
 	handler->dest_pt = *dst_pt;
 	handler->func = handler_func_playback;

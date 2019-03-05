@@ -43,7 +43,8 @@ struct codec_packet {
 
 struct codec_handler *codec_handler_get(struct call_media *, int payload_type);
 void codec_handlers_free(struct call_media *);
-struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_pt,
+struct codec_handler *codec_handler_make_playback(struct codec_handler *,
+		struct rtp_payload_type *src_pt,
 		struct rtp_payload_type *dst_pt);
 void codec_handler_free(struct codec_handler *handler);
 
