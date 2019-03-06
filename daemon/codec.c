@@ -711,6 +711,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	p->s.len = payload_len + sizeof(struct rtp_header);
 	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
 	p->free_func = free;
+	p->source = handler;
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send

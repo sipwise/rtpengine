@@ -31,11 +31,42 @@ static struct timerthread send_timer_thread;
 
 
 #ifdef WITH_TRANSCODING
-// appropriate lock must be held
+// called with call->master lock in W
+static unsigned int send_timer_flush(struct send_timer *st, void *ptr) {
+	if (!st)
+		return 0;
+
+	unsigned int num = 0;
+	GList *l = st->packets.head;
+	while (l) {
+		GList *next = l->next;
+		struct codec_packet *p = l->data;
+		if (p->source != ptr)
+			goto next;
+		g_queue_delete_link(&st->packets, l);
+		codec_packet_free(p);
+		num++;
+
+next:
+		l = next;
+	}
+	return num;
+}
+
+
+// called with call->master lock in W
 static void media_player_shutdown(struct media_player *mp) {
 	ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
 	avformat_close_input(&mp->fmtctx);
+
+	if (mp->sink) {
+		unsigned int num = send_timer_flush(mp->sink->send_timer, mp->handler);
+		ilog(LOG_DEBUG, "%u packets removed from send queue", num);
+		// roll back seq numbers already used
+		mp->ssrc_out->parent->seq_diff -= num;
+	}
+
 	mp->media = NULL;
 	if (mp->handler)
 		codec_handler_free(mp->handler);

@@ -36,6 +36,7 @@ struct codec_handler {
 
 struct codec_packet {
 	str s;
+	void *source; // opaque
 	void (*free_func)(void *);
 	struct timeval to_send;
 };
