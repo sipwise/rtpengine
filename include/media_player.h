@@ -38,6 +38,8 @@ struct media_player {
 	struct codec_handler *handler;
 	struct ssrc_ctx *ssrc_out;
 	unsigned long seq;
+	unsigned long sync_ts;
+	struct timeval sync_ts_tv;
 
 	AVIOContext *avioctx;
 	str *blob;

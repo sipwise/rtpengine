@@ -250,7 +250,14 @@ found:
 	ilog(LOG_DEBUG, "Output codec for media playback is " STR_FORMAT,
 			STR_FMT(&dst_pt->encoding_with_params));
 
-	mp->handler = codec_handler_make_playback(&src_pt, dst_pt);
+	// if we played anything before, scale our sync TS according to the time
+	// that has passed
+	if (mp->sync_ts_tv.tv_sec) {
+		long long ts_diff_us = timeval_diff(&rtpe_now, &mp->sync_ts_tv);
+		mp->sync_ts += ts_diff_us * dst_pt->clock_rate / 1000000 / dst_pt->codec_def->clockrate_mult;
+	}
+
+	mp->handler = codec_handler_make_playback(&src_pt, dst_pt, mp->sync_ts);
 	if (!mp->handler)
 		return -1;
 
@@ -325,6 +332,16 @@ static void media_player_read_packet(struct media_player *mp) {
 	// as this is timing sensitive and we may have spent some time decoding,
 	// update our global "now" timestamp
 	gettimeofday(&rtpe_now, NULL);
+
+	// keep track of RTP timestamps and real clock. look at the last packet we received
+	// and update our sync TS.
+	if (packet.packets_out.head) {
+		struct codec_packet *p = packet.packets_out.head->data;
+		if (p->rtp) {
+			mp->sync_ts = ntohl(p->rtp->timestamp);
+			mp->sync_ts_tv = p->to_send;
+		}
+	}
 
 	mutex_lock(&mp->sink->out_lock);
 	if (media_socket_dequeue(&packet, mp->sink))

@@ -185,12 +185,13 @@ reset:
 }
 
 struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_pt,
-		struct rtp_payload_type *dst_pt)
+		struct rtp_payload_type *dst_pt, unsigned long last_ts)
 {
 	struct codec_handler *handler = __handler_new(src_pt);
 	handler->dest_pt = *dst_pt;
 	handler->func = handler_func_playback;
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
+	handler->ssrc_handler->first_ts = last_ts;
 	while (handler->ssrc_handler->first_ts == 0)
 		handler->ssrc_handler->first_ts = random();
 	handler->ssrc_handler->rtp_mark = 1;
@@ -716,6 +717,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
 	p->free_func = free;
 	p->source = handler;
+	p->rtp = rh;
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send
