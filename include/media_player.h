@@ -29,6 +29,7 @@ struct media_player {
 	struct call_monologue *ml;
 	struct call_media *media;
 	struct packet_stream *sink;
+	const struct streamhandler *crypt_handler;
 
 	struct timeval next_run;
 
