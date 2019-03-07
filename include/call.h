@@ -51,18 +51,6 @@ enum call_opmode {
 	OP_OTHER,
 };
 
-enum transport_protocol_index {
-	PROTO_RTP_AVP = 0,
-	PROTO_RTP_SAVP,
-	PROTO_RTP_AVPF,
-	PROTO_RTP_SAVPF,
-	PROTO_UDP_TLS_RTP_SAVP,
-	PROTO_UDP_TLS_RTP_SAVPF,
-	PROTO_UDPTL,
-
-	__PROTO_LAST,
-};
-
 enum call_stream_state {
 	CSS_UNKNOWN = 0,
 	CSS_SHUTDOWN,
@@ -200,6 +188,7 @@ struct codec_handler;
 struct rtp_payload_type;
 struct media_player;
 struct send_timer;
+struct transport_protocol;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -208,17 +197,6 @@ typedef bencode_buffer_t call_buffer_t;
 #define call_buffer_free bencode_buffer_free
 
 
-
-
-struct transport_protocol {
-	enum transport_protocol_index	index;
-	const char			*name;
-	int				rtp:1; /* also set to 1 for SRTP */
-	int				srtp:1;
-	int				avpf:1;
-	int				tcp:1;
-};
-extern const struct transport_protocol transport_protocols[];
 
 
 struct stream_params {
@@ -447,7 +425,6 @@ void __monologue_unkernelize(struct call_monologue *monologue);
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
 		int *len, const struct local_intf *ifa, int keep_unspec);
 
-const struct transport_protocol *transport_protocol(const str *s);
 void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 
 void payload_type_free(struct rtp_payload_type *p);

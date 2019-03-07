@@ -59,65 +59,6 @@ struct xmlrpc_helper {
 	GQueue			strings;
 };
 
-const struct transport_protocol transport_protocols[] = {
-	[PROTO_RTP_AVP] = {
-		.index		= PROTO_RTP_AVP,
-		.name		= "RTP/AVP",
-		.rtp		= 1,
-		.srtp		= 0,
-		.avpf		= 0,
-		.tcp		= 0,
-	},
-	[PROTO_RTP_SAVP] = {
-		.index		= PROTO_RTP_SAVP,
-		.name		= "RTP/SAVP",
-		.rtp		= 1,
-		.srtp		= 1,
-		.avpf		= 0,
-		.tcp		= 0,
-	},
-	[PROTO_RTP_AVPF] = {
-		.index		= PROTO_RTP_AVPF,
-		.name		= "RTP/AVPF",
-		.rtp		= 1,
-		.srtp		= 0,
-		.avpf		= 1,
-		.tcp		= 0,
-	},
-	[PROTO_RTP_SAVPF] = {
-		.index		= PROTO_RTP_SAVPF,
-		.name		= "RTP/SAVPF",
-		.rtp		= 1,
-		.srtp		= 1,
-		.avpf		= 1,
-		.tcp		= 0,
-	},
-	[PROTO_UDP_TLS_RTP_SAVP] = {
-		.index		= PROTO_UDP_TLS_RTP_SAVP,
-		.name		= "UDP/TLS/RTP/SAVP",
-		.rtp		= 1,
-		.srtp		= 1,
-		.avpf		= 0,
-		.tcp		= 0,
-	},
-	[PROTO_UDP_TLS_RTP_SAVPF] = {
-		.index		= PROTO_UDP_TLS_RTP_SAVPF,
-		.name		= "UDP/TLS/RTP/SAVPF",
-		.rtp		= 1,
-		.srtp		= 1,
-		.avpf		= 1,
-		.tcp		= 0,
-	},
-	[PROTO_UDPTL] = {
-		.index		= PROTO_UDPTL,
-		.name		= "udptl",
-		.rtp		= 0,
-		.srtp		= 0,
-		.avpf		= 0,
-		.tcp		= 0,
-	},
-};
-const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
 /* XXX rework these */
 struct stats rtpe_statsps;
@@ -2858,23 +2799,4 @@ void call_get_all_calls(GQueue *q) {
 	g_hash_table_foreach(rtpe_callhash, call_get_all_calls_interator, q);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
-}
-
-
-const struct transport_protocol *transport_protocol(const str *s) {
-	int i;
-
-	if (!s || !s->s)
-		goto out;
-
-	for (i = 0; i < num_transport_protocols; i++) {
-		if (strlen(transport_protocols[i].name) != s->len)
-			continue;
-		if (strncasecmp(transport_protocols[i].name, s->s, s->len))
-			continue;
-		return &transport_protocols[i];
-	}
-
-out:
-	return NULL;
 }

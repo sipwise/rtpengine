@@ -16,9 +16,47 @@
 
 
 struct media_packet;
+struct transport_protocol;
+struct ssrc_ctx;
+struct rtpengine_srtp;
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
+typedef int (*rewrite_func)(str *, struct packet_stream *, struct stream_fd *, const endpoint_t *,
+		const struct timeval *, struct ssrc_ctx *);
 
+
+enum transport_protocol_index {
+	PROTO_RTP_AVP = 0,
+	PROTO_RTP_SAVP,
+	PROTO_RTP_AVPF,
+	PROTO_RTP_SAVPF,
+	PROTO_UDP_TLS_RTP_SAVP,
+	PROTO_UDP_TLS_RTP_SAVPF,
+	PROTO_UDPTL,
+
+	__PROTO_LAST,
+};
+struct transport_protocol {
+	enum transport_protocol_index	index;
+	const char			*name;
+	int				rtp:1; /* also set to 1 for SRTP */
+	int				srtp:1;
+	int				avpf:1;
+	int				tcp:1;
+};
+extern const struct transport_protocol transport_protocols[];
+
+
+struct streamhandler_io {
+	rewrite_func		rtp_crypt;
+	rewrite_func		rtcp_crypt;
+	rtcp_filter_func	*rtcp_filter;
+	int			(*kernel)(struct rtpengine_srtp *, struct packet_stream *);
+};
+struct streamhandler {
+	const struct streamhandler_io	*in;
+	const struct streamhandler_io	*out;
+};
 
 
 
@@ -131,6 +169,10 @@ void unkernelize(struct packet_stream *);
 void __stream_unconfirm(struct packet_stream *);
 
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink);
+const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
+		const struct transport_protocol *out_proto, int must_recrypt);
+int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
+const struct transport_protocol *transport_protocol(const str *s);
 
 /* XXX shouldn't be necessary */
 /*

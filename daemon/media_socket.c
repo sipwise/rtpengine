@@ -38,20 +38,7 @@
 #endif
 
 
-typedef int (*rewrite_func)(str *, struct packet_stream *, struct stream_fd *, const endpoint_t *,
-		const struct timeval *, struct ssrc_ctx *);
 
-
-struct streamhandler_io {
-	rewrite_func		rtp_crypt;
-	rewrite_func		rtcp_crypt;
-	rtcp_filter_func	*rtcp_filter;
-	int			(*kernel)(struct rtpengine_srtp *, struct packet_stream *);
-};
-struct streamhandler {
-	const struct streamhandler_io	*in;
-	const struct streamhandler_io	*out;
-};
 struct intf_rr {
 	struct logical_intf hash_key;
 	mutex_t lock;
@@ -79,7 +66,7 @@ struct packet_handler_ctx {
 };
 
 
-static void determine_handler(struct packet_stream *in, const struct packet_stream *out);
+static void __determine_handler(struct packet_stream *in, const struct packet_stream *out);
 
 static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
@@ -100,6 +87,70 @@ static struct logical_intf *__get_logical_interface(const str *name, sockfamily_
 
 
 
+/* ********** */
+
+const struct transport_protocol transport_protocols[] = {
+	[PROTO_RTP_AVP] = {
+		.index		= PROTO_RTP_AVP,
+		.name		= "RTP/AVP",
+		.rtp		= 1,
+		.srtp		= 0,
+		.avpf		= 0,
+		.tcp		= 0,
+	},
+	[PROTO_RTP_SAVP] = {
+		.index		= PROTO_RTP_SAVP,
+		.name		= "RTP/SAVP",
+		.rtp		= 1,
+		.srtp		= 1,
+		.avpf		= 0,
+		.tcp		= 0,
+	},
+	[PROTO_RTP_AVPF] = {
+		.index		= PROTO_RTP_AVPF,
+		.name		= "RTP/AVPF",
+		.rtp		= 1,
+		.srtp		= 0,
+		.avpf		= 1,
+		.tcp		= 0,
+	},
+	[PROTO_RTP_SAVPF] = {
+		.index		= PROTO_RTP_SAVPF,
+		.name		= "RTP/SAVPF",
+		.rtp		= 1,
+		.srtp		= 1,
+		.avpf		= 1,
+		.tcp		= 0,
+	},
+	[PROTO_UDP_TLS_RTP_SAVP] = {
+		.index		= PROTO_UDP_TLS_RTP_SAVP,
+		.name		= "UDP/TLS/RTP/SAVP",
+		.rtp		= 1,
+		.srtp		= 1,
+		.avpf		= 0,
+		.tcp		= 0,
+	},
+	[PROTO_UDP_TLS_RTP_SAVPF] = {
+		.index		= PROTO_UDP_TLS_RTP_SAVPF,
+		.name		= "UDP/TLS/RTP/SAVPF",
+		.rtp		= 1,
+		.srtp		= 1,
+		.avpf		= 1,
+		.tcp		= 0,
+	},
+	[PROTO_UDPTL] = {
+		.index		= PROTO_UDPTL,
+		.name		= "udptl",
+		.rtp		= 0,
+		.srtp		= 0,
+		.avpf		= 0,
+		.tcp		= 0,
+	},
+};
+const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
+
+
+/* ********** */
 
 static const struct streamhandler_io __shio_noop = { // non-RTP protocols
 	.kernel		= __k_null,
@@ -994,7 +1045,7 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	}
 
-	determine_handler(stream, sink);
+	__determine_handler(stream, sink);
 
 	if (is_addr_unspecified(&sink->advertised_endpoint.address)
 			|| !sink->advertised_endpoint.port)
@@ -1124,41 +1175,58 @@ void unkernelize(struct packet_stream *ps) {
 
 
 
-/* must be called with call->master_lock held in R, and in->in_lock held */
-static void determine_handler(struct packet_stream *in, const struct packet_stream *out) {
+const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
+		const struct transport_protocol *out_proto, int must_recrypt)
+{
 	const struct streamhandler * const *sh_pp, *sh;
 	const struct streamhandler * const * const *matrix;
+
+	matrix = __sh_matrix;
+	if (must_recrypt)
+		matrix = __sh_matrix_recrypt;
+
+	sh_pp = matrix[in_proto->index];
+	if (!sh_pp)
+		goto err;
+	sh = sh_pp[out_proto->index];
+	if (!sh)
+		goto err;
+	return sh;
+
+err:
+	ilog(LOG_WARNING, "Unknown transport protocol encountered");
+	return &__sh_noop;
+}
+
+/* must be called with call->master_lock held in R, and in->in_lock held */
+static void __determine_handler(struct packet_stream *in, const struct packet_stream *out) {
+	const struct transport_protocol *in_proto, *out_proto;
+	int must_recrypt = 0;
 
 	if (in->handler)
 		return;
 	if (MEDIA_ISSET(in->media, PASSTHRU))
 		goto noop;
 
-	if (!in->media->protocol)
+	in_proto = in->media->protocol;
+	out_proto = out->media->protocol;
+
+	if (!in_proto)
 		goto err;
-	if (!out->media->protocol)
+	if (!out_proto)
 		goto err;
 
-	matrix = __sh_matrix;
 	if (MEDIA_ISSET(in->media, DTLS) || MEDIA_ISSET(out->media, DTLS))
-		matrix = __sh_matrix_recrypt;
+		must_recrypt = 1;
 	else if (in->call->recording)
-		matrix = __sh_matrix_recrypt;
-	else if (in->media->protocol->srtp && out->media->protocol->srtp
+		must_recrypt = 1;
+	else if (in_proto->srtp && out_proto->srtp
 			&& in->selected_sfd && out->selected_sfd
 			&& (crypto_params_cmp(&in->crypto.params, &out->selected_sfd->crypto.params)
 				|| crypto_params_cmp(&out->crypto.params, &in->selected_sfd->crypto.params)))
-		matrix = __sh_matrix_recrypt;
+		must_recrypt = 1;
 
-
-	sh_pp = matrix[in->media->protocol->index];
-	if (!sh_pp)
-		goto err;
-	sh = sh_pp[out->media->protocol->index];
-	if (!sh)
-		goto err;
-	in->handler = sh;
-
+	in->handler = determine_handler(in_proto, out_proto, must_recrypt);
 	return;
 
 err:
@@ -1362,7 +1430,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 static int media_packet_decrypt(struct packet_handler_ctx *phc)
 {
 	mutex_lock(&phc->in_srtp->in_lock);
-	determine_handler(phc->in_srtp, phc->sink);
+	__determine_handler(phc->in_srtp, phc->sink);
 
 	// XXX use an array with index instead of if/else
 	if (G_LIKELY(!phc->rtcp)) {
@@ -1395,26 +1463,33 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 	return ret;
 }
 
-static int media_packet_encrypt(struct packet_handler_ctx *phc) {
-	int ret = 0;
+int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp) {
+	int ret = 0x00; // 0x01 = error, 0x02 = update
 
-	if (!phc->encrypt_func)
-		return 0;
+	if (!encrypt_func)
+		return 0x00;
 
-	mutex_lock(&phc->out_srtp->out_lock);
+	mutex_lock(&out->out_lock);
 
-	for (GList *l = phc->mp.packets_out.head; l; l = l->next) {
+	for (GList *l = mp->packets_out.head; l; l = l->next) {
 		struct codec_packet *p = l->data;
-		int encret = phc->encrypt_func(&p->s, phc->out_srtp, NULL, NULL, NULL, phc->mp.ssrc_out);
+		int encret = encrypt_func(&p->s, out, NULL, NULL, NULL, mp->ssrc_out);
 		if (encret == 1)
-			phc->update = 1;
+			ret |= 0x02;
 		else if (encret != 0)
-			ret = -1;
+			ret |= 0x01;
 	}
 
-	mutex_unlock(&phc->out_srtp->out_lock);
+	mutex_unlock(&out->out_lock);
 
 	return ret;
+}
+
+static int __media_packet_encrypt(struct packet_handler_ctx *phc) {
+	int ret = media_packet_encrypt(phc->encrypt_func, phc->out_srtp, &phc->mp);
+	if (ret & 0x02)
+		phc->update = 1;
+	return (ret & 0x01) ? -1 : 0;
 }
 
 
@@ -1681,7 +1756,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	}
 
 	if (G_LIKELY(handler_ret >= 0))
-		handler_ret = media_packet_encrypt(phc);
+		handler_ret = __media_packet_encrypt(phc);
 
 	if (phc->unkernelize) // for RTCP packet index updates
 		unkernelize(phc->mp.stream);
@@ -1845,4 +1920,22 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 		ilog(LOG_ERR, "Failed to add stream_fd to poller");
 
 	return sfd;
+}
+
+const struct transport_protocol *transport_protocol(const str *s) {
+	int i;
+
+	if (!s || !s->s)
+		goto out;
+
+	for (i = 0; i < num_transport_protocols; i++) {
+		if (strlen(transport_protocols[i].name) != s->len)
+			continue;
+		if (strncasecmp(transport_protocols[i].name, s->s, s->len))
+			continue;
+		return &transport_protocols[i];
+	}
+
+out:
+	return NULL;
 }
