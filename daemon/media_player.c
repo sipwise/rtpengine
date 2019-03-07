@@ -343,6 +343,8 @@ static void media_player_read_packet(struct media_player *mp) {
 		}
 	}
 
+	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
+
 	mutex_lock(&mp->sink->out_lock);
 	if (media_socket_dequeue(&packet, mp->sink))
 		ilog(LOG_ERR, "Error sending playback media to RTP sink");
@@ -380,6 +382,7 @@ found:
 	}
 	mp->media = media;
 	mp->sink = media->streams.head->data;
+	mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media->protocol, 1);
 
 	return 0;
 }
