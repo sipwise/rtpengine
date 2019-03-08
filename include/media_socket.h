@@ -93,7 +93,6 @@ struct media_packet {
 	str payload;
 
 	GQueue packets_out;
-	unsigned int iter; // init to 0, inc for each packet processed - used for seq tracking
 };
 
 
