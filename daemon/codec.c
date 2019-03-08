@@ -1084,6 +1084,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 				ch->rtp_mark ? 1 : 0, -1, 0);
 		mp->ssrc_out->parent->seq_diff++;
 		//mp->iter_out++;
+		ch->rtp_mark = 0;
 
 		if (ret == 0) {
 			// no more to go

@@ -328,7 +328,7 @@ static void media_player_read_packet(struct media_player *mp) {
 
 	struct rtp_header rtp = {
 		.timestamp = pts_scaled, // taken verbatim by handler_func_playback w/o byte swap
-		.seq_num = htons(mp->seq++),
+		.seq_num = htons(mp->seq),
 	};
 	struct media_packet packet = {
 		.tv = rtpe_now,
