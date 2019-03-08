@@ -1486,12 +1486,7 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 		return "Unknown call-id";
 
 	// directional block?
-	if (bencode_dictionary_get_str(input, "from-tag", &s)) {
-		*monologue = call_get_mono_dialogue(*call, &s, NULL, NULL);
-		if (!*monologue)
-			return "From-tag given, but no such tag exists";
-	}
-	else if (bencode_dictionary_get_str(input, "address", &s)) {
+	if (bencode_dictionary_get_str(input, "address", &s)) {
 		sockaddr_t addr;
 		if (sockaddr_parse_any_str(&addr, &s))
 			return "Failed to parse network address";
@@ -1513,6 +1508,11 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 		return "Failed to match address to any tag";
 found:
 		;
+	}
+	else if (bencode_dictionary_get_str(input, "from-tag", &s)) {
+		*monologue = call_get_mono_dialogue(*call, &s, NULL, NULL);
+		if (!*monologue)
+			return "From-tag given, but no such tag exists";
 	}
 
 	return NULL;
