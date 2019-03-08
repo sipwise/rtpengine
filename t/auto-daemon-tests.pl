@@ -1361,6 +1361,408 @@ rcv($sock_a, $port_b, rtpm(0, $seq+14, 4000+160*14, $ssrc, "\00" x 160));
 
 
 
+# ptime tests
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3000)], [qw(198.51.100.3 3002)]);
+
+($port_a) = offer('default ptime in/out', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('default ptime in/out', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3002 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
+rcv($sock_a, $port_b, rtpm(0, 4000, 5000, 0x4567, "\x88" x 160));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3000)], [qw(198.51.100.3 3002)]);
+
+($port_a) = offer('mismatched ptime but no change requested', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=ptime:20
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+($port_b) = answer('mismatched ptime but no change requested', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3002 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=ptime:30
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:30
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\00" x 240));
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
+rcv($sock_a, $port_b, rtpm(0, 4000, 5000, 0x4567, "\x88" x 160));
+snd($sock_b, $port_a, rtp(0, 4001, 5160, 0x4567, "\x88" x 240));
+rcv($sock_a, $port_b, rtpm(0, 4001, 5160, 0x4567, "\x88" x 240));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3004)], [qw(198.51.100.3 3006)]);
+
+($port_a) = offer('default ptime in, ptime=30 out, default response', {
+	ICE => 'remove', replace => ['origin'], ptime => 30 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3004 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:30
+SDP
+
+($port_b) = answer('default ptime in, ptime=30 out, default response',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3006 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# A->B: 5x 20 ms packets -> 3x 30 ms
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1003, 3480, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1004, 3640, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+
+# A->B: 60 ms packet -> 2x 30 ms
+# also perform TS and seq reset
+snd($sock_a, $port_b, rtp(0, 8000, 500000, 0x1234, "\00" x 480));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3960, $ssrc, "\00" x 240));
+
+# B->A: 2x 60 ms packet -> 6x 20 ms
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 480));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 160));
+rcv($sock_a, $port_b, rtpm(0, 4001, 5160, $ssrc, "\x88" x 160));
+rcv($sock_a, $port_b, rtpm(0, 4002, 5320, $ssrc, "\x88" x 160));
+snd($sock_b, $port_a, rtp(0, 4001, 5480, 0x4567, "\x88" x 480));
+rcv($sock_a, $port_b, rtpm(0, 4003, 5480, $ssrc, "\x88" x 160));
+rcv($sock_a, $port_b, rtpm(0, 4004, 5640, $ssrc, "\x88" x 160));
+rcv($sock_a, $port_b, rtpm(0, 4005, 5800, $ssrc, "\x88" x 160));
+
+# B->A: 4x 10 ms packet -> 2x 20 ms
+# out of order packet input
+snd($sock_b, $port_a, rtp(0, 4003, 6040, 0x4567, "\x88" x 80));
+Time::HiRes::usleep(10000);
+snd($sock_b, $port_a, rtp(0, 4002, 5960, 0x4567, "\x88" x 80));
+rcv($sock_a, $port_b, rtpm(0, 4006, 5960, $ssrc, "\x88" x 160));
+snd($sock_b, $port_a, rtp(0, 4004, 6120, 0x4567, "\x88" x 80));
+snd($sock_b, $port_a, rtp(0, 4005, 6200, 0x4567, "\x88" x 80));
+rcv($sock_a, $port_b, rtpm(0, 4007, 6120, $ssrc, "\x88" x 160));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3008)], [qw(198.51.100.3 3010)]);
+
+($port_a) = offer('default ptime in, no change, ptime=30 response', {
+	ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3008 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('default ptime in, no change, ptime=30 response',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3010 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=ptime:30
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:30
+SDP
+
+# A->B: 20 ms unchanged
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 160));
+# A->B: 30 ms unchanged
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\00" x 240));
+
+# B->A: 20 ms unchanged
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 160));
+# B->A: 30 ms unchanged
+snd($sock_b, $port_a, rtp(0, 4001, 5160, 0x4567, "\x88" x 240));
+rcv($sock_a, $port_b, rtpm(0, 4001, 5160, $ssrc, "\x88" x 240));
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3012)], [qw(198.51.100.3 3014)]);
+
+($port_a) = offer('ptime=50 in, change to 30, default response', {
+	ICE => 'remove', replace => ['origin'], ptime => 30 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3012 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=ptime:50
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:30
+SDP
+
+($port_b) = answer('ptime=50 in, change to 30, default response',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3014 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:50
+SDP
+
+# A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+# A->B: add another 20 ms for another full 30 ms
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+
+# B->A: 4x 30 ms -> 2x 50 ms (plus 20 ms left)
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
+Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
+snd($sock_b, $port_a, rtp(0, 4001, 5240, 0x4567, "\x88" x 240));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 400));
+snd($sock_b, $port_a, rtp(0, 4002, 5480, 0x4567, "\x88" x 240));
+snd($sock_b, $port_a, rtp(0, 4003, 5720, 0x4567, "\x88" x 240));
+rcv($sock_a, $port_b, rtpm(0, 4001, 5400, $ssrc, "\x88" x 400));
+# B->A: add another 30 ms for another full 50 ms
+snd($sock_b, $port_a, rtp(0, 4004, 5960, 0x4567, "\x88" x 240));
+rcv($sock_a, $port_b, rtpm(0, 4002, 5800, $ssrc, "\x88" x 400));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3016)], [qw(198.51.100.3 3018)]);
+
+($port_a) = offer('ptime=50 in, change to 30, response 30, change to 50', {
+	ICE => 'remove', replace => ['origin'], ptime => 30 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3016 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=ptime:50
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:30
+SDP
+
+($port_b) = answer('ptime=50 in, change to 30, response 30, change to 50',
+	{ ICE => 'remove', replace => ['origin'], ptime => 50 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3018 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=ptime:30
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:50
+SDP
+
+# A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+# A->B: add another 20 ms for another full 30 ms
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+
+# B->A: 4x 30 ms -> 2x 50 ms (plus 20 ms left)
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
+Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
+snd($sock_b, $port_a, rtp(0, 4001, 5240, 0x4567, "\x88" x 240));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 400));
+snd($sock_b, $port_a, rtp(0, 4002, 5480, 0x4567, "\x88" x 240));
+snd($sock_b, $port_a, rtp(0, 4003, 5720, 0x4567, "\x88" x 240));
+rcv($sock_a, $port_b, rtpm(0, 4001, 5400, $ssrc, "\x88" x 400));
+# B->A: add another 30 ms for another full 50 ms
+snd($sock_b, $port_a, rtp(0, 4004, 5960, 0x4567, "\x88" x 240));
+rcv($sock_a, $port_b, rtpm(0, 4002, 5800, $ssrc, "\x88" x 400));
+
+
+
+
 END {
 	if ($rtpe_pid) {
 		kill('INT', $rtpe_pid) or die;
