@@ -76,6 +76,7 @@ struct transcode_packet {
 	    ignore_seq:1;
 	int (*func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
 	void (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
+	struct rtp_header rtp;
 };
 
 
@@ -670,6 +671,9 @@ static int __handler_func_sequencer(struct codec_handler *h, struct media_packet
 			seq_ret = 0;
 		}
 
+		// we might be working with a different packet now
+		mp->rtp = &packet->rtp;
+
 		if (packet->func(ch, packet, mp))
 			ilog(LOG_WARN, "Decoder error while processing RTP packet");
 		__transcode_packet_free(packet);
@@ -818,6 +822,7 @@ static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	packet->func = packet_dtmf;
 	packet->dup_func = packet_dtmf_dup;
 	packet->handler = h; // original handler for output RTP options (payload type)
+	packet->rtp = *mp->rtp;
 
 	if (sequencer_h->kernelize) {
 		// this sequencer doesn't actually keep track of RTP seq properly. instruct
@@ -1043,7 +1048,7 @@ static void __free_ssrc_handler(void *chp) {
 static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
-	unsigned int seq_off = mp->iter ? 1 : 0;
+	//unsigned int seq_off = (mp->iter_out > mp->iter_in) ? 1 : 0;
 
 	ilog(LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
 			(unsigned long long) enc->avpkt.pts, enc->avpkt.size);
@@ -1076,8 +1081,9 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		ilog(LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
 		__output_rtp(mp, ch, ch->handler, buf, inout.len, ch->first_ts
 				+ enc->avpkt.pts / enc->def->clockrate_mult,
-				ch->rtp_mark ? 1 : 0, -1, seq_off);
-		mp->iter++;
+				ch->rtp_mark ? 1 : 0, -1, 0);
+		mp->ssrc_out->parent->seq_diff++;
+		//mp->iter_out++;
 		ch->rtp_mark = 0;
 
 		if (ret == 0) {
@@ -1087,7 +1093,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 
 		// loop around and get more
 		in_pkt = NULL;
-		seq_off = 1; // next packet needs last seq + 1 XXX set unkernelize if used
+		//seq_off = 1; // next packet needs last seq + 1 XXX set unkernelize if used
 	}
 
 	return 0;
@@ -1103,7 +1109,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, mp);
 
 	av_frame_free(&frame);
-	mp->iter++;
+	//mp->iter_out++;
 
 	return 0;
 }
@@ -1112,7 +1118,10 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 {
 	if (!ch->first_ts)
 		ch->first_ts = packet->ts;
-	return decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp);
+	int ret = decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp);
+	//mp->iter_in++;
+	mp->ssrc_out->parent->seq_diff--;
+	return ret;
 }
 
 static int handler_func_transcode(struct codec_handler *h, struct media_packet *mp) {
@@ -1131,8 +1140,13 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 
 	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
 	packet->func = packet_decode;
+	packet->rtp = *mp->rtp;
 
-	return __handler_func_sequencer(h, mp, packet);
+	int ret = __handler_func_sequencer(h, mp, packet);
+
+	//ilog(LOG_DEBUG, "tc iters: in %u out %u", mp->iter_in, mp->iter_out);
+
+	return ret;
 }
 
 static int handler_func_playback(struct codec_handler *h, struct media_packet *mp) {
