@@ -159,6 +159,7 @@ enum call_type {
 #define MEDIA_FLAG_ICE_CONTROLLING		0x00200000
 #define MEDIA_FLAG_LOOP_CHECK			0x00400000
 #define MEDIA_FLAG_TRANSCODE			0x00800000
+#define MEDIA_FLAG_PTIME_OVERRIDE		0x01000000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
