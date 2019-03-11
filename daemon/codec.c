@@ -1134,6 +1134,9 @@ void __rtp_payload_type_add_recv(struct call_media *media,
 {
 	if (!pt)
 		return;
+	// update ptime in case it was overridden
+	if (media->ptime > 0)
+		pt->ptime = media->ptime;
 	g_hash_table_insert(media->codecs_recv, &pt->payload_type, pt);
 	__rtp_payload_type_add_name(media->codec_names_recv, pt);
 	g_queue_push_tail(&media->codecs_prefs_recv, pt);
@@ -1144,6 +1147,9 @@ void __rtp_payload_type_add_send(struct call_media *other_media,
 {
 	if (!pt)
 		return;
+	// update ptime in case it was overridden
+	if (other_media->ptime > 0)
+		pt->ptime = other_media->ptime;
 	g_hash_table_insert(other_media->codecs_send, &pt->payload_type, pt);
 	__rtp_payload_type_add_name(other_media->codec_names_send, pt);
 	g_queue_push_tail(&other_media->codecs_prefs_send, pt);
@@ -1159,8 +1165,8 @@ void __rtp_payload_type_add_send_dup(struct call_media *other_media,
 static void __rtp_payload_type_add(struct call_media *media, struct call_media *other_media,
 		struct rtp_payload_type *pt)
 {
-	__rtp_payload_type_add_recv(media, pt);
 	__rtp_payload_type_add_send_dup(other_media, pt);
+	__rtp_payload_type_add_recv(media, pt);
 }
 
 static void __payload_queue_free(void *qq) {
@@ -1310,6 +1316,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				STR_FMT(&pt->encoding_with_params), pt->payload_type);
 		__rtp_payload_type_add_recv(media, pt);
 	}
+
 #endif
 
 	g_hash_table_destroy(removed);

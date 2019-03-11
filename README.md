@@ -1596,6 +1596,18 @@ Optionally included keys are:
 	been requested for transcoding. Note that not all codecs support all packetization
 	intervals.
 
+	The selected ptime (which represents the duration of a single media packet in milliseconds)
+	will be used towards the endpoint receiving this offer, even if the matching answer
+	prefers a different ptime.
+
+	This option is ignored in `answer` messages. See below for the reverse.
+
+* `ptime-reverse`
+
+	This is the reciprocal to `ptime`. It sets the ptime to be used towards the endpoint
+	who has sent the offer. It will be inserted in the `answer` SDP. This option is also
+	ignored in `answer` messages.
+
 * `supports`
 
 	Contains a list of strings. Each string indicates support for an additional feature
