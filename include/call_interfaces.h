@@ -36,7 +36,8 @@ struct sdp_ng_flags {
 	GQueue codec_offer;
 	GQueue codec_transcode;
 	GHashTable *codec_mask;
-	int ptime;
+	int ptime,
+	    rev_ptime;
 	int asymmetric:1,
 	    no_redis_update:1,
 	    unidirectional:1,
