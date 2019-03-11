@@ -645,12 +645,13 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				STR_FMT(s));
 	}
 }
-static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input) {
+static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input, enum call_opmode opmode) {
 	bencode_item_t *list, *it, *dict;
 	int diridx;
 	str s;
 
 	ZERO(*out);
+	out->opmode = opmode;
 	out->codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 	out->codec_mask = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 
@@ -710,7 +711,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	out->tos = bencode_dictionary_get_int_str(input, "TOS", 256);
 	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
-	out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);
+
+	if (opmode == OP_OFFER) {
+		out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);
+		out->rev_ptime = bencode_dictionary_get_int_str(input, "ptime-reverse", 0);
+		if (out->rev_ptime == 0)
+			out->rev_ptime = bencode_dictionary_get_int_str(input, "ptime reverse", 0);
+	}
 
 	if (bencode_dictionary_get_str(input, "xmlrpc-callback", &s)) {
 		if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
@@ -816,8 +823,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 	bencode_dictionary_get_str(input, "label", &label);
 
-	call_ng_process_flags(&flags, input);
-	flags.opmode = opmode;
+	call_ng_process_flags(&flags, input, opmode);
 
 	if (opmode == OP_OFFER) {
 		enum load_limit_reasons limit = call_offer_session_limit();
@@ -1446,7 +1452,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 	if (errstr)
 		goto out;
 
-	call_ng_process_flags(&flags, input);
+	call_ng_process_flags(&flags, input, OP_OTHER);
 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT ")",
@@ -1515,7 +1521,7 @@ const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output)
 	if (errstr)
 		goto out;
 
-	call_ng_process_flags(&flags, input);
+	call_ng_process_flags(&flags, input, OP_OTHER);
 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT ")",
