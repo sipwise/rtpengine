@@ -1684,8 +1684,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				goto strip;
 
 			case ATTR_CANDIDATE:
-				if (MEDIA_ISSET(media, PASSTHRU))
-					break;
 				if (flags->ice_force_relay) {
 					if ((attr->u.candidate.type_str.len == 5) &&
 					    (strncasecmp(attr->u.candidate.type_str.s, "relay", 5) == 0))
@@ -1693,6 +1691,8 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 					else
 						break;
 				}
+				if (MEDIA_ISSET(media, PASSTHRU))
+					break;
 				if (!flags->ice_remove && !flags->ice_force)
 					break;
 				goto strip;
