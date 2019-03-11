@@ -1760,11 +1760,21 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		// codec and RTP payload types handling
 		if (sp->ptime > 0) {
-			media->ptime = sp->ptime;
-			other_media->ptime = sp->ptime;
+			if (!MEDIA_ISSET(media, PTIME_OVERRIDE))
+				media->ptime = sp->ptime;
+			if (!MEDIA_ISSET(other_media, PTIME_OVERRIDE))
+				other_media->ptime = sp->ptime;
 		}
-		if (flags->ptime > 0)
+		if (flags && flags->ptime > 0) {
 			media->ptime = flags->ptime;
+			MEDIA_SET(media, PTIME_OVERRIDE);
+			MEDIA_SET(other_media, PTIME_OVERRIDE);
+		}
+		if (flags && flags->rev_ptime > 0) {
+			other_media->ptime = flags->rev_ptime;
+			MEDIA_SET(media, PTIME_OVERRIDE);
+			MEDIA_SET(other_media, PTIME_OVERRIDE);
+		}
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
 		codec_handlers_update(media, other_media, flags);
 
