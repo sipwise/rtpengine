@@ -1763,6 +1763,79 @@ rcv($sock_a, $port_b, rtpm(0, 4002, 5800, $ssrc, "\x88" x 400));
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3012)], [qw(198.51.100.3 3014)]);
+
+($port_a) = offer('ptime=50 in, change to 30, response 30, no change', {
+	ICE => 'remove', replace => ['origin'], ptime => 30 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3012 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=ptime:50
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:30
+SDP
+
+($port_b) = answer('ptime=50 in, change to 30, response 30, no change',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3014 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=ptime:30
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:50
+SDP
+
+# A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+# A->B: add another 20 ms for another full 30 ms
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+
+# B->A: 4x 30 ms -> 2x 50 ms (plus 20 ms left)
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
+Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
+snd($sock_b, $port_a, rtp(0, 4001, 5240, 0x4567, "\x88" x 240));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 400));
+snd($sock_b, $port_a, rtp(0, 4002, 5480, 0x4567, "\x88" x 240));
+snd($sock_b, $port_a, rtp(0, 4003, 5720, 0x4567, "\x88" x 240));
+rcv($sock_a, $port_b, rtpm(0, 4001, 5400, $ssrc, "\x88" x 400));
+# B->A: add another 30 ms for another full 50 ms
+snd($sock_b, $port_a, rtp(0, 4004, 5960, 0x4567, "\x88" x 240));
+rcv($sock_a, $port_b, rtpm(0, 4002, 5800, $ssrc, "\x88" x 400));
+
+
+
+
 END {
 	if ($rtpe_pid) {
 		kill('INT', $rtpe_pid) or die;
