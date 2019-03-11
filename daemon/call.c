@@ -2169,10 +2169,8 @@ void call_destroy(struct call *c) {
 			ice_shutdown(&md->ice_agent);
 		}
 
-		if (ml->player) {
-			media_player_stop(ml->player);
-			media_player_put(&ml->player);
-		}
+		media_player_stop(ml->player);
+		media_player_put(&ml->player);
 	}
 
 	k = g_hash_table_get_values(c->ssrc_hash->ht);
@@ -2741,6 +2739,8 @@ do_delete:
 	if (output)
 		ng_call_stats(c, fromtag, totag, output, NULL);
 
+	media_player_stop(ml->player);
+
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' "
 				"(via-branch '"STR_FORMAT"') in %d seconds",
@@ -2758,6 +2758,11 @@ do_delete:
 	goto success_unlock;
 
 del_all:
+	for (i = c->monologues.head; i; i = i->next) {
+		ml = i->data;
+		media_player_stop(ml->player);
+	}
+
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);
 		c->deleted = rtpe_now.tv_sec + delete_delay;

@@ -56,6 +56,9 @@ next:
 
 // called with call->master lock in W
 static void media_player_shutdown(struct media_player *mp) {
+	if (!mp)
+		return;
+
 	ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
 	avformat_close_input(&mp->fmtctx);
