@@ -1,3 +1,16 @@
+ngcp-rtpengine (7.2.1.1+0~mr7.2.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5be3192] TT#50652 fix possible sequencing bug while resampling
+  * [65839d0] fix always-transcode not being honoured when only codec-mask was used
+  * [a7972ea] error out on invalid clock rate parsed from RTP format string
+  * [9566c05] compile fix for with_transcoding=no
+  * [34c75d6] Reverse participant matching logic
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 11 Mar 2019 15:51:04 +0100
+
 ngcp-rtpengine (7.2.1.0+0~mr7.2.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
