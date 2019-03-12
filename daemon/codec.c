@@ -721,7 +721,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send
-	if (ch->first_send.tv_sec) {
+	if (ch->first_send.tv_sec && ch->encoder_format.clockrate) {
 		// scale first_send from first_send_ts to ts
 		p->to_send = ch->first_send;
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) ch->first_send_ts; // allow for wrap-around

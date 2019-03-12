@@ -2403,6 +2403,89 @@ rcv($sock_a, $port_b, rtpm(0, 4005, 5800, $ssrc, "\x88" x 160));
 
 
 
+# gh #730
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7300)], [qw(198.51.100.3 7302)]);
+
+($port_a) = offer('gh 730', {
+	ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7300 RTP/AVP 0 106 101 98
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=rtpmap:0 PCMU/8000
+a=rtpmap:106 opus/48000/2
+a=fmtp:106 maxplaybackrate=16000; sprop-maxcapturerate=16000; minptime=20; cbr=1; maxaveragebitrate=20000; useinbandfec=1
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-16
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 106 101 98
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:106 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:98 telephone-event/48000
+a=fmtp:106 maxplaybackrate=16000; sprop-maxcapturerate=16000; minptime=20; cbr=1; maxaveragebitrate=20000; useinbandfec=1
+a=fmtp:101 0-16
+a=fmtp:98 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('gh 730',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7302 RTP/AVP 0 101
+c=IN IP4 198.51.100.3
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\x00" x 160));
+snd($sock_a, $port_b, rtp(101 | 0x80, 1002, 3320, 0x1234, "\x05\x0a\x00\xa0"));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1002, 3320, $ssrc, "\x05\x0a\x00\xa0"));
+snd($sock_a, $port_b, rtp(101, 1003, 3320, 0x1234, "\x05\x0a\x01\x40"));
+rcv($sock_b, $port_a, rtpm(101, 1003, 3320, $ssrc, "\x05\x0a\x01\x40"));
+
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 160));
+snd($sock_b, $port_a, rtp(0, 4001, 5160, 0x4567, "\x88" x 160));
+rcv($sock_a, $port_b, rtpm(0, 4001, 5160, $ssrc, "\x88" x 160));
+snd($sock_b, $port_a, rtp(101 | 0x80, 4002, 5320, 0x4567, "\x05\x0a\x00\xa0"));
+rcv($sock_a, $port_b, rtpm(101 | 0x80, 4002, 5320, $ssrc, "\x05\x0a\x00\xa0"));
+snd($sock_b, $port_a, rtp(101, 4003, 5320, 0x4567, "\x05\x0a\x01\x40"));
+rcv($sock_a, $port_b, rtpm(101, 4003, 5320, $ssrc, "\x05\x0a\x01\x40"));
+
+
+
+
 END {
 	if ($rtpe_pid) {
 		kill('INT', $rtpe_pid) or die;
