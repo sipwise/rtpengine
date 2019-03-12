@@ -746,6 +746,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
 	call_ng_flags_list(out, input, "supports", call_ng_flags_supports, NULL);
 
+	bencode_dictionary_get_str(input, "call-id", &out->call_id);
+	bencode_dictionary_get_str(input, "from-tag", &out->from_tag);
+	bencode_dictionary_get_str(input, "to-tag", &out->to_tag);
+	bencode_dictionary_get_str(input, "via-branch", &out->via_branch);
+	bencode_dictionary_get_str(input, "label", &out->label);
+	bencode_dictionary_get_str(input, "address", &out->address);
+
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
 		for (it = list->child; it && diridx < 2; it = it->sibling)
@@ -900,8 +907,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
-	str sdp, fromtag, totag = STR_NULL, callid, viabranch;
-	str label = STR_NULL;
+	str sdp;
 	const char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -913,20 +919,18 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 
 	if (!bencode_dictionary_get_str(input, "sdp", &sdp))
 		return "No SDP body in message";
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
-		return "No call-id in message";
-	if (!bencode_dictionary_get_str(input, "from-tag", &fromtag))
-		return "No from-tag in message";
-	bencode_dictionary_get_str(input, "to-tag", &totag);
-	if (opmode == OP_ANSWER) {
-		if (!totag.s)
-			return "No to-tag in message";
-		str_swap(&totag, &fromtag);
-	}
-	bencode_dictionary_get_str(input, "via-branch", &viabranch);
-	bencode_dictionary_get_str(input, "label", &label);
 
 	call_ng_process_flags(&flags, input, opmode);
+
+	if (!flags.call_id.s)
+		return "No call-id in message";
+	if (!flags.from_tag.s)
+		return "No from-tag in message";
+	if (opmode == OP_ANSWER) {
+		if (!flags.to_tag.s)
+			return "No to-tag in message";
+		str_swap(&flags.to_tag, &flags.from_tag);
+	}
 
 	if (opmode == OP_OFFER) {
 		enum load_limit_reasons limit = call_offer_session_limit();
@@ -955,7 +959,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 		goto out;
 
 	/* OP_ANSWER; OP_OFFER && !IS_FOREIGN_CALL */
-	call = call_get(&callid);
+	call = call_get(&flags.call_id);
 
 	/* Failover scenario because of timeout on offer response: siprouter tries
 	* to establish session with another rtpengine2 even though rtpengine1
@@ -969,12 +973,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 				rwlock_unlock_w(&call->master_lock);
 				call_destroy(call);
 				obj_put(call);
-				call = call_get_or_create(&callid, CT_OWN_CALL);
+				call = call_get_or_create(&flags.call_id, CT_OWN_CALL);
 			}
 		}
 		else {
 			/* call == NULL, should create call */
-			call = call_get_or_create(&callid, CT_OWN_CALL);
+			call = call_get_or_create(&flags.call_id, CT_OWN_CALL);
 		}
 	}
 
@@ -993,7 +997,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	 * need to hold a ref until we're done sending the reply */
 	call_bencode_hold_ref(call, output);
 
-	monologue = call_get_mono_dialogue(call, &fromtag, &totag, viabranch.s ? &viabranch : NULL);
+	monologue = call_get_mono_dialogue(call, &flags.from_tag, &flags.to_tag,
+			flags.via_branch.s ? &flags.via_branch : NULL);
 	errstr = "Invalid dialogue association";
 	if (!monologue) {
 		rwlock_unlock_w(&call->master_lock);
@@ -1006,8 +1011,6 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	} else {
 		monologue->tagtype = TO_TAG;
 	}
-	if (label.s && !monologue->label.s)
-		call_str_cpy(call, &monologue->label, &label);
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
@@ -1478,24 +1481,33 @@ const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output
 }
 
 static const char *media_block_match(struct call **call, struct call_monologue **monologue,
-		bencode_item_t *input)
+		struct sdp_ng_flags *flags, bencode_item_t *input)
 {
-	str callid;
-	str s;
+	struct sdp_ng_flags flags_store;
+
+	if (!flags)
+		flags = &flags_store;
 
 	*call = NULL;
 	*monologue = NULL;
 
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+	call_ng_process_flags(flags, input, OP_OTHER);
+
+	if (!flags->call_id.s)
 		return "No call-id in message";
-	*call = call_get_opmode(&callid, OP_OTHER);
+	*call = call_get_opmode(&flags->call_id, OP_OTHER);
 	if (!*call)
 		return "Unknown call-id";
 
-	// directional block?
-	if (bencode_dictionary_get_str(input, "address", &s)) {
+	// directional?
+	if (flags->label.s) {
+		*monologue = g_hash_table_lookup((*call)->labels, &flags->label);
+		if (!*monologue)
+			return "No monologue matching the given label";
+	}
+	else if (flags->address.s) {
 		sockaddr_t addr;
-		if (sockaddr_parse_any_str(&addr, &s))
+		if (sockaddr_parse_any_str(&addr, &flags->address))
 			return "Failed to parse network address";
 		// walk our structures to find a matching stream
 		for (GList *l = (*call)->monologues.head; l; l = l->next) {
@@ -1516,8 +1528,8 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 found:
 		;
 	}
-	else if (bencode_dictionary_get_str(input, "from-tag", &s)) {
-		*monologue = call_get_mono_dialogue(*call, &s, NULL, NULL);
+	else if (flags->from_tag.s) {
+		*monologue = call_get_mono_dialogue(*call, &flags->from_tag, NULL, NULL);
 		if (!*monologue)
 			return "From-tag given, but no such tag exists";
 	}
@@ -1530,13 +1542,11 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	struct call *call;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
-	str metadata;
+	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, input);
+	errstr = media_block_match(&call, &monologue, &flags, input);
 	if (errstr)
 		goto out;
-
-	bencode_dictionary_get_str(input, "metadata", &metadata);
 
 	if (monologue) {
 		ilog(LOG_INFO, "Start forwarding for single party (tag '" STR_FORMAT ")",
@@ -1548,7 +1558,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 		call->rec_forwarding = 1;
 	}
 
-	recording_start(call, NULL, &metadata);
+	recording_start(call, NULL, &flags.metadata);
 	errstr = NULL;
 out:
 	if (call) {
@@ -1565,11 +1575,9 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, input);
+	errstr = media_block_match(&call, &monologue, &flags, input);
 	if (errstr)
 		goto out;
-
-	call_ng_process_flags(&flags, input, OP_OTHER);
 
 	if (monologue) {
 		ilog(LOG_INFO, "Stop forwarding for single party (tag '" STR_FORMAT ")",
@@ -1603,8 +1611,9 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	struct call *call;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
+	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, input);
+	errstr = media_block_match(&call, &monologue, &flags, input);
 	if (errstr)
 		goto out;
 
@@ -1634,11 +1643,9 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, input);
+	errstr = media_block_match(&call, &monologue, &flags, input);
 	if (errstr)
 		goto out;
-
-	call_ng_process_flags(&flags, input, OP_OTHER);
 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT ")",
@@ -1670,8 +1677,9 @@ const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	struct call *call;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
+	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, input);
+	errstr = media_block_match(&call, &monologue, &flags, input);
 	if (errstr)
 		goto out;
 
@@ -1703,11 +1711,9 @@ const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output)
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, input);
+	errstr = media_block_match(&call, &monologue, &flags, input);
 	if (errstr)
 		goto out;
-
-	call_ng_process_flags(&flags, input, OP_OTHER);
 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT ")",
@@ -1742,7 +1748,7 @@ out:
 static const char *play_media_select_party(struct call **call, struct call_monologue **monologue,
 		bencode_item_t *input)
 {
-	const char *err = media_block_match(call, monologue, input);
+	const char *err = media_block_match(call, monologue, NULL, input);
 	if (err)
 		return err;
 	if (!*monologue)

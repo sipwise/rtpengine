@@ -18,6 +18,10 @@ struct sockaddr_in6;
 
 struct sdp_ng_flags {
 	enum call_opmode opmode;
+	str call_id;
+	str from_tag;
+	str to_tag;
+	str via_branch;
 	str received_from_family;
 	str received_from_address;
 	str media_address;
@@ -31,6 +35,8 @@ struct sdp_ng_flags {
 	int tos;
 	str record_call_str;
 	str metadata;
+	str label;
+	str address;
 	sockaddr_t xmlrpc_callback;
 	GHashTable *codec_strip;
 	GQueue codec_offer;

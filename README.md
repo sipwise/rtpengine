@@ -1389,8 +1389,9 @@ events (RFC 4733 type packets), respectively.
 
 Packets can be blocked for an entire call if only the `call-id` key is present in the message, or can be blocked
 directionally for individual participants. Participants can be selected by their SIP tag if the `from-tag` key
-is included in the message, or they can be selected by their SDP media address if the `address` key is included
-in the message. In the latter case, the address can be an IPv4 or IPv6 address, and any participant that is
+is included in the message, they can be selected by their SDP media address if the `address` key is included
+in the message, or they can be selected by the user-provided `label` if the `label` key is included in the
+message. For an address, it can be an IPv4 or IPv6 address, and any participant that is
 found to have a matching address advertised as their SDP media address will have their originating RTP
 packets blocked (or unblocked).
 
@@ -1422,8 +1423,8 @@ and stopped independently of each other.
 --------------------
 
 Only available if compiled with transcoding support. The message must contain the key `call-id` and one
-of the participant selection keys described under the `block DTMF` message (such as `from-tag` or
-`address`).
+of the participant selection keys described under the `block DTMF` message (such as `from-tag`,
+`address`, or `label`).
 
 Starts playback of a provided media file to the selected call participant. The format of the media file
 can be anything that is supported by *ffmpeg*, for example a `.wav` or `.mp3` file. It will automatically
