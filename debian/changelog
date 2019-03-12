@@ -1,3 +1,15 @@
+ngcp-rtpengine (7.2.1.2+0~mr7.2.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [fef94fd] TT#54800 sequencing fixes
+  * [50bbb88] TT#54800 add ptime tests
+  * [2794513] TT#54800 fix ptime overrides
+  * [acd9fa6] TT#54800 add ptime-reverse tests
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 12 Mar 2019 18:51:32 +0100
+
 ngcp-rtpengine (7.2.1.1+0~mr7.2.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
