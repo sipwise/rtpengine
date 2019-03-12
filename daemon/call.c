@@ -1798,6 +1798,11 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 	__tos_change(call, flags);
 
+	if (flags && flags->label.s) {
+		call_str_cpy(call, &other_ml->label, &flags->label);
+		g_hash_table_replace(call->labels, &other_ml->label, other_ml);
+	}
+
 	ml_media = other_ml_media = NULL;
 
 	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
@@ -2316,6 +2321,7 @@ static void __call_free(void *p) {
 
 	g_hash_table_destroy(c->tags);
 	g_hash_table_destroy(c->viabranches);
+	g_hash_table_destroy(c->labels);
 	free_ssrc_hash(&c->ssrc_hash);
 
 	while (c->streams.head) {
@@ -2347,6 +2353,7 @@ static struct call *call_create(const str *callid) {
 	rwlock_init(&c->master_lock);
 	c->tags = g_hash_table_new(str_hash, str_equal);
 	c->viabranches = g_hash_table_new(str_hash, str_equal);
+	c->labels = g_hash_table_new(str_hash, str_equal);
 	call_str_cpy(c, &c->callid, callid);
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();

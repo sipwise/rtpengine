@@ -362,6 +362,7 @@ struct call {
 	GQueue			medias;
 	GHashTable		*tags;
 	GHashTable		*viabranches;
+	GHashTable		*labels;
 	GQueue			streams;
 	GQueue			stream_fds;
 	GQueue			endpoint_maps;
