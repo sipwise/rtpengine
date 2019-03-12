@@ -1,3 +1,12 @@
+ngcp-rtpengine (7.1.1.3+0~mr7.1.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2410ced] TT#54800 fix ptime overrides
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 12 Mar 2019 18:53:03 +0100
+
 ngcp-rtpengine (7.1.1.2+0~mr7.1.1.2) unstable; urgency=medium
 
   [ Guillem Jover ]
