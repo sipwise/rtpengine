@@ -220,6 +220,13 @@ void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
 
 
 #ifdef WITH_TRANSCODING
+
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0)
+#define CODECPAR codecpar
+#else
+#define CODECPAR codec
+#endif
+
 static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
 	if (mp->handler)
 		return 0;
@@ -227,14 +234,14 @@ static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
 	// synthesise rtp payload type
 	struct rtp_payload_type src_pt = { .payload_type = -1 };
 	// src_pt.codec_def = codec_find_by_av(avs->codec->codec_id);  `codec` is deprecated
-	src_pt.codec_def = codec_find_by_av(avs->codecpar->codec_id);
+	src_pt.codec_def = codec_find_by_av(avs->CODECPAR->codec_id);
 	if (!src_pt.codec_def) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
 		return -1;
 	}
 	src_pt.encoding = src_pt.codec_def->rtpname_str;
-	src_pt.channels = avs->codecpar->channels;
-	src_pt.clock_rate = avs->codecpar->sample_rate;
+	src_pt.channels = avs->CODECPAR->channels;
+	src_pt.clock_rate = avs->CODECPAR->sample_rate;
 	codec_init_payload_type(&src_pt, mp->media);
 
 	// find suitable output payload type
@@ -298,9 +305,9 @@ static void media_player_read_packet(struct media_player *mp) {
 
 	// scale pts and duration according to sample rate
 
-	long long duration_scaled = mp->pkt.duration * avs->codecpar->sample_rate
+	long long duration_scaled = mp->pkt.duration * avs->CODECPAR->sample_rate
 		* avs->time_base.num / avs->time_base.den;
-	unsigned long long pts_scaled = mp->pkt.pts * avs->codecpar->sample_rate
+	unsigned long long pts_scaled = mp->pkt.pts * avs->CODECPAR->sample_rate
 		* avs->time_base.num / avs->time_base.den;
 
 	long long us_dur = mp->pkt.duration * 1000000LL * avs->time_base.num / avs->time_base.den;
@@ -311,7 +318,7 @@ static void media_player_read_packet(struct media_player *mp) {
 			pts_scaled,
 			duration_scaled,
 			us_dur,
-			avs->codecpar->sample_rate,
+			avs->CODECPAR->sample_rate,
 			avs->time_base.num, avs->time_base.den);
 
 	// synthesise fake RTP header and media_packet context
