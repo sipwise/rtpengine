@@ -66,6 +66,7 @@ INLINE int bitstr_shift_ret(bitstr *b, unsigned int bits, str *ret) {
 	unsigned int int_bytes = b->bit_offset / 8;
 	int shift_ret = str_shift(&b->s, int_bytes);
 	assert(shift_ret == 0);
+	(void) shift_ret;
 	b->bit_offset -= int_bytes * 8;
 
 	return 0;

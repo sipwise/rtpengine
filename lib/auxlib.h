@@ -68,6 +68,7 @@ int uint32_eq(const void *a, const void *b);
 INLINE void random_string(unsigned char *buf, int len) {
 	int ret = RAND_bytes(buf, len);
 	assert(ret == 1);
+	(void) ret;
 }
 
 

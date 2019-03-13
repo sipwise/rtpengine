@@ -83,6 +83,7 @@ INLINE void __dtls_hash(const struct dtls_hash_func *hash_func, X509 *cert, unsi
 	assert(bufsize >= hash_func->num_bytes);
 	n = hash_func->__func(out, cert);
 	assert(n == hash_func->num_bytes);
+	(void) n;
 }
 #define dtls_hash(hash_func, cert, outbuf) __dtls_hash(hash_func, cert, outbuf, sizeof(outbuf))
 
