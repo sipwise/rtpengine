@@ -71,9 +71,6 @@ BuildRequires:  gcc make redhat-rpm-config mysql-devel ffmpeg-devel
 %define binname rtpengine
 %define archname rtpengine-mr
 
-%{!?kversion: %define kversion %(uname -r)}
-# hint: this can be overridden with "--define kversion foo" on rpmbuild,
-# e.g. --define "kversion 2.6.32-696.23.1.el6.x86_64"
 
 %prep
 %setup -q -n %{archname}%{version}
@@ -167,9 +164,19 @@ fi
 
 %post dkms
 # Add to DKMS registry, build, and install module
-dkms add -m %{name} -v %{version}-%{release} --rpm_safe_upgrade &&
-dkms build -m %{name} -v %{version}-%{release} -k %{kversion} --rpm_safe_upgrade &&
-dkms install -m %{name} -v %{version}-%{release} -k %{kversion} --rpm_safe_upgrade --force
+# The kernel version can be overridden with "--define kversion foo" on rpmbuild,
+# e.g. --define "kversion 2.6.32-696.23.1.el6.x86_64"
+%{!?kversion: %define kversion %{nil}}
+
+%if "%{kversion}" != ""
+  dkms add -m %{name} -v %{version}-%{release} --rpm_safe_upgrade &&
+  dkms build -m %{name} -v %{version}-%{release} -k %{kversion} --rpm_safe_upgrade &&
+  dkms install -m %{name} -v %{version}-%{release} -k %{kversion} --rpm_safe_upgrade --force
+%else
+  dkms add -m %{name} -v %{version}-%{release} --rpm_safe_upgrade &&
+  dkms build -m %{name} -v %{version}-%{release} --rpm_safe_upgrade &&
+  dkms install -m %{name} -v %{version}-%{release} --rpm_safe_upgrade --force
+%endif
 true
 
 
