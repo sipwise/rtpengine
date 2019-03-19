@@ -18,6 +18,7 @@ struct rtpengine_common_config {
 	char *log_facility;
 	volatile int log_level;
 	int log_stderr;
+	int no_log_timestamps;
 	char *pidfile;
 	int foreground;
 };
