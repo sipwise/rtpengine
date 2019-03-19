@@ -21,9 +21,17 @@ typedef struct _str str;
 
 
 #define STR_FORMAT "%.*s"
+#define STR_FORMAT_M "%s%.*s%s"
 #define STR_FMT(str) (str)->len, (str)->s
+#define STR_FMT_M(str) rtpe_common_config_ptr->log_mark_prefix, (str)->len, (str)->s, \
+	rtpe_common_config_ptr->log_mark_suffix
 #define STR_FMT0(str) ((str) ? (str)->len : 6), ((str) ? (str)->s : "(NULL)")
 #define G_STR_FMT(gstr) (int) (gstr)->len, (gstr)->str // for glib GString
+
+#define C_STR_FORMAT_M "%s%s%s"
+#define C_STR_FMT_M(str) rtpe_common_config_ptr->log_mark_prefix, (str), \
+	rtpe_common_config_ptr->log_mark_suffix
+
 #define STR_NULL ((str) { NULL, 0 })
 #define STR_EMPTY ((str) { "", 0 })
 #define STR_CONST_INIT(str) { str, sizeof(str)-1 }
