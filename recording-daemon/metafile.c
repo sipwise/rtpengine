@@ -25,7 +25,7 @@ static GHashTable *metafiles;
 static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
 
-	dbg("freeing metafile info for %s", mf->name);
+	dbg("freeing metafile info for %s%s%s", FMT_M(mf->name));
 	output_close(mf->mix_out);
 	mix_destroy(mf->mix);
 	g_string_chunk_free(mf->gsc);
@@ -57,7 +57,7 @@ static void meta_destroy(metafile_t *mf) {
 	}
 	//close forward socket
 	if (mf->forward_fd >= 0) {
-		dbg("call [%s] forwarded %d packets. %d failed sends.", mf->call_id,
+		dbg("call [%s%s%s] forwarded %d packets. %d failed sends.", FMT_M(mf->call_id),
 				(int )g_atomic_int_get(&mf->forward_count),
 				(int )g_atomic_int_get(&mf->forward_failed));
 		close(mf->forward_fd);
@@ -81,7 +81,7 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 		}
 		pthread_mutex_unlock(&mf->mix_lock);
 	}
-	dbg("stream %lu interface %s", snum, content);
+	dbg("stream %lu interface %s%s%s", snum, FMT_M(content));
 	stream_open(mf, snum, content);
 }
 
@@ -164,7 +164,7 @@ static metafile_t *metafile_get(char *name) {
 	if (mf)
 		goto out;
 
-	dbg("allocating metafile info for %s", name);
+	dbg("allocating metafile info for %s%s%s", FMT_M(name));
 	mf = g_slice_alloc0(sizeof(*mf));
 	mf->gsc = g_string_chunk_new(0);
 	mf->name = g_string_chunk_insert(mf->gsc, name);
@@ -202,11 +202,11 @@ void metafile_change(char *name) {
 	// open file and seek to last known position
 	int fd = open(fnbuf, O_RDONLY);
 	if (fd == -1) {
-		ilog(LOG_ERR, "Failed to open %s: %s", fnbuf, strerror(errno));
+		ilog(LOG_ERR, "Failed to open %s%s%s: %s", FMT_M(fnbuf), strerror(errno));
 		goto out;
 	}
 	if (lseek(fd, mf->pos, SEEK_SET) == (off_t) -1) {
-		ilog(LOG_ERR, "Failed to seek to end of file %s: %s", fnbuf, strerror(errno));
+		ilog(LOG_ERR, "Failed to seek to end of file %s%s%s: %s", FMT_M(fnbuf), strerror(errno));
 		close(fd);
 		goto out;
 	}

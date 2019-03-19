@@ -175,9 +175,9 @@ static int send_timer_send(struct send_timer *st, struct codec_packet *cp) {
 		goto out;
 
 	struct rtp_header *rh = (void *) cp->s.s;
-	ilog(LOG_DEBUG, "Forward to sink endpoint: %s:%d (RTP seq %u TS %u)",
-			sockaddr_print_buf(&st->sink->endpoint.address),
-			st->sink->endpoint.port,
+	ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
+			FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
+			st->sink->endpoint.port),
 			ntohs(rh->seq_num),
 			ntohl(rh->timestamp));
 

@@ -14,6 +14,7 @@
 #include "call_interfaces.h"
 #include "socket.h"
 #include "log_funcs.h"
+#include "main.h"
 
 
 mutex_t rtpe_cngs_lock;
@@ -172,8 +173,10 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 
 	if (get_log_level() >= LOG_DEBUG) {
 		log_str = g_string_sized_new(256);
-		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: ", STR_FMT(&cmd), addr);
+		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: %s", STR_FMT(&cmd), addr,
+				rtpe_config.common.log_mark_prefix);
 		pretty_print(dict, log_str);
+		g_string_append(log_str, rtpe_config.common.log_mark_suffix);
 		ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 		g_string_free(log_str, TRUE);
 	}
@@ -309,9 +312,11 @@ send_resp:
 			dict = bencode_decode_expect_str(&bencbuf, to_send, BENCODE_DICTIONARY);
 			if (dict) {
 				log_str = g_string_sized_new(256);
-				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: ",
-						STR_FMT(&cmd), addr);
+				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
+						STR_FMT(&cmd), addr,
+						rtpe_config.common.log_mark_prefix);
 				pretty_print(dict, log_str);
+				g_string_append(log_str, rtpe_config.common.log_mark_suffix);
 				ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 				g_string_free(log_str, TRUE);
 			}
