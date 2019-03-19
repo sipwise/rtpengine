@@ -90,10 +90,14 @@ static void vlog_to_stderr(int facility_priority, const char *format, va_list ap
 		return;
 	}
 
-	gettimeofday(&tv_now, NULL);
+	if (rtpe_common_config_ptr->no_log_timestamps)
+		fprintf(stderr, "%s\n", msg);
+	else {
+		gettimeofday(&tv_now, NULL);
 
-	fprintf(stderr, "[%lu.%06lu] %s\n", (unsigned long) tv_now.tv_sec,
-			(unsigned long) tv_now.tv_usec, msg);
+		fprintf(stderr, "[%lu.%06lu] %s\n", (unsigned long) tv_now.tv_sec,
+				(unsigned long) tv_now.tv_usec, msg);
+	}
 
 	free(msg);
 }
