@@ -349,14 +349,14 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 	}
 
 	if (num_ports > g_atomic_int_get(&loc->spec->port_pool.free_ports)) {
-		ilog(LOG_ERR, "Didn't found %d ports available for %.*s/%s",
-			num_ports, loc->logical->name.len, loc->logical->name.s,
+		ilog(LOG_ERR, "Didn't find %d ports available for " STR_FORMAT "/%s",
+			num_ports, STR_FMT(&loc->logical->name),
 			sockaddr_print_buf(&loc->spec->local_address.addr));
 		return 0;
 	}
 
-	__C_DBG("Found %d ports available for %.*s/%s from total of %d free ports",
-		num_ports, loc->logical->name.len, loc->logical->name.s,
+	__C_DBG("Found %d ports available for " STR_FORMAT "/%s from total of %d free ports",
+		num_ports, STR_FMT(&loc->logical->name),
 		sockaddr_print_buf(&loc->spec->local_address.addr),
 		loc->spec->port_pool.free_ports);
 
@@ -1037,7 +1037,8 @@ void kernelize(struct packet_stream *stream) {
 	if (stream->media->monologue->block_media || call->block_media)
 		goto no_kernel;
 
-        ilog(LOG_INFO, "Kernelizing media stream: %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
+        ilog(LOG_INFO, "Kernelizing media stream: %s%s%s:%s%d%s",
+			FMT_M(sockaddr_print_buf(&stream->endpoint.address)), FMT_M(stream->endpoint.port));
 
 	sink = packet_stream_sink(stream);
 	if (!sink) {
@@ -1529,7 +1530,8 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 			int tmp = memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint));
 			if (tmp && PS_ISSET(phc->mp.stream, MEDIA_HANDOVER)) {
 				/* out_lock remains locked */
-				ilog(LOG_INFO, "Peer address changed to %s", endpoint_print_buf(&phc->mp.fsin));
+				ilog(LOG_INFO, "Peer address changed to %s%s%s",
+						FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 				phc->unkernelize = 1;
 				phc->update = 1;
 				phc->mp.stream->endpoint = phc->mp.fsin;
@@ -1539,10 +1541,11 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 			mutex_unlock(&phc->mp.stream->out_lock);
 
 			if (tmp && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
-				ilog(LOG_INFO, "Drop due to strict-source attribute; got %s:%d, expected %s:%d",
-					sockaddr_print_buf(&endpoint.address), endpoint.port,
-					sockaddr_print_buf(&phc->mp.stream->endpoint.address),
-					phc->mp.stream->endpoint.port);
+				ilog(LOG_INFO, "Drop due to strict-source attribute; got %s%s%s:%s%d%s, "
+						"expected %s%s%s:%s%d%s",
+					FMT_M(sockaddr_print_buf(&endpoint.address)), FMT_M(endpoint.port),
+					FMT_M(sockaddr_print_buf(&phc->mp.stream->endpoint.address)),
+					FMT_M(phc->mp.stream->endpoint.port));
 				atomic64_inc(&phc->mp.stream->stats.errors);
 				ret = -1;
 				goto out;
@@ -1560,7 +1563,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 	phc->kernelize = 1;
 	phc->update = 1;
 
-	ilog(LOG_INFO, "Confirmed peer address as %s", endpoint_print_buf(&phc->mp.fsin));
+	ilog(LOG_INFO, "Confirmed peer address as %s%s%s", FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 
 	PS_SET(phc->mp.stream, CONFIRMED);
 
@@ -1727,7 +1730,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (G_UNLIKELY(!phc->sink || !phc->sink->selected_sfd || !phc->out_srtp
 				|| !phc->out_srtp->selected_sfd || !phc->in_srtp->selected_sfd))
 	{
-		ilog(LOG_WARNING, "RTP packet from %s discarded", endpoint_print_buf(&phc->mp.fsin));
+		ilog(LOG_WARNING, "RTP packet from %s%s%s discarded", FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 		atomic64_inc(&phc->mp.stream->stats.errors);
 		atomic64_inc(&rtpe_statsps.errors);
 		goto out;

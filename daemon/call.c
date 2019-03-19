@@ -261,8 +261,8 @@ void xmlrpc_kill_calls(void *p) {
 			tag3 = xh->strings.head->next->next->next->data;
 		}
 
-		ilog(LOG_INFO, "Forking child to close call with tag "STR_FORMAT" via XMLRPC call to %s",
-				STR_FMT(tag), url);
+		ilog(LOG_INFO, "Forking child to close call with tag " STR_FORMAT_M " via XMLRPC call to %s",
+				STR_FMT_M(tag), url);
 		pid = fork();
 
 		if (pid) {
@@ -296,7 +296,7 @@ retry:
 		if (!rtpe_config.common.log_stderr) {
 			openlog("rtpengine/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 		}
-		ilog(LOG_INFO, "Initiating XMLRPC call for tag "STR_FORMAT"", STR_FMT(tag));
+		ilog(LOG_INFO, "Initiating XMLRPC call for tag " STR_FORMAT_M "", STR_FMT_M(tag));
 
 		alarm(5);
 
@@ -953,7 +953,8 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		dtls_shutdown(ps);
 	}
 
-	ilog(LOG_DEBUG, "set FILLED flag for stream %s:%d", sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port);
+	ilog(LOG_DEBUG, "set FILLED flag for stream %s%s:%d%s",
+			FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port));
 	PS_SET(ps, FILLED);
 	/* XXX reset/repair ICE */
 }
@@ -1004,16 +1005,16 @@ static int __init_stream(struct packet_stream *ps) {
 			struct crypto_params_sdes *cps = media->sdes_in.head
 				? media->sdes_in.head->data : NULL;
 			crypto_init(&sfd->crypto, cps ? &cps->params : NULL);
-			ilog(LOG_DEBUG, "[%s] Initialized incoming SRTP with SDES crypto params: %s",
+			ilog(LOG_DEBUG, "[%s] Initialized incoming SRTP with SDES crypto params: %s%s%s",
 					endpoint_print_buf(&sfd->socket.local),
-					crypto_params_sdes_dump(cps, &paramsbuf));
+					FMT_M(crypto_params_sdes_dump(cps, &paramsbuf)));
 		}
 		struct crypto_params_sdes *cps = media->sdes_out.head
 			? media->sdes_out.head->data : NULL;
 		crypto_init(&ps->crypto, cps ? &cps->params : NULL);
-		ilog(LOG_DEBUG, "[%i] Initialized outgoing SRTP with SDES crypto params: %s",
+		ilog(LOG_DEBUG, "[%i] Initialized outgoing SRTP with SDES crypto params: %s%s%s",
 				ps->component,
-				crypto_params_sdes_dump(cps, &paramsbuf));
+				FMT_M(crypto_params_sdes_dump(cps, &paramsbuf)));
 	}
 
 	if (MEDIA_ISSET(media, DTLS) && !PS_ISSET(ps, FALLBACK_RTCP)) {
@@ -2128,17 +2129,19 @@ void call_destroy(struct call *c) {
 	for (l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
 
-		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"'%s"STR_FORMAT"%s, created "
-				"%u:%02u ago for branch '"STR_FORMAT"', in dialogue with '"STR_FORMAT"'",
-				STR_FMT(&ml->tag),
+		ilog(LOG_INFO, "--- Tag '" STR_FORMAT_M "'%s"STR_FORMAT"%s, created "
+				"%u:%02u ago for branch '" STR_FORMAT_M "', in dialogue with '" STR_FORMAT_M "'",
+				STR_FMT_M(&ml->tag),
 				ml->label.s ? " (label '" : "",
 				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 				ml->label.s ? "')" : "",
 				(unsigned int) (rtpe_now.tv_sec - ml->created) / 60,
 				(unsigned int) (rtpe_now.tv_sec - ml->created) % 60,
-				STR_FMT(&ml->viabranch),
+				STR_FMT_M(&ml->viabranch),
+				ml->active_dialogue ? rtpe_common_config_ptr->log_mark_prefix : "",
 				ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
-				ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+				ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)",
+				ml->active_dialogue ? rtpe_common_config_ptr->log_mark_suffix : "");
 
 		for (k = ml->medias.head; k; k = k->next) {
 			md = k->data;
@@ -2164,13 +2167,13 @@ void call_destroy(struct call *c) {
 				char *addr = sockaddr_print_buf(&ps->endpoint.address);
 				char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
 
-				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
+				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %s%15s:%-5u%s%s, SSRC %s%" PRIx32 "%s, "
 						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" ts",
 						local_addr,
 						(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
-						addr, ps->endpoint.port,
+						FMT_M(addr, ps->endpoint.port),
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						ps->ssrc_in ? ps->ssrc_in->parent->h.ssrc : 0,
+						FMT_M(ps->ssrc_in ? ps->ssrc_in->parent->h.ssrc : 0),
 						atomic64_get(&ps->stats.packets),
 						atomic64_get(&ps->stats.bytes),
 						atomic64_get(&ps->stats.errors),
@@ -2195,7 +2198,7 @@ void call_destroy(struct call *c) {
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
 
-		ilog(LOG_INFO, "--- SSRC %" PRIx32 "", se->h.ssrc);
+		ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
 		ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
 				"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
 				"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u)",
@@ -2535,22 +2538,22 @@ static int monologue_destroy(struct call_monologue *ml) {
 	__monologue_destroy(ml);
 
 	if (!g_hash_table_size(c->tags)) {
-		ilog(LOG_INFO, "Call branch '"STR_FORMAT"' (%s"STR_FORMAT"%svia-branch '"STR_FORMAT"') "
+		ilog(LOG_INFO, "Call branch '" STR_FORMAT_M "' (%s" STR_FORMAT "%svia-branch '" STR_FORMAT_M "') "
 				"deleted, no more branches remaining",
-				STR_FMT(&ml->tag),
+				STR_FMT_M(&ml->tag),
 				ml->label.s ? "label '" : "",
 				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 				ml->label.s ? "', " : "",
-				STR_FMT0(&ml->viabranch));
+				STR_FMT0_M(&ml->viabranch));
 		return 1; /* destroy call */
 	}
 
-	ilog(LOG_INFO, "Call branch '"STR_FORMAT"' (%s"STR_FORMAT"%svia-branch '"STR_FORMAT"') deleted",
-			STR_FMT(&ml->tag),
+	ilog(LOG_INFO, "Call branch '" STR_FORMAT_M "' (%s" STR_FORMAT "%svia-branch '" STR_FORMAT_M "') deleted",
+			STR_FMT_M(&ml->tag),
 			ml->label.s ? "label '" : "",
 			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 			ml->label.s ? "', " : "",
-			STR_FMT0(&ml->viabranch));
+			STR_FMT0_M(&ml->viabranch));
 	return 0;
 }
 
@@ -2759,16 +2762,16 @@ do_delete:
 	media_player_stop(ml->player);
 
 	if (delete_delay > 0) {
-		ilog(LOG_INFO, "Scheduling deletion of call branch '"STR_FORMAT"' "
-				"(via-branch '"STR_FORMAT"') in %d seconds",
-				STR_FMT(&ml->tag), STR_FMT0(branch), delete_delay);
+		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
+				"(via-branch '" STR_FORMAT_M "') in %d seconds",
+				STR_FMT_M(&ml->tag), STR_FMT0_M(branch), delete_delay);
 		ml->deleted = rtpe_now.tv_sec + delete_delay;
 		if (!c->ml_deleted || c->ml_deleted > ml->deleted)
 			c->ml_deleted = ml->deleted;
 	}
 	else {
-		ilog(LOG_INFO, "Deleting call branch '"STR_FORMAT"' (via-branch '"STR_FORMAT"')",
-				STR_FMT(&ml->tag), STR_FMT0(branch));
+		ilog(LOG_INFO, "Deleting call branch '" STR_FORMAT_M "' (via-branch '" STR_FORMAT_M "')",
+				STR_FMT_M(&ml->tag), STR_FMT0_M(branch));
 		if (monologue_destroy(ml))
 			goto del_all;
 	}

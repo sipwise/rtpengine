@@ -29,10 +29,10 @@
 
 
 
-#define PAIR_FORMAT STR_FORMAT":"STR_FORMAT":%lu"
+#define PAIR_FORMAT STR_FORMAT_M ":" STR_FORMAT_M ":%lu"
 #define PAIR_FMT(p) 								\
-			STR_FMT(&(p)->local_intf->ice_foundation),		\
-			STR_FMT(&(p)->remote_candidate->foundation),		\
+			STR_FMT_M(&(p)->local_intf->ice_foundation),		\
+			STR_FMT_M(&(p)->remote_candidate->foundation),		\
 			(p)->remote_candidate->component_id
 
 
@@ -157,9 +157,9 @@ static struct ice_candidate_pair *__pair_candidate(struct stream_fd *sfd, struct
 	g_hash_table_insert(ag->pair_hash, pair, pair);
 	g_tree_insert(ag->all_pairs, pair, pair);
 
-	ilog(LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s, type %s", PAIR_FMT(pair),
+	ilog(LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s%s%s, type %s", PAIR_FMT(pair),
 			sockaddr_print_buf(&sfd->socket.local.address),
-			endpoint_print_buf(&cand->endpoint),
+			FMT_M(endpoint_print_buf(&cand->endpoint)),
 			ice_candidate_type_str(cand->type));
 
 	return pair;
@@ -377,25 +377,26 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 			 * otherwise it's simply one we've seen before. */
 			if (dup->type == ICT_PRFLX) {
 				ilog(LOG_DEBUG, "Replacing previously learned prflx ICE candidate with "
-						STR_FORMAT":%lu", STR_FMT(&cand->foundation),
+						STR_FORMAT_M ":%lu", STR_FMT_M(&cand->foundation),
 						cand->component_id);
 			}
 			else {
 				/* if the new one has higher priority then the old one, then we
 				 * update it, otherwise we just drop it */
 				if (cand->priority <= dup->priority) {
-					ilog(LOG_DEBUG, "Dropping new ICE candidate "STR_FORMAT" in favour of "
-							STR_FORMAT":%lu",
-							STR_FMT(&cand->foundation),
-							STR_FMT(&dup->foundation), cand->component_id);
+					ilog(LOG_DEBUG, "Dropping new ICE candidate " STR_FORMAT_M
+							" in favour of "
+							STR_FORMAT_M ":%lu",
+							STR_FMT_M(&cand->foundation),
+							STR_FMT_M(&dup->foundation), cand->component_id);
 					continue;
 				}
 
-				ilog(LOG_DEBUG, "Replacing known ICE candidate "STR_FORMAT" with higher "
+				ilog(LOG_DEBUG, "Replacing known ICE candidate " STR_FORMAT_M " with higher "
 						"priority "
-						STR_FORMAT":%lu",
-						STR_FMT(&dup->foundation),
-						STR_FMT(&cand->foundation), cand->component_id);
+						STR_FORMAT_M ":%lu",
+						STR_FMT_M(&dup->foundation),
+						STR_FMT_M(&cand->foundation), cand->component_id);
 			}
 
 			/* priority and foundation may change */
@@ -403,8 +404,8 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 			recalc += __copy_cand(call, dup, cand);
 		}
 		else {
-			ilog(LOG_DEBUG, "Learning new ICE candidate "STR_FORMAT":%lu",
-					STR_FMT(&cand->foundation), cand->component_id);
+			ilog(LOG_DEBUG, "Learning new ICE candidate " STR_FORMAT_M ":%lu",
+					STR_FMT_M(&cand->foundation), cand->component_id);
 			dup = g_slice_alloc(sizeof(*dup));
 			__copy_cand(call, dup, cand);
 			g_hash_table_insert(ag->candidate_hash, dup, dup);
@@ -602,10 +603,10 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	mutex_unlock(&ag->lock);
 
-	ilog(LOG_DEBUG, "Sending %sICE/STUN request for candidate pair "PAIR_FORMAT" from %s to %s",
+	ilog(LOG_DEBUG, "Sending %sICE/STUN request for candidate pair "PAIR_FORMAT" from %s to %s%s%s",
 			PAIR_ISSET(pair, TO_USE) ? "nominating " : "",
 			PAIR_FMT(pair), sockaddr_print_buf(&pair->local_intf->spec->local_address.addr),
-			endpoint_print_buf(&pair->remote_candidate->endpoint));
+			FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
 
 	stun_binding_request(&pair->remote_candidate->endpoint, transact, &ag->pwd[0], ag->ufrag,
 			AGENT_ISSET(ag, CONTROLLING), tie_breaker,
@@ -997,8 +998,8 @@ static int __check_valid(struct ice_agent *ag) {
 
 		mutex_lock(&ps->out_lock);
 		if (memcmp(&ps->endpoint, &pair->remote_candidate->endpoint, sizeof(ps->endpoint))) {
-			ilog(LOG_INFO, "ICE negotiated: peer for component %u is %s", ps->component,
-					endpoint_print_buf(&pair->remote_candidate->endpoint));
+			ilog(LOG_INFO, "ICE negotiated: peer for component %u is %s%s%s", ps->component,
+					FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
 			ps->endpoint = pair->remote_candidate->endpoint;
 		}
 		mutex_unlock(&ps->out_lock);
@@ -1110,7 +1111,7 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 
 err_unlock:
 	mutex_unlock(&ag->lock);
-	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s on interface %s)", err, endpoint_print_buf(src),
+	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s%s%s on interface %s)", err, FMT_M(endpoint_print_buf(src)),
 			endpoint_print_buf(&sfd->socket.local));
 	return 0;
 }
@@ -1169,9 +1170,9 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 
 	ifa = pair->local_intf;
 
-	ilog(LOG_DEBUG, "Received ICE/STUN response code %u for candidate pair "PAIR_FORMAT" from %s to %s",
+	ilog(LOG_DEBUG, "Received ICE/STUN response code %u for candidate pair "PAIR_FORMAT" from %s%s%s to %s",
 			attrs->error_code, PAIR_FMT(pair),
-			endpoint_print_buf(&pair->remote_candidate->endpoint),
+			FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)),
 			sockaddr_print_buf(&ifa->spec->local_address.addr));
 
 	/* verify endpoints */
@@ -1261,8 +1262,8 @@ err_unlock:
 	mutex_unlock(&ag->lock);
 err:
 	if (err)
-		ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s on interface %s)",
-				err, endpoint_print_buf(src), endpoint_print_buf(&sfd->socket.local));
+		ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s%s%s on interface %s)",
+				err, FMT_M(endpoint_print_buf(src)), endpoint_print_buf(&sfd->socket.local));
 
 	if (pair && attrs->error_code)
 		__fail_pair(pair);

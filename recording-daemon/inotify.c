@@ -20,13 +20,13 @@ static handler_t inotify_handler = {
 
 
 static void inotify_close_write(struct inotify_event *inev) {
-	dbg("inotify close_write(%s)", inev->name);
+	dbg("inotify close_write(%s%s%s)", FMT_M(inev->name));
 	metafile_change(inev->name);
 }
 
 
 static void inotify_delete(struct inotify_event *inev) {
-	dbg("inotify delete(%s)", inev->name);
+	dbg("inotify delete(%s%s%s)", FMT_M(inev->name));
 	metafile_delete(inev->name);
 }
 

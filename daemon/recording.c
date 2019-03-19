@@ -376,13 +376,13 @@ static char *meta_setup_file(struct recording *recording) {
 	// coverity[check_return : FALSE]
 	chmod(meta_filepath, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 	if (mfp == NULL) {
-		ilog(LOG_ERROR, "Could not open metadata file: %s", meta_filepath);
+		ilog(LOG_ERROR, "Could not open metadata file: %s%s%s", FMT_M(meta_filepath));
 		free(meta_filepath);
 		recording->meta_filepath = NULL;
 		return NULL;
 	}
 	recording->u.pcap.meta_fp = mfp;
-	ilog(LOG_DEBUG, "Wrote metadata file to temporary path: %s", meta_filepath);
+	ilog(LOG_DEBUG, "Wrote metadata file to temporary path: %s%s%s", FMT_M(meta_filepath));
 	return meta_filepath;
 }
 

@@ -383,7 +383,7 @@ void db_close_stream(output_t *op) {
 		strcat(filename, op->file_format);
 		FILE *f = fopen(filename, "rb");
 		if (!f) {
-			ilog(LOG_ERR, "Failed to open file: %s", filename);
+			ilog(LOG_ERR, "Failed to open file: %s%s%s", FMT_M(filename));
 			if ((output_storage & OUTPUT_STORAGE_FILE))
 				goto file;
 			free(filename);

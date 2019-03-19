@@ -512,8 +512,8 @@ INLINE int u_int16_t_arr_len(u_int16_t *arr) {
 
 
 
-#define SLF " from %s"
-#define SLP endpoint_print_buf(sin)
+#define SLF " from %s%s%s"
+#define SLP FMT_M(endpoint_print_buf(sin))
 static int __stun_request(struct stream_fd *sfd, const endpoint_t *sin,
 		struct header *req, struct stun_attrs *attrs)
 {

@@ -169,8 +169,8 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 
 	c = call_get_opmode(&callid, opmode);
 	if (!c) {
-		ilog(LOG_WARNING, "["STR_FORMAT"] Got UDP LOOKUP for unknown call-id",
-			STR_FMT(&callid));
+		ilog(LOG_WARNING, "[" STR_FORMAT_M "] Got UDP LOOKUP for unknown call-id",
+			STR_FMT_M(&callid));
 		return str_sprintf("%s 0 0.0.0.0\n", out[RE_UDP_COOKIE]);
 	}
 
@@ -215,8 +215,8 @@ ml_fail:
 	goto unlock_fail;
 
 addr_fail:
-	ilog(LOG_ERR, "Failed to parse a media stream: %s/%s:%s",
-			out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]);
+	ilog(LOG_ERR, "Failed to parse a media stream: %s%s/%s:%s%s",
+			FMT_M(out[RE_UDP_UL_ADDR4], out[RE_UDP_UL_ADDR6], out[RE_UDP_UL_PORT]));
 	goto unlock_fail;
 
 unlock_fail:
@@ -275,7 +275,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 	return 0;
 
 fail:
-	ilog(LOG_WARNING, "Failed to parse a media stream: %s:%s", a[0], a[1]);
+	ilog(LOG_WARNING, "Failed to parse a media stream: %s%s:%s%s", FMT_M(a[0], a[1]));
 	g_slice_free1(sizeof(*sp), sp);
 	return -1;
 }
@@ -316,7 +316,7 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c = call_get_opmode(&callid, opmode);
 	if (!c) {
-		ilog(LOG_WARNING, "["STR_FORMAT"] Got LOOKUP for unknown call-id", STR_FMT(&callid));
+		ilog(LOG_WARNING, "[" STR_FORMAT_M "] Got LOOKUP for unknown call-id", STR_FMT_M(&callid));
 		goto out;
 	}
 
@@ -396,7 +396,7 @@ str *call_query_udp(char **out) {
 
 	c = call_get_opmode(&callid, OP_OTHER);
 	if (!c) {
-		ilog(LOG_INFO, "["STR_FORMAT"] Call-ID to query not found", STR_FMT(&callid));
+		ilog(LOG_INFO, "[" STR_FORMAT_M "] Call-ID to query not found", STR_FMT_M(&callid));
 		goto err;
 	}
 
@@ -1519,8 +1519,8 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 				struct packet_stream *ps = media->streams.head->data;
 				if (!sockaddr_eq(&addr, &ps->advertised_endpoint.address))
 					continue;
-				ilog(LOG_DEBUG, "Matched address %s to tag '" STR_FORMAT "'",
-						sockaddr_print_buf(&addr), STR_FMT(&(*monologue)->tag));
+				ilog(LOG_DEBUG, "Matched address %s%s%s to tag '" STR_FORMAT_M "'",
+						FMT_M(sockaddr_print_buf(&addr)), STR_FMT_M(&(*monologue)->tag));
 				goto found;
 			}
 		}
@@ -1549,8 +1549,8 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 		goto out;
 
 	if (monologue) {
-		ilog(LOG_INFO, "Start forwarding for single party (tag '" STR_FORMAT ")",
-				STR_FMT(&monologue->tag));
+		ilog(LOG_INFO, "Start forwarding for single party (tag '" STR_FORMAT_M "')",
+				STR_FMT_M(&monologue->tag));
 		monologue->rec_forwarding = 1;
 	}
 	else {
@@ -1580,8 +1580,8 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 		goto out;
 
 	if (monologue) {
-		ilog(LOG_INFO, "Stop forwarding for single party (tag '" STR_FORMAT ")",
-				STR_FMT(&monologue->tag));
+		ilog(LOG_INFO, "Stop forwarding for single party (tag '" STR_FORMAT_M "')",
+				STR_FMT_M(&monologue->tag));
 		monologue->rec_forwarding = 0;
 	}
 	else {
@@ -1618,8 +1618,8 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		goto out;
 
 	if (monologue) {
-		ilog(LOG_INFO, "Blocking directional DTMF (tag '" STR_FORMAT ")",
-				STR_FMT(&monologue->tag));
+		ilog(LOG_INFO, "Blocking directional DTMF (tag '" STR_FORMAT_M "')",
+				STR_FMT_M(&monologue->tag));
 		monologue->block_dtmf = 1;
 	}
 	else {
@@ -1648,8 +1648,8 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 		goto out;
 
 	if (monologue) {
-		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT ")",
-				STR_FMT(&monologue->tag));
+		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT_M "')",
+				STR_FMT_M(&monologue->tag));
 		monologue->block_dtmf = 0;
 	}
 	else {
@@ -1684,8 +1684,8 @@ const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		goto out;
 
 	if (monologue) {
-		ilog(LOG_INFO, "Blocking directional media (tag '" STR_FORMAT ")",
-				STR_FMT(&monologue->tag));
+		ilog(LOG_INFO, "Blocking directional media (tag '" STR_FORMAT_M "')",
+				STR_FMT_M(&monologue->tag));
 		monologue->block_media = 1;
 		__monologue_unkernelize(monologue);
 	}
@@ -1716,8 +1716,8 @@ const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output)
 		goto out;
 
 	if (monologue) {
-		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT ")",
-				STR_FMT(&monologue->tag));
+		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT_M "')",
+				STR_FMT_M(&monologue->tag));
 		monologue->block_media = 0;
 		__monologue_unkernelize(monologue);
 	}
