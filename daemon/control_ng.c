@@ -174,7 +174,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		log_str = g_string_sized_new(256);
 		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: ", STR_FMT(&cmd), addr);
 		pretty_print(dict, log_str);
-		ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+		ilog(LOG_DEBUG, "%s%.*s%s", FMT_M((int) log_str->len, log_str->str));
 		g_string_free(log_str, TRUE);
 	}
 
@@ -312,7 +312,7 @@ send_resp:
 				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: ",
 						STR_FMT(&cmd), addr);
 				pretty_print(dict, log_str);
-				ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+				ilog(LOG_DEBUG, "%s%.*s%s", FMT_M((int) log_str->len, log_str->str));
 				g_string_free(log_str, TRUE);
 			}
 		}
