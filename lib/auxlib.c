@@ -105,6 +105,8 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 #else
 	rtpe_common_config_ptr->log_level = LOG_DEBUG;
 #endif
+	rtpe_common_config_ptr->log_mark_prefix = "";
+	rtpe_common_config_ptr->log_mark_suffix = "";
 
 	GOptionEntry shared_options[] = {
 		{ "version",		'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",		NULL		},
@@ -114,6 +116,8 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "log-level",		'L', 0, G_OPTION_ARG_INT,	(void *)&rtpe_common_config_ptr->log_level,"Mask log priorities above this level","INT"		},
 		{ "log-stderr",		'E', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "no-log-timestamps",	0,   0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->no_log_timestamps,"Drop timestamps from log lines to stderr",NULL	},
+		{ "log-mark-prefix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_prefix,"Prefix for sensitive log info",	NULL		},
+		{ "log-mark-suffix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_suffix,"Suffix for sensitive log info",	NULL		},
 		{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->pidfile,	"Write PID to file",			"FILE"		},
 		{ "foreground",		'f', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->foreground,	"Don't fork to background",		NULL		},
 		{ NULL, }
