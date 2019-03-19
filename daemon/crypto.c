@@ -709,7 +709,7 @@ static void dump_key(struct crypto_context *c, int log_level) {
 	k = g_base64_encode(c->params.master_key, c->params.crypto_suite->master_key_len);
 	s = g_base64_encode(c->params.master_salt, c->params.crypto_suite->master_salt_len);
 
-	ilog(log_level, "--- %s key %s salt %s", c->params.crypto_suite->name, k, s);
+	ilog(log_level, "--- %s key %s%s%s salt %s%s%s", c->params.crypto_suite->name, FMT_M(k), FMT_M(s));
 
 	g_free(k);
 	g_free(s);

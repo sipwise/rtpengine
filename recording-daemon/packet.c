@@ -174,7 +174,7 @@ out:
 	pthread_mutex_lock(&ret->lock);
 	pthread_mutex_unlock(&mf->lock);
 
-	dbg("Init for SSRC %lx of stream #%lu", ret->ssrc, stream->id);
+	dbg("Init for SSRC %s%lx%s of stream #%lu", FMT_M(ret->ssrc), stream->id);
 
 	if (mf->recording_on && !ret->output && output_single) {
 		char buf[256];

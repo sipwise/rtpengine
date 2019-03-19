@@ -137,8 +137,9 @@ restart:
 	while (G_UNLIKELY(ht->q.length > 20)) { // arbitrary limit
 		g_queue_sort(&ht->q, ssrc_time_cmp, NULL);
 		struct ssrc_entry *old_ent = g_queue_pop_head(&ht->q);
-		ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %x) - deleting SSRC %x",
-				ssrc, old_ent->ssrc);
+		ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %s%x%s) - "
+				"deleting SSRC %s%x%s",
+				FMT_M(ssrc), FMT_M(old_ent->ssrc));
 		g_atomic_pointer_set(&ht->cache, NULL);
 		g_hash_table_remove(ht->ht, &old_ent->ssrc); // does obj_put
 		obj_put(old_ent); // for the queue entry
@@ -272,7 +273,7 @@ found:;
 	mutex_unlock(&e->h.lock);
 
 	rtt -= (long long) delay * 1000000LL / 65536LL;
-	ilog(LOG_DEBUG, "Calculated round-trip time for %x is %lli us", ssrc, rtt);
+	ilog(LOG_DEBUG, "Calculated round-trip time for %s%x%s is %lli us", FMT_M(ssrc), rtt);
 
 	if (rtt <= 0 || rtt > 10000000) {
 		ilog(LOG_DEBUG, "Invalid RTT - discarding");
@@ -298,8 +299,8 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 
 	seri->report = *sr;
 
-	ilog(LOG_DEBUG, "SR from %x: RTP TS %u PC %u OC %u NTP TS %u/%u=%f",
-			sr->ssrc, sr->timestamp, sr->packet_count, sr->octet_count,
+	ilog(LOG_DEBUG, "SR from %s%x%s: RTP TS %u PC %u OC %u NTP TS %u/%u=%f",
+			FMT_M(sr->ssrc), sr->timestamp, sr->packet_count, sr->octet_count,
 			sr->ntp_msw, sr->ntp_lsw, seri->time_item.ntp_ts);
 
 	mutex_unlock(&e->lock);
@@ -310,8 +311,8 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 {
 	struct call *c = m->call;
 
-	ilog(LOG_DEBUG, "RR from %x about %x: FL %u TL %u HSR %u J %u LSR %u DLSR %u",
-			rr->from, rr->ssrc, rr->fraction_lost, rr->packets_lost,
+	ilog(LOG_DEBUG, "RR from %s%x%s about %s%x%s: FL %u TL %u HSR %u J %u LSR %u DLSR %u",
+			FMT_M(rr->from), FMT_M(rr->ssrc), rr->fraction_lost, rr->packets_lost,
 			rr->high_seq_received, rr->jitter, rr->lsr, rr->dlsr);
 
 	int pt;
@@ -335,7 +336,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		goto out_nl_put;
 	}
 	unsigned int jitter = rpt->clock_rate ? (rr->jitter * 1000 / rpt->clock_rate) : rr->jitter;
-	ilog(LOG_DEBUG, "Calculated jitter for %x is %u ms", rr->ssrc, jitter);
+	ilog(LOG_DEBUG, "Calculated jitter for %s%x%s is %u ms", FMT_M(rr->ssrc), jitter);
 
 	ilog(LOG_DEBUG, "Adding opposide side RTT of %u us", other_e->last_rtt);
 
@@ -348,7 +349,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 	};
 
 	mos_calc(ssb);
-	ilog(LOG_DEBUG, "Calculated MOS from RR for %x is %.1f", rr->from, (double) ssb->mos / 10.0);
+	ilog(LOG_DEBUG, "Calculated MOS from RR for %s%x%s is %.1f", FMT_M(rr->from), (double) ssb->mos / 10.0);
 
 	// got a new stats block, add it to reporting ssrc
 	mutex_lock(&other_e->h.lock);
@@ -397,8 +398,8 @@ void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *r
 	if (!srti)
 		return;
 
-	ilog(LOG_DEBUG, "XR RR TIME from %x: NTP TS %u/%u=%f",
-			rr->ssrc,
+	ilog(LOG_DEBUG, "XR RR TIME from %s%x%s: NTP TS %u/%u=%f",
+			FMT_M(rr->ssrc),
 			rr->ntp_msw, rr->ntp_lsw, srti->time_item.ntp_ts);
 
 	mutex_unlock(&e->lock);
@@ -408,8 +409,8 @@ void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *r
 void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 		const struct timeval *tv)
 {
-	ilog(LOG_DEBUG, "XR DLRR from %x about %x: LRR %u DLRR %u",
-			dlrr->from, dlrr->ssrc,
+	ilog(LOG_DEBUG, "XR DLRR from %s%x%s about %s%x%s: LRR %u DLRR %u",
+			FMT_M(dlrr->from), FMT_M(dlrr->ssrc),
 			dlrr->lrr, dlrr->dlrr);
 
 	__calc_rtt(m->call, dlrr->ssrc, dlrr->lrr, dlrr->dlrr,
@@ -419,10 +420,10 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
 		const struct timeval *tv)
 {
-	ilog(LOG_DEBUG, "XR VM from %x about %x: LR %u DR %u BD %u GD %u BDu %u GDu %u RTD %u "
+	ilog(LOG_DEBUG, "XR VM from %s%x%s about %s%x%s: LR %u DR %u BD %u GD %u BDu %u GDu %u RTD %u "
 			"ESD %u SL %u NL %u RERL %u GMin %u R %u eR %u MOSL %u MOSC %u RX %u "
 			"JBn %u JBm %u JBam %u",
-			vm->from, vm->ssrc,
+			FMT_M(vm->from), FMT_M(vm->ssrc),
 			vm->loss_rate, vm->discard_rate, vm->burst_den, vm->gap_den,
 			vm->burst_dur, vm->gap_dur, vm->rnd_trip_delay, vm->end_sys_delay,
 			vm->signal_lvl, vm->noise_lvl, vm->rerl, vm->gmin, vm->r_factor,

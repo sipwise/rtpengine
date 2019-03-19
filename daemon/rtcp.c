@@ -1240,8 +1240,8 @@ static void transcode_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *c
 		return;
 	// forward SSRC mapping
 	common->ssrc = htonl(ctx->mp->ssrc_in->ssrc_map_out);
-	ilog(LOG_DEBUG, "Substituting RTCP header SSRC from %x to %x",
-		ctx->scratch_common_ssrc, ctx->mp->ssrc_in->ssrc_map_out);
+	ilog(LOG_DEBUG, "Substituting RTCP header SSRC from %s%x%s to %x",
+		FMT_M(ctx->scratch_common_ssrc), ctx->mp->ssrc_in->ssrc_map_out);
 }
 static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
 	if (!ctx->mp->ssrc_in)
@@ -1271,8 +1271,8 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	unsigned int dupes = atomic64_get(&input_ctx->duplicates);
 	unsigned int tot_lost = lost - dupes; // can be negative/rollover
 
-	ilog(LOG_DEBUG, "Substituting RTCP RR SSRC from %x to %x: %u packets, %u lost, %u duplicates",
-		ctx->scratch.rr.ssrc, map_ctx->ssrc_map_out,
+	ilog(LOG_DEBUG, "Substituting RTCP RR SSRC from %s%x%s to %x: %u packets, %u lost, %u duplicates",
+		FMT_M(ctx->scratch.rr.ssrc), map_ctx->ssrc_map_out,
 		packets, lost, dupes);
 
 	if (G_UNLIKELY(tot_lost > 0xffffff))

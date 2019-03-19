@@ -321,7 +321,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 		goto err;
 
 	for (int j = 0; j < rr->elements; j++) {
-		rlog(LOG_DEBUG, "Redis-Notify: %u) %s\n", j, rr->element[j]->str);
+		rlog(LOG_DEBUG, "Redis-Notify: %u) %s%s%s\n", j, FMT_M(rr->element[j]->str));
 	}
 
 	if (rr->elements != 4)
@@ -813,7 +813,7 @@ static int json_get_hash(struct redis_hash *out,
 		char* tmp = strdup(*members);
 
 		if (g_hash_table_insert_check(out->ht, tmp, val) != TRUE) {
-			ilog(LOG_WARNING,"Key %s already exists", tmp);
+			rlog(LOG_WARNING,"Key %s already exists", tmp);
 			goto err3;
 		}
 
@@ -1664,7 +1664,8 @@ err1:
 		freeReplyObject(rr_jsonStr);	
 	log_info_clear();
 	if (err) {
-		rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT "' from Redis: %s", STR_FMT(callid),
+		rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s",
+				STR_FMT_M(callid),
 				err);
 		if (c) 
 			call_destroy(c);
@@ -1690,7 +1691,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	str callid;
 	str_init_len(&callid, call->str, call->len);
 
-	rlog(LOG_DEBUG, "Processing call ID '%.*s' from Redis", REDIS_FMT(call));
+	rlog(LOG_DEBUG, "Processing call ID '%s%.*s%s' from Redis", FMT_M(REDIS_FMT(call)));
 
 	mutex_lock(&ctx->r_m);
 	r = g_queue_pop_head(&ctx->r_q);

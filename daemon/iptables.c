@@ -276,8 +276,8 @@ static int __iptables_add_rule(const socket_t *local_sock, const str *comment) {
 	};
 
 	if (err)
-		ilog(LOG_ERROR, "Error adding iptables rule (for '" STR_FORMAT "'): %s (%s)",
-				STR_FMT(comment), err, strerror(errno));
+		ilog(LOG_ERROR, "Error adding iptables rule (for '" STR_FORMAT_M "'): %s (%s)",
+				STR_FMT_M(comment), err, strerror(errno));
 
 	return 0;
 }

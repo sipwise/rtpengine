@@ -1146,7 +1146,7 @@ static void cli_stream_readable(struct streambuf_stream *s) {
        return;
    }
 
-   ilog(LOG_INFO, "Got CLI command:%s",inbuf);
+   ilog(LOG_INFO, "Got CLI command: %s%s%s", FMT_M(inbuf));
    str_init(&instr, inbuf);
 
    cli_handler_do(cli_top_handlers, &instr, s->outbuf);

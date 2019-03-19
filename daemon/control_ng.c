@@ -14,6 +14,7 @@
 #include "call_interfaces.h"
 #include "socket.h"
 #include "log_funcs.h"
+#include "main.h"
 
 
 mutex_t rtpe_cngs_lock;
@@ -129,7 +130,8 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
-		ilog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: "STR_FORMAT, addr, STR_FMT(buf));
+		ilog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: " STR_FORMAT_M,
+				addr, STR_FMT_M(buf));
 		return;
 	}
 
@@ -172,8 +174,10 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 
 	if (get_log_level() >= LOG_DEBUG) {
 		log_str = g_string_sized_new(256);
-		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: ", STR_FMT(&cmd), addr);
+		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: %s", STR_FMT(&cmd), addr,
+				rtpe_config.common.log_mark_prefix);
 		pretty_print(dict, log_str);
+		g_string_append(log_str, rtpe_config.common.log_mark_suffix);
 		ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 		g_string_free(log_str, TRUE);
 	}
@@ -287,7 +291,8 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 err_send:
 
 	if (errstr < magic_load_limit_strings[0] || errstr > magic_load_limit_strings[__LOAD_LIMIT_MAX-1]) {
-		ilog(LOG_WARNING, "Protocol error in packet from %s: %s ["STR_FORMAT"]", addr, errstr, STR_FMT(&data));
+		ilog(LOG_WARNING, "Protocol error in packet from %s: %s [" STR_FORMAT_M "]",
+				addr, errstr, STR_FMT_M(&data));
 		bencode_dictionary_add_string(resp, "result", "error");
 		bencode_dictionary_add_string(resp, "error-reason", errstr);
 		g_atomic_int_inc(&cur->errors);
@@ -309,9 +314,11 @@ send_resp:
 			dict = bencode_decode_expect_str(&bencbuf, to_send, BENCODE_DICTIONARY);
 			if (dict) {
 				log_str = g_string_sized_new(256);
-				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: ",
-						STR_FMT(&cmd), addr);
+				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
+						STR_FMT(&cmd), addr,
+						rtpe_config.common.log_mark_prefix);
 				pretty_print(dict, log_str);
+				g_string_append(log_str, rtpe_config.common.log_mark_suffix);
 				ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 				g_string_free(log_str, TRUE);
 			}
