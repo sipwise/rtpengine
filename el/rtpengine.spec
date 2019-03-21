@@ -49,7 +49,7 @@ Summary:	Kernel module for NGCP rtpengine in-kernel packet forwarding
 Group:		System Environment/Daemons
 BuildArch:	noarch
 BuildRequires:	redhat-rpm-config
-Requires:	gcc make
+Requires:	gcc make kernel-devel
 Requires(post):	dkms
 Requires(preun): dkms
 
