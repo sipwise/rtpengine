@@ -161,6 +161,8 @@ INLINE void my_d(MYSQL_BIND *b, const double *d) {
 static void execute_wrap(MYSQL_STMT **stmt, MYSQL_BIND *binds, unsigned long long *auto_id) {
 	int retr = 0;
 	while (1) {
+		if (check_conn())
+			goto err;
 		if (mysql_stmt_bind_param(*stmt, binds))
 			goto err;
 		if (mysql_stmt_execute(*stmt))
