@@ -34,6 +34,24 @@
       "revId": "9c6677d2fd23a74027fe86ed0072035a2e5b599b",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a016987_7a7ca120",
+        "filename": "debian/ngcp-rtpengine-kernel-dkms.prerm",
+        "patchSetId": 2
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-03-27T15:29:32Z",
+      "side": 1,
+      "message": "I\u0027ve checked the dkms sources and it looks like it does not.",
+      "parentUuid": "7a016987_7a95c13e",
+      "revId": "9c6677d2fd23a74027fe86ed0072035a2e5b599b",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
