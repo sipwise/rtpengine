@@ -52,12 +52,14 @@ firewall_setup()
 
   iptables -N rtpengine 2>/dev/null
   iptables -D INPUT -j rtpengine 2>/dev/null
-  iptables -I INPUT -j rtpengine
+  iptables -D INPUT -p udp -j rtpengine 2>/dev/null
+  iptables -I INPUT -p udp -j rtpengine
   iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
   iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
   ip6tables -N rtpengine 2>/dev/null
   ip6tables -D INPUT -j rtpengine 2>/dev/null
-  ip6tables -I INPUT -j rtpengine
+  ip6tables -D INPUT -p udp -j rtpengine 2>/dev/null
+  ip6tables -I INPUT -p udp -j rtpengine
   ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
   ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
 }
