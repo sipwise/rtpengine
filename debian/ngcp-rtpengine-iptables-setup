@@ -81,7 +81,6 @@ firewall_teardown()
 
   iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
   ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
-  rmmod $MODNAME 2>/dev/null
 }
 
 case "$1" in
