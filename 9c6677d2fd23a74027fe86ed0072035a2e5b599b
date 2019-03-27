@@ -16,6 +16,24 @@
       "revId": "9c6677d2fd23a74027fe86ed0072035a2e5b599b",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a016987_7a95c13e",
+        "filename": "debian/ngcp-rtpengine-kernel-dkms.prerm",
+        "patchSetId": 2
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2019-03-27T15:23:14Z",
+      "side": 1,
+      "message": "I don\u0027t know. Does dkms unload the module too?",
+      "parentUuid": "7a016987_ba25795d",
+      "revId": "9c6677d2fd23a74027fe86ed0072035a2e5b599b",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
