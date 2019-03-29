@@ -31,10 +31,10 @@ obj-m        += xt_RTPENGINE.o
 .PHONY:		modules clean patch install
 
 modules:
-		make -C $(KBUILD) M=$(PWD) O=$(KBUILD) modules
+		$(MAKE) -C $(KBUILD) M=$(PWD) O=$(KBUILD) modules
 
 clean:
-		make -C $(KBUILD) M=$(PWD) clean || true
+		$(MAKE) -C $(KBUILD) M=$(PWD) clean || true
 
 patch:
 		../utils/patch-kernel magic "$(PWD)" "$(KERNEL)" "$(RTPENGINE_VERSION)"
