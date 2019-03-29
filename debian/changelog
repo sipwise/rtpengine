@@ -1,3 +1,13 @@
+ngcp-rtpengine (7.2.1.3+0~mr7.2.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1b56dc7] TT#56007 TT#55864 leave xt_RTPENGINE loaded after stop
+  * [38c51d1] TT#56007 TT#55864 make RTPENGINE rules UDP only
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 29 Mar 2019 14:49:30 +0100
+
 ngcp-rtpengine (7.2.1.2+0~mr7.2.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
