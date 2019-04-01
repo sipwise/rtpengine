@@ -1,3 +1,41 @@
+ngcp-rtpengine (7.1.2.1+0~mr7.1.2.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e80de00] don't add rtpmap or mid attributes for deleted/silenced streams
+  * [c4483a7] provide linear alternative to bsearch for kernels < 3.0
+  * [31aabd0] fix el init script inserting duplicate iptables rules
+  * [5de90ad] fix bug with incorrect open3 redirection for test suite
+  * [4eaf923] move SDES-no handling into __sdes_accept
+  * [ff77695] add auto test suites for #661
+  * [6ee79b9] suppress loading of default config file for auto tests
+  * [a80d4f1] fix test suites for 0c9bb7c
+  * [60d1856] fix tests compilation for with_transcoding=no
+  * [6e109d9] disable all AMR tests by default due to inconsistent codec libs
+  * [d18aa84] fix test suites for different implementations of base64 encoding
+  * [adb65f5] fix possible null pointer reference
+  * [a582399] fix always-transcode not being honoured when only codec-mask was used
+  * [452db68] as per docs, remove all relay candidates under force-relay
+  * [07afd0b] TT#54800 fix ptime overrides
+  * [64ad6e4] Add missing check_conn when running SQL statements
+
+  [ Denis Maksimov ]
+  * [ee73822] add BuildRequires: gperf in spec file
+
+  [ Alexey Vasilyev ]
+  * [24de5e0] Rename crypto suits according to RFC6188
+
+  [ Guillem Jover ]
+  * [519583d] TT#53700 Switch nfs-mount systemd service from Type oneshot to simple
+
+  [ netaskd ]
+  * [1300549] rtpengine.spec: fix building dkms module on a different host kernel version
+  * [2861802] add kernel-devel as requires for DKMS module build on target host
+  * [e77902c] Define requires according to the installed kernel.
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 01 Apr 2019 16:34:33 +0200
+
 ngcp-rtpengine (7.1.2.0+0~mr7.1.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
