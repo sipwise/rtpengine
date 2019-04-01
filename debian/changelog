@@ -1,3 +1,33 @@
+ngcp-rtpengine (6.5.4.1+0~mr6.5.4.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [48e1249] Add missing SDES accept routine
+  * [665926e] don't add rtpmap or mid attributes for deleted/silenced streams
+  * [6404786] provide linear alternative to bsearch for kernels < 3.0
+  * [530c02d] fix el init script inserting duplicate iptables rules
+  * [154f386] fix tests compilation for with_transcoding=no
+  * [531b54f] disable all AMR tests by default due to inconsistent codec libs
+  * [49a4e11] as per docs, remove all relay candidates under force-relay
+  * [d0eb4fb] TT#54800 fix ptime overrides
+  * [2574611] Add missing check_conn when running SQL statements
+  * [f23e870] TT#56007 TT#55864 leave xt_RTPENGINE loaded after stop
+  * [5ed647d] TT#56007 TT#55864 make RTPENGINE rules UDP only
+
+  [ Alexey Vasilyev ]
+  * [333557f] Rename crypto suits according to RFC6188
+
+  [ Guillem Jover ]
+  * [2f9bef0] TT#53700 Switch nfs-mount systemd service from Type oneshot to simple
+
+  [ netaskd ]
+  * [f82c9d6] rtpengine.spec: fix building dkms module on a different host kernel version
+  * [41adbde] add kernel-devel as requires for DKMS module build on target host
+  * [c4b6fbc] Define requires according to the installed kernel.
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 02 Apr 2019 00:42:26 +0200
+
 ngcp-rtpengine (6.5.4.0+0~mr6.5.4.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
