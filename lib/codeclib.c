@@ -602,6 +602,8 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 	if (!data || !data->s || !data->len)
 		return 0;
 
+	ts *= dec->def->clockrate_mult;
+
 	dbg("%p dec pts %llu rtp_ts %llu incoming ts %lu", dec, (unsigned long long) dec->pts,
 			(unsigned long long) dec->rtp_ts, (unsigned long) ts);
 
