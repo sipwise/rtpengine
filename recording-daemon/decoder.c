@@ -56,6 +56,8 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 	if (def->avcodec_id == -1) // not a real audio codec
 		return NULL;
 
+	// decoder_new_fmt already handles the clockrate_mult scaling
+	int rtp_clockrate = clockrate;
 	clockrate *= def->clockrate_mult;
 
 	// we can now config our output, which determines the sample format we convert to
@@ -77,7 +79,7 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 		outp->encoder->requested_format.format = out_format.format;
 	}
 
-	decoder_t *dec = decoder_new_fmt(def, clockrate, channels, &out_format);
+	decoder_t *dec = decoder_new_fmt(def, rtp_clockrate, channels, &out_format);
 	if (!dec)
 		return NULL;
 	decode_t *deco = g_slice_alloc0(sizeof(decode_t));
