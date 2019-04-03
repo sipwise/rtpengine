@@ -202,4 +202,21 @@ INLINE int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int l
 
 
 
+/*** GLIB HELPERS ***/
+
+INLINE int g_tree_clear_cb(void *k, void *v, void *p) {
+	GQueue *q = p;
+	g_queue_push_tail(q, k);
+	return 0;
+}
+INLINE void g_tree_clear(GTree *t) {
+	GQueue q = G_QUEUE_INIT;
+	g_tree_foreach(t, g_tree_clear_cb, &q);
+	while (q.length) {
+		void *k = g_queue_pop_head(&q);
+		g_tree_remove(t, k);
+	}
+}
+
+
 #endif
