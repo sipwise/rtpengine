@@ -602,6 +602,8 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 	if (!data || !data->s || !data->len)
 		return 0;
 
+	ts *= dec->def->clockrate_mult;
+
 	dbg("%p dec pts %llu rtp_ts %llu incoming ts %lu", dec, (unsigned long long) dec->pts,
 			(unsigned long long) dec->rtp_ts, (unsigned long) ts);
 
@@ -902,6 +904,7 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	ilog(LOG_DEBUG, "Seq reset detected: expected seq %i, received seq %i", ps->seq, p->seq);
 	ps->seq = p->seq;
 	// seq ok - fall thru
+	g_tree_clear(ps->packets);
 seq_ok:
 	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(p->seq)))
 		return -1;
