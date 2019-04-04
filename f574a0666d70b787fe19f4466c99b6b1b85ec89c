@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7a016987_74adca87",
+        "filename": "debian/ngcp-rtpengine-iptables-setup",
+        "patchSetId": 1
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2019-04-04T16:20:10Z",
+      "side": 1,
+      "message": "set -e ?",
+      "revId": "f574a0666d70b787fe19f4466c99b6b1b85ec89c",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a016987_b4ca224e",
+        "filename": "debian/ngcp-rtpengine-iptables-setup",
+        "patchSetId": 1
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2019-04-04T16:20:10Z",
+      "side": 1,
+      "message": "Maybe modern style\nif [ ! -z \"$SET_USER\" ]; then\n?",
+      "revId": "f574a0666d70b787fe19f4466c99b6b1b85ec89c",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
