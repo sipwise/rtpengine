@@ -16,6 +16,24 @@
       "revId": "ddd693a48f66c230edab64fcee160e9159f9888e",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a016987_74494ad0",
+        "filename": "utils/build_deps.sh",
+        "patchSetId": 1
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-04-04T18:30:02Z",
+      "side": 1,
+      "message": "I\u0027ll fix that in trunk, but I don\u0027t think it\u0027s worth it modifying this nor backporting it TBH, this is just for build-time stuff.",
+      "parentUuid": "7a016987_94796632",
+      "revId": "ddd693a48f66c230edab64fcee160e9159f9888e",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
