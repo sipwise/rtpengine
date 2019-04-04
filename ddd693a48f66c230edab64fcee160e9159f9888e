@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7a016987_94796632",
+        "filename": "utils/build_deps.sh",
+        "patchSetId": 1
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2019-04-04T15:52:54Z",
+      "side": 1,
+      "message": "\u003e\u00262 ?",
+      "revId": "ddd693a48f66c230edab64fcee160e9159f9888e",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
