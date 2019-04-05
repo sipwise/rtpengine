@@ -39,6 +39,24 @@
       "revId": "fd01c5d939968ef9943ccb4cf337954102e7015d",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7a016987_b772247b",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2019-04-05T09:23:13Z",
+      "side": 1,
+      "message": "\u003e See here ^. Maybe that\u0027s still too confusing? :)\n\nI noticed this note after some brief moments of confusion, but since the change in mr5.5 is not really about the systemd unit, the title is misleading.\n\nMaybe you can add \"[Adapted from] Move the rtpengine.. systemd unit\", or [Based on]\", but if not maybe explain the changes actually going and then in the body explain that this originated from that commit with that title, etc.\n\nBasically, I\u0027d do something like retlingit and then in the body \"All of this is based on commit 0a1b2c3d, just without the systemd unit, original message follows\", or briefly explain the changes if there\u0027s more to it.",
+      "parentUuid": "7a016987_74770a03",
+      "revId": "fd01c5d939968ef9943ccb4cf337954102e7015d",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
