@@ -328,10 +328,14 @@ void detect_setup_recording(struct call *call, const str *recordcall, str *metad
 	if (!recordcall || !recordcall->s)
 		return;
 
-	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on"))
+	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on")) {
+		call->recording_on = 1;
 		recording_start(call, NULL, NULL);
-	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off"))
+	}
+	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
+		call->recording_on = 0;
 		recording_stop(call);
+	}
 	else
 		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
 }
