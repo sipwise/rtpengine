@@ -172,19 +172,30 @@ static void streambuf_listener_newconn(struct obj *p, socket_t *newsock, char *a
 	i.timer = streambuf_stream_timer;
 	i.obj = &s->obj;
 
-	if (poller_add_item(listener->poller, &i))
-		goto fail;
-
 	if (cb->newconn_func)
 		cb->newconn_func(s);
+
+	obj_hold(s);
 
 	mutex_lock(&listener->lock);
 	g_hash_table_insert(listener->streams, s, s); // hand over ref
 	mutex_unlock(&listener->lock);
 
+	if (poller_add_item(listener->poller, &i))
+		goto fail;
+
+	obj_put(s);
+
 	return;
 
 fail:
+	mutex_lock(&listener->lock);
+	int ret = g_hash_table_remove(listener->streams, s);
+	mutex_unlock(&listener->lock);
+
+	if (ret)
+		obj_put(s);
+
 	obj_put(s);
 }
 
