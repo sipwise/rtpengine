@@ -18,13 +18,14 @@ CREATE TABLE `recording_calls` (
   `status` enum('recording','completed','confirmed') DEFAULT 'recording',
   PRIMARY KEY (`id`),
   KEY `call_id` (`call_id`)
-)
+);
 CREATE TABLE `recording_streams` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `call` int(10) unsigned NOT NULL,
   `local_filename` varchar(250) NOT NULL,
   `full_filename` varchar(250) NOT NULL,
   `file_format` varchar(10) NOT NULL,
+  `stream` mediumblob,
   `output_type` enum('mixed','single') NOT NULL,
   `stream_id` int(10) unsigned NOT NULL,
   `sample_rate` int(10) unsigned NOT NULL DEFAULT '0',
@@ -36,7 +37,7 @@ CREATE TABLE `recording_streams` (
   PRIMARY KEY (`id`),
   KEY `call` (`call`),
   CONSTRAINT `fk_call_id` FOREIGN KEY (`call`) REFERENCES `recording_calls` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-)
+);
 CREATE TABLE `recording_metakeys` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `call` int(10) unsigned NOT NULL,
@@ -46,7 +47,7 @@ CREATE TABLE `recording_metakeys` (
   KEY `prim_lookup` (`value`,`key`),
   KEY `fk_call_idx` (`call`),
   CONSTRAINT `fk_call_idx` FOREIGN KEY (`call`) REFERENCES `recording_calls` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-)
+);
 */
 
 
