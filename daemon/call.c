@@ -2161,6 +2161,8 @@ void call_destroy(struct call *c) {
 			for (o = md->streams.head; o; o = o->next) {
 				ps = o->data;
 
+				send_timer_put(&ps->send_timer);
+
 				if (PS_ISSET(ps, FALLBACK_RTCP))
 					continue;
 
@@ -2180,7 +2182,6 @@ void call_destroy(struct call *c) {
 						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
 
 				statistics_update_totals(ps);
-				send_timer_put(&ps->send_timer);
 
 			}
 
