@@ -1,3 +1,90 @@
+ngcp-rtpengine (7.4.0.0+0~mr7.4.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0e0a55c] add database schema for recording daemon
+  * [ed5af2d] TT#50652 add YCM helper macro for CSH hashing
+  * [da5cacc] TT#50652 add YCM config for include/
+  * [3032443] TT#50652 remove unnecessary and circular include
+  * [1129676] TT#50652 fix typo
+  * [6092c91] TT#50652 fix possible sequencing bug while resampling
+  * [8f3c309] fix always-transcode not being honoured when only codec-mask was used
+  * [e3ec97f] TT#50652 add -Wstrict-prototypes everywhere
+  * [c53040b] error out on invalid clock rate parsed from RTP format string
+  * [0cccae4] compile fix for with_transcoding=no
+  * [38c9646] TT#50652 move timeval functions into lib
+  * [cfe6f87] TT#50652 split timeval_cmp_ptr into function
+  * [d96dbde] TT#50652 split timer thread functions into separate file
+  * [83965bd] TT#50652 infrastructure to support reading/playing of media files
+  * [3374254] TT#50652 split out codec payload type init function
+  * [6ba60d5] TT#50652 split out packet dequeuing and sending function
+  * [92b08d8] TT#50652 add media playback capability
+  * [4aaccca] TT#50652 separate out media playback routine
+  * [21535fa] TT#50652 support playing back media from memory stream
+  * [8874b4a] TT#50652 use random RTP TS when playing back media
+  * [7cc5309] TT#50652 add support for 8-bit unsigned PCM
+  * [c7051fc] TT#50652 use hash table for AVCodec ID lookup
+  * [29a8384] TT#50652 use a better timeval_cmp function
+  * [d639223] TT#50652 add logging info to media_player timer runs
+  * [3bdad88] TT#50652 create timer to gradually send packets without jitter
+  * [831946a] TT#50652 fix compilation for with_transcode=no
+  * [5b0a010] TT#50652 support playing back media files from database
+  * [e1e6fd4] TT#50652 add explicit libav error reporting
+  * [7da2b52] TT#50652 return media duration to SIP proxy in play_media response
+  * [7f5e16d] TT#50652 add stop_media call
+  * [223996b] TT#50652 add documentation for media playback capability
+  * [7e85d1a] TT#50652 keep existing SSRC context when starting another playback
+  * [8d9a0d2] TT#50652 remove already enqueued packets when media is stopped
+  * [e1825e3] TT#50652 ensure consistent RTP timestamp across media restarts
+  * [c9bae61] TT#50652 add media playback tests
+  * [d449861] TT#50652 separate out and move crypt handler routines
+  * [349954d] TT#50652 handle SRTP output for media playback
+  * [9eea6b1] Reverse participant matching logic
+  * [41cddcc] normalise compat.h handling towards kamailio tree
+  * [661994e] as per docs, remove all relay candidates under force-relay
+  * [40dc49f] TT#50652 stop media playback on call delete
+  * [dc9f997] TT#54800 sequencing fixes
+  * [6921472] TT#54800 add ptime tests
+  * [fb76ef7] TT#54800 fix ptime overrides
+  * [52660ed] TT#54800 add ptime-reverse tests
+  * [9917e65] fix division by zero for dtmf in some cases
+  * [357474d] TT#50652 add label= option to match call participants
+  * [d279789] silence warnings when compiling with -DNDEBUG
+  * [6df650c] fix compilation for older dpkg-parsechangelog
+  * [f01568e] fix compilation for older ffmpeg
+  * [354f754] TT#45617 add no-log-timestamps option
+  * [26b725d] TT#45617 add new options to support log markers for sensitive data
+  * [8eada4c] TT#45617 document new log-mark-prefix/suffix options
+  * [cfbd4bc] Add missing check_conn when running SQL statements
+  * [70b1ae5] Add missing perl-IPC-Cmd build dependency for RPM
+  * [9c6677d] TT#56007 TT#55864 leave xt_RTPENGINE loaded after stop
+  * [cd23c05] TT#56007 TT#55864 make RTPENGINE rules UDP only
+  * [ac825cc] TT#56553 fix double G.722 sample rate issues
+  * [582e645] fix missing recording_on flag set
+  * [3d64af1] fix incorrect sample config (`1` instead of `true`)
+  * [1629225] add `stream` db column to sample db schema
+  * [573cd3f] TT#58050 fix refcount bug
+
+  [ Guillem Jover ]
+  * [1f10dc3] TT#49106 Move the usage information into a new man page
+  * [5e3a59a] TT#49106 Clean up generated man pages
+  * [ec8df35] TT#23584 Use $(MAKE) instead of make to honor parallel builds
+
+  [ Michael Prokop ]
+  * [0a993a3] TT#48650 Explicitly check for gperf binary
+  * [c8b6ec0] TT#50652 docs: fix some minor typos
+
+  [ Vasily Chekalkin ]
+  * [7502e7b] Remove duplicated configuration parameter sample
+
+  [ netaskd ]
+  * [4cdf106] rtpengine.spec: fix building dkms module on a different host kernel version
+  * [7b546e4] add kernel-devel as requires for DKMS module build on target host
+  * [c2ad397] Define requires according to the installed kernel.
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 25 Apr 2019 14:32:03 +0200
+
 ngcp-rtpengine (7.3.0.0+0~mr7.3.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
