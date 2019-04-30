@@ -279,6 +279,9 @@ found:
 
 // appropriate lock must be held
 static void media_player_read_packet(struct media_player *mp) {
+	if (!mp->fmtctx)
+		return;
+
 	int ret = av_read_frame(mp->fmtctx, &mp->pkt);
 	if (ret < 0) {
 		if (ret == AVERROR_EOF) {
