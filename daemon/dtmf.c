@@ -2,24 +2,7 @@
 #include "media_socket.h"
 #include "log.h"
 #include "call.h"
-
-
-struct telephone_event_payload {
-	uint8_t event;
-#if G_BYTE_ORDER == G_LITTLE_ENDIAN
-	unsigned volume:6;
-	unsigned r:1;
-	unsigned end:1;
-#elif G_BYTE_ORDER == G_BIG_ENDIAN
-	unsigned end:1;
-	unsigned r:1;
-	unsigned volume:6;
-#else
-#error "byte order unknown"
-#endif
-	uint16_t duration;
-} __attribute__ ((packed));
-
+#include "dtmflib.h"
 
 
 
