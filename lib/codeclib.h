@@ -104,7 +104,7 @@ struct codec_def_s {
 	    support_decoding:1;
 
 	// flags
-	int pseudocodec:1,
+	int supplemental:1,
 	    dtmf:1; // special case
 
 	const codec_type_t *codec_type;
@@ -141,6 +141,11 @@ struct decoder_s {
 #ifdef HAVE_BCG729
 		bcg729DecoderChannelContextStruct *bcg729;
 #endif
+		struct {
+			unsigned long start_ts;
+			unsigned int event;
+			unsigned long duration;
+		} dtmf;
 	} u;
 
 	unsigned long rtp_ts;
