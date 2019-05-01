@@ -126,37 +126,39 @@ static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 
 static void __make_passthrough(struct codec_handler *handler) {
 	__handler_shutdown(handler);
-	handler->func = handler_func_passthrough;
-	handler->kernelize = 1;
+	ilog(LOG_DEBUG, "Using passthrough handler for " STR_FORMAT,
+			STR_FMT(&handler->source_pt.encoding_with_params));
+	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
+		handler->func = handler_func_dtmf;
+	else {
+		handler->func = handler_func_passthrough;
+		handler->kernelize = 1;
+	}
 	handler->dest_pt = handler->source_pt;
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
 }
 static void __make_passthrough_ssrc(struct codec_handler *handler) {
 	__handler_shutdown(handler);
-	handler->func = handler_func_passthrough_ssrc;
-	handler->kernelize = 1;
+	ilog(LOG_DEBUG, "Using passthrough handler with new SSRC for " STR_FORMAT,
+			STR_FMT(&handler->source_pt.encoding_with_params));
+	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
+		handler->func = handler_func_dtmf;
+	else {
+		handler->func = handler_func_passthrough_ssrc;
+		handler->kernelize = 1;
+	}
 	handler->dest_pt = handler->source_pt;
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
 }
 
-static void __make_dtmf(struct codec_handler *handler) {
-	__handler_shutdown(handler);
-	handler->func = handler_func_dtmf;
-	handler->dest_pt = handler->source_pt;
-	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
-}
-
-static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *source,
-		struct rtp_payload_type *dest)
+static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest)
 {
-	assert(source->codec_def != NULL);
+	assert(handler->source_pt.codec_def != NULL);
 	assert(dest->codec_def != NULL);
-	assert(source->payload_type == handler->source_pt.payload_type);
+	assert(handler->source_pt.payload_type == handler->source_pt.payload_type);
 
 	// don't reset handler if it already matches what we want
 	if (!handler->transcoder)
-		goto reset;
-	if (rtp_payload_type_cmp(source, &handler->source_pt))
 		goto reset;
 	if (rtp_payload_type_cmp(dest, &handler->dest_pt))
 		goto reset;
@@ -164,7 +166,7 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 		goto reset;
 
 	ilog(LOG_DEBUG, "Leaving transcode context for " STR_FORMAT " -> " STR_FORMAT " intact",
-			STR_FMT(&source->encoding_with_params),
+			STR_FMT(&handler->source_pt.encoding_with_params),
 			STR_FMT(&dest->encoding_with_params));
 
 	return;
@@ -172,7 +174,6 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 reset:
 	__handler_shutdown(handler);
 
-	handler->source_pt = *source;
 	handler->dest_pt = *dest;
 	handler->func = handler_func_transcode;
 	handler->transcoder = 1;
@@ -180,7 +181,7 @@ reset:
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
 
 	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT " -> " STR_FORMAT "",
-			STR_FMT(&source->encoding_with_params),
+			STR_FMT(&handler->source_pt.encoding_with_params),
 			STR_FMT(&dest->encoding_with_params));
 }
 
@@ -210,7 +211,7 @@ static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *m
 	pt->codec_def = codec_find(&pt->encoding, media->type_id);
 	if (!pt->codec_def)
 		return;
-	if (!pt->codec_def->pseudocodec && (!pt->codec_def->support_encoding || !pt->codec_def->support_decoding))
+	if (!pt->codec_def->support_encoding || !pt->codec_def->support_decoding)
 		pt->codec_def = NULL;
 }
 
@@ -218,6 +219,16 @@ static GList *__delete_send_codec(struct call_media *sender, GList *link) {
 	return __delete_x_codec(link, sender->codecs_send, sender->codec_names_send,
 			&sender->codecs_prefs_send);
 }
+
+// only called from codec_handlers_update()
+static void __make_passthrough_cb(struct codec_handler *handler, GSList **handlers) {
+	__make_passthrough(handler);
+	*handlers = g_slist_prepend(*handlers, handler);
+}
+// only called from codec_handlers_update()
+// XXX ? needed ? static void __make_passthrough_dtmf_cb(struct codec_handler *handler, GSList **handlers) {
+// XXX ? needed ? 	__make_transcoder(handler, &handler->source_pt);
+// XXX ? needed ? }
 
 // call must be locked in W
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
@@ -239,10 +250,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// that the sink specified. determine this first.
 	struct rtp_payload_type *pref_dest_codec = NULL;
 	int sink_transcoding = 0;
+	// XXX ? int transcode_dtmf_forward = 0; // the sink wants telephone-event
 	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		__ensure_codec_def(pt, sink);
-		if (!pt->codec_def || pt->codec_def->pseudocodec) // not supported, next
+		if (!pt->codec_def) // not supported, next
 			continue;
 
 		// fix up ptime
@@ -251,7 +263,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		if (sink->ptime)
 			pt->ptime = sink->ptime;
 
-		if (!pref_dest_codec) {
+		if (!pref_dest_codec && !pt->codec_def->supplemental) {
 			ilog(LOG_DEBUG, "Default sink codec is " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 			pref_dest_codec = pt;
 		}
@@ -262,20 +274,27 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		// previously enabled on the sink, but no transcoding codecs are actually present,
 		// we can disable the transcoding engine.
 		if (MEDIA_ISSET(sink, TRANSCODE)) {
-			if (!g_hash_table_lookup(receiver->codec_names_send, &pt->encoding))
+			if (!g_hash_table_lookup(receiver->codec_names_send, &pt->encoding)) {
 				sink_transcoding = 1;
+				// can we send RFC DTMF but not receive it?
+				// XXX ? if (pt->codec_def->dtmf)
+					// XXX ? transcode_dtmf_forward = 1;
+			}
 		}
 	}
 
 	// similarly, if the sink can receive a codec that the receiver can't send, it's also transcoding
 	// XXX these blocks should go into their own functions
-	if (MEDIA_ISSET(sink, TRANSCODE) && !sink_transcoding) {
+	if (MEDIA_ISSET(sink, TRANSCODE)) {
 		for (GList *l = sink->codecs_prefs_recv.head; l; l = l->next) {
 			struct rtp_payload_type *pt = l->data;
 			GQueue *recv_pts = g_hash_table_lookup(receiver->codec_names_recv, &pt->encoding);
 			if (!recv_pts) {
 				sink_transcoding = 1;
-				goto done;
+				// can the sink receive RFC DTMF but the receiver can't send it?
+				// XXX ? if (pt->codec_def && pt->codec_def->dtmf)
+					// XXX ? transcode_dtmf_forward = 1;
+				continue;
 			}
 
 			// even if the receiver can receive the same codec that the sink can
@@ -283,18 +302,17 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			// always-transcode in the offer
 			for (GList *k = recv_pts->head; k; k = k->next) {
 				// XXX codec_handlers can be converted to g_direct_hash table
-				int pt = GPOINTER_TO_INT(k->data);
+				int pt_num = GPOINTER_TO_INT(k->data);
 				struct codec_handler *ch_recv =
-					g_hash_table_lookup(sink->codec_handlers, &pt);
+					g_hash_table_lookup(sink->codec_handlers, &pt_num);
 				if (!ch_recv)
 					continue;
 				if (ch_recv->transcoder) {
 					sink_transcoding = 1;
-					goto done;
+					break;
 				}
 			}
 		}
-done:;
 	}
 
 	// stop transcoding if we've determined that we don't need it
@@ -331,11 +349,12 @@ done:;
 				continue;
 			}
 
-			if (!pt->codec_def->pseudocodec) {
-				ilog(LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
-						STR_FMT(&pt->encoding_with_params));
-				MEDIA_SET(receiver, TRANSCODE);
-			}
+			ilog(LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
+					STR_FMT(&pt->encoding_with_params));
+			MEDIA_SET(receiver, TRANSCODE);
+
+			// XXX ? if (pt->codec_def->dtmf)
+				// XXX ? transcode_dtmf_forward = 1;
 
 			// we need a new pt entry
 			pt = __rtp_payload_type_copy(pt);
@@ -369,6 +388,16 @@ done:;
 		}
 	}
 
+	// XXX ? ilog(LOG_DEBUG, "Determined DTMF transcoding %i", transcode_dtmf_forward);
+	// convenience function: either actual passthrough handler or pseudo-passthrough handler
+	// for DTMF transcoding
+	// XXX ? needed?
+	void (*make_passthrough_func)(struct codec_handler *, GSList **) = __make_passthrough_cb;
+	// XXX ? if (transcode_dtmf_forward)
+		// XXX ? make_passthrough_func = __make_passthrough_dtmf_cb;
+
+	int transcode_dtmf = 0; // is one of our destination codecs DTMF?
+
 	for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 		struct rtp_payload_type *pt = l->data;
 
@@ -387,6 +416,7 @@ done:;
 		}
 
 		// first, make sure we have a codec_handler struct for this
+		__ensure_codec_def(pt, receiver);
 		struct codec_handler *handler;
 		handler = g_hash_table_lookup(receiver->codec_handlers, &pt->payload_type);
 		if (!handler) {
@@ -398,16 +428,9 @@ done:;
 		}
 
 		// check our own support for this codec
-		__ensure_codec_def(pt, receiver);
-
-		if (!pt->codec_def || pt->codec_def->pseudocodec) {
-			// not supported, or not a real audio codec
-			if (pt->codec_def && pt->codec_def->dtmf)
-				__make_dtmf(handler);
-			else {
-				__make_passthrough(handler);
-				passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
-			}
+		if (!pt->codec_def) {
+			// not supported
+			make_passthrough_func(handler, &passthrough_handlers);
 			goto next;
 		}
 
@@ -424,8 +447,7 @@ done:;
 		if (!pref_dest_codec) {
 			ilog(LOG_DEBUG, "No known/supported sink codec for " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params));
-			__make_passthrough(handler);
-			passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
+			make_passthrough_func(handler, &passthrough_handlers);
 			goto next;
 		}
 
@@ -434,8 +456,11 @@ done:;
 		// in case of ptime mismatch, we transcode
 		//struct rtp_payload_type *dest_pt = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		GQueue *dest_codecs = NULL;
-		if (!flags || !flags->always_transcode)
-			dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+		if (!flags || !flags->always_transcode) {
+			// if we transcode DTMF, we must transcode everything
+			// XXX ? if (!transcode_dtmf_forward)
+				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+		}
 		if (dest_codecs) {
 			// the sink supports this codec - check offered formats
 			dest_pt = NULL;
@@ -463,8 +488,7 @@ done:;
 
 			// XXX check format parameters as well
 			ilog(LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
-			__make_passthrough(handler);
-			passthrough_handlers = g_slist_prepend(passthrough_handlers, handler);
+			make_passthrough_func(handler, &passthrough_handlers);
 			goto next;
 		}
 
@@ -472,6 +496,8 @@ unsupported:
 		// the sink does not support this codec -> transcode
 		ilog(LOG_DEBUG, "Sink does not support codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 		dest_pt = pref_dest_codec;
+		if (pt->codec_def->dtmf)
+			transcode_dtmf = 1;
 transcode:;
 		// look up the reverse side of this payload type, which is the decoder to our
 		// encoder. if any codec options such as bitrate were set during an offer,
@@ -483,7 +509,7 @@ transcode:;
 				dest_pt->bitrate = reverse_pt->bitrate;
 		}
 		MEDIA_SET(receiver, TRANSCODE);
-		__make_transcoder(handler, pt, dest_pt);
+		__make_transcoder(handler, dest_pt);
 
 next:
 		l = l->next;
@@ -517,7 +543,13 @@ next:
 		// must substitute the SSRC
 		while (passthrough_handlers) {
 			struct codec_handler *handler = passthrough_handlers->data;
-			__make_passthrough_ssrc(handler);
+			// if the sink does not support DTMF but we can receive it, we must support
+			// DTMF event packets to PCM. this requires all codecs to be transcoded to the
+			// sink's preferred destination codec.
+			if (!transcode_dtmf || !pref_dest_codec)
+				__make_passthrough_ssrc(handler);
+			else
+				__make_transcoder(handler, pref_dest_codec);
 			passthrough_handlers = g_slist_delete_link(passthrough_handlers, passthrough_handlers);
 
 		}
