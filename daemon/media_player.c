@@ -248,7 +248,7 @@ static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
 	struct rtp_payload_type *dst_pt;
 	for (GList *l = mp->media->codecs_prefs_send.head; l; l = l->next) {
 		dst_pt = l->data;
-		if (dst_pt->codec_def && !dst_pt->codec_def->pseudocodec)
+		if (dst_pt->codec_def && !dst_pt->codec_def->supplemental)
 			goto found;
 	}
 	dst_pt = NULL;
