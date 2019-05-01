@@ -286,6 +286,9 @@ static int __iptables_add_rule(const socket_t *local_sock, const str *comment) {
 static int __iptables_del_rule(const socket_t *local_sock) {
 	const char *err;
 
+	if (!local_sock || !local_sock->family)
+		return 0;
+
 	switch (local_sock->family->af) {
 		case AF_INET:
 			err = ip4tables_del_rule(local_sock);
