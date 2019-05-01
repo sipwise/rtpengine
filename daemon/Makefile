@@ -75,6 +75,7 @@ CFLAGS+=	$(shell pkg-config --cflags libavformat)
 CFLAGS+=	$(shell pkg-config --cflags libavutil)
 CFLAGS+=	$(shell pkg-config --cflags libswresample)
 CFLAGS+=	$(shell pkg-config --cflags libavfilter)
+CFLAGS+=	$(shell pkg-config --cflags spandsp)
 CFLAGS+=	-DWITH_TRANSCODING
 ifeq ($(have_bcg729),yes)
 CFLAGS+=	-DHAVE_BCG729
@@ -115,6 +116,7 @@ LDLIBS+=	$(shell pkg-config --libs libavformat)
 LDLIBS+=	$(shell pkg-config --libs libavutil)
 LDLIBS+=	$(shell pkg-config --libs libswresample)
 LDLIBS+=	$(shell pkg-config --libs libavfilter)
+LDLIBS+=	$(shell pkg-config --libs spandsp)
 ifeq ($(have_bcg729),yes)
 LDLIBS+=	$(bcg729_lib)
 endif
