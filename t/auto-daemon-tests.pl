@@ -93,6 +93,7 @@ sub offer_answer {
 	$regexp =~ s/CRYPTO128/([0-9a-zA-Z\/+]{40})/gs;
 	$regexp =~ s/CRYPTO192/([0-9a-zA-Z\/+]{51})/gs;
 	$regexp =~ s/CRYPTO256/([0-9a-zA-Z\/+]{62})/gs;
+	$regexp =~ s/LOOPER/([0-9a-f]{12})/gs;
 	my $crlf = crlf($resp->{sdp});
 	like $crlf, qr/$regexp/s, "$name - output '$cmd' SDP";
 	my @matches = $crlf =~ qr/$regexp/s;
@@ -122,7 +123,9 @@ sub rcv {
 	my $addr = $sock->recv($p, 65535, 0) or die;
 	alarm(0);
 	my ($hdr_mark, $pt, $seq, $ts, $ssrc, $payload) = unpack('CCnNN a*', $p);
-	print("rtp recv $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
+	if ($payload) {
+		print("rtp recv $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
+	}
 	if ($cb) {
 		$p = $cb->($hdr_mark, $pt, $seq, $ts, $ssrc, $payload, $p, $cb_arg);
 	}
@@ -2596,6 +2599,163 @@ snd($sock_b, $port_a, rtp(101 | 0x80, 4002, 5320, 0x4567, "\x05\x0a\x00\xa0"));
 rcv($sock_a, $port_b, rtpm(101 | 0x80, 4002, 5320, $ssrc, "\x05\x0a\x00\xa0"));
 snd($sock_b, $port_a, rtp(101, 4003, 5320, 0x4567, "\x05\x0a\x01\x40"));
 rcv($sock_a, $port_b, rtpm(101, 4003, 5320, $ssrc, "\x05\x0a\x01\x40"));
+
+
+
+
+# gh #766
+
+my $sock_c;
+($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.5 7300)], [qw(198.51.100.6 7302)], [qw(198.51.100.7 7304)]);
+
+(undef, $port_a) = offer('gh 766 orig', {
+	ICE => 'remove', replace => ['origin', 'session-connection'],
+	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.5
+s=tester
+c=IN IP4 198.51.100.5
+t=0 0
+m=audio 7300 RTP/AVP 0 8 18 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=maxptime:20
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+a=rtpengine:LOOPER
+m=audio PORT RTP/AVP 0 8 18 101
+a=maxptime:20
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:18 annexb=no
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+(undef, $port_b) = answer('gh 766 orig',
+	{ ICE => 'remove', replace => ['origin', 'session-connection'],
+	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.6
+s=tester
+c=IN IP4 198.51.100.6
+t=0 0
+m=audio 7302 RTP/AVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=ptime:20
+a=xg726bitorder:big-endian
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+a=rtpengine:LOOPER
+m=audio PORT RTP/AVP 0 101
+a=xg726bitorder:big-endian
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 160));
+
+# reverse re-invite
+($tt, $ft) = ($ft, $tt);
+
+(undef, $port_b) = offer('gh 766 reinvite',
+	{ 'to-tag' => $tt,
+	ICE => 'remove', replace => ['origin', 'session-connection'],
+	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.7
+s=tester
+c=IN IP4 198.51.100.7
+t=0 0
+m=audio 7304 udptl t38
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:200
+a=T38FaxMaxDatagram:180
+a=T38FaxUdpEC:t38UDPRedundancy
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+a=rtpengine:LOOPER
+m=audio PORT udptl t38
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:200
+a=T38FaxMaxDatagram:180
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+a=ptime:20
+SDP
+
+(undef, $port_a) = answer('gh 766 reinvite', {
+	ICE => 'remove', replace => ['origin', 'session-connection'],
+	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.5
+s=tester
+c=IN IP4 198.51.100.5
+t=0 0
+m=audio 7300 udptl t38
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:176
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+a=rtpengine:LOOPER
+m=audio PORT udptl t38
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:176
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+a=ptime:20
+SDP
+
+snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 160));
+
+snd($sock_a, $port_b, "\x00\x00\x01\x00\x00\x01\x01\x00");
+rcv($sock_c, $port_a, qr/^\x00\x00\x01\x00\x00\x01\x01\x00$/s);
 
 
 
