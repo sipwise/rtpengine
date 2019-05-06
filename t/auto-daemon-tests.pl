@@ -52,6 +52,7 @@ sub new_call {
 	$cid = $tag_iter++ . "-test-callID";
 	$ft = $tag_iter++ . "-test-fromtag";
 	$tt = $tag_iter++ . "-test-totag";
+	print("new call $cid\n");
 	for my $p (@ports) {
 		my ($addr, $port) = @{$p};
 		my $s = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
@@ -1372,18 +1373,14 @@ snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 2000, 4000, $ssrc, "\x00" x 160));
 snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 2001, 4000+160, $ssrc, "\x00" x 160));
-snd($sock_b, $port_a,  rtp(0, 2010, 4000+1600, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2010, 4000+1600, $ssrc, "\x00" x 160));
 
-snd($sock_b, $port_a,  rtp(8, 2011, 4000+160*11, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2011, 4000+160*11, $ssrc, ")" x 160));
 # #664 seq reset
 snd($sock_b, $port_a,  rtp(8, 62011, 4000+160*12, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2012, 4000+160*12, $ssrc, ")" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4000+160*12, $ssrc, ")" x 160));
 snd($sock_b, $port_a,  rtp(8, 62012, 4000+160*13, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2013, 4000+160*13, $ssrc, ")" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2003, 4000+160*13, $ssrc, ")" x 160));
 snd($sock_b, $port_a,  rtp(0, 62013, 4000+160*14, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2014, 4000+160*14, $ssrc, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2004, 4000+160*14, $ssrc, "\x00" x 160));
 
 
 
