@@ -75,7 +75,7 @@ struct transcode_packet {
 	int marker:1,
 	    ignore_seq:1;
 	int (*func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
-	void (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
+	int (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
 	struct rtp_header rtp;
 };
 
@@ -757,8 +757,8 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	atomic64_set(&ssrc_out->last_ts, ts);
 }
 
-static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
-		struct media_packet *mp, int seq_inc)
+static int packet_forward(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
+		struct media_packet *mp)
 {
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
@@ -767,7 +767,8 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 				packet->marker, packet->p.seq, -1);
 	else // use our own sequencing
 		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
-				packet->marker, -1, seq_inc);
+				packet->marker, -1, 0);
+	return 0;
 }
 static int packet_dtmf(struct codec_ssrc_handler *ch, struct transcode_packet *packet, struct media_packet *mp)
 {
@@ -782,14 +783,15 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct transcode_packet *p
 	}
 
 	if (!mp->call->block_dtmf && !mp->media->monologue->block_dtmf)
-		packet_dtmf_fwd(ch, packet, mp, 0);
+		packet_forward(ch, packet, mp);
 	return 0;
 }
-static void packet_dtmf_dup(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
+static int packet_dtmf_dup(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
 		struct media_packet *mp)
 {
 	if (!mp->call->block_dtmf && !mp->media->monologue->block_dtmf)
-		packet_dtmf_fwd(ch, packet, mp, 0);
+		packet_forward(ch, packet, mp);
+	return 0;
 }
 
 static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
@@ -951,15 +953,18 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	if (mp->call->block_media || mp->media->monologue->block_media)
 		return 0;
 
-	// substitute out SSRC etc
-	mp->rtp->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
-	//mp->rtp->timestamp = htonl(ntohl(mp->rtp->timestamp));
-	mp->rtp->seq_num = htons(ntohs(mp->rtp->seq_num) + mp->ssrc_out->parent->seq_diff);
+	ilog(LOG_DEBUG, "Received RTP packet for passthrough: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
+			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
+			ntohl(mp->rtp->timestamp), mp->payload.len);
 
-	// keep track of other stats here?
+	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
+	packet->func = packet_forward;
+	packet->dup_func = packet_forward;
+	packet->rtp = *mp->rtp;
+	packet->handler = h;
 
-	codec_add_raw_packet(mp);
-	return 0;
+	int ret = __handler_func_sequencer(mp, packet);
+	return ret;
 }
 
 
@@ -1138,7 +1143,7 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 
 	// create new packet and insert it into sequencer queue
 
-	ilog(LOG_DEBUG, "Received RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
+	ilog(LOG_DEBUG, "Received RTP packet for transcode: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
