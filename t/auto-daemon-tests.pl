@@ -1295,22 +1295,22 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(0, 1001, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(0, 1010, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1010, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(8, 1001, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(8, 1001, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(8, 1010, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(8, 1010, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1001, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1010, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1001, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1001, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1010, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1010, 3000, 0x1234, "\x00" x 160));
 
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 2010)], [qw(198.51.100.3 2012)]);
@@ -1357,33 +1357,33 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b,  rtp(0, 1001, 3160, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\00" x 160));
-snd($sock_a, $port_b,  rtp(0, 1010, 4600, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1010, 4600, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x00" x 160));
 
-snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\00" x 160));
-my ($seq, $ssrc) = rcv($sock_a, $port_b, rtpm(0, -1, 4000, -1, "\00" x 160));
-snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq, 4000, $ssrc, "\00" x 160));
-snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+1, 4000+160, $ssrc, "\00" x 160));
-snd($sock_b, $port_a,  rtp(0, 2010, 4000+1600, 0x5678, "\00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+10, 4000+1600, $ssrc, "\00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
+my ($seq, $ssrc) = rcv($sock_a, $port_b, rtpm(0, -1, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq, 4000, $ssrc, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+1, 4000+160, $ssrc, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2010, 4000+1600, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+10, 4000+1600, $ssrc, "\x00" x 160));
 
-snd($sock_b, $port_a,  rtp(8, 2011, 4000+160*11, 0x5678, "\00" x 160));
+snd($sock_b, $port_a,  rtp(8, 2011, 4000+160*11, 0x5678, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, $seq+11, 4000+160*11, $ssrc, ")" x 160));
 # #664 seq reset
-snd($sock_b, $port_a,  rtp(8, 62011, 4000+160*12, 0x5678, "\00" x 160));
+snd($sock_b, $port_a,  rtp(8, 62011, 4000+160*12, 0x5678, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, $seq+12, 4000+160*12, $ssrc, ")" x 160));
-snd($sock_b, $port_a,  rtp(8, 62012, 4000+160*13, 0x5678, "\00" x 160));
+snd($sock_b, $port_a,  rtp(8, 62012, 4000+160*13, 0x5678, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, $seq+13, 4000+160*13, $ssrc, ")" x 160));
-snd($sock_b, $port_a,  rtp(0, 62013, 4000+160*14, 0x5678, "\00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+14, 4000+160*14, $ssrc, "\00" x 160));
+snd($sock_b, $port_a,  rtp(0, 62013, 4000+160*14, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, $seq+14, 4000+160*14, $ssrc, "\x00" x 160));
 
 
 
@@ -1799,8 +1799,8 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
 rcv($sock_a, $port_b, rtpm(0, 4000, 5000, 0x4567, "\x88" x 160));
 
@@ -1853,10 +1853,10 @@ a=rtcp:PORT
 a=ptime:30
 SDP
 
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x00" x 240));
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
 rcv($sock_a, $port_b, rtpm(0, 4000, 5000, 0x4567, "\x88" x 160));
 snd($sock_b, $port_a, rtp(0, 4001, 5160, 0x4567, "\x88" x 240));
@@ -1911,21 +1911,21 @@ a=rtcp:PORT
 SDP
 
 # A->B: 5x 20 ms packets -> 3x 30 ms
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
 Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
-snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\00" x 160));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1003, 3480, 0x1234, "\00" x 160));
-snd($sock_a, $port_b, rtp(0, 1004, 3640, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1003, 3480, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1004, 3640, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 
 # A->B: 60 ms packet -> 2x 30 ms
 # also perform TS and seq reset
-snd($sock_a, $port_b, rtp(0, 8000, 500000, 0x1234, "\00" x 480));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1004, 3960, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 8000, 500000, 0x1234, "\x00" x 480));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3960, $ssrc, "\x00" x 240));
 
 # B->A: 2x 60 ms packet -> 6x 20 ms
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 480));
@@ -1997,11 +1997,11 @@ a=ptime:30
 SDP
 
 # A->B: 20 ms unchanged
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 160));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 160));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
 # A->B: 30 ms unchanged
-snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\x00" x 240));
 
 # B->A: 20 ms unchanged
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
@@ -2060,14 +2060,14 @@ a=ptime:50
 SDP
 
 # A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\x00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 # A->B: add another 20 ms for another full 30 ms
-snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\x00" x 240));
 
 # B->A: 4x 30 ms -> 2x 50 ms (plus 20 ms left)
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
@@ -2133,14 +2133,14 @@ a=ptime:50
 SDP
 
 # A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\x00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 # A->B: add another 20 ms for another full 30 ms
-snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\x00" x 240));
 
 # B->A: 4x 30 ms -> 2x 50 ms (plus 20 ms left)
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
@@ -2206,14 +2206,14 @@ a=ptime:50
 SDP
 
 # A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\x00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 # A->B: add another 20 ms for another full 30 ms
-snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\x00" x 240));
 
 # B->A: 4x 30 ms -> 2x 50 ms (plus 20 ms left)
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
@@ -2278,14 +2278,14 @@ a=ptime:50
 SDP
 
 # A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\x00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 # A->B: add another 20 ms for another full 30 ms
-snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\x00" x 240));
 
 # B->A: 4x 30 ms -> 2x 50 ms (plus 20 ms left)
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
@@ -2350,14 +2350,14 @@ a=ptime:20
 SDP
 
 # A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\x00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 # A->B: add another 20 ms for another full 30 ms
-snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\x00" x 240));
 
 # B->A: 4x 30 ms -> 6x 20 ms
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
@@ -2423,14 +2423,14 @@ a=ptime:20
 SDP
 
 # A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\x00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 # A->B: add another 20 ms for another full 30 ms
-snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\x00" x 240));
 
 # B->A: 4x 30 ms -> 6x 20 ms
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
@@ -2496,14 +2496,14 @@ a=ptime:20
 SDP
 
 # A->B: 2x 50 ms -> 3x 30 ms (plus 10 ms left)
-snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\00" x 400));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\00" x 240));
-snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\00" x 400));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\00" x 240));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 400));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 240));
+snd($sock_a, $port_b, rtp(0, 1001, 3400, 0x1234, "\x00" x 400));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 # A->B: add another 20 ms for another full 30 ms
-snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\00" x 240));
+snd($sock_a, $port_b, rtp(0, 1002, 3800, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3720, $ssrc, "\x00" x 240));
 
 # B->A: 4x 30 ms -> 6x 20 ms
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 240));
