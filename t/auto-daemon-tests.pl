@@ -1367,23 +1367,23 @@ snd($sock_a, $port_b,  rtp(0, 1010, 4600, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x00" x 160));
 
 snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
-my ($seq, $ssrc) = rcv($sock_a, $port_b, rtpm(0, -1, 4000, -1, "\x00" x 160));
+my ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
 snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq, 4000, $ssrc, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, $ssrc, "\x00" x 160));
 snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+1, 4000+160, $ssrc, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4000+160, $ssrc, "\x00" x 160));
 snd($sock_b, $port_a,  rtp(0, 2010, 4000+1600, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+10, 4000+1600, $ssrc, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2010, 4000+1600, $ssrc, "\x00" x 160));
 
 snd($sock_b, $port_a,  rtp(8, 2011, 4000+160*11, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+11, 4000+160*11, $ssrc, ")" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2011, 4000+160*11, $ssrc, ")" x 160));
 # #664 seq reset
 snd($sock_b, $port_a,  rtp(8, 62011, 4000+160*12, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+12, 4000+160*12, $ssrc, ")" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2012, 4000+160*12, $ssrc, ")" x 160));
 snd($sock_b, $port_a,  rtp(8, 62012, 4000+160*13, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+13, 4000+160*13, $ssrc, ")" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2013, 4000+160*13, $ssrc, ")" x 160));
 snd($sock_b, $port_a,  rtp(0, 62013, 4000+160*14, 0x5678, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, $seq+14, 4000+160*14, $ssrc, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2014, 4000+160*14, $ssrc, "\x00" x 160));
 
 
 
@@ -1430,7 +1430,7 @@ SDP
 my $resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => $ft, blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-my $ts;
+my ($ts, $seq);
 ($seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
