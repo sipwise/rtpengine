@@ -1,3 +1,14 @@
+ngcp-rtpengine (7.3.2.0+0~mr7.3.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [60991bc] fix compilation for glib >= 2.60
+  * [a92193e] fix race condition after media player shutdown
+  * [fe603d9] fix possible segfault after failed port alloc w/ iptables option
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 07 May 2019 10:58:03 +0200
+
 ngcp-rtpengine (7.3.1.0+0~mr7.3.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
