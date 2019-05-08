@@ -1,3 +1,23 @@
+ngcp-rtpengine (5.5.10.0+0~mr5.5.10.0) unstable; urgency=medium
+
+  [ Guillem Jover ]
+  * [09bc486] TT#24097 Do not use bash builtin names in sh scripts
+  * [0a4255f] TT#24097 Use «grep -E» instead of deprecated egrep
+  * [ddd693a] TT#24097 Fix shell quoting
+  * [ae225be] TT#26513 Remove unused modprobe variables
+  * [e790083] TT#26513 Improve sysvinit output messages
+  * [31141aa] TT#26513 Delete the kernel forwarding table on startup
+  * [26886b9] TT#33306 Add dependencies on $network and $local_fs to init scripts
+  * [d453aa2] TT#26264 Use better sysvinit scripts
+  * [8e5b338] TT#40459 Move the rtpengine NFS mount point into its own sysvinit script
+
+  [ Richard Fuchs ]
+  * [cd61fff] fix possible segfault after failed port alloc w/ iptables option
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 08 May 2019 14:04:21 +0200
+
 ngcp-rtpengine (5.5.9.0+0~mr5.5.9.0) unstable; urgency=medium
 
   * New release.
