@@ -95,6 +95,7 @@ enum call_type {
 #define SHARED_FLAG_TRICKLE_ICE			0x00000400
 #define SHARED_FLAG_ICE_LITE			0x00000800
 #define SHARED_FLAG_UNIDIRECTIONAL		0x00001000
+#define SHARED_FLAG_RTCP_FB			0x00002000
 
 /* struct stream_params */
 #define SP_FLAG_NO_RTCP				0x00010000
@@ -111,6 +112,7 @@ enum call_type {
 #define SP_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
 #define SP_FLAG_TRICKLE_ICE			SHARED_FLAG_TRICKLE_ICE
 #define SP_FLAG_ICE_LITE			SHARED_FLAG_ICE_LITE
+#define SP_FLAG_RTCP_FB				SHARED_FLAG_RTCP_FB
 
 /* struct packet_stream */
 #define PS_FLAG_RTP				0x00010000
@@ -148,6 +150,7 @@ enum call_type {
 #define MEDIA_FLAG_LOOP_CHECK			0x00400000
 #define MEDIA_FLAG_TRANSCODE			0x00800000
 #define MEDIA_FLAG_PTIME_OVERRIDE		0x01000000
+#define MEDIA_FLAG_RTCP_FB			SHARED_FLAG_RTCP_FB
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)

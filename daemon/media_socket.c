@@ -93,6 +93,7 @@ const struct transport_protocol transport_protocols[] = {
 	[PROTO_RTP_AVP] = {
 		.index		= PROTO_RTP_AVP,
 		.name		= "RTP/AVP",
+		.avpf_proto	= PROTO_RTP_AVPF,
 		.rtp		= 1,
 		.srtp		= 0,
 		.avpf		= 0,
@@ -101,6 +102,7 @@ const struct transport_protocol transport_protocols[] = {
 	[PROTO_RTP_SAVP] = {
 		.index		= PROTO_RTP_SAVP,
 		.name		= "RTP/SAVP",
+		.avpf_proto	= PROTO_RTP_SAVPF,
 		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 0,
@@ -125,6 +127,7 @@ const struct transport_protocol transport_protocols[] = {
 	[PROTO_UDP_TLS_RTP_SAVP] = {
 		.index		= PROTO_UDP_TLS_RTP_SAVP,
 		.name		= "UDP/TLS/RTP/SAVP",
+		.avpf_proto	= PROTO_UDP_TLS_RTP_SAVPF,
 		.rtp		= 1,
 		.srtp		= 1,
 		.avpf		= 0,
@@ -1177,8 +1180,9 @@ void unkernelize(struct packet_stream *ps) {
 
 
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
-		const struct transport_protocol *out_proto, int must_recrypt)
+		struct call_media *out_media, int must_recrypt)
 {
+	const struct transport_protocol *out_proto = out_media->protocol;
 	const struct streamhandler * const *sh_pp, *sh;
 	const struct streamhandler * const * const *matrix;
 
@@ -1189,7 +1193,15 @@ const struct streamhandler *determine_handler(const struct transport_protocol *i
 	sh_pp = matrix[in_proto->index];
 	if (!sh_pp)
 		goto err;
-	sh = sh_pp[out_proto->index];
+
+	// special handling for RTP/AVP with advertised a=rtcp-fb
+	int out_proto_idx = out_proto->index;
+	if (out_media && MEDIA_ISSET(out_media, RTCP_FB)) {
+		if (!out_proto->avpf && out_proto->avpf_proto)
+			out_proto_idx = out_proto->avpf_proto;
+	}
+	sh = sh_pp[out_proto_idx];
+
 	if (!sh)
 		goto err;
 	return sh;
@@ -1227,7 +1239,7 @@ static void __determine_handler(struct packet_stream *in, const struct packet_st
 				|| crypto_params_cmp(&out->crypto.params, &in->selected_sfd->crypto.params)))
 		must_recrypt = 1;
 
-	in->handler = determine_handler(in_proto, out_proto, must_recrypt);
+	in->handler = determine_handler(in_proto, out->media, must_recrypt);
 	return;
 
 err:

@@ -1861,7 +1861,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			/* copy parameters advertised by the sender of this message */
 			bf_copy_same(&other_media->media_flags, &sp->sp_flags,
 					SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_UNIDIRECTIONAL |
-					SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE);
+					SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE |
+					SHARED_FLAG_RTCP_FB);
 
 			// steal the entire queue of offered crypto params
 			crypto_params_sdes_queue_clear(&other_media->sdes_in);

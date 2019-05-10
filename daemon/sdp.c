@@ -203,6 +203,7 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 		ATTR_IGNORE,
 		ATTR_RTPENGINE,
 		ATTR_PTIME,
+		ATTR_RTCP_FB,
 		ATTR_END_OF_CANDIDATES,
 	} attr;
 
@@ -869,6 +870,9 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("end-of-candidates"):
 			a->attr = ATTR_END_OF_CANDIDATES;
 			break;
+		case CSH_LOOKUP("rtcp-fb"):
+			a->attr = ATTR_RTCP_FB;
+			break;
 	}
 
 	return ret;
@@ -1329,6 +1333,10 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			attr = attr_get_by_id(&media->attributes, ATTR_MID);
 			if (attr)
 				sp->media_id = attr->value;
+
+			// be ignorant about the contents
+			if (attr_get_by_id(&media->attributes, ATTR_RTCP_FB))
+				SP_SET(sp, RTCP_FB);
 
 			__sdp_ice(sp, media);
 

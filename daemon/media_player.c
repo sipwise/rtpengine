@@ -395,7 +395,7 @@ found:
 	}
 	mp->media = media;
 	mp->sink = media->streams.head->data;
-	mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media->protocol, 1);
+	mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, 1);
 
 	return 0;
 }

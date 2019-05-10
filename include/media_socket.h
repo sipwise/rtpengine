@@ -39,6 +39,7 @@ enum transport_protocol_index {
 struct transport_protocol {
 	enum transport_protocol_index	index;
 	const char			*name;
+	enum transport_protocol_index	avpf_proto;
 	int				rtp:1; /* also set to 1 for SRTP */
 	int				srtp:1;
 	int				avpf:1;
@@ -169,7 +170,7 @@ void __stream_unconfirm(struct packet_stream *);
 
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink);
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
-		const struct transport_protocol *out_proto, int must_recrypt);
+		struct call_media *out_media, int must_recrypt);
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
 const struct transport_protocol *transport_protocol(const str *s);
 
