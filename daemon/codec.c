@@ -146,17 +146,14 @@ static void __make_dtmf(struct codec_handler *handler) {
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
 }
 
-static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *source,
-		struct rtp_payload_type *dest)
+static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest)
 {
-	assert(source->codec_def != NULL);
+	assert(handler->source_pt.codec_def != NULL);
 	assert(dest->codec_def != NULL);
-	assert(source->payload_type == handler->source_pt.payload_type);
+	assert(handler->source_pt.payload_type == handler->source_pt.payload_type);
 
 	// don't reset handler if it already matches what we want
 	if (!handler->transcoder)
-		goto reset;
-	if (rtp_payload_type_cmp(source, &handler->source_pt))
 		goto reset;
 	if (rtp_payload_type_cmp(dest, &handler->dest_pt))
 		goto reset;
@@ -164,7 +161,7 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 		goto reset;
 
 	ilog(LOG_DEBUG, "Leaving transcode context for " STR_FORMAT " -> " STR_FORMAT " intact",
-			STR_FMT(&source->encoding_with_params),
+			STR_FMT(&handler->source_pt.encoding_with_params),
 			STR_FMT(&dest->encoding_with_params));
 
 	return;
@@ -172,7 +169,6 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 reset:
 	__handler_shutdown(handler);
 
-	handler->source_pt = *source;
 	handler->dest_pt = *dest;
 	handler->func = handler_func_transcode;
 	handler->transcoder = 1;
@@ -180,7 +176,7 @@ reset:
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
 
 	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT " -> " STR_FORMAT "",
-			STR_FMT(&source->encoding_with_params),
+			STR_FMT(&handler->source_pt.encoding_with_params),
 			STR_FMT(&dest->encoding_with_params));
 }
 
@@ -387,6 +383,7 @@ done:;
 		}
 
 		// first, make sure we have a codec_handler struct for this
+		__ensure_codec_def(pt, receiver);
 		struct codec_handler *handler;
 		handler = g_hash_table_lookup(receiver->codec_handlers, &pt->payload_type);
 		if (!handler) {
@@ -398,8 +395,6 @@ done:;
 		}
 
 		// check our own support for this codec
-		__ensure_codec_def(pt, receiver);
-
 		if (!pt->codec_def || pt->codec_def->pseudocodec) {
 			// not supported, or not a real audio codec
 			if (pt->codec_def && pt->codec_def->dtmf)
@@ -483,7 +478,7 @@ transcode:;
 				dest_pt->bitrate = reverse_pt->bitrate;
 		}
 		MEDIA_SET(receiver, TRANSCODE);
-		__make_transcoder(handler, pt, dest_pt);
+		__make_transcoder(handler, dest_pt);
 
 next:
 		l = l->next;
