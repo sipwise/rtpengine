@@ -30,6 +30,7 @@ struct codec_handler {
 	int transcoder:1;
 
 	struct ssrc_hash *ssrc_hash;
+	struct codec_handler *output_handler; // == self, or other PT handler
 
 	// for media playback
 	struct codec_ssrc_handler *ssrc_handler;

@@ -107,6 +107,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->ssrc_handler = NULL;
 	handler->kernelize = 0;
 	handler->transcoder = 0;
+	handler->output_handler = handler; // reset to default
 }
 
 static void __codec_handler_free(void *pp) {
@@ -121,6 +122,7 @@ void codec_handler_free(struct codec_handler *handler) {
 static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 	struct codec_handler *handler = g_slice_alloc0(sizeof(*handler));
 	handler->source_pt = *pt;
+	handler->output_handler = handler; // default
 	return handler;
 }
 
@@ -146,7 +148,8 @@ static void __make_dtmf(struct codec_handler *handler) {
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
 }
 
-static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest)
+static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
+		GHashTable *output_transcoders)
 {
 	assert(handler->source_pt.codec_def != NULL);
 	assert(dest->codec_def != NULL);
@@ -164,7 +167,7 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 			STR_FMT(&handler->source_pt.encoding_with_params),
 			STR_FMT(&dest->encoding_with_params));
 
-	return;
+	goto check_output;
 
 reset:
 	__handler_shutdown(handler);
@@ -178,6 +181,19 @@ reset:
 	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT " -> " STR_FORMAT "",
 			STR_FMT(&handler->source_pt.encoding_with_params),
 			STR_FMT(&dest->encoding_with_params));
+
+check_output:;
+	// check if we have multiple decoders transcoding to the same output PT
+	struct codec_handler *output_handler = g_hash_table_lookup(output_transcoders,
+			GINT_TO_POINTER(dest->payload_type));
+	if (output_handler) {
+		ilog(LOG_DEBUG, "Using existing encoder context");
+		handler->output_handler = output_handler;
+	}
+	else {
+		g_hash_table_insert(output_transcoders, GINT_TO_POINTER(dest->payload_type), handler);
+		handler->output_handler = handler; // make sure we don't have a stale pointer
+	}
 }
 
 struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_pt,
@@ -365,6 +381,11 @@ done:;
 		}
 	}
 
+	// if multiple input codecs transcode to the same output codec, we want to make sure
+	// that all the decoders output their media to the same encoder. we use the destination
+	// payload type to keep track of this.
+	GHashTable *output_transcoders = g_hash_table_new(g_direct_hash, g_direct_equal);
+
 	for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 		struct rtp_payload_type *pt = l->data;
 
@@ -478,7 +499,7 @@ transcode:;
 				dest_pt->bitrate = reverse_pt->bitrate;
 		}
 		MEDIA_SET(receiver, TRANSCODE);
-		__make_transcoder(handler, dest_pt);
+		__make_transcoder(handler, dest_pt, output_transcoders);
 
 next:
 		l = l->next;
@@ -520,6 +541,8 @@ next:
 	while (passthrough_handlers) {
 		passthrough_handlers = g_slist_delete_link(passthrough_handlers, passthrough_handlers);
 	}
+
+	g_hash_table_destroy(output_transcoders);
 }
 
 
@@ -1104,6 +1127,24 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 
 	ilog(LOG_DEBUG, "RTP media successfully decoded: TS %llu, samples %u",
 			(unsigned long long) frame->pts, frame->nb_samples);
+
+	// switch from input codec context to output context if necessary
+	struct codec_handler *handler = ch->handler;
+	if (handler->output_handler != handler) {
+		// our encoder is in a different codec handler
+		ilog(LOG_DEBUG, "Switching context from decoder to encoder");
+		handler = handler->output_handler;
+		struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, handler->ssrc_hash);
+		if (G_UNLIKELY(!new_ch)) {
+			ilog(LOG_ERR, "Switched from input to output codec context, but no codec handler present");
+			return -1;
+		}
+		// copy some essential parameters
+		if (!new_ch->first_ts)
+			new_ch->first_ts = ch->first_ts;
+
+		ch = new_ch;
+	}
 
 	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, mp);
 
