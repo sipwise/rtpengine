@@ -71,3 +71,72 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 
 	return ret;
 }
+
+void dtmf_event_free(void *e) {
+	g_slice_free1(sizeof(struct dtmf_event), e);
+}
+
+// returns: 0 = no DTMF. 1 = DTMF start event. 2 = DTMF in progress. 3 = DTMF end event.
+int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_event *cur_event, GQueue *events) {
+	// do we have a relevant state change?
+	struct dtmf_event prev_event = *cur_event;
+	while (events->length) {
+		struct dtmf_event *ev = g_queue_peek_head(events);
+		ilog(LOG_DEBUG, "Next DTMF event starts at %lu. PTS now %li", (unsigned long) ev->ts,
+				(unsigned long) *pts);
+		if (ev->ts > *pts)
+			break; // future event
+
+		ilog(LOG_DEBUG, "DTMF state change at %lu: %i -> %i, duration %lu", (unsigned long) ev->ts,
+				cur_event->code, ev->code, (unsigned long) duration);
+		g_queue_pop_head(events);
+		*cur_event = *ev;
+		dtmf_event_free(ev);
+		cur_event->ts = *pts; // canonicalise start TS
+	}
+
+	int ret = 2; // normal: in progress
+	if (cur_event->code == 0) {
+		if (prev_event.code == 0)
+			return 0;
+		// state change from DTMF back to audio. send DTMF end code.
+		ret = 3;
+		cur_event = &prev_event;
+	}
+	else if (prev_event.code == 0)
+		ret = 1; // start event
+
+	int dtmf_code = -1;
+	if (cur_event->code >= '0' && cur_event->code <= '9')
+		dtmf_code = cur_event->code - '0';
+	else if (cur_event->code == '*')
+		dtmf_code = 10;
+	else if (cur_event->code == '#')
+		dtmf_code = 11;
+	else if (cur_event->code >= 'A' && cur_event->code <= 'D')
+		dtmf_code = cur_event->code - 'A' + 12;
+	else {
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Unknown DTMF event code %i", cur_event->code);
+		return 0;
+	}
+
+	// replace audio RTP frame with DTMF payload
+	struct telephone_event_payload *ev_pt = (void *) buf->s;
+	buf->len = sizeof(*ev_pt);
+	ZERO(*ev_pt);
+
+	ev_pt->event = dtmf_code;
+	if (cur_event->volume > 0)
+		ev_pt->volume = 0;
+	else if (cur_event->volume >= -63)
+		ev_pt->volume = -1 * cur_event->volume;
+	else
+		ev_pt->volume = 63;
+	ev_pt->end = (ret == 3) ? 1 : 0;
+	ev_pt->duration = htons(*pts - cur_event->ts + duration);
+
+	// fix up timestamp
+	*pts = cur_event->ts;
+
+	return ret;
+}
