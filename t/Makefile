@@ -16,6 +16,7 @@ CFLAGS+=	$(shell pkg-config --cflags libavformat)
 CFLAGS+=	$(shell pkg-config --cflags libavutil)
 CFLAGS+=	$(shell pkg-config --cflags libswresample)
 CFLAGS+=	$(shell pkg-config --cflags libavfilter)
+CFLAGS+=	$(shell pkg-config --cflags spandsp)
 CFLAGS+=	-DWITH_TRANSCODING
 CFLAGS+=	$(shell pkg-config --cflags zlib)
 CFLAGS+=	$(shell pkg-config --cflags json-glib-1.0)
@@ -43,6 +44,7 @@ LDLIBS+=	$(shell pkg-config --libs libavformat)
 LDLIBS+=	$(shell pkg-config --libs libavutil)
 LDLIBS+=	$(shell pkg-config --libs libswresample)
 LDLIBS+=	$(shell pkg-config --libs libavfilter)
+LDLIBS+=	$(shell pkg-config --libs spandsp)
 LDLIBS+=	$(shell pkg-config --libs zlib)
 LDLIBS+=	$(shell pkg-config --libs json-glib-1.0)
 LDLIBS+=	-lpcap
@@ -60,7 +62,7 @@ DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
 
 ifeq ($(with_transcoding),yes)
-SRCS+=		transcode-test.c
+SRCS+=		transcode-test.c test-dtmf-detect.c
 ifeq ($(with_amr_tests),yes)
 SRCS+=		amr-decode-test.c amr-encode-test.c
 endif
@@ -84,7 +86,7 @@ include		.depend
 
 TESTS=		bitstr-test aes-crypt payload-tracker-test const_str_hash-test.strhash
 ifeq ($(with_transcoding),yes)
-TESTS+=		transcode-test
+TESTS+=		transcode-test test-dtmf-detect
 ifeq ($(with_amr_tests),yes)
 TESTS+=		amr-decode-test amr-encode-test
 endif
@@ -112,6 +114,8 @@ bitstr-test:	bitstr-test.o
 amr-decode-test: amr-decode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
 
 amr-encode-test: amr-encode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
+
+test-dtmf-detect: test-dtmf-detect.o
 
 aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
 
