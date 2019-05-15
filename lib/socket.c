@@ -295,7 +295,7 @@ static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *
 	struct sockaddr_storage sin;
 	struct msghdr msg;
 	struct iovec iov;
-	char ctrl[32];
+	char ctrl[64];
 	struct cmsghdr *cm;
 
 	ZERO(msg);
