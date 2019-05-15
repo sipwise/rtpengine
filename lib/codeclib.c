@@ -57,6 +57,9 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static const char *dtmf_decoder_init(decoder_t *, const str *);
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static const char *dtmf_encoder_init(encoder_t *enc, const str *);
+static int dtmf_encoder_input(encoder_t *enc, AVFrame **frame);
+static void dtmf_encoder_close(encoder_t *enc);
 
 
 
@@ -82,6 +85,9 @@ static const codec_type_t codec_type_amr = {
 static const codec_type_t codec_type_dtmf = {
 	.decoder_init = dtmf_decoder_init,
 	.decoder_input = dtmf_decoder_input,
+	.encoder_init = dtmf_encoder_init,
+	.encoder_input = dtmf_encoder_input,
+	.encoder_close = dtmf_encoder_close,
 };
 
 #ifdef HAVE_BCG729
@@ -350,7 +356,7 @@ static codec_def_t __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.supplemental = 1,
 		.dtmf = 1,
-		.default_clockrate = 8000,
+		.default_clockrate = 1, // special handling
 		.default_channels = 1,
 		.default_fmtp = "0-15",
 		.codec_type = &codec_type_dtmf,
@@ -1784,4 +1790,15 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	dec->u.dtmf.duration = duration;
 
 	return 0;
+}
+
+static const char *dtmf_encoder_init(encoder_t *enc, const str *fmtp) {
+	return NULL;
+}
+
+static int dtmf_encoder_input(encoder_t *enc, AVFrame **frame) {
+	return 0;
+}
+
+static void dtmf_encoder_close(encoder_t *enc) {
 }
