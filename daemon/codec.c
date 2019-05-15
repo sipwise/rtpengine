@@ -3,6 +3,10 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <sys/types.h>
+#include <spandsp/telephony.h>
+#include <spandsp/super_tone_rx.h>
+#include <spandsp/logging.h>
+#include <spandsp/dtmf.h>
 #include "call.h"
 #include "log.h"
 #include "rtplib.h"
@@ -11,6 +15,8 @@
 #include "rtcp.h"
 #include "call_interfaces.h"
 #include "dtmf.h"
+#include "resample.h"
+#include "dtmflib.h"
 
 
 
@@ -65,6 +71,15 @@ struct codec_ssrc_handler {
 	struct timeval first_send;
 	unsigned long first_send_ts;
 	GString *sample_buffer;
+
+	// DTMF DSP stuff
+	dtmf_rx_state_t *dtmf_dsp;
+	resample_t dtmf_resampler;
+	format_t dtmf_format;
+	uint64_t dtmf_ts, last_dtmf_event_ts;
+	GQueue dtmf_events;
+	struct dtmf_event dtmf_event;
+
 	int rtp_mark:1;
 };
 struct transcode_packet {
@@ -75,7 +90,7 @@ struct transcode_packet {
 	int marker:1,
 	    ignore_seq:1;
 	int (*func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
-	void (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
+	int (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
 	struct rtp_header rtp;
 };
 
@@ -107,7 +122,9 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->ssrc_handler = NULL;
 	handler->kernelize = 0;
 	handler->transcoder = 0;
+	handler->dtmf_scaler = 0;
 	handler->output_handler = handler; // reset to default
+	handler->dtmf_payload_type = -1;
 }
 
 static void __codec_handler_free(void *pp) {
@@ -123,6 +140,7 @@ static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 	struct codec_handler *handler = g_slice_alloc0(sizeof(*handler));
 	handler->source_pt = *pt;
 	handler->output_handler = handler; // default
+	handler->dtmf_payload_type = -1;
 	return handler;
 }
 
@@ -154,7 +172,7 @@ static void __make_passthrough_ssrc(struct codec_handler *handler) {
 }
 
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
-		GHashTable *output_transcoders)
+		GHashTable *output_transcoders, int dtmf_payload_type)
 {
 	assert(handler->source_pt.codec_def != NULL);
 	assert(dest->codec_def != NULL);
@@ -180,12 +198,23 @@ reset:
 	handler->dest_pt = *dest;
 	handler->func = handler_func_transcode;
 	handler->transcoder = 1;
+	if (dtmf_payload_type != -1)
+		handler->dtmf_payload_type = dtmf_payload_type;
+
+	// is this DTMF to DTMF?
+	if (dtmf_payload_type != -1 && handler->source_pt.codec_def->dtmf) {
+		ilog(LOG_DEBUG, "Created DTMF transcode context for " STR_FORMAT " -> PT %i",
+				STR_FMT(&handler->source_pt.encoding_with_params),
+				dtmf_payload_type);
+		handler->dtmf_scaler = 1;
+	}
+	else
+		ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT " -> " STR_FORMAT
+			" with DTMF output %i",
+				STR_FMT(&handler->source_pt.encoding_with_params),
+				STR_FMT(&dest->encoding_with_params), dtmf_payload_type);
 
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
-
-	ilog(LOG_DEBUG, "Created transcode context for " STR_FORMAT " -> " STR_FORMAT "",
-			STR_FMT(&handler->source_pt.encoding_with_params),
-			STR_FMT(&dest->encoding_with_params));
 
 check_output:;
 	// check if we have multiple decoders transcoding to the same output PT
@@ -242,6 +271,31 @@ static void __make_passthrough_gsl(struct codec_handler *handler, GSList **handl
 	*handlers = g_slist_prepend(*handlers, handler);
 }
 
+// only called from codec_handlers_update()
+static void __dtmf_dsp_shutdown(struct call_media *sink, int payload_type) {
+	if (!sink->codec_handlers)
+		return;
+
+	GList *list = g_hash_table_get_values(sink->codec_handlers);
+
+	for (GList *l = list; l; l = l->next) {
+		struct codec_handler *handler = l->data;
+		if (!handler->transcoder)
+			continue;
+		if (handler->dtmf_payload_type != payload_type)
+			continue;
+		if (handler->dtmf_scaler)
+			continue;
+
+		ilog(LOG_DEBUG, "Shutting down DTMF DSP for '" STR_FORMAT "' -> %i (not needed)",
+				STR_FMT(&handler->source_pt.encoding_with_params),
+				payload_type);
+		handler->dtmf_payload_type = -1;
+	}
+
+	g_list_free(list);
+}
+
 // call must be locked in W
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags)
@@ -262,6 +316,10 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// that the sink specified. determine this first.
 	struct rtp_payload_type *pref_dest_codec = NULL;
 	int sink_transcoding = 0;
+	// keep track of telephone-event payload types. we hash them by clock rate
+	// in case there's several of them. the clock rates of the destination
+	// codec and the telephone-event codec must match.
+	GHashTable *dtmf_sinks = g_hash_table_new(g_direct_hash, g_direct_equal);
 	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		__ensure_codec_def(pt, sink);
@@ -285,8 +343,26 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		// previously enabled on the sink, but no transcoding codecs are actually present,
 		// we can disable the transcoding engine.
 		if (MEDIA_ISSET(sink, TRANSCODE)) {
-			if (!g_hash_table_lookup(receiver->codec_names_send, &pt->encoding))
+			struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
+					&pt->payload_type);
+			if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt)) {
 				sink_transcoding = 1;
+				// can the sink receive RFC DTMF but the receiver can't send it?
+				if (pt->codec_def && pt->codec_def->dtmf) {
+					if (!g_hash_table_lookup(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate)))
+						g_hash_table_insert(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate),
+								pt);
+				}
+			}
+		}
+		else if (flags && flags->always_transcode) {
+			// with always-transcode, we must keep track of potential output DTMF payload
+			// types as well
+			if (pt->codec_def && pt->codec_def->dtmf) {
+				if (!g_hash_table_lookup(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate)))
+					g_hash_table_insert(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate),
+							pt);
+			}
 		}
 	}
 
@@ -295,29 +371,51 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	if (MEDIA_ISSET(sink, TRANSCODE)) {
 		for (GList *l = sink->codecs_prefs_recv.head; l; l = l->next) {
 			struct rtp_payload_type *pt = l->data;
-			GQueue *recv_pts = g_hash_table_lookup(receiver->codec_names_recv, &pt->encoding);
-			if (!recv_pts) {
+			struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
+					&pt->payload_type);
+			if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt)) {
 				sink_transcoding = 1;
+				// can the sink receive RFC DTMF but the receiver can't send it?
+				if (pt->codec_def && pt->codec_def->dtmf) {
+					if (!g_hash_table_lookup(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate)))
+						g_hash_table_insert(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate),
+								pt);
+				}
 				continue;
 			}
 
 			// even if the receiver can receive the same codec that the sink can
 			// send, we might still have it configured as a transcoder due to
 			// always-transcode in the offer
-			for (GList *k = recv_pts->head; k; k = k->next) {
-				// XXX codec_handlers can be converted to g_direct_hash table
-				int pt_num = GPOINTER_TO_INT(k->data);
-				struct codec_handler *ch_recv =
-					g_hash_table_lookup(sink->codec_handlers, &pt_num);
-				if (!ch_recv)
-					continue;
-				if (ch_recv->transcoder) {
-					sink_transcoding = 1;
-					break;
-				}
+			// XXX codec_handlers can be converted to g_direct_hash table
+			struct codec_handler *ch_recv =
+				g_hash_table_lookup(sink->codec_handlers, &recv_pt->payload_type);
+			if (!ch_recv)
+				continue;
+			if (ch_recv->transcoder) {
+				sink_transcoding = 1;
+				break;
 			}
 		}
 	}
+
+	ilog(LOG_DEBUG, "%i DTMF sink entries", g_hash_table_size(dtmf_sinks));
+	int dtmf_payload_type = -1;
+	if (g_hash_table_size(dtmf_sinks) && pref_dest_codec) {
+		// find the telephone-event codec entry with a matching clock rate
+		struct rtp_payload_type *pt = g_hash_table_lookup(dtmf_sinks,
+				GUINT_TO_POINTER(pref_dest_codec->clock_rate));
+		if (!pt)
+			ilog(LOG_INFO, "Not transcoding PCM DTMF tones to telephone-event packets as "
+					"no payload type with a matching clock rate for '" STR_FORMAT
+					"' was found", STR_FMT(&pref_dest_codec->encoding_with_params));
+		else {
+			dtmf_payload_type = pt->payload_type;
+			ilog(LOG_DEBUG, "Output DTMF payload type is %i", dtmf_payload_type);
+		}
+	}
+
+	g_hash_table_destroy(dtmf_sinks);
 
 	// stop transcoding if we've determined that we don't need it
 	if (MEDIA_ISSET(sink, TRANSCODE) && !sink_transcoding) {
@@ -403,8 +501,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			// if the other side is transcoding, we may come across a receiver entry
 			// (recv->recv) that wasn't originally offered (recv->send). we must eliminate
 			// those
-			// XXX sufficient to check against payload type?
-			if (!g_hash_table_lookup(receiver->codec_names_send, &pt->encoding)) {
+			if (!g_hash_table_lookup(receiver->codecs_send, &pt->payload_type)) {
 				ilog(LOG_DEBUG, "Eliminating transcoded codec " STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params));
 
@@ -452,8 +549,16 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		struct rtp_payload_type *dest_pt; // transcode to this
 
 		GQueue *dest_codecs = NULL;
-		if (!flags || !flags->always_transcode)
-			dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+		if (!flags || !flags->always_transcode) {
+			// we ignore output codec matches if we must transcode DTMF
+			if (dtmf_payload_type == -1)
+				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+		}
+		else if (flags->always_transcode) {
+			// with always-transcode, we still accept DTMF payloads if possible
+			if (pt->codec_def && pt->codec_def->supplemental)
+				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+		}
 		if (dest_codecs) {
 			// the sink supports this codec - check offered formats
 			dest_pt = NULL;
@@ -482,6 +587,8 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			// XXX check format parameters as well
 			ilog(LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 			__make_passthrough_gsl(handler, &passthrough_handlers);
+			if (pt->codec_def && pt->codec_def->dtmf)
+				__dtmf_dsp_shutdown(sink, pt->payload_type);
 			goto next;
 		}
 
@@ -502,7 +609,7 @@ transcode:;
 				dest_pt->bitrate = reverse_pt->bitrate;
 		}
 		MEDIA_SET(receiver, TRANSCODE);
-		__make_transcoder(handler, dest_pt, output_transcoders);
+		__make_transcoder(handler, dest_pt, output_transcoders, dtmf_payload_type);
 
 next:
 		l = l->next;
@@ -539,10 +646,10 @@ next:
 			// if the sink does not support DTMF but we can receive it, we must transcode
 			// DTMF event packets to PCM. this requires all codecs to be transcoded to the
 			// sink's preferred destination codec.
-			if (!transcode_dtmf || !pref_dest_codec)
+			if ((!transcode_dtmf && dtmf_payload_type == -1) || !pref_dest_codec)
 				__make_passthrough_ssrc(handler);
 			else
-				__make_transcoder(handler, pref_dest_codec, output_transcoders);
+				__make_transcoder(handler, pref_dest_codec, output_transcoders, dtmf_payload_type);
 			passthrough_handlers = g_slist_delete_link(passthrough_handlers, passthrough_handlers);
 
 		}
@@ -724,7 +831,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		char *buf, // malloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
-		int marker, int seq, int seq_inc)
+		int marker, int seq, int seq_inc, int payload_type)
 {
 	struct rtp_header *rh = (void *) buf;
 	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
@@ -733,7 +840,9 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	unsigned long ts = payload_ts;
 	ZERO(*rh);
 	rh->v_p_x_cc = 0x80;
-	rh->m_pt = handler->dest_pt.payload_type | (marker ? 0x80 : 0);
+	if (payload_type == -1)
+		payload_type = handler->dest_pt.payload_type;
+	rh->m_pt = payload_type | (marker ? 0x80 : 0);
 	if (seq != -1)
 		rh->seq_num = htons(seq);
 	else
@@ -784,17 +893,61 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	atomic64_set(&ssrc_out->last_ts, ts);
 }
 
+static struct codec_ssrc_handler *__output_ssrc_handler(struct codec_ssrc_handler *ch, struct media_packet *mp) {
+	struct codec_handler *handler = ch->handler;
+	if (handler->output_handler == handler)
+		return ch;
+
+	// our encoder is in a different codec handler
+	ilog(LOG_DEBUG, "Switching context from decoder to encoder");
+	handler = handler->output_handler;
+	struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, handler->ssrc_hash);
+	if (G_UNLIKELY(!new_ch)) {
+		ilog(LOG_ERR, "Switched from input to output codec context, but no codec handler present");
+		return ch;
+	}
+
+	return new_ch;
+}
+
 static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
 		struct media_packet *mp, int seq_inc)
 {
+	int payload_type = -1; // take from handler's output config
+
+	if (ch->handler->dtmf_scaler) {
+		// this is actually a DTMF -> PCM handler
+		if (!ch->first_ts) {
+			// grab our codec timestamp for scaling purposes
+			struct codec_ssrc_handler *output_ch = __output_ssrc_handler(ch, mp);
+			ch->first_ts = output_ch->first_ts;
+		}
+		unsigned long ts = packet->ts;
+		ts -= ch->first_ts;
+		packet->ts = av_rescale(ts, ch->handler->dest_pt.clock_rate,
+				ch->handler->source_pt.clock_rate);
+		ilog(LOG_DEBUG, "Scaling DTMF packet timestamp and duration: TS (offset %lu) %lu -> %lu "
+				"(%u -> %u)",
+				ch->first_ts,
+				ts, packet->ts,
+				ch->handler->source_pt.clock_rate, ch->handler->dest_pt.clock_rate);
+		packet->ts += ch->first_ts;
+		if (packet->payload->len >= sizeof(struct telephone_event_payload)) {
+			struct telephone_event_payload *dtmf = (void *) packet->payload->s;
+			dtmf->duration = htons(av_rescale(ntohs(dtmf->duration), ch->handler->dest_pt.clock_rate,
+				ch->handler->source_pt.clock_rate));
+		}
+		payload_type = ch->handler->dtmf_payload_type;
+	}
+
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->ignore_seq) // inject original seq
 		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
-				packet->marker, packet->p.seq, -1);
+				packet->marker, packet->p.seq, -1, payload_type);
 	else // use our own sequencing
 		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
-				packet->marker, -1, seq_inc);
+				packet->marker, -1, seq_inc, payload_type);
 }
 static int packet_dtmf(struct codec_ssrc_handler *ch, struct transcode_packet *packet, struct media_packet *mp)
 {
@@ -812,11 +965,12 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct transcode_packet *p
 		packet_dtmf_fwd(ch, packet, mp, 0);
 	return 0;
 }
-static void packet_dtmf_dup(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
+static int packet_dtmf_dup(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
 		struct media_packet *mp)
 {
 	if (!mp->call->block_dtmf && !mp->media->monologue->block_dtmf)
 		packet_dtmf_fwd(ch, packet, mp, 0);
+	return 0;
 }
 
 static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
@@ -1003,15 +1157,33 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	return &ch->h;
 }
 
+static void __dtmf_dsp_callback(void *ptr, int code, int level, int delay) {
+	struct codec_ssrc_handler *ch = ptr;
+	struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
+	*ev = (struct dtmf_event) { .code = code, .volume = level, .ts = ch->last_dtmf_event_ts + delay };
+	ch->last_dtmf_event_ts = ev->ts;
+	ev->ts = av_rescale(ev->ts, ch->encoder_format.clockrate, ch->dtmf_format.clockrate);
+	ilog(LOG_DEBUG, "DTMF event state change: code %i, volume %i, TS %lu",
+			ev->code, ev->volume, (unsigned long) ev->ts);
+	g_queue_push_tail(&ch->dtmf_events, ev);
+}
+
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	struct codec_handler *h = p;
 
-	ilog(LOG_DEBUG, "Creating SSRC transcoder from %s/%u/%i to "
-			"%s/%u/%i",
-			h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
-			h->source_pt.channels,
-			h->dest_pt.codec_def->rtpname, h->dest_pt.clock_rate,
-			h->dest_pt.channels);
+	if (h->dtmf_scaler)
+		ilog(LOG_DEBUG, "Creating SSRC DTMF transcoder from %s/%u/%i to "
+				"PT %i",
+				h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
+				h->source_pt.channels,
+				h->dtmf_payload_type);
+	else
+		ilog(LOG_DEBUG, "Creating SSRC transcoder from %s/%u/%i to "
+				"%s/%u/%i",
+				h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
+				h->source_pt.channels,
+				h->dest_pt.codec_def->rtpname, h->dest_pt.clock_rate,
+				h->dest_pt.channels);
 
 	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
 	ch->handler = h;
@@ -1032,6 +1204,16 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 				ch->ptime,
 				&enc_format, &ch->encoder_format, &h->dest_pt.format_parameters))
 		goto err;
+
+	if (h->dtmf_payload_type != -1) {
+		ilog(LOG_DEBUG, "Inserting DTMF DSP for output payload type %i", h->dtmf_payload_type);
+		ch->dtmf_format = (format_t) { .clockrate = 8000, .channels = 1, .format = AV_SAMPLE_FMT_S16 };
+		ch->dtmf_dsp = dtmf_rx_init(NULL, NULL, NULL);
+		if (!ch->dtmf_dsp)
+			ilog(LOG_ERR, "Failed to allocate DTMF RX context");
+		else
+			dtmf_rx_set_realtime_callback(ch->dtmf_dsp, __dtmf_dsp_callback, ch);
+	}
 
 	ch->decoder = decoder_new_fmtp(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
 			&ch->encoder_format, &h->source_pt.format_parameters);
@@ -1074,6 +1256,10 @@ static void __free_ssrc_handler(void *chp) {
 	}
 	if (ch->sample_buffer)
 		g_string_free(ch->sample_buffer, TRUE);
+	if (ch->dtmf_dsp)
+		dtmf_rx_free(ch->dtmf_dsp);
+	resample_shutdown(&ch->dtmf_resampler);
+	g_queue_clear_full(&ch->dtmf_events, dtmf_event_free);
 }
 
 static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
@@ -1089,7 +1275,8 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 
 	while (1) {
 		// figure out how big of a buffer we need
-		unsigned int payload_len = MAX(enc->avpkt.size, ch->bytes_per_packet);
+		unsigned int payload_len = MAX(MAX(enc->avpkt.size, ch->bytes_per_packet),
+				sizeof(struct telephone_event_payload));
 		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
 		char *buf = malloc(pkt_len);
@@ -1110,12 +1297,30 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		}
 
 		ilog(LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
-		__output_rtp(mp, ch, ch->handler, buf, inout.len, ch->first_ts
-				+ enc->avpkt.pts / enc->def->clockrate_mult,
-				ch->rtp_mark ? 1 : 0, -1, 0);
-		mp->ssrc_out->parent->seq_diff++;
-		//mp->iter_out++;
-		ch->rtp_mark = 0;
+
+		unsigned int repeats = 0;
+		int is_dtmf = dtmf_event_payload(&inout, (uint64_t *) &enc->avpkt.pts, enc->avpkt.duration,
+				&ch->dtmf_event, &ch->dtmf_events);
+		if (is_dtmf == 1)
+			ch->rtp_mark = 1; // DTMF start event
+		else if (is_dtmf == 3)
+			repeats = 2; // DTMF end event
+
+		do {
+			char *send_buf = buf;
+			if (repeats > 0) {
+				// need to duplicate the payload as __output_rtp consumes it
+				send_buf = malloc(pkt_len);
+				memcpy(send_buf, buf, pkt_len);
+			}
+			__output_rtp(mp, ch, ch->handler, send_buf, inout.len, ch->first_ts
+					+ enc->avpkt.pts / enc->def->clockrate_mult,
+					ch->rtp_mark ? 1 : 0, -1, 0,
+					is_dtmf ? ch->handler->dtmf_payload_type : -1);
+			mp->ssrc_out->parent->seq_diff++;
+			//mp->iter_out++;
+			ch->rtp_mark = 0;
+		} while (repeats--);
 
 		if (ret == 0) {
 			// no more to go
@@ -1130,6 +1335,48 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 	return 0;
 }
 
+static void __dtmf_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
+	if (!ch->dtmf_dsp)
+		return;
+	if (ch->handler->dtmf_payload_type == -1) {
+		ch->dtmf_event.code = 0;
+		return;
+	}
+
+	AVFrame *dsp_frame = resample_frame(&ch->dtmf_resampler, frame, &ch->dtmf_format);
+	if (!dsp_frame) {
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to resample audio for DTMF DSP");
+		return;
+	}
+
+	ilog(LOG_DEBUG, "DTMF detect, TS %lu -> %lu, %u -> %u samples",
+			(unsigned long) frame->pts,
+			(unsigned long) dsp_frame->pts,
+			frame->nb_samples,
+			dsp_frame->nb_samples);
+
+	if (dsp_frame->pts > ch->dtmf_ts)
+		dtmf_rx_fillin(ch->dtmf_dsp, dsp_frame->pts - ch->dtmf_ts);
+	else if (dsp_frame->pts < ch->dtmf_ts)
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "DTMF TS seems to run backwards (%lu < %lu)",
+				(unsigned long) dsp_frame->pts,
+				(unsigned long) ch->dtmf_ts);
+
+	int num_samples = dsp_frame->nb_samples;
+	int16_t *samples = (void *) dsp_frame->extended_data[0];
+	while (num_samples > 0) {
+		int ret = dtmf_rx(ch->dtmf_dsp, samples, num_samples);
+		if (ret < 0 || ret >= num_samples) {
+			ilog(LOG_ERR | LOG_FLAG_LIMIT, "DTMF DSP returned error %i", ret);
+			break;
+		}
+		samples += num_samples - ret;
+		num_samples = ret;
+	}
+	ch->dtmf_ts = dsp_frame->pts + dsp_frame->nb_samples;
+	av_frame_free(&dsp_frame);
+}
+
 static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
@@ -1138,22 +1385,16 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 			(unsigned long long) frame->pts, frame->nb_samples);
 
 	// switch from input codec context to output context if necessary
-	struct codec_handler *handler = ch->handler;
-	if (handler->output_handler != handler) {
-		// our encoder is in a different codec handler
-		ilog(LOG_DEBUG, "Switching context from decoder to encoder");
-		handler = handler->output_handler;
-		struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, handler->ssrc_hash);
-		if (G_UNLIKELY(!new_ch)) {
-			ilog(LOG_ERR, "Switched from input to output codec context, but no codec handler present");
-			return -1;
-		}
+	struct codec_ssrc_handler *new_ch = __output_ssrc_handler(ch, mp);
+	if (new_ch != ch) {
 		// copy some essential parameters
 		if (!new_ch->first_ts)
 			new_ch->first_ts = ch->first_ts;
 
 		ch = new_ch;
 	}
+
+	__dtmf_detect(ch, frame);
 
 	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, mp);
 
@@ -1191,6 +1432,11 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 	packet->func = packet_decode;
 	packet->rtp = *mp->rtp;
 	packet->handler = h;
+
+	if (h->dtmf_scaler) {
+		packet->func = packet_dtmf;
+		packet->dup_func = packet_dtmf_dup;
+	}
 
 	int ret = __handler_func_sequencer(mp, packet);
 
@@ -1268,7 +1514,40 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 	return pt;
 }
 
+// handle special meaning "clock rate == 1": add one instance of this PT for each clock rate
+// that is already present
+static int __codec_synth_transcode_options(struct rtp_payload_type *pt, struct sdp_ng_flags *flags,
+		struct call_media *media)
+{
+	if (pt->clock_rate != 1)
+		return 0;
 
+	struct call *call = media->call;
+	GHashTable *clockrates = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+	// special handling - add one instance for each clock rate that is present
+	for (GList *k = media->codecs_prefs_recv.head; k; k = k->next) {
+		struct rtp_payload_type *pt_r = k->data;
+		if (g_hash_table_lookup(clockrates, GUINT_TO_POINTER(pt_r->clock_rate)))
+			continue;
+		char *pt_s;
+		if (asprintf(&pt_s, STR_FORMAT "/%u", STR_FMT(&pt->encoding), pt_r->clock_rate) < 0)
+			continue;
+		pt_s = call_strdup(call, pt_s);
+		// XXX optimise this -^  call buffer can probably be replaced with a gstringchunk
+		// and made lock free
+		g_hash_table_insert(clockrates, GUINT_TO_POINTER(pt_r->clock_rate), (void *) 1);
+		str pt_str;
+		str_init(&pt_str, pt_s);
+		ilog(LOG_DEBUG, "Synthesised transcoding option for '%s'", pt_s);
+		g_queue_push_tail(&flags->codec_transcode, str_slice_dup(&pt_str));
+	}
+
+	payload_type_free(pt);
+	g_hash_table_destroy(clockrates);
+
+	return 1;
+}
 
 
 #endif
@@ -1384,7 +1663,7 @@ static void __codec_options_set(struct rtp_payload_type *pt, GHashTable *codec_s
 		return;
 }
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
-		GQueue *types, const struct sdp_ng_flags *flags)
+		GQueue *types, struct sdp_ng_flags *flags)
 {
 	if (!flags)
 		return;
@@ -1480,11 +1759,13 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		if (!pt)
 			continue;
 
+		if (__codec_synth_transcode_options(pt, flags, media))
+			continue;
+
 		ilog(LOG_DEBUG, "Codec '" STR_FORMAT "' added for transcoding with payload type %u",
 				STR_FMT(&pt->encoding_with_params), pt->payload_type);
 		__rtp_payload_type_add_recv(media, pt);
 	}
-
 #endif
 
 	g_hash_table_destroy(removed);
