@@ -71,3 +71,7 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 
 	return ret;
 }
+
+void dtmf_event_free(void *e) {
+	g_slice_free1(sizeof(struct dtmf_event), e);
+}
