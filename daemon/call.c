@@ -1772,7 +1772,7 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
-		const struct sdp_ng_flags *flags)
+		struct sdp_ng_flags *flags)
 {
 	struct stream_params *sp;
 	GList *media_iter, *ml_media, *other_ml_media;

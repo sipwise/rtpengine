@@ -25,6 +25,7 @@ typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
 struct codec_handler {
 	struct rtp_payload_type source_pt; // source_pt.payload_type = hashtable index
 	struct rtp_payload_type dest_pt;
+	int dtmf_payload_type;
 	codec_handler_func *func;
 	int kernelize:1;
 	int transcoder:1;
@@ -55,7 +56,7 @@ void codec_add_raw_packet(struct media_packet *mp);
 void codec_packet_free(void *);
 
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
-		GQueue *types, const struct sdp_ng_flags *flags);
+		GQueue *types, struct sdp_ng_flags *flags);
 
 // special return value `(void *) 0x1` to signal type mismatch
 struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media);
