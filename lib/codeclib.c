@@ -4,6 +4,7 @@
 #include <libavfilter/avfilter.h>
 #include <libavutil/opt.h>
 #include <glib.h>
+#include <arpa/inet.h>
 #ifdef HAVE_BCG729
 #include <bcg729/encoder.h>
 #include <bcg729/decoder.h>
@@ -14,6 +15,7 @@
 #include "resample.h"
 #include "rtplib.h"
 #include "bitstr.h"
+#include "dtmflib.h"
 
 
 
@@ -53,6 +55,9 @@ static void avc_encoder_close(encoder_t *enc);
 
 static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
+static const char *dtmf_decoder_init(decoder_t *, const str *);
+static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+
 
 
 
@@ -73,6 +78,10 @@ static const codec_type_t codec_type_amr = {
 	.encoder_init = avc_encoder_init,
 	.encoder_input = avc_encoder_input,
 	.encoder_close = avc_encoder_close,
+};
+static const codec_type_t codec_type_dtmf = {
+	.decoder_init = dtmf_decoder_init,
+	.decoder_input = dtmf_decoder_input,
 };
 
 #ifdef HAVE_BCG729
@@ -334,16 +343,19 @@ static codec_def_t __codec_defs[] = {
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
 	},
-	// pseudo-codecs
 	{
 		.rtpname = "telephone-event",
 		.avcodec_id = -1,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
-		.pseudocodec = 1,
+		.supplemental = 1,
 		.dtmf = 1,
 		.default_clockrate = 8000,
 		.default_channels = 1,
+		.default_fmtp = "0-15",
+		.codec_type = &codec_type_dtmf,
+		.support_encoding = 1,
+		.support_decoding = 1,
 	},
 	// for file reading and writing
 	{
@@ -635,6 +647,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 					"%lu to %lu",
 					dec->rtp_ts, ts);
 			// XXX handle lost packets here if timestamps don't line up?
+			// XXX actually set the timestamp to the newly received one?
 			dec->pts += dec->in_format.clockrate;
 		}
 		else
@@ -759,9 +772,6 @@ void codeclib_init(int print) {
 
 		if (def->codec_type && def->codec_type->def_init)
 			def->codec_type->def_init(def);
-
-		if (def->pseudocodec)
-			continue;
 
 		if (print) {
 			if (def->support_encoding && def->support_decoding) {
@@ -1214,10 +1224,6 @@ static int encoder_fifo_flush(encoder_t *enc,
 int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
 {
-	// fix up output pts
-	if (av_audio_fifo_size(enc->fifo) == 0)
-		enc->fifo_pts = frame->pts;
-
 	if (av_audio_fifo_write(enc->fifo, (void **) frame->extended_data, frame->nb_samples) < 0)
 		return -1;
 
@@ -1717,3 +1723,65 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 	return buf->len >= 2 ? 1 : 0;
 }
 #endif
+
+
+static const char *dtmf_decoder_init(decoder_t *dec, const str *fmtp) {
+	dec->u.dtmf.event = -1;
+	return NULL;
+}
+
+static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	struct telephone_event_payload *dtmf;
+	if (data->len < sizeof(*dtmf)) {
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Short DTMF event packet (len %u)", data->len);
+		return -1;
+	}
+	dtmf = (void *) data->s;
+
+	// init if we need to
+	if (dtmf->event != dec->u.dtmf.event || dec->rtp_ts != dec->u.dtmf.start_ts) {
+		ZERO(dec->u.dtmf);
+		dec->u.dtmf.event = dtmf->event;
+		dec->u.dtmf.start_ts = dec->rtp_ts;
+		ilog(LOG_DEBUG, "New DTMF event starting: %u at TS %lu", dtmf->event, dec->rtp_ts);
+	}
+
+	unsigned long duration = ntohs(dtmf->duration);
+	unsigned long frame_ts = dec->rtp_ts - dec->u.dtmf.start_ts + dec->u.dtmf.duration;
+	long num_samples = duration - dec->u.dtmf.duration;
+
+	ilog(LOG_DEBUG, "Generate DTMF samples for event %u, start TS %lu, TS now %lu, frame TS %lu, "
+			"duration %lu, "
+			"old duration %lu, num samples %li",
+			dtmf->event, dec->u.dtmf.start_ts, dec->rtp_ts, frame_ts,
+			duration, dec->u.dtmf.duration, num_samples);
+
+	if (num_samples <= 0)
+		return 0;
+	if (num_samples > dec->in_format.clockrate) {
+		ilog(LOG_ERR, "Cannot generate %li DTMF samples (clock rate %u)", num_samples,
+				dec->in_format.clockrate);
+		return -1;
+	}
+
+	// synthesise PCM
+	// first get our frame and figure out how many samples we need, and the start offset
+	AVFrame *frame = av_frame_alloc();
+	frame->nb_samples = num_samples;
+	frame->format = AV_SAMPLE_FMT_S16;
+	frame->sample_rate = dec->in_format.clockrate;
+	frame->channel_layout = AV_CH_LAYOUT_MONO;
+	frame->pts = frame_ts;
+	if (av_frame_get_buffer(frame, 0) < 0)
+		abort();
+
+	// fill samples
+	dtmf_samples(frame->extended_data[0], frame_ts, frame->nb_samples, dtmf->event,
+			dtmf->volume, dec->in_format.clockrate);
+
+	g_queue_push_tail(out, frame);
+
+	dec->u.dtmf.duration = duration;
+
+	return 0;
+}
