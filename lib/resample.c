@@ -86,9 +86,9 @@ resample:
 
 err:
 	if (errcode)
-		ilog(LOG_ERR, "Error resampling: %s (%s)", err, av_error(errcode));
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error resampling: %s (%s)", err, av_error(errcode));
 	else
-		ilog(LOG_ERR, "Error resampling: %s", err);
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error resampling: %s", err);
 	resample_shutdown(resample);
 	return NULL;
 }

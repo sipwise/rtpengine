@@ -423,7 +423,7 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp) {
 
 	int i = avcodec_open2(dec->u.avc.avcctx, codec, NULL);
 	if (i) {
-		ilog(LOG_ERR, "Error returned from libav: %s", av_error(i));
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error returned from libav: %s", av_error(i));
 		return "failed to open codec context";
 	}
 
@@ -478,7 +478,7 @@ err:
 	if (ret)
 		decoder_close(ret);
 	if (err)
-		ilog(LOG_ERR, "Error creating media decoder for codec %s: %s", def->rtpname, err);
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error creating media decoder for codec %s: %s", def->rtpname, err);
 	return NULL;
 }
 
@@ -603,7 +603,7 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 err:
 	ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error decoding media packet: %s", err);
 	if (av_ret)
-		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error returned from libav: %s", av_error(av_ret));
 	av_frame_free(&frame);
 	return -1;
 }
@@ -994,7 +994,7 @@ static const char *avc_encoder_init(encoder_t *enc, const str *fmtp) {
 
 	int i = avcodec_open2(enc->u.avc.avcctx, enc->u.avc.codec, NULL);
 	if (i) {
-		ilog(LOG_ERR, "Error returned from libav: %s", av_error(i));
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error returned from libav: %s", av_error(i));
 		return "failed to open output context";
 	}
 
@@ -1159,7 +1159,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 
 err:
 	if (av_ret)
-		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error returned from libav: %s", av_error(av_ret));
 	return -1;
 }
 
@@ -1646,7 +1646,7 @@ static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame) {
 		return 0;
 
 	if ((*frame)->nb_samples != 80) {
-		ilog(LOG_ERR, "bcg729: input %u samples instead of 80", (*frame)->nb_samples);
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "bcg729: input %u samples instead of 80", (*frame)->nb_samples);
 		return -1;
 	}
 
