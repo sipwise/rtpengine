@@ -707,7 +707,7 @@ void codeclib_init(int print) {
 	avformat_network_init();
 	av_log_set_callback(avlog_ilog);
 
-	codecs_ht = g_hash_table_new(str_hash, str_equal);
+	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
 
 	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
 		// add to hash table
