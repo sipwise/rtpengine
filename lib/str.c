@@ -22,6 +22,24 @@ gboolean str_equal(gconstpointer a, gconstpointer b) {
 	return str_cmp_str((str *) a, (str *) b) == 0;
 }
 
+guint str_case_hash(gconstpointer ss) {
+	const str *s = ss;
+	guint ret = 5381;
+	str it = *s;
+
+	while (it.len > 0) {
+		ret = (ret << 5) + ret + (*it.s & 0xdf);
+		it.s++;
+		it.len--;
+	}
+
+	return ret;
+}
+
+gboolean str_case_equal(gconstpointer a, gconstpointer b) {
+	return str_casecmp_str((str *) a, (str *) b) == 0;
+}
+
 str *__str_sprintf(const char *fmt, ...) {
 	str *ret;
 	va_list ap;

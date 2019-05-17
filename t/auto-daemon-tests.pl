@@ -1384,6 +1384,161 @@ rcv($sock_a, $port_b, rtpm(0, $seq+14, 4000+160*14, $ssrc, "\00" x 160));
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 2210)], [qw(198.51.100.3 2212)]);
+
+($port_a) = offer('one codec with one for transcoding, lower case', { ICE => 'remove', replace => ['origin'],
+	codec => { transcode => ['PCMA'] }}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2210 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=rtpmap:0 pcmu/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 pcmu/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('one codec with one for transcoding, lower case', { replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2212 RTP/AVP 0 8
+c=IN IP4 198.51.100.3
+a=rtpmap:0 pcmu/8000
+a=rtpmap:8 pcma/8000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 pcmu/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1010, 4600, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x00" x 160));
+
+snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, $ssrc, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4000+160, $ssrc, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2010, 4000+1600, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2010, 4000+1600, $ssrc, "\x00" x 160));
+
+snd($sock_b, $port_a,  rtp(8, 2011, 4000+160*11, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2011, 4000+160*11, $ssrc, ")" x 160));
+# #664 seq reset
+snd($sock_b, $port_a,  rtp(8, 62011, 4000+160*12, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2012, 4000+160*12, $ssrc, ")" x 160));
+snd($sock_b, $port_a,  rtp(8, 62012, 4000+160*13, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2013, 4000+160*13, $ssrc, ")" x 160));
+snd($sock_b, $port_a,  rtp(0, 62013, 4000+160*14, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2014, 4000+160*14, $ssrc, "\x00" x 160));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 2216)], [qw(198.51.100.3 2218)]);
+
+($port_a) = offer('one codec with one for transcoding, lower case 2', { ICE => 'remove', replace => ['origin'],
+	codec => { transcode => ['pcma'] }}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2216 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=rtpmap:0 pcmu/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 pcmu/8000
+a=rtpmap:8 pcma/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('one codec with one for transcoding, lower case 2', { replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2218 RTP/AVP 0 8
+c=IN IP4 198.51.100.3
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b,  rtp(0, 1010, 4600, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x00" x 160));
+
+snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, $ssrc, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4000+160, $ssrc, "\x00" x 160));
+snd($sock_b, $port_a,  rtp(0, 2010, 4000+1600, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2010, 4000+1600, $ssrc, "\x00" x 160));
+
+snd($sock_b, $port_a,  rtp(8, 2011, 4000+160*11, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2011, 4000+160*11, $ssrc, ")" x 160));
+# #664 seq reset
+snd($sock_b, $port_a,  rtp(8, 62011, 4000+160*12, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2012, 4000+160*12, $ssrc, ")" x 160));
+snd($sock_b, $port_a,  rtp(8, 62012, 4000+160*13, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2013, 4000+160*13, $ssrc, ")" x 160));
+snd($sock_b, $port_a,  rtp(0, 62013, 4000+160*14, 0x5678, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2014, 4000+160*14, $ssrc, "\x00" x 160));
+
+
+
 
 
 # media playback
