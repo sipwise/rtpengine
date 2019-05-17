@@ -1343,7 +1343,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	struct call *call = media->call;
 	struct rtp_payload_type *pt;
 	static const str str_all = STR_CONST_INIT("all");
-	GHashTable *removed = g_hash_table_new_full(str_hash, str_equal, NULL, __payload_queue_free);
+	GHashTable *removed = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, __payload_queue_free);
 	int strip_all = 0, mask_all = 0;
 
 	// start fresh
