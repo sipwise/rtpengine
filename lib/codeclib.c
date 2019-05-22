@@ -1314,7 +1314,8 @@ static void opus_init(struct rtp_payload_type *pt) {
 static void opus_set_enc_options(encoder_t *enc, const str *fmtp) {
 	int ret;
 	if (enc->ptime)
-		if ((ret = av_opt_set_int(enc->u.avc.avcctx, "frame_duration", enc->ptime, 0)))
+		if ((ret = av_opt_set_int(enc->u.avc.avcctx, "frame_duration", enc->ptime,
+						AV_OPT_SEARCH_CHILDREN)))
 			ilog(LOG_WARN, "Failed to set Opus frame_duration option to %i: %s",
 					enc->ptime, av_error(ret));
 	// XXX additional opus options
