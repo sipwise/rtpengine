@@ -44,6 +44,7 @@ the following additional features are available:
 - Breaking of BUNDLE'd media streams (draft-ietf-mmusic-sdp-bundle-negotiation)
 - Recording of media streams, decrypted if possible
 - Transcoding and repacketization
+- Transcoding between RFC 2833/4733 DTMF event packets and in-band DTMF tones (and vice versa)
 - Playback of pre-recorded streams/announcements
 
 *Rtpengine* does not (yet) support:
@@ -408,7 +409,8 @@ the necessary conversions.
 If repacketization (using the `ptime` option) is requested, the transcoding feature will also be
 engaged for the call, even if no additional codecs were requested.
 
-Non-audio pseudo-codecs (such as T.38 or RFC 4733 `telephone-event`) are not currently supported.
+Non-audio pseudo-codecs (such as T.38) are not currently supported, with the exception of RFC
+2833/4733 DTMF event packets (`telephone-event`) as described below.
 
 G.729 support
 -------------
@@ -431,6 +433,34 @@ can be removed from `debian/control` or by switching to a different Debian build
 Set the environment variable
 `export DEB_BUILD_PROFILES="pkg.ngcp-rtpengine.nobcg729"` (or use the `-P` flag to the *dpkg* tools)
 and then build the *rtpengine* packages.
+
+DTMF transcoding
+----------------
+
+*Rtpengine* supports transcoding between RFC 2833/4733 DTMF event packets (`telephone-event` payloads)
+and in-band DTMF audio tones. When enabled, *rtpengine* translates DTMF event packets to in-band DTMF
+audio by generating DTMF tones and injecting them into the audio stream, and translates in-band DTMF
+tones by running the audio stream through a DSP, and generating DTMF event packets when a DTMF tone
+is detected.
+
+Support for DTMF transcoding can be enabled in one of two ways:
+
+* In the forward direction, DTMF transcoding is enabled by adding the codec `telephone-event` to the
+  list of codecs offered for transcoding. Specifically, if the incoming SDP body doesn't yet list
+  `telephone-event` as a supported codec, adding the option *codec → transcode → telephone-event* would
+  enable DTMF transcoding. The receiving RTP client can then accept this codec and start sending DTMF
+  event packets, which *rtpengine* would translate into in-band DTMF audio. If the receiving RTP client
+  also offers `telephone-event` in their behalf, *rtpengine* would then detect in-band DTMF audio coming
+  from the originating RTP client and translate it to DTMF event packets.
+
+* In the reverse direction, DTMF transcoding is enabled by adding the option `always transcode` to the
+  `flags` if the incoming SDP body offers `telephone-event` as a supported codec. If the receiving RTP
+  client then rejects the offered `telephone-event` codec, DTMF transcoding is then enabled and is
+  performed in the same way as described above.
+
+Enabling DTMF transcoding (in one of the two ways described above) implicitly enables the flag
+`always transcode` for the call and forces all of the audio to pass through the transcoding engine.
+Therefore, for performance reasons, this should only be done when really necessary.
 
 The *ng* Control Protocol
 =========================
