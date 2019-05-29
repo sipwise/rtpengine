@@ -1450,7 +1450,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 			int tmp = memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint));
 			if (tmp && PS_ISSET(phc->mp.stream, MEDIA_HANDOVER)) {
 				/* out_lock remains locked */
-				ilog(LOG_INFO, "Peer address changed to %s", endpoint_print_buf(&phc->mp.fsin));
+				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Peer address changed to %s", endpoint_print_buf(&phc->mp.fsin));
 				phc->unkernelize = 1;
 				phc->update = 1;
 				phc->mp.stream->endpoint = phc->mp.fsin;
@@ -1460,7 +1460,8 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 			mutex_unlock(&phc->mp.stream->out_lock);
 
 			if (tmp && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
-				ilog(LOG_INFO, "Drop due to strict-source attribute; got %s:%d, expected %s:%d",
+				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Drop due to strict-source attribute; "
+						"got %s:%d, expected %s:%d",
 					sockaddr_print_buf(&endpoint.address), endpoint.port,
 					sockaddr_print_buf(&phc->mp.stream->endpoint.address),
 					phc->mp.stream->endpoint.port);
