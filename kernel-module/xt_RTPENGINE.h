@@ -104,7 +104,8 @@ struct rtpengine_target_info {
 					rtp:1,
 					rtp_only:1,
 					do_intercept:1,
-					transcoding:1; // SSRC subst and RTP PT filtering
+					transcoding:1, // SSRC subst and RTP PT filtering
+					non_forwarding:1; // empty src/dst addr
 };
 
 struct rtpengine_call_info {
