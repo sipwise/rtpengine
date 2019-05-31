@@ -1513,6 +1513,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "    option: stun\n");
 	if (g->target.transcoding)
 		seq_printf(f, "    option: transcoding\n");
+	if (g->target.non_forwarding)
+		seq_printf(f, "    option: non forwarding\n");
 
 	target_put(g);
 
@@ -2036,12 +2038,14 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 
 	if (!is_valid_address(&i->local))
 		return -EINVAL;
-	if (!is_valid_address(&i->src_addr))
-		return -EINVAL;
-	if (!is_valid_address(&i->dst_addr))
-		return -EINVAL;
-	if (i->src_addr.family != i->dst_addr.family)
-		return -EINVAL;
+	if (!i->non_forwarding) {
+		if (!is_valid_address(&i->src_addr))
+			return -EINVAL;
+		if (!is_valid_address(&i->dst_addr))
+			return -EINVAL;
+		if (i->src_addr.family != i->dst_addr.family)
+			return -EINVAL;
+	}
 	if (i->mirror_addr.family) {
 		if (!is_valid_address(&i->mirror_addr))
 			return -EINVAL;
@@ -3927,6 +3931,8 @@ not_stun:
 	goto skip_error;
 
 src_check_ok:
+	if (g->target.non_forwarding)
+		goto skip1;
 	if (g->target.dtls && is_dtls(skb))
 		goto skip1;
 
