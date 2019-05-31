@@ -3519,6 +3519,44 @@ rcv($sock_b, $port_a, rtpm(8, 1007, 3000+160*5, $ssrc, "\x2a" x 160));
 
 
 
+new_call;
+
+offer('DTMF repacketising',
+	{ ICE => 'remove', replace => ['origin', 'session-connection'],
+	flags => ['strict-source'],
+	ptime => 20, 'ptime-reverse' => 60, 'rtcp-mux' => ['demux'],
+	}, <<SDP);
+v=0
+o=- 3768297181 3768297181 IN IP4 10.10.12.22
+s=Blink Lite 4.6.0 (MacOSX)
+t=0 0
+m=audio 50036 RTP/AVP 0 8 101
+c=IN IP4 10.10.12.22
+a=rtcp:50037
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+----------------------------------
+v=0
+o=- 3768297181 3768297181 IN IP4 203.0.113.1
+s=Blink Lite 4.6.0 (MacOSX)
+t=0 0
+m=audio PORT RTP/AVP 0 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
 END {
 	if ($rtpe_pid) {
 		kill('INT', $rtpe_pid) or die;

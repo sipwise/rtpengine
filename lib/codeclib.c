@@ -57,9 +57,6 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static const char *dtmf_decoder_init(decoder_t *, const str *);
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
-static const char *dtmf_encoder_init(encoder_t *enc, const str *);
-static int dtmf_encoder_input(encoder_t *enc, AVFrame **frame);
-static void dtmf_encoder_close(encoder_t *enc);
 
 
 
@@ -85,9 +82,6 @@ static const codec_type_t codec_type_amr = {
 static const codec_type_t codec_type_dtmf = {
 	.decoder_init = dtmf_decoder_init,
 	.decoder_input = dtmf_decoder_input,
-	.encoder_init = dtmf_encoder_init,
-	.encoder_input = dtmf_encoder_input,
-	.encoder_close = dtmf_encoder_close,
 };
 
 #ifdef HAVE_BCG729
@@ -1043,7 +1037,7 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	enc->ptime = ptime / def->clockrate_mult;
 	enc->bitrate = bitrate;
 
-	err = def->codec_type->encoder_init(enc, fmtp);
+	err = def->codec_type->encoder_init ? def->codec_type->encoder_init(enc, fmtp) : 0;
 	if (err)
 		goto err;
 
@@ -1051,19 +1045,24 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 
 // output frame and fifo
 	enc->frame = av_frame_alloc();
-	enc->frame->nb_samples = enc->samples_per_frame ? : 256;
-	enc->frame->format = enc->actual_format.format;
-	enc->frame->sample_rate = enc->actual_format.clockrate;
-	enc->frame->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
-	//if (!enc->frame->channel_layout)
-		//enc->frame->channel_layout = av_get_default_channel_layout(enc->u.avc.avcctx->channels);
-	if (av_frame_get_buffer(enc->frame, 0) < 0)
-		abort();
 
-	enc->fifo = av_audio_fifo_alloc(enc->frame->format, enc->actual_format.channels,
-			enc->frame->nb_samples);
+	if (enc->actual_format.format != -1 && enc->actual_format.clockrate > 0) {
+		enc->frame->nb_samples = enc->samples_per_frame ? : 256;
+		enc->frame->format = enc->actual_format.format;
+		enc->frame->sample_rate = enc->actual_format.clockrate;
+		enc->frame->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
+		//if (!enc->frame->channel_layout)
+			//enc->frame->channel_layout = av_get_default_channel_layout(enc->u.avc.avcctx->channels);
+		if (av_frame_get_buffer(enc->frame, 0) < 0)
+			abort();
 
-	ilog(LOG_DEBUG, "Initialized encoder with frame size %u samples", enc->frame->nb_samples);
+		enc->fifo = av_audio_fifo_alloc(enc->frame->format, enc->actual_format.channels,
+				enc->frame->nb_samples);
+
+		ilog(LOG_DEBUG, "Initialized encoder with frame size %u samples", enc->frame->nb_samples);
+	}
+	else
+		ilog(LOG_DEBUG, "Initialized encoder without frame buffer");
 
 
 done:
@@ -1790,15 +1789,4 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	dec->u.dtmf.duration = duration;
 
 	return 0;
-}
-
-static const char *dtmf_encoder_init(encoder_t *enc, const str *fmtp) {
-	return NULL;
-}
-
-static int dtmf_encoder_input(encoder_t *enc, AVFrame **frame) {
-	return 0;
-}
-
-static void dtmf_encoder_close(encoder_t *enc) {
 }
