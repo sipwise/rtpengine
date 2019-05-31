@@ -1023,6 +1023,7 @@ void kernelize(struct packet_stream *stream) {
 	struct call *call = stream->call;
 	struct packet_stream *sink = NULL;
 	const char *nk_warn_msg;
+	int non_forwarding = 0;
 
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
@@ -1033,8 +1034,12 @@ void kernelize(struct packet_stream *stream) {
 	nk_warn_msg = "interface to kernel module not open";
 	if (!kernel.is_open)
 		goto no_kernel_warn;
-	if (!PS_ISSET(stream, RTP))
-		goto no_kernel;
+	if (!PS_ISSET(stream, RTP)) {
+		if (PS_ISSET(stream, RTCP) && PS_ISSET(stream, STRICT_SOURCE))
+			non_forwarding = 1; // use the kernel's source checking capability
+		else
+			goto no_kernel;
+	}
 	if (!stream->selected_sfd)
 		goto no_kernel;
 	if (stream->media->monologue->block_media || call->block_media)
@@ -1078,6 +1083,7 @@ void kernelize(struct packet_stream *stream) {
 	reti.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
 	reti.dtls = MEDIA_ISSET(stream->media, DTLS);
 	reti.stun = stream->media->ice_agent ? 1 : 0;
+	reti.non_forwarding = non_forwarding;
 
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);
