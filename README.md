@@ -133,6 +133,7 @@ build all parts and run the test suite.
 	- *libevent* version 2.x
 	- *libpcap*
 	- *libsystemd*
+	- *spandsp*
 	- *MySQL* or *MariaDB* client library (optional for media playback and call recording daemon)
 	- *libiptc* library for iptables management (optional)
 	- *ffmpeg* codec libraries for transcoding (optional) such as *libavcodec*, *libavfilter*, *libswresample*
