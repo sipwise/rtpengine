@@ -1,3 +1,32 @@
+ngcp-rtpengine (7.2.2.1+0~mr7.2.2.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d994ca9] as per docs, remove all relay candidates under force-relay
+  * [31aef6f] TT#54800 sequencing fixes
+  * [397b339] TT#54800 add ptime tests
+  * [3d1df02] TT#54800 fix ptime overrides
+  * [0872ab5] TT#54800 add ptime-reverse tests
+  * [e58071e] Add missing check_conn when running SQL statements
+  * [cd34aa0] TT#56007 TT#55864 leave xt_RTPENGINE loaded after stop
+  * [a67dcd5] TT#56007 TT#55864 make RTPENGINE rules UDP only
+  * [2cfb80f] TT#56553 fix double G.722 sample rate issues
+  * [b5e938a] fix missing recording_on flag set
+  * [30ead56] fix incorrect sample config (`1` instead of `true`)
+  * [d7312ae] fix compilation for glib >= 2.60
+  * [17d5d61] fix possible segfault after failed port alloc w/ iptables option
+  * [be52632] TT#59100 support case insensitive codec names
+  * [3ef6812] correctly set frame_duration option for Opus
+  * [336c92c] rate limit log lines resulting from strict-source drops
+
+  [ netaskd ]
+  * [b711c2d] rtpengine.spec: fix building dkms module on a different host kernel version
+  * [4ab033b] add kernel-devel as requires for DKMS module build on target host
+  * [5c6fe96] Define requires according to the installed kernel.
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 03 Jun 2019 15:07:38 +0200
+
 ngcp-rtpengine (7.2.2.0+0~mr7.2.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
