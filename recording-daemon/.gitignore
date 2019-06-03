@@ -15,3 +15,4 @@ socket.c
 streambuf.c
 ssllib.c
 dtmflib.c
+*-test

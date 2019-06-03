@@ -50,3 +50,4 @@ timerthread.c
 media_player.c
 dtmflib.c
 test-dtmf-detect
+*-test
