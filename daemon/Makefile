@@ -139,4 +139,8 @@ MANS=		$(PODS:.pod=.8)
 
 include ../lib/common.Makefile
 
+ifeq ($(with_transcoding),yes)
+.depend:	dtmf_rx_fillin.h
+endif
+
 include		.depend
