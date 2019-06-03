@@ -51,3 +51,4 @@ media_player.c
 dtmflib.c
 test-dtmf-detect
 *-test
+dtmf_rx_fillin.h
