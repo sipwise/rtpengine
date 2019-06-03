@@ -235,6 +235,13 @@ The B<parsable> output style is similar, but makes the ID easier to
 parse by enclosing it in quotes, such as B<[ID="CALLID"]>
 or B<[ID="CALLID" port="12345"]>.
 
+=item B<--dtmf-log-dest=>I<IP46>:I<PORT>
+
+Configures a target address for logging detected DTMF event. Similar
+to the feature enabled by B<--log-facilty-dtmf>, but instead of writing
+detected DTMF events to syslog, this sends the JSON payload to the
+given address as UDP packets.
+
 =item B<--log-srtp-keys>
 
 Write SRTP keys to error log instead of debug log.

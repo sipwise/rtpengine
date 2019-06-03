@@ -306,6 +306,7 @@ static void options(int *argc, char ***argv) {
 	int codecs = 0;
 	double max_load = 0;
 	double max_cpu = 0;
+	char *dtmf_udp_ep = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -341,6 +342,7 @@ static void options(int *argc, char ***argv) {
 		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
 		{ "log-facility-dtmf",0,  0, G_OPTION_ARG_STRING, &log_facility_dtmf_s, "Syslog facility to use for logging DTMF", "daemon|local0|...|local7"},
 		{ "log-format",	0, 0,	G_OPTION_ARG_STRING,	&log_format,	"Log prefix format",		"default|parsable"},
+		{ "dtmf-log-dest", 0,0,	G_OPTION_ARG_STRING,	&dtmf_udp_ep,	"Destination address for DTMF logging via UDP",	"IP46|HOSTNAME:PORT"	},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&rtpe_config.fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only, 2: Kamailio",	"INT"	},
 		{ "num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.num_threads,	"Number of worker threads to create",	"INT"	},
 		{ "media-num-threads",  0, 0, G_OPTION_ARG_INT,	&rtpe_config.media_num_threads,	"Number of worker threads for media playback",	"INT"	},
@@ -518,6 +520,11 @@ static void options(int *argc, char ***argv) {
 			die("Invalid --log-format option");
 	}
 
+	if (dtmf_udp_ep) {
+		if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.dtmf_udp_ep, dtmf_udp_ep))
+			die("Invalid IP or port '%s' (--dtmf-log-dest)", dtmf_udp_ep);
+	}
+
 	if (!sip_source)
 		trust_address_def = 1;
 
@@ -643,6 +650,7 @@ static void init_everything(void) {
 	statistics_init();
 	codeclib_init(0);
 	media_player_init();
+	dtmf_init();
 }
 
 
