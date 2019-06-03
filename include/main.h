@@ -83,6 +83,7 @@ struct rtpengine_config {
 	char			*mysql_user;
 	char			*mysql_pass;
 	char			*mysql_query;
+	endpoint_t		dtmf_udp_ep;
 };
 
 

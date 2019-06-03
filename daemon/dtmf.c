@@ -3,7 +3,18 @@
 #include "log.h"
 #include "call.h"
 #include "dtmflib.h"
+#include "main.h"
 
+
+
+static socket_t dtmf_log_sock;
+
+void dtmf_init(void) {
+	if (rtpe_config.dtmf_udp_ep.port) {
+		if (connect_socket(&dtmf_log_sock, SOCK_DGRAM, &rtpe_config.dtmf_udp_ep))
+			ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
+	}
+}
 
 
 static GString *dtmf_json_print(struct media_packet *mp,
@@ -61,12 +72,18 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 
 	int ret = 0;
 
-	if (_log_facility_dtmf) {
-		GString *buf = dtmf_json_print(mp, dtmf, clockrate);
-		if (buf) {
+	GString *buf = NULL;
+
+	if (_log_facility_dtmf || dtmf_log_sock.family)
+		buf = dtmf_json_print(mp, dtmf, clockrate);
+
+	if (buf) {
+		if (_log_facility_dtmf)
 			dtmflog(buf);
-			ret = 1; // END event
-		}
+		if (dtmf_log_sock.family)
+			send(dtmf_log_sock.fd, buf->str, buf->len, 0);
+
+		ret = 1; // END event
 	}
 
 	return ret;

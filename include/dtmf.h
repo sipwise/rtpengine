@@ -14,6 +14,7 @@ struct dtmf_event {
 	uint64_t ts;
 };
 
+void dtmf_init(void);
 int dtmf_event(struct media_packet *, str *, int);
 int dtmf_event_payload(str *, uint64_t *, uint64_t, struct dtmf_event *, GQueue *);
 void dtmf_event_free(void *);
