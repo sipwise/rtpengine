@@ -133,3 +133,7 @@ const_str_hash-test.strhash: const_str_hash-test.strhash.o $(COMMONOBJS)
 
 tests-preload.so:	tests-preload.c
 	$(CC) -g -D_GNU_SOURCE -std=c99 -o $@ -Wall -shared -fPIC $<
+
+ifeq ($(with_transcoding),yes)
+.depend: dtmf_rx_fillin.h
+endif
