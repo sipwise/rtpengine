@@ -15,9 +15,7 @@
 #include "rtcp.h"
 #include "call_interfaces.h"
 #include "dtmf.h"
-#include "resample.h"
 #include "dtmflib.h"
-#include "dtmf_rx_fillin.h"
 
 
 
@@ -55,6 +53,10 @@ static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) 
 }
 
 #ifdef WITH_TRANSCODING
+
+
+#include "resample.h"
+#include "dtmf_rx_fillin.h"
 
 
 

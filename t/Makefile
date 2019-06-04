@@ -56,13 +56,13 @@ LDLIBS+=	-lhiredis
 LDLIBS+=	$(shell mysql_config --libs)
 endif
 
-SRCS=		bitstr-test.c aes-crypt.c payload-tracker-test.c const_str_hash-test.strhash.c
+SRCS=		bitstr-test.c aes-crypt.c const_str_hash-test.strhash.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c
 DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
 
 ifeq ($(with_transcoding),yes)
-SRCS+=		transcode-test.c test-dtmf-detect.c
+SRCS+=		transcode-test.c test-dtmf-detect.c payload-tracker-test.c
 ifeq ($(with_amr_tests),yes)
 SRCS+=		amr-decode-test.c amr-encode-test.c
 endif
@@ -84,9 +84,9 @@ include		.depend
 
 .PHONY:		all-tests unit-tests daemon-tests
 
-TESTS=		bitstr-test aes-crypt payload-tracker-test const_str_hash-test.strhash
+TESTS=		bitstr-test aes-crypt const_str_hash-test.strhash
 ifeq ($(with_transcoding),yes)
-TESTS+=		transcode-test test-dtmf-detect
+TESTS+=		transcode-test test-dtmf-detect payload-tracker-test
 ifeq ($(with_amr_tests),yes)
 TESTS+=		amr-decode-test amr-encode-test
 endif
@@ -94,7 +94,11 @@ endif
 
 ADD_CLEAN=	tests-preload.so $(TESTS)
 
+ifeq ($(with_transcoding),yes)
 all-tests:	unit-tests daemon-tests
+else
+all-tests:	unit-tests
+endif
 	true # override linking recipe from common.Makefile
 
 unit-tests:	$(TESTS)
