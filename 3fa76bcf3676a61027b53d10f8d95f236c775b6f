@@ -16,6 +16,24 @@
       "revId": "3fa76bcf3676a61027b53d10f8d95f236c775b6f",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "3a50d1a3_50467cc0",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2019-06-11T12:44:06Z",
+      "side": 1,
+      "message": "This is actually from a Github issue (#791)",
+      "parentUuid": "3a50d1a3_3062d0d9",
+      "revId": "3fa76bcf3676a61027b53d10f8d95f236c775b6f",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
