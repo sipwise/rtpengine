@@ -3557,6 +3557,143 @@ SDP
 
 
 
+# gh #793
+
+new_call;
+
+offer('gh #793 b1', { ICE => 'remove', 'via-branch' => 'x123', 'rtcp-mux' => ['demux'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('gh #793 b1', { ICE => 'remove', 'via-branch' => 'x456', 'rtcp-mux' => ['offer'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+SDP
+
+answer('gh #793 b1', { ICE => 'remove', 'via-branch' => 'x123' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+SDP
+
+new_call;
+
+offer('gh #793 b2', { ICE => 'remove', 'via-branch' => 'x123', 'rtcp-mux' => ['demux'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('gh #793 b2', { ICE => 'remove', 'via-branch' => 'x456', 'rtcp-mux' => ['offer'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+SDP
+
+answer('gh #793 b2', { ICE => 'remove', 'via-branch' => 'x456' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+
 END {
 	if ($rtpe_pid) {
 		kill('INT', $rtpe_pid) or die;
