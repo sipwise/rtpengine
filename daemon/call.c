@@ -1483,7 +1483,7 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 	if (flags->opmode == OP_ANSWER) {
 		/* default is to go with the client's choice, unless we were instructed not
 		 * to do that in the offer (see below) */
-		if (!MEDIA_ISSET(media, RTCP_MUX_OVERRIDE))
+		if (!MEDIA_ISSET(other_media, RTCP_MUX_OVERRIDE))
 			bf_copy_same(&media->media_flags, &other_media->media_flags, MEDIA_FLAG_RTCP_MUX);
 
 		return;
@@ -1506,14 +1506,14 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 	/* we can also control what's going to happen in the answer. it
 	 * depends on what was offered, but by default we go with the other
 	 * client's choice */
-	MEDIA_CLEAR(other_media, RTCP_MUX_OVERRIDE);
+	MEDIA_CLEAR(media, RTCP_MUX_OVERRIDE);
 	if (MEDIA_ISSET(other_media, RTCP_MUX)) {
 		if (!MEDIA_ISSET(media, RTCP_MUX)) {
 			/* rtcp-mux was offered, but we don't offer it ourselves.
 			 * the answer will not accept rtcp-mux (wasn't offered).
 			 * the default is to accept the offer, unless we want to
 			 * explicitly reject it. */
-			MEDIA_SET(other_media, RTCP_MUX_OVERRIDE);
+			MEDIA_SET(media, RTCP_MUX_OVERRIDE);
 			if (flags->rtcp_mux_reject)
 				MEDIA_CLEAR(other_media, RTCP_MUX);
 		}
@@ -1523,9 +1523,9 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 			 * either explicitly accept it (possibly demux) or reject
 			 * it (possible reverse demux). */
 			if (flags->rtcp_mux_accept)
-				MEDIA_SET(other_media, RTCP_MUX_OVERRIDE);
+				MEDIA_SET(media, RTCP_MUX_OVERRIDE);
 			else if (flags->rtcp_mux_reject) {
-				MEDIA_SET(other_media, RTCP_MUX_OVERRIDE);
+				MEDIA_SET(media, RTCP_MUX_OVERRIDE);
 				MEDIA_CLEAR(other_media, RTCP_MUX);
 			}
 		}
@@ -1533,7 +1533,7 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 	else {
 		/* rtcp-mux was not offered. we may offer it, but since it wasn't
 		 * offered to us, we must not accept it. */
-		MEDIA_SET(other_media, RTCP_MUX_OVERRIDE);
+		MEDIA_SET(media, RTCP_MUX_OVERRIDE);
 	}
 }
 
