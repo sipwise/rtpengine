@@ -1,3 +1,41 @@
+ngcp-rtpengine (7.4.1.0+0~mr7.4.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a4cca5f] fix compilation for glib >= 2.60
+  * [77e31f1] fix race condition after media player shutdown
+  * [985cd44] fix possible segfault after failed port alloc w/ iptables option
+  * [491865a] test case for github issue #766
+  * [eb60289] TT#58659 fix incorrect escape seq in test script
+  * [5acbf1e] TT#58659 always use the correct codec handler per packet
+  * [b0b43ce] TT#58659 update test script for consistent seq numbers
+  * [2298de7] honour a=rtcp-fb in SDP even if transport is advertised as RTP/(S)AVP
+  * [94f3c0e] TT#58659 remove redundant source PT definition
+  * [af02779] increase buffer size for cmsg
+  * [5308208] further rate limiting for log messages from libav
+  * [db50746] TT#59100 support case insensitive codec names
+  * [ca30eca] correctly set frame_duration option for Opus
+  * [194c9e4] TT#58659 add optional encoder detour
+  * [c0781e5] TT#58659 RFC DTMF to PCM transcoding
+  * [910c03f] TT#58660 PCM to RFC DTMF transcoding
+  * [6a4b08c] add documentation for DTMF transcoding
+  * [e17544a] rate limit log lines resulting from strict-source drops
+  * [7ad9906] TT#59650 fix DTMF related core dump when repacketising
+  * [5ad55f4] add spandsp to list of build requirements
+  * [7803930] TT#59703 generalise build test make macros
+  * [f960799] TT#59703 add build test for dtmf_rx_fillin()
+  * [166aaa0] fix compilation for with_transcoding=no
+  * [fcb08df] TT#59805 add dtmf-log-dest option
+  * [690b8d9] TT#60300 add LimitNOFILE to recording daemon systemd unit
+  * [988d077] TT#60301 fix rtcp-mux logic with branched calls
+  * [f6f484f] TT#59501 add optional RTCP sink
+
+  [ Vitalii Aleksandrov ]
+  * [fe18043] Insert streambuf object to listener->streams before adding it to poller
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 17 Jun 2019 14:39:38 +0200
+
 ngcp-rtpengine (7.4.0.0+0~mr7.4.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
