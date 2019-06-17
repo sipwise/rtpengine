@@ -13,7 +13,7 @@
 #include "resample.h"
 
 
-#define NUM_INPUTS 4
+#define NUM_INPUTS 2
 
 
 struct mix_s {
@@ -91,8 +91,8 @@ int mix_config(mix_t *mix, const format_t *format) {
 		goto err;
 
 	// amix
-	err = "no amix filter available";
-	const AVFilter *flt = avfilter_get_by_name("amix");
+	err = "no amerge filter available";
+	const AVFilter *flt = avfilter_get_by_name("amerge");
 	if (!flt)
 		goto err;
 
