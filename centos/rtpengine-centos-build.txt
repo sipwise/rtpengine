@@ -1,0 +1,49 @@
+# build notes for rtpengine under CentOS
+# uses spec and  other files from Anthony Messina:  https://messinet.com/rpms/browser/rtpengine?order=name
+# uses rtpengine release tarfile:  https://github.com/sipwise/rtpengine/releases
+
+as root
+# yum update
+# reboot
+yum -y install epel-release
+yum install gcc make pkgconfig redhat-rpm-config rpm-build glib2-devel libcurl-devel pcre-devel
+yum -y --enablerepo=updates install openssl-devel systemd-devel
+yum -y install xmlrpc-c-devel zlib-devel hiredis-devel libpcap-devel libevent-devel json-glib-devel shadow-utils nc mysql-devel
+yum localinstall --nogpgcheck https://download1.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm
+yum -y install ffmpeg ffmpeg-libs ffmpeg-devel
+yum -y install iptables iptables-ipv6 dkms iptables-devel gperf perl-generators perl-IPC-Cmd
+yum -y --enablerepo=epel-testing install bcg729-devel
+yum -y --enablerepo=updates install "kernel-devel-uname-r == $(uname -r)"
+yum -y install kmodtool elfutils-libelf-devel
+
+# as user ec2-user:
+su - ec2-user
+mkdir -p ~/rpmbuild/{SOURCES,SPECS,BUILD,BUILDROOT,SRPMS}
+
+# use rtpengine.spec file from Kevin Doren
+# Check github for latest rtpengine release:  https://github.com/sipwise/rtpengine/releases
+# edit version number in rtpengine.spec if required; set release to 0 unless making updated RPMs of same release
+
+# patch file is needed only if making update to the release tarball from the master branch.
+# if not updating with patchfile, comment out _gitrev define (top of rtpengine.spec), like this (use %%):   # %%global _gitrev a4cca5f
+
+# if using patchfile, get from messinet.com:  https://messinet.com/rpms/browser/rtpengine
+wget -P ~/rpmbuild/SOURCES/ https://messinet.com/rpms/export/0f3224364d3b23d529a82c67401850bb24fb3fb8/rtpengine/rtpengine-master.patch
+# or patchfile can be generated locally
+# From the rtpengine git repository with the master branch checked out:
+# git diff --patch --stat mr7.2.1.4 > ~/rpmbuild/SOURCES/rtpengine-master.patch
+
+# build
+# have rpmbuild download the source tarball if not present
+rpmbuild --undefine=_disable_source_fetch -ba ~/rpmbuild/SPECS/rtpengine.spec
+# 
+# can also download the source tarball manually (must match version in rtpengine.spec - use "mr" + version number)
+wget -P ~/rpmbuild/SOURCES/ https://github.com/sipwise/rtpengine/archive/mr7.2.1.4.tar.gz
+rpmbuild -ba ~/rpmbuild/SPECS/rtpengine.spec
+
+# I have seen build of rtpengine-recording fail in ssllib.c with redefinition errors, if that happens just run rpmbuild again.
+
+
+sudo yum install ~/rpmbuild/RPMS/x86_64/{rtpengine-7.3.1.1-0.el7.x86_64.rpm,rtpengine-kernel-7.3.1.1-0.el7.x86_64.rpm,rtpengine-recording-daemon-7.3.1.1-0.el7.x86_64.rpm}
+sudo yum install ~/rpmbuild/RPMS/noarch/rtpengine-firewalld-7.3.1.1-0.el7.noarch.rpm ~/rpmbuild/RPMS/noarch/rtpengine-dkms-7.3.1.1-0.el7.noarch.rpm
+

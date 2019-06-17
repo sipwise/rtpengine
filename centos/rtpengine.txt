@@ -1,0 +1,151 @@
+
+
+
+rtpengine / drachtio   build notes
+
+##################################################
+# 
+#   Drachtio and nodejs control app
+
+#   CentOS 7.5   -   drachtio
+
+yum install vim
+yum install redis
+systemctl start redis
+systemctl enable redis
+
+yum install docker
+systemctl start docker
+systemctl enable docker
+
+# drachtio server
+docker run -d --rm --name drachtio --net=host drachtio/drachtio-server drachtio --contact "sip:10.141.12.12:5070;transport=udp,tcp" --contact "sip:10.141.12.12:5072;transport=udp,tcp" --loglevel debug
+docker ps
+
+# nodejs SIPREC app
+cd ~
+git clone https://github.com/davehorton/drachtio-siprec-recording-server.git
+cd drachtio-siprec-recording-server/config
+vim local.json
+{
+  "drachtio": {
+    "host": "127.0.0.1",
+    "port": 9022,
+    "secret": "cymru"
+  },
+  "rtpengine" : {
+    "remote": {
+      "host": "10.141.12.13",      <<<----  ip of rtpengine server
+      "port": 2223
+    },
+    "localPort": 22223             <<<---- not sure what this is for
+  }
+}
+
+npm install
+cd ..
+node app
+
+
+
+
+
+
+####################################################
+
+RTPENGINE
+
+I built rtpengine under Ubuntu 18.04 because rtpengine is developed under debian.
+In the repo there is an "el" directory which describes building under CentOS,
+so that should work also once we get the dependencies right.
+Ubuntu build does not create systemd unit files,
+so rtpengin and rtpengine-recording daemons need to be started manually.
+
+# Ubuntu 18.04  -  rtpengine server
+
+# install prerequisites
+apt-get update
+apt-get install dpkg-dev pkg-config openssl ffmpeg libxmlrpc-core-c3 libhiredis-dev libpcre3-dev libiptc-dev 
+apt-get install build-essential zlib1g-dev pkg-config libglib2.0-dev binutils-dev libboost-all-dev autoconf libtool libssl-dev
+apt-get install debhelper iptables-dev libavcodec-dev libavfilter-dev libavformat-dev libavutil-dev gperf libbencode-perl libcrypt-openssl-rsa-perl libcrypt-rijndael-perl libcurl4-openssl-dev
+apt-get install libdigest-crc-perl libdigest-hmac-perl libevent-dev libio-multiplex-perl libio-socket-inet6-perl libjson-glib-dev
+apt-get install default-libmysqlclient-dev libnet-interface-perl libpcap0.8-dev libsystemd-dev markdown
+apt-get install dkms nfs-common redis
+
+# install docker (for building bdg729 codec)
+apt install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
+apt update
+apt-cache policy docker-ce
+apt install docker-ce
+systemctl status docker
+usermod -aG docker ubuntu
+
+# G729 codec build & install
+git clone https://github.com/ossobv/bcg729-deb.git
+cd bcg729-deb/
+./Docker.build
+ls Docker.out/stretch/bcg729_1.0.4-0osso2+d9/
+dpkg -i Docker.out/stretch/bcg729_1.0.4-0osso2+d9/{libbcg729-0_1.0.4-0osso2+d9_amd64.deb,libbcg729-dev_1.0.4-0osso2+d9_amd64.deb}
+
+
+# rtpengine
+git clone https://github.com/sipwise/rtpengine.git
+cd rtpengine
+dpkg-buildpackage
+cd ..
+dpkg -i ngcp-rtpengine-daemon_7.1.0.0+0~mr7.1.0.0_amd64.deb ngcp-rtpengine-iptables_7.1.0.0+0~mr7.1.0.0_amd64.deb ngcp-rtpengine-kernel-dkms_7.1.0.0+0~mr7.1.0.0_all.deb ngcp-rtpengine-recording-daemon_7.1.0.0+0~mr7.1.0.0_amd64.deb
+
+
+vim /etc/rtpengine/rtpengine.conf
+in [rtpengine] section set:
+no-fallback = true
+interface = 10.141.12.13          # interface(s) to use
+listen-ng = 10.141.12.13:2223     # control interface:port
+recording-method = proc           # expose realtime RTP stream to proc file system for recording daemon
+redis = 127.0.0.1:6379/5
+
+
+modprobe xt_RTPENGINE
+iptables -I INPUT -p udp -j RTPENGINE --id 0
+ip6tables -I INPUT -p udp -j RTPENGINE --id 0
+/usr/sbin/rtpengine
+# chmod 755 /var/spool/rtpengine
+
+# rtpengine-recording
+cp /etc/rtpengine-recording.sample.conf /etc/rtpengine/rtpengine-recording.conf
+
+vim /etc/rtpengine/rtpengine-recording.conf
+in [rtpengine-recording] section, set
+output-format = wav
+spool-dir = /var/spool/rtpengine
+output-dir = /var/lib/rtpengine-recording
+resample-to = 8000
+output-mixed = 1
+output-single = 0
+
+chmod 777 /var/lib/rtpengine-recording/
+/usr/sbin/rtpengine
+
+to produce to channels in wavfiles, in recording-daemon/decoder.c:
+after  line "// mono/stereo mixing goes here: out_format.channels = ..."
+add
+       out_format.channels = 2;
+       out_format.format = AV_SAMPLE_FMT_S16;
+
+then make, kill old process, start new binary.
+This will create wavfile with 2 channels, but each will same content (mono mix of both RTP channels).
+getting stereo output will require mods to decoder.c and some knowledge of libavfilter
+
+
+# amazon-kinesis-video-streams-producer-sdk-cpp
+apt-get install bison flex openjdk-8-jdk cmake
+git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git
+cd amazon-kinesis-video-streams-producer-sdk-cpp/kinesis-video-native-build
+./install-script
+
+
+http://www.programmersought.com/article/588071317/
+
+
