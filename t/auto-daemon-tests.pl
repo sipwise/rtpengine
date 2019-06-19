@@ -32,7 +32,7 @@ SKIP: {
 # keep trying to connect to the control socket while daemon is starting up
 my $c;
 for (1 .. 300) {
-	$c = NGCP::Rtpengine->new($ENV{RTPENGINE_HOST} // 'localhost', $ENV{RTPENGINE_PORT} // 2223);
+	$c = NGCP::Rtpengine->new($ENV{RTPENGINE_HOST} // '127.0.0.1', $ENV{RTPENGINE_PORT} // 2223);
 	last if $c->{socket};
 	Time::HiRes::usleep(100000); # 100 ms x 300 = 30 sec
 }
