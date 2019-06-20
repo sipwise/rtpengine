@@ -2455,6 +2455,8 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 	struct call *call = ml->call;
 
 	__C_DBG("tagging monologue with '"STR_FORMAT"'", STR_FMT(tag));
+	if (ml->tag.s)
+		g_hash_table_remove(call->tags, &ml->tag);
 	call_str_cpy(call, &ml->tag, tag);
 	g_hash_table_insert(call->tags, &ml->tag, ml);
 }
@@ -2672,7 +2674,7 @@ static struct call_monologue *call_get_dialogue(struct call *call, const str *fr
 
 	/* the fromtag monologue may be newly created, or half-complete from the totag, or
 	 * derived from the viabranch. */
-	if (!ft->tag.s)
+	if (!ft->tag.s || str_cmp_str(&ft->tag, fromtag))
 		__monologue_tag(ft, fromtag);
 
 	__monologue_unkernelize(ft->active_dialogue);
