@@ -2600,6 +2600,170 @@ rcv($sock_a, $port_b, rtpm(101, 4003, 5320, $ssrc, "\x05\x0a\x01\x40"));
 
 
 
+# media playback after a delete
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3020)], [qw(198.51.100.3 3022)]);
+
+offer('media playback after delete', { ICE => 'remove', replace => ['origin'],
+	'rtcp-mux' => ['demux'], 'via-branch' => 'xxxx', flags => ['strict-source', 'record-call'],
+	'transport-protocol' => 'RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3020 RTP/AVP 98 97 8 0 3 101
+c=IN IP4 198.51.100.1
+a=rtpmap:98 speex/16000
+a=rtpmap:97 speex/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=direction:both
+a=sendrecv
+a=ptime:20
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 98 97 8 0 3 101
+c=IN IP4 203.0.113.1
+a=direction:both
+a=rtpmap:98 speex/16000
+a=rtpmap:97 speex/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('media playback after delete', { replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
+	'rtcp-mux' => ['demux'], 'via-branch' => 'xxxx' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3022 RTP/AVP 8 0 3 101
+c=IN IP4 198.51.100.3
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=direction:both
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 3 101
+c=IN IP4 203.0.113.1
+a=direction:both
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+rtpe_req('delete', 'media playback after delete', { 'from-tag' => $ft });
+
+# new to-tag
+$tt = $tag_iter++ . "-test-totag";
+
+offer('media playback after delete', { ICE => 'remove', replace => ['origin'],
+	'transport-protocol' => 'transparent', flags => ['strict-source', 'record-call'],
+	'rtcp-mux' => ['demux'], 'via-branch' => 'xxxx' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3020 RTP/AVP 98 97 8 0 3 101
+c=IN IP4 198.51.100.1
+a=rtpmap:98 speex/16000
+a=rtpmap:97 speex/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=direction:both
+a=sendrecv
+a=ptime:20
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 98 97 8 0 3 101
+c=IN IP4 203.0.113.1
+a=direction:both
+a=rtpmap:98 speex/16000
+a=rtpmap:97 speex/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('media playback after delete', { replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
+	'rtcp-mux' => ['demux'], 'via-branch' => 'xxxx' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 3022 RTP/AVP 8 0 101
+c=IN IP4 198.51.100.3
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=direction:both
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=direction:both
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+#rtpe_req('block media', 'media playback after delete', { });
+
+$resp = rtpe_req('play media', 'media playback after delete', { 'from-tag' => $tt, 'to-tag' => $tt,
+		blob => $wav_file });
+is $resp->{duration}, 100, 'media duration';
+
+($seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+rcv($sock_b, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
+rcv($sock_b, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
+rcv($sock_b, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
+rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
+
+
+
+
 END {
 	if ($rtpe_pid) {
 		kill('INT', $rtpe_pid) or die;
