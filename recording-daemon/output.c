@@ -170,7 +170,11 @@ void output_close(output_t *output) {
 void output_init(const char *format) {
 	str codec;
 
-	if (!strcmp(format, "wav")) {
+	if (!strcmp(format, "spx")) {
+		str_init(&codec, "speex");
+		output_file_format = "spx";
+	}
+	else if (!strcmp(format, "wav")) {
 		str_init(&codec, "PCM-S16LE");
 		output_file_format = "wav";
 	}
