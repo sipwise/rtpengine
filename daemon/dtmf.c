@@ -82,6 +82,7 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 			dtmflog(buf);
 		if (dtmf_log_sock.family)
 			send(dtmf_log_sock.fd, buf->str, buf->len, 0);
+		g_string_free(buf, TRUE);
 
 		ret = 1; // END event
 	}
