@@ -1047,7 +1047,7 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	enc->frame = av_frame_alloc();
 
 	if (enc->actual_format.format != -1 && enc->actual_format.clockrate > 0) {
-		enc->frame->nb_samples = enc->samples_per_frame ? : 256;
+		enc->frame->nb_samples = enc->samples_per_frame ? : (enc->u.avc.avcctx->frame_size ? : 256);
 		enc->frame->format = enc->actual_format.format;
 		enc->frame->sample_rate = enc->actual_format.clockrate;
 		enc->frame->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
@@ -1113,6 +1113,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 	if (*frame) {
+		dbg(">>>>>>> avcodec_send_frame: nb_samples (%d) != frame_size (%d) (avcodec_encode_audio2)?", (*frame)->nb_samples, enc->u.avc.avcctx->frame_size);
 		av_ret = avcodec_send_frame(enc->u.avc.avcctx, *frame);
 		dbg("send frame ret %i", av_ret);
 		if (av_ret == 0) {
