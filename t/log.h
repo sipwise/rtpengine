@@ -20,7 +20,6 @@ INLINE void dtmflog(GString *s) {
 	if (dtmf_logs->len > 0)
 		g_string_append(dtmf_logs, "\n");
 	g_string_append_len(dtmf_logs, s->str, s->len);
-	g_string_free(s, TRUE);
 }
 
 #endif
