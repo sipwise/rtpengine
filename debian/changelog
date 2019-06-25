@@ -1,3 +1,12 @@
+ngcp-rtpengine (7.3.1.2+0~mr7.3.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [cfebd09] TT#61050 detect to-tag changes via via-branch
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 25 Jun 2019 14:30:23 +0200
+
 ngcp-rtpengine (7.3.1.1+0~mr7.3.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
