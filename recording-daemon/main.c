@@ -26,6 +26,7 @@
 #include "codeclib.h"
 #include "socket.h"
 #include "ssllib.h"
+#include "ahclient/ahclient.h"
 
 
 
@@ -56,7 +57,6 @@ volatile int shutdown_flag;
 struct rtpengine_common_config rtpe_common_config;
 
 
-
 static void signals(void) {
 	sigset_t ss;
 
@@ -70,6 +70,11 @@ static void signals(void) {
 
 
 static void setup(void) {
+#if _WITH_AH_CLIENT
+	//create ahclient
+	init_ahclient();
+#endif
+	
 	log_init("rtpengine-recording");
 	rtpe_ssl_init();
 	socket_init();
@@ -135,6 +140,10 @@ static void wait_for_signal(void) {
 
 
 static void cleanup(void) {
+#if _WITH_AH_CLIENT
+	destroy_ahclient();
+#endif
+	
 	garbage_collect_all();
 	metafile_cleanup();
 	inotify_cleanup();
