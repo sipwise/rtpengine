@@ -42,10 +42,10 @@ unsent_buf_node_t * get_next_node(ahclient_mux_channel_t *  channel) {
     unsent_buf_node_t *  node = channel->unsent_buf_head;
     if (node != NULL) {
         channel->unsent_buf_head = node->next;
+        if (channel->unsent_buf_head == NULL ) {
+            channel->unsent_buf_tail = NULL;
+        }
     }   
-    if (channel->unsent_buf_head == NULL ) {
-        channel->unsent_buf_tail = NULL;
-    }
     pthread_mutex_unlock(&channel->buffer_mutex);
 
     return node;
