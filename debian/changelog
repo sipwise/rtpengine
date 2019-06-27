@@ -1,3 +1,16 @@
+ngcp-rtpengine (6.5.5.1+0~mr6.5.5.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [bd06812] TT#56553 fix double G.722 sample rate issues
+  * [f6bb70e] fix possible segfault after failed port alloc w/ iptables option
+  * [8e0de3a] correctly set frame_duration option for Opus
+  * [ceeda92] rate limit log lines resulting from strict-source drops
+  * [8d99281] TT#60301 fix rtcp-mux logic with branched calls
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 27 Jun 2019 15:52:47 +0200
+
 ngcp-rtpengine (6.5.5.0+0~mr6.5.5.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
