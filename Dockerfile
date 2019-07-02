@@ -1,4 +1,4 @@
-FROM centos:centos7.6.1810
+FROM centos:latest
 
 #ENV Project "$HOME/rtpengine"
 

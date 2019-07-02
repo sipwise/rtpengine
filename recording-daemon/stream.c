@@ -53,11 +53,12 @@ static void stream_handler(handler_t *handler) {
 
 	buf = malloc(ALLOCLEN);
 	int ret = read(stream->fd, buf, MAXBUFLEN);
+	
 	if (ret == 0) {
 		ilog(LOG_INFO, "EOF on stream %s", stream->name);
 		stream_close(stream);
 #if  _WITH_AH_CLIENT
-	ahclient_close_stream(stream->metafile);
+		ahclient_close_stream(stream->metafile);
 #endif
 		goto out;
 	}
@@ -73,7 +74,7 @@ static void stream_handler(handler_t *handler) {
 	pthread_mutex_unlock(&stream->lock);
 
 #if  _WITH_AH_CLIENT
-	ahclient_post_stream(stream->metafile,buf,ret);
+	ahclient_post_stream(stream->metafile,stream->id, buf,ret);
 #endif
 	if (forward_to){
 		if (forward_packet(stream->metafile,buf,ret)) // leaves buf intact

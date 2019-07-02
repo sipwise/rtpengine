@@ -9,27 +9,22 @@
 #include <semaphore.h>
 #include <pthread.h>
 
-const char * AH_IP = "10.141.0.97";
-const unsigned int AH_PORT = 5570;
-
 //// ahclient related
 // A global singleton instance of ahclient
 ahclient_t * ahclient_instance = NULL;
 
-void init_ah_server_address(sockaddr_in_t * ahserver) {
-    ahserver->sin_addr.s_addr = inet_addr(AH_IP);
-    ahserver->sin_port = htons(AH_PORT);
-    ahserver->sin_family = AF_INET;  /* internetwork: UDP, TCP, etc. */
-}
-
 // WARN : it's not a thread safe singleton, should not be called from multiple threads
-void init_ahclient(void){
+void init_ahclient(char * ah_ip, unsigned int ah_port){
+    ilog(LOG_INFO, "init_ahclient : %s:%d", ah_ip, ah_port);
+
     if (ahclient_instance == NULL) {
         // Create instance
         ahclient_instance = (ahclient_t *)malloc(sizeof( ahclient_t));
    
         // Init AH server address
-        init_ah_server_address(&ahclient_instance->ah_server_address);
+        ahclient_instance->ah_server_address.sin_addr.s_addr = inet_addr(ah_ip);
+        ahclient_instance->ah_server_address.sin_port = htons(ah_port);
+        ahclient_instance->ah_server_address.sin_family = AF_INET;
 
         // Init channels linklist to NULL
         ahclient_instance->channels = NULL;
@@ -41,6 +36,8 @@ void init_ahclient(void){
 
 // WARN : it's not a thread safe singleton, should not be called from multiple threads
 void destroy_ahclient(void) {
+    ilog(LOG_INFO, "destroy_ahclient");
+
     if (ahclient_instance != NULL) {
 
         // lock channels mutex to close all channel
@@ -67,7 +64,13 @@ void destroy_ahclient(void) {
 
             // destroy mutex & semaphore
             sem_destroy(&channel->thread_sem);
-            pthread_mutex_destroy(&channel->buffer_mutex);
+            // delete node & mutex
+            int i;
+            for (i = 0; i < CHANNEL_COUNT; ++i) {
+                pthread_mutex_destroy(&channel->buffer_mutex[i]);
+                delete_unsent_buf_node(channel->unsent_buf_head[i], TRUE);
+            }
+            if (channel->retry_buf) free(channel->retry_buf);
 
             free(channel);
             channel = NULL;
@@ -105,7 +108,7 @@ socket_handler_t create_ah_connection(void){
     return handler;
 }
 
-BOOL same_uid(char * a, char * b) {
+BOOL same_uid(const char * a, const char * b) {
     BOOL ret = FALSE;
     if ( a != NULL && b != NULL) {
         int i = 0;
@@ -118,7 +121,7 @@ BOOL same_uid(char * a, char * b) {
 }
 
 // lock channels_mutex before call this function 
-channel_node_t * find_channe_nodel(metafile_t * metafile, channel_node_t ** p_pre_node, BOOL create)
+channel_node_t * find_channe_nodel(const metafile_t * metafile, channel_node_t ** p_pre_node, BOOL create)
 {
     
     channel_node_t * channel_node = NULL;
@@ -133,6 +136,8 @@ channel_node_t * find_channe_nodel(metafile_t * metafile, channel_node_t ** p_pr
         node = node->next;
     }
     if (channel_node == NULL && create) {
+        char uid[UIDLEN + 1];
+        ilog(LOG_INFO, "Create new channel : %s", show_UID(metafile->call_id, uid));
         // not found 
         ahclient_mux_channel_t * channel = new_ahclient_mux_channel(metafile);
         channel_node = (channel_node_t *)malloc(sizeof(channel_node_t));
@@ -149,26 +154,31 @@ channel_node_t * find_channe_nodel(metafile_t * metafile, channel_node_t ** p_pr
 
 
 /**********************
-/* Will create a new channel for each call, add this channel to a linked list
-/* ahchannel_post_stream will asynchorize append the buffer to the linked list in which channel
-/* Whitin each channel, has a worker thread to sent the buffer to AH server 
+* Will create a new channel for each call, add this channel to a linked list
+* ahchannel_post_stream will asynchorize append the buffer to the linked list in which channel
+* Whitin each channel, has a worker thread to sent the buffer to AH server 
 ********************/
-void ahclient_post_stream(metafile_t * metafile, unsigned char * buf, int len)
+void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned char * buf, int len)
 {
-    // TODO : attach stream to proper channel 
+    //char uid[UIDLEN + 1];
+    //ilog(LOG_INFO, "post stream [%s],id: %d length = %d.", show_UID(metafile->call_id, uid), id, len);
+
+    if (id != STREAM_ID_L_RTP && id != STREAM_ID_R_RTP) return;
     pthread_mutex_lock(&ahclient_instance->channels_mutex);
     channel_node_t * channel_node = find_channe_nodel(metafile, NULL, TRUE);
     pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 
-    ahchannel_post_stream(channel_node->channel, buf, len);
+    ahchannel_post_stream(channel_node->channel, id, buf, len);
 }
 
 /**********************
-/* Will close this channel
-/* Send a close signal to the worker thread, first try to sent out all remaining data
-/* then it will try to shutdown the socket connection and release all resource
+* Will close this channel
+* Send a close signal to the worker thread, first try to sent out all remaining data
+* then it will try to shutdown the socket connection and release all resource
 ********************/
-void ahclient_close_stream(metafile_t * metafile) {
+void ahclient_close_stream(const metafile_t * metafile) {
+    char uid[UIDLEN + 1];
+    ilog(LOG_INFO, "Closing stream [%s]", show_UID(metafile->call_id, uid));
 
     channel_node_t * channel_node = NULL;
     channel_node_t * pre_node = NULL;
@@ -190,5 +200,56 @@ void ahclient_close_stream(metafile_t * metafile) {
     }
     pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 }
+
+void log_bineary_buffer(unsigned char * buf,  int buf_len, int show_line)
+{
+    char line[SIZE_OF_SHOW_BUF_LINE]; 
+    int c = 1;
+        while ( buf != NULL && buf_len > 0 && c <= show_line ) {
+            char * show_buf = line;
+
+            int i = 0;
+            int max_len = ((16 < buf_len) ? 16 : buf_len);
+
+            for (i = 0; i < max_len; i++) {
+                sprintf(show_buf, "%02x ", buf[i]);
+                show_buf += 3;
+            }
+            for ( ; i < 16; i++) {
+                *show_buf++  = '.';
+                *show_buf++  = '.';
+                *show_buf++  = ' ';
+            }
+             *show_buf++  = '|';
+             *show_buf++  = ' ';
+             
+            for (i = 0; i < max_len; i++) {
+                if (*buf >= 0x20 && *buf <= 0x7E) 
+                    *show_buf++  = *buf++ ;
+                else {
+                    *show_buf++  = '.';
+                    buf++;
+                }
+            }
+            buf_len -= 16;
+
+            if ( buf_len <= 0) {
+                memcpy(show_buf, "<END>\n", 6);
+            } 
+                *show_buf++  = 0;
+
+            ilog(LOG_INFO, "%02d : %s", c++, line);
+        }
+
+    return;
+}
+
+char * show_UID(char * uid, char * show_buf)
+{
+    memcpy(show_buf, uid, UIDLEN);
+    show_buf[UIDLEN] = 0;
+    return show_buf;
+}
+
 
 #endif // _WITH_AH_CLIENT

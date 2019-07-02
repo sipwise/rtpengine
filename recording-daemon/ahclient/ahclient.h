@@ -14,6 +14,9 @@
 #include "arpa/inet.h"	//inet_addr
 #include <unistd.h>
 
+#define STREAM_ID_L_RTP				0
+#define STREAM_ID_R_RTP				2
+
 #define UIDLEN     18           // UID
 #ifndef BOOL
 typedef unsigned int BOOL;
@@ -46,16 +49,21 @@ typedef struct  ahclient
     channel_node_t * channels;
 } ahclient_t;
 
-void init_ahclient(void);
+void init_ahclient(char * ah_ip, unsigned int ah_port);
 void destroy_ahclient(void);
 
-void ahclient_post_stream(metafile_t * metafile, unsigned char * buf, int len);
-void ahclient_close_stream(metafile_t * metafile);
+void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned char * buf, int len);
+void ahclient_close_stream(const metafile_t * metafile);
 
 // find a channel from the linked list, if not found, will create one
 // ahclient_mux_channel_t * find_channel(UID callid);
 
 socket_handler_t create_ah_connection(void);
+
+#define SIZE_OF_SHOW_BUF_LINE  80
+char * show_UID(char * uid, char * show_buf);
+void log_bineary_buffer(unsigned char * buf, int len, int show_line);
+
 #endif  // _WITH_AH_CLIENT
 
 #endif // _ah_client_h

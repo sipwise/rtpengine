@@ -10,8 +10,7 @@
 #include <netinet/in.h>
 
 #define BLOCK_BUFFERSIZE 8192
-#define USM_BUFFERSIZE  BLOCK_BUFFERSIZE*16
-
+#define CHANNEL_COUNT    2
 #define NETWORK_PACKET_SIGNATURE    "SOKQ"              // Signature for network packets
 #define PAYLOAD_TYPE_BUFFER    3                   // Payload points to a memory buffer
 #define STREAM_HEADER_SIGANATURE    "SPKSTM"
@@ -23,14 +22,18 @@ typedef struct audio_strem_header {
     unsigned char channel_count;
     unsigned short sample_rate;
     unsigned short sample_count;
+    char           alignment_padding;  // Use this to calculat the actual size of struct 
 } audio_strem_header_t;
-void init_audio_strem_header_t(audio_strem_header_t * audio_strem_header, metafile_t * metafile );
 
+void init_audio_strem_header_t(audio_strem_header_t * audio_strem_header, const metafile_t * metafile );
+
+#define AHCLIENT_PACKET_HEADER_LEGTH 8 // = sizeof (signature) + sizeof(length)
 typedef struct ahclient_payload_header {
-    char            signature[4];
+    char            signature[4];       // SOKQ
     unsigned int    length;
     unsigned int    event_id;
     int16_t         payload_type;
+    char            alignment_padding;  // Use this to calculat the actual size of struct 
 } ahclient_payload_header_t;
 void init_ahclient_payload_header_t(ahclient_payload_header_t * ahclient_payload_header);
 
@@ -50,22 +53,27 @@ typedef struct ahclient_mux_channel {
     ahclient_payload_header_t payload_header;
     audio_strem_header_t stream_header;
 
-    pthread_mutex_t buffer_mutex;
-    // linked list of unsent buffer
-    unsent_buf_node_t * unsent_buf_head;
-    unsent_buf_node_t * unsent_buf_tail;
-  
+    pthread_mutex_t buffer_mutex[CHANNEL_COUNT];
+    unsent_buf_node_t * unsent_buf_head[CHANNEL_COUNT];
+    unsent_buf_node_t * unsent_buf_tail[CHANNEL_COUNT];
+    unsigned int        unsent_buf_size[CHANNEL_COUNT];
+
+    unsigned int retry_buf_len;
+    unsigned char * retry_buf;
+
+    unsigned int        audio_raw_bytes_sent;
+
     BOOL        close_channel;
 } ahclient_mux_channel_t;
 
-unsent_buf_node_t * new_unsent_buf_node(ahclient_mux_channel_t *  channel, unsigned char * buf, int len);
+unsent_buf_node_t * new_unsent_buf_node(ahclient_mux_channel_t *  channel,int id, const unsigned char * buf, int len);
 void delete_unsent_buf_node(unsent_buf_node_t * node, BOOL recursive);
 
-ahclient_mux_channel_t * new_ahclient_mux_channel(metafile_t * metafile);
+ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile);
 void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance);
 void send_close_signal(ahclient_mux_channel_t * instance);
 
-void ahchannel_post_stream(ahclient_mux_channel_t *  channel, unsigned char * buf, int lne);
+void ahchannel_post_stream(ahclient_mux_channel_t *  channel, int id, const unsigned char * buf, int lne);
 
 #endif  // _WITH_AH_CLIENT
 #endif
