@@ -1,3 +1,19 @@
+ngcp-rtpengine (7.4.2.0+0~mr7.4.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [969cb2a] change localhost to 127.0.0.1 to avoid resolv problems
+  * [14a62db] fix unit test after 8fb603e5
+  * [c8b5963] TT#61050 detect to-tag changes via via-branch
+  * [8c8b933] add missing header include
+  * [b3eebca] TT#61850 normalize `address:port` log printing
+
+  [ Razvan Crainea ]
+  * [0048315] dtmf: prevent freeing json buf too early
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 02 Jul 2019 13:10:25 +0200
+
 ngcp-rtpengine (7.4.1.0+0~mr7.4.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
