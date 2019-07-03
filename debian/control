@@ -5,7 +5,7 @@ Maintainer: Sipwise Development Team <support@sipwise.com>
 Homepage: https://www.sipwise.com/
 Standards-Version: 3.9.8
 Build-Depends:
- debhelper (>= 10~),
+ debhelper-compat (= 12),
  default-libmysqlclient-dev,
  gperf,
  iptables-dev (>= 1.4),
@@ -109,7 +109,7 @@ Package: ngcp-rtpengine-kernel-source
 Architecture: all
 Section: kernel
 Depends:
- debhelper (>= 5),
+ debhelper-compat (= 12),
  module-assistant,
  ${misc:Depends},
 Conflicts:
