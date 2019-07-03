@@ -36,7 +36,7 @@ override_dh_auto_install-indep:
 	# Copy the needed debian/ pieces to the proper location
 	cp debian/*.modules.in* debian/$(psource)/usr/src/modules/$(sname)/debian
 	cp debian/control debian/changelog debian/copyright \
-		debian/compat debian/$(psource)/usr/src/modules/$(sname)/debian/
+		debian/$(psource)/usr/src/modules/$(sname)/debian/
 	install -m 0755 debian/rules.modules debian/$(psource)/usr/src/modules/$(sname)/debian/rules
 	cd debian/$(psource)/usr/src && tar c modules | bzip2 -9 > $(sname).tar.bz2 && rm -rf modules
 
@@ -58,10 +58,9 @@ override_dh_install:
 override_dh_strip:
 	dh_strip --dbgsym-migration='ngcp-rtpengine-dbg (<= 6.0.0.0+0~mr6.0.0.0)'
 
-override_dh_systemd_enable:
-	dh_systemd_enable
-	dh_systemd_enable -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount
+override_dh_dwz:
+	# Disable, as dwz cannot cope with some of the plugins generated.
 
-override_dh_systemd_start:
-	dh_systemd_start
-	dh_systemd_start -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount
+override_dh_installsystemd:
+	dh_installsystemd
+	dh_installsystemd -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount
