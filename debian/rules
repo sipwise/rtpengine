@@ -61,10 +61,6 @@ override_dh_strip:
 override_dh_installinit:
 	dh_installinit --no-start
 
-override_dh_systemd_enable:
-	dh_systemd_enable --no-enable
-	dh_systemd_enable -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount --no-enable
-
-override_dh_systemd_start:
-	dh_systemd_start --no-start
-	dh_systemd_start -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount --no-start
+override_dh_installsystemd:
+	dh_installsystemd --no-enable --no-start
+	dh_installsystemd -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount --no-enable --no-start
