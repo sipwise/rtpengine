@@ -62,7 +62,7 @@ override_dh_dwz:
 	# Disable, as dwz cannot cope with some of the plugins generated.
 
 override_dh_installinit:
-	dh_installinit --no-start
+	dh_installinit --no-enable --no-start
 
 override_dh_installsystemd:
 	dh_installsystemd --no-enable --no-start
