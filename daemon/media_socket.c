@@ -1567,7 +1567,6 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 					phc->mp.stream->endpoint.port));
 				atomic64_inc(&phc->mp.stream->stats.errors);
 				ret = -1;
-				goto out;
 			}
 		}
 		phc->kernelize = 1;
@@ -1785,12 +1784,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 
 	int address_check = media_packet_address_check(phc);
-	if (address_check)
-		goto drop;
-
 	if (phc->kernelize)
 		media_packet_kernel_check(phc);
-
+	if (address_check)
+		goto drop;
 
 	mutex_lock(&phc->sink->out_lock);
 
