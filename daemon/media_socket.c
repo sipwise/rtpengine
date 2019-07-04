@@ -1567,7 +1567,6 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 					phc->mp.stream->endpoint.port));
 				atomic64_inc(&phc->mp.stream->stats.errors);
 				ret = -1;
-				goto out;
 			}
 		}
 		phc->kernelize = 1;
