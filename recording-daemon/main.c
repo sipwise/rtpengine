@@ -56,8 +56,10 @@ volatile int shutdown_flag;
 
 struct rtpengine_common_config rtpe_common_config;
 
+#if _WITH_AH_CLIENT
 char * g_ah_ip = "255.255.255.255"; // space reserved, will be read from /etc/rtpengine/rtpengine-recording.conf
 unsigned int g_ah_port = 5570;  // will be read from /etc/rtpengine/rtpengine-recording.conf
+#endif
 
 static void signals(void) {
 	sigset_t ss;
@@ -176,8 +178,10 @@ static void options(int *argc, char ***argv) {
 		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,	&forward_to,	"Where to forward to (unix socket)",	"PATH"		},
 		{ "tls-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tls_send_to,	"Where to send to (TLS destination)",	"IP:PORT"	},
 		{ "tls-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TLS PCM output",	"INT"		},
+#if _WITH_AH_CLIENT
 		{ "ah_ip", 			0,   0, G_OPTION_ARG_STRING,	&g_ah_ip,	"The ip address of audio harvester server",	"IP"	},
 		{ "ah_port", 		0,   0, G_OPTION_ARG_INT,		&g_ah_port,	"The port number of audio harvester server",	"INT"		},
+#endif
 		{ NULL, }
 	};
 
