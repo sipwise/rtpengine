@@ -12,6 +12,8 @@
 //// ahclient related
 // A global singleton instance of ahclient
 ahclient_t * ahclient_instance = NULL;
+const int  STREAM_ID_L_RTP = 0;
+const int  STREAM_ID_R_RTP = 2;
 
 // WARN : it's not a thread safe singleton, should not be called from multiple threads
 void init_ahclient(char * ah_ip, unsigned int ah_port){
@@ -28,6 +30,7 @@ void init_ahclient(char * ah_ip, unsigned int ah_port){
 
         // Init channels linklist to NULL
         ahclient_instance->channels = NULL;
+        ahclient_instance->channel_count = 0;
 
         // init Mutex
         pthread_mutex_init(&(ahclient_instance->channels_mutex), NULL);
@@ -136,8 +139,6 @@ channel_node_t * find_channe_nodel(const metafile_t * metafile, channel_node_t *
         node = node->next;
     }
     if (channel_node == NULL && create) {
-        char uid[UIDLEN + 1];
-        ilog(LOG_INFO, "Create new channel : %s", show_UID(metafile->call_id, uid));
         // not found 
         ahclient_mux_channel_t * channel = new_ahclient_mux_channel(metafile);
         channel_node = (channel_node_t *)malloc(sizeof(channel_node_t));
@@ -145,6 +146,10 @@ channel_node_t * find_channe_nodel(const metafile_t * metafile, channel_node_t *
         // attach the new node to the head of the linked list
         channel_node->next = ahclient_instance->channels;
         ahclient_instance->channels = channel_node;
+        ahclient_instance->channel_count++;
+        char uid[UIDLEN + 1]; 
+        ilog(LOG_INFO, "[total channel: %d] New channel created for Call [%s]",ahclient_instance->channel_count, show_UID(metafile->call_id, uid));
+
     }
 
     if (p_pre_node) *p_pre_node = pre_node;
@@ -160,9 +165,6 @@ channel_node_t * find_channe_nodel(const metafile_t * metafile, channel_node_t *
 ********************/
 void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned char * buf, int len)
 {
-    //char uid[UIDLEN + 1];
-    //ilog(LOG_INFO, "post stream [%s],id: %d length = %d.", show_UID(metafile->call_id, uid), id, len);
-
     if (id != STREAM_ID_L_RTP && id != STREAM_ID_R_RTP) return;
     pthread_mutex_lock(&ahclient_instance->channels_mutex);
     channel_node_t * channel_node = find_channe_nodel(metafile, NULL, TRUE);
@@ -177,9 +179,7 @@ void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned ch
 * then it will try to shutdown the socket connection and release all resource
 ********************/
 void ahclient_close_stream(const metafile_t * metafile) {
-    char uid[UIDLEN + 1];
-    ilog(LOG_INFO, "Closing stream [%s]", show_UID(metafile->call_id, uid));
-
+ 
     channel_node_t * channel_node = NULL;
     channel_node_t * pre_node = NULL;
 
@@ -196,54 +196,89 @@ void ahclient_close_stream(const metafile_t * metafile) {
             pre_node->next = channel_node->next;
         }
         // delete current node
+        ahclient_instance->channel_count--;
+        char uid[UIDLEN + 1];
+        ilog(LOG_INFO, "[total channel: %d] Closed channel for Call [%s] total sent %d bytes raw data",ahclient_instance->channel_count, show_UID(metafile->call_id, uid),channel_node->channel->audio_raw_bytes_sent);
         free(channel_node);
+
     }
+
     pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 }
 
-void log_bineary_buffer(unsigned char * buf,  int buf_len, int show_line)
+
+
+
+void _log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line, char * file_name)
 {
     char line[SIZE_OF_SHOW_BUF_LINE]; 
+    if (show_line == -1) { // display all
+        show_line = (( buf_len + 1 ) >> 4); 
+    }
+
     int c = 1;
-        while ( buf != NULL && buf_len > 0 && c <= show_line ) {
-            char * show_buf = line;
+    while ( buf != NULL && buf_len > 0 && c <= show_line ) {
+        char * show_buf = line;
 
-            int i = 0;
-            int max_len = ((16 < buf_len) ? 16 : buf_len);
+        int i = 0;
+        int max_len = ((16 < buf_len) ? 16 : buf_len);
 
-            for (i = 0; i < max_len; i++) {
-                sprintf(show_buf, "%02x ", buf[i]);
-                show_buf += 3;
-            }
-            for ( ; i < 16; i++) {
-                *show_buf++  = '.';
-                *show_buf++  = '.';
-                *show_buf++  = ' ';
-            }
-             *show_buf++  = '|';
-             *show_buf++  = ' ';
-             
-            for (i = 0; i < max_len; i++) {
-                if (*buf >= 0x20 && *buf <= 0x7E) 
-                    *show_buf++  = *buf++ ;
-                else {
-                    *show_buf++  = '.';
-                    buf++;
-                }
-            }
-            buf_len -= 16;
-
-            if ( buf_len <= 0) {
-                memcpy(show_buf, "<END>\n", 6);
-            } 
-                *show_buf++  = 0;
-
-            ilog(LOG_INFO, "%02d : %s", c++, line);
+        for (i = 0; i < max_len; i++) {
+            sprintf(show_buf, "%02x ", buf[i]);
+            show_buf += 3;
         }
+        for ( ; i < 16; i++) {
+            *show_buf++  = '.';
+            *show_buf++  = '.';
+            *show_buf++  = ' ';
+        }
+            *show_buf++  = '|';
+            *show_buf++  = ' ';
+            
+        for (i = 0; i < max_len; i++) {
+            if (*buf >= 0x20 && *buf <= 0x7E) 
+                *show_buf++  = *buf++ ;
+            else {
+                *show_buf++  = '.';
+                buf++;
+            }
+        }
+        buf_len -= 16;
+
+        if ( buf_len <= 0) {
+            memcpy(show_buf, "<END>\n", 6);
+        } 
+            *show_buf++  = 0;
+
+        if (file_name) {
+            FILE *fp;
+            fp = fopen(file_name,"a+");
+            
+            if (fp) {
+                fprintf(fp, "%02d : %s%c\n", c, line, (c == show_line ? '\n':' ')); 
+                fclose(fp);
+            }
+        } else {
+            ilog(LOG_DEBUG, "%02d : %s", c, line);
+        }
+        c++;
+
+    }
 
     return;
 }
 
+void log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line)
+{
+    _log_bineary_buffer(buf, buf_len, show_line, NULL);
+}
+
+#if LOG_DATA_TO_FILE
+void log_bineary_buffer_to_file(const unsigned char * buf,  int buf_len, int show_line, char * file_name)
+{
+    _log_bineary_buffer(buf, buf_len, show_line, file_name);
+}
+#endif
 char * show_UID(char * uid, char * show_buf)
 {
     memcpy(show_buf, uid, UIDLEN);

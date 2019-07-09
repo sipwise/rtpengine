@@ -1,7 +1,7 @@
-
 #include "ahclient.h"
 
 #if _WITH_AH_CLIENT
+
 #include "ahclientchannel.h"
 #include  <stdlib.h>
 #include <stdio.h>
@@ -13,10 +13,16 @@
 
 #define actual_size_without_padding(x)  ((unsigned char * ) &((x).alignment_padding)  -  (unsigned char * ) (&(x)))
 
+const int  BLOCK_BUFFERSIZE = 8192;
+const char *  NETWORK_PACKET_SIGNATURE  =  "SOKQ";              // Signature for network packets
+const char * STREAM_HEADER_SIGANATURE   = "SPKSTM";
 const int   SOCKET_RESENT_MAX_RETRY     = 2;
 const int   SOCKET_RECONNECT_MAX_RETRY  = 2;
-const unsigned char  WAVE_FORMAT_MULAW  = 7;
-const unsigned int ENENT_ID_AUDIO_RECEIVED = 1001;
+const unsigned char     WAVE_FORMAT_MULAW = 7;
+const unsigned int      ENENT_ID_AUDIO_RECEIVED = 1001;
+const unsigned short    PAYLOAD_TYPE_BUFFER = 3;                  // Payload points to a memory buffer
+const unsigned short    RTP_HEADER_SIZE = 40;
+
 
 void init_audio_strem_header_t(audio_strem_header_t * audio_strem_header, const metafile_t * metafile )
 {
@@ -38,6 +44,7 @@ void init_ahclient_payload_header_t(ahclient_payload_header_t * ahclient_payload
     }
 }
 
+// remove the  next node from the linked list and return it
 unsent_buf_node_t * get_next_node(ahclient_mux_channel_t *  channel, int channel_index) {
 
     pthread_mutex_lock(&channel->buffer_mutex[channel_index]);
@@ -54,6 +61,7 @@ unsent_buf_node_t * get_next_node(ahclient_mux_channel_t *  channel, int channel
     return node;
 }
 
+// Restore this node back to the head of the linked list
 void restore_node(ahclient_mux_channel_t *  channel, int id, unsent_buf_node_t * node) {
     pthread_mutex_lock(&channel->buffer_mutex[id]);
     if (channel->unsent_buf_head[id] != NULL) {
@@ -67,8 +75,11 @@ void restore_node(ahclient_mux_channel_t *  channel, int id, unsent_buf_node_t *
     return;
 }
 
-
-unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush, int * buf_len) {
+// get data from both channel and mux the data
+// The package size is limit to BLOCK_BUFFERSIZE
+// If the available data size is smaller than BLOCK_BUFFERSIZE, will return null is flush is false
+// or will return whatever in the queue when flush is true
+unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush,  int * buf_len) {
     static int payload_header_size = actual_size_without_padding(channel->payload_header);
     static int stream_header_size =  actual_size_without_padding(channel->stream_header);
 
@@ -101,13 +112,11 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush, i
             else send_size = max_channel_buf_size;
         }
         
-        if (send_size == 0) return NULL;
-         
-        ilog(LOG_INFO, "gen_mux_buffer  unsent buffer size : %d / %d " , channel->unsent_buf_size[0], channel->unsent_buf_size[1]);
-        ilog(LOG_INFO, "send size = %d", send_size);
-        
+        if (send_size == 0 ) {
+            return NULL;
+        }
+     
         // generate sending buffer
-        // SET out put parameter : buf_len 
         *buf_len = send_size * CHANNEL_COUNT;
         *buf_len += payload_header_size + stream_header_size;
 
@@ -119,7 +128,7 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush, i
         memcpy(tmp, (const void *)(&channel->payload_header), payload_header_size);
         tmp += payload_header_size;
 
-        channel->stream_header.sample_count = send_size;
+        channel->stream_header.sample_count = send_size * CHANNEL_COUNT;
         memcpy(tmp, (const void *)(&channel->stream_header), stream_header_size);
         tmp += stream_header_size;
         
@@ -152,10 +161,25 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush, i
             }
         }
 
-        // restore unsent data
+#if LOG_DATA_TO_FILE
+    char uid[UIDLEN + 1];
+    char file_name[255];
+    sprintf(file_name, LOG_DATA_TO_PATH"/%s.mux", show_UID(channel->stream_header.call_id,uid));
+    
+    FILE *fp;
+    fp = fopen(file_name,"ab+");
+    if (fp) {
+        unsigned int offset = payload_header_size + stream_header_size;
+        fwrite(send_buf + offset, 1, (*buf_len) - offset, fp );
+        fclose(fp);
+    } else {
+        ilog(LOG_INFO, "%s open for append failed", file_name);
+    }
+#endif 
+
+        // if there are some unsent data in the node, restore the data back to linked list
         for ( i = 0; i < CHANNEL_COUNT; ++i ) {
             if (channel_buf_len[i] > 0) {   // restore unsent data
-            ilog(LOG_INFO, "restore %d bytes to channel %d",channel_buf_len[i] , i );
                 unsent_buf_node_t * node =  new_unsent_buf_node(channel, i, channel_buf[i], channel_buf_len[i]);
                 restore_node(channel, i, node);
                 delete_unsent_buf_node(channel_node[i], FALSE);
@@ -181,9 +205,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
     while (resend_count < SOCKET_RESENT_MAX_RETRY && reconnect_count < SOCKET_RECONNECT_MAX_RETRY)  {
 
         if ( send_buf == NULL ) send_buf = gen_mux_buffer(channel, flush, &buf_size);
-        if ( send_buf == NULL) break;
-
-        ilog(LOG_INFO, "Packet buffer size: %d unsent buffer size : %d / %d" ,buf_size, channel->unsent_buf_size[0], channel->unsent_buf_size[1]);
+        if ( send_buf == NULL) break;   // nothing to sent
 
         if (channel->socket_handler > 0) {
             BOOL sent = (-1 != send(channel->socket_handler, 
@@ -191,8 +213,19 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
                                 buf_size, 0));
             if ( sent ) {
                 channel->audio_raw_bytes_sent += buf_size;
-                ilog(LOG_INFO,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s ", buf_size, channel->audio_raw_bytes_sent, show_UID(channel->stream_header.call_id, uid));
-                log_bineary_buffer(send_buf, buf_size, 10);
+#if LOG_DATA_TO_FILE
+    FILE *fp;
+    fp = fopen(LOG_DATA_TO_PATH"/sent_packets.log\0","a+");
+    if (fp) {
+        fprintf(fp, 
+            "\nSocket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s \n", 
+            buf_size, channel->audio_raw_bytes_sent, show_UID(channel->stream_header.call_id, uid) );
+        fclose(fp);
+    }
+#endif 
+                ilog(LOG_DEBUG,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s ", buf_size, channel->audio_raw_bytes_sent, show_UID(channel->stream_header.call_id, uid));
+                // Enable the following line will print the bineary data into friendly hex mode
+                // log_bineary_buffer(send_buf, buf_size, 10);
                 free(send_buf);
                 send_buf = NULL;
                 resend_count = 0;
@@ -225,14 +258,13 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
 void * ahclient_mux_channel_sending_thread(void * arg)
 {
     ahclient_mux_channel_t * channel = (ahclient_mux_channel_t * )arg;
-    char uid[UIDLEN + 1];
+
     while(1) {
 
         sem_wait(&channel->thread_sem); 
         ahchannel_sent_stream(channel, channel->close_channel);
         if (channel->close_channel) {
-            ilog(LOG_INFO,"Sending thread for Channel of call id %s quit.", show_UID(channel->stream_header.call_id, uid));
-            return NULL; // quit sub thread
+             return NULL; // quit sub thread
         }
     }
     pthread_exit(NULL);
@@ -279,23 +311,7 @@ unsent_buf_node_t * new_unsent_buf_node(ahclient_mux_channel_t *  channel,int id
     node->buf = (unsigned char *)malloc(node->len);
     memcpy(node->buf, buf, len);
     node->next = NULL;
-    /*
-    // append header
-    unsigned char  * tmp = node->buf;
-    memcpy(tmp, (const void *)(&channel->payload_header), payload_header_size);
-    ((ahclient_payload_header_t *)tmp)->length = node->len - AHCLIENT_PACKET_HEADER_LEGTH;
-    tmp += payload_header_size;
-
-    memcpy(tmp, (const void *)(&channel->stream_header), stream_header_size);
-    ((audio_strem_header_t *)tmp)->sample_count = len / channel->stream_header.channel_count;
-    tmp += stream_header_size;
-    // copy data
-    memcpy(tmp, buf, len);
-
-    channel->audio_raw_bytes_set += len;
-
-    node->next = NULL;
-    */
+  
     return node;
 }
 
@@ -310,7 +326,7 @@ void delete_unsent_buf_node(unsent_buf_node_t * node, BOOL recursive)
 
 void send_close_signal(ahclient_mux_channel_t *  instance)
 {
-    ilog(LOG_INFO, "send_close_signal");
+    //ilog(LOG_INFO, "send_close_signal");
     if (instance) {
         instance->close_channel = TRUE;
     }
@@ -318,7 +334,7 @@ void send_close_signal(ahclient_mux_channel_t *  instance)
 
 void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance)
 {
-    ilog(LOG_INFO, "delete_ahclient_mux_channel");
+    //ilog(LOG_INFO, "delete_ahclient_mux_channel");
 
     if (instance) {
         // close sub thread
@@ -347,8 +363,43 @@ void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance)
 void ahchannel_post_stream(ahclient_mux_channel_t *  channel, int _id, const unsigned char  * buf, int len)
 {
     int id = (_id == 0 ? 0 : 1);
+    if (len <= RTP_HEADER_SIZE) return;
+    // remove rtp header
+    len -= RTP_HEADER_SIZE;
+    buf += RTP_HEADER_SIZE;
 
-    unsent_buf_node_t * node = new_unsent_buf_node(channel, id , buf, len);
+    unsent_buf_node_t * node = new_unsent_buf_node(channel, id , buf,  len);
+
+#if LOG_DATA_TO_FILE
+    char uid[UIDLEN + 1];
+    char file_name[255];
+
+    sprintf(file_name, LOG_DATA_TO_PATH"/%s_%d.fullmono", show_UID(channel->stream_header.call_id,uid), id);
+
+    FILE *fp;
+    fp = fopen(file_name,"ab+");
+    if (fp) {
+        fwrite(buf - RTP_HEADER_SIZE, 1, len + RTP_HEADER_SIZE, fp );
+        fclose(fp);
+    } else {
+        ilog(LOG_INFO, "%s open for append failed", file_name);
+    }
+
+    sprintf(file_name, LOG_DATA_TO_PATH"/%s_%d.mono", show_UID(channel->stream_header.call_id,uid), id);
+
+    fp = fopen(file_name,"ab+");
+    if (fp) {
+        fwrite(buf , 1, len, fp );
+        fclose(fp);
+    } else {
+        ilog(LOG_INFO, "%s open for append failed", file_name);
+    }
+
+
+    sprintf(file_name, LOG_DATA_TO_PATH"/%s_%d.log", show_UID(channel->stream_header.call_id,uid), id);
+    log_bineary_buffer_to_file(buf,  len, -1, file_name);
+
+#endif 
 
     pthread_mutex_lock(&channel->buffer_mutex[id]);
 
@@ -371,8 +422,6 @@ void ahchannel_post_stream(ahclient_mux_channel_t *  channel, int _id, const uns
 
     if (ready_to_sent) {
         sem_post(&channel->thread_sem); // post a semaphore 
-        ilog(LOG_INFO, " Ready to send ");
-
     }
 
     pthread_mutex_unlock(&channel->buffer_mutex[id]);

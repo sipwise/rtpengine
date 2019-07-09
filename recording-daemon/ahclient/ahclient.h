@@ -14,8 +14,10 @@
 #include "arpa/inet.h"	//inet_addr
 #include <unistd.h>
 
-#define STREAM_ID_L_RTP				0
-#define STREAM_ID_R_RTP				2
+#define LOG_DATA_TO_FILE    0
+#if LOG_DATA_TO_FILE
+#define LOG_DATA_TO_PATH  "/home/ec2-user/log"
+#endif
 
 #define UIDLEN     18           // UID
 #ifndef BOOL
@@ -47,6 +49,7 @@ typedef struct  ahclient
     // mutex to protext the linked list: channels
     pthread_mutex_t channels_mutex;
     channel_node_t * channels;
+    int channel_count;
 } ahclient_t;
 
 void init_ahclient(char * ah_ip, unsigned int ah_port);
@@ -61,8 +64,12 @@ void ahclient_close_stream(const metafile_t * metafile);
 socket_handler_t create_ah_connection(void);
 
 #define SIZE_OF_SHOW_BUF_LINE  80
+// Helper functions
 char * show_UID(char * uid, char * show_buf);
-void log_bineary_buffer(unsigned char * buf, int len, int show_line);
+void log_bineary_buffer(const unsigned char * buf, int len, int show_line);
+#if LOG_DATA_TO_FILE
+void log_bineary_buffer_to_file(const unsigned char * buf,  int buf_len, int show_line, char * file_name);
+#endif 
 
 #endif  // _WITH_AH_CLIENT
 

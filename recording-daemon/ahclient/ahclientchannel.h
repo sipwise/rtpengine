@@ -4,16 +4,13 @@
 #include "ahclient.h"
 
 #if _WITH_AH_CLIENT
+
 #include "sys/socket.h"
 #include <pthread.h>
 #include <semaphore.h>
 #include <netinet/in.h>
 
-#define BLOCK_BUFFERSIZE 8192
-#define CHANNEL_COUNT    2
-#define NETWORK_PACKET_SIGNATURE    "SOKQ"              // Signature for network packets
-#define PAYLOAD_TYPE_BUFFER    3                   // Payload points to a memory buffer
-#define STREAM_HEADER_SIGANATURE    "SPKSTM"
+#define  CHANNEL_COUNT    2
 
 typedef struct audio_strem_header {
     char signature[6];                  // "SPKSTM"
