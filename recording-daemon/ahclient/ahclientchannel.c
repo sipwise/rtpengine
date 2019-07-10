@@ -161,22 +161,6 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush,  
             }
         }
 
-#if LOG_DATA_TO_FILE
-    char uid[UIDLEN + 1];
-    char file_name[255];
-    sprintf(file_name, LOG_DATA_TO_PATH"/%s.mux", show_UID(channel->stream_header.call_id,uid));
-    
-    FILE *fp;
-    fp = fopen(file_name,"ab+");
-    if (fp) {
-        unsigned int offset = payload_header_size + stream_header_size;
-        fwrite(send_buf + offset, 1, (*buf_len) - offset, fp );
-        fclose(fp);
-    } else {
-        ilog(LOG_INFO, "%s open for append failed", file_name);
-    }
-#endif 
-
         // if there are some unsent data in the node, restore the data back to linked list
         for ( i = 0; i < CHANNEL_COUNT; ++i ) {
             if (channel_buf_len[i] > 0) {   // restore unsent data
@@ -213,16 +197,6 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
                                 buf_size, 0));
             if ( sent ) {
                 channel->audio_raw_bytes_sent += buf_size;
-#if LOG_DATA_TO_FILE
-    FILE *fp;
-    fp = fopen(LOG_DATA_TO_PATH"/sent_packets.log\0","a+");
-    if (fp) {
-        fprintf(fp, 
-            "\nSocket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s \n", 
-            buf_size, channel->audio_raw_bytes_sent, show_UID(channel->stream_header.call_id, uid) );
-        fclose(fp);
-    }
-#endif 
                 ilog(LOG_DEBUG,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s ", buf_size, channel->audio_raw_bytes_sent, show_UID(channel->stream_header.call_id, uid));
                 // Enable the following line will print the bineary data into friendly hex mode
                 // log_bineary_buffer(send_buf, buf_size, 10);
@@ -369,37 +343,6 @@ void ahchannel_post_stream(ahclient_mux_channel_t *  channel, int _id, const uns
     buf += RTP_HEADER_SIZE;
 
     unsent_buf_node_t * node = new_unsent_buf_node(channel, id , buf,  len);
-
-#if LOG_DATA_TO_FILE
-    char uid[UIDLEN + 1];
-    char file_name[255];
-
-    sprintf(file_name, LOG_DATA_TO_PATH"/%s_%d.fullmono", show_UID(channel->stream_header.call_id,uid), id);
-
-    FILE *fp;
-    fp = fopen(file_name,"ab+");
-    if (fp) {
-        fwrite(buf - RTP_HEADER_SIZE, 1, len + RTP_HEADER_SIZE, fp );
-        fclose(fp);
-    } else {
-        ilog(LOG_INFO, "%s open for append failed", file_name);
-    }
-
-    sprintf(file_name, LOG_DATA_TO_PATH"/%s_%d.mono", show_UID(channel->stream_header.call_id,uid), id);
-
-    fp = fopen(file_name,"ab+");
-    if (fp) {
-        fwrite(buf , 1, len, fp );
-        fclose(fp);
-    } else {
-        ilog(LOG_INFO, "%s open for append failed", file_name);
-    }
-
-
-    sprintf(file_name, LOG_DATA_TO_PATH"/%s_%d.log", show_UID(channel->stream_header.call_id,uid), id);
-    log_bineary_buffer_to_file(buf,  len, -1, file_name);
-
-#endif 
 
     pthread_mutex_lock(&channel->buffer_mutex[id]);
 

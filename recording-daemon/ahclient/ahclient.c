@@ -225,7 +225,7 @@ void ahclient_close_stream(const metafile_t * metafile) {
 }
 
 #define SIZE_OF_SHOW_BUF_LINE  80
-void _log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line, char * file_name)
+void log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line)
 {
     char line[SIZE_OF_SHOW_BUF_LINE]; 
     if (show_line == -1) { // display all
@@ -264,36 +264,15 @@ void _log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line,
         if ( buf_len <= 0) {
             memcpy(show_buf, "<END>\n", 6);
         } 
-            *show_buf++  = 0;
+        *show_buf++  = 0;
 
-        if (file_name) {
-            FILE *fp;
-            fp = fopen(file_name,"a+");
-            
-            if (fp) {
-                fprintf(fp, "%02d : %s%c\n", c, line, (c == show_line ? '\n':' ')); 
-                fclose(fp);
-            }
-        } else {
-            ilog(LOG_DEBUG, "%02d : %s", c, line);
-        }
+        ilog(LOG_DEBUG, "%02d : %s", c, line);
         c++;
     }
 
     return;
 }
 
-void log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line)
-{
-    _log_bineary_buffer(buf, buf_len, show_line, NULL);
-}
-
-#if LOG_DATA_TO_FILE
-void log_bineary_buffer_to_file(const unsigned char * buf,  int buf_len, int show_line, char * file_name)
-{
-    _log_bineary_buffer(buf, buf_len, show_line, file_name);
-}
-#endif
 char * show_UID(char * uid, char * show_buf)
 {
     memcpy(show_buf, uid, UIDLEN);
