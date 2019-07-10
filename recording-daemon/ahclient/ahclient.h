@@ -30,27 +30,7 @@ typedef unsigned int BOOL;
 #define FALSE   (0)
 #endif
 
-typedef struct sockaddr_in sockaddr_in_t;
 typedef int socket_handler_t;
-
-// Forward declaration
-typedef struct ahclient_mux_channel ahclient_mux_channel_t;
-
-// linklist of ahclient_mux_channel_t
-typedef struct channel_node {
-    ahclient_mux_channel_t * channel;
-    struct  channel_node * next;
-} channel_node_t; 
-
-typedef struct  ahclient 
-{
-    sockaddr_in_t   ah_server_address;
-
-    // mutex to protext the linked list: channels
-    pthread_mutex_t channels_mutex;
-    channel_node_t * channels;
-    int channel_count;
-} ahclient_t;
 
 void init_ahclient(char * ah_ip, unsigned int ah_port);
 void destroy_ahclient(void);
@@ -58,12 +38,8 @@ void destroy_ahclient(void);
 void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned char * buf, int len);
 void ahclient_close_stream(const metafile_t * metafile);
 
-// find a channel from the linked list, if not found, will create one
-// ahclient_mux_channel_t * find_channel(UID callid);
-
 socket_handler_t create_ah_connection(void);
 
-#define SIZE_OF_SHOW_BUF_LINE  80
 // Helper functions
 char * show_UID(char * uid, char * show_buf);
 void log_bineary_buffer(const unsigned char * buf, int len, int show_line);

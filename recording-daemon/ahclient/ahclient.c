@@ -9,6 +9,24 @@
 #include <semaphore.h>
 #include <pthread.h>
 
+typedef struct sockaddr_in sockaddr_in_t;
+
+// linklist of ahclient_mux_channel_t
+typedef struct channel_node {
+    ahclient_mux_channel_t * channel;
+    struct  channel_node * next;
+} channel_node_t; 
+
+typedef struct  ahclient 
+{
+    sockaddr_in_t   ah_server_address;
+
+    // mutex to protext the linked list: channels
+    pthread_mutex_t channels_mutex;
+    channel_node_t * channels;
+    int channel_count;
+} ahclient_t;
+
 //// ahclient related
 // A global singleton instance of ahclient
 ahclient_t * ahclient_instance = NULL;
@@ -206,9 +224,7 @@ void ahclient_close_stream(const metafile_t * metafile) {
     pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 }
 
-
-
-
+#define SIZE_OF_SHOW_BUF_LINE  80
 void _log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line, char * file_name)
 {
     char line[SIZE_OF_SHOW_BUF_LINE]; 
@@ -262,7 +278,6 @@ void _log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line,
             ilog(LOG_DEBUG, "%02d : %s", c, line);
         }
         c++;
-
     }
 
     return;
