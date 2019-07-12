@@ -166,11 +166,11 @@ void output_close(output_t *output) {
 	char suff[16] = "";
 	if (!output)
 		return;
-	ilog(LOG_ERR, "!!!!! output_close: %s", output->full_filename);
+	//ilog(LOG_ERR, "!!!!! output_close: %s", output->full_filename);
 	if (output->file_suff > 0)
 		snprintf(suff, sizeof(suff), "-%i", output->file_suff);
 	snprintf(cmd, sizeof(cmd), "mv %s%s.%s %s/upload", output->full_filename, suff, output->file_format, output_dir);		
-	ilog(LOG_ERR, "!!!!! exec cmd: %s", cmd);
+	dbg("!!!!! move the recorded file to upload folder: %s", cmd);
 	output_shutdown(output);
 	db_close_stream(output);
 	encoder_free(output->encoder);

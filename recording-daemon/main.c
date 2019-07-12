@@ -201,13 +201,14 @@ static void options(int *argc, char ***argv) {
 		die("Invalid 'output-storage' option");
 }
 
+int launch_upload_service() {
+
+}
 
 int main(int argc, char **argv) {
-	char tmp[512];
 	options(&argc, &argv);
-	snprintf(tmp, sizeof(tmp), "mkdir %s/upload", output_dir);
-	system(tmp);
 	setup();
+	launch_upload_service();
 	daemonize();
 	wpidfile();
 
