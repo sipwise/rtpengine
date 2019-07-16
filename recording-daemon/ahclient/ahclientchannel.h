@@ -13,12 +13,12 @@
 #define  CHANNEL_COUNT    2
 
 typedef struct audio_strem_header {
-    char signature[6];                  // "SPKSTM"
-    char call_id[18];
-    unsigned char audio_format;          // 1=16-Bit PCM, 6=alaw, 7=mulaw
-    unsigned char channel_count;
-    unsigned short sample_rate;
-    unsigned short sample_count;
+    char            signature[6];                  // "SPKSTM"
+    char            call_id[18];
+    unsigned char   audio_format;          // 1=16-Bit PCM, 6=alaw, 7=mulaw
+    unsigned char   channel_count;
+    unsigned short  sample_rate;
+    unsigned short  sample_count;
     char           alignment_padding;  // Use this to calculat the actual size of struct 
 } audio_strem_header_t;
 
@@ -34,6 +34,16 @@ typedef struct ahclient_payload_header {
 } ahclient_payload_header_t;
 void init_ahclient_payload_header_t(ahclient_payload_header_t * ahclient_payload_header);
 
+typedef struct ahclient_eof_header {
+    char            signature[4];                   // SOKQ
+    unsigned int    length;
+    unsigned int    event_id;
+    int16_t         payload_type;
+    char            spk_signature[6];                  // "SPKSTM"
+    char            call_id[18];
+    char            alignment_padding;  // Use this to calculat the actual size of struct 
+} ahclient_eof_header_t;
+
 typedef struct unsent_buf_node {
     unsigned char * buf;
     int             len;
@@ -47,8 +57,8 @@ typedef struct ahclient_mux_channel {
     pthread_t   sub_subthread;
     sem_t       thread_sem;
 
-    ahclient_payload_header_t payload_header;
-    audio_strem_header_t stream_header;
+    ahclient_payload_header_t   payload_header;
+    audio_strem_header_t        stream_header;
 
     pthread_mutex_t buffer_mutex[CHANNEL_COUNT];
     unsent_buf_node_t * unsent_buf_head[CHANNEL_COUNT];
@@ -61,6 +71,7 @@ typedef struct ahclient_mux_channel {
     unsigned int        audio_raw_bytes_sent;
 
     BOOL        close_channel;
+    BOOL        eof;
 } ahclient_mux_channel_t;
 
 unsent_buf_node_t * new_unsent_buf_node(ahclient_mux_channel_t *  channel,int id, const unsigned char * buf, int len);

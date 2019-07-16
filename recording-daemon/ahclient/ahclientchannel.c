@@ -13,14 +13,18 @@
 
 #define actual_size_without_padding(x)  ((unsigned char * ) &((x).alignment_padding)  -  (unsigned char * ) (&(x)))
 
-const int  BLOCK_BUFFERSIZE = 8192;
-const char *  NETWORK_PACKET_SIGNATURE  =  "SOKQ";              // Signature for network packets
-const char * STREAM_HEADER_SIGANATURE   = "SPKSTM";
-const int   SOCKET_RESENT_MAX_RETRY     = 2;
-const int   SOCKET_RECONNECT_MAX_RETRY  = 2;
-const unsigned char     WAVE_FORMAT_MULAW = 7;
+const int  BLOCK_BUFFERSIZE                     = 8192;
+const char *  NETWORK_PACKET_SIGNATURE          = "SOKQ";          // Signature for network packets
+const char * STREAM_HEADER_SIGANATURE           = "SPKSTM";
+const int   SOCKET_RESENT_MAX_RETRY             = 2;
+const int   SOCKET_RECONNECT_MAX_RETRY          = 3;
+const int   SOCKET_RECONNECT_WAIT_TIME_SECOND   = 30;
+const unsigned char     WAVE_FORMAT_MULAW       = 7;
 const unsigned int      ENENT_ID_AUDIO_RECEIVED = 1001;
-const unsigned short    PAYLOAD_TYPE_BUFFER = 3;                  // Payload points to a memory buffer
+const unsigned int      ENENT_ID_AUDIO_END      = 1002;
+const unsigned short    PAYLOAD_TYPE_BUFFER     = 3;              // Payload points to a memory buffer
+const unsigned short    PAYLOAD_TYPE_EOF        = 0;              // EOF, no payload
+
 const unsigned short    RTP_HEADER_SIZE = 40;
 
 
@@ -35,12 +39,23 @@ void init_audio_strem_header_t(audio_strem_header_t * audio_strem_header, const 
     }
 }
 
-void init_ahclient_payload_header_t(ahclient_payload_header_t * ahclient_payload_header){
+void init_ahclient_payload_header_t(ahclient_payload_header_t * ahclient_payload_header ){
     if (ahclient_payload_header != NULL){
         strncpy(ahclient_payload_header->signature, NETWORK_PACKET_SIGNATURE, sizeof(ahclient_payload_header->signature));  // Constant value
         ahclient_payload_header->length = 0;    // Packet length, will be chaned for each packet
         ahclient_payload_header->event_id = ENENT_ID_AUDIO_RECEIVED;   
-        ahclient_payload_header->payload_type = PAYLOAD_TYPE_BUFFER;    // Constant value
+        ahclient_payload_header->payload_type =  PAYLOAD_TYPE_BUFFER;    // Constant value
+    }
+}
+
+void init_ahclient_eof_header(ahclient_eof_header_t * eof_header, const char * call_id) {
+    if (eof_header != NULL){
+        strncpy(eof_header->signature, NETWORK_PACKET_SIGNATURE, sizeof(eof_header->signature));  // Constant value
+        eof_header->length = 30;    // size of  event_id(4) + payload_type(2) + spk_signature(6) + call_id(18)
+        eof_header->event_id = ENENT_ID_AUDIO_END;   
+        eof_header->payload_type =  PAYLOAD_TYPE_EOF;    // Constant value
+        strncpy(eof_header->spk_signature, STREAM_HEADER_SIGANATURE, sizeof(eof_header->spk_signature));  // Constant value
+        strncpy(eof_header->call_id, call_id, UIDLEN);  // Constant value
     }
 }
 
@@ -112,62 +127,70 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush,  
             else send_size = max_channel_buf_size;
         }
         
-        if (send_size == 0 ) {
-            return NULL;
-        }
-     
-        // generate sending buffer
-        *buf_len = send_size * CHANNEL_COUNT;
-        *buf_len += payload_header_size + stream_header_size;
-
-
-        unsigned char * send_buf = malloc(*buf_len);
-        unsigned char * tmp = send_buf;
-        // append header
-        channel->payload_header.length = *buf_len - AHCLIENT_PACKET_HEADER_LEGTH;
-        memcpy(tmp, (const void *)(&channel->payload_header), payload_header_size);
-        tmp += payload_header_size;
-
-        channel->stream_header.sample_count = send_size * CHANNEL_COUNT;
-        memcpy(tmp, (const void *)(&channel->stream_header), stream_header_size);
-        tmp += stream_header_size;
+        unsigned char * send_buf = NULL;
         
-        // mux buffer
-        int p = 0;
-        unsent_buf_node_t * channel_node[CHANNEL_COUNT] = {0};
-        unsigned char * channel_buf[CHANNEL_COUNT] = {0};
-        int    channel_buf_len[CHANNEL_COUNT] = {0};
+        if (send_size == 0  ) {  // EOF of stream; if it's not flush, already returned above
+            if (channel->eof == FALSE) {       // Have not generated the EOF packet 
+                char uid[UIDLEN + 1];
+                ilog(LOG_INFO,"Packing the EOF fot call id : %s ", show_UID(channel->stream_header.call_id, uid));
+                send_buf = malloc(sizeof(ahclient_eof_header_t));
+                ahclient_eof_header_t  * eof_header  = (ahclient_eof_header_t  *) send_buf;
+                init_ahclient_eof_header(eof_header, channel->stream_header.call_id);
+                *buf_len =  actual_size_without_padding(*eof_header);
+                channel->eof = TRUE;
+            }
+        }  else {
+            // generate sending buffer
+            *buf_len = send_size * CHANNEL_COUNT + payload_header_size + stream_header_size;
+            send_buf = malloc(*buf_len);
+            unsigned char * tmp = send_buf;
+            
+            // append header
+            channel->payload_header.length = *buf_len - AHCLIENT_PACKET_HEADER_LEGTH;
+            memcpy(tmp, (const void *)(&channel->payload_header), payload_header_size);
+            tmp += payload_header_size;
 
-        for ( p = 0; p < send_size; ++p) {
-            for ( i = 0; i < CHANNEL_COUNT; ++i ) {
-                if (channel_buf_len[i] == 0 ) {
-                    delete_unsent_buf_node(channel_node[i], FALSE);
-                    channel_node[i] = get_next_node(channel, i);
-                    if (channel_node[i] == NULL) {
-                        channel_buf_len[i] = -1;
-                        channel_buf[i] = NULL;
+            channel->stream_header.sample_count = send_size * CHANNEL_COUNT;
+            memcpy(tmp, (const void *)(&channel->stream_header), stream_header_size);
+            tmp += stream_header_size;
+            
+            // mux buffer
+            int p = 0;
+            unsent_buf_node_t * channel_node[CHANNEL_COUNT] = {0};
+            unsigned char * channel_buf[CHANNEL_COUNT] = {0};
+            int    channel_buf_len[CHANNEL_COUNT] = {0};
+
+            for ( p = 0; p < send_size; ++p) {
+                for ( i = 0; i < CHANNEL_COUNT; ++i ) {
+                    if (channel_buf_len[i] == 0 ) {
+                        delete_unsent_buf_node(channel_node[i], FALSE);
+                        channel_node[i] = get_next_node(channel, i);
+                        if (channel_node[i] == NULL) {
+                            channel_buf_len[i] = -1;
+                            channel_buf[i] = NULL;
+                        } else {
+                            channel_buf_len[i] = channel_node[i]->len; 
+                            channel_buf[i] = channel_node[i]->buf;
+                        }
+                    }
+                    
+                    if (channel_buf_len[i] == -1) {     // all data for this channel sent, append '\0'
+                        *tmp++ = 0;
                     } else {
-                        channel_buf_len[i] = channel_node[i]->len; 
-                        channel_buf[i] = channel_node[i]->buf;
+                        *tmp++ = *channel_buf[i]++;
+                        channel_buf_len[i]--;
                     }
                 }
-                
-                if (channel_buf_len[i] == -1) {     // all data for this channel sent, append '\0'
-                    *tmp++ = 0;
-                } else {
-                    *tmp++ = *channel_buf[i]++;
-                    channel_buf_len[i]--;
-                }
             }
-        }
 
-        // if there are some unsent data in the node, restore the data back to linked list
-        for ( i = 0; i < CHANNEL_COUNT; ++i ) {
-            if (channel_buf_len[i] > 0) {   // restore unsent data
-                unsent_buf_node_t * node =  new_unsent_buf_node(channel, i, channel_buf[i], channel_buf_len[i]);
-                restore_node(channel, i, node);
-                delete_unsent_buf_node(channel_node[i], FALSE);
-            } 
+            // if there are some unsent data in the node, restore the data back to linked list
+            for ( i = 0; i < CHANNEL_COUNT; ++i ) {
+                if (channel_buf_len[i] > 0) {   // restore unsent data
+                    unsent_buf_node_t * node =  new_unsent_buf_node(channel, i, channel_buf[i], channel_buf_len[i]);
+                    restore_node(channel, i, node);
+                    delete_unsent_buf_node(channel_node[i], FALSE);
+                } 
+            }
         }
 
         return send_buf;
@@ -189,7 +212,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
     while (resend_count < SOCKET_RESENT_MAX_RETRY && reconnect_count < SOCKET_RECONNECT_MAX_RETRY)  {
 
         if ( send_buf == NULL ) send_buf = gen_mux_buffer(channel, flush, &buf_size);
-        if ( send_buf == NULL) break;   // nothing to sent
+        if ( send_buf == NULL)  break;   // nothing to sent
 
         if (channel->socket_handler > 0) {
             BOOL sent = (-1 != send(channel->socket_handler, 
@@ -217,6 +240,9 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
         } else {
             reconnect_count++;
             ilog(LOG_ERROR,"Re connect socket to AH client retry:%d", reconnect_count);
+            if (flush) {    //  this is the last semaphone, need to close the channel, we should wait and retry instead of waiting for the next semaphone
+                sleep(SOCKET_RECONNECT_WAIT_TIME_SECOND);
+            }
             channel->socket_handler = create_ah_connection();        
         }    
     }
@@ -249,6 +275,7 @@ ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile)
     // create instance
     ahclient_mux_channel_t * instance = ( ahclient_mux_channel_t * )malloc(sizeof(ahclient_mux_channel_t ));
     instance->close_channel = FALSE;
+    instance->eof = FALSE;
 
     // init mutex & semaphore
     sem_init(&(instance->thread_sem), 0, 0);
@@ -267,7 +294,7 @@ ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile)
     init_ahclient_payload_header_t(&instance->payload_header);
     // init stream header
     init_audio_strem_header_t(&instance->stream_header, metafile);
-   
+
     // init socket connection
     instance->socket_handler = create_ah_connection();
 
