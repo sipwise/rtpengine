@@ -199,6 +199,9 @@ static void options(int *argc, char ***argv) {
 		output_storage = OUTPUT_STORAGE_BOTH;
 	else
 		die("Invalid 'output-storage' option");
+
+	if ((output_storage & OUTPUT_STORAGE_FILE) && !strcmp(output_dir, spool_dir))
+		die("The spool-dir cannot be the same as the output-dir");
 }
 
 
