@@ -132,7 +132,7 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush,  
         if (send_size == 0  ) {  // EOF of stream; if it's not flush, already returned above
             if (channel->eof == FALSE) {       // Have not generated the EOF packet 
                 char uid[UIDLEN + 1];
-                ilog(LOG_INFO,"Packing the EOF fot call id : %s ", show_UID(channel->stream_header.call_id, uid));
+                ilog(LOG_INFO,"Packing the EOF for call id : %s ", show_UID(channel->stream_header.call_id, uid));
                 send_buf = malloc(sizeof(ahclient_eof_header_t));
                 ahclient_eof_header_t  * eof_header  = (ahclient_eof_header_t  *) send_buf;
                 init_ahclient_eof_header(eof_header, channel->stream_header.call_id);
@@ -144,7 +144,7 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush,  
             *buf_len = send_size * CHANNEL_COUNT + payload_header_size + stream_header_size;
             send_buf = malloc(*buf_len);
             unsigned char * tmp = send_buf;
-            
+
             // append header
             channel->payload_header.length = *buf_len - AHCLIENT_PACKET_HEADER_LEGTH;
             memcpy(tmp, (const void *)(&channel->payload_header), payload_header_size);

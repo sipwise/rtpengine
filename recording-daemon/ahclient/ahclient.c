@@ -224,7 +224,9 @@ void ahclient_close_stream(const metafile_t * metafile) {
     pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 }
 
-#define SIZE_OF_SHOW_BUF_LINE  80
+#define SHOW_BYTES_PER_LINE     16
+#define SIZE_OF_SHOW_BUF_LINE   SHOW_BYTES_PER_LINE * 4 + 16
+#define printable(c)            ((c) >= 0x21 && (c) <= 0x7e)
 void log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line)
 {
     char line[SIZE_OF_SHOW_BUF_LINE]; 
@@ -237,13 +239,13 @@ void log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line)
         char * show_buf = line;
 
         int i = 0;
-        int max_len = ((16 < buf_len) ? 16 : buf_len);
+        int max_len = ((SHOW_BYTES_PER_LINE < buf_len) ? SHOW_BYTES_PER_LINE : buf_len);
 
         for (i = 0; i < max_len; i++) {
             sprintf(show_buf, "%02x ", buf[i]);
             show_buf += 3;
         }
-        for ( ; i < 16; i++) {
+        for ( ; i < SHOW_BYTES_PER_LINE; i++) {
             *show_buf++  = '.';
             *show_buf++  = '.';
             *show_buf++  = ' ';
@@ -252,14 +254,14 @@ void log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line)
             *show_buf++  = ' ';
             
         for (i = 0; i < max_len; i++) {
-            if (*buf >= 0x20 && *buf <= 0x7E) 
+            if (printable(*buf)) 
                 *show_buf++  = *buf++ ;
             else {
                 *show_buf++  = '.';
                 buf++;
             }
         }
-        buf_len -= 16;
+        buf_len -= SHOW_BYTES_PER_LINE;
 
         if ( buf_len <= 0) {
             memcpy(show_buf, "<END>\n", 6);

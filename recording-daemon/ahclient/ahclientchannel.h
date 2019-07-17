@@ -60,15 +60,15 @@ typedef struct ahclient_mux_channel {
     ahclient_payload_header_t   payload_header;
     audio_strem_header_t        stream_header;
 
-    pthread_mutex_t buffer_mutex[CHANNEL_COUNT];
+    pthread_mutex_t     buffer_mutex[CHANNEL_COUNT];
     unsent_buf_node_t * unsent_buf_head[CHANNEL_COUNT];
     unsent_buf_node_t * unsent_buf_tail[CHANNEL_COUNT];
     unsigned int        unsent_buf_size[CHANNEL_COUNT];
 
-    unsigned int retry_buf_len;
+    unsigned int    retry_buf_len;
     unsigned char * retry_buf;
 
-    unsigned int        audio_raw_bytes_sent;
+    unsigned int    audio_raw_bytes_sent;
 
     BOOL        close_channel;
     BOOL        eof;
