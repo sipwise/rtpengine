@@ -1,12 +1,14 @@
 #include "output.h"
 #include <libavcodec/avcodec.h>
 #include <limits.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdint.h>
 #include <glib.h>
 #include "log.h"
 #include "db.h"
 
+extern const char *output_dir;
 
 //static int output_codec_id;
 static const codec_def_t *output_codec;
@@ -48,6 +50,7 @@ output_t *output_new(const char *path, const char *filename) {
 	g_strlcpy(ret->file_path, path, sizeof(ret->file_path));
 	g_strlcpy(ret->file_name, filename, sizeof(ret->file_name));
 	snprintf(ret->full_filename, sizeof(ret->full_filename), "%s/%s", path, filename);
+	ret->file_suff = 0;
 	ret->file_format = output_file_format;
 	ret->encoder = encoder_new();
 	return ret;
@@ -104,6 +107,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 		snprintf(full_fn, sizeof(full_fn), "%s%s.%s", output->full_filename, suff, output->file_format);
 		if (!g_file_test(full_fn, G_FILE_TEST_EXISTS))
 			goto got_fn;
+		output->file_suff = i;
 		snprintf(suff, sizeof(suff), "-%i", i);
 	}
 
@@ -158,12 +162,20 @@ static void output_shutdown(output_t *output) {
 
 
 void output_close(output_t *output) {
+	char cmd[PATH_MAX*3];
+	char suff[16] = "";
 	if (!output)
 		return;
+	//ilog(LOG_ERR, "!!!!! output_close: %s", output->full_filename);
+	if (output->file_suff > 0)
+		snprintf(suff, sizeof(suff), "-%i", output->file_suff);
+	snprintf(cmd, sizeof(cmd), "mv %s%s.%s %s/upload", output->full_filename, suff, output->file_format, output_dir);		
+	dbg("!!!!! move the recorded file to upload folder: %s", cmd);
 	output_shutdown(output);
 	db_close_stream(output);
 	encoder_free(output->encoder);
 	g_slice_free1(sizeof(*output), output);
+	system(cmd);
 }
 
 

@@ -140,6 +140,7 @@ struct output_s {
 	char full_filename[PATH_MAX], // path + filename
 		file_path[PATH_MAX],
 		file_name[PATH_MAX];
+	int file_suff;
 	const char *file_format;
 	unsigned long long db_id;
 

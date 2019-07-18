@@ -66,6 +66,7 @@ static void meta_destroy(metafile_t *mf) {
 	db_close_call(mf);
 }
 
+#define CONNECTIONUID_TAG "CONNECTIONUID="
 
 // mf is locked
 static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *content) {
@@ -74,7 +75,24 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 		pthread_mutex_lock(&mf->mix_lock);
 		if (!mf->mix) {
 			char buf[256];
-			snprintf(buf, sizeof(buf), "%s-mix", mf->parent);
+			char connectionUid[33];
+			char* pUidBegin = strstr(mf->metadata, CONNECTIONUID_TAG);
+			int uidlen = 0;
+			if (pUidBegin != NULL){
+				pUidBegin += sizeof(CONNECTIONUID_TAG);
+				if (*pUidBegin != '\0') {
+					char* pUidEnd = strchr(pUidBegin, ';');
+					if (pUidEnd != NULL)
+						uidlen = pUidEnd - pUidBegin;
+					else
+						uidlen = strlen(pUidBegin);
+					if (uidlen > sizeof(connectionUid)-1)
+						uidlen = sizeof(connectionUid)-1;
+					strncpy(connectionUid, pUidBegin, uidlen);
+				}
+			}
+			connectionUid[uidlen] = '\0';
+			snprintf(buf, sizeof(buf), "%s-%s-mix", mf->parent, connectionUid);
 			mf->mix_out = output_new(output_dir, buf);
 			mf->mix = mix_new();
 			db_do_stream(mf, mf->mix_out, "mixed", NULL, 0);
