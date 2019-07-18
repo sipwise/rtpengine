@@ -27,11 +27,11 @@ typedef unsigned int BOOL;
 
 typedef int socket_handler_t;
 
-void init_ahclient(char * ah_ip, unsigned int ah_port);
+void init_ahclient(char * ah_ip, unsigned int ah_port, BOOL transcribe_all);
 void destroy_ahclient(void);
 
 void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned char * buf, int len);
-void ahclient_close_stream(const metafile_t * metafile);
+void ahclient_close_stream(const metafile_t * metafile, int id);
 
 socket_handler_t create_ah_connection(void);
 

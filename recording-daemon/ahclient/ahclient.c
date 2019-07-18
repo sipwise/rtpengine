@@ -10,6 +10,7 @@
 #include <pthread.h>
 
 typedef struct sockaddr_in sockaddr_in_t;
+const char * TRANSCRIBE_FLAG = "TRANSCRIBE=yes";
 
 // linklist of ahclient_mux_channel_t
 typedef struct channel_node {
@@ -25,6 +26,7 @@ typedef struct  ahclient
     pthread_mutex_t channels_mutex;
     channel_node_t * channels;
     int channel_count;
+    BOOL transcribe_all;
 } ahclient_t;
 
 //// ahclient related
@@ -34,8 +36,8 @@ const int  STREAM_ID_L_RTP = 0;
 const int  STREAM_ID_R_RTP = 2;
 
 // WARN : it's not a thread safe singleton, should not be called from multiple threads
-void init_ahclient(char * ah_ip, unsigned int ah_port){
-    ilog(LOG_INFO, "init_ahclient : %s:%d", ah_ip, ah_port);
+void init_ahclient(char * ah_ip, unsigned int ah_port, BOOL transcribe_all){
+    ilog(LOG_INFO, "init_ahclient : %s:%d transcribe_all = %d", ah_ip, ah_port, transcribe_all);
 
     if (ahclient_instance == NULL) {
         // Create instance
@@ -49,6 +51,7 @@ void init_ahclient(char * ah_ip, unsigned int ah_port){
         // Init channels linklist to NULL
         ahclient_instance->channels = NULL;
         ahclient_instance->channel_count = 0;
+        ahclient_instance->transcribe_all = transcribe_all;
 
         // init Mutex
         pthread_mutex_init(&(ahclient_instance->channels_mutex), NULL);
@@ -59,8 +62,7 @@ void init_ahclient(char * ah_ip, unsigned int ah_port){
 void destroy_ahclient(void) {
     ilog(LOG_INFO, "destroy_ahclient");
 
-    if (ahclient_instance != NULL) {
-
+    if (ahclient_instance != NULL) { 
         // lock channels mutex to close all channel
         pthread_mutex_lock(&ahclient_instance->channels_mutex);
 
@@ -175,6 +177,11 @@ channel_node_t * find_channe_nodel(const metafile_t * metafile, channel_node_t *
     return channel_node;
 }
 
+BOOL transcript_stream(const metafile_t * metafile)
+{
+    return (strstr(metafile->metadata, TRANSCRIBE_FLAG) != NULL);
+}
+
 
 /**********************
 * Will create a new channel for each call, add this channel to a linked list
@@ -183,12 +190,14 @@ channel_node_t * find_channe_nodel(const metafile_t * metafile, channel_node_t *
 ********************/
 void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned char * buf, int len)
 {
-    if (id != STREAM_ID_L_RTP && id != STREAM_ID_R_RTP) return;
-    pthread_mutex_lock(&ahclient_instance->channels_mutex);
-    channel_node_t * channel_node = find_channe_nodel(metafile, NULL, TRUE);
-    pthread_mutex_unlock(&ahclient_instance->channels_mutex);
+    if (ahclient_instance && (ahclient_instance->transcribe_all || transcript_stream(metafile))) {
+        if (id != STREAM_ID_L_RTP && id != STREAM_ID_R_RTP) return;
+        pthread_mutex_lock(&ahclient_instance->channels_mutex);
+        channel_node_t * channel_node = find_channe_nodel(metafile, NULL, TRUE);
+        pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 
-    ahchannel_post_stream(channel_node->channel, id, buf, len);
+        ahchannel_post_stream(channel_node->channel, id, buf, len);
+    }
 }
 
 /**********************
@@ -196,38 +205,45 @@ void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned ch
 * Send a close signal to the worker thread, first try to sent out all remaining data
 * then it will try to shutdown the socket connection and release all resource
 ********************/
-void ahclient_close_stream(const metafile_t * metafile) {
+void ahclient_close_stream(const metafile_t * metafile, int id) {
  
-    channel_node_t * channel_node = NULL;
-    channel_node_t * pre_node = NULL;
+    if (ahclient_instance && (ahclient_instance->transcribe_all || transcript_stream(metafile))) {
+        if (id != STREAM_ID_L_RTP && id != STREAM_ID_R_RTP) return;
 
-    pthread_mutex_lock(&ahclient_instance->channels_mutex);
-    channel_node = find_channe_nodel(metafile, &pre_node, FALSE);
+        channel_node_t * channel_node = NULL;
+        channel_node_t * pre_node = NULL;
 
-    if (channel_node) {
-        // safe delete channel
-        delete_ahclient_mux_channel(channel_node->channel);
-        // maintain the linked list
-        if (pre_node == NULL) {
-            ahclient_instance->channels = channel_node->next;
-        } else {
-            pre_node->next = channel_node->next;
+        pthread_mutex_lock(&ahclient_instance->channels_mutex);
+        channel_node = find_channe_nodel(metafile, &pre_node, FALSE);
+
+        if (channel_node) {
+
+            if (close_stream(channel_node->channel, id)) {
+                // safe delete channel
+                delete_ahclient_mux_channel(channel_node->channel);
+                // maintain the linked list
+                if (pre_node == NULL) {
+                    ahclient_instance->channels = channel_node->next;
+                } else {
+                    pre_node->next = channel_node->next;
+                }
+                // delete current node
+                ahclient_instance->channel_count--;
+                char uid[UIDLEN + 1];
+                ilog(LOG_INFO, "[total channel: %d] Closed channel for Call [%s] total sent %d bytes raw data",ahclient_instance->channel_count, show_UID(metafile->call_id, uid),channel_node->channel->audio_raw_bytes_sent);
+                free(channel_node);
+            }
+
         }
-        // delete current node
-        ahclient_instance->channel_count--;
-        char uid[UIDLEN + 1];
-        ilog(LOG_INFO, "[total channel: %d] Closed channel for Call [%s] total sent %d bytes raw data",ahclient_instance->channel_count, show_UID(metafile->call_id, uid),channel_node->channel->audio_raw_bytes_sent);
-        free(channel_node);
 
+        pthread_mutex_unlock(&ahclient_instance->channels_mutex);
     }
-
-    pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 }
 
 #define SHOW_BYTES_PER_LINE     16
 #define SIZE_OF_SHOW_BUF_LINE   SHOW_BYTES_PER_LINE * 4 + 16
 #define printable(c)            ((c) >= 0x21 && (c) <= 0x7e)
-void log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line)
+void log_bineary_buffer(const unsigned char *  buf,  int buf_len, int show_line)
 {
     char line[SIZE_OF_SHOW_BUF_LINE]; 
     if (show_line == -1) { // display all
@@ -268,7 +284,7 @@ void log_bineary_buffer(const unsigned char * buf,  int buf_len, int show_line)
         } 
         *show_buf++  = 0;
 
-        ilog(LOG_DEBUG, "%02d : %s", c, line);
+        ilog(LOG_INFO, "%02d : %s", c, line);
         c++;
     }
 

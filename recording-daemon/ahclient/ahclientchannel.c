@@ -286,6 +286,7 @@ ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile)
         instance->unsent_buf_head[i] = NULL;
         instance->unsent_buf_tail[i] = NULL;
         instance->unsent_buf_size[i] = 0;
+        instance->eof_flag[i] = FALSE;
     }
     instance->retry_buf = NULL;
     instance->audio_raw_bytes_sent = 0;
@@ -333,9 +334,29 @@ void send_close_signal(ahclient_mux_channel_t *  instance)
     }
 }
 
+BOOL close_stream(ahclient_mux_channel_t *  channel, int id)
+{
+    id = (id == 0 ? 0 : 1);
+
+    char uid[UIDLEN +1];
+    ilog(LOG_INFO,"EOF received for channel : %s ID: %d", show_UID(channel->stream_header.call_id, uid), id);
+
+    if (channel) {
+        channel->eof_flag[id] = TRUE;
+        int i ;
+        for (i = 0; i < CHANNEL_COUNT; ++i) {
+            if (channel->eof_flag[i] == FALSE) return FALSE;
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+
+
+
 void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance)
 {
-    //ilog(LOG_INFO, "delete_ahclient_mux_channel");
+    // ilog(LOG_INFO, "delete_ahclient_mux_channel");
 
     if (instance) {
         // close sub thread
