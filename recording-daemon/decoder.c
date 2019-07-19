@@ -61,6 +61,8 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 	clockrate *= def->clockrate_mult;
 
 	// we can now config our output, which determines the sample format we convert to
+	int out_channels = mix_get_out_channels(channels);
+
 	format_t out_format = {
 		.clockrate = clockrate,
 		.channels = channels,
@@ -69,6 +71,8 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 
 	if (resample_audio)
 		out_format.clockrate = resample_audio;
+	dbg("====> rtp_clockrate = %d, resample_clockrate = %d", rtp_clockrate, resample_audio);
+
 	// mono/stereo mixing goes here: out_format.channels = ...
 	out_format.channels = 2;
 	out_format.format = AV_SAMPLE_FMT_S16;
@@ -76,12 +80,15 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 		// if this output has been configured already, re-use the same format
 		if (outp->encoder && outp->encoder->requested_format.format != -1)
 			out_format = outp->encoder->requested_format;
+		out_format.channels = mix_get_out_channels(channels);
 		output_config(outp, &out_format, &out_format);
 		// save the returned sample format so we don't output_config() twice
 		outp->encoder->requested_format.format = out_format.format;
 	}
 
-	decoder_t *dec = decoder_new_fmt(def, rtp_clockrate, channels, &out_format);
+	format_t resample_format = out_format;
+	resample_format.channels = channels;
+	decoder_t *dec = decoder_new_fmt(def, rtp_clockrate, channels, &resample_format);
 	if (!dec)
 		return NULL;
 	decode_t *deco = g_slice_alloc0(sizeof(decode_t));
@@ -113,10 +120,10 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 		dbg("adding packet from stream #%lu to mix output", stream->id);
 		if (G_UNLIKELY(deco->mixer_idx == (unsigned int) -1))
 			deco->mixer_idx = mix_get_index(metafile->mix);
-		format_t actual_format;
-		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
-			goto no_mix_out;
-		mix_config(metafile->mix, &actual_format);
+		format_t actual_format = dec->out_format;
+	//	if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
+	//		goto no_mix_out;
+		mix_config(metafile->mix, &actual_format, &metafile->mix_out->encoder->actual_format);
 		// XXX might be a second resampling to same format
 		AVFrame *dec_frame = resample_frame(&deco->mix_resampler, frame, &actual_format);
 		if (!dec_frame) {

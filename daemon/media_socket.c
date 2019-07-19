@@ -1045,8 +1045,8 @@ void kernelize(struct packet_stream *stream) {
 	if (stream->media->monologue->block_media || call->block_media)
 		goto no_kernel;
 
-        ilog(LOG_INFO, "Kernelizing media stream: %s%s%s:%s%d%s",
-			FMT_M(sockaddr_print_buf(&stream->endpoint.address)), FMT_M(stream->endpoint.port));
+        ilog(LOG_INFO, "Kernelizing media stream: %s%s:%d%s",
+			FMT_M(sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port));
 
 	sink = packet_stream_sink(stream);
 	if (!sink) {
@@ -1165,7 +1165,8 @@ void __unkernelize(struct packet_stream *p) {
 
 void __stream_unconfirm(struct packet_stream *ps) {
 	__unkernelize(ps);
-	PS_CLEAR(ps, CONFIRMED);
+	if (!MEDIA_ISSET(ps->media, ASYMMETRIC))
+		PS_CLEAR(ps, CONFIRMED);
 	ps->handler = NULL;
 }
 static void stream_unconfirm(struct packet_stream *ps) {
@@ -1560,14 +1561,13 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 
 			if (tmp && PS_ISSET(phc->mp.stream, STRICT_SOURCE)) {
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Drop due to strict-source attribute; "
-						"got %s%s%s:%s%d%s, "
-						"expected %s%s%s:%s%d%s",
-					FMT_M(sockaddr_print_buf(&endpoint.address)), FMT_M(endpoint.port),
-					FMT_M(sockaddr_print_buf(&phc->mp.stream->endpoint.address)),
-					FMT_M(phc->mp.stream->endpoint.port));
+						"got %s%s:%d%s, "
+						"expected %s%s:%d%s",
+					FMT_M(sockaddr_print_buf(&endpoint.address), endpoint.port),
+					FMT_M(sockaddr_print_buf(&phc->mp.stream->endpoint.address),
+					phc->mp.stream->endpoint.port));
 				atomic64_inc(&phc->mp.stream->stats.errors);
 				ret = -1;
-				goto out;
 			}
 		}
 		phc->kernelize = 1;
@@ -1630,6 +1630,9 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 				phc->mp.stream->endpoint.port);
 		return;
 	}
+
+	if (MEDIA_ISSET(phc->sink->media, ASYMMETRIC))
+		PS_SET(phc->sink, CONFIRMED);
 
 	if (!PS_ISSET(phc->sink, CONFIRMED)) {
 		__C_DBG("sink not CONFIRMED for stream %s:%d",
@@ -1785,12 +1788,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 
 	int address_check = media_packet_address_check(phc);
-	if (address_check)
-		goto drop;
-
 	if (phc->kernelize)
 		media_packet_kernel_check(phc);
-
+	if (address_check)
+		goto drop;
 
 	mutex_lock(&phc->sink->out_lock);
 
