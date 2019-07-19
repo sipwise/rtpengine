@@ -26,6 +26,7 @@
 #include "codeclib.h"
 #include "socket.h"
 #include "ssllib.h"
+#include "ahclient/ahclient.h"
 
 
 
@@ -56,7 +57,12 @@ volatile int shutdown_flag;
 
 struct rtpengine_common_config rtpe_common_config;
 
-
+#if _WITH_AH_CLIENT
+BOOL g_enable_ah_client = TRUE;
+BOOL g_ah_transcribe_all = TRUE;
+char * g_ah_ip = "255.255.255.255"; // space reserved, will be read from /etc/rtpengine/rtpengine-recording.conf
+unsigned int g_ah_port = 5570;  // will be read from /etc/rtpengine/rtpengine-recording.conf
+#endif
 
 static void signals(void) {
 	sigset_t ss;
@@ -71,6 +77,13 @@ static void signals(void) {
 
 
 static void setup(void) {
+#if _WITH_AH_CLIENT
+	//create ahclient
+	if (g_enable_ah_client) {
+		init_ahclient(g_ah_ip, g_ah_port, g_ah_transcribe_all);
+	}
+#endif
+	
 	log_init("rtpengine-recording");
 	rtpe_ssl_init();
 	socket_init();
@@ -136,6 +149,10 @@ static void wait_for_signal(void) {
 
 
 static void cleanup(void) {
+#if _WITH_AH_CLIENT
+	destroy_ahclient();
+#endif
+	
 	garbage_collect_all();
 	metafile_cleanup();
 	inotify_cleanup();
@@ -167,6 +184,12 @@ static void options(int *argc, char ***argv) {
 		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,	&forward_to,	"Where to forward to (unix socket)",	"PATH"		},
 		{ "tls-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tls_send_to,	"Where to send to (TLS destination)",	"IP:PORT"	},
 		{ "tls-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TLS PCM output",	"INT"		},
+#if _WITH_AH_CLIENT
+		{ "enable_ah_client", 	0,   0, G_OPTION_ARG_INT,		&g_enable_ah_client,	"The global configuration to enable/disable the ah client",	"INT"		},
+		{ "ah_transcribe_all", 	0,   0, G_OPTION_ARG_INT,		&g_ah_transcribe_all,	"Set this flag to 1 will transcript all calls, set to 0 will lookup flag in meta data : TRANSCRIBE=yes",	"INT"		},
+		{ "ah_ip", 			0,   0, G_OPTION_ARG_STRING,	&g_ah_ip,	"The ip address of audio harvester server",	"IP"	},
+		{ "ah_port", 		0,   0, G_OPTION_ARG_INT,		&g_ah_port,	"The port number of audio harvester server",	"INT"		},
+#endif
 		{ NULL, }
 	};
 

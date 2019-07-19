@@ -11,7 +11,7 @@
 #include "main.h"
 #include "packet.h"
 #include "forward.h"
-
+#include "ahclient/ahclient.h"
 
 #define MAXBUFLEN 65535
 #ifndef AV_INPUT_BUFFER_PADDING_SIZE
@@ -53,9 +53,13 @@ static void stream_handler(handler_t *handler) {
 
 	buf = malloc(ALLOCLEN);
 	int ret = read(stream->fd, buf, MAXBUFLEN);
+	
 	if (ret == 0) {
 		ilog(LOG_INFO, "EOF on stream %s", stream->name);
 		stream_close(stream);
+#if  _WITH_AH_CLIENT
+		ahclient_close_stream(stream->metafile);
+#endif
 		goto out;
 	}
 	else if (ret < 0) {
@@ -69,6 +73,9 @@ static void stream_handler(handler_t *handler) {
 	// got a packet
 	pthread_mutex_unlock(&stream->lock);
 
+#if  _WITH_AH_CLIENT
+	ahclient_post_stream(stream->metafile,stream->id, buf,ret);
+#endif
 	if (forward_to){
 		if (forward_packet(stream->metafile,buf,ret)) // leaves buf intact
 			g_atomic_int_inc(&stream->metafile->forward_failed);
