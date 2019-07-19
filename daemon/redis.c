@@ -1088,7 +1088,7 @@ static int redis_hash_get_sdes_params(GQueue *out, const struct redis_hash *h, c
 		snprintf(tagkey, sizeof(tagkey), "%s_tag", kk);
 		if (redis_hash_get_unsigned(&tag, h, tagkey))
 			break;
-		struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(cps));
+		struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
 		cps->tag = tag;
 		int ret = redis_hash_get_sdes_params1(&cps->params, h, kk);
 		if (ret) {
