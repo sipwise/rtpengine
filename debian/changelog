@@ -1,3 +1,12 @@
+ngcp-rtpengine (7.4.1.2+0~mr7.4.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d953d1a] TT#63550 fix mem allocation bug resulting in mem corruption during redis restore
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 19 Jul 2019 19:00:55 +0200
+
 ngcp-rtpengine (7.4.1.1+0~mr7.4.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
