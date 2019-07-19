@@ -79,7 +79,7 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 			char* pUidBegin = strstr(mf->metadata, CONNECTIONUID_TAG);
 			int uidlen = 0;
 			if (pUidBegin != NULL){
-				pUidBegin += sizeof(CONNECTIONUID_TAG);
+				pUidBegin += sizeof(CONNECTIONUID_TAG)-1;
 				if (*pUidBegin != '\0') {
 					char* pUidEnd = strchr(pUidBegin, ';');
 					if (pUidEnd != NULL)
