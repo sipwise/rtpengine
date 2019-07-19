@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include <glib.h>
+#include <errno.h>
 #include "str.h"
 
 

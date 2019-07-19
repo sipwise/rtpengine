@@ -125,7 +125,6 @@ void dtmflog(GString *s) {
 	if (_log_facility_dtmf) {
 		syslog(LOG_INFO | _log_facility_dtmf, "%s", s->str);
 	}
-	g_string_free(s, TRUE);
 }
 
 
