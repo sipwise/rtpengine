@@ -58,7 +58,7 @@ static void stream_handler(handler_t *handler) {
 		ilog(LOG_INFO, "EOF on stream %s", stream->name);
 		stream_close(stream);
 #if  _WITH_AH_CLIENT
-		ahclient_close_stream(stream->metafile);
+		ahclient_close_stream(stream->metafile, stream->id);
 #endif
 		goto out;
 	}
