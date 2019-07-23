@@ -30,6 +30,14 @@ void stream_close(stream_t *stream) {
 	epoll_del(stream->fd);
 	close(stream->fd);
 	stream->fd = -1;
+/*
+	if (timer_fd != -1){
+		epoll_del(stream->timer_fd);
+		close(stream->timer_fd)
+		stream->timer_fd = -1;
+	}
+
+ */
 }
 
 void stream_free(stream_t *stream) {
@@ -111,7 +119,53 @@ static stream_t *stream_get(metafile_t *mf, unsigned long id) {
 out:
 	return ret;
 }
+/* 
+static void stream_timer_handler(handler_t *handler) {
+    uint64_t exp = 0;
+    stream_t *stream = handler->ptr;
+    read(fd, &exp, sizeof(uint64_t)); 
+}
 
+#define CHECK_MASK_BEEP_INTERVAL 1
+int timerfd_init(stream_t *stream)
+{
+	stream->timer_fd = -1;
+
+    int tmfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+    if (tmfd < 0) {
+        ilog(LOG_ERR, "timerfd_create error, Error:[%d:%s]", errno, strerror(errno));
+        return -1;
+    }
+	
+	struct timespec now;
+	if(clock_gettime(CLOCK_MONOTONIC,&now) != 0){
+		ilog(LOG_ERR, "clock_gettime() error");
+		return -1;
+	}
+	struct itimerspec its;
+	its->it_value.tv_sec = now.tv_sec + CHECK_MASK_BEEP_INTERVAL;
+	its->it_value.tv_nsec = 0;
+	its->it_interval.tv_sec = CHECK_MASK_BEEP_INTERVAL;
+	its->it_interval.tv_nsec = 0;
+
+    int ret = timerfd_settime(tmfd, 0, &its, NULL);
+    if (ret < 0) {
+        ilog(LOG_ERR, "timerfd_settime error, Error:[%d:%s]", errno, strerror(errno));
+        close(tmfd);
+        return -1;
+    }
+
+	stream->timer_handler.ptr = stream;
+	stream->timer_handler.func = stream_timer_handler;
+	if (epoll_add(stream->timer_fd, EPOLLIN, &stream->timer_handler)) {
+        ilog(LOG_ERR, "epoll_add error, Error:[%d:%s]", errno, strerror(errno));		
+		close(tmfd);
+		return -1;
+	}
+	stream->timer_fd = tmfd;
+    return 0;
+}
+*/
 
 // mf is locked
 void stream_open(metafile_t *mf, unsigned long id, char *name) {
@@ -134,6 +188,9 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 	stream->handler.ptr = stream;
 	stream->handler.func = stream_handler;
 	epoll_add(stream->fd, EPOLLIN, &stream->handler);
+
+	// init timer
+	// timerfd_init(stream); 
 }
 
 void stream_details(metafile_t *mf, unsigned long id, unsigned int tag) {

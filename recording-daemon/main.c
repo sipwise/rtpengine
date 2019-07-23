@@ -26,6 +26,7 @@
 #include "codeclib.h"
 #include "socket.h"
 #include "ssllib.h"
+#include "tcpserver.h"
 
 
 
@@ -89,7 +90,7 @@ static void setup(void) {
 	metafile_setup();
 	epoll_setup();
 	inotify_setup();
-
+	tcpserver_setup();
 }
 
 
@@ -206,15 +207,10 @@ static void options(int *argc, char ***argv) {
 		die("The spool-dir cannot be the same as the output-dir");
 }
 
-int launch_upload_service() {
-
-}
-
 int main(int argc, char **argv) {
 	options(&argc, &argv);
 	setup();
-	launch_upload_service();
-	daemonize();
+	//daemonize();
 	wpidfile();
 
 	service_notify("READY=1\n");

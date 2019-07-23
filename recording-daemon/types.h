@@ -55,6 +55,11 @@ struct stream_s {
 	int fd;
 	handler_t handler;
 	int forwarding_on:1;
+/* 	
+	int timer_fd;
+	handler_t timer_handler;
+*/
+
 };
 typedef struct stream_s stream_t;
 
