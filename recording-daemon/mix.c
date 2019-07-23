@@ -184,12 +184,13 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 	unsigned int silence_samples = 20 * mix->input_format.clockrate / 1000;
 
 	while (mix->in_pts[idx] < upto) {
-		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->input_format.clockrate * 30)) {
-			ilog(LOG_WARN, "More than 30 seconds of silence needed to fill mix buffer, resetting");
+/* Pause/Resume may need more silence insertion bigger than 30s
+ 		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->input_format.clockrate * 30)) {
+			dbg( "More than 30 seconds of silence needed to fill mix buffer, resetting");
 			mix->in_pts[idx] = upto;
 			break;
 		}
-
+*/
 		if (G_UNLIKELY(!mix->silence_frame)) {
 			mix->silence_frame = av_frame_alloc();
 			mix->silence_frame->format = mix->input_format.format;
@@ -217,6 +218,7 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 
 		if (av_buffersrc_write_frame(mix->src_ctxs[idx], mix->silence_frame))
 			ilog(LOG_WARN, "Failed to write silence frame to buffer");
+		usleep(10000);
 	}
 }
 
