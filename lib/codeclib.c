@@ -642,6 +642,8 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 	else {
 		// shift pts according to rtp ts shift
 		u_int64_t shift_ts = ts - dec->rtp_ts;
+
+/* 	for pause/resume, we need to handle the masked packets, so comment this lost packet handling here
 		if ((shift_ts * 1000) / dec->in_format.clockrate > PACKET_TS_RESET_THRES) {
 			ilog(LOG_DEBUG, "Timestamp discontinuity detected, resetting timestamp from "
 					"%lu to %lu",
@@ -651,6 +653,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 			dec->pts += dec->in_format.clockrate;
 		}
 		else
+*/
 			dec->pts += shift_ts;
 	}
 	dec->rtp_ts = ts;
@@ -928,8 +931,10 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 
 	int diff = p->seq - ps->seq;
 	// early packet: p->seq = 200, ps->seq = 150, diff = 50
-	if (G_LIKELY(diff >= 0 && diff < PACKET_SEQ_DUPE_THRES))
+/* Pause/Resume, the diff may exceed PACKET_SEQ_DUPE_THRES, just go ahead
+ 	if (G_LIKELY(diff >= 0 && diff < PACKET_SEQ_DUPE_THRES))
 		goto seq_ok;
+*/
 	// early packet with wrap-around: p->seq = 20, ps->seq = 65530, diff = -65510
 	if (diff < (-0xffff + PACKET_SEQ_DUPE_THRES))
 		goto seq_ok;
