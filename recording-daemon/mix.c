@@ -217,6 +217,7 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 
 		if (av_buffersrc_write_frame(mix->src_ctxs[idx], mix->silence_frame))
 			ilog(LOG_WARN, "Failed to write silence frame to buffer");
+		usleep(10000);
 	}
 }
 
