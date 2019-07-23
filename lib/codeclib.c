@@ -931,20 +931,21 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 
 	int diff = p->seq - ps->seq;
 	// early packet: p->seq = 200, ps->seq = 150, diff = 50
-/* Pause/Resume, the diff may exceed PACKET_SEQ_DUPE_THRES, just go ahead
  	if (G_LIKELY(diff >= 0 && diff < PACKET_SEQ_DUPE_THRES))
 		goto seq_ok;
-*/
+
 	// early packet with wrap-around: p->seq = 20, ps->seq = 65530, diff = -65510
 	if (diff < (-0xffff + PACKET_SEQ_DUPE_THRES))
 		goto seq_ok;
+/* Pause/Resume, the diff may exceed PACKET_SEQ_DUPE_THRES, just go ahead
+
 	// recent duplicate: p->seq = 1000, ps->seq = 1080, diff = -80
 	if (diff < 0 && diff > -PACKET_SEQ_DUPE_THRES)
 		return -1;
 	// recent duplicate after wrap-around: p->seq = 65530, ps->seq = 30, diff = 65500
 	if (diff > (0xffff - PACKET_SEQ_DUPE_THRES))
 		return -1;
-
+*/
 	// everything else we consider a seq reset
 	ilog(LOG_DEBUG, "Seq reset detected: expected seq %i, received seq %i", ps->seq, p->seq);
 	ps->seq = p->seq;
