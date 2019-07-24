@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fa1b9901_1cc8f954",
+        "filename": "debian/rules",
+        "patchSetId": 5
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 1000001
+      },
+      "writtenOn": "2019-07-24T12:14:25Z",
+      "side": 1,
+      "message": "should it be muted for \"some\" only?",
+      "range": {
+        "startLine": 62,
+        "startChar": 36,
+        "endLine": 62,
+        "endChar": 40
+      },
+      "revId": "94a8843e404f3b74bd72529616aea3597dc67952",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
