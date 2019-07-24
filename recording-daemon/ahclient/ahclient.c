@@ -204,11 +204,11 @@ void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned ch
 void * async_close_channel(void * arg) 
 {
     channel_node_t * channel_node = (channel_node_t *)arg;
-
+   
     // safe delete channel
-    delete_ahclient_mux_channel(channel_node->channel);
+    delete_ahclient_mux_channel(channel_node->channel);       
     free(channel_node);
-
+    
     return NULL;
 }
 
@@ -240,7 +240,9 @@ void ahclient_close_stream(const metafile_t * metafile, int id) {
                 }
                 // delete current node
                 ahclient_instance->channel_count--;
-   
+                char uid[UIDLEN + 1];
+                ilog(LOG_INFO, "[total channel left: %d] Closing channel for Call [%s] ",ahclient_instance->channel_count, show_UID(metafile->call_id, uid));
+               
                 // RT-738 : asynchronous mode to close a channel
                 pthread_t thread_id;
                 pthread_create(&thread_id , NULL, &async_close_channel, (void *)channel_node);
