@@ -77,6 +77,7 @@ void destroy_ahclient(void) {
 
         node = ahclient_instance->channels;
         // close all channels and release the resource
+        // When detroy ah_client, we don't need to run in async mode to close all channels
         while(node) {
             ahclient_mux_channel_t * channel = node->channel;
             // close all sub thread
@@ -200,6 +201,17 @@ void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned ch
     }
 }
 
+void * async_close_channel(void * arg) 
+{
+    channel_node_t * channel_node = (channel_node_t *)arg;
+
+    // safe delete channel
+    delete_ahclient_mux_channel(channel_node->channel);
+    free(channel_node);
+
+    return NULL;
+}
+
 /**********************
 * Will close this channel
 * Send a close signal to the worker thread, first try to sent out all remaining data
@@ -219,8 +231,7 @@ void ahclient_close_stream(const metafile_t * metafile, int id) {
         if (channel_node) {
 
             if (close_stream(channel_node->channel, id)) {
-                // safe delete channel
-                delete_ahclient_mux_channel(channel_node->channel);
+                
                 // maintain the linked list
                 if (pre_node == NULL) {
                     ahclient_instance->channels = channel_node->next;
@@ -229,9 +240,10 @@ void ahclient_close_stream(const metafile_t * metafile, int id) {
                 }
                 // delete current node
                 ahclient_instance->channel_count--;
-                char uid[UIDLEN + 1];
-                ilog(LOG_INFO, "[total channel: %d] Closed channel for Call [%s] total sent %d bytes raw data",ahclient_instance->channel_count, show_UID(metafile->call_id, uid),channel_node->channel->audio_raw_bytes_sent);
-                free(channel_node);
+   
+                // RT-738 : asynchronous mode to close a channel
+                pthread_t thread_id;
+                pthread_create(&thread_id , NULL, &async_close_channel, (void *)channel_node);
             }
 
         }
