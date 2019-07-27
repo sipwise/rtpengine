@@ -8,9 +8,11 @@
 #include <stdio.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <sys/time.h> 
 
 typedef struct sockaddr_in sockaddr_in_t;
 const char * TRANSCRIBE_FLAG = "TRANSCRIBE=yes";
+const unsigned long AH_SERVER_CHECK_INTERVAL  = 10; // When AH server disconnected, try to reconnect after 10 seconds
 
 // linklist of ahclient_mux_channel_t
 typedef struct channel_node {
@@ -21,6 +23,9 @@ typedef struct channel_node {
 typedef struct  ahclient 
 {
     sockaddr_in_t   ah_server_address;
+
+    time_t          ah_last_disconnect_ts;
+    pthread_mutex_t ah_check_mutex;
 
     // mutex to protext the linked list: channels
     pthread_mutex_t channels_mutex;
@@ -35,26 +40,59 @@ ahclient_t * ahclient_instance = NULL;
 const int  STREAM_ID_L_RTP = 0;
 const int  STREAM_ID_R_RTP = 2;
 
+BOOL server_port_accessible(char * ah_ip, unsigned int ah_port) {
+
+    char cmd [100] = {0};
+    // nc -av <ip> <port>
+    sprintf(cmd,"nc -zv %s %d 2>&1", ah_ip, ah_port);
+    FILE* fp = popen(cmd, "r");
+
+    BOOL ret = FALSE;
+    if ( fp == NULL ) {
+        ilog(LOG_ERROR,"Failed to run system command %s .", cmd);
+        ret = FALSE;
+    } else {
+        char line[256]={0};
+
+        while (fgets(line, sizeof(line)-1, fp) != NULL) {
+            ilog(LOG_INFO,"%s", line);
+            if (strstr(line, "Connected to") != NULL) { // connected
+                ret = TRUE;
+                break;
+            }
+        }
+        pclose(fp);
+    }
+    return ret;
+}
+
 // WARN : it's not a thread safe singleton, should not be called from multiple threads
 void init_ahclient(char * ah_ip, unsigned int ah_port, BOOL transcribe_all){
     ilog(LOG_INFO, "init_ahclient : %s:%d transcribe_all = %d", ah_ip, ah_port, transcribe_all);
 
     if (ahclient_instance == NULL) {
-        // Create instance
-        ahclient_instance = (ahclient_t *)malloc(sizeof( ahclient_t));
-   
-        // Init AH server address
-        ahclient_instance->ah_server_address.sin_addr.s_addr = inet_addr(ah_ip);
-        ahclient_instance->ah_server_address.sin_port = htons(ah_port);
-        ahclient_instance->ah_server_address.sin_family = AF_INET;
+        if (server_port_accessible (ah_ip, ah_port)) {
+            // Create instance
+            ahclient_instance = (ahclient_t *)malloc(sizeof( ahclient_t));
 
-        // Init channels linklist to NULL
-        ahclient_instance->channels = NULL;
-        ahclient_instance->channel_count = 0;
-        ahclient_instance->transcribe_all = transcribe_all;
+            ahclient_instance->ah_last_disconnect_ts = 0;
+            pthread_mutex_init(&(ahclient_instance->ah_check_mutex), NULL);
 
-        // init Mutex
-        pthread_mutex_init(&(ahclient_instance->channels_mutex), NULL);
+            // Init AH server address
+            ahclient_instance->ah_server_address.sin_addr.s_addr = inet_addr(ah_ip);
+            ahclient_instance->ah_server_address.sin_port = htons(ah_port);
+            ahclient_instance->ah_server_address.sin_family = AF_INET;
+
+            // Init channels linklist to NULL
+            ahclient_instance->channels = NULL;
+            ahclient_instance->channel_count = 0;
+            ahclient_instance->transcribe_all = transcribe_all;
+
+            // init Mutex
+            pthread_mutex_init(&(ahclient_instance->channels_mutex), NULL);
+        } else {
+            ilog(LOG_ERROR,"AH server [%s:%d] is unaccessible, please check your configuration.", ah_ip, ah_port);
+        }
     }
 }
 
@@ -107,8 +145,9 @@ void destroy_ahclient(void) {
         ahclient_instance->channels = NULL;
         pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 
-        // destroy channels mutex
+        // destroy mutex
         pthread_mutex_destroy(&ahclient_instance->channels_mutex);
+        pthread_mutex_destroy(&ahclient_instance->ah_check_mutex);
 
         free(ahclient_instance);
     }
@@ -116,20 +155,31 @@ void destroy_ahclient(void) {
 
 socket_handler_t create_ah_connection(void){
 
-    socket_handler_t handler = socket(AF_INET , SOCK_STREAM , 0);  // create a socket handler
+    socket_handler_t handler = INVALIUD_SOCKET_HANDLER;
 
-    if (handler < 0 ) {
-        ilog(LOG_ERROR,"Couldn't create a socket handler for ah client.");
-		return -1;
+    pthread_mutex_lock(&ahclient_instance->ah_check_mutex);
+    time_t current_time = time(NULL);
+    if ( difftime(current_time, ahclient_instance->ah_last_disconnect_ts) >= AH_SERVER_CHECK_INTERVAL ) {
+        handler = socket(AF_INET , SOCK_STREAM , 0);  // create a socket handler
+
+        if (handler < 0 ) {
+            ilog(LOG_ERROR,"Couldn't create a socket handler for ah client: %d:%s.", errno, strerror(errno));
+            time(&ahclient_instance->ah_last_disconnect_ts);    // Update last disconnect time
+            handler = INVALIUD_SOCKET_HANDLER;
+        } else  if (connect(handler, &(ahclient_instance->ah_server_address), sizeof(sockaddr_in_t)) < 0) {
+            ilog(LOG_ERROR," Couldn't create a socket connection for ah client errno: %d : %s", errno, strerror(errno));
+            close(handler);
+            handler = INVALIUD_SOCKET_HANDLER;
+            time(&ahclient_instance->ah_last_disconnect_ts);    // Update last disconnect time
+        } else {
+            ilog(LOG_INFO, "ah server server connected.");
+        }
     }
+   
+    pthread_mutex_unlock(&ahclient_instance->ah_check_mutex);
 
-    if (connect(handler, &(ahclient_instance->ah_server_address), sizeof(sockaddr_in_t)) < 0) {
-        ilog(LOG_ERROR,"Couldn't create a socket connection for ah client.");
-		return -1;
-    }
-
-	ilog(LOG_INFO, "ah server server connected.");
     return handler;
+   
 }
 
 BOOL same_uid(const char * a, const char * b) {

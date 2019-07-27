@@ -19,6 +19,7 @@ const char * STREAM_HEADER_SIGANATURE           = "SPKSTM";
 const int   SOCKET_RESENT_MAX_RETRY             = 2;
 const int   SOCKET_RECONNECT_MAX_RETRY          = 3;
 const int   SOCKET_RECONNECT_WAIT_TIME_SECOND   = 30;
+const int   SOCKET_RESENT_WAIT_TIME_SECOND      = 3;
 const unsigned char     WAVE_FORMAT_MULAW       = 7;
 const unsigned int      ENENT_ID_AUDIO_RECEIVED = 1001;
 const unsigned int      ENENT_ID_AUDIO_END      = 1002;
@@ -208,19 +209,20 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
     int resend_count = 0;
     int reconnect_count = 0;
     char uid[UIDLEN + 1];
-    
+    show_UID(channel->stream_header.call_id, uid);
+
     while (resend_count < SOCKET_RESENT_MAX_RETRY && reconnect_count < SOCKET_RECONNECT_MAX_RETRY)  {
 
         if ( send_buf == NULL ) send_buf = gen_mux_buffer(channel, flush, &buf_size);
         if ( send_buf == NULL)  break;   // nothing to sent
 
-        if (channel->socket_handler > 0) {
+        if (channel->socket_handler != INVALIUD_SOCKET_HANDLER) {
             BOOL sent = (-1 != send(channel->socket_handler, 
                                 send_buf, 
                                 buf_size, 0));
             if ( sent ) {
                 channel->audio_raw_bytes_sent += buf_size;
-                ilog(LOG_DEBUG,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s ", buf_size, channel->audio_raw_bytes_sent, show_UID(channel->stream_header.call_id, uid));
+                ilog(LOG_DEBUG,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s ", buf_size, channel->audio_raw_bytes_sent, uid);
                 // Enable the following line will print the bineary data into friendly hex mode
                 // log_bineary_buffer(send_buf, buf_size, 10);
                 free(send_buf);
@@ -229,27 +231,46 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
                 reconnect_count = 0;
             } else {
                 resend_count++;
-                ilog(LOG_ERROR,"Socket sents to AH client failed for call id : %s retry:%d", show_UID(channel->stream_header.call_id, uid), resend_count);
+                ilog(LOG_ERROR,"Socket sents to AH client failed for call id : %s retry:%d", uid, resend_count);
                 if ( resend_count == SOCKET_RESENT_MAX_RETRY) {
+                    // shutdown connection, discard the unsent data and time-outed ACK
+                    shutdown(channel->socket_handler, 2);
+                    channel->socket_handler = INVALIUD_SOCKET_HANDLER;  // Will be reconnet
                     resend_count = 0;
-                    // disconnet, will retry in next while loop
-                    close(channel->socket_handler);
-                    channel->socket_handler = 0;  // Will be reconnet
+                    // If it's not flush, we can try to re-connect in next semaphore
+                    if (!flush) break;
+                } else {
+                    sleep(SOCKET_RESENT_WAIT_TIME_SECOND);
                 }
+
             }
         } else {
             reconnect_count++;
-            ilog(LOG_ERROR,"Re connect socket to AH client retry:%d", reconnect_count);
-            if (flush) {    //  this is the last semaphone, need to close the channel, we should wait and retry instead of waiting for the next semaphone
-                sleep(SOCKET_RECONNECT_WAIT_TIME_SECOND);
+            channel->socket_handler = create_ah_connection();       
+            if (channel->socket_handler  == INVALIUD_SOCKET_HANDLER )  {
+                if (flush && reconnect_count < SOCKET_RECONNECT_MAX_RETRY) {    //  this is the last semaphone, need to close the channel, we should wait and retry instead of waiting for the next semaphone
+                    sleep(SOCKET_RECONNECT_WAIT_TIME_SECOND);
+                    ilog(LOG_ERROR,"Re connect socket to AH client retry:%d", reconnect_count);
+                } else {
+                    // if it's not flush, we can try  reconnect on next semaphore
+                    break;
+                }
             }
-            channel->socket_handler = create_ah_connection();        
         }    
     }
 
     if (send_buf) { // sent failed , save it for next semaphone arrived
-        channel->retry_buf = send_buf;
-        channel->retry_buf_len = buf_size;
+        if (flush) {
+            free(send_buf);
+        } else {
+            channel->retry_buf = send_buf;
+            channel->retry_buf_len = buf_size;
+        }
+    }
+
+    if (flush) {
+        int log_type = (reconnect_count == SOCKET_RECONNECT_MAX_RETRY ? LOG_ERROR : LOG_INFO);
+        ilog(log_type,"Quit %s sending thread, sent [%d] bytes with %d bytes unsent data", uid, channel->audio_raw_bytes_sent,  channel->unsent_buf_size[0] + channel->unsent_buf_size[1] );
     }
     
 }
@@ -288,6 +309,9 @@ ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile)
         instance->unsent_buf_size[i] = 0;
         instance->eof_flag[i] = FALSE;
     }
+    instance->sem_posted_at = 0;
+    instance->steam_posted_size = 0;
+
     instance->retry_buf = NULL;
     instance->audio_raw_bytes_sent = 0;
 
@@ -356,8 +380,6 @@ BOOL close_stream(ahclient_mux_channel_t *  channel, int id)
 
 void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance)
 {
-    // ilog(LOG_INFO, "delete_ahclient_mux_channel");
-
     if (instance) {
         // close sub thread
         send_close_signal(instance);
@@ -365,7 +387,8 @@ void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance)
         pthread_join(instance->sub_subthread, NULL);
 
         // close socket
-        close(instance->socket_handler);
+        if (instance->socket_handler != INVALIUD_SOCKET_HANDLER)
+            close(instance->socket_handler);
 
         // destroy semaphore
         sem_destroy(&instance->thread_sem);
@@ -384,6 +407,7 @@ void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance)
 
 void ahchannel_post_stream(ahclient_mux_channel_t *  channel, int _id, const unsigned char  * buf, int len)
 {
+
     int id = (_id == 0 ? 0 : 1);
     if (len <= RTP_HEADER_SIZE) return;
     // remove rtp header
@@ -403,15 +427,10 @@ void ahchannel_post_stream(ahclient_mux_channel_t *  channel, int _id, const uns
     
     channel->unsent_buf_size[id] += len;
 
-    BOOL ready_to_sent = TRUE; 
-    for(int i = 0; i < CHANNEL_COUNT; ++i) {
-        if (channel->unsent_buf_size[i] < BLOCK_BUFFERSIZE) {
-            ready_to_sent = FALSE;
-            break;
-        }
-    }
+    channel->steam_posted_size += len;
 
-    if (ready_to_sent) {
+    if (channel->steam_posted_size - channel->sem_posted_at >= BLOCK_BUFFERSIZE * CHANNEL_COUNT) {
+        channel->sem_posted_at = channel->steam_posted_size;
         sem_post(&channel->thread_sem); // post a semaphore 
     }
 

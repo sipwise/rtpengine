@@ -67,6 +67,9 @@ static void stream_handler(handler_t *handler) {
 			goto out;
 		ilog(LOG_INFO, "Read error on stream %s: %s", stream->name, strerror(errno));
 		stream_close(stream);
+#if  _WITH_AH_CLIENT
+		ahclient_close_stream(stream->metafile, stream->id);
+#endif
 		goto out;
 	}
 
