@@ -1,3 +1,19 @@
+ngcp-rtpengine (7.3.3.0+0~mr7.3.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0228da9] TT#59100 support case insensitive codec names
+  * [fc832eb] correctly set frame_duration option for Opus
+  * [32164ff] rate limit log lines resulting from strict-source drops
+  * [22c6f10] TT#60301 fix rtcp-mux logic with branched calls
+  * [90b02dc] change localhost to 127.0.0.1 to avoid resolv problems
+  * [1047395] TT#61050 detect to-tag changes via via-branch
+  * [ff8c391] TT#61850 normalize `address:port` log printing
+  * [54e1f0e] TT#63550 fix mem allocation bug resulting in mem corruption during redis restore
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 29 Jul 2019 18:16:32 +0200
+
 ngcp-rtpengine (7.3.2.0+0~mr7.3.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
