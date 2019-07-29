@@ -279,9 +279,8 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
 void * ahclient_mux_channel_sending_thread(void * arg)
 {
     ahclient_mux_channel_t * channel = (ahclient_mux_channel_t * )arg;
-
+    channel->socket_handler = create_ah_connection();   // Create a connection for this thread
     while(1) {
-
         sem_wait(&channel->thread_sem); 
         ahchannel_sent_stream(channel, channel->close_channel);
         if (channel->close_channel) {
@@ -321,8 +320,8 @@ ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile)
     init_audio_strem_header_t(&instance->stream_header, metafile);
 
     // init socket connection
-    instance->socket_handler = create_ah_connection();
-
+    instance->socket_handler = INVALIUD_SOCKET_HANDLER;  // will be created in child thread
+ 
     // start child thread
     pthread_create(&instance->sub_subthread , NULL, &ahclient_mux_channel_sending_thread, (void *)instance);
 

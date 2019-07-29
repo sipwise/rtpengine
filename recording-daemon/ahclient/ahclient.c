@@ -40,59 +40,30 @@ ahclient_t * ahclient_instance = NULL;
 const int  STREAM_ID_L_RTP = 0;
 const int  STREAM_ID_R_RTP = 2;
 
-BOOL server_port_accessible(char * ah_ip, unsigned int ah_port) {
-
-    char cmd [100] = {0};
-    // nc -av <ip> <port>
-    sprintf(cmd,"nc -zv %s %d 2>&1", ah_ip, ah_port);
-    FILE* fp = popen(cmd, "r");
-
-    BOOL ret = FALSE;
-    if ( fp == NULL ) {
-        ilog(LOG_ERROR,"Failed to run system command %s .", cmd);
-        ret = FALSE;
-    } else {
-        char line[256]={0};
-
-        while (fgets(line, sizeof(line)-1, fp) != NULL) {
-            ilog(LOG_INFO,"%s", line);
-            if (strstr(line, "Connected to") != NULL) { // connected
-                ret = TRUE;
-                break;
-            }
-        }
-        pclose(fp);
-    }
-    return ret;
-}
 
 // WARN : it's not a thread safe singleton, should not be called from multiple threads
 void init_ahclient(char * ah_ip, unsigned int ah_port, BOOL transcribe_all){
     ilog(LOG_INFO, "init_ahclient : %s:%d transcribe_all = %d", ah_ip, ah_port, transcribe_all);
 
     if (ahclient_instance == NULL) {
-        if (server_port_accessible (ah_ip, ah_port)) {
-            // Create instance
-            ahclient_instance = (ahclient_t *)malloc(sizeof( ahclient_t));
+        // Create instance
+        ahclient_instance = (ahclient_t *)malloc(sizeof( ahclient_t));
 
-            ahclient_instance->ah_last_disconnect_ts = 0;
-            pthread_mutex_init(&(ahclient_instance->ah_check_mutex), NULL);
+        ahclient_instance->ah_last_disconnect_ts = 0;
+        pthread_mutex_init(&(ahclient_instance->ah_check_mutex), NULL);
 
-            // Init AH server address
-            ahclient_instance->ah_server_address.sin_addr.s_addr = inet_addr(ah_ip);
-            ahclient_instance->ah_server_address.sin_port = htons(ah_port);
-            ahclient_instance->ah_server_address.sin_family = AF_INET;
+        // Init AH server address
+        ahclient_instance->ah_server_address.sin_addr.s_addr = inet_addr(ah_ip);
+        ahclient_instance->ah_server_address.sin_port = htons(ah_port);
+        ahclient_instance->ah_server_address.sin_family = AF_INET;
 
-            // Init channels linklist to NULL
-            ahclient_instance->channels = NULL;
-            ahclient_instance->channel_count = 0;
-            ahclient_instance->transcribe_all = transcribe_all;
+        // Init channels linklist to NULL
+        ahclient_instance->channels = NULL;
+        ahclient_instance->channel_count = 0;
+        ahclient_instance->transcribe_all = transcribe_all;
 
-            // init Mutex
-            pthread_mutex_init(&(ahclient_instance->channels_mutex), NULL);
-        } else {
-            ilog(LOG_ERROR,"AH server [%s:%d] is unaccessible, please check your configuration.", ah_ip, ah_port);
-        }
+        // init Mutex
+        pthread_mutex_init(&(ahclient_instance->channels_mutex), NULL);
     }
 }
 
