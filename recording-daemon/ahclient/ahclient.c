@@ -8,9 +8,11 @@
 #include <stdio.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <sys/time.h> 
 
 typedef struct sockaddr_in sockaddr_in_t;
 const char * TRANSCRIBE_FLAG = "TRANSCRIBE=yes";
+const unsigned long AH_SERVER_CHECK_INTERVAL  = 10; // When AH server disconnected, try to reconnect after 10 seconds
 
 // linklist of ahclient_mux_channel_t
 typedef struct channel_node {
@@ -21,6 +23,9 @@ typedef struct channel_node {
 typedef struct  ahclient 
 {
     sockaddr_in_t   ah_server_address;
+
+    time_t          ah_last_disconnect_ts;
+    pthread_mutex_t ah_check_mutex;
 
     // mutex to protext the linked list: channels
     pthread_mutex_t channels_mutex;
@@ -35,6 +40,7 @@ ahclient_t * ahclient_instance = NULL;
 const int  STREAM_ID_L_RTP = 0;
 const int  STREAM_ID_R_RTP = 2;
 
+
 // WARN : it's not a thread safe singleton, should not be called from multiple threads
 void init_ahclient(char * ah_ip, unsigned int ah_port, BOOL transcribe_all){
     ilog(LOG_INFO, "init_ahclient : %s:%d transcribe_all = %d", ah_ip, ah_port, transcribe_all);
@@ -42,7 +48,10 @@ void init_ahclient(char * ah_ip, unsigned int ah_port, BOOL transcribe_all){
     if (ahclient_instance == NULL) {
         // Create instance
         ahclient_instance = (ahclient_t *)malloc(sizeof( ahclient_t));
-   
+
+        ahclient_instance->ah_last_disconnect_ts = 0;
+        pthread_mutex_init(&(ahclient_instance->ah_check_mutex), NULL);
+
         // Init AH server address
         ahclient_instance->ah_server_address.sin_addr.s_addr = inet_addr(ah_ip);
         ahclient_instance->ah_server_address.sin_port = htons(ah_port);
@@ -77,6 +86,7 @@ void destroy_ahclient(void) {
 
         node = ahclient_instance->channels;
         // close all channels and release the resource
+        // When detroy ah_client, we don't need to run in async mode to close all channels
         while(node) {
             ahclient_mux_channel_t * channel = node->channel;
             // close all sub thread
@@ -106,8 +116,9 @@ void destroy_ahclient(void) {
         ahclient_instance->channels = NULL;
         pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 
-        // destroy channels mutex
+        // destroy mutex
         pthread_mutex_destroy(&ahclient_instance->channels_mutex);
+        pthread_mutex_destroy(&ahclient_instance->ah_check_mutex);
 
         free(ahclient_instance);
     }
@@ -115,20 +126,31 @@ void destroy_ahclient(void) {
 
 socket_handler_t create_ah_connection(void){
 
-    socket_handler_t handler = socket(AF_INET , SOCK_STREAM , 0);  // create a socket handler
+    socket_handler_t handler = INVALID_SOCKET_HANDLER;
 
-    if (handler < 0 ) {
-        ilog(LOG_ERROR,"Couldn't create a socket handler for ah client.");
-		return -1;
+    pthread_mutex_lock(&ahclient_instance->ah_check_mutex);
+    time_t current_time = time(NULL);
+    if ( difftime(current_time, ahclient_instance->ah_last_disconnect_ts) >= AH_SERVER_CHECK_INTERVAL ) {
+        handler = socket(AF_INET , SOCK_STREAM , 0);  // create a socket handler
+
+        if (handler < 0 ) {
+            ilog(LOG_ERROR,"Couldn't create a socket handler for ah client: %d:%s.", errno, strerror(errno));
+            time(&ahclient_instance->ah_last_disconnect_ts);    // Update last disconnect time
+            handler = INVALID_SOCKET_HANDLER;
+        } else  if (connect(handler, &(ahclient_instance->ah_server_address), sizeof(sockaddr_in_t)) < 0) {
+            ilog(LOG_ERROR," Couldn't create a socket connection for ah client errno: %d : %s", errno, strerror(errno));
+            close(handler);
+            handler = INVALID_SOCKET_HANDLER;
+            time(&ahclient_instance->ah_last_disconnect_ts);    // Update last disconnect time
+        } else {
+            ilog(LOG_INFO, "ah server server connected.");
+        }
     }
+   
+    pthread_mutex_unlock(&ahclient_instance->ah_check_mutex);
 
-    if (connect(handler, &(ahclient_instance->ah_server_address), sizeof(sockaddr_in_t)) < 0) {
-        ilog(LOG_ERROR,"Couldn't create a socket connection for ah client.");
-		return -1;
-    }
-
-	ilog(LOG_INFO, "ah server server connected.");
     return handler;
+   
 }
 
 BOOL same_uid(const char * a, const char * b) {
@@ -200,6 +222,17 @@ void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned ch
     }
 }
 
+void * async_close_channel(void * arg) 
+{
+    channel_node_t * channel_node = (channel_node_t *)arg;
+   
+    // safe delete channel
+    delete_ahclient_mux_channel(channel_node->channel);       
+    free(channel_node);
+    
+    return NULL;
+}
+
 /**********************
 * Will close this channel
 * Send a close signal to the worker thread, first try to sent out all remaining data
@@ -219,8 +252,7 @@ void ahclient_close_stream(const metafile_t * metafile, int id) {
         if (channel_node) {
 
             if (close_stream(channel_node->channel, id)) {
-                // safe delete channel
-                delete_ahclient_mux_channel(channel_node->channel);
+                
                 // maintain the linked list
                 if (pre_node == NULL) {
                     ahclient_instance->channels = channel_node->next;
@@ -230,8 +262,11 @@ void ahclient_close_stream(const metafile_t * metafile, int id) {
                 // delete current node
                 ahclient_instance->channel_count--;
                 char uid[UIDLEN + 1];
-                ilog(LOG_INFO, "[total channel: %d] Closed channel for Call [%s] total sent %d bytes raw data",ahclient_instance->channel_count, show_UID(metafile->call_id, uid),channel_node->channel->audio_raw_bytes_sent);
-                free(channel_node);
+                ilog(LOG_INFO, "[total channel left: %d] Closing channel for Call [%s] ",ahclient_instance->channel_count, show_UID(metafile->call_id, uid));
+               
+                // RT-738 : asynchronous mode to close a channel
+                pthread_t thread_id;
+                pthread_create(&thread_id , NULL, &async_close_channel, (void *)channel_node);
             }
 
         }

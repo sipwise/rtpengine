@@ -26,6 +26,7 @@ typedef unsigned int BOOL;
 #endif
 
 typedef int socket_handler_t;
+#define INVALID_SOCKET_HANDLER   (-1)
 
 void init_ahclient(char * ah_ip, unsigned int ah_port, BOOL transcribe_all);
 void destroy_ahclient(void);

@@ -64,6 +64,8 @@ typedef struct ahclient_mux_channel {
     unsent_buf_node_t * unsent_buf_head[CHANNEL_COUNT];
     unsent_buf_node_t * unsent_buf_tail[CHANNEL_COUNT];
     unsigned int        unsent_buf_size[CHANNEL_COUNT];
+    unsigned int        sem_posted_at;
+    unsigned int        steam_posted_size;
     BOOL                eof_flag[CHANNEL_COUNT];
 
     unsigned int    retry_buf_len;
