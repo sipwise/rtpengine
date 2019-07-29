@@ -1,3 +1,13 @@
+ngcp-rtpengine (6.5.5.3+0~mr6.5.5.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4d7d730] TT#63901 don't free redis event base while being used
+  * [c61761f] TT#64050 add `G729a` as an incorrect alternative to `G729`
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 29 Jul 2019 21:22:00 +0200
+
 ngcp-rtpengine (6.5.5.2+0~mr6.5.5.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
