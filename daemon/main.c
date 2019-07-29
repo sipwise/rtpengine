@@ -787,12 +787,13 @@ int main(int argc, char **argv) {
 
 	service_notify("STOPPING=1\n");
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address))
 		redis_notify_event_base_action(EVENT_BASE_LOOPBREAK);
-		redis_notify_event_base_action(EVENT_BASE_FREE);
-	}
 
 	threads_join_all(1);
+
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address))
+		redis_notify_event_base_action(EVENT_BASE_FREE);
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
 
