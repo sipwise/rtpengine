@@ -178,9 +178,32 @@ static codec_def_t __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
 	},
+	{
+		.rtpname = "G729a",
+		.avcodec_id = AV_CODEC_ID_G729,
+		.clockrate_mult = 1,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_ptime = 20,
+		.packetizer = packetizer_passthrough,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_avcodec,
+	},
 #else
 	{
 		.rtpname = "G729",
+		.avcodec_id = -1,
+		.clockrate_mult = 1,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_ptime = 20,
+		.packetizer = packetizer_g729,
+		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_bcg729,
+	},
+	{
+		.rtpname = "G729a",
 		.avcodec_id = -1,
 		.clockrate_mult = 1,
 		.default_clockrate = 8000,
