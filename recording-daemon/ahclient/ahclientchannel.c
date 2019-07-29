@@ -216,7 +216,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
         if ( send_buf == NULL ) send_buf = gen_mux_buffer(channel, flush, &buf_size);
         if ( send_buf == NULL)  break;   // nothing to sent
 
-        if (channel->socket_handler != INVALIUD_SOCKET_HANDLER) {
+        if (channel->socket_handler != INVALID_SOCKET_HANDLER) {
             BOOL sent = (-1 != send(channel->socket_handler, 
                                 send_buf, 
                                 buf_size, 0));
@@ -235,7 +235,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
                 if ( resend_count == SOCKET_RESENT_MAX_RETRY) {
                     // shutdown connection, discard the unsent data and time-outed ACK
                     shutdown(channel->socket_handler, 2);
-                    channel->socket_handler = INVALIUD_SOCKET_HANDLER;  // Will be reconnet
+                    channel->socket_handler = INVALID_SOCKET_HANDLER;  // Will be reconnet
                     resend_count = 0;
                     // If it's not flush, we can try to re-connect in next semaphore
                     if (!flush) break;
@@ -247,7 +247,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
         } else {
             reconnect_count++;
             channel->socket_handler = create_ah_connection();       
-            if (channel->socket_handler  == INVALIUD_SOCKET_HANDLER )  {
+            if (channel->socket_handler  == INVALID_SOCKET_HANDLER )  {
                 if (flush && reconnect_count < SOCKET_RECONNECT_MAX_RETRY) {    //  this is the last semaphone, need to close the channel, we should wait and retry instead of waiting for the next semaphone
                     sleep(SOCKET_RECONNECT_WAIT_TIME_SECOND);
                     ilog(LOG_ERROR,"Re connect socket to AH client retry:%d", reconnect_count);
@@ -320,7 +320,7 @@ ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile)
     init_audio_strem_header_t(&instance->stream_header, metafile);
 
     // init socket connection
-    instance->socket_handler = INVALIUD_SOCKET_HANDLER;  // will be created in child thread
+    instance->socket_handler = INVALID_SOCKET_HANDLER;  // will be created in child thread
  
     // start child thread
     pthread_create(&instance->sub_subthread , NULL, &ahclient_mux_channel_sending_thread, (void *)instance);
@@ -386,7 +386,7 @@ void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance)
         pthread_join(instance->sub_subthread, NULL);
 
         // close socket
-        if (instance->socket_handler != INVALIUD_SOCKET_HANDLER)
+        if (instance->socket_handler != INVALID_SOCKET_HANDLER)
             close(instance->socket_handler);
 
         // destroy semaphore

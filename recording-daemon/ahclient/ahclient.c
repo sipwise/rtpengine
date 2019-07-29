@@ -126,7 +126,7 @@ void destroy_ahclient(void) {
 
 socket_handler_t create_ah_connection(void){
 
-    socket_handler_t handler = INVALIUD_SOCKET_HANDLER;
+    socket_handler_t handler = INVALID_SOCKET_HANDLER;
 
     pthread_mutex_lock(&ahclient_instance->ah_check_mutex);
     time_t current_time = time(NULL);
@@ -136,11 +136,11 @@ socket_handler_t create_ah_connection(void){
         if (handler < 0 ) {
             ilog(LOG_ERROR,"Couldn't create a socket handler for ah client: %d:%s.", errno, strerror(errno));
             time(&ahclient_instance->ah_last_disconnect_ts);    // Update last disconnect time
-            handler = INVALIUD_SOCKET_HANDLER;
+            handler = INVALID_SOCKET_HANDLER;
         } else  if (connect(handler, &(ahclient_instance->ah_server_address), sizeof(sockaddr_in_t)) < 0) {
             ilog(LOG_ERROR," Couldn't create a socket connection for ah client errno: %d : %s", errno, strerror(errno));
             close(handler);
-            handler = INVALIUD_SOCKET_HANDLER;
+            handler = INVALID_SOCKET_HANDLER;
             time(&ahclient_instance->ah_last_disconnect_ts);    // Update last disconnect time
         } else {
             ilog(LOG_INFO, "ah server server connected.");
