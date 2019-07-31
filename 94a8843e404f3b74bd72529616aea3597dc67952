@@ -22,6 +22,30 @@
       "revId": "94a8843e404f3b74bd72529616aea3597dc67952",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "15874579_cb348c74",
+        "filename": "debian/rules",
+        "patchSetId": 5
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-07-31T21:26:57Z",
+      "side": 1,
+      "message": "Well I didn\u0027t have time to investigate what needs to be done to fix this, whether it is a problem in rtpengine, dwz (which there\u0027s been already some bugs reported breaking packages), or something else. I\u0027ll come back to this at some point, just wanted to get this out of the way for now.\n\nAnd this is just an optimization as it just compresses the debug symbols files, so nothing very critical at all.",
+      "parentUuid": "fa1b9901_1cc8f954",
+      "range": {
+        "startLine": 62,
+        "startChar": 36,
+        "endLine": 62,
+        "endChar": 40
+      },
+      "revId": "94a8843e404f3b74bd72529616aea3597dc67952",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
