@@ -181,7 +181,7 @@ mix_t *mix_new() {
 
 
 static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upto) {
-	unsigned int silence_samples = 20 * mix->input_format.clockrate / 1000;
+	unsigned int silence_samples = mix->input_format.clockrate / 100;
 
 	while (mix->in_pts[idx] < upto) {
 		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->input_format.clockrate * 30)) {
@@ -212,12 +212,10 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 
 		mix->silence_frame->pts = mix->in_pts[idx];
 		mix->silence_frame->nb_samples = MIN(silence_samples, upto - mix->in_pts[idx]);
-		mix->silence_frame->pkt_size = mix->silence_frame->nb_samples;
 		mix->in_pts[idx] += mix->silence_frame->nb_samples;
 
 		if (av_buffersrc_write_frame(mix->src_ctxs[idx], mix->silence_frame))
 			ilog(LOG_WARN, "Failed to write silence frame to buffer");
-		usleep(10000);
 	}
 }
 
