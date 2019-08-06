@@ -28,6 +28,9 @@
 #include "main.h"
 #include "load.h"
 #include "media_player.h"
+#include "dtmf.h"
+#include "dtmflib.h"
+#include "codec.h"
 
 
 static pcre *info_re;
@@ -694,6 +697,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			break;
 		case CSH_LOOKUP("asymmetric-codecs"):
 			out->asymmetric_codecs = 1;
+			break;
+		case CSH_LOOKUP("inject-dtmf"):
+			out->inject_dtmf = 1;
 			break;
 		case CSH_LOOKUP("pad-crypto"):
 			out->pad_crypto = 1;
@@ -1823,6 +1829,107 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		return "Not currently playing media";
 
 	media_player_stop(monologue->player);
+
+	err = NULL;
+
+out:
+	if (call) {
+		rwlock_unlock_w(&call->master_lock);
+		obj_put(call);
+	}
+	return err;
+#else
+	return "unsupported";
+#endif
+}
+
+
+const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
+#ifdef WITH_TRANSCODING
+	struct call *call;
+	struct call_monologue *monologue;
+	str str;
+	const char *err = NULL;
+
+	err = play_media_select_party(&call, &monologue, input);
+	if (err)
+		goto out;
+
+	// validate input parameters
+
+	long long duration = bencode_dictionary_get_int_str(input, "duration", 250);
+	if (duration < 100) {
+		duration = 100;
+		ilog(LOG_WARN, "Invalid duration (%lli ms) specified, using 100 ms instead", duration);
+	}
+	else if (duration > 5000) {
+		duration = 5000;
+		ilog(LOG_WARN, "Invalid duration (%lli ms) specified, using 5000 ms instead", duration);
+	}
+
+	long long code = bencode_dictionary_get_int_str(input, "code", -1);
+	err = "Out of range 'code' specified";
+	if (code == -1) {
+		// try a string code
+		err = "No valid 'code' specified";
+		if (bencode_dictionary_get_str(input, "code", &str))
+			goto out;
+		err = "Given 'code' is not a single digit";
+		if (str.len != 1)
+			goto out;
+		code = dtmf_code_from_char(str.s[0]);
+		err = "Invalid 'code' character";
+		if (code == -1)
+			goto out;
+	}
+	else if (code < 0)
+		goto out;
+	else if (code > 15)
+		goto out;
+
+	long long volume = bencode_dictionary_get_int_str(input, "volume", 8);
+	if (volume < 0)
+		volume *= -1;
+
+	// find a usable output media
+	struct call_media *media;
+	for (GList *l = monologue->medias.head; l; l = l->next) {
+		media = l->data;
+		if (media->type_id != MT_AUDIO)
+			continue;
+		if (!media->dtmf_injector)
+			continue;
+		goto found;
+	}
+
+	err = "Monologue has no media capable of DTMF injection";
+	// XXX fall back to generating a secondary stream
+	goto out;
+
+found:;
+	ilog(LOG_DEBUG, "Injecting DTMF tone #%lli for %lli ms (vol %lli) towards '" STR_FORMAT "' (media #%u)",
+			code, duration, volume, STR_FMT(&monologue->tag), media->index);
+
+	// synthesise event packet
+	struct telephone_event_payload tep = {
+		.event = code,
+		.volume = volume,
+		.end = 1,
+	};
+	struct rtp_header rtp = {
+		.timestamp = 0,
+		.seq_num = 0,
+	};
+	struct media_packet packet = {
+		.tv = rtpe_now,
+		.call = call,
+		.media = media,
+		.rtp = &rtp,
+		.ssrc_out = 0,
+		.raw = { (void *) &tep, sizeof(tep) },
+		.payload = { (void *) &tep, sizeof(tep) },
+	};
+	media->dtmf_injector->func(media->dtmf_injector, &packet);
 
 	err = NULL;
 

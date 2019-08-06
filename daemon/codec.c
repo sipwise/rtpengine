@@ -344,7 +344,7 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 				}
 			}
 		}
-		else if (flags && flags->always_transcode) {
+		else if (flags && (flags->always_transcode || flags->inject_dtmf)) {
 			// with always-transcode, we must keep track of potential output DTMF payload
 			// types as well
 			if (pt->codec_def && pt->codec_def->dtmf) {
@@ -483,6 +483,34 @@ static void __eliminate_rejected_codecs(struct call_media *receiver, struct call
 	}
 }
 
+static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_media *receiver,
+		struct rtp_payload_type *pref_dest_codec, GHashTable *output_transcoders,
+		int dtmf_payload_type)
+{
+	if (!flags || !flags->inject_dtmf)
+		return;
+	if (receiver->dtmf_injector) {
+		// is this still valid?
+		if (!rtp_payload_type_cmp(pref_dest_codec, &receiver->dtmf_injector->dest_pt))
+			return;
+
+		codec_handler_free(receiver->dtmf_injector);
+		receiver->dtmf_injector = NULL;
+	}
+
+	// synthesise input rtp payload type
+	struct rtp_payload_type src_pt = { .payload_type = -1 };
+	const str tp_event = STR_CONST_INIT("telephone-event");
+	src_pt.codec_def = codec_find(&tp_event, MT_AUDIO);
+	if (!src_pt.codec_def) {
+		ilog(LOG_ERR, "RTP payload type 'telephone-event' is not defined");
+		return;
+	}
+
+	receiver->dtmf_injector = __handler_new(&src_pt);
+	__make_transcoder(receiver->dtmf_injector, pref_dest_codec, output_transcoders, dtmf_payload_type);
+}
+
 // call must be locked in W
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags)
@@ -593,7 +621,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		GQueue *dest_codecs = NULL;
 		if (!flags || !flags->always_transcode) {
 			// we ignore output codec matches if we must transcode DTMF
-			if (dtmf_payload_type == -1)
+			if (dtmf_payload_type != -1)
+				;
+			else if (flags && flags->inject_dtmf)
+				;
+			else
 				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		}
 		else if (flags->always_transcode) {
@@ -679,6 +711,8 @@ next:
 
 		// we have to translate RTCP packets
 		receiver->rtcp_handler = rtcp_transcode_handler;
+
+		__check_dtmf_injector(flags, receiver, pref_dest_codec, output_transcoders, dtmf_payload_type);
 
 		// at least some payload types will be transcoded, which will result in SSRC
 		// change. for payload types which we don't actually transcode, we still
