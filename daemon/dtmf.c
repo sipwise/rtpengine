@@ -124,16 +124,8 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 	else if (prev_event.code == 0)
 		ret = 1; // start event
 
-	int dtmf_code = -1;
-	if (cur_event->code >= '0' && cur_event->code <= '9')
-		dtmf_code = cur_event->code - '0';
-	else if (cur_event->code == '*')
-		dtmf_code = 10;
-	else if (cur_event->code == '#')
-		dtmf_code = 11;
-	else if (cur_event->code >= 'A' && cur_event->code <= 'D')
-		dtmf_code = cur_event->code - 'A' + 12;
-	else {
+	int dtmf_code = dtmf_code_from_char(cur_event->code);
+	if (dtmf_code == -1) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Unknown DTMF event code %i", cur_event->code);
 		return 0;
 	}
@@ -157,4 +149,16 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 	*pts = cur_event->ts;
 
 	return ret;
+}
+
+int dtmf_code_from_char(char c) {
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	else if (c == '*')
+		return 10;
+	else if (c == '#')
+		return 11;
+	else if (c >= 'A' && c <= 'D')
+		return c - 'A' + 12;
+	return -1;
 }

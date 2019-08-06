@@ -344,7 +344,7 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 				}
 			}
 		}
-		else if (flags && flags->always_transcode) {
+		else if (flags && (flags->always_transcode || flags->inject_dtmf)) {
 			// with always-transcode, we must keep track of potential output DTMF payload
 			// types as well
 			if (pt->codec_def && pt->codec_def->dtmf) {
@@ -593,7 +593,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		GQueue *dest_codecs = NULL;
 		if (!flags || !flags->always_transcode) {
 			// we ignore output codec matches if we must transcode DTMF
-			if (dtmf_payload_type == -1)
+			if (dtmf_payload_type != -1)
+				;
+			else if (flags && flags->inject_dtmf)
+				;
+			else
 				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		}
 		else if (flags->always_transcode) {
