@@ -4,6 +4,9 @@
 #include "call.h"
 #include "dtmflib.h"
 #include "main.h"
+#include "rtplib.h"
+#include "codec.h"
+#include "ssrc.h"
 
 
 
@@ -124,16 +127,8 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 	else if (prev_event.code == 0)
 		ret = 1; // start event
 
-	int dtmf_code = -1;
-	if (cur_event->code >= '0' && cur_event->code <= '9')
-		dtmf_code = cur_event->code - '0';
-	else if (cur_event->code == '*')
-		dtmf_code = 10;
-	else if (cur_event->code == '#')
-		dtmf_code = 11;
-	else if (cur_event->code >= 'A' && cur_event->code <= 'D')
-		dtmf_code = cur_event->code - 'A' + 12;
-	else {
+	int dtmf_code = dtmf_code_from_char(cur_event->code);
+	if (dtmf_code == -1) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Unknown DTMF event code %i", cur_event->code);
 		return 0;
 	}
@@ -158,3 +153,124 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 
 	return ret;
 }
+
+int dtmf_code_from_char(char c) {
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	else if (c == '*')
+		return 10;
+	else if (c == '#')
+		return 11;
+	else if (c >= 'A' && c <= 'D')
+		return c - 'A' + 12;
+	return -1;
+}
+static char dtmf_code_to_char(int code) {
+	static const char codes[] = "0123456789*#ABCD";
+	if (code < 0 || code > 15)
+		return 0;
+	return codes[code];
+}
+
+#ifdef WITH_TRANSCODING
+
+static const char *dtmf_inject_pcm(struct call_media *media, struct call_monologue *monologue,
+		struct packet_stream *ps, struct ssrc_ctx *ssrc_in, struct codec_handler *ch,
+		struct codec_ssrc_handler *csh,
+		int code, int volume, int duration)
+{
+	struct call *call = monologue->call;
+
+	struct ssrc_ctx *ssrc_out = get_ssrc_ctx(ssrc_in->ssrc_map_out, call->ssrc_hash, SSRC_DIR_OUTPUT);
+	if (!ssrc_out)
+		return "No output SSRC context present"; // XXX generate stream
+
+	// we generate PCM DTMF by simulating a detected RFC event packet
+	// XXX this shouldn't require faking an actual RTP packet
+	struct telephone_event_payload tep = {
+		.event = code,
+		.volume = -1 * volume,
+		.end = 1,
+		.duration = htons(duration * ch->dest_pt.clock_rate / 1000),
+	};
+	struct rtp_header rtp = {
+		.m_pt = 0xff,
+		.timestamp = 0,
+		.seq_num = htons(ssrc_in->parent->sequencer.seq),
+		.ssrc = htonl(ssrc_in->parent->h.ssrc),
+	};
+	struct media_packet packet = {
+		.tv = rtpe_now,
+		.call = call,
+		.media = media,
+		.rtp = &rtp,
+		.ssrc_in = ssrc_in,
+		.ssrc_out = ssrc_out,
+		.raw = { (void *) &tep, sizeof(tep) },
+		.payload = { (void *) &tep, sizeof(tep) },
+	};
+
+	// keep track of how much PCM we've generated
+	uint64_t encoder_pts = codec_encoder_pts(csh);
+
+	media->dtmf_injector->func(media->dtmf_injector, &packet);
+
+	uint64_t pts_offset = codec_encoder_pts(csh) - encoder_pts;
+	codec_decoder_skip_pts(csh, av_rescale(pts_offset, ch->dest_pt.clock_rate, ch->source_pt.clock_rate));
+
+	// ready packets for send
+	// XXX handle encryption?
+
+	media_socket_dequeue(&packet, packet_stream_sink(ps));
+
+	return 0;
+}
+
+const char *dtmf_inject(struct call_media *media, int code, int volume, int duration) {
+	struct call_monologue *monologue = media->monologue;
+
+	if (!media->streams.head)
+		return "Media doesn't have an RTP stream";
+	struct packet_stream *ps = media->streams.head->data;
+	struct ssrc_ctx *ssrc_in = ps->ssrc_in;
+	if (!ssrc_in)
+		return "No SSRC context present for DTMF injection"; // XXX fall back to generating stream
+
+	// create RFC DTMF events. we do this by simulating a detected PCM DTMF event
+	// find payload type to use
+	int pt = -1;
+	for (int i = 0; i < ssrc_in->tracker.most_len; i++) {
+		pt = ssrc_in->tracker.most[i];
+		if (pt != 255)
+			break;
+	}
+	if (pt < 0 || pt == 255)
+		return "No RTP payload type found to be in use"; // XXX generate stream
+
+	struct codec_handler *ch = codec_handler_get(media, pt);
+	if (!ch)
+		return "No matching codec handler";
+	if (ch->output_handler) // context switch if we have multiple inputs going to one output
+		ch = ch->output_handler;
+	struct codec_ssrc_handler *csh = get_ssrc(ssrc_in->parent->h.ssrc, ch->ssrc_hash);
+	if (!csh)
+		return "No matching codec SSRC handler";
+
+	// if we don't have a DTMF payload type, we have to generate PCM
+	if (media->dtmf_injector->dtmf_payload_type == -1)
+		return dtmf_inject_pcm(media, monologue, ps, ssrc_in, ch, csh, code, volume, duration);
+
+	ilog(LOG_DEBUG, "Injecting RFC DTMF event #%i for %i ms (vol %i) from '" STR_FORMAT "' (media #%u) "
+			"into RTP PT %i, SSRC %" PRIx32,
+			code, duration, volume, STR_FMT(&monologue->tag), media->index, pt,
+			ssrc_in->parent->h.ssrc);
+
+	// synthesise start and stop events
+	uint64_t num_samples = duration * ch->dest_pt.clock_rate / 1000;
+	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, codec_encoder_pts(csh));
+	codec_add_dtmf_event(csh, 0, 0, codec_encoder_pts(csh) + num_samples);
+
+	return NULL;
+}
+
+#endif
