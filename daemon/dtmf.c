@@ -4,6 +4,8 @@
 #include "call.h"
 #include "dtmflib.h"
 #include "main.h"
+#include "rtplib.h"
+#include "codec.h"
 
 
 
@@ -124,16 +126,8 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 	else if (prev_event.code == 0)
 		ret = 1; // start event
 
-	int dtmf_code = -1;
-	if (cur_event->code >= '0' && cur_event->code <= '9')
-		dtmf_code = cur_event->code - '0';
-	else if (cur_event->code == '*')
-		dtmf_code = 10;
-	else if (cur_event->code == '#')
-		dtmf_code = 11;
-	else if (cur_event->code >= 'A' && cur_event->code <= 'D')
-		dtmf_code = cur_event->code - 'A' + 12;
-	else {
+	int dtmf_code = dtmf_code_from_char(cur_event->code);
+	if (dtmf_code == -1) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Unknown DTMF event code %i", cur_event->code);
 		return 0;
 	}
@@ -157,4 +151,59 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 	*pts = cur_event->ts;
 
 	return ret;
+}
+
+int dtmf_code_from_char(char c) {
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	else if (c == '*')
+		return 10;
+	else if (c == '#')
+		return 11;
+	else if (c >= 'A' && c <= 'D')
+		return c - 'A' + 12;
+	return -1;
+}
+
+const char *dtmf_inject(struct call_media *media, int code, int volume, int duration) {
+	struct call_monologue *monologue = media->monologue;
+	struct call *call = monologue->call;
+
+	if (!media->streams.head)
+		return "Media doesn't have an RTP stream";
+	struct packet_stream *ps = media->streams.head->data;
+	if (!ps->ssrc_out)
+		return "No SSRC context present for DTMF injection"; // XXX fall back to generating stream
+
+	if (media->dtmf_injector->dtmf_payload_type) {
+		// create RFC DTMF events. we do this by simulating a detected PCM DTMF event
+		// on the reverse (input) side
+		// XXX
+	}
+
+	ilog(LOG_DEBUG, "Injecting DTMF tone #%i for %i ms (vol %i) towards '" STR_FORMAT "' (media #%u)",
+			code, duration, volume, STR_FMT(&monologue->tag), media->index);
+
+	// synthesise event packet
+	struct telephone_event_payload tep = {
+		.event = code,
+		.volume = volume,
+		.end = 1,
+	};
+	struct rtp_header rtp = {
+		.timestamp = 0,
+		.seq_num = 0,
+	};
+	struct media_packet packet = {
+		.tv = rtpe_now,
+		.call = call,
+		.media = media,
+		.rtp = &rtp,
+		.ssrc_out = ps->ssrc_out,
+		.raw = { (void *) &tep, sizeof(tep) },
+		.payload = { (void *) &tep, sizeof(tep) },
+	};
+	media->dtmf_injector->func(media->dtmf_injector, &packet);
+
+	return 0;
 }

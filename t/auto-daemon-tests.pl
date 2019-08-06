@@ -178,6 +178,79 @@ sub rtpm {
 	ok $r->{result} eq 'pong', 'ping works, daemon operational';
 }
 
+
+
+my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp);
+
+
+# DTMF injection
+#
+# no transcoding, RFC payload type present
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 6010)], [qw(198.51.100.3 6012)]);
+
+($port_a) = offer('no transcoding, RFC payload type present, inject towards B',
+	{ ICE => 'remove', replace => ['origin'], flags => ['inject DTMF'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6010 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('no transcoding, RFC payload type present, inject towards B',
+	{ ICE => 'remove', replace => ['origin'], flags => ['inject DTMF'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6012 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.3
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\x00" x 160));
+
+$resp = rtpe_req('play DTMF', 'inject DTMF', { 'from-tag' => $tt, code => '0', volume => 10, duration => 250 });
+
+
+
+### XXX
+done_testing();
+exit();
+
+
 # SDP in/out tests, various ICE options
 
 new_call;
@@ -1252,9 +1325,9 @@ SDP
 
 # RTP sequencing tests
 
-my ($sock_a, $sock_b) = new_call([qw(198.51.100.1 2010)], [qw(198.51.100.3 2012)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 2010)], [qw(198.51.100.3 2012)]);
 
-my ($port_a) = offer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+($port_a) = offer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1275,7 +1348,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-my ($port_b) = answer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+($port_b) = answer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -1368,7 +1441,7 @@ snd($sock_a, $port_b,  rtp(0, 1010, 4600, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x00" x 160));
 
 snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
-my ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
 snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 2000, 4000, $ssrc, "\x00" x 160));
 snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\x00" x 160));
@@ -1583,7 +1656,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-my $resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => $ft, blob => $wav_file });
+$resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => $ft, blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
 my ($ts, $seq);
