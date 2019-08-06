@@ -344,7 +344,7 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 				}
 			}
 		}
-		else if (flags && flags->always_transcode) {
+		else if (flags && (flags->always_transcode || flags->inject_dtmf)) {
 			// with always-transcode, we must keep track of potential output DTMF payload
 			// types as well
 			if (pt->codec_def && pt->codec_def->dtmf) {
@@ -483,6 +483,34 @@ static void __eliminate_rejected_codecs(struct call_media *receiver, struct call
 	}
 }
 
+static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_media *receiver,
+		struct rtp_payload_type *pref_dest_codec, GHashTable *output_transcoders,
+		int dtmf_payload_type)
+{
+	if (!flags || !flags->inject_dtmf)
+		return;
+	if (receiver->dtmf_injector) {
+		// is this still valid?
+		if (!rtp_payload_type_cmp(pref_dest_codec, &receiver->dtmf_injector->dest_pt))
+			return;
+
+		codec_handler_free(receiver->dtmf_injector);
+		receiver->dtmf_injector = NULL;
+	}
+
+	// synthesise input rtp payload type
+	struct rtp_payload_type src_pt = { .payload_type = -1 };
+	const str tp_event = STR_CONST_INIT("telephone-event");
+	src_pt.codec_def = codec_find(&tp_event, MT_AUDIO);
+	if (!src_pt.codec_def) {
+		ilog(LOG_ERR, "RTP payload type 'telephone-event' is not defined");
+		return;
+	}
+
+	receiver->dtmf_injector = __handler_new(&src_pt);
+	__make_transcoder(receiver->dtmf_injector, pref_dest_codec, output_transcoders, dtmf_payload_type);
+}
+
 // call must be locked in W
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags)
@@ -593,7 +621,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		GQueue *dest_codecs = NULL;
 		if (!flags || !flags->always_transcode) {
 			// we ignore output codec matches if we must transcode DTMF
-			if (dtmf_payload_type == -1)
+			if (dtmf_payload_type != -1)
+				;
+			else if (flags && flags->inject_dtmf)
+				;
+			else
 				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		}
 		else if (flags->always_transcode) {
@@ -679,6 +711,8 @@ next:
 
 		// we have to translate RTCP packets
 		receiver->rtcp_handler = rtcp_transcode_handler;
+
+		__check_dtmf_injector(flags, receiver, pref_dest_codec, output_transcoders, dtmf_payload_type);
 
 		// at least some payload types will be transcoded, which will result in SSRC
 		// change. for payload types which we don't actually transcode, we still
@@ -1220,13 +1254,22 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 
 static void __dtmf_dsp_callback(void *ptr, int code, int level, int delay) {
 	struct codec_ssrc_handler *ch = ptr;
+	uint64_t ts = ch->last_dtmf_event_ts + delay;
+	ch->last_dtmf_event_ts = ts;
+	ts = av_rescale(ts, ch->encoder_format.clockrate, ch->dtmf_format.clockrate);
+	codec_add_dtmf_event(ch, code, level, ts);
+}
+
+void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts) {
 	struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = code, .volume = level, .ts = ch->last_dtmf_event_ts + delay };
-	ch->last_dtmf_event_ts = ev->ts;
-	ev->ts = av_rescale(ev->ts, ch->encoder_format.clockrate, ch->dtmf_format.clockrate);
+	*ev = (struct dtmf_event) { .code = code, .volume = level, .ts = ts };
 	ilog(LOG_DEBUG, "DTMF event state change: code %i, volume %i, TS %lu",
-			ev->code, ev->volume, (unsigned long) ev->ts);
+			ev->code, ev->volume, (unsigned long) ts);
 	g_queue_push_tail(&ch->dtmf_events, ev);
+}
+
+uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch) {
+	return ch->encoder->fifo_pts;
 }
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
