@@ -290,8 +290,11 @@ retry:
 		sigprocmask(SIG_SETMASK, &ss, NULL);
 		closelog();
 
-		for (i = 0; i < 100; i++)
+		for (i = 0; i < 100; i++) {
+			if (i == 2 && rtpe_config.common.log_stderr)
+				continue;
 			close(i);
+		}
 
 		if (!rtpe_config.common.log_stderr) {
 			openlog("rtpengine/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
