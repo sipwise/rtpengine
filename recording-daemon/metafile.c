@@ -66,13 +66,13 @@ static void meta_destroy(metafile_t *mf) {
 	db_close_call(mf);
 }
 
-const chat *  CONNECTIONUID_TAG = "CONNECTIONUID=";
+const char *  CONNECTIONUID_TAG = "CONNECTIONUID=";
 // find the connection uid from meta file and return the length, not found, return 0
 //  if the lenth given less than the connection length in meta file, also return 0 (UID unavailable)
-int get_connection_uid(metafile_t * mf, char * connectionUid, int len)
+int get_connection_uid(const metafile_t * mf, char * connectionUid, int len)
 {
 	int ret = 0;
-	if (mf && buf && len) {
+	if (mf && connectionUid && len) {
 		char* pUidBegin = strstr(mf->metadata, CONNECTIONUID_TAG);
 		if (pUidBegin != NULL){
 			int uidlen;
@@ -108,7 +108,7 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 				char callid[18 + 1]; // call_id length is 18
 				memcpy(callid, mf->call_id, 18 );  // mf->call_id is not terminated
 				callid[18] = 0;
-				log(LOG_ERR, "CONNECION unavailable in meta data, with call_uid: ", callid);
+				ilog(LOG_ERR, "CONNECION unavailable in meta data, with call_id: %s", callid);
 			}
 
 			snprintf(buf, sizeof(buf), "%s-%s-mix", mf->parent, connectionUid);

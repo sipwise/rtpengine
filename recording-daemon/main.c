@@ -229,14 +229,9 @@ static void options(int *argc, char ***argv) {
 		die("The spool-dir cannot be the same as the output-dir");
 }
 
-int launch_upload_service() {
-
-}
-
 int main(int argc, char **argv) {
 	options(&argc, &argv);
 	setup();
-	launch_upload_service();
 	daemonize();
 	wpidfile();
 

@@ -9,6 +9,7 @@
 #include <semaphore.h>
 #include <pthread.h>
 #include <sys/time.h> 
+#include "metafile.h"
 
 typedef struct sockaddr_in sockaddr_in_t;
 const char * TRANSCRIBE_FLAG = "TRANSCRIBE=yes";

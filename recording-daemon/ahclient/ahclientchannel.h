@@ -80,7 +80,7 @@ typedef struct ahclient_mux_channel {
 unsent_buf_node_t * new_unsent_buf_node(ahclient_mux_channel_t *  channel,int id, const unsigned char * buf, int len);
 void delete_unsent_buf_node(unsent_buf_node_t * node, BOOL recursive);
 
-ahclient_mux_channel_t * new_ahclient_mux_channel(cconst char * connection_uid);
+ahclient_mux_channel_t * new_ahclient_mux_channel(const char * connection_uid);
 // Send close signal to one channel of this streaming, if all stream closed, will return TRUE 
 BOOL close_stream(ahclient_mux_channel_t *  channel, int id);
 void delete_ahclient_mux_channel(ahclient_mux_channel_t *  instance);

@@ -133,7 +133,7 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush,  
         if (send_size == 0  ) {  // EOF of stream; if it's not flush, already returned above
             if (channel->eof == FALSE) {       // Have not generated the EOF packet 
                 char uid[UIDLEN + 1];
-                ilog(LOG_INFO,"Packing the EOF for call id : %s ", show_UID(channel->stream_header.connection_uid, uid));
+                ilog(LOG_INFO,"Packing the EOF for call with connection_uis : %s ", show_UID(channel->stream_header.connection_uid, uid));
                 send_buf = malloc(sizeof(ahclient_eof_header_t));
                 ahclient_eof_header_t  * eof_header  = (ahclient_eof_header_t  *) send_buf;
                 init_ahclient_eof_header(eof_header, channel->stream_header.connection_uid);
@@ -222,7 +222,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
                                 buf_size, 0));
             if ( sent ) {
                 channel->audio_raw_bytes_sent += buf_size;
-                ilog(LOG_DEBUG,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s ", buf_size, channel->audio_raw_bytes_sent, uid);
+                ilog(LOG_DEBUG,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call with connection_uid : %s ", buf_size, channel->audio_raw_bytes_sent, uid);
                 // Enable the following line will print the bineary data into friendly hex mode
                 // log_bineary_buffer(send_buf, buf_size, 10);
                 free(send_buf);
@@ -231,7 +231,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
                 reconnect_count = 0;
             } else {
                 resend_count++;
-                ilog(LOG_ERROR,"Socket sents to AH client failed for call id : %s retry:%d", uid, resend_count);
+                ilog(LOG_ERROR,"Socket sents to AH client failed for call with connection_uid : %s retry:%d", uid, resend_count);
                 if ( resend_count == SOCKET_RESENT_MAX_RETRY) {
                     // shutdown connection, discard the unsent data and time-outed ACK
                     shutdown(channel->socket_handler, 2);
