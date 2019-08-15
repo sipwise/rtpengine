@@ -29,11 +29,11 @@ const unsigned short    PAYLOAD_TYPE_EOF        = 0;              // EOF, no pay
 const unsigned short    RTP_HEADER_SIZE = 40;
 
 
-void init_audio_strem_header_t(audio_strem_header_t * audio_strem_header, const metafile_t * metafile )
+void init_audio_strem_header_t(audio_strem_header_t * audio_strem_header, const char * connection_uid)
 {
     if (audio_strem_header) {
         strncpy(audio_strem_header->signature, STREAM_HEADER_SIGANATURE, sizeof(audio_strem_header->signature));  // Constant value
-        strncpy(audio_strem_header->call_id, metafile->call_id, UIDLEN);  // Constant value
+        strncpy(audio_strem_header->connection_uid, connection_uid, UIDLEN);  // Constant value
         audio_strem_header->audio_format = WAVE_FORMAT_MULAW;
         audio_strem_header->channel_count = 2; 
         audio_strem_header->sample_rate = 8000; 
@@ -49,14 +49,14 @@ void init_ahclient_payload_header_t(ahclient_payload_header_t * ahclient_payload
     }
 }
 
-void init_ahclient_eof_header(ahclient_eof_header_t * eof_header, const char * call_id) {
+void init_ahclient_eof_header(ahclient_eof_header_t * eof_header, const char * connection_uid) {
     if (eof_header != NULL){
         strncpy(eof_header->signature, NETWORK_PACKET_SIGNATURE, sizeof(eof_header->signature));  // Constant value
-        eof_header->length = 30;    // size of  event_id(4) + payload_type(2) + spk_signature(6) + call_id(18)
+        eof_header->length = 30;    // size of  event_id(4) + payload_type(2) + spk_signature(6) + connection_uid(18)
         eof_header->event_id = ENENT_ID_AUDIO_END;   
         eof_header->payload_type =  PAYLOAD_TYPE_EOF;    // Constant value
         strncpy(eof_header->spk_signature, STREAM_HEADER_SIGANATURE, sizeof(eof_header->spk_signature));  // Constant value
-        strncpy(eof_header->call_id, call_id, UIDLEN);  // Constant value
+        strncpy(eof_header->connection_uid, connection_uid, UIDLEN);  // Constant value
     }
 }
 
@@ -133,10 +133,10 @@ unsigned char *  gen_mux_buffer(ahclient_mux_channel_t *  channel, BOOL flush,  
         if (send_size == 0  ) {  // EOF of stream; if it's not flush, already returned above
             if (channel->eof == FALSE) {       // Have not generated the EOF packet 
                 char uid[UIDLEN + 1];
-                ilog(LOG_INFO,"Packing the EOF for call id : %s ", show_UID(channel->stream_header.call_id, uid));
+                ilog(LOG_INFO,"Packing the EOF for call with connection_uis : %s ", show_UID(channel->stream_header.connection_uid, uid));
                 send_buf = malloc(sizeof(ahclient_eof_header_t));
                 ahclient_eof_header_t  * eof_header  = (ahclient_eof_header_t  *) send_buf;
-                init_ahclient_eof_header(eof_header, channel->stream_header.call_id);
+                init_ahclient_eof_header(eof_header, channel->stream_header.connection_uid);
                 *buf_len =  actual_size_without_padding(*eof_header);
                 channel->eof = TRUE;
             }
@@ -209,7 +209,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
     int resend_count = 0;
     int reconnect_count = 0;
     char uid[UIDLEN + 1];
-    show_UID(channel->stream_header.call_id, uid);
+    show_UID(channel->stream_header.connection_uid, uid);
 
     while (resend_count < SOCKET_RESENT_MAX_RETRY && reconnect_count < SOCKET_RECONNECT_MAX_RETRY)  {
 
@@ -222,7 +222,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
                                 buf_size, 0));
             if ( sent ) {
                 channel->audio_raw_bytes_sent += buf_size;
-                ilog(LOG_DEBUG,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call id : %s ", buf_size, channel->audio_raw_bytes_sent, uid);
+                ilog(LOG_DEBUG,"Socket sent %d bytes (total raw bytes sent : %d) to AH client succeed for call with connection_uid : %s ", buf_size, channel->audio_raw_bytes_sent, uid);
                 // Enable the following line will print the bineary data into friendly hex mode
                 // log_bineary_buffer(send_buf, buf_size, 10);
                 free(send_buf);
@@ -231,7 +231,7 @@ void ahchannel_sent_stream(ahclient_mux_channel_t *  channel, BOOL flush)
                 reconnect_count = 0;
             } else {
                 resend_count++;
-                ilog(LOG_ERROR,"Socket sents to AH client failed for call id : %s retry:%d", uid, resend_count);
+                ilog(LOG_ERROR,"Socket sents to AH client failed for call with connection_uid : %s retry:%d", uid, resend_count);
                 if ( resend_count == SOCKET_RESENT_MAX_RETRY) {
                     // shutdown connection, discard the unsent data and time-outed ACK
                     shutdown(channel->socket_handler, 2);
@@ -290,7 +290,7 @@ void * ahclient_mux_channel_sending_thread(void * arg)
     pthread_exit(NULL);
 }
 
-ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile)
+ahclient_mux_channel_t * new_ahclient_mux_channel(const char * connection_uid)
 {
     // create instance
     ahclient_mux_channel_t * instance = ( ahclient_mux_channel_t * )malloc(sizeof(ahclient_mux_channel_t ));
@@ -317,7 +317,7 @@ ahclient_mux_channel_t * new_ahclient_mux_channel(const metafile_t * metafile)
     // init payload header
     init_ahclient_payload_header_t(&instance->payload_header);
     // init stream header
-    init_audio_strem_header_t(&instance->stream_header, metafile);
+    init_audio_strem_header_t(&instance->stream_header, connection_uid);
 
     // init socket connection
     instance->socket_handler = INVALID_SOCKET_HANDLER;  // will be created in child thread
@@ -362,7 +362,7 @@ BOOL close_stream(ahclient_mux_channel_t *  channel, int id)
     id = (id == 0 ? 0 : 1);
 
     char uid[UIDLEN +1];
-    ilog(LOG_INFO,"EOF received for channel : %s ID: %d", show_UID(channel->stream_header.call_id, uid), id);
+    ilog(LOG_INFO,"EOF received for channel : %s ID: %d", show_UID(channel->stream_header.connection_uid, uid), id);
 
     if (channel) {
         channel->eof_flag[id] = TRUE;
