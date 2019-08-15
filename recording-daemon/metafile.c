@@ -66,7 +66,34 @@ static void meta_destroy(metafile_t *mf) {
 	db_close_call(mf);
 }
 
-#define CONNECTIONUID_TAG "CONNECTIONUID="
+const chat *  CONNECTIONUID_TAG = "CONNECTIONUID=";
+// find the connection uid from meta file and return the length, not found, return 0
+//  if the lenth given less than the connection length in meta file, also return 0 (UID unavailable)
+int get_connection_uid(metafile_t * mf, char * connectionUid, int len)
+{
+	int ret = 0;
+	if (mf && buf && len) {
+		char* pUidBegin = strstr(mf->metadata, CONNECTIONUID_TAG);
+		if (pUidBegin != NULL){
+			int uidlen;
+			pUidBegin += strlen(CONNECTIONUID_TAG);
+			if (*pUidBegin != '\0') {
+				char* pUidEnd = strchr(pUidBegin, ';');
+				if (pUidEnd != NULL)
+					uidlen = pUidEnd - pUidBegin;
+				else
+					uidlen = strlen(pUidBegin);
+				if (len > uidlen) {
+					ret = uidlen;
+					strncpy(connectionUid, pUidBegin, uidlen);
+					connectionUid[uidlen] = '\0';
+				}
+			}
+		}
+	}
+
+	return ret;
+}
 
 // mf is locked
 static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *content) {
@@ -76,22 +103,14 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 		if (!mf->mix) {
 			char buf[256];
 			char connectionUid[33];
-			char* pUidBegin = strstr(mf->metadata, CONNECTIONUID_TAG);
-			int uidlen = 0;
-			if (pUidBegin != NULL){
-				pUidBegin += sizeof(CONNECTIONUID_TAG)-1;
-				if (*pUidBegin != '\0') {
-					char* pUidEnd = strchr(pUidBegin, ';');
-					if (pUidEnd != NULL)
-						uidlen = pUidEnd - pUidBegin;
-					else
-						uidlen = strlen(pUidBegin);
-					if (uidlen > sizeof(connectionUid)-1)
-						uidlen = sizeof(connectionUid)-1;
-					strncpy(connectionUid, pUidBegin, uidlen);
-				}
+			strcpy(connectionUid , "unknown_uid");
+			if ( !get_connection_uid(mf, connectionUid, 33)) {
+				char callid[18 + 1]; // call_id length is 18
+				memcpy(callid, mf->call_id, 18 );  // mf->call_id is not terminated
+				callid[18] = 0;
+				log(LOG_ERR, "CONNECION unavailable in meta data, with call_uid: ", callid);
 			}
-			connectionUid[uidlen] = '\0';
+
 			snprintf(buf, sizeof(buf), "%s-%s-mix", mf->parent, connectionUid);
 			mf->mix_out = output_new(output_dir, buf);
 			mf->mix = mix_new();

@@ -173,28 +173,31 @@ channel_node_t * find_channe_nodel(const metafile_t * metafile, channel_node_t *
     channel_node_t * node = ahclient_instance->channels;
     channel_node_t * pre_node = NULL;
 
-    while(node)  {
-        if (same_uid(metafile->call_id, node->channel->stream_header.call_id)) {
-            channel_node = node; break;
+    char connection_uid[UIDLEN + 1];
+    if ( get_connection_uid(metafile, connection_uid, UIDLEN + 1) ) {  // if connection UID unavailable, do nothing
+
+        while(node)  {
+            if (same_uid(connection_uid, node->channel->stream_header.connection_uid)) {
+                channel_node = node; break;
+            }
+            pre_node = node;
+            node = node->next;
         }
-        pre_node = node;
-        node = node->next;
-    }
-    if (channel_node == NULL && create) {
-        // not found 
-        ahclient_mux_channel_t * channel = new_ahclient_mux_channel(metafile);
-        channel_node = (channel_node_t *)malloc(sizeof(channel_node_t));
-        channel_node->channel = channel;
-        // attach the new node to the head of the linked list
-        channel_node->next = ahclient_instance->channels;
-        ahclient_instance->channels = channel_node;
-        ahclient_instance->channel_count++;
-        char uid[UIDLEN + 1]; 
-        ilog(LOG_INFO, "[total channel: %d] New channel created for Call [%s]",ahclient_instance->channel_count, show_UID(metafile->call_id, uid));
+        if (channel_node == NULL && create) {
+            // not found 
+            ahclient_mux_channel_t * channel = new_ahclient_mux_channel(connection_uid);
+            channel_node = (channel_node_t *)malloc(sizeof(channel_node_t));
+            channel_node->channel = channel;
+            // attach the new node to the head of the linked list
+            channel_node->next = ahclient_instance->channels;
+            ahclient_instance->channels = channel_node;
+            ahclient_instance->channel_count++;
+            ilog(LOG_INFO, "[total channel: %d] New channel created for Call [%s]",ahclient_instance->channel_count, connection_uid);
 
-    }
+        }
 
-    if (p_pre_node) *p_pre_node = pre_node;
+        if (p_pre_node) *p_pre_node = pre_node;
+    }
 
     return channel_node;
 }
@@ -218,7 +221,9 @@ void ahclient_post_stream(const metafile_t * metafile, int id, const unsigned ch
         channel_node_t * channel_node = find_channe_nodel(metafile, NULL, TRUE);
         pthread_mutex_unlock(&ahclient_instance->channels_mutex);
 
-        ahchannel_post_stream(channel_node->channel, id, buf, len);
+        if (channel_node ) {   // could be NULL when connection_uid unavailable
+            ahchannel_post_stream(channel_node->channel, id, buf, len);
+        }
     }
 }
 
