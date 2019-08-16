@@ -45,6 +45,7 @@ the following additional features are available:
 - Recording of media streams, decrypted if possible
 - Transcoding and repacketization
 - Transcoding between RFC 2833/4733 DTMF event packets and in-band DTMF tones (and vice versa)
+- Injection of DTMF events or PCM DTMF tones into running audio streams
 - Playback of pre-recorded streams/announcements
 
 *Rtpengine* does not (yet) support:
@@ -511,6 +512,7 @@ a string and determines the type of message. Currently the following commands ar
 * stop forwarding
 * play media
 * stop media
+* play DTMF
 
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
@@ -713,6 +715,13 @@ Optionally included keys are:
 		unchanged. Normally *rtpengine* would consume these attributes and insert its
 		own version of them based on other media parameters (e.g. a media section with
 		a zero IP address would come out as `sendonly` or `inactive`).
+
+	- `inject DTMF`
+
+		Signals to *rtpengine* that the audio streams involved in this `offer` or `answer`
+		(the flag should be present in both of them) are to be made available for DTMF
+		injection via the `play DTMF` control message. See `play DTMF` below for additional
+		information.
 
 * `replace`
 
@@ -1501,3 +1510,28 @@ the media file could be determined. The duration is given as in integer represen
 Stops the playback previously started by a `play media` message. Media playback stops automatically when
 the end of the media file is reached, so this message is only useful for prematurely stopping playback.
 The same participant selection keys as for the `play media` message can and must be used.
+
+`play DTMF` Message
+-------------------
+
+Instructs *rtpengine* to inject a DTMF tone or event into a running audio stream. A call participant must
+be selected in the same way as described under the `block DTMF` message above. The selected call participant
+is the one generating the DTMF event, not the one receiving it.
+
+The dictionary key `code` must be present in the message, indicating the DTMF event to be generated. It can
+be either an integer with values 0-15, or a string containing a single character
+(`0` - `9`, `*`, `#`, `A` - `D`). Additional optional dictionary keys are: `duration` indicating the duration
+of the event in milliseconds (defaults to 250 ms, with a minimum of 100 and a maximum of 5000); and
+`volume` indicating the volume in absolute decibels (defaults to -8 dB, with 0 being the maximum volume and
+positive integers being interpreted as negative).
+
+This message can be used to implement `application/dtmf-relay` or `application/dtmf` payloads carried
+in SIP INFO messages.
+
+If the destination participant supports the `telephone-event` RTP payload type, then it will be used to
+send the DTMF event. Otherwise a PCM DTMF tone will be inserted into the audio stream. Audio samples
+received during a generated DTMF event will be suppressed.
+
+The call must be marked for DTMF injection using the `inject DTMF` flag used in both `offer` and `answer`
+messages. Enabling this flag forces all audio to go through the transcoding engine, even if input and output
+codecs are the same (similar to DTMF transcoding, see above).
