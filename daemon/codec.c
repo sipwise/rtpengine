@@ -128,6 +128,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->dtmf_scaler = 0;
 	handler->output_handler = handler; // reset to default
 	handler->dtmf_payload_type = -1;
+	handler->pcm_dtmf_detect = 0;
 }
 
 static void __codec_handler_free(void *pp) {
@@ -175,7 +176,7 @@ static void __make_passthrough_ssrc(struct codec_handler *handler) {
 }
 
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
-		GHashTable *output_transcoders, int dtmf_payload_type)
+		GHashTable *output_transcoders, int dtmf_payload_type, int pcm_dtmf_detect)
 {
 	assert(handler->source_pt.codec_def != NULL);
 	assert(dest->codec_def != NULL);
@@ -207,6 +208,7 @@ reset:
 	handler->transcoder = 1;
 	if (dtmf_payload_type != -1)
 		handler->dtmf_payload_type = dtmf_payload_type;
+	handler->pcm_dtmf_detect = pcm_dtmf_detect ? 1 : 0;
 
 	// is this DTMF to DTMF?
 	if (dtmf_payload_type != -1 && handler->source_pt.codec_def->dtmf) {
@@ -536,6 +538,14 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	int transcode_dtmf = 0; // is one of our destination codecs DTMF?
 
+	// do we need to detect PCM DTMF tones?
+	int pcm_dtmf_detect = 0;
+	if ((MEDIA_ISSET(sink, TRANSCODE) || (flags && flags->always_transcode))
+			&& dtmf_payload_type != -1
+			&& !g_hash_table_lookup(receiver->codecs_send, &dtmf_payload_type))
+		pcm_dtmf_detect = 1;
+
+
 	for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 		struct rtp_payload_type *pt = l->data;
 
@@ -651,7 +661,7 @@ transcode:;
 				dest_pt->bitrate = reverse_pt->bitrate;
 		}
 		MEDIA_SET(receiver, TRANSCODE);
-		__make_transcoder(handler, dest_pt, output_transcoders, dtmf_payload_type);
+		__make_transcoder(handler, dest_pt, output_transcoders, dtmf_payload_type, pcm_dtmf_detect);
 
 next:
 		l = l->next;
@@ -692,7 +702,8 @@ next:
 					|| !handler->source_pt.codec_def || !pref_dest_codec->codec_def)
 				__make_passthrough_ssrc(handler);
 			else
-				__make_transcoder(handler, pref_dest_codec, output_transcoders, dtmf_payload_type);
+				__make_transcoder(handler, pref_dest_codec, output_transcoders,
+						dtmf_payload_type, pcm_dtmf_detect);
 			passthrough_handlers = g_slist_delete_link(passthrough_handlers, passthrough_handlers);
 
 		}
@@ -1266,7 +1277,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 				&enc_format, &ch->encoder_format, &h->dest_pt.format_parameters))
 		goto err;
 
-	if (h->dtmf_payload_type != -1) {
+	if (h->pcm_dtmf_detect) {
 		ilog(LOG_DEBUG, "Inserting DTMF DSP for output payload type %i", h->dtmf_payload_type);
 		ch->dtmf_format = (format_t) { .clockrate = 8000, .channels = 1, .format = AV_SAMPLE_FMT_S16 };
 		ch->dtmf_dsp = dtmf_rx_init(NULL, NULL, NULL);
@@ -1399,7 +1410,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 static void __dtmf_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
 	if (!ch->dtmf_dsp)
 		return;
-	if (ch->handler->dtmf_payload_type == -1) {
+	if (ch->handler->dtmf_payload_type == -1 || !ch->handler->pcm_dtmf_detect) {
 		ch->dtmf_event.code = 0;
 		return;
 	}

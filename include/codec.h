@@ -30,6 +30,7 @@ struct codec_handler {
 	int kernelize:1;
 	int transcoder:1;
 	int dtmf_scaler:1;
+	int pcm_dtmf_detect:1;
 
 	struct ssrc_hash *ssrc_hash;
 	struct codec_handler *output_handler; // == self, or other PT handler
