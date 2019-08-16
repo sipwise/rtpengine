@@ -83,6 +83,8 @@ struct codec_ssrc_handler {
 	GQueue dtmf_events;
 	struct dtmf_event dtmf_event;
 
+	uint64_t skip_pts;
+
 	int rtp_mark:1;
 };
 struct transcode_packet {
@@ -1245,6 +1247,15 @@ void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, ui
 	g_queue_push_tail(&ch->dtmf_events, ev);
 }
 
+uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch) {
+	return ch->encoder->fifo_pts;
+}
+
+void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t pts) {
+	ilog(LOG_DEBUG, "Skipping next %" PRIu64 " samples", pts);
+	ch->skip_pts += pts;
+}
+
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	struct codec_handler *h = p;
 
@@ -1471,10 +1482,22 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 		ch = new_ch;
 	}
 
+	if (ch->skip_pts) {
+		if (frame->nb_samples <= 0)
+			;
+		else if (frame->nb_samples < ch->skip_pts)
+			ch->skip_pts -= frame->nb_samples;
+		else
+			ch->skip_pts = 0;
+		ilog(LOG_DEBUG, "Discarding %i samples", frame->nb_samples);
+		goto discard;
+	}
+
 	__dtmf_detect(ch, frame);
 
 	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, mp);
 
+discard:
 	av_frame_free(&frame);
 	//mp->iter_out++;
 
