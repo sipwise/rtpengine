@@ -103,6 +103,7 @@ struct transcode_packet {
 static codec_handler_func handler_func_passthrough_ssrc;
 static codec_handler_func handler_func_transcode;
 static codec_handler_func handler_func_playback;
+static codec_handler_func handler_func_inject_dtmf;
 static codec_handler_func handler_func_dtmf;
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
@@ -348,7 +349,7 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 				}
 			}
 		}
-		else if (flags && flags->always_transcode) {
+		else if (flags && (flags->always_transcode || flags->inject_dtmf)) {
 			// with always-transcode, we must keep track of potential output DTMF payload
 			// types as well
 			if (pt->codec_def && pt->codec_def->dtmf) {
@@ -372,7 +373,7 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
 				&pt->payload_type);
-		if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt)) {
+		if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt) || (flags && flags->inject_dtmf)) {
 			*sink_transcoding = 1;
 			// can the sink receive RFC DTMF but the receiver can't send it?
 			if (pt->codec_def && pt->codec_def->dtmf) {
@@ -485,6 +486,43 @@ static void __eliminate_rejected_codecs(struct call_media *receiver, struct call
 				STR_FMT(&pt->encoding_with_params));
 		l = __delete_send_codec(receiver, l);
 	}
+}
+
+static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_media *receiver,
+		struct rtp_payload_type *pref_dest_codec, GHashTable *output_transcoders,
+		int dtmf_payload_type)
+{
+	if (!flags || !flags->inject_dtmf)
+		return;
+	if (receiver->dtmf_injector) {
+		// is this still valid?
+		if (!rtp_payload_type_cmp(pref_dest_codec, &receiver->dtmf_injector->dest_pt))
+			return;
+
+		codec_handler_free(receiver->dtmf_injector);
+		receiver->dtmf_injector = NULL;
+	}
+
+	// synthesise input rtp payload type
+	struct rtp_payload_type src_pt = {
+		.payload_type = -1,
+		.clock_rate = pref_dest_codec->clock_rate,
+		.channels = pref_dest_codec->channels,
+	};
+	str_init(&src_pt.encoding, "DTMF injector");
+	str_init(&src_pt.encoding_with_params, "DTMF injector");
+	const str tp_event = STR_CONST_INIT("telephone-event");
+	src_pt.codec_def = codec_find(&tp_event, MT_AUDIO);
+	if (!src_pt.codec_def) {
+		ilog(LOG_ERR, "RTP payload type 'telephone-event' is not defined");
+		return;
+	}
+
+	//receiver->dtmf_injector = codec_handler_make_playback(&src_pt, pref_dest_codec, 0);
+	//receiver->dtmf_injector->dtmf_payload_type = dtmf_payload_type;
+	receiver->dtmf_injector = __handler_new(&src_pt);
+	__make_transcoder(receiver->dtmf_injector, pref_dest_codec, output_transcoders, dtmf_payload_type, 0);
+	receiver->dtmf_injector->func = handler_func_inject_dtmf;
 }
 
 // call must be locked in W
@@ -605,7 +643,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		GQueue *dest_codecs = NULL;
 		if (!flags || !flags->always_transcode) {
 			// we ignore output codec matches if we must transcode DTMF
-			if (dtmf_payload_type == -1)
+			if (dtmf_payload_type != -1)
+				;
+			else if (flags && flags->inject_dtmf)
+				;
+			else
 				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		}
 		else if (flags->always_transcode) {
@@ -692,6 +734,8 @@ next:
 		// we have to translate RTCP packets
 		receiver->rtcp_handler = rtcp_transcode_handler;
 
+		__check_dtmf_injector(flags, receiver, pref_dest_codec, output_transcoders, dtmf_payload_type);
+
 		// at least some payload types will be transcoded, which will result in SSRC
 		// change. for payload types which we don't actually transcode, we still
 		// must substitute the SSRC
@@ -756,6 +800,8 @@ void codec_handlers_free(struct call_media *m) {
 		g_hash_table_destroy(m->codec_handlers);
 	m->codec_handlers = NULL;
 	m->codec_handler_cache = NULL;
+	if (m->dtmf_injector)
+		codec_handler_free(m->dtmf_injector);
 }
 
 
@@ -1520,8 +1566,6 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 	if (mp->call->block_media || mp->media->monologue->block_media)
 		return 0;
 
-	assert((mp->rtp->m_pt & 0x7f) == h->source_pt.payload_type);
-
 	// create new packet and insert it into sequencer queue
 
 	ilog(LOG_DEBUG, "Received RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
@@ -1548,6 +1592,13 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 static int handler_func_playback(struct codec_handler *h, struct media_packet *mp) {
 	decoder_input_data(h->ssrc_handler->decoder, &mp->payload, mp->rtp->timestamp,
 			__packet_decoded, h->ssrc_handler, mp);
+	return 0;
+}
+
+static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet *mp) {
+	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
+	decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,
+			__packet_decoded, ch, mp);
 	return 0;
 }
 
