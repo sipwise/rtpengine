@@ -3555,18 +3555,20 @@ static int srtp_hash(unsigned char *hmac,
 {
 	u_int32_t roc;
 	struct shash_desc *dsc;
+	size_t alloc_size;
 
 	if (!s->auth_tag_len)
 		return 0;
 
 	roc = htonl((pkt_idx & 0xffffffff0000ULL) >> 16);
 
-	dsc = kmalloc(sizeof(*dsc) + crypto_shash_descsize(c->shash), GFP_ATOMIC);
+	alloc_size = sizeof(*dsc) + crypto_shash_descsize(c->shash);
+	dsc = kmalloc(alloc_size, GFP_ATOMIC);
 	if (!dsc)
 		return -1;
+	memset(dsc, 0, alloc_size);
 
 	dsc->tfm = c->shash;
-	dsc->flags = 0;
 
 	if (crypto_shash_init(dsc))
 		goto error;
