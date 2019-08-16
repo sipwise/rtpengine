@@ -74,6 +74,7 @@ void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payl
 #ifdef WITH_TRANSCODING
 
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *);
+void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts);
 
 #else
 

@@ -1231,12 +1231,17 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 
 static void __dtmf_dsp_callback(void *ptr, int code, int level, int delay) {
 	struct codec_ssrc_handler *ch = ptr;
+	uint64_t ts = ch->last_dtmf_event_ts + delay;
+	ch->last_dtmf_event_ts = ts;
+	ts = av_rescale(ts, ch->encoder_format.clockrate, ch->dtmf_format.clockrate);
+	codec_add_dtmf_event(ch, code, level, ts);
+}
+
+void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts) {
 	struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = code, .volume = level, .ts = ch->last_dtmf_event_ts + delay };
-	ch->last_dtmf_event_ts = ev->ts;
-	ev->ts = av_rescale(ev->ts, ch->encoder_format.clockrate, ch->dtmf_format.clockrate);
+	*ev = (struct dtmf_event) { .code = code, .volume = level, .ts = ts };
 	ilog(LOG_DEBUG, "DTMF event state change: code %i, volume %i, TS %lu",
-			ev->code, ev->volume, (unsigned long) ev->ts);
+			ev->code, ev->volume, (unsigned long) ts);
 	g_queue_push_tail(&ch->dtmf_events, ev);
 }
 
