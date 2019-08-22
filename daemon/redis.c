@@ -667,6 +667,7 @@ err:
 static void redis_close(struct redis *r) {
 	if (r->ctx)
 		redisFree(r->ctx);
+	r->ctx = NULL;
 	mutex_destroy(&r->lock);
 	g_slice_free1(sizeof(*r), r);
 }
