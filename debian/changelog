@@ -1,3 +1,12 @@
+ngcp-rtpengine (6.5.5.4+0~mr6.5.5.4) unstable; urgency=medium
+
+  [ Guillem Jover ]
+  * [cd915c3] TT#65100 Fix double free for redis context on closure
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 23 Aug 2019 15:35:34 +0200
+
 ngcp-rtpengine (6.5.5.3+0~mr6.5.5.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
