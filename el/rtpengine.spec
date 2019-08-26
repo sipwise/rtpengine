@@ -10,6 +10,7 @@ Source0:	https://github.com/sipwise/rtpengine/archive/mr%{version}/%{name}-%{ver
 Conflicts:	%{name}-kernel < %{version}-%{release}
 
 %global with_transcoding 1
+%{?_unitdir:%define has_systemd_dirs 1}
 
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
@@ -109,11 +110,21 @@ install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_sbindir
 %endif
 
 ## Install the init.d script and configuration file
+%if 0%{?has_systemd_dirs}
+install -D -p -m755 el/%{binname}.service \
+	%{buildroot}%{_unitdir}/%{binname}.service
+%else
 install -D -p -m755 el/%{binname}.init \
 	%{buildroot}%{_initrddir}/%{name}
+%endif
 %if 0%{?with_transcoding} > 0
+%if 0%{?has_systemd_dirs}
+install -D -p -m755 el/%{binname}-recording.service \
+	%{buildroot}%{_unitdir}/%{binname}-recording.service
+%else
 install -D -p -m755 el/%{binname}-recording.init \
         %{buildroot}%{_initrddir}/%{name}-recording
+%endif
 %endif
 install -D -p -m644 el/%{binname}.sysconfig \
 	%{buildroot}%{_sysconfdir}/sysconfig/%{binname}
@@ -163,7 +174,11 @@ getent passwd %{name} >/dev/null || /usr/sbin/useradd -r -g %{name} \
 
 %post
 if [ $1 -eq 1 ]; then
+%if 0%{?has_systemd_dirs}
+        systemctl daemon-reload
+%else
         /sbin/chkconfig --add %{name} || :
+%endif
 fi
 
 
@@ -187,10 +202,15 @@ true
 
 %preun
 if [ $1 = 0 ] ; then
+%if 0%{?has_systemd_dirs}
+        systemctl stop %{binname}.service
+        systemctl disable %{binname}.service
+
+%else
         /sbin/service %{name} stop >/dev/null 2>&1
         /sbin/chkconfig --del %{name}
+%endif
 fi
-
 
 %preun dkms
 # Remove from DKMS registry
@@ -204,7 +224,11 @@ true
 # CLI (command line interface)
 %{_sbindir}/%{binname}-ctl
 # init.d script and configuration file
+%if 0%{?has_systemd_dirs}
+%{_unitdir}/%{binname}.service
+%else
 %{_initrddir}/%{name}
+%endif
 %config(noreplace) %{_sysconfdir}/sysconfig/%{binname}
 %attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{name}
 # default config
@@ -229,7 +253,11 @@ true
 # Recording daemon
 %{_sbindir}/%{binname}-recording
 # Init script
+%if 0%{?has_systemd_dirs}
+%{_unitdir}/%{binname}-recording.service
+%else
 %{_initrddir}/%{name}-recording
+%endif
 # Sysconfig
 %config(noreplace) %{_sysconfdir}/sysconfig/%{binname}-recording
 # Default config
