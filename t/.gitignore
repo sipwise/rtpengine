@@ -49,6 +49,7 @@ tests-preload.so
 timerthread.c
 media_player.c
 dtmflib.c
+jitter_buffer.c
 test-dtmf-detect
 *-test
 dtmf_rx_fillin.h

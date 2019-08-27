@@ -11,6 +11,7 @@
 #include "dtls.h"
 #include "crypto.h"
 #include "socket.h"
+#include "codec.h"
 
 
 
@@ -19,6 +20,7 @@ struct media_packet;
 struct transport_protocol;
 struct ssrc_ctx;
 struct rtpengine_srtp;
+struct codec_packet;
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
 typedef int (*rewrite_func)(str *, struct packet_stream *, struct stream_fd *, const endpoint_t *,
@@ -134,11 +136,7 @@ struct media_packet {
 	GQueue packets_out;
 };
 
-
-
 extern GQueue all_local_interfaces; // read-only during runtime
-
-
 
 void interfaces_init(GQueue *interfaces);
 
@@ -173,6 +171,8 @@ const struct streamhandler *determine_handler(const struct transport_protocol *i
 		struct call_media *out_media, int must_recrypt);
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
 const struct transport_protocol *transport_protocol(const str *s);
+void play_buffered(struct packet_stream *sink, struct codec_packet *cp);
+
 
 /* XXX shouldn't be necessary */
 /*

@@ -101,6 +101,9 @@ fi
 [ -z "$RECORDING_METHOD" ] || OPTIONS="$OPTIONS --recording-method=$RECORDING_METHOD"
 [ -z "$RECORDING_FORMAT" ] || OPTIONS="$OPTIONS --recording-format=$RECORDING_FORMAT"
 [ -z "$DTLS_PASSIVE" ] || ( [ "$DTLS_PASSIVE" != "yes" ] && [ "$DTLS_PASSIVE" != "1" ] ) || OPTIONS="$OPTIONS --dtls-passive"
+[ -z "$ENABLE_JB" ] || ( [ "$ENABLE_JB" != "yes" ] && [ "$ENABLE_JB" != "1" ] ) || OPTIONS="$OPTIONS --enable-jb"
+[ -z "$MIN_JB_LENGTH" ] || OPTS+=" --min-jb-length=$MIN_JB_LENGTH"
+[ -z "$MAX_JB_LENGTH" ] || OPTS+=" --max-jb-length=$MAX_JB_LENGTH"
 
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"

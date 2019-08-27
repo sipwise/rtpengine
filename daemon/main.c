@@ -44,6 +44,7 @@
 #include "ssllib.h"
 #include "media_player.h"
 #include "dtmf.h"
+#include "jitter_buffer.h"
 
 
 
@@ -374,6 +375,9 @@ static void options(int *argc, char ***argv) {
 		{ "mysql-user",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_user,"MySQL connection credentials",		"USERNAME"	},
 		{ "mysql-pass",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_pass,"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-query",0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_query,"MySQL select query",			"STRING"	},
+		{ "enable-jb", 'F', 0,  G_OPTION_ARG_NONE,      &rtpe_config.enable_jb, "Enable jitter buffer in rtpengine", NULL },
+		{ "min-jb-length", 0, 0, G_OPTION_ARG_INT,      &rtpe_config.min_jb_length, "Number of Redis restore threads",      "INT" },
+		{ "max-jb-length", 0, 0, G_OPTION_ARG_INT,      &rtpe_config.max_jb_length, "Number of Redis restore threads",      "INT" },
 		{ NULL, }
 	};
 
@@ -617,6 +621,10 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->rec_method = g_strdup(rtpe_config.rec_method);
 	ini_rtpe_cfg->rec_format = g_strdup(rtpe_config.rec_format);
 
+	ini_rtpe_cfg->enable_jb = rtpe_config.enable_jb;
+	ini_rtpe_cfg->min_jb_length = rtpe_config.min_jb_length;
+	ini_rtpe_cfg->max_jb_length = rtpe_config.max_jb_length;
+
 }
 
 static void early_init(void) {
@@ -752,6 +760,9 @@ no_kernel:
 	wpidfile();
 
 	homer_sender_init(&rtpe_config.homer_ep, rtpe_config.homer_protocol, rtpe_config.homer_id);
+
+        if (rtpe_config.enable_jb)
+		jitter_buffer_init(rtpe_config.min_jb_length, rtpe_config.max_jb_length);
 
 	rtcp_init(); // must come after Homer init
 

@@ -127,6 +127,9 @@ build_opts() {
 	[ -z "$RECORDING_METHOD" ] || OPTS+=" --recording-method=$RECORDING_METHOD"
 	[ -z "$RECORDING_FORMAT" ] || OPTS+=" --recording-format=$RECORDING_FORMAT"
 	[ -z "$DTLS_PASSIVE" ] || ( [ "$DTLS_PASSIVE" != "yes" ] && [ "$DTLS_PASSIVE" != "1" ] ) || OPTS+=" --dtls-passive"
+	[ -z "$ENABLE_JB" ] || ( [ "$ENABLE_JB" != "yes" ] && [ "$ENABLE_JB" != "1" ] ) || OPTS+=" --enable-jb"
+	[ -z "$MIN_JB_LENGTH" ] || OPTS+=" --min-jb-length=$MIN_JB_LENGTH"
+	[ -z "$MAX_JB_LENGTH" ] || OPTS+=" --max-jb-length=$MAX_JB_LENGTH"
 
 	# recording dir
 	if [ ! -z "$RECORDING_DIR" ];then
