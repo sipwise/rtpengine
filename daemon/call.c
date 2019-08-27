@@ -899,11 +899,13 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	stream = uid_slice_alloc0(stream, &call->streams);
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
+	mutex_init(&stream->jb.lock);
 	stream->call = call;
 	atomic64_set_na(&stream->last_packet, rtpe_now.tv_sec);
 	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
 	recording_init_stream(stream);
-	stream->send_timer = send_timer_new(stream);
+	stream->send_timer = send_timer_new(stream, 0);
+	stream->buffer_timer = send_timer_new(stream, 1);
 
 	return stream;
 }
@@ -2166,6 +2168,8 @@ void call_destroy(struct call *c) {
 				ps = o->data;
 
 				send_timer_put(&ps->send_timer);
+				send_timer_put(&ps->buffer_timer);
+				mutex_destroy(&ps->jb.lock);
 
 				if (PS_ISSET(ps, FALLBACK_RTCP))
 					continue;
@@ -2367,6 +2371,7 @@ static struct call *call_create(const str *callid) {
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
 	c->ssrc_hash = create_ssrc_hash_call();
+	c->enable_jb = rtpe_config.enable_jb;
 
 	return c;
 }

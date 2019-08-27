@@ -20,6 +20,7 @@
 #include "recording.h"
 #include "statistics.h"
 #include "codeclib.h"
+#include "jitter_buffer.h"
 
 #define UNDEFINED ((unsigned int) -1)
 
@@ -265,6 +266,7 @@ struct packet_stream {
 	struct ssrc_ctx		*ssrc_in,	/* LOCK: in_lock */ // XXX eliminate these
 				*ssrc_out;	/* LOCK: out_lock */
 	struct send_timer	*send_timer;	/* RO */
+	struct send_timer	*buffer_timer;	/* RO */
 
 	struct stats		stats;
 	struct stats		kernel_stats;
@@ -283,6 +285,7 @@ struct packet_stream {
 
 	/* in_lock must be held for SETTING these: */
 	volatile unsigned int	ps_flags;
+	struct jitter_buffer    jb;
 };
 
 /* protected by call->master_lock, except the RO elements */
@@ -392,6 +395,7 @@ struct call {
 	int			block_media:1;
 	int			recording_on:1;
 	int			rec_forwarding:1;
+	int			enable_jb:1;
 };
 
 

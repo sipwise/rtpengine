@@ -152,7 +152,7 @@ static void __send_timer_free(void *p) {
 
 
 // call->master_lock held in W
-struct send_timer *send_timer_new(struct packet_stream *ps) {
+struct send_timer *send_timer_new(struct packet_stream *ps, int val) {
 	ilog(LOG_DEBUG, "creating send_timer");
 
 	struct send_timer *st = obj_alloc0("send_timer", sizeof(*st), __send_timer_free);
@@ -160,6 +160,7 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 	mutex_init(&st->lock);
 	st->call = obj_get(ps->call);
 	st->sink = ps;
+	st->buffer_timer = val;
 	g_queue_init(&st->packets);
 
 	return st;
@@ -173,7 +174,6 @@ static int send_timer_send(struct send_timer *st, struct codec_packet *cp) {
 
 	if (!st->sink->selected_sfd)
 		goto out;
-
 	struct rtp_header *rh = (void *) cp->s.s;
 	ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
 			FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
@@ -186,19 +186,34 @@ static int send_timer_send(struct send_timer *st, struct codec_packet *cp) {
 
 out:
 	codec_packet_free(cp);
-
 	return 0;
 }
 
+static int compare_timeval(const void *a, const void *b, void* data) {
+	const struct codec_packet *t1 = a;
+	const struct codec_packet *t2 = b;
+	int ret_val = timeval_cmp(&t1->to_send, &t2->to_send);
+        //sorting in descending order for faster insertion and read from tail
+	if(ret_val == 1)
+		return -1;
+	if(ret_val == -1)
+		return 1;
+
+	return ret_val;
+}
 
 // st->stream->out_lock (or call->master_lock/W) must be held already
 void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
+
+        if(cp->packet && cp->packet->buffered)
+           goto queue;
+
 	// can we send immediately?
 	if (!send_timer_send(st, cp))
 		return;
 
+queue:;
 	// queue for sending
-
 	struct rtp_header *rh = (void *) cp->s.s;
 	ilog(LOG_DEBUG, "queuing up packet for delivery at %lu.%06u (RTP seq %u TS %u)",
 			(unsigned long) cp->to_send.tv_sec,
@@ -210,11 +225,12 @@ void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
 	unsigned int qlen = st->packets.length;
 	// this hands over ownership of cp, so we must copy the timeval out
 	struct timeval tv_send = cp->to_send;
-	g_queue_push_tail(&st->packets, cp);
+	//sorted based on delivery time
+	g_queue_insert_sorted(&st->packets, cp, compare_timeval, NULL);
 	mutex_unlock(&st->lock);
 
-	// first packet in? we're probably not scheduled yet
-	if (!qlen)
+	// first packet in? we're probably not scheduled yet and new packet at tail to schedule sooner
+	if (!qlen || st->packets.tail->data == cp)
 		timerthread_obj_schedule_abs(&st->tt_obj, &tv_send);
 }
 
@@ -645,6 +661,39 @@ static void media_player_run(void *ptr) {
 }
 #endif
 
+static void handle_buffered_packet(struct send_timer *st, struct timeval *next_send) {
+        //local queue
+	GQueue packets;
+	struct call *call = st->call;
+	g_queue_init(&packets);
+
+	ilog(LOG_DEBUG, "handle_buffered_packet");
+
+	rwlock_lock_r(&call->master_lock);
+	mutex_lock(&st->lock);
+
+	while (st->packets.length) {
+		struct codec_packet *cp = st->packets.tail->data;
+		if (cp->to_send.tv_sec && timeval_cmp(&cp->to_send, &rtpe_now) <= 0){
+			g_queue_push_tail(&packets, cp); //store in local GQueue to call lock free
+			g_queue_pop_tail(&st->packets);
+			continue;
+		}
+		// couldn't play the last one. remember time to schedule
+		*next_send = cp->to_send;
+		break;
+	}
+
+	mutex_unlock(&st->lock);
+	rwlock_unlock_r(&call->master_lock);
+
+	//calling lock free
+	while (packets.length) {
+		struct codec_packet *cp = packets.head->data;
+		play_buffered(st->sink, cp);
+		g_queue_pop_head(&packets);
+	}
+}
 
 static void send_timer_run(void *ptr) {
 	struct send_timer *st = ptr;
@@ -656,14 +705,19 @@ static void send_timer_run(void *ptr) {
 
 	struct timeval next_send = {0,};
 
+
+        if(st->buffer_timer) {
+            handle_buffered_packet(st, &next_send);
+            goto end;
+        }
 	rwlock_lock_r(&call->master_lock);
 	mutex_lock(&st->lock);
 
 	while (st->packets.length) {
-		struct codec_packet *cp = st->packets.head->data;
+		struct codec_packet *cp = st->packets.tail->data;
 		// XXX this could be made lock-free
 		if (!send_timer_send(st, cp)) {
-			g_queue_pop_head(&st->packets);
+			g_queue_pop_tail(&st->packets);
 			continue;
 		}
 		// couldn't send the last one. remember time to schedule
@@ -674,6 +728,7 @@ static void send_timer_run(void *ptr) {
 	mutex_unlock(&st->lock);
 	rwlock_unlock_r(&call->master_lock);
 
+end:
 	if (next_send.tv_sec)
 		timerthread_obj_schedule_abs(&st->tt_obj, &next_send);
 

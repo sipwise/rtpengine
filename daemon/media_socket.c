@@ -26,6 +26,7 @@
 #include "main.h"
 #include "codec.h"
 #include "media_player.h"
+#include "jitter_buffer.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -44,25 +45,6 @@ struct intf_rr {
 	mutex_t lock;
 	GQueue logical_intfs;
 	struct logical_intf *singular; // set iff only one is present in the list - no lock needed
-};
-struct packet_handler_ctx {
-	// inputs:
-	str s; // raw input packet
-
-	struct packet_stream *sink; // where to send output packets to (forward destination)
-	rewrite_func decrypt_func, encrypt_func; // handlers for decrypt/encrypt
-	rtcp_filter_func *rtcp_filter;
-	struct packet_stream *in_srtp, *out_srtp; // SRTP contexts for decrypt/encrypt (relevant for muxed RTCP)
-	int payload_type; // -1 if unknown or not RTP
-	int rtcp; // true if this is an RTCP packet
-
-	// verdicts:
-	int update; // true if Redis info needs to be updated
-	int unkernelize; // true if stream ought to be removed from kernel
-	int kernelize; // true if stream can be kernelized
-
-	// output:
-	struct media_packet mp; // passed to handlers
 };
 
 
@@ -1677,13 +1659,13 @@ out:
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 	struct codec_packet *p;
 	while ((p = g_queue_pop_head(&mp->packets_out)))
-		send_timer_push(sink->send_timer, p);
+		send_timer_push((p->packet && p->packet->buffered)?sink->buffer_timer:sink->send_timer, p);
 	return 0;
 }
 
 
 /* called lock-free */
-static int stream_packet(struct packet_handler_ctx *phc) {
+int stream_packet(struct packet_handler_ctx *phc) {
 /**
  * Incoming packets:
  * - sfd->socket.local: the local IP/port on which the packet arrived
@@ -1746,6 +1728,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// this set payload_type, ssrc_in, ssrc_out and mp
 	media_packet_rtp(phc);
 
+        if(phc->buffered_packet && phc->mp.sfd->call->enable_jb) {
+                if(set_jitter_values(phc))
+			goto drop;
+	}
 
 	/* do we have somewhere to forward it to? */
 
@@ -1889,7 +1875,11 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 			ilog(LOG_WARNING, "UDP packet possibly truncated");
 
 		str_init_len(&phc.s, buf + RTP_BUFFER_HEAD_ROOM, ret);
-		ret = stream_packet(&phc);
+		if(!PS_ISSET(phc.mp.sfd->stream, RTCP) && phc.mp.sfd->call->enable_jb)
+			ret = buffer_packet(&phc);
+		else
+			ret = stream_packet(&phc);
+
 		if (G_UNLIKELY(ret < 0))
 			ilog(LOG_WARNING, "Write error on media socket: %s", strerror(-ret));
 		else if (phc.update)

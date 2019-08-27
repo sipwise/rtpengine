@@ -8,6 +8,7 @@
 #include "codeclib.h"
 #include "aux.h"
 #include "rtplib.h"
+#include "jitter_buffer.h"
 
 
 struct call_media;
@@ -17,6 +18,7 @@ struct ssrc_hash;
 struct sdp_ng_flags;
 struct codec_ssrc_handler;
 struct rtp_header;
+struct jb_packet;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -44,6 +46,7 @@ struct codec_packet {
 	void *source; // opaque
 	void (*free_func)(void *);
 	struct timeval to_send;
+	struct jb_packet* packet;
 };
 
 

@@ -134,6 +134,26 @@ struct media_packet {
 	GQueue packets_out;
 };
 
+struct packet_handler_ctx {
+        // inputs:
+        str s; // raw input packet
+
+        struct packet_stream *sink; // where to send output packets to (forward destination)
+        rewrite_func decrypt_func, encrypt_func; // handlers for decrypt/encrypt
+        rtcp_filter_func *rtcp_filter;
+        struct packet_stream *in_srtp, *out_srtp; // SRTP contexts for decrypt/encrypt (relevant for muxed RTCP)
+        int payload_type; // -1 if unknown or not RTP
+        int rtcp; // true if this is an RTCP packet
+
+        // verdicts:
+        int update; // true if Redis info needs to be updated
+        int unkernelize; // true if stream ought to be removed from kernel
+        int kernelize; // true if stream can be kernelized
+
+        // output:
+        struct media_packet mp; // passed to handlers
+        int buffered_packet;
+};
 
 
 extern GQueue all_local_interfaces; // read-only during runtime
@@ -173,6 +193,8 @@ const struct streamhandler *determine_handler(const struct transport_protocol *i
 		struct call_media *out_media, int must_recrypt);
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
 const struct transport_protocol *transport_protocol(const str *s);
+int stream_packet(struct packet_handler_ctx *phc);
+
 
 /* XXX shouldn't be necessary */
 /*

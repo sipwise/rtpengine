@@ -84,6 +84,9 @@ struct rtpengine_config {
 	char			*mysql_pass;
 	char			*mysql_query;
 	endpoint_t		dtmf_udp_ep;
+	int                     enable_jb;
+	int                     min_jb_length;
+	int                     max_jb_length;
 };
 
 
