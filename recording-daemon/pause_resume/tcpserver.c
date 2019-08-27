@@ -1,6 +1,6 @@
 #include "tcpserver.h"
-#include "log.h"
-#include "metafile.h"
+#include "../log.h"
+#include "pause_resume.h"
 
 tcpserver_t tcpserver = {
   .addr = INADDR_ANY, /* by default, listen on all local IP's   */
@@ -70,14 +70,14 @@ static void process_client(handler_t *handler){
         if (argc < 2)
             ilog(LOG_ERR, "Missing call id");
         else
-            metafile_stop_recording(argv[1]);
+            pause_ctrl_stop_recording(argv[1]);
     }
     else if (strcmp(argv[0], "startRecording") == 0){
        dbg("====> startRecording command: %s", buf);
         if (argc < 2)
             ilog(LOG_ERR, "Missing call id");
         else
-            metafile_start_recording(argv[1]);
+            pause_ctrl_start_recording(argv[1]);
     }
     else if (strcmp(argv[0], "health") == 0){
         dbg("====> healthCheck command: %s", buf);
@@ -173,7 +173,7 @@ void tcpserver_close(){
     for (int i=0; i<MAX_CLIENT_NUMBER; i++){
         tcpclient_t *pClient = tcpserver.clients[i];
         if (pClient != NULL){
-            close(pClient->fd);
+            close_client(pClient);
             tcpserver.clients[i] = NULL;
         }
     }

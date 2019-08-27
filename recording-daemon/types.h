@@ -17,7 +17,6 @@
 #include "poller.h"
 #include "socket.h"
 
-
 struct iphdr;
 struct ip6_hdr;
 struct udphdr;
@@ -103,6 +102,16 @@ struct tag_s {
 };
 typedef struct tag_s tag_t;
 
+#if _WITH_PAUSE_RESUME_PROCESSOR
+struct pause_ctrl_s {
+    metafile_t* mf;
+    int timer_fd;
+    handler_t timer_handler;
+    long pause_start_time;
+    long last_mask_pts;
+};
+typedef struct pause_ctrl_s pause_ctrl_t;
+#endif
 
 struct metafile_s {
 	pthread_mutex_t lock;
@@ -133,6 +142,10 @@ struct metafile_s {
 
 	int recording_on:1;
 	int forwarding_on:1;
+	
+#if _WITH_PAUSE_RESUME_PROCESSOR
+	pause_ctrl_t * pause_controller;
+#endif
 };
 
 

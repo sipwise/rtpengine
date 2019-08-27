@@ -17,6 +17,9 @@
 #include "db.h"
 #include "forward.h"
 #include "tag.h"
+#if _WITH_PAUSE_RESUME_PROCESSOR
+#include "pause_resume/pause_resume.h"
+#endif
 
 static pthread_mutex_t metafiles_lock = PTHREAD_MUTEX_INITIALIZER;
 static GHashTable *metafiles;
@@ -64,6 +67,11 @@ static void meta_destroy(metafile_t *mf) {
 		mf->forward_fd = -1;
 	}
 	db_close_call(mf);
+
+#if _WITH_PAUSE_RESUME_PROCESSOR
+        if (mf->pause_controller != NULL)
+            pause_ctrl_destroy(mf->pause_controller);
+#endif
 }
 
 const char *  CONNECTIONUID_TAG = "CONNECTIONUID=";
@@ -192,6 +200,24 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		stream_forwarding_on(mf, lu, u);
 }
 
+// returns mf locked
+metafile_t *metafile_get_by_call_id(const char* call_id){
+	metafile_t *result = NULL;
+	pthread_mutex_lock(&metafiles_lock);
+	GList *mflist = g_hash_table_get_values(metafiles);
+	for (GList *l = mflist; l; l = l->next) {
+		metafile_t *mf = l->data;
+		if (strcmp(mf->call_id, call_id) == 0) {
+			result = mf;
+			break;
+		}
+	}
+	g_list_free(mflist);
+	if (result != NULL)
+		pthread_mutex_lock(&result->lock);
+	pthread_mutex_unlock(&metafiles_lock);
+	return result;
+}
 
 // returns mf locked
 static metafile_t *metafile_get(char *name) {
@@ -217,6 +243,9 @@ static metafile_t *metafile_get(char *name) {
 		pthread_mutex_init(&mf->payloads_lock, NULL);
 		pthread_mutex_init(&mf->mix_lock, NULL);
 		mf->ssrc_hash = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, ssrc_free);
+#if _WITH_PAUSE_RESUME_PROCESSOR
+		mf->pause_controller = NULL;
+#endif		
 	}
 
 	g_hash_table_insert(metafiles, mf->name, mf);
@@ -352,6 +381,7 @@ void metafile_delete(char *name) {
 
 	// add to garbage
 	garbage_add(mf, meta_free);
+	
 	pthread_mutex_unlock(&mf->lock);
 }
 
@@ -371,4 +401,18 @@ void metafile_cleanup(void) {
 	}
 	g_list_free(mflist);
 	g_hash_table_destroy(metafiles);
+}
+
+void metafile_traverse_decoders(metafile_t *mf, decoder_visitor_t visitor_fun, void* param) {
+	GList *ssrclist = g_hash_table_get_values(mf->ssrc_hash);
+	for (GList *l = ssrclist; l; l = l->next) {
+		ssrc_t *ssrc = l->data;
+		if (ssrc != NULL){
+			for (int j=0; j<128; j++){
+				if (ssrc->decoders[j] != NULL){
+					(*visitor_fun)(ssrc->decoders[j], ssrc, param);
+				}
+			}
+		}
+	}
 }

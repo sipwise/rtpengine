@@ -184,6 +184,12 @@ int decoder_input(decode_t *deco, const str *data, unsigned long ts, ssrc_t *ssr
 	return decoder_input_data(deco->dec, data, ts, decoder_got_frame, ssrc, deco);
 }
 
+void decoder_append_data(decode_t * deco, ssrc_t* ssrc, void* data) {
+	decoder_t *dec = deco->dec;
+	unsigned long ts = dec->rtp_ts + ((str *)data)->len;
+	decoder_input_data(dec, data, ts, decoder_got_frame, ssrc, deco);
+}
+
 void decoder_free(decode_t *deco) {
 	if (!deco)
 		return;

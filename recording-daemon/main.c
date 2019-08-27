@@ -27,8 +27,9 @@
 #include "socket.h"
 #include "ssllib.h"
 #include "ahclient/ahclient.h"
-
-
+#if _WITH_PAUSE_RESUME_PROCESSOR
+#include "pause_resume/tcpserver.h"
+#endif
 
 int ktable = 0;
 int num_threads = 8;
@@ -63,6 +64,12 @@ BOOL g_ah_transcribe_all = TRUE;
 char * g_ah_ip = "255.255.255.255"; // space reserved, will be read from /etc/rtpengine/rtpengine-recording.conf
 unsigned int g_ah_port = 5570;  // will be read from /etc/rtpengine/rtpengine-recording.conf
 #endif
+
+#if _WITH_PAUSE_RESUME_PROCESSOR
+BOOL g_enable_pause_resume 	= TRUE;
+int  g_ps_listening_port 	= 8082;  //  these two parameters for pause/resume processor, will be read from /etc/rtpengine/rtpengine-recording.conf
+int	 g_ps_max_clients		= 300;
+#endif 
 
 static void signals(void) {
 	sigset_t ss;
@@ -102,7 +109,9 @@ static void setup(void) {
 	metafile_setup();
 	epoll_setup();
 	inotify_setup();
-
+#if _WITH_PAUSE_RESUME_PROCESSOR	
+	tcpserver_setup();
+#endif	
 }
 
 
@@ -152,7 +161,9 @@ static void cleanup(void) {
 #if _WITH_AH_CLIENT
 	destroy_ahclient();
 #endif
-	
+#if _WITH_PAUSE_RESUME_PROCESSOR	
+	tcpserver_close();
+#endif
 	garbage_collect_all();
 	metafile_cleanup();
 	inotify_cleanup();
@@ -189,6 +200,11 @@ static void options(int *argc, char ***argv) {
 		{ "ah_transcribe_all", 	0,   0, G_OPTION_ARG_INT,		&g_ah_transcribe_all,	"Set this flag to 1 will transcript all calls, set to 0 will lookup flag in meta data : TRANSCRIBE=yes",	"INT"		},
 		{ "ah_ip", 			0,   0, G_OPTION_ARG_STRING,	&g_ah_ip,	"The ip address of audio harvester server",	"IP"	},
 		{ "ah_port", 		0,   0, G_OPTION_ARG_INT,		&g_ah_port,	"The port number of audio harvester server",	"INT"		},
+#endif
+#if _WITH_PAUSE_RESUME_PROCESSOR
+		{ "enable_pause_resume", 	0,   0, G_OPTION_ARG_INT,		&g_enable_pause_resume,	"The global configuration to enable/disable the pause-resume processor",	"INT"		},
+		{ "ps_listening_port", 		0,   0, G_OPTION_ARG_INT,		&g_ps_listening_port,	"Recording daemon is listening on this port for pause/resume request",	"INT"		},
+		{ "ps_max_clients", 		0,   0, G_OPTION_ARG_INT,		&g_ps_max_clients,	"Max clients for pause/resume request, shoule not smaller than the max clients of this recording daemon",	"INT"		},
 #endif
 		{ NULL, }
 	};
