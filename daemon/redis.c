@@ -571,6 +571,11 @@ static int redis_notify(void) {
 	return 0;
 }
 
+static void redis_disconnect(void) {
+	redisAsyncDisconnect(rtpe_redis_notify_async_context);
+	rtpe_redis_notify_async_context = NULL;
+}
+
 void redis_notify_loop(void *d) {
 	int seconds = 1, redis_notify_return = 0;
 	time_t next_run = rtpe_now.tv_sec;
@@ -614,6 +619,7 @@ void redis_notify_loop(void *d) {
 		next_run = rtpe_now.tv_sec + seconds;
 
 		if (redis_check_conn(r) == REDIS_STATE_RECONNECTED || redis_notify_return < 0) {
+			redis_disconnect();
 			// alloc new redis async context upon redis breakdown
 			if (redis_async_context_alloc() < 0) {
 				continue;
@@ -628,7 +634,7 @@ void redis_notify_loop(void *d) {
 	redis_notify_subscribe_action(UNSUBSCRIBE_ALL, 0);
 
 	// free async context
-	redisAsyncDisconnect(rtpe_redis_notify_async_context);
+	redis_disconnect();
 }
 
 struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
