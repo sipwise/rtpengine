@@ -62,12 +62,17 @@ Requires(preun): dkms
 %description dkms
 %{summary}.
 
+%if 0%{?rhel} >= 8
+%define mysql_devel_pkg mariadb-devel
+%else
+%define mysql_devel_pkg mysql-devel
+%endif
 
 %if 0%{?with_transcoding} > 0
 %package recording
 Summary:        NGCP rtpengine recording daemon packet
 Group:          System Environment/Daemons
-BuildRequires:  gcc make redhat-rpm-config mysql-devel ffmpeg-devel
+BuildRequires:  gcc make redhat-rpm-config %{mysql_devel_pkg} ffmpeg-devel
 
 %description recording
 %{summary}.
