@@ -739,10 +739,18 @@ no_kernel:
 
 		if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
 			rtpe_redis = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
-			rtpe_redis_notify = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
-			if (!rtpe_redis || !rtpe_redis_notify)
-			die("Cannot start up without running Redis %s database! See also NO_REDIS_REQUIRED parameter.",
+			if (!rtpe_redis)
+			die("Cannot start up without running Redis %s database! "
+					"See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_ep));
+
+			if (rtpe_config.redis_subscribed_keyspaces.length) {
+				rtpe_redis_notify = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
+				if (!rtpe_redis_notify)
+					die("Cannot start up without running notification Redis %s database! "
+							"See also NO_REDIS_REQUIRED parameter.",
+						endpoint_print_buf(&rtpe_config.redis_ep));
+			}
 
 		if (!rtpe_redis_write)
 			rtpe_redis_write = rtpe_redis;
@@ -793,7 +801,7 @@ int main(int argc, char **argv) {
 	thread_create_detach_prio(poller_timer_loop, rtpe_poller, rtpe_config.idle_scheduling, rtpe_config.idle_priority);
 	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling, rtpe_config.idle_priority);
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address))
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
 		thread_create_detach(redis_notify_loop, NULL);
 
 	if (!is_addr_unspecified(&rtpe_config.graphite_ep.address))
@@ -831,12 +839,12 @@ int main(int argc, char **argv) {
 
 	service_notify("STOPPING=1\n");
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address))
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
 		redis_notify_event_base_action(EVENT_BASE_LOOPBREAK);
 
 	threads_join_all(1);
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address))
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
 		redis_notify_event_base_action(EVENT_BASE_FREE);
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
