@@ -1373,11 +1373,15 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		struct crypto_params_sdes *cps_in = cpq_in->head ? cpq_in->head->data : NULL;
 		struct crypto_params_sdes *offered_cps = offered_cpq->head ? offered_cpq->head->data : NULL;
 		if (offered_cps) {
+			ilog(LOG_DEBUG, "Looking for matching crypto suite to offered %u:%s", offered_cps->tag,
+					offered_cps->params.crypto_suite->name);
 			// check if we can do SRTP<>SRTP passthrough. the crypto suite that was accepted
 			// must have been present in what was offered to us
 			for (GList *l = cpq_in->head; l; l = l->next) {
 				struct crypto_params_sdes *check_cps = l->data;
 				if (check_cps->params.crypto_suite == offered_cps->params.crypto_suite) {
+					ilog(LOG_DEBUG, "Found matching crypto suite %u:%s", check_cps->tag,
+							check_cps->params.crypto_suite->name);
 					cps_in = check_cps;
 					break;
 				}
@@ -1394,6 +1398,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				// SRTP<>SRTP passthrough
 				cps->params.session_params = cps_in->params.session_params; // XXX verify
 				crypto_params_copy(&cps->params, &offered_cps->params, 1);
+				ilog(LOG_DEBUG, "Copied crypto params from %i:%s for SRTP passthrough",
+						cps_in->tag, cps_in->params.crypto_suite->name);
 			}
 			else {
 				random_string((unsigned char *) cps->params.master_key,
@@ -1402,7 +1408,16 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 						cps->params.crypto_suite->master_salt_len);
 				/* mki = mki_len = 0 */
 				cps->params.session_params = cps_in->params.session_params;
+				ilog(LOG_DEBUG, "Creating new SRTP crypto params for %i:%s",
+						cps->tag, cps->params.crypto_suite->name);
 			}
+
+			// flush out crypto suites we ended up not using - leave only one
+			if (!g_queue_remove(cpq_in, cps_in))
+				ilog(LOG_ERR, "BUG: incoming crypto suite not found in queue");
+			crypto_params_sdes_queue_clear(cpq_in);
+			g_queue_push_tail(cpq_in, cps_in);
+
 			__sdes_flags(cps, flags);
 			__sdes_flags(cps_in, flags);
 		}
