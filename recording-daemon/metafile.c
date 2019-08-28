@@ -364,6 +364,7 @@ out:
 
 
 void metafile_delete(char *name) {
+    dbg("=====> DELETE meta file %s", name);
 	// get metafile metadata
 	pthread_mutex_lock(&metafiles_lock);
 	metafile_t *mf = g_hash_table_lookup(metafiles, name);

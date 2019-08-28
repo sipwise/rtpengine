@@ -64,9 +64,13 @@ static void insert_mask_beep(pause_ctrl_t *pr_ctrl, long timediff) {
 static void pause_timer_handler(handler_t *handler) {
     uint64_t exp = 0;
     pause_ctrl_t *pr_ctrl = handler->ptr;
-    pthread_mutex_lock(&pr_ctrl->mf->lock);
+    if (pr_ctrl == NULL)
+        return;
     read(pr_ctrl->timer_fd, &exp, sizeof(uint64_t));
+    if (pr_ctrl->mf == NULL)
+        return;
     long now = get_current_milliseconds();
+    pthread_mutex_lock(&pr_ctrl->mf->lock);
     insert_mask_beep(pr_ctrl, now - pr_ctrl->pause_start_time);
     pthread_mutex_unlock(&pr_ctrl->mf->lock);
 }
@@ -131,6 +135,7 @@ pause_ctrl_t * pause_ctrl_new(metafile_t* mf){
 }
 
 void pause_ctrl_destroy(pause_ctrl_t *pr_ctrl){
+    timerfd_destroy(pr_ctrl);
     g_slice_free1(sizeof(pause_ctrl_t), pr_ctrl);
 }
 
