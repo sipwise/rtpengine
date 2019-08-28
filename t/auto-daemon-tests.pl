@@ -112,6 +112,17 @@ sub snd {
 	my ($sock, $dest, $packet) = @_;
 	$sock->send($packet, 0, pack_sockaddr_in($dest, inet_aton('203.0.113.1'))) or die;
 }
+sub srtp_snd {
+	my ($sock, $dest, $packet, $srtp_ctx) = @_;
+	if (!$srtp_ctx->{skey}) {
+		my ($key, $salt) = NGCP::Rtpclient::SRTP::decode_inline_base64($srtp_ctx->{key}, $srtp_ctx->{cs});
+		@$srtp_ctx{qw(skey sauth ssalt)} = NGCP::Rtpclient::SRTP::gen_rtp_session_keys($key, $salt);
+	}
+	my ($enc, $out_roc) = NGCP::Rtpclient::SRTP::encrypt_rtp(@$srtp_ctx{qw(cs skey ssalt sauth roc)},
+		'', 0, 0, 0, $packet);
+	$srtp_ctx->{roc} = $out_roc;
+	$sock->send($enc, 0, pack_sockaddr_in($dest, inet_aton('203.0.113.1'))) or die;
+}
 sub rtp {
 	my ($pt, $seq, $ts, $ssrc, $payload) = @_;
 	print("rtp in $pt $seq $ts $ssrc\n");
@@ -177,6 +188,163 @@ sub rtpm {
 	my $r = $c->req({command => 'ping'});
 	ok $r->{result} eq 'pong', 'ping works, daemon operational';
 }
+
+
+
+my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b);
+
+
+
+
+# github issue 829
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7316)], [qw(198.51.100.3 7318)]);
+
+($port_a) = offer('gh829 control',
+	{ ICE => 'remove', replace => ['origin'], flags => ['pad crypto'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7316 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhH?
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q?
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192=
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192=
+a=crypto:7 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256==
+a=crypto:8 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256==
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b) = answer('gh829 control',
+	{ ICE => 'remove', replace => ['origin'], flags => ['pad crypto'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7318 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE1
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE?
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE1',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa',
+};
+
+srtp_snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_b);
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7310)], [qw(198.51.100.3 7312)]);
+
+($port_a) = offer('gh829',
+	{ ICE => 'remove', replace => ['origin'], flags => ['pad crypto'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 7310 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:1 AES_256_CM_HMAC_SHA1_80 inline:EPm8bCW0w2BvozGK++QzjF4m6ARVCpXrn8GAMAoIiDW8BQRDZ+fFRwDjLFALJQ==
+a=crypto:2 AES_256_CM_HMAC_SHA1_32 inline:7Io806fF2XLWT782TTPsrSQTptu9HPGRnJ3Y5QDwk9HbhRi+nNwJ/nqNQP+tDg==
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_256_CM_HMAC_SHA1_80 inline:EPm8bCW0w2BvozGK++QzjF4m6ARVCpXrn8GAMAoIiDW8BQRDZ+fFRwDjLFALJ?==
+a=crypto:2 AES_256_CM_HMAC_SHA1_32 inline:7Io806fF2XLWT782TTPsrSQTptu9HPGRnJ3Y5QDwk9HbhRi+nNwJ/nqNQP+tD?==
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhH?
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q?
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192=
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192=
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b) = answer('gh829',
+	{ ICE => 'remove', replace => ['origin'], flags => ['pad crypto'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7312 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE1
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE?
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE1',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa',
+};
+
+srtp_snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_b);
+
 
 # SDP in/out tests, various ICE options
 
@@ -1252,9 +1420,9 @@ SDP
 
 # RTP sequencing tests
 
-my ($sock_a, $sock_b) = new_call([qw(198.51.100.1 2010)], [qw(198.51.100.3 2012)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 2010)], [qw(198.51.100.3 2012)]);
 
-my ($port_a) = offer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+($port_a) = offer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1275,7 +1443,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-my ($port_b) = answer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+($port_b) = answer('two codecs, no transcoding', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -1368,7 +1536,7 @@ snd($sock_a, $port_b,  rtp(0, 1010, 4600, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1010, 4600, 0x1234, "\x00" x 160));
 
 snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
-my ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
 snd($sock_b, $port_a,  rtp(0, 2000, 4000, 0x5678, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 2000, 4000, $ssrc, "\x00" x 160));
 snd($sock_b, $port_a,  rtp(0, 2001, 4000+160, 0x5678, "\x00" x 160));
@@ -1583,7 +1751,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-my $resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => $ft, blob => $wav_file });
+$resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => $ft, blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
 my ($ts, $seq);
