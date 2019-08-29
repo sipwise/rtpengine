@@ -221,8 +221,8 @@ c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
-a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
-a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhH?
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q?
 a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192=
 a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192=
 a=crypto:7 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256==
@@ -253,7 +253,7 @@ c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
-a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE1
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE?
 SDP
 
 $srtp_ctx_a = {
@@ -296,10 +296,10 @@ c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
-a=crypto:1 AES_256_CM_HMAC_SHA1_80 inline:EPm8bCW0w2BvozGK++QzjF4m6ARVCpXrn8GAMAoIiDW8BQRDZ+fFRwDjLFALJQ==
-a=crypto:2 AES_256_CM_HMAC_SHA1_32 inline:7Io806fF2XLWT782TTPsrSQTptu9HPGRnJ3Y5QDwk9HbhRi+nNwJ/nqNQP+tDg==
-a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
-a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+a=crypto:1 AES_256_CM_HMAC_SHA1_80 inline:EPm8bCW0w2BvozGK++QzjF4m6ARVCpXrn8GAMAoIiDW8BQRDZ+fFRwDjLFALJ?==
+a=crypto:2 AES_256_CM_HMAC_SHA1_32 inline:7Io806fF2XLWT782TTPsrSQTptu9HPGRnJ3Y5QDwk9HbhRi+nNwJ/nqNQP+tD?==
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhH?
+a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q?
 a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192=
 a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192=
 a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
@@ -328,7 +328,7 @@ c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
-a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE1
+a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:IDdiM2QzOWYzMjA2YzkwZWIxY2NmOWVhOTc4MjE?
 SDP
 
 $srtp_ctx_a = {
