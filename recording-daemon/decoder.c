@@ -60,9 +60,6 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 	int rtp_clockrate = clockrate;
 	clockrate *= def->clockrate_mult;
 
-	// we can now config our output, which determines the sample format we convert to
-	int out_channels = mix_get_out_channels(channels);
-
 	format_t out_format = {
 		.clockrate = clockrate,
 		.channels = channels,
@@ -133,7 +130,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 	}
-no_mix_out:
+//no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);
 
 	if (output) {
@@ -182,6 +179,12 @@ err:
 
 int decoder_input(decode_t *deco, const str *data, unsigned long ts, ssrc_t *ssrc) {
 	return decoder_input_data(deco->dec, data, ts, decoder_got_frame, ssrc, deco);
+}
+
+void decoder_append_data(decode_t * deco, ssrc_t* ssrc, void* data) {
+	decoder_t *dec = deco->dec;
+	unsigned long ts = dec->rtp_ts + ((str *)data)->len;
+	decoder_input_data(dec, data, ts, decoder_got_frame, ssrc, deco);
 }
 
 void decoder_free(decode_t *deco) {

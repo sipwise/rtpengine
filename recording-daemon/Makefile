@@ -3,7 +3,7 @@ TARGET=		rtpengine-recording
 CFLAGS=		-g -Wall -Wstrict-prototypes -pthread -I. -I../lib/ -I../kernel-module/
 CFLAGS+=	-std=c99 -fno-strict-aliasing
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
-CFLAGS+=	-D_WITH_AH_CLIENT=1
+CFLAGS+=	-D_WITH_AH_CLIENT=1 -D_WITH_PAUSE_RESUME_PROCESSOR=1
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
 CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
 CFLAGS+=	$(shell pkg-config --cflags libavcodec)
@@ -26,7 +26,9 @@ LDLIBS+=	$(shell mysql_config --libs)
 LDLIBS+=	$(shell pkg-config --libs openssl)
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
-		decoder.c output.c mix.c db.c log.c forward.c tag.c poller.c ahclient/ahclient.c ahclient/ahclientchannel.c
+		decoder.c output.c mix.c db.c log.c forward.c tag.c poller.c \
+		ahclient/ahclient.c ahclient/ahclientchannel.c \
+		pause_resume/tcpserver.c pause_resume/pause_resume.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c streambuf.c ssllib.c \
 		dtmflib.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
