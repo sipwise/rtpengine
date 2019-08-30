@@ -1919,6 +1919,14 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
+		/* deduct address family from stream parameters received */
+		other_media->desired_family = sp->rtp_endpoint.address.family;
+		/* for outgoing SDP, use "direction"/DF or default to what was offered */
+		if (!media->desired_family)
+			media->desired_family = other_media->desired_family;
+		if (sp->desired_family)
+			media->desired_family = sp->desired_family;
+
 		if (sp->rtp_endpoint.port) {
 			/* DTLS stuff */
 			__dtls_logic(flags, other_media, sp);
@@ -1929,13 +1937,6 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			/* SDES and DTLS */
 			__generate_crypto(flags, media, other_media);
 
-			/* deduct address family from stream parameters received */
-			other_media->desired_family = sp->rtp_endpoint.address.family;
-			/* for outgoing SDP, use "direction"/DF or default to what was offered */
-			if (!media->desired_family)
-				media->desired_family = other_media->desired_family;
-			if (sp->desired_family)
-				media->desired_family = sp->desired_family;
 		}
 
 		/* determine number of consecutive ports needed locally.
