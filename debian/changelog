@@ -1,3 +1,21 @@
+ngcp-rtpengine (7.5.2.0+0~mr7.5.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5016248] TT#64301 log xmlrpc children to stderr
+  * [38b851b] TT#65000 fix kernel module compilation for 5.2 kernels
+  * [8422d04] TT#65100 properly cleanup redis async context
+  * [aa7f49b] TT#65100 don't start a redis notification context/thread when not in use
+  * [7144ae7] TT#65800 fix SDES negotiation bug
+  * [d311394] fix test suites for different implementations of base64 encoding
+  * [b92add5] don't skip address family selection when zero port is present
+
+  [ Guillem Jover ]
+  * [c6e0e07] TT#65100 Fix double free for redis context on closure
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Sun, 01 Sep 2019 21:53:17 +0200
+
 ngcp-rtpengine (7.5.1.0+0~mr7.5.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
