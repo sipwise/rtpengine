@@ -800,6 +800,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 			break;
 
 		h = packet->handler;
+		obj_put(&ch->h);
 		ch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
 		if (G_UNLIKELY(!ch))
 			goto next;
@@ -901,10 +902,13 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	atomic64_set(&ssrc_out->last_ts, ts);
 }
 
+// returns new reference
 static struct codec_ssrc_handler *__output_ssrc_handler(struct codec_ssrc_handler *ch, struct media_packet *mp) {
 	struct codec_handler *handler = ch->handler;
-	if (handler->output_handler == handler)
+	if (handler->output_handler == handler) {
+		obj_get(&ch->h);
 		return ch;
+	}
 
 	// our encoder is in a different codec handler
 	ilog(LOG_DEBUG, "Switching context from decoder to encoder");
@@ -912,6 +916,7 @@ static struct codec_ssrc_handler *__output_ssrc_handler(struct codec_ssrc_handle
 	struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, handler->ssrc_hash);
 	if (G_UNLIKELY(!new_ch)) {
 		ilog(LOG_ERR, "Switched from input to output codec context, but no codec handler present");
+		obj_get(&ch->h);
 		return ch;
 	}
 
@@ -964,6 +969,7 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 			ch->last_dtmf_event_ts = duration;
 		}
 		payload_type = ch->handler->dtmf_payload_type;
+		obj_put(&output_ch->h);
 	}
 
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
@@ -1426,6 +1432,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 
 	av_frame_free(&frame);
 	//mp->iter_out++;
+	obj_put(&new_ch->h);
 
 	return 0;
 }
