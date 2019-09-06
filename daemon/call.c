@@ -2733,7 +2733,7 @@ int call_delete_branch(const str *callid, const str *branch,
 	if ((!totag || !totag->len) && branch && branch->len) {
 		// try a via-branch match
 		ml = g_hash_table_lookup(c->viabranches, branch);
-		if (ml)
+		if (ml && ml->tag.len) // ignore wildcard/unknown monologues
 			goto do_delete;
 	}
 
