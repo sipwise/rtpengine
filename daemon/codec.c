@@ -894,8 +894,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 			break;
 
 		h = packet->handler;
-		ch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
-		if (G_UNLIKELY(!ch))
+		struct codec_ssrc_handler *tempch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
+		if (G_UNLIKELY(!tempch))
 			goto next;
 
 		atomic64_set(&ssrc_in->packets_lost, ssrc_in_p->sequencer.lost_count);
@@ -913,8 +913,9 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		// we might be working with a different packet now
 		mp->rtp = &packet->rtp;
 
-		if (packet->func(ch, packet, mp))
+		if (packet->func(tempch, packet, mp))
 			ilog(LOG_WARN, "Decoder error while processing RTP packet");
+		obj_put(&tempch->h);	
 next:
 		__transcode_packet_free(packet);
 	}
@@ -1514,7 +1515,7 @@ static void __dtmf_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
 static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
-
+	int flagObjPut = 0;
 	ilog(LOG_DEBUG, "RTP media successfully decoded: TS %llu, samples %u",
 			(unsigned long long) frame->pts, frame->nb_samples);
 
@@ -1524,7 +1525,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 		// copy some essential parameters
 		if (!new_ch->first_ts)
 			new_ch->first_ts = ch->first_ts;
-
+		flagObjPut = 1;
 		ch = new_ch;
 	}
 
@@ -1544,6 +1545,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, mp);
 
 discard:
+	if(flagObjPut) obj_put(&new_ch->h);
 	av_frame_free(&frame);
 	//mp->iter_out++;
 
