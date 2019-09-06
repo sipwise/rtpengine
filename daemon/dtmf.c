@@ -175,6 +175,7 @@ static char dtmf_code_to_char(int code) {
 	return codes[code];
 }
 
+// takes over the csh reference
 static const char *dtmf_inject_pcm(struct call_media *media, struct call_monologue *monologue,
 		struct packet_stream *ps, struct ssrc_ctx *ssrc_in, struct codec_handler *ch,
 		struct codec_ssrc_handler *csh,
@@ -224,6 +225,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 
 	media_socket_dequeue(&packet, packet_stream_sink(ps));
 
+	obj_put_o((struct obj *) csh);
 	return 0;
 }
 
@@ -271,6 +273,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, codec_encoder_pts(csh));
 	codec_add_dtmf_event(csh, 0, 0, codec_encoder_pts(csh) + num_samples);
 
+	obj_put_o((struct obj *) csh);
 	return NULL;
 }
 
