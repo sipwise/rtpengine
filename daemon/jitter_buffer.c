@@ -171,7 +171,6 @@ static int queue_packet(struct media_packet *mp, struct codec_packet *p) {
 	mutex_unlock(&mp->stream->rtp_sink->out_lock);
 
 	return ret;
-
 }
 
 static void handle_clock_drift(struct media_packet *mp) {

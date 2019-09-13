@@ -173,7 +173,6 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 const struct transport_protocol *transport_protocol(const str *s);
 void play_buffered(struct packet_stream *sink, struct codec_packet *cp);
 
-
 /* XXX shouldn't be necessary */
 /*
 INLINE struct local_intf *get_interface_from_address(const struct logical_intf *lif,

@@ -67,7 +67,6 @@ struct packet_handler_ctx {
         int buffered_packet;
 };
 
-
 static void __determine_handler(struct packet_stream *in, const struct packet_stream *out);
 
 static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
