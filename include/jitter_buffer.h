@@ -37,7 +37,7 @@ struct jitter_buffer {
 	struct call             *call;
 };
 
-void jitter_buffer_init(int min, int max);
+void jitter_buffer_init(int min, int max, int src_clockrate);
 
 int buffer_packet(struct media_packet *mp, str *s);
 

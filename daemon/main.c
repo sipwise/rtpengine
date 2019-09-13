@@ -378,6 +378,7 @@ static void options(int *argc, char ***argv) {
 		{ "enable-jb", 'F', 0,  G_OPTION_ARG_NONE,      &rtpe_config.enable_jb, "Enable jitter buffer in rtpengine", NULL },
 		{ "min-jb-length", 0, 0, G_OPTION_ARG_INT,      &rtpe_config.min_jb_length, "Number of Redis restore threads",      "INT" },
 		{ "max-jb-length", 0, 0, G_OPTION_ARG_INT,      &rtpe_config.max_jb_length, "Number of Redis restore threads",      "INT" },
+		{ "jb-src-clockrate", 'F', 0, G_OPTION_ARG_NONE, &rtpe_config.jb_src_clockrate, "Use source clock rate for jitter buffer", NULL },
 		{ NULL, }
 	};
 
@@ -624,6 +625,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->enable_jb = rtpe_config.enable_jb;
 	ini_rtpe_cfg->min_jb_length = rtpe_config.min_jb_length;
 	ini_rtpe_cfg->max_jb_length = rtpe_config.max_jb_length;
+	ini_rtpe_cfg->jb_src_clockrate = rtpe_config.jb_src_clockrate;
 
 }
 
@@ -762,7 +764,7 @@ no_kernel:
 	homer_sender_init(&rtpe_config.homer_ep, rtpe_config.homer_protocol, rtpe_config.homer_id);
 
         if (rtpe_config.enable_jb)
-		jitter_buffer_init(rtpe_config.min_jb_length, rtpe_config.max_jb_length);
+		jitter_buffer_init(rtpe_config.min_jb_length, rtpe_config.max_jb_length, rtpe_config.jb_src_clockrate);
 
 	rtcp_init(); // must come after Homer init
 

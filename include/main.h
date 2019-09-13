@@ -87,6 +87,7 @@ struct rtpengine_config {
 	int                     enable_jb;
 	int                     min_jb_length;
 	int                     max_jb_length;
+	int                     jb_src_clockrate;
 };
 
 

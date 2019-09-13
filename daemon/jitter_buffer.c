@@ -15,12 +15,13 @@ struct jitter_buffer_config {
 	int    min_jb_len;
 	int    max_jb_len;
 	int    enable_jb;
+	int    src_clockrate;
 };
 
-void jitter_buffer_init(int min, int max) {
+void jitter_buffer_init(int min, int max, int src_clockrate) {
 	struct jitter_buffer_config *config;
 
-	ilog(LOG_DEBUG, "jitter_buffer_init");
+	ilog(LOG_DEBUG, "jitter_buffer_init src_clockrate = %d", src_clockrate);
 
 	if (jb_config)
 		return;
@@ -30,6 +31,7 @@ void jitter_buffer_init(int min, int max) {
 	config->min_jb_len = min;
 	config->max_jb_len = max;
 	config->enable_jb  = 1;
+	config->src_clockrate  = src_clockrate;
 
 	if(config->min_jb_len <= 0)
 		config->min_jb_len=1;
@@ -99,7 +101,7 @@ static int get_clock_rate(struct media_packet *mp, int payload_type) {
 		jb->payload_type = payload_type;
 	}
 	else
-		ilog(LOG_ERROR, "ERROR clock_rate not present");
+		ilog(LOG_DEBUG, "clock_rate not present payload_type = %d", payload_type);
 
 	return clock_rate;
 }
@@ -171,7 +173,6 @@ static int queue_packet(struct media_packet *mp, struct codec_packet *p) {
 	mutex_unlock(&mp->stream->rtp_sink->out_lock);
 
 	return ret;
-
 }
 
 static void handle_clock_drift(struct media_packet *mp) {
@@ -324,7 +325,7 @@ int set_jitter_values(struct media_packet *mp) {
 
 	if(len > jb->buffer_len || len < jb->buffer_len) {
 		jb->cont_buff_err++;
-		if(jb->cont_buff_err > CONT_INCORRECT_BUFFERING)
+		if((jb->cont_buff_err > CONT_INCORRECT_BUFFERING) && jb_config->src_clockrate)
 			jb->clock_drift_enable=1; 
 	}
 	else

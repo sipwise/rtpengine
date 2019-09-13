@@ -82,6 +82,8 @@ is given.
 
 =item B<-F>, B<--enable-jb>
 
+=item B<-F>, B<--jb-src-clockrate>
+
 =item B<-i>, B<--interface=>[I<NAME>B</>]I<IP>[B<!>I<IP>]
 
 Specifies a local network interface for RTP.
