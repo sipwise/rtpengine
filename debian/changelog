@@ -1,3 +1,12 @@
+ngcp-rtpengine (7.5.1.2+0~mr7.5.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8fca91d] TT#66650 fix some SSRC refcount leaks
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 18 Sep 2019 20:14:20 +0200
+
 ngcp-rtpengine (7.5.1.1+0~mr7.5.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
