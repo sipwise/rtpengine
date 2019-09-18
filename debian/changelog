@@ -1,3 +1,25 @@
+ngcp-rtpengine (7.4.3.0+0~mr7.4.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [750ecef] fix mem allocation bug resulting in mem corruption during redis restore
+  * [ea72383] TT#63901 don't free redis event base while being used
+  * [e4ab35d] TT#64050 add `G729a` as an incorrect alternative to `G729`
+  * [e275ba6] TT#64300 don't attempt to transcode to an unsupported codec
+  * [91b1e46] TT#64301 log xmlrpc children to stderr
+  * [f431920] TT#65000 fix kernel module compilation for 5.2 kernels
+  * [277e0a1] TT#65100 properly cleanup redis async context
+  * [cf67983] TT#65100 don't start a redis notification context/thread when not in use
+  * [8f1ef40] TT#65800 fix SDES negotiation bug
+  * [f89db0c] don't skip address family selection when zero port is present
+  * [a185937] ignore untagged/wildcard/unknown MLs in delete with via-branch
+
+  [ Guillem Jover ]
+  * [9d320ab] TT#65100 Fix double free for redis context on closure
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 18 Sep 2019 22:35:58 +0200
+
 ngcp-rtpengine (7.4.2.0+0~mr7.4.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
