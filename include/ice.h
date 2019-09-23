@@ -158,7 +158,7 @@ void ice_thread_run(void *);
 
 int ice_request(struct stream_fd *, const endpoint_t *, struct stun_attrs *);
 int ice_response(struct stream_fd *, const endpoint_t *src,
-		struct stun_attrs *attrs, u_int32_t transaction[3]);
+		struct stun_attrs *attrs, void *transaction);
 
 
 
