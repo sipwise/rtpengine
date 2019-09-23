@@ -241,7 +241,7 @@ out:
 }
 
 static void output_init(struct msghdr *mh, struct iovec *iov,
-		struct header *hdr, unsigned short code, u_int32_t *transaction)
+		struct header *hdr, unsigned short code, void *transaction)
 {
 	ZERO(*mh);
 
