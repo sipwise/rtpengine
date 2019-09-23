@@ -1086,7 +1086,7 @@ err:
 	return -1;
 }
 static int redis_hash_get_sdes_params(GQueue *out, const struct redis_hash *h, const char *k) {
-	char key[32], tagkey[32];
+	char key[32], tagkey[64];
 	const char *kk = k;
 	unsigned int tag;
 	unsigned int iter = 0;

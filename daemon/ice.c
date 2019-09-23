@@ -1137,7 +1137,7 @@ static int __check_succeeded_complete(struct ice_agent *ag) {
 
 /* call is locked in R */
 int ice_response(struct stream_fd *sfd, const endpoint_t *src,
-		struct stun_attrs *attrs, u_int32_t transaction[3])
+		struct stun_attrs *attrs, void *transaction)
 {
 	struct ice_candidate_pair *pair, *opair;
 	struct ice_agent *ag;
