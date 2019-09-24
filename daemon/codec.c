@@ -1308,6 +1308,13 @@ void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t pts) {
 	ch->skip_pts += pts;
 }
 
+uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch) {
+	uint64_t prev = ch->skip_pts;
+	ilog(LOG_DEBUG, "Un-skipping next %" PRIu64 " samples", prev);
+	ch->skip_pts = 0;
+	return prev;
+}
+
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	struct codec_handler *h = p;
 

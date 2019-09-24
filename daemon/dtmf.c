@@ -217,6 +217,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 
 	// keep track of how much PCM we've generated
 	uint64_t encoder_pts = codec_encoder_pts(csh);
+	uint64_t skip_pts = codec_decoder_unskip_pts(csh); // reset to zero to take up our new samples
 
 	media->dtmf_injector->func(media->dtmf_injector, &packet);
 
@@ -229,7 +230,8 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 
 	// skip generated samples
 	uint64_t pts_offset = codec_encoder_pts(csh) - encoder_pts;
-	codec_decoder_skip_pts(csh, av_rescale(pts_offset, ch->dest_pt.clock_rate, ch->source_pt.clock_rate));
+	skip_pts += av_rescale(pts_offset, ch->dest_pt.clock_rate, ch->source_pt.clock_rate);
+	codec_decoder_skip_pts(csh, skip_pts);
 
 	// ready packets for send
 	// XXX handle encryption?
