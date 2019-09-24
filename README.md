@@ -1521,12 +1521,14 @@ is the one generating the DTMF event, not the one receiving it.
 The dictionary key `code` must be present in the message, indicating the DTMF event to be generated. It can
 be either an integer with values 0-15, or a string containing a single character
 (`0` - `9`, `*`, `#`, `A` - `D`). Additional optional dictionary keys are: `duration` indicating the duration
-of the event in milliseconds (defaults to 250 ms, with a minimum of 100 and a maximum of 5000); and
+of the event in milliseconds (defaults to 250 ms, with a minimum of 100 and a maximum of 5000);
 `volume` indicating the volume in absolute decibels (defaults to -8 dB, with 0 being the maximum volume and
-positive integers being interpreted as negative).
+positive integers being interpreted as negative); and `pause` indicating the pause in between consecutive
+DTMF events in milliseconds (defaults to 100 ms, with a minimum of 100 and a maximum of 5000).
 
 This message can be used to implement `application/dtmf-relay` or `application/dtmf` payloads carried
-in SIP INFO messages.
+in SIP INFO messages. Multiple DTMF events can be queued up by issuing multiple consecutive
+`play DTMF` messages.
 
 If the destination participant supports the `telephone-event` RTP payload type, then it will be used to
 send the DTMF event. Otherwise a PCM DTMF tone will be inserted into the audio stream. Audio samples

@@ -217,6 +217,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 
 	// keep track of how much PCM we've generated
 	uint64_t encoder_pts = codec_encoder_pts(csh);
+	uint64_t skip_pts = codec_decoder_unskip_pts(csh); // reset to zero to take up our new samples
 
 	media->dtmf_injector->func(media->dtmf_injector, &packet);
 
@@ -229,7 +230,8 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 
 	// skip generated samples
 	uint64_t pts_offset = codec_encoder_pts(csh) - encoder_pts;
-	codec_decoder_skip_pts(csh, av_rescale(pts_offset, ch->dest_pt.clock_rate, ch->source_pt.clock_rate));
+	skip_pts += av_rescale(pts_offset, ch->dest_pt.clock_rate, ch->source_pt.clock_rate);
+	codec_decoder_skip_pts(csh, skip_pts);
 
 	// ready packets for send
 	// XXX handle encryption?
@@ -281,8 +283,14 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 
 	// synthesise start and stop events
 	uint64_t num_samples = duration * ch->dest_pt.clock_rate / 1000;
-	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, codec_encoder_pts(csh));
-	codec_add_dtmf_event(csh, 0, 0, codec_encoder_pts(csh) + num_samples);
+	uint64_t start_pts = codec_encoder_pts(csh);
+	uint64_t last_end_pts = codec_last_dtmf_event(csh);
+	if (last_end_pts) {
+		// shift this new event past the end of the last event plus a pause
+		start_pts = last_end_pts + pause * ch->dest_pt.clock_rate / 1000;
+	}
+	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, start_pts);
+	codec_add_dtmf_event(csh, 0, 0, start_pts + num_samples);
 
 	obj_put_o((struct obj *) csh);
 	return NULL;

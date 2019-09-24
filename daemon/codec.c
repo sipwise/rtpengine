@@ -1299,6 +1299,13 @@ void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, ui
 	g_queue_push_tail(&ch->dtmf_events, ev);
 }
 
+uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch) {
+	struct dtmf_event *ev = g_queue_peek_tail(&ch->dtmf_events);
+	if (!ev)
+		return 0;
+	return ev->ts;
+}
+
 uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch) {
 	return ch->encoder->fifo_pts;
 }
@@ -1306,6 +1313,13 @@ uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch) {
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t pts) {
 	ilog(LOG_DEBUG, "Skipping next %" PRIu64 " samples", pts);
 	ch->skip_pts += pts;
+}
+
+uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch) {
+	uint64_t prev = ch->skip_pts;
+	ilog(LOG_DEBUG, "Un-skipping next %" PRIu64 " samples", prev);
+	ch->skip_pts = 0;
+	return prev;
 }
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
