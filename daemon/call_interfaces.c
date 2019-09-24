@@ -1865,6 +1865,16 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		ilog(LOG_WARN, "Invalid duration (%lli ms) specified, using 5000 ms instead", duration);
 	}
 
+	long long pause = bencode_dictionary_get_int_str(input, "pause", 100);
+	if (pause < 100) {
+		pause = 100;
+		ilog(LOG_WARN, "Invalid pause (%lli ms) specified, using 100 ms instead", pause);
+	}
+	else if (pause > 5000) {
+		pause = 5000;
+		ilog(LOG_WARN, "Invalid pause (%lli ms) specified, using 5000 ms instead", pause);
+	}
+
 	long long code = bencode_dictionary_get_int_str(input, "code", -1);
 	err = "Out of range 'code' specified";
 	if (code == -1) {
@@ -1905,7 +1915,7 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	goto out;
 
 found:;
-	err = dtmf_inject(media, code, volume, duration);
+	err = dtmf_inject(media, code, volume, duration, pause);
 
 out:
 	if (call) {
