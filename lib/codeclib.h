@@ -150,6 +150,7 @@ struct decoder_s {
 
 	unsigned long rtp_ts;
 	uint64_t pts;
+	int ptime;
 };
 
 struct encoder_s {
@@ -200,8 +201,8 @@ const codec_def_t *codec_find_by_av(enum AVCodecID);
 enum media_type codec_get_type(const str *type);
 
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt);
-decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt,
+decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt);
+decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt,
 		const str *fmtp);
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
