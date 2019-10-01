@@ -103,6 +103,12 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 {
 	dbg("payload type in media %lu num %u is %s", mnum, payload_num, payload_type);
 
+	int ptime = 0;
+
+	mnum--;
+	if (mnum < G_N_ELEMENTS(mf->media_ptimes))
+		ptime = mf->media_ptimes[mnum];
+
 	if (payload_num >= 128) {
 		ilog(LOG_ERR, "Payload type number %u is invalid", payload_num);
 		return;
@@ -111,8 +117,19 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 		pthread_mutex_lock(&mf->payloads_lock);
 		mf->payload_types[payload_num] = g_string_chunk_insert(mf->gsc,
 				payload_type);
+		mf->payload_ptimes[payload_num] = ptime;
 		pthread_mutex_unlock(&mf->payloads_lock);
 	}
+}
+
+
+// mf is locked
+static void meta_ptime(metafile_t *mf, unsigned long mnum, int ptime)
+{
+	mnum--;
+	if (mnum >= G_N_ELEMENTS(mf->media_ptimes))
+		return;
+	mf->media_ptimes[mnum] = ptime;
 }
 
 
@@ -130,6 +147,7 @@ static void meta_metadata(metafile_t *mf, char *content) {
 static void meta_section(metafile_t *mf, char *section, char *content, unsigned long len) {
 	unsigned long lu;
 	unsigned int u;
+	int i;
 
 	if (!strcmp(section, "CALL-ID"))
 		mf->call_id = g_string_chunk_insert(mf->gsc, content);
@@ -143,6 +161,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		meta_stream_details(mf, lu, content);
 	else if (sscanf_match(section, "MEDIA %lu PAYLOAD TYPE %u", &lu, &u) == 2)
 		meta_rtp_payload_type(mf, lu, u, content);
+	else if (sscanf_match(section, "MEDIA %lu PTIME %i", &lu, &i) == 2)
+		meta_ptime(mf, lu, i);
 	else if (sscanf_match(section, "TAG %lu", &lu) == 1)
 		tag_name(mf, lu, content);
 	else if (sscanf_match(section, "LABEL %lu", &lu) == 1)
