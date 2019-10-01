@@ -42,6 +42,9 @@ static packetizer_f packetizer_amr;
 static format_init_f opus_init;
 static set_enc_options_f opus_set_enc_options;
 
+static set_enc_options_f ilbc_set_enc_options;
+static set_dec_options_f ilbc_set_dec_options;
+
 static set_enc_options_f amr_set_enc_options;
 static set_dec_options_f amr_set_dec_options;
 
@@ -247,6 +250,8 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.set_enc_options = ilbc_set_enc_options,
+		.set_dec_options = ilbc_set_dec_options,
 	},
 	{
 		.rtpname = "opus",
@@ -471,11 +476,11 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp) {
 
 
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt) {
-	return decoder_new_fmtp(def, clockrate, channels, resample_fmt, NULL);
+decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt) {
+	return decoder_new_fmtp(def, clockrate, channels, ptime, resample_fmt, NULL);
 }
 
-decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt,
+decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt,
 		const str *fmtp)
 {
 	const char *err;
@@ -497,6 +502,10 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 	ret->out_format = ret->in_format;
 	if (resample_fmt)
 		ret->out_format = *resample_fmt;
+	if (ptime > 0)
+		ret->ptime = ptime;
+	else
+		ret->ptime = def->default_ptime;
 
 	err = def->codec_type->decoder_init(ret, fmtp);
 	if (err)
@@ -1356,6 +1365,24 @@ static void opus_set_enc_options(encoder_t *enc, const str *fmtp) {
 			ilog(LOG_WARN, "Failed to set Opus frame_duration option to %i: %s",
 					enc->ptime, av_error(ret));
 	// XXX additional opus options
+}
+
+static void ilbc_set_enc_options(encoder_t *enc, const str *fmtp) {
+	int ret;
+	if (enc->ptime)
+		if ((ret = av_opt_set_int(enc->u.avc.avcctx, "mode", enc->ptime,
+						AV_OPT_SEARCH_CHILDREN)))
+			ilog(LOG_WARN, "Failed to set iLBC mode option to %i: %s",
+					enc->ptime, av_error(ret));
+}
+
+static void ilbc_set_dec_options(decoder_t *dec, const str *fmtp) {
+	if (dec->ptime == 20)
+		dec->u.avc.avcctx->block_align = 38;
+	else if (dec->ptime == 30)
+		dec->u.avc.avcctx->block_align = 50;
+	else
+		ilog(LOG_WARN, "Unsupported iLBC ptime %i", dec->ptime);
 }
 
 

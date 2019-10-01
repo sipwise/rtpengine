@@ -1370,6 +1370,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	}
 
 	ch->decoder = decoder_new_fmtp(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
+			h->source_pt.ptime,
 			&ch->encoder_format, &h->source_pt.format_parameters);
 	if (!ch->decoder)
 		goto err;
