@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "dtmf.h"
 #include "media_socket.h"
 #include "log.h"
