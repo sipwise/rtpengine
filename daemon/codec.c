@@ -1065,13 +1065,14 @@ void codec_packet_free(void *pp) {
 
 struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media) {
 	str codec_fmt = *codec_str;
-	str codec, parms, chans, opts, extra_opts;
+	str codec, parms, chans, opts, extra_opts, fmt_params;
 	if (str_token_sep(&codec, &codec_fmt, '/'))
 		return NULL;
 	str_token_sep(&parms, &codec_fmt, '/');
 	str_token_sep(&chans, &codec_fmt, '/');
 	str_token_sep(&opts, &codec_fmt, '/');
 	str_token_sep(&extra_opts, &codec_fmt, '/');
+	str_token_sep(&fmt_params, &codec_fmt, '/');
 
 	int clockrate = str_to_i(&parms, 0);
 	int channels = str_to_i(&chans, 0);
@@ -1088,7 +1089,7 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct ca
 	ret->channels = channels;
 	ret->bitrate = bitrate;
 	ret->ptime = ptime;
-	ret->format_parameters = STR_EMPTY;
+	ret->format_parameters = fmt_params;
 
 	const codec_def_t *def = codec_find(&ret->encoding, 0);
 	ret->codec_def = def;
@@ -1248,6 +1249,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	}
 
 	ch->decoder = decoder_new_fmtp(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
+			h->source_pt.ptime,
 			&ch->encoder_format, &h->source_pt.format_parameters);
 	if (!ch->decoder)
 		goto err;
