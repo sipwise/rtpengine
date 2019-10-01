@@ -783,6 +783,8 @@ static void setup_media_proc(struct call_media *media) {
 	if (!recording)
 		return;
 
+	append_meta_chunk_null(recording, "MEDIA %u PTIME %i", media->unique_id, media->ptime);
+
 	GList *pltypes = g_hash_table_get_values(media->codecs_recv);
 
 	for (GList *l = pltypes; l; l = l->next) {
