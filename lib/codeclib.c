@@ -42,6 +42,9 @@ static packetizer_f packetizer_amr;
 static format_init_f opus_init;
 static set_enc_options_f opus_set_enc_options;
 
+static set_enc_options_f ilbc_set_enc_options;
+static set_dec_options_f ilbc_set_dec_options;
+
 static set_enc_options_f amr_set_enc_options;
 static set_dec_options_f amr_set_dec_options;
 
@@ -54,6 +57,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame);
 static void avc_encoder_close(encoder_t *enc);
 
 static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static const char *dtmf_decoder_init(decoder_t *, const str *);
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
@@ -65,6 +69,15 @@ static const codec_type_t codec_type_avcodec = {
 	.def_init = avc_def_init,
 	.decoder_init = avc_decoder_init,
 	.decoder_input = avc_decoder_input,
+	.decoder_close = avc_decoder_close,
+	.encoder_init = avc_encoder_init,
+	.encoder_input = avc_encoder_input,
+	.encoder_close = avc_encoder_close,
+};
+static const codec_type_t codec_type_ilbc = {
+	.def_init = avc_def_init,
+	.decoder_init = avc_decoder_init,
+	.decoder_input = ilbc_decoder_input,
 	.decoder_close = avc_decoder_close,
 	.encoder_init = avc_encoder_init,
 	.encoder_input = avc_encoder_input,
@@ -242,11 +255,14 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = AV_CODEC_ID_ILBC,
 		.default_clockrate = 8000,
 		.default_channels = 1,
-		.default_ptime = 20,
+		.default_ptime = 30,
+		.default_fmtp = "mode=30",
 		//.default_bitrate = 15200,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
-		.codec_type = &codec_type_avcodec,
+		.codec_type = &codec_type_ilbc,
+		.set_enc_options = ilbc_set_enc_options,
+		.set_dec_options = ilbc_set_dec_options,
 	},
 	{
 		.rtpname = "opus",
@@ -471,11 +487,11 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp) {
 
 
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt) {
-	return decoder_new_fmtp(def, clockrate, channels, resample_fmt, NULL);
+decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt) {
+	return decoder_new_fmtp(def, clockrate, channels, ptime, resample_fmt, NULL);
 }
 
-decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, const format_t *resample_fmt,
+decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt,
 		const str *fmtp)
 {
 	const char *err;
@@ -497,6 +513,10 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 	ret->out_format = ret->in_format;
 	if (resample_fmt)
 		ret->out_format = *resample_fmt;
+	if (ptime > 0)
+		ret->ptime = ptime;
+	else
+		ret->ptime = def->default_ptime;
 
 	err = def->codec_type->decoder_init(ret, fmtp);
 	if (err)
@@ -1356,6 +1376,101 @@ static void opus_set_enc_options(encoder_t *enc, const str *fmtp) {
 			ilog(LOG_WARN, "Failed to set Opus frame_duration option to %i: %s",
 					enc->ptime, av_error(ret));
 	// XXX additional opus options
+}
+
+static int ilbc_mode(int ptime, const str *fmtp, const char *direction) {
+	int mode = 0;
+
+	if (fmtp) {
+		if (!str_cmp(fmtp, "mode=20")) {
+			mode = 20;
+			ilog(LOG_DEBUG, "Setting iLBC %s mode to 20 ms based on fmtp", direction);
+		}
+		else if (!str_cmp(fmtp, "mode=30")) {
+			mode = 30;
+			ilog(LOG_DEBUG, "Setting iLBC %s mode to 30 ms based on fmtp", direction);
+		}
+	}
+
+	if (!mode) {
+		switch (ptime) {
+			case 20:
+			case 40:
+			case 60:
+			case 80:
+			case 100:
+			case 120:
+				mode = 20;
+				ilog(LOG_DEBUG, "Setting iLBC %s mode to 20 ms based on ptime %i",
+						direction, ptime);
+				break;
+			case 30:
+			case 90:
+				mode = 30;
+				ilog(LOG_DEBUG, "Setting iLBC %s mode to 30 ms based on ptime %i",
+						direction, ptime);
+				break;
+		}
+	}
+
+	if (!mode) {
+		mode = 20;
+		ilog(LOG_WARNING, "No iLBC %s mode specified, setting to 20 ms", direction);
+	}
+
+	return mode;
+}
+
+static void ilbc_set_enc_options(encoder_t *enc, const str *fmtp) {
+	int ret;
+	int mode = ilbc_mode(enc->ptime, fmtp, "encoder");
+
+	if ((ret = av_opt_set_int(enc->u.avc.avcctx, "mode", mode,
+					AV_OPT_SEARCH_CHILDREN)))
+		ilog(LOG_WARN, "Failed to set iLBC mode option to %i: %s",
+				mode, av_error(ret));
+}
+
+static void ilbc_set_dec_options(decoder_t *dec, const str *fmtp) {
+	int mode = ilbc_mode(dec->ptime, fmtp, "decoder");
+	if (mode == 20)
+		dec->u.avc.avcctx->block_align = 38;
+	else if (mode == 30)
+		dec->u.avc.avcctx->block_align = 50;
+	else
+		ilog(LOG_WARN, "Unsupported iLBC mode %i", mode);
+}
+
+static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	int mode = 0, block_align = 0;
+	static const str mode_20 = STR_CONST_INIT("mode=20");
+	static const str mode_30 = STR_CONST_INIT("mode=30");
+	const str *fmtp;
+
+	if (data->len % 50 == 0) {
+		mode = 30;
+		block_align = 50;
+		fmtp = &mode_20;
+	}
+	else if (data->len % 38 == 0) {
+		mode = 20;
+		block_align = 38;
+		fmtp = &mode_30;
+	}
+	else
+		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "iLBC received %i bytes packet, does not match "
+				"one of the block sizes", (int) data->len);
+
+	if (block_align && dec->u.avc.avcctx->block_align != block_align) {
+		ilog(LOG_INFO | LOG_FLAG_LIMIT, "iLBC decoder set to %i bytes blocks, but received packet "
+				"of %i bytes, therefore resetting decoder and switching to %i bytes "
+				"block mode (%i ms mode)",
+				(int) dec->u.avc.avcctx->block_align, (int) data->len, block_align, mode);
+		avc_decoder_close(dec);
+		avc_decoder_init(dec, fmtp);
+	}
+
+	return avc_decoder_input(dec, data, out);
 }
 
 

@@ -24,7 +24,7 @@ int resample_audio;
 
 
 
-decode_t *decoder_new(const char *payload_str, output_t *outp) {
+decode_t *decoder_new(const char *payload_str, int ptime, output_t *outp) {
 	str name;
 	char *slash = strchr(payload_str, '/');
 	if (!slash) {
@@ -79,7 +79,7 @@ decode_t *decoder_new(const char *payload_str, output_t *outp) {
 		outp->encoder->requested_format.format = out_format.format;
 	}
 
-	decoder_t *dec = decoder_new_fmt(def, rtp_clockrate, channels, &out_format);
+	decoder_t *dec = decoder_new_fmt(def, rtp_clockrate, channels, ptime, &out_format);
 	if (!dec)
 		return NULL;
 	decode_t *deco = g_slice_alloc0(sizeof(decode_t));
