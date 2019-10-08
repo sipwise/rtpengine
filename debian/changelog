@@ -1,3 +1,41 @@
+ngcp-rtpengine (8.1.0.0+0~mr8.1.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3fb5bef] TT#64301 log xmlrpc children to stderr
+  * [25c84bb] TT#65000 fix kernel module compilation for 5.2 kernels
+  * [ef20e02] TT#64259 split up codec handlers function
+  * [fd16bf5] TT#64259 make DTMF detection switch explicit
+  * [35740cd] TT#64259 add function to inject DTMF events
+  * [68d909c] TT#64259 add functions to skip decoded samples and return encoder PTS
+  * [49f6a88] TT#64259 add function to convert DTMF codes and chars
+  * [b14f3b2] TT#64259 support injecting DTMF tones and events
+  * [8ffc13d] TT#65100 properly cleanup redis async context
+  * [bfc9799] TT#65100 don't start a redis notification context/thread when not in use
+  * [3466700] TT#65800 fix SDES negotiation bug
+  * [a6b4137] fix test suites for different implementations of base64 encoding
+  * [22ea251] don't skip address family selection when zero port is present
+  * [7b60ca8] ignore untagged/wildcard/unknown MLs in delete with via-branch
+  * [65fb99b] TT#66650 fix some SSRC refcount leaks
+  * [068bdb2] TT#65052 support adding pause after DTMF PCM
+  * [3bf3982] TT#65052 support queuing up multiple DTMF events
+  * [4d99ba8] add missing header
+  * [6431cde] TT#64601 fix some compiler warnings
+
+  [ Guillem Jover ]
+  * [781b275] TT#65100 Fix double free for redis context on closure
+
+  [ spchan ]
+  * [290afbb] RPM packaging: detect systemd directories and package unit files
+  * [c147556] EL8: mariadb-devel conflicts with mysql-devel
+  * [487004f] EL7,8: no such package iptables-ipv6
+
+  [ Denys ]
+  * [3905a31] Update rtpengine.spec
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 08 Oct 2019 09:12:35 +0200
+
 ngcp-rtpengine (8.0.0.0+0~mr8.0.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
