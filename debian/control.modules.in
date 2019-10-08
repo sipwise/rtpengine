@@ -3,7 +3,7 @@ Section: kernel
 Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Build-Depends:
- debhelper (>= 10),
+ debhelper-compat (= 12),
 Standards-Version: 3.9.8
 Homepage: https://www.sipwise.com/
 
