@@ -1,3 +1,13 @@
+ngcp-rtpengine (8.0.1.1+0~mr8.0.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3ff3f51] TT#68100 set iLBC encoder and decoder options
+  * [099d1cc] TT#64601 refuse overriding crypto params from SDES when DTLS is in use
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 21 Oct 2019 12:36:12 +0200
+
 ngcp-rtpengine (8.0.1.0+0~mr8.0.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
