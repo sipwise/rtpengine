@@ -7,7 +7,7 @@
 #
 # processname: rtpengine
 # config: /etc/sysconfig/rtpengine
-# pidfile: /var/run/rtpengine.pid
+# pidfile: /run/rtpengine.pid
 #
 ### BEGIN INIT INFO
 # Provides: rtpengine
@@ -32,7 +32,7 @@ fi
 
 rtpengine=/usr/sbin/rtpengine
 prog=rtpengine
-pidfile=${PIDFILE-/var/run/rtpengine.pid}
+pidfile=${PIDFILE-/run/rtpengine.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine}
 configfile=${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}
 cachefile=/var/lib/ngcp-rtpengine/rtpengine.cfg

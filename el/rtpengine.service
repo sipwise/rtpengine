@@ -9,7 +9,7 @@ User=ngcp-rtpengine
 Group=daemon
 Environment=CFGFILE=/etc/rtpengine/rtpengine.conf
 EnvironmentFile=/etc/sysconfig/rtpengine
-PIDFile=/var/run/rtpengine.pid
+PIDFile=/run/rtpengine.pid
 ExecStart=/usr/sbin/rtpengine --config-file=${CFGFILE} --interface=${INTERFACE} --listen-ng=${LISTEN_UDP} --log-facility=${LOG_FACILITY} --log-level=${LOG_LEVEL}
 Restart=on-failure
 

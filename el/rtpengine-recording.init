@@ -7,7 +7,7 @@
 #
 # processname: rtpengine-recording
 # config: /etc/sysconfig/rtpengine-recording
-# pidfile: /var/run/rtpengine-recording.pid
+# pidfile: /run/rtpengine-recording.pid
 #
 ### BEGIN INIT INFO
 # Provides: rtpengine
@@ -29,7 +29,7 @@ fi
 
 prog=rtpengine-recording
 runfile=/usr/sbin/${prog}
-pidfile=${PIDFILE-/var/run/rtpengine-recording.pid}
+pidfile=${PIDFILE-/run/rtpengine-recording.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine-recording}
 
 RETVAL=0

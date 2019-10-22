@@ -3,7 +3,7 @@
 # main config file
 CONFIG_FILE=/etc/rtpengine/rtpengine.conf
 # pid
-#PIDFILE=/var/run/ngcp-rtpengine-daemon.pid
+#PIDFILE=/run/ngcp-rtpengine-daemon.pid
 # iptables table for in-kernel forwarding rules. Ignored if "KERNEL=no"
 #TABLE=0
 # "yes" enables fallback to userspace forwarding only.
