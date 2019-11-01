@@ -245,6 +245,12 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	// fill missing time
 	mix_silence_fill_idx_upto(mix, idx, frame->pts);
 
+	// check for pts gap. this is the opposite of silence fill-in. if the frame
+	// pts is behind the expected input pts, there was a gap and we reset our
+	// pts adjustment
+	if (G_UNLIKELY(frame->pts < mix->in_pts[idx]))
+		mix->pts_offs[idx] += mix->in_pts[idx] - frame->pts;
+
 	uint64_t next_pts = frame->pts + frame->nb_samples;
 
 	err = "failed to add frame to mixer";
