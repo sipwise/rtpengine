@@ -332,7 +332,7 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stre
 		.buffer_length = sizeof(ssrc),
 		.is_unsigned = 1,
 	};
-	if (stream) {
+	if (stream && stream->tag != (unsigned long) -1) {
 		tag_t *tag = tag_get(mf, stream->tag);
 		my_cstr(&b[9], tag->label ? : "");
 	}
