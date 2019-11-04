@@ -690,8 +690,6 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 					"%lu to %lu",
 					dec->rtp_ts, ts);
 			// XXX handle lost packets here if timestamps don't line up?
-			// XXX actually set the timestamp to the newly received one?
-			dec->pts += dec->in_format.clockrate;
 		}
 		else
 			dec->pts += shift_ts;
