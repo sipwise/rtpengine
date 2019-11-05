@@ -210,10 +210,10 @@ static void mix_silence_fill(mix_t *mix) {
 		return;
 
 	for (int i = 0; i < NUM_INPUTS; i++) {
-		// check the pts of each input and give them max 1 second of delay.
+		// check the pts of each input and give them max 0.5 second of delay.
 		// if they fall behind too much, fill input with silence. otherwise
 		// output stalls and won't produce media
-		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->format.clockrate);
+		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->format.clockrate / 2);
 	}
 }
 
