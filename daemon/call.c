@@ -2544,6 +2544,8 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 	call = monologue->call;
 
 	g_hash_table_remove(call->tags, &monologue->tag);
+	if (monologue->viabranch.s)
+		g_hash_table_remove(call->viabranches, &monologue->viabranch);
 
 	l = g_hash_table_get_values(monologue->other_tags);
 
@@ -2564,7 +2566,7 @@ static int monologue_destroy(struct call_monologue *ml) {
 
 	__monologue_destroy(ml);
 
-	if (!g_hash_table_size(c->tags)) {
+	if (g_hash_table_size(c->tags) < 2 && g_hash_table_size(c->viabranches) == 0) {
 		ilog(LOG_INFO, "Call branch '" STR_FORMAT_M "' (%s" STR_FORMAT "%svia-branch '" STR_FORMAT_M "') "
 				"deleted, no more branches remaining",
 				STR_FMT_M(&ml->tag),
@@ -2754,7 +2756,7 @@ int call_delete_branch(const str *callid, const str *branch,
 	if ((!totag || !totag->len) && branch && branch->len) {
 		// try a via-branch match
 		ml = g_hash_table_lookup(c->viabranches, branch);
-		if (ml && ml->tag.len) // ignore wildcard/unknown monologues
+		if (ml)
 			goto do_delete;
 	}
 
