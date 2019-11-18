@@ -1,3 +1,21 @@
+ngcp-rtpengine (7.5.2.1+0~mr7.5.2.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b792955] ignore untagged/wildcard/unknown MLs in delete with via-branch
+  * [4be6940] TT#66650 fix some SSRC refcount leaks
+  * [f9c6232] TT#68100 set iLBC encoder and decoder options
+  * [96c1a3f] TT#64601 refuse overriding crypto params from SDES when DTLS is in use
+  * [fd0f73f] don't try to save untagged streams to db
+  * [1d8d448] TT#69701 fix incorrect address used for raddr/rport
+  * [0f4e0f6] TT#69700 don't compensate for TS gaps with a 1-second delay
+  * [1bc2d18] TT#69700 reduce max allowed delay to half a second
+  * [f4a68df] TT#69700 handle gaps in RTP TS correctly for mix output
+  * [a029b23] TT#71050 fix branch deletion from via-branch
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 Nov 2019 14:47:36 +0100
+
 ngcp-rtpengine (7.5.2.0+0~mr7.5.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
