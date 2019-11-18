@@ -1441,8 +1441,12 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			}
 
 			// flush out crypto suites we ended up not using - leave only one
+#if GLIB_CHECK_VERSION(2,30,0)
 			if (!g_queue_remove(cpq_in, cps_in))
 				ilog(LOG_ERR, "BUG: incoming crypto suite not found in queue");
+#else
+			g_queue_remove(cpq_in, cps_in);
+#endif
 			crypto_params_sdes_queue_clear(cpq_in);
 			g_queue_push_tail(cpq_in, cps_in);
 
