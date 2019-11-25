@@ -1,3 +1,26 @@
+ngcp-rtpengine (8.1.1.0+0~mr8.1.1.0) unstable; urgency=medium
+
+  [ Michael Prokop ]
+  * [7fbaf0a] TT#61954 Set debhelper compat level also for ngcp-rtpengine-kernel-source package
+
+  [ Richard Fuchs ]
+  * [228d822] TT#68100 set iLBC encoder and decoder options
+  * [ab77ed5] TT#64601 refuse overriding crypto params from SDES when DTLS is in use
+  * [77087b9] don't try to save untagged streams to db
+  * [8bdeb2d] TT#69701 fix incorrect address used for raddr/rport
+  * [7a28b97] TT#69700 don't compensate for TS gaps with a 1-second delay
+  * [8714914] TT#69700 reduce max allowed delay to half a second
+  * [1ec8276] TT#69700 handle gaps in RTP TS correctly for mix output
+  * [e0dd674] TT#71050 fix branch deletion from via-branch
+  * [bc3d4f7] compile fix for glib versions < 2.30
+
+  [ Guillem Jover ]
+  * [7b77fb6] TT#51701 Switch from deprecated /var/run to /run
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 25 Nov 2019 14:59:01 +0100
+
 ngcp-rtpengine (8.1.0.0+0~mr8.1.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
