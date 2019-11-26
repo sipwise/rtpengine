@@ -800,8 +800,10 @@ void codec_handlers_free(struct call_media *m) {
 		g_hash_table_destroy(m->codec_handlers);
 	m->codec_handlers = NULL;
 	m->codec_handler_cache = NULL;
+#ifdef WITH_TRANSCODING
 	if (m->dtmf_injector)
 		codec_handler_free(m->dtmf_injector);
+#endif
 }
 
 
