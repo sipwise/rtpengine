@@ -52,3 +52,4 @@ dtmflib.c
 test-dtmf-detect
 *-test
 dtmf_rx_fillin.h
+*-test.c

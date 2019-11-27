@@ -18,3 +18,4 @@ ssllib.c
 dtmflib.c
 *-test
 dtmf_rx_fillin.h
+*-test.c
