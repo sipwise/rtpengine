@@ -327,7 +327,7 @@ static void options(int *argc, char ***argv) {
 		{ "max-sessions", 0, 0, G_OPTION_ARG_INT,	&max_sessions,	"Limit of maximum number of sessions",	"INT"	},
 		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46:PORT"},
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
-		{ "homer-id",	0,  0, G_OPTION_ARG_STRING,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
+		{ "homer-id",	0,  0, G_OPTION_ARG_INT,	&homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
 		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
 		{ NULL, }
 	};
