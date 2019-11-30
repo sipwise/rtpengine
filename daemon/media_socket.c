@@ -1678,7 +1678,7 @@ out:
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 	struct codec_packet *p;
 	while ((p = g_queue_pop_head(&mp->packets_out)))
-		send_timer_push((p->packet && p->packet->buffered)?sink->buffer_timer:sink->send_timer, p);
+		send_timer_push(sink->send_timer, p);
 	return 0;
 }
 

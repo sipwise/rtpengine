@@ -152,7 +152,7 @@ static void __send_timer_free(void *p) {
 
 
 // call->master_lock held in W
-struct send_timer *send_timer_new(struct packet_stream *ps, int val) {
+struct send_timer *send_timer_new(struct packet_stream *ps) {
 	ilog(LOG_DEBUG, "creating send_timer");
 
 	struct send_timer *st = obj_alloc0("send_timer", sizeof(*st), __send_timer_free);
@@ -160,7 +160,6 @@ struct send_timer *send_timer_new(struct packet_stream *ps, int val) {
 	mutex_init(&st->lock);
 	st->call = obj_get(ps->call);
 	st->sink = ps;
-	st->buffer_timer = val;
 	g_queue_init(&st->packets);
 
 	return st;
@@ -661,26 +660,37 @@ static void media_player_run(void *ptr) {
 }
 #endif
 
-static void handle_buffered_packet(struct send_timer *st, struct timeval *next_send) {
-        //local queue
-	GQueue packets;
+static void send_timer_run(void *ptr) {
+	struct send_timer *st = ptr;
 	struct call *call = st->call;
+	GQueue packets;
 	g_queue_init(&packets);
 
-	ilog(LOG_DEBUG, "handle_buffered_packet");
+	log_info_call(call);
+
+	ilog(LOG_DEBUG, "running scheduled send_timer");
+
+	struct timeval next_send = {0,};
 
 	rwlock_lock_r(&call->master_lock);
 	mutex_lock(&st->lock);
 
 	while (st->packets.length) {
 		struct codec_packet *cp = st->packets.tail->data;
-		if (timeval_cmp(&cp->to_send, &rtpe_now) <= 0){
+		if ((cp->packet && cp->packet->buffered) && (timeval_cmp(&cp->to_send, &rtpe_now) <= 0)){
 			g_queue_push_tail(&packets, cp); //store in local GQueue to call lock free
+			g_queue_pop_tail(&st->packets);
+			cp->packet->buffered = 0;
+			st->buffer_len--;
+			continue;
+		}
+		// XXX this could be made lock-free
+		else if (!send_timer_send(st, cp)) {
 			g_queue_pop_tail(&st->packets);
 			continue;
 		}
-		// couldn't play the last one. remember time to schedule
-		*next_send = cp->to_send;
+		// couldn't send the last one. remember time to schedule
+		next_send = cp->to_send;
 		break;
 	}
 
@@ -693,42 +703,7 @@ static void handle_buffered_packet(struct send_timer *st, struct timeval *next_s
 		play_buffered(st->sink, cp);
 		g_queue_pop_head(&packets);
 	}
-}
 
-static void send_timer_run(void *ptr) {
-	struct send_timer *st = ptr;
-	struct call *call = st->call;
-
-	log_info_call(call);
-
-	ilog(LOG_DEBUG, "running scheduled send_timer");
-
-	struct timeval next_send = {0,};
-
-
-        if(st->buffer_timer) {
-            handle_buffered_packet(st, &next_send);
-            goto end;
-        }
-	rwlock_lock_r(&call->master_lock);
-	mutex_lock(&st->lock);
-
-	while (st->packets.length) {
-		struct codec_packet *cp = st->packets.tail->data;
-		// XXX this could be made lock-free
-		if (!send_timer_send(st, cp)) {
-			g_queue_pop_tail(&st->packets);
-			continue;
-		}
-		// couldn't send the last one. remember time to schedule
-		next_send = cp->to_send;
-		break;
-	}
-
-	mutex_unlock(&st->lock);
-	rwlock_unlock_r(&call->master_lock);
-
-end:
 	if (next_send.tv_sec)
 		timerthread_obj_schedule_abs(&st->tt_obj, &next_send);
 

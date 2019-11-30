@@ -170,6 +170,7 @@ static int queue_packet(struct media_packet *mp, struct codec_packet *p) {
 	mutex_lock(&mp->stream->rtp_sink->out_lock);
 	g_queue_push_tail(&mp->packets_out, p);
 	ret =  media_socket_dequeue(mp, mp->stream->rtp_sink);
+	mp->stream->rtp_sink->send_timer->buffer_len++;
 	mutex_unlock(&mp->stream->rtp_sink->out_lock);
 
 	return ret;
@@ -264,7 +265,7 @@ int buffer_packet(struct media_packet *mp, str *s) {
 			jb->call = mp->stream->rtp_sink->call;
 			mutex_unlock(&jb->lock);
 		}
-		check_buffered_packets(jb, get_queue_length(mp->stream->rtp_sink->buffer_timer));
+		check_buffered_packets(jb, get_queue_length(mp->stream->rtp_sink->send_timer));
 		rwlock_unlock_r(&mp->call->master_lock);
 	}
 	else
@@ -321,7 +322,7 @@ int set_jitter_values(struct media_packet *mp) {
 	if(curr_seq >= jb->next_exp_seq)
 		jb->next_exp_seq = curr_seq + 1;
 
-	int len = get_queue_length(mp->stream->rtp_sink->buffer_timer);
+	int len = get_queue_length(mp->stream->rtp_sink->send_timer);
 
 	if(len > jb->buffer_len || len < jb->buffer_len) {
 		jb->cont_buff_err++;

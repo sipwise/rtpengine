@@ -266,7 +266,6 @@ struct packet_stream {
 	struct ssrc_ctx		*ssrc_in,	/* LOCK: in_lock */ // XXX eliminate these
 				*ssrc_out;	/* LOCK: out_lock */
 	struct send_timer	*send_timer;	/* RO */
-	struct send_timer	*buffer_timer;	/* RO */
 
 	struct stats		stats;
 	struct stats		kernel_stats;

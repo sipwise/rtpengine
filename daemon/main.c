@@ -376,8 +376,8 @@ static void options(int *argc, char ***argv) {
 		{ "mysql-pass",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_pass,"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-query",0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_query,"MySQL select query",			"STRING"	},
 		{ "enable-jb", 'F', 0,  G_OPTION_ARG_NONE,      &rtpe_config.enable_jb, "Enable jitter buffer in rtpengine", NULL },
-		{ "min-jb-length", 0, 0, G_OPTION_ARG_INT,      &rtpe_config.min_jb_length, "Number of Redis restore threads",      "INT" },
-		{ "max-jb-length", 0, 0, G_OPTION_ARG_INT,      &rtpe_config.max_jb_length, "Number of Redis restore threads",      "INT" },
+		{ "min-jb-length", 0, 0, G_OPTION_ARG_INT,      &rtpe_config.min_jb_length, "Mininum jitter buffer length",      "INT" },
+		{ "max-jb-length", 0, 0, G_OPTION_ARG_INT,      &rtpe_config.max_jb_length, "Maximum length jitter buffer can grow",      "INT" },
 		{ "jb-src-clockrate", 'F', 0, G_OPTION_ARG_NONE, &rtpe_config.jb_src_clockrate, "Use source clock rate for jitter buffer", NULL },
 		{ NULL, }
 	};

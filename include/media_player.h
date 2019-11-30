@@ -67,12 +67,12 @@ struct send_timer {
 	struct call *call; // main reference that keeps this alive
 	struct packet_stream *sink;
 	GQueue packets;
-	int buffer_timer; //set to 1 for buffer timer
+	int buffer_len; //length of jitter buffer
 };
 
 INLINE unsigned int  get_queue_length(struct send_timer* st) {
 	if(st)
-		return g_queue_get_length(&st->packets);
+		return st->buffer_len;
 	return 0;
 }
 
@@ -86,7 +86,7 @@ void media_player_stop(struct media_player *);
 void media_player_init(void);
 void media_player_loop(void *);
 
-struct send_timer *send_timer_new(struct packet_stream *, int val);
+struct send_timer *send_timer_new(struct packet_stream *);
 void send_timer_push(struct send_timer *, struct codec_packet *);
 
 void send_timer_loop(void *p);
