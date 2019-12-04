@@ -1532,7 +1532,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 	}
 
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
-	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC))
+	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || rtpe_config.endpoint_learning == EL_OFF)
 		PS_SET(phc->mp.stream, CONFIRMED);
 
 	/* confirm sink for unidirectional streams in order to kernelize */
@@ -1574,22 +1574,57 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 		goto out;
 	}
 
+	const struct endpoint *use_endpoint_confirm = &phc->mp.fsin;
+
+	if (rtpe_config.endpoint_learning == EL_IMMEDIATE)
+		goto confirm_now;
+
+	if (rtpe_config.endpoint_learning == EL_HEURISTIC
+			&& phc->mp.stream->advertised_endpoint.address.family
+			&& phc->mp.stream->advertised_endpoint.port)
+	{
+		// possible endpoints that can be detected in order of preference:
+		// 0: endpoint that matches the address advertised in the SDP
+		// 1: endpoint with the same address but different port
+		// 2: endpoint with the same port but different address
+		// 3: endpoint with both different port and different address
+		unsigned int idx = 0;
+		if (phc->mp.fsin.port != phc->mp.stream->advertised_endpoint.port)
+			idx |= 1;
+		if (memcmp(&phc->mp.fsin.address, &phc->mp.stream->advertised_endpoint.address,
+					sizeof(sockaddr_t)))
+			idx |= 2;
+
+		// fill appropriate slot
+		ilog(LOG_DEBUG, "Filling endpoint into slot %u", idx);
+		phc->mp.stream->detected_endpoints[idx] = phc->mp.fsin;
+
+		// now grab the best matched endpoint
+		for (idx = 0; idx < 4; idx++) {
+			ilog(LOG_DEBUG, "Checking slot %u for usability", idx);
+			use_endpoint_confirm = &phc->mp.stream->detected_endpoints[idx];
+			if (use_endpoint_confirm->address.family)
+				break;
+		}
+	}
+
 	/* wait at least 3 seconds after last signal before committing to a particular
 	 * endpoint address */
 	if (!phc->mp.call->last_signal || rtpe_now.tv_sec <= phc->mp.call->last_signal + 3)
 		goto update_peerinfo;
 
+confirm_now:
 	phc->kernelize = 1;
 	phc->update = 1;
 
-	ilog(LOG_INFO, "Confirmed peer address as %s%s%s", FMT_M(endpoint_print_buf(&phc->mp.fsin)));
+	ilog(LOG_INFO, "Confirmed peer address as %s%s%s", FMT_M(endpoint_print_buf(use_endpoint_confirm)));
 
 	PS_SET(phc->mp.stream, CONFIRMED);
 
 update_peerinfo:
 	mutex_lock(&phc->mp.stream->out_lock);
 	endpoint = phc->mp.stream->endpoint;
-	phc->mp.stream->endpoint = phc->mp.fsin;
+	phc->mp.stream->endpoint = *use_endpoint_confirm;
 	if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint))) {
 		phc->unkernelize = 1;
 		phc->update = 1;
