@@ -308,6 +308,7 @@ static void options(int *argc, char ***argv) {
 	double max_load = 0;
 	double max_cpu = 0;
 	char *dtmf_udp_ep = NULL;
+	char *endpoint_learning = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -374,6 +375,7 @@ static void options(int *argc, char ***argv) {
 		{ "mysql-user",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_user,"MySQL connection credentials",		"USERNAME"	},
 		{ "mysql-pass",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_pass,"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-query",0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_query,"MySQL select query",			"STRING"	},
+		{ "endpoint-learning",0,0,G_OPTION_ARG_STRING,	&endpoint_learning,	"RTP endpoint learning algorithm",	"delayed|immediate|off|heuristic"	},
 		{ NULL, }
 	};
 
@@ -547,6 +549,21 @@ static void options(int *argc, char ***argv) {
 			die("Too many '%%' placeholders (%u) present in --mysql-query='%s'",
 					count, rtpe_config.mysql_query);
 	}
+
+	enum endpoint_learning el_config = EL_DELAYED;
+	if (endpoint_learning) {
+		if (!strcasecmp(endpoint_learning, "delayed"))
+			el_config = EL_DELAYED;
+		else if (!strcasecmp(endpoint_learning, "immediate"))
+			el_config = EL_IMMEDIATE;
+		else if (!strcasecmp(endpoint_learning, "off"))
+			el_config = EL_OFF;
+		else if (!strcasecmp(endpoint_learning, "heuristic"))
+			el_config = EL_HEURISTIC;
+		else
+			die("Invalid --endpoint-learning option ('%s')", endpoint_learning);
+	}
+	rtpe_config.endpoint_learning = el_config;
 }
 
 void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
@@ -608,6 +625,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->redis_ep = rtpe_config.redis_ep;
 	ini_rtpe_cfg->redis_write_ep = rtpe_config.redis_write_ep;
 	ini_rtpe_cfg->homer_ep = rtpe_config.homer_ep;
+	ini_rtpe_cfg->endpoint_learning = rtpe_config.endpoint_learning;
 
 	ini_rtpe_cfg->b2b_url = g_strdup(rtpe_config.b2b_url);
 	ini_rtpe_cfg->redis_auth = g_strdup(rtpe_config.redis_auth);
