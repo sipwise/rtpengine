@@ -1381,7 +1381,7 @@ loop_ok:
 	}
 
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
-	if (MEDIA_ISSET(media, ASYMMETRIC))
+	if (MEDIA_ISSET(media, ASYMMETRIC) || cm->conf.endpoint_learning == EL_OFF)
 		PS_SET(stream, CONFIRMED);
 
 	/* confirm sink for unidirectional streams in order to kernelize */
@@ -1417,11 +1417,44 @@ loop_ok:
 		goto kernel_check;
 	}
 
+	const struct endpoint *use_endpoint_confirm = fsin;
+
+	if (cm->conf.endpoint_learning == EL_IMMEDIATE)
+		goto confirm_now;
+
+	if (cm->conf.endpoint_learning == EL_HEURISTIC
+			&& stream->advertised_endpoint.address.family
+			&& stream->advertised_endpoint.port)
+	{
+		// possible endpoints that can be detected in order of preference:
+		// 0: endpoint that matches the address advertised in the SDP
+		// 1: endpoint with the same address but different port
+		// 2: endpoint with the same port but different address
+		// 3: endpoint with both different port and different address
+		unsigned int idx = 0;
+		if (fsin->port != stream->advertised_endpoint.port)
+			idx |= 1;
+		if (memcmp(&fsin->address, &stream->advertised_endpoint.address,
+					sizeof(sockaddr_t)))
+			idx |= 2;
+
+		// fill appropriate slot
+		stream->detected_endpoints[idx] = *fsin;
+
+		// now grab the best matched endpoint
+		for (idx = 0; idx < 4; idx++) {
+			use_endpoint_confirm = &stream->detected_endpoints[idx];
+			if (use_endpoint_confirm->address.family)
+				break;
+		}
+	}
+
 	/* wait at least 3 seconds after last signal before committing to a particular
 	 * endpoint address */
 	if (!call->last_signal || poller_now <= call->last_signal + 3)
 		goto update_peerinfo;
 
+confirm_now:
 	ilog(LOG_INFO, "Confirmed peer address as %s", endpoint_print_buf(fsin));
 
 	PS_SET(stream, CONFIRMED);
@@ -1431,7 +1464,7 @@ update_peerinfo:
 	mutex_lock(&stream->out_lock);
 update_addr:
 	endpoint = stream->endpoint;
-	stream->endpoint = *fsin;
+	stream->endpoint = *use_endpoint_confirm;
 	if (memcmp(&endpoint, &stream->endpoint, sizeof(endpoint)))
 		update = 1;
 	mutex_unlock(&stream->out_lock);

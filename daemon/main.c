@@ -81,6 +81,7 @@ static int graphite_interval = 0;
 static char *spooldir;
 static char *rec_method = "pcap";
 static char *rec_format = "raw";
+static enum endpoint_learning el_config;
 
 static void sighandler(gpointer x) {
 	sigset_t ss;
@@ -254,6 +255,7 @@ static void options(int *argc, char ***argv) {
 	char *homerp = NULL;
 	char *homerproto = NULL;
 	char *endptr;
+	char *endpoint_learning = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&table,		"Kernel table to use",		"INT"		},
@@ -296,6 +298,7 @@ static void options(int *argc, char ***argv) {
 #ifdef WITH_IPTABLES_OPTION
 		{ "iptables-chain",0,0,	G_OPTION_ARG_STRING,	&g_iptables_chain,"Add explicit firewall rules to this iptables chain","STRING" },
 #endif
+		{ "endpoint-learning",0,0,G_OPTION_ARG_STRING,	&endpoint_learning,	"RTP endpoint learning algorithm",	"delayed|immediate|off|heuristic"	},
 		{ NULL, }
 	};
 
@@ -411,6 +414,20 @@ static void options(int *argc, char ***argv) {
 
 	if (!sip_source)
 		trust_address_def = 1;
+
+	el_config = EL_DELAYED;
+	if (endpoint_learning) {
+		if (!strcasecmp(endpoint_learning, "delayed"))
+			el_config = EL_DELAYED;
+		else if (!strcasecmp(endpoint_learning, "immediate"))
+			el_config = EL_IMMEDIATE;
+		else if (!strcasecmp(endpoint_learning, "off"))
+			el_config = EL_OFF;
+		else if (!strcasecmp(endpoint_learning, "heuristic"))
+			el_config = EL_HEURISTIC;
+		else
+			die("Invalid --endpoint-learning option ('%s')", endpoint_learning);
+	}
 }
 
 
@@ -533,6 +550,7 @@ no_kernel:
 	mc.graphite_ep = graphite_ep;
 	mc.graphite_interval = graphite_interval;
 	mc.redis_subscribed_keyspaces = g_queue_copy(&keyspaces);
+	mc.endpoint_learning = el_config;
 
 	if (redis_num_threads < 1) {
 #ifdef _SC_NPROCESSORS_ONLN

@@ -79,6 +79,15 @@ enum call_type {
 	CT_FOREIGN_CALL,
 };
 
+enum endpoint_learning {
+	EL_DELAYED = 0,
+	EL_IMMEDIATE = 1,
+	EL_OFF = 2,
+	EL_HEURISTIC = 3,
+
+	__EL_LAST
+};
+
 #define ERROR_NO_FREE_PORTS	-100
 #define ERROR_NO_FREE_LOGS	-101
 
@@ -282,6 +291,7 @@ struct packet_stream {
 	struct packet_stream	*rtcp_sibling;	/* LOCK: call->master_lock */
 	const struct streamhandler *handler;	/* LOCK: in_lock */
 	struct endpoint		endpoint;	/* LOCK: out_lock */
+	struct endpoint		detected_endpoints[4];	/* LOCK: out_lock */
 	struct endpoint		advertised_endpoint; /* RO */
 	struct crypto_context	crypto;		/* OUT direction, LOCK: out_lock */
 	struct ssrc_ctx		*ssrc_in,	/* LOCK: in_lock */
@@ -410,6 +420,7 @@ struct callmaster_config {
 	enum xmlrpc_format	fmt;
 	endpoint_t		graphite_ep;
 	int			graphite_interval;
+	enum endpoint_learning  endpoint_learning;
 
 	int			redis_num_threads;
 };
