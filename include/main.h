@@ -18,6 +18,14 @@ enum log_format {
 
 	__LF_LAST
 };
+enum endpoint_learning {
+	EL_DELAYED = 0,
+	EL_IMMEDIATE = 1,
+	EL_OFF = 2,
+	EL_HEURISTIC = 3,
+
+	__EL_LAST
+};
 
 struct rtpengine_config {
 	/* everything below protected by config_lock */
@@ -84,6 +92,7 @@ struct rtpengine_config {
 	char			*mysql_pass;
 	char			*mysql_query;
 	endpoint_t		dtmf_udp_ep;
+	enum endpoint_learning	endpoint_learning;
 };
 
 

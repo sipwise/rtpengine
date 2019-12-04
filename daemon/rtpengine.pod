@@ -655,6 +655,22 @@ An example configuration might look like this:
 
   mysql-query = select data from voip.files where id = %llu
 
+=item B<--endpoint-learning=>B<delayed>|B<immediate>|B<off>|B<heuristic>
+
+Chooses one of the available algorithms to learn RTP endpoint addresses. The
+legacy setting is B<delayed> which waits 3 seconds before committing to an
+endpoint address, which is then learned from the first incoming RTP packet seen
+after this delay. The setting B<immediate> learns the endpoint address from the
+first incoming packet seen without the 3-second delay. Using B<off> disables
+endpoint learning altogether, likely breaking clients behind NAT. The setting
+B<heuristic> includes the 3-second delay, but source addresses seen from
+incoming RTP packets according to preference: If a packet with a source address
+and port matching the SDP address is seen, this address is used. Otherwise, if
+a packet with a matching source address (but a different port) is seen, that
+address is used. Otherwise, if a packet with a matching source port (but
+different address) is seen, that address is used. Otherwise, the source address
+if any incoming packet is used.
+
 =back
 
 =head1 INTERFACES
