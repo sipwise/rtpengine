@@ -1444,8 +1444,11 @@ loop_ok:
 		// now grab the best matched endpoint
 		for (idx = 0; idx < 4; idx++) {
 			use_endpoint_confirm = &stream->detected_endpoints[idx];
-			if (use_endpoint_confirm->address.family)
+			if (use_endpoint_confirm->address.family) {
+				if (idx == 0) // doesn't get any better than this
+					goto confirm_now;
 				break;
+			}
 		}
 	}
 
