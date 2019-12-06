@@ -1601,8 +1601,11 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 		// now grab the best matched endpoint
 		for (idx = 0; idx < 4; idx++) {
 			use_endpoint_confirm = &phc->mp.stream->detected_endpoints[idx];
-			if (use_endpoint_confirm->address.family)
+			if (use_endpoint_confirm->address.family) {
+				if (idx == 0) // doesn't get any better than this
+					goto confirm_now;
 				break;
+			}
 		}
 	}
 
