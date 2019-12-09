@@ -6,9 +6,8 @@ use warnings;
 use IO::Socket::INET;
 use Getopt::Long;
 
-my $argumentstring = "";
-my $ip = "127.0.0.1";
-my $port = 9900;
+my $ip;
+my $port;
 my $help;
 
 my $optret = GetOptions(
@@ -17,17 +16,20 @@ my $optret = GetOptions(
     'port=i'              => \$port,
 );
 
-if ($ip =~ s/:(\d)$//) {
+if ($ip && $ip =~ s/:(\d)$//) {
     $port = $1;
 }
 
-$argumentstring = "@ARGV";
+my $argumentstring = "@ARGV";
 
 if (!$argumentstring || $help || !$optret) {
     showusage();
     exit 0 if $help;
     exit 1;
 }
+
+$ip //= '127.0.0.1';
+$port //= 9900;
 
 # create a connecting socket
 my $socket = new IO::Socket::INET (
