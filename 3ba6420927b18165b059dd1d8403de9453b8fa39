@@ -16,6 +16,24 @@
       "revId": "3ba6420927b18165b059dd1d8403de9453b8fa39",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6a5f8b3f_8243f1f2",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 3
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2019-12-09T12:05:32Z",
+      "side": 1,
+      "message": "Yes except that there\u0027s a CLI arg for config file. Chicken/egg.",
+      "parentUuid": "de18466d_a8dd0fde",
+      "revId": "3ba6420927b18165b059dd1d8403de9453b8fa39",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
