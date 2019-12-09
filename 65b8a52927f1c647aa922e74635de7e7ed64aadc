@@ -51,6 +51,41 @@
       "revId": "65b8a52927f1c647aa922e74635de7e7ed64aadc",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "2976f855_18fd99ec",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-09T12:11:02Z",
+      "side": 1,
+      "message": "Also I\u0027m wondering whether this should also be moved into the assignment within the GetOptions call, so that when you specify «--ip host:port --port otherport» the latter properly overrides the former.",
+      "parentUuid": "03fc57e3_3a89d312",
+      "revId": "65b8a52927f1c647aa922e74635de7e7ed64aadc",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0786c607_2087eebd",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-09T12:11:02Z",
+      "side": 1,
+      "message": "I guess you might just want to check for @ARGV \u003d\u003d 0? or do you expect to get empty strings that need to be ignored?",
+      "revId": "65b8a52927f1c647aa922e74635de7e7ed64aadc",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
