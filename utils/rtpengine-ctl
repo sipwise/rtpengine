@@ -4,34 +4,29 @@ use strict;
 use warnings;
 
 use IO::Socket::INET;
-
-my $num_args = $#ARGV + 1;
-if ( ($num_args == 0) or
-     (($num_args == 1) && (($ARGV[0] eq "--help") or ($ARGV[0] eq "-h"))) )
-{
-    showusage();
-    exit;
-}
+use Getopt::Long;
 
 my $argumentstring = "";
 my $ip = "127.0.0.1";
-my $port = "9900";
+my $port = 9900;
+my $help;
 
-for (my $argnum=0; $argnum <= $#ARGV; $argnum++) {
-    if ($ARGV[$argnum] eq "-ip") {
-	die "No argument after -ip\n" unless $argnum+1<=$#ARGV;
-        $argnum = $argnum+1;
-	$ip = $ARGV[$argnum];
-	if ($ip =~ s/:(\d)$//) {
-		$port = $1;
-	}
-    } elsif ($ARGV[$argnum] eq "-port") {
-	die "No argument after -port\n" unless $argnum+1<=$#ARGV;
-        $argnum = $argnum+1;
-	$port = $ARGV[$argnum];
-    } else {
-	$argumentstring .= "$ARGV[$argnum] ";
-    }
+GetOptions(
+    'help|h'    => \$help,
+    'ip=s'		=> \$ip,
+    'port=i'	=> \$port,
+);
+
+if ($ip =~ s/:(\d)$//) {
+    $port = $1;
+}
+
+$argumentstring = "@ARGV";
+
+if (!$argumentstring || $help) {
+    showusage();
+    exit 0 if $help;
+    exit 1;
 }
 
 # create a connecting socket
