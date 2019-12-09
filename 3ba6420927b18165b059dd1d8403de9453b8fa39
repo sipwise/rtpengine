@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "de18466d_a8dd0fde",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 3
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-09T12:04:11Z",
+      "side": 1,
+      "message": "You can always unconditionally assign starting with built-in defaults, then config file then cmdline args? :)",
+      "revId": "3ba6420927b18165b059dd1d8403de9453b8fa39",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
