@@ -72,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "3c738f16_38b9e8e7",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2019-12-09T12:17:59Z",
+      "side": 1,
+      "message": "Don\u0027t think it matters, if someone wants to shoot themselves in the foot, then by all means",
+      "parentUuid": "2976f855_18fd99ec",
+      "revId": "65b8a52927f1c647aa922e74635de7e7ed64aadc",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "0786c607_2087eebd",
         "filename": "utils/rtpengine-ctl",
         "patchSetId": 4
@@ -83,6 +101,24 @@
       "writtenOn": "2019-12-09T12:11:02Z",
       "side": 1,
       "message": "I guess you might just want to check for @ARGV \u003d\u003d 0? or do you expect to get empty strings that need to be ignored?",
+      "revId": "65b8a52927f1c647aa922e74635de7e7ed64aadc",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ea1a9ac5_154f184c",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2019-12-09T12:17:59Z",
+      "side": 1,
+      "message": "Empty strings are not expected but would also be an error",
+      "parentUuid": "0786c607_2087eebd",
       "revId": "65b8a52927f1c647aa922e74635de7e7ed64aadc",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
