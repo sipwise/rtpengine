@@ -5,16 +5,41 @@ use warnings;
 
 use IO::Socket::INET;
 use Getopt::Long;
+use Config::Tiny;
 
 my $ip;
 my $port;
+my $conffile;
 my $help;
+my $listen;
 
 my $optret = GetOptions(
     'help|h'              => \$help,
     'ip=s'                => \$ip,
     'port=i'              => \$port,
+    'config-file=s'       => \$conffile,
 );
+
+my $conf_fatal = 1;
+if (!$conffile) {
+    $conffile = '/etc/rtpengine/rtpengine.conf';
+    $conf_fatal = 0;
+}
+
+my $config = Config::Tiny->read($conffile);
+if (!$config && $conf_fatal) {
+    die "Failed to read config file: " . Config::Tiny->errstr;
+}
+elsif ($config) {
+    $listen = $config->{rtpengine}{'listen-cli'}
+        if $config->{rtpengine};
+    if ($listen =~ /^\d+$/) {
+        $port = $listen if not $port;
+    }
+    else {
+        $ip = $listen if not $ip;
+    }
+}
 
 if ($ip && $ip =~ s/:(\d)$//) {
     $port = $1;
