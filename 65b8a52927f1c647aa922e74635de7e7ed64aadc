@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "80fbd0f0_8e005592",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-09T12:01:04Z",
+      "side": 1,
+      "message": "I tend to just make this \u003d\u003e sub { showusage(); exit 0 }, which avoids on variable and the later conditional. :)",
+      "revId": "65b8a52927f1c647aa922e74635de7e7ed64aadc",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "03fc57e3_3a89d312",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-09T12:01:04Z",
+      "side": 1,
+      "message": "It might make sense to validate that port is within range.",
+      "revId": "65b8a52927f1c647aa922e74635de7e7ed64aadc",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
