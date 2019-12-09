@@ -1,0 +1,67 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b5676a9f_c4233c80",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-09T12:15:31Z",
+      "side": 1,
+      "message": "Hmm, this means we might end up ignoring actual parsing problems. Maybe better to check for the file existence and then load only when $conffile is defined, and then make all case fatal?",
+      "revId": "617ecc56d3ae4da4a99807d113de7efc0f7ae173",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8cf2aca7_f661aefa",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-09T12:15:31Z",
+      "side": 1,
+      "message": "just \"//\u003d $listen\" instead?",
+      "range": {
+        "startLine": 37,
+        "startChar": 14,
+        "endLine": 37,
+        "endChar": 37
+      },
+      "revId": "617ecc56d3ae4da4a99807d113de7efc0f7ae173",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "f2f21229_a62b88c4",
+        "filename": "utils/rtpengine-ctl",
+        "patchSetId": 4
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-09T12:15:31Z",
+      "side": 1,
+      "message": "just \"//\u003d $listen\" instead?",
+      "range": {
+        "startLine": 40,
+        "startChar": 12,
+        "endLine": 40,
+        "endChar": 33
+      },
+      "revId": "617ecc56d3ae4da4a99807d113de7efc0f7ae173",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
