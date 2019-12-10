@@ -171,7 +171,7 @@ const struct streamhandler *determine_handler(const struct transport_protocol *i
 		struct call_media *out_media, int must_recrypt);
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
 const struct transport_protocol *transport_protocol(const str *s);
-void play_buffered(struct packet_stream *sink, struct codec_packet *cp);
+void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered);
 
 /* XXX shouldn't be necessary */
 /*

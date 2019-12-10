@@ -700,7 +700,7 @@ static void send_timer_run(void *ptr) {
 	//calling lock free
 	while (packets.length) {
 		struct codec_packet *cp = packets.head->data;
-		play_buffered(st->sink, cp);
+		play_buffered(st->sink, cp, 1);
 		g_queue_pop_head(&packets);
 	}
 

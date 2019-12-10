@@ -1972,14 +1972,14 @@ out:
 	return NULL;
 }
 
-void play_buffered(struct packet_stream *sink, struct codec_packet *cp) {
+void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered) {
         struct packet_handler_ctx phc;
         ZERO(phc);
         phc.mp.sfd = cp->packet->sfd;
         phc.mp.fsin = cp->packet->fsin;
         phc.mp.tv = cp->packet->tv;
         phc.s = cp->s;
-        phc.buffered_packet = 1;
+        phc.buffered_packet = buffered;
         stream_packet(&phc);
         g_slice_free1(sizeof(*cp->packet), cp->packet);
         codec_packet_free(cp);

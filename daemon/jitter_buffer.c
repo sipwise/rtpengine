@@ -136,10 +136,11 @@ static int queue_packet(struct media_packet *mp, struct codec_packet *p) {
 	int ret = 0;
 
 	if(!clockrate || !jb->first_send.tv_sec) {
+		ilog(LOG_DEBUG, "Jitter reset due to clockrate");
 		reset_jitter_buffer(jb);
 		mutex_unlock(&jb->lock);
 		p->packet->buffered = 0;
-		play_buffered(mp->stream->rtp_sink, p);
+		play_buffered(mp->stream->rtp_sink, p, 0);
 		return 1;
 	}
 	long ts_diff = (uint32_t) ts - (uint32_t) jb->first_send_ts;
@@ -218,8 +219,19 @@ int buffer_packet(struct media_packet *mp, str *s) {
 		buf.len = s->len;
 
 		struct codec_packet *p = get_codec_packet(mp, &buf);
-		rtp_payload(&mp->rtp, &mp->payload, &p->s);
-		int payload_type =  (mp->rtp->m_pt & 0x7f);
+		int payload_type = -1;
+		if(!rtp_payload(&mp->rtp, &mp->payload, &p->s))
+		{
+			payload_type =  (mp->rtp->m_pt & 0x7f);
+		}
+		else
+		{
+			mutex_unlock(&jb->lock);
+			rwlock_unlock_r(&mp->call->master_lock);
+			p->packet->buffered = 0;
+			play_buffered(mp->stream->rtp_sink, p, 0);
+			goto end;
+		}
 
 		if(jb->clock_rate && jb->payload_type != payload_type) { //reset in case of payload change
 			jb->first_send.tv_sec = 0;
@@ -253,7 +265,7 @@ int buffer_packet(struct media_packet *mp, str *s) {
 				mutex_unlock(&jb->lock);
 				rwlock_unlock_r(&mp->call->master_lock);
 				p->packet->buffered = 0;
-				play_buffered(mp->stream->rtp_sink, p);
+				play_buffered(mp->stream->rtp_sink, p, 0);
 				goto end;
 			}
 
