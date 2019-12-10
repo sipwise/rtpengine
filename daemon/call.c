@@ -2018,6 +2018,11 @@ init:
 		ice_update(media->ice_agent, NULL); /* this is in case rtcp-mux has changed */
 
 		recording_setup_media(media);
+		
+		if (!call->rtpe_connection_addr.len) {
+			call->rtpe_connection_addr.s = call_malloc(call, 64);
+			format_network_address(&call->rtpe_connection_addr, media->streams.head->data, flags, 0);
+		}
 	}
 
 	return 0;
