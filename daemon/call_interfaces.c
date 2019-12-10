@@ -1945,3 +1945,13 @@ int call_interfaces_init() {
 
 	return 0;
 }
+
+
+void format_network_address(str* o, struct packet_stream *ps, struct sdp_ng_flags *flags, int keep_unspec) {
+	if (!is_addr_unspecified(&flags->parsed_media_address))
+		o->len = sprintf(o->s, "%s %s",
+						 flags->parsed_media_address.family->rfc_name,
+						 sockaddr_print_buf(&flags->parsed_media_address));
+	else
+		call_stream_address46(o->s, ps, SAF_NG, &o->len, NULL, keep_unspec);
+}
