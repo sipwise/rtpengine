@@ -383,7 +383,8 @@ struct call {
 	char			*created_from;
 	sockaddr_t		created_from_addr;
 	sockaddr_t		xmlrpc_callback;
-
+	str			rtpe_connection_addr;
+	
 	unsigned int		redis_hosted_db;
 	unsigned int		foreign_call; // created_via_redis_notify call
 

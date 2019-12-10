@@ -1596,6 +1596,8 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 		c->created_from = call_strdup(c, id.s);
 	if (!redis_hash_get_str(&id, &call, "created_from_addr"))
 		sockaddr_parse_any_str(&c->created_from_addr, &id);
+	if (!redis_hash_get_str(&id, &call, "rtpe_connection_addr"))
+		call_str_cpy(c, &c->rtpe_connection_addr, &id);
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))
 		c->block_dtmf = i ? 1 : 0;
 	if (!redis_hash_get_int(&i, &call, "block_media"))
@@ -1879,6 +1881,7 @@ char* redis_encode_json(struct call *c) {
 			JSON_SET_SIMPLE("ml_deleted","%ld",(long int) c->ml_deleted);
 			JSON_SET_SIMPLE_CSTR("created_from",c->created_from);
 			JSON_SET_SIMPLE_CSTR("created_from_addr",sockaddr_print_buf(&c->created_from_addr));
+			JSON_SET_SIMPLE_STR("rtpe_connection_addr", &c->rtpe_connection_addr);
 			JSON_SET_SIMPLE("redis_hosted_db","%u",c->redis_hosted_db);
 			JSON_SET_SIMPLE_STR("recording_metadata",&c->metadata);
 			JSON_SET_SIMPLE("block_dtmf","%i",c->block_dtmf ? 1 : 0);
