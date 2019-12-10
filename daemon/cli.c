@@ -26,6 +26,7 @@
 #include "statistics.h"
 #include "main.h"
 #include "media_socket.h"
+#include "rtplib.h"
 
 #include "rtpengine_config.h"
 
@@ -633,6 +634,8 @@ static void cli_incoming_list_callid(str *instr, struct streambuf *replybuffer) 
        for (k = ml->medias.head; k; k = k->next) {
            md = k->data;
 
+           const struct rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
+
            for (o = md->streams.head; o; o = o->next) {
                ps = o->data;
 
@@ -654,7 +657,7 @@ static void cli_incoming_list_callid(str *instr, struct streambuf *replybuffer) 
 								   atomic64_get(&ps->last_packet));
                } else {
 		   streambuf_printf(replybuffer, "------ Media #%u, %15s:%-5hu <> %15s:%-5hu%s, "
-			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, %.9f delay_min, %.9f delay_avg, %.9f delay_max\n",
+			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, " STR_FORMAT ", %.9f delay_min, %.9f delay_avg, %.9f delay_max\n",
 						   md->index,
 						   local_addr, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
 						   sockaddr_print_buf(&ps->endpoint.ip46), ps->endpoint.port,
@@ -663,13 +666,15 @@ static void cli_incoming_list_callid(str *instr, struct streambuf *replybuffer) 
 								   atomic64_get(&ps->stats.bytes),
 								   atomic64_get(&ps->stats.errors),
 								   atomic64_get(&ps->last_packet),
+                                                                   rtp_pt ? (int) rtp_pt->encoding_with_params.len : (int) strlen("unknown codec"),
+                                                                   rtp_pt ? rtp_pt->encoding_with_params.s : "unknown codec",
 								   (double) ps->stats.delay_min / 1000000,
 								   (double) ps->stats.delay_avg / 1000000,
 								   (double) ps->stats.delay_max / 1000000);
                }
 #else
                streambuf_printf(replybuffer, "------ Media #%u, %15s:%-5u <> %15s:%-5u%s, "
-                    ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
+                    ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, " STR_FORMAT "\n",
                     md->index,
                     local_addr, (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
                     sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port,
@@ -677,7 +682,9 @@ static void cli_incoming_list_callid(str *instr, struct streambuf *replybuffer) 
                          atomic64_get(&ps->stats.packets),
                          atomic64_get(&ps->stats.bytes),
                          atomic64_get(&ps->stats.errors),
-                         atomic64_get(&ps->last_packet));
+                         atomic64_get(&ps->last_packet),
+                         rtp_pt ? (int) rtp_pt->encoding_with_params.len : (int) strlen("unknown codec"),
+                         rtp_pt ? rtp_pt->encoding_with_params.s : "unknown codec");
 #endif
            }
        }
