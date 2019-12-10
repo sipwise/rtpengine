@@ -1,3 +1,14 @@
+ngcp-rtpengine (8.1.1.1+0~mr8.1.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8b5629e] fix compilation for with_transcoding=no
+  * [1512b60] TT#71451 add default directories for rtpengine-recording
+  * [9f1c80f] fix incorrect parameter type used for homer-id=
+
+  [ Sipwise Jenkins Builder ]
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 10 Dec 2019 17:46:54 +0100
+
 ngcp-rtpengine (8.1.1.0+0~mr8.1.1.0) unstable; urgency=medium
 
   [ Michael Prokop ]
