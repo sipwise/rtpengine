@@ -1952,6 +1952,8 @@ void format_network_address(str* o, struct packet_stream *ps, struct sdp_ng_flag
 		o->len = sprintf(o->s, "%s %s",
 						 flags->parsed_media_address.family->rfc_name,
 						 sockaddr_print_buf(&flags->parsed_media_address));
+	else if (IS_FOREIGN_CALL(ps->call) && ps->call->rtpe_connection_addr.len)
+		o->len = sprintf(o->s, "%s", ps->call->rtpe_connection_addr.s);
 	else
 		call_stream_address46(o->s, ps, SAF_NG, &o->len, NULL, keep_unspec);
 }
