@@ -1,3 +1,12 @@
+ngcp-rtpengine (6.5.8.0+0~mr6.5.8.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6d50c38] TT#64601 refuse overriding crypto params from SDES when DTLS is in use
+  * [00085ca] compile fix for glib versions < 2.30
+  * [fde5425] fix incorrect parameter type used for homer-id=
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 12 Dec 2019 12:03:38 +0100
+
 ngcp-rtpengine (6.5.7.0+0~mr6.5.7.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
