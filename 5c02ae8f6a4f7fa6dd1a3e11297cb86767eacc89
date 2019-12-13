@@ -2,6 +2,29 @@
   "comments": [
     {
       "key": {
+        "uuid": "5347c9a5_d9eb063f",
+        "filename": "daemon/media_socket.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 1473,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2019-12-13T20:16:04Z",
+      "side": 1,
+      "message": "whoops :D",
+      "range": {
+        "startLine": 1473,
+        "startChar": 45,
+        "endLine": 1473,
+        "endChar": 56
+      },
+      "revId": "5c02ae8f6a4f7fa6dd1a3e11297cb86767eacc89",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "3c85e9db_fd504900",
         "filename": "debian/changelog",
         "patchSetId": 1
