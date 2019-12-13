@@ -1,9 +1,9 @@
-#include <sys/timerfd.h>
 #include "../types.h"
 #include "../metafile.h"
 #include "../decoder.h"
 #include "../epoll.h"
 #include "../log.h"
+#include "../timer.h"
 #include "maskbeep.h"
 
 static long get_current_milliseconds(void) {
@@ -76,52 +76,24 @@ static void pause_timer_handler(handler_t *handler) {
 }
 
 #define CHECK_MASK_BEEP_INTERVAL 200  // miliseconds
-static int timerfd_init(pause_ctrl_t *pr_ctrl)
-{
+static int pause_ctrl_timer_init(pause_ctrl_t *pr_ctrl) {
     if (pr_ctrl->timer_fd != -1){
         ilog(LOG_WARN, "recording has been already paused");
         return 0;
     }
 
-    int tmfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-    if (tmfd < 0) {
-        ilog(LOG_ERR, "timerfd_create error, Error:[%d:%s]", errno, strerror(errno));
-        return -1;
-    }
-
-    struct itimerspec its;
-    its.it_value.tv_sec = CHECK_MASK_BEEP_INTERVAL/1000;
-    its.it_value.tv_nsec = CHECK_MASK_BEEP_INTERVAL%1000 * 1000000;
-    its.it_interval.tv_sec = its.it_value.tv_sec;
-    its.it_interval.tv_nsec = its.it_value.tv_nsec;
-
-    int ret = timerfd_settime(tmfd, 0, &its, NULL);
-    if (ret < 0) {
-        ilog(LOG_ERR, "timerfd_settime error, Error:[%d:%s]", errno, strerror(errno));
-        close(tmfd);
-        return -1;
-    }
-
     pr_ctrl->timer_handler.ptr = pr_ctrl;
     pr_ctrl->timer_handler.func = pause_timer_handler;
-    if (epoll_add(tmfd, EPOLLIN, &pr_ctrl->timer_handler)) {
-        ilog(LOG_ERR, "epoll_add error, Error:[%d:%s]", errno, strerror(errno));
-        close(tmfd);
-        return -1;
-    }
-    pr_ctrl->timer_fd = tmfd;
-
-    return 0;
+    pr_ctrl->timer_fd = timerfd_init(&pr_ctrl->timer_handler, CHECK_MASK_BEEP_INTERVAL);
+    return pr_ctrl->timer_fd > 0 ? 0 : -1;
 }
 
-static int timerfd_destroy(pause_ctrl_t *pr_ctrl)
+static int pause_ctrl_timer_destroy(pause_ctrl_t *pr_ctrl)
 {
-    if (pr_ctrl->timer_fd == -1)
-        return 0;
-    int tmfd = pr_ctrl->timer_fd;
-    epoll_del(tmfd);
-    close(tmfd);
-    pr_ctrl->timer_fd = -1;
+    if (pr_ctrl->timer_fd != -1) {
+        timerfd_destroy(pr_ctrl->timer_fd);
+        pr_ctrl->timer_fd = -1;
+    }
     return 0;
 }
 
@@ -135,7 +107,7 @@ pause_ctrl_t * pause_ctrl_new(metafile_t* mf){
 }
 
 void pause_ctrl_destroy(pause_ctrl_t *pr_ctrl){
-    timerfd_destroy(pr_ctrl);
+    pause_ctrl_timer_destroy(pr_ctrl);
     g_slice_free1(sizeof(pause_ctrl_t), pr_ctrl);
 }
 
@@ -158,7 +130,7 @@ static pause_ctrl_t * pause_ctrl_get(const char* call_id){
 
 void pause_ctrl_stop_recording(char *call_id){
     pause_ctrl_t * pr_ctrl = pause_ctrl_get(call_id);
-    timerfd_init(pr_ctrl);
+    pause_ctrl_timer_init(pr_ctrl);
     pr_ctrl->pause_start_time = get_current_milliseconds();
     pr_ctrl->last_mask_pts = 0;
     pause_ctrl_unlock_mf(pr_ctrl);
@@ -166,7 +138,7 @@ void pause_ctrl_stop_recording(char *call_id){
 
 void pause_ctrl_start_recording(char *call_id){
     pause_ctrl_t * pr_ctrl = pause_ctrl_get(call_id);
-    timerfd_destroy(pr_ctrl);
+    pause_ctrl_timer_destroy(pr_ctrl);
     pr_ctrl->pause_start_time = -1;
     pause_ctrl_unlock_mf(pr_ctrl);
 }

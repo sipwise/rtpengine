@@ -127,8 +127,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 			pthread_mutex_unlock(&metafile->mix_lock);
 			goto err;
 		}
-		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, metafile->mix_out))
-			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
+		mix_add(metafile->mix, dec_frame, deco->mixer_idx, metafile->mix_out);
 	}
 //no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);
