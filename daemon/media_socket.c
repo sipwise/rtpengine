@@ -1313,7 +1313,8 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 }
 
 
-// returns: 0 = packet processed by other protocol hander; -1 = packet not handled, proceed;
+// returns: 0 = packet processed by other protocol handler;
+// -1 = packet not handled, proceed;
 // 1 = same as 0, but stream can be kernelized
 static int media_demux_protocols(struct packet_handler_ctx *phc) {
 	if (MEDIA_ISSET(phc->mp.media, DTLS) && is_dtls(&phc->s)) {
@@ -1463,13 +1464,13 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 		phc->rtcp_filter = phc->in_srtp->handler->in->rtcp_filter;
 	}
 
-	/* return values are: 0 = forward packet, -1 = error/dont forward,
+	/* return values are: 0 = forward packet, -1 = error/don't forward,
 	 * 1 = forward and push update to redis */
 	int ret = 0;
 	if (phc->decrypt_func) {
 		str ori_s = phc->s;
 		ret = phc->decrypt_func(&phc->s, phc->in_srtp, phc->mp.sfd, &phc->mp.fsin, &phc->mp.tv, phc->mp.ssrc_in);
-		// XXX for stripped auth tag and duplicate invokations of rtp_payload
+		// XXX for stripped auth tag and duplicate incokations of rtp_payload
 		// XXX transcoder uses phc->mp.payload
 		phc->mp.payload.len -= ori_s.len - phc->s.len;
 	}

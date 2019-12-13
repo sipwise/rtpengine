@@ -278,7 +278,7 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len);
  * created through a decoding process (i.e. not ones created from bencode_dictionary()) have this
  * property. The hash is efficient only up to a certain number of elements (BENCODE_HASH_BUCKETS
  * in bencode.c) contained in the dictionary. If the number of children object exceeds this number,
- * key lookup will be slower than simply linearily traversing the list.
+ * key lookup will be slower than simply linearly traversing the list.
  *
  * The decoding function for dictionary object does not check whether keys are unique within the
  * dictionary. It also does not care about lexicographical order of the keys.
