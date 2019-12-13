@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6402d0a8_8827467a",
+        "filename": "lib/codeclib.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 988,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2019-12-13T18:58:35Z",
+      "side": 0,
+      "message": "This is a common abbreviation, though (tho :-P)",
+      "range": {
+        "startLine": 988,
+        "startChar": 18,
+        "endLine": 988,
+        "endChar": 22
+      },
+      "revId": "9e0480a996e9a3afcf73bade55163b053cbd8f76",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
+    }
+  ]
+}

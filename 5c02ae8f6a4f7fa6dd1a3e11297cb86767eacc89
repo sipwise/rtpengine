@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3c85e9db_fd504900",
+        "filename": "debian/changelog",
+        "patchSetId": 1
+      },
+      "lineNbr": 1720,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2019-12-13T18:58:35Z",
+      "side": 1,
+      "message": "This will confuse history in a way, the original patch went in with the wrong spelling etc, and if this was accepted through github now you have two different \"history lines\", so I\u0027m not sure that I would go that deep in fixing typos.",
+      "revId": "5c02ae8f6a4f7fa6dd1a3e11297cb86767eacc89",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
+    }
+  ]
+}
