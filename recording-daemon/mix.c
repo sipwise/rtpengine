@@ -199,59 +199,18 @@ mix_t *mix_new() {
 	return mix;
 }
 
+static int mix_get_frame_and_output(mix_t *mix, output_t *output) {
+	int ret = av_buffersink_get_frame(mix->sink_ctx, mix->sink_frame);
+	if (ret >= 0) {
+		AVFrame *frame = resample_frame(&mix->resample, mix->sink_frame, &mix->out_format);
 
-static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upto) {
-	unsigned int silence_samples = 20 * mix->input_format.clockrate / 1000;
+		ret = output_add(output, frame);
 
-	while (mix->in_pts[idx] < upto) {
-		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->input_format.clockrate * 30)) {
-			ilog(LOG_WARN, "More than 30 seconds of silence needed to fill mix buffer, resetting");
-			mix->in_pts[idx] = upto;
-			break;
-		}
+		av_frame_unref(mix->sink_frame);
 
-		if (G_UNLIKELY(!mix->silence_frame)) {
-			mix->silence_frame = av_frame_alloc();
-			mix->silence_frame->format = mix->input_format.format;
-			mix->silence_frame->channel_layout =
-				av_get_default_channel_layout(mix->input_format.channels);
-			mix->silence_frame->nb_samples = silence_samples;
-			mix->silence_frame->sample_rate = mix->input_format.clockrate;
-			if (av_frame_get_buffer(mix->silence_frame, 0) < 0) {
-				ilog(LOG_ERR, "Failed to get silence frame buffers");
-				return;
-			}
-			int planes = av_sample_fmt_is_planar(mix->silence_frame->format) ? mix->input_format.channels : 1;
-			for (int i = 0; i < planes; i++)
-				memset(mix->silence_frame->extended_data[i], 0, mix->silence_frame->linesize[0]);
-		}
-
-		dbg("pushing silence frame into stream %i (%lli < %llu)", idx,
-				(long long unsigned) mix->in_pts[idx],
-				(long long unsigned) upto);
-
-		mix->silence_frame->pts = mix->in_pts[idx];
-		mix->silence_frame->nb_samples = MIN(silence_samples, upto - mix->in_pts[idx]);
-		mix->silence_frame->pkt_size = mix->silence_frame->nb_samples;
-		mix->in_pts[idx] += mix->silence_frame->nb_samples;
-
-		mix->silence_pts += mix->silence_frame->nb_samples;
-		if (av_buffersrc_write_frame(mix->src_ctxs[idx], mix->silence_frame))
-			ilog(LOG_WARN, "Failed to write silence frame to buffer");
+		av_frame_free(&frame);
 	}
-}
-
-
-static void mix_silence_fill(mix_t *mix) {
-	if (mix->out_pts < mix->input_format.clockrate)
-		return;
-
-	for (int i = 0; i < NUM_INPUTS; i++) {
-		// check the pts of each input and give them max 1 second of delay.
-		// if they fall behind too much, fill input with silence. otherwise
-		// output stalls and won't produce media
-		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->input_format.clockrate);
-	}
+	return ret;
 }
 
 #define MIX_TIMER_INTERVAL 1
@@ -295,6 +254,67 @@ static void throttle_error_output(const char* err, int ret){
 	err_count = 0;
 }
 
+
+static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upto, output_t *output) {
+	unsigned int silence_samples = 20 * mix->input_format.clockrate / 1000;
+
+	while (mix->in_pts[idx] < upto) {
+/*		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->input_format.clockrate * 30)) {
+			ilog(LOG_WARN, "More than 30 seconds of silence needed to fill mix buffer, resetting");
+			mix->in_pts[idx] = upto;
+			break;
+		}
+*/
+		if (G_UNLIKELY(!mix->silence_frame)) {
+			mix->silence_frame = av_frame_alloc();
+			mix->silence_frame->format = mix->input_format.format;
+			mix->silence_frame->channel_layout =
+				av_get_default_channel_layout(mix->input_format.channels);
+			mix->silence_frame->nb_samples = silence_samples;
+			mix->silence_frame->sample_rate = mix->input_format.clockrate;
+			if (av_frame_get_buffer(mix->silence_frame, 0) < 0) {
+				ilog(LOG_ERR, "Failed to get silence frame buffers");
+				return;
+			}
+			int planes = av_sample_fmt_is_planar(mix->silence_frame->format) ? mix->input_format.channels : 1;
+			for (int i = 0; i < planes; i++)
+				memset(mix->silence_frame->extended_data[i], 0, mix->silence_frame->linesize[0]);
+		}
+
+		dbg("pushing silence frame into stream %i (%lli < %llu)", idx,
+				(long long unsigned) mix->in_pts[idx],
+				(long long unsigned) upto);
+
+		mix->silence_frame->pts = mix->in_pts[idx];
+		mix->silence_frame->nb_samples = MIN(silence_samples, upto - mix->in_pts[idx]);
+		mix->silence_frame->pkt_size = mix->silence_frame->nb_samples;
+		mix->in_pts[idx] += mix->silence_frame->nb_samples;
+
+		mix->silence_pts += mix->silence_frame->nb_samples;
+		int ret = av_buffersrc_write_frame(mix->src_ctxs[idx], mix->silence_frame);
+		if (ret) {
+			ilog(LOG_ERR, "Failed to write silence frame to buffer(ret=%d)", ret);
+		}
+		ret = mix_get_frame_and_output(mix, output);
+		if (ret < 0 && ret != AVERROR(EAGAIN)) {
+			throttle_error_output("failed to get frame from mixer", ret);
+		}
+	}
+}
+
+
+static void mix_silence_fill(mix_t *mix, output_t *output) {
+	if (mix->out_pts < mix->input_format.clockrate)
+		return;
+
+	for (int i = 0; i < NUM_INPUTS; i++) {
+		// check the pts of each input and give them max 1 second of delay.
+		// if they fall behind too much, fill input with silence. otherwise
+		// output stalls and won't produce media
+		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->input_format.clockrate, output);
+	}
+}
+
 int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	const char *err;
 	int ret = 0;
@@ -321,7 +341,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	frame->pts += mix->pts_offs[idx];
 
 	// fill missing time
-	mix_silence_fill_idx_upto(mix, idx, frame->pts);
+	mix_silence_fill_idx_upto(mix, idx, frame->pts, output);
 
 	uint64_t next_pts = frame->pts + frame->nb_samples;
 
@@ -338,28 +358,18 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 
 	av_frame_free(&frame);
 
-	mix_silence_fill(mix);
+	mix_silence_fill(mix, output);
 
+	err = "failed to get frame from mixer";
 	while (1) {
-		ret = av_buffersink_get_frame(mix->sink_ctx, mix->sink_frame);
-		err = "failed to get frame from mixer";
+		ret = mix_get_frame_and_output(mix, output);
 		if (ret < 0) {
 			if (ret == AVERROR(EAGAIN))
 				break;
 			else
 				goto err;
 		}
-		frame = resample_frame(&mix->resample, mix->sink_frame, &mix->out_format);
-
-		ret = output_add(output, frame);
-
-		av_frame_unref(mix->sink_frame);
-
-		if (ret)
-			goto err;
-		av_frame_free(&frame);
 	}
-
 	return 0;
 
 err:
