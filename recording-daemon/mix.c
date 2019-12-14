@@ -36,10 +36,13 @@ struct mix_s {
 
 	uint64_t out_pts; // starting at zero
 
+	uint64_t silence_pts;
+
 	AVFrame *silence_frame;
 
 	int timer_fd;
     handler_t timer_handler;
+	time_t start_time;
 };
 
 static int NUM_INPUTS  = MAX_NUM_INPUTS;
@@ -69,6 +72,9 @@ static void mix_shutdown(mix_t *mix) {
 	format_init(&mix->out_format);
 }
 
+uint64_t mix_get_silence_pts(mix_t *mix){
+	return mix->silence_pts;
+}
 
 void mix_destroy(mix_t *mix) {
 	if (!mix)
@@ -187,13 +193,15 @@ mix_t *mix_new() {
 
 	mix->timer_fd = -1;
 	mix_timer_init(mix);
-
+	
+	mix->silence_pts = 0;
+	mix->start_time = time(NULL);
 	return mix;
 }
 
 
 static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upto) {
-	unsigned int silence_samples = mix->input_format.clockrate / 100;
+	unsigned int silence_samples = 20 * mix->input_format.clockrate / 1000;
 
 	while (mix->in_pts[idx] < upto) {
 		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->input_format.clockrate * 30)) {
@@ -224,8 +232,10 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 
 		mix->silence_frame->pts = mix->in_pts[idx];
 		mix->silence_frame->nb_samples = MIN(silence_samples, upto - mix->in_pts[idx]);
+		mix->silence_frame->pkt_size = mix->silence_frame->nb_samples;
 		mix->in_pts[idx] += mix->silence_frame->nb_samples;
 
+		mix->silence_pts += mix->silence_frame->nb_samples;
 		if (av_buffersrc_write_frame(mix->src_ctxs[idx], mix->silence_frame))
 			ilog(LOG_WARN, "Failed to write silence frame to buffer");
 	}
@@ -244,15 +254,18 @@ static void mix_silence_fill(mix_t *mix) {
 	}
 }
 
-#define CHECK_ERROR_INTERVAL 3
+#define MIX_TIMER_INTERVAL 1
 
-static void log_repeated_error(int err_count, const char* err){
+static void log_repeated_error(int err_count, const char* err, int ret){
+	char errmsg[256];
+	errmsg[0] = 0;
+	av_strerror(ret, errmsg, sizeof(errmsg));
 	if (err != NULL && err_count > 0) {
 		if (err_count == 1)
-			ilog(LOG_ERR, "Failed to add frame to mixer: %s", err);
+			ilog(LOG_ERR, "Failure in max_add: %s(ret=%d, err=%s)", err, ret, errmsg);
 		else 
-			ilog(LOG_ERR, "Failed to add frame to mixer: %s (happened %d times in last %d seconds)", 
-						err, err_count, CHECK_ERROR_INTERVAL);
+			ilog(LOG_ERR, "Failure in max_add: %s (ret=%d, err=%s, happened %d times in last %d seconds)", 
+						err, ret, errmsg, err_count, MIX_TIMER_INTERVAL);
 	}
 }
 
@@ -260,28 +273,31 @@ static void log_repeated_error(int err_count, const char* err){
 // if this is a new error, flush the old errors and then output the new error
 // if this is a repeated error, just increase the count
 // this method assumes that err is a literal string so it does not allocate any space for err
-static void throttle_error_output(const char* err){
+static void throttle_error_output(const char* err, int ret){
 	static const char *last_err = NULL;
+	static int last_ret = 0;
 	static int err_count = 0;
 
 	if (err != NULL) {
-		if (last_err != NULL && strcmp(last_err, err) == 0) { // repeated error
+		if (last_err != NULL && strcmp(last_err, err) == 0 && last_ret == ret) { // repeated error
 			err_count++;
 			return;
 		}	
-		log_repeated_error(err_count, last_err);
-		log_repeated_error(1, err);		// output new error immediately
+		log_repeated_error(err_count, last_err, last_ret);
+		log_repeated_error(1, err, ret);		// output new error immediately
 		last_err = err;
+		last_ret = ret;
 	}
 	else {	// if err is NULL, just flush old errors
 		if (err_count > 0)
-			log_repeated_error(err_count, last_err);
+			log_repeated_error(err_count, last_err, last_ret);
 	}
 	err_count = 0;
 }
 
 int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	const char *err;
+	int ret = 0;
 
 	err = "index out of range";
 	if (idx >= NUM_INPUTS)
@@ -310,7 +326,8 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	uint64_t next_pts = frame->pts + frame->nb_samples;
 
 	err = "failed to add frame to mixer";
-	if (av_buffersrc_add_frame(mix->src_ctxs[idx], frame))
+	ret = av_buffersrc_add_frame(mix->src_ctxs[idx], frame);
+	if (ret)
 		goto err;
 
 	// update running counters
@@ -324,7 +341,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	mix_silence_fill(mix);
 
 	while (1) {
-		int ret = av_buffersink_get_frame(mix->sink_ctx, mix->sink_frame);
+		ret = av_buffersink_get_frame(mix->sink_ctx, mix->sink_frame);
 		err = "failed to get frame from mixer";
 		if (ret < 0) {
 			if (ret == AVERROR(EAGAIN))
@@ -346,7 +363,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	return 0;
 
 err:
-	throttle_error_output(err);
+	throttle_error_output(err, ret);
 	av_frame_free(&frame);
 	return -1;
 }
@@ -357,7 +374,7 @@ static void mix_timer_handler(handler_t *handler) {
     if (mix == NULL)
         return;
     read(mix->timer_fd, &exp, sizeof(uint64_t));
-	throttle_error_output(NULL);	
+	throttle_error_output(NULL, 0);	
 }
 
 int mix_timer_init(mix_t *mix) {
@@ -368,13 +385,13 @@ int mix_timer_init(mix_t *mix) {
 
     mix->timer_handler.ptr = mix;
     mix->timer_handler.func = mix_timer_handler;
-    mix->timer_fd = timerfd_init(&mix->timer_handler, CHECK_ERROR_INTERVAL*1000);
+    mix->timer_fd = timerfd_init(&mix->timer_handler, MIX_TIMER_INTERVAL*1000);
     return mix->timer_fd > 0 ? 0 : -1;
 }
 
 int mix_timer_destroy(mix_t *mix)
 {
-	throttle_error_output(NULL);
+	throttle_error_output(NULL, 0);
     if (mix->timer_fd != -1) {
     	timerfd_destroy(mix->timer_fd);
     	mix->timer_fd = -1;
