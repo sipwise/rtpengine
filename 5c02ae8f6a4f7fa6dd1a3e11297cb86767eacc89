@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "ca0cdae9_336f24b0",
+        "filename": "daemon/media_socket.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 1473,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-19T20:41:14Z",
+      "side": 1,
+      "message": "Har har.",
+      "parentUuid": "5347c9a5_d9eb063f",
+      "range": {
+        "startLine": 1473,
+        "startChar": 45,
+        "endLine": 1473,
+        "endChar": 56
+      },
+      "revId": "5c02ae8f6a4f7fa6dd1a3e11297cb86767eacc89",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "3c85e9db_fd504900",
         "filename": "debian/changelog",
         "patchSetId": 1
@@ -36,6 +60,24 @@
       "writtenOn": "2019-12-13T18:58:35Z",
       "side": 1,
       "message": "This will confuse history in a way, the original patch went in with the wrong spelling etc, and if this was accepted through github now you have two different \"history lines\", so I\u0027m not sure that I would go that deep in fixing typos.",
+      "revId": "5c02ae8f6a4f7fa6dd1a3e11297cb86767eacc89",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5afea339_48d12895",
+        "filename": "debian/changelog",
+        "patchSetId": 1
+      },
+      "lineNbr": 1720,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2019-12-19T20:41:14Z",
+      "side": 1,
+      "message": "Personally I don\u0027t see the problem, you get the same with stock Debian packages and their changelogs. And in here in addition if one wants to check the commit we have the commit-id right there anyway. :)",
+      "parentUuid": "3c85e9db_fd504900",
       "revId": "5c02ae8f6a4f7fa6dd1a3e11297cb86767eacc89",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": true
