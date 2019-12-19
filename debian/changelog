@@ -1,3 +1,12 @@
+ngcp-rtpengine (7.5.2.2+0~mr7.5.2.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5452b6a] TT#72350 add proper CLI options support to rtpengine-ctl
+  * [376441e] TT#72350 move default values to post-getopt
+  * [77c3fee] TT#72350 read default values from config file
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 19 Dec 2019 22:56:00 +0100
+
 ngcp-rtpengine (7.5.2.1+0~mr7.5.2.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
