@@ -1796,6 +1796,18 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 	}
 }
 
+static void __update_rtpe_address(struct call_media* media, struct sdp_ng_flags *flags) {
+	struct packet_stream *ps;
+	
+	if (media->rtpe_connection_addr.len || !media->streams.head)
+		return;
+	
+	ps = media->streams.head->data;
+	media->rtpe_connection_addr.s = call_malloc(media->call, 64);
+	format_network_address(&media->rtpe_connection_addr, ps, flags, 0);
+	rlog(LOG_INFO, "Stored media address %s",media->rtpe_connection_addr.s);
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		struct sdp_ng_flags *flags)
@@ -2018,11 +2030,8 @@ init:
 		ice_update(media->ice_agent, NULL); /* this is in case rtcp-mux has changed */
 
 		recording_setup_media(media);
-		
-		if (!call->rtpe_connection_addr.len) {
-			call->rtpe_connection_addr.s = call_malloc(call, 64);
-			format_network_address(&call->rtpe_connection_addr, media->streams.head->data, flags, 0);
-		}
+		__update_rtpe_address(media, flags);
+		__update_rtpe_address(other_media, flags);
 	}
 
 	return 0;
