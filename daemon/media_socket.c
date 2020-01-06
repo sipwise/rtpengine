@@ -754,7 +754,9 @@ static void release_port(socket_t *r, struct intf_spec *spec) {
 
 	iptables_del_rule(r);
 
-	if (close_socket(r) == 0) {
+	if (r->is_foreign) {
+		__C_DBG("port %u is foreign so release is not needed");
+	} else if (close_socket(r) == 0) {
 		__C_DBG("port %u is released", port);
 		bit_array_clear(pp->ports_used, port);
 		g_atomic_int_inc(&pp->free_ports);
@@ -1969,14 +1971,16 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 
 	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
 
-	ZERO(pi);
-	pi.fd = sfd->socket.fd;
-	pi.obj = &sfd->obj;
-	pi.readable = stream_fd_readable;
-	pi.closed = stream_fd_closed;
+	if (!sfd->socket.is_foreign) {
+		ZERO(pi);
+		pi.fd = sfd->socket.fd;
+		pi.obj = &sfd->obj;
+		pi.readable = stream_fd_readable;
+		pi.closed = stream_fd_closed;
 
-	if (poller_add_item(rtpe_poller, &pi))
-		ilog(LOG_ERR, "Failed to add stream_fd to poller");
+		if (poller_add_item(rtpe_poller, &pi))
+			ilog(LOG_ERR, "Failed to add stream_fd to poller");
+	}
 
 	return sfd;
 }

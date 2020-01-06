@@ -1154,14 +1154,21 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 		if (!loc)
 			goto err;
 
-		err = "failed to open ports";
-		if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
-			goto err;
-		err = "no port returned";
-		sock = g_queue_pop_head(&q);
-		if (!sock)
-			goto err;
-		set_tos(sock, c->tos);
+		if (IS_FOREIGN_CALL(c)) {
+			sock = g_slice_alloc0(sizeof(*sock));
+			err = "failed to register foreign port";
+			if (create_foreign_socket(sock, SOCK_DGRAM, port, &loc->spec->local_address.addr))
+				goto err;
+		} else {
+			err = "failed to open ports";
+			if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
+				goto err;
+			err = "no port returned";
+			sock = g_queue_pop_head(&q);
+			if (!sock)
+				goto err;
+			set_tos(sock, c->tos);
+		}
 		sfd = stream_fd_new(sock, c, loc);
 
 		sfds->ptrs[i] = sfd;
