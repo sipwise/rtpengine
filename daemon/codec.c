@@ -183,7 +183,6 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 {
 	assert(handler->source_pt.codec_def != NULL);
 	assert(dest->codec_def != NULL);
-	assert(handler->source_pt.payload_type == handler->source_pt.payload_type);
 
 	// if we're just repacketising:
 	if (dtmf_payload_type == -1 && dest->codec_def && dest->codec_def->dtmf)
