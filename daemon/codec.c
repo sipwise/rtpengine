@@ -521,6 +521,15 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		__ensure_codec_def(pt, receiver);
 		struct codec_handler *handler;
 		handler = g_hash_table_lookup(receiver->codec_handlers, &pt->payload_type);
+		if (handler) {
+			// make sure existing handler matches this PT
+			if (rtp_payload_type_cmp(pt, &handler->source_pt)) {
+				ilog(LOG_DEBUG, "Resetting codec handler for PT %u", pt->payload_type);
+				handler = NULL;
+				g_atomic_pointer_set(&receiver->codec_handler_cache, NULL);
+				g_hash_table_remove(receiver->codec_handlers, &pt->payload_type);
+			}
+		}
 		if (!handler) {
 			ilog(LOG_DEBUG, "Creating codec handler for " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params));
