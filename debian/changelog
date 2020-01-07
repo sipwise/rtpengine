@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.0.1.3+0~mr8.0.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5ef0655] TT#73401 handle changes in RTP payload types
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 07 Jan 2020 17:01:08 +0100
+
 ngcp-rtpengine (8.0.1.2+0~mr8.0.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
