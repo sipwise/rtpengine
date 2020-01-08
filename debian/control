@@ -149,6 +149,7 @@ Depends:
  libio-socket-inet6-perl,
  libio-socket-ip-perl,
  libsocket6-perl,
+ libconfig-tiny-perl,
  netcat-openbsd | netcat,
  ${misc:Depends},
  ${perl:Depends},
