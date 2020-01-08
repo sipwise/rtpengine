@@ -188,6 +188,8 @@ typedef struct redis_call_media_tag {
 	gboolean		block_dtmf;
 	gboolean		block_media;
 	str*			tag;
+	str*			viabranch;
+	str*			label;
 	struct redis_call_media_tag*	other_tag;
 } redis_call_media_tag_t;
 

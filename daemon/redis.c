@@ -87,6 +87,8 @@ static int redis_connect(struct redis *r, int wait);
 /* New mode JSON parsing support. Use with care */
 static redis_call_t* redis_call_create(const str*, JsonNode*);
 static void redis_call_free(void*);
+static GQueue* redis_call_get_streams(redis_call_t*);
+static void redis_call_obj_put(void*);
 /* End of new mode JSON parsing support */
 
 static void redis_pipe(struct redis *r, const char *fmt, ...) {
@@ -2425,6 +2427,10 @@ static long long json_reader_get_ll_element(JsonReader *reader, unsigned idx) {
 	return out;
 }
 
+static void redis_call_obj_put(void* o) {
+	obj_put_o(o);
+}
+
 static void redis_call_media_stream_fd_free(void *rcmsf) {
 	redis_call_media_stream_fd_t *streamfdref = rcmsf;
 	if (!streamfdref)
@@ -2478,7 +2484,7 @@ static void redis_call_media_stream_free(void *rcms) {
 	if (streamref->advertised_endpoint)
 		free(streamref->advertised_endpoint);
 	if (streamref->fds)
-		g_queue_free_full(streamref->fds, __obj_put);
+		g_queue_free_full(streamref->fds, redis_call_obj_put);
 }
 
 static redis_call_media_stream_t *redis_call_media_stream_create(unsigned unique_id, JsonNode *json, GQueue *sfds) {
@@ -2524,7 +2530,7 @@ static redis_call_media_stream_t *redis_call_media_stream_create(unsigned unique
 	for (idx = 0; idx < g_queue_get_length(sfds); idx++) {
 		streamfdref = g_queue_peek_nth(sfds, idx);
 		if (streamfdref && streamfdref->stream_unique_id == streamref->unique_id)
-			g_queue_push_tail(streamref->fds, g_queue_pop_nth(sfds, idx));
+			g_queue_push_tail(streamref->fds, obj_get(streamfdref));
 	}
 
 	goto done;
@@ -2547,6 +2553,10 @@ static void redis_call_media_tag_free(void *rcmt) {
 		return;
 	if (tagref->tag)
 		free(tagref->tag);
+	if (tagref->viabranch)
+		free(tagref->viabranch);
+	if (tagref->label)
+		free(tagref->label);
 	/* we don't free `other_tag` - it should be owned by some media */
 }
 
@@ -2572,6 +2582,8 @@ static redis_call_media_tag_t *redis_call_media_tag_create(unsigned unique_id, J
 	if ((llval = json_reader_get_ll(reader, "block_media")) >= 0)
 		tagref->block_media = llval ? TRUE : FALSE;
 	tagref->tag = json_reader_get_str(reader, "tag");
+	tagref->viabranch = json_reader_get_str(reader, "viabranch");
+	tagref->label = json_reader_get_str(reader, "label");
 	
 	goto done;
 
@@ -2604,7 +2616,7 @@ static void redis_call_media_free(void* rcm) {
 	if (mediaref->tag)
 		obj_put(mediaref->tag);
 	if (mediaref->streams)
-		g_queue_free_full(mediaref->streams, __obj_put);
+		g_queue_free_full(mediaref->streams, redis_call_obj_put);
 }
 
 static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonNode *json, GQueue *tags, GQueue *streams) {
@@ -2620,10 +2632,10 @@ static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonNode 
 	mediaref = obj_alloc0("redis_call_media", sizeof(*mediaref), redis_call_media_free);
 	mediaref->unique_id = unique_id;
 	if ((llval = json_reader_get_ll(reader, "tag")) >= 0) {
-		tagref = g_queue_pop_nth(tags, llval);
+		tagref = g_queue_peek_nth(tags, llval);
 		if (!tagref)
 			goto fail;
-		mediaref->tag = tagref;
+		mediaref->tag = obj_get(tagref);
 	}
 	if ((llval = json_reader_get_ll(reader, "index")) >= 0)
 		mediaref->index = llval;
@@ -2642,7 +2654,7 @@ static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonNode 
 	for (idx = 0; idx < g_queue_get_length(streams); idx++) {
 		streamref = g_queue_peek_nth(streams, idx);
 		if (streamref && streamref->media_unique_id == mediaref->unique_id)
-			g_queue_push_tail(mediaref->streams, g_queue_pop_nth(streams, idx));
+			g_queue_push_tail(mediaref->streams, obj_get(streamref));
 	}
 
 	goto done;
@@ -2664,7 +2676,7 @@ static void redis_call_free(void* rc) {
 	if (!callref)
 		return;
 	if (callref->media)
-		g_queue_free_full(callref->media, __obj_put);
+		g_queue_free_full(callref->media, redis_call_obj_put);
 	if (callref->call_id)
 		free(callref->call_id);
 	if (callref->created_from)
@@ -2791,7 +2803,7 @@ static GQueue *redis_call_read_tags(JsonReader *reader) {
 
 fail:
 	if (call_tags) {
-		g_queue_free_full(call_tags, __obj_put);
+		g_queue_free_full(call_tags, redis_call_obj_put);
 		call_tags = NULL;
 	}
 
@@ -2827,7 +2839,7 @@ static GQueue *redis_call_read_stream_fds(JsonReader *reader) {
 
 fail:
 	if (call_sfds) {
-		g_queue_free_full(call_sfds, __obj_put);
+		g_queue_free_full(call_sfds, redis_call_obj_put);
 		call_sfds = NULL;
 	}
 
@@ -2839,9 +2851,9 @@ done:
 }
 
 static GQueue *redis_call_read_streams(JsonReader *reader) {
-	GQueue *call_streams, *call_sfds = NULL;
+	GQueue *call_streams = NULL, *call_sfds = NULL;
 	unsigned stream_idx;
-	str *stream_field;
+	str *stream_field = NULL;
 	redis_call_media_stream_t *stream;
 
 	if (!(call_sfds = redis_call_read_stream_fds(reader)))
@@ -2865,7 +2877,7 @@ static GQueue *redis_call_read_streams(JsonReader *reader) {
 
 fail:
 	if (call_streams) {
-		g_queue_free_full(call_streams, __obj_put);
+		g_queue_free_full(call_streams, redis_call_obj_put);
 		call_streams = NULL;
 	}
 
@@ -2873,7 +2885,7 @@ done:
 	if (stream_field)
 		free(stream_field);
 	if (call_sfds)
-		g_queue_free_full(call_sfds, __obj_put);
+		g_queue_free_full(call_sfds, redis_call_obj_put);
 	json_reader_end_member(reader);
 	return call_streams;
 }
@@ -2881,7 +2893,7 @@ done:
 static GQueue *redis_call_read_media(JsonReader *reader) {
 	int media_idx;
 	str *media_field = NULL;
-	GQueue *call_media, *call_tags = NULL, *call_streams = NULL;
+	GQueue *call_media = NULL, *call_tags = NULL, *call_streams = NULL;
 	redis_call_media_t *media = NULL;
 
 	if (!(call_tags = redis_call_read_tags(reader)))
@@ -2908,16 +2920,16 @@ static GQueue *redis_call_read_media(JsonReader *reader) {
 
 fail:
 	if (call_media)
-		g_queue_free_full(call_media, __obj_put);
+		g_queue_free_full(call_media, redis_call_obj_put);
 
 done:
 	json_reader_end_member(reader);
 	if (media_field)
 		free(media_field);
 	if (call_tags)
-		g_queue_free_full(call_tags, __obj_put);
+		g_queue_free_full(call_tags, redis_call_obj_put);
 	if (call_streams)
-		g_queue_free_full(call_streams, __obj_put);
+		g_queue_free_full(call_streams, redis_call_obj_put);
 	return call_media;
 }
 
@@ -2962,4 +2974,19 @@ done:
 	return callref;
 }
 
+GQueue* redis_call_get_streams(redis_call_t* callref) {
+	GQueue* streams;
+	redis_call_media_t *media;
+	unsigned midx, sidx;
+
+	streams = g_queue_new();
+	for (midx = 0; midx < g_queue_get_length(callref->media); midx++) {
+		media = g_queue_peek_nth(callref->media, midx);
+		for (sidx = 0; sidx < g_queue_get_length(media->streams); sidx++) {
+			g_queue_push_tail(streams, obj_get((redis_call_media_stream_t*)g_queue_peek_nth(media->streams, sidx)));
+		}
+	}
+
+	return streams;
+}
 /* End of new mode JSON parsing support */
