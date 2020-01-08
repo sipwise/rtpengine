@@ -1705,86 +1705,104 @@ err1:
 		obj_put(c);
 }
 
+static int redis_update_call_streams(struct call *c, redis_call_t *redis_call) {
+	GQueue* redis_call_streams;
+	redis_call_media_stream_t *stream;
+	unsigned int i, updated = 0;
+	struct packet_stream *ps;
+	GList *pk;
+	struct endpoint endpoint, advertised_endpoint;
+	
+	if (!(redis_call_streams = redis_call_get_streams(redis_call)))
+		return -1;
+	// review call streams and only update where needed
+	for (i = 0, pk = c->streams.head; pk && (i < redis_call_streams->length); pk = pk->next, i++) {
+		ps = pk->data;
+		ZERO(endpoint);
+		stream = g_queue_peek_nth(redis_call_streams, i);
+		endpoint_parse_any(&endpoint, stream->endpoint->s);
+		endpoint_parse_any(&advertised_endpoint, stream->advertised_endpoint->s);
+		
+		if (!ps->endpoint.port && endpoint.port && endpoint.address.family->af) {
+			ps->endpoint = endpoint;
+			ps->advertised_endpoint = advertised_endpoint;
+			ps->ps_flags = stream->ps_flags;
+			updated = 1;
+		}
+	}
+	
+	if (updated)
+		rlog(LOG_INFO, "Updated stream endpoints and flags from Redis");
+	g_queue_free_full(redis_call_streams, redis_call_obj_put);
+	return 0;
+}
+
+static int redis_update_call_tags(struct call *c, redis_call_t *redis_call) {
+	unsigned midx, updated = 0;
+	redis_call_media_t *media;
+	// need to combine redis_tags and json_link_tags:
+	// - read sets of linked tags
+	// - for each tag that doesn't exist in g_hash_table_lookup(call->tags, tag), and that has a linked tag that does,
+	//   call call_get_monologue(call, exist_tag, not_exist_tag, NULL)
+
+	for (midx = 0; midx < redis_call->media->length; midx++) {
+		media = g_queue_peek_nth(redis_call->media, midx);
+		if (media->tag && media->tag->tag && media->tag->other_tag && media->tag->other_tag->tag &&
+			g_hash_table_lookup(c->tags, media->tag->tag) &&
+			!g_hash_table_lookup(c->tags, media->tag->other_tag->tag)) {
+			call_get_mono_dialogue(c, media->tag->tag, media->tag->other_tag->tag, media->tag->viabranch);
+			updated = 1;
+		}
+	}
+	
+	if (updated)
+		rlog(LOG_INFO, "Updated monologue tags from Redis");
+	return 0;
+}
+
 static void redis_update_call_details(struct redis *r, struct call *c) {
 	redisReply* rr_jsonStr;
-	struct redis_list streams;
-	struct redis_hash call, streamrh;
-	struct endpoint endpoint, advertised_endpoint;
-	unsigned ps_flags;
-	GList *pk;
-	struct packet_stream *ps;
-
-	const char *err = 0;
-	int i, updated = 0;
-	JsonReader *root_reader =0;
-	JsonParser *parser =0;
+	redis_call_t *redis_call = NULL;
+	const char *err = NULL;
+	JsonParser *parser = NULL;
 
 	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(&c->callid));
 	err = "could not retrieve JSON data from redis";
 	if (!rr_jsonStr)
-		goto err1;
+		goto fail;
 
 	parser = json_parser_new();
 	err = "could not parse JSON data";
 	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
-		goto err1;
-	root_reader = json_reader_new (json_parser_get_root (parser));
+		goto fail;
+	redis_call = redis_call_create(&c->callid, json_parser_get_root(parser));
 	err = "could not read JSON data";
-	if (!root_reader)
-		goto err1;
+	if (!redis_call)
+		goto fail;
 
-	if (json_get_hash(&call, "json", -1, root_reader))
-		goto err1;
+	err = "failed to update stream data";
+	if (redis_update_call_streams(c, redis_call))
+		goto fail;
 
-	err = "'streams' incomplete";
-	if (json_get_list_hash(&streams, "stream", &call, "num_streams", root_reader))
-		goto err1;
+	err = "failed to update tag data";
+	if (redis_update_call_tags(c, redis_call))
+		goto fail;
 
-	// review call streams and only update where needed
-	for (i = 0, pk = c->streams.head; pk && (i < streams.len); pk = pk->next, i++) {
-		streamrh = streams.rh[i];
-		ps = pk->data;
+	goto done;
 
-		ZERO(endpoint);
-		err = "could not read stream flags";
-		if (redis_hash_get_unsigned((unsigned int *) &ps_flags, &streamrh, "ps_flags"))
-			return err2;
-		err = "could not read stream endpoint";
-		if (redis_hash_get_endpoint(&endpoint, &streamrh, "endpoint"))
-			goto err2;
-		err = "could not read stream advertised_endpoint";
-		if (redis_hash_get_endpoint(&advertised_endpoint, &streamrh, "advertised_endpoint"))
-			goto err2;
+fail:
+	rlog(LOG_WARNING, "Failed to update endpoints for call ID '" STR_FORMAT_M "' from Redis: %s",
+		STR_FMT_M(&c->callid),
+		err);
 
-		if (!ps->endpoint.port && endpoint.port && endpoint.address.family->af) {
-			ps->endpoint = endpoint;
-			ps->advertised_endpoint = advertised_endpoint;
-			ps->ps_flags = ps_flags;
-			updated = 1;
-		}
-	}
-
-	if (updated)
-		rlog(LOG_INFO, "Updated stream endpoints from Redis");
-
-	updated = 0;
-
-	err = NULL;
-err2:
-	json_destroy_list(&streams);
-err1:
-	if (root_reader)
-		g_object_unref (root_reader);
+done:
+	if (redis_call)
+		obj_put(redis_call);
 	if (parser)
 		g_object_unref (parser);
 	if (rr_jsonStr)
 		freeReplyObject(rr_jsonStr);
 	log_info_clear();
-	if (err) {
-		rlog(LOG_WARNING, "Failed to update endpoints for call ID '" STR_FORMAT_M "' from Redis: %s",
-		     STR_FMT_M(&c->callid),
-		     err);
-	}
 }
 
 struct thread_ctx {
