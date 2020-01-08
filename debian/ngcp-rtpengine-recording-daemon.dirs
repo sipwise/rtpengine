@@ -1,2 +1,2 @@
-var/spool/rtpengine
 var/lib/rtpengine-recording
+var/spool/rtpengine

@@ -144,12 +144,12 @@ Package: ngcp-rtpengine-utils
 Architecture: all
 Depends:
  libbencode-perl,
+ libconfig-tiny-perl,
  libcrypt-rijndael-perl,
  libdigest-hmac-perl,
  libio-socket-inet6-perl,
  libio-socket-ip-perl,
  libsocket6-perl,
- libconfig-tiny-perl,
  netcat-openbsd | netcat,
  ${misc:Depends},
  ${perl:Depends},
