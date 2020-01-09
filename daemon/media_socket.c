@@ -1531,6 +1531,18 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 		goto out;
 	}
 
+	// GH #697 - apparent Asterisk bug where it sends stray RTCP to the RTP port.
+	// work around this by detecting this situation and ignoring the packet for
+	// confirmation purposes when needed. This is regardless of whether rtcp-mux
+	// is enabled or not.
+	if (!PS_ISSET(phc->mp.stream, CONFIRMED) && PS_ISSET(phc->mp.stream, RTP)) {
+		if (rtcp_demux_is_rtcp(&phc->s)) {
+			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Ignoring stray RTCP packet for "
+					"peer address confirmation purposes");
+			goto out;
+		}
+	}
+
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
 	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC))
 		PS_SET(phc->mp.stream, CONFIRMED);
