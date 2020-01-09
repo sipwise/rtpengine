@@ -6,8 +6,19 @@
 #define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
 
 #define JSON_UPDATE_NUM_FIELD_IF_SET(reader, key, field) {\
-	long long llval = json_reader_get_ll(reader, key); \
-	if (llval >= 0) field = llval; \
+long long llval = json_reader_get_ll(reader, key); \
+if (llval >= 0) field = llval; \
+}
+
+#define JSON_UPDATE_BOOL_FIELD_IF_SET(reader, key, field) {\
+long long llval = json_reader_get_ll(reader, key); \
+if (llval >= 0) field = llval ? TRUE : FALSE; \
+}
+
+/** For use with fields that support -1 (for "not set"), but are stored in JSON as unsigned int */
+#define JSON_UPDATE_SIGNED_NUM_FIELD_IF_SET(reader, key, field) {\
+long long llval = json_reader_get_ll(reader, key); \
+if (llval >= 0) field = llval < 1000 ? llval : -1; \
 }
 
 #define JSON_UPDATE_NUM_FIELD_IF_SET_OR_FAIL(reader, key, field) {\
@@ -61,8 +72,6 @@ static redis_call_media_stream_fd_t *redis_call_media_stream_fd_create(unsigned 
 	redis_call_media_stream_fd_t *streamfdref = NULL;
 	JsonReader *reader = NULL;
 
-	long long llval = 0;
-
 	reader = json_reader_new(json);
 	streamfdref = obj_alloc0("redis_call_media_stream_fd", sizeof(*streamfdref), redis_call_media_stream_fd_free);
 	streamfdref->unique_id = unique_id;
@@ -103,38 +112,24 @@ static redis_call_media_stream_t *redis_call_media_stream_create(unsigned unique
 	redis_call_media_stream_fd_t *streamfdref;
 	JsonReader *reader = NULL;
 
-	long long llval = 0;
 	unsigned idx;
 
 	reader = json_reader_new(json);
 	streamref = obj_alloc0("redis_call_media_stream", sizeof(*streamref), redis_call_media_stream_free);
 	streamref->unique_id = unique_id;
 	JSON_UPDATE_NUM_FIELD_IF_SET_OR_FAIL(reader, "media", streamref->media_unique_id);
-	if ((llval = json_reader_get_ll(reader, "sfd")) >= 0)
-		streamref->selected_sfd = llval;
-	if ((llval = json_reader_get_ll(reader, "rtp_sink")) >= 0)
-		/* old code writes -1 as u_int32_t */
-		streamref->rtp_sink = llval < 1000 ? llval : -1;
-	if ((llval = json_reader_get_ll(reader, "rtcp_sink")) >= 0)
-		/* old code writes -1 as u_int32_t */
-		streamref->rtcp_sink = llval < 1000 ? llval : -1;
-	if ((llval = json_reader_get_ll(reader, "rtcp_sibling")) >= 0)
-		/* old code writes -1 as u_int32_t */
-		streamref->rtcp_sibling = llval < 1000 ? llval : -1;
-	if ((llval = json_reader_get_ll(reader, "last_packet")) >= 0)
-		streamref->last_packet = llval;
-	if ((llval = json_reader_get_ll(reader, "ps_flags")) >= 0)
-		streamref->ps_flags = llval;
-	if ((llval = json_reader_get_ll(reader, "component")) >= 0)
-		streamref->component = llval;
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "sfd", streamref->selected_sfd);
+	JSON_UPDATE_SIGNED_NUM_FIELD_IF_SET(reader, "rtp_sink", streamref->rtp_sink);
+	JSON_UPDATE_SIGNED_NUM_FIELD_IF_SET(reader, "rtcp_sink", streamref->rtcp_sink);
+	JSON_UPDATE_SIGNED_NUM_FIELD_IF_SET(reader, "rtcp_sibling", streamref->rtcp_sibling);
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "last_packet", streamref->last_packet);
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "ps_flags", streamref->ps_flags);
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "component", streamref->component);
 	streamref->endpoint = json_reader_get_str(reader, "endpoint");
 	streamref->advertised_endpoint = json_reader_get_str(reader, "advertised_endpoint");
-	if ((llval = json_reader_get_ll(reader, "stats-packets")) >= 0)
-		streamref->stats_packets = llval;
-	if ((llval = json_reader_get_ll(reader, "stats-bytes")) >= 0)
-		streamref->stats_bytes = llval;
-	if ((llval = json_reader_get_ll(reader, "stats-errors")) >= 0)
-		streamref->stats_errors = llval;
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "stats-packets", streamref->stats_packets);
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "stats-bytes", streamref->stats_bytes);
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "stats-errors", streamref->stats_errors);
 
 	/* grab my fds */
 	streamref->fds = g_queue_new();
@@ -175,23 +170,14 @@ static redis_call_media_tag_t *redis_call_media_tag_create(unsigned unique_id, J
 	redis_call_media_tag_t *tagref = NULL;
 	JsonReader *reader = NULL;
 
-	long long llval = 0;
-
 	reader = json_reader_new(json);
 	tagref = obj_alloc0("redis_call_media_tag", sizeof(*tagref), redis_call_media_tag_free);
 	tagref->unique_id = unique_id;
-	if ((llval = json_reader_get_ll(reader, "created")) >= 0)
-		tagref->created = llval;
-	else
-		goto fail;
-	if ((llval = json_reader_get_ll(reader, "active")) >= 0)
-		tagref->active = llval ? TRUE : FALSE;
-	if ((llval = json_reader_get_ll(reader, "deleted")) >= 0)
-		tagref->deleted = llval ? TRUE : FALSE;
-	if ((llval = json_reader_get_ll(reader, "block_dtmf")) >= 0)
-		tagref->block_dtmf = llval ? TRUE : FALSE;
-	if ((llval = json_reader_get_ll(reader, "block_media")) >= 0)
-		tagref->block_media = llval ? TRUE : FALSE;
+	JSON_UPDATE_NUM_FIELD_IF_SET_OR_FAIL(reader, "created", tagref->created);
+	JSON_UPDATE_BOOL_FIELD_IF_SET(reader, "active", tagref->active);
+	JSON_UPDATE_BOOL_FIELD_IF_SET(reader, "deleted", tagref->deleted);
+	JSON_UPDATE_BOOL_FIELD_IF_SET(reader, "block_dtmf", tagref->block_dtmf);
+	JSON_UPDATE_BOOL_FIELD_IF_SET(reader, "block_media", tagref->block_media);
 	tagref->tag = json_reader_get_str(reader, "tag");
 	tagref->viabranch = json_reader_get_str(reader, "viabranch");
 	tagref->label = json_reader_get_str(reader, "label");
@@ -248,16 +234,13 @@ static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonNode 
 			goto fail;
 		mediaref->tag = obj_get(tagref);
 	}
-	if ((llval = json_reader_get_ll(reader, "index")) >= 0)
-		mediaref->index = llval;
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "index", mediaref->index);
 	mediaref->type = json_reader_get_str(reader, "type");
 	mediaref->protocol = json_reader_get_str(reader, "protocol");
 	mediaref->desired_family = json_reader_get_str(reader, "desired_family");
 	mediaref->logical_intf = json_reader_get_str(reader, "logical_intf");
-	if ((llval = json_reader_get_ll(reader, "ptime")) >= 0)
-		mediaref->ptime = llval;
-	if ((llval = json_reader_get_ll(reader, "media_flags")) >= 0)
-		mediaref->media_flags = llval;
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "ptime", mediaref->ptime);
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "media_flags", mediaref->media_flags);
 	mediaref->rtpe_addr = json_reader_get_str(reader, "rtpe_addr");
 
 	/* grab my streams */
@@ -302,30 +285,18 @@ static redis_call_t* redis_call_create_from_metadata(const str* callid, JsonNode
 	redis_call_t *callref = NULL;
 	JsonReader *reader = NULL;
 
-	long long llval = 0;
-
 	reader = json_reader_new(json);
 	callref = obj_alloc0("redis_call", sizeof(*callref), redis_call_free);
 	callref->call_id = str_dup(callid);
-	if ((llval = json_reader_get_ll(reader, "created")) >= 0)
-		callref->created = llval;
-	else
-		goto fail;
-	if ((llval = json_reader_get_ll(reader, "last_signal")) >= 0)
-		callref->last_signal = llval;
-	if ((llval = json_reader_get_ll(reader, "deleted")) >= 0)
-		callref->deleted = llval ? TRUE : FALSE;
-	if ((llval = json_reader_get_ll(reader, "ml_deleted")) >= 0)
-		callref->ml_deleted = llval ? TRUE : FALSE;
+	JSON_UPDATE_NUM_FIELD_IF_SET_OR_FAIL(reader, "created", callref->created);
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "last_signal", callref->last_signal);
+	JSON_UPDATE_BOOL_FIELD_IF_SET(reader, "deleted", callref->deleted);
+	JSON_UPDATE_BOOL_FIELD_IF_SET(reader, "ml_deleted", callref->ml_deleted);
 	callref->created_from = json_reader_get_str(reader, "created_from");
 	callref->created_from_addr = json_reader_get_str(reader, "created_from_addr");
-	json_reader_end_member(reader);
-	if ((llval = json_reader_get_ll(reader, "redis_hosted_db")) >= 0)
-		callref->redis_hosted_db = llval;
-	if ((llval = json_reader_get_ll(reader, "block_dtmf")) >= 0)
-		callref->block_dtmf = llval ? TRUE : FALSE;
-	if ((llval = json_reader_get_ll(reader, "block_media")) >= 0)
-		callref->block_media = llval ? TRUE : FALSE;
+	JSON_UPDATE_NUM_FIELD_IF_SET(reader, "redis_hosted_db", callref->redis_hosted_db);
+	JSON_UPDATE_BOOL_FIELD_IF_SET(reader, "block_dtmf", callref->block_dtmf);
+	JSON_UPDATE_BOOL_FIELD_IF_SET(reader, "block_media", callref->block_media);
 
 	goto done;
 
