@@ -153,6 +153,23 @@ done:
 	return streamref;
 }
 
+static void redis_call_rtp_payload_type_free(void *rcrpt) {
+	redis_call_rtp_payload_type_t *payloadref = rcrpt;
+	if (!payloadref)
+		return;
+	if (payloadref->codec_str)
+		free(payloadref->codec_str);
+}
+
+static redis_call_rtp_payload_type_t *redis_call_rtp_payload_type_create(unsigned payload_type, str* payload_string) {
+	redis_call_rtp_payload_type_t *payloadref;
+
+	payloadref = obj_alloc0("redis_call_rtp_payload_type", sizeof(*payloadref), redis_call_rtp_payload_type_free);
+	payloadref->payload_type = payload_type;
+	payloadref->codec_str = str_dup(payload_string);
+	return payloadref;
+}
+
 static void redis_call_media_tag_free(void *rcmt) {
 	redis_call_media_tag_t *tagref = rcmt;
 	if (!tagref)
@@ -215,9 +232,58 @@ static void redis_call_media_free(void* rcm) {
 		obj_put(mediaref->tag);
 	if (mediaref->streams)
 		g_queue_free_full(mediaref->streams, gdestroy_obj_put);
+	if (mediaref->codec_prefs_recv)
+		g_queue_free_full(mediaref->codec_prefs_recv, gdestroy_obj_put);
+	if (mediaref->codec_prefs_send)
+		g_queue_free_full(mediaref->codec_prefs_send, gdestroy_obj_put);
 }
 
-static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonNode *json, GQueue *tags, GQueue *streams) {
+static GQueue *redis_call_media_read_payloads(JsonNode* payloadTypes) {
+	GQueue *out;
+	JsonReader* reader = NULL;
+	redis_call_rtp_payload_type_t *payload;
+	unsigned payload_count;
+	str* payload_str = NULL;
+	str ptype;
+	unsigned idx, pt;
+
+	/* read payloads */
+	reader = json_reader_new(payloadTypes);
+	out = g_queue_new();
+	payload_count = json_reader_count_elements(reader);
+	for (idx = 0; idx < payload_count; idx++) {
+		payload_str = json_reader_get_str_element(reader, idx);
+		if (str_token(&ptype, payload_str, '/'))
+			goto fail;
+
+		pt = str_to_ui(&ptype, 0);
+		payload = redis_call_rtp_payload_type_create(pt, payload_str);
+		if (!payload)
+			goto fail;
+		g_queue_push_tail(out, payload);
+
+		free(payload_str);
+		payload_str = NULL;
+	}
+
+	goto done;
+
+fail:
+	if (out) {
+		g_queue_free_full(out, gdestroy_obj_put);
+		out = NULL;
+	}
+
+done:
+	if (payload_str)
+		free(payload_str);
+	if (reader)
+		g_object_unref(reader);
+	return out;
+}
+
+static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonNode *json, GQueue *tags, GQueue *streams,
+	JsonNode *streamIds, JsonNode *endpointMaps, JsonNode *payloadTypesRecv, JsonNode *payloadTypesSend) {
 	redis_call_media_t *mediaref = NULL;
 	redis_call_media_tag_t *tagref = NULL;
 	redis_call_media_stream_t *streamref = NULL;
@@ -251,6 +317,11 @@ static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonNode 
 		if (streamref && streamref->media_unique_id == mediaref->unique_id)
 			g_queue_push_tail(mediaref->streams, obj_get(streamref));
 	}
+
+	if (!(mediaref->codec_prefs_recv = redis_call_media_read_payloads(payloadTypesRecv)))
+		goto fail;
+	if (!(mediaref->codec_prefs_send = redis_call_media_read_payloads(payloadTypesSend)))
+		goto fail;
 
 	goto done;
 
@@ -446,7 +517,7 @@ static GQueue *redis_call_read_streams(JsonReader *reader) {
 		stream_field = str_sprintf("stream-%u", stream_idx);
 		if (!json_reader_read_member(reader, stream_field->s))
 			goto done; /* no more streams */
-			stream = redis_call_media_stream_create(stream_idx, json_reader_get_value(reader), call_sfds);
+		stream = redis_call_media_stream_create(stream_idx, json_reader_get_value(reader), call_sfds);
 		if (!stream)
 			goto fail;
 		g_queue_push_tail(call_streams, stream);
@@ -475,9 +546,11 @@ done:
 
 static GQueue *redis_call_read_media(JsonReader *reader) {
 	int media_idx;
-	str *media_field = NULL;
 	GQueue *call_media = NULL, *call_tags = NULL, *call_streams = NULL;
+	JsonNode *mediaNode, *streamIdsNode, *endpointMapsNode, *payloadTypesRecvNode, *payloadTypesSendNode;
 	redis_call_media_t *media = NULL;
+
+	char fieldname[50];
 
 	if (!(call_tags = redis_call_read_tags(reader)))
 		goto fail;
@@ -485,20 +558,28 @@ static GQueue *redis_call_read_media(JsonReader *reader) {
 		goto fail;
 	call_media = g_queue_new();
 	for (media_idx = 0; ; media_idx++) {
-		media_field = str_sprintf("media-%u", media_idx);
-		if (!json_reader_read_member(reader, media_field->s)) {
-			goto done; /* no more media */
-		}
-		media = redis_call_media_create(media_idx, json_reader_get_value(reader), call_tags, call_streams);
+		snprintf(fieldname, sizeof(fieldname), "media-%u", media_idx);
+		mediaNode = json_reader_get_node(reader, fieldname);
+		if (!mediaNode) /* no more media */
+			goto done;
+		snprintf(fieldname, sizeof(fieldname), "streams-%u", media_idx);
+		streamIdsNode = json_reader_get_node(reader, fieldname);
+		snprintf(fieldname, sizeof(fieldname), "maps-%u", media_idx);
+		endpointMapsNode = json_reader_get_node(reader, fieldname);
+		snprintf(fieldname, sizeof(fieldname), "payload_types-%u", media_idx);
+		payloadTypesRecvNode = json_reader_get_node(reader, fieldname);
+		snprintf(fieldname, sizeof(fieldname), "payload_types_send-%u", media_idx);
+		payloadTypesSendNode = json_reader_get_node(reader, fieldname);
+		if (!streamIdsNode || !endpointMapsNode || !payloadTypesRecvNode || !payloadTypesSendNode)
+			goto fail;
+		media = redis_call_media_create(media_idx, mediaNode, call_tags, call_streams, streamIdsNode,
+						endpointMapsNode, payloadTypesRecvNode, payloadTypesSendNode);
 		if (!media)
 			goto fail;
 		g_queue_push_tail(call_media, media);
-		json_reader_end_member(reader);
-		free(media_field);
 	}
 
 	/* not supposed to get here, but just making sure */
-	media_field = NULL;
 	goto done;
 
 fail:
@@ -506,9 +587,6 @@ fail:
 		g_queue_free_full(call_media, gdestroy_obj_put);
 
 done:
-	json_reader_end_member(reader);
-	if (media_field)
-		free(media_field);
 	if (call_tags)
 		g_queue_free_full(call_tags, gdestroy_obj_put);
 	if (call_streams)

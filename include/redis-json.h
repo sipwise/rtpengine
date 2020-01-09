@@ -45,8 +45,13 @@ typedef struct redis_call_media_stream {
 	unsigned 		stats_packets;
 	unsigned		stats_bytes;
 	unsigned		stats_errors;
-	GQueue*			fds;
+	GQueue*			fds; /**< list of redis_call_media_stream_fd_t */
 } redis_call_media_stream_t;
+
+typedef struct redis_call_rtp_payload_type {
+	unsigned		payload_type;
+	str*			codec_str;
+} redis_call_rtp_payload_type_t;
 
 struct redis_call_media_tag;
 
@@ -76,7 +81,9 @@ typedef struct redis_call_media {
 	unsigned		media_flags;
 	str*			rtpe_addr;
 	redis_call_media_tag_t*	tag;
-	GQueue*			streams;
+	GQueue*			streams; /**< list of redis_call_media_stream_t */
+	GQueue*			codec_prefs_recv; /**< list of redis_call_rtp_payload_type_t */
+	GQueue*			codec_prefs_send; /**< list of redis_call_rtp_payload_type_t */
 } redis_call_media_t;
 
 typedef struct redis_call {
@@ -93,7 +100,7 @@ typedef struct redis_call {
 	str*			recording_metadata;
 	gboolean		block_dtmf;
 	gboolean		block_media;
-	GQueue*			media;
+	GQueue*			media; /**< list of redis_call_media_t */
 } redis_call_t;
 
 /**

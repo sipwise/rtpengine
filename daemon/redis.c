@@ -1738,6 +1738,47 @@ static int redis_update_call_tags(struct call *c, redis_call_t *redis_call) {
 	return 0;
 }
 
+static int redis_update_call_media_codecs(struct call_media *cm, GQueue* redis_codec_list,
+				     void(*adder_func)(struct call_media *media, struct rtp_payload_type *pt)) {
+	unsigned pidx, updates = 0;
+	redis_call_rtp_payload_type_t *payload;
+
+	if (!redis_codec_list)
+		return updates; /* nothing to add */
+	for (pidx = 0; pidx < redis_codec_list->length; pidx++) {
+		payload = g_queue_peek_nth(redis_codec_list, pidx);
+		struct rtp_payload_type *pt = codec_make_payload_type(payload->codec_str, cm);
+		if (!pt)
+			continue; /* oops? */
+		pt->payload_type = payload->payload_type;
+		adder_func(cm, pt);
+		updates++;
+	}
+	return updates;
+}
+
+static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) {
+	unsigned updated = 0;
+	redis_call_media_t *media;
+
+	GList *l;
+	for (l = c->medias.head; l; l = l->next) {
+		struct call_media *m = l->data;
+		media = g_queue_peek_nth(redis_call->media, m->unique_id);
+		if (!media)
+			continue; /* weird... */
+		if (m->codecs_prefs_recv.length == 0 &&
+			redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv) > 0)
+			updated = 1;
+		if (m->codecs_prefs_send.length == 0 &&
+			redis_update_call_media_codecs(m, media->codec_prefs_send, __rtp_payload_type_add_send) > 0)
+			updated = 1;
+	}
+	if (updated)
+		rlog(LOG_INFO, "Updated media codecs from Redis");
+	return 0;
+}
+
 static void redis_update_call_details(struct redis *r, struct call *c) {
 	redisReply* rr_jsonStr;
 	redis_call_t *redis_call = NULL;
@@ -1764,6 +1805,10 @@ static void redis_update_call_details(struct redis *r, struct call *c) {
 
 	err = "failed to update tag data";
 	if (redis_update_call_tags(c, redis_call))
+		goto fail;
+
+	err = "failed to update payload data";
+	if (redis_update_call_payloads(c, redis_call))
 		goto fail;
 
 	goto done;
