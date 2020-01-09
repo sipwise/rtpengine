@@ -163,7 +163,8 @@ static void redis_call_media_tag_free(void *rcmt) {
 		free(tagref->viabranch);
 	if (tagref->label)
 		free(tagref->label);
-	/* we don't free `other_tag` - it should be owned by some media */
+	if (tagref->other_tag)
+		obj_put(tagref->other_tag);
 }
 
 static redis_call_media_tag_t *redis_call_media_tag_create(unsigned unique_id, JsonNode *json) {
@@ -333,8 +334,8 @@ static int redis_call_match_tags(redis_call_media_tag_t *tag, GQueue *call_tags,
 		other_tag = g_queue_peek_nth(call_tags, other_tagid);
 		if (!other_tag)
 			goto fail;
-		tag->other_tag = other_tag;
-		other_tag->other_tag = tag;
+		tag->other_tag = obj_get(other_tag);
+		other_tag->other_tag = obj_get(tag);
 	}
 
 	goto done;
