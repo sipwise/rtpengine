@@ -146,83 +146,10 @@ int redis_reconnect(struct redis* r);
 	}
 
 
-/* New mode JSON parsing support. Use with care */
 
-typedef struct redis_call_media_stream_fd {
-	struct obj		obj;
-	unsigned		unique_id;
-	unsigned		stream_unique_id;
-	str*			pref_family;
-	unsigned		localport;
-	str*			logical_intf;
-	unsigned		logical_intf_uid;
-} redis_call_media_stream_fd_t;
 
-typedef struct redis_call_media_stream {
-	struct obj		obj;
-	unsigned		unique_id;
-	unsigned		media_unique_id;
-	unsigned		selected_sfd;
-	int			rtp_sink;
-	int			rtcp_sink;
-	int			rtcp_sibling;
-	unsigned		last_packet;
-	unsigned		ps_flags;
-	unsigned		component;
-	str*			endpoint;
-	str*			advertised_endpoint;
-	unsigned 		stats_packets;
-	unsigned		stats_bytes;
-	unsigned		stats_errors;
-	GQueue*			fds;
-} redis_call_media_stream_t;
 
-struct redis_call_media_tag;
 
-typedef struct redis_call_media_tag {
-	struct obj		obj;
-	unsigned		unique_id;
-	unsigned long		created;
-	gboolean		active;
-	gboolean		deleted;
-	gboolean		block_dtmf;
-	gboolean		block_media;
-	str*			tag;
-	str*			viabranch;
-	str*			label;
-	struct redis_call_media_tag*	other_tag;
-} redis_call_media_tag_t;
 
-typedef struct redis_call_media {
-	struct obj		obj;
-	unsigned		index;
-	unsigned		unique_id;
-	str*			type;
-	str*			protocol;
-	str*			desired_family;
-	str*			logical_intf;
-	unsigned		ptime;
-	unsigned		media_flags;
-	str*			rtpe_addr;
-	redis_call_media_tag_t*	tag;
-	GQueue*			streams;
-} redis_call_media_t;
-
-typedef struct redis_call {
-	struct obj		obj;
-	str*			call_id;
-	unsigned long long	created;
-	unsigned long		last_signal;
-	unsigned		tos;
-	gboolean		deleted;
-	gboolean		ml_deleted;
-	str*			created_from;
-	str*			created_from_addr;
-	unsigned		redis_hosted_db;
-	str*			recording_metadata;
-	gboolean		block_dtmf;
-	gboolean		block_media;
-	GQueue*			media;
-} redis_call_t;
 
 #endif

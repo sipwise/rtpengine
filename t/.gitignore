@@ -48,6 +48,8 @@ const_str_hash-test.strhash
 tests-preload.so
 timerthread.c
 media_player.c
+redis-json.c
+json-helpers.c
 dtmflib.c
 test-dtmf-detect
 *-test
