@@ -94,3 +94,11 @@ long long json_reader_get_ll(JsonReader *reader, const char *key) {
 	json_reader_end_member(reader);
 	return r;
 }
+
+JsonNode* json_reader_get_node(JsonReader *reader, const char *key) {
+	JsonNode* nodeval;
+	json_reader_read_member(reader, key);
+	nodeval = json_reader_get_value(reader);
+	json_reader_end_member(reader);
+	return nodeval;
+}

@@ -6,7 +6,7 @@
 #include "str.h"
 
 /**
- * Retrieve a string value from a JSON object (in the root of the reader) according to a key.
+ * Retrieve a string value from a JSON object according to a key.
  * @param reader glib JsonReader that has the target object as its current node.
  * @param key name of the string value to retrieve
  * @return `str` string created from the string value, or `NULL` if no such value was found,
@@ -15,7 +15,7 @@
 str* json_reader_get_str(JsonReader *reader, const char *key);
 
 /**
- * Retrieve an integer value from a JSON object (in the root of the reader) according to a key.
+ * Retrieve an integer value from a JSON object according to a key.
  * @param reader glib JsonReader that has the target object as its current node.
  * @param key name of the integer value to retrieve
  * @return integer value, if found, -1 otherwise.
@@ -24,7 +24,7 @@ str* json_reader_get_str(JsonReader *reader, const char *key);
 long long json_reader_get_ll(JsonReader *reader, const char *key);
 
 /**
- * Retrieve a string value from a JSON list (in the root of the reader) according to an index.
+ * Retrieve a string value from a JSON list according to an index.
  * This would also work on a JSON object, by retrieving values from keys ordered by storage order (but it is just weird).
  * @param reader glib JsonReader that has the target list as its current node.
  * @param idx index to the string value to retrieve
@@ -34,7 +34,7 @@ long long json_reader_get_ll(JsonReader *reader, const char *key);
 str* json_reader_get_str_element(JsonReader *reader, unsigned idx);
 
 /**
- * Retrieve an integer value from a JSON list (in the root of the reader) according to an index.
+ * Retrieve an integer value from a JSON list according to an index.
  * If the value is stored as a string, this call will run `strtoll` on it and return the result.
  * @param reader glib JsonReader that has the target list as its current node.
  * @param idx index to the string value to retrieve
@@ -50,5 +50,15 @@ long long json_reader_get_ll_element(JsonReader *reader, unsigned idx);
  *   a string value or the string value is not a valid URI encoded value. Release using `free()`.
  */
 str *json_reader_get_string_value_uri_enc(JsonReader *reader);
+
+/**
+ * Retrieve a JSON node from a JSON object according to a key.
+ * The node can be any node, but this call will be mostly useful to get an object or list to be fed into
+ * `json_reader_new()`.
+ * @param reader glib JsonReader that has the target object as its current node.
+ * @param key name of the object or list value to retrieve
+ * @return JSON node retrieved, if found, or `NULL` otherwise
+ */
+JsonNode* json_reader_get_node(JsonReader *reader, const char *key);
 
 #endif /* __JSON_HELPERS_H__ */
