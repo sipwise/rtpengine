@@ -1053,6 +1053,10 @@ void kernelize(struct packet_stream *stream) {
 		ilog(LOG_WARNING, "Attempt to kernelize stream without sink");
 		goto no_kernel;
 	}
+	if (!sink->endpoint.address.family) {
+		ilog(LOG_DEBUG, "Not kernelizing stream with null sink");
+		goto no_kernel;
+	}
 
 	__determine_handler(stream, sink);
 
