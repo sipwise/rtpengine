@@ -930,6 +930,8 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (!stream->selected_sfd)
 		goto no_kernel;
+	if (!stream->endpoint.address.family)
+		goto no_kernel;
 
         ilog(LOG_INFO, "Kernelizing media stream: %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
 
@@ -938,6 +940,8 @@ void kernelize(struct packet_stream *stream) {
 		ilog(LOG_WARNING, "Attempt to kernelize stream without sink");
 		goto no_kernel;
 	}
+	if (!sink->endpoint.address.family)
+		goto no_kernel;
 
 	determine_handler(stream, sink);
 
