@@ -930,6 +930,13 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (!stream->selected_sfd)
 		goto no_kernel;
+<<<<<<< HEAD   (0eaab1 byte-swap homer ID as required)
+=======
+	if (stream->media->monologue->block_media || call->block_media)
+		goto no_kernel;
+	if (!stream->endpoint.address.family)
+		goto no_kernel;
+>>>>>>> CHANGE (c719db TT#74050 handle sinks with null addresses correctly)
 
         ilog(LOG_INFO, "Kernelizing media stream: %s:%d", sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port);
 
@@ -938,6 +945,8 @@ void kernelize(struct packet_stream *stream) {
 		ilog(LOG_WARNING, "Attempt to kernelize stream without sink");
 		goto no_kernel;
 	}
+	if (!sink->endpoint.address.family)
+		goto no_kernel;
 
 	determine_handler(stream, sink);
 
