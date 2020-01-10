@@ -1,3 +1,11 @@
+ngcp-rtpengine (7.5.2.4+0~mr7.5.2.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3101f55] TT#73900 ignore stray RTCP packets when confirming peer addresses
+  * [e3b42b9] TT#74050 handle sinks with null addresses correctly
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 10 Jan 2020 19:56:40 +0100
+
 ngcp-rtpengine (7.5.2.3+0~mr7.5.2.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
