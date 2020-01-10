@@ -1044,6 +1044,8 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (stream->media->monologue->block_media || call->block_media)
 		goto no_kernel;
+	if (!stream->endpoint.address.family)
+		goto no_kernel;
 
         ilog(LOG_INFO, "Kernelizing media stream: %s%s:%d%s",
 			FMT_M(sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port));
@@ -1053,6 +1055,8 @@ void kernelize(struct packet_stream *stream) {
 		ilog(LOG_WARNING, "Attempt to kernelize stream without sink");
 		goto no_kernel;
 	}
+	if (!sink->endpoint.address.family)
+		goto no_kernel;
 
 	__determine_handler(stream, sink);
 
