@@ -1,3 +1,10 @@
+ngcp-rtpengine (6.5.7.3+0~mr6.5.7.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c719db5] TT#74050 handle sinks with null addresses correctly
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 10 Jan 2020 19:56:46 +0100
+
 ngcp-rtpengine (6.5.7.2+0~mr6.5.7.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
