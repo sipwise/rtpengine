@@ -1,3 +1,26 @@
+ngcp-rtpengine (8.0.3.0+0~mr8.0.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [debcd8a] don't try to save untagged streams to db
+  * [c560153] TT#69701 fix incorrect address used for raddr/rport
+  * [bf1c87b] TT#69700 don't compensate for TS gaps with a 1-second delay
+  * [1632c44] TT#69700 reduce max allowed delay to half a second
+  * [15693dc] TT#69700 handle gaps in RTP TS correctly for mix output
+  * [a397505] TT#71050 fix branch deletion from via-branch
+  * [f8c2eb3] compile fix for glib versions < 2.30
+  * [9804815] fix compilation for with_transcoding=no
+  * [dbdc7e2] TT#71451 add default directories for rtpengine-recording
+  * [e779037] fix incorrect parameter type used for homer-id=
+  * [45bd09e] TT#72350 add proper CLI options support to rtpengine-ctl
+  * [ce1112a] TT#72350 move default values to post-getopt
+  * [896c4a7] TT#72350 read default values from config file
+  * [4b5355c] byte-swap homer ID as required
+  * [f752fcb] TT#73401 handle changes in RTP payload types
+  * [5331d85] TT#73900 ignore stray RTCP packets when confirming peer addresses
+  * [8fdccd1] TT#74050 handle sinks with null addresses correctly
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 13 Jan 2020 15:21:33 +0100
+
 ngcp-rtpengine (8.0.2.0+0~mr8.0.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
