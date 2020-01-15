@@ -44,6 +44,7 @@
 #include "ssllib.h"
 #include "media_player.h"
 #include "dtmf.h"
+#include "jitter_buffer.h"
 
 
 
@@ -376,6 +377,9 @@ static void options(int *argc, char ***argv) {
 		{ "mysql-pass",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_pass,"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-query",0,   0,	G_OPTION_ARG_STRING,	&rtpe_config.mysql_query,"MySQL select query",			"STRING"	},
 		{ "endpoint-learning",0,0,G_OPTION_ARG_STRING,	&endpoint_learning,	"RTP endpoint learning algorithm",	"delayed|immediate|off|heuristic"	},
+		{ "jitter-buffer",0, 0,	G_OPTION_ARG_INT,	&rtpe_config.jb_length,	"Size of jitter buffer",		"INT" },
+		{ "jb-clock-drift",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_clock_drift,"Compensate for source clock drift",NULL },
+
 		{ NULL, }
 	};
 
@@ -564,6 +568,9 @@ static void options(int *argc, char ***argv) {
 			die("Invalid --endpoint-learning option ('%s')", endpoint_learning);
 	}
 	rtpe_config.endpoint_learning = el_config;
+
+	if (rtpe_config.jb_length < 0)
+		die("Invalid negative jitter buffer size");
 }
 
 void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
@@ -635,6 +642,8 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->rec_method = g_strdup(rtpe_config.rec_method);
 	ini_rtpe_cfg->rec_format = g_strdup(rtpe_config.rec_format);
 
+	ini_rtpe_cfg->jb_length = rtpe_config.jb_length;
+	ini_rtpe_cfg->jb_clock_drift = rtpe_config.jb_clock_drift;
 }
 
 static void early_init(void) {
@@ -670,6 +679,7 @@ static void init_everything(void) {
 	codeclib_init(0);
 	media_player_init();
 	dtmf_init();
+	jitter_buffer_init();
 }
 
 
@@ -847,6 +857,9 @@ int main(int argc, char **argv) {
 		thread_create_detach_prio(media_player_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
 #endif
 		thread_create_detach_prio(send_timer_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
+		if (rtpe_config.jb_length > 0)
+			thread_create_detach_prio(jitter_buffer_loop, NULL, rtpe_config.scheduling,
+					rtpe_config.priority);
 	}
 
 
