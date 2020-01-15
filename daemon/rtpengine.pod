@@ -671,6 +671,16 @@ seen, that address is used. Otherwise, if a packet with a matching source port
 (but different address) is seen, that address is used. Otherwise, the source
 address of any incoming packet seen is used.
 
+=item B<--jitter-buffer=>I<INT>
+
+Size of (incoming) jitter buffer in packets. A value of zero (the default)
+disables the jitter buffer. The jitter buffer is currently only implemented for
+userspace operation.
+
+=item B<--jb-clock-drift>
+
+Enable clock drift compensation for the jitter buffer.
+
 =back
 
 =head1 INTERFACES
