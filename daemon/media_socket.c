@@ -26,6 +26,7 @@
 #include "main.h"
 #include "codec.h"
 #include "media_player.h"
+#include "jitter_buffer.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -1947,7 +1948,15 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 			ilog(LOG_WARNING, "UDP packet possibly truncated");
 
 		str_init_len(&phc.s, buf + RTP_BUFFER_HEAD_ROOM, ret);
-		ret = stream_packet(&phc);
+
+		if (sfd->stream->jb) {
+			ret = buffer_packet(&phc.mp, &phc.s);
+			if (ret == 1)
+				ret = stream_packet(&phc);
+		}
+		else
+			ret = stream_packet(&phc);
+
 		if (G_UNLIKELY(ret < 0))
 			ilog(LOG_WARNING, "Write error on media socket: %s", strerror(-ret));
 		else if (phc.update)
@@ -2019,4 +2028,14 @@ const struct transport_protocol *transport_protocol(const str *s) {
 
 out:
 	return NULL;
+}
+
+void play_buffered(struct jb_packet *cp) {
+	struct packet_handler_ctx phc;
+	ZERO(phc);
+	phc.mp = cp->mp;
+	phc.s = cp->mp.raw;
+	//phc.buffered_packet = buffered;
+	stream_packet(&phc);
+	jb_packet_free(&cp);
 }
