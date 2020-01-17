@@ -969,35 +969,35 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	p->s.len = payload_len + sizeof(struct rtp_header);
 	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
 	p->free_func = free;
-	p->source = handler;
+	p->ttq_entry.source = handler;
 	p->rtp = rh;
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send
 	if (ch->first_send.tv_sec && ch->encoder_format.clockrate) {
 		// scale first_send from first_send_ts to ts
-		p->to_send = ch->first_send;
+		p->ttq_entry.when = ch->first_send;
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) ch->first_send_ts; // allow for wrap-around
 		unsigned long long ts_diff_us =
 			(unsigned long long) ts_diff * 1000000 / ch->encoder_format.clockrate
 			* ch->handler->dest_pt.codec_def->clockrate_mult;
-		timeval_add_usec(&p->to_send, ts_diff_us);
+		timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
 
 		// how far in the future is this?
-		ts_diff_us = timeval_diff(&p->to_send, &rtpe_now); // negative wrap-around to positive OK
+		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now); // negative wrap-around to positive OK
 
 		if (ts_diff_us > 1000000) // more than one second, can't be right
 			ch->first_send.tv_sec = 0; // fix it up below
 	}
 	if (!ch->first_send.tv_sec) {
-		p->to_send = ch->first_send = rtpe_now;
+		p->ttq_entry.when = ch->first_send = rtpe_now;
 		ch->first_send_ts = ts;
 	}
 	ilog(LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) at %lu.%06lu",
 			ntohs(rh->seq_num),
 			ts,
-			(long unsigned) p->to_send.tv_sec,
-			(long unsigned) p->to_send.tv_usec);
+			(long unsigned) p->ttq_entry.when.tv_sec,
+			(long unsigned) p->ttq_entry.when.tv_usec);
 
 	g_queue_push_tail(&mp->packets_out, p);
 

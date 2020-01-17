@@ -88,3 +88,129 @@ void timerthread_obj_deschedule(struct timerthread_obj *tt_obj) {
 nope:
 	mutex_unlock(&tt->lock);
 }
+
+static int timerthread_queue_run_one(struct timerthread_queue *ttq,
+		struct timerthread_queue_entry *ttqe,
+		void (*run_func)(struct timerthread_queue *, void *)) {
+	if (ttqe->when.tv_sec && timeval_cmp(&ttqe->when, &rtpe_now) > 0)
+		return -1; // not yet
+	run_func(ttq, ttqe);
+	return 0;
+}
+
+
+void timerthread_queue_run(void *ptr) {
+	struct timerthread_queue *ttq = ptr;
+
+	ilog(LOG_DEBUG, "running timerthread_queue");
+
+	struct timeval next_send = {0,};
+
+	mutex_lock(&ttq->lock);
+
+	while (ttq->entries.length) {
+		struct timerthread_queue_entry *ttqe = g_queue_pop_head(&ttq->entries);
+
+		mutex_unlock(&ttq->lock);
+
+		int ret = timerthread_queue_run_one(ttq, ttqe, ttq->run_later_func);
+
+		mutex_lock(&ttq->lock);
+
+		if (!ret)
+			continue;
+		// couldn't send the last one. remember time to schedule
+		g_queue_push_head(&ttq->entries, ttqe);
+		// XXX sort queue?
+		next_send = ttqe->when;
+		break;
+	}
+
+	mutex_unlock(&ttq->lock);
+
+	if (next_send.tv_sec)
+		timerthread_obj_schedule_abs(&ttq->tt_obj, &next_send); // XXX does this work if already scheduled earlier?
+}
+
+static void __timerthread_queue_free(void *p) {
+	struct timerthread_queue *ttq = p;
+	g_queue_clear_full(&ttq->entries, ttq->entry_free_func);
+	mutex_destroy(&ttq->lock);
+	if (ttq->free_func)
+		ttq->free_func(p);
+}
+
+void *timerthread_queue_new(const char *type, size_t size,
+		struct timerthread *tt,
+		void (*run_now_func)(struct timerthread_queue *, void *),
+		void (*run_later_func)(struct timerthread_queue *, void *),
+		void (*free_func)(void *),
+		void (*entry_free_func)(void *))
+{
+	struct timerthread_queue *ttq = obj_alloc0(type, size, __timerthread_queue_free);
+	ttq->type = type;
+	ttq->tt_obj.tt = tt;
+	assert(tt->func == timerthread_queue_run);
+	ttq->run_now_func = run_now_func;
+	ttq->run_later_func = run_later_func;
+	if (!ttq->run_later_func)
+		ttq->run_later_func = run_now_func;
+	ttq->free_func = free_func;
+	ttq->entry_free_func = entry_free_func;
+	mutex_init(&ttq->lock);
+	g_queue_init(&ttq->entries);
+	return ttq;
+}
+
+void timerthread_queue_push(struct timerthread_queue *ttq, struct timerthread_queue_entry *ttqe) {
+	// can we send immediately?
+	if (!timerthread_queue_run_one(ttq, ttqe, ttq->run_now_func))
+		return;
+
+	// queue for sending
+
+	ilog(LOG_DEBUG, "queuing up %s object for processing at %lu.%06u",
+			ttq->type,
+			(unsigned long) ttqe->when.tv_sec,
+			(unsigned int) ttqe->when.tv_usec);
+
+	// XXX recover log line fields
+//	struct rtp_header *rh = (void *) cp->s.s;
+//	ilog(LOG_DEBUG, "queuing up packet for delivery at %lu.%06u (RTP seq %u TS %u)",
+//			(unsigned long) cp->to_send.tv_sec,
+//			(unsigned int) cp->to_send.tv_usec,
+//			ntohs(rh->seq_num),
+//			ntohl(rh->timestamp));
+
+	mutex_lock(&ttq->lock);
+	unsigned int qlen = ttq->entries.length;
+	// this hands over ownership of cp, so we must copy the timeval out
+	struct timeval tv_send = ttqe->when;
+	g_queue_push_tail(&ttq->entries, ttqe);
+	mutex_unlock(&ttq->lock);
+
+	// first packet in? we're probably not scheduled yet
+	if (!qlen)
+		timerthread_obj_schedule_abs(&ttq->tt_obj, &tv_send);
+}
+
+unsigned int timerthread_queue_flush(struct timerthread_queue *ttq, void *ptr) {
+	if (!ttq)
+		return 0;
+
+	unsigned int num = 0;
+	GList *l = ttq->entries.head;
+	while (l) {
+		GList *next = l->next;
+		struct timerthread_queue_entry *ttqe = l->data;
+		if (ttqe->source != ptr)
+			goto next;
+		g_queue_delete_link(&ttq->entries, l);
+		ttq->entry_free_func(ttqe);
+		num++;
+
+next:
+		l = next;
+	}
+	return num;
+}
