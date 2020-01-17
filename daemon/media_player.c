@@ -30,27 +30,15 @@ static struct timerthread send_timer_thread;
 
 
 
+static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *cp);
+static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp);
+
+
+
 #ifdef WITH_TRANSCODING
 // called with call->master lock in W
 static unsigned int send_timer_flush(struct send_timer *st, void *ptr) {
-	if (!st)
-		return 0;
-
-	unsigned int num = 0;
-	GList *l = st->packets.head;
-	while (l) {
-		GList *next = l->next;
-		struct codec_packet *p = l->data;
-		if (p->source != ptr)
-			goto next;
-		g_queue_delete_link(&st->packets, l);
-		codec_packet_free(p);
-		num++;
-
-next:
-		l = next;
-	}
-	return num;
+	return timerthread_queue_flush(&st->ttq, ptr);
 }
 
 
@@ -145,32 +133,34 @@ static void __send_timer_free(void *p) {
 
 	ilog(LOG_DEBUG, "freeing send_timer");
 
-	g_queue_clear_full(&st->packets, codec_packet_free);
-	mutex_destroy(&st->lock);
 	obj_put(st->call);
 }
 
+
+static void __send_timer_send_now(struct timerthread_queue *ttq, void *p) {
+	send_timer_send_nolock((void *) ttq, p);
+};
+static void __send_timer_send_later(struct timerthread_queue *ttq, void *p) {
+	send_timer_send_lock((void *) ttq, p);
+};
 
 // call->master_lock held in W
 struct send_timer *send_timer_new(struct packet_stream *ps) {
 	ilog(LOG_DEBUG, "creating send_timer");
 
-	struct send_timer *st = obj_alloc0("send_timer", sizeof(*st), __send_timer_free);
-	st->tt_obj.tt = &send_timer_thread;
-	mutex_init(&st->lock);
+	struct send_timer *st = timerthread_queue_new("send_timer", sizeof(*st),
+			&send_timer_thread,
+			__send_timer_send_now,
+			__send_timer_send_later,
+			__send_timer_free, codec_packet_free);
 	st->call = obj_get(ps->call);
 	st->sink = ps;
-	g_queue_init(&st->packets);
 
 	return st;
 }
 
 
-// st->stream->out_lock (or call->master_lock/W) must be held already
-static int send_timer_send(struct send_timer *st, struct codec_packet *cp) {
-	if (cp->to_send.tv_sec && timeval_cmp(&cp->to_send, &rtpe_now) > 0)
-		return -1; // not yet
-
+static void __send_timer_send_common(struct send_timer *st, struct codec_packet *cp) {
 	if (!st->sink->selected_sfd)
 		goto out;
 
@@ -186,36 +176,36 @@ static int send_timer_send(struct send_timer *st, struct codec_packet *cp) {
 
 out:
 	codec_packet_free(cp);
+}
 
-	return 0;
+static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp) {
+	struct call *call = st->call;
+	if (!call)
+		return;
+
+	log_info_call(call);
+	rwlock_lock_r(&call->master_lock);
+
+	__send_timer_send_common(st, cp);
+
+	rwlock_unlock_r(&call->master_lock);
+
+}
+// st->stream->out_lock (or call->master_lock/W) must be held already
+static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *cp) {
+	struct call *call = st->call;
+	if (!call)
+		return;
+
+	log_info_call(call);
+
+	__send_timer_send_common(st, cp);
 }
 
 
 // st->stream->out_lock (or call->master_lock/W) must be held already
 void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
-	// can we send immediately?
-	if (!send_timer_send(st, cp))
-		return;
-
-	// queue for sending
-
-	struct rtp_header *rh = (void *) cp->s.s;
-	ilog(LOG_DEBUG, "queuing up packet for delivery at %lu.%06u (RTP seq %u TS %u)",
-			(unsigned long) cp->to_send.tv_sec,
-			(unsigned int) cp->to_send.tv_usec,
-			ntohs(rh->seq_num),
-			ntohl(rh->timestamp));
-
-	mutex_lock(&st->lock);
-	unsigned int qlen = st->packets.length;
-	// this hands over ownership of cp, so we must copy the timeval out
-	struct timeval tv_send = cp->to_send;
-	g_queue_push_tail(&st->packets, cp);
-	mutex_unlock(&st->lock);
-
-	// first packet in? we're probably not scheduled yet
-	if (!qlen)
-		timerthread_obj_schedule_abs(&st->tt_obj, &tv_send);
+	timerthread_queue_push(&st->ttq, &cp->ttq_entry);
 }
 
 
@@ -352,7 +342,7 @@ static void media_player_read_packet(struct media_player *mp) {
 		struct codec_packet *p = packet.packets_out.head->data;
 		if (p->rtp) {
 			mp->sync_ts = ntohl(p->rtp->timestamp);
-			mp->sync_ts_tv = p->to_send;
+			mp->sync_ts_tv = p->ttq_entry.when;
 		}
 	}
 
@@ -646,46 +636,11 @@ static void media_player_run(void *ptr) {
 #endif
 
 
-static void send_timer_run(void *ptr) {
-	struct send_timer *st = ptr;
-	struct call *call = st->call;
-
-	log_info_call(call);
-
-	ilog(LOG_DEBUG, "running scheduled send_timer");
-
-	struct timeval next_send = {0,};
-
-	rwlock_lock_r(&call->master_lock);
-	mutex_lock(&st->lock);
-
-	while (st->packets.length) {
-		struct codec_packet *cp = st->packets.head->data;
-		// XXX this could be made lock-free
-		if (!send_timer_send(st, cp)) {
-			g_queue_pop_head(&st->packets);
-			continue;
-		}
-		// couldn't send the last one. remember time to schedule
-		next_send = cp->to_send;
-		break;
-	}
-
-	mutex_unlock(&st->lock);
-	rwlock_unlock_r(&call->master_lock);
-
-	if (next_send.tv_sec)
-		timerthread_obj_schedule_abs(&st->tt_obj, &next_send);
-
-	log_info_clear();
-}
-
-
 void media_player_init(void) {
 #ifdef WITH_TRANSCODING
 	timerthread_init(&media_player_thread, media_player_run);
 #endif
-	timerthread_init(&send_timer_thread, send_timer_run);
+	timerthread_init(&send_timer_thread, timerthread_queue_run);
 }
 
 

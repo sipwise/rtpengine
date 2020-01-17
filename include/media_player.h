@@ -62,11 +62,9 @@ INLINE void media_player_put(struct media_player **mp) {
 #endif
 
 struct send_timer {
-	struct timerthread_obj tt_obj;
-	mutex_t lock;
+	struct timerthread_queue ttq;
 	struct call *call; // main reference that keeps this alive
 	struct packet_stream *sink;
-	GQueue packets;
 };
 
 
@@ -89,7 +87,7 @@ void send_timer_loop(void *p);
 INLINE void send_timer_put(struct send_timer **st) {
 	if (!*st)
 		return;
-	obj_put(&(*st)->tt_obj);
+	obj_put(&(*st)->ttq.tt_obj);
 	*st = NULL;
 }
 
