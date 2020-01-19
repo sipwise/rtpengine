@@ -49,6 +49,7 @@ typedef struct redis_call_media_stream {
 } redis_call_media_stream_t;
 
 typedef struct redis_call_rtp_payload_type {
+	struct obj		obj;
 	unsigned		payload_type;
 	str*			codec_str;
 } redis_call_rtp_payload_type_t;

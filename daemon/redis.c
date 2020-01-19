@@ -1814,7 +1814,7 @@ static void redis_update_call_details(struct redis *r, struct call *c) {
 	goto done;
 
 fail:
-	rlog(LOG_WARNING, "Failed to update endpoints for call ID '" STR_FORMAT_M "' from Redis: %s",
+	rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: %s",
 		STR_FMT_M(&c->callid),
 		err);
 

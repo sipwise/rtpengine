@@ -36,6 +36,24 @@ str *json_reader_get_str(JsonReader *reader, const char *key) {
 	return out;
 }
 
+str *json_object_get_str(JsonObject* json, const char *key) {
+	const gchar *strval;
+	str *out = NULL;
+	strval = json_object_get_string_member(json, key);
+	if (strval)
+		out = str_dup_charptr(strval);
+	return out;
+}
+
+str *json_array_get_str(JsonArray *json, unsigned idx) {
+	const gchar *strval;
+	str *out = NULL;
+	strval = json_array_get_string_element(json, idx);
+	if (strval)
+		out = str_dup_charptr(strval);
+	return out;
+}
+
 str *json_reader_get_str_element(JsonReader *reader, unsigned idx) {
 	const gchar *strval = NULL;
 	str *out = NULL;
@@ -67,6 +85,24 @@ long long json_reader_get_ll_element(JsonReader *reader, unsigned idx) {
 	return out;
 }
 
+long long json_array_get_ll(JsonArray *json, unsigned idx) {
+	long long out = -1;
+	JsonNode *member;
+
+	if (json_array_get_length(json) >= idx)
+		return out;
+
+	member = json_array_get_element(json, idx);
+	if (json_node_get_value_type(member) == G_TYPE_STRING) {
+		str *strval = json_array_get_str(json, idx);
+		out = strtoll(strval->s, NULL, 10);
+		free(strval);
+		return out;
+	}
+
+	return json_array_get_int_element(json, idx); // returns gint64
+}
+
 str *json_reader_get_string_value_uri_enc(JsonReader *reader) {
 	const char *s = json_reader_get_string_value(reader);
 	if (!s)
@@ -93,6 +129,24 @@ long long json_reader_get_ll(JsonReader *reader, const char *key) {
 	r = json_reader_get_int_value(reader);
 	json_reader_end_member(reader);
 	return r;
+}
+
+long long json_object_get_ll(JsonObject *json, const char *key) {
+	long long r = -1;
+	JsonNode *member;
+
+	if (!json_object_has_member(json, key))
+		return r;
+
+	member = json_object_get_member(json, key);
+	if (json_node_get_value_type(member) == G_TYPE_STRING) {
+		str *ret = json_object_get_str(json, key);
+		r = strtoll(ret->s, NULL, 10);
+		free(ret);
+		return r;
+	}
+	/* not a string, lets assume integer */
+	return json_object_get_int_member(json, key); // returns gint64
 }
 
 JsonNode* json_reader_get_node(JsonReader *reader, const char *key) {
