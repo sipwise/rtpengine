@@ -89,7 +89,7 @@ long long json_array_get_ll(JsonArray *json, unsigned idx) {
 	long long out = -1;
 	JsonNode *member;
 
-	if (json_array_get_length(json) >= idx)
+	if (idx >= json_array_get_length(json))
 		return out;
 
 	member = json_array_get_element(json, idx);
