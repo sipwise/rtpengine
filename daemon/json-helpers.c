@@ -37,7 +37,7 @@ str *json_reader_get_str(JsonReader *reader, const char *key) {
 }
 
 str *json_object_get_str(JsonObject* json, const char *key) {
-	const gchar *strval;
+	const gchar *strval = NULL;
 	str *out = NULL;
 	if (json_object_has_member(json, key))
 		strval = json_object_get_string_member(json, key);
