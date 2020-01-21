@@ -160,6 +160,31 @@ static redis_call_rtp_payload_type_t *redis_call_rtp_payload_type_create(unsigne
 	return payloadref;
 }
 
+static void redis_call_media_endpoint_map_free(void *rcmem) {
+	redis_call_media_endpoint_map_t *mapref = rcmem;
+	if (!mapref)
+		return;
+	if (mapref->intf_preferred_family)
+		free(mapref->intf_preferred_family);
+	if (mapref->logical_intf)
+		free(mapref->logical_intf);
+	if (mapref->endpoint)
+		free(mapref->endpoint);
+}
+
+static redis_call_media_endpoint_map_t *redis_call_media_endpoint_map_create(unsigned unique_id, JsonObject *json) {
+	redis_call_media_endpoint_map_t *mapref;
+
+	mapref = obj_alloc0("redis_call_media_endpoint_map", sizeof(*mapref), redis_call_media_endpoint_map_free);
+	mapref->unique_id = unique_id;
+	mapref->wildcard = json_object_get_ll(json, "wildcard");
+	JSON_UPDATE_NUM_FIELD_IF_SET(json, "num_ports", mapref->num_ports);
+	mapref->intf_preferred_family = json_object_get_str(json, "intf_preferred_family");
+	mapref->logical_intf = json_object_get_str(json, "logical_intf");
+	mapref->endpoint = json_object_get_str(json, "endpoint");
+	return mapref;
+}
+
 static void redis_call_media_tag_free(void *rcmt) {
 	redis_call_media_tag_t *tagref = rcmt;
 	if (!tagref)
@@ -216,6 +241,8 @@ static void redis_call_media_free(void* rcm) {
 		free(mediaref->rtpe_addr);
 	if (mediaref->tag)
 		obj_put(mediaref->tag);
+	if (mediaref->endpoint_maps)
+		g_queue_free_full(mediaref->endpoint_maps, gdestroy_obj_put);
 	if (mediaref->streams)
 		g_queue_free_full(mediaref->streams, gdestroy_obj_put);
 	if (mediaref->codec_prefs_recv)
@@ -277,10 +304,12 @@ done:
 }
 
 static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonObject *json, GQueue *tags, GQueue *streams,
-	JsonArray *stream_ids_ar, JsonArray *endpoint_maps_ar, JsonArray *payload_types_recv_ar, JsonArray *payload_types_send_ar) {
+	JsonArray *stream_ids_ar, GQueue* endpoint_maps, JsonArray *endpoint_maps_ar, JsonArray *payload_types_recv_ar,
+	JsonArray *payload_types_send_ar) {
 	redis_call_media_t *mediaref = NULL;
 	redis_call_media_tag_t *tagref = NULL;
 	redis_call_media_stream_t *streamref = NULL;
+	redis_call_media_endpoint_map_t *mapref = NULL;
 
 	char *err = 0;
 	long long llval = 0;
@@ -320,6 +349,16 @@ static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonObjec
 	if (!(mediaref->codec_prefs_send = redis_call_media_read_payloads(payload_types_send_ar))) {
 		err = "Failed to read send payloads";
 		goto fail;
+	}
+	mediaref->endpoint_maps = g_queue_new();
+	for (idx = 0; idx < json_array_get_length(endpoint_maps_ar); idx++) {
+		unsigned map_id = json_array_get_ll(endpoint_maps_ar, idx);
+		mapref = g_queue_peek_nth(endpoint_maps, map_id);
+		if (!mapref) {
+			err = "Failed to find endpoint map for media";
+			goto fail;
+		}
+		g_queue_push_tail(mediaref->endpoint_maps, obj_get(mapref));
 	}
 
 	goto done;
@@ -571,9 +610,52 @@ done:
 	return call_streams;
 }
 
+static GQueue *redis_call_read_media_endpoint_maps(JsonObject *json) {
+	GQueue *media_endpoint_maps;
+	unsigned endpoint_map_idx;
+	str *endpoint_map_field = NULL;
+	JsonObject *endpoint_map_object = NULL;
+	redis_call_media_endpoint_map_t *map;
+
+	char *err = 0;
+
+	media_endpoint_maps = g_queue_new();
+	for (endpoint_map_idx =0; ; endpoint_map_idx++) {
+		endpoint_map_field = str_sprintf("map-%u", endpoint_map_idx);
+		endpoint_map_object = json_object_get_object_member(json, endpoint_map_field->s);
+		if (!endpoint_map_object)
+			goto done; /* no more maps */
+		map = redis_call_media_endpoint_map_create(endpoint_map_idx, endpoint_map_object);
+		if (!map) {
+			err = "Failed to create call media endpoint map";
+			goto fail;
+		}
+		g_queue_push_tail(media_endpoint_maps, map);
+		free(endpoint_map_field);
+	}
+
+	/* we shouldn't reach this point, but just playing it safe */
+	endpoint_map_field = NULL;
+	goto done;
+
+fail:
+	if (media_endpoint_maps) {
+		g_queue_free_full(media_endpoint_maps, gdestroy_obj_put);
+		media_endpoint_maps = NULL;
+	}
+	if (err) {
+		ilog(LOG_WARNING, "Failed to read call data from Redis: %s", err);
+	}
+
+done:
+	if (endpoint_map_field)
+		free(endpoint_map_field);
+	return media_endpoint_maps;
+}
+
 static GQueue *redis_call_read_media(JsonObject *json) {
 	int media_idx;
-	GQueue *call_media = NULL, *call_tags = NULL, *call_streams = NULL;
+	GQueue *call_media = NULL, *call_tags = NULL, *call_streams = NULL, *media_endpoint_maps = NULL;
 	JsonObject *media_object = NULL;
 	JsonArray *stream_ids_ar = NULL, *endpoint_maps_ar = NULL, *payload_types_recv_ar = NULL, *payload_types_send_ar = NULL;
 	redis_call_media_t *media = NULL;
@@ -587,6 +669,10 @@ static GQueue *redis_call_read_media(JsonObject *json) {
 	}
 	if (!(call_streams = redis_call_read_streams(json))) {
 		err = "Failed to read call streams";
+		goto fail;
+	}
+	if (!(media_endpoint_maps = redis_call_read_media_endpoint_maps(json))) {
+		err = "Failed to read call media endpoint maps";
 		goto fail;
 	}
 	call_media = g_queue_new();
@@ -608,7 +694,7 @@ static GQueue *redis_call_read_media(JsonObject *json) {
 			goto fail;
 		}
 		media = redis_call_media_create(media_idx, media_object, call_tags, call_streams, stream_ids_ar,
-						endpoint_maps_ar, payload_types_recv_ar, payload_types_send_ar);
+						media_endpoint_maps, endpoint_maps_ar, payload_types_recv_ar, payload_types_send_ar);
 		if (!media) {
 			err = "Failed to create call media";
 			goto fail;
@@ -631,6 +717,8 @@ done:
 		g_queue_free_full(call_tags, gdestroy_obj_put);
 	if (call_streams)
 		g_queue_free_full(call_streams, gdestroy_obj_put);
+	if (media_endpoint_maps)
+		g_queue_free_full(media_endpoint_maps, gdestroy_obj_put);
 	return call_media;
 }
 

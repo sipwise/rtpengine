@@ -54,6 +54,16 @@ typedef struct redis_call_rtp_payload_type {
 	str*			codec_str;
 } redis_call_rtp_payload_type_t;
 
+typedef struct redis_call_media_endpoint_map {
+	struct obj		obj;
+	unsigned		unique_id;
+	int			wildcard;
+	unsigned		num_ports;
+	str*			intf_preferred_family;
+	str*			logical_intf;
+	str*			endpoint;
+} redis_call_media_endpoint_map_t;
+
 struct redis_call_media_tag;
 
 typedef struct redis_call_media_tag {
@@ -82,6 +92,7 @@ typedef struct redis_call_media {
 	unsigned		media_flags;
 	str*			rtpe_addr;
 	redis_call_media_tag_t*	tag;
+	GQueue*			endpoint_maps; /**< list of redis_call_media_endpoint_map_t */
 	GQueue*			streams; /**< list of redis_call_media_stream_t */
 	GQueue*			codec_prefs_recv; /**< list of redis_call_rtp_payload_type_t */
 	GQueue*			codec_prefs_send; /**< list of redis_call_rtp_payload_type_t */

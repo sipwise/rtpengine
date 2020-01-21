@@ -1759,11 +1759,12 @@ static int redis_update_call_media_codecs(struct call_media *cm, GQueue* redis_c
 
 static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) {
 	unsigned updated = 0;
+	struct call_media *m = NULL;
 	redis_call_media_t *media;
 
 	GList *l;
 	for (l = c->medias.head; l; l = l->next) {
-		struct call_media *m = l->data;
+		m = l->data;
 		media = g_queue_peek_nth(redis_call->media, m->unique_id);
 		if (!media)
 			continue; /* weird... */
@@ -1776,6 +1777,32 @@ static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) 
 	}
 	if (updated)
 		rlog(LOG_INFO, "Updated media codecs from Redis");
+	return 0;
+}
+
+static int redis_update_call_maps(struct call *c, redis_call_t *redis_call) {
+	struct call_media *m = NULL;
+	struct endpoint_map *ep;
+	redis_call_media_t *media;
+	redis_call_media_endpoint_map_t *rcep;
+	GList *ml, *epl, *rcepl;
+
+	for (ml = c->medias.head; ml; ml = ml->next) {
+		m = ml->data;
+		media = g_queue_peek_nth(redis_call->media, m->unique_id);
+		if (!media)
+			continue; /* weird... */
+		for (epl = m->endpoint_maps.head; epl; epl = epl->next) {
+			ep = epl->data;
+			for (rcepl = media->endpoint_maps->head; rcepl; rcepl->next) {
+				rcep = rcepl->data;
+				if (rcep->unique_id != ep->unique_id)
+					continue;
+				ep->wildcard = rcep->wildcard;
+				endpoint_parse_any(&ep->endpoint, rcep->endpoint->s);
+			}
+		}
+	}
 	return 0;
 }
 
@@ -1809,6 +1836,10 @@ static void redis_update_call_details(struct redis *r, struct call *c) {
 
 	err = "failed to update payload data";
 	if (redis_update_call_payloads(c, redis_call))
+		goto fail;
+
+	err = "failed to update maps";
+	if (redis_update_call_maps(c, redis_call))
 		goto fail;
 
 	goto done;
