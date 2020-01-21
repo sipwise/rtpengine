@@ -39,7 +39,8 @@ str *json_reader_get_str(JsonReader *reader, const char *key) {
 str *json_object_get_str(JsonObject* json, const char *key) {
 	const gchar *strval;
 	str *out = NULL;
-	strval = json_object_get_string_member(json, key);
+	if (json_object_has_member(json, key))
+		strval = json_object_get_string_member(json, key);
 	if (strval)
 		out = str_dup_charptr(strval);
 	return out;
