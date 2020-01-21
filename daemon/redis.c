@@ -1767,10 +1767,10 @@ static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) 
 		media = g_queue_peek_nth(redis_call->media, m->unique_id);
 		if (!media)
 			continue; /* weird... */
-		if (m->codecs_prefs_recv.length == 0 &&
+		if (g_queue_get_length(media->codec_prefs_recv) > 0 &&
 			redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv) > 0)
 			updated = 1;
-		if (m->codecs_prefs_send.length == 0 &&
+		if (g_queue_get_length(media->codec_prefs_recv) > 0 &&
 			redis_update_call_media_codecs(m, media->codec_prefs_send, __rtp_payload_type_add_send) > 0)
 			updated = 1;
 	}
