@@ -1817,6 +1817,10 @@ static int redis_update_call_maps(struct call *c, redis_call_t *redis_call) {
 				endpoint_parse_any(&ep->endpoint, rcep->endpoint->s);
 			}
 		}
+		/* update some media fields here, while we have the media */
+		if (!m->ptime)
+			m->ptime = media->ptime;
+		m->media_flags = media->media_flags;
 	}
 	return 0;
 }
