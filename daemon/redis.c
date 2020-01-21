@@ -1772,12 +1772,18 @@ static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) 
 		/* TODO: ATM the database does not encode them correctly, so we lose some data. */
 		/* maybe convert codec prefs cleanup code to use __delete_x_codec (which is currently static)  */
 		if (g_queue_get_length(media->codec_prefs_recv) > 0) {
+			rlog(LOG_DEBUG, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs recv with %d remote codec prefs",
+			     STR_FMT_M(&c->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_recv),
+			     g_queue_get_length(media->codec_prefs_recv));
 			g_hash_table_remove_all(m->codecs_recv);
 			g_hash_table_remove_all(m->codec_names_recv);
 			g_queue_clear_full(&m->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
 			updated += redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv);
 		}
-		if (g_queue_get_length(media->codec_prefs_recv) > 0) {
+		if (g_queue_get_length(media->codec_prefs_send) > 0) {
+			rlog(LOG_DEBUG, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs send with %d remote codec prefs",
+			     STR_FMT_M(&c->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_send),
+			     g_queue_get_length(media->codec_prefs_send));
 			g_hash_table_remove_all(m->codecs_send);
 			g_hash_table_remove_all(m->codec_names_send);
 			g_queue_clear_full(&m->codecs_prefs_send, (GDestroyNotify) payload_type_free);
@@ -1803,7 +1809,7 @@ static int redis_update_call_maps(struct call *c, redis_call_t *redis_call) {
 			continue; /* weird... */
 		for (epl = m->endpoint_maps.head; epl; epl = epl->next) {
 			ep = epl->data;
-			for (rcepl = media->endpoint_maps->head; rcepl; rcepl->next) {
+			for (rcepl = media->endpoint_maps->head; rcepl; rcepl = rcepl->next) {
 				rcep = rcepl->data;
 				if (rcep->unique_id != ep->unique_id)
 					continue;
