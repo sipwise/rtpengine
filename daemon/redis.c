@@ -1841,6 +1841,13 @@ static void redis_update_call_details(struct redis *r, struct call *c) {
 	if (!redis_call)
 		goto fail;
 
+	if (c->last_signal == redis_call->last_signal) {
+		rlog(LOG_INFO, "Ignoring Redis notification without update");
+		goto done;
+	}
+
+	c->last_signal = redis_call->last_signal;
+
 	err = "failed to update stream data";
 	if (redis_update_call_streams(c, redis_call))
 		goto fail;
