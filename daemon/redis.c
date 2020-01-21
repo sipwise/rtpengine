@@ -1768,12 +1768,21 @@ static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) 
 		media = g_queue_peek_nth(redis_call->media, m->unique_id);
 		if (!media)
 			continue; /* weird... */
-		if (g_queue_get_length(media->codec_prefs_recv) > 0 &&
-			redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv) > 0)
-			updated = 1;
-		if (g_queue_get_length(media->codec_prefs_recv) > 0 &&
-			redis_update_call_media_codecs(m, media->codec_prefs_send, __rtp_payload_type_add_send) > 0)
-			updated = 1;
+		/* replace codec prefs with those loaded from the database. */
+		/* TODO: ATM the database does not encode them correctly, so we lose some data. */
+		/* codec prefs destruction code copy-pasted from call.c - this should probably be refactored for reuse */
+		if (g_queue_get_length(media->codec_prefs_recv) > 0) {
+			g_hash_table_destroy(m->codecs_recv);
+			g_hash_table_destroy(m->codec_names_recv);
+			g_queue_clear_full(&m->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
+			updated += redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv);
+		}
+		if (g_queue_get_length(media->codec_prefs_recv) > 0) {
+			g_hash_table_destroy(m->codecs_send);
+			g_hash_table_destroy(m->codec_names_send);
+			g_queue_clear_full(&m->codecs_prefs_send, (GDestroyNotify) payload_type_free);
+			updated += redis_update_call_media_codecs(m, media->codec_prefs_send, __rtp_payload_type_add_send);
+		}
 	}
 	if (updated)
 		rlog(LOG_INFO, "Updated media codecs from Redis");
