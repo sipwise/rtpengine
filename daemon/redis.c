@@ -1771,7 +1771,7 @@ static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) 
 		/* replace codec prefs with those loaded from the database. */
 		/* TODO: ATM the database does not encode them correctly, so we lose some data. */
 		/* maybe convert codec prefs cleanup code to use __delete_x_codec (which is currently static)  */
-		if (g_queue_get_length(media->codec_prefs_recv) > 0) {
+		if (g_queue_get_length(media->codec_prefs_recv) != g_queue_get_length(&m->codecs_prefs_recv)) {
 			rlog(LOG_DEBUG, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs recv with %d remote codec prefs",
 			     STR_FMT_M(&c->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_recv),
 			     g_queue_get_length(media->codec_prefs_recv));
@@ -1780,7 +1780,7 @@ static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) 
 			g_queue_clear_full(&m->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
 			updated += redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv);
 		}
-		if (g_queue_get_length(media->codec_prefs_send) > 0) {
+		if (g_queue_get_length(media->codec_prefs_send) != g_queue_get_length(&m->codecs_prefs_send)) {
 			rlog(LOG_DEBUG, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs send with %d remote codec prefs",
 			     STR_FMT_M(&c->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_send),
 			     g_queue_get_length(media->codec_prefs_send));
