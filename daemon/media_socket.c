@@ -702,7 +702,10 @@ static void release_port(socket_t *r, struct intf_spec *spec) {
 		g_atomic_int_inc(&pp->free_ports);
 		if ((port & 1) == 0) {
 			mutex_lock(&pp->free_list_lock);
-			g_queue_push_tail(&pp->free_list, GUINT_TO_POINTER(port));
+			if (!bit_array_isset(pp->free_list_used, port)) {
+				g_queue_push_tail(&pp->free_list, GUINT_TO_POINTER(port));
+				bit_array_set(pp->free_list_used, port);
+			}
 			mutex_unlock(&pp->free_list_lock);
 		}
 	} else {
@@ -749,6 +752,8 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 		__C_DBG("port %d is USED in port pool", port);
 		mutex_lock(&pp->free_list_lock);
 		unsigned int fport = GPOINTER_TO_UINT(g_queue_pop_head(&pp->free_list));
+		if (fport)
+			bit_array_clear(pp->free_list_used, fport);
 		mutex_unlock(&pp->free_list_lock);
 		if (fport) {
 			port = fport;
