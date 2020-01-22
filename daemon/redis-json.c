@@ -472,9 +472,9 @@ static GQueue *redis_call_read_tags(JsonObject *json) {
 	call_tags = g_queue_new();
 	for (tag_idx = 0; ; tag_idx++) {
 		tag_field = str_sprintf("tag-%u", tag_idx);
-		tag_object = json_object_get_object_member(json, tag_field->s);
-		if (!tag_object)
+		if (!json_object_has_member(json, tag_field->s))
 			break; /* no more tags */
+		tag_object = json_object_get_object_member(json, tag_field->s);
 		tag = redis_call_media_tag_create(tag_idx, tag_object);
 		if (!tag) {
 			err = "Failed to create media tag";
@@ -530,9 +530,9 @@ static GQueue *redis_call_read_stream_fds(JsonObject *json) {
 	call_sfds = g_queue_new();
 	for (sfd_idx = 0; ; sfd_idx++) {
 		sfd_field = str_sprintf("sfd-%u", sfd_idx);
-		sfd_object = json_object_get_object_member(json, sfd_field->s);
-		if (!sfd_object)
+		if (!json_object_has_member(json, sfd_field->s))
 			goto done; /* no more sfds */
+		sfd_object = json_object_get_object_member(json, sfd_field->s);
 		sfd = redis_call_media_stream_fd_create(sfd_idx, sfd_object);
 		if (!sfd) {
 			err = "Failed to create stream fd";
@@ -577,9 +577,9 @@ static GQueue *redis_call_read_streams(JsonObject *json) {
 	call_streams = g_queue_new();
 	for (stream_idx = 0; ; stream_idx++) {
 		stream_field = str_sprintf("stream-%u", stream_idx);
-		stream_object = json_object_get_object_member(json, stream_field->s);
-		if (!stream_object)
+		if (!json_object_has_member(json, stream_field->s))
 			goto done; /* no more streams */
+		stream_object = json_object_get_object_member(json, stream_field->s);
 		stream = redis_call_media_stream_create(stream_idx, stream_object, call_sfds);
 		if (!stream) {
 			err = "Failed to create call media stream";
@@ -622,9 +622,9 @@ static GQueue *redis_call_read_media_endpoint_maps(JsonObject *json) {
 	media_endpoint_maps = g_queue_new();
 	for (endpoint_map_idx =0; ; endpoint_map_idx++) {
 		endpoint_map_field = str_sprintf("map-%u", endpoint_map_idx);
-		endpoint_map_object = json_object_get_object_member(json, endpoint_map_field->s);
-		if (!endpoint_map_object)
+		if (!json_object_has_member(json, endpoint_map_field->s))
 			goto done; /* no more maps */
+		endpoint_map_object = json_object_get_object_member(json, endpoint_map_field->s);
 		map = redis_call_media_endpoint_map_create(endpoint_map_idx, endpoint_map_object);
 		if (!map) {
 			err = "Failed to create call media endpoint map";
@@ -678,9 +678,9 @@ static GQueue *redis_call_read_media(JsonObject *json) {
 	call_media = g_queue_new();
 	for (media_idx = 0; ; media_idx++) {
 		snprintf(fieldname, sizeof(fieldname), "media-%u", media_idx);
-		media_object = json_object_get_object_member(json, fieldname);
-		if (!media_object) /* no more media */
+		if (!json_object_has_member(json, fieldname)) /* no more media */
 			goto done;
+		media_object = json_object_get_object_member(json, fieldname);
 		snprintf(fieldname, sizeof(fieldname), "streams-%u", media_idx);
 		stream_ids_ar = json_object_get_array_member(json, fieldname);
 		snprintf(fieldname, sizeof(fieldname), "maps-%u", media_idx);
