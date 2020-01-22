@@ -2063,10 +2063,14 @@ void call_destroy(struct call *c) {
 	if (!IS_OWN_CALL(c))
 		goto no_stats_output;
 
+	///// stats output
+
 	ilog(LOG_INFO, "Final packet stats:");
 
 	for (l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
+
+		// stats output only - no cleanups
 
 		ilog(LOG_INFO, "--- Tag '"STR_FORMAT"'%s"STR_FORMAT"%s, created "
 				"%u:%02u ago for branch '"STR_FORMAT"', in dialogue with '"STR_FORMAT"'",
@@ -2083,6 +2087,8 @@ void call_destroy(struct call *c) {
 		for (k = ml->medias.head; k; k = k->next) {
 			md = k->data;
 
+			// stats output only - no cleanups
+
 			rtp_pt = __rtp_stats_codec(md);
 #define MLL_PREFIX "------ Media #%u ("STR_FORMAT" over %s) using " /* media log line prefix */
 #define MLL_COMMON /* common args */						\
@@ -2097,6 +2103,8 @@ void call_destroy(struct call *c) {
 
 			for (o = md->streams.head; o; o = o->next) {
 				ps = o->data;
+
+				// stats output only - no cleanups
 
 				if (PS_ISSET(ps, FALLBACK_RTCP))
 					continue;
@@ -2117,16 +2125,15 @@ void call_destroy(struct call *c) {
 						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
 
 				statistics_update_totals(ps);
-
 			}
-
-			ice_shutdown(&md->ice_agent);
 		}
 	}
 
 	k = g_hash_table_get_values(c->ssrc_hash->ht);
 	for (l = k; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;
+
+		// stats output only - no cleanups
 
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
@@ -2149,6 +2156,8 @@ void call_destroy(struct call *c) {
 	g_list_free(k);
 
 no_stats_output:
+	// cleanups
+
 	statistics_update_oneway(c);
 
 	cdr_update_entry(c);
@@ -2164,6 +2173,11 @@ no_stats_output:
 
 		ps->rtp_sink = NULL;
 		ps->rtcp_sink = NULL;
+	}
+
+	for (l = c->medias.head; l; l = l->next) {
+		md = l->data;
+		ice_shutdown(&md->ice_agent);
 	}
 
 	while (c->stream_fds.head) {
