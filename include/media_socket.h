@@ -78,6 +78,7 @@ struct port_pool {
 
 	mutex_t				free_list_lock;
 	GQueue				free_list;
+	BIT_ARRAY_DECLARE(free_list_used, 0x10000);
 };
 struct intf_address {
 	socktype_t			*type;
