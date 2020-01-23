@@ -404,10 +404,10 @@ void kill_calls_timer(GSList *list, const char *url) {
 		case XF_SEMS:
 			for (csl = ca->monologues.head; csl; csl = csl->next) {
 				cm = csl->data;
-				if (cm->tag.s && cm->tag.len) {
-					g_queue_push_tail(&xh->strings, g_string_chunk_insert(xh->c, url_buf));
-					g_queue_push_tail(&xh->strings, str_chunk_insert(xh->c, &cm->tag));
-				}
+				if (!cm->tag.s || !cm->tag.len)
+					continue;
+				g_queue_push_tail(&xh->strings, g_string_chunk_insert(xh->c, url_buf));
+				g_queue_push_tail(&xh->strings, str_chunk_insert(xh->c, &cm->tag));
 			}
 			break;
 		case XF_CALLID:
@@ -418,16 +418,17 @@ void kill_calls_timer(GSList *list, const char *url) {
 			for (csl = ca->monologues.head; csl; csl = csl->next) {
 				cm = csl->data;
 				cd = cm->active_dialogue;
-				if (cm->tag.s && cm->tag.len && cd && cd->tag.s && cd->tag.len) {
-					g_queue_push_tail(&xh->strings,
-							g_string_chunk_insert(xh->c, url_buf));
-					g_queue_push_tail(&xh->strings,
-							str_chunk_insert(xh->c, &ca->callid));
-					g_queue_push_tail(&xh->strings,
-							str_chunk_insert(xh->c, &cm->tag));
-					g_queue_push_tail(&xh->strings,
-							str_chunk_insert(xh->c, &cd->tag));
-				}
+				if (!cm->tag.s || !cm->tag.len || !cd || !cd->tag.s || !cd->tag.len)
+					continue;
+
+				g_queue_push_tail(&xh->strings,
+						g_string_chunk_insert(xh->c, url_buf));
+				g_queue_push_tail(&xh->strings,
+						str_chunk_insert(xh->c, &ca->callid));
+				g_queue_push_tail(&xh->strings,
+						str_chunk_insert(xh->c, &cm->tag));
+				g_queue_push_tail(&xh->strings,
+						str_chunk_insert(xh->c, &cd->tag));
 			}
 			break;
 		}
