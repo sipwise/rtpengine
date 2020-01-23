@@ -384,6 +384,10 @@ void kill_calls_timer(GSList *list, const char *url) {
 		if (!url)
 			goto destroy;
 
+		GHashTable *dup_tags = NULL;
+		if (rtpe_config.fmt == XF_KAMAILIO)
+			dup_tags = g_hash_table_new(str_hash, str_equal);
+
 		rwlock_lock_r(&ca->master_lock);
 
 		const sockaddr_t *cb_addr;
@@ -421,14 +425,21 @@ void kill_calls_timer(GSList *list, const char *url) {
 				if (!cm->tag.s || !cm->tag.len || !cd || !cd->tag.s || !cd->tag.len)
 					continue;
 
+				str *from_tag = g_hash_table_lookup(dup_tags, &cd->tag);
+				if (from_tag && !str_cmp_str(from_tag, &cm->tag))
+					continue;
+
+				from_tag = str_chunk_insert(xh->c, &cm->tag);
+				str *to_tag = str_chunk_insert(xh->c, &cd->tag);
+
 				g_queue_push_tail(&xh->strings,
 						g_string_chunk_insert(xh->c, url_buf));
 				g_queue_push_tail(&xh->strings,
 						str_chunk_insert(xh->c, &ca->callid));
-				g_queue_push_tail(&xh->strings,
-						str_chunk_insert(xh->c, &cm->tag));
-				g_queue_push_tail(&xh->strings,
-						str_chunk_insert(xh->c, &cd->tag));
+				g_queue_push_tail(&xh->strings, from_tag);
+				g_queue_push_tail(&xh->strings, to_tag);
+
+				g_hash_table_insert(dup_tags, from_tag, to_tag);
 			}
 			break;
 		}
@@ -440,6 +451,9 @@ destroy:
 		obj_put(ca);
 		list = g_slist_delete_link(list, list);
 		log_info_clear();
+
+		if (dup_tags)
+			g_hash_table_destroy(dup_tags);
 	}
 
 	if (xh)
