@@ -1757,8 +1757,23 @@ static int redis_update_call_media_codecs(struct call_media *cm, GQueue* redis_c
 	return updates;
 }
 
+static void redis_update_call_codec_handlers(struct call_media *media) {
+	struct call_monologue *ml = media->monologue;
+	struct call_monologue *other_ml = ml->active_dialogue;
+
+	for (GList *l = other_ml->medias.head; l; l = l->next) {
+		struct call_media *other_m = l->data;
+		if (other_m->index == media->index) {
+			rlog(LOG_INFO, "['" STR_FORMAT_M "'] media %u: updating codec handlers",
+			     STR_FMT_M(&media->call->callid), media->unique_id);
+			codec_handlers_update(media, other_m, NULL);
+			break;
+		}
+	}
+}
+
 static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) {
-	unsigned updated = 0;
+	unsigned updated = 0, media_updates = 0;
 	struct call_media *m = NULL;
 	redis_call_media_t *media;
 
@@ -1768,6 +1783,7 @@ static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) 
 		media = g_queue_peek_nth(redis_call->media, m->unique_id);
 		if (!media)
 			continue; /* weird... */
+		media_updates = updated;
 		/* replace codec prefs with those loaded from the database. */
 		/* TODO: ATM the database does not encode them correctly, so we lose some data. */
 		/* maybe convert codec prefs cleanup code to use __delete_x_codec (which is currently static)  */
@@ -1788,6 +1804,9 @@ static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) 
 			g_hash_table_remove_all(m->codec_names_send);
 			g_queue_clear_full(&m->codecs_prefs_send, (GDestroyNotify) payload_type_free);
 			updated += redis_update_call_media_codecs(m, media->codec_prefs_send, __rtp_payload_type_add_send);
+		}
+		if (updated != media_updates) {
+			redis_update_call_codec_handlers(m);
 		}
 	}
 	if (updated)
@@ -1860,12 +1879,12 @@ static void redis_update_call_details(struct redis *r, struct call *c) {
 	if (redis_update_call_tags(c, redis_call))
 		goto fail;
 
-	err = "failed to update payload data";
-	if (redis_update_call_payloads(c, redis_call))
-		goto fail;
-
 	err = "failed to update maps";
 	if (redis_update_call_maps(c, redis_call))
+		goto fail;
+
+	err = "failed to update payload data";
+	if (redis_update_call_payloads(c, redis_call))
 		goto fail;
 
 	goto done;
