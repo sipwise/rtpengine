@@ -3959,14 +3959,15 @@ src_check_ok:
 	if (unlikely((g->target.ssrc) && (g->target.ssrc != rtp.header->ssrc)))
 		goto skip_error;
 
-	// if RTP, only forward packets of known/passthrough payload types
-	if (g->target.rtp && rtp_pt_idx < 0)
-		goto skip1;
-
 	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
 	errstr = "SRTP authentication tag mismatch";
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
 		goto skip_error;
+
+	// if RTP, only forward packets of known/passthrough payload types
+	if (g->target.rtp && rtp_pt_idx < 0)
+		goto skip1;
+
 	errstr = "SRTP decryption failed";
 	if (srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, pkt_idx))
 		goto skip_error;
