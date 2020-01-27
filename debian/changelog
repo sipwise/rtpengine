@@ -1,3 +1,25 @@
+ngcp-rtpengine (8.2.1.0+0~mr8.2.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d1e3dc0] byte-swap homer ID as required
+  * [64e56d7] TT#73401 handle changes in RTP payload types
+  * [1c72636] TT#73401 remove useless assertion
+  * [9e05578] wrap-and-sort -ast
+  * [6d22af9] TT#73900 ignore stray RTCP packets when confirming peer addresses
+  * [f23aa26] TT#74050 add support for `unidirectional` flag to test script
+  * [2a2e3f3] TT#74050 handle sinks with null addresses correctly
+  * [5ac0756] TT#74300 run indent over cli_incoming_list_callid
+  * [c3f5282] TT#74300 adapt CLI output to match log output for call stats
+  * [08cdb4c] TT#74300 split intro for call-id CLI output
+
+  [ Sebastian Damm ]
+  * [8d7a77d] debian/control: add libconfig-tiny-perl dependency
+
+  [ Daniel-Constantin Mierla ]
+  * [5b0bee7] use pkg-config to detect xtables library for iptables-extension
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 27 Jan 2020 12:25:39 +0100
+
 ngcp-rtpengine (8.2.0.0+0~mr8.2.0.0) unstable; urgency=medium
 
   [ Michael Prokop ]
