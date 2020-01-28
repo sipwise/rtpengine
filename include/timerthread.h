@@ -26,7 +26,7 @@ struct timerthread_queue {
 	struct timerthread_obj tt_obj;
 	const char *type;
 	mutex_t lock;
-	GQueue entries;
+	GTree *entries;
 	void (*run_now_func)(struct timerthread_queue *, void *);
 	void (*run_later_func)(struct timerthread_queue *, void *);
 	void (*free_func)(void *);
