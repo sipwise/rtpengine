@@ -1076,7 +1076,7 @@ static int redis_hash_get_sdes_params(GQueue *out, const struct redis_hash *h, c
 	char key[32], tagkey[64];
 	const char *kk = k;
 	unsigned int tag;
-	unsigned int iter = 0;
+	unsigned int iter = 1;
 
 	while (1) {
 		snprintf(tagkey, sizeof(tagkey), "%s_tag", kk);
@@ -2078,7 +2078,7 @@ static int json_update_sdes_params(JsonBuilder *builder, const char *pref,
 		const char *k, GQueue *q)
 {
 	char tmp[2048];
-	unsigned int iter = 0;
+	unsigned int iter = 1;
 	char keybuf[32];
 	const char *key = k;
 
