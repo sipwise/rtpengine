@@ -6,6 +6,7 @@
 
 #include "obj.h"
 #include "str.h"
+#include "crypto.h"
 
 /**
  * Document object model for mapping call data to storable JSON.
@@ -80,6 +81,21 @@ typedef struct redis_call_media_tag {
 	struct redis_call_media_tag*	other_tag;
 } redis_call_media_tag_t;
 
+typedef struct redis_call_media_sdes {
+	struct obj		obj;
+	str*			crypto_suite_name;
+	str*			master_key;
+	str*			master_salt;
+	str*			mki;
+	struct crypto_session_params	session_params;
+	unsigned		tag;
+} redis_call_media_sdes_t;
+
+struct redis_call_media_fingerprint {
+	str*			hash_func_name;
+	str*			fingerprint;
+};
+
 typedef struct redis_call_media {
 	struct obj		obj;
 	unsigned		index;
@@ -96,6 +112,9 @@ typedef struct redis_call_media {
 	GQueue*			streams; /**< list of redis_call_media_stream_t */
 	GQueue*			codec_prefs_recv; /**< list of redis_call_rtp_payload_type_t */
 	GQueue*			codec_prefs_send; /**< list of redis_call_rtp_payload_type_t */
+	GQueue*			sdes_in; /**< list of redis_call_media_sdes_t */
+	GQueue*			sdes_out; /**< list of redis_call_media_sdes_t */
+	struct redis_call_media_fingerprint	fingerprint; /* not an object reference */
 } redis_call_media_t;
 
 typedef struct redis_call {

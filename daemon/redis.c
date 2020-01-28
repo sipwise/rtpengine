@@ -1773,75 +1773,139 @@ static void redis_update_call_codec_handlers(struct call_media *media) {
 	}
 }
 
-static int redis_update_call_payloads(struct call *c, redis_call_t *redis_call) {
-	unsigned updated = 0, media_updates = 0;
-	struct call_media *m = NULL;
-	redis_call_media_t *media;
+static int redis_update_call_payloads(struct call_media *m, redis_call_media_t *media) {
+	unsigned updated = 0;
 
-	GList *l;
-	for (l = c->medias.head; l; l = l->next) {
-		m = l->data;
-		media = g_queue_peek_nth(redis_call->media, m->unique_id);
-		if (!media)
-			continue; /* weird... */
-		media_updates = updated;
-		/* replace codec prefs with those loaded from the database. */
-		/* TODO: ATM the database does not encode them correctly, so we lose some data. */
-		/* maybe convert codec prefs cleanup code to use __delete_x_codec (which is currently static)  */
-		if (g_queue_get_length(media->codec_prefs_recv) != g_queue_get_length(&m->codecs_prefs_recv)) {
-			rlog(LOG_DEBUG, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs recv with %d remote codec prefs",
-			     STR_FMT_M(&c->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_recv),
-			     g_queue_get_length(media->codec_prefs_recv));
-			g_hash_table_remove_all(m->codecs_recv);
-			g_hash_table_remove_all(m->codec_names_recv);
-			g_queue_clear_full(&m->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
-			updated += redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv);
-		}
-		if (g_queue_get_length(media->codec_prefs_send) != g_queue_get_length(&m->codecs_prefs_send)) {
-			rlog(LOG_DEBUG, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs send with %d remote codec prefs",
-			     STR_FMT_M(&c->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_send),
-			     g_queue_get_length(media->codec_prefs_send));
-			g_hash_table_remove_all(m->codecs_send);
-			g_hash_table_remove_all(m->codec_names_send);
-			g_queue_clear_full(&m->codecs_prefs_send, (GDestroyNotify) payload_type_free);
-			updated += redis_update_call_media_codecs(m, media->codec_prefs_send, __rtp_payload_type_add_send);
-		}
-		if (updated != media_updates) {
-			redis_update_call_codec_handlers(m);
-		}
+	/* replace codec prefs with those loaded from the database. */
+	/* TODO: ATM the database does not encode them correctly, so we lose some data. */
+	/* maybe convert codec prefs cleanup code to use __delete_x_codec (which is currently static)  */
+	if (g_queue_get_length(media->codec_prefs_recv) != g_queue_get_length(&m->codecs_prefs_recv)) {
+		rlog(LOG_INFO, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs recv with %d remote codec prefs",
+			STR_FMT_M(&m->call->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_recv),
+			g_queue_get_length(media->codec_prefs_recv));
+		g_hash_table_remove_all(m->codecs_recv);
+		g_hash_table_remove_all(m->codec_names_recv);
+		g_queue_clear_full(&m->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
+		updated += redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv);
 	}
-	if (updated)
-		rlog(LOG_INFO, "Updated media codecs from Redis");
+	if (g_queue_get_length(media->codec_prefs_send) != g_queue_get_length(&m->codecs_prefs_send)) {
+		rlog(LOG_INFO, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs send with %d remote codec prefs",
+			STR_FMT_M(&m->call->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_send),
+			g_queue_get_length(media->codec_prefs_send));
+		g_hash_table_remove_all(m->codecs_send);
+		g_hash_table_remove_all(m->codec_names_send);
+		g_queue_clear_full(&m->codecs_prefs_send, (GDestroyNotify) payload_type_free);
+		updated += redis_update_call_media_codecs(m, media->codec_prefs_send, __rtp_payload_type_add_send);
+	}
+	if (updated) {
+		redis_update_call_codec_handlers(m);
+		rlog(LOG_INFO, "Updated media %u codecs from Redis", m->unique_id);
+	}
 	return 0;
 }
 
-static int redis_update_call_maps(struct call *c, redis_call_t *redis_call) {
-	struct call_media *m = NULL;
+static int redis_update_call_maps(struct call_media *m, redis_call_media_t *media) {
 	struct endpoint_map *ep;
-	redis_call_media_t *media;
 	redis_call_media_endpoint_map_t *rcep;
-	GList *ml, *epl, *rcepl;
+	GList *epl, *rcepl;
+
+	for (epl = m->endpoint_maps.head; epl; epl = epl->next) {
+		ep = epl->data;
+		for (rcepl = media->endpoint_maps->head; rcepl; rcepl = rcepl->next) {
+			rcep = rcepl->data;
+			if (rcep->unique_id != ep->unique_id)
+				continue;
+			ep->wildcard = rcep->wildcard;
+			endpoint_parse_any(&ep->endpoint, rcep->endpoint->s);
+		}
+	}
+	/* update some media fields here, while we have the media */
+	if (!m->ptime)
+		m->ptime = media->ptime;
+	m->media_flags = media->media_flags;
+	return 0;
+}
+
+static void redis_update_call_crypto_sync_sdes_params(GQueue *m_sdes_q, GQueue *redis_sdes_q) {
+	redis_call_media_sdes_t *redis_sdes;
+
+	crypto_params_sdes_queue_clear(m_sdes_q);
+	for (GList *l = redis_sdes_q->head; l; l = l->next) {
+		redis_sdes = l->data;
+		/** copied and modified from sdp.c:sdp_streams() */
+		struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
+		g_queue_push_tail(m_sdes_q, cps);
+
+		if (redis_sdes->crypto_suite_name)
+			cps->params.crypto_suite = crypto_find_suite(redis_sdes->crypto_suite_name);
+		if (redis_sdes->mki) {
+			cps->params.mki_len = redis_sdes->mki->len;
+			if (cps->params.mki_len) {
+				cps->params.mki = malloc(cps->params.mki_len);
+				memcpy(cps->params.mki, redis_sdes->mki->s, cps->params.mki_len);
+			}
+		}
+		cps->tag = redis_sdes->tag;
+		if (redis_sdes->master_key)
+			memcpy(cps->params.master_key, redis_sdes->master_key->s, redis_sdes->master_key->len);
+		if (redis_sdes->master_salt)
+			memcpy(cps->params.master_salt, redis_sdes->master_salt->s, redis_sdes->master_salt->len);
+		cps->params.session_params = redis_sdes->session_params;
+	}
+}
+
+static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *media) {
+	const struct dtls_hash_func *found_hash_func;
+
+	if (media->fingerprint.hash_func_name && !m->fingerprint.hash_func) {
+		/* json_restore_call() doesn't do this - should we? */
+		found_hash_func = dtls_find_hash_func(media->fingerprint.hash_func_name);
+		if (found_hash_func) {
+			rlog(LOG_DEBUG, "Updating crypto for call ID '" STR_FORMAT_M "', media %u from Redis",
+			     STR_FMT_M(&m->call->callid), m->unique_id);
+			m->fingerprint.hash_func = found_hash_func;
+			memcpy(m->fingerprint.digest, media->fingerprint.fingerprint->s, media->fingerprint.fingerprint->len);
+		}
+	}
+
+	if (media->sdes_in && m->sdes_in.length != media->sdes_in->length)
+		redis_update_call_crypto_sync_sdes_params(&m->sdes_in, media->sdes_in);
+	if (media->sdes_out && m->sdes_out.length != media->sdes_out->length)
+		redis_update_call_crypto_sync_sdes_params(&m->sdes_in, media->sdes_in);
+
+	return 0;
+}
+
+static int redis_update_call_media(struct call *c, redis_call_t* redis_call) {
+	struct call_media *m = NULL;
+	redis_call_media_t *media;
+	GList *ml;
 
 	for (ml = c->medias.head; ml; ml = ml->next) {
 		m = ml->data;
 		media = g_queue_peek_nth(redis_call->media, m->unique_id);
-		if (!media)
+		if (!media) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: missing media %u",
+			     STR_FMT_M(&c->callid), m->unique_id);
 			continue; /* weird... */
-		for (epl = m->endpoint_maps.head; epl; epl = epl->next) {
-			ep = epl->data;
-			for (rcepl = media->endpoint_maps->head; rcepl; rcepl = rcepl->next) {
-				rcep = rcepl->data;
-				if (rcep->unique_id != ep->unique_id)
-					continue;
-				ep->wildcard = rcep->wildcard;
-				endpoint_parse_any(&ep->endpoint, rcep->endpoint->s);
-			}
 		}
-		/* update some media fields here, while we have the media */
-		if (!m->ptime)
-			m->ptime = media->ptime;
-		m->media_flags = media->media_flags;
+		if (redis_update_call_maps(m, media)) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: error in update maps",
+			     STR_FMT_M(&c->callid));
+			return -1;
+		}
+		if (redis_update_call_payloads(m, media)) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: error in update payloads",
+			     STR_FMT_M(&c->callid));
+			return -1;
+		}
+		if (redis_update_call_crypto(m, media)) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: error in update crypto",
+			     STR_FMT_M(&c->callid));
+			return -1;
+		}
 	}
+
 	return 0;
 }
 
@@ -1880,12 +1944,8 @@ static void redis_update_call_details(struct redis *r, struct call *c) {
 	if (redis_update_call_tags(c, redis_call))
 		goto fail;
 
-	err = "failed to update maps";
-	if (redis_update_call_maps(c, redis_call))
-		goto fail;
-
 	err = "failed to update payload data";
-	if (redis_update_call_payloads(c, redis_call))
+	if (redis_update_call_media(c, redis_call))
 		goto fail;
 
 	goto done;

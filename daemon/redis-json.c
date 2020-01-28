@@ -225,6 +225,64 @@ done:
 	return tagref;
 }
 
+static void redis_call_media_sdes_free(void *rcms) {
+	redis_call_media_sdes_t *sdesref = rcms;
+	if (!sdesref)
+		return;
+	if (sdesref->crypto_suite_name)
+		free(sdesref->crypto_suite_name);
+	if (sdesref->master_key)
+		free(sdesref->master_key);
+	if (sdesref->master_salt)
+		free(sdesref->master_salt);
+	if (sdesref->mki)
+		free(sdesref->mki);
+}
+
+static redis_call_media_sdes_t *redis_call_media_sdes_create(const char *prefix, JsonObject* json) {
+	redis_call_media_sdes_t *sdesref;
+	str *fieldname;
+
+	sdesref = obj_alloc0("redis_call_media_sdes", sizeof(*sdesref), redis_call_media_sdes_free);
+	fieldname = str_sprintf("%s_tag", prefix);
+	JSON_UPDATE_NUM_FIELD_IF_SET_OR_FAIL(json, fieldname->s, sdesref->tag);
+	free(fieldname);
+	fieldname = str_sprintf("%s-crypto_suite", prefix);
+	sdesref->crypto_suite_name = json_object_get_str(json, fieldname->s);
+	free(fieldname);
+	fieldname = str_sprintf("%s-master_key", prefix);
+	sdesref->master_key = json_object_get_str_uri_enc(json, fieldname->s);
+	free(fieldname);
+	fieldname = str_sprintf("%s-master_salt", prefix);
+	sdesref->master_salt = json_object_get_str_uri_enc(json, fieldname->s);
+	free(fieldname);
+	fieldname = str_sprintf("%s-mki", prefix);
+	sdesref->mki = json_object_get_str(json, fieldname->s);
+	free(fieldname);
+	fieldname = str_sprintf("%s-unenc-srtp", prefix);
+	JSON_UPDATE_NUM_FIELD_IF_SET(json, fieldname->s, sdesref->session_params.unencrypted_srtp);
+	free(fieldname);
+	fieldname = str_sprintf("%s-unenc-srtcp", prefix);
+	JSON_UPDATE_NUM_FIELD_IF_SET(json, fieldname->s, sdesref->session_params.unencrypted_srtcp);
+	free(fieldname);
+	fieldname = str_sprintf("%s-unauth-srtp", prefix);
+	JSON_UPDATE_NUM_FIELD_IF_SET(json, fieldname->s, sdesref->session_params.unauthenticated_srtp);
+
+	goto done;
+
+fail:
+	ilog(LOG_WARNING, "Failed to read crypto params %s from Redis", prefix);
+	if (sdesref) {
+		obj_put(sdesref);
+		sdesref = NULL;
+	}
+
+done:
+	if (fieldname)
+		free(fieldname);
+	return sdesref;
+}
+
 static void redis_call_media_free(void* rcm) {
 	redis_call_media_t *mediaref = rcm;
 	if (!mediaref)
@@ -249,6 +307,14 @@ static void redis_call_media_free(void* rcm) {
 		g_queue_free_full(mediaref->codec_prefs_recv, gdestroy_obj_put);
 	if (mediaref->codec_prefs_send)
 		g_queue_free_full(mediaref->codec_prefs_send, gdestroy_obj_put);
+	if (mediaref->sdes_in)
+		g_queue_free_full(mediaref->sdes_in, gdestroy_obj_put);
+	if (mediaref->sdes_out)
+		g_queue_free_full(mediaref->sdes_out, gdestroy_obj_put);
+	if (mediaref->fingerprint.hash_func_name)
+		free(mediaref->fingerprint.hash_func_name);
+	if (mediaref->fingerprint.fingerprint)
+		free(mediaref->fingerprint.fingerprint);
 }
 
 static GQueue *redis_call_media_read_payloads(JsonArray* payload_types) {
@@ -303,6 +369,51 @@ done:
 	return out;
 }
 
+static GQueue* redis_call_media_try_read_sdes(const char* prefix, JsonObject *json) {
+	/* unlike all the other shit not-really-JSON that redis.c pulls, this time it encodes a list of items into the media
+	 * object itself, where the list index is encoded as "-%u" between the "type prefix" and the field name - but only
+	 * if its the second or later element. That code is fscking insane */
+	GQueue *out = NULL;
+	redis_call_media_sdes_t *sdesref = NULL;
+	str *testfield = NULL;
+	int idx;
+
+	/* check if we have any sdes for prefix */
+	testfield = str_sprintf("%s_tag", prefix);
+	if (!json_object_has_member(json, testfield->s))
+		goto done; /* nope */
+
+	out = g_queue_new();
+	sdesref = redis_call_media_sdes_create(prefix, json);
+	if (!sdesref) { /* shouldn't happen, because we tested, but JSON might be broken */
+		ilog(LOG_WARNING, "crypto params %s are broken", prefix);
+		goto fail;
+	}
+
+	g_queue_push_tail(out, sdesref);
+	for (idx = 1; ; idx++) {
+		free(testfield);
+		testfield = str_sprintf("%s-%u", prefix, idx);
+		sdesref = redis_call_media_sdes_create(testfield->s, json);
+		if (!sdesref) /* no more crypto params */
+			break;
+		g_queue_push_tail(out, sdesref);
+	}
+
+	goto done;
+
+fail:
+	if (out) {
+		g_queue_free_full(out, gdestroy_obj_put);
+		out = NULL;
+	}
+
+done:
+	if (testfield)
+		free(testfield);
+	return out;
+}
+
 static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonObject *json, GQueue *tags, GQueue *streams,
 	JsonArray *stream_ids_ar, GQueue* endpoint_maps, JsonArray *endpoint_maps_ar, JsonArray *payload_types_recv_ar,
 	JsonArray *payload_types_send_ar) {
@@ -333,6 +444,14 @@ static redis_call_media_t *redis_call_media_create(unsigned unique_id, JsonObjec
 	JSON_UPDATE_NUM_FIELD_IF_SET(json, "ptime", mediaref->ptime);
 	JSON_UPDATE_NUM_FIELD_IF_SET(json, "media_flags", mediaref->media_flags);
 	mediaref->rtpe_addr = json_object_get_str(json, "rtpe_addr");
+
+	/* try to read crypto params, if exist */
+	mediaref->sdes_in = redis_call_media_try_read_sdes("sdes_in", json); /* we get NULL on failure, which is what we want */
+	mediaref->sdes_out = redis_call_media_try_read_sdes("sdes_out", json);
+	if (json_object_has_member(json, "hash_func")) {
+		mediaref->fingerprint.hash_func_name = json_object_get_str(json, "hash_func");
+		mediaref->fingerprint.fingerprint = json_object_get_str_uri_enc(json, "fingerprint");
+	}
 
 	/* grab my streams */
 	mediaref->streams = g_queue_new();
