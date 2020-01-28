@@ -46,6 +46,14 @@ str *json_object_get_str(JsonObject* json, const char *key) {
 	return out;
 }
 
+str *json_object_get_str_uri_enc(JsonObject *json, const char *key) {
+	str *strval = NULL;
+	strval = json_object_get_str(json, key);
+	if (!strval)
+		return NULL;
+	return str_uri_decode_len(strval->s, strval->len);
+}
+
 str *json_array_get_str(JsonArray *json, unsigned idx) {
 	const gchar *strval;
 	str *out = NULL;

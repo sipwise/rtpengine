@@ -24,6 +24,16 @@ str *json_reader_get_str(JsonReader *reader, const char *key);
 str *json_object_get_str(JsonObject *json, const char *key);
 
 /**
+ * Retrieve a string value from a JSON object, using the JsonObject API, according to a key, decoding the
+ * URI encoded value. The resulting buffer might contain NULL values.
+ * @param json glib JsonObject from which to get the string
+ * @param key name of the string value to retrieve
+ * @return `str` string created from the string value, or `NULL` if no such value was found,
+ *   the reader is in an error state or not pointing to a JSON object. Release using `free()`.
+ */
+str *json_object_get_str_uri_enc(JsonObject *json, const char *key);
+
+/**
  * Retrieve a string value from a JSON list, using the JsonArray API, according to a key.
  * @param json glib JsonArray from which to get the string
  * @param idx index to the string value to retrieve
