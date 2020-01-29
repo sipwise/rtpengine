@@ -923,8 +923,8 @@ static int redis_hash_get_endpoint(struct endpoint *out, const struct redis_hash
 
 	if (redis_hash_get_str(&s, h, k))
 		return -1;
-	if (endpoint_parse_any(out, s.s))
-		return -1;
+	if (s.len && endpoint_parse_any(out, s.s))
+			return -1;
 
 	return 0;
 }
@@ -1699,8 +1699,10 @@ static int redis_update_call_streams(struct call *c, redis_call_t *redis_call) {
 		ps = pk->data;
 		ZERO(endpoint);
 		stream = g_queue_peek_nth(redis_call_streams, i);
-		endpoint_parse_any(&endpoint, stream->endpoint->s);
-		endpoint_parse_any(&advertised_endpoint, stream->advertised_endpoint->s);
+		if (stream->endpoint->len)
+			endpoint_parse_any(&endpoint, stream->endpoint->s);
+		if (stream->advertised_endpoint->len)
+			endpoint_parse_any(&advertised_endpoint, stream->advertised_endpoint->s);
 		
 		if (!ps->endpoint.port && endpoint.port && endpoint.address.family->af) {
 			ps->endpoint = endpoint;
@@ -1816,7 +1818,8 @@ static int redis_update_call_maps(struct call_media *m, redis_call_media_t *medi
 			if (rcep->unique_id != ep->unique_id)
 				continue;
 			ep->wildcard = rcep->wildcard;
-			endpoint_parse_any(&ep->endpoint, rcep->endpoint->s);
+			if (rcep->endpoint->len)
+				endpoint_parse_any(&ep->endpoint, rcep->endpoint->s);
 		}
 	}
 	/* update some media fields here, while we have the media */
