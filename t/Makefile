@@ -110,6 +110,8 @@ daemon-tests:	tests-preload.so
 	mkdir fake-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-sockets \
 		   perl -I../perl auto-daemon-tests.pl
+	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-sockets \
+		   perl -I../perl auto-daemon-tests-jb.pl
 	test "$$(ls fake-sockets)" = ""
 	rmdir fake-sockets
 
