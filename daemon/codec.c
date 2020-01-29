@@ -1157,7 +1157,17 @@ void codec_packet_free(void *pp) {
 	g_slice_free1(sizeof(*p), p);
 }
 
-
+str *codec_print_payload_type(const struct rtp_payload_type* pt) {
+	return str_sprintf(
+		"%s/" /* encoding */
+		"%u/" /* clock_rate */
+		"%i/" /* channels */
+		"%i/" /* bitrate (opts) */
+		"%i/" /* ptime (extra_opts) */
+		"%s/" /* format_parameters(fmt_params) */
+			/* the last part must end with '/', otherwise codec_make_payload_type won't read it*/
+		,pt->encoding.s, pt->clock_rate, pt->channels, pt->bitrate, pt->ptime, pt->format_parameters.s);
+}
 
 struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media) {
 	str codec_fmt = *codec_str;
