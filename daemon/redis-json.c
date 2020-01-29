@@ -375,7 +375,7 @@ static GQueue* redis_call_media_try_read_sdes(const char* prefix, JsonObject *js
 	 * if its the second or later element. That code is fscking insane */
 	GQueue *out = NULL;
 	redis_call_media_sdes_t *sdesref = NULL;
-	str *testfield = NULL;
+	str *testfield = NULL, *prefixfield = NULL;
 	int idx;
 
 	/* check if we have any sdes for prefix */
@@ -393,10 +393,17 @@ static GQueue* redis_call_media_try_read_sdes(const char* prefix, JsonObject *js
 	g_queue_push_tail(out, sdesref);
 	for (idx = 1; ; idx++) {
 		free(testfield);
-		testfield = str_sprintf("%s-%u", prefix, idx);
-		sdesref = redis_call_media_sdes_create(testfield->s, json);
-		if (!sdesref) /* no more crypto params */
+		prefixfield = str_sprintf("%s-%u", prefix, idx);
+		/* check if we have more sdes for prefix */
+		testfield = str_sprintf("%s_tag", prefixfield->s);
+		if (!json_object_has_member(json, testfield->s))
+			goto done; /* nope */
+		sdesref = redis_call_media_sdes_create(prefixfield->s, json);
+		if (!sdesref) {
+			ilog(LOG_WARNING, "crypto params %s are broken", prefixfield->s);
 			break;
+		}
+		free(prefixfield);
 		g_queue_push_tail(out, sdesref);
 	}
 
@@ -411,6 +418,8 @@ fail:
 done:
 	if (testfield)
 		free(testfield);
+	if (prefixfield)
+		free(prefixfield);
 	return out;
 }
 
