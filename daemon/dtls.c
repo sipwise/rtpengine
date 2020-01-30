@@ -197,7 +197,7 @@ static int cert_init(void) {
 	if (!BN_set_word(exponent, 0x10001))
 		goto err;
 
-	if (!RSA_generate_key_ex(rsa, 1024, exponent, NULL))
+	if (!RSA_generate_key_ex(rsa, 2048, exponent, NULL))
 		goto err;
 
 	if (!EVP_PKEY_assign_RSA(pkey, rsa))
@@ -513,7 +513,10 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 	SSL_CTX_set_verify(d->ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
 			verify_callback);
 	SSL_CTX_set_verify_depth(d->ssl_ctx, 4);
-	SSL_CTX_set_cipher_list(d->ssl_ctx, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+
+	// run this command to see the included ciphers:
+	// # openssl ciphers -v 'HIGH:!DSS:!aNULL@STRENGTH'
+	SSL_CTX_set_cipher_list(d->ssl_ctx, "HIGH:!DSS:!aNULL@STRENGTH");
 
 	if (SSL_CTX_set_tlsext_use_srtp(d->ssl_ctx, ciphers_str))
 		goto error;
