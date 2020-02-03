@@ -16,7 +16,7 @@ int mp3_bitrate;
 
 
 
-static void output_shutdown(output_t *output);
+static int output_shutdown(output_t *output);
 
 
 
@@ -133,15 +133,17 @@ err:
 }
 
 
-static void output_shutdown(output_t *output) {
+static int output_shutdown(output_t *output) {
 	if (!output)
-		return;
+		return 0;
 	if (!output->fmtctx)
-		return;
+		return 0;
 
+	int ret = 0;
 	if (output->fmtctx->pb) {
 		av_write_trailer(output->fmtctx);
 		avio_closep(&output->fmtctx->pb);
+		ret = 1;
 	}
 	avformat_free_context(output->fmtctx);
 
@@ -154,14 +156,18 @@ static void output_shutdown(output_t *output) {
 
 	output->fmtctx = NULL;
 	output->avst = NULL;
+
+	return ret;
 }
 
 
 void output_close(output_t *output) {
 	if (!output)
 		return;
-	output_shutdown(output);
-	db_close_stream(output);
+	if (output_shutdown(output))
+		db_close_stream(output);
+	else
+		db_delete_stream(output);
 	encoder_free(output->encoder);
 	g_slice_free1(sizeof(*output), output);
 }
