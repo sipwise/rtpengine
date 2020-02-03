@@ -951,7 +951,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		int ret = ch->handler->dest_pt.codec_def->packetizer(in_pkt,
 				ch->sample_buffer, &inout, enc);
 
-		if (G_UNLIKELY(ret == -1)) {
+		if (G_UNLIKELY(ret == -1 || enc->avpkt.pts == AV_NOPTS_VALUE)) {
 			// nothing
 			free(buf);
 			break;
