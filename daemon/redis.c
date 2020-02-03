@@ -572,7 +572,6 @@ static int redis_notify(void) {
 }
 
 static void redis_disconnect(void) {
-	redisAsyncDisconnect(rtpe_redis_notify_async_context);
 	rtpe_redis_notify_async_context = NULL;
 }
 
@@ -634,6 +633,7 @@ void redis_notify_loop(void *d) {
 	redis_notify_subscribe_action(UNSUBSCRIBE_ALL, 0);
 
 	// free async context
+	redisAsyncDisconnect(rtpe_redis_notify_async_context);
 	redis_disconnect();
 }
 
