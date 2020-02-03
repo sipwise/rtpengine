@@ -14,6 +14,7 @@ static MYSQL_STMT __thread
 	*stm_close_call,
 	*stm_insert_stream,
 	*stm_close_stream,
+	*stm_delete_stream,
 	*stm_config_stream,
 	*stm_insert_metadata;
 
@@ -31,6 +32,7 @@ static void reset_conn() {
 	my_stmt_close(&stm_close_call);
 	my_stmt_close(&stm_insert_stream);
 	my_stmt_close(&stm_close_stream);
+	my_stmt_close(&stm_delete_stream);
 	my_stmt_close(&stm_config_stream);
 	my_stmt_close(&stm_insert_metadata);
 	mysql_close(mysql_conn);
@@ -84,8 +86,22 @@ static int check_conn() {
 	if (prep(&stm_close_call, "update recording_calls set " \
 				"end_timestamp = ?, status = 'completed' where id = ?"))
 		goto err;
+<<<<<<< HEAD   (f4b59f TT#74050 handle sinks with null addresses correctly)
 	if (prep(&stm_close_stream, "update recording_streams set " \
 				"end_timestamp = ? where id = ?"))
+=======
+	if ((output_storage & OUTPUT_STORAGE_DB)) {
+		if (prep(&stm_close_stream, "update recording_streams set " \
+					"end_timestamp = ?, stream = ? where id = ?"))
+			goto err;
+	}
+	else {
+		if (prep(&stm_close_stream, "update recording_streams set " \
+					"end_timestamp = ? where id = ?"))
+			goto err;
+	}
+	if (prep(&stm_delete_stream, "delete from recording_streams where id = ?"))
+>>>>>>> CHANGE (0a846e TT#75351 delete DB streams that have no corresponding file)
 		goto err;
 	if (prep(&stm_config_stream, "update recording_streams set channels = ?, sample_rate = ? where id = ?"))
 		goto err;
@@ -308,6 +324,18 @@ void db_close_stream(output_t *op) {
 	my_ull(&b[1], &op->db_id);
 
 	execute_wrap(&stm_close_stream, b, NULL);
+}
+
+void db_delete_stream(output_t *op) {
+	if (check_conn())
+		return;
+	if (op->db_id == 0)
+		return;
+
+        MYSQL_BIND b[1];
+	my_ull(&b[0], &op->db_id);
+
+	execute_wrap(&stm_delete_stream, b, NULL);
 }
 
 void db_config_stream(output_t *op) {

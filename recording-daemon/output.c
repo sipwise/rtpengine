@@ -15,7 +15,7 @@ int mp3_bitrate;
 
 
 
-static void output_shutdown(output_t *output);
+static int output_shutdown(output_t *output);
 
 
 
@@ -255,15 +255,17 @@ err:
 }
 
 
-static void output_shutdown(output_t *output) {
+static int output_shutdown(output_t *output) {
 	if (!output)
-		return;
+		return 0;
 	if (!output->fmtctx)
-		return;
+		return 0;
 
+	int ret = 0;
 	if (output->fmtctx->pb) {
 		av_write_trailer(output->fmtctx);
 		avio_closep(&output->fmtctx->pb);
+		ret = 1;
 	}
 	avcodec_close(output->avcctx);
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
@@ -276,6 +278,7 @@ static void output_shutdown(output_t *output) {
 	output->avcctx = NULL;
 	output->fmtctx = NULL;
 	output->avst = NULL;
+<<<<<<< HEAD   (f4b59f TT#74050 handle sinks with null addresses correctly)
 	output->fifo = NULL;
 
 	output->fifo_pts = 0;
@@ -283,14 +286,26 @@ static void output_shutdown(output_t *output) {
 
 	format_init(&output->requested_format);
 	format_init(&output->actual_format);
+=======
+
+	return ret;
+>>>>>>> CHANGE (0a846e TT#75351 delete DB streams that have no corresponding file)
 }
 
 
 void output_close(output_t *output) {
 	if (!output)
 		return;
+<<<<<<< HEAD   (f4b59f TT#74050 handle sinks with null addresses correctly)
 	output_shutdown(output);
 	db_close_stream(output);
+=======
+	if (output_shutdown(output))
+		db_close_stream(output);
+	else
+		db_delete_stream(output);
+	encoder_free(output->encoder);
+>>>>>>> CHANGE (0a846e TT#75351 delete DB streams that have no corresponding file)
 	g_slice_free1(sizeof(*output), output);
 }
 
