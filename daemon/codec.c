@@ -287,9 +287,7 @@ static void __dtmf_dsp_shutdown(struct call_media *sink, int payload_type) {
 	if (!sink->codec_handlers)
 		return;
 
-	GList *list = g_hash_table_get_values(sink->codec_handlers);
-
-	for (GList *l = list; l; l = l->next) {
+	for (GList *l = sink->codec_handlers_store.head; l; l = l->next) {
 		struct codec_handler *handler = l->data;
 		if (!handler->transcoder)
 			continue;
@@ -303,8 +301,6 @@ static void __dtmf_dsp_shutdown(struct call_media *sink, int payload_type) {
 				payload_type);
 		handler->dtmf_payload_type = -1;
 	}
-
-	g_list_free(list);
 }
 
 
@@ -529,8 +525,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags)
 {
 	if (!receiver->codec_handlers)
-		receiver->codec_handlers = g_hash_table_new_full(g_int_hash, g_int_equal,
-				NULL, __codec_handler_free);
+		receiver->codec_handlers = g_hash_table_new(g_int_hash, g_int_equal);
 
 	MEDIA_CLEAR(receiver, TRANSCODE);
 	receiver->rtcp_handler = NULL;
@@ -620,6 +615,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			handler = __handler_new(pt);
 			g_hash_table_insert(receiver->codec_handlers, &handler->source_pt.payload_type,
 					handler);
+			g_queue_push_tail(&receiver->codec_handlers_store, handler);
 		}
 
 		// check our own support for this codec
@@ -808,6 +804,7 @@ void codec_handlers_free(struct call_media *m) {
 		g_hash_table_destroy(m->codec_handlers);
 	m->codec_handlers = NULL;
 	m->codec_handler_cache = NULL;
+	g_queue_free_full(&m->codec_handlers_store, __codec_handler_free);
 #ifdef WITH_TRANSCODING
 	if (m->dtmf_injector)
 		codec_handler_free(m->dtmf_injector);
