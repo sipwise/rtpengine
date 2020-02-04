@@ -94,6 +94,7 @@ sub showusage {
     print "         timeout               : print timeout parameter\n";
     print "         silenttimeout         : print silent-timeout parameter\n";
     print "         finaltimeout          : print final-timeout parameter\n";
+    print "         offertimeout          : print offer-timeout parameter\n";
     print "         loglevel              : print current log level\n";
     print "         redisallowederrors    : print redis-allowed-errors parameter\n";
     print "         redisdisabletime      : print redis-disable-time parameter\n";
@@ -116,6 +117,7 @@ sub showusage {
     print "         timeout <uint>        : set the --timeout parameter \n";
     print "         silenttimeout <uint>  : set the --silent-timeout parameter \n";
     print "         finaltimeout <uint>   : set the --final-timeout parameter \n";
+    print "         offertimeout <uint>   : set the --offer-timeout parameter \n";
     print "         loglevel <uint>       : set the log level to new value (1-7)\n";
     print "         redisallowederrors    : set the --redis-allowed-errors parameter\n";
     print "         redisdisabletime      : set the --redis-disable-time parameter\n";
