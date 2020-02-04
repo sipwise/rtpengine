@@ -1,0 +1,8 @@
+Verified+1: Jenkins Jenkins
+Code-Review+1: Christian Bergamaschi <cbergamaschi@sipwise.com>
+Code-Review+2: Kirill Solomko <ksolomko@sipwise.com>
+Submitted-by: Richard Fuchs <rfuchs@sipwise.com>
+Submitted-at: Tue, 04 Feb 2020 14:31:48 +0100
+Reviewed-on: http://gerrit.mgm.sipwise.com/c/rtpengine/+/37290
+Project: rtpengine
+Branch: refs/heads/master
