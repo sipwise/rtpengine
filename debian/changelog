@@ -1,3 +1,10 @@
+ngcp-rtpengine (5.5.7.2+0~mr5.5.7.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [28bc6a6] TT#75351 delete DB streams that have no corresponding file
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 05 Feb 2020 19:25:26 +0100
+
 ngcp-rtpengine (5.5.7.1+0~mr5.5.7.1) unstable; urgency=medium
 
   * New release.
