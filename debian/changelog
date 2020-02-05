@@ -1,3 +1,12 @@
+ngcp-rtpengine (8.1.1.5+0~mr8.1.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ef79b80] TT#75050 fix SRTP index slip while transcoding
+  * [3ca9fa8] TT#74651 fix several mem/resource leaks
+  * [07df7a4] TT#75351 delete DB streams that have no corresponding file
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 05 Feb 2020 19:25:01 +0100
+
 ngcp-rtpengine (8.1.1.4+0~mr8.1.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
