@@ -258,8 +258,8 @@ static void decrement_buffer(struct jitter_buffer *jb) {
 
 static void set_jitter_values(struct media_packet *mp) {
 	struct jitter_buffer *jb = mp->stream->jb;
-        if(!jb || !mp->rtp)
-                return;
+	if(!jb || !mp->rtp)
+		return;
 	int curr_seq = ntohs(mp->rtp->seq_num); 
 	if(jb->next_exp_seq) {
 		mutex_lock(&jb->lock);
