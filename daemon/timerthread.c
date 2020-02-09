@@ -92,8 +92,10 @@ nope:
 static int timerthread_queue_run_one(struct timerthread_queue *ttq,
 		struct timerthread_queue_entry *ttqe,
 		void (*run_func)(struct timerthread_queue *, void *)) {
-	if (ttqe->when.tv_sec && timeval_cmp(&ttqe->when, &rtpe_now) > 0)
-		return -1; // not yet
+	if (ttqe->when.tv_sec && timeval_cmp(&ttqe->when, &rtpe_now) > 0) {
+		if(timeval_diff(&ttqe->when, &rtpe_now) > 1000) // not to queue packet less than 1ms
+			return -1; // not yet
+	}
 	run_func(ttq, ttqe);
 	return 0;
 }
