@@ -4,23 +4,25 @@
 #include "call.h"
 #include "codec.h"
 #include "main.h"
+#include <math.h>
 
 #define INITIAL_PACKETS 0x1E
 #define CONT_SEQ_COUNT 0x64
 #define CONT_MISS_COUNT 0x0A
-#define CONT_INCORRECT_BUFFERING 0x14
+#define CLOCK_DRIFT_MULT 0x14
 
 
 static struct timerthread jitter_buffer_thread;
 
 
 void jitter_buffer_init(void) {
+	ilog(LOG_INFO, "jitter_buffer_init");
 	timerthread_init(&jitter_buffer_thread, timerthread_queue_run);
 }
 
 // jb is locked
 static void reset_jitter_buffer(struct jitter_buffer *jb) {
-	ilog(LOG_DEBUG, "reset_jitter_buffer");
+	ilog(LOG_INFO, "reset_jitter_buffer");
 
 	jb->first_send_ts  	= 0;
 	jb->first_send.tv_sec 	= 0;
@@ -33,12 +35,9 @@ static void reset_jitter_buffer(struct jitter_buffer *jb) {
 	jb->next_exp_seq  	= 0;
 	jb->clock_rate    	= 0;
 	jb->payload_type  	= 0;
-	jb->cont_buff_err       = 0;
+	jb->drift_mult_factor   = 0;
 	jb->buf_decremented     = 0;
 	jb->clock_drift_val     = 0;
-	jb->clock_drift_enable  = 0;
-
-	jb_packet_free(&jb->p);
 
 	jb->num_resets++;
 
@@ -89,7 +88,7 @@ static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
 	str_init_len(&p->mp.raw, buf + RTP_BUFFER_HEAD_ROOM, s->len);
 	memcpy(p->mp.raw.s, s->s, s->len);
 
-	if(rtp_payload(&p->mp.rtp, &p->mp.payload, s)) {
+	if(rtp_payload(&p->mp.rtp, &p->mp.payload, &p->mp.raw)) {
 		jb_packet_free(&p);
 		return NULL;
 	}
@@ -148,15 +147,21 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 
 static void handle_clock_drift(struct media_packet *mp) {
 	ilog(LOG_DEBUG, "handle_clock_drift");
-	unsigned long ts = ntohl(mp->rtp->timestamp);
 	struct jitter_buffer *jb = mp->stream->jb;
+	int seq_diff = ntohs(mp->rtp->seq_num) - jb->first_seq;
+
+	int mult_factor = pow(2, jb->drift_mult_factor);
+
+	if(seq_diff < (mult_factor * CLOCK_DRIFT_MULT))
+		return;
+
+	unsigned long ts = ntohl(mp->rtp->timestamp);
 	int payload_type =  (mp->rtp->m_pt & 0x7f);
 	int clockrate = get_clock_rate(mp, payload_type);
 	if(!clockrate) {
 		return;
 	}
 	long ts_diff = (uint32_t) ts - (uint32_t) jb->first_send_ts;
-	int seq_diff = ntohs(mp->rtp->seq_num) - jb->first_seq;
 	long long ts_diff_us =
 		(long long) (ts_diff)* 1000000 / clockrate;
 	struct timeval to_send = jb->first_send;
@@ -164,8 +169,7 @@ static void handle_clock_drift(struct media_packet *mp) {
 	long long time_diff = timeval_diff(&rtpe_now, &to_send);
 
 	jb->clock_drift_val = time_diff/seq_diff;
-	jb->clock_drift_enable = 0;
-	jb->cont_buff_err = 0;
+	jb->drift_mult_factor++;
 }
 
 int buffer_packet(struct media_packet *mp, const str *s) {
@@ -201,16 +205,10 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 		jb->rtptime_delta = 0;
 	}
 
-	if(jb->clock_drift_enable)
-		handle_clock_drift(mp);
-
 	if (jb->first_send.tv_sec) {
+		if(rtpe_config.jb_clock_drift)
+			handle_clock_drift(mp);
 		ret = queue_packet(mp,p);
-		if(!ret && jb->p) {
-			// push first packet into jitter buffer
-			queue_packet(&jb->p->mp,jb->p);
-			jb->p = NULL;
-		}
 	}
 	else {
 		// store data from first packet and use for successive packets and queue the first packet
@@ -228,8 +226,6 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 		p->ttq_entry.when = jb->first_send = rtpe_now;
 		jb->first_send_ts = ts;
 		jb->first_seq = ntohs(mp->rtp->seq_num);
-		jb->p = p;
-		ret = 0;
 	}
 
 	// packet consumed?
@@ -260,10 +256,12 @@ static void decrement_buffer(struct jitter_buffer *jb) {
 	}
 }
 
-static int set_jitter_values(struct media_packet *mp) {
+static void set_jitter_values(struct media_packet *mp) {
 	int ret=0;
-	int curr_seq = ntohs(mp->rtp->seq_num); 
 	struct jitter_buffer *jb = mp->stream->jb;
+        if(!jb || !mp->rtp)
+                return;
+	int curr_seq = ntohs(mp->rtp->seq_num); 
 	if(jb->next_exp_seq) {
 		mutex_lock(&jb->lock);
 		if(curr_seq > jb->next_exp_seq) {
@@ -275,7 +273,6 @@ static int set_jitter_values(struct media_packet *mp) {
 		else if(curr_seq < jb->next_exp_seq) { //Might be duplicate or sequence already crossed
 			jb->cont_frames = 0;
 			jb->cont_miss++;
-			ret=1;
 		}
 		else {
 			jb->cont_frames++;
@@ -293,18 +290,6 @@ static int set_jitter_values(struct media_packet *mp) {
 	}
 	if(curr_seq >= jb->next_exp_seq)
 		jb->next_exp_seq = curr_seq + 1;
-
-	int len = g_tree_nnodes(jb->ttq.entries);
-
-	if(len > jb->buffer_len || len < jb->buffer_len) {
-		jb->cont_buff_err++;
-		if((jb->cont_buff_err > CONT_INCORRECT_BUFFERING) && rtpe_config.jb_clock_drift)
-			jb->clock_drift_enable=1; 
-	}
-	else
-		jb->cont_buff_err = 0;
-
-	return ret;
 }
 
 static void __jb_send_later(struct timerthread_queue *ttq, void *p) {
@@ -360,8 +345,6 @@ void jitter_buffer_free(struct jitter_buffer **jbp) {
 	mutex_destroy(&(*jbp)->lock);
 	if ((*jbp)->call)
 		obj_put((*jbp)->call);
-	g_slice_free1(sizeof(**jbp), *jbp);
-	*jbp = NULL;
 }
 
 void jb_packet_free(struct jb_packet **jbp) {

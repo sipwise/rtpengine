@@ -15,7 +15,6 @@ struct jb_packet {
 	struct timerthread_queue_entry ttq_entry;
 	char *buf;
 	struct media_packet mp;
-	//int buffered;
 };
 
 struct jitter_buffer {
@@ -32,12 +31,10 @@ struct jitter_buffer {
 	unsigned int            payload_type;
 	unsigned int            num_resets;
 	unsigned int            initial_pkts;
-	unsigned int            cont_buff_err;
+	unsigned int            drift_mult_factor;
 	int            		buffer_len;
 	int                     clock_drift_val;
-	int                     clock_drift_enable; //flag for buffer overflow underflow
 	int                     buf_decremented;
-	struct jb_packet 	*p;
 	struct call             *call;
 	int			disabled;
 };
@@ -49,8 +46,6 @@ void jitter_buffer_free(struct jitter_buffer **);
 
 int buffer_packet(struct media_packet *mp, const str *s);
 void jb_packet_free(struct jb_packet **jbp);
-
-//int set_jitter_values(struct media_packet *mp);
 
 void jitter_buffer_loop(void *p);
 

@@ -2261,7 +2261,7 @@ no_stats_output:
 		ps = l->data;
 
 		send_timer_put(&ps->send_timer);
-		jitter_buffer_free(&ps->jb);
+		obj_put(&ps->jb->ttq.tt_obj);
 		__unkernelize(ps);
 		dtls_shutdown(ps);
 		ps->selected_sfd = NULL;
