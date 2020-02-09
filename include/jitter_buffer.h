@@ -49,4 +49,11 @@ void jb_packet_free(struct jb_packet **jbp);
 
 void jitter_buffer_loop(void *p);
 
+INLINE void jb_put(struct jitter_buffer **jb) {
+        if (!*jb)
+                return;
+        obj_put(&(*jb)->ttq.tt_obj);
+        *jb = NULL;
+}
+
 #endif

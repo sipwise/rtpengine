@@ -2261,7 +2261,7 @@ no_stats_output:
 		ps = l->data;
 
 		send_timer_put(&ps->send_timer);
-		obj_put(&ps->jb->ttq.tt_obj);
+                jb_put(&ps->jb);
 		__unkernelize(ps);
 		dtls_shutdown(ps);
 		ps->selected_sfd = NULL;

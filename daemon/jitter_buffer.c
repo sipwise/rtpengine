@@ -257,7 +257,6 @@ static void decrement_buffer(struct jitter_buffer *jb) {
 }
 
 static void set_jitter_values(struct media_packet *mp) {
-	int ret=0;
 	struct jitter_buffer *jb = mp->stream->jb;
         if(!jb || !mp->rtp)
                 return;
