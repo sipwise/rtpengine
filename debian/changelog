@@ -1,3 +1,24 @@
+ngcp-rtpengine (7.5.4.0+0~mr7.5.4.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6564bf0] compile fix for glib versions < 2.30
+  * [1e27fa4] TT#71451 add default directories for rtpengine-recording
+  * [87dfd98] fix incorrect parameter type used for homer-id=
+  * [c650d87] TT#72350 add proper CLI options support to rtpengine-ctl
+  * [dcdb066] TT#72350 move default values to post-getopt
+  * [9b6e382] TT#72350 read default values from config file
+  * [85d1024] byte-swap homer ID as required
+  * [57d6415] TT#73401 handle changes in RTP payload types
+  * [5d56cd9] TT#73900 ignore stray RTCP packets when confirming peer addresses
+  * [860a9fd] TT#74050 handle sinks with null addresses correctly
+  * [57e64a1] TT#75050 fix SRTP index slip while transcoding
+  * [5e6bac6] TT#74651 fix several mem/resource leaks
+  * [5c7de88] TT#75351 delete DB streams that have no corresponding file
+  * [5c6fd39] TT#75352 add a storage container for codec handlers
+  * [7ee63b8] TT#75352 don't attempt to send uninitialised packets
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 10 Feb 2020 16:37:24 +0100
+
 ngcp-rtpengine (7.5.3.0+0~mr7.5.3.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
