@@ -1033,6 +1033,9 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 		// this is actually a DTMF -> PCM handler
 		// grab our underlying PCM transcoder
 		struct codec_ssrc_handler *output_ch = __output_ssrc_handler(ch, mp);
+		if (G_UNLIKELY(!ch->encoder))
+			goto skip;
+
 		// init some vars
 		if (!ch->first_ts)
 			ch->first_ts = output_ch->first_ts;
@@ -1073,6 +1076,7 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 		obj_put(&output_ch->h);
 	}
 
+skip:;
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->ignore_seq) // inject original seq
@@ -1565,6 +1569,13 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 		else
 			ch->skip_pts = 0;
 		ilog(LOG_DEBUG, "Discarding %i samples", frame->nb_samples);
+		goto discard;
+	}
+
+	if (G_UNLIKELY(!ch->encoder)) {
+		ilog(LOG_INFO | LOG_FLAG_LIMIT,
+				"Discarding decoded %i PCM samples due to lack of output encoder",
+				frame->nb_samples);
 		goto discard;
 	}
 
