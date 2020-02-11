@@ -84,6 +84,7 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 static int redis_check_conn(struct redis *r);
 static void json_restore_call(struct redis *r, const str *id, enum call_type type);
 static void redis_update_call_details(struct redis *r, struct call *call);
+static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *media);
 static int redis_connect(struct redis *r, int wait);
 
 static void redis_pipe(struct redis *r, const char *fmt, ...) {
@@ -1642,6 +1643,25 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
 		redis_hash_get_str(&meta, &call, "recording_metadata");
 		recording_start(c, s.s, &meta);
+	}
+
+	/* because json_medias() failed to implement dtls updates, and I can't suffer to re-implement it their way, just use our new parser */
+	redis_call_t *redis_call = redis_call_create(&c->callid, json_parser_get_root(parser));
+	err = "new parser failed to parse JSON data";
+	if (!redis_call)
+		goto err1;
+	for (GList *ml = c->medias.head; ml; ml = ml->next) {
+		struct call_media *m = ml->data;
+		redis_call_media_t *media = g_queue_peek_nth(redis_call->media, m->unique_id);
+		if (!media) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: missing media %u",
+			     STR_FMT_M(&c->callid), m->unique_id);
+			continue; /* weird... */
+		}
+		if (redis_update_call_crypto(m, media)) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: error in update crypto",
+			     STR_FMT_M(&c->callid));
+		}
 	}
 
 	err = NULL;
