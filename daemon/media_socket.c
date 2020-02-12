@@ -1613,7 +1613,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 
 	/* wait at least 3 seconds after last signal before committing to a particular
 	 * endpoint address */
-	if (!phc->mp.call->last_signal || rtpe_now.tv_sec <= phc->mp.call->last_signal + 3)
+	if (!phc->mp.call->last_signal.tv_sec || rtpe_now.tv_sec <= phc->mp.call->last_signal.tv_sec + 3)
 		goto update_peerinfo;
 
 confirm_now:

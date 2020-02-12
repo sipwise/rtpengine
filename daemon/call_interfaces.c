@@ -1361,7 +1361,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 
 	bencode_dictionary_add_integer(output, "created", call->created.tv_sec);
 	bencode_dictionary_add_integer(output, "created_us", call->created.tv_usec);
-	bencode_dictionary_add_integer(output, "last signal", call->last_signal);
+	bencode_dictionary_add_integer(output, "last signal", call->last_signal.tv_sec);
 	ng_stats_ssrc(bencode_dictionary_add_dictionary(output, "SSRC"), call->ssrc_hash);
 
 	tags = bencode_dictionary_add_dictionary(output, "tags");

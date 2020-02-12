@@ -25,6 +25,17 @@
 	else goto fail; \
 }
 
+#define JSON_UPDATE_TVAL_FIELD_IF_SET(json, key, field) {\
+	long long llval = json_object_get_ll(json, key); \
+	if (llval >= 0) timeval_from_us(&field, llval); \
+}
+
+#define JSON_UPDATE_TVAL_FIELD_IF_SET_OR_FAIL(json, key, field) {\
+	long long llval = json_object_get_ll(json, key); \
+	if (llval >= 0) timeval_from_us(&field, llval); \
+	else goto fail; \
+}
+
 /**
  * Helper for using obj_put as a (*GDestroyNotify) parameter for glib.
  *
@@ -525,8 +536,8 @@ static redis_call_t* redis_call_create_from_metadata(const str* callid, JsonObje
 
 	callref = obj_alloc0("redis_call", sizeof(*callref), redis_call_free);
 	callref->call_id = str_dup(callid);
-	JSON_UPDATE_NUM_FIELD_IF_SET_OR_FAIL(json, "created", callref->created);
-	JSON_UPDATE_NUM_FIELD_IF_SET(json, "last_signal", callref->last_signal);
+	JSON_UPDATE_TVAL_FIELD_IF_SET_OR_FAIL(json, "created", callref->created);
+	JSON_UPDATE_TVAL_FIELD_IF_SET(json, "last_signal", callref->last_signal);
 	JSON_UPDATE_BOOL_FIELD_IF_SET(json, "deleted", callref->deleted);
 	JSON_UPDATE_BOOL_FIELD_IF_SET(json, "ml_deleted", callref->ml_deleted);
 	callref->created_from = json_object_get_str(json, "created_from");

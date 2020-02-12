@@ -120,8 +120,8 @@ typedef struct redis_call_media {
 typedef struct redis_call {
 	struct obj		obj;
 	str*			call_id;
-	unsigned long long	created;
-	unsigned long		last_signal;
+	struct timeval		created;
+	struct timeval		last_signal;
 	unsigned		tos;
 	gboolean		deleted;
 	gboolean		ml_deleted;

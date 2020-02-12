@@ -377,7 +377,7 @@ struct call {
 
 	str			callid;
 	struct timeval		created;
-	time_t			last_signal;
+	struct timeval		last_signal;
 	time_t			deleted;
 	time_t			ml_deleted;
 	unsigned char		tos;

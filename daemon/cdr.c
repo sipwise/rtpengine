@@ -58,7 +58,7 @@ void cdr_update_entry(struct call* c) {
 			ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 			printlen = snprintf(cdrbufcur,CDRBUFREMAINDER,"created_from=%s, ", c->created_from);
 			ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
-			printlen = snprintf(cdrbufcur,CDRBUFREMAINDER,"last_signal=%llu, ", (unsigned long long)c->last_signal);
+			printlen = snprintf(cdrbufcur,CDRBUFREMAINDER,"last_signal=%llu, ", (unsigned long long)c->last_signal.tv_sec);
 			ADJUSTLEN(printlen,cdrbufend,cdrbufcur);
 			printlen = snprintf(cdrbufcur,CDRBUFREMAINDER,"tos=%u, ", (unsigned int)c->tos);
 			ADJUSTLEN(printlen,cdrbufend,cdrbufcur);

@@ -150,7 +150,7 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	}
 
 	if (c->deleted && rtpe_now.tv_sec >= c->deleted
-			&& c->last_signal <= c->deleted)
+			&& c->last_signal.tv_sec <= c->deleted)
 		goto delete;
 
 	if (c->ml_deleted && rtpe_now.tv_sec >= c->ml_deleted) {
@@ -1830,7 +1830,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	monologue = other_ml->active_dialogue;
 	call = monologue->call;
 
-	call->last_signal = rtpe_now.tv_sec;
+	call->last_signal = rtpe_now;
 	call->deleted = 0;
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
