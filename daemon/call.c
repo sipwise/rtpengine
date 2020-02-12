@@ -45,6 +45,7 @@
 #include "graphite.h"
 #include "codec.h"
 #include "media_player.h"
+#include "jitter_buffer.h"
 
 
 /* also serves as array index for callstream->peers[] */
@@ -904,6 +905,9 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
 	recording_init_stream(stream);
 	stream->send_timer = send_timer_new(stream);
+
+	if (rtpe_config.jb_length)
+		stream->jb = jitter_buffer_new(call);
 
 	return stream;
 }
@@ -2257,6 +2261,7 @@ no_stats_output:
 		ps = l->data;
 
 		send_timer_put(&ps->send_timer);
+		jb_put(&ps->jb);
 		__unkernelize(ps);
 		dtls_shutdown(ps);
 		ps->selected_sfd = NULL;
