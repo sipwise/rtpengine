@@ -5,6 +5,7 @@
 #include "codec.h"
 #include "main.h"
 #include <math.h>
+#include <errno.h>
 
 #define INITIAL_PACKETS 0x1E
 #define CONT_SEQ_COUNT 0x64
