@@ -82,8 +82,7 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 #define REDIS_FMT(x) (int) (x)->len, (x)->str
 
 static int redis_check_conn(struct redis *r);
-static void json_restore_call(struct redis *r, const str *id, enum call_type type);
-static void redis_update_call_details(struct redis *r, struct call *call);
+static void redis_update_call(str *callid, struct redis *r, struct call *call);
 static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *media);
 static int redis_connect(struct redis *r, int wait);
 
@@ -366,15 +365,8 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 		c = call_get(&callid);
 		if (c) {
 			rwlock_unlock_w(&c->master_lock);
-			if (IS_FOREIGN_CALL(c))
-				call_destroy(c);
-			else {
-				rlog(LOG_WARN, "Trying to read new endpoints from redis");
-				redis_update_call_details(r, c);
-				goto err; // this no longer an error, but we'll still go there to bypass json_restore_call
-			}
 		}
-		json_restore_call(r, &callid, CT_FOREIGN_CALL);
+		redis_update_call(&callid, r, c);
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
@@ -1525,8 +1517,7 @@ static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
 	return 0;
 }
 
-static void json_restore_call(struct redis *r, const str *callid, enum call_type type) {
-	redisReply* rr_jsonStr;
+static void json_restore_call(JsonParser *parser, const str *callid, enum call_type type) {
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
 	struct call *c = NULL;
@@ -1535,17 +1526,7 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 	const char *err = 0;
 	int i;
 	JsonReader *root_reader =0;
-	JsonParser *parser =0;
 
-	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
-	err = "could not retrieve JSON data from redis";
-	if (!rr_jsonStr)
-		goto err1;
-
-	parser = json_parser_new();
-	err = "could not parse JSON data";
-	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
-		goto err1;
 	root_reader = json_reader_new (json_parser_get_root (parser));
 	err = "could not read JSON data";
 	if (!root_reader)
@@ -1683,11 +1664,6 @@ err2:
 err1:
 	if (root_reader)
 		g_object_unref (root_reader);
-	if (parser)
-		g_object_unref (parser);
-	if (rr_jsonStr)
-		freeReplyObject(rr_jsonStr);	
-	log_info_clear();
 	if (err) {
 		rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s",
 				STR_FMT_M(callid),
@@ -1881,7 +1857,6 @@ static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *me
 	const struct dtls_hash_func *found_hash_func;
 
 	if (media->fingerprint.hash_func_name && !m->fingerprint.hash_func) {
-		/* json_restore_call() doesn't do this - should we? */
 		found_hash_func = dtls_find_hash_func(media->fingerprint.hash_func_name);
 		if (found_hash_func) {
 			rlog(LOG_DEBUG, "Updating crypto for call ID '" STR_FORMAT_M "', media %u from Redis",
@@ -1932,29 +1907,12 @@ static int redis_update_call_media(struct call *c, redis_call_t* redis_call) {
 	return 0;
 }
 
-static void redis_update_call_details(struct redis *r, struct call *c) {
-	redisReply* rr_jsonStr;
-	redis_call_t *redis_call = NULL;
+static void redis_update_call_details(redis_call_t *redis_call, struct call *c) {
 	const char *err = NULL;
-	JsonParser *parser = NULL;
 
-	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(&c->callid));
-	err = "could not retrieve JSON data from redis";
-	if (!rr_jsonStr)
-		goto fail;
-
-	parser = json_parser_new();
-	err = "could not parse JSON data";
-	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
-		goto fail;
-	redis_call = redis_call_create(&c->callid, json_parser_get_root(parser));
-	err = "could not read JSON data";
-	if (!redis_call)
-		goto fail;
-
-	if (timeval_us(&c->last_signal) == timeval_us(&redis_call->last_signal)) {
+	if (timeval_us(&c->last_signal) >= timeval_us(&redis_call->last_signal)) {
 		rlog(LOG_INFO, "Ignoring Redis notification without update");
-		goto done;
+		return;
 	}
 
 	c->last_signal = redis_call->last_signal;
@@ -1971,16 +1929,83 @@ static void redis_update_call_details(struct redis *r, struct call *c) {
 	if (redis_update_call_media(c, redis_call))
 		goto fail;
 
-	goto done;
+	return;
 
 fail:
 	rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: %s",
 		STR_FMT_M(&c->callid),
 		err);
 
+}
+
+static void redis_update_call(str *callid, struct redis *r, struct call *call) {
+	redisReply* rr_jsonStr;
+	redis_call_t *redis_call = NULL;
+	const char *err = NULL;
+	JsonParser *parser = NULL;
+
+	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
+	err = "could not retrieve JSON data from redis";
+	if (!rr_jsonStr)
+		goto fail;
+
+	rlog(LOG_INFO, "Received call '" STR_FORMAT_M "' data from redis, call looks like this: %s",
+	     STR_FMT_M(callid), rr_jsonStr->str);
+
+	parser = json_parser_new();
+	err = "could not parse JSON data";
+	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
+		goto fail;
+	redis_call = redis_call_create(callid, json_parser_get_root(parser));
+	err = "could not read JSON data";
+	if (!redis_call)
+		goto fail;
+
+	if (!call) { /* a new call published by the primary */
+		/* call the old reader (for now) as it knows how to create a call from scratch */
+		/* TODO: verify the new reader in call create scenarios and dump the old code */
+		rlog(LOG_INFO, "Creating a new call from redis");
+		json_restore_call(parser, callid, CT_FOREIGN_CALL);
+		goto done;
+	}
+
+	rlog(LOG_INFO, "Updating call data from redis");
+	redis_update_call_details(redis_call, call);
+	goto done;
+
+fail:
+	rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: %s",
+	     STR_FMT_M(callid), err);
 done:
 	if (redis_call)
 		obj_put(redis_call);
+	if (parser)
+		g_object_unref (parser);
+	if (rr_jsonStr)
+		freeReplyObject(rr_jsonStr);
+	log_info_clear();
+}
+
+static void json_parse_end_restore_call(struct redis *r, str *callid, enum call_type type) {
+	redisReply* rr_jsonStr;
+	const char *err = NULL;
+	JsonParser *parser = NULL;
+
+	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
+	err = "could not retrieve JSON data from redis";
+	if (!rr_jsonStr)
+		goto fail;
+
+	parser = json_parser_new();
+	err = "could not parse JSON data";
+	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
+		goto fail;
+	json_restore_call(parser, callid, type);
+	goto done;
+fail:
+	rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s",
+	     STR_FMT_M(callid), err);
+done:
 	if (parser)
 		g_object_unref (parser);
 	if (rr_jsonStr)
@@ -2006,7 +2031,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	r = g_queue_pop_head(&ctx->r_q);
 	mutex_unlock(&ctx->r_m);
 
-	json_restore_call(r, &callid, CT_OWN_CALL);
+	json_parse_end_restore_call(r, &callid, CT_OWN_CALL);
 
 	mutex_lock(&ctx->r_m);
 	g_queue_push_tail(&ctx->r_q, r);
