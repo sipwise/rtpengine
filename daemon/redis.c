@@ -1165,6 +1165,7 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 	unsigned int i;
 	struct redis_hash *rh;
 	struct packet_stream *ps;
+	unsigned int ps_last_packet;
 
 	for (i = 0; i < streams->len; i++) {
 		rh = &streams->rh[i];
@@ -1173,7 +1174,8 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 		if (!ps)
 			return -1;
 
-		atomic64_set_na(&ps->last_packet, time(NULL));
+		redis_hash_get_unsigned(&ps_last_packet, rh, "last_packet");
+		atomic64_set_na(&ps->last_packet, ps_last_packet);
 		if (redis_hash_get_unsigned((unsigned int *) &ps->ps_flags, rh, "ps_flags"))
 			return -1;
 		if (redis_hash_get_unsigned((unsigned int *) &ps->component, rh, "component"))
