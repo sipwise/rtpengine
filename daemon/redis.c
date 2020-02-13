@@ -1857,6 +1857,8 @@ static void redis_update_call_crypto_sync_sdes_params(GQueue *m_sdes_q, GQueue *
 
 static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *media) {
 	const struct dtls_hash_func *found_hash_func;
+	int needReinitCrypto = 0;
+	AUTO_CLEANUP_BUF(paramsbuf);
 
 	if (media->fingerprint.hash_func_name && !m->fingerprint.hash_func) {
 		found_hash_func = dtls_find_hash_func(media->fingerprint.hash_func_name);
@@ -1868,10 +1870,36 @@ static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *me
 		}
 	}
 
-	if (media->sdes_in && m->sdes_in.length != media->sdes_in->length)
+	if (media->sdes_in && m->sdes_in.length != media->sdes_in->length) {
+		rlog(LOG_DEBUG, "Need update input crypto");
 		redis_update_call_crypto_sync_sdes_params(&m->sdes_in, media->sdes_in);
-	if (media->sdes_out && m->sdes_out.length != media->sdes_out->length)
+		++needReinitCrypto;
+	}
+	if (media->sdes_out && m->sdes_out.length != media->sdes_out->length) {
+		rlog(LOG_DEBUG, "Need update output crypto");
 		redis_update_call_crypto_sync_sdes_params(&m->sdes_out, media->sdes_out);
+		++needReinitCrypto;
+	}
+
+	if (!needReinitCrypto)
+		return 0;
+
+	/* re-init crypto context after update. No easy access to call.c's methods so here is a copy of __init_stream() */
+	for (GList *ml = m->streams.head; ml; ml = ml->next) {
+		struct packet_stream* ps = ml->data;
+		for (GList *l = ps->sfds.head; l; l = l->next) {
+			struct stream_fd *sfd = l->data;
+			struct crypto_params_sdes *cps = m->sdes_in.head ? m->sdes_in.head->data : NULL;
+			crypto_init(&sfd->crypto, cps ? &cps->params : NULL);
+			ilog(LOG_DEBUG, "[%s] Initialized incoming SRTP with SDES crypto params: %s%s%s",
+				endpoint_print_buf(&sfd->socket.local),
+				FMT_M(crypto_params_sdes_dump(cps, &paramsbuf)));
+		}
+		struct crypto_params_sdes *cps = m->sdes_out.head ? m->sdes_out.head->data : NULL;
+		crypto_init(&ps->crypto, cps ? &cps->params : NULL);
+		ilog(LOG_DEBUG, "[%i] Initialized outgoing SRTP with SDES crypto params: %s%s%s",
+			ps->component, FMT_M(crypto_params_sdes_dump(cps, &paramsbuf)));
+	}
 
 	return 0;
 }
