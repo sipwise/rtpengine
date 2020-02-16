@@ -1685,7 +1685,7 @@ err1:
 static int redis_update_call_streams(struct call *c, redis_call_t *redis_call) {
 	GQueue* redis_call_streams;
 	redis_call_media_stream_t *stream;
-	unsigned int i, updated = 0;
+	unsigned int updated = 0;
 	struct packet_stream *ps;
 	GList *pk;
 	struct endpoint endpoint, advertised_endpoint;
@@ -1693,10 +1693,10 @@ static int redis_update_call_streams(struct call *c, redis_call_t *redis_call) {
 	if (!(redis_call_streams = redis_call_get_streams(redis_call)))
 		return -1;
 	// review call streams and only update where needed
-	for (i = 0, pk = c->streams.head; pk && (i < redis_call_streams->length); pk = pk->next, i++) {
+	for (pk = c->streams.head; pk; pk = pk->next) {
 		ps = pk->data;
 		ZERO(endpoint);
-		stream = g_queue_peek_nth(redis_call_streams, i);
+		stream = g_queue_peek_nth(redis_call_streams, ps->unique_id);
 		if (stream->endpoint->len)
 			endpoint_parse_any(&endpoint, stream->endpoint->s);
 		if (stream->advertised_endpoint->len)
