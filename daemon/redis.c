@@ -85,6 +85,7 @@ static int redis_check_conn(struct redis *r);
 static void redis_update_call(str *callid, struct redis *r, struct call *call);
 static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *media);
 static int redis_connect(struct redis *r, int wait);
+static char* redis_encode_json(struct call *c);
 
 static void redis_pipe(struct redis *r, const char *fmt, ...) {
 	va_list ap;
@@ -2202,7 +2203,7 @@ static void json_update_dtls_fingerprint(JsonBuilder *builder, const char *pref,
  * encodes the few (k,v) pairs for one call under one json structure
  */
 
-char* redis_encode_json(struct call *c) {
+static char* redis_encode_json(struct call *c) {
 
 	GList *l=0,*k=0, *m=0, *n=0;
 	struct endpoint_map *ep;
