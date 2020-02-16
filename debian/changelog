@@ -1,3 +1,25 @@
+ngcp-rtpengine (8.3.0.0+0~mr8.3.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d1e3dc0] byte-swap homer ID as required
+  * [64e56d7] TT#73401 handle changes in RTP payload types
+  * [1c72636] TT#73401 remove useless assertion
+  * [9e05578] wrap-and-sort -ast
+  * [6d22af9] TT#73900 ignore stray RTCP packets when confirming peer addresses
+  * [f23aa26] TT#74050 add support for `unidirectional` flag to test script
+  * [2a2e3f3] TT#74050 handle sinks with null addresses correctly
+  * [5ac0756] TT#74300 run indent over cli_incoming_list_callid
+  * [c3f5282] TT#74300 adapt CLI output to match log output for call stats
+  * [08cdb4c] TT#74300 split intro for call-id CLI output
+
+  [ Sebastian Damm ]
+  * [8d7a77d] debian/control: add libconfig-tiny-perl dependency
+
+  [ Daniel-Constantin Mierla ]
+  * [5b0bee7] use pkg-config to detect xtables library for iptables-extension
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 27 Jan 2020 12:25:42 +0100
+
 ngcp-rtpengine (8.2.0.0+0~mr8.2.0.0) unstable; urgency=medium
 
   [ Michael Prokop ]
@@ -472,7 +494,7 @@ ngcp-rtpengine (6.4.0.0+0~mr6.4.0.0) unstable; urgency=medium
 
   [ netaskd ]
   * [5ce19a8] add homer options to el configuration
-  * [62ec9cc] add posibility to use different kernel version
+  * [62ec9cc] add possibility to use different kernel version
 
   [ Michael Prokop ]
   * [4d4abfa] TT#34358 Depend on lsb-release in ngcp-rtpengine-kernel-dkms package.
@@ -699,7 +721,7 @@ ngcp-rtpengine (6.1.0.0+0~mr6.1.0.0) unstable; urgency=medium
   * [ca622b4] set TOS for redis streams
   * [d5fea12] check call.recording structure before using it
   * [3dcddf3] recording-daemon: add option to forward calls
-  * [2250ab1] make METADATA section appear in the metafile at intialization when recording using the proc method
+  * [2250ab1] make METADATA section appear in the metafile at initialization when recording using the proc method
   * [ab0cb0c] don't use g_hash_table_foreach for call_timer_iterator
 
   [ Pawel Kuzak ]
@@ -756,7 +778,7 @@ ngcp-rtpengine (6.0.0.0+0~mr6.0.0.0) unstable; urgency=medium
   * [67de59a] check that redisContext is not NULL before using it
   * [b3ce08a] Count multipexed packets in statistics. Don't count errounously when no stream is found fixes #387
   * [b317acd] don't log corrupted cdr for foreign calls
-  * [cf15275] add stop recording comand to ng interface
+  * [cf15275] add stop recording command to ng interface
   * [bb85236] update readme to add stop recording command
 
   [ Michael Prokop ]
@@ -800,7 +822,7 @@ ngcp-rtpengine (5.4.0.0+0~mr5.4.0.0) unstable; urgency=medium
   * [b1e259c] Document libsrtp AES-256 SRTCP bug for interop
 
   [ Frederic-Philippe Metz ]
-  * [8f01e78] First attempt to seperate more stats and cdr away from the core running code
+  * [8f01e78] First attempt to separate more stats and cdr away from the core running code
   * [95d9420] Adds missing log output
   * [27679b1] Moved the json reader locally and removed it from call struct
   * [d885875] Cleanup according to pull req #335
@@ -890,7 +912,7 @@ ngcp-rtpengine (5.3.0.0+0~mr5.3.0.0) unstable; urgency=medium
   [ Frederic-Philippe Metz ]
   * [749a7da] Implements redis onekey concept
   * [9ebd06f] Some fixes for pull request #316
-  * [6a3bcf5] Fixes STR_FMT comment my @rfuchs or pullrequest 316
+  * [6a3bcf5] Fixes STR_FMT comment my @rfuchs or pull request #316
   * [88b89ea] Fixes STR_FMT comment my @rfuchs or pull request #316
   * [ed760fb] Fix more issues from richards comments
   * [ea9512c] Adds URI encoding for json strings in redis.
@@ -1175,7 +1197,7 @@ ngcp-rtpengine (4.5.0.0+0~mr4.5.0.0) unstable; urgency=medium
   * [05f0317] fix the 'media address' parameter
   * [0206f09] fix obj-debug stuff
   * [a813ddf] fix compiler warnings due to conflicting int types
-  * [ee960b7] dont do DTLS when in passthrough mode
+  * [ee960b7] don't do DTLS when in passthrough mode
   * [942966b] force bencode strings as strings in perl ng-client
   * [1f8d8d7] DTLS tests - WIP
   * [bf8c6d9] split ICE stuff into packages
@@ -1420,7 +1442,7 @@ ngcp-rtpengine (4.1.0.0+0~mr4.1.0.0) unstable; urgency=low
   * [29cf9f8] remove redundant code
   * [18977d4] remove calls to setlogmask (not atomic)
   * [ed2c101] preliminary fixup of new kernel stats - needs more work
-  * [a3bcdc5] dont abort on unknown RTCP payload type
+  * [a3bcdc5] don't abort on unknown RTCP payload type
   * [0381b15] further move RTCP logging until after SRTCP decryption
   * [92cc560] don't shut down ICE agent on consecutive re-invites
   * [9c3ad50] use appropriate crypto context for encryption and decryption
@@ -1480,7 +1502,7 @@ ngcp-rtpengine (4.0.0.0+0~mr4.0.0.0) unstable; urgency=medium
   * [93294f8] don't relearn addresses if the endpoint hasn't changed
   * [0b202d8] Fall back to a different address family if the requested one is unavailable
   * [fd99ecf] don't close call on UDP send error
-  * [c0fab9b] various fixes related to ICE negotation and rtcp-mux
+  * [c0fab9b] various fixes related to ICE negotiation and rtcp-mux
   * [2cfc12b] fix incorrect free order of ICE components
 
   [ Peter Lemenkov ]
@@ -1600,18 +1622,18 @@ ngcp-rtpengine (3.3.0.0+0~mr3.8.0.0) unstable; urgency=low
   * [2460836] remove -e argument from awk
   * [19e0281] disable "list" NG command if glib version is too low
   * [b49f57b] avoid DTLS role change on reinvite
-  * [d0beccb] dont break log lines when logging to stderr
+  * [d0beccb] don't break log lines when logging to stderr
   * [8c8ff56] fix pointer const declaration and make it static
   * [955de10] support proper DTLS shutdown and restart DTLS on FP change
   * [6757c27] add DTLS=passive option
-  * [97b472b] dont break legacy control protocols
+  * [97b472b] don't break legacy control protocols
   * [f826d01] make "trust address" the default behaviour
   * [4c408e5] add --dtls-passive switch
   * [d272e9e] add more flags to stats output
   * [e09fbd2] dtls shutdown clears crypto context as well
   * [91221ef] move DTLS setup logic into separate function for readability
   * [50d1839] reset DTLS and crypto params when endpoints change
-  * [3478629] dont output error message on stun SOFTWARE attribute
+  * [3478629] don't output error message on stun SOFTWARE attribute
   * [a1786d6] segfault fix: ps->sfd can be null
   * [4077225] avoid unnecessary DTLS restarts
   * [7e72bfc] MT#10059 allow freeform interface definitions in init.d script
@@ -1708,7 +1730,7 @@ ngcp-rtpengine (3.3.0.0+0~mr3.6.0.0) unstable; urgency=low
   * [d1165df] update EL specs/init file
   * [e830bf5] update for redis module
   * [af9625d] make multi-homing thread safe
-  * [34ca29b] dont escape exclamation points in sh scripts
+  * [34ca29b] don't escape exclamation points in sh scripts
   * [3de07be] s/MEDIAPROXY/RTPENGINE/
   * [c1d7a52] MT#9065 daemon: don't restart if kernel is needed but not yet installed
   * [6379883] fix str_hash() for archs enforcing aligned pointers
@@ -1717,7 +1739,7 @@ ngcp-rtpengine (3.3.0.0+0~mr3.6.0.0) unstable; urgency=low
 
   [ Camille Oudot ]
   * [47b0252] fix null/empty string check in ng_call_stats
-  * [a51db71] new command: 'list' to retreive the list of active call-ids
+  * [a51db71] new command: 'list' to retrieve the list of active call-ids
   * [6005d14] XMLRPC notifications: more formats
   * [81d8616] list command: several fixes + documentation
   * [faf3e22] logging: choose the log facility from the command line, or log to stderr
@@ -1821,7 +1843,7 @@ ngcp-rtpengine (3.3.0.0+0~mr3.3.0.0) unstable; urgency=medium
   * [5198233] make ICE=force_relay leave SDP endpoint details alone
 
   [ Pablo Ruiz García ]
-  * [cf76901] Do not try to install & initialize module if in kernel suppor has been specifically disabled (ie. TABLE < 0)
+  * [cf76901] Do not try to install & initialize module if in kernel support has been specifically disabled (ie. TABLE < 0)
 
  -- Victor Seva <vseva@sipwise.com>  Mon, 26 May 2014 12:23:29 +0200
 
@@ -1886,8 +1908,8 @@ ngcp-mediaproxy-ng (2.3.2) unstable; urgency=low
   [ Richard Fuchs ]
   * [7d82cd2] updating README
   * [2f0ad34] update init script to "provide itself"
-  * [97d3414] fix bug when trust-address isnt given
-  * [5fa1c1e] dont fail on failed rm
+  * [97d3414] fix bug when trust-address isn't given
+  * [5fa1c1e] don't fail on failed rm
   * [13ad042] rename some keys in the ng protocol (replace dash with space) but retain compatibility
   * [bbc5339] implement and document ng "media address"
   * [7e88b38] change port range defaults to match docs

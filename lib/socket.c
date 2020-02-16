@@ -262,7 +262,7 @@ static int __ip_connect(socket_t *s, const endpoint_t *ep) {
 		__C_DBG("connect fail, fd=%d, port=%d", s->fd, s->local.port);
 		return -1;
 	} else {
-		__C_DBG("connect succes, fd=%d, port=%d", s->fd, s->local.port);
+		__C_DBG("connect success, fd=%d, port=%d", s->fd, s->local.port);
 	}
 	return 0;
 }

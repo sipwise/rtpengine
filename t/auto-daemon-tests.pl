@@ -4,191 +4,13 @@ use strict;
 use warnings;
 use NGCP::Rtpengine::Test;
 use NGCP::Rtpclient::SRTP;
+use NGCP::Rtpengine::AutoTest;
 use Test::More;
-use File::Temp;
-use IPC::Open3;
-use Time::HiRes;
-use POSIX ":sys_wait_h";
-use IO::Socket;
 
-like $ENV{LD_PRELOAD}, qr/tests-preload/, 'LD_PRELOAD present';
-is $ENV{RTPE_PRELOAD_TEST_ACTIVE}, '1', 'preload library is active';
-SKIP: {
-	skip 'daemon is running externally', 1 if $ENV{RTPE_TEST_NO_LAUNCH};
-	ok -x $ENV{RTPE_BIN}, 'RTPE_BIN points to executable';
-}
 
-my $rtpe_stdout = File::Temp::tempfile() or die;
-my $rtpe_stderr = File::Temp::tempfile() or die;
-my $rtpe_pid;
-SKIP: {
-	skip 'daemon is running externally', 1 if $ENV{RTPE_TEST_NO_LAUNCH};
-	$rtpe_pid = open3(undef, '>&'.fileno($rtpe_stdout), '>&'.fileno($rtpe_stderr),
-		$ENV{RTPE_BIN}, qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			-n 2223 -c 12345 -f -L 7 -E -u 2222));
-	ok $rtpe_pid, 'daemon launched in background';
-}
-
-# keep trying to connect to the control socket while daemon is starting up
-my $c;
-for (1 .. 300) {
-	$c = NGCP::Rtpengine->new($ENV{RTPENGINE_HOST} // '127.0.0.1', $ENV{RTPENGINE_PORT} // 2223);
-	last if $c->{socket};
-	Time::HiRes::usleep(100000); # 100 ms x 300 = 30 sec
-}
-
-1;
-$c->{socket} or die;
-
-my ($cid, $ft, $tt, @sockets);
-my ($tag_iter) = (0);
-
-sub new_call {
-	my @ports = @_;
-	for my $s (@sockets) {
-		$s->close();
-	}
-	@sockets = ();
-	$cid = $tag_iter++ . "-test-callID";
-	$ft = $tag_iter++ . "-test-fromtag";
-	$tt = $tag_iter++ . "-test-totag";
-	print("new call $cid\n");
-	for my $p (@ports) {
-		my ($addr, $port) = @{$p};
-		my $s = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
-				LocalHost => $addr, LocalPort => $port)
-				or die;
-		push(@sockets, $s);
-	}
-	return @sockets;
-}
-sub crlf {
-	my ($s) = @_;
-	$s =~ s/\r\n/\n/gs;
-	return $s;
-}
-sub sdp_split {
-	my ($s) = @_;
-	return split(/--------*\n/, $s);
-}
-sub rtpe_req {
-	my ($cmd, $name, $req) = @_;
-	$req->{command} = $cmd;
-	$req->{'call-id'} = $cid;
-	my $resp = $c->req($req);
-	is $resp->{result}, 'ok', "$name - '$cmd' status";
-	return $resp;
-}
-sub offer_answer {
-	my ($cmd, $name, $req, $sdps) = @_;
-	my ($sdp_in, $exp_sdp_out) = sdp_split($sdps);
-	$req->{'from-tag'} = $ft;
-	$req->{sdp} = $sdp_in;
-	my $resp = rtpe_req($cmd, $name, $req);
-	my $regexp = "^\Q$exp_sdp_out\E\$";
-	$regexp =~ s/\\\?/./gs;
-	$regexp =~ s/PORT/(\\d{1,5})/gs;
-	$regexp =~ s/ICEBASE/([0-9a-zA-Z]{16})/gs;
-	$regexp =~ s/ICEUFRAG/([0-9a-zA-Z]{8})/gs;
-	$regexp =~ s/ICEPWD/([0-9a-zA-Z]{26})/gs;
-	$regexp =~ s/CRYPTO128/([0-9a-zA-Z\/+]{40})/gs;
-	$regexp =~ s/CRYPTO192/([0-9a-zA-Z\/+]{51})/gs;
-	$regexp =~ s/CRYPTO256/([0-9a-zA-Z\/+]{62})/gs;
-	$regexp =~ s/LOOPER/([0-9a-f]{12})/gs;
-	my $crlf = crlf($resp->{sdp});
-	like $crlf, qr/$regexp/s, "$name - output '$cmd' SDP";
-	my @matches = $crlf =~ qr/$regexp/s;
-	return @matches;
-}
-sub offer {
-	return offer_answer('offer', @_);
-}
-sub answer {
-	my ($name, $req, $sdps) = @_;
-	$req->{'to-tag'} = $tt;
-	return offer_answer('answer', $name, $req, $sdps);
-}
-sub snd {
-	my ($sock, $dest, $packet) = @_;
-	$sock->send($packet, 0, pack_sockaddr_in($dest, inet_aton('203.0.113.1'))) or die;
-}
-sub srtp_snd {
-	my ($sock, $dest, $packet, $srtp_ctx) = @_;
-	if (!$srtp_ctx->{skey}) {
-		my ($key, $salt) = NGCP::Rtpclient::SRTP::decode_inline_base64($srtp_ctx->{key}, $srtp_ctx->{cs});
-		@$srtp_ctx{qw(skey sauth ssalt)} = NGCP::Rtpclient::SRTP::gen_rtp_session_keys($key, $salt);
-	}
-	my ($enc, $out_roc) = NGCP::Rtpclient::SRTP::encrypt_rtp(@$srtp_ctx{qw(cs skey ssalt sauth roc)},
-		'', 0, 0, 0, $packet);
-	$srtp_ctx->{roc} = $out_roc;
-	$sock->send($enc, 0, pack_sockaddr_in($dest, inet_aton('203.0.113.1'))) or die;
-}
-sub rtp {
-	my ($pt, $seq, $ts, $ssrc, $payload) = @_;
-	print("rtp in $pt $seq $ts $ssrc\n");
-	return pack('CCnNN a*', 0x80, $pt, $seq, $ts, $ssrc, $payload);
-}
-sub rcv {
-	my ($sock, $port, $match, $cb, $cb_arg) = @_;
-	my $p = '';
-	alarm(1);
-	my $addr = $sock->recv($p, 65535, 0) or die;
-	alarm(0);
-	my ($hdr_mark, $pt, $seq, $ts, $ssrc, $payload) = unpack('CCnNN a*', $p);
-	if ($payload) {
-		print("rtp recv $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
-	}
-	if ($cb) {
-		$p = $cb->($hdr_mark, $pt, $seq, $ts, $ssrc, $payload, $p, $cb_arg);
-	}
-	like $p, $match, 'received packet matches';
-	my @matches = $p =~ $match;
-	for my $m (@matches) {
-		if (length($m) == 2) {
-			($m) = unpack('n', $m);
-		}
-		elsif (length($m) == 4) {
-			($m) = unpack('N', $m);
-		}
-	}
-	return @matches;
-}
-sub srtp_rcv {
-	my ($sock, $port, $match, $srtp_ctx) = @_;
-	return rcv($sock, $port, $match, \&srtp_dec, $srtp_ctx);
-}
-sub srtp_dec {
-	my ($hdr_mark, $pt, $seq, $ts, $ssrc, $payload, $pack, $srtp_ctx) = @_;
-	if (!$srtp_ctx->{skey}) {
-		my ($key, $salt) = NGCP::Rtpclient::SRTP::decode_inline_base64($srtp_ctx->{key}, $srtp_ctx->{cs});
-		@$srtp_ctx{qw(skey sauth ssalt)} = NGCP::Rtpclient::SRTP::gen_rtp_session_keys($key, $salt);
-	}
-	my ($dec, $out_roc, $tag, $hmac) = NGCP::Rtpclient::SRTP::decrypt_rtp(@$srtp_ctx{qw(cs skey ssalt sauth roc)}, $pack);
-	$srtp_ctx->{roc} = $out_roc;
-	is $tag, substr($hmac, 0, length($tag)), 'SRTP auth tag matches';
-	return $dec;
-}
-sub escape {
-	return "\Q$_[0]\E";
-}
-sub rtpm {
-	my ($pt, $seq, $ts, $ssrc, $payload) = @_;
-	print("rtp matcher $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
-	my $re = '';
-	$re .= escape(pack('C', 0x80));
-	$re .= escape(pack('C', $pt));
-	$re .= $seq >= 0 ? escape(pack('n', $seq)) : '(..)';
-	$re .= $ts >= 0 ? escape(pack('N', $ts)) : '(....)';
-	$re .= $ssrc >= 0 ? escape(pack('N', $ssrc)) : '(....)';
-	$re .= escape($payload);
-	return qr/^$re$/s;
-}
-
-{
-	my $r = $c->req({command => 'ping'});
-	ok $r->{result} eq 'pong', 'ping works, daemon operational';
-}
-
+autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
+			-n 2223 -c 12345 -f -L 7 -E -u 2222))
+		or die;
 
 
 my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, @ret1, @ret2);
@@ -771,7 +593,7 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\x00" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards B',
-	{ 'from-tag' => $ft, code => '0', volume => 10, duration => 100 });
+	{ 'from-tag' => ft(), code => '0', volume => 10, duration => 100 });
 
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(96 | 0x80, 1002, 3320, $ssrc, "\x00\x0a\x00\xa0"));
@@ -798,7 +620,7 @@ snd($sock_b, $port_a, rtp(0, 4001, 8160, 0x6543, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 4001, 8160, $ssrc, "\x00" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards A',
-	{ 'from-tag' => $tt, code => '*', volume => 10, duration => 100 });
+	{ 'from-tag' => tt(), code => '*', volume => 10, duration => 100 });
 
 snd($sock_b, $port_a, rtp(0, 4002, 8320, 0x6543, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(96 | 0x80, 4002, 8320, $ssrc, "\x0a\x0a\x00\xa0"));
@@ -879,7 +701,7 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(8, 1001, 3160, $ssrc, "\x2a" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards B',
-	{ 'from-tag' => $ft, code => '0', volume => 10, duration => 100 });
+	{ 'from-tag' => ft(), code => '0', volume => 10, duration => 100 });
 
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(96 | 0x80, 1002, 3320, $ssrc, "\x00\x0a\x00\xa0"));
@@ -906,7 +728,7 @@ snd($sock_b, $port_a, rtp(8, 4001, 8160, 0x6543, "\x2a" x 160));
 rcv($sock_a, $port_b, rtpm(0, 4001, 8160, $ssrc, "\x00" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards A',
-	{ 'from-tag' => $tt, code => '#', volume => -10, duration => 100 });
+	{ 'from-tag' => tt(), code => '#', volume => -10, duration => 100 });
 
 snd($sock_b, $port_a, rtp(8, 4002, 8320, 0x6543, "\x2a" x 160));
 rcv($sock_a, $port_b, rtpm(96 | 0x80, 4002, 8320, $ssrc, "\x0b\x0a\x00\xa0"));
@@ -981,7 +803,7 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\x00" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards B',
-	{ 'from-tag' => $ft, code => 'C', volume => 5, duration => 120, pause => 110 });
+	{ 'from-tag' => ft(), code => 'C', volume => 5, duration => 120, pause => 110 });
 
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1002, 3320, $ssrc, "\xff\x93\x94\xbc\x2e\x56\xbf\x2b\x13\x1b\xa7\x8e\x98\x47\x25\x41\xe2\x24\x16\x2b\x99\x8e\x9f\x28\x1e\x3d\x5b\x23\x1c\xdf\x92\x8f\xb6\x1c\x1c\x40\x5d\x26\x25\xaa\x8f\x95\x3b\x15\x1d\x5e\xde\x2c\x38\x9d\x8f\x9e\x1f\x11\x20\xc0\xc1\x37\xdd\x99\x92\xb7\x15\x10\x2c\xac\xb5\x49\xb8\x97\x99\x37\x0f\x13\x58\xa0\xae\x67\xae\x99\xa4\x1f\x0d\x1a\xae\x9b\xad\x7b\xad\x9d\xbf\x16\x0e\x27\x9d\x98\xb0\x55\xb1\xa6\x3a\x11\x11\x63\x95\x98\xbf\x3e\xbb\xb4\x26\x10\x1a\xa9\x90\x9a\x4e\x30\xce\xd4\x1e\x12\x29\x99\x8e\xa1\x2d\x29\x6d\x4b\x1c\x18\xef\x91\x8f\xb6\x1f\x24\x57\x3e\x1d\x20\xa9\x8e\x95\x3e\x19\x23\x67\x3e\x21\x31\x9c\x8e\x9e\x22\x14\x26\xcd\x4a"));
@@ -1017,7 +839,7 @@ snd($sock_b, $port_a, rtp(0, 4001, 8160, 0x6543, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 4001, 8160, $ssrc, "\x00" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards A',
-	{ 'from-tag' => $tt, code => '4', volume => 3, duration => 150, pause => 100 });
+	{ 'from-tag' => tt(), code => '4', volume => 3, duration => 150, pause => 100 });
 
 snd($sock_b, $port_a, rtp(0, 4002, 8320, 0x6543, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 4002, 8320, $ssrc, "\xff\x90\x8a\x93\xd9\x1b\x18\x27\x65\xe5\x33\x29\x4c\x9e\x8f\x91\xb8\x15\x09\x0d\x32\x98\x8e\x96\xbb\x2c\x2b\x4c\xd8\x34\x1c\x18\x2e\x9d\x8c\x8c\xa5\x1a\x0b\x0d\x27\xa3\x97\x9e\xbd\x4f\xc4\xaa\xb2\x2c\x12\x0e\x1e\xa1\x8b\x8a\x9c\x25\x0e\x10\x25\xb7\xa7\xb7\x5e\xcb\xa2\x98\x9f\x30\x0f\x0a\x16\xae\x8d\x8a\x98\x3a\x18\x19\x2c\xdd\xfd\x30\x2b\xce\x99\x8e\x95\x4c\x0f\x09\x10\xdf\x93\x8e\x9a\xec\x28\x2c\x56\xee\x2d\x1a\x1a\x48\x97\x8b\x8e\xba\x14\x0a\x0f\x39\x9d\x96\xa1\xcd\x4e\xbe\xab\xbe\x23\x10\x10\x2b\x99\x8a\x8c\xa7\x1b\x0d\x12\x2f\xad\xa7\xbc\x5e\xbd\x9f\x99\xa8\x23\x0d\x0b\x1d\x9f\x8b\x8c\x9f\x29\x16\x1b\x34\xcd\x60\x2f\x2f\xb6\x96"));
@@ -1104,7 +926,7 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(8, 1001, 3160, $ssrc, "\x2a" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards B',
-	{ 'from-tag' => $ft, code => 'C', volume => 5, duration => 120 });
+	{ 'from-tag' => ft(), code => 'C', volume => 5, duration => 120 });
 
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(8, 1002, 3320, $ssrc, "\xd5\xb9\xbe\x97\x05\x70\xea\x01\x3e\x31\x82\xa5\xb2\x63\x0f\x69\xc1\x0f\x3d\x06\xb3\xa4\x8a\x03\x35\x14\x75\x0e\x36\xcc\xb8\xa5\x9d\x36\x36\x68\x49\x0d\x0c\x81\xa5\xbf\x16\x3f\x37\x4f\xcf\x07\x13\xb4\xa5\xb4\x0a\x3b\x0b\xeb\xe9\x12\xc9\xb3\xb8\x92\x3c\x3a\x07\x87\x9c\x61\x93\xb2\xb3\x12\x25\x39\x76\x8b\x85\x5a\x85\xb3\x8e\x35\x24\x30\x85\xb1\x87\x57\x84\xb7\xeb\x3c\x24\x0d\xb4\xb2\x9b\x70\x98\x8c\x11\x3b\x38\x41\xbf\xb2\xeb\x15\x96\x9f\x0d\x3a\x30\x83\xba\xb1\x7b\x1b\xfa\xf2\x34\x39\x03\xb0\xa5\x88\x04\x03\x5f\x67\x37\x32\xdd\xb8\xba\x9d\x35\x0e\x71\x15\x37\x0a\x80\xa4\xbf\x15\x33\x09\x45\x15\x0b\x18\xb6\xa4\xb4\x08\x3f\x0d\xe5\x66"));
@@ -1141,7 +963,7 @@ snd($sock_b, $port_a, rtp(8, 4001, 8160, 0x6543, "\x2a" x 160));
 rcv($sock_a, $port_b, rtpm(0, 4001, 8160, $ssrc, "\x00" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards A',
-	{ 'from-tag' => $tt, code => '4', volume => 3, duration => 150 });
+	{ 'from-tag' => tt(), code => '4', volume => 3, duration => 150 });
 
 snd($sock_b, $port_a, rtp(8, 4002, 8320, 0x6543, "\x2a" x 160));
 rcv($sock_a, $port_b, rtpm(0, 4002, 8320, $ssrc, "\xff\x90\x8a\x93\xd9\x1b\x18\x27\x65\xe5\x33\x29\x4c\x9e\x8f\x91\xb8\x15\x09\x0d\x32\x98\x8e\x96\xbb\x2c\x2b\x4c\xd8\x34\x1c\x18\x2e\x9d\x8c\x8c\xa5\x1a\x0b\x0d\x27\xa3\x97\x9e\xbd\x4f\xc4\xaa\xb2\x2c\x12\x0e\x1e\xa1\x8b\x8a\x9c\x25\x0e\x10\x25\xb7\xa7\xb7\x5e\xcb\xa2\x98\x9f\x30\x0f\x0a\x16\xae\x8d\x8a\x98\x3a\x18\x19\x2c\xdd\xfd\x30\x2b\xce\x99\x8e\x95\x4c\x0f\x09\x10\xdf\x93\x8e\x9a\xec\x28\x2c\x56\xee\x2d\x1a\x1a\x48\x97\x8b\x8e\xba\x14\x0a\x0f\x39\x9d\x96\xa1\xcd\x4e\xbe\xab\xbe\x23\x10\x10\x2b\x99\x8a\x8c\xa7\x1b\x0d\x12\x2f\xad\xa7\xbc\x5e\xbd\x9f\x99\xa8\x23\x0d\x0b\x1d\x9f\x8b\x8c\x9f\x29\x16\x1b\x34\xcd\x60\x2f\x2f\xb6\x96"));
@@ -1228,9 +1050,9 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\x00" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards B',
-	{ 'from-tag' => $ft, code => 'C', volume => 5, duration => 100 });
+	{ 'from-tag' => ft(), code => 'C', volume => 5, duration => 100 });
 $resp = rtpe_req('play DTMF', 'inject DTMF towards B',
-	{ 'from-tag' => $ft, code => '4', volume => 5, duration => 100 });
+	{ 'from-tag' => ft(), code => '4', volume => 5, duration => 100 });
 
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1002, 3320, $ssrc, "\xff\x93\x94\xbc\x2e\x56\xbf\x2b\x13\x1b\xa7\x8e\x98\x47\x25\x41\xe2\x24\x16\x2b\x99\x8e\x9f\x28\x1e\x3d\x5b\x23\x1c\xdf\x92\x8f\xb6\x1c\x1c\x40\x5d\x26\x25\xaa\x8f\x95\x3b\x15\x1d\x5e\xde\x2c\x38\x9d\x8f\x9e\x1f\x11\x20\xc0\xc1\x37\xdd\x99\x92\xb7\x15\x10\x2c\xac\xb5\x49\xb8\x97\x99\x37\x0f\x13\x58\xa0\xae\x67\xae\x99\xa4\x1f\x0d\x1a\xae\x9b\xad\x7b\xad\x9d\xbf\x16\x0e\x27\x9d\x98\xb0\x55\xb1\xa6\x3a\x11\x11\x63\x95\x98\xbf\x3e\xbb\xb4\x26\x10\x1a\xa9\x90\x9a\x4e\x30\xce\xd4\x1e\x12\x29\x99\x8e\xa1\x2d\x29\x6d\x4b\x1c\x18\xef\x91\x8f\xb6\x1f\x24\x57\x3e\x1d\x20\xa9\x8e\x95\x3e\x19\x23\x67\x3e\x21\x31\x9c\x8e\x9e\x22\x14\x26\xcd\x4a"));
@@ -1340,9 +1162,9 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\x00" x 160));
 
 $resp = rtpe_req('play DTMF', 'inject DTMF towards B',
-	{ 'from-tag' => $ft, code => '0', volume => 10, duration => 100 });
+	{ 'from-tag' => ft(), code => '0', volume => 10, duration => 100 });
 $resp = rtpe_req('play DTMF', 'inject DTMF towards B',
-	{ 'from-tag' => $ft, code => '1', volume => 6, duration => 100 });
+	{ 'from-tag' => ft(), code => '1', volume => 6, duration => 100 });
 
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(96 | 0x80, 1002, 3320, $ssrc, "\x00\x0a\x00\xa0"));
@@ -2792,7 +2614,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-$resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => $ft, blob => $wav_file });
+$resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
 my ($ts, $seq);
@@ -2848,7 +2670,7 @@ a=rtcp:PORT
 SDP
 
 
-$resp = rtpe_req('play media', 'media playback, side A', { 'from-tag' => $ft, blob => $wav_file });
+$resp = rtpe_req('play media', 'media playback, side A', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
 ($seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
@@ -2903,7 +2725,7 @@ a=rtcp:PORT
 SDP
 
 
-$resp = rtpe_req('play media', 'media playback, side B', { 'from-tag' => $tt, blob => $wav_file });
+$resp = rtpe_req('play media', 'media playback, side B', { 'from-tag' => tt(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
 ($seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
@@ -2912,7 +2734,7 @@ rcv($sock_b, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_b, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
 rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
-$resp = rtpe_req('play media', 'restart media playback', { 'from-tag' => $tt, blob => $wav_file });
+$resp = rtpe_req('play media', 'restart media playback', { 'from-tag' => tt(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
 $ts += 160 * 5;
@@ -3102,7 +2924,7 @@ a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:DVM+BTeYX2UI1LaA9bgXrcBEDBxoItA9/39fSo
 SDP
 
 
-$resp = rtpe_req('play media', 'media playback, SRTP', { 'from-tag' => $ft, blob => $wav_file });
+$resp = rtpe_req('play media', 'media playback, SRTP', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
 my $srtp_ctx = {
@@ -4046,10 +3868,10 @@ snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
 ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 160));
 
 # reverse re-invite
-($tt, $ft) = ($ft, $tt);
+reverse_tags();
 
 (undef, $port_b) = offer('gh 766 reinvite',
-	{ 'to-tag' => $tt,
+	{ 'to-tag' => tt(),
 	ICE => 'remove', replace => ['origin', 'session-connection'],
 	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
 v=0
@@ -4978,10 +4800,10 @@ a=rtcp:PORT
 a=ptime:20
 SDP
 
-rtpe_req('delete', 'media playback after delete', { 'from-tag' => $ft });
+rtpe_req('delete', 'media playback after delete', { 'from-tag' => ft() });
 
 # new to-tag
-$tt = $tag_iter++ . "-test-totag";
+new_tt();
 
 offer('media playback after delete', { ICE => 'remove', replace => ['origin'],
 	'transport-protocol' => 'transparent', flags => ['strict-source', 'record-call'],
@@ -5053,7 +4875,7 @@ SDP
 
 #rtpe_req('block media', 'media playback after delete', { });
 
-$resp = rtpe_req('play media', 'media playback after delete', { 'from-tag' => $tt, 'to-tag' => $tt,
+$resp = rtpe_req('play media', 'media playback after delete', { 'from-tag' => tt(), 'to-tag' => tt(),
 		blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
@@ -5065,21 +4887,5 @@ rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
 
 
-
-END {
-	if ($rtpe_pid) {
-		kill('INT', $rtpe_pid) or die;
-		# wait for daemon to terminate
-		my $status = -1;
-		for (1 .. 50) {
-			$status = waitpid($rtpe_pid, WNOHANG);
-			last if $status != 0;
-			Time::HiRes::usleep(100000); # 100 ms x 50 = 5 sec
-		}
-		kill('KILL', $rtpe_pid) if $status == 0;
-		$status == $rtpe_pid or die;
-		$? == 0 or die;
-	}
-}
 
 done_testing();

@@ -8,6 +8,7 @@
 #include "codeclib.h"
 #include "aux.h"
 #include "rtplib.h"
+#include "timerthread.h"
 
 
 struct call_media;
@@ -40,11 +41,10 @@ struct codec_handler {
 };
 
 struct codec_packet {
+	struct timerthread_queue_entry ttq_entry;
 	str s;
 	struct rtp_header *rtp;
-	void *source; // opaque
 	void (*free_func)(void *);
-	struct timeval to_send;
 };
 
 

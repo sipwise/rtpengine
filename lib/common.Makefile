@@ -15,7 +15,7 @@ BUILD_TEST_ALTS = fix_frame_channel_layout.h dtmf_rx_fillin.h
 
 clean:
 	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) .depend core core.*
-	rm -f $(BUILD_TEST_ALTS) $(BUILD_TEST_ALTS:.h=-test{.c,}) *.strhash.c $(HASHSRCS)
+	rm -f $(BUILD_TEST_ALTS) $(BUILD_TEST_ALTS:.h=-test.c) $(BUILD_TEST_ALTS:.h=-test) *.strhash.c $(HASHSRCS)
 
 .depend:	$(SRCS) $(LIBSRCS) $(DAEMONSRCS) Makefile
 	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) $(DAEMONSRCS) | sed -e 's/:/ .depend:/' > .depend

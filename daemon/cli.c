@@ -27,6 +27,7 @@
 #include "main.h"
 #include "media_socket.h"
 #include "rtplib.h"
+#include "ssrc.h"
 
 #include "rtpengine_config.h"
 
@@ -590,109 +591,105 @@ static void cli_incoming_list_offertimeout(str *instr, struct streambuf *replybu
 }
 
 static void cli_incoming_list_callid(str *instr, struct streambuf *replybuffer) {
-   struct call* c=0;
-   struct call_monologue *ml;
-   struct call_media *md;
-   struct packet_stream *ps;
-   GList *l;
-   GList *k, *o;
-   struct timeval tim_result_duration;
-   struct timeval now;
-   char * local_addr;
+	struct call *c = 0;
+	struct call_monologue *ml;
+	struct call_media *md;
+	struct packet_stream *ps;
+	GList *l;
+	GList *k, *o;
+	struct timeval tim_result_duration;
+	struct timeval now;
+	char *local_addr;
 
-   if (instr->len == 0) {
-       streambuf_printf(replybuffer, "%s\n", "More parameters required.");
-       return;
-   }
+	if (instr->len == 0) {
+		streambuf_printf(replybuffer, "%s\n", "More parameters required.");
+		return;
+	}
 
-   c = call_get(instr);
+	c = call_get(instr);
 
-   if (!c) {
-       streambuf_printf(replybuffer, "\nCall Id not found (%s).\n\n",instr->s);
-       return;
-   }
+	if (!c) {
+		streambuf_printf(replybuffer, "\nCall Id not found (%s).\n\n", instr->s);
+		return;
+	}
 
-   streambuf_printf(replybuffer,  "\ncallid: %60s | deletionmark:%4s | created:%12i  | proxy:%s | tos:%u | last_signal:%llu | redis_keyspace:%i | foreign:%s\n\n",
-		   c->callid.s , c->ml_deleted?"yes":"no", (int)c->created.tv_sec, c->created_from, (unsigned int)c->tos, (unsigned long long)c->last_signal.tv_sec, c->redis_hosted_db, IS_FOREIGN_CALL(c)?"yes":"no");
+	streambuf_printf(replybuffer,
+			 "\ncallid: %s\ndeletionmark: %s\ncreated: %i\nproxy: %s\ntos: %u\nlast_signal: %llu\n"
+			 "redis_keyspace: %i\nforeign: %s\n\n",
+			 c->callid.s, c->ml_deleted ? "yes" : "no", (int) c->created.tv_sec, c->created_from,
+			 (unsigned int) c->tos, (unsigned long long) c->last_signal.tv_sec, c->redis_hosted_db,
+			 IS_FOREIGN_CALL(c) ? "yes" : "no");
 
-   for (l = c->monologues.head; l; l = l->next) {
-	   ml = l->data;
-	   if (!ml->terminated.tv_sec) {
-		   gettimeofday(&now, NULL);
-	   } else {
-		   now = ml->terminated;
-	   }
-	   timeval_subtract(&tim_result_duration,&now,&ml->started);
-	   streambuf_printf(replybuffer, "--- Tag '"STR_FORMAT"' type: %s, callduration "
-            "%ld.%06ld , in dialogue with '"STR_FORMAT"'\n",
+	for (l = c->monologues.head; l; l = l->next) {
+		ml = l->data;
+		if (!ml->terminated.tv_sec)
+			gettimeofday(&now, NULL);
+		else
+			now = ml->terminated;
+
+		timeval_subtract(&tim_result_duration, &now, &ml->started);
+
+		streambuf_printf(replybuffer, "--- Tag '" STR_FORMAT "', type: %s, label '" STR_FORMAT "', "
+				"branch '" STR_FORMAT "', "
+				"callduration "
+				"%ld.%06ld, in dialogue with '" STR_FORMAT "'\n",
 			STR_FMT(&ml->tag), get_tag_type_text(ml->tagtype),
-            tim_result_duration.tv_sec,
-            tim_result_duration.tv_usec,
-            ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
-                ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
+			STR_FMT(&ml->viabranch),
+			tim_result_duration.tv_sec,
+			tim_result_duration.tv_usec,
+			ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
+			ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
 
-       for (k = ml->medias.head; k; k = k->next) {
-           md = k->data;
+		for (k = ml->medias.head; k; k = k->next) {
+			md = k->data;
 
-           const struct rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
+			const struct rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
 
-           for (o = md->streams.head; o; o = o->next) {
-               ps = o->data;
+			streambuf_printf(replybuffer, "------ Media #%u (" STR_FORMAT " over %s) using ",
+					md->index,
+					STR_FMT(&md->type),
+					md->protocol ? md->protocol->name : "(unknown)");
+			if (!rtp_pt)
+				streambuf_printf(replybuffer, "unknown codec\n");
+			else
+				streambuf_printf(replybuffer, STR_FORMAT "\n", STR_FMT(&rtp_pt->encoding_with_params));
 
-               if (PS_ISSET(ps, FALLBACK_RTCP))
-                   continue;
+			for (o = md->streams.head; o; o = o->next) {
+				ps = o->data;
 
-               local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
-#if (RE_HAS_MEASUREDELAY)
-               if (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) {
-		   streambuf_printf(replybuffer, "------ Media #%u, %15s:%-5hu <> %15s:%-5hu%s, "
-            			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet\n",
-						   md->index,
-						   local_addr, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-						   sockaddr_print_buf(&ps->endpoint.ip46), ps->endpoint.port,
-						   (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-								   atomic64_get(&ps->stats.packets),
-								   atomic64_get(&ps->stats.bytes),
-								   atomic64_get(&ps->stats.errors),
-								   atomic64_get(&ps->last_packet));
-               } else {
-		   streambuf_printf(replybuffer, "------ Media #%u, %15s:%-5hu <> %15s:%-5hu%s, "
-			   ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, " STR_FORMAT ", %.9f delay_min, %.9f delay_avg, %.9f delay_max\n",
-						   md->index,
-						   local_addr, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
-						   sockaddr_print_buf(&ps->endpoint.ip46), ps->endpoint.port,
-						   (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-								   atomic64_get(&ps->stats.packets),
-								   atomic64_get(&ps->stats.bytes),
-								   atomic64_get(&ps->stats.errors),
-								   atomic64_get(&ps->last_packet),
-                                                                   rtp_pt ? (int) rtp_pt->encoding_with_params.len : (int) strlen("unknown codec"),
-                                                                   rtp_pt ? rtp_pt->encoding_with_params.s : "unknown codec",
-								   (double) ps->stats.delay_min / 1000000,
-								   (double) ps->stats.delay_avg / 1000000,
-								   (double) ps->stats.delay_max / 1000000);
-               }
-#else
-               streambuf_printf(replybuffer, "------ Media #%u, %15s:%-5u <> %15s:%-5u%s, "
-                    ""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" last_packet, " STR_FORMAT "\n",
-                    md->index,
-                    local_addr, (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
-                    sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port,
-                    (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-                         atomic64_get(&ps->stats.packets),
-                         atomic64_get(&ps->stats.bytes),
-                         atomic64_get(&ps->stats.errors),
-                         atomic64_get(&ps->last_packet),
-                         rtp_pt ? (int) rtp_pt->encoding_with_params.len : (int) strlen("unknown codec"),
-                         rtp_pt ? rtp_pt->encoding_with_params.s : "unknown codec");
+				if (PS_ISSET(ps, FALLBACK_RTCP))
+					continue;
+
+				local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address)
+					: "0.0.0.0";
+
+				streambuf_printf(replybuffer, "-------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
+						 "" UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " ts",
+						 local_addr,
+						 (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						 sockaddr_print_buf(&ps->endpoint.address),
+						 ps->endpoint.port,
+						 (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
+						 ps->ssrc_in ? ps->ssrc_in->parent->h.ssrc : 0,
+						 atomic64_get(&ps->stats.packets),
+						 atomic64_get(&ps->stats.bytes), atomic64_get(&ps->stats.errors),
+						 atomic64_get(&ps->last_packet));
+#if RE_HAS_MEASUREDELAY
+				if (PS_ISSET(ps, RTP) || !PS_ISSET(ps, RTCP))
+					streambuf_printf(replybuffer, ", %.9f delay_min, %.9f delay_avg, %.9f delay_max",
+							 (double) ps->stats.delay_min / 1000000,
+							 (double) ps->stats.delay_avg / 1000000,
+							 (double) ps->stats.delay_max / 1000000);
 #endif
-           }
-       }
-   }
-   streambuf_printf(replybuffer, "\n");
+				streambuf_printf(replybuffer, "\n");
+			}
+		}
+	}
+	streambuf_printf(replybuffer, "\n");
 
-   rwlock_unlock_w(&c->master_lock); // because of call_get(..)
-   obj_put(c);
+	rwlock_unlock_w(&c->master_lock);	// because of call_get(..)
+	obj_put(c);
 }
 
 static void cli_incoming_list_sessions(str *instr, struct streambuf *replybuffer) {

@@ -11,7 +11,17 @@ else
   endif
 endif
 
-XTABLES		= $(shell test -e /usr/include/xtables.h && echo 1)
+XTABLES_INSTALLED=$(shell \
+  if pkg-config --exists xtables; then \
+    echo 'xtables found'; \
+  fi)
+ifneq ($(XTABLES_INSTALLED),)
+XTABLES = 1
+CFLAGS  += $(shell pkg-config --cflags --libs xtables)
+else
+XTABLES = $(shell test -e /usr/include/xtables.h && echo 1)
+endif
+
 IPTABLES	= $(shell test -e /usr/include/iptables.h && echo 1)
 IP6TABLES	= $(shell test -e /usr/include/ip6tables.h && echo 1)
 

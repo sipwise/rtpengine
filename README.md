@@ -244,7 +244,7 @@ The sequence of events for a newly established media stream is then:
     and will forward them on its own. It will stop those packets from traversing the network stacks any
     further, so the daemon will not see them any more on its receive queues.
 11. In-kernel forwarding is allowed to cease to work at any given time, either accidentally (e.g. by
-    removal of the *iptables* rule) or deliberatly (the daemon will do so in case of a re-invite), in which
+    removal of the *iptables* rule) or deliberately (the daemon will do so in case of a re-invite), in which
     case forwarding falls back to userspace-only operation.
 
 ### The Kernel Module ###
@@ -1483,7 +1483,7 @@ of the participant selection keys described under the `block DTMF` message (such
 Starts playback of a provided media file to the selected call participant. The format of the media file
 can be anything that is supported by *ffmpeg*, for example a `.wav` or `.mp3` file. It will automatically
 be resampled and transcoded to the appropriate sampling rate and codec. The selected participant's first
-listed (preferred) codec that is supported will be chosed for this purpose.
+listed (preferred) codec that is supported will be chosen for this purpose.
 
 Media files can be provided through one of these keys:
 

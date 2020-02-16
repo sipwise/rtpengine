@@ -33,7 +33,7 @@ my $tbreak = int(rand(0xffffffff)) * int(rand(0xffffffff));
 
 print("transaction: $tract\n");
 print("my username fragment: $ufrag\n");
-print("controll".($control?"ing":'ed')."\n");
+print(($control?'controlling':'controlled')."\n");
 print("tie breaker: $tbreak\n");
 
 

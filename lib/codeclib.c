@@ -985,7 +985,7 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	ilog(LOG_DEBUG, "Seq reset detected: expected seq %i, received seq %i", ps->seq, p->seq);
 	ps->seq = p->seq;
 	ret = 1;
-	// seq ok - fall thru
+	// seq ok - fall through
 	g_tree_clear(ps->packets);
 seq_ok:
 	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(p->seq)))

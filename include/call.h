@@ -193,6 +193,7 @@ struct rtp_payload_type;
 struct media_player;
 struct send_timer;
 struct transport_protocol;
+struct jitter_buffer;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -266,6 +267,7 @@ struct packet_stream {
 	struct ssrc_ctx		*ssrc_in,	/* LOCK: in_lock */ // XXX eliminate these
 				*ssrc_out;	/* LOCK: out_lock */
 	struct send_timer	*send_timer;	/* RO */
+	struct jitter_buffer	*jb;		/* RO */
 
 	struct stats		stats;
 	struct stats		kernel_stats;
@@ -320,6 +322,7 @@ struct call_media {
 
 	GHashTable		*codec_handlers; // int payload type -> struct codec_handler
 						// XXX combine this with 'codecs_recv' hash table?
+	GQueue			codec_handlers_store; // storage for struct codec_handler
 	volatile struct codec_handler *codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
 	struct codec_handler	*dtmf_injector;

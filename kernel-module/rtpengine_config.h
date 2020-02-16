@@ -1,7 +1,7 @@
 /*
  * rtpengine_config.h
  *
- * Description: Config file with preprocessor config makros
+ * Description: Config file with preprocessor config macros
  *
  *  Created on: Mar 18, 2015
  *      Author: fmetz

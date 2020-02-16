@@ -49,7 +49,7 @@ sub new {
 	$self->{completed} = 0;
 	$self->{keepalives} = 0;
 
-	$self->debug("created, controll" . ($controlling ? "ing" : "ed")
+	$self->debug("created, control" . ($controlling ? "ing" : "ed")
 		. ", tie breaker " . $self->{tie_breaker}->bstr() . "\n");
 
 	return $self;

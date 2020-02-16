@@ -183,7 +183,6 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 {
 	assert(handler->source_pt.codec_def != NULL);
 	assert(dest->codec_def != NULL);
-	assert(handler->source_pt.payload_type == handler->source_pt.payload_type);
 
 	// if we're just repacketising:
 	if (dtmf_payload_type == -1 && dest->codec_def && dest->codec_def->dtmf)
@@ -288,9 +287,7 @@ static void __dtmf_dsp_shutdown(struct call_media *sink, int payload_type) {
 	if (!sink->codec_handlers)
 		return;
 
-	GList *list = g_hash_table_get_values(sink->codec_handlers);
-
-	for (GList *l = list; l; l = l->next) {
+	for (GList *l = sink->codec_handlers_store.head; l; l = l->next) {
 		struct codec_handler *handler = l->data;
 		if (!handler->transcoder)
 			continue;
@@ -304,8 +301,6 @@ static void __dtmf_dsp_shutdown(struct call_media *sink, int payload_type) {
 				payload_type);
 		handler->dtmf_payload_type = -1;
 	}
-
-	g_list_free(list);
 }
 
 
@@ -499,7 +494,6 @@ static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_
 		if (!rtp_payload_type_cmp(pref_dest_codec, &receiver->dtmf_injector->dest_pt))
 			return;
 
-		codec_handler_free(receiver->dtmf_injector);
 		receiver->dtmf_injector = NULL;
 	}
 
@@ -523,6 +517,7 @@ static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_
 	receiver->dtmf_injector = __handler_new(&src_pt);
 	__make_transcoder(receiver->dtmf_injector, pref_dest_codec, output_transcoders, dtmf_payload_type, 0);
 	receiver->dtmf_injector->func = handler_func_inject_dtmf;
+	g_queue_push_tail(&receiver->codec_handlers_store, receiver->dtmf_injector);
 }
 
 // call must be locked in W
@@ -530,8 +525,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags)
 {
 	if (!receiver->codec_handlers)
-		receiver->codec_handlers = g_hash_table_new_full(g_int_hash, g_int_equal,
-				NULL, __codec_handler_free);
+		receiver->codec_handlers = g_hash_table_new(g_int_hash, g_int_equal);
 
 	MEDIA_CLEAR(receiver, TRANSCODE);
 	receiver->rtcp_handler = NULL;
@@ -606,12 +600,22 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		__ensure_codec_def(pt, receiver);
 		struct codec_handler *handler;
 		handler = g_hash_table_lookup(receiver->codec_handlers, &pt->payload_type);
+		if (handler) {
+			// make sure existing handler matches this PT
+			if (rtp_payload_type_cmp(pt, &handler->source_pt)) {
+				ilog(LOG_DEBUG, "Resetting codec handler for PT %u", pt->payload_type);
+				handler = NULL;
+				g_atomic_pointer_set(&receiver->codec_handler_cache, NULL);
+				g_hash_table_remove(receiver->codec_handlers, &pt->payload_type);
+			}
+		}
 		if (!handler) {
 			ilog(LOG_DEBUG, "Creating codec handler for " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params));
 			handler = __handler_new(pt);
 			g_hash_table_insert(receiver->codec_handlers, &handler->source_pt.payload_type,
 					handler);
+			g_queue_push_tail(&receiver->codec_handlers_store, handler);
 		}
 
 		// check our own support for this codec
@@ -801,8 +805,8 @@ void codec_handlers_free(struct call_media *m) {
 	m->codec_handlers = NULL;
 	m->codec_handler_cache = NULL;
 #ifdef WITH_TRANSCODING
-	if (m->dtmf_injector)
-		codec_handler_free(m->dtmf_injector);
+	g_queue_clear_full(&m->codec_handlers_store, __codec_handler_free);
+	m->dtmf_injector = NULL;
 #endif
 }
 
@@ -961,35 +965,35 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	p->s.len = payload_len + sizeof(struct rtp_header);
 	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
 	p->free_func = free;
-	p->source = handler;
+	p->ttq_entry.source = handler;
 	p->rtp = rh;
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send
 	if (ch->first_send.tv_sec && ch->encoder_format.clockrate) {
 		// scale first_send from first_send_ts to ts
-		p->to_send = ch->first_send;
+		p->ttq_entry.when = ch->first_send;
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) ch->first_send_ts; // allow for wrap-around
 		unsigned long long ts_diff_us =
 			(unsigned long long) ts_diff * 1000000 / ch->encoder_format.clockrate
 			* ch->handler->dest_pt.codec_def->clockrate_mult;
-		timeval_add_usec(&p->to_send, ts_diff_us);
+		timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
 
 		// how far in the future is this?
-		ts_diff_us = timeval_diff(&p->to_send, &rtpe_now); // negative wrap-around to positive OK
+		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now); // negative wrap-around to positive OK
 
 		if (ts_diff_us > 1000000) // more than one second, can't be right
 			ch->first_send.tv_sec = 0; // fix it up below
 	}
 	if (!ch->first_send.tv_sec) {
-		p->to_send = ch->first_send = rtpe_now;
+		p->ttq_entry.when = ch->first_send = rtpe_now;
 		ch->first_send_ts = ts;
 	}
 	ilog(LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) at %lu.%06lu",
 			ntohs(rh->seq_num),
 			ts,
-			(long unsigned) p->to_send.tv_sec,
-			(long unsigned) p->to_send.tv_usec);
+			(long unsigned) p->ttq_entry.when.tv_sec,
+			(long unsigned) p->ttq_entry.when.tv_usec);
 
 	g_queue_push_tail(&mp->packets_out, p);
 
@@ -1028,6 +1032,9 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 		// this is actually a DTMF -> PCM handler
 		// grab our underlying PCM transcoder
 		struct codec_ssrc_handler *output_ch = __output_ssrc_handler(ch, mp);
+		if (G_UNLIKELY(!ch->encoder))
+			goto skip;
+
 		// init some vars
 		if (!ch->first_ts)
 			ch->first_ts = output_ch->first_ts;
@@ -1068,6 +1075,7 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 		obj_put(&output_ch->h);
 	}
 
+skip:;
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->ignore_seq) // inject original seq
@@ -1458,7 +1466,7 @@ static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
 		int ret = ch->handler->dest_pt.codec_def->packetizer(in_pkt,
 				ch->sample_buffer, &inout, enc);
 
-		if (G_UNLIKELY(ret == -1)) {
+		if (G_UNLIKELY(ret == -1 || enc->avpkt.pts == AV_NOPTS_VALUE)) {
 			// nothing
 			free(buf);
 			break;
@@ -1570,6 +1578,13 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 		else
 			ch->skip_pts = 0;
 		ilog(LOG_DEBUG, "Discarding %i samples", frame->nb_samples);
+		goto discard;
+	}
+
+	if (G_UNLIKELY(!ch->encoder)) {
+		ilog(LOG_INFO | LOG_FLAG_LIMIT,
+				"Discarding decoded %i PCM samples due to lack of output encoder",
+				frame->nb_samples);
 		goto discard;
 	}
 

@@ -375,7 +375,7 @@ are not reloaded upon rtpengine startup, even though rtpengine still starts.
 If this parameter is present and has a value >= 0, it will configure how
 many consecutive errors are allowed when communicating with a redis server
 before the redis communication will be temporarily disabled for that server.
-While the communcation is disabled there will be no attempts to reconnect
+While the communication is disabled there will be no attempts to reconnect
 to redis or send commands to that server.
 Default value is -1, meaning that this feature is disabled.
 This parameter can also be set or listed via B<rtpengine-ctl>.
@@ -671,6 +671,16 @@ seen, that address is used. Otherwise, if a packet with a matching source port
 (but different address) is seen, that address is used. Otherwise, the source
 address of any incoming packet seen is used.
 
+=item B<--jitter-buffer=>I<INT>
+
+Size of (incoming) jitter buffer in packets. A value of zero (the default)
+disables the jitter buffer. The jitter buffer is currently only implemented for
+userspace operation.
+
+=item B<--jb-clock-drift>
+
+Enable clock drift compensation for the jitter buffer.
+
 =back
 
 =head1 INTERFACES
@@ -717,7 +727,7 @@ This can be useful in certain cases, such as your SIP proxy being behind NAT.
 For example, I<--interface=10.65.76.2!192.0.2.4> means that I<10.65.76.2>
 is the actual local address on the server, but outgoing SDP bodies should
 advertise I<192.0.2.4> as the address that endpoints should talk to.
-Note that you may have to escape the exlamation point from your shell
+Note that you may have to escape the exclamation point from your shell
 when using command-line options, e.g. using I<\!>.
 
 Giving an interface a name (separated from the address by a slash) is
@@ -817,7 +827,7 @@ Successful termination.
 
 =item B<1>
 
-An error ocurred.
+An error occurred.
 
 =back
 

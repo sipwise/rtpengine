@@ -26,6 +26,7 @@
 #include "main.h"
 #include "codec.h"
 #include "media_player.h"
+#include "jitter_buffer.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -762,7 +763,10 @@ static void release_port(socket_t *r, struct intf_spec *spec) {
 		g_atomic_int_inc(&pp->free_ports);
 		if ((port & 1) == 0) {
 			mutex_lock(&pp->free_list_lock);
-			g_queue_push_tail(&pp->free_list, GUINT_TO_POINTER(port));
+			if (!bit_array_isset(pp->free_list_used, port)) {
+				g_queue_push_tail(&pp->free_list, GUINT_TO_POINTER(port));
+				bit_array_set(pp->free_list_used, port);
+			}
 			mutex_unlock(&pp->free_list_lock);
 		}
 	} else {
@@ -809,6 +813,8 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 		__C_DBG("port %d is USED in port pool", port);
 		mutex_lock(&pp->free_list_lock);
 		unsigned int fport = GPOINTER_TO_UINT(g_queue_pop_head(&pp->free_list));
+		if (fport)
+			bit_array_clear(pp->free_list_used, fport);
 		mutex_unlock(&pp->free_list_lock);
 		if (fport) {
 			port = fport;
@@ -1046,6 +1052,8 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (stream->media->monologue->block_media || call->block_media)
 		goto no_kernel;
+	if (!stream->endpoint.address.family)
+		goto no_kernel;
 
         ilog(LOG_INFO, "Kernelizing media stream: %s%s:%d%s",
 			FMT_M(sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port));
@@ -1055,6 +1063,8 @@ void kernelize(struct packet_stream *stream) {
 		ilog(LOG_WARNING, "Attempt to kernelize stream without sink");
 		goto no_kernel;
 	}
+	if (!sink->endpoint.address.family)
+		goto no_kernel;
 
 	__determine_handler(stream, sink);
 
@@ -1315,7 +1325,8 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 }
 
 
-// returns: 0 = packet processed by other protocol hander; -1 = packet not handled, proceed;
+// returns: 0 = packet processed by other protocol handler;
+// -1 = packet not handled, proceed;
 // 1 = same as 0, but stream can be kernelized
 static int media_demux_protocols(struct packet_handler_ctx *phc) {
 	if (MEDIA_ISSET(phc->mp.media, DTLS) && is_dtls(&phc->s)) {
@@ -1465,13 +1476,13 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 		phc->rtcp_filter = phc->in_srtp->handler->in->rtcp_filter;
 	}
 
-	/* return values are: 0 = forward packet, -1 = error/dont forward,
+	/* return values are: 0 = forward packet, -1 = error/don't forward,
 	 * 1 = forward and push update to redis */
 	int ret = 0;
 	if (phc->decrypt_func) {
 		str ori_s = phc->s;
 		ret = phc->decrypt_func(&phc->s, phc->in_srtp, phc->mp.sfd, &phc->mp.fsin, &phc->mp.tv, phc->mp.ssrc_in);
-		// XXX for stripped auth tag and duplicate invokations of rtp_payload
+		// XXX for stripped auth tag and duplicate invocations of rtp_payload
 		// XXX transcoder uses phc->mp.payload
 		phc->mp.payload.len -= ori_s.len - phc->s.len;
 	}
@@ -1531,6 +1542,18 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 		__C_DBG("stream %s:%d not FILLED", sockaddr_print_buf(&phc->mp.stream->endpoint.address),
 				phc->mp.stream->endpoint.port);
 		goto out;
+	}
+
+	// GH #697 - apparent Asterisk bug where it sends stray RTCP to the RTP port.
+	// work around this by detecting this situation and ignoring the packet for
+	// confirmation purposes when needed. This is regardless of whether rtcp-mux
+	// is enabled or not.
+	if (!PS_ISSET(phc->mp.stream, CONFIRMED) && PS_ISSET(phc->mp.stream, RTP)) {
+		if (rtcp_demux_is_rtcp(&phc->s)) {
+			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Ignoring stray RTCP packet for "
+					"peer address confirmation purposes");
+			goto out;
+		}
 	}
 
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
@@ -1927,7 +1950,15 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 			ilog(LOG_WARNING, "UDP packet possibly truncated");
 
 		str_init_len(&phc.s, buf + RTP_BUFFER_HEAD_ROOM, ret);
-		ret = stream_packet(&phc);
+
+		if (sfd->stream->jb) {
+			ret = buffer_packet(&phc.mp, &phc.s);
+			if (ret == 1)
+				ret = stream_packet(&phc);
+		}
+		else
+			ret = stream_packet(&phc);
+
 		if (G_UNLIKELY(ret < 0))
 			ilog(LOG_WARNING, "Write error on media socket: %s", strerror(-ret));
 		else if (phc.update)
@@ -2001,4 +2032,14 @@ const struct transport_protocol *transport_protocol(const str *s) {
 
 out:
 	return NULL;
+}
+
+void play_buffered(struct jb_packet *cp) {
+	struct packet_handler_ctx phc;
+	ZERO(phc);
+	phc.mp = cp->mp;
+	phc.s = cp->mp.raw;
+	//phc.buffered_packet = buffered;
+	stream_packet(&phc);
+	jb_packet_free(&cp);
 }
