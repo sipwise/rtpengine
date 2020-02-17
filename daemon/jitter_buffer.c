@@ -47,14 +47,8 @@ static void reset_jitter_buffer(struct jitter_buffer *jb) {
 		jb->disabled = 1;
 }
 
-static int get_clock_rate(struct media_packet *mp, int payload_type) {
-	const struct rtp_payload_type *rtp_pt = NULL;
-	struct jitter_buffer *jb = mp->stream->jb;
-	int clock_rate = 0;
-
-	if(jb->clock_rate && jb->payload_type == payload_type)
-		return jb->clock_rate;
-
+static struct rtp_payload_type *get_rtp_payload_type(struct media_packet *mp, int payload_type) {
+	struct rtp_payload_type *rtp_pt = NULL;
 	struct codec_handler *transcoder = codec_handler_get(mp->media, payload_type);
 	if(transcoder) {
 		if(transcoder->source_pt.payload_type == payload_type)
@@ -62,10 +56,24 @@ static int get_clock_rate(struct media_packet *mp, int payload_type) {
 		if(transcoder->dest_pt.payload_type == payload_type)
 			rtp_pt = &transcoder->dest_pt;
 	}
+	return rtp_pt;
+}
 
+static int get_clock_rate(struct media_packet *mp, int payload_type) {
+	struct jitter_buffer *jb = mp->stream->jb;
+	int clock_rate = 0;
+
+	if(jb->clock_rate && jb->payload_type == payload_type)
+		return jb->clock_rate;
+
+	const struct rtp_payload_type *rtp_pt = get_rtp_payload_type(mp, payload_type);
 	if(rtp_pt) {
-		clock_rate = jb->clock_rate = rtp_pt->clock_rate;
-		jb->payload_type = payload_type;
+		if(rtp_pt->codec_def && !rtp_pt->codec_def->dtmf) {
+			clock_rate = jb->clock_rate = rtp_pt->clock_rate;
+			jb->payload_type = payload_type;
+		}
+		else
+			clock_rate = jb->clock_rate; //dtmf packet continue with same clockrate
 	}
 	else
 		ilog(LOG_DEBUG, "clock_rate not present payload_type = %d", payload_type);
@@ -136,9 +144,10 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 
 	ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now);
 
-	if (ts_diff_us > 3000000) { // more than three second, can't be right
+	if (ts_diff_us > 1000000  || ts_diff_us < -1000000) { // more/less than one second, can't be right
+		ilog(LOG_DEBUG, "Partial reset due to timestamp");
 		jb->first_send.tv_sec = 0;
-		jb->rtptime_delta = 0;
+		return 1;
 	}
 
 	timerthread_queue_push(&jb->ttq, &p->ttq_entry);
@@ -185,15 +194,15 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	rwlock_lock_r(&call->master_lock);
 
 	struct jitter_buffer *jb = mp->stream->jb;
-	if (!jb || jb->disabled)
+	if (!jb || jb->disabled || PS_ISSET(mp->sfd->stream, RTCP))
 		goto end;
-
-	ilog(LOG_DEBUG, "Handling JB packet on: %s:%d", sockaddr_print_buf(&mp->stream->endpoint.address),
-			mp->stream->endpoint.port);
 
 	p = get_jb_packet(mp, s);
 	if (!p)
 		goto end;
+
+	ilog(LOG_DEBUG, "Handling JB packet on: %s:%d", sockaddr_print_buf(&mp->stream->endpoint.address),
+			mp->stream->endpoint.port);
 
 	mp = &p->mp;
 
@@ -201,9 +210,13 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 
 	mutex_lock(&jb->lock);
 
-	if(jb->clock_rate && jb->payload_type != payload_type) { //reset in case of payload change
-		jb->first_send.tv_sec = 0;
-		jb->rtptime_delta = 0;
+	if((jb->clock_rate && jb->payload_type != payload_type) ||
+			(jb->first_send.tv_sec && jb->ssrc != ntohl(mp->rtp->ssrc))) { //reset in case of payload change or ssrc change
+		const struct rtp_payload_type *rtp_pt = get_rtp_payload_type(mp, payload_type);
+		if(rtp_pt) {
+			if(rtp_pt->codec_def && !rtp_pt->codec_def->dtmf)
+				jb->first_send.tv_sec = 0;
+		}
 	}
 
 	if (jb->first_send.tv_sec) {
@@ -227,6 +240,12 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 		p->ttq_entry.when = jb->first_send = rtpe_now;
 		jb->first_send_ts = ts;
 		jb->first_seq = ntohs(mp->rtp->seq_num);
+		jb->ssrc = ntohl(mp->rtp->ssrc);
+		if(jb->buffer_len > 0)
+			ret = queue_packet(mp,p);
+		jb->rtptime_delta = 0;
+		jb->next_exp_seq = 0;
+		jb->drift_mult_factor = 0;
 	}
 
 	// packet consumed?
