@@ -60,6 +60,8 @@ struct rtpengine_config rtpe_config = {
 	.interfaces = G_QUEUE_INIT,
 	.homer_protocol = SOCK_DGRAM,
 	.homer_id = 2001,
+	.rsa_public_key_length = 1024,
+	.rsa_cipher_list = 1024,
 	.port_min = 30000,
 	.port_max = 40000,
 	.redis_db = -1,
@@ -635,6 +637,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->rec_method = g_strdup(rtpe_config.rec_method);
 	ini_rtpe_cfg->rec_format = g_strdup(rtpe_config.rec_format);
 
+	ini_rtpe_cfg->rsa_public_key_length
 }
 
 static void early_init(void) {

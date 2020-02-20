@@ -93,6 +93,9 @@ struct rtpengine_config {
 	char			*mysql_query;
 	endpoint_t		dtmf_udp_ep;
 	enum endpoint_learning	endpoint_learning;
+	int			rsa_public_key_length;
+	char			*rsa_cipher_list;
+
 };
 
 

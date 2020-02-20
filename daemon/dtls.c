@@ -197,7 +197,7 @@ static int cert_init(void) {
 	if (!BN_set_word(exponent, 0x10001))
 		goto err;
 
-	if (!RSA_generate_key_ex(rsa, 2048, exponent, NULL))
+	if (!RSA_generate_key_ex(rsa, rtpe_config.rsa_public_key_length, exponent, NULL))
 		goto err;
 
 	if (!EVP_PKEY_assign_RSA(pkey, rsa))
@@ -433,7 +433,7 @@ int dtls_verify_cert(struct packet_stream *ps) {
 			media->fingerprint.digest[0], media->fingerprint.digest[1],
 			media->fingerprint.digest[2], media->fingerprint.digest[3],
 			media->fingerprint.digest[4], media->fingerprint.digest[5],
-			media->fingerprint.digest[6], media->fingerprint.digest[7], 
+			media->fingerprint.digest[6], media->fingerprint.digest[7],
 			fp[0], fp[1], fp[2], fp[3],
 			fp[4], fp[5], fp[6], fp[7]);
 		return -1;
