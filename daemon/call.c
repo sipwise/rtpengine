@@ -70,7 +70,7 @@ GHashTable *rtpe_callhash;
 
 /* ********** */
 
-static void __monologue_destroy(struct call_monologue *monologue);
+static void __monologue_destroy(struct call_monologue *monologue, int recurse);
 static int monologue_destroy(struct call_monologue *ml);
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration);
@@ -2561,10 +2561,9 @@ void call_media_unkernelize(struct call_media *media) {
 }
 
 /* must be called with call->master_lock held in W */
-static void __monologue_destroy(struct call_monologue *monologue) {
+static void __monologue_destroy(struct call_monologue *monologue, int recurse) {
 	struct call *call;
 	struct call_monologue *dialogue;
-	GList *l;
 
 	call = monologue->call;
 
@@ -2572,14 +2571,18 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 	if (monologue->viabranch.s)
 		g_hash_table_remove(call->viabranches, &monologue->viabranch);
 
-	l = g_hash_table_get_values(monologue->other_tags);
-
-	while (l) {
+	for (GList *l = call->monologues.head; l; l = l->next) {
 		dialogue = l->data;
-		l = g_list_delete_link(l, l);
+
+		if (dialogue == monologue)
+			continue;
+		if (dialogue->active_dialogue != monologue
+				&& !g_hash_table_lookup(dialogue->other_tags, &monologue->tag))
+			continue;
+
 		g_hash_table_remove(dialogue->other_tags, &monologue->tag);
-		if (!g_hash_table_size(dialogue->other_tags))
-			__monologue_destroy(dialogue);
+		if (recurse && !g_hash_table_size(dialogue->other_tags))
+			__monologue_destroy(dialogue, 0);
 	}
 
 	monologue->deleted = 0;
@@ -2589,7 +2592,7 @@ static void __monologue_destroy(struct call_monologue *monologue) {
 static int monologue_destroy(struct call_monologue *ml) {
 	struct call *c = ml->call;
 
-	__monologue_destroy(ml);
+	__monologue_destroy(ml, 1);
 
 	if (g_hash_table_size(c->tags) < 2 && g_hash_table_size(c->viabranches) == 0) {
 		ilog(LOG_INFO, "Call branch '" STR_FORMAT_M "' (%s" STR_FORMAT "%svia-branch '" STR_FORMAT_M "') "
