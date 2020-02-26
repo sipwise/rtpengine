@@ -940,7 +940,7 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 		// this is actually a DTMF -> PCM handler
 		// grab our underlying PCM transcoder
 		struct codec_ssrc_handler *output_ch = __output_ssrc_handler(ch, mp);
-		if (G_UNLIKELY(!ch->encoder))
+		if (G_UNLIKELY(!ch->encoder || !output_ch->encoder))
 			goto skip;
 
 		// init some vars
