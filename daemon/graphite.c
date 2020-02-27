@@ -99,15 +99,10 @@ int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 
 int send_graphite_data(struct totalstats *sent_data) {
 
-	int rc=0;
-
 	if (graphite_sock.fd < 0) {
 		ilog(LOG_ERROR,"Graphite socket is not connected.");
 		return -1;
 	}
-
-	char data_to_send[8192];
-	char* ptr = data_to_send;
 
 	struct totalstats *ts = sent_data;
 
@@ -167,86 +162,56 @@ int send_graphite_data(struct totalstats *sent_data) {
 	ts->answers_ps.ps_avg = (ts->answers_ps.count?(ts->answers_ps.ps_avg/ts->answers_ps.count):0);
 	ts->deletes_ps.ps_avg = (ts->deletes_ps.count?(ts->deletes_ps.ps_avg/ts->deletes_ps.count):0);
 
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"offer_time_min %llu.%06llu %llu\n",(unsigned long long)ts->offer.time_min.tv_sec,(unsigned long long)ts->offer.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"offer_time_max %llu.%06llu %llu\n",(unsigned long long)ts->offer.time_max.tv_sec,(unsigned long long)ts->offer.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"offer_time_avg %llu.%06llu %llu\n",(unsigned long long)ts->offer.time_avg.tv_sec,(unsigned long long)ts->offer.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
+	GString *graph_str = g_string_new("");
 
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"answer_time_min %llu.%06llu %llu\n",(unsigned long long)ts->answer.time_min.tv_sec,(unsigned long long)ts->answer.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"answer_time_max %llu.%06llu %llu\n",(unsigned long long)ts->answer.time_max.tv_sec,(unsigned long long)ts->answer.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"answer_time_avg %llu.%06llu %llu\n",(unsigned long long)ts->answer.time_avg.tv_sec,(unsigned long long)ts->answer.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
+#define GPF(fmt, ...) \
+	if (graphite_prefix) \
+		g_string_append(graph_str, graphite_prefix); \
+	g_string_append_printf(graph_str, fmt "\n", ##__VA_ARGS__)
 
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"delete_time_min %llu.%06llu %llu\n",(unsigned long long)ts->delete.time_min.tv_sec,(unsigned long long)ts->delete.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"delete_time_max %llu.%06llu %llu\n",(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"delete_time_avg %llu.%06llu %llu\n",(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
+	GPF("offer_time_min %llu.%06llu %llu",(unsigned long long)ts->offer.time_min.tv_sec,(unsigned long long)ts->offer.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("offer_time_max %llu.%06llu %llu",(unsigned long long)ts->offer.time_max.tv_sec,(unsigned long long)ts->offer.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("offer_time_avg %llu.%06llu %llu",(unsigned long long)ts->offer.time_avg.tv_sec,(unsigned long long)ts->offer.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec);
 
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr, "call_dur %llu.%06llu %llu\n",(unsigned long long)ts->total_calls_duration_interval.tv_sec,(unsigned long long)ts->total_calls_duration_interval.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"average_call_dur %llu.%06llu %llu\n",(unsigned long long)ts->total_average_call_dur.tv_sec,(unsigned long long)ts->total_average_call_dur.tv_usec,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"forced_term_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_forced_term_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"managed_sess "UINT64F" %llu\n", ts->total_managed_sess,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"managed_sess_min "UINT64F" %llu\n", ts->managed_sess_min,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"managed_sess_max "UINT64F" %llu\n", ts->managed_sess_max,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"current_sessions_total "UINT64F" %llu\n", ts->total_sessions,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"current_sessions_own "UINT64F" %llu\n", ts->own_sessions,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"current_sessions_foreign "UINT64F" %llu\n", ts->foreign_sessions,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"nopacket_relayed_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_nopacket_relayed_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"oneway_stream_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_oneway_stream_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"regular_term_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_regular_term_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"relayed_errors "UINT64F" %llu\n", atomic64_get_na(&ts->total_relayed_errors),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"relayed_packets "UINT64F" %llu\n", atomic64_get_na(&ts->total_relayed_packets),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"silent_timeout_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_silent_timeout_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"final_timeout_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_final_timeout_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"offer_timeout_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_offer_timeout_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"timeout_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_timeout_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"reject_sess "UINT64F" %llu\n", atomic64_get_na(&ts->total_rejected_sess),(unsigned long long)rtpe_now.tv_sec); ptr += rc;
+	GPF("answer_time_min %llu.%06llu %llu",(unsigned long long)ts->answer.time_min.tv_sec,(unsigned long long)ts->answer.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("answer_time_max %llu.%06llu %llu",(unsigned long long)ts->answer.time_max.tv_sec,(unsigned long long)ts->answer.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("answer_time_avg %llu.%06llu %llu",(unsigned long long)ts->answer.time_avg.tv_sec,(unsigned long long)ts->answer.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec);
 
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"offers_ps_min %llu %llu\n",(unsigned long long)ts->offers_ps.ps_min,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"offers_ps_max %llu %llu\n",(unsigned long long)ts->offers_ps.ps_max,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"offers_ps_avg %llu %llu\n",(unsigned long long)ts->offers_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
+	GPF("delete_time_min %llu.%06llu %llu",(unsigned long long)ts->delete.time_min.tv_sec,(unsigned long long)ts->delete.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("delete_time_max %llu.%06llu %llu",(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("delete_time_avg %llu.%06llu %llu",(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec);
 
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"answers_ps_min %llu %llu\n",(unsigned long long)ts->answers_ps.ps_min,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"answers_ps_max %llu %llu\n",(unsigned long long)ts->answers_ps.ps_max,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"answers_ps_avg %llu %llu\n",(unsigned long long)ts->answers_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
+	GPF("call_dur %llu.%06llu %llu",(unsigned long long)ts->total_calls_duration_interval.tv_sec,(unsigned long long)ts->total_calls_duration_interval.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("average_call_dur %llu.%06llu %llu",(unsigned long long)ts->total_average_call_dur.tv_sec,(unsigned long long)ts->total_average_call_dur.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("forced_term_sess "UINT64F" %llu", atomic64_get_na(&ts->total_forced_term_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("managed_sess "UINT64F" %llu", ts->total_managed_sess,(unsigned long long)rtpe_now.tv_sec);
+	GPF("managed_sess_min "UINT64F" %llu", ts->managed_sess_min,(unsigned long long)rtpe_now.tv_sec);
+	GPF("managed_sess_max "UINT64F" %llu", ts->managed_sess_max,(unsigned long long)rtpe_now.tv_sec);
+	GPF("current_sessions_total "UINT64F" %llu", ts->total_sessions,(unsigned long long)rtpe_now.tv_sec);
+	GPF("current_sessions_own "UINT64F" %llu", ts->own_sessions,(unsigned long long)rtpe_now.tv_sec);
+	GPF("current_sessions_foreign "UINT64F" %llu", ts->foreign_sessions,(unsigned long long)rtpe_now.tv_sec);
+	GPF("nopacket_relayed_sess "UINT64F" %llu", atomic64_get_na(&ts->total_nopacket_relayed_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("oneway_stream_sess "UINT64F" %llu", atomic64_get_na(&ts->total_oneway_stream_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("regular_term_sess "UINT64F" %llu", atomic64_get_na(&ts->total_regular_term_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("relayed_errors "UINT64F" %llu", atomic64_get_na(&ts->total_relayed_errors),(unsigned long long)rtpe_now.tv_sec);
+	GPF("relayed_packets "UINT64F" %llu", atomic64_get_na(&ts->total_relayed_packets),(unsigned long long)rtpe_now.tv_sec);
+	GPF("silent_timeout_sess "UINT64F" %llu", atomic64_get_na(&ts->total_silent_timeout_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("final_timeout_sess "UINT64F" %llu", atomic64_get_na(&ts->total_final_timeout_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("offer_timeout_sess "UINT64F" %llu", atomic64_get_na(&ts->total_offer_timeout_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("timeout_sess "UINT64F" %llu", atomic64_get_na(&ts->total_timeout_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("reject_sess "UINT64F" %llu", atomic64_get_na(&ts->total_rejected_sess),(unsigned long long)rtpe_now.tv_sec);
 
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"deletes_ps_min %llu %llu\n",(unsigned long long)ts->deletes_ps.ps_min,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"deletes_ps_max %llu %llu\n",(unsigned long long)ts->deletes_ps.ps_max,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
-	if (graphite_prefix!=NULL) { rc = sprintf(ptr,"%s",graphite_prefix); ptr += rc; }
-	rc = sprintf(ptr,"deletes_ps_avg %llu %llu\n",(unsigned long long)ts->deletes_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec); ptr += rc;
+	GPF("offers_ps_min %llu %llu",(unsigned long long)ts->offers_ps.ps_min,(unsigned long long)rtpe_now.tv_sec);
+	GPF("offers_ps_max %llu %llu",(unsigned long long)ts->offers_ps.ps_max,(unsigned long long)rtpe_now.tv_sec);
+	GPF("offers_ps_avg %llu %llu",(unsigned long long)ts->offers_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec);
+
+	GPF("answers_ps_min %llu %llu",(unsigned long long)ts->answers_ps.ps_min,(unsigned long long)rtpe_now.tv_sec);
+	GPF("answers_ps_max %llu %llu",(unsigned long long)ts->answers_ps.ps_max,(unsigned long long)rtpe_now.tv_sec);
+	GPF("answers_ps_avg %llu %llu",(unsigned long long)ts->answers_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec);
+
+	GPF("deletes_ps_min %llu %llu",(unsigned long long)ts->deletes_ps.ps_min,(unsigned long long)rtpe_now.tv_sec);
+	GPF("deletes_ps_max %llu %llu",(unsigned long long)ts->deletes_ps.ps_max,(unsigned long long)rtpe_now.tv_sec);
+	GPF("deletes_ps_avg %llu %llu",(unsigned long long)ts->deletes_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec);
 
 	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%llu.%06llu at time %llu\n",
 			(unsigned long long) ts->managed_sess_min,
@@ -268,14 +233,16 @@ int send_graphite_data(struct totalstats *sent_data) {
 		(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec,
 		(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec);
 
-	rc = write(graphite_sock.fd, data_to_send, ptr - data_to_send);
+	int rc = write(graphite_sock.fd, graph_str->str, graph_str->len);
 	if (rc<0) {
 		ilog(LOG_ERROR,"Could not write to graphite socket. Disconnecting graphite server.");
 		goto error;
 	}
+	g_string_free(graph_str, TRUE);
 	return 0;
 
 error:
+	g_string_free(graph_str, TRUE);
 	close_socket(&graphite_sock);
 	return -1;
 }
