@@ -98,6 +98,7 @@ sub showusage {
     print "         redisconnecttimeout   : print redis-connect-timeout parameter\n";
     print "         rediscmdtimeout       : print redis-cmd-timeout parameter\n";
     print "         controltos            : print control-tos parameter\n";
+    print "         interfaces            : print local interface/port statistics\n";
     print "\n";
     print "    get                        : get is an alias for list, same parameters apply\n";
     print "\n";
