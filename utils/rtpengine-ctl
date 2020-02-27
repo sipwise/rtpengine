@@ -7,8 +7,8 @@ use IO::Socket::INET;
 use Getopt::Long;
 use Config::Tiny;
 
-my $ip;
-my $port;
+my $ip = 'localhost';
+my $port = 9900;
 my $conffile = '/etc/rtpengine/rtpengine.conf';
 my $listen;
 
@@ -44,9 +44,6 @@ if (!$argumentstring || !$optret || $port <= 0 || $port > 65535) {
     showusage();
     exit 1;
 }
-
-$ip //= '127.0.0.1';
-$port //= 9900;
 
 # create a connecting socket
 my $socket = new IO::Socket::INET (
