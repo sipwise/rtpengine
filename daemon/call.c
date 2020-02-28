@@ -379,12 +379,13 @@ void kill_calls_timer(GSList *list, const char *url) {
 	}
 
 	while (list) {
+		GHashTable *dup_tags = NULL;
+
 		ca = list->data;
 		log_info_call(ca);
 		if (!url)
 			goto destroy;
 
-		GHashTable *dup_tags = NULL;
 		if (rtpe_config.fmt == XF_KAMAILIO)
 			dup_tags = g_hash_table_new(str_hash, str_equal);
 
