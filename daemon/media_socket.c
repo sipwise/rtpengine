@@ -1949,7 +1949,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 
 		str_init_len(&phc.s, buf + RTP_BUFFER_HEAD_ROOM, ret);
 
-		if (sfd->stream->jb) {
+		if (sfd->stream && sfd->stream->jb) {
 			ret = buffer_packet(&phc.mp, &phc.s);
 			if (ret == 1)
 				ret = stream_packet(&phc);
