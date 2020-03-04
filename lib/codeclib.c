@@ -96,6 +96,9 @@ static const codec_type_t codec_type_dtmf = {
 	.decoder_init = dtmf_decoder_init,
 	.decoder_input = dtmf_decoder_input,
 };
+static const codec_type_t codec_type_t38 = {
+	0,
+};
 
 #ifdef HAVE_BCG729
 static packetizer_f packetizer_g729; // aggregate some frames into packets
@@ -394,6 +397,19 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_fmtp = "0-15",
 		.codec_type = &codec_type_dtmf,
+		.support_encoding = 1,
+		.support_decoding = 1,
+	},
+	{
+		.rtpname = "t38",
+		.avcodec_id = -1,
+		.packetizer = packetizer_passthrough,
+		.media_type = MT_AUDIO,
+		.supplemental = 1,
+		.dtmf = 0,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.codec_type = &codec_type_t38,
 		.support_encoding = 1,
 		.support_decoding = 1,
 	},
