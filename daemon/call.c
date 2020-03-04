@@ -1819,6 +1819,16 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 static void __update_media_protocol(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, struct sdp_ng_flags *flags)
 {
+	// is the media type still the same?
+	if (str_cmp_str(&other_media->type, &sp->type)) {
+		ilog(LOG_DEBUG, "Updating media type from '" STR_FORMAT "' to '" STR_FORMAT "'",
+				STR_FMT(&other_media->type), STR_FMT(&sp->type));
+		call_str_cpy(other_media->call, &other_media->type, &sp->type);
+		other_media->type_id = codec_get_type(&other_media->type);
+		call_str_cpy(media->call, &media->type, &sp->type);
+		media->type_id = other_media->type_id;
+	}
+
 	/* deduct protocol from stream parameters received */
 	if (other_media->protocol != sp->protocol) {
 		other_media->protocol = sp->protocol;
