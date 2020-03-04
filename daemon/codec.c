@@ -382,9 +382,8 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 		// even if the receiver can receive the same codec that the sink can
 		// send, we might still have it configured as a transcoder due to
 		// always-transcode in the offer
-		// XXX codec_handlers can be converted to g_direct_hash table
 		struct codec_handler *ch_recv =
-			g_hash_table_lookup(sink->codec_handlers, &recv_pt->payload_type);
+			g_hash_table_lookup(sink->codec_handlers, GINT_TO_POINTER(recv_pt->payload_type));
 		if (!ch_recv)
 			continue;
 		if (ch_recv->transcoder) {
@@ -525,7 +524,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags)
 {
 	if (!receiver->codec_handlers)
-		receiver->codec_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+		receiver->codec_handlers = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	MEDIA_CLEAR(receiver, TRANSCODE);
 	receiver->rtcp_handler = NULL;
@@ -599,21 +598,22 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		// first, make sure we have a codec_handler struct for this
 		__ensure_codec_def(pt, receiver);
 		struct codec_handler *handler;
-		handler = g_hash_table_lookup(receiver->codec_handlers, &pt->payload_type);
+		handler = g_hash_table_lookup(receiver->codec_handlers, GINT_TO_POINTER(pt->payload_type));
 		if (handler) {
 			// make sure existing handler matches this PT
 			if (rtp_payload_type_cmp(pt, &handler->source_pt)) {
 				ilog(LOG_DEBUG, "Resetting codec handler for PT %u", pt->payload_type);
 				handler = NULL;
 				g_atomic_pointer_set(&receiver->codec_handler_cache, NULL);
-				g_hash_table_remove(receiver->codec_handlers, &pt->payload_type);
+				g_hash_table_remove(receiver->codec_handlers, GINT_TO_POINTER(pt->payload_type));
 			}
 		}
 		if (!handler) {
 			ilog(LOG_DEBUG, "Creating codec handler for " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params));
 			handler = __handler_new(pt);
-			g_hash_table_insert(receiver->codec_handlers, &handler->source_pt.payload_type,
+			g_hash_table_insert(receiver->codec_handlers,
+					GINT_TO_POINTER(handler->source_pt.payload_type),
 					handler);
 			g_queue_push_tail(&receiver->codec_handlers_store, handler);
 		}
@@ -784,7 +784,7 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type) 
 
 	if (G_UNLIKELY(!m->codec_handlers))
 		goto out;
-	h = g_hash_table_lookup(m->codec_handlers, &payload_type);
+	h = g_hash_table_lookup(m->codec_handlers, GINT_TO_POINTER(payload_type));
 	if (!h)
 		goto out;
 

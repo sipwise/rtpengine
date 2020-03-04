@@ -141,7 +141,7 @@ static void __expect(const char *file, int line, GQueue *dumper, const char *cod
 static void __check_encoder(const char *file, int line, struct call_media *m, int in_pt, int out_pt,
 		int out_bitrate)
 {
-	struct codec_handler *ch = g_hash_table_lookup(m->codec_handlers, &in_pt);
+	struct codec_handler *ch = g_hash_table_lookup(m->codec_handlers, GINT_TO_POINTER(in_pt));
 	printf("running test %s:%i\n", file, line);
 	assert(ch->source_pt.payload_type == in_pt);
 	if (ch->dest_pt.payload_type != out_pt || ch->dest_pt.bitrate != out_bitrate) {
