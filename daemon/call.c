@@ -1816,6 +1816,34 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 	}
 }
 
+static void __update_media_protocol(struct call_media *media, struct call_media *other_media,
+		struct stream_params *sp, struct sdp_ng_flags *flags)
+{
+	/* deduct protocol from stream parameters received */
+	if (other_media->protocol != sp->protocol) {
+		other_media->protocol = sp->protocol;
+		/* if the endpoint changes the protocol, we reset the other side's
+		 * protocol as well. this lets us remember our previous overrides,
+		 * but also lets endpoints re-negotiate. */
+		media->protocol = NULL;
+	}
+	/* default is to leave the protocol unchanged */
+	if (!media->protocol)
+		media->protocol = other_media->protocol;
+
+	// handler overrides requested by the user
+	if (!flags)
+		return;
+
+	/* allow override of outgoing protocol even if we know it already */
+	/* but only if this is an RTP-based protocol */
+	if (flags->transport_protocol
+			&& other_media->protocol && other_media->protocol->rtp) {
+		media->protocol = flags->transport_protocol;
+		return;
+	}
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		struct sdp_ng_flags *flags)
@@ -1883,23 +1911,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				ice_restart(other_media->ice_agent);
 		}
 
-		/* deduct protocol from stream parameters received */
-		if (other_media->protocol != sp->protocol) {
-			other_media->protocol = sp->protocol;
-			/* if the endpoint changes the protocol, we reset the other side's
-			 * protocol as well. this lets us remember our previous overrides,
-			 * but also lets endpoints re-negotiate. */
-			media->protocol = NULL;
-		}
-		/* default is to leave the protocol unchanged */
-		if (!media->protocol)
-			media->protocol = other_media->protocol;
-		/* allow override of outgoing protocol even if we know it already */
-		/* but only if this is an RTP-based protocol */
-		if (flags && flags->transport_protocol
-				&& other_media->protocol && other_media->protocol->rtp)
-			media->protocol = flags->transport_protocol;
-
+		__update_media_protocol(media, other_media, sp, flags);
 		__update_media_id(media, other_media, sp, flags);
 		__endpoint_loop_protect(sp, other_media);
 
