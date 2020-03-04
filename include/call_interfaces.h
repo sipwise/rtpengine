@@ -76,6 +76,7 @@ struct sdp_ng_flags {
 	    always_transcode:1,
 	    asymmetric_codecs:1,
 	    inject_dtmf:1,
+	    t38_decode:1,
 	    supports_load_limit:1,
 	    dtls_off:1,
 	    sdes_off:1,

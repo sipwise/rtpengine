@@ -18,6 +18,45 @@ my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, 
 
 
 
+# T.38
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7426)], [qw(198.51.100.3 7428)]);
+
+($port_a) = offer('T.38 decode', { 'T.38' => [ 'decode' ], ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 7426 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_a, $port_b, '/^\x00\x00\x01\x00\x00\x00$/');
+snd($sock_b, $port_a, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 1003, 3480, 0x1234, "\x00" x 160));
+
+
+
+
+done_testing();
+exit();
+
+
+
 # github issue 850
 
 new_call;
