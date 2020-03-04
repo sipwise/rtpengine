@@ -295,8 +295,8 @@ struct call_media {
 
 	unsigned int		index;		/* RO */
 	unsigned int		unique_id;	/* RO */
-	str			type;		/* RO */
-	enum media_type		type_id;	// RO
+	str			type;
+	enum media_type		type_id;
 	const struct transport_protocol *protocol;
 	sockfamily_t		*desired_family;
 	const struct logical_intf *logical_intf;
