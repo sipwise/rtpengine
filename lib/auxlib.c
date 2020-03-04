@@ -33,9 +33,15 @@ void daemonize(void) {
 	if (fork())
 		_exit(0);
 	write_log = (write_log_t *) syslog;
+#ifdef __GLIBC__
 	stdin = freopen("/dev/null", "r", stdin);
 	stdout = freopen("/dev/null", "w", stdout);
 	stderr = freopen("/dev/null", "w", stderr);
+#else
+	freopen("/dev/null", "r", stdin);
+	freopen("/dev/null", "w", stdout);
+	freopen("/dev/null", "w", stderr);
+#endif
 	setpgrp();
 }
 
