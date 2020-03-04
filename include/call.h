@@ -326,6 +326,7 @@ struct call_media {
 	volatile struct codec_handler *codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
 	struct codec_handler	*dtmf_injector;
+	struct codec_handler	*t38_decoder;
 
 	int			ptime; // either from SDP or overridden
 
