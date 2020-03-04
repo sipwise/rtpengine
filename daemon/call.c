@@ -1853,6 +1853,17 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		media->protocol = flags->transport_protocol;
 		return;
 	}
+
+	// T.38 decoder?
+	if (other_media->type_id == MT_IMAGE && other_media->protocol
+			&& other_media->protocol->index == PROTO_UDPTL
+			&& flags->t38_decode) {
+		media->protocol = flags->transport_protocol;
+		if (!media->protocol)
+			media->protocol = &transport_protocols[PROTO_RTP_AVP];
+		media->type_id = MT_AUDIO;
+		call_str_cpy_c(media->call, &media->type, "audio");
+	}
 }
 
 /* called with call->master_lock held in W */

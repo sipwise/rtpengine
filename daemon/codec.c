@@ -539,9 +539,29 @@ static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_
 }
 
 // call must be locked in W
+static void codec_type_transcode(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags)
+{
+	if (sink->type_id == MT_IMAGE && receiver->type_id == MT_AUDIO) {
+		// T.38 decoder
+		if (sink->t38_decoder) {
+			;
+			// XXX verify/free/reset
+		}
+		sink->t38_decoder = ; // XXX
+	}
+}
+
+// call must be locked in W
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags)
 {
+	// T.38 transcoding
+	if (receiver->type_id != sink->type_id) {
+		codec_type_transcode(receiver, sink, flags);
+		return;
+	}
+
 	if (!receiver->codec_handlers)
 		receiver->codec_handlers = g_hash_table_new(g_direct_hash, g_direct_equal);
 
@@ -793,6 +813,8 @@ next:
 struct codec_handler *codec_handler_get(struct call_media *m, int payload_type) {
 #ifdef WITH_TRANSCODING
 	struct codec_handler *h;
+
+	// XXX use media type handler function
 
 	if (payload_type < 0)
 		goto out;
@@ -1976,6 +1998,22 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		ilog(LOG_DEBUG, "Codec '" STR_FORMAT "' added for transcoding with payload type %u",
 				STR_FMT(&pt->encoding_with_params), pt->payload_type);
 		__rtp_payload_type_add_recv(media, pt);
+	}
+
+	if (media->type_id == MT_AUDIO && media->codecs_prefs_recv.length == 0) {
+		// T.38 -> audio transcoder and no codecs have been given.
+		// Default to PCMA and PCMU
+		// XXX can we improve the codec lookup/synthesis?
+		static const str PCMU_str = STR_CONST_INIT("PCMU");
+		static const str PCMA_str = STR_CONST_INIT("PCMA");
+		pt = codec_add_payload_type(&PCMU_str, media);
+		assert(pt != NULL);
+		__rtp_payload_type_add_recv(media, pt);
+		pt = codec_add_payload_type(&PCMA_str, media);
+		assert(pt != NULL);
+		__rtp_payload_type_add_recv(media, pt);
+
+		ilog(LOG_DEBUG, "Using default codecs PCMU and PCMA for T.38 decoder");
 	}
 #endif
 

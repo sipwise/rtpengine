@@ -41,6 +41,7 @@ struct transport_protocol {
 	enum transport_protocol_index	index;
 	const char			*name;
 	enum transport_protocol_index	avpf_proto;
+	int				magic_payload_type;
 	int				rtp:1; /* also set to 1 for SRTP */
 	int				srtp:1;
 	int				avpf:1;

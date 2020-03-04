@@ -549,6 +549,20 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 }
 
 
+#ifdef WITH_TRANSCODING
+INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("decode"):
+			out->t38_decode = 1;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'T.38' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
+}
+#endif
+
+
 static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *input, const char *key,
 		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm)
 {
@@ -729,6 +743,10 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
 							&out->codec_set))
 					return;
+				if (call_ng_flags_prefix(out, s, "T38-", ng_t38_option, NULL))
+					return;
+				if (call_ng_flags_prefix(out, s, "T.38-", ng_t38_option, NULL))
+					return;
 #endif
 			}
 
@@ -810,6 +828,10 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
 	call_ng_flags_list(out, input, "SDES", ng_sdes_option, NULL);
+#ifdef WITH_TRANSCODING
+	call_ng_flags_list(out, input, "T38", ng_t38_option, NULL);
+	call_ng_flags_list(out, input, "T.38", ng_t38_option, NULL);
+#endif
 
 	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);
 	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
