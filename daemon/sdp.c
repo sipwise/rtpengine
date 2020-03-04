@@ -1513,6 +1513,23 @@ static void insert_codec_parameters(struct sdp_chopper *chop, struct call_media 
 	}
 }
 
+static int replace_media_type(struct sdp_chopper *chop, struct sdp_media *media, struct call_media *cm) {
+	str *type = &media->media_type;
+
+	if (!cm->type.s)
+		return 0;
+
+	if (copy_up_to(chop, type))
+		return -1;
+
+	chopper_append_str(chop, &cm->type);
+
+	if (skip_over(chop, type))
+		return -1;
+
+	return 0;
+}
+
 static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct packet_stream *ps) {
 	str *port = &media->port;
 	unsigned int p;
@@ -1756,6 +1773,10 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				goto strip;
 
 			default:
+				// Remove T.38 related attributes if not an 'image' media.
+				// Used for T.38 <> audio transcoding
+				if (media->type_id != MT_IMAGE && !memcmp(attr->name.s, "T38", 3))
+					goto strip;
 				break;
 		}
 
@@ -2088,6 +2109,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			ps = j->data;
 
 			if (!flags->ice_force_relay) {
+				if (replace_media_type(chop, sdp_media, call_media))
+					goto error;
 			        if (replace_media_port(chop, sdp_media, ps))
 				        goto error;
 			        if (replace_consecutive_port_count(chop, sdp_media, ps, j))
