@@ -53,6 +53,8 @@ enum media_type {
 	MT_VIDEO,
 	MT_IMAGE,
 	MT_OTHER,
+
+	__MT_LAST
 };
 
 struct codec_type_s {

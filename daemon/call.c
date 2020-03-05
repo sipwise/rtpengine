@@ -711,6 +711,7 @@ struct call_media *call_media_new(struct call *call) {
 	med->codecs_send = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
 	med->codec_names_recv = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, (void (*)(void*)) g_queue_free);
 	med->codec_names_send = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, (void (*)(void*)) g_queue_free);
+	med->type = codec_get_media_type(NULL);
 	return med;
 }
 
@@ -754,8 +755,8 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med = call_media_new(call);
 	med->monologue = ml;
 	med->index = sp->index;
-	call_str_cpy(ml->call, &med->type, &sp->type);
-	med->type_id = codec_get_type(&med->type);
+	call_str_cpy(ml->call, &med->type_str, &sp->type);
+	med->type = codec_get_media_type(&med->type_str);
 
 	g_queue_push_tail(&ml->medias, med);
 
@@ -1820,13 +1821,13 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		struct stream_params *sp, struct sdp_ng_flags *flags)
 {
 	// is the media type still the same?
-	if (str_cmp_str(&other_media->type, &sp->type)) {
+	if (str_cmp_str(&other_media->type_str, &sp->type)) {
 		ilog(LOG_DEBUG, "Updating media type from '" STR_FORMAT "' to '" STR_FORMAT "'",
-				STR_FMT(&other_media->type), STR_FMT(&sp->type));
-		call_str_cpy(other_media->call, &other_media->type, &sp->type);
-		other_media->type_id = codec_get_type(&other_media->type);
-		call_str_cpy(media->call, &media->type, &sp->type);
-		media->type_id = other_media->type_id;
+				STR_FMT(&other_media->type_str), STR_FMT(&sp->type));
+		call_str_cpy(other_media->call, &other_media->type_str, &sp->type);
+		other_media->type = codec_get_media_type(&other_media->type_str);
+		call_str_cpy(media->call, &media->type_str, &sp->type);
+		media->type = other_media->type;
 	}
 
 	/* deduct protocol from stream parameters received */
@@ -2226,7 +2227,7 @@ void call_destroy(struct call *c) {
 #define MLL_PREFIX "------ Media #%u ("STR_FORMAT" over %s) using " /* media log line prefix */
 #define MLL_COMMON /* common args */						\
 				md->index,				\
-				STR_FMT(&md->type),			\
+				STR_FMT(&md->type_str),			\
 				md->protocol ? md->protocol->name : "(unknown)"
 			if (!rtp_pt)
 				ilog(LOG_INFO, MLL_PREFIX "unknown codec", MLL_COMMON);

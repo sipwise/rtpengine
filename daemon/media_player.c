@@ -369,7 +369,7 @@ static int media_player_play_init(struct media_player *mp) {
 	struct call_media *media;
 	for (GList *l = mp->ml->medias.head; l; l = l->next) {
 		media = l->data;
-		if (media->type_id != MT_AUDIO)
+		if (media->type->id != MT_AUDIO)
 			continue;
 		if (!MEDIA_ISSET(media, SEND))
 			continue;

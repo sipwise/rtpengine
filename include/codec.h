@@ -18,6 +18,7 @@ struct ssrc_hash;
 struct sdp_ng_flags;
 struct codec_ssrc_handler;
 struct rtp_header;
+enum media_type;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -47,6 +48,14 @@ struct codec_packet {
 	void (*free_func)(void *);
 };
 
+struct media_type_s {
+	const enum media_type id;
+};
+typedef const struct media_type_s media_type_t;
+
+extern media_type_t media_types[__MT_LAST];
+
+
 
 struct codec_handler *codec_handler_get(struct call_media *, int payload_type);
 void codec_handlers_free(struct call_media *);
@@ -59,6 +68,8 @@ void codec_packet_free(void *);
 
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
 		GQueue *types, struct sdp_ng_flags *flags);
+
+media_type_t *codec_get_media_type(const str *);
 
 // special return value `(void *) 0x1` to signal type mismatch
 struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media);

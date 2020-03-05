@@ -1280,7 +1280,7 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 			return -1;
 		if (redis_hash_get_str(&s, rh, "type"))
 			return -1;
-		call_str_cpy(c, &med->type, &s);
+		call_str_cpy(c, &med->type_str, &s);
 		if (!redis_hash_get_str(&s, rh, "media_id"))
 			call_str_cpy(c, &med->media_id, &s);
 
@@ -2033,7 +2033,7 @@ char* redis_encode_json(struct call *c) {
 			{
 				JSON_SET_SIMPLE("tag","%u",media->monologue->unique_id);
 				JSON_SET_SIMPLE("index","%u",media->index);
-				JSON_SET_SIMPLE_STR("type",&media->type);
+				JSON_SET_SIMPLE_STR("type",&media->type_str);
 				if (media->media_id.s)
 					JSON_SET_SIMPLE_STR("media_id",&media->media_id);
 				JSON_SET_SIMPLE_CSTR("protocol",media->protocol ? media->protocol->name : "");

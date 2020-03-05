@@ -648,7 +648,7 @@ static void cli_incoming_list_callid(str *instr, struct streambuf *replybuffer) 
 
 			streambuf_printf(replybuffer, "------ Media #%u (" STR_FORMAT " over %s) using ",
 					md->index,
-					STR_FMT(&md->type),
+					STR_FMT(&md->type_str),
 					md->protocol ? md->protocol->name : "(unknown)");
 			if (!rtp_pt)
 				streambuf_printf(replybuffer, "unknown codec\n");

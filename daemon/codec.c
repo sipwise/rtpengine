@@ -34,6 +34,25 @@ static struct codec_handler codec_handler_stub = {
 };
 
 
+media_type_t media_types[__MT_LAST] = {
+	[MT_UNKNOWN] = {
+		.id = MT_UNKNOWN,
+	},
+	[MT_AUDIO] = {
+		.id = MT_AUDIO,
+	},
+	[MT_VIDEO] = {
+		.id = MT_VIDEO,
+	},
+	[MT_IMAGE] = {
+		.id = MT_IMAGE,
+	},
+	[MT_OTHER] = {
+		.id = MT_OTHER,
+	},
+};
+
+
 
 static GList *__delete_x_codec(GList *link, GHashTable *codecs, GHashTable *codec_names, GQueue *codecs_prefs) {
 	struct rtp_payload_type *pt = link->data;
@@ -264,7 +283,7 @@ static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *m
 	if (pt->codec_def)
 		return;
 
-	pt->codec_def = codec_find(&pt->encoding, media->type_id);
+	pt->codec_def = codec_find(&pt->encoding, media->type->id);
 	if (!pt->codec_def)
 		return;
 	if (!pt->codec_def->support_encoding || !pt->codec_def->support_decoding)
@@ -1654,7 +1673,7 @@ static struct rtp_payload_type *codec_make_payload_type_sup(const str *codec_str
 	if (!ret)
 		return NULL;
 
-	if (!ret->codec_def || (media->type_id && ret->codec_def->media_type != media->type_id)) {
+	if (!ret->codec_def || (media->type->id && ret->codec_def->media_type != media->type->id)) {
 		payload_type_free(ret);
 		return (void *) 0x1;
 	}
@@ -1961,4 +1980,14 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 #endif
 
 	g_hash_table_destroy(removed);
+}
+
+
+media_type_t *codec_get_media_type(const str *mt) {
+	if (!mt)
+		return &media_types[MT_UNKNOWN];
+	enum media_type id = codec_get_type(mt);
+	if (id >= __MT_LAST)
+		id = 0;
+	return &media_types[id];
 }

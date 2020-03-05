@@ -29,6 +29,7 @@
 #include "load.h"
 #include "media_player.h"
 #include "dtmf.h"
+#include "codec.h"
 
 
 static pcre *info_re;
@@ -1209,7 +1210,7 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	dict = bencode_list_add_dictionary(list);
 
 	bencode_dictionary_add_integer(dict, "index", m->index);
-	bencode_dictionary_add_str(dict, "type", &m->type);
+	bencode_dictionary_add_str(dict, "type", &m->type_str);
 	if (m->protocol)
 		bencode_dictionary_add_string(dict, "protocol", m->protocol->name);
 
@@ -1903,7 +1904,7 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	struct call_media *media;
 	for (GList *l = monologue->medias.head; l; l = l->next) {
 		media = l->data;
-		if (media->type_id != MT_AUDIO)
+		if (media->type->id != MT_AUDIO)
 			continue;
 		if (!media->dtmf_injector)
 			continue;

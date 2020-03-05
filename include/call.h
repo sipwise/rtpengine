@@ -194,6 +194,8 @@ struct media_player;
 struct send_timer;
 struct transport_protocol;
 struct jitter_buffer;
+struct media_type_s;
+typedef const struct media_type_s media_type_t;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -295,8 +297,8 @@ struct call_media {
 
 	unsigned int		index;		/* RO */
 	unsigned int		unique_id;	/* RO */
-	str			type;		/* RO */
-	enum media_type		type_id;	// RO
+	str			type_str;
+	media_type_t		*type;
 	const struct transport_protocol *protocol;
 	sockfamily_t		*desired_family;
 	const struct logical_intf *logical_intf;
