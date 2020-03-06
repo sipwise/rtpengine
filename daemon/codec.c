@@ -766,6 +766,26 @@ next:
 }
 
 
+static struct codec_handler *codec_handler_get_rtp(struct call_media *m, int payload_type) {
+	struct codec_handler *h;
+
+	if (payload_type < 0)
+		return NULL;
+
+	h = g_atomic_pointer_get(&m->codec_handler_cache);
+	if (G_LIKELY(G_LIKELY(h) && G_LIKELY(h->source_pt.payload_type == payload_type)))
+		return h;
+
+	if (G_UNLIKELY(!m->codec_handlers))
+		return NULL;
+	h = g_hash_table_lookup(m->codec_handlers, GINT_TO_POINTER(payload_type));
+	if (!h)
+		return NULL;
+
+	g_atomic_pointer_set(&m->codec_handler_cache, h);
+
+	return h;
+}
 
 #endif
 
@@ -773,26 +793,17 @@ next:
 // call must be locked in R
 struct codec_handler *codec_handler_get(struct call_media *m, int payload_type) {
 #ifdef WITH_TRANSCODING
-	struct codec_handler *h;
+	struct codec_handler *ret = NULL;
 
-	if (payload_type < 0)
+	if (!m->protocol)
 		goto out;
 
-	h = g_atomic_pointer_get(&m->codec_handler_cache);
-	if (G_LIKELY(G_LIKELY(h) && G_LIKELY(h->source_pt.payload_type == payload_type)))
-		return h;
-
-	if (G_UNLIKELY(!m->codec_handlers))
-		goto out;
-	h = g_hash_table_lookup(m->codec_handlers, GINT_TO_POINTER(payload_type));
-	if (!h)
-		goto out;
-
-	g_atomic_pointer_set(&m->codec_handler_cache, h);
-
-	return h;
+	if (m->protocol->rtp)
+		ret = codec_handler_get_rtp(m, payload_type);
 
 out:
+	if (ret)
+		return ret;
 	if (MEDIA_ISSET(m, TRANSCODE))
 		return &codec_handler_stub_ssrc;
 #endif
