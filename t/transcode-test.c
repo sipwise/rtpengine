@@ -61,9 +61,11 @@ static void __start(const char *file, int line) {
 	ml_A = (struct call_monologue) {0,};
 	str_init(&ml_A.tag, "tag_A");
 	media_A->monologue = &ml_A;
+	media_A->protocol = &transport_protocols[PROTO_RTP_AVP];
 	ml_B = (struct call_monologue) {0,};
 	str_init(&ml_B.tag, "tag_B");
 	media_B->monologue = &ml_B;
+	media_B->protocol = &transport_protocols[PROTO_RTP_AVP];
 	g_queue_init(&rtp_types); // parsed from received SDP
 	flags.codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
 	flags.codec_mask = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
