@@ -519,6 +519,40 @@ static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_
 	g_queue_push_tail(&receiver->codec_handlers_store, receiver->dtmf_injector);
 }
 
+
+
+static struct codec_handler *__get_pt_handler(struct call_media *receiver, struct rtp_payload_type *pt) {
+	__ensure_codec_def(pt, receiver);
+	struct codec_handler *handler;
+	handler = g_hash_table_lookup(receiver->codec_handlers, GINT_TO_POINTER(pt->payload_type));
+	if (handler) {
+		// make sure existing handler matches this PT
+		if (rtp_payload_type_cmp(pt, &handler->source_pt)) {
+			ilog(LOG_DEBUG, "Resetting codec handler for PT %u", pt->payload_type);
+			handler = NULL;
+			g_atomic_pointer_set(&receiver->codec_handler_cache, NULL);
+			g_hash_table_remove(receiver->codec_handlers, GINT_TO_POINTER(pt->payload_type));
+		}
+	}
+	if (!handler) {
+		ilog(LOG_DEBUG, "Creating codec handler for " STR_FORMAT,
+				STR_FMT(&pt->encoding_with_params));
+		handler = __handler_new(pt);
+		g_hash_table_insert(receiver->codec_handlers,
+				GINT_TO_POINTER(handler->source_pt.payload_type),
+				handler);
+		g_queue_push_tail(&receiver->codec_handlers_store, handler);
+	}
+
+	// figure out our ptime
+	if (!pt->ptime && pt->codec_def)
+		pt->ptime = pt->codec_def->default_ptime;
+	if (receiver->ptime)
+		pt->ptime = receiver->ptime;
+
+	return handler;
+}
+
 // call must be locked in W
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags)
@@ -595,28 +629,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			}
 		}
 
-		// first, make sure we have a codec_handler struct for this
-		__ensure_codec_def(pt, receiver);
-		struct codec_handler *handler;
-		handler = g_hash_table_lookup(receiver->codec_handlers, GINT_TO_POINTER(pt->payload_type));
-		if (handler) {
-			// make sure existing handler matches this PT
-			if (rtp_payload_type_cmp(pt, &handler->source_pt)) {
-				ilog(LOG_DEBUG, "Resetting codec handler for PT %u", pt->payload_type);
-				handler = NULL;
-				g_atomic_pointer_set(&receiver->codec_handler_cache, NULL);
-				g_hash_table_remove(receiver->codec_handlers, GINT_TO_POINTER(pt->payload_type));
-			}
-		}
-		if (!handler) {
-			ilog(LOG_DEBUG, "Creating codec handler for " STR_FORMAT,
-					STR_FMT(&pt->encoding_with_params));
-			handler = __handler_new(pt);
-			g_hash_table_insert(receiver->codec_handlers,
-					GINT_TO_POINTER(handler->source_pt.payload_type),
-					handler);
-			g_queue_push_tail(&receiver->codec_handlers_store, handler);
-		}
+		struct codec_handler *handler = __get_pt_handler(receiver, pt);
 
 		// check our own support for this codec
 		if (!pt->codec_def) {
@@ -624,12 +637,6 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			__make_passthrough_gsl(handler, &passthrough_handlers);
 			goto next;
 		}
-
-		// figure out our ptime
-		if (!pt->ptime)
-			pt->ptime = pt->codec_def->default_ptime;
-		if (receiver->ptime)
-			pt->ptime = receiver->ptime;
 
 		// if the sink's codec preferences are unknown (empty), or there are
 		// no supported codecs to transcode to, then we have nothing
