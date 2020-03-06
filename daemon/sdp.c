@@ -1268,6 +1268,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			if (attr && attr->value.s)
 				sp->ptime = str_to_i(&attr->value, 0);
 
+			sp->format_str = media->formats;
 			errstr = "Invalid RTP payload types";
 			if (__rtp_payload_types(sp, media))
 				goto error;
@@ -1463,9 +1464,24 @@ static int replace_transport_protocol(struct sdp_chopper *chop,
 	return 0;
 }
 
+static int replace_format_str(struct sdp_chopper *chop,
+		struct sdp_media *media, struct call_media *cm)
+{
+	if (!cm->format_str.s)
+		return 0;
+	chopper_append_c(chop, " ");
+	chopper_append_str(chop, &cm->format_str);
+	if (skip_over(chop, &media->formats))
+		return -1;
+	return 0;
+}
+
 static int replace_codec_list(struct sdp_chopper *chop,
 		struct sdp_media *media, struct call_media *cm)
 {
+	if (cm->protocol && !cm->protocol->rtp)
+		return replace_format_str(chop, media, cm);
+
 	if (cm->codecs_prefs_recv.length == 0)
 		return 0; // legacy protocol or usage error
 
