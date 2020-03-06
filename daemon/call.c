@@ -1960,6 +1960,8 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			MEDIA_SET(media, PTIME_OVERRIDE);
 			MEDIA_SET(other_media, PTIME_OVERRIDE);
 		}
+		if (str_cmp_str0(&other_media->format_str, &sp->format_str))
+			call_str_cpy(call, &other_media->format_str, &sp->format_str);
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
 		codec_handlers_update(media, other_media, flags);
 
