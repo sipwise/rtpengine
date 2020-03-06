@@ -1960,6 +1960,10 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			MEDIA_SET(media, PTIME_OVERRIDE);
 			MEDIA_SET(other_media, PTIME_OVERRIDE);
 		}
+		if (str_cmp_str(&other_media->format_str, &sp->format_str))
+			call_str_cpy(call, &other_media->format_str, &sp->format_str);
+		if (str_cmp_str(&media->format_str, &sp->format_str))
+			call_str_cpy(call, &media->format_str, &sp->format_str);
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
 		codec_handlers_update(media, other_media, flags);
 
@@ -2222,17 +2226,24 @@ void call_destroy(struct call *c) {
 
 			// stats output only - no cleanups
 
-			rtp_pt = __rtp_stats_codec(md);
 #define MLL_PREFIX "------ Media #%u ("STR_FORMAT" over %s) using " /* media log line prefix */
 #define MLL_COMMON /* common args */						\
 				md->index,				\
 				STR_FMT(&md->type),			\
 				md->protocol ? md->protocol->name : "(unknown)"
-			if (!rtp_pt)
-				ilog(LOG_INFO, MLL_PREFIX "unknown codec", MLL_COMMON);
-			else
+
+			if (md->protocol && md->protocol->rtp) {
+				rtp_pt = __rtp_stats_codec(md);
+				if (!rtp_pt)
+					ilog(LOG_INFO, MLL_PREFIX "unknown codec", MLL_COMMON);
+				else
+					ilog(LOG_INFO, MLL_PREFIX STR_FORMAT, MLL_COMMON,
+							STR_FMT(&rtp_pt->encoding_with_params));
+			}
+			else {
 				ilog(LOG_INFO, MLL_PREFIX STR_FORMAT, MLL_COMMON,
-						STR_FMT(&rtp_pt->encoding_with_params));
+						STR_FMT(&md->format_str));
+			}
 
 			for (o = md->streams.head; o; o = o->next) {
 				ps = o->data;
