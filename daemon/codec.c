@@ -25,6 +25,8 @@ static codec_handler_func handler_func_passthrough;
 static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt);
 static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
+static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2);
+static int packet_decoded_fifo(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
 
 
 static struct codec_handler codec_handler_stub = {
@@ -148,6 +150,8 @@ static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 	handler->source_pt = *pt;
 	handler->output_handler = handler; // default
 	handler->dtmf_payload_type = -1;
+	handler->packet_encoded = packet_encoded_rtp;
+	handler->packet_decoded = packet_decoded_fifo;
 	return handler;
 }
 
@@ -1446,7 +1450,7 @@ static void __free_ssrc_handler(void *chp) {
 	g_queue_clear_full(&ch->dtmf_events, dtmf_event_free);
 }
 
-static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
+static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
 	//unsigned int seq_off = (mp->iter_out > mp->iter_in) ? 1 : 0;
@@ -1561,7 +1565,10 @@ static void __dtmf_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
 	av_frame_free(&dsp_frame);
 }
 
-static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
+static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, void *u2,
+		int (*input_func)(encoder_t *enc, AVFrame *frame,
+			int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2))
+{
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
 
@@ -1598,7 +1605,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 
 	__dtmf_detect(ch, frame);
 
-	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, mp);
+	input_func(ch->encoder, frame, ch->handler->packet_encoded, ch, mp);
 
 discard:
 	av_frame_free(&frame);
@@ -1608,11 +1615,15 @@ discard:
 	return 0;
 }
 
+static int packet_decoded_fifo(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
+	return packet_decoded_common(decoder, frame, u1, u2, encoder_input_fifo);
+}
+
 static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet *packet, struct media_packet *mp)
 {
 	if (!ch->first_ts)
 		ch->first_ts = packet->ts;
-	int ret = decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp);
+	int ret = decoder_input_data(ch->decoder, packet->payload, packet->ts, ch->handler->packet_decoded, ch, mp);
 	//mp->iter_in++;
 	mp->ssrc_out->parent->seq_diff--;
 	return ret;
@@ -1649,14 +1660,14 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 
 static int handler_func_playback(struct codec_handler *h, struct media_packet *mp) {
 	decoder_input_data(h->ssrc_handler->decoder, &mp->payload, mp->rtp->timestamp,
-			__packet_decoded, h->ssrc_handler, mp);
+			h->packet_decoded, h->ssrc_handler, mp);
 	return 0;
 }
 
 static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
 	decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,
-			__packet_decoded, ch, mp);
+			h->packet_decoded, ch, mp);
 	obj_put(&ch->h);
 	return 0;
 }
