@@ -35,6 +35,7 @@ struct codec_handler {
 
 	struct ssrc_hash *ssrc_hash;
 	struct codec_handler *output_handler; // == self, or other PT handler
+	int (*packet_decoded)(decoder_t *, AVFrame *, void *, void *);
 
 	// for media playback
 	struct codec_ssrc_handler *ssrc_handler;

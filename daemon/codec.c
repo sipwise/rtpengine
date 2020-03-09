@@ -25,6 +25,7 @@ static codec_handler_func handler_func_passthrough;
 static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt);
 static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
+static int packet_decoded_rtp(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
 
 
 static struct codec_handler codec_handler_stub = {
@@ -148,6 +149,7 @@ static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 	handler->source_pt = *pt;
 	handler->output_handler = handler; // default
 	handler->dtmf_payload_type = -1;
+	handler->packet_decoded = packet_decoded_rtp;
 	return handler;
 }
 
@@ -1561,7 +1563,7 @@ static void __dtmf_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
 	av_frame_free(&dsp_frame);
 }
 
-static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
+static int packet_decoded_rtp(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
 
@@ -1612,7 +1614,7 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 {
 	if (!ch->first_ts)
 		ch->first_ts = packet->ts;
-	int ret = decoder_input_data(ch->decoder, packet->payload, packet->ts, __packet_decoded, ch, mp);
+	int ret = decoder_input_data(ch->decoder, packet->payload, packet->ts, ch->handler->packet_decoded, ch, mp);
 	//mp->iter_in++;
 	mp->ssrc_out->parent->seq_diff--;
 	return ret;
@@ -1649,14 +1651,14 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 
 static int handler_func_playback(struct codec_handler *h, struct media_packet *mp) {
 	decoder_input_data(h->ssrc_handler->decoder, &mp->payload, mp->rtp->timestamp,
-			__packet_decoded, h->ssrc_handler, mp);
+			h->packet_decoded, h->ssrc_handler, mp);
 	return 0;
 }
 
 static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
 	decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,
-			__packet_decoded, ch, mp);
+			h->packet_decoded, ch, mp);
 	obj_put(&ch->h);
 	return 0;
 }
