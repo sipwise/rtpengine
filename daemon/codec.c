@@ -264,7 +264,7 @@ struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_p
 	return handler;
 }
 
-static void __ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) {
+void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) {
 	if (pt->codec_def)
 		return;
 
@@ -315,7 +315,7 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 
 	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		__ensure_codec_def(pt, sink);
+		ensure_codec_def(pt, sink);
 		if (!pt->codec_def) // not supported, next
 			continue;
 
@@ -425,7 +425,7 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 	GList *insert_pos = NULL;
 	for (GList *l = receiver->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		__ensure_codec_def(pt, receiver);
+		ensure_codec_def(pt, receiver);
 		if (!pt->codec_def)
 			continue;
 		if (g_hash_table_lookup(receiver->codecs_recv, &pt->payload_type)) {
@@ -526,7 +526,7 @@ static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_
 
 
 static struct codec_handler *__get_pt_handler(struct call_media *receiver, struct rtp_payload_type *pt) {
-	__ensure_codec_def(pt, receiver);
+	ensure_codec_def(pt, receiver);
 	struct codec_handler *handler;
 	handler = g_hash_table_lookup(receiver->codec_handlers, GINT_TO_POINTER(pt->payload_type));
 	if (handler) {
