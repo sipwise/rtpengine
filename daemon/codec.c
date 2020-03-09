@@ -25,6 +25,7 @@ static codec_handler_func handler_func_passthrough;
 static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt);
 static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
+static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2);
 
 
 static struct codec_handler codec_handler_stub = {
@@ -148,6 +149,7 @@ static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
 	handler->source_pt = *pt;
 	handler->output_handler = handler; // default
 	handler->dtmf_payload_type = -1;
+	handler->packet_encoded = packet_encoded_rtp;
 	return handler;
 }
 
@@ -1446,7 +1448,7 @@ static void __free_ssrc_handler(void *chp) {
 	g_queue_clear_full(&ch->dtmf_events, dtmf_event_free);
 }
 
-static int __packet_encoded(encoder_t *enc, void *u1, void *u2) {
+static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
 	//unsigned int seq_off = (mp->iter_out > mp->iter_in) ? 1 : 0;
@@ -1598,7 +1600,7 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 
 	__dtmf_detect(ch, frame);
 
-	encoder_input_fifo(ch->encoder, frame, __packet_encoded, ch, mp);
+	encoder_input_fifo(ch->encoder, frame, ch->handler->packet_encoded, ch, mp);
 
 discard:
 	av_frame_free(&frame);
