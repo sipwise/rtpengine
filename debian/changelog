@@ -1,3 +1,25 @@
+ngcp-rtpengine (8.1.2.1+0~mr8.1.2.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2a9b82d] TT#72350 add proper CLI options support to rtpengine-ctl
+  * [dbe36cf] TT#72350 move default values to post-getopt
+  * [0b4a03d] TT#72350 read default values from config file
+  * [a29d97a] byte-swap homer ID as required
+  * [d645f3a] TT#73401 handle changes in RTP payload types
+  * [0295d4a] TT#73900 ignore stray RTCP packets when confirming peer addresses
+  * [2df5efa] TT#74050 handle sinks with null addresses correctly
+  * [595dac7] TT#75050 fix SRTP index slip while transcoding
+  * [cf5b1fa] TT#74651 fix several mem/resource leaks
+  * [3e61812] TT#75351 delete DB streams that have no corresponding file
+  * [1be2be9] TT#75352 add a storage container for codec handlers
+  * [2a5104e] TT#75352 don't attempt to send uninitialised packets
+  * [f38b10e] compile fix for with_transcoding=no
+  * [66303ef] avoid calling a non existant encoder
+  * [3bd74fe] TT#76206 fix call teardown for half established dialogues
+  * [3349403] also check for the output encoder
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 09 Mar 2020 11:07:16 +0100
+
 ngcp-rtpengine (8.1.2.0+0~mr8.1.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
