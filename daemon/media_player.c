@@ -33,6 +33,8 @@ static struct timerthread send_timer_thread;
 static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *cp);
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp);
 
+static void media_player_read_packet(struct media_player *mp);
+
 
 
 #ifdef WITH_TRANSCODING
@@ -112,6 +114,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 
 	mp->tt_obj.tt = &media_player_thread;
 	mutex_init(&mp->lock);
+	mp->run_func = media_player_read_packet; // default
 	mp->call = obj_get(ml->call);
 	mp->ml = ml;
 	mp->seq = random();
@@ -211,29 +214,9 @@ void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
 
 #ifdef WITH_TRANSCODING
 
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0)
-#define CODECPAR codecpar
-#else
-#define CODECPAR codec
-#endif
 
-static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
-	if (mp->handler)
-		return 0;
 
-	// synthesise rtp payload type
-	struct rtp_payload_type src_pt = { .payload_type = -1 };
-	// src_pt.codec_def = codec_find_by_av(avs->codec->codec_id);  `codec` is deprecated
-	src_pt.codec_def = codec_find_by_av(avs->CODECPAR->codec_id);
-	if (!src_pt.codec_def) {
-		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
-		return -1;
-	}
-	src_pt.encoding = src_pt.codec_def->rtpname_str;
-	src_pt.channels = avs->CODECPAR->channels;
-	src_pt.clock_rate = avs->CODECPAR->sample_rate;
-	codec_init_payload_type(&src_pt, mp->media);
-
+int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt) {
 	// find suitable output payload type
 	struct rtp_payload_type *dst_pt;
 	for (GList *l = mp->media->codecs_prefs_send.head; l; l = l->next) {
@@ -257,13 +240,90 @@ found:
 		mp->sync_ts += ts_diff_us * dst_pt->clock_rate / 1000000 / dst_pt->codec_def->clockrate_mult;
 	}
 
-	mp->handler = codec_handler_make_playback(&src_pt, dst_pt, mp->sync_ts);
+	mp->handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts);
 	if (!mp->handler)
+		return -1;
+
+	return 0;
+}
+
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0)
+#define CODECPAR codecpar
+#else
+#define CODECPAR codec
+#endif
+
+static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
+	if (mp->handler)
+		return 0;
+
+	// synthesise rtp payload type
+	struct rtp_payload_type src_pt = { .payload_type = -1 };
+	// src_pt.codec_def = codec_find_by_av(avs->codec->codec_id);  `codec` is deprecated
+	src_pt.codec_def = codec_find_by_av(avs->CODECPAR->codec_id);
+	if (!src_pt.codec_def) {
+		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
+		return -1;
+	}
+	src_pt.encoding = src_pt.codec_def->rtpname_str;
+	src_pt.channels = avs->CODECPAR->channels;
+	src_pt.clock_rate = avs->CODECPAR->sample_rate;
+	codec_init_payload_type(&src_pt, mp->media);
+
+	if (media_player_setup(mp, &src_pt))
 		return -1;
 
 	mp->duration = avs->duration * 1000 * avs->time_base.num / avs->time_base.den;
 
 	return 0;
+}
+
+
+// appropriate lock must be held
+void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
+		long long us_dur, unsigned long long pts)
+{
+	// synthesise fake RTP header and media_packet context
+
+	struct rtp_header rtp = {
+		.timestamp = pts, // taken verbatim by handler_func_playback w/o byte swap
+		.seq_num = htons(mp->seq),
+	};
+	struct media_packet packet = {
+		.tv = rtpe_now,
+		.call = mp->call,
+		.media = mp->media,
+		.rtp = &rtp,
+		.ssrc_out = mp->ssrc_out,
+	};
+	str_init_len(&packet.raw, buf, len);
+	packet.payload = packet.raw;
+
+	mp->handler->func(mp->handler, &packet);
+
+	// as this is timing sensitive and we may have spent some time decoding,
+	// update our global "now" timestamp
+	gettimeofday(&rtpe_now, NULL);
+
+	// keep track of RTP timestamps and real clock. look at the last packet we received
+	// and update our sync TS.
+	if (packet.packets_out.head) {
+		struct codec_packet *p = packet.packets_out.head->data;
+		if (p->rtp) {
+			mp->sync_ts = ntohl(p->rtp->timestamp);
+			mp->sync_ts_tv = p->ttq_entry.when;
+		}
+	}
+
+	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
+
+	mutex_lock(&mp->sink->out_lock);
+	if (media_socket_dequeue(&packet, mp->sink))
+		ilog(LOG_ERR, "Error sending playback media to RTP sink");
+	mutex_unlock(&mp->sink->out_lock);
+
+	timeval_add_usec(&mp->next_run, us_dur);
+	timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
 }
 
 
@@ -314,50 +374,20 @@ static void media_player_read_packet(struct media_player *mp) {
 			avs->CODECPAR->sample_rate,
 			avs->time_base.num, avs->time_base.den);
 
-	// synthesise fake RTP header and media_packet context
-
-	struct rtp_header rtp = {
-		.timestamp = pts_scaled, // taken verbatim by handler_func_playback w/o byte swap
-		.seq_num = htons(mp->seq),
-	};
-	struct media_packet packet = {
-		.tv = rtpe_now,
-		.call = mp->call,
-		.media = mp->media,
-		.rtp = &rtp,
-		.ssrc_out = mp->ssrc_out,
-	};
-	str_init_len(&packet.raw, (char *) mp->pkt.data, mp->pkt.size);
-	packet.payload = packet.raw;
-
-	mp->handler->func(mp->handler, &packet);
-
-	// as this is timing sensitive and we may have spent some time decoding,
-	// update our global "now" timestamp
-	gettimeofday(&rtpe_now, NULL);
-
-	// keep track of RTP timestamps and real clock. look at the last packet we received
-	// and update our sync TS.
-	if (packet.packets_out.head) {
-		struct codec_packet *p = packet.packets_out.head->data;
-		if (p->rtp) {
-			mp->sync_ts = ntohl(p->rtp->timestamp);
-			mp->sync_ts_tv = p->ttq_entry.when;
-		}
-	}
-
-	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
-
-	mutex_lock(&mp->sink->out_lock);
-	if (media_socket_dequeue(&packet, mp->sink))
-		ilog(LOG_ERR, "Error sending playback media to RTP sink");
-	mutex_unlock(&mp->sink->out_lock);
-
-	timeval_add_usec(&mp->next_run, us_dur);
-	timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
+	media_player_add_packet(mp, (char *) mp->pkt.data, mp->pkt.size, us_dur, pts_scaled);
 
 out:
 	av_packet_unref(&mp->pkt);
+}
+
+
+// call->master_lock held in W
+void media_player_set_media(struct media_player *mp, struct call_media *media) {
+	mp->media = media;
+	if (media->streams.head) {
+		mp->sink = media->streams.head->data;
+		mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, 1);
+	}
 }
 
 
@@ -383,9 +413,7 @@ found:
 		ilog(LOG_ERR, "No suitable SDP section for media playback");
 		return -1;
 	}
-	mp->media = media;
-	mp->sink = media->streams.head->data;
-	mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, 1);
+	media_player_set_media(mp, media);
 
 	return 0;
 }
@@ -626,7 +654,7 @@ static void media_player_run(void *ptr) {
 	rwlock_lock_r(&call->master_lock);
 	mutex_lock(&mp->lock);
 
-	media_player_read_packet(mp);
+	mp->run_func(mp);
 
 	mutex_unlock(&mp->lock);
 	rwlock_unlock_r(&call->master_lock);

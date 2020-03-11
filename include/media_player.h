@@ -9,12 +9,14 @@
 
 
 struct call;
+struct call_media;
 struct call_monologue;
 struct codec_handler;
 struct ssrc_ctx;
 struct packet_stream;
 struct codec_packet;
 struct media_player;
+struct rtp_payload_type;
 
 
 #ifdef WITH_TRANSCODING
@@ -22,9 +24,14 @@ struct media_player;
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 
+
+typedef void (*media_player_run_func)(struct media_player *);
+
+
 struct media_player {
 	struct timerthread_obj tt_obj;
 	mutex_t lock;
+	media_player_run_func run_func;
 	struct call *call;
 	struct call_monologue *ml;
 	struct call_media *media;
@@ -73,6 +80,11 @@ int media_player_play_file(struct media_player *, const str *);
 int media_player_play_blob(struct media_player *, const str *);
 int media_player_play_db(struct media_player *, long long);
 void media_player_stop(struct media_player *);
+
+int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt);
+void media_player_set_media(struct media_player *mp, struct call_media *media);
+void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
+		long long us_dur, unsigned long long pts);
 
 void media_player_init(void);
 void media_player_loop(void *);
