@@ -90,7 +90,7 @@ INLINE int str_token_sep(str *new_token, str *ori_and_remainder, int sep);
 INLINE char *str_ncpy(char *dst, size_t bufsize, const str *src);
 
 /* asprintf() analogs */
-#define str_sprintf(fmt, a...) __str_sprintf(STR_MALLOC_PADDING fmt, a)
+#define str_sprintf(fmt, ...) __str_sprintf(STR_MALLOC_PADDING fmt, ##__VA_ARGS__)
 #define str_vsprintf(fmt, a)   __str_vsprintf(STR_MALLOC_PADDING fmt, a)
 
 /* creates a new empty GString that has mem allocated for a new str object */
