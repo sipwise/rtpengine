@@ -1513,6 +1513,14 @@ static void insert_codec_parameters(struct sdp_chopper *chop, struct call_media 
 	}
 }
 
+static void insert_sdp_attributes(struct sdp_chopper *chop, struct call_media *cm) {
+	for (GList *l = cm->sdp_attributes.head; l; l = l->next) {
+		str *s = l->data;
+		chopper_append_printf(chop, "a=" STR_FORMAT "\r\n",
+				STR_FMT(s));
+	}
+}
+
 static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct packet_stream *ps) {
 	str *port = &media->port;
 	unsigned int p;
@@ -2118,7 +2126,10 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				chopper_append_c(chop, "\r\n");
 			}
 
-			insert_codec_parameters(chop, call_media);
+			if (call_media->protocol && call_media->protocol->rtp)
+				insert_codec_parameters(chop, call_media);
+
+			insert_sdp_attributes(chop, call_media);
 
 			ps_rtcp = NULL;
 			if (ps->rtcp_sibling) {

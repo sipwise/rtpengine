@@ -2411,6 +2411,7 @@ static void __call_free(void *p) {
 		g_queue_clear_full(&md->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
 		g_queue_clear_full(&md->codecs_prefs_send, (GDestroyNotify) payload_type_free);
 		codec_handlers_free(md);
+		g_queue_clear_full(&md->sdp_attributes, free);
 		g_slice_free1(sizeof(*md), md);
 	}
 
