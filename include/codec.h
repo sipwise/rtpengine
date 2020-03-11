@@ -18,6 +18,7 @@ struct ssrc_hash;
 struct sdp_ng_flags;
 struct codec_ssrc_handler;
 struct rtp_header;
+struct stream_params;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -76,7 +77,8 @@ void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payl
 
 #ifdef WITH_TRANSCODING
 
-void codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *);
+void codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *,
+		const struct stream_params *);
 void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts);
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
 uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch);
@@ -86,7 +88,7 @@ uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 #else
 
 INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags) { }
+		const struct sdp_ng_flags *flags, const struct stream_params *sp) { }
 
 #endif
 

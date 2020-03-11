@@ -222,6 +222,7 @@ int media_player_setup(struct media_player *mp, const struct rtp_payload_type *s
 	struct rtp_payload_type *dst_pt;
 	for (GList *l = mp->media->codecs_prefs_send.head; l; l = l->next) {
 		dst_pt = l->data;
+		ensure_codec_def(dst_pt, mp->media);
 		if (dst_pt->codec_def && !dst_pt->codec_def->supplemental)
 			goto found;
 	}

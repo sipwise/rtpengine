@@ -16,6 +16,8 @@
 #include "call_interfaces.h"
 #include "dtmf.h"
 #include "dtmflib.h"
+#include "t38.h"
+#include "media_player.h"
 
 
 
@@ -27,6 +29,7 @@ static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *p
 static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
 static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2);
 static int packet_decoded_fifo(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
+static int packet_decoded_direct(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
 
 
 static struct codec_handler codec_handler_stub = {
@@ -107,6 +110,7 @@ static codec_handler_func handler_func_transcode;
 static codec_handler_func handler_func_playback;
 static codec_handler_func handler_func_inject_dtmf;
 static codec_handler_func handler_func_dtmf;
+static codec_handler_func handler_func_t38;
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_new(void *p);
@@ -150,7 +154,8 @@ void codec_handler_free(struct codec_handler **handler) {
 
 static struct codec_handler *__handler_new(const struct rtp_payload_type *pt) {
 	struct codec_handler *handler = g_slice_alloc0(sizeof(*handler));
-	handler->source_pt = *pt;
+	if (pt)
+		handler->source_pt = *pt;
 	handler->output_handler = handler; // default
 	handler->dtmf_payload_type = -1;
 	handler->packet_encoded = packet_encoded_rtp;
@@ -236,14 +241,17 @@ reset:
 
 check_output:;
 	// check if we have multiple decoders transcoding to the same output PT
-	struct codec_handler *output_handler = g_hash_table_lookup(output_transcoders,
-			GINT_TO_POINTER(dest->payload_type));
+	struct codec_handler *output_handler = NULL;
+	if (output_transcoders)
+		output_handler = g_hash_table_lookup(output_transcoders,
+				GINT_TO_POINTER(dest->payload_type));
 	if (output_handler) {
 		ilog(LOG_DEBUG, "Using existing encoder context");
 		handler->output_handler = output_handler;
 	}
 	else {
-		g_hash_table_insert(output_transcoders, GINT_TO_POINTER(dest->payload_type), handler);
+		if (output_transcoders)
+			g_hash_table_insert(output_transcoders, GINT_TO_POINTER(dest->payload_type), handler);
 		handler->output_handler = handler; // make sure we don't have a stale pointer
 	}
 }
@@ -528,6 +536,7 @@ static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_
 
 
 
+
 static struct codec_handler *__get_pt_handler(struct call_media *receiver, struct rtp_payload_type *pt) {
 	ensure_codec_def(pt, receiver);
 	struct codec_handler *handler;
@@ -560,12 +569,130 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, struc
 	return handler;
 }
 
+
+
+
+static void __check_t38_decoder(struct call_media *t38_media) {
+	if (t38_media->t38_handler) {
+		// XXX verify/free/reset
+		return;
+	}
+	ilog(LOG_DEBUG, "Creating T.38 packet handler");
+	t38_media->t38_handler = __handler_new(NULL);
+	t38_media->t38_handler->func = handler_func_t38;
+}
+
+static int packet_encoded_t38(encoder_t *enc, void *u1, void *u2) {
+	struct media_packet *mp = u2;
+
+	if (!mp->media)
+		return 0;
+
+	return t38_gateway_input_samples(mp->media->t38_gateway,
+			(int16_t *) enc->avpkt.data, enc->avpkt.size / 2);
+}
+
+static void __check_t38_gateway(struct call_media *pcm_media, struct call_media *t38_media,
+		const struct stream_params *sp)
+{
+	const struct t38_options *t_opts;
+	struct t38_options t_opts_stor = {0,};
+
+	if (sp)
+		t_opts = &sp->t38_options;
+	else {
+		// create our own options
+		t_opts_stor.max_ec_entries = 3;
+		t_opts = &t_opts_stor;
+	}
+
+	if (t38_gateway_pair(t38_media, pcm_media, t_opts))
+		return;
+
+	// need a packet handler on the T.38 side
+	__check_t38_decoder(t38_media);
+
+	// XXX remove/shut down T.38 gateway when not needed any more
+
+	// for each codec type supported by the pcm_media, we create a codec handler that
+	// links to the T.38 encoder
+	for (GList *l = pcm_media->codecs_prefs_recv.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		struct codec_handler *handler = __get_pt_handler(pcm_media, pt);
+		if (!pt->codec_def) {
+			// should not happen
+			ilog(LOG_WARN, "Unsupported codec " STR_FORMAT " for T.38 transcoding",
+					STR_FMT(&pt->encoding_with_params));
+			continue;
+		}
+
+		ilog(LOG_DEBUG, "Creating T.38 encoder for " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
+
+		__make_transcoder(handler, &pcm_media->t38_gateway->pcm_pt, NULL, -1, 0);
+
+		handler->packet_decoded = packet_decoded_direct;
+		handler->packet_encoded = packet_encoded_t38;
+	}
+
+	MEDIA_SET(pcm_media, TRANSCODE);
+	MEDIA_SET(pcm_media, GENERATOR);
+	MEDIA_SET(t38_media, TRANSCODE);
+	MEDIA_SET(t38_media, GENERATOR);
+}
+
+// call must be locked in W
+static int codec_handler_udptl_update(struct call_media *receiver, struct call_media *sink)
+{
+	if (sink->type_id == MT_AUDIO && receiver->type_id == MT_IMAGE) {
+		if (!str_cmp(&receiver->format_str, "t38")) {
+			__check_t38_gateway(sink, receiver, NULL);
+			return 1;
+		}
+	}
+	ilog(LOG_WARN, "Unsupported non-RTP protocol: " STR_FORMAT "/" STR_FORMAT
+			" -> " STR_FORMAT "/" STR_FORMAT,
+			STR_FMT(&receiver->type), STR_FMT(&receiver->format_str),
+			STR_FMT(&sink->type), STR_FMT(&sink->format_str));
+	return 0;
+}
+
+// call must be locked in W
+// for transcoding RTP types to non-RTP
+static int codec_handler_non_rtp_update(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags, const struct stream_params *sp)
+{
+	if (sink->protocol->index == PROTO_UDPTL && !str_cmp(&sink->format_str, "t38")) {
+		__check_t38_gateway(receiver, sink, sp);
+		return 1;
+	}
+	ilog(LOG_WARN, "Unsupported non-RTP protocol: " STR_FORMAT "/" STR_FORMAT
+			" -> " STR_FORMAT "/" STR_FORMAT,
+			STR_FMT(&receiver->type), STR_FMT(&receiver->format_str),
+			STR_FMT(&sink->type), STR_FMT(&sink->format_str));
+	return 0;
+}
+
+
+
 // call must be locked in W
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags)
+		const struct sdp_ng_flags *flags, const struct stream_params *sp)
 {
+	// non-RTP protocol?
+	if (receiver->protocol && receiver->protocol->index == PROTO_UDPTL) {
+		if (codec_handler_udptl_update(receiver, sink))
+			return;
+	}
+
+
 	if (!receiver->codec_handlers)
 		receiver->codec_handlers = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+	// should we transcode to a non-RTP protocol?
+	if (sink->protocol && !sink->protocol->rtp && receiver->protocol && receiver->protocol->rtp) {
+		if (codec_handler_non_rtp_update(receiver, sink, flags, sp))
+			return;
+	}
 
 	MEDIA_CLEAR(receiver, TRANSCODE);
 	receiver->rtcp_handler = NULL;
@@ -800,6 +927,11 @@ static struct codec_handler *codec_handler_get_rtp(struct call_media *m, int pay
 
 	return h;
 }
+static struct codec_handler *codec_handler_get_udptl(struct call_media *m) {
+	if (m->t38_handler)
+		return m->t38_handler;
+	return NULL;
+}
 
 #endif
 
@@ -814,6 +946,8 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type) 
 
 	if (m->protocol->rtp)
 		ret = codec_handler_get_rtp(m, payload_type);
+	else if (m->protocol->index == PROTO_UDPTL)
+		ret = codec_handler_get_udptl(m);
 
 out:
 	if (ret)
@@ -1178,6 +1312,13 @@ static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	}
 
 	return __handler_func_sequencer(mp, packet);
+}
+
+static int handler_func_t38(struct codec_handler *h, struct media_packet *mp) {
+	if (!mp->media)
+		return 0;
+
+	return t38_gateway_input_udptl(mp->media->t38_gateway, &mp->raw);
 }
 #endif
 
@@ -1621,6 +1762,9 @@ discard:
 static int packet_decoded_fifo(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
 	return packet_decoded_common(decoder, frame, u1, u2, encoder_input_fifo);
 }
+static int packet_decoded_direct(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
+	return packet_decoded_common(decoder, frame, u1, u2, encoder_input_data);
+}
 
 static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet *packet, struct media_packet *mp)
 {
@@ -1805,6 +1949,10 @@ void __rtp_payload_type_add_recv(struct call_media *media,
 {
 	if (!pt)
 		return;
+	if (media->protocol && !media->protocol->rtp) {
+		payload_type_free(pt);
+		return;
+	}
 	// update ptime in case it was overridden
 	if (media->ptime > 0)
 		pt->ptime = media->ptime;
@@ -1818,6 +1966,10 @@ void __rtp_payload_type_add_send(struct call_media *other_media,
 {
 	if (!pt)
 		return;
+	if (other_media->protocol && !other_media->protocol->rtp) {
+		payload_type_free(pt);
+		return;
+	}
 	// update ptime in case it was overridden
 	if (other_media->ptime > 0)
 		pt->ptime = other_media->ptime;
@@ -1829,6 +1981,8 @@ void __rtp_payload_type_add_send(struct call_media *other_media,
 void __rtp_payload_type_add_send_dup(struct call_media *other_media,
 		struct rtp_payload_type *pt)
 {
+	if (other_media->protocol && !other_media->protocol->rtp)
+		return;
 	pt = __rtp_payload_type_copy(pt);
 	__rtp_payload_type_add_send(other_media, pt);
 }
@@ -1989,6 +2143,33 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		ilog(LOG_DEBUG, "Codec '" STR_FORMAT "' added for transcoding with payload type %u",
 				STR_FMT(&pt->encoding_with_params), pt->payload_type);
 		__rtp_payload_type_add_recv(media, pt);
+	}
+
+	if (media->type_id == MT_AUDIO && other_media->type_id == MT_IMAGE
+			&& media->codecs_prefs_recv.length == 0)
+	{
+		if (media->codecs_prefs_send.length && media->t38_gateway) {
+			// audio -> T.38 transcoder, answer:
+			// we answer with the codec that we're sending audio with, taken from
+			// our PCM player
+			__rtp_payload_type_add_recv(media,
+					__rtp_payload_type_copy(&media->t38_gateway->pcm_player->handler->dest_pt));
+		}
+		else {
+			// T.38 -> audio transcoder, initial offer, and no codecs have been given.
+			// Default to PCMA and PCMU
+			// XXX can we improve the codec lookup/synthesis?
+			static const str PCMU_str = STR_CONST_INIT("PCMU");
+			static const str PCMA_str = STR_CONST_INIT("PCMA");
+			pt = codec_add_payload_type(&PCMU_str, media);
+			assert(pt != NULL);
+			__rtp_payload_type_add_recv(media, pt);
+			pt = codec_add_payload_type(&PCMA_str, media);
+			assert(pt != NULL);
+			__rtp_payload_type_add_recv(media, pt);
+
+			ilog(LOG_DEBUG, "Using default codecs PCMU and PCMA for T.38 decoder");
+		}
 	}
 #endif
 
