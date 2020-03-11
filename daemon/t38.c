@@ -1,0 +1,626 @@
+#include "t38.h"
+
+
+
+#ifdef WITH_TRANSCODING
+
+
+#include <assert.h>
+#include <spandsp/t30.h>
+#include "codec.h"
+#include "call.h"
+#include "log.h"
+#include "str.h"
+#include "media_player.h"
+
+
+
+struct udptl_packet {
+	seq_packet_t p;
+	str *s;
+};
+
+
+
+static void __add_udptl_len(GString *s, const void *buf, unsigned int len) {
+	if (len < 0x80) {
+		g_string_append_c(s, len);
+		if (len)
+			g_string_append_len(s, buf, len);
+		return;
+	}
+
+	if (len < 0x4000) {
+		uint16_t enc_len = htons(0x8000 | len);
+		g_string_append_len(s, (void *) &enc_len, 2);
+		g_string_append_len(s, buf, len);
+		return;
+	}
+
+	// fragmented - we don't support more than 65535 bytes
+	unsigned int mult = len >> 14;
+	g_string_append_c(s, 0xc0 | mult);
+	mult <<= 14;
+	// one portion
+	g_string_append_len(s, buf, mult);
+	// remainder - may be zero length
+	__add_udptl_len(s, buf + mult, len - mult);
+}
+
+static void __add_udptl_raw(GString *s, const char *buf, size_t len) {
+	assert(len < 0x10000);
+
+	if (len == 0) {
+		// add a single zero byte, length 1
+		__add_udptl_len(s, "\x00", 1);
+		return;
+	}
+
+	__add_udptl_len(s, buf, len);
+}
+
+static void __add_udptl(GString *s, const str *buf) {
+	__add_udptl_raw(s, buf->s, buf->len);
+}
+
+
+static void g_string_null_extend(GString *s, size_t len) {
+	if (s->len >= len)
+		return;
+
+	size_t oldb = s->len;
+	size_t newb = len - s->len;
+	g_string_set_size(s, len);
+	memset(s->str + oldb, 0, newb);
+}
+
+static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const uint8_t *b, int len, int count) {
+	struct t38_gateway *tg = user_data;
+
+	// cap the max length of packet we can handle
+	if (len < 0 || len >= 0x10000) {
+		ilog(LOG_ERR, "Received %i bytes from T.38 encoder - discarding", len);
+		return -1;
+	}
+
+	// XXX honour `count` ?
+
+	ilog(LOG_DEBUG, "Received %i bytes from T.38 encoder", len);
+
+	// build udptl packet: use a conservative guess for required buffer
+	GString *s = g_string_sized_new(512);
+
+	// add seqnum
+	uint16_t seq = htons(tg->seqnum);
+	g_string_append_len(s, (void *) &seq, 2);
+
+	// add primary IFP packet
+	str buf = STR_CONST_INIT_LEN((char *) b, len);
+	__add_udptl(s, &buf);
+
+	// add error correction packets
+	if (tg->udptl_fec_span > 1) {
+		// forward error correction
+		g_string_append_c(s, 0x80);
+
+		// figure out how many packets we have and which span to use
+		unsigned int packets = tg->udptl_fec_span * tg->udptl_ec_entries;
+		if (packets > tg->udptl_ec_out.length)
+			packets = tg->udptl_ec_out.length;
+		unsigned int span = packets / tg->udptl_ec_entries;
+		if (!span)
+			span = 1;
+		packets = span * tg->udptl_ec_entries; // our own packets we use
+		unsigned int entries = packets / span; // FEC entries in the output
+		if (entries > tg->udptl_ec_out.length)
+			entries = tg->udptl_ec_out.length;
+		packets = entries * span;
+
+		assert(span < 0x80);
+		assert(entries < 0x80);
+
+		g_string_append_c(s, 0x01);
+		g_string_append_c(s, span);
+		g_string_append_c(s, entries);
+
+		// create needed number of FEC packet entries
+		GQueue fec = G_QUEUE_INIT;
+		for (int i = 0; i < entries; i++)
+			g_queue_push_tail(&fec, g_string_new(""));
+
+		// take each input packet, going backwards in time, and XOR it into
+		// the respective output FEC packet
+		GList *inp = tg->udptl_ec_out.head;
+		for (int i = 0; i < packets; i++) {
+			assert(inp != NULL);
+			str *ip = inp->data;
+			// just keep shifting the list around
+			GString *outp = g_queue_pop_head(&fec);
+
+			// extend string as needed
+			g_string_null_extend(outp, ip->len);
+
+			for (size_t j = 0; j < ip->len; j++)
+				outp->str[j] ^= ip->s[j];
+
+			g_queue_push_tail(&fec, outp);
+			inp = inp->next;
+		}
+
+		// output list is now complete, but in reverse. append it to output buffer
+		while (fec.length) {
+			GString *outp = g_queue_pop_tail(&fec);
+			__add_udptl_raw(s, outp->str, outp->len);
+			g_string_free(outp, TRUE);
+		}
+	}
+	else {
+		// redundancy error correction
+		g_string_append_c(s, 0x00);
+		// number of entries - must be <0x80 XXX verify in settings
+		g_string_append_c(s, tg->udptl_ec_out.length);
+
+		for (GList *l = tg->udptl_ec_out.head; l; l = l->next) {
+			// add redundancy packet
+			str *ec_s = l->data;
+			__add_udptl(s, ec_s);
+		}
+	}
+
+	// done building our packet - add primary to our error correction buffer
+	tg->seqnum++;
+	unsigned int q_entries = tg->udptl_ec_entries * tg->udptl_fec_span;
+	if (q_entries) {
+		while (tg->udptl_ec_out.length >= q_entries) {
+			str *ec_s = g_queue_pop_tail(&tg->udptl_ec_out);
+			free(ec_s);
+		}
+		g_queue_push_head(&tg->udptl_ec_out, str_dup(&buf));
+	}
+
+	// add final packet to output queue
+	// XXX switch to a more direct send routine that doesn't require `mp`
+	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
+	p->s.len = s->len;
+	p->s.s = g_string_free(s, FALSE);
+	p->free_func = g_free;
+	g_queue_push_tail(&tg->mp->packets_out, p);
+
+	return 0;
+}
+
+void __t38_gateway_free(void *p) {
+	struct t38_gateway *tg = p;
+	ilog(LOG_DEBUG, "Destroying T.38 gateway");
+	if (tg->gw)
+		t38_gateway_free(tg->gw);
+	if (tg->pcm_player) {
+		media_player_stop(tg->pcm_player);
+		media_player_put(&tg->pcm_player);
+	}
+	if (tg->udptl_fec)
+		g_hash_table_destroy(tg->udptl_fec);
+}
+
+// call is locked in R and mp is locked
+static void t38_pcm_player(struct media_player *mp) {
+	if (!mp || !mp->media)
+		return;
+
+	struct t38_gateway *tg = mp->media->t38_gateway;
+	if (!tg)
+		return;
+
+	ilog(LOG_DEBUG, "Generating T.38 PCM samples");
+
+	mutex_lock(&tg->lock);
+
+	int16_t smp[80];
+	int num = t38_gateway_tx(tg->gw, smp, 80);
+	if (num <= 0) {
+		// use a fixed interval of 10 ms
+		timeval_add_usec(&mp->next_run, 10000);
+		timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
+		mutex_unlock(&tg->lock);
+		return;
+	}
+
+	ilog(LOG_DEBUG, "Generated %i T.38 PCM samples", num);
+
+	// this reschedules our player as well
+	media_player_add_packet(tg->pcm_player, (char *) smp, num * 2, num * 1000000 / 8000, tg->pts);
+
+	tg->pts += num;
+
+	mutex_unlock(&tg->lock);
+}
+
+
+static void __udptl_packet_free(struct udptl_packet *p) {
+	if (p->s)
+		free(p->s);
+	g_slice_free1(sizeof(*p), p);
+}
+
+
+// call is locked in W
+int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media) {
+	const char *err = NULL;
+
+	if (!t38_media || !pcm_media)
+		return -1;
+
+	// do we have one yet?
+	if (t38_media->t38_gateway
+			&& t38_media->t38_gateway == pcm_media->t38_gateway)
+	{
+		// XXX check options here?
+		return 0;
+	}
+
+	// release old structs, if any
+	t38_gateway_put(&t38_media->t38_gateway);
+	t38_gateway_put(&pcm_media->t38_gateway);
+
+	ilog(LOG_DEBUG, "Creating new T.38 gateway");
+
+	// create and init new
+	struct t38_gateway *tg = obj_alloc0("t38_gateway", sizeof(*tg), __t38_gateway_free);
+
+	tg->t38_media = t38_media;
+	tg->pcm_media = pcm_media;
+	mutex_init(&tg->lock);
+	tg->udptl_ec_entries = 3;
+	tg->udptl_fec_span = 1; // no FEC
+	tg->udptl_fec = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+			(GDestroyNotify) __udptl_packet_free);
+
+	tg->pcm_pt.payload_type = -1;
+	str_init(&tg->pcm_pt.encoding, "PCM-S16LE");
+	tg->pcm_pt.encoding_with_params = tg->pcm_pt.encoding;
+	tg->pcm_pt.clock_rate = 8000;
+	tg->pcm_pt.channels = 1;
+
+	err = "Failed to init PCM codec";
+	ensure_codec_def(&tg->pcm_pt, pcm_media);
+	if (!tg->pcm_pt.codec_def)
+ 		goto err;
+
+	err = "Failed to create spandsp T.38 gateway";
+	if (!(tg->gw = t38_gateway_init(NULL, t38_gateway_handler, tg)))
+		goto err;
+
+	err = "Failed to create media player";
+	if (!(tg->pcm_player = media_player_new(pcm_media->monologue)))
+		goto err;
+	// even though we call media_player_set_media() here, we need to call it again in
+	// t38_gateway_start because our sink might not have any streams added here yet,
+	// leaving the media_player setup incomplete
+	media_player_set_media(tg->pcm_player, pcm_media);
+	tg->pcm_player->run_func = t38_pcm_player;
+
+	// XXX set options
+	t38_gateway_set_ecm_capability(tg->gw, TRUE);
+	t38_gateway_set_transmit_on_idle(tg->gw, TRUE);
+	t38_gateway_set_supported_modems(tg->gw, T30_SUPPORT_V17 | T30_SUPPORT_V27TER | T30_SUPPORT_V29
+			| T30_SUPPORT_V34HDX | T30_SUPPORT_IAF);
+
+	packet_sequencer_init(&tg->sequencer, (GDestroyNotify) __udptl_packet_free);
+	tg->sequencer.seq = 0;
+
+	// done - add references to media structs
+	t38_media->t38_gateway = tg;
+	pcm_media->t38_gateway = obj_get(tg);
+
+	// add SDP options for T38
+	// XXX configurable
+	g_queue_clear_full(&t38_media->sdp_attributes, free);
+
+	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxVersion:0"));
+	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38MaxBitRate:14400"));
+	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxRateManagement:transferredTCF"));
+	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxMaxBuffer:262"));
+	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxMaxDatagram:90"));
+	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPRedundancy"));
+	return 0;
+ 
+err:
+	if (err)
+		ilog(LOG_ERR, "Failed to create T.38 gateway: %s", err);
+	t38_gateway_put(&tg);
+	return -1;
+}
+
+
+// call is locked in W
+void t38_gateway_start(struct t38_gateway *tg) {
+	if (!tg)
+		return;
+
+	// can we start our PCM player?
+	if (tg->pcm_media->codecs_prefs_send.length) {
+		media_player_set_media(tg->pcm_player, tg->pcm_media);
+		if (media_player_setup(tg->pcm_player, &tg->pcm_pt))
+			return;
+
+		ilog(LOG_DEBUG, "Starting T.38 PCM player");
+
+		// start off PCM player
+		tg->pcm_player->next_run = rtpe_now;
+		timerthread_obj_schedule_abs(&tg->pcm_player->tt_obj, &tg->pcm_player->next_run);
+	}
+}
+
+
+int t38_gateway_input_samples(struct t38_gateway *tg, struct media_packet *mp, int16_t amp[], int len) {
+	if (!tg)
+		return 0;
+	if (len <= 0)
+		return 0;
+
+	ilog(LOG_DEBUG, "Adding %i samples to T.38 encoder", len);
+
+	mutex_lock(&tg->lock);
+ 
+	tg->mp = mp;
+	int left = t38_gateway_rx(tg->gw, amp, len);
+	assert(left == 0); // XXX
+ 
+	mutex_unlock(&tg->lock);
+ 
+	return 0;
+}
+
+
+static ssize_t __get_udptl_len(str *s) {
+	ssize_t ret;
+
+	if (s->len < 1)
+		return -1;
+
+	if (!(s->s[0] & 0x80)) {
+		ret = s->s[0];
+		str_shift(s, 1);
+		return ret;
+	}
+
+	if (s->len < 2)
+		return -1;
+
+	if (!(s->s[0] & 0x40)) {
+		ret = ntohs(*((uint16_t *) s->s)) & 0x3fff;
+		str_shift(s, 2);
+		return ret;
+	}
+
+	ilog(LOG_INFO | LOG_FLAG_LIMIT, "Decoding UDPTL fragments is not supported");
+	return -1;
+}
+
+static int __get_udptl(str *piece, str *s) {
+	ssize_t len = __get_udptl_len(s);
+	if (len < 0)
+		return -1;
+
+	return str_shift_ret(s, len, piece);
+}
+
+
+static struct udptl_packet *__make_udptl_packet(const str *piece, uint16_t seq) {
+	struct udptl_packet *up = g_slice_alloc0(sizeof(*up));
+	up->p.seq = seq;
+	up->s = str_dup(piece);
+	return up;
+}
+
+static void __fec_save(struct t38_gateway *tg, const str *piece, uint16_t seq) {
+	struct udptl_packet *up = __make_udptl_packet(piece, seq);
+	g_hash_table_insert(tg->udptl_fec, GUINT_TO_POINTER(up->p.seq),
+			__make_udptl_packet(up->s, up->p.seq));
+}
+
+int t38_gateway_input_udptl(struct t38_gateway *tg, struct media_packet *mp, const str *buf) {
+	const char *err = NULL;
+
+	if (!tg)
+		return 0;
+	if (!buf || !buf->len)
+		return 0;
+
+	if (buf->len < 4) {
+		ilog(LOG_INFO | LOG_FLAG_LIMIT, "Ignoring short UDPTL packet (%i bytes)", buf->len);
+		return 0;
+	}
+
+	ilog(LOG_DEBUG, "Processing %i UDPTL bytes", buf->len);
+
+	str s = *buf;
+	str piece;
+
+	// get seq num
+	uint16_t seq;
+	if (str_shift_ret(&s, 2, &piece))
+		goto err;
+	seq = ntohs(*((uint16_t *) piece.s));
+
+	err = "Invalid primary UDPTL packet";
+	if (__get_udptl(&piece, &s))
+		goto err;
+
+	ilog(LOG_DEBUG, "Received primary IFP packet, len %i, seq %i", piece.len, seq);
+	str primary = piece;
+	struct udptl_packet *up = __make_udptl_packet(&primary, seq);
+
+	err = "Error correction mode byte missing";
+	if (str_shift_ret(&s, 1, &piece))
+		goto err;
+	char fec = piece.s[0];
+
+	mutex_lock(&tg->lock);
+
+	// XXX possible short path here without going through the sequencer
+	int ret = packet_sequencer_insert(&tg->sequencer, &up->p);
+	if (ret < 0) {
+		// main seq is dupe - everything else must be dupe too
+		__udptl_packet_free(up);
+		goto out;
+	}
+
+	up = NULL;
+
+	if (!(fec & 0x80)) {
+		// packet redundancy
+		if (packet_sequencer_next_ok(&tg->sequencer))
+			goto seq_ok;
+
+		// process EC packets as well as something's wrong
+		ssize_t num_packets = __get_udptl_len(&s);
+		err = "Invalid number of EC packets";
+		if (num_packets < 0 || num_packets > 100)
+			goto err;
+		for (int i = 0; i < num_packets; i++) {
+			if (__get_udptl(&piece, &s)) {
+				ilog(LOG_WARN | LOG_FLAG_LIMIT,
+						"Invalid UDPTL error correction packet at index %i",
+						i);
+				break;
+			}
+			// ignore zero-length packets
+			if (!piece.len)
+				continue;
+			ilog(LOG_DEBUG, "Received secondary IFP packet, len %i, seq %i", piece.len,
+					seq - 1 - i);
+			up = __make_udptl_packet(&piece, seq - 1 - i);
+			packet_sequencer_insert(&tg->sequencer, &up->p);
+			up = NULL;
+
+			// can we stop here?
+			if (packet_sequencer_next_ok(&tg->sequencer))
+				break;
+		}
+	}
+	else {
+		// FEC
+		// start by saving the new packet
+		__fec_save(tg, &primary, seq);
+
+		if (packet_sequencer_next_ok(&tg->sequencer))
+			goto seq_ok;
+
+		// process all FEC packets
+		err = "Invalid number of FEC packets";
+		if (str_shift_ret(&s, 2, &piece))
+			goto err;
+		if (piece.s[0] != 0x01)
+			goto err;
+		unsigned int span = piece.s[1];
+		if (span <= 0 || span >= 0x80)
+			goto err;
+		ssize_t entries = __get_udptl_len(&s);
+		if (entries < 0 || entries > 100)
+			goto err;
+
+		// first seq we can possibly recover
+		uint16_t seq_start = seq - span * entries;
+
+		while (entries) {
+			// get our entry
+			if (__get_udptl(&piece, &s)) {
+				ilog(LOG_WARN | LOG_FLAG_LIMIT,
+						"Invalid UDPTL error correction packet at index %i",
+						seq_start);
+				break;
+			}
+			// check each of the entries covered by `span`
+			for (int i = 0; i < span; i++) {
+				uint16_t seq_fec = seq_start + i * span;
+				// skip if we already know this packet
+				if (g_hash_table_lookup(tg->udptl_fec, GUINT_TO_POINTER(seq_fec)))
+					continue;
+
+				// can we recover it? we need all other packets from the series
+				GString *rec_s = g_string_new("");
+				int complete = 1;
+
+				for (int j = 0; j < span; j++) {
+					uint16_t seq_rec = seq_start + i * span;
+					if (seq_rec == seq_fec)
+						continue;
+					struct udptl_packet *recp =
+						g_hash_table_lookup(tg->udptl_fec, GUINT_TO_POINTER(seq_rec));
+					if (!recp) {
+						ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unable to recover UDPTL FEC "
+								"packet with seq %i due to missing seq %i",
+								seq_fec, seq_rec);
+						complete = 0;
+						break;
+					}
+
+					// XOR in packet
+					for (size_t j = 0; j < recp->s->len; j++)
+						rec_s->str[j] ^= recp->s->s[j];
+				}
+
+				if (complete) {
+					ilog(LOG_WARN | LOG_FLAG_LIMIT, "Recovered UDPTL "
+							"packet with seq %i from FEC",
+							seq_fec);
+
+					str rec_str = STR_CONST_INIT_LEN(rec_s->str, rec_s->len);
+					__fec_save(tg, &rec_str, seq_fec);
+					up = __make_udptl_packet(&rec_str, seq_fec);
+					packet_sequencer_insert(&tg->sequencer, &up->p);
+					up = NULL;
+				}
+
+				g_string_free(rec_s, TRUE);
+
+				// no point in continuing further: one packet was missing, which means
+				// that no other packet in this span can be recovered
+				break;
+			}
+
+			// proceed to next entry
+			entries--;
+			seq_start++;
+		}
+	}
+
+seq_ok:;
+
+	t38_core_state_t *t38 = t38_gateway_get_t38_core_state(tg->gw);
+
+	// process any packets that we can
+	while (1) {
+		up = packet_sequencer_next_packet(&tg->sequencer);
+		if (!up)
+			break;
+
+		ilog(LOG_DEBUG, "Processing %i IFP bytes, seq %i", up->s->len, up->p.seq);
+
+		t38_core_rx_ifp_packet(t38, (uint8_t *) up->s->s, up->s->len, up->p.seq);
+
+		__udptl_packet_free(up);
+	}
+
+out:
+	mutex_unlock(&tg->lock);
+	return 0;
+
+err:
+	if (err)
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to process UDPTL/T.38/IFP packet: %s", err);
+	return -1;
+}
+
+
+void t38_gateway_stop(struct t38_gateway *tg) {
+	if (!tg)
+		return;
+	if (tg->pcm_player)
+		media_player_stop(tg->pcm_player);
+}
+ 
+
+
+#endif

@@ -13,8 +13,171 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 		or die;
 
 
-my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, @ret1, @ret2);
+my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, @ret1, @ret2, $ts, $seq,
+	$sqo, $tso);
 
+
+
+
+# T.38
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7426)], [qw(198.51.100.3 7428)]);
+
+($port_a) = offer('T.38 forward invite', { 'T.38' => [ 'decode' ], ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 7426 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:90
+a=T38FaxUdpEC:t38UDPRedundancy
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('T.38 forward invite', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7428 RTP/AVP 0 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:90
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+SDP
+
+($sqo, $tso) = (1000, 3000);
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_a, $port_b, '/^\x00\x00\x01\x00\x00\x00$/'); # no signal
+($seq, $ts, $ssrc) = rcv($sock_b, $port_a, rtpm(0 | 0x80, -1, -1, -1, "\xff" x 160));
+snd($sock_a, $port_b, "\x00\x00\x01\x00\x00\x00"); # no signal
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff" x 160));
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff" x 160));
+snd($sock_a, $port_b, "\x00\x01\x01\x02\x00\x01\x01\x00"); # CNG plus redundancy
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+# now receiving CNG tone
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff\xac\xa6\xb4\x3f\x28\x29\x46\xb1\xa6\xad\x5c\x2b\x27\x38\xbb\xa7\xaa\xcd\x2f\x26\x2f\xce\xaa\xa7\xbb\x38\x27\x2b\x5b\xad\xa6\xb1\x46\x29\x28\x3f\xb4\xa6\xac\xff\x2c\x26\x34\xbf\xa8\xa9\xc6\x31\x26\x2d\xdd\xab\xa7\xb8\x3b\x27\x29\x4d\xaf\xa6\xaf\x4e\x2a\x27\x3b\xb8\xa7\xab\xdb\x2d\x26\x31\xc6\xa9\xa8\xbf\x34\x26\x2c\xff\xac\xa6\xb4\x3f\x28\x29\x46\xb1\xa6\xad\x5c\x2b\x27\x38\xbb\xa7\xaa\xcd\x2f\x26\x2f\xce\xaa\xa7\xbb\x38\x27\x2b\x5b\xad\xa6\xb1\x46\x29\x28\x3f\xb4\xa6\xac\xff\x2c\x26\x34\xbf\xa8\xa9\xc6\x31\x26\x2d\xdd\xab\xa7\xb8\x3b\x27\x29\x4d\xaf\xa6\xaf\x4e\x2a\x27\x3b\xb8\xa7\xab\xdb\x2d\x26\x31\xc6\xa9\xa8\xbf\x34\x26\x2c"));
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff\xac\xa6\xb4\x3f\x28\x29\x46\xb1\xa6\xad\x5c\x2b\x27\x38\xbb\xa7\xaa\xcd\x2f\x26\x2f\xce\xaa\xa7\xbb\x38\x27\x2b\x5b\xad\xa6\xb1\x46\x29\x28\x3f\xb4\xa6\xac\xff\x2c\x26\x34\xbf\xa8\xa9\xc6\x31\x26\x2d\xdd\xab\xa7\xb8\x3b\x27\x29\x4d\xaf\xa6\xaf\x4e\x2a\x27\x3b\xb8\xa7\xab\xdb\x2d\x26\x31\xc6\xa9\xa8\xbf\x34\x26\x2c\xff\xac\xa6\xb4\x3f\x28\x29\x46\xb1\xa6\xad\x5c\x2b\x27\x38\xbb\xa7\xaa\xcd\x2f\x26\x2f\xce\xaa\xa7\xbb\x38\x27\x2b\x5b\xad\xa6\xb1\x46\x29\x28\x3f\xb4\xa6\xac\xff\x2c\x26\x34\xbf\xa8\xa9\xc6\x31\x26\x2d\xdd\xab\xa7\xb8\x3b\x27\x29\x4d\xaf\xa6\xaf\x4e\x2a\x27\x3b\xb8\xa7\xab\xdb\x2d\x26\x31\xc6\xa9\xa8\xbf\x34\x26\x2c"));
+
+
+# delete to stop PCM player
+rtpe_req('delete', 'T.38 forward invite', { 'from-tag' => ft() });
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7526)], [qw(198.51.100.3 7528)]);
+
+($port_a) = offer('T.38 redundancy error correction', { 'T.38' => [ 'decode' ], ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 7526 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:90
+a=T38FaxUdpEC:t38UDPRedundancy
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('T.38 redundancy error correction', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7528 RTP/AVP 0 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:90
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+SDP
+
+($sqo, $tso) = (1000, 3000);
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_a, $port_b, '/^\x00\x00\x01\x00\x00\x00$/'); # no signal
+($seq, $ts, $ssrc) = rcv($sock_b, $port_a, rtpm(0 | 0x80, -1, -1, -1, "\xff" x 160));
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff" x 160));
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff" x 160));
+snd($sock_a, $port_b, "\x00\x01\x01\x02\x00\x01\x01\x00"); # CNG (seq 1) plus redundancy (seq 0, no signal)
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+# now receiving CNG tone
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xac\xa6\xb4\x3f\x28\x29\x46\xb1\xa6\xad\x5c\x2b\x27\x38\xbb\xa7\xaa\xcd\x2f\x26\x2f\xce\xaa\xa7\xbb\x38\x27\x2b\x5b\xad\xa6\xb1\x46\x29\x28\x3f\xb4\xa6\xac\xff\x2c\x26\x34\xbf\xa8\xa9\xc6\x31\x26\x2d\xdd\xab\xa7\xb8\x3b\x27\x29\x4d\xaf\xa6\xaf\x4e\x2a\x27\x3b\xb8\xa7\xab\xdb\x2d\x26\x31\xc6\xa9\xa8\xbf\x34\x26\x2c"));
+snd($sock_a, $port_b, "\x00\x00\x01\x00\x00\x00"); # no signal, original seq 0
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff\xac\xa6\xb4\x3f\x28\x29\x46\xb1\xa6\xad\x5c\x2b\x27\x38\xbb\xa7\xaa\xcd\x2f\x26\x2f\xce\xaa\xa7\xbb\x38\x27\x2b\x5b\xad\xa6\xb1\x46\x29\x28\x3f\xb4\xa6\xac\xff\x2c\x26\x34\xbf\xa8\xa9\xc6\x31\x26\x2d\xdd\xab\xa7\xb8\x3b\x27\x29\x4d\xaf\xa6\xaf\x4e\x2a\x27\x3b\xb8\xa7\xab\xdb\x2d\x26\x31\xc6\xa9\xa8\xbf\x34\x26\x2c\xff\xac\xa6\xb4\x3f\x28\x29\x46\xb1\xa6\xad\x5c\x2b\x27\x38\xbb\xa7\xaa\xcd\x2f\x26\x2f\xce\xaa\xa7\xbb\x38\x27\x2b\x5b\xad\xa6\xb1\x46\x29\x28\x3f\xb4\xa6\xac\xff\x2c\x26\x34\xbf\xa8\xa9\xc6\x31\x26\x2d\xdd\xab\xa7\xb8\x3b\x27\x29\x4d\xaf\xa6\xaf\x4e\x2a\x27\x3b\xb8\xa7\xab\xdb\x2d\x26\x31\xc6\xa9\xa8\xbf\x34\x26\x2c"));
+
+
+# delete to stop PCM player
+rtpe_req('delete', 'T.38 redundancy error correction', { 'from-tag' => ft() });
+
+
+
+
+# XXX FEC tests
+
+
+done_testing();
+exit();
 
 
 
@@ -2617,7 +2780,6 @@ SDP
 $resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-my ($ts, $seq);
 ($seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
