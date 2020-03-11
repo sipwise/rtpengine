@@ -166,6 +166,9 @@ sub rcv {
 	if ($cb) {
 		$p = $cb->($hdr_mark, $pt, $seq, $ts, $ssrc, $payload, $p, $cb_arg);
 	}
+	if ($p !~ $match) {
+		print(unpack('H*', $p) . "\n");
+	}
 	like $p, $match, 'received packet matches';
 	my @matches = $p =~ $match;
 	for my $m (@matches) {

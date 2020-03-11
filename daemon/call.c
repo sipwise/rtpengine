@@ -46,6 +46,7 @@
 #include "codec.h"
 #include "media_player.h"
 #include "jitter_buffer.h"
+#include "t38.h"
 
 
 /* also serves as array index for callstream->peers[] */
@@ -1852,6 +1853,17 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		media->protocol = flags->transport_protocol;
 		return;
 	}
+
+	// T.38 decoder?
+	if (other_media->type_id == MT_IMAGE && other_media->protocol
+			&& other_media->protocol->index == PROTO_UDPTL
+			&& flags->t38_decode) {
+		media->protocol = flags->transport_protocol;
+		if (!media->protocol)
+			media->protocol = &transport_protocols[PROTO_RTP_AVP];
+		media->type_id = MT_AUDIO;
+		call_str_cpy_c(media->call, &media->type, "audio");
+	}
 }
 
 /* called with call->master_lock held in W */
@@ -1962,8 +1974,11 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		}
 		if (str_cmp_str(&other_media->format_str, &sp->format_str))
 			call_str_cpy(call, &other_media->format_str, &sp->format_str);
-		if (str_cmp_str(&media->format_str, &sp->format_str))
-			call_str_cpy(call, &media->format_str, &sp->format_str);
+		if (str_cmp_str(&media->format_str, &sp->format_str)) {
+			// update opposite side format string only if protocols match
+			if (media->protocol == other_media->protocol)
+				call_str_cpy(call, &media->format_str, &sp->format_str);
+		}
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
 		codec_handlers_update(media, other_media, flags);
 
@@ -2404,6 +2419,8 @@ static void __call_free(void *p) {
 		g_queue_clear_full(&md->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
 		g_queue_clear_full(&md->codecs_prefs_send, (GDestroyNotify) payload_type_free);
 		codec_handlers_free(md);
+		codec_handler_free(md->t38_handler);
+		t38_gateway_put(&md->t38_gateway);
 		g_queue_clear_full(&md->sdp_attributes, free);
 		g_slice_free1(sizeof(*md), md);
 	}
