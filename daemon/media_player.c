@@ -25,7 +25,10 @@
 #ifdef WITH_TRANSCODING
 static struct timerthread media_player_thread;
 static MYSQL __thread *mysql_conn;
+
+static void media_player_read_packet(struct media_player *mp);
 #endif
+
 static struct timerthread send_timer_thread;
 
 
@@ -33,7 +36,6 @@ static struct timerthread send_timer_thread;
 static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *cp);
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp);
 
-static void media_player_read_packet(struct media_player *mp);
 
 
 
@@ -222,6 +224,7 @@ int media_player_setup(struct media_player *mp, const struct rtp_payload_type *s
 	struct rtp_payload_type *dst_pt;
 	for (GList *l = mp->media->codecs_prefs_send.head; l; l = l->next) {
 		dst_pt = l->data;
+		ensure_codec_def(dst_pt, mp->media);
 		if (dst_pt->codec_def && !dst_pt->codec_def->supplemental)
 			goto found;
 	}
