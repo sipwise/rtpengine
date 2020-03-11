@@ -47,6 +47,7 @@ the following additional features are available:
 - Transcoding between RFC 2833/4733 DTMF event packets and in-band DTMF tones (and vice versa)
 - Injection of DTMF events or PCM DTMF tones into running audio streams
 - Playback of pre-recorded streams/announcements
+- Transcoding between T.38 and PCM (G.711 or other audio codecs)
 
 *Rtpengine* does not (yet) support:
 
@@ -410,9 +411,6 @@ the necessary conversions.
 
 If repacketization (using the `ptime` option) is requested, the transcoding feature will also be
 engaged for the call, even if no additional codecs were requested.
-
-Non-audio pseudo-codecs (such as T.38) are not currently supported, with the exception of RFC
-2833/4733 DTMF event packets (`telephone-event`) as described below.
 
 G.729 support
 -------------
