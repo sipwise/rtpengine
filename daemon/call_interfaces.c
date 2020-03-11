@@ -1775,7 +1775,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		goto out;
 
 	if (!monologue->player)
-		monologue->player = media_player_new(monologue);
+		monologue->player = media_player_new(monologue, NULL);
 
 	err = "No media file specified";
 	if (bencode_dictionary_get_str(input, "file", &str)) {

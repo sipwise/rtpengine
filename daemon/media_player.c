@@ -33,6 +33,8 @@ static struct timerthread send_timer_thread;
 static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *cp);
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp);
 
+static void media_player_read_packet(struct media_player *mp);
+
 
 
 #ifdef WITH_TRANSCODING
@@ -99,9 +101,12 @@ static void __media_player_free(void *p) {
 
 
 // call->master_lock held in W
-struct media_player *media_player_new(struct call_monologue *ml) {
+struct media_player *media_player_new(struct call_monologue *ml, struct call_media *media) {
 #ifdef WITH_TRANSCODING
 	ilog(LOG_DEBUG, "creating media_player");
+
+	if (!ml && media)
+		ml = media->monologue;
 
 	uint32_t ssrc = 0;
 	while (ssrc == 0)
@@ -112,8 +117,10 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 
 	mp->tt_obj.tt = &media_player_thread;
 	mutex_init(&mp->lock);
+	mp->run_func = media_player_read_packet; // default
 	mp->call = obj_get(ml->call);
 	mp->ml = ml;
+	mp->media = media;
 	mp->seq = random();
 	mp->ssrc_out = ssrc_ctx;
 
@@ -211,29 +218,9 @@ void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
 
 #ifdef WITH_TRANSCODING
 
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0)
-#define CODECPAR codecpar
-#else
-#define CODECPAR codec
-#endif
 
-static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
-	if (mp->handler)
-		return 0;
 
-	// synthesise rtp payload type
-	struct rtp_payload_type src_pt = { .payload_type = -1 };
-	// src_pt.codec_def = codec_find_by_av(avs->codec->codec_id);  `codec` is deprecated
-	src_pt.codec_def = codec_find_by_av(avs->CODECPAR->codec_id);
-	if (!src_pt.codec_def) {
-		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
-		return -1;
-	}
-	src_pt.encoding = src_pt.codec_def->rtpname_str;
-	src_pt.channels = avs->CODECPAR->channels;
-	src_pt.clock_rate = avs->CODECPAR->sample_rate;
-	codec_init_payload_type(&src_pt, mp->media);
-
+int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt) {
 	// find suitable output payload type
 	struct rtp_payload_type *dst_pt;
 	for (GList *l = mp->media->codecs_prefs_send.head; l; l = l->next) {
@@ -257,8 +244,37 @@ found:
 		mp->sync_ts += ts_diff_us * dst_pt->clock_rate / 1000000 / dst_pt->codec_def->clockrate_mult;
 	}
 
-	mp->handler = codec_handler_make_playback(&src_pt, dst_pt, mp->sync_ts);
+	mp->handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts);
 	if (!mp->handler)
+		return -1;
+
+	return 0;
+}
+
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0)
+#define CODECPAR codecpar
+#else
+#define CODECPAR codec
+#endif
+
+static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
+	if (mp->handler)
+		return 0;
+
+	// synthesise rtp payload type
+	struct rtp_payload_type src_pt = { .payload_type = -1 };
+	// src_pt.codec_def = codec_find_by_av(avs->codec->codec_id);  `codec` is deprecated
+	src_pt.codec_def = codec_find_by_av(avs->CODECPAR->codec_id);
+	if (!src_pt.codec_def) {
+		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
+		return -1;
+	}
+	src_pt.encoding = src_pt.codec_def->rtpname_str;
+	src_pt.channels = avs->CODECPAR->channels;
+	src_pt.clock_rate = avs->CODECPAR->sample_rate;
+	codec_init_payload_type(&src_pt, mp->media);
+
+	if (media_player_setup(mp, &src_pt))
 		return -1;
 
 	mp->duration = avs->duration * 1000 * avs->time_base.num / avs->time_base.den;
@@ -626,7 +642,7 @@ static void media_player_run(void *ptr) {
 	rwlock_lock_r(&call->master_lock);
 	mutex_lock(&mp->lock);
 
-	media_player_read_packet(mp);
+	mp->run_func(mp);
 
 	mutex_unlock(&mp->lock);
 	rwlock_unlock_r(&call->master_lock);
