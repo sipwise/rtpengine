@@ -322,6 +322,8 @@ struct call_media {
 	GHashTable		*codec_names_send; // codec name -> GQueue of int payload types; storage container
 	GQueue			codecs_prefs_send; // storage container
 
+	GQueue			sdp_attributes; // str_sprintf()
+
 	GHashTable		*codec_handlers; // int payload type -> struct codec_handler
 						// XXX combine this with 'codecs_recv' hash table?
 	GQueue			codec_handlers_store; // storage for struct codec_handler
