@@ -1781,6 +1781,10 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				goto strip;
 
 			default:
+				// Remove T.38 related attributes if not an 'image' media.
+				// Used for T.38 <> audio transcoding
+				if (media->type_id != MT_IMAGE && !memcmp(attr->name.s, "T38", 3))
+					goto strip;
 				break;
 		}
 
