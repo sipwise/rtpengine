@@ -202,6 +202,11 @@ INLINE int proto_is_not_rtp(const struct transport_protocol *protocol) {
 		return 0;
 	return protocol->rtp ? 0 : 1;
 }
+INLINE int proto_is(const struct transport_protocol *protocol, enum transport_protocol_index idx) {
+	if (!protocol)
+		return 0;
+	return (protocol->index == idx) ? 1 : 0;
+}
 
 
 #endif

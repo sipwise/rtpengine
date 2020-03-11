@@ -25,7 +25,10 @@
 #ifdef WITH_TRANSCODING
 static struct timerthread media_player_thread;
 static MYSQL __thread *mysql_conn;
+
+static void media_player_read_packet(struct media_player *mp);
 #endif
+
 static struct timerthread send_timer_thread;
 
 
@@ -33,7 +36,6 @@ static struct timerthread send_timer_thread;
 static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *cp);
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp);
 
-static void media_player_read_packet(struct media_player *mp);
 
 
 
@@ -51,6 +53,7 @@ static void media_player_shutdown(struct media_player *mp) {
 
 	ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
+	mp->next_run.tv_sec = 0;
 	avformat_close_input(&mp->fmtctx);
 
 	if (mp->sink) {
@@ -222,6 +225,7 @@ int media_player_setup(struct media_player *mp, const struct rtp_payload_type *s
 	struct rtp_payload_type *dst_pt;
 	for (GList *l = mp->media->codecs_prefs_send.head; l; l = l->next) {
 		dst_pt = l->data;
+		ensure_codec_def(dst_pt, mp->media);
 		if (dst_pt->codec_def && !dst_pt->codec_def->supplemental)
 			goto found;
 	}
@@ -241,7 +245,17 @@ found:
 		mp->sync_ts += ts_diff_us * dst_pt->clock_rate / 1000000 / dst_pt->codec_def->clockrate_mult;
 	}
 
-	mp->handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts);
+	// if we already have a handler, see if anything needs changing
+	if (mp->handler) {
+		if (rtp_payload_type_cmp(&mp->handler->dest_pt, dst_pt)
+				|| rtp_payload_type_cmp(&mp->handler->source_pt, src_pt))
+		{
+			ilog(LOG_DEBUG, "Resetting codec handler for media player");
+			codec_handler_free(&mp->handler);
+		}
+	}
+	if (!mp->handler)
+		mp->handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts);
 	if (!mp->handler)
 		return -1;
 

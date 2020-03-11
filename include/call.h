@@ -20,6 +20,7 @@
 #include "recording.h"
 #include "statistics.h"
 #include "codeclib.h"
+#include "t38.h"
 
 #define UNDEFINED ((unsigned int) -1)
 
@@ -151,6 +152,7 @@ enum call_type {
 #define MEDIA_FLAG_TRANSCODE			0x00800000
 #define MEDIA_FLAG_PTIME_OVERRIDE		0x01000000
 #define MEDIA_FLAG_RTCP_FB			SHARED_FLAG_RTCP_FB
+#define MEDIA_FLAG_GENERATOR			0x02000000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
@@ -223,6 +225,7 @@ struct stream_params {
 	str			ice_pwd;
 	int			ptime;
 	str			media_id;
+	struct t38_options	t38_options;
 };
 
 struct endpoint_map {
@@ -330,6 +333,8 @@ struct call_media {
 	struct codec_handler	*codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
 	struct codec_handler	*dtmf_injector;
+	struct t38_gateway	*t38_gateway;
+	struct codec_handler	*t38_handler;
 
 	int			ptime; // either from SDP or overridden
 
