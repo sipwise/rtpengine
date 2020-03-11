@@ -145,7 +145,7 @@ void codec_handler_free(struct codec_handler *handler) {
 	__codec_handler_free(handler);
 }
 
-static struct codec_handler *__handler_new(struct rtp_payload_type *pt) {
+static struct codec_handler *__handler_new(const struct rtp_payload_type *pt) {
 	struct codec_handler *handler = g_slice_alloc0(sizeof(*handler));
 	handler->source_pt = *pt;
 	handler->output_handler = handler; // default
@@ -245,8 +245,8 @@ check_output:;
 	}
 }
 
-struct codec_handler *codec_handler_make_playback(struct rtp_payload_type *src_pt,
-		struct rtp_payload_type *dst_pt, unsigned long last_ts)
+struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
+		const struct rtp_payload_type *dst_pt, unsigned long last_ts)
 {
 	struct codec_handler *handler = __handler_new(src_pt);
 	handler->dest_pt = *dst_pt;
