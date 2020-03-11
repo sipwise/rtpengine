@@ -108,7 +108,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str 
 static void offer(void) {
 	printf("offer\n");
 	codec_rtp_payload_types(media_B, media_A, &rtp_types, &flags);
-	codec_handlers_update(media_B, media_A, &flags);
+	codec_handlers_update(media_B, media_A, &flags, NULL);
 	g_queue_clear(&rtp_types);
 	memset(&flags, 0, sizeof(flags));
 }
@@ -116,7 +116,7 @@ static void offer(void) {
 static void answer(void) {
 	printf("answer\n");
 	codec_rtp_payload_types(media_A, media_B, &rtp_types, &flags);
-	codec_handlers_update(media_A, media_B, &flags);
+	codec_handlers_update(media_A, media_B, &flags, NULL);
 }
 
 #define expect(side, dir, codecs) \
