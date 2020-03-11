@@ -7,6 +7,14 @@ struct packet_sequencer_s;
 typedef struct codec_def_s codec_def_t;
 typedef struct packet_sequencer_s packet_sequencer_t;
 
+enum media_type {
+	MT_UNKNOWN = 0,
+	MT_AUDIO,
+	MT_VIDEO,
+	MT_IMAGE,
+	MT_OTHER,
+};
+
 
 #ifndef WITHOUT_CODECLIB
 
@@ -46,14 +54,6 @@ typedef void set_enc_options_f(encoder_t *, const str *);
 typedef void set_dec_options_f(decoder_t *, const str *);
 
 
-
-enum media_type {
-	MT_UNKNOWN = 0,
-	MT_AUDIO,
-	MT_VIDEO,
-	MT_IMAGE,
-	MT_OTHER,
-};
 
 struct codec_type_s {
 	void (*def_init)(codec_def_t *);
@@ -226,6 +226,7 @@ void __packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
 INLINE void packet_sequencer_init(packet_sequencer_t *ps, GDestroyNotify);
 void packet_sequencer_destroy(packet_sequencer_t *ps);
 void *packet_sequencer_next_packet(packet_sequencer_t *ps);
+int packet_sequencer_next_ok(packet_sequencer_t *ps);
 void *packet_sequencer_force_next_packet(packet_sequencer_t *ps);
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
@@ -263,9 +264,6 @@ INLINE char *av_error(int no) {
 #else
 
 // stubs
-enum media_type {
-	MT_INVALID = -1,
-};
 struct codec_def_s {
 	int dtmf;
 };
