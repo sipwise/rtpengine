@@ -71,6 +71,7 @@ GetOptions(
 	'blob=s'			=> \$options{'blob'},
 	'blob-file=s'			=> \$options{'blob-file'},
 	'db-id=i'			=> \$options{'db-id'},
+	'T38=s@'			=> \$options{'T.38'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -89,7 +90,7 @@ for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,s
 for my $x (split(/,/, 'origin,session connection')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
-for my $x (split(/,/, 'rtcp-mux,SDES,supports')) {
+for my $x (split(/,/, 'rtcp-mux,SDES,supports,T.38')) {
 	$packet{$x} = $options{$x}
 		if defined($options{$x}) && ref($options{$x}) eq 'ARRAY';
 }

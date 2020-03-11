@@ -1811,7 +1811,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (G_UNLIKELY(!phc->sink || !phc->sink->selected_sfd || !phc->out_srtp
 				|| !phc->out_srtp->selected_sfd || !phc->in_srtp->selected_sfd))
 	{
-		ilog(LOG_WARNING, "RTP packet from %s%s%s discarded", FMT_M(endpoint_print_buf(&phc->mp.fsin)));
+		ilog(LOG_WARNING, "Media packet from %s%s%s discarded", FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 		atomic64_inc(&phc->mp.stream->stats.errors);
 		atomic64_inc(&rtpe_statsps.errors);
 		goto out;
