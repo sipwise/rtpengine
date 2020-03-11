@@ -47,6 +47,7 @@ the following additional features are available:
 - Transcoding between RFC 2833/4733 DTMF event packets and in-band DTMF tones (and vice versa)
 - Injection of DTMF events or PCM DTMF tones into running audio streams
 - Playback of pre-recorded streams/announcements
+- Transcoding between T.38 and PCM (G.711 or other audio codecs)
 
 *Rtpengine* does not (yet) support:
 
@@ -411,9 +412,6 @@ the necessary conversions.
 If repacketization (using the `ptime` option) is requested, the transcoding feature will also be
 engaged for the call, even if no additional codecs were requested.
 
-Non-audio pseudo-codecs (such as T.38) are not currently supported, with the exception of RFC
-2833/4733 DTMF event packets (`telephone-event`) as described below.
-
 G.729 support
 -------------
 
@@ -463,6 +461,16 @@ Support for DTMF transcoding can be enabled in one of two ways:
 Enabling DTMF transcoding (in one of the two ways described above) implicitly enables the flag
 `always transcode` for the call and forces all of the audio to pass through the transcoding engine.
 Therefore, for performance reasons, this should only be done when really necessary.
+
+T.38
+----
+*Rtpengine* can translate between fax endpoints that speak T.38 over UDPTL and fax endpoints that speak
+T.30 over regular audio channels. Any audio codec can theoretically be used for T.30 transmissions, but
+codecs that are too compressed will make the fax transmission fail. The most commonly used audio codecs
+for fax are the G.711 codecs (`PCMU` and `PCMA`), which are the default codecs *rtpengine* will use in
+this case if no other codecs are specified.
+
+For further information, see the section on the `T.38` dictionary key below.
 
 Call recording
 ==============
@@ -1057,6 +1065,31 @@ Optionally included keys are:
 	This is the reciprocal to `ptime`. It sets the ptime to be used towards the endpoint
 	who has sent the offer. It will be inserted in the `answer` SDP. This option is also
 	ignored in `answer` messages.
+
+* `T.38`
+
+	Contains a list of strings. Each string is a flag that controls the behaviour regarding
+	T.38 transcoding. These flags are ignored if the message is not an `offer`.
+	Recognised flags are:
+
+	- `decode`
+
+		If the received SDP contains a media section with an `image` type, `UDPTL`
+		transport, and `t38` format string, this flag instructs *rtpengine* to convert
+		this media section into an `audio` type using RTP as transport protocol.
+		Other transport protocols (such as SRTP) can be selected using `transport protocol`
+		as described above.
+
+		The default audio codecs to be offered are `PCMU` and `PCMA`. Other audio codecs
+		can be specified using the `transcode=` flag described above, in which case the
+		default codecs will not be offered automatically.
+
+	- `force`
+
+		If the received SDP contains an audio media section using RTP transport, this flag
+		instructs *rtpengine* to convert it to an `image` type media section using the UDPTL
+		protocol. The first supported audio codec that was offered will be used to transport
+		T.30. Default options for T.38 are used for the generated SDP.
 
 * `supports`
 

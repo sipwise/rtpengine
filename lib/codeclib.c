@@ -958,6 +958,12 @@ void *packet_sequencer_force_next_packet(packet_sequencer_t *ps) {
 	return __packet_sequencer_next_packet(ps, 0);
 }
 
+int packet_sequencer_next_ok(packet_sequencer_t *ps) {
+	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(ps->seq)))
+		return 1;
+	return 0;
+}
+
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 	int ret = 0;
 

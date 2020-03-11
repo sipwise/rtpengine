@@ -54,3 +54,8 @@ test-dtmf-detect
 dtmf_rx_fillin.h
 *-test.c
 jitter_buffer.c
+t38.c
+spandsp_recv_fax_pcm
+spandsp_recv_fax_t38
+spandsp_send_fax_pcm
+spandsp_send_fax_t38
