@@ -1,3 +1,20 @@
+ngcp-rtpengine (6.5.9.0+0~mr6.5.9.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7e50fdd] byte-swap homer ID as required
+  * [93de889] TT#73401 handle changes in RTP payload types
+  * [6f68bd2] TT#74050 handle sinks with null addresses correctly
+  * [c2dcb03] TT#75050 fix SRTP index slip while transcoding
+  * [5097926] TT#74651 fix several mem/resource leaks
+  * [0a846eb] TT#75351 delete DB streams that have no corresponding file
+  * [7ebc418] TT#75352 add a storage container for codec handlers
+  * [b29c2cc] TT#75352 don't attempt to send uninitialised packets
+  * [1c80f57] fix compilation for glib >= 2.60
+  * [6c9dcf2] compile fix for with_transcoding=no
+  * [5203d0d] TT#76206 fix call teardown for half established dialogues
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 11 Mar 2020 09:17:05 +0100
+
 ngcp-rtpengine (6.5.8.0+0~mr6.5.8.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
