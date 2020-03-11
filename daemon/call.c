@@ -46,6 +46,7 @@
 #include "codec.h"
 #include "media_player.h"
 #include "jitter_buffer.h"
+#include "t38.h"
 
 
 /* also serves as array index for callstream->peers[] */
@@ -1852,6 +1853,17 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		media->protocol = flags->transport_protocol;
 		return;
 	}
+
+	// T.38 decoder?
+	if (other_media->type_id == MT_IMAGE && other_media->protocol
+			&& other_media->protocol->index == PROTO_UDPTL
+			&& flags->t38_decode) {
+		media->protocol = flags->transport_protocol;
+		if (!media->protocol)
+			media->protocol = &transport_protocols[PROTO_RTP_AVP];
+		media->type_id = MT_AUDIO;
+		call_str_cpy_c(media->call, &media->type, "audio");
+	}
 }
 
 /* called with call->master_lock held in W */
@@ -1962,8 +1974,11 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		}
 		if (str_cmp_str(&other_media->format_str, &sp->format_str))
 			call_str_cpy(call, &other_media->format_str, &sp->format_str);
-		if (str_cmp_str(&media->format_str, &sp->format_str))
-			call_str_cpy(call, &media->format_str, &sp->format_str);
+		if (str_cmp_str(&media->format_str, &sp->format_str)) {
+			// update opposite side format string only if protocols match
+			if (media->protocol == other_media->protocol)
+				call_str_cpy(call, &media->format_str, &sp->format_str);
+		}
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
 		codec_handlers_update(media, other_media, flags);
 
@@ -2064,6 +2079,7 @@ init:
 		ice_update(media->ice_agent, NULL); /* this is in case rtcp-mux has changed */
 
 		recording_setup_media(media);
+		t38_gateway_start(media->t38_gateway);
 	}
 
 	return 0;
@@ -2404,6 +2420,8 @@ static void __call_free(void *p) {
 		g_queue_clear_full(&md->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
 		g_queue_clear_full(&md->codecs_prefs_send, (GDestroyNotify) payload_type_free);
 		codec_handlers_free(md);
+		codec_handler_free(md->t38_handler);
+		t38_gateway_put(&md->t38_gateway);
 		g_queue_clear_full(&md->sdp_attributes, free);
 		g_slice_free1(sizeof(*md), md);
 	}
@@ -2797,6 +2815,16 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 }
 
 
+
+static void monologue_stop(struct call_monologue *ml) {
+	media_player_stop(ml->player);
+	for (GList *l = ml->medias.head; l; l = l->next) {
+		struct call_media *m = l->data;
+		t38_gateway_stop(m->t38_gateway);
+	}
+}
+
+
 int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
 {
@@ -2859,7 +2887,7 @@ do_delete:
 	if (output)
 		ng_call_stats(c, fromtag, totag, output, NULL);
 
-	media_player_stop(ml->player);
+	monologue_stop(ml);
 
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
@@ -2880,7 +2908,7 @@ do_delete:
 del_all:
 	for (i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
-		media_player_stop(ml->player);
+		monologue_stop(ml);
 	}
 
 	if (delete_delay > 0) {

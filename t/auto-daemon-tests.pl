@@ -13,8 +13,84 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 		or die;
 
 
-my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, @ret1, @ret2);
+my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, @ret1, @ret2, $ts, $seq);
 
+
+
+
+# T.38
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 7426)], [qw(198.51.100.3 7428)]);
+
+($port_a) = offer('T.38 decode', { 'T.38' => [ 'decode' ], ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 7426 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:90
+a=T38FaxUdpEC:t38UDPRedundancy
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('T.38 decode', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 7428 RTP/AVP 0 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:90
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+SDP
+
+my ($sqo, $tso) = (1000, 3000);
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_a, $port_b, '/^\x00\x00\x01\x00\x00\x00$/');
+($seq, $ts, $ssrc) = rcv($sock_b, $port_a, rtpm(0 | 0x80, -1, -1, -1, "\xff" x 160));
+snd($sock_a, $port_b, "\x00\x00\x01\x00\x00\x00");
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff" x 160));
+snd($sock_b, $port_a, rtp(0, $sqo += 1, $tso += 160, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(0, $seq += 1, $ts += 160, $ssrc, "\xff" x 160));
+
+
+# delete to stop PCM player
+rtpe_req('delete', 'media playback after delete', { 'from-tag' => ft() });
+
+
+
+done_testing();
+exit();
 
 
 
@@ -2617,7 +2693,6 @@ SDP
 $resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-my ($ts, $seq);
 ($seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
