@@ -1030,6 +1030,7 @@ void kernelize(struct packet_stream *stream) {
 	struct packet_stream *sink = NULL;
 	const char *nk_warn_msg;
 	int non_forwarding = 0;
+	struct call_media *media = stream->media;
 
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
@@ -1046,9 +1047,11 @@ void kernelize(struct packet_stream *stream) {
 		else
 			goto no_kernel;
 	}
+	if (MEDIA_ISSET(media, GENERATOR))
+		goto no_kernel;
 	if (!stream->selected_sfd)
 		goto no_kernel;
-	if (stream->media->monologue->block_media || call->block_media)
+	if (media->monologue->block_media || call->block_media)
 		goto no_kernel;
 	if (!stream->endpoint.address.family)
 		goto no_kernel;
@@ -1090,16 +1093,16 @@ void kernelize(struct packet_stream *stream) {
 
 	__re_address_translate_ep(&reti.local, &stream->selected_sfd->socket.local);
 	reti.tos = call->tos;
-	reti.rtcp_mux = MEDIA_ISSET(stream->media, RTCP_MUX);
-	reti.dtls = MEDIA_ISSET(stream->media, DTLS);
-	reti.stun = stream->media->ice_agent ? 1 : 0;
+	reti.rtcp_mux = MEDIA_ISSET(media, RTCP_MUX);
+	reti.dtls = MEDIA_ISSET(media, DTLS);
+	reti.stun = media->ice_agent ? 1 : 0;
 	reti.non_forwarding = non_forwarding;
 
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);
 	if (stream->ssrc_in) {
 		reti.ssrc = htonl(stream->ssrc_in->parent->h.ssrc);
-		if (MEDIA_ISSET(stream->media, TRANSCODE)) {
+		if (MEDIA_ISSET(media, TRANSCODE)) {
 			reti.ssrc_out = htonl(stream->ssrc_in->ssrc_map_out);
 			reti.transcoding = 1;
 		}
@@ -1119,7 +1122,7 @@ void kernelize(struct packet_stream *stream) {
 
 	ZERO(stream->kernel_stats);
 
-	if (proto_is_rtp(stream->media->protocol)) {
+	if (proto_is_rtp(media->protocol)) {
 		GList *values, *l;
 		struct rtp_stats *rs;
 
@@ -1133,12 +1136,16 @@ void kernelize(struct packet_stream *stream) {
 			}
 			rs = l->data;
 			// only add payload types that are passthrough
-			struct codec_handler *ch = codec_handler_get(stream->media, rs->payload_type);
+			struct codec_handler *ch = codec_handler_get(media, rs->payload_type);
 			if (!ch->kernelize)
 				continue;
 			reti.payload_types[reti.num_payload_types++] = rs->payload_type;
 		}
 		g_list_free(values);
+	}
+	else {
+		if (MEDIA_ISSET(media, TRANSCODE))
+			goto no_kernel;
 	}
 
 	recording_stream_kernel_info(stream, &reti);
@@ -1813,7 +1820,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (G_UNLIKELY(!phc->sink || !phc->sink->selected_sfd || !phc->out_srtp
 				|| !phc->out_srtp->selected_sfd || !phc->in_srtp->selected_sfd))
 	{
-		ilog(LOG_WARNING, "RTP packet from %s%s%s discarded", FMT_M(endpoint_print_buf(&phc->mp.fsin)));
+		ilog(LOG_WARNING, "Media packet from %s%s%s discarded", FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 		atomic64_inc(&phc->mp.stream->stats.errors);
 		atomic64_inc(&rtpe_statsps.errors);
 		goto out;

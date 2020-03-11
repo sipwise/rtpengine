@@ -18,6 +18,468 @@ my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, 
 
 
 
+# T.38 signalling scenarios
+
+new_call();
+
+offer('forward T.38 invite without codecs given', { 'T.38' => [ 'decode' ], ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 6000 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:300
+a=T38FaxUdpEC:t38UDPRedundancy
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+rtpe_req('delete', "delete", { 'from-tag' => ft() });
+
+
+
+
+
+
+new_call();
+
+offer('T.38 forward re-invite', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 8 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('T.38 forward re-invite', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 8 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('T.38 forward re-invite', { ICE => 'remove', 'T.38' => [ 'force' ],
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 8 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:1800
+a=T38FaxMaxDatagram:512
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+SDP
+
+answer('T.38 forward re-invite', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 4018 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:300
+a=T38FaxUdpEC:t38UDPRedundancy
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+rtpe_req('delete', "delete", { 'from-tag' => ft() });
+
+
+
+
+new_call();
+
+offer('T.38 reverse re-invite', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 8 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('T.38 reverse re-invite', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 8 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('T.38 reverse re-invite', { ICE => 'remove', 'T.38' => [ 'decode' ],
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 6000 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:300
+a=T38FaxUdpEC:t38UDPRedundancy
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('T.38 reverse re-invite', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:1800
+a=T38FaxMaxDatagram:512
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+SDP
+
+rtpe_req('delete', "delete", { 'from-tag' => ft() });
+
+
+
+
+
+
+new_call();
+
+offer('T.38 forward re-invite w/ unsupported codec', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 96 8 0
+c=IN IP4 198.51.100.3
+a=rtpmap:96 foobar/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('T.38 forward re-invite w/ unsupported codec', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 96
+c=IN IP4 198.51.100.3
+a=rtpmap:96 foobar/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('T.38 forward re-invite w/ unsupported codec', { ICE => 'remove', 'T.38' => [ 'force' ],
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 96 8 0
+c=IN IP4 198.51.100.3
+a=rtpmap:96 foobar/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:1800
+a=T38FaxMaxDatagram:512
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+SDP
+
+answer('T.38 forward re-invite w/ unsupported codec', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 4018 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:300
+a=T38FaxUdpEC:t38UDPRedundancy
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+rtpe_req('delete', "delete", { 'from-tag' => ft() });
+
+
+
+
+new_call();
+
+offer('T.38 reverse re-invite w/ unsupported codec', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 96 8 0
+c=IN IP4 198.51.100.3
+a=rtpmap:96 foobar/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('T.38 reverse re-invite w/ unsupported codec', { ICE => 'remove',
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 96 8 0
+c=IN IP4 198.51.100.3
+a=rtpmap:96 foobar/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('T.38 reverse re-invite w/ unsupported codec', { ICE => 'remove', 'T.38' => [ 'decode' ],
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=image 6000 udptl t38
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:262
+a=T38FaxMaxDatagram:300
+a=T38FaxUdpEC:t38UDPRedundancy
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('T.38 reverse re-invite w/ unsupported codec', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:1800
+a=T38FaxMaxDatagram:512
+a=T38FaxUdpEC:t38UDPRedundancy
+a=sendrecv
+SDP
+
+rtpe_req('delete', "delete", { 'from-tag' => ft() });
+
+
+
+
+
+
 # github issue 850
 
 new_call;
