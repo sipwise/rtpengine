@@ -1452,7 +1452,7 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 		for (GList *l = other_ml->medias.head; l; l = l->next) {
 			struct call_media *other_m = l->data;
 			if (other_m->index == med->index) {
-				codec_handlers_update(med, other_m, NULL);
+				codec_handlers_update(med, other_m, NULL, NULL);
 				break;
 			}
 		}

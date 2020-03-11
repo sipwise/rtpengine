@@ -169,6 +169,31 @@ struct attribute_fmtp {
 	unsigned int payload_type;
 };
 
+struct attribute_t38faxratemanagement {
+	enum {
+		RM_UNKNOWN = 0,
+		RM_LOCALTCF,
+		RM_TRANSFERREDTCF,
+	} rm;
+};
+
+struct attribute_t38faxudpec {
+	enum {
+		EC_UNKNOWN = 0,
+		EC_NONE,
+		EC_REDUNDANCY,
+		EC_FEC,
+	} ec;
+};
+
+struct attribute_t38faxudpecdepth {
+	str minred_str;
+	str maxred_str;
+
+	int minred;
+	int maxred;
+};
+
 struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 	str full_line,	/* including a= and \r\n */
 	    line_value,	/* without a= and without \r\n */
@@ -204,6 +229,16 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 		ATTR_RTPENGINE,
 		ATTR_PTIME,
 		ATTR_RTCP_FB,
+		ATTR_T38FAXVERSION,
+		ATTR_T38FAXUDPEC,
+		ATTR_T38FAXUDPECDEPTH,
+		ATTR_T38FAXUDPFECMAXSPAN,
+		ATTR_T38FAXMAXDATAGRAM,
+		ATTR_T38FAXMAXIFP,
+		ATTR_T38FAXFILLBITREMOVAL,
+		ATTR_T38FAXTRANSCODINGMMR,
+		ATTR_T38FAXTRANSCODINGJBIG,
+		ATTR_T38FAXRATEMANAGEMENT,
 		ATTR_END_OF_CANDIDATES,
 	} attr;
 
@@ -217,6 +252,10 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 		struct attribute_setup setup;
 		struct attribute_rtpmap rtpmap;
 		struct attribute_fmtp fmtp;
+		struct attribute_t38faxudpec t38faxudpec;
+		int i;
+		struct attribute_t38faxudpecdepth t38faxudpecdepth;
+		struct attribute_t38faxratemanagement t38faxratemanagement;
 	} u;
 };
 
@@ -769,6 +808,71 @@ static int parse_attribute_fmtp(struct sdp_attribute *output) {
 	return 0;
 }
 
+static int parse_attribute_int(struct sdp_attribute *output, int attr_id, int defval) {
+	output->attr = attr_id;
+	output->u.i = str_to_i(&output->value, defval);
+	return 0;
+}
+
+// XXX combine this with parse_attribute_setup ?
+static int parse_attribute_t38faxudpec(struct sdp_attribute *output) {
+	output->attr = ATTR_T38FAXUDPEC;
+
+	switch (__csh_lookup(&output->value)) {
+		case CSH_LOOKUP("t38UDPNoEC"):
+			output->u.t38faxudpec.ec = EC_NONE;
+			break;
+		case CSH_LOOKUP("t38UDPRedundancy"):
+			output->u.t38faxudpec.ec = EC_REDUNDANCY;
+			break;
+		case CSH_LOOKUP("t38UDPFEC"):
+			output->u.t38faxudpec.ec = EC_FEC;
+			break;
+		default:
+			output->u.t38faxudpec.ec = EC_UNKNOWN;
+			break;
+	}
+
+	return 0;
+}
+
+// XXX combine this with parse_attribute_setup ?
+static int parse_attribute_t38faxratemanagement(struct sdp_attribute *output) {
+	output->attr = ATTR_T38FAXRATEMANAGEMENT;
+
+	switch (__csh_lookup(&output->value)) {
+		case CSH_LOOKUP("localTFC"):
+			output->u.t38faxratemanagement.rm = RM_LOCALTCF;
+			break;
+		case CSH_LOOKUP("transferredTCF"):
+			output->u.t38faxratemanagement.rm = RM_TRANSFERREDTCF;
+			break;
+		default:
+			output->u.t38faxratemanagement.rm = RM_UNKNOWN;
+			break;
+	}
+
+	return 0;
+}
+
+static int parse_attribute_t38faxudpecdepth(struct sdp_attribute *output) {
+	PARSE_DECL;
+	struct attribute_t38faxudpecdepth *a;
+
+	output->attr = ATTR_T38FAXUDPECDEPTH;
+	a = &output->u.t38faxudpecdepth;
+
+	PARSE_INIT;
+	EXTRACT_TOKEN(u.t38faxudpecdepth.minred_str);
+	a->maxred_str = *value_str;
+
+	a->minred = str_to_i(&a->minred_str, 0);
+	a->maxred = str_to_i(&a->maxred_str, -1);
+
+	return 0;
+}
+
+
 static int parse_attribute(struct sdp_attribute *a) {
 	int ret;
 
@@ -872,6 +976,36 @@ static int parse_attribute(struct sdp_attribute *a) {
 			break;
 		case CSH_LOOKUP("rtcp-fb"):
 			a->attr = ATTR_RTCP_FB;
+			break;
+		case CSH_LOOKUP("T38FaxVersion"):
+			ret = parse_attribute_int(a, ATTR_T38FAXVERSION, -1);
+			break;
+		case CSH_LOOKUP("T38FaxUdpEC"):
+			ret = parse_attribute_t38faxudpec(a);
+			break;
+		case CSH_LOOKUP("T38FaxUdpECDepth"):
+			ret = parse_attribute_t38faxudpecdepth(a);
+			break;
+		case CSH_LOOKUP("T38FaxUdpFECMaxSpan"):
+			ret = parse_attribute_int(a, ATTR_T38FAXUDPFECMAXSPAN, 0);
+			break;
+		case CSH_LOOKUP("T38FaxMaxDatagram"):
+			ret = parse_attribute_int(a, ATTR_T38FAXMAXDATAGRAM, -1);
+			break;
+		case CSH_LOOKUP("T38FaxMaxIFP"):
+			ret = parse_attribute_int(a, ATTR_T38FAXMAXIFP, -1);
+			break;
+		case CSH_LOOKUP("T38FaxFillBitRemoval"):
+			a->attr = ATTR_T38FAXFILLBITREMOVAL;
+			break;
+		case CSH_LOOKUP("T38FaxTranscodingMMR"):
+			a->attr = ATTR_T38FAXTRANSCODINGMMR;
+			break;
+		case CSH_LOOKUP("T38FaxTranscodingJBIG"):
+			a->attr = ATTR_T38FAXTRANSCODINGJBIG;
+			break;
+		case CSH_LOOKUP("T38FaxRateManagement"):
+			ret = parse_attribute_t38faxratemanagement(a);
 			break;
 	}
 
@@ -1228,6 +1362,63 @@ no_cand:
 		sp->ice_pwd = attr->value;
 }
 
+static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
+	struct sdp_attribute *attr;
+	struct t38_options *to = &sp->t38_options;
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXVERSION);
+	if (attr)
+		to->version = attr->u.i;
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXUDPEC);
+	if (attr) {
+		if (attr->u.t38faxudpec.ec == EC_REDUNDANCY)
+			to->max_ec_entries = to->min_ec_entries = 3; // defaults
+		else if (attr->u.t38faxudpec.ec == EC_FEC) {
+			// defaults
+			to->max_ec_entries = to->min_ec_entries = 3;
+			to->fec_span = 3;
+		}
+		// else default to 0
+	}
+	else // no EC specified, defaults:
+		to->max_ec_entries = to->min_ec_entries = 3; // defaults
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXUDPECDEPTH);
+	if (attr) {
+		to->min_ec_entries = attr->u.t38faxudpecdepth.minred;
+		to->max_ec_entries = attr->u.t38faxudpecdepth.maxred;
+	}
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXUDPFECMAXSPAN);
+	if (attr)
+		to->fec_span = attr->u.i;
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXMAXDATAGRAM);
+	if (attr)
+		to->max_datagram = attr->u.i;
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXMAXIFP);
+	if (attr)
+		to->max_ifp = attr->u.i;
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXFILLBITREMOVAL);
+	if (attr)
+		to->fill_bit_removal = 1;
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXTRANSCODINGMMR);
+	if (attr)
+		to->transcoding_mmr = 1;
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXTRANSCODINGJBIG);
+	if (attr)
+		to->transcoding_jbig = 1;
+
+	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXRATEMANAGEMENT);
+	if (attr)
+		to->local_tcf = (attr->u.t38faxratemanagement.rm == RM_LOCALTCF) ? 1 : 0;
+}
+
 
 /* XXX split this function up */
 int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *flags) {
@@ -1340,6 +1531,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				SP_SET(sp, RTCP_FB);
 
 			__sdp_ice(sp, media);
+			__sdp_t38(sp, media);
 
 			/* determine RTCP endpoint */
 
@@ -1781,6 +1973,10 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				goto strip;
 
 			default:
+				// Remove T.38 related attributes if not an 'image' media.
+				// Used for T.38 <> audio transcoding
+				if (media->type_id != MT_IMAGE && !memcmp(attr->name.s, "T38", 3))
+					goto strip;
 				break;
 		}
 
