@@ -20,7 +20,7 @@ BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
 	our @EXPORT = qw(autotest_start new_call offer answer ft tt snd srtp_snd rtp rcv srtp_rcv
-		srtp_dec escape rtpm reverse_tags new_tt crlf sdp_split rtpe_req offer_answer);
+		srtp_dec escape rtpm rtpmre reverse_tags new_tt crlf sdp_split rtpe_req offer_answer);
 };
 
 
@@ -166,6 +166,9 @@ sub rcv {
 	if ($cb) {
 		$p = $cb->($hdr_mark, $pt, $seq, $ts, $ssrc, $payload, $p, $cb_arg);
 	}
+	if ($p !~ $match) {
+		print(unpack('H*', $p) . "\n");
+	}
 	like $p, $match, 'received packet matches';
 	my @matches = $p =~ $match;
 	for my $m (@matches) {
@@ -196,22 +199,24 @@ sub srtp_dec {
 sub escape {
 	return "\Q$_[0]\E";
 }
-sub rtpm {
-	my ($pt, $seq, $ts, $ssrc, $payload, $alt_payload) = @_;
-	print("rtp matcher $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
+sub rtpmre {
+	my ($pt, $seq, $ts, $ssrc, $xre) = @_;
+	#print("rtp matcher $pt $seq $ts $ssrc $xre\n");
 	my $re = '';
 	$re .= escape(pack('C', 0x80));
 	$re .= escape(pack('C', $pt));
 	$re .= $seq >= 0 ? escape(pack('n', $seq)) : '(..)';
 	$re .= $ts >= 0 ? escape(pack('N', $ts)) : '(....)';
 	$re .= $ssrc >= 0 ? escape(pack('N', $ssrc)) : '(....)';
-	if (!$alt_payload) {
-		$re .= escape($payload);
-	}
-	else {
-		$re .= '(' . escape($payload) . '|' . escape($alt_payload) . ')';
-	}
+	$re .= $xre;
 	return qr/^$re$/s;
+}
+sub rtpm {
+	my ($pt, $seq, $ts, $ssrc, $payload, $alt_payload) = @_;
+	if (!$alt_payload) {
+		return rtpmre($pt, $seq, $ts, $ssrc, escape($payload));
+	}
+	return rtpmre($pt, $seq, $ts, $ssrc, '(' . escape($payload) . '|' . escape($alt_payload) . ')');
 }
 
 sub ft { return $ft; }
