@@ -197,7 +197,7 @@ sub escape {
 	return "\Q$_[0]\E";
 }
 sub rtpm {
-	my ($pt, $seq, $ts, $ssrc, $payload) = @_;
+	my ($pt, $seq, $ts, $ssrc, $payload, $alt_payload) = @_;
 	print("rtp matcher $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
 	my $re = '';
 	$re .= escape(pack('C', 0x80));
@@ -205,7 +205,12 @@ sub rtpm {
 	$re .= $seq >= 0 ? escape(pack('n', $seq)) : '(..)';
 	$re .= $ts >= 0 ? escape(pack('N', $ts)) : '(....)';
 	$re .= $ssrc >= 0 ? escape(pack('N', $ssrc)) : '(....)';
-	$re .= escape($payload);
+	if (!$alt_payload) {
+		$re .= escape($payload);
+	}
+	else {
+		$re .= '(' . escape($payload) . '|' . escape($alt_payload) . ')';
+	}
 	return qr/^$re$/s;
 }
 
