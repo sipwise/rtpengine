@@ -71,7 +71,7 @@ static struct request_time timeval_clear_request_time(struct request_time *reque
 	return ret;
 }
 
-int connect_to_graphite_server(const endpoint_t *graphite_ep) {
+static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	int rc;
 
         if (!graphite_ep) {
@@ -97,7 +97,7 @@ int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	return 0;
 }
 
-int send_graphite_data(struct totalstats *sent_data) {
+static int send_graphite_data(struct totalstats *sent_data) {
 
 	if (graphite_sock.fd < 0) {
 		ilog(LOG_ERROR,"Graphite socket is not connected.");
@@ -253,7 +253,7 @@ static inline void copy_with_lock(struct totalstats *ts_dst, struct totalstats *
 	mutex_unlock(ts_lock);
 }
 
-void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
+static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 
 	int rc=0;
 	struct pollfd wfds[1];
