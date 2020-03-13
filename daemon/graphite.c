@@ -233,11 +233,27 @@ static int send_graphite_data(struct totalstats *sent_data) {
 		(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec,
 		(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec);
 
-	int rc = write(graphite_sock.fd, graph_str->str, graph_str->len);
-	if (rc<0) {
-		ilog(LOG_ERROR,"Could not write to graphite socket. Disconnecting graphite server.");
-		goto error;
+	size_t sent = 0;
+	int blockings = 10; // let it block that many times
+	while (sent < graph_str->len) {
+		int rc = write(graphite_sock.fd, graph_str->str + sent, graph_str->len - sent);
+		if (rc<0) {
+			if (blockings <= 0 || (errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)) {
+				ilog(LOG_ERROR,"Could not write to graphite socket (%s). " \
+						"Disconnecting graphite server.", strerror(errno));
+				goto error;
+			}
+			rc = 0;
+		}
+		if (rc == 0) {
+			// poor man's blocking handling
+			blockings--;
+			usleep(500000);
+			continue;
+		}
+		sent += rc;
 	}
+
 	g_string_free(graph_str, TRUE);
 	return 0;
 
