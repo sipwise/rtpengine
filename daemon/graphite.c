@@ -167,51 +167,51 @@ static int send_graphite_data(struct totalstats *sent_data) {
 #define GPF(fmt, ...) \
 	if (graphite_prefix) \
 		g_string_append(graph_str, graphite_prefix); \
-	g_string_append_printf(graph_str, fmt "\n", ##__VA_ARGS__)
+	g_string_append_printf(graph_str, fmt " %llu\n", ##__VA_ARGS__, (unsigned long long)rtpe_now.tv_sec)
 
-	GPF("offer_time_min %llu.%06llu %llu",(unsigned long long)ts->offer.time_min.tv_sec,(unsigned long long)ts->offer.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec);
-	GPF("offer_time_max %llu.%06llu %llu",(unsigned long long)ts->offer.time_max.tv_sec,(unsigned long long)ts->offer.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec);
-	GPF("offer_time_avg %llu.%06llu %llu",(unsigned long long)ts->offer.time_avg.tv_sec,(unsigned long long)ts->offer.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("offer_time_min %llu.%06llu",(unsigned long long)ts->offer.time_min.tv_sec,(unsigned long long)ts->offer.time_min.tv_usec);
+	GPF("offer_time_max %llu.%06llu",(unsigned long long)ts->offer.time_max.tv_sec,(unsigned long long)ts->offer.time_max.tv_usec);
+	GPF("offer_time_avg %llu.%06llu",(unsigned long long)ts->offer.time_avg.tv_sec,(unsigned long long)ts->offer.time_avg.tv_usec);
 
-	GPF("answer_time_min %llu.%06llu %llu",(unsigned long long)ts->answer.time_min.tv_sec,(unsigned long long)ts->answer.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec);
-	GPF("answer_time_max %llu.%06llu %llu",(unsigned long long)ts->answer.time_max.tv_sec,(unsigned long long)ts->answer.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec);
-	GPF("answer_time_avg %llu.%06llu %llu",(unsigned long long)ts->answer.time_avg.tv_sec,(unsigned long long)ts->answer.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("answer_time_min %llu.%06llu",(unsigned long long)ts->answer.time_min.tv_sec,(unsigned long long)ts->answer.time_min.tv_usec);
+	GPF("answer_time_max %llu.%06llu",(unsigned long long)ts->answer.time_max.tv_sec,(unsigned long long)ts->answer.time_max.tv_usec);
+	GPF("answer_time_avg %llu.%06llu",(unsigned long long)ts->answer.time_avg.tv_sec,(unsigned long long)ts->answer.time_avg.tv_usec);
 
-	GPF("delete_time_min %llu.%06llu %llu",(unsigned long long)ts->delete.time_min.tv_sec,(unsigned long long)ts->delete.time_min.tv_usec,(unsigned long long)rtpe_now.tv_sec);
-	GPF("delete_time_max %llu.%06llu %llu",(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec,(unsigned long long)rtpe_now.tv_sec);
-	GPF("delete_time_avg %llu.%06llu %llu",(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec,(unsigned long long)rtpe_now.tv_sec);
+	GPF("delete_time_min %llu.%06llu",(unsigned long long)ts->delete.time_min.tv_sec,(unsigned long long)ts->delete.time_min.tv_usec);
+	GPF("delete_time_max %llu.%06llu",(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec);
+	GPF("delete_time_avg %llu.%06llu",(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec);
 
-	GPF("call_dur %llu.%06llu %llu",(unsigned long long)ts->total_calls_duration_interval.tv_sec,(unsigned long long)ts->total_calls_duration_interval.tv_usec,(unsigned long long)rtpe_now.tv_sec);
-	GPF("average_call_dur %llu.%06llu %llu",(unsigned long long)ts->total_average_call_dur.tv_sec,(unsigned long long)ts->total_average_call_dur.tv_usec,(unsigned long long)rtpe_now.tv_sec);
-	GPF("forced_term_sess "UINT64F" %llu", atomic64_get_na(&ts->total_forced_term_sess),(unsigned long long)rtpe_now.tv_sec);
-	GPF("managed_sess "UINT64F" %llu", ts->total_managed_sess,(unsigned long long)rtpe_now.tv_sec);
-	GPF("managed_sess_min "UINT64F" %llu", ts->managed_sess_min,(unsigned long long)rtpe_now.tv_sec);
-	GPF("managed_sess_max "UINT64F" %llu", ts->managed_sess_max,(unsigned long long)rtpe_now.tv_sec);
-	GPF("current_sessions_total "UINT64F" %llu", ts->total_sessions,(unsigned long long)rtpe_now.tv_sec);
-	GPF("current_sessions_own "UINT64F" %llu", ts->own_sessions,(unsigned long long)rtpe_now.tv_sec);
-	GPF("current_sessions_foreign "UINT64F" %llu", ts->foreign_sessions,(unsigned long long)rtpe_now.tv_sec);
-	GPF("nopacket_relayed_sess "UINT64F" %llu", atomic64_get_na(&ts->total_nopacket_relayed_sess),(unsigned long long)rtpe_now.tv_sec);
-	GPF("oneway_stream_sess "UINT64F" %llu", atomic64_get_na(&ts->total_oneway_stream_sess),(unsigned long long)rtpe_now.tv_sec);
-	GPF("regular_term_sess "UINT64F" %llu", atomic64_get_na(&ts->total_regular_term_sess),(unsigned long long)rtpe_now.tv_sec);
-	GPF("relayed_errors "UINT64F" %llu", atomic64_get_na(&ts->total_relayed_errors),(unsigned long long)rtpe_now.tv_sec);
-	GPF("relayed_packets "UINT64F" %llu", atomic64_get_na(&ts->total_relayed_packets),(unsigned long long)rtpe_now.tv_sec);
-	GPF("silent_timeout_sess "UINT64F" %llu", atomic64_get_na(&ts->total_silent_timeout_sess),(unsigned long long)rtpe_now.tv_sec);
-	GPF("final_timeout_sess "UINT64F" %llu", atomic64_get_na(&ts->total_final_timeout_sess),(unsigned long long)rtpe_now.tv_sec);
-	GPF("offer_timeout_sess "UINT64F" %llu", atomic64_get_na(&ts->total_offer_timeout_sess),(unsigned long long)rtpe_now.tv_sec);
-	GPF("timeout_sess "UINT64F" %llu", atomic64_get_na(&ts->total_timeout_sess),(unsigned long long)rtpe_now.tv_sec);
-	GPF("reject_sess "UINT64F" %llu", atomic64_get_na(&ts->total_rejected_sess),(unsigned long long)rtpe_now.tv_sec);
+	GPF("call_dur %llu.%06llu",(unsigned long long)ts->total_calls_duration_interval.tv_sec,(unsigned long long)ts->total_calls_duration_interval.tv_usec);
+	GPF("average_call_dur %llu.%06llu",(unsigned long long)ts->total_average_call_dur.tv_sec,(unsigned long long)ts->total_average_call_dur.tv_usec);
+	GPF("forced_term_sess "UINT64F, atomic64_get_na(&ts->total_forced_term_sess));
+	GPF("managed_sess "UINT64F, ts->total_managed_sess);
+	GPF("managed_sess_min "UINT64F, ts->managed_sess_min);
+	GPF("managed_sess_max "UINT64F, ts->managed_sess_max);
+	GPF("current_sessions_total "UINT64F, ts->total_sessions);
+	GPF("current_sessions_own "UINT64F, ts->own_sessions);
+	GPF("current_sessions_foreign "UINT64F, ts->foreign_sessions);
+	GPF("nopacket_relayed_sess "UINT64F, atomic64_get_na(&ts->total_nopacket_relayed_sess));
+	GPF("oneway_stream_sess "UINT64F, atomic64_get_na(&ts->total_oneway_stream_sess));
+	GPF("regular_term_sess "UINT64F, atomic64_get_na(&ts->total_regular_term_sess));
+	GPF("relayed_errors "UINT64F, atomic64_get_na(&ts->total_relayed_errors));
+	GPF("relayed_packets "UINT64F, atomic64_get_na(&ts->total_relayed_packets));
+	GPF("silent_timeout_sess "UINT64F, atomic64_get_na(&ts->total_silent_timeout_sess));
+	GPF("final_timeout_sess "UINT64F, atomic64_get_na(&ts->total_final_timeout_sess));
+	GPF("offer_timeout_sess "UINT64F, atomic64_get_na(&ts->total_offer_timeout_sess));
+	GPF("timeout_sess "UINT64F, atomic64_get_na(&ts->total_timeout_sess));
+	GPF("reject_sess "UINT64F, atomic64_get_na(&ts->total_rejected_sess));
 
-	GPF("offers_ps_min %llu %llu",(unsigned long long)ts->offers_ps.ps_min,(unsigned long long)rtpe_now.tv_sec);
-	GPF("offers_ps_max %llu %llu",(unsigned long long)ts->offers_ps.ps_max,(unsigned long long)rtpe_now.tv_sec);
-	GPF("offers_ps_avg %llu %llu",(unsigned long long)ts->offers_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec);
+	GPF("offers_ps_min %llu",(unsigned long long)ts->offers_ps.ps_min);
+	GPF("offers_ps_max %llu",(unsigned long long)ts->offers_ps.ps_max);
+	GPF("offers_ps_avg %llu",(unsigned long long)ts->offers_ps.ps_avg);
 
-	GPF("answers_ps_min %llu %llu",(unsigned long long)ts->answers_ps.ps_min,(unsigned long long)rtpe_now.tv_sec);
-	GPF("answers_ps_max %llu %llu",(unsigned long long)ts->answers_ps.ps_max,(unsigned long long)rtpe_now.tv_sec);
-	GPF("answers_ps_avg %llu %llu",(unsigned long long)ts->answers_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec);
+	GPF("answers_ps_min %llu",(unsigned long long)ts->answers_ps.ps_min);
+	GPF("answers_ps_max %llu",(unsigned long long)ts->answers_ps.ps_max);
+	GPF("answers_ps_avg %llu",(unsigned long long)ts->answers_ps.ps_avg);
 
-	GPF("deletes_ps_min %llu %llu",(unsigned long long)ts->deletes_ps.ps_min,(unsigned long long)rtpe_now.tv_sec);
-	GPF("deletes_ps_max %llu %llu",(unsigned long long)ts->deletes_ps.ps_max,(unsigned long long)rtpe_now.tv_sec);
-	GPF("deletes_ps_avg %llu %llu",(unsigned long long)ts->deletes_ps.ps_avg,(unsigned long long)rtpe_now.tv_sec);
+	GPF("deletes_ps_min %llu",(unsigned long long)ts->deletes_ps.ps_min);
+	GPF("deletes_ps_max %llu",(unsigned long long)ts->deletes_ps.ps_max);
+	GPF("deletes_ps_avg %llu",(unsigned long long)ts->deletes_ps.ps_avg);
 
 	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%llu.%06llu at time %llu\n",
 			(unsigned long long) ts->managed_sess_min,
