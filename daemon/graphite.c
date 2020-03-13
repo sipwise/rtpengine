@@ -213,6 +213,20 @@ static int send_graphite_data(struct totalstats *sent_data) {
 	GPF("deletes_ps_max %llu",(unsigned long long)ts->deletes_ps.ps_max);
 	GPF("deletes_ps_avg %llu",(unsigned long long)ts->deletes_ps.ps_avg);
 
+	for (GList *l = all_local_interfaces.head; l; l = l->next) {
+		struct local_intf *lif = l->data;
+		// only show first-order interface entries: socket families must match
+		if (lif->logical->preferred_family != lif->spec->local_address.addr.family)
+			continue;
+		int num_ports = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
+		GPF("ports_free_%s_%s %i", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr),
+				g_atomic_int_get(&lif->spec->port_pool.free_ports));
+		GPF("ports_used_%s_%s %i", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr),
+				num_ports - g_atomic_int_get(&lif->spec->port_pool.free_ports));
+	}
+
 	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%llu.%06llu at time %llu\n",
 			(unsigned long long) ts->managed_sess_min,
 			(unsigned long long) ts->managed_sess_max,
