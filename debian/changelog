@@ -1,3 +1,47 @@
+ngcp-rtpengine (8.4.0.0+0~mr8.4.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a1de325] TT#75050 fix SRTP index slip while transcoding
+  * [c70b3f6] TT#74651 fix several mem/resource leaks
+  * [4267e1c] TT#74301 split auto-daemon-test framework into perl module
+  * [18634c4] TT#74301 refactor send_timer into generic timer
+  * [d6ad6a6] TT#74301 convert timerthread_queue entries list to GTree
+  * [ef0d6a3] TT#74301 merge jitter buffer PR #834
+  * [06b8704] TT#74301 add tests for jitter buffer
+  * [92adeb0] TT#75351 delete DB streams that have no corresponding file
+  * [7e0b2c4] TT#75352 add a storage container for codec handlers
+  * [38792c0] TT#75352 don't attempt to send uninitialised packets
+  * [7ea6389] compile fix for with_transcoding=no
+  * [088c58d] avoid calling a non existant encoder
+  * [fbaaf22] compile fix for jitter buffer
+  * [3d83b46] TT#76206 fix call teardown for half established dialogues
+  * [be9caa3] also check for the output encoder
+  * [01002b0] TT#74850 clean up indentation by reversing logic
+  * [d09071a] TT#74850 avoid duplicate dlg.terminate_dlg with reversed tags
+  * [c3f495f] move default values up
+  * [a6f6001] document "list interfaces" CLI command
+  * [335e3d2] TT#76368 clean up graphite writing functions
+  * [51147da] explicitly advertise annexb=no for G.729
+  * [ad4ea21] fix for d09071a
+  * [1c00016] possible null pointer fix
+  * [24cb202] fix compilation under musl libc
+  * [c0be3ea] TT#14008 allow for slightly different DSP outputs
+
+  [ Stefan Mititelu ]
+  * [dbd27f9] Fix crash when redis disconnects/reconnects
+
+  [ Jonas ]
+  * [0778fc1] Update rtpengine-ctl
+
+  [ Balajee SV ]
+  * [c0b28c3] jb_new
+  * [e3a5d45] jb_new
+
+  [ root ]
+  * [195f618] jb_fix
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 16 Mar 2020 11:17:40 +0100
+
 ngcp-rtpengine (8.3.0.0+0~mr8.3.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
