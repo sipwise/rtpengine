@@ -31,8 +31,8 @@ struct ssrc_hash {
 	rwlock_t lock;
 	ssrc_create_func_t create_func;
 	void *uptr;
-	volatile struct ssrc_entry *cache; // last used entry
-	volatile struct ssrc_entry *precreat; // next used entry
+	struct ssrc_entry *cache; // last used entry
+	struct ssrc_entry *precreat; // next used entry
 };
 struct payload_tracker {
 	mutex_t lock;

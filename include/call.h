@@ -273,7 +273,7 @@ struct packet_stream {
 	struct stats		kernel_stats;
 	atomic64		last_packet;
 	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
-	volatile struct rtp_stats *rtp_stats_cache;
+	struct rtp_stats	*rtp_stats_cache;
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: in_lock: */
@@ -323,7 +323,7 @@ struct call_media {
 	GHashTable		*codec_handlers; // int payload type -> struct codec_handler
 						// XXX combine this with 'codecs_recv' hash table?
 	GQueue			codec_handlers_store; // storage for struct codec_handler
-	volatile struct codec_handler *codec_handler_cache;
+	struct codec_handler	*codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
 	struct codec_handler	*dtmf_injector;
 
