@@ -1,3 +1,10 @@
+ngcp-rtpengine (6.5.6.3+0~mr6.5.6.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [dc5ca2a] TT#76206 fix call teardown for half established dialogues
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 16 Mar 2020 13:53:16 +0100
+
 ngcp-rtpengine (6.5.6.2+0~mr6.5.6.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
