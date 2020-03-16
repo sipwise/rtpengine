@@ -1,3 +1,12 @@
+ngcp-rtpengine (7.5.2.6+0~mr7.5.2.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [40bf41d] TT#75352 add a storage container for codec handlers
+  * [2cb16ba] TT#75352 don't attempt to send uninitialised packets
+  * [7c1f0fd] TT#76206 fix call teardown for half established dialogues
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 16 Mar 2020 14:46:42 +0100
+
 ngcp-rtpengine (7.5.2.5+0~mr7.5.2.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
