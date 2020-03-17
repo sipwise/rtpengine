@@ -61,9 +61,7 @@ static void media_player_shutdown(struct media_player *mp) {
 	}
 
 	mp->media = NULL;
-	if (mp->handler)
-		codec_handler_free(mp->handler);
-	mp->handler = NULL;
+	codec_handler_free(&mp->handler);
 	if (mp->avioctx) {
 		if (mp->avioctx->buffer)
 			av_freep(&mp->avioctx->buffer);
