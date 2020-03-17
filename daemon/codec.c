@@ -141,8 +141,11 @@ static void __codec_handler_free(void *pp) {
 	__handler_shutdown(h);
 	g_slice_free1(sizeof(*h), h);
 }
-void codec_handler_free(struct codec_handler *handler) {
-	__codec_handler_free(handler);
+void codec_handler_free(struct codec_handler **handler) {
+	if (!handler || !*handler)
+		return;
+	__codec_handler_free(*handler);
+	*handler = NULL;
 }
 
 static struct codec_handler *__handler_new(const struct rtp_payload_type *pt) {
