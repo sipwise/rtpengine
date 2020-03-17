@@ -54,7 +54,7 @@ struct codec_handler *codec_handler_get(struct call_media *, int payload_type);
 void codec_handlers_free(struct call_media *);
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt, unsigned long ts);
-void codec_handler_free(struct codec_handler *handler);
+void codec_handler_free(struct codec_handler **handler);
 void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media);
 
 void codec_add_raw_packet(struct media_packet *mp);
