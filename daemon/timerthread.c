@@ -218,14 +218,20 @@ unsigned int timerthread_queue_flush(struct timerthread_queue *ttq, void *ptr) {
 	if (!ttq)
 		return 0;
 
+	mutex_lock(&ttq->lock);
+
 	unsigned int num = 0;
 	GQueue matches = G_QUEUE_INIT;
 	g_tree_find_all(&matches, ttq->entries, ttqe_ptr_match, ptr);
 
 	while (matches.length) {
 		struct timerthread_queue_entry *ttqe = g_queue_pop_head(&matches);
+		g_tree_remove(ttq->entries, ttqe);
 		ttq->entry_free_func(ttqe);
 		num++;
 	}
+
+	mutex_unlock(&ttq->lock);
+
 	return num;
 }
