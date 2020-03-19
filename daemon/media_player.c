@@ -189,6 +189,7 @@ static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp)
 	__send_timer_send_common(st, cp);
 
 	rwlock_unlock_r(&call->master_lock);
+	log_info_clear();
 
 }
 // st->stream->out_lock (or call->master_lock/W) must be held already
@@ -200,6 +201,8 @@ static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *c
 	log_info_call(call);
 
 	__send_timer_send_common(st, cp);
+
+	log_info_clear();
 }
 
 
