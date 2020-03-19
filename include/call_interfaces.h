@@ -124,5 +124,6 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 
 int call_interfaces_init(void);
 
+void format_network_address(str* o, struct packet_stream *ps, struct sdp_ng_flags *flags, int keep_unspec);
 
 #endif

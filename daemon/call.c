@@ -151,7 +151,7 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	}
 
 	if (c->deleted && rtpe_now.tv_sec >= c->deleted
-			&& c->last_signal <= c->deleted)
+			&& c->last_signal.tv_sec <= c->deleted)
 		goto delete;
 
 	if (c->ml_deleted && rtpe_now.tv_sec >= c->ml_deleted) {
@@ -1816,6 +1816,18 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 	}
 }
 
+static void __update_rtpe_address(struct call_media* media, struct sdp_ng_flags *flags) {
+	struct packet_stream *ps;
+	
+	if (media->rtpe_connection_addr.len || !media->streams.head)
+		return;
+	
+	ps = media->streams.head->data;
+	media->rtpe_connection_addr.s = call_malloc(media->call, 64);
+	format_network_address(&media->rtpe_connection_addr, ps, flags, 0);
+	rlog(LOG_INFO, "Stored media address %s",media->rtpe_connection_addr.s);
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		struct sdp_ng_flags *flags)
@@ -1838,7 +1850,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	monologue = other_ml->active_dialogue;
 	call = monologue->call;
 
-	call->last_signal = rtpe_now.tv_sec;
+	call->last_signal = rtpe_now;
 	call->deleted = 0;
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
@@ -2038,6 +2050,8 @@ init:
 		ice_update(media->ice_agent, NULL); /* this is in case rtcp-mux has changed */
 
 		recording_setup_media(media);
+		__update_rtpe_address(media, flags);
+		__update_rtpe_address(other_media, flags);
 	}
 
 	return 0;

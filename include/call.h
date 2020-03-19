@@ -330,6 +330,7 @@ struct call_media {
 	int			ptime; // either from SDP or overridden
 
 	volatile unsigned int	media_flags;
+	str			rtpe_connection_addr;
 };
 
 /* half a dialogue */
@@ -379,14 +380,14 @@ struct call {
 
 	str			callid;
 	struct timeval		created;
-	time_t			last_signal;
+	struct timeval		last_signal;
 	time_t			deleted;
 	time_t			ml_deleted;
 	unsigned char		tos;
 	char			*created_from;
 	sockaddr_t		created_from_addr;
 	sockaddr_t		xmlrpc_callback;
-
+	
 	unsigned int		redis_hosted_db;
 	unsigned int		foreign_call; // created_via_redis_notify call
 

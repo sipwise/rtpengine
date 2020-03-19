@@ -673,6 +673,28 @@ fail:
 	return -1;
 }
 
+int create_foreign_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa) {
+	ZERO(*r);
+	r->is_foreign = 1;
+	r->family = sa->family;
+	r->fd = -1; // Make sure no one tries to close a real fd
+
+	if (port > 0xffff) {
+		__C_DBG("create foreign socket fail, port=%d > 0xfffffd", port);
+		goto fail;
+	}
+
+	r->local.port = port;
+	r->local.address = *sa;
+
+	__C_DBG("create foreign socket success, port=%d", port);
+
+	return 0;
+
+	fail:
+		return -1;
+}
+
 int connect_socket(socket_t *r, int type, const endpoint_t *ep) {
 	sockfamily_t *fam;
 

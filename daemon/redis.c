@@ -32,6 +32,8 @@
 #include "ssrc.h"
 #include "main.h"
 #include "codec.h"
+#include "redis-json.h"
+#include "json-helpers.h"
 
 struct redis		*rtpe_redis;
 struct redis		*rtpe_redis_write;
@@ -80,8 +82,10 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 #define REDIS_FMT(x) (int) (x)->len, (x)->str
 
 static int redis_check_conn(struct redis *r);
-static void json_restore_call(struct redis *r, const str *id, enum call_type type);
+static void redis_update_call(str *callid, struct redis *r, struct call *call);
+static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *media);
 static int redis_connect(struct redis *r, int wait);
+static char* redis_encode_json(struct call *c);
 
 static void redis_pipe(struct redis *r, const char *fmt, ...) {
 	va_list ap;
@@ -362,14 +366,8 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 		c = call_get(&callid);
 		if (c) {
 			rwlock_unlock_w(&c->master_lock);
-			if (IS_FOREIGN_CALL(c))
-				call_destroy(c);
-			else {
-				rlog(LOG_WARN, "Redis-Notifier: Ignoring SET received for OWN call: %s\n", rr->element[2]->str);
-				goto err;
-			}
 		}
-		json_restore_call(r, &callid, CT_FOREIGN_CALL);
+		redis_update_call(&callid, r, c);
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
@@ -762,23 +760,6 @@ INLINE void json_builder_add_string_value_uri_enc(JsonBuilder *builder, const ch
 	str_uri_encode_len(enc, tmp, len);
 	json_builder_add_string_value(builder,enc);
 }
-INLINE str *json_reader_get_string_value_uri_enc(JsonReader *root_reader) {
-	const char *s = json_reader_get_string_value(root_reader);
-	if (!s)
-		return NULL;
-	str *out = str_uri_decode_len(s, strlen(s));
-	return out; // must be free'd
-}
-// XXX rework restore procedure to use functions like this everywhere and eliminate the GHashTable
-INLINE long long json_reader_get_ll(JsonReader *root_reader, const char *key) {
-	if (!json_reader_read_member(root_reader, key))
-		return -1;
-	str *ret = json_reader_get_string_value_uri_enc(root_reader);
-	long long r = strtoll(ret->s, NULL, 10);
-	free(ret);
-	json_reader_end_member(root_reader);
-	return r;
-}
 
 static int json_get_hash(struct redis_hash *out,
 		const char *key, unsigned int id, JsonReader *root_reader)
@@ -886,7 +867,7 @@ static struct timeval strtotimeval(const char *c, char **endp, int base) {
 define_get_int_type(time_t, time_t, strtoull);
 define_get_int_type(timeval, struct timeval, strtotimeval);
 define_get_int_type(int, int, strtol);
-define_get_int_type(unsigned, unsigned int, strtol);
+define_get_int_type(unsigned, unsigned int, strtoul);
 //define_get_int_type(u16, u_int16_t, strtol);
 //define_get_int_type(u64, u_int64_t, strtoull);
 define_get_int_type(a64, atomic64, strtoa64);
@@ -936,8 +917,8 @@ static int redis_hash_get_endpoint(struct endpoint *out, const struct redis_hash
 
 	if (redis_hash_get_str(&s, h, k))
 		return -1;
-	if (endpoint_parse_any(out, s.s))
-		return -1;
+	if (s.len && endpoint_parse_any(out, s.s))
+			return -1;
 
 	return 0;
 }
@@ -1089,7 +1070,7 @@ static int redis_hash_get_sdes_params(GQueue *out, const struct redis_hash *h, c
 	char key[32], tagkey[64];
 	const char *kk = k;
 	unsigned int tag;
-	unsigned int iter = 0;
+	unsigned int iter = 1;
 
 	while (1) {
 		snprintf(tagkey, sizeof(tagkey), "%s_tag", kk);
@@ -1104,8 +1085,8 @@ static int redis_hash_get_sdes_params(GQueue *out, const struct redis_hash *h, c
 				return 0;
 			return -1;
 		}
-
 		g_queue_push_tail(out, cps);
+
 		snprintf(key, sizeof(key), "%s-%u", k, iter++);
 		kk = key;
 	}
@@ -1155,14 +1136,21 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 		if (!loc)
 			goto err;
 
-		err = "failed to open ports";
-		if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
-			goto err;
-		err = "no port returned";
-		sock = g_queue_pop_head(&q);
-		if (!sock)
-			goto err;
-		set_tos(sock, c->tos);
+		if (IS_FOREIGN_CALL(c)) {
+			sock = g_slice_alloc0(sizeof(*sock));
+			err = "failed to register foreign port";
+			if (create_foreign_socket(sock, SOCK_DGRAM, port, &loc->spec->local_address.addr))
+				goto err;
+		} else {
+			err = "failed to open ports";
+			if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
+				goto err;
+			err = "no port returned";
+			sock = g_queue_pop_head(&q);
+			if (!sock)
+				goto err;
+			set_tos(sock, c->tos);
+		}
 		sfd = stream_fd_new(sock, c, loc);
 
 		sfds->ptrs[i] = sfd;
@@ -1178,6 +1166,7 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 	unsigned int i;
 	struct redis_hash *rh;
 	struct packet_stream *ps;
+	unsigned int ps_last_packet;
 
 	for (i = 0; i < streams->len; i++) {
 		rh = &streams->rh[i];
@@ -1186,7 +1175,8 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 		if (!ps)
 			return -1;
 
-		atomic64_set_na(&ps->last_packet, time(NULL));
+		redis_hash_get_unsigned(&ps_last_packet, rh, "last_packet");
+		atomic64_set_na(&ps->last_packet, ps_last_packet);
 		if (redis_hash_get_unsigned((unsigned int *) &ps->ps_flags, rh, "ps_flags"))
 			return -1;
 		if (redis_hash_get_unsigned((unsigned int *) &ps->component, rh, "component"))
@@ -1303,6 +1293,9 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 					"media_flags"))
 			return -1;
 
+		if (!redis_hash_get_str(&s, rh, "rtpe_addr"))
+			call_str_cpy(c, &med->rtpe_connection_addr, &s);
+		
 		if (redis_hash_get_sdes_params(&med->sdes_in, rh, "sdes_in") < 0)
 			return -1;
 		if (redis_hash_get_sdes_params(&med->sdes_out, rh, "sdes_out") < 0)
@@ -1527,8 +1520,7 @@ static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
 	return 0;
 }
 
-static void json_restore_call(struct redis *r, const str *callid, enum call_type type) {
-	redisReply* rr_jsonStr;
+static void json_restore_call(JsonParser *parser, const str *callid, enum call_type type) {
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
 	struct call *c = NULL;
@@ -1537,17 +1529,7 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 	const char *err = 0;
 	int i;
 	JsonReader *root_reader =0;
-	JsonParser *parser =0;
 
-	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
-	err = "could not retrieve JSON data from redis";
-	if (!rr_jsonStr)
-		goto err1;
-
-	parser = json_parser_new();
-	err = "could not parse JSON data";
-	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
-		goto err1;
 	root_reader = json_reader_new (json_parser_get_root (parser));
 	err = "could not read JSON data";
 	if (!root_reader)
@@ -1559,7 +1541,7 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 		goto err1;
 
 	err = "call already exists";
-	if (c->last_signal)
+	if (c->last_signal.tv_sec)
 		goto err2;
 	err = "'call' data incomplete";
 
@@ -1585,7 +1567,7 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 	if (redis_hash_get_timeval(&c->created, &call, "created"))
 		goto err8;
 	err = "missing 'last signal' timestamp";
-	if (redis_hash_get_time_t(&c->last_signal, &call, "last_signal"))
+	if (redis_hash_get_timeval(&c->last_signal, &call, "last_signal"))
 		goto err8;
 	if (redis_hash_get_int(&i, &call, "tos"))
 		c->tos = 184;
@@ -1647,6 +1629,25 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 		recording_start(c, s.s, &meta);
 	}
 
+	/* because json_medias() failed to implement dtls updates, and I can't suffer to re-implement it their way, just use our new parser */
+	redis_call_t *redis_call = redis_call_create(&c->callid, json_parser_get_root(parser));
+	err = "new parser failed to parse JSON data";
+	if (!redis_call)
+		goto err1;
+	for (GList *ml = c->medias.head; ml; ml = ml->next) {
+		struct call_media *m = ml->data;
+		redis_call_media_t *media = g_queue_peek_nth(redis_call->media, m->unique_id);
+		if (!media) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: missing media %u",
+			     STR_FMT_M(&c->callid), m->unique_id);
+			continue; /* weird... */
+		}
+		if (redis_update_call_crypto(m, media)) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: error in update crypto",
+			     STR_FMT_M(&c->callid));
+		}
+	}
+
 	err = NULL;
 
 err8:
@@ -1666,11 +1667,6 @@ err2:
 err1:
 	if (root_reader)
 		g_object_unref (root_reader);
-	if (parser)
-		g_object_unref (parser);
-	if (rr_jsonStr)
-		freeReplyObject(rr_jsonStr);	
-	log_info_clear();
 	if (err) {
 		rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s",
 				STR_FMT_M(callid),
@@ -1685,6 +1681,374 @@ err1:
 	}
 	if (c)
 		obj_put(c);
+}
+
+static int redis_update_call_streams(struct call *c, redis_call_t *redis_call) {
+	GQueue* redis_call_streams;
+	redis_call_media_stream_t *stream;
+	unsigned int updated = 0;
+	struct packet_stream *ps;
+	GList *pk;
+	struct endpoint endpoint, advertised_endpoint;
+	
+	if (!(redis_call_streams = redis_call_get_streams(redis_call)))
+		return -1;
+	// review call streams and only update where needed
+	for (pk = c->streams.head; pk; pk = pk->next) {
+		ps = pk->data;
+		ZERO(endpoint);
+		stream = g_queue_peek_nth(redis_call_streams, ps->unique_id);
+		if (stream->endpoint->len)
+			endpoint_parse_any(&endpoint, stream->endpoint->s);
+		if (stream->advertised_endpoint->len)
+			endpoint_parse_any(&advertised_endpoint, stream->advertised_endpoint->s);
+		
+		if (!ps->endpoint.port && endpoint.port && endpoint.address.family->af) {
+			ps->endpoint = endpoint;
+			ps->advertised_endpoint = advertised_endpoint;
+			ps->ps_flags = stream->ps_flags;
+			updated = 1;
+		}
+	}
+	
+	if (updated)
+		rlog(LOG_INFO, "Updated stream endpoints and flags from Redis");
+	g_queue_free_full(redis_call_streams, gdestroy_obj_put);
+	return 0;
+}
+
+static int redis_update_call_tags(struct call *c, redis_call_t *redis_call) {
+	unsigned midx, updated = 0;
+	redis_call_media_t *media;
+	// need to combine redis_tags and json_link_tags:
+	// - read sets of linked tags
+	// - for each tag that doesn't exist in g_hash_table_lookup(call->tags, tag), and that has a linked tag that does,
+	//   call call_get_monologue(call, exist_tag, not_exist_tag, NULL)
+
+	for (midx = 0; midx < redis_call->media->length; midx++) {
+		media = g_queue_peek_nth(redis_call->media, midx);
+		if (media->tag && media->tag->tag && media->tag->other_tag && media->tag->other_tag->tag &&
+			g_hash_table_lookup(c->tags, media->tag->tag) &&
+			!g_hash_table_lookup(c->tags, media->tag->other_tag->tag)) {
+			call_get_mono_dialogue(c, media->tag->tag, media->tag->other_tag->tag, media->tag->viabranch);
+			updated = 1;
+		}
+	}
+	
+	if (updated)
+		rlog(LOG_INFO, "Updated monologue tags from Redis");
+	return 0;
+}
+
+static int redis_update_call_media_codecs(struct call_media *cm, GQueue* redis_codec_list,
+				     void(*adder_func)(struct call_media *media, struct rtp_payload_type *pt)) {
+	unsigned pidx, updates = 0;
+	redis_call_rtp_payload_type_t *payload;
+
+	if (!redis_codec_list)
+		return updates; /* nothing to add */
+	for (pidx = 0; pidx < redis_codec_list->length; pidx++) {
+		payload = g_queue_peek_nth(redis_codec_list, pidx);
+		struct rtp_payload_type *pt = codec_make_payload_type(payload->codec_str, cm);
+		if (!pt)
+			continue; /* oops? */
+		pt->payload_type = payload->payload_type;
+		adder_func(cm, pt);
+		updates++;
+	}
+	return updates;
+}
+
+static void redis_update_call_codec_handlers(struct call_media *media) {
+	struct call_monologue *ml = media->monologue;
+	struct call_monologue *other_ml = ml->active_dialogue;
+
+	for (GList *l = other_ml->medias.head; l; l = l->next) {
+		struct call_media *other_m = l->data;
+		if (other_m->index == media->index) {
+			rlog(LOG_INFO, "['" STR_FORMAT_M "'] media %u: updating codec handlers",
+			     STR_FMT_M(&media->call->callid), media->unique_id);
+			codec_handlers_update(media, other_m, NULL);
+			break;
+		}
+	}
+}
+
+static int redis_update_call_payloads(struct call_media *m, redis_call_media_t *media) {
+	unsigned updated = 0;
+
+	/* replace codec prefs with those loaded from the database. */
+	/* TODO: ATM the database does not encode them correctly, so we lose some data. */
+	/* maybe convert codec prefs cleanup code to use __delete_x_codec (which is currently static)  */
+	if (g_queue_get_length(media->codec_prefs_recv) != g_queue_get_length(&m->codecs_prefs_recv)) {
+		rlog(LOG_INFO, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs recv with %d remote codec prefs",
+			STR_FMT_M(&m->call->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_recv),
+			g_queue_get_length(media->codec_prefs_recv));
+		g_hash_table_remove_all(m->codecs_recv);
+		g_hash_table_remove_all(m->codec_names_recv);
+		g_queue_clear_full(&m->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
+		updated += redis_update_call_media_codecs(m, media->codec_prefs_recv, __rtp_payload_type_add_recv);
+	}
+	if (g_queue_get_length(media->codec_prefs_send) != g_queue_get_length(&m->codecs_prefs_send)) {
+		rlog(LOG_INFO, "['" STR_FORMAT_M "'] media %u: replacing %d local codec prefs send with %d remote codec prefs",
+			STR_FMT_M(&m->call->callid), m->unique_id, g_queue_get_length(&m->codecs_prefs_send),
+			g_queue_get_length(media->codec_prefs_send));
+		g_hash_table_remove_all(m->codecs_send);
+		g_hash_table_remove_all(m->codec_names_send);
+		g_queue_clear_full(&m->codecs_prefs_send, (GDestroyNotify) payload_type_free);
+		updated += redis_update_call_media_codecs(m, media->codec_prefs_send, __rtp_payload_type_add_send);
+	}
+	if (updated) {
+		redis_update_call_codec_handlers(m);
+		rlog(LOG_INFO, "Updated media %u codecs from Redis", m->unique_id);
+	}
+	return 0;
+}
+
+static int redis_update_call_maps(struct call_media *m, redis_call_media_t *media) {
+	struct endpoint_map *ep;
+	redis_call_media_endpoint_map_t *rcep;
+	GList *epl, *rcepl;
+
+	for (epl = m->endpoint_maps.head; epl; epl = epl->next) {
+		ep = epl->data;
+		for (rcepl = media->endpoint_maps->head; rcepl; rcepl = rcepl->next) {
+			rcep = rcepl->data;
+			if (rcep->unique_id != ep->unique_id)
+				continue;
+			ep->wildcard = rcep->wildcard;
+			if (rcep->endpoint->len)
+				endpoint_parse_any(&ep->endpoint, rcep->endpoint->s);
+		}
+	}
+	/* update some media fields here, while we have the media */
+	if (!m->ptime)
+		m->ptime = media->ptime;
+	m->media_flags = media->media_flags;
+	return 0;
+}
+
+static void redis_update_call_crypto_sync_sdes_params(GQueue *m_sdes_q, GQueue *redis_sdes_q) {
+	redis_call_media_sdes_t *redis_sdes;
+
+	crypto_params_sdes_queue_clear(m_sdes_q);
+	for (GList *l = redis_sdes_q->head; l; l = l->next) {
+		redis_sdes = l->data;
+		/** copied and modified from sdp.c:sdp_streams() */
+		struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
+		g_queue_push_tail(m_sdes_q, cps);
+
+		if (redis_sdes->crypto_suite_name)
+			cps->params.crypto_suite = crypto_find_suite(redis_sdes->crypto_suite_name);
+		if (redis_sdes->mki) {
+			cps->params.mki_len = redis_sdes->mki->len;
+			if (cps->params.mki_len) {
+				cps->params.mki = malloc(cps->params.mki_len);
+				memcpy(cps->params.mki, redis_sdes->mki->s, cps->params.mki_len);
+			}
+		}
+		cps->tag = redis_sdes->tag;
+		if (redis_sdes->master_key)
+			memcpy(cps->params.master_key, redis_sdes->master_key->s, redis_sdes->master_key->len);
+		if (redis_sdes->master_salt)
+			memcpy(cps->params.master_salt, redis_sdes->master_salt->s, redis_sdes->master_salt->len);
+		cps->params.session_params = redis_sdes->session_params;
+	}
+}
+
+static int redis_update_call_crypto(struct call_media *m, redis_call_media_t *media) {
+	const struct dtls_hash_func *found_hash_func;
+	int needReinitCrypto = 0;
+	AUTO_CLEANUP_BUF(paramsbuf);
+
+	if (media->fingerprint.hash_func_name && !m->fingerprint.hash_func) {
+		found_hash_func = dtls_find_hash_func(media->fingerprint.hash_func_name);
+		if (found_hash_func) {
+			rlog(LOG_DEBUG, "Updating crypto for call ID '" STR_FORMAT_M "', media %u from Redis",
+			     STR_FMT_M(&m->call->callid), m->unique_id);
+			m->fingerprint.hash_func = found_hash_func;
+			memcpy(m->fingerprint.digest, media->fingerprint.fingerprint->s, media->fingerprint.fingerprint->len);
+		}
+	}
+
+	if (media->sdes_in && m->sdes_in.length != media->sdes_in->length) {
+		rlog(LOG_DEBUG, "Need update input crypto");
+		redis_update_call_crypto_sync_sdes_params(&m->sdes_in, media->sdes_in);
+		++needReinitCrypto;
+	}
+	if (media->sdes_out && m->sdes_out.length != media->sdes_out->length) {
+		rlog(LOG_DEBUG, "Need update output crypto");
+		redis_update_call_crypto_sync_sdes_params(&m->sdes_out, media->sdes_out);
+		++needReinitCrypto;
+	}
+
+	if (!needReinitCrypto)
+		return 0;
+
+	/* re-init crypto context after update. No easy access to call.c's methods so here is a copy of __init_stream() */
+	for (GList *ml = m->streams.head; ml; ml = ml->next) {
+		struct packet_stream* ps = ml->data;
+		for (GList *l = ps->sfds.head; l; l = l->next) {
+			struct stream_fd *sfd = l->data;
+			struct crypto_params_sdes *cps = m->sdes_in.head ? m->sdes_in.head->data : NULL;
+			crypto_init(&sfd->crypto, cps ? &cps->params : NULL);
+			ilog(LOG_DEBUG, "[%s] Initialized incoming SRTP with SDES crypto params: %s%s%s",
+				endpoint_print_buf(&sfd->socket.local),
+				FMT_M(crypto_params_sdes_dump(cps, &paramsbuf)));
+		}
+		struct crypto_params_sdes *cps = m->sdes_out.head ? m->sdes_out.head->data : NULL;
+		crypto_init(&ps->crypto, cps ? &cps->params : NULL);
+		ilog(LOG_DEBUG, "[%i] Initialized outgoing SRTP with SDES crypto params: %s%s%s",
+			ps->component, FMT_M(crypto_params_sdes_dump(cps, &paramsbuf)));
+	}
+
+	return 0;
+}
+
+static int redis_update_call_media(struct call *c, redis_call_t* redis_call) {
+	struct call_media *m = NULL;
+	redis_call_media_t *media;
+	GList *ml;
+
+	for (ml = c->medias.head; ml; ml = ml->next) {
+		m = ml->data;
+		media = g_queue_peek_nth(redis_call->media, m->unique_id);
+		if (!media) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: missing media %u",
+			     STR_FMT_M(&c->callid), m->unique_id);
+			continue; /* weird... */
+		}
+		if (redis_update_call_maps(m, media)) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: error in update maps",
+			     STR_FMT_M(&c->callid));
+			return -1;
+		}
+		if (redis_update_call_payloads(m, media)) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: error in update payloads",
+			     STR_FMT_M(&c->callid));
+			return -1;
+		}
+		if (redis_update_call_crypto(m, media)) {
+			rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: error in update crypto",
+			     STR_FMT_M(&c->callid));
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static void redis_update_call_details(redis_call_t *redis_call, struct call *c) {
+	const char *err = NULL;
+
+	if (timeval_us(&c->last_signal) >= timeval_us(&redis_call->last_signal)) {
+		rlog(LOG_INFO, "Ignoring Redis notification without update");
+		return;
+	}
+
+	c->last_signal = redis_call->last_signal;
+
+	err = "failed to update stream data";
+	if (redis_update_call_streams(c, redis_call))
+		goto fail;
+
+	err = "failed to update tag data";
+	if (redis_update_call_tags(c, redis_call))
+		goto fail;
+
+	err = "failed to update payload data";
+	if (redis_update_call_media(c, redis_call))
+		goto fail;
+
+	return;
+
+fail:
+	rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: %s",
+		STR_FMT_M(&c->callid),
+		err);
+
+}
+
+static void redis_update_call(str *callid, struct redis *r, struct call *call) {
+	redisReply* rr_jsonStr;
+	redis_call_t *redis_call = NULL;
+	const char *err = NULL;
+	JsonParser *parser = NULL;
+
+	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
+	err = "could not retrieve JSON data from redis";
+	if (!rr_jsonStr)
+		goto fail;
+
+	rlog(LOG_INFO, "Received call '" STR_FORMAT_M "' data from redis, call looks like this: %s",
+	     STR_FMT_M(callid), rr_jsonStr->str);
+
+	parser = json_parser_new();
+	err = "could not parse JSON data";
+	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
+		goto fail;
+	redis_call = redis_call_create(callid, json_parser_get_root(parser));
+	err = "could not read JSON data";
+	if (!redis_call)
+		goto fail;
+
+	if (call && timeval_us(&redis_call->created) > timeval_us(&call->created)) {
+		rlog(LOG_INFO, "Foreign server took ownership of call!");
+		call_destroy(call);
+		obj_put(call);
+		call = NULL;
+	}
+
+	if (!call) { /* a new call published by the primary */
+		/* call the old reader (for now) as it knows how to create a call from scratch */
+		/* TODO: verify the new reader in call create scenarios and dump the old code */
+		rlog(LOG_INFO, "Creating a new call from redis");
+		json_restore_call(parser, callid, CT_FOREIGN_CALL);
+		goto done;
+	}
+
+	rlog(LOG_INFO, "Updating call data from redis");
+	redis_update_call_details(redis_call, call);
+	goto done;
+
+fail:
+	rlog(LOG_WARNING, "Failed to update data for call ID '" STR_FORMAT_M "' from Redis: %s",
+	     STR_FMT_M(callid), err);
+done:
+	if (redis_call)
+		obj_put(redis_call);
+	if (parser)
+		g_object_unref (parser);
+	if (rr_jsonStr)
+		freeReplyObject(rr_jsonStr);
+	log_info_clear();
+}
+
+static void json_parse_end_restore_call(struct redis *r, str *callid, enum call_type type) {
+	redisReply* rr_jsonStr;
+	const char *err = NULL;
+	JsonParser *parser = NULL;
+
+	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
+	err = "could not retrieve JSON data from redis";
+	if (!rr_jsonStr)
+		goto fail;
+
+	parser = json_parser_new();
+	err = "could not parse JSON data";
+	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
+		goto fail;
+	json_restore_call(parser, callid, type);
+	goto done;
+fail:
+	rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s",
+	     STR_FMT_M(callid), err);
+done:
+	if (parser)
+		g_object_unref (parser);
+	if (rr_jsonStr)
+		freeReplyObject(rr_jsonStr);
+	log_info_clear();
 }
 
 struct thread_ctx {
@@ -1705,7 +2069,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	r = g_queue_pop_head(&ctx->r_q);
 	mutex_unlock(&ctx->r_m);
 
-	json_restore_call(r, &callid, CT_OWN_CALL);
+	json_parse_end_restore_call(r, &callid, CT_OWN_CALL);
 
 	mutex_lock(&ctx->r_m);
 	g_queue_push_tail(&ctx->r_q, r);
@@ -1800,7 +2164,7 @@ static int json_update_sdes_params(JsonBuilder *builder, const char *pref,
 		const char *k, GQueue *q)
 {
 	char tmp[2048];
-	unsigned int iter = 0;
+	unsigned int iter = 1;
 	char keybuf[32];
 	const char *key = k;
 
@@ -1846,7 +2210,7 @@ static void json_update_dtls_fingerprint(JsonBuilder *builder, const char *pref,
  * encodes the few (k,v) pairs for one call under one json structure
  */
 
-char* redis_encode_json(struct call *c) {
+static char* redis_encode_json(struct call *c) {
 
 	GList *l=0,*k=0, *m=0, *n=0;
 	struct endpoint_map *ep;
@@ -1858,6 +2222,7 @@ char* redis_encode_json(struct call *c) {
 	struct call_monologue *ml, *ml2;
 	JsonBuilder *builder = json_builder_new ();
 	struct recording *rec = 0;
+	str *ptbuf;
 
 	char tmp[2048];
 
@@ -1869,7 +2234,7 @@ char* redis_encode_json(struct call *c) {
 
 		{
 			JSON_SET_SIMPLE("created","%lli", timeval_us(&c->created));
-			JSON_SET_SIMPLE("last_signal","%ld",(long int) c->last_signal);
+			JSON_SET_SIMPLE("last_signal","%lli",timeval_us(&c->last_signal));
 			JSON_SET_SIMPLE("tos","%u",(int) c->tos);
 			JSON_SET_SIMPLE("deleted","%ld",(long int) c->deleted);
 			JSON_SET_SIMPLE("num_sfds","%u",g_queue_get_length(&c->stream_fds));
@@ -2041,7 +2406,8 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE_STR("logical_intf",&media->logical_intf->name);
 				JSON_SET_SIMPLE("ptime","%i",media->ptime);
 				JSON_SET_SIMPLE("media_flags","%u",media->media_flags);
-
+				JSON_SET_SIMPLE_STR("rtpe_addr", &media->rtpe_connection_addr);
+				
 				json_update_sdes_params(builder, "media", media->unique_id, "sdes_in",
 						&media->sdes_in);
 				json_update_sdes_params(builder, "media", media->unique_id, "sdes_out",
@@ -2080,10 +2446,9 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_array (builder);
 			for (m = media->codecs_prefs_recv.head; m; m = m->next) {
 				pt = m->data;
-				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
-						pt->payload_type, STR_FMT(&pt->encoding),
-						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
-						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
+				ptbuf = codec_print_payload_type(pt);
+				JSON_ADD_STRING("%u/" STR_FORMAT, pt->payload_type, STR_FMT(ptbuf));
+				free(ptbuf);
 			}
 			json_builder_end_array (builder);
 
@@ -2092,10 +2457,9 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_array (builder);
 			for (m = media->codecs_prefs_send.head; m; m = m->next) {
 				pt = m->data;
-				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
-						pt->payload_type, STR_FMT(&pt->encoding),
-						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
-						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
+				ptbuf = codec_print_payload_type(pt);
+				JSON_ADD_STRING("%u/" STR_FORMAT, pt->payload_type, STR_FMT(ptbuf));
+				free(ptbuf);
 			}
 			json_builder_end_array (builder);
 		}

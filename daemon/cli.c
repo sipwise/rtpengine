@@ -617,7 +617,7 @@ static void cli_incoming_list_callid(str *instr, struct streambuf *replybuffer) 
 			 "\ncallid: %s\ndeletionmark: %s\ncreated: %i\nproxy: %s\ntos: %u\nlast_signal: %llu\n"
 			 "redis_keyspace: %i\nforeign: %s\n\n",
 			 c->callid.s, c->ml_deleted ? "yes" : "no", (int) c->created.tv_sec, c->created_from,
-			 (unsigned int) c->tos, (unsigned long long) c->last_signal, c->redis_hosted_db,
+			 (unsigned int) c->tos, (unsigned long long) c->last_signal.tv_sec, c->redis_hosted_db,
 			 IS_FOREIGN_CALL(c) ? "yes" : "no");
 
 	for (l = c->monologues.head; l; l = l->next) {
