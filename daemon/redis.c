@@ -1992,13 +1992,6 @@ static void redis_update_call(str *callid, struct redis *r, struct call *call) {
 	if (!redis_call)
 		goto fail;
 
-	if (call && timeval_us(&redis_call->created) > timeval_us(&call->created)) {
-		rlog(LOG_INFO, "Foreign server took ownership of call!");
-		call_destroy(call);
-		obj_put(call);
-		call = NULL;
-	}
-
 	if (!call) { /* a new call published by the primary */
 		/* call the old reader (for now) as it knows how to create a call from scratch */
 		/* TODO: verify the new reader in call create scenarios and dump the old code */
