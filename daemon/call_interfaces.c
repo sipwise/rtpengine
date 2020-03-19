@@ -965,22 +965,8 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	/* OP_ANSWER; OP_OFFER && !IS_FOREIGN_CALL */
 	call = call_get(&flags.call_id);
 
-	/* Failover scenario because of timeout on offer response: siprouter tries
-	* to establish session with another rtpengine2 even though rtpengine1
-	* might have persisted part of the session. rtpengine2 deletes previous
-	* call in memory and recreates an OWN call in redis */
-	// SDP fragments for trickle ICE must always operate on an existing call
 	if (opmode == OP_OFFER && !flags.fragment) {
-		if (call) {
-			if (IS_FOREIGN_CALL(call)) {
-				/* destroy call and create new one */
-				rwlock_unlock_w(&call->master_lock);
-				call_destroy(call);
-				obj_put(call);
-				call = call_get_or_create(&flags.call_id, CT_OWN_CALL);
-			}
-		}
-		else {
+		if (!call) {
 			/* call == NULL, should create call */
 			call = call_get_or_create(&flags.call_id, CT_OWN_CALL);
 		}
