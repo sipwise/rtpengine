@@ -187,7 +187,35 @@ static int send_timer_send(struct send_timer *st, struct codec_packet *cp) {
 out:
 	codec_packet_free(cp);
 
+<<<<<<< HEAD   (9f1d17 TT#76711 don't run send timers that don't exist)
 	return 0;
+=======
+static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp) {
+	struct call *call = st->call;
+	if (!call)
+		return;
+
+	log_info_call(call);
+	rwlock_lock_r(&call->master_lock);
+
+	__send_timer_send_common(st, cp);
+
+	rwlock_unlock_r(&call->master_lock);
+	log_info_clear();
+
+}
+// st->stream->out_lock (or call->master_lock/W) must be held already
+static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *cp) {
+	struct call *call = st->call;
+	if (!call)
+		return;
+
+	log_info_call(call);
+
+	__send_timer_send_common(st, cp);
+
+	log_info_clear();
+>>>>>>> CHANGE (fd09f0 TT#76711 add missing log_info_clear in send_timer)
 }
 
 
