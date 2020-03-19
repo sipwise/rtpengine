@@ -267,6 +267,7 @@ enum media_type {
 	MT_INVALID = -1,
 };
 struct codec_def_s {
+	int dtmf;
 };
 struct packet_sequencer_s {
 };
