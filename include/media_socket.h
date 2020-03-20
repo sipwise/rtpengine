@@ -190,5 +190,18 @@ INLINE struct local_intf *get_interface_from_address(const struct logical_intf *
 }
 */
 
+INLINE int proto_is_rtp(const struct transport_protocol *protocol) {
+	// known to be RTP? therefore unknown is not RTP
+	if (!protocol)
+		return 0;
+	return protocol->rtp ? 1 : 0;
+}
+INLINE int proto_is_not_rtp(const struct transport_protocol *protocol) {
+	// known not to be RTP? therefore unknown might be RTP
+	if (!protocol)
+		return 0;
+	return protocol->rtp ? 0 : 1;
+}
+
 
 #endif

@@ -1848,7 +1848,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	/* allow override of outgoing protocol even if we know it already */
 	/* but only if this is an RTP-based protocol */
 	if (flags->transport_protocol
-			&& other_media->protocol && other_media->protocol->rtp) {
+			&& proto_is_rtp(other_media->protocol)) {
 		media->protocol = flags->transport_protocol;
 		return;
 	}
@@ -2232,7 +2232,7 @@ void call_destroy(struct call *c) {
 				STR_FMT(&md->type),			\
 				md->protocol ? md->protocol->name : "(unknown)"
 
-			if (md->protocol && md->protocol->rtp) {
+			if (proto_is_rtp(md->protocol)) {
 				rtp_pt = __rtp_stats_codec(md);
 				if (!rtp_pt)
 					ilog(LOG_INFO, MLL_PREFIX "unknown codec", MLL_COMMON);

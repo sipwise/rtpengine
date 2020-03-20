@@ -1114,7 +1114,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	struct sdp_attribute *attr;
 	int ret = 0;
 
-	if (!sp->protocol || !sp->protocol->rtp)
+	if (!proto_is_rtp(sp->protocol))
 		return 0;
 
 	/* first go through a=rtpmap and build a hash table of attrs */
@@ -1479,7 +1479,7 @@ static int replace_format_str(struct sdp_chopper *chop,
 static int replace_codec_list(struct sdp_chopper *chop,
 		struct sdp_media *media, struct call_media *cm)
 {
-	if (cm->protocol && !cm->protocol->rtp)
+	if (proto_is_not_rtp(cm->protocol))
 		return replace_format_str(chop, media, cm);
 
 	if (cm->codecs_prefs_recv.length == 0)
@@ -2140,7 +2140,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 					chopper_append_c(chop, "a=inactive\r\n");
 			}
 
-			if (call_media->protocol && call_media->protocol->rtp) {
+			if (proto_is_rtp(call_media->protocol)) {
 				if (MEDIA_ISSET(call_media, RTCP_MUX)
 						&& (flags->opmode == OP_ANSWER
 							|| (flags->opmode == OP_OFFER

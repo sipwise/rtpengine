@@ -1119,7 +1119,7 @@ void kernelize(struct packet_stream *stream) {
 
 	ZERO(stream->kernel_stats);
 
-	if (stream->media->protocol && stream->media->protocol->rtp) {
+	if (proto_is_rtp(stream->media->protocol)) {
 		GList *values, *l;
 		struct rtp_stats *rs;
 
@@ -1416,9 +1416,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 {
 	phc->payload_type = -1;
 
-	if (G_UNLIKELY(!phc->mp.media->protocol))
-		return;
-	if (G_UNLIKELY(!phc->mp.media->protocol->rtp))
+	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
 		return;
 
 	if (G_LIKELY(!phc->rtcp && !rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s))) {
