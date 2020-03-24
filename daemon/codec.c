@@ -484,6 +484,105 @@ static void __eliminate_rejected_codecs(struct call_media *receiver, struct call
 	}
 }
 
+// transfers ownership of payload type objects from a queue to a hash table.
+// duplicates are removed.
+static GHashTable *__payload_type_queue_hash(GQueue *prefs, GQueue *order) {
+	GHashTable *ret = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+			(GDestroyNotify) payload_type_free);
+	g_queue_init(order);
+	for (GList *l = prefs->head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		if (g_hash_table_lookup(ret, GINT_TO_POINTER(pt->payload_type))) {
+			ilog(LOG_DEBUG, "Removing duplicate RTP payload type %i", pt->payload_type);
+			payload_type_free(pt);
+			continue;
+		}
+		g_hash_table_insert(ret, GINT_TO_POINTER(pt->payload_type), pt);
+		g_queue_push_tail(order, GINT_TO_POINTER(pt->payload_type));
+	}
+
+	// ownership has been transferred
+	g_queue_clear(prefs);
+
+	return ret;
+}
+
+static void __symmetric_codecs(struct call_media *receiver, struct call_media *sink,
+		int *sink_transcoding)
+{
+	if (!MEDIA_ISSET(sink, TRANSCODE))
+		return;
+	if (!*sink_transcoding)
+		return;
+
+	// sink still looks like it's transcoding. reconstruct our answer to the receiver
+	// (receiver->prefs_recv) based on the codecs accepted by the sink (sink->prefs_send).
+
+	GQueue prefs_recv_order, prefs_send_order;
+	GHashTable *prefs_recv = __payload_type_queue_hash(&receiver->codecs_prefs_recv, &prefs_recv_order);
+	GHashTable *prefs_send = __payload_type_queue_hash(&receiver->codecs_prefs_send, &prefs_send_order);
+
+	// ownership of the objects has been transferred. clear out old structures.
+	g_hash_table_remove_all(receiver->codecs_recv);
+	g_hash_table_remove_all(receiver->codec_names_recv);
+	g_hash_table_remove_all(receiver->codecs_send);
+	g_hash_table_remove_all(receiver->codec_names_send);
+
+	// reconstruct list based on other side's preference.
+	int transcoding = 0;
+
+	for (GList *l = sink->codecs_prefs_send.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		// do we have a matching output?
+		struct rtp_payload_type *out_pt = g_hash_table_lookup(prefs_recv,
+				GINT_TO_POINTER(pt->payload_type));
+		if (out_pt && g_hash_table_lookup(prefs_send, GINT_TO_POINTER(pt->payload_type))) {
+			// add it to the list
+			ilog(LOG_DEBUG, "Adding symmetric RTP payload type %i", pt->payload_type);
+			g_hash_table_steal(prefs_recv, GINT_TO_POINTER(pt->payload_type));
+			__rtp_payload_type_add_recv(receiver, out_pt);
+			// and our send leg
+			out_pt = g_hash_table_lookup(prefs_send, GINT_TO_POINTER(pt->payload_type));
+			if (out_pt) {
+				g_hash_table_steal(prefs_send, GINT_TO_POINTER(pt->payload_type));
+				__rtp_payload_type_add_send(receiver, out_pt);
+			}
+			continue;
+		}
+		// we must transcode after all.
+		ilog(LOG_DEBUG, "RTP payload type %i is not symmetric and must be transcoded",
+				pt->payload_type);
+		transcoding = 1;
+	}
+
+	if (!transcoding)
+		*sink_transcoding = 0;
+	else {
+		// append any leftover codecs
+		while (prefs_recv_order.length) {
+			void *ptype = g_queue_pop_head(&prefs_recv_order);
+			struct rtp_payload_type *out_pt = g_hash_table_lookup(prefs_recv, ptype);
+			if (!out_pt)
+				continue;
+			g_hash_table_steal(prefs_recv, ptype);
+			__rtp_payload_type_add_recv(receiver, out_pt);
+		}
+		while (prefs_send_order.length) {
+			void *ptype = g_queue_pop_head(&prefs_send_order);
+			struct rtp_payload_type *out_pt = g_hash_table_lookup(prefs_send, ptype);
+			if (!out_pt)
+				continue;
+			g_hash_table_steal(prefs_send, ptype);
+			__rtp_payload_type_add_send(receiver, out_pt);
+		}
+	}
+
+	g_hash_table_destroy(prefs_recv);
+	g_queue_clear(&prefs_recv_order);
+	g_hash_table_destroy(prefs_send);
+	g_queue_clear(&prefs_send_order);
+}
+
 static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_media *receiver,
 		struct rtp_payload_type *pref_dest_codec, GHashTable *output_transcoders,
 		int dtmf_payload_type)
@@ -549,6 +648,9 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// similarly, if the sink can receive a codec that the receiver can't send, it's also transcoding
 	__check_send_codecs(receiver, sink, flags, dtmf_sinks, &sink_transcoding);
+
+	if (flags && flags->opmode == OP_ANSWER && flags->symmetric_codecs)
+		__symmetric_codecs(receiver, sink, &sink_transcoding);
 
 	ilog(LOG_DEBUG, "%i DTMF sink entries", g_hash_table_size(dtmf_sinks));
 	int dtmf_payload_type = __dtmf_payload_type(dtmf_sinks, pref_dest_codec);
