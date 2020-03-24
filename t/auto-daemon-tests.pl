@@ -18,6 +18,446 @@ my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, 
 
 
 
+# symmetric-codec flag (GH 953)
+
+new_call();
+
+offer('gh 953 w/o flag', { ICE => 'remove', codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 8 107 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 107 101 9
+a=maxptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:9 G722/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 953 w/o flag', { ICE => 'remove', }, <<SDP);
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio 40935 RTP/AVP 107 101
+c=IN IP4 172.17.0.2
+b=TIAS:96000
+a=rtcp:40936 IN IP4 172.17.0.2
+a=sendrecv
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:107 opus/48000/2
+a=fmtp:107 useinbandfec=1
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+----------------------------------
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio PORT RTP/AVP 8 107 101
+c=IN IP4 203.0.113.1
+b=TIAS:96000
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:107 useinbandfec=1
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+new_call();
+
+offer('gh 953 w/ flag', { ICE => 'remove', codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 8 107 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 107 101 9
+a=maxptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:9 G722/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 953 w/ flag', { ICE => 'remove', flags => ['symmetric codecs'] }, <<SDP);
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio 40935 RTP/AVP 107 101
+c=IN IP4 172.17.0.2
+b=TIAS:96000
+a=rtcp:40936 IN IP4 172.17.0.2
+a=sendrecv
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:107 opus/48000/2
+a=fmtp:107 useinbandfec=1
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+----------------------------------
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio PORT RTP/AVP 107 101
+c=IN IP4 203.0.113.1
+b=TIAS:96000
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:107 useinbandfec=1
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+offer('gh 953 722 accepted w/o flag', { ICE => 'remove', codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 8 107 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 107 101 9
+a=maxptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:9 G722/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 953 722 accepted w/o flag', { ICE => 'remove', }, <<SDP);
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio 40935 RTP/AVP 107 101 9
+c=IN IP4 172.17.0.2
+b=TIAS:96000
+a=rtcp:40936 IN IP4 172.17.0.2
+a=sendrecv
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:107 opus/48000/2
+a=fmtp:107 useinbandfec=1
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+----------------------------------
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio PORT RTP/AVP 8 107 101
+c=IN IP4 203.0.113.1
+b=TIAS:96000
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:107 useinbandfec=1
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+new_call();
+
+offer('gh 953 722 accepted w/ flag', { ICE => 'remove', codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 8 107 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 107 101 9
+a=maxptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:9 G722/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 953 722 accepted w/ flag', { ICE => 'remove', flags => ['symmetric codecs'] }, <<SDP);
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio 40935 RTP/AVP 107 101 9
+c=IN IP4 172.17.0.2
+b=TIAS:96000
+a=rtcp:40936 IN IP4 172.17.0.2
+a=sendrecv
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:107 opus/48000/2
+a=fmtp:107 useinbandfec=1
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+----------------------------------
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio PORT RTP/AVP 107 101 8
+c=IN IP4 203.0.113.1
+b=TIAS:96000
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=fmtp:107 useinbandfec=1
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+
+new_call();
+
+offer('gh 953 only 722 accepted w/o flag', { ICE => 'remove', codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 8 107 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 107 101 9
+a=maxptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:9 G722/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 953 only 722 accepted w/o flag', { ICE => 'remove', }, <<SDP);
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio 40935 RTP/AVP 9
+c=IN IP4 172.17.0.2
+b=TIAS:96000
+a=rtcp:40936 IN IP4 172.17.0.2
+a=sendrecv
+a=ssrc:243811319 cname:04389d431bdd5c52
+----------------------------------
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio PORT RTP/AVP 8 107 101
+c=IN IP4 203.0.113.1
+b=TIAS:96000
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+new_call();
+
+offer('gh 953 only 722 accepted w/ flag', { ICE => 'remove', codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 8 107 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 107 101 9
+a=maxptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:9 G722/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 953 only 722 accepted w/ flag', { ICE => 'remove', flags => ['symmetric codecs'] }, <<SDP);
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio 40935 RTP/AVP 9
+c=IN IP4 172.17.0.2
+b=TIAS:96000
+a=rtcp:40936 IN IP4 172.17.0.2
+a=sendrecv
+a=ssrc:243811319 cname:04389d431bdd5c52
+----------------------------------
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+b=AS:117
+t=0 0
+a=X-nat:0
+m=audio PORT RTP/AVP 8 107 101
+c=IN IP4 203.0.113.1
+b=TIAS:96000
+a=ssrc:243811319 cname:04389d431bdd5c52
+a=rtpmap:8 PCMA/8000
+a=rtpmap:107 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
 # T.38 signalling scenarios
 
 new_call();
