@@ -691,6 +691,31 @@ Optionally included keys are:
 
 		This flag should be given as part of the `answer` message.
 
+	- `symmetric codecs`
+
+		This flag instructs *rtpengine* to honour the list of codecs accepted by answer, including
+		their order, and match them up with the list of codecs that *rtpengine* itself produces
+		when transcoding. It must be using in an `answer` message and is ignored in an `offer`.
+
+		By default, any supported codec that was originally offered will be accepted by
+		*rtpengine* when transcoding, and the first codec listed will be used as output codec,
+		even if neither this codec nor its transcoded counterpart was accepted by the answer.
+		With this flag given, *rtpengine* will prefer the codecs listed in the answer over
+		the codecs listed in the offer and re-order the answer accordingly. This can lead to
+		a high-priority codec given in the offer to be listed as low-priority codec in the
+		answer, and vice versa. On the other hand, it can lead to the transcoding engine to be
+		disabled when it isn't needed.
+
+		For example: The original offer lists codecs `PCMA` and `opus`. *Rtpengine* is instructed
+		to add `G722` as a transcoded codec in the offer, and so the offer produced by
+		*rtpengine* lists `PCMA`, `opus`, and `G722`. If *rtpengine* were to receive any
+		G.722 media, it would transcode it to PCMA as this is the codec preferred by the
+		offer. The answer now accepts `opus` and rejects the other two codecs. Without this
+		flag, the answer produced by *rtpengine* would contain both `PCMA` and `opus`, because
+		receiving G.722 would still be a possibility and so would have to be transcoded to
+		PCMA. With this flag however, *rtpengine* honours the single accepted codec from the
+		answer and so is able to eliminate PCMA from its own answer as it's not needed.
+
 	- `all`
 
 		Only relevant to the `unblock media` message. Instructs *rtpengine* to remove not only a

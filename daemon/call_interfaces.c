@@ -696,6 +696,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("asymmetric-codecs"):
 			out->asymmetric_codecs = 1;
 			break;
+		case CSH_LOOKUP("symmetric-codecs"):
+			out->symmetric_codecs = 1;
+			break;
 		case CSH_LOOKUP("inject-DTMF"):
 			out->inject_dtmf = 1;
 			break;
