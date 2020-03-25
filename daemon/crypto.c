@@ -19,7 +19,7 @@
 
 
 
-#define CRYPTO_DEBUG 0
+GString __thread *crypto_debug_string;
 
 
 
@@ -424,27 +424,26 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 
 	prf_n(out, c->params.master_key, c->params.crypto_suite->lib_cipher_ptr, x);
 
-#if CRYPTO_DEBUG
-	ilog(LOG_DEBUG, "Generated session key: master key "
-			"%02x%02x%02x%02x..., "
-			"master salt "
-			"%02x%02x%02x%02x..., "
-			"label %02x, length %i, result "
-			"%02x%02x%02x%02x...",
-			c->params.master_key[0],
-			c->params.master_key[1],
-			c->params.master_key[2],
-			c->params.master_key[3],
-			c->params.master_salt[0],
-			c->params.master_salt[1],
-			c->params.master_salt[2],
-			c->params.master_salt[3],
-			label, out->len,
-			(unsigned char) out->s[0],
-			(unsigned char) out->s[1],
-			(unsigned char) out->s[2],
-			(unsigned char) out->s[3]);
-#endif
+	if (rtpe_config.debug_srtp)
+		ilog(LOG_DEBUG, "Generated session key: master key "
+				"%02x%02x%02x%02x..., "
+				"master salt "
+				"%02x%02x%02x%02x..., "
+				"label %02x, length %i, result "
+				"%02x%02x%02x%02x...",
+				c->params.master_key[0],
+				c->params.master_key[1],
+				c->params.master_key[2],
+				c->params.master_key[3],
+				c->params.master_salt[0],
+				c->params.master_salt[1],
+				c->params.master_salt[2],
+				c->params.master_salt[3],
+				label, out->len,
+				(unsigned char) out->s[0],
+				(unsigned char) out->s[1],
+				(unsigned char) out->s[2],
+				(unsigned char) out->s[3]);
 
 	return 0;
 }
@@ -771,4 +770,12 @@ void crypto_init_main() {
 			break;
 		}
 	}
+}
+
+void __crypto_debug_printf(const char *fmt, ...) {
+	ilog(LOG_NOTICE, "xxxxxxx printing debug");
+	va_list va;
+	va_start(va, fmt);
+	g_string_append_vprintf(crypto_debug_string, fmt, va);
+	va_end(va);
 }

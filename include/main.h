@@ -95,6 +95,7 @@ struct rtpengine_config {
 	enum endpoint_learning	endpoint_learning;
 	int                     jb_length;
 	int                     jb_clock_drift;
+	int			debug_srtp;
 };
 
 
