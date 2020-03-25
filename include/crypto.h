@@ -101,6 +101,8 @@ struct crypto_context {
 extern const struct crypto_suite *crypto_suites;
 extern const unsigned int num_crypto_suites;
 
+extern GString __thread *crypto_debug_string;
+
 
 
 void crypto_init_main(void);
@@ -200,6 +202,42 @@ INLINE void crypto_params_sdes_free(struct crypto_params_sdes *cps) {
 }
 INLINE void crypto_params_sdes_queue_clear(GQueue *q) {
 	g_queue_clear_full(q, (GDestroyNotify) crypto_params_sdes_free);
+}
+
+
+#include "main.h"
+#include "log.h"
+
+
+INLINE void crypto_debug_init(int flag) {
+	if (!rtpe_config.debug_srtp)
+		return;
+	if (crypto_debug_string)
+		g_string_free(crypto_debug_string, TRUE);
+	crypto_debug_string = NULL;
+	if (!flag)
+		return;
+	crypto_debug_string = g_string_new("");
+}
+void __crypto_debug_printf(const char *fmt, ...) __attribute__((format(printf,1,2)));
+#define crypto_debug_printf(f, ...) \
+	if (rtpe_config.debug_srtp && crypto_debug_string) \
+		__crypto_debug_printf(f, ##__VA_ARGS__)
+INLINE void crypto_debug_dump_raw(const char *b, int len) {
+	for (int i = 0; i < len; i++)
+		crypto_debug_printf("%02" PRIx8, (unsigned char) b[i]);
+}
+INLINE void crypto_debug_dump(const str *s) {
+	crypto_debug_dump_raw(s->s, s->len);
+}
+INLINE void crypto_debug_finish(void) {
+	if (!rtpe_config.debug_srtp)
+		return;
+	if (!crypto_debug_string)
+		return;
+	ilog(LOG_NOTICE, "Crypto debug: %.*s", (int) crypto_debug_string->len, crypto_debug_string->str);
+	g_string_free(crypto_debug_string, TRUE);
+	crypto_debug_string = NULL;
 }
 
 
