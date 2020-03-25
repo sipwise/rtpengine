@@ -617,20 +617,6 @@ found:
 	i += cs->master_salt_len;
 	memcpy(server.master_salt, &keys[i], cs->master_salt_len);
 
-	__DBG("SRTP keys negotiated: "
-			"c-m: %02x%02x%02x%02x%02x%02x%02x%02x "
-			"c-s: %02x%02x%02x%02x%02x%02x%02x%02x "
-			"s-m: %02x%02x%02x%02x%02x%02x%02x%02x "
-			"s-s: %02x%02x%02x%02x%02x%02x%02x%02x",
-			client.master_key[0], client.master_key[1], client.master_key[2], client.master_key[3],
-			client.master_key[4], client.master_key[5], client.master_key[6], client.master_key[7],
-			client.master_salt[0], client.master_salt[1], client.master_salt[2], client.master_salt[3],
-			client.master_salt[4], client.master_salt[5], client.master_salt[6], client.master_salt[7],
-			server.master_key[0], server.master_key[1], server.master_key[2], server.master_key[3],
-			server.master_key[4], server.master_key[5], server.master_key[6], server.master_key[7],
-			server.master_salt[0], server.master_salt[1], server.master_salt[2], server.master_salt[3],
-			server.master_salt[4], server.master_salt[5], server.master_salt[6], server.master_salt[7]);
-
 	ilog(LOG_INFO, "DTLS-SRTP successfully negotiated");
 
 	if (d->active) {

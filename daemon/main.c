@@ -379,6 +379,7 @@ static void options(int *argc, char ***argv) {
 		{ "endpoint-learning",0,0,G_OPTION_ARG_STRING,	&endpoint_learning,	"RTP endpoint learning algorithm",	"delayed|immediate|off|heuristic"	},
 		{ "jitter-buffer",0, 0,	G_OPTION_ARG_INT,	&rtpe_config.jb_length,	"Size of jitter buffer",		"INT" },
 		{ "jb-clock-drift",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_clock_drift,"Compensate for source clock drift",NULL },
+		{ "debug-srtp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.debug_srtp,"Log raw encryption details for SRTP",	NULL },
 
 		{ NULL, }
 	};
