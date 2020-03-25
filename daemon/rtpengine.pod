@@ -681,6 +681,14 @@ userspace operation.
 
 Enable clock drift compensation for the jitter buffer.
 
+=item B<--debug-srtp>
+
+Enable extra log messages to help debug SRTP issues. Per-packet details such as
+sequence numbers, ROC, payloads (plain text and encrypted), authentication
+tags, etc are recorded to the log. Every RTCP packet is logged in this way,
+while every 512th RTP packet is logged. Only applies to packets
+forwarded/processed in userspace.
+
 =back
 
 =head1 INTERFACES
