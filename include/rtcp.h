@@ -35,4 +35,7 @@ rtcp_filter_func rtcp_avpf2avp_filter;
 
 void rtcp_init(void);
 
+
+GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32_t octets);
+
 #endif

@@ -1376,3 +1376,22 @@ void rtcp_init() {
 	rtcp_handlers.logging = _log_facility_rtcp ? &log_handlers : &dummy_handlers;
 	rtcp_handlers.homer = has_homer() ? &homer_handlers : &dummy_handlers;
 }
+
+
+
+GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32_t octets) {
+	GString *ret = g_string_sized_new(64);
+	struct sender_report_packet sr = {
+		.rtcp.header.version = 2,
+		.rtcp.header.pt = RTCP_PT_SR,
+		.rtcp.header.length = htons((sizeof(struct sender_report_packet) >> 2) - 1),
+		.rtcp.ssrc = htonl(ssrc),
+		.ntp_msw = htonl(rtpe_now.tv_sec + 2208988800),
+		.ntp_lsw = htonl((4294967295ULL * rtpe_now.tv_usec) / 1000000ULL),
+		.timestamp = htonl(ts),
+		.packet_count = htonl(packets),
+		.octet_count = htonl(octets),
+	};
+	g_string_append_len(ret, (void *) &sr, sizeof(sr));
+	return ret;
+}
