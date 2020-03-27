@@ -207,6 +207,7 @@ INLINE void crypto_params_sdes_queue_clear(GQueue *q) {
 
 #include "main.h"
 #include "log.h"
+#include <inttypes.h>
 
 
 INLINE void crypto_debug_init(int flag) {
