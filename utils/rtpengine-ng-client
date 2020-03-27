@@ -154,6 +154,11 @@ elsif (defined($options{'blob-file'})) {
 
 $options{verbose} and print Dumper \%packet;
 
+if (defined($packet{sdp})) {
+	print("Old SDP:\n-----8<-----8<-----8<-----8<-----8<-----\n$packet{sdp}\n".
+		"----->8----->8----->8----->8----->8-----\n");
+}
+
 my $engine = NGCP::Rtpengine->new($options{'proxy-address'}, $options{'proxy-port'});
 my $resp = $engine->req(\%packet);
 
