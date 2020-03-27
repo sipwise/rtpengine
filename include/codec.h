@@ -49,6 +49,7 @@ struct codec_packet {
 	struct timerthread_queue_entry ttq_entry;
 	str s;
 	struct rtp_header *rtp;
+	struct ssrc_ctx *ssrc_out;
 	void (*free_func)(void *);
 };
 
