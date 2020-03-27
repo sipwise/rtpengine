@@ -24,9 +24,9 @@ my ($playsrc, $playsink);
 open($playsrc, '|-', qw(play -q -c 1 -e a-law -r 8000 -t raw -)) or die;
 open($playsink, '|-', qw(play -q -c 1 -e a-law -r 8000 -t raw -)) or die;
 
-my $lseq = rand();
-my $lssrc = rand();
-my $lts = rand();
+my $lseq = rand(65536);
+my $lssrc = rand(65536);
+my $lts = rand(2*32);
 my $lpt = 8; # PCMA
 my $lmark = 0x80;
 my $rseq = -1;

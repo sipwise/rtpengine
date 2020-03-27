@@ -15,6 +15,7 @@
 #include "ssrc.h"
 #include "log_funcs.h"
 #include "main.h"
+#include "rtcp.h"
 
 
 
@@ -108,6 +109,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	while (ssrc == 0)
 		ssrc = random();
 	struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->call->ssrc_hash, SSRC_DIR_OUTPUT);
+	ssrc_ctx->next_rtcp = rtpe_now;
 
 	struct media_player *mp = obj_alloc0("media_player", sizeof(*mp), __media_player_free);
 
@@ -162,19 +164,78 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 }
 
 
+// call is locked in R
+static void send_timer_send_rtcp(struct ssrc_ctx *ssrc_out, struct call *call, struct packet_stream *ps) {
+	GQueue rrs = G_QUEUE_INIT;
+	rtcp_receiver_reports(&rrs, call->ssrc_hash);
+
+	ilog(LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
+			ssrc_out->parent->h.ssrc, rrs.length);
+
+	GString *sr = rtcp_sender_report(ssrc_out->parent->h.ssrc,
+			atomic64_get(&ssrc_out->last_ts),
+			atomic64_get(&ssrc_out->packets),
+			atomic64_get(&ssrc_out->octets),
+			&rrs);
+
+	socket_sendto(&ps->selected_sfd->socket, sr->str, sr->len, &ps->endpoint);
+	g_string_free(sr, TRUE);
+}
+
+// call is locked in R
+static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
+	struct call_media *media = st->sink ? st->sink->media : NULL;
+	if (!media)
+		return;
+	struct call *call = media->call;
+
+	// figure out where to send it
+	struct packet_stream *ps = media->streams.head->data;
+	if (MEDIA_ISSET(media, RTCP_MUX))
+		;
+	else if (!media->streams.head->next)
+		;
+	else {
+		struct packet_stream *next_ps = media->streams.head->next->data;
+		if (PS_ISSET(next_ps, RTCP))
+			ps = next_ps;
+	}
+
+	log_info_stream_fd(ps->selected_sfd);
+
+	send_timer_send_rtcp(ssrc_out, call, ps);
+
+	// XXX missing locking?
+	ssrc_out->next_rtcp = rtpe_now;
+	timeval_add_usec(&ssrc_out->next_rtcp, 5000000);
+}
+
+
 static void __send_timer_send_common(struct send_timer *st, struct codec_packet *cp) {
 	if (!st->sink->selected_sfd)
 		goto out;
 
-	struct rtp_header *rh = (void *) cp->s.s;
-	ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
-			FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
-			st->sink->endpoint.port),
-			ntohs(rh->seq_num),
-			ntohl(rh->timestamp));
+	struct rtp_header *rh = cp->rtp;
+	if (rh)
+		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
+				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
+				st->sink->endpoint.port),
+				ntohs(rh->seq_num),
+				ntohl(rh->timestamp));
+	else
+		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s",
+				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
+				st->sink->endpoint.port));
 
 	socket_sendto(&st->sink->selected_sfd->socket,
 			cp->s.s, cp->s.len, &st->sink->endpoint);
+
+	// do we send RTCP?
+	struct ssrc_ctx *ssrc_out = cp->ssrc_out;
+	if (ssrc_out && ssrc_out->next_rtcp.tv_sec) {
+		if (timeval_diff(&ssrc_out->next_rtcp, &rtpe_now) < 0)
+			send_timer_rtcp(st, ssrc_out);
+	}
 
 out:
 	codec_packet_free(cp);
