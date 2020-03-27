@@ -1376,3 +1376,66 @@ void rtcp_init() {
 	rtcp_handlers.logging = _log_facility_rtcp ? &log_handlers : &dummy_handlers;
 	rtcp_handlers.homer = has_homer() ? &homer_handlers : &dummy_handlers;
 }
+
+
+
+GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32_t octets, GQueue *rrs) {
+	GString *ret = g_string_sized_new(128);
+	g_string_set_size(ret, sizeof(struct sender_report_packet));
+	struct sender_report_packet *sr = (void *) ret->str;
+
+	*sr = (struct sender_report_packet) {
+		.rtcp.header.version = 2,
+		.rtcp.header.pt = RTCP_PT_SR,
+		.rtcp.ssrc = htonl(ssrc),
+		.ntp_msw = htonl(rtpe_now.tv_sec + 2208988800),
+		.ntp_lsw = htonl((4294967295ULL * rtpe_now.tv_usec) / 1000000ULL),
+		.timestamp = htonl(ts),
+		.packet_count = htonl(packets),
+		.octet_count = htonl(octets),
+	};
+
+	int i = 0, n = 0;
+	for (GList *l = rrs->head; l; l = l->next) {
+		struct ssrc_ctx *s = l->data;
+		if (i < 8) {
+			struct report_block *rr = (void *) ret->str + ret->len;
+			g_string_set_size(ret, ret->len + sizeof(*rr));
+
+			// XXX unify with transcode_rr
+
+			uint64_t lost = atomic64_get(&s->packets_lost);
+			uint64_t tot = atomic64_get(&s->packets);
+
+			*rr = (struct report_block) {
+				.ssrc = htonl(s->parent->h.ssrc),
+				.fraction_lost = lost * 256 / (tot + lost),
+				.number_lost[0] = (lost >> 16) & 0xff,
+				.number_lost[1] = (lost >> 8) & 0xff,
+				.number_lost[2] = lost & 0xff,
+				.high_seq_received = htonl(atomic64_get(&s->last_seq)),
+			};
+			n++;
+		}
+		ssrc_ctx_put(&s);
+		i++;
+	}
+
+	sr->rtcp.header.count = n;
+	sr->rtcp.header.length = htons((ret->len >> 2) - 1);
+
+	return ret;
+}
+
+void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash) {
+	rwlock_lock_r(&hash->lock);
+	for (GList *l = hash->q.head; l; l = l->next) {
+		struct ssrc_entry_call *e = l->data;
+		struct ssrc_ctx *i = &e->input_ctx;
+		if (!atomic64_get(&i->packets))
+			continue;
+
+		g_queue_push_tail(out, ssrc_ctx_get(i));
+	}
+	rwlock_unlock_r(&hash->lock);
+}

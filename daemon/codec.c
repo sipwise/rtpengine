@@ -1248,6 +1248,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	p->free_func = free;
 	p->ttq_entry.source = handler;
 	p->rtp = rh;
+	p->ssrc_out = ssrc_ctx_get(ssrc_out);
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send
@@ -1450,6 +1451,7 @@ void codec_packet_free(void *pp) {
 	struct codec_packet *p = pp;
 	if (p->free_func)
 		p->free_func(p->s.s);
+	ssrc_ctx_put(&p->ssrc_out);
 	g_slice_free1(sizeof(*p), p);
 }
 
