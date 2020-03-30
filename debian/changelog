@@ -1,3 +1,13 @@
+ngcp-rtpengine (8.3.2.0+0~mr8.3.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7a0c47b] TT#76711 don't run send timers that don't exist
+  * [fd09f02] TT#76711 add missing log_info_clear in send_timer
+  * [212ed7e] TT#76711 compile fix for with_transcoding=no
+  * [5532bff] TT#76711 add missing locking and tree-remove for media player
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 30 Mar 2020 11:20:49 +0200
+
 ngcp-rtpengine (8.3.1.0+0~mr8.3.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
