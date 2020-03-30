@@ -17,7 +17,7 @@ static struct timerthread jitter_buffer_thread;
 
 
 void jitter_buffer_init(void) {
-	ilog(LOG_INFO, "jitter_buffer_init");
+	ilog(LOG_DEBUG, "jitter_buffer_init");
 	timerthread_init(&jitter_buffer_thread, timerthread_queue_run);
 }
 

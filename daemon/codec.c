@@ -1696,7 +1696,6 @@ static int __encoder_flush(encoder_t *enc, void *u1, void *u2) {
 }
 static void __free_ssrc_handler(void *chp) {
 	struct codec_ssrc_handler *ch = chp;
-	ilog(LOG_DEBUG, "__free_ssrc_handler");
 	if (ch->decoder)
 		decoder_close(ch->decoder);
 	if (ch->encoder) {
