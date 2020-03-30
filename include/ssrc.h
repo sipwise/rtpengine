@@ -204,5 +204,17 @@ void payload_tracker_init(struct payload_tracker *t);
 void payload_tracker_add(struct payload_tracker *, int);
 
 
+INLINE void ssrc_ctx_put(struct ssrc_ctx **c) {
+	if (!c || !*c)
+		return;
+	obj_put(&(*c)->parent->h);
+	*c = NULL;
+}
+INLINE void ssrc_ctx_hold(struct ssrc_ctx *c) {
+	if (c)
+		obj_hold(&c->parent->h);
+}
+
+
 
 #endif
