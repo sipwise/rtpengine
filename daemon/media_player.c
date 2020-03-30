@@ -92,9 +92,7 @@ static void __media_player_free(void *p) {
 	ilog(LOG_DEBUG, "freeing media_player");
 
 	media_player_shutdown(mp);
-	if (mp->ssrc_out)
-		obj_put(&mp->ssrc_out->parent->h);
-	mp->ssrc_out = NULL;
+	ssrc_ctx_put(&mp->ssrc_out);
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
 }

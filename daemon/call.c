@@ -2490,10 +2490,8 @@ static void __call_free(void *p) {
 		crypto_cleanup(&ps->crypto);
 		g_queue_clear(&ps->sfds);
 		g_hash_table_destroy(ps->rtp_stats);
-		if (ps->ssrc_in)
-			obj_put(&ps->ssrc_in->parent->h);
-		if (ps->ssrc_out)
-			obj_put(&ps->ssrc_out->parent->h);
+		ssrc_ctx_put(&ps->ssrc_in);
+		ssrc_ctx_put(&ps->ssrc_out);
 		g_slice_free1(sizeof(*ps), ps);
 	}
 
