@@ -681,6 +681,7 @@ static void init_everything(void) {
 	media_player_init();
 	dtmf_init();
 	jitter_buffer_init();
+	t38_init();
 }
 
 

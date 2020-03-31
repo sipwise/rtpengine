@@ -7,11 +7,13 @@
 
 #include <assert.h>
 #include <spandsp/t30.h>
+#include <spandsp/logging.h>
 #include "codec.h"
 #include "call.h"
 #include "log.h"
 #include "str.h"
 #include "media_player.h"
+#include "log_funcs.h"
 
 
 
@@ -73,6 +75,17 @@ static void g_string_null_extend(GString *s, size_t len) {
 	g_string_set_size(s, len);
 	memset(s->str + oldb, 0, newb);
 }
+
+static void spandsp_logging_func(int level, const char *text) {
+	if (level <= SPAN_LOG_PROTOCOL_ERROR)
+		level = LOG_ERR;
+	else if (level <= SPAN_LOG_PROTOCOL_WARNING)
+		level = LOG_WARN;
+	else
+		level = LOG_DEBUG;
+	ilog(level, "SpanDSP: %s", text);
+}
+
 
 // call is locked in R or W
 static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const uint8_t *b, int len, int count) {
@@ -250,6 +263,10 @@ static void t38_pcm_player(struct media_player *mp) {
 	if (!tg)
 		return;
 
+	if (tg->pcm_media && tg->pcm_media->streams.head
+			&& ((struct packet_stream *) tg->pcm_media->streams.head->data)->selected_sfd)
+		log_info_stream_fd(((struct packet_stream *) tg->pcm_media->streams.head->data)->selected_sfd);
+
 	ilog(LOG_DEBUG, "Generating T.38 PCM samples");
 
 	mutex_lock(&tg->lock);
@@ -299,6 +316,16 @@ static void __t38_options_normalise(struct t38_options *opts) {
 		opts->max_ifp = 0x3fff;
 	if (opts->max_datagram <= 0 || opts->max_datagram >= 0x4000)
 		opts->max_datagram = 0x3fff;
+}
+
+static int span_log_level_map(int level) {
+	if (level <= LOG_ERR)
+		level = SPAN_LOG_PROTOCOL_ERROR;
+	else if (level < LOG_DEBUG)
+		level = SPAN_LOG_PROTOCOL_WARNING;
+	else
+		level = SPAN_LOG_DEBUG_3;
+	return level;
 }
 
 // call is locked in W
@@ -374,6 +401,10 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	t38_set_mmr_transcoding(t38, opts.transcoding_mmr);
 	t38_set_jbig_transcoding(t38, opts.transcoding_jbig);
 	t38_set_max_datagram_size(t38, opts.max_ifp);
+
+	logging_state_t *ls = t38_gateway_get_logging_state(tg->gw);
+	span_log_set_message_handler(ls, spandsp_logging_func);
+	span_log_set_level(ls, span_log_level_map(get_log_level()));
 
 	packet_sequencer_init(&tg->sequencer, (GDestroyNotify) __udptl_packet_free);
 	tg->sequencer.seq = 0;
@@ -719,6 +750,11 @@ void t38_gateway_stop(struct t38_gateway *tg) {
 		media_player_stop(tg->pcm_player);
 	if (tg->t38_media)
 		g_queue_clear_full(&tg->t38_media->sdp_attributes, free);
+}
+
+
+void t38_init(void) {
+	span_set_message_handler(NULL);
 }
 
 
