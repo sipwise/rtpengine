@@ -1122,6 +1122,35 @@ Optionally included keys are:
 		or `force` flags. This is useful to handle a rejected T.38 offer and revert the
 		session back to media passthrough.
 
+	- `no-ECM`
+
+		Disable support for ECM. Support is enabled by default.
+
+	- `no-V.17`
+
+		Disable support for V.17. Support is enabled by default.
+
+	- `no-V.27ter`
+
+		Disable support for V.27ter. Support is enabled by default.
+
+	- `no-V.29`
+
+		Disable support for V.29. Support is enabled by default.
+
+	- `no-V.34`
+
+		Disable support for V.34. Support is enabled by default.
+
+	- `no-IAF`
+
+		Disable support for IAF. Support is enabled by default.
+
+	- `FEC`
+
+		Use UDPTL FEC instead of redundancy. Only useful with `T.38=force` as
+		it's a negotiated parameter.
+
 * `supports`
 
 	Contains a list of strings. Each string indicates support for an additional feature
