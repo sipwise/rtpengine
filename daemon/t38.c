@@ -385,9 +385,9 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 
 	// set options
 	t38_core_state_t *t38 = t38_gateway_get_t38_core_state(tg->gw);
-	t38_gateway_set_ecm_capability(tg->gw, TRUE);
+	t38_gateway_set_ecm_capability(tg->gw, FALSE);
 	t38_gateway_set_transmit_on_idle(tg->gw, TRUE);
-	t38_gateway_set_supported_modems(tg->gw, T30_SUPPORT_V17 | T30_SUPPORT_V27TER | T30_SUPPORT_V29
+	t38_gateway_set_supported_modems(tg->gw, T30_SUPPORT_V27TER | T30_SUPPORT_V29
 			| T30_SUPPORT_V34HDX | T30_SUPPORT_IAF);
 	t38_set_t38_version(t38, opts.version);
 	t38_set_data_rate_management_method(t38,
