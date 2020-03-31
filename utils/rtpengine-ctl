@@ -7,8 +7,8 @@ use IO::Socket::INET;
 use Getopt::Long;
 use Config::Tiny;
 
-my $ip = 'localhost';
-my $port = 9900;
+my $ip;
+my $port;
 my $conffile = '/etc/rtpengine/rtpengine.conf';
 my $listen;
 
@@ -33,12 +33,15 @@ if (-f $conffile) {
     }
 }
 
-if ($ip && $ip =~ s/:(\d+)$//) {
+if ($ip && $ip =~ s/:(\d+)$// && !$port) {
     $port = $1;
 }
 
 my $argumentstring = "@ARGV";
 $argumentstring = trim($argumentstring);
+
+$ip //= '127.0.0.1';
+$port //= 9900;
 
 if (!$argumentstring || !$optret || $port <= 0 || $port > 65535) {
     showusage();
