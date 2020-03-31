@@ -917,7 +917,39 @@ rtpe_req('delete', "delete", { 'from-tag' => ft() });
 
 
 
+new_call;
 
+offer('T.38 FEC invite', { ICE => 'remove', 'T.38' => [ 'force', 'FEC' ],
+	 }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 8 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=image PORT udptl t38
+c=IN IP4 203.0.113.1
+a=T38FaxVersion:0
+a=T38MaxBitRate:14400
+a=T38FaxRateManagement:transferredTCF
+a=T38FaxMaxBuffer:1800
+a=T38FaxMaxDatagram:512
+a=T38FaxUdpEC:t38UDPFEC
+a=sendrecv
+SDP
+
+rtpe_req('delete', "delete", { 'from-tag' => ft() });
+
+
+
+done_testing();
+exit;
 
 
 # github issue 850
