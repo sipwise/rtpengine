@@ -550,6 +550,7 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 
 #ifdef WITH_TRANSCODING
 INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+	str_hyphenate(s);
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("decode"):
 			out->t38_decode = 1;
@@ -559,6 +560,66 @@ INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 			break;
 		case CSH_LOOKUP("stop"):
 			out->t38_stop = 1;
+			break;
+		case CSH_LOOKUP("no-ECM"):
+			out->t38_no_ecm = 1;
+			break;
+		case CSH_LOOKUP("no-V17"):
+			out->t38_no_v17 = 1;
+			break;
+		case CSH_LOOKUP("no-V.17"):
+			out->t38_no_v17 = 1;
+			break;
+		case CSH_LOOKUP("no-V.27ter"):
+			out->t38_no_v27ter = 1;
+			break;
+		case CSH_LOOKUP("no-V27ter"):
+			out->t38_no_v27ter = 1;
+			break;
+		case CSH_LOOKUP("no-V29"):
+			out->t38_no_v29 = 1;
+			break;
+		case CSH_LOOKUP("no-V.29"):
+			out->t38_no_v29 = 1;
+			break;
+		case CSH_LOOKUP("no-V34"):
+			out->t38_no_v34 = 1;
+			break;
+		case CSH_LOOKUP("no-V.34"):
+			out->t38_no_v34 = 1;
+			break;
+		case CSH_LOOKUP("no-IAF"):
+			out->t38_no_iaf = 1;
+			break;
+		case CSH_LOOKUP("no-ecm"):
+			out->t38_no_ecm = 1;
+			break;
+		case CSH_LOOKUP("no-v17"):
+			out->t38_no_v17 = 1;
+			break;
+		case CSH_LOOKUP("no-v.17"):
+			out->t38_no_v17 = 1;
+			break;
+		case CSH_LOOKUP("no-v.27ter"):
+			out->t38_no_v27ter = 1;
+			break;
+		case CSH_LOOKUP("no-v27ter"):
+			out->t38_no_v27ter = 1;
+			break;
+		case CSH_LOOKUP("no-v29"):
+			out->t38_no_v29 = 1;
+			break;
+		case CSH_LOOKUP("no-v.29"):
+			out->t38_no_v29 = 1;
+			break;
+		case CSH_LOOKUP("no-v34"):
+			out->t38_no_v34 = 1;
+			break;
+		case CSH_LOOKUP("no-v.34"):
+			out->t38_no_v34 = 1;
+			break;
+		case CSH_LOOKUP("no-iaf"):
+			out->t38_no_iaf = 1;
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'T.38' flag encountered: '" STR_FORMAT "'",
