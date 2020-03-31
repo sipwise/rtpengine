@@ -16,6 +16,13 @@ struct t38_options {
 	int fill_bit_removal:1;
 	int transcoding_mmr:1;
 	int transcoding_jbig:1;
+
+	int no_ecm:1;
+	int no_v17:1;
+	int no_v27ter:1;
+	int no_v29:1;
+	int no_v34:1;
+	int no_iaf:1;
 };
 
 

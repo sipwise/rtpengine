@@ -697,26 +697,35 @@ static void __generator_stop(struct call_media *media) {
 	}
 }
 
+static void __t38_options_from_flags(struct t38_options *t_opts, const struct sdp_ng_flags *flags) {
+#define t38_opt(name) t_opts->name = flags->t38_ ## name
+	t38_opt(no_ecm);
+	t38_opt(no_v17);
+	t38_opt(no_v27ter);
+	t38_opt(no_v29);
+	t38_opt(no_v34);
+	t38_opt(no_iaf);
+}
+
 static void __check_t38_gateway(struct call_media *pcm_media, struct call_media *t38_media,
-		const struct stream_params *sp)
+		const struct stream_params *sp, const struct sdp_ng_flags *flags)
 {
-	const struct t38_options *t_opts;
-	struct t38_options t_opts_stor = {0,};
+	struct t38_options t_opts = {0,};
 
 	if (sp)
-		t_opts = &sp->t38_options;
+		t_opts = sp->t38_options;
 	else {
 		// create our own options
-		t_opts_stor.max_ec_entries = 3;
-		t_opts = &t_opts_stor;
+		t_opts.max_ec_entries = 3;
 	}
+	__t38_options_from_flags(&t_opts, flags);
 
 	MEDIA_SET(pcm_media, TRANSCODE);
 	MEDIA_SET(pcm_media, GENERATOR);
 	MEDIA_SET(t38_media, TRANSCODE);
 	MEDIA_SET(t38_media, GENERATOR);
 
-	if (t38_gateway_pair(t38_media, pcm_media, t_opts))
+	if (t38_gateway_pair(t38_media, pcm_media, &t_opts))
 		return;
 
 	// need a packet handler on the T.38 side
@@ -745,14 +754,16 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 }
 
 // call must be locked in W
-static int codec_handler_udptl_update(struct call_media *receiver, struct call_media *sink) {
+static int codec_handler_udptl_update(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags)
+{
 	// anything to do?
 	if (proto_is(sink->protocol, PROTO_UDPTL))
 		return 0;
 
 	if (sink->type_id == MT_AUDIO && proto_is_rtp(sink->protocol) && receiver->type_id == MT_IMAGE) {
 		if (!str_cmp(&receiver->format_str, "t38")) {
-			__check_t38_gateway(sink, receiver, NULL);
+			__check_t38_gateway(sink, receiver, NULL, flags);
 			return 1;
 		}
 	}
@@ -769,7 +780,7 @@ static int codec_handler_non_rtp_update(struct call_media *receiver, struct call
 		const struct sdp_ng_flags *flags, const struct stream_params *sp)
 {
 	if (proto_is(sink->protocol, PROTO_UDPTL) && !str_cmp(&sink->format_str, "t38")) {
-		__check_t38_gateway(receiver, sink, sp);
+		__check_t38_gateway(receiver, sink, sp, flags);
 		return 1;
 	}
 	ilog(LOG_WARN, "Unsupported non-RTP protocol: " STR_FORMAT "/" STR_FORMAT
@@ -790,7 +801,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// non-RTP protocol?
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
-		if (codec_handler_udptl_update(receiver, sink))
+		if (codec_handler_udptl_update(receiver, sink, flags))
 			return;
 	}
 	// everything else is unsupported: pass through
