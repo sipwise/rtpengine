@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.2.1.3+0~mr8.2.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [31a23b2] TT#76711 fix media type ID when restoring from redis
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 01 Apr 2020 18:25:55 +0200
+
 ngcp-rtpengine (8.2.1.2+0~mr8.2.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
