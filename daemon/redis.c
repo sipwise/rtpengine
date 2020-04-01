@@ -1281,6 +1281,7 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 		if (redis_hash_get_str(&s, rh, "type"))
 			return -1;
 		call_str_cpy(c, &med->type, &s);
+		med->type_id = codec_get_type(&med->type);
 		if (!redis_hash_get_str(&s, rh, "format_str"))
 			call_str_cpy(c, &med->format_str, &s);
 		if (!redis_hash_get_str(&s, rh, "media_id"))
