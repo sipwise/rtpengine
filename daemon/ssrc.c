@@ -194,11 +194,14 @@ struct ssrc_hash *create_ssrc_hash_call(void) {
 	return create_ssrc_hash_full(create_ssrc_entry_call, NULL);
 }
 
-struct ssrc_ctx *get_ssrc_ctx(u_int32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir dir) {
+struct ssrc_ctx *get_ssrc_ctx(u_int32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir dir, void *ref) {
 	struct ssrc_entry *s = get_ssrc(ssrc, ht /* , NULL */);
 	if (G_UNLIKELY(!s))
 		return NULL;
-	return ((void *) s) + dir;
+	struct ssrc_ctx *ret = ((void *) s) + dir;
+	if (ref)
+		ret->ref = ref;
+	return ret;
 }
 
 
