@@ -1809,9 +1809,22 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	media_packet_rtp(phc);
 
 	// SSRC receive stats
-	if (phc->mp.ssrc_in) {
+	if (phc->mp.ssrc_in && phc->mp.rtp) {
 		atomic64_inc(&phc->mp.ssrc_in->packets);
 		atomic64_add(&phc->mp.ssrc_in->packets, phc->mp.raw.len);
+		// no real sequencing, so this is rudimentary
+		uint64_t old_seq = atomic64_get(&phc->mp.ssrc_in->last_seq);
+		uint64_t new_seq = ntohs(phc->mp.rtp->seq_num) | (old_seq & 0xffff0000UL);
+		// XXX combine this with similar code elsewhere
+		long seq_diff = new_seq - old_seq;
+		while (seq_diff < -60000) {
+			new_seq += 0x10000;
+			seq_diff += 0x10000;
+		}
+		if (seq_diff > 0 || seq_diff < -10) {
+			atomic64_set(&phc->mp.ssrc_in->last_seq, new_seq);
+			atomic64_set(&phc->mp.ssrc_in->last_ts, ntohl(phc->mp.rtp->timestamp));
+		}
 	}
 
 
