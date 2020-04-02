@@ -642,6 +642,7 @@ static void call_timer(void *ptr) {
 			if (ps->ssrc_in && ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc) {
 				atomic64_add(&ps->ssrc_in->octets, diff_bytes);
 				atomic64_add(&ps->ssrc_in->packets, diff_packets);
+				atomic64_set(&ps->ssrc_in->last_seq, ke->target.decrypt.last_index);
 				ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
 
 				if (sfd->crypto.params.crypto_suite

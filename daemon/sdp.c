@@ -264,7 +264,7 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 
 
 static char __id_buf[6*2 + 1]; // 6 hex encoded characters
-static const str instance_id = STR_CONST_INIT(__id_buf);
+const str rtpe_instance_id = STR_CONST_INIT(__id_buf);
 
 
 
@@ -2333,7 +2333,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 		if (flags->loop_protect) {
 			chopper_append_c(chop, "a=rtpengine:");
-			chopper_append_str(chop, &instance_id);
+			chopper_append_str(chop, &rtpe_instance_id);
 			chopper_append_c(chop, "\r\n");
 		}
 
@@ -2481,7 +2481,7 @@ int sdp_is_duplicate(GQueue *sessions) {
 			return 0;
 		for (GList *ql = attr_list->head; ql; ql = ql->next) {
 			struct sdp_attribute *attr = ql->data;
-			if (!str_cmp_str(&attr->value, &instance_id))
+			if (!str_cmp_str(&attr->value, &rtpe_instance_id))
 				goto next;
 		}
 		return 0;
@@ -2492,5 +2492,5 @@ next:
 }
 
 void sdp_init() {
-	rand_hex_str(instance_id.s, instance_id.len / 2);
+	rand_hex_str(rtpe_instance_id.s, rtpe_instance_id.len / 2);
 }
