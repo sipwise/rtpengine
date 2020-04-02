@@ -15,6 +15,7 @@
 #include "media_socket.h"
 #include "rtcplib.h"
 #include "ssrc.h"
+#include "sdp.h"
 
 
 
@@ -1375,4 +1376,116 @@ static void transcode_sr_wrap(struct rtcp_process_ctx *ctx, struct sender_report
 void rtcp_init() {
 	rtcp_handlers.logging = _log_facility_rtcp ? &log_handlers : &dummy_handlers;
 	rtcp_handlers.homer = has_homer() ? &homer_handlers : &dummy_handlers;
+}
+
+
+
+GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32_t octets, GQueue *rrs) {
+	GString *ret = g_string_sized_new(128);
+	g_string_set_size(ret, sizeof(struct sender_report_packet));
+	struct sender_report_packet *sr = (void *) ret->str;
+
+	*sr = (struct sender_report_packet) {
+		.rtcp.header.version = 2,
+		.rtcp.header.pt = RTCP_PT_SR,
+		.rtcp.ssrc = htonl(ssrc),
+		.ntp_msw = htonl(rtpe_now.tv_sec + 2208988800),
+		.ntp_lsw = htonl((4294967295ULL * rtpe_now.tv_usec) / 1000000ULL),
+		.timestamp = htonl(ts),
+		.packet_count = htonl(packets),
+		.octet_count = htonl(octets),
+	};
+
+	// receiver reports
+	int i = 0, n = 0;
+	for (GList *l = rrs->head; l; l = l->next) {
+		struct ssrc_ctx *s = l->data;
+		if (i < 30) {
+			struct report_block *rr = (void *) ret->str + ret->len;
+			g_string_set_size(ret, ret->len + sizeof(*rr));
+
+			// XXX unify with transcode_rr
+
+			// last received SR?
+			struct ssrc_entry_call *se = s->parent;
+			long long tv_diff = 0;
+			uint32_t ntp_middle_bits = 0;
+			mutex_lock(&se->h.lock);
+			if (se->sender_reports.length) {
+				struct ssrc_time_item *si = se->sender_reports.tail->data;
+				tv_diff = timeval_diff(&rtpe_now, &si->received);
+				ntp_middle_bits = si->ntp_middle_bits;
+			}
+			mutex_unlock(&se->h.lock);
+
+			uint64_t lost = atomic64_get(&s->packets_lost);
+			uint64_t tot = atomic64_get(&s->packets);
+
+			*rr = (struct report_block) {
+				.ssrc = htonl(s->parent->h.ssrc),
+				.fraction_lost = lost * 256 / (tot + lost),
+				.number_lost[0] = (lost >> 16) & 0xff,
+				.number_lost[1] = (lost >> 8) & 0xff,
+				.number_lost[2] = lost & 0xff,
+				.high_seq_received = htonl(atomic64_get(&s->last_seq)),
+				.lsr = htonl(ntp_middle_bits),
+				.dlsr = htonl(tv_diff * 65536 / 1000000),
+			};
+			// XXX jitter
+			n++;
+		}
+		ssrc_ctx_put(&s);
+		i++;
+	}
+
+	sr->rtcp.header.count = n;
+	sr->rtcp.header.length = htons((ret->len >> 2) - 1);
+
+	// sdes
+	assert(rtpe_instance_id.len == 12);
+
+	struct {
+		struct source_description_packet sdes;
+		struct sdes_chunk chunk;
+		struct sdes_item cname;
+		char str[12];
+		char nul;
+		char pad;
+	} __attribute__ ((packed)) *sdes;
+
+	assert(sizeof(*sdes) == 24);
+
+	sdes = (void *) ret->str + ret->len;
+	g_string_set_size(ret, ret->len + sizeof(*sdes));
+
+	*sdes = (__typeof(*sdes)) {
+		.sdes.header.version = 2,
+		.sdes.header.pt = RTCP_PT_SDES,
+		.sdes.header.count = 1,
+		.sdes.header.length = htons((sizeof(*sdes) >> 2) - 1),
+		.chunk.ssrc = htonl(ssrc),
+		.cname.type = SDES_TYPE_CNAME,
+		.cname.length = rtpe_instance_id.len,
+		.nul = 0,
+		.pad = 0,
+	};
+	memcpy(sdes->str, rtpe_instance_id.s, rtpe_instance_id.len);
+
+	return ret;
+}
+
+void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_monologue *ml) {
+	rwlock_lock_r(&hash->lock);
+	for (GList *l = hash->q.head; l; l = l->next) {
+		struct ssrc_entry_call *e = l->data;
+		ilog(LOG_DEBUG, "xxxxx %x %i %i %p %p %p", e->h.ssrc, (int) atomic64_get(&e->input_ctx.packets), (int) atomic64_get(&e->output_ctx.packets), ml, e->input_ctx.ref, e->output_ctx.ref);
+		struct ssrc_ctx *i = &e->input_ctx;
+		if (i->ref != ml)
+			continue;
+		if (!atomic64_get(&i->packets))
+			continue;
+
+		g_queue_push_tail(out, ssrc_ctx_get(i));
+	}
+	rwlock_unlock_r(&hash->lock);
 }

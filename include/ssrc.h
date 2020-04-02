@@ -63,6 +63,8 @@ struct ssrc_ctx {
 		 duplicates,
 		 last_seq, // XXX dup with srtp_index?
 		 last_ts;
+
+	struct timeval next_rtcp; // for self-generated RTCP reports
 };
 
 struct ssrc_stats_block {
