@@ -166,15 +166,30 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 	if (!st->sink->selected_sfd)
 		goto out;
 
-	struct rtp_header *rh = (void *) cp->s.s;
-	ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
-			FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
-			st->sink->endpoint.port),
-			ntohs(rh->seq_num),
-			ntohl(rh->timestamp));
+	struct rtp_header *rh = cp->rtp;
+	if (rh)
+		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
+				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
+				st->sink->endpoint.port),
+				ntohs(rh->seq_num),
+				ntohl(rh->timestamp));
+	else
+		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s",
+				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
+				st->sink->endpoint.port));
 
 	socket_sendto(&st->sink->selected_sfd->socket,
 			cp->s.s, cp->s.len, &st->sink->endpoint);
+
+	if (cp->ssrc_out && cp->rtp) {
+		atomic64_inc(&cp->ssrc_out->packets);
+		atomic64_add(&cp->ssrc_out->octets, cp->s.len);
+		if (cp->ts)
+			atomic64_set(&cp->ssrc_out->last_ts, cp->ts);
+		else
+			atomic64_set(&cp->ssrc_out->last_ts, ntohl(cp->rtp->timestamp));
+		payload_tracker_add(&cp->ssrc_out->tracker, cp->rtp->m_pt & 0x7f);
+	}
 
 out:
 	codec_packet_free(cp);
