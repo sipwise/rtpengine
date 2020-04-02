@@ -624,6 +624,9 @@ static void call_timer(void *ptr) {
 
 		sink = packet_stream_sink(ps);
 
+		ilog(LOG_INFO, "xxx %u %i %" PRIu64, sfd->socket.local.port, ke->target.non_forwarding,
+				diff_packets);
+
 		if (!ke->target.non_forwarding && diff_packets) {
 			if (sink) {
 				mutex_lock(&sink->out_lock);
@@ -638,6 +641,9 @@ static void call_timer(void *ptr) {
 			}
 
 			mutex_lock(&ps->in_lock);
+
+			ilog(LOG_INFO, "xxx %p %u %u", ps->ssrc_in, ps->ssrc_in ? ps->ssrc_in->parent->h.ssrc : 0,
+					ntohl(ke->target.ssrc));
 
 			if (ps->ssrc_in && ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc) {
 				atomic64_add(&ps->ssrc_in->octets, diff_bytes);
