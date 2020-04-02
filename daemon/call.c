@@ -465,14 +465,14 @@ destroy:
 
 
 #define DS(x) do {							\
-		u_int64_t ks_val, d;					\
-		ks_val = atomic64_get(&ps->kernel_stats.x);	\
+		u_int64_t ks_val;					\
+		ks_val = atomic64_get(&ps->kernel_stats.x);		\
 		if (ke->stats.x < ks_val)				\
-			d = 0;						\
+			diff_ ## x = 0;					\
 		else							\
-			d = ke->stats.x - ks_val;			\
-		atomic64_add(&ps->stats.x, d);			\
-		atomic64_add(&rtpe_statsps.x, d);			\
+			diff_ ## x = ke->stats.x - ks_val;		\
+		atomic64_add(&ps->stats.x, diff_ ## x);			\
+		atomic64_add(&rtpe_statsps.x, diff_ ## x);		\
 	} while (0)
 
 static void update_requests_per_second_stats(struct requests_ps *request, u_int64_t new_val) {
@@ -582,6 +582,8 @@ static void call_timer(void *ptr) {
 			goto next;
 		}
 
+		uint64_t diff_packets, diff_bytes, diff_errors;
+
 		DS(packets);
 		DS(bytes);
 		DS(errors);
@@ -636,12 +638,19 @@ static void call_timer(void *ptr) {
 		}
 
 		mutex_lock(&ps->in_lock);
-		if (sfd->crypto.params.crypto_suite && ps->ssrc_in
-				&& ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc
-				&& ke->target.decrypt.last_index - ps->ssrc_in->srtp_index > 0x4000)
-		{
-			ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
-			update = 1;
+		if (ps->ssrc_in && ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc) {
+			atomic64_add(&ps->ssrc_in->octets, diff_bytes);
+			atomic64_add(&ps->ssrc_in->packets, diff_packets);
+			ilog(LOG_DEBUG, "%u %i xxx RTP idx %" PRIu64, ke->target.non_forwarding,
+					sfd->socket.local.port,
+					ke->target.decrypt.last_index);
+
+			if (sfd->crypto.params.crypto_suite
+					&& ke->target.decrypt.last_index - ps->ssrc_in->srtp_index > 0x4000)
+			{
+				ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
+				update = 1;
+			}
 		}
 		mutex_unlock(&ps->in_lock);
 
