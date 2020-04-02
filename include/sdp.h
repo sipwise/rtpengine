@@ -17,6 +17,8 @@ struct sdp_chopper {
 //	int str_len;
 };
 
+extern const str rtpe_instance_id;
+
 void sdp_init(void);
 
 int sdp_parse(str *body, GQueue *sessions, const struct sdp_ng_flags *);
