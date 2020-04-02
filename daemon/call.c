@@ -638,12 +638,16 @@ static void call_timer(void *ptr) {
 			}
 
 			mutex_lock(&ps->in_lock);
-			if (sfd->crypto.params.crypto_suite && ps->ssrc_in
-					&& ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc
-					&& ke->target.decrypt.last_index - ps->ssrc_in->srtp_index > 0x4000)
-			{
+
+			if (ps->ssrc_in && ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc) {
+				atomic64_add(&ps->ssrc_in->octets, diff_bytes);
+				atomic64_add(&ps->ssrc_in->packets, diff_packets);
 				ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
-				update = 1;
+
+				if (sfd->crypto.params.crypto_suite
+						&& ke->target.decrypt.last_index
+						- ps->ssrc_in->srtp_index > 0x4000)
+					update = 1;
 			}
 			mutex_unlock(&ps->in_lock);
 		}
