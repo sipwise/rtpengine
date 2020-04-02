@@ -554,6 +554,7 @@ static void __fec_save(struct t38_gateway *tg, const str *piece, uint16_t seq) {
 
 int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 	const char *err = NULL;
+	struct udptl_packet *up = NULL;
 
 	if (!tg)
 		return 0;
@@ -582,7 +583,7 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 
 	ilog(LOG_DEBUG, "Received primary IFP packet, len %i, seq %i", piece.len, seq);
 	str primary = piece;
-	struct udptl_packet *up = __make_udptl_packet(&primary, seq);
+	up = __make_udptl_packet(&primary, seq);
 
 	err = "Error correction mode byte missing";
 	if (str_shift_ret(&s, 1, &piece))
@@ -590,6 +591,14 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 	char fec = piece.s[0];
 
 	mutex_lock(&tg->lock);
+
+	long diff = seq - up->p.seq;
+	if (diff > 100 || diff < -100) {
+		ilog(LOG_INFO | LOG_FLAG_LIMIT, "Ignoring UDPTL packet with wildly off seq (%u <> %u)",
+				(unsigned int) seq, (unsigned int) up->p.seq);
+		err = NULL;
+		goto err;
+	}
 
 	// XXX possible short path here without going through the sequencer
 	int ret = packet_sequencer_insert(&tg->sequencer, &up->p);
@@ -743,6 +752,8 @@ out:
 err:
 	if (err)
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to process UDPTL/T.38/IFP packet: %s", err);
+	if (up)
+		__udptl_packet_free(up);
 	return -1;
 }
 
