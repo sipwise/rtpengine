@@ -1330,7 +1330,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 		ssrc_ctx_put(ssrc_in_p);
 		ssrc_ctx_put(&in_srtp->ssrc_in);
 		(*ssrc_in_p) = in_srtp->ssrc_in =
-			get_ssrc_ctx(in_ssrc, ssrc_hash, SSRC_DIR_INPUT);
+			get_ssrc_ctx(in_ssrc, ssrc_hash, SSRC_DIR_INPUT, in_srtp->media->monologue);
 		ssrc_ctx_hold(in_srtp->ssrc_in);
 
 		// might have created a new entry, which would have a new random
@@ -1352,7 +1352,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 		ssrc_ctx_put(ssrc_out_p);
 		ssrc_ctx_put(&out_srtp->ssrc_out);
 		(*ssrc_out_p) = out_srtp->ssrc_out =
-			get_ssrc_ctx(out_ssrc, ssrc_hash, SSRC_DIR_OUTPUT);
+			get_ssrc_ctx(out_ssrc, ssrc_hash, SSRC_DIR_OUTPUT, out_srtp->media->monologue);
 		ssrc_ctx_hold(out_srtp->ssrc_out);
 
 		// reverse SSRC mapping
@@ -1846,6 +1846,12 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	// this set payload_type, ssrc_in, ssrc_out and mp
 	media_packet_rtp(phc);
+
+	// SSRC receive stats
+	if (phc->mp.ssrc_in) {
+		atomic64_inc(&phc->mp.ssrc_in->packets);
+		atomic64_add(&phc->mp.ssrc_in->packets, phc->mp.raw.len);
+	}
 
 
 	/* do we have somewhere to forward it to? */
