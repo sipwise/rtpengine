@@ -1282,12 +1282,12 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 
 	// reverse SSRC mapping
 	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->call->ssrc_hash,
-			SSRC_DIR_OUTPUT);
+			SSRC_DIR_OUTPUT, ctx->mp->media->monologue);
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
 
 	// for reception stats
 	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out, ctx->mp->call->ssrc_hash,
-			SSRC_DIR_INPUT);
+			SSRC_DIR_INPUT, NULL);
 
 	// substitute our own values
 	

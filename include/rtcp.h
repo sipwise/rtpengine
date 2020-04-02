@@ -11,6 +11,7 @@ struct crypto_context;
 struct rtcp_packet;
 struct ssrc_ctx;
 struct rtcp_handler;
+struct call_monologue;
 
 
 struct rtcp_parse_ctx {

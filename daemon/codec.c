@@ -1109,8 +1109,10 @@ void codec_add_raw_packet(struct media_packet *mp) {
 	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
 	p->s = mp->raw;
 	p->free_func = NULL;
-	if (mp->rtp && mp->ssrc_out)
-		payload_tracker_add(&mp->ssrc_out->tracker, mp->rtp->m_pt & 0x7f);
+	if (mp->rtp && mp->ssrc_out) {
+		p->ssrc_out = ssrc_ctx_get(mp->ssrc_out);
+		p->rtp = mp->rtp;
+	}
 	g_queue_push_tail(&mp->packets_out, p);
 }
 static int handler_func_passthrough(struct codec_handler *h, struct media_packet *mp) {
@@ -1261,6 +1263,8 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	p->free_func = free;
 	p->ttq_entry.source = handler;
 	p->rtp = rh;
+	p->ts = ts;
+	p->ssrc_out = ssrc_ctx_get(ssrc_out);
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send
@@ -1290,10 +1294,6 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 			(long unsigned) p->ttq_entry.when.tv_usec);
 
 	g_queue_push_tail(&mp->packets_out, p);
-
-	atomic64_inc(&ssrc_out->packets);
-	atomic64_add(&ssrc_out->octets, payload_len);
-	atomic64_set(&ssrc_out->last_ts, ts);
 }
 
 // returns new reference
@@ -1463,6 +1463,7 @@ void codec_packet_free(void *pp) {
 	struct codec_packet *p = pp;
 	if (p->free_func)
 		p->free_func(p->s.s);
+	ssrc_ctx_put(&p->ssrc_out);
 	g_slice_free1(sizeof(*p), p);
 }
 
