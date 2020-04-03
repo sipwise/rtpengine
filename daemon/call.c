@@ -465,14 +465,14 @@ destroy:
 
 
 #define DS(x) do {							\
-		u_int64_t ks_val, d;					\
-		ks_val = atomic64_get(&ps->kernel_stats.x);	\
+		u_int64_t ks_val;					\
+		ks_val = atomic64_get(&ps->kernel_stats.x);		\
 		if (ke->stats.x < ks_val)				\
-			d = 0;						\
+			diff_ ## x = 0;					\
 		else							\
-			d = ke->stats.x - ks_val;			\
-		atomic64_add(&ps->stats.x, d);			\
-		atomic64_add(&rtpe_statsps.x, d);			\
+			diff_ ## x = ke->stats.x - ks_val;		\
+		atomic64_add(&ps->stats.x, diff_ ## x);			\
+		atomic64_add(&rtpe_statsps.x, diff_ ## x);		\
 	} while (0)
 
 static void update_requests_per_second_stats(struct requests_ps *request, u_int64_t new_val) {
@@ -582,6 +582,8 @@ static void call_timer(void *ptr) {
 			goto next;
 		}
 
+		uint64_t diff_packets, diff_bytes, diff_errors;
+
 		DS(packets);
 		DS(bytes);
 		DS(errors);
@@ -622,28 +624,29 @@ static void call_timer(void *ptr) {
 
 		sink = packet_stream_sink(ps);
 
-		/* XXX this only works if the kernel module actually gets to see the packets. */
-		if (sink) {
-			mutex_lock(&sink->out_lock);
-			if (sink->crypto.params.crypto_suite && sink->ssrc_out
-					&& ntohl(ke->target.ssrc) == sink->ssrc_out->parent->h.ssrc
-					&& ke->target.encrypt.last_index - sink->ssrc_out->srtp_index > 0x4000)
+		if (!ke->target.non_forwarding && diff_packets) {
+			if (sink) {
+				mutex_lock(&sink->out_lock);
+				if (sink->crypto.params.crypto_suite && sink->ssrc_out
+						&& ntohl(ke->target.ssrc) == sink->ssrc_out->parent->h.ssrc
+						&& ke->target.encrypt.last_index - sink->ssrc_out->srtp_index > 0x4000)
+				{
+					sink->ssrc_out->srtp_index = ke->target.encrypt.last_index;
+					update = 1;
+				}
+				mutex_unlock(&sink->out_lock);
+			}
+
+			mutex_lock(&ps->in_lock);
+			if (sfd->crypto.params.crypto_suite && ps->ssrc_in
+					&& ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc
+					&& ke->target.decrypt.last_index - ps->ssrc_in->srtp_index > 0x4000)
 			{
-				sink->ssrc_out->srtp_index = ke->target.encrypt.last_index;
+				ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
 				update = 1;
 			}
-			mutex_unlock(&sink->out_lock);
+			mutex_unlock(&ps->in_lock);
 		}
-
-		mutex_lock(&ps->in_lock);
-		if (sfd->crypto.params.crypto_suite && ps->ssrc_in
-				&& ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc
-				&& ke->target.decrypt.last_index - ps->ssrc_in->srtp_index > 0x4000)
-		{
-			ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
-			update = 1;
-		}
-		mutex_unlock(&ps->in_lock);
 
 		rwlock_unlock_r(&sfd->call->master_lock);
 
