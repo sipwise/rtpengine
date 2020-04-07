@@ -368,6 +368,239 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		}
 	}
 
+<<<<<<< HEAD   (5eb785 TT#76711 fix media type ID when restoring from redis)
+=======
+	return pref_dest_codec;
+}
+
+static void __check_send_codecs(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags, GHashTable *dtmf_sinks, int *sink_transcoding)
+{
+	if (!MEDIA_ISSET(sink, TRANSCODE))
+		return;
+
+	for (GList *l = sink->codecs_prefs_recv.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
+				&pt->payload_type);
+		if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt) || (flags && flags->inject_dtmf)) {
+			*sink_transcoding = 1;
+			// can the sink receive RFC DTMF but the receiver can't send it?
+			if (pt->codec_def && pt->codec_def->dtmf) {
+				if (!g_hash_table_lookup(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate)))
+					g_hash_table_insert(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate),
+							pt);
+			}
+			continue;
+		}
+
+		// even if the receiver can receive the same codec that the sink can
+		// send, we might still have it configured as a transcoder due to
+		// always-transcode in the offer
+		// XXX codec_handlers can be converted to g_direct_hash table
+		struct codec_handler *ch_recv =
+			g_hash_table_lookup(sink->codec_handlers, &recv_pt->payload_type);
+		if (!ch_recv)
+			continue;
+		if (ch_recv->transcoder) {
+			*sink_transcoding = 1;
+			break;
+		}
+	}
+}
+
+static int __dtmf_payload_type(GHashTable *dtmf_sinks, struct rtp_payload_type *pref_dest_codec) {
+	if (!g_hash_table_size(dtmf_sinks) || !pref_dest_codec)
+		return -1;
+
+	int dtmf_payload_type = -1;
+
+	// find the telephone-event codec entry with a matching clock rate
+	struct rtp_payload_type *pt = g_hash_table_lookup(dtmf_sinks,
+			GUINT_TO_POINTER(pref_dest_codec->clock_rate));
+	if (!pt)
+		ilog(LOG_INFO, "Not transcoding PCM DTMF tones to telephone-event packets as "
+				"no payload type with a matching clock rate for '" STR_FORMAT
+				"' was found", STR_FMT(&pref_dest_codec->encoding_with_params));
+	else {
+		dtmf_payload_type = pt->payload_type;
+		ilog(LOG_DEBUG, "Output DTMF payload type is %i", dtmf_payload_type);
+	}
+
+	return dtmf_payload_type;
+}
+
+static int __unused_pt_number(struct call_media *media, int num) {
+	if (num < 0)
+		num = 96; // default first dynamic payload type number
+	while (1) {
+		if (!g_hash_table_lookup(media->codecs_recv, &num))
+			break; // OK
+		num++;
+		if (num < 96) // if an RFC type was taken already
+			num = 96;
+		else if (num >= 128)
+			return -1;
+	}
+	return num;
+}
+
+static void __accept_transcode_codecs(struct call_media *receiver, struct call_media *sink) {
+	// if the other side is transcoding, we need to accept codecs that were
+	// originally offered (recv->send) if we support them, even if the
+	// response (sink->send) doesn't include them
+	GList *insert_pos = NULL;
+	for (GList *l = receiver->codecs_prefs_send.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		__ensure_codec_def(pt, receiver);
+		if (!pt->codec_def)
+			continue;
+		struct rtp_payload_type *existing_pt
+			= g_hash_table_lookup(receiver->codecs_recv, &pt->payload_type);
+		if (existing_pt && !rtp_payload_type_cmp_nf(existing_pt, pt)) {
+			// already present.
+			// to keep the order intact, we seek the list for the position
+			// of this codec entry. all newly added codecs must come after
+			// this entry.
+			if (!insert_pos)
+				insert_pos = receiver->codecs_prefs_recv.head;
+			while (insert_pos) {
+				if (!insert_pos->next)
+					break; // end of list - we insert everything after
+				struct rtp_payload_type *test_pt = insert_pos->data;
+				if (test_pt->payload_type == pt->payload_type)
+					break;
+				insert_pos = insert_pos->next;
+			}
+			continue;
+		}
+
+		if (existing_pt) {
+			// PT collision. We must renumber one of the entries. `pt` is taken
+			// from the send list, so the PT should remain the same. Renumber
+			// the existing entry.
+			int new_pt = __unused_pt_number(receiver, existing_pt->payload_type);
+			if (new_pt < 0) {
+				ilog(LOG_WARN, "Ran out of RTP payload type numbers while accepting '"
+						STR_FORMAT "' due to '" STR_FORMAT "'",
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT(&existing_pt->encoding_with_params));
+				continue;
+			}
+			ilog(LOG_DEBUG, "Renumbering '" STR_FORMAT "' from PT %i to %i due to '" STR_FORMAT "'",
+						STR_FMT(&existing_pt->encoding_with_params),
+						existing_pt->payload_type,
+						new_pt,
+						STR_FMT(&pt->encoding_with_params));
+			g_hash_table_steal(receiver->codecs_recv, &existing_pt->payload_type);
+			existing_pt->payload_type = new_pt;
+			g_hash_table_insert(receiver->codecs_recv, &existing_pt->payload_type, existing_pt);
+		}
+
+		ilog(LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
+				STR_FMT(&pt->encoding_with_params));
+		MEDIA_SET(receiver, TRANSCODE);
+
+		// we need a new pt entry
+		pt = __rtp_payload_type_copy(pt);
+		// this somewhat duplicates __rtp_payload_type_add_recv
+		g_hash_table_insert(receiver->codecs_recv, &pt->payload_type, pt);
+		__rtp_payload_type_add_name(receiver->codec_names_recv, pt);
+		if (!insert_pos) {
+			g_queue_push_head(&receiver->codecs_prefs_recv, pt);
+			insert_pos = receiver->codecs_prefs_recv.head;
+		}
+		else {
+			g_queue_insert_after(&receiver->codecs_prefs_recv, insert_pos, pt);
+			insert_pos = insert_pos->next;
+		}
+	}
+}
+
+static void __eliminate_rejected_codecs(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags)
+{
+	if (flags && flags->asymmetric_codecs)
+		return;
+
+	// in the other case (not transcoding), we can eliminate rejected codecs from our
+	// `send` list if the receiver cannot receive it.
+	for (GList *l = receiver->codecs_prefs_send.head; l;) {
+		struct rtp_payload_type *pt = l->data;
+		if (g_hash_table_lookup(receiver->codec_names_recv, &pt->encoding)) {
+			l = l->next;
+			continue;
+		}
+		ilog(LOG_DEBUG, "Eliminating asymmetric outbound codec " STR_FORMAT,
+				STR_FMT(&pt->encoding_with_params));
+		l = __delete_send_codec(receiver, l);
+	}
+}
+
+static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_media *receiver,
+		struct rtp_payload_type *pref_dest_codec, GHashTable *output_transcoders,
+		int dtmf_payload_type)
+{
+	if (!flags || !flags->inject_dtmf)
+		return;
+	if (receiver->dtmf_injector) {
+		// is this still valid?
+		if (!rtp_payload_type_cmp(pref_dest_codec, &receiver->dtmf_injector->dest_pt))
+			return;
+
+		receiver->dtmf_injector = NULL;
+	}
+
+	// synthesise input rtp payload type
+	struct rtp_payload_type src_pt = {
+		.payload_type = -1,
+		.clock_rate = pref_dest_codec->clock_rate,
+		.channels = pref_dest_codec->channels,
+	};
+	str_init(&src_pt.encoding, "DTMF injector");
+	str_init(&src_pt.encoding_with_params, "DTMF injector");
+	const str tp_event = STR_CONST_INIT("telephone-event");
+	src_pt.codec_def = codec_find(&tp_event, MT_AUDIO);
+	if (!src_pt.codec_def) {
+		ilog(LOG_ERR, "RTP payload type 'telephone-event' is not defined");
+		return;
+	}
+
+	//receiver->dtmf_injector = codec_handler_make_playback(&src_pt, pref_dest_codec, 0);
+	//receiver->dtmf_injector->dtmf_payload_type = dtmf_payload_type;
+	receiver->dtmf_injector = __handler_new(&src_pt);
+	__make_transcoder(receiver->dtmf_injector, pref_dest_codec, output_transcoders, dtmf_payload_type, 0);
+	receiver->dtmf_injector->func = handler_func_inject_dtmf;
+	g_queue_push_tail(&receiver->codec_handlers_store, receiver->dtmf_injector);
+}
+
+// call must be locked in W
+void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags)
+{
+	if (!receiver->codec_handlers)
+		receiver->codec_handlers = g_hash_table_new(g_int_hash, g_int_equal);
+
+	MEDIA_CLEAR(receiver, TRANSCODE);
+	receiver->rtcp_handler = NULL;
+	GSList *passthrough_handlers = NULL;
+
+	// we go through the list of codecs that the receiver supports and compare it
+	// with the list of codecs supported by the sink. if the receiver supports
+	// a codec that the sink doesn't support, we must transcode.
+	//
+	// if we transcode, we transcode to the highest-preference supported codec
+	// that the sink specified. determine this first.
+	struct rtp_payload_type *pref_dest_codec = NULL;
+	int sink_transcoding = 0;
+	// keep track of telephone-event payload types. we hash them by clock rate
+	// in case there's several of them. the clock rates of the destination
+	// codec and the telephone-event codec must match.
+	GHashTable *dtmf_sinks = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+	pref_dest_codec = __check_dest_codecs(receiver, sink, flags, dtmf_sinks, &sink_transcoding);
+
+>>>>>>> CHANGE (5fd851 TT#79351 detect and fix payload type collisions)
 	// similarly, if the sink can receive a codec that the receiver can't send, it's also transcoding
 	// XXX these blocks should go into their own functions
 	if (MEDIA_ISSET(sink, TRANSCODE)) {
@@ -1549,23 +1782,15 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 	if (pt == (void *) 0x1)
 		return NULL;
 
-	// find an unused payload type number
-	if (pt->payload_type < 0)
-		pt->payload_type = 96; // default first dynamic payload type number
-	while (1) {
-		if (!g_hash_table_lookup(media->codecs_recv, &pt->payload_type))
-			break; // OK
-		pt->payload_type++;
-		if (pt->payload_type < 96) // if an RFC type was taken already
-			pt->payload_type = 96;
-		else if (pt->payload_type >= 128) {
-			ilog(LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
-					STR_FORMAT "' for transcoding",
-				STR_FMT(&pt->encoding_with_params));
-			payload_type_free(pt);
-			return NULL;
-		}
+	pt->payload_type = __unused_pt_number(media, pt->payload_type);
+	if (pt->payload_type < 0) {
+		ilog(LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
+				STR_FORMAT "' for transcoding",
+			STR_FMT(&pt->encoding_with_params));
+		payload_type_free(pt);
+		return NULL;
 	}
+
 	return pt;
 }
 
