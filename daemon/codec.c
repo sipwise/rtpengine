@@ -415,6 +415,21 @@ static int __dtmf_payload_type(GHashTable *dtmf_sinks, struct rtp_payload_type *
 	return dtmf_payload_type;
 }
 
+static int __unused_pt_number(struct call_media *media, int num) {
+	if (num < 0)
+		num = 96; // default first dynamic payload type number
+	while (1) {
+		if (!g_hash_table_lookup(media->codecs_recv, &num))
+			break; // OK
+		num++;
+		if (num < 96) // if an RFC type was taken already
+			num = 96;
+		else if (num >= 128)
+			return -1;
+	}
+	return num;
+}
+
 static void __accept_transcode_codecs(struct call_media *receiver, struct call_media *sink) {
 	// if the other side is transcoding, we need to accept codecs that were
 	// originally offered (recv->send) if we support them, even if the
@@ -425,7 +440,9 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 		__ensure_codec_def(pt, receiver);
 		if (!pt->codec_def)
 			continue;
-		if (g_hash_table_lookup(receiver->codecs_recv, &pt->payload_type)) {
+		struct rtp_payload_type *existing_pt
+			= g_hash_table_lookup(receiver->codecs_recv, &pt->payload_type);
+		if (existing_pt && !rtp_payload_type_cmp_nf(existing_pt, pt)) {
 			// already present.
 			// to keep the order intact, we seek the list for the position
 			// of this codec entry. all newly added codecs must come after
@@ -441,6 +458,28 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 				insert_pos = insert_pos->next;
 			}
 			continue;
+		}
+
+		if (existing_pt) {
+			// PT collision. We must renumber one of the entries. `pt` is taken
+			// from the send list, so the PT should remain the same. Renumber
+			// the existing entry.
+			int new_pt = __unused_pt_number(receiver, existing_pt->payload_type);
+			if (new_pt < 0) {
+				ilog(LOG_WARN, "Ran out of RTP payload type numbers while accepting '"
+						STR_FORMAT "' due to '" STR_FORMAT "'",
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT(&existing_pt->encoding_with_params));
+				continue;
+			}
+			ilog(LOG_DEBUG, "Renumbering '" STR_FORMAT "' from PT %i to %i due to '" STR_FORMAT "'",
+						STR_FMT(&existing_pt->encoding_with_params),
+						existing_pt->payload_type,
+						new_pt,
+						STR_FMT(&pt->encoding_with_params));
+			g_hash_table_steal(receiver->codecs_recv, &existing_pt->payload_type);
+			existing_pt->payload_type = new_pt;
+			g_hash_table_insert(receiver->codecs_recv, &existing_pt->payload_type, existing_pt);
 		}
 
 		ilog(LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
@@ -1686,23 +1725,15 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 	if (pt == (void *) 0x1)
 		return NULL;
 
-	// find an unused payload type number
-	if (pt->payload_type < 0)
-		pt->payload_type = 96; // default first dynamic payload type number
-	while (1) {
-		if (!g_hash_table_lookup(media->codecs_recv, &pt->payload_type))
-			break; // OK
-		pt->payload_type++;
-		if (pt->payload_type < 96) // if an RFC type was taken already
-			pt->payload_type = 96;
-		else if (pt->payload_type >= 128) {
-			ilog(LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
-					STR_FORMAT "' for transcoding",
-				STR_FMT(&pt->encoding_with_params));
-			payload_type_free(pt);
-			return NULL;
-		}
+	pt->payload_type = __unused_pt_number(media, pt->payload_type);
+	if (pt->payload_type < 0) {
+		ilog(LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
+				STR_FORMAT "' for transcoding",
+			STR_FMT(&pt->encoding_with_params));
+		payload_type_free(pt);
+		return NULL;
 	}
+
 	return pt;
 }
 
