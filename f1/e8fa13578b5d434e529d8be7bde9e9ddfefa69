@@ -1,0 +1,7 @@
+Verified+1: Jenkins Jenkins
+Code-Review+2: Richard Fuchs <rfuchs@sipwise.com>
+Submitted-by: Richard Fuchs <rfuchs@sipwise.com>
+Submitted-at: Wed, 08 Apr 2020 14:44:25 +0200
+Reviewed-on: http://gerrit.mgm.sipwise.com/c/rtpengine/+/39185
+Project: rtpengine
+Branch: refs/heads/mr8.3
