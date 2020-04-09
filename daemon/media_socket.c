@@ -95,6 +95,7 @@ const struct transport_protocol transport_protocols[] = {
 		.index		= PROTO_RTP_AVP,
 		.name		= "RTP/AVP",
 		.avpf_proto	= PROTO_RTP_AVPF,
+		.osrtp_proto	= PROTO_RTP_SAVP_OSRTP,
 		.rtp		= 1,
 		.srtp		= 0,
 		.avpf		= 0,
@@ -112,6 +113,7 @@ const struct transport_protocol transport_protocols[] = {
 	[PROTO_RTP_AVPF] = {
 		.index		= PROTO_RTP_AVPF,
 		.name		= "RTP/AVPF",
+		.osrtp_proto	= PROTO_RTP_SAVPF_OSRTP,
 		.rtp		= 1,
 		.srtp		= 0,
 		.avpf		= 1,
@@ -148,6 +150,25 @@ const struct transport_protocol transport_protocols[] = {
 		.rtp		= 0,
 		.srtp		= 0,
 		.avpf		= 0,
+		.tcp		= 0,
+	},
+	[PROTO_RTP_SAVP_OSRTP] = {
+		.index		= PROTO_RTP_SAVP_OSRTP,
+		.name		= "RTP/AVP",
+		.avpf_proto	= PROTO_RTP_SAVPF_OSRTP,
+		.rtp		= 1,
+		.srtp		= 1,
+		.osrtp		= 1,
+		.avpf		= 0,
+		.tcp		= 0,
+	},
+	[PROTO_RTP_SAVPF_OSRTP] = {
+		.index		= PROTO_RTP_SAVPF_OSRTP,
+		.name		= "RTP/AVPF",
+		.rtp		= 1,
+		.srtp		= 1,
+		.osrtp		= 1,
+		.avpf		= 1,
 		.tcp		= 0,
 	},
 };
@@ -244,6 +265,8 @@ static const struct streamhandler * const __sh_matrix_in_rtp_avp[__PROTO_LAST] =
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avp2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_avp2savp,
 	[PROTO_UDPTL]			= &__sh_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= &__sh_avp2savp,
+	[PROTO_RTP_SAVPF_OSRTP]		= &__sh_avp2savp,
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_avpf[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_avpf2avp,
@@ -253,6 +276,8 @@ static const struct streamhandler * const __sh_matrix_in_rtp_avpf[__PROTO_LAST] 
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_avpf2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_avp2savp,
 	[PROTO_UDPTL]			= &__sh_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= &__sh_avpf2savp,
+	[PROTO_RTP_SAVPF_OSRTP]		= &__sh_avp2savp,
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_savp[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_savp2avp,
@@ -262,6 +287,8 @@ static const struct streamhandler * const __sh_matrix_in_rtp_savp[__PROTO_LAST] 
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savp2savp_rtcp_only,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp_rtcp_only,
 	[PROTO_UDPTL]			= &__sh_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= &__sh_savp2savp_rtcp_only,
+	[PROTO_RTP_SAVPF_OSRTP]		= &__sh_savp2savp_rtcp_only,
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_savpf[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
@@ -271,6 +298,8 @@ static const struct streamhandler * const __sh_matrix_in_rtp_savpf[__PROTO_LAST]
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savpf2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp_rtcp_only,
 	[PROTO_UDPTL]			= &__sh_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= &__sh_savpf2savp,
+	[PROTO_RTP_SAVPF_OSRTP]		= &__sh_savp2savp_rtcp_only,
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_savp_recrypt[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_savp2avp,
@@ -280,6 +309,8 @@ static const struct streamhandler * const __sh_matrix_in_rtp_savp_recrypt[__PROT
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savp2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp,
 	[PROTO_UDPTL]			= &__sh_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= &__sh_savp2savp,
+	[PROTO_RTP_SAVPF_OSRTP]		= &__sh_savp2savp,
 };
 static const struct streamhandler * const __sh_matrix_in_rtp_savpf_recrypt[__PROTO_LAST] = {
 	[PROTO_RTP_AVP]			= &__sh_savpf2avp,
@@ -289,6 +320,8 @@ static const struct streamhandler * const __sh_matrix_in_rtp_savpf_recrypt[__PRO
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_savpf2savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_savp2savp,
 	[PROTO_UDPTL]			= &__sh_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= &__sh_savpf2savp,
+	[PROTO_RTP_SAVPF_OSRTP]		= &__sh_savp2savp,
 };
 static const struct streamhandler * const __sh_matrix_noop[__PROTO_LAST] = { // non-RTP protocols
 	[PROTO_RTP_AVP]			= &__sh_noop,
@@ -298,6 +331,8 @@ static const struct streamhandler * const __sh_matrix_noop[__PROTO_LAST] = { // 
 	[PROTO_UDP_TLS_RTP_SAVP]	= &__sh_noop,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= &__sh_noop,
 	[PROTO_UDPTL]			= &__sh_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= &__sh_noop,
+	[PROTO_RTP_SAVPF_OSRTP]		= &__sh_noop,
 };
 
 /* ********** */
@@ -310,6 +345,8 @@ static const struct streamhandler * const * const __sh_matrix[__PROTO_LAST] = {
 	[PROTO_UDP_TLS_RTP_SAVP]	= __sh_matrix_in_rtp_savp,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= __sh_matrix_in_rtp_savpf,
 	[PROTO_UDPTL]			= __sh_matrix_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= __sh_matrix_in_rtp_savp,
+	[PROTO_RTP_SAVPF_OSRTP]		= __sh_matrix_in_rtp_savpf,
 };
 /* special case for DTLS as we can't pass through SRTP<>SRTP */
 static const struct streamhandler * const * const __sh_matrix_recrypt[__PROTO_LAST] = {
@@ -320,6 +357,8 @@ static const struct streamhandler * const * const __sh_matrix_recrypt[__PROTO_LA
 	[PROTO_UDP_TLS_RTP_SAVP]	= __sh_matrix_in_rtp_savp_recrypt,
 	[PROTO_UDP_TLS_RTP_SAVPF]	= __sh_matrix_in_rtp_savpf_recrypt,
 	[PROTO_UDPTL]			= __sh_matrix_noop,
+	[PROTO_RTP_SAVP_OSRTP]		= __sh_matrix_in_rtp_savp_recrypt,
+	[PROTO_RTP_SAVPF_OSRTP]		= __sh_matrix_in_rtp_savpf_recrypt,
 };
 
 /* ********** */
