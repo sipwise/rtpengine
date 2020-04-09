@@ -2308,7 +2308,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto error;
 			ps = j->data;
 
-			if (!flags->ice_force_relay) {
+			if (!flags->ice_force_relay && call_media->type_id != MT_MESSAGE) {
 				if (replace_media_type(chop, sdp_media, call_media))
 					goto error;
 			        if (replace_media_port(chop, sdp_media, ps))
