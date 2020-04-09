@@ -543,6 +543,122 @@ rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
 
 
 
+# MSRP (GH 959)
+
+new_call();
+
+offer('gh 959 media c=', { ICE => 'remove', }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+m=message 28000 TCP/MSRP *
+c=IN IP4 1.2.3.4
+a=setup:active
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+m=message 28000 TCP/MSRP *
+c=IN IP4 1.2.3.4
+a=setup:active
+SDP
+
+new_call();
+
+offer('gh 959 media c= no session c=', { ICE => 'remove', }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+t=0 0
+m=audio 27998 RTP/AVP 96
+c=IN IP4 1.2.3.4
+a=rtpmap:96 opus/48000/2
+m=message 28000 TCP/MSRP *
+c=IN IP4 1.2.3.4
+a=setup:active
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+m=message 28000 TCP/MSRP *
+c=IN IP4 1.2.3.4
+a=setup:active
+SDP
+
+new_call();
+
+offer('gh 959 session c=', { ICE => 'remove', }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+m=message 28000 TCP/MSRP *
+a=setup:active
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+m=message 28000 TCP/MSRP *
+c=IN IP4 1.2.3.4
+a=setup:active
+SDP
+
+new_call();
+
+offer('gh 959 session c= no attrs', { ICE => 'remove', }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+m=message 28000 TCP/MSRP *
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+m=message 28000 TCP/MSRP *
+c=IN IP4 1.2.3.4
+SDP
+
+
+
+
+
+
+
 # SDES key lifetime
 
 new_call();
