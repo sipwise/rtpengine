@@ -12,6 +12,7 @@ enum media_type {
 	MT_AUDIO,
 	MT_VIDEO,
 	MT_IMAGE,
+	MT_MESSAGE,
 	MT_OTHER,
 };
 

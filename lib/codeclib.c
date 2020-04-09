@@ -453,6 +453,8 @@ enum media_type codec_get_type(const str *type) {
 		return MT_VIDEO;
 	if (!str_cmp(type, "image"))
 		return MT_IMAGE;
+	if (!str_cmp(type, "message"))
+		return MT_MESSAGE;
 	return MT_OTHER;
 }
 
