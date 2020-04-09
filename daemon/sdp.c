@@ -1521,6 +1521,14 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 						sp->fingerprint.hash_func->num_bytes);
 			}
 
+			// OSRTP (RFC 8643)
+			if (sp->protocol && sp->protocol->rtp && !sp->protocol->srtp
+					&& sp->protocol->osrtp_proto)
+			{
+				if (sp->fingerprint.hash_func || sp->sdes_params.length)
+					sp->protocol = &transport_protocols[sp->protocol->osrtp_proto];
+			}
+
 			// a=mid
 			attr = attr_get_by_id(&media->attributes, ATTR_MID);
 			if (attr)

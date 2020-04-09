@@ -1859,6 +1859,13 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	if (!flags)
 		return;
 
+	// OSRTP requested?
+	if (media->protocol && media->protocol->rtp && !media->protocol->srtp
+			&& media->protocol->osrtp_proto && flags->osrtp && flags->opmode == OP_OFFER)
+	{
+		media->protocol = &transport_protocols[media->protocol->osrtp_proto];
+	}
+
 	// T.38 decoder?
 	if (other_media->type_id == MT_IMAGE && proto_is(other_media->protocol, PROTO_UDPTL)
 			&& flags->t38_decode)

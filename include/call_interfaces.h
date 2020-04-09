@@ -67,6 +67,7 @@ struct sdp_ng_flags {
 	    strict_source:1,
 	    media_handover:1,
 	    dtls_passive:1,
+	    osrtp:1,
 	    reset:1,
 	    all:1,
 	    fragment:1,
