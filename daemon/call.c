@@ -1484,7 +1484,7 @@ static void __sdes_accept(struct call_media *media, const struct sdp_ng_flags *f
 			crypto_params_sdes_free(offered_cps);
 			l = next;
 		}
-}
+	}
 
 	struct crypto_params_sdes *cps_in = media->sdes_in.head->data;
 	GList *l = media->sdes_out.head;
@@ -1848,8 +1848,14 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		other_media->protocol = sp->protocol;
 		/* if the endpoint changes the protocol, we reset the other side's
 		 * protocol as well. this lets us remember our previous overrides,
-		 * but also lets endpoints re-negotiate. */
-		media->protocol = NULL;
+		 * but also lets endpoints re-negotiate.
+		 * Exception: OSRTP answer/accept. */
+		if (flags && flags->opmode == OP_ANSWER && other_media->protocol && other_media->protocol->rtp
+				&& !other_media->protocol->srtp
+				&& media->protocol && media->protocol->osrtp && flags->osrtp_accept)
+			;
+		else
+			media->protocol = NULL;
 	}
 	/* default is to leave the protocol unchanged */
 	if (!media->protocol)
@@ -1858,6 +1864,13 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	// handler overrides requested by the user
 	if (!flags)
 		return;
+
+	// OSRTP offer requested?
+	if (media->protocol && media->protocol->rtp && !media->protocol->srtp
+			&& media->protocol->osrtp_proto && flags->osrtp_offer && flags->opmode == OP_OFFER)
+	{
+		media->protocol = &transport_protocols[media->protocol->osrtp_proto];
+	}
 
 	// T.38 decoder?
 	if (other_media->type_id == MT_IMAGE && proto_is(other_media->protocol, PROTO_UDPTL)
