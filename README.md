@@ -37,6 +37,7 @@ the following additional features are available:
   + AES-CM and AES-F8 ciphers, both in userspace and in kernel
   + HMAC-SHA1 packet authentication
   + Bridging between RTP and SRTP user agents
+  + Opportunistic SRTP (RFC 8643)
 - Support for RTCP profile with feedback extensions (RTP/AVPF, RFC 4585 and 5124)
 - Arbitrary bridging between any of the supported RTP profiles (RTP/AVP, RTP/AVPF,
   RTP/SAVP, RTP/SAVPF)
@@ -939,6 +940,21 @@ Optionally included keys are:
 	- `lifetime`
 
 		Add the key lifetime parameter `2^31` to each crypto key.
+
+* `OSRTP`
+
+	Similar to `SDES` but controls OSRTP behaviour. Default behaviour is to pass through
+	OSRTP negotiations. Supported options:
+
+	- `offer`
+
+		When processing a non-OSRTP offer, convert it to an OSRTP offer. Will result
+		in RTP/SRTP transcoding if the OSRTP offer is accepted.
+
+	- `accept`
+
+		When processing a non-OSRTP answer in response to an OSRTP offer, accept the
+		OSRTP offer anyway. Results in RTP/SRTP transcoding.
 
 * `record call`
 

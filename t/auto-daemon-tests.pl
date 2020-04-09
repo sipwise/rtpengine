@@ -13,7 +13,532 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 		or die;
 
 
-my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, @ret1, @ret2);
+my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp,
+	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev,
+	@ret1, @ret2, $srtp_key_a, $srtp_key_b);
+
+
+
+
+# SRTP control - accept diff suite from offer
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3328)], [qw(198.51.100.3 3330)]);
+
+($port_a, undef, $srtp_key_a) = offer('reg SRTP offer, accept, diff suite',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3328 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b, undef, $srtp_key_b) = answer('reg SRTP offer, accept, diff suite',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3330 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_32},
+	key => 'Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7',
+};
+$srtp_ctx_a_rev = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_32},
+	key => $srtp_key_a,
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa',
+};
+$srtp_ctx_b_rev = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => $srtp_key_b,
+};
+
+srtp_snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a_rev);
+srtp_snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_b_rev);
+
+
+
+
+
+# OSRTP
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3316)], [qw(198.51.100.3 3318)]);
+
+($port_a) = offer('OSRTP offer, accept, same suite',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3316 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b) = answer('OSRTP offer, accept, same suite',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3318 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa',
+};
+
+srtp_snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_b);
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3320)], [qw(198.51.100.3 3322)]);
+
+($port_a, undef, $srtp_key_a) = offer('OSRTP offer, accept, diff suite',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3320 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b, undef, $srtp_key_b) = answer('OSRTP offer, accept, diff suite',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3322 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_32},
+	key => 'Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7',
+};
+$srtp_ctx_a_rev = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_32},
+	key => $srtp_key_a,
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa',
+};
+$srtp_ctx_b_rev = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => $srtp_key_b,
+};
+
+srtp_snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a_rev);
+srtp_snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_b_rev);
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3324)], [qw(198.51.100.3 3326)]);
+
+($port_a) = offer('OSRTP offer, reject',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3324 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b) = answer('OSRTP offer, reject',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3326 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3324)], [qw(198.51.100.3 3326)]);
+
+($port_a) = offer('OSRTP offer, reject w/ accept flag',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3324 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b, undef, $srtp_key_a) = answer('OSRTP offer, reject w/ accept flag',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', OSRTP => ['accept'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3326 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => $srtp_key_a,
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa',
+};
+
+srtp_snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_b);
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_a);
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3336)], [qw(198.51.100.3 3338)]);
+
+($port_a, undef, $srtp_key_a) = offer('non-OSRTP offer with offer flag, accept',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', OSRTP => ['offer'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3336 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b) = answer('non-OSRTP offer with offer flag, accept',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3338 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q7',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => $srtp_key_a,
+};
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+srtp_rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_b);
+srtp_snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_a);
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+
+
+
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 3340)], [qw(198.51.100.3 3342)]);
+
+($port_a, undef, $srtp_key_a) = offer('non-OSRTP offer with offer flag, reject',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', OSRTP => ['offer'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3340 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b) = answer('non-OSRTP offer with offer flag, reject',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3342 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+
+
+
+
+
+
 
 
 
