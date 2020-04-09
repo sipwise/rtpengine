@@ -550,6 +550,20 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	}
 }
 
+INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("accept"):
+			out->osrtp_accept = 1;
+			break;
+		case CSH_LOOKUP("offer"):
+			out->osrtp_offer = 1;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'OSRTP' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
+}
+
 
 #ifdef WITH_TRANSCODING
 INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
@@ -801,6 +815,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				return;
 			if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
 				return;
+			if (call_ng_flags_prefix(out, s, "OSRTP-", ng_osrtp_option, NULL))
+				return;
 			if (out->opmode == OP_OFFER) {
 				if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_str_ht,
 							&out->codec_strip))
@@ -906,6 +922,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
 	call_ng_flags_list(out, input, "SDES", ng_sdes_option, NULL);
+	call_ng_flags_list(out, input, "OSRTP", ng_osrtp_option, NULL);
 #ifdef WITH_TRANSCODING
 	call_ng_flags_list(out, input, "T38", ng_t38_option, NULL);
 	call_ng_flags_list(out, input, "T.38", ng_t38_option, NULL);

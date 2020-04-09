@@ -34,6 +34,8 @@ enum transport_protocol_index {
 	PROTO_UDP_TLS_RTP_SAVP,
 	PROTO_UDP_TLS_RTP_SAVPF,
 	PROTO_UDPTL,
+	PROTO_RTP_SAVP_OSRTP,
+	PROTO_RTP_SAVPF_OSRTP,
 
 	__PROTO_LAST,
 };
@@ -41,8 +43,10 @@ struct transport_protocol {
 	enum transport_protocol_index	index;
 	const char			*name;
 	enum transport_protocol_index	avpf_proto;
+	enum transport_protocol_index	osrtp_proto;
 	int				rtp:1; /* also set to 1 for SRTP */
 	int				srtp:1;
+	int				osrtp:1;
 	int				avpf:1;
 	int				tcp:1;
 };
