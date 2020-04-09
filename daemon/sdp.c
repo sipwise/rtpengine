@@ -35,6 +35,7 @@ struct sdp_origin {
 };
 
 struct sdp_connection {
+	str s;
 	struct network_address address;
 	int parsed:1;
 };
@@ -69,6 +70,7 @@ struct sdp_media {
 	int port_count;
 
 	struct sdp_connection connection;
+	const char *c_line_pos;
 	int rr, rs;
 	struct sdp_attributes attributes;
 	GQueue format_list; /* list of slice-alloc'd str objects */
@@ -347,6 +349,8 @@ static int parse_origin(str *value_str, struct sdp_origin *output) {
 static int parse_connection(str *value_str, struct sdp_connection *output) {
 	if (output->parsed)
 		return -1;
+
+	output->s = *value_str;
 
 	EXTRACT_NETWORK_ADDRESS(address);
 
@@ -1090,6 +1094,9 @@ new_session:
 				break;
 
 			case 'm':
+				if (media && !media->c_line_pos)
+					media->c_line_pos = b;
+
 				media = g_slice_alloc0(sizeof(*media));
 				media->session = session;
 				attrs_init(&media->attributes);
@@ -1111,6 +1118,9 @@ new_session:
 				break;
 
 			case 'a':
+				if (media && !media->c_line_pos)
+					media->c_line_pos = b;
+
 				attr = g_slice_alloc0(sizeof(*attr));
 
 				attr->full_line.s = b;
@@ -1140,6 +1150,9 @@ new_session:
 				break;
 
 			case 'b':
+				if (media && !media->c_line_pos)
+					media->c_line_pos = b;
+
 				/* RR:0 */
 				if (line_end - value < 4)
 					break;
@@ -1151,6 +1164,11 @@ new_session:
 						(line_end - value == 4 && value[3] == '0') ? 0 : 1;
 				break;
 
+			case 'k':
+				if (media && !media->c_line_pos)
+					media->c_line_pos = b;
+				break;
+
 			case 's':
 			case 'i':
 			case 'u':
@@ -1159,7 +1177,6 @@ new_session:
 			case 't':
 			case 'r':
 			case 'z':
-			case 'k':
 				break;
 
 			default:
@@ -1831,6 +1848,22 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 	return 0;
 }
 
+static int synth_session_connection(struct sdp_chopper *chop, struct sdp_media *sdp_media) {
+	if (!sdp_media->session->connection.s.s)
+		return -1;
+
+	if (sdp_media->c_line_pos)
+		copy_up_to_ptr(chop, sdp_media->c_line_pos);
+	else
+		copy_up_to_end_of(chop, chop->input);
+
+	chopper_append_c(chop, "c=");
+	chopper_append_str(chop, &sdp_media->session->connection.s);
+	chopper_append_c(chop, "\n");
+
+	return 0;
+}
+
 void sdp_chopper_destroy(struct sdp_chopper *chop) {
 	g_string_free(chop->output, TRUE);
 	g_slice_free1(sizeof(*chop), chop);
@@ -2310,7 +2343,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto error;
 			ps = j->data;
 
-			if (!flags->ice_force_relay) {
+			if (!flags->ice_force_relay && call_media->type_id != MT_MESSAGE) {
 				if (replace_media_type(chop, sdp_media, call_media))
 					goto error;
 			        if (replace_media_port(chop, sdp_media, ps))
@@ -2327,6 +2360,13 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 								flags, 1))
 					        goto error;
 				}
+			}
+			else if (call_media->type_id == MT_MESSAGE) {
+				if (!sdp_media->connection.parsed)
+					if (synth_session_connection(chop, sdp_media))
+						goto error;
+				// leave everything untouched
+				goto next;
 			}
 
 			if (process_media_attributes(chop, sdp_media, flags, call_media))
