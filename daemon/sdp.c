@@ -1403,15 +1403,15 @@ static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
 		to->max_ifp = attr->u.i;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXFILLBITREMOVAL);
-	if (attr)
+	if (attr && (!attr->value.len || str_cmp(&attr->value, "0")))
 		to->fill_bit_removal = 1;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXTRANSCODINGMMR);
-	if (attr)
+	if (attr && (!attr->value.len || str_cmp(&attr->value, "0")))
 		to->transcoding_mmr = 1;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXTRANSCODINGJBIG);
-	if (attr)
+	if (attr && (!attr->value.len || str_cmp(&attr->value, "0")))
 		to->transcoding_jbig = 1;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXRATEMANAGEMENT);
