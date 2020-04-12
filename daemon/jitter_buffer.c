@@ -8,9 +8,10 @@
 #include <errno.h>
 
 #define INITIAL_PACKETS 0x1E
-#define CONT_SEQ_COUNT 0x64
+#define CONT_SEQ_COUNT 0x1F4
 #define CONT_MISS_COUNT 0x0A
 #define CLOCK_DRIFT_MULT 0x14
+#define ONE_MS 0x64
 
 
 static struct timerthread jitter_buffer_thread;
@@ -135,6 +136,7 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 		(long long) (ts_diff + (jb->rtptime_delta * jb->buffer_len))* 1000000 / clockrate;
 
 	ts_diff_us += (jb->clock_drift_val * seq_diff); 
+	ts_diff_us += (jb->dtmf_mult_factor * ONE_MS);
 
 	if(jb->buf_decremented) {
 		ts_diff_us += 5000; //add 5ms delta when 2 packets are scheduled around same time
@@ -144,7 +146,7 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 
 	ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now);
 
-	if (ts_diff_us > 1000000  || ts_diff_us < -1000000) { // more/less than one second, can't be right
+	if (ts_diff_us > 1000000) { // more than one second, can't be right
 		ilog(LOG_DEBUG, "Partial reset due to timestamp");
 		jb->first_send.tv_sec = 0;
 		return 1;
@@ -216,6 +218,10 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 		if(rtp_pt) {
 			if(rtp_pt->codec_def && !rtp_pt->codec_def->dtmf)
 				jb->first_send.tv_sec = 0;
+			if(rtp_pt->codec_def->dtmf)
+				jb->dtmf_mult_factor++;
+			else
+				jb->dtmf_mult_factor=0;
 		}
 	}
 
@@ -291,7 +297,6 @@ static void set_jitter_values(struct media_packet *mp) {
 		}
 		else if(curr_seq < jb->next_exp_seq) { //Might be duplicate or sequence already crossed
 			jb->cont_frames = 0;
-			jb->cont_miss++;
 		}
 		else {
 			jb->cont_frames++;

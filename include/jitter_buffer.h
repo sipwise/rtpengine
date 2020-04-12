@@ -33,6 +33,7 @@ struct jitter_buffer {
 	unsigned int            initial_pkts;
 	unsigned int            drift_mult_factor;
 	unsigned int            ssrc;
+	unsigned int            dtmf_mult_factor;
 	int            		buffer_len;
 	int                     clock_drift_val;
 	int                     buf_decremented;
