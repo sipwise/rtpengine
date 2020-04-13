@@ -1478,7 +1478,8 @@ and stopped independently of each other.
 
 Only available if compiled with transcoding support. The message must contain the key `call-id` and one
 of the participant selection keys described under the `block DTMF` message (such as `from-tag`,
-`address`, or `label`).
+`address`, or `label`). Alternatively, the `all` flag can be set to play the media to all involved
+call parties.
 
 Starts playback of a provided media file to the selected call participant. The format of the media file
 can be anything that is supported by *ffmpeg*, for example a `.wav` or `.mp3` file. It will automatically
@@ -1518,8 +1519,9 @@ The same participant selection keys as for the `play media` message can and must
 -------------------
 
 Instructs *rtpengine* to inject a DTMF tone or event into a running audio stream. A call participant must
-be selected in the same way as described under the `block DTMF` message above. The selected call participant
-is the one generating the DTMF event, not the one receiving it.
+be selected in the same way as described under the `play media` message above (including the possibility
+of using the `all` flag). The selected call participant is the one generating the DTMF event, not the
+one receiving it.
 
 The dictionary key `code` must be present in the message, indicating the DTMF event to be generated. It can
 be either an integer with values 0-15, or a string containing a single character
