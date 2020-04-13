@@ -1571,7 +1571,8 @@ and stopped independently of each other.
 
 Only available if compiled with transcoding support. The message must contain the key `call-id` and one
 of the participant selection keys described under the `block DTMF` message (such as `from-tag`,
-`address`, or `label`).
+`address`, or `label`). Alternatively, the `all` flag can be set to play the media to all involved
+call parties.
 
 Starts playback of a provided media file to the selected call participant. The format of the media file
 can be anything that is supported by *ffmpeg*, for example a `.wav` or `.mp3` file. It will automatically

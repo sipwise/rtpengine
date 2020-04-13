@@ -1603,6 +1603,9 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 		return "Unknown call-id";
 
 	// directional?
+	if (flags->all) // explicitly non-directional, so skip the rest
+		return NULL;
+
 	if (flags->label.s) {
 		*monologue = g_hash_table_lookup((*call)->labels, &flags->label);
 		if (!*monologue)
@@ -1848,14 +1851,23 @@ out:
 
 
 #ifdef WITH_TRANSCODING
-static const char *play_media_select_party(struct call **call, struct call_monologue **monologue,
+static const char *play_media_select_party(struct call **call, GQueue *monologues,
 		bencode_item_t *input)
 {
-	const char *err = media_block_match(call, monologue, NULL, input);
+	struct call_monologue *monologue;
+	struct sdp_ng_flags flags;
+
+	g_queue_init(monologues);
+
+	const char *err = media_block_match(call, &monologue, &flags, input);
 	if (err)
 		return err;
-	if (!*monologue)
+	if (flags.all)
+		g_queue_append(monologues, &(*call)->monologues);
+	else if (!monologue)
 		return "No participant party specified";
+	else
+		g_queue_push_tail(monologues, monologue);
 	return NULL;
 }
 #endif
@@ -1865,42 +1877,47 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	str str;
 	struct call *call;
-	struct call_monologue *monologue;
+	GQueue monologues;
 	const char *err = NULL;
 	long long db_id;
 
-	err = play_media_select_party(&call, &monologue, input);
+	err = play_media_select_party(&call, &monologues, input);
 	if (err)
 		goto out;
 
-	if (!monologue->player)
-		monologue->player = media_player_new(monologue);
+	for (GList *l = monologues.head; l; l = l->next) {
+		struct call_monologue *monologue = l->data;
 
-	err = "No media file specified";
-	if (bencode_dictionary_get_str(input, "file", &str)) {
-		err = "Failed to start media playback from file";
-		if (media_player_play_file(monologue->player, &str))
-			goto out;
-	}
-	else if (bencode_dictionary_get_str(input, "blob", &str)) {
-		err = "Failed to start media playback from blob";
-		if (media_player_play_blob(monologue->player, &str))
-			goto out;
-	}
-	else if ((db_id = bencode_dictionary_get_int_str(input, "db-id", 0)) > 0) {
-		err = "Failed to start media playback from database";
-		if (media_player_play_db(monologue->player, db_id))
-			goto out;
-	}
-	else
-		goto out;
+		if (!monologue->player)
+			monologue->player = media_player_new(monologue);
 
-	if (monologue->player->duration)
-		bencode_dictionary_add_integer(output, "duration", monologue->player->duration);
+		err = "No media file specified";
+		if (bencode_dictionary_get_str(input, "file", &str)) {
+			err = "Failed to start media playback from file";
+			if (media_player_play_file(monologue->player, &str))
+				goto out;
+		}
+		else if (bencode_dictionary_get_str(input, "blob", &str)) {
+			err = "Failed to start media playback from blob";
+			if (media_player_play_blob(monologue->player, &str))
+				goto out;
+		}
+		else if ((db_id = bencode_dictionary_get_int_str(input, "db-id", 0)) > 0) {
+			err = "Failed to start media playback from database";
+			if (media_player_play_db(monologue->player, db_id))
+				goto out;
+		}
+		else
+			goto out;
+
+		if (l == monologues.head && monologue->player->duration)
+			bencode_dictionary_add_integer(output, "duration", monologue->player->duration);
+	}
 
 	err = NULL;
 
 out:
+	g_queue_clear(&monologues);
 	if (call) {
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);
@@ -1915,21 +1932,27 @@ out:
 const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	struct call *call;
-	struct call_monologue *monologue;
+	GQueue monologues;
 	const char *err = NULL;
 
-	err = play_media_select_party(&call, &monologue, input);
+	err = play_media_select_party(&call, &monologues, input);
 	if (err)
 		goto out;
 
-	if (!monologue->player)
-		return "Not currently playing media";
+	for (GList *l = monologues.head; l; l = l->next) {
+		struct call_monologue *monologue = l->data;
 
-	media_player_stop(monologue->player);
+		err = "Not currently playing media";
+		if (!monologue->player)
+			goto out;
+
+		media_player_stop(monologue->player);
+	}
 
 	err = NULL;
 
 out:
+	g_queue_clear(&monologues);
 	if (call) {
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);
@@ -1944,11 +1967,11 @@ out:
 const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	struct call *call;
-	struct call_monologue *monologue;
+	GQueue monologues;
 	str str;
 	const char *err = NULL;
 
-	err = play_media_select_party(&call, &monologue, input);
+	err = play_media_select_party(&call, &monologues, input);
 	if (err)
 		goto out;
 
@@ -1998,25 +2021,32 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (volume > 0)
 		volume *= -1;
 
-	// find a usable output media
-	struct call_media *media;
-	for (GList *l = monologue->medias.head; l; l = l->next) {
-		media = l->data;
-		if (media->type_id != MT_AUDIO)
-			continue;
-		if (!media->dtmf_injector)
-			continue;
-		goto found;
-	}
+	for (GList *l = monologues.head; l; l = l->next) {
+		struct call_monologue *monologue = l->data;
 
-	err = "Monologue has no media capable of DTMF injection";
-	// XXX fall back to generating a secondary stream
-	goto out;
+		// find a usable output media
+		struct call_media *media;
+		for (GList *l = monologue->medias.head; l; l = l->next) {
+			media = l->data;
+			if (media->type_id != MT_AUDIO)
+				continue;
+			if (!media->dtmf_injector)
+				continue;
+			goto found;
+		}
+
+		err = "Monologue has no media capable of DTMF injection";
+		// XXX fall back to generating a secondary stream
+		goto out;
 
 found:;
-	err = dtmf_inject(media, code, volume, duration, pause);
+		err = dtmf_inject(media, code, volume, duration, pause);
+		if (err)
+			break;
+	}
 
 out:
+	g_queue_clear(&monologues);
 	if (call) {
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);
