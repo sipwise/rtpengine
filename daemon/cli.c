@@ -1457,7 +1457,10 @@ static void cli_incoming_list_jsonstats(str *instr, struct streambuf *replybuffe
 	streambuf_printf(replybuffer, "\"maxdeleterequestrate\":%llu,", (unsigned long long)deletes_ps.ps_max);
 	streambuf_printf(replybuffer, "\"avgdeleterequestrate\":%llu", (unsigned long long)deletes_ps.ps_avg);
 
-	streambuf_printf(replybuffer, "},\"controlstatistics\":[");
+	streambuf_printf(replybuffer, "},\"controlstatistics\":{\"proxies\":[");
+
+	struct control_ng_stats total;
+	memset (&total, 0, sizeof(total));
 
 	mutex_lock(&rtpe_cngs_lock);
 	GList *list = g_hash_table_get_values(rtpe_cngs_hash);
@@ -1466,22 +1469,65 @@ static void cli_incoming_list_jsonstats(str *instr, struct streambuf *replybuffe
 		if (l != list)
 			streambuf_printf(replybuffer, ",");
 		struct control_ng_stats* cur = l->data;
+		total.ping += cur->ping;
+		total.offer += cur->offer;
+		total.answer += cur->answer;
+		total.delete += cur->delete;
+		total.query += cur->query;
+		total.list += cur->list;
+		total.start_recording += cur->start_recording;
+		total.stop_recording += cur->stop_recording;
+		total.start_forwarding += cur->start_forwarding;
+		total.stop_forwarding += cur->stop_forwarding;
+		total.block_dtmf += cur->block_dtmf;
+		total.unblock_dtmf += cur->unblock_dtmf;
+		total.block_media += cur->block_media;
+		total.unblock_media += cur->unblock_media;
+		total.play_media += cur->play_media;
+		total.stop_media += cur->stop_media;
+		total.play_dtmf += cur->play_dtmf;
+		total.errors += cur->errors;
 		streambuf_printf(replybuffer, "{\"proxy\":\"%s\",", sockaddr_print_buf(&cur->proxy));
+		streambuf_printf(replybuffer, "\"pingcount\":%u,", cur->ping);
 		streambuf_printf(replybuffer, "\"offercount\":%u,", cur->offer);
 		streambuf_printf(replybuffer, "\"answercount\":%u,", cur->answer);
 		streambuf_printf(replybuffer, "\"deletecount\":%u,", cur->delete);
-		streambuf_printf(replybuffer, "\"pingcount\":%u,", cur->ping);
-		streambuf_printf(replybuffer, "\"listcount\":%u,", cur->list);
 		streambuf_printf(replybuffer, "\"querycount\":%u,", cur->query);
+		streambuf_printf(replybuffer, "\"listcount\":%u,", cur->list);
 		streambuf_printf(replybuffer, "\"startreccount\":%u,", cur->start_recording);
 		streambuf_printf(replybuffer, "\"stopreccount\":%u,", cur->stop_recording);
-		streambuf_printf(replybuffer, "\"errorcount\":%u,", cur->errors);
+		streambuf_printf(replybuffer, "\"startfwdcount\":%u,", cur->start_forwarding);
+		streambuf_printf(replybuffer, "\"stopfwdcount\":%u,", cur->stop_forwarding);
 		streambuf_printf(replybuffer, "\"blkdtmfcount\":%u,", cur->block_dtmf);
-		streambuf_printf(replybuffer, "\"unblkdtmfcount\":%u}", cur->unblock_dtmf);
+		streambuf_printf(replybuffer, "\"unblkdtmfcount\":%u,", cur->unblock_dtmf);
+		streambuf_printf(replybuffer, "\"blkmedia\":%u,", cur->block_media);
+		streambuf_printf(replybuffer, "\"unblkmedia\":%u,", cur->unblock_media);
+		streambuf_printf(replybuffer, "\"playmedia\":%u,", cur->play_media);
+		streambuf_printf(replybuffer, "\"stopmedia\":%u,", cur->stop_media);
+		streambuf_printf(replybuffer, "\"playdtmf\":%u,", cur->play_dtmf);
+		streambuf_printf(replybuffer, "\"errorcount\":%u}", cur->errors);
 	}
 	mutex_unlock(&rtpe_cngs_lock);
+	streambuf_printf(replybuffer, "],\"totalpingcount\":%u,", total.ping);
+	streambuf_printf(replybuffer, "\"totaloffercount\":%u,", total.offer);
+	streambuf_printf(replybuffer, "\"totalanswercount\":%u,", total.answer);
+	streambuf_printf(replybuffer, "\"totaldeletecount\":%u,", total.delete);
+	streambuf_printf(replybuffer, "\"totalquerycount\":%u,", total.query);
+	streambuf_printf(replybuffer, "\"totallistcount\":%u,", total.list);
+	streambuf_printf(replybuffer, "\"totalstartreccount\":%u,", total.start_recording);
+	streambuf_printf(replybuffer, "\"totalstopreccount\":%u,", total.stop_recording);
+	streambuf_printf(replybuffer, "\"totalstartfwdcount\":%u,", total.start_forwarding);
+	streambuf_printf(replybuffer, "\"totalstopfwdcount\":%u,", total.stop_forwarding);
+	streambuf_printf(replybuffer, "\"totalblkdtmfcount\":%u,", total.block_dtmf);
+	streambuf_printf(replybuffer, "\"totalunblkdtmfcount\":%u,", total.unblock_dtmf);
+	streambuf_printf(replybuffer, "\"totalblkmedia\":%u,", total.block_media);
+	streambuf_printf(replybuffer, "\"totalunblkmedia\":%u,", total.unblock_media);
+	streambuf_printf(replybuffer, "\"totalplaymedia\":%u,", total.play_media);
+	streambuf_printf(replybuffer, "\"totalstopmedia\":%u,", total.stop_media);
+	streambuf_printf(replybuffer, "\"totalplaydtmf\":%u,", total.play_dtmf);
+	streambuf_printf(replybuffer, "\"totalerrorcount\":%u", total.errors);
 
-	streambuf_printf(replybuffer, "]}");
+	streambuf_printf(replybuffer, "}}");
 	g_list_free(list);
 }
 
