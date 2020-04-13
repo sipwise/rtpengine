@@ -88,6 +88,7 @@ static void cli_incoming_list_redisconnecttimeout(str *instr, struct streambuf *
 static void cli_incoming_list_rediscmdtimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_interfaces(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_jsonstats(str *instr, struct streambuf *replybuffer);
 
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
@@ -139,6 +140,7 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "rediscmdtimeout",		cli_incoming_list_rediscmdtimeout	},
 	{ "controltos",			cli_incoming_list_controltos		},
 	{ "interfaces",			cli_incoming_list_interfaces		},
+	{ "jsonstats",			cli_incoming_list_jsonstats		},
 	{ NULL, },
 };
 
@@ -1390,6 +1392,97 @@ static void cli_incoming_list_interfaces(str *instr, struct streambuf *replybuff
 		streambuf_printf(replybuffer, " Last port used: %5u\n",
 				l);
 	}
+}
+
+static void cli_incoming_list_jsonstats(str *instr, struct streambuf *replybuffer) {
+	struct timeval avg, calls_dur_iv;
+	u_int64_t num_sessions, min_sess_iv, max_sess_iv;
+	struct request_time offer_iv, answer_iv, delete_iv;
+	struct requests_ps offers_ps, answers_ps, deletes_ps;
+
+	mutex_lock(&rtpe_totalstats.total_average_lock);
+	avg = rtpe_totalstats.total_average_call_dur;
+	num_sessions = rtpe_totalstats.total_managed_sess;
+	mutex_unlock(&rtpe_totalstats.total_average_lock);
+
+	streambuf_printf(replybuffer, "{\"totalstatistics\":{");
+	streambuf_printf(replybuffer, "\"uptime\":%llu,", (unsigned long long)time(NULL)-rtpe_totalstats.started);
+	streambuf_printf(replybuffer, "\"managedsessions\":"UINT64F",", num_sessions);
+	streambuf_printf(replybuffer, "\"rejectedsessions\":"UINT64F",", atomic64_get(&rtpe_totalstats.total_rejected_sess));
+	streambuf_printf(replybuffer, "\"timeoutsessions\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_timeout_sess));
+	streambuf_printf(replybuffer, "\"silenttimeoutsessions\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_silent_timeout_sess));
+	streambuf_printf(replybuffer, "\"finaltimeoutsessions\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_final_timeout_sess));
+	streambuf_printf(replybuffer, "\"offertimeoutsessions\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_offer_timeout_sess));
+	streambuf_printf(replybuffer, "\"regularterminatedsessions\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_regular_term_sess));
+	streambuf_printf(replybuffer, "\"forcedterminatedsessions\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_forced_term_sess));
+	streambuf_printf(replybuffer, "\"relayedpackets\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_relayed_packets));
+	streambuf_printf(replybuffer, "\"relayedpacketerrors\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_relayed_errors));
+	streambuf_printf(replybuffer, "\"zerowaystreams\":"UINT64F",", atomic64_get(&rtpe_totalstats.total_nopacket_relayed_sess));
+	streambuf_printf(replybuffer, "\"onewaystreams\":"UINT64F",",atomic64_get(&rtpe_totalstats.total_oneway_stream_sess));
+	streambuf_printf(replybuffer, "\"avgcallduration\":%ld.%06ld",avg.tv_sec,avg.tv_usec);
+
+	mutex_lock(&rtpe_totalstats_lastinterval_lock);
+	calls_dur_iv = rtpe_totalstats_lastinterval.total_calls_duration_interval;
+	min_sess_iv = rtpe_totalstats_lastinterval.managed_sess_min;
+	max_sess_iv = rtpe_totalstats_lastinterval.managed_sess_max;
+	offer_iv = rtpe_totalstats_lastinterval.offer;
+	answer_iv = rtpe_totalstats_lastinterval.answer;
+	delete_iv = rtpe_totalstats_lastinterval.delete;
+	offers_ps = rtpe_totalstats_lastinterval.offers_ps;
+	answers_ps = rtpe_totalstats_lastinterval.answers_ps;
+	deletes_ps = rtpe_totalstats_lastinterval.deletes_ps;
+	mutex_unlock(&rtpe_totalstats_lastinterval_lock);
+
+	streambuf_printf(replybuffer, "},\"intervalstatistics\":{");
+	streambuf_printf(replybuffer, "\"totalcallsduration\":%ld.%06ld,",calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
+	streambuf_printf(replybuffer, "\"minmanagedsessions\":"UINT64F",", min_sess_iv);
+	streambuf_printf(replybuffer, "\"maxmanagedsessions\":"UINT64F",", max_sess_iv);
+	streambuf_printf(replybuffer, "\"minofferdelay\":%llu.%06llu,", (unsigned long long)offer_iv.time_min.tv_sec,(unsigned long long)offer_iv.time_min.tv_usec);
+	streambuf_printf(replybuffer, "\"maxofferdelay\":%llu.%06llu,", (unsigned long long)offer_iv.time_max.tv_sec,(unsigned long long)offer_iv.time_max.tv_usec);
+	streambuf_printf(replybuffer, "\"avgofferdelay\":%llu.%06llu,", (unsigned long long)offer_iv.time_avg.tv_sec,(unsigned long long)offer_iv.time_avg.tv_usec);
+	streambuf_printf(replybuffer, "\"minanswerdelay\":%llu.%06llu,", (unsigned long long)answer_iv.time_min.tv_sec,(unsigned long long)answer_iv.time_min.tv_usec);
+	streambuf_printf(replybuffer, "\"maxanswerdelay\":%llu.%06llu,", (unsigned long long)answer_iv.time_max.tv_sec,(unsigned long long)answer_iv.time_max.tv_usec);
+	streambuf_printf(replybuffer, "\"avganswerdelay\":%llu.%06llu,", (unsigned long long)answer_iv.time_avg.tv_sec,(unsigned long long)answer_iv.time_avg.tv_usec);
+	streambuf_printf(replybuffer, "\"mindeletedelay\":%llu.%06llu,", (unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec);
+	streambuf_printf(replybuffer, "\"maxdeletedelay\":%llu.%06llu,", (unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec);
+	streambuf_printf(replybuffer, "\"avgdeletedelay\":%llu.%06llu,", (unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
+
+	streambuf_printf(replybuffer, "\"minofferrequestrate\":%llu,", (unsigned long long)offers_ps.ps_min);
+	streambuf_printf(replybuffer, "\"maxofferrequestrate\":%llu,", (unsigned long long)offers_ps.ps_max);
+	streambuf_printf(replybuffer, "\"avgofferrequestrate\":%llu,", (unsigned long long)offers_ps.ps_avg);
+	streambuf_printf(replybuffer, "\"minanswerrequestrate\":%llu,",	(unsigned long long)answers_ps.ps_min);
+	streambuf_printf(replybuffer, "\"maxanswerrequestrate\":%llu,", (unsigned long long)answers_ps.ps_max);
+	streambuf_printf(replybuffer, "\"avganswerrequestrate\":%llu,", (unsigned long long)answers_ps.ps_avg);
+	streambuf_printf(replybuffer, "\"mindeleterequestrate\":%llu,", (unsigned long long)deletes_ps.ps_min);
+	streambuf_printf(replybuffer, "\"maxdeleterequestrate\":%llu,", (unsigned long long)deletes_ps.ps_max);
+	streambuf_printf(replybuffer, "\"avgdeleterequestrate\":%llu", (unsigned long long)deletes_ps.ps_avg);
+
+	streambuf_printf(replybuffer, "},\"controlstatistics\":[");
+
+	mutex_lock(&rtpe_cngs_lock);
+	GList *list = g_hash_table_get_values(rtpe_cngs_hash);
+
+	for (GList *l = list; l; l = l->next) {
+		if (l != list)
+			streambuf_printf(replybuffer, ",");
+		struct control_ng_stats* cur = l->data;
+		streambuf_printf(replybuffer, "{\"proxy\":\"%s\",", sockaddr_print_buf(&cur->proxy));
+		streambuf_printf(replybuffer, "\"offercount\":%u,", cur->offer);
+		streambuf_printf(replybuffer, "\"answercount\":%u,", cur->answer);
+		streambuf_printf(replybuffer, "\"deletecount\":%u,", cur->delete);
+		streambuf_printf(replybuffer, "\"pingcount\":%u,", cur->ping);
+		streambuf_printf(replybuffer, "\"listcount\":%u,", cur->list);
+		streambuf_printf(replybuffer, "\"querycount\":%u,", cur->query);
+		streambuf_printf(replybuffer, "\"startreccount\":%u,", cur->start_recording);
+		streambuf_printf(replybuffer, "\"stopreccount\":%u,", cur->stop_recording);
+		streambuf_printf(replybuffer, "\"errorcount\":%u,", cur->errors);
+		streambuf_printf(replybuffer, "\"blkdtmfcount\":%u,", cur->block_dtmf);
+		streambuf_printf(replybuffer, "\"unblkdtmfcount\":%u}", cur->unblock_dtmf);
+	}
+	mutex_unlock(&rtpe_cngs_lock);
+
+	streambuf_printf(replybuffer, "]}");
+	g_list_free(list);
 }
 
 static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer) {
