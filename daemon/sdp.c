@@ -2187,7 +2187,7 @@ static void insert_crypto1(struct call_media *media, struct sdp_chopper *chop, s
 			p, &state, &save);
 	p += g_base64_encode_close(0, p, &state, &save);
 
-	if (!flags->pad_crypto) {
+	if (!flags->sdes_pad) {
 		// truncate trailing ==
 		while (p > b64_buf && p[-1] == '=')
 			p--;
@@ -2198,6 +2198,8 @@ static void insert_crypto1(struct call_media *media, struct sdp_chopper *chop, s
 	chopper_append_c(chop, cps->params.crypto_suite->name);
 	chopper_append_c(chop, " inline:");
 	chopper_append(chop, b64_buf, p - b64_buf);
+	if (flags->sdes_lifetime)
+		chopper_append_c(chop, "|2^31");
 	if (cps->params.mki_len) {
 		ull = 0;
 		for (i = 0; i < cps->params.mki_len && i < sizeof(ull); i++)

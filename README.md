@@ -732,10 +732,8 @@ Optionally included keys are:
 
 	- `pad crypto`
 
-		RFC 4568 (section 6.1) is somewhat ambiguous regarding the base64 encoding format of
-		`a=crypto` parameters added to an SDP body. The default interpretation is that trailing
-		`=` characters used for padding should be omitted. With this flag set, these padding
-		characters will be left in place.
+		Legacy alias to SDES=pad.
+
 
 	- `generate mid`
 
@@ -930,6 +928,17 @@ Optionally included keys are:
 		the offer. This has two effects: if a given crypto suite was present in a received
 		offer, it will be removed and will be missing in the outgoing offer; and if a given crypto
 		suite was not present in the received offer, it will not be added to it.
+
+	- `pad`
+
+		RFC 4568 (section 6.1) is somewhat ambiguous regarding the base64 encoding format of
+		`a=crypto` parameters added to an SDP body. The default interpretation is that trailing
+		`=` characters used for padding should be omitted. With this flag set, these padding
+		characters will be left in place.
+
+	- `lifetime`
+
+		Add the key lifetime parameter `2^31` to each crypto key.
 
 * `record call`
 

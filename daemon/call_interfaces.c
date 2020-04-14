@@ -541,6 +541,9 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("AUTHENTICATED_SRTP"):
 			out->sdes_authenticated_srtp = 1;
 			break;
+		case CSH_LOOKUP("lifetime"):
+			out->sdes_lifetime = 1;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
 					STR_FMT(s));
@@ -790,7 +793,7 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			out->inject_dtmf = 1;
 			break;
 		case CSH_LOOKUP("pad-crypto"):
-			out->pad_crypto = 1;
+			out->sdes_pad = 1;
 			break;
 		default:
 			// handle values aliases from other dictionaries
