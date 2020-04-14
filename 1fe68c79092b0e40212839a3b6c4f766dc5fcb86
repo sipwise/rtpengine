@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c1b61d09_6a450df4",
+        "filename": "README.md",
+        "patchSetId": 2
+      },
+      "lineNbr": 1616,
+      "author": {
+        "id": 1000021
+      },
+      "writtenOn": "2020-04-14T08:31:15Z",
+      "side": 1,
+      "message": "I think you have to add the \"all\" option here as well",
+      "range": {
+        "startLine": 1614,
+        "startChar": 0,
+        "endLine": 1616,
+        "endChar": 63
+      },
+      "revId": "1fe68c79092b0e40212839a3b6c4f766dc5fcb86",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
