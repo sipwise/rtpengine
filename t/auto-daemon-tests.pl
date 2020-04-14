@@ -18,6 +18,45 @@ my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp, $srtp_ctx_a, $srtp_ctx_b, 
 
 
 
+# SDES key lifetime
+
+new_call();
+
+offer('gh 966', { ICE => 'remove', 'transport-protocol' => 'RTP/SAVP', SDES => ['lifetime'],
+	DTLS => 'off' }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 96
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128|2^31
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128|2^31
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192|2^31
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192|2^31
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256|2^31
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256|2^31
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128|2^31
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128|2^31
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128|2^31
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128|2^31
+SDP
+
+
+
+
+
 # PT collisions (GH 963)
 
 new_call();

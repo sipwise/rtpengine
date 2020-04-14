@@ -96,7 +96,8 @@ struct sdp_ng_flags {
 	    sdes_encrypted_srtp:1,
 	    sdes_encrypted_srtcp:1,
 	    sdes_authenticated_srtp:1,
-	    pad_crypto:1;
+	    sdes_lifetime:1,
+	    sdes_pad:1;
 };
 
 
