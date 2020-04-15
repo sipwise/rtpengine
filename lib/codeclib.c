@@ -444,18 +444,6 @@ const codec_def_t *codec_find_by_av(enum AVCodecID id) {
 	return g_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(id));
 }
 
-enum media_type codec_get_type(const str *type) {
-	if (!type || !type->len)
-		return MT_UNKNOWN;
-	if (!str_cmp(type, "audio"))
-		return MT_AUDIO;
-	if (!str_cmp(type, "video"))
-		return MT_VIDEO;
-	if (!str_cmp(type, "image"))
-		return MT_IMAGE;
-	return MT_OTHER;
-}
-
 
 
 

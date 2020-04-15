@@ -16,6 +16,21 @@ enum media_type {
 };
 
 
+#include "str.h"
+
+INLINE enum media_type codec_get_type(const str *type) {
+	if (!type || !type->len)
+		return MT_UNKNOWN;
+	if (!str_cmp(type, "audio"))
+		return MT_AUDIO;
+	if (!str_cmp(type, "video"))
+		return MT_VIDEO;
+	if (!str_cmp(type, "image"))
+		return MT_IMAGE;
+	return MT_OTHER;
+}
+
+
 #ifndef WITHOUT_CODECLIB
 
 
@@ -27,7 +42,6 @@ enum media_type {
 #include <bcg729/encoder.h>
 #include <bcg729/decoder.h>
 #endif
-#include "str.h"
 
 
 
@@ -198,7 +212,6 @@ void codeclib_init(int);
 
 const codec_def_t *codec_find(const str *name, enum media_type);
 const codec_def_t *codec_find_by_av(enum AVCodecID);
-enum media_type codec_get_type(const str *type);
 
 
 decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt);
@@ -275,9 +288,6 @@ INLINE void codeclib_init(int print) {
 		printf("No codecs supported.\n");
 }
 
-INLINE enum media_type codec_get_type(const str *type) {
-	return -1;
-}
 INLINE const codec_def_t *codec_find(const str *name, enum media_type type) {
 	return NULL;
 }
