@@ -1,3 +1,11 @@
+ngcp-rtpengine (8.3.1.4+0~mr8.3.1.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a5759f4] TT#79351 detect and fix payload type collisions
+  * [dfa67f1] TT#79601 support media/DTMF playback to all parties
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 16 Apr 2020 14:45:39 +0200
+
 ngcp-rtpengine (8.3.1.3+0~mr8.3.1.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
