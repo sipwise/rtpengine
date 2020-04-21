@@ -20935,6 +20935,99 @@ SDP
 is($port_a, $port_b, 'port unchanged');
 
 
+# GH #1715
+
+new_call;
+offer('GH #1715', {ICE => 'remove', "transport-protocol" => "RTP/AVP"}, <<SDP);
+v=0
+o=sip:001011000000001\@ims.mnc001.mcc001.3gppnetwork.org 1611848049 1611848049 IN IP4 10.42.44.243
+s=-
+c=IN IP4 10.42.44.243
+b=AS:41
+b=RS:512
+b=RR:1537
+t=0 0
+m=audio 30322 RTP/AVP 99 97 9 8 0 105 100
+b=AS:41
+b=RS:512
+b=RR:1537
+a=maxptime:240
+a=des:qos mandatory local sendrecv
+a=curr:qos local none
+a=des:qos optional remote sendrecv
+a=curr:qos remote none
+a=rtpmap:99 AMR-WB/16000
+a=fmtp:99 mode-set=0,1,2,5,7,8; max-red=0; mode-change-capability=2
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-set=0,2,5,7; max-red=0; mode-change-capability=2
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:105 telephone-event/16000
+a=fmtp:105 0-15
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=sendrecv
+a=rtcp:30323
+a=ptime:20
+m=application 52718 UDP/DTLS/SCTP webrtc-datachannel
+b=AS:500
+a=max-message-size:1024
+a=sctp-port:5000
+a=setup:passive
+a=fingerprint:SHA-1 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:5D:49:6B:19:E5:7C:AB
+a=tls-id: abc3de65cddef001be82
+a=dcmap:10 subprotocol="http"
+a=dcmap:38754 max-time=150;label="low latency"
+a=dcmap:7216 max-retr=5;label="low loss"
+a=3gpp-qos-hint:loss=0.01;latency=100
+-------------------------------
+v=0
+o=sip:001011000000001\@ims.mnc001.mcc001.3gppnetwork.org 1611848049 1611848049 IN IP4 10.42.44.243
+s=-
+c=IN IP4 203.0.113.1
+b=AS:41
+b=RS:512
+b=RR:1537
+t=0 0
+m=audio PORT RTP/AVP 99 97 9 8 0 105 100
+b=AS:41
+b=RS:512
+b=RR:1537
+a=maxptime:240
+a=des:qos mandatory local sendrecv
+a=curr:qos local none
+a=des:qos optional remote sendrecv
+a=curr:qos remote none
+a=rtpmap:99 AMR-WB/16000
+a=fmtp:99 mode-set=0,1,2,5,7,8; max-red=0; mode-change-capability=2
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-set=0,2,5,7; max-red=0; mode-change-capability=2
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:105 telephone-event/16000
+a=fmtp:105 0-15
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+m=application PORT UDP/DTLS/SCTP webrtc-datachannel
+b=AS:500
+a=max-message-size:1024
+a=sctp-port:5000
+a=setup:passive
+a=fingerprint:SHA-1 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:5D:49:6B:19:E5:7C:AB
+a=tls-id: abc3de65cddef001be82
+a=dcmap:10 subprotocol="http"
+a=dcmap:38754 max-time=150;label="low latency"
+a=dcmap:7216 max-retr=5;label="low loss"
+a=3gpp-qos-hint:loss=0.01;latency=100
+a=sendrecv
+SDP
+
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
