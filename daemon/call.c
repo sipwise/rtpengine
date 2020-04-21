@@ -1495,7 +1495,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		MEDIA_CLEAR(this, SETUP_PASSIVE);
 		MEDIA_CLEAR(this, SETUP_ACTIVE);
 
-		if (MEDIA_ISSET(this, PASSTHRU) && other) {
+		if (other && (MEDIA_ISSET(this, PASSTHRU) || !other->protocol)) {
 			/* clear crypto for the other leg as well b/c passthrough only
 			 * works if it is done for both legs */
 			MEDIA_CLEAR(other, DTLS);
