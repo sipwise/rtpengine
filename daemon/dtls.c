@@ -197,7 +197,7 @@ static int cert_init(void) {
 	if (!BN_set_word(exponent, 0x10001))
 		goto err;
 
-	if (!RSA_generate_key_ex(rsa, 1024, exponent, NULL))
+	if (!RSA_generate_key_ex(rsa, rtpe_config.dtls_rsa_key_size, exponent, NULL))
 		goto err;
 
 	if (!EVP_PKEY_assign_RSA(pkey, rsa))
@@ -247,7 +247,7 @@ static int cert_init(void) {
 
 	/* sign it */
 
-	if (!X509_sign(x509, pkey, EVP_sha1()))
+	if (!X509_sign(x509, pkey, rtpe_config.dtls_signature == 1 ? EVP_sha1() : EVP_sha256()))
 		goto err;
 
 	/* digest */
@@ -513,7 +513,7 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 	SSL_CTX_set_verify(d->ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
 			verify_callback);
 	SSL_CTX_set_verify_depth(d->ssl_ctx, 4);
-	SSL_CTX_set_cipher_list(d->ssl_ctx, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+	SSL_CTX_set_cipher_list(d->ssl_ctx, rtpe_config.dtls_ciphers);
 
 	if (SSL_CTX_set_tlsext_use_srtp(d->ssl_ctx, ciphers_str))
 		goto error;
