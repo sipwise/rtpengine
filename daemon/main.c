@@ -71,6 +71,9 @@ struct rtpengine_config rtpe_config = {
 	.rec_method = "pcap",
 	.rec_format = "raw",
 	.media_num_threads = -1,
+	.dtls_rsa_key_size = 2048,
+	.dtls_ciphers = "DEFAULT:!NULL:!aNULL:!SHA256:!SHA384:!aECDH:!AESGCM+AES256:!aPSK",
+	.dtls_signature = 256,
 };
 
 
@@ -310,6 +313,7 @@ static void options(int *argc, char ***argv) {
 	double max_cpu = 0;
 	char *dtmf_udp_ep = NULL;
 	char *endpoint_learning = NULL;
+	char *dtls_sig = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -380,6 +384,9 @@ static void options(int *argc, char ***argv) {
 		{ "jitter-buffer",0, 0,	G_OPTION_ARG_INT,	&rtpe_config.jb_length,	"Size of jitter buffer",		"INT" },
 		{ "jb-clock-drift",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_clock_drift,"Compensate for source clock drift",NULL },
 		{ "debug-srtp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.debug_srtp,"Log raw encryption details for SRTP",	NULL },
+		{ "dtls-rsa-key-size",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_rsa_key_size,"Size of RSA key for DTLS",	"INT"		},
+		{ "dtls-ciphers",0,  0,	G_OPTION_ARG_STRING,	&rtpe_config.dtls_ciphers,"List of ciphers for DTLS",		"STRING"	},
+		{ "dtls-signature",0,  0,G_OPTION_ARG_STRING,	&dtls_sig,		"Signature algorithm for DTLS",		"SHA-256|SHA-1"	},
 
 		{ NULL, }
 	};
@@ -569,6 +576,22 @@ static void options(int *argc, char ***argv) {
 			die("Invalid --endpoint-learning option ('%s')", endpoint_learning);
 	}
 	rtpe_config.endpoint_learning = el_config;
+
+	if (dtls_sig) {
+		if (!strcasecmp(dtls_sig, "sha-1"))
+			rtpe_config.dtls_signature = 1;
+		else if (!strcasecmp(dtls_sig, "sha1"))
+			rtpe_config.dtls_signature = 1;
+		if (!strcasecmp(dtls_sig, "sha-256"))
+			rtpe_config.dtls_signature = 256;
+		else if (!strcasecmp(dtls_sig, "sha256"))
+			rtpe_config.dtls_signature = 256;
+		else
+			die("Invalid --dtls-signature option ('%s')", dtls_sig);
+	}
+
+	if (rtpe_config.dtls_rsa_key_size < 0)
+		die("Invalid --dtls-rsa-key-size (%i)", rtpe_config.dtls_rsa_key_size);
 
 	if (rtpe_config.jb_length < 0)
 		die("Invalid negative jitter buffer size");

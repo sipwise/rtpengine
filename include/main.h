@@ -96,6 +96,9 @@ struct rtpengine_config {
 	int                     jb_length;
 	int                     jb_clock_drift;
 	int			debug_srtp;
+	int			dtls_rsa_key_size;
+	char			*dtls_ciphers;
+	int			dtls_signature;
 };
 
 
