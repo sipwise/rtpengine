@@ -443,41 +443,62 @@ static struct re_auto_array streams;
 
 
 
-static const struct file_operations proc_control_ops = {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
+#  define PROC_OP_STRUCT file_operations
+#  define PROC_OWNER \
 	.owner			= THIS_MODULE,
-	.read			= proc_control_read,
-	.write			= proc_control_write,
-	.open			= proc_control_open,
-	.release		= proc_control_close,
+#  define PROC_READ read
+#  define PROC_WRITE write
+#  define PROC_OPEN open
+#  define PROC_RELEASE release
+#  define PROC_LSEEK llseek
+#  define PROC_POLL poll
+#else
+#  define PROC_OP_STRUCT proc_ops
+#  define PROC_OWNER 0,
+#  define PROC_READ proc_read
+#  define PROC_WRITE proc_write
+#  define PROC_OPEN proc_open
+#  define PROC_RELEASE proc_release
+#  define PROC_LSEEK proc_lseek
+#  define PROC_POLL proc_poll
+#endif
+
+static const struct PROC_OP_STRUCT proc_control_ops = {
+	PROC_OWNER
+	.PROC_READ		= proc_control_read,
+	.PROC_WRITE		= proc_control_write,
+	.PROC_OPEN		= proc_control_open,
+	.PROC_RELEASE		= proc_control_close,
 };
 
-static const struct file_operations proc_main_control_ops = {
-	.owner			= THIS_MODULE,
-	.write			= proc_main_control_write,
-	.open			= proc_generic_open_modref,
-	.release		= proc_generic_close_modref,
+static const struct PROC_OP_STRUCT proc_main_control_ops = {
+	PROC_OWNER
+	.PROC_WRITE		= proc_main_control_write,
+	.PROC_OPEN		= proc_generic_open_modref,
+	.PROC_RELEASE		= proc_generic_close_modref,
 };
 
-static const struct file_operations proc_status_ops = {
-	.owner			= THIS_MODULE,
-	.read			= proc_status,
-	.open			= proc_generic_open_modref,
-	.release		= proc_generic_close_modref,
+static const struct PROC_OP_STRUCT proc_status_ops = {
+	PROC_OWNER
+	.PROC_READ		= proc_status,
+	.PROC_OPEN		= proc_generic_open_modref,
+	.PROC_RELEASE		= proc_generic_close_modref,
 };
 
-static const struct file_operations proc_list_ops = {
-	.owner			= THIS_MODULE,
-	.open			= proc_list_open,
-	.read			= seq_read,
-	.llseek			= seq_lseek,
-	.release		= proc_generic_seqrelease_modref,
+static const struct PROC_OP_STRUCT proc_list_ops = {
+	PROC_OWNER
+	.PROC_OPEN		= proc_list_open,
+	.PROC_READ		= seq_read,
+	.PROC_LSEEK		= seq_lseek,
+	.PROC_RELEASE		= proc_generic_seqrelease_modref,
 };
 
-static const struct file_operations proc_blist_ops = {
-	.owner			= THIS_MODULE,
-	.open			= proc_blist_open,
-	.read			= proc_blist_read,
-	.release		= proc_blist_close,
+static const struct PROC_OP_STRUCT proc_blist_ops = {
+	PROC_OWNER
+	.PROC_OPEN		= proc_blist_open,
+	.PROC_READ		= proc_blist_read,
+	.PROC_RELEASE		= proc_blist_close,
 };
 
 static const struct seq_operations proc_list_seq_ops = {
@@ -487,12 +508,12 @@ static const struct seq_operations proc_list_seq_ops = {
 	.show			= proc_list_show,
 };
 
-static const struct file_operations proc_main_list_ops = {
-	.owner			= THIS_MODULE,
-	.open			= proc_main_list_open,
-	.read			= seq_read,
-	.llseek			= seq_lseek,
-	.release		= proc_generic_seqrelease_modref,
+static const struct PROC_OP_STRUCT proc_main_list_ops = {
+	PROC_OWNER
+	.PROC_OPEN		= proc_main_list_open,
+	.PROC_READ		= seq_read,
+	.PROC_LSEEK		= seq_lseek,
+	.PROC_RELEASE		= proc_generic_seqrelease_modref,
 };
 
 static const struct seq_operations proc_main_list_seq_ops = {
@@ -502,12 +523,12 @@ static const struct seq_operations proc_main_list_seq_ops = {
 	.show			= proc_main_list_show,
 };
 
-static const struct file_operations proc_stream_ops = {
-	.owner			= THIS_MODULE,
-	.read			= proc_stream_read,
-	.poll			= proc_stream_poll,
-	.open			= proc_stream_open,
-	.release		= proc_stream_close,
+static const struct PROC_OP_STRUCT proc_stream_ops = {
+	PROC_OWNER
+	.PROC_READ		= proc_stream_read,
+	.PROC_POLL		= proc_stream_poll,
+	.PROC_OPEN		= proc_stream_open,
+	.PROC_RELEASE		= proc_stream_close,
 };
 
 static const struct re_cipher re_ciphers[] = {
@@ -689,7 +710,7 @@ static inline struct proc_dir_entry *proc_mkdir_user(const char *name, umode_t m
 	return ret;
 }
 static inline struct proc_dir_entry *proc_create_user(const char *name, umode_t mode,
-		struct proc_dir_entry *parent, const struct file_operations *ops,
+		struct proc_dir_entry *parent, const struct PROC_OP_STRUCT *ops,
 		void *ptr)
 {
 	struct proc_dir_entry *ret;
