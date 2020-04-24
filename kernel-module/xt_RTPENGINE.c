@@ -455,7 +455,7 @@ static struct re_auto_array streams;
 #  define PROC_POLL poll
 #else
 #  define PROC_OP_STRUCT proc_ops
-#  define PROC_OWNER 0,
+#  define PROC_OWNER
 #  define PROC_READ proc_read
 #  define PROC_WRITE proc_write
 #  define PROC_OPEN proc_open
