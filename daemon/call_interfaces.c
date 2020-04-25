@@ -544,6 +544,9 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("lifetime"):
 			out->sdes_lifetime = 1;
 			break;
+		case CSH_LOOKUP("pad"):
+			out->sdes_pad = 1;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
 					STR_FMT(s));
