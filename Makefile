@@ -1,4 +1,5 @@
 RTPENGINE_ROOT_DIR=.
+with_transcoding ?= yes
 
 include lib/lib.Makefile
 
@@ -6,7 +7,9 @@ include lib/lib.Makefile
 
 all:
 	$(MAKE) -C daemon
+ifeq ($(with_transcoding),yes)
 	$(MAKE) -C recording-daemon
+endif
 	$(MAKE) -C iptables-extension
 
 .PHONY: with-kernel
