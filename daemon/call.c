@@ -1873,6 +1873,12 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	if (!flags)
 		return;
 
+	/* allow override of outgoing protocol even if we know it already */
+	/* but only if this is an RTP-based protocol */
+	if (flags->transport_protocol
+			&& proto_is_rtp(other_media->protocol))
+		media->protocol = flags->transport_protocol;
+
 	// OSRTP offer requested?
 	if (media->protocol && media->protocol->rtp && !media->protocol->srtp
 			&& media->protocol->osrtp_proto && flags->osrtp_offer && flags->opmode == OP_OFFER)
@@ -1914,14 +1920,6 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 				&& proto_is(other_media->protocol, PROTO_UDPTL))
 			__t38_reset(media, other_media);
 		// drop through for protocol override
-	}
-
-	/* allow override of outgoing protocol even if we know it already */
-	/* but only if this is an RTP-based protocol */
-	if (flags->transport_protocol
-			&& proto_is_rtp(other_media->protocol)) {
-		media->protocol = flags->transport_protocol;
-		return;
 	}
 }
 
