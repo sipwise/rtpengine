@@ -119,7 +119,7 @@ INLINE char *sockaddr_print_buf(const sockaddr_t *a) {
 	char *buf = get_thread_buf();
 	if (!a->family) {
 		buf[0] = '\0';
-		return 0;
+		return buf;
 	}
 	sockaddr_print(a, buf, THREAD_BUF_SIZE);
 	return buf;
