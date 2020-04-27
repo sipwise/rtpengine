@@ -1,3 +1,19 @@
+ngcp-rtpengine (8.2.2.1+0~mr8.2.2.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4d4871f] compile fix for with_transcoding=no
+  * [868602d] avoid calling a non existant encoder
+  * [308bdfa] TT#76206 fix call teardown for half established dialogues
+  * [0ceadc0] also check for the output encoder
+  * [9f1d179] TT#76711 don't run send timers that don't exist
+  * [29722f8] TT#76711 fix media type ID when restoring from redis
+  * [90a96f2] TT#14008 rtpengine-ctl fix to allow override of default values
+  * [d6bc33f] TT#79351 detect and fix payload type collisions
+  * [91d76ad] fix kernel module compilation for >= 5.5
+  * [bb974a5] fix kernel module compilation for different build flags
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 27 Apr 2020 21:30:37 +0200
+
 ngcp-rtpengine (8.2.2.0+0~mr8.2.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
