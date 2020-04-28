@@ -268,8 +268,10 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 	struct codec_handler *ch = codec_handler_get(media, pt);
 	if (!ch)
 		return "No matching codec handler";
-	if (ch->output_handler) // context switch if we have multiple inputs going to one output
+	if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
 		ch = ch->output_handler;
+	if (!ch->ssrc_hash)
+		return "No suitable codec handler present";
 	struct codec_ssrc_handler *csh = get_ssrc(ssrc_in->parent->h.ssrc, ch->ssrc_hash);
 	if (!csh)
 		return "No matching codec SSRC handler";
