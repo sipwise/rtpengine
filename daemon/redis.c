@@ -293,6 +293,8 @@ err2:
 			endpoint_print_buf(&r->endpoint), r->ctx->errstr);
 		return -1;
 	}
+	redisFree(r->ctx);
+	r->ctx = NULL;
 err:
 	rlog(LOG_ERR, "Failed to connect to Redis %s",
 		endpoint_print_buf(&r->endpoint));
@@ -617,7 +619,7 @@ void redis_notify_loop(void *d) {
 
 		next_run = rtpe_now.tv_sec + seconds;
 
-		if (redis_check_conn(r) == REDIS_STATE_RECONNECTED || redis_notify_return < 0) {
+		if (redis_check_conn(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
 			redis_disconnect();
 			// alloc new redis async context upon redis breakdown
 			if (redis_async_context_alloc() < 0) {
@@ -719,7 +721,7 @@ static int redis_check_conn(struct redis *r) {
 		ilog(LOG_INFO, "RE-Establishing connection for Redis server %s",endpoint_print_buf(&r->endpoint));
 
 	// try redis connection
-	if (redisCommandNR(r->ctx, "PING") == 0) {
+	if (r->ctx && redisCommandNR(r->ctx, "PING") == 0) {
 		// redis is connected
 		return REDIS_STATE_CONNECTED;
 	}
@@ -748,7 +750,7 @@ static int redis_check_conn(struct redis *r) {
 	}
 
 	// redis is re-connected
-	return REDIS_STATE_RECONNECTED;
+	return REDIS_STATE_CONNECTED;
 }
 
 /* called with r->lock held and c->master_lock held */
