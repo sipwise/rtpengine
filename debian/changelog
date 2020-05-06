@@ -1,3 +1,11 @@
+ngcp-rtpengine (7.5.3.4+0~mr7.5.3.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [940a3b1] TT#14008 avoid calling a non existant encoder
+  * [d1ee8a9] TT#14008 also check for the output encoder
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 06 May 2020 17:18:33 +0200
+
 ngcp-rtpengine (7.5.3.3+0~mr7.5.3.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
