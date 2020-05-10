@@ -235,3 +235,23 @@ unsigned int timerthread_queue_flush(struct timerthread_queue *ttq, void *ptr) {
 
 	return num;
 }
+
+void timerthread_queue_flush_data(void *ptr) {
+        struct timerthread_queue *ttq = ptr;
+
+        ilog(LOG_DEBUG, "timerthread_queue_flush_data");
+
+        mutex_lock(&ttq->lock);
+        while (g_tree_nnodes(ttq->entries)) {
+                struct timerthread_queue_entry *ttqe = g_tree_find_first(ttq->entries, NULL, NULL);
+                assert(ttqe != NULL);
+                g_tree_remove(ttq->entries, ttqe);
+
+                mutex_unlock(&ttq->lock);
+
+                ttq->run_later_func(ttq, ttqe);
+
+                mutex_lock(&ttq->lock);
+        }
+        mutex_unlock(&ttq->lock);
+}
