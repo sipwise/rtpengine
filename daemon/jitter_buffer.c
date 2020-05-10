@@ -289,7 +289,7 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 		int clockrate = get_clock_rate(mp, payload_type);
 		if(!clockrate){
 			if(jb->rtptime_delta &&  payload_type != COMFORT_NOISE) { //ignore CN
-				ilog(LOG_INFO, "Jitter reset due to unknown payload = %d", payload_type);
+				ilog(LOG_DEBUG, "Jitter reset due to unknown payload = %d", payload_type);
 				reset_jitter_buffer(jb);
 			}
 			goto end_unlock;
