@@ -133,7 +133,7 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 	int curr_seq = ntohs(mp->rtp->seq_num);
 
 	if(!clockrate || !jb->first_send.tv_sec) {
-		ilog(LOG_DEBUG, "Jitter reset due to clockrate");
+		ilog(LOG_INFO, "Jitter reset due to clockrate seq = %d, payloadtype=%d", curr_seq, payload_type);
 		reset_jitter_buffer(jb);
 		return 1;
 	}
