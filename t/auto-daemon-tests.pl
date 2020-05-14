@@ -35,6 +35,125 @@ my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp,
 
 
 
+# SRTP w/ DTMF injection (TT#81600)
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 4328)], [qw(198.51.100.3 4330)]);
+
+($port_a) = offer('SRTP w/ DTMF injection (TT#81600)',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off',
+	'transport-protocol' => 'RTP/SAVP', flags => ['inject-DTMF'],
+	'rtcp-mux' => ['demux'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+a=sendrecv
+m=audio 4328 RTP/SAVP 0 8 18 9 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:1YiOLFFcF/OlCpW7u3fmSx1YllphIgh2cER3DWU3
+a=fmtp:18 annexb=no
+a=fmtp:101 0-15
+a=ptime:20
+a=mptime:20 20 20 20 -
+a=rtcp:4328 IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 8 18 9 101
+a=silenceSupp:off - - - -
+a=mptime:20 20 20 20 -
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:18 annexb=no
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:1YiOLFFcF/OlCpW7u3fmSx1YllphIgh2cER3DWU3
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=ptime:20
+SDP
+
+($port_b) = answer('SRTP w/ DTMF injection (TT#81600)',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', ICE => 'remove', 
+	flags => ['inject-DTMF'], 'rtcp-mux' => ['demux'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.3
+t=0 0
+a=sendrecv
+m=audio 4330 RTP/SAVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:cdDuBSOp/rX/7ikmU1Tnuu337gXUUMFAhkARhB/j
+a=fmtp:101 0-15
+a=ptime:20
+a=mptime:20 20 20 20 -
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 8 18 9 101
+a=silenceSupp:off - - - -
+a=mptime:20 20 20 20 -
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:18 annexb=no
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:cdDuBSOp/rX/7ikmU1Tnuu337gXUUMFAhkARhB/j
+a=ptime:20
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'cdDuBSOp/rX/7ikmU1Tnuu337gXUUMFAhkARhB/j',
+};
+
+
+srtp_snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160), $srtp_ctx_a);
+srtp_snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x6543, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160), $srtp_ctx_b);
+
+
+
+
 # RTCP
 
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
