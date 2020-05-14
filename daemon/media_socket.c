@@ -1248,6 +1248,8 @@ static void __determine_handler(struct packet_stream *in, const struct packet_st
 
 	if (MEDIA_ISSET(in->media, DTLS) || MEDIA_ISSET(out->media, DTLS))
 		must_recrypt = 1;
+	else if (MEDIA_ISSET(in->media, TRANSCODE) || MEDIA_ISSET(out->media, TRANSCODE))
+		must_recrypt = 1;
 	else if (in->call->recording)
 		must_recrypt = 1;
 	else if (in_proto->srtp && out_proto->srtp
