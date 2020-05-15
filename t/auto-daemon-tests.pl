@@ -35,6 +35,257 @@ my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp,
 
 
 
+# RTP to SRTP switch (and SRTP re-invite) TT#81850
+
+new_call;
+
+(undef, undef, $srtp_key_a) = offer('RTP to SRTP switch (and SRTP re-invite)',
+	{ "transport-protocol" => "RTP/SAVP", "ICE" => "remove", "rtcp-mux" => [ "demux" ],
+	DTLS => 'off',
+	"replace" => [ "origin", "session-connection" ],
+	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
+	}, <<SDP);
+v=0
+o=- 3516723349074626749 3516723349074626751 IN IP4 198.51.100.1
+s=
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 31530 RTP/AVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=direction:both
+a=sendrecv
+a=rtcp:31531
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.190
+a=ptime:20
+----------------------------------
+v=0
+o=- 3516723349074626749 3516723349074626751 IN IP4 203.0.113.1
+s=
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101
+a=direction:both
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.190
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=ptime:20
+SDP
+
+answer('RTP to SRTP switch (and SRTP re-invite)',
+	{ "ICE" => "remove", "rtcp-mux" => [ "demux" ],
+	DTLS => 'off',
+	"replace" => [ "origin", "session-connection" ],
+	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
+	}, <<SDP);
+v=0
+o=- 1889691184267178502 1889691184267178505 IN IP4 198.51.100.1
+s=
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 31498 RTP/SAVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=direction:both
+a=sendrecv
+a=rtcp:31499
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
+a=ptime:20
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:zC6Ea9EK/7YmDM79CK+TAnNXTI1pVmZuCMjUPMph
+----------------------------------
+v=0
+o=- 1889691184267178502 1889691184267178505 IN IP4 203.0.113.1
+s=
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0 101
+a=direction:both
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+offer('RTP to SRTP switch (and SRTP re-invite)',
+	{ "transport-protocol" => "RTP/SAVP", "ICE" => "remove", "rtcp-mux" => [ "demux" ],
+	DTLS => 'off',
+	"replace" => [ "origin", "session-connection" ],
+	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
+	'to-tag' => tt(),
+	}, <<SDP);
+v=0
+o=- 3516723349074626749 3516723349074626751 IN IP4 198.51.100.1
+s=
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 31530 RTP/AVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=direction:both
+a=sendrecv
+a=rtcp:31531
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.190
+a=ptime:20
+----------------------------------
+v=0
+o=- 3516723349074626749 3516723349074626751 IN IP4 203.0.113.1
+s=
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101
+a=direction:both
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.190
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:$srtp_key_a
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=ptime:20
+SDP
+
+answer('RTP to SRTP switch (and SRTP re-invite)',
+	{ "ICE" => "remove", "rtcp-mux" => [ "demux" ],
+	DTLS => 'off',
+	"replace" => [ "origin", "session-connection" ],
+	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
+	}, <<SDP);
+v=0
+o=- 1889691184267178502 1889691184267178505 IN IP4 198.51.100.1
+s=
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 31498 RTP/SAVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=direction:both
+a=sendrecv
+a=rtcp:31499
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
+a=ptime:20
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:zC6Ea9EK/7YmDM79CK+TAnNXTI1pVmZuCMjUPMph
+----------------------------------
+v=0
+o=- 1889691184267178502 1889691184267178505 IN IP4 203.0.113.1
+s=
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0 101
+a=direction:both
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+# reverse re-invite from RTP to SRTP
+reverse_tags();
+
+offer('RTP to SRTP switch (and SRTP re-invite)',
+	{ "transport-protocol" => "RTP/SAVP", "ICE" => "remove", "rtcp-mux" => [ "demux" ],
+	DTLS => 'off',
+	"replace" => [ "origin", "session-connection" ],
+	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
+	'to-tag' => tt(),
+	}, <<SDP);
+v=0
+o=- 1889691184267178502 1889691184267178505 IN IP4 198.51.100.1
+s=
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 31498 RTP/SAVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=direction:both
+a=sendrecv
+a=rtcp:31499
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
+a=ptime:20
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:zC6Ea9EK/7YmDM79CK+TAnNXTI1pVmZuCMjUPMph
+----------------------------------
+v=0
+o=- 1889691184267178502 1889691184267178505 IN IP4 203.0.113.1
+s=
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101
+a=direction:both
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:zC6Ea9EK/7YmDM79CK+TAnNXTI1pVmZuCMjUPMph
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=ptime:20
+SDP
+
+
+
+
+
 # SRTP w/ DTMF injection (TT#81600)
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 4328)], [qw(198.51.100.3 4330)]);
