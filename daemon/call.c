@@ -1401,7 +1401,6 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				continue;
 			}
 
-			ilog(LOG_DEBUG, "xxxxxxxxxxx adding %i %i", i, MEDIA_ISSET(this, SDES));
 			struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
 			g_queue_push_tail(cpq, cps);
 
@@ -1524,7 +1523,6 @@ static void __sdes_accept(struct call_media *media, const struct sdp_ng_flags *f
 		continue;
 del_next:
 		// mismatch, prune this one out
-		ilog(LOG_DEBUG, "xxxxxxxxxxx delling %i", cps_out->tag);
 		crypto_params_sdes_free(cps_out);
 		GList *next = l->next;
 		g_queue_delete_link(&media->sdes_out, l);
