@@ -1,3 +1,10 @@
+ngcp-rtpengine (7.5.4.2+0~mr7.5.4.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1a7ead1] TT#81850 fix SRTP re-offer and RTP to SRTP switch
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 19 May 2020 15:16:17 +0200
+
 ngcp-rtpengine (7.5.4.1+0~mr7.5.4.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
