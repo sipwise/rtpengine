@@ -55,6 +55,7 @@ void *timerthread_queue_new(const char *type, size_t size,
 		void (*free_func)(void *),
 		void (*entry_free_func)(void *));
 void timerthread_queue_run(void *ptr);
+void timerthread_queue_flush_data(void *ptr);
 void timerthread_queue_push(struct timerthread_queue *, struct timerthread_queue_entry *);
 unsigned int timerthread_queue_flush(struct timerthread_queue *, void *);
 
