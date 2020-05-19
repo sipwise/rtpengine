@@ -1,3 +1,71 @@
+ngcp-rtpengine (8.5.0.0+0~mr8.5.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [10ab85b] TT#76368 remove some graphite functions from global namespace
+  * [ceb6814] TT#76368 handle connection blocking on graphite writes
+  * [dcce2ba] TT#76368 move graphite timestamping into wrapper macro
+  * [5744c04] TT#76368 add port status to graphite output
+  * [0308ee4] TT#14008 fix compiler warnings
+  * [01cf85f] TT#76711 add missing locking and tree-remove for media player
+  * [61ab3d9] TT#76711 add libdl linkage to testing preload lib
+  * [9b9dde3] TT#76711 don't run send timers that don't exist
+  * [50b0757] TT#76711 add missing log_info_clear in send_timer
+  * [4eee9fb] TT#76711 compile fix for with_transcoding=no
+  * [d847d26] TT#76711 convert codec handlers hash table to direct hash
+  * [6513bfd] TT#76711 split out function to handle media protocols
+  * [2d78c36] TT#76711 allow update of media type
+  * [de69c5e] TT#76711 split codec_handler_get for different protocols
+  * [a68a59f] TT#76711 keep track of the raw SDP format string
+  * [9ff3d66] TT#76711 split out common parts of codec_handlers_update
+  * [641fd16] TT#77358 create helper function to determine RTP protocols
+  * [570ad94] TT#76711 add handler functions for enc/dec packet
+  * [0dc052e] TT#76711 globalise ensure_codec_def function
+  * [f6d1349] TT#76711 fix str_sprintf va_args definition
+  * [6792cde] TT#76711 add custom SDP attributes capability
+  * [9ab6c27] TT#76711 replace SDP media type as necessary
+  * [20607bb] TT#76711 generalise media_player mechanism
+  * [468fca8] TT#76711 error-proof codec_handler_free()
+  * [d872802] TT#76711 T.38 <> audio gateway
+  * [0cd8883] TT#78203 add SRTP debug options
+  * [dfae8d6] TT#78201 add symmetric-codecs flag
+  * [7cbf876] test client: also print old SDP
+  * [6e1d94d] fix compilation on CentOS 7
+  * [1d514a0] TT#78307 add helper functions for SSRC contexts
+  * [cc7a9a5] TT#78307 clean up debug/log messages
+  * [5fa83ce] TT#14008 rtpengine-ctl fix to allow override of default values
+  * [48c3af7] TT#76711 add spandsp logging
+  * [213b607] TT#76711 fix media type ID when restoring from redis
+  * [d611bbb] TT#78501 add T.38 options
+  * [28efacc] TT#76711 more resilient UDPTL handling
+  * [1055a1e] TT#79351 detect and fix payload type collisions
+  * [f5eaa65] TT#76711 allow alternate format for T.38 SDP options
+  * [c1d29a4] TT#79601 support media/DTMF playback to all parties
+  * [e59ccc2] TT#79900 add SDES=lifetime option
+  * [5fc326c] TT#78001 support OSRTP
+  * [35899ec] TT#78900 move codec_get_type into global context
+  * [dfc76d2] TT#78900 leave m=message connection details untouched
+  * [2e4617f] TT#78307 move SSRC send stats to actual point of sending
+  * [34baba9] TT#78307 don't update RTP stats for non-forwarding ports
+  * [92bcedc] TT#78307 keep track of RTP stats also when forwarding
+  * [a168a3c] TT#78307 generate RTCP for media players
+  * [abe7caf] TT#75350 update cipher lists and make the configurable
+  * [bbdedc5] fix OSRTP option for rtpengine-ng-client
+  * [4d08a70] fix kernel module compilation for >= 5.5
+  * [e741a74] fix kernel module compilation for different build flags
+  * [5caf47f] add missing SDES=pad parsing
+  * [cca6ba7] allow protocol=RTP/AVP plus OSRTP-offer
+  * [e516db2] fix warning about possible null string
+  * [c3561be] honour with_transcoding=no in top level makefile
+  * [19a9b44] fix tests after e516db2
+  * [2ef93af] TT#79601 fix possible crash when injecting DTMF
+  * [e1b2532] eliminate (re)connected redis state duplication
+  * [46325d6] TT#81600 fix SRTP when transcoding/DTMF injection is in use
+
+  [ root ]
+  * [e7c85ce] jitter buffer correction
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 19 May 2020 11:12:46 +0200
+
 ngcp-rtpengine (8.4.0.0+0~mr8.4.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
