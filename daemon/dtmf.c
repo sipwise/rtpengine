@@ -269,6 +269,14 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		return "No matching codec handler";
 	if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
 		ch = ch->output_handler;
+
+	ilog(LOG_DEBUG, "DTMF injection: Using PT %i/%i -> %i (%i), SSRC %" PRIx32,
+			pt,
+			ch->source_pt.payload_type,
+			ch->dest_pt.payload_type,
+			ch->dtmf_payload_type,
+			ssrc_in->parent->h.ssrc);
+
 	if (!ch->ssrc_hash)
 		return "No suitable codec handler present";
 	struct codec_ssrc_handler *csh = get_ssrc(ssrc_in->parent->h.ssrc, ch->ssrc_hash);
