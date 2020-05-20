@@ -255,23 +255,43 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 
 	// create RFC DTMF events. we do this by simulating a detected PCM DTMF event
 	// find payload type to use
+	struct codec_handler *ch = NULL;
+	struct codec_ssrc_handler *csh = NULL;
 	int pt = -1;
 	for (int i = 0; i < ssrc_in->tracker.most_len; i++) {
 		pt = ssrc_in->tracker.most[i];
-		if (pt != 255)
+		if (pt == 255)
+			continue;
+		if (pt < 0)
 			break;
+
+		ch = codec_handler_get(media, pt);
+		if (!ch)
+			continue;
+		if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
+			ch = ch->output_handler;
+
+		ilog(LOG_DEBUG, "DTMF injection: Using PT %i/%i -> %i (%i), SSRC %" PRIx32,
+				pt,
+				ch->source_pt.payload_type,
+				ch->dest_pt.payload_type,
+				ch->dtmf_payload_type,
+				ssrc_in->parent->h.ssrc);
+
+		if (!ch->ssrc_hash)
+			continue;
+		csh = get_ssrc(ssrc_in->parent->h.ssrc, ch->ssrc_hash);
+		if (!csh)
+			continue;
+		break;
 	}
+
 	if (pt < 0 || pt == 255)
 		return "No RTP payload type found to be in use"; // XXX generate stream
-
-	struct codec_handler *ch = codec_handler_get(media, pt);
 	if (!ch)
 		return "No matching codec handler";
-	if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
-		ch = ch->output_handler;
 	if (!ch->ssrc_hash)
 		return "No suitable codec handler present";
-	struct codec_ssrc_handler *csh = get_ssrc(ssrc_in->parent->h.ssrc, ch->ssrc_hash);
 	if (!csh)
 		return "No matching codec SSRC handler";
 
