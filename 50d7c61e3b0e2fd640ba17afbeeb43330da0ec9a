@@ -46,6 +46,30 @@
       "revId": "50d7c61e3b0e2fd640ba17afbeeb43330da0ec9a",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "783a1aac_c0023789",
+        "filename": ".github/actions/debpkg-buster/entrypoint.sh",
+        "patchSetId": 2
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-05-21T15:17:03Z",
+      "side": 1,
+      "message": "In the dpkg-buildpackage case and several of the dpkg-dev scripts the option parsing is a bit of a mess, and still needs to be cleaned up and unified. They all should accept bundled values in short options, which I think is pretty standard practice. They might also accept equals.\n\nThe problem in the man page is that documenting all variations is a bit tedious. Once these all have an uniform parsing then I guess a paragraph explaining this might be in order, but listing them for each option would seem too distracting. :)",
+      "parentUuid": "e29b4ee5_d158edb1",
+      "range": {
+        "startLine": 7,
+        "startChar": 21,
+        "endLine": 7,
+        "endChar": 22
+      },
+      "revId": "50d7c61e3b0e2fd640ba17afbeeb43330da0ec9a",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
