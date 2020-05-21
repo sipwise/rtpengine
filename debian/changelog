@@ -1,3 +1,12 @@
+ngcp-rtpengine (6.5.9.1+0~mr6.5.9.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ec90600] TT#69700 don't compensate for TS gaps with a 1-second delay
+  * [31e6fea] TT#69700 reduce max allowed delay to half a second
+  * [8a31d2c] TT#69700 handle gaps in RTP TS correctly for mix output
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 21 May 2020 16:14:19 +0200
+
 ngcp-rtpengine (6.5.9.0+0~mr6.5.9.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
