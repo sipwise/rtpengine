@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3b706f49_420f82a5",
+        "filename": ".github/actions/debpkg-buster/Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2020-05-21T13:07:53Z",
+      "side": 1,
+      "message": "I usually see these chained with \"\u0026\u0026\" in a single line, and sometimes followed by \"\u0026\u0026 apt-get clean\" or similar.\n\nI am fine with keeping it on separate lines, I suppose that it aborts if any line fails anyway, so just a suggestion.\n\nBut maybe consider the apt-get clean to save on space, GCC is heavy and kept in /var/cache/apt/archives after those commands :)",
+      "range": {
+        "startLine": 11,
+        "startChar": 0,
+        "endLine": 12,
+        "endChar": 47
+      },
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4b2b0886_f42d5e2b",
+        "filename": ".github/actions/debpkg-sid/Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1000042
+      },
+      "writtenOn": "2020-05-21T13:07:53Z",
+      "side": 1,
+      "message": "same comment as above",
+      "range": {
+        "startLine": 11,
+        "startChar": 0,
+        "endLine": 12,
+        "endChar": 47
+      },
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
+    }
+  ]
+}
