@@ -1,0 +1,54 @@
+name: Debian Packaging
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 8 * * *'
+
+jobs:
+  build-deb-buster:
+    runs-on: ubuntu-latest
+    name: Debian pipeline for buster
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+
+    - name: Execute Docker debpkg action
+      uses: ./.github/actions/debpkg-buster
+
+    - name: Store Debian package artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: Debian binary package files
+        path: '*.deb'
+
+    - name: Store Debian package build info
+      uses: actions/upload-artifact@v2
+      with:
+        name: Debian buildinfo file
+        path: '*.buildinfo'
+
+  build-deb-sid:
+    runs-on: ubuntu-latest
+    name: Debian pipeline for sid
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+
+    - name: Execute Docker debpkg action
+      uses: ./.github/actions/debpkg-sid
+
+    - name: Store Debian package artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: Debian binary package files
+        path: '*.deb'
+
+    - name: Store Debian package build info
+      uses: actions/upload-artifact@v2
+      with:
+        name: Debian buildinfo file
+        path: '*.buildinfo'
