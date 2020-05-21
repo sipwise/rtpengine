@@ -22,6 +22,30 @@
       "revId": "50d7c61e3b0e2fd640ba17afbeeb43330da0ec9a",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "e29b4ee5_d158edb1",
+        "filename": ".github/actions/debpkg-buster/entrypoint.sh",
+        "patchSetId": 2
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2020-05-21T14:31:31Z",
+      "side": 1,
+      "message": "man dpkg-buildpackage says:\n\n-P, --build-profiles\u003dprofile[,...]\n\nman apt-get says:\n\n-P, --build-profiles\n\nConsistent documentation for the win ;)\n\nAnyway, tested it and seems to work fine also without the \"\u003d\", so done",
+      "parentUuid": "6c952d54_511fb568",
+      "range": {
+        "startLine": 7,
+        "startChar": 21,
+        "endLine": 7,
+        "endChar": 22
+      },
+      "revId": "50d7c61e3b0e2fd640ba17afbeeb43330da0ec9a",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
