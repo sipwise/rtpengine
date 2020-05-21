@@ -11,6 +11,7 @@ if ! [ -f "${CONTROL_FILE}" ]; then
 	exit 1
 fi
 
+# shellcheck disable=SC2207
 BUILD_DEPS=($(/usr/bin/gdebi --quiet --non-interactive \
 	--option=APT::Install-Recommends=false \
 	--apt-line "${CONTROL_FILE}"))
