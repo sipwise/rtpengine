@@ -1,0 +1,31 @@
+name: Code Testing
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 8 * * *'
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    name: Run shellcheck
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+
+    - name: Display original shellcheck version
+      run: shellcheck --version
+
+    - name: Update shellcheck to latest stable version
+      run: |
+        wget -qO- https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.x86_64.tar.xz | tar -xJv
+        sudo cp shellcheck-stable/shellcheck /usr/bin/
+        shellcheck --version
+
+    - name: Display current shellcheck version
+      run: shellcheck --version
+
+    - name: Shellcheck execution
+      run: shellcheck --exclude=SC1090,SC1091 debian/*.init debian/*.post* debian/*.pre* debian/*-setup el/*.init tests/simulator-tcp.sh utils/build_deps.sh utils/patch-kernel
