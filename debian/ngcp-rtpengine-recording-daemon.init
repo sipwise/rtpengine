@@ -73,7 +73,7 @@ case "$1" in
 	      log_action_msg "Active node or transition."
 	      ;;
 	    *)
-	      log_action_msg "Ignored start action in inactive node ($status)"
+	      log_action_msg "Ignored start action in inactive node"
 	      exit 0
 	      ;;
 	  esac
@@ -93,8 +93,9 @@ case "$1" in
 	log_daemon_msg "Stopping $DESC" "$NAME"
 	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
 		--retry 5 --exec "$DAEMON"
-	if [ "$?" -ne 0 ]; then
-		return $?
+	RC=$?
+	if [ "$RC" -ne 0 ]; then
+	  return "$RC"
 	fi
 	rm -f $PIDFILE
 	log_end_msg $?
