@@ -1,0 +1,6 @@
+name: "Build Docker image based on Debian/sid"
+description: "Build Docker image based on Debian/sid"
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
