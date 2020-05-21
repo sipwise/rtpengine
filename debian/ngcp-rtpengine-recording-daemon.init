@@ -9,8 +9,6 @@
 # Description:       Recording daemon for RTP and other media streams
 ### END INIT INFO
 
-set -e
-
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-recording-daemon
 DESC="RTP/media recording daemon"
@@ -66,21 +64,25 @@ fi
 
 case "$1" in
   start)
-	set +e
 	if [ -x "$(which ngcp-check-active)" ]; then
 	  case "$(ngcp-check-active -v)" in
 	    active|transition)
 	      log_action_msg "Active node or transition."
 	      ;;
 	    *)
-	      log_action_msg "Ignored start action in inactive node ($status)"
+	      log_action_msg "Ignored start action in inactive node"
 	      exit 0
 	      ;;
 	  esac
 	fi
-	set -e
 
-	ngcp-rtpengine-recording-nfs-setup start
+	RC=0
+	ngcp-rtpengine-recording-nfs-setup start || RC=$?
+	if [ "$RC" -ne 0 ] ; then
+	  log_action_msg "Failed to start ngcp-rtpengine-recording-nfs-setup"
+	  log_end_msg "$RC"
+	  exit "$RC"
+	fi
 
 	log_daemon_msg "Starting $DESC" "$NAME"
 
@@ -91,13 +93,12 @@ case "$1" in
 	;;
   stop)
 	log_daemon_msg "Stopping $DESC" "$NAME"
+	RC=0
 	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
-		--retry 5 --exec "$DAEMON"
-	if [ "$?" -ne 0 ]; then
-		return $?
-	fi
-	rm -f $PIDFILE
-	log_end_msg $?
+		--retry 5 --exec "$DAEMON" || RC=$?
+	rm -f "$PIDFILE"
+	log_end_msg "$RC"
+	exit "$RC"
 	;;
   force-reload|restart)
 	$0 stop
