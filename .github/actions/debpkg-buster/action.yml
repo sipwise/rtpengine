@@ -1,0 +1,6 @@
+name: "Build Docker image based on Debian/buster"
+description: "Build Docker image based on Debian/buster"
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
