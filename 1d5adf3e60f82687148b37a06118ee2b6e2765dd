@@ -25,6 +25,70 @@
     },
     {
       "key": {
+        "uuid": "7c4ae798_93f29f8f",
+        "filename": ".github/actions/debpkg-buster/Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-05-21T13:23:11Z",
+      "side": 1,
+      "message": "dpkg-dev is part of build-essential.",
+      "range": {
+        "startLine": 12,
+        "startChar": 39,
+        "endLine": 12,
+        "endChar": 47
+      },
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "855d999d_45b3596b",
+        "filename": ".github/actions/debpkg-buster/Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-05-21T13:23:11Z",
+      "side": 1,
+      "message": "They are usually merged in a single line to avoid adding temporary layers to the docker files.",
+      "parentUuid": "3b706f49_420f82a5",
+      "range": {
+        "startLine": 11,
+        "startChar": 0,
+        "endLine": 12,
+        "endChar": 47
+      },
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "84b45f22_11b54237",
+        "filename": ".github/actions/debpkg-buster/entrypoint.sh",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-05-21T13:23:11Z",
+      "side": 1,
+      "message": "Why this if we are already setting the build profile below, which should make the build-dep to be ignored?",
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4b2b0886_f42d5e2b",
         "filename": ".github/actions/debpkg-sid/Dockerfile",
         "patchSetId": 1
@@ -45,6 +109,29 @@
       "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "469df360_9449eb7d",
+        "filename": ".github/workflows/tests.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-05-21T13:23:11Z",
+      "side": 1,
+      "message": "Isn\u0027t this redundant with the next check?",
+      "range": {
+        "startLine": 25,
+        "startChar": 8,
+        "endLine": 25,
+        "endChar": 28
+      },
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
     }
   ]
 }
