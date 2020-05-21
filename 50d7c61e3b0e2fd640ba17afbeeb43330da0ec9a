@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6c952d54_511fb568",
+        "filename": ".github/actions/debpkg-buster/entrypoint.sh",
+        "patchSetId": 2
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-05-21T13:48:15Z",
+      "side": 1,
+      "message": "I guess it is fine as it is, but I\u0027d better be safe than sorry and put all options before command arguments. As in:\n\n  apt-get -y -Pstuff build-dep .\n\n(nit: also the equal there for a single char option looks a bit weird? :)",
+      "range": {
+        "startLine": 7,
+        "startChar": 21,
+        "endLine": 7,
+        "endChar": 22
+      },
+      "revId": "50d7c61e3b0e2fd640ba17afbeeb43330da0ec9a",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
