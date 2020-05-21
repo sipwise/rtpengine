@@ -37,14 +37,14 @@ fi
 OPTIONS=""
 START_OPTIONS=""
 
-if [ ! -z "$INTERFACES" ]; then
+if [ -n "$INTERFACES" ]; then
 	for interface in $INTERFACES; do
 		OPTIONS="$OPTIONS --interface=$interface"
 	done
 fi
 
 
-if [ ! -z "$SUBSCRIBE_KEYSPACES" ]; then
+if [ -n "$SUBSCRIBE_KEYSPACES" ]; then
 	for ks in $SUBSCRIBE_KEYSPACES; do
 		OPTIONS="$OPTIONS --subscribe-keyspace=$ks"
 	done
@@ -74,9 +74,9 @@ fi
 [ -z "$REDIS_NUM_THREADS" ] || OPTIONS="$OPTIONS --redis-num-threads=$REDIS_NUM_THREADS"
 [ -z "$REDIS_EXPIRES" ] || OPTIONS="$OPTIONS --redis-expires=$REDIS_EXPIRES"
 [ -z "$REDIS_MULTIKEY" ] || OPTIONS="$OPTIONS --redis-multikey=$REDIS_MULTIKEY"
-[ -z "$NO_REDIS_REQUIRED" ] || ( [ "$NO_REDIS_REQUIRED" != "1" ] && [ "$NO_REDIS_REQUIRED" != "yes" ] ) || OPTIONS="$OPTIONS --no-redis-required"
+[ -z "$NO_REDIS_REQUIRED" ] || { [ "$NO_REDIS_REQUIRED" != "1" ] && [ "$NO_REDIS_REQUIRED" != "yes" ] ; } || OPTIONS="$OPTIONS --no-redis-required"
 [ -z "$B2B_URL" ] || OPTIONS="$OPTIONS --b2b-url=$B2B_URL"
-[ -z "$NO_FALLBACK" ] || ( [ "$NO_FALLBACK" != "1" ] && [ "$NO_FALLBACK" != "yes" ] ) || OPTIONS="$OPTIONS --no-fallback"
+[ -z "$NO_FALLBACK" ] || { [ "$NO_FALLBACK" != "1" ] && [ "$NO_FALLBACK" != "yes" ] ; } || OPTIONS="$OPTIONS --no-fallback"
 OPTIONS="$OPTIONS --table=$TABLE"
 [ -z "$LOG_LEVEL" ] || OPTIONS="$OPTIONS --log-level=$LOG_LEVEL"
 [ -z "$LOG_FACILITY" ] || OPTIONS="$OPTIONS --log-facility=$LOG_FACILITY"
@@ -91,7 +91,7 @@ OPTIONS="$OPTIONS --table=$TABLE"
 [ -z "$HOMER" ] || OPTIONS="$OPTIONS --homer=$HOMER"
 [ -z "$HOMER_PROTOCOL" ] || OPTIONS="$OPTIONS --homer-protocol=$HOMER_PROTOCOL"
 [ -z "$HOMER_ID" ] || OPTIONS="$OPTIONS --homer-id=$HOMER_ID"
-if [ ! -z "$RECORDING_DIR" ]; then
+if [ -n "$RECORDING_DIR" ]; then
 	OPTIONS="$OPTIONS --recording-dir=$RECORDING_DIR"
 	if [ ! -d "$RECORDING_DIR" ]; then
 		mkdir "$RECORDING_DIR" 2> /dev/null
@@ -100,7 +100,7 @@ if [ ! -z "$RECORDING_DIR" ]; then
 fi
 [ -z "$RECORDING_METHOD" ] || OPTIONS="$OPTIONS --recording-method=$RECORDING_METHOD"
 [ -z "$RECORDING_FORMAT" ] || OPTIONS="$OPTIONS --recording-format=$RECORDING_FORMAT"
-[ -z "$DTLS_PASSIVE" ] || ( [ "$DTLS_PASSIVE" != "yes" ] && [ "$DTLS_PASSIVE" != "1" ] ) || OPTIONS="$OPTIONS --dtls-passive"
+[ -z "$DTLS_PASSIVE" ] || { [ "$DTLS_PASSIVE" != "yes" ] && [ "$DTLS_PASSIVE" != "1" ] ; } || OPTIONS="$OPTIONS --dtls-passive"
 
 if test "$FORK" = "no" ; then
 	OPTIONS="$OPTIONS --foreground"
@@ -142,7 +142,7 @@ case "$1" in
 	      log_action_msg "Active node or transition."
 	      ;;
 	    *)
-	      log_action_msg "Ignored start action in inactive node ($status)"
+	      log_action_msg "Ignored start action in inactive node"
 	      exit 0
 	      ;;
 	  esac
@@ -157,9 +157,8 @@ case "$1" in
 	;;
   stop)
 	log_daemon_msg "Stopping $DESC" "$NAME"
-	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
-		--retry 5 --exec "$DAEMON"
-	if [ "$?" -ne 0 ]; then
+	if ! start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+		--retry 5 --exec "$DAEMON"; then
 		return $?
 	fi
 	set +e

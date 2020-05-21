@@ -20,7 +20,7 @@ else
 
 	if [ -n "$TABLE" ] && [ "$TABLE" -ge 0 ] && \
 		 [ -n "$NO_FALLBACK" ] && \
-		 ([ "$NO_FALLBACK" = "1" ] || [ "$NO_FALLBACK" = "yes" ])
+		 { [ "$NO_FALLBACK" = "1" ] || [ "$NO_FALLBACK" = "yes" ] ; }
 	then
 		if lsmod | grep -q $modname || modinfo $modname > /dev/null 2> /dev/null; then
 			true
