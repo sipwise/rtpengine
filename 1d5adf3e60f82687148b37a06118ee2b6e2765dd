@@ -72,6 +72,54 @@
     },
     {
       "key": {
+        "uuid": "e2a0e398_d015b65e",
+        "filename": ".github/actions/debpkg-buster/Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2020-05-21T13:31:32Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "855d999d_45b3596b",
+      "range": {
+        "startLine": 11,
+        "startChar": 0,
+        "endLine": 12,
+        "endChar": 47
+      },
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9519dc19_da7eb43a",
+        "filename": ".github/actions/debpkg-buster/Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2020-05-21T13:31:32Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7c4ae798_93f29f8f",
+      "range": {
+        "startLine": 12,
+        "startChar": 39,
+        "endLine": 12,
+        "endChar": 47
+      },
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "84b45f22_11b54237",
         "filename": ".github/actions/debpkg-buster/entrypoint.sh",
         "patchSetId": 1
@@ -83,6 +131,24 @@
       "writtenOn": "2020-05-21T13:23:11Z",
       "side": 1,
       "message": "Why this if we are already setting the build profile below, which should make the build-dep to be ignored?",
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "52a78e0b_4a1952af",
+        "filename": ".github/actions/debpkg-buster/entrypoint.sh",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2020-05-21T13:31:32Z",
+      "side": 1,
+      "message": "\"apt-get build-dep .\" fails to install libbcg729-dev otherwise, but I just noticed that apt-get also supports the -P flag, thanks :)",
+      "parentUuid": "84b45f22_11b54237",
       "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": false
@@ -123,6 +189,30 @@
       "writtenOn": "2020-05-21T13:23:11Z",
       "side": 1,
       "message": "Isn\u0027t this redundant with the next check?",
+      "range": {
+        "startLine": 25,
+        "startChar": 8,
+        "endLine": 25,
+        "endChar": 28
+      },
+      "revId": "1d5adf3e60f82687148b37a06118ee2b6e2765dd",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1b10457d_85dcc6ce",
+        "filename": ".github/workflows/tests.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2020-05-21T13:31:32Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "469df360_9449eb7d",
       "range": {
         "startLine": 25,
         "startChar": 8,
