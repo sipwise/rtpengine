@@ -2,6 +2,7 @@
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/ip.h>
+#include <net/ip6_checksum.h>
 #include <linux/udp.h>
 #include <linux/icmp.h>
 #include <linux/version.h>
