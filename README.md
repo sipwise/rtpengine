@@ -804,6 +804,18 @@ Optionally included keys are:
 	Used if SDP addresses are neither trusted (through `SIP source address` or `--sip-source`) nor the
 	`media address` key is present.
 
+* `drop-traffic`
+
+	Contains a string, valid values are `start` or `stop`.
+
+	`start` signals to *rtpengine* that all RTP involved in this call is dropped.
+	Can be present either in `offer` or `answer`, the behavior is for the entire call.
+
+	`stop` signals to *rtpengine* that all RTP involved in this call is NOT dropped anymore.
+	Can be present either in `offer` or `answer`, the behavior is for the entire call.
+
+	`stop` has priority over `start`, if both are present.
+
 * `ICE`
 
 	Contains a string, valid values are `remove`, `force` or `force-relay`.
