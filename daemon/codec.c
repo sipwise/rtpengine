@@ -139,6 +139,12 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->output_handler = handler; // reset to default
 	handler->dtmf_payload_type = -1;
 	handler->pcm_dtmf_detect = 0;
+
+	if (handler->stats_entry) {
+		atomic64_dec(&handler->stats_entry->count);
+		handler->stats_entry = NULL;
+		free(handler->stats_chain);
+	}
 }
 
 static void __codec_handler_free(void *pp) {
@@ -239,6 +245,26 @@ reset:
 				STR_FMT(&dest->encoding_with_params), dtmf_payload_type);
 
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
+
+	// stats entry
+	if (asprintf(&handler->stats_chain, STR_FORMAT " -> " STR_FORMAT,
+				STR_FMT(&handler->source_pt.encoding_with_params),
+				STR_FMT(&dest->encoding_with_params)) < 0)
+		ilog(LOG_ERR, "asprintf error");
+	else {
+		mutex_lock(&rtpe_codec_stats_lock);
+		struct codec_stats *stats_entry =
+			g_hash_table_lookup(rtpe_codec_stats, handler->stats_chain);
+		if (!stats_entry) {
+			stats_entry = g_slice_alloc0(sizeof(*stats_entry));
+			stats_entry->chain = strdup(handler->stats_chain);
+			g_hash_table_insert(rtpe_codec_stats, stats_entry->chain, stats_entry);
+		}
+		handler->stats_entry = stats_entry;
+		mutex_unlock(&rtpe_codec_stats_lock);
+
+		atomic64_inc(&stats_entry->count);
+	}
 
 check_output:;
 	// check if we have multiple decoders transcoding to the same output PT
