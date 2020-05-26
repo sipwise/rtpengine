@@ -18,6 +18,7 @@ struct stats {
 	atomic64			offers;
 	atomic64			answers;
 	atomic64			deletes;
+	atomic64			transcoded_media;
 };
 
 
