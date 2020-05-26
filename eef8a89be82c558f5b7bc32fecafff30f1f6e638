@@ -22,6 +22,30 @@
       "revId": "eef8a89be82c558f5b7bc32fecafff30f1f6e638",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "76764f40_621bec5f",
+        "filename": "debian/ngcp-rtpengine-daemon.init",
+        "patchSetId": 2
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2020-05-26T14:19:39Z",
+      "side": 1,
+      "message": "AFAICT nope:\n\n% cat foo \nold_behavior() {\n  false\n  if [ \"$?\" -ne 0 ]; then\n    return $?\n  fi\n}\nnew_behavior() {\n  false\n  RC\u003d$?\n  if [ \"$RC\" -ne 0 ]; then\n    return \"$RC\"\n  fi\n}\n\nold_behavior ; echo $?\nnew_behavior ; echo $?\n\n% bash ./foo\n0\n1",
+      "parentUuid": "3249bde9_177d175b",
+      "range": {
+        "startLine": 162,
+        "startChar": 0,
+        "endLine": 165,
+        "endChar": 3
+      },
+      "revId": "eef8a89be82c558f5b7bc32fecafff30f1f6e638",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
     }
   ]
 }
