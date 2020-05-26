@@ -49,11 +49,11 @@
 #include "t38.h"
 
 
-/* also serves as array index for callstream->peers[] */
 struct iterator_helper {
 	GSList			*del_timeout;
 	GSList			*del_scheduled;
 	GHashTable		*addr_sfd;
+	uint64_t		transcoded_media;
 };
 struct xmlrpc_helper {
 	enum xmlrpc_format fmt;
@@ -205,6 +205,12 @@ no_sfd:
 
 next:
 		;
+	}
+
+	for (it = c->medias.head; it; it = it->next) {
+		struct call_media *media = it->data;
+		if (MEDIA_ISSET(media, TRANSCODE))
+			hlp->transcoded_media++;
 	}
 
 	if (good || IS_FOREIGN_CALL(c)) {
@@ -564,6 +570,9 @@ static void call_timer(void *ptr) {
 
 	deletes = atomic64_get_set(&rtpe_statsps.deletes, 0);
 	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes / run_diff);
+
+	// stats derived while iterating calls
+	atomic64_set(&rtpe_stats.transcoded_media, hlp.transcoded_media);
 
 	i = kernel_list();
 	while (i) {
