@@ -128,6 +128,12 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->dtmf_scaler = 0;
 	handler->output_handler = handler; // reset to default
 	handler->dtmf_payload_type = -1;
+
+	if (handler->stats_entry) {
+		g_atomic_int_add(&handler->stats_entry->num_transcoders, -1);
+		handler->stats_entry = NULL;
+		free(handler->stats_chain);
+	}
 }
 
 static void __codec_handler_free(void *pp) {
@@ -222,6 +228,30 @@ reset:
 				STR_FMT(&dest->encoding_with_params), dtmf_payload_type);
 
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
+
+	// stats entry
+	if (asprintf(&handler->stats_chain, STR_FORMAT " -> " STR_FORMAT,
+				STR_FMT(&handler->source_pt.encoding_with_params),
+				STR_FMT(&dest->encoding_with_params)) < 0)
+		ilog(LOG_ERR, "asprintf error");
+	else {
+		mutex_lock(&rtpe_codec_stats_lock);
+		struct codec_stats *stats_entry =
+			g_hash_table_lookup(rtpe_codec_stats, handler->stats_chain);
+		if (!stats_entry) {
+			stats_entry = g_slice_alloc0(sizeof(*stats_entry));
+			stats_entry->chain = strdup(handler->stats_chain);
+			g_hash_table_insert(rtpe_codec_stats, stats_entry->chain, stats_entry);
+			if (asprintf(&stats_entry->chain_brief, STR_FORMAT "_" STR_FORMAT,
+					STR_FMT(&handler->source_pt.encoding_with_params),
+					STR_FMT(&dest->encoding_with_params)) < 0)
+				stats_entry->chain_brief = "xxx";
+		}
+		handler->stats_entry = stats_entry;
+		mutex_unlock(&rtpe_codec_stats_lock);
+
+		g_atomic_int_inc(&stats_entry->num_transcoders);
+	}
 
 check_output:;
 	// check if we have multiple decoders transcoding to the same output PT
@@ -1440,6 +1470,13 @@ static int __packet_decoded(decoder_t *decoder, AVFrame *frame, void *u1, void *
 		ch = new_ch;
 	}
 
+	struct codec_handler *h = ch->handler;
+	if (h->stats_entry) {
+		int idx = rtpe_now.tv_sec & 1;
+		atomic64_add(&h->stats_entry->pcm_samples[idx], frame->nb_samples);
+		atomic64_add(&h->stats_entry->pcm_samples[2], frame->nb_samples);
+	}
+
 	if (G_UNLIKELY(!ch->encoder)) {
 		ilog(LOG_INFO | LOG_FLAG_LIMIT,
 				"Discarding decoded %i PCM samples due to lack of output encoder",
@@ -1482,6 +1519,25 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 	ilog(LOG_DEBUG, "Received RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
+
+	if (h->stats_entry) {
+		unsigned int idx = rtpe_now.tv_sec & 1;
+		int last_tv_sec = g_atomic_int_get(&h->stats_entry->last_tv_sec[idx]);
+		if (last_tv_sec != (int) rtpe_now.tv_sec) {
+			if (g_atomic_int_compare_and_exchange(&h->stats_entry->last_tv_sec[idx],
+						last_tv_sec, rtpe_now.tv_sec))
+			{
+				// new second - zero out stats. slight race condition here
+				atomic64_set(&h->stats_entry->packets_input[idx], 0);
+				atomic64_set(&h->stats_entry->bytes_input[idx], 0);
+				atomic64_set(&h->stats_entry->pcm_samples[idx], 0);
+			}
+		}
+		atomic64_inc(&h->stats_entry->packets_input[idx]);
+		atomic64_add(&h->stats_entry->bytes_input[idx], mp->payload.len);
+		atomic64_inc(&h->stats_entry->packets_input[2]);
+		atomic64_add(&h->stats_entry->bytes_input[2], mp->payload.len);
+	}
 
 	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
 	packet->func = packet_decode;
