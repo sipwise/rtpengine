@@ -10,6 +10,10 @@ mutex_t		       	rtpe_totalstats_lastinterval_lock;
 struct totalstats       rtpe_totalstats_lastinterval;
 
 
+mutex_t rtpe_codec_stats_lock;
+GHashTable *rtpe_codec_stats;
+
+
 static void timeval_totalstats_average_add(struct totalstats *s, const struct timeval *add) {
 	struct timeval dp, oa;
 
@@ -242,4 +246,7 @@ void statistics_init() {
 	mutex_init(&rtpe_totalstats_interval.offers_ps.lock);
 	mutex_init(&rtpe_totalstats_interval.answers_ps.lock);
 	mutex_init(&rtpe_totalstats_interval.deletes_ps.lock);
+
+	mutex_init(&rtpe_codec_stats_lock);
+	rtpe_codec_stats = g_hash_table_new(g_str_hash, g_str_equal);
 }
