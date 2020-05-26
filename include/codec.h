@@ -38,6 +38,10 @@ struct codec_handler {
 
 	// for media playback
 	struct codec_ssrc_handler *ssrc_handler;
+
+	// stats entry
+	char *stats_chain;
+	struct codec_stats *stats_entry;
 };
 
 struct codec_packet {
