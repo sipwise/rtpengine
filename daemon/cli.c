@@ -502,6 +502,7 @@ static void cli_incoming_list_numsessions(str *instr, struct streambuf *replybuf
        streambuf_printf(replybuffer, "Current sessions foreign: "UINT64F"\n", atomic64_get(&rtpe_stats.foreign_sessions));
        streambuf_printf(replybuffer, "Current sessions total: %i\n", g_hash_table_size(rtpe_callhash));
        rwlock_unlock_r(&rtpe_callhash_lock);
+       streambuf_printf(replybuffer, "Current transcoded media: "UINT64F"\n", atomic64_get(&rtpe_stats.transcoded_media));
 }
 
 static void cli_incoming_list_maxsessions(str *instr, struct streambuf *replybuffer) {
