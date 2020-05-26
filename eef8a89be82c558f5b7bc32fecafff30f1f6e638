@@ -70,6 +70,30 @@
       "revId": "eef8a89be82c558f5b7bc32fecafff30f1f6e638",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "74ba8d37_f241d694",
+        "filename": "debian/ngcp-rtpengine-daemon.init",
+        "patchSetId": 2
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-05-26T16:56:59Z",
+      "side": 1,
+      "message": "This is still a problem because we do not properly reach the rm -f pidfile nor log_end_msg. Also isn\u0027t return a function only thing?",
+      "parentUuid": "a7f2566a_981e077f",
+      "range": {
+        "startLine": 162,
+        "startChar": 0,
+        "endLine": 165,
+        "endChar": 3
+      },
+      "revId": "eef8a89be82c558f5b7bc32fecafff30f1f6e638",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
     }
   ]
 }
