@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3249bde9_177d175b",
+        "filename": "debian/ngcp-rtpengine-daemon.init",
+        "patchSetId": 2
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 1000008
+      },
+      "writtenOn": "2020-05-26T12:29:09Z",
+      "side": 1,
+      "message": "Isn\u0027t that still exactly the same behaviour? Or am I being dense?",
+      "range": {
+        "startLine": 162,
+        "startChar": 0,
+        "endLine": 165,
+        "endChar": 3
+      },
+      "revId": "eef8a89be82c558f5b7bc32fecafff30f1f6e638",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
+    }
+  ]
+}
