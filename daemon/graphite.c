@@ -228,6 +228,31 @@ static int send_graphite_data(struct totalstats *sent_data) {
 				num_ports - g_atomic_int_get(&lif->spec->port_pool.free_ports));
 	}
 
+	mutex_lock(&rtpe_codec_stats_lock);
+
+	GList *chains = g_hash_table_get_keys(rtpe_codec_stats);
+	int last_tv_sec = rtpe_now.tv_sec - 1;
+	unsigned int idx = last_tv_sec & 1;
+	for (GList *l = chains; l; l = l->next) {
+		char *chain = l->data;
+		struct codec_stats *stats_entry = g_hash_table_lookup(rtpe_codec_stats, chain);
+		GPF("transcoder_%s %i", stats_entry->chain_brief,
+				g_atomic_int_get(&stats_entry->num_transcoders));
+		if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
+			continue;
+		GPF("transcoder_%s_packets %llu", stats_entry->chain_brief,
+				(unsigned long long) atomic64_get(&stats_entry->packets_input[idx]));
+		GPF("transcoder_%s_bytes %llu", stats_entry->chain_brief,
+				(unsigned long long) atomic64_get(&stats_entry->bytes_input[idx]));
+		GPF("transcoder_%s_samples %llu", stats_entry->chain_brief,
+				(unsigned long long) atomic64_get(&stats_entry->pcm_samples[idx]));
+	}
+
+	mutex_unlock(&rtpe_codec_stats_lock);
+
+	g_list_free(chains);
+
+
 	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%llu.%06llu at time %llu\n",
 			(unsigned long long) ts->managed_sess_min,
 			(unsigned long long) ts->managed_sess_max,

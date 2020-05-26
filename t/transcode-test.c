@@ -315,6 +315,7 @@ static void dtmf(const char *s) {
 int main(void) {
 	codeclib_init(0);
 	srandom(time(NULL));
+	statistics_init();
 
 	// plain
 	start();
