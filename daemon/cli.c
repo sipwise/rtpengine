@@ -89,6 +89,7 @@ static void cli_incoming_list_rediscmdtimeout(str *instr, struct streambuf *repl
 static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_interfaces(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_jsonstats(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_transcoders(str *instr, struct streambuf *replybuffer);
 
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
@@ -141,6 +142,7 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "controltos",			cli_incoming_list_controltos		},
 	{ "interfaces",			cli_incoming_list_interfaces		},
 	{ "jsonstats",			cli_incoming_list_jsonstats		},
+	{ "transcoders",		cli_incoming_list_transcoders		},
 	{ NULL, },
 };
 
@@ -1530,6 +1532,21 @@ static void cli_incoming_list_jsonstats(str *instr, struct streambuf *replybuffe
 
 	streambuf_printf(replybuffer, "}}");
 	g_list_free(list);
+}
+
+static void cli_incoming_list_transcoders(str *instr, struct streambuf *replybuffer) {
+	mutex_lock(&rtpe_codec_stats_lock);
+
+	GList *chains = g_hash_table_get_keys(rtpe_codec_stats);
+	for (GList *l = chains; l; l = l->next) {
+		char *chain = l->data;
+		struct codec_stats *stats_entry = g_hash_table_lookup(rtpe_codec_stats, chain);
+		streambuf_printf(replybuffer, "%s: " UINT64F "\n", chain, atomic64_get(&stats_entry->count));
+	}
+
+	mutex_unlock(&rtpe_codec_stats_lock);
+
+	g_list_free(chains);
 }
 
 static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer) {
