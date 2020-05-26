@@ -88,6 +88,7 @@ static void cli_incoming_list_redisconnecttimeout(str *instr, struct streambuf *
 static void cli_incoming_list_rediscmdtimeout(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_list_interfaces(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_list_transcoders(str *instr, struct streambuf *replybuffer);
 
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
@@ -139,6 +140,7 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "rediscmdtimeout",		cli_incoming_list_rediscmdtimeout	},
 	{ "controltos",			cli_incoming_list_controltos		},
 	{ "interfaces",			cli_incoming_list_interfaces		},
+	{ "transcoders",		cli_incoming_list_transcoders		},
 	{ NULL, },
 };
 
@@ -1391,6 +1393,32 @@ static void cli_incoming_list_interfaces(str *instr, struct streambuf *replybuff
 		streambuf_printf(replybuffer, " Last port used: %5u\n",
 				l);
 	}
+}
+
+static void cli_incoming_list_transcoders(str *instr, struct streambuf *replybuffer) {
+	mutex_lock(&rtpe_codec_stats_lock);
+
+	GList *chains = g_hash_table_get_keys(rtpe_codec_stats);
+	if (!chains)
+		streambuf_printf(replybuffer, "No stats entries\n");
+	else {
+		int last_tv_sec = rtpe_now.tv_sec - 1;
+		unsigned int idx = last_tv_sec & 1;
+		for (GList *l = chains; l; l = l->next) {
+			char *chain = l->data;
+			struct codec_stats *stats_entry = g_hash_table_lookup(rtpe_codec_stats, chain);
+			streambuf_printf(replybuffer, "%s: %i transcoders\n", chain, g_atomic_int_get(&stats_entry->num_transcoders));
+			if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
+				continue;
+			streambuf_printf(replybuffer, "     " UINT64F " packets/s\n", atomic64_get(&stats_entry->packets_input[idx]));
+			streambuf_printf(replybuffer, "     " UINT64F " bytes/s\n", atomic64_get(&stats_entry->bytes_input[idx]));
+			streambuf_printf(replybuffer, "     " UINT64F " samples/s\n", atomic64_get(&stats_entry->pcm_samples[idx]));
+		}
+	}
+
+	mutex_unlock(&rtpe_codec_stats_lock);
+
+	g_list_free(chains);
 }
 
 static void cli_incoming_list_controltos(str *instr, struct streambuf *replybuffer) {
