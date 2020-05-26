@@ -80,6 +80,18 @@ struct rtp_stats {
 	atomic64		in_tos_tclass;
 };
 
+struct codec_stats {
+	char			*chain;
+	char			*chain_brief;
+	int			num_transcoders;
+	// 3 entries: [0] and [1] for per-second stats, [2] for total count
+	// last_tv_sec keeps track of rollovers
+	int			last_tv_sec[2];
+	atomic64		packets_input[3];
+	atomic64		bytes_input[3];
+	atomic64		pcm_samples[3];
+};
+
 
 struct call_stats {
 	time_t		last_packet;
@@ -90,6 +102,9 @@ extern struct totalstats       rtpe_totalstats;
 extern struct totalstats       rtpe_totalstats_interval;
 extern mutex_t		       rtpe_totalstats_lastinterval_lock;
 extern struct totalstats       rtpe_totalstats_lastinterval;
+
+extern mutex_t rtpe_codec_stats_lock;
+extern GHashTable *rtpe_codec_stats;
 
 void statistics_update_oneway(struct call *);
 void statistics_update_foreignown_dec(struct call *);
