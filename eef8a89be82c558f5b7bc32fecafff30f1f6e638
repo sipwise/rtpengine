@@ -94,6 +94,30 @@
       "revId": "eef8a89be82c558f5b7bc32fecafff30f1f6e638",
       "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ecea98ae_a4c53531",
+        "filename": "debian/ngcp-rtpengine-daemon.init",
+        "patchSetId": 2
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 1000000
+      },
+      "writtenOn": "2020-05-27T06:41:15Z",
+      "side": 1,
+      "message": "\u003e This is still a problem because we do not properly reach the rm -f pidfile nor log_end_msg.\n\nWell, that\u0027s nothing the old code did neither, anyway, took care of it\n(Oh, the \"joy\" of init scripts :-/)\n\n\u003e Also isn\u0027t return a function only thing?\n\nJepp, but since we\u0027re running under \"set -e\" it fails as expected :p\n\nDone",
+      "parentUuid": "74ba8d37_f241d694",
+      "range": {
+        "startLine": 162,
+        "startChar": 0,
+        "endLine": 165,
+        "endChar": 3
+      },
+      "revId": "eef8a89be82c558f5b7bc32fecafff30f1f6e638",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": true
     }
   ]
 }
