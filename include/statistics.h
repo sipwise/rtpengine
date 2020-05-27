@@ -92,6 +92,13 @@ struct codec_stats {
 	atomic64		pcm_samples[3];
 };
 
+struct stats_metric {
+	char *label;
+	char *descr;
+	char *value_short;
+	char *value_long;
+};
+
 
 struct call_stats {
 	time_t		last_packet;
@@ -110,6 +117,9 @@ void statistics_update_oneway(struct call *);
 void statistics_update_foreignown_dec(struct call *);
 void statistics_update_foreignown_inc(struct call* c);
 void statistics_update_totals(struct packet_stream *) ;
+
+GQueue *statistics_gather_metrics(void);
+void statistics_free_metrics(GQueue **);
 
 void statistics_init(void);
 
