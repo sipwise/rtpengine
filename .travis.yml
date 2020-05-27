@@ -3,9 +3,18 @@ compiler:
   - gcc
   - clang
 before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -y gdebi-core
-  - sudo ./utils/build_deps.sh $TRAVIS_BUILD_DIR
+  - sudo apt-get update
+  - sudo apt-get -y install devscripts equivs
+  # workarounds for Ubuntu xenial/16.04 LTS,
+  # `apt-get -y build-dep -Ppkg.ngcp-rtpengine.nobcg729 .`
+  # as well as several Build-Deps aren't available
+  - sed -i '/libbcg729-dev/d' debian/control
+  - sed -i 's/default-libmysqlclient-dev/libmysqlclient-dev/' debian/control
+  - sed -i 's/libiptc-dev/iptables-dev/' debian/control
+  - sed -i 's/debhelper-compat.*/debhelper,/' debian/control
+  - mk-build-deps --build-dep --install --remove --root-cmd sudo
 script:
   - make -C iptables-extension
-  - make -C daemon -j`nproc`
+    # `dpkg-parsechangelog [...] -STimestamp` is not available
+    # on Ubuntu xenial/16.04 LTS
+  - RELEASE_DATE=travis-$(date +%s) make -C daemon -j$(nproc)
