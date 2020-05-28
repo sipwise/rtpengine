@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c6fbb8da_b576892e",
+        "filename": "debian/ngcp-rtpengine-daemon.init",
+        "patchSetId": 4
+      },
+      "lineNbr": 162,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-05-28T16:31:05Z",
+      "side": 1,
+      "message": "actually this is not right, as the command failing will make the entire script fail. I think we should stop setting set -e in init scripts TBH. and check explicitly what might fail for the desired commands",
+      "revId": "c91be566e924bfb77555bd8c27cfccf1fb4f8d31",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
