@@ -22,7 +22,9 @@ struct jitter_buffer {
 	mutex_t        		lock;
 	unsigned long 		first_send_ts;
 	struct timeval 		first_send;
+	struct timeval 		prev_seq_ts;
 	unsigned int            first_seq;
+	unsigned int            prev_seq;
 	unsigned int            rtptime_delta;
 	unsigned int            next_exp_seq;
 	unsigned int            cont_frames;
@@ -31,12 +33,10 @@ struct jitter_buffer {
 	unsigned int            payload_type;
 	unsigned int            num_resets;
 	unsigned int            initial_pkts;
-	unsigned int            drift_mult_factor;
 	unsigned int            ssrc;
 	unsigned int            dtmf_mult_factor;
 	int            		buffer_len;
 	int                     clock_drift_val;
-	int                     buf_decremented;
 	struct call             *call;
 	int			disabled;
 };
