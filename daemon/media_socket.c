@@ -1825,6 +1825,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (!phc->mp.stream->selected_sfd)
 		goto out;
 
+	if (phc->mp.call && phc->mp.call->drop_traffic) {
+		goto drop;
+	}
 
 	int stun_ret = media_demux_protocols(phc);
 	if (stun_ret == 0) // packet processed

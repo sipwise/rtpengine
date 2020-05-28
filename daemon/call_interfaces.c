@@ -887,6 +887,20 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		bencode_get_str(it->sibling, &out->received_from_address);
 	}
 
+	if (bencode_dictionary_get_str(input, "drop-traffic", &s)) {
+		switch (__csh_lookup(&s)) {
+			case CSH_LOOKUP("start"):
+				out->drop_traffic_start = 1;
+				break;
+			case CSH_LOOKUP("stop"):
+				out->drop_traffic_stop = 1;
+				break;
+			default:
+				ilog(LOG_WARN, "Unknown 'drop-traffic' flag encountered: '"STR_FORMAT"'",
+						STR_FMT(&s));
+		}
+	}
+
 	if (bencode_dictionary_get_str(input, "ICE", &s)) {
 		switch (__csh_lookup(&s)) {
 			case CSH_LOOKUP("remove"):
@@ -1144,6 +1158,14 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	if (flags.record_call) {
 		call->recording_on = 1;
 		recording_start(call, NULL, &flags.metadata);
+	}
+
+	if (flags.drop_traffic_start) {
+		call->drop_traffic = 1;
+	}
+
+	if (flags.drop_traffic_stop) {
+		call->drop_traffic = 0;
 	}
 
 	ret = monologue_offer_answer(monologue, &streams, &flags);
