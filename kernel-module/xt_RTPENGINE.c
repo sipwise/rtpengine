@@ -1447,6 +1447,9 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 	*o = (addr_bucket << 17) | port;
 	table_put(t);
 
+	if (!g) // EOF
+		*o = 256 << 17;
+
 	return g;
 }
 
