@@ -1207,6 +1207,8 @@ static inline struct rtpengine_target *find_next_target(struct rtpengine_table *
 	unsigned int rda_b, hi_b, lo_b;
 	struct rtpengine_target *g;
 
+	printk("find_next_target(%i, %i, %i)\n", t->id, *addr_bucket, *port);
+
 	if (*port < 0)
 		return NULL;
 	if (*port > 0xffff) {
@@ -1284,6 +1286,8 @@ next_rda:
 	*addr_bucket = ab;
 	*port = (hi << 8) | lo;
 	(*port)++;
+
+	printk("find_next_target returning %p: %i, %i\n", g, *addr_bucket, *port);
 
 	return g;
 }
@@ -1423,10 +1427,12 @@ static int proc_list_open(struct inode *i, struct file *f) {
 
 
 static void *proc_list_start(struct seq_file *f, loff_t *o) {
+	printk("proc_list_start\n");
 	return proc_list_next(f, NULL, o);
 }
 
 static void proc_list_stop(struct seq_file *f, void *v) {
+	printk("proc_list_stop\n");
 }
 
 static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is invalid */
@@ -1434,6 +1440,8 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 	struct rtpengine_table *t;
 	struct rtpengine_target *g;
 	int port, addr_bucket;
+
+	printk("proc_list_next: %llx\n", (long long unsigned) *o);
 
 	addr_bucket = ((int) *o) >> 17;
 	port = ((int) *o) & 0x1ffff;
