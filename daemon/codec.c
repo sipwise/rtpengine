@@ -593,6 +593,17 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	g_hash_table_destroy(dtmf_sinks);
 
+	struct rtp_payload_type *dtmf_pt = NULL;
+	struct rtp_payload_type *reverse_dtmf_pt = NULL;
+
+	if (dtmf_payload_type != -1) {
+		// find a matching output DTMF payload type
+		dtmf_pt = g_hash_table_lookup(sink->codecs_recv, &dtmf_payload_type);
+		reverse_dtmf_pt = g_hash_table_lookup(receiver->codecs_send, &dtmf_payload_type);
+		if (reverse_dtmf_pt && dtmf_pt && rtp_payload_type_cmp(reverse_dtmf_pt, dtmf_pt))
+			reverse_dtmf_pt = NULL;
+	}
+
 	// stop transcoding if we've determined that we don't need it
 	if (MEDIA_ISSET(sink, TRANSCODE) && !sink_transcoding) {
 		ilog(LOG_DEBUG, "Disabling transcoding engine (not needed)");
@@ -686,7 +697,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		GQueue *dest_codecs = NULL;
 		if (!flags || !flags->always_transcode) {
 			// we ignore output codec matches if we must transcode DTMF
-			if (dtmf_payload_type != -1)
+			if (dtmf_pt && !reverse_dtmf_pt)
 				;
 			else if (flags && flags->inject_dtmf)
 				;
