@@ -3,10 +3,6 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <sys/types.h>
-#include <spandsp/telephony.h>
-#include <spandsp/super_tone_rx.h>
-#include <spandsp/logging.h>
-#include <spandsp/dtmf.h>
 #include "call.h"
 #include "log.h"
 #include "rtplib.h"
@@ -57,6 +53,10 @@ static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) 
 #ifdef WITH_TRANSCODING
 
 
+#include <spandsp/telephony.h>
+#include <spandsp/super_tone_rx.h>
+#include <spandsp/logging.h>
+#include <spandsp/dtmf.h>
 #include "resample.h"
 #include "dtmf_rx_fillin.h"
 
