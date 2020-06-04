@@ -1483,11 +1483,40 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 		struct rtpengine_srtp *s, const char *label)
 {
 	int hdr = 0;
+	int i;
 
 	if (c->cipher && c->cipher->id != REC_NULL) {
 		if (!hdr++)
 			seq_printf(f, "    SRTP %s parameters:\n", label);
 		seq_printf(f, "        cipher: %s\n", c->cipher->name ? : "<invalid>");
+
+		seq_printf(f, "    master key: ");
+		for (i = 0; i < s->master_key_len; i++)
+			seq_printf(f, "%02x", s->master_key[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "   master salt: ");
+		for (i = 0; i < sizeof(s->master_salt); i++)
+			seq_printf(f, "%02x", s->master_salt[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "   session key: ");
+		for (i = 0; i < s->session_key_len; i++)
+			seq_printf(f, "%02x", c->session_key[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "  session salt: ");
+		for (i = 0; i < sizeof(c->session_salt); i++)
+			seq_printf(f, "%02x", c->session_salt[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "  session auth: ");
+		for (i = 0; i < sizeof(c->session_auth_key); i++)
+			seq_printf(f, "%02x", c->session_auth_key[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "           ROC: %u\n", (unsigned int) c->roc);
+
 		if (s->mki_len)
 			seq_printf(f, "            MKI: length %u, %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x...\n",
 					s->mki_len,
@@ -1524,6 +1553,10 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			g->target.payload_types[i],
 			(unsigned long long) atomic64_read(&g->rtp_stats[i].bytes),
 			(unsigned long long) atomic64_read(&g->rtp_stats[i].packets));
+	if (g->target.ssrc)
+		seq_printf(f, "  SSRC in: %08x\n", g->target.ssrc);
+	if (g->target.ssrc_out)
+		seq_printf(f, " SSRC out: %08x\n", g->target.ssrc_out);
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption (incoming)");
 	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt, "encryption (outgoing)");
 	if (g->target.rtcp_mux)
@@ -4034,14 +4067,14 @@ intercept_done:
 
 no_intercept:
 	if (rtp.ok) {
+		// SSRC substitution
+		if (g->target.transcoding && g->target.ssrc_out)
+			rtp.header->ssrc = g->target.ssrc_out;
+
 		pkt_idx = packet_index(&g->encrypt, &g->target.encrypt, rtp.header);
 		srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
 		skb_put(skb, g->target.encrypt.mki_len + g->target.encrypt.auth_tag_len);
 		srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
-
-		// SSRC substitution
-		if (g->target.transcoding && g->target.ssrc_out)
-			rtp.header->ssrc = g->target.ssrc_out;
 	}
 
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos, par);
