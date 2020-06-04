@@ -1487,11 +1487,40 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 		struct rtpengine_srtp *s, const char *label)
 {
 	int hdr = 0;
+	int i;
 
 	if (c->cipher && c->cipher->id != REC_NULL) {
 		if (!hdr++)
 			seq_printf(f, "    SRTP %s parameters:\n", label);
 		seq_printf(f, "        cipher: %s\n", c->cipher->name ? : "<invalid>");
+
+		seq_printf(f, "    master key: ");
+		for (i = 0; i < s->master_key_len; i++)
+			seq_printf(f, "%02x", s->master_key[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "   master salt: ");
+		for (i = 0; i < sizeof(s->master_salt); i++)
+			seq_printf(f, "%02x", s->master_salt[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "   session key: ");
+		for (i = 0; i < s->session_key_len; i++)
+			seq_printf(f, "%02x", c->session_key[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "  session salt: ");
+		for (i = 0; i < sizeof(c->session_salt); i++)
+			seq_printf(f, "%02x", c->session_salt[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "  session auth: ");
+		for (i = 0; i < sizeof(c->session_auth_key); i++)
+			seq_printf(f, "%02x", c->session_auth_key[i]);
+		seq_printf(f, "\n");
+
+		seq_printf(f, "           ROC: %u\n", (unsigned int) c->roc);
+
 		if (s->mki_len)
 			seq_printf(f, "            MKI: length %u, %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x...\n",
 					s->mki_len,
