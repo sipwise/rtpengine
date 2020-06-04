@@ -32,20 +32,20 @@
 int ktable = 0;
 int num_threads = 8;
 enum output_storage_enum output_storage = OUTPUT_STORAGE_FILE;
-const char *spool_dir = "/var/spool/rtpengine";
-const char *output_dir = "/var/lib/rtpengine-recording";
-static const char *output_format = "wav";
+char *spool_dir = NULL;
+char *output_dir = NULL;
+static char *output_format = NULL;
 int output_mixed;
 int output_single;
 int output_enabled = 1;
 int decoding_enabled;
-const char *c_mysql_host,
+char *c_mysql_host,
       *c_mysql_user,
       *c_mysql_pass,
       *c_mysql_db;
 int c_mysql_port;
-const char *forward_to = NULL;
-static const char *tls_send_to = NULL;
+char *forward_to = NULL;
+static char *tls_send_to = NULL;
 endpoint_t tls_send_to_ep;
 int tls_resample = 8000;
 
@@ -144,7 +144,7 @@ static void cleanup(void) {
 
 
 static void options(int *argc, char ***argv) {
-	const char *os_str = NULL;
+	char *os_str = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
@@ -170,6 +170,16 @@ static void options(int *argc, char ***argv) {
 
 	config_load(argc, argv, e, " - rtpengine recording daemon",
 			"/etc/rtpengine/rtpengine-recording.conf", "rtpengine-recording", &rtpe_common_config);
+
+	// default config, if not configured
+	if (spool_dir == NULL)
+		spool_dir = g_strdup("/var/spool/rtpengine");
+
+	if (output_dir == NULL)
+		output_dir = g_strdup("/var/lib/rtpengine-recording");
+
+	if (output_format == NULL)
+		output_format = g_strdup("wav");
 
 	if (tls_send_to) {
 		if (endpoint_parse_any_getaddrinfo_full(&tls_send_to_ep, tls_send_to))
@@ -202,8 +212,25 @@ static void options(int *argc, char ***argv) {
 
 	if ((output_storage & OUTPUT_STORAGE_FILE) && !strcmp(output_dir, spool_dir))
 		die("The spool-dir cannot be the same as the output-dir");
+
+	g_free(os_str);
 }
 
+static void options_free(void) {
+	// free config options	
+	g_free(spool_dir);
+	g_free(output_dir);
+	g_free(output_format);
+	g_free(c_mysql_host);
+	g_free(c_mysql_user);
+	g_free(c_mysql_pass);
+	g_free(c_mysql_db);
+	g_free(forward_to);
+	g_free(tls_send_to);
+
+	// free common config options
+	config_load_free(&rtpe_common_config);
+}
 
 int main(int argc, char **argv) {
 	options(&argc, &argv);
@@ -222,6 +249,8 @@ int main(int argc, char **argv) {
 	dbg("shutting down");
 
 	wait_threads_finish();
+
+	options_free();
 
 	cleanup();
 }

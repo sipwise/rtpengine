@@ -232,6 +232,8 @@ INLINE int rlim(int res, rlim_t val) {
 }
 
 void free_buf(char **);
+void free_gbuf(char **);
+void free_gvbuf(char ***);
 
 
 

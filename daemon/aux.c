@@ -141,8 +141,10 @@ void threads_join_all(int wait) {
 			pthread_join(*t, NULL);
 			threads_to_join = g_list_delete_link(threads_to_join, threads_to_join);
 			l = g_list_find_custom(threads_running, t, thread_equal);
-			if (l)
+			if (l) {
+				g_slice_free1(sizeof(*t), l->data);
 				threads_running = g_list_delete_link(threads_running, l);
+			}
 			else
 				abort();
 			g_slice_free1(sizeof(*t), t);
@@ -263,4 +265,12 @@ int g_tree_find_all_cmp(void *k, void *v, void *d) {
 void free_buf(char **p) {
 	if (*p)
 		free(*p);
+}
+
+void free_gbuf(char **p) {
+	g_free(*p);
+}
+
+void free_gvbuf(char ***p) {
+	g_strfreev(*p);
 }

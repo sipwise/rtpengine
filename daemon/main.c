@@ -68,14 +68,12 @@ struct rtpengine_config rtpe_config = {
 	.redis_allowed_errors = -1,
 	.redis_disable_time = 10,
 	.redis_connect_timeout = 1000,
-	.rec_method = "pcap",
-	.rec_format = "raw",
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
-	.dtls_ciphers = "DEFAULT:!NULL:!aNULL:!SHA256:!SHA384:!aECDH:!AESGCM+AES256:!aPSK",
 	.dtls_signature = 256,
 };
 
+char **if_a_global = NULL;
 
 static void sighandler(gpointer x) {
 	sigset_t ss;
@@ -288,32 +286,32 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 
 static void options(int *argc, char ***argv) {
 	char **if_a = NULL;
-	char **ks_a = NULL;
+	AUTO_CLEANUP_GVBUF(ks_a);
 	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char **iter;
-	char *listenps = NULL;
-	char *listenudps = NULL;
-	char *listenngs = NULL;
-	char *listencli = NULL;
-	char *graphitep = NULL;
-	char *graphite_prefix_s = NULL;
-	char *redisps = NULL;
-	char *redisps_write = NULL;
-	char *log_facility_cdr_s = NULL;
-	char *log_facility_rtcp_s = NULL;
-	char *log_facility_dtmf_s = NULL;
-	char *log_format = NULL;
+	AUTO_CLEANUP_GBUF(listenps);
+	AUTO_CLEANUP_GBUF(listenudps);
+	AUTO_CLEANUP_GBUF(listenngs);
+	AUTO_CLEANUP_GBUF(listencli);
+	AUTO_CLEANUP_GBUF(graphitep);
+	AUTO_CLEANUP_GBUF(graphite_prefix_s);
+	AUTO_CLEANUP_GBUF(redisps);
+	AUTO_CLEANUP_GBUF(redisps_write);
+	AUTO_CLEANUP_GBUF(log_facility_cdr_s);
+	AUTO_CLEANUP_GBUF(log_facility_rtcp_s);
+	AUTO_CLEANUP_GBUF(log_facility_dtmf_s);
+	AUTO_CLEANUP_GBUF(log_format);
 	int sip_source = 0;
-	char *homerp = NULL;
-	char *homerproto = NULL;
+	AUTO_CLEANUP_GBUF(homerp);
+	AUTO_CLEANUP_GBUF(homerproto);
 	char *endptr;
 	int codecs = 0;
 	double max_load = 0;
 	double max_cpu = 0;
-	char *dtmf_udp_ep = NULL;
-	char *endpoint_learning = NULL;
-	char *dtls_sig = NULL;
+	AUTO_CLEANUP_GBUF(dtmf_udp_ep);
+	AUTO_CLEANUP_GBUF(endpoint_learning);
+	AUTO_CLEANUP_GBUF(dtls_sig);
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -393,6 +391,16 @@ static void options(int *argc, char ***argv) {
 
 	config_load(argc, argv, e, " - next-generation media proxy",
 			"/etc/rtpengine/rtpengine.conf", "rtpengine", &rtpe_config.common);
+
+	// default values, if not configured
+	if (rtpe_config.rec_method == NULL)
+		rtpe_config.rec_method = g_strdup("pcap");
+
+	if (rtpe_config.rec_format == NULL)
+		rtpe_config.rec_format = g_strdup("raw");
+
+	if (rtpe_config.dtls_ciphers == NULL)
+		rtpe_config.dtls_ciphers = g_strdup("DEFAULT:!NULL:!aNULL:!SHA256:!SHA384:!aECDH:!AESGCM+AES256:!aPSK");
 
 	if (codecs) {
 		codeclib_init(1);
@@ -595,6 +603,9 @@ static void options(int *argc, char ***argv) {
 
 	if (rtpe_config.jb_length < 0)
 		die("Invalid negative jitter buffer size");
+
+	// free local vars
+	if_a_global = if_a; // -> content is used; needs to be freed later
 }
 
 void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
@@ -668,6 +679,39 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	ini_rtpe_cfg->jb_length = rtpe_config.jb_length;
 	ini_rtpe_cfg->jb_clock_drift = rtpe_config.jb_clock_drift;
+}
+
+static void unfill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
+	// free g_strdup
+	g_free(ini_rtpe_cfg->b2b_url);
+	g_free(ini_rtpe_cfg->redis_auth);
+	g_free(ini_rtpe_cfg->redis_write_auth);
+	g_free(ini_rtpe_cfg->spooldir);
+	g_free(ini_rtpe_cfg->iptables_chain);
+	g_free(ini_rtpe_cfg->rec_method);
+	g_free(ini_rtpe_cfg->rec_format);
+}
+
+static void options_free(void) {
+	// free config options
+	g_free(rtpe_config.b2b_url);
+	g_free(rtpe_config.spooldir);
+	g_free(rtpe_config.rec_method);
+	g_free(rtpe_config.rec_format);
+	g_free(rtpe_config.iptables_chain);
+	g_free(rtpe_config.scheduling);
+	g_free(rtpe_config.idle_scheduling);
+	g_free(rtpe_config.mysql_host);
+	g_free(rtpe_config.mysql_user);
+	g_free(rtpe_config.mysql_pass);
+	g_free(rtpe_config.mysql_query);
+	g_free(rtpe_config.dtls_ciphers);
+
+	// free common config options
+	config_load_free(&rtpe_config.common);
+
+	// free if_a STRING LIST
+	g_strfreev(if_a_global);
 }
 
 static void early_init(void) {
@@ -904,6 +948,10 @@ int main(int argc, char **argv) {
 		redis_notify_event_base_action(EVENT_BASE_FREE);
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
+
+	unfill_initial_rtpe_cfg(&initial_rtpe_config);
+
+	options_free();
 
 	return 0;
 }
