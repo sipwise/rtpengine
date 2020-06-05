@@ -1395,17 +1395,31 @@ static void cli_incoming_list_interfaces(str *instr, struct streambuf *replybuff
 }
 
 static void cli_incoming_list_jsonstats(str *instr, struct streambuf *replybuffer) {
+	u_int64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
 	struct timeval avg, calls_dur_iv;
-	u_int64_t num_sessions, min_sess_iv, max_sess_iv;
 	struct request_time offer_iv, answer_iv, delete_iv;
 	struct requests_ps offers_ps, answers_ps, deletes_ps;
+
+	streambuf_printf(replybuffer, "{\"currentstatistics\":{");
+
+	rwlock_lock_r(&rtpe_callhash_lock);
+	cur_sessions = g_hash_table_size(rtpe_callhash);
+	rwlock_unlock_r(&rtpe_callhash_lock);
+
+	streambuf_printf(replybuffer, "\"sessionsown\":"UINT64F",", cur_sessions - atomic64_get(&rtpe_stats.foreign_sessions));
+	streambuf_printf(replybuffer, "\"sessionsforeign\":"UINT64F",", atomic64_get(&rtpe_stats.foreign_sessions));
+	streambuf_printf(replybuffer, "\"sessionstotal\":%i,", cur_sessions);
+
+	streambuf_printf(replybuffer, "\"packetrate\":%"PRIu64",", atomic64_get(&rtpe_stats.packets));
+	streambuf_printf(replybuffer, "\"byterate\":%"PRIu64",", atomic64_get(&rtpe_stats.bytes));
+	streambuf_printf(replybuffer, "\"errorrate\":%"PRIu64"", atomic64_get(&rtpe_stats.errors));
 
 	mutex_lock(&rtpe_totalstats.total_average_lock);
 	avg = rtpe_totalstats.total_average_call_dur;
 	num_sessions = rtpe_totalstats.total_managed_sess;
 	mutex_unlock(&rtpe_totalstats.total_average_lock);
 
-	streambuf_printf(replybuffer, "{\"totalstatistics\":{");
+	streambuf_printf(replybuffer, "},\"totalstatistics\":{");
 	streambuf_printf(replybuffer, "\"uptime\":%llu,", (unsigned long long)time(NULL)-rtpe_totalstats.started);
 	streambuf_printf(replybuffer, "\"managedsessions\":"UINT64F",", num_sessions);
 	streambuf_printf(replybuffer, "\"rejectedsessions\":"UINT64F",", atomic64_get(&rtpe_totalstats.total_rejected_sess));
