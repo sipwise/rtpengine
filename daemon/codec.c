@@ -798,7 +798,11 @@ next:
 			// if the sink does not support DTMF but we can receive it, we must transcode
 			// DTMF event packets to PCM. this requires all codecs to be transcoded to the
 			// sink's preferred destination codec.
-			if ((!transcode_dtmf && dtmf_payload_type == -1) || !pref_dest_codec
+			if (!transcode_dtmf && dtmf_payload_type == -1)
+				__make_passthrough_ssrc(handler);
+			else if (dtmf_pt && reverse_dtmf_pt)
+				__make_passthrough_ssrc(handler);
+			else if (!pref_dest_codec
 					|| !handler->source_pt.codec_def || !pref_dest_codec->codec_def)
 				__make_passthrough_ssrc(handler);
 			else
