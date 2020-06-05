@@ -712,14 +712,14 @@ static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp) {
 	str *s_copy = str_slice_dup(s);
 	GHashTable **ht = htp;
 	if (!*ht)
-		*ht = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
+		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, str_slice_free, NULL);
 	g_hash_table_replace(*ht, s_copy, s_copy);
 }
 #ifdef WITH_TRANSCODING
 static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *htp) {
 	GHashTable **ht = htp;
 	if (!*ht)
-		*ht = g_hash_table_new_full(str_hash, str_equal, str_slice_free, str_slice_free);
+		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, str_slice_free, str_slice_free);
 	str splitter = *s;
 	while (1) {
 		g_hash_table_replace(*ht, str_slice_dup(&splitter), str_slice_dup(s));
