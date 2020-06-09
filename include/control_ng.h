@@ -28,6 +28,7 @@ struct control_ng_stats {
 	int play_media;
 	int stop_media;
 	int play_dtmf;
+	int statistics;
 	int errors;
 };
 

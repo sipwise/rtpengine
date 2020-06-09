@@ -542,6 +542,7 @@ GQueue *statistics_gather_metrics(void) {
 		METRICs("playmedia", "%u", cur->play_media);
 		METRICs("stopmedia", "%u", cur->stop_media);
 		METRICs("playdtmf", "%u", cur->play_dtmf);
+		METRICs("statistics", "%u", cur->statistics);
 		METRICs("errorcount", "%u", cur->errors);
 		HEADER("}", NULL);
 
@@ -568,6 +569,7 @@ GQueue *statistics_gather_metrics(void) {
 	METRICs("totalplaymedia", "%u", total.play_media);
 	METRICs("totalstopmedia", "%u", total.stop_media);
 	METRICs("totalplaydtmf", "%u", total.play_dtmf);
+	METRICs("totalstatistics", "%u", total.statistics);
 	METRICs("totalerrorcount", "%u", total.errors);
 
 	HEADER("}", "");
@@ -613,4 +615,75 @@ void statistics_init() {
 
 	mutex_init(&rtpe_codec_stats_lock);
 	rtpe_codec_stats = g_hash_table_new(g_str_hash, g_str_equal);
+}
+
+const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue bstack, g_queue_clear, G_QUEUE_INIT);
+
+	bencode_item_t *dict = output;
+	const char *sub_label = "statistics"; // top level
+	bencode_buffer_t *buf = output->buffer;
+
+	for (GList *l = metrics->head; l; l = l->next) {
+		struct stats_metric *m = l->data;
+		if (!m->label)
+			continue;
+
+		// key:value entry?
+		if (m->value_short) {
+			if (m->is_int)
+				bencode_dictionary_add_integer(dict, bencode_strdup(buf, m->label),
+						m->int_value);
+			else {
+				size_t len = strlen(m->value_short);
+				if (len >= 2 && m->value_short[0] == '"' && m->value_short[len-1] == '"')
+					bencode_dictionary_add(dict, bencode_strdup(buf, m->label),
+							bencode_string_len_dup(buf, m->value_short+1, len-2));
+				else
+					bencode_dictionary_add_string_dup(dict, bencode_strdup(buf, m->label),
+							m->value_short);
+			}
+			continue;
+		}
+
+		// list or dict end?
+		if (m->is_close_bracket) {
+			dict = g_queue_pop_tail(&bstack);
+			assert(dict != NULL);
+			continue;
+		}
+
+		// label without value precedes an immediate sub-entry, so save the label
+		if (!m->is_bracket) {
+			assert(sub_label == NULL);
+			sub_label = m->label;
+			continue;
+		}
+
+		// open bracket of some sort - new sub-entry follows
+		bencode_item_t *sub = NULL;
+		if (m->is_brace)
+			sub = bencode_dictionary(buf);
+		else
+			sub = bencode_list(buf);
+
+		assert(sub != NULL);
+
+		// is this a dictionary?
+		if (dict->type == BENCODE_DICTIONARY) {
+			assert(sub_label != NULL);
+			bencode_dictionary_add(dict, bencode_strdup(buf, sub_label), sub);
+		}
+		else if (dict->type == BENCODE_LIST)
+			bencode_list_add(dict, sub);
+		else
+			abort();
+
+		sub_label = NULL;
+		g_queue_push_tail(&bstack, dict);
+		dict = sub;
+	}
+
+	return NULL;
 }

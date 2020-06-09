@@ -522,6 +522,7 @@ a string and determines the type of message. Currently the following commands ar
 * play media
 * stop media
 * play DTMF
+* statistics
 
 The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
 For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
@@ -1672,3 +1673,108 @@ received during a generated DTMF event will be suppressed.
 The call must be marked for DTMF injection using the `inject DTMF` flag used in both `offer` and `answer`
 messages. Enabling this flag forces all audio to go through the transcoding engine, even if input and output
 codecs are the same (similar to DTMF transcoding, see above).
+
+`statistics` Message
+--------------------
+
+Returns a set of general statistics metrics with identical content and format as the `list jsonstats` CLI
+command. Sample return dictionary:
+
+	{
+	  "statistics": {
+	    "currentstatistics": {
+	      "sessionsown": 0,
+	      "sessionsforeign": 0,
+	      "sessionstotal": 0,
+	      "transcodedmedia": 0,
+	      "packetrate": 0,
+	      "byterate": 0,
+	      "errorrate": 0
+	    },
+	    "totalstatistics": {
+	      "uptime": "18",
+	      "managedsessions": 0,
+	      "rejectedsessions": 0,
+	      "timeoutsessions": 0,
+	      "silenttimeoutsessions": 0,
+	      "finaltimeoutsessions": 0,
+	      "offertimeoutsessions": 0,
+	      "regularterminatedsessions": 0,
+	      "forcedterminatedsessions": 0,
+	      "relayedpackets": 0,
+	      "relayedpacketerrors": 0,
+	      "zerowaystreams": 0,
+	      "onewaystreams": 0,
+	      "avgcallduration": "0.000000"
+	    },
+	    "intervalstatistics": {
+	      "totalcallsduration": "0.000000",
+	      "minmanagedsessions": 0,
+	      "maxmanagedsessions": 0,
+	      "minofferdelay": "0.000000",
+	      "maxofferdelay": "0.000000",
+	      "avgofferdelay": "0.000000",
+	      "minanswerdelay": "0.000000",
+	      "maxanswerdelay": "0.000000",
+	      "avganswerdelay": "0.000000",
+	      "mindeletedelay": "0.000000",
+	      "maxdeletedelay": "0.000000",
+	      "avgdeletedelay": "0.000000",
+	      "minofferrequestrate": 0,
+	      "maxofferrequestrate": 0,
+	      "avgofferrequestrate": 0,
+	      "minanswerrequestrate": 0,
+	      "maxanswerrequestrate": 0,
+	      "avganswerrequestrate": 0,
+	      "mindeleterequestrate": 0,
+	      "maxdeleterequestrate": 0,
+	      "avgdeleterequestrate": 0
+	    },
+	    "controlstatistics": {
+	      "proxies": [
+		{
+		  "proxy": "127.0.0.1",
+		  "pingcount": 0,
+		  "offercount": 0,
+		  "answercount": 0,
+		  "deletecount": 0,
+		  "querycount": 0,
+		  "listcount": 0,
+		  "startreccount": 0,
+		  "stopreccount": 0,
+		  "startfwdcount": 0,
+		  "stopfwdcount": 0,
+		  "blkdtmfcount": 0,
+		  "unblkdtmfcount": 0,
+		  "blkmedia": 0,
+		  "unblkmedia": 0,
+		  "playmedia": 0,
+		  "stopmedia": 0,
+		  "playdtmf": 0,
+		  "statistics": 0,
+		  "errorcount": 0
+		}
+	      ],
+	      "totalpingcount": 0,
+	      "totaloffercount": 0,
+	      "totalanswercount": 0,
+	      "totaldeletecount": 0,
+	      "totalquerycount": 0,
+	      "totallistcount": 0,
+	      "totalstartreccount": 0,
+	      "totalstopreccount": 0,
+	      "totalstartfwdcount": 0,
+	      "totalstopfwdcount": 0,
+	      "totalblkdtmfcount": 0,
+	      "totalunblkdtmfcount": 0,
+	      "totalblkmedia": 0,
+	      "totalunblkmedia": 0,
+	      "totalplaymedia": 0,
+	      "totalstopmedia": 0,
+	      "totalplaydtmf": 0,
+	      "totalstatistics": 0,
+	      "totalerrorcount": 0
+	    }
+	  },
+	  "result": "ok"
+	}

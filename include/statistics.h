@@ -2,6 +2,7 @@
 #define STATISTICS_H_
 
 #include "aux.h"
+#include "bencode.h"
 
 struct call;
 struct packet_stream;
@@ -126,6 +127,7 @@ void statistics_update_totals(struct packet_stream *) ;
 
 GQueue *statistics_gather_metrics(void);
 void statistics_free_metrics(GQueue **);
+const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
 
 void statistics_init(void);
 
