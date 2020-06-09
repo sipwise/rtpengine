@@ -97,9 +97,11 @@ struct stats_metric {
 	char *descr;
 	char *value_short;
 	char *value_long;
+	int64_t int_value;
 	int is_bracket;
 	int is_close_bracket;
 	int is_follow_up;
+	int is_int;
 };
 
 
