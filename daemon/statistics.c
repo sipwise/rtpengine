@@ -330,10 +330,13 @@ void statistics_update_oneway(struct call* c) {
 					|| m->label[0] == '{' \
 					|| m->label[0] == '}' \
 					|| m->label[0] == ']') \
-				&& m->label[1] == 0) { \
+				&& m->label[1] == 0) \
+		{ \
 			m->is_bracket = 1; \
 			if (m->label[0] == '}' || m->label[0] == ']') \
 				m->is_close_bracket = 1; \
+			if (m->label[0] == '{' || m->label[0] == '}') \
+				m->is_brace = 1; \
 		} \
 		SM_PUSH(ret, m); \
 	} while (0)

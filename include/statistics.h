@@ -100,6 +100,7 @@ struct stats_metric {
 	int64_t int_value;
 	int is_bracket;
 	int is_close_bracket;
+	int is_brace;
 	int is_follow_up;
 	int is_int;
 };
