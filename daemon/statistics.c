@@ -240,7 +240,7 @@ void statistics_update_oneway(struct call* c) {
 		g_queue_push_tail(ret, m); \
 	} while (0)
 
-#define METRIC(lb, dsc, fmt1, fmt2, ...) \
+#define METRICva(lb, dsc, fmt1, fmt2, ...) \
 	do { \
 		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
 		m->label = g_strdup(lb); \
@@ -252,6 +252,33 @@ void statistics_update_oneway(struct call* c) {
 		SM_PUSH(ret, m); \
 	} while (0)
 
+#define METRIC(lb, dsc, fmt1, fmt2, arg) \
+	do { \
+		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
+		m->label = g_strdup(lb); \
+		m->descr = g_strdup(dsc); \
+		if (fmt1) \
+			m->value_short = g_strdup_printf(fmt1, arg); \
+		if (fmt2) \
+			m->value_long = g_strdup_printf(fmt2, arg); \
+		if (fmt1 && fmt2 && !strcmp(fmt1, fmt2)) { \
+			if (!strcmp(fmt1, "%u") || \
+					!strcmp(fmt1, "%lu") || \
+					!strcmp(fmt1, "%llu") || \
+					!strcmp(fmt1, "%i") || \
+					!strcmp(fmt1, "%li") || \
+					!strcmp(fmt1, "%lli") || \
+					!strcmp(fmt1, "%d") || \
+					!strcmp(fmt1, "%ld") || \
+					!strcmp(fmt1, "%lld")) \
+			{ \
+				m->is_int = 1; \
+				m->int_value = arg; \
+			} \
+		} \
+		SM_PUSH(ret, m); \
+	} while (0)
+
 #define METRICl(dsc, fmt2, ...) \
 	do { \
 		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
@@ -260,11 +287,34 @@ void statistics_update_oneway(struct call* c) {
 		SM_PUSH(ret, m); \
 	} while (0)
 
-#define METRICs(lb, fmt1, ...) \
+#define METRICsva(lb, fmt1, ...) \
 	do { \
 		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
 		m->label = g_strdup(lb); \
 		m->value_short = g_strdup_printf(fmt1, ## __VA_ARGS__); \
+		SM_PUSH(ret, m); \
+	} while (0)
+
+#define METRICs(lb, fmt1, arg) \
+	do { \
+		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
+		m->label = g_strdup(lb); \
+		m->value_short = g_strdup_printf(fmt1, arg); \
+		if (fmt1) { \
+			if (!strcmp(fmt1, "%u") || \
+					!strcmp(fmt1, "%lu") || \
+					!strcmp(fmt1, "%llu") || \
+					!strcmp(fmt1, "%i") || \
+					!strcmp(fmt1, "%li") || \
+					!strcmp(fmt1, "%lli") || \
+					!strcmp(fmt1, "%d") || \
+					!strcmp(fmt1, "%ld") || \
+					!strcmp(fmt1, "%lld")) \
+			{ \
+				m->is_int = 1; \
+				m->int_value = arg; \
+			} \
+		} \
 		SM_PUSH(ret, m); \
 	} while (0)
 
@@ -309,7 +359,7 @@ GQueue *statistics_gather_metrics(void) {
 	mutex_unlock(&rtpe_totalstats.total_average_lock);
 
 	HEADER("{", "");
-	METRIC("currentstatistics", "Statistics over currently running sessions:", NULL, NULL);
+	HEADER("currentstatistics", "Statistics over currently running sessions:");
 	HEADER("{", "");
 
 	rwlock_lock_r(&rtpe_callhash_lock);
@@ -331,7 +381,7 @@ GQueue *statistics_gather_metrics(void) {
 	mutex_unlock(&rtpe_totalstats.total_average_lock);
 
 	HEADER("}", "");
-	METRIC("totalstatistics", "Total statistics (does not include current running sessions):", NULL, NULL);
+	HEADER("totalstatistics", "Total statistics (does not include current running sessions):");
 	HEADER("{", "");
 
 	METRIC("uptime", "Uptime of rtpengine", "%llu", "%llu seconds", (unsigned long long) time(NULL)-rtpe_totalstats.started);
@@ -348,7 +398,7 @@ GQueue *statistics_gather_metrics(void) {
 	METRIC("relayedpacketerrors", "Total relayed packet errors", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_relayed_errors));
 	METRIC("zerowaystreams", "Total number of streams with no relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_nopacket_relayed_sess));
 	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_oneway_stream_sess));
-	METRIC("avgcallduration", "Average call duration", "%ld.%06ld", "%ld.%06ld", avg.tv_sec, avg.tv_usec);
+	METRICva("avgcallduration", "Average call duration", "%ld.%06ld", "%ld.%06ld", avg.tv_sec, avg.tv_usec);
 
 	mutex_lock(&rtpe_totalstats_lastinterval_lock);
 	calls_dur_iv = rtpe_totalstats_lastinterval.total_calls_duration_interval;
@@ -364,10 +414,10 @@ GQueue *statistics_gather_metrics(void) {
 
 	HEADER(NULL, "");
 	HEADER("}", "");
-	METRIC("intervalstatistics", "Graphite interval statistics (last reported values to graphite):", NULL, NULL);
+	HEADER("intervalstatistics", "Graphite interval statistics (last reported values to graphite):");
 	HEADER("{", NULL);
 
-	METRIC("totalcallsduration", "Total calls duration", "%ld.%06ld", "%ld.%06ld", calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
+	METRICva("totalcallsduration", "Total calls duration", "%ld.%06ld", "%ld.%06ld", calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
 	HEADER(NULL, "");
 
 	METRIC("minmanagedsessions", "Min managed sessions", UINT64F, UINT64F, min_sess_iv);
@@ -377,23 +427,23 @@ GQueue *statistics_gather_metrics(void) {
 			(unsigned long long)offer_iv.time_min.tv_sec,(unsigned long long)offer_iv.time_min.tv_usec,
 			(unsigned long long)offer_iv.time_max.tv_sec,(unsigned long long)offer_iv.time_max.tv_usec,
 			(unsigned long long)offer_iv.time_avg.tv_sec,(unsigned long long)offer_iv.time_avg.tv_usec);
-	METRICs("minofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_min.tv_sec,(unsigned long long)offer_iv.time_min.tv_usec);
-	METRICs("maxofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_max.tv_sec,(unsigned long long)offer_iv.time_max.tv_usec);
-	METRICs("avgofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_avg.tv_sec,(unsigned long long)offer_iv.time_avg.tv_usec);
+	METRICsva("minofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_min.tv_sec,(unsigned long long)offer_iv.time_min.tv_usec);
+	METRICsva("maxofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_max.tv_sec,(unsigned long long)offer_iv.time_max.tv_usec);
+	METRICsva("avgofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_avg.tv_sec,(unsigned long long)offer_iv.time_avg.tv_usec);
 	METRICl("Min/Max/Avg answer processing delay", "%llu.%06llu/%llu.%06llu/%llu.%06llu sec",
 			(unsigned long long)answer_iv.time_min.tv_sec,(unsigned long long)answer_iv.time_min.tv_usec,
 			(unsigned long long)answer_iv.time_max.tv_sec,(unsigned long long)answer_iv.time_max.tv_usec,
 			(unsigned long long)answer_iv.time_avg.tv_sec,(unsigned long long)answer_iv.time_avg.tv_usec);
-	METRICs("minanswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_min.tv_sec,(unsigned long long)answer_iv.time_min.tv_usec);
-	METRICs("maxanswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_max.tv_sec,(unsigned long long)answer_iv.time_max.tv_usec);
-	METRICs("avganswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_avg.tv_sec,(unsigned long long)answer_iv.time_avg.tv_usec);
+	METRICsva("minanswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_min.tv_sec,(unsigned long long)answer_iv.time_min.tv_usec);
+	METRICsva("maxanswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_max.tv_sec,(unsigned long long)answer_iv.time_max.tv_usec);
+	METRICsva("avganswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_avg.tv_sec,(unsigned long long)answer_iv.time_avg.tv_usec);
 	METRICl("Min/Max/Avg delete processing delay", "%llu.%06llu/%llu.%06llu/%llu.%06llu sec",
 			(unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec,
 			(unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec,
 			(unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
-	METRICs("mindeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec);
-	METRICs("maxdeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec);
-	METRICs("avgdeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
+	METRICsva("mindeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec);
+	METRICsva("maxdeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec);
+	METRICsva("avgdeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
 
 	METRICl("Min/Max/Avg offer requests per second", "%llu/%llu/%llu per sec",
 			(unsigned long long)offers_ps.ps_min,
@@ -419,7 +469,7 @@ GQueue *statistics_gather_metrics(void) {
 
 	HEADER(NULL, "");
 	HEADER("}", "");
-	METRIC("controlstatistics", "Control statistics:", NULL, NULL);
+	HEADER("controlstatistics", "Control statistics:");
 	HEADER("{", "");
 	HEADER("proxies", NULL);
 	HEADER("[", NULL);
@@ -470,7 +520,7 @@ GQueue *statistics_gather_metrics(void) {
 		total.play_dtmf += cur->play_dtmf;
 		total.errors += cur->errors;
 		HEADER("{", NULL);
-		METRICs("proxy", "\"%s\"", sockaddr_print_buf(&cur->proxy));
+		METRICsva("proxy", "\"%s\"", sockaddr_print_buf(&cur->proxy));
 		METRICs("pingcount", "%u", cur->ping);
 		METRICs("offercount", "%u", cur->offer);
 		METRICs("answercount", "%u", cur->answer);
