@@ -15,6 +15,7 @@
 #include "socket.h"
 #include "log_funcs.h"
 #include "main.h"
+#include "statistics.h"
 
 
 mutex_t rtpe_cngs_lock;
@@ -259,6 +260,10 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 		case CSH_LOOKUP("play DTMF"):
 			errstr = call_play_dtmf_ng(dict, resp);
 			g_atomic_int_inc(&cur->play_dtmf);
+			break;
+		case CSH_LOOKUP("statistics"):
+			errstr = statistics_ng(dict, resp);
+			g_atomic_int_inc(&cur->statistics);
 			break;
 		default:
 			errstr = "Unrecognized command";
