@@ -17,3 +17,4 @@ ssllib.c
 dtmflib.c
 *-test
 *-test.c
+*.8
