@@ -1,0 +1,343 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "921b94d0_b8458708",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "Missing arguments here such as I\u003cfilename\u003e?",
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "66bdfafc_3b8b09e6",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "I guess this one also takes an argument?",
+      "range": {
+        "startLine": 50,
+        "startChar": 23,
+        "endLine": 50,
+        "endChar": 25
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9971b7ef_d9c8ca12",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 63,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "L\u003csyslog(3)\u003e",
+      "range": {
+        "startLine": 63,
+        "startChar": 51,
+        "endLine": 63,
+        "endChar": 60
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "b0471c38_775f19b0",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "B\u003c\u003e?",
+      "range": {
+        "startLine": 64,
+        "startChar": 21,
+        "endLine": 64,
+        "endChar": 22
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "b9be4b00_f0837bbc",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "B\u003c\u003e",
+      "range": {
+        "startLine": 65,
+        "startChar": 30,
+        "endLine": 65,
+        "endChar": 31
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0c13cacd_ac88b5c1",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "Missing argument?",
+      "range": {
+        "startLine": 82,
+        "startChar": 25,
+        "endLine": 82,
+        "endChar": 26
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "109d396d_f70fbce8",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 87,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "Missing argument?",
+      "range": {
+        "startLine": 87,
+        "startChar": 25,
+        "endLine": 87,
+        "endChar": 26
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4773dfc4_c0a0bb3d",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 106,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "While this is proper English, I think spelling it out as B\u003c0\u003e would make it more clear given that it is a default value?",
+      "range": {
+        "startLine": 106,
+        "startChar": 12,
+        "endLine": 106,
+        "endChar": 16
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "35312f22_8b9ab569",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 112,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "F\u003c\u003e?",
+      "range": {
+        "startLine": 112,
+        "startChar": 37,
+        "endLine": 112,
+        "endChar": 39
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0caf44c9_9ed0651f",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 117,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "B\u003c\u003e",
+      "range": {
+        "startLine": 117,
+        "startChar": 47,
+        "endLine": 117,
+        "endChar": 48
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9671e3de_8792195e",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "You have formatted other alternatives as B\u003c\u003e|B\u003c\u003e|...",
+      "range": {
+        "startLine": 119,
+        "startChar": 26,
+        "endLine": 119,
+        "endChar": 41
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "84a0e78d_b2e0eb82",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 129,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "Missing markup, F\u003c\u003e?",
+      "range": {
+        "startLine": 129,
+        "startChar": 1,
+        "endLine": 129,
+        "endChar": 29
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "fcf7b02a_c2385ac4",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 132,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "See above for alternatives formatting.",
+      "range": {
+        "startLine": 132,
+        "startChar": 25,
+        "endLine": 132,
+        "endChar": 40
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "3c684e9f_f2c22530",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 171,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "See above for alternatives formatting.",
+      "range": {
+        "startLine": 171,
+        "startChar": 22,
+        "endLine": 171,
+        "endChar": 32
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "f772c1e8_320526de",
+        "filename": "recording-daemon/rtpengine-recording.pod",
+        "patchSetId": 2
+      },
+      "lineNbr": 189,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-10T17:52:57Z",
+      "side": 1,
+      "message": "This probably needs to be B\u003c\u003e if it\u0027s no variable text.",
+      "range": {
+        "startLine": 189,
+        "startChar": 27,
+        "endLine": 189,
+        "endChar": 28
+      },
+      "revId": "16903dc9925373fa8a381cc134fbdc71cea2f3e3",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
