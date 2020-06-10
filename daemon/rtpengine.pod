@@ -37,7 +37,7 @@ version number and exit.
 
 Print a list of supported codecs and exit.
 
-=item B<--config-file>
+=item B<--config-file=>I<FILE>
 
 Specifies the location of a config file to be used. The config file is an
 I<.ini> style config file, with all command-line options listed here also
@@ -56,7 +56,7 @@ semicolons (see section L<INTERFACES> below for an example).
 As a special value, B<none> can be passed here to suppress loading of the
 default config file.
 
-=item B<--config-section>
+=item B<--config-section=>I<STRING>
 
 Specifies the I<.ini> style section to be used in the config file.
 Multiple sections can be present in the config file, but only one can be
@@ -194,9 +194,9 @@ Default to 30000 and 40000 respectively.
 
 Takes an integer as argument and controls the highest log level which
 will be sent to syslog.
-The log levels correspond to the ones found in the syslog(3) man page.
-The default value is 6, equivalent to LOG_INFO.
-The highest possible value is 7 (LOG_DEBUG) which will log everything.
+The log levels correspond to the ones found in the L<syslog(3)> man page.
+The default value is B<6>, equivalent to LOG_INFO.
+The highest possible value is B<7> (LOG_DEBUG) which will log everything.
 
 During runtime, the log level can be decreased by sending the signal
 SIGURS1 to the daemon and can be increased with the signal SIGUSR2.
@@ -256,12 +256,12 @@ Only useful in combination with B<--foreground>.
 Don't add timestamps to log lines written to stderr.
 Only useful in combination with B<--log-stderr>.
 
-=item B<--log-mark-prefix>
+=item B<--log-mark-prefix=>I<STRING>
 
 Prefix to be added to particular data fields in log files that are deemed
 sensitive and/or private information. Defaults to an empty string.
 
-=item B<--log-mark-suffix>
+=item B<--log-mark-suffix=>I<STRING>
 
 Suffix to be added to particular data fields in log files that are deemed
 sensitive and/or private information. Defaults to an empty string.
@@ -296,7 +296,7 @@ old behaviour.
 
 Enables the B<DTLS=passive> flag for all calls unconditionally.
 
-=item B<-d>, B<--delete-delay>
+=item B<-d>, B<--delete-delay=>I<INT>
 
 Delete the call from memory after the specified delay from memory.
 Can be set to zero for immediate call deletion.
@@ -340,7 +340,7 @@ password is B<RTPENGINE_REDIS_WRITE_AUTH_PW>.
 When both options are given, B<rtpengine> will start and use the Redis
 database regardless of the database's role (master or slave).
 
-=item B<-k>, B<--subscribe-keyspace>
+=item B<-k>, B<--subscribe-keyspace=>I<INT>
 
 List of redis keyspaces to subscribe.
 If this is not present, no keyspaces are subscribed (default behaviour).

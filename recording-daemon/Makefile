@@ -30,6 +30,9 @@ LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c streamb
 		dtmflib.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
+PODS=		rtpengine-recording.pod
+MANS=		$(PODS:.pod=.8)
+
 include ../lib/common.Makefile
 
 include		.depend
