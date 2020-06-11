@@ -75,6 +75,8 @@ static void __monologue_destroy(struct call_monologue *monologue, int recurse);
 static int monologue_destroy(struct call_monologue *ml);
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration);
+static void __call_free(void *p);
+static void __call_cleanup(struct call *c);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -713,6 +715,17 @@ int call_init() {
 	poller_add_timer(rtpe_poller, call_timer, NULL);
 
 	return 0;
+}
+
+void call_free(void) {
+	GList *ll = g_hash_table_get_values(rtpe_callhash);
+	for (GList *l = ll; l; l = l->next) {
+		struct call *c = l->data;
+		__call_cleanup(c);
+		obj_put(c);
+	}
+	g_list_free(ll);
+	g_hash_table_destroy(rtpe_callhash);
 }
 
 
@@ -2264,10 +2277,47 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 	return res;
 }
 
+static void __call_cleanup(struct call *c) {
+	for (GList *l = c->streams.head; l; l = l->next) {
+		struct packet_stream *ps = l->data;
+
+		send_timer_put(&ps->send_timer);
+		jb_put(&ps->jb);
+		__unkernelize(ps);
+		dtls_shutdown(ps);
+		ps->selected_sfd = NULL;
+		g_queue_clear(&ps->sfds);
+		crypto_cleanup(&ps->crypto);
+
+		ps->rtp_sink = NULL;
+		ps->rtcp_sink = NULL;
+	}
+
+	for (GList *l = c->medias.head; l; l = l->next) {
+		struct call_media *md = l->data;
+		ice_shutdown(&md->ice_agent);
+		t38_gateway_stop(md->t38_gateway);
+		t38_gateway_put(&md->t38_gateway);
+	}
+
+	for (GList *l = c->monologues.head; l; l = l->next) {
+		struct call_monologue *ml = l->data;
+		media_player_stop(ml->player);
+		media_player_put(&ml->player);
+	}
+
+	while (c->stream_fds.head) {
+		struct stream_fd *sfd = g_queue_pop_head(&c->stream_fds);
+		poller_del_item(rtpe_poller, sfd->socket.fd);
+		obj_put(sfd);
+	}
+
+	recording_finish(c);
+}
+
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
 	struct packet_stream *ps=0;
-	struct stream_fd *sfd;
 	GList *l;
 	int ret;
 	struct call_monologue *ml;
@@ -2412,41 +2462,7 @@ no_stats_output:
 
 	cdr_update_entry(c);
 
-	for (l = c->streams.head; l; l = l->next) {
-		ps = l->data;
-
-		send_timer_put(&ps->send_timer);
-		jb_put(&ps->jb);
-		__unkernelize(ps);
-		dtls_shutdown(ps);
-		ps->selected_sfd = NULL;
-		g_queue_clear(&ps->sfds);
-		crypto_cleanup(&ps->crypto);
-
-		ps->rtp_sink = NULL;
-		ps->rtcp_sink = NULL;
-	}
-
-	for (l = c->medias.head; l; l = l->next) {
-		md = l->data;
-		ice_shutdown(&md->ice_agent);
-		t38_gateway_stop(md->t38_gateway);
-		t38_gateway_put(&md->t38_gateway);
-	}
-
-	for (l = c->monologues.head; l; l = l->next) {
-		ml = l->data;
-		media_player_stop(ml->player);
-		media_player_put(&ml->player);
-	}
-
-	while (c->stream_fds.head) {
-		sfd = g_queue_pop_head(&c->stream_fds);
-		poller_del_item(rtpe_poller, sfd->socket.fd);
-		obj_put(sfd);
-	}
-
-	recording_finish(c);
+	__call_cleanup(c);
 
 	rwlock_unlock_w(&c->master_lock);
 }

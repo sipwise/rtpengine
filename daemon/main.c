@@ -944,6 +944,7 @@ int main(int argc, char **argv) {
 	unfill_initial_rtpe_cfg(&initial_rtpe_config);
 
 	options_free();
+	call_free();
 	interfaces_free();
 
 	return 0;
