@@ -788,6 +788,7 @@ static int json_get_hash(struct redis_hash *out,
 	static unsigned int MAXKEYLENGTH = 512;
 	char key_concatted[MAXKEYLENGTH];
 	int rc=0;
+	AUTO_CLEANUP_GVBUF(orig_members);
 
 	if (id == -1) {
 		rc = snprintf(key_concatted, MAXKEYLENGTH, "%s",key);
@@ -809,7 +810,7 @@ static int json_get_hash(struct redis_hash *out,
 		goto err;
 
 	gchar **members = json_reader_list_members(root_reader);
-	gchar **orig_members = members;
+	orig_members = members;
 	int nmemb = json_reader_count_members (root_reader);
 
 	for (int i=0; i < nmemb; ++i) {
@@ -830,13 +831,11 @@ static int json_get_hash(struct redis_hash *out,
 
 		++members;
 	} // for
-	g_strfreev(orig_members);
 	json_reader_end_member (root_reader);
 
 	return 0;
 
 err3:
-	g_strfreev(members);
 	g_hash_table_destroy(out->ht);
 err:
 	return -1;
