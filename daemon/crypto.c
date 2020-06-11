@@ -731,7 +731,7 @@ void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out) {
 
 char *crypto_params_sdes_dump(const struct crypto_params_sdes *cps, char **buf) {
 	if (*buf)
-		free(*buf);
+		g_free(*buf);
 
 	GString *s = g_string_new("");
 	if (!cps || !cps->params.crypto_suite) {
@@ -742,10 +742,10 @@ char *crypto_params_sdes_dump(const struct crypto_params_sdes *cps, char **buf) 
 	g_string_append_printf(s, "suite %s, tag %u, key ", cps->params.crypto_suite->name, cps->tag);
 	char *b = g_base64_encode(cps->params.master_key, cps->params.crypto_suite->master_key_len);
 	g_string_append_printf(s, "%s salt ", b);
-	free(b);
+	g_free(b);
 	b = g_base64_encode(cps->params.master_salt, cps->params.crypto_suite->master_salt_len);
 	g_string_append_printf(s, "%s", b);
-	free(b);
+	g_free(b);
 
 out:
 	*buf = g_string_free(s, FALSE);

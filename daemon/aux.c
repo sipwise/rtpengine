@@ -262,11 +262,6 @@ int g_tree_find_all_cmp(void *k, void *v, void *d) {
 	return FALSE;
 }
 
-void free_buf(char **p) {
-	if (*p)
-		free(*p);
-}
-
 void free_gbuf(char **p) {
 	g_free(*p);
 }
