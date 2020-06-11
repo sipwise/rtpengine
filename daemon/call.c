@@ -1038,7 +1038,7 @@ static int __init_stream(struct packet_stream *ps) {
 	struct call_media *media = ps->media;
 	struct call *call = ps->call;
 	int dtls_active = -1;
-	AUTO_CLEANUP_BUF(paramsbuf);
+	AUTO_CLEANUP_GBUF(paramsbuf);
 	struct dtls_connection *dtls_conn = NULL;
 
 	if (MEDIA_ISSET(media, DTLS)) {
