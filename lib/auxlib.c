@@ -89,7 +89,6 @@ static unsigned int options_length(const GOptionEntry *arr) {
 		if (er)											\
 			goto err;									\
 		*varptr = var;										\
-		break;											\
 	}
 
 void config_load_free(struct rtpengine_common_config *cconfig) {
@@ -153,9 +152,14 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	// prepend shared CLI options
 	unsigned int shared_len = options_length(shared_options);
 	unsigned int app_len = options_length(app_entries);
-	AUTO_CLEANUP(GOptionEntry *entries, free_gopte) = malloc(sizeof(*entries) * (shared_len + app_len + 1));
+	size_t entries_size = sizeof(GOptionEntry) * (shared_len + app_len + 1);
+
+	AUTO_CLEANUP(GOptionEntry *entries, free_gopte) = malloc(entries_size);
 	memcpy(entries, shared_options, sizeof(*entries) * shared_len);
 	memcpy(&entries[shared_len], app_entries, sizeof(*entries) * (app_len + 1));
+
+	AUTO_CLEANUP(GOptionEntry *entries_copy, free_gopte) = malloc(entries_size);
+	memcpy(entries_copy, entries, entries_size);
 
 	c = g_option_context_new(description);
 	g_option_context_add_main_entries(c, entries, NULL);
@@ -182,27 +186,52 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		goto err;
 	}
 
-	// iterate the options list and see if the config file defines any
-	for (GOptionEntry *e = entries; e->long_name; e++) {
+	// destroy the option context to reset - we'll do it again later
+	g_option_context_free(c);
+	c = NULL;
+
+	// iterate the options list and see if the config file defines any.
+	// free any strings we come across, as we'll load argv back in.
+	// also keep track of any returned strings so we can free them if
+	// they were overwritten. we abuse the description field for this.
+	for (GOptionEntry *e = entries_copy; e->long_name; e++) {
 		switch (e->arg) {
 			case G_OPTION_ARG_NONE:
 				CONF_OPTION_GLUE(boolean, int);
+				break;
 
 			case G_OPTION_ARG_INT:
 				CONF_OPTION_GLUE(integer, int);
+				break;
 
 			case G_OPTION_ARG_INT64:
 				CONF_OPTION_GLUE(uint64, uint64_t);
+				break;
 
 			case G_OPTION_ARG_DOUBLE:
 				CONF_OPTION_GLUE(double, double);
+				break;
 
 			case G_OPTION_ARG_STRING:
-			case G_OPTION_ARG_FILENAME:
+			case G_OPTION_ARG_FILENAME: {
+				char **s = e->arg_data;
+				g_free(*s);
+				*s = NULL;
+				e->description = NULL;
 				CONF_OPTION_GLUE(string, char *);
+				e->description = (void *) *s;
+				break;
+			}
 
-			case G_OPTION_ARG_STRING_ARRAY:
+			case G_OPTION_ARG_STRING_ARRAY: {
+				char ***s = e->arg_data;
+				g_strfreev(*s);
+				*s = NULL;
+				e->description = NULL;
 				CONF_OPTION_GLUE(string_list, char **, NULL);
+				e->description = (void *) *s;
+				break;
+			}
 
 			default:
 				config_load_free(rtpe_common_config_ptr);
@@ -212,7 +241,33 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	}
 
 	// process CLI arguments again so they override options from the config file
+	c = g_option_context_new(description);
+	g_option_context_add_main_entries(c, entries, NULL);
 	g_option_context_parse_strv(c, &saved_argv, &er);
+
+	// finally go through our list again to look for strings that were
+	// overwritten, and free the old values
+	for (GOptionEntry *e = entries_copy; e->long_name; e++) {
+		switch (e->arg) {
+			case G_OPTION_ARG_STRING:
+			case G_OPTION_ARG_FILENAME: {
+				char **s = e->arg_data;
+				if (*s != e->description)
+					g_free((void *) e->description);
+				break;
+			}
+
+			case G_OPTION_ARG_STRING_ARRAY: {
+				char ***s = e->arg_data;
+				if (*s != (void *) e->description)
+					g_strfreev((void *) e->description);
+				break;
+			}
+
+			default:
+				break;
+		}
+	}
 
 	// default common values, if not configured
 	if (rtpe_common_config_ptr->log_mark_prefix == NULL)
