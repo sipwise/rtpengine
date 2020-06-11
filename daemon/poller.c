@@ -66,6 +66,23 @@ struct poller *poller_new(void) {
 	return p;
 }
 
+void poller_free(struct poller **pp) {
+	struct poller *p = *pp;
+	if (p->fd != -1)
+		close(p->fd);
+	for (unsigned int i = 0; i < p->items_size; i++) {
+		struct poller_item_int *ip = p->items[i];
+		if (!ip)
+			continue;
+		p->items[i] = NULL;
+		obj_put(ip);
+	}
+	if (p->items)
+		free(p->items);
+	free(p);
+	*pp = NULL;
+}
+
 
 static int epoll_events(struct poller_item *it, struct poller_item_int *ii) {
 	if (!it)

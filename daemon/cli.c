@@ -1082,13 +1082,19 @@ static void cli_stream_readable(struct streambuf_stream *s) {
    log_info_clear();
 }
 
+void cli_free(void *p) {
+	struct cli *c = p;
+	streambuf_listener_shutdown(&c->listeners[0]);
+	streambuf_listener_shutdown(&c->listeners[1]);
+}
+
 struct cli *cli_new(struct poller *p, endpoint_t *ep) {
    struct cli *c;
 
    if (!p)
        return NULL;
 
-   c = obj_alloc0("cli", sizeof(*c), NULL);
+   c = obj_alloc0("cli", sizeof(*c), cli_free);
 
    if (streambuf_listener_init(&c->listeners[0], p, ep,
             cli_incoming, cli_stream_readable,

@@ -359,6 +359,19 @@ out:
 }
 
 
+void control_ng_free(void *p) {
+	struct control_ng *c = p;
+	// XXX this should go elsewhere
+	if (rtpe_cngs_hash) {
+		g_hash_table_destroy(rtpe_cngs_hash);
+		rtpe_cngs_hash = NULL;
+	}
+	poller_del_item(c->poller, c->udp_listeners[0].fd);
+	poller_del_item(c->poller, c->udp_listeners[1].fd);
+	close_socket(&c->udp_listeners[0]);
+	close_socket(&c->udp_listeners[1]);
+}
+
 
 struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned char tos) {
 	struct control_ng *c;
@@ -366,11 +379,12 @@ struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned cha
 	if (!p)
 		return NULL;
 
-	c = obj_alloc0("control_ng", sizeof(*c), NULL);
+	c = obj_alloc0("control_ng", sizeof(*c), control_ng_free);
 
 	cookie_cache_init(&c->cookie_cache);
 	c->udp_listeners[0].fd = -1;
 	c->udp_listeners[1].fd = -1;
+	c->poller = p;
 
 	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_ng_incoming, &c->obj))
 		goto fail2;
