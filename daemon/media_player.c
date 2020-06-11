@@ -665,16 +665,14 @@ err:
 // call->master_lock held in W
 int media_player_play_db(struct media_player *mp, long long id) {
 	const char *err;
-	AUTO_CLEANUP_BUF(query);
+	AUTO_CLEANUP_GBUF(query);
 
 	err = "missing configuration";
 	if (!rtpe_config.mysql_host || !rtpe_config.mysql_query)
 		goto err;
 
-	int len = asprintf(&query, rtpe_config.mysql_query, (unsigned long long) id);
-	err = "query print error";
-	if (len <= 0)
-		goto err;
+	query = g_strdup_printf(rtpe_config.mysql_query, (unsigned long long) id);
+	size_t len = strlen(query);
 
 	for (int retries = 0; retries < 5; retries++) {
 		if (!mysql_conn || retries != 0) {
