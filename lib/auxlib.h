@@ -61,6 +61,9 @@ int uint32_eq(const void *a, const void *b);
 
 #define UINT64F			"%" G_GUINT64_FORMAT
 
+void free_gbuf(char **);
+void free_gvbuf(char ***);
+
 #define AUTO_CLEANUP(decl, func)		decl __attribute__ ((__cleanup__(func)))
 #define AUTO_CLEANUP_INIT(decl, func, val)	AUTO_CLEANUP(decl, func) = val
 #define AUTO_CLEANUP_NULL(decl, func)		AUTO_CLEANUP_INIT(decl, func, 0)
