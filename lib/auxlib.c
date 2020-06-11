@@ -157,14 +157,14 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	memcpy(entries, shared_options, sizeof(*entries) * shared_len);
 	memcpy(&entries[shared_len], app_entries, sizeof(*entries) * (app_len + 1));
 
-	use_section = default_section;
-	if (rtpe_common_config_ptr->config_section)
-		use_section = rtpe_common_config_ptr->config_section;
-
 	c = g_option_context_new(description);
 	g_option_context_add_main_entries(c, entries, NULL);
 	if (!g_option_context_parse(c, argc, argv, &er))
 		goto err;
+
+	use_section = default_section;
+	if (rtpe_common_config_ptr->config_section)
+		use_section = rtpe_common_config_ptr->config_section;
 
 	// is there a config file to load?
 	use_config = default_config;
