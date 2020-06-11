@@ -42,6 +42,7 @@ extern volatile int rtpe_shutdown;
 void daemonize(void);
 void wpidfile(void);
 void service_notify(const char *message);
+void config_load_free(struct rtpengine_common_config *);
 void config_load(int *argc, char ***argv, GOptionEntry *entries, const char *description,
 		char *default_config, char *default_section,
 		struct rtpengine_common_config *);
@@ -64,6 +65,8 @@ int uint32_eq(const void *a, const void *b);
 #define AUTO_CLEANUP_INIT(decl, func, val)	AUTO_CLEANUP(decl, func) = val
 #define AUTO_CLEANUP_NULL(decl, func)		AUTO_CLEANUP_INIT(decl, func, 0)
 #define AUTO_CLEANUP_BUF(var)			AUTO_CLEANUP_NULL(char *var, free_buf)
+#define AUTO_CLEANUP_GBUF(var)			AUTO_CLEANUP_NULL(char *var, free_gbuf)
+#define AUTO_CLEANUP_GVBUF(var)			AUTO_CLEANUP_NULL(char **var, free_gvbuf)
 
 
 /*** STRING HELPERS ***/
