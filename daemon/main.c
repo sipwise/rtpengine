@@ -73,8 +73,6 @@ struct rtpengine_config rtpe_config = {
 	.dtls_signature = 256,
 };
 
-char **if_a_global = NULL;
-
 static void sighandler(gpointer x) {
 	sigset_t ss;
 	int ret;
@@ -159,11 +157,11 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 	c = strchr(s, '/');
 	if (c) {
 		*c++ = 0;
-		str_init(&name, s);
+		str_init_dup(&name, s);
 		s = c;
 	}
 	else
-		str_init(&name, "default");
+		str_init_dup(&name, "default");
 
 	/* advertised address */
 	c = strchr(s, '!');
@@ -285,7 +283,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 
 
 static void options(int *argc, char ***argv) {
-	char **if_a = NULL;
+	AUTO_CLEANUP_GVBUF(if_a);
 	AUTO_CLEANUP_GVBUF(ks_a);
 	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
@@ -603,9 +601,6 @@ static void options(int *argc, char ***argv) {
 
 	if (rtpe_config.jb_length < 0)
 		die("Invalid negative jitter buffer size");
-
-	// free local vars
-	if_a_global = if_a; // -> content is used; needs to be freed later
 }
 
 void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
@@ -709,9 +704,6 @@ static void options_free(void) {
 
 	// free common config options
 	config_load_free(&rtpe_config.common);
-
-	// free if_a STRING LIST
-	g_strfreev(if_a_global);
 }
 
 static void early_init(void) {
