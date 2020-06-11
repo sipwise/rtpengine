@@ -945,6 +945,7 @@ int main(int argc, char **argv) {
 
 	options_free();
 	interfaces_free();
+	call_free();
 
 	return 0;
 }
