@@ -147,6 +147,7 @@ extern GQueue all_local_interfaces; // read-only during runtime
 
 
 void interfaces_init(GQueue *interfaces);
+void interfaces_free(void);
 
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, int num_ports);
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam);

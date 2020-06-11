@@ -2099,3 +2099,52 @@ void play_buffered(struct jb_packet *cp) {
 	stream_packet(&phc);
 	jb_packet_free(&cp);
 }
+
+void interfaces_free(void) {
+	struct local_intf *ifc;
+	GList *ll;
+
+	while ((ifc = g_queue_pop_head(&all_local_interfaces))) {
+		free(ifc->ice_foundation.s);
+		g_slice_free1(sizeof(*ifc), ifc);
+	}
+
+	ll = g_hash_table_get_values(__logical_intf_name_family_hash);
+	for (GList *l = ll; l; l = l->next) {
+		struct logical_intf *lif = l->data;
+		g_hash_table_destroy(lif->addr_hash);
+		g_hash_table_destroy(lif->rr_specs);
+		g_queue_clear(&lif->list);
+		g_slice_free1(sizeof(*lif), lif);
+	}
+	g_list_free(ll);
+	g_hash_table_destroy(__logical_intf_name_family_hash);
+
+	ll = g_hash_table_get_values(__local_intf_addr_type_hash);
+	for (GList *l = ll; l; l = l->next) {
+		GList *k = l->data;
+		g_list_free(k);
+	}
+	g_list_free(ll);
+	g_hash_table_destroy(__local_intf_addr_type_hash);
+
+	ll = g_hash_table_get_values(__intf_spec_addr_type_hash);
+	for (GList *l = ll; l; l = l->next) {
+		struct intf_spec *spec = l->data;
+		g_slice_free1(sizeof(*spec), spec);
+	}
+	g_list_free(ll);
+	g_hash_table_destroy(__intf_spec_addr_type_hash);
+
+	ll = g_hash_table_get_values(__logical_intf_name_family_rr_hash);
+	for (GList *l = ll; l; l = l->next) {
+		struct intf_rr *rr = l->data;
+		g_queue_clear(&rr->logical_intfs);
+		g_slice_free1(sizeof(*rr), rr);
+	}
+	g_list_free(ll);
+	g_hash_table_destroy(__logical_intf_name_family_rr_hash);
+
+	for (int i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
+		g_queue_clear(&__preferred_lists_for_family[i]);
+}
