@@ -261,11 +261,3 @@ int g_tree_find_all_cmp(void *k, void *v, void *d) {
 		g_queue_push_tail(q, v);
 	return FALSE;
 }
-
-void free_gbuf(char **p) {
-	g_free(*p);
-}
-
-void free_gvbuf(char ***p) {
-	g_strfreev(*p);
-}
