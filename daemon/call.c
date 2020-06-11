@@ -75,6 +75,7 @@ static void __monologue_destroy(struct call_monologue *monologue, int recurse);
 static int monologue_destroy(struct call_monologue *ml);
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration);
+static void __call_free(void *p);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -713,6 +714,16 @@ int call_init() {
 	poller_add_timer(rtpe_poller, call_timer, NULL);
 
 	return 0;
+}
+
+void call_free(void) {
+	GList *ll = g_hash_table_get_values(rtpe_callhash);
+	for (GList *l = ll; l; l = l->next) {
+		struct call *c = l->data;
+		__call_free(c);
+	}
+	g_list_free(ll);
+	g_hash_table_destroy(rtpe_callhash);
 }
 
 

@@ -419,6 +419,7 @@ extern struct stats rtpe_stats;		/* copied from statsps once a second */
 
 
 int call_init(void);
+void call_free(void);
 void call_get_all_calls(GQueue *q);
 
 struct call_monologue *__monologue_create(struct call *call);
