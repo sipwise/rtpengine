@@ -55,13 +55,18 @@ static void tcp_listener_closed(int fd, void *p, uintptr_t u) {
 	abort();
 }
 
+static void __tlc_free(void *p) {
+	struct tcp_listener_callback *cb = p;
+	obj_put_o(cb->p);
+}
+
 int tcp_listener_init(socket_t *sock, struct poller *p, const endpoint_t *ep,
 		tcp_listener_callback_t func, struct obj *obj)
 {
 	struct poller_item i;
 	struct tcp_listener_callback *cb;
 
-	cb = obj_alloc("tcp_listener_callback", sizeof(*cb), NULL);
+	cb = obj_alloc("tcp_listener_callback", sizeof(*cb), __tlc_free);
 	cb->func = func;
 	cb->p = obj_get_o(obj);
 	cb->ul = sock;
@@ -79,11 +84,11 @@ int tcp_listener_init(socket_t *sock, struct poller *p, const endpoint_t *ep,
 	if (poller_add_item(p, &i))
 		goto fail;
 
+	obj_put(cb);
 	return 0;
 
 fail:
 	close_socket(sock);
-	obj_put_o(obj);
 	obj_put(cb);
 	return -1;
 }
@@ -199,6 +204,11 @@ fail:
 	obj_put(s);
 }
 
+static void __sb_free(void *p) {
+	struct streambuf_callback *cb = p;
+	obj_put_o(cb->parent);
+}
+
 int streambuf_listener_init(struct streambuf_listener *listener, struct poller *p, const endpoint_t *ep,
 		streambuf_callback_t newconn_func,
 		streambuf_callback_t newdata_func,
@@ -214,7 +224,7 @@ int streambuf_listener_init(struct streambuf_listener *listener, struct poller *
 	mutex_init(&listener->lock);
 	listener->streams = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-	cb = obj_alloc("streambuf_callback", sizeof(*cb), NULL);
+	cb = obj_alloc("streambuf_callback", sizeof(*cb), __sb_free);
 	cb->newconn_func = newconn_func;
 	cb->newdata_func = newdata_func;
 	cb->closed_func = closed_func;
@@ -225,11 +235,19 @@ int streambuf_listener_init(struct streambuf_listener *listener, struct poller *
 	if (tcp_listener_init(&listener->listener, p, ep, streambuf_listener_newconn, &cb->obj))
 		goto fail;
 
+	obj_put(cb);
 	return 0;
 
 fail:
 	obj_put(cb);
 	return -1;
+}
+void streambuf_listener_shutdown(struct streambuf_listener *listener) {
+	if (!listener)
+		return;
+	poller_del_item(listener->poller, listener->listener.fd);
+	close_socket(&listener->listener);
+	g_hash_table_destroy(listener->streams);
 }
 
 void streambuf_stream_close(struct streambuf_stream *s) {

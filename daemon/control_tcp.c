@@ -154,6 +154,14 @@ static void control_incoming(struct streambuf_stream *s) {
 }
 
 
+static void control_tcp_free(void *p) {
+	struct control_tcp *c = p;
+	streambuf_listener_shutdown(&c->listeners[0]);
+	streambuf_listener_shutdown(&c->listeners[1]);
+	pcre_free(c->parse_re);
+	pcre_free_study(c->parse_ree);
+}
+
 struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 	struct control_tcp *c;
 	const char *errptr;
@@ -162,7 +170,7 @@ struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 	if (!p)
 		return NULL;
 
-	c = obj_alloc0("control", sizeof(*c), NULL);
+	c = obj_alloc0("control", sizeof(*c), control_tcp_free);
 
 	if (streambuf_listener_init(&c->listeners[0], p, ep,
 				control_incoming, control_stream_readable,

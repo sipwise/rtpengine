@@ -22,5 +22,6 @@ void cookie_cache_init(struct cookie_cache *);
 str *cookie_cache_lookup(struct cookie_cache *, const str *);
 void cookie_cache_insert(struct cookie_cache *, const str *, const str *);
 void cookie_cache_remove(struct cookie_cache *, const str *);
+void cookie_cache_cleanup(struct cookie_cache *);
 
 #endif

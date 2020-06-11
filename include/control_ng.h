@@ -36,6 +36,7 @@ struct control_ng {
 	struct obj obj;
 	struct cookie_cache cookie_cache;
 	socket_t udp_listeners[2];
+	struct poller *poller;
 };
 
 struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);

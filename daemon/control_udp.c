@@ -134,6 +134,16 @@ out:
 	log_info_clear();
 }
 
+void control_udp_free(void *p) {
+	struct control_udp *u = p;
+	pcre_free_study(u->parse_ree);
+	pcre_free(u->parse_re);
+	pcre_free(u->fallback_re);
+	close_socket(&u->udp_listeners[0]);
+	close_socket(&u->udp_listeners[1]);
+	cookie_cache_cleanup(&u->cookie_cache);
+}
+
 struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep) {
 	struct control_udp *c;
 	const char *errptr;
@@ -142,7 +152,7 @@ struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep) {
 	if (!p)
 		return NULL;
 
-	c = obj_alloc0("control_udp", sizeof(*c), NULL);
+	c = obj_alloc0("control_udp", sizeof(*c), control_udp_free);
 
 	c->parse_re = pcre_compile(
 			/* cookie cmd flags callid viabranch:5 */
