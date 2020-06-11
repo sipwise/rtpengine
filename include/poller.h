@@ -31,6 +31,7 @@ struct poller;
 
 
 struct poller *poller_new(void);
+void poller_free(struct poller **);
 int poller_add_item(struct poller *, struct poller_item *);
 int poller_update_item(struct poller *, struct poller_item *);
 int poller_del_item(struct poller *, int);

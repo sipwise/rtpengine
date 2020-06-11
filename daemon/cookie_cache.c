@@ -76,3 +76,10 @@ void cookie_cache_remove(struct cookie_cache *c, const str *s) {
 	cond_broadcast(&c->cond);
 	mutex_unlock(&c->lock);
 }
+
+void cookie_cache_cleanup(struct cookie_cache *c) {
+	g_hash_table_destroy(c->current.cookies);
+	g_hash_table_destroy(c->old.cookies);
+	g_string_chunk_free(c->current.chunks);
+	g_string_chunk_free(c->old.chunks);
+}

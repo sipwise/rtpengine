@@ -66,6 +66,31 @@ struct poller *poller_new(void) {
 	return p;
 }
 
+static void __ti_put(void *p) {
+	struct timer_item *ti = p;
+	obj_put(ti);
+}
+void poller_free(struct poller **pp) {
+	struct poller *p = *pp;
+	for (unsigned int i = 0; i < p->items_size; i++) {
+		struct poller_item_int *ip = p->items[i];
+		if (!ip)
+			continue;
+		p->items[i] = NULL;
+		obj_put(ip);
+	}
+	g_slist_free_full(p->timers, __ti_put);
+	g_slist_free_full(p->timers_add, __ti_put);
+	g_slist_free_full(p->timers_del, __ti_put);
+	if (p->fd != -1)
+		close(p->fd);
+	p->fd = -1;
+	if (p->items)
+		free(p->items);
+	free(p);
+	*pp = NULL;
+}
+
 
 static int epoll_events(struct poller_item *it, struct poller_item_int *ii) {
 	if (!it)
