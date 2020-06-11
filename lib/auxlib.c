@@ -102,16 +102,29 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 	g_free(cconfig->pidfile);
 }
 
+static void free_gkeyfile(GKeyFile **k) {
+	g_key_file_free(*k);
+}
+static void free_gopte(GOptionEntry **k) {
+	free(*k);
+}
+static void free_goptc(GOptionContext **k) {
+	g_option_context_free(*k);
+}
+static void free_gerror(GError **k) {
+	g_error_free(*k);
+}
+
 void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
 		char *default_config, char *default_section,
 		struct rtpengine_common_config *cconfig)
 {
-	GOptionContext *c;
-	GError *er = NULL;
+	AUTO_CLEANUP_NULL(GOptionContext *c, free_goptc);
+	AUTO_CLEANUP_NULL(GError *er, free_gerror);
 	const char *use_section;
 	const char *use_config;
 	int fatal = 0;
-	char **saved_argv = g_strdupv(*argv);
+	AUTO_CLEANUP(char **saved_argv, free_gvbuf) = g_strdupv(*argv);
 
 	rtpe_common_config_ptr = cconfig;
 
@@ -122,7 +135,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	rtpe_common_config_ptr->log_level = LOG_DEBUG;
 #endif
 
-	GKeyFile *kf = g_key_file_new();
+	AUTO_CLEANUP(GKeyFile *kf, free_gkeyfile) = g_key_file_new();
 
 	GOptionEntry shared_options[] = {
 		{ "version",		'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",		NULL		},
@@ -143,7 +156,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	// prepend shared CLI options
 	unsigned int shared_len = options_length(shared_options);
 	unsigned int app_len = options_length(app_entries);
-	GOptionEntry *entries = malloc(sizeof(*entries) * (shared_len + app_len + 1));
+	AUTO_CLEANUP(GOptionEntry *entries, free_gopte) = malloc(sizeof(*entries) * (shared_len + app_len + 1));
 	memcpy(entries, shared_options, sizeof(*entries) * shared_len);
 	memcpy(&entries[shared_len], app_entries, sizeof(*entries) * (app_len + 1));
 
@@ -195,10 +208,6 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 				CONF_OPTION_GLUE(string_list, char **, NULL);
 
 			default:
-				g_option_context_free(c);
-				g_strfreev(saved_argv);
-				g_key_file_free(kf);
-				free(entries);
 				config_load_free(rtpe_common_config_ptr);
 
 				abort();
@@ -215,11 +224,6 @@ out:
 
 	if (rtpe_common_config_ptr->log_mark_suffix == NULL)
 		rtpe_common_config_ptr->log_mark_suffix = g_strdup("");
-
-	g_option_context_free(c);
-	g_strfreev(saved_argv);
-	g_key_file_free(kf);
-	free(entries);
 
 	if (version) {
 		fprintf(stderr, "Version: %s\n", RTPENGINE_VERSION);
@@ -246,10 +250,6 @@ out:
 	return;
 
 err:
-	g_option_context_free(c);
-	g_strfreev(saved_argv);
-	g_key_file_free(kf);
-	free(entries);
 	config_load_free(rtpe_common_config_ptr);
 
 	die("Bad command line: %s", er->message);
