@@ -208,6 +208,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	// process CLI arguments again so they override options from the config file
 	g_option_context_parse_strv(c, &saved_argv, &er);
 
+out:
 	// default common values, if not configured
 	if (rtpe_common_config_ptr->log_mark_prefix == NULL)
 		rtpe_common_config_ptr->log_mark_prefix = g_strdup("");
@@ -215,7 +216,6 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	if (rtpe_common_config_ptr->log_mark_suffix == NULL)
 		rtpe_common_config_ptr->log_mark_suffix = g_strdup("");
 
-out:
 	g_option_context_free(c);
 	g_strfreev(saved_argv);
 	g_key_file_free(kf);
