@@ -14,5 +14,6 @@ struct cli {
 };
 
 struct cli *cli_new(struct poller *p, endpoint_t *);
+void cli_free(struct cli *);
 
 #endif /* CLI_UDP_H_ */

@@ -177,3 +177,14 @@ fail2:
 	return NULL;
 
 }
+
+void control_udp_free(struct control_udp *u) {
+	if (!u)
+		return;
+	pcre_free_study(u->parse_ree);
+	pcre_free(u->parse_re);
+	pcre_free(u->fallback_re);
+	close_socket(&u->udp_listeners[0]);
+	close_socket(&u->udp_listeners[1]);
+	obj_put(u);
+}

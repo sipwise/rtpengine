@@ -36,6 +36,7 @@ struct streambuf_stream;
 
 
 struct control_tcp *control_tcp_new(struct poller *, endpoint_t *);
+void control_tcp_free(struct control_tcp *);
 
 
 

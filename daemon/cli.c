@@ -1122,6 +1122,14 @@ fail:
    return NULL;
 }
 
+void cli_free(struct cli *c) {
+	if (!c)
+		return;
+	streambuf_listener_shutdown(&c->listeners[0]);
+	streambuf_listener_shutdown(&c->listeners[1]);
+	obj_put(c);
+}
+
 static void cli_incoming_list_loglevel(str *instr, struct streambuf *replybuffer) {
 	streambuf_printf(replybuffer, "%i\n", get_log_level());
 }

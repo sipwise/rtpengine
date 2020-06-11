@@ -39,6 +39,7 @@ struct control_ng {
 };
 
 struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
+void control_ng_free(struct control_ng *);
 void control_ng_init(void);
 
 extern mutex_t rtpe_cngs_lock;

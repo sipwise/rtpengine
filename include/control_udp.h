@@ -60,6 +60,7 @@ struct control_udp {
 
 
 struct control_udp *control_udp_new(struct poller *, endpoint_t *);
+void control_udp_free(struct control_udp *);
 
 
 

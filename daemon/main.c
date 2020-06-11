@@ -51,6 +51,10 @@
 struct poller *rtpe_poller;
 struct rtpengine_config initial_rtpe_config;
 
+static struct control_tcp *rtpe_tcp;
+static struct control_udp *rtpe_udp;
+static struct cli *rtpe_cli;
+
 struct rtpengine_config rtpe_config = {
 	// non-zero defaults
 	.kernel_table = -1,
@@ -745,9 +749,6 @@ static void init_everything(void) {
 
 
 static void create_everything(void) {
-	struct control_tcp *ct;
-	struct control_udp *cu;
-	struct cli *cl;
 	struct timeval tmp_tv;
 	struct timeval redis_start, redis_stop;
 	double redis_diff = 0;
@@ -786,18 +787,18 @@ no_kernel:
 		}
 	}
 
-	ct = NULL;
+	rtpe_tcp = NULL;
 	if (rtpe_config.tcp_listen_ep.port) {
-		ct = control_tcp_new(rtpe_poller, &rtpe_config.tcp_listen_ep);
-		if (!ct)
+		rtpe_tcp = control_tcp_new(rtpe_poller, &rtpe_config.tcp_listen_ep);
+		if (!rtpe_tcp)
 			die("Failed to open TCP control connection port");
 	}
 
-	cu = NULL;
+	rtpe_udp = NULL;
 	if (rtpe_config.udp_listen_ep.port) {
 		interfaces_exclude_port(rtpe_config.udp_listen_ep.port);
-		cu = control_udp_new(rtpe_poller, &rtpe_config.udp_listen_ep);
-		if (!cu)
+		rtpe_udp = control_udp_new(rtpe_poller, &rtpe_config.udp_listen_ep);
+		if (!rtpe_udp)
 			die("Failed to open UDP control connection port");
 	}
 
@@ -809,11 +810,11 @@ no_kernel:
 			die("Failed to open UDP control connection port");
 	}
 
-	cl = NULL;
+	rtpe_cli = NULL;
 	if (rtpe_config.cli_listen_ep.port) {
 		interfaces_exclude_port(rtpe_config.cli_listen_ep.port);
-	    cl = cli_new(rtpe_poller, &rtpe_config.cli_listen_ep);
-	    if (!cl)
+	    rtpe_cli = cli_new(rtpe_poller, &rtpe_config.cli_listen_ep);
+	    if (!rtpe_cli)
 	        die("Failed to open UDP CLI connection port");
 	}
 
@@ -946,6 +947,11 @@ int main(int argc, char **argv) {
 	options_free();
 	call_free();
 	interfaces_free();
+	cli_free(rtpe_cli);
+	control_udp_free(rtpe_udp);
+	control_tcp_free(rtpe_tcp);
+	control_ng_free(rtpe_control_ng);
+	poller_free(rtpe_poller);
 
 	return 0;
 }

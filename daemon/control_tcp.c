@@ -201,3 +201,13 @@ fail:
 	obj_put(c);
 	return NULL;
 }
+
+void control_tcp_free(struct control_tcp *c) {
+	if (!c)
+		return;
+	streambuf_listener_shutdown(&c->listeners[0]);
+	streambuf_listener_shutdown(&c->listeners[1]);
+	pcre_free(c->parse_re);
+	pcre_free_study(c->parse_ree);
+	obj_put(c);
+}

@@ -390,6 +390,18 @@ fail2:
 
 }
 
+void control_ng_free(struct control_ng *c) {
+	if (rtpe_cngs_hash) {
+		g_hash_table_destroy(rtpe_cngs_hash);
+		rtpe_cngs_hash = NULL;
+	}
+	if (!c)
+		return;
+	close_socket(&c->udp_listeners[0]);
+	close_socket(&c->udp_listeners[1]);
+	obj_put(c);
+}
+
 
 void control_ng_init() {
 	mutex_init(&rtpe_cngs_lock);
