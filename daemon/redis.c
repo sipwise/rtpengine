@@ -631,6 +631,9 @@ void redis_notify_loop(void *d) {
 		}
 	}
 
+	// free libevent
+	libevent_global_shutdown();
+
 	// unsubscribe notifications
 	redis_notify_subscribe_action(UNSUBSCRIBE_ALL, 0);
 
@@ -677,7 +680,9 @@ err:
 }
 
 
-static void redis_close(struct redis *r) {
+void redis_close(struct redis *r) {
+	if (!r)
+		return;
 	if (r->ctx)
 		redisFree(r->ctx);
 	r->ctx = NULL;

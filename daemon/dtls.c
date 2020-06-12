@@ -384,6 +384,19 @@ struct dtls_cert *dtls_cert() {
 	return ret;
 }
 
+void dtls_cert_free(void) {
+	rwlock_lock_w(&__dtls_cert_lock);
+
+	if (__dtls_cert)
+		obj_put(__dtls_cert);
+
+	__dtls_cert = NULL;
+
+	rwlock_unlock_w(&__dtls_cert_lock);
+
+	return ;
+}
+
 static int verify_callback(int ok, X509_STORE_CTX *store) {
 	SSL *ssl;
 	struct dtls_connection *d;

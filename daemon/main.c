@@ -942,6 +942,11 @@ int main(int argc, char **argv) {
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
 
+	redis_close(rtpe_redis);
+	redis_close(rtpe_redis_write);
+	redis_close(rtpe_redis_notify);
+	dtls_cert_free();
+
 	unfill_initial_rtpe_cfg(&initial_rtpe_config);
 
 	options_free();

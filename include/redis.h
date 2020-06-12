@@ -102,6 +102,7 @@ void redis_notify_loop(void *d);
 
 
 struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int);
+void redis_close(struct redis *r);
 int redis_restore(struct redis *);
 void redis_update(struct call *, struct redis *);
 void redis_update_onekey(struct call *c, struct redis *r);
