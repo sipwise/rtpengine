@@ -191,7 +191,7 @@ static int handle_clock_drift(struct media_packet *mp) {
 	struct jitter_buffer *jb = mp->stream->jb;
 	int seq_diff = ntohs(mp->rtp->seq_num) - jb->first_seq;
 
-	if((seq_diff % CLOCK_DRIFT_MULT) != 0)
+	if(((seq_diff % CLOCK_DRIFT_MULT) != 0) || !seq_diff)
 		return 0;
 
 	unsigned long ts = ntohl(mp->rtp->timestamp);
