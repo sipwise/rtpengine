@@ -247,7 +247,8 @@ void streambuf_listener_shutdown(struct streambuf_listener *listener) {
 		return;
 	poller_del_item(listener->poller, listener->listener.fd);
 	close_socket(&listener->listener);
-	g_hash_table_destroy(listener->streams);
+	if (listener->streams)
+		g_hash_table_destroy(listener->streams);
 }
 
 void streambuf_stream_close(struct streambuf_stream *s) {

@@ -102,16 +102,20 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 }
 
 static void free_gkeyfile(GKeyFile **k) {
-	g_key_file_free(*k);
+	if (k && *k)
+		g_key_file_free(*k);
 }
 static void free_gopte(GOptionEntry **k) {
-	free(*k);
+	if (k && *k)
+		free(*k);
 }
 static void free_goptc(GOptionContext **k) {
-	g_option_context_free(*k);
+	if (k && *k)
+		g_option_context_free(*k);
 }
 static void free_gerror(GError **k) {
-	g_error_free(*k);
+	if (k && *k)
+		g_error_free(*k);
 }
 
 void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
