@@ -613,8 +613,9 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	struct intf_config* gptr_data;
 
 	for(l = rtpe_config.interfaces.head; l ; l=l->next) {
-		gptr_data = (struct intf_config*)malloc(sizeof(struct intf_config));
-		memcpy(gptr_data, (struct intf_config*)(l->data), sizeof(struct intf_config));
+		gptr_data = g_slice_alloc0(sizeof(*gptr_data));
+		memcpy(gptr_data, (struct intf_config*)(l->data), sizeof(*gptr_data));
+		str_init_dup(&gptr_data->name, ((struct intf_config*)(l->data))->name.s);
 
 		g_queue_push_tail(&ini_rtpe_cfg->interfaces, gptr_data);
 	}
@@ -680,7 +681,20 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->jb_clock_drift = rtpe_config.jb_clock_drift;
 }
 
+static void
+free_config_interfaces (gpointer data)
+{
+	struct intf_config* gptr_data = data;
+
+	str_free_dup(&gptr_data->name);
+	g_slice_free1(sizeof(*gptr_data), gptr_data);
+}
+
 static void unfill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
+	// clear queues
+	g_queue_clear_full(&ini_rtpe_cfg->interfaces, (GDestroyNotify)free_config_interfaces);
+	g_queue_clear(&ini_rtpe_cfg->redis_subscribed_keyspaces);
+
 	// free g_strdup
 	g_free(ini_rtpe_cfg->b2b_url);
 	g_free(ini_rtpe_cfg->redis_auth);
@@ -692,6 +706,10 @@ static void unfill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 }
 
 static void options_free(void) {
+	// clear queues
+	g_queue_clear_full(&rtpe_config.interfaces, (GDestroyNotify)free_config_interfaces);
+	g_queue_clear(&rtpe_config.redis_subscribed_keyspaces);
+
 	// free config options
 	g_free(rtpe_config.b2b_url);
 	g_free(rtpe_config.spooldir);

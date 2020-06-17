@@ -62,6 +62,7 @@ INLINE str *str_init_len_assert_len(str *out, char *s, int buflen, int len);
 #define str_init_len_assert(out, s, len) str_init_len_assert_len(out, s, sizeof(s), len)
 /* inits a str object from a regular string and duplicates the contents. returns out */
 INLINE str *str_init_dup(str *out, char *s);
+INLINE void str_free_dup(str *out);
 /* returns new str object with uninitialized buffer large enough to hold `len` characters (+1 for null byte) */
 INLINE str *str_alloc(int len);
 /* returns new str object allocated with malloc, including buffer */
@@ -234,6 +235,16 @@ INLINE str *str_init_dup(str *out, char *s) {
 	out->s = s ? strdup(s) : NULL;
 	out->len = s ? strlen(s) : 0;
 	return out;
+}
+INLINE void str_free_dup(str *out) {
+	if (!out)
+		return ;
+
+	if (out->s)
+		free(out->s);
+
+	out->s = NULL;
+	out->len = 0;
 }
 INLINE str *str_alloc(int len) {
 	str *r;
