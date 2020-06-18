@@ -161,11 +161,11 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 	c = strchr(s, '/');
 	if (c) {
 		*c++ = 0;
-		str_init_dup(&name, s);
+		str_init(&name, s);
 		s = c;
 	}
 	else
-		str_init_dup(&name, "default");
+		str_init(&name, "default");
 
 	/* advertised address */
 	c = strchr(s, '!');
@@ -229,7 +229,7 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 
 	while ((addr = g_queue_pop_head(&addrs))) {
 		ifa = g_slice_alloc0(sizeof(*ifa));
-		ifa->name = name;
+		str_init_dup_str(&ifa->name, &name);
 		ifa->local_address.addr = *addr;
 		ifa->local_address.type = socktype_udp;
 		ifa->advertised_address.addr = adv;
