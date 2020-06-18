@@ -632,7 +632,9 @@ void redis_notify_loop(void *d) {
 	}
 
 	// free libevent
+#if LIBEVENT_VERSION_NUMBER >= 0x02010100
 	libevent_global_shutdown();
+#endif
 
 	// unsubscribe notifications
 	redis_notify_subscribe_action(UNSUBSCRIBE_ALL, 0);
