@@ -19,7 +19,7 @@ Build-Depends:
  libcurl4-openssl-dev | libcurl4-gnutls-dev,
  libdigest-crc-perl,
  libdigest-hmac-perl,
- libevent-dev (>= 2.0),
+ libevent-dev (>= 2.1.1+),
  libglib2.0-dev (>= 2.30),
  libhiredis-dev,
  libio-multiplex-perl,
