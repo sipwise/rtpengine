@@ -8,7 +8,6 @@ Build-Depends:
  debhelper-compat (= 12),
  default-libmysqlclient-dev,
  gperf,
- iptables-dev (>= 1.4),
  libavcodec-dev (>= 6:10),
  libavfilter-dev (>= 6:10),
  libavformat-dev (>= 6:10),
@@ -37,6 +36,7 @@ Build-Depends:
  libswresample-dev (>= 6:10),
  libsystemd-dev,
  libxmlrpc-core-c3-dev (>= 1.16.07),
+ libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
  markdown,
  zlib1g-dev,
 
