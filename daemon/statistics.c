@@ -577,6 +577,39 @@ GQueue *statistics_gather_metrics(void) {
 	METRICs("totalerrorcount", "%u", total.errors);
 
 	HEADER("}", "");
+
+	HEADER("interfaces", NULL);
+	HEADER("[", NULL);
+	for (GList *l = all_local_interfaces.head; l; l = l->next) {
+		struct local_intf *lif = l->data;
+		// only show first-order interface entries: socket families must match
+		if (lif->logical->preferred_family != lif->spec->local_address.addr.family)
+			continue;
+
+		HEADER("{", NULL);
+
+		METRICsva("name", "\"%s\"", lif->logical->name.s);
+		METRICsva("address", "\"%s\"", sockaddr_print_buf(&lif->spec->local_address.addr));
+
+		HEADER("ports", NULL);
+		HEADER("{", NULL);
+
+		METRICs("min", "%u", lif->spec->port_pool.min);
+		METRICs("max", "%u", lif->spec->port_pool.max);
+		unsigned int f = g_atomic_int_get(&lif->spec->port_pool.free_ports);
+		unsigned int l = g_atomic_int_get(&lif->spec->port_pool.last_used);
+		unsigned int r = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
+		METRICs("used", "%u", r - f);
+		METRICs("used_pct", "%.2f", (double) (r - f) * 100.0 / r);
+		METRICs("free", "%u", f);
+		METRICs("totals", "%u", r);
+		METRICs("last", "%u", l);
+
+		HEADER("}", NULL);
+		HEADER("}", NULL);
+	}
+	HEADER("]", NULL);
+
 	HEADER("}", NULL);
 
 	return ret;
