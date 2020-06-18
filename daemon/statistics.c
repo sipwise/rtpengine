@@ -232,11 +232,15 @@ void statistics_update_oneway(struct call* c) {
 
 #define SM_PUSH(ret, m) \
 	do { \
-		if (!m->is_bracket && ret->tail) { \
-			struct stats_metric *last = ret->tail->data; \
+		struct stats_metric *last = NULL; \
+		if (ret->tail) \
+			last = ret->tail->data; \
+		if (!m->is_bracket && last) { \
 			if (!last->is_bracket || last->is_close_bracket) \
 				m->is_follow_up = 1; \
 		} \
+		else if (m->is_bracket && !m->is_close_bracket && last && last->is_close_bracket) \
+			m->is_follow_up = 1; \
 		g_queue_push_tail(ret, m); \
 	} while (0)
 
