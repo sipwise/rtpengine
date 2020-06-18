@@ -27,4 +27,4 @@ jobs:
       run: shellcheck --version
 
     - name: Shellcheck execution
-      run: shellcheck --exclude=SC1090,SC1091 debian/*.init debian/*.post* debian/*.pre* debian/*-setup el/*.init tests/simulator-tcp.sh utils/build_deps.sh utils/patch-kernel
+      run: shellcheck --exclude=SC1090,SC1091 debian/*.init debian/*.post* debian/*.pre* debian/*-setup el/*.init tests/simulator-tcp.sh utils/patch-kernel
