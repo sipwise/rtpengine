@@ -25,14 +25,18 @@ install:
 $(OBJS):	Makefile
 
 $(LIBSRCS):	$(patsubst %,../lib/%,$(LIBSRCS))
-		rm -f "$@"
-		echo '/******** GENERATED FILE ********/' > "$@"
-		cat ../lib/"$@" >> "$@"
+		TMP="$@.$$RANDOM" && \
+		rm -f "$$TMP" && \
+		echo '/******** GENERATED FILE ********/' > "$$TMP" && \
+		cat ../lib/"$@" >> "$$TMP" && \
+		mv -f "$$TMP" "$@"
 
 $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,../daemon/%,$(HASHSRCS))
-		rm -f "$@"
-		echo '/******** GENERATED FILE ********/' > "$@"
-		cat ../daemon/"$@" >> "$@"
+		TMP="$@.$$RANDOM" && \
+		rm -f "$$TMP" && \
+		echo '/******** GENERATED FILE ********/' > "$$TMP" && \
+		cat ../daemon/"$@" >> "$$TMP" && \
+		mv -f "$$TMP" "$@"
 
 %.8: %.pod
 	pod2man \
