@@ -124,7 +124,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 {
 	AUTO_CLEANUP_NULL(GOptionContext *c, free_goptc);
 	AUTO_CLEANUP_NULL(GError *er, free_gerror);
-	const char *use_section;
+	AUTO_CLEANUP_GBUF(use_section);
 	const char *use_config;
 	int fatal = 0;
 	AUTO_CLEANUP(char **saved_argv, free_gvbuf) = g_strdupv(*argv);
@@ -173,9 +173,11 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	if (!g_option_context_parse(c, argc, argv, &er))
 		goto err;
 
-	use_section = default_section;
-	if (rtpe_common_config_ptr->config_section)
-		use_section = rtpe_common_config_ptr->config_section;
+	if (rtpe_common_config_ptr->config_section) {
+		use_section = g_strdup(rtpe_common_config_ptr->config_section);
+	} else {
+		use_section = g_strdup(default_section);
+	}
 
 	// is there a config file to load?
 	use_config = default_config;
