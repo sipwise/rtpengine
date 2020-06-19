@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5ff4058f_3bdb5adb",
+        "filename": "lib/common.Makefile",
+        "patchSetId": 1
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 1000016
+      },
+      "writtenOn": "2020-06-19T13:53:29Z",
+      "side": 0,
+      "message": "Hmm I feel this is indicative of these files being generated multiple times, and the entire thing could simply be avoided by switching to either a VPATH style build, or to generate intermediate libfoo.a libraries.\n\nIn any case for now why not simply make the generation itself atomic, as in?\n\n  ( echo; cat ) \u003e\"$@\"\n\nwith no need to remove or temp files etc.",
+      "revId": "91d5580fa7560de1966ec2526ba4f7e5cf8feede",
+      "serverId": "85315e57-5f03-49c3-83f8-201ae2313a75",
+      "unresolved": false
+    }
+  ]
+}
