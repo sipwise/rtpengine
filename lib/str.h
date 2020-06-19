@@ -245,6 +245,7 @@ INLINE str *str_init_dup_str(str *out, const str *s) {
 	out->s = malloc(s->len + 1);
 	memcpy(out->s, s->s, s->len);
 	out->s[s->len] = '\0';
+	out->len = s->len;
 	return out;
 }
 INLINE void str_free_dup(str *out) {
