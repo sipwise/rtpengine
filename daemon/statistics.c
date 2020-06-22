@@ -233,8 +233,12 @@ void statistics_update_oneway(struct call* c) {
 #define SM_PUSH(ret, m) \
 	do { \
 		struct stats_metric *last = NULL; \
-		if (ret->tail) \
-			last = ret->tail->data; \
+		for (GList *l_last = ret->tail; l_last; l_last = l_last->prev) { \
+			last = l_last->data; \
+			if (last->label) \
+				break; \
+			last = NULL; \
+		} \
 		if (!m->is_bracket && last) { \
 			if (!last->is_bracket || last->is_close_bracket) \
 				m->is_follow_up = 1; \
