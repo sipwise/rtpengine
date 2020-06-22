@@ -130,5 +130,6 @@ void statistics_free_metrics(GQueue **);
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
 
 void statistics_init(void);
+void statistics_free(void);
 
 #endif /* STATISTICS_H_ */

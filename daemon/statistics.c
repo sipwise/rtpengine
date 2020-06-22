@@ -630,6 +630,26 @@ void statistics_free_metrics(GQueue **q) {
 	*q = NULL;
 }
 
+void statistics_free() {
+	mutex_destroy(&rtpe_totalstats.total_average_lock);
+	mutex_destroy(&rtpe_totalstats_interval.total_average_lock);
+	mutex_destroy(&rtpe_totalstats_interval.managed_sess_lock);
+	mutex_destroy(&rtpe_totalstats_interval.total_calls_duration_lock);
+
+	mutex_destroy(&rtpe_totalstats_lastinterval_lock);
+
+	mutex_destroy(&rtpe_totalstats_interval.offer.lock);
+	mutex_destroy(&rtpe_totalstats_interval.answer.lock);
+	mutex_destroy(&rtpe_totalstats_interval.delete.lock);
+
+	mutex_destroy(&rtpe_totalstats_interval.offers_ps.lock);
+	mutex_destroy(&rtpe_totalstats_interval.answers_ps.lock);
+	mutex_destroy(&rtpe_totalstats_interval.deletes_ps.lock);
+
+	mutex_destroy(&rtpe_codec_stats_lock);
+	g_hash_table_destroy(rtpe_codec_stats);
+}
+
 void statistics_init() {
 	mutex_init(&rtpe_totalstats.total_average_lock);
 	mutex_init(&rtpe_totalstats_interval.total_average_lock);

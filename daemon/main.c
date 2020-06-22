@@ -960,16 +960,26 @@ int main(int argc, char **argv) {
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
 
+	unfill_initial_rtpe_cfg(&initial_rtpe_config);
+
+	call_free();
+
+	jitter_buffer_init_free();
+	media_player_free();
+	codeclib_free();
+	statistics_free();
+	call_interfaces_free();
+	interfaces_free();
+	ice_free();
+	dtls_cert_free();
+
 	redis_close(rtpe_redis);
 	redis_close(rtpe_redis_write);
 	redis_close(rtpe_redis_notify);
-	dtls_cert_free();
-
-	unfill_initial_rtpe_cfg(&initial_rtpe_config);
 
 	options_free();
-	call_free();
-	interfaces_free();
+
+	log_free();
 
 	obj_release(rtpe_cli);
 	obj_release(rtpe_udp);

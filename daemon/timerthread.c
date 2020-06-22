@@ -14,6 +14,11 @@ void timerthread_init(struct timerthread *tt, void (*func)(void *)) {
 	tt->func = func;
 }
 
+void timerthread_free(struct timerthread *tt) {
+	g_tree_destroy(tt->tree);
+	mutex_destroy(&tt->lock);
+}
+
 void timerthread_run(void *p) {
 	struct timerthread *tt = p;
 

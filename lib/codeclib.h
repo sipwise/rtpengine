@@ -211,6 +211,7 @@ struct packet_sequencer_s {
 
 
 void codeclib_init(int);
+void codeclib_free(void);
 
 
 const codec_def_t *codec_find(const str *name, enum media_type);

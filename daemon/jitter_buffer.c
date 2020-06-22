@@ -23,6 +23,11 @@ void jitter_buffer_init(void) {
 	timerthread_init(&jitter_buffer_thread, timerthread_queue_run);
 }
 
+void jitter_buffer_init_free(void) {
+	ilog(LOG_DEBUG, "jitter_buffer_free");
+	timerthread_free(&jitter_buffer_thread);
+}
+
 static void jitter_buffer_flush(struct jitter_buffer *jb) {
 	mutex_unlock(&jb->lock);
 	timerthread_queue_flush_data(&jb->ttq);

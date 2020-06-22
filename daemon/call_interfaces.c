@@ -2102,6 +2102,27 @@ out:
 #endif
 }
 
+void call_interfaces_free() {
+	if (info_re) {
+		pcre_free(info_re);
+		info_re = NULL;
+	}
+
+	if (streams_re) {
+		pcre_free(streams_re);
+		streams_re= NULL;
+	}
+
+	if (info_ree) {
+		pcre_free_study(info_ree);
+		info_ree = NULL;
+	}
+
+	if (streams_ree) {
+		pcre_free_study(streams_ree);
+		streams_ree = NULL;
+	}
+}
 
 int call_interfaces_init() {
 	const char *errptr;

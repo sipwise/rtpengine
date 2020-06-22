@@ -141,6 +141,7 @@ extern const char * const ice_type_strings[];
 
 
 void ice_init(void);
+void ice_free(void);
 
 enum ice_candidate_type ice_candidate_type(const str *s);
 int ice_has_related(enum ice_candidate_type);

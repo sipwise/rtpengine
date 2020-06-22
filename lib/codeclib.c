@@ -759,6 +759,12 @@ static void avc_def_init(codec_def_t *def) {
 	}
 }
 
+void codeclib_free(void) {
+	g_hash_table_destroy(codecs_ht);
+	g_hash_table_destroy(codecs_ht_by_av);
+	avformat_network_deinit();
+}
+
 void codeclib_init(int print) {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 	av_register_all();

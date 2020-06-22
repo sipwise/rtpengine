@@ -42,6 +42,7 @@ struct jitter_buffer {
 };
 
 void jitter_buffer_init(void);
+void jitter_buffer_init_free(void);
 
 struct jitter_buffer *jitter_buffer_new(struct call *);
 void jitter_buffer_free(struct jitter_buffer **);
