@@ -87,6 +87,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		long long us_dur, unsigned long long pts);
 
 void media_player_init(void);
+void media_player_free(void);
 void media_player_loop(void *);
 
 struct send_timer *send_timer_new(struct packet_stream *);

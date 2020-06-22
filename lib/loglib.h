@@ -23,6 +23,7 @@ void print_available_log_facilities (void);
 void log_to_stderr(int facility_priority, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 
 void log_init(const char *);
+void log_free(void);
 
 void __vpilog(int prio, const char *prefix, const char *fmt, va_list);
 void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf, 2, 3)));

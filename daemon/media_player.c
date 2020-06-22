@@ -753,6 +753,13 @@ void media_player_init(void) {
 	timerthread_init(&send_timer_thread, timerthread_queue_run);
 }
 
+void media_player_free(void) {
+#ifdef WITH_TRANSCODING
+	timerthread_free(&media_player_thread);
+#endif
+	timerthread_free(&send_timer_thread);
+}
+
 
 #ifdef WITH_TRANSCODING
 void media_player_loop(void *p) {

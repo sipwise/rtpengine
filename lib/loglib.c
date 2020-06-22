@@ -230,6 +230,12 @@ void log_init(const char *handle) {
 		openlog(handle, LOG_PID | LOG_NDELAY, ilog_facility);
 }
 
+void log_free() {
+	g_hash_table_destroy(__log_limiter);
+	g_string_chunk_free(__log_limiter_strings);
+	pthread_mutex_destroy(&__log_limiter_lock);
+}
+
 int parse_log_facility(const char *name, int *dst) {
 	int i;
 	for (i = 0 ; _facilitynames[i].c_name; i++) {

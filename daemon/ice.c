@@ -554,6 +554,10 @@ void ice_init(void) {
 	timerthread_init(&ice_agents_timer_thread, ice_agents_timer_run);
 }
 
+void ice_free(void) {
+	timerthread_free(&ice_agents_timer_thread);
+}
+
 
 
 static void __fail_pair(struct ice_candidate_pair *pair) {

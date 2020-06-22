@@ -41,6 +41,7 @@ struct timerthread_queue_entry {
 
 
 void timerthread_init(struct timerthread *, void (*)(void *));
+void timerthread_free(struct timerthread *);
 void timerthread_run(void *);
 
 void timerthread_obj_schedule_abs_nl(struct timerthread_obj *, const struct timeval *);
