@@ -1000,7 +1000,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 
 	ps->endpoint = ep;
 
-	if (PS_ISSET(ps, FILLED)) {
+	if (PS_ISSET(ps, FILLED) && !MEDIA_ISSET(media, DTLS)) {
 		/* we reset crypto params whenever the endpoint changes */
 		// XXX fix WRT SSRC handling
 		crypto_reset(&ps->crypto);
