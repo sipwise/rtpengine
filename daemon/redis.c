@@ -1768,6 +1768,9 @@ int redis_restore(struct redis *r) {
 		g_thread_pool_push(gtp, call, NULL);
 	}
 
+	g_thread_pool_stop_unused_threads();
+	g_thread_pool_set_max_unused_threads(0);
+
 	g_thread_pool_free(gtp, FALSE, TRUE);
 	while ((r = g_queue_pop_head(&ctx.r_q)))
 		redis_close(r);

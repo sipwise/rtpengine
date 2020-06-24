@@ -194,6 +194,7 @@ static void options(int *argc, char ***argv) {
 			//the daemon has no function
 			die("Both output and forwarding are disabled");
 		}
+		g_free(output_format);
 		output_format = NULL;
 	} else if (!output_mixed && !output_single)
 		output_mixed = output_single = 1;
@@ -250,7 +251,12 @@ int main(int argc, char **argv) {
 
 	wait_threads_finish();
 
+	if (decoding_enabled)
+		codeclib_free();
+
 	options_free();
+
+	log_free();
 
 	cleanup();
 }

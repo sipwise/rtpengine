@@ -960,6 +960,8 @@ int main(int argc, char **argv) {
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
 
+	recording_fs_free();
+
 	unfill_initial_rtpe_cfg(&initial_rtpe_config);
 
 	call_free();
@@ -976,6 +978,8 @@ int main(int argc, char **argv) {
 	redis_close(rtpe_redis);
 	redis_close(rtpe_redis_write);
 	redis_close(rtpe_redis_notify);
+
+	free_prefix();
 
 	options_free();
 

@@ -39,7 +39,11 @@ void set_graphite_interval_tv(struct timeval *tv) {
 }
 
 void set_prefix(char* prefix) {
-	graphite_prefix = prefix;
+	graphite_prefix = g_strdup(prefix);
+}
+
+void free_prefix(void) {
+	g_free(graphite_prefix);
 }
 
 static struct requests_ps clear_requests_per_second(struct requests_ps *requests) {

@@ -19,6 +19,7 @@ enum connection_state {
 extern struct timeval rtpe_latest_graphite_interval_start;
 
 void set_prefix(char* prefix);
+void free_prefix(void);
 void graphite_loop(void *d);
 void set_latest_graphite_interval_start(struct timeval *tv);
 void set_graphite_interval_tv(struct timeval *tv);

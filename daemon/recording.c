@@ -114,6 +114,18 @@ static const struct pcap_format *pcap_format;
 
 
 /**
+ * Free RTP Engine filesystem settings and structure.
+ * Check for and free the RTP Engine spool directory.
+ */
+
+void recording_fs_free(void) {
+	if (spooldir)
+		free(spooldir);
+
+	spooldir = NULL;
+}
+
+/**
  * Initialize RTP Engine filesystem settings and structure.
  * Check for or create the RTP Engine spool directory.
  */
