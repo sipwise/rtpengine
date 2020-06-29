@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.4.1.2+0~mr8.4.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0b5594b] TT#83150 fix SSRC substitution w/ SRTP in kernel
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 29 Jun 2020 16:32:57 +0200
+
 ngcp-rtpengine (8.4.1.1+0~mr8.4.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
