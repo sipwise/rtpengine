@@ -291,6 +291,9 @@ INLINE void codeclib_init(int print) {
 	if (print)
 		printf("No codecs supported.\n");
 }
+INLINE void codeclib_free(void) {
+	;
+}
 
 INLINE const codec_def_t *codec_find(const str *name, enum media_type type) {
 	return NULL;
