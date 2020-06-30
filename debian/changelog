@@ -1,3 +1,31 @@
+ngcp-rtpengine (8.3.2.1+0~mr8.3.2.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ba72f03] TT#76711 fix media type ID when restoring from redis
+  * [6921a39] TT#14008 rtpengine-ctl fix to allow override of default values
+  * [f1e8fa1] TT#79351 detect and fix payload type collisions
+  * [34574ed] TT#79601 support media/DTMF playback to all parties
+  * [69ac8d5] fix kernel module compilation for >= 5.5
+  * [6acf76c] fix kernel module compilation for different build flags
+  * [667fbd7] TT#79601 fix possible crash when injecting DTMF
+  * [e83e05f] TT#81600 fix SRTP when transcoding/DTMF injection is in use
+  * [bc1cec2] TT#81850 fix SRTP re-offer and RTP to SRTP switch
+  * [9b7e34b] TT#81850 remove spurious log messages
+  * [ac95de0] TT#82100 hunt for usable payload type for DTMF injection
+  * [e112c4d] TT#82650 fix /list never ending output
+  * [0c65b69] fix compilation when spandsp is not present
+  * [97eacf5] TT#82651 avoid unnecessary transcoding when DTMF PT is present
+  * [3d8c214] TT#83150 fix SSRC substitution w/ SRTP in kernel
+  * [2696e52] TT#82651 same as 61acd9761 but in reverse
+  * [7c2260c] TT#76368 remove some graphite functions from global namespace
+  * [7827842] TT#76368 handle connection blocking on graphite writes
+  * [eef2f4d] TT#76368 move graphite timestamping into wrapper macro
+  * [ed85e9c] TT#76368 add port status to graphite output
+  * [b000f78] TT#82203 add stats for transcoded sessions
+  * [c1524aa] TT#82203 add detailed transcoding stats
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 30 Jun 2020 15:31:17 +0200
+
 ngcp-rtpengine (8.3.2.0+0~mr8.3.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
