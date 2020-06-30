@@ -18,6 +18,7 @@ struct rtpengine_common_config {
 	char *log_facility;
 	volatile int log_level;
 	int log_stderr;
+	int split_logs;
 	int no_log_timestamps;
 	char *log_mark_prefix;
 	char *log_mark_suffix;

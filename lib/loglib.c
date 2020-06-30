@@ -180,10 +180,30 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 
 	piece = msg;
 
-	while (max_log_line_length && len > max_log_line_length) {
-		write_log(xprio, "%s: %s%s%.*s ...", prio_prefix, prefix, infix, max_log_line_length, piece);
-		len -= max_log_line_length;
-		piece += max_log_line_length;
+	while (1) {
+		unsigned int max_line_len = max_log_line_length;
+		unsigned int skip_len = max_line_len;
+		if (rtpe_common_config_ptr->split_logs) {
+			char *newline = strchr(piece, '\n');
+			if (newline) {
+				unsigned int nl_pos = newline - piece;
+				if (!max_line_len || nl_pos < max_line_len) {
+					max_line_len = nl_pos;
+					skip_len = nl_pos + 1;
+					if (nl_pos >= 1 && piece[nl_pos-1] == '\r')
+						max_line_len--;
+				}
+			}
+		}
+
+		if (!max_line_len)
+			break;
+		if (len <= max_line_len)
+			break;
+
+		write_log(xprio, "%s: %s%s%.*s ...", prio_prefix, prefix, infix, max_line_len, piece);
+		len -= skip_len;
+		piece += skip_len;
 		infix = "... ";
 	}
 

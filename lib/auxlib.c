@@ -147,6 +147,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "log-facility",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_facility,	"Syslog facility to use for logging",	"daemon|local0|...|local7"},
 		{ "log-level",		'L', 0, G_OPTION_ARG_INT,	(void *)&rtpe_common_config_ptr->log_level,"Mask log priorities above this level","INT"		},
 		{ "log-stderr",		'E', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->log_stderr,	"Log on stderr instead of syslog",	NULL		},
+		{ "split-logs",		0, 0,	G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->split_logs,	"Split multi-line log messages",	NULL		},
 		{ "no-log-timestamps",	0,   0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->no_log_timestamps,"Drop timestamps from log lines to stderr",NULL	},
 		{ "log-mark-prefix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_prefix,"Prefix for sensitive log info",	NULL		},
 		{ "log-mark-suffix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_suffix,"Suffix for sensitive log info",	NULL		},

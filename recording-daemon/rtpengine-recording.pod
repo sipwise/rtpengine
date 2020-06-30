@@ -74,6 +74,11 @@ Defaults to B<daemon>.
 Log to stderr instead of syslog.
 Only useful in combination with B<--foreground>.
 
+=item B<--split-logs>
+
+Split multi-line log messages into individual log messages so that each
+line receives its own log line prefix.
+
 =item B<--no-log-timestamps>
 
 Don't add timestamps to log lines written to stderr.
