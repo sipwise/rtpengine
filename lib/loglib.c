@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <string.h>
+#include <glib/gprintf.h>
 #include "auxlib.h"
 
 
@@ -127,9 +128,10 @@ static void log_both(int facility_priority, const char *format, ...) {
 
 
 void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
-	char *msg, *piece;
+	AUTO_CLEANUP_GBUF(msg);
+	char *piece;
 	const char *infix = "";
-	int ret, xprio;
+	int len, xprio;
 	const char *prio_prefix;
 
 	xprio = LOG_LEVEL_MASK(prio);
@@ -137,15 +139,10 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 	if (!prefix)
 		prefix = "";
 
-	ret = vasprintf(&msg, fmt, ap);
+	len = g_vasprintf(&msg, fmt, ap);
 
-	if (ret < 0) {
-		write_log(LOG_ERROR, "Failed to print syslog message - message dropped");
-		return;
-	}
-
-	while (ret > 0 && msg[ret-1] == '\n')
-		ret--;
+	while (len > 0 && msg[len-1] == '\n')
+		len--;
 
 	if ((prio & LOG_FLAG_LIMIT)) {
 		time_t when;
@@ -178,22 +175,19 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 		pthread_mutex_unlock(&__log_limiter_lock);
 
 		if (when)
-			goto out;
+			return;
 	}
 
 	piece = msg;
 
-	while (max_log_line_length && ret > max_log_line_length) {
+	while (max_log_line_length && len > max_log_line_length) {
 		write_log(xprio, "%s: %s%s%.*s ...", prio_prefix, prefix, infix, max_log_line_length, piece);
-		ret -= max_log_line_length;
+		len -= max_log_line_length;
 		piece += max_log_line_length;
 		infix = "... ";
 	}
 
-	write_log(xprio, "%s: %s%s%.*s", prio_prefix, prefix, infix, ret, piece);
-
-out:
-	free(msg);
+	write_log(xprio, "%s: %s%s%.*s", prio_prefix, prefix, infix, len, piece);
 }
 
 
