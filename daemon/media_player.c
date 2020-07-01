@@ -227,6 +227,25 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
 				st->sink->endpoint.port));
 
+	// Drop packets with a payload which is not suitable for the sink in
+	// order to not confuse brittle clients.
+	if (rh && st->sink->media && st->sink->media->codecs_send && st->sink->media->codecs_recv) {
+		unsigned int pt = rh->m_pt & 0x7f;
+		int in_codecs_send = g_hash_table_lookup(st->sink->media->codecs_send, &pt) != NULL;
+		int in_codecs_recv = g_hash_table_lookup(st->sink->media->codecs_recv, &pt) != NULL;
+		if ((in_codecs_send | in_codecs_recv) == 0) {
+			ilog(LOG_DEBUG, "Not forwarding RTP packet with wrong payload to sink endpoint: %s%s:%d%s (RTP pt %u seq %u TS %u cs=%d cr=%d)",
+			     FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
+			     st->sink->endpoint.port),
+			     pt,
+			     ntohs(rh->seq_num),
+			     ntohl(rh->timestamp),
+			     in_codecs_send,
+			     in_codecs_recv);
+			goto out;
+		}
+	}
+
 	socket_sendto(&st->sink->selected_sfd->socket,
 			cp->s.s, cp->s.len, &st->sink->endpoint);
 
