@@ -256,7 +256,8 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	g_option_context_parse_strv(c, &saved_argv, &er);
 
 	// finally go through our list again to look for strings that were
-	// overwritten, and free the old values
+	// overwritten, and free the old values.
+	// this is also a good opportunity to trim off stray spaces.
 	for (GOptionEntry *e = entries_copy; e->long_name; e++) {
 		switch (e->arg) {
 			case G_OPTION_ARG_STRING:
@@ -264,6 +265,11 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 				char **s = e->arg_data;
 				if (*s != e->description)
 					g_free((void *) e->description);
+				if (*s) {
+					size_t len = strlen(*s);
+					while (len && (*s)[len-1] == ' ')
+						(*s)[--len] = '\0';
+				}
 				break;
 			}
 
@@ -271,6 +277,14 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 				char ***s = e->arg_data;
 				if (*s != (void *) e->description)
 					g_strfreev((void *) e->description);
+				if (*s) {
+					for (int i = 0; (*s)[i]; i++) {
+						char *ss = (*s)[i];
+						size_t len = strlen(ss);
+						while (len && ss[len-1] == ' ')
+							ss[--len] = '\0';
+					}
+				}
 				break;
 			}
 
