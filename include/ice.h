@@ -29,6 +29,7 @@
 #define ICE_AGENT_COMPLETED		0x0002
 #define ICE_AGENT_CONTROLLING		0x0004
 #define ICE_AGENT_NOMINATING		0x0008
+#define ICE_AGENT_USABLE		0x0010
 
 #define ICE_PAIR_FROZEN			0x0001
 #define ICE_PAIR_IN_PROGRESS		0x0002
@@ -51,7 +52,8 @@
 #define AGENT_SET(p, f)		bf_set(&(p)->agent_flags, ICE_AGENT_ ## f)
 #define AGENT_SET2(p, f, g)	bf_set(&(p)->agent_flags, ICE_AGENT_ ## f | ICE_AGENT_ ## g)
 #define AGENT_CLEAR(p, f)	bf_clear(&(p)->agent_flags, ICE_AGENT_ ## f)
-#define AGENT_CLEAR2(p, f, g)	bf_clear(&(p)->agent_flags, ICE_AGENT_ ## f | ICE_AGENT_ ## g)
+#define AGENT_CLEAR3(p, f, g, h) \
+	bf_clear(&(p)->agent_flags, ICE_AGENT_ ## f | ICE_AGENT_ ## g | ICE_AGENT_ ## h)
 
 
 
@@ -175,6 +177,18 @@ INLINE int ice_has_finished(struct call_media *media) {
 	if (!media->ice_agent)
 		return 1;
 	if (AGENT_ISSET(media->ice_agent, COMPLETED))
+		return 1;
+	return 0;
+}
+/* returns 1 if media has connectivity */
+INLINE int ice_is_usable(struct call_media *media) {
+	if (!media)
+		return 1;
+	if (!MEDIA_ISSET(media, ICE))
+		return 1;
+	if (!media->ice_agent)
+		return 1;
+	if (AGENT_ISSET(media->ice_agent, USABLE))
 		return 1;
 	return 0;
 }

@@ -1023,8 +1023,17 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 	if (MEDIA_ISSET(media, PASSTHRU))
 		return CSS_RUNNING;
 
-	if (MEDIA_ISSET(media, ICE) && !ice_has_finished(media))
-		return CSS_ICE; /* handled by ICE timer */
+	enum call_stream_state ret = CSS_RUNNING;
+
+	if (MEDIA_ISSET(media, ICE) && !ice_has_finished(media)) {
+		if (!MEDIA_ISSET(media, DTLS))
+			return CSS_ICE; /* handled by ICE timer */
+		if (!ice_is_usable(media))
+			return CSS_ICE; /* handled by ICE timer */
+		// special case: ICE was able to communicate and DTLS is in use.
+		// we can now start DTLS if necessary.
+		ret = CSS_ICE;
+	}
 
 	if (MEDIA_ISSET(media, DTLS)) {
 		mutex_lock(&ps->in_lock);
@@ -1037,7 +1046,7 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 		mutex_unlock(&ps->in_lock);
 	}
 
-	return CSS_RUNNING;
+	return ret;
 }
 
 void call_media_state_machine(struct call_media *m) {
