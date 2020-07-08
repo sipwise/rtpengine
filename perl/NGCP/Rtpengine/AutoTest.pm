@@ -179,6 +179,13 @@ sub rcv {
 			($m) = unpack('N', $m);
 		}
 	}
+	if ($port == -1 && @matches) {
+		# this is actually wrong and uses the fake Unix domain socket address.
+		# translation should really be handled by the preloaded .so back to
+		# fake v4/v6 address.
+		$addr =~ /\]:(\d+)/s or die;
+		unshift(@matches, $1);
+	}
 	return @matches;
 }
 sub srtp_rcv {
