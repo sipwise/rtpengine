@@ -140,10 +140,16 @@ INLINE void g_tree_remove_all(GQueue *out, GTree *t) {
 	for (l = out->head; l; l = l->next)
 		g_tree_remove(t, l->data);
 }
-INLINE void g_tree_add_all(GTree *t, GQueue *q) {
+INLINE void g_tree_insert_coll(GTree *t, gpointer key, gpointer val, void (*cb)(gpointer, gpointer)) {
+	gpointer old = g_tree_lookup(t, key);
+	if (old)
+		cb(old, val);
+	g_tree_insert(t, key, val);
+}
+INLINE void g_tree_add_all(GTree *t, GQueue *q, void (*cb)(gpointer, gpointer)) {
 	GList *l;
 	for (l = q->head; l; l = l->next)
-		g_tree_insert(t, l->data, l->data);
+		g_tree_insert_coll(t, l->data, l->data, cb);
 	g_queue_clear(q);
 }
 
