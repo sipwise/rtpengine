@@ -6,6 +6,7 @@ use NGCP::Rtpengine::Test;
 use NGCP::Rtpclient::SRTP;
 use NGCP::Rtpengine::AutoTest;
 use Test::More;
+use NGCP::Rtpclient::ICE;
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
@@ -27,10 +28,86 @@ my $pcma_5 = "\xad\xac\xa2\xa6\xbd\x9a\x06\x3f\x26\x2d\x2c\x2d\x26\x3f\x06\x9a\x
 
 
 
-my ($sock_a, $sock_b, $port_a, $port_b, $ssrc, $resp,
+my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev,
-	@ret1, @ret2, $srtp_key_a, $srtp_key_b, $ts, $seq);
+	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq);
+
+
+
+
+# DTLS early start with ICE (GH 1035 TT 84804)
+
+($sock_a, $sock_b, $sock_c, $sock_d) = new_call([qw(198.51.100.4 2000)], [qw(198.51.100.4 2001)], [qw(198.51.100.8 3000)], [qw(198.51.100.8 3001)]);
+
+offer('ICE offer with DTLS', {
+		ICE => 'remove', 'transport-protocol' => 'RTP/AVP', 'rtcp-mux' => ['demux'],
+	}, <<SDP);
+v=0
+o=safarov 2350 1824 IN IP4 198.51.100.4
+s=Talk
+c=IN IP4 198.51.100.4
+t=0 0
+a=ice-pwd:bd5e845657ecb8d6dd8e1bc6
+a=ice-ufrag:q2758e93
+m=audio 2000 UDP/TLS/RTP/SAVPF 0 101
+a=rtpmap:101 telephone-event/8000
+a=setup:actpass
+a=fingerprint:SHA-256 DA:89:F7:04:38:D9:04:E1:9E:25:1A:43:87:8D:F5:BD:6E:4C:BB:88:12:A6:D5:FA:B1:4A:34:BC:32:C0:05:FE
+a=rtcp:2001
+a=candidate:1 1 UDP 2130706303 198.51.100.4 2000 typ host
+a=candidate:1 2 UDP 2130706302 198.51.100.4 2001 typ host
+a=candidate:2 1 UDP 2130706301 198.51.100.8 3000 typ host
+a=candidate:2 2 UDP 2130706300 198.51.100.8 3001 typ host
+--------------------------------------
+v=0
+o=safarov 2350 1824 IN IP4 198.51.100.4
+s=Talk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# first consume the reqs sent to us
+
+#                              req     len   cookie            transx                   software                    ufrag1    ufrag2             ice controlled tie brk              prio                             msg integrity                      fprint
+@ret1 = rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x11q2758e93:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xff\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
+@ret2 = rcv($sock_c, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x11q2758e93:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xff\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
+# RTCP reqs, prio one less
+@ret3 = rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x11q2758e93:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xfe\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
+@ret4 = rcv($sock_d, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x11q2758e93:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xfe\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
+
+sub stun_succ {
+	my ($port, $tid) = @_;
+	my $sw = NGCP::Rtpclient::ICE::attr(0x8022, 'perltester');
+	my $xor_addr = NGCP::Rtpclient::ICE::attr(0x0020, pack('nna4', 1, $port ^ 0x2112, pack('CCCC', 203,0,113,1) ^ "\x21\x12\xa4\x42"));
+	my $attrs = [$sw, $xor_addr];
+	NGCP::Rtpclient::ICE::integrity($attrs, 257, $tid, 'bd5e845657ecb8d6dd8e1bc6');
+	NGCP::Rtpclient::ICE::fingerprint($attrs, 257, $tid);
+	my $pack = join('', @{$attrs});
+	my $packet = pack('nnNa12', 257, length($pack), 0x2112A442, $tid) . $pack;
+	#print(unpack('H*', $packet)."\n");
+	return $packet;
+};
+
+# send back RTP binding successes
+
+snd($sock_a, $ret1[0], stun_succ($ret1[0], $ret1[1]));
+snd($sock_c, $ret2[0], stun_succ($ret2[0], $ret2[1]));
+
+# send secondary RTCP binding success
+
+snd($sock_d, $ret4[0], stun_succ($ret4[0], $ret4[1]));
+
+# now we should be getting DTLS
+
+rcv($sock_c, -1, qr/^\x16\xfe\xff\x00\x00\x00\x00\x00\x00\x00/);
+rcv($sock_d, -1, qr/^\x16\xfe\xff\x00\x00\x00\x00\x00\x00\x00/);
+
 
 
 
@@ -6042,7 +6119,6 @@ rcv($sock_a, $port_b, rtpm(101, 4003, 5320, $ssrc, "\x05\x0a\x01\x40"));
 
 # gh #766
 
-my $sock_c;
 ($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.5 7300)], [qw(198.51.100.6 7302)], [qw(198.51.100.7 7304)]);
 
 (undef, $port_a) = offer('gh 766 orig', {
