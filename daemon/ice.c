@@ -277,7 +277,7 @@ static int __copy_cand(struct call *call, struct ice_candidate *dst, const struc
 
 static void __ice_reset(struct ice_agent *ag) {
 	__agent_deschedule(ag);
-	AGENT_CLEAR2(ag, COMPLETED, NOMINATING);
+	AGENT_CLEAR3(ag, COMPLETED, NOMINATING, USABLE);
 	__ice_agent_free_components(ag);
 	ZERO(ag->active_components);
 	ZERO(ag->start_nominating);
@@ -699,6 +699,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	/* triggered checks are preferred */
 	pair = g_queue_pop_head(&ag->triggered);
 	if (pair) {
+		__DBG("running triggered check on " PAIR_FORMAT, PAIR_FMT(pair));
 		PAIR_CLEAR(pair, TRIGGERED);
 		next_run = rtpe_now;
 		goto check;
@@ -707,6 +708,8 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	/* find the highest-priority non-frozen non-in-progress pair */
 	for (l = ag->all_pairs_list.head; l; l = l->next) {
 		pair = l->data;
+
+		__DBG("considering checking " PAIR_FORMAT, PAIR_FMT(pair));
 
 		/* skip dead streams */
 		sfd = pair->sfd;
@@ -744,6 +747,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 
 		/* remember the first frozen pair in case we find nothing else */
 		if (PAIR_ISSET(pair, FROZEN)) {
+			__DBG("pair " PAIR_FORMAT " is frozen", PAIR_FMT(pair));
 			if (!frozen)
 				frozen = pair;
 			continue;
@@ -753,10 +757,14 @@ static void __do_ice_checks(struct ice_agent *ag) {
 			highest = pair;
 	}
 
-	if (highest)
+	if (highest) {
 		pair = highest;
-	else if (frozen)
+		__DBG("checking highest priority pair " PAIR_FORMAT, PAIR_FMT(pair));
+	}
+	else if (frozen) {
 		pair = frozen;
+		__DBG("checking highest priority frozen pair " PAIR_FORMAT, PAIR_FMT(pair));
+	}
 	else
 		pair = NULL;
 
@@ -977,6 +985,7 @@ static int __check_valid(struct ice_agent *ag) {
 	struct ice_candidate_pair *pair;
 //	const struct local_intf *ifa;
 	struct stream_fd *sfd;
+	int is_complete = 1;
 
 	if (!ag) {
 		ilog(LOG_ERR, "ice ag is NULL");
@@ -988,13 +997,23 @@ static int __check_valid(struct ice_agent *ag) {
 	__get_complete_valid_pairs(&all_compos, ag);
 
 	if (!all_compos.length) {
-		ilog(LOG_DEBUG, "ICE not completed yet");
-		return 0;
+		is_complete = 0;
+		__get_complete_succeeded_pairs(&all_compos, ag);
+		if (!all_compos.length) {
+			ilog(LOG_DEBUG, "ICE not completed yet and no usable candidates");
+			return 0;
+		}
 	}
 
 	pair = all_compos.head->data;
-	ilog(LOG_DEBUG, "ICE completed, using pair "PAIR_FORMAT, PAIR_FMT(pair));
-	AGENT_SET(ag, COMPLETED);
+	if (is_complete) {
+		ilog(LOG_DEBUG, "ICE completed, using pair " PAIR_FORMAT, PAIR_FMT(pair));
+		AGENT_SET(ag, COMPLETED);
+	}
+	else {
+		ilog(LOG_DEBUG, "ICE not completed yet, but can use pair " PAIR_FORMAT, PAIR_FMT(pair));
+		AGENT_SET(ag, USABLE);
+	}
 
 	for (l = media->streams.head, k = all_compos.head; l && k; l = l->next, k = k->next) {
 		ps = l->data;
@@ -1252,10 +1271,9 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 	if (PAIR_ISSET(pair, NOMINATED)) {
 		PAIR_SET(pair, VALID);
 		g_tree_insert(ag->valid_pairs, pair, pair);
-
-		if (!AGENT_ISSET(ag, CONTROLLING))
-			ret = __check_valid(ag);
 	}
+
+	ret = __check_valid(ag);
 
 out_unlock:
 	mutex_unlock(&ag->lock);
