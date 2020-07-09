@@ -2526,6 +2526,7 @@ static void __call_free(void *p) {
 
 		g_queue_clear(&m->medias);
 		g_hash_table_destroy(m->other_tags);
+		g_hash_table_destroy(m->branches);
 		g_hash_table_destroy(m->media_ids);
 		g_slice_free1(sizeof(*m), m);
 	}
@@ -2673,6 +2674,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
+	ret->branches = g_hash_table_new(str_hash, str_equal);
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
 
 	g_queue_init(&ret->medias);
@@ -2693,15 +2695,21 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 }
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 	struct call *call = ml->call;
+	struct call_monologue *other = ml->active_dialogue;
 
-	if (!viabranch)
+	if (!viabranch || !viabranch->len)
 		return;
 
 	__C_DBG("tagging monologue with viabranch '"STR_FORMAT"'", STR_FMT(viabranch));
-	if (ml->viabranch.s)
+	if (ml->viabranch.s) {
 		g_hash_table_remove(call->viabranches, &ml->viabranch);
+		if (other)
+			g_hash_table_remove(other->branches, &ml->viabranch);
+	}
 	call_str_cpy(call, &ml->viabranch, viabranch);
 	g_hash_table_insert(call->viabranches, &ml->viabranch, ml);
+	if (other)
+		g_hash_table_insert(other->branches, &ml->viabranch, ml);
 }
 
 /* must be called with call->master_lock held in W */
@@ -2750,6 +2758,10 @@ static void __monologue_destroy(struct call_monologue *monologue, int recurse) {
 
 	call = monologue->call;
 
+	ilog(LOG_DEBUG, "Destroying monologue '" STR_FORMAT "' (" STR_FORMAT ")",
+			STR_FMT(&monologue->tag),
+			STR_FMT0(&monologue->viabranch));
+
 	g_hash_table_remove(call->tags, &monologue->tag);
 	if (monologue->viabranch.s)
 		g_hash_table_remove(call->viabranches, &monologue->viabranch);
@@ -2759,12 +2771,16 @@ static void __monologue_destroy(struct call_monologue *monologue, int recurse) {
 
 		if (dialogue == monologue)
 			continue;
-		if (dialogue->active_dialogue != monologue
+		if (monologue->tag.len
 				&& !g_hash_table_lookup(dialogue->other_tags, &monologue->tag))
+			continue;
+		if (monologue->viabranch.len
+				&& !g_hash_table_lookup(dialogue->branches, &monologue->viabranch))
 			continue;
 
 		g_hash_table_remove(dialogue->other_tags, &monologue->tag);
-		if (recurse && !g_hash_table_size(dialogue->other_tags))
+		g_hash_table_remove(dialogue->branches, &monologue->viabranch);
+		if (recurse && !g_hash_table_size(dialogue->other_tags) && !g_hash_table_size(dialogue->branches))
 			__monologue_destroy(dialogue, 0);
 	}
 

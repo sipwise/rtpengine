@@ -112,6 +112,244 @@ rcv($sock_d, -1, qr/^\x16\xfe\xff\x00\x00\x00\x00\x00\x00\x00/);
 
 
 
+# GH 1037
+
+new_call;
+
+offer('rtcp-mux branched w delete-delay', {
+		ICE => 'remove',
+		SDES => 'off',
+		'via-branch' => 'foo.0',
+		'transport-protocol' => 'RTP/SAVPF',
+		'rtcp-mux' => ['offer'],
+	}, <<SDP);
+v=0
+o=root 1965229132 1965229132 IN IP4 172.31.30.143
+s=Wildix 5.02.20200622.2~8ea32507
+c=IN IP4 172.31.30.143
+t=0 0
+m=audio 35972 RTP/AVPF 8 0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=root 1965229132 1965229132 IN IP4 172.31.30.143
+s=Wildix 5.02.20200622.2~8ea32507
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVPF 8 0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-1 FINGERPRINT
+a=ptime:20
+SDP
+
+offer('rtcp-mux branched w delete-delay', {
+		ICE => 'remove',
+		SDES => 'off',
+		'via-branch' => 'foo.1',
+		'transport-protocol' => 'RTP/AVP',
+		'rtcp-mux' => ['demux'],
+	}, <<SDP);
+v=0
+o=root 1965229132 1965229132 IN IP4 172.31.30.143
+s=Wildix 5.02.20200622.2~8ea32507
+c=IN IP4 172.31.30.143
+t=0 0
+m=audio 35972 RTP/AVPF 8 0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=root 1965229132 1965229132 IN IP4 172.31.30.143
+s=Wildix 5.02.20200622.2~8ea32507
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+rtpe_req('delete', 'rtcp-mux branched w delete-delay', { 'from-tag' => ft(), 'via-branch' => 'foo.1' });
+
+answer('rtcp-mux branched w delete-delay', {
+		ICE => 'remove',
+		SDES => 'off',
+		'via-branch' => 'foo.0',
+		'transport-protocol' => 'RTP/AVPF',
+		'rtcp-mux' => ['demux'],
+	}, <<SDP);
+v=0
+o=- 8520494338200249002 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE audio video
+m=audio 63849 UDP/TLS/RTP/SAVPF 0
+c=IN IP4 192.168.31.106
+a=rtcp:9 IN IP4 0.0.0.0
+a=fingerprint:sha-256 B5:CF:61:F3:C5:DF:F6:11:BF:B2:B5:1A:02:54:A1:2A:4A:B5:9E:1F:FF:C0:AA:96:16:9C:59:49:76:09:63:0B
+a=setup:active
+a=mid:audio
+a=sendrecv
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 8520494338200249002 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+m=audio PORT RTP/AVPF 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+
+new_call;
+
+offer('rtcp-mux branched delete-delay=0', {
+		ICE => 'remove',
+		SDES => 'off',
+		'via-branch' => 'foo.0',
+		'transport-protocol' => 'RTP/SAVPF',
+		'rtcp-mux' => ['offer'],
+	}, <<SDP);
+v=0
+o=root 1965229132 1965229132 IN IP4 172.31.30.143
+s=Wildix 5.02.20200622.2~8ea32507
+c=IN IP4 172.31.30.143
+t=0 0
+m=audio 35972 RTP/AVPF 8 0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=root 1965229132 1965229132 IN IP4 172.31.30.143
+s=Wildix 5.02.20200622.2~8ea32507
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVPF 8 0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-1 FINGERPRINT
+a=ptime:20
+SDP
+
+offer('rtcp-mux branched delete-delay=0', {
+		ICE => 'remove',
+		SDES => 'off',
+		'via-branch' => 'foo.1',
+		'transport-protocol' => 'RTP/AVP',
+		'rtcp-mux' => ['demux'],
+	}, <<SDP);
+v=0
+o=root 1965229132 1965229132 IN IP4 172.31.30.143
+s=Wildix 5.02.20200622.2~8ea32507
+c=IN IP4 172.31.30.143
+t=0 0
+m=audio 35972 RTP/AVPF 8 0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=root 1965229132 1965229132 IN IP4 172.31.30.143
+s=Wildix 5.02.20200622.2~8ea32507
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+rtpe_req('delete', 'rtcp-mux branched delete-delay=0', {
+		'from-tag' => ft(), 'via-branch' => 'foo.1',
+		'delete-delay' => 0,
+	});
+
+answer('rtcp-mux branched delete-delay=0', {
+		ICE => 'remove',
+		SDES => 'off',
+		'via-branch' => 'foo.0',
+		'transport-protocol' => 'RTP/AVPF',
+		'rtcp-mux' => ['demux'],
+	}, <<SDP);
+v=0
+o=- 8520494338200249002 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE audio video
+m=audio 63849 UDP/TLS/RTP/SAVPF 0
+c=IN IP4 192.168.31.106
+a=rtcp:9 IN IP4 0.0.0.0
+a=fingerprint:sha-256 B5:CF:61:F3:C5:DF:F6:11:BF:B2:B5:1A:02:54:A1:2A:4A:B5:9E:1F:FF:C0:AA:96:16:9C:59:49:76:09:63:0B
+a=setup:active
+a=mid:audio
+a=sendrecv
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 8520494338200249002 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+m=audio PORT RTP/AVPF 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+
+
 # RTP to SRTP switch (and SRTP re-invite) TT#81850
 
 new_call;

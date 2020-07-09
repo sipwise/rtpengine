@@ -357,6 +357,7 @@ struct call_monologue {
 	struct timeval         terminated; /* for CDR */
 	enum termination_reason term_reason;
 	GHashTable		*other_tags;
+	GHashTable		*branches;
 	struct call_monologue	*active_dialogue;
 	GQueue			medias;
 	GHashTable		*media_ids;
