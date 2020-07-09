@@ -614,6 +614,31 @@ GQueue *statistics_gather_metrics(void) {
 	}
 	HEADER("]", NULL);
 
+	mutex_lock(&rtpe_codec_stats_lock);
+	HEADER("transcoders", NULL);
+	HEADER("[", "");
+	GList *chains = g_hash_table_get_keys(rtpe_codec_stats);
+
+	int last_tv_sec = rtpe_now.tv_sec - 1;
+	unsigned int idx = last_tv_sec & 1;
+	for (GList *l = chains; l; l = l->next) {
+		char *chain = l->data;
+		struct codec_stats *stats_entry = g_hash_table_lookup(rtpe_codec_stats, chain);
+		HEADER("{", "");
+		METRICsva("chain", "\"%s\"", chain);
+		METRICs("num", "%i", g_atomic_int_get(&stats_entry->num_transcoders));
+		if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
+			continue;
+		METRICs("packetrate", UINT64F, atomic64_get(&stats_entry->packets_input[idx]));
+		METRICs("byterate", UINT64F, atomic64_get(&stats_entry->bytes_input[idx]));
+		METRICs("samplerate", UINT64F, atomic64_get(&stats_entry->pcm_samples[idx]));
+		HEADER("}", "");
+	}
+
+	mutex_unlock(&rtpe_codec_stats_lock);
+	g_list_free(chains);
+	HEADER("]", "");
+
 	HEADER("}", NULL);
 
 	return ret;
