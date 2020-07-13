@@ -2772,10 +2772,16 @@ static void __monologue_destroy(struct call_monologue *monologue, int recurse) {
 		if (dialogue == monologue)
 			continue;
 		if (monologue->tag.len
+				&& dialogue->tag.len
 				&& !g_hash_table_lookup(dialogue->other_tags, &monologue->tag))
 			continue;
 		if (monologue->viabranch.len
+				&& !monologue->tag.len
 				&& !g_hash_table_lookup(dialogue->branches, &monologue->viabranch))
+			continue;
+		if (!dialogue->tag.len
+				&& dialogue->viabranch.len
+				&& !g_hash_table_lookup(monologue->branches, &dialogue->viabranch))
 			continue;
 
 		g_hash_table_remove(dialogue->other_tags, &monologue->tag);
