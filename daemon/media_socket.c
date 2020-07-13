@@ -1646,6 +1646,12 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 			&& phc->mp.stream->advertised_endpoint.address.family
 			&& phc->mp.stream->advertised_endpoint.port)
 	{
+		// check if we need to reset our learned endpoints
+		if (memcmp(&rtpe_now, &phc->mp.stream->ep_detect_signal, sizeof(rtpe_now))) {
+			memset(&phc->mp.stream->detected_endpoints, 0, sizeof(phc->mp.stream->detected_endpoints));
+			phc->mp.stream->ep_detect_signal = rtpe_now;
+		}
+
 		// possible endpoints that can be detected in order of preference:
 		// 0: endpoint that matches the address advertised in the SDP
 		// 1: endpoint with the same address but different port
@@ -1664,11 +1670,8 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 		// now grab the best matched endpoint
 		for (idx = 0; idx < 4; idx++) {
 			use_endpoint_confirm = &phc->mp.stream->detected_endpoints[idx];
-			if (use_endpoint_confirm->address.family) {
-				if (idx == 0) // doesn't get any better than this
-					goto confirm_now;
+			if (use_endpoint_confirm->address.family)
 				break;
-			}
 		}
 	}
 
