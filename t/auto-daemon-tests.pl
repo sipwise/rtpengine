@@ -3925,6 +3925,45 @@ SDP
 
 new_call;
 
+offer('ICE SDP, default ICE option w media-address', { 'media-address' => '3.4.5.6',
+	flags => ['full-rtcp-attribute'], }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=ice-ufrag:asbsdfds
+a=ice-pwd:sfhwsrgyergws45ujhsrthsrhH
+a=candidate:sfthqw45hdfgdfsb 1 UDP 2130706431 198.51.100.3 2002 typ host
+a=candidate:ujksdfghfdfgdfsb 1 UDP 2130706175 2001:db8:abcd::3 2002 typ host
+a=candidate:sfthqw45hdfgdfsb 2 UDP 2130706430 198.51.100.3 2003 typ host
+a=candidate:ujksdfghfdfgdfsb 2 UDP 2130706174 2001:db8:abcd::3 2003 typ host
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 3.4.5.6
+a=ice-ufrag:asbsdfds
+a=ice-pwd:sfhwsrgyergws45ujhsrthsrhH
+a=candidate:sfthqw45hdfgdfsb 1 UDP 2130706431 198.51.100.3 2002 typ host
+a=candidate:ujksdfghfdfgdfsb 1 UDP 2130706175 2001:db8:abcd::3 2002 typ host
+a=candidate:sfthqw45hdfgdfsb 2 UDP 2130706430 198.51.100.3 2003 typ host
+a=candidate:ujksdfghfdfgdfsb 2 UDP 2130706174 2001:db8:abcd::3 2003 typ host
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT IN IP4 3.4.5.6
+a=candidate:ICEBASE 1 UDP 2097152255 3.4.5.6 PORT typ host
+a=candidate:ICEBASE 1 UDP 4294967295 3.4.5.6 PORT typ host
+a=candidate:ICEBASE 2 UDP 2097152254 3.4.5.6 PORT typ host
+a=candidate:ICEBASE 2 UDP 4294967294 3.4.5.6 PORT typ host
+SDP
+
+new_call;
+
 offer('ICE SDP, default ICE option', { }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1

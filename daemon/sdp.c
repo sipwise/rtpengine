@@ -1800,23 +1800,31 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(struct sdp_chopper *chop, struct stream_fd *sfd) {
+static int insert_ice_address(struct sdp_chopper *chop, struct stream_fd *sfd, struct sdp_ng_flags *flags) {
 	char buf[64];
 	int len;
 
-	call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, 0);
+	if (!is_addr_unspecified(&flags->parsed_media_address))
+		len = sprintf(buf, "%s",
+				sockaddr_print_buf(&flags->parsed_media_address));
+	else
+		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, 0);
 	chopper_append(chop, buf, len);
 	chopper_append_printf(chop, " %u", sfd->socket.local.port);
 
 	return 0;
 }
 
-static int insert_raddr_rport(struct sdp_chopper *chop, struct stream_fd *sfd) {
+static int insert_raddr_rport(struct sdp_chopper *chop, struct stream_fd *sfd, struct sdp_ng_flags *flags) {
         char buf[64];
         int len;
 
 	chopper_append_c(chop, " raddr ");
-	call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, 0);
+	if (!is_addr_unspecified(&flags->parsed_media_address))
+		len = sprintf(buf, "%s",
+				sockaddr_print_buf(&flags->parsed_media_address));
+	else
+		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, 0);
 	chopper_append(chop, buf, len);
 	chopper_append_c(chop, " rport ");
 	chopper_append_printf(chop, "%u", sfd->socket.local.port);
@@ -2080,7 +2088,8 @@ out:
 }
 
 static void insert_candidate(struct sdp_chopper *chop, struct stream_fd *sfd,
-		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type)
+		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
+		struct sdp_ng_flags *flags)
 {
 	unsigned long priority;
 	struct packet_stream *ps = sfd->stream;
@@ -2093,24 +2102,25 @@ static void insert_candidate(struct sdp_chopper *chop, struct stream_fd *sfd,
 	chopper_append_c(chop, "a=candidate:");
 	chopper_append_str(chop, &ifa->ice_foundation);
 	chopper_append_printf(chop, " %u UDP %lu ", ps->component, priority);
-	insert_ice_address(chop, sfd);
+	insert_ice_address(chop, sfd, flags);
 	chopper_append_c(chop, " typ ");
 	chopper_append_c(chop, ice_candidate_type_str(type));
 	/* raddr and rport are required for non-host candidates: rfc5245 section-15.1 */
 	if(type != ICT_HOST)
-		insert_raddr_rport(chop, sfd);
+		insert_raddr_rport(chop, sfd, flags);
 	chopper_append_c(chop, "\r\n");
 }
 
 static void insert_sfd_candidates(struct sdp_chopper *chop, struct packet_stream *ps,
-		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type)
+		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
+		struct sdp_ng_flags *flags)
 {
 	GList *l;
 	struct stream_fd *sfd;
 
 	for (l = ps->sfds.head; l; l = l->next) {
 		sfd = l->data;
-		insert_candidate(chop, sfd, type_pref, local_pref, type);
+		insert_candidate(chop, sfd, type_pref, local_pref, type, flags);
 
 		if (local_pref != -1)
 			local_pref++;
@@ -2143,9 +2153,9 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 
 	if (ag && AGENT_ISSET(ag, COMPLETED)) {
 		ifa = rtp->selected_sfd->local_intf;
-		insert_candidate(chop, rtp->selected_sfd, type_pref, ifa->unique_id, cand_type);
+		insert_candidate(chop, rtp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags);
 		if (rtcp) /* rtcp-mux only possible in answer */
-			insert_candidate(chop, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type);
+			insert_candidate(chop, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags);
 
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
 			GQueue rc;
@@ -2165,10 +2175,10 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 		return;
 	}
 
-	insert_sfd_candidates(chop, rtp, type_pref, local_pref, cand_type);
+	insert_sfd_candidates(chop, rtp, type_pref, local_pref, cand_type, flags);
 
 	if (rtcp) /* rtcp-mux only possible in answer */
-		insert_sfd_candidates(chop, rtcp, type_pref, local_pref, cand_type);
+		insert_sfd_candidates(chop, rtcp, type_pref, local_pref, cand_type, flags);
 }
 
 static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
@@ -2268,7 +2278,12 @@ static void insert_rtcp_attr(struct sdp_chopper *chop, struct packet_stream *ps,
 	if (flags->full_rtcp_attr) {
 		char buf[64];
 		int len;
-		call_stream_address46(buf, ps, SAF_NG, &len, NULL, 0);
+		if (!is_addr_unspecified(&flags->parsed_media_address))
+			len = sprintf(buf, "%s %s",
+					flags->parsed_media_address.family->rfc_name,
+					sockaddr_print_buf(&flags->parsed_media_address));
+		else
+			call_stream_address46(buf, ps, SAF_NG, &len, NULL, 0);
 		chopper_append_printf(chop, " IN %.*s", len, buf);
 	}
 	chopper_append_c(chop, "\r\n");
