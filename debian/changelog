@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.3.2.2+0~mr8.3.2.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b02f440] TT#86102 remove aggressive endpoint learning heuristics
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 14 Jul 2020 15:40:05 +0200
+
 ngcp-rtpengine (8.3.2.1+0~mr8.3.2.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
