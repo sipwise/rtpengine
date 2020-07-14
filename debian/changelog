@@ -1,3 +1,87 @@
+ngcp-rtpengine (8.6.0.0+0~mr8.6.0.0) unstable; urgency=medium
+
+  [ attermann ]
+  * [032c6e4] Added cli command for parseable stats.
+  * [ccf1d46] Extended json control statistics
+  * [74f5676] Made hash tables for flags case-insensitive.
+  * [da3c40e] Added "currentstatistics" to json stats.
+
+  [ root ]
+  * [e44abd3] JB marker fix
+  * [05b6da4] JB marker fix
+  * [5179de7] trap divide error crash fix
+
+  [ Richard Fuchs ]
+  * [89175c8] TT#81850 fix SRTP re-offer and RTP to SRTP switch
+  * [19ac0de] fix tests for non-bcg729 case
+  * [e25d0b9] TT#82100 hunt for usable payload type for DTMF injection
+  * [5f3f203] TT#82203 add stats for transcoded sessions
+  * [64e6bf4] TT#82203 add detailed transcoding stats
+  * [7063a27] TT#82650 fix /list never ending output
+  * [d715269] TT#82650 add missing flags to ng scripts
+  * [a0d0733] fix compilation when spandsp is not present
+  * [61acd97] TT#82651 avoid unnecessary transcoding when DTMF PT is present
+  * [d97a056] TT#83150 fix SSRC substitution w/ SRTP in kernel
+  * [38bb6d8] TT#82651 same as 61acd9761 but in reverse
+  * [ac765d1] TT#82410 unify stats gathering functions
+  * [1015cea] TT#82401 amend stats gathering to detect ints
+  * [6d2aecc] TT#82401 amend stats gather to keep track of braces
+  * [cdcf80c] TT#82401 add statistics NG command
+  * [8a4f88f] TT#55050 man page updates
+  * [f4717cb] TT#28300 make sure log marker strings are always set
+  * [a1fb923] TT#28300 eliminate free_buf in favour of free_gbuf
+  * [48b33bd] TT#28300 move auto cleanup functions to lib files
+  * [39b04ec] TT#28300 use more auto cleanup variables in config_load
+  * [3ca61f3] TT#28300 fix --config-section not being honoured
+  * [08fc2ec] TT#28300 free config strings with dupes between argv and file
+  * [a4849f7] TT#28300 eliminate need for if_a_global
+  * [2a4dbd8] TT#28300 add cleanup of global interface structs
+  * [e01b3b4] TT#28300 add cleanup of calls structs
+  * [1589c29] TT#28300 add cleanup of poller related data
+  * [3c3729f] TT#28300 fix missing strdup for multi homed interfaces
+  * [1095440] TT#82410 fix missing comma for JSON list of objects
+  * [203f502] TT#77806 add port stats to JSON/bencode output
+  * [92ee64f] TT#84350 fix make races
+  * [7cbea58] fix str_init_dup_str
+  * [f6874af] fix another JSON comma missing
+  * [6b49c88] don't always reset crypto when DTLS is in use
+  * [a3b298e] add local address/family to NG stats output
+  * [b7d3db1] add alternative dummy codeclib_free
+  * [9d53e73] TT#84360 simplify log printing routine
+  * [eae7f3a] TT#84360 add new option to split multi-line log messages
+  * [dd3f77b] trim trailing spaces from config values
+  * [832f73f] TT#85750 add transcoder stats to stats output
+  * [8f5ee5b] TT#84804 test lib: don't require object when not necessary
+  * [cba8127] TT#84804 test lib: return port when requested to
+  * [54a39db] TT#84804 start DTLS as soon as ICE can communicate
+  * [592af4d] TT#84804 add tests for ICE/DTLS and GH 1035
+  * [18830a1] TT#84804 detect and report collisions in ICE candidate pairs
+  * [8e22c9a] TT#85701 improve branch handling with delete-delay=0
+  * [87521ea] TT#85701 fix regression from 8e22c9a41
+
+  [ Sebastian Kemper ]
+  * [c9cf633] kernel-module: fix implicit function declaration
+
+  [ Stefan Mititelu ]
+  * [6043d15] Add drop-traffic=start/stop flag
+  * [de28a65] Solve Vlagrind "definitely lost" memory leaks
+  * [a6d2f92] Solve Valgrind "possibly lost" for redis and dtls
+  * [aa98d7f] Prevent glib CRITICAL errors for NULL pointers
+  * [831bb88] Fix Valgrind "still reachable" for if name and q
+  * [91d5580] Fix config use_section
+  * [8ba5d16] Fix Valgrind "still reachable" for a few others
+  * [eb81698] Fix a few more "still reachable". End all redis unused threads.
+
+  [ Michael Prokop ]
+  * [e580c7c] TT#82051 Fix Travis builds
+  * [6e77beb] TT#82051 Support GitHub actions + workflows using Debian package builds + shellcheck
+  * [0bf0782] TT#82051 Shellcheck fixes + fix failure handling of init scripts
+  * [38a2d30] TT#82051 GH workflow: drop utils/build_deps.sh from shellcheck
+  * [281e681] TT#83952 Switch Build-Dependency from iptables-dev to libxtables-dev
+  * [98245fd] TT#83954 Invoke libevent_global_shutdown() only conditionally
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 14 Jul 2020 11:54:39 +0200
+
 ngcp-rtpengine (8.5.0.0+0~mr8.5.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
