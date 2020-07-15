@@ -861,6 +861,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
+	out->dtls_reverse_passive = dtls_passive_def;
 
 	call_ng_flags_list(out, input, "flags", call_ng_flags_flags, NULL);
 	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
@@ -925,6 +926,9 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			case CSH_LOOKUP("passive"):
 				out->dtls_passive = 1;
 				break;
+			case CSH_LOOKUP("active"):
+				out->dtls_passive = 0;
+				break;
 			case CSH_LOOKUP("no"):
 			case CSH_LOOKUP("off"):
 			case CSH_LOOKUP("disabled"):
@@ -933,6 +937,20 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 				break;
 			default:
 				ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '"STR_FORMAT"'",
+						STR_FMT(&s));
+		}
+	}
+
+	if (bencode_dictionary_get_str(input, "DTLS-reverse", &s)) {
+		switch (__csh_lookup(&s)) {
+			case CSH_LOOKUP("passive"):
+				out->dtls_reverse_passive = 1;
+				break;
+			case CSH_LOOKUP("active"):
+				out->dtls_reverse_passive = 0;
+				break;
+			default:
+				ilog(LOG_WARN, "Unknown 'DTLS-reverse' flag encountered: '"STR_FORMAT"'",
 						STR_FMT(&s));
 		}
 	}
