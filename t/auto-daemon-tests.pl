@@ -36,6 +36,112 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $resp,
 
 
 
+# DTLS-reverse flag
+
+new_call;
+
+offer('DTLS-reverse not set', {
+		ICE => 'remove', 'transport-protocol' => 'RTP/AVP',
+	}, <<SDP);
+v=0
+o=test 2350 1824 IN IP4 198.51.100.4
+s=test
+c=IN IP4 198.51.100.4
+t=0 0
+m=audio 2000 UDP/TLS/RTP/SAVPF 0
+a=setup:actpass
+a=fingerprint:SHA-256 DA:89:F7:04:38:D9:04:E1:9E:25:1A:43:87:8D:F5:BD:6E:4C:BB:88:12:A6:D5:FA:B1:4A:34:BC:32:C0:05:FE
+--------------------------------------
+v=0
+o=test 2350 1824 IN IP4 198.51.100.4
+s=test
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+answer('DTLS-reverse not set', {
+		ICE => 'remove',
+	}, <<SDP);
+v=0
+o=test 2350 1824 IN IP4 198.51.100.4
+s=test
+c=IN IP4 198.51.100.4
+t=0 0
+m=audio 2000 RTP/AVP 0
+--------------------------------------
+v=0
+o=test 2350 1824 IN IP4 198.51.100.4
+s=test
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT UDP/TLS/RTP/SAVPF 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=setup:active
+a=fingerprint:sha-1 FINGERPRINT
+SDP
+
+
+
+
+new_call;
+
+offer('DTLS-reverse set', {
+		ICE => 'remove', 'transport-protocol' => 'RTP/AVP',
+		'DTLS-reverse' => 'passive',
+	}, <<SDP);
+v=0
+o=test 2350 1824 IN IP4 198.51.100.4
+s=test
+c=IN IP4 198.51.100.4
+t=0 0
+m=audio 2000 UDP/TLS/RTP/SAVPF 0
+a=setup:actpass
+a=fingerprint:SHA-256 DA:89:F7:04:38:D9:04:E1:9E:25:1A:43:87:8D:F5:BD:6E:4C:BB:88:12:A6:D5:FA:B1:4A:34:BC:32:C0:05:FE
+--------------------------------------
+v=0
+o=test 2350 1824 IN IP4 198.51.100.4
+s=test
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+answer('DTLS-reverse set', {
+		ICE => 'remove',
+	}, <<SDP);
+v=0
+o=test 2350 1824 IN IP4 198.51.100.4
+s=test
+c=IN IP4 198.51.100.4
+t=0 0
+m=audio 2000 RTP/AVP 0
+--------------------------------------
+v=0
+o=test 2350 1824 IN IP4 198.51.100.4
+s=test
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT UDP/TLS/RTP/SAVPF 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=setup:passive
+a=fingerprint:sha-1 FINGERPRINT
+SDP
+
+
+
 # DTLS early start with ICE (GH 1035 TT 84804)
 
 ($sock_a, $sock_b, $sock_c, $sock_d) = new_call([qw(198.51.100.4 2000)], [qw(198.51.100.4 2001)], [qw(198.51.100.8 3000)], [qw(198.51.100.8 3001)]);

@@ -1757,7 +1757,7 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 				== MEDIA_FLAG_SETUP_PASSIVE)
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 		/* if passive mode is requested, honour it if we can */
-		if (flags && flags->dtls_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
+		if (flags && flags->dtls_reverse_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 	}
 
