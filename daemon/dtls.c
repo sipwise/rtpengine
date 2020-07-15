@@ -500,8 +500,6 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 {
 	unsigned long err;
 
-	__DBG("dtls_connection_init(%i)", active);
-
 	if (d->init) {
 		if ((d->active && active) || (!d->active && !active))
 			goto done;
@@ -509,6 +507,8 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 	}
 
 	d->ptr = ps;
+
+	ilog(LOG_DEBUG, "Creating %s DTLS connection context", active ? "active" : "passive");
 
 #if OPENSSL_VERSION_NUMBER >= 0x10002000L
 	d->ssl_ctx = SSL_CTX_new(active ? DTLS_client_method() : DTLS_server_method());
@@ -801,7 +801,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 }
 
 void dtls_connection_cleanup(struct dtls_connection *c) {
-	__DBG("dtls_connection_cleanup");
+	ilog(LOG_DEBUG, "Resetting DTLS connection context");
 
 	if (c->ssl_ctx)
 		SSL_CTX_free(c->ssl_ctx);
