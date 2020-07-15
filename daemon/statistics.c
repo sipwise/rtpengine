@@ -627,11 +627,11 @@ GQueue *statistics_gather_metrics(void) {
 		HEADER("{", "");
 		METRICsva("chain", "\"%s\"", chain);
 		METRICs("num", "%i", g_atomic_int_get(&stats_entry->num_transcoders));
-		if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
-			continue;
-		METRICs("packetrate", UINT64F, atomic64_get(&stats_entry->packets_input[idx]));
-		METRICs("byterate", UINT64F, atomic64_get(&stats_entry->bytes_input[idx]));
-		METRICs("samplerate", UINT64F, atomic64_get(&stats_entry->pcm_samples[idx]));
+		if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) == last_tv_sec) {
+			METRICs("packetrate", UINT64F, atomic64_get(&stats_entry->packets_input[idx]));
+			METRICs("byterate", UINT64F, atomic64_get(&stats_entry->bytes_input[idx]));
+			METRICs("samplerate", UINT64F, atomic64_get(&stats_entry->pcm_samples[idx]));
+		}
 		HEADER("}", "");
 	}
 

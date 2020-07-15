@@ -7490,5 +7490,9 @@ rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
 
 
+# GH 1042
+
+$resp = rtpe_req('statistics', 'statistics');
+
 
 done_testing();
