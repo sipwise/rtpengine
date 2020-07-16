@@ -150,6 +150,42 @@ static void resources(void) {
 
 
 
+static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
+	sockaddr_t *addr;
+
+	for (struct ifaddrs *ifa = ifas; ifa; ifa = ifa->ifa_next) {
+		if (strcmp(ifa->ifa_name, s))
+			continue;
+		if (!(ifa->ifa_flags & IFF_UP))
+			continue;
+		if (!ifa->ifa_addr)
+			continue;
+
+		addr = g_slice_alloc(sizeof(*addr));
+		if (ifa->ifa_addr->sa_family == AF_INET) {
+			struct sockaddr_in *sin = (void *) ifa->ifa_addr;
+			addr->family = __get_socket_family_enum(SF_IP4);
+			addr->u.ipv4 = sin->sin_addr;
+		}
+		else if (ifa->ifa_addr->sa_family == AF_INET6) {
+			struct sockaddr_in6 *sin = (void *) ifa->ifa_addr;
+			if (sin->sin6_scope_id)
+				continue; // link-local
+			addr->family = __get_socket_family_enum(SF_IP6);
+			addr->u.ipv6 = sin->sin6_addr;
+		}
+		else {
+			g_slice_free1(sizeof(*addr), addr);
+			continue;
+		}
+
+		// got one
+		ilog(LOG_DEBUG, "Determined address %s for interface '%s'",
+				sockaddr_print_buf(addr), s);
+		g_queue_push_tail(addrs, addr);
+	}
+}
+
 static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 	str name;
 	char *c;
@@ -180,40 +216,11 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 		g_queue_push_tail(&addrs, addr);
 	}
 	else {
+		g_slice_free1(sizeof(*addr), addr);
 		// could be an interface name?
 		ilog(LOG_DEBUG, "Could not parse '%s' as network address, checking to see if "
 				"it's an interface", s);
-		for (struct ifaddrs *ifa = ifas; ifa; ifa = ifa->ifa_next) {
-			if (strcmp(ifa->ifa_name, s))
-				continue;
-			if (!(ifa->ifa_flags & IFF_UP))
-				continue;
-			if (!ifa->ifa_addr)
-				continue;
-			if (ifa->ifa_addr->sa_family == AF_INET) {
-				struct sockaddr_in *sin = (void *) ifa->ifa_addr;
-				addr->family = __get_socket_family_enum(SF_IP4);
-				addr->u.ipv4 = sin->sin_addr;
-			}
-			else if (ifa->ifa_addr->sa_family == AF_INET6) {
-				struct sockaddr_in6 *sin = (void *) ifa->ifa_addr;
-				if (sin->sin6_scope_id)
-					continue; // link-local
-				addr->family = __get_socket_family_enum(SF_IP6);
-				addr->u.ipv6 = sin->sin6_addr;
-			}
-			else
-				continue;
-
-			// got one
-			ilog(LOG_DEBUG, "Determined address %s for interface '%s'",
-					sockaddr_print_buf(addr), s);
-			g_queue_push_tail(&addrs, addr);
-			addr = g_slice_alloc(sizeof(*addr));
-		}
-
-		// free last unused entry
-		g_slice_free1(sizeof(*addr), addr);
+		__find_if_name(s, ifas, &addrs);
 	}
 
 	if (!addrs.length) // nothing found
