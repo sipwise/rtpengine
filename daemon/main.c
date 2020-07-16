@@ -6,6 +6,7 @@
 #include <sys/resource.h>
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -14,6 +15,7 @@
 #include <time.h>
 #include <ifaddrs.h>
 #include <net/if.h>
+#include <netdb.h>
 
 #include "poller.h"
 #include "control_tcp.h"
@@ -186,6 +188,47 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 	}
 }
 
+static void __resolve_ifname(char *s, GQueue *addrs) {
+	struct addrinfo hints = {
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_DGRAM,
+	};
+
+	struct addrinfo *res = NULL;
+	int status = getaddrinfo(s, NULL, &hints, &res);
+	if (status) {
+		ilog(LOG_ERR, "Failed to resolve '%s' as a DNS host name: %s", s, gai_strerror(status));
+		return;
+	}
+
+	for (struct addrinfo *r = res; r; r = r->ai_next) {
+		sockaddr_t *addr = g_slice_alloc0(sizeof(*addr));
+
+		if (r->ai_family == AF_INET) {
+			struct sockaddr_in *sin = (void *) r->ai_addr;
+			assert(r->ai_addrlen >= sizeof(*sin));
+			addr->family = __get_socket_family_enum(SF_IP4);
+			addr->u.ipv4 = sin->sin_addr;
+		}
+		else if (r->ai_family == AF_INET6) {
+			struct sockaddr_in6 *sin = (void *) r->ai_addr;
+			assert(r->ai_addrlen >= sizeof(*sin));
+			addr->family = __get_socket_family_enum(SF_IP6);
+			addr->u.ipv6 = sin->sin6_addr;
+		}
+		else {
+			g_slice_free1(sizeof(*addr), addr);
+			continue;
+		}
+
+		ilog(LOG_DEBUG, "Determined address %s for host name '%s'",
+				sockaddr_print_buf(addr), s);
+		g_queue_push_tail(addrs, addr);
+	}
+
+	freeaddrinfo(res);
+}
+
 static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 	str name;
 	char *c;
@@ -221,6 +264,11 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 		ilog(LOG_DEBUG, "Could not parse '%s' as network address, checking to see if "
 				"it's an interface", s);
 		__find_if_name(s, ifas, &addrs);
+
+		if (!addrs.length) {
+			ilog(LOG_DEBUG, "'%s' is not an interface, attempting to resolve it as DNS host name", s);
+			__resolve_ifname(s, &addrs);
+		}
 	}
 
 	if (!addrs.length) // nothing found
