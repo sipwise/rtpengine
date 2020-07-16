@@ -276,8 +276,13 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 
 	ZERO(adv);
 	if (c) {
-		if (sockaddr_parse_any(&adv, c))
-			return -1;
+		if (sockaddr_parse_any(&adv, c)) {
+			ilog(LOG_DEBUG, "Could not parse '%s' as an address, attempting DNS lookup", c);
+			if (sockaddr_getaddrinfo(&adv, c)) {
+				ilog(LOG_WARN, "DNS lookup for '%s' failed", c);
+				return -1;
+			}
+		}
 		if (is_addr_unspecified(&adv))
 			return -1;
 	}
