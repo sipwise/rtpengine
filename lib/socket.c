@@ -566,13 +566,41 @@ int endpoint_parse_any(endpoint_t *d, const char *s) {
 	return -1;
 }
 
+int sockaddr_getaddrinfo(sockaddr_t *a, const char *s) {
+	struct addrinfo hints, *res;
+	int status;
+	int ret;
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+
+	if ((status = getaddrinfo(s, NULL, &hints, &res)) != 0) {
+		__C_DBG("getaddrinfo failed for %s, status is \"%s\"\n", s, gai_strerror(status));
+		return -1;
+	}
+
+	ret = 0;
+	if (res->ai_family == AF_INET) { // IPv4
+		struct sockaddr_in *ipv4 = (struct sockaddr_in *) res->ai_addr;
+		a->u.ipv4 = ipv4->sin_addr;
+		a->family = &__socket_families[SF_IP4];
+	}
+	else if (res->ai_family == AF_INET6) {
+		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) res->ai_addr;
+		a->u.ipv6 = ipv6->sin6_addr;
+		a->family = &__socket_families[SF_IP6];
+	}
+	else
+		ret = -1;
+
+	freeaddrinfo(res);
+	return ret;
+}
+
 int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
 	unsigned int len;
 	const char *ep;
 	char buf[64];
-	void *addr;
-	struct addrinfo hints, *res;
-	int status;
 
 	ep = strrchr(s, ':');
 	if (!ep) {
@@ -598,27 +626,9 @@ int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
 		sprintf(buf, "%.*s", len, s);
 	}
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-
-	if ((status = getaddrinfo(buf, NULL, &hints, &res)) != 0) {
-		__C_DBG("getaddrinfo failed for %s, status is \"%s\"\n", s, gai_strerror(status));
+	if (sockaddr_getaddrinfo(&d->address, buf))
 		return -1;
-	}
 
-	if (res->ai_family == AF_INET) { // IPv4
-		struct sockaddr_in *ipv4 = (struct sockaddr_in *) res->ai_addr;
-		addr = &(ipv4->sin_addr);
-		memcpy(&d->address.u, addr, sizeof(struct in_addr));
-		d->address.family = &__socket_families[SF_IP4];
-	} else { // IPv6
-		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) res->ai_addr;
-		addr = &(ipv6->sin6_addr);
-		memcpy(&d->address.u, addr, sizeof(struct in6_addr));
-		d->address.family = &__socket_families[SF_IP6];
-	}
-
-	freeaddrinfo(res);
 	return 0;
 }
 
