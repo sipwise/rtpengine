@@ -1,3 +1,18 @@
+ngcp-rtpengine (7.5.6.0+0~mr7.5.6.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [cd474db] TT#81850 fix SRTP re-offer and RTP to SRTP switch
+  * [15778c5] TT#82650 fix /list never ending output
+  * [10bd5e7] TT#76368 clean up graphite writing functions
+  * [6b2ad6d] TT#76368 remove some graphite functions from global namespace
+  * [373fd32] TT#76368 handle connection blocking on graphite writes
+  * [457fd85] TT#76368 move graphite timestamping into wrapper macro
+  * [85a4d17] TT#76368 add port status to graphite output
+  * [aa5af0f] TT#82203 add stats for transcoded sessions
+  * [4374e99] TT#82203 add detailed transcoding stats
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 20 Jul 2020 13:01:32 +0200
+
 ngcp-rtpengine (7.5.5.0+0~mr7.5.5.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
