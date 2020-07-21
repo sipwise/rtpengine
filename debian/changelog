@@ -1,3 +1,13 @@
+ngcp-rtpengine (8.3.1.7+0~mr8.3.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d61ce6e] TT#82651 avoid unnecessary transcoding when DTMF PT is present
+  * [5ed4a9a] TT#83150 fix SSRC substitution w/ SRTP in kernel
+  * [43d77c8] TT#82651 same as 61acd9761 but in reverse
+  * [dbf666d] TT#82650 fix /list never ending output
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 21 Jul 2020 17:27:18 +0200
+
 ngcp-rtpengine (8.3.1.6+0~mr8.3.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
