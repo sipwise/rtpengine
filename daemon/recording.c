@@ -620,6 +620,8 @@ void recording_finish(struct call *call) {
 	if (!call || !call->recording)
 		return;
 
+	__call_unkernelize(call);
+
 	struct recording *recording = call->recording;
 
 	_rm(finish, call);
