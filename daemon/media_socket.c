@@ -26,6 +26,7 @@
 #include "main.h"
 #include "codec.h"
 #include "media_player.h"
+#include "dtmf.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -1245,7 +1246,9 @@ static void __determine_handler(struct packet_stream *in, const struct packet_st
 	if (!out_proto)
 		goto err;
 
-	if (MEDIA_ISSET(in->media, DTLS) || MEDIA_ISSET(out->media, DTLS))
+	if (dtmf_do_logging())
+		must_recrypt = 1;
+	else if (MEDIA_ISSET(in->media, DTLS) || MEDIA_ISSET(out->media, DTLS))
 		must_recrypt = 1;
 	else if (in->call->recording)
 		must_recrypt = 1;
