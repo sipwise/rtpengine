@@ -63,6 +63,12 @@ static GString *dtmf_json_print(struct media_packet *mp,
 	return buf;
 }
 
+int dtmf_do_logging(void) {
+	if (_log_facility_dtmf || dtmf_log_sock.family)
+		return 1;
+	return 0;
+}
+
 int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 	struct telephone_event_payload *dtmf;
 	if (payload->len < sizeof(*dtmf)) {
@@ -78,7 +84,7 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 
 	GString *buf = NULL;
 
-	if (_log_facility_dtmf || dtmf_log_sock.family)
+	if (dtmf_do_logging())
 		buf = dtmf_json_print(mp, dtmf, clockrate);
 
 	if (buf) {
