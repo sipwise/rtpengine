@@ -16,6 +16,7 @@
 #include "log_funcs.h"
 #include "main.h"
 #include "statistics.h"
+#include "compress.h"
 
 
 mutex_t rtpe_cngs_lock;
@@ -123,8 +124,8 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	bencode_item_t *dict, *resp;
 	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
 	const char *errstr, *resultstr;
-	struct iovec iov[3];
-	unsigned int iovlen;
+	char send_buf[0x10000];
+	int total_len;
 	GString *log_str;
 	struct timeval cmd_start, cmd_stop, cmd_process_time;
 	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->address);
@@ -335,16 +336,15 @@ send_resp:
 	}
 
 send_only:
-	iovlen = 3;
 
-	iov[0].iov_base = cookie.s;
-	iov[0].iov_len = cookie.len;
-	iov[1].iov_base = " ";
-	iov[1].iov_len = 1;
-	iov[2].iov_base = to_send->s;
-	iov[2].iov_len = to_send->len;
-
-	socket_sendiov(ul, iov, iovlen, sin);
+	total_len = snprintf(send_buf, sizeof(send_buf), "%.*s %.*s", cookie.len, cookie.s, to_send->len, to_send->s);
+	if (total_len > 1400) {
+		ret = compress_data(send_buf, total_len);
+		if (ret > 0) {
+			total_len = ret;
+		}
+	}
+	socket_sendto(ul, send_buf, total_len, sin);
 
 	if (resp)
 		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);

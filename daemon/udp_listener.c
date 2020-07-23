@@ -13,6 +13,7 @@
 #include "log.h"
 #include "obj.h"
 #include "socket.h"
+#include "compress.h"
 
 struct udp_listener_callback {
 	struct obj obj;
@@ -29,10 +30,12 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 	struct udp_listener_callback *cb = p;
 	int len;
 	char buf[0x10000];
+	char buf_tmp[0x10000];
 	char addr[64];
 	str str;
 	socket_t *listener;
 	endpoint_t sin;
+	int ret;
 
 	str.s = buf;
 	listener = cb->ul;
@@ -45,6 +48,13 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 			if (errno != EWOULDBLOCK && errno != EAGAIN)
 				ilog(LOG_WARNING, "Error reading from UDP socket");
 			return;
+		}
+
+		if (is_compressed(buf)) {
+			ret = uncompress_data(buf, len, buf_tmp, 0x10000);
+			if (ret > 0) {
+				len = ret;
+			}
 		}
 
 		buf[len] = '\0';
