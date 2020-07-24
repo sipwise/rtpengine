@@ -1,3 +1,11 @@
+ngcp-rtpengine (8.5.2.0+0~mr8.5.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [080b1c8] TT#86102 remove aggressive endpoint learning heuristics
+  * [efd66e5] Recrypt SRTP for DTMF logging
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 24 Jul 2020 13:50:33 +0200
+
 ngcp-rtpengine (8.5.1.0+0~mr8.5.1.0) unstable; urgency=medium
 
   [ attermann ]
