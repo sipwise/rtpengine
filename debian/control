@@ -43,12 +43,14 @@ Build-Depends:
 Package: ngcp-rtpengine-daemon
 Architecture: any
 Recommends:
+ ngcp-rtpengine-kernel-dkms,
  ngcp-rtpengine-recording-daemon,
  ngcp-rtpengine-utils,
 Suggests:
  ngcp-system-tools,
 Depends:
  lsb-base (>= 3.0-6),
+ ngcp-rtpengine-iptables,
  ${misc:Depends},
  ${shlibs:Depends},
 Conflicts:
