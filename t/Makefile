@@ -72,7 +72,7 @@ LIBSRCS+=	codeclib.c resample.c socket.c streambuf.c dtmflib.c
 DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c poller.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
-		media_player.c jitter_buffer.c t38.c
+		media_player.c jitter_buffer.c t38.c compress.c
 HASHSRCS+=	call_interfaces.c control_ng.c sdp.c
 endif
 
@@ -142,7 +142,7 @@ transcode-test:	transcode-test.o $(COMMONOBJS) codeclib.o resample.o codec.o ssr
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
 	control_ng.strhash.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
-	media_player.o jitter_buffer.o dtmflib.o t38.o
+	media_player.o jitter_buffer.o dtmflib.o t38.o compress.o
 
 payload-tracker-test: payload-tracker-test.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.o \
 	resample.o dtmflib.o

@@ -694,6 +694,15 @@ tags, etc are recorded to the log. Every RTCP packet is logged in this way,
 while every 512th RTP packet is logged. Only applies to packets
 forwarded/processed in userspace.
 
+=item B<--compress-udp>
+
+This option enables the message compression. If the message's total size exceeds
+this size, the RTPEngine compresses the message before sending it. But if this
+option sets to 0, it doesn't do any compression.
+
+It compresses the message only for ng-protocol(UDP) response.
+
+
 =back
 
 =head1 INTERFACES

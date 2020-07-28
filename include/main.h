@@ -99,6 +99,7 @@ struct rtpengine_config {
 	int			dtls_rsa_key_size;
 	char			*dtls_ciphers;
 	int			dtls_signature;
+	int			compress_udp;
 };
 
 

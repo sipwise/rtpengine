@@ -77,6 +77,7 @@ struct rtpengine_config rtpe_config = {
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
 	.dtls_signature = 256,
+	.compress_udp = 0,
 };
 
 static void sighandler(gpointer x) {
@@ -447,6 +448,7 @@ static void options(int *argc, char ***argv) {
 		{ "dtls-rsa-key-size",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_rsa_key_size,"Size of RSA key for DTLS",	"INT"		},
 		{ "dtls-ciphers",0,  0,	G_OPTION_ARG_STRING,	&rtpe_config.dtls_ciphers,"List of ciphers for DTLS",		"STRING"	},
 		{ "dtls-signature",0,  0,G_OPTION_ARG_STRING,	&dtls_sig,		"Signature algorithm for DTLS",		"SHA-256|SHA-1"	},
+		{ "compress-udp",0,  0,G_OPTION_ARG_INT,	&rtpe_config.compress_udp,		"Compress size for UDP",		"INT"	},
 
 		{ NULL, }
 	};
