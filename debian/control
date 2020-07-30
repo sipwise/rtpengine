@@ -51,12 +51,6 @@ Depends:
  lsb-base (>= 3.0-6),
  ${misc:Depends},
  ${shlibs:Depends},
-Conflicts:
- ngcp-mediaproxy-ng-daemon,
- ngcp-rtpengine-redis1,
-Replaces:
- ngcp-mediaproxy-ng-daemon,
- ngcp-rtpengine-redis1,
 Description: proxy for RTP and media streams used in NGCP, userspace part
  This daemon handles the first stages of proxying media streams and talks to
  the kernel part of the proxy for eventual high-performance packet forwarding.
@@ -80,10 +74,6 @@ Architecture: any
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
-Conflicts:
- ngcp-mediaproxy-ng-iptables,
-Replaces:
- ngcp-mediaproxy-ng-iptables,
 Description: IPtables extension module for the kernel-space NGCP media proxy
  Provides the IPtables extension needed to configure the mediaproxy rule.
 
@@ -96,10 +86,6 @@ Depends:
  ngcp-rtpengine-recording-daemon (>= ${source:Version}),
  ngcp-rtpengine-utils (>= ${source:Version}),
  ${misc:Depends},
-Conflicts:
- ngcp-mediaproxy-ng,
-Replaces:
- ngcp-mediaproxy-ng,
 Description: NGCP RTP/media proxy - meta package
  This is a meta package for easy installation of all four parts of the NGCP
  media proxy. It will install the user-space daemon, the kernel-space IPtables
@@ -112,10 +98,6 @@ Depends:
  debhelper-compat (= 12),
  module-assistant,
  ${misc:Depends},
-Conflicts:
- ngcp-mediaproxy-ng-kernel-source,
-Replaces:
- ngcp-mediaproxy-ng-kernel-source,
 Description: IPtables kernel module for the NGCP media proxy - source
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
@@ -131,10 +113,6 @@ Depends:
  dkms (>= 1.95),
  lsb-release,
  ${misc:Depends},
-Conflicts:
- ngcp-mediaproxy-ng-kernel-dkms,
-Replaces:
- ngcp-mediaproxy-ng-kernel-dkms,
 Description: IPtables kernel module for the NGCP media proxy - DKMS
  Provides the kernel-space part of the NGCP media proxy for high-
  performance packet forwarding.
