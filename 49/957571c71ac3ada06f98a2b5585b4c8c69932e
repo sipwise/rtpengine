@@ -1,0 +1,8 @@
+Verified+1: Jenkins Jenkins
+Code-Review+2: Mykola Malkov <mmalkov@sipwise.com>
+Code-Review+2: Manuel Montecelo <mmontecelo@sipwise.com>
+Submitted-by: Guillem Jover <gjover@sipwise.com>
+Submitted-at: Fri, 31 Jul 2020 14:23:09 +0200
+Reviewed-on: http://gerrit.mgm.sipwise.com/c/rtpengine/+/42251
+Project: rtpengine
+Branch: refs/heads/master
