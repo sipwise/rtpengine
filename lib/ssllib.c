@@ -35,10 +35,6 @@ static void make_OpenSSL_thread_safe(void) {
 	CRYPTO_THREADID_set_callback(cb_openssl_threadid);
 	CRYPTO_set_locking_callback(cb_openssl_lock);
 }
-#else
-static void make_OpenSSL_thread_safe(void) {
-	;
-}
 #endif
 
 
@@ -46,7 +42,9 @@ void rtpe_ssl_init(void) {
 	struct timespec ts;
 	clock_gettime(CLOCK_REALTIME, &ts);
 	srandom(ts.tv_sec ^ ts.tv_nsec);
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 	SSL_library_init();
 	SSL_load_error_strings();
 	make_OpenSSL_thread_safe();
+#endif
 }

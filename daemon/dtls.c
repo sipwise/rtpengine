@@ -5,6 +5,8 @@
 #include <glib.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+#include <openssl/bn.h>
+#include <openssl/rsa.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <openssl/err.h>
@@ -19,7 +21,10 @@
 #include "ice.h"
 
 
-
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+#define X509_getm_notBefore X509_get_notBefore
+#define X509_getm_notAfter X509_get_notAfter
+#endif
 
 
 #define DTLS_DEBUG 0
@@ -239,10 +244,10 @@ static int cert_init(void) {
 
 	/* cert lifetime */
 
-	if (!X509_gmtime_adj(X509_get_notBefore(x509), -60*60*24))
+	if (!X509_gmtime_adj(X509_getm_notBefore(x509), -60*60*24))
 		goto err;
 
-	if (!X509_gmtime_adj(X509_get_notAfter(x509), CERT_EXPIRY_TIME))
+	if (!X509_gmtime_adj(X509_getm_notAfter(x509), CERT_EXPIRY_TIME))
 		goto err;
 
 	/* sign it */
