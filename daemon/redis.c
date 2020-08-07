@@ -1440,6 +1440,8 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 
 		if (ps->media)
 			__rtp_stats_update(ps->rtp_stats, ps->media->codecs_recv);
+
+		__init_stream(ps);
 	}
 
 	return 0;
