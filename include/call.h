@@ -435,6 +435,7 @@ void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 
 void payload_type_free(struct rtp_payload_type *p);
 void __rtp_stats_update(GHashTable *dst, GHashTable *src);
+int __init_stream(struct packet_stream *ps);
 
 const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 
