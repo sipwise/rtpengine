@@ -20,7 +20,8 @@ BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
 	our @EXPORT = qw(autotest_start new_call offer answer ft tt snd srtp_snd rtp rcv srtp_rcv
-		srtp_dec escape rtpm rtpmre reverse_tags new_tt crlf sdp_split rtpe_req offer_answer);
+		srtp_dec escape rtpm rtpmre reverse_tags new_tt crlf sdp_split rtpe_req offer_answer
+		autotest_init);
 };
 
 
@@ -50,6 +51,10 @@ sub autotest_start {
 		ok $rtpe_pid, 'daemon launched in background';
 	}
 
+	return autotest_init();
+}
+
+sub autotest_init {
 	# keep trying to connect to the control socket while daemon is starting up
 	for (1 .. 300) {
 		$c = NGCP::Rtpengine->new($ENV{RTPENGINE_HOST} // '127.0.0.1', $ENV{RTPENGINE_PORT} // 2223);
@@ -135,11 +140,11 @@ sub answer {
 	return offer_answer('answer', $name, $req, $sdps);
 }
 sub snd {
-	my ($sock, $dest, $packet) = @_;
-	$sock->send($packet, 0, pack_sockaddr_in($dest, inet_aton('203.0.113.1'))) or die;
+	my ($sock, $dest, $packet, $addr) = @_;
+	$sock->send($packet, 0, pack_sockaddr_in($dest, inet_aton($addr // '203.0.113.1'))) or die;
 }
 sub srtp_snd {
-	my ($sock, $dest, $packet, $srtp_ctx) = @_;
+	my ($sock, $dest, $packet, $srtp_ctx, $addr) = @_;
 	if (!$srtp_ctx->{skey}) {
 		my ($key, $salt) = NGCP::Rtpclient::SRTP::decode_inline_base64($srtp_ctx->{key}, $srtp_ctx->{cs});
 		@$srtp_ctx{qw(skey sauth ssalt)} = NGCP::Rtpclient::SRTP::gen_rtp_session_keys($key, $salt);
@@ -147,7 +152,7 @@ sub srtp_snd {
 	my ($enc, $out_roc) = NGCP::Rtpclient::SRTP::encrypt_rtp(@$srtp_ctx{qw(cs skey ssalt sauth roc)},
 		'', 0, 0, 0, $packet);
 	$srtp_ctx->{roc} = $out_roc;
-	$sock->send($enc, 0, pack_sockaddr_in($dest, inet_aton('203.0.113.1'))) or die;
+	$sock->send($enc, 0, pack_sockaddr_in($dest, inet_aton($addr // '203.0.113.1'))) or die;
 }
 sub rtp {
 	my ($pt, $seq, $ts, $ssrc, $payload) = @_;
