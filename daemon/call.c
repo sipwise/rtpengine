@@ -1056,7 +1056,7 @@ void call_media_state_machine(struct call_media *m) {
 		call_stream_state_machine(l->data);
 }
 
-static int __init_stream(struct packet_stream *ps) {
+int __init_stream(struct packet_stream *ps) {
 	struct call_media *media = ps->media;
 	struct call *call = ps->call;
 	int dtls_active = -1;
