@@ -11,7 +11,7 @@ debug:
 
 dep:		.depend
 
-BUILD_TEST_ALTS = fix_frame_channel_layout.h dtmf_rx_fillin.h
+BUILD_TEST_ALTS = fix_frame_channel_layout.h dtmf_rx_fillin.h spandsp_logging.h
 
 clean:
 	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) .depend core core.*

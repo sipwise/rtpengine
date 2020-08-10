@@ -140,7 +140,7 @@ MANS=		$(PODS:.pod=.8)
 include ../lib/common.Makefile
 
 ifeq ($(with_transcoding),yes)
-.depend:	dtmf_rx_fillin.h
+.depend:	dtmf_rx_fillin.h spandsp_logging.h
 endif
 
 include		.depend

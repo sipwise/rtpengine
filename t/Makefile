@@ -153,5 +153,5 @@ tests-preload.so:	tests-preload.c
 	$(CC) -g -D_GNU_SOURCE -std=c99 -o $@ -Wall -shared -fPIC $< -ldl
 
 ifeq ($(with_transcoding),yes)
-.depend: dtmf_rx_fillin.h
+.depend: dtmf_rx_fillin.h spandsp_logging.h
 endif

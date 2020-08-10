@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -11,11 +12,16 @@
 #include <spandsp/t30.h>
 #include <spandsp/t30_api.h>
 #include <spandsp/fax.h>
+#include "compat.h"
+#include "spandsp_logging.h"
 
 
 
 #define SAMPLES_PER_CHUNK 160
 #define MICROSECONDS_PER_CHUNK 20000
+#ifndef TRUE
+# define TRUE true
+#endif
 
 
 // from ITU G.191
@@ -72,7 +78,7 @@ void alaw_expand (size_t lseg, uint8_t *logbuf, int16_t *linbuf) {
 
 int done = 0;
 
-static void phase_e_handler(t30_state_t *s, void *user_data, int result) {
+static void phase_e_handler(PHASE_E_HANDLER_ARGS) {
 	fprintf(stderr, "send: phase E result %i\n", result);
 	assert(result == T30_ERR_OK);
 	done = 1;
@@ -101,8 +107,8 @@ int main(int argc, char **argv) {
 	t30_set_tx_file(t30, input_file_name, -1, -1);
 	t30_set_phase_e_handler(t30, phase_e_handler, NULL);
 	t30_set_ecm_capability(t30, use_ecm);
-	if (use_ecm)
-		t30_set_supported_compressions(t30, T30_SUPPORT_T4_1D_COMPRESSION | T30_SUPPORT_T4_2D_COMPRESSION | T30_SUPPORT_T6_COMPRESSION);
+//	if (use_ecm)
+//		t30_set_supported_compressions(t30, T30_SUPPORT_T4_1D_COMPRESSION | T30_SUPPORT_T4_2D_COMPRESSION | T30_SUPPORT_T6_COMPRESSION);
 	t30_set_minimum_scan_line_time(t30, 40);
 
 	struct timeval now, next;

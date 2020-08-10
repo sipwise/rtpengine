@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -14,10 +15,15 @@
 #include <spandsp/t30_api.h>
 #include <spandsp/t38_terminal.h>
 #include <spandsp/fax.h>
+#include "compat.h"
+#include "spandsp_logging.h"
 
 
 
 #define SAMPLES_PER_CHUNK 160
+#ifndef TRUE
+# define TRUE true
+#endif
 
 
 static int packet_handler(t38_core_state_t *s, void *user_data, const uint8_t *buf, int len, int count) {
@@ -40,7 +46,7 @@ static int packet_handler(t38_core_state_t *s, void *user_data, const uint8_t *b
 
 int g_done = 0;
 
-static void phase_e_handler(t30_state_t *s, void *user_data, int result) {
+static void phase_e_handler(PHASE_E_HANDLER_ARGS) {
 	fprintf(stderr, "phase E result %i\n", result);
 	assert(result == T30_ERR_OK);
 	g_done = 1;

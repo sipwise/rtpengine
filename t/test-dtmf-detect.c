@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <endian.h>
 #include <spandsp/telephony.h>
 #include <spandsp/super_tone_rx.h>

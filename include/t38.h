@@ -33,6 +33,7 @@ struct t38_options {
 
 #include <inttypes.h>
 #include <sys/types.h>
+#include <stdbool.h>
 #include <spandsp/telephony.h>
 #include <spandsp/logging.h>
 #include <spandsp/t38_core.h>

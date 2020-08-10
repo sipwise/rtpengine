@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <spandsp/t30.h>
 #include <spandsp/logging.h>
+#include "spandsp_logging.h"
 #include "codec.h"
 #include "call.h"
 #include "log.h"
@@ -76,7 +77,7 @@ static void g_string_null_extend(GString *s, size_t len) {
 	memset(s->str + oldb, 0, newb);
 }
 
-static void spandsp_logging_func(int level, const char *text) {
+static void spandsp_logging_func(SPAN_LOG_ARGS) {
 	if (level <= SPAN_LOG_PROTOCOL_ERROR)
 		level = LOG_ERR;
 	else if (level <= SPAN_LOG_PROTOCOL_WARNING)
@@ -407,7 +408,7 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	t38_set_max_datagram_size(t38, opts.max_ifp);
 
 	logging_state_t *ls = t38_gateway_get_logging_state(tg->gw);
-	span_log_set_message_handler(ls, spandsp_logging_func);
+	my_span_set_log(ls, spandsp_logging_func);
 	span_log_set_level(ls, span_log_level_map(get_log_level()));
 
 	packet_sequencer_init(&tg->sequencer, (GDestroyNotify) __udptl_packet_free);
@@ -769,7 +770,7 @@ void t38_gateway_stop(struct t38_gateway *tg) {
 
 
 void t38_init(void) {
-	span_set_message_handler(NULL);
+	my_span_mh(NULL);
 }
 
 
