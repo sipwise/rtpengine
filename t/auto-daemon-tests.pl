@@ -36,6 +36,113 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $resp,
 
 
 
+# GH 1058
+
+new_call;
+
+offer('missing codec in re-invite', {
+		ICE => 'remove',
+		flags => ["codec-mask-all", "codec-strip-telephone-event", "codec-transcode-PCMU", "codec-transcode-G722", "codec-transcode-t38", "codec-offer-telephone-event", "port-latching"],
+		'to-tag' => tt(),
+	}, <<SDP);
+v=0
+o=dev 623840 205550 IN IP4 8.8.8.61
+s=SIP Media Capabilities
+c=IN IP4 8.8.8.61
+t=0 0
+m=audio 6304 RTP/AVP 0 8 3 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=maxptime:20
+--------------------------------------
+v=0
+o=dev 623840 205550 IN IP4 8.8.8.61
+s=SIP Media Capabilities
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 101 0 9
+a=maxptime:20
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('missing codec in re-invite', {
+		ICE => 'remove',
+		flags => ["trust-address", "symmetric-codecs"],
+	}, <<SDP);
+v=0
+o=dev 5418 9648 IN IP4 8.8.8.60
+s=SIP Call
+c=IN IP4 8.8.8.60
+t=0 0
+m=audio 6004 RTP/AVP 9 101
+c=IN IP4 8.8.8.60
+a=rtpmap:9 G722/8000
+a=fmtp:9 bitrate=64
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+--------------------------------------
+v=0
+o=dev 5418 9648 IN IP4 8.8.8.60
+s=SIP Call
+c=IN IP4 8.8.8.60
+t=0 0
+m=audio PORT RTP/AVP 101 0 8 3
+c=IN IP4 203.0.113.1
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:3 GSM/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('missing codec in re-invite', {
+		ICE => 'remove',
+		flags => ["codec-mask-all", "codec-strip-telephone-event", "codec-transcode-PCMU", "codec-transcode-G722", "codec-transcode-t38", "codec-offer-telephone-event", "port-latching"],
+		'to-tag' => tt(),
+	}, <<SDP);
+v=0
+o=dev 623840 205550 IN IP4 8.8.8.61
+s=SIP Media Capabilities
+c=IN IP4 8.8.8.61
+t=0 0
+m=audio 6304 RTP/AVP 0 8 3 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=maxptime:20
+--------------------------------------
+v=0
+o=dev 623840 205550 IN IP4 8.8.8.61
+s=SIP Media Capabilities
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 101 0 9
+a=maxptime:20
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
 # DTLS-reverse flag
 
 new_call;

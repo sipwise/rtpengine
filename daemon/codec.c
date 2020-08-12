@@ -968,8 +968,10 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		if (MEDIA_ISSET(sink, TRANSCODE)) {
 			// if the other side is transcoding, we may come across a receiver entry
 			// (recv->recv) that wasn't originally offered (recv->send). we must eliminate
-			// those
-			if (!g_hash_table_lookup(receiver->codecs_send, &pt->payload_type)) {
+			// those, unless we added them ourselves for transcoding.
+			struct rtp_payload_type *recv_pt =
+				g_hash_table_lookup(receiver->codecs_send, &pt->payload_type);
+			if (!recv_pt && !pt->for_transcoding) {
 				ilog(LOG_DEBUG, "Eliminating transcoded codec " STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params));
 
@@ -2382,6 +2384,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		pt = codec_add_payload_type(codec, media);
 		if (!pt)
 			continue;
+		pt->for_transcoding = 1;
 
 		if (__codec_synth_transcode_options(pt, flags, media))
 			continue;
