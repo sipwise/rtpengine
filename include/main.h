@@ -99,6 +99,11 @@ struct rtpengine_config {
 	int			dtls_rsa_key_size;
 	char			*dtls_ciphers;
 	int			dtls_signature;
+	char			**http_ifs;
+	char			**https_ifs;
+	char			*https_cert;
+	char			*https_key;
+	int			http_threads;
 };
 
 

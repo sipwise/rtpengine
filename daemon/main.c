@@ -47,6 +47,7 @@
 #include "media_player.h"
 #include "dtmf.h"
 #include "jitter_buffer.h"
+#include "websocket.h"
 
 
 
@@ -447,6 +448,11 @@ static void options(int *argc, char ***argv) {
 		{ "dtls-rsa-key-size",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_rsa_key_size,"Size of RSA key for DTLS",	"INT"		},
 		{ "dtls-ciphers",0,  0,	G_OPTION_ARG_STRING,	&rtpe_config.dtls_ciphers,"List of ciphers for DTLS",		"STRING"	},
 		{ "dtls-signature",0,  0,G_OPTION_ARG_STRING,	&dtls_sig,		"Signature algorithm for DTLS",		"SHA-256|SHA-1"	},
+		{ "listen-http", 0,0,	G_OPTION_ARG_STRING_ARRAY,&rtpe_config.http_ifs,"Interface for HTTP and WS",	"[IP46|HOSTNAME:]PORT"},
+		{ "listen-https", 0,0,	G_OPTION_ARG_STRING_ARRAY,&rtpe_config.https_ifs,"Interface for HTTPS and WSS",	"[IP46|HOSTNAME:]PORT"},
+		{ "https-cert", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.https_cert,"Certificate for HTTPS and WSS","FILE"},
+		{ "https-key", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.https_key,	"Private key for HTTPS and WSS","FILE"},
+		{ "http-threads", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.http_threads,"Number of worker threads for HTTP and WS","INT"},
 
 		{ NULL, }
 	};
@@ -783,6 +789,10 @@ static void options_free(void) {
 	g_free(rtpe_config.mysql_pass);
 	g_free(rtpe_config.mysql_query);
 	g_free(rtpe_config.dtls_ciphers);
+	g_strfreev(rtpe_config.http_ifs);
+	g_strfreev(rtpe_config.https_ifs);
+	g_free(rtpe_config.https_cert);
+	g_free(rtpe_config.https_key);
 
 	// free common config options
 	config_load_free(&rtpe_config.common);
@@ -924,6 +934,17 @@ no_kernel:
 			rtpe_redis_write = rtpe_redis;
 	}
 
+	if (rtpe_config.num_threads < 1) {
+#ifdef _SC_NPROCESSORS_ONLN
+		rtpe_config.num_threads = sysconf( _SC_NPROCESSORS_ONLN ) + 3;
+#endif
+		if (rtpe_config.num_threads <= 1)
+			rtpe_config.num_threads = 4;
+	}
+
+	if (websocket_init())
+		die("Failed to init websocket listener");
+
 	daemonize();
 	wpidfile();
 
@@ -977,13 +998,7 @@ int main(int argc, char **argv) {
 
 	thread_create_detach(ice_thread_run, NULL);
 
-	if (rtpe_config.num_threads < 1) {
-#ifdef _SC_NPROCESSORS_ONLN
-		rtpe_config.num_threads = sysconf( _SC_NPROCESSORS_ONLN ) + 3;
-#endif
-		if (rtpe_config.num_threads <= 1)
-			rtpe_config.num_threads = 4;
-	}
+	websocket_start();
 
 	service_notify("READY=1\n");
 
