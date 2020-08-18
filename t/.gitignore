@@ -68,3 +68,6 @@ tcp_listener.c
 test-kernel-module
 test-resample
 mqtt.c
+cli.c
+janus.c
+websocket.c

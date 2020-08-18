@@ -218,6 +218,7 @@ struct jitter_buffer;
 struct codec_tracker;
 struct rtcp_timer;
 struct mqtt_timer;
+struct janus_session;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -491,6 +492,7 @@ struct call {
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 	struct mqtt_timer	*mqtt_timer;
+	struct janus_session	*janus_session;
 
 	str			callid;
 	struct timeval		created;
@@ -575,6 +577,7 @@ int monologue_subscribe_request(struct call_monologue *src, struct call_monologu
 int monologue_subscribe_answer(struct call_monologue *src, struct call_monologue *dst, struct sdp_ng_flags *,
 		GQueue *);
 int monologue_unsubscribe(struct call_monologue *src, struct call_monologue *dst, struct sdp_ng_flags *);
+int monologue_destroy(struct call_monologue *ml);
 int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);

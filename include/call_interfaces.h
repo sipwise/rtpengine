@@ -187,6 +187,11 @@ const char *call_subscribe_request_ng(bencode_item_t *, bencode_item_t *);
 const char *call_subscribe_answer_ng(bencode_item_t *, bencode_item_t *);
 const char *call_unsubscribe_ng(bencode_item_t *, bencode_item_t *);
 
+void save_last_sdp(struct call_monologue *ml, str *sdp, GQueue *parsed, GQueue *streams);
+void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode);
+void call_ng_free_flags(struct sdp_ng_flags *flags);
+void call_unlock_release(struct call **c);
+
 int call_interfaces_init(void);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);

@@ -48,6 +48,7 @@
 #include "jitter_buffer.h"
 #include "t38.h"
 #include "mqtt.h"
+#include "janus.h"
 
 
 struct iterator_helper {
@@ -77,7 +78,6 @@ unsigned int call_socket_cpu_affinity = 0;
 /* ********** */
 
 static void __monologue_destroy(struct call_monologue *monologue, int recurse);
-static int monologue_destroy(struct call_monologue *ml);
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration);
 static void __call_free(void *p);
@@ -138,7 +138,7 @@ void call_make_own_foreign(struct call *c, bool foreign) {
 static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	GList *it;
 	unsigned int check;
-	int good = 0;
+	bool good = false;
 	struct packet_stream *ps;
 	struct stream_fd *sfd;
 	int tmp_t_reason = UNKNOWN;
@@ -178,8 +178,9 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 			goto delete;
 	}
 
+	// conference: call can be created without participants added
 	if (!c->streams.head)
-		goto drop;
+		goto out;
 
 	// ignore media timeout if call was recently taken over
 	if (c->foreign_media && rtpe_now.tv_sec - c->last_signal <= rtpe_config.timeout)
@@ -223,7 +224,7 @@ no_sfd:
 		}
 
 		if (rtpe_now.tv_sec - atomic64_get(timestamp) < check)
-			good = 1;
+			good = true;
 
 next:
 		;
@@ -250,7 +251,6 @@ next:
 
 	ilog(LOG_INFO, "Closing call due to timeout");
 
-drop:
 	hlp->del_timeout = g_slist_prepend(hlp->del_timeout, obj_get(c));
 	goto out;
 
@@ -3048,6 +3048,10 @@ static void __call_cleanup(struct call *c) {
 	}
 
 	recording_finish(c);
+
+	if (c->janus_session)
+		__obj_put((void *) c->janus_session);
+	c->janus_session = NULL;
 }
 
 /* called lock-free, but must hold a reference to the call */
@@ -3642,7 +3646,7 @@ static void __monologue_destroy(struct call_monologue *monologue, int recurse) {
 }
 
 /* must be called with call->master_lock held in W */
-static int monologue_destroy(struct call_monologue *ml) {
+int monologue_destroy(struct call_monologue *ml) {
 	struct call *c = ml->call;
 
 	__monologue_destroy(ml, 1);

@@ -9,6 +9,7 @@ int _log_facility_rtcp;
 int _log_facility_cdr;
 int _log_facility_dtmf;
 struct rtpengine_config rtpe_config;
+struct rtpengine_config initial_rtpe_config;
 struct poller *rtpe_poller;
 struct poller_map *rtpe_poller_map;
 GString *dtmf_logs;

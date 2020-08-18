@@ -54,6 +54,7 @@
 #include "websocket.h"
 #include "codec.h"
 #include "mqtt.h"
+#include "janus.h"
 
 
 
@@ -560,6 +561,7 @@ static void options(int *argc, char ***argv) {
 #ifdef SO_INCOMING_CPU
 		{ "socket-cpu-affinity",0,0,G_OPTION_ARG_INT,	&rtpe_config.cpu_affinity,"CPU affinity for media sockets","INT"},
 #endif
+		{ "janus-secret", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.janus_secret,"Admin secret for Janus protocol","STRING"},
 
 		{ NULL, }
 	};
@@ -976,6 +978,7 @@ static void options_free(void) {
 	g_free(rtpe_config.mqtt_certfile);
 	g_free(rtpe_config.mqtt_keyfile);
 	g_free(rtpe_config.mqtt_publish_topic);
+	g_free(rtpe_config.janus_secret);
 
 	// free common config options
 	config_load_free(&rtpe_config.common);
@@ -1024,6 +1027,7 @@ static void init_everything(void) {
 	if (rtpe_config.mqtt_host && mqtt_init())
 		abort();
 	codecs_init();
+	janus_init();
 }
 
 
@@ -1298,10 +1302,9 @@ int main(int argc, char **argv) {
 	redis_close(rtpe_redis_notify);
 
 	free_prefix();
-
 	options_free();
-
 	log_free();
+	janus_free();
 
 	obj_release(rtpe_cli);
 	obj_release(rtpe_udp);

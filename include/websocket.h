@@ -8,6 +8,7 @@
 struct websocket_conn;
 struct websocket_message;
 enum lws_write_protocol;
+struct janus_session;
 
 typedef const char *(*websocket_message_func_t)(struct websocket_message *);
 
@@ -51,5 +52,8 @@ size_t websocket_queue_len(struct websocket_conn *wc);
 // write HTTP response headers
 int websocket_http_response(struct websocket_conn *wc, int status, const char *content_type,
 		ssize_t content_length);
+
+// mark a janus session as owned by this transport
+void websocket_conn_add_session(struct websocket_conn *, struct janus_session *);
 
 #endif

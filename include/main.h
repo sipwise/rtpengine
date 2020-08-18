@@ -148,6 +148,7 @@ struct rtpengine_config {
 		MOS_LQ,
 	}			mos;
 	int			cpu_affinity;
+	char			*janus_secret;
 };
 
 

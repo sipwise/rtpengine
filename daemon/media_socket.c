@@ -29,6 +29,7 @@
 #include "jitter_buffer.h"
 #include "dtmf.h"
 #include "mqtt.h"
+#include "janus.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -2281,7 +2282,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	phc->mp.raw = phc->s;
 
 	// XXX separate stats for received/sent
-	atomic64_inc(&phc->mp.stream->stats.packets);
+	if (atomic64_inc(&phc->mp.stream->stats.packets) == 0) {
+		if (phc->mp.stream->component == 1 && phc->mp.media->index == 1)
+			janus_media_up(phc->mp.media->monologue);
+	}
 	atomic64_add(&phc->mp.stream->stats.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
 	RTPE_STATS_INC(packets, 1);

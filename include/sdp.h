@@ -32,6 +32,7 @@ int sdp_parse_candidate(struct ice_candidate *cand, const str *s); // returns -1
 
 struct sdp_chopper *sdp_chopper_new(str *input);
 void sdp_chopper_destroy(struct sdp_chopper *chop);
+void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret);
 
 INLINE int is_trickle_ice_address(const struct endpoint *ep) {
 	if (is_addr_unspecified(&ep->address) && ep->port == 9)

@@ -2023,8 +2023,18 @@ static int synth_session_connection(struct sdp_chopper *chop, struct sdp_media *
 }
 
 void sdp_chopper_destroy(struct sdp_chopper *chop) {
-	g_string_free(chop->output, TRUE);
+	if (chop->output)
+		g_string_free(chop->output, TRUE);
 	g_slice_free1(sizeof(*chop), chop);
+}
+void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret) {
+	*ret = STR_NULL;
+	if (chop->output) {
+		str_init_len(ret, chop->output->str, chop->output->len);
+		g_string_free(chop->output, FALSE);
+		chop->output = NULL;
+	}
+	sdp_chopper_destroy(chop);
 }
 
 static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,

@@ -306,7 +306,7 @@ static void streams_parse(const char *s, GQueue *q) {
 	i = 0;
 	pcre_multi_match(streams_re, streams_ree, s, 3, streams_parse_func, &i, q);
 }
-static void call_unlock_release(struct call **c) {
+void call_unlock_release(struct call **c) {
 	if (!*c)
 		return;
 	rwlock_unlock_w(&(*c)->master_lock);
@@ -948,17 +948,22 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 					STR_FMT(s));
 	}
 }
-static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input, enum call_opmode opmode) {
-	bencode_item_t *list, *it, *dict;
-	int diridx;
-	str s;
 
+void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode) {
 	ZERO(*out);
 	out->opmode = opmode;
 
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
 	out->dtls_reverse_passive = dtls_passive_def;
+}
+
+static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input, enum call_opmode opmode) {
+	bencode_item_t *list, *it, *dict;
+	int diridx;
+	str s;
+
+	call_ng_flags_init(out, opmode);
 
 	call_ng_flags_list(out, input, "flags", call_ng_flags_flags, NULL);
 	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
@@ -1202,7 +1207,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 	}
 }
-static void call_ng_free_flags(struct sdp_ng_flags *flags) {
+void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	if (flags->codec_except)
 		g_hash_table_destroy(flags->codec_except);
 	if (flags->codec_set)
@@ -1362,7 +1367,7 @@ static void fragments_cleanup(int all) {
 }
 
 
-static void save_last_sdp(struct call_monologue *ml, str *sdp, GQueue *parsed, GQueue *streams) {
+void save_last_sdp(struct call_monologue *ml, str *sdp, GQueue *parsed, GQueue *streams) {
 	str_free_dup(&ml->last_in_sdp);
 	ml->last_in_sdp = *sdp;
 	*sdp = STR_NULL;

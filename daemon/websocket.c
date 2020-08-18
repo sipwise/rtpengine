@@ -8,6 +8,7 @@
 #include "cli.h"
 #include "control_ng.h"
 #include "statistics.h"
+#include "janus.h"
 
 
 struct websocket_message;
@@ -32,6 +33,7 @@ struct websocket_conn {
 	unsigned int jobs;
 	GQueue messages;
 	cond_t cond;
+	GHashTable *janus_sessions;
 
 	// output buffer - also protected by lock
 	GQueue output_q;
@@ -546,6 +548,8 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 
 	if (!strcmp(uri, "/ng") && wm->method == M_POST && wm->content_type == CT_NG)
 		handler = websocket_http_ng;
+	else if (!strcmp(uri, "/admin") && wm->method == M_POST && wm->content_type == CT_JSON)
+		handler = websocket_janus_process;
 
 	if (!handler) {
 		ilogs(http, LOG_WARN, "Unhandled HTTP POST URI: '%s'", wm->uri);
@@ -568,6 +572,20 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 	mutex_lock(&wc->lock);
 	while (wc->jobs)
 		cond_wait(&wc->cond, &wc->lock);
+
+	// detach all Janus sessions
+	if (wc->janus_sessions) {
+		GHashTableIter iter;
+		g_hash_table_iter_init(&iter, wc->janus_sessions);
+		gpointer key;
+		while (g_hash_table_iter_next(&iter, &key, NULL)) {
+			janus_detach_websocket(key, wc);
+			__obj_put(key);
+		}
+		g_hash_table_destroy(wc->janus_sessions);
+		wc->janus_sessions = NULL;
+	}
+
 	mutex_unlock(&wc->lock);
 
 	assert(wc->messages.length == 0);
@@ -592,6 +610,14 @@ static int websocket_conn_init(struct lws *wsi, void *p) {
 
 	if (!wc)
 		return -1;
+
+	memset(wc, 0, sizeof(*wc));
+	wc->wsi = wsi;
+	mutex_init(&wc->lock);
+	cond_init(&wc->cond);
+	g_queue_init(&wc->messages);
+	g_queue_push_tail(&wc->output_q, websocket_output_new());
+	wc->janus_sessions = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	struct sockaddr_storage sa = {0,};
 	socklen_t sl = sizeof(sa);
@@ -630,6 +656,16 @@ static int websocket_conn_init(struct lws *wsi, void *p) {
 	wc->wm = websocket_message_new(wc);
 
 	return 0;
+}
+
+
+void websocket_conn_add_session(struct websocket_conn *wc, struct janus_session *s) {
+	mutex_lock(&wc->lock);
+	if (wc->janus_sessions) {
+		assert(g_hash_table_lookup(wc->janus_sessions, s) == NULL);
+		g_hash_table_insert(wc->janus_sessions, s, s);
+	}
+	mutex_unlock(&wc->lock);
 }
 
 
@@ -787,6 +823,11 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 }
 
 
+static int websocket_janus(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
+		size_t len)
+{
+	return websocket_protocol(wsi, reason, user, in, len, websocket_janus_process, "janus-protocol");
+}
 static int websocket_rtpengine_echo(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
 		size_t len)
 {
@@ -808,6 +849,11 @@ static const struct lws_protocols websocket_protocols[] = {
 	{
 		.name = "http-only",
 		.callback = websocket_http,
+		.per_session_data_size = sizeof(struct websocket_conn),
+	},
+	{
+		.name = "janus-protocol",
+		.callback = websocket_janus,
 		.per_session_data_size = sizeof(struct websocket_conn),
 	},
 	{
