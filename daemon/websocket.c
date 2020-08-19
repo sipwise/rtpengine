@@ -5,6 +5,7 @@
 #include "log.h"
 #include "main.h"
 #include "str.h"
+#include "cli.h"
 
 
 struct websocket_message;
@@ -240,6 +241,60 @@ static const char *websocket_http_ping(struct websocket_message *wm) {
 }
 
 
+// adds printf string to output buffer without triggering response
+static void websocket_queue_printf(struct cli_writer *cw, const char *fmt, ...) {
+	va_list va;
+	va_start(va, fmt);
+	char *s = g_strdup_vprintf(fmt, va);
+	va_end(va);
+	websocket_queue_raw(cw->ptr, s, strlen(s));
+	g_free(s);
+}
+
+
+static const char *websocket_http_cli(struct websocket_message *wm) {
+	assert(strncmp(wm->uri, "/cli/", 5) == 0);
+	char *uri = wm->uri+5;
+
+	ilog(LOG_DEBUG, "Respoding to GET /cli/%s", uri);
+
+	str uri_cmd;
+	str_init(&uri_cmd, uri);
+
+	struct cli_writer cw = {
+		.cw_printf = websocket_queue_printf,
+		.ptr = wm->wc,
+	};
+	cli_handle(&uri_cmd, &cw);
+
+	size_t len = websocket_queue_len(wm->wc);
+
+	if (websocket_http_response(wm->wc, 200, "text/plain", len))
+		return "Failed to write response HTTP headers";
+	if (websocket_write_http(wm->wc, NULL))
+		return "Failed to write pong response";
+
+	return NULL;
+}
+
+
+static const char *websocket_cli_process(struct websocket_message *wm) {
+	ilog(LOG_DEBUG, "Processing websocket CLI req '%s'", wm->body->str);
+
+	str uri_cmd;
+	str_init_len(&uri_cmd, wm->body->str, wm->body->len);
+
+	struct cli_writer cw = {
+		.cw_printf = websocket_queue_printf,
+		.ptr = wm->wc,
+	};
+	cli_handle(&uri_cmd, &cw);
+
+	websocket_write_binary(wm->wc, NULL, 0);
+	return NULL;
+}
+
+
 static int websocket_http_get(struct websocket_conn *wc) {
 	struct websocket_message *wm = wc->wm;
 	const char *uri = wm->uri;
@@ -250,6 +305,8 @@ static int websocket_http_get(struct websocket_conn *wc) {
 
 	if (!strcmp(uri, "/ping"))
 		handler = websocket_http_ping;
+	else if (!strncmp(uri, "/cli/", 5))
+		handler = websocket_http_cli;
 
 	if (!handler) {
 		ilog(LOG_WARN, "Unhandled HTTP GET URI: '%s'", uri);
@@ -528,6 +585,11 @@ static int websocket_rtpengine_echo(struct lws *wsi, enum lws_callback_reasons r
 {
 	return websocket_protocol(wsi, reason, user, in, len, websocket_echo_process, "echo.rtpengine.com");
 }
+static int websocket_rtpengine_cli(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
+		size_t len)
+{
+	return websocket_protocol(wsi, reason, user, in, len, websocket_cli_process, "rtpengine-cli");
+}
 
 
 static const struct lws_protocols websocket_protocols[] = {
@@ -539,6 +601,11 @@ static const struct lws_protocols websocket_protocols[] = {
 	{
 		.name = "echo.rtpengine.com",
 		.callback = websocket_rtpengine_echo,
+		.per_session_data_size = sizeof(struct websocket_conn),
+	},
+	{
+		.name = "cli.rtpengine.com",
+		.callback = websocket_rtpengine_cli,
 		.per_session_data_size = sizeof(struct websocket_conn),
 	},
 	{ 0, }
