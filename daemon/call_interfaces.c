@@ -945,8 +945,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_flags_list(out, input, "T.38", ng_t38_option, NULL);
 #endif
 
-	bencode_get_alt(input, "transport-protocol", "transport protocol", &out->transport_protocol_str);
-	out->transport_protocol = transport_protocol(&out->transport_protocol_str);
+	str transport_protocol_str;
+	bencode_get_alt(input, "transport-protocol", "transport protocol", &transport_protocol_str);
+	if (!str_cmp(&transport_protocol_str, "accept"))
+		out->protocol_accept = 1;
+	else
+		out->transport_protocol = transport_protocol(&transport_protocol_str);
+
 	bencode_get_alt(input, "media-address", "media address", &out->media_address);
 	if (bencode_get_alt(input, "address-family", "address family", &out->address_family_str))
 		out->address_family = get_socket_family_rfc(&out->address_family_str);
