@@ -25,7 +25,6 @@ struct sdp_ng_flags {
 	str received_from_family;
 	str received_from_address;
 	str media_address;
-	str transport_protocol_str;
 	str address_family_str;
 	const struct transport_protocol *transport_protocol;
 	sockaddr_t parsed_received_from;
@@ -47,6 +46,7 @@ struct sdp_ng_flags {
 	    rev_ptime;
 	GHashTable *sdes_no;
 	int asymmetric:1,
+	    protocol_accept:1,
 	    no_redis_update:1,
 	    unidirectional:1,
 	    trust_address:1,
