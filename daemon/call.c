@@ -1909,14 +1909,30 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	/* deduct protocol from stream parameters received */
 	if (other_media->protocol != sp->protocol) {
 		other_media->protocol = sp->protocol;
-		/* if the endpoint changes the protocol, we reset the other side's
+		/* If the endpoint changes the protocol, we reset the other side's
 		 * protocol as well. this lets us remember our previous overrides,
 		 * but also lets endpoints re-negotiate.
-		 * Exception: OSRTP answer/accept. */
-		if (flags && flags->opmode == OP_ANSWER && other_media->protocol && other_media->protocol->rtp
-				&& !other_media->protocol->srtp
-				&& media->protocol && media->protocol->osrtp && flags->osrtp_accept)
-			;
+		 * Answers are a special case: handle OSRTP answer/accept, but otherwise
+		 * answer with the same protocol that was offered, unless we're instructed
+		 * not to. */
+		if (flags && flags->opmode == OP_ANSWER) {
+			// OSRTP?
+			if (other_media->protocol && other_media->protocol->rtp
+					&& !other_media->protocol->srtp
+					&& media->protocol && media->protocol->osrtp)
+			{
+				// accept it?
+				if (flags->osrtp_accept)
+					;
+				else
+					media->protocol = NULL; // reject
+			}
+			// pass through any other protocol change?
+			else if (!flags->protocol_accept)
+				;
+			else
+				media->protocol = NULL;
+		}
 		else
 			media->protocol = NULL;
 	}

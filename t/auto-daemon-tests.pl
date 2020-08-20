@@ -36,6 +36,238 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $resp,
 
 
 
+# stray answer protocol changes
+
+new_call;
+
+offer('stray answer protocol changes, default', {
+		ICE => 'remove',
+		flags => [],
+		'transport-protocol' => 'RTP/SAVP',
+		DTLS => 'off',
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 101 8
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+answer('stray answer protocol changes, default', {
+		ICE => 'remove',
+		flags => [],
+		DTLS => 'off',
+	}, <<SDP);
+v=0
+o=- 810178487 810178487 IN IP4 0.0.0.0
+s=-
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 40444 RTP/SAVPF 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=direction:both
+a=sendonly
+a=rtcp:40445
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:05sglrIFGQuJpqOblofVYYh+PF93dGyOjFW6Q934
+--------------------------------------
+v=0
+o=- 810178487 810178487 IN IP4 0.0.0.0
+s=-
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio PORT RTP/AVP 0 101 8
+a=direction:both
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('stray answer protocol changes, proto accept', {
+		ICE => 'remove',
+		flags => [],
+		'transport-protocol' => 'RTP/SAVP',
+		DTLS => 'off',
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 101 8
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+answer('stray answer protocol changes, proto accept', {
+		ICE => 'remove',
+		flags => [],
+		DTLS => 'off',
+		'transport-protocol' => 'accept',
+	}, <<SDP);
+v=0
+o=- 810178487 810178487 IN IP4 0.0.0.0
+s=-
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 40444 RTP/SAVPF 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=direction:both
+a=sendonly
+a=rtcp:40445
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:05sglrIFGQuJpqOblofVYYh+PF93dGyOjFW6Q934
+--------------------------------------
+v=0
+o=- 810178487 810178487 IN IP4 0.0.0.0
+s=-
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio PORT RTP/SAVPF 0 101 8
+a=direction:both
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('stray answer protocol changes, proto override', {
+		ICE => 'remove',
+		flags => [],
+		'transport-protocol' => 'RTP/SAVP',
+		DTLS => 'off',
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 101 8
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+answer('stray answer protocol changes, proto accept', {
+		ICE => 'remove',
+		flags => [],
+		DTLS => 'off',
+		'transport-protocol' => 'RTP/AVPF',
+	}, <<SDP);
+v=0
+o=- 810178487 810178487 IN IP4 0.0.0.0
+s=-
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 40444 RTP/SAVPF 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=direction:both
+a=sendonly
+a=rtcp:40445
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:05sglrIFGQuJpqOblofVYYh+PF93dGyOjFW6Q934
+--------------------------------------
+v=0
+o=- 810178487 810178487 IN IP4 0.0.0.0
+s=-
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio PORT RTP/AVPF 0 101 8
+a=direction:both
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+
+
+
 # GH 1058
 
 new_call;

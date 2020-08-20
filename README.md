@@ -845,6 +845,14 @@ Optionally included keys are:
 
 	Valid values are: `RTP/AVP`, `RTP/AVPF`, `RTP/SAVP`, `RTP/SAVPF`.
 
+	Additionally the string `accept` can be given in `answer` messages to allow a special case: By
+	default (when no `transport-protocol` override is given) in answer messages, *rtpengine* will
+	use the transport protocol that was originally offered. However, an answering client may answer
+	with a different protocol than what was offered (e.g. offer was for `RTP/AVP` and answer comes
+	with `RTP/AVPF`). The default behaviour for *rtpengine* is to ignore this protocol change and
+	still proceed with the protocol that was originally offered. Using the `accept` option here
+	tells *rtpengine* to go along with this protocol change and pass it to the original offerer.
+
 * `media address`
 
 	This can be used to override both the addresses present in the SDP body
