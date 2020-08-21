@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.1.2+0~mr8.5.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4d9856b] TT#90101 don't blindly accept a protocol switch in an answer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 21 Aug 2020 14:18:51 +0200
+
 ngcp-rtpengine (8.5.1.1+0~mr8.5.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
