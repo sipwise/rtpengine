@@ -260,11 +260,11 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 	sl = strchr(str, '@');
 	if (sl) {
 		*sl = 0;
-		*auth = str;
+		*auth = g_strdup(str);
 		str = sl+1;
 	}
 	else if ((sl = getenv(auth_env)))
-		*auth = sl;
+		*auth = g_strdup(sl);
 
 	sl = strchr(str, '/');
 	if (!sl)
