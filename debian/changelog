@@ -1,3 +1,25 @@
+ngcp-rtpengine (8.4.3.0+0~mr8.4.3.0) unstable; urgency=medium
+
+  [ root ]
+  * [e44abd3] JB marker fix
+  * [05b6da4] JB marker fix
+
+  [ Richard Fuchs ]
+  * [03e8315] TT#82650 fix /list never ending output
+  * [ff4e487] fix compilation when spandsp is not present
+  * [3741eb1] TT#82651 avoid unnecessary transcoding when DTMF PT is present
+  * [4d973db] TT#83150 fix SSRC substitution w/ SRTP in kernel
+  * [e2455ff] TT#82651 same as 61acd9761 but in reverse
+  * [2985b82] TT#82203 add stats for transcoded sessions
+  * [0bb913c] TT#82203 add detailed transcoding stats
+  * [10d7252] TT#86102 remove aggressive endpoint learning heuristics
+  * [cb9f6f9] Recrypt SRTP for DTMF logging
+  * [e0a1c71] Unkernelise streams when recording is stopped
+  * [e20ae06] TT#88750 fix SRTP not working after Redis restart
+  * [88ecfb8] TT#90101 don't blindly accept a protocol switch in an answer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 25 Aug 2020 16:50:34 +0200
+
 ngcp-rtpengine (8.4.2.0+0~mr8.4.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
