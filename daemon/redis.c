@@ -557,6 +557,13 @@ static int redis_notify(void) {
 		return -1;
 	}
 
+	if (rtpe_redis_notify->auth) {
+		if (redisAsyncCommand(rtpe_redis_notify_async_context, on_redis_notification, NULL, "AUTH %s", rtpe_redis_notify->auth) != REDIS_OK) {
+			rlog(LOG_ERROR, "Fail redisAsyncCommand on AUTH");
+			return -1;
+		}
+	}
+
 	// subscribe to the values in the configured keyspaces
 	rwlock_lock_r(&rtpe_config.config_lock);
 	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
