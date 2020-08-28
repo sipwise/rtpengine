@@ -211,6 +211,7 @@ int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
 int endpoint_parse_any(endpoint_t *, const char *); // address (ip) optional
 int sockaddr_getaddrinfo(sockaddr_t *a, const char *s);
 int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s); // address (ip or hostname) optional
+void endpoint_parse_sockaddr_storage(endpoint_t *, struct sockaddr_storage *);
 void kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
 
 unsigned int sockaddr_hash(const sockaddr_t *);
