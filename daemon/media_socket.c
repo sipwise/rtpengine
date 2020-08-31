@@ -1454,6 +1454,8 @@ static void media_packet_rtcp_demux(struct packet_handler_ctx *phc)
 	phc->out_srtp = phc->sink;
 	if (phc->rtcp && phc->sink && phc->sink->rtcp_sibling)
 		phc->out_srtp = phc->sink->rtcp_sibling; // use RTCP SRTP context
+
+	phc->mp.media_out = phc->sink->media;
 }
 
 

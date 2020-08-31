@@ -377,6 +377,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		.tv = rtpe_now,
 		.call = mp->call,
 		.media = mp->media,
+		.media_out = mp->media,
 		.rtp = &rtp,
 		.ssrc_out = mp->ssrc_out,
 	};

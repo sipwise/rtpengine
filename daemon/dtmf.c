@@ -216,6 +216,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 		.tv = rtpe_now,
 		.call = call,
 		.media = media,
+		.media_out = media,
 		.rtp = &rtp,
 		.ssrc_in = ssrc_in,
 		.ssrc_out = ssrc_out,

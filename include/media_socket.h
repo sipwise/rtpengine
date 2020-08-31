@@ -131,6 +131,7 @@ struct media_packet {
 	struct call *call; // sfd->call
 	struct packet_stream *stream; // sfd->stream
 	struct call_media *media; // stream->media
+	struct call_media *media_out; // output media
 
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
