@@ -476,6 +476,32 @@ this case if no other codecs are specified.
 
 For further information, see the section on the `T.38` dictionary key below.
 
+AMR and AMR-WB
+--------------
+
+As AMR supports dynamically adapting the encoder bitrate, as well as restricting the available bitrates,
+there are some slight peculiarities about its usage when transcoding.
+
+When setting the bitrate, for example as `AMR-WB/16000/1/23850` in either the `codec-transcode` or the
+`codec-set` options, that bitrate will be used as the highest permitted bitrate for the encoder. If
+no `mode-set` parameter is communicated in the SDP, then that is the bitrate that will be used.
+
+If a `mode-set` is present, then the highest bitrate from that mode set which is lower or equal to the
+given bitrate will be used. If only higher bitrates are allowed by the mode set, then the next higher
+bitrate will be used.
+
+To produce an SDP that includes the `mode-set` option (when adding AMR to the codec list via
+`codec-transcode`), the full format parameter string can be appended to the codec specification, e.g.
+`codec-transcode-AMR-WB/16000/1/23850//mode-set=0,1,2,3,4,5;octet-align=1`. In this example, the bitrate
+23850 won't actually be used, as the highest permitted mode is 5 (18250 bps) and so that bitrate will
+be used.
+
+If a literal `=` cannot be used due to parsing constraints (i.e. being wrongly interpreted as a
+key-value pair), it can be escaped by using two dashes instead, e.g.
+`codec-transcode-AMR-WB/16000/1/23850//mode-set--0,1,2,3,4,5;octet-align--1`
+
+The default (highest) bitrates for AMR and AMR-WB are 6700 and 14250, respectively.
+
 Call recording
 ==============
 

@@ -87,11 +87,13 @@ struct codec_type_s {
 union codec_options_u {
 	struct {
 		int interleaving;
+		unsigned int mode_set; // bitfield
 		int octet_aligned:1;
 		int crc:1;
 		int robust_sorting:1;
 
 		const unsigned int *bits_per_frame;
+		const unsigned int *bitrates;
 	} amr;
 };
 

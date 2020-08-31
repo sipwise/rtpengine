@@ -1477,6 +1477,22 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 
 #define AMR_FT_TYPES 14
+const static unsigned int amr_bitrates[AMR_FT_TYPES] = {
+	4750, // 0
+	5150, // 1
+	5900, // 2
+	6700, // 3
+	7400, // 4
+	7950, // 5
+	10200, // 6
+	12200, // 7
+	0, // comfort noise // 8
+	0, // comfort noise // 9
+	0, // comfort noise // 10
+	0, // comfort noise // 11
+	0, // invalid // 12
+	0, // invalid // 13
+};
 const static unsigned int amr_bits_per_frame[AMR_FT_TYPES] = {
 	95, // 4.75 kbit/s // 0
 	103, // 5.15 kbit/s // 1
@@ -1490,6 +1506,22 @@ const static unsigned int amr_bits_per_frame[AMR_FT_TYPES] = {
 	40, // comfort noise // 9
 	40, // comfort noise // 10
 	40, // comfort noise // 11
+	0, // invalid // 12
+	0, // invalid // 13
+};
+const static unsigned int amr_wb_bitrates[AMR_FT_TYPES] = {
+	6600, // 0
+	8850, // 1
+	12650, // 2
+	14250, // 3
+	15850, // 4
+	18250, // 5
+	19850, // 6
+	23050, // 7
+	23850, // 8
+	0, // comfort noise // 9
+	0, // invalid // 10
+	0, // invalid // 11
 	0, // invalid // 12
 	0, // invalid // 13
 };
@@ -1510,10 +1542,14 @@ const static unsigned int amr_wb_bits_per_frame[AMR_FT_TYPES] = {
 	0, // invalid // 13
 };
 static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const codec_def_t *def) {
-	if (!strcmp(def->rtpname, "AMR"))
+	if (!strcmp(def->rtpname, "AMR")) {
 		opts->amr.bits_per_frame = amr_bits_per_frame;
-	else
+		opts->amr.bitrates = amr_bitrates;
+	}
+	else {
 		opts->amr.bits_per_frame = amr_wb_bits_per_frame;
+		opts->amr.bitrates = amr_wb_bitrates;
+	}
 
 	if (!fmtp || !fmtp->s)
 		return;
@@ -1547,11 +1583,46 @@ static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const
 			opts->amr.octet_aligned = 1;
 			opts->amr.interleaving = str_to_i(&token, 0);
 		}
+		else if (!str_cmp(&key, "mode-set")) {
+			str mode;
+			while (str_token_sep(&mode, &token, ',') == 0) {
+				int m = str_to_i(&mode, -1);
+				if (m < 0 || m >= AMR_FT_TYPES)
+					continue;
+				opts->amr.mode_set |= (1 << m);
+			}
+		}
 		// XXX other options
 	}
 }
 static void amr_set_enc_options(encoder_t *enc, const str *fmtp) {
 	amr_set_encdec_options(&enc->codec_options, fmtp, enc->def);
+
+	// if a mode-set was given, pick the highest supported bitrate
+	if (enc->codec_options.amr.mode_set) {
+		int max_bitrate = enc->u.avc.avcctx->bit_rate;
+		int use_bitrate = 0;
+		for (int i = 0; i < AMR_FT_TYPES; i++) {
+			if (!(enc->codec_options.amr.mode_set & (1 << i)))
+				continue;
+			unsigned int br = enc->codec_options.amr.bitrates[i];
+			// we depend on the list being in ascending order, with
+			// invalid modes at the end
+			if (!br) // end of list
+				break;
+			if (br > max_bitrate && use_bitrate) // done
+				break;
+			use_bitrate = br;
+		}
+		if (!use_bitrate)
+			ilog(LOG_WARN, "Unable to determine a valid bitrate from %s mode-set, using default",
+					enc->def->rtpname);
+		else {
+			ilog(LOG_DEBUG, "Using %i as initial %s bitrate based on mode-set",
+					use_bitrate, enc->def->rtpname);
+			enc->u.avc.avcctx->bit_rate = use_bitrate;
+		}
+	}
 }
 static void amr_set_dec_options(decoder_t *dec, const str *fmtp) {
 	amr_set_encdec_options(&dec->codec_options, fmtp, dec->def);
