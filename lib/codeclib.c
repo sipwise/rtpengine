@@ -1524,6 +1524,9 @@ static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const
 	while (str_token_sep(&token, &s, ';') == 0) {
 		if (str_token(&key, &token, '='))
 			continue;
+		while (key.len && key.s[0] == ' ')
+			str_shift(&key, 1);
+
 		if (!str_cmp(&key, "octet-align")) {
 			if (token.len == 1 && token.s[0] == '1')
 				opts->amr.octet_aligned = 1;
