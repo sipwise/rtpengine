@@ -6,6 +6,7 @@
 #include "main.h"
 #include "str.h"
 #include "cli.h"
+#include "control_ng.h"
 
 
 struct websocket_message;
@@ -295,6 +296,56 @@ static const char *websocket_cli_process(struct websocket_message *wm) {
 }
 
 
+static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, void *p1) {
+	struct websocket_conn *wc = p1;
+	websocket_queue_raw(wc, cookie->s, cookie->len);
+	websocket_queue_raw(wc, " ", 1);
+	websocket_queue_raw(wc, body->s, body->len);
+	websocket_write_binary(wc, NULL, 0);
+}
+static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, void *p1) {
+	struct websocket_conn *wc = p1;
+	if (websocket_http_response(wc, 200, "application/x-rtpengine-ng", cookie->len + 1 + body->len))
+		ilog(LOG_WARN, "Failed to write HTTP headers");
+	websocket_queue_raw(wc, cookie->s, cookie->len);
+	websocket_queue_raw(wc, " ", 1);
+	websocket_queue_raw(wc, body->s, body->len);
+	websocket_write_http(wc, NULL);
+}
+static const char *websocket_ng_process(struct websocket_message *wm) {
+	char addr[64];
+	endpoint_print(&wm->wc->endpoint, addr, sizeof(addr));
+
+	ilog(LOG_DEBUG, "Processing websocket NG req from %s", addr);
+
+	str cmd;
+	str_init_len(&cmd, wm->body->str, wm->body->len);
+
+	control_ng_process(&cmd, &wm->wc->endpoint, addr, websocket_ng_send_ws, wm->wc);
+
+	return NULL;
+}
+static const char *websocket_http_ng(struct websocket_message *wm) {
+	char addr[64];
+
+	endpoint_print(&wm->wc->endpoint, addr, sizeof(addr));
+
+	ilog(LOG_DEBUG, "Respoding to POST /ng from %s", addr);
+
+	str cmd;
+	str_init_len(&cmd, wm->body->str, wm->body->len);
+
+	if (control_ng_process(&cmd, &wm->wc->endpoint, addr, websocket_ng_send_http, wm->wc)) {
+		websocket_http_response(wm->wc, 500, "text/plain", 6);
+		websocket_write_http(wm->wc, "error\n");
+	}
+
+	return NULL;
+}
+
+
+
+
 static int websocket_http_get(struct websocket_conn *wc) {
 	struct websocket_message *wm = wc->wm;
 	const char *uri = wm->uri;
@@ -346,6 +397,8 @@ static int websocket_http_post(struct websocket_conn *wc) {
 
 	if (!strcasecmp(ct, "application/json"))
 		wm->content_type = CT_JSON;
+	else if (!strcasecmp(ct, "application/x-rtpengine-ng"))
+		wm->content_type = CT_NG;
 	else
 		ilog(LOG_WARN, "Unsupported content-type '%s'", ct);
 
@@ -355,6 +408,8 @@ static int websocket_http_post(struct websocket_conn *wc) {
 
 static int websocket_http_body(struct websocket_conn *wc, const char *body, size_t len) {
 	struct websocket_message *wm = wc->wm;
+	const char *uri = wm->uri;
+	websocket_message_func_t handler = NULL;
 
 	if (wm->method != M_POST) {
 		ilog(LOG_WARN, "Rejecting HTTP body on unsupported method");
@@ -369,9 +424,17 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 
 	ilog(LOG_DEBUG, "HTTP body complete: '%.*s'", (int) wm->body->len, wm->body->str);
 
-	ilog(LOG_WARN, "Unhandled HTTP POST URI: '%s'", wm->uri);
-	websocket_http_response(wm->wc, 404, "text/plain", 10);
-	websocket_write_http(wm->wc, "not found\n");
+	if (!strcmp(uri, "/ng") && wm->method == M_POST && wm->content_type == CT_NG)
+		handler = websocket_http_ng;
+
+	if (!handler) {
+		ilog(LOG_WARN, "Unhandled HTTP POST URI: '%s'", wm->uri);
+		websocket_http_response(wm->wc, 404, "text/plain", 10);
+		websocket_write_http(wm->wc, "not found\n");
+		return 0;
+	}
+
+	websocket_message_push(wc, handler);
 	return 0;
 }
 
@@ -590,6 +653,11 @@ static int websocket_rtpengine_cli(struct lws *wsi, enum lws_callback_reasons re
 {
 	return websocket_protocol(wsi, reason, user, in, len, websocket_cli_process, "rtpengine-cli");
 }
+static int websocket_rtpengine_ng(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
+		size_t len)
+{
+	return websocket_protocol(wsi, reason, user, in, len, websocket_ng_process, "rtpengine-ng");
+}
 
 
 static const struct lws_protocols websocket_protocols[] = {
@@ -606,6 +674,11 @@ static const struct lws_protocols websocket_protocols[] = {
 	{
 		.name = "cli.rtpengine.com",
 		.callback = websocket_rtpengine_cli,
+		.per_session_data_size = sizeof(struct websocket_conn),
+	},
+	{
+		.name = "ng.rtpengine.com",
+		.callback = websocket_rtpengine_ng,
 		.per_session_data_size = sizeof(struct websocket_conn),
 	},
 	{ 0, }

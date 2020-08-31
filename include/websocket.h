@@ -23,6 +23,7 @@ struct websocket_message {
 	enum {
 		CT_UNKNOWN = 0,
 		CT_JSON,
+		CT_NG,
 	} content_type;
 	GString *body;
 
