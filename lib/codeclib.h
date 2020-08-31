@@ -81,7 +81,13 @@ struct codec_type_s {
 
 	const char *(*encoder_init)(encoder_t *, const str *);
 	int (*encoder_input)(encoder_t *, AVFrame **);
+	void (*encoder_got_packet)(encoder_t *);
 	void (*encoder_close)(encoder_t *);
+};
+
+struct amr_cmr {
+	struct timeval cmr_in_ts;
+	unsigned int cmr_in;
 };
 
 union codec_options_u {
@@ -94,6 +100,8 @@ union codec_options_u {
 
 		const unsigned int *bits_per_frame;
 		const unsigned int *bitrates;
+
+		struct amr_cmr cmr; // input from external calling code
 	} amr;
 };
 
@@ -145,7 +153,7 @@ struct resample_s {
 };
 
 enum codec_event {
-	CE_DUMMY = -1,
+	CE_AMR_CMR_RECV,
 };
 
 struct decoder_s {
@@ -191,6 +199,12 @@ struct encoder_s {
 		struct {
 			AVCodec *codec;
 			AVCodecContext *avcctx;
+
+			union {
+				struct {
+					struct timeval cmr_in_ts; // used internally
+				} amr;
+			} u;
 		} avc;
 #ifdef HAVE_BCG729
 		bcg729EncoderChannelContextStruct *bcg729;

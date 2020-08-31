@@ -57,6 +57,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame);
 static void avc_encoder_close(encoder_t *enc);
 
 static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static void amr_encoder_got_packet(encoder_t *enc);
 static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static const char *dtmf_decoder_init(decoder_t *, const str *);
@@ -90,6 +91,7 @@ static const codec_type_t codec_type_amr = {
 	.decoder_close = avc_decoder_close,
 	.encoder_init = avc_encoder_init,
 	.encoder_input = avc_encoder_input,
+	.encoder_got_packet = amr_encoder_got_packet,
 	.encoder_close = avc_encoder_close,
 };
 static const codec_type_t codec_type_dtmf = {
@@ -1234,10 +1236,11 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 			return -1;
 
 		if (enc->avpkt.size) {
-			//av_write_frame(output->fmtctx, &output->avpkt);
+			if (enc->def->codec_type->encoder_got_packet)
+				enc->def->codec_type->encoder_got_packet(enc);
+
 			callback(enc, u1, u2);
 
-			//output->fifo_pts += output->frame->nb_samples;
 			enc->mux_dts = enc->avpkt.dts + 1; // min next expected dts
 
 			av_packet_unref(&enc->avpkt);
@@ -1645,7 +1648,10 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	err = "no CMR";
 	if (bitstr_shift_ret(&d, 4, &cmr))
 		goto err;
-	// XXX handle CMR?
+
+	unsigned int cmr_int = cmr_chr[0] >> 4;
+	if (cmr_int != 15)
+		decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(cmr_int));
 
 	if (dec->codec_options.amr.octet_aligned) {
 		if (bitstr_shift(&d, 4))
@@ -1745,6 +1751,24 @@ err:
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Error unpacking AMR packet: %s", err);
 
 	return -1;
+}
+static void amr_encoder_mode_change(encoder_t *enc) {
+	if (!memcmp(&enc->codec_options.amr.cmr.cmr_in_ts,
+				&enc->u.avc.u.amr.cmr_in_ts, sizeof(struct timeval)))
+		return;
+	unsigned int cmr = enc->codec_options.amr.cmr.cmr_in;
+	if (cmr >= AMR_FT_TYPES)
+		return;
+	// ignore CMR for invalid modes
+	if (enc->codec_options.amr.mode_set && !(enc->codec_options.amr.mode_set & (1 << cmr)))
+		return;
+	int req_br = enc->codec_options.amr.bitrates[cmr];
+	if (!req_br)
+		return;
+	enc->u.avc.avcctx->bit_rate = req_br;
+}
+static void amr_encoder_got_packet(encoder_t *enc) {
+	amr_encoder_mode_change(enc);
 }
 static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
 	assert(pkt->size >= 1);

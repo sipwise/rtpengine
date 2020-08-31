@@ -502,6 +502,9 @@ key-value pair), it can be escaped by using two dashes instead, e.g.
 
 The default (highest) bitrates for AMR and AMR-WB are 6700 and 14250, respectively.
 
+If a Codec Mode Request (CMR) is received from the AMR peer, then *rtpengine* will adhere to the request
+and switch encoder bitrate unconditionally, even if it's a higher bitrate than originally desired.
+
 Call recording
 ==============
 

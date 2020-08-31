@@ -1723,6 +1723,19 @@ uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch) {
 }
 
 static int codec_decoder_event(enum codec_event event, void *ptr, void *data) {
+	struct call_media *media = data;
+	if (!media)
+		return 0;
+
+	switch (event) {
+		case CE_AMR_CMR_RECV:
+			// ignore locking and races for this
+			media->u.amr.cmr.cmr_in = GPOINTER_TO_UINT(ptr);
+			media->u.amr.cmr.cmr_in_ts = rtpe_now;
+			break;
+		default:
+			break;
+	}
 	return 0;
 }
 
@@ -1984,6 +1997,10 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 	}
 
 	__dtmf_detect(ch, frame);
+
+	// locking deliberately ignored
+	if (mp->media_out)
+		ch->encoder->codec_options.amr.cmr = mp->media_out->u.amr.cmr;
 
 	input_func(ch->encoder, frame, h->packet_encoded, ch, mp);
 
