@@ -324,7 +324,7 @@ found:
 		}
 	}
 	if (!mp->handler)
-		mp->handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts);
+		mp->handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts, mp->media);
 	if (!mp->handler)
 		return -1;
 

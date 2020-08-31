@@ -144,6 +144,10 @@ struct resample_s {
 	SwrContext *swresample;
 };
 
+enum codec_event {
+	CE_DUMMY = -1,
+};
+
 struct decoder_s {
 	const codec_def_t *def;
 	codec_options_t codec_options;
@@ -171,6 +175,9 @@ struct decoder_s {
 	unsigned long rtp_ts;
 	uint64_t pts;
 	int ptime;
+
+	int (*event_func)(enum codec_event event, void *ptr, void *event_data);
+	void *event_data;
 };
 
 struct encoder_s {
@@ -278,6 +285,13 @@ INLINE char *av_error(int no) {
 	char *buf = get_thread_buf();
 	av_strerror(no, buf, THREAD_BUF_SIZE);
 	return buf;
+}
+INLINE int decoder_event(decoder_t *dec, enum codec_event event, void *ptr) {
+	if (!dec)
+		return 0;
+	if (!dec->event_func)
+		return 0;
+	return dec->event_func(event, ptr, dec->event_data);
 }
 
 

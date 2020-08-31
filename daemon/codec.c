@@ -159,7 +159,7 @@ void codec_handler_free(struct codec_handler **handler) {
 	*handler = NULL;
 }
 
-static struct codec_handler *__handler_new(const struct rtp_payload_type *pt) {
+static struct codec_handler *__handler_new(const struct rtp_payload_type *pt, struct call_media *media) {
 	struct codec_handler *handler = g_slice_alloc0(sizeof(*handler));
 	if (pt)
 		handler->source_pt = *pt;
@@ -167,6 +167,7 @@ static struct codec_handler *__handler_new(const struct rtp_payload_type *pt) {
 	handler->dtmf_payload_type = -1;
 	handler->packet_encoded = packet_encoded_rtp;
 	handler->packet_decoded = packet_decoded_fifo;
+	handler->media = media;
 	return handler;
 }
 
@@ -288,9 +289,9 @@ check_output:;
 }
 
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt, unsigned long last_ts)
+		const struct rtp_payload_type *dst_pt, unsigned long last_ts, struct call_media *media)
 {
-	struct codec_handler *handler = __handler_new(src_pt);
+	struct codec_handler *handler = __handler_new(src_pt, media);
 	handler->dest_pt = *dst_pt;
 	handler->func = handler_func_playback;
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
@@ -697,7 +698,7 @@ static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_
 
 	//receiver->dtmf_injector = codec_handler_make_playback(&src_pt, pref_dest_codec, 0);
 	//receiver->dtmf_injector->dtmf_payload_type = dtmf_payload_type;
-	receiver->dtmf_injector = __handler_new(&src_pt);
+	receiver->dtmf_injector = __handler_new(&src_pt, receiver);
 	__make_transcoder(receiver->dtmf_injector, pref_dest_codec, output_transcoders, dtmf_payload_type, 0);
 	receiver->dtmf_injector->func = handler_func_inject_dtmf;
 	g_queue_push_tail(&receiver->codec_handlers_store, receiver->dtmf_injector);
@@ -722,7 +723,7 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, struc
 	if (!handler) {
 		ilog(LOG_DEBUG, "Creating codec handler for " STR_FORMAT,
 				STR_FMT(&pt->encoding_with_params));
-		handler = __handler_new(pt);
+		handler = __handler_new(pt, receiver);
 		g_hash_table_insert(receiver->codec_handlers,
 				GINT_TO_POINTER(handler->source_pt.payload_type),
 				handler);
@@ -745,7 +746,7 @@ static void __check_t38_decoder(struct call_media *t38_media) {
 	if (t38_media->t38_handler)
 		return;
 	ilog(LOG_DEBUG, "Creating T.38 packet handler");
-	t38_media->t38_handler = __handler_new(NULL);
+	t38_media->t38_handler = __handler_new(NULL, t38_media);
 	t38_media->t38_handler->func = handler_func_t38;
 }
 
@@ -1721,6 +1722,10 @@ uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch) {
 	return prev;
 }
 
+static int codec_decoder_event(enum codec_event event, void *ptr, void *data) {
+	return 0;
+}
+
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	struct codec_handler *h = p;
 
@@ -1773,6 +1778,9 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 			&ch->encoder_format, &h->source_pt.format_parameters);
 	if (!ch->decoder)
 		goto err;
+
+	ch->decoder->event_data = h->media;
+	ch->decoder->event_func = codec_decoder_event;
 
 	ch->bytes_per_packet = (ch->encoder->samples_per_packet ? : ch->encoder->samples_per_frame)
 		* h->dest_pt.codec_def->bits_per_sample / 8;
