@@ -46,6 +46,8 @@ INLINE enum media_type codec_get_type(const str *type) {
 #include <bcg729/decoder.h>
 #endif
 
+#define AMR_FT_TYPES 14
+
 
 
 struct codec_type_s;
@@ -88,6 +90,9 @@ struct codec_type_s {
 struct amr_cmr {
 	struct timeval cmr_in_ts;
 	unsigned int cmr_in;
+
+	struct timeval cmr_out_ts;
+	unsigned int cmr_out;
 };
 
 union codec_options_u {
@@ -102,6 +107,8 @@ union codec_options_u {
 		const unsigned int *bitrates;
 
 		struct amr_cmr cmr; // input from external calling code
+
+		int cmr_interval;
 	} amr;
 };
 
@@ -154,6 +161,7 @@ struct resample_s {
 
 enum codec_event {
 	CE_AMR_CMR_RECV,
+	CE_AMR_SEND_CMR,
 };
 
 struct decoder_s {
@@ -169,6 +177,13 @@ struct decoder_s {
 		struct {
 			AVCodecContext *avcctx;
 			AVPacket avpkt;
+
+			union {
+				struct {
+					uint16_t bitrate_tracker[AMR_FT_TYPES];
+					struct timeval tracker_end;
+				} amr;
+			} u;
 		} avc;
 #ifdef HAVE_BCG729
 		bcg729DecoderChannelContextStruct *bcg729;
@@ -202,7 +217,9 @@ struct encoder_s {
 
 			union {
 				struct {
-					struct timeval cmr_in_ts; // used internally
+					struct timeval cmr_in_ts;
+					struct timeval cmr_out_ts;
+					unsigned int cmr_out_seq;
 				} amr;
 			} u;
 		} avc;

@@ -1735,6 +1735,10 @@ static int codec_decoder_event(enum codec_event event, void *ptr, void *data) {
 			media->u.amr.cmr.cmr_in = GPOINTER_TO_UINT(ptr);
 			media->u.amr.cmr.cmr_in_ts = rtpe_now;
 			break;
+		case CE_AMR_SEND_CMR:
+			// ignore locking and races for this
+			media->u.amr.cmr.cmr_out = GPOINTER_TO_UINT(ptr);
+			media->u.amr.cmr.cmr_out_ts = rtpe_now;
 		default:
 			break;
 	}

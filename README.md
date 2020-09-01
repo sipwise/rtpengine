@@ -505,6 +505,15 @@ The default (highest) bitrates for AMR and AMR-WB are 6700 and 14250, respective
 If a Codec Mode Request (CMR) is received from the AMR peer, then *rtpengine* will adhere to the request
 and switch encoder bitrate unconditionally, even if it's a higher bitrate than originally desired.
 
+To enable sending CMRs to the AMR peer, the codec-specific option `CMR-interval` is provided. It takes
+a number of milliseconds as argument. Throughout each interval, *rtpengine* will track which AMR frame
+types were received from the peer, and then based on that will make a decision at the end of the
+interval. If a higher bitrate is allowed by the mode set that was not received from the AMR peer at all,
+then *rtpengine* will request switching to that bitrate per CMR. Only the next-highest bitrate mode that
+was not received will ever be requested, and a CMR will be sent only once per interval. Full example to
+specify a CMR interval of 500 milliseconds (with `=` escapes):
+`codec-transcode-AMR-WB/16000/1/23850//mode-set--0,1,2/CMR-interval--500`
+
 Call recording
 ==============
 

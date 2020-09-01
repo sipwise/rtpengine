@@ -1530,7 +1530,6 @@ static void codeclib_key_value_parse(const str *instr, int need_value,
 
 
 
-#define AMR_FT_TYPES 14
 const static unsigned int amr_bitrates[AMR_FT_TYPES] = {
 	4750, // 0
 	5150, // 1
@@ -1641,8 +1640,28 @@ static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const
 
 	codeclib_key_value_parse(fmtp, 1, amr_set_encdec_options_cb, opts);
 }
+static void amr_set_dec_codec_options(str *key, str *value, void *data) {
+	decoder_t *dec = data;
+
+	if (!str_cmp(key, "CMR-interval"))
+		dec->codec_options.amr.cmr_interval = str_to_i(value, 0);
+}
+static void amr_set_enc_codec_options(str *key, str *value, void *data) {
+	encoder_t *enc = data;
+
+	if (!str_cmp(key, "CMR-interval"))
+		; // not an encoder optoin
+	else {
+		// our string might not be null terminated
+		char *s = g_strdup_printf(STR_FORMAT, STR_FMT(key));
+		codeclib_set_av_opt_intstr(enc, s, value);
+		g_free(s);
+	}
+}
 static void amr_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
 	amr_set_encdec_options(&enc->codec_options, fmtp, enc->def);
+
+	codeclib_key_value_parse(codec_opts, 1, amr_set_enc_codec_options, enc);
 
 	// if a mode-set was given, pick the highest supported bitrate
 	if (enc->codec_options.amr.mode_set) {
@@ -1672,8 +1691,61 @@ static void amr_set_enc_options(encoder_t *enc, const str *fmtp, const str *code
 }
 static void amr_set_dec_options(decoder_t *dec, const str *fmtp, const str *codec_opts) {
 	amr_set_encdec_options(&dec->codec_options, fmtp, dec->def);
+	codeclib_key_value_parse(codec_opts, 1, amr_set_dec_codec_options, dec);
 }
 
+static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
+	if (dec->codec_options.amr.cmr_interval <= 0)
+		return;
+
+	if (dec->u.avc.u.amr.tracker_end.tv_sec
+			&& timeval_cmp(&dec->u.avc.u.amr.tracker_end, &rtpe_now) >= 0) {
+		// analyse the data we gathered
+		int next_highest = -1;
+		int lowest_used = -1;
+		for (int i = 0; i < AMR_FT_TYPES; i++) {
+			unsigned int br = dec->codec_options.amr.bitrates[i];
+			if (!br)
+				break; // end of list
+
+			// ignore restricted modes
+			if (dec->codec_options.amr.mode_set) {
+				if (!(dec->codec_options.amr.mode_set & (1 << i)))
+					continue;
+			}
+
+			// would this be a "next step up" mode?
+			if (next_highest == -1)
+				next_highest = i;
+
+			// did we see any frames?
+			if (!dec->u.avc.u.amr.bitrate_tracker[i])
+				continue;
+
+			next_highest = -1;
+			lowest_used = i;
+		}
+
+		if (lowest_used != -1 && next_highest != -1) {
+			// we can request a switch up
+			ilog(LOG_DEBUG, "Sending %s CMR to request upping bitrate to %u",
+					dec->def->rtpname, dec->codec_options.amr.bitrates[next_highest]);
+			decoder_event(dec, CE_AMR_SEND_CMR, GINT_TO_POINTER(next_highest));
+		}
+
+		// and reset tracker
+		ZERO(dec->u.avc.u.amr.tracker_end);
+	}
+
+	if (!dec->u.avc.u.amr.tracker_end.tv_sec) {
+		// init
+		ZERO(dec->u.avc.u.amr.bitrate_tracker);
+		dec->u.avc.u.amr.tracker_end = rtpe_now;
+		timeval_add_usec(&dec->u.avc.u.amr.tracker_end, dec->codec_options.amr.cmr_interval * 1000);
+	}
+
+	dec->u.avc.u.amr.bitrate_tracker[ft]++;
+}
 static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	const char *err = NULL;
 
@@ -1785,6 +1857,8 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		err = "failed to decode AMR data";
 		if (avc_decoder_input(dec, &frame, out))
 			goto err;
+
+		amr_bitrate_tracker(dec, ft);
 	}
 
 	return 0;
@@ -1828,6 +1902,21 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 	unsigned char *s = (unsigned char *) output->s; // for safe bit shifting
 
 	s[0] = '\xf0'; // no CMR req (4 bits)
+
+	// or do we have a CMR?
+	if (!enc->u.avc.u.amr.cmr_out_seq) {
+		if (memcmp(&enc->u.avc.u.amr.cmr_out_ts, &enc->codec_options.amr.cmr.cmr_out_ts,
+					sizeof(struct timeval))) {
+			enc->u.avc.u.amr.cmr_out_seq += 3; // make this configurable?
+			enc->u.avc.u.amr.cmr_out_ts = enc->codec_options.amr.cmr.cmr_out_ts;
+		}
+	}
+	if (enc->u.avc.u.amr.cmr_out_seq) {
+		enc->u.avc.u.amr.cmr_out_seq--;
+		unsigned int cmr = enc->codec_options.amr.cmr.cmr_out;
+		if (cmr < AMR_FT_TYPES && enc->codec_options.amr.bitrates[cmr])
+			s[0] = cmr << 4;
+	}
 
 	if (enc->codec_options.amr.octet_aligned) {
 		unsigned int offset = 1; // CMR byte
