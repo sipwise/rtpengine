@@ -1481,6 +1481,38 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 }
 
 
+static void codeclib_key_value_parse(const str *instr, int need_value,
+		void (*cb)(str *key, str *value, void *data), void *data)
+{
+	if (!instr || !instr->s)
+		return;
+
+	// semicolon-separated key=value
+	str s = *instr;
+	str key, value;
+	while (str_token_sep(&value, &s, ';') == 0) {
+		if (str_token(&key, &value, '=')) {
+			if (need_value)
+				continue;
+			value = STR_NULL;
+		}
+
+		// truncate whitespace
+		while (key.len && key.s[0] == ' ')
+			str_shift(&key, 1);
+		while (key.len && key.s[key.len - 1] == ' ')
+			key.len--;
+		while (value.len && value.s[0] == ' ')
+			str_shift(&value, 1);
+		while (value.len && value.s[value.len - 1] == ' ')
+			value.len--;
+
+		cb(&key, &value, data);
+	}
+
+}
+
+
 
 
 
@@ -1549,6 +1581,40 @@ const static unsigned int amr_wb_bits_per_frame[AMR_FT_TYPES] = {
 	0, // invalid // 12
 	0, // invalid // 13
 };
+static void amr_set_encdec_options_cb(str *key, str *token, void *data) {
+	codec_options_t *opts = data;
+
+	if (!str_cmp(key, "octet-align")) {
+		if (token->len == 1 && token->s[0] == '1')
+			opts->amr.octet_aligned = 1;
+	}
+	else if (!str_cmp(key, "crc")) {
+		if (token->len == 1 && token->s[0] == '1') {
+			opts->amr.octet_aligned = 1;
+			opts->amr.crc = 1;
+		}
+	}
+	else if (!str_cmp(key, "robust-sorting")) {
+		if (token->len == 1 && token->s[0] == '1') {
+			opts->amr.octet_aligned = 1;
+			opts->amr.robust_sorting = 1;
+		}
+	}
+	else if (!str_cmp(key, "interleaving")) {
+		opts->amr.octet_aligned = 1;
+		opts->amr.interleaving = str_to_i(token, 0);
+	}
+	else if (!str_cmp(key, "mode-set")) {
+		str mode;
+		while (str_token_sep(&mode, token, ',') == 0) {
+			int m = str_to_i(&mode, -1);
+			if (m < 0 || m >= AMR_FT_TYPES)
+				continue;
+			opts->amr.mode_set |= (1 << m);
+		}
+	}
+	// XXX other options
+}
 static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const codec_def_t *def) {
 	if (!strcmp(def->rtpname, "AMR")) {
 		opts->amr.bits_per_frame = amr_bits_per_frame;
@@ -1559,49 +1625,7 @@ static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const
 		opts->amr.bitrates = amr_wb_bitrates;
 	}
 
-	if (!fmtp || !fmtp->s)
-		return;
-
-	// semicolon-separated key=value
-	str s = *fmtp;
-	str token, key;
-	while (str_token_sep(&token, &s, ';') == 0) {
-		if (str_token(&key, &token, '='))
-			continue;
-		while (key.len && key.s[0] == ' ')
-			str_shift(&key, 1);
-
-		if (!str_cmp(&key, "octet-align")) {
-			if (token.len == 1 && token.s[0] == '1')
-				opts->amr.octet_aligned = 1;
-		}
-		else if (!str_cmp(&key, "crc")) {
-			if (token.len == 1 && token.s[0] == '1') {
-				opts->amr.octet_aligned = 1;
-				opts->amr.crc = 1;
-			}
-		}
-		else if (!str_cmp(&key, "robust-sorting")) {
-			if (token.len == 1 && token.s[0] == '1') {
-				opts->amr.octet_aligned = 1;
-				opts->amr.robust_sorting = 1;
-			}
-		}
-		else if (!str_cmp(&key, "interleaving")) {
-			opts->amr.octet_aligned = 1;
-			opts->amr.interleaving = str_to_i(&token, 0);
-		}
-		else if (!str_cmp(&key, "mode-set")) {
-			str mode;
-			while (str_token_sep(&mode, &token, ',') == 0) {
-				int m = str_to_i(&mode, -1);
-				if (m < 0 || m >= AMR_FT_TYPES)
-					continue;
-				opts->amr.mode_set |= (1 << m);
-			}
-		}
-		// XXX other options
-	}
+	codeclib_key_value_parse(fmtp, 1, amr_set_encdec_options_cb, opts);
 }
 static void amr_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
 	amr_set_encdec_options(&enc->codec_options, fmtp, enc->def);
