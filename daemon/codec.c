@@ -2129,7 +2129,6 @@ static int __codec_synth_transcode_options(struct rtp_payload_type *pt, struct s
 	if (pt->clock_rate != 1)
 		return 0;
 
-	struct call *call = media->call;
 	GHashTable *clockrates = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	// special handling - add one instance for each clock rate that is present
@@ -2137,17 +2136,13 @@ static int __codec_synth_transcode_options(struct rtp_payload_type *pt, struct s
 		struct rtp_payload_type *pt_r = k->data;
 		if (g_hash_table_lookup(clockrates, GUINT_TO_POINTER(pt_r->clock_rate)))
 			continue;
-		char *pt_s;
-		if (asprintf(&pt_s, STR_FORMAT "/%u", STR_FMT(&pt->encoding), pt_r->clock_rate) < 0)
-			continue;
-		pt_s = call_strdup(call, pt_s);
-		// XXX optimise this -^  call buffer can probably be replaced with a gstringchunk
-		// and made lock free
+		char *pt_s = g_strdup_printf(STR_FORMAT "/%u", STR_FMT(&pt->encoding), pt_r->clock_rate);
 		g_hash_table_insert(clockrates, GUINT_TO_POINTER(pt_r->clock_rate), (void *) 1);
 		str pt_str;
 		str_init(&pt_str, pt_s);
 		ilog(LOG_DEBUG, "Synthesised transcoding option for '%s'", pt_s);
-		g_queue_push_tail(&flags->codec_transcode, str_slice_dup(&pt_str));
+		g_queue_push_tail(&flags->codec_transcode, str_dup(&pt_str));
+		g_free(pt_s);
 	}
 
 	payload_type_free(pt);

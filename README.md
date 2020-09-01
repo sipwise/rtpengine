@@ -1100,6 +1100,10 @@ Optionally included keys are:
 		Additional options that can be appended to the codec string with additional slashes
 		are ptime and the `fmtp` string, for example `iLBC/8000/1///mode=30`.
 
+		If a literal `=` cannot be used due to parsing constraints (i.e. being wrongly
+		interpreted as a key-value pair), it can be escaped by using two dashes instead,
+		e.g. `iLBC/8000/1///mode--30`.
+
 		As a special case, if the `strip=all` option has been used and the `transcode`
 		option is used on a codec that was originally present in the offer, then
 		*rtpengine* will treat this codec the same as if it had been used with the `offer`

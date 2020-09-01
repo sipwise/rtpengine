@@ -704,25 +704,35 @@ static void call_ng_flags_supports(struct sdp_ng_flags *out, str *s, void *dummy
 	if (!str_cmp(s, "load limit"))
 		out->supports_load_limit = 1;
 }
+static str *str_dup_escape(const str *s) {
+	str *ret = str_dup(s);
+	int i;
+	while ((i = str_str(ret, "--")) >= 0) {
+		ret->s[i] = '=';
+		memmove(&ret->s[i + 1], &ret->s[i + 2], ret->len - i - 2);
+		ret->len--;
+	}
+	return ret;
+}
 static void call_ng_flags_codec_list(struct sdp_ng_flags *out, str *s, void *qp) {
-	str *s_copy = str_slice_dup(s);
+	str *s_copy = str_dup_escape(s);
 	g_queue_push_tail((GQueue *) qp, s_copy);
 }
 static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp) {
-	str *s_copy = str_slice_dup(s);
+	str *s_copy = str_dup_escape(s);
 	GHashTable **ht = htp;
 	if (!*ht)
-		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, str_slice_free, NULL);
+		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	g_hash_table_replace(*ht, s_copy, s_copy);
 }
 #ifdef WITH_TRANSCODING
 static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *htp) {
 	GHashTable **ht = htp;
 	if (!*ht)
-		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, str_slice_free, str_slice_free);
+		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
 	str splitter = *s;
 	while (1) {
-		g_hash_table_replace(*ht, str_slice_dup(&splitter), str_slice_dup(s));
+		g_hash_table_replace(*ht, str_dup_escape(&splitter), str_dup_escape(s));
 		char *c = memrchr(splitter.s, '/', splitter.len);
 		if (!c)
 			break;
@@ -1009,8 +1019,8 @@ static void call_ng_free_flags(struct sdp_ng_flags *flags) {
 		g_hash_table_destroy(flags->codec_set);
 	if (flags->sdes_no)
 		g_hash_table_destroy(flags->sdes_no);
-	g_queue_clear_full(&flags->codec_offer, str_slice_free);
-	g_queue_clear_full(&flags->codec_transcode, str_slice_free);
+	g_queue_clear_full(&flags->codec_offer, free);
+	g_queue_clear_full(&flags->codec_transcode, free);
 }
 
 static enum load_limit_reasons call_offer_session_limit(void) {
