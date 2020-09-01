@@ -49,10 +49,10 @@ static set_enc_options_f amr_set_enc_options;
 static set_dec_options_f amr_set_dec_options;
 
 static void avc_def_init(codec_def_t *);
-static const char *avc_decoder_init(decoder_t *, const str *);
+static const char *avc_decoder_init(decoder_t *, const str *, const str *);
 static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void avc_decoder_close(decoder_t *);
-static const char *avc_encoder_init(encoder_t *enc, const str *);
+static const char *avc_encoder_init(encoder_t *enc, const str *, const str *);
 static int avc_encoder_input(encoder_t *enc, AVFrame **frame);
 static void avc_encoder_close(encoder_t *enc);
 
@@ -60,7 +60,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void amr_encoder_got_packet(encoder_t *enc);
 static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
-static const char *dtmf_decoder_init(decoder_t *, const str *);
+static const char *dtmf_decoder_init(decoder_t *, const str *, const str *);
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 
@@ -103,10 +103,10 @@ static const codec_type_t codec_type_dtmf = {
 static packetizer_f packetizer_g729; // aggregate some frames into packets
 
 static void bcg729_def_init(codec_def_t *);
-static const char *bcg729_decoder_init(decoder_t *, const str *);
+static const char *bcg729_decoder_init(decoder_t *, const str *, const str *);
 static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void bcg729_decoder_close(decoder_t *);
-static const char *bcg729_encoder_init(encoder_t *enc, const str *);
+static const char *bcg729_encoder_init(encoder_t *enc, const str *, const str *);
 static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame);
 static void bcg729_encoder_close(encoder_t *enc);
 
@@ -447,7 +447,7 @@ const codec_def_t *codec_find_by_av(enum AVCodecID id) {
 
 
 
-static const char *avc_decoder_init(decoder_t *dec, const str *fmtp) {
+static const char *avc_decoder_init(decoder_t *dec, const str *fmtp, const str *extra_opts) {
 	AVCodec *codec = dec->def->decoder;
 	if (!codec)
 		return "codec not supported";
@@ -459,7 +459,7 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp) {
 	dec->u.avc.avcctx->sample_rate = dec->in_format.clockrate;
 
 	if (dec->def->set_dec_options)
-		dec->def->set_dec_options(dec, fmtp);
+		dec->def->set_dec_options(dec, fmtp, extra_opts);
 
 	int i = avcodec_open2(dec->u.avc.avcctx, codec, NULL);
 	if (i) {
@@ -476,12 +476,16 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp) {
 
 
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt) {
-	return decoder_new_fmtp(def, clockrate, channels, ptime, resample_fmt, NULL);
+decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime,
+		const format_t *resample_fmt)
+{
+	return decoder_new_fmtp(def, clockrate, channels, ptime, resample_fmt, NULL, NULL);
 }
 
-decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt,
-		const str *fmtp)
+decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime,
+		const format_t *resample_fmt,
+		const str *fmtp,
+		const str *extra_opts)
 {
 	const char *err;
 	decoder_t *ret = NULL;
@@ -507,7 +511,7 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 	else
 		ret->ptime = def->default_ptime;
 
-	err = def->codec_type->decoder_init(ret, fmtp);
+	err = def->codec_type->decoder_init(ret, fmtp, extra_opts);
 	if (err)
 		goto err;
 
@@ -1008,7 +1012,7 @@ encoder_t *encoder_new(void) {
 	return ret;
 }
 
-static const char *avc_encoder_init(encoder_t *enc, const str *fmtp) {
+static const char *avc_encoder_init(encoder_t *enc, const str *fmtp, const str *extra_opts) {
 	enc->u.avc.codec = enc->def->encoder;
 	if (!enc->u.avc.codec)
 		return "output codec not found";
@@ -1044,7 +1048,7 @@ static const char *avc_encoder_init(encoder_t *enc, const str *fmtp) {
 	enc->samples_per_packet = enc->samples_per_frame;
 
 	if (enc->def->set_enc_options)
-		enc->def->set_enc_options(enc, fmtp);
+		enc->def->set_enc_options(enc, fmtp, extra_opts);
 
 	int i = avcodec_open2(enc->u.avc.avcctx, enc->u.avc.codec, NULL);
 	if (i) {
@@ -1058,11 +1062,12 @@ static const char *avc_encoder_init(encoder_t *enc, const str *fmtp) {
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format)
 {
-	return encoder_config_fmtp(enc, def, bitrate, ptime, requested_format, actual_format, NULL);
+	return encoder_config_fmtp(enc, def, bitrate, ptime, requested_format, actual_format, NULL, NULL);
 }
 
 int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
-		const format_t *requested_format, format_t *actual_format, const str *fmtp)
+		const format_t *requested_format, format_t *actual_format, const str *fmtp,
+		const str *extra_opts)
 {
 	const char *err;
 
@@ -1081,7 +1086,7 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	enc->ptime = ptime / def->clockrate_mult;
 	enc->bitrate = bitrate;
 
-	err = def->codec_type->encoder_init ? def->codec_type->encoder_init(enc, fmtp) : 0;
+	err = def->codec_type->encoder_init ? def->codec_type->encoder_init(enc, fmtp, extra_opts) : 0;
 	if (err)
 		goto err;
 
@@ -1370,7 +1375,7 @@ static void opus_init(struct rtp_payload_type *pt) {
 	ilog(LOG_DEBUG, "Using default bitrate of %i bps for %i-channel Opus", pt->bitrate, pt->channels);
 }
 
-static void opus_set_enc_options(encoder_t *enc, const str *fmtp) {
+static void opus_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
 	int ret;
 	if (enc->ptime)
 		if ((ret = av_opt_set_int(enc->u.avc.avcctx, "frame_duration", enc->ptime,
@@ -1423,7 +1428,7 @@ static int ilbc_mode(int ptime, const str *fmtp, const char *direction) {
 	return mode;
 }
 
-static void ilbc_set_enc_options(encoder_t *enc, const str *fmtp) {
+static void ilbc_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
 	int ret;
 	int mode = ilbc_mode(enc->ptime, fmtp, "encoder");
 
@@ -1433,7 +1438,7 @@ static void ilbc_set_enc_options(encoder_t *enc, const str *fmtp) {
 				mode, av_error(ret));
 }
 
-static void ilbc_set_dec_options(decoder_t *dec, const str *fmtp) {
+static void ilbc_set_dec_options(decoder_t *dec, const str *fmtp, const str *codec_opts) {
 	int mode = ilbc_mode(dec->ptime, fmtp, "decoder");
 	if (mode == 20)
 		dec->u.avc.avcctx->block_align = 38;
@@ -1469,7 +1474,7 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 				"block mode (%i ms mode)",
 				(int) dec->u.avc.avcctx->block_align, (int) data->len, block_align, mode);
 		avc_decoder_close(dec);
-		avc_decoder_init(dec, fmtp);
+		avc_decoder_init(dec, fmtp, NULL);
 	}
 
 	return avc_decoder_input(dec, data, out);
@@ -1598,7 +1603,7 @@ static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const
 		// XXX other options
 	}
 }
-static void amr_set_enc_options(encoder_t *enc, const str *fmtp) {
+static void amr_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
 	amr_set_encdec_options(&enc->codec_options, fmtp, enc->def);
 
 	// if a mode-set was given, pick the highest supported bitrate
@@ -1627,7 +1632,7 @@ static void amr_set_enc_options(encoder_t *enc, const str *fmtp) {
 		}
 	}
 }
-static void amr_set_dec_options(decoder_t *dec, const str *fmtp) {
+static void amr_set_dec_options(decoder_t *dec, const str *fmtp, const str *codec_opts) {
 	amr_set_encdec_options(&dec->codec_options, fmtp, dec->def);
 }
 
@@ -1833,7 +1838,7 @@ static void bcg729_def_init(codec_def_t *def) {
 	}
 }
 
-static const char *bcg729_decoder_init(decoder_t *dec, const str *fmtp) {
+static const char *bcg729_decoder_init(decoder_t *dec, const str *fmtp, const str *extra_opts) {
 	dec->u.bcg729 = initBcg729DecoderChannel();
 	if (!dec->u.bcg729)
 		return "failed to initialize bcg729";
@@ -1877,7 +1882,7 @@ static void bcg729_decoder_close(decoder_t *dec) {
 	dec->u.bcg729 = NULL;
 }
 
-static const char *bcg729_encoder_init(encoder_t *enc, const str *fmtp) {
+static const char *bcg729_encoder_init(encoder_t *enc, const str *fmtp, const str *extra_opts) {
 	enc->u.bcg729 = initBcg729EncoderChannel(0); // no VAD
 	if (!enc->u.bcg729)
 		return "failed to initialize bcg729";
@@ -1968,7 +1973,7 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 #endif
 
 
-static const char *dtmf_decoder_init(decoder_t *dec, const str *fmtp) {
+static const char *dtmf_decoder_init(decoder_t *dec, const str *fmtp, const str *extra_opts) {
 	dec->u.dtmf.event = -1;
 	return NULL;
 }

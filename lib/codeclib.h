@@ -67,19 +67,19 @@ typedef union codec_options_u codec_options_t;
 
 typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
-typedef void set_enc_options_f(encoder_t *, const str *);
-typedef void set_dec_options_f(decoder_t *, const str *);
+typedef void set_enc_options_f(encoder_t *, const str *, const str *);
+typedef void set_dec_options_f(decoder_t *, const str *, const str *);
 
 
 
 struct codec_type_s {
 	void (*def_init)(codec_def_t *);
 
-	const char *(*decoder_init)(decoder_t *, const str *);
+	const char *(*decoder_init)(decoder_t *, const str *, const str *);
 	int (*decoder_input)(decoder_t *, const str *data, GQueue *);
 	void (*decoder_close)(decoder_t *);
 
-	const char *(*encoder_init)(encoder_t *, const str *);
+	const char *(*encoder_init)(encoder_t *, const str *, const str *);
 	int (*encoder_input)(encoder_t *, AVFrame **);
 	void (*encoder_got_packet)(encoder_t *);
 	void (*encoder_close)(encoder_t *);
@@ -242,9 +242,11 @@ const codec_def_t *codec_find(const str *name, enum media_type);
 const codec_def_t *codec_find_by_av(enum AVCodecID);
 
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt);
-decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime, const format_t *resample_fmt,
-		const str *fmtp);
+decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime,
+		const format_t *resample_fmt);
+decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime,
+		const format_t *resample_fmt,
+		const str *fmtp, const str *codec_opts);
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
@@ -254,7 +256,7 @@ encoder_t *encoder_new(void);
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format);
 int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
-		const format_t *requested_format, format_t *actual_format, const str *fmtp);
+		const format_t *requested_format, format_t *actual_format, const str *fmtp, const str *codec_opts);
 void encoder_close(encoder_t *);
 void encoder_free(encoder_t *);
 int encoder_input_data(encoder_t *enc, AVFrame *frame,

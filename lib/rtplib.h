@@ -24,6 +24,7 @@ struct rtp_payload_type {
 	str encoding_parameters; // "2"
 	int channels; // 2
 	str format_parameters; // value of a=fmtp
+	str codec_opts; // extra codec-specific options
 
 	int ptime; // default from RFC
 	int bitrate;

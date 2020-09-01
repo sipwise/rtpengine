@@ -1127,7 +1127,8 @@ Optionally included keys are:
 		channels) must also be specified.
 
 		Additional options that can be appended to the codec string with additional slashes
-		are ptime and the `fmtp` string, for example `iLBC/8000/1///mode=30`.
+		are ptime, the `fmtp` string, and additional codec-specific options, for example
+		`iLBC/8000/1///mode=30` to use as `fmtp`.
 
 		If a literal `=` cannot be used due to parsing constraints (i.e. being wrongly
 		interpreted as a key-value pair), it can be escaped by using two dashes instead,
