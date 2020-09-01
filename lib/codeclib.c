@@ -1323,6 +1323,29 @@ static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_outpu
 }
 
 
+static int codeclib_set_av_opt_int(encoder_t *enc, const char *opt, int64_t val) {
+	ilog(LOG_DEBUG, "Setting ffmpeg '%s' option for '%s' to %" PRId64,
+			opt, enc->def->rtpname, val);
+
+	int ret = av_opt_set_int(enc->u.avc.avcctx, opt, val, AV_OPT_SEARCH_CHILDREN);
+	if (!ret)
+		return 0;
+
+	ilog(LOG_WARN, "Failed to set ffmpeg '%s' option for codec '%s' to %" PRId64 ": %s",
+			opt, enc->def->rtpname, val, av_error(ret));
+	return -1;
+}
+static int codeclib_set_av_opt_intstr(encoder_t *enc, const char *opt, str *val) {
+	int i = val ? str_to_i(val, -1) : -1;
+	if (i == -1) {
+		ilog(LOG_WARN, "Failed to parse '" STR_FORMAT "' as integer value for ffmpeg option '%s'",
+				STR_FMT0(val), opt);
+		return -1;
+	}
+	return codeclib_set_av_opt_int(enc, opt, i);
+}
+
+
 
 
 
@@ -1376,12 +1399,8 @@ static void opus_init(struct rtp_payload_type *pt) {
 }
 
 static void opus_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
-	int ret;
 	if (enc->ptime)
-		if ((ret = av_opt_set_int(enc->u.avc.avcctx, "frame_duration", enc->ptime,
-						AV_OPT_SEARCH_CHILDREN)))
-			ilog(LOG_WARN, "Failed to set Opus frame_duration option to %i: %s",
-					enc->ptime, av_error(ret));
+		codeclib_set_av_opt_int(enc, "frame_duration", enc->ptime);
 	// XXX additional opus options
 }
 
@@ -1429,13 +1448,8 @@ static int ilbc_mode(int ptime, const str *fmtp, const char *direction) {
 }
 
 static void ilbc_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
-	int ret;
 	int mode = ilbc_mode(enc->ptime, fmtp, "encoder");
-
-	if ((ret = av_opt_set_int(enc->u.avc.avcctx, "mode", mode,
-					AV_OPT_SEARCH_CHILDREN)))
-		ilog(LOG_WARN, "Failed to set iLBC mode option to %i: %s",
-				mode, av_error(ret));
+	codeclib_set_av_opt_int(enc, "mode", mode);
 }
 
 static void ilbc_set_dec_options(decoder_t *dec, const str *fmtp, const str *codec_opts) {
