@@ -361,7 +361,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_bitrate = 6700,
 		.default_ptime = 20,
-		.default_fmtp = "octet-align=1",
+		.default_fmtp = "octet-align=1;mode-change-capability=2",
 		.packetizer = packetizer_amr,
 		.bits_per_sample = 2, // max is 12200 / 8000 = 1.525 bits per sample, rounded up
 		.media_type = MT_AUDIO,
@@ -378,7 +378,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_bitrate = 14250,
 		.default_ptime = 20,
-		.default_fmtp = "octet-align=1",
+		.default_fmtp = "octet-align=1;mode-change-capability=2",
 		.packetizer = packetizer_amr,
 		.bits_per_sample = 2, // max is 23850 / 16000 = 1.490625 bits per sample, rounded up
 		.media_type = MT_AUDIO,
@@ -1626,7 +1626,12 @@ static void amr_set_encdec_options_cb(str *key, str *token, void *data) {
 			opts->amr.mode_set |= (1 << m);
 		}
 	}
-	// XXX other options
+	else if (!str_cmp(key, "mode-change-period"))
+		opts->amr.mode_change_period = str_to_i(token, 0);
+	else if (!str_cmp(key, "mode-change-neighbor")) {
+		if (token->len == 1 && token->s[0] == '1')
+			opts->amr.mode_change_neighbor = 1;
+	}
 }
 static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const codec_def_t *def) {
 	if (!strcmp(def->rtpname, "AMR")) {
@@ -1873,6 +1878,9 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 	if (!memcmp(&enc->codec_options.amr.cmr.cmr_in_ts,
 				&enc->u.avc.u.amr.cmr_in_ts, sizeof(struct timeval)))
 		return;
+	// mode change requested: check if this is allowed right now
+	if (enc->codec_options.amr.mode_change_period == 2 && (enc->u.avc.u.amr.pkt_seq & 1) != 0)
+		return;
 	unsigned int cmr = enc->codec_options.amr.cmr.cmr_in;
 	if (cmr >= AMR_FT_TYPES)
 		return;
@@ -1882,10 +1890,43 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 	int req_br = enc->codec_options.amr.bitrates[cmr];
 	if (!req_br)
 		return;
+	int cmr_done = 1;
+	if (enc->codec_options.amr.mode_change_neighbor) {
+		// handle non-neighbour mode changes
+		int cur_br = enc->u.avc.avcctx->bit_rate;
+		// step up or down from the requested bitrate towards the current one
+		int cmr_diff = (req_br > cur_br) ? -1 : 1;
+		int neigh_br = req_br;
+		int cmr_br = req_br;
+		while (1) {
+			// step up or down towards the current bitrate
+			cmr += cmr_diff;
+			// still in bounds?
+			if (cmr < 0 || cmr >= AMR_FT_TYPES)
+				break;
+			cmr_br = enc->codec_options.amr.bitrates[cmr];
+			if (cmr_br == cur_br)
+				break;
+			// allowed by mode set?
+			if (enc->codec_options.amr.mode_set) {
+				if (!(enc->codec_options.amr.mode_set & (1 << cmr)))
+					continue; // go to next mode
+			}
+			// valid bitrate - continue stepping
+			neigh_br = cmr_br;
+		}
+		// did we finish stepping or is there more to go?
+		if (neigh_br != req_br)
+			cmr_done = 0;
+		req_br = neigh_br; // set to this
+	}
 	enc->u.avc.avcctx->bit_rate = req_br;
+	if (cmr_done)
+		enc->u.avc.u.amr.cmr_in_ts = enc->codec_options.amr.cmr.cmr_in_ts;
 }
 static void amr_encoder_got_packet(encoder_t *enc) {
 	amr_encoder_mode_change(enc);
+	enc->u.avc.u.amr.pkt_seq++;
 }
 static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
 	assert(pkt->size >= 1);

@@ -99,9 +99,11 @@ union codec_options_u {
 	struct {
 		int interleaving;
 		unsigned int mode_set; // bitfield
+		int mode_change_period;
 		int octet_aligned:1;
 		int crc:1;
 		int robust_sorting:1;
+		int mode_change_neighbor:1;
 
 		const unsigned int *bits_per_frame;
 		const unsigned int *bitrates;
@@ -220,6 +222,7 @@ struct encoder_s {
 					struct timeval cmr_in_ts;
 					struct timeval cmr_out_ts;
 					unsigned int cmr_out_seq;
+					uint64_t pkt_seq;
 				} amr;
 			} u;
 		} avc;

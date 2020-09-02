@@ -60,7 +60,7 @@ m=audio PORT RTP/AVP 8 96
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 AMR-WB/16000
-a=fmtp:96 octet-align=1
+a=fmtp:96 octet-align=1;mode-change-capability=2
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -74,7 +74,7 @@ t=0 0
 m=audio 3002 RTP/AVP 96
 c=IN IP4 198.51.100.10
 a=rtpmap:96 AMR-WB/16000
-a=fmtp:96 octet-align=1
+a=fmtp:96 octet-align=1;mode-change-capability=2
 a=sendrecv
 --------------------------------------
 v=0
@@ -115,7 +115,7 @@ m=audio PORT RTP/AVP 8 96
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 AMR-WB/16000
-a=fmtp:96 octet-align=1
+a=fmtp:96 octet-align=1;mode-change-capability=2
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -129,7 +129,7 @@ t=0 0
 m=audio 3006 RTP/AVP 96
 c=IN IP4 198.51.100.10
 a=rtpmap:96 AMR-WB/16000
-a=fmtp:96 octet-align=1
+a=fmtp:96 octet-align=1;mode-change-capability=2
 a=sendrecv
 --------------------------------------
 v=0
@@ -170,7 +170,7 @@ m=audio PORT RTP/AVP 8 96
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 AMR-WB/16000
-a=fmtp:96 octet-align=1
+a=fmtp:96 octet-align=1;mode-change-capability=2
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -184,7 +184,7 @@ t=0 0
 m=audio 3010 RTP/AVP 96
 c=IN IP4 198.51.100.10
 a=rtpmap:96 AMR-WB/16000
-a=fmtp:96 octet-align=1; mode-set=0,1,2,3,4
+a=fmtp:96 octet-align=1; mode-set=0,1,2,3,4; mode-change-capability=2
 a=sendrecv
 --------------------------------------
 v=0
