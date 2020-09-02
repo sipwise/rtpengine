@@ -553,8 +553,254 @@ snd($sock_b, $port_a, rtp(8, 1003, 3480, 0x1234, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(96, 1002, 3560, $ssrc, "\xf0\x0c\x54\x01\x1e\x01\x14\x6c\xb0\x53\xa3\x87\x8d\x76\x75\xd0\x30\x76\x70\x10\x24\x6a\x10\x62\x00"));
 
 
-}
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 3028)], [qw(198.51.100.10 3030)]);
+
+($port_a) = offer('mode-change-neighbor',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['PCMA'],
+	'set' => ['AMR-WB/16000/1/23850'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 3028 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-change-neighbor=1; mode-set=0,2,4,6
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:8 PCMA/8000
+a=fmtp:96 octet-align=1; mode-change-neighbor=1; mode-set=0,2,4,6
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mode-change-neighbor',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 3030 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-change-neighbor=1; mode-set=0,2,4,6
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
+snd($sock_b, $port_a, rtp(8, 1001, 3160, 0x1234, "\x00" x 160));
+# recv mode 6
+($ssrc) = rcv($sock_a, $port_b, rtpm(96, 1000, 3000, -1, "\xf0\x34\xd2\x46\x0c\x24\x74\xf3\x02\x71\x71\x40\x02\x16\x97\x74\x79\x65\xc5\x66\xc1\x27\x41\xbe\x1a\x48\x53\xf7\xb4\x27\x77\x04\xf4\x27\xcc\x63\xba\xd7\xf8\xd1\xff\x7a\xec\x52\x7f\x83\x24\xf2\xc1\x31\xce\xe8"));
+# send packet with CMR 0
+snd($sock_a, $port_b, rtp(96, 2000, 4000, 0x5678, "\x00\x04\x89\xf1\xd9\x1c\xd6\x0c\x80\x15\xe3\x0d\x5a\x18\xfa\xda\xfa\xfa\xc0"));
+Time::HiRes::usleep(20000); # 20 ms, wait to be processed
+snd($sock_b, $port_a, rtp(8, 1002, 3320, 0x1234, "\x00" x 160));
+# recv one more frame with mode 6 before CMR kicks in
+rcv($sock_a, $port_b, rtpm(96, 1001, 3240, $ssrc, "\xf0\x34\xe2\x98\x10\xea\xff\xc9\x7d\x23\xdf\x6d\xd9\x47\xd5\x41\xbe\x02\xa2\xd8\xb6\x5a\x18\xfa\x62\x01\xd6\x1c\x5f\x1a\xe6\xef\x1d\x23\xd0\xf5\x3c\x05\xd1\xbd\x4e\x9b\xd5\xc3\x9b\x49\x2b\x19\x41\x0c\x60\x80"));
+snd($sock_b, $port_a, rtp(8, 1003, 3480, 0x1234, "\x00" x 160));
+# recv mode 4
+rcv($sock_a, $port_b, rtpm(96, 1002, 3560, $ssrc, "\xf0\x24\x41\x44\x30\x11\x12\x46\x3c\xb0\x53\x25\x8f\x8d\x46\x5c\x7d\xc7\xc2\x7b\x06\xb4\xd9\x48\x41\x74\xa1\x06\x04\x1c\xd2\x94\x09\x4e\x6c\x1c\x20\xbc\x98\x47\x47\x28"));
+snd($sock_b, $port_a, rtp(8, 1004, 3640, 0x1234, "\x00" x 160));
+# recv mode 2
+rcv($sock_a, $port_b, rtpm(96, 1003, 3880, $ssrc, "\xf0\x14\x41\x46\x30\x77\x75\xde\x11\x15\x55\x79\x8a\x06\x44\xc0\x70\x7f\x07\x85\x81\x87\x86\xb7\xa5\xa5\x18\x33\x35\x39\x98\xa0\x4c\x20"));
+snd($sock_b, $port_a, rtp(8, 1005, 3800, 0x1234, "\x00" x 160));
+# recv mode 0
+rcv($sock_a, $port_b, rtpm(96, 1004, 4200, $ssrc, "\xf0\x04\x30\x01\x00\x28\x1c\x10\x30\x0b\x02\x07\x8b\x00\x84\x00\xc4\x80\x00"));
+
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 3032)], [qw(198.51.100.10 3034)]);
+
+($port_a) = offer('mode-change-period',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['PCMA'],
+	'set' => ['AMR-WB/16000/1/6600'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 3032 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-change-neighbor=1; mode-set=0,1,3,6,7; mode-change-period=2
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:8 PCMA/8000
+a=fmtp:96 octet-align=1; mode-change-neighbor=1; mode-set=0,1,3,6,7; mode-change-period=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('mode-change-period',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 3034 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-change-neighbor=1; mode-set=0,1,3,6,7; mode-change-period=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
+snd($sock_b, $port_a, rtp(8, 1001, 3160, 0x1234, "\x00" x 160));
+# recv mode 0
+($ssrc) = rcv($sock_a, $port_b, rtpm(96, 1000, 3000, -1, "\xf0\x04\x89\xf1\xd9\x1c\xd6\x0c\x80\x15\xe3\x0d\x5a\x18\xfa\xda\xfa\xfa\xc0"));
+# send packet with CMR 7
+snd($sock_a, $port_b, rtp(96, 2000, 4000, 0x5678, "\x70\x04\x89\xf1\xd9\x1c\xd6\x0c\x80\x15\xe3\x0d\x5a\x18\xfa\xda\xfa\xfa\xc0"));
+Time::HiRes::usleep(20000); # 20 ms, wait to be processed
+snd($sock_b, $port_a, rtp(8, 1002, 3320, 0x1234, "\x00" x 160));
+# recv one more frame with mode 0 before CMR kicks in
+rcv($sock_a, $port_b, rtpm(96, 1001, 3240, $ssrc, "\xf0\x04\xe0\x34\x00\x39\x83\x38\x90\x82\xd2\xc2\xca\x8c\x8c\x03\x18\x8b\x90"));
+snd($sock_b, $port_a, rtp(8, 1003, 3480, 0x1234, "\x00" x 160));
+# mode change suppressed due to period=2, so one more mode 0
+rcv($sock_a, $port_b, rtpm(96, 1002, 3560, $ssrc, "\xf0\x04\x10\x31\x00\x38\x9c\x7c\xb6\x01\x72\x05\x1b\xd2\xd6\x84\x34\x76\x00"));
+snd($sock_b, $port_a, rtp(8, 1004, 3640, 0x1234, "\x00" x 160));
+# recv mode 1
+rcv($sock_a, $port_b, rtpm(96, 1003, 3880, $ssrc, "\xf0\x0c\x54\x00\x0f\x00\x0e\x31\x15\x77\xf7\x8a\x96\x3a\x97\x07\x80\x42\x02\x72\x0a\x24\xa4\x4c\x00"));
+snd($sock_b, $port_a, rtp(8, 1005, 3800, 0x1234, "\x00" x 160));
+# recv mode 1
+rcv($sock_a, $port_b, rtpm(96, 1004, 4200, $ssrc, "\xf0\x0c\x14\x00\x0f\x00\x0e\x08\x44\x91\x16\x79\xf6\xde\x12\xcd\x81\x28\x02\x64\x3b\x64\x29\x5e\x80"));
+snd($sock_b, $port_a, rtp(8, 1006, 3960, 0x1234, "\x00" x 160));
+# recv mode 3
+rcv($sock_a, $port_b, rtpm(96, 1005, 4520, $ssrc, "\xf0\x1c\x01\x44\x00\x22\x2c\x88\xe8\x41\x94\xa0\x09\x82\xb2\xc5\x23\xfa\x5d\x5e\x33\xb1\x41\xfd\x04\x52\x55\x51\x4b\x15\x31\x38\x55\x00\x59\xd5\x98\x80"));
+snd($sock_b, $port_a, rtp(8, 1007, 4120, 0x1234, "\x00" x 160));
+# recv mode 3
+rcv($sock_a, $port_b, rtpm(96, 1006, 4840, $ssrc, "\xf0\x1c\x41\x06\x00\xee\xe3\xb8\x4d\x80\x61\xa6\x48\xc2\x92\x80\x33\x37\xdf\x3e\x81\x76\xf2\x60\x4f\x4a\x24\x45\x01\x34\xc3\x32\x20\x67\x3b\x30\x67\x48"));
+snd($sock_b, $port_a, rtp(8, 1008, 4280, 0x1234, "\x00" x 160));
+# recv mode 6
+rcv($sock_a, $port_b, rtpm(96, 1007, 5160, $ssrc, "\xf0\x34\x01\x46\x00\xee\xeb\xb8\x29\xc0\xd7\xe6\x69\xfa\xb2\xdf\xc3\x3a\xfa\xa1\xa3\x10\x81\xd9\x7b\xd5\x60\x11\x82\x03\x18\x87\x41\x49\xb6\x62\x3b\x79\x44\x50\x46\x3a\xfb\x1c\x00\x07\x16\x92\x8c\x95\x81\x00"));
+snd($sock_b, $port_a, rtp(8, 1009, 4440, 0x1234, "\x00" x 160));
+# recv mode 6
+rcv($sock_a, $port_b, rtpm(96, 1008, 5480, $ssrc, "\xf0\x34\x41\x44\x10\xff\xff\xfc\x40\xc1\x24\xa2\x0c\xca\xb2\xbf\x43\x02\xbc\x90\x01\x2a\xe1\xcd\x71\x1d\x02\x41\xa6\x37\xbd\xc5\x95\xd7\x98\x44\x12\x61\xcc\x62\x41\xd6\x22\x36\x4c\x82\x14\x66\x08\x8d\x0b\x70"));
+snd($sock_b, $port_a, rtp(8, 1010, 4600, 0x1234, "\x00" x 160));
+# recv mode 7
+rcv($sock_a, $port_b, rtpm(96, 1009, 5800, $ssrc, "\xf0\x3c\x01\x46\x30\xee\xeb\xb8\x19\xc0\xd5\xe6\xf9\xea\x92\xda\xd6\x5b\x4b\x2f\x83\x13\x60\x2e\x1a\xdc\xae\x8c\x44\x31\x81\x95\x6b\x19\x21\x54\xc6\x2c\x41\x9f\x90\xf1\x46\xc9\x8d\x10\xaa\xdf\x70\x0d\x71\x07\x09\x1b\x32\x0d\x3c\x2a\x01\x10"));
+snd($sock_b, $port_a, rtp(8, 1011, 4760, 0x1234, "\x00" x 160));
+# recv mode 7
+rcv($sock_a, $port_b, rtpm(96, 1010, 6120, $ssrc, "\xf0\x3c\x41\x46\x00\xee\xef\xb8\x60\xc1\x22\xe5\x14\xc2\xa2\xe8\xb4\xc1\x42\x09\x12\x0a\x08\xb6\x86\xd4\x78\xaf\x57\xc1\xa0\x94\x6d\x5c\x29\xd8\xf6\x88\x90\xba\xaf\x7d\xd2\x60\x94\x0e\xd0\x20\x4e\x2f\xcf\x02\x0b\x9b\x10\xe8\x10\xec\x05\xd8"));
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 3036)], [qw(198.51.100.10 3038)]);
+
+($port_a) = offer('CMR-interval',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['PCMA'],
+	'set' => ['AMR-WB/16000/1////CMR-interval=200'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 3036 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:8 PCMA/8000
+a=fmtp:96 octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('CMR-interval',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 3038 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+# send some mode 3 AMR
+snd($sock_a, $port_b, rtp(96, 2000, 4000, 0x5678, "\xf0\x1c\xd0\x46\x09\xa1\xf1\x73\x02\x71\x71\x00\x0a\x16\x87\x74\xea\x6a\x8c\x06\x67\x66\xec\xf5\x67\x6c\x54\x6d\x45\x4c\x7c\x59\x8d\x7c\x55\xc4\x6c\x50"));
+Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
+snd($sock_a, $port_b, rtp(96, 2001, 4240, 0x5678, "\xf0\x1c\xe0\x92\x30\xf3\xf4\xff\x3d\x23\xdb\x6b\x59\x4f\xd5\x12\xad\xff\x5b\xf8\x88\x53\x85\x74\x19\x6d\x65\x63\x6e\x94\xbb\x5b\x9f\x7d\x97\x3c\x28\xe8"));
+snd($sock_a, $port_b, rtp(96, 2002, 4560, 0x5678, "\xf0\x1c\x41\x42\x00\xd9\xd7\x64\x3c\xb0\x51\xe7\x1f\x95\x56\x3b\x34\x76\x35\x73\x46\x32\x16\x72\x67\xc4\x54\x16\x02\x64\x30\x36\x34\x18\xba\x14\xce\xd8"));
+snd($sock_a, $port_b, rtp(96, 2003, 4880, 0x5678, "\xf0\x1c\x41\x46\x30\xff\xf7\xfc\x31\x15\x57\x3b\x0a\x1e\x44\xcd\x5e\x0e\xa7\xe4\x3a\x1b\xb5\x7b\x38\x2a\x90\x13\x08\xf3\x5f\xaa\xba\x57\xb0\x30\xd3\xe8"));
+
+# wait for CMR interval to pass
+Time::HiRes::usleep(220000); # 220 ms
+
+# send some PCM and receive CMR for mode 4
+snd($sock_b, $port_a, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is received first
+snd($sock_b, $port_a, rtp(8, 1001, 3160, 0x1234, "\x00" x 160));
+# receive 3 packets with CMRs
+($ssrc) = rcv($sock_a, $port_b, rtpm(96, 1000, 3000, -1, "\x40\x1c\xd0\x46\x09\xa1\xf1\x73\x02\x71\x71\x00\x0a\x16\x87\x74\xea\x6a\x8c\x06\x67\x66\xec\xf5\x67\x6c\x54\x6d\x45\x4c\x7c\x59\x8d\x7c\x55\xc4\x6c\x50"));
+snd($sock_b, $port_a, rtp(8, 1002, 3320, 0x1234, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(96, 1001, 3240, $ssrc, "\x40\x1c\xe0\x92\x30\xf3\xf4\xff\x3d\x23\xdb\x6b\x59\x4f\xd5\x12\xad\xff\x5b\xf8\x88\x53\x85\x74\x19\x6d\x65\x63\x6e\x94\xbb\x5b\x9f\x7d\x97\x3c\x28\xe8"));
+snd($sock_b, $port_a, rtp(8, 1003, 3480, 0x1234, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(96, 1002, 3560, $ssrc, "\x40\x1c\x41\x42\x00\xd9\xd7\x64\x3c\xb0\x51\xe7\x1f\x95\x56\x3b\x34\x76\x35\x73\x46\x32\x16\x72\x67\xc4\x54\x16\x02\x64\x30\x36\x34\x18\xba\x14\xce\xd8"));
+snd($sock_b, $port_a, rtp(8, 1004, 3640, 0x1234, "\x00" x 160));
+# back to no CMR
+rcv($sock_a, $port_b, rtpm(96, 1003, 3880, $ssrc, "\xf0\x1c\x41\x46\x30\xff\xf7\xfc\x31\x15\x57\x3b\x0a\x1e\x44\xcd\x5e\x0e\xa7\xe4\x3a\x1b\xb5\x7b\x38\x2a\x90\x13\x08\xf3\x5f\xaa\xba\x57\xb0\x30\xd3\xe8"));
+
+
+}
 
 
 
