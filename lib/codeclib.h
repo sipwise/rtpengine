@@ -100,6 +100,7 @@ union codec_options_u {
 		int interleaving;
 		unsigned int mode_set; // bitfield
 		int mode_change_period;
+		int mode_change_interval;
 		int octet_aligned:1;
 		int crc:1;
 		int robust_sorting:1;
@@ -184,6 +185,7 @@ struct decoder_s {
 				struct {
 					uint16_t bitrate_tracker[AMR_FT_TYPES];
 					struct timeval tracker_end;
+					struct timeval last_cmr;
 				} amr;
 			} u;
 		} avc;

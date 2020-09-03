@@ -514,6 +514,12 @@ was not received will ever be requested, and a CMR will be sent only once per in
 specify a CMR interval of 500 milliseconds (with `=` escapes):
 `codec-transcode-AMR-WB/16000/1/23850//mode-set--0,1,2/CMR-interval--500`
 
+Similar to the `CMR-interval` option, *rtpengine* can optionally attempt to periodically increase the
+outgoing bitrate without being requested to by the peer via a CMR. To enable this, set the option
+`mode-change-interval` to the desired interval in milliseconds. If the last CMR from the AMR peer was
+longer than this interval ago, *rtpengine* will increase the bitrate by one step if possible. Afterwards,
+the interval starts over.
+
 Call recording
 ==============
 

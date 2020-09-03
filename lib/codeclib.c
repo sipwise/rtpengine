@@ -1650,12 +1650,17 @@ static void amr_set_dec_codec_options(str *key, str *value, void *data) {
 
 	if (!str_cmp(key, "CMR-interval"))
 		dec->codec_options.amr.cmr_interval = str_to_i(value, 0);
+	else if (!str_cmp(key, "mode-change-interval"))
+		dec->codec_options.amr.mode_change_interval = str_to_i(value, 0);
+
 }
 static void amr_set_enc_codec_options(str *key, str *value, void *data) {
 	encoder_t *enc = data;
 
 	if (!str_cmp(key, "CMR-interval"))
-		; // not an encoder optoin
+		; // not an encoder option
+	else if (!str_cmp(key, "mode-change-interval"))
+		; // not an encoder option
 	else {
 		// our string might not be null terminated
 		char *s = g_strdup_printf(STR_FORMAT, STR_FMT(key));
@@ -1770,8 +1775,21 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		goto err;
 
 	unsigned int cmr_int = cmr_chr[0] >> 4;
-	if (cmr_int != 15)
+	if (cmr_int != 15) {
 		decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(cmr_int));
+		dec->u.avc.u.amr.last_cmr = rtpe_now;
+	}
+	else if (dec->codec_options.amr.mode_change_interval) {
+		// no CMR, check if we're due to do our own mode change
+		if (!dec->u.avc.u.amr.last_cmr.tv_sec) // start tracking now
+			dec->u.avc.u.amr.last_cmr = rtpe_now;
+		else if (timeval_diff(&rtpe_now, &dec->u.avc.u.amr.last_cmr)
+				>= dec->codec_options.amr.mode_change_interval * 1000) {
+			// switch up if we can
+			decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(0xffff));
+			dec->u.avc.u.amr.last_cmr = rtpe_now;
+		}
+	}
 
 	if (dec->codec_options.amr.octet_aligned) {
 		if (bitstr_shift(&d, 4))
@@ -1874,6 +1892,41 @@ err:
 
 	return -1;
 }
+static unsigned int amr_encoder_find_next_mode(encoder_t *enc) {
+	int mode = -1;
+	for (int i = 0; i < AMR_FT_TYPES; i++) {
+		int br = enc->codec_options.amr.bitrates[i];
+		if (!br) // end of list
+			break;
+		if (br == enc->u.avc.avcctx->bit_rate) {
+			mode = i;
+			break;
+		}
+	}
+	if (mode == -1)
+		return -1;
+	int next_mode = mode + 1;
+	// if modes are restricted, find the next one up
+	if (enc->codec_options.amr.mode_set) {
+		// is there anything?
+		if ((1 << next_mode) > enc->codec_options.amr.mode_set)
+			return -1;
+		int next_up = -1;
+		for (; next_mode < AMR_FT_TYPES; next_mode++) {
+			if (!(enc->codec_options.amr.mode_set & (1 << next_mode)))
+				continue;
+			next_up = next_mode;
+			break;
+		}
+		if (next_up == -1)
+			return -1;
+		next_mode = next_up;
+	}
+	// valid mode?
+	if (next_mode >= AMR_FT_TYPES || enc->codec_options.amr.bitrates[next_mode] == 0)
+		return -1;
+	return next_mode;
+}
 static void amr_encoder_mode_change(encoder_t *enc) {
 	if (!memcmp(&enc->codec_options.amr.cmr.cmr_in_ts,
 				&enc->u.avc.u.amr.cmr_in_ts, sizeof(struct timeval)))
@@ -1882,6 +1935,8 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 	if (enc->codec_options.amr.mode_change_period == 2 && (enc->u.avc.u.amr.pkt_seq & 1) != 0)
 		return;
 	unsigned int cmr = enc->codec_options.amr.cmr.cmr_in;
+	if (cmr == 0xffff)
+		cmr = amr_encoder_find_next_mode(enc);
 	if (cmr >= AMR_FT_TYPES)
 		return;
 	// ignore CMR for invalid modes
