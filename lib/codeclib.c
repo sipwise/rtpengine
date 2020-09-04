@@ -268,7 +268,8 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "opus",
 		.avcodec_id = AV_CODEC_ID_OPUS,
-		.avcodec_name = "libopus",
+		.avcodec_name_enc = "libopus",
+		.avcodec_name_dec = "libopus",
 		.default_clockrate = 48000,
 		.default_channels = 2,
 		.default_bitrate = 32000,
@@ -282,7 +283,8 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "vorbis",
 		.avcodec_id = AV_CODEC_ID_VORBIS,
-		.avcodec_name = "libvorbis",
+		.avcodec_name_enc = "libvorbis",
+		.avcodec_name_dec = "libvorbis",
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
@@ -324,7 +326,6 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "EVRC",
 		.avcodec_id = AV_CODEC_ID_EVRC,
-		.avcodec_name = NULL,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
@@ -333,7 +334,6 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "EVRC0",
 		.avcodec_id = AV_CODEC_ID_EVRC,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
@@ -343,7 +343,6 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "EVRC1",
 		.avcodec_id = AV_CODEC_ID_EVRC,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
@@ -354,7 +353,6 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "AMR",
 		.avcodec_id = AV_CODEC_ID_AMR_NB,
-		.avcodec_name = NULL,
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_bitrate = 6700,
@@ -370,7 +368,6 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "AMR-WB",
 		.avcodec_id = AV_CODEC_ID_AMR_WB,
-		.avcodec_name = NULL,
 		.default_clockrate = 16000,
 		.default_channels = 1,
 		.default_bitrate = 14250,
@@ -401,7 +398,6 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "PCM-S16LE",
 		.avcodec_id = AV_CODEC_ID_PCM_S16LE,
-		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -409,7 +405,6 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "PCM-U8",
 		.avcodec_id = AV_CODEC_ID_PCM_U8,
-		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -417,7 +412,6 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "MP3",
 		.avcodec_id = AV_CODEC_ID_MP3,
-		.avcodec_name = NULL,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -740,10 +734,10 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 
 static void avc_def_init(codec_def_t *def) {
 	// look up AVCodec structs
-	if (def->avcodec_name) {
-		def->encoder = avcodec_find_encoder_by_name(def->avcodec_name);
-		def->decoder = avcodec_find_decoder_by_name(def->avcodec_name);
-	}
+	if (def->avcodec_name_enc)
+		def->encoder = avcodec_find_encoder_by_name(def->avcodec_name_enc);
+	if (def->avcodec_name_dec)
+		def->decoder = avcodec_find_decoder_by_name(def->avcodec_name_dec);
 	if (def->avcodec_id >= 0) {
 		if (!def->encoder)
 			def->encoder = avcodec_find_encoder(def->avcodec_id);
@@ -751,9 +745,11 @@ static void avc_def_init(codec_def_t *def) {
 			def->decoder = avcodec_find_decoder(def->avcodec_id);
 	}
 	// check if we have support if we are supposed to
-	if (def->avcodec_name || def->avcodec_id >= 0) {
+	if (def->avcodec_name_enc || def->avcodec_id >= 0) {
 		if (def->encoder)
 			def->support_encoding = 1;
+	}
+	if (def->avcodec_name_dec || def->avcodec_id >= 0) {
 		if (def->decoder)
 			def->support_decoding = 1;
 	}

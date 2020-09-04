@@ -99,7 +99,8 @@ struct codec_def_s {
 	const char * const rtpname;
 	int clockrate_mult;
 	const int avcodec_id;
-	const char * const avcodec_name;
+	const char * const avcodec_name_enc;
+	const char * const avcodec_name_dec;
 	int default_clockrate;
 	int default_channels;
 	const int default_bitrate;
