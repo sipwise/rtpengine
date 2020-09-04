@@ -2262,6 +2262,8 @@ SDP
 
 
 
+new_call;
+
 offer('gh 953 722 accepted w/o flag', { ICE => 'remove', codec => { transcode => ['G722'] } }, <<SDP);
 v=0
 o=- 1822058533 1822058533 IN IP4 1.2.3.4
