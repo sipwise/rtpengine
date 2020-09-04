@@ -353,6 +353,8 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "AMR",
 		.avcodec_id = AV_CODEC_ID_AMR_NB,
+		.avcodec_name_enc = "libopencore_amrnb",
+		.avcodec_name_dec = "libopencore_amrnb",
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_bitrate = 6700,
@@ -368,6 +370,8 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "AMR-WB",
 		.avcodec_id = AV_CODEC_ID_AMR_WB,
+		.avcodec_name_enc = "libvo_amrwbenc",
+		.avcodec_name_dec = "libopencore_amrwb",
 		.default_clockrate = 16000,
 		.default_channels = 1,
 		.default_bitrate = 14250,
