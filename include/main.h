@@ -70,6 +70,8 @@ struct rtpengine_config {
 	int			redis_disable_time;
 	int			redis_cmd_timeout;
 	int			redis_connect_timeout;
+	int			redis_delete_async;
+	int			redis_delete_async_interval;
 	char			*redis_auth;
 	char			*redis_write_auth;
 	int			num_threads;

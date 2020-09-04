@@ -12,6 +12,10 @@
 #include <sys/epoll.h>
 #include <glib.h>
 #include <sys/time.h>
+#include <main.h>
+#include <redis.h>
+#include <hiredis/adapters/libevent.h>
+
 
 #include "aux.h"
 #include "obj.h"
@@ -522,6 +526,10 @@ void poller_timer_loop(void *d) {
 
 now:
 		gettimeofday(&rtpe_now, NULL);
+		if (rtpe_redis_write && (rtpe_redis_write->async_last + rtpe_config.redis_delete_async_interval <= rtpe_now.tv_sec)) {
+			redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_LOOPBREAK);
+			rtpe_redis_write->async_last = rtpe_now.tv_sec;
+		}
 		poller_timers_run(p);
 	}
 }

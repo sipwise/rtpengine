@@ -404,6 +404,8 @@ static void options(int *argc, char ***argv) {
 		{ "redis-disable-time", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_disable_time, "Number of seconds redis communication is disabled because of errors", "INT" },
 		{ "redis-cmd-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_cmd_timeout, "Sets a timeout in milliseconds for redis commands", "INT" },
 		{ "redis-connect-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_connect_timeout, "Sets a timeout in milliseconds for redis connections", "INT" },
+		{ "redis-delete-async", 'y', 0, G_OPTION_ARG_INT, &rtpe_config.redis_delete_async, "Enable asynchronous redis delete", NULL },
+		{ "redis-delete-async-interval", 'y', 0, G_OPTION_ARG_INT, &rtpe_config.redis_delete_async_interval, "Set asynchronous redis delete interval (seconds)", NULL },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&rtpe_config.b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
 		{ "log-facility-rtcp",0,  0, G_OPTION_ARG_STRING, &log_facility_rtcp_s, "Syslog facility to use for logging RTCP", "daemon|local0|...|local7"},
@@ -717,6 +719,8 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->redis_disable_time = rtpe_config.redis_disable_time;
 	ini_rtpe_cfg->redis_cmd_timeout = rtpe_config.redis_cmd_timeout;
 	ini_rtpe_cfg->redis_connect_timeout = rtpe_config.redis_connect_timeout;
+	ini_rtpe_cfg->redis_delete_async = rtpe_config.redis_delete_async;
+	ini_rtpe_cfg->redis_delete_async_interval = rtpe_config.redis_delete_async_interval;
 	ini_rtpe_cfg->common.log_level = rtpe_config.common.log_level;
 
 	ini_rtpe_cfg->graphite_ep = rtpe_config.graphite_ep;
@@ -969,6 +973,9 @@ int main(int argc, char **argv) {
 	thread_create_detach_prio(poller_timer_loop, rtpe_poller, rtpe_config.idle_scheduling, rtpe_config.idle_priority);
 	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling, rtpe_config.idle_priority);
 
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
+		thread_create_detach(redis_delete_async_loop, NULL);
+
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
 		thread_create_detach(redis_notify_loop, NULL);
 
@@ -1008,15 +1015,26 @@ int main(int argc, char **argv) {
 		threads_join_all(0);
 	}
 
+        // free libevent
+#if LIBEVENT_VERSION_NUMBER >= 0x02010100
+        libevent_global_shutdown();
+#endif
+
 	service_notify("STOPPING=1\n");
 
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
+		redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_LOOPBREAK);
+
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
-		redis_notify_event_base_action(EVENT_BASE_LOOPBREAK);
+		redis_async_event_base_action(rtpe_redis_notify, EVENT_BASE_LOOPBREAK);
 
 	threads_join_all(1);
 
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
+		redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_FREE);
+
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
-		redis_notify_event_base_action(EVENT_BASE_FREE);
+		redis_async_event_base_action(rtpe_redis_notify, EVENT_BASE_FREE);
 
 	ilog(LOG_INFO, "Version %s shutting down", RTPENGINE_VERSION);
 
