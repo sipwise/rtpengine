@@ -17,7 +17,7 @@ BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel hiredis-devel
 BuildRequires:	libpcap-devel libevent-devel json-glib-devel 
 BuildRequires:	gperf perl-IPC-Cmd
-BuildRequires:  spandsp-devel
+BuildRequires:  pkgconfig(spandsp)
 Requires(pre):	shadow-utils
 
 %if 0%{?with_transcoding} > 0
