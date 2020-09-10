@@ -1649,15 +1649,17 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output) {
 	str callid;
 	struct call *call;
+	str metadata;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
+	bencode_dictionary_get_str(input, "metadata", &metadata);
 	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 
 	call->recording_on = 0;
-	recording_stop(call);
+	recording_stop(call, &metadata);
 
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
@@ -1783,7 +1785,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 		}
 	}
 
-	recording_stop(call);
+	recording_stop(call, NULL);
 
 	errstr = NULL;
 out:

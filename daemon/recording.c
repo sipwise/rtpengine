@@ -302,9 +302,12 @@ void recording_start(struct call *call, const char *prefix, str *metadata) {
 
 	recording_update_flags(call);
 }
-void recording_stop(struct call *call) {
+void recording_stop(struct call *call, str *metadata) {
 	if (!call->recording)
 		return;
+
+	if (metadata)
+		update_metadata(call, metadata);
 
 	// check if all recording options are disabled
 	if (call->recording_on || call->rec_forwarding) {
@@ -346,7 +349,7 @@ void detect_setup_recording(struct call *call, const str *recordcall, str *metad
 	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
 		call->recording_on = 0;
-		recording_stop(call);
+		recording_stop(call, NULL);
 	}
 	else
 		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
