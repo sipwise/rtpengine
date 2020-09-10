@@ -1521,6 +1521,9 @@ static void codeclib_key_value_parse(const str *instr, int need_value,
 		while (value.len && value.s[value.len - 1] == ' ')
 			value.len--;
 
+		if (key.len == 0)
+			continue;
+
 		cb(&key, &value, data);
 	}
 
