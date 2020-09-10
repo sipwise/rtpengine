@@ -99,7 +99,7 @@ static void codec_set(char *c) {
 static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str fmt) {
 	struct rtp_payload_type *pt = g_slice_alloc(sizeof(*pt));
 	*pt = (struct rtp_payload_type) { num, full_codec, codec,
-		clockrate, STR_CONST_INIT(""), 1, fmt, 0, 0, NULL };
+		clockrate, STR_CONST_INIT(""), 1, fmt, {0,0}, 0, 0, NULL };
 	g_queue_push_tail(&rtp_types, pt);
 }
 
