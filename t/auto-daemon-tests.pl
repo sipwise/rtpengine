@@ -36,6 +36,74 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $resp,
 
 
 
+# inject DTMF with mismatched codecs
+
+new_call;
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.11 3000)], [qw(198.51.100.11 3002)]);
+
+($port_a) = offer('inject, U/A offer',
+	{ ICE => 'remove', replace => ['origin'], flags => [qw(inject-DTMF)] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 101
+c=IN IP4 198.51.100.11
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('inject, A/U offer',
+	{ ICE => 'remove', replace => ['origin'], flags => [qw(inject-DTMF)] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3002 RTP/AVP 8 0 101
+c=IN IP4 198.51.100.11
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(8, 2000, 4000, 0x3210, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2000, 4000, -1, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(0, 4000, 6000, 0x21d4, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 6000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 5000, 7000, 0x41b0, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 5000, 7000, -1, "\x00" x 160));
+
+
+
+
+
 if (0) {
 
 # AMR-WB mode tests

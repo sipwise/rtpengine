@@ -1059,8 +1059,6 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			// we ignore output codec matches if we must transcode DTMF
 			if (dtmf_pt && !reverse_dtmf_pt)
 				;
-			else if (flags && flags->inject_dtmf)
-				;
 			else
 				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		}
@@ -1095,6 +1093,13 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				ilog(LOG_DEBUG, "Mismatched ptime between source and sink (%i <> %i), "
 						"enabling transcoding",
 					dest_pt->ptime, pt->ptime);
+				goto transcode;
+			}
+
+			if (flags && flags->inject_dtmf) {
+				// we have a matching output codec, but we were told that we might
+				// want to inject DTMF, so we must still go through our transcoding
+				// engine, despite input and output codecs being the same.
 				goto transcode;
 			}
 
