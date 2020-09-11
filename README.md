@@ -1063,15 +1063,24 @@ Optionally included keys are:
 		all codecs and leave none that could be offered. In this case, the original
 		list of codecs will be left unchanged.
 
-	* `offer`
+		The keyword `full` can also be used, which behaves the same as `all` with the
+		exception listed under `transcode` below.
+
+	* `except`
 
 		Contains a list of strings. Each string is the name of a codec that should be
 		included in the list of codecs offered. This is primarily useful to block all
-		codecs (`strip -> all`) except the ones given in the `offer` whitelist.
-		Codecs that were not present in the original list of codecs
+		codecs (`strip -> all` or `mask -> all`) except the ones given in the `except`
+		whitelist.  Codecs that were not present in the original list of codecs
 		offered by the client will be ignored.
 
 		This list also supports codec format parameters as per above.
+
+	* `offer`
+
+		This is identical to `except` but additionally allows the codec order to be
+		changed. So the first codec listed in `offer` will be the primary (preferred)
+		codec in the output SDP, even if it wasn't originally so.
 
 	* `transcode`
 
@@ -1100,15 +1109,16 @@ Optionally included keys are:
 		Additional options that can be appended to the codec string with additional slashes
 		are ptime and the `fmtp` string, for example `iLBC/8000/1///mode=30`.
 
-		As a special case, if the `strip=all` option has been used and the `transcode`
-		option is used on a codec that was originally present in the offer, then
-		*rtpengine* will treat this codec the same as if it had been used with the `offer`
-		option, i.e. it will simply restore it from the list of stripped codecs and won't
-		actually engage transcoding for this codec. On the other hand, if a codec has
-		been stripped explicitly by name using the `strip` option and then used again
+		As a special case, if the `strip=all` or `mask=all` option has been used and
+		the `transcode` option is used on a codec that was originally present in the offer,
+		then *rtpengine* will treat this codec the same as if it had been used with the
+		`offer` option, i.e. it will simply restore it from the list of stripped codecs and
+		won't actually engage transcoding for this codec. On the other hand, if a codec has
+		been stripped explicitly by name using the `strip` or `mask` option and then used again
 		with the `transcode` option, then the codec will not simply be restored from the
 		list of stripped codecs, but instead a new transcoded instance of the codec will
-		be inserted into the offer.
+		be inserted into the offer. (This special exception does not apply to `mask=full`
+		or `strip=full`.)
 
 	* `mask`
 
@@ -1122,8 +1132,8 @@ Optionally included keys are:
 		hand, if `strip=opus, transcode=G723` were given, then Opus would be unavailable
 		for transcoding.
 
-		As with the `strip` option, the special keyword `all` can be used to mask all
-		codecs that have been offered.
+		As with the `strip` option, the special keywords `all`  and `full` can be used
+		to mask all codecs that have been offered.
 
 	* `set`
 

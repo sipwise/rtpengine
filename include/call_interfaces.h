@@ -38,6 +38,7 @@ struct sdp_ng_flags {
 	str address;
 	sockaddr_t xmlrpc_callback;
 	GHashTable *codec_strip;
+	GHashTable *codec_except;
 	GQueue codec_offer;
 	GQueue codec_transcode;
 	GHashTable *codec_mask;
