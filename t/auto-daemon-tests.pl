@@ -1612,7 +1612,7 @@ SDP
 
 new_call();
 
-offer('gh 963', { ICE => 'remove', codec => { mask => ['all'], transcode => ['PCMA','telephone-event'] } }, <<SDP);
+offer('gh 963', { ICE => 'remove', codec => { mask => ['full'], transcode => ['PCMA','telephone-event'] } }, <<SDP);
 v=0
 o=- 1822058533 1822058533 IN IP4 1.2.3.4
 s=Asterisk
@@ -1661,6 +1661,62 @@ a=fmtp:120 0-16
 a=sendrecv
 a=rtcp:PORT
 SDP
+
+
+
+
+new_call();
+
+offer('gh 963 w mask all', { ICE => 'remove', codec => { mask => ['full'], transcode => ['PCMA','telephone-event'] } }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 1.2.3.4
+t=0 0
+m=audio 27998 RTP/AVP 96 120
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1;maxplaybackrate=16000;sprop-maxcapturerate=16000;maxaveragebitrate=12000;cbr=1
+a=rtpmap:120 telephone-event/48000
+a=fmtp:120 0-16
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('gh 963 w mask all', { ICE => 'remove', }, <<SDP);
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+t=0 0
+m=audio 40935 RTP/AVP 8 96
+c=IN IP4 172.17.0.2
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+----------------------------------
+v=0
+o=- 3793596600 3793596601 IN IP4 172.17.0.2
+s=pjmedia
+t=0 0
+m=audio PORT RTP/AVP 96 120
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=rtpmap:120 telephone-event/48000
+a=fmtp:96 useinbandfec=1;maxplaybackrate=16000;sprop-maxcapturerate=16000;maxaveragebitrate=12000;cbr=1
+a=fmtp:120 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 
 
 

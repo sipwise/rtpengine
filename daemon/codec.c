@@ -2235,21 +2235,38 @@ static void __payload_queue_free(void *qq) {
 	GQueue *q = qq;
 	g_queue_free_full(q, (GDestroyNotify) payload_type_free);
 }
-static int __revert_codec_strip(GHashTable *removed, const str *codec,
+static int __revert_codec_strip(GHashTable *stripped, GHashTable *masked, const str *codec,
 		struct call_media *media, struct call_media *other_media)
 {
-	GQueue *q = g_hash_table_lookup(removed, codec);
-	if (!q)
-		return 0;
-	ilog(LOG_DEBUG, "Restoring codec '" STR_FORMAT "' from stripped codecs (%u payload types)",
-			STR_FMT(codec), q->length);
-	g_hash_table_steal(removed, codec);
-	for (GList *l = q->head; l; l = l->next) {
-		struct rtp_payload_type *pt = l->data;
-		__rtp_payload_type_add(media, other_media, pt);
+	int ret = 0;
+
+	GQueue *q = g_hash_table_lookup(stripped, codec);
+	if (q) {
+		ilog(LOG_DEBUG, "Restoring codec '" STR_FORMAT "' from stripped codecs (%u payload types)",
+				STR_FMT(codec), q->length);
+		g_hash_table_steal(stripped, codec);
+		for (GList *l = q->head; l; l = l->next) {
+			struct rtp_payload_type *pt = l->data;
+			__rtp_payload_type_add(media, other_media, pt);
+		}
+		g_queue_free(q);
+		ret = 1;
 	}
-	g_queue_free(q);
-	return 1;
+
+	q = g_hash_table_lookup(masked, codec);
+	if (q) {
+		ilog(LOG_DEBUG, "Restoring codec '" STR_FORMAT "' from masked codecs (%u payload types)",
+				STR_FMT(codec), q->length);
+		g_hash_table_steal(masked, codec);
+		for (GList *l = q->head; l; l = l->next) {
+			struct rtp_payload_type *pt = l->data;
+			__rtp_payload_type_add_recv(media, pt);
+		}
+		g_queue_free(q);
+		ret = 1;
+	}
+
+	return ret;
 }
 static int __codec_options_set1(struct rtp_payload_type *pt, const str *enc, GHashTable *codec_set) {
 	str *pt_str = g_hash_table_lookup(codec_set, enc);
@@ -2277,6 +2294,24 @@ static void __codec_options_set(struct rtp_payload_type *pt, GHashTable *codec_s
 	if (__codec_options_set1(pt, &pt->encoding, codec_set))
 		return;
 }
+int __codec_ht_except(int all_flag, GHashTable *yes_ht, GHashTable *no_ht, struct rtp_payload_type *pt) {
+	int do_this = 0;
+	if (all_flag)
+		do_this = 1;
+	if (yes_ht) {
+		if (g_hash_table_lookup(yes_ht, &pt->encoding))
+			do_this = 1;
+		else if (g_hash_table_lookup(yes_ht, &pt->encoding_with_params))
+			do_this = 1;
+	}
+	if (no_ht) {
+		if (g_hash_table_lookup(no_ht, &pt->encoding))
+			do_this = 0;
+		else if (g_hash_table_lookup(no_ht, &pt->encoding_with_params))
+			do_this = 0;
+	}
+	return do_this;
+}
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
 		GQueue *types, struct sdp_ng_flags *flags)
 {
@@ -2287,7 +2322,9 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	struct call *call = media->call;
 	struct rtp_payload_type *pt;
 	static const str str_all = STR_CONST_INIT("all");
-	GHashTable *removed = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, __payload_queue_free);
+	static const str str_full = STR_CONST_INIT("full");
+	GHashTable *stripped = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, __payload_queue_free);
+	GHashTable *masked = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, __payload_queue_free);
 	int strip_all = 0, mask_all = 0;
 
 	// start fresh
@@ -2311,39 +2348,48 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 
 	if (flags->codec_strip && g_hash_table_lookup(flags->codec_strip, &str_all))
 		strip_all = 1;
+	if (flags->codec_strip && g_hash_table_lookup(flags->codec_strip, &str_all))
+		strip_all = 2;
 	if (flags->codec_mask && g_hash_table_lookup(flags->codec_mask, &str_all))
 		mask_all = 1;
+	else if (flags->codec_mask && g_hash_table_lookup(flags->codec_mask, &str_full))
+		mask_all = 2;
 
 	/* we steal the entire list to avoid duplicate allocs */
 	while ((pt = g_queue_pop_head(types))) {
 		__rtp_payload_type_dup(call, pt); // this takes care of string allocation
 
 		// codec stripping
-		if (flags->codec_strip) {
-			if (strip_all || g_hash_table_lookup(flags->codec_strip, &pt->encoding)
-					|| g_hash_table_lookup(flags->codec_strip, &pt->encoding_with_params))
-			{
-				ilog(LOG_DEBUG, "Stripping codec '" STR_FORMAT "'",
-						STR_FMT(&pt->encoding_with_params));
-				GQueue *q = g_hash_table_lookup_queue_new(removed, &pt->encoding);
-				g_queue_push_tail(q, __rtp_payload_type_copy(pt));
-				q = g_hash_table_lookup_queue_new(removed, &pt->encoding_with_params);
-				g_queue_push_tail(q, pt);
-				continue;
-			}
+		if (__codec_ht_except(strip_all, flags->codec_strip, flags->codec_except, pt)) {
+			ilog(LOG_DEBUG, "Stripping codec '" STR_FORMAT "'",
+					STR_FMT(&pt->encoding_with_params));
+			GQueue *q = g_hash_table_lookup_queue_new(stripped, &pt->encoding);
+			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
+			q = g_hash_table_lookup_queue_new(stripped, &pt->encoding_with_params);
+			g_queue_push_tail(q, pt);
+			continue;
 		}
+
 		__codec_options_set(pt, flags->codec_set);
-		if (!mask_all && (!flags->codec_mask || !g_hash_table_lookup(flags->codec_mask, &pt->encoding))
-				&& (!flags->codec_mask || !g_hash_table_lookup(flags->codec_mask, &pt->encoding_with_params)))
-			__rtp_payload_type_add(media, other_media, pt);
-		else
+
+		// codec masking
+		if (__codec_ht_except(mask_all, flags->codec_mask, flags->codec_except, pt)) {
+			ilog(LOG_DEBUG, "Masking codec '" STR_FORMAT "'",
+					STR_FMT(&pt->encoding_with_params));
+			GQueue *q = g_hash_table_lookup_queue_new(masked, &pt->encoding);
+			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
+			q = g_hash_table_lookup_queue_new(stripped, &pt->encoding_with_params);
+			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 			__rtp_payload_type_add_send(other_media, pt);
+		}
+		else
+			__rtp_payload_type_add(media, other_media, pt);
 	}
 
 	// now restore codecs that have been removed, but should be offered
 	for (GList *l = flags->codec_offer.head; l; l = l->next) {
 		str *codec = l->data;
-		__revert_codec_strip(removed, codec, media, other_media);
+		__revert_codec_strip(stripped, masked, codec, media, other_media);
 	}
 
 	if (!flags->asymmetric_codecs) {
@@ -2369,7 +2415,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		// and removed by a strip=all option,
 		// simply restore it from the original list and handle it the same way
 		// as 'offer'
-		if (strip_all && __revert_codec_strip(removed, codec, media, other_media))
+		if ((strip_all == 1 || mask_all == 1)
+				&& __revert_codec_strip(stripped, masked, codec, media, other_media))
 			continue;
 		// also check if maybe the codec was never stripped
 		if (g_hash_table_lookup(media->codec_names_recv, codec)) {
@@ -2442,5 +2489,6 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	}
 #endif
 
-	g_hash_table_destroy(removed);
+	g_hash_table_destroy(stripped);
+	g_hash_table_destroy(masked);
 }

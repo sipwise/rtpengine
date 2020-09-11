@@ -827,6 +827,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list,
 							&out->codec_offer))
 					return;
+				if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
+							&out->codec_except))
+					return;
 #ifdef WITH_TRANSCODING
 				if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list,
 							&out->codec_transcode))
@@ -975,6 +978,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	if (opmode == OP_OFFER && (dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
 		call_ng_flags_list(out, dict, "strip", call_ng_flags_str_ht, &out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
+		call_ng_flags_list(out, dict, "except", call_ng_flags_str_ht, &out->codec_except);
 #ifdef WITH_TRANSCODING
 		call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
 		call_ng_flags_list(out, dict, "mask", call_ng_flags_str_ht, &out->codec_mask);
@@ -985,6 +989,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 static void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	if (flags->codec_strip)
 		g_hash_table_destroy(flags->codec_strip);
+	if (flags->codec_except)
+		g_hash_table_destroy(flags->codec_except);
 	if (flags->codec_mask)
 		g_hash_table_destroy(flags->codec_mask);
 	if (flags->codec_set)
