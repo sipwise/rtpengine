@@ -1066,6 +1066,8 @@ transcode:;
 		if (reverse_pt) {
 			if (!dest_pt->bitrate)
 				dest_pt->bitrate = reverse_pt->bitrate;
+			if (!dest_pt->codec_opts.len)
+				call_str_cpy(sink->call, &dest_pt->codec_opts, &reverse_pt->codec_opts);
 		}
 		MEDIA_SET(receiver, TRANSCODE);
 		__make_transcoder(handler, dest_pt, output_transcoders, dtmf_payload_type, pcm_dtmf_detect);
