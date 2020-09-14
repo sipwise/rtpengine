@@ -1994,9 +1994,20 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 
 	unsigned char toc = pkt->data[0];
 	unsigned char ft = (toc >> 3) & 0xf;
-	assert(ft <= 13);
+	if (ft > 15) {
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Received bogus AMR FT %u from encoder", ft);
+		return -1;
+	}
+	if (ft >= 14) {
+		// NO_DATA or SPEECH_LOST
+		return -1;
+	}
+	assert(ft < AMR_FT_TYPES); // internal bug
 	unsigned int bits = enc->codec_options.amr.bits_per_frame[ft];
-	assert(bits != 0);
+	if (bits == 0) {
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Received bogus AMR FT %u from encoder", ft);
+		return -1;
+	}
 
 	unsigned char *s = (unsigned char *) output->s; // for safe bit shifting
 
