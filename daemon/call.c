@@ -1549,7 +1549,10 @@ static void __sdes_accept(struct call_media *media, const struct sdp_ng_flags *f
 		}
 	}
 
-	struct crypto_params_sdes *cps_in = media->sdes_in.head->data;
+	struct crypto_params_sdes *cps_in = media->sdes_in.head ? media->sdes_in.head->data : NULL;
+	if (cps_in == NULL) {
+		return;
+	}
 	GList *l = media->sdes_out.head;
 	while (l) {
 		struct crypto_params_sdes *cps_out = l->data;
