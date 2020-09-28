@@ -1245,6 +1245,19 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	if (flags->ice_remove)
 		MEDIA_CLEAR(this, ICE);
 
+	if (flags->passthrough_on) {
+		ilog(LOG_DEBUG, "enabling passthrough mode");
+		MEDIA_SET(this, PASSTHRU);
+		MEDIA_SET(other, PASSTHRU);
+		return;
+	}
+	if (flags->passthrough_off) {
+		ilog(LOG_DEBUG, "disabling passthrough mode");
+		MEDIA_CLEAR(this, PASSTHRU);
+		MEDIA_CLEAR(other, PASSTHRU);
+		return;
+	}
+
 	if (!flags->ice_force) {
 		/* special case: if doing ICE on both sides and ice_force is not set, we cannot
 		 * be sure that media will pass through us, so we have to disable certain features */

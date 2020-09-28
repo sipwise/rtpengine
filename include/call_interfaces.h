@@ -105,7 +105,9 @@ struct sdp_ng_flags {
 	    sdes_lifetime:1,
 	    sdes_pad:1,
 	    drop_traffic_start:1,
-	    drop_traffic_stop:1;
+	    drop_traffic_stop:1,
+	    passthrough_on:1,
+	    passthrough_off:1;
 };
 
 
