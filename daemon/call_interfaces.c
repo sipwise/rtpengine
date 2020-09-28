@@ -932,6 +932,11 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			case CSH_LOOKUP("force"):
 				out->ice_force = 1;
 				break;
+			case CSH_LOOKUP("default"):
+				out->ice_default = 1;
+				out->ice_force = 1;
+				out->ice_remove = 1;
+				break;
 			case CSH_LOOKUP("force_relay"):
 			case CSH_LOOKUP("force-relay"):
 			case CSH_LOOKUP("force relay"):

@@ -1242,7 +1242,12 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	/* we offer ICE by default */
 	if (!MEDIA_ISSET(this, INITIALIZED))
 		MEDIA_SET(this, ICE);
-	if (flags->ice_remove)
+	// unless instructed not to
+	if (flags->ice_default) {
+		if (!MEDIA_ISSET(other, ICE))
+			MEDIA_CLEAR(this, ICE);
+	}
+	else if (flags->ice_remove)
 		MEDIA_CLEAR(this, ICE);
 
 	if (flags->passthrough_on) {
