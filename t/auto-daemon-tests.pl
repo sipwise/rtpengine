@@ -6200,7 +6200,7 @@ SDP
 
 new_call;
 
-offer('plain SDP, add default ICE', { }, <<SDP);
+offer('plain SDP, add default ICE', { ICE => 'optional' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -6268,7 +6268,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-answer('plain SDP, no ICE option given', { }, <<SDP);
+answer('plain SDP, no ICE option given', { ICE => 'optional' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -6291,7 +6291,7 @@ SDP
 new_call;
 
 offer('ICE SDP, default ICE option w media-address', { 'media-address' => '3.4.5.6',
-	flags => ['full-rtcp-attribute'], }, <<SDP);
+	flags => ['full-rtcp-attribute'], ICE => 'optional', }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -6329,7 +6329,7 @@ SDP
 
 new_call;
 
-offer('ICE SDP, default ICE option', { }, <<SDP);
+offer('ICE SDP, default ICE option', { ICE => 'optional' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -6365,7 +6365,7 @@ a=candidate:ICEBASE 2 UDP 2097152254 203.0.113.1 PORT typ host
 a=candidate:ICEBASE 2 UDP 4294967294 2001:db8:4321::1 PORT typ host
 SDP
 
-answer('plain SDP, ICE rejected, no ICE option given', { }, <<SDP);
+answer('plain SDP, ICE rejected, no ICE option given', { ICE => 'optional' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -6419,7 +6419,7 @@ a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
 a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
 SDP
 
-answer('plain SDP, ICE rejected, no ICE option given', { }, <<SDP);
+answer('plain SDP, ICE rejected, no ICE option given', { ICE => 'optional' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -6479,7 +6479,7 @@ a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
 a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
 SDP
 
-answer('ICE SDP, no ICE option given', { }, <<SDP);
+answer('ICE SDP, no ICE option given', { ICE => 'optional' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester

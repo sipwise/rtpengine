@@ -888,10 +888,12 @@ Optionally included keys are:
 	type candidates, and *rtpengine* inserts itself as a `relay` candidate. It will also leave SDP
 	c= and m= lines unchanged.
 
-	The default behavior
-	(no `ICE` key present at all) is: if no ICE attributes are present, a new set is generated and the
+	With `optional`, if no ICE attributes are present, a new set is generated and the
 	media proxy lists itself as ICE candidate; otherwise, the media proxy inserts itself as a
-	low-priority candidate.
+	low-priority candidate. This used to be the default behaviour in previous versions of
+	*rtpengine*.
+
+	The default behaviour (no `ICE` key present at all) is the same as `default`.
 
 	This flag operates independently of the `replace` flags.
 

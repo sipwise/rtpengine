@@ -48,11 +48,11 @@ struct sdp_ng_flags {
 	GHashTable *sdes_no;
 	str dtls_fingerprint;
 	enum {
-		ICE_NONE = 0,
+		ICE_DEFAULT = 0,
 		ICE_REMOVE,
 		ICE_FORCE,
 		ICE_FORCE_RELAY,
-		ICE_DEFAULT,
+		ICE_OPTIONAL,
 	} ice_option:3;
 	int asymmetric:1,
 	    protocol_accept:1,
