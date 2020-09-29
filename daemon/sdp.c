@@ -1901,19 +1901,21 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 			case ATTR_ICE_PWD:
 			case ATTR_ICE_OPTIONS:
 			case ATTR_ICE_LITE:
-				if (!flags->ice_remove && !flags->ice_force)
+				if (flags->ice_option != ICE_REMOVE && flags->ice_option != ICE_FORCE
+						&& flags->ice_option != ICE_DEFAULT)
 					break;
 				goto strip;
 
 			case ATTR_CANDIDATE:
-				if (flags->ice_force_relay) {
+				if (flags->ice_option == ICE_FORCE_RELAY) {
 					if ((attr->u.candidate.type_str.len == 5) &&
 					    (strncasecmp(attr->u.candidate.type_str.s, "relay", 5) == 0))
 						goto strip;
 					else
 						break;
 				}
-				if (!flags->ice_remove && !flags->ice_force)
+				if (flags->ice_option != ICE_REMOVE && flags->ice_option != ICE_FORCE
+						&& flags->ice_option != ICE_DEFAULT)
 					break;
 				goto strip;
 
@@ -1974,12 +1976,13 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_ICE_LITE:
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
-				if (!flags->ice_remove && !flags->ice_force)
+				if (flags->ice_option != ICE_REMOVE && flags->ice_option != ICE_FORCE
+						&& flags->ice_option != ICE_DEFAULT)
 					break;
 				goto strip;
 
 			case ATTR_CANDIDATE:
-				if (flags->ice_force_relay) {
+				if (flags->ice_option == ICE_FORCE_RELAY) {
 					if ((attr->u.candidate.type_str.len == 5) &&
 					    (strncasecmp(attr->u.candidate.type_str.s, "relay", 5) == 0))
 						goto strip;
@@ -1988,13 +1991,14 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				}
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
-				if (!flags->ice_remove && !flags->ice_force)
+				if (flags->ice_option != ICE_REMOVE && flags->ice_option != ICE_FORCE
+						&& flags->ice_option != ICE_DEFAULT)
 					break;
 				goto strip;
 
 			case ATTR_RTCP:
 			case ATTR_RTCP_MUX:
-				if (flags->ice_force_relay)
+				if (flags->ice_option == ICE_FORCE_RELAY)
 					break;
 				goto strip;
 
@@ -2141,7 +2145,7 @@ static void insert_candidates(struct sdp_chopper *chop, struct packet_stream *rt
 	media = rtp->media;
 
 	cand_type = ICT_HOST;
-	if (flags->ice_force_relay)
+	if (flags->ice_option == ICE_FORCE_RELAY)
 		cand_type = ICT_RELAY;
 	if (MEDIA_ISSET(media, PASSTHRU))
 		new_priority(sdp_media, cand_type, &type_pref, &local_pref);
@@ -2342,12 +2346,12 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		}
 
 		if (session->origin.parsed && flags->replace_origin &&
-		    !flags->ice_force_relay) {
+		    flags->ice_option != ICE_FORCE_RELAY) {
 			if (replace_network_address(chop, &session->origin.address, ps, flags, 0))
 				goto error;
 		}
 		if (session->connection.parsed && sess_conn &&
-		    !flags->ice_force_relay) {
+		    flags->ice_option != ICE_FORCE_RELAY) {
 			if (replace_network_address(chop, &session->connection.address, ps, flags, 1))
 				goto error;
 		}
@@ -2379,7 +2383,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto error;
 			ps = j->data;
 
-			if (!flags->ice_force_relay && call_media->type_id != MT_MESSAGE) {
+			if (flags->ice_option != ICE_FORCE_RELAY && call_media->type_id != MT_MESSAGE) {
 				if (replace_media_type(chop, sdp_media, call_media))
 					goto error;
 			        if (replace_media_port(chop, sdp_media, ps))
@@ -2454,7 +2458,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 					chopper_append_c(chop, "a=rtcp-mux\r\n");
 					ps_rtcp = NULL;
 				}
-				else if (ps_rtcp && !flags->ice_force_relay) {
+				else if (ps_rtcp && flags->ice_option != ICE_FORCE_RELAY) {
 					insert_rtcp_attr(chop, ps_rtcp, flags);
 					if (MEDIA_ISSET(call_media, RTCP_MUX))
 						chopper_append_c(chop, "a=rtcp-mux\r\n");

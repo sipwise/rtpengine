@@ -927,20 +927,18 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	if (bencode_dictionary_get_str(input, "ICE", &s)) {
 		switch (__csh_lookup(&s)) {
 			case CSH_LOOKUP("remove"):
-				out->ice_remove = 1;
+				out->ice_option = ICE_REMOVE;
 				break;
 			case CSH_LOOKUP("force"):
-				out->ice_force = 1;
+				out->ice_option = ICE_FORCE;
 				break;
 			case CSH_LOOKUP("default"):
-				out->ice_default = 1;
-				out->ice_force = 1;
-				out->ice_remove = 1;
+				out->ice_option = ICE_DEFAULT;
 				break;
 			case CSH_LOOKUP("force_relay"):
 			case CSH_LOOKUP("force-relay"):
 			case CSH_LOOKUP("force relay"):
-				out->ice_force_relay = 1;
+				out->ice_option = ICE_FORCE_RELAY;
 				break;
 			default:
 				ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '"STR_FORMAT"'",

@@ -1243,11 +1243,11 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	if (!MEDIA_ISSET(this, INITIALIZED))
 		MEDIA_SET(this, ICE);
 	// unless instructed not to
-	if (flags->ice_default) {
+	if (flags->ice_option == ICE_DEFAULT) {
 		if (!MEDIA_ISSET(other, ICE))
 			MEDIA_CLEAR(this, ICE);
 	}
-	else if (flags->ice_remove)
+	else if (flags->ice_option == ICE_REMOVE)
 		MEDIA_CLEAR(this, ICE);
 
 	if (flags->passthrough_on) {
@@ -1263,7 +1263,7 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 		return;
 	}
 
-	if (!flags->ice_force) {
+	if (flags->ice_option != ICE_FORCE && flags->ice_option != ICE_DEFAULT) {
 		/* special case: if doing ICE on both sides and ice_force is not set, we cannot
 		 * be sure that media will pass through us, so we have to disable certain features */
 		if (MEDIA_ISSET(this, ICE) && MEDIA_ISSET(other, ICE)) {
