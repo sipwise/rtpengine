@@ -6158,6 +6158,48 @@ SDP
 
 new_call;
 
+offer('plain SDP, ICE default', { ICE => 'default' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('plain SDP, ICE default', { ICE => 'default' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
 offer('plain SDP, add default ICE', { }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -6508,6 +6550,72 @@ a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
 SDP
 
 answer('ICE SDP with ICE force', { ICE => 'force' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+a=ice-ufrag:bmnhkfdf
+a=ice-pwd:jetyhsdfgsdtjhtyjktrthsrhH
+a=candidate:keutydghfbhdcfsb 1 UDP 2130706431 198.51.100.3 2002 typ host
+a=candidate:ujksdfghfbhdcfsb 1 UDP 2130706175 2001:db8:abcd::3 2002 typ host
+a=candidate:keutydghfbhdcfsb 2 UDP 2130706430 198.51.100.3 2003 typ host
+a=candidate:ujksdfghfbhdcfsb 2 UDP 2130706174 2001:db8:abcd::3 2003 typ host
+--------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+new_call;
+
+offer('ICE SDP with ICE default', { ICE => 'default' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=ice-ufrag:asbsdfds
+a=ice-pwd:sfhwsrgyergws45ujhsrthsrhH
+a=candidate:sfthqw45hdfgdfsb 1 UDP 2130706431 198.51.100.3 2002 typ host
+a=candidate:ujksdfghfdfgdfsb 1 UDP 2130706175 2001:db8:abcd::3 2002 typ host
+a=candidate:sfthqw45hdfgdfsb 2 UDP 2130706430 198.51.100.3 2003 typ host
+a=candidate:ujksdfghfdfgdfsb 2 UDP 2130706174 2001:db8:abcd::3 2003 typ host
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+answer('ICE SDP with ICE default', { ICE => 'default' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
