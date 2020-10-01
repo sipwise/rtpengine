@@ -4,6 +4,7 @@
 #include "obj.h"
 #include "udp_listener.h"
 #include "socket.h"
+#include "str.h"
 
 
 struct poller;
@@ -40,6 +41,8 @@ struct control_ng {
 struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
 void control_ng_init(void);
 void control_ng_cleanup(void);
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
+		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1);
 
 extern mutex_t rtpe_cngs_lock;
 extern GHashTable *rtpe_cngs_hash;

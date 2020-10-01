@@ -101,7 +101,7 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 	}
 }
 
-struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const sockaddr_t *addr) {
+struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 	struct control_ng_stats* cur;
 
 	mutex_lock(&rtpe_cngs_lock);
@@ -116,25 +116,23 @@ struct control_ng_stats* get_control_ng_stats(struct control_ng* c, const sockad
 	return cur;
 }
 
-static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
-		socket_t *ul)
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
+		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1)
 {
-	struct control_ng *c = (void *) obj;
 	bencode_buffer_t bencbuf;
 	bencode_item_t *dict, *resp;
 	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
 	const char *errstr, *resultstr;
-	struct iovec iov[3];
-	unsigned int iovlen;
 	GString *log_str;
 	struct timeval cmd_start, cmd_stop, cmd_process_time;
-	struct control_ng_stats* cur = get_control_ng_stats(c,&sin->address);
+	struct control_ng_stats* cur = get_control_ng_stats(&sin->address);
+	int funcret = -1;
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
 		ilog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: " STR_FORMAT_M,
 				addr, STR_FMT_M(buf));
-		return;
+		return funcret;
 	}
 
 	int ret = bencode_buffer_init(&bencbuf);
@@ -336,16 +334,8 @@ send_resp:
 	}
 
 send_only:
-	iovlen = 3;
-
-	iov[0].iov_base = cookie.s;
-	iov[0].iov_len = cookie.len;
-	iov[1].iov_base = " ";
-	iov[1].iov_len = 1;
-	iov[2].iov_base = to_send->s;
-	iov[2].iov_len = to_send->len;
-
-	socket_sendiov(ul, iov, iovlen, sin);
+	funcret = 0;
+	cb(&cookie, to_send, sin, p1);
 
 	if (resp)
 		cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
@@ -357,6 +347,32 @@ send_only:
 out:
 	bencode_buffer_free(&bencbuf);
 	log_info_clear();
+	return funcret;
+}
+
+
+static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, void *p1) {
+	socket_t *ul = p1;
+	struct iovec iov[3];
+	unsigned int iovlen;
+
+	iovlen = 3;
+
+	iov[0].iov_base = cookie->s;
+	iov[0].iov_len = cookie->len;
+	iov[1].iov_base = " ";
+	iov[1].iov_len = 1;
+	iov[2].iov_base = body->s;
+	iov[2].iov_len = body->len;
+
+	socket_sendiov(ul, iov, iovlen, sin);
+}
+
+
+static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
+		socket_t *ul)
+{
+	control_ng_process(buf, sin, addr, control_ng_send, ul);
 }
 
 
