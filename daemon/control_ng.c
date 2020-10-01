@@ -21,6 +21,7 @@
 mutex_t rtpe_cngs_lock;
 GHashTable *rtpe_cngs_hash;
 struct control_ng *rtpe_control_ng;
+static struct cookie_cache ng_cookie_cache;
 
 const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_MAX_SESSIONS] = "Parallel session limit reached",
@@ -151,7 +152,7 @@ static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin
 	if (data.len <= 0)
 		goto err_send;
 
-	to_send = cookie_cache_lookup(&c->cookie_cache, &cookie);
+	to_send = cookie_cache_lookup(&ng_cookie_cache, &cookie);
 	if (to_send) {
 		ilog(LOG_INFO, "Detected command from %s as a duplicate", addr);
 		resp = NULL;
@@ -347,7 +348,7 @@ send_only:
 	socket_sendiov(ul, iov, iovlen, sin);
 
 	if (resp)
-		cookie_cache_insert(&c->cookie_cache, &cookie, &reply);
+		cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
 	else
 		free(to_send);
 
@@ -376,7 +377,6 @@ void control_ng_free(void *p) {
 	poller_del_item(c->poller, c->udp_listeners[1].fd);
 	close_socket(&c->udp_listeners[0]);
 	close_socket(&c->udp_listeners[1]);
-	cookie_cache_cleanup(&c->cookie_cache);
 }
 
 
@@ -388,7 +388,6 @@ struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned cha
 
 	c = obj_alloc0("control_ng", sizeof(*c), control_ng_free);
 
-	cookie_cache_init(&c->cookie_cache);
 	c->udp_listeners[0].fd = -1;
 	c->udp_listeners[1].fd = -1;
 	c->poller = p;
@@ -415,4 +414,8 @@ fail2:
 void control_ng_init() {
 	mutex_init(&rtpe_cngs_lock);
 	rtpe_cngs_hash = g_hash_table_new(g_sockaddr_hash, g_sockaddr_eq);
+	cookie_cache_init(&ng_cookie_cache);
+}
+void control_ng_cleanup() {
+	cookie_cache_cleanup(&ng_cookie_cache);
 }

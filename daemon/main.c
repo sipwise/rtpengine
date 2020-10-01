@@ -1049,6 +1049,7 @@ int main(int argc, char **argv) {
 	interfaces_free();
 	ice_free();
 	dtls_cert_free();
+	control_ng_cleanup();
 
 	redis_close(rtpe_redis);
 	redis_close(rtpe_redis_write);
