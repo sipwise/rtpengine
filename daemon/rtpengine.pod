@@ -694,6 +694,33 @@ tags, etc are recorded to the log. Every RTCP packet is logged in this way,
 while every 512th RTP packet is logged. Only applies to packets
 forwarded/processed in userspace.
 
+=item B<--listen-http=>[I<IP>|I<HOSTNAME>B<:>]I<PORT>
+
+=item B<--listen-https=>[I<IP>|I<HOSTNAME>B<:>]I<PORT>
+
+Enable listening for HTTP or WebSocket connections, or their TLS-secured
+counterparts HTTPS and WSS. If no interface is specified, then the listening
+socket will be bound to all interfaces.
+
+The HTTP listener supports both HTTP and WS, while the HTTPS listener supports
+both HTTPS and WSS.
+
+If HTTPS/WSS is enabled, a certificate must also be provided using the options
+below.
+
+=item B<--https-cert=>I<FILE>
+
+=item B<--https-key=>I<FILE>
+
+Provide a server certificate and corresponding private key for the HTTPS/WSS
+listener, in PEM format.
+
+=item B<--http-threads=>I<INT>
+
+Number of worker threads for HTTP/HTTPS/WS/WSS. If not specified, then the same
+number as given under B<num-threads> will be used. If no HTTP listeners are
+enabled, then no threads are created.
+
 =back
 
 =head1 INTERFACES
