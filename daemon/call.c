@@ -1348,15 +1348,18 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			MEDIA_CLEAR(this, SETUP_PASSIVE);
 	}
 
-	if (!MEDIA_ARESET2(this, DTLS, SDES) && flags->opmode == OP_OFFER) {
-		/* we offer both DTLS and SDES by default */
-		/* unless this is overridden by flags */
-		if (!flags->dtls_off)
-			MEDIA_SET(this, DTLS);
-		if (!flags->sdes_off)
-			MEDIA_SET(this, SDES);
-		else
-			goto skip_sdes;
+	if (flags->opmode == OP_OFFER) {
+		// if neither is enabled yet...
+		if (!MEDIA_ISSET2(this, DTLS, SDES)) {
+			/* we offer both DTLS and SDES by default */
+			/* unless this is overridden by flags */
+			if (!flags->dtls_off)
+				MEDIA_SET(this, DTLS);
+			if (!flags->sdes_off)
+				MEDIA_SET(this, SDES);
+			else
+				goto skip_sdes;
+		}
 	}
 	else {
 		/* if both SDES and DTLS are supported, we may use the flags to select one
