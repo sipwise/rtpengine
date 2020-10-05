@@ -1045,8 +1045,95 @@ rcv($sock_a, $port_b, rtpm(96, 1004, 4200, $ssrc, "\xf0\x14\x41\x00\x30\x44\x41\
 
 
 
-done_testing;
-exit;
+# GH 1086
+
+new_call;
+
+offer('GH 1086', {
+		ICE => 'remove',
+		flags => [],
+		'transport-protocol' => 'RTP/SAVP',
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 101 8
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-1 FINGERPRINT
+SDP
+
+rtpe_req('delete', 'GH 1086', { 'from-tag' => ft() });
+
+offer('GH 1086', {
+		ICE => 'remove',
+		flags => [],
+		'transport-protocol' => 'RTP/SAVP',
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 101 8
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:8 PCMA/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-1 FINGERPRINT
+SDP
+
+
 
 
 # stray answer protocol changes
