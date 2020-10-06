@@ -100,6 +100,12 @@ struct transcode_packet {
 	int (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
 	struct rtp_header rtp;
 };
+struct supp_codec_tracker {
+	GHashTable *clockrates; // 8000, 16000, etc, for each real audio codec that is present
+	GHashTable *touched; // 8000, 16000, etc, for each audio codec that was touched (added, removed, etc)
+	int all_touched;
+	GHashTable *supp_codecs; // telephone-event etc => hash table of clock rates
+};
 
 
 static codec_handler_func handler_func_passthrough_ssrc;
@@ -624,7 +630,7 @@ static void __symmetric_codecs(struct call_media *receiver, struct call_media *s
 			// add it to the list
 			ilog(LOG_DEBUG, "Adding symmetric RTP payload type %i", pt->payload_type);
 			g_hash_table_steal(prefs_recv, GINT_TO_POINTER(pt->payload_type));
-			__rtp_payload_type_add_recv(receiver, out_pt, 1);
+			__rtp_payload_type_add_recv(receiver, out_pt, 1, NULL);
 			// and our send leg
 			out_pt = g_hash_table_lookup(prefs_send, GINT_TO_POINTER(pt->payload_type));
 			if (out_pt) {
@@ -649,7 +655,7 @@ static void __symmetric_codecs(struct call_media *receiver, struct call_media *s
 			if (!out_pt)
 				continue;
 			g_hash_table_steal(prefs_recv, ptype);
-			__rtp_payload_type_add_recv(receiver, out_pt, 1);
+			__rtp_payload_type_add_recv(receiver, out_pt, 1, NULL);
 		}
 		while (prefs_send_order.length) {
 			void *ptype = g_queue_pop_head(&prefs_send_order);
@@ -2155,36 +2161,6 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 	return pt;
 }
 
-// handle special meaning "clock rate == 1": add one instance of this PT for each clock rate
-// that is already present
-static int __codec_synth_transcode_options(struct rtp_payload_type *pt, struct sdp_ng_flags *flags,
-		struct call_media *media)
-{
-	if (pt->clock_rate != 1)
-		return 0;
-
-	GHashTable *clockrates = g_hash_table_new(g_direct_hash, g_direct_equal);
-
-	// special handling - add one instance for each clock rate that is present
-	for (GList *k = media->codecs_prefs_recv.head; k; k = k->next) {
-		struct rtp_payload_type *pt_r = k->data;
-		if (g_hash_table_lookup(clockrates, GUINT_TO_POINTER(pt_r->clock_rate)))
-			continue;
-		char *pt_s = g_strdup_printf(STR_FORMAT "/%u", STR_FMT(&pt->encoding), pt_r->clock_rate);
-		g_hash_table_insert(clockrates, GUINT_TO_POINTER(pt_r->clock_rate), (void *) 1);
-		str pt_str;
-		str_init(&pt_str, pt_s);
-		ilog(LOG_DEBUG, "Synthesised transcoding option for '%s'", pt_s);
-		g_queue_push_tail(&flags->codec_transcode, str_dup(&pt_str));
-		g_free(pt_s);
-	}
-
-	payload_type_free(pt);
-	g_hash_table_destroy(clockrates);
-
-	return 1;
-}
-
 
 #endif
 
@@ -2212,17 +2188,21 @@ static void __rtp_payload_type_add_name(GHashTable *ht, struct rtp_payload_type 
 	q = g_hash_table_lookup_queue_new(ht, &pt->encoding_with_params);
 	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
 }
-static void __queue_insert_supp(GQueue *q, struct rtp_payload_type *pt, int supp_check) {
+static void __queue_insert_supp(GQueue *q, struct rtp_payload_type *pt, int supp_check,
+		struct supp_codec_tracker *sct)
+{
+	int is_supp = pt->codec_def && pt->codec_def->supplemental;
+
 	// do we care at all?
 	if (!supp_check) {
 		g_queue_push_tail(q, pt);
-		return;
+		goto do_sct;
 	}
 
 	// all new supp codecs go last
-	if (pt->codec_def && pt->codec_def->supplemental) {
+	if (is_supp) {
 		g_queue_push_tail(q, pt);
-		return;
+		goto do_sct;
 	}
 
 	// find the cut-off point between non-supp and supp codecs
@@ -2235,15 +2215,31 @@ static void __queue_insert_supp(GQueue *q, struct rtp_payload_type *pt, int supp
 		}
 	}
 	// do we have any non-supp codecs?
-	if (!insert_pos) {
+	if (!insert_pos)
 		g_queue_push_head(q, pt);
+	else
+		g_queue_insert_after(q, insert_pos, pt);
+
+do_sct:
+	if (!sct)
 		return;
+	if (!is_supp)
+		g_hash_table_replace(sct->clockrates, GUINT_TO_POINTER(pt->clock_rate), (void *) 0x1);
+	else {
+		GHashTable *clockrates = g_hash_table_lookup(sct->supp_codecs, &pt->encoding);
+		if (!clockrates) {
+			clockrates = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+					(GDestroyNotify) g_queue_free);
+			g_hash_table_replace(sct->supp_codecs, &pt->encoding, clockrates);
+		}
+		GQueue *entries = g_hash_table_lookup_queue_new(clockrates, GUINT_TO_POINTER(pt->clock_rate));
+		// new supp entries are always last
+		g_queue_push_tail(entries, q->tail);
 	}
-	g_queue_insert_after(q, insert_pos, pt);
 }
 // consumes 'pt'
 void __rtp_payload_type_add_recv(struct call_media *media,
-		struct rtp_payload_type *pt, int supp_check)
+		struct rtp_payload_type *pt, int supp_check, struct supp_codec_tracker *sct)
 {
 	if (!pt)
 		return;
@@ -2257,7 +2253,7 @@ void __rtp_payload_type_add_recv(struct call_media *media,
 		pt->ptime = media->ptime;
 	g_hash_table_insert(media->codecs_recv, &pt->payload_type, pt);
 	__rtp_payload_type_add_name(media->codec_names_recv, pt);
-	__queue_insert_supp(&media->codecs_prefs_recv, pt, supp_check);
+	__queue_insert_supp(&media->codecs_prefs_recv, pt, supp_check, sct);
 }
 // consumes 'pt'
 void __rtp_payload_type_add_send(struct call_media *other_media,
@@ -2287,10 +2283,10 @@ void __rtp_payload_type_add_send_dup(struct call_media *other_media,
 }
 // consumes 'pt'
 static void __rtp_payload_type_add(struct call_media *media, struct call_media *other_media,
-		struct rtp_payload_type *pt)
+		struct rtp_payload_type *pt, struct supp_codec_tracker *sct)
 {
 	__rtp_payload_type_add_send_dup(other_media, pt);
-	__rtp_payload_type_add_recv(media, pt, 0);
+	__rtp_payload_type_add_recv(media, pt, 0, sct);
 }
 
 static void __payload_queue_free(void *qq) {
@@ -2298,7 +2294,7 @@ static void __payload_queue_free(void *qq) {
 	g_queue_free_full(q, (GDestroyNotify) payload_type_free);
 }
 static int __revert_codec_strip(GHashTable *removed, const str *codec,
-		struct call_media *media, struct call_media *other_media)
+		struct call_media *media, struct call_media *other_media, struct supp_codec_tracker *sct)
 {
 	GQueue *q = g_hash_table_lookup(removed, codec);
 	if (!q)
@@ -2308,7 +2304,7 @@ static int __revert_codec_strip(GHashTable *removed, const str *codec,
 	g_hash_table_steal(removed, codec);
 	for (GList *l = q->head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		__rtp_payload_type_add(media, other_media, pt);
+		__rtp_payload_type_add(media, other_media, pt, sct);
 	}
 	g_queue_free(q);
 	return 1;
@@ -2342,6 +2338,103 @@ static void __codec_options_set(struct call *call, struct rtp_payload_type *pt, 
 		return;
 	if (__codec_options_set1(call, pt, &pt->encoding, codec_set))
 		return;
+}
+static void supp_codec_tracker_init(struct supp_codec_tracker *sct) {
+	ZERO(*sct);
+	sct->clockrates = g_hash_table_new(g_direct_hash, g_direct_equal);
+	sct->touched = g_hash_table_new(g_direct_hash, g_direct_equal);
+	sct->supp_codecs = g_hash_table_new_full(str_case_hash, str_case_equal, NULL,
+			(GDestroyNotify) g_hash_table_destroy);
+}
+static void supp_codec_tracker_destroy(struct supp_codec_tracker *sct) {
+	g_hash_table_destroy(sct->clockrates);
+	g_hash_table_destroy(sct->touched);
+	g_hash_table_destroy(sct->supp_codecs);
+}
+static void codec_touched(struct rtp_payload_type *pt, struct supp_codec_tracker *sct, struct call_media *media) {
+	ensure_codec_def(pt, media);
+	if (pt->codec_def && pt->codec_def->supplemental) {
+		sct->all_touched = 1;
+		return;
+	}
+	g_hash_table_replace(sct->touched, GUINT_TO_POINTER(pt->clock_rate), (void *) 0x1);
+}
+static int ptr_cmp(const void *a, const void *b) {
+	if (a < b)
+		return -1;
+	if (a > b)
+		return 1;
+	return 0;
+}
+static void supp_codecs_fixup(struct supp_codec_tracker *sct, struct call_media *media) {
+	// get all supported audio cloc krates
+	GList *clockrates = g_hash_table_get_keys(sct->clockrates);
+	// and to ensure consistent results
+	clockrates = g_list_sort(clockrates, ptr_cmp);
+
+	// for each supplemental codec supported ...
+	GList *supp_codecs = g_hash_table_get_keys(sct->supp_codecs);
+
+	for (GList *l = supp_codecs; l; l = l->next) {
+		// ... compare the list of clock rates against the clock rates supported by the audio codecs
+		str *supp_codec = l->data;
+		GHashTable *supp_clockrates = g_hash_table_lookup(sct->supp_codecs, supp_codec);
+
+		// iterate audio clock rates and check against supp clockrates
+		for (GList *k = clockrates; k; k = k->next) {
+			unsigned int clockrate = GPOINTER_TO_UINT(k->data);
+
+			// is this already supported?
+			if (g_hash_table_lookup(supp_clockrates, GUINT_TO_POINTER(clockrate))) {
+				// good, remember this
+				g_hash_table_remove(supp_clockrates, GUINT_TO_POINTER(clockrate));
+				continue;
+			}
+
+			// ignore if we haven't touched anything with that clock rate
+			if (!sct->all_touched && !g_hash_table_lookup(sct->touched, GUINT_TO_POINTER(clockrate)))
+				continue;
+
+			ilog(LOG_DEBUG, "Adding supplemental codec " STR_FORMAT " for clock rate %u", STR_FMT(supp_codec), clockrate);
+
+			char *pt_s = g_strdup_printf(STR_FORMAT "/%u", STR_FMT(supp_codec), clockrate);
+			str pt_str;
+			str_init(&pt_str, pt_s);
+
+			struct rtp_payload_type *pt = codec_add_payload_type(&pt_str, media);
+			if (!pt)
+				continue;
+			pt->for_transcoding = 1;
+
+			__rtp_payload_type_add_recv(media, pt, 1, NULL);
+
+			g_free(pt_s);
+		}
+
+		// finally check which clock rates are left over and remove those
+		GList *to_remove = g_hash_table_get_keys(supp_clockrates);
+		for (GList *k = to_remove; k; k = k->next) {
+			unsigned int clockrate = GPOINTER_TO_UINT(k->data);
+
+			// ignore if we haven't touched anything with that clock rate
+			if (!sct->all_touched && !g_hash_table_lookup(sct->touched, GUINT_TO_POINTER(clockrate)))
+				continue;
+
+			GQueue *entries = g_hash_table_lookup(supp_clockrates, GUINT_TO_POINTER(clockrate));
+			for (GList *j = entries->head; j; j = j->next) {
+				GList *link = j->data;
+				struct rtp_payload_type *pt = link->data;
+
+				ilog(LOG_DEBUG, "Eliminating supplemental codec " STR_FORMAT " with stray clock rate %u",
+						STR_FMT(&pt->encoding), clockrate);
+
+				__delete_receiver_codec(media, link);
+			}
+		}
+	}
+
+	g_list_free(supp_codecs);
+	g_list_free(clockrates);
 }
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
 		GQueue *types, struct sdp_ng_flags *flags)
@@ -2380,6 +2473,9 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	if (flags->codec_mask && g_hash_table_lookup(flags->codec_mask, &str_all))
 		mask_all = 1;
 
+	struct supp_codec_tracker sct;
+	supp_codec_tracker_init(&sct);
+
 	/* we steal the entire list to avoid duplicate allocs */
 	while ((pt = g_queue_pop_head(types))) {
 		__rtp_payload_type_dup(call, pt); // this takes care of string allocation
@@ -2391,6 +2487,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 			{
 				ilog(LOG_DEBUG, "Stripping codec '" STR_FORMAT "'",
 						STR_FMT(&pt->encoding_with_params));
+				codec_touched(pt, &sct, media);
 				GQueue *q = g_hash_table_lookup_queue_new(removed, &pt->encoding);
 				g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 				q = g_hash_table_lookup_queue_new(removed, &pt->encoding_with_params);
@@ -2401,15 +2498,17 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		__codec_options_set(call, pt, flags->codec_set);
 		if (!mask_all && (!flags->codec_mask || !g_hash_table_lookup(flags->codec_mask, &pt->encoding))
 				&& (!flags->codec_mask || !g_hash_table_lookup(flags->codec_mask, &pt->encoding_with_params)))
-			__rtp_payload_type_add(media, other_media, pt);
-		else
+			__rtp_payload_type_add(media, other_media, pt, &sct);
+		else {
+			codec_touched(pt, &sct, other_media);
 			__rtp_payload_type_add_send(other_media, pt);
+		}
 	}
 
 	// now restore codecs that have been removed, but should be offered
 	for (GList *l = flags->codec_offer.head; l; l = l->next) {
 		str *codec = l->data;
-		__revert_codec_strip(removed, codec, media, other_media);
+		__revert_codec_strip(removed, codec, media, other_media, &sct);
 	}
 
 	if (!flags->asymmetric_codecs) {
@@ -2435,7 +2534,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		// and removed by a strip=all option,
 		// simply restore it from the original list and handle it the same way
 		// as 'offer'
-		if (strip_all && __revert_codec_strip(removed, codec, media, other_media))
+		if (strip_all && __revert_codec_strip(removed, codec, media, other_media, &sct))
 			continue;
 		// also check if maybe the codec was never stripped
 		if (g_hash_table_lookup(media->codec_names_recv, codec)) {
@@ -2449,13 +2548,11 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		if (!pt)
 			continue;
 		pt->for_transcoding = 1;
-
-		if (__codec_synth_transcode_options(pt, flags, media))
-			continue;
+		codec_touched(pt, &sct, media);
 
 		ilog(LOG_DEBUG, "Codec '" STR_FORMAT "' added for transcoding with payload type %u",
 				STR_FMT(&pt->encoding_with_params), pt->payload_type);
-		__rtp_payload_type_add_recv(media, pt, 1);
+		__rtp_payload_type_add_recv(media, pt, 1, &sct);
 	}
 
 	if (media->type_id == MT_AUDIO && other_media->type_id == MT_IMAGE) {
@@ -2471,7 +2568,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				if (media->t38_gateway && media->t38_gateway->pcm_player
 						&& media->t38_gateway->pcm_player->handler)
 					__rtp_payload_type_add_recv(media,
-							__rtp_payload_type_copy(&media->t38_gateway->pcm_player->handler->dest_pt), 1);
+							__rtp_payload_type_copy(&media->t38_gateway->pcm_player->handler->dest_pt), 1, &sct);
 			}
 			else if (flags->opmode == OP_OFFER) {
 				// T.38 -> audio transcoder, initial offer, and no codecs have been given.
@@ -2481,10 +2578,10 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				static const str PCMA_str = STR_CONST_INIT("PCMA");
 				pt = codec_add_payload_type(&PCMU_str, media);
 				assert(pt != NULL);
-				__rtp_payload_type_add_recv(media, pt, 1);
+				__rtp_payload_type_add_recv(media, pt, 1, &sct);
 				pt = codec_add_payload_type(&PCMA_str, media);
 				assert(pt != NULL);
-				__rtp_payload_type_add_recv(media, pt, 1);
+				__rtp_payload_type_add_recv(media, pt, 1, &sct);
 
 				ilog(LOG_DEBUG, "Using default codecs PCMU and PCMA for T.38 gateway");
 			}
@@ -2509,5 +2606,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	}
 #endif
 
+	supp_codecs_fixup(&sct, media);
+
 	g_hash_table_destroy(removed);
+	supp_codec_tracker_destroy(&sct);
 }

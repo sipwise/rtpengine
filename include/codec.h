@@ -19,6 +19,7 @@ struct sdp_ng_flags;
 struct codec_ssrc_handler;
 struct rtp_header;
 struct stream_params;
+struct supp_codec_tracker;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -78,7 +79,8 @@ void codec_init_payload_type(struct rtp_payload_type *, struct call_media *);
 
 
 // used by redis
-void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_type *pt, int supp_check);
+void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_type *pt, int supp_check,
+		struct supp_codec_tracker *sct);
 void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payload_type *pt);
 
 
