@@ -390,7 +390,7 @@ static codec_def_t __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.supplemental = 1,
 		.dtmf = 1,
-		.default_clockrate = 1, // special handling
+		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_fmtp = "0-15",
 		.codec_type = &codec_type_dtmf,
@@ -423,6 +423,9 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 	},
 };
+
+static GQueue __supplemental_codecs = G_QUEUE_INIT;
+const GQueue * const codec_supplemental_codecs = &__supplemental_codecs;
 
 
 
@@ -835,6 +838,9 @@ void codeclib_init(int print) {
 				ilog(LOG_DEBUG, "Codec %s is only supported for encoding "
 						"by codec library", def->rtpname);
 		}
+
+		if (def->supplemental)
+			g_queue_push_tail(&__supplemental_codecs, def);
 	}
 }
 

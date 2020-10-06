@@ -7313,11 +7313,107 @@ a=rtpmap:8 PCMA/8000
 a=rtpmap:97 speex/16000
 a=rtpmap:9 G722/8000
 a=rtpmap:98 telephone-event/8000
-a=rtpmap:99 telephone-event/48000
-a=rtpmap:100 telephone-event/16000
+a=rtpmap:99 telephone-event/16000
+a=rtpmap:100 telephone-event/48000
 a=fmtp:98 0-15
 a=fmtp:99 0-15
 a=fmtp:100 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('DTMF PT already present, add one codec',
+	{ ICE => 'remove', replace => ['origin'],
+	codec => { transcode => ['opus'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 8 97
+c=IN IP4 198.51.100.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96 97 98
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=rtpmap:97 telephone-event/8000
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('DTMF PT already present, strip one codec',
+	{ ICE => 'remove', replace => ['origin'],
+	codec => { strip => ['PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 8 96 97 98
+c=IN IP4 198.51.100.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=rtpmap:97 telephone-event/8000
+a=rtpmap:98 telephone-event/48000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 98
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=rtpmap:98 telephone-event/48000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('DTMF PT already present, add one codec, mask another',
+	{ ICE => 'remove', replace => ['origin'],
+	codec => { transcode => ['opus'], mask => ['PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 8 97
+c=IN IP4 198.51.100.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 98
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-15
 a=sendrecv
 a=rtcp:PORT
 SDP

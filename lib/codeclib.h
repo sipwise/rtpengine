@@ -209,6 +209,8 @@ struct packet_sequencer_s {
 };
 
 
+extern const GQueue * const codec_supplemental_codecs;
+
 
 void codeclib_init(int);
 void codeclib_free(void);
