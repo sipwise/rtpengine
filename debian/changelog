@@ -1,3 +1,10 @@
+ngcp-rtpengine (7.5.5.2+0~mr7.5.5.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a991fdb] TT#96200 fix SRTP multi-protocol re-offer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 06 Oct 2020 15:34:32 +0200
+
 ngcp-rtpengine (7.5.5.1+0~mr7.5.5.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
