@@ -77,7 +77,7 @@ void codec_init_payload_type(struct rtp_payload_type *, struct call_media *);
 
 
 // used by redis
-void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_type *pt);
+void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_type *pt, int supp_check);
 void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payload_type *pt);
 
 
