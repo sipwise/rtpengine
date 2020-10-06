@@ -995,7 +995,7 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw) {
 		rwlock_lock_w(&rtpe_config.config_lock);
 		if (!g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db))) {
 			g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
-			redis_notify_subscribe_action(SUBSCRIBE_KEYSPACE, uint_keyspace_db);
+			redis_notify_subscribe_action(rtpe_redis_notify, SUBSCRIBE_KEYSPACE, uint_keyspace_db);
 			cw->cw_printf(cw, "Success adding keyspace %lu to redis notifications.\n", uint_keyspace_db);
 		} else {
 			cw->cw_printf(cw, "Keyspace %lu is already among redis notifications.\n", uint_keyspace_db);
@@ -1024,7 +1024,7 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw) {
                 cw->cw_printf(cw, "Fail removing keyspace %s to redis notifications; no digists found\n", instr->s);
 	} else if ((l = g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db)))) {
 		// remove this keyspace
-		redis_notify_subscribe_action(UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
+		redis_notify_subscribe_action(rtpe_redis_notify, UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
 		g_queue_remove(&rtpe_config.redis_subscribed_keyspaces, l->data);
 		cw->cw_printf(cw, "Successfully unsubscribed from keyspace %lu.\n", uint_keyspace_db);
 

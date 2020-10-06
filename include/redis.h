@@ -61,6 +61,12 @@ struct redis {
 	int		no_redis_required;
 	int		consecutive_errors;
 	time_t	restore_tick;
+
+	struct event_base        *async_ev;
+	struct redisAsyncContext *async_ctx;
+	mutex_t                   async_lock;
+	GQueue                    async_queue;
+	int                       async_last;
 };
 
 struct redis_hash {
@@ -77,9 +83,6 @@ struct redis_list {
 extern struct redis		*rtpe_redis;
 extern struct redis		*rtpe_redis_write;
 extern struct redis		*rtpe_redis_notify;
-
-extern struct event_base	*rtpe_redis_notify_event_base;
-extern struct redisAsyncContext *rtpe_redis_notify_async_context;
 
 
 
@@ -99,6 +102,7 @@ INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v)
 #define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
 
 void redis_notify_loop(void *d);
+void redis_delete_async_loop(void *d);
 
 
 struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, int);
@@ -108,8 +112,8 @@ void redis_update(struct call *, struct redis *);
 void redis_update_onekey(struct call *c, struct redis *r);
 void redis_delete(struct call *, struct redis *);
 void redis_wipe(struct redis *);
-int redis_notify_event_base_action(enum event_base_action);
-int redis_notify_subscribe_action(enum subscribe_action action, int keyspace);
+int redis_async_event_base_action(struct redis *r, enum event_base_action);
+int redis_notify_subscribe_action(struct redis *r, enum subscribe_action action, int keyspace);
 int redis_set_timeout(struct redis* r, int timeout);
 int redis_reconnect(struct redis* r);
 
