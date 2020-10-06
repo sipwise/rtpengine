@@ -624,7 +624,7 @@ static void __symmetric_codecs(struct call_media *receiver, struct call_media *s
 			// add it to the list
 			ilog(LOG_DEBUG, "Adding symmetric RTP payload type %i", pt->payload_type);
 			g_hash_table_steal(prefs_recv, GINT_TO_POINTER(pt->payload_type));
-			__rtp_payload_type_add_recv(receiver, out_pt);
+			__rtp_payload_type_add_recv(receiver, out_pt, 1);
 			// and our send leg
 			out_pt = g_hash_table_lookup(prefs_send, GINT_TO_POINTER(pt->payload_type));
 			if (out_pt) {
@@ -649,7 +649,7 @@ static void __symmetric_codecs(struct call_media *receiver, struct call_media *s
 			if (!out_pt)
 				continue;
 			g_hash_table_steal(prefs_recv, ptype);
-			__rtp_payload_type_add_recv(receiver, out_pt);
+			__rtp_payload_type_add_recv(receiver, out_pt, 1);
 		}
 		while (prefs_send_order.length) {
 			void *ptype = g_queue_pop_head(&prefs_send_order);
@@ -2212,12 +2212,42 @@ static void __rtp_payload_type_add_name(GHashTable *ht, struct rtp_payload_type 
 	q = g_hash_table_lookup_queue_new(ht, &pt->encoding_with_params);
 	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
 }
+static void __queue_insert_supp(GQueue *q, struct rtp_payload_type *pt, int supp_check) {
+	// do we care at all?
+	if (!supp_check) {
+		g_queue_push_tail(q, pt);
+		return;
+	}
+
+	// all new supp codecs go last
+	if (pt->codec_def && pt->codec_def->supplemental) {
+		g_queue_push_tail(q, pt);
+		return;
+	}
+
+	// find the cut-off point between non-supp and supp codecs
+	GList *insert_pos = NULL; // last non-supp codec
+	for (GList *l = q->tail; l; l = l->prev) {
+		struct rtp_payload_type *ptt = l->data;
+		if (!ptt->codec_def || !ptt->codec_def->supplemental) {
+			insert_pos = l;
+			break;
+		}
+	}
+	// do we have any non-supp codecs?
+	if (!insert_pos) {
+		g_queue_push_head(q, pt);
+		return;
+	}
+	g_queue_insert_after(q, insert_pos, pt);
+}
 // consumes 'pt'
 void __rtp_payload_type_add_recv(struct call_media *media,
-		struct rtp_payload_type *pt)
+		struct rtp_payload_type *pt, int supp_check)
 {
 	if (!pt)
 		return;
+	ensure_codec_def(pt, media);
 	if (proto_is_not_rtp(media->protocol)) {
 		payload_type_free(pt);
 		return;
@@ -2227,7 +2257,7 @@ void __rtp_payload_type_add_recv(struct call_media *media,
 		pt->ptime = media->ptime;
 	g_hash_table_insert(media->codecs_recv, &pt->payload_type, pt);
 	__rtp_payload_type_add_name(media->codec_names_recv, pt);
-	g_queue_push_tail(&media->codecs_prefs_recv, pt);
+	__queue_insert_supp(&media->codecs_prefs_recv, pt, supp_check);
 }
 // consumes 'pt'
 void __rtp_payload_type_add_send(struct call_media *other_media,
@@ -2260,7 +2290,7 @@ static void __rtp_payload_type_add(struct call_media *media, struct call_media *
 		struct rtp_payload_type *pt)
 {
 	__rtp_payload_type_add_send_dup(other_media, pt);
-	__rtp_payload_type_add_recv(media, pt);
+	__rtp_payload_type_add_recv(media, pt, 0);
 }
 
 static void __payload_queue_free(void *qq) {
@@ -2425,7 +2455,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 
 		ilog(LOG_DEBUG, "Codec '" STR_FORMAT "' added for transcoding with payload type %u",
 				STR_FMT(&pt->encoding_with_params), pt->payload_type);
-		__rtp_payload_type_add_recv(media, pt);
+		__rtp_payload_type_add_recv(media, pt, 1);
 	}
 
 	if (media->type_id == MT_AUDIO && other_media->type_id == MT_IMAGE) {
@@ -2441,7 +2471,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				if (media->t38_gateway && media->t38_gateway->pcm_player
 						&& media->t38_gateway->pcm_player->handler)
 					__rtp_payload_type_add_recv(media,
-							__rtp_payload_type_copy(&media->t38_gateway->pcm_player->handler->dest_pt));
+							__rtp_payload_type_copy(&media->t38_gateway->pcm_player->handler->dest_pt), 1);
 			}
 			else if (flags->opmode == OP_OFFER) {
 				// T.38 -> audio transcoder, initial offer, and no codecs have been given.
@@ -2451,10 +2481,10 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				static const str PCMA_str = STR_CONST_INIT("PCMA");
 				pt = codec_add_payload_type(&PCMU_str, media);
 				assert(pt != NULL);
-				__rtp_payload_type_add_recv(media, pt);
+				__rtp_payload_type_add_recv(media, pt, 1);
 				pt = codec_add_payload_type(&PCMA_str, media);
 				assert(pt != NULL);
-				__rtp_payload_type_add_recv(media, pt);
+				__rtp_payload_type_add_recv(media, pt, 1);
 
 				ilog(LOG_DEBUG, "Using default codecs PCMU and PCMA for T.38 gateway");
 			}

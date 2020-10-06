@@ -1045,6 +1045,41 @@ rcv($sock_a, $port_b, rtpm(96, 1004, 4200, $ssrc, "\xf0\x14\x41\x00\x30\x44\x41\
 
 
 
+new_call;
+
+offer('add transcode w supp codec', {
+		ICE => 'remove',
+		flags => [],
+		codec => {transcode => ['PCMA']},
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 101
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0 8 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+
 # GH 1086
 
 new_call;
@@ -1396,11 +1431,11 @@ o=dev 623840 205550 IN IP4 8.8.8.61
 s=SIP Media Capabilities
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 101 0 9
+m=audio PORT RTP/AVP 0 9 101
 a=maxptime:20
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:0 PCMU/8000
 a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
 a=sendrecv
 a=rtcp:PORT
@@ -1462,11 +1497,11 @@ o=dev 623840 205550 IN IP4 8.8.8.61
 s=SIP Media Capabilities
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 101 0 9
+m=audio PORT RTP/AVP 0 9 101
 a=maxptime:20
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:0 PCMU/8000
 a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
 a=sendrecv
 a=rtcp:PORT
@@ -3235,12 +3270,12 @@ o=- 1822058533 1822058533 IN IP4 1.2.3.4
 s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 8 107 101 9
+m=audio PORT RTP/AVP 8 107 9 101
 a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
@@ -3310,12 +3345,12 @@ o=- 1822058533 1822058533 IN IP4 1.2.3.4
 s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 8 107 101 9
+m=audio PORT RTP/AVP 8 107 9 101
 a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
@@ -3384,12 +3419,12 @@ o=- 1822058533 1822058533 IN IP4 1.2.3.4
 s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 8 107 101 9
+m=audio PORT RTP/AVP 8 107 9 101
 a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
@@ -3459,12 +3494,12 @@ o=- 1822058533 1822058533 IN IP4 1.2.3.4
 s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 8 107 101 9
+m=audio PORT RTP/AVP 8 107 9 101
 a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
@@ -3535,12 +3570,12 @@ o=- 1822058533 1822058533 IN IP4 1.2.3.4
 s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 8 107 101 9
+m=audio PORT RTP/AVP 8 107 9 101
 a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
@@ -3605,12 +3640,12 @@ o=- 1822058533 1822058533 IN IP4 1.2.3.4
 s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 8 107 101 9
+m=audio PORT RTP/AVP 8 107 9 101
 a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
@@ -4790,11 +4825,11 @@ v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 0 96 8
+m=audio PORT RTP/AVP 0 8 96
 c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
-a=rtpmap:96 telephone-event/8000
 a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -8635,11 +8670,11 @@ v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 100 101 8 96
+m=audio PORT RTP/AVP 100 8 101 96
 c=IN IP4 203.0.113.1
 a=rtpmap:100 PCMU/16000
-a=rtpmap:101 telephone-event/16000
 a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/16000
 a=rtpmap:96 telephone-event/8000
 a=fmtp:101 0-15
 a=fmtp:96 0-15

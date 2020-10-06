@@ -888,14 +888,14 @@ int main(void) {
 	offer();
 	expect(A, recv, "");
 	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, recv, "8/PCMA/8000 101/telephone-event/8000 0/PCMU/8000");
+	expect(B, recv, "8/PCMA/8000 0/PCMU/8000 101/telephone-event/8000");
 	expect(B, send, "");
 	sdp_pt(0, PCMU, 8000);
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, recv, "8/PCMA/8000 101/telephone-event/8000");
 	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, recv, "101/telephone-event/8000 0/PCMU/8000");
+	expect(B, recv, "0/PCMU/8000 101/telephone-event/8000");
 	expect(B, send, "0/PCMU/8000 101/telephone-event/8000");
 	packet_seq(A, 8, PCMA_payload, 1000000, 200, 0, PCMU_payload);
 	// start with marker
@@ -1061,14 +1061,14 @@ int main(void) {
 	offer();
 	expect(A, recv, "");
 	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, recv, "8/PCMA/8000 101/telephone-event/8000 0/PCMU/8000");
+	expect(B, recv, "8/PCMA/8000 0/PCMU/8000 101/telephone-event/8000");
 	expect(B, send, "");
 	sdp_pt(0, PCMU, 8000);
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, recv, "8/PCMA/8000 101/telephone-event/8000");
 	expect(A, send, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, recv, "101/telephone-event/8000 0/PCMU/8000");
+	expect(B, recv, "0/PCMU/8000 101/telephone-event/8000");
 	expect(B, send, "0/PCMU/8000 101/telephone-event/8000");
 	packet_seq(A, 8, PCMA_payload, 1000000, 200, 0, PCMU_payload);
 	// start with marker
