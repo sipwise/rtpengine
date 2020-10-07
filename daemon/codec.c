@@ -2572,6 +2572,25 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		}
 	}
 
+	if (flags->opmode == OP_ANSWER && flags->single_codec) {
+		int have_codec = 0;
+		for (GList *l = media->codecs_prefs_recv.head; l;) {
+			struct rtp_payload_type *pt = l->data;
+			ensure_codec_def(pt, media);
+			if (pt->codec_def && pt->codec_def->supplemental) {
+				// leave these alone
+				l = l->next;
+				continue;
+			}
+			if (!have_codec) {
+				have_codec = 1;
+				l = l->next;
+				continue;
+			}
+			l = __delete_receiver_codec(media, l);
+		}
+	}
+
 #ifdef WITH_TRANSCODING
 	// add transcode codecs
 	for (GList *l = flags->codec_transcode.head; l; l = l->next) {

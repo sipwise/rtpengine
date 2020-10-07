@@ -774,6 +774,12 @@ Optionally included keys are:
 		PCMA. With this flag however, *rtpengine* honours the single accepted codec from the
 		answer and so is able to eliminate PCMA from its own answer as it's not needed.
 
+	- `single codec`
+
+		Using this flag in an `answer` message will leave only the first listed codec in place
+		and will remove all others from the list. Useful for RTP clients which get confused if
+		more than one codec is listed in an answer.
+
 	- `all`
 
 		Only relevant to the `unblock media` message. Instructs *rtpengine* to remove not only a
