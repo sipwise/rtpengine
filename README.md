@@ -1076,7 +1076,6 @@ Optionally included keys are:
 * `codec`
 
 	Contains a dictionary controlling various aspects of codecs (or RTP payload types).
-	These options are only processed in `offer` messages and ignored otherwise.
 
 	These options can also be put into the `flags` list using a prefix of `codec-`. For example,
 	to set the codec options for two variants of Opus when they're implicitly accepted, (see
@@ -1170,6 +1169,8 @@ Optionally included keys are:
 		be inserted into the offer. (This special exception does not apply to `mask=full`
 		or `strip=full`.)
 
+		This option is only processed in `offer` messages and ignored otherwise.
+
 	* `mask`
 
 		Similar to `strip` except that codecs listed here will still be accepted and
@@ -1184,6 +1185,8 @@ Optionally included keys are:
 
 		As with the `strip` option, the special keywords `all`  and `full` can be used
 		to mask all codecs that have been offered.
+
+		This option is only processed in `offer` messages and ignored otherwise.
 
 	* `set`
 
@@ -1201,6 +1204,8 @@ Optionally included keys are:
 		(clock rate, channels), and multiple options can be given for the same coded with
 		different parameters. For example, to specify different bitrates for Opus for both
 		mono and stereo output, one could use `set=[opus/48000/1/16000,opus/48000/2/32000]`.
+
+		This option is only processed in `offer` messages and ignored otherwise.
 
 * `ptime`
 

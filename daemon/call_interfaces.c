@@ -830,17 +830,17 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				return;
 			if (call_ng_flags_prefix(out, s, "OSRTP-", ng_osrtp_option, NULL))
 				return;
-			if (out->opmode == OP_OFFER) {
-				if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_str_ht,
-							&out->codec_strip))
-					return;
-				if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list,
-							&out->codec_offer))
-					return;
-				if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
-							&out->codec_except))
-					return;
+			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_str_ht,
+						&out->codec_strip))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list,
+						&out->codec_offer))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
+						&out->codec_except))
+				return;
 #ifdef WITH_TRANSCODING
+			if (out->opmode == OP_OFFER) {
 				if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list,
 							&out->codec_transcode))
 					return;
@@ -1003,14 +1003,16 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 					STR_FMT(&s));
 	}
 
-	if (opmode == OP_OFFER && (dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
+	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
 		call_ng_flags_list(out, dict, "strip", call_ng_flags_str_ht, &out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
 		call_ng_flags_list(out, dict, "except", call_ng_flags_str_ht, &out->codec_except);
 #ifdef WITH_TRANSCODING
-		call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
-		call_ng_flags_list(out, dict, "mask", call_ng_flags_str_ht, &out->codec_mask);
-		call_ng_flags_list(out, dict, "set", call_ng_flags_str_ht_split, &out->codec_set);
+		if (opmode == OP_OFFER) {
+			call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
+			call_ng_flags_list(out, dict, "mask", call_ng_flags_str_ht, &out->codec_mask);
+			call_ng_flags_list(out, dict, "set", call_ng_flags_str_ht_split, &out->codec_set);
+		}
 #endif
 	}
 }
