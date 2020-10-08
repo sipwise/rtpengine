@@ -482,7 +482,32 @@ static int __unused_pt_number(struct call_media *media, int num) {
 	return num;
 }
 
-static void __accept_transcode_codecs(struct call_media *receiver, struct call_media *sink) {
+static void __single_codec(struct call_media *media, const struct sdp_ng_flags *flags) {
+	if (flags->opmode != OP_ANSWER || !flags->single_codec)
+		return;
+	int have_codec = 0;
+	for (GList *l = media->codecs_prefs_recv.head; l;) {
+		struct rtp_payload_type *pt = l->data;
+		ensure_codec_def(pt, media);
+		if (pt->codec_def && pt->codec_def->supplemental) {
+			// leave these alone
+			l = l->next;
+			continue;
+		}
+		if (!have_codec) {
+			have_codec = 1;
+			l = l->next;
+			continue;
+		}
+		ilog(LOG_DEBUG, "Removing codec '" STR_FORMAT "' due to 'single codec' flag",
+				STR_FMT(&pt->encoding_with_params));
+		l = __delete_receiver_codec(media, l);
+	}
+}
+
+static void __accept_transcode_codecs(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags)
+{
 	// if the other side is transcoding, we need to accept codecs that were
 	// originally offered (recv->send) if we support them, even if the
 	// response (sink->send) doesn't include them
@@ -552,6 +577,8 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 			insert_pos = insert_pos->next;
 		}
 	}
+
+	__single_codec(receiver, flags);
 }
 
 static void __eliminate_rejected_codecs(struct call_media *receiver, struct call_media *sink,
@@ -950,7 +977,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	}
 
 	if (MEDIA_ISSET(sink, TRANSCODE))
-		__accept_transcode_codecs(receiver, sink);
+		__accept_transcode_codecs(receiver, sink, flags);
 	else
 		__eliminate_rejected_codecs(receiver, sink, flags);
 
@@ -2572,24 +2599,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		}
 	}
 
-	if (flags->opmode == OP_ANSWER && flags->single_codec) {
-		int have_codec = 0;
-		for (GList *l = media->codecs_prefs_recv.head; l;) {
-			struct rtp_payload_type *pt = l->data;
-			ensure_codec_def(pt, media);
-			if (pt->codec_def && pt->codec_def->supplemental) {
-				// leave these alone
-				l = l->next;
-				continue;
-			}
-			if (!have_codec) {
-				have_codec = 1;
-				l = l->next;
-				continue;
-			}
-			l = __delete_receiver_codec(media, l);
-		}
-	}
+	__single_codec(media, flags);
 
 #ifdef WITH_TRANSCODING
 	// add transcode codecs
