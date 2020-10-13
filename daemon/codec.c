@@ -1059,7 +1059,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				dest_pt = g_hash_table_lookup(sink->codecs_send, &dest_ptype);
 				if (!dest_pt)
 					continue;
-				// XXX match up format parameters
+				if (dest_pt->clock_rate != pt->clock_rate ||
+						dest_pt->channels != pt->channels) {
+					dest_pt = NULL;
+					continue;
+				}
 				break;
 			}
 
