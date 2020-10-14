@@ -2193,11 +2193,23 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	if (!call->dtls_cert || !MEDIA_ISSET(media, DTLS) || MEDIA_ISSET(media, PASSTHRU))
 		return;
 
-	hf = call->dtls_cert->fingerprint.hash_func;
+	struct dtls_fingerprint *fp = NULL;
+	for (GList *l = call->dtls_cert->fingerprints.head; l; l = l->next) {
+		fp = l->data;
+		if (!media->fingerprint.hash_func)
+			break;
+		if (!strcasecmp(media->fingerprint.hash_func->name, fp->hash_func->name))
+			break;
+		fp = NULL;
+	}
+	if (!fp) // use first if no match
+		fp = call->dtls_cert->fingerprints.head->data;
+
+	hf = fp->hash_func;
 
 	assert(hf->num_bytes > 0);
 
-	p = call->dtls_cert->fingerprint.digest;
+	p = fp->digest;
 	o = hexbuf;
 	for (i = 0; i < hf->num_bytes; i++)
 		o += sprintf(o, "%02X:", *p++);

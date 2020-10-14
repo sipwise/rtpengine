@@ -125,6 +125,7 @@ sub offer_answer {
 	$regexp =~ s/CRYPTO192/([0-9a-zA-Z\/+]{51})/gs;
 	$regexp =~ s/CRYPTO256/([0-9a-zA-Z\/+]{62})/gs;
 	$regexp =~ s/LOOPER/([0-9a-f]{12})/gs;
+	$regexp =~ s/FINGERPRINT256/([0-9a-fA-F:]{95})/gs;
 	$regexp =~ s/FINGERPRINT/([0-9a-fA-F:]{59})/gs;
 	my $crlf = crlf($resp->{sdp});
 	like $crlf, qr/$regexp/s, "$name - output '$cmd' SDP";

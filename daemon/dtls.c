@@ -125,6 +125,7 @@ static void cert_free(void *p) {
 		EVP_PKEY_free(cert->pkey);
 	if (cert->x509)
 		X509_free(cert->x509);
+	g_queue_clear_full(&cert->fingerprints, free);
 }
 
 static void buf_dump_free(char *buf, size_t len) {
@@ -258,8 +259,13 @@ static int cert_init(void) {
 	/* digest */
 
 	new_cert = obj_alloc0("dtls_cert", sizeof(*new_cert), cert_free);
-	new_cert->fingerprint.hash_func = &hash_funcs[0];
-	dtls_fingerprint_hash(&new_cert->fingerprint, x509);
+
+	for (int i = 0; i < num_hash_funcs; i++) {
+		struct dtls_fingerprint *fp = malloc(sizeof(*fp));
+		fp->hash_func = &hash_funcs[i];
+		dtls_fingerprint_hash(fp, x509);
+		g_queue_push_tail(&new_cert->fingerprints, fp);
+	}
 
 	new_cert->x509 = x509;
 	new_cert->pkey = pkey;

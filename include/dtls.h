@@ -41,7 +41,7 @@ struct dtls_fingerprint {
 
 struct dtls_cert {
 	struct obj obj;
-	struct dtls_fingerprint fingerprint;
+	GQueue fingerprints;
 	EVP_PKEY *pkey;
 	X509 *x509;
 	time_t expires;
