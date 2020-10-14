@@ -196,6 +196,7 @@ struct media_player;
 struct send_timer;
 struct transport_protocol;
 struct jitter_buffer;
+struct codec_tracker;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -325,6 +326,7 @@ struct call_media {
 	GHashTable		*codecs_send; // int payload type -> struct rtp_payload_type
 	GHashTable		*codec_names_send; // codec name -> GQueue of int payload types; storage container
 	GQueue			codecs_prefs_send; // storage container
+	struct codec_tracker	*codec_tracker;
 
 	GQueue			sdp_attributes; // str_sprintf()
 

@@ -1427,7 +1427,7 @@ static struct rtp_payload_type *rbl_cb_plts_g(str *s, GQueue *q, struct redis_li
 }
 static int rbl_cb_plts_r(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	struct call_media *med = ptr;
-	__rtp_payload_type_add_recv(med, rbl_cb_plts_g(s, q, list, ptr), 0, NULL);
+	__rtp_payload_type_add_recv(med, rbl_cb_plts_g(s, q, list, ptr), 0);
 	return 0;
 }
 static int rbl_cb_plts_s(str *s, GQueue *q, struct redis_list *list, void *ptr) {
