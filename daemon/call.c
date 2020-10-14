@@ -2110,8 +2110,11 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			if (media->protocol == other_media->protocol)
 				call_str_cpy(call, &media->format_str, &sp->format_str);
 		}
+
+		codec_tracker_init(media);
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
 		codec_handlers_update(media, other_media, flags, sp);
+		codec_tracker_finish(media);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,

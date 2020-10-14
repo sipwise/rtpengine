@@ -78,8 +78,7 @@ void codec_init_payload_type(struct rtp_payload_type *, struct call_media *);
 
 
 // used by redis
-void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_type *pt, int supp_check,
-		struct supp_codec_tracker *sct);
+void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_type *pt, int supp_check);
 void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payload_type *pt);
 
 
@@ -94,12 +93,16 @@ uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
 uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch);
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
+void codec_tracker_init(struct call_media *);
+void codec_tracker_finish(struct call_media *);
 
 #else
 
 INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags, const struct stream_params *sp) { }
 INLINE void codec_handler_free(struct codec_handler **handler) { }
+INLINE void codec_tracker_init(struct call_media *m) { }
+INLINE void codec_tracker_finish(struct call_media *m) { }
 
 #endif
 
