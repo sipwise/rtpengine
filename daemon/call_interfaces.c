@@ -992,6 +992,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	out->tos = bencode_dictionary_get_int_str(input, "TOS", 256);
 	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
+	bencode_dictionary_get_str(input, "DTLS-fingerprint", &out->dtls_fingerprint);
 
 	if (opmode == OP_OFFER) {
 		out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);

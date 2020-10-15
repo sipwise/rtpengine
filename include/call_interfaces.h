@@ -46,6 +46,7 @@ struct sdp_ng_flags {
 	int ptime,
 	    rev_ptime;
 	GHashTable *sdes_no;
+	str dtls_fingerprint;
 	int asymmetric:1,
 	    protocol_accept:1,
 	    no_redis_update:1,

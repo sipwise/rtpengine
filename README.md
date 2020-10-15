@@ -994,6 +994,12 @@ Optionally included keys are:
 
 		Reverts the `passive` setting. Only useful if the `dtls-passive` config option is set.
 
+* `DTLS-fingerprint`
+
+	Contains a string and is used to select the hashing function to generate the DTLS fingerprint
+	from the certificate. The default is SHA-1, or the same hashing function as was used by the
+	peer. Available are `SHA-1`, `SHA-224`, `SHA-256`, `SHA-384`, and `SHA-512`.
+
 * `SDES`
 
 	A list of strings controlling the behaviour regarding SDES. The default is to offer SDES without any
