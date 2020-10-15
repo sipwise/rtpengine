@@ -1361,6 +1361,129 @@ SDP
 
 new_call;
 
+offer('multi codec offer/answer w single-codec and tp-event', {
+		ICE => 'remove',
+		flags => [],
+		codec => {transcode => ['opus']},
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 8 101
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0 8 96 101 97
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:97 telephone-event/48000
+a=fmtp:97 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('multi codec offer/answer', {
+		ICE => 'remove',
+		flags => ['single codec'],
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 8 96 101 97
+a=rtpmap:96 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:97 telephone-event/48000
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('multi codec offer/answer w single-codec and tp-event', {
+		ICE => 'remove',
+		flags => [],
+		codec => {mask => ['all'], transcode => ['opus/48000/1', 'PCMA', 'telephone-event']},
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 96 8 102 101
+a=rtpmap:96 opus/48000/2
+a=rtpmap:102 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 8 102 101
+a=rtpmap:96 opus/48000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:102 telephone-event/48000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('multi codec offer/answer', {
+		ICE => 'remove',
+		flags => ['single codec'],
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 96 97
+a=rtpmap:96 opus/48000
+a=rtpmap:97 telephone-event/48000
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 102
+a=rtpmap:96 opus/48000/2
+a=rtpmap:102 telephone-event/48000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+
+new_call;
+
 offer('add transcode w supp codec', {
 		ICE => 'remove',
 		flags => [],

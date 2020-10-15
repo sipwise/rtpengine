@@ -30,7 +30,7 @@ typedef struct {
 	struct sockaddr_storage address;
 } peer_t;
 
-#define MAX_SOCKETS 1024
+#define MAX_SOCKETS 4096
 
 static socket_t real_sockets[MAX_SOCKETS];
 static unsigned int anon_sock_inc;
