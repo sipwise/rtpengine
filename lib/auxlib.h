@@ -24,6 +24,7 @@ struct rtpengine_common_config {
 	char *log_mark_suffix;
 	char *pidfile;
 	int foreground;
+	int thread_stack;
 };
 
 extern struct rtpengine_common_config *rtpe_common_config_ptr;

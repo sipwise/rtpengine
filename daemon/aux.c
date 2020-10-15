@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include "log.h"
+#include "main.h"
 
 
 
@@ -221,6 +222,13 @@ static int thread_create(void *(*func)(void *), void *arg, int joinable, pthread
 		abort();
 	if (pthread_attr_setdetachstate(&att, joinable ? PTHREAD_CREATE_JOINABLE : PTHREAD_CREATE_DETACHED))
 		abort();
+	if (rtpe_config.common.thread_stack > 0) {
+		if (pthread_attr_setstacksize(&att, rtpe_config.common.thread_stack * 1024)) {
+			ilog(LOG_ERR, "Failed to set thread stack size to %llu",
+					(unsigned long long) rtpe_config.common.thread_stack * 1024);
+			abort();
+		}
+	}
 	ret = pthread_create(&thr, &att, func, arg);
 	pthread_attr_destroy(&att);
 	if (ret)

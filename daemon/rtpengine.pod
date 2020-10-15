@@ -288,6 +288,11 @@ decoding the media file, and another to schedule and send out RTP packets.
 So for example, if this option is set to 4, in total 8 threads will be
 launched.
 
+=item B<--thread-stack=>I<INT>
+
+Set the stack size of each thread to the value given in kB. Defaults to 2048
+kB. Can be set to -1 to leave the default provided by the OS unchanged.
+
 =item B<--sip-source>
 
 The original B<rtpproxy> as well as older version of B<rtpengine> by default

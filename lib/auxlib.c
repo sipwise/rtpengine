@@ -153,6 +153,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "log-mark-suffix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_suffix,"Suffix for sensitive log info",	NULL		},
 		{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->pidfile,	"Write PID to file",			"FILE"		},
 		{ "foreground",		'f', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->foreground,	"Don't fork to background",		NULL		},
+		{ "thread-stack",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->thread_stack,	"Thread stack size in kB",		"INT"		},
 		{ NULL, }
 	};
 
@@ -321,6 +322,9 @@ out:
 		write_log = log_to_stderr;
 		max_log_line_length = 0;
 	}
+
+	if (rtpe_common_config_ptr->thread_stack == 0)
+		rtpe_common_config_ptr->thread_stack = 2048;
 
 
 	return;

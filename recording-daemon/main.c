@@ -93,6 +93,17 @@ static void setup(void) {
 
 
 static void start_poller_thread(void) {
+	pthread_attr_t att;
+	if (pthread_attr_init(&att))
+		abort();
+	if (rtpe_common_config.thread_stack > 0) {
+		if (pthread_attr_setstacksize(&att, rtpe_common_config.thread_stack * 1024)) {
+			ilog(LOG_ERR, "Failed to set thread stack size to %llu",
+					(unsigned long long) rtpe_common_config.thread_stack * 1024);
+			abort();
+		}
+	}
+
 	pthread_t *thr = g_slice_alloc(sizeof(*thr));
 	int ret = pthread_create(thr, NULL, poller_thread,
 			GUINT_TO_POINTER(garbage_new_thread_num()));
