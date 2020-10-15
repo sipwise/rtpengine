@@ -546,7 +546,7 @@ static int websocket_http(struct lws *wsi, enum lws_callback_reasons reason, voi
 		case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 			return -1; // disallow non supported websocket protocols
 		case LWS_CALLBACK_GET_THREAD_ID:
-			return pthread_self();
+			return (long int) pthread_self();
 		case LWS_CALLBACK_WSI_CREATE:
 			ilog(LOG_DEBUG, "WS client created %p", wsi);
 			break;
@@ -609,7 +609,7 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 #endif
 			break;
 		case LWS_CALLBACK_GET_THREAD_ID:
-			return pthread_self();
+			return (long int) pthread_self();
 		case LWS_CALLBACK_ESTABLISHED:
 			ilog(LOG_DEBUG, "Websocket protocol '%s' established", name);
 			websocket_conn_init(wsi, wc);

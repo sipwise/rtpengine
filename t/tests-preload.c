@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <pthread.h>
+#include <string.h>
 
 typedef struct {
 	int used_domain,
