@@ -1331,6 +1331,9 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 		set_tos(sock, c->tos);
 		sfd = stream_fd_new(sock, c, loc);
 
+		if (redis_hash_get_sdes_params1(&sfd->crypto.params, rh, "") == -1)
+			return -1;
+
 		sfds->ptrs[i] = sfd;
 	}
 	return 0;
@@ -1362,6 +1365,8 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 		if (redis_hash_get_endpoint(&ps->advertised_endpoint, rh, "advertised_endpoint"))
 			return -1;
 		if (redis_hash_get_stats(&ps->stats, rh, "stats"))
+			return -1;
+		if (redis_hash_get_sdes_params1(&ps->crypto.params, rh, "") == -1)
 			return -1;
 
 		streams->ptrs[i] = ps;
@@ -1979,6 +1984,24 @@ err:
 #define JSON_SET_SIMPLE_CSTR(a,d) JSON_SET_SIMPLE_LEN(a, strlen(d), d)
 #define JSON_SET_SIMPLE_STR(a,d) JSON_SET_SIMPLE_LEN(a, (d)->len, (d)->s)
 
+static void json_update_crypto_params(JsonBuilder *builder, const char *key, struct crypto_params *p) {
+	char tmp[2048];
+
+	if (!p->crypto_suite)
+		return;
+
+	JSON_SET_NSTRING_CSTR("%s-crypto_suite", key, p->crypto_suite->name);
+	JSON_SET_NSTRING_LEN("%s-master_key", key, sizeof(p->master_key), (char *) p->master_key);
+	JSON_SET_NSTRING_LEN("%s-master_salt", key, sizeof(p->master_salt), (char *) p->master_salt);
+
+	JSON_SET_NSTRING("%s-unenc-srtp", key, "%i", p->session_params.unencrypted_srtp);
+	JSON_SET_NSTRING("%s-unenc-srtcp", key, "%i", p->session_params.unencrypted_srtcp);
+	JSON_SET_NSTRING("%s-unauth-srtp", key, "%i", p->session_params.unauthenticated_srtp);
+
+	if (p->mki)
+		JSON_SET_NSTRING_LEN("%s-mki", key, p->mki_len, (char *) p->mki);
+}
+
 static int json_update_sdes_params(JsonBuilder *builder, const char *pref,
 		unsigned int unique_id,
 		const char *k, GQueue *q)
@@ -1996,17 +2019,7 @@ static int json_update_sdes_params(JsonBuilder *builder, const char *pref,
 			return -1;
 
 		JSON_SET_NSTRING("%s_tag", key, "%u", cps->tag);
-		JSON_SET_NSTRING_CSTR("%s-crypto_suite",key,p->crypto_suite->name);
-		JSON_SET_NSTRING_LEN("%s-master_key",key, sizeof(p->master_key), (char *) p->master_key);
-		JSON_SET_NSTRING_LEN("%s-master_salt",key, sizeof(p->master_salt), (char *) p->master_salt);
-
-		JSON_SET_NSTRING("%s-unenc-srtp",key,"%i",p->session_params.unencrypted_srtp);
-		JSON_SET_NSTRING("%s-unenc-srtcp",key,"%i",p->session_params.unencrypted_srtcp);
-		JSON_SET_NSTRING("%s-unauth-srtp",key,"%i",p->session_params.unauthenticated_srtp);
-
-		if (p->mki) {
-			JSON_SET_NSTRING_LEN("%s-mki",key, p->mki_len, (char *) p->mki);
-		}
+		json_update_crypto_params(builder, key, p);
 
 		snprintf(keybuf, sizeof(keybuf), "%s-%u", k, iter++);
 		key = keybuf;
@@ -2091,6 +2104,8 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("local_intf_uid","%u",sfd->local_intf->unique_id);
 				JSON_SET_SIMPLE("stream","%u",sfd->stream->unique_id);
 
+				json_update_crypto_params(builder, "", &sfd->crypto.params);
+
 			}
 			json_builder_end_object (builder);
 
@@ -2122,6 +2137,7 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("stats-bytes","%" PRIu64, atomic64_get(&ps->stats.bytes));
 				JSON_SET_SIMPLE("stats-errors","%" PRIu64, atomic64_get(&ps->stats.errors));
 
+				json_update_crypto_params(builder, "", &ps->crypto.params);
 			}
 
 			json_builder_end_object (builder);
