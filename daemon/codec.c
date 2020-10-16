@@ -2161,9 +2161,9 @@ static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload
 }
 static void __rtp_payload_type_add_name(GHashTable *ht, struct rtp_payload_type *pt)
 {
-	GQueue *q = g_hash_table_lookup_queue_new(ht, &pt->encoding);
+	GQueue *q = g_hash_table_lookup_queue_new(ht, str_dup(&pt->encoding), free);
 	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
-	q = g_hash_table_lookup_queue_new(ht, &pt->encoding_with_params);
+	q = g_hash_table_lookup_queue_new(ht, str_dup(&pt->encoding_with_params), free);
 	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
 }
 static void __insert_codec_tracker(struct call_media *media, GList *link) {
@@ -2184,7 +2184,8 @@ static void __insert_codec_tracker(struct call_media *media, GList *link) {
 					(GDestroyNotify) g_queue_free);
 			g_hash_table_replace(sct->supp_codecs, str_dup(&pt->encoding), clockrates);
 		}
-		GQueue *entries = g_hash_table_lookup_queue_new(clockrates, GUINT_TO_POINTER(pt->clock_rate));
+		GQueue *entries = g_hash_table_lookup_queue_new(clockrates, GUINT_TO_POINTER(pt->clock_rate),
+				NULL);
 		g_queue_push_tail(entries, link);
 	}
 }
@@ -2281,12 +2282,11 @@ static int __revert_codec_strip(GHashTable *stripped, GHashTable *masked, const 
 	if (q) {
 		ilog(LOG_DEBUG, "Restoring codec '" STR_FORMAT "' from stripped codecs (%u payload types)",
 				STR_FMT(codec), q->length);
-		g_hash_table_steal(stripped, codec);
-		for (GList *l = q->head; l; l = l->next) {
-			struct rtp_payload_type *pt = l->data;
+		while (q->length) {
+			struct rtp_payload_type *pt = g_queue_pop_head(q);
 			__rtp_payload_type_add(media, other_media, pt);
 		}
-		g_queue_free(q);
+		g_hash_table_remove(stripped, codec);
 		ret = 1;
 	}
 
@@ -2294,13 +2294,12 @@ static int __revert_codec_strip(GHashTable *stripped, GHashTable *masked, const 
 	if (q) {
 		ilog(LOG_DEBUG, "Restoring codec '" STR_FORMAT "' from masked codecs (%u payload types)",
 				STR_FMT(codec), q->length);
-		g_hash_table_steal(masked, codec);
-		for (GList *l = q->head; l; l = l->next) {
-			struct rtp_payload_type *pt = l->data;
+		while (q->length) {
+			struct rtp_payload_type *pt = g_queue_pop_head(q);
 			pt->for_transcoding = 1;
 			__rtp_payload_type_add_recv(media, pt, 1);
 		}
-		g_queue_free(q);
+		g_hash_table_remove(masked, codec);
 		ret = 1;
 	}
 
@@ -2478,8 +2477,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	struct rtp_payload_type *pt;
 	static const str str_all = STR_CONST_INIT("all");
 	static const str str_full = STR_CONST_INIT("full");
-	GHashTable *stripped = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, __payload_queue_free);
-	GHashTable *masked = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, __payload_queue_free);
+	GHashTable *stripped = g_hash_table_new_full(str_case_hash, str_case_equal, free, __payload_queue_free);
+	GHashTable *masked = g_hash_table_new_full(str_case_hash, str_case_equal, free, __payload_queue_free);
 	int strip_all = 0, mask_all = 0;
 
 	// start fresh
@@ -2519,9 +2518,9 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 			ilog(LOG_DEBUG, "Stripping codec '" STR_FORMAT "'",
 					STR_FMT(&pt->encoding_with_params));
 			codec_touched(pt, media);
-			GQueue *q = g_hash_table_lookup_queue_new(stripped, &pt->encoding);
+			GQueue *q = g_hash_table_lookup_queue_new(stripped, str_dup(&pt->encoding), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
-			q = g_hash_table_lookup_queue_new(stripped, &pt->encoding_with_params);
+			q = g_hash_table_lookup_queue_new(stripped, str_dup(&pt->encoding_with_params), free);
 			g_queue_push_tail(q, pt);
 			continue;
 		}
@@ -2533,9 +2532,9 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 			ilog(LOG_DEBUG, "Masking codec '" STR_FORMAT "'",
 					STR_FMT(&pt->encoding_with_params));
 			codec_touched(pt, media);
-			GQueue *q = g_hash_table_lookup_queue_new(masked, &pt->encoding);
+			GQueue *q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
-			q = g_hash_table_lookup_queue_new(stripped, &pt->encoding_with_params);
+			q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding_with_params), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 			__rtp_payload_type_add_send(other_media, pt);
 		}

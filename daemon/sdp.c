@@ -1144,7 +1144,8 @@ new_session:
 
 				/* attr_queue = g_hash_table_lookup_queue_new(attrs->name_lists_hash, &attr->name);
 				g_queue_push_tail(attr_queue, attr); */
-				attr_queue = g_hash_table_lookup_queue_new(attrs->id_lists_hash, &attr->attr);
+				attr_queue = g_hash_table_lookup_queue_new(attrs->id_lists_hash, &attr->attr,
+						NULL);
 				g_queue_push_tail(attr_queue, attr);
 
 				break;
