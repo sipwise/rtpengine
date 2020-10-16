@@ -740,8 +740,10 @@ struct call_media *call_media_new(struct call *call) {
 	med->call = call;
 	med->codecs_recv = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
 	med->codecs_send = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
-	med->codec_names_recv = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, (void (*)(void*)) g_queue_free);
-	med->codec_names_send = g_hash_table_new_full(str_case_hash, str_case_equal, NULL, (void (*)(void*)) g_queue_free);
+	med->codec_names_recv = g_hash_table_new_full(str_case_hash, str_case_equal, free,
+			(void (*)(void*)) g_queue_free);
+	med->codec_names_send = g_hash_table_new_full(str_case_hash, str_case_equal, free,
+			(void (*)(void*)) g_queue_free);
 	return med;
 }
 
