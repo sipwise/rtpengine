@@ -679,6 +679,13 @@ void statistics_free() {
 	g_hash_table_destroy(rtpe_codec_stats);
 }
 
+static void codec_stats_free(void *p) {
+	struct codec_stats *stats_entry = p;
+	free(stats_entry->chain);
+	g_free(stats_entry->chain_brief);
+	g_slice_free1(sizeof(*stats_entry), stats_entry);
+}
+
 void statistics_init() {
 	mutex_init(&rtpe_totalstats.total_average_lock);
 	mutex_init(&rtpe_totalstats_interval.total_average_lock);
@@ -700,7 +707,7 @@ void statistics_init() {
 	mutex_init(&rtpe_totalstats_interval.deletes_ps.lock);
 
 	mutex_init(&rtpe_codec_stats_lock);
-	rtpe_codec_stats = g_hash_table_new(g_str_hash, g_str_equal);
+	rtpe_codec_stats = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, codec_stats_free);
 }
 
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {

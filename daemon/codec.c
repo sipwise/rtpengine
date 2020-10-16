@@ -151,7 +151,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	if (handler->stats_entry) {
 		g_atomic_int_add(&handler->stats_entry->num_transcoders, -1);
 		handler->stats_entry = NULL;
-		free(handler->stats_chain);
+		g_free(handler->stats_chain);
 	}
 }
 
@@ -255,28 +255,25 @@ reset:
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
 
 	// stats entry
-	if (asprintf(&handler->stats_chain, STR_FORMAT " -> " STR_FORMAT,
+	handler->stats_chain = g_strdup_printf(STR_FORMAT " -> " STR_FORMAT,
 				STR_FMT(&handler->source_pt.encoding_with_params),
-				STR_FMT(&dest->encoding_with_params)) < 0)
-		ilog(LOG_ERR, "asprintf error");
-	else {
-		mutex_lock(&rtpe_codec_stats_lock);
-		struct codec_stats *stats_entry =
-			g_hash_table_lookup(rtpe_codec_stats, handler->stats_chain);
-		if (!stats_entry) {
-			stats_entry = g_slice_alloc0(sizeof(*stats_entry));
-			stats_entry->chain = strdup(handler->stats_chain);
-			g_hash_table_insert(rtpe_codec_stats, stats_entry->chain, stats_entry);
-			if (asprintf(&stats_entry->chain_brief, STR_FORMAT "_" STR_FORMAT,
-					STR_FMT(&handler->source_pt.encoding_with_params),
-					STR_FMT(&dest->encoding_with_params)) < 0)
-				stats_entry->chain_brief = "xxx";
-		}
-		handler->stats_entry = stats_entry;
-		mutex_unlock(&rtpe_codec_stats_lock);
+				STR_FMT(&dest->encoding_with_params));
 
-		g_atomic_int_inc(&stats_entry->num_transcoders);
+	mutex_lock(&rtpe_codec_stats_lock);
+	struct codec_stats *stats_entry =
+		g_hash_table_lookup(rtpe_codec_stats, handler->stats_chain);
+	if (!stats_entry) {
+		stats_entry = g_slice_alloc0(sizeof(*stats_entry));
+		stats_entry->chain = strdup(handler->stats_chain);
+		g_hash_table_insert(rtpe_codec_stats, stats_entry->chain, stats_entry);
+		stats_entry->chain_brief = g_strdup_printf(STR_FORMAT "_" STR_FORMAT,
+				STR_FMT(&handler->source_pt.encoding_with_params),
+				STR_FMT(&dest->encoding_with_params));
 	}
+	handler->stats_entry = stats_entry;
+	mutex_unlock(&rtpe_codec_stats_lock);
+
+	g_atomic_int_inc(&stats_entry->num_transcoders);
 
 check_output:;
 	// check if we have multiple decoders transcoding to the same output PT

@@ -171,8 +171,11 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 		}
 		else if (ifa->ifa_addr->sa_family == AF_INET6) {
 			struct sockaddr_in6 *sin = (void *) ifa->ifa_addr;
-			if (sin->sin6_scope_id)
-				continue; // link-local
+			if (sin->sin6_scope_id) {
+				// link-local
+				g_slice_free1(sizeof(*addr), addr);
+				continue;
+			}
 			addr->family = __get_socket_family_enum(SF_IP6);
 			addr->u.ipv6 = sin->sin6_addr;
 		}
