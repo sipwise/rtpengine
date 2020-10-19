@@ -1039,7 +1039,8 @@ int main(int argc, char **argv) {
 	dtls_cert_free();
 
 	redis_close(rtpe_redis);
-	redis_close(rtpe_redis_write);
+	if (rtpe_redis_write != rtpe_redis)
+		redis_close(rtpe_redis_write);
 	redis_close(rtpe_redis_notify);
 
 	free_prefix();
