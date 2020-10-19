@@ -1046,6 +1046,73 @@ rcv($sock_a, $port_b, rtpm(96, 1004, 4200, $ssrc, "\xf0\x14\x41\x00\x30\x44\x41\
 
 new_call;
 
+offer('DTMF-inject w tp-e', {
+		ICE => 'remove',
+		flags => ['inject-DTMF'],
+		codec => {transcode => ['G722']},
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 8 9 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0 8 9 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('DTMF-inject w tp-e', {
+		ICE => 'remove',
+		flags => ['inject-DTMF'],
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 8 0 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0 9 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+new_call;
+
 offer('symmetric codecs w missing answer codec, no flag', {
 		ICE => 'remove',
 		flags => [],
@@ -2008,12 +2075,12 @@ o=dev 5418 9648 IN IP4 8.8.8.60
 s=SIP Call
 c=IN IP4 8.8.8.60
 t=0 0
-m=audio PORT RTP/AVP 101 0 8 3
+m=audio PORT RTP/AVP 0 8 3 101
 c=IN IP4 203.0.113.1
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:0 PCMU/8000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
 a=sendrecv
 a=rtcp:PORT
@@ -4132,13 +4199,13 @@ s=pjmedia
 b=AS:117
 t=0 0
 a=X-nat:0
-m=audio PORT RTP/AVP 107 101 8
+m=audio PORT RTP/AVP 107 8 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
 a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:107 opus/48000/2
-a=rtpmap:101 telephone-event/8000
 a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
 a=fmtp:107 useinbandfec=1
 a=fmtp:101 0-16
 a=sendrecv
