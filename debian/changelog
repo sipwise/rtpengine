@@ -1,3 +1,15 @@
+ngcp-rtpengine (8.5.3.0+0~mr8.5.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0ec4491] Unkernelise streams when recording is stopped
+  * [005e256] TT#88750 fix SRTP not working after Redis restart
+  * [35d9a52] TT#90101 don't blindly accept a protocol switch in an answer
+  * [0f9e917] fix mem handling for Redis auth strings
+  * [5edb596] add missing Redis auth for async context
+  * [8146c3e] TT#96200 fix SRTP multi-protocol re-offer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 19 Oct 2020 14:29:37 +0200
+
 ngcp-rtpengine (8.5.2.0+0~mr8.5.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
