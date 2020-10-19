@@ -2337,7 +2337,7 @@ static void codec_tracker_destroy(struct codec_tracker **sct) {
 	g_hash_table_destroy((*sct)->clockrates);
 	g_hash_table_destroy((*sct)->touched);
 	g_hash_table_destroy((*sct)->supp_codecs);
-	g_slice_free1(sizeof(*sct), *sct);
+	g_slice_free1(sizeof(**sct), *sct);
 	*sct = NULL;
 }
 void codec_tracker_init(struct call_media *m) {
