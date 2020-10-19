@@ -1073,7 +1073,8 @@ int main(int argc, char **argv) {
 	control_ng_cleanup();
 
 	redis_close(rtpe_redis);
-	redis_close(rtpe_redis_write);
+	if (rtpe_redis_write != rtpe_redis)
+		redis_close(rtpe_redis_write);
 	redis_close(rtpe_redis_notify);
 
 	free_prefix();
