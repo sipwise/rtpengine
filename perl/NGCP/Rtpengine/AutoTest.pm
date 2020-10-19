@@ -46,6 +46,7 @@ sub autotest_start {
 	$rtpe_stderr = File::Temp::tempfile() or die;
 	SKIP: {
 		skip 'daemon is running externally', 1 if $ENV{RTPE_TEST_NO_LAUNCH};
+		local $ENV{GLIB_SLICE} = 'debug-blocks';
 		$rtpe_pid = open3(undef, '>&'.fileno($rtpe_stdout), '>&'.fileno($rtpe_stderr),
 			$ENV{RTPE_BIN}, @cmdline);
 		ok $rtpe_pid, 'daemon launched in background';
