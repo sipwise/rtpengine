@@ -536,6 +536,7 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 				STR_FMT(&pt->encoding_with_params));
 		MEDIA_SET(receiver, TRANSCODE);
 
+
 		// we need a new pt entry
 		pt = __rtp_payload_type_copy(pt);
 		pt->for_transcoding = 1;
@@ -543,6 +544,19 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 		// this somewhat duplicates __rtp_payload_type_add_recv
 		g_hash_table_insert(receiver->codecs_recv, &pt->payload_type, pt);
 		__rtp_payload_type_add_name(receiver->codec_names_recv, pt);
+
+		// keep supplemental codecs last
+		ensure_codec_def(pt, receiver);
+		if (!pt->codec_def || !pt->codec_def->supplemental) {
+			while (insert_pos) {
+				struct rtp_payload_type *ipt = insert_pos->data;
+				ensure_codec_def(ipt, receiver);
+				if (!ipt->codec_def || !ipt->codec_def->supplemental)
+					break;
+				insert_pos = insert_pos->prev;
+			}
+		}
+
 		if (!insert_pos) {
 			g_queue_push_head(&receiver->codecs_prefs_recv, pt);
 			insert_pos = receiver->codecs_prefs_recv.head;
