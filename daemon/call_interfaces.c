@@ -866,8 +866,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 					return;
 				if (call_ng_flags_prefix(out, s, "T.38-", ng_t38_option, NULL))
 					return;
-#endif
 			}
+#endif
 
 			ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
