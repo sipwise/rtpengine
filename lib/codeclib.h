@@ -340,6 +340,7 @@ INLINE int decoder_event(decoder_t *dec, enum codec_event event, void *ptr) {
 // stubs
 struct codec_def_s {
 	int dtmf;
+	int supplemental;
 };
 struct packet_sequencer_s {
 };

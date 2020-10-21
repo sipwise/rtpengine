@@ -63,6 +63,7 @@ CFLAGS+=	$(shell pkg-config xmlrpc_client --cflags 2> /dev/null || xmlrpc-c-conf
 CFLAGS+=	$(shell pkg-config xmlrpc --cflags 2> /dev/null)
 CFLAGS+=	$(shell pkg-config xmlrpc_util --cflags 2> /dev/null)
 CFLAGS+=	$(shell pkg-config --cflags json-glib-1.0)
+CFLAGS+=	$(shell pkg-config --cflags libwebsockets)
 ifeq ($(with_iptables_option),yes)
 CFLAGS+=	$(shell pkg-config --cflags libiptc)
 CFLAGS+=	-DWITH_IPTABLES_OPTION
@@ -76,7 +77,6 @@ CFLAGS+=	$(shell pkg-config --cflags libavutil)
 CFLAGS+=	$(shell pkg-config --cflags libswresample)
 CFLAGS+=	$(shell pkg-config --cflags libavfilter)
 CFLAGS+=	$(shell pkg-config --cflags spandsp)
-CFLAGS+=	$(shell pkg-config --cflags libwebsockets)
 CFLAGS+=	-DWITH_TRANSCODING
 ifeq ($(have_bcg729),yes)
 CFLAGS+=	-DHAVE_BCG729
@@ -108,6 +108,7 @@ LDLIBS+=	$(shell pkg-config xmlrpc --libs 2> /dev/null)
 LDLIBS+=	$(shell pkg-config xmlrpc_util --libs 2> /dev/null)
 LDLIBS+=	-lhiredis
 LDLIBS+=	$(shell pkg-config --libs json-glib-1.0)
+LDLIBS+=	$(shell pkg-config --libs libwebsockets)
 ifeq ($(with_iptables_option),yes)
 LDLIBS+=	$(shell pkg-config --libs libiptc)
 endif
@@ -118,7 +119,6 @@ LDLIBS+=	$(shell pkg-config --libs libavutil)
 LDLIBS+=	$(shell pkg-config --libs libswresample)
 LDLIBS+=	$(shell pkg-config --libs libavfilter)
 LDLIBS+=	$(shell pkg-config --libs spandsp)
-LDLIBS+=	$(shell pkg-config --libs libwebsockets)
 ifeq ($(have_bcg729),yes)
 LDLIBS+=	$(bcg729_lib)
 endif
