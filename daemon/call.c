@@ -1103,7 +1103,7 @@ int __init_stream(struct packet_stream *ps) {
 		}
 
 		if (!PS_ISSET(ps, FINGERPRINT_VERIFIED) && media->fingerprint.hash_func
-				&& ps->dtls_cert)
+				&& media->fingerprint.digest_len && ps->dtls_cert)
 		{
 			if (dtls_verify_cert(ps))
 				return -1;
@@ -1680,7 +1680,7 @@ static void __fingerprint_changed(struct call_media *m) {
 	GList *l;
 	struct packet_stream *ps;
 
-	if (!m->fingerprint.hash_func)
+	if (!m->fingerprint.hash_func || !m->fingerprint.digest_len)
 		return;
 
 	ilog(LOG_INFO, "DTLS fingerprint changed, restarting DTLS");
@@ -1689,6 +1689,7 @@ static void __fingerprint_changed(struct call_media *m) {
 		ps = l->data;
 		PS_CLEAR(ps, FINGERPRINT_VERIFIED);
 		dtls_shutdown(ps);
+		__init_stream(ps);
 	}
 }
 

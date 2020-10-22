@@ -36,6 +36,7 @@ struct dtls_hash_func {
 
 struct dtls_fingerprint {
 	unsigned char digest[DTLS_MAX_DIGEST_LEN];
+	unsigned int digest_len;
 	const struct dtls_hash_func *hash_func;
 };
 
@@ -82,6 +83,7 @@ INLINE void __dtls_hash(const struct dtls_hash_func *hash_func, X509 *cert, unsi
 	unsigned int n;
 
 	assert(bufsize >= hash_func->num_bytes);
+	memset(out, 0, bufsize);
 	n = hash_func->__func(out, cert);
 	assert(n == hash_func->num_bytes);
 	(void) n;
@@ -90,6 +92,7 @@ INLINE void __dtls_hash(const struct dtls_hash_func *hash_func, X509 *cert, unsi
 
 INLINE void dtls_fingerprint_hash(struct dtls_fingerprint *fp, X509 *cert) {
 	__dtls_hash(fp->hash_func, cert, fp->digest, sizeof(fp->digest));
+	fp->digest_len = fp->hash_func->num_bytes;
 }
 
 INLINE int is_dtls(const str *s) {

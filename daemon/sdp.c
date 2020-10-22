@@ -1537,6 +1537,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				sp->fingerprint.hash_func = attr->u.fingerprint.hash_func;
 				memcpy(sp->fingerprint.digest, attr->u.fingerprint.fingerprint,
 						sp->fingerprint.hash_func->num_bytes);
+				sp->fingerprint.digest_len = sp->fingerprint.hash_func->num_bytes;
 			}
 
 			// OSRTP (RFC 8643)
