@@ -69,6 +69,7 @@ typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
 typedef void set_enc_options_f(encoder_t *, const str *);
 typedef void set_dec_options_f(decoder_t *, const str *);
+typedef int format_cmp_f(const struct rtp_payload_type *, const struct rtp_payload_type *);
 
 
 
@@ -105,6 +106,7 @@ struct codec_def_s {
 	const int default_bitrate;
 	int default_ptime;
 	const char *default_fmtp;
+	format_cmp_f * const format_cmp;
 	packetizer_f * const packetizer;
 	const int bits_per_sample;
 	const enum media_type media_type;
