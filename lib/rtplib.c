@@ -145,6 +145,10 @@ const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec) {
 int rtp_payload_type_cmp(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
 	if (rtp_payload_type_cmp_nf(a, b))
 		return 1;
+	if (a->codec_def && a->codec_def == b->codec_def) {
+		if (a->codec_def->format_cmp)
+			return a->codec_def->format_cmp(a, b);
+	}
 	if (str_cmp_str(&a->format_parameters, &b->format_parameters))
 		return 1;
 	return 0;

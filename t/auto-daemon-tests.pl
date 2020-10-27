@@ -36,9 +36,256 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $resp,
 
 
 
-# inject DTMF with mismatched codecs
+if (0) {
+
+# GH 1098
 
 new_call;
+
+offer('gh 1098', {
+	codec => {
+		mask => ['all'],
+		transcode => ['G722', 'AMR-WB/16000/1///mode-set--0,1,2;mode-change-period--2;mode-change-capability--2/dtx--1', 'AMR', 'PCMA', 'telephone-event'],
+	}
+}, <<SDP);
+v=0
+o=- 3812713289 3812713289 IN IP4 foo.bar.com
+s=-
+c=IN IP4 1.1.1.1
+t=0 0
+m=audio 40732 RTP/AVP 111 108 8 101 96
+a=ptime:20
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=rtpmap:108 AMR/8000
+a=fmtp:108 mode-set=7
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/16000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=fmtp:101 0-15
+----------------------------------
+v=0
+o=- 3812713289 3812713289 IN IP4 foo.bar.com
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 96 108 8 101 96
+a=rtpmap:9 G722/8000
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:108 AMR/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/16000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=fmtp:108 mode-set=7
+a=fmtp:101 0-15
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 1098', {
+	flags => ['single-codec'],
+}, <<SDP);
+v=0
+o=FreeSWITCH 1603706241 1603706242 IN IP4 3.3.3.3
+s=FreeSWITCH
+c=IN IP4 3.3.3.3
+t=0 0
+m=audio 18248 RTP/AVP 9 96
+a=rtpmap:9 G722/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-16
+a=silenceSupp:off - - - -
+a=ptime:20
+a=rtcp:18249 IN IP4 3.3.3.3
+----------------------------------
+v=0
+o=FreeSWITCH 1603706241 1603706242 IN IP4 3.3.3.3
+s=FreeSWITCH
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 111 101
+a=silenceSupp:off - - - -
+a=rtpmap:111 AMR-WB/16000
+a=rtpmap:101 telephone-event/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+new_call;
+
+offer('gh 1098', {
+	codec => {
+		mask => ['all'],
+		transcode => ['G722', 'AMR-WB/16000/1///mode-set--0,1,2;mode-change-period--2;mode-change-capability--2/dtx--1', 'AMR', 'PCMA', 'telephone-event'],
+	}
+}, <<SDP);
+v=0
+o=- 3812713289 3812713289 IN IP4 foo.bar.com
+s=-
+c=IN IP4 1.1.1.1
+t=0 0
+m=audio 40732 RTP/AVP 111 108 8 101 96
+a=ptime:20
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=rtpmap:108 AMR/8000
+a=fmtp:108 mode-set=7
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/16000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=fmtp:101 0-15
+----------------------------------
+v=0
+o=- 3812713289 3812713289 IN IP4 foo.bar.com
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 96 108 8 101 96
+a=rtpmap:9 G722/8000
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:108 AMR/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/16000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=fmtp:108 mode-set=7
+a=fmtp:101 0-15
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 1098', {
+	codec => {
+		strip => ['all'],
+		offer => ['PCMA'],
+	}
+}, <<SDP);
+v=0
+o=FreeSWITCH 1603707514 1603707515 IN IP4 3.3.3.3
+s=FreeSWITCH
+c=IN IP4 3.3.3.3
+t=0 0
+m=audio 17766 RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-16
+a=silenceSupp:off - - - -
+a=ptime:20
+a=rtcp:17767 IN IP4 3.3.3.3
+----------------------------------
+v=0
+o=FreeSWITCH 1603707514 1603707515 IN IP4 3.3.3.3
+s=FreeSWITCH
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=silenceSupp:off - - - -
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+new_call;
+
+offer('gh 1098', {
+	codec => {
+		mask => ['all'],
+		transcode => ['G722', 'AMR-WB/16000/1///mode-set--0,1,2;mode-change-period--2;mode-change-capability--2/dtx--1', 'AMR', 'PCMA', 'telephone-event'],
+	}
+}, <<SDP);
+v=0
+o=- 3812713289 3812713289 IN IP4 foo.bar.com
+s=-
+c=IN IP4 1.1.1.1
+t=0 0
+m=audio 40732 RTP/AVP 111 108 8 101 96
+a=ptime:20
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=rtpmap:108 AMR/8000
+a=fmtp:108 mode-set=7
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/16000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=fmtp:101 0-15
+----------------------------------
+v=0
+o=- 3812713289 3812713289 IN IP4 foo.bar.com
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 96 108 8 101 96
+a=rtpmap:9 G722/8000
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:108 AMR/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/16000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=fmtp:108 mode-set=7
+a=fmtp:101 0-15
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('gh 1098', {
+	codec => {
+		strip => ['all'],
+		offer => ['PCMA', 'telephone-event'],
+	}
+}, <<SDP);
+v=0
+o=FreeSWITCH 1603707514 1603707515 IN IP4 3.3.3.3
+s=FreeSWITCH
+c=IN IP4 3.3.3.3
+t=0 0
+m=audio 17766 RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-16
+a=silenceSupp:off - - - -
+a=ptime:20
+a=rtcp:17767 IN IP4 3.3.3.3
+----------------------------------
+v=0
+o=FreeSWITCH 1603707514 1603707515 IN IP4 3.3.3.3
+s=FreeSWITCH
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=silenceSupp:off - - - -
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+}
+
+
+
+
+
+# inject DTMF with mismatched codecs
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.11 3000)], [qw(198.51.100.11 3002)]);
 

@@ -63,6 +63,8 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static const char *dtmf_decoder_init(decoder_t *, const str *, const str *);
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
+static int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_payload_type *);
+
 
 
 
@@ -396,6 +398,7 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_fmtp = "0-15",
+		.format_cmp = format_cmp_ignore,
 		.codec_type = &codec_type_dtmf,
 		.support_encoding = 1,
 		.support_decoding = 1,
@@ -2274,5 +2277,11 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 	dec->u.dtmf.duration = duration;
 
+	return 0;
+}
+
+
+
+static int format_cmp_ignore(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
 	return 0;
 }
