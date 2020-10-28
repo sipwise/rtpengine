@@ -339,10 +339,13 @@ INLINE int decoder_event(decoder_t *dec, enum codec_event event, void *ptr) {
 
 #else
 
+typedef int format_cmp_f(const void *, const void *);
+
 // stubs
 struct codec_def_s {
 	int dtmf;
 	int supplemental;
+	format_cmp_f * const format_cmp;
 };
 struct packet_sequencer_s {
 };
