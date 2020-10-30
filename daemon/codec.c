@@ -1341,6 +1341,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	// got a new packet, run decoder
 
 	while (1) {
+		int func_ret = 0;
+
 		packet = seq_next_packet(&ssrc_in_p->sequencer);
 		if (G_UNLIKELY(!packet))
 			break;
@@ -1366,10 +1368,12 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		// we might be working with a different packet now
 		mp->rtp = &packet->rtp;
 
-		if (packet->func(ch, packet, mp))
-			ilog(LOG_WARN, "Decoder error while processing RTP packet");
+		func_ret = packet->func(ch, packet, mp);
+		if (func_ret < 0)
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Decoder error while processing RTP packet");
 next:
-		__transcode_packet_free(packet);
+		if (func_ret != 1)
+			__transcode_packet_free(packet);
 	}
 
 out:
@@ -2076,7 +2080,6 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 
 discard:
 	av_frame_free(&frame);
-	//mp->iter_out++;
 	obj_put(&new_ch->h);
 
 	return 0;
