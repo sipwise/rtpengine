@@ -48,6 +48,7 @@
 #include "dtmf.h"
 #include "jitter_buffer.h"
 #include "websocket.h"
+#include "codec.h"
 
 
 
@@ -840,6 +841,7 @@ static void init_everything(void) {
 	dtmf_init();
 	jitter_buffer_init();
 	t38_init();
+	codecs_init();
 }
 
 
@@ -1025,6 +1027,7 @@ int main(int argc, char **argv) {
 		if (rtpe_config.jb_length > 0)
 			thread_create_detach_prio(jitter_buffer_loop, NULL, rtpe_config.scheduling,
 					rtpe_config.priority);
+		thread_create_detach_prio(codec_timers_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
 	}
 
 
@@ -1071,6 +1074,7 @@ int main(int argc, char **argv) {
 	ice_free();
 	dtls_cert_free();
 	control_ng_cleanup();
+	codecs_cleanup();
 
 	redis_close(rtpe_redis);
 	if (rtpe_redis_write != rtpe_redis)

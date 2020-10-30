@@ -61,6 +61,10 @@ struct codec_packet {
 };
 
 
+void codecs_init(void);
+void codecs_cleanup(void);
+void codec_timers_loop(void *);
+
 struct codec_handler *codec_handler_get(struct call_media *, int payload_type);
 void codec_handlers_free(struct call_media *);
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,

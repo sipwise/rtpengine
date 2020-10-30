@@ -14,6 +14,7 @@
 #include "dtmflib.h"
 #include "t38.h"
 #include "media_player.h"
+#include "timerthread.h"
 
 
 
@@ -106,6 +107,10 @@ struct codec_tracker {
 	int all_touched;
 	GHashTable *supp_codecs; // telephone-event etc => hash table of clock rates
 };
+
+
+
+static struct timerthread codec_timers_thread;
 
 
 static codec_handler_func handler_func_passthrough_ssrc;
@@ -2765,4 +2770,21 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 
 	g_hash_table_destroy(stripped);
 	g_hash_table_destroy(masked);
+}
+
+void codecs_init(void) {
+#ifdef WITH_TRANSCODING
+	timerthread_init(&codec_timers_thread, timerthread_queue_run);
+#endif
+}
+void codecs_cleanup(void) {
+#ifdef WITH_TRANSCODING
+	timerthread_free(&codec_timers_thread);
+#endif
+}
+void codec_timers_loop(void *p) {
+#ifdef WITH_TRANSCODING
+	ilog(LOG_DEBUG, "codec_timers_loop");
+	timerthread_run(&codec_timers_thread);
+#endif
 }
