@@ -1792,6 +1792,29 @@ int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 	return 0;
 }
 
+void media_packet_copy(struct media_packet *dst, const struct media_packet *src) {
+	*dst = *src;
+	g_queue_init(&dst->packets_out);
+	if (dst->sfd)
+		obj_hold(dst->sfd);
+	if (dst->ssrc_in)
+		obj_hold(&dst->ssrc_in->parent->h);
+	if (dst->ssrc_out)
+		obj_hold(&dst->ssrc_out->parent->h);
+	dst->rtp = g_memdup(src->rtp, sizeof(*src->rtp));
+	dst->rtcp = g_memdup(src->rtp, sizeof(*src->rtp));
+	dst->payload = STR_NULL;
+	dst->raw = STR_NULL;
+}
+void media_packet_release(struct media_packet *mp) {
+	obj_put(mp->sfd);
+	obj_put(&mp->ssrc_in->parent->h);
+	obj_put(&mp->ssrc_out->parent->h);
+	g_queue_clear_full(&mp->packets_out, codec_packet_free);
+	g_free(mp->rtp);
+	g_free(mp->rtcp);
+}
+
 
 /* called lock-free */
 static int stream_packet(struct packet_handler_ctx *phc) {

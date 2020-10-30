@@ -107,8 +107,7 @@ static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
 	struct jb_packet *p = g_slice_alloc0(sizeof(*p));
 
 	p->buf = buf;
-	p->mp = *mp;
-	obj_hold(p->mp.sfd);
+	media_packet_copy(&p->mp, mp);
 
 	str_init_len(&p->mp.raw, buf + RTP_BUFFER_HEAD_ROOM, s->len);
 	memcpy(p->mp.raw.s, s->s, s->len);
@@ -440,8 +439,7 @@ void jb_packet_free(struct jb_packet **jbp) {
 		return;
 
 	free((*jbp)->buf);
-	if ((*jbp)->mp.sfd)
-		obj_put((*jbp)->mp.sfd);
+	media_packet_release(&(*jbp)->mp);
 	g_slice_free1(sizeof(**jbp), *jbp);
 	*jbp = NULL;
 }

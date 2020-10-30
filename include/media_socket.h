@@ -176,6 +176,8 @@ void __unkernelize(struct packet_stream *);
 void unkernelize(struct packet_stream *);
 void __stream_unconfirm(struct packet_stream *);
 
+void media_packet_copy(struct media_packet *, const struct media_packet *);
+void media_packet_release(struct media_packet *);
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink);
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
 		struct call_media *out_media, int must_recrypt);
