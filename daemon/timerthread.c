@@ -185,7 +185,7 @@ void *timerthread_queue_new(const char *type, size_t size,
 
 void timerthread_queue_push(struct timerthread_queue *ttq, struct timerthread_queue_entry *ttqe) {
 	// can we send immediately?
-	if (!timerthread_queue_run_one(ttq, ttqe, ttq->run_now_func))
+	if (ttq->run_now_func && timerthread_queue_run_one(ttq, ttqe, ttq->run_now_func) == 0)
 		return;
 
 	// queue for sending
