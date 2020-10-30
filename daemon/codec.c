@@ -1274,6 +1274,39 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 }
 
 #ifdef WITH_TRANSCODING
+static void __ssrc_lock_both(struct media_packet *mp) {
+	struct ssrc_ctx *ssrc_in = mp->ssrc_in;
+	struct ssrc_entry_call *ssrc_in_p = ssrc_in->parent;
+	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
+	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
+
+	// we need a nested lock here - both input and output SSRC needs to be locked.
+	// we don't know the lock order, so try both, and keep trying until we succeed.
+	while (1) {
+		mutex_lock(&ssrc_in_p->h.lock);
+		if (ssrc_in_p == ssrc_out_p)
+			break;
+		if (!mutex_trylock(&ssrc_out_p->h.lock))
+			break;
+		mutex_unlock(&ssrc_in_p->h.lock);
+
+		mutex_lock(&ssrc_out_p->h.lock);
+		if (!mutex_trylock(&ssrc_in_p->h.lock))
+			break;
+		mutex_unlock(&ssrc_out_p->h.lock);
+	}
+}
+static void __ssrc_unlock_both(struct media_packet *mp) {
+	struct ssrc_ctx *ssrc_in = mp->ssrc_in;
+	struct ssrc_entry_call *ssrc_in_p = ssrc_in->parent;
+	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
+	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
+
+	mutex_unlock(&ssrc_in_p->h.lock);
+	if (ssrc_in_p != ssrc_out_p)
+		mutex_unlock(&ssrc_out_p->h.lock);
+}
+
 static int __handler_func_sequencer(struct media_packet *mp, struct transcode_packet *packet)
 {
 	struct codec_handler *h = packet->handler;
@@ -1307,21 +1340,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	if (packet->ignore_seq)
 		seq_next_packet = packet_sequencer_force_next_packet;
 
-	// we need a nested lock here - both input and output SSRC needs to be locked.
-	// we don't know the lock order, so try both, and keep trying until we succeed.
-	while (1) {
-		mutex_lock(&ssrc_in_p->h.lock);
-		if (ssrc_in_p == ssrc_out_p)
-			break;
-		if (!mutex_trylock(&ssrc_out_p->h.lock))
-			break;
-		mutex_unlock(&ssrc_in_p->h.lock);
-
-		mutex_lock(&ssrc_out_p->h.lock);
-		if (!mutex_trylock(&ssrc_in_p->h.lock))
-			break;
-		mutex_unlock(&ssrc_out_p->h.lock);
-	}
+	__ssrc_lock_both(mp);
 
 	packet_sequencer_init(&ssrc_in_p->sequencer, (GDestroyNotify) __transcode_packet_free);
 
@@ -1377,9 +1396,7 @@ next:
 	}
 
 out:
-	mutex_unlock(&ssrc_in_p->h.lock);
-	if (ssrc_in_p != ssrc_out_p)
-		mutex_unlock(&ssrc_out_p->h.lock);
+	__ssrc_unlock_both(mp);
 	obj_put(&ch->h);
 
 	return 0;
