@@ -662,14 +662,15 @@ err:
 	return -1;
 }
 
-int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
+static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
 {
 	GQueue frames = G_QUEUE_INIT;
 
 	if (G_UNLIKELY(!dec))
 		return -1;
-	if (!data || !data->s || !data->len)
+
+	if (!data && !dec->def->packet_lost)
 		return 0;
 
 	ts *= dec->def->clockrate_mult;
@@ -695,7 +696,10 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 	}
 	dec->rtp_ts = ts;
 
-	dec->def->codec_type->decoder_input(dec, data, &frames);
+	if (data)
+		dec->def->codec_type->decoder_input(dec, data, &frames);
+	else
+		dec->def->packet_lost(dec, &frames);
 
 	AVFrame *frame;
 	int ret = 0;
@@ -713,6 +717,18 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 	}
 
 	return ret;
+}
+int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
+		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
+{
+	if (!data || !data->s || !data->len)
+		return 0;
+	return __decoder_input_data(dec, data, ts, callback, u1, u2);
+}
+int decoder_lost_packet(decoder_t *dec, unsigned long ts,
+		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
+{
+	return __decoder_input_data(dec, NULL, ts, callback, u1, u2);
 }
 
 
