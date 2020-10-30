@@ -726,6 +726,18 @@ Number of worker threads for HTTP/HTTPS/WS/WSS. If not specified, then the same
 number as given under B<num-threads> will be used. If no HTTP listeners are
 enabled, then no threads are created.
 
+=item B<--dtx-delay=>I<INT>
+
+Processing delay in milliseconds to handle discontinuous transmission (DTX) or
+other transmission gaps for codecs that support it (currently only AMR and
+AMR-WB). Defaults to zero (disabled) and applicable to transcoded audio streams
+only. When enabled, delays processing of received packets for the specified
+time (much like a jitter buffer) in order to trigger DTX handling when a
+transmission gap occurs. The decoder is then instructed to fill in the missing
+time during a transmission gap, for example by generating comfort noise. The
+delay should be configured to just slightly more than the expected incoming
+jitter.
+
 =back
 
 =head1 INTERFACES

@@ -318,6 +318,7 @@ int main(void) {
 	codeclib_init(0);
 	srandom(time(NULL));
 	statistics_init();
+	codecs_init();
 
 	// plain
 	start();

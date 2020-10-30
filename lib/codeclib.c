@@ -65,6 +65,8 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_payload_type *);
 
+static int amr_packet_lost(decoder_t *, GQueue *);
+
 
 
 
@@ -370,6 +372,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
+		.packet_lost = amr_packet_lost,
 	},
 	{
 		.rtpname = "AMR-WB",
@@ -387,6 +390,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
+		.packet_lost = amr_packet_lost,
 	},
 	{
 		.rtpname = "telephone-event",
@@ -1887,7 +1891,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 		unsigned int bits = dec->codec_options.amr.bits_per_frame[ft];
 
-		// AMR encoder expects an octet aligned TOC byte plus the payload
+		// AMR decoder expects an octet aligned TOC byte plus the payload
 		unsigned char frame_buf[(bits + 7) / 8 + 1 + 1];
 		str frame = STR_CONST_INIT_BUF(frame_buf);
 		str_shift(&frame, 1);
@@ -2079,6 +2083,15 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 	unsigned int bytes = (bits + 7) / 8;
 	output->len = bytes;
 
+	return 0;
+}
+static int amr_packet_lost(decoder_t *dec, GQueue *out) {
+	ilog(LOG_DEBUG, "pushing empty/lost frame to AMR decoder");
+	unsigned char frame_buf[1];
+	frame_buf[0] = 0xf << 3; // no data
+	str frame = STR_CONST_INIT_BUF(frame_buf);
+	if (avc_decoder_input(dec, &frame, out))
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Error while writing 'no data' frame to AMR decoder");
 	return 0;
 }
 

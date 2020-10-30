@@ -3014,6 +3014,7 @@ static void monologue_stop(struct call_monologue *ml) {
 	for (GList *l = ml->medias.head; l; l = l->next) {
 		struct call_media *m = l->data;
 		t38_gateway_stop(m->t38_gateway);
+		codec_handlers_stop(&m->codec_handlers_store);
 	}
 }
 
