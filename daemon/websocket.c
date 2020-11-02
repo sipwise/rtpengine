@@ -155,7 +155,7 @@ void websocket_write_next(struct websocket_conn *wc) {
 
 
 static const char *websocket_echo_process(struct websocket_message *wm) {
-	ilog(LOG_DEBUG, "Returning %lu bytes websocket echo from %s", wm->body->len,
+	ilog(LOG_DEBUG, "Returning %lu bytes websocket echo from %s", (unsigned long) wm->body->len,
 			endpoint_print_buf(&wm->wc->endpoint));
 	websocket_write_binary(wm->wc, wm->body->str, wm->body->len, 1);
 	return NULL;
