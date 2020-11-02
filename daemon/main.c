@@ -79,6 +79,7 @@ struct rtpengine_config rtpe_config = {
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
 	.dtls_signature = 256,
+	.max_dtx = 30,
 };
 
 static void sighandler(gpointer x) {
@@ -461,6 +462,7 @@ static void options(int *argc, char ***argv) {
 		{ "http-threads", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.http_threads,"Number of worker threads for HTTP and WS","INT"},
 #ifdef WITH_TRANSCODING
 		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_delay,	"Delay in milliseconds to trigger DTX handling","INT"},
+		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.max_dtx,	"Maximum duration of DTX handling",	"INT"},
 #endif
 
 		{ NULL, }

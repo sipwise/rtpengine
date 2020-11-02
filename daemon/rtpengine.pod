@@ -738,6 +738,13 @@ time during a transmission gap, for example by generating comfort noise. The
 delay should be configured to just slightly more than the expected incoming
 jitter.
 
+=item B<--max-dtx=>I<INT>
+
+Maximum duration for DTX handling in seconds. If no further RTP media is
+received within this time frame, then DTX processing will stop. Can be set to
+zero or negative to disable and keep DTX processing on indefinitely. Defaults
+to 30 seconds.
+
 =back
 
 =head1 INTERFACES

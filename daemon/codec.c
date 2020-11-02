@@ -74,6 +74,7 @@ struct dtx_buffer {
 	int tspp; // timestamp increment per packet
 	struct call *call;
 	unsigned long ts;
+	time_t start;
 };
 struct dtx_entry {
 	struct timerthread_queue_entry ttq_entry;
@@ -1908,9 +1909,10 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		unsigned long dtxe_ts = dtxe->ts;
 
 		mutex_lock(&dtxb->lock);
+		unsigned int diff = rtpe_now.tv_sec - dtxb->start;
 		unsigned long dtxb_ts = dtxb->ts;
 
-		if (dtxe_ts == dtxb_ts) {
+		if (dtxe_ts == dtxb_ts && (rtpe_config.max_dtx <= 0 || diff < rtpe_config.max_dtx)) {
 			ilog(LOG_DEBUG, "RTP media for TS %lu+ missing, triggering DTX",
 					dtxe_ts);
 
@@ -2301,6 +2303,7 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 		mutex_lock(&dtxb->lock);
 		if (ts != dtxb->ts)
 			dtxb->ts = ts;
+		dtxb->start = rtpe_now.tv_sec;
 		mutex_unlock(&dtxb->lock);
 
 		struct dtx_entry *dtxe = g_slice_alloc0(sizeof(*dtxe));
