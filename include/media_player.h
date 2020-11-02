@@ -60,10 +60,19 @@ INLINE void media_player_put(struct media_player **mp) {
 	obj_put(&(*mp)->tt_obj);
 	*mp = NULL;
 }
+INLINE struct media_player *media_player_get(struct media_player *mp) {
+	if (!mp)
+		return NULL;
+	obj_hold(&mp->tt_obj);
+	return mp;
+}
 
 #else
 
 INLINE void media_player_put(struct media_player **mp) {
+}
+INLINE struct media_player *media_player_get(struct media_player *mp) {
+	return NULL;
 }
 
 #endif

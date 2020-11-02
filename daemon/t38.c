@@ -284,12 +284,17 @@ static void t38_pcm_player(struct media_player *mp) {
 
 	ilog(LOG_DEBUG, "Generated %i T.38 PCM samples", num);
 
-	// this reschedules our player as well
-	media_player_add_packet(tg->pcm_player, (char *) smp, num * 2, num * 1000000 / 8000, tg->pts);
-
+	// release gateway lock as the media player may trigger a lock on the SSRC objects
+	// and this is the wrong lock order
+	struct media_player *pcm_player = media_player_get(tg->pcm_player);
+	unsigned long long pts = tg->pts;
 	tg->pts += num;
 
 	mutex_unlock(&tg->lock);
+
+	// this reschedules our player as well
+	media_player_add_packet(pcm_player, (char *) smp, num * 2, num * 1000000 / 8000, pts);
+	media_player_put(&pcm_player);
 }
 
 
