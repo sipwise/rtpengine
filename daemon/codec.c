@@ -65,6 +65,7 @@ static GList *__delete_receiver_codec(struct call_media *receiver, GList *link) 
 
 
 struct codec_ssrc_handler;
+struct transcode_packet;
 
 struct dtx_buffer {
 	struct timerthread_queue ttq;
@@ -81,6 +82,7 @@ struct dtx_entry {
 	struct transcode_packet *packet;
 	struct media_packet mp;
 	unsigned long ts;
+	void *ssrc_ptr; // opaque pointer, doesn't hold a reference
 };
 
 struct codec_ssrc_handler {
@@ -1856,7 +1858,7 @@ static int codec_decoder_event(enum codec_event event, void *ptr, void *data) {
 }
 
 static void __dtx_add_callback(struct dtx_buffer *dtxb, const struct timeval *base, unsigned int offset,
-		const struct media_packet *mp, unsigned long ts, int seq_add)
+		const struct media_packet *mp, unsigned long ts, int seq_add, void *ssrc_ptr)
 {
 	struct dtx_entry *dtxe = g_slice_alloc0(sizeof(*dtxe));
 	dtxe->ttq_entry.when = *base;
@@ -1864,6 +1866,7 @@ static void __dtx_add_callback(struct dtx_buffer *dtxb, const struct timeval *ba
 	dtxe->ts = ts;
 	media_packet_copy(&dtxe->mp, mp);
 	dtxe->mp.rtp->seq_num += htons(seq_add);
+	dtxe->ssrc_ptr = ssrc_ptr;
 	timerthread_queue_push(&dtxb->ttq, &dtxe->ttq_entry);
 }
 
@@ -1911,8 +1914,12 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		mutex_lock(&dtxb->lock);
 		unsigned int diff = rtpe_now.tv_sec - dtxb->start;
 		unsigned long dtxb_ts = dtxb->ts;
+		void *ssrc_ptr = dtxe->mp.stream->ssrc_in;
 
-		if (dtxe_ts == dtxb_ts && (rtpe_config.max_dtx <= 0 || diff < rtpe_config.max_dtx)) {
+		if (dtxe_ts == dtxb_ts
+				&& ssrc_ptr == dtxe->ssrc_ptr
+				&& (rtpe_config.max_dtx <= 0 || diff < rtpe_config.max_dtx))
+		{
 			ilog(LOG_DEBUG, "RTP media for TS %lu+ missing, triggering DTX",
 					dtxe_ts);
 
@@ -1926,7 +1933,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 			if (ret)
 				ilog(LOG_WARN | LOG_FLAG_LIMIT, "Decoder error handling DTX/lost packet");
 
-			__dtx_add_callback(dtxb, &dtxe->ttq_entry.when, dtxb->ptime * 1000, mp, dtxe_ts, 0);
+			__dtx_add_callback(dtxb, &dtxe->ttq_entry.when, dtxb->ptime * 1000, mp, dtxe_ts, 0, ssrc_ptr);
 		}
 		else
 			mutex_unlock(&dtxb->lock);
@@ -2315,7 +2322,8 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 		// packet now consumed
 		packet = NULL;
 
-		__dtx_add_callback(dtxb, &rtpe_now, (rtpe_config.dtx_delay + dtxb->ptime) * 1000, mp, ts, 1);
+		__dtx_add_callback(dtxb, &rtpe_now, (rtpe_config.dtx_delay + dtxb->ptime) * 1000, mp, ts, 1,
+				mp->stream->ssrc_in);
 
 		ret = 1;
 	}
