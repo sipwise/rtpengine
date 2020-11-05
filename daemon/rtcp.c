@@ -311,6 +311,9 @@ static void transcode_common_wrap(struct rtcp_process_ctx *, struct rtcp_packet 
 static void transcode_rr_wrap(struct rtcp_process_ctx *, struct report_block *);
 static void transcode_sr_wrap(struct rtcp_process_ctx *, struct sender_report_packet *);
 
+// RTCP sinks for local RTCP generation
+static void sink_common(struct rtcp_process_ctx *, struct rtcp_packet *);
+
 // homer functions
 static void homer_init(struct rtcp_process_ctx *);
 static void homer_sr(struct rtcp_process_ctx *, struct sender_report_packet *);
@@ -361,6 +364,9 @@ static struct rtcp_handler transcode_handlers = {
 	.common = transcode_common,
 	.rr = transcode_rr,
 	.sr = transcode_sr,
+};
+static struct rtcp_handler sink_handlers = {
+	.common = sink_common,
 };
 static struct rtcp_handler transcode_handlers_wrap = {
 	.common = transcode_common_wrap,
@@ -476,6 +482,7 @@ static const int min_xr_packet_sizes[] = {
 
 
 struct rtcp_handler *rtcp_transcode_handler = &transcode_handlers;
+struct rtcp_handler *rtcp_sink_handler = &sink_handlers;
 
 
 
@@ -1531,4 +1538,10 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 
 	socket_sendto(&ps->selected_sfd->socket, sr->str, sr->len, &ps->endpoint);
 	g_string_free(sr, TRUE);
+}
+
+
+
+static void sink_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
+	ctx->discard = 1;
 }

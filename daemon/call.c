@@ -77,6 +77,8 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 		struct timeval *interval_duration);
 static void __call_free(void *p);
 static void __call_cleanup(struct call *c);
+static void __monologue_stop(struct call_monologue *ml);
+static void media_stop(struct call_media *m);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(struct call *c) {
@@ -2122,6 +2124,11 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				ice_restart(other_media->ice_agent);
 		}
 
+		if (flags && flags->generate_rtcp) {
+			MEDIA_SET(media, RTCP_GEN);
+			MEDIA_SET(other_media, RTCP_GEN);
+		}
+
 		__update_media_protocol(media, other_media, sp, flags);
 		__update_media_id(media, other_media, sp, flags);
 		__endpoint_loop_protect(sp, other_media);
@@ -2385,13 +2392,13 @@ static void __call_cleanup(struct call *c) {
 	for (GList *l = c->medias.head; l; l = l->next) {
 		struct call_media *md = l->data;
 		ice_shutdown(&md->ice_agent);
-		t38_gateway_stop(md->t38_gateway);
+		media_stop(md);
 		t38_gateway_put(&md->t38_gateway);
 	}
 
 	for (GList *l = c->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
-		media_player_stop(ml->player);
+		__monologue_stop(ml);
 		media_player_put(&ml->player);
 	}
 
@@ -3039,13 +3046,18 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 
 
 
-static void monologue_stop(struct call_monologue *ml) {
+static void media_stop(struct call_media *m) {
+	t38_gateway_stop(m->t38_gateway);
+	codec_handlers_stop(&m->codec_handlers_store);
+	m->rtcp_timer.tv_sec = 0;
+}
+static void __monologue_stop(struct call_monologue *ml) {
 	media_player_stop(ml->player);
-	for (GList *l = ml->medias.head; l; l = l->next) {
-		struct call_media *m = l->data;
-		t38_gateway_stop(m->t38_gateway);
-		codec_handlers_stop(&m->codec_handlers_store);
-	}
+}
+static void monologue_stop(struct call_monologue *ml) {
+	__monologue_stop(ml);
+	for (GList *l = ml->medias.head; l; l = l->next)
+		media_stop(l->data);
 }
 
 
@@ -3112,6 +3124,8 @@ do_delete:
 		ng_call_stats(c, fromtag, totag, output, NULL);
 
 	monologue_stop(ml);
+	if (ml->active_dialogue && ml->active_dialogue->active_dialogue == ml)
+		monologue_stop(ml->active_dialogue);
 
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "

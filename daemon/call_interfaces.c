@@ -801,6 +801,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("full-rtcp-attribute"):
 			out->full_rtcp_attr = 1;
 			break;
+		case CSH_LOOKUP("generate-RTCP"):
+			out->generate_rtcp = 1;
+			break;
 		case CSH_LOOKUP("loop-protect"):
 			out->loop_protect = 1;
 			break;

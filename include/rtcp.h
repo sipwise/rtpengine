@@ -22,6 +22,7 @@ struct rtcp_parse_ctx {
 
 
 extern struct rtcp_handler *rtcp_transcode_handler;
+extern struct rtcp_handler *rtcp_sink_handler;
 
 
 int rtcp_avp2savp(str *, struct crypto_context *, struct ssrc_ctx *);

@@ -811,6 +811,13 @@ Optionally included keys are:
 		injection via the `play DTMF` control message. See `play DTMF` below for additional
 		information.
 
+	- `generate RTCP`
+
+		With this flag set, received RTCP packets will not simply be passed through as
+		usual, but instead will be consumed, and instead *rtpengine* will generate its own
+		RTCP packets to send to the RTP peers. This is currently supported only for
+		transcoded streams, and the flag will be effective for both sides of a call.
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.

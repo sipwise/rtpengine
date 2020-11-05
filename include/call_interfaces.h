@@ -75,6 +75,7 @@ struct sdp_ng_flags {
 	    rtcp_mux_reject:1,
 	    no_rtcp_attr:1,
 	    full_rtcp_attr:1,
+	    generate_rtcp:1,
 	    generate_mid:1,
 	    strict_source:1,
 	    media_handover:1,

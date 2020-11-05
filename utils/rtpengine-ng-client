@@ -79,13 +79,14 @@ GetOptions(
 	'inject-DTMF'			=> \$options{'inject DTMF'},
 	'DTLS-fingerprint=s'		=> \$options{'DTLS-fingerprint'},
 	'ICE-lite=s'			=> \$options{'ICE-lite'},
+	'generate-RTCP'			=> \$options{'generate RTCP'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite,generate RTCP')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
 for my $x (split(/,/, 'TOS,delete-delay')) {

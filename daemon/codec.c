@@ -131,9 +131,19 @@ struct codec_tracker {
 	GHashTable *supp_codecs; // telephone-event etc => hash table of clock rates
 };
 
+struct rtcp_timer_queue {
+	struct timerthread_queue ttq;
+};
+struct rtcp_timer {
+	struct timerthread_queue_entry ttq_entry;
+	struct call *call;
+	struct call_media *media;
+};
+
 
 
 static struct timerthread codec_timers_thread;
+static struct rtcp_timer_queue *rtcp_timer_queue;
 
 
 static codec_handler_func handler_func_passthrough_ssrc;
@@ -983,6 +993,80 @@ static int codec_handler_non_rtp_update(struct call_media *receiver, struct call
 }
 
 
+static void __rtcp_timer_free(void *p) {
+	struct rtcp_timer *rt = p;
+	if (rt->call)
+		obj_put(rt->call);
+	g_slice_free1(sizeof(*rt), rt);
+}
+// master lock held in W
+static void __codec_rtcp_timer_schedule(struct call_media *media) {
+	struct rtcp_timer *rt = g_slice_alloc0(sizeof(*rt));
+	rt->ttq_entry.when = media->rtcp_timer;
+	rt->call = obj_get(media->call);
+	rt->media = media;
+
+	timerthread_queue_push(&rtcp_timer_queue->ttq, &rt->ttq_entry);
+}
+// no lock held
+static void __rtcp_timer_run(struct timerthread_queue *q, void *p) {
+	struct rtcp_timer *rt = p;
+
+	// check scheduling
+	rwlock_lock_w(&rt->call->master_lock);
+	struct call_media *media = rt->media;
+	struct timeval rtcp_timer = media->rtcp_timer;
+
+	log_info_call(rt->call);
+
+	if (!rtcp_timer.tv_sec || timeval_diff(&rtpe_now, &rtcp_timer) < 0 || !proto_is_rtp(media->protocol)) {
+		__rtcp_timer_free(rt);
+		rwlock_unlock_w(&rt->call->master_lock);
+		goto out;
+	}
+	timeval_add_usec(&rtcp_timer, 5000000 + (random() % 2000000));
+	media->rtcp_timer = rtcp_timer;
+	__codec_rtcp_timer_schedule(media);
+
+	// switch locks to be more graceful
+	rwlock_unlock_w(&rt->call->master_lock);
+
+	rwlock_lock_r(&rt->call->master_lock);
+
+	struct ssrc_ctx *ssrc_out = NULL;
+	if (media->streams.head) {
+		struct packet_stream *ps = media->streams.head->data;
+		mutex_lock(&ps->out_lock);
+		ssrc_out = ps->ssrc_out;
+		if (ssrc_out)
+			obj_hold(&ssrc_out->parent->h);
+		mutex_unlock(&ps->out_lock);
+	}
+
+	if (ssrc_out)
+		rtcp_send_report(media, ssrc_out);
+
+	rwlock_unlock_r(&rt->call->master_lock);
+
+	if (ssrc_out)
+		obj_put(&ssrc_out->parent->h);
+
+	__rtcp_timer_free(rt);
+
+out:
+	log_info_clear();
+}
+// master lock held in W
+static void __codec_rtcp_timer(struct call_media *receiver) {
+	if (receiver->rtcp_timer.tv_sec) // already scheduled
+		return;
+
+	receiver->rtcp_timer = rtpe_now;
+	timeval_add_usec(&receiver->rtcp_timer, 5000000 + (random() % 2000000));
+	__codec_rtcp_timer_schedule(receiver);
+	// XXX unify with media player into a generic RTCP player
+}
+
 
 // call must be locked in W
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
@@ -1242,6 +1326,10 @@ next:
 
 		// we have to translate RTCP packets
 		receiver->rtcp_handler = rtcp_transcode_handler;
+		if (MEDIA_ISSET(receiver, RTCP_GEN)) {
+			receiver->rtcp_handler = rtcp_sink_handler;
+			__codec_rtcp_timer(receiver);
+		}
 
 		__check_dtmf_injector(flags, receiver, pref_dest_codec, output_transcoders, dtmf_payload_type);
 
@@ -3067,6 +3155,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 void codecs_init(void) {
 #ifdef WITH_TRANSCODING
 	timerthread_init(&codec_timers_thread, timerthread_queue_run);
+	rtcp_timer_queue = timerthread_queue_new("rtcp_timer_queue", sizeof(*rtcp_timer_queue),
+			&codec_timers_thread, NULL, __rtcp_timer_run, NULL, __rtcp_timer_free);
 #endif
 }
 void codecs_cleanup(void) {

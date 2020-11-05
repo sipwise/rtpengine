@@ -173,7 +173,7 @@ static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 
 	// XXX missing locking?
 	ssrc_out->next_rtcp = rtpe_now;
-	timeval_add_usec(&ssrc_out->next_rtcp, 5000000);
+	timeval_add_usec(&ssrc_out->next_rtcp, 5000000 + (random() % 2000000));
 }
 
 
