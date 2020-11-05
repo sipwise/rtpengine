@@ -247,6 +247,9 @@ struct rtcp_process_ctx {
 	// Homer stats
 	GString *json;
 	int json_init_len;
+
+	// verdict
+	int discard:1;
 };
 // all available methods
 struct rtcp_handler {
@@ -646,6 +649,7 @@ void rtcp_list_free(GQueue *q) {
 
 
 
+// returns: 0 = ok, forward, -1 = error, drop, 1 = ok, but discard (no forward)
 int rtcp_parse(GQueue *q, struct media_packet *mp) {
 	struct rtcp_header *hdr;
 	struct rtcp_chain_element *el;
@@ -714,7 +718,7 @@ next:
 	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, &mp->tv);
 	CAH(destroy);
 
-	return 0;
+	return log_ctx->discard ? 1 : 0;
 
 error:
 	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, &mp->tv);
