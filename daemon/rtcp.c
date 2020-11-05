@@ -16,6 +16,7 @@
 #include "rtcplib.h"
 #include "ssrc.h"
 #include "sdp.h"
+#include "log_funcs.h"
 
 
 
@@ -1398,8 +1399,8 @@ GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32
 
 	// receiver reports
 	int i = 0, n = 0;
-	for (GList *l = rrs->head; l; l = l->next) {
-		struct ssrc_ctx *s = l->data;
+	while (rrs->length) {
+		struct ssrc_ctx *s = g_queue_pop_head(rrs);
 		if (i < 30) {
 			struct report_block *rr = (void *) ret->str + ret->len;
 			g_string_set_size(ret, ret->len + sizeof(*rr));
@@ -1488,4 +1489,39 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 		g_queue_push_tail(out, ssrc_ctx_get(i));
 	}
 	rwlock_unlock_r(&hash->lock);
+}
+
+
+// call must be locked in R
+void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
+	struct call *call = media->call;
+
+	// figure out where to send it
+	struct packet_stream *ps = media->streams.head->data;
+	if (MEDIA_ISSET(media, RTCP_MUX))
+		;
+	else if (!media->streams.head->next)
+		;
+	else {
+		struct packet_stream *next_ps = media->streams.head->next->data;
+		if (PS_ISSET(next_ps, RTCP))
+			ps = next_ps;
+	}
+
+	log_info_stream_fd(ps->selected_sfd);
+
+	GQueue rrs = G_QUEUE_INIT;
+	rtcp_receiver_reports(&rrs, call->ssrc_hash, ps->media->monologue);
+
+	ilog(LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
+			ssrc_out->parent->h.ssrc, rrs.length);
+
+	GString *sr = rtcp_sender_report(ssrc_out->parent->h.ssrc,
+			atomic64_get(&ssrc_out->last_ts),
+			atomic64_get(&ssrc_out->packets),
+			atomic64_get(&ssrc_out->octets),
+			&rrs);
+
+	socket_sendto(&ps->selected_sfd->socket, sr->str, sr->len, &ps->endpoint);
+	g_string_free(sr, TRUE);
 }

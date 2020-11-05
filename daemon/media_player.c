@@ -163,47 +163,13 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 	return st;
 }
 
-
-// call is locked in R
-static void send_timer_send_rtcp(struct ssrc_ctx *ssrc_out, struct call *call, struct packet_stream *ps) {
-	GQueue rrs = G_QUEUE_INIT;
-	rtcp_receiver_reports(&rrs, call->ssrc_hash, ps->media->monologue);
-
-	ilog(LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
-			ssrc_out->parent->h.ssrc, rrs.length);
-
-	GString *sr = rtcp_sender_report(ssrc_out->parent->h.ssrc,
-			atomic64_get(&ssrc_out->last_ts),
-			atomic64_get(&ssrc_out->packets),
-			atomic64_get(&ssrc_out->octets),
-			&rrs);
-
-	socket_sendto(&ps->selected_sfd->socket, sr->str, sr->len, &ps->endpoint);
-	g_string_free(sr, TRUE);
-}
-
 // call is locked in R
 static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 	struct call_media *media = st->sink ? st->sink->media : NULL;
 	if (!media)
 		return;
-	struct call *call = media->call;
 
-	// figure out where to send it
-	struct packet_stream *ps = media->streams.head->data;
-	if (MEDIA_ISSET(media, RTCP_MUX))
-		;
-	else if (!media->streams.head->next)
-		;
-	else {
-		struct packet_stream *next_ps = media->streams.head->next->data;
-		if (PS_ISSET(next_ps, RTCP))
-			ps = next_ps;
-	}
-
-	log_info_stream_fd(ps->selected_sfd);
-
-	send_timer_send_rtcp(ssrc_out, call, ps);
+	rtcp_send_report(media, ssrc_out);
 
 	// XXX missing locking?
 	ssrc_out->next_rtcp = rtpe_now;
