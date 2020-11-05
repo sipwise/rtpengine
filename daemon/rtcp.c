@@ -1362,17 +1362,20 @@ static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_pack
 static void transcode_common_wrap(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
 	if (!ctx->mp->media->rtcp_handler)
 		return;
-	ctx->mp->media->rtcp_handler->common(ctx, common);
+	if (ctx->mp->media->rtcp_handler->common)
+		ctx->mp->media->rtcp_handler->common(ctx, common);
 }
 static void transcode_rr_wrap(struct rtcp_process_ctx *ctx, struct report_block *rr) {
 	if (!ctx->mp->media->rtcp_handler)
 		return;
-	ctx->mp->media->rtcp_handler->rr(ctx, rr);
+	if (ctx->mp->media->rtcp_handler->rr)
+		ctx->mp->media->rtcp_handler->rr(ctx, rr);
 }
 static void transcode_sr_wrap(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	if (!ctx->mp->media->rtcp_handler)
 		return;
-	ctx->mp->media->rtcp_handler->sr(ctx, sr);
+	if (ctx->mp->media->rtcp_handler->sr)
+		ctx->mp->media->rtcp_handler->sr(ctx, sr);
 }
 
 
@@ -1483,7 +1486,7 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 	rwlock_lock_r(&hash->lock);
 	for (GList *l = hash->q.head; l; l = l->next) {
 		struct ssrc_entry_call *e = l->data;
-		ilog(LOG_DEBUG, "xxxxx %x %i %i %p %p %p", e->h.ssrc, (int) atomic64_get(&e->input_ctx.packets), (int) atomic64_get(&e->output_ctx.packets), ml, e->input_ctx.ref, e->output_ctx.ref);
+		//ilog(LOG_DEBUG, "xxxxx %x %i %i %p %p %p", e->h.ssrc, (int) atomic64_get(&e->input_ctx.packets), (int) atomic64_get(&e->output_ctx.packets), ml, e->input_ctx.ref, e->output_ctx.ref);
 		struct ssrc_ctx *i = &e->input_ctx;
 		if (i->ref != ml)
 			continue;
