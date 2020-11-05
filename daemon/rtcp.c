@@ -1431,6 +1431,7 @@ GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32
 				tv_diff = timeval_diff(&rtpe_now, &si->received);
 				ntp_middle_bits = si->ntp_middle_bits;
 			}
+			uint32_t jitter = se->jitter;
 			mutex_unlock(&se->h.lock);
 
 			uint64_t lost = atomic64_get(&s->packets_lost);
@@ -1445,8 +1446,8 @@ GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32
 				.high_seq_received = htonl(atomic64_get(&s->last_seq)),
 				.lsr = htonl(ntp_middle_bits),
 				.dlsr = htonl(tv_diff * 65536 / 1000000),
+				.jitter = htonl(jitter >> 4),
 			};
-			// XXX jitter
 			n++;
 		}
 		ssrc_ctx_put(&s);

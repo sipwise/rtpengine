@@ -2502,6 +2502,27 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 	return ret;
 }
 
+
+static void codec_calc_jitter(struct media_packet *mp, unsigned int clockrate) {
+	if (!mp->ssrc_in)
+		return;
+	struct ssrc_entry_call *sec = mp->ssrc_in->parent;
+
+	// RFC 3550 A.8
+	uint32_t transit = (((timeval_us(&mp->tv) / 1000) * clockrate) / 1000)
+		- ntohl(mp->rtp->timestamp);
+	mutex_lock(&sec->h.lock);
+	int32_t d = 0;
+	if (sec->transit)
+		d = transit - sec->transit;
+	sec->transit = transit;
+	if (d < 0)
+		d = -d;
+	sec->jitter += d - ((sec->jitter + 8) >> 4);
+	mutex_unlock(&sec->h.lock);
+}
+
+
 static int handler_func_transcode(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
 		return handler_func_passthrough(h, mp);
@@ -2513,6 +2534,8 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 	ilog(LOG_DEBUG, "Received RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
+
+	codec_calc_jitter(mp, h->source_pt.clock_rate);
 
 	if (h->stats_entry) {
 		unsigned int idx = rtpe_now.tv_sec & 1;
