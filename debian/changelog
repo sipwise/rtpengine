@@ -1,3 +1,94 @@
+ngcp-rtpengine (9.2.0.0+0~mr9.2.0.0) unstable; urgency=medium
+
+  [ Guillem Jover ]
+  * [db87042] TT#91650 Add a .mailmap file to correct author information
+
+  [ Richard Fuchs ]
+  * [055ac56] TT#91003 use separate encoder and decoder names
+  * [829e9cb] TT#91003 use preferred AMR codecs
+  * [017a2fe] TT#78201 fix existing test
+  * [f48929f] TT#91003 fix AMR fmtp parsing
+  * [25609f7] TT#91003 support `=` escapes in codec strings
+  * [23b1aae] TT#91003 support AMR mode-set option
+  * [d0db2cb] TT#91003 create generic decoder event callback
+  * [e8aac82] TT#91003 add media_out pointer to media_packet
+  * [6fc9459] TT#91003 handle AMR CMR
+  * [30b1193] TT#91003 add AMR mode-set and CMR tests
+  * [48d4dc3] TT#91003 support passing extra codec options
+  * [0918ea2] TT#91003 abstractise fmtp key-value parsing
+  * [c239035] TT#91003 abstractise ffmpeg av_opt setting
+  * [ed9de31] TT#91003 support sending CMR
+  * [1020bcb] TT#91003 honour AMR mode change restrictions
+  * [5a33dee] TT#91003 add tests for extra AMR options
+  * [cd5cd84] TT#91003 add `mode-change-interval` AMR option
+  * [d2e8317] TT#91003 add tests for mode-change-interval
+  * [e4e9061] TT#91003 fix test compiler warning
+  * [c89208b] TT#91003 skip empty keys in key=value list
+  * [a69a27e] TT#91003 copy codec options from decoder to encoder side
+  * [0222936] TT#91003 handle NO_DATA frames from AMR encoder
+  * [62733b8] TT#89352 add convenience function for sockaddr_storage
+  * [aa36a1f] TT#88951 add HTTP/Websocket listener
+  * [cbf6ad7] TT#88951 abstractise CLI handling and writing
+  * [3f301dd] TT#88951 support handling CLI commands via HTTP and WS
+  * [32d43fe] TT#91150 move to a global NG cookie cache
+  * [e662b59] TT#91150 abstractise NG protocol handling
+  * [31f8b6f] TT#91150 support NG over HTTP/WS
+  * [565a4cf] TT#91150 document HTTP/WS interfaces
+  * [92ea268] TT#96200 fix SRTP multi-protocol re-offer
+  * [ba0553b] TT#96200 test for I5fb7638aa71e80c08abcda2d8c341ae72725bace
+  * [ca86f81] TT#14008 fix compilation for libwebsockets 3.x
+  * [5ac9149] TT#92250 keep supplemental codecs last in list when transcoding
+  * [2ce7b64] TT#92250 better handle supplemental codecs
+  * [241c78c] TT#92250 add codec-except option
+  * [1bc43aa] TT#92250 allow codec-strip/offer/except also in answer messages
+  * [653b09c] TT#92250 add `single codec` flag
+  * [ea1ba58] TT#92250 also honour single-codec for reverse transcoded codecs
+  * [9553af1] TT#92250 add tests for single-codec flag
+  * [dc4775d] TT#97302 respond with the same DTLS hash func as was offered
+  * [5ad4a59] TT#97302 add new flag to select DTLS fingerprint algo
+  * [3654309] TT#97302 tests for 5ad4a5
+  * [71c3154] TT#88750 restore DTLS SRTP details from Redis
+  * [dbd817a] TT#92250 match codec params during codec matchup
+  * [68ccc52] TT#92250 postpone codec_tracker to final stage
+  * [32cfb61] TT#92250 add tests for 68ccc5
+  * [e1dda97] TT#14008 fix some warnings from musl
+  * [b260e14] TT#97500 set thread stack size
+  * [18a3b9d] clean up codec stats on shutdown
+  * [5883f16] TT#14008 allow externally set CFLAGS
+  * [3893069] TT#92250 allocate strings for hash table storage
+  * [bbc6aa9] TT#14008 avoid double free on shutdown
+  * [4c77336] TT#92250 use correct size when freeing codec tracker
+  * [e4c1702] TT#14008 use G_SLICE=debug-blocks in tests
+  * [377f088] TT#14008 suppress stray redis log warnings
+  * [2502b44] TT#92250 keep supp codecs last when transcoding in reverse
+  * [74fd959] TT#92250 use matching output codec with inject-DTMF
+  * [e67eb7b] TT#94201 add explicit passthrough flags
+  * [95b8145] TT#94201 add ICE=default option
+  * [a89696c] TT#94201 add tests for 95b81455
+  * [65cf46b] TT#94201 convert ICE= options internally to enum
+  * [6ccfd14] TT#94201 change default ICE= behaviour, add new =optional flag
+  * [cd3652e] TT#97302 fix some DTLS negotiation issues
+  * [4910f7b] TT#88951 support queuing multiple WS output messages
+  * [ee74914] TT#92250 ignore format parameters for DTMF codec
+  * [f021212] fix compiler warning
+  * [64ba12c] TT#99503 fix possible T.38 gateway deadlock
+
+  [ spchan ]
+  * [dc3b792] Build with new FreeSWITCH package naming for spandsp.
+
+  [ Doug Rylaarsdam ]
+  * [995375f] Add support for metadata in stop_recording. (Issue #1075 on sipwise/rtpengine)
+
+  [ Semen Darienko ]
+  * [c741d45] fix segfault upon got reINVITE and BYE at the same time
+
+  [ Stefan Mititelu ]
+  * [2ebf5a1] Add redis async delete
+  * [cf1721c] Fix compilation when transcoding disabled
+  * [b517946] Add format_cmp_f stub when transcoding is not enabled
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 09 Nov 2020 16:27:05 +0100
+
 ngcp-rtpengine (9.1.0.0+0~mr9.1.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
