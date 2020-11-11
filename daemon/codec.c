@@ -433,7 +433,7 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 					&pt->payload_type);
 			if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt)) {
 				// can the sink receive supplemental codec but the receiver can't send it?
-				*sink_transcoding = 1;
+				*sink_transcoding |= 0x3;
 			}
 		}
 
@@ -453,9 +453,14 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
 				&pt->payload_type);
-		if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt) || (flags && flags->inject_dtmf)) {
-			// can the sink receive supplemental codec but the receiver can't send it?
-			*sink_transcoding = 1;
+		int tc_flag = 0;
+		if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt))
+			tc_flag |= 0x3;
+		if (flags && flags->inject_dtmf)
+			tc_flag |= 0x1;
+		if (tc_flag) {
+			// can the sink receive codec but the receiver can't send it?
+			*sink_transcoding |= tc_flag;
 			continue;
 		}
 
@@ -466,10 +471,8 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 			g_hash_table_lookup(sink->codec_handlers, GINT_TO_POINTER(recv_pt->payload_type));
 		if (!ch_recv)
 			continue;
-		if (ch_recv->transcoder) {
-			*sink_transcoding = 1;
-			break;
-		}
+		if (ch_recv->transcoder)
+			*sink_transcoding |= 0x3;
 	}
 }
 
@@ -1000,7 +1003,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// if we transcode, we transcode to the highest-preference supported codec
 	// that the sink specified. determine this first.
 	struct rtp_payload_type *pref_dest_codec = NULL;
-	int sink_transcoding = 0;
+	int sink_transcoding = 0; // 0x1 = any transcoder present, 0x2 = non pseudo transcoder present
 	// keep track of supplemental payload types. we hash them by clock rate
 	// in case there's several of them. the clock rates of the destination
 	// codec and the supplemental codec must match.
@@ -1042,7 +1045,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		MEDIA_CLEAR(sink, TRANSCODE);
 	}
 
-	if (MEDIA_ISSET(sink, TRANSCODE))
+	if (MEDIA_ISSET(sink, TRANSCODE) && (sink_transcoding & 0x2))
 		__accept_transcode_codecs(receiver, sink, flags);
 	else
 		__eliminate_rejected_codecs(receiver, sink, flags);
