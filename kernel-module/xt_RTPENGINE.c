@@ -1575,6 +1575,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "    option: transcoding\n");
 	if (g->target.non_forwarding)
 		seq_printf(f, "    option: non forwarding\n");
+	if (g->target.rtp_stats)
+		seq_printf(f, "    option: RTP stats\n");
 
 	target_put(g);
 

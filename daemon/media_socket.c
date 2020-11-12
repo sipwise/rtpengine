@@ -1137,6 +1137,7 @@ void kernelize(struct packet_stream *stream) {
 	reti.dtls = MEDIA_ISSET(media, DTLS);
 	reti.stun = media->ice_agent ? 1 : 0;
 	reti.non_forwarding = non_forwarding;
+	reti.rtp_stats = MEDIA_ISSET(media, RTCP_GEN) ? 1 : 0;
 
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);
@@ -1179,7 +1180,9 @@ void kernelize(struct packet_stream *stream) {
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type);
 			if (!ch->kernelize)
 				continue;
-			reti.payload_types[reti.num_payload_types++] = rs->payload_type;
+			reti.payload_types[reti.num_payload_types] = rs->payload_type;
+			reti.clock_rates[reti.num_payload_types] = ch->source_pt.clock_rate;
+			reti.num_payload_types++;
 		}
 		g_list_free(values);
 	}
@@ -1202,6 +1205,60 @@ no_kernel:
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 }
 
+// must be called with appropriate locks (master lock and/or in_lock)
+static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
+	struct re_address local;
+
+	if (!have_in_lock)
+		mutex_lock(&ps->in_lock);
+
+	struct ssrc_ctx *ssrc_ctx = ps->ssrc_in;
+	struct ssrc_entry_call *parent = ssrc_ctx->parent;
+
+	__re_address_translate_ep(&local, &ps->selected_sfd->socket.local);
+	struct rtpengine_ssrc_stats stats;
+	if (kernel_update_stats(&local, htonl(parent->h.ssrc), &stats)) {
+		if (!have_in_lock)
+			mutex_unlock(&ps->in_lock);
+		return;
+	}
+
+	if (!stats.basic_stats.packets) {
+		// no change
+		if (!have_in_lock)
+			mutex_unlock(&ps->in_lock);
+		return;
+	}
+
+	atomic64_add(&ssrc_ctx->packets, stats.basic_stats.packets);
+	atomic64_add(&ssrc_ctx->octets, stats.basic_stats.bytes);
+	atomic64_add(&ssrc_ctx->packets_lost, stats.total_lost);
+	atomic64_set(&ssrc_ctx->last_seq, stats.ext_seq);
+	atomic64_set(&ssrc_ctx->last_ts, stats.timestamp);
+	parent->jitter = stats.jitter;
+
+	uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
+
+	if (!have_in_lock)
+		mutex_unlock(&ps->in_lock);
+
+	// update opposite outgoing SSRC
+	if (!have_in_lock)
+		mutex_lock(&ps->out_lock);
+	else {
+		if (mutex_trylock(&ps->out_lock))
+			return; // will have to skip this
+	}
+	ssrc_ctx = ps->ssrc_out;
+	parent = ssrc_ctx->parent;
+	if (parent->h.ssrc == ssrc_map_out) {
+		atomic64_add(&ssrc_ctx->packets, stats.basic_stats.packets);
+		atomic64_add(&ssrc_ctx->octets, stats.basic_stats.bytes);
+	}
+	mutex_unlock(&ps->out_lock);
+}
+
+
 /* must be called with in_lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p) {
 	struct re_address rea;
@@ -1212,6 +1269,7 @@ void __unkernelize(struct packet_stream *p) {
 		return;
 
 	if (kernel.is_open) {
+		__stream_update_stats(p, 1);
 		__re_address_translate_ep(&rea, &p->selected_sfd->socket.local);
 		kernel_del_stream(&rea);
 	}
@@ -1239,6 +1297,24 @@ void unkernelize(struct packet_stream *ps) {
 	mutex_lock(&ps->in_lock);
 	__unkernelize(ps);
 	mutex_unlock(&ps->in_lock);
+}
+
+// master lock held in R
+void media_update_stats(struct call_media *m) {
+	if (!proto_is_rtp(m->protocol))
+		return;
+	if (!kernel.is_open)
+		return;
+
+	for (GList *l = m->streams.head; l; l = l->next) {
+		struct packet_stream *ps = l->data;
+		if (!PS_ISSET(ps, RTP))
+			continue;
+		if (!PS_ISSET(ps, KERNELIZED))
+			continue;
+
+		__stream_update_stats(ps, 0);
+	}
 }
 
 

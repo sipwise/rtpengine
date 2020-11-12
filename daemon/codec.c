@@ -1326,10 +1326,6 @@ next:
 
 		// we have to translate RTCP packets
 		receiver->rtcp_handler = rtcp_transcode_handler;
-		if (MEDIA_ISSET(receiver, RTCP_GEN)) {
-			receiver->rtcp_handler = rtcp_sink_handler;
-			__codec_rtcp_timer(receiver);
-		}
 
 		__check_dtmf_injector(flags, receiver, pref_dest_codec, output_transcoders, dtmf_payload_type);
 
@@ -1360,6 +1356,11 @@ next:
 	}
 
 	g_hash_table_destroy(output_transcoders);
+
+	if (MEDIA_ISSET(receiver, RTCP_GEN)) {
+		receiver->rtcp_handler = rtcp_sink_handler;
+		__codec_rtcp_timer(receiver);
+	}
 }
 
 
