@@ -277,6 +277,8 @@ struct rtpengine_target {
 
 	struct rtpengine_stats_a	stats;
 	struct rtpengine_rtp_stats_a	rtp_stats[NUM_PAYLOAD_TYPES];
+	spinlock_t			ssrc_stats_lock;
+	struct rtpengine_ssrc_stats	ssrc_stats;
 
 	struct re_crypto_context	decrypt;
 	struct re_crypto_context	encrypt;
@@ -1658,6 +1660,32 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 
 
 
+static int table_get_target_stats(struct rtpengine_table *t, struct rtpengine_stats_info *i, int reset) {
+	struct rtpengine_target *g;
+
+	g = get_target(t, &i->local);
+	if (!g)
+		return -ENOENT;
+
+	i->ssrc = g->target.ssrc;
+	spin_lock(&g->ssrc_stats_lock);
+	i->ssrc_stats = g->ssrc_stats;
+
+	if (reset) {
+		g->ssrc_stats.basic_stats.packets = 0;
+		g->ssrc_stats.basic_stats.bytes = 0;
+		g->ssrc_stats.total_lost = 0;
+	}
+
+	spin_unlock(&g->ssrc_stats_lock);
+
+	target_put(g);
+
+	return 0;
+}
+
+
+
 static int table_del_target(struct rtpengine_table *t, const struct re_address *local) {
 	unsigned char hi, lo;
 	struct re_dest_addr *rda;
@@ -2131,6 +2159,8 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	memcpy(&g->target, i, sizeof(*i));
 	crypto_context_init(&g->decrypt, &g->target.decrypt);
 	crypto_context_init(&g->encrypt, &g->target.encrypt);
+	spin_lock_init(&g->ssrc_stats_lock);
+	g->ssrc_stats.lost_bits = -1;
 
 	err = gen_session_keys(&g->decrypt, &g->target.decrypt);
 	if (err)
@@ -3244,6 +3274,20 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			err = table_new_target(t, &msg->u.target, 1);
 			break;
 
+		case REMG_GET_STATS:
+			err = -EINVAL;
+			if (!writeable)
+				goto err;
+			err = table_get_target_stats(t, &msg->u.stats, 0);
+			break;
+
+		case REMG_GET_RESET_STATS:
+			err = -EINVAL;
+			if (!writeable)
+				goto err;
+			err = table_get_target_stats(t, &msg->u.stats, 1);
+			break;
+
 		case REMG_ADD_CALL:
 			err = -EINVAL;
 			if (!writeable)
@@ -3925,6 +3969,88 @@ static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_
 
 
 
+static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 arrival_time, int pt_idx) {
+	unsigned long flags;
+	struct rtpengine_ssrc_stats *s = &g->ssrc_stats;
+	u_int16_t old_seq_trunc;
+	u_int32_t last_seq;
+	u_int16_t seq_diff;
+	u_int32_t clockrate;
+	u_int32_t transit;
+	int32_t d;
+
+	u_int16_t seq = ntohs(rtp->header->seq_num);
+	u_int32_t ts = ntohl(rtp->header->timestamp);
+
+	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
+
+	s->basic_stats.packets++;
+	s->basic_stats.bytes += rtp->payload_len;
+	s->timestamp = ts;
+
+	// track sequence numbers and lost frames
+
+	last_seq = s->ext_seq;
+
+	// old seq or seq reset?
+	old_seq_trunc = last_seq & 0xffff;
+	seq_diff = seq - old_seq_trunc;
+	if (seq_diff == 0 || seq_diff >= 0xfeff) // old/dup seq - ignore
+		;
+	else if (seq_diff > 0x100) {
+		// reset seq and loss tracker
+		s->ext_seq = seq;
+		s->lost_bits = -1;
+	}
+	else {
+		// seq wrap?
+		u_int32_t new_seq = (last_seq & 0xffff0000) | seq;
+		while (new_seq < last_seq) {
+			new_seq += 0x10000;
+			if ((new_seq & 0xffff0000) == 0) // ext seq wrapped
+				break;
+		}
+		seq_diff = new_seq - s->ext_seq;
+		s->ext_seq = new_seq;
+
+		// shift loss tracker bit field and count losses
+		if (seq_diff >= (sizeof(s->lost_bits) * 8)) {
+			// complete loss
+			s->total_lost += sizeof(s->lost_bits) * 8;
+			s->lost_bits = -1;
+		}
+		else {
+			while (seq_diff) {
+				// shift out one bit and see if we lost it
+				if ((s->lost_bits & 0x80000000) == 0)
+					s->total_lost++;
+				s->lost_bits <<= 1;
+				seq_diff--;
+			}
+		}
+	}
+
+	// track this frame as being seen
+	seq_diff = (s->ext_seq & 0xffff) - seq;
+	if (seq_diff < (sizeof(s->lost_bits) * 8))
+		s->lost_bits |= (1 << seq_diff);
+
+	// jitter
+	// RFC 3550 A.8
+	clockrate = g->target.clock_rates[pt_idx];
+	transit = (((arrival_time / 1000) * clockrate) / 1000) - ts;
+	d = 0;
+	if (s->transit)
+		d = transit - s->transit;
+	s->transit = transit;
+	if (d < 0)
+		d = -d;
+	s->jitter += d - ((s->jitter + 8) >> 4);
+
+	spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
+}
+
+
 static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, u_int8_t in_tos, const struct xt_action_param *par)
 {
@@ -4039,6 +4165,9 @@ src_check_ok:
 		goto skip_error;
 
 	skb_trim(skb, rtp.header_len + rtp.payload_len);
+
+	if (g->target.rtp_stats)
+		rtp_stats(g, &rtp, ktime_to_us(skb->tstamp), rtp_pt_idx);
 
 	DBG("packet payload decrypted as %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x...\n",
 			rtp.payload[0], rtp.payload[1], rtp.payload[2], rtp.payload[3],
