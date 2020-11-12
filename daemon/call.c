@@ -2658,7 +2658,7 @@ static struct call *call_create(const str *callid) {
 }
 
 /* returns call with master_lock held in W */
-struct call *call_get_or_create(const str *callid, enum call_type type) {
+struct call *call_get_or_create(const str *callid, int foreign) {
 	struct call *c;
 
 restart:
@@ -2677,8 +2677,7 @@ restart:
 		}
 		g_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
 
-		if (type == CT_FOREIGN_CALL)  /* foreign call*/
-					c->foreign_call = 1;
+		c->foreign_call = foreign;
 
 		statistics_update_foreignown_inc(c);
 
@@ -2717,7 +2716,7 @@ struct call *call_get(const str *callid) {
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
-		return call_get_or_create(callid, CT_OWN_CALL);
+		return call_get_or_create(callid, 0);
 	return call_get(callid);
 }
 
