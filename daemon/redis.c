@@ -76,7 +76,7 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 #define REDIS_FMT(x) (int) (x)->len, (x)->str
 
 static int redis_check_conn(struct redis *r);
-static void json_restore_call(struct redis *r, const str *id, enum call_type type);
+static void json_restore_call(struct redis *r, const str *id, int foreign);
 static int redis_connect(struct redis *r, int wait);
 
 static void redis_pipe(struct redis *r, const char *fmt, ...) {
@@ -367,7 +367,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 				goto err;
 			}
 		}
-		json_restore_call(r, &callid, CT_FOREIGN_CALL);
+		json_restore_call(r, &callid, 1);
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
@@ -1713,7 +1713,7 @@ static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
 	return 0;
 }
 
-static void json_restore_call(struct redis *r, const str *callid, enum call_type type) {
+static void json_restore_call(struct redis *r, const str *callid, int foreign) {
 	redisReply* rr_jsonStr;
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
@@ -1739,7 +1739,7 @@ static void json_restore_call(struct redis *r, const str *callid, enum call_type
 	if (!root_reader)
 		goto err1;
 
-	c = call_get_or_create(callid, type);
+	c = call_get_or_create(callid, foreign);
 	err = "failed to create call struct";
 	if (!c)
 		goto err1;
@@ -1891,7 +1891,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	r = g_queue_pop_head(&ctx->r_q);
 	mutex_unlock(&ctx->r_m);
 
-	json_restore_call(r, &callid, CT_OWN_CALL);
+	json_restore_call(r, &callid, 0);
 
 	mutex_lock(&ctx->r_m);
 	g_queue_push_tail(&ctx->r_q, r);
