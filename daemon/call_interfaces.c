@@ -1143,12 +1143,12 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 				rwlock_unlock_w(&call->master_lock);
 				call_destroy(call);
 				obj_put(call);
-				call = call_get_or_create(&flags.call_id, CT_OWN_CALL);
+				call = call_get_or_create(&flags.call_id, 0);
 			}
 		}
 		else {
 			/* call == NULL, should create call */
-			call = call_get_or_create(&flags.call_id, CT_OWN_CALL);
+			call = call_get_or_create(&flags.call_id, 0);
 		}
 	}
 
