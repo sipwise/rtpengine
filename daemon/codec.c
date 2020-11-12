@@ -112,6 +112,7 @@ static codec_handler_func handler_func_passthrough_ssrc;
 static codec_handler_func handler_func_transcode;
 static codec_handler_func handler_func_playback;
 static codec_handler_func handler_func_inject_dtmf;
+static codec_handler_func handler_func_supplemental;
 static codec_handler_func handler_func_dtmf;
 static codec_handler_func handler_func_t38;
 
@@ -121,6 +122,7 @@ static void __free_ssrc_handler(void *);
 
 static void __transcode_packet_free(struct transcode_packet *);
 
+static int packet_decode(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
 static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2);
 static int packet_decoded_fifo(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
 static int packet_decoded_direct(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
@@ -184,6 +186,8 @@ static void __make_passthrough(struct codec_handler *handler) {
 			STR_FMT(&handler->source_pt.encoding_with_params));
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
 		handler->func = handler_func_dtmf;
+	else if (handler->source_pt.codec_def && handler->source_pt.codec_def->supplemental)
+		handler->func = handler_func_supplemental;
 	else {
 		handler->func = handler_func_passthrough;
 		handler->kernelize = 1;
@@ -197,6 +201,8 @@ static void __make_passthrough_ssrc(struct codec_handler *handler) {
 			STR_FMT(&handler->source_pt.encoding_with_params));
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
 		handler->func = handler_func_dtmf;
+	else if (handler->source_pt.codec_def && handler->source_pt.codec_def->supplemental)
+		handler->func = handler_func_supplemental;
 	else {
 		handler->func = handler_func_passthrough_ssrc;
 		handler->kernelize = 1;
@@ -355,8 +361,19 @@ static void __dtmf_dsp_shutdown(struct call_media *sink, int payload_type) {
 }
 
 
+static void __track_supp_codec(GHashTable *supplemental_sinks, struct rtp_payload_type *pt) {
+	if (!pt->codec_def || !pt->codec_def->supplemental)
+		return;
+
+	GHashTable *supp_sinks = g_hash_table_lookup(supplemental_sinks, pt->codec_def->rtpname);
+	if (!supp_sinks)
+		return;
+	if (!g_hash_table_lookup(supp_sinks, GUINT_TO_POINTER(pt->clock_rate)))
+		g_hash_table_insert(supp_sinks, GUINT_TO_POINTER(pt->clock_rate), pt);
+}
+
 static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, GHashTable *dtmf_sinks, int *sink_transcoding)
+		const struct sdp_ng_flags *flags, GHashTable *supplemental_sinks, int *sink_transcoding)
 {
 	struct rtp_payload_type *pref_dest_codec = NULL;
 
@@ -387,22 +404,14 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 					&pt->payload_type);
 			if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt)) {
 				*sink_transcoding = 1;
-				// can the sink receive RFC DTMF but the receiver can't send it?
-				if (pt->codec_def && pt->codec_def->dtmf) {
-					if (!g_hash_table_lookup(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate)))
-						g_hash_table_insert(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate),
-								pt);
-				}
+				// can the sink receive supplemental codec but the receiver can't send it?
+				__track_supp_codec(supplemental_sinks, pt);
 			}
 		}
 		else if (flags && (flags->always_transcode || flags->inject_dtmf)) {
-			// with always-transcode, we must keep track of potential output DTMF payload
+			// with always-transcode, we must keep track of potential output supplemental payload
 			// types as well
-			if (pt->codec_def && pt->codec_def->dtmf) {
-				if (!g_hash_table_lookup(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate)))
-					g_hash_table_insert(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate),
-							pt);
-			}
+			__track_supp_codec(supplemental_sinks, pt);
 		}
 	}
 
@@ -410,7 +419,7 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 }
 
 static void __check_send_codecs(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, GHashTable *dtmf_sinks, int *sink_transcoding)
+		const struct sdp_ng_flags *flags, GHashTable *supplemental_sinks, int *sink_transcoding)
 {
 	if (!MEDIA_ISSET(sink, TRANSCODE))
 		return;
@@ -421,12 +430,8 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 				&pt->payload_type);
 		if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt) || (flags && flags->inject_dtmf)) {
 			*sink_transcoding = 1;
-			// can the sink receive RFC DTMF but the receiver can't send it?
-			if (pt->codec_def && pt->codec_def->dtmf) {
-				if (!g_hash_table_lookup(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate)))
-					g_hash_table_insert(dtmf_sinks, GUINT_TO_POINTER(pt->clock_rate),
-							pt);
-			}
+			// can the sink receive supplemental codec but the receiver can't send it?
+			__track_supp_codec(supplemental_sinks, pt);
 			continue;
 		}
 
@@ -444,7 +449,10 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 	}
 }
 
-static int __dtmf_payload_type(GHashTable *dtmf_sinks, struct rtp_payload_type *pref_dest_codec) {
+static int __dtmf_payload_type(GHashTable *supplemental_sinks, struct rtp_payload_type *pref_dest_codec) {
+	GHashTable *dtmf_sinks = g_hash_table_lookup(supplemental_sinks, "telephone-event");
+	if (!dtmf_sinks)
+		return -1;
 	if (!g_hash_table_size(dtmf_sinks) || !pref_dest_codec)
 		return -1;
 
@@ -929,23 +937,29 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// that the sink specified. determine this first.
 	struct rtp_payload_type *pref_dest_codec = NULL;
 	int sink_transcoding = 0;
-	// keep track of telephone-event payload types. we hash them by clock rate
+	// keep track of supplemental payload types. we hash them by clock rate
 	// in case there's several of them. the clock rates of the destination
-	// codec and the telephone-event codec must match.
-	GHashTable *dtmf_sinks = g_hash_table_new(g_direct_hash, g_direct_equal);
+	// codec and the supplemental codec must match.
+	GHashTable *supplemental_sinks = g_hash_table_new_full(g_str_hash, g_str_equal, NULL,
+			(GDestroyNotify) g_hash_table_destroy);
+	for (GList *l = codec_supplemental_codecs->head; l; l = l->next) {
+		codec_def_t *def = l->data;
+		g_hash_table_replace(supplemental_sinks, (void *) def->rtpname,
+				g_hash_table_new(g_direct_hash, g_direct_equal));
+	}
 
-	pref_dest_codec = __check_dest_codecs(receiver, sink, flags, dtmf_sinks, &sink_transcoding);
+	pref_dest_codec = __check_dest_codecs(receiver, sink, flags, supplemental_sinks, &sink_transcoding);
 
 	// similarly, if the sink can receive a codec that the receiver can't send, it's also transcoding
-	__check_send_codecs(receiver, sink, flags, dtmf_sinks, &sink_transcoding);
+	__check_send_codecs(receiver, sink, flags, supplemental_sinks, &sink_transcoding);
 
 	if (flags && flags->opmode == OP_ANSWER && flags->symmetric_codecs)
 		__symmetric_codecs(receiver, sink, &sink_transcoding);
 
-	ilog(LOG_DEBUG, "%i DTMF sink entries", g_hash_table_size(dtmf_sinks));
-	int dtmf_payload_type = __dtmf_payload_type(dtmf_sinks, pref_dest_codec);
+	int dtmf_payload_type = __dtmf_payload_type(supplemental_sinks, pref_dest_codec);
 
-	g_hash_table_destroy(dtmf_sinks);
+	g_hash_table_destroy(supplemental_sinks);
+	supplemental_sinks = NULL;
 
 	struct rtp_payload_type *dtmf_pt = NULL;
 	struct rtp_payload_type *reverse_dtmf_pt = NULL;
@@ -974,7 +988,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// payload type to keep track of this.
 	GHashTable *output_transcoders = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-	int transcode_dtmf = 0; // is one of our destination codecs DTMF?
+	int transcode_supplemental = 0; // is one of our source codecs a supplemental one?
 
 	// do we need to detect PCM DTMF tones?
 	int pcm_dtmf_detect = 0;
@@ -1086,8 +1100,8 @@ unsupported:
 		// the sink does not support this codec -> transcode
 		ilog(LOG_DEBUG, "Sink does not support codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 		dest_pt = pref_dest_codec;
-		if (pt->codec_def->dtmf)
-			transcode_dtmf = 1;
+		if (pt->codec_def->supplemental)
+			transcode_supplemental = 1;
 transcode:;
 		// look up the reverse side of this payload type, which is the decoder to our
 		// encoder. if any codec options such as bitrate were set during an offer,
@@ -1139,7 +1153,7 @@ next:
 			// if the sink does not support DTMF but we can receive it, we must transcode
 			// DTMF event packets to PCM. this requires all codecs to be transcoded to the
 			// sink's preferred destination codec.
-			if (!transcode_dtmf && dtmf_payload_type == -1)
+			if (!transcode_supplemental && dtmf_payload_type == -1)
 				__make_passthrough_ssrc(handler);
 			else if (dtmf_pt && reverse_dtmf_pt)
 				__make_passthrough_ssrc(handler);
@@ -1522,7 +1536,10 @@ static int packet_dtmf_dup(struct codec_ssrc_handler *ch, struct transcode_packe
 	return 0;
 }
 
-static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
+static int __handler_func_supplemental(struct codec_handler *h, struct media_packet *mp,
+		int (*func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *),
+		int (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *))
+{
 	if (G_UNLIKELY(!mp->rtp))
 		return handler_func_passthrough(h, mp);
 
@@ -1530,7 +1547,8 @@ static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 
 	// create new packet and insert it into sequencer queue
 
-	ilog(LOG_DEBUG, "Received DTMF RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
+	ilog(LOG_DEBUG, "Received %s RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
+			h->source_pt.codec_def->rtpname,
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
@@ -1547,14 +1565,20 @@ static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 			sequencer_h = codec_handler_get(mp->media, prim_pt);
 			if (sequencer_h == h)
 				continue;
-			ilog(LOG_DEBUG, "Primary RTP payload type for handling DTMF event is %i", prim_pt);
+			if (sequencer_h->source_pt.codec_def && sequencer_h->source_pt.codec_def->supplemental)
+				continue;
+			ilog(LOG_DEBUG, "Primary RTP payload type for handling %s is %i",
+					h->source_pt.codec_def->rtpname,
+					prim_pt);
 			break;
 		}
 	}
 
+	// XXX ? h->output_handler = sequencer_h->output_handler; // XXX locking?
+
 	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
-	packet->func = packet_dtmf;
-	packet->dup_func = packet_dtmf_dup;
+	packet->func = func;
+	packet->dup_func = dup_func;
 	packet->handler = h;
 	packet->rtp = *mp->rtp;
 
@@ -1566,6 +1590,12 @@ static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	}
 
 	return __handler_func_sequencer(mp, packet);
+}
+static int handler_func_supplemental(struct codec_handler *h, struct media_packet *mp) {
+	return __handler_func_supplemental(h, mp, packet_decode, NULL);
+}
+static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
+	return __handler_func_supplemental(h, mp, packet_dtmf, packet_dtmf_dup);
 }
 
 static int handler_func_t38(struct codec_handler *h, struct media_packet *mp) {
