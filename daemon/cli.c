@@ -45,6 +45,8 @@ static void cli_incoming_terminate(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_ksadd(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_ksrm(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_kslist(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_active(str *instr, struct streambuf *replybuffer);
+static void cli_incoming_standby(str *instr, struct streambuf *replybuffer);
 
 static void cli_incoming_set_maxopenfiles(str *instr, struct streambuf *replybuffer);
 static void cli_incoming_set_maxsessions(str *instr, struct streambuf *replybuffer);
@@ -100,6 +102,8 @@ static const cli_handler_t cli_top_handlers[] = {
 	{ "ksadd",		cli_incoming_ksadd		},
 	{ "ksrm",		cli_incoming_ksrm		},
 	{ "kslist",		cli_incoming_kslist		},
+	{ "active",		cli_incoming_active		},
+	{ "standby",		cli_incoming_standby		},
 	{ NULL, },
 };
 static const cli_handler_t cli_set_handlers[] = {
@@ -169,7 +173,7 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 	streambuf_printf(replybuffer, "%s:%s\n", "Unknown or incomplete command:", instr->s);
 }
 
-static void destroy_own_foreign_calls(unsigned int foreign_call, unsigned int uint_keyspace_db) {
+static void destroy_own_foreign_calls(int foreign_call, unsigned int uint_keyspace_db) {
 	struct call *c = NULL;
 	struct call_monologue *ml = NULL;
 	GQueue call_list = G_QUEUE_INIT;
@@ -224,15 +228,15 @@ static void destroy_own_foreign_calls(unsigned int foreign_call, unsigned int ui
 }
 
 static void destroy_all_foreign_calls(void) {
-	destroy_own_foreign_calls(CT_FOREIGN_CALL, UNDEFINED);
+	destroy_own_foreign_calls(1, UNDEFINED);
 }
 
 static void destroy_all_own_calls(void) {
-	destroy_own_foreign_calls(CT_OWN_CALL, UNDEFINED);
+	destroy_own_foreign_calls(0, UNDEFINED);
 }
 
 static void destroy_keyspace_foreign_calls(unsigned int uint_keyspace_db) {
-	destroy_own_foreign_calls(CT_FOREIGN_CALL, uint_keyspace_db);
+	destroy_own_foreign_calls(1, uint_keyspace_db);
 }
 
 static void cli_incoming_params_start(str *instr, struct streambuf *replybuffer) {
@@ -1054,6 +1058,28 @@ static void cli_incoming_kslist(str *instr, struct streambuf *replybuffer) {
 	streambuf_printf(replybuffer, "\n");
 }
 
+static void cli_incoming_active_standby(struct streambuf *replybuffer, int foreign) {
+	GHashTableIter iter;
+	gpointer key, value;
+
+	rwlock_lock_r(&rtpe_callhash_lock);
+
+	g_hash_table_iter_init(&iter, rtpe_callhash);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		struct call *c = value;
+		call_make_own_foreign(c, foreign);
+	}
+	rwlock_unlock_r(&rtpe_callhash_lock);
+
+	streambuf_printf(replybuffer, "Ok, all calls set to '%s'\n", foreign ? "foreign (standby)" : "owned (active)");
+}
+static void cli_incoming_active(str *instr, struct streambuf *replybuffer) {
+	cli_incoming_active_standby(replybuffer, 0);
+}
+static void cli_incoming_standby(str *instr, struct streambuf *replybuffer) {
+	cli_incoming_active_standby(replybuffer, 1);
+}
+
 static void cli_incoming(struct streambuf_stream *s) {
    ilog(LOG_INFO, "New cli connection from %s", s->addr);
 }
@@ -1072,7 +1098,6 @@ static void cli_stream_readable(struct streambuf_stream *s) {
        return;
    }
 
-   ilog(LOG_INFO, "Got CLI command: %s%s%s", FMT_M(inbuf));
    str_init(&instr, inbuf);
 
    cli_handler_do(cli_top_handlers, &instr, s->outbuf);

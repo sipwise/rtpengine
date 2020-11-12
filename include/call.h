@@ -60,11 +60,6 @@ enum call_stream_state {
 	CSS_RUNNING,
 };
 
-enum call_type {
-	CT_OWN_CALL = 0,
-	CT_FOREIGN_CALL,
-};
-
 #define ERROR_NO_FREE_PORTS	-100
 #define ERROR_NO_FREE_LOGS	-101
 
@@ -399,7 +394,6 @@ struct call {
 	sockaddr_t		xmlrpc_callback;
 
 	unsigned int		redis_hosted_db;
-	unsigned int		foreign_call; // created_via_redis_notify call
 
 	struct recording 	*recording;
 	str			metadata;
@@ -409,6 +403,7 @@ struct call {
 	int			recording_on:1;
 	int			rec_forwarding:1;
 	int			drop_traffic:1;
+	int			foreign_call:1; // created_via_redis_notify call
 };
 
 
@@ -430,7 +425,7 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
 
 
-struct call *call_get_or_create(const str *callid, enum call_type);
+struct call *call_get_or_create(const str *callid, int foreign);
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
 void call_make_own_foreign(struct call *c, int foreign);
 struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag,
