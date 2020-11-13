@@ -237,6 +237,7 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 	ag->foundation_hash = g_hash_table_new(__found_hash, __found_equal);
 	ag->agent_flags = 0;
 	bf_copy(&ag->agent_flags, ICE_AGENT_CONTROLLING, &media->media_flags, MEDIA_FLAG_ICE_CONTROLLING);
+	bf_copy(&ag->agent_flags, ICE_AGENT_LITE_SELF, &media->media_flags, MEDIA_FLAG_ICE_LITE_SELF);
 	ag->logical_intf = media->logical_intf;
 	ag->desired_family = media->desired_family;
 	ag->nominated_pairs = g_tree_new(__pair_prio_cmp);
@@ -578,6 +579,9 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 	struct stream_fd *sfd = pair->sfd;
 	struct ice_agent *ag = pair->agent;
 	u_int32_t prio, transact[3];
+
+	if (AGENT_ISSET(ag, LITE_SELF))
+		PAIR_SET(pair, SUCCEEDED);
 
 	if (PAIR_ISSET(pair, SUCCEEDED) && !PAIR_ISSET(pair, TO_USE))
 		return;
@@ -1096,19 +1100,23 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 
 	mutex_unlock(&ag->lock);
 
-	/* determine role conflict */
-	if (attrs->controlling && AGENT_ISSET(ag, CONTROLLING)) {
-		if (tie_breaker >= attrs->tiebreaker)
-			return -2;
-		else
-			__role_change(ag, 0);
+	if (!AGENT_ISSET(ag, LITE_SELF)) {
+		/* determine role conflict */
+		if (attrs->controlling && AGENT_ISSET(ag, CONTROLLING)) {
+			if (tie_breaker >= attrs->tiebreaker)
+				return -2;
+			else
+				__role_change(ag, 0);
+		}
+		else if (attrs->controlled && !AGENT_ISSET(ag, CONTROLLING)) {
+			if (tie_breaker >= attrs->tiebreaker)
+				__role_change(ag, 1);
+			else
+				return -2;
+		}
 	}
-	else if (attrs->controlled && !AGENT_ISSET(ag, CONTROLLING)) {
-		if (tie_breaker >= attrs->tiebreaker)
-			__role_change(ag, 1);
-		else
-			return -2;
-	}
+	else
+		PAIR_SET(pair, SUCCEEDED);
 
 
 	if (PAIR_ISSET(pair, SUCCEEDED))

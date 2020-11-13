@@ -2370,6 +2370,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			chopper_append_c(chop, "\r\n");
 		}
 
+		if (MEDIA_ISSET(call_media, ICE) && MEDIA_ISSET(call_media, ICE_LITE_SELF))
+			chopper_append_c(chop, "a=ice-lite\r\n");
+
 		media_index = 1;
 
 		for (k = session->media_streams.head; k; k = k->next) {

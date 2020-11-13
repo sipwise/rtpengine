@@ -153,6 +153,7 @@ enum call_type {
 #define MEDIA_FLAG_PTIME_OVERRIDE		0x01000000
 #define MEDIA_FLAG_RTCP_FB			SHARED_FLAG_RTCP_FB
 #define MEDIA_FLAG_GENERATOR			0x02000000
+#define MEDIA_FLAG_ICE_LITE_SELF		0x04000000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)

@@ -1282,23 +1282,46 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 		}
 	}
 
+	switch (flags->ice_lite_option) {
+		case ICE_LITE_OFF:
+			MEDIA_CLEAR(this, ICE_LITE_SELF);
+			MEDIA_CLEAR(other, ICE_LITE_SELF);
+			break;
+		case ICE_LITE_FWD:
+			MEDIA_SET(this, ICE_LITE_SELF);
+			MEDIA_CLEAR(other, ICE_LITE_SELF);
+			break;
+		case ICE_LITE_BKW:
+			MEDIA_CLEAR(this, ICE_LITE_SELF);
+			MEDIA_SET(other, ICE_LITE_SELF);
+			break;
+		case ICE_LITE_BOTH:
+			MEDIA_SET(this, ICE_LITE_SELF);
+			MEDIA_SET(other, ICE_LITE_SELF);
+			break;
+	};
+
 	/* determine roles (even if we don't actually do ICE) */
 	/* this = receiver, other = sender */
 	/* ICE_CONTROLLING is from our POV, the other ICE flags are from peer's POV */
-	if (MEDIA_ISSET(this, ICE_LITE_PEER))
+	if (MEDIA_ISSET(this, ICE_LITE_PEER) && !MEDIA_ISSET(this, ICE_LITE_SELF))
 		MEDIA_SET(this, ICE_CONTROLLING);
 	else if (!MEDIA_ISSET(this, INITIALIZED)) {
-		if (flags->opmode == OP_OFFER)
+		if (MEDIA_ISSET(this, ICE_LITE_SELF))
+			MEDIA_CLEAR(this, ICE_CONTROLLING);
+		else if (flags->opmode == OP_OFFER)
 			MEDIA_SET(this, ICE_CONTROLLING);
 		else
 			MEDIA_CLEAR(this, ICE_CONTROLLING);
 	}
 
 	/* roles are reversed for the other side */
-	if (MEDIA_ISSET(other, ICE_LITE_PEER))
+	if (MEDIA_ISSET(other, ICE_LITE_PEER) && !MEDIA_ISSET(other, ICE_LITE_SELF))
 		MEDIA_SET(other, ICE_CONTROLLING);
 	else if (!MEDIA_ISSET(other, INITIALIZED)) {
-		if (flags->opmode == OP_OFFER)
+		if (MEDIA_ISSET(other, ICE_LITE_SELF))
+			MEDIA_CLEAR(other, ICE_CONTROLLING);
+		else if (flags->opmode == OP_OFFER)
 			MEDIA_CLEAR(other, ICE_CONTROLLING);
 		else
 			MEDIA_SET(other, ICE_CONTROLLING);

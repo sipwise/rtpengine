@@ -36,6 +36,7 @@ the following additional features are available:
   + Bridging between ICE-enabled and ICE-unaware user agents
   + Optionally acting only as additional ICE relay/candidate
   + Optionally forcing relay of media streams by removing other ICE candidates
+  + Optionally act as an "ICE lite" peer only
 - SRTP (RFC 3711) support:
   + Support for SDES (RFC 4568) and DTLS-SRTP (RFC 5764)
   + AES-CM and AES-F8 ciphers, both in userspace and in kernel
@@ -896,6 +897,21 @@ Optionally included keys are:
 	The default behaviour (no `ICE` key present at all) is the same as `default`.
 
 	This flag operates independently of the `replace` flags.
+
+* `ICE-lite`
+
+	Contains a string which must be one of the following values:
+
+	- `forward` to enable "ICE lite" mode towards the peer that this offer is sent to.
+
+	- `backward` to enable "ICE lite" mode towards the peer that has sent this offer.
+
+	- `both` to enable "ICE lite" towards both peers.
+
+	- `off` to disable "ICE lite" towards both peers and revert to full ICE support.
+
+	The default (keyword not present at all) is to use full ICE support, or to leave the previously
+	set "ICE lite" mode unchanged. This keyword is valid in `offer` messages only.
 
 * `transport protocol`
 

@@ -54,6 +54,12 @@ struct sdp_ng_flags {
 		ICE_FORCE_RELAY,
 		ICE_OPTIONAL,
 	} ice_option:3;
+	enum {
+		ICE_LITE_OFF = 0,
+		ICE_LITE_FWD,
+		ICE_LITE_BKW,
+		ICE_LITE_BOTH,
+	} ice_lite_option:2;
 	int asymmetric:1,
 	    protocol_accept:1,
 	    no_redis_update:1,

@@ -949,6 +949,37 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 	}
 
+	if (bencode_dictionary_get_str(input, "ICE-lite", &s)) {
+		switch (__csh_lookup(&s)) {
+			case CSH_LOOKUP("off"):
+			case CSH_LOOKUP("none"):
+			case CSH_LOOKUP("no"):
+				out->ice_lite_option = ICE_LITE_OFF;
+				break;
+			case CSH_LOOKUP("forward"):
+			case CSH_LOOKUP("offer"):
+			case CSH_LOOKUP("fwd"):
+			case CSH_LOOKUP("fw"):
+				out->ice_lite_option = ICE_LITE_FWD;
+				break;
+			case CSH_LOOKUP("backward"):
+			case CSH_LOOKUP("backwards"):
+			case CSH_LOOKUP("reverse"):
+			case CSH_LOOKUP("answer"):
+			case CSH_LOOKUP("back"):
+			case CSH_LOOKUP("bkw"):
+			case CSH_LOOKUP("bk"):
+				out->ice_lite_option = ICE_LITE_BKW;
+				break;
+			case CSH_LOOKUP("both"):
+				out->ice_lite_option = ICE_LITE_BOTH;
+				break;
+			default:
+				ilog(LOG_WARN, "Unknown 'ICE-lite' flag encountered: '" STR_FORMAT "'",
+						STR_FMT(&s));
+		}
+	}
+
 	if (bencode_dictionary_get_str(input, "DTLS", &s)) {
 		switch (__csh_lookup(&s)) {
 			case CSH_LOOKUP("passive"):
