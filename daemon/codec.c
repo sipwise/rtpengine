@@ -449,6 +449,23 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 	}
 }
 
+static int __supp_payload_type(GHashTable *supplemental_sinks, struct rtp_payload_type *pref_dest_codec,
+		const char *codec)
+{
+	GHashTable *supp_sinks = g_hash_table_lookup(supplemental_sinks, codec);
+	if (!supp_sinks)
+		return -1;
+	if (!g_hash_table_size(supp_sinks) || !pref_dest_codec)
+		return -1;
+
+	// find the codec entry with a matching clock rate
+	struct rtp_payload_type *pt = g_hash_table_lookup(supp_sinks,
+			GUINT_TO_POINTER(pref_dest_codec->clock_rate));
+	if (!pt)
+		return -1;
+	return pt->payload_type;
+}
+
 static int __dtmf_payload_type(GHashTable *supplemental_sinks, struct rtp_payload_type *pref_dest_codec) {
 	GHashTable *dtmf_sinks = g_hash_table_lookup(supplemental_sinks, "telephone-event");
 	if (!dtmf_sinks)
@@ -456,19 +473,14 @@ static int __dtmf_payload_type(GHashTable *supplemental_sinks, struct rtp_payloa
 	if (!g_hash_table_size(dtmf_sinks) || !pref_dest_codec)
 		return -1;
 
-	int dtmf_payload_type = -1;
+	int dtmf_payload_type = __supp_payload_type(supplemental_sinks, pref_dest_codec, "telephone-event");
 
-	// find the telephone-event codec entry with a matching clock rate
-	struct rtp_payload_type *pt = g_hash_table_lookup(dtmf_sinks,
-			GUINT_TO_POINTER(pref_dest_codec->clock_rate));
-	if (!pt)
+	if (dtmf_payload_type == -1)
 		ilog(LOG_INFO, "Not transcoding PCM DTMF tones to telephone-event packets as "
 				"no payload type with a matching clock rate for '" STR_FORMAT
 				"' was found", STR_FMT(&pref_dest_codec->encoding_with_params));
-	else {
-		dtmf_payload_type = pt->payload_type;
+	else
 		ilog(LOG_DEBUG, "Output DTMF payload type is %i", dtmf_payload_type);
-	}
 
 	return dtmf_payload_type;
 }
