@@ -1285,7 +1285,7 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	/* determine roles (even if we don't actually do ICE) */
 	/* this = receiver, other = sender */
 	/* ICE_CONTROLLING is from our POV, the other ICE flags are from peer's POV */
-	if (MEDIA_ISSET(this, ICE_LITE))
+	if (MEDIA_ISSET(this, ICE_LITE_PEER))
 		MEDIA_SET(this, ICE_CONTROLLING);
 	else if (!MEDIA_ISSET(this, INITIALIZED)) {
 		if (flags->opmode == OP_OFFER)
@@ -1295,7 +1295,7 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	}
 
 	/* roles are reversed for the other side */
-	if (MEDIA_ISSET(other, ICE_LITE))
+	if (MEDIA_ISSET(other, ICE_LITE_PEER))
 		MEDIA_SET(other, ICE_CONTROLLING);
 	else if (!MEDIA_ISSET(other, INITIALIZED)) {
 		if (flags->opmode == OP_OFFER)
@@ -2099,7 +2099,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			/* copy parameters advertised by the sender of this message */
 			bf_copy_same(&other_media->media_flags, &sp->sp_flags,
 					SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_UNIDIRECTIONAL |
-					SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE |
+					SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE_PEER |
 					SHARED_FLAG_RTCP_FB);
 
 			// steal the entire queue of offered crypto params
