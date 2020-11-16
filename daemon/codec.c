@@ -186,6 +186,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->dtmf_scaler = 0;
 	handler->output_handler = handler; // reset to default
 	handler->dtmf_payload_type = -1;
+	handler->cn_payload_type = -1;
 	handler->pcm_dtmf_detect = 0;
 
 	if (handler->stats_entry) {
@@ -213,6 +214,7 @@ static struct codec_handler *__handler_new(const struct rtp_payload_type *pt, st
 		handler->source_pt = *pt;
 	handler->output_handler = handler; // default
 	handler->dtmf_payload_type = -1;
+	handler->cn_payload_type = -1;
 	handler->packet_encoded = packet_encoded_rtp;
 	handler->packet_decoded = packet_decoded_fifo;
 	handler->media = media;
@@ -1132,6 +1134,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		__symmetric_codecs(receiver, sink, &sink_transcoding);
 
 	int dtmf_payload_type = __dtmf_payload_type(supplemental_sinks, pref_dest_codec);
+	int cn_payload_type = __supp_payload_type(supplemental_sinks, pref_dest_codec, "CN");
 
 	g_hash_table_destroy(supplemental_sinks);
 	supplemental_sinks = NULL;
@@ -1298,6 +1301,7 @@ transcode:;
 		}
 		MEDIA_SET(receiver, TRANSCODE);
 		__make_transcoder(handler, dest_pt, output_transcoders, dtmf_payload_type, pcm_dtmf_detect);
+		handler->cn_payload_type = cn_payload_type;
 
 next:
 		l = l->next;
