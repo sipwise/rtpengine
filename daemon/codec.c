@@ -1923,7 +1923,6 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 	struct transcode_packet *packet = dtxe->packet;
 	struct media_packet *mp = &dtxe->mp;
 	struct packet_stream *ps = mp->stream;
-	struct packet_stream *sink = ps->rtp_sink;
 	int ret = 0;
 
 	mutex_lock(&dtxb->lock);
@@ -1982,13 +1981,19 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 	__ssrc_unlock_both(mp);
 
 	if (mp->packets_out.length && ret == 0) {
-		if (ps->handler && media_packet_encrypt(ps->handler->out->rtp_crypt, sink, mp))
-			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error encrypting buffered RTP media");
+		struct packet_stream *sink = ps->rtp_sink;
 
-		mutex_lock(&sink->out_lock);
-		if (media_socket_dequeue(mp, sink))
-			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error sending buffered media to RTP sink");
-		mutex_unlock(&sink->out_lock);
+		if (!sink)
+			media_socket_dequeue(mp, NULL); // just free
+		else {
+			if (ps->handler && media_packet_encrypt(ps->handler->out->rtp_crypt, sink, mp))
+				ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error encrypting buffered RTP media");
+
+			mutex_lock(&sink->out_lock);
+			if (media_socket_dequeue(mp, sink))
+				ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error sending buffered media to RTP sink");
+			mutex_unlock(&sink->out_lock);
+		}
 	}
 
 	rwlock_unlock_r(&call->master_lock);

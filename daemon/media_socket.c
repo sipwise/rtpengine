@@ -1784,7 +1784,7 @@ out:
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 	struct codec_packet *p;
 	while ((p = g_queue_pop_head(&mp->packets_out))) {
-		if (sink->send_timer)
+		if (sink && sink->send_timer)
 			send_timer_push(sink->send_timer, p);
 		else
 			codec_packet_free(p);
