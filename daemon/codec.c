@@ -403,16 +403,12 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 			struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
 					&pt->payload_type);
 			if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt)) {
-				*sink_transcoding = 1;
 				// can the sink receive supplemental codec but the receiver can't send it?
-				__track_supp_codec(supplemental_sinks, pt);
+				*sink_transcoding = 1;
 			}
 		}
-		else if (flags && (flags->always_transcode || flags->inject_dtmf)) {
-			// with always-transcode, we must keep track of potential output supplemental payload
-			// types as well
-			__track_supp_codec(supplemental_sinks, pt);
-		}
+
+		__track_supp_codec(supplemental_sinks, pt);
 	}
 
 	return pref_dest_codec;
@@ -429,9 +425,8 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 		struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
 				&pt->payload_type);
 		if (!recv_pt || rtp_payload_type_cmp(pt, recv_pt) || (flags && flags->inject_dtmf)) {
-			*sink_transcoding = 1;
 			// can the sink receive supplemental codec but the receiver can't send it?
-			__track_supp_codec(supplemental_sinks, pt);
+			*sink_transcoding = 1;
 			continue;
 		}
 
