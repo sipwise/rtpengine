@@ -1,3 +1,25 @@
+ngcp-rtpengine (9.0.1.5+0~mr9.0.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d04c4c2] TT#92250 keep supplemental codecs last in list when transcoding
+  * [15b1199] TT#92250 better handle supplemental codecs
+  * [e094243] TT#92250 add codec-except option
+  * [6af80b2] TT#92250 allow codec-strip/offer/except also in answer messages
+  * [434bc34] TT#92250 match codec params during codec matchup
+  * [d8d930b] TT#92250 postpone codec_tracker to final stage
+  * [da4b8aa] TT#14008 clean up codec stats on shutdown
+  * [3ee30ae] TT#92250 allocate strings for hash table storage
+  * [af72443] TT#14008 avoid double free on shutdown
+  * [0d36d05] TT#92250 use correct size when freeing codec tracker
+  * [fbdd2fd] TT#92250 keep supp codecs last when transcoding in reverse
+  * [2f5d170] TT#92250 ignore format parameters for DTMF codec
+  * [a03f390] TT#100200 properly support multiple supplemental codecs
+  * [6ae1a24] TT#100200 split out supp codec finding routine
+  * [15106f2] TT#100200 always track supplemental codecs
+  * [ac480fa] TT#100251 distinguish between real transcoding and DTMF-related t/c
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 17 Nov 2020 17:03:18 +0100
+
 ngcp-rtpengine (9.0.1.4+0~mr9.0.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
