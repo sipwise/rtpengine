@@ -35,6 +35,7 @@ struct timerthread_queue {
 
 struct timerthread_queue_entry {
 	struct timeval when;
+	unsigned int idx; // for equal timestamps
 	void *source; // opaque
 	char __rest[0];
 };

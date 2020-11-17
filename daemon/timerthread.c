@@ -158,7 +158,14 @@ static void __timerthread_queue_free(void *p) {
 static int ttqe_compare(const void *a, const void *b) {
 	const struct timerthread_queue_entry *t1 = a;
 	const struct timerthread_queue_entry *t2 = b;
-	return timeval_cmp_ptr(&t1->when, &t2->when);
+	int ret = timeval_cmp_zero(&t1->when, &t2->when);
+	if (ret)
+		return ret;
+	if (t1->idx < t2->idx)
+		return -1;
+	if (t1->idx == t2->idx)
+		return 0;
+	return 1;
 }
  
 void *timerthread_queue_new(const char *type, size_t size,
@@ -183,6 +190,18 @@ void *timerthread_queue_new(const char *type, size_t size,
 	return ttq;
 }
 
+int __ttqe_find_last_idx(const void *a, const void *b) {
+	const struct timerthread_queue_entry *ttqe_a = a;
+	void **data = (void **) b;
+	const struct timerthread_queue_entry *ttqe_b = data[0];
+	int ret = timeval_cmp(&ttqe_b->when, &ttqe_a->when);
+	if (ret)
+		return ret;
+	// same timestamp. track highest seen idx
+	if (GPOINTER_TO_UINT(data[1]) < ttqe_a->idx)
+		data[1] = GUINT_TO_POINTER(ttqe_a->idx);
+	return 1; // and continue to higher idx
+}
 void timerthread_queue_push(struct timerthread_queue *ttq, struct timerthread_queue_entry *ttqe) {
 	// can we send immediately?
 	if (ttq->run_now_func && timerthread_queue_run_one(ttq, ttqe, ttq->run_now_func) == 0)
@@ -203,7 +222,22 @@ void timerthread_queue_push(struct timerthread_queue *ttq, struct timerthread_qu
 //			ntohs(rh->seq_num),
 //			ntohl(rh->timestamp));
 
+	ttqe->idx = 0;
+
 	mutex_lock(&ttq->lock);
+
+	// check for most common case: no timestamp collision exists
+	if (!g_tree_lookup(ttq->entries, ttqe))
+		;
+	else {
+		// something else exists with the same timestamp. find the highest idx
+		void *data[2];
+		data[0] = ttqe;
+		data[1] = 0;
+		g_tree_search(ttq->entries, __ttqe_find_last_idx, data);
+		ttqe->idx = GPOINTER_TO_UINT(data[1] + 1);
+	}
+
 	// this hands over ownership of cp, so we must copy the timeval out
 	struct timeval tv_send = ttqe->when;
 	g_tree_insert(ttq->entries, ttqe, ttqe);

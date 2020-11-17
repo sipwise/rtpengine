@@ -260,6 +260,7 @@ INLINE int timeval_cmp(const struct timeval *a, const struct timeval *b) {
 	return long_cmp(a->tv_usec, b->tv_usec);
 }
 // as a GCompareFunc
+int timeval_cmp_zero(const void *a, const void *b);
 int timeval_cmp_ptr(const void *a, const void *b);
 
 INLINE void timeval_lowest(struct timeval *l, const struct timeval *n) {
