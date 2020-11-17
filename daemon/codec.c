@@ -528,7 +528,7 @@ static int __unused_pt_number(struct call_media *media, int num) {
 }
 
 static void __single_codec(struct call_media *media, const struct sdp_ng_flags *flags) {
-	if (flags->opmode != OP_ANSWER || !flags->single_codec)
+	if (!flags || flags->opmode != OP_ANSWER || !flags->single_codec)
 		return;
 	int have_codec = 0;
 	for (GList *l = media->codecs_prefs_recv.head; l;) {
