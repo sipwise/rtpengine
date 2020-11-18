@@ -54,6 +54,7 @@ the following additional features are available:
 - Injection of DTMF events or PCM DTMF tones into running audio streams
 - Playback of pre-recorded streams/announcements
 - Transcoding between T.38 and PCM (G.711 or other audio codecs)
+- Silence detection and comfort noise (RFC 3389) payloads
 
 *Rtpengine* does not (yet) support:
 

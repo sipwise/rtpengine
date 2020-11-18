@@ -380,6 +380,8 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(dtmf_udp_ep);
 	AUTO_CLEANUP_GBUF(endpoint_learning);
 	AUTO_CLEANUP_GBUF(dtls_sig);
+	double silence_detect = 0;
+	AUTO_CLEANUP_GVBUF(cn_payload);
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -465,6 +467,8 @@ static void options(int *argc, char ***argv) {
 #ifdef WITH_TRANSCODING
 		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_delay,	"Delay in milliseconds to trigger DTX handling","INT"},
 		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.max_dtx,	"Maximum duration of DTX handling",	"INT"},
+		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
+		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
 #endif
 
 		{ NULL, }
@@ -684,6 +688,32 @@ static void options(int *argc, char ***argv) {
 
 	if (rtpe_config.jb_length < 0)
 		die("Invalid negative jitter buffer size");
+
+	if (silence_detect > 0) {
+		rtpe_config.silence_detect_double = silence_detect / 100.0;
+		rtpe_config.silence_detect_int = (int) ((silence_detect / 100.0) * UINT32_MAX);
+	}
+
+	if (!cn_payload)
+		str_init_dup(&rtpe_config.cn_payload, "\x20");
+	else {
+		int len = g_strv_length(cn_payload);
+		if (len < 1)
+			die("Invalid CN payload specified");
+		rtpe_config.cn_payload.s = malloc(len);
+		for (int i = 0; i < len; i++) {
+			char *endp;
+			long p = strtol(cn_payload[i], &endp, 0);
+			if (endp == cn_payload[i] || *endp != '\0')
+				die("Invalid CN payload specified");
+			if (p < 0 || p > 254)
+				die("Invalid CN payload specified");
+			if (i == 0 && p > 127)
+				die("Invalid CN payload specified");
+			rtpe_config.cn_payload.s[i] = p;
+		}
+		rtpe_config.cn_payload.len = len;
+	}
 }
 
 void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {

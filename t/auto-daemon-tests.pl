@@ -10,7 +10,7 @@ use NGCP::Rtpclient::ICE;
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			-n 2223 -c 12345 -f -L 7 -E -u 2222))
+			-n 2223 -c 12345 -f -L 7 -E -u 2222 --silence-detect=1))
 		or die;
 
 
@@ -684,7 +684,7 @@ o=- 1545997027 1 IN IP4 198.51.101.1
 s=tester
 t=0 0
 m=audio 3000 RTP/AVP 0
-c=IN IP4 198.51.100.1
+c=IN IP4 198.51.101.1
 a=sendrecv
 ----------------------------------
 v=0
@@ -721,13 +721,82 @@ a=rtcp:PORT
 SDP
 
 snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
 snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
 ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
 snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "\x12\x23\x23\x34\x56"));
 rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc, "\xce\x56\x69\xcc\x61\xca\x63\xd2\x66\x57\xe2\x47\x65\x59\x6a\x74\x5d\x4a\x68\xe9\x60\x4a\x63\x4b\xf4\x43\x4b\x48\x48\x52\x39\x57\x37\x4c\x39\x4c\x48\x3b\x43\x47\x44\x57\x48\xf5\x3e\x59\x3e\x52\x3b\x53\x3d\x53\x3b\x41\x5b\x38\x4a\x4b\x35\x48\x4a\x3e\x52\x50\x4b\x46\xfd\x3e\xf1\x3a\xd6\x35\x54\x5d\x3a\x58\x45\x42\x3d\x3e\x4c\x42\x3a\x58\x3c\x50\x3b\x6e\x36\x60\x3e\x3d\x3b\x41\x3a\x47\x35\x48\x35\x4b\x3e\x3d\x47\x3a\x3d\x39\x4f\x40\x42\x4a\x47\x3d\x6b\x42\x5a\x75\x53\x45\x5a\x4b\x4f\x48\x59\x48\x78\x43\x77\x4c\x42\x59\x47\x46\x3e\x67\x44\x3a\x67\x4b\x3f\x51\x48\x44\x3e\x54\x37\x6c\x45\x45\x3f\x6e\x3a\x68\x49\x4e\x3f\x47\x4b\x3e\xf3\x39"));
 snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 2002, 4320, $ssrc, "\x00" x 160));
+# test silence detection
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1001, 3160, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(13, 1002, 3320, $ssrc, "\x20"));
+
+
+
+# reverse of the above, sockets/ports swapped
+
+($sock_b, $sock_a) = new_call([qw(198.51.101.1 6002)], [qw(198.51.101.3 7002)]);
+
+($port_b) = offer('accept CN',
+	{ ICE => 'remove', replace => ['origin'], flags => ['always transcode'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 0 13
+c=IN IP4 198.51.101.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_a) = answer('accept CN',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 7002 RTP/AVP 0
+c=IN IP4 198.51.101.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc, "\xce\x56\x69\xcc\x61\xca\x63\xd2\x66\x57\xe2\x47\x65\x59\x6a\x74\x5d\x4a\x68\xe9\x60\x4a\x63\x4b\xf4\x43\x4b\x48\x48\x52\x39\x57\x37\x4c\x39\x4c\x48\x3b\x43\x47\x44\x57\x48\xf5\x3e\x59\x3e\x52\x3b\x53\x3d\x53\x3b\x41\x5b\x38\x4a\x4b\x35\x48\x4a\x3e\x52\x50\x4b\x46\xfd\x3e\xf1\x3a\xd6\x35\x54\x5d\x3a\x58\x45\x42\x3d\x3e\x4c\x42\x3a\x58\x3c\x50\x3b\x6e\x36\x60\x3e\x3d\x3b\x41\x3a\x47\x35\x48\x35\x4b\x3e\x3d\x47\x3a\x3d\x39\x4f\x40\x42\x4a\x47\x3d\x6b\x42\x5a\x75\x53\x45\x5a\x4b\x4f\x48\x59\x48\x78\x43\x77\x4c\x42\x59\x47\x46\x3e\x67\x44\x3a\x67\x4b\x3f\x51\x48\x44\x3e\x54\x37\x6c\x45\x45\x3f\x6e\x3a\x68\x49\x4e\x3f\x47\x4b\x3e\xf3\x39"));
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, $ssrc, "\x00" x 160));
+# test silence detection
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1001, 3160, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(13, 1002, 3320, $ssrc, "\x20"));
 
 
 

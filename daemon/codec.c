@@ -85,6 +85,11 @@ struct dtx_entry {
 	void *ssrc_ptr; // opaque pointer, doesn't hold a reference
 };
 
+struct silence_event {
+	uint64_t start;
+	uint64_t end;
+};
+
 struct codec_ssrc_handler {
 	struct ssrc_entry h; // must be first
 	struct codec_handler *handler;
@@ -108,6 +113,9 @@ struct codec_ssrc_handler {
 	uint64_t dtmf_ts, last_dtmf_event_ts;
 	GQueue dtmf_events;
 	struct dtmf_event dtmf_event;
+
+	// silence detection
+	GQueue silence_events;
 
 	uint64_t skip_pts;
 
@@ -1169,6 +1177,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	struct rtp_payload_type *dtmf_pt = NULL;
 	struct rtp_payload_type *reverse_dtmf_pt = NULL;
 	int dtmf_pt_match = __supp_codec_match(receiver, sink, dtmf_payload_type, &dtmf_pt, &reverse_dtmf_pt);
+	int cn_pt_match = __supp_codec_match(receiver, sink, cn_payload_type, NULL, NULL);
 
 	// stop transcoding if we've determined that we don't need it
 	if (MEDIA_ISSET(sink, TRANSCODE) && !sink_transcoding) {
@@ -1240,8 +1249,8 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 		GQueue *dest_codecs = NULL;
 		if (!flags || !flags->always_transcode) {
-			// we ignore output codec matches if we must transcode DTMF
-			if (dtmf_pt_match == 1 && MEDIA_ISSET(sink, TRANSCODE))
+			// we ignore output codec matches if we must transcode supp codecs
+			if ((dtmf_pt_match == 1 || cn_pt_match == 1) && MEDIA_ISSET(sink, TRANSCODE))
 				;
 			else if (pcm_dtmf_detect)
 				;
@@ -1293,6 +1302,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			if (rtp_payload_type_cmp_nf(pt, dest_pt))
 				goto transcode;
 
+			// do we need silence detection?
+			if (cn_pt_match == 2 && MEDIA_ISSET(sink, TRANSCODE))
+				goto transcode;
+
+			// XXX check format parameters as well
 			ilog(LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 			__make_passthrough_gsl(handler, &passthrough_handlers);
 			if (pt->codec_def && pt->codec_def->dtmf)
@@ -2198,6 +2212,102 @@ void codec_handlers_stop(GQueue *q) {
 }
 
 
+
+
+static void silence_event_free(void *p) {
+	g_slice_free1(sizeof(struct silence_event), p);
+}
+
+#define __silence_detect_type(type) \
+static void __silence_detect_ ## type(struct codec_ssrc_handler *ch, AVFrame *frame, type thres) { \
+	type *s = (void *) frame->data[0]; \
+	struct silence_event *last = g_queue_peek_tail(&ch->silence_events); \
+ \
+	if (last && last->end) /* last event finished? */ \
+		last = NULL; \
+ \
+	for (unsigned int i = 0; i < frame->nb_samples; i++) { \
+		if (s[i] <= thres && s[1] >= -thres) { \
+			/* silence */ \
+			if (!last) { \
+				/* new event */ \
+				last = g_slice_alloc0(sizeof(*last)); \
+				last->start = frame->pts + i; \
+				g_queue_push_tail(&ch->silence_events, last); \
+			} \
+		} \
+		else { \
+			/* not silence */ \
+			if (last && !last->end) { \
+				/* close off event */ \
+				last->end = frame->pts + i; \
+				last = NULL; \
+			} \
+		} \
+	} \
+}
+
+__silence_detect_type(double)
+__silence_detect_type(float)
+__silence_detect_type(int32_t)
+__silence_detect_type(int16_t)
+
+static void __silence_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
+	if (!rtpe_config.silence_detect_int)
+		return;
+	if (ch->handler->cn_payload_type < 0)
+		return;
+	switch (frame->format) {
+		case AV_SAMPLE_FMT_DBL:
+			__silence_detect_double(ch, frame, rtpe_config.silence_detect_double);
+			break;
+		case AV_SAMPLE_FMT_FLT:
+			__silence_detect_float(ch, frame, rtpe_config.silence_detect_double);
+			break;
+		case AV_SAMPLE_FMT_S32:
+			__silence_detect_int32_t(ch, frame, rtpe_config.silence_detect_int);
+			break;
+		case AV_SAMPLE_FMT_S16:
+			__silence_detect_int16_t(ch, frame, rtpe_config.silence_detect_int >> 16);
+			break;
+		default:
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unsupported sample format %i for silence detection",
+					frame->format);
+	}
+}
+static int is_silence_event(str *inout, GQueue *events, uint64_t pts, uint64_t duration) {
+	uint64_t end = pts + duration;
+
+	while (events->length) {
+		struct silence_event *first = g_queue_peek_head(events);
+		if (first->start > pts) // future event
+			return 0;
+		if (!first->end) // ongoing event
+			goto silence;
+		if (first->end > end) // event finished with end in the future
+			goto silence;
+		// event has ended: remove it
+		g_queue_pop_head(events);
+		// does the event fill the entire span?
+		if (first->end == end) {
+			silence_event_free(first);
+			goto silence;
+		}
+		// keep going, there might be more
+		silence_event_free(first);
+	}
+	return 0;
+
+silence:
+	// replace with CN payload
+	inout->len = rtpe_config.cn_payload.len;
+	memcpy(inout->s, rtpe_config.cn_payload.s, inout->len);
+	return 1;
+}
+
+
+
+
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	struct codec_handler *h = p;
 
@@ -2296,6 +2406,7 @@ static void __free_ssrc_handler(void *chp) {
 		dtmf_rx_free(ch->dtmf_dsp);
 	resample_shutdown(&ch->dtmf_resampler);
 	g_queue_clear_full(&ch->dtmf_events, dtmf_event_free);
+	g_queue_clear_full(&ch->silence_events, silence_event_free);
 	if (ch->dtx_buffer)
 		obj_put(&ch->dtx_buffer->ttq.tt_obj);
 }
@@ -2340,6 +2451,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 
 		unsigned int repeats = 0;
 		int payload_type = -1;
+
 		int is_dtmf = dtmf_event_payload(&inout, (uint64_t *) &enc->avpkt.pts, enc->avpkt.duration,
 				&ch->dtmf_event, &ch->dtmf_events);
 		if (is_dtmf) {
@@ -2348,6 +2460,10 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 				ch->rtp_mark = 1; // DTMF start event
 			else if (is_dtmf == 3)
 				repeats = 2; // DTMF end event
+		}
+		else {
+			if (is_silence_event(&inout, &ch->silence_events, enc->avpkt.pts, enc->avpkt.duration))
+				payload_type = ch->handler->cn_payload_type;
 		}
 
 		// ready to send
@@ -2469,6 +2585,7 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 	}
 
 	__dtmf_detect(ch, frame);
+	__silence_detect(ch, frame);
 
 	// locking deliberately ignored
 	if (mp->media_out)
