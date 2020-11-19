@@ -3314,7 +3314,10 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 		uh->check = CSUM_MANGLED_0;
 
 	skb->protocol = htons(ETH_P_IP);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,9) || \
+		(LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,78) && LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
+	if (ip_route_me_harder(par->state->net, par->state->sk, skb, RTN_UNSPEC))
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 	if (ip_route_me_harder(par->state->net, skb, RTN_UNSPEC))
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
 	if (ip_route_me_harder(par->net, skb, RTN_UNSPEC))
@@ -3410,7 +3413,10 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 		uh->check = CSUM_MANGLED_0;
 
 	skb->protocol = htons(ETH_P_IPV6);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,9) || \
+		(LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,78) && LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
+	if (ip6_route_me_harder(par->state->net, par->state->sk, skb))
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 	if (ip6_route_me_harder(par->state->net, skb))
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
 	if (ip6_route_me_harder(par->net, skb))
