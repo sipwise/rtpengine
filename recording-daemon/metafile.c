@@ -124,6 +124,23 @@ static void meta_rtp_payload_type(metafile_t *mf, unsigned long mnum, unsigned i
 
 
 // mf is locked
+static void meta_rtp_fmtp(metafile_t *mf, unsigned long mnum, unsigned int payload_num,
+		char *format)
+{
+	if (payload_num >= 128) {
+		ilog(LOG_ERR, "Payload type number %u is invalid", payload_num);
+		return;
+	}
+	if (decoding_enabled) {
+		pthread_mutex_lock(&mf->payloads_lock);
+		mf->payload_formats[payload_num] = g_string_chunk_insert(mf->gsc,
+				format);
+		pthread_mutex_unlock(&mf->payloads_lock);
+	}
+}
+
+
+// mf is locked
 static void meta_ptime(metafile_t *mf, unsigned long mnum, int ptime)
 {
 	mnum--;
@@ -161,6 +178,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		meta_stream_details(mf, lu, content);
 	else if (sscanf_match(section, "MEDIA %lu PAYLOAD TYPE %u", &lu, &u) == 2)
 		meta_rtp_payload_type(mf, lu, u, content);
+	else if (sscanf_match(section, "MEDIA %lu FMTP %u", &lu, &u) == 2)
+		meta_rtp_fmtp(mf, lu, u, content);
 	else if (sscanf_match(section, "MEDIA %lu PTIME %i", &lu, &i) == 2)
 		meta_ptime(mf, lu, i);
 	else if (sscanf_match(section, "TAG %lu", &lu) == 1)

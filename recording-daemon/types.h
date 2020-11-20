@@ -130,6 +130,7 @@ struct metafile_s {
 
 	pthread_mutex_t payloads_lock;
 	char *payload_types[128];
+	char *payload_formats[128];
 	int payload_ptimes[128];
 	int media_ptimes[4];
 
