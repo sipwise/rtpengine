@@ -808,6 +808,8 @@ static void setup_media_proc(struct call_media *media) {
 		struct rtp_payload_type *pt = l->data;
 		append_meta_chunk(recording, pt->encoding_with_params.s, pt->encoding_with_params.len,
 				"MEDIA %u PAYLOAD TYPE %u", media->unique_id, pt->payload_type);
+		append_meta_chunk(recording, pt->format_parameters.s, pt->format_parameters.len,
+				"MEDIA %u FMTP %u", media->unique_id, pt->payload_type);
 	}
 
 	g_list_free(pltypes);
