@@ -1,3 +1,10 @@
+ngcp-rtpengine (7.5.6.2+0~mr7.5.6.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d97285a] TT#102450 fix AMR recording
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 20 Nov 2020 16:37:52 +0100
+
 ngcp-rtpengine (7.5.6.1+0~mr7.5.6.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
