@@ -1234,6 +1234,19 @@ Optionally included keys are:
 
 		This option is only processed in `offer` messages and ignored otherwise.
 
+	* `consume`
+
+		Identical to `mask` but enables the transcoding engine even if no other transcoding
+		related options are given.
+
+	* `accept`
+
+		Similar to `mask` and `consume` but doesn't remove the codec from the list of
+		offered codecs. This means that a codec listed under `accept` will still be offered
+		to the remote peer, but if the remote peer rejects it, it will still be accepted
+		torwards the original offerer and then used for transcoding. It is a more selective
+		version of what the `always transcode` flag does.
+
 	* `set`
 
 		Contains a list of strings. This list makes it possible to set codec options

@@ -70,6 +70,8 @@ static void __start(const char *file, int line) {
 	flags.codec_mask = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	flags.codec_except = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	flags.codec_set = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
+	flags.codec_consume = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	flags.codec_accept = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 }
 
 #define transcode(codec) g_queue_push_tail(&flags.codec_transcode, sdup(#codec))

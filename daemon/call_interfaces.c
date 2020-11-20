@@ -865,6 +865,12 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
 							&out->codec_set))
 					return;
+				if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_str_ht,
+							&out->codec_accept))
+					return;
+				if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_str_ht,
+							&out->codec_consume))
+					return;
 				if (call_ng_flags_prefix(out, s, "T38-", ng_t38_option, NULL))
 					return;
 				if (call_ng_flags_prefix(out, s, "T.38-", ng_t38_option, NULL))
@@ -1082,6 +1088,8 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
 			call_ng_flags_list(out, dict, "mask", call_ng_flags_str_ht, &out->codec_mask);
 			call_ng_flags_list(out, dict, "set", call_ng_flags_str_ht_split, &out->codec_set);
+			call_ng_flags_list(out, dict, "accept", call_ng_flags_str_ht, &out->codec_accept);
+			call_ng_flags_list(out, dict, "consume", call_ng_flags_str_ht, &out->codec_consume);
 		}
 #endif
 	}
@@ -1095,6 +1103,10 @@ static void call_ng_free_flags(struct sdp_ng_flags *flags) {
 		g_hash_table_destroy(flags->codec_mask);
 	if (flags->codec_set)
 		g_hash_table_destroy(flags->codec_set);
+	if (flags->codec_accept)
+		g_hash_table_destroy(flags->codec_accept);
+	if (flags->codec_consume)
+		g_hash_table_destroy(flags->codec_consume);
 	if (flags->sdes_no)
 		g_hash_table_destroy(flags->sdes_no);
 	g_queue_clear_full(&flags->codec_offer, free);
