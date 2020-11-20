@@ -245,6 +245,7 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 		metafile_t *mf = ssrc->metafile;
 		pthread_mutex_lock(&mf->payloads_lock);
 		char *payload_str = mf->payload_types[payload_type];
+		char *format = mf->payload_formats[payload_type];
 		int ptime = mf->payload_ptimes[payload_type];
 		pthread_mutex_unlock(&mf->payloads_lock);
 
@@ -265,7 +266,7 @@ static void packet_decode(ssrc_t *ssrc, packet_t *packet) {
 			outp = mf->mix_out;
 		else if (ssrc->output)
 			outp = ssrc->output;
-		ssrc->decoders[payload_type] = decoder_new(payload_str, ptime, outp);
+		ssrc->decoders[payload_type] = decoder_new(payload_str, format, ptime, outp);
 		pthread_mutex_unlock(&mf->mix_lock);
 		if (!ssrc->decoders[payload_type]) {
 			ilog(LOG_WARN, "Cannot decode RTP payload type %u (%s)",
