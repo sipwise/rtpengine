@@ -189,6 +189,8 @@ static void websocket_process(void *p, void *up) {
 
 	assert(wm != NULL);
 
+	gettimeofday(&rtpe_now, NULL);
+
 	const char *err = wm->func(wm);
 
 	websocket_message_free(&wm);
