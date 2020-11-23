@@ -1958,3 +1958,8 @@ the same format, including the unique cookie.
 For WebSockets, the subprotocol `ng.rtpengine.com` is used and the protocol
 follows the same format. Messages must consist of a unique cookie and a string
 in bencode format, and responses will also be in the same format.
+
+Prometheus Stats Exporter
+-------------------------
+
+The Prometheus metrics can be found under the URI `/metrics`.

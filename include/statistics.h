@@ -50,6 +50,7 @@ struct totalstats {
 	atomic64		total_forced_term_sess;
 	atomic64		total_relayed_packets;
 	atomic64		total_relayed_errors;
+	atomic64		total_relayed_bytes;
 	atomic64		total_nopacket_relayed_sess;
 	atomic64		total_oneway_stream_sess;
 
@@ -104,6 +105,9 @@ struct stats_metric {
 	int is_brace;
 	int is_follow_up;
 	int is_int;
+	const char *prom_name;
+	const char *prom_type;
+	char *prom_label;
 };
 
 

@@ -29,6 +29,18 @@ const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_LOAD] = "Load limit exceeded",
 	[LOAD_LIMIT_BW] = "Bandwidth limit exceeded",
 };
+const char *ng_command_strings[NGC_COUNT] = {
+	"ping", "offer", "answer", "delete", "query", "list", "start recording",
+	"stop recording", "start forwarding", "stop forwarding", "block DTMF",
+	"unblock DTMF", "block media", "unblock media", "play media", "stop media",
+	"play DTMF", "statistics",
+};
+const char *ng_command_strings_short[NGC_COUNT] = {
+	"Ping", "Offer", "Answer", "Delete", "Query", "List", "StartRec",
+	"StopRec", "StartFwd", "StopFwd", "BlkDTMF",
+	"UnblkDTMF", "BlkMedia", "UnblkMedia", "PlayMedia", "StopMedia",
+	"PlayDTMF", "Stats",
+};
 
 
 static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
@@ -110,6 +122,12 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
 		cur->proxy = *addr;
 		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
+
+		for (int i = 0; i < NGC_COUNT; i++) {
+			struct ng_command_stats *c = &cur->cmd[i];
+			mutex_init(&c->lock);
+		}
+
 		g_hash_table_insert(rtpe_cngs_hash, &cur->proxy, cur);
 	}
 	mutex_unlock(&rtpe_cngs_lock);
@@ -127,6 +145,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 	struct timeval cmd_start, cmd_stop, cmd_process_time;
 	struct control_ng_stats* cur = get_control_ng_stats(&sin->address);
 	int funcret = -1;
+	enum ng_command command = -1;
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
@@ -182,87 +201,84 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		g_string_free(log_str, TRUE);
 	}
 
-	// XXX do the strcmp's only once
 	errstr = NULL;
 	resultstr = "ok";
 
 	// start command timer
 	gettimeofday(&cmd_start, NULL);
 
-	int cmdcode = __csh_lookup(&cmd);
-
-	switch (cmdcode) {
+	switch (__csh_lookup(&cmd)) {
 		case CSH_LOOKUP("ping"):
 			resultstr = "pong";
-			g_atomic_int_inc(&cur->ping);
+			command = NGC_PING;
 			break;
 		case CSH_LOOKUP("offer"):
 			errstr = call_offer_ng(dict, resp, addr, sin);
-			g_atomic_int_inc(&cur->offer);
+			command = NGC_OFFER;
 			break;
 		case CSH_LOOKUP("answer"):
 			errstr = call_answer_ng(dict, resp);
-			g_atomic_int_inc(&cur->answer);
+			command = NGC_ANSWER;
 			break;
 		case CSH_LOOKUP("delete"):
 			errstr = call_delete_ng(dict, resp);
-			g_atomic_int_inc(&cur->delete);
+			command = NGC_DELETE;
 			break;
 		case CSH_LOOKUP("query"):
 			errstr = call_query_ng(dict, resp);
-			g_atomic_int_inc(&cur->query);
+			command = NGC_QUERY;
 			break;
 		case CSH_LOOKUP("list"):
 			errstr = call_list_ng(dict, resp);
-			g_atomic_int_inc(&cur->list);
+			command = NGC_LIST;
 			break;
 		case CSH_LOOKUP("start recording"):
 			errstr = call_start_recording_ng(dict, resp);
-			g_atomic_int_inc(&cur->start_recording);
+			command = NGC_START_RECORDING;
 			break;
 		case CSH_LOOKUP("stop recording"):
 			errstr = call_stop_recording_ng(dict, resp);
-			g_atomic_int_inc(&cur->stop_recording);
+			command = NGC_STOP_RECORDING;
 			break;
 		case CSH_LOOKUP("start forwarding"):
 			errstr = call_start_forwarding_ng(dict, resp);
-			g_atomic_int_inc(&cur->start_forwarding);
+			command = NGC_START_FORWARDING;
 			break;
 		case CSH_LOOKUP("stop forwarding"):
 			errstr = call_stop_forwarding_ng(dict, resp);
-			g_atomic_int_inc(&cur->stop_forwarding);
+			command = NGC_STOP_FORWARDING;
 			break;
 		case CSH_LOOKUP("block DTMF"):
 			errstr = call_block_dtmf_ng(dict, resp);
-			g_atomic_int_inc(&cur->block_dtmf);
+			command = NGC_BLOCK_DTMF;
 			break;
 		case CSH_LOOKUP("unblock DTMF"):
 			errstr = call_unblock_dtmf_ng(dict, resp);
-			g_atomic_int_inc(&cur->unblock_dtmf);
+			command = NGC_UNBLOCK_DTMF;
 			break;
 		case CSH_LOOKUP("block media"):
 			errstr = call_block_media_ng(dict, resp);
-			g_atomic_int_inc(&cur->block_media);
+			command = NGC_BLOCK_MEDIA;
 			break;
 		case CSH_LOOKUP("unblock media"):
 			errstr = call_unblock_media_ng(dict, resp);
-			g_atomic_int_inc(&cur->unblock_media);
+			command = NGC_UNBLOCK_MEDIA;
 			break;
 		case CSH_LOOKUP("play media"):
 			errstr = call_play_media_ng(dict, resp);
-			g_atomic_int_inc(&cur->play_media);
+			command = NGC_PLAY_MEDIA;
 			break;
 		case CSH_LOOKUP("stop media"):
 			errstr = call_stop_media_ng(dict, resp);
-			g_atomic_int_inc(&cur->stop_media);
+			command = NGC_STOP_MEDIA;
 			break;
 		case CSH_LOOKUP("play DTMF"):
 			errstr = call_play_dtmf_ng(dict, resp);
-			g_atomic_int_inc(&cur->play_dtmf);
+			command = NGC_PLAY_DTMF;
 			break;
 		case CSH_LOOKUP("statistics"):
 			errstr = statistics_ng(dict, resp);
-			g_atomic_int_inc(&cur->statistics);
+			command = NGC_STATISTICS;
 			break;
 		default:
 			errstr = "Unrecognized command";
@@ -273,24 +289,34 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 	//print command duration
 	timeval_from_us(&cmd_process_time, timeval_diff(&cmd_stop, &cmd_start));
 
+	if (command >= 0 && command < NGC_COUNT) {
+		mutex_lock(&cur->cmd[command].lock);
+		cur->cmd[command].count++;
+		timeval_add(&cur->cmd[command].time, &cur->cmd[command].time, &cmd_process_time);
+		mutex_unlock(&cur->cmd[command].lock);
+	}
+
 	if (errstr)
 		goto err_send;
 
 	bencode_dictionary_add_string(resp, "result", resultstr);
 
 	// update interval statistics
-	switch (cmdcode) {
-		case CSH_LOOKUP("offer"):
+	// XXX could generalise these, same as above
+	switch (command) {
+		case NGC_OFFER:
 			atomic64_inc(&rtpe_statsps.offers);
 			timeval_update_request_time(&rtpe_totalstats_interval.offer, &cmd_process_time);
 			break;
-		case CSH_LOOKUP("answer"):
+		case NGC_ANSWER:
 			atomic64_inc(&rtpe_statsps.answers);
 			timeval_update_request_time(&rtpe_totalstats_interval.answer, &cmd_process_time);
 			break;
-		case CSH_LOOKUP("delete"):
+		case NGC_DELETE:
 			atomic64_inc(&rtpe_statsps.deletes);
 			timeval_update_request_time(&rtpe_totalstats_interval.delete, &cmd_process_time);
+			break;
+		default:
 			break;
 	}
 

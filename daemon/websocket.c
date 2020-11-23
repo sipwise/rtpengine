@@ -7,6 +7,7 @@
 #include "str.h"
 #include "cli.h"
 #include "control_ng.h"
+#include "statistics.h"
 
 
 struct websocket_message;
@@ -288,6 +289,54 @@ static const char *websocket_http_ping(struct websocket_message *wm) {
 }
 
 
+static void __g_string_free(GString **s) {
+	g_string_free(*s, TRUE);
+}
+static void __g_hash_table_destroy(GHashTable **s) {
+	g_hash_table_destroy(*s);
+}
+static const char *websocket_http_metrics(struct websocket_message *wm) {
+	ilog(LOG_DEBUG, "Respoding to GET /metrics");
+
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GString *outp, __g_string_free, g_string_new(""));
+	AUTO_CLEANUP_INIT(GHashTable *metric_types, __g_hash_table_destroy,
+			g_hash_table_new(g_str_hash, g_str_equal));
+
+	for (GList *l = metrics->head; l; l = l->next) {
+		struct stats_metric *m = l->data;
+		if (!m->label)
+			continue;
+		if (!m->value_short)
+			continue;
+		if (!m->prom_name)
+			continue;
+
+		if (!g_hash_table_lookup(metric_types, m->prom_name)) {
+			if (m->descr)
+				g_string_append_printf(outp, "# HELP rtpengine_%s %s\n",
+						m->prom_name, m->descr);
+			if (m->prom_type)
+				g_string_append_printf(outp, "# TYPE rtpengine_%s %s\n",
+						m->prom_name, m->prom_type);
+			g_hash_table_insert(metric_types, (void *) m->prom_name, (void *) 0x1);
+		}
+
+		g_string_append_printf(outp, "rtpengine_%s", m->prom_name);
+		if (m->prom_label)
+			g_string_append_printf(outp, "{%s}", m->prom_label);
+		g_string_append_printf(outp, " %s\n", m->value_short);
+	}
+
+	if (websocket_http_response(wm->wc, 200, "text/plain", outp->len))
+		return "Failed to write response HTTP headers";
+	if (websocket_write_http(wm->wc, outp->str, 1))
+		return "Failed to write metrics response";
+
+	return NULL;
+}
+
+
 // adds printf string to output buffer without triggering response
 static void websocket_queue_printf(struct cli_writer *cw, const char *fmt, ...) {
 	va_list va;
@@ -404,6 +453,8 @@ static int websocket_http_get(struct websocket_conn *wc) {
 		handler = websocket_http_ping;
 	else if (!strncmp(uri, "/cli/", 5))
 		handler = websocket_http_cli;
+	else if (!strcmp(uri, "/metrics"))
+		handler = websocket_http_metrics;
 
 	if (!handler) {
 		ilog(LOG_WARN, "Unhandled HTTP GET URI: '%s'", uri);

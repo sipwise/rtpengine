@@ -9,26 +9,38 @@
 
 struct poller;
 
+enum ng_command {
+	NGC_PING = 0,
+	NGC_OFFER,
+	NGC_ANSWER,
+	NGC_DELETE,
+	NGC_QUERY,
+	NGC_LIST,
+	NGC_START_RECORDING,
+	NGC_STOP_RECORDING,
+	NGC_START_FORWARDING,
+	NGC_STOP_FORWARDING,
+	NGC_BLOCK_DTMF,
+	NGC_UNBLOCK_DTMF,
+	NGC_BLOCK_MEDIA,
+	NGC_UNBLOCK_MEDIA,
+	NGC_PLAY_MEDIA,
+	NGC_STOP_MEDIA,
+	NGC_PLAY_DTMF,
+	NGC_STATISTICS,
+
+	NGC_COUNT // last, number of elements
+};
+
+struct ng_command_stats {
+	mutex_t lock;
+	unsigned int count;
+	struct timeval time;
+};
+
 struct control_ng_stats {
 	sockaddr_t proxy;
-	int ping;
-	int offer;
-	int answer;
-	int delete;
-	int query;
-	int list;
-	int start_recording;
-	int stop_recording;
-	int start_forwarding;
-	int stop_forwarding;
-	int block_dtmf;
-	int unblock_dtmf;
-	int block_media;
-	int unblock_media;
-	int play_media;
-	int stop_media;
-	int play_dtmf;
-	int statistics;
+	struct ng_command_stats cmd[NGC_COUNT];
 	int errors;
 };
 
@@ -37,6 +49,9 @@ struct control_ng {
 	socket_t udp_listeners[2];
 	struct poller *poller;
 };
+
+extern const char *ng_command_strings[NGC_COUNT];
+extern const char *ng_command_strings_short[NGC_COUNT];
 
 struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
 void control_ng_init(void);

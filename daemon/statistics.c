@@ -40,33 +40,37 @@ static void timeval_totalstats_average_add(struct totalstats *s, const struct ti
 	mutex_unlock(&s->total_average_lock);
 }
 
-static void timeval_totalstats_interval_call_duration_add(struct totalstats *s,
+static void timeval_totalstats_call_duration_add(struct totalstats *s,
 		struct timeval *call_start, struct timeval *call_stop,
 		struct timeval *interval_start, int interval_dur_s) {
 
 	/* work with graphite interval start val which might be changed elsewhere in the code*/
-	struct timeval real_iv_start = *interval_start;
+	struct timeval real_iv_start = {0,};
 	struct timeval call_duration;
 	struct timeval *call_start_in_iv = call_start;
 
-	/* in case graphite interval needs to be the previous one */
-	if (timercmp(&real_iv_start, call_stop, >) && interval_dur_s) {
-		// round up to nearest while interval_dur_s
-		long long d = timeval_diff(&real_iv_start, call_stop);
-		d += (interval_dur_s * 1000000) - 1;
-		d /= 1000000 * interval_dur_s;
-		d *= interval_dur_s;
-		struct timeval graph_dur = { .tv_sec = d, .tv_usec = 0LL };
-		timeval_subtract(&real_iv_start, interval_start, &graph_dur);
-	}
+	if (interval_start) {
+		real_iv_start = *interval_start;
 
-	if (timercmp(&real_iv_start, call_start, >))
-		call_start_in_iv = &real_iv_start;
+		/* in case graphite interval needs to be the previous one */
+		if (timercmp(&real_iv_start, call_stop, >) && interval_dur_s) {
+			// round up to nearest while interval_dur_s
+			long long d = timeval_diff(&real_iv_start, call_stop);
+			d += (interval_dur_s * 1000000) - 1;
+			d /= 1000000 * interval_dur_s;
+			d *= interval_dur_s;
+			struct timeval graph_dur = { .tv_sec = d, .tv_usec = 0LL };
+			timeval_subtract(&real_iv_start, interval_start, &graph_dur);
+		}
 
-	/* this should never happen and is here for sanitization of output */
-	if (timercmp(call_start_in_iv, call_stop, >)) {
-		ilog(LOG_ERR, "Call start seems to exceed call stop");
-		return;
+		if (timercmp(&real_iv_start, call_start, >))
+			call_start_in_iv = &real_iv_start;
+
+		/* this should never happen and is here for sanitization of output */
+		if (timercmp(call_start_in_iv, call_stop, >)) {
+			ilog(LOG_ERR, "Call start seems to exceed call stop");
+			return;
+		}
 	}
 
 	timeval_subtract(&call_duration, call_stop, call_start_in_iv);
@@ -87,6 +91,10 @@ void statistics_update_totals(struct packet_stream *ps) {
 		atomic64_get(&ps->stats.errors));
 	atomic64_add(&rtpe_totalstats_interval.total_relayed_errors,
 		atomic64_get(&ps->stats.errors));
+	atomic64_add(&rtpe_totalstats.total_relayed_bytes,
+		atomic64_get(&ps->stats.bytes));
+	atomic64_add(&rtpe_totalstats_interval.total_relayed_bytes,
+		atomic64_get(&ps->stats.bytes));
 }
 
 void statistics_update_foreignown_dec(struct call* c) {
@@ -214,10 +222,13 @@ void statistics_update_oneway(struct call* c) {
 
 			timeval_totalstats_average_add(&rtpe_totalstats, &tim_result_duration);
 			timeval_totalstats_average_add(&rtpe_totalstats_interval, &tim_result_duration);
-			timeval_totalstats_interval_call_duration_add(
+			timeval_totalstats_call_duration_add(
 					&rtpe_totalstats_interval, &ml->started, &ml->terminated,
 					&rtpe_latest_graphite_interval_start,
 					rtpe_config.graphite_interval);
+			timeval_totalstats_call_duration_add(
+					&rtpe_totalstats, &ml->started, &ml->terminated,
+					NULL, 0);
 		}
 
 		if (ml->term_reason==FINAL_TIMEOUT) {
@@ -246,6 +257,18 @@ void statistics_update_oneway(struct call* c) {
 		else if (m->is_bracket && !m->is_close_bracket && last && last->is_close_bracket) \
 			m->is_follow_up = 1; \
 		g_queue_push_tail(ret, m); \
+	} while (0)
+
+#define PROM(name, type) \
+	do { \
+		struct stats_metric *last = g_queue_peek_tail(ret); \
+		last->prom_name = name; \
+		last->prom_type = type; \
+	} while (0)
+#define PROMLAB(fmt, ...) \
+	do { \
+		struct stats_metric *last = g_queue_peek_tail(ret); \
+		last->prom_label = g_strdup_printf(fmt, ## __VA_ARGS__); \
 	} while (0)
 
 #define METRICva(lb, dsc, fmt1, fmt2, ...) \
@@ -378,9 +401,15 @@ GQueue *statistics_gather_metrics(void) {
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	METRIC("sessionsown", "Owned sessions", UINT64F, UINT64F, cur_sessions - atomic64_get(&rtpe_stats.foreign_sessions));
+	PROM("sessions", "gauge");
+	PROMLAB("type=\"own\"");
 	METRIC("sessionsforeign", "Foreign sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats.foreign_sessions));
+	PROM("sessions", "gauge");
+	PROMLAB("type=\"foreign\"");
+
 	METRIC("sessionstotal", "Total sessions", UINT64F, UINT64F, cur_sessions);
 	METRIC("transcodedmedia", "Transcoded media", UINT64F, UINT64F, atomic64_get(&rtpe_stats.transcoded_media));
+	PROM("transcoded_media", "gauge");
 
 	METRIC("packetrate", "Packets per second", UINT64F, UINT64F, atomic64_get(&rtpe_stats.packets));
 	METRIC("byterate", "Bytes per second", UINT64F, UINT64F, atomic64_get(&rtpe_stats.bytes));
@@ -396,19 +425,43 @@ GQueue *statistics_gather_metrics(void) {
 	HEADER("{", "");
 
 	METRIC("uptime", "Uptime of rtpengine", "%llu", "%llu seconds", (unsigned long long) time(NULL)-rtpe_totalstats.started);
+	PROM("uptime_seconds", "gauge");
 
 	METRIC("managedsessions", "Total managed sessions", UINT64F, UINT64F, num_sessions);
+	PROM("sessions_total", "counter");
 	METRIC("rejectedsessions", "Total rejected sessions", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_rejected_sess));
+	PROM("closed_sessions_total", "counter");
+	PROMLAB("reason=\"rejected\"");
 	METRIC("timeoutsessions", "Total timed-out sessions via TIMEOUT", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_timeout_sess));
+	PROM("closed_sessions_total", "counter");
+	PROMLAB("reason=\"timeout\"");
 	METRIC("silenttimeoutsessions", "Total timed-out sessions via SILENT_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_silent_timeout_sess));
+	PROM("closed_sessions_total", "counter");
+	PROMLAB("reason=\"silent_timeout\"");
 	METRIC("finaltimeoutsessions", "Total timed-out sessions via FINAL_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_final_timeout_sess));
+	PROM("closed_sessions_total", "counter");
+	PROMLAB("reason=\"final_timeout\"");
 	METRIC("offertimeoutsessions", "Total timed-out sessions via OFFER_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_offer_timeout_sess));
+	PROM("closed_sessions_total", "counter");
+	PROMLAB("reason=\"offer_timeout\"");
 	METRIC("regularterminatedsessions", "Total regular terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_regular_term_sess));
+	PROM("closed_sessions_total", "counter");
+	PROMLAB("reason=\"terminated\"");
 	METRIC("forcedterminatedsessions", "Total forced terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_forced_term_sess));
+	PROM("closed_sessions_total", "counter");
+	PROMLAB("reason=\"force_terminated\"");
+
 	METRIC("relayedpackets", "Total relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_relayed_packets));
+	PROM("packets_total", "counter");
 	METRIC("relayedpacketerrors", "Total relayed packet errors", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_relayed_errors));
+	PROM("packet_errors_total", "counter");
+	METRIC("relayedbytes", "Total relayed bytes", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_relayed_bytes));
+	PROM("bytes_total", "counter");
+
 	METRIC("zerowaystreams", "Total number of streams with no relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_nopacket_relayed_sess));
+	PROM("zero_packet_streams_total", "counter");
 	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_oneway_stream_sess));
+	PROM("one_way_sessions_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%ld.%06ld", "%ld.%06ld", avg.tv_sec, avg.tv_usec);
 
 	mutex_lock(&rtpe_totalstats_lastinterval_lock);
@@ -485,8 +538,12 @@ GQueue *statistics_gather_metrics(void) {
 	HEADER("proxies", NULL);
 	HEADER("[", NULL);
 
-	HEADERl(" %20s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s | %10s ",
-			"Proxy", "Offer", "Answer", "Delete", "Ping", "List", "Query", "StartRec", "StopRec", "Errors", "BlkDTMF", "UnblkDTMF");
+	GString *tmp = g_string_new("");
+	g_string_append_printf(tmp, " %20s ", "Proxy");
+	for (int i = 0; i < NGC_COUNT; i++)
+		g_string_append_printf(tmp, "| %10s ", ng_command_strings_short[i]);
+	HEADERl("%s", tmp->str);
+	g_string_free(tmp, TRUE);
 
 	struct control_ng_stats total = {0,};
 
@@ -498,60 +555,47 @@ GQueue *statistics_gather_metrics(void) {
 	}
 	for (GList *l = list; l; l = l->next) {
 		struct control_ng_stats* cur = l->data;
-		METRICl("", " %20s | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u | %10u",
-				sockaddr_print_buf(&cur->proxy),
-				cur->offer,
-				cur->answer,
-				cur->delete,
-				cur->ping,
-				cur->list,
-				cur->query,
-				cur->start_recording,
-				cur->stop_recording,
-				cur->errors,
-				cur->block_dtmf,
-				cur->unblock_dtmf);
 
-		total.ping += cur->ping;
-		total.offer += cur->offer;
-		total.answer += cur->answer;
-		total.delete += cur->delete;
-		total.query += cur->query;
-		total.list += cur->list;
-		total.start_recording += cur->start_recording;
-		total.stop_recording += cur->stop_recording;
-		total.start_forwarding += cur->start_forwarding;
-		total.stop_forwarding += cur->stop_forwarding;
-		total.block_dtmf += cur->block_dtmf;
-		total.unblock_dtmf += cur->unblock_dtmf;
-		total.block_media += cur->block_media;
-		total.unblock_media += cur->unblock_media;
-		total.play_media += cur->play_media;
-		total.stop_media += cur->stop_media;
-		total.play_dtmf += cur->play_dtmf;
-		total.statistics += cur->statistics;
-		total.errors += cur->errors;
 		HEADER("{", NULL);
+
+		GString *tmp = g_string_new("");
 		METRICsva("proxy", "\"%s\"", sockaddr_print_buf(&cur->proxy));
-		METRICs("pingcount", "%u", cur->ping);
-		METRICs("offercount", "%u", cur->offer);
-		METRICs("answercount", "%u", cur->answer);
-		METRICs("deletecount", "%u", cur->delete);
-		METRICs("querycount", "%u", cur->query);
-		METRICs("listcount", "%u", cur->list);
-		METRICs("startreccount", "%u", cur->start_recording);
-		METRICs("stopreccount", "%u", cur->stop_recording);
-		METRICs("startfwdcount", "%u", cur->start_forwarding);
-		METRICs("stopfwdcount", "%u", cur->stop_forwarding);
-		METRICs("blkdtmfcount", "%u", cur->block_dtmf);
-		METRICs("unblkdtmfcount", "%u", cur->unblock_dtmf);
-		METRICs("blkmedia", "%u", cur->block_media);
-		METRICs("unblkmedia", "%u", cur->unblock_media);
-		METRICs("playmedia", "%u", cur->play_media);
-		METRICs("stopmedia", "%u", cur->stop_media);
-		METRICs("playdtmf", "%u", cur->play_dtmf);
-		METRICs("statistics", "%u", cur->statistics);
-		METRICs("errorcount", "%u", cur->errors);
+		g_string_append_printf(tmp, " %20s ", sockaddr_print_buf(&cur->proxy));
+		for (int i = 0; i < NGC_COUNT; i++) {
+			mutex_lock(&cur->cmd[i].lock);
+
+			g_string_append_printf(tmp, "| %10u ", cur->cmd[i].count);
+			total.cmd[i].count += cur->cmd[i].count;
+
+			char *mn = g_strdup_printf("%scount", ng_command_strings_short[i]);
+			char *lw = g_ascii_strdown(mn, -1);
+			METRICs(lw, "%u", cur->cmd[i].count);
+			PROM("requests_total", "counter");
+			PROMLAB("proxy=\"%s\",request=\"%s\"", sockaddr_print_buf(&cur->proxy),
+					ng_command_strings[i]);
+			free(mn);
+			free(lw);
+
+			mn = g_strdup_printf("%sduration", ng_command_strings_short[i]);
+			lw = g_ascii_strdown(mn, -1);
+			METRICsva(lw, "%llu.%06llu", (unsigned long long) cur->cmd[i].time.tv_sec,
+					(unsigned long long) cur->cmd[i].time.tv_usec);
+			PROM("request_seconds_total", "counter");
+			PROMLAB("proxy=\"%s\",request=\"%s\"", sockaddr_print_buf(&cur->proxy),
+					ng_command_strings[i]);
+			free(mn);
+			free(lw);
+
+			mutex_unlock(&cur->cmd[i].lock);
+		}
+		METRICl("", "%s", tmp->str);
+		g_string_free(tmp, TRUE);
+
+		int errors = g_atomic_int_get(&cur->errors);
+		total.errors += errors;
+		METRICs("errorcount", "%i", errors);
+		PROM("errors_total", "counter");
+		PROMLAB("proxy=\"%s\"", sockaddr_print_buf(&cur->proxy));
 		HEADER("}", NULL);
 
 	}
@@ -560,25 +604,13 @@ GQueue *statistics_gather_metrics(void) {
 
 	HEADER("]", "");
 
-	METRICs("totalpingcount", "%u", total.ping);
-	METRICs("totaloffercount", "%u", total.offer);
-	METRICs("totalanswercount", "%u", total.answer);
-	METRICs("totaldeletecount", "%u", total.delete);
-	METRICs("totalquerycount", "%u", total.query);
-	METRICs("totallistcount", "%u", total.list);
-	METRICs("totalstartreccount", "%u", total.start_recording);
-	METRICs("totalstopreccount", "%u", total.stop_recording);
-	METRICs("totalstartfwdcount", "%u", total.start_forwarding);
-	METRICs("totalstopfwdcount", "%u", total.stop_forwarding);
-	METRICs("totalblkdtmfcount", "%u", total.block_dtmf);
-	METRICs("totalunblkdtmfcount", "%u", total.unblock_dtmf);
-	METRICs("totalblkmedia", "%u", total.block_media);
-	METRICs("totalunblkmedia", "%u", total.unblock_media);
-	METRICs("totalplaymedia", "%u", total.play_media);
-	METRICs("totalstopmedia", "%u", total.stop_media);
-	METRICs("totalplaydtmf", "%u", total.play_dtmf);
-	METRICs("totalstatistics", "%u", total.statistics);
-	METRICs("totalerrorcount", "%u", total.errors);
+	for (int i = 0; i < NGC_COUNT; i++) {
+		char *mn = g_strdup_printf("total%scount", ng_command_strings_short[i]);
+		char *lw = g_ascii_strdown(mn, -1);
+		METRICs(lw, "%u", total.cmd[i].count);
+		free(mn);
+		free(lw);
+	}
 
 	HEADER("}", "");
 
@@ -604,9 +636,18 @@ GQueue *statistics_gather_metrics(void) {
 		unsigned int l = g_atomic_int_get(&lif->spec->port_pool.last_used);
 		unsigned int r = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
 		METRICs("used", "%u", r - f);
+		PROM("ports_used", "gauge");
+		PROMLAB("name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
 		METRICs("used_pct", "%.2f", (double) (r - f) * 100.0 / r);
 		METRICs("free", "%u", f);
+		PROM("ports_free", "gauge");
+		PROMLAB("name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
 		METRICs("totals", "%u", r);
+		PROM("ports", "gauge");
+		PROMLAB("name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
 		METRICs("last", "%u", l);
 
 		HEADER("}", NULL);
@@ -627,11 +668,22 @@ GQueue *statistics_gather_metrics(void) {
 		HEADER("{", "");
 		METRICsva("chain", "\"%s\"", chain);
 		METRICs("num", "%i", g_atomic_int_get(&stats_entry->num_transcoders));
+		PROM("transcoders", "gauge");
+		PROMLAB("chain=\"%s\"", chain);
 		if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) == last_tv_sec) {
 			METRICs("packetrate", UINT64F, atomic64_get(&stats_entry->packets_input[idx]));
 			METRICs("byterate", UINT64F, atomic64_get(&stats_entry->bytes_input[idx]));
 			METRICs("samplerate", UINT64F, atomic64_get(&stats_entry->pcm_samples[idx]));
 		}
+		METRICs("packets", UINT64F, atomic64_get(&stats_entry->packets_input[2]));
+		PROM("transcode_packets_total", "counter");
+		PROMLAB("chain=\"%s\"", chain);
+		METRICs("bytes", UINT64F, atomic64_get(&stats_entry->bytes_input[2]));
+		PROM("transcode_bytes_total", "counter");
+		PROMLAB("chain=\"%s\"", chain);
+		METRICs("samples", UINT64F, atomic64_get(&stats_entry->pcm_samples[2]));
+		PROM("transcode_samples_total", "counter");
+		PROMLAB("chain=\"%s\"", chain);
 		HEADER("}", "");
 	}
 
@@ -651,6 +703,7 @@ static void free_stats_metric(void *p) {
 	g_free(m->label);
 	g_free(m->value_long);
 	g_free(m->value_short);
+	g_free(m->prom_label);
 	g_slice_free1(sizeof(*m), m);
 }
 
