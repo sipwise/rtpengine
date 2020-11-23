@@ -1214,16 +1214,7 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	* call in memory and recreates an OWN call in redis */
 	// SDP fragments for trickle ICE must always operate on an existing call
 	if (opmode == OP_OFFER && !flags.fragment) {
-		if (call) {
-			if (IS_FOREIGN_CALL(call)) {
-				/* destroy call and create new one */
-				rwlock_unlock_w(&call->master_lock);
-				call_destroy(call);
-				obj_put(call);
-				call = call_get_or_create(&flags.call_id, 0);
-			}
-		}
-		else {
+		if (!call) {
 			/* call == NULL, should create call */
 			call = call_get_or_create(&flags.call_id, 0);
 		}
@@ -1232,6 +1223,9 @@ static const char *call_offer_answer_ng(bencode_item_t *input,
 	errstr = "Unknown call-id";
 	if (!call)
 		goto out;
+
+	if (IS_FOREIGN_CALL(call))
+		call_make_own_foreign(call, 0);
 
 	if (!call->created_from && addr) {
 		call->created_from = call_strdup(call, addr);
