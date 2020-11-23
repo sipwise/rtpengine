@@ -118,6 +118,14 @@ out:
 
 
 
+void call_make_own_foreign(struct call *c, int foreign) {
+	statistics_update_foreignown_dec(c);
+	c->foreign_call = foreign ? 1 : 0;
+	statistics_update_foreignown_inc(c);
+}
+
+
+
 /* called with hashlock held */
 static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	GList *it;
