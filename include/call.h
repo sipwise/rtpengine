@@ -434,6 +434,7 @@ struct packet_stream *__packet_stream_new(struct call *call);
 
 struct call *call_get_or_create(const str *callid, enum call_type);
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
+void call_make_own_foreign(struct call *c, int foreign);
 struct call_monologue *call_get_mono_dialogue(struct call *call, const str *fromtag, const str *totag,
 		const str *viabranch);
 struct call *call_get(const str *callid);
