@@ -1,3 +1,10 @@
+ngcp-rtpengine (9.1.1.2+0~mr9.1.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [25309ca] TT#102500 fix missing timestamping in websocket threads
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 24 Nov 2020 19:52:35 +0100
+
 ngcp-rtpengine (9.1.1.1+0~mr9.1.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
