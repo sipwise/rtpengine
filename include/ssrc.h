@@ -71,6 +71,7 @@ struct ssrc_stats_block {
 	struct timeval reported;
 	u_int64_t jitter; // ms
 	u_int64_t rtt; // us - combined from both sides
+	u_int32_t rtt_leg; // RTT only for the leg receiving the RTCP report
 	u_int64_t packetloss; // percent
 	u_int64_t mos; // nominal range of 10 - 50 for MOS values 1.0 to 5.0
 };
