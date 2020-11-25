@@ -39,10 +39,20 @@ static struct call_media *media_A;
 static struct call_media *media_B;
 struct call_monologue ml_A;
 struct call_monologue ml_B;
-static GQueue rtp_types;
+static GQueue rtp_types = G_QUEUE_INIT;
 
 #define start() __start(__FILE__, __LINE__)
 
+static void __init(void) {
+	g_queue_clear(&rtp_types);
+	memset(&flags, 0, sizeof(flags));
+	flags.codec_strip = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	flags.codec_mask = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	flags.codec_except = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	flags.codec_set = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
+	flags.codec_consume = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	flags.codec_accept = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+}
 static void __start(const char *file, int line) {
 	printf("running test %s:%i\n", file, line);
 	rtp_ts_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -53,7 +63,6 @@ static void __start(const char *file, int line) {
 	call.ssrc_hash = create_ssrc_hash_call();
 	call.tags = g_hash_table_new(g_str_hash, g_str_equal);
 	str_init(&call.callid, "test-call");
-	flags = (struct sdp_ng_flags) {0,};
 	bencode_buffer_init(&call.buffer);
 	media_A = call_media_new(&call); // originator
 	media_B = call_media_new(&call); // output destination
@@ -65,13 +74,7 @@ static void __start(const char *file, int line) {
 	str_init(&ml_B.tag, "tag_B");
 	media_B->monologue = &ml_B;
 	media_B->protocol = &transport_protocols[PROTO_RTP_AVP];
-	g_queue_init(&rtp_types); // parsed from received SDP
-	flags.codec_strip = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
-	flags.codec_mask = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
-	flags.codec_except = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
-	flags.codec_set = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
-	flags.codec_consume = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
-	flags.codec_accept = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	__init();
 }
 
 #define transcode(codec) g_queue_push_tail(&flags.codec_transcode, sdup(#codec))
@@ -94,6 +97,12 @@ static void codec_set(char *c) {
 }
 #endif
 
+static void __ht_set(GHashTable *h, char *x) {
+	str *d = sdup(x);
+	g_hash_table_insert(h, d, d);
+}
+#define ht_set(ht, s) __ht_set(flags.ht, #s)
+
 #define sdp_pt_fmt(num, codec, clockrate, fmt) \
 	__sdp_pt_fmt(num, (str) STR_CONST_INIT(#codec), clockrate, (str) STR_CONST_INIT(#codec "/" #clockrate), \
 			(str) STR_CONST_INIT(fmt))
@@ -114,8 +123,7 @@ static void offer(void) {
 	codec_rtp_payload_types(media_B, media_A, &rtp_types, &flags);
 	codec_handlers_update(media_B, media_A, &flags, NULL);
 	codec_tracker_finish(media_B);
-	g_queue_clear(&rtp_types);
-	memset(&flags, 0, sizeof(flags));
+	__init();
 }
 
 static void answer(void) {
@@ -125,8 +133,7 @@ static void answer(void) {
 	codec_rtp_payload_types(media_A, media_B, &rtp_types, &flags);
 	codec_handlers_update(media_A, media_B, &flags, NULL);
 	codec_tracker_finish(media_A);
-	g_queue_clear(&rtp_types);
-	memset(&flags, 0, sizeof(flags));
+	__init();
 }
 
 #define expect(side, dir, codecs) \
@@ -412,7 +419,7 @@ int main(void) {
 
 	// plain with two offered and two answered + always-transcode one way
 	start();
-	flags.always_transcode = 1;
+	ht_set(codec_accept, all);
 	sdp_pt(0, PCMU, 8000);
 	sdp_pt(8, PCMA, 8000);
 	offer();
@@ -435,7 +442,7 @@ int main(void) {
 
 	// plain with two offered and two answered + always-transcode both ways
 	start();
-	flags.always_transcode = 1;
+	ht_set(codec_accept, all);
 	sdp_pt(0, PCMU, 8000);
 	sdp_pt(8, PCMA, 8000);
 	offer();
@@ -443,7 +450,7 @@ int main(void) {
 	expect(A, send, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, recv, "0/PCMU/8000 8/PCMA/8000");
 	expect(B, send, "");
-	flags.always_transcode = 1;
+	ht_set(codec_accept, all);
 	sdp_pt(0, PCMU, 8000);
 	sdp_pt(8, PCMA, 8000);
 	answer();

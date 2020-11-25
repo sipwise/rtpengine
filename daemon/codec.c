@@ -523,7 +523,7 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 
 		// even if the receiver can receive the same codec that the sink can
 		// send, we might still have it configured as a transcoder due to
-		// always-transcode in the offer
+		// force accepted codec in the offer
 		struct codec_handler *ch_recv =
 			g_hash_table_lookup(sink->codec_handlers, GINT_TO_POINTER(recv_pt->payload_type));
 		if (!ch_recv)
@@ -1310,7 +1310,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// do we need to detect PCM DTMF tones?
 	int pcm_dtmf_detect = 0;
-	if ((MEDIA_ISSET(sink, TRANSCODE) || (flags && flags->always_transcode))
+	if ((MEDIA_ISSET(sink, TRANSCODE) || (sink_transcoding & 0x2))
 			&& dtmf_payload_type != -1
 			&& dtmf_pt && (!reverse_dtmf_pt || reverse_dtmf_pt->for_transcoding ||
 				!g_hash_table_lookup(receiver->codecs_send, &dtmf_payload_type)))
@@ -1364,22 +1364,17 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 		GQueue *dest_codecs = NULL;
 		if (pref_dest_codec->for_transcoding) {
-			// with always-transcode, we still accept DTMF payloads if possible
+			// with force accepted codec, we still accept DTMF payloads if possible
 			if (pt->codec_def && pt->codec_def->supplemental)
 				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		}
-		else if (!flags || !flags->always_transcode) {
+		else {
 			// we ignore output codec matches if we must transcode supp codecs
 			if ((dtmf_pt_match == 1 || cn_pt_match == 1) && MEDIA_ISSET(sink, TRANSCODE))
 				;
 			else if (pcm_dtmf_detect)
 				;
 			else
-				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
-		}
-		else if (flags->always_transcode) {
-			// with always-transcode, we still accept DTMF payloads if possible
-			if (pt->codec_def && pt->codec_def->supplemental)
 				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
 		}
 		if (dest_codecs) {
@@ -3284,7 +3279,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 	static const str str_full = STR_CONST_INIT("full");
 	GHashTable *stripped = g_hash_table_new_full(str_case_hash, str_case_equal, free, __payload_queue_free);
 	GHashTable *masked = g_hash_table_new_full(str_case_hash, str_case_equal, free, __payload_queue_free);
-	int strip_all = 0, mask_all = 0, consume_all = 0;
+	int strip_all = 0, mask_all = 0, consume_all = 0, accept_all = 0;
 
 	// start fresh
 	if (!proto_is_rtp(other_media->protocol) && proto_is_rtp(media->protocol) && flags->opmode == OP_OFFER) {
@@ -3317,6 +3312,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		consume_all = 1;
 	else if (flags->codec_consume && g_hash_table_lookup(flags->codec_consume, &str_full))
 		consume_all = 2;
+	if (flags->codec_accept && g_hash_table_lookup(flags->codec_accept, &str_all))
+		accept_all = 1;
 
 	__ht_merge(&flags->codec_except, flags->codec_consume);
 	__ht_merge(&flags->codec_except, flags->codec_accept);
@@ -3350,6 +3347,11 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 #ifdef WITH_TRANSCODING
 			codec_touched(pt, media);
 #endif
+			// special case for handling of the legacy always-transcode flag (= accept-all)
+			// in combination with codec-mask
+			if (accept_all)
+				pt->for_transcoding = 1;
+
 			GQueue *q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 			q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding_with_params), free);
@@ -3369,7 +3371,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 			__rtp_payload_type_add_send(other_media, pt);
 		}
-		else if (__codec_ht_except(0, flags->codec_accept, NULL, pt)) {
+		else if (__codec_ht_except(accept_all, flags->codec_accept, NULL, pt)) {
 			ilog(LOG_DEBUG, "Accepting codec '" STR_FORMAT "'",
 					STR_FMT(&pt->encoding_with_params));
 #ifdef WITH_TRANSCODING

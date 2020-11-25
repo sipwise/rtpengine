@@ -810,8 +810,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("original-sendrecv"):
 			out->original_sendrecv = 1;
 			break;
-		case CSH_LOOKUP("always-transcode"):
-			out->always_transcode = 1;
+		case CSH_LOOKUP("always-transcode"):;
+			static const str str_all = STR_CONST_INIT("all");
+			call_ng_flags_str_ht(out, (str *) &str_all, &out->codec_accept);
 			break;
 		case CSH_LOOKUP("asymmetric-codecs"):
 			out->asymmetric_codecs = 1;
@@ -862,20 +863,20 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_str_ht,
 							&out->codec_mask))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
-							&out->codec_set))
-					return;
-				if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_str_ht,
-							&out->codec_accept))
-					return;
-				if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_str_ht,
-							&out->codec_consume))
-					return;
 				if (call_ng_flags_prefix(out, s, "T38-", ng_t38_option, NULL))
 					return;
 				if (call_ng_flags_prefix(out, s, "T.38-", ng_t38_option, NULL))
 					return;
 			}
+			if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
+						&out->codec_set))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_str_ht,
+						&out->codec_accept))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_str_ht,
+						&out->codec_consume))
+				return;
 #endif
 
 			ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
