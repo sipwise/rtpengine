@@ -13,10 +13,9 @@ struct poller *rtpe_poller;
 GString *dtmf_logs;
 
 static str *sdup(char *s) {
-	str *r = g_slice_alloc(sizeof(*r));
-	char *d = strdup(s);
-	str_init(r, d);
-	return r;
+	str r;
+	str_init(&r, s);
+	return str_dup(&r);
 }
 static void queue_dump(GString *s, GQueue *q) {
 	for (GList *l = q->head; l; l = l->next) {
@@ -67,9 +66,10 @@ static void __start(const char *file, int line) {
 	media_B->monologue = &ml_B;
 	media_B->protocol = &transport_protocols[PROTO_RTP_AVP];
 	g_queue_init(&rtp_types); // parsed from received SDP
-	flags.codec_strip = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
-	flags.codec_mask = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
-	flags.codec_set = g_hash_table_new_full(str_hash, str_equal, str_slice_free, NULL);
+	flags.codec_strip = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	flags.codec_mask = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	flags.codec_except = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	flags.codec_set = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
 }
 
 #define transcode(codec) g_queue_push_tail(&flags.codec_transcode, sdup(#codec))
@@ -83,7 +83,7 @@ static void codec_set(char *c) {
 	str splitter = s;
 
 	while (1) {
-		g_hash_table_replace(flags.codec_set, str_slice_dup(&splitter), str_slice_dup(&s));
+		g_hash_table_replace(flags.codec_set, str_dup(&splitter), str_dup(&s));
 		char *c = memrchr(splitter.s, '/', splitter.len);
 		if (!c)
 			break;
@@ -107,16 +107,22 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str 
 
 static void offer(void) {
 	printf("offer\n");
+	codec_tracker_init(media_B);
 	codec_rtp_payload_types(media_B, media_A, &rtp_types, &flags);
 	codec_handlers_update(media_B, media_A, &flags, NULL);
+	codec_tracker_finish(media_B);
 	g_queue_clear(&rtp_types);
 	memset(&flags, 0, sizeof(flags));
 }
 
 static void answer(void) {
 	printf("answer\n");
+	codec_tracker_init(media_A);
 	codec_rtp_payload_types(media_A, media_B, &rtp_types, &flags);
 	codec_handlers_update(media_A, media_B, &flags, NULL);
+	codec_tracker_finish(media_A);
+	g_queue_clear(&rtp_types);
+	memset(&flags, 0, sizeof(flags));
 }
 
 #define expect(side, dir, codecs) \
