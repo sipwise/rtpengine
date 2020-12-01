@@ -128,6 +128,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	const char *use_config;
 	int fatal = 0;
 	AUTO_CLEANUP(char **saved_argv, free_gvbuf) = g_strdupv(*argv);
+	int saved_argc = *argc;
 
 	rtpe_common_config_ptr = cconfig;
 
@@ -254,7 +255,11 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	// process CLI arguments again so they override options from the config file
 	c = g_option_context_new(description);
 	g_option_context_add_main_entries(c, entries, NULL);
+#if !GLIB_CHECK_VERSION(2,40,0)
 	g_option_context_parse_strv(c, &saved_argv, &er);
+#else
+	g_option_context_parse(c, &saved_argc, &saved_argv, &er);
+#endif
 
 	// finally go through our list again to look for strings that were
 	// overwritten, and free the old values.
