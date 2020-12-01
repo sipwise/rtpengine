@@ -753,6 +753,182 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+##
+
+offer('strip-all w consume and offer',
+	{ codec => {
+		strip => ['all'],
+		consume => ['CN'],
+		offer => ['PCMA', 'PCMU', 'telephone-event'],
+	} }, <<SDP);
+v=0
+o=testlab 949032 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.115.185.219
+b=CT:10000000
+t=0 0
+m=audio 52152 RTP/AVP 104 9 103 111 18 0 8 97 101 13 118
+c=IN IP4 52.115.185.219
+a=rtcp:52153
+a=mid:1
+a=sendrecv
+a=rtpmap:104 SILK/16000
+a=rtpmap:9 G722/8000
+a=rtpmap:103 SILK/8000
+a=rtpmap:111 SIREN/16000
+a=fmtp:111 bitrate=16000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=rtpmap:118 CN/16000
+a=ptime:20
+----------------------------------
+v=0
+o=testlab 949032 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.115.185.219
+b=CT:10000000
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('strip-all w consume and offer',
+	{ }, <<SDP);
+v=0
+o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+s=pjmedia
+c=IN IP4 89.250.11.190
+t=0 0
+m=audio 4002 RTP/AVP 8 101
+c=IN IP4 89.250.11.190
+a=rtcp:4003 IN IP4 172.31.250.201
+a=sendrecv
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+----------------------------------
+v=0
+o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+s=pjmedia
+c=IN IP4 89.250.11.190
+t=0 0
+m=audio PORT RTP/AVP 8 0 101 13
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+offer('strip-all w consume and offer and s/c',
+	{ codec => {
+		strip => ['all'],
+		consume => ['CN'],
+		offer => ['PCMA', 'PCMU', 'telephone-event'],
+	},
+	flags => ['symmetric codecs'],
+	}, <<SDP);
+v=0
+o=testlab 949032 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.115.185.219
+b=CT:10000000
+t=0 0
+m=audio 52152 RTP/AVP 104 9 103 111 18 0 8 97 101 13 118
+c=IN IP4 52.115.185.219
+a=rtcp:52153
+a=mid:1
+a=sendrecv
+a=rtpmap:104 SILK/16000
+a=rtpmap:9 G722/8000
+a=rtpmap:103 SILK/8000
+a=rtpmap:111 SIREN/16000
+a=fmtp:111 bitrate=16000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=rtpmap:118 CN/16000
+a=ptime:20
+----------------------------------
+v=0
+o=testlab 949032 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.115.185.219
+b=CT:10000000
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('strip-all w consume and offer and s/c',
+	{
+	flags => ['symmetric codecs'],
+	}, <<SDP);
+v=0
+o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+s=pjmedia
+c=IN IP4 89.250.11.190
+t=0 0
+m=audio 4002 RTP/AVP 8 101
+c=IN IP4 89.250.11.190
+a=rtcp:4003 IN IP4 172.31.250.201
+a=sendrecv
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+----------------------------------
+v=0
+o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+s=pjmedia
+c=IN IP4 89.250.11.190
+t=0 0
+m=audio PORT RTP/AVP 8 0 101 13
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
 
 
 
@@ -882,6 +1058,79 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 ($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1001, 3160, -1, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\xff" x 160));
 rcv($sock_b, $port_a, rtpm(13, 1002, 3320, $ssrc, "\x20"));
+
+# consume CN
+
+($sock_b, $sock_a) = new_call([qw(198.51.101.1 6006)], [qw(198.51.101.3 7006)]);
+
+($port_b) = offer('consume CN',
+	{ ICE => 'remove', replace => ['origin'],
+	codec => {
+		strip => ['all'],
+		consume => ['CN'],
+		offer => ['PCMA','PCMU','telephone-event'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 6006 RTP/AVP 8 0 13 101
+c=IN IP4 198.51.101.1
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_a) = answer('consume CN',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 7006 RTP/AVP 8 101
+c=IN IP4 198.51.101.3
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 101 13
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(8, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(8, 2000, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(8, 2001, 4160, $ssrc, "\xfb\x70\x58\xe4\x43\xe6\x41\xfc\x44\x71\xc0\x63\x44\x77\x58\x50\x49\x66\x5a\xd8\x42\x66\x41\x67\xd0\x6f\x67\x60\x60\x7c\x10\x71\x12\x64\x10\x65\x60\x16\x6c\x63\x6c\x76\x60\xd1\x15\x74\x15\x7c\x16\x7d\x14\x7d\x16\x69\x4a\x13\x66\x67\x1c\x60\x66\x15\x7c\x7e\x67\x62\xd5\x15\xd2\x11\xf0\x1c\x72\x49\x11\x76\x6d\x6e\x14\x15\x64\x6e\x11\x76\x17\x7e\x16\x5c\x1d\x42\x15\x14\x16\x69\x11\x63\x1c\x60\x1d\x67\x6a\x15\x63\x11\x14\x10\x79\x68\x6e\x66\x60\x14\x59\x6e\x74\x50\x7d\x6d\x74\x67\x79\x60\x77\x60\x56\x6f\x56\x64\x6e\x77\x63\x62\x15\x45\x6c\x11\x45\x67\x6a\x7c\x60\x6c\x6a\x72\x12\x5f\x6d\x6d\x6a\x5d\x11\x5b\x61\x7b\x6a\x63\x67\x15\xd0\x10"));
+snd($sock_b, $port_a, rtp(8, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2002, 4320, $ssrc, "\x00" x 160));
+# test silence detection
+snd($sock_a, $port_b, rtp(8, 1001, 3160, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(8, 1001, 3160, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1002, 3320, 0x1234, "\xd5" x 160));
+rcv($sock_b, $port_a, rtpm(13, 1002, 3320, $ssrc, "\x20"));
+
 
 
 
