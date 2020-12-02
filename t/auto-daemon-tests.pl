@@ -1643,6 +1643,75 @@ SDP
 
 new_call;
 
+offer('some t/c options with answer only non-t/c codec', {
+		codec => {
+			mask => ['all'],
+			transcode => ['G722', 'opus/48000/1', 'PCMA', 'telephone-event']
+		},
+	}, <<SDP);
+v=0
+o=- 3815883745 3815883745 IN IP4 ims.imscore.net
+s=-
+c=IN IP4 139.156.119.254
+t=0 0
+m=audio 38722 RTP/AVP 111 8 101 96
+a=ptime:20
+a=rtpmap:111 opus/48000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/48000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=fmtp:101 0-15
+--------------------------------------
+v=0
+o=- 3815883745 3815883745 IN IP4 ims.imscore.net
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 96 8 101 96
+a=rtpmap:9 G722/8000
+a=rtpmap:96 opus/48000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/48000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:101 0-15
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('some t/c options with answer only non-t/c codec', {}, <<SDP);
+v=0
+o=FreeSWITCH 1606876265 1606876266 IN IP4 185.112.44.46
+s=FreeSWITCH
+c=IN IP4 185.112.44.46
+t=0 0
+m=audio 18680 RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-16
+a=silenceSupp:off - - - -
+a=ptime:20
+a=rtcp:18681 IN IP4 185.112.44.46
+--------------------------------------
+v=0
+o=FreeSWITCH 1606876265 1606876266 IN IP4 185.112.44.46
+s=FreeSWITCH
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=silenceSupp:off - - - -
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+new_call;
+
 offer('symmetric codecs w missing answer codec, no flag', {
 		ICE => 'remove',
 		flags => [],
