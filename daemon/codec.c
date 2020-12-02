@@ -1033,8 +1033,8 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	if (dtmf_payload_type != -1) {
 		// find a matching output DTMF payload type
-		dtmf_pt = g_hash_table_lookup(sink->codecs_recv, &dtmf_payload_type);
-		reverse_dtmf_pt = g_hash_table_lookup(receiver->codecs_send, &dtmf_payload_type);
+		dtmf_pt = g_hash_table_lookup(sink->codecs_send, &dtmf_payload_type);
+		reverse_dtmf_pt = g_hash_table_lookup(receiver->codecs_recv, &dtmf_payload_type);
 		if (reverse_dtmf_pt && dtmf_pt && rtp_payload_type_cmp(reverse_dtmf_pt, dtmf_pt))
 			reverse_dtmf_pt = NULL;
 	}
@@ -1059,9 +1059,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// do we need to detect PCM DTMF tones?
 	int pcm_dtmf_detect = 0;
+	if (reverse_dtmf_pt)
 	if ((MEDIA_ISSET(sink, TRANSCODE) || (flags && flags->always_transcode))
 			&& dtmf_payload_type != -1
-			&& !g_hash_table_lookup(receiver->codecs_send, &dtmf_payload_type))
+			&& dtmf_pt && (!reverse_dtmf_pt || reverse_dtmf_pt->for_transcoding ||
+				!g_hash_table_lookup(receiver->codecs_send, &dtmf_payload_type)))
 		pcm_dtmf_detect = 1;
 
 
@@ -1110,6 +1112,8 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		if (!flags || !flags->always_transcode) {
 			// we ignore output codec matches if we must transcode DTMF
 			if (dtmf_pt && !reverse_dtmf_pt)
+				;
+			else if (pcm_dtmf_detect)
 				;
 			else
 				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
@@ -1222,7 +1226,7 @@ next:
 			// if the sink does not support DTMF but we can receive it, we must transcode
 			// DTMF event packets to PCM. this requires all codecs to be transcoded to the
 			// sink's preferred destination codec.
-			if (!transcode_supplemental && dtmf_payload_type == -1)
+			if (!transcode_supplemental && !pcm_dtmf_detect)
 				__make_passthrough_ssrc(handler);
 			else if (dtmf_pt && reverse_dtmf_pt)
 				__make_passthrough_ssrc(handler);
