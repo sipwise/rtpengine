@@ -107,6 +107,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str 
 
 static void offer(void) {
 	printf("offer\n");
+	flags.opmode = OP_OFFER;
 	codec_tracker_init(media_B);
 	codec_rtp_payload_types(media_B, media_A, &rtp_types, &flags);
 	codec_handlers_update(media_B, media_A, &flags, NULL);
@@ -117,6 +118,7 @@ static void offer(void) {
 
 static void answer(void) {
 	printf("answer\n");
+	flags.opmode = OP_ANSWER;
 	codec_tracker_init(media_A);
 	codec_rtp_payload_types(media_A, media_B, &rtp_types, &flags);
 	codec_handlers_update(media_A, media_B, &flags, NULL);

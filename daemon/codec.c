@@ -1070,7 +1070,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 		struct rtp_payload_type *pt = l->data;
 
-		if (MEDIA_ISSET(sink, TRANSCODE)) {
+		if (MEDIA_ISSET(sink, TRANSCODE) && flags && flags->opmode == OP_ANSWER) {
 			// if the other side is transcoding, we may come across a receiver entry
 			// (recv->recv) that wasn't originally offered (recv->send). we must eliminate
 			// those, unless we added them ourselves for transcoding.
@@ -2665,7 +2665,6 @@ static int __revert_codec_strip(GHashTable *stripped, GHashTable *masked, const 
 				STR_FMT(codec), q->length);
 		while (q->length) {
 			struct rtp_payload_type *pt = g_queue_pop_head(q);
-			pt->for_transcoding = 1;
 			__rtp_payload_type_add_recv(media, pt, 1);
 		}
 		g_hash_table_remove(masked, codec);
