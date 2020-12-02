@@ -629,6 +629,10 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 				insert_pos = insert_pos->prev;
 			}
 		}
+		else {
+			if (!insert_pos)
+				insert_pos = receiver->codecs_prefs_recv.tail;
+		}
 
 		if (!insert_pos) {
 			g_queue_push_head(&receiver->codecs_prefs_recv, pt);
