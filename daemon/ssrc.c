@@ -357,6 +357,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 	*ssb = (struct ssrc_stats_block) {
 		.jitter = jitter,
 		.rtt = rtt + other_e->last_rtt,
+		.rtt_leg = rtt,
 		.reported = *tv,
 		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
 	};
@@ -386,6 +387,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 	// running tally
 	other_e->average_mos.jitter += ssb->jitter;
 	other_e->average_mos.rtt += ssb->rtt;
+	other_e->average_mos.rtt_leg += ssb->rtt_leg;
 	other_e->average_mos.packetloss += ssb->packetloss;
 	other_e->average_mos.mos += ssb->mos;
 

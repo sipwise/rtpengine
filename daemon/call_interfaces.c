@@ -1530,6 +1530,7 @@ static void ng_stats_ssrc_mos_entry_common(bencode_item_t *subent, struct ssrc_s
 {
 	bencode_dictionary_add_integer(subent, "MOS", sb->mos / div);
 	bencode_dictionary_add_integer(subent, "round-trip time", sb->rtt / div);
+	bencode_dictionary_add_integer(subent, "round-trip time leg", sb->rtt_leg / div);
 	bencode_dictionary_add_integer(subent, "jitter", sb->jitter / div);
 	bencode_dictionary_add_integer(subent, "packet loss", sb->packetloss / div);
 }
