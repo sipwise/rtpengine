@@ -7,6 +7,7 @@
 #include <libavutil/mathematics.h>
 #include <inttypes.h>
 #include <libavutil/opt.h>
+#include <sys/time.h>
 #include "types.h"
 #include "log.h"
 #include "output.h"
@@ -23,6 +24,8 @@ struct mix_s {
 	AVFilterContext *src_ctxs[NUM_INPUTS];
 	uint64_t pts_offs[NUM_INPUTS]; // initialized at first input seen
 	uint64_t in_pts[NUM_INPUTS]; // running counter of next expected adjusted pts
+	struct timeval last_use[NUM_INPUTS]; // to recycle old mix inputs
+	void *input_ref[NUM_INPUTS]; // to avoid collisions in case of idx re-use
 	AVFilterContext *amix_ctx;
 	AVFilterContext *sink_ctx;
 	unsigned int next_idx;
@@ -45,7 +48,7 @@ static void mix_shutdown(mix_t *mix) {
 		avfilter_free(mix->sink_ctx);
 	mix->sink_ctx = NULL;
 
-	for (int i = 0; i < NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < NUM_INPUTS; i++) {
 		if (mix->src_ctxs[i])
 			avfilter_free(mix->src_ctxs[i]);
 		mix->src_ctxs[i] = NULL;
@@ -68,8 +71,32 @@ void mix_destroy(mix_t *mix) {
 }
 
 
-unsigned int mix_get_index(mix_t *mix) {
-	return mix->next_idx++;
+static void mix_input_reset(mix_t *mix, unsigned int idx) {
+	mix->pts_offs[idx] = (uint64_t) -1LL;
+	ZERO(mix->last_use[idx]);
+	mix->input_ref[idx] = NULL;
+}
+
+
+unsigned int mix_get_index(mix_t *mix, void *ptr) {
+	unsigned int next = mix->next_idx++;
+	if (next < NUM_INPUTS) // must be unused
+		return next;
+
+	// too many inputs - find one to re-use
+	struct timeval earliest = {0,};
+	next = 0;
+	for (unsigned int i = 0; i < NUM_INPUTS; i++) {
+		if (earliest.tv_sec == 0 || timeval_cmp(&earliest, &mix->last_use[i]) > 0) {
+			next = i;
+			earliest = mix->last_use[i];
+		}
+	}
+
+	ilog(LOG_DEBUG, "Re-using mix input index $%u", next);
+	mix_input_reset(mix, next);
+	mix->input_ref[next] = ptr;
+	return next;
 }
 
 
@@ -107,7 +134,7 @@ int mix_config(mix_t *mix, const format_t *format) {
 	if (!flt)
 		goto err;
 
-	for (int i = 0; i < NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < NUM_INPUTS; i++) {
 		dbg("init input ctx %i", i);
 
 		snprintf(args, sizeof(args), "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:"
@@ -158,7 +185,7 @@ mix_t *mix_new() {
 	format_init(&mix->format);
 	mix->sink_frame = av_frame_alloc();
 
-	for (int i = 0; i < NUM_INPUTS; i++)
+	for (unsigned int i = 0; i < NUM_INPUTS; i++)
 		mix->pts_offs[i] = (uint64_t) -1LL;
 
 	return mix;
@@ -209,7 +236,7 @@ static void mix_silence_fill(mix_t *mix) {
 	if (mix->out_pts < mix->format.clockrate)
 		return;
 
-	for (int i = 0; i < NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < NUM_INPUTS; i++) {
 		// check the pts of each input and give them max 0.5 second of delay.
 		// if they fall behind too much, fill input with silence. otherwise
 		// output stalls and won't produce media
@@ -218,7 +245,7 @@ static void mix_silence_fill(mix_t *mix) {
 }
 
 
-int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
+int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *output) {
 	const char *err;
 
 	err = "index out of range";
@@ -228,6 +255,12 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, output_t *output) {
 	err = "mixer not initialized";
 	if (!mix->src_ctxs[idx])
 		goto err;
+
+	err = "received samples for old re-used input channel";
+	if (ptr != mix->input_ref[idx])
+		goto err;
+
+	gettimeofday(&mix->last_use[idx], NULL);
 
 	dbg("stream %i pts_off %llu in pts %llu in frame pts %llu samples %u mix out pts %llu", 
 			idx,

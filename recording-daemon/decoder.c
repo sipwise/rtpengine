@@ -113,7 +113,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 	if (metafile->mix_out) {
 		dbg("adding packet from stream #%lu to mix output", stream->id);
 		if (G_UNLIKELY(deco->mixer_idx == (unsigned int) -1))
-			deco->mixer_idx = mix_get_index(metafile->mix);
+			deco->mixer_idx = mix_get_index(metafile->mix, ssrc);
 		format_t actual_format;
 		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
 			goto no_mix_out;
@@ -124,7 +124,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 			pthread_mutex_unlock(&metafile->mix_lock);
 			goto err;
 		}
-		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, metafile->mix_out))
+		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, ssrc, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
 	}
 no_mix_out:
