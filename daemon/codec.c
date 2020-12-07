@@ -512,12 +512,32 @@ static int __dtmf_payload_type(GHashTable *supplemental_sinks, struct rtp_payloa
 	return dtmf_payload_type;
 }
 
-static int __unused_pt_number(struct call_media *media, int num) {
+static int __unused_pt_number(struct call_media *media, struct call_media *other_media,
+		struct rtp_payload_type *pt)
+{
+	int num = pt ? pt->payload_type : -1;
+	struct rtp_payload_type *pt_match;
+
 	if (num < 0)
 		num = 96; // default first dynamic payload type number
 	while (1) {
-		if (!g_hash_table_lookup(media->codecs_recv, &num))
-			break; // OK
+		if ((pt_match = g_hash_table_lookup(media->codecs_recv, &num)))
+			goto next;
+		if ((pt_match = g_hash_table_lookup(media->codecs_send, &num)))
+			goto next;
+		if (other_media) {
+			if ((pt_match = g_hash_table_lookup(other_media->codecs_recv, &num)))
+				goto next;
+			if ((pt_match = g_hash_table_lookup(other_media->codecs_send, &num)))
+				goto next;
+			}
+		// OK
+		break;
+
+next:
+		// is this actually the same?
+		if (pt && !rtp_payload_type_cmp_nf(pt, pt_match))
+			break;
 		num++;
 		if (num < 96) // if an RFC type was taken already
 			num = 96;
@@ -587,7 +607,7 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 			// PT collision. We must renumber one of the entries. `pt` is taken
 			// from the send list, so the PT should remain the same. Renumber
 			// the existing entry.
-			int new_pt = __unused_pt_number(receiver, existing_pt->payload_type);
+			int new_pt = __unused_pt_number(receiver, sink, existing_pt);
 			if (new_pt < 0) {
 				ilog(LOG_WARN, "Ran out of RTP payload type numbers while accepting '"
 						STR_FORMAT "' due to '" STR_FORMAT "'",
@@ -1163,7 +1183,10 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				goto transcode;
 			}
 
-			// XXX check format parameters as well
+			// XXX needs more intelligent fmtp matching
+			if (rtp_payload_type_cmp_nf(pt, dest_pt))
+				goto transcode;
+
 			ilog(LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 			__make_passthrough_gsl(handler, &passthrough_handlers);
 			if (pt->codec_def && pt->codec_def->dtmf)
@@ -2486,7 +2509,9 @@ err:
 }
 
 
-static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media) {
+static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media,
+		struct call_media *other_media)
+{
 	struct rtp_payload_type *pt = codec_make_payload_type_sup(codec, media);
 	if (!pt) {
 		ilog(LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
@@ -2496,7 +2521,7 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 	if (pt == (void *) 0x1)
 		return NULL;
 
-	pt->payload_type = __unused_pt_number(media, pt->payload_type);
+	pt->payload_type = __unused_pt_number(media, other_media, pt);
 	if (pt->payload_type < 0) {
 		ilog(LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
 				STR_FORMAT "' for transcoding",
@@ -2789,7 +2814,7 @@ void codec_tracker_finish(struct call_media *media) {
 			str pt_str;
 			str_init(&pt_str, pt_s);
 
-			struct rtp_payload_type *pt = codec_add_payload_type(&pt_str, media);
+			struct rtp_payload_type *pt = codec_add_payload_type(&pt_str, media, NULL);
 			if (!pt)
 				continue;
 			pt->for_transcoding = 1;
@@ -2971,7 +2996,7 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 		}
 
 		// create new payload type
-		pt = codec_add_payload_type(codec, media);
+		pt = codec_add_payload_type(codec, media, other_media);
 		if (!pt)
 			continue;
 		pt->for_transcoding = 1;
@@ -3003,10 +3028,10 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 				// XXX can we improve the codec lookup/synthesis?
 				static const str PCMU_str = STR_CONST_INIT("PCMU");
 				static const str PCMA_str = STR_CONST_INIT("PCMA");
-				pt = codec_add_payload_type(&PCMU_str, media);
+				pt = codec_add_payload_type(&PCMU_str, media, NULL);
 				assert(pt != NULL);
 				__rtp_payload_type_add_recv(media, pt, 1);
-				pt = codec_add_payload_type(&PCMA_str, media);
+				pt = codec_add_payload_type(&PCMA_str, media, NULL);
 				assert(pt != NULL);
 				__rtp_payload_type_add_recv(media, pt, 1);
 

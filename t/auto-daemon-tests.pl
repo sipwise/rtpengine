@@ -198,6 +198,52 @@ exit;
 
 
 
+new_call;
+
+offer('dup codec number', {
+	codec => {
+		mask => ['all'],
+		transcode => ['G722', 'opus/48000/1//test=1', 'speex', 'PCMA', 'telephone-event'],
+	}
+}, <<SDP);
+v=0
+o=- 3816337545 3816337545 IN IP4 ims.imscore.net
+s=-
+c=IN IP4 139.156.119.237
+t=0 0
+m=audio 44964 RTP/AVP 111 108 8 101 96
+a=ptime:20
+a=rtpmap:111 opus/48000
+a=rtpmap:108 speex/16000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/48000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=fmtp:101 0-15
+----------------------------------
+v=0
+o=- 3816337545 3816337545 IN IP4 ims.imscore.net
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 97 108 8 101 96 98
+a=rtpmap:9 G722/8000
+a=rtpmap:97 opus/48000
+a=rtpmap:108 speex/16000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/48000
+a=rtpmap:96 telephone-event/8000
+a=rtpmap:98 telephone-event/16000
+a=fmtp:101 0-15
+a=fmtp:96 0-15
+a=fmtp:98 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
 if (0) {
 
 # GH 1098
@@ -1668,9 +1714,9 @@ o=- 3815883745 3815883745 IN IP4 ims.imscore.net
 s=-
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 9 96 8 101 96
+m=audio PORT RTP/AVP 9 97 8 101 96
 a=rtpmap:9 G722/8000
-a=rtpmap:96 opus/48000
+a=rtpmap:97 opus/48000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/48000
 a=rtpmap:96 telephone-event/8000
@@ -2057,8 +2103,8 @@ o=Z 58440449 0 IN IP4 89.225.243.254
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 96 8 102 101
-a=rtpmap:96 opus/48000
+m=audio PORT RTP/AVP 97 8 102 101
+a=rtpmap:97 opus/48000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:102 telephone-event/48000
 a=rtpmap:101 telephone-event/8000
@@ -4367,10 +4413,10 @@ o=- 1822058533 1822058533 IN IP4 1.2.3.4
 s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 8 96
+m=audio PORT RTP/AVP 8 97
 a=rtpmap:8 PCMA/8000
-a=rtpmap:96 telephone-event/8000
-a=fmtp:96 0-15
+a=rtpmap:97 telephone-event/8000
+a=fmtp:97 0-15
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -4380,11 +4426,11 @@ v=0
 o=- 3793596600 3793596601 IN IP4 172.17.0.2
 s=pjmedia
 t=0 0
-m=audio 40935 RTP/AVP 8 96
+m=audio 40935 RTP/AVP 8 97
 c=IN IP4 172.17.0.2
 a=rtpmap:8 PCMA/8000
-a=rtpmap:96 telephone-event/8000
-a=fmtp:96 0-15
+a=rtpmap:97 telephone-event/8000
+a=fmtp:97 0-15
 ----------------------------------
 v=0
 o=- 3793596600 3793596601 IN IP4 172.17.0.2
