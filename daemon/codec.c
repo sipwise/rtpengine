@@ -2270,6 +2270,7 @@ static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *p
 	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
 	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
 	call_str_cpy(call, &pt->codec_opts, &pt->codec_opts);
+	call_str_cpy(call, &pt->rtcp_fb, &pt->rtcp_fb);
 }
 static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt) {
 	struct rtp_payload_type *pt_copy = g_slice_alloc(sizeof(*pt));
