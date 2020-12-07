@@ -164,6 +164,13 @@ struct attribute_rtpmap {
 	struct rtp_payload_type rtp_pt;
 };
 
+struct attribute_rtcp_fb {
+	str payload_type_str;
+	str value;
+
+	unsigned int payload_type;
+};
+
 struct attribute_fmtp {
 	str payload_type_str;
 	str format_parms_str;
@@ -253,6 +260,7 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 		struct attribute_fingerprint fingerprint;
 		struct attribute_setup setup;
 		struct attribute_rtpmap rtpmap;
+		struct attribute_rtcp_fb rtcp_fb;
 		struct attribute_fmtp fmtp;
 		struct attribute_t38faxudpec t38faxudpec;
 		int i;
@@ -744,6 +752,28 @@ static int parse_attribute_setup(struct sdp_attribute *output) {
 	return 0;
 }
 
+static int parse_attribute_rtcp_fb(struct sdp_attribute *output) {
+	PARSE_DECL;
+	struct attribute_rtcp_fb *a;
+
+	output->attr = ATTR_RTCP_FB;
+	a = &output->u.rtcp_fb;
+
+	PARSE_INIT;
+	EXTRACT_TOKEN(u.rtcp_fb.payload_type_str);
+	a->value = *value_str;
+
+	if (!str_cmp(&output->u.rtcp_fb.value, "*"))
+		a->payload_type = -1;
+	else {
+		a->payload_type = str_to_i(&a->payload_type_str, -1);
+		if (a->payload_type == -1)
+			return -1;
+	}
+
+	return 0;
+}
+
 static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	PARSE_DECL;
 	char *ep;
@@ -803,7 +833,7 @@ static int parse_attribute_fmtp(struct sdp_attribute *output) {
 
 	PARSE_INIT;
 	EXTRACT_TOKEN(u.fmtp.payload_type_str);
-	output->u.fmtp.format_parms_str = *value_str;
+	a->format_parms_str = *value_str;
 
 	a->payload_type = str_to_i(&a->payload_type_str, -1);
 	if (a->payload_type == -1)
@@ -979,7 +1009,7 @@ static int parse_attribute(struct sdp_attribute *a) {
 			a->attr = ATTR_END_OF_CANDIDATES;
 			break;
 		case CSH_LOOKUP("rtcp-fb"):
-			a->attr = ATTR_RTCP_FB;
+			ret = parse_attribute_rtcp_fb(a);
 			break;
 		case CSH_LOOKUP("T38FaxVersion"):
 			ret = parse_attribute_int(a, ATTR_T38FAXVERSION, -1);
@@ -1260,7 +1290,7 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, str
 
 static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media)
 {
-	GHashTable *ht_rtpmap, *ht_fmtp;
+	GHashTable *ht_rtpmap, *ht_fmtp, *ht_rtcp_fb;
 	GQueue *q;
 	GList *ql;
 	struct sdp_attribute *attr;
@@ -1284,6 +1314,15 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
 		g_hash_table_insert(ht_fmtp, &attr->u.fmtp.payload_type, &attr->u.fmtp.format_parms_str);
+	}
+	// do the same for a=rtcp-fb
+	ht_rtcp_fb = g_hash_table_new(g_int_hash, g_int_equal);
+	q = attr_list_get_by_id(&media->attributes, ATTR_RTCP_FB);
+	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
+		attr = ql->data;
+		if (attr->u.rtcp_fb.payload_type == -1)
+			continue;
+		g_hash_table_insert(ht_rtcp_fb, &attr->u.rtcp_fb.payload_type, &attr->u.rtcp_fb.value);
 	}
 
 	/* then go through the format list and associate */
@@ -1315,6 +1354,9 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		s = g_hash_table_lookup(ht_fmtp, &i);
 		if (s)
 			pt->format_parameters = *s;
+		s = g_hash_table_lookup(ht_rtcp_fb, &i);
+		if (s)
+			pt->rtcp_fb = *s;
 
 		// fill in ptime
 		if (sp->ptime)
@@ -1333,6 +1375,7 @@ error:
 out:
 	g_hash_table_destroy(ht_rtpmap);
 	g_hash_table_destroy(ht_fmtp);
+	g_hash_table_destroy(ht_rtcp_fb);
 	return ret;
 }
 
@@ -1721,14 +1764,16 @@ static void insert_codec_parameters(struct sdp_chopper *chop, struct call_media 
 		chopper_append_printf(chop, "a=rtpmap:%u " STR_FORMAT "\r\n",
 				pt->payload_type,
 				STR_FMT(&pt->encoding_with_params));
-	}
-	for (GList *l = cm->codecs_prefs_recv.head; l; l = l->next) {
-		struct rtp_payload_type *pt = l->data;
-		if (!pt->format_parameters.len)
-			continue;
-		chopper_append_printf(chop, "a=fmtp:%u " STR_FORMAT "\r\n",
-				pt->payload_type,
-				STR_FMT(&pt->format_parameters));
+		if (pt->format_parameters.len) {
+			chopper_append_printf(chop, "a=fmtp:%u " STR_FORMAT "\r\n",
+					pt->payload_type,
+					STR_FMT(&pt->format_parameters));
+		}
+		if (pt->rtcp_fb.len) {
+			chopper_append_printf(chop, "a=rtcp-fb:%u " STR_FORMAT "\r\n",
+					pt->payload_type,
+					STR_FMT(&pt->rtcp_fb));
+		}
 	}
 }
 
@@ -2019,6 +2064,12 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_RTPMAP:
 			case ATTR_FMTP:
 			case ATTR_PTIME:
+				if (media->codecs_prefs_recv.length > 0)
+					goto strip;
+				break;
+			case ATTR_RTCP_FB:
+				if (attr->u.rtcp_fb.payload_type == -1)
+					break; // leave this one alone
 				if (media->codecs_prefs_recv.length > 0)
 					goto strip;
 				break;
