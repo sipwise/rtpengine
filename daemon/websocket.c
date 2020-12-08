@@ -275,17 +275,20 @@ int websocket_http_response(struct websocket_conn *wc, int status, const char *c
 	ilog(LOG_ERR, "Failed to write HTTP response headers: %s", err);
 	return -1;
 }
+const char *websocket_http_complete(struct websocket_conn *wc, int status, const char *content_type,
+		ssize_t content_length, const char *content)
+{
+	if (websocket_http_response(wc, status, content_type, content_length))
+		return "Failed to write response HTTP headers";
+	if (websocket_write_http(wc, content, 1))
+		return "Failed to write pong response";
+	return NULL;
+}
 
 
 static const char *websocket_http_ping(struct websocket_message *wm) {
 	ilog(LOG_DEBUG, "Respoding to GET /ping");
-
-	if (websocket_http_response(wm->wc, 200, "text/plain", 5))
-		return "Failed to write response HTTP headers";
-	if (websocket_write_http(wm->wc, "pong\n", 1))
-		return "Failed to write pong response";
-
-	return NULL;
+	return websocket_http_complete(wm->wc, 200, "text/plain", 5, "pong\n");
 }
 
 
@@ -328,12 +331,7 @@ static const char *websocket_http_metrics(struct websocket_message *wm) {
 		g_string_append_printf(outp, " %s\n", m->value_short);
 	}
 
-	if (websocket_http_response(wm->wc, 200, "text/plain", outp->len))
-		return "Failed to write response HTTP headers";
-	if (websocket_write_http(wm->wc, outp->str, 1))
-		return "Failed to write metrics response";
-
-	return NULL;
+	return websocket_http_complete(wm->wc, 200, "text/plain", outp->len, outp->str);
 }
 
 
@@ -365,12 +363,7 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 
 	size_t len = websocket_queue_len(wm->wc);
 
-	if (websocket_http_response(wm->wc, 200, "text/plain", len))
-		return "Failed to write response HTTP headers";
-	if (websocket_write_http(wm->wc, NULL, 1))
-		return "Failed to write pong response";
-
-	return NULL;
+	return websocket_http_complete(wm->wc, 200, "text/plain", len, NULL);
 }
 
 
@@ -430,10 +423,9 @@ static const char *websocket_http_ng(struct websocket_message *wm) {
 	str cmd;
 	str_init_len(&cmd, wm->body->str, wm->body->len);
 
-	if (control_ng_process(&cmd, &wm->wc->endpoint, addr, websocket_ng_send_http, wm->wc)) {
-		websocket_http_response(wm->wc, 500, "text/plain", 6);
-		websocket_write_http(wm->wc, "error\n", 1);
-	}
+	if (control_ng_process(&cmd, &wm->wc->endpoint, addr, websocket_ng_send_http, wm->wc))
+		websocket_http_complete(wm->wc, 600, "text/plain", 6, "error\n");
+
 
 	return NULL;
 }
@@ -458,8 +450,7 @@ static int websocket_http_get(struct websocket_conn *wc) {
 
 	if (!handler) {
 		ilog(LOG_WARN, "Unhandled HTTP GET URI: '%s'", uri);
-		websocket_http_response(wm->wc, 404, "text/plain", 10);
-		websocket_write_http(wm->wc, "not found\n", 1);
+		websocket_http_complete(wm->wc, 404, "text/plain", 10, "not found\n");
 		return 0;
 	}
 
@@ -526,8 +517,7 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 
 	if (!handler) {
 		ilog(LOG_WARN, "Unhandled HTTP POST URI: '%s'", wm->uri);
-		websocket_http_response(wm->wc, 404, "text/plain", 10);
-		websocket_write_http(wm->wc, "not found\n", 1);
+		websocket_http_complete(wm->wc, 404, "text/plain", 10, "not found\n");
 		return 0;
 	}
 
