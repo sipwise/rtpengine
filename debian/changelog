@@ -1,3 +1,10 @@
+ngcp-rtpengine (7.5.6.5+0~mr7.5.6.5) unstable; urgency=medium
+
+  [ timando ]
+  * [07dabf8] TT#104400 Update xt_RTPENGINE.c
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 09 Dec 2020 14:01:55 +0100
+
 ngcp-rtpengine (7.5.6.4+0~mr7.5.6.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
