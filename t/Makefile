@@ -56,7 +56,7 @@ LDLIBS+=	-lhiredis
 LDLIBS+=	$(shell mysql_config --libs)
 endif
 
-SRCS=		bitstr-test.c aes-crypt.c const_str_hash-test.strhash.c
+SRCS=		bitstr-test.c aes-crypt.c aead-aes-crypt.c const_str_hash-test.strhash.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c
 DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
@@ -86,7 +86,7 @@ include		.depend
 
 .PHONY:		all-tests unit-tests daemon-tests
 
-TESTS=		bitstr-test aes-crypt const_str_hash-test.strhash
+TESTS=		bitstr-test aes-crypt aead-aes-crypt const_str_hash-test.strhash
 ifeq ($(with_transcoding),yes)
 TESTS+=		transcode-test test-dtmf-detect payload-tracker-test
 ifeq ($(with_amr_tests),yes)
@@ -136,6 +136,8 @@ amr-encode-test: amr-encode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
 test-dtmf-detect: test-dtmf-detect.o
 
 aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
+
+aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o
 
 transcode-test:	transcode-test.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call.o ice.o aux.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \

@@ -25,11 +25,16 @@ GString __thread *crypto_debug_string;
 
 static int aes_cm_encrypt_rtp(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
 static int aes_cm_encrypt_rtcp(struct crypto_context *, struct rtcp_packet *, str *, u_int64_t);
+static int aes_gcm_encrypt_rtp(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
+static int aes_gcm_decrypt_rtp(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
+static int aes_gcm_encrypt_rtcp(struct crypto_context *, struct rtcp_packet *, str *, u_int64_t);
+static int aes_gcm_decrypt_rtcp(struct crypto_context *, struct rtcp_packet *, str *, u_int64_t);
 static int hmac_sha1_rtp(struct crypto_context *, char *out, str *in, u_int64_t);
 static int hmac_sha1_rtcp(struct crypto_context *, char *out, str *in);
 static int aes_f8_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx);
 static int aes_f8_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, u_int64_t idx);
 static int aes_cm_session_key_init(struct crypto_context *c);
+static int aes_gcm_session_key_init(struct crypto_context *c);
 static int aes_f8_session_key_init(struct crypto_context *c);
 static int evp_session_key_cleanup(struct crypto_context *c);
 static int null_crypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx);
@@ -179,6 +184,54 @@ struct crypto_suite __crypto_suites[] = {
 		.hash_rtp		= hmac_sha1_rtp,
 		.hash_rtcp		= hmac_sha1_rtcp,
 		.session_key_init	= aes_cm_session_key_init,
+		.session_key_cleanup	= evp_session_key_cleanup,
+	},
+	{
+		.name			= "AEAD_AES_128_GCM",
+		.dtls_name		= "SRTP_AEAD_AES_128_GCM",
+		.master_key_len		= 16,
+		.master_salt_len	= 14,
+		.session_key_len	= 16,
+		.session_salt_len	= 12,
+		.srtp_lifetime		= 1ULL << 48,
+		.srtcp_lifetime		= 1ULL << 31,
+		//.kernel_cipher		= REC_AES_CM_128,
+		//.kernel_hmac		= REH_HMAC_SHA1,
+		.srtp_auth_tag		= 0,
+		.srtcp_auth_tag		= 0,
+		.srtp_auth_key_len	= 0,
+		.srtcp_auth_key_len	= 0,
+		.encrypt_rtp		= aes_gcm_encrypt_rtp,
+		.decrypt_rtp		= aes_gcm_decrypt_rtp,
+		.encrypt_rtcp		= aes_gcm_encrypt_rtcp,
+		.decrypt_rtcp		= aes_gcm_decrypt_rtcp,
+		//.hash_rtp		= hmac_sha1_rtp,
+		//.hash_rtcp		= hmac_sha1_rtcp,
+		.session_key_init	= aes_gcm_session_key_init,
+		.session_key_cleanup	= evp_session_key_cleanup,
+	},
+	{
+		.name			= "AEAD_AES_256_GCM",
+		.dtls_name		= "SRTP_AEAD_AES_256_GCM",
+		.master_key_len		= 32,
+		.master_salt_len	= 14,
+		.session_key_len	= 32,
+		.session_salt_len	= 12,
+		.srtp_lifetime		= 1ULL << 48,
+		.srtcp_lifetime		= 1ULL << 31,
+		//.kernel_cipher		= REC_AES_CM_256,
+		//.kernel_hmac		= REH_HMAC_SHA1,
+		.srtp_auth_tag		= 0,
+		.srtcp_auth_tag		= 0,
+		.srtp_auth_key_len	= 0,
+		.srtcp_auth_key_len	= 0,
+		.encrypt_rtp		= aes_gcm_encrypt_rtp,
+		.decrypt_rtp		= aes_gcm_decrypt_rtp,
+		.encrypt_rtcp		= aes_gcm_encrypt_rtcp,
+		.decrypt_rtcp		= aes_gcm_decrypt_rtcp,
+		//.hash_rtp		= hmac_sha1_rtp,
+		//.hash_rtcp		= hmac_sha1_rtcp,
+		.session_key_init	= aes_gcm_session_key_init,
 		.session_key_cleanup	= evp_session_key_cleanup,
 	},
 	{
@@ -492,6 +545,126 @@ static int aes_cm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, 
 	return aes_cm_encrypt(c, r->ssrc, s, idx);
 }
 
+/* rfc 7714 section 8 */
+
+static int aes_gcm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx) {
+	unsigned char iv[12];
+	int len, ciphertext_len;
+
+	memcpy(iv, c->session_salt, 12);
+
+	*(u_int32_t*)(iv+2) ^= r->ssrc;
+	*(u_int32_t*)(iv+6) ^= htonl((idx & 0x00ffffffff0000ULL) >> 16);
+	*(u_int16_t*)(iv+10) ^= htons(idx & 0x00ffffULL);
+
+	if (c->params.crypto_suite->session_key_len == 16) {
+		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_128_gcm(), NULL, c->session_key, iv);
+	} else {
+		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
+	}
+
+	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
+	EVP_EncryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len);
+	ciphertext_len = len;
+	if (!EVP_EncryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
+		return 1;
+	ciphertext_len += len;
+	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_GET_TAG, 16, s->s+ciphertext_len);
+	s->len = ciphertext_len + 16;
+
+	return 0;
+}
+
+static int aes_gcm_decrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, u_int64_t idx) {
+	unsigned char iv[12];
+	int len, plaintext_len;
+
+	memcpy(iv, c->session_salt, 12);
+
+	*(u_int32_t*)(iv+2) ^= r->ssrc;
+	*(u_int32_t*)(iv+6) ^= htonl((idx & 0x00ffffffff0000ULL) >> 16);
+	*(u_int16_t*)(iv+10) ^= htons(idx & 0x00ffffULL);
+
+	if (c->params.crypto_suite->session_key_len == 16) {
+		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_128_gcm(), NULL, c->session_key, iv);
+	} else {
+		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
+	}
+
+	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
+	EVP_DecryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len-16);
+	plaintext_len = len;
+	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_SET_TAG, 16, s->s + s->len-16);
+	if (!EVP_DecryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
+		return 1;
+	plaintext_len += len;
+	s->len = plaintext_len;
+
+	return 0;
+}
+
+/* rfc 7714 section 9 */
+
+static int aes_gcm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, u_int64_t idx) {
+	unsigned char iv[12];
+	unsigned char e_idx[4];
+	int len, ciphertext_len;
+
+	memcpy(iv, c->session_salt, 12);
+
+	*(u_int32_t*)(iv+2) ^= r->ssrc;
+	*(u_int32_t*)(iv+8) ^= htonl(idx & 0x007fffffffULL);
+	*(u_int32_t*)e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
+
+	if (c->params.crypto_suite->session_key_len == 16) {
+		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_128_gcm(), NULL, c->session_key, iv);
+	} else {
+		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
+	}
+
+	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
+	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)e_idx, 4);
+	EVP_EncryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len);
+	ciphertext_len = len;
+	if (!EVP_EncryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
+		return 1;
+	ciphertext_len += len;
+	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_GET_TAG, 16, s->s+ciphertext_len);
+	s->len = ciphertext_len + 16;
+
+	return 0;
+}
+
+static int aes_gcm_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, u_int64_t idx) {
+	unsigned char iv[12];
+	unsigned char e_idx[4];
+	int len, plaintext_len;
+
+	memcpy(iv, c->session_salt, 12);
+
+	*(u_int32_t*)(iv+2) ^= r->ssrc;
+	*(u_int32_t*)(iv+8) ^= htonl(idx & 0x007fffffffULL);
+	*(u_int32_t*)e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
+
+	if (c->params.crypto_suite->session_key_len == 16) {
+		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_128_gcm(), NULL, c->session_key, iv);
+	} else {
+		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
+	}
+
+	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
+	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)e_idx, 4);
+	EVP_DecryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len-16);
+	plaintext_len = len;
+	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_SET_TAG, 16, s->s + s->len-16);
+	if (!EVP_DecryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
+		return 1;
+	plaintext_len += len;
+	s->len = plaintext_len;
+
+	return 0;
+}
+
 /* rfc 3711 sections 4.1.2 and 4.1.2.1
  * encrypts in place */
 static void aes_128_f8_encrypt(struct crypto_context *c, unsigned char *iv, str *s) {
@@ -637,6 +810,18 @@ static int aes_cm_session_key_init(struct crypto_context *c) {
 #endif
 	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->lib_cipher_ptr, NULL,
 			(unsigned char *) c->session_key, NULL);
+	return 0;
+}
+
+static int aes_gcm_session_key_init(struct crypto_context *c) {
+	evp_session_key_cleanup(c);
+
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	c->session_key_ctx[0] = EVP_CIPHER_CTX_new();
+#else
+	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
+#endif
 	return 0;
 }
 
