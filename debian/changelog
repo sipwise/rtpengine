@@ -1,3 +1,10 @@
+ngcp-rtpengine (6.5.10.2+0~mr6.5.10.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8e74ca0] TT#105000 don't send STUN response in response to responses
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 11 Dec 2020 18:18:23 +0100
+
 ngcp-rtpengine (6.5.10.1+0~mr6.5.10.1) unstable; urgency=medium
 
   * New release.
