@@ -745,6 +745,51 @@ received within this time frame, then DTX processing will stop. Can be set to
 zero or negative to disable and keep DTX processing on indefinitely. Defaults
 to 30 seconds.
 
+=item B<--silence-detect=>I<FLOAT>
+
+Enable silence detection and specify threshold in percent. This option is
+applicable to transcoded stream only and defaults to zero (disabled).
+
+When enabled, silence detection will be performed on all transcoded audio
+streams. The threshold specified here is the sensitivity for detecting silence:
+higher thresholds result in more audio to be detected as silence, while lower
+thresholds result in less audio to be detected as silence. The threshold is
+specified as percent between zero and 100. If set to 100, then all audio would
+be detected as silence; if set to 50, then any audio that is quieter than 50%
+of the maximum volume would be detected as silence; and so on. Setting it to
+zero disables silence detection. To only detect silence that is very near or
+equal to absolute silence, set this value to a low number such as 0.01. (For
+certain codecs such as PCMA, a higher minimum threshold is required to detect
+complete silence, as their compressed payloads don't decode to actual silence
+but instead have a residual DC offset. For PCMA the minimum value is 0.013.)
+
+Audio that is detected as silence will be replaced by comfort noise as
+specified by the B<cn-payload> option (see below). Currently this is applicable
+only to RTP peers that have advertised support for the B<CN> RTP payload type,
+in which case the silence audio frames will be replaced by B<CN> RTP frames.
+
+=item B<--cn-payload=>I<INT>
+
+Specify one comfort noise parameter. This option can be given multiple times
+and the format follows RFC 3389. When specified at the command line, list the
+B<--cn-payload=> option multiple times, each one specifying a single CN
+parameter. When used in the config file, list the option only a single time and
+list multiple CN parameters separated by semicolons (e.g.
+I<cn-payload = 20;40;60>).
+
+The first CN payload value given is the noise level, specified as -dBov as per
+RFC 3389. This means that a noise level of zero corresponds to maximum volume,
+while higher numbers correspond to lower volumes. The highest allowable number
+is 127, corresponding to -127 dBov, which is near silence.
+
+Subsequent CN payload values carry spectral information (reflection
+coefficients) as per RFC 3389. Allowable values for each coefficient are
+between 0 and 254. Specifying spectral information is optional and the number
+of coefficients listed (model order) is variable.
+
+The default values are 32 (-32 dBov) for the noise level and no spectral
+information.
+
 =back
 
 =head1 INTERFACES

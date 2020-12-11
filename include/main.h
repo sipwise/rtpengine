@@ -108,6 +108,9 @@ struct rtpengine_config {
 	int			http_threads;
 	int			dtx_delay;
 	int			max_dtx;
+	double			silence_detect_double;
+	uint32_t		silence_detect_int;
+	str			cn_payload;
 };
 
 

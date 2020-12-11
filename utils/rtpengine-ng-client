@@ -52,6 +52,8 @@ GetOptions(
 	'codec-offer=s@'		=> \$options{'codec-offer'},
 	'codec-transcode=s@'		=> \$options{'codec-transcode'},
 	'codec-mask=s@'			=> \$options{'codec-mask'},
+	'codec-consume=s@'		=> \$options{'codec-consume'},
+	'codec-accept=s@'		=> \$options{'codec-accept'},
 	'codec-set=s@'			=> \$options{'codec-set'},
 	'ptime=i'			=> \$options{'ptime'},
 	'flags=s@'			=> \$options{'flags'},
@@ -79,14 +81,15 @@ GetOptions(
 	'inject-DTMF'			=> \$options{'inject DTMF'},
 	'DTLS-fingerprint=s'		=> \$options{'DTLS-fingerprint'},
 	'ICE-lite=s'			=> \$options{'ICE-lite'},
-	'no-jitter-buffer'	        => \$options{'no jitter buffer'},
+	'no-jitter-buffer'  		=> \$options{'no jitter buffer'},
+	'generate-RTCP'			=> \$options{'generate RTCP'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite,generate RTCP')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
 for my $x (split(/,/, 'TOS,delete-delay')) {
@@ -106,7 +109,7 @@ if (defined($options{direction})) {
 	$options{direction} =~ /(.*),(.*)/ or die;
 	$packet{direction} = [$1,$2];
 }
-for my $x (qw(strip offer transcode mask set)) {
+for my $x (qw(strip offer transcode mask set consume accept)) {
 	if ($options{'codec-'.$x} && @{$options{'codec-'.$x}}) {
 		if (!$options{'codec options flag'}) {
 			$packet{codec}{$x} = $options{'codec-'.$x};

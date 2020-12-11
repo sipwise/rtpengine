@@ -54,6 +54,7 @@ the following additional features are available:
 - Injection of DTMF events or PCM DTMF tones into running audio streams
 - Playback of pre-recorded streams/announcements
 - Transcoding between T.38 and PCM (G.711 or other audio codecs)
+- Silence detection and comfort noise (RFC 3389) payloads
 
 *Rtpengine* does not (yet) support:
 
@@ -811,6 +812,13 @@ Optionally included keys are:
 		injection via the `play DTMF` control message. See `play DTMF` below for additional
 		information.
 
+	- `generate RTCP`
+
+		With this flag set, received RTCP packets will not simply be passed through as
+		usual, but instead will be consumed, and instead *rtpengine* will generate its own
+		RTCP packets to send to the RTP peers. This flag will be effective for both
+		sides of a call.
+
 * `replace`
 
 	Similar to the `flags` list. Controls which parts of the SDP body should be rewritten.
@@ -1225,6 +1233,19 @@ Optionally included keys are:
 		to mask all codecs that have been offered.
 
 		This option is only processed in `offer` messages and ignored otherwise.
+
+	* `consume`
+
+		Identical to `mask` but enables the transcoding engine even if no other transcoding
+		related options are given.
+
+	* `accept`
+
+		Similar to `mask` and `consume` but doesn't remove the codec from the list of
+		offered codecs. This means that a codec listed under `accept` will still be offered
+		to the remote peer, but if the remote peer rejects it, it will still be accepted
+		torwards the original offerer and then used for transcoding. It is a more selective
+		version of what the `always transcode` flag does.
 
 	* `set`
 

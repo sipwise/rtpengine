@@ -98,6 +98,7 @@ struct ssrc_entry_call {
 	// for transcoding
 	// input only
 	packet_sequencer_t sequencer;
+	uint32_t jitter, transit;
 	// output only
 	uint16_t seq_diff;
 };

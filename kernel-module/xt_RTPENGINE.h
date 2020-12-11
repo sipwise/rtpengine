@@ -24,6 +24,15 @@ struct rtpengine_rtp_stats {
 	u_int64_t			packets;
 	u_int64_t			bytes;
 };
+struct rtpengine_ssrc_stats {
+	struct rtpengine_rtp_stats	basic_stats;
+	u_int32_t			timestamp;
+	u_int32_t			ext_seq;
+	u_int32_t			lost_bits; // sliding bitfield, [0] = ext_seq
+	u_int32_t			total_lost;
+	u_int32_t			transit;
+	u_int32_t			jitter;
+};
 
 struct re_address {
 	int				family;
@@ -95,6 +104,7 @@ struct rtpengine_target_info {
         u_int32_t                       ssrc_out; // Rewrite SSRC
 
 	unsigned char			payload_types[NUM_PAYLOAD_TYPES]; /* must be sorted */
+	u_int32_t			clock_rates[NUM_PAYLOAD_TYPES];
 	unsigned int			num_payload_types;
 
 	unsigned char			tos;
@@ -105,7 +115,8 @@ struct rtpengine_target_info {
 					rtp_only:1,
 					do_intercept:1,
 					transcoding:1, // SSRC subst and RTP PT filtering
-					non_forwarding:1; // empty src/dst addr
+					non_forwarding:1, // empty src/dst addr
+					rtp_stats:1; // requires SSRC and clock_rates to be set
 };
 
 struct rtpengine_call_info {
@@ -123,6 +134,12 @@ struct rtpengine_stream_info {
 struct rtpengine_packet_info {
 	unsigned int			call_idx;
 	unsigned int			stream_idx;
+};
+
+struct rtpengine_stats_info {
+	struct re_address		local;		// input
+	u_int32_t			ssrc;		// output
+	struct rtpengine_ssrc_stats	ssrc_stats;	// output
 };
 
 struct rtpengine_message {
@@ -145,6 +162,10 @@ struct rtpengine_message {
 		/* packet_info: */
 		REMG_PACKET,
 
+		/* stats_info: */
+		REMG_GET_STATS,
+		REMG_GET_RESET_STATS,
+
 		__REMG_LAST
 	}				cmd;
 
@@ -153,6 +174,7 @@ struct rtpengine_message {
 		struct rtpengine_call_info	call;
 		struct rtpengine_stream_info	stream;
 		struct rtpengine_packet_info	packet;
+		struct rtpengine_stats_info	stats;
 	} u;
 
 	unsigned char			data[];

@@ -63,6 +63,8 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static const char *dtmf_decoder_init(decoder_t *, const str *, const str *);
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
+static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+
 static int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_payload_type *);
 
 static int amr_packet_lost(decoder_t *, GQueue *);
@@ -101,6 +103,12 @@ static const codec_type_t codec_type_amr = {
 static const codec_type_t codec_type_dtmf = {
 	.decoder_init = dtmf_decoder_init,
 	.decoder_input = dtmf_decoder_input,
+};
+static const codec_type_t codec_type_cn = {
+	.def_init = avc_def_init,
+	.decoder_init = avc_decoder_init,
+	.decoder_input = cn_decoder_input,
+	.decoder_close = avc_decoder_close,
 };
 
 #ifdef HAVE_BCG729
@@ -406,6 +414,20 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_dtmf,
 		.support_encoding = 1,
 		.support_decoding = 1,
+	},
+	{
+		.rtpname = "CN",
+		.avcodec_id = AV_CODEC_ID_COMFORT_NOISE,
+		.avcodec_name_enc = "comfortnoise",
+		.avcodec_name_dec = "comfortnoise",
+		.packetizer = packetizer_passthrough,
+		.media_type = MT_AUDIO,
+		.supplemental = 1,
+		.default_clockrate = 8000,
+		.default_channels = 1,
+		.default_ptime = 20,
+		.format_cmp = format_cmp_ignore,
+		.codec_type = &codec_type_cn,
 	},
 	// for file reading and writing
 	{
@@ -2312,5 +2334,22 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 
 static int format_cmp_ignore(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
+	return 0;
+}
+
+
+
+static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	// generate one set of ptime worth of samples
+	int ptime = dec->ptime;
+	if (!ptime)
+		ptime = 20; // ?
+	int samples = dec->in_format.clockrate * ptime / 1000;
+	dec->u.avc.avcctx->frame_size = samples;
+	int ret = avc_decoder_input(dec, data, out);
+	if (ret)
+		return ret;
+	if (!out->length)
+		return -1;
 	return 0;
 }
