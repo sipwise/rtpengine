@@ -42,6 +42,8 @@ struct sdp_ng_flags {
 	GQueue codec_offer;
 	GQueue codec_transcode;
 	GHashTable *codec_mask;
+	GHashTable *codec_accept;
+	GHashTable *codec_consume;
 	GHashTable *codec_set;
 	int ptime,
 	    rev_ptime;
@@ -75,6 +77,7 @@ struct sdp_ng_flags {
 	    rtcp_mux_reject:1,
 	    no_rtcp_attr:1,
 	    full_rtcp_attr:1,
+	    generate_rtcp:1,
 	    generate_mid:1,
 	    strict_source:1,
 	    media_handover:1,
@@ -88,7 +91,6 @@ struct sdp_ng_flags {
 	    record_call:1,
 	    loop_protect:1,
 	    original_sendrecv:1,
-	    always_transcode:1,
 	    asymmetric_codecs:1,
 	    symmetric_codecs:1,
 	    single_codec:1,

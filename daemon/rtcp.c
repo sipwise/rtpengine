@@ -16,6 +16,7 @@
 #include "rtcplib.h"
 #include "ssrc.h"
 #include "sdp.h"
+#include "log_funcs.h"
 
 
 
@@ -246,6 +247,9 @@ struct rtcp_process_ctx {
 	// Homer stats
 	GString *json;
 	int json_init_len;
+
+	// verdict
+	int discard:1;
 };
 // all available methods
 struct rtcp_handler {
@@ -307,6 +311,9 @@ static void transcode_common_wrap(struct rtcp_process_ctx *, struct rtcp_packet 
 static void transcode_rr_wrap(struct rtcp_process_ctx *, struct report_block *);
 static void transcode_sr_wrap(struct rtcp_process_ctx *, struct sender_report_packet *);
 
+// RTCP sinks for local RTCP generation
+static void sink_common(struct rtcp_process_ctx *, struct rtcp_packet *);
+
 // homer functions
 static void homer_init(struct rtcp_process_ctx *);
 static void homer_sr(struct rtcp_process_ctx *, struct sender_report_packet *);
@@ -357,6 +364,9 @@ static struct rtcp_handler transcode_handlers = {
 	.common = transcode_common,
 	.rr = transcode_rr,
 	.sr = transcode_sr,
+};
+static struct rtcp_handler sink_handlers = {
+	.common = sink_common,
 };
 static struct rtcp_handler transcode_handlers_wrap = {
 	.common = transcode_common_wrap,
@@ -472,6 +482,7 @@ static const int min_xr_packet_sizes[] = {
 
 
 struct rtcp_handler *rtcp_transcode_handler = &transcode_handlers;
+struct rtcp_handler *rtcp_sink_handler = &sink_handlers;
 
 
 
@@ -645,6 +656,7 @@ void rtcp_list_free(GQueue *q) {
 
 
 
+// returns: 0 = ok, forward, -1 = error, drop, 1 = ok, but discard (no forward)
 int rtcp_parse(GQueue *q, struct media_packet *mp) {
 	struct rtcp_header *hdr;
 	struct rtcp_chain_element *el;
@@ -713,7 +725,7 @@ next:
 	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, &mp->tv);
 	CAH(destroy);
 
-	return 0;
+	return log_ctx->discard ? 1 : 0;
 
 error:
 	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, &mp->tv);
@@ -1357,17 +1369,20 @@ static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_pack
 static void transcode_common_wrap(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
 	if (!ctx->mp->media->rtcp_handler)
 		return;
-	ctx->mp->media->rtcp_handler->common(ctx, common);
+	if (ctx->mp->media->rtcp_handler->common)
+		ctx->mp->media->rtcp_handler->common(ctx, common);
 }
 static void transcode_rr_wrap(struct rtcp_process_ctx *ctx, struct report_block *rr) {
 	if (!ctx->mp->media->rtcp_handler)
 		return;
-	ctx->mp->media->rtcp_handler->rr(ctx, rr);
+	if (ctx->mp->media->rtcp_handler->rr)
+		ctx->mp->media->rtcp_handler->rr(ctx, rr);
 }
 static void transcode_sr_wrap(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	if (!ctx->mp->media->rtcp_handler)
 		return;
-	ctx->mp->media->rtcp_handler->sr(ctx, sr);
+	if (ctx->mp->media->rtcp_handler->sr)
+		ctx->mp->media->rtcp_handler->sr(ctx, sr);
 }
 
 
@@ -1398,8 +1413,8 @@ GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32
 
 	// receiver reports
 	int i = 0, n = 0;
-	for (GList *l = rrs->head; l; l = l->next) {
-		struct ssrc_ctx *s = l->data;
+	while (rrs->length) {
+		struct ssrc_ctx *s = g_queue_pop_head(rrs);
 		if (i < 30) {
 			struct report_block *rr = (void *) ret->str + ret->len;
 			g_string_set_size(ret, ret->len + sizeof(*rr));
@@ -1416,6 +1431,7 @@ GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32
 				tv_diff = timeval_diff(&rtpe_now, &si->received);
 				ntp_middle_bits = si->ntp_middle_bits;
 			}
+			uint32_t jitter = se->jitter;
 			mutex_unlock(&se->h.lock);
 
 			uint64_t lost = atomic64_get(&s->packets_lost);
@@ -1430,8 +1446,8 @@ GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32
 				.high_seq_received = htonl(atomic64_get(&s->last_seq)),
 				.lsr = htonl(ntp_middle_bits),
 				.dlsr = htonl(tv_diff * 65536 / 1000000),
+				.jitter = htonl(jitter >> 4),
 			};
-			// XXX jitter
 			n++;
 		}
 		ssrc_ctx_put(&s);
@@ -1478,7 +1494,7 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 	rwlock_lock_r(&hash->lock);
 	for (GList *l = hash->q.head; l; l = l->next) {
 		struct ssrc_entry_call *e = l->data;
-		ilog(LOG_DEBUG, "xxxxx %x %i %i %p %p %p", e->h.ssrc, (int) atomic64_get(&e->input_ctx.packets), (int) atomic64_get(&e->output_ctx.packets), ml, e->input_ctx.ref, e->output_ctx.ref);
+		//ilog(LOG_DEBUG, "xxxxx %x %i %i %p %p %p", e->h.ssrc, (int) atomic64_get(&e->input_ctx.packets), (int) atomic64_get(&e->output_ctx.packets), ml, e->input_ctx.ref, e->output_ctx.ref);
 		struct ssrc_ctx *i = &e->input_ctx;
 		if (i->ref != ml)
 			continue;
@@ -1488,4 +1504,45 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 		g_queue_push_tail(out, ssrc_ctx_get(i));
 	}
 	rwlock_unlock_r(&hash->lock);
+}
+
+
+// call must be locked in R
+void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
+	struct call *call = media->call;
+
+	// figure out where to send it
+	struct packet_stream *ps = media->streams.head->data;
+	if (MEDIA_ISSET(media, RTCP_MUX))
+		;
+	else if (!media->streams.head->next)
+		;
+	else {
+		struct packet_stream *next_ps = media->streams.head->next->data;
+		if (PS_ISSET(next_ps, RTCP))
+			ps = next_ps;
+	}
+
+	log_info_stream_fd(ps->selected_sfd);
+
+	GQueue rrs = G_QUEUE_INIT;
+	rtcp_receiver_reports(&rrs, call->ssrc_hash, ps->media->monologue);
+
+	ilog(LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
+			ssrc_out->parent->h.ssrc, rrs.length);
+
+	GString *sr = rtcp_sender_report(ssrc_out->parent->h.ssrc,
+			atomic64_get(&ssrc_out->last_ts),
+			atomic64_get(&ssrc_out->packets),
+			atomic64_get(&ssrc_out->octets),
+			&rrs);
+
+	socket_sendto(&ps->selected_sfd->socket, sr->str, sr->len, &ps->endpoint);
+	g_string_free(sr, TRUE);
+}
+
+
+
+static void sink_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *common) {
+	ctx->discard = 1;
 }

@@ -149,6 +149,7 @@ enum call_stream_state {
 #define MEDIA_FLAG_RTCP_FB			SHARED_FLAG_RTCP_FB
 #define MEDIA_FLAG_GENERATOR			0x02000000
 #define MEDIA_FLAG_ICE_LITE_SELF		0x04000000
+#define MEDIA_FLAG_RTCP_GEN			0x08000000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
@@ -331,6 +332,7 @@ struct call_media {
 	GQueue			codec_handlers_store; // storage for struct codec_handler
 	struct codec_handler	*codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
+	struct timeval		rtcp_timer;	// master lock for scheduling purposes
 	struct codec_handler	*dtmf_injector;
 	struct t38_gateway	*t38_gateway;
 	struct codec_handler	*t38_handler;

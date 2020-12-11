@@ -17,6 +17,7 @@
 
 struct rtpengine_target_info;
 struct re_address;
+struct rtpengine_ssrc_stats;
 
 
 
@@ -35,6 +36,7 @@ int kernel_setup_table(unsigned int);
 int kernel_add_stream(struct rtpengine_target_info *, int);
 int kernel_del_stream(const struct re_address *);
 GList *kernel_list(void);
+int kernel_update_stats(const struct re_address *a, uint32_t ssrc, struct rtpengine_ssrc_stats *out);
 
 unsigned int kernel_add_call(const char *id);
 int kernel_del_call(unsigned int);

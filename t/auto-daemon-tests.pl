@@ -10,7 +10,7 @@ use NGCP::Rtpclient::ICE;
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			-n 2223 -c 12345 -f -L 7 -E -u 2222))
+			-n 2223 -c 12345 -f -L 7 -E -u 2222 --silence-detect=1))
 		or die;
 
 
@@ -32,6 +32,1393 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq);
+
+
+
+
+
+
+# simple codec masking
+
+new_call;
+
+offer('simple codec neg',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec neg',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('codec-accept',
+	{ codec => { accept => ['PCMU'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('codec-accept',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('codec-consume',
+	{ codec => { consume => ['PCMU'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('codec-consume',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec neg',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec neg',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec masking',
+	{ codec => { mask => ['PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec masking',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec masking',
+	{ codec => { mask => ['PCMU'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec masking',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+##
+
+offer('simple codec neg w DTMF',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec neg w DTMF',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec neg w DTMF',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec neg w DTMF',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec masking w DTMF',
+	{ codec => { mask => ['PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec masking w DTMF',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec masking w DTMF',
+	{ codec => { mask => ['PCMU'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec masking w DTMF',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+##
+
+offer('simple codec neg w DTMF rej',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec neg w DTMF rej',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec neg w DTMF rej',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec neg w DTMF rej',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec masking w DTMF rej',
+	{ codec => { mask => ['PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec masking w DTMF rej',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec masking w DTMF rej',
+	{ codec => { mask => ['PCMU'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec masking w DTMF rej',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+##
+
+new_call;
+
+offer('simple codec masking w DTMF masked',
+	{ codec => { mask => ['telephone-event'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec masking w DTMF masked',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('simple codec masking w DTMF masked',
+	{ codec => { mask => ['telephone-event'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('simple codec masking w DTMF masked',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+##
+
+offer('strip-all w consume and offer',
+	{ codec => {
+		strip => ['all'],
+		consume => ['CN'],
+		offer => ['PCMA', 'PCMU', 'telephone-event'],
+	} }, <<SDP);
+v=0
+o=testlab 949032 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.115.185.219
+b=CT:10000000
+t=0 0
+m=audio 52152 RTP/AVP 104 9 103 111 18 0 8 97 101 13 118
+c=IN IP4 52.115.185.219
+a=rtcp:52153
+a=mid:1
+a=sendrecv
+a=rtpmap:104 SILK/16000
+a=rtpmap:9 G722/8000
+a=rtpmap:103 SILK/8000
+a=rtpmap:111 SIREN/16000
+a=fmtp:111 bitrate=16000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=rtpmap:118 CN/16000
+a=ptime:20
+----------------------------------
+v=0
+o=testlab 949032 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.115.185.219
+b=CT:10000000
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('strip-all w consume and offer',
+	{ }, <<SDP);
+v=0
+o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+s=pjmedia
+c=IN IP4 89.250.11.190
+t=0 0
+m=audio 4002 RTP/AVP 8 101
+c=IN IP4 89.250.11.190
+a=rtcp:4003 IN IP4 172.31.250.201
+a=sendrecv
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+----------------------------------
+v=0
+o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+s=pjmedia
+c=IN IP4 89.250.11.190
+t=0 0
+m=audio PORT RTP/AVP 8 0 101 13
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+offer('strip-all w consume and offer and s/c',
+	{ codec => {
+		strip => ['all'],
+		consume => ['CN'],
+		offer => ['PCMA', 'PCMU', 'telephone-event'],
+	},
+	flags => ['symmetric codecs'],
+	}, <<SDP);
+v=0
+o=testlab 949032 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.115.185.219
+b=CT:10000000
+t=0 0
+m=audio 52152 RTP/AVP 104 9 103 111 18 0 8 97 101 13 118
+c=IN IP4 52.115.185.219
+a=rtcp:52153
+a=mid:1
+a=sendrecv
+a=rtpmap:104 SILK/16000
+a=rtpmap:9 G722/8000
+a=rtpmap:103 SILK/8000
+a=rtpmap:111 SIREN/16000
+a=fmtp:111 bitrate=16000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=rtpmap:118 CN/16000
+a=ptime:20
+----------------------------------
+v=0
+o=testlab 949032 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.115.185.219
+b=CT:10000000
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('strip-all w consume and offer and s/c',
+	{
+	flags => ['symmetric codecs'],
+	}, <<SDP);
+v=0
+o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+s=pjmedia
+c=IN IP4 89.250.11.190
+t=0 0
+m=audio 4002 RTP/AVP 8 101
+c=IN IP4 89.250.11.190
+a=rtcp:4003 IN IP4 172.31.250.201
+a=sendrecv
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+----------------------------------
+v=0
+o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+s=pjmedia
+c=IN IP4 89.250.11.190
+t=0 0
+m=audio PORT RTP/AVP 8 0 101 13
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+
+
+
+
+# CN tests
+
+($sock_a, $sock_b) = new_call([qw(198.51.101.1 3000)], [qw(198.51.101.3 4000)]);
+
+($port_a) = offer('add CN',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['CN'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0
+c=IN IP4 198.51.101.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('add CN',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 4000 RTP/AVP 0 13
+c=IN IP4 198.51.101.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc, "\xce\x56\x69\xcc\x61\xca\x63\xd2\x66\x57\xe2\x47\x65\x59\x6a\x74\x5d\x4a\x68\xe9\x60\x4a\x63\x4b\xf4\x43\x4b\x48\x48\x52\x39\x57\x37\x4c\x39\x4c\x48\x3b\x43\x47\x44\x57\x48\xf5\x3e\x59\x3e\x52\x3b\x53\x3d\x53\x3b\x41\x5b\x38\x4a\x4b\x35\x48\x4a\x3e\x52\x50\x4b\x46\xfd\x3e\xf1\x3a\xd6\x35\x54\x5d\x3a\x58\x45\x42\x3d\x3e\x4c\x42\x3a\x58\x3c\x50\x3b\x6e\x36\x60\x3e\x3d\x3b\x41\x3a\x47\x35\x48\x35\x4b\x3e\x3d\x47\x3a\x3d\x39\x4f\x40\x42\x4a\x47\x3d\x6b\x42\x5a\x75\x53\x45\x5a\x4b\x4f\x48\x59\x48\x78\x43\x77\x4c\x42\x59\x47\x46\x3e\x67\x44\x3a\x67\x4b\x3f\x51\x48\x44\x3e\x54\x37\x6c\x45\x45\x3f\x6e\x3a\x68\x49\x4e\x3f\x47\x4b\x3e\xf3\x39"));
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, $ssrc, "\x00" x 160));
+# test silence detection
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1001, 3160, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(13, 1002, 3320, $ssrc, "\x20"));
+
+
+
+# reverse of the above, sockets/ports swapped
+
+($sock_b, $sock_a) = new_call([qw(198.51.101.1 6002)], [qw(198.51.101.3 7002)]);
+
+($port_b) = offer('accept CN',
+	{ ICE => 'remove', replace => ['origin'], flags => ['always transcode'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 0 13
+c=IN IP4 198.51.101.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_a) = answer('accept CN',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 7002 RTP/AVP 0
+c=IN IP4 198.51.101.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc, "\xce\x56\x69\xcc\x61\xca\x63\xd2\x66\x57\xe2\x47\x65\x59\x6a\x74\x5d\x4a\x68\xe9\x60\x4a\x63\x4b\xf4\x43\x4b\x48\x48\x52\x39\x57\x37\x4c\x39\x4c\x48\x3b\x43\x47\x44\x57\x48\xf5\x3e\x59\x3e\x52\x3b\x53\x3d\x53\x3b\x41\x5b\x38\x4a\x4b\x35\x48\x4a\x3e\x52\x50\x4b\x46\xfd\x3e\xf1\x3a\xd6\x35\x54\x5d\x3a\x58\x45\x42\x3d\x3e\x4c\x42\x3a\x58\x3c\x50\x3b\x6e\x36\x60\x3e\x3d\x3b\x41\x3a\x47\x35\x48\x35\x4b\x3e\x3d\x47\x3a\x3d\x39\x4f\x40\x42\x4a\x47\x3d\x6b\x42\x5a\x75\x53\x45\x5a\x4b\x4f\x48\x59\x48\x78\x43\x77\x4c\x42\x59\x47\x46\x3e\x67\x44\x3a\x67\x4b\x3f\x51\x48\x44\x3e\x54\x37\x6c\x45\x45\x3f\x6e\x3a\x68\x49\x4e\x3f\x47\x4b\x3e\xf3\x39"));
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, $ssrc, "\x00" x 160));
+# test silence detection
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1001, 3160, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\xff" x 160));
+rcv($sock_b, $port_a, rtpm(13, 1002, 3320, $ssrc, "\x20"));
+
+# consume CN
+
+($sock_b, $sock_a) = new_call([qw(198.51.101.1 6006)], [qw(198.51.101.3 7006)]);
+
+($port_b) = offer('consume CN',
+	{ ICE => 'remove', replace => ['origin'],
+	codec => {
+		strip => ['all'],
+		consume => ['CN'],
+		offer => ['PCMA','PCMU','telephone-event'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 6006 RTP/AVP 8 0 13 101
+c=IN IP4 198.51.101.1
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_a) = answer('consume CN',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 7006 RTP/AVP 8 101
+c=IN IP4 198.51.101.3
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 101 13
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(8, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(8, 2000, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(8, 2001, 4160, $ssrc, "\xfb\x70\x58\xe4\x43\xe6\x41\xfc\x44\x71\xc0\x63\x44\x77\x58\x50\x49\x66\x5a\xd8\x42\x66\x41\x67\xd0\x6f\x67\x60\x60\x7c\x10\x71\x12\x64\x10\x65\x60\x16\x6c\x63\x6c\x76\x60\xd1\x15\x74\x15\x7c\x16\x7d\x14\x7d\x16\x69\x4a\x13\x66\x67\x1c\x60\x66\x15\x7c\x7e\x67\x62\xd5\x15\xd2\x11\xf0\x1c\x72\x49\x11\x76\x6d\x6e\x14\x15\x64\x6e\x11\x76\x17\x7e\x16\x5c\x1d\x42\x15\x14\x16\x69\x11\x63\x1c\x60\x1d\x67\x6a\x15\x63\x11\x14\x10\x79\x68\x6e\x66\x60\x14\x59\x6e\x74\x50\x7d\x6d\x74\x67\x79\x60\x77\x60\x56\x6f\x56\x64\x6e\x77\x63\x62\x15\x45\x6c\x11\x45\x67\x6a\x7c\x60\x6c\x6a\x72\x12\x5f\x6d\x6d\x6a\x5d\x11\x5b\x61\x7b\x6a\x63\x67\x15\xd0\x10"));
+snd($sock_b, $port_a, rtp(8, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2002, 4320, $ssrc, "\x00" x 160));
+# test silence detection
+snd($sock_a, $port_b, rtp(8, 1001, 3160, 0x1234, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(8, 1001, 3160, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1002, 3320, 0x1234, "\xd5" x 160));
+rcv($sock_b, $port_a, rtpm(13, 1002, 3320, $ssrc, "\x20"));
+
+
+
+
+
+
+new_call;
+
+offer('add some other codec, accept second PT',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3002 RTP/AVP 8 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 9
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('add some other codec, accept second PT',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 4002 RTP/AVP 0 9
+c=IN IP4 198.51.101.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# ^- asymmetric!
+
+
+
+new_call;
+
+offer('add some other codec, accept second PT, symmetric',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['G722'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3002 RTP/AVP 8 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 9
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('add some other codec, accept second PT, symmetric',
+	{ ICE => 'remove', replace => ['origin'], flags => ['symmetric-codecs'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 4002 RTP/AVP 0 9
+c=IN IP4 198.51.101.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.101.1 3002)], [qw(198.51.101.3 4002)]);
+
+($port_a) = offer('add CN, accept second PT',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['CN'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3002 RTP/AVP 8 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('add CN, accept second PT',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 4002 RTP/AVP 0 13
+c=IN IP4 198.51.101.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x2a" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(8, 2000, 4000, -1, "\x2a" x 160));
+snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(8, 2001, 4160, $ssrc, "\xfb\x70\x58\xe4\x43\xe6\x41\xfc\x44\x71\xc0\x63\x44\x77\x58\x50\x49\x66\x5a\xd8\x42\x66\x41\x67\xd0\x6f\x67\x60\x60\x7c\x10\x71\x12\x64\x10\x65\x60\x16\x6c\x63\x6c\x76\x60\xd1\x15\x74\x15\x7c\x16\x7d\x14\x7d\x16\x69\x4a\x13\x66\x67\x1c\x60\x66\x15\x7c\x7e\x67\x62\xd5\x15\xd2\x11\xf0\x1c\x72\x49\x11\x76\x6d\x6e\x14\x15\x64\x6e\x11\x76\x17\x7e\x16\x5c\x1d\x42\x15\x14\x16\x69\x11\x63\x1c\x60\x1d\x67\x6a\x15\x63\x11\x14\x10\x79\x68\x6e\x66\x60\x14\x59\x6e\x74\x50\x7d\x6d\x74\x67\x79\x60\x77\x60\x56\x6f\x56\x64\x6e\x77\x63\x62\x15\x45\x6c\x11\x45\x67\x6a\x7c\x60\x6c\x6a\x72\x12\x5f\x6d\x6d\x6a\x5d\x11\x5b\x61\x7b\x6a\x63\x67\x15\xd0\x10"));
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2002, 4320, $ssrc, "\x2a" x 160));
+snd($sock_b, $port_a, rtp(13, 2003, 4480, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(8, 2003, 4480, $ssrc, "\x57\x65\x6c\x6e\x6f\x11\x63\x17\x64\x15\x7b\x11\x6c\x13\x7d\x1f\x11\x16\x15\x69\x6d\x65\x15\x63\x16\x14\x65\x1e\x40\x6b\x6a\x11\x7d\x1a\x68\x6d\x16\x12\x6e\x13\x62\x63\x1f\x15\x61\x1f\x16\x1d\x6f\x18\x7b\x10\x1d\x7b\x14\x6e\x15\x6b\x11\x7c\x6b\x6d\x72\x11\x67\x7a\x14\x60\x73\x1d\x7d\x12\x51\x1a\xc6\x16\x17\x6e\x10\x65\x16\x10\x6e\x68\x17\x13\x7d\x15\x16\x45\x1f\x6b\x43\x12\x42\x7b\x77\x14\xe4\x11\x5d\x65\x6e\x46\x58\x10\x78\x51\x11\xf5\x6d\x6d\xd8\x16\x6f\xcf\x14\x63\x69\x68\x64\x6c\x6b\x17\x7a\x61\x11\x75\x79\x7a\x7f\x15\x5d\x12\x7c\x7d\x79\x60\x53\x60\x58\x15\xfe\x63\x45\xda\x7e\xe5\x68\xe0\x69\xf0\x6e\xe4\x58\x4d\x7e\x45\x69\xf7"));
+snd($sock_b, $port_a, rtp(0, 2004, 4640, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2004, 4640, $ssrc, "\x2a" x 160));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.101.1 3006)], [qw(198.51.101.3 4006)]);
+
+($port_a) = offer('add CN, accept second PT, reject CN',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['CN'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3006 RTP/AVP 8 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('add CN, accept second PT, reject CN',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 4006 RTP/AVP 0
+c=IN IP4 198.51.101.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x2a" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2000, 4000, -1, "\x2a" x 160));
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.101.1 3004)], [qw(198.51.101.3 4004)]);
+
+($port_a) = offer('add CN and 2nd codec, accept second PT',
+	{ ICE => 'remove', replace => ['origin'], codec => { transcode => ['PCMU', 'CN'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3004 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('add CN and 2nd codec, accept second PT',
+	{ ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 4004 RTP/AVP 0 13
+c=IN IP4 198.51.101.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x2a" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(8, 2000, 4000, -1, "\x2a" x 160));
+snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(8, 2001, 4160, $ssrc, "\xfb\x70\x58\xe4\x43\xe6\x41\xfc\x44\x71\xc0\x63\x44\x77\x58\x50\x49\x66\x5a\xd8\x42\x66\x41\x67\xd0\x6f\x67\x60\x60\x7c\x10\x71\x12\x64\x10\x65\x60\x16\x6c\x63\x6c\x76\x60\xd1\x15\x74\x15\x7c\x16\x7d\x14\x7d\x16\x69\x4a\x13\x66\x67\x1c\x60\x66\x15\x7c\x7e\x67\x62\xd5\x15\xd2\x11\xf0\x1c\x72\x49\x11\x76\x6d\x6e\x14\x15\x64\x6e\x11\x76\x17\x7e\x16\x5c\x1d\x42\x15\x14\x16\x69\x11\x63\x1c\x60\x1d\x67\x6a\x15\x63\x11\x14\x10\x79\x68\x6e\x66\x60\x14\x59\x6e\x74\x50\x7d\x6d\x74\x67\x79\x60\x77\x60\x56\x6f\x56\x64\x6e\x77\x63\x62\x15\x45\x6c\x11\x45\x67\x6a\x7c\x60\x6c\x6a\x72\x12\x5f\x6d\x6d\x6a\x5d\x11\x5b\x61\x7b\x6a\x63\x67\x15\xd0\x10"));
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2002, 4320, $ssrc, "\x2a" x 160));
+snd($sock_b, $port_a, rtp(13, 2003, 4480, 0x3456, "\x12\x23\x23\x34\x56"));
+rcv($sock_a, $port_b, rtpm(8, 2003, 4480, $ssrc, "\x57\x65\x6c\x6e\x6f\x11\x63\x17\x64\x15\x7b\x11\x6c\x13\x7d\x1f\x11\x16\x15\x69\x6d\x65\x15\x63\x16\x14\x65\x1e\x40\x6b\x6a\x11\x7d\x1a\x68\x6d\x16\x12\x6e\x13\x62\x63\x1f\x15\x61\x1f\x16\x1d\x6f\x18\x7b\x10\x1d\x7b\x14\x6e\x15\x6b\x11\x7c\x6b\x6d\x72\x11\x67\x7a\x14\x60\x73\x1d\x7d\x12\x51\x1a\xc6\x16\x17\x6e\x10\x65\x16\x10\x6e\x68\x17\x13\x7d\x15\x16\x45\x1f\x6b\x43\x12\x42\x7b\x77\x14\xe4\x11\x5d\x65\x6e\x46\x58\x10\x78\x51\x11\xf5\x6d\x6d\xd8\x16\x6f\xcf\x14\x63\x69\x68\x64\x6c\x6b\x17\x7a\x61\x11\x75\x79\x7a\x7f\x15\x5d\x12\x7c\x7d\x79\x60\x53\x60\x58\x15\xfe\x63\x45\xda\x7e\xe5\x68\xe0\x69\xf0\x6e\xe4\x58\x4d\x7e\x45\x69\xf7"));
+snd($sock_b, $port_a, rtp(0, 2004, 4640, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2004, 4640, $ssrc, "\x2a" x 160));
+
+
+
+
 
 
 

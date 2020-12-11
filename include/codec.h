@@ -29,6 +29,7 @@ struct codec_handler {
 	struct rtp_payload_type source_pt; // source_pt.payload_type = hashtable index
 	struct rtp_payload_type dest_pt;
 	int dtmf_payload_type;
+	int cn_payload_type;
 	codec_handler_func *func;
 	int kernelize:1;
 	int transcoder:1;
