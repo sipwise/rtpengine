@@ -630,11 +630,13 @@ int stun(const str *b, struct stream_fd *sfd, const endpoint_t *sin) {
 
 bad_req:
 	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Received invalid STUN packet" SLF ": %s", SLP, err);
-	stun_error(sfd, sin, req, 400, "Bad request");
+	if (class == STUN_CLASS_REQUEST)
+		stun_error(sfd, sin, req, 400, "Bad request");
 	return 0;
 unauth:
 	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "STUN authentication mismatch" SLF, SLP);
-	stun_error(sfd, sin, req, 401, "Unauthorized");
+	if (class == STUN_CLASS_REQUEST)
+		stun_error(sfd, sin, req, 401, "Unauthorized");
 	return 0;
 ignore:
 	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Not handling potential STUN packet" SLF ": %s", SLP, err);
