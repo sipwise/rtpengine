@@ -190,7 +190,7 @@ struct crypto_suite __crypto_suites[] = {
 		.name			= "AEAD_AES_128_GCM",
 		.dtls_name		= "SRTP_AEAD_AES_128_GCM",
 		.master_key_len		= 16,
-		.master_salt_len	= 14,
+		.master_salt_len	= 12,
 		.session_key_len	= 16,
 		.session_salt_len	= 12,
 		.srtp_lifetime		= 1ULL << 48,
@@ -214,7 +214,7 @@ struct crypto_suite __crypto_suites[] = {
 		.name			= "AEAD_AES_256_GCM",
 		.dtls_name		= "SRTP_AEAD_AES_256_GCM",
 		.master_key_len		= 32,
-		.master_salt_len	= 14,
+		.master_salt_len	= 12,
 		.session_key_len	= 32,
 		.session_salt_len	= 12,
 		.srtp_lifetime		= 1ULL << 48,
@@ -471,7 +471,14 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 	 * key_derivation_rate == 0 --> r == 0 */
 
 	key_id[0] = label;
-	memcpy(x, c->params.master_salt, 14);
+	// AEAD uses 12 bytes master salt; pad on the right to get 14
+	// Errata: https://www.rfc-editor.org/errata_search.php?rfc=7714
+	if (c->params.crypto_suite->master_salt_len == 12) {
+		memcpy(x, c->params.master_salt, 12);
+		x[12] = x[13] = '\x00';
+	} else {
+		memcpy(x, c->params.master_salt, 14);
+	}
 	for (i = 13 - index_len; i < 14; i++)
 		x[i] = key_id[i - (13 - index_len)] ^ x[i];
 
