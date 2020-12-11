@@ -563,12 +563,15 @@ static int aes_gcm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, s
 		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
 	}
 
+	// nominally 12 bytes of AAD
 	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
+
 	EVP_EncryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len);
 	ciphertext_len = len;
 	if (!EVP_EncryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
 		return 1;
 	ciphertext_len += len;
+	// append the tag to the str buffer
 	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_GET_TAG, 16, s->s+ciphertext_len);
 	s->len = ciphertext_len + 16;
 
@@ -591,7 +594,10 @@ static int aes_gcm_decrypt_rtp(struct crypto_context *c, struct rtp_header *r, s
 		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
 	}
 
+	// nominally 12 bytes of AAD
 	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
+
+	// decrypt partial buffer - the last 16 bytes are the tag
 	EVP_DecryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len-16);
 	plaintext_len = len;
 	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_SET_TAG, 16, s->s + s->len-16);
@@ -622,13 +628,16 @@ static int aes_gcm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
 	}
 
+	// nominally 8 + 4 bytes of AAD
 	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
 	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)e_idx, 4);
+
 	EVP_EncryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len);
 	ciphertext_len = len;
 	if (!EVP_EncryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
 		return 1;
 	ciphertext_len += len;
+	// append the tag to the str buffer
 	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_GET_TAG, 16, s->s+ciphertext_len);
 	s->len = ciphertext_len + 16;
 
@@ -652,8 +661,11 @@ static int aes_gcm_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
 	}
 
+	// nominally 8 + 4 bytes of AAD
 	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
 	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)e_idx, 4);
+
+	// decrypt partial buffer - the last 16 bytes are the tag
 	EVP_DecryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len-16);
 	plaintext_len = len;
 	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_SET_TAG, 16, s->s + s->len-16);
