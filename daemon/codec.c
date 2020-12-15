@@ -771,7 +771,6 @@ static void __eliminate_rejected_codecs(struct call_media *receiver, struct call
 		}
 		ilog(LOG_DEBUG, "Eliminating asymmetric outbound codec " STR_FORMAT,
 				STR_FMT(&pt->encoding_with_params));
-		codec_touched(pt, receiver);
 		l = __delete_send_codec(receiver, l);
 	}
 }
@@ -3448,9 +3447,6 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 			}
 			ilog(LOG_DEBUG, "Eliminating asymmetric inbound codec " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params));
-#ifdef WITH_TRANSCODING
-			codec_touched(pt, other_media);
-#endif
 			l = __delete_receiver_codec(other_media, l);
 		}
 	}

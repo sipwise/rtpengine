@@ -38,6 +38,70 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+new_call;
+
+offer('gh#1136',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 102 9 0 110 18 127
+c=IN IP4 198.51.100.1
+a=rtpmap:102 G7221/16000
+a=fmtp:102 bitrate=32000
+a=rtpmap:9 G722/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:110 iLBC/8000
+a=fmtp:110 mode=30
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:127 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 102 9 0 110 18 127
+c=IN IP4 203.0.113.1
+a=rtpmap:102 G7221/16000
+a=fmtp:102 bitrate=32000
+a=rtpmap:9 G722/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:110 iLBC/8000
+a=fmtp:110 mode=30
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:127 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('gh#1136',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 102 127
+c=IN IP4 198.51.100.1
+a=rtpmap:102 G7221/16000
+a=fmtp:102 bitrate=32000
+a=rtpmap:127 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 102 127
+c=IN IP4 203.0.113.1
+a=rtpmap:102 G7221/16000
+a=fmtp:102 bitrate=32000
+a=rtpmap:127 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 # simple codec masking
 
 new_call;
