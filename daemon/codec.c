@@ -629,7 +629,7 @@ static void __single_codec(struct call_media *media, const struct sdp_ng_flags *
 	}
 }
 
-static int __check_receiver_codecs(struct call_media *receiver) {
+static int __check_receiver_codecs(struct call_media *receiver, struct call_media *sink) {
 	int ret = 0;
 	// if some codecs were explicitly marked for transcoding, then we accept only those.
 	// otherwise we accept all that we can.
@@ -639,6 +639,10 @@ static int __check_receiver_codecs(struct call_media *receiver) {
 		if (!pt->codec_def)
 			continue;
 		//ilog(LOG_DEBUG, "XXXXXXXXXXXX checking recv send " STR_FORMAT " %i %i", STR_FMT(&pt->encoding_with_params), pt->for_transcoding, pt->codec_def->supplemental);
+		struct rtp_payload_type *sink_pt = g_hash_table_lookup(sink->codecs_recv,
+				&pt->payload_type);
+		if (sink_pt && !rtp_payload_type_cmp(pt, sink_pt))
+			continue;
 		if (pt->for_transcoding) {
 			if (pt->codec_def->supplemental)
 				ret |= 0x2 | 0x4;
@@ -1272,7 +1276,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// 0x1 = accept only codecs marked for transcoding, 0x2 = some codecs marked for transcoding
 	// present, 0x4 = supplemental codec for transcoding
-	int receiver_transcoding = __check_receiver_codecs(receiver);
+	int receiver_transcoding = __check_receiver_codecs(receiver, sink);
 
 	if (flags && flags->opmode == OP_ANSWER && flags->symmetric_codecs)
 		__symmetric_codecs(receiver, sink, &sink_transcoding);
@@ -1356,9 +1360,14 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			goto next;
 		}
 
-		//ilog(LOG_DEBUG, "XXXXXXXXXXXX pref dest codec " STR_FORMAT " is %i",
+		//ilog(LOG_DEBUG, "XXXXXXXXXXXX pref dest codec " STR_FORMAT " is %i, CN match %i DTMF match %i "
+				//"sink TC %i/%i recv TC %i TC supp %i DTMF DSP %i",
 				//STR_FMT(&pref_dest_codec->encoding_with_params),
-				//pref_dest_codec->for_transcoding);
+				//pref_dest_codec->for_transcoding,
+				//cn_pt_match, dtmf_pt_match,
+				//MEDIA_ISSET(sink, TRANSCODE), sink_transcoding,
+				//receiver_transcoding,
+				//transcode_supplemental, pcm_dtmf_detect);
 
 		struct rtp_payload_type *dest_pt; // transcode to this
 
@@ -1371,6 +1380,8 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		else {
 			// we ignore output codec matches if we must transcode supp codecs
 			if ((dtmf_pt_match == 1 || cn_pt_match == 1) && MEDIA_ISSET(sink, TRANSCODE))
+				;
+			else if ((receiver_transcoding & 0x4))
 				;
 			else if (pcm_dtmf_detect)
 				;
