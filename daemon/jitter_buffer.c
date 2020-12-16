@@ -19,12 +19,12 @@ static struct timerthread jitter_buffer_thread;
 
 
 void jitter_buffer_init(void) {
-	ilog(LOG_DEBUG, "jitter_buffer_init");
+	//ilog(LOG_DEBUG, "jitter_buffer_init");
 	timerthread_init(&jitter_buffer_thread, timerthread_queue_run);
 }
 
 void jitter_buffer_init_free(void) {
-	ilog(LOG_DEBUG, "jitter_buffer_free");
+	//ilog(LOG_DEBUG, "jitter_buffer_free");
 	timerthread_free(&jitter_buffer_thread);
 }
 
@@ -37,7 +37,7 @@ static void jitter_buffer_flush(struct jitter_buffer *jb) {
 
 // jb is locked
 static void reset_jitter_buffer(struct jitter_buffer *jb) {
-	ilog(LOG_INFO, "reset_jitter_buffer");
+	//ilog(LOG_INFO, "reset_jitter_buffer");
 
 	jb->first_send_ts  	= 0;
 	jb->first_send.tv_sec 	= 0;

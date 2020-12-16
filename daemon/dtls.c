@@ -812,7 +812,8 @@ void dtls_shutdown(struct packet_stream *ps) {
 }
 
 void dtls_connection_cleanup(struct dtls_connection *c) {
-	ilog(LOG_DEBUG, "Resetting DTLS connection context");
+	if (c->ssl_ctx || c->ssl)
+		ilog(LOG_DEBUG, "Resetting DTLS connection context");
 
 	if (c->ssl_ctx)
 		SSL_CTX_free(c->ssl_ctx);

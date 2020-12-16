@@ -65,8 +65,8 @@ void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struc
 	if (!tt_obj)
 		return;
 
-	ilog(LOG_DEBUG, "scheduling timer object at %llu.%06lu", (unsigned long long) tv->tv_sec,
-			(unsigned long) tv->tv_usec);
+	//ilog(LOG_DEBUG, "scheduling timer object at %llu.%06lu", (unsigned long long) tv->tv_sec,
+			//(unsigned long) tv->tv_usec);
 
 	struct timerthread *tt = tt_obj->tt;
 	if (tt_obj->next_check.tv_sec && timeval_cmp(&tt_obj->next_check, tv) <= 0)
@@ -209,10 +209,10 @@ void timerthread_queue_push(struct timerthread_queue *ttq, struct timerthread_qu
 
 	// queue for sending
 
-	ilog(LOG_DEBUG, "queuing up %s object for processing at %lu.%06u",
-			ttq->type,
-			(unsigned long) ttqe->when.tv_sec,
-			(unsigned int) ttqe->when.tv_usec);
+	//ilog(LOG_DEBUG, "queuing up %s object for processing at %lu.%06u",
+			//ttq->type,
+			//(unsigned long) ttqe->when.tv_sec,
+			//(unsigned int) ttqe->when.tv_usec);
 
 	// XXX recover log line fields
 //	struct rtp_header *rh = (void *) cp->s.s;
@@ -278,7 +278,7 @@ unsigned int timerthread_queue_flush(struct timerthread_queue *ttq, void *ptr) {
 void timerthread_queue_flush_data(void *ptr) {
         struct timerthread_queue *ttq = ptr;
 
-        ilog(LOG_DEBUG, "timerthread_queue_flush_data");
+        //ilog(LOG_DEBUG, "timerthread_queue_flush_data");
 
         mutex_lock(&ttq->lock);
         while (g_tree_nnodes(ttq->entries)) {

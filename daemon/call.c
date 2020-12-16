@@ -2604,7 +2604,7 @@ static void __call_free(void *p) {
 	struct packet_stream *ps;
 	struct endpoint_map *em;
 
-	ilog(LOG_DEBUG, "freeing main call struct");
+	//ilog(LOG_DEBUG, "freeing main call struct");
 
 	obj_put(c->dtls_cert);
 

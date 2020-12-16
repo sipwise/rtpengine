@@ -52,7 +52,7 @@ static void media_player_shutdown(struct media_player *mp) {
 	if (!mp)
 		return;
 
-	ilog(LOG_DEBUG, "shutting down media_player");
+	//ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
 	mp->next_run.tv_sec = 0;
 	avformat_close_input(&mp->fmtctx);
@@ -90,7 +90,7 @@ void media_player_stop(struct media_player *mp) {
 static void __media_player_free(void *p) {
 	struct media_player *mp = p;
 
-	ilog(LOG_DEBUG, "freeing media_player");
+	//ilog(LOG_DEBUG, "freeing media_player");
 
 	media_player_shutdown(mp);
 	ssrc_ctx_put(&mp->ssrc_out);
@@ -103,7 +103,7 @@ static void __media_player_free(void *p) {
 // call->master_lock held in W
 struct media_player *media_player_new(struct call_monologue *ml) {
 #ifdef WITH_TRANSCODING
-	ilog(LOG_DEBUG, "creating media_player");
+	//ilog(LOG_DEBUG, "creating media_player");
 
 	uint32_t ssrc = 0;
 	while (ssrc == 0)
@@ -135,7 +135,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 static void __send_timer_free(void *p) {
 	struct send_timer *st = p;
 
-	ilog(LOG_DEBUG, "freeing send_timer");
+	//ilog(LOG_DEBUG, "freeing send_timer");
 
 	obj_put(st->call);
 }
@@ -150,7 +150,7 @@ static void __send_timer_send_later(struct timerthread_queue *ttq, void *p) {
 
 // call->master_lock held in W
 struct send_timer *send_timer_new(struct packet_stream *ps) {
-	ilog(LOG_DEBUG, "creating send_timer");
+	//ilog(LOG_DEBUG, "creating send_timer");
 
 	struct send_timer *st = timerthread_queue_new("send_timer", sizeof(*st),
 			&send_timer_thread,
@@ -698,7 +698,7 @@ static void media_player_run(void *ptr) {
 
 	log_info_call(call);
 
-	ilog(LOG_DEBUG, "running scheduled media_player");
+	//ilog(LOG_DEBUG, "running scheduled media_player");
 
 	rwlock_lock_r(&call->master_lock);
 	mutex_lock(&mp->lock);
@@ -730,11 +730,11 @@ void media_player_free(void) {
 
 #ifdef WITH_TRANSCODING
 void media_player_loop(void *p) {
-	ilog(LOG_DEBUG, "media_player_loop");
+	//ilog(LOG_DEBUG, "media_player_loop");
 	timerthread_run(&media_player_thread);
 }
 #endif
 void send_timer_loop(void *p) {
-	ilog(LOG_DEBUG, "send_timer_loop");
+	//ilog(LOG_DEBUG, "send_timer_loop");
 	timerthread_run(&send_timer_thread);
 }

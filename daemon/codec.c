@@ -3512,7 +3512,7 @@ void codecs_cleanup(void) {
 }
 void codec_timers_loop(void *p) {
 #ifdef WITH_TRANSCODING
-	ilog(LOG_DEBUG, "codec_timers_loop");
+	//ilog(LOG_DEBUG, "codec_timers_loop");
 	timerthread_run(&codec_timers_thread);
 #endif
 }
