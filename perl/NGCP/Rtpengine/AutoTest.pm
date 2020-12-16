@@ -164,6 +164,7 @@ sub rtp {
 sub rcv {
 	my ($sock, $port, $match, $cb, $cb_arg) = @_;
 	my $p = '';
+	local $SIG{ALRM} = sub { exit(-10) };
 	alarm(1);
 	my $addr = $sock->recv($p, 65535, 0) or die;
 	alarm(0);
