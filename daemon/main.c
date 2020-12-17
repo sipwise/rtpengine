@@ -477,6 +477,7 @@ static void options(int *argc, char ***argv) {
 		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.max_dtx,	"Maximum duration of DTX handling",	"INT"},
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
+		{ "reorder-codecs",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.reorder_codecs,"Reorder answer codecs based on sender preference",NULL},
 #endif
 
 		{ NULL, }

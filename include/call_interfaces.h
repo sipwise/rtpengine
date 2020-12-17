@@ -93,6 +93,7 @@ struct sdp_ng_flags {
 	    original_sendrecv:1,
 	    asymmetric_codecs:1,
 	    symmetric_codecs:1,
+	    reorder_codecs:1,
 	    single_codec:1,
 	    inject_dtmf:1,
 	    t38_decode:1,

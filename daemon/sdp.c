@@ -2063,8 +2063,11 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 
 			case ATTR_RTPMAP:
 			case ATTR_FMTP:
-			case ATTR_PTIME:
 				if (media->codecs_prefs_recv.length > 0)
+					goto strip;
+				break;
+			case ATTR_PTIME:
+				if (media->ptime)
 					goto strip;
 				break;
 			case ATTR_RTCP_FB:

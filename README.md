@@ -778,6 +778,17 @@ Optionally included keys are:
 		PCMA. With this flag however, *rtpengine* honours the single accepted codec from the
 		answer and so is able to eliminate PCMA from its own answer as it's not needed.
 
+	- `reorder codecs`
+
+		This flag adds an additional stage in the processing of the `answer` codecs. Instead of
+		accepting codecs in the same order that they were offered, reorder the list of codecs
+		to match the codecs on the opposite (answer) side. This can avoid asymmetric codec flow
+		in certain cases, at the cost of the answer message possibly listing codecs in a different
+		order from the offer message (which then could be suppressed using `single codec`).
+
+		The config option `reorder-codecs` can be set to make this the default behaviour for
+		all answer messages.
+
 	- `single codec`
 
 		Using this flag in an `answer` message will leave only the first listed codec in place

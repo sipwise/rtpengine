@@ -753,6 +753,35 @@ static void __accept_pt(struct call_media *receiver, struct call_media *sink, in
 		*insert_pos = (*insert_pos)->next;
 	}
 }
+static void __reorder_transcode_codecs(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags, int accept_only_tc)
+{
+	// if the other side is transcoding, we need to accept codecs that were
+	// originally offered (recv->send) if we support them, even if the
+	// response (sink->send) doesn't include them
+	GList *insert_pos = NULL;
+	for (GList *l = sink->codecs_prefs_recv.head; l; l = l->next) {
+		// take the PT that we can receive on the sink side and get the appropriate
+		// output PT on the receiver side to ensure codec symmetry.
+		struct rtp_payload_type *sink_pt = l->data;
+		// determine output PT from the codec handler
+		struct codec_handler *ch = codec_handler_get(sink, sink_pt->payload_type);
+		if (ch && ch->source_pt.payload_type != -1 && ch->dest_pt.payload_type != -1) {
+			__accept_pt(receiver, sink, ch->dest_pt.payload_type, sink_pt->payload_type,
+					accept_only_tc, &insert_pos);
+			if (ch->dtmf_payload_type != -1)
+				__accept_pt(receiver, sink, ch->dtmf_payload_type, -1,
+						accept_only_tc, &insert_pos);
+			if (ch->cn_payload_type != -1)
+				__accept_pt(receiver, sink, ch->cn_payload_type, -1,
+						accept_only_tc, &insert_pos);
+		}
+		else
+			__accept_pt(receiver, sink, sink_pt->payload_type, -1, accept_only_tc, &insert_pos);
+	}
+
+	__single_codec(receiver, flags);
+}
 static void __accept_transcode_codecs(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags, int accept_only_tc)
 {
@@ -903,6 +932,7 @@ static void __symmetric_codecs(struct call_media *receiver, struct call_media *s
 			struct rtp_payload_type *out_pt = g_hash_table_lookup(prefs_recv, ptype);
 			if (!out_pt)
 				continue;
+			//ilog(LOG_DEBUG, "XXXXXXXXXXXXXXXX appending recv codec " STR_FORMAT, STR_FMT(&out_pt->encoding_with_params));
 			g_hash_table_steal(prefs_recv, ptype);
 			__rtp_payload_type_add_recv(receiver, out_pt, 1);
 		}
@@ -911,6 +941,7 @@ static void __symmetric_codecs(struct call_media *receiver, struct call_media *s
 			struct rtp_payload_type *out_pt = g_hash_table_lookup(prefs_send, ptype);
 			if (!out_pt)
 				continue;
+			//ilog(LOG_DEBUG, "XXXXXXXXXXXXXXXX appending send codec " STR_FORMAT, STR_FMT(&out_pt->encoding_with_params));
 			g_hash_table_steal(prefs_send, ptype);
 			__rtp_payload_type_add_send(receiver, out_pt);
 		}
@@ -1312,8 +1343,13 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		MEDIA_CLEAR(sink, TRANSCODE);
 	}
 
-	if (MEDIA_ISSET(sink, TRANSCODE) && (sink_transcoding & 0x2))
-		__accept_transcode_codecs(receiver, sink, flags, (receiver_transcoding & 0x1));
+	if (MEDIA_ISSET(sink, TRANSCODE) && (sink_transcoding & 0x2)) {
+		if (flags && flags->opmode == OP_ANSWER &&
+				(rtpe_config.reorder_codecs || flags->reorder_codecs))
+			__reorder_transcode_codecs(receiver, sink, flags, (receiver_transcoding & 0x1));
+		else
+			__accept_transcode_codecs(receiver, sink, flags, (receiver_transcoding & 0x1));
+	}
 	else
 		__eliminate_rejected_codecs(receiver, sink, flags);
 
@@ -1488,6 +1524,9 @@ next:
 
 		for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 			struct rtp_payload_type *pt = l->data;
+
+			//ilog(LOG_DEBUG, "XXXX checking recv codec " STR_FORMAT,
+					//STR_FMT(&pt->encoding));
 
 			if (pt->codec_def) {
 				// supported

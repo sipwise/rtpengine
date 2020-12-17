@@ -810,6 +810,11 @@ of coefficients listed (model order) is variable.
 The default values are 32 (-32 dBov) for the noise level and no spectral
 information.
 
+=item B<--reorder-codecs>
+
+Always sets the option B<reorder-codecs> in answer messages as described in the
+F<README.md>.
+
 =back
 
 =head1 INTERFACES
