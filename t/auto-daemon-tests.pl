@@ -1764,16 +1764,16 @@ o=- 3812713289 3812713289 IN IP4 foo.bar.com
 s=-
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 9 96 108 8 101 96
+m=audio PORT RTP/AVP 9 97 108 8 101 96
 a=rtpmap:9 G722/8000
-a=rtpmap:96 AMR-WB/16000
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
 a=rtpmap:108 AMR/8000
+a=fmtp:108 mode-set=7
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/16000
-a=rtpmap:96 telephone-event/8000
-a=fmtp:96 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
-a=fmtp:108 mode-set=7
 a=fmtp:101 0-15
+a=rtpmap:96 telephone-event/8000
 a=fmtp:96 0-15
 a=sendrecv
 a=rtcp:PORT
@@ -1804,8 +1804,8 @@ t=0 0
 m=audio PORT RTP/AVP 111 101
 a=silenceSupp:off - - - -
 a=rtpmap:111 AMR-WB/16000
-a=rtpmap:101 telephone-event/16000
 a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=rtpmap:101 telephone-event/16000
 a=fmtp:101 0-15
 a=sendrecv
 a=rtcp:PORT
@@ -1843,16 +1843,16 @@ o=- 3812713289 3812713289 IN IP4 foo.bar.com
 s=-
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 9 96 108 8 101 96
+m=audio PORT RTP/AVP 9 97 108 8 101 96
 a=rtpmap:9 G722/8000
-a=rtpmap:96 AMR-WB/16000
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
 a=rtpmap:108 AMR/8000
+a=fmtp:108 mode-set=7
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/16000
-a=rtpmap:96 telephone-event/8000
-a=fmtp:96 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
-a=fmtp:108 mode-set=7
 a=fmtp:101 0-15
+a=rtpmap:96 telephone-event/8000
 a=fmtp:96 0-15
 a=sendrecv
 a=rtcp:PORT
@@ -1923,16 +1923,16 @@ o=- 3812713289 3812713289 IN IP4 foo.bar.com
 s=-
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 9 96 108 8 101 96
+m=audio PORT RTP/AVP 9 97 108 8 101 96
 a=rtpmap:9 G722/8000
-a=rtpmap:96 AMR-WB/16000
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
 a=rtpmap:108 AMR/8000
+a=fmtp:108 mode-set=7
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/16000
-a=rtpmap:96 telephone-event/8000
-a=fmtp:96 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
-a=fmtp:108 mode-set=7
 a=fmtp:101 0-15
+a=rtpmap:96 telephone-event/8000
 a=fmtp:96 0-15
 a=sendrecv
 a=rtcp:PORT
@@ -2345,8 +2345,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2402,8 +2402,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2462,8 +2462,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1; mode-set=0
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2519,8 +2519,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2585,8 +2585,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1; mode-change-neighbor=1; mode-set=0,2,4,6
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2661,8 +2661,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1; mode-change-neighbor=1; mode-set=0,1,3,6,7; mode-change-period=2
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2754,8 +2754,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2833,8 +2833,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2913,8 +2913,8 @@ t=0 0
 m=audio PORT RTP/AVP 96 8
 c=IN IP4 203.0.113.1
 a=rtpmap:96 AMR-WB/16000
-a=rtpmap:8 PCMA/8000
 a=fmtp:96 octet-align=1
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
