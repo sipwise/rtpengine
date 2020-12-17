@@ -655,6 +655,104 @@ static int __check_receiver_codecs(struct call_media *receiver, struct call_medi
 	return ret;
 }
 
+static void __accept_pt(struct call_media *receiver, struct call_media *sink, int payload_type,
+		int fallback_type, int accept_only_tc, GList **insert_pos)
+{
+	struct rtp_payload_type *pt = g_hash_table_lookup(receiver->codecs_send, &payload_type);
+
+	// fallback PT in case the codec handler is a dummy or a passthrough
+	// or some other internal problem
+	if (!pt && fallback_type != -1)
+		pt = g_hash_table_lookup(receiver->codecs_send, &fallback_type);
+	if (!pt)
+		return;
+
+	ensure_codec_def(pt, receiver);
+	if (!pt->codec_def)
+		return;
+	if (accept_only_tc && !pt->for_transcoding)
+		return;
+	//ilog(LOG_DEBUG, "XXXXXXXXXXX accept codec " STR_FORMAT " flag %i", STR_FMT(&pt->encoding_with_params), pt->for_transcoding);
+	struct rtp_payload_type *existing_pt
+		= g_hash_table_lookup(receiver->codecs_recv, &pt->payload_type);
+	if (existing_pt && !rtp_payload_type_cmp_nf(existing_pt, pt)) {
+		// already present.
+		// to keep the order intact, we seek the list for the position
+		// of this codec entry. all newly added codecs must come after
+		// this entry.
+		if (!*insert_pos)
+			*insert_pos = receiver->codecs_prefs_recv.head;
+		while (*insert_pos) {
+			if (!(*insert_pos)->next)
+				break; // end of list - we insert everything after
+			struct rtp_payload_type *test_pt = (*insert_pos)->data;
+			if (test_pt->payload_type == pt->payload_type)
+				break;
+			*insert_pos = (*insert_pos)->next;
+		}
+		return;
+	}
+
+	if (existing_pt) {
+		// PT collision. We must renumber one of the entries. `pt` is taken
+		// from the send list, so the PT should remain the same. Renumber
+		// the existing entry.
+		int new_pt = __unused_pt_number(receiver, sink, existing_pt);
+		if (new_pt < 0) {
+			ilogs(codec, LOG_WARN, "Ran out of RTP payload type numbers while accepting '"
+					STR_FORMAT "' due to '" STR_FORMAT "'",
+					STR_FMT(&pt->encoding_with_params),
+					STR_FMT(&existing_pt->encoding_with_params));
+			return;
+		}
+		ilogs(codec, LOG_DEBUG, "Renumbering '" STR_FORMAT "' from PT %i to %i due to '" STR_FORMAT "'",
+					STR_FMT(&existing_pt->encoding_with_params),
+					existing_pt->payload_type,
+					new_pt,
+					STR_FMT(&pt->encoding_with_params));
+		g_hash_table_steal(receiver->codecs_recv, &existing_pt->payload_type);
+		existing_pt->payload_type = new_pt;
+		g_hash_table_insert(receiver->codecs_recv, &existing_pt->payload_type, existing_pt);
+	}
+
+	//ilog(LOG_DEBUG, "XXXXXXXXXXXXX offered codec %i", pt->for_transcoding);
+	ilogs(codec, LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
+			STR_FMT(&pt->encoding_with_params));
+	MEDIA_SET(receiver, TRANSCODE);
+
+	// we need a new pt entry
+	pt = __rtp_payload_type_copy(pt);
+	pt->for_transcoding = 1;
+	codec_touched(pt, receiver);
+	// this somewhat duplicates __rtp_payload_type_add_recv
+	g_hash_table_insert(receiver->codecs_recv, &pt->payload_type, pt);
+	__rtp_payload_type_add_name(receiver->codec_names_recv, pt);
+
+	// keep supplemental codecs last
+	ensure_codec_def(pt, receiver);
+	if (!pt->codec_def || !pt->codec_def->supplemental) {
+		while (*insert_pos) {
+			struct rtp_payload_type *ipt = (*insert_pos)->data;
+			ensure_codec_def(ipt, receiver);
+			if (!ipt->codec_def || !ipt->codec_def->supplemental)
+				break;
+			*insert_pos = (*insert_pos)->prev;
+		}
+	}
+	else {
+		if (!*insert_pos)
+			*insert_pos = receiver->codecs_prefs_recv.tail;
+	}
+
+	if (!*insert_pos) {
+		g_queue_push_head(&receiver->codecs_prefs_recv, pt);
+		*insert_pos = receiver->codecs_prefs_recv.head;
+	}
+	else {
+		g_queue_insert_after(&receiver->codecs_prefs_recv, *insert_pos, pt);
+		*insert_pos = (*insert_pos)->next;
+	}
+}
 static void __accept_transcode_codecs(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags, int accept_only_tc)
 {
@@ -664,92 +762,7 @@ static void __accept_transcode_codecs(struct call_media *receiver, struct call_m
 	GList *insert_pos = NULL;
 	for (GList *l = receiver->codecs_prefs_send.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		ensure_codec_def(pt, receiver);
-		if (!pt->codec_def)
-			continue;
-		if (accept_only_tc && !pt->for_transcoding)
-			continue;
-		//ilog(LOG_DEBUG, "XXXXXXXXXXX accept codec " STR_FORMAT " flag %i", STR_FMT(&pt->encoding_with_params), pt->for_transcoding);
-		struct rtp_payload_type *existing_pt
-			= g_hash_table_lookup(receiver->codecs_recv, &pt->payload_type);
-		if (existing_pt && !rtp_payload_type_cmp_nf(existing_pt, pt)) {
-			// already present.
-			// to keep the order intact, we seek the list for the position
-			// of this codec entry. all newly added codecs must come after
-			// this entry.
-			if (!insert_pos)
-				insert_pos = receiver->codecs_prefs_recv.head;
-			while (insert_pos) {
-				if (!insert_pos->next)
-					break; // end of list - we insert everything after
-				struct rtp_payload_type *test_pt = insert_pos->data;
-				if (test_pt->payload_type == pt->payload_type)
-					break;
-				insert_pos = insert_pos->next;
-			}
-			continue;
-		}
-
-		if (existing_pt) {
-			// PT collision. We must renumber one of the entries. `pt` is taken
-			// from the send list, so the PT should remain the same. Renumber
-			// the existing entry.
-			int new_pt = __unused_pt_number(receiver, sink, existing_pt);
-			if (new_pt < 0) {
-				ilogs(codec, LOG_WARN, "Ran out of RTP payload type numbers while accepting '"
-						STR_FORMAT "' due to '" STR_FORMAT "'",
-						STR_FMT(&pt->encoding_with_params),
-						STR_FMT(&existing_pt->encoding_with_params));
-				continue;
-			}
-			ilogs(codec, LOG_DEBUG, "Renumbering '" STR_FORMAT "' from PT %i to %i due to '" STR_FORMAT "'",
-						STR_FMT(&existing_pt->encoding_with_params),
-						existing_pt->payload_type,
-						new_pt,
-						STR_FMT(&pt->encoding_with_params));
-			g_hash_table_steal(receiver->codecs_recv, &existing_pt->payload_type);
-			existing_pt->payload_type = new_pt;
-			g_hash_table_insert(receiver->codecs_recv, &existing_pt->payload_type, existing_pt);
-		}
-
-		//ilog(LOG_DEBUG, "XXXXXXXXXXXXX offered codec %i", pt->for_transcoding);
-		ilogs(codec, LOG_DEBUG, "Accepting offered codec " STR_FORMAT " due to transcoding",
-				STR_FMT(&pt->encoding_with_params));
-		MEDIA_SET(receiver, TRANSCODE);
-
-
-		// we need a new pt entry
-		pt = __rtp_payload_type_copy(pt);
-		pt->for_transcoding = 1;
-		codec_touched(pt, receiver);
-		// this somewhat duplicates __rtp_payload_type_add_recv
-		g_hash_table_insert(receiver->codecs_recv, &pt->payload_type, pt);
-		__rtp_payload_type_add_name(receiver->codec_names_recv, pt);
-
-		// keep supplemental codecs last
-		ensure_codec_def(pt, receiver);
-		if (!pt->codec_def || !pt->codec_def->supplemental) {
-			while (insert_pos) {
-				struct rtp_payload_type *ipt = insert_pos->data;
-				ensure_codec_def(ipt, receiver);
-				if (!ipt->codec_def || !ipt->codec_def->supplemental)
-					break;
-				insert_pos = insert_pos->prev;
-			}
-		}
-		else {
-			if (!insert_pos)
-				insert_pos = receiver->codecs_prefs_recv.tail;
-		}
-
-		if (!insert_pos) {
-			g_queue_push_head(&receiver->codecs_prefs_recv, pt);
-			insert_pos = receiver->codecs_prefs_recv.head;
-		}
-		else {
-			g_queue_insert_after(&receiver->codecs_prefs_recv, insert_pos, pt);
-			insert_pos = insert_pos->next;
-		}
+		__accept_pt(receiver, sink, pt->payload_type, -1, accept_only_tc, &insert_pos);
 	}
 
 	__single_codec(receiver, flags);
