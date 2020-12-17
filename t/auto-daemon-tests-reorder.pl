@@ -11,7 +11,7 @@ use POSIX;
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			-n 2223 -c 12345 -f -L 7 -E -u 2222 --silence-detect=1))
+			-n 2223 -c 12345 -f -L 7 -E -u 2222 --silence-detect=1 --reorder-codecs))
 		or die;
 
 
@@ -893,11 +893,10 @@ o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
 s=pjmedia
 c=IN IP4 89.250.11.190
 t=0 0
-m=audio PORT RTP/AVP 8 0 101 13
+m=audio PORT RTP/AVP 8 101 13
 c=IN IP4 203.0.113.1
 a=mid:1
 a=rtpmap:8 PCMA/8000
-a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=rtpmap:13 CN/8000
@@ -981,11 +980,10 @@ o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
 s=pjmedia
 c=IN IP4 89.250.11.190
 t=0 0
-m=audio PORT RTP/AVP 8 0 101 13
+m=audio PORT RTP/AVP 8 101 13
 c=IN IP4 203.0.113.1
 a=mid:1
 a=rtpmap:8 PCMA/8000
-a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=rtpmap:13 CN/8000
@@ -1061,6 +1059,7 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 ($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1001, 3160, -1, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\xff" x 160));
 rcv($sock_b, $port_a, rtpm(13, 1002, 3320, $ssrc, "\x20"));
+
 
 
 
@@ -1174,10 +1173,9 @@ v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 8 0 101 13
+m=audio PORT RTP/AVP 8 101 13
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
-a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=rtpmap:13 CN/8000
 a=sendrecv
@@ -1237,7 +1235,6 @@ rcv($sock_a, $port_b, rtpm(8, 2004, 4640, $ssrc, "\x00" x 160));
 
 
 
-
 new_call;
 
 offer('add some other codec, accept second PT',
@@ -1277,15 +1274,14 @@ v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 8 0
+m=audio PORT RTP/AVP 0 8
 c=IN IP4 203.0.113.1
-a=rtpmap:8 PCMA/8000
 a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
 
-# ^- asymmetric!
 
 
 
@@ -1733,93 +1729,6 @@ if ($amr_tests) {
 
 # AMR-WB b2b transcoding
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.10 3062)], [qw(198.51.100.10 3064)]);
-
-($port_a) = offer('AMR-WB b2b transcoding',
-	{ ICE => 'remove', replace => ['origin'],
-	codec => {
-		mask => ['all'],
-		transcode => [
-			'PCMA',
-			'AMR',
-			'AMR-WB/16000/1///mode-set--0,1,2;mode-change-period--2;mode-change-capability--2/dtx--1',
-			'telephone-event',
-		],
-	} }, <<SDP);
-v=0
-o=- 1545997027 1 IN IP4 198.51.100.10
-s=tester
-t=0 0
-m=audio 3062 RTP/AVP 8 108 101 111 96
-c=IN IP4 198.51.100.10
-a=ptime:20
-a=rtpmap:8 PCMA/8000
-a=rtpmap:108 AMR/8000
-a=fmtp:108 mode-set=7
-a=rtpmap:101 telephone-event/8000
-a=rtpmap:111 AMR-WB/16000
-a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
-a=rtpmap:96 telephone-event/16000
-a=fmtp:101 0-15
-a=fmtp:96 0-15
-a=sendrecv
-----------------------------------
-v=0
-o=- 1545997027 1 IN IP4 203.0.113.1
-s=tester
-t=0 0
-m=audio PORT RTP/AVP 8 108 97 101 96
-c=IN IP4 203.0.113.1
-a=rtpmap:8 PCMA/8000
-a=rtpmap:108 AMR/8000
-a=fmtp:108 mode-set=7
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
-a=rtpmap:101 telephone-event/8000
-a=fmtp:101 0-15
-a=rtpmap:96 telephone-event/16000
-a=fmtp:96 0-15
-a=sendrecv
-a=rtcp:PORT
-a=ptime:20
-SDP
-
-($port_b) = answer('AMR-WB b2b transcoding',
-	{ ICE => 'remove', replace => ['origin'], flags => [] }, <<SDP);
-v=0
-o=- 1545997027 1 IN IP4 198.51.100.10
-s=tester
-t=0 0
-m=audio 3064 RTP/AVP 97 96
-c=IN IP4 198.51.100.10
-a=rtpmap:97 AMR-WB/16000
-a=fmtp:97 octet-align=0; mode-set=0,1,2; max-red=0; mode-change-capability=2
-a=rtpmap:96 telephone-event/16000
-a=fmtp:96 0-16
-a=ptime:20
---------------------------------------
-v=0
-o=- 1545997027 1 IN IP4 203.0.113.1
-s=tester
-t=0 0
-m=audio PORT RTP/AVP 8 108 111 101 96
-c=IN IP4 203.0.113.1
-a=rtpmap:8 PCMA/8000
-a=rtpmap:108 AMR/8000
-a=fmtp:108 mode-set=7
-a=rtpmap:111 AMR-WB/16000
-a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
-a=rtpmap:101 telephone-event/8000
-a=fmtp:101 0-15
-a=rtpmap:96 telephone-event/16000
-a=fmtp:96 0-16
-a=sendrecv
-a=rtcp:PORT
-a=ptime:20
-SDP
-
-
-
 ($sock_a, $sock_b) = new_call([qw(198.51.100.10 3066)], [qw(198.51.100.10 3068)]);
 
 ($port_a) = offer('AMR-WB b2b transcoding',
@@ -1899,6 +1808,87 @@ a=sendrecv
 a=rtcp:PORT
 a=ptime:20
 SDP
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 3070)], [qw(198.51.100.10 3072)]);
+
+($port_a) = offer('AMR-WB b2b transcoding',
+	{ ICE => 'remove', replace => ['origin'],
+	codec => {
+		mask => ['all'],
+		transcode => [
+			'PCMA',
+			'AMR',
+			'AMR-WB/16000/1///mode-set--0,1,2;mode-change-period--2;mode-change-capability--2/dtx--1',
+			'telephone-event',
+		],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 3070 RTP/AVP 8 108 101 111 96
+c=IN IP4 198.51.100.10
+a=ptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:108 AMR/8000
+a=fmtp:108 mode-set=7
+a=rtpmap:101 telephone-event/8000
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=rtpmap:96 telephone-event/16000
+a=fmtp:101 0-15
+a=fmtp:96 0-15
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 108 97 101 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:108 AMR/8000
+a=fmtp:108 mode-set=7
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 mode-set=0,1,2;mode-change-period=2;mode-change-capability=2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:96 telephone-event/16000
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+($port_b) = answer('AMR-WB b2b transcoding',
+	{ ICE => 'remove', replace => ['origin'], flags => ['reorder-codecs','single-codec'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 3072 RTP/AVP 97 96
+c=IN IP4 198.51.100.10
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=0; mode-set=0,1,2; max-red=0; mode-change-capability=2
+a=rtpmap:96 telephone-event/16000
+a=fmtp:96 0-16
+a=ptime:20
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 111 96
+c=IN IP4 203.0.113.1
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
+a=rtpmap:96 telephone-event/16000
+a=fmtp:96 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
 
 
 
@@ -3512,9 +3502,8 @@ o=Z 58440449 0 IN IP4 89.225.243.254
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 0 8
+m=audio PORT RTP/AVP 0
 a=rtpmap:0 PCMU/8000
-a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -4326,11 +4315,9 @@ o=dev 5418 9648 IN IP4 8.8.8.60
 s=SIP Call
 c=IN IP4 8.8.8.60
 t=0 0
-m=audio PORT RTP/AVP 0 8 3 101
+m=audio PORT RTP/AVP 0 101
 c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
-a=rtpmap:8 PCMA/8000
-a=rtpmap:3 GSM/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
 a=sendrecv
@@ -6224,11 +6211,10 @@ s=pjmedia
 b=AS:117
 t=0 0
 a=X-nat:0
-m=audio PORT RTP/AVP 8 107 101
+m=audio PORT RTP/AVP 107 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
 a=ssrc:243811319 cname:04389d431bdd5c52
-a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
 a=fmtp:107 useinbandfec=1
 a=rtpmap:101 telephone-event/8000
@@ -6373,19 +6359,22 @@ s=pjmedia
 b=AS:117
 t=0 0
 a=X-nat:0
-m=audio PORT RTP/AVP 8 107 101
+m=audio PORT RTP/AVP 107 8 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
 a=ssrc:243811319 cname:04389d431bdd5c52
-a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
 a=fmtp:107 useinbandfec=1
+a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
 SDP
+
+
+# XXX ^ problem here? combine with single-codec?
 
 
 
@@ -6520,16 +6509,13 @@ s=pjmedia
 b=AS:117
 t=0 0
 a=X-nat:0
-m=audio PORT RTP/AVP 8 107 101 96
+m=audio PORT RTP/AVP 8 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
 a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:8 PCMA/8000
-a=rtpmap:107 opus/48000/2
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
-a=rtpmap:96 telephone-event/48000
-a=fmtp:96 0-15
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -6592,16 +6578,13 @@ s=pjmedia
 b=AS:117
 t=0 0
 a=X-nat:0
-m=audio PORT RTP/AVP 8 107 101 96
+m=audio PORT RTP/AVP 8 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
 a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:8 PCMA/8000
-a=rtpmap:107 opus/48000/2
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
-a=rtpmap:96 telephone-event/48000
-a=fmtp:96 0-15
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -9710,11 +9693,10 @@ o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 120 8 0 101 96
+m=audio PORT RTP/AVP 120 8 101 96
 a=rtpmap:120 opus/48000/2
 a=fmtp:120 useinbandfec=1; usedtx=1; maxaveragebitrate=64000
 a=rtpmap:8 PCMA/8000
-a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
 a=rtpmap:96 telephone-event/48000
@@ -9724,6 +9706,7 @@ a=rtcp:PORT
 SDP
 
 
+# XXX ^ why is PCMA still there?
 
 
 
@@ -11852,21 +11835,21 @@ a=rtcp:PORT
 SDP
 
 snd($sock_a, $port_b,  rtp(0, 1000, 3000, 0x1234, "\x00" x 160));
-($ssrc) = rcv($sock_b, $port_a, rtpm(0, 1000, 3000, -1, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
 snd($sock_a, $port_b,  rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1001, 3160, $ssrc, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x00" x 160));
 snd($sock_a, $port_b,  rtp(0, 1002, 3000+160*2, 0x1234, "\xff\xb0\xac\xbc\x4c\x39\x3f\x63\xee\x55\x4a\xf6\xba\xaf\xbc\x45\x2c\x2d\x4b\xba\xaf\xbb\x6e\x48\x53\xf3\x5f\x3f\x3a\x52\xba\xac\xb3\x5e\x2f\x2d\x3e\xc8\xb8\xc0\xe8\x6b\xd7\xcc\x66\x39\x30\x3f\xbf\xac\xae\xd2\x37\x2f\x3c\xe1\xc6\xd2\x77\xdd\xbf\xbb\xdc\x38\x2c\x35\xd1\xae\xad\xc2\x43\x37\x40\x6e\xe7\x58\x4e\xdd\xb8\xb1\xc3\x3d\x2b\x2f\x5e\xb5\xaf\xbe\x59\x44\x51\xfb\x5b\x3f\x3d\x6b\xb6\xac\xb8\x4a\x2d\x2d\x47\xbf\xb6\xc1\xfa\x63\xda\xd1\x57\x37\x32\x49\xba\xab\xb0\xfe\x33\x2f\x40\xd2\xc2\xd1\x7e\xda\xbf\xbe\x73\x35\x2d\x3a\xc4\xac\xae\xcd\x3d\x36\x43\xf6\xdf\x5c\x55\xd2\xb7\xb4\xce\x37\x2b\x32\xdf\xb1\xaf\xc3\x4d\x41\x50\x7e\x59\x40"));
-rcv($sock_b, $port_a, rtpm(0, 1002, 3000+160*2, $ssrc, "\xff\xb0\xac\xbc\x4c\x39\x3f\x63\xee\x55\x4a\xf6\xba\xaf\xbc\x45\x2c\x2d\x4b\xba\xaf\xbb\x6e\x48\x53\xf3\x5f\x3f\x3a\x52\xba\xac\xb3\x5e\x2f\x2d\x3e\xc8\xb8\xc0\xe8\x6b\xd7\xcc\x66\x39\x30\x3f\xbf\xac\xae\xd2\x37\x2f\x3c\xe1\xc6\xd2\x77\xdd\xbf\xbb\xdc\x38\x2c\x35\xd1\xae\xad\xc2\x43\x37\x40\x6e\xe7\x58\x4e\xdd\xb8\xb1\xc3\x3d\x2b\x2f\x5e\xb5\xaf\xbe\x59\x44\x51\xfb\x5b\x3f\x3d\x6b\xb6\xac\xb8\x4a\x2d\x2d\x47\xbf\xb6\xc1\xfa\x63\xda\xd1\x57\x37\x32\x49\xba\xab\xb0\xfe\x33\x2f\x40\xd2\xc2\xd1\x7e\xda\xbf\xbe\x73\x35\x2d\x3a\xc4\xac\xae\xcd\x3d\x36\x43\xf6\xdf\x5c\x55\xd2\xb7\xb4\xce\x37\x2b\x32\xdf\xb1\xaf\xc3\x4d\x41\x50\x7e\x59\x40"));
+rcv($sock_b, $port_a, rtpm(0, 1002, 3000+160*2, 0x1234, "\xff\xb0\xac\xbc\x4c\x39\x3f\x63\xee\x55\x4a\xf6\xba\xaf\xbc\x45\x2c\x2d\x4b\xba\xaf\xbb\x6e\x48\x53\xf3\x5f\x3f\x3a\x52\xba\xac\xb3\x5e\x2f\x2d\x3e\xc8\xb8\xc0\xe8\x6b\xd7\xcc\x66\x39\x30\x3f\xbf\xac\xae\xd2\x37\x2f\x3c\xe1\xc6\xd2\x77\xdd\xbf\xbb\xdc\x38\x2c\x35\xd1\xae\xad\xc2\x43\x37\x40\x6e\xe7\x58\x4e\xdd\xb8\xb1\xc3\x3d\x2b\x2f\x5e\xb5\xaf\xbe\x59\x44\x51\xfb\x5b\x3f\x3d\x6b\xb6\xac\xb8\x4a\x2d\x2d\x47\xbf\xb6\xc1\xfa\x63\xda\xd1\x57\x37\x32\x49\xba\xab\xb0\xfe\x33\x2f\x40\xd2\xc2\xd1\x7e\xda\xbf\xbe\x73\x35\x2d\x3a\xc4\xac\xae\xcd\x3d\x36\x43\xf6\xdf\x5c\x55\xd2\xb7\xb4\xce\x37\x2b\x32\xdf\xb1\xaf\xc3\x4d\x41\x50\x7e\x59\x40"));
 snd($sock_a, $port_b,  rtp(0, 1003, 3000+160*3, 0x1234, "\x40\xe0\xb3\xad\xbd\x3f\x2c\x2f\x54\xbb\xb5\xc4\x6b\x5d\xde\xd9\x4e\x37\x35\x58\xb5\xab\xb4\x52\x2f\x2f\x47\xca\xbf\xd0\xfe\xd8\xc1\xc3\x57\x32\x2e\x40\xbc\xab\xb0\xe0\x39\x35\x46\xe3\xdb\x61\x5d\xcc\xb7\xb7\xe8\x33\x2b\x37\xcb\xae\xb0\xcb\x46\x3f\x50\x7e\x58\x41\x46\xcf\xb1\xae\xc6\x39\x2b\x31\x7d\xb7\xb5\xc8\x5d\x58\xe5\xe1\x4a\x37\x38\xf2\xb1\xab\xba\x44\x2e\x30\x4f\xc3\xbe\xd1\x7d\xd8\xc3\xc9\x4b\x30\x2f\x4c\xb6\xab\xb3\x61\x35\x35\x4b\xd8\xd6\x68\x68\xc8\xb7\xba\x5d\x30\x2c\x3c\xbf\xad\xb1\xd8\x40\x3e\x52\xfb\x58\x44\x4c\xc8\xb0\xb0\xd6\x34\x2b\x35\xd5\xb3\xb5\xcd\x54\x54\xec\xef\x47\x37\x3c\xd3\xaf\xac\xc0\x3c\x2d\x33\x63\xbe"));
-rcv($sock_b, $port_a, rtpm(0, 1003, 3000+160*3, $ssrc, "\x40\xe0\xb3\xad\xbd\x3f\x2c\x2f\x54\xbb\xb5\xc4\x6b\x5d\xde\xd9\x4e\x37\x35\x58\xb5\xab\xb4\x52\x2f\x2f\x47\xca\xbf\xd0\xfe\xd8\xc1\xc3\x57\x32\x2e\x40\xbc\xab\xb0\xe0\x39\x35\x46\xe3\xdb\x61\x5d\xcc\xb7\xb7\xe8\x33\x2b\x37\xcb\xae\xb0\xcb\x46\x3f\x50\x7e\x58\x41\x46\xcf\xb1\xae\xc6\x39\x2b\x31\x7d\xb7\xb5\xc8\x5d\x58\xe5\xe1\x4a\x37\x38\xf2\xb1\xab\xba\x44\x2e\x30\x4f\xc3\xbe\xd1\x7d\xd8\xc3\xc9\x4b\x30\x2f\x4c\xb6\xab\xb3\x61\x35\x35\x4b\xd8\xd6\x68\x68\xc8\xb7\xba\x5d\x30\x2c\x3c\xbf\xad\xb1\xd8\x40\x3e\x52\xfb\x58\x44\x4c\xc8\xb0\xb0\xd6\x34\x2b\x35\xd5\xb3\xb5\xcd\x54\x54\xec\xef\x47\x37\x3c\xd3\xaf\xac\xc0\x3c\x2d\x33\x63\xbe"));
+rcv($sock_b, $port_a, rtpm(0, 1003, 3000+160*3, 0x1234, "\x40\xe0\xb3\xad\xbd\x3f\x2c\x2f\x54\xbb\xb5\xc4\x6b\x5d\xde\xd9\x4e\x37\x35\x58\xb5\xab\xb4\x52\x2f\x2f\x47\xca\xbf\xd0\xfe\xd8\xc1\xc3\x57\x32\x2e\x40\xbc\xab\xb0\xe0\x39\x35\x46\xe3\xdb\x61\x5d\xcc\xb7\xb7\xe8\x33\x2b\x37\xcb\xae\xb0\xcb\x46\x3f\x50\x7e\x58\x41\x46\xcf\xb1\xae\xc6\x39\x2b\x31\x7d\xb7\xb5\xc8\x5d\x58\xe5\xe1\x4a\x37\x38\xf2\xb1\xab\xba\x44\x2e\x30\x4f\xc3\xbe\xd1\x7d\xd8\xc3\xc9\x4b\x30\x2f\x4c\xb6\xab\xb3\x61\x35\x35\x4b\xd8\xd6\x68\x68\xc8\xb7\xba\x5d\x30\x2c\x3c\xbf\xad\xb1\xd8\x40\x3e\x52\xfb\x58\x44\x4c\xc8\xb0\xb0\xd6\x34\x2b\x35\xd5\xb3\xb5\xcd\x54\x54\xec\xef\x47\x37\x3c\xd3\xaf\xac\xc0\x3c\x2d\x33\x63\xbe"));
 snd($sock_a, $port_b,  rtp(0, 1004, 3000+160*4, 0x1234, "\xbd\xd3\x77\xd9\xc5\xd0\x44\x30\x32\x65\xb2\xab\xb8\x4c\x32\x35\x50\xcf\xd2\x70\x7a\xc6\xb8\xbe\x4c\x2e\x2d\x45\xb9\xac\xb4\xfd\x3c\x3d\x55\xf2\x5a\x47\x56\xc1\xb0\xb4\x71\x30\x2b\x3a\xc7\xb0\xb6\xd7\x4d\x50\xf6\x78\x45\x38\x41\xc7\xae\xae\xcc\x37\x2c\x36\xe5\xbb\xbd\xd7\x6d\xdb\xc9\xdd\x3f\x30\x36\xdc\xae\xab\xbd\x41\x2f\x37\x5d\xcb\xcf\x7b\xef\xc4\xb9\xc6\x42\x2d\x2e\x55\xb4\xac\xb8\x58\x39\x3d\x59\xea\x5c\x4a\x66\xbd\xb0\xb8\x50\x2e\x2c\x40\xbd\xaf\xb8\xe8\x48\x4e\x7d\x6b\x43\x3a\x4a\xbf\xad\xaf\xe4\x32\x2c\x3a\xcf\xb8\xbd\xdc\x66\xde\xcc\xf5\x3c\x30\x3b\xca\xad\xac\xc6\x3b\x2e\x39\x7c\xc6\xcd\xfa\xe7\xc3\xbb\xce\x3c\x2d\x31\xf2"));
-rcv($sock_b, $port_a, rtpm(0, 1004, 3000+160*4, $ssrc, "\xbd\xd3\x77\xd9\xc5\xd0\x44\x30\x32\x65\xb2\xab\xb8\x4c\x32\x35\x50\xcf\xd2\x70\x7a\xc6\xb8\xbe\x4c\x2e\x2d\x45\xb9\xac\xb4\xfd\x3c\x3d\x55\xf2\x5a\x47\x56\xc1\xb0\xb4\x71\x30\x2b\x3a\xc7\xb0\xb6\xd7\x4d\x50\xf6\x78\x45\x38\x41\xc7\xae\xae\xcc\x37\x2c\x36\xe5\xbb\xbd\xd7\x6d\xdb\xc9\xdd\x3f\x30\x36\xdc\xae\xab\xbd\x41\x2f\x37\x5d\xcb\xcf\x7b\xef\xc4\xb9\xc6\x42\x2d\x2e\x55\xb4\xac\xb8\x58\x39\x3d\x59\xea\x5c\x4a\x66\xbd\xb0\xb8\x50\x2e\x2c\x40\xbd\xaf\xb8\xe8\x48\x4e\x7d\x6b\x43\x3a\x4a\xbf\xad\xaf\xe4\x32\x2c\x3a\xcf\xb8\xbd\xdc\x66\xde\xcc\xf5\x3c\x30\x3b\xca\xad\xac\xc6\x3b\x2e\x39\x7c\xc6\xcd\xfa\xe7\xc3\xbb\xce\x3c\x2d\x31\xf2"));
+rcv($sock_b, $port_a, rtpm(0, 1004, 3000+160*4, 0x1234, "\xbd\xd3\x77\xd9\xc5\xd0\x44\x30\x32\x65\xb2\xab\xb8\x4c\x32\x35\x50\xcf\xd2\x70\x7a\xc6\xb8\xbe\x4c\x2e\x2d\x45\xb9\xac\xb4\xfd\x3c\x3d\x55\xf2\x5a\x47\x56\xc1\xb0\xb4\x71\x30\x2b\x3a\xc7\xb0\xb6\xd7\x4d\x50\xf6\x78\x45\x38\x41\xc7\xae\xae\xcc\x37\x2c\x36\xe5\xbb\xbd\xd7\x6d\xdb\xc9\xdd\x3f\x30\x36\xdc\xae\xab\xbd\x41\x2f\x37\x5d\xcb\xcf\x7b\xef\xc4\xb9\xc6\x42\x2d\x2e\x55\xb4\xac\xb8\x58\x39\x3d\x59\xea\x5c\x4a\x66\xbd\xb0\xb8\x50\x2e\x2c\x40\xbd\xaf\xb8\xe8\x48\x4e\x7d\x6b\x43\x3a\x4a\xbf\xad\xaf\xe4\x32\x2c\x3a\xcf\xb8\xbd\xdc\x66\xde\xcc\xf5\x3c\x30\x3b\xca\xad\xac\xc6\x3b\x2e\x39\x7c\xc6\xcd\xfa\xe7\xc3\xbb\xce\x3c\x2d\x31\xf2"));
 snd($sock_a, $port_b,  rtp(0, 1005, 3000+160*5, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1005, 3000+160*5, $ssrc, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1005, 3000+160*5, 0x1234, "\x00" x 160));
 snd($sock_a, $port_b,  rtp(0, 1006, 3000+160*6, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1006, 3000+160*6, $ssrc, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1006, 3000+160*6, 0x1234, "\x00" x 160));
 snd($sock_a, $port_b,  rtp(101 | 0x80, 1007, 3000+160*7, 0x1234, "\x08\x10\x00\xa0"));
-rcv($sock_b, $port_a, rtpm(101 | 0x80, 1007, 3000+160*7, $ssrc, "\x08\x10\x00\xa0"));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1007, 3000+160*7, 0x1234, "\x08\x10\x00\xa0"));
 
 snd($sock_b, $port_a,  rtp(0, 1000, 3000, 0x3456, "\x00" x 160));
 ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 1000, 3000, -1, "\x00" x 160));
