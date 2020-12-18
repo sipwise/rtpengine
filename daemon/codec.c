@@ -100,6 +100,7 @@ struct codec_ssrc_handler {
 	int ptime;
 	int bytes_per_packet;
 	unsigned long first_ts; // for output TS scaling
+	unsigned long last_ts; // to detect input lag and handle lost packets
 	unsigned long ts_in; // for DTMF dupe detection
 	struct timeval first_send;
 	unsigned long first_send_ts;
@@ -1676,7 +1677,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 	packet->p.seq = ntohs(mp->rtp->seq_num);
 	packet->payload = str_dup(&mp->payload);
-	packet->ts = ntohl(mp->rtp->timestamp);
+	uint32_t packet_ts = ntohl(mp->rtp->timestamp);
+	packet->ts = packet_ts;
 	packet->marker = (mp->rtp->m_pt & 0x80) ? 1 : 0;
 
 	// how should we retrieve packets from the sequencer?
@@ -1707,8 +1709,24 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		int func_ret = 0;
 
 		packet = seq_next_packet(&ssrc_in_p->sequencer);
-		if (G_UNLIKELY(!packet))
-			break;
+		if (G_UNLIKELY(!packet)) {
+			if (!ch->encoder_format.clockrate || !ch->handler || !ch->handler->dest_pt.codec_def)
+				break;
+
+			uint32_t ts_diff = packet_ts - ch->last_ts;
+			unsigned long long ts_diff_us =
+				(unsigned long long) ts_diff * 1000000 / ch->encoder_format.clockrate
+				* ch->handler->dest_pt.codec_def->clockrate_mult;
+			if (ts_diff_us >= 60000)  { // arbitrary value
+				packet = packet_sequencer_force_next_packet(&ssrc_in_p->sequencer);
+				if (!packet)
+					break;
+				ilog(LOG_DEBUG, "Timestamp difference too large (%llu ms) after lost packet, "
+						"forcing next packet", ts_diff_us / 1000);
+			}
+			else
+				break;
+		}
 
 		h = packet->handler;
 		obj_put(&ch->h);
@@ -2766,6 +2784,7 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 
 	if (!ch->first_ts)
 		ch->first_ts = packet->ts;
+	ch->last_ts = packet->ts;
 
 	if (ch->dtx_buffer && mp->sfd && mp->ssrc_in && mp->ssrc_out) {
 		ilog(LOG_DEBUG, "Adding packet to DTX buffer");
