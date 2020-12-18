@@ -103,6 +103,7 @@ struct codec_ssrc_handler {
 	unsigned long ts_in; // for DTMF dupe detection
 	struct timeval first_send;
 	unsigned long first_send_ts;
+	unsigned long output_skew;
 	GString *sample_buffer;
 	struct dtx_buffer *dtx_buffer;
 
@@ -1804,6 +1805,16 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 
 	unsigned long long ts_diff_us
 		= timeval_diff(&p->ttq_entry.when, &rtpe_now);
+
+	ch->output_skew = ch->output_skew * 15 / 16 + ts_diff_us / 16;
+	if (ch->output_skew > 40000 && ts_diff_us > 10000) { // arbitrary value, 40 ms, 10 ms shift
+		ilog(LOG_DEBUG, "Steady clock skew of %lu.%01lu ms detected, shifting send timer back by 10 ms",
+			ch->output_skew / 1000,
+			(ch->output_skew % 1000) / 100);
+		timeval_add_usec(&p->ttq_entry.when, -10000);
+		ch->output_skew -= 10000;
+		ch->first_send_ts += ch->encoder_format.clockrate / 100;
+	}
 
 	ilog(LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %llu.%01llu ms (at %lu.%06lu)",
 			ntohs(rh->seq_num),
