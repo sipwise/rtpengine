@@ -3252,7 +3252,23 @@ void codec_tracker_finish(struct call_media *media) {
 				continue;
 			pt->for_transcoding = 1;
 
+			// there should be an existing entry with a different clock rate
+			GQueue *existing_pts = g_hash_table_lookup(media->codec_names_recv, &pt->encoding);
+			struct rtp_payload_type *existing_pt = NULL;
+			if (existing_pts && existing_pts->length) {
+				int pt_num = GPOINTER_TO_UINT(existing_pts->head->data);
+				existing_pt = g_hash_table_lookup(media->codecs_recv, &pt_num);
+			}
+			struct codec_handler *existing_handler = existing_pt ? codec_handler_get(media, existing_pt->payload_type) : NULL;
+
 			__rtp_payload_type_add_recv(media, pt, 1);
+
+			if (existing_pt && existing_handler) {
+				// since this happens after we ran through the codec matchup, we must create the appropriate handler here
+				struct codec_handler *handler = __get_pt_handler(media, pt);
+				// duplicate the codec handler of the existing PT
+				__make_transcoder(handler, &existing_handler->dest_pt, NULL, existing_handler->dtmf_payload_type, 0);
+			}
 
 			g_free(pt_s);
 		}
