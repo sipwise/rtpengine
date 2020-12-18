@@ -1801,9 +1801,15 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		p->ttq_entry.when = ch->first_send = rtpe_now;
 		ch->first_send_ts = ts;
 	}
-	ilog(LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) at %lu.%06lu",
+
+	unsigned long long ts_diff_us
+		= timeval_diff(&p->ttq_entry.when, &rtpe_now);
+
+	ilog(LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %llu.%01llu ms (at %lu.%06lu)",
 			ntohs(rh->seq_num),
 			ts,
+			ts_diff_us / 1000,
+			(ts_diff_us % 1000) / 100,
 			(long unsigned) p->ttq_entry.when.tv_sec,
 			(long unsigned) p->ttq_entry.when.tv_usec);
 
