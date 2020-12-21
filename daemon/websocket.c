@@ -163,20 +163,21 @@ static const char *websocket_echo_process(struct websocket_message *wm) {
 
 
 static void websocket_message_push(struct websocket_conn *wc, websocket_message_func_t func) {
-	struct websocket_message *wm = wc->wm;
-	assert(wm != NULL);
-
 	ilog(LOG_DEBUG, "Adding HTTP/WS message to processing queue");
 
+	mutex_lock(&wc->lock);
+
+	struct websocket_message *wm = wc->wm;
+	assert(wm != NULL);
 	wm->func = func;
 
-	mutex_lock(&wc->lock);
 	g_queue_push_tail(&wc->messages, wm);
 	wc->jobs++;
 	g_thread_pool_push(websocket_threads, wc, NULL);
-	mutex_unlock(&wc->lock);
 
 	wc->wm = websocket_message_new(wc);
+
+	mutex_unlock(&wc->lock);
 }
 
 
