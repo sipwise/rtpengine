@@ -71,6 +71,7 @@ struct recording_method {
 	void (*sdp_after)(struct recording *, GString *, struct call_monologue *,
 			enum call_opmode);
 	void (*meta_chunk)(struct recording *, const char *, const str *);
+	void (*update_flags)(struct call *call);
 
 	void (*dump_packet)(struct media_packet *, const str *s);
 	void (*finish)(struct call *);

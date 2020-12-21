@@ -52,6 +52,7 @@ static void proc_init(struct call *);
 static void sdp_before_proc(struct recording *, const str *, struct call_monologue *, enum call_opmode);
 static void sdp_after_proc(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void meta_chunk_proc(struct recording *, const char *, const str *);
+static void update_flags_proc(struct call *call);
 static void finish_proc(struct call *);
 static void dump_packet_proc(struct media_packet *mp, const str *s);
 static void init_stream_proc(struct packet_stream *);
@@ -85,6 +86,7 @@ static const struct recording_method methods[] = {
 		.sdp_before = sdp_before_proc,
 		.sdp_after = sdp_after_proc,
 		.meta_chunk = meta_chunk_proc,
+		.update_flags = update_flags_proc,
 		.dump_packet = dump_packet_proc,
 		.finish = finish_proc,
 		.init_stream_struct = init_stream_proc,
@@ -243,7 +245,7 @@ static void update_metadata(struct call *call, str *metadata) {
 }
 
 // lock must be held
-static void recording_update_flags(struct call *call) {
+static void update_flags_proc(struct call *call) {
 	append_meta_chunk_null(call->recording, "RECORDING %u", call->recording_on ? 1 : 0);
 	append_meta_chunk_null(call->recording, "FORWARDING %u", call->rec_forwarding ? 1 : 0);
 	for (GList *l = call->streams.head; l; l = l->next) {
@@ -251,6 +253,9 @@ static void recording_update_flags(struct call *call) {
 		append_meta_chunk_null(call->recording, "STREAM %u FORWARDING %u",
 				ps->unique_id, ps->media->monologue->rec_forwarding ? 1 : 0);
 	}
+}
+static void recording_update_flags(struct call *call) {
+	_rm(update_flags, call);
 }
 
 // lock must be held
