@@ -85,14 +85,14 @@ struct recording_method {
 
 extern const struct recording_method *selected_recording_method;
 
-#define _rm_ret(call, args...) selected_recording_method->call(args)
-#define _rm(call, args...) do { \
-		if (selected_recording_method && selected_recording_method->call) \
-			selected_recording_method->call(args); \
+#define _rm_ret(method, args...) selected_recording_method->method(args)
+#define _rm(method, args...) do { \
+		if (selected_recording_method && selected_recording_method->method) \
+			selected_recording_method->method(args); \
 	} while (0)
-#define _rm_chk(call, recording, ...) do { \
+#define _rm_chk(method, recording, ...) do { \
 		if (recording) \
-			_rm(call, recording, ##__VA_ARGS__); \
+			_rm(method, recording, ##__VA_ARGS__); \
 	} while (0)
 
 
