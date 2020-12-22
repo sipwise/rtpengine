@@ -697,6 +697,8 @@ next:
 	kill_calls_timer(hlp.del_scheduled, NULL);
 	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);
 
+	call_interfaces_timer();
+
 	struct timeval tv_stop;
 	gettimeofday(&tv_stop, NULL);
 	long long duration = timeval_diff(&tv_stop, &tv_start);
@@ -2109,6 +2111,10 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		if (flags && flags->fragment) {
 			// trickle ICE SDP fragment. don't do anything other than update
 			// the ICE stuff.
+			if (!MEDIA_ISSET(other_media, TRICKLE_ICE))
+				return ERROR_NO_ICE_AGENT;
+			if (!other_media->ice_agent)
+				return ERROR_NO_ICE_AGENT;
 			ice_update(other_media->ice_agent, sp);
 			continue;
 		}

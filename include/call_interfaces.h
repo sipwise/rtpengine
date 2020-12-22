@@ -160,6 +160,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 
 int call_interfaces_init(void);
 void call_interfaces_free(void);
+void call_interfaces_timer(void);
 
 
 #endif
