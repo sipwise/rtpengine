@@ -134,10 +134,15 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 	return cur;
 }
 
+static void __ng_buffer_free(void *p) {
+	struct ng_buffer *ngbuf = p;
+	bencode_buffer_free(&ngbuf->buffer);
+}
+
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1)
 {
-	bencode_buffer_t bencbuf;
+	struct ng_buffer *ngbuf;
 	bencode_item_t *dict, *resp;
 	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
 	const char *errstr, *resultstr;
@@ -154,10 +159,14 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		return funcret;
 	}
 
-	int ret = bencode_buffer_init(&bencbuf);
+	ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
+	mutex_init(&ngbuf->lock);
+	mutex_lock(&ngbuf->lock);
+
+	int ret = bencode_buffer_init(&ngbuf->buffer);
 	assert(ret == 0);
 	(void) ret;
-	resp = bencode_dictionary(&bencbuf);
+	resp = bencode_dictionary(&ngbuf->buffer);
 	assert(resp != NULL);
 
 	cookie = *buf;
@@ -176,7 +185,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		goto send_only;
 	}
 
-	dict = bencode_decode_expect_str(&bencbuf, &data, BENCODE_DICTIONARY);
+	dict = bencode_decode_expect_str(&ngbuf->buffer, &data, BENCODE_DICTIONARY);
 	errstr = "Could not decode dictionary";
 	if (!dict)
 		goto err_send;
@@ -213,11 +222,11 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 			command = NGC_PING;
 			break;
 		case CSH_LOOKUP("offer"):
-			errstr = call_offer_ng(dict, resp, addr, sin);
+			errstr = call_offer_ng(ngbuf, dict, resp, addr, sin);
 			command = NGC_OFFER;
 			break;
 		case CSH_LOOKUP("answer"):
-			errstr = call_answer_ng(dict, resp);
+			errstr = call_answer_ng(ngbuf, dict, resp);
 			command = NGC_ANSWER;
 			break;
 		case CSH_LOOKUP("delete"):
@@ -345,7 +354,7 @@ send_resp:
 		ilogs(control, LOG_INFO, "Replying to '"STR_FORMAT"' from %s (elapsed time %llu.%06llu sec)", STR_FMT(&cmd), addr, (unsigned long long)cmd_process_time.tv_sec, (unsigned long long)cmd_process_time.tv_usec);
 
 		if (get_log_level(control) >= LOG_DEBUG) {
-			dict = bencode_decode_expect_str(&bencbuf, to_send, BENCODE_DICTIONARY);
+			dict = bencode_decode_expect_str(&ngbuf->buffer, to_send, BENCODE_DICTIONARY);
 			if (dict) {
 				log_str = g_string_sized_new(256);
 				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
@@ -371,7 +380,7 @@ send_only:
 	goto out;
 
 out:
-	bencode_buffer_free(&bencbuf);
+	ng_buffer_release(ngbuf);
 	log_info_clear();
 	return funcret;
 }

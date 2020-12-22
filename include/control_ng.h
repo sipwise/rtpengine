@@ -5,6 +5,7 @@
 #include "udp_listener.h"
 #include "socket.h"
 #include "str.h"
+#include "bencode.h"
 
 
 struct poller;
@@ -50,6 +51,12 @@ struct control_ng {
 	struct poller *poller;
 };
 
+struct ng_buffer {
+	struct obj obj;
+	mutex_t lock;
+	bencode_buffer_t buffer;
+};
+
 extern const char *ng_command_strings[NGC_COUNT];
 extern const char *ng_command_strings_short[NGC_COUNT];
 
@@ -58,6 +65,11 @@ void control_ng_init(void);
 void control_ng_cleanup(void);
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1);
+
+INLINE void ng_buffer_release(struct ng_buffer *ngbuf) {
+	mutex_unlock(&ngbuf->lock);
+	obj_put(ngbuf);
+}
 
 extern mutex_t rtpe_cngs_lock;
 extern GHashTable *rtpe_cngs_hash;

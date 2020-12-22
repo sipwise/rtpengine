@@ -15,6 +15,7 @@ struct call;
 struct call_stats;
 struct streambuf_stream;
 struct sockaddr_in6;
+struct ng_buffer;
 
 struct sdp_ng_flags {
 	enum call_opmode opmode;
@@ -137,9 +138,9 @@ str *call_lookup_udp(char **);
 str *call_delete_udp(char **);
 str *call_query_udp(char **);
 
-const char *call_offer_ng(bencode_item_t *, bencode_item_t *, const char*,
+const char *call_offer_ng(struct ng_buffer *, bencode_item_t *, bencode_item_t *, const char*,
 		const endpoint_t *);
-const char *call_answer_ng(bencode_item_t *, bencode_item_t *);
+const char *call_answer_ng(struct ng_buffer *, bencode_item_t *, bencode_item_t *);
 const char *call_delete_ng(bencode_item_t *, bencode_item_t *);
 const char *call_query_ng(bencode_item_t *, bencode_item_t *);
 const char *call_list_ng(bencode_item_t *, bencode_item_t *);

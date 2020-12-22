@@ -1169,7 +1169,7 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 	return ret;
 }
 
-static const char *call_offer_answer_ng(bencode_item_t *input,
+static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *input,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
@@ -1339,14 +1339,15 @@ out:
 	return errstr;
 }
 
-const char *call_offer_ng(bencode_item_t *input, bencode_item_t *output, const char* addr,
+const char *call_offer_ng(struct ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output,
+		const char* addr,
 		const endpoint_t *sin)
 {
-	return call_offer_answer_ng(input, output, OP_OFFER, addr, sin);
+	return call_offer_answer_ng(ngbuf, input, output, OP_OFFER, addr, sin);
 }
 
-const char *call_answer_ng(bencode_item_t *input, bencode_item_t *output) {
-	return call_offer_answer_ng(input, output, OP_ANSWER, NULL, NULL);
+const char *call_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output) {
+	return call_offer_answer_ng(ngbuf, input, output, OP_ANSWER, NULL, NULL);
 }
 
 const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
