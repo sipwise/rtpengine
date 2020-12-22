@@ -1502,7 +1502,8 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			sp->index = ++num;
 
 			errstr = "No address info found for stream";
-			if (fill_endpoint(&sp->rtp_endpoint, media, flags, NULL, media->port_num))
+			if (!flags->fragment
+					&& fill_endpoint(&sp->rtp_endpoint, media, flags, NULL, media->port_num))
 				goto error;
 
 			sp->consecutive_ports = media->port_count;
