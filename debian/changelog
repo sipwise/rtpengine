@@ -1,3 +1,17 @@
+ngcp-rtpengine (8.2.1.5+0~mr8.2.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5fd8519] TT#79351 detect and fix payload type collisions
+  * [fe325ab] TT#81600 fix SRTP when transcoding/DTMF injection is in use
+  * [9d9faea] TT#104400 support kernels >= 5.9.9
+  * [0d695f2] TT#104400 further update for kernels >= 4.19.158
+  * [c07724f] TT#104400 further update for kernels >= 4.19.158
+
+  [ timando ]
+  * [30ea97c] TT#104400 Update xt_RTPENGINE.c
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 23 Dec 2020 21:27:54 +0100
+
 ngcp-rtpengine (8.2.1.4+0~mr8.2.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
