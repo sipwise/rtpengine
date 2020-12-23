@@ -28,17 +28,17 @@ static void udp_listener_closed(int fd, void *p, uintptr_t x) {
 static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 	struct udp_listener_callback *cb = p;
 	int len;
-	char buf[0x10000];
-	char addr[64];
-	str str;
-	socket_t *listener;
-	endpoint_t sin;
-
-	str.s = buf;
-	listener = cb->ul;
+	struct udp_buffer *udp_buf = NULL;
 
 	for (;;) {
-		len = socket_recvfrom(listener, buf, sizeof(buf)-1, &sin);
+		if (!udp_buf) {
+			// initialise if we need to
+			udp_buf = obj_alloc0("udp_buffer", sizeof(*udp_buf), NULL);
+			udp_buf->str.s = udp_buf->buf + RTP_BUFFER_HEAD_ROOM;
+			udp_buf->listener = cb->ul;
+		}
+
+		len = socket_recvfrom(udp_buf->listener, udp_buf->str.s, MAX_UDP_LENGTH, &udp_buf->sin);
 		if (len < 0) {
 			if (errno == EINTR)
 				continue;
@@ -47,11 +47,19 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 			return;
 		}
 
-		buf[len] = '\0';
-		endpoint_print(&sin, addr, sizeof(addr));
+		udp_buf->str.s[len] = '\0';
+		endpoint_print(&udp_buf->sin, udp_buf->addr, sizeof(udp_buf->addr));
 
-		str.len = len;
-		cb->func(cb->p, &str, &sin, addr, listener);
+		udp_buf->str.len = len;
+		cb->func(cb->p, udp_buf);
+
+		// we can re-use the object if only one reference (ours) is left. this is not
+		// totally race-free, but in the worst case we end up re-allocating another
+		// new object when we didn't need to.
+		if (udp_buf->obj.ref != 1) {
+			obj_put(udp_buf);
+			udp_buf = NULL;
+		}
 	}
 }
 

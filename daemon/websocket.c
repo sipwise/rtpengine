@@ -37,6 +37,14 @@ struct websocket_conn {
 	GQueue output_q;
 };
 
+struct websocket_ng_buf {
+	struct obj obj;
+	GString *body;
+	char addr[64];
+	str cmd;
+	endpoint_t endpoint;
+};
+
 
 static GQueue websocket_vhost_configs;
 static struct lws_context *websocket_context;
@@ -414,32 +422,48 @@ static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin
 	websocket_queue_raw(wc, body->s, body->len);
 	websocket_write_http(wc, NULL, 1);
 }
+
+static void __ng_buf_free(void *p) {
+	struct websocket_ng_buf *buf = p;
+	g_string_free(buf->body, TRUE);
+}
+
 static const char *websocket_ng_process(struct websocket_message *wm) {
-	char addr[64];
-	endpoint_print(&wm->wc->endpoint, addr, sizeof(addr));
+	struct websocket_ng_buf *buf = obj_alloc0("websocket_ng_buf", sizeof(*buf), __ng_buf_free);
 
-	ilogs(http, LOG_DEBUG, "Processing websocket NG req from %s", addr);
+	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
 
-	str cmd;
-	str_init_len(&cmd, wm->body->str, wm->body->len);
+	ilogs(http, LOG_DEBUG, "Processing websocket NG req from %s", buf->addr);
 
-	control_ng_process(&cmd, &wm->wc->endpoint, addr, websocket_ng_send_ws, wm->wc);
+	// steal body and initialise
+	buf->body = wm->body;
+	wm->body = g_string_new("");
+	str_init_len(&buf->cmd, buf->body->str, buf->body->len);
+	buf->endpoint = wm->wc->endpoint;
+
+	control_ng_process(&buf->cmd, &buf->endpoint, buf->addr, websocket_ng_send_ws, wm->wc, &buf->obj);
+
+	obj_put(buf);
 
 	return NULL;
 }
 static const char *websocket_http_ng(struct websocket_message *wm) {
-	char addr[64];
+	struct websocket_ng_buf *buf = obj_alloc0("websocket_ng_buf", sizeof(*buf), __ng_buf_free);
 
-	endpoint_print(&wm->wc->endpoint, addr, sizeof(addr));
+	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
 
-	ilogs(http, LOG_DEBUG, "Respoding to POST /ng from %s", addr);
+	ilogs(http, LOG_DEBUG, "Respoding to POST /ng from %s", buf->addr);
 
-	str cmd;
-	str_init_len(&cmd, wm->body->str, wm->body->len);
+	// steal body and initialise
+	buf->body = wm->body;
+	wm->body = g_string_new("");
+	str_init_len(&buf->cmd, buf->body->str, buf->body->len);
+	buf->endpoint = wm->wc->endpoint;
 
-	if (control_ng_process(&cmd, &wm->wc->endpoint, addr, websocket_ng_send_http, wm->wc))
+	if (control_ng_process(&buf->cmd, &buf->endpoint, buf->addr, websocket_ng_send_http, wm->wc, &buf->obj))
 		websocket_http_complete(wm->wc, 600, "text/plain", 6, "error\n");
 
+	obj_put(buf);
 
 	return NULL;
 }

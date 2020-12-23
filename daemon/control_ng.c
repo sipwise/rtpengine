@@ -137,10 +137,12 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 static void __ng_buffer_free(void *p) {
 	struct ng_buffer *ngbuf = p;
 	bencode_buffer_free(&ngbuf->buffer);
+	if (ngbuf->ref)
+		__obj_put(ngbuf->ref);
 }
 
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
-		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1)
+		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *ref)
 {
 	struct ng_buffer *ngbuf;
 	bencode_item_t *dict, *resp;
@@ -159,9 +161,12 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		return funcret;
 	}
 
+	// init decode buffer object
 	ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
 	mutex_init(&ngbuf->lock);
 	mutex_lock(&ngbuf->lock);
+	if (ref)
+		ngbuf->ref = __obj_get(ref); // hold until we're done
 
 	int ret = bencode_buffer_init(&ngbuf->buffer);
 	assert(ret == 0);
@@ -404,10 +409,10 @@ static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, void 
 }
 
 
-static void control_ng_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
-		socket_t *ul)
+static void control_ng_incoming(struct obj *obj, struct udp_buffer *udp_buf)
 {
-	control_ng_process(buf, sin, addr, control_ng_send, ul);
+	control_ng_process(&udp_buf->str, &udp_buf->sin, udp_buf->addr, control_ng_send, udp_buf->listener,
+			&udp_buf->obj);
 }
 
 

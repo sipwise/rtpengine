@@ -55,6 +55,7 @@ struct ng_buffer {
 	struct obj obj;
 	mutex_t lock;
 	bencode_buffer_t buffer;
+	struct obj *ref;
 };
 
 extern const char *ng_command_strings[NGC_COUNT];
@@ -64,7 +65,7 @@ struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
 void control_ng_init(void);
 void control_ng_cleanup(void);
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
-		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1);
+		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *);
 
 INLINE void ng_buffer_release(struct ng_buffer *ngbuf) {
 	mutex_unlock(&ngbuf->lock);

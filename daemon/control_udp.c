@@ -21,8 +21,7 @@
 #include "log_funcs.h"
 
 
-static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *sin, char *addr,
-		socket_t *ul) {
+static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 	struct control_udp *u = (void *) obj;
 	int ret;
 	int ovec[100];
@@ -31,17 +30,17 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 	unsigned int iovlen;
 	str cookie, *reply;
 
-	ret = pcre_exec(u->parse_re, u->parse_ree, buf->s, buf->len, 0, 0, ovec, G_N_ELEMENTS(ovec));
+	ret = pcre_exec(u->parse_re, u->parse_ree, udp_buf->str.s, udp_buf->str.len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
-		ret = pcre_exec(u->fallback_re, NULL, buf->s, buf->len, 0, 0, ovec, G_N_ELEMENTS(ovec));
+		ret = pcre_exec(u->fallback_re, NULL, udp_buf->str.s, udp_buf->str.len, 0, 0, ovec, G_N_ELEMENTS(ovec));
 		if (ret <= 0) {
-			ilogs(control, LOG_WARNING, "Unable to parse command line from udp:%s: %.*s", addr, STR_FMT(buf));
+			ilogs(control, LOG_WARNING, "Unable to parse command line from udp:%s: %.*s", udp_buf->addr, STR_FMT(&udp_buf->str));
 			return;
 		}
 
-		ilogs(control, LOG_WARNING, "Failed to properly parse UDP command line '%.*s' from %s, using fallback RE", STR_FMT(buf), addr);
+		ilogs(control, LOG_WARNING, "Failed to properly parse UDP command line '%.*s' from %s, using fallback RE", STR_FMT(&udp_buf->str), udp_buf->addr);
 
-		pcre_get_substring_list(buf->s, ovec, ret, (const char ***) &out);
+		pcre_get_substring_list(udp_buf->str.s, ovec, ret, (const char ***) &out);
 
 		iov[0].iov_base = (void *) out[RE_UDP_COOKIE];
 		iov[0].iov_len = strlen(out[RE_UDP_COOKIE]);
@@ -60,22 +59,22 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iovlen = 2;
 		}
 
-		socket_sendiov(ul, iov, iovlen, sin);
+		socket_sendiov(udp_buf->listener, iov, iovlen, &udp_buf->sin);
 
 		pcre_free(out);
 
 		return;
 	}
 
-	ilogs(control, LOG_INFO, "Got valid command from udp:%s: %.*s", addr, STR_FMT(buf));
+	ilogs(control, LOG_INFO, "Got valid command from udp:%s: %.*s", udp_buf->addr, STR_FMT(&udp_buf->str));
 
-	pcre_get_substring_list(buf->s, ovec, ret, (const char ***) &out);
+	pcre_get_substring_list(udp_buf->str.s, ovec, ret, (const char ***) &out);
 
 	str_init(&cookie, (void *) out[RE_UDP_COOKIE]);
 	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
 	if (reply) {
-		ilogs(control, LOG_INFO, "Detected command from udp:%s as a duplicate", addr);
-		socket_sendto(ul, reply->s, reply->len, sin);
+		ilogs(control, LOG_INFO, "Detected command from udp:%s as a duplicate", udp_buf->addr);
+		socket_sendto(udp_buf->listener, reply->s, reply->len, &udp_buf->sin);
 		free(reply);
 		goto out;
 	}
@@ -86,7 +85,7 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 		log_info_c_string(out[RE_UDP_DQ_CALLID]);
 
 	if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'U')
-		reply = call_update_udp(out, addr, sin);
+		reply = call_update_udp(out, udp_buf->addr, &udp_buf->sin);
 	else if (chrtoupper(out[RE_UDP_UL_CMD][0]) == 'L')
 		reply = call_lookup_udp(out);
 	else if (chrtoupper(out[RE_UDP_DQ_CMD][0]) == 'D')
@@ -118,11 +117,11 @@ static void control_udp_incoming(struct obj *obj, str *buf, const endpoint_t *si
 			iov[2].iov_len = 9;
 			iovlen++;
 		}
-		socket_sendiov(ul, iov, iovlen, sin);
+		socket_sendiov(udp_buf->listener, iov, iovlen, &udp_buf->sin);
 	}
 
 	if (reply) {
-		socket_sendto(ul, reply->s, reply->len, sin);
+		socket_sendto(udp_buf->listener, reply->s, reply->len, &udp_buf->sin);
 		cookie_cache_insert(&u->cookie_cache, &cookie, reply);
 		free(reply);
 	}

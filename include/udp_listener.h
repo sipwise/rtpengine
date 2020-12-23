@@ -5,12 +5,23 @@
 #include "poller.h"
 #include "str.h"
 #include "socket.h"
+#include "obj.h"
+#include "call.h"
 
+#define MAX_UDP_LENGTH 0xffff
 
 struct poller;
-struct obj;
 
-typedef void (*udp_listener_callback_t)(struct obj *p, str *buf, const endpoint_t *ep, char *addr, socket_t *);
+struct udp_buffer {
+	struct obj obj;
+	char buf[MAX_UDP_LENGTH + RTP_BUFFER_TAIL_ROOM + RTP_BUFFER_HEAD_ROOM + 1];
+	str str;
+	endpoint_t sin;
+	char addr[64];
+	socket_t *listener;
+};
+
+typedef void (*udp_listener_callback_t)(struct obj *p, struct udp_buffer *);
 
 int udp_listener_init(socket_t *, struct poller *p, const endpoint_t *, udp_listener_callback_t, struct obj *);
 
