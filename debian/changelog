@@ -1,3 +1,15 @@
+ngcp-rtpengine (8.2.2.3+0~mr8.2.2.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [dff259d] TT#104400 support kernels >= 5.9.9
+  * [b2b75fe] TT#104400 further update for kernels >= 4.19.158
+  * [e89c64a] TT#104400 further update for kernels >= 4.19.158
+
+  [ timando ]
+  * [29bcedf] TT#104400 Update xt_RTPENGINE.c
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 23 Dec 2020 21:27:49 +0100
+
 ngcp-rtpengine (8.2.2.2+0~mr8.2.2.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
