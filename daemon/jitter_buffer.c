@@ -4,6 +4,7 @@
 #include "call.h"
 #include "codec.h"
 #include "main.h"
+#include "rtcplib.h"
 #include <math.h>
 #include <errno.h>
 
@@ -233,7 +234,7 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	rwlock_lock_r(&call->master_lock);
 
 	struct jitter_buffer *jb = mp->stream->jb;
-	if (!jb || jb->disabled || PS_ISSET(mp->sfd->stream, RTCP))
+	if (!jb || jb->disabled || !PS_ISSET(mp->sfd->stream, RTP))
 		goto end;
 
 	if(jb->initial_pkts < INITIAL_PACKETS) { //Ignore initial Payload Type 126 if any
@@ -245,8 +246,13 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	if (!p)
 		goto end;
 
-	ilog(LOG_DEBUG, "Handling JB packet on: %s:%d", sockaddr_print_buf(&mp->stream->endpoint.address),
-			mp->stream->endpoint.port);
+        if (PS_ISSET(mp->sfd->stream, RTCP) && rtcp_demux_is_rtcp((void *) &p->mp.raw)){
+            ilog(LOG_DEBUG, "Discarding from JB. This is RTCP packet. SSRC %u Payload %d", ntohl(p->mp.rtp->ssrc), (p->mp.rtp->m_pt & 0x7f));
+            goto end;
+        }
+	
+	ilog(LOG_DEBUG, "Handling JB packet on: %s:%d (RTP SSRC %u Payload: %d)", sockaddr_print_buf(&mp->stream->endpoint.address),
+            mp->stream->endpoint.port, ntohl(p->mp.rtp->ssrc), (p->mp.rtp->m_pt & 0x7f));
 
 	mp = &p->mp;
 
