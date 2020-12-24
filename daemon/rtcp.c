@@ -1395,7 +1395,10 @@ void rtcp_init() {
 
 
 
-GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32_t octets, GQueue *rrs) {
+static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
+		uint32_t ssrc, uint32_t ssrc_out, uint32_t ts, uint32_t packets, uint32_t octets, GQueue *rrs,
+		GQueue *srrs)
+{
 	GString *ret = g_string_sized_new(128);
 	g_string_set_size(ret, sizeof(struct sender_report_packet));
 	struct sender_report_packet *sr = (void *) ret->str;
@@ -1410,6 +1413,16 @@ GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32
 		.packet_count = htonl(packets),
 		.octet_count = htonl(octets),
 	};
+	if (ssr) {
+		*ssr = (struct ssrc_sender_report) {
+			.ssrc = ssrc_out,
+			.ntp_msw = rtpe_now.tv_sec + 2208988800,
+			.ntp_lsw = (4294967295ULL * rtpe_now.tv_usec) / 1000000ULL,
+			.timestamp = ts, // XXX calculate from rtpe_now instead
+			.packet_count = packets,
+			.octet_count = octets,
+		};
+	}
 
 	// receiver reports
 	int i = 0, n = 0;
@@ -1448,6 +1461,22 @@ GString *rtcp_sender_report(uint32_t ssrc, uint32_t ts, uint32_t packets, uint32
 				.dlsr = htonl(tv_diff * 65536 / 1000000),
 				.jitter = htonl(jitter >> 4),
 			};
+
+			if (srrs) {
+				struct ssrc_receiver_report *srr = g_slice_alloc(sizeof(*srr));
+				*srr = (struct ssrc_receiver_report) {
+					.from = ssrc_out,
+					.ssrc = s->ssrc_map_out ? : s->parent->h.ssrc,
+					.fraction_lost = lost * 256 / (tot + lost),
+					.packets_lost = lost,
+					.high_seq_received = atomic64_get(&s->last_seq),
+					.lsr = ntp_middle_bits,
+					.dlsr = tv_diff * 65536 / 1000000,
+					.jitter = jitter >> 4,
+				};
+				g_queue_push_tail(srrs, srr);
+			}
+
 			n++;
 		}
 		ssrc_ctx_put(&s);
@@ -1523,6 +1552,12 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 			ps = next_ps;
 	}
 
+	struct call_media *other_media = NULL;
+	if (ps->rtp_sink)
+		other_media = ps->rtp_sink->media;
+	else if (ps->rtcp_sink)
+		other_media = ps->rtcp_sink->media;
+
 	log_info_stream_fd(ps->selected_sfd);
 
 	GQueue rrs = G_QUEUE_INIT;
@@ -1531,14 +1566,27 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	ilog(LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
 			ssrc_out->parent->h.ssrc, rrs.length);
 
-	GString *sr = rtcp_sender_report(ssrc_out->parent->h.ssrc,
+	struct ssrc_sender_report ssr;
+	GQueue srrs = G_QUEUE_INIT;
+
+	GString *sr = rtcp_sender_report(&ssr, ssrc_out->parent->h.ssrc,
+			ssrc_out->ssrc_map_out ? : ssrc_out->parent->h.ssrc,
 			atomic64_get(&ssrc_out->last_ts),
 			atomic64_get(&ssrc_out->packets),
 			atomic64_get(&ssrc_out->octets),
-			&rrs);
+			&rrs, &srrs);
 
 	socket_sendto(&ps->selected_sfd->socket, sr->str, sr->len, &ps->endpoint);
 	g_string_free(sr, TRUE);
+
+	if (other_media)
+		ssrc_sender_report(other_media, &ssr, &rtpe_now);
+	struct ssrc_receiver_report *srr;
+	while ((srr = g_queue_pop_head(&srrs))) {
+		if (other_media)
+			ssrc_receiver_report(other_media, srr, &rtpe_now);
+		g_slice_free1(sizeof(*srr), srr);
+	}
 }
 
 

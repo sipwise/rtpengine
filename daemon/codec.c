@@ -1533,6 +1533,10 @@ next:
 		receiver->rtcp_handler = rtcp_sink_handler;
 		__codec_rtcp_timer(receiver);
 	}
+	if (MEDIA_ISSET(sink, RTCP_GEN)) {
+		sink->rtcp_handler = rtcp_sink_handler;
+		__codec_rtcp_timer(sink);
+	}
 }
 
 

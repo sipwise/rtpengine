@@ -109,7 +109,7 @@ static int timerthread_queue_run_one(struct timerthread_queue *ttq,
 void timerthread_queue_run(void *ptr) {
 	struct timerthread_queue *ttq = ptr;
 
-	ilog(LOG_DEBUG, "running timerthread_queue");
+	//ilog(LOG_DEBUG, "running timerthread_queue");
 
 	struct timeval next_send = {0,};
 
