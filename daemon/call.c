@@ -1239,16 +1239,14 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	if (!flags)
 		return;
 
-	/* we offer ICE by default */
+	// the default is to pass through the offering client's choice
 	if (!MEDIA_ISSET(this, INITIALIZED))
-		MEDIA_SET(this, ICE);
+		bf_copy_same(&this->media_flags, &other->media_flags, MEDIA_FLAG_ICE);
 	// unless instructed not to
-	if (flags->ice_option == ICE_DEFAULT) {
-		if (!MEDIA_ISSET(other, ICE))
-			MEDIA_CLEAR(this, ICE);
-	}
-	else if (flags->ice_option == ICE_REMOVE)
+	if (flags->ice_option == ICE_REMOVE)
 		MEDIA_CLEAR(this, ICE);
+	else if (flags->ice_option != ICE_DEFAULT)
+		MEDIA_SET(this, ICE);
 
 	if (flags->passthrough_on) {
 		ilog(LOG_DEBUG, "enabling passthrough mode");
