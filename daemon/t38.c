@@ -84,7 +84,7 @@ static void spandsp_logging_func(SPAN_LOG_ARGS) {
 		level = LOG_WARN;
 	else
 		level = LOG_DEBUG;
-	ilog(level, "SpanDSP: %s", text);
+	ilogs(spandsp, level, "SpanDSP: %s", text);
 }
 
 
@@ -414,7 +414,7 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 
 	logging_state_t *ls = t38_gateway_get_logging_state(tg->gw);
 	my_span_set_log(ls, spandsp_logging_func);
-	span_log_set_level(ls, span_log_level_map(get_log_level()));
+	span_log_set_level(ls, span_log_level_map(get_log_level(spandsp)));
 
 	packet_sequencer_init(&tg->sequencer, (GDestroyNotify) __udptl_packet_free);
 	tg->sequencer.seq = 0;

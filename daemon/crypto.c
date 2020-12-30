@@ -424,26 +424,25 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 
 	prf_n(out, c->params.master_key, c->params.crypto_suite->lib_cipher_ptr, x);
 
-	if (rtpe_config.debug_srtp)
-		ilog(LOG_DEBUG, "Generated session key: master key "
-				"%02x%02x%02x%02x..., "
-				"master salt "
-				"%02x%02x%02x%02x..., "
-				"label %02x, length %i, result "
-				"%02x%02x%02x%02x...",
-				c->params.master_key[0],
-				c->params.master_key[1],
-				c->params.master_key[2],
-				c->params.master_key[3],
-				c->params.master_salt[0],
-				c->params.master_salt[1],
-				c->params.master_salt[2],
-				c->params.master_salt[3],
-				label, out->len,
-				(unsigned char) out->s[0],
-				(unsigned char) out->s[1],
-				(unsigned char) out->s[2],
-				(unsigned char) out->s[3]);
+	ilogs(internals, LOG_DEBUG, "Generated session key: master key "
+			"%02x%02x%02x%02x..., "
+			"master salt "
+			"%02x%02x%02x%02x..., "
+			"label %02x, length %i, result "
+			"%02x%02x%02x%02x...",
+			c->params.master_key[0],
+			c->params.master_key[1],
+			c->params.master_key[2],
+			c->params.master_key[3],
+			c->params.master_salt[0],
+			c->params.master_salt[1],
+			c->params.master_salt[2],
+			c->params.master_salt[3],
+			label, out->len,
+			(unsigned char) out->s[0],
+			(unsigned char) out->s[1],
+			(unsigned char) out->s[2],
+			(unsigned char) out->s[3]);
 
 	return 0;
 }
@@ -708,7 +707,7 @@ static void dump_key(struct crypto_context *c, int log_level) {
 	k = g_base64_encode(c->params.master_key, c->params.crypto_suite->master_key_len);
 	s = g_base64_encode(c->params.master_salt, c->params.crypto_suite->master_salt_len);
 
-	ilog(log_level, "--- %s key %s%s%s salt %s%s%s", c->params.crypto_suite->name, FMT_M(k), FMT_M(s));
+	ilogs(srtp, log_level, "--- %s key %s%s%s salt %s%s%s", c->params.crypto_suite->name, FMT_M(k), FMT_M(s));
 
 	g_free(k);
 	g_free(s);
@@ -720,12 +719,12 @@ void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out) {
 	if (rtpe_config.log_keys)
 	    log_level = LOG_ERROR;
 	    
-	if (get_log_level() < log_level)
+	if (get_log_level(core) < log_level)
 		return;
 
-	ilog(log_level, "SRTP keys, incoming:");
+	ilogs(srtp, log_level, "SRTP keys, incoming:");
 	dump_key(in, log_level);
-	ilog(log_level, "SRTP keys, outgoing:");
+	ilogs(srtp, log_level, "SRTP keys, outgoing:");
 	dump_key(out, log_level);
 }
 

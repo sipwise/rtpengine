@@ -29,26 +29,46 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list);
 void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 
 
+
+#define ll(system) log_level_index_ ## system,
+enum __loglevels {
+#include "loglevels.h"
+	ll(LAST)
+};
+#undef ll
+
+#define num_log_levels log_level_index_LAST
+
+extern const char * const log_level_names[];
+
+
 #ifndef __DEBUG
-#define ilog(prio, fmt, ...)									\
+#define ilogsn(system, prio, fmt, ...)								\
 	do {											\
-		int __loglevel = get_log_level();						\
+		int __loglevel = __get_log_level(system);						\
 		if (LOG_LEVEL_MASK((prio)) > LOG_LEVEL_MASK(__loglevel))			\
 			break;									\
 		if ((__loglevel & LOG_FLAG_RESTORE) && !((prio) & LOG_FLAG_RESTORE))		\
 			break;									\
-		__ilog(prio, fmt, ##__VA_ARGS__);						\
+		__ilog(prio, "[%s] " fmt, log_level_names[system], ##__VA_ARGS__);						\
 	} while (0)
 #else
-#define ilog(prio, fmt, ...) __ilog(prio, fmt, ##__VA_ARGS__)
+#define ilogsn(prio, system, fmt, ...) __ilog(prio, "[%s] " fmt, log_level_names[system], ##__VA_ARGS__)
 #endif
 
 
-INLINE int get_log_level(void) {
+#define ilog(prio, fmt, ...) ilogs(core, prio, fmt, ##__VA_ARGS__)
+#define ilogs(system, prio, fmt, ...) ilogsn(log_level_index_ ## system, prio, fmt, ##__VA_ARGS__)
+
+
+INLINE int __get_log_level(unsigned int idx) {
 	if (!rtpe_common_config_ptr)
 		return 8;
-	return g_atomic_int_get(&rtpe_common_config_ptr->log_level);
+	if (idx >= MAX_LOG_LEVELS)
+		return 8;
+	return g_atomic_int_get(&rtpe_common_config_ptr->log_levels[idx]);
 }
+#define get_log_level(system) __get_log_level(log_level_index_ ## system)
 
 
 

@@ -31,6 +31,14 @@ write_log_t *write_log = (write_log_t *) log_both;
 
 
 
+#define ll(system) #system,
+const char * const log_level_names[] = {
+#include "loglevels.h"
+NULL
+};
+
+
+
 static const _fac_code_t _facilitynames[] =
 	{
 		{ "auth", LOG_AUTH },

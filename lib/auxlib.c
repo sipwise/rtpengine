@@ -134,19 +134,23 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 
 	// defaults
 #ifndef __DEBUG
-	rtpe_common_config_ptr->log_level = LOG_INFO;
+	rtpe_common_config_ptr->default_log_level = LOG_INFO;
 #else
-	rtpe_common_config_ptr->log_level = LOG_DEBUG;
+	rtpe_common_config_ptr->default_log_level = LOG_DEBUG;
 #endif
 
 	AUTO_CLEANUP(GKeyFile *kf, free_gkeyfile) = g_key_file_new();
+
+#define ll(system) \
+		{ "log-level-" #system,	0, 0, G_OPTION_ARG_INT,	&rtpe_common_config_ptr->log_levels[log_level_index_ ## system],"Log level for '" #system "'","INT"		},
 
 	GOptionEntry shared_options[] = {
 		{ "version",		'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",		NULL		},
 		{ "config-file",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->config_file,	"Load config from this file",		"FILE"		},
 		{ "config-section",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->config_section,"Config file section to use",		"STRING"	},
 		{ "log-facility",	0,   0,	G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_facility,	"Syslog facility to use for logging",	"daemon|local0|...|local7"},
-		{ "log-level",		'L', 0, G_OPTION_ARG_INT,	(void *)&rtpe_common_config_ptr->log_level,"Mask log priorities above this level","INT"		},
+		{ "log-level",		'L', 0, G_OPTION_ARG_INT,	&rtpe_common_config_ptr->default_log_level,"Default log level",			"INT"		},
+#include "loglevels.h"
 		{ "log-stderr",		'E', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "split-logs",		0, 0,	G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->split_logs,	"Split multi-line log messages",	NULL		},
 		{ "no-log-timestamps",	0,   0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->no_log_timestamps,"Drop timestamps from log lines to stderr",NULL	},
@@ -157,6 +161,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "thread-stack",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->thread_stack,	"Thread stack size in kB",		"INT"		},
 		{ NULL, }
 	};
+#undef ll
 
 
 	// prepend shared CLI options
@@ -320,8 +325,10 @@ out:
 		}
 	}
 
-	if ((rtpe_common_config_ptr->log_level < LOG_EMERG) || (rtpe_common_config_ptr->log_level > LOG_DEBUG))
-	        die("Invalid log level (--log_level)");
+	for (unsigned int i = 0; i < num_log_levels; i++) {
+		if (!rtpe_common_config_ptr->log_levels[i])
+			rtpe_common_config_ptr->log_levels[i] = rtpe_common_config_ptr->default_log_level;
+	}
 
 	if (rtpe_common_config_ptr->log_stderr) {
 		write_log = log_to_stderr;

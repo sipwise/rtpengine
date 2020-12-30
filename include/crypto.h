@@ -211,7 +211,7 @@ INLINE void crypto_params_sdes_queue_clear(GQueue *q) {
 
 
 INLINE void crypto_debug_init(int flag) {
-	if (!rtpe_config.debug_srtp)
+	if (rtpe_config.common.log_levels[log_level_index_srtp] < LOG_NOTICE)
 		return;
 	if (crypto_debug_string)
 		g_string_free(crypto_debug_string, TRUE);
@@ -222,7 +222,7 @@ INLINE void crypto_debug_init(int flag) {
 }
 void __crypto_debug_printf(const char *fmt, ...) __attribute__((format(printf,1,2)));
 #define crypto_debug_printf(f, ...) \
-	if (rtpe_config.debug_srtp && crypto_debug_string) \
+	if (crypto_debug_string) \
 		__crypto_debug_printf(f, ##__VA_ARGS__)
 INLINE void crypto_debug_dump_raw(const char *b, int len) {
 	for (int i = 0; i < len; i++)
@@ -232,11 +232,9 @@ INLINE void crypto_debug_dump(const str *s) {
 	crypto_debug_dump_raw(s->s, s->len);
 }
 INLINE void crypto_debug_finish(void) {
-	if (!rtpe_config.debug_srtp)
-		return;
 	if (!crypto_debug_string)
 		return;
-	ilog(LOG_NOTICE, "Crypto debug: %.*s", (int) crypto_debug_string->len, crypto_debug_string->str);
+	ilogs(srtp, LOG_NOTICE, "Crypto debug: %.*s", (int) crypto_debug_string->len, crypto_debug_string->str);
 	g_string_free(crypto_debug_string, TRUE);
 	crypto_debug_string = NULL;
 }

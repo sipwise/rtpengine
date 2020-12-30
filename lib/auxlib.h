@@ -10,13 +10,15 @@
 
 #define THREAD_BUF_SIZE		64
 #define NUM_THREAD_BUFS		8
+#define MAX_LOG_LEVELS		32
 
 
 struct rtpengine_common_config {
 	char *config_file;
 	char *config_section;
 	char *log_facility;
-	volatile int log_level;
+	int default_log_level;
+	int log_levels[MAX_LOG_LEVELS];
 	int log_stderr;
 	int split_logs;
 	int no_log_timestamps;

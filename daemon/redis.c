@@ -1907,7 +1907,8 @@ int redis_restore(struct redis *r) {
 	if (!r)
 		return 0;
 
-	rtpe_config.common.log_level |= LOG_FLAG_RESTORE;
+	for (unsigned int i = 0; i < num_log_levels; i++)
+		rtpe_config.common.log_levels[i] |= LOG_FLAG_RESTORE;
 
 	rlog(LOG_DEBUG, "Restoring calls from Redis...");
 
@@ -1954,7 +1955,8 @@ int redis_restore(struct redis *r) {
 	freeReplyObject(calls);
 
 err:
-	rtpe_config.common.log_level &= ~LOG_FLAG_RESTORE;
+	for (unsigned int i = 0; i < num_log_levels; i++)
+		rtpe_config.common.log_levels[i] &= ~LOG_FLAG_RESTORE;
 	return ret;
 }
 

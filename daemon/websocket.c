@@ -156,7 +156,7 @@ void websocket_write_next(struct websocket_conn *wc) {
 
 
 static const char *websocket_echo_process(struct websocket_message *wm) {
-	ilog(LOG_DEBUG, "Returning %lu bytes websocket echo from %s", (unsigned long) wm->body->len,
+	ilogs(http, LOG_DEBUG, "Returning %lu bytes websocket echo from %s", (unsigned long) wm->body->len,
 			endpoint_print_buf(&wm->wc->endpoint));
 	websocket_write_binary(wm->wc, wm->body->str, wm->body->len, 1);
 	return NULL;
@@ -164,7 +164,7 @@ static const char *websocket_echo_process(struct websocket_message *wm) {
 
 
 static void websocket_message_push(struct websocket_conn *wc, websocket_message_func_t func) {
-	ilog(LOG_DEBUG, "Adding HTTP/WS message to processing queue");
+	ilogs(http, LOG_DEBUG, "Adding HTTP/WS message to processing queue");
 
 	mutex_lock(&wc->lock);
 
@@ -203,7 +203,7 @@ static void websocket_process(void *p, void *up) {
 	mutex_unlock(&wc->lock);
 
 	if (err)
-		ilog(LOG_ERR, "Error while processing HTTP/WS message: %s", err);
+		ilogs(http, LOG_ERR, "Error while processing HTTP/WS message: %s", err);
 }
 
 
@@ -223,14 +223,14 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 			size_t to_send = wo->str->len - wo->str_done - LWS_SEND_BUFFER_POST_PADDING;
 			if (to_send) {
 				if (to_send > 500)
-					ilog(LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
+					ilogs(http, LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
 				else
-					ilog(LOG_DEBUG, "Writing back to LWS: '%.*s'",
+					ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
 							(int) to_send, wo->str->str + wo->str_done);
 				size_t ret = lws_write(wc->wsi, (unsigned char *) wo->str->str + wo->str_done,
 						to_send, wo->protocol);
 				if (ret != to_send)
-					ilog(LOG_ERR, "Invalid LWS write: %lu != %lu",
+					ilogs(http, LOG_ERR, "Invalid LWS write: %lu != %lu",
 							(unsigned long) ret,
 							(unsigned long) to_send);
 				wo->str_done += ret;
@@ -283,7 +283,7 @@ int websocket_http_response(struct websocket_conn *wc, int status, const char *c
 	const char *err = websocket_do_http_response(wc, status, content_type, content_length);
 	if (!err)
 		return 0;
-	ilog(LOG_ERR, "Failed to write HTTP response headers: %s", err);
+	ilogs(http, LOG_ERR, "Failed to write HTTP response headers: %s", err);
 	return -1;
 }
 const char *websocket_http_complete(struct websocket_conn *wc, int status, const char *content_type,
@@ -298,7 +298,7 @@ const char *websocket_http_complete(struct websocket_conn *wc, int status, const
 
 
 static const char *websocket_http_ping(struct websocket_message *wm) {
-	ilog(LOG_DEBUG, "Respoding to GET /ping");
+	ilogs(http, LOG_DEBUG, "Respoding to GET /ping");
 	return websocket_http_complete(wm->wc, 200, "text/plain", 5, "pong\n");
 }
 
@@ -310,7 +310,7 @@ static void __g_hash_table_destroy(GHashTable **s) {
 	g_hash_table_destroy(*s);
 }
 static const char *websocket_http_metrics(struct websocket_message *wm) {
-	ilog(LOG_DEBUG, "Respoding to GET /metrics");
+	ilogs(http, LOG_DEBUG, "Respoding to GET /metrics");
 
 	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
 	AUTO_CLEANUP_INIT(GString *outp, __g_string_free, g_string_new(""));
@@ -361,7 +361,7 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 	assert(strncmp(wm->uri, "/cli/", 5) == 0);
 	char *uri = wm->uri+5;
 
-	ilog(LOG_DEBUG, "Respoding to GET /cli/%s", uri);
+	ilogs(http, LOG_DEBUG, "Respoding to GET /cli/%s", uri);
 
 	str uri_cmd;
 	str_init(&uri_cmd, uri);
@@ -379,7 +379,7 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 
 
 static const char *websocket_cli_process(struct websocket_message *wm) {
-	ilog(LOG_DEBUG, "Processing websocket CLI req '%s'", wm->body->str);
+	ilogs(http, LOG_DEBUG, "Processing websocket CLI req '%s'", wm->body->str);
 
 	str uri_cmd;
 	str_init_len(&uri_cmd, wm->body->str, wm->body->len);
@@ -405,7 +405,7 @@ static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, 
 static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, void *p1) {
 	struct websocket_conn *wc = p1;
 	if (websocket_http_response(wc, 200, "application/x-rtpengine-ng", cookie->len + 1 + body->len))
-		ilog(LOG_WARN, "Failed to write HTTP headers");
+		ilogs(http, LOG_WARN, "Failed to write HTTP headers");
 	websocket_queue_raw(wc, cookie->s, cookie->len);
 	websocket_queue_raw(wc, " ", 1);
 	websocket_queue_raw(wc, body->s, body->len);
@@ -415,7 +415,7 @@ static const char *websocket_ng_process(struct websocket_message *wm) {
 	char addr[64];
 	endpoint_print(&wm->wc->endpoint, addr, sizeof(addr));
 
-	ilog(LOG_DEBUG, "Processing websocket NG req from %s", addr);
+	ilogs(http, LOG_DEBUG, "Processing websocket NG req from %s", addr);
 
 	str cmd;
 	str_init_len(&cmd, wm->body->str, wm->body->len);
@@ -429,7 +429,7 @@ static const char *websocket_http_ng(struct websocket_message *wm) {
 
 	endpoint_print(&wm->wc->endpoint, addr, sizeof(addr));
 
-	ilog(LOG_DEBUG, "Respoding to POST /ng from %s", addr);
+	ilogs(http, LOG_DEBUG, "Respoding to POST /ng from %s", addr);
 
 	str cmd;
 	str_init_len(&cmd, wm->body->str, wm->body->len);
@@ -449,7 +449,7 @@ static int websocket_http_get(struct websocket_conn *wc) {
 	const char *uri = wm->uri;
 	websocket_message_func_t handler = NULL;
 
-	ilog(LOG_DEBUG, "HTTP GET from %s: '%s'", endpoint_print_buf(&wc->endpoint), wm->uri);
+	ilogs(http, LOG_INFO, "HTTP GET from %s: '%s'", endpoint_print_buf(&wc->endpoint), wm->uri);
 	wm->method = M_GET;
 
 	if (!strcmp(uri, "/ping"))
@@ -460,7 +460,7 @@ static int websocket_http_get(struct websocket_conn *wc) {
 		handler = websocket_http_metrics;
 
 	if (!handler) {
-		ilog(LOG_WARN, "Unhandled HTTP GET URI: '%s'", uri);
+		ilogs(http, LOG_WARN, "Unhandled HTTP GET URI: '%s'", uri);
 		websocket_http_complete(wm->wc, 404, "text/plain", 10, "not found\n");
 		return 0;
 	}
@@ -473,33 +473,33 @@ static int websocket_http_get(struct websocket_conn *wc) {
 static int websocket_http_post(struct websocket_conn *wc) {
 	struct websocket_message *wm = wc->wm;
 
-	ilog(LOG_DEBUG, "HTTP POST from %s: '%s'", endpoint_print_buf(&wc->endpoint), wm->uri);
+	ilogs(http, LOG_INFO, "HTTP POST from %s: '%s'", endpoint_print_buf(&wc->endpoint), wm->uri);
 	wm->method = M_POST;
 
 	char ct[64];
 	if (lws_hdr_total_length(wc->wsi, WSI_TOKEN_HTTP_CONTENT_TYPE) >= sizeof(ct)) {
-		ilog(LOG_WARN, "Too long content-type header, rejecting HTTP POST");
+		ilogs(http, LOG_WARN, "Too long content-type header, rejecting HTTP POST");
 		return -1;
 	}
 
 	if (lws_hdr_copy(wc->wsi, ct, sizeof(ct)-1, WSI_TOKEN_HTTP_CONTENT_TYPE) <= 0) {
-		ilog(LOG_WARN, "Failed to get Content-type header, rejecting HTTP POST");
+		ilogs(http, LOG_WARN, "Failed to get Content-type header, rejecting HTTP POST");
 		return -1;
 	}
 
 	if (lws_hdr_total_length(wc->wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH) <= 0) {
-		ilog(LOG_WARN, "Failed to get Content-length header, rejecting HTTP POST");
+		ilogs(http, LOG_WARN, "Failed to get Content-length header, rejecting HTTP POST");
 		return -1;
 	}
 
-	ilog(LOG_DEBUG, "POST content-type: %s", ct);
+	ilogs(http, LOG_DEBUG, "POST content-type: %s", ct);
 
 	if (!strcasecmp(ct, "application/json"))
 		wm->content_type = CT_JSON;
 	else if (!strcasecmp(ct, "application/x-rtpengine-ng"))
 		wm->content_type = CT_NG;
 	else
-		ilog(LOG_WARN, "Unsupported content-type '%s'", ct);
+		ilogs(http, LOG_WARN, "Unsupported content-type '%s'", ct);
 
 	return 0;
 }
@@ -511,23 +511,23 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 	websocket_message_func_t handler = NULL;
 
 	if (wm->method != M_POST) {
-		ilog(LOG_WARN, "Rejecting HTTP body on unsupported method");
+		ilogs(http, LOG_WARN, "Rejecting HTTP body on unsupported method");
 		return -1;
 	}
 
 	if (len) {
-		ilog(LOG_DEBUG, "HTTP body: %lu bytes", (unsigned long) len);
+		ilogs(http, LOG_DEBUG, "HTTP body: %lu bytes", (unsigned long) len);
 		g_string_append_len(wm->body, body, len);
 		return 0;
 	}
 
-	ilog(LOG_DEBUG, "HTTP body complete: '%.*s'", (int) wm->body->len, wm->body->str);
+	ilogs(http, LOG_DEBUG, "HTTP body complete: '%.*s'", (int) wm->body->len, wm->body->str);
 
 	if (!strcmp(uri, "/ng") && wm->method == M_POST && wm->content_type == CT_NG)
 		handler = websocket_http_ng;
 
 	if (!handler) {
-		ilog(LOG_WARN, "Unhandled HTTP POST URI: '%s'", wm->uri);
+		ilogs(http, LOG_WARN, "Unhandled HTTP POST URI: '%s'", wm->uri);
 		websocket_http_complete(wm->wc, 404, "text/plain", 10, "not found\n");
 		return 0;
 	}
@@ -594,7 +594,7 @@ static void websocket_conn_init(struct lws *wsi, void *p) {
 	int fd = lws_get_socket_fd(wsi);
 #endif
 	if (getpeername(fd, (struct sockaddr *) &sa, &sl))
-		ilog(LOG_ERR, "Failed to get remote address of HTTP/WS connection (fd %i): %s",
+		ilogs(http, LOG_ERR, "Failed to get remote address of HTTP/WS connection (fd %i): %s",
 				fd, strerror(errno));
 	else
 		endpoint_parse_sockaddr_storage(&wc->endpoint, &sa);
@@ -604,7 +604,7 @@ static void websocket_conn_init(struct lws *wsi, void *p) {
 
 
 static int websocket_do_http(struct lws *wsi, struct websocket_conn *wc, const char *uri) {
-	ilog(LOG_DEBUG, "HTTP request start: %s", uri);
+	ilogs(http, LOG_DEBUG, "HTTP request start: %s", uri);
 
 	websocket_conn_init(wsi, wc);
 	wc->wm->uri = strdup(uri);
@@ -614,7 +614,7 @@ static int websocket_do_http(struct lws *wsi, struct websocket_conn *wc, const c
 	if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI))
 		return websocket_http_post(wc);
 
-	ilog(LOG_INFO, "Ignoring HTTP request to %s with unsupported method", uri);
+	ilogs(http, LOG_INFO, "Ignoring HTTP request to %s with unsupported method", uri);
 	return 0;
 }
 
@@ -622,7 +622,7 @@ static int websocket_do_http(struct lws *wsi, struct websocket_conn *wc, const c
 static int websocket_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
 		size_t len)
 {
-	ilog(LOG_DEBUG, "http-only callback %i %p %p", reason, wsi, user);
+	ilogs(http, LOG_DEBUG, "http-only callback %i %p %p", reason, wsi, user);
 
 	gettimeofday(&rtpe_now, NULL);
 
@@ -646,10 +646,10 @@ static int websocket_http(struct lws *wsi, enum lws_callback_reasons reason, voi
 		case LWS_CALLBACK_GET_THREAD_ID:
 			return (long int) pthread_self();
 		case LWS_CALLBACK_WSI_CREATE:
-			ilog(LOG_DEBUG, "WS client created %p", wsi);
+			ilogs(http, LOG_DEBUG, "WS client created %p", wsi);
 			break;
 		case LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED:
-			ilog(LOG_DEBUG, "New WS client %p", wsi);
+			ilogs(http, LOG_DEBUG, "New WS client %p", wsi);
 			break;
 		case LWS_CALLBACK_HTTP:
 			return websocket_do_http(wsi, user, in);
@@ -660,21 +660,21 @@ static int websocket_http(struct lws *wsi, enum lws_callback_reasons reason, voi
 		case LWS_CALLBACK_HTTP_BODY_COMPLETION:
 			return websocket_http_body(user, NULL, 0);
 		case LWS_CALLBACK_CLOSED_HTTP:
-			ilog(LOG_DEBUG, "HTTP connection closed %p", wsi);
+			ilogs(http, LOG_DEBUG, "HTTP connection closed %p", wsi);
 			websocket_conn_cleanup(user);
 			break;
 		case LWS_CALLBACK_WSI_DESTROY:
-			ilog(LOG_DEBUG, "WS client destroyed %p", wsi);
+			ilogs(http, LOG_DEBUG, "WS client destroyed %p", wsi);
 			break;
 		case LWS_CALLBACK_ESTABLISHED:
 		case LWS_CALLBACK_RECEIVE:
 		case LWS_CALLBACK_CLOSED:
-			ilog(LOG_WARN, "Invalid HTTP callback %i", reason);
+			ilogs(http, LOG_WARN, "Invalid HTTP callback %i", reason);
 			return -1;
 		case LWS_CALLBACK_HTTP_WRITEABLE:
 			return websocket_dequeue(user);
 		default:
-			ilog(LOG_DEBUG, "Unhandled HTTP callback %i", reason);
+			ilogs(http, LOG_DEBUG, "Unhandled HTTP callback %i", reason);
 			break;
 	}
 
@@ -687,7 +687,7 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 {
 	struct websocket_conn *wc = user;
 
-	ilog(LOG_DEBUG, "Websocket protocol '%s' callback %i %p %p", name, reason, wsi, wc);
+	ilogs(http, LOG_DEBUG, "Websocket protocol '%s' callback %i %p %p", name, reason, wsi, wc);
 
 	gettimeofday(&rtpe_now, NULL);
 
@@ -709,7 +709,7 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 		case LWS_CALLBACK_GET_THREAD_ID:
 			return (long int) pthread_self();
 		case LWS_CALLBACK_ESTABLISHED:
-			ilog(LOG_DEBUG, "Websocket protocol '%s' established", name);
+			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' established", name);
 			websocket_conn_init(wsi, wc);
 			int get_len = lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI);
 			if (get_len > 0) {
@@ -723,12 +723,12 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 			}
 			break;
 		case LWS_CALLBACK_CLOSED:
-			ilog(LOG_DEBUG, "Websocket protocol '%s' closed", name);
+			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' closed", name);
 			websocket_conn_cleanup(wc);
-			ilog(LOG_DEBUG, "Websocket protocol '%s' ready for cleanup", name);
+			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' ready for cleanup", name);
 			break;
 		case LWS_CALLBACK_RECEIVE:;
-			ilog(LOG_DEBUG, "Websocket protocol '%s' data received for '%s': '%.*s'",
+			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' data received for '%s': '%.*s'",
 					name, wc->uri, (int) len, (const char *) in);
 			wc->wm->method = M_WEBSOCKET;
 			g_string_append_len(wc->wm->body, in, len);
@@ -737,7 +737,7 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 		case LWS_CALLBACK_SERVER_WRITEABLE:
 			return websocket_dequeue(user);
 		default:
-			ilog(LOG_DEBUG, "Unhandled websocket protocol '%s' callback %i", name, reason);
+			ilogs(http, LOG_DEBUG, "Unhandled websocket protocol '%s' callback %i", name, reason);
 			break;
 	}
 
@@ -798,7 +798,7 @@ static void websocket_log(int level, const char *line) {
 		level = LOG_INFO;
 	else
 		level = LOG_DEBUG;
-	ilog(level, "libwebsockets: %s", line);
+	ilogs(http, level, "libwebsockets: %s", line);
 }
 
 
@@ -843,7 +843,7 @@ int websocket_init(void) {
 
 	for (char **ifp = rtpe_config.http_ifs; ifp && *ifp; ifp++) {
 		char *ifa = *ifp;
-		ilog(LOG_DEBUG, "Starting HTTP/WS '%s'", ifa);
+		ilogs(http, LOG_DEBUG, "Starting HTTP/WS '%s'", ifa);
 		endpoint_t ep;
 		err = "Failed to parse address/port";
 		if (endpoint_parse_any_getaddrinfo(&ep, ifa))
@@ -869,7 +869,7 @@ int websocket_init(void) {
 			goto err;
 
 		char *ifa = *ifp;
-		ilog(LOG_DEBUG, "Starting HTTPS/WSS '%s'", ifa);
+		ilogs(http, LOG_DEBUG, "Starting HTTPS/WSS '%s'", ifa);
 		endpoint_t ep;
 		err = "Failed to parse address/port";
 		if (endpoint_parse_any_getaddrinfo(&ep, ifa))
@@ -896,17 +896,17 @@ int websocket_init(void) {
 	int num_threads = rtpe_config.http_threads ? : rtpe_config.num_threads;
 	websocket_threads = g_thread_pool_new(websocket_process, NULL, num_threads, FALSE, NULL);
 
-	ilog(LOG_DEBUG, "Websocket init complete with %i threads", num_threads);
+	ilogs(http, LOG_DEBUG, "Websocket init complete with %i threads", num_threads);
 	return 0;
 
 err:
-	ilog(LOG_ERROR, "Failed to start websocket listener: %s", err);
+	ilogs(http, LOG_ERROR, "Failed to start websocket listener: %s", err);
 	websocket_cleanup();
 	return -1;
 }
 
 static void websocket_loop(void *p) {
-	ilog(LOG_INFO, "Websocket listener thread running");
+	ilogs(http, LOG_INFO, "Websocket listener thread running");
 	while (!rtpe_shutdown)
 		lws_service(websocket_context, 100);
 

@@ -39,7 +39,7 @@ struct control_tcp {
 
 //static void control_stream_closed(int fd, void *p, uintptr_t u) {
 static void control_stream_closed(struct streambuf_stream *s) {
-	ilog(LOG_INFO, "Control connection from %s closed", s->addr);
+	ilogs(control, LOG_INFO, "Control connection from %s closed", s->addr);
 }
 
 
@@ -74,11 +74,11 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 
 	ret = pcre_exec(c->parse_re, c->parse_ree, line, strlen(line), 0, 0, ovec, G_N_ELEMENTS(ovec));
 	if (ret <= 0) {
-		ilog(LOG_WARNING, "Unable to parse command line from %s: %s", s->addr, line);
+		ilogs(control, LOG_WARNING, "Unable to parse command line from %s: %s", s->addr, line);
 		return -1;
 	}
 
-	ilog(LOG_INFO, "Got valid command from %s: %s", s->addr, line);
+	ilogs(control, LOG_INFO, "Got valid command from %s: %s", s->addr, line);
 
 	pcre_get_substring_list(line, ovec, ret, (const char ***) &out);
 
@@ -127,7 +127,7 @@ static void control_stream_readable(struct streambuf_stream *s) {
 	int ret;
 
 	while ((line = streambuf_getline(s->inbuf))) {
-		ilog(LOG_DEBUG, "Got control line from %s: %s", s->addr, line);
+		ilogs(control, LOG_DEBUG, "Got control line from %s: %s", s->addr, line);
 		ret = control_stream_parse(s, line);
 		free(line);
 		if (ret == 1) {
@@ -139,7 +139,7 @@ static void control_stream_readable(struct streambuf_stream *s) {
 	}
 
 	if (streambuf_bufsize(s->inbuf) > 1024) {
-		ilog(LOG_WARNING, "Buffer length exceeded in control connection from %s", s->addr);
+		ilogs(control, LOG_WARNING, "Buffer length exceeded in control connection from %s", s->addr);
 		goto close;
 	}
 
@@ -150,7 +150,7 @@ close:
 }
 
 static void control_incoming(struct streambuf_stream *s) {
-	ilog(LOG_INFO, "New TCP control connection from %s", s->addr);
+	ilogs(control, LOG_INFO, "New TCP control connection from %s", s->addr);
 }
 
 
@@ -178,7 +178,7 @@ struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 				control_stream_timer,
 				&c->obj))
 	{
-		ilog(LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
+		ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
 		goto fail;
 	}
 	if (ipv46_any_convert(ep)) {
@@ -188,7 +188,7 @@ struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 					control_stream_timer,
 					&c->obj))
 		{
-			ilog(LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
+			ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
 			goto fail;
 		}
 	}

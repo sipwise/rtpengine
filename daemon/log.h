@@ -52,7 +52,7 @@ void __ilog(int prio, const char *fmt, ...) __attribute__ ((format (printf, 2, 3
 #ifdef __DEBUG
 #define __C_DBG(x...) ilog(LOG_DEBUG, x)
 #else
-#define __C_DBG(x...) ((void)0)
+#define __C_DBG(x...) ilogs(internals, LOG_DEBUG, x)
 #endif
 
 

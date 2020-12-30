@@ -32,7 +32,7 @@
 #if DTLS_DEBUG
 #define __DBG(x...) ilog(LOG_DEBUG, x)
 #else
-#define __DBG(x...) ((void)0)
+#define __DBG(x...) ilogs(internals, LOG_DEBUG, x)
 #endif
 
 
@@ -140,7 +140,7 @@ static void buf_dump_free(char *buf, size_t len) {
 		else
 			llen = len;
 
-		ilog(LOG_DEBUG, "--- %.*s", llen, p);
+		ilogs(srtp, LOG_DEBUG, "--- %.*s", llen, p);
 
 		if (!f)
 			break;
@@ -156,7 +156,7 @@ static void dump_cert(struct dtls_cert *cert) {
 	char *buf;
 	size_t len;
 
-	if (get_log_level() < LOG_DEBUG)
+	if (get_log_level(core) < LOG_DEBUG)
 		return;
 
 	/* cert */
@@ -164,7 +164,7 @@ static void dump_cert(struct dtls_cert *cert) {
 	PEM_write_X509(fp, cert->x509);
 	fclose(fp);
 
-	ilog(LOG_DEBUG, "Dump of DTLS certificate:");
+	ilogs(srtp, LOG_DEBUG, "Dump of DTLS certificate:");
 	buf_dump_free(buf, len);
 
 	/* key */
@@ -172,7 +172,7 @@ static void dump_cert(struct dtls_cert *cert) {
 	PEM_write_PrivateKey(fp, cert->pkey, NULL, NULL, 0, 0, NULL);
 	fclose(fp);
 
-	ilog(LOG_DEBUG, "Dump of DTLS private key:");
+	ilogs(srtp, LOG_DEBUG, "Dump of DTLS private key:");
 	buf_dump_free(buf, len);
 }
 
@@ -185,7 +185,7 @@ static int cert_init(void) {
 	X509_NAME *name;
 	struct dtls_cert *new_cert;
 
-	ilog(LOG_INFO, "Generating new DTLS certificate");
+	ilogs(crypto, LOG_INFO, "Generating new DTLS certificate");
 
 	/* objects */
 
@@ -292,7 +292,7 @@ static int cert_init(void) {
 	return 0;
 
 err:
-	ilog(LOG_ERROR, "Failed to generate DTLS certificate");
+	ilogs(crypto, LOG_ERROR, "Failed to generate DTLS certificate");
 
 	if (pkey)
 		EVP_PKEY_free(pkey);
@@ -452,7 +452,7 @@ int dtls_verify_cert(struct packet_stream *ps) {
 	dtls_hash(media->fingerprint.hash_func, ps->dtls_cert, fp);
 
 	if (memcmp(media->fingerprint.digest, fp, media->fingerprint.hash_func->num_bytes)) {
-		ilog(LOG_WARNING, "DTLS: Peer certificate rejected - fingerprint mismatch");
+		ilogs(crypto, LOG_WARNING, "DTLS: Peer certificate rejected - fingerprint mismatch");
 		__DBG("fingerprint expected: %02x%02x%02x%02x%02x%02x%02x%02x received: %02x%02x%02x%02x%02x%02x%02x%02x",
 			media->fingerprint.digest[0], media->fingerprint.digest[1],
 			media->fingerprint.digest[2], media->fingerprint.digest[3],
@@ -464,7 +464,7 @@ int dtls_verify_cert(struct packet_stream *ps) {
 	}
 
 	PS_SET(ps, FINGERPRINT_VERIFIED);
-	ilog(LOG_INFO, "DTLS: Peer certificate accepted");
+	ilogs(crypto, LOG_INFO, "DTLS: Peer certificate accepted");
 
 	return 0;
 }
@@ -487,7 +487,7 @@ static int try_connect(struct dtls_connection *d) {
 	ret = 0;
 	switch (code) {
 		case SSL_ERROR_NONE:
-			ilog(LOG_DEBUG, "DTLS handshake successful");
+			ilogs(crypto, LOG_DEBUG, "DTLS handshake successful");
 			d->connected = 1;
 			ret = 1;
 			break;
@@ -498,7 +498,7 @@ static int try_connect(struct dtls_connection *d) {
 
 		default:
 			ret = ERR_peek_last_error();
-			ilog(LOG_ERROR, "DTLS error: %i (%s)", code, ERR_reason_error_string(ret));
+			ilogs(crypto, LOG_ERROR, "DTLS error: %i (%s)", code, ERR_reason_error_string(ret));
 			ret = -1;
 			break;
 	}
@@ -519,7 +519,7 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 
 	d->ptr = ps;
 
-	ilog(LOG_DEBUG, "Creating %s DTLS connection context", active ? "active" : "passive");
+	ilogs(crypto, LOG_DEBUG, "Creating %s DTLS connection context", active ? "active" : "passive");
 
 #if OPENSSL_VERSION_NUMBER >= 0x10002000L
 	d->ssl_ctx = SSL_CTX_new(active ? DTLS_client_method() : DTLS_server_method());
@@ -591,7 +591,7 @@ error:
 	if (d->ssl_ctx)
 		SSL_CTX_free(d->ssl_ctx);
 	ZERO(*d);
-	ilog(LOG_ERROR, "Failed to init DTLS connection: %s", ERR_reason_error_string(err));
+	ilogs(crypto, LOG_ERROR, "Failed to init DTLS connection: %s", ERR_reason_error_string(err));
 	return -1;
 }
 
@@ -641,7 +641,7 @@ found:
 	i += cs->master_salt_len;
 	memcpy(server.master_salt, &keys[i], cs->master_salt_len);
 
-	ilog(LOG_INFO, "DTLS-SRTP successfully negotiated");
+	ilogs(crypto, LOG_INFO, "DTLS-SRTP successfully negotiated");
 
 	if (d->active) {
 		/* we're the client */
@@ -671,9 +671,9 @@ found:
 
 error:
 	if (!spp)
-		ilog(LOG_ERROR, "Failed to set up SRTP after DTLS negotiation: %s", err);
+		ilogs(crypto, LOG_ERROR, "Failed to set up SRTP after DTLS negotiation: %s", err);
 	else
-		ilog(LOG_ERROR, "Failed to set up SRTP after DTLS negotiation: %s (profile \"%s\")",
+		ilogs(crypto, LOG_ERROR, "Failed to set up SRTP after DTLS negotiation: %s (profile \"%s\")",
 				err, spp->name);
 	return -1;
 }
@@ -704,7 +704,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		return -1;
 
 	if (s) {
-		ilog(LOG_DEBUG, "Processing incoming DTLS packet");
+		ilogs(srtp, LOG_DEBUG, "Processing incoming DTLS packet");
 		BIO_write(d->r_bio, s->s, s->len);
 		/* we understand this as preference of DTLS over SDES */
 		MEDIA_CLEAR(ps->media, SDES);
@@ -712,7 +712,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 
 	ret = try_connect(d);
 	if (ret == -1) {
-		ilog(LOG_ERROR, "DTLS error on local port %u", sfd->socket.local.port);
+		ilogs(srtp, LOG_ERROR, "DTLS error on local port %u", sfd->socket.local.port);
 		/* fatal error */
 		dtls_connection_cleanup(d);
 		return 0;
@@ -744,7 +744,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 			break;
 
 		if (ret > sizeof(buf)) {
-			ilog(LOG_ERROR, "BIO buffer overflow");
+			ilogs(srtp, LOG_ERROR, "BIO buffer overflow");
 			(void) BIO_reset(d->w_bio);
 			break;
 		}
@@ -763,7 +763,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		if (!fsin)
 			fsin = &ps->endpoint;
 
-		ilog(LOG_DEBUG, "Sending DTLS packet");
+		ilogs(srtp, LOG_DEBUG, "Sending DTLS packet");
 		socket_sendto(&sfd->socket, buf, ret, fsin);
 	}
 
@@ -813,7 +813,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 
 void dtls_connection_cleanup(struct dtls_connection *c) {
 	if (c->ssl_ctx || c->ssl)
-		ilog(LOG_DEBUG, "Resetting DTLS connection context");
+		ilogs(crypto, LOG_DEBUG, "Resetting DTLS connection context");
 
 	if (c->ssl_ctx)
 		SSL_CTX_free(c->ssl_ctx);

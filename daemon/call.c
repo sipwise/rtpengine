@@ -777,7 +777,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 		med = g_hash_table_lookup(ml->media_ids, &sp->media_id);
 		if (med)
 			return med;
-		ilog(LOG_ERR, "Received trickle ICE SDP fragment with unknown media ID '"
+		ilogs(ice, LOG_ERR, "Received trickle ICE SDP fragment with unknown media ID '"
 				STR_FORMAT "'",
 				STR_FMT(&sp->media_id));
 	}
@@ -1087,14 +1087,14 @@ int __init_stream(struct packet_stream *ps) {
 			struct crypto_params_sdes *cps = media->sdes_in.head
 				? media->sdes_in.head->data : NULL;
 			crypto_init(&sfd->crypto, cps ? &cps->params : NULL);
-			ilog(LOG_DEBUG, "[%s] Initialized incoming SRTP with SDES crypto params: %s%s%s",
+			ilogs(crypto, LOG_DEBUG, "[%s] Initialized incoming SRTP with SDES crypto params: %s%s%s",
 					endpoint_print_buf(&sfd->socket.local),
 					FMT_M(crypto_params_sdes_dump(cps, &paramsbuf)));
 		}
 		struct crypto_params_sdes *cps = media->sdes_out.head
 			? media->sdes_out.head->data : NULL;
 		crypto_init(&ps->crypto, cps ? &cps->params : NULL);
-		ilog(LOG_DEBUG, "[%i] Initialized outgoing SRTP with SDES crypto params: %s%s%s",
+		ilogs(crypto, LOG_DEBUG, "[%i] Initialized outgoing SRTP with SDES crypto params: %s%s%s",
 				ps->component,
 				FMT_M(crypto_params_sdes_dump(cps, &paramsbuf)));
 	}
@@ -1489,7 +1489,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			if (flags->sdes_no && g_hash_table_lookup(flags->sdes_no,
 						&crypto_suites[i].name_str))
 			{
-				ilog(LOG_DEBUG, "Not offering crypto suite '%s' "
+				ilogs(crypto, LOG_DEBUG, "Not offering crypto suite '%s' "
 						"due to 'SDES-no' option",
 						crypto_suites[i].name);
 				continue;
@@ -1515,14 +1515,14 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		struct crypto_params_sdes *cps_in = cpq_in->head ? cpq_in->head->data : NULL;
 		struct crypto_params_sdes *offered_cps = offered_cpq->head ? offered_cpq->head->data : NULL;
 		if (offered_cps) {
-			ilog(LOG_DEBUG, "Looking for matching crypto suite to offered %u:%s", offered_cps->tag,
+			ilogs(crypto, LOG_DEBUG, "Looking for matching crypto suite to offered %u:%s", offered_cps->tag,
 					offered_cps->params.crypto_suite->name);
 			// check if we can do SRTP<>SRTP passthrough. the crypto suite that was accepted
 			// must have been present in what was offered to us
 			for (GList *l = cpq_in->head; l; l = l->next) {
 				struct crypto_params_sdes *check_cps = l->data;
 				if (check_cps->params.crypto_suite == offered_cps->params.crypto_suite) {
-					ilog(LOG_DEBUG, "Found matching crypto suite %u:%s", check_cps->tag,
+					ilogs(crypto, LOG_DEBUG, "Found matching crypto suite %u:%s", check_cps->tag,
 							check_cps->params.crypto_suite->name);
 					cps_in = check_cps;
 					break;
@@ -1540,7 +1540,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				// SRTP<>SRTP passthrough
 				cps->params.session_params = cps_in->params.session_params; // XXX verify
 				crypto_params_copy(&cps->params, &offered_cps->params, 1);
-				ilog(LOG_DEBUG, "Copied crypto params from %i:%s for SRTP passthrough",
+				ilogs(crypto, LOG_DEBUG, "Copied crypto params from %i:%s for SRTP passthrough",
 						cps_in->tag, cps_in->params.crypto_suite->name);
 			}
 			else {
@@ -1550,14 +1550,14 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 						cps->params.crypto_suite->master_salt_len);
 				/* mki = mki_len = 0 */
 				cps->params.session_params = cps_in->params.session_params;
-				ilog(LOG_DEBUG, "Creating new SRTP crypto params for %i:%s",
+				ilogs(crypto, LOG_DEBUG, "Creating new SRTP crypto params for %i:%s",
 						cps->tag, cps->params.crypto_suite->name);
 			}
 
 			// flush out crypto suites we ended up not using - leave only one
 #if GLIB_CHECK_VERSION(2,30,0)
 			if (!g_queue_remove(cpq_in, cps_in))
-				ilog(LOG_ERR, "BUG: incoming crypto suite not found in queue");
+				ilogs(crypto, LOG_ERR, "BUG: incoming crypto suite not found in queue");
 #else
 			g_queue_remove(cpq_in, cps_in);
 #endif
@@ -1595,7 +1595,7 @@ static void __sdes_accept(struct call_media *media, const struct sdp_ng_flags *f
 				continue;
 			}
 
-			ilog(LOG_DEBUG, "Dropping offered crypto suite '%s' from offer "
+			ilogs(crypto, LOG_DEBUG, "Dropping offered crypto suite '%s' from offer "
 					"due to 'SDES-no' option",
 					offered_cps->params.crypto_suite->name);
 
@@ -1714,7 +1714,7 @@ static void __fingerprint_changed(struct call_media *m) {
 	if (!m->fingerprint.hash_func || !m->fingerprint.digest_len)
 		return;
 
-	ilog(LOG_INFO, "DTLS fingerprint changed, restarting DTLS");
+	ilogs(crypto, LOG_INFO, "DTLS fingerprint changed, restarting DTLS");
 
 	for (l = m->streams.head; l; l = l->next) {
 		ps = l->data;

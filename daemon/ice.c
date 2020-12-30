@@ -21,9 +21,9 @@
 #endif
 
 #if ICE_DEBUG
-#define __DBG(x...) ilog(LOG_DEBUG, x)
+#define __DBG(x...) ilogs(ice, LOG_DEBUG, x)
 #else
-#define __DBG(x...) ((void)0)
+#define __DBG(x...) ilogs(internals, LOG_DEBUG, x)
 #endif
 
 
@@ -135,7 +135,7 @@ static void __all_pairs_list(struct ice_agent *ag) {
 
 static void __tree_coll_callback(void *oo, void *nn) {
 	struct ice_candidate_pair *o = oo, *n = nn;
-	ilog(LOG_WARN | LOG_FLAG_LIMIT, "Priority collision between candidate pairs " PAIR_FORMAT " and "
+	ilogs(ice, LOG_WARN | LOG_FLAG_LIMIT, "Priority collision between candidate pairs " PAIR_FORMAT " and "
 			PAIR_FORMAT " - ICE will likely fail",
 			PAIR_FMT(o), PAIR_FMT(n));
 }
@@ -164,7 +164,7 @@ static struct ice_candidate_pair *__pair_candidate(struct stream_fd *sfd, struct
 	g_hash_table_insert(ag->pair_hash, pair, pair);
 	g_tree_insert_coll(ag->all_pairs, pair, pair, __tree_coll_callback);
 
-	ilog(LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s%s%s, type %s", PAIR_FMT(pair),
+	ilogs(ice, LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s%s%s, type %s", PAIR_FMT(pair),
 			sockaddr_print_buf(&sfd->socket.local.address),
 			FMT_M(endpoint_print_buf(&cand->endpoint)),
 			ice_candidate_type_str(cand->type));
@@ -295,7 +295,7 @@ static void __ice_reset(struct ice_agent *ag) {
 
 /* if the other side did a restart */
 static void __ice_restart(struct ice_agent *ag) {
-	ilog(LOG_DEBUG, "ICE restart, resetting ICE agent");
+	ilogs(ice, LOG_DEBUG, "ICE restart, resetting ICE agent");
 
 	ag->ufrag[0] = STR_NULL;
 	ag->pwd[0] = STR_NULL;
@@ -361,7 +361,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 	comps = 0;
 	for (l = candidates->head; l; l = l->next) {
 		if (ag->remote_candidates.length >= MAX_ICE_CANDIDATES) {
-			ilog(LOG_WARNING, "Maxmimum number of ICE candidates exceeded");
+			ilogs(ice, LOG_WARNING, "Maxmimum number of ICE candidates exceeded");
 			break;
 		}
 
@@ -384,7 +384,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 			/* if this is peer reflexive, we've learned it through STUN.
 			 * otherwise it's simply one we've seen before. */
 			if (dup->type == ICT_PRFLX) {
-				ilog(LOG_DEBUG, "Replacing previously learned prflx ICE candidate with "
+				ilogs(ice, LOG_DEBUG, "Replacing previously learned prflx ICE candidate with "
 						STR_FORMAT_M ":%lu", STR_FMT_M(&cand->foundation),
 						cand->component_id);
 			}
@@ -392,7 +392,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 				/* if the new one has higher priority then the old one, then we
 				 * update it, otherwise we just drop it */
 				if (cand->priority <= dup->priority) {
-					ilog(LOG_DEBUG, "Dropping new ICE candidate " STR_FORMAT_M
+					ilogs(ice, LOG_DEBUG, "Dropping new ICE candidate " STR_FORMAT_M
 							" in favour of "
 							STR_FORMAT_M ":%lu",
 							STR_FMT_M(&cand->foundation),
@@ -400,7 +400,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 					continue;
 				}
 
-				ilog(LOG_DEBUG, "Replacing known ICE candidate " STR_FORMAT_M " with higher "
+				ilogs(ice, LOG_DEBUG, "Replacing known ICE candidate " STR_FORMAT_M " with higher "
 						"priority "
 						STR_FORMAT_M ":%lu",
 						STR_FMT_M(&dup->foundation),
@@ -412,7 +412,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 			recalc += __copy_cand(call, dup, cand);
 		}
 		else {
-			ilog(LOG_DEBUG, "Learning new ICE candidate " STR_FORMAT_M ":%lu",
+			ilogs(ice, LOG_DEBUG, "Learning new ICE candidate " STR_FORMAT_M ":%lu",
 					STR_FMT_M(&cand->foundation), cand->component_id);
 			dup = g_slice_alloc(sizeof(*dup));
 			__copy_cand(call, dup, cand);
@@ -477,7 +477,7 @@ void ice_shutdown(struct ice_agent **agp) {
 	struct ice_agent *ag;
 
 	if (!agp) {
-		ilog(LOG_ERR, "ice agp is NULL");
+		ilogs(ice, LOG_ERR, "ice agp is NULL");
 		return ;
 	}
 
@@ -492,7 +492,7 @@ void ice_shutdown(struct ice_agent **agp) {
 }
 static void __ice_agent_free_components(struct ice_agent *ag) {
 	if (!ag) {
-		ilog(LOG_ERR, "ice ag is NULL");
+		ilogs(ice, LOG_ERR, "ice ag is NULL");
 		return;
 	}
 
@@ -513,7 +513,7 @@ static void __ice_agent_free(void *p) {
 	struct ice_agent *ag = p;
 
 	if (!ag) {
-		ilog(LOG_ERR, "ice ag is NULL");
+		ilogs(ice, LOG_ERR, "ice ag is NULL");
 		return;
 	}
 
@@ -569,7 +569,7 @@ void ice_free(void) {
 
 
 static void __fail_pair(struct ice_candidate_pair *pair) {
-	ilog(LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as failed", PAIR_FMT(pair));
+	ilogs(ice, LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as failed", PAIR_FMT(pair));
 	PAIR_SET(pair, FAILED);
 	PAIR_CLEAR(pair, IN_PROGRESS);
 }
@@ -618,7 +618,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	mutex_unlock(&ag->lock);
 
-	ilog(LOG_DEBUG, "Sending %sICE/STUN request for candidate pair "PAIR_FORMAT" from %s to %s%s%s",
+	ilogs(ice, LOG_DEBUG, "Sending %sICE/STUN request for candidate pair "PAIR_FORMAT" from %s to %s%s%s",
 			PAIR_ISSET(pair, TO_USE) ? "nominating " : "",
 			PAIR_FMT(pair), sockaddr_print_buf(&pair->local_intf->spec->local_address.addr),
 			FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
@@ -656,7 +656,7 @@ static void __nominate_pairs(struct ice_agent *ag) {
 	GList *l;
 	struct ice_candidate_pair *pair;
 
-	ilog(LOG_DEBUG, "Start nominating ICE pairs");
+	ilogs(ice, LOG_DEBUG, "Start nominating ICE pairs");
 
 	AGENT_SET(ag, NOMINATING);
 	ZERO(ag->start_nominating);
@@ -665,7 +665,7 @@ static void __nominate_pairs(struct ice_agent *ag) {
 
 	for (l = complete.head; l; l = l->next) {
 		pair = l->data;
-		ilog(LOG_DEBUG, "Nominating ICE pair "PAIR_FORMAT, PAIR_FMT(pair));
+		ilogs(ice, LOG_DEBUG, "Nominating ICE pair "PAIR_FORMAT, PAIR_FMT(pair));
 		PAIR_CLEAR(pair, IN_PROGRESS);
 		PAIR_SET2(pair, NOMINATED, TO_USE);
 		pair->retransmits = 0;
@@ -686,7 +686,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	int have_more = 0;
 
 	if (!ag) {
-		ilog(LOG_ERR, "ice ag is NULL");
+		ilogs(ice, LOG_ERR, "ice ag is NULL");
 		return;
 	}
 
@@ -797,7 +797,7 @@ check:
 }
 
 static void __agent_shutdown(struct ice_agent *ag) {
-	ilog(LOG_DEBUG, "Shutting down ICE agent (nothing to do)");
+	ilogs(ice, LOG_DEBUG, "Shutting down ICE agent (nothing to do)");
 	__agent_deschedule(ag);
 }
 
@@ -886,7 +886,7 @@ out:
 static void __trigger_check(struct ice_candidate_pair *pair) {
 	struct ice_agent *ag = pair->agent;
 
-	ilog(LOG_DEBUG, "Triggering check for "PAIR_FORMAT, PAIR_FMT(pair));
+	ilogs(ice, LOG_DEBUG, "Triggering check for "PAIR_FORMAT, PAIR_FMT(pair));
 
 	mutex_lock(&ag->lock);
 	pair->retransmits = 0;
@@ -906,7 +906,7 @@ static void __recalc_pair_prios(struct ice_agent *ag) {
 	GList *l;
 	GQueue nominated, valid, succ, all;
 
-	ilog(LOG_DEBUG, "Recalculating all ICE pair priorities");
+	ilogs(ice, LOG_DEBUG, "Recalculating all ICE pair priorities");
 
 	g_tree_remove_all(&nominated, ag->nominated_pairs);
 	g_tree_remove_all(&succ, ag->succeeded_pairs);
@@ -936,7 +936,7 @@ static void __role_change(struct ice_agent *ag, int new_controlling) {
 	else
 		return;
 
-	ilog(LOG_DEBUG, "ICE role change, now %s", new_controlling ? "controlling" : "controlled");
+	ilogs(ice, LOG_DEBUG, "ICE role change, now %s", new_controlling ? "controlling" : "controlled");
 
 	/* recalc priorities and resort list */
 
@@ -999,7 +999,7 @@ static int __check_valid(struct ice_agent *ag) {
 	int is_complete = 1;
 
 	if (!ag) {
-		ilog(LOG_ERR, "ice ag is NULL");
+		ilogs(ice, LOG_ERR, "ice ag is NULL");
 		return 0;
 	}
 
@@ -1011,18 +1011,18 @@ static int __check_valid(struct ice_agent *ag) {
 		is_complete = 0;
 		__get_complete_succeeded_pairs(&all_compos, ag);
 		if (!all_compos.length) {
-			ilog(LOG_DEBUG, "ICE not completed yet and no usable candidates");
+			ilogs(ice, LOG_DEBUG, "ICE not completed yet and no usable candidates");
 			return 0;
 		}
 	}
 
 	pair = all_compos.head->data;
 	if (is_complete) {
-		ilog(LOG_DEBUG, "ICE completed, using pair " PAIR_FORMAT, PAIR_FMT(pair));
+		ilogs(ice, LOG_DEBUG, "ICE completed, using pair " PAIR_FORMAT, PAIR_FMT(pair));
 		AGENT_SET(ag, COMPLETED);
 	}
 	else {
-		ilog(LOG_DEBUG, "ICE not completed yet, but can use pair " PAIR_FORMAT, PAIR_FMT(pair));
+		ilogs(ice, LOG_DEBUG, "ICE not completed yet, but can use pair " PAIR_FORMAT, PAIR_FMT(pair));
 		AGENT_SET(ag, USABLE);
 	}
 
@@ -1032,7 +1032,7 @@ static int __check_valid(struct ice_agent *ag) {
 
 		mutex_lock(&ps->out_lock);
 		if (memcmp(&ps->endpoint, &pair->remote_candidate->endpoint, sizeof(ps->endpoint))) {
-			ilog(LOG_INFO, "ICE negotiated: peer for component %u is %s%s%s", ps->component,
+			ilogs(ice, LOG_INFO, "ICE negotiated: peer for component %u is %s%s%s", ps->component,
 					FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
 			ps->endpoint = pair->remote_candidate->endpoint;
 		}
@@ -1044,7 +1044,7 @@ static int __check_valid(struct ice_agent *ag) {
 				continue;
 			ps->selected_sfd = sfd;
 			if (ps->component == 1)
-				ilog(LOG_INFO, "ICE negotiated: local interface %s",
+				ilogs(ice, LOG_INFO, "ICE negotiated: local interface %s",
 						sockaddr_print_buf(&pair->local_intf->spec->local_address.addr));
 			break;
 		}
@@ -1127,7 +1127,7 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 	ret = 0;
 
 	if (attrs->use && !PAIR_SET(pair, NOMINATED)) {
-		ilog(LOG_DEBUG, "ICE pair "PAIR_FORMAT" has been nominated by peer", PAIR_FMT(pair));
+		ilogs(ice, LOG_DEBUG, "ICE pair "PAIR_FORMAT" has been nominated by peer", PAIR_FMT(pair));
 
 		mutex_lock(&ag->lock);
 
@@ -1149,7 +1149,7 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 
 err_unlock:
 	mutex_unlock(&ag->lock);
-	ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s%s%s on interface %s)", err, FMT_M(endpoint_print_buf(src)),
+	ilogs(ice, LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s%s%s on interface %s)", err, FMT_M(endpoint_print_buf(src)),
 			endpoint_print_buf(&sfd->socket.local));
 	return 0;
 }
@@ -1162,11 +1162,11 @@ static int __check_succeeded_complete(struct ice_agent *ag) {
 	__get_complete_succeeded_pairs(&complete, ag);
 	if (complete.length) {
 		struct ice_candidate_pair *pair = complete.head->data;
-		ilog(LOG_DEBUG, "Best succeeded ICE pair with all components is "PAIR_FORMAT, PAIR_FMT(pair));
+		ilogs(ice, LOG_DEBUG, "Best succeeded ICE pair with all components is "PAIR_FORMAT, PAIR_FMT(pair));
 		ret = 1;
 	}
 	else {
-		ilog(LOG_DEBUG, "No succeeded ICE pairs with all components yet");
+		ilogs(ice, LOG_DEBUG, "No succeeded ICE pairs with all components yet");
 		ret = 0;
 	}
 	g_queue_clear(&complete);
@@ -1208,7 +1208,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 
 	ifa = pair->local_intf;
 
-	ilog(LOG_DEBUG, "Received ICE/STUN response code %u for candidate pair "PAIR_FORMAT" from %s%s%s to %s",
+	ilogs(ice, LOG_DEBUG, "Received ICE/STUN response code %u for candidate pair "PAIR_FORMAT" from %s%s%s to %s",
 			attrs->error_code, PAIR_FMT(pair),
 			FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)),
 			sockaddr_print_buf(&ifa->spec->local_address.addr));
@@ -1242,7 +1242,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 
 	/* check if we're in the final (controlling) phase */
 	if (pair->was_nominated && PAIR_CLEAR(pair, TO_USE)) {
-		ilog(LOG_DEBUG, "Setting nominated ICE candidate pair "PAIR_FORMAT" as valid", PAIR_FMT(pair));
+		ilogs(ice, LOG_DEBUG, "Setting nominated ICE candidate pair "PAIR_FORMAT" as valid", PAIR_FMT(pair));
 		PAIR_SET(pair, VALID);
 		g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
 		ret = __check_valid(ag);
@@ -1252,7 +1252,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 	if (PAIR_SET(pair, SUCCEEDED))
 		goto out_unlock;
 
-	ilog(LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as succeeded", PAIR_FMT(pair));
+	ilogs(ice, LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as succeeded", PAIR_FMT(pair));
 	g_tree_insert_coll(ag->succeeded_pairs, pair, pair, __tree_coll_callback);
 
 	if (!ag->start_nominating.tv_sec) {
@@ -1279,7 +1279,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 		if (!PAIR_CLEAR(opair, FROZEN))
 			continue;
 
-		ilog(LOG_DEBUG, "Unfreezing related ICE pair "PAIR_FORMAT, PAIR_FMT(opair));
+		ilogs(ice, LOG_DEBUG, "Unfreezing related ICE pair "PAIR_FORMAT, PAIR_FMT(opair));
 	}
 
 	/* if this was previously nominated by the peer, it's now valid */
@@ -1299,7 +1299,7 @@ err_unlock:
 	mutex_unlock(&ag->lock);
 err:
 	if (err)
-		ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s%s%s on interface %s)",
+		ilogs(ice, LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s%s%s on interface %s)",
 				err, FMT_M(endpoint_print_buf(src)), endpoint_print_buf(&sfd->socket.local));
 
 	if (pair && attrs->error_code)

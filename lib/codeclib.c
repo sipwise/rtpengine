@@ -761,7 +761,7 @@ int decoder_lost_packet(decoder_t *dec, unsigned long ts,
 static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 	char *msg;
 	if (vasprintf(&msg, fmt, ap) <= 0)
-		ilog(LOG_ERR | LOG_FLAG_LIMIT, "av_log message dropped");
+		ilogs(ffmpeg, LOG_ERR | LOG_FLAG_LIMIT, "av_log message dropped");
 	else {
 #ifdef AV_LOG_PANIC
 		// translate AV_LOG_ constants to LOG_ levels
@@ -784,7 +784,7 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 		else
 			loglevel = LOG_DEBUG;
 #endif
-		ilog(loglevel | LOG_FLAG_LIMIT, "av_log: %s", msg);
+		ilogs(ffmpeg, loglevel | LOG_FLAG_LIMIT, "av_log: %s", msg);
 		free(msg);
 	}
 }

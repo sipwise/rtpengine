@@ -80,6 +80,11 @@ struct rtpengine_config rtpe_config = {
 	.dtls_rsa_key_size = 2048,
 	.dtls_signature = 256,
 	.max_dtx = 30,
+	.common = {
+		.log_levels = {
+			[log_level_index_internals] = -1,
+		},
+	},
 };
 
 static void sighandler(gpointer x) {
@@ -107,17 +112,19 @@ static void sighandler(gpointer x) {
 		if (ret == SIGINT || ret == SIGTERM)
 			rtpe_shutdown = 1;
 		else if (ret == SIGUSR1) {
-		        if (get_log_level() > 0) {
-				g_atomic_int_add(&rtpe_config.common.log_level, -1);
-				ilog(get_log_level(), "Set log level to %d\n",
-						get_log_level());
+			for (unsigned int i = 0; i < num_log_levels; i++) {
+				g_atomic_int_add(&rtpe_config.common.log_levels[i], -1);
+				ilogsn(i, __get_log_level(i), "Decreased '%s' log level to %d\n",
+						log_level_names[i],
+						__get_log_level(i));
 			}
 		}
 		else if (ret == SIGUSR2) {
-		        if (get_log_level() < 7) {
-				g_atomic_int_add(&rtpe_config.common.log_level, 1);
-				ilog(get_log_level(), "Set log level to %d\n",
-						get_log_level());
+			for (unsigned int i = 0; i < num_log_levels; i++) {
+				g_atomic_int_add(&rtpe_config.common.log_levels[i], 1);
+				ilogsn(i, __get_log_level(i), "Increased '%s' log level to %d\n",
+						log_level_names[i],
+						__get_log_level(i));
 			}
 		}
 		else
@@ -382,6 +389,7 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(dtls_sig);
 	double silence_detect = 0;
 	AUTO_CLEANUP_GVBUF(cn_payload);
+	int debug_srtp;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -455,7 +463,7 @@ static void options(int *argc, char ***argv) {
 		{ "endpoint-learning",0,0,G_OPTION_ARG_STRING,	&endpoint_learning,	"RTP endpoint learning algorithm",	"delayed|immediate|off|heuristic"	},
 		{ "jitter-buffer",0, 0,	G_OPTION_ARG_INT,	&rtpe_config.jb_length,	"Size of jitter buffer",		"INT" },
 		{ "jb-clock-drift",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_clock_drift,"Compensate for source clock drift",NULL },
-		{ "debug-srtp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.debug_srtp,"Log raw encryption details for SRTP",	NULL },
+		{ "debug-srtp",0,0,	G_OPTION_ARG_NONE,	&debug_srtp,		"Log raw encryption details for SRTP",	NULL },
 		{ "dtls-rsa-key-size",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_rsa_key_size,"Size of RSA key for DTLS",	"INT"		},
 		{ "dtls-ciphers",0,  0,	G_OPTION_ARG_STRING,	&rtpe_config.dtls_ciphers,"List of ciphers for DTLS",		"STRING"	},
 		{ "dtls-signature",0,  0,G_OPTION_ARG_STRING,	&dtls_sig,		"Signature algorithm for DTLS",		"SHA-256|SHA-1"	},
@@ -628,6 +636,9 @@ static void options(int *argc, char ***argv) {
 			die("Invalid --log-format option");
 	}
 
+	if (debug_srtp)
+		rtpe_config.common.log_levels[log_level_index_srtp] = LOG_DEBUG;
+
 	if (dtmf_udp_ep) {
 		if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.dtmf_udp_ep, dtmf_udp_ep))
 			die("Invalid IP or port '%s' (--dtmf-log-dest)", dtmf_udp_ep);
@@ -768,7 +779,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->redis_connect_timeout = rtpe_config.redis_connect_timeout;
 	ini_rtpe_cfg->redis_delete_async = rtpe_config.redis_delete_async;
 	ini_rtpe_cfg->redis_delete_async_interval = rtpe_config.redis_delete_async_interval;
-	ini_rtpe_cfg->common.log_level = rtpe_config.common.log_level;
+	memcpy(&ini_rtpe_cfg->common.log_levels, &rtpe_config.common.log_levels, sizeof(ini_rtpe_cfg->common.log_levels));
 
 	ini_rtpe_cfg->graphite_ep = rtpe_config.graphite_ep;
 	ini_rtpe_cfg->tcp_listen_ep = rtpe_config.tcp_listen_ep;

@@ -121,7 +121,7 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 	if (!cur) {
 		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
 		cur->proxy = *addr;
-		ilog(LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
+		ilogs(control, LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
 
 		for (int i = 0; i < NGC_COUNT; i++) {
 			struct ng_command_stats *c = &cur->cmd[i];
@@ -149,7 +149,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 
 	str_chr_str(&data, buf, ' ');
 	if (!data.s || data.s == buf->s) {
-		ilog(LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: " STR_FORMAT_M,
+		ilogs(control, LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: " STR_FORMAT_M,
 				addr, STR_FMT_M(buf));
 		return funcret;
 	}
@@ -171,7 +171,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 
 	to_send = cookie_cache_lookup(&ng_cookie_cache, &cookie);
 	if (to_send) {
-		ilog(LOG_INFO, "Detected command from %s as a duplicate", addr);
+		ilogs(control, LOG_INFO, "Detected command from %s as a duplicate", addr);
 		resp = NULL;
 		goto send_only;
 	}
@@ -189,15 +189,15 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 	bencode_dictionary_get_str(dict, "call-id", &callid);
 	log_info_str(&callid);
 
-	ilog(LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
+	ilogs(control, LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
 
-	if (get_log_level() >= LOG_DEBUG) {
+	if (get_log_level(control) >= LOG_DEBUG) {
 		log_str = g_string_sized_new(256);
 		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: %s", STR_FMT(&cmd), addr,
 				rtpe_config.common.log_mark_prefix);
 		pretty_print(dict, log_str);
 		g_string_append(log_str, rtpe_config.common.log_mark_suffix);
-		ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+		ilogs(control, LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 		g_string_free(log_str, TRUE);
 	}
 
@@ -325,7 +325,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 err_send:
 
 	if (errstr < magic_load_limit_strings[0] || errstr > magic_load_limit_strings[__LOAD_LIMIT_MAX-1]) {
-		ilog(LOG_WARNING, "Protocol error in packet from %s: %s [" STR_FORMAT_M "]",
+		ilogs(control, LOG_WARNING, "Protocol error in packet from %s: %s [" STR_FORMAT_M "]",
 				addr, errstr, STR_FMT_M(&data));
 		bencode_dictionary_add_string(resp, "result", "error");
 		bencode_dictionary_add_string(resp, "error-reason", errstr);
@@ -342,9 +342,9 @@ send_resp:
 	to_send = &reply;
 
 	if (cmd.s) {
-		ilog(LOG_INFO, "Replying to '"STR_FORMAT"' from %s (elapsed time %llu.%06llu sec)", STR_FMT(&cmd), addr, (unsigned long long)cmd_process_time.tv_sec, (unsigned long long)cmd_process_time.tv_usec);
+		ilogs(control, LOG_INFO, "Replying to '"STR_FORMAT"' from %s (elapsed time %llu.%06llu sec)", STR_FMT(&cmd), addr, (unsigned long long)cmd_process_time.tv_sec, (unsigned long long)cmd_process_time.tv_usec);
 
-		if (get_log_level() >= LOG_DEBUG) {
+		if (get_log_level(control) >= LOG_DEBUG) {
 			dict = bencode_decode_expect_str(&bencbuf, to_send, BENCODE_DICTIONARY);
 			if (dict) {
 				log_str = g_string_sized_new(256);
@@ -353,7 +353,7 @@ send_resp:
 						rtpe_config.common.log_mark_prefix);
 				pretty_print(dict, log_str);
 				g_string_append(log_str, rtpe_config.common.log_mark_suffix);
-				ilog(LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+				ilogs(control, LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 				g_string_free(log_str, TRUE);
 			}
 		}

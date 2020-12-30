@@ -194,7 +194,9 @@ Usage
 Userspace Daemon
 ----------------
 
-The options are described in detail in the rtpengine(1) man page.
+The options are described in detail in the rtpengine(1) man page. If you're
+reading this on Github, you can view the current master's man page
+[here](https://github.com/sipwise/rtpengine/blob/master/daemon/rtpengine.pod).
 
 In-kernel Packet Forwarding
 ---------------------------

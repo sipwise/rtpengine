@@ -244,7 +244,12 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 	GList *s;
 	struct intf_config *ifa;
 
-	cw->cw_printf(cw, "log-level = %d\ntable = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\n"
+	for (unsigned int i = 0; i < num_log_levels; i++)
+		cw->cw_printf(cw, "log-level-%s = %d\n",
+				log_level_names[i],
+				g_atomic_int_get(&initial_rtpe_config.common.log_levels[i]));
+
+	cw->cw_printf(cw, "table = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\n"
 			"final-timeout = %d\noffer-timeout = %d\n"
 			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
 			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis = %s:%d/%d\n"
@@ -253,7 +258,7 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 			"max-cpu = %.1f\n"
 			"max-load = %.2f\n"
 			"max-bandwidth = %" PRIu64 "\n",
-			initial_rtpe_config.common.log_level, initial_rtpe_config.kernel_table, initial_rtpe_config.max_sessions,
+			initial_rtpe_config.kernel_table, initial_rtpe_config.max_sessions,
 			initial_rtpe_config.timeout, initial_rtpe_config.silent_timeout, initial_rtpe_config.final_timeout,
 			initial_rtpe_config.offer_timeout, initial_rtpe_config.delete_delay,
 			initial_rtpe_config.redis_expires_secs, initial_rtpe_config.default_tos, initial_rtpe_config.control_tos,
@@ -294,7 +299,12 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 	GList *c;
 	struct intf_config *ifa;
 
-	cw->cw_printf(cw, "log-level = %d\ntable = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\n"
+	for (unsigned int i = 0; i < num_log_levels; i++)
+		cw->cw_printf(cw, "log-level-%s = %d\n",
+				log_level_names[i],
+				g_atomic_int_get(&rtpe_config.common.log_levels[i]));
+
+	cw->cw_printf(cw, "table = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\n"
 			"final-timeout = %d\noffer-timeout = %d\n"
 			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
 			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis-db = %d\n"
@@ -303,7 +313,7 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			"max-cpu = %.1f\n"
 			"max-load = %.2f\n"
 			"max-bw = %" PRIu64 "\n",
-			rtpe_config.common.log_level, rtpe_config.kernel_table, rtpe_config.max_sessions, rtpe_config.timeout,
+			rtpe_config.kernel_table, rtpe_config.max_sessions, rtpe_config.timeout,
 			rtpe_config.silent_timeout, rtpe_config.final_timeout, rtpe_config.offer_timeout,
 			rtpe_config.delete_delay, rtpe_config.redis_expires_secs, rtpe_config.default_tos,
 			rtpe_config.control_tos, rtpe_config.graphite_interval, rtpe_config.redis_num_threads, rtpe_config.homer_protocol,
@@ -367,7 +377,10 @@ static void int_diff_print_sz(long long start_param, void* current_param, size_t
 			option_string, cw, option)
 
 static void cli_incoming_diff_or_revert(struct cli_writer *cw, char* option) {
-	int_diff_print(common.log_level, "log-level");
+#define ll(system) \
+	int_diff_print(common.log_levels[log_level_index_ ## system], "log-level-" #system);
+#include "loglevels.h"
+#undef ll
 	int_diff_print(max_sessions, "max-sessions");
 	int_diff_print(cpu_limit, "max-cpu");
 	int_diff_print(load_limit, "max-load");
@@ -1081,7 +1094,7 @@ static void cli_incoming_standby(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming(struct streambuf_stream *s) {
-   ilog(LOG_INFO, "New cli connection from %s", s->addr);
+   ilogs(control, LOG_INFO, "New cli connection from %s", s->addr);
 }
 
 static void cli_streambuf_printf(struct cli_writer *cw, const char *fmt, ...) {
@@ -1099,7 +1112,7 @@ static void cli_stream_readable(struct streambuf_stream *s) {
    inbuf = streambuf_getline(s->inbuf);
    if (!inbuf) {
        if (streambuf_bufsize(s->inbuf) > MAXINPUT) {
-           ilog(LOG_INFO, "Buffer length exceeded in CLI connection from %s", s->addr);
+           ilogs(control, LOG_INFO, "Buffer length exceeded in CLI connection from %s", s->addr);
            streambuf_stream_close(s);
        }
        return;
@@ -1119,7 +1132,7 @@ static void cli_stream_readable(struct streambuf_stream *s) {
 }
 
 void cli_handle(str *instr, struct cli_writer *cw) {
-	ilog(LOG_INFO, "Got CLI command: " STR_FORMAT_M, STR_FMT_M(instr));
+	ilogs(control, LOG_INFO, "Got CLI command: " STR_FORMAT_M, STR_FMT_M(instr));
 	cli_handler_do(cli_top_handlers, instr, cw);
 }
 
@@ -1143,7 +1156,7 @@ struct cli *cli_new(struct poller *p, endpoint_t *ep) {
             NULL,
             &c->obj))
    {
-      ilog(LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
+      ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
       goto fail;
    }
    if (ipv46_any_convert(ep)) {
@@ -1153,7 +1166,7 @@ struct cli *cli_new(struct poller *p, endpoint_t *ep) {
                NULL,
                &c->obj))
       {
-         ilog(LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
+         ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
          goto fail;
       }
    }
@@ -1170,7 +1183,8 @@ fail:
 }
 
 static void cli_incoming_list_loglevel(str *instr, struct cli_writer *cw) {
-	cw->cw_printf(cw, "%i\n", get_log_level());
+	for (unsigned int i = 0; i < num_log_levels; i++)
+		cw->cw_printf(cw, "%s = %i\n", log_level_names[i], __get_log_level(i));
 }
 static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 	int nl;
@@ -1187,7 +1201,8 @@ static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 		return;
 	}
 
-	g_atomic_int_set(&rtpe_config.common.log_level, nl);
+	for (unsigned int i = 0; i < num_log_levels; i++)
+		g_atomic_int_set(&rtpe_config.common.log_levels[i], nl);
 	cw->cw_printf(cw,  "Success setting loglevel to %i\n", nl);
 }
 

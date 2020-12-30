@@ -632,7 +632,7 @@ static int rtcp_xr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_c
 		if (!hf)
 			goto next;
 		if (rb->bt < G_N_ELEMENTS(min_xr_packet_sizes) && len < min_xr_packet_sizes[rb->bt]) {
-			ilog(LOG_WARN, "Short RTCP XR block (type %u, %u < %i)", rb->bt, len,
+			ilogs(rtcp, LOG_WARN, "Short RTCP XR block (type %u, %u < %i)", rb->bt, len,
 					min_xr_packet_sizes[rb->bt]);
 			goto next;
 		}
@@ -682,7 +682,7 @@ int rtcp_parse(GQueue *q, struct media_packet *mp) {
 			break;
 
 		if (hdr->version != 2) {
-			ilog(LOG_DEBUG, "Unknown RTCP version %u", hdr->version);
+			ilogs(rtcp, LOG_DEBUG, "Unknown RTCP version %u", hdr->version);
 			goto error;
 		}
 
@@ -690,7 +690,7 @@ int rtcp_parse(GQueue *q, struct media_packet *mp) {
 		if (hdr->pt < G_N_ELEMENTS(min_packet_sizes))
 			min_packet_size = min_packet_sizes[hdr->pt];
 		if (len < min_packet_size) {
-			ilog(LOG_WARN, "Invalid RTCP packet type %u (short: %u < %i)",
+			ilogs(rtcp, LOG_WARN, "Invalid RTCP packet type %u (short: %u < %i)",
 					hdr->pt, len, min_packet_size);
 			goto error;
 		}
@@ -698,19 +698,19 @@ int rtcp_parse(GQueue *q, struct media_packet *mp) {
 		el = rtcp_new_element(hdr, len);
 
 		if (hdr->pt >= G_N_ELEMENTS(handler_funcs)) {
-			ilog(LOG_INFO, "Ignoring unknown RTCP packet type %u", hdr->pt);
+			ilogs(rtcp, LOG_INFO, "Ignoring unknown RTCP packet type %u", hdr->pt);
 			goto next;
 		}
 		func = handler_funcs[hdr->pt];
 		if (!func) {
-			ilog(LOG_INFO, "Ignoring unknown RTCP packet type %u", hdr->pt);
+			ilogs(rtcp, LOG_INFO, "Ignoring unknown RTCP packet type %u", hdr->pt);
 			goto next;
 		}
 
-		ilog(LOG_DEBUG, "Calling handler for RTCP packet type %u", hdr->pt);
+		ilogs(rtcp, LOG_DEBUG, "Calling handler for RTCP packet type %u", hdr->pt);
 		ret = func(el, log_ctx);
 		if (ret) {
-			ilog(LOG_WARN, "Failed to handle or parse RTCP packet type %u", hdr->pt);
+			ilogs(rtcp, LOG_WARN, "Failed to handle or parse RTCP packet type %u", hdr->pt);
 			rtcp_ce_free(el);
 			goto error;
 		}
@@ -794,7 +794,7 @@ INLINE int check_session_keys(struct crypto_context *c) {
 	return 0;
 
 error:
-	ilog(LOG_ERROR | LOG_FLAG_LIMIT, "%s", err);
+	ilogs(rtcp, LOG_ERROR | LOG_FLAG_LIMIT, "%s", err);
 	return -1;
 }
 
@@ -839,7 +839,7 @@ done:
 	*out = rtcp;
 	return 0;
 error:
-	ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Error parsing RTCP header: %s", err);
+	ilogs(rtcp, LOG_DEBUG | LOG_FLAG_LIMIT, "Error parsing RTCP header: %s", err);
 	return -1;
 }
 
@@ -951,7 +951,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	return 0;
 
 error:
-	ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded invalid SRTCP packet: %s", err);
+	ilogs(rtcp, LOG_WARNING | LOG_FLAG_LIMIT, "Discarded invalid SRTCP packet: %s", err);
 	return -1;
 }
 
@@ -1284,7 +1284,7 @@ static void transcode_common(struct rtcp_process_ctx *ctx, struct rtcp_packet *c
 		return;
 	// forward SSRC mapping
 	common->ssrc = htonl(ctx->mp->ssrc_in->ssrc_map_out);
-	ilog(LOG_DEBUG, "Substituting RTCP header SSRC from %s%x%s to %x",
+	ilogs(rtcp, LOG_DEBUG, "Substituting RTCP header SSRC from %s%x%s to %x",
 		FMT_M(ctx->scratch_common_ssrc), ctx->mp->ssrc_in->ssrc_map_out);
 }
 static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
@@ -1315,7 +1315,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	unsigned int dupes = atomic64_get(&input_ctx->duplicates);
 	unsigned int tot_lost = lost - dupes; // can be negative/rollover
 
-	ilog(LOG_DEBUG, "Substituting RTCP RR SSRC from %s%x%s to %x: %u packets, %u lost, %u duplicates",
+	ilogs(rtcp, LOG_DEBUG, "Substituting RTCP RR SSRC from %s%x%s to %x: %u packets, %u lost, %u duplicates",
 		FMT_M(ctx->scratch.rr.ssrc), map_ctx->ssrc_map_out,
 		packets, lost, dupes);
 
@@ -1563,7 +1563,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	GQueue rrs = G_QUEUE_INIT;
 	rtcp_receiver_reports(&rrs, call->ssrc_hash, ps->media->monologue);
 
-	ilog(LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
+	ilogs(rtcp, LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
 			ssrc_out->parent->h.ssrc, rrs.length);
 
 	struct ssrc_sender_report ssr;
