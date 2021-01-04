@@ -1213,6 +1213,11 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 		mutex_lock(&ps->in_lock);
 
 	struct ssrc_ctx *ssrc_ctx = ps->ssrc_in;
+	if (!ssrc_ctx) {
+		if (!have_in_lock)
+			mutex_unlock(&ps->in_lock);
+		return;
+	}
 	struct ssrc_entry_call *parent = ssrc_ctx->parent;
 
 	__re_address_translate_ep(&local, &ps->selected_sfd->socket.local);
@@ -1250,10 +1255,12 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 			return; // will have to skip this
 	}
 	ssrc_ctx = ps->ssrc_out;
-	parent = ssrc_ctx->parent;
-	if (parent->h.ssrc == ssrc_map_out) {
-		atomic64_add(&ssrc_ctx->packets, stats.basic_stats.packets);
-		atomic64_add(&ssrc_ctx->octets, stats.basic_stats.bytes);
+	if (ssrc_ctx) {
+		parent = ssrc_ctx->parent;
+		if (parent->h.ssrc == ssrc_map_out) {
+			atomic64_add(&ssrc_ctx->packets, stats.basic_stats.packets);
+			atomic64_add(&ssrc_ctx->octets, stats.basic_stats.bytes);
+		}
 	}
 	mutex_unlock(&ps->out_lock);
 }
