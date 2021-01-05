@@ -24,7 +24,7 @@
 
 
 
-struct pcap_format {
+struct rec_pcap_format {
 	int linktype;
 	int headerlen;
 	void (*header)(unsigned char *, struct packet_stream *);
@@ -40,8 +40,8 @@ static int append_meta_chunk(struct recording *recording, const char *buf, unsig
 	__attribute__((format(printf,4,5)));
 
 // pcap methods
-static int pcap_create_spool_dir(const char *dirpath);
-static void pcap_init(struct call *);
+static int rec_pcap_create_spool_dir(const char *dirpath);
+static void rec_pcap_init(struct call *);
 static void sdp_after_pcap(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void dump_packet_pcap(struct media_packet *mp, const str *s);
 static void finish_pcap(struct call *);
@@ -59,7 +59,7 @@ static void setup_stream_proc(struct packet_stream *);
 static void setup_media_proc(struct call_media *);
 static void kernel_info_proc(struct packet_stream *, struct rtpengine_target_info *);
 
-static void pcap_eth_header(unsigned char *, struct packet_stream *);
+static void rec_pcap_eth_header(unsigned char *, struct packet_stream *);
 
 #define append_meta_chunk_str(r, str, f...) append_meta_chunk(r, (str)->s, (str)->len, f)
 #define append_meta_chunk_s(r, str, f...) append_meta_chunk(r, (str), strlen(str), f)
@@ -70,8 +70,8 @@ static const struct recording_method methods[] = {
 	{
 		.name = "pcap",
 		.kernel_support = 0,
-		.create_spool_dir = pcap_create_spool_dir,
-		.init_struct = pcap_init,
+		.create_spool_dir = rec_pcap_create_spool_dir,
+		.init_struct = rec_pcap_init,
 		.sdp_after = sdp_after_pcap,
 		.dump_packet = dump_packet_pcap,
 		.finish = finish_pcap,
@@ -94,14 +94,14 @@ static const struct recording_method methods[] = {
 	},
 };
 
-static const struct pcap_format pcap_format_raw = {
+static const struct rec_pcap_format rec_pcap_format_raw = {
 	.linktype = DLT_RAW,
 	.headerlen = 0,
 };
-static const struct pcap_format pcap_format_eth = {
+static const struct rec_pcap_format rec_pcap_format_eth = {
 	.linktype = DLT_EN10MB,
 	.headerlen = 14,
-	.header = pcap_eth_header,
+	.header = rec_pcap_eth_header,
 };
 
 
@@ -109,7 +109,7 @@ static const struct pcap_format pcap_format_eth = {
 static char *spooldir = NULL;
 
 const struct recording_method *selected_recording_method;
-static const struct pcap_format *pcap_format;
+static const struct rec_pcap_format *rec_pcap_format;
 
 
 
@@ -148,9 +148,9 @@ void recording_fs_init(const char *spoolpath, const char *method_str, const char
 
 found:
 	if(!strcmp("raw", format_str))
-		pcap_format = &pcap_format_raw;
+		rec_pcap_format = &rec_pcap_format_raw;
 	else if(!strcmp("eth", format_str))
-		pcap_format = &pcap_format_eth;
+		rec_pcap_format = &rec_pcap_format_eth;
 	else {
 		ilog(LOG_ERR, "Invalid value for recording format \"%s\".", format_str);
 		exit(-1);
@@ -205,7 +205,7 @@ static int check_main_spool_dir(const char *spoolpath) {
  *
  * Create the "metadata" and "pcaps" directories if they are not there.
  */
-static int pcap_create_spool_dir(const char *spoolpath) {
+static int rec_pcap_create_spool_dir(const char *spoolpath) {
 	int spool_good = TRUE;
 
 	if (!check_main_spool_dir(spoolpath))
@@ -352,7 +352,7 @@ void detect_setup_recording(struct call *call, const str *recordcall, str *metad
 		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
 }
 
-static void pcap_init(struct call *call) {
+static void rec_pcap_init(struct call *call) {
 	struct recording *recording = call->recording;
 
 	// Wireshark starts at packet index 1, so we start there, too
@@ -433,7 +433,7 @@ static void sdp_after_pcap(struct recording *recording, GString *str, struct cal
  * Writes metadata to metafile, closes file, and renames it to finished location.
  * Returns non-zero for failure.
  */
-static int pcap_meta_finish_file(struct call *call) {
+static int rec_pcap_meta_finish_file(struct call *call) {
 	// This should usually be called from a place that has the call->master_lock
 	struct recording *recording = call->recording;
 	int return_code = 0;
@@ -514,7 +514,7 @@ static char *recording_setup_file(struct recording *recording) {
 	recording_path = file_path_str(recording->meta_prefix, "/pcaps/", ".pcap");
 	recording->u.pcap.recording_path = recording_path;
 
-	recording->u.pcap.recording_pd = pcap_open_dead(pcap_format->linktype, 65535);
+	recording->u.pcap.recording_pd = pcap_open_dead(rec_pcap_format->linktype, 65535);
 	recording->u.pcap.recording_pdumper = pcap_dump_open(recording->u.pcap.recording_pd, recording_path);
 	if (recording->u.pcap.recording_pdumper == NULL) {
 		pcap_close(recording->u.pcap.recording_pd);
@@ -530,7 +530,7 @@ static char *recording_setup_file(struct recording *recording) {
 /**
  * Flushes PCAP file, closes the dumper and descriptors, and frees object memory.
  */
-static void pcap_recording_finish_file(struct recording *recording) {
+static void rec_pcap_recording_finish_file(struct recording *recording) {
 	if (recording->u.pcap.recording_pdumper != NULL) {
 		pcap_dump_flush(recording->u.pcap.recording_pdumper);
 		pcap_dump_close(recording->u.pcap.recording_pdumper);
@@ -557,7 +557,7 @@ static unsigned int fake_ip_header(unsigned char *out, struct media_packet *mp, 
 	return hdr_len + inp->len;
 }
 
-static void pcap_eth_header(unsigned char *pkt, struct packet_stream *stream) {
+static void rec_pcap_eth_header(unsigned char *pkt, struct packet_stream *stream) {
 	memset(pkt, 0, 14);
 	uint16_t *hdr16 = (void *) pkt;
 	hdr16[6] = htons(stream->selected_sfd->socket.local.address.family->ethertype);
@@ -572,10 +572,10 @@ static void stream_pcap_dump(struct media_packet *mp, const str *s) {
 	if (!pdumper)
 		return;
 
-	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN + pcap_format->headerlen];
-	unsigned int pkt_len = fake_ip_header(pkt + pcap_format->headerlen, mp, s) + pcap_format->headerlen;
-	if (pcap_format->header)
-		pcap_format->header(pkt, mp->stream);
+	unsigned char pkt[s->len + MAX_PACKET_HEADER_LEN + rec_pcap_format->headerlen];
+	unsigned int pkt_len = fake_ip_header(pkt + rec_pcap_format->headerlen, mp, s) + rec_pcap_format->headerlen;
+	if (rec_pcap_format->header)
+		rec_pcap_format->header(pkt, mp->stream);
 
 	// Set up PCAP packet header
 	struct pcap_pkthdr header;
@@ -598,8 +598,8 @@ static void dump_packet_pcap(struct media_packet *mp, const str *s) {
 }
 
 static void finish_pcap(struct call *call) {
-	pcap_recording_finish_file(call->recording);
-	pcap_meta_finish_file(call);
+	rec_pcap_recording_finish_file(call->recording);
+	rec_pcap_meta_finish_file(call);
 }
 
 static void response_pcap(struct recording *recording, bencode_item_t *output) {
