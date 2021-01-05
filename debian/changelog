@@ -1,3 +1,89 @@
+ngcp-rtpengine (9.2.1.0+0~mr9.2.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [014173d] TT#98901 allow packet handler func to consume packet
+  * [6ae33a4] TT#98901 split out ssrc locking
+  * [4519db7] TT#98901 allow NULL send_now timerthread function
+  * [36eb641] TT#98901 add media_packet_copy/_release
+  * [c3ebbc4] TT#98901 add decoder_packet_lost() and callbacks
+  * [054339e] TT#98901 improve/fix some obj debuggin
+  * [58c436e] TT#98901 add ssrc_hash_foreach()
+  * [fa64e22] TT#98901 add codec timers thread
+  * [bae79d3] TT#98901 handle AMR SID DTX
+  * [17e22ad] TT#98901 add limit to length of DTX processing
+  * [e16cb57] TT#98901 don't trigger DTX after a SSRC switch
+  * [8d7badc] TT#101201 rename ICE_LITE flag
+  * [1d34c40] TT#101201 support optional ICE-lite mode
+  * [bd53179] TT#100200 properly support multiple supplemental codecs
+  * [38890bd] TT#100200 split out supp codec finding routine
+  * [87b4d6f] TT#100200 always track supplemental codecs
+  * [7a42c0c] TT#100251 distinguish between real transcoding and DTMF-related t/c
+  * [d362adf] TT#100251 fix redis-restore segfault
+  * [b355e55] make DTMF options dependent on transcoding option
+  * [f393d29] TT#101202 keep timer queue entries with same timestamp in order
+  * [8ded007] TT#101202 fix potential null pointer dereference
+  * [a6022c9] TT#102450 fix AMR recording
+  * [708b486] support kernels >= 5.9.9
+  * [dec54fa] TT#102500 fix missing timestamping in websocket threads
+  * [de7807f] TT#101653 update transcode-test with new codec flags
+  * [5d895fb] TT#82405 add Prometheus stats exporter
+  * [c9140f9] TT#81212 add function to change call state (own/foreign)
+  * [260a170] TT#81212 add trigger to set all calls to own or foreign
+  * [aa5e024] TT#81212 mark calls as owned upon activity
+  * [9ea1303] TT#100200 fix logic for DTMF detection trigger
+  * [8097f96] TT#100200 add tests for 9ea1303c6
+  * [f0a29d0] fix compilation for glib < 2.40
+  * [16fd8aa] TT#101653 alter re-invite codec negotiation logic
+  * [440ca5a] TT#92250 fix to keep supp codecs last in the list
+  * [a642a1e] TT#98901 avoid PT collisions with asymmetric codec setup
+  * [2c35e69] TT#104400 further update for kernels >= 4.19.158
+  * [c2c7f9a] TT#82405 add convenience function to return HTTP data
+  * [9a2dc5c] TT#104400 further update for kernels >= 4.19.158
+  * [8de20ce] TT#82405 terminate HTTP connection when output was been written
+  * [54e6894] TT#104500 better support a=rtcp-fb
+  * [6dca19e] TT#99621 move RTCP sending logic to rtcp.c
+  * [195542a] TT#99621 allow RTCP handlers to discard the packet
+  * [97c7534] TT#99621 allow null RTCP handler funcs
+  * [ba66e5f] TT#99621 support RTCP generation
+  * [c12ec66] TT#99621 support jitter tracking for RTCP
+  * [09026c1] TT#99621 track basic RTP stats in kernel
+  * [a15e3a2] TT#99621 update RTP stats from kernel for RTCP
+  * [c5667e3] TT#100200 add CN decoder
+  * [96bd7a6] TT#100200 track matching CN payload types
+  * [08cdc4c] TT#101653 generalise handling of supplemental payload types
+  * [3cc9357] TT#101653 add extra codec negotiation tests
+  * [73e4ef4] TT#101653 add silence detection option
+  * [336cb5b] TT#101653 add codec-consume and codec-accept options
+  * [71d02ff] TT#101653 retire always-transcode flag
+  * [6e51904] TT#101653 add tests for codec-consume/accept
+  * [7c3d2e0] TT#105000 don't send STUN response in response to responses
+  * [fa8a1db] TT#101653 kill auto-test daemon in case of timeout
+  * [a4d0a35] TT#101653 eliminate superfluous log messages
+  * [c620891] TT#101653 check receiver side for supplemental transcoding
+  * [d990ad7] TT#101653 more verbose packet scheduler log message
+  * [8517c99] TT#101653 detect and adjust for output clock skew
+  * [f861ff7] TT#101653 limit maximum delay in input processing after lost packet
+  * [cd577a2] TT#106150 fix possible race condition while processing WS queue
+  * [89c4c48] TT#106100 do not print recording flags for `pcap` method
+  * [a46741a] TT#106100 rename macro args to be less confusing
+  * [5dbd797] TT#94201 fix ICE=default to the intended behaviour
+  * [7f8ae1f] TT#94201 add tests for GH #1147
+  * [46176f2] TT#101653 defuse codec tracker so it doesn't remove too many
+  * [44bc0b9] TT#99621 feed locally generated RTCP to stats tracker for MOS
+  * [30733ec] TT#97301 support granular log levels
+  * [7b2503a] TT#86103 allow re-use of mix inputs
+
+  [ Julien Chavanton ]
+  * [e1847ca] RTT per call leg
+
+  [ timando ]
+  * [92cc573] TT#104400 Update xt_RTPENGINE.c
+
+  [ Jakub Karolczyk ]
+  * [929c345] For RTCPMUX streams we need to filter out RTCP packets selectively from the stream. Original implementation just stops processing packets in JitterBuffer when the first RTCP packet is received in RTCPMUX stream
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 05 Jan 2021 15:33:32 +0100
+
 ngcp-rtpengine (9.2.0.0+0~mr9.2.0.0) unstable; urgency=medium
 
   [ Guillem Jover ]
