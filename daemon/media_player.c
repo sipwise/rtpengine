@@ -471,20 +471,25 @@ found:
 
 
 // call->master_lock held in W
-static void media_player_play_start(struct media_player *mp) {
+static void media_player_play_start(struct media_player *mp, long long repeat) {
 	// needed to have usable duration for some formats. ignore errors.
 	avformat_find_stream_info(mp->fmtctx, NULL);
 
 	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
 	timeval_add_usec(&mp->next_run, -50000);
-	media_player_read_packet(mp);
+
+	for (int repetitions = 0; repetitions < repeat; repetitions++) {
+	    media_player_read_packet(mp);
+	}
+
+
 }
 #endif
 
 
 // call->master_lock held in W
-int media_player_play_file(struct media_player *mp, const str *file) {
+int media_player_play_file(struct media_player *mp, const str *file, long long repeat) {
 #ifdef WITH_TRANSCODING
 	if (media_player_play_init(mp))
 		return -1;
@@ -498,7 +503,7 @@ int media_player_play_file(struct media_player *mp, const str *file) {
 		return -1;
 	}
 
-	media_player_play_start(mp);
+	media_player_play_start(mp,repeat);
 
 	return 0;
 #else
@@ -555,7 +560,7 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 
 
 // call->master_lock held in W
-int media_player_play_blob(struct media_player *mp, const str *blob) {
+int media_player_play_blob(struct media_player *mp, const str *blob, long long repeat) {
 #ifdef WITH_TRANSCODING
 	const char *err;
 	int av_ret = 0;
@@ -593,7 +598,7 @@ int media_player_play_blob(struct media_player *mp, const str *blob) {
 	if (av_ret < 0)
 		goto err;
 
-	media_player_play_start(mp);
+	media_player_play_start(mp,repeat);
 
 	return 0;
 
