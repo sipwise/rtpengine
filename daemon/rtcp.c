@@ -1105,7 +1105,10 @@ static void homer_sdes_item(struct rtcp_process_ctx *ctx, const struct sdes_chun
 				g_string_append(ctx->json, "\\t");
 				break;
 			default:
-				g_string_append_c(ctx->json, data[i]);
+				if (data[i] < ' ' || data[i] > 126)
+					g_string_append_c(ctx->json, '_');
+				else
+					g_string_append_c(ctx->json, data[i]);
 				break;
 		}
 	}
