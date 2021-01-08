@@ -39,6 +39,7 @@ struct media_player {
 	const struct streamhandler *crypt_handler;
 
 	struct timeval next_run;
+	unsigned long repeat; // in milliseconds
 
 	AVFormatContext *fmtctx;
 	unsigned long duration; // in milliseconds
@@ -85,9 +86,9 @@ struct send_timer {
 
 
 struct media_player *media_player_new(struct call_monologue *);
-int media_player_play_file(struct media_player *, const str *);
-int media_player_play_blob(struct media_player *, const str *);
-int media_player_play_db(struct media_player *, long long);
+int media_player_play_file(struct media_player *, const str *, long long);
+int media_player_play_blob(struct media_player *, const str *, long long);
+int media_player_play_db(struct media_player *, long long, long long);
 void media_player_stop(struct media_player *);
 
 int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt);
