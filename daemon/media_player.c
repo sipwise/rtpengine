@@ -115,6 +115,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 
 	mp->tt_obj.tt = &media_player_thread;
 	mutex_init(&mp->lock);
+
 	mp->run_func = media_player_read_packet; // default
 	mp->call = obj_get(ml->call);
 	mp->ml = ml;
@@ -386,11 +387,25 @@ static void media_player_read_packet(struct media_player *mp) {
 	int ret = av_read_frame(mp->fmtctx, &mp->pkt);
 	if (ret < 0) {
 		if (ret == AVERROR_EOF) {
-			ilog(LOG_DEBUG, "EOF reading from media stream");
-			return;
+			if (mp->repeat > 1){
+				ilog(LOG_DEBUG, "EOF reading from media stream but will repeat %i time",mp->repeat);
+				mp->repeat--
+				AVStream *avs = mp->fmtctx->streams[0];
+				avio_seek(mp->fmtctx->pb, 0, SEEK_SET);
+				avformat_seek_file(mp->fmtctx, 0, 0, 0, avs->duration, 0);
+				int ret = av_read_frame(mp->fmtctx, &mp->pkt);
+			} else {
+				ilog(LOG_DEBUG, "EOF reading from media stream");
+				return;
+
+			}
+
 		}
+		if (ret != AVERROR_EOF) { 
 		ilog(LOG_ERR, "Error while reading from media stream");
 		return;
+		}
+
 	}
 
 	if (!mp->fmtctx->streams) {
@@ -424,6 +439,16 @@ static void media_player_read_packet(struct media_player *mp) {
 			us_dur,
 			avs->CODECPAR->sample_rate,
 			avs->time_base.num, avs->time_base.den);
+
+	ilog(LOG_ERR, "read media packet: pts %llu duration %lli (scaled %llu/%lli, %lli us), "
+					"sample rate %i, time_base %i/%i",
+					(unsigned long long) mp->pkt.pts,
+					(long long) mp->pkt.duration,
+					pts_scaled,
+					duration_scaled,
+					us_dur,
+					avs->CODECPAR->sample_rate,
+					avs->time_base.num, avs->time_base.den);
 
 	media_player_add_packet(mp, (char *) mp->pkt.data, mp->pkt.size, us_dur, pts_scaled);
 
@@ -471,20 +496,23 @@ found:
 
 
 // call->master_lock held in W
-static void media_player_play_start(struct media_player *mp) {
+static void media_player_play_start(struct media_player *mp, long long repeat) {
 	// needed to have usable duration for some formats. ignore errors.
 	avformat_find_stream_info(mp->fmtctx, NULL);
 
 	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
 	timeval_add_usec(&mp->next_run, -50000);
-	media_player_read_packet(mp);
+
+	    media_player_read_packet(mp);
+		mp->repeat = repeat;
+
 }
 #endif
 
 
 // call->master_lock held in W
-int media_player_play_file(struct media_player *mp, const str *file) {
+int media_player_play_file(struct media_player *mp, const str *file, long long repeat) {
 #ifdef WITH_TRANSCODING
 	if (media_player_play_init(mp))
 		return -1;
@@ -492,13 +520,16 @@ int media_player_play_file(struct media_player *mp, const str *file) {
 	char file_s[PATH_MAX];
 	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(file));
 
+
+
 	int ret = avformat_open_input(&mp->fmtctx, file_s, NULL, NULL);
 	if (ret < 0) {
 		ilog(LOG_ERR, "Failed to open media file for playback: %s", av_error(ret));
 		return -1;
 	}
 
-	media_player_play_start(mp);
+	media_player_play_start(mp,repeat);
+
 
 	return 0;
 #else
@@ -555,7 +586,7 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 
 
 // call->master_lock held in W
-int media_player_play_blob(struct media_player *mp, const str *blob) {
+int media_player_play_blob(struct media_player *mp, const str *blob, long long repeat) {
 #ifdef WITH_TRANSCODING
 	const char *err;
 	int av_ret = 0;
@@ -593,7 +624,7 @@ int media_player_play_blob(struct media_player *mp, const str *blob) {
 	if (av_ret < 0)
 		goto err;
 
-	media_player_play_start(mp);
+	media_player_play_start(mp,repeat);
 
 	return 0;
 
@@ -630,7 +661,7 @@ err:
 
 
 // call->master_lock held in W
-int media_player_play_db(struct media_player *mp, long long id) {
+int media_player_play_db(struct media_player *mp, long long id, long long repeat) {
 	const char *err;
 	AUTO_CLEANUP_GBUF(query);
 
@@ -677,7 +708,7 @@ success:;
 
 	str blob;
 	str_init_len(&blob, row[0], lengths[0]);
-	int ret = media_player_play_blob(mp, &blob);
+	int ret = media_player_play_blob(mp, &blob, repeat);
 
 	mysql_free_result(res);
 
@@ -730,7 +761,6 @@ void media_player_free(void) {
 
 #ifdef WITH_TRANSCODING
 void media_player_loop(void *p) {
-	//ilog(LOG_DEBUG, "media_player_loop");
 	timerthread_run(&media_player_thread);
 }
 #endif
