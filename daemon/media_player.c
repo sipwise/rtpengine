@@ -388,8 +388,8 @@ static void media_player_read_packet(struct media_player *mp) {
 	if (ret < 0) {
 		if (ret == AVERROR_EOF) {
 			if (mp->repeat > 1){
-				ilog(LOG_DEBUG, "EOF reading from media stream but will repeat %i time",mp->repeat);
-				mp->repeat--
+				ilog(LOG_DEBUG, "EOF reading from media stream but will repeat %li time",mp->repeat);
+				mp->repeat = mp->repeat - 1;
 				AVStream *avs = mp->fmtctx->streams[0];
 				avio_seek(mp->fmtctx->pb, 0, SEEK_SET);
 				avformat_seek_file(mp->fmtctx, 0, 0, 0, avs->duration, 0);
@@ -439,16 +439,6 @@ static void media_player_read_packet(struct media_player *mp) {
 			us_dur,
 			avs->CODECPAR->sample_rate,
 			avs->time_base.num, avs->time_base.den);
-
-	ilog(LOG_ERR, "read media packet: pts %llu duration %lli (scaled %llu/%lli, %lli us), "
-					"sample rate %i, time_base %i/%i",
-					(unsigned long long) mp->pkt.pts,
-					(long long) mp->pkt.duration,
-					pts_scaled,
-					duration_scaled,
-					us_dur,
-					avs->CODECPAR->sample_rate,
-					avs->time_base.num, avs->time_base.den);
 
 	media_player_add_packet(mp, (char *) mp->pkt.data, mp->pkt.size, us_dur, pts_scaled);
 
