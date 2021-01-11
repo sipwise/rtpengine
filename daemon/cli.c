@@ -83,7 +83,6 @@ static void cli_incoming_list_silenttimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_offertimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_finaltimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_loglevel(str *instr, struct cli_writer *cw);
-static void cli_incoming_list_loglevel(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_redisallowederrors(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_redisdisabletime(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_redisconnecttimeout(str *instr, struct cli_writer *cw);
@@ -163,6 +162,13 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 {
 	const cli_handler_t *h;
 
+	if (!str_cmp(instr, "help")) {
+		cw->cw_printf(cw, "Available sub-commands at this level:\n");
+		for (h = handlers; h->cmd; h++)
+			cw->cw_printf(cw, "\t%s\n", h->cmd);
+		return;
+	}
+
 	for (h = handlers; h->cmd; h++) {
 		if (str_shift_cmp(instr, h->cmd))
 			continue;
@@ -170,7 +176,7 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 		return;
 	}
 
-	cw->cw_printf(cw, "%s:%s\n", "Unknown or incomplete command:", instr->s);
+	cw->cw_printf(cw, "%s:" STR_FORMAT "\n", "Unknown or incomplete command:", STR_FMT(instr));
 }
 
 static void destroy_own_foreign_calls(int foreign_call, unsigned int uint_keyspace_db) {
