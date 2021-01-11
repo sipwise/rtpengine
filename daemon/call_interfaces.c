@@ -2050,6 +2050,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	GQueue monologues;
 	const char *err = NULL;
 	long long db_id;
+	long long repeat_times = 1;
 
 	err = play_media_select_party(&call, &monologues, input);
 	if (err)
@@ -2060,21 +2061,21 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 
 		if (!monologue->player)
 			monologue->player = media_player_new(monologue);
-
+		repeat_times = bencode_dictionary_get_int_str(input, "repeat-times", 1);
 		err = "No media file specified";
 		if (bencode_dictionary_get_str(input, "file", &str)) {
 			err = "Failed to start media playback from file";
-			if (media_player_play_file(monologue->player, &str))
+			if (media_player_play_file(monologue->player, &str,repeat_times))
 				goto out;
 		}
 		else if (bencode_dictionary_get_str(input, "blob", &str)) {
 			err = "Failed to start media playback from blob";
-			if (media_player_play_blob(monologue->player, &str))
+			if (media_player_play_blob(monologue->player, &str,repeat_times))
 				goto out;
 		}
 		else if ((db_id = bencode_dictionary_get_int_str(input, "db-id", 0)) > 0) {
 			err = "Failed to start media playback from database";
-			if (media_player_play_db(monologue->player, db_id))
+			if (media_player_play_db(monologue->player, db_id,repeat_times))
 				goto out;
 		}
 		else

@@ -1795,6 +1795,10 @@ Media files can be provided through one of these keys:
 	database via (at the minimum) the `mysql-host` and `mysql-query` config keys. The daemon will then
 	retrieve the media file as a binary blob (not a file name!) from the database via the provided query.
 
+* `repeat-times`
+
+	Contains an integer. How many times to repeat playback of the media. Default is 1.
+
 In addition to the `result` key, the response dictionary may contain the key `duration` if the length of
 the media file could be determined. The duration is given as in integer representing milliseconds.
 
