@@ -83,6 +83,7 @@ static void cli_incoming_list_silenttimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_offertimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_finaltimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_loglevel(str *instr, struct cli_writer *cw);
+static void cli_incoming_list_loglevels(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_redisallowederrors(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_redisdisabletime(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_redisconnecttimeout(str *instr, struct cli_writer *cw);
@@ -137,6 +138,7 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "silenttimeout",		cli_incoming_list_silenttimeout		},
 	{ "offertimeout",		cli_incoming_list_offertimeout		},
 	{ "finaltimeout",		cli_incoming_list_finaltimeout		},
+	{ "loglevels",			cli_incoming_list_loglevels		},
 	{ "loglevel",			cli_incoming_list_loglevel		},
 	{ "redisallowederrors",		cli_incoming_list_redisallowederrors	},
 	{ "redisdisabletime",		cli_incoming_list_redisdisabletime	},
@@ -1189,8 +1191,23 @@ fail:
 }
 
 static void cli_incoming_list_loglevel(str *instr, struct cli_writer *cw) {
+	if (instr && instr->len)
+		str_shift(instr, 1);
+
+	for (unsigned int i = 0; i < num_log_levels; i++) {
+		if (instr && instr->len) {
+			if (str_cmp(instr, log_level_names[i]))
+				continue;
+		}
+		if (instr && instr->len)
+			cw->cw_printf(cw, "%i\n", __get_log_level(i));
+		else
+			cw->cw_printf(cw, "%s = %i\n", log_level_names[i], __get_log_level(i));
+	}
+}
+static void cli_incoming_list_loglevels(str *instr, struct cli_writer *cw) {
 	for (unsigned int i = 0; i < num_log_levels; i++)
-		cw->cw_printf(cw, "%s = %i\n", log_level_names[i], __get_log_level(i));
+		cw->cw_printf(cw, "%s\n", log_level_names[i]);
 }
 static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 	int nl;
@@ -1200,15 +1217,24 @@ static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 		return;
 	}
 
-	nl = atoi(instr->s);
-	if (nl < 1 || nl > 7) {
-		cw->cw_printf(cw, "Invalid log level '%s', must be number between 1 and 7\n",
-				instr->s);
+	str subsys = STR_NULL;
+	if (instr->len && (instr->s[0] < '0' || instr->s[0] > '9'))
+		str_token_sep(&subsys, instr, ' ');
+
+	if (!instr->len) {
+		cw->cw_printf(cw, "%s\n", "More parameters required.");
 		return;
 	}
 
-	for (unsigned int i = 0; i < num_log_levels; i++)
+	nl = atoi(instr->s);
+
+	for (unsigned int i = 0; i < num_log_levels; i++) {
+		if (subsys.len) {
+			if (str_cmp(&subsys, log_level_names[i]))
+				continue;
+		}
 		g_atomic_int_set(&rtpe_config.common.log_levels[i], nl);
+	}
 	cw->cw_printf(cw,  "Success setting loglevel to %i\n", nl);
 }
 
