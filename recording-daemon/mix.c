@@ -80,8 +80,11 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 
 unsigned int mix_get_index(mix_t *mix, void *ptr) {
 	unsigned int next = mix->next_idx++;
-	if (next < NUM_INPUTS) // must be unused
+	if (next < NUM_INPUTS) {
+		// must be unused
+		mix->input_ref[next] = ptr;
 		return next;
+	}
 
 	// too many inputs - find one to re-use
 	struct timeval earliest = {0,};
