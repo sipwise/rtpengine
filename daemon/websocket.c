@@ -194,6 +194,8 @@ static void websocket_process(void *p, void *up) {
 	gettimeofday(&rtpe_now, NULL);
 
 	const char *err = wm->func(wm);
+	// this may trigger a cleanup/free in another thread, which will then block until our
+	// job count has been decremented
 
 	websocket_message_free(&wm);
 	mutex_lock(&wc->lock);
@@ -215,6 +217,7 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 
 	mutex_lock(&wc->lock);
 	struct websocket_output *wo;
+	struct lws *wsi = wc->wsi;
 	while ((wo = g_queue_pop_head(&wc->output_q))) {
 		// used buffer slot?
 		if (wo->str) {
@@ -227,7 +230,7 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 				else
 					ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
 							(int) to_send, wo->str->str + wo->str_done);
-				size_t ret = lws_write(wc->wsi, (unsigned char *) wo->str->str + wo->str_done,
+				size_t ret = lws_write(wsi, (unsigned char *) wo->str->str + wo->str_done,
 						to_send, wo->protocol);
 				if (ret != to_send)
 					ilogs(http, LOG_ERR, "Invalid LWS write: %lu != %lu",
@@ -243,11 +246,11 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 	}
 	g_queue_push_tail(&wc->output_q, websocket_output_new());
 
+	mutex_unlock(&wc->lock);
+
 	int ret = 0;
 	if (is_http)
-		ret = lws_http_transaction_completed(wc->wsi);
-
-	mutex_unlock(&wc->lock);
+		ret = lws_http_transaction_completed(wsi); // may destroy `wc`
 
 	return ret;
 }
@@ -637,10 +640,15 @@ static int websocket_http(struct lws *wsi, enum lws_callback_reasons reason, voi
 #endif
 #if LWS_LIBRARY_VERSION_MAJOR >= 3
 		case LWS_CALLBACK_ADD_HEADERS:
-		case LWS_CALLBACK_HTTP_DROP_PROTOCOL:
 		case LWS_CALLBACK_EVENT_WAIT_CANCELLED: // ?
 #endif
 			break;
+#if LWS_LIBRARY_VERSION_MAJOR >= 3
+		case LWS_CALLBACK_HTTP_DROP_PROTOCOL:
+			ilogs(http, LOG_DEBUG, "HTTP connection reset %p", wsi);
+			websocket_conn_cleanup(user);
+			break;
+#endif
 		case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 			return -1; // disallow non supported websocket protocols
 		case LWS_CALLBACK_GET_THREAD_ID:
