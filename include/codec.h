@@ -100,7 +100,7 @@ uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch);
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 void codec_tracker_init(struct call_media *);
-void codec_tracker_finish(struct call_media *);
+void codec_tracker_finish(struct call_media *, struct call_media *);
 void codec_handlers_stop(GQueue *);
 
 #else

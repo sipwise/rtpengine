@@ -122,7 +122,7 @@ static void offer(void) {
 	codec_tracker_init(media_B);
 	codec_rtp_payload_types(media_B, media_A, &rtp_types, &flags);
 	codec_handlers_update(media_B, media_A, &flags, NULL);
-	codec_tracker_finish(media_B);
+	codec_tracker_finish(media_B, media_A);
 	__init();
 }
 
@@ -132,7 +132,7 @@ static void answer(void) {
 	codec_tracker_init(media_A);
 	codec_rtp_payload_types(media_A, media_B, &rtp_types, &flags);
 	codec_handlers_update(media_A, media_B, &flags, NULL);
-	codec_tracker_finish(media_A);
+	codec_tracker_finish(media_A, media_B);
 	__init();
 }
 
@@ -1705,6 +1705,26 @@ int main(void) {
 	expect(A, recv, "9/G722/8000 101/telephone-event/8000");
 	packet_seq(A, 101, "\x05\x07\x01\x40", 4000, 10, 97, "\x05\x07\x07\x80");
 	packet_seq(B, 97, "\x05\x07\x07\x80", 4000, 10, 101, "\x05\x07\x01\x40");
+	// DTMF PT TC w eq PT
+	start();
+	sdp_pt(96, opus, 48000);
+	sdp_pt(8, PCMA, 8000);
+	sdp_pt(102, telephone-event, 48000);
+	sdp_pt(101, telephone-event, 8000);
+	ht_set(codec_mask, all);
+	transcode(opus);
+	transcode(PCMA);
+	transcode(PCMU);
+	transcode(telephone-event);
+	offer();
+	expect(B, recv, "96/opus/48000 8/PCMA/8000 0/PCMU/8000 102/telephone-event/48000 101/telephone-event/8000");
+	sdp_pt(0, PCMU, 8000);
+	sdp_pt(101, telephone-event, 8000);
+	flags.single_codec = 1;
+	answer();
+	expect(A, recv, "96/opus/48000 102/telephone-event/48000");
+	packet_seq(A, 102, "\x05\x07\x01\x40", 4000, 10, 101, "\x05\x07\x00\x35");
+	packet_seq(B, 101, "\x05\x07\x07\x80", 4000, 10, 102, "\x05\x07\x2d\x00");
 
 	return 0;
 }

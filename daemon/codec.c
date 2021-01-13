@@ -1374,6 +1374,9 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 		struct rtp_payload_type *pt = l->data;
 
+		ilogs(internals, LOG_DEBUG, "checking recv codec " STR_FORMAT,
+				STR_FMT(&pt->encoding));
+
 		if (MEDIA_ISSET(sink, TRANSCODE) && flags && flags->opmode == OP_ANSWER) {
 			// if the other side is transcoding, we may come across a receiver entry
 			// (recv->recv) that wasn't originally offered (recv->send). we must eliminate
@@ -1410,14 +1413,14 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			goto next;
 		}
 
-		//ilog(LOG_DEBUG, "XXXXXXXXXXXX pref dest codec " STR_FORMAT " is %i, CN match %i DTMF match %i "
-				//"sink TC %i/%i recv TC %i TC supp %i DTMF DSP %i",
-				//STR_FMT(&pref_dest_codec->encoding_with_params),
-				//pref_dest_codec->for_transcoding,
-				//cn_pt_match, dtmf_pt_match,
-				//MEDIA_ISSET(sink, TRANSCODE), sink_transcoding,
-				//receiver_transcoding,
-				//transcode_supplemental, pcm_dtmf_detect);
+		ilogs(internals, LOG_DEBUG, "pref dest codec " STR_FORMAT " is %i, CN match %i DTMF match %i "
+				"sink TC %i/%i recv TC %i TC supp %i DTMF DSP %i",
+				STR_FMT(&pref_dest_codec->encoding_with_params),
+				pref_dest_codec->for_transcoding,
+				cn_pt_match, dtmf_pt_match,
+				MEDIA_ISSET(sink, TRANSCODE), sink_transcoding,
+				receiver_transcoding,
+				transcode_supplemental, pcm_dtmf_detect);
 
 		struct rtp_payload_type *dest_pt; // transcode to this
 
@@ -1525,8 +1528,8 @@ next:
 		for (GList *l = receiver->codecs_prefs_recv.head; l; ) {
 			struct rtp_payload_type *pt = l->data;
 
-			//ilog(LOG_DEBUG, "XXXX checking recv codec " STR_FORMAT,
-					//STR_FMT(&pt->encoding));
+			ilogs(internals, LOG_DEBUG, "checking recv codec " STR_FORMAT,
+					STR_FMT(&pt->encoding));
 
 			if (pt->codec_def) {
 				// supported
@@ -3252,7 +3255,7 @@ static int ptr_cmp(const void *a, const void *b) {
 		return 1;
 	return 0;
 }
-void codec_tracker_finish(struct call_media *media) {
+void codec_tracker_finish(struct call_media *media, struct call_media *other_media) {
 	struct codec_tracker *sct = media->codec_tracker;
 	if (!sct)
 		return;
@@ -3339,8 +3342,75 @@ void codec_tracker_finish(struct call_media *media) {
 				GList *link = j->data;
 				struct rtp_payload_type *pt = link->data;
 
-				ilogs(codec, LOG_DEBUG, "Eliminating supplemental codec " STR_FORMAT " with stray clock rate %u",
-						STR_FMT(&pt->encoding), clockrate);
+				ilogs(codec, LOG_DEBUG, "Eliminating supplemental codec " STR_FORMAT " (%i) with "
+						"stray clock rate %u",
+						STR_FMT(&pt->encoding_with_params), pt->payload_type, clockrate);
+
+				// now we have to check the codec handlers on the opposite side to see
+				// if any of them were using this as output
+				struct rtp_payload_type *prim_dtmf = NULL;
+				struct rtp_payload_type *prim_cn = NULL;
+				for (GList *o = other_media->codecs_prefs_recv.head; o; o = o->next) {
+					struct rtp_payload_type *opt = o->data;
+					struct codec_handler *ch = codec_handler_get(other_media,
+							opt->payload_type);
+					if (!ch)
+						continue;
+
+					// check DTMF
+					if (!prim_dtmf && ch->dtmf_payload_type != -1)
+						prim_dtmf = g_hash_table_lookup(other_media->codecs_recv,
+								&ch->dtmf_payload_type);
+					if (prim_dtmf) {
+						if (ch->dest_pt.payload_type == pt->payload_type) {
+							ilogs(codec, LOG_DEBUG, "Adjusting output DTMF PT for "
+									"opposite codec handler for "
+									STR_FORMAT " (%i) to %i",
+									STR_FMT(&opt->encoding_with_params),
+									opt->payload_type,
+									prim_dtmf->payload_type);
+							__make_transcoder(ch, prim_dtmf, NULL,
+									prim_dtmf->payload_type,
+									ch->pcm_dtmf_detect);
+						}
+						else if (ch->dtmf_payload_type == pt->payload_type) {
+							ilogs(codec, LOG_DEBUG, "Adjusting output DTMF PT for "
+									"opposite codec handler for "
+									STR_FORMAT " (%i) to %i",
+									STR_FMT(&opt->encoding_with_params),
+									opt->payload_type,
+									prim_dtmf->payload_type);
+							__make_transcoder(ch, &ch->dest_pt, NULL,
+									prim_dtmf->payload_type,
+									ch->pcm_dtmf_detect);
+						}
+					}
+
+					// check CN
+					if (!prim_cn && ch->cn_payload_type != -1)
+						prim_cn = g_hash_table_lookup(other_media->codecs_recv,
+								&ch->cn_payload_type);
+					if (prim_cn) {
+						if (ch->dest_pt.payload_type == pt->payload_type) {
+							ilogs(codec, LOG_DEBUG, "Adjusting output CN PT for "
+									"opposite codec handler for "
+									STR_FORMAT " (%i) to %i",
+									STR_FMT(&opt->encoding_with_params),
+									opt->payload_type,
+									prim_cn->payload_type);
+							ch->cn_payload_type = prim_cn->payload_type;
+						}
+						else if (ch->cn_payload_type == pt->payload_type) {
+							ilogs(codec, LOG_DEBUG, "Adjusting output CN PT for "
+									"opposite codec handler for "
+									STR_FORMAT " (%i) to %i",
+									STR_FMT(&opt->encoding_with_params),
+									opt->payload_type,
+									prim_cn->payload_type);
+							ch->cn_payload_type = prim_cn->payload_type;
+						}
+					}
+				}
 
 				__delete_receiver_codec(media, link);
 			}

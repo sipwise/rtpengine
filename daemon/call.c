@@ -2177,7 +2177,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		codec_tracker_init(media);
 		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
 		codec_handlers_update(media, other_media, flags, sp);
-		codec_tracker_finish(media);
+		codec_tracker_finish(media, other_media);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
