@@ -424,7 +424,7 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 
 	prf_n(out, c->params.master_key, c->params.crypto_suite->lib_cipher_ptr, x);
 
-	ilogs(internals, LOG_DEBUG, "Generated session key: master key "
+	ilogs(srtp, LOG_DEBUG, "Generated session key: master key "
 			"%02x%02x%02x%02x..., "
 			"master salt "
 			"%02x%02x%02x%02x..., "

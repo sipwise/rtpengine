@@ -389,7 +389,7 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(dtls_sig);
 	double silence_detect = 0;
 	AUTO_CLEANUP_GVBUF(cn_payload);
-	int debug_srtp;
+	int debug_srtp = 0;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},

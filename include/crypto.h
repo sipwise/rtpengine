@@ -211,7 +211,7 @@ INLINE void crypto_params_sdes_queue_clear(GQueue *q) {
 
 
 INLINE void crypto_debug_init(int flag) {
-	if (rtpe_config.common.log_levels[log_level_index_srtp] < LOG_NOTICE)
+	if (rtpe_config.common.log_levels[log_level_index_srtp] < LOG_DEBUG)
 		return;
 	if (crypto_debug_string)
 		g_string_free(crypto_debug_string, TRUE);
