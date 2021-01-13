@@ -1,3 +1,10 @@
+ngcp-rtpengine (9.2.1.2+0~mr9.2.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0ebb965] TT#107157 fix LWS HTTP handling crash
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 14 Jan 2021 00:12:16 +0100
+
 ngcp-rtpengine (9.2.1.1+0~mr9.2.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
