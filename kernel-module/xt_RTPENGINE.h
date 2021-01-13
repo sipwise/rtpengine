@@ -104,7 +104,6 @@ struct rtpengine_target_info {
         u_int32_t                       ssrc_out; // Rewrite SSRC
 
 	unsigned char			payload_types[NUM_PAYLOAD_TYPES]; /* must be sorted */
-	u_int32_t			clock_rates[NUM_PAYLOAD_TYPES];
 	unsigned int			num_payload_types;
 
 	unsigned char			tos;
@@ -117,6 +116,7 @@ struct rtpengine_target_info {
 					transcoding:1, // SSRC subst and RTP PT filtering
 					non_forwarding:1, // empty src/dst addr
 					rtp_stats:1; // requires SSRC and clock_rates to be set
+	u_int32_t			clock_rates[NUM_PAYLOAD_TYPES];
 };
 
 struct rtpengine_call_info {
