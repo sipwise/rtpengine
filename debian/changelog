@@ -1,3 +1,21 @@
+ngcp-rtpengine (8.5.3.1+0~mr8.5.3.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [eb3104e] TT#99503 fix possible T.38 gateway deadlock
+  * [22f7d6e] TT#102450 fix AMR recording
+  * [13dfc36] TT#81212 add function to change call state (own/foreign)
+  * [982aee7] TT#81212 add trigger to set all calls to own or foreign
+  * [9bbeb6e] TT#81212 mark calls as owned upon activity
+  * [ce9473d] TT#104400 support kernels >= 5.9.9
+  * [022a6a1] TT#104400 further update for kernels >= 4.19.158
+  * [bc03971] TT#104400 further update for kernels >= 4.19.158
+  * [5dfba79] TT#105000 don't send STUN response in response to responses
+
+  [ timando ]
+  * [5fc6b3c] TT#104400 Update xt_RTPENGINE.c
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 14 Jan 2021 16:49:35 +0100
+
 ngcp-rtpengine (8.5.3.0+0~mr8.5.3.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
