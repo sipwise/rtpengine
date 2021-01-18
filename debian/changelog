@@ -1,3 +1,18 @@
+ngcp-rtpengine (7.5.7.1+0~mr7.5.7.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [bd12339] TT#102450 fix AMR recording
+  * [68e7641] TT#104400 support kernels >= 5.9.9
+  * [bb56283] TT#104400 further update for kernels >= 4.19.158
+  * [3dd8540] TT#104400 further update for kernels >= 4.19.158
+  * [828f4a0] TT#105000 don't send STUN response in response to responses
+  * [ec35f4d] fix compilation when spandsp is not present
+
+  [ timando ]
+  * [d3bb325] TT#104400 Update xt_RTPENGINE.c
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 Jan 2021 15:02:11 +0100
+
 ngcp-rtpengine (7.5.7.0+0~mr7.5.7.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
