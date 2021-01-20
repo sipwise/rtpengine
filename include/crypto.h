@@ -56,9 +56,10 @@ struct crypto_suite {
 	session_key_init_func session_key_init;
 	session_key_cleanup_func session_key_cleanup;
 	//const char *dtls_profile_code; // unused
-	const void *lib_cipher_ptr;
+	const EVP_CIPHER *aes_evp;
 	unsigned int idx; // filled in during crypto_init_main()
 	str name_str; // same as `name`
+	const EVP_CIPHER *(*aead_evp)(void);
 };
 
 struct crypto_session_params {

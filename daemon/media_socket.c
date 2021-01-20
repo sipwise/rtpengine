@@ -1033,6 +1033,8 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c, st
 	s->master_key_len = c->params.crypto_suite->master_key_len;
 	s->session_key_len = c->params.crypto_suite->session_key_len;
 	memcpy(s->master_salt, c->params.master_salt, c->params.crypto_suite->master_salt_len);
+	s->master_salt_len = c->params.crypto_suite->master_salt_len;
+	s->session_salt_len = c->params.crypto_suite->session_salt_len;
 
 	if (c->params.session_params.unencrypted_srtp)
 		s->cipher = REC_NULL;

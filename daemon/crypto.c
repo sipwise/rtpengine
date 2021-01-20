@@ -195,8 +195,8 @@ struct crypto_suite __crypto_suites[] = {
 		.session_salt_len	= 12,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		//.kernel_cipher		= REC_AES_CM_128,
-		//.kernel_hmac		= REH_HMAC_SHA1,
+		.kernel_cipher		= REC_AEAD_AES_GCM_128,
+		.kernel_hmac		= REH_NULL,
 		.srtp_auth_tag		= 0,
 		.srtcp_auth_tag		= 0,
 		.srtp_auth_key_len	= 0,
@@ -205,10 +205,9 @@ struct crypto_suite __crypto_suites[] = {
 		.decrypt_rtp		= aes_gcm_decrypt_rtp,
 		.encrypt_rtcp		= aes_gcm_encrypt_rtcp,
 		.decrypt_rtcp		= aes_gcm_decrypt_rtcp,
-		//.hash_rtp		= hmac_sha1_rtp,
-		//.hash_rtcp		= hmac_sha1_rtcp,
 		.session_key_init	= aes_gcm_session_key_init,
 		.session_key_cleanup	= evp_session_key_cleanup,
+		.aead_evp		= EVP_aes_128_gcm,
 	},
 	{
 		.name			= "AEAD_AES_256_GCM",
@@ -219,8 +218,8 @@ struct crypto_suite __crypto_suites[] = {
 		.session_salt_len	= 12,
 		.srtp_lifetime		= 1ULL << 48,
 		.srtcp_lifetime		= 1ULL << 31,
-		//.kernel_cipher		= REC_AES_CM_256,
-		//.kernel_hmac		= REH_HMAC_SHA1,
+		.kernel_cipher		= REC_AEAD_AES_GCM_256,
+		.kernel_hmac		= REH_NULL,
 		.srtp_auth_tag		= 0,
 		.srtcp_auth_tag		= 0,
 		.srtp_auth_key_len	= 0,
@@ -229,10 +228,9 @@ struct crypto_suite __crypto_suites[] = {
 		.decrypt_rtp		= aes_gcm_decrypt_rtp,
 		.encrypt_rtcp		= aes_gcm_encrypt_rtcp,
 		.decrypt_rtcp		= aes_gcm_decrypt_rtcp,
-		//.hash_rtp		= hmac_sha1_rtp,
-		//.hash_rtcp		= hmac_sha1_rtcp,
 		.session_key_init	= aes_gcm_session_key_init,
 		.session_key_cleanup	= evp_session_key_cleanup,
+		.aead_evp		= EVP_aes_256_gcm,
 	},
 	{
 		.name			= "F8_128_HMAC_SHA1_80",
@@ -466,23 +464,24 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 	unsigned char x[14];
 	int i;
 
+	if (!out->len)
+		return 0;
+
 	ZERO(key_id);
 	/* key_id[1..6] := r; or 1..4 for rtcp
 	 * key_derivation_rate == 0 --> r == 0 */
 
 	key_id[0] = label;
+	assert(sizeof(x) >= c->params.crypto_suite->master_salt_len);
+	memcpy(x, c->params.master_salt, c->params.crypto_suite->master_salt_len);
 	// AEAD uses 12 bytes master salt; pad on the right to get 14
 	// Errata: https://www.rfc-editor.org/errata_search.php?rfc=7714
-	if (c->params.crypto_suite->master_salt_len == 12) {
-		memcpy(x, c->params.master_salt, 12);
+	if (c->params.crypto_suite->master_salt_len == 12)
 		x[12] = x[13] = '\x00';
-	} else {
-		memcpy(x, c->params.master_salt, 14);
-	}
 	for (i = 13 - index_len; i < 14; i++)
 		x[i] = key_id[i - (13 - index_len)] ^ x[i];
 
-	prf_n(out, c->params.master_key, c->params.crypto_suite->lib_cipher_ptr, x);
+	prf_n(out, c->params.master_key, c->params.crypto_suite->aes_evp, x);
 
 	ilogs(srtp, LOG_DEBUG, "Generated session key: master key "
 			"%02x%02x%02x%02x..., "
@@ -563,18 +562,16 @@ static int aes_gcm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, s
 	*(u_int32_t*)(iv+6) ^= htonl((idx & 0x00ffffffff0000ULL) >> 16);
 	*(u_int16_t*)(iv+10) ^= htons(idx & 0x00ffffULL);
 
-	if (c->params.crypto_suite->session_key_len == 16) {
-		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_128_gcm(), NULL, c->session_key, iv);
-	} else {
-		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
-	}
+	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
+			(const unsigned char *) c->session_key, iv);
 
 	// nominally 12 bytes of AAD
 	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
 
-	EVP_EncryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len);
+	EVP_EncryptUpdate(c->session_key_ctx[0], (unsigned char *) s->s, &len,
+			(const unsigned char *) s->s, s->len);
 	ciphertext_len = len;
-	if (!EVP_EncryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
+	if (!EVP_EncryptFinal_ex(c->session_key_ctx[0], (unsigned char *) s->s+len, &len))
 		return 1;
 	ciphertext_len += len;
 	// append the tag to the str buffer
@@ -594,20 +591,18 @@ static int aes_gcm_decrypt_rtp(struct crypto_context *c, struct rtp_header *r, s
 	*(u_int32_t*)(iv+6) ^= htonl((idx & 0x00ffffffff0000ULL) >> 16);
 	*(u_int16_t*)(iv+10) ^= htons(idx & 0x00ffffULL);
 
-	if (c->params.crypto_suite->session_key_len == 16) {
-		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_128_gcm(), NULL, c->session_key, iv);
-	} else {
-		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
-	}
+	EVP_DecryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
+			(const unsigned char *) c->session_key, iv);
 
 	// nominally 12 bytes of AAD
 	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
 
 	// decrypt partial buffer - the last 16 bytes are the tag
-	EVP_DecryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len-16);
+	EVP_DecryptUpdate(c->session_key_ctx[0], (unsigned char *) s->s, &len,
+			(const unsigned char *) s->s, s->len-16);
 	plaintext_len = len;
 	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_SET_TAG, 16, s->s + s->len-16);
-	if (!EVP_DecryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
+	if (!EVP_DecryptFinal_ex(c->session_key_ctx[0], (unsigned char *) s->s+len, &len))
 		return 1;
 	plaintext_len += len;
 	s->len = plaintext_len;
@@ -628,19 +623,17 @@ static int aes_gcm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 	*(u_int32_t*)(iv+8) ^= htonl(idx & 0x007fffffffULL);
 	*(u_int32_t*)e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
 
-	if (c->params.crypto_suite->session_key_len == 16) {
-		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_128_gcm(), NULL, c->session_key, iv);
-	} else {
-		EVP_EncryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
-	}
+	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
+			(const unsigned char *) c->session_key, iv);
 
 	// nominally 8 + 4 bytes of AAD
 	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
 	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)e_idx, 4);
 
-	EVP_EncryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len);
+	EVP_EncryptUpdate(c->session_key_ctx[0], (unsigned char *) s->s, &len,
+			(const unsigned char *) s->s, s->len);
 	ciphertext_len = len;
-	if (!EVP_EncryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
+	if (!EVP_EncryptFinal_ex(c->session_key_ctx[0], (unsigned char *) s->s+len, &len))
 		return 1;
 	ciphertext_len += len;
 	// append the tag to the str buffer
@@ -661,21 +654,19 @@ static int aes_gcm_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 	*(u_int32_t*)(iv+8) ^= htonl(idx & 0x007fffffffULL);
 	*(u_int32_t*)e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
 
-	if (c->params.crypto_suite->session_key_len == 16) {
-		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_128_gcm(), NULL, c->session_key, iv);
-	} else {
-		EVP_DecryptInit_ex(c->session_key_ctx[0], EVP_aes_256_gcm(), NULL, c->session_key, iv);
-	}
+	EVP_DecryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
+			(const unsigned char *) c->session_key, iv);
 
 	// nominally 8 + 4 bytes of AAD
 	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
 	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)e_idx, 4);
 
 	// decrypt partial buffer - the last 16 bytes are the tag
-	EVP_DecryptUpdate(c->session_key_ctx[0], s->s, &len, s->s, s->len-16);
+	EVP_DecryptUpdate(c->session_key_ctx[0], (unsigned char *) s->s, &len,
+			(const unsigned char *) s->s, s->len-16);
 	plaintext_len = len;
 	EVP_CIPHER_CTX_ctrl(c->session_key_ctx[0], EVP_CTRL_GCM_SET_TAG, 16, s->s + s->len-16);
-	if (!EVP_DecryptFinal_ex(c->session_key_ctx[0], s->s+len, &len))
+	if (!EVP_DecryptFinal_ex(c->session_key_ctx[0], (unsigned char *) s->s+len, &len))
 		return 1;
 	plaintext_len += len;
 	s->len = plaintext_len;
@@ -826,7 +817,7 @@ static int aes_cm_session_key_init(struct crypto_context *c) {
 	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
 	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
 #endif
-	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->lib_cipher_ptr, NULL,
+	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aes_evp, NULL,
 			(unsigned char *) c->session_key, NULL);
 	return 0;
 }
@@ -963,13 +954,13 @@ void crypto_init_main() {
 		str_init(&cs->name_str, (char *) cs->name);
 		switch(cs->master_key_len) {
 		case 16:
-			cs->lib_cipher_ptr = EVP_aes_128_ecb();
+			cs->aes_evp = EVP_aes_128_ecb();
 			break;
 		case 24:
-			cs->lib_cipher_ptr = EVP_aes_192_ecb();
+			cs->aes_evp = EVP_aes_192_ecb();
 			break;
 		case 32:
-			cs->lib_cipher_ptr = EVP_aes_256_ecb();
+			cs->aes_evp = EVP_aes_256_ecb();
 			break;
 		}
 	}

@@ -54,6 +54,8 @@ enum rtpengine_cipher {
 	REC_AES_F8,
 	REC_AES_CM_192,
 	REC_AES_CM_256,
+	REC_AEAD_AES_GCM_128,
+	REC_AEAD_AES_GCM_256,
 
 	__REC_LAST
 };
@@ -73,7 +75,9 @@ struct rtpengine_srtp {
 	unsigned char			master_key[32];
 	unsigned int			master_key_len;
 	unsigned char			master_salt[14];
+	unsigned int			master_salt_len;
 	unsigned int			session_key_len;
+	unsigned int			session_salt_len;
 	unsigned char			mki[256]; /* XXX uses too much memory? */
 	u_int64_t			last_index;
 	unsigned int			auth_tag_len; /* in bytes */

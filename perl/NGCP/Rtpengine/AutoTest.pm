@@ -122,8 +122,10 @@ sub offer_answer {
 	$regexp =~ s/ICEBASE/([0-9a-zA-Z]{16})/gs;
 	$regexp =~ s/ICEUFRAG/([0-9a-zA-Z]{8})/gs;
 	$regexp =~ s/ICEPWD/([0-9a-zA-Z]{26})/gs;
+	$regexp =~ s/CRYPTO128S/([0-9a-zA-Z\/+]{38})/gs;
 	$regexp =~ s/CRYPTO128/([0-9a-zA-Z\/+]{40})/gs;
 	$regexp =~ s/CRYPTO192/([0-9a-zA-Z\/+]{51})/gs;
+	$regexp =~ s/CRYPTO256S/([0-9a-zA-Z\/+]{59})/gs;
 	$regexp =~ s/CRYPTO256/([0-9a-zA-Z\/+]{62})/gs;
 	$regexp =~ s/LOOPER/([0-9a-f]{12})/gs;
 	$regexp =~ s/FINGERPRINT256/([0-9a-fA-F:]{95})/gs;

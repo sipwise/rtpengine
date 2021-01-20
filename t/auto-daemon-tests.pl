@@ -3981,10 +3981,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-1 FINGERPRINT
 SDP
@@ -4024,10 +4026,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-1 FINGERPRINT
 SDP
@@ -4073,10 +4077,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('stray answer protocol changes, default', {
@@ -4148,10 +4154,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('stray answer protocol changes, proto accept', {
@@ -4224,10 +4232,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('stray answer protocol changes, proto accept', {
@@ -4595,10 +4605,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-1 FINGERPRINT
 a=ptime:20
@@ -4711,10 +4723,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-1 FINGERPRINT
 a=ptime:20
@@ -4842,10 +4856,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=ptime:20
 SDP
 
@@ -4936,10 +4952,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=ptime:20
 SDP
 
@@ -5034,10 +5052,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=ptime:20
 SDP
 
@@ -5094,10 +5114,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=ptime:20
 SDP
 
@@ -5331,10 +5353,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b, undef, $srtp_key_b) = answer('reg SRTP offer, accept, diff suite',
@@ -5416,10 +5440,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b) = answer('OSRTP offer, accept, same suite',
@@ -5489,10 +5515,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b, undef, $srtp_key_b) = answer('OSRTP offer, accept, diff suite',
@@ -5571,10 +5599,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b) = answer('OSRTP offer, reject',
@@ -5633,10 +5663,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b, undef, $srtp_key_a) = answer('OSRTP offer, reject w/ accept flag',
@@ -5706,10 +5738,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b) = answer('non-OSRTP offer with offer flag, accept',
@@ -5779,10 +5813,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b) = answer('non-OSRTP offer with offer flag and protocol, accept',
@@ -5853,10 +5889,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b) = answer('non-OSRTP offer with offer flag, reject',
@@ -6040,10 +6078,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192|2^31
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192|2^31
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256|2^31
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256|2^31
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128|2^31
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128|2^31
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128|2^31
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128|2^31
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S|2^31
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S|2^31
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128|2^31
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128|2^31
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128|2^31
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128|2^31
 SDP
 
 
@@ -7498,10 +7538,12 @@ a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192=
 a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192=
 a=crypto:7 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256==
 a=crypto:8 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256==
-a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 AEAD_AES_128_GCM inline:CRYPTO128S==
+a=crypto:10 AEAD_AES_256_GCM inline:CRYPTO256S=
+a=crypto:11 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:13 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:14 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b) = answer('gh829 control',
@@ -7573,10 +7615,12 @@ a=crypto:3 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAh
 a=crypto:4 AES_CM_128_HMAC_SHA1_32 inline:Kl3GFJ5Gqz5x07xYkoyHODkVkSpiplZnXsQIw+Q?
 a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192=
 a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192=
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S==
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S=
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 ($port_b) = answer('gh829',
@@ -9102,10 +9146,12 @@ a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJ
 a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8?
 a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('gh 661 plain', { ICE => 'remove' }, <<SDP);
@@ -9160,9 +9206,11 @@ a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJ
 a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8?
 a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
-a=crypto:7 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:8 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('gh 661 suppress one', { ICE => 'remove' }, <<SDP);
@@ -9216,10 +9264,12 @@ a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJ
 a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8?
 a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('gh 661 remove one', { ICE => 'remove' }, <<SDP);
@@ -9273,10 +9323,12 @@ a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJ
 a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8?
 a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('gh 661 remove first', { ICE => 'remove' }, <<SDP);
@@ -9470,10 +9522,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('gh 661 plain from RTP', { ICE => 'remove' }, <<SDP);
@@ -9523,9 +9577,11 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:8 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('gh 661 from RTP suppress one', { ICE => 'remove' }, <<SDP);
@@ -9574,10 +9630,12 @@ a=crypto:2 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:3 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:4 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:5 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:6 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:7 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:8 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:6 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:7 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:8 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:10 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('gh 661 from RTP suppress first', { ICE => 'remove' }, <<SDP);
@@ -10326,10 +10384,12 @@ a=crypto:3 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
 a=crypto:4 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
 a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
-a=crypto:7 F8_128_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:8 F8_128_HMAC_SHA1_32 inline:CRYPTO128
-a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
-a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:7 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:8 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 SDP
 
 answer('media playback, SRTP', { replace => ['origin'] }, <<SDP);

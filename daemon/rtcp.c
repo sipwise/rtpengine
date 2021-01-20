@@ -861,9 +861,11 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 			rtcp->ssrc, ssrc_ctx->srtcp_index);
 	crypto_debug_dump(&payload);
 
+	int prev_len = payload.len;
 	if (!c->params.session_params.unencrypted_srtcp && crypto_encrypt_rtcp(c, rtcp, &payload,
 				ssrc_ctx->srtcp_index))
 		return -1;
+	s->len += payload.len - prev_len;
 
 	crypto_debug_printf(", enc pl: ");
 	crypto_debug_dump(&payload);
@@ -877,10 +879,12 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 
 	rtp_append_mki(s, c);
 
-	c->params.crypto_suite->hash_rtcp(c, s->s + s->len, &to_auth);
-	crypto_debug_printf(", auth: ");
-	crypto_debug_dump_raw(s->s + s->len, c->params.crypto_suite->srtcp_auth_tag);
-	s->len += c->params.crypto_suite->srtcp_auth_tag;
+	if (c->params.crypto_suite->srtcp_auth_tag) {
+		c->params.crypto_suite->hash_rtcp(c, s->s + s->len, &to_auth);
+		crypto_debug_printf(", auth: ");
+		crypto_debug_dump_raw(s->s + s->len, c->params.crypto_suite->srtcp_auth_tag);
+		s->len += c->params.crypto_suite->srtcp_auth_tag;
+	}
 
 	crypto_debug_finish();
 
@@ -923,6 +927,10 @@ int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 
 	crypto_debug_printf(", idx %" PRIu32, idx);
 
+	if (!auth_tag.len)
+		goto decrypt;
+
+	// authenticate
 	assert(sizeof(hmac) >= auth_tag.len);
 	c->params.crypto_suite->hash_rtcp(c, hmac, &to_auth);
 
@@ -935,6 +943,8 @@ int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	if (str_memcmp(&auth_tag, hmac))
 		goto error;
 
+decrypt:;
+	int prev_len = to_decrypt.len;
 	if ((idx & 0x80000000ULL)) {
 		if (crypto_decrypt_rtcp(c, rtcp, &to_decrypt, idx & 0x7fffffffULL))
 			return -1;
@@ -945,6 +955,7 @@ int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 
 	*s = to_auth;
 	s->len -= sizeof(idx);
+	s->len -= prev_len - to_decrypt.len;
 
 	crypto_debug_finish();
 

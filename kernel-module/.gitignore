@@ -5,3 +5,4 @@
 modules.order
 Module.symvers
 .*.cmd
+xt_RTPENGINE.mod

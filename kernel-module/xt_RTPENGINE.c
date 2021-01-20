@@ -10,6 +10,9 @@
 #include <linux/crypto.h>
 #include <crypto/aes.h>
 #include <crypto/hash.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
+#include <crypto/aead.h>
+#endif
 #include <net/icmp.h>
 #include <net/ip.h>
 #include <net/ipv6.h>
@@ -41,7 +44,7 @@ MODULE_LICENSE("GPL");
 
 
 #define MAX_ID 64 /* - 1 */
-#define MAX_SKB_TAIL_ROOM (sizeof(((struct rtpengine_srtp *) 0)->mki) + 20)
+#define MAX_SKB_TAIL_ROOM (sizeof(((struct rtpengine_srtp *) 0)->mki) + 20 + 16)
 
 #define MIPF		"%i:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%u"
 #define MIPP(x)		(x).family,		\
@@ -155,6 +158,7 @@ struct re_auto_array;
 struct re_call;
 struct re_stream;
 struct rtpengine_table;
+struct crypto_aead;
 
 
 
@@ -232,6 +236,10 @@ static int srtp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp
 		struct rtp_parsed *, u_int64_t);
 static int srtp_encrypt_aes_f8(struct re_crypto_context *, struct rtpengine_srtp *,
 		struct rtp_parsed *, u_int64_t);
+static int srtp_encrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
+		struct rtp_parsed *, u_int64_t);
+static int srtp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
+		struct rtp_parsed *, u_int64_t);
 
 static void call_put(struct re_call *call);
 static void del_stream(struct re_stream *stream, struct rtpengine_table *);
@@ -253,6 +261,7 @@ struct re_crypto_context {
 	u_int32_t			roc;
 	struct crypto_cipher		*tfm[2];
 	struct crypto_shash		*shash;
+	struct crypto_aead		*aead;
 	const struct re_cipher		*cipher;
 	const struct re_hmac		*hmac;
 };
@@ -389,6 +398,7 @@ struct re_cipher {
 	enum rtpengine_cipher		id;
 	const char			*name;
 	const char			*tfm_name;
+	const char			*aead_name;
 	int				(*decrypt)(struct re_crypto_context *, struct rtpengine_srtp *,
 			struct rtp_parsed *, u_int64_t);
 	int				(*encrypt)(struct re_crypto_context *, struct rtpengine_srtp *,
@@ -571,6 +581,20 @@ static const struct re_cipher re_ciphers[] = {
 		.tfm_name	= "aes",
 		.decrypt	= srtp_encrypt_aes_cm,
 		.encrypt	= srtp_encrypt_aes_cm,
+	},
+	[REC_AEAD_AES_GCM_128] = {
+		.id		= REC_AEAD_AES_GCM_128,
+		.name		= "AEAD-AES-GCM-128",
+		.aead_name	= "gcm(aes)",
+		.decrypt	= srtp_decrypt_aes_gcm,
+		.encrypt	= srtp_encrypt_aes_gcm,
+	},
+	[REC_AEAD_AES_GCM_256] = {
+		.id		= REC_AEAD_AES_GCM_256,
+		.name		= "AEAD-AES-GCM-256",
+		.aead_name	= "gcm(aes)",
+		.decrypt	= srtp_decrypt_aes_gcm,
+		.encrypt	= srtp_encrypt_aes_gcm,
 	},
 };
 
@@ -816,6 +840,10 @@ static void free_crypto_context(struct re_crypto_context *c) {
 	}
 	if (c->shash)
 		crypto_free_shash(c->shash);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
+	if (c->aead)
+		crypto_free_aead(c->aead);
+#endif
 }
 
 static void target_put(struct rtpengine_target *t) {
@@ -1939,7 +1967,11 @@ static int gen_session_key(unsigned char *out, int len, struct rtpengine_srtp *s
 
 	key_id[0] = label;
 
-	memcpy(x, s->master_salt, 14);
+	memcpy(x, s->master_salt, s->master_salt_len);
+	// AEAD uses 12 bytes master salt; pad on the right to get 14
+	// Errata: https://www.rfc-editor.org/errata_search.php?rfc=7714
+	if (s->master_salt_len == 12)
+		x[12] = x[13] = '\x00';
 	for (i = 13 - 6; i < 14; i++)
 		x[i] = key_id[i - (13 - 6)] ^ x[i];
 
@@ -1987,10 +2019,10 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 	ret = gen_session_key(c->session_key, s->session_key_len, s, 0x00);
 	if (ret)
 		goto error;
-	ret = gen_session_key(c->session_auth_key, 20, s, 0x01);
+	ret = gen_session_key(c->session_auth_key, 20, s, 0x01); // XXX fixed length auth key
 	if (ret)
 		goto error;
-	ret = gen_session_key(c->session_salt, 14, s, 0x02);
+	ret = gen_session_key(c->session_salt, s->session_salt_len, s, 0x02);
 	if (ret)
 		goto error;
 
@@ -2002,8 +2034,35 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 			c->tfm[0] = NULL;
 			goto error;
 		}
-		crypto_cipher_setkey(c->tfm[0], c->session_key, s->session_key_len);
+		ret = crypto_cipher_setkey(c->tfm[0], c->session_key, s->session_key_len);
+		if (ret)
+			goto error;
 	}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
+	if (c->cipher->aead_name) {
+		err = "failed to load AEAD";
+		c->aead = crypto_alloc_aead(c->cipher->aead_name, 0, CRYPTO_ALG_ASYNC);
+		if (IS_ERR(c->aead)) {
+			ret = PTR_ERR(c->aead);
+			c->aead = NULL;
+			goto error;
+		}
+		ret = -EINVAL;
+		if (crypto_aead_ivsize(c->aead) != 12)
+			goto error;
+		ret = crypto_aead_setkey(c->aead, c->session_key, s->session_key_len);
+		if (ret)
+			goto error;
+		ret = crypto_aead_setauthsize(c->aead, 16);
+		if (ret)
+			goto error;
+	}
+#else
+	err = "No support for AEAD in this kernel";
+	if (c->cipher->aead_name)
+		goto error;
+#endif
 
 	if (c->cipher->session_key_init) {
 		ret = c->cipher->session_key_init(c, s);
@@ -2019,7 +2078,9 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 			c->shash = NULL;
 			goto error;
 		}
-		crypto_shash_setkey(c->shash, c->session_auth_key, 20);
+		ret = crypto_shash_setkey(c->shash, c->session_auth_key, 20);
+		if (ret)
+			goto error;
 	}
 
 	switch(s->master_key_len) {
@@ -3857,6 +3918,98 @@ static int srtp_encrypt_aes_f8(struct re_crypto_context *c,
 	return 0;
 }
 
+static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
+	unsigned char iv[12];
+	struct aead_request *req;
+	struct scatterlist sg[2];
+	int ret;
+
+	if (s->session_salt_len != 12)
+		return -EINVAL;
+	if (r->payload_len < 16)
+		return -EINVAL;
+
+	memcpy(iv, c->session_salt, 12);
+
+	*(u_int32_t*)(iv+2) ^= r->header->ssrc;
+	*(u_int32_t*)(iv+6) ^= htonl((pkt_idx & 0x00ffffffff0000ULL) >> 16);
+	*(u_int16_t*)(iv+10) ^= htons(pkt_idx & 0x00ffffULL);
+
+	req = aead_request_alloc(c->aead, GFP_ATOMIC);
+	if (!req)
+		return -ENOMEM;
+	if (IS_ERR(req))
+		return PTR_ERR(req);
+
+	sg_init_table(sg, ARRAY_SIZE(sg));
+	sg_set_buf(&sg[0], r->header, r->header_len);
+	sg_set_buf(&sg[1], r->payload, r->payload_len + 16); // guaranteed to have space after skb_copy_expand
+
+	aead_request_set_callback(req, 0, NULL, NULL);
+	aead_request_set_ad(req, r->header_len);
+	aead_request_set_crypt(req, sg, sg, r->payload_len, iv);
+
+	ret = crypto_aead_encrypt(req);
+	aead_request_free(req);
+
+	if (ret == 0)
+		r->payload_len += 16;
+
+	return ret;
+#else
+	return -EOPNOTSUPP;
+#endif
+}
+static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
+		u_int64_t pkt_idx)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
+	unsigned char iv[12];
+	struct aead_request *req;
+	struct scatterlist sg[2];
+	int ret;
+
+	if (s->session_salt_len != 12)
+		return -EINVAL;
+	if (r->payload_len < 16)
+		return -EINVAL;
+
+	memcpy(iv, c->session_salt, 12);
+
+	*(u_int32_t*)(iv+2) ^= r->header->ssrc;
+	*(u_int32_t*)(iv+6) ^= htonl((pkt_idx & 0x00ffffffff0000ULL) >> 16);
+	*(u_int16_t*)(iv+10) ^= htons(pkt_idx & 0x00ffffULL);
+
+	req = aead_request_alloc(c->aead, GFP_ATOMIC);
+	if (!req)
+		return -ENOMEM;
+	if (IS_ERR(req))
+		return PTR_ERR(req);
+
+	sg_init_table(sg, ARRAY_SIZE(sg));
+	sg_set_buf(&sg[0], r->header, r->header_len);
+	sg_set_buf(&sg[1], r->payload, r->payload_len);
+
+	aead_request_set_callback(req, 0, NULL, NULL);
+	aead_request_set_ad(req, r->header_len);
+	aead_request_set_crypt(req, sg, sg, r->payload_len, iv);
+
+	ret = crypto_aead_decrypt(req);
+	aead_request_free(req);
+
+	if (ret == 0)
+		r->payload_len -= 16;
+
+	return ret;
+#else
+	return -EOPNOTSUPP;
+#endif
+}
 
 static inline int srtp_encrypt(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,

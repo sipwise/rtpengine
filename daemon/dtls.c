@@ -641,7 +641,7 @@ found:
 	i += cs->master_salt_len;
 	memcpy(server.master_salt, &keys[i], cs->master_salt_len);
 
-	ilogs(crypto, LOG_INFO, "DTLS-SRTP successfully negotiated");
+	ilogs(crypto, LOG_INFO, "DTLS-SRTP successfully negotiated using %s", cs->name);
 
 	if (d->active) {
 		/* we're the client */

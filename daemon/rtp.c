@@ -118,8 +118,10 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	crypto_debug_dump(&payload);
 
 	/* rfc 3711 section 3.1 */
+	int prev_len = payload.len;
 	if (!c->params.session_params.unencrypted_srtp && crypto_encrypt_rtp(c, rtp, &payload, index))
 		return -1;
+	s->len += payload.len - prev_len;
 
 	crypto_debug_printf(", enc pl: ");
 	crypto_debug_dump(&payload);
@@ -212,7 +214,8 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 
 decrypt_idx:
 	ssrc_ctx->srtp_index = index;
-decrypt:
+decrypt:;
+	int prev_len = to_decrypt.len;
 	if (!c->params.session_params.unencrypted_srtp && crypto_decrypt_rtp(c, rtp, &to_decrypt, index))
 		return -1;
 
@@ -220,6 +223,7 @@ decrypt:
 	crypto_debug_dump(&to_decrypt);
 
 	*s = to_auth;
+	s->len -= prev_len - to_decrypt.len;
 
 	crypto_debug_finish();
 
