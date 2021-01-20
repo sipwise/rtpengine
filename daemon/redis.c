@@ -1956,7 +1956,8 @@ int redis_restore(struct redis *r) {
 
 err:
 	for (unsigned int i = 0; i < num_log_levels; i++)
-		rtpe_config.common.log_levels[i] &= ~LOG_FLAG_RESTORE;
+		if (rtpe_config.common.log_levels[i] > 0)
+			rtpe_config.common.log_levels[i] &= ~LOG_FLAG_RESTORE;
 	return ret;
 }
 
