@@ -76,6 +76,7 @@ static int kernel_open_table(unsigned int id) {
 
 	ZERO(msg);
 	msg.cmd = REMG_NOOP;
+	msg.u.size = sizeof(msg);
 	i = write(fd, &msg, sizeof(msg));
 	if (i <= 0)
 		goto fail;

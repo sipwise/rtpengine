@@ -144,6 +144,7 @@ struct rtpengine_stats_info {
 
 struct rtpengine_message {
 	enum {
+		/* size: */
 		REMG_NOOP = 1,
 
 		/* target_info: */
@@ -170,6 +171,7 @@ struct rtpengine_message {
 	}				cmd;
 
 	union {
+		size_t				size;
 		struct rtpengine_target_info	target;
 		struct rtpengine_call_info	call;
 		struct rtpengine_stream_info	stream;
