@@ -30,16 +30,17 @@ void __ilog_np(int prio, const char *format, ...) __attribute__ ((format (printf
 
 
 
-#define ll(system) log_level_index_ ## system,
+#define ll(system, descr) log_level_index_ ## system,
 enum __loglevels {
 #include "loglevels.h"
-	ll(LAST)
+	ll(LAST, NULL)
 };
 #undef ll
 
 #define num_log_levels log_level_index_LAST
 
 extern const char * const log_level_names[];
+extern const char * const log_level_descriptions[];
 
 
 #ifndef __DEBUG

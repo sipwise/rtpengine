@@ -141,8 +141,8 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 
 	AUTO_CLEANUP(GKeyFile *kf, free_gkeyfile) = g_key_file_new();
 
-#define ll(system) \
-		{ "log-level-" #system,	0, 0, G_OPTION_ARG_INT,	&rtpe_common_config_ptr->log_levels[log_level_index_ ## system],"Log level for '" #system "'","INT"		},
+#define ll(system, descr) \
+		{ "log-level-" #system,	0, 0, G_OPTION_ARG_INT,	&rtpe_common_config_ptr->log_levels[log_level_index_ ## system],"Log level for: " descr,"INT"		},
 
 	GOptionEntry shared_options[] = {
 		{ "version",		'v', 0, G_OPTION_ARG_NONE,	&version,	"Print build time and exit",		NULL		},

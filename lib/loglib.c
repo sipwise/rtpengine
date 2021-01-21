@@ -31,11 +31,18 @@ write_log_t *write_log = (write_log_t *) log_both;
 
 
 
-#define ll(system) #system,
+#define ll(system, descr) #system,
 const char * const log_level_names[] = {
 #include "loglevels.h"
 NULL
 };
+#undef ll
+#define ll(system, descr) descr,
+const char * const log_level_descriptions[] = {
+#include "loglevels.h"
+NULL
+};
+#undef ll
 
 
 

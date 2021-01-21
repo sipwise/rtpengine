@@ -385,7 +385,7 @@ static void int_diff_print_sz(long long start_param, void* current_param, size_t
 			option_string, cw, option)
 
 static void cli_incoming_diff_or_revert(struct cli_writer *cw, char* option) {
-#define ll(system) \
+#define ll(system, descr) \
 	int_diff_print(common.log_levels[log_level_index_ ## system], "log-level-" #system);
 #include "loglevels.h"
 #undef ll
@@ -1207,7 +1207,7 @@ static void cli_incoming_list_loglevel(str *instr, struct cli_writer *cw) {
 }
 static void cli_incoming_list_loglevels(str *instr, struct cli_writer *cw) {
 	for (unsigned int i = 0; i < num_log_levels; i++)
-		cw->cw_printf(cw, "%s\n", log_level_names[i]);
+		cw->cw_printf(cw, "%s - %s\n", log_level_names[i], log_level_descriptions[i]);
 }
 static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 	int nl;
