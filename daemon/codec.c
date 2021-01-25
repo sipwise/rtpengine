@@ -1938,6 +1938,8 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 		// init some vars
 		if (!ch->first_ts)
 			ch->first_ts = output_ch->first_ts;
+		if (!ch->first_send_ts)
+			ch->first_send_ts = output_ch->first_send_ts;
 
 		// the correct output TS is the encoder's FIFO PTS at the start of the DTMF
 		// event. however, we must shift the FIFO PTS forward as the DTMF event goes on
@@ -1953,7 +1955,7 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 		// roll back TS to start of event
 		ts -= ch->last_dtmf_event_ts;
 		// adjust to output RTP TS
-		unsigned long packet_ts = ts + output_ch->first_ts;
+		unsigned long packet_ts = ts / output_ch->encoder->def->clockrate_mult + output_ch->first_ts;
 
 		ilogs(transcoding, LOG_DEBUG, "Scaling DTMF packet timestamp and duration: TS %lu -> %lu "
 				"(%u -> %u)",
@@ -1969,6 +1971,7 @@ static void packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_pack
 
 			// shift forward our output RTP TS
 			output_ch->encoder->fifo_pts = ts + duration;
+			output_ch->encoder->packet_pts += (duration - ch->last_dtmf_event_ts) * output_ch->encoder->def->clockrate_mult;
 			ch->last_dtmf_event_ts = duration;
 		}
 		payload_type = ch->handler->dtmf_payload_type;
