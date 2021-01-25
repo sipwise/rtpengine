@@ -53,7 +53,11 @@ static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
 volatile int shutdown_flag;
 
-struct rtpengine_common_config rtpe_common_config;
+struct rtpengine_common_config rtpe_common_config = {
+	.log_levels = {
+		[log_level_index_internals] = -1,
+	},
+};
 
 
 

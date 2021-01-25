@@ -24,13 +24,7 @@
 
 
 
-#ifndef dbg
-#ifdef __DEBUG
-#define dbg(x...) ilog(LOG_DEBUG, x)
-#else
-#define dbg(x...) ((void)0)
-#endif
-#endif
+#define cdbg(x...) ilogs(internals, LOG_DEBUG, x)
 
 
 
@@ -500,7 +494,7 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp, const str *
 	}
 
 	for (const enum AVSampleFormat *sfmt = codec->sample_fmts; sfmt && *sfmt != -1; sfmt++)
-		dbg("supported sample format for input codec %s: %s",
+		cdbg("supported sample format for input codec %s: %s",
 				codec->name, av_get_sample_fmt_name(*sfmt));
 
 	return NULL;
@@ -609,7 +603,7 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 		if (dec->u.avc.avpkt.size) {
 			av_ret = avcodec_send_packet(dec->u.avc.avcctx, &dec->u.avc.avpkt);
-			dbg("send packet ret %i", av_ret);
+			cdbg("send packet ret %i", av_ret);
 			err = "failed to send packet to avcodec";
 			if (av_ret == 0) {
 				// consumed the packet
@@ -625,7 +619,7 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		}
 
 		av_ret = avcodec_receive_frame(dec->u.avc.avcctx, frame);
-		dbg("receive frame ret %i", av_ret);
+		cdbg("receive frame ret %i", av_ret);
 		err = "failed to receive frame from avcodec";
 		if (av_ret == 0) {
 			// got a frame
@@ -644,7 +638,7 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			break;
 
 		av_ret = avcodec_decode_audio4(dec->u.avc.avcctx, frame, &got_frame, &dec->u.avc.avpkt);
-		dbg("decode frame ret %i, got frame %i", av_ret, got_frame);
+		cdbg("decode frame ret %i, got frame %i", av_ret, got_frame);
 		err = "failed to decode audio packet";
 		if (av_ret < 0)
 			goto err;
@@ -662,7 +656,7 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 #endif
 
 		if (got_frame) {
-			dbg("raw frame from decoder pts %llu samples %u",
+			cdbg("raw frame from decoder pts %llu samples %u",
 					(unsigned long long) frame->pts, frame->nb_samples);
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 36, 0)
@@ -701,7 +695,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 
 	ts *= dec->def->clockrate_mult;
 
-	dbg("%p dec pts %llu rtp_ts %llu incoming ts %lu", dec, (unsigned long long) dec->pts,
+	cdbg("%p dec pts %llu rtp_ts %llu incoming ts %lu", dec, (unsigned long long) dec->pts,
 			(unsigned long long) dec->rtp_ts, (unsigned long) ts);
 
 	if (G_UNLIKELY(dec->rtp_ts == (unsigned long) -1L)) {
@@ -945,18 +939,18 @@ static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, int num_wait
 	// see if we have a packet with the correct seq nr in the queue
 	seq_packet_t *packet = g_tree_lookup(ps->packets, GINT_TO_POINTER(ps->seq));
 	if (G_LIKELY(packet != NULL)) {
-		dbg("returning in-sequence packet (seq %i)", ps->seq);
+		cdbg("returning in-sequence packet (seq %i)", ps->seq);
 		goto out;
 	}
 
 	// why not? do we have anything? (we should)
 	int nnodes = g_tree_nnodes(ps->packets);
 	if (G_UNLIKELY(nnodes == 0)) {
-		dbg("packet queue empty");
+		cdbg("packet queue empty");
 		return NULL;
 	}
 	if (G_LIKELY(nnodes < num_wait)) {
-		dbg("only %i packets in queue - waiting for more", nnodes);
+		cdbg("only %i packets in queue - waiting for more", nnodes);
 		return NULL; // need to wait for more
 	}
 
@@ -965,7 +959,7 @@ static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, int num_wait
 	packet = g_tree_search(ps->packets, packet_tree_search, &ts);
 	if (packet) {
 		// bullseye
-		dbg("lost packet - returning packet with next seq %i", packet->seq);
+		cdbg("lost packet - returning packet with next seq %i", packet->seq);
 		goto out;
 	}
 	if (G_UNLIKELY(ts.found_seq == -1)) {
@@ -974,7 +968,7 @@ static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, int num_wait
 		ts.find_seq = 0;
 		packet = g_tree_search(ps->packets, packet_tree_search, &ts);
 		if (packet) {
-			dbg("lost packet - returning packet with next seq %i (after wrap)", packet->seq);
+			cdbg("lost packet - returning packet with next seq %i (after wrap)", packet->seq);
 			goto out;
 		}
 		if (G_UNLIKELY(ts.found_seq == -1))
@@ -986,7 +980,7 @@ static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, int num_wait
 	if (G_UNLIKELY(packet == NULL))
 		abort();
 
-	dbg("lost multiple packets - returning packet with next highest seq %i", packet->seq);
+	cdbg("lost multiple packets - returning packet with next highest seq %i", packet->seq);
 
 out:
 	;
@@ -1076,14 +1070,14 @@ static const char *avc_encoder_init(encoder_t *enc, const str *fmtp, const str *
 
 	enc->actual_format.format = -1;
 	for (const enum AVSampleFormat *sfmt = enc->u.avc.codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
-		dbg("supported sample format for output codec %s: %s",
+		cdbg("supported sample format for output codec %s: %s",
 				enc->u.avc.codec->name, av_get_sample_fmt_name(*sfmt));
 		if (*sfmt == enc->requested_format.format)
 			enc->actual_format.format = *sfmt;
 	}
 	if (enc->actual_format.format == -1 && enc->u.avc.codec->sample_fmts)
 		enc->actual_format.format = enc->u.avc.codec->sample_fmts[0];
-	dbg("using output sample format %s for codec %s",
+	cdbg("using output sample format %s for codec %s",
 			av_get_sample_fmt_name(enc->actual_format.format), enc->u.avc.codec->name);
 
 	enc->u.avc.avcctx->channels = enc->actual_format.channels;
@@ -1214,7 +1208,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 	if (*frame) {
 		av_ret = avcodec_send_frame(enc->u.avc.avcctx, *frame);
-		dbg("send frame ret %i", av_ret);
+		cdbg("send frame ret %i", av_ret);
 		if (av_ret == 0) {
 			// consumed
 			*frame = NULL;
@@ -1229,7 +1223,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	}
 
 	av_ret = avcodec_receive_packet(enc->u.avc.avcctx, &enc->avpkt);
-	dbg("receive packet ret %i", av_ret);
+	cdbg("receive packet ret %i", av_ret);
 	if (av_ret == 0) {
 		// got some data
 		keep_going = 1;
@@ -1246,7 +1240,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 		return 0;
 
 	av_ret = avcodec_encode_audio2(enc->u.avc.avcctx, &enc->avpkt, *frame, &got_packet);
-	dbg("encode frame ret %i, got packet %i", av_ret, got_packet);
+	cdbg("encode frame ret %i, got packet %i", av_ret, got_packet);
 	if (av_ret == 0)
 		*frame = NULL; // consumed
 	else
@@ -1258,10 +1252,9 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	if (!got_packet)
 		return keep_going;
 
-//	dbg("{%s} output avpkt size is %i", output->file_name, (int) enc->avpkt.size);
-//	dbg("{%s} output pkt pts/dts is %li/%li", output->file_name, (long) enc->avpkt.pts,
-//			(long) enc->avpkt.dts);
-//	dbg("{%s} output dts %li", output->file_name, (long) output->mux_dts);
+	cdbg("output avpkt size is %i", (int) enc->avpkt.size);
+	cdbg("output pkt pts/dts is %li/%li", (long) enc->avpkt.pts,
+			(long) enc->avpkt.dts);
 
 	// the encoder may return frames with the same dts multiple consecutive times.
 	// the muxer may not like this, so ensure monotonically increasing dts.
@@ -1319,7 +1312,7 @@ static int encoder_fifo_flush(encoder_t *enc,
 					enc->frame->nb_samples) <= 0)
 			abort();
 
-		dbg("output fifo pts %lu",(unsigned long) enc->fifo_pts);
+		cdbg("output fifo pts %lu",(unsigned long) enc->fifo_pts);
 		enc->frame->pts = enc->fifo_pts;
 
 		encoder_input_data(enc, enc->frame, callback, u1, u2);
