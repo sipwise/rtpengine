@@ -29,7 +29,7 @@ my $rtpe_stdout;
 my $rtpe_stderr;
 my $rtpe_pid;
 my $c;
-my ($cid, $ft, $tt, @sockets, $tag_iter);
+my ($cid, $ft, $tt, @sockets, $tag_iter, $tag_suffix);
 
 
 sub autotest_start {
@@ -67,6 +67,7 @@ sub autotest_init {
 	$c->{socket} or die;
 
 	$tag_iter = 0;
+	$tag_suffix = '-' . rand();
 
 	my $r = $c->req({command => 'ping'});
 	ok $r->{result} eq 'pong', 'ping works, daemon operational';
@@ -80,9 +81,9 @@ sub new_call {
 		$s->close();
 	}
 	@sockets = ();
-	$cid = $tag_iter++ . "-test-callID";
-	$ft = $tag_iter++ . "-test-fromtag";
-	$tt = $tag_iter++ . "-test-totag";
+	$cid = $tag_iter++ . "-test-callID" . $tag_suffix;
+	$ft = $tag_iter++ . "-test-fromtag" . $tag_suffix;
+	$tt = $tag_iter++ . "-test-totag" . $tag_suffix;
 	print("new call $cid\n");
 	for my $p (@ports) {
 		my ($addr, $port) = @{$p};
@@ -244,7 +245,7 @@ sub reverse_tags {
 	($tt, $ft) = ($ft, $tt);
 }
 sub new_tt {
-	$tt = $tag_iter++ . "-test-totag";
+	$tt = $tag_iter++ . "-test-totag" . $tag_suffix;
 }
 
 
