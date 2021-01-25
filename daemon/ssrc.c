@@ -110,6 +110,9 @@ static int ssrc_time_cmp(const void *aa, const void *bb, void *pp) {
 void *get_ssrc(u_int32_t ssrc, struct ssrc_hash *ht /* , int *created */) {
 	struct ssrc_entry *ent;
 
+	if (!ht)
+		return NULL;
+
 restart:
 	ent = find_ssrc(ssrc, ht);
 	if (G_LIKELY(ent)) {
