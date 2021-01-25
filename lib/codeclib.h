@@ -239,6 +239,7 @@ struct encoder_s {
 	AVPacket avpkt;
 	AVAudioFifo *fifo;
 	int64_t fifo_pts; // pts of first data in fifo
+	int64_t packet_pts; // first pts of data in packetizer buffer
 	int ptime;
 	int bitrate;
 	int samples_per_frame; // for encoding

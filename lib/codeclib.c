@@ -1349,9 +1349,13 @@ static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_outpu
 	// most common case: new input packet has just enough (or more) data as what we need
 	if (G_LIKELY(pkt && buf->len == 0 && pkt->size >= input_output->len)) {
 		memcpy(input_output->s, pkt->data, input_output->len);
-		if (pkt->size > input_output->len) // any leftovers?
+		// any leftovers?
+		if (pkt->size > input_output->len) {
 			g_string_append_len(buf, (char *) pkt->data + input_output->len,
 					pkt->size - input_output->len);
+			enc->packet_pts = pkt->pts + input_output->len
+				* (enc->def->bits_per_sample * enc->def->clockrate_mult / 8);
+		}
 		return buf->len >= input_output->len ? 1 : 0;
 	}
 	// we have to move data around. append input packet to buffer if we have one
@@ -1363,6 +1367,9 @@ static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_outpu
 	// copy requested data into provided output buffer and remove from interim buffer
 	memcpy(input_output->s, buf->str, input_output->len);
 	g_string_erase(buf, 0, input_output->len);
+	// adjust output pts
+	enc->avpkt.pts = enc->packet_pts;
+	enc->packet_pts += input_output->len * (enc->def->bits_per_sample * enc->def->clockrate_mult / 8);
 	return buf->len >= input_output->len ? 1 : 0;
 }
 
