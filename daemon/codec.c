@@ -104,7 +104,7 @@ struct codec_ssrc_handler {
 	unsigned long ts_in; // for DTMF dupe detection
 	struct timeval first_send;
 	unsigned long first_send_ts;
-	unsigned long output_skew;
+	long output_skew;
 	GString *sample_buffer;
 	struct dtx_buffer *dtx_buffer;
 
@@ -1863,15 +1863,14 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		// scale first_send from first_send_ts to ts
 		p->ttq_entry.when = ch->first_send;
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) ch->first_send_ts; // allow for wrap-around
-		unsigned long long ts_diff_us =
+		long long ts_diff_us =
 			(unsigned long long) ts_diff * 1000000 / ch->encoder_format.clockrate
 			* ch->handler->dest_pt.codec_def->clockrate_mult;
 		timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
 
 		// how far in the future is this?
-		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now); // negative wrap-around to positive OK
-
-		if (ts_diff_us > 1000000) // more than one second, can't be right
+		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now);
+		if (ts_diff_us > 1000000 || ts_diff_us < -1000000) // more than one second, can't be right
 			ch->first_send.tv_sec = 0; // fix it up below
 	}
 	if (!ch->first_send.tv_sec) {
@@ -1879,12 +1878,12 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		ch->first_send_ts = ts;
 	}
 
-	unsigned long long ts_diff_us
+	long long ts_diff_us
 		= timeval_diff(&p->ttq_entry.when, &rtpe_now);
 
 	ch->output_skew = ch->output_skew * 15 / 16 + ts_diff_us / 16;
 	if (ch->output_skew > 40000 && ts_diff_us > 10000) { // arbitrary value, 40 ms, 10 ms shift
-		ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %lu.%01lu ms detected, shifting send timer back by 10 ms",
+		ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %li.%01li ms detected, shifting send timer back by 10 ms",
 			ch->output_skew / 1000,
 			(ch->output_skew % 1000) / 100);
 		timeval_add_usec(&p->ttq_entry.when, -10000);
@@ -1892,7 +1891,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		ch->first_send_ts += ch->encoder_format.clockrate / 100;
 	}
 
-	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %llu.%01llu ms (at %lu.%06lu)",
+	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %lli.%01lli ms (at %lu.%06lu)",
 			ntohs(rh->seq_num),
 			ts,
 			ts_diff_us / 1000,
