@@ -3705,7 +3705,7 @@ a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 a=setup:actpass
-a=fingerprint:sha-1 FINGERPRINT
+a=fingerprint:sha-256 FINGERPRINT256
 SDP
 
 new_call;
@@ -3715,7 +3715,7 @@ offer('fingerprint selection', {
 		flags => [],
 		'transport-protocol' => 'RTP/SAVP',
 		SDES => ['off'],
-		'DTLS-fingerprint' => 'SHA-256',
+		'DTLS-fingerprint' => 'SHA-1',
 	}, <<SDP);
 v=0
 o=Z 58440449 0 IN IP4 89.225.243.254
@@ -3740,7 +3740,7 @@ a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 a=setup:actpass
-a=fingerprint:sha-256 FINGERPRINT256
+a=fingerprint:sha-1 FINGERPRINT
 SDP
 
 new_call;
@@ -3827,7 +3827,7 @@ a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
 a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
-a=fingerprint:sha-1 FINGERPRINT
+a=fingerprint:sha-256 FINGERPRINT256
 SDP
 
 rtpe_req('delete', 'GH 1086', { 'from-tag' => ft() });
@@ -3872,7 +3872,7 @@ a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
 a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
-a=fingerprint:sha-1 FINGERPRINT
+a=fingerprint:sha-256 FINGERPRINT256
 SDP
 
 
@@ -4451,7 +4451,7 @@ a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
 a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
-a=fingerprint:sha-1 FINGERPRINT
+a=fingerprint:sha-256 FINGERPRINT256
 a=ptime:20
 SDP
 
@@ -4569,7 +4569,7 @@ a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
 a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
-a=fingerprint:sha-1 FINGERPRINT
+a=fingerprint:sha-256 FINGERPRINT256
 a=ptime:20
 SDP
 

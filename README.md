@@ -1044,7 +1044,7 @@ Optionally included keys are:
 * `DTLS-fingerprint`
 
 	Contains a string and is used to select the hashing function to generate the DTLS fingerprint
-	from the certificate. The default is SHA-1, or the same hashing function as was used by the
+	from the certificate. The default is SHA-256, or the same hashing function as was used by the
 	peer. Available are `SHA-1`, `SHA-224`, `SHA-256`, `SHA-384`, and `SHA-512`.
 
 * `SDES`

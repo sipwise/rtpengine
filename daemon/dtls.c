@@ -68,6 +68,11 @@ static unsigned int sha_512_func(unsigned char *, X509 *);
 
 static const struct dtls_hash_func hash_funcs[] = {
 	{
+		.name					= "sha-256",
+		.num_bytes				= 256 / 8,
+		.__func					= sha_256_func,
+	},
+	{
 		.name					= "sha-1",
 		.num_bytes				= 160 / 8,
 		.__func					= sha_1_func,
@@ -76,11 +81,6 @@ static const struct dtls_hash_func hash_funcs[] = {
 		.name					= "sha-224",
 		.num_bytes				= 224 / 8,
 		.__func					= sha_224_func,
-	},
-	{
-		.name					= "sha-256",
-		.num_bytes				= 256 / 8,
-		.__func					= sha_256_func,
 	},
 	{
 		.name					= "sha-384",
