@@ -1111,6 +1111,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 #endif
 	}
+
+	if (bencode_get_alt(input, "generate-RTCP", "generate RTCP", &s)) {
+		if (!str_cmp(&s, "on"))
+			out->generate_rtcp = 1;
+		else if (!str_cmp(&s, "off"))
+			out->generate_rtcp_off = 1;
+	}
 }
 static void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	if (flags->codec_strip)

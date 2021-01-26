@@ -1186,9 +1186,11 @@ static void __rtcp_timer_run(struct timerthread_queue *q, void *p) {
 
 	log_info_call(rt->call);
 
-	if (!rtcp_timer.tv_sec || timeval_diff(&rtpe_now, &rtcp_timer) < 0 || !proto_is_rtp(media->protocol)) {
-		__rtcp_timer_free(rt);
+	if (!rtcp_timer.tv_sec || timeval_diff(&rtpe_now, &rtcp_timer) < 0 || !proto_is_rtp(media->protocol)
+			|| !MEDIA_ISSET(media, RTCP_GEN))
+	{
 		rwlock_unlock_w(&rt->call->master_lock);
+		__rtcp_timer_free(rt);
 		goto out;
 	}
 	timeval_add_usec(&rtcp_timer, 5000000 + (random() % 2000000));

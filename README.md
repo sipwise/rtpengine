@@ -827,10 +827,15 @@ Optionally included keys are:
 
 	- `generate RTCP`
 
-		With this flag set, received RTCP packets will not simply be passed through as
-		usual, but instead will be consumed, and instead *rtpengine* will generate its own
-		RTCP packets to send to the RTP peers. This flag will be effective for both
-		sides of a call.
+		Identical to setting `generate RTCP = on`.
+
+* `generate RTCP`
+
+	Contains a string, either `on` or `off`. If enabled for a call,
+	received RTCP packets will not simply be passed through as usual, but
+	instead will be consumed, and instead *rtpengine* will generate its own
+	RTCP packets to send to the RTP peers. This flag will be effective for
+	both sides of a call.
 
 * `replace`
 

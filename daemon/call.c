@@ -2132,6 +2132,10 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			MEDIA_SET(media, RTCP_GEN);
 			MEDIA_SET(other_media, RTCP_GEN);
 		}
+		else if (flags && flags->generate_rtcp_off) {
+			MEDIA_CLEAR(media, RTCP_GEN);
+			MEDIA_CLEAR(other_media, RTCP_GEN);
+		}
 
 		__update_media_protocol(media, other_media, sp, flags);
 		__update_media_id(media, other_media, sp, flags);
