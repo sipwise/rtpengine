@@ -184,6 +184,7 @@ static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *ch,
 		struct transcode_packet *packet, struct media_packet *mp,
 		int (*func)(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
 			struct media_packet *mp));
+static struct codec_handler *__decoder_handler(struct codec_handler *h, struct media_packet *mp);
 
 
 static struct codec_handler codec_handler_stub_ssrc = {
@@ -1935,11 +1936,16 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 		struct media_packet *mp)
 {
 	int payload_type = -1; // take from handler's output config
+	struct codec_ssrc_handler *output_ch = NULL;
+	struct codec_ssrc_handler *decoder_ch = NULL;
 
 	if (ch->handler->dtmf_scaler) {
 		// this is actually a DTMF -> PCM handler
 		// grab our underlying PCM transcoder
-		struct codec_ssrc_handler *output_ch = __output_ssrc_handler(ch, mp);
+		struct codec_handler *decoder_handler = __decoder_handler(ch->handler, mp);
+		decoder_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc,
+				decoder_handler->ssrc_hash);
+		output_ch = __output_ssrc_handler(decoder_ch, mp);
 		if (G_UNLIKELY(!ch->encoder || !output_ch->encoder))
 			goto skip;
 
@@ -1983,10 +1989,14 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 			ch->last_dtmf_event_ts = duration;
 		}
 		payload_type = ch->handler->dtmf_payload_type;
-		obj_put(&output_ch->h);
 	}
 
-skip:;
+skip:
+	if (output_ch)
+		obj_put(&output_ch->h);
+	if (decoder_ch)
+		obj_put(&decoder_ch->h);
+
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->ignore_seq) // inject original seq
