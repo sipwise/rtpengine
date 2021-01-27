@@ -41,6 +41,7 @@ static GList *__delete_x_codec(GList *link, GHashTable *codecs, GHashTable *code
 	g_hash_table_remove(codecs, &pt->payload_type);
 	g_hash_table_remove(codec_names, &pt->encoding);
 	g_hash_table_remove(codec_names, &pt->encoding_with_params);
+	g_hash_table_remove(codec_names, &pt->encoding_with_full_params);
 
 	GList *next = link->next;
 	g_queue_delete_link(codecs_prefs, link);
@@ -984,6 +985,7 @@ static void __check_dtmf_injector(const struct sdp_ng_flags *flags, struct call_
 	};
 	str_init(&src_pt.encoding, "DTMF injector");
 	str_init(&src_pt.encoding_with_params, "DTMF injector");
+	str_init(&src_pt.encoding_with_full_params, "DTMF injector");
 	const str tp_event = STR_CONST_INIT("telephone-event");
 	src_pt.codec_def = codec_find(&tp_event, MT_AUDIO);
 	if (!src_pt.codec_def) {
@@ -2215,12 +2217,15 @@ void codec_init_payload_type(struct rtp_payload_type *ret, struct call_media *me
 
 	// init params strings
 	char full_encoding[64];
+	char full_full_encoding[64];
 	char params[32] = "";
 
+	snprintf(full_full_encoding, sizeof(full_full_encoding), STR_FORMAT "/%u/%i", STR_FMT(&ret->encoding),
+			ret->clock_rate,
+			ret->channels);
+
 	if (ret->channels > 1) {
-		snprintf(full_encoding, sizeof(full_encoding), STR_FORMAT "/%u/%i", STR_FMT(&ret->encoding),
-				ret->clock_rate,
-				ret->channels);
+		strcpy(full_encoding, full_full_encoding);
 		snprintf(params, sizeof(params), "%i", ret->channels);
 	}
 	else
@@ -2228,6 +2233,7 @@ void codec_init_payload_type(struct rtp_payload_type *ret, struct call_media *me
 				ret->clock_rate);
 
 	str_init(&ret->encoding_with_params, full_encoding);
+	str_init(&ret->encoding_with_full_params, full_full_encoding);
 	str_init(&ret->encoding_parameters, params);
 
 	if (media)
@@ -3107,6 +3113,17 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *pt) {
 	/* we must duplicate the contents */
 	call_str_cpy(call, &pt->encoding_with_params, &pt->encoding_with_params);
+	// special handling of this one as it's not done by the SDP parser
+	if (pt->encoding_with_full_params.len)
+		call_str_cpy(call, &pt->encoding_with_full_params, &pt->encoding_with_full_params);
+	else {
+		char buf[64];
+		snprintf(buf, sizeof(buf), STR_FORMAT "/%i/%i", STR_FMT(&pt->encoding),
+				pt->clock_rate, pt->channels);
+		str s;
+		str_init(&s, buf);
+		call_str_cpy(call, &pt->encoding_with_full_params, &s);
+	}
 	call_str_cpy(call, &pt->encoding, &pt->encoding);
 	call_str_cpy(call, &pt->encoding_parameters, &pt->encoding_parameters);
 	call_str_cpy(call, &pt->format_parameters, &pt->format_parameters);
@@ -3123,6 +3140,8 @@ static void __rtp_payload_type_add_name(GHashTable *ht, struct rtp_payload_type 
 	GQueue *q = g_hash_table_lookup_queue_new(ht, str_dup(&pt->encoding), free);
 	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
 	q = g_hash_table_lookup_queue_new(ht, str_dup(&pt->encoding_with_params), free);
+	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
+	q = g_hash_table_lookup_queue_new(ht, str_dup(&pt->encoding_with_full_params), free);
 	g_queue_push_tail(q, GUINT_TO_POINTER(pt->payload_type));
 }
 #ifdef WITH_TRANSCODING
@@ -3289,6 +3308,8 @@ static int __codec_options_set1(struct call *call, struct rtp_payload_type *pt, 
 }
 static void __codec_options_set(struct call *call, struct rtp_payload_type *pt, GHashTable *codec_set) {
 	if (!codec_set)
+		return;
+	if (__codec_options_set1(call, pt, &pt->encoding_with_full_params, codec_set))
 		return;
 	if (__codec_options_set1(call, pt, &pt->encoding_with_params, codec_set))
 		return;
@@ -3506,11 +3527,15 @@ int __codec_ht_except(int all_flag, GHashTable *yes_ht, GHashTable *no_ht, struc
 			do_this = 1;
 		else if (g_hash_table_lookup(yes_ht, &pt->encoding_with_params))
 			do_this = 1;
+		else if (g_hash_table_lookup(yes_ht, &pt->encoding_with_full_params))
+			do_this = 1;
 	}
 	if (no_ht && all_flag) {
 		if (g_hash_table_lookup(no_ht, &pt->encoding))
 			do_this = 0;
 		else if (g_hash_table_lookup(no_ht, &pt->encoding_with_params))
+			do_this = 0;
+		else if (g_hash_table_lookup(no_ht, &pt->encoding_with_full_params))
 			do_this = 0;
 	}
 	return do_this;
@@ -3595,6 +3620,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 #endif
 			GQueue *q = g_hash_table_lookup_queue_new(stripped, str_dup(&pt->encoding), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
+			q = g_hash_table_lookup_queue_new(stripped, str_dup(&pt->encoding_with_full_params), free);
+			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 			q = g_hash_table_lookup_queue_new(stripped, str_dup(&pt->encoding_with_params), free);
 			g_queue_push_tail(q, pt);
 			continue;
@@ -3616,6 +3643,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 
 			GQueue *q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
+			q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding_with_full_params), free);
+			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 			q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding_with_params), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 			__rtp_payload_type_add_send(other_media, pt);
@@ -3628,6 +3657,8 @@ void codec_rtp_payload_types(struct call_media *media, struct call_media *other_
 #endif
 			pt->for_transcoding = 1;
 			GQueue *q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding), free);
+			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
+			q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding_with_full_params), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));
 			q = g_hash_table_lookup_queue_new(masked, str_dup(&pt->encoding_with_params), free);
 			g_queue_push_tail(q, __rtp_payload_type_copy(pt));

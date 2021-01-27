@@ -998,6 +998,94 @@ SDP
 
 
 
+# dup codec
+
+new_call();
+
+offer('dup codec 1',
+	{ replace => ['origin'], codec => {
+		transcode => ['opus/48000/1', 'opus/48000/2']
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 97 98
+c=IN IP4 198.51.101.1
+a=rtpmap:97 opus/48000
+a=rtpmap:98 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 97 98
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:97 opus/48000
+a=rtpmap:98 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call();
+
+offer('dup codec 2',
+	{ replace => ['origin'], codec => {
+		transcode => ['opus/48000', 'opus/48000/2']
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 97 98
+c=IN IP4 198.51.101.1
+a=rtpmap:97 opus/48000
+a=rtpmap:98 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 97 98
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:97 opus/48000
+a=rtpmap:98 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call();
+
+offer('dup codec 3',
+	{ replace => ['origin'], codec => {
+		transcode => ['opus', 'opus/48000/2']
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.1
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 97 98
+c=IN IP4 198.51.101.1
+a=rtpmap:97 opus/48000
+a=rtpmap:98 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 97 98
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:97 opus/48000
+a=rtpmap:98 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
 
 
 
@@ -3211,9 +3299,9 @@ o=- 3815883745 3815883745 IN IP4 ims.imscore.net
 s=-
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio PORT RTP/AVP 9 97 8 101 96
+m=audio PORT RTP/AVP 9 111 8 101 96
 a=rtpmap:9 G722/8000
-a=rtpmap:97 opus/48000
+a=rtpmap:111 opus/48000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/48000
 a=fmtp:101 0-15

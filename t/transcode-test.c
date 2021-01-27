@@ -105,11 +105,11 @@ static void __ht_set(GHashTable *h, char *x) {
 
 #define sdp_pt_fmt(num, codec, clockrate, fmt) \
 	__sdp_pt_fmt(num, (str) STR_CONST_INIT(#codec), clockrate, (str) STR_CONST_INIT(#codec "/" #clockrate), \
-			(str) STR_CONST_INIT(fmt))
+			(str) STR_CONST_INIT(#codec "/" #clockrate "/1"), (str) STR_CONST_INIT(fmt))
 
-static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str fmt) {
+static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str full_full, str fmt) {
 	struct rtp_payload_type *pt = g_slice_alloc(sizeof(*pt));
-	*pt = (struct rtp_payload_type) { num, full_codec, codec,
+	*pt = (struct rtp_payload_type) { num, full_codec, full_full, codec,
 		clockrate, STR_CONST_INIT(""), 1, fmt, {0,0}, {0,0}, 0, 0, NULL };
 	g_queue_push_tail(&rtp_types, pt);
 }

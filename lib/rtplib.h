@@ -19,6 +19,7 @@ struct rtp_header {
 struct rtp_payload_type {
 	int payload_type;
 	str encoding_with_params; // "opus/48000/2"
+	str encoding_with_full_params; // "opus/48000/1"
 	str encoding; // "opus"
 	unsigned int clock_rate; // 48000
 	str encoding_parameters; // "2"
