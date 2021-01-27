@@ -919,6 +919,9 @@ Optionally included keys are:
 
 	This flag operates independently of the `replace` flags.
 
+	Note that if config parameter `save-interface-ports = true`, ICE will be broken, because
+	rtpengine will bind ports only on the first local interface of desired family of logical interface.
+
 * `ICE-lite`
 
 	Contains a string which must be one of the following values:

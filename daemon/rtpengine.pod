@@ -80,6 +80,14 @@ unavailable.
 In this case, startup of the daemon will fail with an error if this option
 is given.
 
+=item B<-S>, B<--save-interface-ports>
+
+Will bind ports only on the first available local interface, of desired
+family, of logical interface. If no ports available on any local interface
+of desired family, give an error message.
+
+In this case, ICE will be broken.
+
 =item B<-i>, B<--interface=>[I<NAME>B</>]I<IP>[B<!>I<IP>]
 
 Specifies a local network interface for RTP.

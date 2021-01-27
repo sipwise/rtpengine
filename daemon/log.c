@@ -47,6 +47,10 @@ static void ilog_prefix_default(char *prefix, size_t prefix_len) {
 				snprintf(prefix, prefix_len, "[" STR_FORMAT_M " port %5u]: ",
 						STR_FMT_M(&log_info.u.stream_fd->call->callid),
 						log_info.u.stream_fd->socket.local.port);
+			else
+				snprintf(prefix, prefix_len, "[no call, port %5u]: ",
+						log_info.u.stream_fd->socket.local.port);
+
 			break;
 		case LOG_INFO_STR:
 			snprintf(prefix, prefix_len, "[" STR_FORMAT_M "]: ",

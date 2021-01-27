@@ -61,6 +61,7 @@ struct rtpengine_config {
 	int			homer_protocol;
 	int			homer_id;
 	int			no_fallback;
+	int			save_interface_ports;
 	int			port_min;
 	int			port_max;
 	int			redis_db;
