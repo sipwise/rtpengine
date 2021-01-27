@@ -1893,9 +1893,12 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 	dst->raw = STR_NULL;
 }
 void media_packet_release(struct media_packet *mp) {
-	obj_put(mp->sfd);
-	obj_put(&mp->ssrc_in->parent->h);
-	obj_put(&mp->ssrc_out->parent->h);
+	if (mp->sfd)
+		obj_put(mp->sfd);
+	if (mp->ssrc_in)
+		obj_put(&mp->ssrc_in->parent->h);
+	if (mp->ssrc_out)
+		obj_put(&mp->ssrc_out->parent->h);
 	g_queue_clear_full(&mp->packets_out, codec_packet_free);
 	g_free(mp->rtp);
 	g_free(mp->rtcp);
