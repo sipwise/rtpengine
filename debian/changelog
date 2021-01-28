@@ -1,3 +1,13 @@
+ngcp-rtpengine (9.1.1.8+0~mr9.1.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [bafbcb6] TT#94201 fix ICE=default to the intended behaviour
+  * [dfd143e] TT#101653 defuse codec tracker so it doesn't remove too many
+  * [789d10e] TT#14008 fix possible pcap namespace issue
+  * [1e3391d] TT#109251 fix redis restore segfault
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 28 Jan 2021 21:53:29 +0100
+
 ngcp-rtpengine (9.1.1.7+0~mr9.1.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
