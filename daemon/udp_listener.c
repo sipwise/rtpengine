@@ -44,7 +44,7 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 				continue;
 			if (errno != EWOULDBLOCK && errno != EAGAIN)
 				ilog(LOG_WARNING, "Error reading from UDP socket");
-			return;
+			break;
 		}
 
 		udp_buf->str.s[len] = '\0';
@@ -61,6 +61,8 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 			udp_buf = NULL;
 		}
 	}
+	if (udp_buf)
+		obj_put(udp_buf);
 }
 
 static void __ulc_free(void *p) {
