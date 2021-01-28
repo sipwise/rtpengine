@@ -10523,6 +10523,7 @@ snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1001, 3240, $ssrc, "\x00" x 240));
 snd($sock_a, $port_b, rtp(0, 1003, 3480, 0x1234, "\x00" x 160));
+Time::HiRes::usleep(1000);
 snd($sock_a, $port_b, rtp(0, 1004, 3640, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1002, 3480, $ssrc, "\x00" x 240));
 
@@ -10544,6 +10545,7 @@ rcv($sock_a, $port_b, rtpm(0, 4005, 5800, $ssrc, "\x88" x 160));
 
 # B->A: 4x 10 ms packet -> 2x 20 ms
 snd($sock_b, $port_a, rtp(0, 4002, 5960, 0x4567, "\x88" x 80));
+Time::HiRes::usleep(1000);
 snd($sock_b, $port_a, rtp(0, 4003, 6040, 0x4567, "\x88" x 80));
 rcv($sock_a, $port_b, rtpm(0, 4006, 5960, $ssrc, "\x88" x 160));
 # out of order packet input
@@ -10552,6 +10554,7 @@ Time::HiRes::usleep(10000);
 snd($sock_b, $port_a, rtp(0, 4004, 6120, 0x4567, "\x88" x 80));
 rcv($sock_a, $port_b, rtpm(0, 4007, 6120, $ssrc, "\x88" x 160));
 snd($sock_b, $port_a, rtp(0, 4006, 6280, 0x4567, "\x88" x 80));
+Time::HiRes::usleep(1000);
 snd($sock_b, $port_a, rtp(0, 4007, 6360, 0x4567, "\x88" x 80));
 rcv($sock_a, $port_b, rtpm(0, 4008, 6280, $ssrc, "\x88" x 160));
 
@@ -10683,6 +10686,7 @@ Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is receiv
 snd($sock_b, $port_a, rtp(0, 4001, 5240, 0x4567, "\x88" x 240));
 ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 400));
 snd($sock_b, $port_a, rtp(0, 4002, 5480, 0x4567, "\x88" x 240));
+Time::HiRes::usleep(1000);
 snd($sock_b, $port_a, rtp(0, 4003, 5720, 0x4567, "\x88" x 240));
 rcv($sock_a, $port_b, rtpm(0, 4001, 5400, $ssrc, "\x88" x 400));
 # B->A: add another 30 ms for another full 50 ms
@@ -10756,6 +10760,7 @@ Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is receiv
 snd($sock_b, $port_a, rtp(0, 4001, 5240, 0x4567, "\x88" x 240));
 ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 400));
 snd($sock_b, $port_a, rtp(0, 4002, 5480, 0x4567, "\x88" x 240));
+Time::HiRes::usleep(1000);
 snd($sock_b, $port_a, rtp(0, 4003, 5720, 0x4567, "\x88" x 240));
 rcv($sock_a, $port_b, rtpm(0, 4001, 5400, $ssrc, "\x88" x 400));
 # B->A: add another 30 ms for another full 50 ms
@@ -10829,6 +10834,7 @@ Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is receiv
 snd($sock_b, $port_a, rtp(0, 4001, 5240, 0x4567, "\x88" x 240));
 ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 400));
 snd($sock_b, $port_a, rtp(0, 4002, 5480, 0x4567, "\x88" x 240));
+Time::HiRes::usleep(1000);
 snd($sock_b, $port_a, rtp(0, 4003, 5720, 0x4567, "\x88" x 240));
 rcv($sock_a, $port_b, rtpm(0, 4001, 5400, $ssrc, "\x88" x 400));
 # B->A: add another 30 ms for another full 50 ms
@@ -10901,6 +10907,7 @@ Time::HiRes::usleep(20000); # 20 ms, needed to ensure that packet 1000 is receiv
 snd($sock_b, $port_a, rtp(0, 4001, 5240, 0x4567, "\x88" x 240));
 ($ssrc) = rcv($sock_a, $port_b, rtpm(0, 4000, 5000, -1, "\x88" x 400));
 snd($sock_b, $port_a, rtp(0, 4002, 5480, 0x4567, "\x88" x 240));
+Time::HiRes::usleep(1000);
 snd($sock_b, $port_a, rtp(0, 4003, 5720, 0x4567, "\x88" x 240));
 rcv($sock_a, $port_b, rtpm(0, 4001, 5400, $ssrc, "\x88" x 400));
 # B->A: add another 30 ms for another full 50 ms
