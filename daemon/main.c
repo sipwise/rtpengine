@@ -368,6 +368,7 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(listenps);
 	AUTO_CLEANUP_GBUF(listenudps);
 	AUTO_CLEANUP_GBUF(listenngs);
+	AUTO_CLEANUP_GBUF(listenngtcps);
 	AUTO_CLEANUP_GBUF(listencli);
 	AUTO_CLEANUP_GBUF(graphitep);
 	AUTO_CLEANUP_GBUF(graphite_prefix_s);
@@ -400,6 +401,7 @@ static void options(int *argc, char ***argv) {
 		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46|HOSTNAME:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46|HOSTNAME:]PORT"	},
+		{ "listen-tcp-ng",	'N', 0, G_OPTION_ARG_STRING,	&listenngtcps,	"TCP port to listen on, NG protocol", "[IP46|HOSTNAME:]PORT"	},
 		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46|HOSTNAME:]PORT"     },
 		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "IP46|HOSTNAME:PORT"     },
 		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &rtpe_config.graphite_interval,  "Graphite send interval in seconds",    "INT"   },
@@ -504,8 +506,8 @@ static void options(int *argc, char ***argv) {
 
 	if (!if_a)
 		die("Missing option --interface");
-	if (!listenps && !listenudps && !listenngs)
-		die("Missing option --listen-tcp, --listen-udp or --listen-ng");
+	if (!listenps && !listenudps && !listenngs && !listenngtcps)
+		die("Missing option --listen-tcp, --listen-udp or --listen-ng or --listen-tcp-ng");
 
 	struct ifaddrs *ifas;
 	if (getifaddrs(&ifas)) {
@@ -551,6 +553,10 @@ static void options(int *argc, char ***argv) {
 	if (listenngs) {
 		if (endpoint_parse_any_getaddrinfo(&rtpe_config.ng_listen_ep, listenngs))
 			die("Invalid IP or port '%s' (--listen-ng)", listenngs);
+	}
+	if (listenngtcps) {
+		if (endpoint_parse_any_getaddrinfo(&rtpe_config.ng_tcp_listen_ep, listenngtcps))
+			die("Invalid IP or port '%s' (--listen-tcp-ng)", listenngtcps);
 	}
 
 	if (listencli) {if (endpoint_parse_any_getaddrinfo(&rtpe_config.cli_listen_ep, listencli))
@@ -787,6 +793,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->tcp_listen_ep = rtpe_config.tcp_listen_ep;
 	ini_rtpe_cfg->udp_listen_ep = rtpe_config.udp_listen_ep;
 	ini_rtpe_cfg->ng_listen_ep = rtpe_config.ng_listen_ep;
+	ini_rtpe_cfg->ng_tcp_listen_ep = rtpe_config.ng_tcp_listen_ep;
 	ini_rtpe_cfg->cli_listen_ep = rtpe_config.cli_listen_ep;
 	ini_rtpe_cfg->redis_ep = rtpe_config.redis_ep;
 	ini_rtpe_cfg->redis_write_ep = rtpe_config.redis_write_ep;
@@ -955,6 +962,12 @@ no_kernel:
 		rtpe_control_ng = control_ng_new(rtpe_poller, &rtpe_config.ng_listen_ep, rtpe_config.control_tos);
 		if (!rtpe_control_ng)
 			die("Failed to open UDP control connection port");
+	}
+
+	if (rtpe_config.ng_tcp_listen_ep.port) {
+		rtpe_control_ng = control_ng_tcp_new(rtpe_poller, &rtpe_config.ng_tcp_listen_ep, rtpe_control_ng);
+		if (!rtpe_control_ng)
+			die("Failed to open TCP control connection port");
 	}
 
 	rtpe_cli = NULL;
