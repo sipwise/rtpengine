@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-
+#include <ctype.h>
 
 /* set to 0 for alloc debugging, e.g. through valgrind */
 #define BENCODE_MIN_BUFFER_PIECE_LEN	512
