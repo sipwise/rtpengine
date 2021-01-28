@@ -302,7 +302,7 @@ void recording_start(struct call *call, const char *prefix, str *metadata) {
 		struct packet_stream *ps = l->data;
 		recording_setup_stream(ps);
 		__unkernelize(ps);
-		ps->handler = NULL;
+		__reset_sink_handlers(ps);
 	}
 
 	recording_update_flags(call);

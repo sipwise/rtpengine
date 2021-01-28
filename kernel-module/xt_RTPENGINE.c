@@ -4385,13 +4385,13 @@ not_stun:
 	goto skip_error;
 
 src_check_ok:
+	if (g->target.dtls && is_dtls(skb))
+		goto skip1;
 	if (g->target.non_forwarding) {
 		if (g->target.blackhole)
 			error_nf_action = NF_DROP;
 		goto skip1;
 	}
-	if (g->target.dtls && is_dtls(skb))
-		goto skip1;
 
 	rtp.ok = 0;
 	if (!g->target.rtp)

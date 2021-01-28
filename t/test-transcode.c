@@ -87,8 +87,6 @@ static void __start(const char *file, int line) {
 	str_init(&ml_B.tag, "tag_B");
 	media_B->monologue = &ml_B;
 	media_B->protocol = &transport_protocols[PROTO_RTP_AVP];
-	ml_A.active_dialogue = &ml_B;
-	ml_B.active_dialogue = &ml_A;
 	__init();
 }
 
@@ -233,7 +231,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	// from __stream_ssrc()
 	if (!MEDIA_ISSET(media, TRANSCODE))
 		mp.ssrc_in->ssrc_map_out = ntohl(ssrc);
-	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, media->monologue->active_dialogue->ssrc_hash, SSRC_DIR_OUTPUT, NULL);
+	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, other_media->monologue->ssrc_hash, SSRC_DIR_OUTPUT, NULL);
 	payload_tracker_add(&mp.ssrc_in->tracker, pt_in & 0x7f);
 
 	int packet_len = sizeof(struct rtp_header) + pl.len;

@@ -571,14 +571,19 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw, "--- Tag '" STR_FORMAT "', type: %s, label '" STR_FORMAT "', "
 				"branch '" STR_FORMAT "', "
 				"callduration "
-				"%ld.%06ld, in dialogue with '" STR_FORMAT "'\n",
+				"%ld.%06ld\n",
 			STR_FMT(&ml->tag), get_tag_type_text(ml->tagtype),
 			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 			STR_FMT(&ml->viabranch),
 			tim_result_duration.tv_sec,
-			tim_result_duration.tv_usec,
-			ml->active_dialogue ? (int) ml->active_dialogue->tag.len : 6,
-			ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+			tim_result_duration.tv_usec);
+
+		for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
+			struct call_subscription *cs = sub->data;
+			struct call_monologue *csm = cs->monologue;
+			cw->cw_printf(cw, "---     subscribed to '" STR_FORMAT_M "'\n",
+					STR_FMT_M(&csm->tag));
+		}
 
 		for (k = ml->medias.head; k; k = k->next) {
 			md = k->data;

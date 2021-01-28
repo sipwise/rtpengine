@@ -74,15 +74,20 @@ void cdr_update_entry(struct call* c) {
 				"ml%i_duration=%ld.%06ld, "
 				"ml%i_termination=%s, "
 				"ml%i_local_tag=%s, "
-				"ml%i_local_tag_type=%s, "
-				"ml%i_remote_tag=%s, ",
+				"ml%i_local_tag_type=%s, ",
 				cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
 				cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
 				cdrlinecnt, tim_result_duration.tv_sec, tim_result_duration.tv_usec,
 				cdrlinecnt, get_term_reason_text(ml->term_reason),
 				cdrlinecnt, ml->tag.s,
-				cdrlinecnt, get_tag_type_text(ml->tagtype),
-				cdrlinecnt, ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
+				cdrlinecnt, get_tag_type_text(ml->tagtype));
+
+			for (k = ml->subscriptions.head; k; k = k->next) {
+				struct call_subscription *cs = k->data;
+				g_string_append_printf(cdr,
+					"ml%i_remote_tag=%s, ",
+					cdrlinecnt, cs->monologue->tag.s);
+			}
 		}
 
 		for (k = ml->medias.head; k; k = k->next) {

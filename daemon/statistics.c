@@ -236,26 +236,8 @@ void statistics_update_oneway(struct call* c) {
 		}
 		if (!found)
 			ps = NULL;
-		found = 0;
-
-		if (ml->active_dialogue) {
-			// --- go through partner ml and search the RTP
-			for (k = ml->active_dialogue->medias.head; k; k = k->next) {
-				md = k->data;
-
-				for (o = md->streams.head; o; o = o->next) {
-					ps2 = o->data;
-					if (PS_ISSET(ps2, RTP)) {
-						// --- only RTP is interesting
-						found = 1;
-						break;
-					}
-				}
-				if (found) { break; }
-			}
-		}
-		if (!found)
-			ps2 = NULL;
+		struct sink_handler *sh = g_queue_peek_head(&ps->rtp_sinks);
+		ps2 = sh ? sh->sink : NULL;
 
 		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
 			if (atomic64_get(&ps->stats.packets)!=0 && IS_OWN_CALL(c)){

@@ -88,7 +88,7 @@ static void mos_calc(struct ssrc_stats_block *ssb) {
 	ssb->mos = intmos;
 }
 
-static struct ssrc_entry *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
+static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 	rwlock_lock_r(&ht->lock);
 	struct ssrc_entry *ret = g_atomic_pointer_get(&ht->cache);
 	if (!ret || ret->ssrc != ssrc) {
@@ -253,6 +253,18 @@ static void *__do_time_report_item(struct call_media *m, size_t struct_size, siz
 	return sti;
 }
 
+// call must be locked in R
+static struct ssrc_entry_call *hunt_ssrc(struct call_monologue *ml, uint32_t ssrc) {
+	for (GList *l = ml->subscriptions.head; l; l = l->next) {
+		struct call_subscription *cs = l->data;
+		struct call_monologue *other = cs->monologue;
+		struct ssrc_entry_call *e = find_ssrc(ssrc, other->ssrc_hash);
+		if (e)
+			return e;
+	}
+	return NULL;
+}
+
 static long long __calc_rtt(struct call_monologue *ml, uint32_t ssrc, uint32_t ntp_middle_bits,
 		uint32_t delay, size_t reports_queue_offset, const struct timeval *tv, int *pt_p)
 {
@@ -262,7 +274,7 @@ static long long __calc_rtt(struct call_monologue *ml, uint32_t ssrc, uint32_t n
 	if (!ntp_middle_bits || !delay)
 		return 0;
 
-	struct ssrc_entry_call *e = get_ssrc(ssrc, ml->ssrc_hash);
+	struct ssrc_entry_call *e = hunt_ssrc(ml, ssrc);
 	if (G_UNLIKELY(!e))
 		return 0;
 
@@ -334,7 +346,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 
 	int pt;
 
-	long long rtt = __calc_rtt(m->monologue->active_dialogue, rr->ssrc, rr->lsr, rr->dlsr,
+	long long rtt = __calc_rtt(m->monologue, rr->ssrc, rr->lsr, rr->dlsr,
 			G_STRUCT_OFFSET(struct ssrc_entry_call, sender_reports), tv, &pt);
 
 	struct ssrc_entry_call *other_e = get_ssrc(rr->from, m->monologue->ssrc_hash);
@@ -440,7 +452,7 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 			FMT_M(dlrr->from), FMT_M(dlrr->ssrc),
 			dlrr->lrr, dlrr->dlrr);
 
-	__calc_rtt(m->monologue->active_dialogue, dlrr->ssrc, dlrr->lrr, dlrr->dlrr,
+	__calc_rtt(m->monologue, dlrr->ssrc, dlrr->lrr, dlrr->dlrr,
 			G_STRUCT_OFFSET(struct ssrc_entry_call, rr_time_reports), tv, NULL);
 }
 

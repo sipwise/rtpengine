@@ -122,6 +122,11 @@ struct stream_fd {
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection		dtls;		/* LOCK: stream->in_lock */
 };
+struct sink_handler {
+	struct packet_stream *sink;
+	const struct streamhandler *handler;
+	int kernel_output_idx;
+};
 struct media_packet {
 	str raw;
 
@@ -132,6 +137,7 @@ struct media_packet {
 	struct packet_stream *stream; // sfd->stream
 	struct call_media *media; // stream->media
 	struct call_media *media_out; // output media
+	struct sink_handler sink;
 
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
@@ -176,6 +182,7 @@ void kernelize(struct packet_stream *);
 void __unkernelize(struct packet_stream *);
 void unkernelize(struct packet_stream *);
 void __stream_unconfirm(struct packet_stream *);
+void __reset_sink_handlers(struct packet_stream *);
 
 void media_update_stats(struct call_media *m);
 

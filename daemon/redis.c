@@ -1568,7 +1568,32 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 	for (i = 0; i < tags->len; i++) {
 		ml = tags->ptrs[i];
 
-		ml->active_dialogue = redis_list_get_ptr(tags, &tags->rh[i], "active");
+		if (json_build_list(&q, c, "subscriptions-oa", &c->callid, i, tags, root_reader))
+			return -1;
+		for (l = q.head; l; l = l->next) {
+			other_ml = l->data;
+			if (!other_ml)
+			    return -1;
+			__add_subscription(ml, other_ml, true);
+		}
+		g_queue_clear(&q);
+
+		if (json_build_list(&q, c, "subscriptions-noa", &c->callid, i, tags, root_reader))
+			return -1;
+		for (l = q.head; l; l = l->next) {
+			other_ml = l->data;
+			if (!other_ml)
+			    return -1;
+			__add_subscription(ml, other_ml, false);
+		}
+		g_queue_clear(&q);
+
+		// backwards compatibility
+		if (!ml->subscriptions.length) {
+			other_ml = redis_list_get_ptr(tags, &tags->rh[i], "active");
+			if (other_ml)
+				__add_subscription(ml, other_ml, true);
+		}
 
 		if (json_build_list(&q, c, "other_tags", &c->callid, i, tags, root_reader))
 			return -1;
@@ -1602,18 +1627,52 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 {
 	unsigned int i;
 	struct packet_stream *ps;
+	GQueue q = G_QUEUE_INIT;
+	GList *l;
 
 	for (i = 0; i < streams->len; i++) {
 		ps = streams->ptrs[i];
 
 		ps->media = redis_list_get_ptr(medias, &streams->rh[i], "media");
 		ps->selected_sfd = redis_list_get_ptr(sfds, &streams->rh[i], "sfd");
-		ps->rtp_sink = redis_list_get_ptr(streams, &streams->rh[i], "rtp_sink");
-		ps->rtcp_sink = redis_list_get_ptr(streams, &streams->rh[i], "rtcp_sink");
 		ps->rtcp_sibling = redis_list_get_ptr(streams, &streams->rh[i], "rtcp_sibling");
 
 		if (json_build_list(&ps->sfds, c, "stream_sfds", &c->callid, i, sfds, root_reader))
 			return -1;
+
+		if (json_build_list(&q, c, "rtp_sinks", &c->callid, i, streams, root_reader))
+			return -1;
+		for (l = q.head; l; l = l->next) {
+			struct packet_stream *sink = l->data;
+			if (!sink)
+				return -1;
+			__add_sink_handler(&ps->rtp_sinks, sink);
+		}
+		g_queue_clear(&q);
+
+		// backwards compatibility
+		if (!ps->rtp_sinks.length) {
+			struct packet_stream *sink = redis_list_get_ptr(streams, &streams->rh[i], "rtp_sink");
+			if (sink)
+				__add_sink_handler(&ps->rtp_sinks, sink);
+		}
+
+		if (json_build_list(&q, c, "rtcp_sinks", &c->callid, i, streams, root_reader))
+			return -1;
+		for (l = q.head; l; l = l->next) {
+			struct packet_stream *sink = l->data;
+			if (!sink)
+				return -1;
+			__add_sink_handler(&ps->rtcp_sinks, sink);
+		}
+		g_queue_clear(&q);
+
+		// backwards compatibility
+		if (!ps->rtcp_sinks.length) {
+			struct packet_stream *sink = redis_list_get_ptr(streams, &streams->rh[i], "rtcp_sink");
+			if (sink)
+				__add_sink_handler(&ps->rtcp_sinks, sink);
+		}
 
 		if (ps->media)
 			__rtp_stats_update(ps->rtp_stats, &ps->media->codecs);
@@ -1646,12 +1705,15 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 
 		// find the pair media
 		struct call_monologue *ml = med->monologue;
-		struct call_monologue *other_ml = ml->active_dialogue;
-		for (GList *l = other_ml->medias.head; l; l = l->next) {
-			struct call_media *other_m = l->data;
-			if (other_m->index == med->index) {
-				codec_handlers_update(med, other_m, NULL, NULL);
-				break;
+		for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
+			struct call_subscription *cs = sub->data;
+			struct call_monologue *other_ml = cs->monologue;
+			for (GList *l = other_ml->medias.head; l; l = l->next) {
+				struct call_media *other_m = l->data;
+				if (other_m->index == med->index) {
+					codec_handlers_update(med, other_m, NULL, NULL);
+					break;
+				}
 			}
 		}
 	}
@@ -2170,8 +2232,6 @@ char* redis_encode_json(struct call *c) {
 			{
 				JSON_SET_SIMPLE("media","%u",ps->media->unique_id);
 				JSON_SET_SIMPLE("sfd","%u",ps->selected_sfd ? ps->selected_sfd->unique_id : -1);
-				JSON_SET_SIMPLE("rtp_sink","%u",ps->rtp_sink ? ps->rtp_sink->unique_id : -1);
-				JSON_SET_SIMPLE("rtcp_sink","%u",ps->rtcp_sink ? ps->rtcp_sink->unique_id : -1);
 				JSON_SET_SIMPLE("rtcp_sibling","%u",ps->rtcp_sibling ? ps->rtcp_sibling->unique_id : -1);
 				JSON_SET_SIMPLE("last_packet",UINT64F,atomic64_get(&ps->last_packet));
 				JSON_SET_SIMPLE("ps_flags","%u",ps->ps_flags);
@@ -2196,6 +2256,7 @@ char* redis_encode_json(struct call *c) {
 
 		for (l = c->streams.head; l; l = l->next) {
 			ps = l->data;
+			// XXX these should all go into the above loop
 
 			mutex_lock(&ps->in_lock);
 			mutex_lock(&ps->out_lock);
@@ -2206,6 +2267,26 @@ char* redis_encode_json(struct call *c) {
 			for (k = ps->sfds.head; k; k = k->next) {
 				sfd = k->data;
 				JSON_ADD_STRING("%u",sfd->unique_id);
+			}
+			json_builder_end_array (builder);
+
+			snprintf(tmp, sizeof(tmp), "rtp_sinks-%u", ps->unique_id);
+			json_builder_set_member_name(builder, tmp);
+			json_builder_begin_array(builder);
+			for (k = ps->rtp_sinks.head; k; k = k->next) {
+				struct sink_handler *sh = k->data;
+				struct packet_stream *sink = sh->sink;
+				JSON_ADD_STRING("%u", sink->unique_id);
+			}
+			json_builder_end_array (builder);
+
+			snprintf(tmp, sizeof(tmp), "rtcp_sinks-%u", ps->unique_id);
+			json_builder_set_member_name(builder, tmp);
+			json_builder_begin_array(builder);
+			for (k = ps->rtcp_sinks.head; k; k = k->next) {
+				struct sink_handler *sh = k->data;
+				struct packet_stream *sink = sh->sink;
+				JSON_ADD_STRING("%u", sink->unique_id);
 			}
 			json_builder_end_array (builder);
 
@@ -2224,7 +2305,6 @@ char* redis_encode_json(struct call *c) {
 			{
 
 				JSON_SET_SIMPLE("created","%llu",(long long unsigned) ml->created);
-				JSON_SET_SIMPLE("active","%u",ml->active_dialogue ? ml->active_dialogue->unique_id : -1);
 				JSON_SET_SIMPLE("deleted","%llu",(long long unsigned) ml->deleted);
 				JSON_SET_SIMPLE("block_dtmf","%i",ml->block_dtmf ? 1 : 0);
 				JSON_SET_SIMPLE("block_media","%i",ml->block_media ? 1 : 0);
@@ -2245,6 +2325,7 @@ char* redis_encode_json(struct call *c) {
 		for (l = c->monologues.head; l; l = l->next) {
 			ml = l->data;
 			// -- we do it again here since the jsonbuilder is linear straight forward
+			// XXX these should all go into the above loop
 			k = g_hash_table_get_values(ml->other_tags);
 			snprintf(tmp, sizeof(tmp), "other_tags-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2304,6 +2385,28 @@ char* redis_encode_json(struct call *c) {
 
 			g_list_free(k);
 			rwlock_unlock_r(&ml->ssrc_hash->lock);
+
+			snprintf(tmp, sizeof(tmp), "subscriptions-oa-%u", ml->unique_id);
+			json_builder_set_member_name(builder, tmp);
+			json_builder_begin_array(builder);
+			for (k = ml->subscriptions.head; k; k = k->next) {
+				struct call_subscription *cs = k->data;
+				if (!cs->offer_answer)
+					continue;
+				JSON_ADD_STRING("%u", cs->monologue->unique_id);
+			}
+			json_builder_end_array(builder);
+
+			snprintf(tmp, sizeof(tmp), "subscriptions-noa-%u", ml->unique_id);
+			json_builder_set_member_name(builder, tmp);
+			json_builder_begin_array(builder);
+			for (k = ml->subscriptions.head; k; k = k->next) {
+				struct call_subscription *cs = k->data;
+				if (cs->offer_answer)
+					continue;
+				JSON_ADD_STRING("%u", cs->monologue->unique_id);
+			}
+			json_builder_end_array(builder);
 		}
 
 

@@ -2265,12 +2265,13 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	__ssrc_unlock_both(&mp_copy);
 
 	if (mp_copy.packets_out.length && ret == 0) {
-		struct packet_stream *sink = ps->rtp_sink;
+		struct sink_handler *sh = &mp_copy.sink;
+		struct packet_stream *sink = sh->sink;
 
 		if (!sink)
 			media_socket_dequeue(&mp_copy, NULL); // just free
 		else {
-			if (ps->handler && media_packet_encrypt(ps->handler->out->rtp_crypt, sink, &mp_copy))
+			if (sh->handler && media_packet_encrypt(sh->handler->out->rtp_crypt, sink, &mp_copy))
 				ilogs(dtx, LOG_ERR | LOG_FLAG_LIMIT, "Error encrypting buffered RTP media");
 
 			mutex_lock(&sink->out_lock);

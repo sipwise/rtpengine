@@ -1567,15 +1567,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 			ps = next_ps;
 	}
 
-	struct call_media *other_media = NULL;
-	if (ps->rtp_sink)
-		other_media = ps->rtp_sink->media;
-	else if (ps->rtcp_sink)
-		other_media = ps->rtcp_sink->media;
-
 	media_update_stats(media);
-	if (other_media)
-		media_update_stats(other_media);
 
 	log_info_stream_fd(ps->selected_sfd);
 
@@ -1598,12 +1590,22 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	socket_sendto(&ps->selected_sfd->socket, sr->str, sr->len, &ps->endpoint);
 	g_string_free(sr, TRUE);
 
-	if (other_media)
+	GQueue *sinks = ps->rtp_sinks.length ? &ps->rtp_sinks : &ps->rtcp_sinks;
+	for (GList *l = sinks->head; l; l = l->next) {
+		struct sink_handler *sh = l->data;
+		struct packet_stream *sink = sh->sink;
+		struct call_media *other_media = sink->media;
+
+		media_update_stats(other_media);
+
 		ssrc_sender_report(other_media, &ssr, &rtpe_now);
-	struct ssrc_receiver_report *srr;
-	while ((srr = g_queue_pop_head(&srrs))) {
-		if (other_media)
+		for (GList *k = srrs.head; k; k = k->next) {
+			struct ssrc_receiver_report *srr = k->data;
 			ssrc_receiver_report(other_media, srr, &rtpe_now);
+		}
+	}
+	while (srrs.length) {
+		struct ssrc_receiver_report *srr = g_queue_pop_head(&srrs);
 		g_slice_free1(sizeof(*srr), srr);
 	}
 }

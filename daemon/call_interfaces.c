@@ -170,7 +170,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 		const endpoint_t *sin)
 {
 	struct call *c;
-	struct call_monologue *monologue;
+	struct call_monologue *dialogue[2];
 	GQueue q = G_QUEUE_INIT;
 	struct stream_params sp;
 	str *ret, callid, viabranch, fromtag, totag = STR_NULL;
@@ -195,33 +195,32 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 		c->created_from_addr = sin->address;
 	}
 
-	monologue = call_get_mono_dialogue(c, &fromtag, &totag, NULL);
-	if (!monologue)
+	if (call_get_mono_dialogue(dialogue, c, &fromtag, &totag, NULL))
 		goto ml_fail;
 
 	if (opmode == OP_OFFER) {
-		monologue->tagtype = FROM_TAG;
+		dialogue[0]->tagtype = FROM_TAG;
 	} else {
-		monologue->tagtype = TO_TAG;
+		dialogue[0]->tagtype = TO_TAG;
 	}
 
 	if (addr_parse_udp(&sp, out))
 		goto addr_fail;
 
 	g_queue_push_tail(&q, &sp);
-	i = monologue_offer_answer(monologue, &q, NULL);
+	i = monologue_offer_answer(dialogue, &q, NULL);
 	g_queue_clear(&q);
 
 	if (i)
 		goto unlock_fail;
 
-	ret = streams_print(&monologue->active_dialogue->medias,
+	ret = streams_print(&dialogue[1]->medias,
 			sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
 	rwlock_unlock_w(&c->master_lock);
 
 	redis_update_onekey(c, rtpe_redis_write);
 
-	gettimeofday(&(monologue->started), NULL);
+	gettimeofday(&(dialogue[0]->started), NULL);
 
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT(ret));
 	goto out;
@@ -307,7 +306,7 @@ static void streams_parse(const char *s, GQueue *q) {
 
 static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	struct call *c;
-	struct call_monologue *monologue;
+	struct call_monologue *dialogue[2];
 	GQueue s = G_QUEUE_INIT;
 	str *ret = NULL, callid, fromtag, totag = STR_NULL;
 	GHashTable *infohash;
@@ -336,15 +335,14 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 		str_swap(&fromtag, &totag);
 	}
 
-	monologue = call_get_mono_dialogue(c, &fromtag, &totag, NULL);
-	if (!monologue) {
+	if (call_get_mono_dialogue(dialogue, c, &fromtag, &totag, NULL)) {
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
 	}
-	if (monologue_offer_answer(monologue, &s, NULL))
+	if (monologue_offer_answer(dialogue, &s, NULL))
 		goto out2;
 
-	ret = streams_print(&monologue->active_dialogue->medias, 1, s.length, NULL, SAF_TCP);
+	ret = streams_print(&dialogue[1]->medias, 1, s.length, NULL, SAF_TCP);
 
 out2:
 	rwlock_unlock_w(&c->master_lock);
@@ -1265,11 +1263,11 @@ static void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, struct 
 	mutex_unlock(&sdp_fragments_lock);
 }
 #define MAX_FRAG_AGE 3000000
-static void dequeue_sdp_fragments(struct call_monologue *monologue) {
+static void dequeue_sdp_fragments(struct call_monologue *dialogue[2]) {
 	struct fragment_key k;
 	ZERO(k);
-	k.call_id = monologue->call->callid;
-	k.from_tag = monologue->tag;
+	k.call_id = dialogue[0]->call->callid;
+	k.from_tag = dialogue[0]->tag;
 
 	mutex_lock(&sdp_fragments_lock);
 	GQueue *frags = g_hash_table_lookup(sdp_fragments, &k);
@@ -1290,7 +1288,7 @@ static void dequeue_sdp_fragments(struct call_monologue *monologue) {
 		ilog(LOG_DEBUG, "Dequeuing SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 				STR_FMT_M(&k.call_id), STR_FMT_M(&k.from_tag));
 
-		monologue_offer_answer(monologue, &frag->streams, &frag->flags);
+		monologue_offer_answer(dialogue, &frag->streams, &frag->flags);
 
 next:
 		fragment_free(frag);
@@ -1331,7 +1329,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
 	struct call *call;
-	struct call_monologue *monologue;
+	struct call_monologue *dialogue[2];
 	int ret;
 	struct sdp_ng_flags flags;
 	struct sdp_chopper *chopper;
@@ -1409,19 +1407,18 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	 * need to hold a ref until we're done sending the reply */
 	call_bencode_hold_ref(call, output);
 
-	monologue = call_get_mono_dialogue(call, &flags.from_tag, &flags.to_tag,
-			flags.via_branch.s ? &flags.via_branch : NULL);
 	errstr = "Invalid dialogue association";
-	if (!monologue) {
+	if (call_get_mono_dialogue(dialogue, call, &flags.from_tag, &flags.to_tag,
+			flags.via_branch.s ? &flags.via_branch : NULL)) {
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);
 		goto out;
 	}
 
 	if (opmode == OP_OFFER) {
-		monologue->tagtype = FROM_TAG;
+		dialogue[0]->tagtype = FROM_TAG;
 	} else {
-		monologue->tagtype = TO_TAG;
+		dialogue[0]->tagtype = TO_TAG;
 	}
 
 	chopper = sdp_chopper_new(&flags.sdp);
@@ -1443,11 +1440,11 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 
 	int do_dequeue = 1;
 
-	ret = monologue_offer_answer(monologue, &streams, &flags);
+	ret = monologue_offer_answer(dialogue, &streams, &flags);
 	if (!ret) {
 		// SDP fragments for trickle ICE are consumed with no replacement returned
 		if (!flags.fragment)
-			ret = sdp_replace(chopper, &parsed, monologue->active_dialogue, &flags);
+			ret = sdp_replace(chopper, &parsed, dialogue[1], &flags);
 	}
 	else if (ret == ERROR_NO_ICE_AGENT && flags.fragment) {
 		queue_sdp_fragment(ngbuf, &streams, &flags);
@@ -1459,15 +1456,15 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 
 	struct recording *recording = call->recording;
 	if (recording != NULL) {
-		meta_write_sdp_before(recording, &flags.sdp, monologue, opmode);
+		meta_write_sdp_before(recording, &flags.sdp, dialogue[0], opmode);
 		meta_write_sdp_after(recording, chopper->output,
-			       monologue, opmode);
+			       dialogue[0], opmode);
 
 		recording_response(recording, output);
 	}
 
 	if (do_dequeue)
-		dequeue_sdp_fragments(monologue);
+		dequeue_sdp_fragments(dialogue);
 
 	rwlock_unlock_w(&call->master_lock);
 
@@ -1478,7 +1475,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	}
 	obj_put(call);
 
-	gettimeofday(&(monologue->started), NULL);
+	gettimeofday(&(dialogue[0]->started), NULL);
 
 	errstr = "Error rewriting SDP";
 
@@ -1697,8 +1694,20 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 	if (ml->label.s)
 		bencode_dictionary_add_str(sub, "label", &ml->label);
 	bencode_dictionary_add_integer(sub, "created", ml->created);
-	if (ml->active_dialogue)
-		bencode_dictionary_add_str(sub, "in dialogue with", &ml->active_dialogue->tag);
+	bencode_item_t *subs = bencode_dictionary_add_list(sub, "subscriptions");
+	for (GList *l = ml->subscriptions.head; l; l = l->next) {
+		struct call_subscription *cs = l->data;
+		bencode_item_t *sub1 = bencode_list_add_dictionary(subs);
+		bencode_dictionary_add_str(sub1, "tag", &cs->monologue->tag);
+		bencode_dictionary_add_string(sub1, "type", cs->offer_answer ? "offer/answer" : "pub/sub");
+	}
+	subs = bencode_dictionary_add_list(sub, "subscribers");
+	for (GList *l = ml->subscribers.head; l; l = l->next) {
+		struct call_subscription *cs = l->data;
+		bencode_item_t *sub1 = bencode_list_add_dictionary(subs);
+		bencode_dictionary_add_str(sub1, "tag", &cs->monologue->tag);
+		bencode_dictionary_add_string(sub1, "type", cs->offer_answer ? "offer/answer" : "pub/sub");
+	}
 	ng_stats_ssrc(bencode_dictionary_add_dictionary(sub, "SSRC"), ml->ssrc_hash);
 
 	medias = bencode_dictionary_add_list(sub, "medias");
@@ -1818,7 +1827,10 @@ stats:
 		ml = g_hash_table_lookup(call->tags, match_tag);
 		if (ml) {
 			ng_stats_monologue(tags, ml, totals);
-			ng_stats_monologue(tags, ml->active_dialogue, totals);
+			for (GList *l = ml->subscriptions.head; l; l = l->next) {
+				struct call_subscription *cs = l->data;
+				ng_stats_monologue(tags, cs->monologue, totals);
+			}
 		}
 	}
 
@@ -1977,9 +1989,10 @@ found:
 		;
 	}
 	else if (flags->from_tag.s) {
-		*monologue = call_get_mono_dialogue(*call, &flags->from_tag, NULL, NULL);
+		*monologue = call_get_monologue(*call, &flags->from_tag);
 		if (!*monologue)
 			return "From-tag given, but no such tag exists";
+		__monologue_unkernelize(*monologue);
 	}
 
 	return NULL;
@@ -2382,23 +2395,26 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		// XXX fall back to generating a secondary stream
 		goto out;
 
-found:;
-		struct call_monologue *dialogue = monologue->active_dialogue;
-		struct call_media *sink = NULL;
-		for (GList *l = dialogue->medias.head; l; l = l->next) {
-			sink = l->data;
-			if (media->type_id != MT_AUDIO)
-				continue;
-			goto found_sink;
-		}
+found:
+		for (GList *k = monologue->subscribers.head; k; k = k->next) {
+			struct call_subscription *cs = k->data;
+			struct call_monologue *dialogue = cs->monologue;
+			struct call_media *sink = NULL;
+			for (GList *m = dialogue->medias.head; m; m = m->next) {
+				sink = m->data;
+				if (media->type_id != MT_AUDIO)
+					continue;
+				goto found_sink;
+			}
 
-		err = "Sink monologue has no media capable of DTMF playback";
-		goto out;
+			err = "Sink monologue has no media capable of DTMF playback";
+			goto out;
 
 found_sink:
-		err = dtmf_inject(media, code, volume, duration, pause, sink);
-		if (err)
-			break;
+			err = dtmf_inject(media, code, volume, duration, pause, sink);
+			if (err)
+				break;
+		}
 	}
 
 out:
