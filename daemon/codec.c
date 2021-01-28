@@ -1010,7 +1010,7 @@ static void __generator_stop(struct call_media *media) {
 }
 
 static void __t38_options_from_flags(struct t38_options *t_opts, const struct sdp_ng_flags *flags) {
-#define t38_opt(name) t_opts->name = flags->t38_ ## name
+#define t38_opt(name) t_opts->name = flags ? flags->t38_ ## name : 0
 	t38_opt(no_ecm);
 	t38_opt(no_v17);
 	t38_opt(no_v27ter);
@@ -1028,7 +1028,7 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 		t_opts = sp->t38_options;
 	else {
 		// create our own options
-		if (flags->t38_fec)
+		if (flags && flags->t38_fec)
 			t_opts.fec_span = 3;
 		t_opts.max_ec_entries = 3;
 	}
