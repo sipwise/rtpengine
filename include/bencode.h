@@ -301,8 +301,8 @@ INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *
 /* Identical to bencode_decode_expect() but takes a "str" argument. */
 INLINE bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const str *s, bencode_type_t expect);
 
-
-
+/* Returns the number of bytes that could successfully be decoded from 's', -1 if more bytes are needed or -2 on error */
+int bencode_valid(const char *s, int len);
 
 
 /*** DICTIONARY LOOKUP & EXTRACTION ***/

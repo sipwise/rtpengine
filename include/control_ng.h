@@ -5,8 +5,8 @@
 #include "udp_listener.h"
 #include "socket.h"
 #include "str.h"
+#include "tcp_listener.h"
 #include "bencode.h"
-
 
 struct poller;
 
@@ -48,6 +48,7 @@ struct control_ng_stats {
 struct control_ng {
 	struct obj obj;
 	socket_t udp_listeners[2];
+	struct streambuf_listener tcp_listeners[2];
 	struct poller *poller;
 };
 
@@ -62,6 +63,8 @@ extern const char *ng_command_strings[NGC_COUNT];
 extern const char *ng_command_strings_short[NGC_COUNT];
 
 struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
+struct control_ng *control_ng_tcp_new(struct poller *, endpoint_t *, struct control_ng *);
+void notify_ng_tcp_clients(str *);
 void control_ng_init(void);
 void control_ng_cleanup(void);
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
