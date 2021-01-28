@@ -1,3 +1,11 @@
+ngcp-rtpengine (8.5.3.2+0~mr8.5.3.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d5542c8] TT#14008 fix possible pcap namespace issue
+  * [97a88ad] TT#109251 fix redis restore segfault
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 28 Jan 2021 21:53:32 +0100
+
 ngcp-rtpengine (8.5.3.1+0~mr8.5.3.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
