@@ -703,3 +703,112 @@ void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t func, void *p
 	li->next = buf->free_list;
 	buf->free_list = li;
 }
+
+static int __bencode_string(const char *s, int offset, int len) {
+	int pos;
+	unsigned long long sl;
+	char *end;
+
+	for (pos = offset + 1; s[pos] != 0x3a && isdigit(s[pos]) && pos < len; ++pos);
+	if (pos == len)
+		return -1;
+
+	sl = strtoul(s + offset + 1, &end, 10);
+	if (s + offset + 1 == end || end != s + pos)
+		return -2;
+
+	if (pos + sl > len)
+		return -1;
+
+	return pos + sl + 1;
+}
+
+static int __bencode_integer(const char *s, int offset, int len) {
+	int pos;
+
+	if (s[offset + 1] == 0x2d) {
+		if (offset + 3 < len && s[offset + 2] == 0x30 && s[offset + 3] == 0x65) {
+			return -2;
+		}
+		++offset;
+	}
+
+	if (s[offset + 1] == 0x65)
+		return -2;
+
+	if (s[offset + 1] == 0x30) {
+		if (offset + 2 < len && s[offset + 2] == 0x65)
+			return offset + 3;
+		return -2;
+	}
+
+	for (pos = offset + 1; s[pos] != 0x65 && pos < len; ++pos) {
+		if (s[pos] < 0x30 || s[pos] > 0x39)
+			return -2;
+	}
+
+	if (pos == len)
+		return -1;
+
+	return pos + 1;
+}
+
+static int __bencode_next(const char *s, int offset, int len);
+
+static int __bencode_list(const char *s, int offset, int len) {
+	for (++offset; s[offset] != 0x65 && offset < len;) {
+		offset = __bencode_next(s, offset, len);
+		if (offset < 0)
+			return offset;
+	}
+
+	if (offset == len)
+		return -1;
+
+	return offset + 1;
+}
+
+static int __bencode_dictionary(const char *s, int offset, int len) {
+	for (++offset; s[offset] != 0x65 && offset < len;) {
+		offset = __bencode_string(s, offset - 1, len);
+		if (offset < 0)
+			return offset;
+		offset = __bencode_next(s, offset, len);
+		if (offset < 0)
+			return offset;
+	}
+
+	if (offset == len)
+		return -1;
+
+	return offset + 1;
+}
+
+static int __bencode_next(const char *s, int offset, int len) {
+	if (offset >= len)
+		return -1;
+	switch(s[offset]) {
+		case 0x69:
+			return __bencode_integer(s, offset, len);
+		case 0x6c:
+			return __bencode_list(s, offset, len);
+		case 0x64:
+			return __bencode_dictionary(s, offset, len);
+		case 0x30:
+		case 0x31:
+		case 0x32:
+		case 0x33:
+		case 0x34:
+		case 0x35:
+		case 0x36:
+		case 0x37:
+		case 0x38:
+		case 0x39:
+			return __bencode_string(s, offset - 1, len);
+	}
+	return -2;
+}
+
+int bencode_valid(const char *s, int len) {
+	return __bencode_next(s, 0, len);
+}
