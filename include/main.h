@@ -54,6 +54,7 @@ struct rtpengine_config {
 	endpoint_t		tcp_listen_ep;
 	endpoint_t		udp_listen_ep;
 	endpoint_t		ng_listen_ep;
+	endpoint_t		ng_tcp_listen_ep;
 	endpoint_t		cli_listen_ep;
 	endpoint_t		redis_ep;
 	endpoint_t		redis_write_ep;
