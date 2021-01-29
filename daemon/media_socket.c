@@ -1538,8 +1538,10 @@ static int media_loop_detect(struct packet_handler_ctx *phc) {
 
 		__C_DBG("packet dupe");
 		if (phc->mp.stream->lp_count >= RTP_LOOP_MAX_COUNT) {
-			ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet "
-					"to avoid potential loop", RTP_LOOP_MAX_COUNT);
+			ilog(LOG_WARNING, "More than %d duplicate packets detected, dropping packet from %s%s%s"
+					"to avoid potential loop",
+					RTP_LOOP_MAX_COUNT,
+					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			mutex_unlock(&phc->mp.stream->in_lock);
 			return -1;
 		}
@@ -1614,7 +1616,9 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 			rtp_s = g_hash_table_lookup(phc->mp.stream->rtp_stats, &phc->payload_type);
 		if (!rtp_s) {
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT,
-					"RTP packet with unknown payload type %u received", phc->payload_type);
+					"RTP packet with unknown payload type %u received from %s%s%s",
+					phc->payload_type,
+					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			atomic64_inc(&phc->mp.stream->stats.errors);
 			atomic64_inc(&rtpe_statsps.errors);
 		}
@@ -1722,8 +1726,9 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 	// is enabled or not.
 	if (!PS_ISSET(phc->mp.stream, CONFIRMED) && PS_ISSET(phc->mp.stream, RTP)) {
 		if (rtcp_demux_is_rtcp(&phc->s)) {
-			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Ignoring stray RTCP packet for "
-					"peer address confirmation purposes");
+			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Ignoring stray RTCP packet from %s%s%s for "
+					"peer address confirmation purposes",
+					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			goto out;
 		}
 	}
@@ -2045,7 +2050,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (G_UNLIKELY(!phc->sink || !phc->sink->selected_sfd || !phc->out_srtp
 				|| !phc->out_srtp->selected_sfd || !phc->in_srtp->selected_sfd))
 	{
-		ilog(LOG_WARNING, "Media packet from %s%s%s discarded", FMT_M(endpoint_print_buf(&phc->mp.fsin)));
+		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Media packet from %s%s%s discarded due to lack of sink",
+				FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 		atomic64_inc(&phc->mp.stream->stats.errors);
 		atomic64_inc(&rtpe_statsps.errors);
 		goto out;
