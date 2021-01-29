@@ -1,5 +1,7 @@
 #include <errno.h>
 #include "dtmf.h"
+#include "bencode.h"
+#include "control_ng.h"
 #include "media_socket.h"
 #include "log.h"
 #include "call.h"
@@ -9,11 +11,10 @@
 #include "codec.h"
 #include "ssrc.h"
 
-
-
 static socket_t dtmf_log_sock;
 
 void dtmf_init(void) {
+	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
 	if (rtpe_config.dtmf_udp_ep.port) {
 		if (connect_socket(&dtmf_log_sock, SOCK_DGRAM, &rtpe_config.dtmf_udp_ep))
 			ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
