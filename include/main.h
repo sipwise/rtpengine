@@ -96,6 +96,7 @@ struct rtpengine_config {
 	char			*mysql_pass;
 	char			*mysql_query;
 	endpoint_t		dtmf_udp_ep;
+	int			dtmf_via_ng;
 	enum endpoint_learning	endpoint_learning;
 	int                     jb_length;
 	int                     jb_clock_drift;
