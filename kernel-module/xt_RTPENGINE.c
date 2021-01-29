@@ -3950,8 +3950,13 @@ static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 	sg_set_buf(&sg[1], r->payload, r->payload_len + 16); // guaranteed to have space after skb_copy_expand
 
 	aead_request_set_callback(req, 0, NULL, NULL);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
 	aead_request_set_ad(req, r->header_len);
 	aead_request_set_crypt(req, sg, sg, r->payload_len, iv);
+#else
+	aead_request_set_assoc(req, &sg[0], r->header_len);
+	aead_request_set_crypt(req, &sg[1], &sg[1], r->payload_len, iv);
+#endif
 
 	ret = crypto_aead_encrypt(req);
 	aead_request_free(req);
@@ -3996,8 +4001,13 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 	sg_set_buf(&sg[1], r->payload, r->payload_len);
 
 	aead_request_set_callback(req, 0, NULL, NULL);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
 	aead_request_set_ad(req, r->header_len);
 	aead_request_set_crypt(req, sg, sg, r->payload_len, iv);
+#else
+	aead_request_set_assoc(req, &sg[0], r->header_len);
+	aead_request_set_crypt(req, &sg[1], &sg[1], r->payload_len, iv);
+#endif
 
 	ret = crypto_aead_decrypt(req);
 	aead_request_free(req);
