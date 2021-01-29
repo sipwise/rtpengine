@@ -706,13 +706,23 @@ static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy
 }
 static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy) {
 	str_hyphenate(s);
-	if (!str_cmp(s, "origin"))
-		out->replace_origin = 1;
-	else if (!str_cmp(s, "session-connection"))
-		out->replace_sess_conn = 1;
-	else
-		ilog(LOG_WARN, "Unknown 'replace' flag encountered: '" STR_FORMAT "'",
-				STR_FMT(s));
+	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("origin"):
+			out->replace_origin = 1;
+			break;
+		case CSH_LOOKUP("session-connection"):
+			out->replace_sess_conn = 1;
+			break;
+		case CSH_LOOKUP("sdp-version"):
+			out->replace_sdp_version = 1;
+			break;
+		case CSH_LOOKUP("SDP-version"):
+			out->replace_sdp_version = 1;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'replace' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
 }
 static void call_ng_flags_supports(struct sdp_ng_flags *out, str *s, void *dummy) {
 	if (!str_cmp(s, "load limit"))

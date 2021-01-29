@@ -371,6 +371,8 @@ struct call_monologue {
 	GQueue			medias;
 	GHashTable		*media_ids;
 	struct media_player	*player;
+	unsigned long long	sdp_version;
+	GString			*last_sdp;
 
 	int			block_dtmf:1;
 	int			block_media:1;

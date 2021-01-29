@@ -9,12 +9,9 @@
 
 struct sdp_chopper {
 	str *input;
-	int position;
+	size_t position;
 	GString *output;
-//	GStringChunk *chunk;
-//	GArray *iov;
-//	int iov_num;
-//	int str_len;
+	ssize_t offset; // for post-processing using chopper_replace
 };
 
 extern const str rtpe_instance_id;

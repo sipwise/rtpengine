@@ -12407,4 +12407,551 @@ rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 $resp = rtpe_req('statistics', 'statistics');
 
 
+
+
+# SDP version tests
+
+new_call;
+
+offer('SDP version simple increments', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version simple increments', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version simple increments', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 2 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version simple increments', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 3 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version simple increments', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 2 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version simple increments', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 4 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 2 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP version multi session', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 1000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version multi session', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 1000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version multi session', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2004 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 1000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 1000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 1000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP version string lengths', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2004 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 10000000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 1000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version string lengths', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2004 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 10000000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 1000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version string lengths', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2004 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 999999999999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 10000000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 10 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 9999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version string lengths', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2006 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 999999999999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 10000000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 10 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP version string lengths', { replace => ['SDP version'] }, <<SDP);
+v=0
+o=- 1545997027 11111 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2006 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 99999999 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+v=0
+o=- 1545997027 000010 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+v=0
+o=- 1545997027 10000 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
 done_testing();

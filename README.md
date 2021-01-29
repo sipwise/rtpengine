@@ -852,6 +852,11 @@ Optionally included keys are:
 		Replace the address found in the *session-level connection* (c=) line of the SDP body.
 		Corresponds to *rtpproxy* `c` flag.
 
+	- `SDP version`
+
+		Take control of the version field in the SDP and make sure it's increased every
+		time the SDP changes, and left unchanged if the SDP is the same.
+
 * `direction`
 
 	Contains a list of two strings and corresponds to the *rtpproxy* `e` and `i` flags. Each element must

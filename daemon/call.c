@@ -2626,6 +2626,8 @@ static void __call_free(void *p) {
 		g_hash_table_destroy(m->other_tags);
 		g_hash_table_destroy(m->branches);
 		g_hash_table_destroy(m->media_ids);
+		if (m->last_sdp)
+			g_string_free(m->last_sdp, TRUE);
 		g_slice_free1(sizeof(*m), m);
 	}
 

@@ -29,8 +29,10 @@ struct network_address {
 struct sdp_origin {
 	str username;
 	str session_id;
-	str version;
+	str version_str;
 	struct network_address address;
+	unsigned long long version_num;
+	size_t version_output_pos;
 	int parsed:1;
 };
 
@@ -347,9 +349,10 @@ static int parse_origin(str *value_str, struct sdp_origin *output) {
 
 	EXTRACT_TOKEN(username);
 	EXTRACT_TOKEN(session_id);
-	EXTRACT_TOKEN(version);
+	EXTRACT_TOKEN(version_str);
 	EXTRACT_NETWORK_ADDRESS_NF(address);
 
+	output->version_num = strtoull(output->version_str.s, NULL, 10);
 	output->parsed = 1;
 	return 0;
 }
@@ -1656,6 +1659,29 @@ INLINE void chopper_append_c(struct sdp_chopper *c, const char *s) {
 INLINE void chopper_append_str(struct sdp_chopper *c, const str *s) {
 	chopper_append(c, s->s, s->len);
 }
+static void chopper_replace(struct sdp_chopper *c, str *old, size_t *old_pos,
+		const char *repl, size_t repl_len)
+{
+	// adjust for offsets created within this run
+	*old_pos += c->offset;
+	// is our new value longer?
+	if (repl_len > old->len) {
+		// overwrite + insert
+		g_string_overwrite_len(c->output, *old_pos, repl, old->len);
+		g_string_insert(c->output, *old_pos + old->len, repl + old->len);
+		c->offset += repl_len - old->len;
+		old->len = repl_len;
+	}
+	else {
+		// overwrite + optional erase
+		g_string_overwrite(c->output, *old_pos, repl);
+		if (repl_len < old->len) {
+			g_string_erase(c->output, *old_pos + repl_len, old->len - repl_len);
+			c->offset -= old->len - repl_len;
+			old->len = repl_len;
+		}
+	}
+}
 
 #define chopper_append_printf(c, f...) g_string_append_printf((c)->output, f)
 
@@ -2363,6 +2389,41 @@ static void insert_rtcp_attr(struct sdp_chopper *chop, struct packet_stream *ps,
 }
 
 
+static void sdp_version_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue) {
+	char version_str[64];
+	snprintf(version_str, sizeof(version_str), "%llu", monologue->sdp_version);
+	size_t version_len = strlen(version_str);
+	chop->offset = 0; // start from the top
+
+	for (GList *l = sessions->head; l; l = l->next) {
+		struct sdp_session *session = l->data;
+		struct sdp_origin *origin = &session->origin;
+		// update string unconditionally to keep position tracking intact
+		chopper_replace(chop, &origin->version_str, &origin->version_output_pos, version_str, version_len);
+	}
+}
+
+static void sdp_version_check(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue) {
+	// we really expect only a single session here, but we treat all the same regardless,
+	// and use the same version number on all of them
+
+	// first update all versions to match our single version
+	sdp_version_replace(chop, sessions, monologue);
+	// then check if we need to change
+	if (!monologue->last_sdp)
+		goto dup;
+	if (g_string_equal(monologue->last_sdp, chop->output))
+		return;
+
+	// mismatch detected. increment version, update again, and store copy
+	monologue->sdp_version++;
+	sdp_version_replace(chop, sessions, monologue);
+	g_string_free(monologue->last_sdp, TRUE);
+dup:
+	monologue->last_sdp = g_string_new_len(chop->output->str, chop->output->len);
+}
+
+
 /* called with call->master_lock held in W */
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue,
 		struct sdp_ng_flags *flags)
@@ -2392,6 +2453,15 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		if (!j)
 			goto error;
 		ps = j->data;
+
+		// record position of o= line and init SDP version
+		copy_up_to(chop, &session->origin.version_str);
+		session->origin.version_output_pos = chop->output->len;
+		if (!monologue->sdp_version) {
+			monologue->sdp_version = session->origin.version_num;
+			if (monologue->sdp_version == 0 || monologue->sdp_version == ULLONG_MAX)
+				monologue->sdp_version = random();
+		}
 
 		sess_conn = 0;
 		if (flags->replace_sess_conn)
@@ -2576,6 +2646,11 @@ next:
 	}
 
 	copy_remainder(chop);
+
+	if (flags->replace_sdp_version)
+		sdp_version_check(chop, sessions, monologue);
+
+
 	return 0;
 
 error:

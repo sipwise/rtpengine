@@ -71,6 +71,7 @@ struct sdp_ng_flags {
 	    port_latching:1,
 	    replace_origin:1,
 	    replace_sess_conn:1,
+	    replace_sdp_version:1,
 	    rtcp_mux_offer:1,
 	    rtcp_mux_require:1,
 	    rtcp_mux_demux:1,
