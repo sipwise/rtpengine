@@ -1065,7 +1065,7 @@ static void __generator_stop(struct call_media *media) {
 }
 
 static void __t38_options_from_flags(struct t38_options *t_opts, const struct sdp_ng_flags *flags) {
-#define t38_opt(name) t_opts->name = flags->t38_ ## name
+#define t38_opt(name) t_opts->name = flags ? flags->t38_ ## name : 0
 	t38_opt(no_ecm);
 	t38_opt(no_v17);
 	t38_opt(no_v27ter);
@@ -1083,7 +1083,7 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 		t_opts = sp->t38_options;
 	else {
 		// create our own options
-		if (flags->t38_fec)
+		if (flags && flags->t38_fec)
 			t_opts.fec_span = 3;
 		t_opts.max_ec_entries = 3;
 	}
@@ -1938,10 +1938,11 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 		struct media_packet *mp)
 {
 	int payload_type = -1; // take from handler's output config
-	struct codec_ssrc_handler *output_ch = NULL;
-	struct codec_ssrc_handler *decoder_ch = NULL;
 
 	if (ch->handler->dtmf_scaler) {
+		struct codec_ssrc_handler *output_ch = NULL;
+		struct codec_ssrc_handler *decoder_ch = NULL;
+
 		// this is actually a DTMF -> PCM handler
 		// grab our underlying PCM transcoder
 		struct codec_handler *decoder_handler = __decoder_handler(ch->handler, mp);
@@ -1964,14 +1965,14 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 		if (ch->dtmf_ts != packet->ts) {
 			// this is a new event
 			ch->dtmf_ts = packet->ts; // start TS
-			ch->last_dtmf_event_ts = 0; // last shifted FIFO PTS
+			ch->last_dtmf_event_ts = 0; // last DTMF event duration
 		}
 
-		unsigned long ts = output_ch->encoder->fifo_pts;
+		unsigned long ts = output_ch->encoder->next_pts / output_ch->encoder->def->clockrate_mult;
 		// roll back TS to start of event
 		ts -= ch->last_dtmf_event_ts;
 		// adjust to output RTP TS
-		unsigned long packet_ts = ts / output_ch->encoder->def->clockrate_mult + output_ch->first_ts;
+		unsigned long packet_ts = ts + output_ch->first_ts;
 
 		ilogs(transcoding, LOG_DEBUG, "Scaling DTMF packet timestamp and duration: TS %lu -> %lu "
 				"(%u -> %u)",
@@ -1986,18 +1987,18 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 			dtmf->duration = htons(duration);
 
 			// shift forward our output RTP TS
-			output_ch->encoder->fifo_pts = ts + duration;
+			output_ch->encoder->next_pts = (ts + duration) * output_ch->encoder->def->clockrate_mult;
 			output_ch->encoder->packet_pts += (duration - ch->last_dtmf_event_ts) * output_ch->encoder->def->clockrate_mult;
 			ch->last_dtmf_event_ts = duration;
 		}
 		payload_type = ch->handler->dtmf_payload_type;
-	}
 
 skip:
-	if (output_ch)
-		obj_put(&output_ch->h);
-	if (decoder_ch)
-		obj_put(&decoder_ch->h);
+		if (output_ch)
+			obj_put(&output_ch->h);
+		if (decoder_ch)
+			obj_put(&decoder_ch->h);
+	}
 
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);

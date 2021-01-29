@@ -99,6 +99,9 @@ static int get_clock_rate(struct media_packet *mp, int payload_type) {
 }
 
 static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
+	if (rtp_payload(&mp->rtp, &mp->payload, &mp->raw))
+		return NULL;
+
 	char *buf = malloc(s->len + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM);
 	if (!buf) {
 		ilog(LOG_ERROR, "Failed to allocate memory: %s", strerror(errno));
@@ -112,11 +115,6 @@ static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
 
 	str_init_len(&p->mp.raw, buf + RTP_BUFFER_HEAD_ROOM, s->len);
 	memcpy(p->mp.raw.s, s->s, s->len);
-
-	if(rtp_payload(&p->mp.rtp, &p->mp.payload, &p->mp.raw)) {
-		jb_packet_free(&p);
-		return NULL;
-	}
 
 	return p;
 }

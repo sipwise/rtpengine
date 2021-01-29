@@ -1285,11 +1285,17 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 			return -1;
 
 		if (enc->avpkt.size) {
+			// don't rely on the encoder producing steady timestamps,
+			// instead keep track of them ourselves based on the returned
+			// frame duration
+			enc->avpkt.pts = enc->next_pts;
+
 			if (enc->def->codec_type->encoder_got_packet)
 				enc->def->codec_type->encoder_got_packet(enc);
 
 			callback(enc, u1, u2);
 
+			enc->next_pts += enc->avpkt.duration;
 			enc->mux_dts = enc->avpkt.dts + 1; // min next expected dts
 
 			av_packet_unref(&enc->avpkt);
