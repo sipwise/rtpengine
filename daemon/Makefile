@@ -3,53 +3,6 @@ TARGET=		rtpengine
 with_iptables_option ?= yes
 with_transcoding ?= yes
 
-# look for bcg729
-# system pkg-config
-ifeq ($(shell pkg-config --exists libbcg729 && echo yes),yes)
-have_bcg729 := yes
-bcg729_inc := $(shell pkg-config --cflags libbcg729)
-bcg729_lib := $(shell pkg-config --libs libbcg729)
-else
-# system generic
-ifneq (,$(wildcard /usr/include/bcg729/decoder.h))
-have_bcg729 := yes
-else
-# /usr/src
-ifneq (,$(wildcard /usr/src/bcg729/include/bcg729/decoder.h))
-have_bcg729 := yes
-bcg729_inc := -I/usr/src/bcg729/include/
-bcg729_lib := -L/usr/src/bcg729/src/ -lbcg729
-else
-# rfuchs dev
-ifneq (,$(wildcard $(HOME)/src/bcg729/include/bcg729/decoder.h))
-have_bcg729 := yes
-bcg729_inc := -I$(HOME)/src/bcg729/include/
-bcg729_lib := -L$(HOME)/src/bcg729/src/ -lbcg729
-else
-# home directory
-ifneq (,$(wildcard $(HOME)/bcg729/include/bcg729/decoder.h))
-have_bcg729 := yes
-bcg729_inc := -I$(HOME)/bcg729/include/
-bcg729_lib := -L$(HOME)/bcg729/src/ -lbcg729
-else
-# included toplevel
-ifneq (,$(wildcard ../bcg729/include/bcg729/decoder.h))
-have_bcg729 := yes
-bcg729_inc := -I../bcg729/include/
-bcg729_lib := -L../bcg729/src/ -lbcg729
-else
-# /usr/local/include when installing from git
-ifneq (,$(wildcard /usr/local/include/bcg729/decoder.h))
-have_bcg729 := yes
-bcg729_inc := -I/usr/local/include/
-bcg729_lib := -L/usr/local/lib64/ -lbcg729
-endif
-endif
-endif
-endif
-endif
-endif
-endif
 
 CFLAGS+=	-g -Wall -Wstrict-prototypes -pthread -fno-strict-aliasing
 CFLAGS+=	-std=c99
@@ -78,10 +31,6 @@ CFLAGS+=	$(shell pkg-config --cflags libswresample)
 CFLAGS+=	$(shell pkg-config --cflags libavfilter)
 CFLAGS+=	$(shell pkg-config --cflags spandsp)
 CFLAGS+=	-DWITH_TRANSCODING
-ifeq ($(have_bcg729),yes)
-CFLAGS+=	-DHAVE_BCG729
-CFLAGS+=	$(bcg729_inc)
-endif
 CFLAGS+=        $(shell mysql_config --cflags)
 else
 CFLAGS+=	-DWITHOUT_CODECLIB
@@ -119,10 +68,11 @@ LDLIBS+=	$(shell pkg-config --libs libavutil)
 LDLIBS+=	$(shell pkg-config --libs libswresample)
 LDLIBS+=	$(shell pkg-config --libs libavfilter)
 LDLIBS+=	$(shell pkg-config --libs spandsp)
-ifeq ($(have_bcg729),yes)
-LDLIBS+=	$(bcg729_lib)
-endif
 LDLIBS+=        $(shell mysql_config --libs)
+endif
+
+ifeq ($(with_transcoding),yes)
+include ../lib/g729.Makefile
 endif
 
 SRCS=		main.c kernel.c poller.c aux.c control_tcp.c call.c control_udp.c redis.c \
