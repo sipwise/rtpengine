@@ -628,7 +628,7 @@ static void call_timer(void *ptr) {
 
 		for (j = 0; j < ke->target.num_payload_types; j++) {
 			pt = ke->target.payload_types[j];
-			rs = g_hash_table_lookup(ps->rtp_stats, &pt);
+			rs = g_hash_table_lookup(ps->rtp_stats, GINT_TO_POINTER(pt));
 			if (!rs)
 				continue;
 			if (ke->rtp_stats[j].packets > atomic64_get(&rs->packets))
@@ -750,8 +750,8 @@ struct call_media *call_media_new(struct call *call) {
 	struct call_media *med;
 	med = uid_slice_alloc0(med, &call->medias);
 	med->call = call;
-	med->codecs_recv = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
-	med->codecs_send = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, NULL);
+	med->codecs_recv = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
+	med->codecs_send = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 	med->codec_names_recv = g_hash_table_new_full(str_case_hash, str_case_equal, free,
 			(void (*)(void*)) g_queue_free);
 	med->codec_names_send = g_hash_table_new_full(str_case_hash, str_case_equal, free,
@@ -963,7 +963,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	mutex_init(&stream->out_lock);
 	stream->call = call;
 	atomic64_set_na(&stream->last_packet, rtpe_now.tv_sec);
-	stream->rtp_stats = g_hash_table_new_full(g_int_hash, g_int_equal, NULL, __rtp_stats_free);
+	stream->rtp_stats = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __rtp_stats_free);
 	recording_init_stream(stream);
 	stream->send_timer = send_timer_new(stream);
 
@@ -1139,13 +1139,13 @@ void __rtp_stats_update(GHashTable *dst, GHashTable *src) {
 
 	for (l = values; l; l = l->next) {
 		pt = l->data;
-		rs = g_hash_table_lookup(dst, &pt->payload_type);
+		rs = g_hash_table_lookup(dst, GINT_TO_POINTER(pt->payload_type));
 		if (rs)
 			continue;
 
 		rs = g_slice_alloc0(sizeof(*rs));
 		rs->payload_type = pt->payload_type;
-		g_hash_table_insert(dst, &rs->payload_type, rs);
+		g_hash_table_insert(dst, GINT_TO_POINTER(rs->payload_type), rs);
 	}
 
 	g_list_free(values);
