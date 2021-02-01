@@ -81,6 +81,7 @@ GetOptions(
 	'inject-DTMF'			=> \$options{'inject DTMF'},
 	'DTLS-fingerprint=s'		=> \$options{'DTLS-fingerprint'},
 	'ICE-lite=s'			=> \$options{'ICE-lite'},
+	'no-jitter-buffer'  		=> \$options{'no jitter buffer'},
 	'generate-RTCP'			=> \$options{'generate RTCP'},
 	'single-codec'			=> \$options{'single codec'},
 ) or die;

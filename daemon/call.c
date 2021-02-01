@@ -967,7 +967,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	recording_init_stream(stream);
 	stream->send_timer = send_timer_new(stream);
 
-	if (rtpe_config.jb_length)
+	if (rtpe_config.jb_length && !call->disable_jb)
 		stream->jb = jitter_buffer_new(call);
 
 	return stream;
@@ -2263,6 +2263,9 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		if (!em) {
 			goto error_ports;
 		}
+
+		if(flags->disable_jb && media->call)
+			media->call->disable_jb=1;
 
 		__num_media_streams(media, num_ports);
 		__assign_stream_fds(media, &em->intf_sfds);
