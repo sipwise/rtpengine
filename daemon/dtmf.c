@@ -59,8 +59,8 @@ static void dtmf_bencode_and_notify(struct media_packet *mp,
 	bencode_dictionary_add_integer(data, "volume", dtmf->volume);
 
 	bencode_collapse_str(notify, &encoded_data);
-	bencode_buffer_free(&bencbuf);
 	notify_ng_tcp_clients(&encoded_data);
+	bencode_buffer_free(&bencbuf);
 }
 
 static GString *dtmf_json_print(struct media_packet *mp,
