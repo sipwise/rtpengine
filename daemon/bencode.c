@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-
+#include <ctype.h>
 
 /* set to 0 for alloc debugging, e.g. through valgrind */
 #define BENCODE_MIN_BUFFER_PIECE_LEN	512
@@ -702,4 +702,113 @@ void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t func, void *p
 	li->func = func;
 	li->next = buf->free_list;
 	buf->free_list = li;
+}
+
+static int __bencode_string(const char *s, int offset, int len) {
+	int pos;
+	unsigned long long sl;
+	char *end;
+
+	for (pos = offset + 1; s[pos] != ':' && isdigit(s[pos]) && pos < len; ++pos);
+	if (pos == len)
+		return -1;
+
+	sl = strtoul(s + offset + 1, &end, 10);
+	if (s + offset + 1 == end || end != s + pos)
+		return -2;
+
+	if (pos + sl > len)
+		return -1;
+
+	return pos + sl + 1;
+}
+
+static int __bencode_integer(const char *s, int offset, int len) {
+	int pos;
+
+	if (s[offset + 1] == '-') {
+		if (offset + 3 < len && s[offset + 2] == '0' && s[offset + 3] == 'e') {
+			return -2;
+		}
+		++offset;
+	}
+
+	if (s[offset + 1] == 'e')
+		return -2;
+
+	if (s[offset + 1] == '0') {
+		if (offset + 2 < len && s[offset + 2] == 'e')
+			return offset + 3;
+		return -2;
+	}
+
+	for (pos = offset + 1; s[pos] != 'e' && pos < len; ++pos) {
+		if (s[pos] < '0' || s[pos] > '9')
+			return -2;
+	}
+
+	if (pos == len)
+		return -1;
+
+	return pos + 1;
+}
+
+static int __bencode_next(const char *s, int offset, int len);
+
+static int __bencode_list(const char *s, int offset, int len) {
+	for (++offset; s[offset] != 'e' && offset < len;) {
+		offset = __bencode_next(s, offset, len);
+		if (offset < 0)
+			return offset;
+	}
+
+	if (offset == len)
+		return -1;
+
+	return offset + 1;
+}
+
+static int __bencode_dictionary(const char *s, int offset, int len) {
+	for (++offset; s[offset] != 'e' && offset < len;) {
+		offset = __bencode_string(s, offset - 1, len);
+		if (offset < 0)
+			return offset;
+		offset = __bencode_next(s, offset, len);
+		if (offset < 0)
+			return offset;
+	}
+
+	if (offset == len)
+		return -1;
+
+	return offset + 1;
+}
+
+static int __bencode_next(const char *s, int offset, int len) {
+	if (offset >= len)
+		return -1;
+	switch(s[offset]) {
+		case 'i':
+			return __bencode_integer(s, offset, len);
+		case 'l':
+			return __bencode_list(s, offset, len);
+		case 'd':
+			return __bencode_dictionary(s, offset, len);
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			return __bencode_string(s, offset - 1, len);
+	}
+	return -2;
+}
+
+int bencode_valid(const char *s, int len) {
+	return __bencode_next(s, 0, len);
 }
