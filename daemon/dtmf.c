@@ -1,5 +1,7 @@
 #include <errno.h>
 #include "dtmf.h"
+#include "bencode.h"
+#include "control_ng.h"
 #include "media_socket.h"
 #include "log.h"
 #include "call.h"
@@ -9,17 +11,57 @@
 #include "codec.h"
 #include "ssrc.h"
 
-
-
 static socket_t dtmf_log_sock;
 
 void dtmf_init(void) {
+	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
 	if (rtpe_config.dtmf_udp_ep.port) {
 		if (connect_socket(&dtmf_log_sock, SOCK_DGRAM, &rtpe_config.dtmf_udp_ep))
 			ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
 	}
 }
 
+static void dtmf_bencode_and_notify(struct media_packet *mp,
+		struct telephone_event_payload *dtmf, int clockrate)
+{
+	bencode_buffer_t bencbuf;
+	bencode_item_t *notify, *data, *tags;
+	str encoded_data;
+	int ret = bencode_buffer_init(&bencbuf);
+	assert(ret == 0);
+
+	if (!dtmf->end)
+		return;
+
+	if (!clockrate)
+		clockrate = 8000;
+
+	notify = bencode_dictionary(&bencbuf);
+	bencode_dictionary_add_string(notify, "notify", "onDTMF");
+	data = bencode_dictionary_add_dictionary(notify, "data");
+	tags = bencode_dictionary_add_list(data, "tags");
+
+	bencode_dictionary_add_string_len(data, "callid", mp->call->callid.s, mp->call->callid.len);
+	bencode_dictionary_add_string_len(data, "source_tag", mp->media->monologue->tag.s, mp->media->monologue->tag.len);
+
+	GList *tag_values = g_hash_table_get_values(mp->call->tags);
+	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
+		struct call_monologue *ml = tag_it->data;
+		bencode_list_add_str(tags, &ml->tag);
+	}
+	g_list_free(tag_values);
+
+	bencode_dictionary_add_string(data, "type", "DTMF");
+	bencode_dictionary_add_string(data, "source_ip", sockaddr_print_buf(&mp->fsin.address));
+	bencode_dictionary_add_integer(data, "timestamp", rtpe_now.tv_sec);
+	bencode_dictionary_add_integer(data, "event", dtmf->event);
+	bencode_dictionary_add_integer(data, "duration", (ntohs(dtmf->duration) * (1000000 / clockrate)) / 1000);
+	bencode_dictionary_add_integer(data, "volume", dtmf->volume);
+
+	bencode_collapse_str(notify, &encoded_data);
+	notify_ng_tcp_clients(&encoded_data);
+	bencode_buffer_free(&bencbuf);
+}
 
 static GString *dtmf_json_print(struct media_packet *mp,
 		struct telephone_event_payload *dtmf, int clockrate)
@@ -64,7 +106,7 @@ static GString *dtmf_json_print(struct media_packet *mp,
 }
 
 int dtmf_do_logging(void) {
-	if (_log_facility_dtmf || dtmf_log_sock.family)
+	if (_log_facility_dtmf || dtmf_log_sock.family || rtpe_config.dtmf_via_ng)
 		return 1;
 	return 0;
 }
@@ -92,6 +134,8 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 			dtmflog(buf);
 		if (dtmf_log_sock.family)
 			send(dtmf_log_sock.fd, buf->str, buf->len, 0);
+		if (rtpe_config.dtmf_via_ng)
+			dtmf_bencode_and_notify(mp, dtmf, clockrate);
 		g_string_free(buf, TRUE);
 
 		ret = 1; // END event
