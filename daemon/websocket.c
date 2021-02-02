@@ -314,12 +314,6 @@ static const char *websocket_http_ping(struct websocket_message *wm) {
 }
 
 
-static void __g_string_free(GString **s) {
-	g_string_free(*s, TRUE);
-}
-static void __g_hash_table_destroy(GHashTable **s) {
-	g_hash_table_destroy(*s);
-}
 static const char *websocket_http_metrics(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Respoding to GET /metrics");
 

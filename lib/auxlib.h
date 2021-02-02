@@ -291,6 +291,12 @@ INLINE void g_tree_clear(GTree *t) {
 		g_tree_remove(t, k);
 	}
 }
+INLINE void __g_string_free(GString **s) {
+	g_string_free(*s, TRUE);
+}
+INLINE void __g_hash_table_destroy(GHashTable **s) {
+	g_hash_table_destroy(*s);
+}
 
 
 #endif
