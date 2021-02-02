@@ -274,6 +274,11 @@ to the feature enabled by B<--log-facilty-dtmf>, but instead of writing
 detected DTMF events to syslog, this sends the JSON payload to the
 given address as UDP packets.
 
+=item B<--dtmf-log-ng-tcp>
+
+If B<--listen-tcp-ng> is enabled, this will send DTMF events to all
+connected cliens encoded in bencode format.
+
 =item B<--log-srtp-keys>
 
 Write SRTP keys to error log instead of debug log.
