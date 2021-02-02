@@ -1,8 +1,5 @@
 RTPENGINE_ROOT_DIR=.
 with_transcoding ?= yes
-ifneq ($(DEB_WITH_TRANSCODING),)
-with_transcoding = $(DEB_WITH_TRANSCODING)
-endif
 
 include lib/lib.Makefile
 

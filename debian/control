@@ -58,6 +58,7 @@ Description: proxy for RTP and media streams used in NGCP, userspace part
 
 Package: ngcp-rtpengine-recording-daemon
 Architecture: any
+Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
 Recommends:
  ngcp-rtpengine-utils,
 Suggests:

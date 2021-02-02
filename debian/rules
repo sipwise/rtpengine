@@ -21,6 +21,10 @@ PACKAGE=ngcp-rtpengine-kernel
 
 XTABLES_DIR:=$(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables)
 
+ifneq (,$(filter $(DEB_BUILD_PROFILES),pkg.ngcp-rtpengine.no-transcoding))
+export with_transcoding = no
+endif
+
 %:
 	dh $@
 
