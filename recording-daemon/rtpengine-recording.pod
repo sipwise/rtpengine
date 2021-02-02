@@ -177,6 +177,19 @@ stream is produced. Audio mixing takes RTP timestamping into account, so gaps
 and pauses in the RTP media are reflected in the output audio to keep the
 multiple audio sources in sync.
 
+=item B<--output-chmod=>I<INT>
+
+Change the file permissions of recording files to the given mode. Must be given
+as an octal integer, for example B<0660>.
+
+=item B<--output-chown=>I<USER>|I<UID>
+
+=item B<--output-chgrp=>I<GROUP>|I<GID>
+
+Change the ownership of recording files. Either user/group names or numeric IDs
+are supported. If the value is blank or given as B<-1> then the user/group is
+left unchanged.
+
 =item B<--mysql-host=>I<HOST>|I<IP>
 
 =item B<--mysql-port=>I<INT>

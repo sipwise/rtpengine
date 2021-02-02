@@ -4,6 +4,7 @@
 
 #include "auxlib.h"
 #include "socket.h"
+#include <sys/types.h>
 
 
 enum output_storage_enum {
@@ -20,6 +21,9 @@ extern char *output_dir;
 extern int output_mixed;
 extern int output_single;
 extern int output_enabled;
+extern mode_t output_chmod;
+extern uid_t output_chown;
+extern gid_t output_chgrp;
 extern int decoding_enabled;
 extern char *c_mysql_host,
       *c_mysql_user,
