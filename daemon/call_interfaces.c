@@ -852,6 +852,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("no-passthrough"):
 			out->passthrough_off = 1;
 			break;
+		case CSH_LOOKUP("no-jitter-buffer"):
+			out->disable_jb = 1;
+			break;
 		default:
 			// handle values aliases from other dictionaries
 			if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
@@ -1110,6 +1113,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			call_ng_flags_list(out, dict, "consume", call_ng_flags_str_ht, &out->codec_consume);
 		}
 #endif
+	}
+
+	if (bencode_get_alt(input, "generate-RTCP", "generate RTCP", &s)) {
+		if (!str_cmp(&s, "on"))
+			out->generate_rtcp = 1;
+		else if (!str_cmp(&s, "off"))
+			out->generate_rtcp_off = 1;
 	}
 }
 static void call_ng_free_flags(struct sdp_ng_flags *flags) {

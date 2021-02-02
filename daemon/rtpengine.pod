@@ -4,7 +4,7 @@ rtpengine - NGCP proxy for RTP and other UDP based media traffic
 
 =head1 SYNOPSIS
 
-B<rtpengine> B<--interface>=I<addr>... B<--listen-tcp>|B<--listen-udp>|B<--listen-ng>=I<addr>... [I<option>...]
+B<rtpengine> B<--interface>=I<addr>... B<--listen-tcp>|B<--listen-udp>|B<--listen-ng>|B<--listen-tcp-ng>=I<addr>... [I<option>...]
 
 =head1 DESCRIPTION
 
@@ -100,7 +100,9 @@ See the section L<INTERFACES> just below for details.
 
 =item B<-n>, B<--listen-ng=>[I<IP46>B<:>]I<PORT>
 
-These options each enable one of the 3 available control protocols if given
+=item B<-n>, B<--listen-tcp-ng=>[I<IP46>B<:>]I<PORT>
+
+These options each enable one of the 4 available control protocols if given
 and each take either just a port number as argument, or an I<address:port>
 pair, separated by colon.
 At least one of these 3 options must be given.
@@ -119,6 +121,8 @@ With this protocol, the complete SDP body is passed to B<rtpengine>,
 rewritten and passed back to B<Kamailio>.
 Several additional features are available with this protocol, such as
 ICE handling, SRTP bridging, etc.
+
+The B<tcp-ng> protocol is in fact the B<ng> protocol but transported over TCP.
 
 It is recommended to specify not only a local port number, but also
 B<127.0.0.1> as interface to bind to.

@@ -417,6 +417,7 @@ struct call {
 	int			rec_forwarding:1;
 	int			drop_traffic:1;
 	int			foreign_call:1; // created_via_redis_notify call
+	int			disable_jb:1;
 };
 
 

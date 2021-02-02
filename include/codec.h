@@ -109,7 +109,7 @@ INLINE void codec_handlers_update(struct call_media *receiver, struct call_media
 		const struct sdp_ng_flags *flags, const struct stream_params *sp) { }
 INLINE void codec_handler_free(struct codec_handler **handler) { }
 INLINE void codec_tracker_init(struct call_media *m) { }
-INLINE void codec_tracker_finish(struct call_media *m) { }
+INLINE void codec_tracker_finish(struct call_media *m, struct call_media *mm) { }
 INLINE void codec_handlers_stop(GQueue *q) { }
 
 #endif

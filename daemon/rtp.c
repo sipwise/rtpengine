@@ -280,7 +280,7 @@ const struct rtp_payload_type *rtp_payload_type(unsigned int type, GHashTable *l
 	if (!lookup)
 		return rtp_get_rfc_payload_type(type);
 
-	rtp_pt = g_hash_table_lookup(lookup, &type);
+	rtp_pt = g_hash_table_lookup(lookup, GINT_TO_POINTER(type));
 	if (rtp_pt)
 		return rtp_pt;
 

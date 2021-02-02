@@ -38,7 +38,7 @@ static struct codec_handler codec_handler_stub = {
 static GList *__delete_x_codec(GList *link, GHashTable *codecs, GHashTable *codec_names, GQueue *codecs_prefs) {
 	struct rtp_payload_type *pt = link->data;
 
-	g_hash_table_remove(codecs, &pt->payload_type);
+	g_hash_table_remove(codecs, GINT_TO_POINTER(pt->payload_type));
 	g_hash_table_remove(codec_names, &pt->encoding);
 	g_hash_table_remove(codec_names, &pt->encoding_with_params);
 	g_hash_table_remove(codec_names, &pt->encoding_with_full_params);
@@ -461,7 +461,7 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 		// previously enabled on the sink, but no transcoding codecs are actually present,
 		// we can disable the transcoding engine.
 		struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
-				&pt->payload_type);
+				GINT_TO_POINTER(pt->payload_type));
 		if (recv_pt && rtp_payload_type_cmp(pt, recv_pt))
 			recv_pt = NULL;
 		//ilog(LOG_DEBUG, "XXXXXXXXXXXX old flag is %i", *sink_transcoding);
@@ -510,7 +510,7 @@ static void __check_send_codecs(struct call_media *receiver, struct call_media *
 	for (GList *l = sink->codecs_prefs_recv.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *recv_pt = g_hash_table_lookup(receiver->codecs_send,
-				&pt->payload_type);
+				GINT_TO_POINTER(pt->payload_type));
 		int tc_flag = 0;
 		//ilog(LOG_DEBUG, "XXXXXXXXXXXX old flag is %i", *sink_transcoding);
 		//ilog(LOG_DEBUG, "XXXXXXXXXXXX checking send codec " STR_FORMAT " is %i",
@@ -591,14 +591,14 @@ static int __unused_pt_number(struct call_media *media, struct call_media *other
 	if (num < 0)
 		num = 96; // default first dynamic payload type number
 	while (1) {
-		if ((pt_match = g_hash_table_lookup(media->codecs_recv, &num)))
+		if ((pt_match = g_hash_table_lookup(media->codecs_recv, GINT_TO_POINTER(num))))
 			goto next;
-		if ((pt_match = g_hash_table_lookup(media->codecs_send, &num)))
+		if ((pt_match = g_hash_table_lookup(media->codecs_send, GINT_TO_POINTER(num))))
 			goto next;
 		if (other_media) {
-			if ((pt_match = g_hash_table_lookup(other_media->codecs_recv, &num)))
+			if ((pt_match = g_hash_table_lookup(other_media->codecs_recv, GINT_TO_POINTER(num))))
 				goto next;
-			if ((pt_match = g_hash_table_lookup(other_media->codecs_send, &num)))
+			if ((pt_match = g_hash_table_lookup(other_media->codecs_send, GINT_TO_POINTER(num))))
 				goto next;
 			}
 		// OK
@@ -652,7 +652,7 @@ static int __check_receiver_codecs(struct call_media *receiver, struct call_medi
 			continue;
 		//ilog(LOG_DEBUG, "XXXXXXXXXXXX checking recv send " STR_FORMAT " %i %i", STR_FMT(&pt->encoding_with_params), pt->for_transcoding, pt->codec_def->supplemental);
 		struct rtp_payload_type *sink_pt = g_hash_table_lookup(sink->codecs_recv,
-				&pt->payload_type);
+				GINT_TO_POINTER(pt->payload_type));
 		if (sink_pt && !rtp_payload_type_cmp(pt, sink_pt))
 			continue;
 		if (pt->for_transcoding) {
@@ -668,12 +668,12 @@ static int __check_receiver_codecs(struct call_media *receiver, struct call_medi
 static void __accept_pt(struct call_media *receiver, struct call_media *sink, int payload_type,
 		int fallback_type, int accept_only_tc, GList **insert_pos)
 {
-	struct rtp_payload_type *pt = g_hash_table_lookup(receiver->codecs_send, &payload_type);
+	struct rtp_payload_type *pt = g_hash_table_lookup(receiver->codecs_send, GINT_TO_POINTER(payload_type));
 
 	// fallback PT in case the codec handler is a dummy or a passthrough
 	// or some other internal problem
 	if (!pt && fallback_type != -1)
-		pt = g_hash_table_lookup(receiver->codecs_send, &fallback_type);
+		pt = g_hash_table_lookup(receiver->codecs_send, GINT_TO_POINTER(fallback_type));
 	if (!pt)
 		return;
 
@@ -684,7 +684,7 @@ static void __accept_pt(struct call_media *receiver, struct call_media *sink, in
 		return;
 	//ilog(LOG_DEBUG, "XXXXXXXXXXX accept codec " STR_FORMAT " flag %i", STR_FMT(&pt->encoding_with_params), pt->for_transcoding);
 	struct rtp_payload_type *existing_pt
-		= g_hash_table_lookup(receiver->codecs_recv, &pt->payload_type);
+		= g_hash_table_lookup(receiver->codecs_recv, GINT_TO_POINTER(pt->payload_type));
 	if (existing_pt && !rtp_payload_type_cmp_nf(existing_pt, pt)) {
 		// already present.
 		// to keep the order intact, we seek the list for the position
@@ -720,9 +720,10 @@ static void __accept_pt(struct call_media *receiver, struct call_media *sink, in
 					existing_pt->payload_type,
 					new_pt,
 					STR_FMT(&pt->encoding_with_params));
-		g_hash_table_steal(receiver->codecs_recv, &existing_pt->payload_type);
+		g_hash_table_steal(receiver->codecs_recv, GINT_TO_POINTER(existing_pt->payload_type));
 		existing_pt->payload_type = new_pt;
-		g_hash_table_insert(receiver->codecs_recv, &existing_pt->payload_type, existing_pt);
+		g_hash_table_insert(receiver->codecs_recv, GINT_TO_POINTER(existing_pt->payload_type),
+				existing_pt);
 	}
 
 	//ilog(LOG_DEBUG, "XXXXXXXXXXXXX offered codec %i", pt->for_transcoding);
@@ -735,7 +736,7 @@ static void __accept_pt(struct call_media *receiver, struct call_media *sink, in
 	pt->for_transcoding = 1;
 	codec_touched(pt, receiver);
 	// this somewhat duplicates __rtp_payload_type_add_recv
-	g_hash_table_insert(receiver->codecs_recv, &pt->payload_type, pt);
+	g_hash_table_insert(receiver->codecs_recv, GINT_TO_POINTER(pt->payload_type), pt);
 	__rtp_payload_type_add_name(receiver->codec_names_recv, pt);
 
 	// keep supplemental codecs last
@@ -1186,9 +1187,11 @@ static void __rtcp_timer_run(struct timerthread_queue *q, void *p) {
 
 	log_info_call(rt->call);
 
-	if (!rtcp_timer.tv_sec || timeval_diff(&rtpe_now, &rtcp_timer) < 0 || !proto_is_rtp(media->protocol)) {
-		__rtcp_timer_free(rt);
+	if (!rtcp_timer.tv_sec || timeval_diff(&rtpe_now, &rtcp_timer) < 0 || !proto_is_rtp(media->protocol)
+			|| !MEDIA_ISSET(media, RTCP_GEN))
+	{
 		rwlock_unlock_w(&rt->call->master_lock);
+		__rtcp_timer_free(rt);
 		goto out;
 	}
 	timeval_add_usec(&rtcp_timer, 5000000 + (random() % 2000000));
@@ -1251,12 +1254,12 @@ int __supp_codec_match(struct call_media *receiver, struct call_media *sink, int
 		recv_pt = &recv_pt_stor;
 
 	// find a matching output payload type
-	*sink_pt = g_hash_table_lookup(sink->codecs_send, &pt);
+	*sink_pt = g_hash_table_lookup(sink->codecs_send, GINT_TO_POINTER(pt));
 	if (!*sink_pt)
 		return 0;
 	//ilog(LOG_DEBUG, "XXXXXXXXX sink has supp PT %i", pt);
 	// XXX should go by codec name/params, not payload type number
-	*recv_pt = g_hash_table_lookup(receiver->codecs_recv, &pt);
+	*recv_pt = g_hash_table_lookup(receiver->codecs_recv, GINT_TO_POINTER(pt));
 	if (!*recv_pt)
 		return 1;
 	//ilog(LOG_DEBUG, "XXXXXXXXX recv has supp PT %i", pt);
@@ -1378,7 +1381,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	if ((MEDIA_ISSET(sink, TRANSCODE) || (sink_transcoding & 0x2))
 			&& dtmf_payload_type != -1
 			&& dtmf_pt && (!reverse_dtmf_pt || reverse_dtmf_pt->for_transcoding ||
-				!g_hash_table_lookup(receiver->codecs_send, &dtmf_payload_type)))
+				!g_hash_table_lookup(receiver->codecs_send, GINT_TO_POINTER(dtmf_payload_type))))
 		pcm_dtmf_detect = 1;
 
 
@@ -1393,7 +1396,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			// (recv->recv) that wasn't originally offered (recv->send). we must eliminate
 			// those, unless we added them ourselves for transcoding.
 			struct rtp_payload_type *recv_pt =
-				g_hash_table_lookup(receiver->codecs_send, &pt->payload_type);
+				g_hash_table_lookup(receiver->codecs_send, GINT_TO_POINTER(pt->payload_type));
 			if (!recv_pt && !pt->for_transcoding) {
 				ilogs(codec, LOG_DEBUG, "Eliminating transcoded codec " STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params));
@@ -1457,7 +1460,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			dest_pt = NULL;
 			for (GList *k = dest_codecs->head; k; k = k->next) {
 				unsigned int dest_ptype = GPOINTER_TO_UINT(k->data);
-				dest_pt = g_hash_table_lookup(sink->codecs_send, &dest_ptype);
+				dest_pt = g_hash_table_lookup(sink->codecs_send, GINT_TO_POINTER(dest_ptype));
 				if (!dest_pt)
 					continue;
 				if (dest_pt->clock_rate != pt->clock_rate ||
@@ -1515,7 +1518,7 @@ transcode:;
 		// encoder. if any codec options such as bitrate were set during an offer,
 		// they're in the decoder // PT. copy them to the encoder PT.
 		struct rtp_payload_type *reverse_pt = g_hash_table_lookup(sink->codecs_recv,
-				&dest_pt->payload_type);
+				GINT_TO_POINTER(dest_pt->payload_type));
 		if (reverse_pt) {
 			if (!dest_pt->bitrate)
 				dest_pt->bitrate = reverse_pt->bitrate;
@@ -3212,7 +3215,7 @@ void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_ty
 	// update ptime in case it was overridden
 	if (media->ptime > 0)
 		pt->ptime = media->ptime;
-	g_hash_table_insert(media->codecs_recv, &pt->payload_type, pt);
+	g_hash_table_insert(media->codecs_recv, GINT_TO_POINTER(pt->payload_type), pt);
 	__rtp_payload_type_add_name(media->codec_names_recv, pt);
 	__queue_insert_supp(&media->codecs_prefs_recv, pt, supp_check);
 }
@@ -3229,7 +3232,7 @@ void __rtp_payload_type_add_send(struct call_media *other_media,
 	// update ptime in case it was overridden
 	if (other_media->ptime > 0)
 		pt->ptime = other_media->ptime;
-	g_hash_table_insert(other_media->codecs_send, &pt->payload_type, pt);
+	g_hash_table_insert(other_media->codecs_send, GINT_TO_POINTER(pt->payload_type), pt);
 	__rtp_payload_type_add_name(other_media->codec_names_send, pt);
 	g_queue_push_tail(&other_media->codecs_prefs_send, pt);
 }
@@ -3409,7 +3412,7 @@ void codec_tracker_finish(struct call_media *media, struct call_media *other_med
 			struct rtp_payload_type *existing_pt = NULL;
 			if (existing_pts && existing_pts->length) {
 				int pt_num = GPOINTER_TO_UINT(existing_pts->head->data);
-				existing_pt = g_hash_table_lookup(media->codecs_recv, &pt_num);
+				existing_pt = g_hash_table_lookup(media->codecs_recv, GINT_TO_POINTER(pt_num));
 			}
 			struct codec_handler *existing_handler = existing_pt ? codec_handler_get(media, existing_pt->payload_type) : NULL;
 
@@ -3457,7 +3460,7 @@ void codec_tracker_finish(struct call_media *media, struct call_media *other_med
 					// check DTMF
 					if (!prim_dtmf && ch->dtmf_payload_type != -1)
 						prim_dtmf = g_hash_table_lookup(other_media->codecs_recv,
-								&ch->dtmf_payload_type);
+								GINT_TO_POINTER(ch->dtmf_payload_type));
 					if (prim_dtmf) {
 						if (ch->dest_pt.payload_type == pt->payload_type) {
 							ilogs(codec, LOG_DEBUG, "Adjusting output DTMF PT for "
@@ -3486,7 +3489,7 @@ void codec_tracker_finish(struct call_media *media, struct call_media *other_med
 					// check CN
 					if (!prim_cn && ch->cn_payload_type != -1)
 						prim_cn = g_hash_table_lookup(other_media->codecs_recv,
-								&ch->cn_payload_type);
+								GINT_TO_POINTER(ch->cn_payload_type));
 					if (prim_cn) {
 						if (ch->dest_pt.payload_type == pt->payload_type) {
 							ilogs(codec, LOG_DEBUG, "Adjusting output CN PT for "
