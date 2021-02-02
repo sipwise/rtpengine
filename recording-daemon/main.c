@@ -13,12 +13,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <mysql.h>
+#include <pwd.h>
+#include <grp.h>
 #include "log.h"
 #include "epoll.h"
 #include "inotify.h"
 #include "metafile.h"
 #include "garbage.h"
-#include "loglib.h"
 #include "auxlib.h"
 #include "decoder.h"
 #include "output.h"
@@ -38,6 +39,9 @@ static char *output_format = NULL;
 int output_mixed;
 int output_single;
 int output_enabled = 1;
+mode_t output_chmod;
+uid_t output_chown = -1;
+gid_t output_chgrp = -1;
 int decoding_enabled;
 char *c_mysql_host,
       *c_mysql_user,
@@ -159,7 +163,10 @@ static void cleanup(void) {
 
 
 static void options(int *argc, char ***argv) {
-	char *os_str = NULL;
+	AUTO_CLEANUP_GBUF(os_str);
+	AUTO_CLEANUP_GBUF(chmod_mode);
+	AUTO_CLEANUP_GBUF(user_uid);
+	AUTO_CLEANUP_GBUF(group_gid);
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
@@ -172,6 +179,9 @@ static void options(int *argc, char ***argv) {
 		{ "mp3-bitrate",	0,   0, G_OPTION_ARG_INT,	&mp3_bitrate,	"Bits per second for MP3 encoding",	"INT"		},
 		{ "output-mixed",	0,   0, G_OPTION_ARG_NONE,	&output_mixed,	"Mix participating sources into a single output",NULL	},
 		{ "output-single",	0,   0, G_OPTION_ARG_NONE,	&output_single,	"Create one output file for each source",NULL		},
+		{ "output-chmod",	0,   0, G_OPTION_ARG_STRING,	&chmod_mode,	"File mode for recordings",		"OCTAL"		},
+		{ "output-chown",	0,   0, G_OPTION_ARG_STRING,	&user_uid,	"File owner for recordings",		"USER|UID"	},
+		{ "output-chgrp",	0,   0, G_OPTION_ARG_STRING,	&group_gid,	"File group for recordings",		"GROUP|GID"	},
 		{ "mysql-host",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_host,	"MySQL host for storage of call metadata","HOST|IP"	},
 		{ "mysql-port",		0,   0,	G_OPTION_ARG_INT,	&c_mysql_port,	"MySQL port"				,"INT"		},
 		{ "mysql-user",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_user,	"MySQL connection credentials",		"USERNAME"	},
@@ -229,7 +239,39 @@ static void options(int *argc, char ***argv) {
 	if ((output_storage & OUTPUT_STORAGE_FILE) && !strcmp(output_dir, spool_dir))
 		die("The spool-dir cannot be the same as the output-dir");
 
-	g_free(os_str);
+	// no threads here, so safe to use the non-_r versions of these lookups
+	if (user_uid && *user_uid) {
+		char *errp;
+		long uid = strtol(user_uid, &errp, 0);
+		if (*user_uid && !*errp)
+			output_chown = uid;
+		else {
+			struct passwd *pw = getpwnam(user_uid);
+			if (!pw)
+				die("Unknown user name '%s'", user_uid);
+			output_chown = pw->pw_uid;
+		}
+	}
+	if (group_gid && *group_gid) {
+		char *errp;
+		long gid = strtol(group_gid, &errp, 0);
+		if (*group_gid && !*errp)
+			output_chgrp = gid;
+		else {
+			struct group *gr = getgrnam(group_gid);
+			if (!gr)
+				die("Unknown group name '%s'", group_gid);
+			output_chgrp = gr->gr_gid;
+		}
+	}
+
+	if (chmod_mode && *chmod_mode) {
+		char *errp;
+		unsigned long m = strtoul(chmod_mode, &errp, 8);
+		if (*errp || m > 077777)
+			die("Invalid mode value '%s'", chmod_mode);
+		output_chmod = m;
+	}
 }
 
 static void options_free(void) {
