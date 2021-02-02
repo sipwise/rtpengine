@@ -465,15 +465,5 @@ INLINE void *__uid_slice_alloc0(unsigned int size, GQueue *q, unsigned int offse
 	return ret;
 }
 
-#define TRUNCATED " ... Output truncated. Increase Output Buffer ...                                    \n"
-
-#define truncate_output(x) strcpy(x - strlen(TRUNCATED) - 1, TRUNCATED)
-
-#define ADJUSTLEN(printlen,outbufend,replybuffer) do { \
-               replybuffer += (printlen>=outbufend-replybuffer)?outbufend-replybuffer:printlen; \
-               if (replybuffer == outbufend) \
-                       truncate_output(replybuffer); \
-       } while (0);
-
 
 #endif
