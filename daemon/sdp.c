@@ -2373,16 +2373,21 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 	int media_index, sess_conn;
 	struct call_media *call_media;
 	struct packet_stream *ps, *ps_rtcp;
+	const char *err = NULL;
 
 	m = monologue->medias.head;
+	media_index = 1;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
+		err = "no matching session media";
 		if (!m)
 			goto error;
 		call_media = m->data;
-		if (call_media->index != 1)
+		err = "mismatched session media index";
+		if (call_media->index != media_index)
 			goto error;
+		err = "no matching session media stream";
 		j = call_media->streams.head;
 		if (!j)
 			goto error;
@@ -2403,16 +2408,19 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 		if (session->origin.parsed && flags->replace_origin &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
+			err = "failed to replace network address";
 			if (replace_network_address(chop, &session->origin.address, ps, flags, 0))
 				goto error;
 		}
 		if (session->connection.parsed && sess_conn &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
+			err = "failed to replace network address";
 			if (replace_network_address(chop, &session->connection.address, ps, flags, 1))
 				goto error;
 		}
 
 		if (!MEDIA_ISSET(call_media, PASSTHRU)) {
+			err = "failed to process session attributes";
 			if (process_session_attributes(chop, &session->attributes, flags))
 				goto error;
 		}
@@ -2428,39 +2436,48 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		if (MEDIA_ISSET(call_media, ICE) && MEDIA_ISSET(call_media, ICE_LITE_SELF))
 			chopper_append_c(chop, "a=ice-lite\r\n");
 
-		media_index = 1;
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			sdp_media = k->data;
+			err = "no matching media";
 			if (!m)
 				goto error;
 			call_media = m->data;
+			err = "media index mismatched";
 			if (call_media->index != media_index)
 				goto error;
+			err = "no matching media stream";
 			j = call_media->streams.head;
 			if (!j)
 				goto error;
 			ps = j->data;
 
 			if (flags->ice_option != ICE_FORCE_RELAY && call_media->type_id != MT_MESSAGE) {
+				err = "failed to replace media type";
 				if (replace_media_type(chop, sdp_media, call_media))
 					goto error;
+				err = "failed to replace media port";
 			        if (replace_media_port(chop, sdp_media, ps))
 				        goto error;
+				err = "failed to replace media port count";
 			        if (replace_consecutive_port_count(chop, sdp_media, ps, j))
 				        goto error;
+				err = "failed to replace media protocol";
 				if (replace_transport_protocol(chop, sdp_media, call_media))
 				        goto error;
+				err = "failed to replace media formats";
 				if (replace_codec_list(chop, sdp_media, call_media))
 					goto error;
 
 				if (sdp_media->connection.parsed) {
+					err = "failed to replace media network address";
 				        if (replace_network_address(chop, &sdp_media->connection.address, ps,
 								flags, 1))
 					        goto error;
 				}
 			}
 			else if (call_media->type_id == MT_MESSAGE) {
+				err = "failed to generate connection line";
 				if (!sdp_media->connection.parsed)
 					if (synth_session_connection(chop, sdp_media))
 						goto error;
@@ -2468,6 +2485,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				goto next;
 			}
 
+			err = "failed to process media attributes";
 			if (process_media_attributes(chop, sdp_media, flags, call_media))
 				goto error;
 
@@ -2491,6 +2509,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			if (ps->rtcp_sibling) {
 				ps_rtcp = ps->rtcp_sibling;
 				j = j->next;
+				err = "no RTCP sibling";
 				if (!j)
 					goto error;
 				assert(j->data == ps_rtcp);
@@ -2560,7 +2579,7 @@ next:
 	return 0;
 
 error:
-	ilog(LOG_ERROR, "Error rewriting SDP");
+	ilog(LOG_ERROR, "Error rewriting SDP: %s", err);
 	return -1;
 }
 
