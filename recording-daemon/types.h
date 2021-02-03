@@ -142,21 +142,13 @@ struct metafile_s {
 struct output_s {
 	char full_filename[PATH_MAX], // path + filename
 		file_path[PATH_MAX],
-		file_name[PATH_MAX];
+		file_name[PATH_MAX],
+		filename[PATH_MAX * 2]; // path + filename + suffix
 	const char *file_format;
 	unsigned long long db_id;
 
-//	format_t requested_format,
-//		 actual_format;
-
-//	AVCodecContext *avcctx;
 	AVFormatContext *fmtctx;
 	AVStream *avst;
-//	AVPacket avpkt;
-//	AVAudioFifo *fifo;
-//	int64_t fifo_pts; // pts of first data in fifo
-//	int64_t mux_dts; // last dts passed to muxer
-//	AVFrame *frame;
 	encoder_t *encoder;
 };
 

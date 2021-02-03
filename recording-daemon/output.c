@@ -111,6 +111,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	goto err;
 
 got_fn:
+	g_strlcpy(output->filename, full_fn, sizeof(output->filename));
 	err = "failed to open avio";
 	av_ret = avio_open(&output->fmtctx->pb, full_fn, AVIO_FLAG_WRITE);
 	if (av_ret < 0)
