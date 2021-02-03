@@ -1239,7 +1239,7 @@ void kernelize(struct packet_stream *stream) {
 
 	recording_stream_kernel_info(stream, &reti);
 
-	kernel_add_stream(&reti, 0);
+	kernel_add_stream(&reti);
 	PS_SET(stream, KERNELIZED);
 
 	return;

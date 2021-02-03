@@ -154,7 +154,7 @@ struct rtpengine_message {
 		/* target_info: */
 		REMG_ADD,
 		REMG_DEL,
-		REMG_UPDATE,
+		REMG_UPDATE, // obsolete - not supported
 
 		/* call_info: */
 		REMG_ADD_CALL,

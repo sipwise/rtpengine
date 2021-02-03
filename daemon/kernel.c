@@ -121,14 +121,14 @@ int kernel_setup_table(unsigned int id) {
 }
 
 
-int kernel_add_stream(struct rtpengine_target_info *mti, int update) {
+int kernel_add_stream(struct rtpengine_target_info *mti) {
 	struct rtpengine_message msg;
 	int ret;
 
 	if (!kernel.is_open)
 		return -1;
 
-	msg.cmd = update ? REMG_UPDATE : REMG_ADD;
+	msg.cmd = REMG_ADD;
 	msg.u.target = *mti;
 
 	// coverity[uninit_use_in_call : FALSE]

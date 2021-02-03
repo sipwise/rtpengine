@@ -2173,14 +2173,14 @@ static void crypto_context_init(struct re_crypto_context *c, struct rtpengine_sr
 	c->hmac = &re_hmacs[s->hmac];
 }
 
-static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_info *i, int update) {
+static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_info *i) {
 	unsigned char hi, lo;
 	unsigned int rda_hash, rh_it;
 	struct rtpengine_target *g;
 	struct re_dest_addr *rda;
 	struct re_bucket *b, *ba = NULL;
 	struct rtpengine_target *og = NULL;
-	int err, j;
+	int err;
 	unsigned long flags;
 
 	/* validation */
@@ -2255,10 +2255,6 @@ retry:
 		rda = t->dest_addr_hash.addrs[rh_it];
 	}
 
-	err = -ENOENT;
-	if (update)
-		goto fail4;
-
 	write_unlock_irqrestore(&t->target_lock, flags);
 
 	rda = kzalloc(sizeof(*rda), GFP_KERNEL);
@@ -2285,10 +2281,6 @@ got_rda:
 	if ((b = rda->ports_hi[hi]))
 		goto got_bucket;
 
-	err = -ENOENT;
-	if (update)
-		goto fail4;
-
 	write_unlock_irqrestore(&t->target_lock, flags);
 
 	b = kzalloc(sizeof(*b), GFP_KERNEL);
@@ -2308,32 +2300,11 @@ got_rda:
 	}
 
 got_bucket:
-	if (update) {
-		err = -ENOENT;
-		og = b->ports_lo[lo];
-		if (!og)
-			goto fail4;
-
-		atomic64_set(&g->stats.packets, atomic64_read(&og->stats.packets));
-		atomic64_set(&g->stats.bytes, atomic64_read(&og->stats.bytes));
-		atomic64_set(&g->stats.errors, atomic64_read(&og->stats.errors));
-		g->stats.delay_min = og->stats.delay_min;
-		g->stats.delay_max = og->stats.delay_max;
-		g->stats.delay_avg = og->stats.delay_avg;
-		atomic_set(&g->stats.in_tos, atomic_read(&og->stats.in_tos));
-
-		for (j = 0; j < NUM_PAYLOAD_TYPES; j++) {
-			atomic64_set(&g->rtp_stats[j].packets, atomic64_read(&og->rtp_stats[j].packets));
-			atomic64_set(&g->rtp_stats[j].bytes, atomic64_read(&og->rtp_stats[j].bytes));
-		}
-	}
-	else {
-		err = -EEXIST;
-		if (b->ports_lo[lo])
-			goto fail4;
-		re_bitfield_set(&b->ports_lo_bf, lo);
-		t->num_targets++;
-	}
+	err = -EEXIST;
+	if (b->ports_lo[lo])
+		goto fail4;
+	re_bitfield_set(&b->ports_lo_bf, lo);
+	t->num_targets++;
 
 	b->ports_lo[lo] = g;
 	g = NULL;
@@ -3327,7 +3298,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			break;
 
 		case REMG_ADD:
-			err = table_new_target(t, &msg->u.target, 0);
+			err = table_new_target(t, &msg->u.target);
 			break;
 
 		case REMG_DEL:
@@ -3335,7 +3306,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			break;
 
 		case REMG_UPDATE:
-			err = table_new_target(t, &msg->u.target, 1);
+			err = -EOPNOTSUPP;
 			break;
 
 		case REMG_GET_STATS:
