@@ -371,29 +371,16 @@ void db_close_stream(output_t *op) {
 	double now = now_double();
 
 	str stream;
-        char *filename = 0;
         MYSQL_BIND b[3];
         stream.s = 0;
         stream.len = 0;
 
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
-		filename = malloc(strlen(op->full_filename) +
-				  strlen(op->file_format) + 2);
-		if (!filename) {
-			ilog(LOG_ERR, "Failed to allocate memory for filename");
-			if ((output_storage & OUTPUT_STORAGE_FILE))
-				goto file;
-			return;
-		}
-		strcpy(filename, op->full_filename);
-		strcat(filename, ".");
-		strcat(filename, op->file_format);
-		FILE *f = fopen(filename, "rb");
+		FILE *f = fopen(op->filename, "rb");
 		if (!f) {
-			ilog(LOG_ERR, "Failed to open file: %s%s%s", FMT_M(filename));
+			ilog(LOG_ERR, "Failed to open file: %s%s%s", FMT_M(op->filename));
 			if ((output_storage & OUTPUT_STORAGE_FILE))
 				goto file;
-			free(filename);
 			return;
 		}
 		fseek(f, 0, SEEK_END);
@@ -406,7 +393,6 @@ void db_close_stream(output_t *op) {
 				ilog(LOG_ERR, "Failed to read from stream");
 				if ((output_storage & OUTPUT_STORAGE_FILE))
 					goto file;
-				free(filename);
 				return;
 			}
 		}
@@ -425,8 +411,7 @@ file:;
         if (stream.s)
 		free(stream.s);
 	if (!(output_storage & OUTPUT_STORAGE_FILE))
-		remove(filename);
-        free(filename);
+		remove(op->filename);
 }
 
 void db_delete_stream(output_t *op) {
