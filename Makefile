@@ -12,6 +12,12 @@ ifeq ($(with_transcoding),yes)
 endif
 	$(MAKE) -C iptables-extension
 
+coverity:
+	$(MAKE) -C daemon
+ifeq ($(with_transcoding),yes)
+	$(MAKE) -C recording-daemon
+endif
+
 .PHONY: with-kernel
 
 with-kernel: all
@@ -35,13 +41,3 @@ distclean clean:
 
 check: all
 	$(MAKE) -C t
-
-coverity:
-	cov-build --dir cov-int $(MAKE) check
-	tar -czf project.tgz cov-int
-	curl --form token=$(COVERITY_RTPENGINE_TOKEN) \
-	  --form email=$(DEBEMAIL) \
-	  --form file=@project.tgz \
-	  --form version="$(RTPENGINE_VERSION)" \
-	  --form description="automatic upload" \
-	  https://scan.coverity.com/builds?project=$(COVERITY_RTPENGINE_PROJECT)

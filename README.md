@@ -1,5 +1,6 @@
 ![Code Testing](https://github.com/sipwise/rtpengine/workflows/Code%20Testing/badge.svg)
 ![Debian Package CI](https://github.com/sipwise/rtpengine/workflows/Debian%20Packaging/badge.svg)
+![Coverity](https://img.shields.io/coverity/scan/sipwise-rtpengine.svg)
 
 What is rtpengine?
 =======================
