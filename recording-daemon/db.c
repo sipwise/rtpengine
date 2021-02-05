@@ -1,4 +1,5 @@
 #include "db.h"
+#include <errno.h>
 #include <mysql.h>
 #include <glib.h>
 #include <string.h>
@@ -385,6 +386,13 @@ void db_close_stream(output_t *op) {
 		}
 		fseek(f, 0, SEEK_END);
 		stream.len = ftell(f);
+		if (stream.len < 0) {
+			ilog(LOG_ERR, "Failed to get file position: %s", strerror(errno));
+			fclose(f);
+			if ((output_storage & OUTPUT_STORAGE_FILE))
+				goto file;
+			return;
+		}
 		fseek(f, 0, SEEK_SET);
 		stream.s = malloc(stream.len);
 		if (stream.s) {
