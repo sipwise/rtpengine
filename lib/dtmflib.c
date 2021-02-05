@@ -47,7 +47,7 @@ void dtmf_samples(void *buf, unsigned long offset, unsigned long num, unsigned i
 		return;
 	}
 
-	if (event > G_N_ELEMENTS(dtmf_freqs)) {
+	if (event >= G_N_ELEMENTS(dtmf_freqs)) {
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unsupported DTMF event %u", event);
 		memset(buf, 0, num * 2);
 		return;
