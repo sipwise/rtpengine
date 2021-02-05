@@ -36,7 +36,7 @@ void load_thread(void *dummy) {
 					long used_secs = used_now - used_last;
 					long idle_secs = idle_now - idle_last;
 					long total_secs = used_secs + idle_secs;
-					if (used_last && idle_last)
+					if (total_secs > 0 && used_last && idle_last)
 						g_atomic_int_set(&cpu_usage, (int) (used_secs
 									* 10000 / total_secs));
 					used_last = used_now;
