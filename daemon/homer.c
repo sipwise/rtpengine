@@ -116,7 +116,6 @@ static int __established(struct homer_sender *hs) {
 		if (ret == 1) // write error, takes care of deleting hs->partial
 			return -1;
 		// ret == 0 -> sent OK, drop through to unqueue
-		g_string_free(hs->partial, TRUE);
 		hs->partial = NULL;
 	}
 
