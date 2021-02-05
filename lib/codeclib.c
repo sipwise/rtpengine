@@ -2017,7 +2017,7 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 			// step up or down towards the current bitrate
 			cmr += cmr_diff;
 			// still in bounds?
-			if (cmr < 0 || cmr >= AMR_FT_TYPES)
+			if (cmr >= AMR_FT_TYPES)
 				break;
 			cmr_br = enc->codec_options.amr.bitrates[cmr];
 			if (cmr_br == cur_br)
