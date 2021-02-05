@@ -49,8 +49,6 @@ void cdr_update_entry(struct call* c) {
 	if (!IS_OWN_CALL(c))
 		return;
 
-	cdr = g_string_new("");
-
 	/* CDRs and statistics */
 	if (_log_facility_cdr) {
 		g_string_append_printf(cdr, "ci=%s, ",c->callid.s);
