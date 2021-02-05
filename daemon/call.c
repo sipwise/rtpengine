@@ -1179,6 +1179,12 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		}
 		bf_copy_same(&a->ps_flags, &A->media_flags, SHARED_FLAG_ICE);
 
+		PS_CLEAR(b, ZERO_ADDR);
+		if (is_addr_unspecified(&a->advertised_endpoint.address)
+				&& !(is_trickle_ice_address(&a->advertised_endpoint)
+					&& MEDIA_ISSET(A, TRICKLE_ICE)))
+			PS_SET(b, ZERO_ADDR);
+
 		if (__init_stream(a))
 			return -1;
 
@@ -1229,6 +1235,12 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 					SHARED_FLAG_STRICT_SOURCE | SHARED_FLAG_MEDIA_HANDOVER);
 		}
 		bf_copy_same(&a->ps_flags, &A->media_flags, SHARED_FLAG_ICE);
+
+		PS_CLEAR(a, ZERO_ADDR);
+		if (is_addr_unspecified(&b->advertised_endpoint.address)
+				&& !(is_trickle_ice_address(&b->advertised_endpoint)
+					&& MEDIA_ISSET(B, TRICKLE_ICE)))
+			PS_SET(a, ZERO_ADDR);
 
 		if (__init_stream(a))
 			return -1;
@@ -2575,11 +2587,9 @@ no_stats_output:
 }
 
 
-/* XXX move these */
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
 		int *len, const struct local_intf *ifa, int keep_unspec)
 {
-	struct packet_stream *sink;
 	int l = 0;
 	const struct intf_address *ifa_addr;
 
@@ -2591,14 +2601,10 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 	}
 	ifa_addr = &ifa->spec->local_address;
 
-	sink = packet_stream_sink(ps);
-
 	if (format == SAF_NG)
 		l += sprintf(o + l, "%s ", ifa_addr->addr.family->rfc_name);
 
-	if (is_addr_unspecified(&sink->advertised_endpoint.address)
-			&& !is_trickle_ice_address(&sink->advertised_endpoint)
-			&& keep_unspec)
+	if (PS_ISSET(ps, ZERO_ADDR) && keep_unspec)
 		l += sprintf(o + l, "%s", ifa_addr->addr.family->unspec_string);
 	else
 		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->advertised_address.addr));

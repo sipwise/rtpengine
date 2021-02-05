@@ -1912,11 +1912,6 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 {
 	char buf[64];
 	int len;
-	struct packet_stream *sink = packet_stream_sink(ps);
-
-	if (is_addr_unspecified(&address->parsed)
-			&& !(sink && is_trickle_ice_address(&sink->advertised_endpoint)))
-		return 0;
 
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
