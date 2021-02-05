@@ -587,18 +587,11 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 }
 
 
-static void websocket_conn_init(struct lws *wsi, void *p) {
+static int websocket_conn_init(struct lws *wsi, void *p) {
 	struct websocket_conn *wc = p;
 
 	if (!wc)
-		return;
-
-	memset(wc, 0, sizeof(*wc));
-	wc->wsi = wsi;
-	mutex_init(&wc->lock);
-	cond_init(&wc->cond);
-	g_queue_init(&wc->messages);
-	g_queue_push_tail(&wc->output_q, websocket_output_new());
+		return -1;
 
 	struct sockaddr_storage sa = {0,};
 	socklen_t sl = sizeof(sa);
@@ -608,26 +601,43 @@ static void websocket_conn_init(struct lws *wsi, void *p) {
 	if (fd == -1) {
 		// SSL?
 		SSL *ssl = lws_get_ssl(network_wsi);
-		if (ssl)
+		if (ssl) {
 			fd = SSL_get_fd(ssl);
+		} else {
+			ilogs(http, LOG_ERR, "Failed to get socket for remote address of HTTP/WS connection");
+			return -1;
+		}
 	}
 #else
 	int fd = lws_get_socket_fd(wsi);
 #endif
-	if (getpeername(fd, (struct sockaddr *) &sa, &sl))
+
+	memset(wc, 0, sizeof(*wc));
+
+	if (getpeername(fd, (struct sockaddr *) &sa, &sl)) {
 		ilogs(http, LOG_ERR, "Failed to get remote address of HTTP/WS connection (fd %i): %s",
 				fd, strerror(errno));
-	else
+		return -1;
+	} else {
 		endpoint_parse_sockaddr_storage(&wc->endpoint, &sa);
+	}
 
+	wc->wsi = wsi;
+	mutex_init(&wc->lock);
+	cond_init(&wc->cond);
+	g_queue_init(&wc->messages);
+	g_queue_push_tail(&wc->output_q, websocket_output_new());
 	wc->wm = websocket_message_new(wc);
+
+	return 0;
 }
 
 
 static int websocket_do_http(struct lws *wsi, struct websocket_conn *wc, const char *uri) {
 	ilogs(http, LOG_DEBUG, "HTTP request start: %s", uri);
 
-	websocket_conn_init(wsi, wc);
+	if (websocket_conn_init(wsi, wc) < 0)
+		return 0;
 	wc->wm->uri = strdup(uri);
 
 	if (lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI))
@@ -736,7 +746,8 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 			return (long int) pthread_self();
 		case LWS_CALLBACK_ESTABLISHED:
 			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' established", name);
-			websocket_conn_init(wsi, wc);
+			if (websocket_conn_init(wsi, wc) < 0)
+				break;
 			int get_len = lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI);
 			if (get_len > 0) {
 				wc->uri = malloc(get_len + 1);
