@@ -1,3 +1,11 @@
+ngcp-rtpengine (9.2.1.4+0~mr9.2.1.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [91c23db] TT#109618 keep track of actual file name used for recordings
+  * [ace668f] TT#109618 add option to chmod/chown created recordings
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 05 Feb 2021 20:16:54 +0100
+
 ngcp-rtpengine (9.2.1.3+0~mr9.2.1.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
