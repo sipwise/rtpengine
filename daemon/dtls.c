@@ -161,6 +161,10 @@ static void dump_cert(struct dtls_cert *cert) {
 
 	/* cert */
 	fp = open_memstream(&buf, &len);
+	if (!fp) {
+		ilogs(crypto, LOG_ERROR, "Failed to allocate memory to dump DTLS certificate");
+		return;
+	}
 	PEM_write_X509(fp, cert->x509);
 	fclose(fp);
 
@@ -169,6 +173,10 @@ static void dump_cert(struct dtls_cert *cert) {
 
 	/* key */
 	fp = open_memstream(&buf, &len);
+	if (!fp) {
+		ilogs(crypto, LOG_ERROR, "Failed to allocate memory to dump DTLS private key");
+		return;
+	}
 	PEM_write_PrivateKey(fp, cert->pkey, NULL, NULL, 0, 0, NULL);
 	fclose(fp);
 
