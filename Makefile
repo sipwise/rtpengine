@@ -29,7 +29,6 @@ distclean clean:
 	$(MAKE) -C iptables-extension clean
 	$(MAKE) -C kernel-module clean
 	$(MAKE) -C t clean
-	rm -rf project.tgz cov-int
 
 .DEFAULT:
 	$(MAKE) -C daemon $@
