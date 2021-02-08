@@ -36,5 +36,3 @@ PODS=		rtpengine-recording.pod
 MANS=		$(PODS:.pod=.8)
 
 include ../lib/common.Makefile
-
-include		.depend

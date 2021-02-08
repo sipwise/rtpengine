@@ -3,22 +3,17 @@ include ../lib/lib.Makefile
 all:
 	$(MAKE) $(TARGET) $(MANS)
 
-$(TARGET):	$(OBJS) .depend Makefile
+$(TARGET):	$(OBJS) Makefile
 	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 debug:
 	$(MAKE) DBG=yes all
 
-dep:		.depend
-
 BUILD_TEST_ALTS = fix_frame_channel_layout.h dtmf_rx_fillin.h spandsp_logging.h
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) .depend core core.*
+	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) core core.*
 	rm -f $(BUILD_TEST_ALTS) $(BUILD_TEST_ALTS:.h=-test.c) $(BUILD_TEST_ALTS:.h=-test) *.strhash.c $(HASHSRCS)
-
-.depend:	$(SRCS) $(LIBSRCS) $(DAEMONSRCS) Makefile
-	$(CC) $(CFLAGS) -M $(SRCS) $(LIBSRCS) $(DAEMONSRCS) | sed -e 's/:/ .depend:/' > .depend
 
 install:
 
@@ -60,4 +55,4 @@ $(BUILD_TEST_ALTS):	../lib/$(@:.h=-*)
 	rm -f $(@:.h=-test{.c,}); \
 	test -f "$@"
 
-.PHONY: all debug dep clean install
+.PHONY: all debug clean install

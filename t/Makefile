@@ -82,8 +82,6 @@ COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o
 
 include ../lib/common.Makefile
 
-include		.depend
-
 .PHONY:		all-tests unit-tests daemon-tests all-daemon-tests \
 	daemon-tests-main daemon-tests-jb daemon-tests-reorder
 
@@ -174,6 +172,5 @@ test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS)
 tests-preload.so:	tests-preload.c
 	$(CC) -g -D_GNU_SOURCE -std=c99 -o $@ -Wall -shared -fPIC $< -ldl
 
-ifeq ($(with_transcoding),yes)
-.depend: dtmf_rx_fillin.h spandsp_logging.h
-endif
+codec.c:	dtmf_rx_fillin.h
+t38.c:		spandsp_logging.h
