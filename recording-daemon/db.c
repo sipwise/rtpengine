@@ -420,7 +420,8 @@ file:;
         if (stream.s)
 		free(stream.s);
 	if (!(output_storage & OUTPUT_STORAGE_FILE))
-		remove(op->filename);
+		if (unlink(op->filename))
+			ilog(LOG_ERR, "Failed to delete file '%s': %s", op->filename, strerror(errno));
 }
 
 void db_delete_stream(output_t *op) {
