@@ -228,7 +228,8 @@ static char dtmf_code_to_char(int code) {
 }
 
 // takes over the csh reference
-static const char *dtmf_inject_pcm(struct call_media *media, struct call_monologue *monologue,
+static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *sink,
+		struct call_monologue *monologue,
 		struct packet_stream *ps, struct ssrc_ctx *ssrc_in, struct codec_handler *ch,
 		struct codec_ssrc_handler *csh,
 		int code, int volume, int duration, int pause)
@@ -265,7 +266,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 		.tv = rtpe_now,
 		.call = call,
 		.media = media,
-		.media_out = media,
+		.media_out = sink,
 		.rtp = &rtp,
 		.ssrc_in = ssrc_in,
 		.ssrc_out = ssrc_out,
@@ -301,7 +302,9 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 	return 0;
 }
 
-const char *dtmf_inject(struct call_media *media, int code, int volume, int duration, int pause) {
+const char *dtmf_inject(struct call_media *media, int code, int volume, int duration, int pause,
+		struct call_media *sink)
+{
 	struct call_monologue *monologue = media->monologue;
 
 	if (!media->streams.head)
@@ -321,7 +324,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		if (pt == 255)
 			continue;
 
-		ch = codec_handler_get(media, pt);
+		ch = codec_handler_get(media, pt, sink);
 		if (!ch)
 			continue;
 		if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
@@ -353,7 +356,8 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 
 	// if we don't have a DTMF payload type, we have to generate PCM
 	if (ch->dtmf_payload_type == -1 && ch->dtmf_injector)
-		return dtmf_inject_pcm(media, monologue, ps, ssrc_in, ch, csh, code, volume, duration, pause);
+		return dtmf_inject_pcm(media, sink, monologue, ps, ssrc_in, ch, csh, code, volume, duration,
+				pause);
 
 	ilog(LOG_DEBUG, "Injecting RFC DTMF event #%i for %i ms (vol %i) from '" STR_FORMAT "' (media #%u) "
 			"into RTP PT %i, SSRC %" PRIx32,

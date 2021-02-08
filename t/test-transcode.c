@@ -212,7 +212,14 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		long long ts_exp, int seq_diff_exp, int fatal)
 {
 	printf("running test %s:%i\n", file, line);
-	struct codec_handler *h = codec_handler_get(media, pt_in & 0x7f);
+	struct call_media *other_media;
+	if (media == media_A)
+		other_media = media_B;
+	else if (media == media_B)
+		other_media = media_A;
+	else
+		abort();
+	struct codec_handler *h = codec_handler_get(media, pt_in & 0x7f, other_media);
 	str pl = pload;
 	str pl_exp = pload_exp;
 
@@ -220,6 +227,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	struct media_packet mp = {
 		.call = &call,
 		.media = media,
+		.media_out = other_media,
 		.ssrc_in = get_ssrc_ctx(ssrc, media->monologue->ssrc_hash, SSRC_DIR_INPUT, NULL),
 	};
 	// from __stream_ssrc()

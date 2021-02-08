@@ -66,7 +66,7 @@ static void reset_jitter_buffer(struct jitter_buffer *jb) {
 
 static struct rtp_payload_type *get_rtp_payload_type(struct media_packet *mp, int payload_type) {
 	struct rtp_payload_type *rtp_pt = NULL;
-	struct codec_handler *transcoder = codec_handler_get(mp->media, payload_type);
+	struct codec_handler *transcoder = codec_handler_get(mp->media, payload_type, mp->media_out);
 	if(transcoder) {
 		if(transcoder->source_pt.payload_type == payload_type)
 			rtp_pt = &transcoder->source_pt;

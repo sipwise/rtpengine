@@ -2383,7 +2383,20 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		goto out;
 
 found:;
-		err = dtmf_inject(media, code, volume, duration, pause);
+		struct call_monologue *dialogue = monologue->active_dialogue;
+		struct call_media *sink = NULL;
+		for (GList *l = dialogue->medias.head; l; l = l->next) {
+			sink = l->data;
+			if (media->type_id != MT_AUDIO)
+				continue;
+			goto found_sink;
+		}
+
+		err = "Sink monologue has no media capable of DTMF playback";
+		goto out;
+
+found_sink:
+		err = dtmf_inject(media, code, volume, duration, pause, sink);
 		if (err)
 			break;
 	}

@@ -44,6 +44,7 @@ struct codec_handler {
 	struct codec_handler *input_handler; // == main handler for supp codecs
 	struct codec_handler *output_handler; // == self, or other PT handler
 	struct call_media *media;
+	struct call_media *sink;
 #ifdef WITH_TRANSCODING
 	int (*packet_encoded)(encoder_t *enc, void *u1, void *u2);
 	int (*packet_decoded)(decoder_t *, AVFrame *, void *, void *);
@@ -78,7 +79,7 @@ void rtcp_timer_stop(struct rtcp_timer **);
 void mqtt_timer_stop(struct mqtt_timer **);
 void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_media *media);
 
-struct codec_handler *codec_handler_get(struct call_media *, int payload_type);
+struct codec_handler *codec_handler_get(struct call_media *, int payload_type, struct call_media *sink);
 void codec_handlers_free(struct call_media *);
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt, unsigned long ts, struct call_media *);
