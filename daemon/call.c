@@ -2261,7 +2261,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			__disable_streams(other_media, num_ports);
 			goto init;
 		}
-		if (is_addr_unspecified(&sp->rtp_endpoint.address) && !is_trickle_ice_address(&sp->rtp_endpoint)) {
+		if (is_addr_unspecified(&sp->rtp_endpoint.address) && !MEDIA_ISSET(other_media, TRICKLE_ICE)) {
 			/* Zero endpoint address, equivalent to setting the media stream
 			 * to sendonly or inactive */
 			MEDIA_CLEAR(media, RECV);

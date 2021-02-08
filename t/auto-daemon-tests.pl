@@ -86,6 +86,50 @@ SDP
 
 new_call;
 
+offer('null address test A trickle',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 9 RTP/AVP 8
+c=IN IP4 0.0.0.0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 0.0.0.0
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('null address test B trickle',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 9 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+new_call;
+
 offer('null address test C',
 	{ }, <<SDP);
 v=0
@@ -365,6 +409,57 @@ a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
 a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
 a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
 a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+new_call;
+
+offer('trickle ICE test A no ICE',
+	{ ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 9 RTP/AVP 8
+a=ice-ufrag:Ci7n
+a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
+a=ice-options:trickle
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('trickle ICE test B no ICE',
+	{ ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 198.51.110.1
+t=0 0
+m=audio 6666 RTP/AVP 8
+a=ice-ufrag:Ci7n
+a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
+a=ice-options:trickle
+a=rtcp:9 IN IP4 0.0.0.0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
 SDP
 
 new_call;
