@@ -72,7 +72,7 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 	// mono/stereo mixing goes here: out_format.channels = ...
 	if (outp) {
 		// if this output has been configured already, re-use the same format
-		if (outp->encoder && outp->encoder->requested_format.format != -1)
+		if (outp->encoder->requested_format.format != -1)
 			out_format = outp->encoder->requested_format;
 		output_config(outp, &out_format, &out_format);
 		// save the returned sample format so we don't output_config() twice

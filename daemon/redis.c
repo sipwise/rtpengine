@@ -631,15 +631,9 @@ static int redis_delete_async(struct redis *r) {
 		return -1;
 	}
 
-	// loopbreak => NOT NULL context
-	if (r->async_ctx) {
-		redisAsyncDisconnect(r->async_ctx);
-		r->async_ctx = NULL;
-
-	// disconnect => NULL context set in callback
-	} else {
-		return 1;
-	}
+	// loopbreak
+	redisAsyncDisconnect(r->async_ctx);
+	r->async_ctx = NULL;
 
 	return 0;
 }

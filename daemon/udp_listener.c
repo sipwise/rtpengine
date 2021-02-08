@@ -61,8 +61,7 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 			udp_buf = NULL;
 		}
 	}
-	if (udp_buf)
-		obj_put(udp_buf);
+	obj_put(udp_buf);
 }
 
 static void __ulc_free(void *p) {

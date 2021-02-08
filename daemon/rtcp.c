@@ -1354,8 +1354,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 out:
 	if (input_ctx)
 		obj_put(&input_ctx->parent->h);
-	if (map_ctx)
-		obj_put(&map_ctx->parent->h);
+	obj_put(&map_ctx->parent->h);
 }
 static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr) {
 	if (!ctx->mp->ssrc_in)
