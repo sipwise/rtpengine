@@ -580,7 +580,7 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 	// get seq num
 	uint16_t seq;
 	if (str_shift_ret(&s, 2, &piece))
-		goto err;
+		goto err_nolock;
 	seq = ntohs(*((uint16_t *) piece.s));
 
 	err = "Invalid primary UDPTL packet";
@@ -593,7 +593,7 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 
 	err = "Error correction mode byte missing";
 	if (str_shift_ret(&s, 1, &piece))
-		goto err;
+		goto err_nolock;
 	char fec = piece.s[0];
 
 	mutex_lock(&tg->lock);
@@ -756,6 +756,8 @@ out:
 	return 0;
 
 err:
+	mutex_unlock(&tg->lock);
+err_nolock:
 	if (err)
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to process UDPTL/T.38/IFP packet: %s", err);
 	if (up)
