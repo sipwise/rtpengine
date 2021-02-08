@@ -50,7 +50,10 @@ timerthread.c
 media_player.c
 dtmflib.c
 test-dtmf-detect
-*-test
+test-bitstr
+test-const_str_hash.strhash
+test-payload-tracker
+test-transcode
 dtmf_rx_fillin.h
 *-test.c
 jitter_buffer.c

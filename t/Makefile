@@ -56,17 +56,17 @@ LDLIBS+=	-lhiredis
 LDLIBS+=	$(shell mysql_config --libs)
 endif
 
-SRCS=		bitstr-test.c aes-crypt.c aead-aes-crypt.c const_str_hash-test.strhash.c
+SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c
 DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
 
 ifeq ($(with_transcoding),yes)
-SRCS+=		transcode-test.c test-dtmf-detect.c payload-tracker-test.c
+SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c
 SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
 		spandsp_send_fax_t38.c
 ifeq ($(with_amr_tests),yes)
-SRCS+=		amr-decode-test.c amr-encode-test.c
+SRCS+=		test-amr-decode.c test-amr-encode.c
 endif
 LIBSRCS+=	codeclib.c resample.c socket.c streambuf.c dtmflib.c
 DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c poller.c \
@@ -87,11 +87,11 @@ include		.depend
 .PHONY:		all-tests unit-tests daemon-tests all-daemon-tests \
 	daemon-tests-main daemon-tests-jb daemon-tests-reorder
 
-TESTS=		bitstr-test aes-crypt aead-aes-crypt const_str_hash-test.strhash
+TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
-TESTS+=		transcode-test test-dtmf-detect payload-tracker-test
+TESTS+=		test-transcode test-dtmf-detect test-payload-tracker
 ifeq ($(with_amr_tests),yes)
-TESTS+=		amr-decode-test amr-encode-test
+TESTS+=		test-amr-decode test-amr-encode
 endif
 endif
 
@@ -137,7 +137,7 @@ daemon-tests-reorder:
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
-bitstr-test:	bitstr-test.o
+test-bitstr:	test-bitstr.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
@@ -149,9 +149,9 @@ spandsp_recv_fax_t38:	spandsp_recv_fax_t38.o
 
 spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fax_t38 spandsp_recv_fax_t38
 
-amr-decode-test: amr-decode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
+test-amr-decode: test-amr-decode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
 
-amr-encode-test: amr-encode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
+test-amr-encode: test-amr-encode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
 
 test-dtmf-detect: test-dtmf-detect.o
 
@@ -159,17 +159,17 @@ aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
 
 aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o
 
-transcode-test:	transcode-test.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call.o ice.o aux.o \
+test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call.o ice.o aux.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
 	control_ng.strhash.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o
 
-payload-tracker-test: payload-tracker-test.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.o \
+test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.o \
 	resample.o dtmflib.o
 
-const_str_hash-test.strhash: const_str_hash-test.strhash.o $(COMMONOBJS)
+test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS)
 
 tests-preload.so:	tests-preload.c
 	$(CC) -g -D_GNU_SOURCE -std=c99 -o $@ -Wall -shared -fPIC $< -ldl
