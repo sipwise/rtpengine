@@ -858,6 +858,14 @@ Optionally included keys are:
 		Take control of the version field in the SDP and make sure it's increased every
 		time the SDP changes, and left unchanged if the SDP is the same.
 
+	- `zero address`
+
+		Using a zero endpoint address is an obsolete way to signal a
+		muted or sendonly stream. Streams with zero addresses are
+		normally flagged as sendonly and the zero address in the SDP is
+		passed through. With this option set, the zero address is
+		replaced with a real address.
+
 * `direction`
 
 	Contains a list of two strings and corresponds to the *rtpproxy* `e` and `i` flags. Each element must

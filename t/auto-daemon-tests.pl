@@ -130,6 +130,94 @@ SDP
 
 new_call;
 
+offer('null address test A w replace option',
+	{ replace => ['zero address'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 0.0.0.0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('null address test B w replace option',
+	{ replace => ['zero address'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 16478 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('null address test A trickle w replace option',
+	{ replace => ['zero address'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 9 RTP/AVP 8
+c=IN IP4 0.0.0.0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('null address test B trickle w replace option',
+	{ replace => ['zero address'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 9 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+new_call;
+
 offer('null address test C',
 	{ }, <<SDP);
 v=0

@@ -1153,7 +1153,8 @@ void __rtp_stats_update(GHashTable *dst, GHashTable *src) {
 	/* we leave previously added but now removed payload types in place */
 }
 
-static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp) {
+static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
+		const struct sdp_ng_flags *flags) {
 	GList *la, *lb;
 	struct packet_stream *a, *ax, *b;
 	unsigned int port_off = 0;
@@ -1182,7 +1183,8 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		PS_CLEAR(b, ZERO_ADDR);
 		if (is_addr_unspecified(&a->advertised_endpoint.address)
 				&& !(is_trickle_ice_address(&a->advertised_endpoint)
-					&& MEDIA_ISSET(A, TRICKLE_ICE)))
+					&& MEDIA_ISSET(A, TRICKLE_ICE))
+				&& !(flags && flags->replace_zero_address))
 			PS_SET(b, ZERO_ADDR);
 
 		if (__init_stream(a))
@@ -1239,7 +1241,8 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		PS_CLEAR(a, ZERO_ADDR);
 		if (is_addr_unspecified(&b->advertised_endpoint.address)
 				&& !(is_trickle_ice_address(&b->advertised_endpoint)
-					&& MEDIA_ISSET(B, TRICKLE_ICE)))
+					&& MEDIA_ISSET(B, TRICKLE_ICE))
+				&& !(flags && flags->replace_zero_address))
 			PS_SET(a, ZERO_ADDR);
 
 		if (__init_stream(a))
@@ -2291,9 +2294,9 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		}
 
 init:
-		if (__init_streams(media, other_media, NULL))
+		if (__init_streams(media, other_media, NULL, NULL))
 			return -1;
-		if (__init_streams(other_media, media, sp))
+		if (__init_streams(other_media, media, sp, flags))
 			return -1;
 
 		/* we are now ready to fire up ICE if so desired and requested */
