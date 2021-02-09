@@ -1613,7 +1613,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 		// XXX yet another hash table per payload type -> combine
 		struct rtp_stats *rtp_s = g_atomic_pointer_get(&phc->mp.stream->rtp_stats_cache);
 		if (G_UNLIKELY(!rtp_s) || G_UNLIKELY(rtp_s->payload_type != phc->payload_type))
-			rtp_s = g_hash_table_lookup(phc->mp.stream->rtp_stats, &phc->payload_type);
+			rtp_s = g_hash_table_lookup(phc->mp.stream->rtp_stats, GINT_TO_POINTER(phc->payload_type));
 		if (!rtp_s) {
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT,
 					"RTP packet with unknown payload type %u received from %s%s%s",
