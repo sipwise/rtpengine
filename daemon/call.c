@@ -642,13 +642,15 @@ static void call_timer(void *ptr) {
 		sink = packet_stream_sink(ps);
 
 		if (!ke->target.non_forwarding && diff_packets) {
-			if (sink) {
+			// only check the first
+			struct rtpengine_output_info *o = &ke->outputs[0];
+			if (sink && o->src_addr.family) {
 				mutex_lock(&sink->out_lock);
 				if (sink->crypto.params.crypto_suite && sink->ssrc_out
 						&& ntohl(ke->target.ssrc) == sink->ssrc_out->parent->h.ssrc
-						&& ke->target.encrypt.last_index - sink->ssrc_out->srtp_index > 0x4000)
+						&& o->encrypt.last_index - sink->ssrc_out->srtp_index > 0x4000)
 				{
-					sink->ssrc_out->srtp_index = ke->target.encrypt.last_index;
+					sink->ssrc_out->srtp_index = o->encrypt.last_index;
 					update = 1;
 				}
 				mutex_unlock(&sink->out_lock);
