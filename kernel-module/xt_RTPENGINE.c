@@ -3293,8 +3293,10 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 	switch (msg->cmd) {
 		case REMG_NOOP:
-			if (msg->u.size != sizeof(*msg))
+			if (msg->u.noop.size != sizeof(*msg))
 				err = -EMSGSIZE;
+			if (msg->u.noop.last_cmd != __REMG_LAST)
+				err = -ERANGE;
 			break;
 
 		case REMG_ADD:
