@@ -133,7 +133,10 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 		if (_log_facility_dtmf)
 			dtmflog(buf);
 		if (dtmf_log_sock.family)
-			send(dtmf_log_sock.fd, buf->str, buf->len, 0);
+			if (send(dtmf_log_sock.fd, buf->str, buf->len, 0) < 0)
+				ilog(LOG_ERR, "Error sending DTMF event info to UDP socket: %s",
+						strerror(errno));
+
 		if (rtpe_config.dtmf_via_ng)
 			dtmf_bencode_and_notify(mp, dtmf, clockrate);
 		g_string_free(buf, TRUE);
