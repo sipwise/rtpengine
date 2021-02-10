@@ -14,7 +14,7 @@ static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 	c->parent = parent;
 	payload_tracker_init(&c->tracker);
 	while (!c->ssrc_map_out)
-		c->ssrc_map_out = random();
+		c->ssrc_map_out = ssl_random();
 }
 static void init_ssrc_entry(struct ssrc_entry *ent, u_int32_t ssrc) {
 	ent->ssrc = ssrc;
@@ -26,8 +26,8 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	ent = obj_alloc0("ssrc_entry_call", sizeof(*ent), __free_ssrc_entry_call);
 	init_ssrc_ctx(&ent->input_ctx, ent);
 	init_ssrc_ctx(&ent->output_ctx, ent);
-	//ent->seq_out = random();
-	//ent->ts_out = random();
+	//ent->seq_out = ssl_random();
+	//ent->ts_out = ssl_random();
 	return &ent->h;
 }
 static void add_ssrc_entry(u_int32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht) {

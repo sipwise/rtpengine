@@ -242,6 +242,16 @@ INLINE int rlim(int res, rlim_t val) {
 
 
 
+/*** TAINT FUNCTIONS ***/
+
+#define taint_func(symbol, reason) \
+	__typeof__(symbol) symbol __attribute__((__error__(reason)))
+
+taint_func(rand, "use ssl_random() instead");
+taint_func(random, "use ssl_random() instead");
+taint_func(srandom, "use RAND_seed() instead");
+
+
 
 /*** INET ADDRESS HELPERS ***/
 

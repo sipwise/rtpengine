@@ -107,7 +107,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 
 	uint32_t ssrc = 0;
 	while (ssrc == 0)
-		ssrc = random();
+		ssrc = ssl_random();
 	struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->call->ssrc_hash, SSRC_DIR_OUTPUT, ml);
 	ssrc_ctx->next_rtcp = rtpe_now;
 
@@ -119,7 +119,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	mp->run_func = media_player_read_packet; // default
 	mp->call = obj_get(ml->call);
 	mp->ml = ml;
-	mp->seq = random();
+	mp->seq = ssl_random();
 	mp->ssrc_out = ssrc_ctx;
 
 	av_init_packet(&mp->pkt);
@@ -174,7 +174,7 @@ static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 
 	// XXX missing locking?
 	ssrc_out->next_rtcp = rtpe_now;
-	timeval_add_usec(&ssrc_out->next_rtcp, 5000000 + (random() % 2000000));
+	timeval_add_usec(&ssrc_out->next_rtcp, 5000000 + (ssl_random() % 2000000));
 }
 
 

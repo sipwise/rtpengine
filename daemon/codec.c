@@ -368,7 +368,7 @@ struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type 
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
 	handler->ssrc_handler->first_ts = last_ts;
 	while (handler->ssrc_handler->first_ts == 0)
-		handler->ssrc_handler->first_ts = random();
+		handler->ssrc_handler->first_ts = ssl_random();
 	handler->ssrc_handler->rtp_mark = 1;
 
 	ilogs(codec, LOG_DEBUG, "Created media playback context for " STR_FORMAT " -> " STR_FORMAT "",
@@ -1194,7 +1194,7 @@ static void __rtcp_timer_run(struct timerthread_queue *q, void *p) {
 		__rtcp_timer_free(rt);
 		goto out;
 	}
-	timeval_add_usec(&rtcp_timer, 5000000 + (random() % 2000000));
+	timeval_add_usec(&rtcp_timer, 5000000 + (ssl_random() % 2000000));
 	media->rtcp_timer = rtcp_timer;
 	__codec_rtcp_timer_schedule(media);
 
@@ -1232,7 +1232,7 @@ static void __codec_rtcp_timer(struct call_media *receiver) {
 		return;
 
 	receiver->rtcp_timer = rtpe_now;
-	timeval_add_usec(&receiver->rtcp_timer, 5000000 + (random() % 2000000));
+	timeval_add_usec(&receiver->rtcp_timer, 5000000 + (ssl_random() % 2000000));
 	__codec_rtcp_timer_schedule(receiver);
 	// XXX unify with media player into a generic RTCP player
 }

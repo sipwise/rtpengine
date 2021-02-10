@@ -333,8 +333,10 @@ static void dtmf(const char *s) {
 #define AMR_WB_payload_noe "\xf1\xfc\xc1\x82\x04\x1d\xcc\x88\xc8\x34\xd4\x18\x84\xb1\xdf\x38\xba\xa1\x03\x9b\xbd\x13\x79\x1f\xf2\x53\x33\x16\x17\x7b\x73\x17\x5f\x1b\x05\x1f\x70" // bandwidth efficient
 
 int main(void) {
+	unsigned long random_seed = 0;
+
 	codeclib_init(0);
-	srandom(time(NULL));
+	RAND_seed(&random_seed, sizeof(random_seed));
 	statistics_init();
 	codecs_init();
 
