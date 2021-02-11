@@ -3761,8 +3761,10 @@ static int srtp_authenticate(struct re_crypto_context *c,
 
 	if (!r->header)
 		return 0;
-	if (s->hmac == REH_NULL)
+	if (s->hmac == REH_NULL) {
+		rtp_append_mki(r, s);
 		return 0;
+	}
 	if (!c->hmac)
 		return 0;
 	if (!c->shash)
@@ -4199,7 +4201,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	int err;
 	int error_nf_action = XT_CONTINUE;
 	int rtp_pt_idx = -2;
-	unsigned int datalen;
+	unsigned int datalen, pllen;
 	u_int32_t *u32;
 	struct rtp_parsed rtp;
 	u_int64_t pkt_idx;
@@ -4352,9 +4354,10 @@ no_intercept:
 			rtp.header->ssrc = g->target.ssrc_out;
 
 		pkt_idx = packet_index(&g->encrypt, &g->target.encrypt, rtp.header);
+		pllen = rtp.payload_len;
 		srtp_encrypt(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
-		skb_put(skb, g->target.encrypt.mki_len + g->target.encrypt.auth_tag_len);
 		srtp_authenticate(&g->encrypt, &g->target.encrypt, &rtp, pkt_idx);
+		skb_put(skb, rtp.payload_len - pllen);
 	}
 
 	err = send_proxy_packet(skb, &g->target.src_addr, &g->target.dst_addr, g->target.tos, par);
