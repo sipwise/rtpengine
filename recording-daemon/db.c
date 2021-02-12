@@ -451,3 +451,7 @@ void db_config_stream(output_t *op) {
 
 	execute_wrap(&stm_config_stream, b, NULL);
 }
+
+void db_thread_end(void) {
+	reset_conn();
+}

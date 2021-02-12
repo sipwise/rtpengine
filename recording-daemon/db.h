@@ -10,6 +10,7 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *, un
 void db_close_stream(output_t *op);
 void db_delete_stream(output_t *op);
 void db_config_stream(output_t *op);
+void db_thread_end(void);
 
 
 #endif

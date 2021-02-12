@@ -7,6 +7,7 @@
 #include "log.h"
 #include "main.h"
 #include "garbage.h"
+#include "db.h"
 
 
 static int epoll_fd = -1;
@@ -34,6 +35,7 @@ void epoll_del(int fd) {
 
 static void poller_thread_end(void *ptr) {
 	mysql_thread_end();
+	db_thread_end();
 }
 
 
