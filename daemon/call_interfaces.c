@@ -941,6 +941,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	bencode_dictionary_get_str(input, "via-branch", &out->via_branch);
 	bencode_dictionary_get_str(input, "label", &out->label);
 	bencode_dictionary_get_str(input, "address", &out->address);
+	bencode_dictionary_get_str(input, "sdp", &out->sdp);
 
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
@@ -1326,7 +1327,6 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
-	str sdp;
 	const char *errstr;
 	GQueue parsed = G_QUEUE_INIT;
 	GQueue streams = G_QUEUE_INIT;
@@ -1336,11 +1336,10 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	struct sdp_ng_flags flags;
 	struct sdp_chopper *chopper;
 
-	if (!bencode_dictionary_get_str(input, "sdp", &sdp))
-		return "No SDP body in message";
-
 	call_ng_process_flags(&flags, input, opmode);
 
+	if (!flags.sdp.s)
+		return "No SDP body in message";
 	if (!flags.call_id.s)
 		return "No call-id in message";
 	if (!flags.from_tag.s)
@@ -1352,12 +1351,12 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	}
 
 	errstr = "Failed to parse SDP";
-	if (sdp_parse(&sdp, &parsed, &flags))
+	if (sdp_parse(&flags.sdp, &parsed, &flags))
 		goto out;
 
 	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
 		ilog(LOG_INFO, "Ignoring message as SDP has already been processed by us");
-		bencode_dictionary_add_str(output, "sdp", &sdp);
+		bencode_dictionary_add_str(output, "sdp", &flags.sdp);
 		errstr = NULL;
 		goto out;
 	}
@@ -1425,7 +1424,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		monologue->tagtype = TO_TAG;
 	}
 
-	chopper = sdp_chopper_new(&sdp);
+	chopper = sdp_chopper_new(&flags.sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
 	detect_setup_recording(call, &flags.record_call_str, &flags.metadata);
@@ -1460,7 +1459,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 
 	struct recording *recording = call->recording;
 	if (recording != NULL) {
-		meta_write_sdp_before(recording, &sdp, monologue, opmode);
+		meta_write_sdp_before(recording, &flags.sdp, monologue, opmode);
 		meta_write_sdp_after(recording, chopper->output,
 			       monologue, opmode);
 

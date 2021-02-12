@@ -23,6 +23,7 @@ struct sdp_ng_flags {
 	str from_tag;
 	str to_tag;
 	str via_branch;
+	str sdp;
 	str received_from_family;
 	str received_from_address;
 	str media_address;
