@@ -3849,6 +3849,21 @@ void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposit
 	}
 }
 
+// check all codecs listed in the source are also be present in the answer (dst)
+bool codec_store_is_full_answer(const struct codec_store *src, const struct codec_store *dst) {
+	for (GList *l = src->codec_prefs.head; l; l = l->next) {
+		const struct rtp_payload_type *src_pt = l->data;
+		const struct rtp_payload_type *dst_pt = g_hash_table_lookup(dst->codecs,
+				GINT_TO_POINTER(src_pt->payload_type));
+		if (!dst_pt || rtp_payload_type_cmp(src_pt, dst_pt)) {
+			ilogs(codec, LOG_DEBUG, "Source codec " STR_FORMAT " is not present in the answer",
+					STR_FMT(&src_pt->encoding_with_params));
+			return false;
+		}
+	}
+	return true;
+}
+
 static void codec_timers_run(void *p) {
 	struct codec_timer *ct = p;
 	ct->func(ct);

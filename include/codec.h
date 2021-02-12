@@ -4,6 +4,7 @@
 
 #include <glib.h>
 #include <sys/time.h>
+#include <stdbool.h>
 #include "str.h"
 #include "codeclib.h"
 #include "aux.h"
@@ -98,6 +99,7 @@ void codec_store_track(struct codec_store *, GQueue *);
 void codec_store_transcode(struct codec_store *, GQueue *, struct codec_store *);
 void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags);
 void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposite);
+bool codec_store_is_full_answer(const struct codec_store *src, const struct codec_store *dst);
 
 void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate);
 void codec_packet_free(void *);

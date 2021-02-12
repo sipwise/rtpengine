@@ -2496,7 +2496,8 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 	if (proto_is_rtp(media->protocol)) {
 		if (MEDIA_ISSET(media, RTCP_MUX)
 				&& (flags->opmode == OP_ANSWER || flags->opmode == OP_OTHER
-					|| (flags->opmode == OP_OFFER
+					|| flags->opmode == OP_PUBLISH
+					|| ((flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)
 						&& flags->rtcp_mux_require)))
 		{
 			insert_rtcp_attr(s, ps, flags);

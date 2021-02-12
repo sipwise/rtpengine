@@ -301,6 +301,9 @@ INLINE void g_tree_clear(GTree *t) {
 		g_tree_remove(t, k);
 	}
 }
+INLINE void g_string_free_true(GString *s) {
+	g_string_free(s, TRUE);
+}
 INLINE void __g_string_free(GString **s) {
 	g_string_free(*s, TRUE);
 }
