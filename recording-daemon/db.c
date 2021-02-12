@@ -398,10 +398,12 @@ void db_close_stream(output_t *op) {
 		if (stream.s) {
 			size_t count = fread(stream.s, 1, stream.len, f);
 			if (count != stream.len) {
+				stream.len = 0;
 				ilog(LOG_ERR, "Failed to read from stream");
 				fclose(f);
 				if ((output_storage & OUTPUT_STORAGE_FILE))
 					goto file;
+				free(stream.s);
 				return;
 			}
 		}
