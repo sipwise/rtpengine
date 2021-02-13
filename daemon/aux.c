@@ -213,7 +213,7 @@ static void *thread_detach_func(void *d) {
 	return NULL;
 }
 
-static int thread_create(void *(*func)(void *), void *arg, int joinable, pthread_t *handle) {
+static int thread_create(void *(*func)(void *), void *arg, int joinable, pthread_t *handle, const char *name) {
 	pthread_attr_t att;
 	pthread_t thr;
 	int ret;
@@ -235,11 +235,17 @@ static int thread_create(void *(*func)(void *), void *arg, int joinable, pthread
 		return ret;
 	if (handle)
 		*handle = thr;
+#ifdef __GLIBC__
+	if (name)
+		pthread_setname_np(thr, name);
+#endif
 
 	return 0;
 }
 
-void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler, int priority) {
+void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler, int priority,
+		const char *name)
+{
 	struct detach_thread *dt;
 
 	dt = g_slice_alloc(sizeof(*dt));
@@ -248,7 +254,7 @@ void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler
 	dt->scheduler = scheduler;
 	dt->priority = priority;
 
-	if (thread_create(thread_detach_func, dt, 1, NULL))
+	if (thread_create(thread_detach_func, dt, 1, NULL, name))
 		abort();
 }
 

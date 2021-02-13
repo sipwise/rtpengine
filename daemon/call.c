@@ -478,7 +478,7 @@ destroy:
 
 	if (xh)
 		thread_create_detach_prio(xmlrpc_kill_calls, xh, rtpe_config.idle_scheduling,
-				rtpe_config.idle_priority);
+				rtpe_config.idle_priority, "XMLRPC callback");
 }
 
 

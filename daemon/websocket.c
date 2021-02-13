@@ -953,5 +953,5 @@ static void websocket_loop(void *p) {
 void websocket_start(void) {
 	if (!websocket_context)
 		return;
-	thread_create_detach_prio(websocket_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
+	thread_create_detach_prio(websocket_loop, NULL, rtpe_config.scheduling, rtpe_config.priority, "websocket");
 }

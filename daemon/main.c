@@ -1059,39 +1059,44 @@ int main(int argc, char **argv) {
 
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
-	thread_create_detach(sighandler, NULL);
-	thread_create_detach_prio(poller_timer_loop, rtpe_poller, rtpe_config.idle_scheduling, rtpe_config.idle_priority);
-	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling, rtpe_config.idle_priority);
+	thread_create_detach(sighandler, NULL, "signal handler");
+	thread_create_detach_prio(poller_timer_loop, rtpe_poller, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "poller timer");
+	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling, rtpe_config.idle_priority, "load monitor");
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
-		thread_create_detach(redis_delete_async_loop, NULL);
+		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
-		thread_create_detach(redis_notify_loop, NULL);
+		thread_create_detach(redis_notify_loop, NULL, "redis notify");
 
 	if (!is_addr_unspecified(&rtpe_config.graphite_ep.address))
-		thread_create_detach(graphite_loop, NULL);
+		thread_create_detach(graphite_loop, NULL, "graphite");
 
-	thread_create_detach(ice_thread_run, NULL);
+	thread_create_detach(ice_thread_run, NULL, "ICE");
 
 	websocket_start();
 
 	service_notify("READY=1\n");
 
 	for (idx = 0; idx < rtpe_config.num_threads; ++idx)
-		thread_create_detach_prio(poller_loop, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority);
+		thread_create_detach_prio(poller_loop, rtpe_poller, rtpe_config.scheduling,
+				rtpe_config.priority, "poller");
 
 	if (rtpe_config.media_num_threads < 0)
 		rtpe_config.media_num_threads = rtpe_config.num_threads;
 	for (idx = 0; idx < rtpe_config.media_num_threads; ++idx) {
 #ifdef WITH_TRANSCODING
-		thread_create_detach_prio(media_player_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
+		thread_create_detach_prio(media_player_loop, NULL, rtpe_config.scheduling,
+				rtpe_config.priority, "media player");
 #endif
-		thread_create_detach_prio(send_timer_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
+		thread_create_detach_prio(send_timer_loop, NULL, rtpe_config.scheduling,
+				rtpe_config.priority, "send timer");
 		if (rtpe_config.jb_length > 0)
 			thread_create_detach_prio(jitter_buffer_loop, NULL, rtpe_config.scheduling,
-					rtpe_config.priority);
-		thread_create_detach_prio(codec_timers_loop, NULL, rtpe_config.scheduling, rtpe_config.priority);
+					rtpe_config.priority, "jitter buffer");
+		thread_create_detach_prio(codec_timers_loop, NULL, rtpe_config.scheduling,
+				rtpe_config.priority, "codec timer");
 	}
 
 

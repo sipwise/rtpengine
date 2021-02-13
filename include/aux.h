@@ -278,9 +278,9 @@ taint_func(srandom, "use RAND_seed() instead");
 /*** THREAD HELPERS ***/
 
 void threads_join_all(int);
-void thread_create_detach_prio(void (*)(void *), void *, const char *, int);
-INLINE void thread_create_detach(void (*f)(void *), void *a) {
-	thread_create_detach_prio(f, a, NULL, 0);
+void thread_create_detach_prio(void (*)(void *), void *, const char *, int, const char *);
+INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
+	thread_create_detach_prio(f, a, NULL, 0, name);
 }
 
 
