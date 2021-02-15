@@ -1,3 +1,110 @@
+ngcp-rtpengine (9.4.0.0+0~mr9.4.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d8b71e1] TT#14008 fix possible null pointer
+  * [2a86d5d] TT#14008 fix possible pcap namespace issue
+  * [16c9f4c] TT#14008 skip over non-ASCII characters in JSON output
+  * [c881293] TT#86103 fix 7b2503a
+  * [9653546] TT#107157 fix LWS HTTP handling crash
+  * [89d017e] TT#97301 update CLI online help
+  * [c69415b] TT#97301 allow printing and setting of individual log levels
+  * [e9bdbb1] TT#97301 fix removal of debug_srtp
+  * [341f2e0] TT#92250 also create codec handlers for synthesised supp PTs
+  * [99ba631] TT#92250 update tests for recent changes
+  * [a02134c] TT#92250 split up __accept_transcode_codecs
+  * [604aa5a] TT#92250 add new reorder-codecs flag
+  * [6bf5e3a] TT#92250 add tests for reorder-codec
+  * [0bab726] TT#92250 reset opposite side supp handlers
+  * [68be3d2] TT#108350 add kernel module version/size check
+  * [d466e5c] TT#97301 fix bit-setting of negative log levels
+  * [6602a3a] TT#108551 add kernel support for AEAD-AES-GCM
+  * [030f38f] TT#97301 add description to log levels
+  * [6feef36] TT#98901 fix some clock skew issues
+  * [ade5c47] TT#98901 wire up codeclib debug output
+  * [40c1def] TT#98901 randomise testing call/tag IDs
+  * [25d90ce] TT#98901 keep track of head PTS in packetiser
+  * [e7739d0] TT#98901 fix TS scaling issues for DTMF
+  * [fd275ac] TT#98901 use DTX buffer for related DTMF events
+  * [60fd172] TT#98901 update tests for DTX
+  * [df11807] TT#106101 don't require connection address for ICE fragments
+  * [28e0620] TT#106101 turn bencode buffer into shared refcounted object
+  * [554034e] TT#106101 also turn UDP/WS receive buffer into refcounted object
+  * [97a1c21] TT#106101 handle out-of-order ICE fragments
+  * [0898923] TT#98901 use correct DTMF codec context
+  * [f2d7e71] TT#108552 update crypto suite preference ordering
+  * [e671a5d] TT#108552 prefer sha-256 over sha-1
+  * [9c6d57e] TT#14008 allow parallel execute of daemon tests
+  * [c5ef688] TT#76250 consider default number of channel when matching codecs
+  * [8e21b4b] TT#14008 clean up some tests
+  * [f4a7127] TT#106101 mem leak fix for 554034eb7e
+  * [a6a1823] TT#102450 fix some timestamping issues
+  * [88d2765] TT#102450 added tests for Ia9fa96cf
+  * [5741f13] TT#109251 fix redis restore segfault
+  * [e191e16] TT#14008 fix possible segfault
+  * [770df55] TT#14008 improve log output for stray packets
+  * [9d27a2d] TT#14008 fix AEAD kernel API for < 4.2
+  * [ae82034] TT#99621 add option to disable RTCP generation
+  * [8abc6b1] TT#91151 convert RTP PT hash tables to direct hashes
+  * [95aabe5] TT#99001 support top-level make alias var DEB_WITH_TRANSCODING
+  * [01112f2] TT#107565 fix support for multi-session SDPs
+  * [36273e1] TT#107565 add option to track SDP version
+  * [d47f4ac] TT#14008 make bcg729 inclusion conditional on dpkg profile
+  * [1dbfbe8] TT#14008 move g_string_free helper to auxlib
+  * [b75ec8e] TT#14008 convert CDR logging to g_string
+  * [8b1c958] TT#91151 obsolete unused REMG_UPDATE op
+  * [e860e07] TT#109618 keep track of actual file name used for recordings
+  * [76d5828] TT#91151 explicitly keep track of zero endpoint addresses
+  * [a9f58ff] TT#91151 add tests for null addresses
+  * [79bb147] TT#109618 add option to chmod/chown created recordings
+  * [772db96] TT#91151 fix check for trickle ICE and zero address
+  * [1785f70] TT#91151 add new replace-zero-address option
+  * [225e5ad] TT#108003 don't consume `pt` before finish using it
+  * [7101f53] TT#108003 remove unnecessary null checks
+  * [1219b2f] TT#108003 log error on unlink failure
+  * [21d1057] TT#108003 fix possible deadlock
+  * [302968f] TT#14008 rename some test suites
+  * [ab54b77] TT#14008 remove .depend from make system
+  * [fa6d29b] TT#91151 fix wrong hash table lookup object being used
+  * [abb281d] TT#91151 add additional check for kernel module commands
+  * [7edf0c5] TT#108551 fix AEAD kernel encryption
+  * [4f5e83e] TT#14008 fix possible mem leak
+  * [543bac9] TT#106253 cleanup TLS variables on shutdown
+
+  [ dvillaume ]
+  * [e4e3112] TT#14008 support repeat-times in media player
+
+  [ SPChan ]
+  * [0c41107] TT#108551 add support for AEAD-AES-GCM
+
+  [ Stefan Mititelu ]
+  * [001abe5] Add new config parameter: `save-interface-ports`
+  * [a19854d] Fix build when transcoding disabled
+
+  [ Damir Nedžibović ]
+  * [2fc5446] TT#14008 Squashed commit of the following:
+  * [0ae0681] TT#14008 Squashed commit of the following:
+
+  [ balajeesv ]
+  * [ffc9e34] TT#14008 Squashed commit of the following:
+
+  [ Guillem Jover ]
+  * [4366f6f] TT#99001 Make the with_transcoding builds dependent on build-profiles
+  * [9b5395c] TT#108003 Add a coverity-scan GitHub workflow
+  * [1cc5482] TT#108003 Remove coverity artifacts removal from Makefile
+  * [009aa21] TT#108003 Fix double free in __established()
+  * [07716a6] TT#108003 Do not print the DTLS certificate and private key on OOM
+  * [6d51b3a] TT#108003 Fix off-by-one check dtmf_samples()
+  * [6bc5a84] TT#108003 Fix file descriptor leak in db_close_stream()
+  * [8f44055] TT#108003 Fix memory leak in cdr_update_entry()
+  * [648e74f] TT#108003 Handle unsigned wrap around in amr_encoder_mode_change()
+  * [70d323d] TT#108003 Handle ftell() errors
+  * [e255277] TT#108003 Handle errors during websocket connection initialization
+  * [2c56587] TT#108003 Do not allow division by 0 load_thread()
+  * [962479b] TT#108003 Stop using random()
+  * [6a9d61d] TT#108003 Check send() return code for DTMF UDP logging
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 15 Feb 2021 17:54:51 +0100
+
 ngcp-rtpengine (9.3.0.0+0~mr9.3.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
