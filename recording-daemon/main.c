@@ -31,7 +31,7 @@
 
 
 int ktable = 0;
-int num_threads = 8;
+int num_threads;
 enum output_storage_enum output_storage = OUTPUT_STORAGE_FILE;
 char *spool_dir = NULL;
 char *output_dir = NULL;
@@ -272,6 +272,9 @@ static void options(int *argc, char ***argv) {
 			die("Invalid mode value '%s'", chmod_mode);
 		output_chmod = m;
 	}
+
+	if (num_threads <= 0)
+		num_threads = num_cpu_cores(8);
 }
 
 static void options_free(void) {
