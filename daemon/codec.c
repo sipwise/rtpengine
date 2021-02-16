@@ -3415,7 +3415,7 @@ void codec_tracker_finish(struct call_media *media, struct call_media *other_med
 			}
 			struct codec_handler *existing_handler = existing_pt ? codec_handler_get(media, existing_pt->payload_type) : NULL;
 
-			if (existing_pt && existing_handler) {
+			if (existing_pt && existing_handler && existing_handler->dest_pt.codec_def) {
 				// since this happens after we ran through the codec matchup, we must create the appropriate handler here
 				struct codec_handler *handler = __get_pt_handler(media, pt);
 				// duplicate the codec handler of the existing PT
