@@ -933,14 +933,8 @@ no_kernel:
 		rtpe_config.max_sessions = -1;
 	}
 
-	if (rtpe_config.redis_num_threads < 1) {
-#ifdef _SC_NPROCESSORS_ONLN
-		rtpe_config.redis_num_threads = sysconf( _SC_NPROCESSORS_ONLN );
-#endif
-		if (rtpe_config.redis_num_threads < 1) {
-			rtpe_config.redis_num_threads = REDIS_RESTORE_NUM_THREADS;
-		}
-	}
+	if (rtpe_config.redis_num_threads < 1)
+		rtpe_config.redis_num_threads = num_cpu_cores(REDIS_RESTORE_NUM_THREADS);
 
 	rtpe_tcp = NULL;
 	if (rtpe_config.tcp_listen_ep.port) {
@@ -1007,13 +1001,8 @@ no_kernel:
 			rtpe_redis_write = rtpe_redis;
 	}
 
-	if (rtpe_config.num_threads < 1) {
-#ifdef _SC_NPROCESSORS_ONLN
-		rtpe_config.num_threads = sysconf( _SC_NPROCESSORS_ONLN ) + 3;
-#endif
-		if (rtpe_config.num_threads <= 1)
-			rtpe_config.num_threads = 4;
-	}
+	if (rtpe_config.num_threads < 1)
+		rtpe_config.num_threads = num_cpu_cores(4);
 
 	if (websocket_init())
 		die("Failed to init websocket listener");

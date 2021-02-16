@@ -410,3 +410,12 @@ void free_gbuf(char **p) {
 void free_gvbuf(char ***p) {
 	g_strfreev(*p);
 }
+
+int num_cpu_cores(int minval) {
+#ifdef _SC_NPROCESSORS_ONLN
+	int ret = sysconf(_SC_NPROCESSORS_ONLN);
+	if (ret >= 1 && ret >= minval)
+		return ret;
+#endif
+	return minval;
+}
