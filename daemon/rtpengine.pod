@@ -312,7 +312,8 @@ sensitive and/or private information. Defaults to an empty string.
 
 How many worker threads to create, must be at least one.
 The default is to create as many threads as there are CPU cores available.
-If the number of CPU cores cannot be determined, the default is four.
+If the number of CPU cores cannot be determined or if it is less than four,
+then the default is four.
 
 =item B<--num-media-threads=>I<INT>
 
