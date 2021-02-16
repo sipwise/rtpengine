@@ -119,6 +119,8 @@ int mix_config(mix_t *mix, const format_t *format) {
 	mix->graph = avfilter_graph_alloc();
 	if (!mix->graph)
 		goto err;
+	mix->graph->nb_threads = 1;
+	mix->graph->thread_type = 0;
 
 	// amix
 	err = "no amix filter available";
