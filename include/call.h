@@ -243,6 +243,7 @@ struct stream_params {
 	struct endpoint		rtp_endpoint;
 	struct endpoint		rtcp_endpoint;
 	unsigned int		consecutive_ports;
+	unsigned int		num_ports;
 	const struct transport_protocol *protocol;
 	str			format_str;
 	GQueue			sdes_params; // slice-alloc'd
