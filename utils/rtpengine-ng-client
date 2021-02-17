@@ -85,6 +85,7 @@ GetOptions(
 	'no-jitter-buffer'  		=> \$options{'no jitter buffer'},
 	'generate-RTCP'			=> \$options{'generate RTCP'},
 	'single-codec'			=> \$options{'single codec'},
+	'reorder-codecs'		=> \$options{'reorder codecs'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -97,7 +98,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 for my $x (split(/,/, 'TOS,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,generate RTCP,single codec')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,generate RTCP,single codec,reorder codecs')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection,sdp version')) {
