@@ -114,6 +114,7 @@ struct rtpengine_config {
 	uint32_t		silence_detect_int;
 	str			cn_payload;
 	int			reorder_codecs;
+	char			*software_id;
 };
 
 

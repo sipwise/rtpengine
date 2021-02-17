@@ -764,6 +764,13 @@ Number of worker threads for HTTP/HTTPS/WS/WSS. If not specified, then the same
 number as given under B<num-threads> will be used. If no HTTP listeners are
 enabled, then no threads are created.
 
+=item B<--software-id=>I<STRING>
+
+Sets a free-form string that is used to identify this software towards external
+systems with, for example in outgoing ICE/STUN requests. Defaults to
+B<rtpengine->I<VERSION>. The string is sanitised to replace all
+non-alphanumeric characters with a dash to make it universally usable.
+
 =item B<--dtx-delay=>I<INT>
 
 Processing delay in milliseconds to handle discontinuous transmission (DTX) or
