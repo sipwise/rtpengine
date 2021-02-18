@@ -314,9 +314,7 @@ int main(int argc, char **argv) {
 	if (decoding_enabled)
 		codeclib_free();
 
-	options_free();
-
-	log_free();
-
 	cleanup();
+	log_free();
+	options_free();
 }
