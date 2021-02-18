@@ -859,6 +859,7 @@ static void redis_count_err_and_disable(struct redis *r)
 
 /* must be called with r->lock held */
 static int redis_check_conn(struct redis *r) {
+	gettimeofday(&rtpe_now, NULL);
 
 	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > rtpe_now.tv_sec)) {
 		ilog(LOG_WARNING, "Redis server %s is disabled. Don't try RE-Establishing for %ld more seconds",
@@ -872,6 +873,11 @@ static int redis_check_conn(struct redis *r) {
 	// try redis connection
 	if (r->ctx && redisCommandNR(r->ctx, "PING") == 0) {
 		// redis is connected
+		if (r->state == REDIS_STATE_DISCONNECTED) {
+			rlog(LOG_INFO, "RE-Established connection to Redis %s; PING works",
+				endpoint_print_buf(&r->endpoint));
+			r->state = REDIS_STATE_CONNECTED;
+		}
 		return REDIS_STATE_CONNECTED;
 	}
 
