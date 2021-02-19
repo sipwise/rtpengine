@@ -40,6 +40,7 @@ int output_mixed;
 int output_single;
 int output_enabled = 1;
 mode_t output_chmod;
+mode_t output_chmod_dir = 0700;
 uid_t output_chown = -1;
 gid_t output_chgrp = -1;
 char *output_pattern = NULL;
@@ -157,9 +158,21 @@ static void cleanup(void) {
 }
 
 
+static mode_t chmod_parse(const char *s) {
+	if (!s || !*s)
+		return 0;
+	char *errp;
+	unsigned long m = strtoul(s, &errp, 8);
+	if (*errp || m > 077777)
+		die("Invalid mode value '%s'", s);
+	return m;
+}
+
+
 static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(os_str);
 	AUTO_CLEANUP_GBUF(chmod_mode);
+	AUTO_CLEANUP_GBUF(chmod_dir_mode);
 	AUTO_CLEANUP_GBUF(user_uid);
 	AUTO_CLEANUP_GBUF(group_gid);
 
@@ -176,6 +189,7 @@ static void options(int *argc, char ***argv) {
 		{ "output-mixed",	0,   0, G_OPTION_ARG_NONE,	&output_mixed,	"Mix participating sources into a single output",NULL	},
 		{ "output-single",	0,   0, G_OPTION_ARG_NONE,	&output_single,	"Create one output file for each source",NULL		},
 		{ "output-chmod",	0,   0, G_OPTION_ARG_STRING,	&chmod_mode,	"File mode for recordings",		"OCTAL"		},
+		{ "output-chmod-dir",	0,   0, G_OPTION_ARG_STRING,	&chmod_dir_mode,"Directory mode for recordings",	"OCTAL"		},
 		{ "output-chown",	0,   0, G_OPTION_ARG_STRING,	&user_uid,	"File owner for recordings",		"USER|UID"	},
 		{ "output-chgrp",	0,   0, G_OPTION_ARG_STRING,	&group_gid,	"File group for recordings",		"GROUP|GID"	},
 		{ "mysql-host",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_host,	"MySQL host for storage of call metadata","HOST|IP"	},
@@ -261,13 +275,8 @@ static void options(int *argc, char ***argv) {
 		}
 	}
 
-	if (chmod_mode && *chmod_mode) {
-		char *errp;
-		unsigned long m = strtoul(chmod_mode, &errp, 8);
-		if (*errp || m > 077777)
-			die("Invalid mode value '%s'", chmod_mode);
-		output_chmod = m;
-	}
+	output_chmod = chmod_parse(chmod_mode);
+	output_chmod_dir = chmod_parse(chmod_dir_mode);
 
 	if (num_threads <= 0)
 		num_threads = num_cpu_cores(8);

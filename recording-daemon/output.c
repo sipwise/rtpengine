@@ -130,7 +130,7 @@ done:;
 	char *last_sep = strrchr(ret->full_filename, G_DIR_SEPARATOR);
 	if (last_sep) {
 		*last_sep = '\0';
-		if (g_mkdir_with_parents(ret->full_filename, 0700))
+		if (g_mkdir_with_parents(ret->full_filename, output_chmod_dir))
 			ilog(LOG_WARN, "Failed to create (parent) directory for '%s': %s",
 					ret->full_filename, strerror(errno));
 		*last_sep = G_DIR_SEPARATOR;

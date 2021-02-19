@@ -22,6 +22,7 @@ extern int output_mixed;
 extern int output_single;
 extern int output_enabled;
 extern mode_t output_chmod;
+extern mode_t output_chmod_dir;
 extern uid_t output_chown;
 extern gid_t output_chgrp;
 extern char *output_pattern;

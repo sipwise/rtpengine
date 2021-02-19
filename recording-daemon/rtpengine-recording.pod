@@ -236,6 +236,11 @@ multiple audio sources in sync.
 Change the file permissions of recording files to the given mode. Must be given
 as an octal integer, for example B<0660>.
 
+=item B<--output-chmod-dir=>I<INT>
+
+Change the file permissions of recording files to the given mode. Must be given
+as an octal integer, for example B<0700> (which is also the default value).
+
 =item B<--output-chown=>I<USER>|I<UID>
 
 =item B<--output-chgrp=>I<GROUP>|I<GID>
