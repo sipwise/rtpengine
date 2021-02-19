@@ -40,7 +40,7 @@ int output_mixed;
 int output_single;
 int output_enabled = 1;
 mode_t output_chmod;
-mode_t output_chmod_dir = 0700;
+mode_t output_chmod_dir;
 uid_t output_chown = -1;
 gid_t output_chgrp = -1;
 char *output_pattern = NULL;

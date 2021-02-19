@@ -47,6 +47,41 @@ int output_add(output_t *output, AVFrame *frame) {
 }
 
 
+static void create_parent_dirs(char *dir) {
+	char *p = dir;
+
+	// skip root
+	if (*p == G_DIR_SEPARATOR)
+		p++;
+
+	while (1) {
+		// find next dir separator
+		p = strchr(p, G_DIR_SEPARATOR);
+		if (!p)
+			break;
+		// check/create dir
+		*p = '\0';
+		// create with 0700 first, then chmod
+		if (mkdir(dir, 0700)) {
+			int existed = errno == EEXIST;
+			if (!existed)
+				ilog(LOG_WARN, "Failed to create directory '%s': %s", dir, strerror(errno));
+			*p = G_DIR_SEPARATOR;
+			if (!existed) // no point in continuing
+				break;
+			continue;
+		}
+		if (output_chmod_dir && chmod(dir, output_chmod_dir))
+			ilog(LOG_WARN, "Failed to change mode of '%s': %s", dir, strerror(errno));
+		if (output_chown != -1 || output_chgrp != -1)
+			if (chown(dir, output_chown, output_chgrp))
+				ilog(LOG_WARN, "Failed to change owner/group of '%s': %s",
+						dir, strerror(errno));
+		*p++ = G_DIR_SEPARATOR;
+	}
+}
+
+
 output_t *output_new(const char *path, const char *call, const char *type) {
 	// construct output file name
 	time_t now = time(NULL);
@@ -126,16 +161,7 @@ done:;
 	ret->file_format = output_file_format;
 	ret->encoder = encoder_new();
 
-	// create parent directories if needed
-	char *last_sep = strrchr(ret->full_filename, G_DIR_SEPARATOR);
-	if (last_sep) {
-		*last_sep = '\0';
-		if (g_mkdir_with_parents(ret->full_filename, output_chmod_dir))
-			ilog(LOG_WARN, "Failed to create (parent) directory for '%s': %s",
-					ret->full_filename, strerror(errno));
-		*last_sep = G_DIR_SEPARATOR;
-	}
-
+	create_parent_dirs(ret->full_filename);
 
 	g_string_free(f, FALSE);
 
