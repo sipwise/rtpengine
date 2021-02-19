@@ -177,9 +177,9 @@ out:
 	dbg("Init for SSRC %s%lx%s of stream #%lu", FMT_M(ret->ssrc), stream->id);
 
 	if (mf->recording_on && !ret->output && output_single) {
-		char buf[256];
-		snprintf(buf, sizeof(buf), "%s-%08lx", mf->parent, ssrc);
-		ret->output = output_new(output_dir, buf);
+		char buf[16];
+		snprintf(buf, sizeof(buf), "%08lx", ssrc);
+		ret->output = output_new(output_dir, mf->parent, buf);
 		db_do_stream(mf, ret->output, "single", stream, ssrc);
 	}
 	if ((stream->forwarding_on || mf->forwarding_on) && !ret->tls_fwd_stream) {

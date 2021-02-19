@@ -42,6 +42,7 @@ int output_enabled = 1;
 mode_t output_chmod;
 uid_t output_chown = -1;
 gid_t output_chgrp = -1;
+char *output_pattern = NULL;
 int decoding_enabled;
 char *c_mysql_host,
       *c_mysql_user,
@@ -83,14 +84,8 @@ static void setup(void) {
 	socket_init();
 	if (decoding_enabled)
 		codeclib_init(0);
-	if (output_enabled) {
+	if (output_enabled)
 		output_init(output_format);
-		if (!g_file_test(output_dir, G_FILE_TEST_IS_DIR)) {
-			ilog(LOG_INFO, "Creating output dir '%s'", output_dir);
-			if (mkdir(output_dir, 0700))
-				die_errno("Failed to create output dir '%s'", output_dir);
-		}
-	}
 	mysql_library_init(0, NULL, NULL);
 	signals();
 	metafile_setup();
@@ -174,6 +169,7 @@ static void options(int *argc, char ***argv) {
 		{ "num-threads",	0,   0, G_OPTION_ARG_INT,	&num_threads,	"Number of worker threads",		"INT"		},
 		{ "output-storage",	0,   0, G_OPTION_ARG_STRING,	&os_str,	"Where to store audio streams",	        "file|db|both"	},
 		{ "output-dir",		0,   0, G_OPTION_ARG_STRING,	&output_dir,	"Where to write media files to",	"PATH"		},
+		{ "output-pattern",	0,   0, G_OPTION_ARG_STRING,	&output_pattern,"File name pattern for recordings",	"STRING"	},
 		{ "output-format",	0,   0, G_OPTION_ARG_STRING,	&output_format,	"Write audio files of this type",	"wav|mp3|none"	},
 		{ "resample-to",	0,   0, G_OPTION_ARG_INT,	&resample_audio,"Resample all output audio",		"INT"		},
 		{ "mp3-bitrate",	0,   0, G_OPTION_ARG_INT,	&mp3_bitrate,	"Bits per second for MP3 encoding",	"INT"		},
@@ -275,6 +271,13 @@ static void options(int *argc, char ***argv) {
 
 	if (num_threads <= 0)
 		num_threads = num_cpu_cores(8);
+
+	if (!output_pattern)
+		output_pattern = g_strdup("%c-%t");
+	if (!strstr(output_pattern, "%c"))
+		die("Invalid output pattern '%s' (no '%%c' format present)", output_pattern);
+	if (!strstr(output_pattern, "%t"))
+		die("Invalid output pattern '%s' (no '%%t' format present)", output_pattern);
 }
 
 static void options_free(void) {
@@ -288,6 +291,7 @@ static void options_free(void) {
 	g_free(c_mysql_db);
 	g_free(forward_to);
 	g_free(tls_send_to);
+	g_free(output_pattern);
 
 	// free common config options
 	config_load_free(&rtpe_common_config);

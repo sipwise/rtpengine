@@ -24,6 +24,7 @@ extern int output_enabled;
 extern mode_t output_chmod;
 extern uid_t output_chown;
 extern gid_t output_chgrp;
+extern char *output_pattern;
 extern int decoding_enabled;
 extern char *c_mysql_host,
       *c_mysql_user,

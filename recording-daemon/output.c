@@ -6,6 +6,7 @@
 #include <glib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include "log.h"
 #include "db.h"
 #include "main.h"
@@ -46,13 +47,98 @@ int output_add(output_t *output, AVFrame *frame) {
 }
 
 
-output_t *output_new(const char *path, const char *filename) {
+output_t *output_new(const char *path, const char *call, const char *type) {
+	// construct output file name
+	time_t now = time(NULL);
+	struct tm tm;
+	localtime_r(&now, &tm);
+	const char *ax = call;
+
+	GString *f = g_string_new("");
+	for (const char *p = output_pattern; *p; p++) {
+		if (*p != '%') {
+			g_string_append_c(f, *p);
+			continue;
+		}
+		p++;
+		switch (*p) {
+			case '\0':
+				ilog(LOG_ERR, "Invalid output pattern (trailing %%)");
+				goto done;
+			case '%':
+				g_string_append_c(f, '%');
+				break;
+			case 'c':
+				g_string_append(f, call);
+				break;
+			case 't':
+				g_string_append(f, type);
+				break;
+			case 'Y':
+				g_string_append_printf(f, "%04i", tm.tm_year + 1900);
+				break;
+			case 'm':
+				g_string_append_printf(f, "%02i", tm.tm_mon + 1);
+				break;
+			case 'd':
+				g_string_append_printf(f, "%02i", tm.tm_mday);
+				break;
+			case 'H':
+				g_string_append_printf(f, "%02i", tm.tm_hour);
+				break;
+			case 'M':
+				g_string_append_printf(f, "%02i", tm.tm_min);
+				break;
+			case 'S':
+				g_string_append_printf(f, "%02i", tm.tm_sec);
+				break;
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			case '8':
+			case '9':;
+				char *end;
+				long len = strtol(p, &end, 10);
+				if (len <= 0 || len == LONG_MAX || end == p) {
+					ilog(LOG_ERR, "Invalid output pattern (invalid number at '%%%s')", p);
+					break;
+				}
+				while (*ax && len--)
+					g_string_append_c(f, *ax++);
+				p = end - 1; // will be advanced +1 in the next loop
+				break;
+			default:
+				ilog(LOG_ERR, "Invalid output pattern (unknown format character '%c')", *p);
+				break;
+		}
+	}
+
+done:;
 	output_t *ret = g_slice_alloc0(sizeof(*ret));
 	ret->file_path = g_strdup(path);
-	ret->file_name = g_strdup(filename);
-	ret->full_filename = g_strdup_printf("%s/%s", path, filename);
+	ret->file_name = f->str; // stealing the content
+	ret->full_filename = g_strdup_printf("%s/%s", path, f->str);
 	ret->file_format = output_file_format;
 	ret->encoder = encoder_new();
+
+	// create parent directories if needed
+	char *last_sep = strrchr(ret->full_filename, G_DIR_SEPARATOR);
+	if (last_sep) {
+		*last_sep = '\0';
+		if (g_mkdir_with_parents(ret->full_filename, 0700))
+			ilog(LOG_WARN, "Failed to create (parent) directory for '%s': %s",
+					ret->full_filename, strerror(errno));
+		*last_sep = G_DIR_SEPARATOR;
+	}
+
+
+	g_string_free(f, FALSE);
+
 	return ret;
 }
 

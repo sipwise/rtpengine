@@ -73,9 +73,7 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 	if (output_enabled && output_mixed) {
 		pthread_mutex_lock(&mf->mix_lock);
 		if (!mf->mix) {
-			char buf[256];
-			snprintf(buf, sizeof(buf), "%s-mix", mf->parent);
-			mf->mix_out = output_new(output_dir, buf);
+			mf->mix_out = output_new(output_dir, mf->parent, "mix");
 			mf->mix = mix_new();
 			db_do_stream(mf, mf->mix_out, "mixed", NULL, 0);
 		}
