@@ -48,9 +48,9 @@ int output_add(output_t *output, AVFrame *frame) {
 
 output_t *output_new(const char *path, const char *filename) {
 	output_t *ret = g_slice_alloc0(sizeof(*ret));
-	g_strlcpy(ret->file_path, path, sizeof(ret->file_path));
-	g_strlcpy(ret->file_name, filename, sizeof(ret->file_name));
-	snprintf(ret->full_filename, sizeof(ret->full_filename), "%s/%s", path, filename);
+	ret->file_path = g_strdup(path);
+	ret->file_name = g_strdup(filename);
+	ret->full_filename = g_strdup_printf("%s/%s", path, filename);
 	ret->file_format = output_file_format;
 	ret->encoder = encoder_new();
 	return ret;
@@ -101,20 +101,21 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->u.avc.avcctx);
 #endif
 
-	char full_fn[PATH_MAX*2];
+	char *full_fn = NULL;
 	char suff[16] = "";
 	for (int i = 1; i < 20; i++) {
-		snprintf(full_fn, sizeof(full_fn), "%s%s.%s", output->full_filename, suff, output->file_format);
+		full_fn = g_strdup_printf("%s%s.%s", output->full_filename, suff, output->file_format);
 		if (!g_file_test(full_fn, G_FILE_TEST_EXISTS))
 			goto got_fn;
 		snprintf(suff, sizeof(suff), "-%i", i);
+		g_free(full_fn);
 	}
 
 	err = "failed to find unused output file number";
 	goto err;
 
 got_fn:
-	g_strlcpy(output->filename, full_fn, sizeof(output->filename));
+	output->filename = full_fn;
 	err = "failed to open avio";
 	av_ret = avio_open(&output->fmtctx->pb, full_fn, AVIO_FLAG_WRITE);
 	if (av_ret < 0)
@@ -168,6 +169,10 @@ static int output_shutdown(output_t *output) {
 
 	output->fmtctx = NULL;
 	output->avst = NULL;
+	g_clear_pointer(&output->full_filename, g_free);
+	g_clear_pointer(&output->file_path, g_free);
+	g_clear_pointer(&output->file_name, g_free);
+	g_clear_pointer(&output->filename, g_free);
 
 	return ret;
 }
