@@ -140,10 +140,10 @@ struct metafile_s {
 
 
 struct output_s {
-	char full_filename[PATH_MAX], // path + filename
-		file_path[PATH_MAX],
-		file_name[PATH_MAX],
-		filename[PATH_MAX * 2]; // path + filename + suffix
+	char *full_filename, // path + filename
+		*file_path,
+		*file_name,
+		*filename; // path + filename + suffix
 	const char *file_format;
 	unsigned long long db_id;
 
