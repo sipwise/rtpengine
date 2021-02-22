@@ -8046,6 +8046,8 @@ a=msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
 a=rtcp-mux
 a=rtpmap:111 opus/48000/2
 a=rtcp-fb:111 transport-cc
+a=rtcp-fb:111 testing
+a=rtcp-fb:111 foobar
 a=fmtp:111 minptime=10;useinbandfec=1
 a=rtpmap:103 ISAC/16000
 a=rtpmap:104 ISAC/32000
@@ -8101,6 +8103,8 @@ a=mid:0
 a=rtpmap:111 opus/48000/2
 a=fmtp:111 minptime=10;useinbandfec=1
 a=rtcp-fb:111 transport-cc
+a=rtcp-fb:111 testing
+a=rtcp-fb:111 foobar
 a=rtpmap:103 ISAC/16000
 a=rtpmap:104 ISAC/32000
 a=rtpmap:9 G722/8000

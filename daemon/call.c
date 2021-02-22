@@ -743,6 +743,7 @@ void call_free(void) {
 
 
 void payload_type_free(struct rtp_payload_type *p) {
+	g_queue_clear(&p->rtcp_fb);
 	g_slice_free1(sizeof(*p), p);
 }
 
