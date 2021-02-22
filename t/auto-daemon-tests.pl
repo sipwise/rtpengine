@@ -33,12 +33,184 @@ my $pcma_5 = "\xad\xac\xa2\xa6\xbd\x9a\x06\x3f\x26\x2d\x2c\x2d\x26\x3f\x06\x9a\x
 
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx,
-	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev,
+	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq);
 
 
 
 
+
+new_call;
+
+($port_a, undef, $ufrag_a) = offer('ICE re-invite',
+	{ ICE => 'force', }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+($port_b, undef, $ufrag_b) = offer('ICE re-invite',
+	{ ICE => 'force', }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_a, $port_b, 'port match');
+is($ufrag_a, $ufrag_b, 'ufrag match');
+
+($port_a, undef, $ufrag_a) = offer('ICE re-invite port change',
+	{ ICE => 'force', }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16480 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_a, $port_b, 'port match');
+is($ufrag_a, $ufrag_b, 'ufrag match');
+
+new_call;
+
+($port_a, undef, $ufrag_a) = offer('ICE re-invite',
+	{ ICE => 'force', flags => ['no port latching']}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+($port_b, undef, $ufrag_b) = offer('ICE re-invite',
+	{ ICE => 'force', flags => ['no port latching']}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_a, $port_b, 'port match');
+is($ufrag_a, $ufrag_b, 'ufrag match');
+
+($port_a, undef, $ufrag_a) = offer('ICE re-invite port change no port latching',
+	{ ICE => 'force', flags => ['no port latching']}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16480 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+isnt($port_a, $port_b, 'port match');
+isnt($ufrag_a, $ufrag_b, 'ufrag match');
 
 new_call;
 
