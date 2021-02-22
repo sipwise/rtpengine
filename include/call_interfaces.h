@@ -68,6 +68,7 @@ struct sdp_ng_flags {
 	    unidirectional:1,
 	    trust_address:1,
 	    port_latching:1,
+	    no_port_latching:1,
 	    replace_origin:1,
 	    replace_sess_conn:1,
 	    rtcp_mux_offer:1,

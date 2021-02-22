@@ -834,6 +834,8 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 
 		if (flags && flags->port_latching)
 			/* do nothing - ignore endpoint addresses */ ;
+		else if (MEDIA_ISSET(media, ICE) && (!flags || !flags->no_port_latching))
+			; // don't change endpoint address if we're talking ICE
 		else if (is_addr_unspecified(&ep->address) || is_addr_unspecified(&em->endpoint.address)) {
 			/* handle zero endpoint address: only compare ports */
 			if (ep->port != em->endpoint.port)
@@ -895,23 +897,22 @@ next_il:
 }
 
 static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
-	GList *l, *k;
-	struct packet_stream *ps;
-	struct stream_fd *sfd, *intf_sfd;
-	struct intf_list *il;
-	int sfd_found;
+	int reset_ice = 0;
 
-	for (k = media->streams.head; k; k = k->next) {
-		ps = k->data;
+	for (GList *k = media->streams.head; k; k = k->next) {
+		struct packet_stream *ps = k->data;
+
+		// use opaque pointer to detect changes
+		void *old_selected_sfd = ps->selected_sfd;
 
 		g_queue_clear(&ps->sfds);
-		sfd_found = 0;
-		intf_sfd = NULL;
+		int sfd_found = 0;
+		struct stream_fd *intf_sfd = NULL;
 
-		for (l = intf_sfds->head; l; l = l->next) {
-			il = l->data;
+		for (GList *l = intf_sfds->head; l; l = l->next) {
+			struct intf_list *il = l->data;
 
-			sfd = g_queue_peek_nth(&il->list, ps->component - 1);
+			struct stream_fd *sfd = g_queue_peek_nth(&il->list, ps->component - 1);
 			if (!sfd) return ;
 
 			sfd->stream = ps;
@@ -930,11 +931,12 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 				ps->selected_sfd = g_queue_peek_nth(&ps->sfds, 0);
 		}
 
-		/* XXX:
-		 * handle crypto/dtls resets by moving contexts into sfd struct.
-		 * handle ice resets too.
-		 */
+		if (old_selected_sfd && ps->selected_sfd && old_selected_sfd != ps->selected_sfd)
+			reset_ice = 1;
 	}
+
+	if (reset_ice && media->ice_agent)
+		ice_restart(media->ice_agent);
 }
 
 static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_ports) {
