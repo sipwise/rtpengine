@@ -816,6 +816,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("port-latching"):
 			out->port_latching = 1;
 			break;
+		case CSH_LOOKUP("no-port-latching"):
+			out->no_port_latching = 1;
+			break;
 		case CSH_LOOKUP("generate-mid"):
 			out->generate_mid = 1;
 			break;

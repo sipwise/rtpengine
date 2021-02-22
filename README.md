@@ -702,6 +702,13 @@ Optionally included keys are:
 		Forces *rtpengine* to retain its local ports during a signalling exchange even when the
 		remote endpoint changes its port.
 
+	- `no port latching`
+
+		Port latching is enabled by default for endpoints which speak
+		ICE. With this option preset, a remote port change will result
+		in a local port change even for endpoints which speak ICE,
+		which will imply an ICE restart.
+
 	- `record call`
 
 		Identical to setting `record call` to `on` (see below).
