@@ -1319,13 +1319,14 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		g_hash_table_insert(ht_fmtp, &attr->u.fmtp.payload_type, &attr->u.fmtp.format_parms_str);
 	}
 	// do the same for a=rtcp-fb
-	ht_rtcp_fb = g_hash_table_new(g_int_hash, g_int_equal);
+	ht_rtcp_fb = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_queue_free);
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTCP_FB);
 	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
 		if (attr->u.rtcp_fb.payload_type == -1)
 			continue;
-		g_hash_table_insert(ht_rtcp_fb, &attr->u.rtcp_fb.payload_type, &attr->u.rtcp_fb.value);
+		GQueue *rq = g_hash_table_lookup_queue_new(ht_rtcp_fb, GINT_TO_POINTER(attr->u.rtcp_fb.payload_type), NULL);
+		g_queue_push_tail(rq, &attr->u.rtcp_fb.value);
 	}
 
 	/* then go through the format list and associate */
@@ -1357,9 +1358,13 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		s = g_hash_table_lookup(ht_fmtp, &i);
 		if (s)
 			pt->format_parameters = *s;
-		s = g_hash_table_lookup(ht_rtcp_fb, &i);
-		if (s)
-			pt->rtcp_fb = *s;
+		GQueue *rq = g_hash_table_lookup(ht_rtcp_fb, GINT_TO_POINTER(i));
+		if (rq) {
+			// steal the list contents and free the list
+			pt->rtcp_fb = *rq;
+			g_queue_init(rq);
+			g_hash_table_remove(ht_rtcp_fb, GINT_TO_POINTER(i)); // frees `rq`
+		}
 
 		// fill in ptime
 		if (sp->ptime)
@@ -1796,10 +1801,11 @@ static void insert_codec_parameters(struct sdp_chopper *chop, struct call_media 
 					pt->payload_type,
 					STR_FMT(&pt->format_parameters));
 		}
-		if (pt->rtcp_fb.len) {
+		for (GList *l = pt->rtcp_fb.head; l; l = l->next) {
+			str *fb = l->data;
 			chopper_append_printf(chop, "a=rtcp-fb:%u " STR_FORMAT "\r\n",
 					pt->payload_type,
-					STR_FMT(&pt->rtcp_fb));
+					STR_FMT(fb));
 		}
 	}
 }
