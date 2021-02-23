@@ -38,13 +38,13 @@ struct sdp_ng_flags {
 	str label;
 	str address;
 	sockaddr_t xmlrpc_callback;
-	GHashTable *codec_strip;
+	GQueue codec_strip;
 	GHashTable *codec_except;
 	GQueue codec_offer;
 	GQueue codec_transcode;
-	GHashTable *codec_mask;
-	GHashTable *codec_accept;
-	GHashTable *codec_consume;
+	GQueue codec_mask;
+	GQueue codec_accept;
+	GQueue codec_consume;
 	GHashTable *codec_set;
 	int ptime,
 	    rev_ptime;
@@ -107,9 +107,6 @@ struct sdp_ng_flags {
 		     debug:1,
 	             loop_protect:1,
 	             original_sendrecv:1,
-	             asymmetric_codecs:1,
-	             symmetric_codecs:1,
-	             reorder_codecs:1,
 	             single_codec:1,
 	             inject_dtmf:1,
 	             t38_decode:1,

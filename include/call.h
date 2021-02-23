@@ -225,9 +225,21 @@ typedef bencode_buffer_t call_buffer_t;
 
 
 
+struct codec_store {
+	GHashTable		*codecs; // int payload type -> struct rtp_payload_type
+	GHashTable		*codec_names; // codec name -> GQueue of int payload types; storage container
+	GQueue			codec_prefs; // preference by order in SDP; storage container
+	GList			*supp_link; // tracks location for codec_store_add_end
+	struct codec_tracker	*tracker;
+	struct call_media	*media;
+	unsigned int		strip_all:1, // set by codec_store_strip
+				strip_full:1; // set by codec_store_strip
+};
+
 struct stream_params {
 	unsigned int		index; /* starting with 1 */
 	str			type;
+	enum media_type		type_id;
 	struct endpoint		rtp_endpoint;
 	struct endpoint		rtcp_endpoint;
 	unsigned int		consecutive_ports;
@@ -238,7 +250,7 @@ struct stream_params {
 	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
 	unsigned int		sp_flags;
-	GQueue			rtp_payload_types; /* slice-alloc'd */
+	struct codec_store	codecs;
 	GQueue			ice_candidates; /* slice-alloc'd */
 	str			ice_ufrag;
 	str			ice_pwd;
@@ -336,27 +348,16 @@ struct call_media {
 	GQueue			streams; /* normally RTP + RTCP */
 	GQueue			endpoint_maps;
 
-	// what we say we can receive (outgoing SDP):
-	GHashTable		*codecs_recv; // int payload type -> struct rtp_payload_type
-	GHashTable		*codec_names_recv; // codec name -> GQueue of int payload types; storage container
-	GQueue			codecs_prefs_recv; // preference by order in SDP; storage container
-
-	// what we can send, taken from received SDP:
-	GHashTable		*codecs_send; // int payload type -> struct rtp_payload_type
-	GHashTable		*codec_names_send; // codec name -> GQueue of int payload types; storage container
-	GQueue			codecs_prefs_send; // storage container
-	struct codec_tracker	*codec_tracker;
-
+	struct codec_store	codecs;
 	GQueue			sdp_attributes; // str_sprintf()
-
 	GHashTable		*codec_handlers; // int payload type -> struct codec_handler
-						// XXX combine this with 'codecs_recv' hash table?
+						// XXX combine this with 'codecs' hash table?
 	GQueue			codec_handlers_store; // storage for struct codec_handler
 	struct codec_handler	*codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
 	struct rtcp_timer	*rtcp_timer;	// master lock for scheduling purposes
 	struct mqtt_timer	*mqtt_timer;	// master lock for scheduling purposes
-	struct codec_handler	*dtmf_injector;
+	//struct codec_handler	*dtmf_injector;
 	struct t38_gateway	*t38_gateway;
 	struct codec_handler	*t38_handler;
 #ifdef WITH_TRANSCODING
@@ -402,6 +403,7 @@ struct call_monologue {
 	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;
 	unsigned int		rec_forwarding:1;
+	unsigned int		inject_dtmf:1;
 };
 
 struct call_iterator_list {
@@ -523,6 +525,8 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 		const str *viabranch);
 struct call *call_get(const str *callid);
 int monologue_offer_answer(struct call_monologue *monologue, GQueue *streams, struct sdp_ng_flags *flags);
+void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
+		struct stream_params *sp, struct sdp_ng_flags *flags);
 int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);
@@ -538,8 +542,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 
 void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 
-void payload_type_free(struct rtp_payload_type *p);
-void __rtp_stats_update(GHashTable *dst, GHashTable *src);
+void __rtp_stats_update(GHashTable *dst, struct codec_store *);
 int __init_stream(struct packet_stream *ps);
 void call_stream_crypto_reset(struct packet_stream *ps);
 

@@ -13,12 +13,13 @@ struct rtp_header;
 struct ssrc_hash;
 enum ssrc_dir;
 struct ssrc_ctx;
+struct codec_store;
 
 
 
 
 
-const struct rtp_payload_type *rtp_payload_type(unsigned int, GHashTable *);
+const struct rtp_payload_type *rtp_payload_type(unsigned int, struct codec_store *);
 
 int rtp_avp2savp(str *, struct crypto_context *, struct ssrc_ctx *);
 int rtp_savp2avp(str *, struct crypto_context *, struct ssrc_ctx *);

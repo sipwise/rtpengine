@@ -23,6 +23,7 @@ struct supp_codec_tracker;
 struct rtcp_timer;
 struct mqtt_timer;
 struct call;
+struct codec_store;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -34,12 +35,13 @@ struct codec_handler {
 	int dtmf_payload_type;
 	int cn_payload_type;
 	codec_handler_func *func;
+	unsigned int passthrough:1;
 	unsigned int kernelize:1;
 	unsigned int transcoder:1;
-	unsigned int dtmf_scaler:1;
 	unsigned int pcm_dtmf_detect:1;
 
 	struct ssrc_hash *ssrc_hash;
+	struct codec_handler *input_handler; // == main handler for supp codecs
 	struct codec_handler *output_handler; // == self, or other PT handler
 	struct call_media *media;
 #ifdef WITH_TRANSCODING
@@ -49,6 +51,8 @@ struct codec_handler {
 
 	// for media playback
 	struct codec_ssrc_handler *ssrc_handler;
+	// for DTMF injection
+	struct codec_handler *dtmf_injector;
 
 	// stats entry
 	char *stats_chain;
@@ -78,28 +82,38 @@ struct codec_handler *codec_handler_get(struct call_media *, int payload_type);
 void codec_handlers_free(struct call_media *);
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt, unsigned long ts, struct call_media *);
-void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media);
 void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval *);
+
+void codec_store_cleanup(struct codec_store *cs);
+void codec_store_init(struct codec_store *cs, struct call_media *);
+void codec_store_populate(struct codec_store *, struct codec_store *, GHashTable *);
+void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt);
+void codec_store_strip(struct codec_store *, GQueue *strip, GHashTable *except);
+void codec_store_offer(struct codec_store *, GQueue *, struct codec_store *);
+void codec_store_accept(struct codec_store *, GQueue *, struct codec_store *);
+void codec_store_track(struct codec_store *, GQueue *);
+void codec_store_transcode(struct codec_store *, GQueue *, struct codec_store *);
+void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags);
+void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposite);
 
 void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate);
 void codec_packet_free(void *);
 
-void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,
-		GQueue *types, struct sdp_ng_flags *flags);
+void payload_type_free(struct rtp_payload_type *p);
+struct rtp_payload_type *rtp_payload_type_dup(const struct rtp_payload_type *pt);
 
 // special return value `(void *) 0x1` to signal type mismatch
-struct rtp_payload_type *codec_make_payload_type(const str *codec_str, struct call_media *media);
-void codec_init_payload_type(struct rtp_payload_type *, struct call_media *);
+struct rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type);
 
-
-// used by redis
-void __rtp_payload_type_add_recv(struct call_media *media, struct rtp_payload_type *pt, int supp_check);
-void __rtp_payload_type_add_send(struct call_media *other_media, struct rtp_payload_type *pt);
+// handle string allocation
+void codec_init_payload_type(struct rtp_payload_type *, enum media_type);
+void payload_type_clear(struct rtp_payload_type *p);
 
 
 
 #ifdef WITH_TRANSCODING
 
+void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media);
 void codec_handler_free(struct codec_handler **handler);
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *,
 		const struct stream_params *);
@@ -108,8 +122,7 @@ uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
 uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch);
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
-void codec_tracker_init(struct call_media *);
-void codec_tracker_finish(struct call_media *, struct call_media *);
+void codec_tracker_update(struct codec_store *);
 void codec_handlers_stop(GQueue *);
 
 #else
@@ -117,9 +130,9 @@ void codec_handlers_stop(GQueue *);
 INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags, const struct stream_params *sp) { }
 INLINE void codec_handler_free(struct codec_handler **handler) { }
-INLINE void codec_tracker_init(struct call_media *m) { }
-INLINE void codec_tracker_finish(struct call_media *m, struct call_media *mm) { }
+INLINE void codec_tracker_update(struct codec_store *cs) { }
 INLINE void codec_handlers_stop(GQueue *q) { }
+INLINE void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) { }
 
 #endif
 

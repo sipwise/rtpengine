@@ -20,6 +20,7 @@ void sdp_init(void);
 
 int sdp_parse(str *body, GQueue *sessions, const struct sdp_ng_flags *);
 int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *);
+void sdp_streams_free(GQueue *);
 void sdp_free(GQueue *sessions);
 int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, struct sdp_ng_flags *);
 int sdp_is_duplicate(GQueue *sessions);

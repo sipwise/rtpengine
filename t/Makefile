@@ -85,7 +85,7 @@ COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o
 include ../lib/common.Makefile
 
 .PHONY:		all-tests unit-tests daemon-tests all-daemon-tests \
-	daemon-tests-main daemon-tests-jb daemon-tests-reorder daemon-tests-dtx daemon-tests-dtx-cn
+	daemon-tests-main daemon-tests-jb daemon-tests-dtx daemon-tests-dtx-cn
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -111,7 +111,7 @@ daemon-tests:	tests-preload.so
 	$(MAKE) -C ../daemon
 	$(MAKE) all-daemon-tests
 
-all-daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-reorder daemon-tests-dtx daemon-tests-dtx-cn
+all-daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-dtx daemon-tests-dtx-cn
 
 daemon-tests-main:
 	rm -rf fake-$@-sockets
@@ -126,14 +126,6 @@ daemon-tests-jb:
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
 		   perl -I../perl auto-daemon-tests-jb.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
-
-daemon-tests-reorder:
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-reorder.pl
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 

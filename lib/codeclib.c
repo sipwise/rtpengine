@@ -1303,6 +1303,9 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 
 	encoder_close(enc);
 
+	if (ptime <= 0)
+		ptime = 20;
+
 	enc->requested_format = *requested_format;
 	enc->def = def;
 	enc->ptime = ptime / def->clockrate_mult;

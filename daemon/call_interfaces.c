@@ -303,22 +303,6 @@ static void streams_parse(const char *s, GQueue *q) {
 	pcre_multi_match(streams_re, streams_ree, s, 3, streams_parse_func, &i, q);
 }
 
-/* XXX move these somewhere else */
-static void rtp_pt_free(void *p) {
-	g_slice_free1(sizeof(struct rtp_payload_type), p);
-}
-static void sp_free(void *p) {
-	struct stream_params *s = p;
-
-	g_queue_clear_full(&s->rtp_payload_types, rtp_pt_free);
-	ice_candidates_free(&s->ice_candidates);
-	crypto_params_sdes_queue_clear(&s->sdes_params);
-	g_slice_free1(sizeof(*s), s);
-}
-static void streams_free(GQueue *q) {
-	g_queue_clear_full(q, sp_free);
-}
-
 
 
 static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
@@ -364,7 +348,7 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 
 out2:
 	rwlock_unlock_w(&c->master_lock);
-	streams_free(&s);
+	sdp_streams_free(&s);
 
 	redis_update_onekey(c, rtpe_redis_write);
 
@@ -855,16 +839,16 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			break;
 		case CSH_LOOKUP("always-transcode"):;
 			static const str str_all = STR_CONST_INIT("all");
-			call_ng_flags_str_ht(out, (str *) &str_all, &out->codec_accept);
+			call_ng_flags_codec_list(out, (str *) &str_all, &out->codec_accept);
 			break;
 		case CSH_LOOKUP("asymmetric-codecs"):
-			out->asymmetric_codecs = 1;
+			ilog(LOG_INFO, "Ignoring obsolete flag `asymmetric-codecs`");
 			break;
 		case CSH_LOOKUP("symmetric-codecs"):
-			out->symmetric_codecs = 1;
+			ilog(LOG_INFO, "Ignoring obsolete flag `symmetric-codecs`");
 			break;
 		case CSH_LOOKUP("reorder-codecs"):
-			out->reorder_codecs = 1;
+			ilog(LOG_INFO, "Ignoring obsolete flag `reorder-codecs`");
 			break;
 		case CSH_LOOKUP("single-codec"):
 			out->single_codec = 1;
@@ -895,7 +879,7 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				return;
 			if (call_ng_flags_prefix(out, s, "OSRTP-", ng_osrtp_option, NULL))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_str_ht,
+			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_codec_list,
 						&out->codec_strip))
 				return;
 			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list,
@@ -912,7 +896,7 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_codec_list,
 							&out->codec_transcode))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_str_ht,
+				if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_codec_list,
 							&out->codec_mask))
 					return;
 				if (call_ng_flags_prefix(out, s, "T38-", ng_t38_option, NULL))
@@ -923,10 +907,10 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
 						&out->codec_set))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_str_ht,
+			if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_codec_list,
 						&out->codec_accept))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_str_ht,
+			if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_codec_list,
 						&out->codec_consume))
 				return;
 #endif
@@ -1133,16 +1117,16 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	}
 
 	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
-		call_ng_flags_list(out, dict, "strip", call_ng_flags_str_ht, &out->codec_strip);
+		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_list, &out->codec_strip);
 		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
 		call_ng_flags_list(out, dict, "except", call_ng_flags_str_ht, &out->codec_except);
 #ifdef WITH_TRANSCODING
 		if (opmode == OP_OFFER) {
 			call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
-			call_ng_flags_list(out, dict, "mask", call_ng_flags_str_ht, &out->codec_mask);
+			call_ng_flags_list(out, dict, "mask", call_ng_flags_codec_list, &out->codec_mask);
 			call_ng_flags_list(out, dict, "set", call_ng_flags_str_ht_split, &out->codec_set);
-			call_ng_flags_list(out, dict, "accept", call_ng_flags_str_ht, &out->codec_accept);
-			call_ng_flags_list(out, dict, "consume", call_ng_flags_str_ht, &out->codec_consume);
+			call_ng_flags_list(out, dict, "accept", call_ng_flags_codec_list, &out->codec_accept);
+			call_ng_flags_list(out, dict, "consume", call_ng_flags_codec_list, &out->codec_consume);
 		}
 #endif
 	}
@@ -1180,22 +1164,18 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	}
 }
 static void call_ng_free_flags(struct sdp_ng_flags *flags) {
-	if (flags->codec_strip)
-		g_hash_table_destroy(flags->codec_strip);
 	if (flags->codec_except)
 		g_hash_table_destroy(flags->codec_except);
-	if (flags->codec_mask)
-		g_hash_table_destroy(flags->codec_mask);
 	if (flags->codec_set)
 		g_hash_table_destroy(flags->codec_set);
-	if (flags->codec_accept)
-		g_hash_table_destroy(flags->codec_accept);
-	if (flags->codec_consume)
-		g_hash_table_destroy(flags->codec_consume);
 	if (flags->sdes_no)
 		g_hash_table_destroy(flags->sdes_no);
 	g_queue_clear_full(&flags->codec_offer, free);
 	g_queue_clear_full(&flags->codec_transcode, free);
+	g_queue_clear_full(&flags->codec_strip, free);
+	g_queue_clear_full(&flags->codec_accept, free);
+	g_queue_clear_full(&flags->codec_consume, free);
+	g_queue_clear_full(&flags->codec_mask, free);
 }
 
 static enum load_limit_reasons call_offer_session_limit(void) {
@@ -1251,7 +1231,7 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 }
 
 static void fragment_free(struct sdp_fragment *frag) {
-	streams_free(&frag->streams);
+	sdp_streams_free(&frag->streams);
 	call_ng_free_flags(&frag->flags);
 	obj_put(frag->ngbuf);
 	g_slice_free1(sizeof(*frag), frag);
@@ -1518,7 +1498,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	errstr = NULL;
 out:
 	sdp_free(&parsed);
-	streams_free(&streams);
+	sdp_streams_free(&streams);
 	call_ng_free_flags(&flags);
 
 	return errstr;
@@ -2394,8 +2374,8 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 			media = l->data;
 			if (media->type_id != MT_AUDIO)
 				continue;
-			if (!media->dtmf_injector)
-				continue;
+//			if (!media->dtmf_injector)
+//				continue;
 			goto found;
 		}
 

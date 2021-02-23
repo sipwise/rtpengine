@@ -813,7 +813,7 @@ static void setup_media_proc(struct call_media *media) {
 
 	append_meta_chunk_null(recording, "MEDIA %u PTIME %i", media->unique_id, media->ptime);
 
-	GList *pltypes = g_hash_table_get_values(media->codecs_recv);
+	GList *pltypes = g_hash_table_get_values(media->codecs.codecs);
 
 	for (GList *l = pltypes; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;

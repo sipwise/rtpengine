@@ -18,6 +18,7 @@
 #include "socket.h"
 #include "call_interfaces.h"
 #include "rtplib.h"
+#include "codec.h"
 
 struct network_address {
 	str network_type;
@@ -64,7 +65,7 @@ struct sdp_media {
 	struct sdp_session *session;
 
 	str s;
-	str media_type;
+	str media_type_str;
 	str port;
 	str transport;
 	str formats; /* space separated */
@@ -77,6 +78,7 @@ struct sdp_media {
 	int rr, rs;
 	struct sdp_attributes attributes;
 	GQueue format_list; /* list of slice-alloc'd str objects */
+	enum media_type media_type_id;
 };
 
 struct attribute_rtcp {
@@ -374,11 +376,12 @@ static int parse_media(str *value_str, struct sdp_media *output) {
 	char *ep;
 	str *sp;
 
-	EXTRACT_TOKEN(media_type);
+	EXTRACT_TOKEN(media_type_str);
 	EXTRACT_TOKEN(port);
 	EXTRACT_TOKEN(transport);
 	output->formats = *value_str;
 
+	output->media_type_id = codec_get_type(&output->media_type_str);
 	output->port_num = strtol(output->port.s, &ep, 10);
 	if (ep == output->port.s)
 		return -1;
@@ -1365,6 +1368,8 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		s = g_hash_table_lookup(ht_fmtp, &i);
 		if (s)
 			pt->format_parameters = *s;
+		else
+			pt->format_parameters = STR_EMPTY;
 		GQueue *rq = g_hash_table_lookup(ht_rtcp_fb, GINT_TO_POINTER(i));
 		if (rq) {
 			// steal the list contents and free the list
@@ -1379,7 +1384,8 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		else if (!pt->ptime && ptrfc)
 			pt->ptime = ptrfc->ptime;
 
-		g_queue_push_tail(&sp->rtp_payload_types, pt);
+		codec_init_payload_type(pt, sp->type_id);
+		codec_store_add_raw(&sp->codecs, pt);
 	}
 
 	goto out;
@@ -1515,6 +1521,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 
 			sp = g_slice_alloc0(sizeof(*sp));
 			sp->index = ++num;
+			codec_store_init(&sp->codecs, NULL);
 
 			errstr = "No address info found for stream";
 			if (!flags->fragment
@@ -1523,7 +1530,8 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 
 			sp->consecutive_ports = media->port_count;
 			sp->protocol = transport_protocol(&media->transport);
-			sp->type = media->media_type;
+			sp->type = media->media_type_str;
+			sp->type_id = media->media_type_id;
 			memcpy(sp->direction, flags->direction, sizeof(sp->direction));
 			sp->desired_family = flags->address_family;
 			bf_set_clear(&sp->sp_flags, SP_FLAG_ASYMMETRIC, flags->asymmetric);
@@ -1655,6 +1663,20 @@ error:
 	return -1;
 }
 
+static void sp_free(void *p) {
+	struct stream_params *s = p;
+
+	codec_store_cleanup(&s->codecs);
+	ice_candidates_free(&s->ice_candidates);
+	crypto_params_sdes_queue_clear(&s->sdes_params);
+	g_slice_free1(sizeof(*s), s);
+}
+void sdp_streams_free(GQueue *q) {
+	g_queue_clear_full(q, sp_free);
+}
+
+
+
 struct sdp_chopper *sdp_chopper_new(str *input) {
 	struct sdp_chopper *c = g_slice_alloc0(sizeof(*c));
 	c->input = input;
@@ -1783,10 +1805,10 @@ static int replace_codec_list(struct sdp_chopper *chop,
 	if (proto_is_not_rtp(cm->protocol))
 		return replace_format_str(chop, media, cm);
 
-	if (cm->codecs_prefs_recv.length == 0)
+	if (cm->codecs.codec_prefs.length == 0)
 		return 0; // legacy protocol or usage error
 
-	for (GList *l = cm->codecs_prefs_recv.head; l; l = l->next) {
+	for (GList *l = cm->codecs.codec_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		chopper_append_printf(chop, " %u", pt->payload_type);
 	}
@@ -1796,7 +1818,7 @@ static int replace_codec_list(struct sdp_chopper *chop,
 }
 
 static void insert_codec_parameters(struct sdp_chopper *chop, struct call_media *cm) {
-	for (GList *l = cm->codecs_prefs_recv.head; l; l = l->next) {
+	for (GList *l = cm->codecs.codec_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		if (!pt->encoding_with_params.len)
 			continue;
@@ -1826,7 +1848,7 @@ static void insert_sdp_attributes(struct sdp_chopper *chop, struct call_media *c
 }
 
 static int replace_media_type(struct sdp_chopper *chop, struct sdp_media *media, struct call_media *cm) {
-	str *type = &media->media_type;
+	str *type = &media->media_type_str;
 
 	if (!cm->type.s)
 		return 0;
@@ -2098,7 +2120,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 
 			case ATTR_RTPMAP:
 			case ATTR_FMTP:
-				if (media->codecs_prefs_recv.length > 0)
+				if (media->codecs.codec_prefs.length > 0)
 					goto strip;
 				break;
 			case ATTR_PTIME:
@@ -2108,7 +2130,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_RTCP_FB:
 				if (attr->u.rtcp_fb.payload_type == -1)
 					break; // leave this one alone
-				if (media->codecs_prefs_recv.length > 0)
+				if (media->codecs.codec_prefs.length > 0)
 					goto strip;
 				break;
 

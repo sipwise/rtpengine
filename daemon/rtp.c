@@ -10,6 +10,7 @@
 #include "log.h"
 #include "rtplib.h"
 #include "ssrc.h"
+#include "call.h"
 
 
 
@@ -274,13 +275,13 @@ error:
 	return -1;
 }
 
-const struct rtp_payload_type *rtp_payload_type(unsigned int type, GHashTable *lookup) {
+const struct rtp_payload_type *rtp_payload_type(unsigned int type, struct codec_store *cs) {
 	const struct rtp_payload_type *rtp_pt;
 
-	if (!lookup)
+	if (!cs)
 		return rtp_get_rfc_payload_type(type);
 
-	rtp_pt = g_hash_table_lookup(lookup, GINT_TO_POINTER(type));
+	rtp_pt = g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(type));
 	if (rtp_pt)
 		return rtp_pt;
 

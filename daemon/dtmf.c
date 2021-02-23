@@ -120,7 +120,7 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 	dtmf = (void *) payload->s;
 
 	ilog(LOG_DEBUG, "DTMF event: event %u, volume %u, end %u, duration %u",
-			dtmf->event, dtmf->volume, dtmf->end, dtmf->duration);
+			dtmf->event, dtmf->volume, dtmf->end, ntohs(dtmf->duration));
 
 	int ret = dtmf->end ? 1 : 0;
 
@@ -277,14 +277,14 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 	uint64_t encoder_pts = codec_encoder_pts(csh);
 	uint64_t skip_pts = codec_decoder_unskip_pts(csh); // reset to zero to take up our new samples
 
-	media->dtmf_injector->func(media->dtmf_injector, &packet);
+	ch->dtmf_injector->func(ch->dtmf_injector, &packet);
 
 	// insert pause
 	tep.event = 0xff;
 	tep.duration = htons(pause_samples);
 	rtp.seq_num = htons(ssrc_in->parent->sequencer.seq);
 
-	media->dtmf_injector->func(media->dtmf_injector, &packet);
+	ch->dtmf_injector->func(ch->dtmf_injector, &packet);
 
 	// skip generated samples
 	uint64_t pts_offset = codec_encoder_pts(csh) - encoder_pts;
@@ -352,7 +352,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		return "No matching codec SSRC handler";
 
 	// if we don't have a DTMF payload type, we have to generate PCM
-	if (media->dtmf_injector->dtmf_payload_type == -1)
+	if (ch->dtmf_payload_type == -1 && ch->dtmf_injector)
 		return dtmf_inject_pcm(media, monologue, ps, ssrc_in, ch, csh, code, volume, duration, pause);
 
 	ilog(LOG_DEBUG, "Injecting RFC DTMF event #%i for %i ms (vol %i) from '" STR_FORMAT "' (media #%u) "

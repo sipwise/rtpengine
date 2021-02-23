@@ -375,6 +375,7 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	tg->pcm_pt.encoding_with_params = tg->pcm_pt.encoding;
 	tg->pcm_pt.clock_rate = 8000;
 	tg->pcm_pt.channels = 1;
+	tg->pcm_pt.ptime = 20;
 
 	err = "Failed to init PCM codec";
 	ensure_codec_def(&tg->pcm_pt, pcm_media);
@@ -467,7 +468,7 @@ void t38_gateway_start(struct t38_gateway *tg) {
 		return;
 
 	// only start our player only if we can send both ways
-	if (!tg->pcm_media->codecs_prefs_send.length)
+	if (!tg->pcm_media->codecs.codec_prefs.length)
 		return;
 	if (!tg->pcm_media->streams.length)
 		return;

@@ -1437,7 +1437,7 @@ static struct rtp_payload_type *rbl_cb_plts_g(str *s, GQueue *q, struct redis_li
 	if (str_token(&ptype, s, '/'))
 		return NULL;
 
-	struct rtp_payload_type *pt = codec_make_payload_type(s, med);
+	struct rtp_payload_type *pt = codec_make_payload_type(s, med->type_id);
 	if (!pt)
 		return NULL;
 
@@ -1447,12 +1447,7 @@ static struct rtp_payload_type *rbl_cb_plts_g(str *s, GQueue *q, struct redis_li
 }
 static int rbl_cb_plts_r(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	struct call_media *med = ptr;
-	__rtp_payload_type_add_recv(med, rbl_cb_plts_g(s, q, list, ptr), 0);
-	return 0;
-}
-static int rbl_cb_plts_s(str *s, GQueue *q, struct redis_list *list, void *ptr) {
-	struct call_media *med = ptr;
-	__rtp_payload_type_add_send(med, rbl_cb_plts_g(s, q, list, ptr));
+	codec_store_add_raw(&med->codecs, rbl_cb_plts_g(s, q, list, ptr));
 	return 0;
 }
 static int json_medias(struct call *c, struct redis_list *medias, JsonReader *root_reader) {
@@ -1503,7 +1498,6 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 			return -1;
 
 		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
-		json_build_list_cb(NULL, c, "payload_types_send", i, NULL, rbl_cb_plts_s, med, root_reader);
 		/* XXX dtls */
 
 		medias->ptrs[i] = med;
@@ -1622,7 +1616,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			return -1;
 
 		if (ps->media)
-			__rtp_stats_update(ps->rtp_stats, ps->media->codecs_recv);
+			__rtp_stats_update(ps->rtp_stats, &ps->media->codecs);
 
 		__init_stream(ps);
 	}
@@ -2370,19 +2364,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array (builder);
-			for (m = media->codecs_prefs_recv.head; m; m = m->next) {
-				pt = m->data;
-				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
-						pt->payload_type, STR_FMT(&pt->encoding),
-						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
-						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
-			}
-			json_builder_end_array (builder);
-
-			snprintf(tmp, sizeof(tmp), "payload_types_send-%u", media->unique_id);
-			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array (builder);
-			for (m = media->codecs_prefs_send.head; m; m = m->next) {
+			for (m = media->codecs.codec_prefs.head; m; m = m->next) {
 				pt = m->data;
 				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
 						pt->payload_type, STR_FMT(&pt->encoding),

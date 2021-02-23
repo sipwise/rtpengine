@@ -32,8 +32,10 @@ struct rtp_payload_type {
 	int bitrate;
 
 	const codec_def_t *codec_def;
+	GList *prefs_link; // link in `codec_prefs` list
 
 	unsigned int for_transcoding:1;
+	unsigned int accepted:1;
 };
 
 

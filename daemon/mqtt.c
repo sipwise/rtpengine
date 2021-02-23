@@ -162,7 +162,7 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 
 	unsigned int clockrate = 0;
 	//struct codec_handler *h = codec_handler_get(ps->media, prim_pt);
-	struct rtp_payload_type *pt = g_hash_table_lookup(media->codecs_recv, GUINT_TO_POINTER(prim_pt));
+	struct rtp_payload_type *pt = g_hash_table_lookup(media->codecs.codecs, GUINT_TO_POINTER(prim_pt));
 	if (pt) {
 		json_builder_set_member_name(json, "codec");
 		json_builder_add_string_value(json, pt->encoding.s);

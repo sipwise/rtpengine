@@ -347,7 +347,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		goto out_nl_put;
 	}
 
-	const struct rtp_payload_type *rpt = rtp_payload_type(pt, m->codecs_send);
+	const struct rtp_payload_type *rpt = rtp_payload_type(pt, &m->codecs);
 	if (!rpt) {
 		ilog(LOG_INFO, "Invalid RTP payload type %i, discarding RTCP RR", pt);
 		goto out_nl_put;

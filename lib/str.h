@@ -238,19 +238,20 @@ INLINE str *str_init_dup(str *out, const char *s) {
 	return out;
 }
 INLINE str *str_init_dup_str(str *out, const str *s) {
-	if (!s || !s->len) {
+	if (!s) {
 		*out = STR_NULL;
 		return out;
 	}
-	out->s = malloc(s->len + 1);
-	memcpy(out->s, s->s, s->len);
-	out->s[s->len] = '\0';
+	char *buf = malloc(s->len + 1);
+	memcpy(buf, s->s, s->len);
+	buf[s->len] = '\0';
 	out->len = s->len;
+	out->s = buf;
 	return out;
 }
 INLINE void str_free_dup(str *out) {
 	if (!out)
-		return ;
+		return;
 
 	if (out->s)
 		free(out->s);

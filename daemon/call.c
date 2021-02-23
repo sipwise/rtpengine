@@ -745,21 +745,11 @@ void call_free(void) {
 
 
 
-void payload_type_free(struct rtp_payload_type *p) {
-	g_queue_clear(&p->rtcp_fb);
-	g_slice_free1(sizeof(*p), p);
-}
-
 struct call_media *call_media_new(struct call *call) {
 	struct call_media *med;
 	med = uid_slice_alloc0(med, &call->medias);
 	med->call = call;
-	med->codecs_recv = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
-	med->codecs_send = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
-	med->codec_names_recv = g_hash_table_new_full(str_case_hash, str_case_equal, free,
-			(void (*)(void*)) g_queue_free);
-	med->codec_names_send = g_hash_table_new_full(str_case_hash, str_case_equal, free,
-			(void (*)(void*)) g_queue_free);
+	codec_store_init(&med->codecs, med);
 	return med;
 }
 
@@ -804,7 +794,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	med->monologue = ml;
 	med->index = sp->index;
 	call_str_cpy(ml->call, &med->type, &sp->type);
-	med->type_id = codec_get_type(&med->type);
+	med->type_id = sp->type_id;
 
 	g_queue_push_tail(&ml->medias, med);
 
@@ -1160,10 +1150,11 @@ int __init_stream(struct packet_stream *ps) {
 	return 0;
 }
 
-void __rtp_stats_update(GHashTable *dst, GHashTable *src) {
+void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
 	struct rtp_stats *rs;
 	struct rtp_payload_type *pt;
 	GList *values, *l;
+	GHashTable *src = cs->codecs;
 
 	/* "src" is a call_media->codecs table, while "dst" is a
 	 * packet_stream->rtp_stats table */
@@ -1208,7 +1199,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 			a->rtp_sink = a;
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
-		__rtp_stats_update(a->rtp_stats, A->codecs_recv);
+		__rtp_stats_update(a->rtp_stats, &A->codecs);
 
 		if (sp) {
 			__fill_stream(a, &sp->rtp_endpoint, port_off, sp, flags);
@@ -2135,6 +2126,89 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	}
 }
 
+void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
+		struct stream_params *sp, struct sdp_ng_flags *flags)
+{
+	if (!flags || flags->opmode != OP_ANSWER) {
+		// offer
+		ilogs(codec, LOG_DEBUG, "Updating receiver side codecs for offerer " STR_FORMAT " #%u",
+				STR_FMT(&other_media->monologue->tag),
+				other_media->index);
+		codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set);
+		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
+		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
+		if (!other_media->codecs.strip_full)
+			codec_store_offer(&other_media->codecs, &flags->codec_transcode, &sp->codecs);
+		codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
+		codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
+		codec_store_track(&other_media->codecs, &flags->codec_mask);
+
+		// we don't update the answerer side if the offer is not RTP but is going
+		// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
+		// intact
+		int update_answerer = 1;
+		if (proto_is_rtp(media->protocol) && !proto_is_rtp(other_media->protocol))
+			update_answerer = 0;
+
+		if (update_answerer) {
+			// update/create answer/receiver side
+			ilogs(codec, LOG_DEBUG, "Updating receiver side codecs for answerer " STR_FORMAT " #%u",
+					STR_FMT(&media->monologue->tag),
+					media->index);
+			codec_store_populate(&media->codecs, &sp->codecs, NULL);
+		}
+		codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
+		codec_store_strip(&media->codecs, &flags->codec_consume, flags->codec_except);
+		codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
+		codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
+		codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
+		codec_store_synthesise(&media->codecs, &other_media->codecs);
+
+		// update supp codecs based on actions so far
+		codec_tracker_update(&media->codecs);
+
+		// set up handlers
+		codec_handlers_update(media, other_media, flags, sp);
+
+		// updating the handlers may have removed some codecs, so run update the supp codecs again
+		codec_tracker_update(&media->codecs);
+
+		// finally set up handlers again based on final results
+		codec_handlers_update(media, other_media, flags, sp);
+	}
+	else {
+		// answer
+		ilogs(codec, LOG_DEBUG, "Updating receiver side codecs for answerer " STR_FORMAT " #%u",
+				STR_FMT(&other_media->monologue->tag),
+				other_media->index);
+		codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set);
+		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
+		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
+
+		// update callee side codec handlers again (second pass after the offer) as we
+		// might need to update some handlers, e.g. when supplemental codecs have been
+		// rejected
+		codec_handlers_update(other_media, media, NULL, NULL);
+
+		// finally set up our caller side codecs
+		ilogs(codec, LOG_DEBUG, "Codec answer for " STR_FORMAT " #%u",
+				STR_FMT(&other_media->monologue->tag),
+				other_media->index);
+		codec_store_answer(&media->codecs, &other_media->codecs, flags);
+
+		// set up handlers
+		codec_handlers_update(media, other_media, flags, sp);
+
+		// updating the handlers may have removed some codecs, so run update the supp codecs again
+		codec_tracker_update(&media->codecs);
+		codec_tracker_update(&other_media->codecs);
+
+		// finally set up handlers again based on final results
+		codec_handlers_update(media, other_media, flags, sp);
+		codec_handlers_update(other_media, media, NULL, NULL);
+	}
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		struct sdp_ng_flags *flags)
@@ -2305,10 +2379,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 				call_str_cpy(call, &media->format_str, &sp->format_str);
 		}
 
-		codec_tracker_init(media);
-		codec_rtp_payload_types(media, other_media, &sp->rtp_payload_types, flags);
-		codec_handlers_update(media, other_media, flags, sp);
-		codec_tracker_finish(media, other_media);
+		codecs_offer_answer(media, other_media, sp, flags);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
@@ -2483,7 +2554,7 @@ const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 	if (atomic64_get(&rtp_s->packets) == 0)
 		goto out;
 
-	rtp_pt = rtp_payload_type(rtp_s->payload_type, m->codecs_recv);
+	rtp_pt = rtp_payload_type(rtp_s->payload_type, &m->codecs);
 
 out:
 	g_list_free(values);
@@ -2793,12 +2864,7 @@ void call_media_free(struct call_media **mdp) {
 	crypto_params_sdes_queue_clear(&md->sdes_out);
 	g_queue_clear(&md->streams);
 	g_queue_clear(&md->endpoint_maps);
-	g_hash_table_destroy(md->codecs_recv);
-	g_hash_table_destroy(md->codecs_send);
-	g_hash_table_destroy(md->codec_names_recv);
-	g_hash_table_destroy(md->codec_names_send);
-	g_queue_clear_full(&md->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
-	g_queue_clear_full(&md->codecs_prefs_send, (GDestroyNotify) payload_type_free);
+	codec_store_cleanup(&md->codecs);
 	codec_handlers_free(md);
 	codec_handler_free(&md->t38_handler);
 	t38_gateway_put(&md->t38_gateway);
