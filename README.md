@@ -861,10 +861,17 @@ Optionally included keys are:
 		Replace the address found in the *session-level connection* (c=) line of the SDP body.
 		Corresponds to *rtpproxy* `c` flag.
 
-	- `SDP version`
+	- `SDP version` or `SDP-version`
 
 		Take control of the version field in the SDP and make sure it's increased every
 		time the SDP changes, and left unchanged if the SDP is the same.
+
+	- `username`
+
+		Take control of the origin username field in the SDP. With this
+		option in use, *rtpengine* will make sure the username field in
+		the `o=` line always remains the same in all SDPs going to a
+		particular RTP endpoint.
 
 	- `zero address`
 

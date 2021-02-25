@@ -719,6 +719,9 @@ static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy)
 		case CSH_LOOKUP("SDP-version"):
 			out->replace_sdp_version = 1;
 			break;
+		case CSH_LOOKUP("username"):
+			out->replace_username = 1;
+			break;
 		case CSH_LOOKUP("zero-address"):
 			out->replace_zero_address = 1;
 			break;

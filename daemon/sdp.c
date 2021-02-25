@@ -2455,8 +2455,21 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			goto error;
 		ps = j->data;
 
+		err = "error while processing o= line";
+		if (!monologue->sdp_username)
+			monologue->sdp_username = call_strdup_len(monologue->call, session->origin.username.s,
+					session->origin.username.len);
+		else if (flags->replace_username) {
+			if (copy_up_to(chop, &session->origin.username))
+				goto error;
+			chopper_append_c(chop, monologue->sdp_username);
+			if (skip_over(chop, &session->origin.username))
+				goto error;
+		}
+
 		// record position of o= line and init SDP version
-		copy_up_to(chop, &session->origin.version_str);
+		if (copy_up_to(chop, &session->origin.version_str))
+			goto error;
 		session->origin.version_output_pos = chop->output->len;
 		if (!monologue->sdp_version) {
 			monologue->sdp_version = session->origin.version_num;
