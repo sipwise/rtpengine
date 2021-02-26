@@ -31,10 +31,10 @@ struct codec_handler {
 	int dtmf_payload_type;
 	int cn_payload_type;
 	codec_handler_func *func;
-	int kernelize:1;
-	int transcoder:1;
-	int dtmf_scaler:1;
-	int pcm_dtmf_detect:1;
+	unsigned int kernelize:1;
+	unsigned int transcoder:1;
+	unsigned int dtmf_scaler:1;
+	unsigned int pcm_dtmf_detect:1;
 
 	struct ssrc_hash *ssrc_hash;
 	struct codec_handler *output_handler; // == self, or other PT handler

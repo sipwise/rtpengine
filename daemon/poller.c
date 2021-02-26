@@ -33,8 +33,8 @@ struct poller_item_int {
 	struct obj			obj;
 	struct poller_item		item;
 
-	int				blocked:1;
-	int				error:1;
+	unsigned int			blocked:1;
+	unsigned int			error:1;
 };
 
 struct poller {

@@ -12,17 +12,17 @@ struct t38_options {
 	int max_ifp;
 	int max_datagram;
 
-	int local_tcf:1;
-	int fill_bit_removal:1;
-	int transcoding_mmr:1;
-	int transcoding_jbig:1;
+	unsigned int local_tcf:1;
+	unsigned int fill_bit_removal:1;
+	unsigned int transcoding_mmr:1;
+	unsigned int transcoding_jbig:1;
 
-	int no_ecm:1;
-	int no_v17:1;
-	int no_v27ter:1;
-	int no_v29:1;
-	int no_v34:1;
-	int no_iaf:1;
+	unsigned int no_ecm:1;
+	unsigned int no_v17:1;
+	unsigned int no_v27ter:1;
+	unsigned int no_v29:1;
+	unsigned int no_v34:1;
+	unsigned int no_iaf:1;
 };
 
 

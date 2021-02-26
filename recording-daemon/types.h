@@ -54,7 +54,7 @@ struct stream_s {
 	unsigned long tag;
 	int fd;
 	handler_t handler;
-	int forwarding_on:1;
+	unsigned int forwarding_on:1;
 };
 typedef struct stream_s stream_t;
 
@@ -91,7 +91,7 @@ struct ssrc_s {
 	SSL *ssl;
 	struct streambuf *tls_fwd_stream;
 	struct poller tls_fwd_poller;
-	int sent_intro:1;
+	unsigned int sent_intro:1;
 };
 typedef struct ssrc_s ssrc_t;
 
@@ -134,8 +134,8 @@ struct metafile_s {
 	int payload_ptimes[128];
 	int media_ptimes[4];
 
-	int recording_on:1;
-	int forwarding_on:1;
+	unsigned int recording_on:1;
+	unsigned int forwarding_on:1;
 };
 
 

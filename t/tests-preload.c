@@ -22,8 +22,8 @@ typedef struct {
 	    wanted_protocol;
 	char unix_path[256];
 	struct sockaddr_storage sockname;
-	int open:1,
-	    bound:1;
+	unsigned int open:1,
+	             bound:1;
 } socket_t;
 
 typedef struct {

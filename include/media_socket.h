@@ -44,11 +44,11 @@ struct transport_protocol {
 	const char			*name;
 	enum transport_protocol_index	avpf_proto;
 	enum transport_protocol_index	osrtp_proto;
-	int				rtp:1; /* also set to 1 for SRTP */
-	int				srtp:1;
-	int				osrtp:1;
-	int				avpf:1;
-	int				tcp:1;
+	unsigned int			rtp:1; /* also set to 1 for SRTP */
+	unsigned int			srtp:1;
+	unsigned int			osrtp:1;
+	unsigned int			avpf:1;
+	unsigned int			tcp:1;
 };
 extern const struct transport_protocol transport_protocols[];
 

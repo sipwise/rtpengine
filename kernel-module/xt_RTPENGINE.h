@@ -112,7 +112,7 @@ struct rtpengine_target_info {
 	unsigned int			num_payload_types;
 
 	unsigned char			tos;
-	int				rtcp_mux:1,
+	unsigned int			rtcp_mux:1,
 					dtls:1,
 					stun:1,
 					rtp:1,

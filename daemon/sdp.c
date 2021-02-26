@@ -33,13 +33,13 @@ struct sdp_origin {
 	struct network_address address;
 	unsigned long long version_num;
 	size_t version_output_pos;
-	int parsed:1;
+	unsigned int parsed:1;
 };
 
 struct sdp_connection {
 	str s;
 	struct network_address address;
-	int parsed:1;
+	unsigned int parsed:1;
 };
 
 struct sdp_attributes {
@@ -97,7 +97,7 @@ struct attribute_candidate {
 	str related_port_str;
 
 	struct ice_candidate cand_parsed;
-	int parsed:1;
+	unsigned int parsed:1;
 };
 
 struct attribute_crypto {
@@ -118,9 +118,9 @@ struct attribute_crypto {
 	u_int64_t lifetime;
 	unsigned char mki[256];
 	unsigned int mki_len;
-	int unencrypted_srtcp:1,
-	    unencrypted_srtp:1,
-	    unauthenticated_srtp:1;
+	unsigned int unencrypted_srtcp:1,
+	             unencrypted_srtp:1,
+	             unauthenticated_srtp:1;
 };
 
 struct attribute_ssrc {

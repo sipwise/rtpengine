@@ -234,7 +234,7 @@ struct endpoint_map {
 	unsigned int		num_ports;
 	const struct logical_intf *logical_intf;
 	GQueue			intf_sfds; /* list of struct intf_list - contains stream_fd list */
-	int			wildcard:1;
+	unsigned int		wildcard:1;
 };
 
 struct loop_protector {
@@ -375,9 +375,9 @@ struct call_monologue {
 	unsigned long long	sdp_version;
 	GString			*last_sdp;
 
-	int			block_dtmf:1;
-	int			block_media:1;
-	int			rec_forwarding:1;
+	unsigned int		block_dtmf:1;
+	unsigned int		block_media:1;
+	unsigned int		rec_forwarding:1;
 };
 
 struct call {
@@ -414,13 +414,13 @@ struct call {
 	struct recording 	*recording;
 	str			metadata;
 
-	int			block_dtmf:1;
-	int			block_media:1;
-	int			recording_on:1;
-	int			rec_forwarding:1;
-	int			drop_traffic:1;
-	int			foreign_call:1; // created_via_redis_notify call
-	int			disable_jb:1;
+	unsigned int		block_dtmf:1;
+	unsigned int		block_media:1;
+	unsigned int		recording_on:1;
+	unsigned int		rec_forwarding:1;
+	unsigned int		drop_traffic:1;
+	unsigned int		foreign_call:1; // created_via_redis_notify call
+	unsigned int		disable_jb:1;
 };
 
 

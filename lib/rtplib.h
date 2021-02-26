@@ -33,7 +33,7 @@ struct rtp_payload_type {
 
 	const codec_def_t *codec_def;
 
-	int for_transcoding:1;
+	unsigned int for_transcoding:1;
 };
 
 

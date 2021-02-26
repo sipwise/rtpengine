@@ -103,10 +103,10 @@ union codec_options_u {
 		unsigned int mode_set; // bitfield
 		int mode_change_period;
 		int mode_change_interval;
-		int octet_aligned:1;
-		int crc:1;
-		int robust_sorting:1;
-		int mode_change_neighbor:1;
+		unsigned int octet_aligned:1;
+		unsigned int crc:1;
+		unsigned int robust_sorting:1;
+		unsigned int mode_change_neighbor:1;
 
 		const unsigned int *bits_per_frame;
 		const unsigned int *bitrates;
@@ -142,12 +142,12 @@ struct codec_def_s {
 	// filled in by codeclib_init()
 	str rtpname_str;
 	int rfc_payload_type;
-	int support_encoding:1,
-	    support_decoding:1;
+	unsigned int support_encoding:1,
+	             support_decoding:1;
 
 	// flags
-	int supplemental:1,
-	    dtmf:1; // special case
+	unsigned int supplemental:1,
+	             dtmf:1; // special case
 
 	const codec_type_t *codec_type;
 

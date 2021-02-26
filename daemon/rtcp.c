@@ -249,7 +249,7 @@ struct rtcp_process_ctx {
 	int json_init_len;
 
 	// verdict
-	int discard:1;
+	unsigned int discard:1;
 };
 // all available methods
 struct rtcp_handler {

@@ -130,15 +130,15 @@ struct codec_ssrc_handler {
 
 	uint64_t skip_pts;
 
-	int rtp_mark:1;
+	unsigned int rtp_mark:1;
 };
 struct transcode_packet {
 	seq_packet_t p; // must be first
 	unsigned long ts;
 	str *payload;
 	struct codec_handler *handler;
-	int marker:1,
-	    ignore_seq:1;
+	unsigned int marker:1,
+	             ignore_seq:1;
 	int (*func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
 	int (*dup_func)(struct codec_ssrc_handler *, struct transcode_packet *, struct media_packet *);
 	struct rtp_header rtp;

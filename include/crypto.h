@@ -63,9 +63,9 @@ struct crypto_suite {
 };
 
 struct crypto_session_params {
-	int unencrypted_srtcp:1,
-	    unencrypted_srtp:1,
-	    unauthenticated_srtp:1;
+	unsigned int unencrypted_srtcp:1,
+	             unencrypted_srtp:1,
+	             unauthenticated_srtp:1;
 };
 
 struct crypto_params {
@@ -95,7 +95,7 @@ struct crypto_context {
 
 	void *session_key_ctx[2];
 
-	int have_session_key:1;
+	unsigned int have_session_key:1;
 };
 
 

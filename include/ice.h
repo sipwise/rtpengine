@@ -99,7 +99,7 @@ struct ice_candidate_pair {
 	unsigned int		retransmits;
 	struct ice_agent	*agent;
 	u_int64_t		pair_priority;
-	int			was_controlling:1,
+	unsigned int		was_controlling:1,
 				was_nominated:1;
 };
 

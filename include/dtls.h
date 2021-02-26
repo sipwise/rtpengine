@@ -53,9 +53,9 @@ struct dtls_connection {
 	SSL *ssl;
 	BIO *r_bio, *w_bio;
 	void *ptr;
-	int init:1,
-	    active:1,
-	    connected:1;
+	unsigned int init:1,
+	             active:1,
+	             connected:1;
 };
 
 

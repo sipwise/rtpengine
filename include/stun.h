@@ -25,9 +25,9 @@ struct stun_attrs {
 	u_int64_t tiebreaker;
 	endpoint_t mapped;
 	unsigned int error_code;
-	int use:1,
-	    controlled:1,
-	    controlling:1;
+	unsigned int use:1,
+	             controlled:1,
+	             controlling:1;
 };
 
 
