@@ -122,7 +122,7 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 	ilog(LOG_DEBUG, "DTMF event: event %u, volume %u, end %u, duration %u",
 			dtmf->event, dtmf->volume, dtmf->end, dtmf->duration);
 
-	int ret = 0;
+	int ret = dtmf->end ? 1 : 0;
 
 	GString *buf = NULL;
 
@@ -140,8 +140,6 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 		if (rtpe_config.dtmf_via_ng)
 			dtmf_bencode_and_notify(mp, dtmf, clockrate);
 		g_string_free(buf, TRUE);
-
-		ret = 1; // END event
 	}
 
 	return ret;

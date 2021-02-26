@@ -279,6 +279,14 @@ given address as UDP packets.
 If B<--listen-tcp-ng> is enabled, this will send DTMF events to all
 connected cliens encoded in bencode format.
 
+=item B<--dtmf-no-suppress>
+
+Some RTP clients continue to send audio RTP packets during a DTMF event,
+resulting in both audio packets and DTMF packets appearing simultaneously. By
+default, when transcoding, B<rtpengine> suppresses audio packets during a DTMF
+event and will only send DTMF packets until the DTMF event is over. Setting
+this option disables this feature.
+
 =item B<--log-srtp-keys>
 
 Write SRTP keys to error log instead of debug log.

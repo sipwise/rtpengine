@@ -123,6 +123,8 @@ struct codec_ssrc_handler {
 	// silence detection
 	GQueue silence_events;
 
+	// DTMF audio suppression
+	unsigned long dtmf_start_ts;
 	// DTMF send delay
 	unsigned long dtmf_first_duration;
 
@@ -2069,6 +2071,12 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct transcode_packet *p
 		if (ret == 1) {
 			// END event
 			ch->ts_in = packet->ts;
+			if (decoder_ch)
+				decoder_ch->dtmf_start_ts = 0;
+		}
+		else {
+			if (decoder_ch)
+				decoder_ch->dtmf_start_ts = packet->ts ? packet->ts : 1;
 		}
 	}
 
@@ -2962,9 +2970,31 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 {
 	int ret = 0;
 
+	struct codec_ssrc_handler *decoder_ch = ch;
+
+	if (ch->handler && ch->handler->source_pt.codec_def && ch->handler->source_pt.codec_def->supplemental) {
+		struct codec_handler *decoder_handler = __decoder_handler(ch->handler, mp);
+		decoder_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc,
+				decoder_handler->ssrc_hash);
+	}
+
 	if (!ch->first_ts)
 		ch->first_ts = packet->ts;
 	ch->last_ts = packet->ts;
+
+	if (decoder_ch->dtmf_start_ts && !rtpe_config.dtmf_no_suppress) {
+		if ((packet->ts > decoder_ch->dtmf_start_ts && packet->ts - decoder_ch->dtmf_start_ts > 80000) ||
+				(packet->ts < decoder_ch->dtmf_start_ts && decoder_ch->dtmf_start_ts - packet->ts > 80000)) {
+			ilogs(transcoding, LOG_DEBUG, "Resetting decoder DTMF state due to TS discrepancy");
+			decoder_ch->dtmf_start_ts = 0;
+		}
+		else {
+			ilogs(transcoding, LOG_DEBUG, "Decoder is in DTMF state, discaring codec packet");
+			if (mp->ssrc_out)
+				mp->ssrc_out->parent->seq_diff--;
+			goto out;
+		}
+	}
 
 	if (__buffer_dtx(ch->dtx_buffer, ch, packet, mp, __rtp_decode))
 		ret = 1; // consumed
@@ -2974,6 +3004,9 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 		ret = ret ? -1 : 0;
 	}
 
+out:
+	if (decoder_ch != ch)
+		obj_put(&decoder_ch->h);
 	return ret;
 }
 
