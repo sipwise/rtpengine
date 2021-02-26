@@ -182,6 +182,8 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 	if (!st->sink->selected_sfd)
 		goto out;
 
+	log_info_stream_fd(st->sink->selected_sfd);
+
 	struct rtp_header *rh = cp->rtp;
 	if (rh)
 		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
