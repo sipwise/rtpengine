@@ -123,6 +123,9 @@ struct codec_ssrc_handler {
 	// silence detection
 	GQueue silence_events;
 
+	// DTMF send delay
+	unsigned long dtmf_first_duration;
+
 	uint64_t skip_pts;
 
 	int rtp_mark:1;
@@ -1841,7 +1844,8 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		char *buf, // malloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
-		int marker, int seq, int seq_inc, int payload_type)
+		int marker, int seq, int seq_inc, int payload_type,
+		unsigned long ts_delay)
 {
 	struct rtp_header *rh = (void *) buf;
 	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
@@ -1877,6 +1881,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		// scale first_send from first_send_ts to ts
 		p->ttq_entry.when = ch->first_send;
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) ch->first_send_ts; // allow for wrap-around
+		ts_diff += ts_delay;
 		long long ts_diff_us =
 			(unsigned long long) ts_diff * 1000000 / ch->encoder_format.clockrate
 			* ch->handler->dest_pt.codec_def->clockrate_mult;
@@ -1941,6 +1946,7 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 		struct media_packet *mp)
 {
 	int payload_type = -1; // take from handler's output config
+	unsigned long ts_delay = 0;
 
 	if (ch->handler->dtmf_scaler) {
 		struct codec_ssrc_handler *output_ch = NULL;
@@ -1956,10 +1962,11 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 			goto skip;
 
 		// init some vars
-		if (!ch->first_ts)
-			ch->first_ts = output_ch->first_ts;
-		if (!ch->first_send_ts)
-			ch->first_send_ts = output_ch->first_send_ts;
+		ch->first_ts = output_ch->first_ts;
+		ch->first_send_ts = output_ch->first_send_ts;
+		ch->output_skew = output_ch->output_skew;
+		ch->first_send = output_ch->first_send;
+
 
 		// the correct output TS is the encoder's FIFO PTS at the start of the DTMF
 		// event. however, we must shift the FIFO PTS forward as the DTMF event goes on
@@ -1989,6 +1996,12 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 					ch->handler->dest_pt.clock_rate, ch->handler->source_pt.clock_rate);
 			dtmf->duration = htons(duration);
 
+			// we can't directly use the RTP TS to schedule the send, as we have to adjust it
+			// by the duration
+			if (ch->dtmf_first_duration == 0 || duration < ch->dtmf_first_duration)
+				ch->dtmf_first_duration = duration;
+			ts_delay = duration - ch->dtmf_first_duration;
+
 			// shift forward our output RTP TS
 			output_ch->encoder->next_pts = (ts + duration) * output_ch->encoder->def->clockrate_mult;
 			output_ch->encoder->packet_pts += (duration - ch->last_dtmf_event_ts) * output_ch->encoder->def->clockrate_mult;
@@ -2006,10 +2019,10 @@ skip:
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->ignore_seq) // inject original seq
 		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
-				packet->marker, packet->p.seq, -1, payload_type);
+				packet->marker, packet->p.seq, -1, payload_type, ts_delay);
 	else // use our own sequencing
 		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
-				packet->marker, -1, 0, payload_type);
+				packet->marker, -1, 0, payload_type, ts_delay);
 
 	return 0;
 }
@@ -2809,7 +2822,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 			__output_rtp(mp, ch, ch->handler, send_buf, inout.len, ch->first_ts
 					+ enc->avpkt.pts / enc->def->clockrate_mult,
 					ch->rtp_mark ? 1 : 0, -1, 0,
-					payload_type);
+					payload_type, 0);
 			mp->ssrc_out->parent->seq_diff++;
 			//mp->iter_out++;
 			ch->rtp_mark = 0;
