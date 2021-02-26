@@ -315,8 +315,6 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		pt = ssrc_in->tracker.most[i];
 		if (pt == 255)
 			continue;
-		if (pt < 0)
-			break;
 
 		ch = codec_handler_get(media, pt);
 		if (!ch)
