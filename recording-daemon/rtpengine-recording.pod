@@ -183,6 +183,10 @@ was created) and are the same as the format sequences supported by L<date(1)>
 or L<strftime(3)> (year, month, day, hours, minutes, and seconds,
 respectively).
 
+=item B<%u>
+
+Microseconds, expanded to 6 digits (B<000000> through B<999999>).
+
 =item B<%>I<INT>
 
 References a prefix from the call ID of the given length. If this format

@@ -84,10 +84,12 @@ static void create_parent_dirs(char *dir) {
 
 output_t *output_new(const char *path, const char *call, const char *type) {
 	// construct output file name
-	time_t now = time(NULL);
+	struct timeval now;
 	struct tm tm;
-	localtime_r(&now, &tm);
 	const char *ax = call;
+
+	gettimeofday(&now, NULL);
+	localtime_r(&now.tv_sec, &tm);
 
 	GString *f = g_string_new("");
 	for (const char *p = output_pattern; *p; p++) {
@@ -126,6 +128,9 @@ output_t *output_new(const char *path, const char *call, const char *type) {
 				break;
 			case 'S':
 				g_string_append_printf(f, "%02i", tm.tm_sec);
+				break;
+			case 'u':
+				g_string_append_printf(f, "%06li", (long) now.tv_usec);
 				break;
 			case '0':
 			case '1':
