@@ -53,6 +53,7 @@
 
 
 struct poller *rtpe_poller;
+struct poller_map *rtpe_poller_map;
 struct rtpengine_config initial_rtpe_config;
 
 static struct control_tcp *rtpe_tcp;
@@ -930,6 +931,10 @@ no_kernel:
 	if (!rtpe_poller)
 		die("poller creation failed");
 
+	rtpe_poller_map = poller_map_new();
+	if (!rtpe_poller_map)
+		die("poller map creation failed");
+
 	dtls_timer(rtpe_poller);
 
 	if (call_init())
@@ -1076,8 +1081,9 @@ int main(int argc, char **argv) {
 	service_notify("READY=1\n");
 
 	for (idx = 0; idx < rtpe_config.num_threads; ++idx)
-		thread_create_detach_prio(poller_loop, rtpe_poller, rtpe_config.scheduling,
-				rtpe_config.priority, "poller");
+		thread_create_detach_prio(poller_loop, rtpe_poller_map, rtpe_config.scheduling, rtpe_config.priority, "poller");
+
+	thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
 
 	if (rtpe_config.media_num_threads < 0)
 		rtpe_config.media_num_threads = rtpe_config.num_threads;
@@ -1135,7 +1141,6 @@ int main(int argc, char **argv) {
 	codeclib_free();
 	statistics_free();
 	call_interfaces_free();
-	interfaces_free();
 	ice_free();
 	dtls_cert_free();
 	control_ng_cleanup();
@@ -1157,6 +1162,8 @@ int main(int argc, char **argv) {
 	obj_release(rtpe_tcp);
 	obj_release(rtpe_control_ng);
 	poller_free(&rtpe_poller);
+	poller_map_free(&rtpe_poller_map);
+	interfaces_free();
 
 	return 0;
 }

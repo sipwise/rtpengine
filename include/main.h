@@ -120,8 +120,10 @@ struct rtpengine_config {
 
 
 struct poller;
-extern struct poller *rtpe_poller; // main global poller instance XXX convert to struct instead of pointer?
+struct poller_map;
 
+extern struct poller *rtpe_poller; // main global poller instance XXX convert to struct instead of pointer?
+extern struct poller_map *rtpe_poller_map;
 
 extern struct rtpengine_config rtpe_config;
 extern struct rtpengine_config initial_rtpe_config;
