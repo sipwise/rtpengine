@@ -1,3 +1,21 @@
+ngcp-rtpengine (9.3.1.1+0~mr9.3.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c708138] TT#112250 don't change ports when endpoint is talking ICE
+  * [d174374] TT#14008 fix potential failed assertion
+  * [9a1f386] TT#111357 don't allow libav* to create its own threads
+  * [93ca17d] TT#111357 refactor sysconf() call into shared code
+  * [96c66f7] TT#111357 use a better default for recording threads
+  * [8db2c29] TT#14008 fix possible use-after-free on shutdown
+  * [f1d7c9c] TT#111357 switch to dynamically allocated strings for file names
+  * [ec1e9ac] TT#108551 document AEAD support in README
+  * [6ff9a34] TT#14008 convert rtcp-fb handling to list
+
+  [ Stefan Mititelu ]
+  * [3954f32] Get time before deciding to re-establish redis connection
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 02 Mar 2021 12:08:58 +0100
+
 ngcp-rtpengine (9.3.1.0+0~mr9.3.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
