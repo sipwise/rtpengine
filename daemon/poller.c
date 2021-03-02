@@ -620,7 +620,7 @@ void poller_loop(void *d) {
 	while (!rtpe_shutdown) {
 		int ret = poller_poll(p, 100);
 		if (ret < 0)
-			sleep_ms(10);
+			sleep_ms(20);
 	}
 }
 
