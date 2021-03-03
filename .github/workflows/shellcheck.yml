@@ -1,4 +1,4 @@
-name: Code Testing
+name: Shellcheck
 
 on:
   push:
@@ -7,9 +7,8 @@ on:
     - cron: '0 8 * * *'
 
 jobs:
-  shellcheck:
+  test:
     runs-on: ubuntu-latest
-    name: Run shellcheck
 
     steps:
     - name: Checkout source
