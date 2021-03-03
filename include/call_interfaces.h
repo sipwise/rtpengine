@@ -58,11 +58,12 @@ struct sdp_ng_flags {
 		ICE_OPTIONAL,
 	} ice_option:3;
 	enum {
-		ICE_LITE_OFF = 0,
+		ICE_LITE_DEFAULT = 0,
+		ICE_LITE_OFF,
 		ICE_LITE_FWD,
 		ICE_LITE_BKW,
 		ICE_LITE_BOTH,
-	} ice_lite_option:2;
+	} ice_lite_option:3;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,
