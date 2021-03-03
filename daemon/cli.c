@@ -354,35 +354,15 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			sockaddr_print_buf(&rtpe_config.cli_listen_ep.address), rtpe_config.cli_listen_ep.port);
 }
 
-static void int_diff_print_sz(long long start_param, void* current_param, size_t sz, char* param, struct cli_writer *cw, char* option) {
-	long long cur_param;
-
-	if (sz == sizeof(int))
-		cur_param = *(int *) current_param;
-	else if (sz == sizeof(long))
-		cur_param = *(long *) current_param;
-	else if (sz == sizeof(long long))
-		cur_param = *(long long *) current_param;
-	else
-		abort();
-
-	if(start_param != cur_param) {
-		if (strcmp(option, "diff") == 0) {
-			cw->cw_printf(cw, "%s: %lld => %lld\n", param, start_param, cur_param);
-		} else if(strcmp(option, "revert") == 0) {
-			if (sz == sizeof(int))
-				*(int *) current_param = start_param;
-			else if (sz == sizeof(long))
-				*(long *) current_param = start_param;
-			else if (sz == sizeof(long long))
-				*(long long *) current_param = start_param;
-		}
-	}
-}
-
 #define int_diff_print(struct_member, option_string) \
-	int_diff_print_sz((long long) initial_rtpe_config.struct_member, (void *) &rtpe_config.struct_member, sizeof(rtpe_config.struct_member), \
-			option_string, cw, option)
+	if (initial_rtpe_config.struct_member != rtpe_config.struct_member) { \
+		if (strcmp(option, "diff") == 0) \
+			cw->cw_printf(cw, "%s: %lld => %lld\n", option_string, \
+			              (long long)initial_rtpe_config.struct_member, \
+			              (long long)rtpe_config.struct_member); \
+		else if (strcmp(option, "revert") == 0) \
+			rtpe_config.struct_member = initial_rtpe_config.struct_member; \
+	}
 
 static void cli_incoming_diff_or_revert(struct cli_writer *cw, char* option) {
 #define ll(system, descr) \
