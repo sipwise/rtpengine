@@ -565,7 +565,7 @@ int stun(const str *b, struct stream_fd *sfd, const endpoint_t *sin) {
 
 	msglen = ntohs(req->msg_len);
 	err = "message-length mismatch";
-	if (msglen + 20 > b->len || msglen < 0)
+	if (msglen + 20 > b->len)
 		goto ignore;
 
 	class = method = ntohs(req->msg_type);
