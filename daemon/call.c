@@ -1310,24 +1310,28 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 		}
 	}
 
-	switch (flags->ice_lite_option) {
-		case ICE_LITE_OFF:
-			MEDIA_CLEAR(this, ICE_LITE_SELF);
-			MEDIA_CLEAR(other, ICE_LITE_SELF);
-			break;
-		case ICE_LITE_FWD:
-			MEDIA_SET(this, ICE_LITE_SELF);
-			MEDIA_CLEAR(other, ICE_LITE_SELF);
-			break;
-		case ICE_LITE_BKW:
-			MEDIA_CLEAR(this, ICE_LITE_SELF);
-			MEDIA_SET(other, ICE_LITE_SELF);
-			break;
-		case ICE_LITE_BOTH:
-			MEDIA_SET(this, ICE_LITE_SELF);
-			MEDIA_SET(other, ICE_LITE_SELF);
-			break;
-	};
+	if (flags->opmode == OP_OFFER) {
+		switch (flags->ice_lite_option) {
+			case ICE_LITE_OFF:
+				MEDIA_CLEAR(this, ICE_LITE_SELF);
+				MEDIA_CLEAR(other, ICE_LITE_SELF);
+				break;
+			case ICE_LITE_FWD:
+				MEDIA_SET(this, ICE_LITE_SELF);
+				MEDIA_CLEAR(other, ICE_LITE_SELF);
+				break;
+			case ICE_LITE_BKW:
+				MEDIA_CLEAR(this, ICE_LITE_SELF);
+				MEDIA_SET(other, ICE_LITE_SELF);
+				break;
+			case ICE_LITE_BOTH:
+				MEDIA_SET(this, ICE_LITE_SELF);
+				MEDIA_SET(other, ICE_LITE_SELF);
+				break;
+			default:
+				break;
+		}
+	}
 
 	/* determine roles (even if we don't actually do ICE) */
 	/* this = receiver, other = sender */
