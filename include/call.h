@@ -375,6 +375,7 @@ struct call_monologue {
 	unsigned long long	sdp_version;
 	GString			*last_sdp;
 	char			*sdp_username;
+	char			*sdp_session_name;
 
 	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;

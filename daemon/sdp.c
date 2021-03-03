@@ -53,6 +53,7 @@ struct sdp_attributes {
 struct sdp_session {
 	str s;
 	struct sdp_origin origin;
+	str session_name;
 	struct sdp_connection connection;
 	int rr, rs;
 	struct sdp_attributes attributes;
@@ -1204,6 +1205,12 @@ new_session:
 				break;
 
 			case 's':
+				errstr = "s= line found within media section";
+				if (media)
+					goto error;
+				session->session_name = value_str;
+				break;
+
 			case 'i':
 			case 'u':
 			case 'e':
@@ -2475,6 +2482,18 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			monologue->sdp_version = session->origin.version_num;
 			if (monologue->sdp_version == 0 || monologue->sdp_version == ULLONG_MAX)
 				monologue->sdp_version = ssl_random();
+		}
+
+		err = "error while processing s= line";
+		if (!monologue->sdp_session_name)
+			monologue->sdp_session_name = call_strdup_len(monologue->call, session->session_name.s,
+					session->session_name.len);
+		else if (flags->replace_sess_name) {
+			if (copy_up_to(chop, &session->session_name))
+				goto error;
+			chopper_append_c(chop, monologue->sdp_session_name);
+			if (skip_over(chop, &session->session_name))
+				goto error;
 		}
 
 		sess_conn = 0;

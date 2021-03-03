@@ -873,6 +873,10 @@ Optionally included keys are:
 		the `o=` line always remains the same in all SDPs going to a
 		particular RTP endpoint.
 
+	- `session name` or `session-name`
+
+		Same as `username` but for the entire contents of the `s=` line.
+
 	- `zero address`
 
 		Using a zero endpoint address is an obsolete way to signal a
