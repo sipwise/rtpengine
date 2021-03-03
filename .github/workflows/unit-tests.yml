@@ -1,0 +1,27 @@
+name: Unit Tests
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 8 * * *'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Run unit tests
+
+    env:
+      FLAGS: "-fsanitize=address -fsanitize=leak -fsanitize=undefined"
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Get build dependencies
+        run: |
+          sudo apt-get build-dep -qq -y .
+
+      - name: Run unit tests with sanitizers enabled
+        run: |
+          make CFLAGS="$FLAGS" LDFLAGS="$FLAGS" check
