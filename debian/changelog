@@ -1,3 +1,10 @@
+ngcp-rtpengine (9.3.1.2+0~mr9.3.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7222acc] TT#101201 fix ICE-lite mode switch
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 03 Mar 2021 15:47:03 +0100
+
 ngcp-rtpengine (9.3.1.1+0~mr9.3.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
