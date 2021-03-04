@@ -11,7 +11,6 @@
 #include <errno.h>
 #include <sys/epoll.h>
 #include <glib.h>
-#include <sys/syscall.h>
 #include <sys/time.h>
 #include <main.h>
 #include <redis.h>
@@ -67,18 +66,17 @@ struct poller_map *poller_map_new(void) {
 	return p;
 }
 
-long poller_map_add(struct poller_map *map) {
-	long tid = -1;
+void poller_map_add(struct poller_map *map) {
+	pthread_t tid = -1;
 	struct poller *p;
 	if (!map)
-		return tid;
-	tid = syscall(SYS_gettid);
+		return;
+	tid = pthread_self();
 
 	mutex_lock(&map->lock);
 	p = poller_new();
 	g_hash_table_insert(map->table, (gpointer)tid, p);
 	mutex_unlock(&map->lock);
-	return tid;
 }
 
 struct poller *poller_map_get(struct poller_map *map) {
@@ -86,7 +84,7 @@ struct poller *poller_map_get(struct poller_map *map) {
 		return NULL;
 
 	struct poller *p = NULL;
-	long tid = syscall(SYS_gettid);
+	pthread_t tid = pthread_self();
 	mutex_lock(&map->lock);
 	p = g_hash_table_lookup(map->table, (gpointer)tid);
 	if (!p) {
