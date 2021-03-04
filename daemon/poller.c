@@ -91,9 +91,7 @@ struct poller *poller_map_get(struct poller_map *map) {
 	p = g_hash_table_lookup(map->table, (gpointer)tid);
 	if (!p) {
 		gpointer *arr = g_hash_table_get_keys_as_array(map->table, NULL);
-		GRand *rnd = g_rand_new();
-		p = g_hash_table_lookup(map->table, arr[g_rand_int_range(rnd, 0, g_hash_table_size(map->table))]);
-		g_rand_free(rnd);
+		p = g_hash_table_lookup(map->table, arr[ssl_random() % g_hash_table_size(map->table)]);
 	}
 	mutex_unlock(&map->lock);
 	return p;
