@@ -4731,6 +4731,59 @@ a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
 SDP
 
+answer('fingerprint selection', {
+		flags => [],
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 9000 RTP/SAVP 0
+a=setup:actpass
+a=fingerprint:SHA-1 f1:d2:d2:f9:24:e9:86:ac:86:fd:f7:b3:6c:94:bc:df:32:be:ec:15
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('fingerprint selection', {
+		flags => [],
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 101 8
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+SDP
+
+
 new_call;
 
 offer('fingerprint selection', {
@@ -4739,6 +4792,58 @@ offer('fingerprint selection', {
 		'transport-protocol' => 'RTP/SAVP',
 		SDES => ['off'],
 		'DTLS-fingerprint' => 'SHA-1',
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 8000 RTP/AVP 0 101 8
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0 101 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=setup:actpass
+a=fingerprint:sha-1 FINGERPRINT
+SDP
+
+answer('fingerprint selection', {
+		flags => [],
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 89.225.243.254
+t=0 0
+m=audio 9000 RTP/SAVP 0
+a=setup:actpass
+a=fingerprint:SHA-256 DA:89:F7:04:38:D9:04:E1:9E:25:1A:43:87:8D:F5:BD:6E:4C:BB:88:12:A6:D5:FA:B1:4A:34:BC:32:C0:05:FE
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 89.225.243.254
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('fingerprint selection', {
+		flags => [],
 	}, <<SDP);
 v=0
 o=Z 58440449 0 IN IP4 89.225.243.254
