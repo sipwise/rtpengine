@@ -598,18 +598,6 @@ now:
 	}
 }
 
-static void sleep_ms(int ms) {
-	struct timespec deadline;
-        long next_tick;
-        clock_gettime(CLOCK_MONOTONIC, &deadline);
-
-        next_tick = (deadline.tv_sec * 1000000000L + deadline.tv_nsec) + ms * 1000000;
-        deadline.tv_sec = next_tick / 1000000000L;
-        deadline.tv_nsec = next_tick % 1000000000L;
-
-        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &deadline, NULL);
-}
-
 void poller_loop(void *d) {
 	struct poller_map *map = d;
 	poller_map_add(map);
@@ -618,7 +606,7 @@ void poller_loop(void *d) {
 	while (!rtpe_shutdown) {
 		int ret = poller_poll(p, 100);
 		if (ret < 0)
-			sleep_ms(20);
+			usleep(20 * 1000);
 	}
 }
 
