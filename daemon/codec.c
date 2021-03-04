@@ -2788,7 +2788,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 		// and request a packet
 		if (in_pkt)
 			ilogs(transcoding, LOG_DEBUG, "Adding %i bytes to packetizer", in_pkt->size);
-		int ret = ch->handler->dest_pt.codec_def->packetizer(in_pkt,
+		int ret = enc->def->packetizer(in_pkt,
 				ch->sample_buffer, &inout, enc);
 
 		if (G_UNLIKELY(ret == -1 || enc->avpkt.pts == AV_NOPTS_VALUE)) {
