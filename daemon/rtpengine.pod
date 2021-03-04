@@ -848,6 +848,14 @@ information.
 Always sets the option B<reorder-codecs> in answer messages as described in the
 F<README.md>.
 
+=item B<--poller-per-thread>
+
+Enable 'poller per thread' functionality: for every worker thread (see the
+--num-threads option) a poller will be created. With this option on, it is
+guaranteed that only a single thread will ever read from a particular socket,
+thus maintaining the order of the packets. Might help when having issues with
+DTMF packets (RFC 2833).
+
 =back
 
 =head1 INTERFACES

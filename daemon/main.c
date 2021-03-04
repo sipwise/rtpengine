@@ -53,6 +53,7 @@
 
 
 struct poller *rtpe_poller;
+struct poller_map *rtpe_poller_map;
 struct rtpengine_config initial_rtpe_config;
 
 static struct control_tcp *rtpe_tcp;
@@ -478,6 +479,7 @@ static void options(int *argc, char ***argv) {
 		{ "https-key", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.https_key,	"Private key for HTTPS and WSS","FILE"},
 		{ "http-threads", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.http_threads,"Number of worker threads for HTTP and WS","INT"},
 		{ "software-id", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.software_id,"Identification string of this software presented to external systems","STRING"},
+		{ "poller-per-thread", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.poller_per_thread,	"Use poller per thread",	NULL },
 #ifdef WITH_TRANSCODING
 		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_delay,	"Delay in milliseconds to trigger DTX handling","INT"},
 		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.max_dtx,	"Maximum duration of DTX handling",	"INT"},
@@ -930,6 +932,10 @@ no_kernel:
 	if (!rtpe_poller)
 		die("poller creation failed");
 
+	rtpe_poller_map = poller_map_new();
+	if (!rtpe_poller_map)
+		die("poller map creation failed");
+
 	dtls_timer(rtpe_poller);
 
 	if (call_init())
@@ -1075,9 +1081,15 @@ int main(int argc, char **argv) {
 
 	service_notify("READY=1\n");
 
-	for (idx = 0; idx < rtpe_config.num_threads; ++idx)
-		thread_create_detach_prio(poller_loop, rtpe_poller, rtpe_config.scheduling,
-				rtpe_config.priority, "poller");
+	for (idx = 0; idx < rtpe_config.num_threads; ++idx) {
+		if (!rtpe_config.poller_per_thread)
+			thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
+		else
+			thread_create_detach_prio(poller_loop, rtpe_poller_map, rtpe_config.scheduling, rtpe_config.priority, "poller");
+	}
+
+	if (!rtpe_config.poller_per_thread)
+		thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
 
 	if (rtpe_config.media_num_threads < 0)
 		rtpe_config.media_num_threads = rtpe_config.num_threads;
@@ -1135,7 +1147,6 @@ int main(int argc, char **argv) {
 	codeclib_free();
 	statistics_free();
 	call_interfaces_free();
-	interfaces_free();
 	ice_free();
 	dtls_cert_free();
 	control_ng_cleanup();
@@ -1157,6 +1168,8 @@ int main(int argc, char **argv) {
 	obj_release(rtpe_tcp);
 	obj_release(rtpe_control_ng);
 	poller_free(&rtpe_poller);
+	poller_map_free(&rtpe_poller_map);
+	interfaces_free();
 
 	return 0;
 }

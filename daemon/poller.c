@@ -50,9 +50,69 @@ struct poller {
 	GSList				*timers_del;
 };
 
+struct poller_map {
+	mutex_t				lock;
+	GHashTable			*table;
+};
 
+struct poller_map *poller_map_new(void) {
+	struct poller_map *p;
 
+	p = malloc(sizeof(*p));
+	memset(p, 0, sizeof(*p));
+	mutex_init(&p->lock);
+	p->table = g_hash_table_new(g_direct_hash, g_direct_equal);
 
+	return p;
+}
+
+void poller_map_add(struct poller_map *map) {
+	pthread_t tid = -1;
+	struct poller *p;
+	if (!map)
+		return;
+	tid = pthread_self();
+
+	mutex_lock(&map->lock);
+	p = poller_new();
+	g_hash_table_insert(map->table, (gpointer)tid, p);
+	mutex_unlock(&map->lock);
+}
+
+struct poller *poller_map_get(struct poller_map *map) {
+	if (!map)
+		return NULL;
+
+	struct poller *p = NULL;
+	pthread_t tid = pthread_self();
+	mutex_lock(&map->lock);
+	p = g_hash_table_lookup(map->table, (gpointer)tid);
+	if (!p) {
+		gpointer *arr = g_hash_table_get_keys_as_array(map->table, NULL);
+		p = g_hash_table_lookup(map->table, arr[ssl_random() % g_hash_table_size(map->table)]);
+		g_free(arr);
+	}
+	mutex_unlock(&map->lock);
+	return p;
+}
+
+static void poller_map_free_poller(gpointer k, gpointer v, gpointer d) {
+	struct poller *p = (struct poller *)v;
+	poller_free(&p);
+}
+
+void poller_map_free(struct poller_map **map) {
+	struct poller_map *m = *map;
+	if (!m)
+		return;
+	mutex_lock(&m->lock);
+	g_hash_table_foreach(m->table, poller_map_free_poller, NULL);
+	g_hash_table_destroy(m->table);
+	mutex_unlock(&m->lock);
+	mutex_destroy(&m->lock);
+	free(m);
+	*map = NULL;
+}
 
 struct poller *poller_new(void) {
 	struct poller *p;
@@ -538,8 +598,19 @@ now:
 }
 
 void poller_loop(void *d) {
+	struct poller_map *map = d;
+	poller_map_add(map);
+	struct poller *p = poller_map_get(map);
+
+	poller_loop2(p);
+}
+
+void poller_loop2(void *d) {
 	struct poller *p = d;
 
-	while (!rtpe_shutdown)
-		poller_poll(p, 100);
+	while (!rtpe_shutdown) {
+		int ret = poller_poll(p, 100);
+		if (ret < 0)
+			usleep(20 * 1000);
+	}
 }
