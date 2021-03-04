@@ -175,6 +175,7 @@ static codec_handler_func handler_func_t38;
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_new(void *p);
+static void __ssrc_handler_stop(void *p);
 static void __free_ssrc_handler(void *);
 
 static void __transcode_packet_free(struct transcode_packet *);
@@ -202,7 +203,10 @@ static struct codec_handler codec_handler_stub_ssrc = {
 
 
 static void __handler_shutdown(struct codec_handler *handler) {
-	free_ssrc_hash(&handler->ssrc_hash);
+	if (handler->ssrc_hash) {
+		ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop);
+		free_ssrc_hash(&handler->ssrc_hash);
+	}
 	if (handler->ssrc_handler)
 		obj_put(&handler->ssrc_handler->h);
 	handler->ssrc_handler = NULL;
@@ -2543,7 +2547,7 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 		dtx->ptime = 20; // XXX ?
 	dtx->tspp = dtx->ptime * ch->handler->source_pt.clock_rate / 1000;
 }
-void __ssrc_handler_stop(void *p) {
+static void __ssrc_handler_stop(void *p) {
 	struct codec_ssrc_handler *ch = p;
 	if (ch->dtx_buffer) {
 		mutex_lock(&ch->dtx_buffer->lock);
