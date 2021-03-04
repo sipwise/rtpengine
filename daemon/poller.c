@@ -603,16 +603,15 @@ void poller_loop(void *d) {
 	poller_map_add(map);
 	struct poller *p = poller_map_get(map);
 
-	while (!rtpe_shutdown) {
-		int ret = poller_poll(p, 100);
-		if (ret < 0)
-			usleep(20 * 1000);
-	}
+	poller_loop2(p);
 }
 
 void poller_loop2(void *d) {
 	struct poller *p = d;
 
-	while (!rtpe_shutdown)
-		poller_poll(p, 100);
+	while (!rtpe_shutdown) {
+		int ret = poller_poll(p, 100);
+		if (ret < 0)
+			usleep(20 * 1000);
+	}
 }
