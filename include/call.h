@@ -312,6 +312,7 @@ struct call_media {
 	str			media_id;
 	GQueue			sdes_in, sdes_out;
 	struct dtls_fingerprint fingerprint; /* as received */
+	const struct dtls_hash_func *fp_hash_func; // outgoing
 
 	GQueue			streams; /* normally RTP + RTCP */
 	GQueue			endpoint_maps;
