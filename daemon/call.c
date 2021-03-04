@@ -1595,8 +1595,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 
 skip_sdes:
 	if (flags->opmode == OP_OFFER) {
-		if (MEDIA_ISSET(this, DTLS) && !this->fingerprint.hash_func && flags->dtls_fingerprint.len)
-			this->fingerprint.hash_func = dtls_find_hash_func(&flags->dtls_fingerprint);
+		if (MEDIA_ISSET(this, DTLS) && !this->fp_hash_func && flags->dtls_fingerprint.len)
+			this->fp_hash_func = dtls_find_hash_func(&flags->dtls_fingerprint);
 	}
 }
 // for an answer, uses the incoming received list of SDES crypto suites to prune
