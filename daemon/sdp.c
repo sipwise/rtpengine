@@ -2281,12 +2281,16 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 	if (!call->dtls_cert || !MEDIA_ISSET(media, DTLS) || MEDIA_ISSET(media, PASSTHRU))
 		return;
 
+	hf = media->fp_hash_func;
+	if (!hf)
+		hf = media->fingerprint.hash_func;
+
 	struct dtls_fingerprint *fp = NULL;
 	for (GList *l = call->dtls_cert->fingerprints.head; l; l = l->next) {
 		fp = l->data;
-		if (!media->fingerprint.hash_func)
+		if (!hf)
 			break;
-		if (!strcasecmp(media->fingerprint.hash_func->name, fp->hash_func->name))
+		if (!strcasecmp(hf->name, fp->hash_func->name))
 			break;
 		fp = NULL;
 	}
@@ -2294,6 +2298,7 @@ static void insert_dtls(struct call_media *media, struct sdp_chopper *chop) {
 		fp = call->dtls_cert->fingerprints.head->data;
 
 	hf = fp->hash_func;
+	media->fp_hash_func = hf;
 
 	assert(hf->num_bytes > 0);
 
