@@ -479,6 +479,7 @@ static void options(int *argc, char ***argv) {
 		{ "https-key", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.https_key,	"Private key for HTTPS and WSS","FILE"},
 		{ "http-threads", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.http_threads,"Number of worker threads for HTTP and WS","INT"},
 		{ "software-id", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.software_id,"Identification string of this software presented to external systems","STRING"},
+		{ "poller-per-thread", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.poller_per_thread,	"Use poller per thread",	NULL },
 #ifdef WITH_TRANSCODING
 		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_delay,	"Delay in milliseconds to trigger DTX handling","INT"},
 		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.max_dtx,	"Maximum duration of DTX handling",	"INT"},
@@ -1080,10 +1081,15 @@ int main(int argc, char **argv) {
 
 	service_notify("READY=1\n");
 
-	for (idx = 0; idx < rtpe_config.num_threads; ++idx)
-		thread_create_detach_prio(poller_loop, rtpe_poller_map, rtpe_config.scheduling, rtpe_config.priority, "poller");
+	for (idx = 0; idx < rtpe_config.num_threads; ++idx) {
+		if (!rtpe_config.poller_per_thread)
+			thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
+		else
+			thread_create_detach_prio(poller_loop, rtpe_poller_map, rtpe_config.scheduling, rtpe_config.priority, "poller");
+	}
 
-	thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
+	if (!rtpe_config.poller_per_thread)
+		thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
 
 	if (rtpe_config.media_num_threads < 0)
 		rtpe_config.media_num_threads = rtpe_config.num_threads;

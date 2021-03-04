@@ -116,6 +116,7 @@ struct rtpengine_config {
 	str			cn_payload;
 	int			reorder_codecs;
 	char			*software_id;
+	int			poller_per_thread;
 };
 
 
