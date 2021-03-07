@@ -66,7 +66,7 @@ static void create_parent_dirs(char *dir) {
 			int existed = errno == EEXIST;
 			if (!existed)
 				ilog(LOG_WARN, "Failed to create directory '%s': %s", dir, strerror(errno));
-			*p = G_DIR_SEPARATOR;
+			*p++ = G_DIR_SEPARATOR;
 			if (!existed) // no point in continuing
 				break;
 			continue;
