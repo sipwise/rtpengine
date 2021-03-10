@@ -90,8 +90,3 @@ PODS=		rtpengine.pod
 MANS=		$(PODS:.pod=.8)
 
 include ../lib/common.Makefile
-
-ifeq ($(with_transcoding),yes)
-codec.c:	dtmf_rx_fillin.h
-t38.c:		spandsp_logging.h
-endif
