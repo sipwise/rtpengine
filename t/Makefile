@@ -172,5 +172,7 @@ test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS)
 tests-preload.so:	tests-preload.c
 	$(CC) -g -D_GNU_SOURCE -std=c99 -o $@ -Wall -shared -fPIC $< -ldl
 
-codec.c:	dtmf_rx_fillin.h
-t38.c:		spandsp_logging.h
+spandsp_send_fax_pcm.c:	spandsp_logging.h
+spandsp_send_fax_t38.c:	spandsp_logging.h
+spandsp_recv_fax_t38.c:	spandsp_logging.h
+spandsp_recv_fax_pcm.c:	spandsp_logging.h
