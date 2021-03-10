@@ -36,23 +36,16 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 
 resample.c:	fix_frame_channel_layout.h
 
+ifeq ($(with_transcoding),yes)
+codec.c:	dtmf_rx_fillin.h
+endif
+
+t38.c:		spandsp_logging.h
+
 %.strhash.c:	%.c ../utils/const_str_hash
-	../utils/const_str_hash < $< > $@
+	../utils/const_str_hash < "$<" > "$@"
 
 $(BUILD_TEST_ALTS):	../lib/$(@:.h=-*)
-	echo "Looking for usable alternative for $@"; \
-	rm -f $(@:.h=-test{.c,}); \
-	ln -s ../lib/$(@:.h=-test.c); \
-	for x in ../lib/$(@:.h=-*.h); do \
-		echo "Trying build with $$x"; \
-		rm -f "$@"; \
-		echo '/******** GENERATED FILE ********/' > "$@"; \
-		cat "$$x" >> "$@"; \
-		$(MAKE) $(@:.h=-test) && break; \
-		echo "Failed build with $$x"; \
-		rm -f "$@"; \
-	done; \
-	rm -f $(@:.h=-test{.c,}); \
-	test -f "$@"
+	../utils/build_test_wrapper "$@"
 
 .PHONY: all debug clean install

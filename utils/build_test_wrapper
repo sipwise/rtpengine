@@ -1,0 +1,19 @@
+#!/bin/sh
+TARGET=$1
+ROOT=$(echo "$TARGET" | sed 's/\.h$//')
+if test "x$MAKE" = x; then
+	MAKE=make
+fi
+echo "Looking for usable alternative for $TARGET"
+rm -f "$ROOT"-test "$ROOT"-test.c
+ln -s ../lib/"$ROOT"-test.c
+for x in ../lib/"$ROOT"*.h; do
+	echo "Trying build with $x"
+	rm -f "$TARGET"
+	(echo '/******** GENERATED FILE ********/'; cat "$x") > "$TARGET"
+	$MAKE "$ROOT"-test && break
+	echo "Failed build with $x"
+	rm -f "$TARGET"
+done
+rm -f "$ROOT"-test "$ROOT"-test.c
+test -f "$TARGET"
