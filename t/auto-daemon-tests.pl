@@ -12535,7 +12535,6 @@ a=T38FaxMaxBuffer:200
 a=T38FaxMaxDatagram:180
 a=T38FaxUdpEC:t38UDPRedundancy
 a=sendrecv
-a=ptime:20
 SDP
 
 (undef, $port_a) = answer('gh 766 reinvite', {
@@ -12569,7 +12568,6 @@ a=T38FaxMaxBuffer:262
 a=T38FaxMaxDatagram:176
 a=T38FaxUdpEC:t38UDPRedundancy
 a=sendrecv
-a=ptime:20
 SDP
 
 snd($sock_b, $port_a, rtp(0, 4000, 5000, 0x4567, "\x88" x 160));
