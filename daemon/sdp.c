@@ -2438,7 +2438,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			insert_crypto(call_media, chop, flags);
 			insert_dtls(call_media, chop);
 
-			if (call_media->ptime)
+			if (proto_is_rtp(call_media->protocol) && call_media->ptime)
 				chopper_append_printf(chop, "a=ptime:%i\r\n", call_media->ptime);
 
 			if (MEDIA_ISSET(call_media, ICE) && call_media->ice_agent) {
