@@ -162,13 +162,6 @@ restart:
 //	if (created)
 //		*created = 1;
 
-	// keep entry filled for next SSRC
-	if (g_atomic_pointer_get(&ht->precreat) == NULL) {
-		struct ssrc_entry *nextent = ht->create_func(ht->uptr);
-		if (!g_atomic_pointer_compare_and_exchange(&ht->precreat, NULL, nextent))
-			obj_put(nextent);
-	}
-
 	return ent;
 }
 void free_ssrc_hash(struct ssrc_hash **ht) {
