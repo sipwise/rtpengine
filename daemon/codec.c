@@ -2540,7 +2540,8 @@ static void __ssrc_handler_stop(void *p) {
 void codec_handlers_stop(GQueue *q) {
 	for (GList *l = q->head; l; l = l->next) {
 		struct codec_handler *h = l->data;
-		ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop);
+		if (h->ssrc_hash)
+			ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop);
 	}
 }
 
