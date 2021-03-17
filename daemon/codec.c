@@ -1022,6 +1022,7 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, struc
 		// make sure existing handler matches this PT
 		if (rtp_payload_type_cmp(pt, &handler->source_pt)) {
 			ilogs(codec, LOG_DEBUG, "Resetting codec handler for PT %u", pt->payload_type);
+			__handler_shutdown(handler);
 			handler = NULL;
 			g_atomic_pointer_set(&receiver->codec_handler_cache, NULL);
 			g_hash_table_remove(receiver->codec_handlers, GINT_TO_POINTER(pt->payload_type));
