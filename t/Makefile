@@ -3,6 +3,7 @@ TARGET=		all-tests
 with_transcoding ?= yes
 
 CFLAGS?=	-g -Wall -Wstrict-prototypes
+PRELOAD_CFLAGS := $(CFLAGS)
 CFLAGS+=	-pthread -fno-strict-aliasing
 CFLAGS+=	-std=c99
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
@@ -170,8 +171,11 @@ test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o
 
 test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS)
 
+PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c99
+PRELOAD_LIBS += -dl
+
 tests-preload.so:	tests-preload.c
-	$(CC) -g -D_GNU_SOURCE -std=c99 -o $@ -Wall -shared -fPIC $< -ldl
+	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(LDFLAGS) $(PRELOAD_LIBS)
 
 spandsp_send_fax_pcm.c:	spandsp_logging.h
 spandsp_send_fax_t38.c:	spandsp_logging.h
