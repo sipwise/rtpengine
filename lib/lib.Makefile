@@ -47,8 +47,6 @@ endif
 
 ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1
-else
-CFLAGS+=	-O3
 endif
 
 
