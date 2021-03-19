@@ -4,7 +4,8 @@ with_iptables_option ?= yes
 with_transcoding ?= yes
 
 
-CFLAGS+=	-g -Wall -Wstrict-prototypes -pthread -fno-strict-aliasing
+CFLAGS?=	-g -Wall -Wstrict-prototypes
+CFLAGS+=	-pthread -fno-strict-aliasing
 CFLAGS+=	-std=c99
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
 CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)

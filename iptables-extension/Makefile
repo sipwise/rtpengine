@@ -1,5 +1,6 @@
 CC?=gcc
-CFLAGS		= -O2 -Wall -Wstrict-prototypes -shared -fPIC
+CFLAGS		?= -O2 -Wall -Wstrict-prototypes
+CFLAGS		+= -shared -fPIC
 ifneq ($(RTPENGINE_VERSION),)
   CFLAGS	+= -DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
 else
