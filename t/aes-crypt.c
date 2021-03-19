@@ -233,7 +233,10 @@ int main(int argc, char** argv) {
 	str_init(&suite, "AES_192_CM_HMAC_SHA1_80");
 	c = crypto_find_suite(&suite);
 	assert(c);
-	
+
+	crypto_cleanup_session_key(&ctx);
+	crypto_cleanup_session_key(&ctx2);
+
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.params.crypto_suite = c;
 	memcpy(ctx.params.master_key, test_key, 24);
@@ -256,7 +259,10 @@ int main(int argc, char** argv) {
 	str_init(&suite, "AES_256_CM_HMAC_SHA1_80");
 	c = crypto_find_suite(&suite);
 	assert(c);
-	
+
+	crypto_cleanup_session_key(&ctx);
+	crypto_cleanup_session_key(&ctx2);
+
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.params.crypto_suite = c;
 	memcpy(ctx.params.master_key, test_key, 32);
@@ -276,6 +282,8 @@ int main(int argc, char** argv) {
 	srtp_validate(&ctx, &ctx2, "SRTP AES-CM-256", rtp_plaintext_ref, srtp_ciphertext_256,
 		      rtcp_plaintext_ref, srtcp_ciphertext_256);
 
+	crypto_cleanup_session_key(&ctx);
+	crypto_cleanup_session_key(&ctx2);
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.params.crypto_suite = c;
@@ -288,4 +296,5 @@ int main(int argc, char** argv) {
 	srtp_validate(&ctx, NULL, "extra AES-CM-256", aes_256_rtp_plaintext_ref, aes_256_srtp_ciphertext,
 		      NULL, NULL);
 
+	crypto_cleanup_session_key(&ctx);
 }

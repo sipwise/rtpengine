@@ -646,5 +646,7 @@ int main(int argc, char **argv) {
 				"code 0 level -99 delay 816, "))
 		abort();
 
+	dtmf_rx_free(dtmf_dsp);
+
 	return 0;
 }

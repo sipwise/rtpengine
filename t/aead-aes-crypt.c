@@ -165,6 +165,8 @@ int main(void)
 	assert(memcmp(working, srtcp_pt, 52) == 0);
 	printf("RTCP/AEAD-AES-128-GCM Decrypt - PASS\n");
 
+	crypto_cleanup_session_key(&ctx);
+
 	// AES 256
 	str_init(&suite, "AEAD_AES_256_GCM");
 	c = crypto_find_suite(&suite);
@@ -220,4 +222,6 @@ int main(void)
 	assert(rc == 0 && payload.len == 44);
 	assert(memcmp(working, srtcp_pt, 52) == 0);
 	printf("RTCP/AEAD-AES-256-GCM Decrypt - PASS\n");
+
+	crypto_cleanup_session_key(&ctx);
 }
