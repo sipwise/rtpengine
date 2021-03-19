@@ -109,6 +109,7 @@ sub showusage {
     print "         redisconnecttimeout   : print redis-connect-timeout parameter\n";
     print "         rediscmdtimeout       : print redis-cmd-timeout parameter\n";
     print "         controltos            : print control-tos parameter\n";
+    print "         deletedelay           : print delete-delay parameter\n";
     print "         interfaces            : print local interface/port statistics\n";
     print "         transcoders           : print transcoding statistics\n";
     print "\n";
@@ -138,6 +139,7 @@ sub showusage {
     print "         redisconnecttimeout   : set the --redis-connect-timeout parameter\n";
     print "         rediscmdtimeout       : set the --redis-cmd-timeout parameter\n";
     print "         controltos            : set the --control-tos parameter\n";
+    print "         deletedelay           : set the --delete-delay parameter\n";
     print "\n";
     print "    params <option>\n";
     print "         start                 : lists the initial values of all the configuration file parameters\n";
