@@ -12,7 +12,7 @@ jobs:
     name: Run unit tests
 
     env:
-      FLAGS: "-fsanitize=address -fsanitize=leak -fsanitize=undefined"
+      FLAGS: "-ggdb -O0 -fsanitize=address -fsanitize=leak -fsanitize=undefined"
 
     steps:
       - name: Checkout source
@@ -24,4 +24,4 @@ jobs:
 
       - name: Run unit tests with sanitizers enabled
         run: |
-          CFLAGS="$FLAGS" LDFLAGS="$FLAGS" make check
+          CFLAGS="$FLAGS" LDFLAGS="$FLAGS" ASAN_OPTIONS=verify_asan_link_order=0 make check
