@@ -63,6 +63,7 @@ static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw)
 static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw);
+static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw);
 
 static void cli_incoming_params_start(str *instr, struct cli_writer *cw);
 static void cli_incoming_params_current(str *instr, struct cli_writer *cw);
@@ -89,6 +90,7 @@ static void cli_incoming_list_redisdisabletime(str *instr, struct cli_writer *cw
 static void cli_incoming_list_redisconnecttimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_rediscmdtimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_controltos(str *instr, struct cli_writer *cw);
+static void cli_incoming_list_deletedelay(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_interfaces(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_jsonstats(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw);
@@ -122,6 +124,7 @@ static const cli_handler_t cli_set_handlers[] = {
 	{ "redisconnecttimeout",	cli_incoming_set_redisconnecttimeout	},
 	{ "rediscmdtimeout",		cli_incoming_set_rediscmdtimeout	},
 	{ "controltos",			cli_incoming_set_controltos		},
+	{ "deletedelay",		cli_incoming_set_deletedelay 		},
 	{ NULL, },
 };
 static const cli_handler_t cli_list_handlers[] = {
@@ -145,6 +148,7 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "redisconnecttimeout",	cli_incoming_list_redisconnecttimeout	},
 	{ "rediscmdtimeout",		cli_incoming_list_rediscmdtimeout	},
 	{ "controltos",			cli_incoming_list_controltos		},
+	{ "deletedelay", 		cli_incoming_list_deletedelay 		},
 	{ "interfaces",			cli_incoming_list_interfaces		},
 	{ "jsonstats",			cli_incoming_list_jsonstats		},
 	{ "transcoders",		cli_incoming_list_transcoders		},
@@ -1298,6 +1302,30 @@ static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *
 	rwlock_unlock_w(&rtpe_config.config_lock);
 	cw->cw_printf(cw,  "Success setting redis-connect-timeout to %ld\n", timeout);
 }
+
+static void cli_incoming_list_deletedelay(str *instr, struct cli_writer *cw) {
+	rwlock_lock_r(&rtpe_config.config_lock);
+	cw->cw_printf(cw, "%d\n", rtpe_config.delete_delay);
+	rwlock_unlock_r(&rtpe_config.config_lock);
+}
+
+static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw) {
+	if (str_shift(instr, 1)) {
+		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		return;
+	}
+
+	int seconds = str_to_i(instr, -1);
+	if (seconds == -1) {
+		cw->cw_printf(cw, "Invalid delete-delay value\n");
+		return;
+	}
+	rwlock_lock_w(&rtpe_config.config_lock);
+	rtpe_config.delete_delay = seconds;
+	rwlock_unlock_w(&rtpe_config.config_lock);
+	cw->cw_printf(cw, "Success setting delete-delay to %d\n", seconds);
+}
+
 
 static void cli_incoming_list_rediscmdtimeout(str *instr, struct cli_writer *cw) {
 	rwlock_lock_r(&rtpe_config.config_lock);
