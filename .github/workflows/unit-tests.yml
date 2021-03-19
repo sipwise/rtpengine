@@ -20,7 +20,7 @@ jobs:
 
       - name: Get build dependencies
         run: |
-          sudo apt-get build-dep -qq -y .
+          sudo apt-get build-dep -qq -y -Ppkg.ngcp-rtpengine.nobcg729 .
 
       - name: Run unit tests with sanitizers enabled
         run: |
