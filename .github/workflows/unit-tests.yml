@@ -24,4 +24,4 @@ jobs:
 
       - name: Run unit tests with sanitizers enabled
         run: |
-          make CFLAGS="$FLAGS" LDFLAGS="$FLAGS" check
+          CFLAGS="$FLAGS" LDFLAGS="$FLAGS" make check
