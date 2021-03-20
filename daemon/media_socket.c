@@ -1449,7 +1449,7 @@ noop:
 
 // check and update SSRC pointers
 static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *out_srtp, u_int32_t ssrc_bs,
-		struct ssrc_ctx **ssrc_in_p, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash)
+		struct ssrc_ctx **ssrc_in_p, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash, struct packet_handler_ctx *phc)
 {
 	u_int32_t in_ssrc = ntohl(ssrc_bs);
 	u_int32_t out_ssrc;
@@ -1471,6 +1471,10 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 		// ssrc_map_out. we don't need this if we're not transcoding
 		if (!MEDIA_ISSET(in_srtp->media, TRANSCODE))
 			(*ssrc_in_p)->ssrc_map_out = in_ssrc;
+
+		phc->unkernelize = 1;
+		ilog(LOG_DEBUG, ">>> in_ssrc changed for: %s%s:%d new: %x %s",
+                        FMT_M(sockaddr_print_buf(&in_srtp->endpoint.address), in_srtp->endpoint.port, in_ssrc));
 	}
 
 	mutex_unlock(&in_srtp->in_lock);
@@ -1491,6 +1495,10 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 
 		// reverse SSRC mapping
 		(*ssrc_out_p)->ssrc_map_out = in_ssrc;
+
+		phc->unkernelize = 1;
+		ilog(LOG_DEBUG, ">>> out_ssrc changed for %s%s:%d new: %x %s",
+                        FMT_M(sockaddr_print_buf(&out_srtp->endpoint.address), out_srtp->endpoint.port, out_ssrc));
 	}
 
 	mutex_unlock(&out_srtp->out_lock);
@@ -1606,7 +1614,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 
 		if (G_LIKELY(phc->out_srtp != NULL))
 			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
-					&phc->mp.ssrc_out, phc->mp.call->ssrc_hash);
+					&phc->mp.ssrc_out, phc->mp.call->ssrc_hash, phc);
 
 		// check the payload type
 		// XXX redundant between SSRC handling and codec_handler stuff -> combine
@@ -1635,7 +1643,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 	else if (phc->rtcp && !rtcp_payload(&phc->mp.rtcp, NULL, &phc->s)) {
 		if (G_LIKELY(phc->out_srtp != NULL))
 			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
-					&phc->mp.ssrc_out, phc->mp.call->ssrc_hash);
+					&phc->mp.ssrc_out, phc->mp.call->ssrc_hash, phc);
 	}
 }
 
