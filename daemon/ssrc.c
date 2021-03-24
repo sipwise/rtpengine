@@ -66,7 +66,7 @@ static void mos_calc(struct ssrc_stats_block *ssb) {
 	if (eff_rtt < 160)
 		r = 93.2 - eff_rtt / 40.0;
 	else
-		r = 93.2 - (eff_rtt - 120) / 40.0;
+		r = 93.2 - (eff_rtt - 120) / 10.0;
 	r = r - (ssb->packetloss * 2.5);
 	if (r < 0)
 		r = 0;
