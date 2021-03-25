@@ -71,11 +71,15 @@ static void mos_calc(struct ssrc_stats_block *ssb) {
 	else
 		r = 93.2 - (eff_rtt - 120) / 10.0;
 	r = r - (ssb->packetloss * 2.5);
-	if (r < 0)
-		r = 0;
-	double mos = 1.0 + (0.035) * r + (.000007) * r * (r-60) * (100-r);
-	int64_t intmos = mos * 10.0;
-	if (intmos < 0)
+
+	int64_t intmos;
+	if (r < 0) {
+		intmos = 10;
+	} else {
+		double mos = 1.0 + (0.035) * r + (.000007) * r * (r-60) * (100-r);
+		intmos = mos * 10.0;
+	}
+	if (intmos < 10) // must be an invalid input
 		intmos = 0;
 	ssb->mos = intmos;
 }
