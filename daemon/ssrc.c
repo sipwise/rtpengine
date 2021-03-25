@@ -60,6 +60,9 @@ static void ssrc_entry_put(void *ep) {
 
 // returned as mos * 10 (i.e. 10 - 50 for 1.0 to 5.0)
 static void mos_calc(struct ssrc_stats_block *ssb) {
+	if (!ssb->rtt)
+		return; // can not compute the MOS-CQ unless we have a valid RTT
+
 	// as per https://www.pingman.com/kb/article/how-is-mos-calculated-in-pingplotter-pro-50.html
 	int eff_rtt = ssb->rtt / 1000 + ssb->jitter * 2 + 10;
 	double r; // XXX can this be done with int math?
@@ -352,7 +355,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 	struct ssrc_stats_block *ssb = g_slice_alloc(sizeof(*ssb));
 	*ssb = (struct ssrc_stats_block) {
 		.jitter = jitter,
-		.rtt = rtt + other_e->last_rtt,
+		.rtt = other_e->last_rtt ? (rtt + other_e->last_rtt) : 0,
 		.rtt_leg = rtt,
 		.reported = *tv,
 		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
