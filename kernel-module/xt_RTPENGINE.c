@@ -8,6 +8,9 @@
 #include <linux/version.h>
 #include <linux/err.h>
 #include <linux/crypto.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
+#include <crypto/internal/cipher.h>
+#endif
 #include <crypto/aes.h>
 #include <crypto/hash.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
@@ -39,6 +42,9 @@
 #include "rtpengine_config.h"
 
 MODULE_LICENSE("GPL");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
+MODULE_IMPORT_NS(CRYPTO_INTERNAL);
+#endif
 
 
 
