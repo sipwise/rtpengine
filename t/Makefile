@@ -172,7 +172,7 @@ test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o
 test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS)
 
 PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c99
-PRELOAD_LIBS += -dl
+PRELOAD_LIBS += -ldl
 
 tests-preload.so:	tests-preload.c
 	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(LDFLAGS) $(PRELOAD_LIBS)
