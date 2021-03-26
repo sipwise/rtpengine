@@ -1730,9 +1730,10 @@ static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
 
+		bencode_dictionary_add_integer(ent, "cumulative loss", se->packets_lost);
+
 		int mos_samples = se->stats_blocks.length - se->no_mos_count;
 		if (mos_samples < 1) mos_samples = 1;
-
 		ng_stats_ssrc_mos_entry_dict_avg(ent, "average MOS", &se->average_mos, mos_samples);
 		ng_stats_ssrc_mos_entry_dict(ent, "lowest MOS", se->lowest_mos);
 		ng_stats_ssrc_mos_entry_dict(ent, "highest MOS", se->highest_mos);

@@ -2572,7 +2572,7 @@ void call_destroy(struct call *c) {
 		ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
 		ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
 				"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
-				"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u)",
+				"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u) lost:%d",
 			se->average_mos.mos / mos_samples / 10,
 			se->average_mos.mos / mos_samples % 10,
 			se->lowest_mos->mos / 10,
@@ -2582,7 +2582,8 @@ void call_destroy(struct call *c) {
 			se->highest_mos->mos / 10,
 			se->highest_mos->mos % 10,
 			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
-			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60);
+			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60,
+			se->packets_lost);
 	}
 	g_list_free(k);
 

@@ -364,7 +364,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		.reported = *tv,
 		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
 	};
-
+	other_e->packets_lost = rr->packets_lost;
 	mos_calc(ssb);
 	ilog(LOG_DEBUG, "Calculated MOS from RR for %s%x%s is %.1f", FMT_M(rr->from), (double) ssb->mos / 10.0);
 

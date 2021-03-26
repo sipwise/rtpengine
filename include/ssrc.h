@@ -94,6 +94,7 @@ struct ssrc_entry_call {
 				*highest_mos,
 				average_mos; // contains a running tally of all stats blocks
 	uint16_t no_mos_count; // how many time we where not able to compute MOS due to missing RTT
+	uint32_t packets_lost; // RTCP cumulative number of packets lost
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 
 	// for transcoding
