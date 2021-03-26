@@ -382,17 +382,21 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 
 	g_queue_push_tail(&other_e->stats_blocks, ssb);
 
-	if (G_UNLIKELY(!other_e->lowest_mos) || ssb->mos < other_e->lowest_mos->mos)
+	if (ssb->mos && ((G_UNLIKELY(!other_e->lowest_mos) || ssb->mos < other_e->lowest_mos->mos)))
 		other_e->lowest_mos = ssb;
 	if (G_UNLIKELY(!other_e->highest_mos) || ssb->mos > other_e->highest_mos->mos)
 		other_e->highest_mos = ssb;
 
 	// running tally
-	other_e->average_mos.jitter += ssb->jitter;
-	other_e->average_mos.rtt += ssb->rtt;
-	other_e->average_mos.rtt_leg += ssb->rtt_leg;
-	other_e->average_mos.packetloss += ssb->packetloss;
-	other_e->average_mos.mos += ssb->mos;
+	if (!ssb->mos) { // when we do not have the RTT for both legs, we have no MOS
+		other_e->no_mos_count++;
+	} else {
+		other_e->average_mos.jitter += ssb->jitter;
+		other_e->average_mos.mos += ssb->mos;
+		other_e->average_mos.rtt += ssb->rtt;
+		other_e->average_mos.rtt_leg += ssb->rtt_leg;
+		other_e->average_mos.packetloss += ssb->packetloss;
+	}
 
 	goto out_ul_oe;
 

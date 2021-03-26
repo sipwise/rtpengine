@@ -93,6 +93,7 @@ struct ssrc_entry_call {
 	struct ssrc_stats_block *lowest_mos,
 				*highest_mos,
 				average_mos; // contains a running tally of all stats blocks
+	uint16_t no_mos_count; // how many time we where not able to compute MOS due to missing RTT
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 
 	// for transcoding

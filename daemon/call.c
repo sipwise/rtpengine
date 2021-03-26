@@ -2566,13 +2566,15 @@ void call_destroy(struct call *c) {
 
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
+		int mos_samples = (se->stats_blocks.length - se->no_mos_count);
+		if (mos_samples < 1) mos_samples = 1;
 
 		ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
 		ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
 				"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
 				"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u)",
-			se->average_mos.mos / se->stats_blocks.length / 10,
-			se->average_mos.mos / se->stats_blocks.length % 10,
+			se->average_mos.mos / mos_samples / 10,
+			se->average_mos.mos / mos_samples % 10,
 			se->lowest_mos->mos / 10,
 			se->lowest_mos->mos % 10,
 			(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) / 60,
