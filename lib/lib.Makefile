@@ -51,12 +51,14 @@ endif
 
 
 ifneq ($(DBG),yes)
-  DPKG_BLDFLGS=	$(shell which dpkg-buildflags 2>/dev/null)
-  ifneq ($(DPKG_BLDFLGS),)
-    # support http://wiki.debian.org/Hardening for >=wheezy
-    CFLAGS+=	$(shell dpkg-buildflags --get CFLAGS)
-    CPPFLAGS+=	$(shell dpkg-buildflags --get CPPFLAGS)
-    LDFLAGS+=	$(shell dpkg-buildflags --get LDFLAGS)
-    LDLIBS+=	$(shell dpkg-buildflags --get LDLIBS)
+  ifeq (,$(filter $(CFLAGS),-O0))
+    DPKG_BLDFLGS=	$(shell which dpkg-buildflags 2>/dev/null)
+    ifneq ($(DPKG_BLDFLGS),)
+      # support http://wiki.debian.org/Hardening for >=wheezy
+      CFLAGS+=	$(shell dpkg-buildflags --get CFLAGS)
+      CPPFLAGS+=	$(shell dpkg-buildflags --get CPPFLAGS)
+      LDFLAGS+=	$(shell dpkg-buildflags --get LDFLAGS)
+      LDLIBS+=	$(shell dpkg-buildflags --get LDLIBS)
+    endif
   endif
 endif
