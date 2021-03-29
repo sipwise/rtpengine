@@ -155,6 +155,8 @@ INLINE int str_shift_cmp(str *s, const char *t) {
 	return 0;
 }
 INLINE char *str_chr(const str *s, int c) {
+	if (!s->len)
+		return NULL;
 	return memchr(s->s, c, s->len);
 }
 INLINE char *str_chr_str(str *out, const str *s, int c) {
@@ -269,7 +271,8 @@ INLINE str *str_dup(const str *s) {
 	str *r;
 	r = str_alloc(s->len);
 	r->len = s->len;
-	memcpy(r->s, s->s, s->len);
+	if (s->len)
+		memcpy(r->s, s->s, s->len);
 	r->s[s->len] = '\0';
 	return r;
 }
