@@ -406,21 +406,21 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len) {
 }
 
 static unsigned int __bencode_hash_str_len(const unsigned char *s, int len) {
-	unsigned long *ul;
-	unsigned int *ui;
-	unsigned short *us;
+	unsigned long ul;
+	unsigned int ui;
+	unsigned short us;
 
-	if (len >= sizeof(*ul)) {
-		ul = (void *) s;
-		return *ul % BENCODE_HASH_BUCKETS;
+	if (len >= sizeof(ul)) {
+		memcpy(&ul, s, sizeof(ul));
+		return ul % BENCODE_HASH_BUCKETS;
 	}
-	if (len >= sizeof(*ui)) {
-		ui = (void *) s;
-		return *ui % BENCODE_HASH_BUCKETS;
+	if (len >= sizeof(ui)) {
+		memcpy(&ui, s, sizeof(ui));
+		return ui % BENCODE_HASH_BUCKETS;
 	}
-	if (len >= sizeof(*us)) {
-		us = (void *) s;
-		return *us % BENCODE_HASH_BUCKETS;
+	if (len >= sizeof(us)) {
+		memcpy(&us, s, sizeof(us));
+		return us % BENCODE_HASH_BUCKETS;
 	}
 	if (len >= sizeof(*s))
 		return *s % BENCODE_HASH_BUCKETS;
