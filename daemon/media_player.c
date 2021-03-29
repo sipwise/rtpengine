@@ -43,6 +43,8 @@ static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp)
 #ifdef WITH_TRANSCODING
 // called with call->master lock in W
 static unsigned int send_timer_flush(struct send_timer *st, void *ptr) {
+	if (!st)
+		return 0;
 	return timerthread_queue_flush(&st->ttq, ptr);
 }
 
