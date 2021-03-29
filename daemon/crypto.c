@@ -315,6 +315,7 @@ static void aes_ctr(unsigned char *out, str *in, EVP_CIPHER_CTX *ecc, const unsi
 	unsigned char *p, *q;
 	unsigned int left;
 	int outlen, i;
+	gboolean aligned = TRUE;
 	u_int64_t *pi, *qi, *ki;
 
 	if (!ecc)
@@ -326,11 +327,16 @@ static void aes_ctr(unsigned char *out, str *in, EVP_CIPHER_CTX *ecc, const unsi
 	ki = (void *) key_block;
 	left = in->len;
 
+	if ((GPOINTER_TO_UINT(pi) % sizeof(*pi)) != 0)
+		aligned = FALSE;
+	if ((GPOINTER_TO_UINT(qi) % sizeof(*qi)) != 0)
+		aligned = FALSE;
+
 	while (left) {
 		EVP_EncryptUpdate(ecc, key_block, &outlen, ivx, 16);
 		assert(outlen == 16);
 
-		if (G_UNLIKELY(left < 16)) {
+		if (left < 16 || !aligned) {
 			p = (void *) pi;
 			q = (void *) qi;
 			for (i = 0; i < 16; i++) {
@@ -339,12 +345,14 @@ static void aes_ctr(unsigned char *out, str *in, EVP_CIPHER_CTX *ecc, const unsi
 				if (!left)
 					goto done;
 			}
-			abort();
 		}
-
-		*qi++ = *pi++ ^ ki[0];
-		*qi++ = *pi++ ^ ki[1];
-		left -= 16;
+		else {
+			qi[0] = pi[0] ^ ki[0];
+			qi[1] = pi[1] ^ ki[1];
+			left -= 16;
+		}
+		qi += 2;
+		pi += 2;
 
 		for (i = 15; i >= 0; i--) {
 			ivx[i]++;
