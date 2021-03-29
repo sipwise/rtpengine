@@ -24,4 +24,4 @@ jobs:
 
       - name: Run unit tests with sanitizers enabled
         run: |
-          CFLAGS="$FLAGS" LDFLAGS="$FLAGS" ASAN_OPTIONS=verify_asan_link_order=0 make check
+          CFLAGS="$FLAGS" LDFLAGS="$FLAGS" ASAN_OPTIONS=verify_asan_link_order=0 UBSAN_OPTIONS=print_stacktrace=1 G_SLICE=always-malloc make check
