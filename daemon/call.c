@@ -2115,6 +2115,19 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 	ml_media = other_ml_media = NULL;
 
+	// reset offer ipv4/ipv6/mixed media stats
+	if (flags && flags->opmode == OP_OFFER) {
+		statistics_update_ip46_inc_dec(call, CMC_DECREMENT);
+		call->is_ipv4_media_offer = 0;
+		call->is_ipv6_media_offer = 0;
+
+	// reset answer ipv4/ipv6/mixed media stats
+	} else if (flags && flags->opmode == OP_ANSWER) {
+		statistics_update_ip46_inc_dec(call, CMC_DECREMENT);
+		call->is_ipv4_media_answer = 0;
+		call->is_ipv6_media_answer = 0;
+	}
+
 	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
 		sp = media_iter->data;
 		__C_DBG("processing media stream #%u", sp->index);
@@ -2237,6 +2250,20 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 
 		}
 
+		if (media->desired_family->af == AF_INET) {
+			if (flags && flags->opmode == OP_OFFER) {
+				media->call->is_ipv4_media_offer = 1;
+			} else if (flags && flags->opmode == OP_ANSWER) {
+				media->call->is_ipv4_media_answer = 1;
+			}
+		} else if (media->desired_family->af == AF_INET6) {
+			if (flags && flags->opmode == OP_OFFER) {
+				media->call->is_ipv6_media_offer = 1;
+			} else if (flags && flags->opmode == OP_ANSWER) {
+				media->call->is_ipv6_media_answer = 1;
+			}
+		}
+
 		/* determine number of consecutive ports needed locally.
 		 * XXX only do *=2 for RTP streams? */
 		num_ports = sp->consecutive_ports;
@@ -2312,6 +2339,11 @@ init:
 
 		recording_setup_media(media);
 		t38_gateway_start(media->t38_gateway);
+	}
+
+	// set ipv4/ipv6/mixed media stats
+	if (flags && (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER)) {
+		statistics_update_ip46_inc_dec(call, CMC_INCREMENT);
 	}
 
 	return 0;
@@ -2471,6 +2503,7 @@ void call_destroy(struct call *c) {
 	obj_put(c);
 
 
+	statistics_update_ip46_inc_dec(c, CMC_DECREMENT);
 	statistics_update_foreignown_dec(c);
 
 	if (IS_OWN_CALL(c)) {

@@ -20,6 +20,9 @@ struct stats {
 	atomic64			answers;
 	atomic64			deletes;
 	atomic64			transcoded_media;
+	atomic64			ipv4_sessions;
+	atomic64			ipv6_sessions;
+	atomic64			mixed_sessions;
 };
 
 
@@ -125,6 +128,7 @@ extern mutex_t rtpe_codec_stats_lock;
 extern GHashTable *rtpe_codec_stats;
 
 void statistics_update_oneway(struct call *);
+void statistics_update_ip46_inc_dec(struct call *, int op);
 void statistics_update_foreignown_dec(struct call *);
 void statistics_update_foreignown_inc(struct call* c);
 void statistics_update_totals(struct packet_stream *) ;
