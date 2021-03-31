@@ -53,8 +53,11 @@ decode_t *decoder_new(const char *payload_str, int ptime, output_t *outp) {
 		ilog(LOG_WARN, "No decoder for payload %s", payload_str);
 		return NULL;
 	}
-	if (def->avcodec_id == -1) // not a real audio codec
+	if (def->supplemental || !def->support_decoding || def->media_type != MT_AUDIO) {
+		// not a real audio codec
+		ilog(LOG_DEBUG, "Not decoding codec %s", payload_str);
 		return NULL;
+	}
 
 	// decoder_new_fmt already handles the clockrate_mult scaling
 	int rtp_clockrate = clockrate;
