@@ -1,3 +1,10 @@
+ngcp-rtpengine (7.5.8.1+0~mr7.5.8.1) unstable; urgency=medium
+
+  [ Dennis Yurasov ]
+  * [63d80ee] SSRC change fix in kernelized stream
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 31 Mar 2021 09:49:18 +0200
+
 ngcp-rtpengine (7.5.8.0+0~mr7.5.8.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
