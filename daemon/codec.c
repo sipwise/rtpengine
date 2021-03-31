@@ -1917,11 +1917,12 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		ch->first_send_ts += ch->encoder_format.clockrate / 100;
 	}
 
-	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %lli.%01lli ms (at %lu.%06lu)",
+	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %s%lli.%01lli ms (at %lu.%06lu)",
 			ntohs(rh->seq_num),
 			ts,
-			ts_diff_us / 1000,
-			(ts_diff_us % 1000) / 100,
+			ts_diff_us < 0 ? "-" : "",
+			llabs(ts_diff_us / 1000),
+			llabs((ts_diff_us % 1000) / 100),
 			(long unsigned) p->ttq_entry.when.tv_sec,
 			(long unsigned) p->ttq_entry.when.tv_usec);
 
