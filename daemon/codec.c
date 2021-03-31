@@ -1908,13 +1908,24 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		= timeval_diff(&p->ttq_entry.when, &rtpe_now);
 
 	ch->output_skew = ch->output_skew * 15 / 16 + ts_diff_us / 16;
-	if (ch->output_skew > 40000 && ts_diff_us > 10000) { // arbitrary value, 40 ms, 10 ms shift
+	if (ch->output_skew > 50000 && ts_diff_us > 10000) { // arbitrary value, 50 ms, 10 ms shift
 		ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %li.%01li ms detected, shifting send timer back by 10 ms",
 			ch->output_skew / 1000,
 			(ch->output_skew % 1000) / 100);
 		timeval_add_usec(&p->ttq_entry.when, -10000);
 		ch->output_skew -= 10000;
 		ch->first_send_ts += ch->encoder_format.clockrate / 100;
+		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now);
+	}
+	else if (ts_diff_us < 0) {
+		ts_diff_us *= -1;
+		ilogs(transcoding, LOG_DEBUG, "Negative clock skew of %lli.%01lli ms detected, shifting send timer forward",
+			ts_diff_us / 1000,
+			(ts_diff_us % 1000) / 100);
+		timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
+		ch->output_skew += ts_diff_us;
+		ch->first_send_ts -= (long long) ch->encoder_format.clockrate * ts_diff_us / 1000000;
+		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now); // should be 0 now
 	}
 
 	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %s%lli.%01lli ms (at %lu.%06lu)",
