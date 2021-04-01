@@ -81,6 +81,9 @@ struct rtpengine_config rtpe_config = {
 	.dtls_rsa_key_size = 2048,
 	.dtls_signature = 256,
 	.max_dtx = 30,
+	.dtx_shift = 5,
+	.dtx_buffer = 10,
+	.dtx_lag = 100,
 	.common = {
 		.log_levels = {
 			[log_level_index_internals] = -1,
@@ -483,6 +486,9 @@ static void options(int *argc, char ***argv) {
 #ifdef WITH_TRANSCODING
 		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_delay,	"Delay in milliseconds to trigger DTX handling","INT"},
 		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.max_dtx,	"Maximum duration of DTX handling",	"INT"},
+		{ "dtx-buffer",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_buffer,"Maxmium number of packets held in DTX buffer",	"INT"},
+		{ "dtx-lag",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_lag,	"Maxmium time span in milliseconds held in DTX buffer",	"INT"},
+		{ "dtx-shift",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_shift,	"Length of time (in ms) to shift DTX buffer after over/underflow",	"INT"},
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
 		{ "reorder-codecs",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.reorder_codecs,"Reorder answer codecs based on sender preference",NULL},

@@ -788,8 +788,7 @@ only. When enabled, delays processing of received packets for the specified
 time (much like a jitter buffer) in order to trigger DTX handling when a
 transmission gap occurs. The decoder is then instructed to fill in the missing
 time during a transmission gap, for example by generating comfort noise. The
-delay should be configured to just slightly more than the expected incoming
-jitter.
+delay should be configured to be higher than the expected incoming jitter.
 
 =item B<--max-dtx=>I<INT>
 
@@ -797,6 +796,26 @@ Maximum duration for DTX handling in seconds. If no further RTP media is
 received within this time frame, then DTX processing will stop. Can be set to
 zero or negative to disable and keep DTX processing on indefinitely. Defaults
 to 30 seconds.
+
+=item B<--dtx-buffer=>I<INT>
+
+=item B<--dtx-lag=>I<INT>
+
+These two options together control the maximum number of packets and amount of
+audio that is allowed to be held in the DTX buffer. The B<dtx-buffer> option
+limits the number of packets held in the DTX buffer, while the B<dtx-lag>
+option limits the amount of audio (in milliseconds) to be held in the DTX
+buffer. A DTX buffer overflow is declared when both limits are exceeded, in
+which case DTX processing is sped up by B<dtx-shift> milliseconds.
+
+The defauls are 10 packets and 100 milliseconds.
+
+=item B<--dtx-shift=>I<INT>
+
+Amount of time in milliseconds that DTX processing is shifted forward (sped up)
+or backwards (delayed) in case of a DTX buffer overflow or underflow. An
+underflow occurs when RTP packets are received slower than expected, while an
+overflow occurs when packets are received faster than expected.
 
 =item B<--silence-detect=>I<FLOAT>
 
