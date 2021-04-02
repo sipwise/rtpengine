@@ -356,10 +356,14 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 
 	ilog(LOG_DEBUG, "Adding opposide side RTT of %u us", other_e->last_rtt);
 
+	long long rtt_end2end = other_e->last_rtt ? (rtt + other_e->last_rtt) : 0;
+	if (other_e->last_rtt_xr > 0) { // use the RTT from RTCP-XR (in ms)
+		rtt_end2end = other_e->last_rtt_xr*1000;
+	}
 	struct ssrc_stats_block *ssb = g_slice_alloc(sizeof(*ssb));
 	*ssb = (struct ssrc_stats_block) {
 		.jitter = jitter,
-		.rtt = other_e->last_rtt ? (rtt + other_e->last_rtt) : 0,
+		.rtt = rtt_end2end,
 		.rtt_leg = rtt,
 		.reported = *tv,
 		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
@@ -456,7 +460,7 @@ void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *
 	struct ssrc_entry_call *e = get_ssrc(vm->ssrc, c->ssrc_hash);
 	if (!e)
 		return;
-	e->last_rtt = vm->rnd_trip_delay;
+	e->last_rtt_xr = vm->rnd_trip_delay;
 	obj_put(&e->h);
 }
 
