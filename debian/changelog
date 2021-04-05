@@ -1,3 +1,16 @@
+ngcp-rtpengine (8.5.4.1+0~mr8.5.4.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5f60188] TT#14008 fix possible pcap namespace issue
+  * [0ff8a4e] TT#109251 fix redis restore segfault
+  * [2e151d6] TT#115400 explicitly disallow ptime in non-RTP SDPs
+  * [0b22bff] TT#14008 fix G.729 recording with bcg729
+
+  [ Dennis Yurasov ]
+  * [d1dea32] SSRC change fix in kernelized stream
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 05 Apr 2021 14:30:48 +0200
+
 ngcp-rtpengine (8.5.4.0+0~mr8.5.4.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
