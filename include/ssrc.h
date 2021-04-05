@@ -96,6 +96,7 @@ struct ssrc_entry_call {
 	uint16_t no_mos_count; // how many time we where not able to compute MOS due to missing RTT
 	uint32_t packets_lost; // RTCP cumulative number of packets lost
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
+	unsigned int last_rtt_xr; // last rtt for both legs retreived from RTCP-XR BT-7
 
 	// for transcoding
 	// input only
