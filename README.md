@@ -1132,6 +1132,13 @@ Optionally included keys are:
 
 		Add the key lifetime parameter `2^31` to each crypto key.
 
+	- `static`
+
+		Instructs *rtpengine* to skip the full SDES negotiation routine during a re-invite
+		(e.g. pick the first support crypto suite, look for possible SRTP passthrough)
+		and instead leave the previously negotiated crypto suite in place. Only useful in
+		subsequent `answer` messages and ignored in `offer` messages.
+
 * `OSRTP`
 
 	Similar to `SDES` but controls OSRTP behaviour. Default behaviour is to pass through
