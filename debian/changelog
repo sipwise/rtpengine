@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.3.3+0~mr8.5.3.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2c14503] TT#14008 fix G.729 recording with bcg729
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 06 Apr 2021 13:58:09 +0200
+
 ngcp-rtpengine (8.5.3.2+0~mr8.5.3.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
