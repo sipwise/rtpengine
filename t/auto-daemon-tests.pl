@@ -42,6 +42,274 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 new_call;
 
+offer('SDES=static control',
+	{ DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 10000 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:QAXb41skvhZaVzQgiJH+y+P9HCUSTnQWXcuieA
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:Ylhu0C+EN+fjasQ730KXQn/t+5vpKmhzs9TgWD1mvRiLHpwABTovh/pwpjjajg
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:QmwGdHm6/VLHA2Et6NFw4i3g4Ely6SG8cWHHo+xTPREMRr0lfDMvr1p7CyXrog
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:K/C34oakA6ko9ZsWyc90W/M/EEx+YFLu3qzxL2IdWXLulkPqDNE
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:ig3qPKCMyU9aCG4YSysTxthgr3FkVdD1pXKVVOOEFeGHgnb7MBk
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:LTwX81FUDIqkdr+g9ogW8T/HRoGmZF5snF97QAPF
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:sczm7mZYpQDbs5qGTMavRH89imN1tLcrJGJk+DG7
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:Gh+eY01+Uvw7gAbstjR0l91ZzuMn4h5JE9jaBYFq
+a=crypto:11 NULL_HMAC_SHA1_80 inline:KPLgFC6jSYe7Xf7rVKi1zjm+CkfxLngL6L3o8kBu
+a=crypto:12 NULL_HMAC_SHA1_32 inline:8ia0Ba4FPS/Dow99pIdt8BLIsq6xo7wn5pWR6zXB
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:QAXb41skvhZaVzQgiJH+y+P9HCUSTnQWXcuieA
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:Ylhu0C+EN+fjasQ730KXQn/t+5vpKmhzs9TgWD1mvRiLHpwABTovh/pwpjjajg
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:QmwGdHm6/VLHA2Et6NFw4i3g4Ely6SG8cWHHo+xTPREMRr0lfDMvr1p7CyXrog
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:K/C34oakA6ko9ZsWyc90W/M/EEx+YFLu3qzxL2IdWXLulkPqDNE
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:ig3qPKCMyU9aCG4YSysTxthgr3FkVdD1pXKVVOOEFeGHgnb7MBk
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:LTwX81FUDIqkdr+g9ogW8T/HRoGmZF5snF97QAPF
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:sczm7mZYpQDbs5qGTMavRH89imN1tLcrJGJk+DG7
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:Gh+eY01+Uvw7gAbstjR0l91ZzuMn4h5JE9jaBYFq
+a=crypto:11 NULL_HMAC_SHA1_80 inline:KPLgFC6jSYe7Xf7rVKi1zjm+CkfxLngL6L3o8kBu
+a=crypto:12 NULL_HMAC_SHA1_32 inline:8ia0Ba4FPS/Dow99pIdt8BLIsq6xo7wn5pWR6zXB
+SDP
+
+answer('SDES=static control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 20000 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=crypto:1 AEAD_AES_256_GCM inline:555555ePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:555555ePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+SDP
+
+offer('SDES=static control',
+	{ DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 10000 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:QAXb41skvhZaVzQgiJH+y+P9HCUSTnQWXcuieA
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:Ylhu0C+EN+fjasQ730KXQn/t+5vpKmhzs9TgWD1mvRiLHpwABTovh/pwpjjajg
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:QmwGdHm6/VLHA2Et6NFw4i3g4Ely6SG8cWHHo+xTPREMRr0lfDMvr1p7CyXrog
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:K/C34oakA6ko9ZsWyc90W/M/EEx+YFLu3qzxL2IdWXLulkPqDNE
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:ig3qPKCMyU9aCG4YSysTxthgr3FkVdD1pXKVVOOEFeGHgnb7MBk
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:LTwX81FUDIqkdr+g9ogW8T/HRoGmZF5snF97QAPF
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:sczm7mZYpQDbs5qGTMavRH89imN1tLcrJGJk+DG7
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:Gh+eY01+Uvw7gAbstjR0l91ZzuMn4h5JE9jaBYFq
+a=crypto:11 NULL_HMAC_SHA1_80 inline:KPLgFC6jSYe7Xf7rVKi1zjm+CkfxLngL6L3o8kBu
+a=crypto:12 NULL_HMAC_SHA1_32 inline:8ia0Ba4FPS/Dow99pIdt8BLIsq6xo7wn5pWR6zXB
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:QAXb41skvhZaVzQgiJH+y+P9HCUSTnQWXcuieA
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:Ylhu0C+EN+fjasQ730KXQn/t+5vpKmhzs9TgWD1mvRiLHpwABTovh/pwpjjajg
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:QmwGdHm6/VLHA2Et6NFw4i3g4Ely6SG8cWHHo+xTPREMRr0lfDMvr1p7CyXrog
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:K/C34oakA6ko9ZsWyc90W/M/EEx+YFLu3qzxL2IdWXLulkPqDNE
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:ig3qPKCMyU9aCG4YSysTxthgr3FkVdD1pXKVVOOEFeGHgnb7MBk
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:LTwX81FUDIqkdr+g9ogW8T/HRoGmZF5snF97QAPF
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:sczm7mZYpQDbs5qGTMavRH89imN1tLcrJGJk+DG7
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:Gh+eY01+Uvw7gAbstjR0l91ZzuMn4h5JE9jaBYFq
+a=crypto:11 NULL_HMAC_SHA1_80 inline:KPLgFC6jSYe7Xf7rVKi1zjm+CkfxLngL6L3o8kBu
+a=crypto:12 NULL_HMAC_SHA1_32 inline:8ia0Ba4FPS/Dow99pIdt8BLIsq6xo7wn5pWR6zXB
+SDP
+
+answer('SDES=static control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 20000 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:O3333333333nRkCFNmL/0LP/dcF1Exu43qwiE0So
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:O3333333333nRkCFNmL/0LP/dcF1Exu43qwiE0So
+SDP
+
+
+
+offer('SDES=static',
+	{ DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 10000 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:QAXb41skvhZaVzQgiJH+y+P9HCUSTnQWXcuieA
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:Ylhu0C+EN+fjasQ730KXQn/t+5vpKmhzs9TgWD1mvRiLHpwABTovh/pwpjjajg
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:QmwGdHm6/VLHA2Et6NFw4i3g4Ely6SG8cWHHo+xTPREMRr0lfDMvr1p7CyXrog
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:K/C34oakA6ko9ZsWyc90W/M/EEx+YFLu3qzxL2IdWXLulkPqDNE
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:ig3qPKCMyU9aCG4YSysTxthgr3FkVdD1pXKVVOOEFeGHgnb7MBk
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:LTwX81FUDIqkdr+g9ogW8T/HRoGmZF5snF97QAPF
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:sczm7mZYpQDbs5qGTMavRH89imN1tLcrJGJk+DG7
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:Gh+eY01+Uvw7gAbstjR0l91ZzuMn4h5JE9jaBYFq
+a=crypto:11 NULL_HMAC_SHA1_80 inline:KPLgFC6jSYe7Xf7rVKi1zjm+CkfxLngL6L3o8kBu
+a=crypto:12 NULL_HMAC_SHA1_32 inline:8ia0Ba4FPS/Dow99pIdt8BLIsq6xo7wn5pWR6zXB
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:QAXb41skvhZaVzQgiJH+y+P9HCUSTnQWXcuieA
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:Ylhu0C+EN+fjasQ730KXQn/t+5vpKmhzs9TgWD1mvRiLHpwABTovh/pwpjjajg
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:QmwGdHm6/VLHA2Et6NFw4i3g4Ely6SG8cWHHo+xTPREMRr0lfDMvr1p7CyXrog
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:K/C34oakA6ko9ZsWyc90W/M/EEx+YFLu3qzxL2IdWXLulkPqDNE
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:ig3qPKCMyU9aCG4YSysTxthgr3FkVdD1pXKVVOOEFeGHgnb7MBk
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:LTwX81FUDIqkdr+g9ogW8T/HRoGmZF5snF97QAPF
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:sczm7mZYpQDbs5qGTMavRH89imN1tLcrJGJk+DG7
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:Gh+eY01+Uvw7gAbstjR0l91ZzuMn4h5JE9jaBYFq
+a=crypto:11 NULL_HMAC_SHA1_80 inline:KPLgFC6jSYe7Xf7rVKi1zjm+CkfxLngL6L3o8kBu
+a=crypto:12 NULL_HMAC_SHA1_32 inline:8ia0Ba4FPS/Dow99pIdt8BLIsq6xo7wn5pWR6zXB
+SDP
+
+answer('SDES=static',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 20000 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=crypto:1 AEAD_AES_256_GCM inline:555555ePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:555555ePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+SDP
+
+offer('SDES=static',
+	{ DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 10000 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:QAXb41skvhZaVzQgiJH+y+P9HCUSTnQWXcuieA
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:Ylhu0C+EN+fjasQ730KXQn/t+5vpKmhzs9TgWD1mvRiLHpwABTovh/pwpjjajg
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:QmwGdHm6/VLHA2Et6NFw4i3g4Ely6SG8cWHHo+xTPREMRr0lfDMvr1p7CyXrog
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:K/C34oakA6ko9ZsWyc90W/M/EEx+YFLu3qzxL2IdWXLulkPqDNE
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:ig3qPKCMyU9aCG4YSysTxthgr3FkVdD1pXKVVOOEFeGHgnb7MBk
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:LTwX81FUDIqkdr+g9ogW8T/HRoGmZF5snF97QAPF
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:sczm7mZYpQDbs5qGTMavRH89imN1tLcrJGJk+DG7
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:Gh+eY01+Uvw7gAbstjR0l91ZzuMn4h5JE9jaBYFq
+a=crypto:11 NULL_HMAC_SHA1_80 inline:KPLgFC6jSYe7Xf7rVKi1zjm+CkfxLngL6L3o8kBu
+a=crypto:12 NULL_HMAC_SHA1_32 inline:8ia0Ba4FPS/Dow99pIdt8BLIsq6xo7wn5pWR6zXB
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:QAXb41skvhZaVzQgiJH+y+P9HCUSTnQWXcuieA
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:Ylhu0C+EN+fjasQ730KXQn/t+5vpKmhzs9TgWD1mvRiLHpwABTovh/pwpjjajg
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:QmwGdHm6/VLHA2Et6NFw4i3g4Ely6SG8cWHHo+xTPREMRr0lfDMvr1p7CyXrog
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:K/C34oakA6ko9ZsWyc90W/M/EEx+YFLu3qzxL2IdWXLulkPqDNE
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:ig3qPKCMyU9aCG4YSysTxthgr3FkVdD1pXKVVOOEFeGHgnb7MBk
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:LTwX81FUDIqkdr+g9ogW8T/HRoGmZF5snF97QAPF
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:sczm7mZYpQDbs5qGTMavRH89imN1tLcrJGJk+DG7
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:Gh+eY01+Uvw7gAbstjR0l91ZzuMn4h5JE9jaBYFq
+a=crypto:11 NULL_HMAC_SHA1_80 inline:KPLgFC6jSYe7Xf7rVKi1zjm+CkfxLngL6L3o8kBu
+a=crypto:12 NULL_HMAC_SHA1_32 inline:8ia0Ba4FPS/Dow99pIdt8BLIsq6xo7wn5pWR6zXB
+SDP
+
+answer('SDES=static',
+	{ SDES => ['static'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 20000 RTP/SAVP 8
+c=IN IP4 198.51.100.1
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:O3333333333nRkCFNmL/0LP/dcF1Exu43qwiE0So
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:555555ePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+SDP
+
+new_call;
+
 ($port_a, undef, $ufrag_a) = offer('ICE re-invite',
 	{ ICE => 'force', }, <<SDP);
 v=0

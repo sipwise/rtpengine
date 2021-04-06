@@ -123,6 +123,7 @@ struct sdp_ng_flags {
 	    sdes_authenticated_srtp:1,
 	    sdes_lifetime:1,
 	    sdes_pad:1,
+	    sdes_static:1,
 	    drop_traffic_start:1,
 	    drop_traffic_stop:1,
 	    passthrough_on:1,

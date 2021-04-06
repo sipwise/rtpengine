@@ -521,6 +521,8 @@ INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two
 }
 
 INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+	str_hyphenate(s);
+
 	if (call_ng_flags_prefix(out, s, "no-", call_ng_flags_str_ht, &out->sdes_no))
 		return;
 
@@ -560,6 +562,9 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 			break;
 		case CSH_LOOKUP("pad"):
 			out->sdes_pad = 1;
+			break;
+		case CSH_LOOKUP("static"):
+			out->sdes_static = 1;
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
