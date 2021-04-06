@@ -1,3 +1,11 @@
+ngcp-rtpengine (7.5.5.4+0~mr7.5.5.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3f382aa] TT#14008 fix possible pcap namespace issue
+  * [eba60cf] TT#14008 fix G.729 recording with bcg729
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 06 Apr 2021 13:58:36 +0200
+
 ngcp-rtpengine (7.5.5.3+0~mr7.5.5.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
