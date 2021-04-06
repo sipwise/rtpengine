@@ -1538,6 +1538,23 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		struct crypto_params_sdes *cps = cpq->head ? cpq->head->data : NULL;
 		struct crypto_params_sdes *cps_in = cpq_in->head ? cpq_in->head->data : NULL;
 		struct crypto_params_sdes *offered_cps = offered_cpq->head ? offered_cpq->head->data : NULL;
+
+		if (flags && flags->sdes_static && cps) {
+			// reverse logic: instead of looking for a matching crypto suite to put in
+			// our answer, we want to leave what we already had. however, this is only
+			// valid if the currently present crypto suite matches the offer
+			for (GList *l = cpq_in->head; l; l = l->next) {
+				struct crypto_params_sdes *check_cps = l->data;
+				if (check_cps->params.crypto_suite == cps->params.crypto_suite
+						&& check_cps->tag == cps->tag) {
+					ilogs(crypto, LOG_DEBUG, "Found matching existing crypto suite %u:%s",
+							check_cps->tag,
+							check_cps->params.crypto_suite->name);
+					goto cps_match;
+				}
+			}
+		}
+
 		if (offered_cps) {
 			ilogs(crypto, LOG_DEBUG, "Looking for matching crypto suite to offered %u:%s", offered_cps->tag,
 					offered_cps->params.crypto_suite->name);
@@ -1553,6 +1570,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				}
 			}
 		}
+cps_match:
 		if (cps_in && (!cps || cps->params.crypto_suite != cps_in->params.crypto_suite)) {
 			crypto_params_sdes_queue_clear(cpq);
 			cps = g_slice_alloc0(sizeof(*cps));
