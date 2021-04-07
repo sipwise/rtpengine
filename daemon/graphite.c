@@ -195,6 +195,9 @@ static int send_graphite_data(struct totalstats *sent_data) {
 	GPF("current_sessions_own "UINT64F, ts->own_sessions);
 	GPF("current_sessions_foreign "UINT64F, ts->foreign_sessions);
 	GPF("current_transcoded_media "UINT64F, atomic64_get(&rtpe_stats.transcoded_media));
+	GPF("current_sessions_ipv4 "UINT64F, atomic64_get(&rtpe_stats.ipv4_sessions));
+	GPF("current_sessions_ipv6 "UINT64F, atomic64_get(&rtpe_stats.ipv6_sessions));
+	GPF("current_sessions_mixed "UINT64F, atomic64_get(&rtpe_stats.mixed_sessions));
 	GPF("nopacket_relayed_sess "UINT64F, atomic64_get_na(&ts->total_nopacket_relayed_sess));
 	GPF("oneway_stream_sess "UINT64F, atomic64_get_na(&ts->total_oneway_stream_sess));
 	GPF("regular_term_sess "UINT64F, atomic64_get_na(&ts->total_regular_term_sess));

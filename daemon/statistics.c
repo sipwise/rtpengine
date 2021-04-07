@@ -97,6 +97,84 @@ void statistics_update_totals(struct packet_stream *ps) {
 		atomic64_get(&ps->stats.bytes));
 }
 
+// op can be CMC_INCREMENT or CMC_DECREMENT
+// check not to multiple decrement or increment
+void statistics_update_ip46_inc_dec(struct call* c, int op) {
+	// already incremented
+	if (op == CMC_INCREMENT && c->is_call_media_counted) {
+		return ;
+
+	// already decremented
+	} else if (op == CMC_DECREMENT && !c->is_call_media_counted) {
+		return ;
+	}
+
+	// offer is ipv4 only
+	if (c->is_ipv4_media_offer && !c->is_ipv6_media_offer) {
+		// answer is ipv4 only
+		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv4_sessions) : atomic64_dec(&rtpe_stats.ipv4_sessions);
+
+		// answer is ipv6 only
+		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.mixed_sessions) : atomic64_dec(&rtpe_stats.mixed_sessions);
+
+		// answer is both ipv4 and ipv6
+		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv4_sessions) : atomic64_dec(&rtpe_stats.ipv4_sessions);
+
+		// answer is neither ipv4 nor ipv6
+		} else {
+			return ;
+		}
+
+	// offer is ipv6 only
+	} else if (!c->is_ipv4_media_offer && c->is_ipv6_media_offer) {
+		// answer is ipv4 only
+		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.mixed_sessions) : atomic64_dec(&rtpe_stats.mixed_sessions);
+
+		// answer is ipv6 only
+		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv6_sessions) : atomic64_dec(&rtpe_stats.ipv6_sessions);
+
+		// answer is both ipv4 and ipv6
+		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv6_sessions) : atomic64_dec(&rtpe_stats.ipv6_sessions);
+
+		// answer is neither ipv4 nor ipv6
+		} else {
+			return ;
+		}
+
+	// offer is both ipv4 and ipv6
+	} else if (c->is_ipv4_media_offer && c->is_ipv6_media_offer) {
+		// answer is ipv4 only
+		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv4_sessions) : atomic64_dec(&rtpe_stats.ipv4_sessions);
+
+		// answer is ipv6 only
+		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv6_sessions) : atomic64_dec(&rtpe_stats.ipv6_sessions);
+
+		// answer is both ipv4 and ipv6
+		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.mixed_sessions) : atomic64_dec(&rtpe_stats.mixed_sessions);
+
+		// answer is neither ipv4 nor ipv6
+		} else {
+			return ;
+		}
+
+	// offer is neither ipv4 nor ipv6
+	} else {
+		return ;
+	}
+
+	// mark if incremented or decremented
+	c->is_call_media_counted = (op == CMC_INCREMENT) ? 1 : 0;
+}
+
 void statistics_update_foreignown_dec(struct call* c) {
 	if (IS_FOREIGN_CALL(c)) {
 		atomic64_dec(&rtpe_stats.foreign_sessions);

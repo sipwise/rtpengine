@@ -52,6 +52,11 @@ enum call_opmode {
 	OP_OTHER,
 };
 
+enum call_media_counted {
+	CMC_INCREMENT = 0,
+	CMC_DECREMENT,
+};
+
 enum call_stream_state {
 	CSS_UNKNOWN = 0,
 	CSS_SHUTDOWN,
@@ -416,6 +421,13 @@ struct call {
 
 	struct recording 	*recording;
 	str			metadata;
+
+	// ipv4/ipv6 media flags
+	unsigned int		is_ipv4_media_offer:1;
+	unsigned int		is_ipv6_media_offer:1;
+	unsigned int		is_ipv4_media_answer:1;
+	unsigned int		is_ipv6_media_answer:1;
+	unsigned int		is_call_media_counted:1;
 
 	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;
