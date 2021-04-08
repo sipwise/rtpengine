@@ -286,10 +286,6 @@ static int output_shutdown(output_t *output) {
 
 	output->fmtctx = NULL;
 	output->avst = NULL;
-	g_clear_pointer(&output->full_filename, g_free);
-	g_clear_pointer(&output->file_path, g_free);
-	g_clear_pointer(&output->file_name, g_free);
-	g_clear_pointer(&output->filename, g_free);
 
 	return ret;
 }
@@ -303,6 +299,10 @@ void output_close(output_t *output) {
 	else
 		db_delete_stream(output);
 	encoder_free(output->encoder);
+	g_clear_pointer(&output->full_filename, g_free);
+	g_clear_pointer(&output->file_path, g_free);
+	g_clear_pointer(&output->file_name, g_free);
+	g_clear_pointer(&output->filename, g_free);
 	g_slice_free1(sizeof(*output), output);
 }
 
