@@ -37,6 +37,7 @@ char *spool_dir = NULL;
 char *output_dir = NULL;
 static char *output_format = NULL;
 int output_mixed;
+enum mix_method mix_method;
 int output_single;
 int output_enabled = 1;
 mode_t output_chmod;
@@ -175,6 +176,7 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(chmod_dir_mode);
 	AUTO_CLEANUP_GBUF(user_uid);
 	AUTO_CLEANUP_GBUF(group_gid);
+	AUTO_CLEANUP_GBUF(mix_method_str);
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
@@ -187,6 +189,7 @@ static void options(int *argc, char ***argv) {
 		{ "resample-to",	0,   0, G_OPTION_ARG_INT,	&resample_audio,"Resample all output audio",		"INT"		},
 		{ "mp3-bitrate",	0,   0, G_OPTION_ARG_INT,	&mp3_bitrate,	"Bits per second for MP3 encoding",	"INT"		},
 		{ "output-mixed",	0,   0, G_OPTION_ARG_NONE,	&output_mixed,	"Mix participating sources into a single output",NULL	},
+		{ "mix-method",		0,   0, G_OPTION_ARG_STRING,	&mix_method_str,"How to mix multiple sources",		"direct|channels"},
 		{ "output-single",	0,   0, G_OPTION_ARG_NONE,	&output_single,	"Create one output file for each source",NULL		},
 		{ "output-chmod",	0,   0, G_OPTION_ARG_STRING,	&chmod_mode,	"File mode for recordings",		"OCTAL"		},
 		{ "output-chmod-dir",	0,   0, G_OPTION_ARG_STRING,	&chmod_dir_mode,"Directory mode for recordings",	"OCTAL"		},
@@ -245,6 +248,13 @@ static void options(int *argc, char ***argv) {
 		output_storage = OUTPUT_STORAGE_BOTH;
 	else
 		die("Invalid 'output-storage' option");
+
+	if (!mix_method_str || !mix_method_str[0] || !strcmp(mix_method_str, "direct"))
+		mix_method = MM_DIRECT;
+	else if (!strcmp(mix_method_str, "channels"))
+		mix_method = MM_CHANNELS;
+	else
+		die("Invalid 'mix-method' option");
 
 	if ((output_storage & OUTPUT_STORAGE_FILE) && !strcmp(output_dir, spool_dir))
 		die("The spool-dir cannot be the same as the output-dir");

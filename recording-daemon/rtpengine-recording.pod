@@ -235,6 +235,20 @@ stream is produced. Audio mixing takes RTP timestamping into account, so gaps
 and pauses in the RTP media are reflected in the output audio to keep the
 multiple audio sources in sync.
 
+=item B<--mix-method=>B<direct>|B<channels>
+
+Selects a method to mix multiple audio inputs into a single output file for
+B<mixed> output. The default is B<direct> which directly mixes all audio inputs
+together, producing a mixed output file with the same format as an audio file
+from a single input (B<output-single>) would be.
+
+The B<channels> mixing method puts each audio input into its own audio channel
+in the output file, therefore producing a multi-channel output file. Up to four
+separate RTP SSRCs are supported for a mixed output, which means that if each
+input is mono audio, then the mixed output file would contain 4 audio channels.
+This mixing method requires an output file format which supports these kinds of
+multi-channel audio formats (e.g. B<wav>).
+
 =item B<--output-chmod=>I<INT>
 
 Change the file permissions of recording files to the given mode. Must be given

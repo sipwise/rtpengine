@@ -146,10 +146,13 @@ struct output_s {
 		*filename; // path + filename + suffix
 	const char *file_format;
 	unsigned long long db_id;
+	unsigned int channel_mult;
 
 	AVFormatContext *fmtctx;
 	AVStream *avst;
 	encoder_t *encoder;
+	format_t requested_format,
+		 actual_format;
 };
 
 

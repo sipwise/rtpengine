@@ -12,20 +12,21 @@
 #include "log.h"
 #include "output.h"
 #include "resample.h"
+#include "main.h"
 
-
-#define NUM_INPUTS 4
 
 
 struct mix_s {
-	format_t format;
+	format_t in_format,
+		 out_format;
 
 	AVFilterGraph *graph;
-	AVFilterContext *src_ctxs[NUM_INPUTS];
-	uint64_t pts_offs[NUM_INPUTS]; // initialized at first input seen
-	uint64_t in_pts[NUM_INPUTS]; // running counter of next expected adjusted pts
-	struct timeval last_use[NUM_INPUTS]; // to recycle old mix inputs
-	void *input_ref[NUM_INPUTS]; // to avoid collisions in case of idx re-use
+	AVFilterContext *src_ctxs[MIX_NUM_INPUTS];
+	uint64_t pts_offs[MIX_NUM_INPUTS]; // initialized at first input seen
+	uint64_t in_pts[MIX_NUM_INPUTS]; // running counter of next expected adjusted pts
+	struct timeval last_use[MIX_NUM_INPUTS]; // to recycle old mix inputs
+	void *input_ref[MIX_NUM_INPUTS]; // to avoid collisions in case of idx re-use
+	uint64_t channel_layout[MIX_NUM_INPUTS];
 	AVFilterContext *amix_ctx;
 	AVFilterContext *sink_ctx;
 	unsigned int next_idx;
@@ -48,7 +49,7 @@ static void mix_shutdown(mix_t *mix) {
 		avfilter_free(mix->sink_ctx);
 	mix->sink_ctx = NULL;
 
-	for (unsigned int i = 0; i < NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++) {
 		if (mix->src_ctxs[i])
 			avfilter_free(mix->src_ctxs[i]);
 		mix->src_ctxs[i] = NULL;
@@ -57,7 +58,8 @@ static void mix_shutdown(mix_t *mix) {
 	resample_shutdown(&mix->resample);
 	avfilter_graph_free(&mix->graph);
 
-	format_init(&mix->format);
+	format_init(&mix->in_format);
+	format_init(&mix->out_format);
 }
 
 
@@ -80,7 +82,7 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 
 unsigned int mix_get_index(mix_t *mix, void *ptr) {
 	unsigned int next = mix->next_idx++;
-	if (next < NUM_INPUTS) {
+	if (next < MIX_NUM_INPUTS) {
 		// must be unused
 		mix->input_ref[next] = ptr;
 		return next;
@@ -89,7 +91,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr) {
 	// too many inputs - find one to re-use
 	struct timeval earliest = {0,};
 	next = 0;
-	for (unsigned int i = 0; i < NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++) {
 		if (earliest.tv_sec == 0 || timeval_cmp(&earliest, &mix->last_use[i]) > 0) {
 			next = i;
 			earliest = mix->last_use[i];
@@ -107,12 +109,12 @@ int mix_config(mix_t *mix, const format_t *format) {
 	const char *err;
 	char args[512];
 
-	if (format_eq(format, &mix->format))
+	if (format_eq(format, &mix->in_format))
 		return 0;
 
 	mix_shutdown(mix);
 
-	mix->format = *format;
+	mix->in_format = *format;
 
 	// filter graph
 	err = "failed to alloc filter graph";
@@ -123,13 +125,17 @@ int mix_config(mix_t *mix, const format_t *format) {
 	mix->graph->thread_type = 0;
 
 	// amix
-	err = "no amix filter available";
-	const AVFilter *flt = avfilter_get_by_name("amix");
+	err = "no amix/amerge filter available";
+	const AVFilter *flt = NULL;
+	if (mix_method == MM_DIRECT)
+		flt = avfilter_get_by_name("amix");
+	else if (mix_method == MM_CHANNELS)
+		flt = avfilter_get_by_name("amerge");
 	if (!flt)
 		goto err;
 
-	snprintf(args, sizeof(args), "inputs=%lu", (unsigned long) NUM_INPUTS);
-	err = "failed to create amix filter context";
+	snprintf(args, sizeof(args), "inputs=%lu", (unsigned long) MIX_NUM_INPUTS);
+	err = "failed to create amix/amerge filter context";
 	if (avfilter_graph_create_filter(&mix->amix_ctx, flt, NULL, args, NULL, mix->graph))
 		goto err;
 
@@ -139,14 +145,27 @@ int mix_config(mix_t *mix, const format_t *format) {
 	if (!flt)
 		goto err;
 
-	for (unsigned int i = 0; i < NUM_INPUTS; i++) {
+	uint64_t channel_layout = av_get_default_channel_layout(mix->in_format.channels);
+	uint64_t ext_layout = av_get_default_channel_layout(mix->in_format.channels * MIX_NUM_INPUTS);
+
+	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++) {
 		dbg("init input ctx %i", i);
+
+		uint64_t ch_layout = channel_layout;
+
+		if (mix_method == MM_CHANNELS) {
+			ch_layout = 0;
+			for (int ch = 0; ch < mix->in_format.channels; ch++)
+				ch_layout |= av_channel_layout_extract_channel(ext_layout,
+						i * mix->in_format.channels + ch);
+		}
 
 		snprintf(args, sizeof(args), "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:"
 				"channel_layout=0x%" PRIx64,
-				1, mix->format.clockrate, mix->format.clockrate,
-				av_get_sample_fmt_name(mix->format.format),
-				av_get_default_channel_layout(mix->format.channels));
+				1, mix->in_format.clockrate, mix->in_format.clockrate,
+				av_get_sample_fmt_name(mix->in_format.format),
+				ch_layout);
+		mix->channel_layout[i] = ch_layout;
 
 		err = "failed to create abuffer filter context";
 		if (avfilter_graph_create_filter(&mix->src_ctxs[i], flt, NULL, args, NULL, mix->graph))
@@ -176,6 +195,10 @@ int mix_config(mix_t *mix, const format_t *format) {
 	if (avfilter_graph_config(mix->graph, NULL))
 		goto err;
 
+	mix->out_format = mix->in_format;
+	if (mix_method == MM_CHANNELS)
+		mix->out_format.channels *= MIX_NUM_INPUTS;
+
 	return 0;
 
 err:
@@ -187,10 +210,11 @@ err:
 
 mix_t *mix_new() {
 	mix_t *mix = g_slice_alloc0(sizeof(*mix));
-	format_init(&mix->format);
+	format_init(&mix->in_format);
+	format_init(&mix->out_format);
 	mix->sink_frame = av_frame_alloc();
 
-	for (unsigned int i = 0; i < NUM_INPUTS; i++)
+	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++)
 		mix->pts_offs[i] = (uint64_t) -1LL;
 
 	return mix;
@@ -198,10 +222,10 @@ mix_t *mix_new() {
 
 
 static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upto) {
-	unsigned int silence_samples = mix->format.clockrate / 100;
+	unsigned int silence_samples = mix->in_format.clockrate / 100;
 
 	while (mix->in_pts[idx] < upto) {
-		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->format.clockrate * 30)) {
+		if (G_UNLIKELY(upto - mix->in_pts[idx] > mix->in_format.clockrate * 30)) {
 			ilog(LOG_WARN, "More than 30 seconds of silence needed to fill mix buffer, resetting");
 			mix->in_pts[idx] = upto;
 			break;
@@ -209,16 +233,16 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 
 		if (G_UNLIKELY(!mix->silence_frame)) {
 			mix->silence_frame = av_frame_alloc();
-			mix->silence_frame->format = mix->format.format;
+			mix->silence_frame->format = mix->in_format.format;
 			mix->silence_frame->channel_layout =
-				av_get_default_channel_layout(mix->format.channels);
+				av_get_default_channel_layout(mix->in_format.channels);
 			mix->silence_frame->nb_samples = silence_samples;
-			mix->silence_frame->sample_rate = mix->format.clockrate;
+			mix->silence_frame->sample_rate = mix->in_format.clockrate;
 			if (av_frame_get_buffer(mix->silence_frame, 0) < 0) {
 				ilog(LOG_ERR, "Failed to get silence frame buffers");
 				return;
 			}
-			int planes = av_sample_fmt_is_planar(mix->silence_frame->format) ? mix->format.channels : 1;
+			int planes = av_sample_fmt_is_planar(mix->silence_frame->format) ? mix->in_format.channels : 1;
 			for (int i = 0; i < planes; i++)
 				memset(mix->silence_frame->extended_data[i], 0, mix->silence_frame->linesize[0]);
 		}
@@ -231,6 +255,7 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 		mix->silence_frame->nb_samples = MIN(silence_samples, upto - mix->in_pts[idx]);
 		mix->in_pts[idx] += mix->silence_frame->nb_samples;
 
+		mix->silence_frame->channel_layout = mix->channel_layout[idx];
 		if (av_buffersrc_write_frame(mix->src_ctxs[idx], mix->silence_frame))
 			ilog(LOG_WARN, "Failed to write silence frame to buffer");
 	}
@@ -238,14 +263,14 @@ static void mix_silence_fill_idx_upto(mix_t *mix, unsigned int idx, uint64_t upt
 
 
 static void mix_silence_fill(mix_t *mix) {
-	if (mix->out_pts < mix->format.clockrate)
+	if (mix->out_pts < mix->in_format.clockrate)
 		return;
 
-	for (unsigned int i = 0; i < NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++) {
 		// check the pts of each input and give them max 0.5 second of delay.
 		// if they fall behind too much, fill input with silence. otherwise
 		// output stalls and won't produce media
-		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->format.clockrate / 2);
+		mix_silence_fill_idx_upto(mix, i, mix->out_pts - mix->in_format.clockrate / 2);
 	}
 }
 
@@ -254,7 +279,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *o
 	const char *err;
 
 	err = "index out of range";
-	if (idx >= NUM_INPUTS)
+	if (idx >= MIX_NUM_INPUTS)
 		goto err;
 
 	err = "mixer not initialized";
@@ -291,6 +316,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *o
 
 	uint64_t next_pts = frame->pts + frame->nb_samples;
 
+	frame->channel_layout = mix->channel_layout[idx];
 	err = "failed to add frame to mixer";
 	if (av_buffersrc_add_frame(mix->src_ctxs[idx], frame))
 		goto err;
@@ -314,7 +340,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *o
 			else
 				goto err;
 		}
-		frame = resample_frame(&mix->resample, mix->sink_frame, &mix->format);
+		frame = resample_frame(&mix->resample, mix->sink_frame, &mix->out_format);
 
 		ret = output_add(output, frame);
 

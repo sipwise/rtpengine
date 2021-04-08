@@ -74,6 +74,8 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 		pthread_mutex_lock(&mf->mix_lock);
 		if (!mf->mix) {
 			mf->mix_out = output_new(output_dir, mf->parent, "mix");
+			if (mix_method == MM_CHANNELS)
+				mf->mix_out->channel_mult = MIX_NUM_INPUTS;
 			mf->mix = mix_new();
 			db_do_stream(mf, mf->mix_out, "mixed", NULL, 0);
 		}

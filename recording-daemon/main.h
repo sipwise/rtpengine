@@ -12,6 +12,10 @@ enum output_storage_enum {
 	OUTPUT_STORAGE_DB = 0x2,
 	OUTPUT_STORAGE_BOTH = 0x3,
 };
+enum mix_method {
+	MM_DIRECT = 0,
+	MM_CHANNELS,
+};
 
 extern int ktable;
 extern int num_threads;
@@ -19,6 +23,7 @@ extern enum output_storage_enum output_storage;
 extern char *spool_dir;
 extern char *output_dir;
 extern int output_mixed;
+extern enum mix_method mix_method;
 extern int output_single;
 extern int output_enabled;
 extern mode_t output_chmod;

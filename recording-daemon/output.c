@@ -165,6 +165,9 @@ done:;
 	ret->full_filename = g_strdup_printf("%s/%s", path, f->str);
 	ret->file_format = output_file_format;
 	ret->encoder = encoder_new();
+	ret->channel_mult = 1;
+	ret->requested_format.format = -1;
+	ret->actual_format.format = -1;
 
 	create_parent_dirs(ret->full_filename);
 
@@ -178,12 +181,16 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	const char *err;
 	int av_ret = 0;
 
+	format_t req_fmt = *requested_format;
+
+	// if we've already done this and don't care about the sample format,
+	// restore the already determined sample format
+	if (req_fmt.format == -1 && output->requested_format.format != -1)
+		req_fmt.format = output->requested_format.format;
+
 	// anything to do?
-	if (G_LIKELY(format_eq(requested_format, &output->encoder->requested_format))) {
-		if (actual_format)
-			*actual_format = output->encoder->actual_format;
+	if (G_LIKELY(format_eq(&req_fmt, &output->requested_format)))
 		goto done;
-	}
 
 	output_shutdown(output);
 
@@ -196,8 +203,18 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	if (!output->fmtctx->oformat)
 		goto err;
 
-	if (encoder_config(output->encoder, output_codec, mp3_bitrate, 0, requested_format, actual_format))
+	// mask the channel multiplier from external view
+	output->requested_format = *requested_format;
+	req_fmt.channels *= output->channel_mult;
+
+	if (encoder_config(output->encoder, output_codec, mp3_bitrate, 0, &req_fmt, &output->actual_format))
 		goto err;
+
+	if (output->actual_format.channels == req_fmt.channels)
+		output->actual_format.channels /= output->channel_mult;
+	// save the sample format
+	if (requested_format->format == -1)
+		output->requested_format.format = output->actual_format.format;
 
 	err = "failed to alloc output stream";
 	output->avst = avformat_new_stream(output->fmtctx, output->encoder->u.avc.codec);
@@ -244,6 +261,8 @@ got_fn:
 
 	db_config_stream(output);
 done:
+	if (actual_format)
+		*actual_format = output->actual_format;
 	return 0;
 
 err:
