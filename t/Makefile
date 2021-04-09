@@ -169,6 +169,8 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.o resample.o codec.o ssr
 test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.o \
 	resample.o dtmflib.o
 
+test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
+
 test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS)
 
 PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c99
