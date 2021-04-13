@@ -277,7 +277,7 @@ How many worker threads to create, must be at least one.
 The default is to create as many threads as there are CPU cores available.
 If the number of CPU cores cannot be determined, the default is four.
 
-=item B<--num-media-threads=>I<INT>
+=item B<--media-num-threads=>I<INT>
 
 Number of threads to launch for media playback. Defaults to the same
 number as B<num-threads>. This can be set to zero if no media playback
