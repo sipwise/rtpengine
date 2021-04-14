@@ -76,6 +76,7 @@ struct rtpengine_config {
 	int			redis_delete_async_interval;
 	char			*redis_auth;
 	char			*redis_write_auth;
+	int			active_switchover;
 	int			num_threads;
 	int			media_num_threads;
 	char			*spooldir;

@@ -1384,7 +1384,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	if (!call)
 		goto out;
 
-	if (IS_FOREIGN_CALL(call))
+	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(call))
 		call_make_own_foreign(call, 0);
 
 	if (!call->created_from && addr) {

@@ -2024,7 +2024,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	}
 #endif
 
-	if (IS_FOREIGN_CALL(phc->mp.call))
+	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(phc->mp.call))
 		call_make_own_foreign(phc->mp.call, 0);
 
 	// this sets rtcp, in_srtp, out_srtp, and sink

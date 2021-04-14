@@ -413,6 +413,13 @@ The default is 4.
 Expire time in seconds for redis keys.
 Default is 86400.
 
+=item B<active-switchover>
+
+With this option enabled, any activity (such as signalling or media) on a call
+that was created through a Redis keyspace notification will make B<rtpengine>
+take control of that call. Without this option, an explicit command is required
+for B<rtpengine> to take (or relinquish) control of a call.
+
 =item B<-q>, B<--no-redis-required>
 
 When this parameter is present or B<NO_REDIS_REQUIRED='yes'> or B<'1'> in
