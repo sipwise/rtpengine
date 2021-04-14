@@ -413,10 +413,6 @@ The default is 4.
 Expire time in seconds for redis keys.
 Default is 86400.
 
-=item B<--redis-multikey>
-
-Use multiple redis keys for storing the call (old behaviour). B<DEPRECATED>.
-
 =item B<-q>, B<--no-redis-required>
 
 When this parameter is present or B<NO_REDIS_REQUIRED='yes'> or B<'1'> in
