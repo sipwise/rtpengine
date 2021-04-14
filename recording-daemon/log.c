@@ -26,3 +26,7 @@ void __ilog(int prio, const char *fmt, ...) {
         __vpilog(prio, prefix, fmt, ap);
         va_end(ap);
 }
+
+int get_local_log_level(unsigned int subsystem_idx) {
+	return -1;
+}

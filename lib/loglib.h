@@ -13,6 +13,8 @@ extern int ilog_facility;
 
 extern unsigned int max_log_line_length;
 
+extern int get_local_log_level(unsigned int);
+
 
 typedef void write_log_t(int facility_priority, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 extern write_log_t *write_log;
@@ -46,7 +48,7 @@ extern const char * const log_level_descriptions[];
 #ifndef __DEBUG
 #define ilogsn(system, prio, fmt, ...)								\
 	do {											\
-		int __loglevel = __get_log_level(system);						\
+		int __loglevel = __get_log_level(system);					\
 		if (LOG_LEVEL_MASK((prio)) > LOG_LEVEL_MASK(__loglevel))			\
 			break;									\
 		if ((__loglevel & LOG_FLAG_RESTORE) && !((prio) & LOG_FLAG_RESTORE))		\
@@ -67,6 +69,9 @@ INLINE int __get_log_level(unsigned int idx) {
 		return 8;
 	if (idx >= MAX_LOG_LEVELS)
 		return 8;
+	int local_log_level = get_local_log_level(idx);
+	if (local_log_level >= 0)
+		return local_log_level;
 	return g_atomic_int_get(&rtpe_common_config_ptr->log_levels[idx]);
 }
 #define get_log_level(system) __get_log_level(log_level_index_ ## system)

@@ -836,6 +836,12 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("record-call"):
 			out->record_call = 1;
 			break;
+		case CSH_LOOKUP("debug"):
+			out->debug = 1;
+			break;
+		case CSH_LOOKUP("debugging"):
+			out->debug = 1;
+			break;
 		case CSH_LOOKUP("no-rtcp-attribute"):
 			out->no_rtcp_attr = 1;
 			break;
@@ -1383,6 +1389,9 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	errstr = "Unknown call-id";
 	if (!call)
 		goto out;
+
+	if (flags.debug)
+		call->debug = 1;
 
 	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(call))
 		call_make_own_foreign(call, 0);

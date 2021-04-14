@@ -225,3 +225,7 @@ int main(void)
 
 	crypto_cleanup_session_key(&ctx);
 }
+
+int get_local_log_level(unsigned int u) {
+	return -1;
+}

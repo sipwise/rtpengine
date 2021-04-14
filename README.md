@@ -838,6 +838,10 @@ Optionally included keys are:
 
 		Identical to setting `generate RTCP = on`.
 
+	- `debug` or `debugging`
+
+		Enabled full debug logging for this call, regardless of global log level settings.
+
 * `generate RTCP`
 
 	Contains a string, either `on` or `off`. If enabled for a call,

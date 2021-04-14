@@ -159,6 +159,8 @@ sub showusage {
     print "    active                     : set all running sessions to 'owned'\n";
     print "    standby                    : set all running sessions to 'foreign'\n";
     print "\n";
+    print "    debug <callid> <on/off>    : set debugging flag for given call\n";
+    print "\n";
     print "\n";
     print "    Return Value:\n";
     print "    0 on success with output from server side, other values for failure.\n";

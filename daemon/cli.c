@@ -47,6 +47,7 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw);
 static void cli_incoming_kslist(str *instr, struct cli_writer *cw);
 static void cli_incoming_active(str *instr, struct cli_writer *cw);
 static void cli_incoming_standby(str *instr, struct cli_writer *cw);
+static void cli_incoming_debug(str *instr, struct cli_writer *cw);
 
 static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw);
@@ -106,6 +107,7 @@ static const cli_handler_t cli_top_handlers[] = {
 	{ "kslist",		cli_incoming_kslist		},
 	{ "active",		cli_incoming_active		},
 	{ "standby",		cli_incoming_standby		},
+	{ "debug",		cli_incoming_debug		},
 	{ NULL, },
 };
 static const cli_handler_t cli_set_handlers[] = {
@@ -543,7 +545,7 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 	c = call_get(instr);
 
 	if (!c) {
-		cw->cw_printf(cw, "\nCall Id not found (%s).\n\n", instr->s);
+		cw->cw_printf(cw, "\nCall ID not found (" STR_FORMAT ").\n\n", STR_FMT(instr));
 		return;
 	}
 
@@ -1086,6 +1088,49 @@ static void cli_incoming_active(str *instr, struct cli_writer *cw) {
 }
 static void cli_incoming_standby(str *instr, struct cli_writer *cw) {
 	cli_incoming_active_standby(cw, 1);
+}
+
+static void cli_incoming_debug(str *instr, struct cli_writer *cw) {
+	if (str_shift(instr, 1)) {
+		cw->cw_printf(cw, "No call ID specified\n");
+		return;
+	}
+
+	str callid = STR_NULL;
+	str_token_sep(&callid, instr, ' ');
+
+	if (!callid.len) {
+		cw->cw_printf(cw, "No call ID specified\n");
+		return;
+	}
+
+	int flag = 1;
+
+	if (instr->len) {
+		if (!str_cmp(instr, "on") || !str_cmp(instr, "enable"))
+			;
+		else if (!str_cmp(instr, "off") || !str_cmp(instr, "disable"))
+			flag = 0;
+		else {
+			cw->cw_printf(cw, "Invalid on/off flag ('" STR_FORMAT "') specified\n", STR_FMT(instr));
+			return;
+		}
+	}
+
+	struct call *c = call_get(&callid);
+
+	if (!c) {
+		cw->cw_printf(cw, "Call ID '" STR_FORMAT "' not found\n", STR_FMT(&callid));
+		return;
+	}
+
+	c->debug = flag;
+
+	cw->cw_printf(cw, "%s debugging for call '" STR_FORMAT "'\n", flag ? "Enabled" : "Disabled",
+			STR_FMT(&callid));
+
+	rwlock_unlock_w(&c->master_lock);
+	obj_put(c);
 }
 
 static void cli_incoming(struct streambuf_stream *s) {

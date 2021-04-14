@@ -135,3 +135,22 @@ void dtmflog(GString *s) {
 void rtcplog(const char* cdrbuffer) {
     syslog(LOG_INFO | _log_facility_rtcp, "%s", cdrbuffer);
 }
+
+int get_local_log_level(unsigned int subsystem_idx) {
+	switch (log_info.e) {
+		case LOG_INFO_CALL:
+			if (log_info.u.call->debug)
+				return 8;
+			return -1;
+		case LOG_INFO_STREAM_FD:
+			if (log_info.u.stream_fd->call && log_info.u.stream_fd->call->debug)
+				return 8;
+			return -1;
+		case LOG_INFO_ICE_AGENT:
+			if (log_info.u.ice_agent->call && log_info.u.ice_agent->call->debug)
+				return 8;
+			return -1;
+		default:
+			return -1;
+	}
+}

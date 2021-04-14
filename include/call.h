@@ -436,6 +436,7 @@ struct call {
 	unsigned int		drop_traffic:1;
 	unsigned int		foreign_call:1; // created_via_redis_notify call
 	unsigned int		disable_jb:1;
+	unsigned int		debug:1;
 };
 
 

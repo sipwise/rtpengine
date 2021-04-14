@@ -97,6 +97,7 @@ struct sdp_ng_flags {
 	             all:1,
 	             fragment:1,
 	             record_call:1,
+		     debug:1,
 	             loop_protect:1,
 	             original_sendrecv:1,
 	             asymmetric_codecs:1,
