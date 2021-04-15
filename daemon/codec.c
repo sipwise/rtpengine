@@ -74,6 +74,7 @@ struct dtx_buffer {
 	struct codec_ssrc_handler *csh;
 	int ptime; // ms per packet
 	int tspp; // timestamp increment per packet
+	unsigned int clockrate;
 	struct call *call;
 	GQueue packets;
 	struct media_packet last_mp;
@@ -2443,12 +2444,13 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		// inspect head packet and check TS, see if it's ready to be decoded
 		ts = dtxp->packet->ts;
 		ts_diff = ts - dtxb->head_ts;
+		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
 
 		if (!dtxb->head_ts)
 			; // first packet
 		else if (ts_diff < 0)
 			ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
-		else if (ts_diff > 100000) // arbitrary value
+		else if (ts_diff_us > 10000)
 			ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
 		else if (ts_diff > dtxb->tspp) {
 			ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
@@ -2496,6 +2498,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		// shut down or SSRC change
 		ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down", (unsigned long) dtxb->ssrc);
 		dtxb->ttq_entry.when.tv_sec = 0;
+		dtxb->head_ts = 0;
 		mutex_unlock(&dtxb->lock);
 		goto out; // shut down
 	}
@@ -2531,7 +2534,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		// inspect TS is most recent packet
 		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
 		ts_diff = dtxp_last->packet->ts - ts;
-		long long ts_diff_us = (long long) ts_diff * 1000000 / ch->handler->source_pt.clock_rate;
+		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
 		if (ts_diff_us >= rtpe_config.dtx_lag * 1000) {
 			// overflow
 			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
@@ -2641,6 +2644,7 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 	if (!dtx->ptime)
 		dtx->ptime = 20; // XXX should be replaced with length of actual decoded packet
 	dtx->tspp = dtx->ptime * ch->handler->source_pt.clock_rate / 1000; // XXX ditto
+	dtx->clockrate = ch->handler->source_pt.clock_rate;
 }
 static void __ssrc_handler_stop(void *p) {
 	struct codec_ssrc_handler *ch = p;
