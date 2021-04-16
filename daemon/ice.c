@@ -1035,6 +1035,7 @@ static int __check_valid(struct ice_agent *ag) {
 			ilogs(ice, LOG_INFO, "ICE negotiated: peer for component %u is %s%s%s", ps->component,
 					FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
 			ps->endpoint = pair->remote_candidate->endpoint;
+			PS_SET(ps, FILLED);
 		}
 		mutex_unlock(&ps->out_lock);
 

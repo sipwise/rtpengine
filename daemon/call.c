@@ -1028,7 +1028,6 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	ilog(LOG_DEBUG, "set FILLED flag for stream %s%s:%d%s",
 			FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port));
 	PS_SET(ps, FILLED);
-	/* XXX reset/repair ICE */
 }
 
 /* called with call locked in R or W, but ps not locked */
