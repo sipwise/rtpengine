@@ -68,8 +68,6 @@ INLINE void str_free_dup(str *out);
 INLINE str *str_alloc(int len);
 /* returns new str object allocated with malloc, including buffer */
 INLINE str *str_dup(const str *s);
-/* returns new str object allocated from chunk, including buffer */
-INLINE str *str_chunk_insert(GStringChunk *c, const str *s);
 /* shifts pointer by len chars and decrements len. returns -1 if buffer too short, 0 otherwise */
 INLINE int str_shift(str *s, int len);
 /* eats the supplied string from the beginning of s. returns -1 if string head doesn't match */
@@ -123,12 +121,6 @@ str *str_uri_decode_len(const char *in, int in_len);
 
 
 
-INLINE str *str_chunk_insert(GStringChunk *c, const str *s) {
-	str *i;
-	i = (void *) g_string_chunk_insert_len(c, (void *) s, sizeof(*s));
-	i->s = g_string_chunk_insert_len(c, s->s, s->len);
-	return i;
-}
 INLINE char *str_end(const str *s) {
 	return s->s + s->len;
 }
