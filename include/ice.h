@@ -217,6 +217,8 @@ INLINE const char *ice_candidate_type_str(enum ice_candidate_type type) {
 	return ice_type_strings[type];
 }
 INLINE int ice_ufrag_cmp(struct ice_agent *ag, const str *s) {
+	if (!ag->ufrag[0].len) // fragment unknown
+		return 0;
 	return str_cmp_str0(&ag->ufrag[0], s);
 }
 
