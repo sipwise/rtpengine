@@ -7,8 +7,8 @@
 #include "str.h"
 
 struct cookie_cache_state {
+	GHashTable *in_use;
 	GHashTable *cookies;
-	GStringChunk *chunks;
 };
 
 struct cookie_cache {
