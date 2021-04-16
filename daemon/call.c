@@ -57,7 +57,6 @@ struct iterator_helper {
 };
 struct xmlrpc_helper {
 	enum xmlrpc_format fmt;
-	GStringChunk		*c;
 	GQueue			strings;
 };
 
@@ -290,7 +289,7 @@ retry:
 			pid = waitpid(pid, &status, 0);
 			if ((pid > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) || i >= 3) {
 				for (int i = 0; i < els_per_ent; i++)
-					g_queue_pop_head(&xh->strings);
+					free(g_queue_pop_head(&xh->strings));
 				i = 0;
 			}
 			else {
@@ -356,7 +355,7 @@ retry:
 
 		xmlrpc_client_destroy(c);
 		for (int i = 0; i < els_per_ent; i++)
-			g_queue_pop_head(&xh->strings);
+			free(g_queue_pop_head(&xh->strings));
 		xmlrpc_env_clean(&e);
 
 		_exit(0);
@@ -366,7 +365,6 @@ fault:
 		_exit(1);
 	}
 
-	g_string_chunk_free(xh->c);
 	g_slice_free1(sizeof(*xh), xh);
 }
 
@@ -374,7 +372,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 	struct call *ca;
 	GList *csl;
 	struct call_monologue *cm, *cd;
-	const char *url_prefix, *url_suffix;
+	char *url_prefix = NULL, *url_suffix = NULL;
 	struct xmlrpc_helper *xh = NULL;
 	char url_buf[128];
 
@@ -384,15 +382,14 @@ void kill_calls_timer(GSList *list, const char *url) {
 	/* if url is NULL, it's the scheduled deletions, otherwise it's the timeouts */
 	if (url) {
 		xh = g_slice_alloc(sizeof(*xh));
-		xh->c = g_string_chunk_new(64);
 		url_prefix = NULL;
 		url_suffix = strstr(url, "%%");
 		if (url_suffix) {
-			url_prefix = g_string_chunk_insert_len(xh->c, url, url_suffix - url);
-			url_suffix = g_string_chunk_insert(xh->c, url_suffix + 2);
+			url_prefix = strndup(url, url_suffix - url);
+			url_suffix = strdup(url_suffix + 2);
 		}
 		else
-			url_suffix = g_string_chunk_insert(xh->c, url);
+			url_suffix = strdup(url);
 		g_queue_init(&xh->strings);
 		xh->fmt = rtpe_config.fmt;
 	}
@@ -430,13 +427,13 @@ void kill_calls_timer(GSList *list, const char *url) {
 				cm = csl->data;
 				if (!cm->tag.s || !cm->tag.len)
 					continue;
-				g_queue_push_tail(&xh->strings, g_string_chunk_insert(xh->c, url_buf));
-				g_queue_push_tail(&xh->strings, str_chunk_insert(xh->c, &cm->tag));
+				g_queue_push_tail(&xh->strings, strdup(url_buf));
+				g_queue_push_tail(&xh->strings, str_dup(&cm->tag));
 			}
 			break;
 		case XF_CALLID:
-			g_queue_push_tail(&xh->strings, g_string_chunk_insert(xh->c, url_buf));
-			g_queue_push_tail(&xh->strings, str_chunk_insert(xh->c, &ca->callid));
+			g_queue_push_tail(&xh->strings, strdup(url_buf));
+			g_queue_push_tail(&xh->strings, str_dup(&ca->callid));
 			break;
 		case XF_KAMAILIO:
 			for (csl = ca->monologues.head; csl; csl = csl->next) {
@@ -449,13 +446,13 @@ void kill_calls_timer(GSList *list, const char *url) {
 				if (from_tag && !str_cmp_str(from_tag, &cm->tag))
 					continue;
 
-				from_tag = str_chunk_insert(xh->c, &cm->tag);
-				str *to_tag = str_chunk_insert(xh->c, &cd->tag);
+				from_tag = str_dup(&cm->tag);
+				str *to_tag = str_dup(&cd->tag);
 
 				g_queue_push_tail(&xh->strings,
-						g_string_chunk_insert(xh->c, url_buf));
+						strdup(url_buf));
 				g_queue_push_tail(&xh->strings,
-						str_chunk_insert(xh->c, &ca->callid));
+						str_dup(&ca->callid));
 				g_queue_push_tail(&xh->strings, from_tag);
 				g_queue_push_tail(&xh->strings, to_tag);
 
@@ -479,6 +476,10 @@ destroy:
 	if (xh)
 		thread_create_detach_prio(xmlrpc_kill_calls, xh, rtpe_config.idle_scheduling,
 				rtpe_config.idle_priority, "XMLRPC callback");
+	if (url_prefix)
+		free(url_prefix);
+	if (url_suffix)
+		free(url_suffix);
 }
 
 
