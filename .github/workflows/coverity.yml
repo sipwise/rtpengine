@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - coverity_scan
+  schedule:
+    - cron: '13 4 */2 * *'
 
   workflow_dispatch:
 
