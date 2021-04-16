@@ -2008,6 +2008,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (!phc->mp.stream->selected_sfd)
 		goto out;
 
+	phc->mp.call->foreign_media = 0;
+
 	if (phc->mp.call->drop_traffic) {
 		goto drop;
 	}

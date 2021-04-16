@@ -1050,8 +1050,19 @@ no_kernel:
 		gettimeofday(&redis_start, NULL);
 
 		// restore
-		if (redis_restore(rtpe_redis))
-			die("Refusing to continue without working Redis database");
+		if (rtpe_redis_notify) {
+			// active-active mode: the main DB has our own calls, while
+			// the "notify" DB has the "foreign" calls. "foreign" DB goes
+			// first as the "owned" DB can do a stray update back to Redis
+			if (redis_restore(rtpe_redis_notify, 1))
+				ilog(LOG_WARN, "Unable to restore calls from the active-active peer");
+			if (redis_restore(rtpe_redis_write, 0))
+				die("Refusing to continue without working Redis database");
+		}
+		else {
+			if (redis_restore(rtpe_redis, 0))
+				die("Refusing to continue without working Redis database");
+		}
 
 		// stop redis restore timer
 		gettimeofday(&redis_stop, NULL);

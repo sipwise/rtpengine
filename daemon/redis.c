@@ -438,7 +438,7 @@ void redis_notify_async_context_disconnect(const redisAsyncContext *redis_notify
 				redis_notify_async_context->err);
 		}
 	} else if (status == REDIS_OK) {
-		rlog(LOG_ERROR, "redis_notify_async_context_disconnect initiated by user");
+		rlog(LOG_NOTICE, "redis_notify_async_context_disconnect initiated by user");
 	} else {
 		rlog(LOG_ERROR, "redis_notify_async_context_disconnect invalid status code %d", status);
 	}
@@ -1719,6 +1719,7 @@ static void json_restore_call(struct redis *r, const str *callid, int foreign) {
 	struct redis_list tags, sfds, streams, medias, maps;
 	struct call *c = NULL;
 	str s, id, meta;
+	time_t last_signal;
 
 	const char *err = 0;
 	int i;
@@ -1744,13 +1745,25 @@ static void json_restore_call(struct redis *r, const str *callid, int foreign) {
 	if (!c)
 		goto err1;
 
-	err = "call already exists";
-	if (c->last_signal)
-		goto err2;
 	err = "'call' data incomplete";
-
 	if (json_get_hash(&call, "json", -1, root_reader))
 		goto err2;
+
+	err = "missing 'last signal' timestamp";
+	if (redis_hash_get_time_t(&last_signal, &call, "last_signal"))
+		goto err3;
+
+	if (c->last_signal) {
+		err = NULL;
+		// is the call we're loading newer than the one we have?
+		if (last_signal > c->last_signal) {
+			// switch ownership
+			call_make_own_foreign(c, foreign);
+			c->last_signal = last_signal;
+		}
+		goto err3; // no error, just bail
+	}
+
 	err = "'tags' incomplete";
 	if (json_get_list_hash(&tags, "tag", &call, "num_tags", root_reader))
 		goto err3;
@@ -1770,9 +1783,7 @@ static void json_restore_call(struct redis *r, const str *callid, int foreign) {
 	err = "missing 'created' timestamp";
 	if (redis_hash_get_timeval(&c->created, &call, "created"))
 		goto err8;
-	err = "missing 'last signal' timestamp";
-	if (redis_hash_get_time_t(&c->last_signal, &call, "last_signal"))
-		goto err8;
+	c->last_signal = last_signal;
 	if (redis_hash_get_int(&i, &call, "tos"))
 		c->tos = 184;
 	else
@@ -1863,10 +1874,15 @@ err1:
 				err);
 		if (c) 
 			call_destroy(c);
-		else {
-			mutex_lock(&rtpe_redis_write->lock);
-			redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, STR(callid));
-			mutex_unlock(&rtpe_redis_write->lock);
+
+		mutex_lock(&rtpe_redis_write->lock);
+		redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, STR(callid));
+		mutex_unlock(&rtpe_redis_write->lock);
+
+		if (rtpe_redis_notify) {
+			mutex_lock(&rtpe_redis_notify->lock);
+			redisCommandNR(rtpe_redis_notify->ctx, "DEL " PB, STR(callid));
+			mutex_unlock(&rtpe_redis_notify->lock);
 		}
 	}
 	if (c)
@@ -1876,6 +1892,7 @@ err1:
 struct thread_ctx {
 	GQueue r_q;
 	mutex_t r_m;
+	int foreign;
 };
 
 static void restore_thread(void *call_p, void *ctx_p) {
@@ -1891,14 +1908,14 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	r = g_queue_pop_head(&ctx->r_q);
 	mutex_unlock(&ctx->r_m);
 
-	json_restore_call(r, &callid, 0);
+	json_restore_call(r, &callid, ctx->foreign);
 
 	mutex_lock(&ctx->r_m);
 	g_queue_push_tail(&ctx->r_q, r);
 	mutex_unlock(&ctx->r_m);
 }
 
-int redis_restore(struct redis *r) {
+int redis_restore(struct redis *r, int foreign) {
 	redisReply *calls = NULL, *call;
 	int i, ret = -1;
 	GThreadPool *gtp;
@@ -1931,6 +1948,7 @@ int redis_restore(struct redis *r) {
 
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
+	ctx.foreign = foreign;
 	for (i = 0; i < rtpe_config.redis_num_threads; i++)
 		g_queue_push_tail(&ctx.r_q,
 				redis_new(&r->endpoint, r->db, r->auth, r->role, r->no_redis_required));
@@ -2400,6 +2418,8 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 	unsigned int redis_expires_s;
 
 	if (!r)
+		return;
+	if (c->foreign_call)
 		return;
 
 	mutex_lock(&r->lock);

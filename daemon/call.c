@@ -174,6 +174,10 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	if (!c->streams.head)
 		goto drop;
 
+	// ignore media timeout if call was recently taken over
+	if (c->foreign_media && rtpe_now.tv_sec - c->last_signal <= rtpe_config.timeout)
+		goto out;
+
 	for (it = c->streams.head; it; it = it->next) {
 		ps = it->data;
 
@@ -643,6 +647,9 @@ static void call_timer(void *ptr) {
 		}
 
 		update = 0;
+
+		if (diff_packets)
+			sfd->call->foreign_media = 0;
 
 		sink = packet_stream_sink(ps);
 
@@ -2119,7 +2126,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 	monologue = other_ml->active_dialogue;
 	call = monologue->call;
 
-	call->last_signal = rtpe_now.tv_sec;
+	call->last_signal = MAX(call->last_signal, rtpe_now.tv_sec);
 	call->deleted = 0;
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
@@ -2524,9 +2531,7 @@ void call_destroy(struct call *c) {
 	statistics_update_ip46_inc_dec(c, CMC_DECREMENT);
 	statistics_update_foreignown_dec(c);
 
-	if (IS_OWN_CALL(c)) {
-		redis_delete(c, rtpe_redis_write);
-	}
+	redis_delete(c, rtpe_redis_write);
 
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */

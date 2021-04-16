@@ -1080,7 +1080,15 @@ static void cli_incoming_active_standby(struct cli_writer *cw, int foreign) {
 	g_hash_table_iter_init(&iter, rtpe_callhash);
 	while (g_hash_table_iter_next(&iter, &key, &value)) {
 		struct call *c = value;
+		rwlock_lock_w(&c->master_lock);
 		call_make_own_foreign(c, foreign);
+		c->last_signal = MAX(c->last_signal, rtpe_now.tv_sec);
+		if (!foreign) {
+			c->foreign_media = 1; // ignore timeout until we have media
+			c->last_signal++; // we are authoritative now
+		}
+		rwlock_unlock_w(&c->master_lock);
+		redis_update_onekey(c, rtpe_redis_write);
 	}
 	rwlock_unlock_r(&rtpe_callhash_lock);
 

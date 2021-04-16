@@ -435,6 +435,7 @@ struct call {
 	unsigned int		rec_forwarding:1;
 	unsigned int		drop_traffic:1;
 	unsigned int		foreign_call:1; // created_via_redis_notify call
+	unsigned int		foreign_media:1; // for calls taken over, tracks whether we have media
 	unsigned int		disable_jb:1;
 	unsigned int		debug:1;
 };
