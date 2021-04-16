@@ -137,20 +137,26 @@ void rtcplog(const char* cdrbuffer) {
 }
 
 int get_local_log_level(unsigned int subsystem_idx) {
+	struct call *call = NULL;
+
 	switch (log_info.e) {
 		case LOG_INFO_CALL:
-			if (log_info.u.call->debug)
-				return 8;
-			return -1;
+			call = log_info.u.call;
+			break;
 		case LOG_INFO_STREAM_FD:
-			if (log_info.u.stream_fd->call && log_info.u.stream_fd->call->debug)
-				return 8;
-			return -1;
+			call = log_info.u.stream_fd->call;
+			break;
 		case LOG_INFO_ICE_AGENT:
-			if (log_info.u.ice_agent->call && log_info.u.ice_agent->call->debug)
-				return 8;
-			return -1;
+			call = log_info.u.ice_agent->call;
+			break;
 		default:
-			return -1;
+			break;
 	}
+	if (!call)
+		return -1;
+	if (call->foreign_call)
+		return 5 | LOG_FLAG_MAX;
+	if (call->debug)
+		return 8;
+	return -1;
 }

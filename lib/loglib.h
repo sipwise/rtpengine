@@ -64,14 +64,33 @@ extern const char * const log_level_descriptions[];
 #define ilogs(system, prio, fmt, ...) ilogsn(log_level_index_ ## system, prio, fmt, ##__VA_ARGS__)
 
 
+#define LOG_LEVEL_MASK(v)	((v) & 0x0f)
+
+#define LOG_FLAG_RESTORE	0x10
+#define LOG_FLAG_LIMIT		0x20
+#define LOG_FLAG_MAX		0x40
+#define LOG_FLAG_MIN		0x80
+
+
 INLINE int __get_log_level(unsigned int idx) {
 	if (!rtpe_common_config_ptr)
 		return 8;
 	if (idx >= MAX_LOG_LEVELS)
 		return 8;
 	int local_log_level = get_local_log_level(idx);
-	if (local_log_level >= 0)
+	if (local_log_level >= 0) {
+		if ((local_log_level & LOG_FLAG_MAX)) {
+			int level = g_atomic_int_get(&rtpe_common_config_ptr->log_levels[idx]);
+			local_log_level = LOG_LEVEL_MASK(local_log_level);
+			return MIN(level, local_log_level);
+		}
+		if ((local_log_level & LOG_FLAG_MIN)) {
+			int level = g_atomic_int_get(&rtpe_common_config_ptr->log_levels[idx]);
+			local_log_level = LOG_LEVEL_MASK(local_log_level);
+			return MAX(level, local_log_level);
+		}
 		return local_log_level;
+	}
 	return g_atomic_int_get(&rtpe_common_config_ptr->log_levels[idx]);
 }
 #define get_log_level(system) __get_log_level(log_level_index_ ## system)
@@ -85,12 +104,6 @@ INLINE int __get_log_level(unsigned int idx) {
 
 #define LOG_ERROR LOG_ERR
 #define LOG_WARN LOG_WARNING
-
-
-#define LOG_LEVEL_MASK(v)	((v) & 0x0f)
-
-#define LOG_FLAG_RESTORE	0x10
-#define LOG_FLAG_LIMIT		0x20
 
 
 #endif
