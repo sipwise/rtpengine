@@ -12,6 +12,8 @@ my $port;
 my $conffile = '/etc/rtpengine/rtpengine.conf';
 my $listen;
 
+Getopt::Long::Configure('require_order');
+
 my $optret = GetOptions(
     'help|h'              => sub { showusage(); exit 0; },
     'ip=s'                => \$ip,
