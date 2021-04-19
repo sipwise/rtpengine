@@ -1335,17 +1335,6 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		str_swap(&flags.to_tag, &flags.from_tag);
 	}
 
-	if (opmode == OP_OFFER) {
-		enum load_limit_reasons limit = call_offer_session_limit();
-		if (limit != LOAD_LIMIT_NONE) {
-			if (!flags.supports_load_limit)
-				errstr = "Parallel session limit reached"; // legacy protocol
-			else
-				errstr = magic_load_limit_strings[limit];
-			goto out;
-		}
-	}
-
 	errstr = "Failed to parse SDP";
 	if (sdp_parse(&sdp, &parsed, &flags))
 		goto out;
@@ -1371,8 +1360,18 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		goto out;
 	}
 
-	if (opmode == OP_OFFER && !call)
+	if (opmode == OP_OFFER && !call) {
+		enum load_limit_reasons limit = call_offer_session_limit();
+		if (limit != LOAD_LIMIT_NONE) {
+			if (!flags.supports_load_limit)
+				errstr = "Parallel session limit reached"; // legacy protocol
+			else
+				errstr = magic_load_limit_strings[limit];
+			goto out;
+		}
+
 		call = call_get_or_create(&flags.call_id, 0);
+	}
 
 	errstr = "Unknown call-id";
 	if (!call)
