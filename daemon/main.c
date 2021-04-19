@@ -396,6 +396,8 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GVBUF(cn_payload);
 	int debug_srtp = 0;
 
+	rwlock_lock_w(&rtpe_config.config_lock);
+
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&rtpe_config.no_fallback,	"Only start when kernel module is available", NULL },
@@ -749,12 +751,16 @@ static void options(int *argc, char ***argv) {
 	if (!rtpe_config.software_id)
 		rtpe_config.software_id = g_strdup_printf("rtpengine-%s", RTPENGINE_VERSION);
 	g_strcanon(rtpe_config.software_id, "QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890-", '-');
+
+	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
 void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	GList* l;
 	struct intf_config* gptr_data;
+
+	rwlock_lock_w(&rtpe_config.config_lock);
 
 	for(l = rtpe_config.interfaces.head; l ; l=l->next) {
 		gptr_data = g_slice_alloc0(sizeof(*gptr_data));
@@ -826,6 +832,8 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	ini_rtpe_cfg->jb_length = rtpe_config.jb_length;
 	ini_rtpe_cfg->jb_clock_drift = rtpe_config.jb_clock_drift;
+
+	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
 static void

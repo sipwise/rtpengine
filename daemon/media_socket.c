@@ -1496,6 +1496,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 		// reverse SSRC mapping
 		(*ssrc_out_p)->ssrc_map_out = in_ssrc;
 
+		// coverity[missing_lock : FALSE]
 		phc->unkernelize = 1;
 		ilog(LOG_DEBUG, ">>> out_ssrc changed for %s%s:%d new: %x %s",
                         FMT_M(sockaddr_print_buf(&out_srtp->endpoint.address), out_srtp->endpoint.port, out_ssrc));

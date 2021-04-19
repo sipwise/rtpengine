@@ -460,13 +460,13 @@ static int rec_pcap_meta_finish_file(struct call *call) {
 	struct timeval *terminate;
 	terminate = &(((struct call_monologue *)call->monologues.head->data)->terminated);
 	fprintf(recording->u.pcap.meta_fp, "\nTimestamp terminated ms(first monologue): %.3lf", terminate->tv_sec*1000.0 + terminate->tv_usec/1000.0);
-	if (localtime_r(&start, &timeinfo) < 0) {
+	if (localtime_r(&start, &timeinfo) == NULL) {
 		ilog(LOG_ERROR, "Cannot get start local time, while cleaning up recording meta file: %s", strerror(errno));
 	} else {
 		strftime(timebuffer, 20, "%FT%T", &timeinfo);
 		fprintf(recording->u.pcap.meta_fp, "\n\ncall start time: %s\n", timebuffer);
 	}
-	if (localtime_r(&end, &timeinfo) < 0) {
+	if (localtime_r(&end, &timeinfo) == NULL) {
 		ilog(LOG_ERROR, "Cannot get end local time, while cleaning up recording meta file: %s", strerror(errno));
 	} else {
 		strftime(timebuffer, 20, "%FT%T", &timeinfo);

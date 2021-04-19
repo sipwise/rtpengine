@@ -375,6 +375,8 @@ static void cli_incoming_diff_or_revert(struct cli_writer *cw, char* option) {
 	int_diff_print(common.log_levels[log_level_index_ ## system], "log-level-" #system);
 #include "loglevels.h"
 #undef ll
+
+	rwlock_lock_w(&rtpe_config.config_lock);
 	int_diff_print(max_sessions, "max-sessions");
 	int_diff_print(cpu_limit, "max-cpu");
 	int_diff_print(load_limit, "max-load");
@@ -387,6 +389,7 @@ static void cli_incoming_diff_or_revert(struct cli_writer *cw, char* option) {
 	int_diff_print(redis_disable_time, "redis_disable_time");
 	int_diff_print(redis_cmd_timeout, "redis_cmd_timeout");
 	int_diff_print(redis_connect_timeout, "redis_connect_timeout-db");
+	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
 static void cli_incoming_params_diff(str *instr, struct cli_writer *cw) {
@@ -1096,8 +1099,9 @@ static void cli_incoming_debug(str *instr, struct cli_writer *cw) {
 		return;
 	}
 
-	str callid = STR_NULL;
-	str_token_sep(&callid, instr, ' ');
+	str callid;
+	if (str_token_sep(&callid, instr, ' '))
+		callid = STR_NULL;
 
 	if (!callid.len) {
 		cw->cw_printf(cw, "No call ID specified\n");

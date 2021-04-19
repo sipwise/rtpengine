@@ -358,7 +358,7 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 
 	long long rtt_end2end = other_e->last_rtt ? (rtt + other_e->last_rtt) : 0;
 	if (other_e->last_rtt_xr > 0) { // use the RTT from RTCP-XR (in ms)
-		rtt_end2end = other_e->last_rtt_xr*1000;
+		rtt_end2end = (long long) other_e->last_rtt_xr * 1000LL;
 	}
 	struct ssrc_stats_block *ssb = g_slice_alloc(sizeof(*ssb));
 	*ssb = (struct ssrc_stats_block) {
