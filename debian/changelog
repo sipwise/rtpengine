@@ -1,3 +1,10 @@
+ngcp-rtpengine (9.3.1.5+0~mr9.3.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5581276] TT#14008 fix ICE if ICE completes before SDP comes in
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 19 Apr 2021 14:52:51 +0200
+
 ngcp-rtpengine (9.3.1.4+0~mr9.3.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
