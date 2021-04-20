@@ -1,3 +1,116 @@
+ngcp-rtpengine (9.5.0.0+0~mr9.5.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5c79036] TT#14008 fix potential failed assertion
+  * [a8013ff] TT#111051 set thread specific process names
+  * [a25fa3c] TT#111357 don't allow libav* to create its own threads
+  * [b0f185f] TT#111357 refactor sysconf() call into shared code
+  * [9d332f9] TT#111357 use a better default for recording threads
+  * [fdac938] TT#91151 add a free-form software ID config option
+  * [e1ee75a] TT#14008 add `reorder-codecs` flags to test script
+  * [23dbe78] TT#14008 fix possible use-after-free on shutdown
+  * [7c25d39] TT#111357 switch to dynamically allocated strings for file names
+  * [c8d6a45] TT#111357 add support for configurable output file name patterns
+  * [b8b395e] TT#111357 add chmod setting for created output dirs
+  * [8aecb6a] TT#111357 also apply chown to created parent dirs
+  * [eb1157d] TT#112250 don't change ports when endpoint is talking ICE
+  * [77feea6] TT#108551 document AEAD support in README
+  * [083ae4c] TT#14008 convert rtcp-fb handling to list
+  * [c1c80da] TT#14008 better logging for send_timer
+  * [7414da5] TT#100200 fix timing issue with sending DTMF
+  * [af6ef84] TT#100200 suppress audio packets during a DTMF event
+  * [7f579ac] TT#111357 add microseconds to file name patterns
+  * [def813c] TT#101201 fix ICE-lite mode switch
+  * [fc83f64] TT#107565 add `replace-username` option
+  * [3791b8f] TT#107565 add `replace-session-name` option
+  * [8029a4d] TT#113750 don't auto switch from an already selected fingerprint
+  * [19f08a8] TT#113750 tests for I603bb86c
+  * [702044b] TT#111357 fix infinite loop
+  * [ff034ff] TT#14008 use encoder's codec_def instead of parent handler's
+  * [1393dbf] TT#14008 shut down DTX buffer when resetting codec handler
+  * [5cf4717] TT#115400 explicitly disallow ptime in non-RTP SDPs
+  * [52d9768] TT#14008 move build tests to a wrapper script
+  * [6893a7c] TT#14008 skip object precreation on second pass
+  * [8bea6eb] TT#14008 fix possible segfault
+  * [64de499] TT#14008 shut down codec handler when resetting
+  * [d14eeae] TT#111150 fix typo
+  * [389f18a] TT#14008 update for kernels >= 5.12
+  * [7aabd7d] TT#14008 fix G.729 recording with bcg729
+  * [a6c7e94] TT#14008 fix output of negative fractional numbers
+  * [42dd21d] TT#14008 compensate for negative clock drifts
+  * [7dc55e6] TT#98901 convert from static DTX delay to dynamic buffer queue
+  * [ac71e81] TT#118350 add SDES=static option
+  * [f7ff136] TT#111357 fix output file names in case of output re-config
+  * [800f098] TT#14008 remove obsolete test scripts and add new kernel tester
+  * [e67e395] TT#14008 fix typo in pod file
+  * [a5d2837] TT#118800 add support for `channels` mix mode
+  * [bfcd2b2] TT#14008 remove obsolete option from pod file
+  * [3ada2ec] TT#98901 handle DTX restarts and TS resets
+  * [5802ff2] TT#54762 add option to enable automatic active/active switchover
+  * [98a42a0] TT#14008 add missing flag to test script
+  * [055b745] TT#111150 don't pass null pointers to memchr or memcpy
+  * [49bfad1] TT#111150 fix possible null pointer dereference
+  * [ef5a954] TT#111150 fix possible unaligned memory access
+  * [d44abe2] TT#111150 fix possible unaligned memory access
+  * [8e39599] TT#111150 add extra runtime options for unit tests
+  * [ade8100] TT#111150 fix unaligned memory access
+  * [2f84553] TT#111150 refactor cookie cache to avoid GStringChunk
+  * [44809a3] TT#111150 refactor xmlrpc_helper to avoid GStringChunk
+  * [b9d6891] TT#111150 remove obsolete str_chunk_insert
+  * [a86d98f] TT#118902 add support for per-call debugging
+  * [0ae9967] TT#108003 run coverity test on a schedule
+  * [c939c97] TT#14008 set getopt require_order to avoid confusing errors
+  * [89666c8] TT#14008 fix ICE if ICE completes before SDP comes in
+  * [aabcfaf] TT#119502 quiet logging for foreign calls
+  * [4d5395f] TT#111150 disable Debian hardening when testing
+  * [05ef61c] TT#108003 fix errors reported by coverity
+
+  [ Stefan Mititelu ]
+  * [6f457b5] Get time before deciding to re-establish redis connection
+  * [482e2d0] Add stats for ipv4/ipv6/mixed media calls
+
+  [ Guillem Jover ]
+  * [68797f4] TT#111150 Mark bit-fields explicitly with as unsigned
+  * [a8a0adb] TT#111150 Remove tautological test in dtmf_inject()
+  * [3a69500] TT#111150 Remove tautological check in stun()
+  * [eb84cb0] TT#111150 Use localtime_r() instead of thread-unsafe localtime()
+  * [1e62cbb] TT#111150 Inline int_diff_print_sz() to avoid pointer handling
+  * [c8c5af8] TT#111150 Rename GitHub shellcheck test workflow to shellcheck.yml
+  * [f791bf0] TT#111150 Add new unit tests GitHub workflow
+  * [69d2b3b] TT#111150 Set pkg.ngcp-rtpengine.nobcg729 build-profile on unit-test workflow
+  * [8508177] TT#111150 Split CFLAGS between required and optional
+  * [342a566] TT#111150 Do not override the while build flags on unit-test workflow
+  * [2311544] TT#111150 Do not set -O3 when DBG is not set
+  * [09cd962] TT#111150 Fix memory leaks in unit tests
+  * [39a2b28] TT#111150 Use standard flags for the test preload library
+  * [4fb3e4e] TT#111150 Improve ASAN build flags
+
+  [ Damir Nedžibović ]
+  * [f650f95] TT#14008 Squashed commit of the following:
+
+  [ Huseyin Dikme ]
+  * [1d1558b] added rtpengine-ctl set and list options for the delete-delay config parameter
+  * [5348ad5] deletedelay added into the online help
+
+  [ Dennis Yurasov ]
+  * [bfe6d59] SSRC change fix in kernelized stream
+
+  [ Dup4 ]
+  * [0e2a0b9] fix: mos calc
+
+  [ Julien Chavanton ]
+  * [bcf70cf] max-mos: is often invalid when RTCP was not
+  * [4d56c66] mos calculation adjustment for
+  * [3d5e586] mos average fix when missing RTT
+  * [49786d0] adding cumulative number of packets lost
+  * [0483df3] fix rtt from rtcp_rx
+
+  [ Sergey Safarov ]
+  * [6b3b815] fixed rpm packaging GH #1231
+  * [9bb6354] rtpengine.sample: added listen-http example
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 20 Apr 2021 11:59:57 +0200
+
 ngcp-rtpengine (9.4.0.0+0~mr9.4.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
