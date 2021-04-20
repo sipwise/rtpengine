@@ -19,7 +19,7 @@ if [ "$VIRT" = "yes" ]; then
 	echo "Container environment detected. Skip dkms"
 else
 	isadded=$(dkms status -m "$name" -v "$version")
-	if [ "x${isadded}" = "x" ] ; then
+	if [ -z "${isadded}" ] ; then
 		dkms add -m "$name" -v "$version"
 	fi
 
