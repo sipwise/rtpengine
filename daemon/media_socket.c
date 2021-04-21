@@ -1592,6 +1592,8 @@ static void media_packet_rtcp_demux(struct packet_handler_ctx *phc)
 		}
 	}
 	phc->out_srtp = phc->sink;
+	if (!phc->sink)
+		return;
 	if (phc->rtcp && phc->sink->rtcp_sibling)
 		phc->out_srtp = phc->sink->rtcp_sibling; // use RTCP SRTP context
 
@@ -1603,6 +1605,8 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 {
 	phc->payload_type = -1;
 
+	if (G_UNLIKELY(!phc->mp.media))
+		return;
 	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
 		return;
 
