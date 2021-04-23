@@ -1467,20 +1467,19 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 			get_ssrc_ctx(in_ssrc, ssrc_hash, SSRC_DIR_INPUT, in_srtp->media->monologue);
 		ssrc_ctx_hold(in_srtp->ssrc_in);
 
-		// might have created a new entry, which would have a new random
-		// ssrc_map_out. we don't need this if we're not transcoding
-		if (!MEDIA_ISSET(in_srtp->media, TRANSCODE))
-			(*ssrc_in_p)->ssrc_map_out = in_ssrc;
-
 		phc->unkernelize = 1;
 		ilog(LOG_DEBUG, ">>> in_ssrc changed for: %s%s:%d new: %x %s",
                         FMT_M(sockaddr_print_buf(&in_srtp->endpoint.address), in_srtp->endpoint.port, in_ssrc));
 	}
 
+	// make sure we reset the output SSRC if we're not transcoding
+	if (!MEDIA_ISSET(in_srtp->media, TRANSCODE))
+		(*ssrc_in_p)->ssrc_map_out = in_ssrc;
+
+	out_ssrc = (*ssrc_in_p)->ssrc_map_out;
 	mutex_unlock(&in_srtp->in_lock);
 
 	// out direction
-	out_ssrc = (*ssrc_in_p)->ssrc_map_out;
 	mutex_lock(&out_srtp->out_lock);
 
 	(*ssrc_out_p) = out_srtp->ssrc_out;
@@ -1493,14 +1492,14 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 			get_ssrc_ctx(out_ssrc, ssrc_hash, SSRC_DIR_OUTPUT, out_srtp->media->monologue);
 		ssrc_ctx_hold(out_srtp->ssrc_out);
 
-		// reverse SSRC mapping
-		(*ssrc_out_p)->ssrc_map_out = in_ssrc;
-
 		// coverity[missing_lock : FALSE]
 		phc->unkernelize = 1;
 		ilog(LOG_DEBUG, ">>> out_ssrc changed for %s%s:%d new: %x %s",
                         FMT_M(sockaddr_print_buf(&out_srtp->endpoint.address), out_srtp->endpoint.port, out_ssrc));
 	}
+
+	// reverse SSRC mapping
+	(*ssrc_out_p)->ssrc_map_out = in_ssrc;
 
 	mutex_unlock(&out_srtp->out_lock);
 }
