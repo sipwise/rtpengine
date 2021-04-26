@@ -1201,6 +1201,7 @@ static void __rtcp_timer_run(struct timerthread_queue *q, void *p) {
 	if (!rtcp_timer.tv_sec || timeval_diff(&rtpe_now, &rtcp_timer) < 0 || !proto_is_rtp(media->protocol)
 			|| !MEDIA_ISSET(media, RTCP_GEN))
 	{
+		media->rtcp_timer.tv_sec = 0;
 		rwlock_unlock_w(&rt->call->master_lock);
 		__rtcp_timer_free(rt);
 		goto out;
