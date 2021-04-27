@@ -1313,7 +1313,6 @@ next_rda:
 
 	*addr_bucket = ab;
 	*port = (hi << 8) | lo;
-	(*port)++;
 
 	return g;
 }
@@ -1377,6 +1376,7 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	addr_bucket = ((int) *o) >> 17;
 	port = ((int) *o) & 0x1ffff;
 	g = find_next_target(t, &addr_bucket, &port);
+	port++;
 	*o = (addr_bucket << 17) | port;
 	err = 0;
 	if (!g)
@@ -1459,7 +1459,7 @@ static void *proc_list_start(struct seq_file *f, loff_t *o) {
 static void proc_list_stop(struct seq_file *f, void *v) {
 }
 
-static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is invalid */
+static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {
 	u_int32_t id = (u_int32_t) (unsigned long) f->private;
 	struct rtpengine_table *t;
 	struct rtpengine_target *g;
@@ -1471,6 +1471,9 @@ static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is in
 	t = get_table(id);
 	if (!t)
 		return NULL;
+
+	if (v) // this is a `next` call
+		port++;
 
 	g = find_next_target(t, &addr_bucket, &port);
 
