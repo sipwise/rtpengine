@@ -507,8 +507,11 @@ static void options(int *argc, char ***argv) {
 
 	if (!if_a)
 		die("Missing option --interface");
-	if (!listenps && !listenudps && !listenngs && !listenngtcps)
-		die("Missing option --listen-tcp, --listen-udp or --listen-ng or --listen-tcp-ng");
+	if (!listenps && !listenudps && !listenngs && !listenngtcps
+			&& !(rtpe_config.http_ifs && rtpe_config.http_ifs[0])
+			&& !(rtpe_config.https_ifs && rtpe_config.https_ifs[0]))
+		die("Missing option --listen-tcp, --listen-udp, --listen-ng, --listen-tcp-ng, "
+				"--listen-http, or --listen-https");
 
 	struct ifaddrs *ifas;
 	if (getifaddrs(&ifas)) {
