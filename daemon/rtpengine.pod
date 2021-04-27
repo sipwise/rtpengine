@@ -4,7 +4,7 @@ rtpengine - NGCP proxy for RTP and other UDP based media traffic
 
 =head1 SYNOPSIS
 
-B<rtpengine> B<--interface>=I<addr>... B<--listen-tcp>|B<--listen-udp>|B<--listen-ng>|B<--listen-tcp-ng>=I<addr>... [I<option>...]
+B<rtpengine> B<--interface>=I<addr>... B<--listen-tcp>|B<--listen-udp>|B<--listen-ng>|B<--listen-tcp-ng>|B<--listen-http>|B<--listen-https>=I<addr>... [I<option>...]
 
 =head1 DESCRIPTION
 
