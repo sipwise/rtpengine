@@ -1433,6 +1433,34 @@ Optionally included keys are:
 	If specified, then this address will be used as destination address for the XMLRPC timeout
 	callback (see `b2b-url` option).
 
+* `media echo` or `media-echo`
+
+	Contains a string to enable a special media echo mode. Recognised values are:
+
+	- `blackhole` or `sinkhole`
+
+		Media arriving from either side of the call is simply discarded
+		and not forwarded.
+
+	- `forward`
+
+		Enables media echo towards the receiver of this message (e.g.
+		the called party if the message is an `offer` from the caller).
+		Media arriving from that side is echoed back to its sender
+		(with a new SSRC if it's RTP). Media arriving from the opposite
+		side is discarded.
+
+	- `backwards`
+
+		Enables media echo towards the sender of this message (i.e. the
+		opposite of `forward`). Media arriving from the other side is
+		discarded.
+
+	- `both`
+
+		Enables media echo towards both the sender and the receiver of
+		this message.
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",

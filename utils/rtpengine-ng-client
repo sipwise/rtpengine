@@ -89,13 +89,14 @@ GetOptions(
 	'generate-RTCP'			=> \$options{'generate RTCP'},
 	'single-codec'			=> \$options{'single codec'},
 	'reorder-codecs'		=> \$options{'reorder codecs'},
+	'media-echo=s'			=> \$options{'media echo'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite,media echo')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
 for my $x (split(/,/, 'TOS,delete-delay')) {

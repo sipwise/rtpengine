@@ -1581,8 +1581,10 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	seq_printf(f, "local ");
 	seq_addr_print(f, &g->target.local);
 	seq_printf(f, "\n");
-	proc_list_addr_print(f, "src", &g->target.src_addr);
-	proc_list_addr_print(f, "dst", &g->target.dst_addr);
+	if (!g->target.non_forwarding) {
+		proc_list_addr_print(f, "src", &g->target.src_addr);
+		proc_list_addr_print(f, "dst", &g->target.dst_addr);
+	}
 	proc_list_addr_print(f, "mirror", &g->target.mirror_addr);
 	proc_list_addr_print(f, "expect", &g->target.expected_src);
 	if (g->target.src_mismatch > 0 && g->target.src_mismatch <= ARRAY_SIZE(re_msm_strings))
@@ -1612,6 +1614,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "    option: transcoding\n");
 	if (g->target.non_forwarding)
 		seq_printf(f, "    option: non forwarding\n");
+	if (g->target.blackhole)
+		seq_printf(f, "    option: blackhole\n");
 	if (g->target.rtp_stats)
 		seq_printf(f, "    option: RTP stats\n");
 
@@ -4273,8 +4277,11 @@ not_stun:
 	goto skip_error;
 
 src_check_ok:
-	if (g->target.non_forwarding)
+	if (g->target.non_forwarding) {
+		if (g->target.blackhole)
+			error_nf_action = NF_DROP;
 		goto skip1;
+	}
 	if (g->target.dtls && is_dtls(skb))
 		goto skip1;
 

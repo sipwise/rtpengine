@@ -64,6 +64,13 @@ struct sdp_ng_flags {
 		ICE_LITE_BKW,
 		ICE_LITE_BOTH,
 	} ice_lite_option:3;
+	enum {
+		MEO_DEFAULT = 0,
+		MEO_BLACKHOLE,
+		MEO_FWD,
+		MEO_BKW,
+		MEO_BOTH,
+	} media_echo:3;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,

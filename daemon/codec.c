@@ -407,7 +407,10 @@ static GList *__delete_send_codec(struct call_media *sender, GList *link) {
 
 // only called from codec_handlers_update()
 static void __make_passthrough_gsl(struct codec_handler *handler, GSList **handlers) {
-	__make_passthrough(handler);
+	if (MEDIA_ISSET(handler->media, ECHO))
+		__make_passthrough_ssrc(handler);
+	else
+		__make_passthrough(handler);
 	*handlers = g_slist_prepend(*handlers, handler);
 }
 

@@ -1179,6 +1179,10 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 
 		/* RTP */
 		a->rtp_sink = b;
+		// reflect media - pretent reflection also for blackhole, as otherwise
+		// we get SSRC flip-flops on the opposite side
+		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
+			a->rtp_sink = a;
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
 		__rtp_stats_update(a->rtp_stats, A->codecs_recv);
@@ -1213,6 +1217,8 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		}
 		else {
 			a->rtcp_sink = b;
+			if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
+				a->rtcp_sink = a->rtcp_sibling;
 			PS_SET(a, RTCP);
 			PS_CLEAR(a, IMPLICIT_RTCP);
 		}
@@ -1227,6 +1233,8 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 
 		a->rtp_sink = NULL;
 		a->rtcp_sink = b;
+		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
+			a->rtcp_sink = a;
 		PS_CLEAR(a, RTP);
 		PS_SET(a, RTCP);
 		a->rtcp_sibling = NULL;
@@ -2195,6 +2203,36 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		else if (flags && flags->generate_rtcp_off) {
 			MEDIA_CLEAR(media, RTCP_GEN);
 			MEDIA_CLEAR(other_media, RTCP_GEN);
+		}
+
+		if (flags) {
+			switch (flags->media_echo) {
+				case MEO_FWD:
+					MEDIA_SET(media, ECHO);
+					MEDIA_SET(other_media, BLACKHOLE);
+					MEDIA_CLEAR(media, BLACKHOLE);
+					MEDIA_CLEAR(other_media, ECHO);
+					break;
+				case MEO_BKW:
+					MEDIA_SET(media, BLACKHOLE);
+					MEDIA_SET(other_media, ECHO);
+					MEDIA_CLEAR(media, ECHO);
+					MEDIA_CLEAR(other_media, BLACKHOLE);
+					break;
+				case MEO_BOTH:
+					MEDIA_SET(media, ECHO);
+					MEDIA_SET(other_media, ECHO);
+					MEDIA_CLEAR(media, BLACKHOLE);
+					MEDIA_CLEAR(other_media, BLACKHOLE);
+					break;
+				case MEO_BLACKHOLE:
+					MEDIA_SET(media, BLACKHOLE);
+					MEDIA_SET(other_media, BLACKHOLE);
+					MEDIA_CLEAR(media, ECHO);
+					MEDIA_CLEAR(other_media, ECHO);
+				case MEO_DEFAULT:
+					break;
+			}
 		}
 
 		__update_media_protocol(media, other_media, sp, flags);

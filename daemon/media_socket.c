@@ -1141,6 +1141,8 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (!stream->endpoint.address.family)
 		goto no_kernel;
+	if (MEDIA_ISSET(media, BLACKHOLE))
+		non_forwarding = 1;
 
         ilog(LOG_INFO, "Kernelizing media stream: %s%s:%d%s",
 			FMT_M(sockaddr_print_buf(&stream->endpoint.address), stream->endpoint.port));
@@ -1183,13 +1185,14 @@ void kernelize(struct packet_stream *stream) {
 	reti.dtls = MEDIA_ISSET(media, DTLS);
 	reti.stun = media->ice_agent ? 1 : 0;
 	reti.non_forwarding = non_forwarding;
+	reti.blackhole = MEDIA_ISSET(media, BLACKHOLE) ? 1 : 0;
 	reti.rtp_stats = MEDIA_ISSET(media, RTCP_GEN) ? 1 : 0;
 
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);
 	if (stream->ssrc_in) {
 		reti.ssrc = htonl(stream->ssrc_in->parent->h.ssrc);
-		if (MEDIA_ISSET(media, TRANSCODE)) {
+		if (MEDIA_ISSET(media, TRANSCODE) || MEDIA_ISSET(media, ECHO)) {
 			reti.ssrc_out = htonl(stream->ssrc_in->ssrc_map_out);
 			reti.transcoding = 1;
 		}
@@ -1473,7 +1476,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 	}
 
 	// make sure we reset the output SSRC if we're not transcoding
-	if (!MEDIA_ISSET(in_srtp->media, TRANSCODE))
+	if (!MEDIA_ISSET(in_srtp->media, TRANSCODE) && !MEDIA_ISSET(in_srtp->media, ECHO))
 		(*ssrc_in_p)->ssrc_map_out = in_ssrc;
 
 	out_ssrc = (*ssrc_in_p)->ssrc_map_out;
@@ -2118,7 +2121,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		goto drop;
 	}
 
-	ret = media_socket_dequeue(&phc->mp, phc->sink);
+	if (!MEDIA_ISSET(phc->mp.media, BLACKHOLE))
+		ret = media_socket_dequeue(&phc->mp, phc->sink);
+	else
+		ret = media_socket_dequeue(&phc->mp, NULL);
 
 	mutex_unlock(&phc->sink->out_lock);
 

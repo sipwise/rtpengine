@@ -120,6 +120,7 @@ struct rtpengine_target_info {
 					do_intercept:1,
 					transcoding:1, // SSRC subst and RTP PT filtering
 					non_forwarding:1, // empty src/dst addr
+					blackhole:1,
 					rtp_stats:1; // requires SSRC and clock_rates to be set
 };
 

@@ -1154,6 +1154,31 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		else if (!str_cmp(&s, "off"))
 			out->generate_rtcp_off = 1;
 	}
+
+	if (bencode_get_alt(input, "media-echo", "media echo", &s)) {
+		switch (__csh_lookup(&s)) {
+			case CSH_LOOKUP("blackhole"):
+			case CSH_LOOKUP("sinkhole"):
+				out->media_echo = MEO_BLACKHOLE;
+				break;
+			case CSH_LOOKUP("forward"):
+			case CSH_LOOKUP("fwd"):
+			case CSH_LOOKUP("fw"):
+				out->media_echo = MEO_FWD;
+				break;
+			case CSH_LOOKUP("backward"):
+			case CSH_LOOKUP("backwards"):
+			case CSH_LOOKUP("reverse"):
+			case CSH_LOOKUP("back"):
+			case CSH_LOOKUP("bkw"):
+			case CSH_LOOKUP("bk"):
+				out->media_echo = MEO_BKW;
+				break;
+			case CSH_LOOKUP("both"):
+				out->media_echo = MEO_BOTH;
+				break;
+		}
+	}
 }
 static void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	if (flags->codec_strip)
