@@ -1597,9 +1597,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			(unsigned long long) atomic64_read(&g->rtp_stats[i].bytes),
 			(unsigned long long) atomic64_read(&g->rtp_stats[i].packets));
 	if (g->target.ssrc)
-		seq_printf(f, "  SSRC in: %08x\n", g->target.ssrc);
+		seq_printf(f, "  SSRC in: %lx\n", (unsigned long) ntohl(g->target.ssrc));
 	if (g->target.ssrc_out)
-		seq_printf(f, " SSRC out: %08x\n", g->target.ssrc_out);
+		seq_printf(f, " SSRC out: %lx\n", (unsigned long) ntohl(g->target.ssrc_out));
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption (incoming)");
 	proc_list_crypto_print(f, &g->encrypt, &g->target.encrypt, "encryption (outgoing)");
 	if (g->target.rtcp_mux)
