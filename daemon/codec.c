@@ -2450,8 +2450,9 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 			; // first packet
 		else if (ts_diff < 0)
 			ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
-		else if (ts_diff_us > 10000)
-			ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
+		else if (ts_diff_us > MAX(20 * rtpe_config.dtx_delay, 200000))
+			ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu = %lli ms)",
+					dtxb->head_ts, ts, ts_diff_us);
 		else if (ts_diff > dtxb->tspp) {
 			ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
 					"DTX TS %lu, diff %li)",
