@@ -470,6 +470,7 @@ int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);
 struct call_media *call_media_new(struct call *call);
+void call_media_free(struct call_media **mdp);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
 void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media);

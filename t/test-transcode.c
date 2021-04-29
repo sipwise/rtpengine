@@ -44,9 +44,28 @@ static GQueue rtp_types = G_QUEUE_INIT;
 
 #define start() __start(__FILE__, __LINE__)
 
-static void __init(void) {
-	g_queue_clear(&rtp_types);
+static void __pt_slice_free(void *p) {
+	g_slice_free1(sizeof(struct rtp_payload_type), p);
+}
+static void __cleanup(void) {
+	if (flags.codec_strip)
+		g_hash_table_destroy(flags.codec_strip);
+	if (flags.codec_mask)
+		g_hash_table_destroy(flags.codec_mask);
+	if (flags.codec_except)
+		g_hash_table_destroy(flags.codec_except);
+	if (flags.codec_set)
+		g_hash_table_destroy(flags.codec_set);
+	if (flags.codec_consume)
+		g_hash_table_destroy(flags.codec_consume);
+	if (flags.codec_accept)
+		g_hash_table_destroy(flags.codec_accept);
+	g_queue_clear_full(&flags.codec_transcode, free);
+	g_queue_clear_full(&rtp_types, __pt_slice_free);
 	memset(&flags, 0, sizeof(flags));
+}
+static void __init(void) {
+	__cleanup();
 	flags.codec_strip = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	flags.codec_mask = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	flags.codec_except = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
@@ -245,7 +264,8 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 			abort();
 		}
 		struct codec_packet *cp = g_queue_pop_head(&mp.packets_out);
-		rtp = (void *) cp->s.s;
+		str cp_s = cp->s;
+		rtp = (void *) cp_s.s;
 		if (rtp->m_pt != (unsigned char) pt_out) {
 			printf("test failed: %s:%i\n", file, line);
 			printf("expected: %lli\n", pt_out);
@@ -253,8 +273,8 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 			abort();
 		}
 		printf("recv packet contents: ");
-		for (int i = sizeof(struct rtp_header); i < cp->s.len; i++) {
-			unsigned char cc = cp->s.s[i];
+		for (int i = sizeof(struct rtp_header); i < cp_s.len; i++) {
+			unsigned char cc = cp_s.s[i];
 			printf("\\x%02x", cc);
 		}
 		printf("\n");
@@ -282,15 +302,18 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 			assert(diff == seq_diff_exp);
 		}
 		g_hash_table_insert(rtp_seq_ht, GUINT_TO_POINTER(ssrc_pt), GUINT_TO_POINTER(seq));
-		if (str_shift(&cp->s, sizeof(struct rtp_header)))
+		if (str_shift(&cp_s, sizeof(struct rtp_header)))
 			abort();
-		if (pl_exp.len != cp->s.len)
+		if (pl_exp.len != cp_s.len)
 			abort();
-		if (fatal && memcmp(pl_exp.s, cp->s.s, pl_exp.len))
+		if (fatal && memcmp(pl_exp.s, cp_s.s, pl_exp.len))
 			abort();
+		codec_packet_free(cp);
 	}
 	printf("test ok: %s:%i\n\n", file, line);
 	free(packet);
+	ssrc_ctx_put(&mp.ssrc_in);
+	ssrc_ctx_put(&mp.ssrc_out);
 }
 
 #define packet(side, pt_in, pload, pt_out, pload_exp) \
@@ -305,6 +328,13 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 static void end(void) {
 	g_hash_table_destroy(rtp_ts_ht);
 	g_hash_table_destroy(rtp_seq_ht);
+	call_media_free(&media_A);
+	call_media_free(&media_B);
+	bencode_buffer_free(&call.buffer);
+	g_hash_table_destroy(call.tags);
+	free_ssrc_hash(&call.ssrc_hash);
+	g_queue_clear(&call.medias);
+	__cleanup();
 	printf("\n");
 }
 
@@ -1622,6 +1652,7 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, recv, "120/opus/48000 8/PCMA/8000 0/PCMU/8000 101/telephone-event/8000 96/telephone-event/48000/0-15");
+	end();
 	// gh 664 codec masking accept=all
 	start();
 	sdp_pt(120, opus, 48000);
@@ -1638,6 +1669,7 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, recv, "120/opus/48000 8/PCMA/8000 0/PCMU/8000 101/telephone-event/8000 96/telephone-event/48000/0-15");
+	end();
 
 	// CN transcoding
 	rtpe_config.silence_detect_int = 10 << 16;
@@ -1658,6 +1690,7 @@ int main(void) {
 	packet_seq(B, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
 	packet_seq(B, 13, "\x20", 320, 2, 8, "\xf5\x5c\x4b\xc2\xde\xf4\x5e\xd4\x47\x70\x5d\x77\x45\x51\xc5\xcd\xd7\x77\x5a\xf5\xcf\x4a\x4c\x40\xc3\x47\x74\x49\x59\xc4\x76\x57\x71\x57\x40\xc5\xf4\x5a\x47\xd6\xc4\xf6\xc7\xf3\x40\x58\x74\x54\x4b\xd7\x5c\xc7\x41\x49\xf5\x5b\x53\xd9\x70\x44\xcd\xc4\xce\xcb\xc7\x58\xcd\x45\xc6\x71\xf5\x70\x43\xca\x43\xd5\x52\x5c\x75\x74\xc6\xc3\x4f\xda\x56\xc3\x46\xf5\x49\xdf\x56\x4f\x71\x5b\x52\xc6\x4e\xd0\x43\xc2\xcd\xd5\xdf\x40\x43\x4a\xf7\xf6\xd9\xdf\xde\x45\xc9\xd9\xc2\xf0\xc1\x4a\x40\x52\xd1\x5b\xd0\x54\xc9\x5e\xde\xd5\x74\x5c\x5d\x59\x71\xc1\xc1\x71\xd2\xcb\x50\x50\x54\x53\x75\xdc\x4b\xcf\xc2\xd7\x4a\xcc\x58\xc7\xdb\xd8\x48\x4a\xd6\x58\xf0\x46");
 	packet_seq(A, 8, PCMA_silence, 320, 2, 13, "\x40");
+	end();
 	// CN transcoding - reverse 1
 	start();
 	sdp_pt(8, PCMA, 8000);
@@ -1674,6 +1707,7 @@ int main(void) {
 	packet_seq(B, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
 	packet_seq(A, 13, "\x20", 320, 2, 8, "\xf5\x5c\x4b\xc2\xde\xf4\x5e\xd4\x47\x70\x5d\x77\x45\x51\xc5\xcd\xd7\x77\x5a\xf5\xcf\x4a\x4c\x40\xc3\x47\x74\x49\x59\xc4\x76\x57\x71\x57\x40\xc5\xf4\x5a\x47\xd6\xc4\xf6\xc7\xf3\x40\x58\x74\x54\x4b\xd7\x5c\xc7\x41\x49\xf5\x5b\x53\xd9\x70\x44\xcd\xc4\xce\xcb\xc7\x58\xcd\x45\xc6\x71\xf5\x70\x43\xca\x43\xd5\x52\x5c\x75\x74\xc6\xc3\x4f\xda\x56\xc3\x46\xf5\x49\xdf\x56\x4f\x71\x5b\x52\xc6\x4e\xd0\x43\xc2\xcd\xd5\xdf\x40\x43\x4a\xf7\xf6\xd9\xdf\xde\x45\xc9\xd9\xc2\xf0\xc1\x4a\x40\x52\xd1\x5b\xd0\x54\xc9\x5e\xde\xd5\x74\x5c\x5d\x59\x71\xc1\xc1\x71\xd2\xcb\x50\x50\x54\x53\x75\xdc\x4b\xcf\xc2\xd7\x4a\xcc\x58\xc7\xdb\xd8\x48\x4a\xd6\x58\xf0\x46");
 	packet_seq(B, 8, PCMA_silence, 320, 2, 13, "\x40");
+	end();
 	// CN transcoding - reverse 2
 	start();
 	sdp_pt(8, PCMA, 8000);
@@ -1690,6 +1724,7 @@ int main(void) {
 	packet_seq(B, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
 	packet_seq(A, 13, "\x20", 320, 2, 8, "\xf5\x5c\x4b\xc2\xde\xf4\x5e\xd4\x47\x70\x5d\x77\x45\x51\xc5\xcd\xd7\x77\x5a\xf5\xcf\x4a\x4c\x40\xc3\x47\x74\x49\x59\xc4\x76\x57\x71\x57\x40\xc5\xf4\x5a\x47\xd6\xc4\xf6\xc7\xf3\x40\x58\x74\x54\x4b\xd7\x5c\xc7\x41\x49\xf5\x5b\x53\xd9\x70\x44\xcd\xc4\xce\xcb\xc7\x58\xcd\x45\xc6\x71\xf5\x70\x43\xca\x43\xd5\x52\x5c\x75\x74\xc6\xc3\x4f\xda\x56\xc3\x46\xf5\x49\xdf\x56\x4f\x71\x5b\x52\xc6\x4e\xd0\x43\xc2\xcd\xd5\xdf\x40\x43\x4a\xf7\xf6\xd9\xdf\xde\x45\xc9\xd9\xc2\xf0\xc1\x4a\x40\x52\xd1\x5b\xd0\x54\xc9\x5e\xde\xd5\x74\x5c\x5d\x59\x71\xc1\xc1\x71\xd2\xcb\x50\x50\x54\x53\x75\xdc\x4b\xcf\xc2\xd7\x4a\xcc\x58\xc7\xdb\xd8\x48\x4a\xd6\x58\xf0\x46");
 	packet_seq(B, 8, PCMA_silence, 320, 2, 13, "\x40");
+	end();
 	// DTMF PT TC
 	start();
 	sdp_pt(9, G722, 8000);
@@ -1708,6 +1743,7 @@ int main(void) {
 	expect(A, recv, "9/G722/8000 101/telephone-event/8000");
 	packet_seq(A, 101, "\x05\x07\x01\x40", 4000, 10, 97, "\x05\x07\x07\x80");
 	packet_seq(B, 97, "\x05\x07\x07\x80", 4000, 10, 101, "\x05\x07\x01\x40");
+	end();
 	// DTMF PT TC w eq PT
 	start();
 	sdp_pt(96, opus, 48000);

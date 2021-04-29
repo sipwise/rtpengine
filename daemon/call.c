@@ -2683,6 +2683,26 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 }
 
 
+void call_media_free(struct call_media **mdp) {
+	struct call_media *md = *mdp;
+	crypto_params_sdes_queue_clear(&md->sdes_in);
+	crypto_params_sdes_queue_clear(&md->sdes_out);
+	g_queue_clear(&md->streams);
+	g_queue_clear(&md->endpoint_maps);
+	g_hash_table_destroy(md->codecs_recv);
+	g_hash_table_destroy(md->codecs_send);
+	g_hash_table_destroy(md->codec_names_recv);
+	g_hash_table_destroy(md->codec_names_send);
+	g_queue_clear_full(&md->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
+	g_queue_clear_full(&md->codecs_prefs_send, (GDestroyNotify) payload_type_free);
+	codec_handlers_free(md);
+	codec_handler_free(&md->t38_handler);
+	t38_gateway_put(&md->t38_gateway);
+	g_queue_clear_full(&md->sdp_attributes, free);
+	g_slice_free1(sizeof(*md), md);
+	*mdp = NULL;
+}
+
 static void __call_free(void *p) {
 	struct call *c = p;
 	struct call_monologue *m;
@@ -2708,22 +2728,7 @@ static void __call_free(void *p) {
 
 	while (c->medias.head) {
 		md = g_queue_pop_head(&c->medias);
-
-		crypto_params_sdes_queue_clear(&md->sdes_in);
-		crypto_params_sdes_queue_clear(&md->sdes_out);
-		g_queue_clear(&md->streams);
-		g_queue_clear(&md->endpoint_maps);
-		g_hash_table_destroy(md->codecs_recv);
-		g_hash_table_destroy(md->codecs_send);
-		g_hash_table_destroy(md->codec_names_recv);
-		g_hash_table_destroy(md->codec_names_send);
-		g_queue_clear_full(&md->codecs_prefs_recv, (GDestroyNotify) payload_type_free);
-		g_queue_clear_full(&md->codecs_prefs_send, (GDestroyNotify) payload_type_free);
-		codec_handlers_free(md);
-		codec_handler_free(&md->t38_handler);
-		t38_gateway_put(&md->t38_gateway);
-		g_queue_clear_full(&md->sdp_attributes, free);
-		g_slice_free1(sizeof(*md), md);
+		call_media_free(&md);
 	}
 
 	while (c->endpoint_maps.head) {
