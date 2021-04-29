@@ -3584,8 +3584,9 @@ void codec_tracker_finish(struct call_media *media, struct call_media *other_med
 
 		// finally check which clock rates are left over and remove those
 		GList *to_remove = g_hash_table_get_keys(supp_clockrates);
-		for (GList *k = to_remove; k; k = k->next) {
-			unsigned int clockrate = GPOINTER_TO_UINT(k->data);
+		while (to_remove) {
+			unsigned int clockrate = GPOINTER_TO_UINT(to_remove->data);
+			to_remove = g_list_delete_link(to_remove, to_remove);
 
 			// ignore if we haven't touched anything with that clock rate
 			if (!sct->all_touched && !g_hash_table_lookup(sct->touched, GUINT_TO_POINTER(clockrate)))
