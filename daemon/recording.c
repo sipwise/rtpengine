@@ -425,7 +425,7 @@ static void sdp_after_pcap(struct recording *recording, GString *str, struct cal
 	// descriptor does not. Make sure to flush any unwritten contents
 	// so the file contents appear in order.
 	if (ml->label.len) {
-		fprintf(meta_fp, "\nLabel: %*s", ml->label.len, ml->label.s);
+		fprintf(meta_fp, "\nLabel: " STR_FORMAT, STR_FMT(&ml->label));
 	}
 	fprintf(meta_fp, "\nTimestamp started ms: ");
 	fprintf(meta_fp, "%.3lf", ml->started.tv_sec*1000.0+ml->started.tv_usec/1000.0);

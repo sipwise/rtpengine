@@ -550,9 +550,9 @@ static void options(int *argc, char ***argv) {
 
 			if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) ||
 			    (errno != 0 && uint_keyspace_db == 0)) {
-				ilog(LOG_ERR, "Fail adding keyspace '%.*s' to redis notifications; errono=%d\n", str_keyspace_db.len, str_keyspace_db.s, errno);
+				ilog(LOG_ERR, "Fail adding keyspace '" STR_FORMAT "' to redis notifications; errono=%d\n", STR_FMT(&str_keyspace_db), errno);
 			} else if (endptr == str_keyspace_db.s) {
-				ilog(LOG_ERR, "Fail adding keyspace '%.*s' to redis notifications; no digits found\n", str_keyspace_db.len, str_keyspace_db.s);
+				ilog(LOG_ERR, "Fail adding keyspace '" STR_FORMAT "' to redis notifications; no digits found\n", STR_FMT(&str_keyspace_db));
 			} else {
 				g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			}

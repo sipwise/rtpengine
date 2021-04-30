@@ -201,7 +201,7 @@ static void __bencode_container_add(bencode_item_t *parent, bencode_item_t *chil
 }
 
 static bencode_item_t *__bencode_string_alloc(bencode_buffer_t *buf, const void *base,
-		int str_len, int iov_len, int iov_cnt, bencode_type_t type)
+		size_t str_len, size_t iov_len, unsigned int iov_cnt, bencode_type_t type)
 {
 	bencode_item_t *ret;
 	int len_len;
@@ -210,7 +210,7 @@ static bencode_item_t *__bencode_string_alloc(bencode_buffer_t *buf, const void 
 	ret = __bencode_item_alloc(buf, 7);
 	if (!ret)
 		return NULL;
-	len_len = sprintf(ret->__buf, "%d:", str_len);
+	len_len = sprintf(ret->__buf, "%zu:", str_len);
 
 	ret->type = type;
 	ret->iov[0].iov_base = ret->__buf;
@@ -223,7 +223,7 @@ static bencode_item_t *__bencode_string_alloc(bencode_buffer_t *buf, const void 
 	return ret;
 }
 
-bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, int len) {
+bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, size_t len) {
 	char *sd = bencode_buffer_alloc(buf, len);
 	if (!sd)
 		return NULL;
@@ -231,11 +231,13 @@ bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, int
 	return bencode_string_len(buf, sd, len);
 }
 
-bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len) {
+bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, size_t len) {
 	return __bencode_string_alloc(buf, s, len, len, 1, BENCODE_STRING);
 }
 
-bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *iov, int iov_cnt, int str_len) {
+bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *iov, unsigned int iov_cnt,
+		size_t str_len)
+{
 	int i;
 
 	if (iov_cnt < 0)
@@ -275,7 +277,7 @@ bencode_item_t *bencode_integer(bencode_buffer_t *buf, long long int i) {
 	return ret;
 }
 
-bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, int keylen, bencode_item_t *val) {
+bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, size_t keylen, bencode_item_t *val) {
 	bencode_item_t *str;
 
 	if (!dict || !val)
@@ -337,7 +339,7 @@ static int __bencode_iovec_dump(struct iovec *out, bencode_item_t *item) {
 	return item->iov_cnt;
 }
 
-static int __bencode_str_dump(char *out, bencode_item_t *item) { 
+static size_t __bencode_str_dump(char *out, bencode_item_t *item) {
 	char *orig = out;
 	bencode_item_t *child;
 
@@ -376,9 +378,9 @@ struct iovec *bencode_iovec(bencode_item_t *root, int *cnt, unsigned int head, u
 	return ret;
 }
 
-char *bencode_collapse(bencode_item_t *root, int *len) {
+char *bencode_collapse(bencode_item_t *root, size_t *len) {
 	char *ret;
-	int l;
+	size_t l;
 
 	if (!root)
 		return NULL;
@@ -393,7 +395,7 @@ char *bencode_collapse(bencode_item_t *root, int *len) {
 	return ret;
 }
 
-char *bencode_collapse_dup(bencode_item_t *root, int *len) {
+char *bencode_collapse_dup(bencode_item_t *root, size_t *len) {
 	char *ret;
 	int l;
 
@@ -641,13 +643,13 @@ static bencode_item_t *__bencode_decode(bencode_buffer_t *buf, const char *s, co
 	}
 }
 
-bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, int len) {
+bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, size_t len) {
 	assert(s != NULL);
 	return __bencode_decode(buf, s, s + len);
 }
 
 
-static int __bencode_dictionary_key_match(bencode_item_t *key, const char *keystr, int keylen) {
+static int __bencode_dictionary_key_match(bencode_item_t *key, const char *keystr, size_t keylen) {
 	assert(key->type == BENCODE_STRING);
 
 	if (keylen != key->iov[1].iov_len)
@@ -658,7 +660,7 @@ static int __bencode_dictionary_key_match(bencode_item_t *key, const char *keyst
 	return 1;
 }
 
-bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *keystr, int keylen) {
+bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *keystr, size_t keylen) {
 	bencode_item_t *key;
 	unsigned int bucket, i;
 	struct __bencode_hash *hash;
@@ -710,17 +712,17 @@ void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t func, void *p
 	buf->free_list = li;
 }
 
-static int __bencode_string(const char *s, int offset, int len) {
-	int pos;
-	unsigned long long sl;
+static int __bencode_string(const char *s, size_t offset, size_t len) {
+	size_t pos;
+	unsigned long sl;
 	char *end;
 
-	for (pos = offset + 1; s[pos] != ':' && isdigit(s[pos]) && pos < len; ++pos);
+	for (pos = offset; s[pos] != ':' && isdigit(s[pos]) && pos < len; ++pos);
 	if (pos == len)
 		return -1;
 
-	sl = strtoul(s + offset + 1, &end, 10);
-	if (s + offset + 1 == end || end != s + pos)
+	sl = strtoul(s + offset, &end, 10);
+	if (s + offset == end || end != s + pos)
 		return -2;
 
 	if (pos + sl > len)
@@ -729,8 +731,8 @@ static int __bencode_string(const char *s, int offset, int len) {
 	return pos + sl + 1;
 }
 
-static int __bencode_integer(const char *s, int offset, int len) {
-	int pos;
+static int __bencode_integer(const char *s, size_t offset, size_t len) {
+	size_t pos;
 
 	if (s[offset + 1] == '-') {
 		if (offset + 3 < len && s[offset + 2] == '0' && s[offset + 3] == 'e') {
@@ -759,9 +761,9 @@ static int __bencode_integer(const char *s, int offset, int len) {
 	return pos + 1;
 }
 
-static int __bencode_next(const char *s, int offset, int len);
+static int __bencode_next(const char *s, size_t offset, size_t len);
 
-static int __bencode_list(const char *s, int offset, int len) {
+static int __bencode_list(const char *s, size_t offset, size_t len) {
 	for (++offset; s[offset] != 'e' && offset < len;) {
 		offset = __bencode_next(s, offset, len);
 		if (offset < 0)
@@ -774,9 +776,9 @@ static int __bencode_list(const char *s, int offset, int len) {
 	return offset + 1;
 }
 
-static int __bencode_dictionary(const char *s, int offset, int len) {
+static int __bencode_dictionary(const char *s, size_t offset, size_t len) {
 	for (++offset; s[offset] != 'e' && offset < len;) {
-		offset = __bencode_string(s, offset - 1, len);
+		offset = __bencode_string(s, offset, len);
 		if (offset < 0)
 			return offset;
 		offset = __bencode_next(s, offset, len);
@@ -790,7 +792,7 @@ static int __bencode_dictionary(const char *s, int offset, int len) {
 	return offset + 1;
 }
 
-static int __bencode_next(const char *s, int offset, int len) {
+static int __bencode_next(const char *s, size_t offset, size_t len) {
 	if (offset >= len)
 		return -1;
 	switch(s[offset]) {
@@ -810,11 +812,11 @@ static int __bencode_next(const char *s, int offset, int len) {
 		case '7':
 		case '8':
 		case '9':
-			return __bencode_string(s, offset - 1, len);
+			return __bencode_string(s, offset, len);
 	}
 	return -2;
 }
 
-int bencode_valid(const char *s, int len) {
+int bencode_valid(const char *s, size_t len) {
 	return __bencode_next(s, 0, len);
 }

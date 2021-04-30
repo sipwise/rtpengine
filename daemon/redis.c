@@ -920,7 +920,7 @@ static void redis_delete_async_call_json(struct call *c, struct redis *r) {
 	redis_command = g_strdup_printf("SELECT %i", c->redis_hosted_db);
 	g_queue_push_tail(&r->async_queue, redis_command);
 
-	redis_command = g_strdup_printf("DEL %.*s", c->callid.len, c->callid.s);
+	redis_command = g_strdup_printf("DEL " STR_FORMAT, STR_FMT(&c->callid));
 	g_queue_push_tail(&r->async_queue, redis_command);
 }
 

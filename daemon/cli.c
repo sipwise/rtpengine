@@ -577,7 +577,7 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 			STR_FMT(&ml->viabranch),
 			tim_result_duration.tv_sec,
 			tim_result_duration.tv_usec,
-			ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
+			ml->active_dialogue ? (int) ml->active_dialogue->tag.len : 6,
 			ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)");
 
 		for (k = ml->medias.head; k; k = k->next) {

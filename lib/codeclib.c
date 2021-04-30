@@ -1928,7 +1928,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			goto err;
 
 		// add TOC byte
-		str_shift(&frame, -1);
+		str_unshift(&frame, 1);
 		frame.s[0] = toc_byte & 0x7c; // strip F bit, keep FT and Q, zero padding (01111100)
 
 		if (dec->codec_options.amr.octet_aligned && (bits % 8) != 0) {
@@ -2284,7 +2284,7 @@ static const char *dtmf_decoder_init(decoder_t *dec, const str *fmtp, const str 
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	struct telephone_event_payload *dtmf;
 	if (data->len < sizeof(*dtmf)) {
-		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Short DTMF event packet (len %u)", data->len);
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Short DTMF event packet (len %zu)", data->len);
 		return -1;
 	}
 	dtmf = (void *) data->s;

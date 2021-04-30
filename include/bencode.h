@@ -31,7 +31,7 @@ struct bencode_item {
 	bencode_type_t type;
 	struct iovec iov[2];	/* when decoding, iov[1] contains the contents of a string object */
 	unsigned int iov_cnt;
-	unsigned int str_len;	/* length of the whole ENCODED object. NOT the length of a byte string */
+	size_t str_len;	/* length of the whole ENCODED object. NOT the length of a byte string */
 	long long int value;	/* when decoding an integer, contains the value; otherwise used internally */
 	bencode_item_t *parent, *child, *last_child, *sibling;
 	bencode_buffer_t *buffer;
@@ -106,13 +106,13 @@ INLINE bencode_item_t *bencode_dictionary_add(bencode_item_t *dict, const char *
 INLINE bencode_item_t *bencode_dictionary_str_add(bencode_item_t *dict, const str *key, bencode_item_t *val);
 
 /* Identical to bencode_dictionary_add() but doesn't require the key string to be null-terminated */
-bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, int keylen, bencode_item_t *val);
+bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, size_t keylen, bencode_item_t *val);
 
 /* Convenience function to add a string value to a dictionary, possibly duplicated into the
  * bencode_buffer_t object. */
 INLINE bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict, const char *key, const char *val);
 INLINE bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *dict, const char *key, const char *val);
-INLINE bencode_item_t *bencode_dictionary_add_string_len(bencode_item_t *dict, const char *key, const char *val, int len);
+INLINE bencode_item_t *bencode_dictionary_add_string_len(bencode_item_t *dict, const char *key, const char *val, size_t len);
 
 /* Ditto, but for a "str" object */
 INLINE bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
@@ -122,7 +122,7 @@ INLINE bencode_item_t *bencode_dictionary_add_str_dup(bencode_item_t *dict, cons
 /* Ditto, but adds a string created through an iovec array to the dictionary. See
  * bencode_string_iovec(). */
 INLINE bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
-	const struct iovec *iov, int iov_cnt, int str_len);
+	const struct iovec *iov, unsigned int iov_cnt, size_t str_len);
 
 /* Convenience functions to add the respective (newly created) objects to a dictionary */
 INLINE bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val);
@@ -158,7 +158,7 @@ INLINE bencode_item_t *bencode_list_add_dictionary(bencode_item_t *list);
  * be allocated.
  * Strings are not copied or duplicated, so the string pointed to by "s" must remain valid until
  * the complete document is finally encoded or sent out. */
-bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, int len);
+bencode_item_t *bencode_string_len(bencode_buffer_t *buf, const char *s, size_t len);
 
 /* Creates a new byte-string object. The given string must be null-terminated. Otherwise identical
  * to bencode_string_len(). */
@@ -170,7 +170,7 @@ INLINE bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
 
 /* Identical to the above three functions, but copies the string into the bencode_buffer_t object.
  * Thus, the given string doesn't have to remain valid and accessible afterwards. */
-bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, int len);
+bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, size_t len);
 INLINE bencode_item_t *bencode_string_dup(bencode_buffer_t *buf, const char *s);
 INLINE bencode_item_t *bencode_str_dup(bencode_buffer_t *buf, const str *s);
 
@@ -180,7 +180,7 @@ INLINE bencode_item_t *bencode_str_dup(bencode_buffer_t *buf, const str *s);
  * document is encoded. The full length of the string composed of the iovec array is given in the
  * "str_len" parameter, which can be negative, in which case the array is iterated to calculate the
  * length. */
-bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *iov, int iov_cnt, int str_len);
+bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *iov, unsigned int iov_cnt, size_t str_len);
 
 /* Convenience function to compare a string object to a regular C string. Returns 2 if object
  * isn't a string object, otherwise returns according to strcmp(). */
@@ -230,7 +230,7 @@ struct iovec *bencode_iovec(bencode_item_t *root, int *cnt, unsigned int head, u
  * in *len. This is important if the encoded document contains binary data, in which case null
  * termination cannot be trusted. The returned string is freed when the corresponding
  * bencode_buffer_t object is destroyed. */
-char *bencode_collapse(bencode_item_t *root, int *len);
+char *bencode_collapse(bencode_item_t *root, size_t *len);
 
 /* Identical to bencode_collapse() but fills in a "str" object. Returns "out". */
 static str *bencode_collapse_str(bencode_item_t *root, str *out);
@@ -239,7 +239,7 @@ static str *bencode_collapse_str(bencode_item_t *root, str *out);
  * a bencode_buffer_t object, but instead using the function defined as BENCODE_MALLOC (normally
  * malloc() or pkg_malloc()), similar to strdup(). Using this function, the bencode_buffer_t
  * object can be destroyed, but the returned string remains valid and usable. */
-char *bencode_collapse_dup(bencode_item_t *root, int *len);
+char *bencode_collapse_dup(bencode_item_t *root, size_t *len);
 
 
 
@@ -292,17 +292,17 @@ char *bencode_collapse_dup(bencode_item_t *root, int *len);
  *
  * All memory is freed when the bencode_buffer_t object is destroyed.
  */
-bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, int len);
+bencode_item_t *bencode_decode(bencode_buffer_t *buf, const char *s, size_t len);
 
 /* Identical to bencode_decode(), but returns successfully only if the type of the decoded object match
  * "expect". */
-INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, int len, bencode_type_t expect);
+INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, size_t len, bencode_type_t expect);
 
 /* Identical to bencode_decode_expect() but takes a "str" argument. */
 INLINE bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const str *s, bencode_type_t expect);
 
 /* Returns the number of bytes that could successfully be decoded from 's', -1 if more bytes are needed or -2 on error */
-int bencode_valid(const char *s, int len);
+int bencode_valid(const char *s, size_t len);
 
 
 /*** DICTIONARY LOOKUP & EXTRACTION ***/
@@ -313,13 +313,13 @@ int bencode_valid(const char *s, int len);
 INLINE bencode_item_t *bencode_dictionary_get(bencode_item_t *dict, const char *key);
 
 /* Identical to bencode_dictionary_get() but doesn't require the key to be null-terminated. */
-bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key, int key_len);
+bencode_item_t *bencode_dictionary_get_len(bencode_item_t *dict, const char *key, size_t key_len);
 
 /* Identical to bencode_dictionary_get() but returns the value only if its type is a string, and
  * returns it as a pointer to the string itself. Returns NULL if the value is of some other type. The
  * returned string is NOT null-terminated. Length of the string is returned in *len, which must be a
  * valid pointer. The returned string will be valid until dict's bencode_buffer_t object is destroyed. */
-INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, int *len);
+INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, size_t *len);
 
 /* Identical to bencode_dictionary_get_string() but fills in a "str" struct. Returns str->s, which
  * may be NULL. */
@@ -332,7 +332,7 @@ INLINE int bencode_dictionary_get_strcmp(bencode_item_t *dict, const char *key, 
 
 /* Identical to bencode_dictionary_get() but returns the string in a newly allocated buffer (using the
  * BENCODE_MALLOC function), which remains valid even after bencode_buffer_t is destroyed. */
-INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, int *len);
+INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, size_t *len);
 
 /* Combines bencode_dictionary_get_str() and bencode_dictionary_get_string_dup(). Fills in a "str"
  * struct, but copies the string into a newly allocated buffer. Returns str->s. */
@@ -400,7 +400,7 @@ INLINE bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict, const
 	return bencode_dictionary_add(dict, key, bencode_string(bencode_item_buffer(dict), val));
 }
 
-INLINE bencode_item_t *bencode_dictionary_add_string_len(bencode_item_t *dict, const char *key, const char *val, int len) {
+INLINE bencode_item_t *bencode_dictionary_add_string_len(bencode_item_t *dict, const char *key, const char *val, size_t len) {
 	if (!val)
 		return NULL;
 	return bencode_dictionary_add(dict, key, bencode_string_len(bencode_item_buffer(dict), val, len));
@@ -476,7 +476,7 @@ INLINE bencode_item_t *bencode_dictionary_get(bencode_item_t *dict, const char *
 	return bencode_dictionary_get_len(dict, key, strlen(key));
 }
 
-INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, int *len) {
+INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key, size_t *len) {
 	bencode_item_t *val;
 	val = bencode_dictionary_get(dict, key);
 	if (!val || val->type != BENCODE_STRING)
@@ -492,7 +492,7 @@ INLINE char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, s
 	return str->s;
 }
 
-INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, int *len) {
+INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, size_t *len) {
 	const char *s;
 	char *ret;
 	s = bencode_dictionary_get_string(dict, key, len);
@@ -542,7 +542,7 @@ INLINE long long int bencode_dictionary_get_int_str(bencode_item_t *dict, const 
 	return ret;
 }
 
-INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, int len, bencode_type_t expect) {
+INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, size_t len, bencode_type_t expect) {
 	bencode_item_t *ret;
 	ret = bencode_decode(buf, s, len);
 	if (!ret || ret->type != expect)
@@ -593,7 +593,7 @@ INLINE str *bencode_get_str(bencode_item_t *in, str *out) {
 }
 
 INLINE bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
-		const struct iovec *iov, int iov_cnt, int str_len)
+		const struct iovec *iov, unsigned int iov_cnt, size_t str_len)
 {
 	return bencode_dictionary_add(dict, key, bencode_string_iovec(bencode_item_buffer(dict), iov, iov_cnt, str_len));
 }

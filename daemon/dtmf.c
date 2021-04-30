@@ -114,7 +114,7 @@ int dtmf_do_logging(void) {
 int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 	struct telephone_event_payload *dtmf;
 	if (payload->len < sizeof(*dtmf)) {
-		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Short DTMF event packet (len %u)", payload->len);
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Short DTMF event packet (len %zu)", payload->len);
 		return -1;
 	}
 	dtmf = (void *) payload->s;

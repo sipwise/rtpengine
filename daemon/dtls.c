@@ -701,7 +701,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		return 0;
 
 	if (s)
-		__DBG("dtls packet input: len %u %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		__DBG("dtls packet input: len %zu %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
 			s->len,
 			(unsigned char) s->s[0], (unsigned char) s->s[1], (unsigned char) s->s[2], (unsigned char) s->s[3],
 			(unsigned char) s->s[4], (unsigned char) s->s[5], (unsigned char) s->s[6], (unsigned char) s->s[7],

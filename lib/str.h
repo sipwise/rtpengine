@@ -13,7 +13,7 @@
 
 struct _str {
 	char *s;
-	int len;
+	size_t len;
 };
 
 typedef struct _str str;
@@ -22,9 +22,9 @@ typedef struct _str str;
 
 #define STR_FORMAT "%.*s"
 #define STR_FORMAT_M "%s%.*s%s"
-#define STR_FMT(str) (str)->len, (str)->s
+#define STR_FMT(str) (int) (str)->len, (str)->s
 #define STR_FMT_M(str) FMT_M(STR_FMT(str))
-#define STR_FMT0(str) ((str) ? (str)->len : 6), ((str) ? (str)->s : "(NULL)")
+#define STR_FMT0(str) ((str) ? (int) (str)->len : 6), ((str) ? (str)->s : "(NULL)")
 #define STR_FMT0_M(str) FMT_M(STR_FMT0(str))
 #define G_STR_FMT(gstr) (int) (gstr)->len, (gstr)->str // for glib GString
 
@@ -48,7 +48,7 @@ INLINE char *str_chr_str(str *out, const str *s, int c);
 /* compares a str to a regular string */
 INLINE int str_cmp(const str *a, const char *b);
 /* compares a str to a non-null-terminated string */
-INLINE int str_cmp_len(const str *a, const char *b, int len);
+INLINE int str_cmp_len(const str *a, const char *b, size_t len);
 /* compares two str objects */
 INLINE int str_cmp_str(const str *a, const str *b);
 INLINE int str_casecmp_str(const str *a, const str *b);
@@ -57,23 +57,25 @@ INLINE int str_cmp_str0(const str *a, const str *b);
 /* inits a str object from a regular string. returns out */
 INLINE str *str_init(str *out, char *s);
 /* inits a str object from any binary string. returns out */
-INLINE str *str_init_len(str *out, char *s, int len);
-INLINE str *str_init_len_assert_len(str *out, char *s, int buflen, int len);
+INLINE str *str_init_len(str *out, char *s, size_t len);
+INLINE str *str_init_len_assert_len(str *out, char *s, size_t buflen, size_t len);
 #define str_init_len_assert(out, s, len) str_init_len_assert_len(out, s, sizeof(s), len)
 /* inits a str object from a regular string and duplicates the contents. returns out */
 INLINE str *str_init_dup(str *out, char *s);
 INLINE str *str_init_dup_str(str *out, const str *s);
 INLINE void str_free_dup(str *out);
 /* returns new str object with uninitialized buffer large enough to hold `len` characters (+1 for null byte) */
-INLINE str *str_alloc(int len);
+INLINE str *str_alloc(size_t len);
 /* returns new str object allocated with malloc, including buffer */
 INLINE str *str_dup(const str *s);
 /* shifts pointer by len chars and decrements len. returns -1 if buffer too short, 0 otherwise */
-INLINE int str_shift(str *s, int len);
+INLINE int str_shift(str *s, size_t len);
+/* to revert a previously successful str_shift(). no error checking */
+INLINE void str_unshift(str *s, size_t len);
 /* eats the supplied string from the beginning of s. returns -1 if string head doesn't match */
 INLINE int str_shift_cmp(str *s, const char *);
 /* shifts the string by given length and returns the shifted part. returns -1 if string is too short */
-INLINE int str_shift_ret(str *s, int len, str *ret);
+INLINE int str_shift_ret(str *s, size_t len, str *ret);
 /* binary compares str object with memory chunk of equal size */
 INLINE int str_memcmp(const str *s, void *m);
 /* locate a substring within a string, returns character index or -1 */
@@ -112,10 +114,10 @@ INLINE str *str_slice_dup(const str *);
 void str_slice_free(void *);
 
 /* saves "in" into "out" pseudo-URI encoded. "out" point to a buffer with sufficient length. returns length */
-int str_uri_encode_len(char *out, const char *in, int in_len);
-INLINE int str_uri_encode(char *out, const str *in);
+size_t str_uri_encode_len(char *out, const char *in, size_t in_len);
+INLINE size_t str_uri_encode(char *out, const str *in);
 /* reverse of the above. returns newly allocated str + buffer as per str_alloc (must be free'd) */
-str *str_uri_decode_len(const char *in, int in_len);
+str *str_uri_decode_len(const char *in, size_t in_len);
 
 
 
@@ -124,10 +126,10 @@ str *str_uri_decode_len(const char *in, int in_len);
 INLINE char *str_end(const str *s) {
 	return s->s + s->len;
 }
-INLINE int str_shift(str *s, int len) {
+INLINE int str_shift(str *s, size_t len) {
 	return str_shift_ret(s, len, NULL);
 }
-INLINE int str_shift_ret(str *s, int len, str *ret) {
+INLINE int str_shift_ret(str *s, size_t len, str *ret) {
 	if (s->len < len)
 		return -1;
 	if (ret)
@@ -136,8 +138,12 @@ INLINE int str_shift_ret(str *s, int len, str *ret) {
 	s->len -= len;
 	return 0;
 }
+INLINE void str_unshift(str *s, size_t len) {
+	s->s -= len;
+	s->len += len;
+}
 INLINE int str_shift_cmp(str *s, const char *t) {
-	int len = strlen(t);
+	size_t len = strlen(t);
 	if (s->len < len)
 		return -1;
 	if (memcmp(s->s, t, len))
@@ -162,7 +168,7 @@ INLINE char *str_chr_str(str *out, const str *s, int c) {
 	str_shift(out, p - out->s);
 	return out->s;
 }
-INLINE int str_cmp_len(const str *a, const char *b, int l) {
+INLINE int str_cmp_len(const str *a, const char *b, size_t l) {
 	if (a->len < l)
 		return -1;
 	if (a->len > l)
@@ -217,12 +223,12 @@ INLINE str *str_init(str *out, char *s) {
 	out->len = s ? strlen(s) : 0;
 	return out;
 }
-INLINE str *str_init_len(str *out, char *s, int len) {
+INLINE str *str_init_len(str *out, char *s, size_t len) {
 	out->s = s;
 	out->len = len;
 	return out;
 }
-INLINE str *str_init_len_assert_len(str *out, char *s, int buflen, int len) {
+INLINE str *str_init_len_assert_len(str *out, char *s, size_t buflen, size_t len) {
 	assert(buflen >= len);
 	return str_init_len(out, s, len);
 }
@@ -252,7 +258,7 @@ INLINE void str_free_dup(str *out) {
 	out->s = NULL;
 	out->len = 0;
 }
-INLINE str *str_alloc(int len) {
+INLINE str *str_alloc(size_t len) {
 	str *r;
 	r = malloc(sizeof(*r) + len + 1);
 	r->s = ((char *) r) + sizeof(*r);
@@ -278,7 +284,8 @@ INLINE str *str_slice_dup(const str *s) {
 #define STR_MALLOC_PADDING "xxxxxxxxxxxxxxxx"
 INLINE str *__str_vsprintf(const char *fmt, va_list ap) {
 	char *r;
-	int l, pl;
+	int l;
+	size_t pl;
 	str *ret;
 
 	l = vasprintf(&r, fmt, ap);
@@ -294,7 +301,7 @@ INLINE str *__str_vsprintf(const char *fmt, va_list ap) {
 str *__str_sprintf(const char *fmt, ...) __attribute__((format(printf,1,2)));
 
 INLINE GString *g_string_new_str(void) {
-	int pl;
+	size_t pl;
 	GString *ret;
 
 	ret = g_string_new("");
@@ -305,7 +312,7 @@ INLINE GString *g_string_new_str(void) {
 }
 INLINE str *g_string_free_str(GString *gs) {
 	str *ret;
-	int pl;
+	size_t pl;
 
 	pl = strlen(STR_MALLOC_PADDING);
 	assert(gs->len >= pl);
@@ -385,7 +392,7 @@ INLINE int str_token_sep(str *new_token, str *ori_and_remainder, int sep) {
 	return 0;
 }
 
-INLINE int str_uri_encode(char *out, const str *in) {
+INLINE size_t str_uri_encode(char *out, const str *in) {
 	return str_uri_encode_len(out, in->s, in->len);
 }
 

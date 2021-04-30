@@ -2558,7 +2558,7 @@ void call_destroy(struct call *c) {
 				(unsigned int) (rtpe_now.tv_sec - ml->created) % 60,
 				STR_FMT_M(&ml->viabranch),
 				ml->active_dialogue ? rtpe_common_config_ptr->log_mark_prefix : "",
-				ml->active_dialogue ? ml->active_dialogue->tag.len : 6,
+				ml->active_dialogue ? (int) ml->active_dialogue->tag.len : 6,
 				ml->active_dialogue ? ml->active_dialogue->tag.s : "(none)",
 				ml->active_dialogue ? rtpe_common_config_ptr->log_mark_suffix : "");
 

@@ -69,7 +69,7 @@ char *rand_hex_str(char *rand_str, int num_bytes) {
 
 
 static const char *hex_chars = "0123456789abcdef";
-int str_uri_encode_len(char *out, const char *in, int len) {
+size_t str_uri_encode_len(char *out, const char *in, size_t len) {
 	const char *end = in + len;
 	char *ori_out = out;
 
@@ -89,7 +89,7 @@ int str_uri_encode_len(char *out, const char *in, int len) {
 	return out - ori_out;
 }
 
-str *str_uri_decode_len(const char *in, int in_len) {
+str *str_uri_decode_len(const char *in, size_t in_len) {
 	const char *end = in + in_len;
 	str *ret = str_alloc(in_len);
 	char *outp = ret->s;

@@ -568,11 +568,11 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 		return 0;
 
 	if (buf->len < 4) {
-		ilog(LOG_INFO | LOG_FLAG_LIMIT, "Ignoring short UDPTL packet (%i bytes)", buf->len);
+		ilog(LOG_INFO | LOG_FLAG_LIMIT, "Ignoring short UDPTL packet (%zu bytes)", buf->len);
 		return 0;
 	}
 
-	ilog(LOG_DEBUG, "Processing %i UDPTL bytes", buf->len);
+	ilog(LOG_DEBUG, "Processing %zu UDPTL bytes", buf->len);
 
 	str s = *buf;
 	str piece;
@@ -587,7 +587,7 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 	if (__get_udptl(&piece, &s))
 		goto err;
 
-	ilog(LOG_DEBUG, "Received primary IFP packet, len %i, seq %i", piece.len, seq);
+	ilog(LOG_DEBUG, "Received primary IFP packet, len %zu, seq %i", piece.len, seq);
 	str primary = piece;
 	up = __make_udptl_packet(&primary, seq);
 
@@ -636,7 +636,7 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 			// ignore zero-length packets
 			if (!piece.len)
 				continue;
-			ilog(LOG_DEBUG, "Received secondary IFP packet, len %i, seq %i", piece.len,
+			ilog(LOG_DEBUG, "Received secondary IFP packet, len %zu, seq %i", piece.len,
 					seq - 1 - i);
 			up = __make_udptl_packet(&piece, seq - 1 - i);
 			packet_sequencer_insert(&tg->sequencer, &up->p);
@@ -744,7 +744,7 @@ seq_ok:;
 		if (!up)
 			break;
 
-		ilog(LOG_DEBUG, "Processing %i IFP bytes, seq %i", up->s->len, up->p.seq);
+		ilog(LOG_DEBUG, "Processing %zu IFP bytes, seq %i", up->s->len, up->p.seq);
 
 		t38_core_rx_ifp_packet(t38, (uint8_t *) up->s->s, up->s->len, up->p.seq);
 

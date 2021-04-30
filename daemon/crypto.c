@@ -495,7 +495,7 @@ int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char lab
 			"%02x%02x%02x%02x..., "
 			"master salt "
 			"%02x%02x%02x%02x..., "
-			"label %02x, length %i, result "
+			"label %02x, length %zu, result "
 			"%02x%02x%02x%02x...",
 			c->params.master_key[0],
 			c->params.master_key[1],

@@ -2132,7 +2132,7 @@ static int __handler_func_supplemental(struct codec_handler *h, struct media_pac
 
 	// create new packet and insert it into sequencer queue
 
-	ilogs(transcoding, LOG_DEBUG, "Received %s RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
+	ilogs(transcoding, LOG_DEBUG, "Received %s RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %zu",
 			h->source_pt.codec_def->rtpname,
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
@@ -2903,7 +2903,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 			break;
 		}
 
-		ilogs(transcoding, LOG_DEBUG, "Received packet of %i bytes from packetizer", inout.len);
+		ilogs(transcoding, LOG_DEBUG, "Received packet of %zu bytes from packetizer", inout.len);
 
 		// check special payloads
 
@@ -3145,7 +3145,7 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 
 	// create new packet and insert it into sequencer queue
 
-	ilogs(transcoding, LOG_DEBUG, "Received RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %i",
+	ilogs(transcoding, LOG_DEBUG, "Received RTP packet: SSRC %" PRIx32 ", PT %u, seq %u, TS %u, len %zu",
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 

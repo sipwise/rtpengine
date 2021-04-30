@@ -70,7 +70,7 @@ int do_test(const char *input, unsigned int input_len,
 					ret, result, file, line, argc);
 		if (ret == 0 && output) {
 			if (outp.len != output_len)
-				err("ERROR output len %i instead of %i (%s:%i arg %i)\n",
+				err("ERROR output len %zu instead of %u (%s:%i arg %i)\n",
 						outp.len, output_len, file, line, argc);
 			if (memcmp(outp.s, output, output_len))
 				err("ERROR output string mismatch (%s:%i arg %i)\n",
