@@ -54,7 +54,7 @@ extern const char * const log_level_descriptions[];
 		__ilog(prio, "[%s] " fmt, log_level_names[system], ##__VA_ARGS__);						\
 	} while (0)
 #else
-#define ilogsn(prio, system, fmt, ...) __ilog(prio, "[%s] " fmt, log_level_names[system], ##__VA_ARGS__)
+#define ilogsn(system, prio, fmt, ...) __ilog(prio, "[%s] " fmt, log_level_names[system], ##__VA_ARGS__)
 #endif
 
 
