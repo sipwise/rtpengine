@@ -12,39 +12,39 @@ struct xt_rtpengine_info {
 };
 
 struct rtpengine_stats {
-	u_int64_t			packets;
-	u_int64_t			bytes;
-	u_int64_t			errors;
-	u_int64_t			delay_min;
-	u_int64_t			delay_avg;
-	u_int64_t			delay_max;
-	u_int8_t            in_tos;
+	uint64_t			packets;
+	uint64_t			bytes;
+	uint64_t			errors;
+	uint64_t			delay_min;
+	uint64_t			delay_avg;
+	uint64_t			delay_max;
+	uint8_t            in_tos;
 };
 struct rtpengine_rtp_stats {
-	u_int64_t			packets;
-	u_int64_t			bytes;
+	uint64_t			packets;
+	uint64_t			bytes;
 };
 struct rtpengine_ssrc_stats {
 	struct rtpengine_rtp_stats	basic_stats;
-	u_int32_t			timestamp;
-	u_int32_t			ext_seq;
-	u_int32_t			lost_bits; // sliding bitfield, [0] = ext_seq
-	u_int32_t			total_lost;
-	u_int32_t			transit;
-	u_int32_t			jitter;
+	uint32_t			timestamp;
+	uint32_t			ext_seq;
+	uint32_t			lost_bits; // sliding bitfield, [0] = ext_seq
+	uint32_t			total_lost;
+	uint32_t			transit;
+	uint32_t			jitter;
 };
 
 struct re_address {
 	int				family;
 	union {
 		unsigned char		ipv6[16];
-		u_int32_t		ipv4;
+		uint32_t		ipv4;
 
 		unsigned char		u8[16];
-		u_int16_t		u16[8];
-		u_int32_t		u32[4];
+		uint16_t		u16[8];
+		uint32_t		u32[4];
 	}				u;
-	u_int16_t			port;
+	uint16_t			port;
 };
 
 enum rtpengine_cipher {
@@ -79,7 +79,7 @@ struct rtpengine_srtp {
 	unsigned int			session_key_len;
 	unsigned int			session_salt_len;
 	unsigned char			mki[256]; /* XXX uses too much memory? */
-	u_int64_t			last_index;
+	uint64_t			last_index;
 	unsigned int			auth_tag_len; /* in bytes */
 	unsigned int			mki_len;
 };
@@ -104,11 +104,11 @@ struct rtpengine_target_info {
 
 	struct rtpengine_srtp		decrypt;
 	struct rtpengine_srtp		encrypt;
-        u_int32_t                       ssrc; // Expose the SSRC to userspace when we resync.
-        u_int32_t                       ssrc_out; // Rewrite SSRC
+	uint32_t			ssrc; // Expose the SSRC to userspace when we resync.
+	uint32_t			ssrc_out; // Rewrite SSRC
 
 	unsigned char			payload_types[NUM_PAYLOAD_TYPES]; /* must be sorted */
-	u_int32_t			clock_rates[NUM_PAYLOAD_TYPES];
+	uint32_t			clock_rates[NUM_PAYLOAD_TYPES];
 	unsigned int			num_payload_types;
 
 	unsigned char			tos;
@@ -142,7 +142,7 @@ struct rtpengine_packet_info {
 
 struct rtpengine_stats_info {
 	struct re_address		local;		// input
-	u_int32_t			ssrc;		// output
+	uint32_t			ssrc;		// output
 	struct rtpengine_ssrc_stats	ssrc_stats;	// output
 };
 

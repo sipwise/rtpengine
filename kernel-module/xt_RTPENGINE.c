@@ -239,13 +239,13 @@ static int is_valid_address(const struct re_address *rea);
 
 static int aes_f8_session_key_init(struct re_crypto_context *, struct rtpengine_srtp *);
 static int srtp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, u_int64_t);
+		struct rtp_parsed *, uint64_t);
 static int srtp_encrypt_aes_f8(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, u_int64_t);
+		struct rtp_parsed *, uint64_t);
 static int srtp_encrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, u_int64_t);
+		struct rtp_parsed *, uint64_t);
 static int srtp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, u_int64_t);
+		struct rtp_parsed *, uint64_t);
 
 static void call_put(struct re_call *call);
 static void del_stream(struct re_stream *stream, struct rtpengine_table *);
@@ -264,7 +264,7 @@ struct re_crypto_context {
 	unsigned char			session_key[32];
 	unsigned char			session_salt[14];
 	unsigned char			session_auth_key[20];
-	u_int32_t			roc;
+	uint32_t			roc;
 	struct crypto_cipher		*tfm[2];
 	struct crypto_shash		*shash;
 	struct crypto_aead		*aead;
@@ -276,9 +276,9 @@ struct rtpengine_stats_a {
 	atomic64_t			packets;
 	atomic64_t			bytes;
 	atomic64_t			errors;
-	u_int64_t			delay_min;
-	u_int64_t			delay_avg;
-	u_int64_t			delay_max;
+	uint64_t			delay_min;
+	uint64_t			delay_avg;
+	uint64_t			delay_max;
 	atomic_t          in_tos;
 };
 struct rtpengine_rtp_stats_a {
@@ -287,7 +287,7 @@ struct rtpengine_rtp_stats_a {
 };
 struct rtpengine_target {
 	atomic_t			refcnt;
-	u_int32_t			table;
+	uint32_t			table;
 	struct rtpengine_target_info	target;
 
 	struct rtpengine_stats_a	stats;
@@ -406,9 +406,9 @@ struct re_cipher {
 	const char			*tfm_name;
 	const char			*aead_name;
 	int				(*decrypt)(struct re_crypto_context *, struct rtpengine_srtp *,
-			struct rtp_parsed *, u_int64_t);
+			struct rtp_parsed *, uint64_t);
 	int				(*encrypt)(struct re_crypto_context *, struct rtpengine_srtp *,
-			struct rtp_parsed *, u_int64_t);
+			struct rtp_parsed *, uint64_t);
 	int				(*session_key_init)(struct re_crypto_context *, struct rtpengine_srtp *);
 };
 
@@ -422,14 +422,14 @@ struct re_hmac {
 struct rtp_header {
 	unsigned char v_p_x_cc;
 	unsigned char m_pt;
-	u_int16_t seq_num;
-	u_int32_t timestamp;
-	u_int32_t ssrc;
-	u_int32_t csrc[];
+	uint16_t seq_num;
+	uint32_t timestamp;
+	uint32_t ssrc;
+	uint32_t csrc[];
 } __attribute__ ((packed));
 struct rtp_extension {
-	u_int16_t undefined;
-	u_int16_t length;
+	uint16_t undefined;
+	uint16_t length;
 } __attribute__ ((packed));
 
 
@@ -760,7 +760,7 @@ static inline struct proc_dir_entry *proc_create_user(const char *name, umode_t 
 
 
 
-static int table_create_proc(struct rtpengine_table *t, u_int32_t id) {
+static int table_create_proc(struct rtpengine_table *t, uint32_t id) {
 	char num[10];
 
 	sprintf(num, "%u", id);
@@ -800,7 +800,7 @@ static int table_create_proc(struct rtpengine_table *t, u_int32_t id) {
 
 
 
-static struct rtpengine_table *new_table_link(u_int32_t id) {
+static struct rtpengine_table *new_table_link(uint32_t id) {
 	struct rtpengine_table *t;
 	unsigned long flags;
 
@@ -1100,7 +1100,7 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 	struct rtpengine_table *t;
 	int len = 0;
 	unsigned long flags;
-	u_int32_t id;
+	uint32_t id;
 
 	if (*o > 0)
 		return 0;
@@ -1110,7 +1110,7 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 		return -EINVAL;
 
 	inode = f->f_path.dentry->d_inode;
-	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
+	id = (uint32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -1155,7 +1155,7 @@ static void proc_main_list_stop(struct seq_file *f, void *v) {
 
 static void *proc_main_list_next(struct seq_file *f, void *v, loff_t *o) {	/* v is invalid */
 	struct rtpengine_table *t = NULL;
-	u_int32_t id;
+	uint32_t id;
 
 	if (*o < 0)
 		return NULL;
@@ -1326,14 +1326,14 @@ next_rda:
 
 
 static int proc_blist_open(struct inode *i, struct file *f) {
-	u_int32_t id;
+	uint32_t id;
 	struct rtpengine_table *t;
 	int err;
 
 	if ((err = proc_generic_open_modref(i, f)))
 		return err;
 
-	id = (u_int32_t) (unsigned long) PDE_DATA(i);
+	id = (uint32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -1344,10 +1344,10 @@ static int proc_blist_open(struct inode *i, struct file *f) {
 }
 
 static int proc_blist_close(struct inode *i, struct file *f) {
-	u_int32_t id;
+	uint32_t id;
 	struct rtpengine_table *t;
 
-	id = (u_int32_t) (unsigned long) PDE_DATA(i);
+	id = (uint32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
 	if (!t)
 		return 0;
@@ -1361,7 +1361,7 @@ static int proc_blist_close(struct inode *i, struct file *f) {
 
 static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t *o) {
 	struct inode *inode;
-	u_int32_t id;
+	uint32_t id;
 	struct rtpengine_table *t;
 	struct rtpengine_list_entry *opp;
 	int err, port, addr_bucket, i;
@@ -1374,7 +1374,7 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 		return -EINVAL;
 
 	inode = f->f_path.dentry->d_inode;
-	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
+	id = (uint32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -1433,13 +1433,13 @@ err:
 static int proc_list_open(struct inode *i, struct file *f) {
 	int err;
 	struct seq_file *p;
-	u_int32_t id;
+	uint32_t id;
 	struct rtpengine_table *t;
 
 	if ((err = proc_generic_open_modref(i, f)))
 		return err;
 
-	id = (u_int32_t) (unsigned long) PDE_DATA(i);
+	id = (uint32_t) (unsigned long) PDE_DATA(i);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -1466,7 +1466,7 @@ static void proc_list_stop(struct seq_file *f, void *v) {
 }
 
 static void *proc_list_next(struct seq_file *f, void *v, loff_t *o) {
-	u_int32_t id = (u_int32_t) (unsigned long) f->private;
+	uint32_t id = (uint32_t) (unsigned long) f->private;
 	struct rtpengine_table *t;
 	struct rtpengine_target *g;
 	int port, addr_bucket;
@@ -1624,7 +1624,7 @@ static int proc_list_show(struct seq_file *f, void *v) {
 
 
 static unsigned int re_address_hash(const struct re_address *a) {
-	u_int32_t ret = 0;
+	uint32_t ret = 0;
 
 	if (!a)
 		goto out;
@@ -1830,7 +1830,7 @@ static void aes_ctr(unsigned char *out, const unsigned char *in, int in_len,
 	unsigned char *p, *q;
 	unsigned int left;
 	int i;
-	u_int64_t *pi, *qi, *ki;
+	uint64_t *pi, *qi, *ki;
 
 	if (!tfm)
 		return;
@@ -1879,10 +1879,10 @@ static void aes_f8(unsigned char *in_out, int in_len,
 		      ivx[16], /* IV' */
 		      x[16];
 	int i, left;
-	u_int32_t j;
+	uint32_t j;
 	unsigned char *p;
-	u_int64_t *pi, *ki, *lki, *xi;
-	u_int32_t *xu;
+	uint64_t *pi, *ki, *lki, *xi;
+	uint32_t *xu;
 
 	crypto_cipher_encrypt_one(iv_tfm, ivx, iv);
 
@@ -2402,7 +2402,7 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 			return -EINVAL;
 		if (id >= MAX_ID)
 			return -EINVAL;
-		t = new_table_link((u_int32_t) id);
+		t = new_table_link((uint32_t) id);
 		if (!t)
 			return -EEXIST;
 		table_put(t);
@@ -2414,7 +2414,7 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 			return -EINVAL;
 		if (id >= MAX_ID)
 			return -EINVAL;
-		t = get_table((u_int32_t) id);
+		t = get_table((uint32_t) id);
 		if (!t)
 			return -ENOENT;
 		err = unlink_table(t);
@@ -2434,7 +2434,7 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 
 
 static int proc_control_open(struct inode *inode, struct file *file) {
-	u_int32_t id;
+	uint32_t id;
 	struct rtpengine_table *t;
 	unsigned long flags;
 	int err;
@@ -2442,7 +2442,7 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	if ((err = proc_generic_open_modref(inode, file)))
 		return err;
 
-	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
+	id = (uint32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return -ENOENT;
@@ -2461,11 +2461,11 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 }
 
 static int proc_control_close(struct inode *inode, struct file *file) {
-	u_int32_t id;
+	uint32_t id;
 	struct rtpengine_table *t;
 	unsigned long flags;
 
-	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
+	id = (uint32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t)
 		return 0;
@@ -3271,7 +3271,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		int writeable)
 {
 	struct inode *inode;
-	u_int32_t id;
+	uint32_t id;
 	struct rtpengine_table *t;
 	struct rtpengine_message msgbuf;
 	struct rtpengine_message *msg;
@@ -3288,7 +3288,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	}
 
 	inode = file->f_path.dentry->d_inode;
-	id = (u_int32_t) (unsigned long) PDE_DATA(inode);
+	id = (uint32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	err = -ENOENT;
 	if (!t)
@@ -3649,15 +3649,15 @@ error:
 }
 
 /* XXX shared code */
-static u_int64_t packet_index(struct re_crypto_context *c,
+static uint64_t packet_index(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_header *rtp)
 {
-	u_int16_t seq;
-	u_int64_t index;
+	uint16_t seq;
+	uint64_t index;
 	unsigned long flags;
-	u_int16_t s_l;
-	u_int32_t roc;
-	u_int32_t v;
+	uint16_t s_l;
+	uint32_t roc;
+	uint32_t v;
 
 	seq = ntohs(rtp->seq_num);
 
@@ -3694,7 +3694,7 @@ static u_int64_t packet_index(struct re_crypto_context *c,
 }
 
 static void update_packet_index(struct re_crypto_context *c,
-		struct rtpengine_srtp *s, u_int64_t idx)
+		struct rtpengine_srtp *s, uint64_t idx)
 {
 	unsigned long flags;
 
@@ -3707,9 +3707,9 @@ static void update_packet_index(struct re_crypto_context *c,
 static int srtp_hash(unsigned char *hmac,
 		struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		uint64_t pkt_idx)
 {
-	u_int32_t roc;
+	uint32_t roc;
 	struct shash_desc *dsc;
 	size_t alloc_size;
 
@@ -3764,7 +3764,7 @@ static void rtp_append_mki(struct rtp_parsed *r, struct rtpengine_srtp *c) {
 
 static int srtp_authenticate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		uint64_t pkt_idx)
 {
 	unsigned char hmac[20];
 
@@ -3792,11 +3792,11 @@ static int srtp_authenticate(struct re_crypto_context *c,
 
 static int srtp_auth_validate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t *pkt_idx_p)
+		uint64_t *pkt_idx_p)
 {
 	unsigned char *auth_tag;
 	unsigned char hmac[20];
-	u_int64_t pkt_idx = *pkt_idx_p;
+	uint64_t pkt_idx = *pkt_idx_p;
 
 	if (s->hmac == REH_NULL)
 		return 0;
@@ -3863,11 +3863,11 @@ ok:
 /* XXX shared code */
 static int srtp_encrypt_aes_cm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		uint64_t pkt_idx)
 {
 	unsigned char iv[16];
-	u_int32_t *ivi;
-	u_int32_t idxh, idxl;
+	uint32_t *ivi;
+	uint32_t idxh, idxl;
 
 	memcpy(iv, c->session_salt, 14);
 	iv[14] = iv[15] = '\0';
@@ -3887,10 +3887,10 @@ static int srtp_encrypt_aes_cm(struct re_crypto_context *c,
 
 static int srtp_encrypt_aes_f8(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		uint64_t pkt_idx)
 {
 	unsigned char iv[16];
-	u_int32_t roc;
+	uint32_t roc;
 
 	iv[0] = 0;
 	memcpy(&iv[1], &r->header->m_pt, 11);
@@ -3904,7 +3904,7 @@ static int srtp_encrypt_aes_f8(struct re_crypto_context *c,
 
 static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		uint64_t pkt_idx)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 	unsigned char iv[12];
@@ -3917,9 +3917,9 @@ static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 
 	memcpy(iv, c->session_salt, 12);
 
-	*(u_int32_t*)(iv+2) ^= r->header->ssrc;
-	*(u_int32_t*)(iv+6) ^= htonl((pkt_idx & 0x00ffffffff0000ULL) >> 16);
-	*(u_int16_t*)(iv+10) ^= htons(pkt_idx & 0x00ffffULL);
+	*(uint32_t*)(iv+2) ^= r->header->ssrc;
+	*(uint32_t*)(iv+6) ^= htonl((pkt_idx & 0x00ffffffff0000ULL) >> 16);
+	*(uint16_t*)(iv+10) ^= htons(pkt_idx & 0x00ffffULL);
 
 	req = aead_request_alloc(c->aead, GFP_ATOMIC);
 	if (!req)
@@ -3953,7 +3953,7 @@ static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 }
 static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		uint64_t pkt_idx)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 	unsigned char iv[12];
@@ -3968,9 +3968,9 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 
 	memcpy(iv, c->session_salt, 12);
 
-	*(u_int32_t*)(iv+2) ^= r->header->ssrc;
-	*(u_int32_t*)(iv+6) ^= htonl((pkt_idx & 0x00ffffffff0000ULL) >> 16);
-	*(u_int16_t*)(iv+10) ^= htons(pkt_idx & 0x00ffffULL);
+	*(uint32_t*)(iv+2) ^= r->header->ssrc;
+	*(uint32_t*)(iv+6) ^= htonl((pkt_idx & 0x00ffffffff0000ULL) >> 16);
+	*(uint16_t*)(iv+10) ^= htons(pkt_idx & 0x00ffffULL);
 
 	req = aead_request_alloc(c->aead, GFP_ATOMIC);
 	if (!req)
@@ -4005,7 +4005,7 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 
 static inline int srtp_encrypt(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		uint64_t pkt_idx)
 {
 	if (!r->header)
 		return 0;
@@ -4016,7 +4016,7 @@ static inline int srtp_encrypt(struct re_crypto_context *c,
 
 static inline int srtp_decrypt(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		u_int64_t pkt_idx)
+		uint64_t pkt_idx)
 {
 	if (!c->cipher->decrypt)
 		return 0;
@@ -4120,15 +4120,15 @@ static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_
 static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 arrival_time, int pt_idx) {
 	unsigned long flags;
 	struct rtpengine_ssrc_stats *s = &g->ssrc_stats;
-	u_int16_t old_seq_trunc;
-	u_int32_t last_seq;
-	u_int16_t seq_diff;
-	u_int32_t clockrate;
-	u_int32_t transit;
+	uint16_t old_seq_trunc;
+	uint32_t last_seq;
+	uint16_t seq_diff;
+	uint32_t clockrate;
+	uint32_t transit;
 	int32_t d;
 
-	u_int16_t seq = ntohs(rtp->header->seq_num);
-	u_int32_t ts = ntohl(rtp->header->timestamp);
+	uint16_t seq = ntohs(rtp->header->seq_num);
+	uint32_t ts = ntohl(rtp->header->timestamp);
 
 	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
 
@@ -4152,7 +4152,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	}
 	else {
 		// seq wrap?
-		u_int32_t new_seq = (last_seq & 0xffff0000) | seq;
+		uint32_t new_seq = (last_seq & 0xffff0000) | seq;
 		while (new_seq < last_seq) {
 			new_seq += 0x10000;
 			if ((new_seq & 0xffff0000) == 0) // ext seq wrapped
@@ -4200,7 +4200,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 
 
 static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src,
-		struct re_address *dst, u_int8_t in_tos, const struct xt_action_param *par)
+		struct re_address *dst, uint8_t in_tos, const struct xt_action_param *par)
 {
 	struct udphdr *uh;
 	struct rtpengine_target *g;
@@ -4209,15 +4209,15 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	int error_nf_action = XT_CONTINUE;
 	int rtp_pt_idx = -2;
 	unsigned int datalen, pllen;
-	u_int32_t *u32;
+	uint32_t *u32;
 	struct rtp_parsed rtp;
-	u_int64_t pkt_idx;
+	uint64_t pkt_idx;
 	struct re_stream *stream;
 	struct re_stream_packet *packet;
 	const char *errstr = NULL;
 
 #if (RE_HAS_MEASUREDELAY)
-	u_int64_t starttime, endtime, delay;
+	uint64_t starttime, endtime, delay;
 #endif
 
 	skb_reset_transport_header(skb);
@@ -4462,7 +4462,7 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET;
 	dst.u.ipv4 = ih->daddr;
 
-	return rtpengine46(skb, t, &src, &dst, (u_int8_t)ih->tos, par);
+	return rtpengine46(skb, t, &src, &dst, (uint8_t)ih->tos, par);
 
 skip2:
 	kfree_skb(skb);

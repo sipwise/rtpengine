@@ -45,8 +45,8 @@ error:
 	return -1;
 }
 
-static u_int64_t packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp) {
-	u_int16_t seq;
+static uint64_t packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp) {
+	uint16_t seq;
 
 	seq = ntohs(rtp->seq_num);
 
@@ -58,9 +58,9 @@ static u_int64_t packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp)
 		ssrc_ctx->srtp_index = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	u_int16_t s_l = (ssrc_ctx->srtp_index & 0x00000000ffffULL);
-	u_int32_t roc = (ssrc_ctx->srtp_index & 0xffffffff0000ULL) >> 16;
-	u_int32_t v = 0;
+	uint16_t s_l = (ssrc_ctx->srtp_index & 0x00000000ffffULL);
+	uint32_t roc = (ssrc_ctx->srtp_index & 0xffffffff0000ULL) >> 16;
+	uint32_t v = 0;
 
 	crypto_debug_printf(", prev seq %" PRIu64 ", s_l %" PRIu16 ", ROC %" PRIu32,
 			ssrc_ctx->srtp_index, s_l, roc);
@@ -77,7 +77,7 @@ static u_int64_t packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp)
 			v = roc;
 	}
 
-	ssrc_ctx->srtp_index = (u_int64_t)(((v << 16) | seq) & 0xffffffffffffULL);
+	ssrc_ctx->srtp_index = (uint64_t)(((v << 16) | seq) & 0xffffffffffffULL);
 
 	crypto_debug_printf(", v %" PRIu32 ", ext seq %" PRIu64, v, ssrc_ctx->srtp_index);
 
@@ -103,7 +103,7 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
-	u_int64_t index;
+	uint64_t index;
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
@@ -145,7 +145,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 /* rfc 3711, section 3.3 */
 int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtp_header *rtp;
-	u_int64_t index;
+	uint64_t index;
 	str payload, to_auth, to_decrypt, auth_tag;
 	char hmac[20];
 

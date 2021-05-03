@@ -1035,7 +1035,7 @@ static int redis_hash_get_str(str *out, const struct redis_hash *h, const char *
 
 /* we can do this because this happens during startup in a single thread */
 static atomic64 strtoa64(const char *c, char **endp, int base) {
-	u_int64_t u;
+	uint64_t u;
 	atomic64 ret;
 
 	u = strtoull(c, endp, base);
@@ -1053,15 +1053,15 @@ define_get_int_type(time_t, time_t, strtoull);
 define_get_int_type(timeval, struct timeval, strtotimeval);
 define_get_int_type(int, int, strtol);
 define_get_int_type(unsigned, unsigned int, strtol);
-//define_get_int_type(u16, u_int16_t, strtol);
-//define_get_int_type(u64, u_int64_t, strtoull);
+//define_get_int_type(u16, uint16_t, strtol);
+//define_get_int_type(u64, uint64_t, strtoull);
 define_get_int_type(a64, atomic64, strtoa64);
 
 define_get_type_format(str, str);
 define_get_type_format(int, int);
 //define_get_type_format(unsigned, unsigned int);
-//define_get_type_format(u16, u_int16_t);
-//define_get_type_format(u64, u_int64_t);
+//define_get_type_format(u16, uint16_t);
+//define_get_type_format(u64, uint64_t);
 define_get_type_format(a64, atomic64);
 
 static int redis_hash_get_c_buf_fn(unsigned char *out, size_t len, const struct redis_hash *h,
@@ -1697,7 +1697,7 @@ static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
 		if (!json_reader_read_element(root_reader, jidx))
 			return -1;
 
-		u_int32_t ssrc = json_reader_get_ll(root_reader, "ssrc");
+		uint32_t ssrc = json_reader_get_ll(root_reader, "ssrc");
 		struct ssrc_entry_call *se = get_ssrc(ssrc, c->ssrc_hash);
 		se->input_ctx.srtp_index = json_reader_get_ll(root_reader, "in_srtp_index");
 		se->input_ctx.srtcp_index = json_reader_get_ll(root_reader, "in_srtcp_index");

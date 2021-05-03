@@ -25,7 +25,7 @@
 
 struct obj {
 #if OBJ_DEBUG
-	u_int32_t		magic;
+	uint32_t		magic;
 	char			*type;
 #endif
 	volatile gint		ref;

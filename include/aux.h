@@ -258,14 +258,14 @@ taint_func(srandom, "use RAND_seed() instead");
 #define IPF			"%u.%u.%u.%u"
 #define IPP(x)			((unsigned char *) (&(x)))[0], ((unsigned char *) (&(x)))[1], ((unsigned char *) (&(x)))[2], ((unsigned char *) (&(x)))[3]
 #define IP6F			"%x:%x:%x:%x:%x:%x:%x:%x"
-#define IP6P(x)			ntohs(((u_int16_t *) (x))[0]), \
-				ntohs(((u_int16_t *) (x))[1]), \
-				ntohs(((u_int16_t *) (x))[2]), \
-				ntohs(((u_int16_t *) (x))[3]), \
-				ntohs(((u_int16_t *) (x))[4]), \
-				ntohs(((u_int16_t *) (x))[5]), \
-				ntohs(((u_int16_t *) (x))[6]), \
-				ntohs(((u_int16_t *) (x))[7])
+#define IP6P(x)			ntohs(((uint16_t *) (x))[0]), \
+				ntohs(((uint16_t *) (x))[1]), \
+				ntohs(((uint16_t *) (x))[2]), \
+				ntohs(((uint16_t *) (x))[3]), \
+				ntohs(((uint16_t *) (x))[4]), \
+				ntohs(((uint16_t *) (x))[5]), \
+				ntohs(((uint16_t *) (x))[6]), \
+				ntohs(((uint16_t *) (x))[7])
 #define D6F			"["IP6F"]:%u"
 #define D6P(x)			IP6P((x).sin6_addr.s6_addr), ntohs((x).sin6_port)
 #define DF			IPF ":%u"
@@ -358,26 +358,26 @@ typedef struct {
 	volatile void *p;
 } atomic64;
 
-INLINE u_int64_t atomic64_get(const atomic64 *u) {
-	return (u_int64_t) g_atomic_pointer_get(&u->p);
+INLINE uint64_t atomic64_get(const atomic64 *u) {
+	return (uint64_t) g_atomic_pointer_get(&u->p);
 }
-INLINE u_int64_t atomic64_get_na(const atomic64 *u) {
-	return (u_int64_t) u->p;
+INLINE uint64_t atomic64_get_na(const atomic64 *u) {
+	return (uint64_t) u->p;
 }
-INLINE void atomic64_set(atomic64 *u, u_int64_t a) {
+INLINE void atomic64_set(atomic64 *u, uint64_t a) {
 	g_atomic_pointer_set(&u->p, (void *) a);
 }
-INLINE void atomic64_set_na(atomic64 *u, u_int64_t a) {
+INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
 	u->p = (void *) a;
 }
-INLINE void atomic64_add(atomic64 *u, u_int64_t a) {
+INLINE void atomic64_add(atomic64 *u, uint64_t a) {
 	g_atomic_pointer_add(&u->p, a);
 }
-INLINE void atomic64_add_na(atomic64 *u, u_int64_t a) {
-	u->p = (void *) (((u_int64_t) u->p) + a);
+INLINE void atomic64_add_na(atomic64 *u, uint64_t a) {
+	u->p = (void *) (((uint64_t) u->p) + a);
 }
-INLINE u_int64_t atomic64_get_set(atomic64 *u, u_int64_t a) {
-	u_int64_t old;
+INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
+	uint64_t old;
 	do {
 		old = atomic64_get(u);
 		if (g_atomic_pointer_compare_and_exchange(&u->p, (void *) old, (void *) a))
@@ -391,40 +391,40 @@ INLINE u_int64_t atomic64_get_set(atomic64 *u, u_int64_t a) {
  * Bad performance possible, thus not recommended. */
 
 typedef struct {
-	u_int64_t u;
+	uint64_t u;
 } atomic64;
 
 #define NEED_ATOMIC64_MUTEX
 extern mutex_t __atomic64_mutex;
 
-INLINE u_int64_t atomic64_get(const atomic64 *u) {
-	u_int64_t ret;
+INLINE uint64_t atomic64_get(const atomic64 *u) {
+	uint64_t ret;
 	mutex_lock(&__atomic64_mutex);
 	ret = u->u;
 	mutex_unlock(&__atomic64_mutex);
 	return ret;
 }
-INLINE u_int64_t atomic64_get_na(const atomic64 *u) {
+INLINE uint64_t atomic64_get_na(const atomic64 *u) {
 	return u->u;
 }
-INLINE void atomic64_set(atomic64 *u, u_int64_t a) {
+INLINE void atomic64_set(atomic64 *u, uint64_t a) {
 	mutex_lock(&__atomic64_mutex);
 	u->u = a;
 	mutex_unlock(&__atomic64_mutex);
 }
-INLINE void atomic64_set_na(atomic64 *u, u_int64_t a) {
+INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
 	u->u = a;
 }
-INLINE void atomic64_add(atomic64 *u, u_int64_t a) {
+INLINE void atomic64_add(atomic64 *u, uint64_t a) {
 	mutex_lock(&__atomic64_mutex);
 	u->u += a;
 	mutex_unlock(&__atomic64_mutex);
 }
-INLINE void atomic64_add_na(atomic64 *u, u_int64_t a) {
+INLINE void atomic64_add_na(atomic64 *u, uint64_t a) {
 	u->u += a;
 }
-INLINE u_int64_t atomic64_get_set(atomic64 *u, u_int64_t a) {
-	u_int64_t old;
+INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
+	uint64_t old;
 	mutex_lock(&__atomic64_mutex);
 	old = u->u;
 	u->u = a;

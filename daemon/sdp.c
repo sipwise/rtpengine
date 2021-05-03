@@ -116,7 +116,7 @@ struct attribute_crypto {
 	str master_key;
 	str salt;
 	char key_salt_buf[SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN];
-	u_int64_t lifetime;
+	uint64_t lifetime;
 	unsigned char mki[256];
 	unsigned int mki_len;
 	unsigned int unencrypted_srtcp:1,
@@ -128,7 +128,7 @@ struct attribute_ssrc {
 	str id_str;
 	str attr_str;
 
-	u_int32_t id;
+	uint32_t id;
 	str attr;
 	str value;
 };
@@ -461,7 +461,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	unsigned int b64_save = 0;
 	gsize ret;
 	str s;
-	u_int32_t u32;
+	uint32_t u32;
 	const char *err;
 
 	output->attr = ATTR_CRYPTO;
@@ -2141,7 +2141,7 @@ static void new_priority(struct sdp_media *media, enum ice_candidate_type type, 
 {
 	GQueue *cands;
 	unsigned int lpref, tpref;
-	u_int32_t prio;
+	uint32_t prio;
 	GList *l;
 	struct sdp_attribute *a;
 	struct attribute_candidate *c;

@@ -54,15 +54,15 @@
 
 
 struct header {
-	u_int16_t msg_type;
-	u_int16_t msg_len;
-	u_int32_t cookie;
-	u_int32_t transaction[3];
+	uint16_t msg_type;
+	uint16_t msg_len;
+	uint32_t cookie;
+	uint32_t transaction[3];
 } __attribute__ ((packed));
 
 struct tlv {
-	u_int16_t type;
-	u_int16_t len;
+	uint16_t type;
+	uint16_t len;
 } __attribute__ ((packed));
 
 struct generic {
@@ -71,12 +71,12 @@ struct generic {
 
 struct error_code {
 	struct tlv tlv;
-	u_int32_t codes;
+	uint32_t codes;
 } __attribute__ ((packed));
 
 struct fingerprint {
 	struct tlv tlv;
-	u_int32_t crc;
+	uint32_t crc;
 } __attribute__ ((packed));
 
 struct msg_integrity {
@@ -86,19 +86,19 @@ struct msg_integrity {
 
 struct xor_mapped_address {
 	struct tlv tlv;
-	u_int16_t family;
-	u_int16_t port;
-	u_int32_t address[4];
+	uint16_t family;
+	uint16_t port;
+	uint32_t address[4];
 } __attribute__ ((packed));
 
 struct controlled_ing {
 	struct tlv tlv;
-	u_int64_t tiebreaker;
+	uint64_t tiebreaker;
 } __attribute__ ((packed));
 
 struct priority {
 	struct tlv tlv;
-	u_int32_t priority;
+	uint32_t priority;
 } __attribute__ ((packed));
 
 struct software {
@@ -112,7 +112,7 @@ struct software {
 /* XXX add const in functions */
 
 
-static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, struct header *req) {
+static int stun_attributes(struct stun_attrs *out, str *s, uint16_t *unknowns, struct header *req) {
 	struct tlv *tlv;
 	int len, type, uc;
 	str attr;
@@ -157,7 +157,7 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, 
 				if (attr.len != 4)
 					return -1;
 				out->fingerprint_attr = (void *) tlv;
-				out->fingerprint = ntohl(*(u_int32_t *) attr.s);
+				out->fingerprint = ntohl(*(uint32_t *) attr.s);
 				goto out;
 
 			case STUN_USE_CANDIDATE:
@@ -169,7 +169,7 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, 
 					return -1;
 				if (attr.len != 8)
 					return -1;
-				out->tiebreaker = be64toh(*((u_int64_t *) attr.s));
+				out->tiebreaker = be64toh(*((uint64_t *) attr.s));
 				out->controlled = 1;
 				break;
 
@@ -178,14 +178,14 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, 
 					return -1;
 				if (attr.len != 8)
 					return -1;
-				out->tiebreaker = be64toh(*((u_int64_t *) attr.s));
+				out->tiebreaker = be64toh(*((uint64_t *) attr.s));
 				out->controlling = 1;
 				break;
 
 			case STUN_PRIORITY:
 				if (attr.len != 4)
 					return -1;
-				out->priority = ntohl(*((u_int32_t *) attr.s));
+				out->priority = ntohl(*((uint32_t *) attr.s));
 				break;
 
 			case STUN_SOFTWARE:
@@ -194,29 +194,29 @@ static int stun_attributes(struct stun_attrs *out, str *s, u_int16_t *unknowns, 
 			case STUN_XOR_MAPPED_ADDRESS:
 				if (attr.len < 8)
 					return -1;
-				out->mapped.port = ntohs(*((u_int16_t *) (&attr.s[2]))) ^ (STUN_COOKIE >> 16);
-				if (attr.len == 8 && ntohs(*((u_int16_t *) attr.s)) == 1) {
+				out->mapped.port = ntohs(*((uint16_t *) (&attr.s[2]))) ^ (STUN_COOKIE >> 16);
+				if (attr.len == 8 && ntohs(*((uint16_t *) attr.s)) == 1) {
 					out->mapped.address.family = get_socket_family_enum(SF_IP4);
 					out->mapped.address.u.ipv4.s_addr =
-							ntohl(*((u_int32_t *) (&attr.s[4]))) ^ STUN_COOKIE;
+							ntohl(*((uint32_t *) (&attr.s[4]))) ^ STUN_COOKIE;
 				}
-				else if (attr.len == 20 && ntohs(*((u_int16_t *) attr.s)) == 1) {
+				else if (attr.len == 20 && ntohs(*((uint16_t *) attr.s)) == 1) {
 					out->mapped.address.family = get_socket_family_enum(SF_IP6);
 					out->mapped.address.u.ipv6.s6_addr32[0]
-						= *((u_int32_t *) (&attr.s[4])) ^ htonl(STUN_COOKIE);
+						= *((uint32_t *) (&attr.s[4])) ^ htonl(STUN_COOKIE);
 					out->mapped.address.u.ipv6.s6_addr32[1]
-						= *((u_int32_t *) (&attr.s[8])) ^ req->transaction[0];
+						= *((uint32_t *) (&attr.s[8])) ^ req->transaction[0];
 					out->mapped.address.u.ipv6.s6_addr32[2]
-						= *((u_int32_t *) (&attr.s[12])) ^ req->transaction[1];
+						= *((uint32_t *) (&attr.s[12])) ^ req->transaction[1];
 					out->mapped.address.u.ipv6.s6_addr32[3]
-						= *((u_int32_t *) (&attr.s[16])) ^ req->transaction[2];
+						= *((uint32_t *) (&attr.s[16])) ^ req->transaction[2];
 				}
 				break;
 
 			case STUN_ERROR_CODE:
 				if (attr.len < 4)
 					return -1;
-				out->error_code = ntohl(*((u_int32_t *) attr.s));
+				out->error_code = ntohl(*((uint32_t *) attr.s));
 				out->error_code = ((out->error_code & 0x700) >> 8) * 100
 					+ (out->error_code & 0x0ff);
 				break;
@@ -257,7 +257,7 @@ static void output_init(struct msghdr *mh, struct iovec *iov,
 	memcpy(&hdr->transaction, transaction, sizeof(hdr->transaction));
 }
 
-INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, u_int16_t code,
+INLINE void __output_add(struct msghdr *mh, struct tlv *tlv, unsigned int len, uint16_t code,
 		void *append, unsigned int append_len, int writable)
 {
 	struct iovec *iov;
@@ -373,7 +373,7 @@ static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
 
 static void stun_error_len(struct stream_fd *sfd, const endpoint_t *sin,
 		struct header *req,
-		int code, char *reason, int len, u_int16_t add_attr, void *attr_cont,
+		int code, char *reason, int len, uint16_t add_attr, void *attr_cont,
 		int attr_len)
 {
 	struct header hdr;
@@ -411,7 +411,7 @@ static void stun_error_len(struct stream_fd *sfd, const endpoint_t *sin,
 
 static int check_fingerprint(const str *msg, struct stun_attrs *attrs) {
 	int len;
-	u_int32_t crc;
+	uint32_t crc;
 
 	len = attrs->fingerprint_attr - msg->s;
 	crc = crc32(0, (void *) msg->s, len);
@@ -423,7 +423,7 @@ static int check_fingerprint(const str *msg, struct stun_attrs *attrs) {
 }
 
 static int check_auth(const str *msg, struct stun_attrs *attrs, struct call_media *media, int dst, int src) {
-	u_int16_t lenX;
+	uint16_t lenX;
 	char digest[20];
 	str ufrag[2];
 	struct iovec iov[3];
@@ -503,7 +503,7 @@ static int stun_binding_success(struct stream_fd *sfd, struct header *req, struc
 	return 0;
 }
 
-INLINE int u_int16_t_arr_len(u_int16_t *arr) {
+INLINE int uint16_t_arr_len(uint16_t *arr) {
 	int i;
 	for (i = 0; arr[i] != 0xffff; i++)
 		;
@@ -558,7 +558,7 @@ int stun(const str *b, struct stream_fd *sfd, const endpoint_t *sin) {
 	int msglen, method, class;
 	str attr_str;
 	struct stun_attrs attrs;
-	u_int16_t unknowns[UNKNOWNS_COUNT];
+	uint16_t unknowns[UNKNOWNS_COUNT];
 	const char *err;
 	int dst_idx, src_idx;
 	struct packet_stream *ps = sfd->stream;
@@ -587,7 +587,7 @@ int stun(const str *b, struct stream_fd *sfd, const endpoint_t *sin) {
 				"\"comprehension required\" attribute(s)" SLF, SLP);
 		stun_error_attrs(sfd, sin, req, 420, "Unknown attribute",
 				STUN_UNKNOWN_ATTRIBUTES, unknowns,
-				u_int16_t_arr_len(unknowns) * 2);
+				uint16_t_arr_len(unknowns) * 2);
 		return 0;
 	}
 
@@ -643,8 +643,8 @@ ignore:
 	return -1;
 }
 
-int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *pwd,
-		str ufrags[2], int controlling, u_int64_t tiebreaker, u_int32_t priority,
+int stun_binding_request(const endpoint_t *dst, uint32_t transaction[3], str *pwd,
+		str ufrags[2], int controlling, uint64_t tiebreaker, uint32_t priority,
 		socket_t *sock, int to_use)
 {
 	struct header hdr;
