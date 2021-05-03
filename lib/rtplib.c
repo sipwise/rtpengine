@@ -7,8 +7,8 @@
 
 
 struct rtp_extension {
-	u_int16_t undefined;
-	u_int16_t length;
+	uint16_t undefined;
+	uint16_t length;
 } __attribute__ ((packed));
 
 

@@ -55,7 +55,7 @@ static void ice_agents_timer_run(void *);
 
 
 
-static u_int64_t tie_breaker;
+static uint64_t tie_breaker;
 
 static struct timerthread ice_agents_timer_thread;
 
@@ -99,16 +99,16 @@ int ice_has_related(enum ice_candidate_type t) {
 
 
 
-static u_int64_t __ice_pair_priority(const struct local_intf *ifa, struct ice_candidate *cand,
+static uint64_t __ice_pair_priority(const struct local_intf *ifa, struct ice_candidate *cand,
 		int controlling)
 {
-	u_int64_t g, d;
+	uint64_t g, d;
 
 	g = ice_priority(ICT_HOST, ifa->unique_id, cand->component_id);
 	d = cand->priority;
 
 	if (!controlling) {
-		u_int64_t t = g;
+		uint64_t t = g;
 		g = d;
 		d = t;
 	}
@@ -200,11 +200,11 @@ static int __found_equal(const void *a, const void *b) {
 		&& A->component_id == B->component_id;
 }
 static unsigned int __trans_hash(const void *p) {
-	const u_int32_t *tp = p;
+	const uint32_t *tp = p;
 	return tp[0] ^ tp[1] ^ tp[2];
 }
 static int __trans_equal(const void *a, const void *b) {
-	const u_int32_t *A = a, *B = b;
+	const uint32_t *A = a, *B = b;
 	return A[0] == B[0] && A[1] == B[1] && A[2] == B[2];
 }
 static int __pair_prio_cmp(const void *a, const void *b) {
@@ -578,7 +578,7 @@ static void __fail_pair(struct ice_candidate_pair *pair) {
 static void __do_ice_check(struct ice_candidate_pair *pair) {
 	struct stream_fd *sfd = pair->sfd;
 	struct ice_agent *ag = pair->agent;
-	u_int32_t prio, transact[3];
+	uint32_t prio, transact[3];
 
 	if (AGENT_ISSET(ag, LITE_SELF))
 		PAIR_SET(pair, SUCCEEDED);

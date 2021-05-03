@@ -93,12 +93,12 @@ struct ice_candidate_pair {
 	const struct local_intf	*local_intf;
 	struct stream_fd	*sfd;
 	volatile unsigned int	pair_flags;
-	u_int32_t		stun_transaction[3]; /* belongs to transaction_hash, thus agent->lock */
+	uint32_t		stun_transaction[3]; /* belongs to transaction_hash, thus agent->lock */
 	unsigned int		retransmit_ms;
 	struct timeval		retransmit;
 	unsigned int		retransmits;
 	struct ice_agent	*agent;
-	u_int64_t		pair_priority;
+	uint64_t		pair_priority;
 	unsigned int		was_controlling:1,
 				was_nominated:1;
 };
@@ -199,16 +199,16 @@ INLINE unsigned int ice_type_preference(enum ice_candidate_type type) {
 	return ice_type_preferences[type];
 }
 /* local_pref starts with 0 */
-INLINE u_int32_t ice_priority_pref(unsigned int type_pref, unsigned int local_pref, unsigned int component) {
+INLINE uint32_t ice_priority_pref(unsigned int type_pref, unsigned int local_pref, unsigned int component) {
 	return type_pref << 24 | (65535 - local_pref) << 8 | (256 - component);
 }
-INLINE u_int32_t ice_priority(enum ice_candidate_type type, unsigned int local_pref, unsigned int component) {
+INLINE uint32_t ice_priority(enum ice_candidate_type type, unsigned int local_pref, unsigned int component) {
 	return ice_priority_pref(ice_type_preference(type), local_pref, component);
 }
-INLINE unsigned int ice_type_pref_from_prio(u_int32_t prio) {
+INLINE unsigned int ice_type_pref_from_prio(uint32_t prio) {
 	return (prio & 0xff000000) >> 24;
 }
-INLINE unsigned int ice_local_pref_from_prio(u_int32_t prio) {
+INLINE unsigned int ice_local_pref_from_prio(uint32_t prio) {
 	return 65535 - ((prio & 0xffff00) >> 8);
 }
 INLINE const char *ice_candidate_type_str(enum ice_candidate_type type) {

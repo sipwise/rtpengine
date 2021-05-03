@@ -11,10 +11,10 @@ struct stats {
 	atomic64			packets;
 	atomic64			bytes;
 	atomic64			errors;
-	u_int64_t			delay_min;
-	u_int64_t			delay_avg;
-	u_int64_t			delay_max;
-	u_int8_t			in_tos_tclass; /* XXX shouldn't be here - not stats */
+	uint64_t			delay_min;
+	uint64_t			delay_avg;
+	uint64_t			delay_max;
+	uint8_t				in_tos_tclass; /* XXX shouldn't be here - not stats */
 	atomic64			foreign_sessions; // unresponsible via redis notification
 	atomic64			offers;
 	atomic64			answers;
@@ -28,16 +28,16 @@ struct stats {
 
 struct request_time {
 	mutex_t lock;
-	u_int64_t count;
+	uint64_t count;
 	struct timeval time_min, time_max, time_avg;
 };
 
 struct requests_ps {
 	mutex_t lock;
-	u_int64_t count;
-	u_int64_t ps_min;
-	u_int64_t ps_max;
-	u_int64_t ps_avg;
+	uint64_t count;
+	uint64_t ps_min;
+	uint64_t ps_max;
+	uint64_t ps_avg;
 };
 
 
@@ -57,17 +57,17 @@ struct totalstats {
 	atomic64		total_nopacket_relayed_sess;
 	atomic64		total_oneway_stream_sess;
 
-	u_int64_t               foreign_sessions;
-	u_int64_t               own_sessions;
-	u_int64_t               total_sessions;
+	uint64_t		foreign_sessions;
+	uint64_t		own_sessions;
+	uint64_t		total_sessions;
 
 	mutex_t			total_average_lock; /* for these two below */
-	u_int64_t		total_managed_sess;
+	uint64_t		total_managed_sess;
 	struct timeval		total_average_call_dur;
 
 	mutex_t			managed_sess_lock; /* for these below */
-	u_int64_t		managed_sess_max; /* per graphite interval statistic */
-	u_int64_t		managed_sess_min; /* per graphite interval statistic */
+	uint64_t		managed_sess_max; /* per graphite interval statistic */
+	uint64_t		managed_sess_min; /* per graphite interval statistic */
 
 	mutex_t			total_calls_duration_lock; /* for these two below */
 	struct timeval		total_calls_duration_interval;
