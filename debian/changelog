@@ -1,3 +1,17 @@
+ngcp-rtpengine (9.4.1.1+0~mr9.4.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f374fd7] TT#14008 fix possible segfault when out of ports
+  * [d1a6909] TT#120402 always update output SSRC mapping
+  * [7df9b44] TT#14008 allow usage with just HTTP/WS
+  * [0c7a7e1] TT#14008 fix seq_file usage
+  * [1c94b74] TT#14008 amend kernel test script
+  * [271f47c] TT#14008 allow re-invites for calls when load limit is hit
+  * [c01dc77] TT#14008 fix debug logging bug
+  * [c16b254] TT#111150 fix mem leak in codec tracker
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 03 May 2021 23:54:22 +0200
+
 ngcp-rtpengine (9.4.1.0+0~mr9.4.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
