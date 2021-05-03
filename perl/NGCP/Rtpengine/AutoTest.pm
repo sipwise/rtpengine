@@ -42,8 +42,14 @@ sub autotest_start {
 		ok -x $ENV{RTPE_BIN}, 'RTPE_BIN points to executable';
 	}
 
-	$rtpe_stdout = File::Temp::tempfile() or die;
-	$rtpe_stderr = File::Temp::tempfile() or die;
+	$rtpe_stdout = File::Temp->new(
+		TEMPLATE => 'rtpe-out.XXXXXXXXXX',
+		TMPDIR => 1,
+	) or die;
+	$rtpe_stderr = File::Temp->new(
+		TEMPLATE => 'rtpe-err.XXXXXXXXXX',
+		TMPDIR => 1,
+	) or die;
 	SKIP: {
 		skip 'daemon is running externally', 1 if $ENV{RTPE_TEST_NO_LAUNCH};
 		local $ENV{GLIB_SLICE} = 'debug-blocks';
@@ -248,11 +254,22 @@ sub new_tt {
 	$tt = $tag_iter++ . "-test-totag" . $tag_suffix;
 }
 
+sub terminate {
+	my $msg = shift;
+
+	$rtpe_stdout->unlink_on_destroy(0);
+	$rtpe_stderr->unlink_on_destroy(0);
+
+	print "hint: rtpe stdout output is at $rtpe_stdout\n";
+	print "hint: rtpe stderr output is at $rtpe_stderr\n";
+
+	die "error: $msg\n";
+}
 
 
 END {
 	if ($rtpe_pid) {
-		kill('INT', $rtpe_pid) or die;
+		kill('INT', $rtpe_pid) or terminate("cannot interrupt rtpe");
 		# wait for daemon to terminate
 		my $status = -1;
 		for (1 .. 50) {
@@ -261,8 +278,8 @@ END {
 			Time::HiRes::usleep(100000); # 100 ms x 50 = 5 sec
 		}
 		kill('KILL', $rtpe_pid) if $status == 0;
-		$status == $rtpe_pid or die;
-		$? == 0 or die;
+		$status == $rtpe_pid or terminate("cannot wait for process $rtpe_pid: $status: $!");
+		$? == 0 or terminate("process exited with $?");
 	}
 }
 
